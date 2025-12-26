@@ -1,16 +1,23 @@
-import { count, desc, eq, ne, or } from "drizzle-orm";
+import { and, count, desc, eq, inArray, ne, or } from "drizzle-orm";
 import { db, DbTransactionType } from "../../../../db";
 import { projectsEntity } from "../../../../db/schema";
 
 export async function getProjectsList(
   skip: number,
   limit: number,
+  projectsList: string[] = [],
   tx?: DbTransactionType
 ) {
+  const isSystemAdmin = projectsList.some((id) => id === "*");
   const result = await (tx ?? db)
     .select()
     .from(projectsEntity)
-    .where(eq(projectsEntity.hidden, false))
+    .where(
+      and(
+        eq(projectsEntity.hidden, false),
+        isSystemAdmin ? undefined : inArray(projectsEntity.id, projectsList)
+      )
+    )
     .orderBy(desc(projectsEntity.updatedAt))
     .offset(skip)
     .limit(limit);

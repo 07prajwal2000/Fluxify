@@ -1,3 +1,5 @@
+"use client";
+
 import { integrationsQuery } from "@/query/integrationsQuery";
 import React, { useEffect } from "react";
 import QueryLoader from "../query/queryLoader";

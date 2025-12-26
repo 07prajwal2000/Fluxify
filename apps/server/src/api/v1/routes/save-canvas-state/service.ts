@@ -11,12 +11,15 @@ import { NotFoundError } from "../../../../errors/notFoundError";
 import { db } from "../../../../db";
 import { ServerError } from "../../../../errors/serverError";
 import { CHAN_ON_ROUTE_CHANGE, publishMessage } from "../../../../db/redis";
+import { AuthACL } from "../../../../db/schema";
 
 export default async function handleRequest(
   routeId: string,
-  data: z.infer<typeof requestBodySchema>
+  data: z.infer<typeof requestBodySchema>,
+  acl: AuthACL[] = []
 ) {
-  const exist = await routeExist(routeId);
+  const projectIds = acl.map((a) => a.projectId);
+  const exist = await routeExist(routeId, projectIds);
   if (!exist) {
     throw new NotFoundError("Route not found");
   }

@@ -7,6 +7,7 @@ import {
   TbCloudCog,
   TbFileText,
   TbHome,
+  TbSettings,
   TbSquareKey,
   TbTemplate,
 } from "react-icons/tb";

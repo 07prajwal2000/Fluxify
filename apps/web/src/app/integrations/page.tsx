@@ -1,12 +1,20 @@
-"use client";
-
 import AddIntegrationButton from "@/components/buttons/addIntegrationButton";
 import IntegrationFilter from "@/components/filters/integrationFilter";
 import AvailableConnectors from "@/components/panels/availableConnectors";
 import IntegrationsList from "@/components/panels/integrationsList";
 import { Group, Stack, Text } from "@mantine/core";
+import { authClient } from "@/lib/auth";
+import { headers } from "next/headers";
+import { redirect } from "next/navigation";
 
-const Page = () => {
+const Page = async () => {
+  const headersList = await headers();
+  const session = await authClient.getSession({
+    fetchOptions: { headers: headersList },
+  });
+  if (!session.data?.user) {
+    redirect("/login");
+  }
   return (
     <Stack h="100vh" py="xs" px="md" gap="lg">
       {/* Fixed Header */}

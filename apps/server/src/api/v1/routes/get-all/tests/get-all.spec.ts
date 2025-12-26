@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import handleRequest from "../service";
 import { getRoutesList } from "../repository";
-import { HttpMethod } from "../../../../../db/schema";
+import { HttpMethod, AuthACL } from "../../../../../db/schema";
 
 // Mock the repository
 vi.mock("../repository", () => ({
@@ -41,7 +41,8 @@ describe("handleRequest", () => {
     mockGetRoutesList.mockResolvedValue({ result: mockData, totalCount: 5 });
 
     const query = { page: 1, perPage: 2 } as any;
-    const result = await handleRequest(query);
+    const acl: AuthACL[] = [{ projectId: "proj1", role: "creator" }];
+    const result = await handleRequest(query, acl);
 
     expect(result).toEqual({
       pagination: {
@@ -91,7 +92,8 @@ describe("handleRequest", () => {
     mockGetRoutesList.mockResolvedValue({ result: mockData, totalCount: 1 });
 
     const query = { page: 1, perPage: 10 } as any;
-    const result = await handleRequest(query);
+    const acl: AuthACL[] = [{ projectId: "proj1", role: "creator" }];
+    const result = await handleRequest(query, acl);
 
     expect(result.pagination).toEqual({
       hasNext: false,
@@ -117,7 +119,8 @@ describe("handleRequest", () => {
     mockGetRoutesList.mockResolvedValue({ result: mockData, totalCount: 3 });
 
     const query = { page: 2, perPage: 2 } as any;
-    const result = await handleRequest(query);
+    const acl: AuthACL[] = [{ projectId: "proj1", role: "creator" }];
+    const result = await handleRequest(query, acl);
 
     expect(result.pagination).toEqual({
       hasNext: false,
@@ -131,7 +134,8 @@ describe("handleRequest", () => {
     mockGetRoutesList.mockResolvedValue({ result: [], totalCount: 0 });
 
     const query = { page: 1, perPage: 10 } as any;
-    const result = await handleRequest(query);
+    const acl: AuthACL[] = [{ projectId: "proj1", role: "creator" }];
+    const result = await handleRequest(query, acl);
 
     expect(result).toEqual({
       pagination: {
@@ -160,7 +164,8 @@ describe("handleRequest", () => {
     mockGetRoutesList.mockResolvedValue({ result: mockData, totalCount: 4 });
 
     const query = { page: 2, perPage: 2 } as any;
-    const result = await handleRequest(query);
+    const acl: AuthACL[] = [{ projectId: "proj1", role: "creator" }];
+    const result = await handleRequest(query, acl);
 
     expect(result.pagination.hasNext).toBe(true);
     expect(mockGetRoutesList).toHaveBeenCalledWith(2, 2, expect.any(Object));
@@ -191,7 +196,8 @@ describe("handleRequest", () => {
           value: "Test Route",
         },
       };
-      const result = await handleRequest(query);
+      const acl: AuthACL[] = [{ projectId: "proj1", role: "creator" }];
+      const result = await handleRequest(query, acl);
 
       expect(result.data).toHaveLength(1);
       expect(result.data[0].name).toBe("Test Route");
@@ -222,7 +228,8 @@ describe("handleRequest", () => {
           value: "Test",
         },
       };
-      const result = await handleRequest(query);
+      const acl: AuthACL[] = [{ projectId: "proj1", role: "creator" }];
+      const result = await handleRequest(query, acl);
 
       expect(result.data).toHaveLength(1);
       expect(mockGetRoutesList).toHaveBeenCalledWith(0, 10, expect.any(Object));
@@ -252,7 +259,8 @@ describe("handleRequest", () => {
           value: "POST",
         },
       };
-      const result = await handleRequest(query);
+      const acl: AuthACL[] = [{ projectId: "proj1", role: "creator" }];
+      const result = await handleRequest(query, acl);
 
       expect(result.data).toHaveLength(1);
       expect(result.data[0].method).toBe(HttpMethod.POST);
@@ -283,7 +291,8 @@ describe("handleRequest", () => {
           value: "true",
         },
       };
-      const result = await handleRequest(query);
+      const acl: AuthACL[] = [{ projectId: "proj1", role: "creator" }];
+      const result = await handleRequest(query, acl);
 
       expect(result.data).toHaveLength(1);
       expect(mockGetRoutesList).toHaveBeenCalledWith(0, 10, expect.any(Object));
@@ -313,7 +322,8 @@ describe("handleRequest", () => {
           value: "123",
         },
       };
-      const result = await handleRequest(query);
+      const acl: AuthACL[] = [{ projectId: "proj1", role: "creator" }];
+      const result = await handleRequest(query, acl);
 
       expect(result.data).toHaveLength(1);
       expect(mockGetRoutesList).toHaveBeenCalledWith(0, 10, expect.any(Object));
@@ -343,7 +353,8 @@ describe("handleRequest", () => {
           value: "POST",
         },
       };
-      const result = await handleRequest(query);
+      const acl: AuthACL[] = [{ projectId: "proj1", role: "creator" }];
+      const result = await handleRequest(query, acl);
 
       expect(result.data).toHaveLength(1);
       expect(mockGetRoutesList).toHaveBeenCalledWith(0, 10, expect.any(Object));
@@ -373,7 +384,8 @@ describe("handleRequest", () => {
           value: "0",
         },
       };
-      const result = await handleRequest(query);
+      const acl: AuthACL[] = [{ projectId: "proj1", role: "creator" }];
+      const result = await handleRequest(query, acl);
 
       expect(result.data).toHaveLength(1);
       expect(mockGetRoutesList).toHaveBeenCalledWith(0, 10, expect.any(Object));
@@ -403,7 +415,8 @@ describe("handleRequest", () => {
           value: "1",
         },
       };
-      const result = await handleRequest(query);
+      const acl: AuthACL[] = [{ projectId: "proj1", role: "creator" }];
+      const result = await handleRequest(query, acl);
 
       expect(result.data).toHaveLength(1);
       expect(mockGetRoutesList).toHaveBeenCalledWith(0, 10, expect.any(Object));
@@ -433,7 +446,8 @@ describe("handleRequest", () => {
           value: "2",
         },
       };
-      const result = await handleRequest(query);
+      const acl: AuthACL[] = [{ projectId: "proj1", role: "creator" }];
+      const result = await handleRequest(query, acl);
 
       expect(result.data).toHaveLength(1);
       expect(mockGetRoutesList).toHaveBeenCalledWith(0, 10, expect.any(Object));
@@ -463,7 +477,8 @@ describe("handleRequest", () => {
           value: "1",
         },
       };
-      const result = await handleRequest(query);
+      const acl: AuthACL[] = [{ projectId: "proj1", role: "creator" }];
+      const result = await handleRequest(query, acl);
 
       expect(result.data).toHaveLength(1);
       expect(mockGetRoutesList).toHaveBeenCalledWith(0, 10, expect.any(Object));
@@ -485,7 +500,8 @@ describe("handleRequest", () => {
       mockGetRoutesList.mockResolvedValue({ result: mockData, totalCount: 1 });
 
       const query = { page: 1, perPage: 10 } as any;
-      const result = await handleRequest(query);
+      const acl: AuthACL[] = [{ projectId: "proj1", role: "creator" }];
+      const result = await handleRequest(query, acl);
 
       expect(result.data).toHaveLength(1);
       expect(mockGetRoutesList).toHaveBeenCalledWith(0, 10, expect.any(Object));
@@ -514,7 +530,8 @@ describe("handleRequest", () => {
           value: "test",
         },
       } as any;
-      const result = await handleRequest(query);
+      const acl: AuthACL[] = [{ projectId: "proj1", role: "creator" }];
+      const result = await handleRequest(query, acl);
 
       expect(result.data).toHaveLength(1);
       expect(mockGetRoutesList).toHaveBeenCalledWith(0, 10, expect.any(Object));
@@ -543,7 +560,8 @@ describe("handleRequest", () => {
           value: "test",
         },
       } as any;
-      const result = await handleRequest(query);
+      const acl: AuthACL[] = [{ projectId: "proj1", role: "creator" }];
+      const result = await handleRequest(query, acl);
 
       expect(result.data).toHaveLength(1);
       expect(mockGetRoutesList).toHaveBeenCalledWith(0, 10, expect.any(Object));
@@ -572,7 +590,8 @@ describe("handleRequest", () => {
           operator: "eq" as const,
         },
       } as any;
-      const result = await handleRequest(query);
+      const acl: AuthACL[] = [{ projectId: "proj1", role: "creator" }];
+      const result = await handleRequest(query, acl);
 
       expect(result.data).toHaveLength(1);
       expect(mockGetRoutesList).toHaveBeenCalledWith(0, 10, expect.any(Object));
@@ -602,10 +621,57 @@ describe("handleRequest", () => {
           value: "test",
         },
       };
-      const result = await handleRequest(query);
+      const acl: AuthACL[] = [{ projectId: "proj1", role: "creator" }];
+      const result = await handleRequest(query, acl);
 
       expect(result.data).toHaveLength(1);
       expect(mockGetRoutesList).toHaveBeenCalledWith(0, 10, expect.any(Object));
     });
+  });
+
+  it("should validate auth and filter by allowed projects", async () => {
+    const mockData = [
+      {
+        id: "1",
+        name: "Route 1",
+        path: "/route1",
+        method: HttpMethod.GET,
+        active: true,
+        projectId: "proj1",
+        createdAt: new Date("2023-01-01T00:00:00Z"),
+        updatedAt: new Date("2023-01-01T00:00:00Z"),
+      },
+    ];
+    mockGetRoutesList.mockResolvedValue({ result: mockData, totalCount: 1 });
+
+    const query = { page: 1, perPage: 10 } as any;
+    const acl: AuthACL[] = [{ projectId: "proj1", role: "creator" }];
+    const result = await handleRequest(query, acl);
+
+    expect(result.data).toHaveLength(1);
+    expect(mockGetRoutesList).toHaveBeenCalledWith(0, 10, expect.any(Object));
+  });
+
+  it("should allow system admin to see all projects", async () => {
+    const mockData = [
+      {
+        id: "1",
+        name: "Route 1",
+        path: "/route1",
+        method: HttpMethod.GET,
+        active: true,
+        projectId: "proj2",
+        createdAt: new Date("2023-01-01T00:00:00Z"),
+        updatedAt: new Date("2023-01-01T00:00:00Z"),
+      },
+    ];
+    mockGetRoutesList.mockResolvedValue({ result: mockData, totalCount: 1 });
+
+    const query = { page: 1, perPage: 10 } as any;
+    const acl: AuthACL[] = [{ projectId: "*", role: "admin" }];
+    const result = await handleRequest(query, acl);
+
+    expect(result.data).toHaveLength(1);
+    expect(result.data[0].projectId).toBe("proj2");
   });
 });

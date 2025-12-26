@@ -11,6 +11,7 @@ import handleRequest from "./service";
 import { validationErrorSchema } from "../../../../errors/validationError";
 import { generateID } from "@fluxify/lib";
 import { HonoServer } from "../../../../types";
+import { requireProjectAccess } from "../../../auth/middleware";
 
 const openapiRouteOptions: DescribeRouteOptions = {
   description:
@@ -49,6 +50,7 @@ export default function (app: HonoServer) {
   app.post(
     "/",
     describeRoute(openapiRouteOptions),
+    requireProjectAccess("project_admin", { key: "projectId", source: "body" }),
     validator("json", requestBodySchema, zodErrorCallbackParser),
     async (ctx) => {
       const data = ctx.req.valid("json");

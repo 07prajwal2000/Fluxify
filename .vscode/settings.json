@@ -3,7 +3,7 @@
     "https://www.schemastore.org/github-workflow.json": "file:///d%3A/Programming%20Files/OSS/CBE/.github/workflows/packages/blocks.yml",
     "https://squidfunk.github.io/mkdocs-material/schema.json": "mkdocs.yml"
   },
-  "typescript.experimental.useTsgo": true,
+  "typescript.experimental.useTsgo": false,
   "yaml.customTags": [
     "!ENV scalar",
     "!ENV sequence",

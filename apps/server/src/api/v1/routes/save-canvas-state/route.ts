@@ -59,7 +59,8 @@ export default function (app: HonoServer) {
     async (c) => {
       const { id } = c.req.valid("param");
       const data = c.req.valid("json");
-      await handleRequest(id, data);
+      const acl = c.get("acl") || [];
+      await handleRequest(id, data, acl);
       return c.body(null, 204);
     }
   );

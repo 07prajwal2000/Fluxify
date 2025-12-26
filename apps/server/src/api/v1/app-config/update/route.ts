@@ -11,6 +11,7 @@ import zodErrorCallbackParser from "../../../../middlewares/zodErrorCallbackPars
 import { validationErrorSchema } from "../../../../errors/validationError";
 import { errorSchema } from "../../../../errors/customError";
 import { HonoServer } from "../../../../types";
+import { requireRoleAccess } from "../../../auth/middleware";
 
 const openapiRouteOptions: DescribeRouteOptions = {
   description: "Update app config",
@@ -56,6 +57,7 @@ export default function (app: HonoServer) {
   app.put(
     "/:id",
     describeRoute(openapiRouteOptions),
+    requireRoleAccess("creator"),
     validator("param", requestRouteSchema, zodErrorCallbackParser),
     validator("json", requestBodySchema, zodErrorCallbackParser),
     async (c) => {

@@ -10,6 +10,7 @@ import handleRequest from "./service";
 import zodErrorCallbackParser from "../../../../middlewares/zodErrorCallbackParser";
 import { validationErrorSchema } from "../../../../errors/validationError";
 import { HonoServer } from "../../../../types";
+import { requireRoleAccess } from "../../../auth/middleware";
 
 const openapiRouteOptions: DescribeRouteOptions = {
   description: "Delete multiple app configs by ids",
@@ -39,6 +40,7 @@ export default function (app: HonoServer) {
   app.post(
     "/delete-bulk",
     describeRoute(openapiRouteOptions),
+    requireRoleAccess("project_admin"),
     validator("json", requestBodySchema, zodErrorCallbackParser),
     async (c) => {
       const body = c.req.valid("json");

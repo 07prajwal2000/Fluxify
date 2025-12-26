@@ -9,6 +9,7 @@ import { requestQuerySchema, responseSchema } from "./dto";
 import handleRequest from "./service";
 import zodErrorCallbackParser from "../../../../middlewares/zodErrorCallbackParser";
 import { HonoServer } from "../../../../types";
+import { requireRoleAccess } from "../../../auth/middleware";
 
 const openapiRouteOptions: DescribeRouteOptions = {
   description: "Get list of app config keys",
@@ -30,6 +31,7 @@ export default function (app: HonoServer) {
   app.get(
     "/keys",
     describeRoute(openapiRouteOptions),
+    requireRoleAccess("creator"),
     validator("query", requestQuerySchema, zodErrorCallbackParser),
     async (c) => {
       const { search } = c.req.valid("query");

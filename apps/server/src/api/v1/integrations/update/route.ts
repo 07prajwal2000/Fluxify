@@ -10,6 +10,7 @@ import handleRequest from "./service";
 import { validationErrorSchema } from "../../../../errors/validationError";
 import { errorSchema } from "../../../../errors/customError";
 import { HonoServer } from "../../../../types";
+import { requireRoleAccess } from "../../../auth/middleware";
 
 const openapiRouteOptions: DescribeRouteOptions = {
   description: "Update an integration",
@@ -63,6 +64,7 @@ export default function (app: HonoServer) {
   app.put(
     "/:id",
     describeRoute(openapiRouteOptions),
+    requireRoleAccess("creator"),
     validator("param", requestRouteSchema),
     validator("json", requestBodySchema),
     async (c) => {

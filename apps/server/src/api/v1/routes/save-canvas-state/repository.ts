@@ -2,7 +2,7 @@ import { createInsertSchema } from "drizzle-zod";
 import { db, DbTransactionType } from "../../../../db";
 import { blocksEntity, edgesEntity, routesEntity } from "../../../../db/schema";
 import z from "zod";
-import { eq, inArray, sql } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 
 const insertBlocksSchema = createInsertSchema(blocksEntity);
 const insertEntitySchema = createInsertSchema(edgesEntity);
@@ -43,13 +43,23 @@ export async function deleteEdges(edgeIds: string[], tx?: DbTransactionType) {
   await (tx ?? db).delete(edgesEntity).where(inArray(edgesEntity.id, edgeIds));
 }
 
-export async function routeExist(routeId: string, tx?: DbTransactionType) {
+export async function routeExist(
+  routeId: string,
+  projectIds: string[] = [],
+  tx?: DbTransactionType
+) {
+  const isSystemAdmin = projectIds.some((id) => id === "*");
   const route = await (tx ?? db)
     .select({
       id: routesEntity.id,
     })
     .from(routesEntity)
-    .where(eq(routesEntity.id, routeId))
+    .where(
+      and(
+        eq(routesEntity.id, routeId),
+        isSystemAdmin ? undefined : inArray(routesEntity.projectId, projectIds)
+      )
+    )
     .limit(1);
   return route.length > 0;
 }

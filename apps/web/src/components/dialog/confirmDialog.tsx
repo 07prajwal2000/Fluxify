@@ -1,3 +1,4 @@
+"use client";
 import { Button, Divider, Group, Modal, Text } from "@mantine/core";
 import React, { useState } from "react";
 

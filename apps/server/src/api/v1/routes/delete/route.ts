@@ -1,4 +1,3 @@
-import { Hono } from "hono";
 import {
   describeRoute,
   DescribeRouteOptions,
@@ -11,6 +10,7 @@ import { errorSchema } from "../../../../errors/customError";
 import { validationErrorSchema } from "../../../../errors/validationError";
 import zodErrorCallbackParser from "../../../../middlewares/zodErrorCallbackParser";
 import { HonoServer } from "../../../../types";
+import { AuthACL } from "../../../../db/schema";
 
 const openapiRouteOptions: DescribeRouteOptions = {
   description:
@@ -52,7 +52,8 @@ export default function (app: HonoServer) {
     validator("param", requestRouteSchema, zodErrorCallbackParser),
     async (c) => {
       const { id } = c.req.valid("param");
-      await handleRequest(id);
+      const acl = c.get("acl") as AuthACL[];
+      await handleRequest(id, acl);
       return c.body(null, 204);
     }
   );

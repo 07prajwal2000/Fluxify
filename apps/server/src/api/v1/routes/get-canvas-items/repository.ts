@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { db, DbTransactionType } from "../../../../db";
 import { blocksEntity, edgesEntity, routesEntity } from "../../../../db/schema";
 
@@ -30,13 +30,23 @@ export async function getEdges(routeId: string, tx?: DbTransactionType) {
   return edges;
 }
 
-export async function routeExist(routeId: string, tx?: DbTransactionType) {
+export async function routeExist(
+  routeId: string,
+  projectIds: string[] = [],
+  tx?: DbTransactionType
+) {
+  const isSystemAdmin = projectIds.some((id) => id === "*");
   const route = await (tx ?? db)
     .select({
       id: routesEntity.id,
     })
     .from(routesEntity)
-    .where(eq(routesEntity.id, routeId))
+    .where(
+      and(
+        eq(routesEntity.id, routeId),
+        isSystemAdmin ? undefined : inArray(routesEntity.projectId, projectIds)
+      )
+    )
     .limit(1);
   return route.length > 0;
 }

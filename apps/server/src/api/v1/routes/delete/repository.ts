@@ -8,7 +8,7 @@ export async function deleteRoute(id: string, tx?: DbTransactionType) {
 
 export async function findRouteById(id: string, tx?: DbTransactionType) {
   const routes = await (tx ?? db)
-    .select({ id: routesEntity.id })
+    .select({ id: routesEntity.id, projectId: routesEntity.projectId })
     .from(routesEntity)
     .where(eq(routesEntity.id, id));
 

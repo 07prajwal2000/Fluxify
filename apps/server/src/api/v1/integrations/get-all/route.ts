@@ -10,6 +10,7 @@ import handleRequest from "./service";
 import { validationErrorSchema } from "../../../../errors/validationError";
 import zodErrorCallbackParser from "../../../../middlewares/zodErrorCallbackParser";
 import { HonoServer } from "../../../../types";
+import { requireRoleAccess } from "../../../auth/middleware";
 
 const openapiRouteOptions: DescribeRouteOptions = {
   description: "Get all integrations by group",
@@ -39,6 +40,7 @@ export default function (app: HonoServer) {
   app.get(
     "/list/:group",
     describeRoute(openapiRouteOptions),
+    requireRoleAccess("creator"),
     validator("param", requestRouteSchema, zodErrorCallbackParser),
     async (c) => {
       const { group } = c.req.valid("param");

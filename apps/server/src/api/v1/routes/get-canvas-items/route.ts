@@ -52,7 +52,8 @@ export default function (app: HonoServer) {
     validator("param", requestRouteSchema, zodErrorCallbackParser),
     async (c) => {
       const { id } = c.req.valid("param");
-      const result = await handleRequest(id);
+      const acl = c.get("acl") || [];
+      const result = await handleRequest(id, acl);
       return c.json(result);
     }
   );

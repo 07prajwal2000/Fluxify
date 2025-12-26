@@ -11,6 +11,7 @@ import zodErrorCallbackParser from "../../../../middlewares/zodErrorCallbackPars
 import { errorSchema } from "../../../../errors/customError";
 import { validationErrorSchema } from "../../../../errors/validationError";
 import { HonoServer } from "../../../../types";
+import { requireRoleAccess } from "../../../auth/middleware";
 
 const openapiRouteOptions: DescribeRouteOptions = {
   description: "Create app config",
@@ -56,6 +57,7 @@ export default function (app: HonoServer) {
   app.post(
     "/",
     describeRoute(openapiRouteOptions),
+    requireRoleAccess("creator"),
     validator("json", requestBodySchema, zodErrorCallbackParser),
     async (c) => {
       const body = c.req.valid("json");

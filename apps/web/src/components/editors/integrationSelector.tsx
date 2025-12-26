@@ -1,5 +1,5 @@
 import { useDisclosure } from "@mantine/hooks";
-import React, { useContext, useMemo } from "react";
+import React, { useMemo } from "react";
 import z from "zod";
 import { integrationsGroupSchema } from "@fluxify/server/src/api/v1/integrations/schemas";
 import { integrationsQuery } from "@/query/integrationsQuery";
@@ -18,7 +18,6 @@ import QueryError from "../query/queryError";
 import { useQueryClient } from "@tanstack/react-query";
 import { TbPlugConnected, TbX } from "react-icons/tb";
 import KeySelector from "./keySelector";
-import { BlockCanvasContext } from "@/context/blockCanvas";
 import { notifications } from "@mantine/notifications";
 import { showErrorNotification } from "@/lib/errorNotifier";
 

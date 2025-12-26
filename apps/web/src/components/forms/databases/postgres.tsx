@@ -1,3 +1,4 @@
+"use client";
 import AppConfigSelector from "@/components/editors/appConfigSelector";
 import {
   Button,
