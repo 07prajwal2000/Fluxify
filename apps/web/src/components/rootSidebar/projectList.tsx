@@ -13,6 +13,7 @@ import { projectsService } from "@/services/projects";
 import z from "zod";
 import { showErrorNotification } from "@/lib/errorNotifier";
 import { useDisclosure } from "@mantine/hooks";
+import RequireRoleInAnyProject from "../auth/requireRoleInAnyProject";
 
 const ProjectList = () => {
   const { useQuery, invalidate } = projectsQuery.getAll;
@@ -53,9 +54,11 @@ const ProjectList = () => {
         <Text px={"sm"} c={"gray"}>
           Projects
         </Text>
-        <ActionIcon color="violet" variant="light" onClick={openDialog}>
-          <TbCirclePlus size={20} />
-        </ActionIcon>
+        <RequireRoleInAnyProject requiredRole="system_admin">
+          <ActionIcon color="violet" variant="light" onClick={openDialog}>
+            <TbCirclePlus size={20} />
+          </ActionIcon>
+        </RequireRoleInAnyProject>
       </Group>
       <Stack gap={4}>
         {(data?.data?.length ?? 0) === 0 && <EmptyProjectInfo />}

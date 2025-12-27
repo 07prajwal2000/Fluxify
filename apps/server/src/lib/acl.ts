@@ -1,7 +1,7 @@
 import { User } from "better-auth";
 import { AccessControlRole, AuthACL } from "../db/schema";
 
-const roleHierarchy: Record<AccessControlRole, number> = {
+export const roleHierarchy: Record<AccessControlRole, number> = {
   system_admin: 3,
   project_admin: 2,
   creator: 1,

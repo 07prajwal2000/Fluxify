@@ -5,12 +5,18 @@ import React, { lazy, Suspense } from "react";
 import Topbar from "./topbar";
 import { useEditorAiWindowStore } from "@/store/editor";
 import LazyMount from "../lazyMount";
+import RequireRole from "../auth/requireRole";
+import { routesQueries } from "@/query/routerQuery";
+import { useParams } from "next/navigation";
 
 const AiChatDrawerLazy = lazy(() => import("./aiChatDrawer"));
 
 const EditorAppShell = ({ children }: { children: React.ReactNode }) => {
   const { opened: aiWindowOpened, toggle: toggleAiWindow } =
     useEditorAiWindowStore();
+  const { id } = useParams();
+  const { data: route } = routesQueries.getById.useQuery(id?.toString() || "");
+  const projectId = route?.projectId || "";
 
   return (
     <Group
@@ -53,7 +59,9 @@ const EditorAppShell = ({ children }: { children: React.ReactNode }) => {
         <LazyMount shouldMountOnce>
           <Suspense>
             <Paper shadow="md" h={"100vh"} w={"100%"}>
-              <AiChatDrawerLazy />
+              <RequireRole requiredRole="creator" projectId={projectId}>
+                <AiChatDrawerLazy />
+              </RequireRole>
             </Paper>
           </Suspense>
         </LazyMount>

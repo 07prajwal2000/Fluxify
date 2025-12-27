@@ -14,8 +14,7 @@ import { HonoServer } from "../../../../types";
 import { requireProjectAccess } from "../../../auth/middleware";
 
 const openapiRouteOptions: DescribeRouteOptions = {
-  description:
-    "Creates a new route and returns the object with id. (set projectId=personal for personal routes)",
+  description: "Creates a new route and returns the object with id.",
   operationId: "create-route",
   tags: ["Routes"],
   responses: {
@@ -50,7 +49,7 @@ export default function (app: HonoServer) {
   app.post(
     "/",
     describeRoute(openapiRouteOptions),
-    requireProjectAccess("project_admin", { key: "projectId", source: "body" }),
+    requireProjectAccess("creator", { key: "projectId", source: "body" }),
     validator("json", requestBodySchema, zodErrorCallbackParser),
     async (ctx) => {
       const data = ctx.req.valid("json");

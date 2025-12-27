@@ -64,6 +64,7 @@ const RoutesPanel = (props: PropTypes) => {
           createdAt={route.createdAt}
           active={route.active!}
           projectName={route.projectName!}
+          projectId={route.projectId!}
         />
       ))}
       {data?.data.length === 0 && <EmptyRoutePanel />}

@@ -1,6 +1,12 @@
 "use client";
 
-import { EditorTab, useEditorStore, useEditorTabStore } from "@/store/editor";
+import {
+  EditorTab,
+  useEditorActionsStore,
+  useEditorChangeTrackerStore,
+  useEditorStore,
+  useEditorTabStore,
+} from "@/store/editor";
 import React, { useEffect } from "react";
 import EditorPanel from "./panels/editor";
 import ExecutionPanel from "./panels/executionPanel";
@@ -20,6 +26,8 @@ const EditorWindow = () => {
   const { id } = useParams<{ id: string }>();
   const { useQuery } = routesQueries.getCanvasItems;
   const { data, isLoading, isError, error, refetch } = useQuery(id);
+  const { reset: resetEditorActions } = useEditorActionsStore();
+  const { reset: resetChangeTracker } = useEditorChangeTrackerStore();
   useEffect(() => {
     if (data) {
       bulkInsert(
@@ -40,6 +48,8 @@ const EditorWindow = () => {
     return () => {
       resetStore();
       clearBlockData();
+      resetEditorActions();
+      resetChangeTracker();
     };
   }, []);
 

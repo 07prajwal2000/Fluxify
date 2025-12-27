@@ -11,6 +11,7 @@ import RouteForm from "./forms/routeForm";
 import { routesService } from "@/services/routes";
 import { routesQueries } from "@/query/routerQuery";
 import { useQueryClient } from "@tanstack/react-query";
+import z from "zod";
 
 const menuItems = [
   {
@@ -61,7 +62,9 @@ const CreateNewMenu = () => {
         onClose={close}
       >
         {selectedItem === "Integration" && <IntegrationForm onSubmit={close} />}
-        {selectedItem === "App Config" && <AppConfigForm onSubmit={close} />}
+        {selectedItem === "App Config" && (
+          <AppConfigForm schema={z.any()} onSubmit={close} />
+        )}
         {selectedItem === "Route" && <CreateRouteForm close={close} />}
       </FormDialog>
     </Button.Group>

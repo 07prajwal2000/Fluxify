@@ -22,8 +22,9 @@ export default async function handleRequest(
   const offset = query.perPage * (query.page - 1);
   const projectIds = acl.map((a) => a.projectId);
   const isSystemAdmin = acl.some((a) => a.projectId === "*");
+  const filter = generateFilterSQL(query);
   const filterSQL = and(
-    generateFilterSQL(query),
+    filter,
     isSystemAdmin ? undefined : inArray(routesEntity.projectId, projectIds)
   );
   const { result, totalCount } = await getRoutesList(

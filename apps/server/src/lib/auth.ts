@@ -7,7 +7,6 @@ import { customSession } from "better-auth/plugins";
 import * as authSchemas from "../db/auth-schema";
 import { admin } from "better-auth/plugins";
 import { generateID } from "@fluxify/lib";
-import { getPersonalProjectId } from "../api/v1/routes/create/repository";
 
 export let auth: ReturnType<typeof initializeAuth> = null!;
 
@@ -87,12 +86,5 @@ async function getUserAccessControls(db: DB, userId: string) {
     })
     .from(accessControlEntity)
     .where(eq(accessControlEntity.userId, userId));
-  const personalProjectId = await getPersonalProjectId();
-  if (personalProjectId) {
-    userAccessControls.push({
-      projectId: personalProjectId,
-      role: "creator",
-    });
-  }
   return userAccessControls;
 }

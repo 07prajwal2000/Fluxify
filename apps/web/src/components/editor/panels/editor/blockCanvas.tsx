@@ -1,12 +1,6 @@
 import { Box } from "@mantine/core";
-import {
-  Background,
-  Panel,
-  ReactFlow,
-  ReactFlowProvider,
-  useReactFlow,
-} from "@xyflow/react";
-import React from "react";
+import { Background, Panel, ReactFlow, useReactFlow } from "@xyflow/react";
+import React, { useEffect } from "react";
 import "@xyflow/react/dist/style.css";
 import { blocksList } from "../../blocks/blocksList";
 import {
@@ -36,9 +30,12 @@ import {
 import CanvasKeyboardAccessibility from "./canvasKeyboardAccessibility";
 import { useParams } from "next/navigation";
 import { routesService } from "@/services/routes";
+import RequireRole from "@/components/auth/requireRole";
+import { routesQueries } from "@/query/routerQuery";
 
 type Props = {
   readonly?: boolean;
+  routeId?: string;
 };
 
 const BlockCanvas = (props: Props) => {
@@ -51,6 +48,10 @@ const BlockCanvas = (props: Props) => {
     },
     edges: { onEdgeChange, addEdge, deleteEdge, deleteBulk: deleteBulkEdges },
   } = useCanvasActionsStore();
+  const { data: routeData } = routesQueries.getById.useQuery(
+    props.routeId || ""
+  );
+  const projectId = routeData?.projectId || "";
   const { updateBlockData, deleteBlockData } = useBlockDataActionsStore();
   const actions = useEditorActionsStore();
   const blocks = useCanvasBlocksStore();
@@ -59,6 +60,27 @@ const BlockCanvas = (props: Props) => {
   const { screenToFlowPosition } = useReactFlow();
   const blockSettings = useEditorBlockSettingsStore();
   const blockDataStore = useBlockDataStore();
+
+  useEffect(() => {
+    window.onbeforeunload = preventRefresh;
+    return () => {
+      window.onbeforeunload = null;
+    };
+  }, [changeTracker.tracker]);
+
+  function preventRefresh(e: BeforeUnloadEvent) {
+    if (changeTracker.tracker.size === 0) {
+      return;
+    }
+    const confirmed = confirm(
+      "You have unsaved changes, are you sure you want to leave?"
+    );
+    if (confirmed) {
+      return;
+    }
+    e.preventDefault();
+  }
+
   const { id: routeId } = useParams<{ id: string }>();
   // TODO: Need to implement Undo/Redo
   function doAction(type: "undo" | "redo") {
@@ -267,7 +289,9 @@ const BlockCanvas = (props: Props) => {
         }}
       >
         <Box style={{ position: "absolute", zIndex: 10, right: 0 }} p={"lg"}>
-          <EditorToolbox />
+          <RequireRole requiredRole="creator" projectId={projectId}>
+            <EditorToolbox />
+          </RequireRole>
         </Box>
         <ReactFlow
           deleteKeyCode={""}
@@ -294,7 +318,9 @@ const BlockCanvas = (props: Props) => {
           <Panel position="bottom-left">
             <CanvasToolboxPanel />
           </Panel>
-          <CanvasKeyboardAccessibility />
+          <RequireRole requiredRole="creator" projectId={projectId}>
+            <CanvasKeyboardAccessibility />
+          </RequireRole>
         </ReactFlow>
         <BlockSettingsDialog />
         <BlockSearchDrawer />

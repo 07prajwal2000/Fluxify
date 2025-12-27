@@ -3,6 +3,7 @@
 import { Group, Stack, Text } from "@mantine/core";
 import React from "react";
 import CreateNewMenu from "../createNewMenu";
+import RequireRole from "../auth/requireRole";
 
 const ProjectPageOverview = ({ projectId }: { projectId: string }) => {
   return (
@@ -13,7 +14,9 @@ const ProjectPageOverview = ({ projectId }: { projectId: string }) => {
           Access to all routes, execution history, and project settings
         </Text>
       </Stack>
-      <CreateNewMenu />
+      <RequireRole projectId={projectId} requiredRole="creator">
+        <CreateNewMenu />
+      </RequireRole>
     </Group>
   );
 };

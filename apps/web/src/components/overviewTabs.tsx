@@ -1,10 +1,12 @@
 "use client";
 
 import { Group, Tabs } from "@mantine/core";
-import React from "react";
+import React, { useState } from "react";
 import RoutesPanel from "./panels/routesPanel";
 import RouterFilter from "./filters/routerFilter";
 import RouterPagination from "./filters/routerPagination";
+import RequireRole from "./auth/requireRole";
+import RequireRoleInAnyProject from "./auth/requireRoleInAnyProject";
 
 type PropTypes = {
   tabs?: {
@@ -15,6 +17,7 @@ type PropTypes = {
 };
 
 const OverviewTabs = (props: PropTypes) => {
+  const [selectedTab, setSelectedTab] = useState("routes");
   return (
     <Tabs
       style={{
@@ -24,7 +27,8 @@ const OverviewTabs = (props: PropTypes) => {
         flexDirection: "column",
       }}
       color="violet"
-      defaultValue={"routes"}
+      value={selectedTab}
+      onChange={(e) => setSelectedTab(e!)}
     >
       <Group
         style={{ position: "sticky", top: 0, zIndex: 100 }}
@@ -34,17 +38,27 @@ const OverviewTabs = (props: PropTypes) => {
       >
         <Tabs.List>
           <Tabs.Tab value={"routes"}>Routes</Tabs.Tab>
-          <Tabs.Tab value={"executions"}>Executions</Tabs.Tab>
+          {props.projectId ? (
+            <RequireRole projectId={props.projectId} requiredRole="creator">
+              <Tabs.Tab value={"executions"}>Executions</Tabs.Tab>
+            </RequireRole>
+          ) : (
+            <RequireRoleInAnyProject requiredRole="creator">
+              <Tabs.Tab value={"executions"}>Executions</Tabs.Tab>
+            </RequireRoleInAnyProject>
+          )}
           {props.tabs?.map((tab, index) => (
             <Tabs.Tab key={index} value={tab.label}>
               {tab.label}
             </Tabs.Tab>
           ))}
         </Tabs.List>
-        <Group ml={"auto"}>
-          <RouterPagination />
-          <RouterFilter />
-        </Group>
+        {selectedTab === "routes" && (
+          <Group ml={"auto"}>
+            <RouterPagination />
+            <RouterFilter />
+          </Group>
+        )}
       </Group>
       <Tabs.Panel value="routes">
         <RoutesPanel projectId={props.projectId} />

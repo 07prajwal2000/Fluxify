@@ -10,6 +10,8 @@ import { useQueryClient } from "@tanstack/react-query";
 import { showErrorNotification } from "@/lib/errorNotifier";
 import { notifications } from "@mantine/notifications";
 import { TbUser, TbStack2 } from "react-icons/tb";
+import { useAuthStore } from "@/store/auth";
+import { roleHierarchy } from "@fluxify/server/src/lib/acl";
 
 const UpdateRouteNameField = () => {
   const { id } = useParams();
@@ -19,6 +21,10 @@ const UpdateRouteNameField = () => {
   const queryClient = useQueryClient();
   const [updateLoading, setUpdateLoading] = useState(false);
   const router = useRouter();
+  const { acl } = useAuthStore();
+  const canEdit =
+    acl &&
+    roleHierarchy[acl[data?.projectId || ""]] >= roleHierarchy["creator"];
 
   const debouncedCallback = useDebouncedCallback(async (value: string) => {
     try {
@@ -54,14 +60,11 @@ const UpdateRouteNameField = () => {
   }
 
   function onProjectClick() {
-    router.push(
-      data?.projectName === "__personal" ? `/` : `/${data?.projectId}`
-    );
+    router.push(`/${data?.projectId}`);
   }
 
-  const projectName =
-    data?.projectName === "__personal" ? "Personal" : data?.projectName;
-  const projectIcon = data?.projectName === "__personal" ? TbUser : TbStack2;
+  const projectName = data?.projectName;
+  const projectIcon = TbStack2;
   return (
     <Breadcrumbs w={"100%"}>
       <Button
@@ -74,6 +77,7 @@ const UpdateRouteNameField = () => {
         {projectName}
       </Button>
       <TextInput
+        disabled={!canEdit}
         size="xs"
         onChange={onChange}
         placeholder="Route Name"

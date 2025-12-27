@@ -1,4 +1,3 @@
-import CreateNewMenu from "@/components/createNewMenu";
 import OverviewTabs from "@/components/overviewTabs";
 import { authClient } from "@/lib/auth";
 import { Group, Stack, Text } from "@mantine/core";
@@ -13,6 +12,7 @@ export default async function Home() {
   if (!session.data?.user) {
     redirect("/login");
   }
+
   return (
     <Stack style={{ height: "100vh" }} p={"lg"}>
       <Group justify="space-between" align="center">
@@ -22,7 +22,6 @@ export default async function Home() {
             All routes, execution history you have access to
           </Text>
         </Stack>
-        <CreateNewMenu />
       </Group>
       <OverviewTabs />
     </Stack>

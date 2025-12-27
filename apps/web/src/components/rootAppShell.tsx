@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import React, { useEffect } from "react";
 import RootSidebar from "./rootSidebar";
 import { nprogress } from "@mantine/nprogress";
+import { AuthProvider } from "./auth/authProvider";
 
 const RootAppShell = ({
   children,
@@ -27,8 +28,8 @@ const RootAppShell = ({
     };
   }, [path]);
 
-  if (path.startsWith("/editor")) return children;
-  if (path.startsWith("/login")) return children;
+  if (path.startsWith("/editor") || path.startsWith("/login"))
+    return <AuthProvider>{children}</AuthProvider>;
 
   return (
     <AppShell
@@ -40,7 +41,9 @@ const RootAppShell = ({
       <AppShell.Navbar>
         <RootSidebar />
       </AppShell.Navbar>
-      <AppShell.Main>{children}</AppShell.Main>
+      <AppShell.Main>
+        <AuthProvider>{children}</AuthProvider>
+      </AppShell.Main>
     </AppShell>
   );
 };

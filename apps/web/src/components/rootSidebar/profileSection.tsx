@@ -21,6 +21,8 @@ const menuItems = [
 const ProfileSection = () => {
   const session = authClient.useSession();
   const nav = useRouter();
+  const username =
+    session.data?.user.name?.split(" ")[0].substring(0, 15) || "User";
   function onMenuItemClick(action: string) {
     if (action === "logout-btn") {
       logout();
@@ -41,9 +43,7 @@ const ProfileSection = () => {
           ? null
           : session.data?.user.name?.substring(0, 2).toUpperCase()}
       </Avatar>
-      <Text style={{ flex: 1 }}>
-        {session.data?.user.name?.split(" ")[0]?.substring(0, 15)}
-      </Text>
+      <Text style={{ flex: 1 }}>{username}</Text>
       <Menu shadow="sm" width={200} position="right-end">
         <Menu.Target>
           <ActionIcon color="dark" variant="subtle">

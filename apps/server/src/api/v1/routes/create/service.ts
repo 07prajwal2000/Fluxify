@@ -5,7 +5,6 @@ import {
   createRoute,
   checkRouteExist,
   checkProjectExist,
-  getPersonalProjectId,
 } from "./repository";
 import { ConflictError } from "../../../../errors/conflictError";
 import { db } from "../../../../db";
@@ -18,15 +17,11 @@ export default async function handleRequest(
   data: z.infer<typeof requestBodySchema>
 ): Promise<z.infer<typeof responseSchema>> {
   const result = await db.transaction(async (tx) => {
-    if (data.projectId !== "personal") {
-      const projectExist = await checkProjectExist(data.projectId, tx);
-      if (!projectExist) {
-        throw new NotFoundError(
-          `project with id ${data.projectId} does not exist`
-        );
-      }
-    } else {
-      data.projectId = await getPersonalProjectId(tx);
+    const projectExist = await checkProjectExist(data.projectId, tx);
+    if (!projectExist) {
+      throw new NotFoundError(
+        `project with id ${data.projectId} does not exist`
+      );
     }
     const existingRoute = await checkRouteExist(
       data.name,

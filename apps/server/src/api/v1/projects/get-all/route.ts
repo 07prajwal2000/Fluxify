@@ -45,7 +45,6 @@ export default function (app: HonoServer) {
       const query = c.req.valid("query");
       const acl = c.get("acl")! as AuthACL[];
       const projectsList = acl.map((a) => a.projectId);
-      console.log(projectsList);
       const data = await handleRequest(query, projectsList);
       return c.json(data);
     }

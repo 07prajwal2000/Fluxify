@@ -6,6 +6,7 @@ import { Group, Stack, Text } from "@mantine/core";
 import { authClient } from "@/lib/auth";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
+import { canAccess } from "@fluxify/server/src/lib/acl";
 
 const Page = async () => {
   const headersList = await headers();
@@ -14,6 +15,10 @@ const Page = async () => {
   });
   if (!session.data?.user) {
     redirect("/login");
+  }
+  const hasAccess = canAccess((session.data as any).acl, "creator");
+  if (!hasAccess) {
+    redirect("/");
   }
   return (
     <Stack h="100vh" py="xs" px="md" gap="lg">

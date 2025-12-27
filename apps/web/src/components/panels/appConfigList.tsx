@@ -20,6 +20,7 @@ import { useAppConfig } from "@/context/appConfigPage";
 import { appConfigQuery } from "@/query/appConfigQuery";
 import AppConfigDeleteButton from "../buttons/appConfigTableDeleteButton";
 import AppConfigTableAddButton from "../buttons/appConfigTableAddButton";
+import RequireRoleInAnyProject from "../auth/requireRoleInAnyProject";
 
 const AppConfigList = () => {
   const queryClient = useQueryClient();
@@ -116,11 +117,12 @@ const AppConfigList = () => {
               onPerPageChange={setPerPage}
             />
           )}
-          <AppConfigDeleteButton />
+          <RequireRoleInAnyProject requiredRole="project_admin">
+            <AppConfigDeleteButton />
+          </RequireRoleInAnyProject>
           <AppConfigTableAddButton />
         </Group>
       </Group>
-
       <Box
         style={{
           flex: 1,

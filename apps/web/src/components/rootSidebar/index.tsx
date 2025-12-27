@@ -1,6 +1,6 @@
 "use client";
 
-import { Image, Stack } from "@mantine/core";
+import { Image, Menu, Stack } from "@mantine/core";
 import { usePathname, useRouter } from "next/navigation";
 import React from "react";
 import {
@@ -15,25 +15,9 @@ import UpdatesButton from "./updatesButton";
 import MenuItem from "./menuItem";
 import ProfileSection from "./profileSection";
 import ProjectList from "./projectList";
+import RequireRoleInAnyProject from "../auth/requireRoleInAnyProject";
 
-const topMenuItems = [
-  {
-    name: "Overview",
-    link: "/",
-    icon: <TbHome size={20} />,
-  },
-  {
-    name: "Integrations",
-    link: "/integrations",
-    icon: <TbCloudCog size={20} />,
-  },
-];
 const bottomMenuItems = [
-  {
-    name: "App Config",
-    link: "/app-config",
-    icon: <TbSquareKey size={20} />,
-  },
   {
     name: "Templates",
     link: "/templates",
@@ -70,19 +54,33 @@ const RootSidebar = () => {
         alt=""
       />
       <Stack my={"lg"} gap={4}>
-        {topMenuItems.map((item) => (
+        <MenuItem
+          leftIcon={<TbHome size={20} />}
+          isActive={path === "/"}
+          text="Overview"
+          onClick={() => onMenuItemClick("/")}
+        />
+        <RequireRoleInAnyProject requiredRole="creator">
           <MenuItem
-            leftIcon={item.icon}
-            isActive={item.link === path}
-            key={item.name}
-            text={item.name}
-            onClick={() => onMenuItemClick(item.link)}
+            leftIcon={<TbCloudCog size={20} />}
+            isActive={path === "/integrations"}
+            text="Integrations"
+            onClick={() => onMenuItemClick("/integrations")}
           />
-        ))}
+        </RequireRoleInAnyProject>
       </Stack>
+
       <ProjectList />
       <Stack mt={"auto"} gap={4}>
         <UpdatesButton />
+        <RequireRoleInAnyProject requiredRole="creator">
+          <MenuItem
+            leftIcon={<TbSquareKey size={20} />}
+            isActive={path === "/app-config"}
+            text="App Config"
+            onClick={() => onMenuItemClick("/app-config")}
+          />
+        </RequireRoleInAnyProject>
         {bottomMenuItems.map((item) => (
           <MenuItem
             leftIcon={item.icon}

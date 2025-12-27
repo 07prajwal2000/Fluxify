@@ -5,12 +5,10 @@ import React, { useEffect } from "react";
 import QueryLoader from "../query/queryLoader";
 import QueryError from "../query/queryError";
 import { useQueryClient } from "@tanstack/react-query";
-import { ZodType } from "zod";
 import { useForm } from "@mantine/form";
 import {
   ActionIcon,
   ActionIconProps,
-  Button,
   Group,
   Select,
   Stack,
@@ -28,6 +26,7 @@ import SaveIntegrationButton from "../buttons/saveIntegrationButton";
 import { TbTrash } from "react-icons/tb";
 import ConfirmDialog from "../dialog/confirmDialog";
 import { useDisclosure } from "@mantine/hooks";
+import RequireRoleInAnyProject from "../auth/requireRoleInAnyProject";
 
 type PropTypes = {
   onSubmit?: (data: any) => void;
@@ -151,14 +150,16 @@ const IntegrationForm = (props: PropTypes) => {
                   You are about to delete the integration. This action is
                   irreversible.
                 </ConfirmDialog>
-                <ActionIcon
-                  size={"lg"}
-                  color="red.7"
-                  onClick={openDeleteModal}
-                  {...props.deleteButtonProps}
-                >
-                  <TbTrash />
-                </ActionIcon>
+                <RequireRoleInAnyProject requiredRole="project_admin">
+                  <ActionIcon
+                    size={"lg"}
+                    color="red.7"
+                    onClick={openDeleteModal}
+                    {...props.deleteButtonProps}
+                  >
+                    <TbTrash />
+                  </ActionIcon>
+                </RequireRoleInAnyProject>
               </>
             )}
             {props.showSaveButton &&

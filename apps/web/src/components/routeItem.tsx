@@ -20,6 +20,7 @@ import { routesService } from "@/services/routes";
 import { useQueryClient } from "@tanstack/react-query";
 import { notifications } from "@mantine/notifications";
 import { TbStack2, TbUser } from "react-icons/tb";
+import RequireRole from "./auth/requireRole";
 
 type Proptypes = {
   id: string;
@@ -29,6 +30,7 @@ type Proptypes = {
   updatedAt: string;
   createdAt: string;
   projectName: string;
+  projectId: string;
   active: boolean;
 };
 
@@ -76,8 +78,7 @@ const RouteItem = (props: Proptypes) => {
     router.push(`/editor/${props.id}`);
   }
 
-  const projectName =
-    props.projectName === "__personal" ? "Personal" : props.projectName;
+  const projectName = props.projectName;
 
   return (
     <Card shadow="md" p={"xs"} withBorder>
@@ -119,22 +120,20 @@ const RouteItem = (props: Proptypes) => {
             >
               <Paper shadow="sm" withBorder>
                 <Group gap={"xs"} w={"fit-content"} px={"xs"} py={4} bdrs="sm">
-                  {props.projectName === "__personal" ? (
-                    <TbUser size={20} />
-                  ) : (
-                    <TbStack2 size={20} />
-                  )}
+                  <TbStack2 size={20} />
                   <Text size="xs">{projectName}</Text>
                 </Group>
               </Paper>
             </Tooltip>
-            <Switch
-              color="violet"
-              label={active ? "Active" : "Inactive"}
-              onChange={toggleActive}
-              checked={active}
-            />
-            <RouteItemMenu id={props.id} />
+            <RequireRole projectId={props.projectId} requiredRole="creator">
+              <Switch
+                color="violet"
+                label={active ? "Active" : "Inactive"}
+                onChange={toggleActive}
+                checked={active}
+              />
+              <RouteItemMenu id={props.id} />
+            </RequireRole>
           </Group>
         </Grid.Col>
       </Grid>
