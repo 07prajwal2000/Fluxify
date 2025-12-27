@@ -1,9 +1,19 @@
-import { BaseBlockType, EdgeType, EditorActionStateType } from "@/types/block";
+import { BaseBlockType, EdgeType } from "@/types/block";
 import { enableMapSet, produce } from "immer";
 import { create } from "zustand";
 import { immer } from "zustand/middleware/immer";
 
 enableMapSet();
+
+export type EditorActionStateType =
+  | ({
+      variant: "block";
+      actionType: "add" | "edit" | "delete";
+    } & BaseBlockType)
+  | ({
+      variant: "edge";
+      actionType: "add" | "delete";
+    } & EdgeType);
 
 export enum EditorTab {
   EDITOR = "editor",

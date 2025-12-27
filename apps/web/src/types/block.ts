@@ -54,13 +54,3 @@ export type EdgeType = {
   sourceHandle: string;
   targetHandle: string;
 };
-
-export type EditorActionStateType =
-  | ({
-      variant: "block";
-      actionType: "add" | "edit" | "delete";
-    } & BaseBlockType)
-  | ({
-      variant: "edge";
-      actionType: "add" | "delete";
-    } & EdgeType);
