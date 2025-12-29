@@ -34,6 +34,8 @@ export const routesService = {
       filterParams.append("filter.value", query.filter.value);
       filterParams.append("filter.operator", query.filter.operator);
     }
+    query.filter.projectId &&
+      filterParams.append("projectId", query.filter.projectId);
     const result = await httpClient.get(
       `${baseUrl}/list?page=${data?.page ?? 1}&perPage=${
         data?.perPage ?? 10

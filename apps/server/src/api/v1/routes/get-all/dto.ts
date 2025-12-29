@@ -3,7 +3,6 @@ import {
   paginationRequestQuerySchema,
   paginationResponseSchema,
 } from "../../../../lib/pagination";
-import { createSelectSchema } from "drizzle-zod";
 
 export const fieldEnumSchema = z.enum([
   "",
@@ -11,7 +10,6 @@ export const fieldEnumSchema = z.enum([
   "name",
   "path",
   "active",
-  "projectId",
   "method",
 ]);
 
@@ -24,6 +22,7 @@ export const requestQuerySchema = z
       .enum(["eq", "neq", "gt", "gte", "lt", "lte", "like"])
       .optional(),
     "filter.value": z.string().optional(),
+    projectId: z.uuidv7().optional(),
   })
   .transform((q) => ({
     page: q.page,
@@ -32,6 +31,7 @@ export const requestQuerySchema = z
       field: q["filter.field"],
       operator: q["filter.operator"],
       value: q["filter.value"],
+      projectId: q["projectId"],
     },
   }));
 

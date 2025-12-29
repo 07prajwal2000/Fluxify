@@ -4,7 +4,7 @@ import { Box, Stack } from "@mantine/core";
 import React, { useEffect } from "react";
 import RouteItem from "../routeItem";
 import { routesQueries } from "@/query/routerQuery";
-import { useRouterPagination } from "@/store/routes";
+import { useRouterFilter, useRouterPagination } from "@/store/routes";
 import QueryLoader from "../query/queryLoader";
 import QueryError from "../query/queryError";
 import { useQueryClient } from "@tanstack/react-query";
@@ -16,14 +16,16 @@ type PropTypes = {
 
 const RoutesPanel = (props: PropTypes) => {
   const { page, perPage, setPaginationLimit } = useRouterPagination();
+  const { field, operator, value } = useRouterFilter();
   const { useQuery, invalidate } = routesQueries.getAll;
   const { data, isLoading, isError, error } = useQuery({
     page,
     perPage,
     filter: {
-      field: props.projectId ? "projectId" : "",
-      operator: "eq",
-      value: props.projectId ? props.projectId : "",
+      field: Boolean(value) ? (field as any) : "",
+      operator: Boolean(value) ? (operator as any) : "",
+      value: value,
+      projectId: props.projectId,
     },
   });
   const client = useQueryClient();

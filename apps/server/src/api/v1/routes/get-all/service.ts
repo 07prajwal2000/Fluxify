@@ -11,6 +11,7 @@ import {
   lt,
   lte,
   ne,
+  SQL,
   sql,
 } from "drizzle-orm";
 import { AuthACL, routesEntity } from "../../../../db/schema";
@@ -53,9 +54,16 @@ export default async function handleRequest(
   };
 }
 
-function generateFilterSQL(query?: z.infer<typeof requestQuerySchema>) {
+function generateFilterSQL(query?: z.infer<typeof requestQuerySchema>): SQL {
   const filter = query?.filter;
-
+  if (filter?.projectId !== undefined) {
+    const projectId = filter.projectId;
+    filter.projectId = undefined;
+    return and(
+      eq(routesEntity.projectId, projectId),
+      generateFilterSQL(query)
+    )!;
+  }
   if (!filter) return sql`1=1`;
   if (!filter.field) return sql`1=1`;
   const field = routesEntity[filter.field];
@@ -77,4 +85,5 @@ function generateFilterSQL(query?: z.infer<typeof requestQuerySchema>) {
   else if (filter.operator == "lt") return lt(field, filter.value);
   else if (filter.operator == "lte") return lte(field, filter.value);
   else if (filter.operator == "like") return ilike(field, `%${filter.value}%`);
+  else return sql`1=1`;
 }
