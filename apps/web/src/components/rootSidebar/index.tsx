@@ -90,6 +90,14 @@ const RootSidebar = () => {
             onClick={() => onMenuItemClick(item.link)}
           />
         ))}
+        <RequireRoleInAnyProject requiredRole="system_admin">
+          <MenuItem
+            leftIcon={<TbSettings size={20} />}
+            isActive={path === "/settings"}
+            text="Instance Settings"
+            onClick={() => onMenuItemClick("/settings?tab=Users")}
+          />
+        </RequireRoleInAnyProject>
         <ProfileSection />
       </Stack>
     </Stack>
