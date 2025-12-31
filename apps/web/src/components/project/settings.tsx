@@ -9,6 +9,8 @@ import { useParams } from "next/navigation";
 import { useProjectSettingsSidebarStore } from "@/store/projectSettings";
 import { useProjectSettingsActions } from "@/store/projectSettings";
 import ProjectMembersList from "./projectMembersList";
+import ProjectInfo from "./projectInfo";
+import { TbInfoCircle } from "react-icons/tb";
 
 interface Props {
   disableNpm?: boolean;
@@ -29,10 +31,19 @@ const ProjectSettings = (props: Props) => {
       flex={1}
       justify="space-around"
     >
-      <Stack flex={1} p={"xs"} bg={"gray.1"} w={"30%"} h={"100%"} gap={"4"}>
+      <Stack flex={1} p={"xs"} bg={"gray.1"} w={"30%"} h={"100%"} gap={"xs"}>
+        <MenuItem
+          isActive={sidebarStore.active === "projectInfo"}
+          text={"Project Info"}
+          color="dark"
+          onClick={() => {
+            setSidebarActive("projectInfo");
+          }}
+          leftIcon={<TbInfoCircle size={20} />}
+        />
         <MenuItem
           isActive={sidebarStore.active === "projectMembers"}
-          text={"Project Members"}
+          text={"Members"}
           color="dark"
           onClick={() => {
             setSidebarActive("projectMembers");
@@ -58,6 +69,7 @@ const ProjectSettings = (props: Props) => {
       </Stack>
       <Stack flex={4} w={"65%"} h={"100%"} style={{ overflow: "hidden" }}>
         {sidebarStore.active === "projectMembers" && <ProjectMembersList />}
+        {sidebarStore.active === "projectInfo" && <ProjectInfo />}
       </Stack>
     </Group>
   );

@@ -46,7 +46,7 @@ export function requireProjectAccess(
     } else {
       switch (projectId.source) {
         case "param":
-          projectIdValue = ctx.req.param(projectId.key);
+          projectIdValue = ctx.req.param()[projectId.key];
           break;
         case "query":
           projectIdValue = ctx.req.query(projectId.key) || "";

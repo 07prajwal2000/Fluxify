@@ -21,6 +21,7 @@ export default async function handleRequest(
       id: r.id!,
       name: r.name!,
       role: r.role!,
+      userId: r.userId!,
       createdAt: r.createdAt!.toISOString(),
       updatedAt: r.updatedAt!.toISOString(),
     })),

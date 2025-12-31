@@ -10,17 +10,24 @@ export async function listProjectMembers(
   filters?: { role?: string; name?: string },
   tx?: DbTransactionType
 ) {
-  const where = and(
-    eq(accessControlEntity.projectId, projectId),
-    filters?.role
-      ? eq(accessControlEntity.role, filters.role as any)
-      : undefined,
-    filters?.name ? ilike(user.name, `%${filters.name}%`) : undefined
-  );
+  // Build conditions array dynamically
+  const conditions = [eq(accessControlEntity.projectId, projectId)];
+
+  if (filters?.role) {
+    conditions.push(eq(accessControlEntity.role, filters.role as any));
+  }
+
+  if (filters?.name) {
+    conditions.push(ilike(user.name, `%${filters.name}%`));
+  }
+
+  const where = and(...conditions);
+
   const result = await (tx ?? db)
     .select({
       id: user.id,
       name: user.name,
+      userId: user.id,
       role: accessControlEntity.role,
       createdAt: accessControlEntity.createdAt,
       updatedAt: accessControlEntity.updatedAt,
@@ -37,6 +44,7 @@ export async function listProjectMembers(
     .from(accessControlEntity)
     .leftJoin(user, eq(accessControlEntity.userId, user.id))
     .where(where);
+
   return { result, totalCount };
 }
 

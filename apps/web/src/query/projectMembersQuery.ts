@@ -25,33 +25,44 @@ export const projectMembersQuery = {
     },
   },
   add: {
-    useMutation(projectId: string, client: QueryClient) {
+    useMutation(projectId: string) {
       return useMutation({
-        mutationFn: (body: z.infer<typeof projectMembersService.addRequestBodySchema>) =>
-          projectMembersService.add(projectId, body),
-        onSuccess: () => {
-          client.invalidateQueries({ queryKey: ["project-members", projectId] });
+        mutationFn: (
+          body: z.infer<typeof projectMembersService.addRequestBodySchema>
+        ) => projectMembersService.add(projectId, body),
+        onSuccess: (_, __, ___, ctx) => {
+          ctx.client.invalidateQueries({
+            queryKey: ["project-members", projectId],
+          });
         },
       });
     },
   },
   update: {
-    useMutation(projectId: string, client: QueryClient) {
+    useMutation(projectId: string) {
       return useMutation({
-        mutationFn: (params: { userId: string; body: z.infer<typeof projectMembersService.updateRequestBodySchema> }) =>
+        mutationFn: (params: {
+          userId: string;
+          body: z.infer<typeof projectMembersService.updateRequestBodySchema>;
+        }) =>
           projectMembersService.update(projectId, params.userId, params.body),
-        onSuccess: () => {
-          client.invalidateQueries({ queryKey: ["project-members", projectId] });
+        onSuccess: (_, __, ___, ctx) => {
+          ctx.client.invalidateQueries({
+            queryKey: ["project-members", projectId],
+          });
         },
       });
     },
   },
   remove: {
-    useMutation(projectId: string, client: QueryClient) {
+    useMutation(projectId: string) {
       return useMutation({
-        mutationFn: (userId: string) => projectMembersService.remove(projectId, userId),
-        onSuccess: () => {
-          client.invalidateQueries({ queryKey: ["project-members", projectId] });
+        mutationFn: (userId: string) =>
+          projectMembersService.remove(projectId, userId),
+        onSuccess: (_, __, ___, ctx) => {
+          ctx.client.invalidateQueries({
+            queryKey: ["project-members", projectId],
+          });
         },
       });
     },

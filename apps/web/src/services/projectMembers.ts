@@ -1,20 +1,28 @@
 import { httpClient } from "@/lib/http";
 import z from "zod";
-import { requestQuerySchema as listRequestQuerySchema, responseSchema as listResponseSchema } from "@fluxify/server/src/api/v1/projects/settings/members/list/dto";
-import { requestBodySchema as addRequestBodySchema, responseSchema as addResponseSchema } from "@fluxify/server/src/api/v1/projects/settings/members/add/dto";
-import { requestBodySchema as updateRequestBodySchema, responseSchema as updateResponseSchema } from "@fluxify/server/src/api/v1/projects/settings/members/update/dto";
+import {
+  requestQuerySchema as listRequestQuerySchema,
+  responseSchema as listResponseSchema,
+} from "@fluxify/server/src/api/v1/projects/settings/members/list/dto";
+import {
+  requestBodySchema as addRequestBodySchema,
+  responseSchema as addResponseSchema,
+} from "@fluxify/server/src/api/v1/projects/settings/members/add/dto";
+import {
+  requestBodySchema as updateRequestBodySchema,
+  responseSchema as updateResponseSchema,
+} from "@fluxify/server/src/api/v1/projects/settings/members/update/dto";
 
 export const projectMembersService = {
   async list(
     projectId: string,
     query: z.infer<typeof listRequestQuerySchema>
   ): Promise<z.infer<typeof listResponseSchema>> {
-    const { data } = listRequestQuerySchema.safeParse(query);
     const params = new URLSearchParams();
-    params.set("page", String(data?.page ?? 1));
-    params.set("perPage", String(data?.perPage ?? 10));
-    if (data?.role) params.set("role", data.role);
-    if (data?.name) params.set("name", data.name);
+    params.set("page", String(query?.page ?? 1));
+    params.set("perPage", String(query?.perPage ?? 10));
+    if (query?.role) params.set("role", query.role);
+    if (query?.name) params.set("name", query.name);
     const res = await httpClient.get(
       `/v1/projects/${projectId}/settings/members/list?${params.toString()}`
     );

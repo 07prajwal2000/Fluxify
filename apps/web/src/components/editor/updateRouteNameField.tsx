@@ -21,10 +21,11 @@ const UpdateRouteNameField = () => {
   const queryClient = useQueryClient();
   const [updateLoading, setUpdateLoading] = useState(false);
   const router = useRouter();
-  const { acl } = useAuthStore();
+  const { acl, userData } = useAuthStore();
   const canEdit =
-    acl &&
-    roleHierarchy[acl[data?.projectId || ""]] >= roleHierarchy["creator"];
+    userData.isSystemAdmin ??
+    (acl &&
+      roleHierarchy[acl[data?.projectId || ""]] >= roleHierarchy["creator"]);
 
   const debouncedCallback = useDebouncedCallback(async (value: string) => {
     try {

@@ -4,7 +4,11 @@ import {
   paginationResponseSchema,
 } from "../../../lib/pagination";
 
-export const requestBodySchema = paginationRequestQuerySchema;
+export const requestBodySchema = paginationRequestQuerySchema.extend(
+  z.object({
+    fuzzySearch: z.string().optional(),
+  }).shape
+);
 
 export const responseSchema = z.object({
   data: z.array(

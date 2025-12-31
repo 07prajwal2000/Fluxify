@@ -1,4 +1,9 @@
-import { describeRoute, DescribeRouteOptions, resolver, validator } from "hono-openapi";
+import {
+  describeRoute,
+  DescribeRouteOptions,
+  resolver,
+  validator,
+} from "hono-openapi";
 import { requestParamSchema, responseSchema } from "./dto";
 import { HonoServer } from "../../../../../../types";
 import zodErrorCallbackParser from "../../../../../../middlewares/zodErrorCallbackParser";
@@ -18,7 +23,9 @@ const openapiRouteOptions: DescribeRouteOptions = {
     },
     400: {
       description: "Validation error",
-      content: { "application/json": { schema: resolver(validationErrorSchema) } },
+      content: {
+        "application/json": { schema: resolver(validationErrorSchema) },
+      },
     },
     404: {
       description: "ACL not found",
@@ -31,7 +38,7 @@ export default function (app: HonoServer) {
   app.delete(
     "/remove/:userId",
     describeRoute(openapiRouteOptions),
-    requireProjectAccess("project_admin", { key: ":id", source: "param" }),
+    requireProjectAccess("project_admin", { key: "id", source: "param" }),
     validator("param", requestParamSchema, zodErrorCallbackParser),
     async (c) => {
       const { id } = c.req.param();

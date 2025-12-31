@@ -47,6 +47,7 @@ const disableNpm = process.env.DISABLE_NPM;
 const extraTabs = [
   {
     label: "Settings",
+    value: "settings",
     content: <ProjectSettings disableNpm={disableNpm === "true"} />,
   },
 ];

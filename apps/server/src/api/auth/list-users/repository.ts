@@ -1,10 +1,11 @@
 import { db, DbTransactionType } from "../../../db";
 import { user } from "../../../db/auth-schema";
-import { desc, sql } from "drizzle-orm";
+import { desc, ilike, or, sql } from "drizzle-orm";
 
 export async function getUsers(
   skip: number,
   limit: number,
+  fuzzyTextSearch?: string,
   tx?: DbTransactionType
 ) {
   const users = await (tx ?? db)
@@ -16,6 +17,14 @@ export async function getUsers(
       role: user.role,
     })
     .from(user)
+    .where(
+      fuzzyTextSearch
+        ? or(
+            ilike(user.name, `%${fuzzyTextSearch}%`),
+            ilike(user.email, `%${fuzzyTextSearch}%`)
+          )
+        : undefined
+    )
     .limit(limit)
     .offset(skip)
     .orderBy(desc(user.createdAt));
