@@ -49,7 +49,7 @@ export default function (app: HonoServer) {
   app.put(
     "/:id",
     describeRoute(openapiRouteOptions),
-    requireProjectAccess("project_admin", { key: ":id", source: "param" }),
+    requireProjectAccess("project_admin", { key: "id", source: "param" }),
     validator("param", requestRouteSchema, zodErrorCallbackParser),
     validator("json", requestBodySchema, zodErrorCallbackParser),
     async (c) => {

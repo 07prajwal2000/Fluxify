@@ -19,6 +19,9 @@ export const authService = {
     if (query?.perPage) {
       queryParams.set("perPage", query.perPage.toString());
     }
+    if (query?.fuzzySearch) {
+      queryParams.set("fuzzySearch", query.fuzzySearch.toString());
+    }
     const result = await httpClient.get("/auth/list-users", {
       params: queryParams,
     });

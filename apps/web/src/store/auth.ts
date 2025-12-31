@@ -26,7 +26,12 @@ type Actions = {
 export const authStore = create<State & Actions>()(
   immer((set, get) => ({
     state: {
-      userData: { id: "", name: "", email: "", image: "" },
+      userData: {
+        id: "",
+        name: "",
+        email: "",
+        image: "",
+      },
       acl: {},
     },
     actions: {
@@ -41,6 +46,8 @@ export const authStore = create<State & Actions>()(
           acl.forEach((entry) => {
             state.state.acl[entry.projectId] = entry.role;
           });
+          if (state.state.userData.isSystemAdmin === undefined)
+            state.state.userData.isSystemAdmin = "*" in state.state.acl;
         });
       },
     },

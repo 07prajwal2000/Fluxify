@@ -7,7 +7,7 @@ export default async function handleRequest(
 ): Promise<z.infer<typeof responseSchema>> {
   const skip = query.perPage * (query.page - 1);
   const limit = query.perPage;
-  const users = await getUsers(skip, limit);
+  const users = await getUsers(skip, limit, query.fuzzySearch);
   const totalCount = await getUsersCount();
   const hasNext = skip + users.length < totalCount;
 

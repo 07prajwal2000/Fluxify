@@ -1,9 +1,8 @@
-import { Hono } from "hono";
 import { validator } from "hono-openapi";
 import handleRequest from "./service";
 import { requestBodySchema } from "./dto";
 import zodErrorCallbackParser from "../../../middlewares/zodErrorCallbackParser";
-import { requireRoleAccess, requireSystemAdmin } from "../middleware";
+import { requireRoleAccess } from "../middleware";
 import { HonoServer } from "../../../types";
 
 export default function (app: HonoServer) {

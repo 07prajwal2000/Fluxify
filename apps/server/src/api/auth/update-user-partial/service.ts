@@ -3,6 +3,7 @@ import { z } from "zod";
 import { BadRequestError } from "../../../errors/badRequestError";
 import { requestBodySchema, requestParamsSchema } from "./dto";
 import { updateUser } from "./repository";
+import { revokeSessions } from "../common";
 
 export default async function handleRequest(
   user: User,
@@ -14,7 +15,7 @@ export default async function handleRequest(
   }
 
   await updateUser(params.userId, body);
-
+  await revokeSessions(params.userId);
   return {
     message: "User updated successfully",
   };

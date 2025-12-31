@@ -38,7 +38,11 @@ const ConfirmDialog = (props: PropTypes) => {
         {props.title}
       </Text>
       <Divider mt={4} mb={"xs"} />
-      <Text>{props.children}</Text>
+      {typeof props.children === "function" ? (
+        props.children
+      ) : (
+        <Text>{props.children}</Text>
+      )}
       <Group gap={4} my={"sm"} style={{ float: "right" }}>
         <Button
           onClick={onConfirm}

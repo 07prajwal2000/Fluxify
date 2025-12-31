@@ -18,14 +18,13 @@ const Page = async () => {
   if (!hasAccess) {
     redirect("/");
   }
-  const disableNpm = process.env.DISABLE_NPM;
   return (
     <Box p={"sm"}>
       <Stack>
         <Text size="2rem" fw={"500"} c="dark">
           Settings
         </Text>
-        <SettingsTabs disableNpm={disableNpm === "true"} />
+        <SettingsTabs />
       </Stack>
     </Box>
   );

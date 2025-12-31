@@ -2,7 +2,15 @@
 
 import { authClient } from "@/lib/auth";
 import { showErrorNotification } from "@/lib/errorNotifier";
-import { Button, Divider, Paper, Stack, Text, TextInput } from "@mantine/core";
+import {
+  Button,
+  Divider,
+  Paper,
+  PasswordInput,
+  Stack,
+  Text,
+  TextInput,
+} from "@mantine/core";
 import { useForm } from "@mantine/form";
 import { notifications } from "@mantine/notifications";
 import { isAxiosError } from "axios";
@@ -58,9 +66,8 @@ const LoginForm = () => {
             required
             {...form.getInputProps("email")}
           />
-          <TextInput
+          <PasswordInput
             placeholder="Password"
-            type="password"
             required
             {...form.getInputProps("password")}
           />

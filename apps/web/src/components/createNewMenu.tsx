@@ -1,28 +1,13 @@
 "use client";
 
-import { Button, Group, Menu } from "@mantine/core";
+import { Button, Group } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import React, { useState } from "react";
-import { TbChevronDown, TbCloudCog, TbSquareKey } from "react-icons/tb";
-import IntegrationForm from "./forms/integration";
 import FormDialog from "./dialog/formDialog";
-import AppConfigForm from "./forms/appConfig";
 import RouteForm from "./forms/routeForm";
 import { routesService } from "@/services/routes";
 import { routesQueries } from "@/query/routerQuery";
 import { useQueryClient } from "@tanstack/react-query";
-import z from "zod";
-
-const menuItems = [
-  {
-    label: "Integration",
-    icon: <TbCloudCog size={20} />,
-  },
-  {
-    label: "App Config",
-    icon: <TbSquareKey size={20} />,
-  },
-];
 
 const CreateNewMenu = () => {
   const [opened, { open, close }] = useDisclosure(false);
@@ -38,33 +23,11 @@ const CreateNewMenu = () => {
       <Button onClick={() => onMenuItemClicked("Route")} color="violet">
         Create Route
       </Button>
-      <Menu shadow="sm" width={250} position="bottom-end">
-        <Menu.Target>
-          <Button px={8} color="violet">
-            <TbChevronDown size={20} />
-          </Button>
-        </Menu.Target>
-        <Menu.Dropdown>
-          {menuItems.map((item, index) => (
-            <Menu.Item
-              onClick={() => onMenuItemClicked(item.label)}
-              key={index}
-              leftSection={item.icon}
-            >
-              {item.label}
-            </Menu.Item>
-          ))}
-        </Menu.Dropdown>
-      </Menu>
       <FormDialog
         title={`Create new ${selectedItem}`}
         open={opened}
         onClose={close}
       >
-        {selectedItem === "Integration" && <IntegrationForm onSubmit={close} />}
-        {selectedItem === "App Config" && (
-          <AppConfigForm schema={z.any()} onSubmit={close} />
-        )}
         {selectedItem === "Route" && <CreateRouteForm close={close} />}
       </FormDialog>
     </Button.Group>

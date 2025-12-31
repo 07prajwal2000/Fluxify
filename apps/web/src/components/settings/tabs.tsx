@@ -11,12 +11,9 @@ import AccountDetails from "./accountDetails";
 import UsersList from "./usersList";
 import { useRouter, useSearchParams } from "next/navigation";
 
-type Props = {
-  disableNpm?: boolean;
-};
+type Props = {};
 
 const SettingsTabs = (props: Props) => {
-  const red = useMantineTheme().colors.red;
   const query = useSearchParams();
   const router = useRouter();
   function onTabClicked(value: string | null) {
@@ -25,15 +22,7 @@ const SettingsTabs = (props: Props) => {
   }
   let tab = query.get("tab") || "Personal";
   // validate tab
-  if (
-    ![
-      "Personal",
-      "Users",
-      "Deployments",
-      "Authentication",
-      "NPM Packages",
-    ].includes(tab)
-  ) {
+  if (!["Personal", "Users", "Deployments", "Authentication"].includes(tab)) {
     router.replace("?tab=Personal");
     tab = "Personal";
   }
@@ -62,14 +51,6 @@ const SettingsTabs = (props: Props) => {
             Authentication
           </Tabs.Tab>
         </RequireRoleInAnyProject>
-        {!props.disableNpm && (
-          <Tabs.Tab
-            leftSection={<FaNpm size={22} color={red[8]} />}
-            value="NPM Packages"
-          >
-            NPM Packages
-          </Tabs.Tab>
-        )}
       </Tabs.List>
       <Box py={"sm"}>
         <Tabs.Panel value="Personal">

@@ -13,7 +13,6 @@ export default function (app: HonoServer) {
     async (c) => {
       const params = c.req.valid("param");
       const user = c.get("user") as User;
-
       const result = await handleRequest(user, params);
 
       const response = responseSchema.parse(result);

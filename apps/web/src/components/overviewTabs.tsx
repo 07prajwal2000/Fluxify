@@ -1,23 +1,45 @@
 "use client";
 
 import { Group, Tabs } from "@mantine/core";
-import React, { useState } from "react";
+import React, { useEffect, useLayoutEffect, useMemo, useState } from "react";
 import RoutesPanel from "./panels/routesPanel";
 import RouterFilter from "./filters/routerFilter";
 import RouterPagination from "./filters/routerPagination";
 import RequireRole from "./auth/requireRole";
 import RequireRoleInAnyProject from "./auth/requireRoleInAnyProject";
+import { useRouter, useSearchParams } from "next/navigation";
 
 type PropTypes = {
   tabs?: {
     label: string;
     content: React.ReactNode;
+    value: string;
   }[];
   projectId?: string;
 };
 
 const OverviewTabs = (props: PropTypes) => {
+  const searchParams = useSearchParams();
+  const router = useRouter();
   const [selectedTab, setSelectedTab] = useState("routes");
+  function onTabChange(tab: string | null) {
+    if (!tab) return;
+    setSelectedTab(tab);
+  }
+  useEffect(() => {
+    router.replace(`?tab=${selectedTab}`);
+  }, [selectedTab]);
+  useLayoutEffect(() => {
+    const tab = searchParams.get("tab")?.toString() || "";
+    const possibleTabs = ["routes", "executions"].concat(
+      (props.tabs ?? []).map((x) => x.value)
+    );
+    if (!possibleTabs.includes(tab)) {
+      setSelectedTab("routes");
+    } else {
+      setSelectedTab(tab);
+    }
+  }, []);
   return (
     <Tabs
       style={{
@@ -28,7 +50,7 @@ const OverviewTabs = (props: PropTypes) => {
       }}
       color="violet"
       value={selectedTab}
-      onChange={(e) => setSelectedTab(e!)}
+      onChange={onTabChange}
     >
       <Group
         style={{ position: "sticky", top: 0, zIndex: 100 }}
@@ -48,7 +70,7 @@ const OverviewTabs = (props: PropTypes) => {
             </RequireRoleInAnyProject>
           )}
           {props.tabs?.map((tab, index) => (
-            <Tabs.Tab key={index} value={tab.label}>
+            <Tabs.Tab key={index} value={tab.value}>
               {tab.label}
             </Tabs.Tab>
           ))}
@@ -65,7 +87,7 @@ const OverviewTabs = (props: PropTypes) => {
       </Tabs.Panel>
       <Tabs.Panel value="executions">Executions panel</Tabs.Panel>
       {props.tabs?.map((tab, index) => (
-        <Tabs.Panel key={index} value={tab.label}>
+        <Tabs.Panel key={index} value={tab.value}>
           {tab.content}
         </Tabs.Panel>
       ))}

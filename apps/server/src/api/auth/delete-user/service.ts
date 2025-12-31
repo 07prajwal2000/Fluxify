@@ -4,6 +4,9 @@ import { BadRequestError } from "../../../errors/badRequestError";
 import { requestParamsSchema } from "./dto";
 import { deleteUser, getUserRole } from "./repository";
 import { db } from "../../../db";
+import { auth } from "../../../lib/auth";
+import { deleteCacheKey, getCache } from "../../../db/redis";
+import { revokeSessions } from "../common";
 
 export default async function handleRequest(
   user: User,
@@ -22,6 +25,7 @@ export default async function handleRequest(
     }
 
     await deleteUser(params.userId, tx);
+    await revokeSessions(params.userId);
   });
 
   return {
