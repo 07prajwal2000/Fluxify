@@ -57,6 +57,13 @@
       "when": 1764614162149,
       "tag": "0007_soft_shockwave",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1768501517347,
+      "tag": "0008_wealthy_leper_queen",
+      "breakpoints": true
     }
   ]
 }

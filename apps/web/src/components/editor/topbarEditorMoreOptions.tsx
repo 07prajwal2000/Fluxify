@@ -1,4 +1,6 @@
+"use client";
 import { ActionIcon, Menu, Tooltip } from "@mantine/core";
+import { usePathname, useRouter } from "next/navigation";
 import React from "react";
 import {
   TbDots,
@@ -9,7 +11,11 @@ import {
 } from "react-icons/tb";
 
 const TopbarEditorMoreOptions = () => {
-  function onSettingsClick() {}
+  const router = useRouter();
+  const path = usePathname();
+  function onSettingsClick() {
+    router.push(path + "/settings");
+  }
   function onCommitClick() {}
   function onDownloadClick() {}
   function onImportClick() {}

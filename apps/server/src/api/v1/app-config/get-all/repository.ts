@@ -15,6 +15,7 @@ export async function getAppConfigList(
       id: appConfigEntity.id,
       keyName: appConfigEntity.keyName,
       isEncrypted: appConfigEntity.isEncrypted,
+      dataType: appConfigEntity.dataType,
       encodingType: appConfigEntity.encodingType,
       createdAt: appConfigEntity.createdAt,
       updatedAt: appConfigEntity.updatedAt,

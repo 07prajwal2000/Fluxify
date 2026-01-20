@@ -1,6 +1,7 @@
 {
   "name": "@fluxify/server",
   "version": "1.0.0",
+  "type": "module",
   "files": [
     "dist"
   ],
@@ -33,6 +34,10 @@
     "@hono/node-server": "^1.19.0",
     "@hono/standard-validator": "^0.1.5",
     "@hono/zod-validator": "^0.7.2",
+    "@langchain/core": "^1.1.15",
+    "@langchain/langgraph-checkpoint-postgres": "^1.0.0",
+    "@langchain/openai": "^1.2.2",
+    "@toon-format/toon": "^2.1.0",
     "better-auth": "^1.4.3",
     "dotenv": "^17.2.1",
     "drizzle-orm": "^0.44.4",
@@ -40,7 +45,9 @@
     "hono": "^4.9.1",
     "hono-openapi": "^1.0.8",
     "ioredis": "^5.8.0",
+    "langchain": "^1.2.10",
     "pg": "^8.16.3",
+    "yaml": "^2.8.2",
     "zod": "^4.1.8"
   }
 }

@@ -134,12 +134,14 @@ const ProjectMember = (props: Props) => {
         confirmText="Change"
         confirmColor="violet"
         onConfirm={confirmRoleChange}
+        disableConfirm={!selectedRole}
         children={
           <Stack>
             <Text>
               You are about to change the role for <b>{username}</b>
             </Text>
             <Select
+              allowDeselect={false}
               description="Please select a different role to change"
               data={[
                 { label: "Viewer", value: "viewer" },

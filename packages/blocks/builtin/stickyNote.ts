@@ -12,6 +12,12 @@ export const stickyNotesSchema = z
   })
   .extend(baseBlockDataSchema.shape);
 
+export const stickyNoteBlockAiDescription = {
+  name: "sticky_note",
+  description: "displays a sticky note with configurable color and size",
+  jsonSchema: JSON.stringify(z.toJSONSchema(stickyNotesSchema)),
+};
+
 export class stickyNoteBlock extends BaseBlock {
   public override async executeAsync(): Promise<BlockOutput> {
     return {

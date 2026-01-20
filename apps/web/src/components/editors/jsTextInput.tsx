@@ -20,16 +20,22 @@ type Props = {
   onValueChange?: (value: string) => void;
   onClear?: () => void;
   enableJs?: boolean;
+  type?: "text" | "number" | "password";
 };
 
-const JsTextInput = ({ enableJs = true, ...props }: Props & TextInputProps) => {
+const JsTextInput = ({
+  enableJs = true,
+  type = "text",
+  ...props
+}: Props & TextInputProps) => {
   const [opened, { open, close }] = useDisclosure();
   const isJsValue =
     (typeof props.value === "string" && props.value.startsWith("js:")) || false;
 
   function onClearClicked() {
     props.onClear && props.onClear();
-    props.onValueChange && props.onValueChange("");
+    props.onValueChange &&
+      props.onValueChange(props.defaultValue?.toString() ?? "");
   }
 
   function onChange(value: string, isJsValue?: boolean) {
@@ -92,6 +98,7 @@ const JsTextInput = ({ enableJs = true, ...props }: Props & TextInputProps) => {
     <>
       <TextInput
         {...props}
+        type={type}
         onChange={(e) => onChange(e.target.value, false)}
         rightSection={
           enableJs && (

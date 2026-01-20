@@ -21,6 +21,7 @@
   "dependencies": {
     "@fluxify/adapters": "../adapters",
     "@fluxify/lib": "../lib",
+    "dayjs": "^1.11.19",
     "zod": "^4.0.17"
   }
 }

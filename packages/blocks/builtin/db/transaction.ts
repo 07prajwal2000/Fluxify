@@ -10,10 +10,20 @@ import { Engine } from "../../engine";
 
 export const transactionDbBlockSchema = z
   .object({
-    connection: z.string(),
-    executor: z.string(),
+    connection: z.string().describe("integration id"),
+    executor: z
+      .string()
+      .describe(
+        "block id to start a transaction (database adapter state changes to transaction)",
+      ),
   })
   .extend(baseBlockDataSchema.shape);
+
+export const transactionDbAiDescription = {
+  name: "db_transaction",
+  description: `executes a database transaction by executing a child block`,
+  jsonSchema: JSON.stringify(z.toJSONSchema(transactionDbBlockSchema)),
+};
 
 export class TransactionBlock extends BaseBlock {
   constructor(
@@ -21,7 +31,7 @@ export class TransactionBlock extends BaseBlock {
     private readonly dbAdapter: IDbAdapter,
     protected readonly input: z.infer<typeof transactionDbBlockSchema>,
     protected readonly childEngine: Engine,
-    public readonly next?: string
+    public readonly next?: string,
   ) {
     super(context, input, next);
   }

@@ -1,5 +1,12 @@
 import { getZodValidatedErrors } from "@/lib/forms";
-import { Checkbox, Select, Stack, Textarea, TextInput } from "@mantine/core";
+import {
+  Checkbox,
+  Group,
+  Select,
+  Stack,
+  Textarea,
+  TextInput,
+} from "@mantine/core";
 import { useForm } from "@mantine/form";
 import React, { useEffect } from "react";
 import z from "zod";
@@ -14,6 +21,7 @@ type PropTypes = {
   data?: any;
   children?: React.ReactNode;
   id?: string;
+  newRecord?: boolean;
 };
 
 const AppConfigForm = (props: PropTypes) => {
@@ -27,6 +35,7 @@ const AppConfigForm = (props: PropTypes) => {
         value: "",
         description: "",
         isEncrypted: false,
+        dataType: "string",
         encodingType: "plaintext",
       },
     validate: getZodValidatedErrors(props.schema!),
@@ -63,29 +72,56 @@ const AppConfigForm = (props: PropTypes) => {
           placeholder="JWT_SECRET"
           {...form.getInputProps("keyName")}
         />
-        <TextInput
-          label="Value"
-          description="Value of the configuration. This is the actual value that will be used in the application."
-          placeholder="SUPER SECRET KEY"
-          {...form.getInputProps("value")}
-        />
+        {form.values["dataType"] === "boolean" ? (
+          <Checkbox
+            label="Value"
+            color="violet"
+            description="Value of the configuration. This is the actual value that will be used in the application."
+            placeholder="SUPER SECRET KEY"
+            {...form.getInputProps("value")}
+          />
+        ) : (
+          <TextInput
+            label="Value"
+            description="Value of the configuration. This is the actual value that will be used in the application."
+            placeholder="SUPER SECRET KEY"
+            type={form.values["dataType"] === "string" ? "text" : "number"}
+            {...form.getInputProps("value")}
+          />
+        )}
         <Textarea
           label="Description"
           placeholder="Description"
           rows={3}
           {...form.getInputProps("description")}
         />
-        <Select
-          label="Encoding Type"
-          placeholder="Select Encoding Type"
-          description="Select encoding type for the value. This is used to encode the value before storing it in the database."
-          {...form.getInputProps("encodingType")}
-          data={[
-            { value: "plaintext", label: "Plaintext" },
-            { value: "base64", label: "Base64" },
-            { value: "hex", label: "Hex" },
-          ]}
-        />
+        <Group gap={"lg"} justify="space-between" wrap="nowrap">
+          <Select
+            label="Encoding Type"
+            placeholder="Select Encoding Type"
+            description="Select encoding type for the value. This is used to encode the value before storing it in the database."
+            {...form.getInputProps("encodingType")}
+            data={[
+              { value: "plaintext", label: "Plaintext" },
+              { value: "base64", label: "Base64" },
+              { value: "hex", label: "Hex" },
+            ]}
+            allowDeselect={false}
+          />
+          <Select
+            label="Data Type"
+            readOnly={!props.newRecord}
+            allowDeselect={false}
+            placeholder="Select Encoding Type"
+            description="Select encoding type for the value. This is used to encode the value before storing it in the database."
+            {...form.getInputProps("dataType")}
+            data={[
+              { value: "string", label: "String" },
+              { value: "number", label: "Number" },
+              { value: "boolean", label: "Boolean" },
+            ]}
+          />
+        </Group>
         <Checkbox
           disabled={data?.isEncrypted}
           label="Is Encrypted"
@@ -94,6 +130,7 @@ const AppConfigForm = (props: PropTypes) => {
           {...form.getInputProps("isEncrypted")}
           color="violet"
         />
+        <br />
         {props.children}
       </Stack>
     </form>

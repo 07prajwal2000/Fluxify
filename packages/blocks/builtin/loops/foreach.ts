@@ -7,12 +7,23 @@ const valuesSchema = z.array(z.any());
 
 export const forEachLoopBlockSchema = z
   .object({
-    block: z.string().optional(),
-    values: valuesSchema,
-    useParam: z.boolean().optional(),
+    block: z
+      .string()
+      .optional()
+      .describe("block id for starting the execution"),
+    values: valuesSchema.describe("list of items to iterate on"),
+    useParam: z
+      .boolean()
+      .optional()
+      .describe("use parameter as the datasource to iterate on"),
   })
   .extend(baseBlockDataSchema.shape);
-// REDESIGN THIS to accept the values from both constructor as well as params
+
+export const foreachLoopAiDescription = {
+  name: "foreach_loop",
+  description: `iterates over a list of values (or input params) and executes a child block for each item`,
+  jsonSchema: JSON.stringify(z.toJSONSchema(forEachLoopBlockSchema)),
+};
 
 export class ForEachLoopBlock extends ForLoopBlock {
   private readonly values: any[] | string = null!;
@@ -21,7 +32,7 @@ export class ForEachLoopBlock extends ForLoopBlock {
     context: Context,
     input: z.infer<typeof forEachLoopBlockSchema>,
     subEngine: Engine,
-    next?: string
+    next?: string,
   ) {
     const { success, data: foreachInput } =
       forEachLoopBlockSchema.safeParse(input);
@@ -39,7 +50,7 @@ export class ForEachLoopBlock extends ForLoopBlock {
         blockDescription: "",
       },
       subEngine,
-      next
+      next,
     );
     this.foreachInput = foreachInput;
     this.values = input.values;

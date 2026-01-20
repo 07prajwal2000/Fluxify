@@ -11,19 +11,16 @@ import { appConfigQuery } from "@/query/appConfigQuery";
 
 const AppConfigTableAddButton = () => {
   const [opened, { open, close }] = useDisclosure(false);
-  const [loading, setLoading] = React.useState(false);
   const queryClient = useQueryClient();
-  const createMutation = appConfigQuery.create.useMutation(queryClient);
+  const { mutateAsync, isPending } =
+    appConfigQuery.create.useMutation(queryClient);
 
   const handleAddNew = async (data: any) => {
     try {
-      setLoading(true);
-      await createMutation.mutateAsync(data);
+      await mutateAsync(data);
       close();
     } catch (error: any) {
       showErrorNotification(error, false);
-    } finally {
-      setLoading(false);
     }
   };
   return (
@@ -38,11 +35,12 @@ const AppConfigTableAddButton = () => {
       </Button>
       <FormDialog title="Create New Config" open={opened} onClose={close}>
         <AppConfigForm
+          newRecord
           schema={appConfigService.createRequestBodySchema}
           onSubmit={handleAddNew}
         >
           <Group justify="end">
-            <Button color="violet" type="submit" loading={loading}>
+            <Button color="violet" type="submit" loading={isPending}>
               Create
             </Button>
             <Button variant="subtle" color="dark" onClick={close}>

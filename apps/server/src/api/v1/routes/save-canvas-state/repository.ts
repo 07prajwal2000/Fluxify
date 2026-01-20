@@ -2,7 +2,8 @@ import { createInsertSchema } from "drizzle-zod";
 import { db, DbTransactionType } from "../../../../db";
 import { blocksEntity, edgesEntity, routesEntity } from "../../../../db/schema";
 import z from "zod";
-import { and, eq, inArray, sql } from "drizzle-orm";
+import { and, eq, inArray, ne, sql } from "drizzle-orm";
+import { BlockTypes } from "@fluxify/blocks";
 
 const insertBlocksSchema = createInsertSchema(blocksEntity);
 const insertEntitySchema = createInsertSchema(edgesEntity);
@@ -29,7 +30,12 @@ export async function upsertBlocks(
 export async function deleteBlocks(blockIds: string[], tx?: DbTransactionType) {
   await (tx ?? db)
     .delete(blocksEntity)
-    .where(inArray(blocksEntity.id, blockIds));
+    .where(
+      and(
+        inArray(blocksEntity.id, blockIds),
+        ne(blocksEntity.type, BlockTypes.entrypoint)
+      )
+    );
 }
 
 export async function insertEdges(

@@ -4,9 +4,15 @@ import { baseBlockDataSchema } from "../../baseBlock";
 
 export const getHttpCookieBlockSchema = z
   .object({
-    name: z.string(),
+    name: z.string().describe("name of the cookie (supports js expressions)"),
   })
   .extend(baseBlockDataSchema.shape);
+
+export const getCookieAiDescription = {
+  name: "get_request_cookie",
+  description: `gets a request cookie by name`,
+  jsonSchema: JSON.stringify(z.toJSONSchema(getHttpCookieBlockSchema)),
+};
 
 export class GetHttpCookieBlock extends BaseBlock {
   override async executeAsync(): Promise<BlockOutput> {

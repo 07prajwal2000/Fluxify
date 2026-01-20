@@ -9,22 +9,30 @@ import { IDbAdapter } from "@fluxify/adapters";
 
 export const insertDbBlockSchema = z
   .object({
-    connection: z.string(),
-    tableName: z.string(),
+    connection: z.string().describe("integration id"),
+    tableName: z.string().describe("table name (supports js expression)"),
     data: z.object({
-      source: z.enum(["raw", "js"]),
-      value: z.object(),
+      source: z.enum(["raw", "js"]).describe("source of the value"),
+      value: z
+        .object()
+        .describe("value to insert (object values can be js expression)"),
     }),
-    useParam: z.boolean(),
+    useParam: z.boolean().default(false).describe("use parameter"),
   })
   .extend(baseBlockDataSchema.shape);
+
+export const insertDbAiDescription = {
+  name: "db_insert",
+  description: `inserts single record into a database table`,
+  jsonSchema: JSON.stringify(z.toJSONSchema(insertDbBlockSchema)),
+};
 
 export class InsertDbBlock extends BaseBlock {
   constructor(
     protected readonly context: Context,
     private readonly dbAdapter: IDbAdapter,
     protected readonly input: z.infer<typeof insertDbBlockSchema>,
-    public readonly next?: string
+    public readonly next?: string,
   ) {
     super(context, input, next);
   }
@@ -38,10 +46,10 @@ export class InsertDbBlock extends BaseBlock {
         typeof this.input.data.value === "string"
       ) {
         dataToInsert = (await this.context.vm.runAsync(
-          this.input.data.value
+          this.input.data.value,
         )) as object;
       }
-      if (!(dataToInsert instanceof Object)) {
+      if (typeof dataToInsert !== "object") {
         return {
           continueIfFail: false,
           successful: false,
@@ -51,12 +59,13 @@ export class InsertDbBlock extends BaseBlock {
       dataToInsert = await this.evaluateJsInData(dataToInsert);
       this.input.tableName = this.input.tableName.startsWith("js:")
         ? ((await this.context.vm.runAsync(
-            this.input.tableName.slice(3)
+            this.input.tableName.slice(3),
           )) as string)
         : this.input.tableName;
+
       const result = await this.dbAdapter.insert(
         this.input.tableName,
-        dataToInsert
+        dataToInsert,
       );
       return {
         continueIfFail: false,

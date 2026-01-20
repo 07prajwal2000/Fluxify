@@ -26,14 +26,14 @@ export function showErrorNotification(
         }
       } else {
         notifications.show({
-          message: error.response.data.message,
+          message: error?.response?.data?.message || "Unknown error occured",
           color: "red",
           withCloseButton: true,
         });
       }
     } else {
       notifications.show({
-        message: error.response!.data.message,
+        message: error.response?.data?.message || "Unknown error occured",
         color: "red",
         withCloseButton: true,
       });

@@ -119,9 +119,17 @@ export const encodingTypeEnum = pgEnum("encoding_types", [
   "hex",
 ]);
 
+export const appConfigDataTypeEnum = pgEnum("app_config_data_types", [
+  "string",
+  "number",
+  "boolean",
+]);
+
 const encodingTypeValues = z.enum(encodingTypeEnum.enumValues);
+const appConfigDataTypeValues = z.enum(appConfigDataTypeEnum.enumValues);
 
 export type AppConfigEncodingTypes = z.infer<typeof encodingTypeValues>;
+export type AppConfigDataTypes = z.infer<typeof appConfigDataTypeValues>;
 
 export const appConfigEntity = pgTable(
   "app_config",
@@ -132,6 +140,7 @@ export const appConfigEntity = pgTable(
     value: text(),
     isEncrypted: boolean("is_encrypted").default(false),
     encodingType: encodingTypeEnum("encoding_type"),
+    dataType: appConfigDataTypeEnum("data_type").default("string"),
     createdAt: timestamp("created_at").defaultNow(),
     updatedAt: timestamp("updated_at")
       .defaultNow()

@@ -1,4 +1,3 @@
-import { Hono } from "hono";
 import {
   describeRoute,
   DescribeRouteOptions,
@@ -11,6 +10,7 @@ import { validationErrorSchema } from "../../../../errors/validationError";
 import zodErrorCallbackParser from "../../../../middlewares/zodErrorCallbackParser";
 import { HonoServer } from "../../../../types";
 import { AuthACL } from "../../../../db/schema";
+import { requireRoleAccess } from "../../../auth/middleware";
 
 const openapiRouteOptions: DescribeRouteOptions = {
   description: "Get all projects with pagination",
@@ -41,6 +41,7 @@ export default function (app: HonoServer) {
     "/list",
     describeRoute(openapiRouteOptions),
     validator("query", requestQuerySchema, zodErrorCallbackParser),
+    requireRoleAccess("viewer"),
     async (c) => {
       const query = c.req.valid("query");
       const acl = c.get("acl")! as AuthACL[];

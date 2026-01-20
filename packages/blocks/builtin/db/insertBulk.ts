@@ -9,22 +9,28 @@ import type { IDbAdapter } from "@fluxify/adapters";
 
 export const insertBulkDbBlockSchema = z
   .object({
-    connection: z.string(),
-    tableName: z.string(),
+    connection: z.string().describe("integration id"),
+    tableName: z.string().describe("table name (supports js expression)"),
     data: z.object({
-      source: z.enum(["raw", "js"]),
-      value: z.array(z.object()).or(z.string()),
+      source: z.enum(["raw", "js"]).describe("source of the value"),
+      value: z.array(z.object()).or(z.string()).describe("value to insert"),
     }),
-    useParam: z.boolean(),
+    useParam: z.boolean().describe("use parameter"),
   })
   .extend(baseBlockDataSchema.shape);
+
+export const insertBulkAiDescription = {
+  name: "db_insert_bulk",
+  description: `inserts multiple records into a database table`,
+  jsonSchema: JSON.stringify(z.toJSONSchema(insertBulkDbBlockSchema)),
+};
 
 export class InsertBulkDbBlock extends BaseBlock {
   constructor(
     protected readonly context: Context,
     private readonly dbAdapter: IDbAdapter,
     protected readonly input: z.infer<typeof insertBulkDbBlockSchema>,
-    public readonly next?: string
+    public readonly next?: string,
   ) {
     super(context, input, next);
   }
@@ -38,7 +44,7 @@ export class InsertBulkDbBlock extends BaseBlock {
         typeof this.input.data.value === "string"
       ) {
         dataToInsert = (await this.context.vm.runAsync(
-          this.input.data.value.slice(3)
+          this.input.data.value.slice(3),
         )) as object[];
       }
       if (!(dataToInsert instanceof Array)) {
@@ -51,13 +57,13 @@ export class InsertBulkDbBlock extends BaseBlock {
       dataToInsert = await this.evaluateJsInData(dataToInsert);
       this.input.tableName = this.input.tableName.startsWith("js:")
         ? ((await this.context.vm.runAsync(
-            this.input.tableName.slice(3)
+            this.input.tableName.slice(3),
           )) as string)
         : this.input.tableName;
 
       const result = await this.dbAdapter.insertBulk(
         this.input.tableName,
-        dataToInsert
+        dataToInsert,
       );
       return {
         continueIfFail: false,

@@ -7,7 +7,7 @@ export const requestRouteSchema = z.object({
 export const requestBodySchema = z.object({
   keyName: z.string(),
   description: z.string(),
-  value: z.string().optional(),
+  value: z.string().or(z.boolean()).or(z.number()).optional(),
   isEncrypted: z.boolean(),
   encodingType: z.enum(["plaintext", "base64", "hex"]),
 });

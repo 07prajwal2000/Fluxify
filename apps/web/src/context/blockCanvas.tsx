@@ -12,4 +12,5 @@ export const BlockCanvasContext = createContext<{
   duplicateBlock: (id: string) => void;
   deleteBulk: (ids: string[], type: "block" | "edge") => void;
   onSave: () => Promise<void>;
+  duplicateSelection: (blockIds: string[]) => void;
 }>({} as any);

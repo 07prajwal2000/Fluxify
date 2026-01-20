@@ -33,7 +33,7 @@ async function loadFromDB() {
     if (integration.group === integrationsGroupSchema.enum.database) {
       if (integration.variant === databaseVariantSchema.enum.PostgreSQL) {
         dbIntegrationsCache[integration.id] = mapIntegrationToPgConnectionData(
-          integration.config as any
+          integration.config as any,
         );
       }
     }
@@ -44,7 +44,7 @@ function mapIntegrationToPgConnectionData(config: Record<string, string>) {
   let connectionDetails = {} as any;
   if (config.source === "url") {
     config.url = config.url.toString().startsWith("cfg:")
-      ? appConfigCache[config.url.slice(4)]
+      ? appConfigCache[config.url.slice(4)].toString()
       : config.url;
     const parsed = parsePostgresUrl(config.url);
     if (parsed) {

@@ -7,11 +7,21 @@ import { DataSettingsProps } from "../settingsDialog/blockSettingsDialog";
 import { arrayOperationsBlockSchema } from "@fluxify/blocks";
 import z from "zod";
 import { BlockTypes } from "@/types/block";
-import { Autocomplete, Checkbox, Group, Select, Stack } from "@mantine/core";
+import {
+  Autocomplete,
+  Box,
+  Checkbox,
+  Divider,
+  Group,
+  Select,
+  Stack,
+  Text,
+} from "@mantine/core";
 import { BlockCanvasContext } from "@/context/blockCanvas";
 import JsTextInput from "@/components/editors/jsTextInput";
 import { useDebouncedCallback } from "@mantine/hooks";
 import VariableSelector from "@/components/editors/variableSelector";
+import ConditionsEditor from "@/components/editors/conditionsEditor";
 
 const ArrayOperations = (props: NodeProps) => {
   return (
@@ -40,13 +50,13 @@ const ArrayOperations = (props: NodeProps) => {
 };
 
 export function ArrayOperationsHelpPanel(
-  props: DataSettingsProps<z.infer<typeof arrayOperationsBlockSchema>>
+  props: DataSettingsProps<z.infer<typeof arrayOperationsBlockSchema>>,
 ) {
   return <></>;
 }
 
 export function ArrayOperationsSettingsPanel(
-  props: DataSettingsProps<z.infer<typeof arrayOperationsBlockSchema>>
+  props: DataSettingsProps<z.infer<typeof arrayOperationsBlockSchema>>,
 ) {
   const data = props.blockData;
   const { updateBlockData } = useContext(BlockCanvasContext);
@@ -68,6 +78,13 @@ export function ArrayOperationsSettingsPanel(
   function onJsExpressionChange(value: string) {
     debouncedUpdate(value);
     setValue(value);
+  }
+  function onConditionsChange(
+    filterConditions: z.infer<
+      typeof arrayOperationsBlockSchema
+    >["filterConditions"],
+  ) {
+    updateBlockData(props.blockId, { filterConditions });
   }
 
   return (
@@ -91,6 +108,7 @@ export function ArrayOperationsSettingsPanel(
             { value: "pop", label: "Pop" },
             { value: "shift", label: "Shift" },
             { value: "unshift", label: "Unshift" },
+            { value: "filter", label: "Filter" },
           ]}
         />
         <Checkbox
@@ -109,6 +127,25 @@ export function ArrayOperationsSettingsPanel(
             onValueChange={onJsExpressionChange}
           />
         )}
+      {data.operation === "filter" && (
+        <Stack px={"sm"} gap={"xs"}>
+          <Text size="lg">Add/Edit Conditions</Text>
+          <Divider />
+          <Group gap={"xs"} p={"sm"} bg={"gray.1"} bdrs="sm">
+            <Text fw={"bold"} size="sm">
+              Tip :
+            </Text>
+            <Text size="xs">
+              Use JS expression to access the value of the array element in{" "}
+              <code>input</code> variable.
+            </Text>
+          </Group>
+          <ConditionsEditor
+            onChange={onConditionsChange}
+            conditions={props.blockData.filterConditions || []}
+          />
+        </Stack>
+      )}
     </Stack>
   );
 }

@@ -2,7 +2,15 @@ import React, { useContext } from "react";
 import BaseBlock from "../../base";
 import { NodeProps } from "@xyflow/react";
 import { Position } from "@xyflow/react";
-import { Box, Group, NumberInput, Select, Stack, Text } from "@mantine/core";
+import {
+  Box,
+  Grid,
+  Group,
+  NumberInput,
+  Select,
+  Stack,
+  Text,
+} from "@mantine/core";
 import BlockHandle from "../../handle";
 import { TbDatabaseSearch } from "react-icons/tb";
 import z from "zod";
@@ -71,7 +79,7 @@ export function GetAllBlockDataSettingsPanel(props: {
     });
   }
   function onConditionsChange(
-    value: { lhs: any; rhs: any; operator: any; chain: any }[]
+    value: { lhs: any; rhs: any; operator: any; chain: any }[],
   ) {
     updateBlockData(props.blockId, {
       conditions: value.map((x) => ({
@@ -83,13 +91,13 @@ export function GetAllBlockDataSettingsPanel(props: {
     });
   }
 
-  function onLimitChange(value: number) {
+  function onLimitChange(value: number | string) {
     updateBlockData(props.blockId, {
       limit: value,
     });
   }
 
-  function onOffsetChange(value: number) {
+  function onOffsetChange(value: number | string) {
     updateBlockData(props.blockId, {
       offset: value,
     });
@@ -129,43 +137,53 @@ export function GetAllBlockDataSettingsPanel(props: {
         value={props.blockData.tableName}
         onValueChange={onTableNameChange}
       />
-      <Group gap={"xs"} align="center" justify="center">
-        <NumberInput
-          flex={1}
-          label="Limit"
-          description="Enter the limit to use for this block"
-          value={props.blockData.limit}
-          onChange={(value) => onLimitChange(Number(value))}
-        />
-        <NumberInput
-          flex={1}
-          label="Offset"
-          description="Enter the offset to use for this block"
-          value={props.blockData.offset}
-          onChange={(value) => onOffsetChange(Number(value))}
-        />
-      </Group>
-      <Group gap={"xs"} align="center" justify="center">
-        <JsTextInput
-          flex={1}
-          label="Sort Attribute"
-          description="Enter the sort column/attribute to use on the table"
-          value={props.blockData.sort.attribute}
-          onValueChange={onSortAttributeChange}
-        />
-        <Select
-          flex={1}
-          label="Sort"
-          data={[
-            { value: "asc", label: "Ascending" },
-            { value: "desc", label: "Descending" },
-          ]}
-          description="Enter the sort direction to use on the table"
-          value={props.blockData.sort.direction}
-          allowDeselect={false}
-          onChange={(value) => onSortDirectionChange(value!)}
-        />
-      </Group>
+      <Grid columns={2} align="center" justify="center">
+        <Grid.Col span={1}>
+          <JsTextInput
+            flex={1}
+            defaultValue={500}
+            label="Limit"
+            description="Enter the limit to use for this block"
+            value={props.blockData.limit}
+            type="number"
+            onValueChange={onLimitChange}
+          />
+        </Grid.Col>
+        <Grid.Col span={1}>
+          <JsTextInput
+            type="number"
+            flex={1}
+            defaultValue={0}
+            label="Offset"
+            description="Enter the offset to use for this block"
+            value={props.blockData.offset}
+            onValueChange={onOffsetChange}
+          />
+        </Grid.Col>
+        <Grid.Col span={1}>
+          <JsTextInput
+            flex={1}
+            label="Sort Attribute"
+            description="Enter the sort column/attribute to use on the table"
+            value={props.blockData.sort.attribute}
+            onValueChange={onSortAttributeChange}
+          />
+        </Grid.Col>
+        <Grid.Col span={1}>
+          <Select
+            flex={1}
+            label="Sort"
+            data={[
+              { value: "asc", label: "Ascending" },
+              { value: "desc", label: "Descending" },
+            ]}
+            description="Enter the sort direction to use on the table"
+            value={props.blockData.sort.direction}
+            allowDeselect={false}
+            onChange={(value) => onSortDirectionChange(value!)}
+          />
+        </Grid.Col>
+      </Grid>
       <Stack gap={2}>
         <Text>Edit Condition(s)</Text>
         <Text size="xs" c={"gray"}>

@@ -41,7 +41,7 @@ export interface ContextVarsType {
   httpRequestMethod: string;
   httpRequestRoute: string;
   getRequestBody: () => any;
-  getConfig(key: string): string;
+  getConfig(key: string): string | number | boolean;
   dbQuery?: (query: string) => Promise<void>;
 }
 
@@ -62,7 +62,7 @@ export abstract class BaseBlock {
   constructor(
     protected readonly context: Context,
     protected readonly input?: any,
-    public readonly next?: string
+    public readonly next?: string,
   ) {}
   public abstract executeAsync(params?: any): Promise<BlockOutput>;
 }

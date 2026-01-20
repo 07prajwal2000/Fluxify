@@ -5,19 +5,37 @@ import {
   BlockOutput,
   HttpCookieSameSite,
 } from "../../baseBlock";
+import dayjs from "dayjs";
 
 export const setHttpCookieBlockSchema = z
   .object({
-    name: z.string(),
-    value: z.string().or(z.number()),
-    domain: z.string().optional(),
-    path: z.string().optional(),
-    expiry: z.date().or(z.string()),
-    httpOnly: z.boolean().optional(),
-    secure: z.boolean().optional(),
-    samesite: z.enum(HttpCookieSameSite).optional(),
+    name: z.string().describe("cookie name (supports js expression)"),
+    value: z
+      .string()
+      .or(z.number())
+      .describe("cookie value (supports js expression)"),
+    domain: z.string().optional().describe("domain (supports js expression)"),
+    path: z
+      .string()
+      .optional()
+      .describe("http path for the cookie (supports js expression)"),
+    expiry: z
+      .string()
+      .describe("expiry in date (ISO format, supports js expression)"),
+    httpOnly: z.boolean().optional().describe("httponly cookie?"),
+    secure: z.boolean().optional().describe("only in https?"),
+    samesite: z
+      .enum(HttpCookieSameSite)
+      .optional()
+      .describe("cookie samesite setting"),
   })
   .extend(baseBlockDataSchema.shape);
+
+export const setCookieAiDescription = {
+  name: "set_http_cookie",
+  description: `sets an HTTP cookie to HTTP response`,
+  jsonSchema: JSON.stringify(z.toJSONSchema(setHttpCookieBlockSchema)),
+};
 
 export class SetHttpCookieBlock extends BaseBlock {
   override async executeAsync(params?: any): Promise<BlockOutput> {
@@ -31,7 +49,9 @@ export class SetHttpCookieBlock extends BaseBlock {
     if (typeof input.expiry == "string" && input.expiry.startsWith("js:")) {
       const js = input.expiry.slice(3);
       const res = await this.context.vm.runAsync(js);
-      input.expiry = res as string;
+      input.expiry = dayjs(res).toISOString() as string;
+    } else if (typeof input.expiry === "string") {
+      input.expiry = dayjs(input.expiry).toISOString();
     }
     if (typeof input.domain == "string" && input.domain.startsWith("js:")) {
       const js = input.domain.slice(3);

@@ -3,10 +3,16 @@ import z from "zod";
 
 export const setHttpHeaderBlockSchema = z
   .object({
-    name: z.string(),
-    value: z.string(),
+    name: z.string().describe("header name (supports js expression)"),
+    value: z.string().describe("header value (supports js expression)"),
   })
   .extend(baseBlockDataSchema.shape);
+
+export const setHeaderAiDescription = {
+  name: "set_http_header",
+  description: `sets an HTTP header to the response.`,
+  jsonSchema: JSON.stringify(z.toJSONSchema(setHttpHeaderBlockSchema)),
+};
 
 export class SetHttpHeaderBlock extends BaseBlock {
   override async executeAsync(params?: any): Promise<BlockOutput> {

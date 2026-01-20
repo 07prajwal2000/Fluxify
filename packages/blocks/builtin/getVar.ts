@@ -7,6 +7,12 @@ export const getVarBlockSchema = z
   })
   .extend(baseBlockDataSchema.shape);
 
+export const getVarAiDescription = {
+  name: "get_var",
+  description: `gets a variable from global context`,
+  jsonSchema: JSON.stringify(z.toJSONSchema(getVarBlockSchema)),
+};
+
 export class GetVarBlock extends BaseBlock {
   override async executeAsync(params?: any): Promise<BlockOutput> {
     const { data, success } = getVarBlockSchema.safeParse(this.input);

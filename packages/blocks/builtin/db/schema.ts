@@ -2,8 +2,8 @@ import { operatorSchema } from "@fluxify/lib";
 import z from "zod";
 
 export const whereConditionSchema = z.object({
-  attribute: z.string(),
-  operator: operatorSchema.exclude(["js"]),
-  value: z.string().or(z.number()),
-  chain: z.enum(["and", "or"]),
+  attribute: z.string().describe("column name / attribute name"),
+  operator: operatorSchema.exclude(["js"]).describe("operator for comparison"),
+  value: z.string().or(z.number()).describe("value"),
+  chain: z.enum(["and", "or"]).describe("conditional chain"),
 });

@@ -3,6 +3,7 @@ import {
   paginationRequestQuerySchema,
   paginationResponseSchema,
 } from "../../../../lib/pagination";
+import { appConfigDataTypeEnum } from "../../../../db/schema";
 
 export const requestQuerySchema = paginationRequestQuerySchema.extend({
   search: z.string().optional(),
@@ -28,6 +29,7 @@ export const responseSchema = z.object({
       keyName: z.string(),
       isEncrypted: z.boolean(),
       encodingType: z.enum(["plaintext", "base64", "hex"]),
+      dataType: z.enum(appConfigDataTypeEnum.enumValues),
       createdAt: z.string(),
       updatedAt: z.string(),
     })

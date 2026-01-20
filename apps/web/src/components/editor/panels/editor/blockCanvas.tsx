@@ -1,6 +1,6 @@
 import { Box } from "@mantine/core";
 import { Background, Panel, ReactFlow, useReactFlow } from "@xyflow/react";
-import React, { useEffect } from "react";
+import React, { useEffect, useRef } from "react";
 import "@xyflow/react/dist/style.css";
 import { blocksList } from "../../blocks/blocksList";
 import {
@@ -8,7 +8,12 @@ import {
   useEditorBlockSettingsStore,
   useEditorChangeTrackerStore,
 } from "@/store/editor";
-import { BaseBlockType, BlockTypes, EdgeType } from "@/types/block";
+import {
+  BaseBlockType,
+  BlockTypes,
+  clipboardSchema,
+  EdgeType,
+} from "@/types/block";
 import {
   useCanvasActionsStore,
   useCanvasBlocksStore,
@@ -45,8 +50,15 @@ const BlockCanvas = (props: Props) => {
       deleteBlock,
       addBlock,
       deleteBulk: deleteBulkBlocks,
+      setSelection: setBlocksSelection,
     },
-    edges: { onEdgeChange, addEdge, deleteEdge, deleteBulk: deleteBulkEdges },
+    edges: {
+      onEdgeChange,
+      addEdge,
+      deleteEdge,
+      deleteBulk: deleteBulkEdges,
+      setSelection: setEdgesSelection,
+    },
   } = useCanvasActionsStore();
   const { data: routeData } = routesQueries.getById.useQuery(
     props.routeId || ""
@@ -67,6 +79,12 @@ const BlockCanvas = (props: Props) => {
       window.onbeforeunload = null;
     };
   }, [changeTracker.tracker]);
+  useEffect(() => {
+    window.addEventListener("paste", onPaste);
+    return () => {
+      window.removeEventListener("paste", onPaste);
+    };
+  }, []);
 
   function preventRefresh(e: BeforeUnloadEvent) {
     if (changeTracker.tracker.size === 0) {
@@ -85,6 +103,62 @@ const BlockCanvas = (props: Props) => {
   // TODO: Need to implement Undo/Redo
   function doAction(type: "undo" | "redo") {
     // NOT IMPLEMENTED YET
+  }
+  async function onPaste(e: ClipboardEvent) {
+    const text = e.clipboardData?.getData("text");
+    if (!text) {
+      return;
+    }
+    try {
+      const data = JSON.parse(text);
+      const { success, data: deconstructed } = clipboardSchema.safeParse(data);
+      if (!success) {
+        showNotification({
+          title: "Error",
+          message: "Invalid clipboard data",
+          color: "red",
+        });
+        return;
+      }
+      console.log(deconstructed.data);
+    } catch (error) {}
+  }
+  function insertNewBlocks() {}
+  function duplicateSelection(blockIds: string[]) {
+    const oldIdToNewIdMap = new Map<string, string>();
+    blockIds.forEach((id) => {
+      const newId = duplicateBlock(id);
+      if (!newId) {
+        return;
+      }
+      oldIdToNewIdMap.set(id, newId);
+    });
+    const edgesToCopy = edges.filter((edge) => {
+      return blockIds.includes(edge.source) && blockIds.includes(edge.target);
+    });
+    edgesToCopy.forEach((edge) => {
+      const newId = generateID();
+      const srcHandle = edge.sourceHandle.slice(
+        edge.sourceHandle.lastIndexOf("-") + 1
+      );
+      const tgtHandle = edge.targetHandle.slice(
+        edge.targetHandle.lastIndexOf("-") + 1
+      );
+      const newSrc = oldIdToNewIdMap.get(edge.source);
+      const newTgt = oldIdToNewIdMap.get(edge.target);
+      addEdge({
+        id: newId,
+        source: newSrc!,
+        target: newTgt!,
+        sourceHandle: `${newSrc}-${srcHandle}`,
+        targetHandle: `${newTgt}-${tgtHandle}`,
+        // @ts-ignore
+        type: "custom",
+      });
+      changeTracker.add(newId, "edge");
+    });
+    setBlocksSelection(oldIdToNewIdMap.values().toArray(), true);
+    setEdgesSelection(oldIdToNewIdMap.values().toArray(), true);
   }
   function deleteBulkWithHistory(ids: string[], type: "block" | "edge") {
     if (type === "block") {
@@ -176,12 +250,13 @@ const BlockCanvas = (props: Props) => {
   }
   function duplicateBlock(id: string) {
     const block = blocks.find((block) => block.id === id);
-    if (!block) {
+    if (!block || block.type === BlockTypes.entrypoint) {
       return;
     }
     const position = { x: block.position.x + 50, y: block.position.y + 50 };
     const newId = generateID();
     createNewBlock(newId, position, block.type, block.data);
+    return newId;
   }
   async function onSave() {
     const notificationId = "canvas-save-success";
@@ -286,6 +361,7 @@ const BlockCanvas = (props: Props) => {
           duplicateBlock,
           deleteBulk: deleteBulkWithHistory,
           onSave,
+          duplicateSelection,
         }}
       >
         <Box style={{ position: "absolute", zIndex: 10, right: 0 }} p={"lg"}>

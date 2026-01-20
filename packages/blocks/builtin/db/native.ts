@@ -9,17 +9,26 @@ import { IDbAdapter } from "@fluxify/adapters";
 
 export const nativeDbBlockSchema = z
   .object({
-    js: z.string(),
-    connection: z.string(),
+    connection: z.string().describe("integration id"),
+    js: z
+      .string()
+      .describe(
+        "js code to execute (has dbQuery(query: string) global function)",
+      ),
   })
   .extend(baseBlockDataSchema.shape);
 
+export const nativeDbAiDescription = {
+  name: "db_native",
+  description: `executes native js code to interact with a database`,
+  jsonSchema: JSON.stringify(z.toJSONSchema(nativeDbBlockSchema)),
+};
 export class NativeDbBlock extends BaseBlock {
   constructor(
     protected readonly context: Context,
     private readonly dbAdapter: IDbAdapter,
     protected readonly input: z.infer<typeof nativeDbBlockSchema>,
-    public readonly next?: string
+    public readonly next?: string,
   ) {
     super(context, input, next);
   }

@@ -31,13 +31,13 @@ export interface IDbAdapter {
     table: string,
     conditions: DBConditionType[]
   ): Promise<unknown | null>;
-  insert(table: string, data: unknown): Promise<void>;
-  insertBulk(table: string, data: unknown[]): Promise<void>;
+  insert(table: string, data: unknown): Promise<any>;
+  insertBulk(table: string, data: unknown[]): Promise<any>;
   update(
     table: string,
     data: unknown,
     conditions: DBConditionType[]
-  ): Promise<void>;
+  ): Promise<any>;
   raw(query: string | unknown, params?: any[]): Promise<any>;
   delete(table: string, conditions: DBConditionType[]): Promise<boolean>;
   setMode(mode: DbAdapterMode): Promise<void>;

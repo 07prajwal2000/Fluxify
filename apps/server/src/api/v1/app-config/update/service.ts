@@ -15,7 +15,7 @@ import { CHAN_ON_APPCONFIG_CHANGE, publishMessage } from "../../../../db/redis";
 
 export default async function handleRequest(
   id: number,
-  body: z.infer<typeof requestBodySchema>
+  body: z.infer<typeof requestBodySchema>,
 ): Promise<z.infer<typeof responseSchema>> {
   if (!id || isNaN(id)) {
     throw new BadRequestError("Invalid id");
@@ -33,7 +33,7 @@ export default async function handleRequest(
       throw new ConflictError("Key name already exists");
     }
     if ((config.isEncrypted || body.isEncrypted) && body.value !== undefined) {
-      body.value = EncryptionService.encrypt(body.value);
+      body.value = EncryptionService.encrypt(body.value.toString());
       body.value = EncryptionService.encodeData(body.value, body.encodingType);
     } else if (
       config.encodingType !== body.encodingType &&
@@ -41,13 +41,17 @@ export default async function handleRequest(
     ) {
       const oldValue = EncryptionService.decodeData(
         config.value!,
-        config.encodingType!
+        config.encodingType!,
       );
       body.value = EncryptionService.encodeData(oldValue, body.encodingType);
     } else if (body.value !== undefined) {
-      body.value = EncryptionService.encodeData(body.value, body.encodingType);
+      body.value = EncryptionService.encodeData(
+        body.value.toString(),
+        body.encodingType,
+      );
     }
-    const updatedConfig = await updateAppConfig(id, body, tx);
+    const cfg = { ...body, value: body.value?.toString() };
+    const updatedConfig = await updateAppConfig(id, cfg, tx);
     return updatedConfig;
   });
   if (!result) {

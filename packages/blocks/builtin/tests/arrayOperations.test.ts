@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { ArrayOperationsBlock } from "../arrayOperations";
 import { Context } from "../../baseBlock";
+import { JsVM } from "@fluxify/lib";
 
 describe("Testing ArrayOperationsBlock", () => {
   describe("testing push operation", () => {
@@ -23,7 +24,7 @@ describe("Testing ArrayOperationsBlock", () => {
           datasource: "fruits",
           value: "apple",
         },
-        "123"
+        "123",
       );
       const result = await sut.executeAsync();
       expect(result.successful).toBe(true);
@@ -38,7 +39,7 @@ describe("Testing ArrayOperationsBlock", () => {
           datasource: "fruits",
           useParamAsInput: true,
         },
-        "123"
+        "123",
       );
       const result = await sut.executeAsync("apple");
       expect(result.successful).toBe(true);
@@ -53,7 +54,7 @@ describe("Testing ArrayOperationsBlock", () => {
           datasource: "fruits",
           useParamAsInput: true,
         },
-        "123"
+        "123",
       );
       const result = await sut.executeAsync();
       expect(result.successful).toBe(false);
@@ -80,13 +81,13 @@ describe("Testing ArrayOperationsBlock", () => {
           operation: "pop",
           datasource: "fruits",
         },
-        "abcd"
+        "abcd",
       );
       const result = await sut.executeAsync();
       expect(result.successful).toBe(true);
       expect(context.vars.fruits.length).toBe(1);
       expect(context.vars.fruits[context.vars.fruits.length - 1]).toBe(
-        "orange"
+        "orange",
       );
       expect(result.output).toBeTruthy();
       expect(result.next?.trim()).toBeTruthy();
@@ -121,7 +122,7 @@ describe("Testing ArrayOperationsBlock", () => {
           operation: "shift",
           datasource: "fruits",
         },
-        "asdf"
+        "asdf",
       );
       const result = await sut.executeAsync();
       expect(result.successful).toBe(true);
@@ -136,7 +137,7 @@ describe("Testing ArrayOperationsBlock", () => {
           operation: "shift",
           datasource: "fruit",
         },
-        "asdf"
+        "asdf",
       );
       const result = await sut.executeAsync();
       expect(result.successful).toBe(false);
@@ -188,6 +189,43 @@ describe("Testing ArrayOperationsBlock", () => {
       expect(result.successful).toBe(false);
       expect(context.vars.fruits[0]).toBe(undefined);
       expect(result.output).toBe(undefined);
+    });
+  });
+  describe("testing filter operation", () => {
+    const vmContext = {};
+    const vm = new JsVM(vmContext);
+    let context: Context = {
+      vm,
+      route: "/users",
+      apiId: "123",
+      vars: {
+        fruits: [],
+      } as any,
+    };
+    beforeEach(() => {
+      context.vars.fruits = ["pineapple", "orange"];
+    });
+    it("should return true when everything is right", async () => {
+      const sut = new ArrayOperationsBlock(
+        context,
+        {
+          operation: "filter",
+          datasource: "fruits",
+          filterConditions: [
+            {
+              lhs: "js:return input",
+              rhs: "orange",
+              operator: "eq",
+              chain: "and",
+            },
+          ],
+        },
+        "asdf",
+      );
+      const result = await sut.executeAsync();
+      expect(result.successful).toBe(true);
+      expect(context.vars.fruits.length).toBe(1);
+      expect(context.vars.fruits[0]).toBe("orange");
     });
   });
 });

@@ -9,7 +9,7 @@ import {
   Text,
 } from "@mantine/core";
 import React from "react";
-import { TbFilter, TbSearch } from "react-icons/tb";
+import { TbFilter, TbFilterCog, TbSearch } from "react-icons/tb";
 import DebouncedTextInput from "../editors/debouncedTextInput";
 import {
   useProjectSettingsActions,
@@ -29,7 +29,7 @@ const FilterMembersButton = () => {
             disabled={filter.name == "" && filter.role == ""}
           >
             <ActionIcon variant="outline" color="violet">
-              <TbFilter size={18} />
+              <TbFilterCog size={18} />
             </ActionIcon>
           </Indicator>
         </Menu.Target>

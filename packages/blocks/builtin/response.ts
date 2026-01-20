@@ -13,6 +13,12 @@ export const responseBlockSchema = z
   })
   .extend(baseBlockDataSchema.shape);
 
+export const responseAiDescription = {
+  name: "response",
+  description: `terminal block which ends the HTTP request`,
+  jsonSchema: JSON.stringify(z.toJSONSchema(responseBlockSchema)),
+};
+
 export interface ResponseBlockHTTPResult extends BlockOutput {
   output?: {
     httpCode: string;

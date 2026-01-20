@@ -39,6 +39,7 @@ describe("getAppConfigById service", () => {
     getAppConfigByIdMock.mockResolvedValueOnce({
       ...mockConfig,
       isEncrypted: false,
+      dataType: "string",
     });
 
     const result = await handleRequest(1);

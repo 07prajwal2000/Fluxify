@@ -10,20 +10,31 @@ import { whereConditionSchema } from "./schema";
 
 export const updateDbBlockSchema = z
   .object({
-    connection: z.string(),
-    tableName: z.string(),
-    data: z.object(),
-    conditions: z.array(whereConditionSchema),
-    useParam: z.boolean(),
+    connection: z.string().describe("integration id"),
+    tableName: z.string().describe("table name (supports js expression)"),
+    conditions: z.array(whereConditionSchema).describe("list of conditions"),
+    data: z.object({
+      source: z.enum(["raw", "js"]).describe("source of the value"),
+      value: z
+        .object()
+        .describe("value to insert (object values can be js expression)"),
+    }),
+    useParam: z.boolean().describe("use parameter"),
   })
   .extend(baseBlockDataSchema.shape);
+
+export const updateDbAiDescription = {
+  name: "db_update",
+  description: `updates one or more database records using a specified table, conditions, and data `,
+  jsonSchema: JSON.stringify(z.toJSONSchema(updateDbBlockSchema)),
+};
 
 export class UpdateDbBlock extends BaseBlock {
   constructor(
     protected readonly context: Context,
     private readonly dbAdapter: IDbAdapter,
     protected readonly input: z.infer<typeof updateDbBlockSchema>,
-    public readonly next?: string
+    public readonly next?: string,
   ) {
     super(context, input, next);
   }
@@ -37,10 +48,10 @@ export class UpdateDbBlock extends BaseBlock {
         typeof this.input.data.value === "string"
       ) {
         dataToUpdate = (await this.context.vm.runAsync(
-          this.input.data.value
+          this.input.data.value,
         )) as object;
       }
-      if (!(dataToUpdate instanceof Object)) {
+      if (!(typeof dataToUpdate === "object")) {
         return {
           continueIfFail: false,
           successful: false,
@@ -50,13 +61,13 @@ export class UpdateDbBlock extends BaseBlock {
       dataToUpdate = await this.evaluateJsInData(dataToUpdate);
       this.input.tableName = this.input.tableName.startsWith("js:")
         ? ((await this.context.vm.runAsync(
-            this.input.tableName.slice(3)
+            this.input.tableName.slice(3),
           )) as string)
         : this.input.tableName;
       const result = await this.dbAdapter.update(
         this.input.tableName,
         dataToUpdate,
-        this.input.conditions
+        this.input.conditions,
       );
       return {
         continueIfFail: false,

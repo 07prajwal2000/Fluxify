@@ -8,7 +8,7 @@ import {
 
 export const httpRequestBlockSchema = z
   .object({
-    url: z.string(),
+    url: z.string().describe("Server url (can be js expression)"),
     method: z.enum(["GET", "POST", "PUT", "DELETE", "PATCH"]),
     headers: z.record(z.string(), z.string()),
     body: z.any(),
@@ -16,11 +16,17 @@ export const httpRequestBlockSchema = z
   })
   .extend(baseBlockDataSchema.shape);
 
+export const httpRequestAiDescription = {
+  name: "http_request",
+  description: `sends an HTTP request`,
+  jsonSchema: JSON.stringify(z.toJSONSchema(httpRequestBlockSchema)),
+};
+
 export class HttpRequestBlock extends BaseBlock {
   constructor(
     context: Context,
     input: z.infer<typeof httpRequestBlockSchema>,
-    next: string
+    next: string,
   ) {
     super(context, input, next);
   }

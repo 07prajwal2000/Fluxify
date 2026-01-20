@@ -8,6 +8,7 @@ type PropTypes = {
   onConfirm?: () => void;
   confirmText?: string;
   cancelText?: string;
+  disableConfirm?: boolean;
   open: boolean;
   onClose: () => void;
   confirmColor?: string;
@@ -46,6 +47,7 @@ const ConfirmDialog = (props: PropTypes) => {
       <Group gap={4} my={"sm"} style={{ float: "right" }}>
         <Button
           onClick={onConfirm}
+          disabled={props.disableConfirm}
           variant=""
           color={props.confirmColor ?? "red"}
         >

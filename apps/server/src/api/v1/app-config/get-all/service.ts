@@ -23,6 +23,7 @@ export default async function handleRequest(
     keyName: item.keyName!,
     isEncrypted: item.isEncrypted!,
     encodingType: item.encodingType!,
+    dataType: item.dataType!,
     createdAt: item.createdAt!.toISOString(),
     updatedAt: item.updatedAt!.toISOString(),
   }));

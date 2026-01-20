@@ -45,6 +45,7 @@ describe("getAllAppConfig service", () => {
     getAppConfigListMock.mockResolvedValueOnce({
       result: JSON.parse(JSON.stringify(mockConfigs)).map((item: any) => ({
         ...item,
+        dataType: "string",
         createdAt: new Date(item.createdAt),
         updatedAt: new Date(item.updatedAt),
       })),

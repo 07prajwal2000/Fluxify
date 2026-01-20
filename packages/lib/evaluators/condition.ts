@@ -7,11 +7,20 @@ export const operatorSchema = z
 
 export const conditionSchema = z.object({
   // if it is prefixed with `js:` then it will use vm which is created for the request's context
-  lhs: z.string().or(z.number().or(z.boolean())),
-  rhs: z.string().or(z.number().or(z.boolean())),
+  lhs: z
+    .string()
+    .or(z.number().or(z.boolean()))
+    .describe("left-hand side operator (can be js expression)"),
+  rhs: z
+    .string()
+    .or(z.number().or(z.boolean()))
+    .describe("right-hand side operator (can be js expression)"),
   operator: operatorSchema,
-  js: z.string().optional(),
-  chain: z.enum(["and", "or"]).default("and"),
+  js: z.string().optional().describe("javascript expression"),
+  chain: z
+    .enum(["and", "or"])
+    .default("and")
+    .describe("condition chain to use for evaluation"),
 });
 
 export function evaluateOperator(

@@ -1,9 +1,16 @@
+import EditorAppShell from "@/components/editor/editorAppShell";
 import EditorWindow from "@/components/editor/editorWindow";
 import { authClient } from "@/lib/auth";
 import { canAccess } from "@fluxify/server/src/lib/acl";
+import { Metadata } from "next";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import React from "react";
+
+export const metadata: Metadata = {
+  title: "Editor | Configurable Backend Engine",
+  description: "CBE Editor",
+};
 
 const Page = async () => {
   const headersList = await headers();
@@ -17,7 +24,11 @@ const Page = async () => {
   if (!hasAccess) {
     return redirect("/");
   }
-  return <EditorWindow />;
+  return (
+    <EditorAppShell>
+      <EditorWindow />;
+    </EditorAppShell>
+  );
 };
 
 export default Page;

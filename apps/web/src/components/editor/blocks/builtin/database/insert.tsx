@@ -6,6 +6,7 @@ import BlockHandle from "../../handle";
 import { TbDatabasePlus, TbInfoCircle } from "react-icons/tb";
 import {
   Alert,
+  Box,
   Button,
   ButtonGroup,
   Checkbox,
@@ -124,30 +125,32 @@ export function InsertBlockSettingsPanel(props: {
           onChange={(e) => onUseParamChange(e.currentTarget.checked)}
         />
       </Group>
-      <Text>Data to Insert</Text>
       {!props.blockData.useParam && (
-        <ButtonGroup>
-          <Button
-            fullWidth
-            variant={
-              props.blockData.data.source === "raw" ? "filled" : "outline"
-            }
-            color="violet"
-            onClick={onRawDataSourceChange}
-          >
-            Raw
-          </Button>
-          <Button
-            fullWidth
-            variant={
-              props.blockData.data.source === "js" ? "filled" : "outline"
-            }
-            color="violet"
-            onClick={onJsDataSourceChange}
-          >
-            JS
-          </Button>
-        </ButtonGroup>
+        <Stack>
+          <Text>Data to Insert</Text>
+          <ButtonGroup>
+            <Button
+              fullWidth
+              variant={
+                props.blockData.data.source === "raw" ? "filled" : "outline"
+              }
+              color="violet"
+              onClick={onRawDataSourceChange}
+            >
+              Raw
+            </Button>
+            <Button
+              fullWidth
+              variant={
+                props.blockData.data.source === "js" ? "filled" : "outline"
+              }
+              color="violet"
+              onClick={onJsDataSourceChange}
+            >
+              JS
+            </Button>
+          </ButtonGroup>
+        </Stack>
       )}
       {props.blockData.data.source === "raw" && !props.blockData.useParam && (
         <OpenJsonEditorButton

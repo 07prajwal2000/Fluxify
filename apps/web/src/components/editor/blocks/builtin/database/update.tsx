@@ -162,30 +162,32 @@ export function UpdateBlockDataSettingsPanel(props: {
           disableJsConditions
         />
       </Stack>
-      <Text>Data to Update</Text>
       {!props.blockData.useParam && (
-        <ButtonGroup>
-          <Button
-            fullWidth
-            variant={
-              props.blockData.data.source === "raw" ? "filled" : "outline"
-            }
-            color="violet"
-            onClick={onRawDataSourceChange}
-          >
-            Raw
-          </Button>
-          <Button
-            fullWidth
-            variant={
-              props.blockData.data.source === "js" ? "filled" : "outline"
-            }
-            color="violet"
-            onClick={onJsDataSourceChange}
-          >
-            JS
-          </Button>
-        </ButtonGroup>
+        <Stack>
+          <Text>Data to Update</Text>
+          <ButtonGroup>
+            <Button
+              fullWidth
+              variant={
+                props.blockData.data.source === "raw" ? "filled" : "outline"
+              }
+              color="violet"
+              onClick={onRawDataSourceChange}
+            >
+              Raw
+            </Button>
+            <Button
+              fullWidth
+              variant={
+                props.blockData.data.source === "js" ? "filled" : "outline"
+              }
+              color="violet"
+              onClick={onJsDataSourceChange}
+            >
+              JS
+            </Button>
+          </ButtonGroup>
+        </Stack>
       )}
       {props.blockData.data.source === "raw" && !props.blockData.useParam && (
         <OpenJsonEditorButton

@@ -10,6 +10,9 @@ const VariableSelector = (props: AutocompleteProps) => {
   const availableVariables = useMemo(() => {
     const variables = [] as string[];
     for (let block of nodes) {
+      if (variables.includes(blockDataStore[block.id].key)) {
+        continue;
+      }
       variables.push(blockDataStore[block.id].key);
     }
     return variables;

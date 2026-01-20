@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { appConfigDataTypeEnum } from "../../../../db/schema";
 
 export const requestBodySchema = z.object({
   keyName: z
@@ -10,7 +11,15 @@ export const requestBodySchema = z.object({
       "Key name must be at least 3 characters long and can only contain letters, numbers, and underscores"
     ),
   description: z.string().max(255),
-  value: z.string(),
+  value: z
+    .string()
+    .or(z.boolean())
+    .or(z.number())
+    .transform((val) => val.toString()),
+  dataType: z
+    .enum(appConfigDataTypeEnum.enumValues)
+    .optional()
+    .default("string"),
   isEncrypted: z.boolean(),
   encodingType: z.enum(["plaintext", "base64", "hex"]),
 });

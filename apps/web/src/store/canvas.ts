@@ -21,12 +21,14 @@ type Actions = {
       onBlockChange: (changes: NodeChange[]) => void;
       formatBlocks(): string[];
       deleteBulk(ids: Set<string>): void;
+      setSelection(ids: string[], value: boolean): void;
     };
     edges: {
       addEdge: (edge: EdgeType) => void;
       deleteEdge: (id: string) => void;
       onEdgeChange: (changes: Partial<EdgeChange>[]) => void;
       deleteBulk(ids: Set<string>): void;
+      setSelection(ids: string[], value: boolean): void;
     };
     bulkInsert(blocks: BaseBlockType[], edges: EdgeType[]): void;
   };
@@ -67,10 +69,35 @@ const useCanvasStore = create<State & Actions>((set, get) => ({
         set({ blocks: [...get().blocks, block] });
       },
       deleteBlock(id) {
-        set({ blocks: get().blocks.filter((b) => b.id !== id) });
+        set({
+          blocks: get().blocks.filter((b) => {
+            const isEntrypoint = b.type === BlockTypes.entrypoint;
+            if (isEntrypoint) {
+              return true;
+            }
+            return b.id !== id;
+          }),
+        });
+      },
+      setSelection(ids: string[], value: boolean) {
+        const idSet = new Set(ids);
+        set({
+          blocks: get().blocks.map((b) => {
+            const valueToSet = idSet.has(b.id) ? value : !value;
+            return { ...b, selected: valueToSet };
+          }),
+        });
       },
       deleteBulk(ids: Set<string>) {
-        set({ blocks: get().blocks.filter((b) => !ids.has(b.id)) });
+        set({
+          blocks: get().blocks.filter((b) => {
+            const isEntrypoint = b.type === BlockTypes.entrypoint;
+            if (isEntrypoint) {
+              return true;
+            }
+            return !ids.has(b.id);
+          }),
+        });
       },
       onBlockChange(changes) {
         set({
@@ -93,6 +120,15 @@ const useCanvasStore = create<State & Actions>((set, get) => ({
       },
       onEdgeChange(changes) {
         set({ edges: applyEdgeChanges(changes as any, get().edges) });
+      },
+      setSelection(ids: string[], value: boolean) {
+        const idSet = new Set(ids);
+        set({
+          edges: get().edges.map((e) => {
+            const valueToSet = idSet.has(e.id) ? value : !value;
+            return { ...e, selected: valueToSet };
+          }),
+        });
       },
     },
     bulkInsert(blocks, edges) {

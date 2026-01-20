@@ -1,3 +1,5 @@
+import z from "zod";
+
 export enum BlockTypes {
   entrypoint = "entrypoint",
   httprequest = "httprequest",
@@ -45,6 +47,7 @@ export type BaseBlockType = {
     y: number;
   };
   data: any;
+  selected?: boolean;
 };
 
 export type EdgeType = {
@@ -54,3 +57,32 @@ export type EdgeType = {
   sourceHandle: string;
   targetHandle: string;
 };
+
+export const bulkInsertSchema = z.object({
+  blocks: z.array(
+    z.object({
+      id: z.uuidv7(),
+      position: z.object({
+        x: z.number(),
+        y: z.number(),
+      }),
+      type: z.enum(Object.values(BlockTypes)),
+      data: z.any(),
+    })
+  ),
+  edges: z.array(
+    z.object({
+      id: z.uuidv7(),
+      source: z.string(),
+      target: z.string(),
+      sourceHandle: z.string(),
+      targetHandle: z.string(),
+      type: z.literal("custom"),
+    })
+  ),
+});
+
+export const clipboardSchema = z.object({
+  source: z.literal("FLUXIFY/COPY_PASTE"),
+  data: bulkInsertSchema,
+});

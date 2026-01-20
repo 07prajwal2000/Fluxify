@@ -4,13 +4,29 @@ import { baseBlockDataSchema } from "../baseBlock";
 
 export const transformerBlockSchema = z
   .object({
-    fieldMap: z.record(z.string(), z.string()),
-    js: z.string().optional(),
-    useJs: z.boolean().default(false),
+    fieldMap: z
+      .record(z.string(), z.string())
+      .describe(
+        "key value pairs which map the source key to destination object's key"
+      ),
+    js: z
+      .string()
+      .optional()
+      .describe(
+        "js code executed when useJs is enabled. A global variable 'input' which stores the source object"
+      ),
+    useJs: z.boolean().default(false).describe("enable to run the js code"),
   })
   .extend(baseBlockDataSchema.shape);
 
 export const transformerParamsSchema = z.record(z.string(), z.any().optional());
+
+export const transformBlockAiDescription = {
+  name: "transformer",
+  description:
+    "a block that transforms an input object into a new object using either a key-to-key mapping (fieldMap) or custom JavaScript. when useJs is enabled, provided JS runs with a global input object containing the source data; otherwise, values are copied from input params to output keys based on string mappings.",
+  jsonSchema: JSON.stringify(z.toJSONSchema(transformerBlockSchema)),
+};
 
 export class TransformerBlock extends BaseBlock {
   constructor(

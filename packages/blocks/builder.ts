@@ -81,7 +81,7 @@ export const edgeDTOSchema = z.array(
     to: z.string(),
     fromHandle: z.string(),
     toHandle: z.string(),
-  })
+  }),
 );
 export type BlockDTOType = z.infer<typeof blockDTOSchema>;
 export type BlocksListDTOSchemaType = z.infer<typeof blocksListDTOSchema>;
@@ -93,7 +93,7 @@ type EdgesType = Record<
     {
       to: string;
       handle: string;
-    }
+    },
   ]
 >;
 
@@ -108,7 +108,7 @@ export class BlockBuilder {
   constructor(
     private readonly context: Context,
     private readonly engineFactory: EngineFactory,
-    private readonly shouldValidateBlockData?: boolean
+    private readonly shouldValidateBlockData?: boolean,
   ) {}
 
   // building graph's edges
@@ -230,7 +230,7 @@ export class BlockBuilder {
       this.context.dbFactory!.getDbAdapter(parsedResult.data.connection),
       parsedResult.data,
       this.engineFactory.create(this, executor),
-      edge
+      edge,
     );
   }
 
@@ -253,7 +253,7 @@ export class BlockBuilder {
       this.context,
       this.context.dbFactory!.getDbAdapter(parsedResult.data.connection),
       parsedResult.data,
-      edge
+      edge,
     );
   }
   private createDbGetAllBlock(block: BlockDTOType) {
@@ -266,7 +266,7 @@ export class BlockBuilder {
       this.context,
       this.context.dbFactory!.getDbAdapter(parsedResult.data.connection),
       parsedResult.data,
-      edge
+      edge,
     );
   }
   private createDbNativeBlock(block: BlockDTOType) {
@@ -279,7 +279,7 @@ export class BlockBuilder {
       this.context,
       this.context.dbFactory!.getDbAdapter(parsedResult.data.connection),
       parsedResult.data,
-      edge
+      edge,
     );
   }
   private createDbUpdateBlock(block: BlockDTOType) {
@@ -292,7 +292,7 @@ export class BlockBuilder {
       this.context,
       this.context.dbFactory!.getDbAdapter(parsedResult.data.connection),
       parsedResult.data,
-      edge
+      edge,
     );
   }
   private createDbInsertBulkBlock(block: BlockDTOType) {
@@ -305,7 +305,7 @@ export class BlockBuilder {
       this.context,
       this.context.dbFactory!.getDbAdapter(parsedResult.data.connection),
       parsedResult.data,
-      edge
+      edge,
     );
   }
   private createDbDeleteBlock(block: BlockDTOType) {
@@ -318,7 +318,7 @@ export class BlockBuilder {
       this.context,
       this.context.dbFactory!.getDbAdapter(parsedResult.data.connection),
       parsedResult.data,
-      edge
+      edge,
     );
   }
   private createDbInsertBlock(block: BlockDTOType) {
@@ -331,7 +331,7 @@ export class BlockBuilder {
       this.context,
       this.context.dbFactory!.getDbAdapter(parsedResult.data.connection),
       parsedResult.data,
-      edge
+      edge,
     );
   }
   private createHttpGetHeaderBlock(block: BlockDTOType) {
@@ -396,7 +396,7 @@ export class BlockBuilder {
       successBlock,
       failureBlock,
       this.context,
-      parsedResult.data
+      parsedResult.data,
     );
   }
   private createJsRunnerBlock(block: BlockDTOType): BaseBlock {
@@ -443,7 +443,7 @@ export class BlockBuilder {
         block: executor,
       },
       engine,
-      edge
+      edge,
     );
   }
   private createForLoopBlock(block: BlockDTOType): BaseBlock {
@@ -461,7 +461,7 @@ export class BlockBuilder {
         block: executor,
       },
       engine,
-      edge
+      edge,
     );
   }
   private createResponseBlock(block: BlockDTOType): BaseBlock {
@@ -485,7 +485,7 @@ export class BlockBuilder {
   }
   private findEdge(block: BlockDTOType, handleType: string) {
     const edge = this.edgesMap[block.id]?.find(
-      (edge) => edge.handle == handleType
+      (edge) => edge.handle == handleType,
     );
     return edge?.to || "";
   }

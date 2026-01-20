@@ -12,18 +12,24 @@ export const setVarSchema = z
     value: z
       .any()
       .describe(
-        "The value of the variable (can be number,bool,string,object or js expression)"
+        "The value of the variable (can be number,bool,string,object or js expression)",
       ),
   })
   .extend(baseBlockDataSchema.shape)
   .describe("A useful block to set a variable in the context");
+
+export const setVarBlockAiDescription = {
+  name: "set_var",
+  description: `sets a global variable in the execution context`,
+  jsonSchema: JSON.stringify(z.toJSONSchema(setVarSchema)),
+};
 
 export class SetVarBlock extends BaseBlock {
   constructor(
     context: Context,
     input: z.infer<typeof setVarSchema>,
     next?: string,
-    private readonly useParam?: boolean
+    private readonly useParam?: boolean,
   ) {
     super(context, input, next);
   }
@@ -31,7 +37,7 @@ export class SetVarBlock extends BaseBlock {
     const input = this.input as z.infer<typeof setVarSchema>;
     const value = await this.evaluateValue(
       this.useParam ? params : input.value,
-      params
+      params,
     );
     this.context.vars[this.input.key] = value;
     return {

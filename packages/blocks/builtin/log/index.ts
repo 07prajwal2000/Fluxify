@@ -3,7 +3,7 @@ import { baseBlockDataSchema } from "../../baseBlock";
 
 export const logBlockSchema = z
   .object({
-    message: z.string().optional(),
-    level: z.enum(["info", "warn", "error"]),
+    message: z.string().optional().describe("string message to log"),
+    level: z.enum(["info", "warn", "error"]).describe("log level"),
   })
   .extend(baseBlockDataSchema.shape);

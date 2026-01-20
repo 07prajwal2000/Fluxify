@@ -33,3 +33,4 @@ export * from "./builtin/db/native";
 export * from "./builtin/db/transaction";
 export * from "./builtin/db/update";
 export * from "./builtin/log";
+export * from "./builtin/blockAiDescriptions";

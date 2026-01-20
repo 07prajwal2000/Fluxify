@@ -69,23 +69,23 @@ export class PostgresAdapter implements IDbAdapter {
     const result = await queryBuilder.limit(1).delete();
     return result > 0;
   }
-  async insert(table: string, data: unknown): Promise<void> {
+  async insert(table: string, data: unknown): Promise<any> {
     const conn = this.getConnection()!;
-    await conn(table).insert(data);
+    return await conn(table).insert(data).returning("*");
   }
-  async insertBulk(table: string, data: any[]): Promise<void> {
+  async insertBulk(table: string, data: any[]): Promise<any> {
     const conn = this.getConnection()!;
-    await conn.batchInsert(table, data);
+    return await conn.batchInsert(table, data).returning("*");
   }
   async update(
     table: string,
     data: unknown,
     conditions: DBConditionType[]
-  ): Promise<void> {
+  ): Promise<any> {
     const conn = this.getConnection()!;
     let queryBuilder = conn(table);
     queryBuilder = this.buildQuery(conditions, queryBuilder);
-    await queryBuilder.update(data);
+    return await queryBuilder.update(data).returning("*");
   }
   async setMode(mode: DbAdapterMode): Promise<void> {
     if (mode == DbAdapterMode.TRANSACTION) {

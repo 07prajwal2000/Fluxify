@@ -2,11 +2,17 @@ import z from "zod";
 import { BaseBlock, BlockOutput, Context } from "../../baseBlock";
 import { logBlockSchema } from ".";
 
+export const consoleAiDescription = {
+  name: "console_log",
+  description: `logs message to console`,
+  jsonSchema: JSON.stringify(z.toJSONSchema(logBlockSchema)),
+};
+
 export class ConsoleLoggerBlock extends BaseBlock {
   constructor(
     context: Context,
     input: z.infer<typeof logBlockSchema>,
-    next?: string
+    next?: string,
   ) {
     super(context, input, next);
   }
@@ -41,13 +47,13 @@ export class ConsoleLoggerBlock extends BaseBlock {
       isObject
         ? JSON.stringify(originalMsg, null, 2)
         : typeof originalMsg == "string"
-        ? originalMsg.startsWith("js:")
-          ? ((await this.context.vm.runAsync(
-              originalMsg.slice(3),
-              params
-            )) as string)
+          ? originalMsg.startsWith("js:")
+            ? ((await this.context.vm.runAsync(
+                originalMsg.slice(3),
+                params,
+              )) as string)
+            : originalMsg
           : originalMsg
-        : originalMsg
     }`;
     return msg;
   }
