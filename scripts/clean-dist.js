@@ -32,7 +32,7 @@ function deleteDistFolders(currentDir) {
       }
 
       // 2. DELETE dist folders
-      if (item === 'dist') {
+      if (item === 'dist' || item === ".next") {
         console.log(`Deleting: ${fullPath}`);
         try {
           fs.rmSync(fullPath, { recursive: true, force: true });

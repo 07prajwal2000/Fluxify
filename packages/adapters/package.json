@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "keywords": [],
   "author": "",
+  "main": "dist/index.js",
   "license": "MIT",
   "description": "",
   "files": [
@@ -10,12 +11,10 @@
   ],
   "scripts": {
     "test": "vitest run",
-    "dev": "bun --watch index.ts --outdir dist --bundle --target bun --minify --external better-sqlite3 --external mysql2 --external sqlite3 --external mysql --external pg-query-stream --external tedious --external oracledb",
-    "lint": "tsc --noEmit",
-    "build": "bun build index.ts --outdir dist --bundle --target bun --minify --external better-sqlite3 --external mysql2 --external sqlite3 --external mysql --external pg-query-stream --external tedious --external oracledb"
+    "lint": "tsc --noEmit"
   },
   "dependencies": {
-    "@fluxify/lib": "workspace:../lib",
+    "@fluxify/lib": "workspace:*",
     "knex": "^3.1.0",
     "pg": "^8.16.3",
     "zod": "^4.1.11"

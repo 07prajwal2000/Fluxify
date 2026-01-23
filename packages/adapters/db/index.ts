@@ -25,18 +25,18 @@ export interface IDbAdapter {
     conditions: DBConditionType[],
     limit: number,
     offset: number,
-    sort: { attribute: string; direction: "asc" | "desc" }
+    sort: { attribute: string; direction: "asc" | "desc" },
   ): Promise<unknown[]>;
   getSingle(
     table: string,
-    conditions: DBConditionType[]
+    conditions: DBConditionType[],
   ): Promise<unknown | null>;
   insert(table: string, data: unknown): Promise<any>;
   insertBulk(table: string, data: unknown[]): Promise<any>;
   update(
     table: string,
     data: unknown,
-    conditions: DBConditionType[]
+    conditions: DBConditionType[],
   ): Promise<any>;
   raw(query: string | unknown, params?: any[]): Promise<any>;
   delete(table: string, conditions: DBConditionType[]): Promise<boolean>;
@@ -50,7 +50,7 @@ export class DbFactory {
   private readonly connectionMap: Record<string, IDbAdapter> = {};
   constructor(
     private readonly vm: JsVM,
-    private readonly dbConfig: Record<string, Connection>
+    private readonly dbConfig: Record<string, Connection>,
   ) {}
 
   public getDbAdapter(connection: string): IDbAdapter {
@@ -60,30 +60,42 @@ export class DbFactory {
     }
     if (connection in this.connectionMap) return this.connectionMap[connection];
     if (cfg.dbType === DbType.POSTGRES) {
-      const knexConn = this.getKnexConnection(cfg);
+      const knexConn = this.getKnexConnection(connection, cfg);
       return (this.connectionMap[connection] = new PostgresAdapter(
         knexConn,
-        this.vm
+        this.vm,
       ));
     }
     throw new Error("MongoDB Not implemented");
   }
 
-  private static knexConnection: Knex = null!;
-  private getKnexConnection(cfg: Connection) {
-    if (DbFactory.knexConnection === null) {
-      DbFactory.knexConnection = knex({
-        client: "pg",
-        connection: {
-          host: cfg.host,
-          port: Number(cfg.port),
-          user: cfg.username,
-          password: cfg.password,
-          database: cfg.database,
-        },
-      });
+  private static knexConnectionCache: Record<string, Knex> = {};
+
+  private getKnexConnection(connection: string, cfg: Connection) {
+    if (connection in DbFactory.knexConnectionCache) {
+      return DbFactory.knexConnectionCache[connection];
     }
-    return DbFactory.knexConnection;
+    return (DbFactory.knexConnectionCache[connection] = knex({
+      client: "pg",
+      connection: {
+        host: cfg.host,
+        port: Number(cfg.port),
+        user: cfg.username,
+        password: cfg.password,
+        database: cfg.database,
+      },
+    }));
+  }
+  // called when appconfig/integration changed
+  public static async ResetConnections() {
+    const proms: Promise<any>[] = [];
+    for (let conn in this.knexConnectionCache) {
+      proms.push(this.knexConnectionCache[conn].destroy());
+    }
+    this.knexConnectionCache = {};
+    try {
+      await Promise.allSettled(proms);
+    } catch (error) {}
   }
 }
 

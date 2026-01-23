@@ -8,7 +8,9 @@ export const requestBodySchema = z.object({
     .min(1)
     .regex(ROUTE_REGEX, "Must be a valid URL path")
     .optional(),
-  method: z.string().optional(),
+  method: z
+    .enum(["GET", "POST", "PUT", "DELETE"], "Must be a HTTP Method")
+    .optional(),
   active: z.boolean().optional(),
 });
 

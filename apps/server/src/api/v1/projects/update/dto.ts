@@ -1,18 +1,18 @@
-import { createSelectSchema, createUpdateSchema } from "drizzle-zod";
 import { z } from "zod";
-import { projectsEntity } from "../../../../db/schema";
 
 export const requestRouteSchema = z.object({
   id: z.uuidv7(),
 });
 
-export const requestBodySchema = createUpdateSchema(projectsEntity).omit({
-  id: true,
-  createdAt: true,
-  updatedAt: true,
+export const requestBodySchema = z.object({
+  name: z.string().min(1).max(255).optional(),
+  hidden: z.boolean().optional(),
 });
 
-export const responseSchema = createSelectSchema(projectsEntity).extend({
+export const responseSchema = z.object({
+  id: z.string().uuid(),
+  name: z.string().min(1).max(255),
+  hidden: z.boolean(),
   createdAt: z.string(),
   updatedAt: z.string(),
 });

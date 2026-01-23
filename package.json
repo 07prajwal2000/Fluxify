@@ -7,8 +7,7 @@
     "lint": "turbo run lint",
     "test": "turbo run test",
     "build": "turbo run build",
-    "build:server": "turbo run build:standalone",
-    "build:web": "turbo run build:web"
+    "build:proxy": "bun build scripts/proxy.js --outfile=dist/proxy.js --bundle --target bun --minify"
   },
   "keywords": [
     "fluxify",
@@ -23,7 +22,8 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
-    "@hono/zod-validator": "^0.7.2"
+    "@hono/zod-validator": "^0.7.2",
+    "http-proxy": "^1.18.1"
   },
   "devDependencies": {
     "turbo": "^2.5.5"

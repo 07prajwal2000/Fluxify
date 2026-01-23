@@ -3,8 +3,7 @@
   "tasks": {
     "dev": {
       "cache": false,
-      "persistent": true,
-      "dependsOn": ["^build"]
+      "persistent": true
     },
     "test": {
       "cache": false,
@@ -13,16 +12,13 @@
     "build": {
       "outputs": ["dist"]
     },
-    "build:web": {
+    "build:ui": {
       "outputs": [".next"],
       "dependsOn": ["^build"]
     },
     "build:standalone": {
       "outputs": ["dist"],
       "dependsOn": ["^build"]
-    },
-    "lint": {
-      "cache": false
     }
   }
 }

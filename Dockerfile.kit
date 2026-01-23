@@ -1,0 +1,65 @@
+FROM oven/bun:alpine AS base
+
+FROM base AS build
+WORKDIR /app
+COPY bun.lock bun.lock
+COPY package.json package.json
+COPY . .
+RUN bun install
+
+# Build server
+RUN bun run build
+
+# Prepare Next.js standalone build
+WORKDIR /app/apps/web
+RUN cp -r public .next/standalone/apps/web/public
+RUN cp -r .next/static .next/standalone/apps/web/.next/static
+
+# Build proxy
+WORKDIR /app
+RUN bun run build:proxy
+
+FROM base AS production
+WORKDIR /app
+
+# Install tini for process management
+RUN apk update
+RUN apk add tini
+
+# Copy server standalone build
+COPY --from=build /app/apps/server/dist/standalone.js /app/server/standalone.js
+COPY --from=build /app/apps/server/package.json /app/server/package.json
+
+# Copy Next.js standalone build
+COPY --from=build /app/apps/web/.next/standalone /app/web
+
+# Copy proxy server
+COPY --from=build /app/dist/proxy.js /app/proxy.js
+COPY --from=build /app/scripts/config.json /app/config.json
+
+# Create user
+RUN adduser -D -h /app appuser
+RUN chown -R appuser:appuser /app
+
+# Set /app to read-only
+RUN chmod -R 555 /app/server
+
+# Switch to non-root user
+USER appuser
+
+# proxy
+EXPOSE 8080
+# backend
+EXPOSE 5500
+# frontend
+EXPOSE 3000
+
+ENV NODE_ENV=production
+ENV HOSTNAME=0.0.0.0
+ENV WEB_PORT=3000
+ENV SERVER_PORT=5500
+ENV PROXY_PORT=8080
+
+# Set tini as entrypoint
+ENTRYPOINT ["tini", "--", "sh", "-c"]
+CMD ["bun server/standalone.js --cwd=/app/server & bun web/apps/web/server.js --cwd=/app/web & PORT=$WEB_PORT bun proxy.js config.json --cwd=/app & wait"]

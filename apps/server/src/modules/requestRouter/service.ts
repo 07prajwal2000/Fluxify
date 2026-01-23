@@ -16,11 +16,11 @@ export type HandleRequestType = {
 
 export async function handleRequest(
   ctx: Context,
-  parser: HttpRouteParser
+  parser: HttpRouteParser,
 ): Promise<HandleRequestType> {
   const pathId = parser.getRouteId(
     ctx.req.path,
-    ctx.req.method as HttpRoute["method"]
+    ctx.req.method as HttpRoute["method"],
   );
   if (!pathId) {
     return {
@@ -58,7 +58,7 @@ function createContext(
   requestBody: any,
   vm: JsVM,
   vars: ContextVarsType & Record<string, any>,
-  dbFactory: DbFactory
+  dbFactory: DbFactory,
 ): BlockContext {
   return {
     apiId: pathId.id,
@@ -82,7 +82,7 @@ function createDbFactory(vm: JsVM) {
 function setupContextVars(
   ctx: Context,
   body: any,
-  params?: Record<string, string>
+  params?: Record<string, string>,
 ): BlockContext["vars"] {
   return {
     getCookie(key) {

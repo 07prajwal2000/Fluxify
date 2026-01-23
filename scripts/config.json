@@ -1,0 +1,14 @@
+[
+  {
+    "upstream": "http://localhost:3000",
+    "prefix": "/_/admin/ui"
+  },
+  {
+    "upstream": "http://localhost:5500",
+    "prefix": "/_/admin/api"
+  },
+  {
+    "upstream": "http://localhost:5500",
+    "prefix": "/"
+  }
+]

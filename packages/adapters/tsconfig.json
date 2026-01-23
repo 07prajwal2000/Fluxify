@@ -1,8 +1,7 @@
 {
   "compilerOptions": {
-    "module": "esnext",
-    "moduleResolution": "bundler",
-    "target": "esnext",
+    "module": "commonjs",
+    "target": "es2024",
     "outDir": "dist",
     "sourceRoot": "index.ts",
     "sourceMap": true,
@@ -11,7 +10,6 @@
     "skipLibCheck": true,
     "esModuleInterop": true,
     "isolatedModules": true,
-    "types": ["node"],
     "jsx": "react",
     "noEmit": false
   },

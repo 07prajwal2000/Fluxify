@@ -5,6 +5,7 @@
   "files": [
     "dist"
   ],
+  "main": "dist/index.js",
   "author": "",
   "license": "ISC",
   "description": "",
@@ -15,13 +16,11 @@
   },
   "scripts": {
     "test": "vitest run",
-    "dev": "bun --watch index.ts --outdir dist --bundle --target bun --minify",
-    "lint": "tsc --noEmit",
-    "build": "bun build index.ts --outdir dist --bundle --target bun --minify"
+    "lint": "tsc --noEmit"
   },
   "dependencies": {
-    "@fluxify/adapters": "workspace:../adapters",
-    "@fluxify/lib": "workspace:../lib",
+    "@fluxify/adapters": "workspace:*",
+    "@fluxify/lib": "workspace:*",
     "dayjs": "^1.11.19",
     "zod": "^4.0.17"
   }

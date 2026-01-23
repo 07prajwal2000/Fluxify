@@ -18,7 +18,7 @@ export const postgresVariantConfigSchema = z
   .object({
     dbType: z
       .string()
-      .refine((v) => v === databaseVariantSchema.enum.PostgreSQL),
+      .refine((v: any) => v === databaseVariantSchema.enum.PostgreSQL),
     username: z.string().min(1),
     password: z.string().min(1),
     host: z.string().min(1),
@@ -32,13 +32,13 @@ export const postgresVariantConfigSchema = z
       source: z.literal("url"),
       url: z
         .string()
-        .min(10)
-        .refine((v) => {
+        .min(4)
+        .refine((v: any) => {
           if (v.startsWith("cfg:")) {
             return true;
           }
           const result = parsePostgresUrl(v);
           return result !== null;
         }),
-    })
+    }),
   );

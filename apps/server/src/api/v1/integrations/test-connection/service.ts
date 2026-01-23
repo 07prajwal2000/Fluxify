@@ -11,7 +11,7 @@ import { getSchema } from "../helpers";
 export async function testIntegrationConnection(
   group: z.infer<typeof integrationsGroupSchema>,
   variant: string,
-  config: any
+  config: any,
 ): Promise<z.infer<typeof responseSchema>> {
   const schema = getSchema(group, variant);
   if (!schema) {
@@ -21,6 +21,7 @@ export async function testIntegrationConnection(
     };
   }
   const result = schema.safeParse(config);
+
   if (!result.success) {
     return {
       success: false,
@@ -53,7 +54,7 @@ export async function testIntegrationConnection(
 }
 
 export default async function handleRequest(
-  body: z.infer<typeof requestBodySchema>
+  body: z.infer<typeof requestBodySchema>,
 ): Promise<z.infer<typeof responseSchema>> {
   const { group, variant, config: data } = body;
   return testIntegrationConnection(group, variant, data);
@@ -62,7 +63,7 @@ export default async function handleRequest(
 async function testDatabasesConnection(
   variant: string,
   config: any,
-  appConfigs: Map<string, string>
+  appConfigs: Map<string, string>,
 ) {
   switch (variant as z.infer<typeof databaseVariantSchema>) {
     case "PostgreSQL":
@@ -126,13 +127,13 @@ async function decodeAppConfig(keys: string[]) {
     if (config.isEncrypted) {
       config.value = EncryptionService.decodeData(
         config.value!,
-        config.encodingType!
+        config.encodingType!,
       );
       config.value = EncryptionService.decrypt(config.value);
     } else {
       config.value = EncryptionService.decodeData(
         config.value!,
-        config.encodingType!
+        config.encodingType!,
       );
     }
     configMap.set(config.key!, config.value!);

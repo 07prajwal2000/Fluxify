@@ -9,7 +9,7 @@
     "dev": "bun --watch deployments/standalone.ts",
     "test": "vitest run",
     "lint": "tsc --noEmit",
-    "build": "bun build deployments/standalone.ts --outdir dist --bundle --target bun --minify --external better-sqlite3 --external mysql2 --external sqlite3 --external mysql --external pg-query-stream --external tedious --external oracledb",
+    "build": "bun build deployments/standalone.ts --outdir=dist --bundle --target bun --minify --sourcemap=linked --external better-sqlite3 --external mysql2 --external sqlite3 --external mysql --external pg-query-stream --external tedious --external oracledb",
     "db:generate": "bun x drizzle-kit generate",
     "db:push": "bun x drizzle-kit push"
   },
@@ -30,9 +30,9 @@
   },
   "dependencies": {
     "@electric-sql/pglite": "^0.3.11",
-    "@fluxify/adapters": "workspace:../../packages/adapters/",
-    "@fluxify/blocks": "workspace:../../packages/blocks",
-    "@fluxify/lib": "workspace:../../packages/lib",
+    "@fluxify/adapters": "workspace:*",
+    "@fluxify/blocks": "workspace:*",
+    "@fluxify/lib": "workspace:*",
     "@hono/node-server": "^1.19.0",
     "@hono/standard-validator": "^0.1.5",
     "@hono/zod-validator": "^0.7.2",

@@ -11,6 +11,7 @@ import {
   integrationsGroupSchema,
   databaseVariantSchema,
 } from "../api/v1/integrations/schemas";
+import { DbFactory } from "@fluxify/adapters";
 
 export let dbIntegrationsCache: Record<string, any> = {};
 export let kvIntegrationsCache: Record<string, any> = {};
@@ -20,10 +21,12 @@ export async function loadIntegrations() {
   subscribeToChannel(CHAN_ON_INTEGRATION_CHANGE, async () => {
     console.log("integrations reloaded");
     await loadFromDB();
+    await DbFactory.ResetConnections();
   });
   subscribeToChannel(CHAN_ON_APPCONFIG_CHANGE, async () => {
     console.log("integrations reloaded");
     await loadFromDB();
+    await DbFactory.ResetConnections();
   });
 }
 
