@@ -7,7 +7,11 @@ import { getCache, hasCacheKey, setCache } from "../db/redis";
 export async function startBlocksExecution(routeId: string, context: Context) {
   const builder = new BlockBuilder(context, {
     create(builder, executor) {
-      return new Engine(builder.buildGraph(executor));
+      return new Engine(builder.buildGraph(executor), {
+        errorHandlerId: builder.getErrorHandlerId(),
+        maxExecutionTimeInMs: 4 * 1000,
+        context: context
+      });
     },
   });
 
@@ -17,7 +21,11 @@ export async function startBlocksExecution(routeId: string, context: Context) {
   builder.loadEdges(edges);
   const entrypoint = builder.getEntrypoint();
   const graph = builder.buildGraph(entrypoint);
-  const engine = new Engine(graph);
+  const engine = new Engine(graph, {
+    errorHandlerId: builder.getErrorHandlerId(),
+    maxExecutionTimeInMs: 4 * 1000,
+    context: context
+  });
   const executionResult = await engine.start(entrypoint, context.requestBody);
   return executionResult;
 }
@@ -29,7 +37,6 @@ async function loadBlocksAndEdgesFromDatabase(routeId: string) {
   }
   const blocks = await loadBlocksFromDB(routeId);
   const edges = await loadEdgesFromDB(routeId);
-
   await setCache(cacheKey, JSON.stringify({ blocks, edges }));
 
   return {

@@ -6,12 +6,15 @@ import {
   routeExist,
   upsertBlocks,
   insertEdges,
+  getBlocksCountByType,
 } from "./repository";
 import { NotFoundError } from "../../../../errors/notFoundError";
 import { db } from "../../../../db";
 import { ServerError } from "../../../../errors/serverError";
 import { CHAN_ON_ROUTE_CHANGE, publishMessage } from "../../../../db/redis";
 import { AuthACL } from "../../../../db/schema";
+import { BlockTypes } from "@fluxify/blocks";
+import { BadRequestError } from "../../../../errors/badRequestError";
 
 export default async function handleRequest(
   routeId: string,
@@ -44,6 +47,13 @@ export default async function handleRequest(
     if (edgesToUpsert.length > 0) await insertEdges(edgesToUpsert, tx);
     if (deleteBlockIds.length > 0) await deleteBlocks(deleteBlockIds, tx);
     if (deleteEdgeIds.length > 0) await deleteEdges(deleteEdgeIds, tx);
+    const duplicateBlocks = await getBlocksCountByType(routeId, [BlockTypes.entrypoint, BlockTypes.errorHandler], tx);
+    for (const dupBlock of duplicateBlocks) {
+      if (dupBlock.count !== 1) {
+        tx.rollback();
+        throw new BadRequestError(`Duplicate block ${dupBlock.type} found`);
+      }
+    }
     return true;
   });
   if (!result) throw new ServerError("Something went wrong");

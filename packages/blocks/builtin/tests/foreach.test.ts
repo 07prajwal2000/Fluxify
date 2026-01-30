@@ -34,7 +34,7 @@ describe("testing foreach block", () => {
         true
       ),
       itc: new InterceptorBlock(context, undefined, interceptorFn),
-    });
+    }, "error_handler");
     const sut = new ForEachLoopBlock(
       context,
       {

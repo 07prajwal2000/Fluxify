@@ -5,7 +5,6 @@ import BlockDataSettingsPanel from "./blockDataSettingsPanel";
 import HelpPanel from "./helpPanel";
 import { TbChevronsLeft, TbChevronsRight } from "react-icons/tb";
 import {
-  useBlockDataActionsStore,
   useBlockDataStore,
 } from "@/store/blockDataStore";
 import { useNodesData } from "@xyflow/react";

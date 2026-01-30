@@ -44,7 +44,7 @@ export class PostgresAdapter implements IDbAdapter {
   ): Promise<unknown[]> {
     const conn = this.getConnection()!;
     let queryBuilder = conn(table);
-    queryBuilder = this.buildQuery(conditions, queryBuilder);
+    queryBuilder = await this.buildQuery(conditions, queryBuilder);
     const l = limit < 0 || limit > this.HARD_LIMIT ? this.HARD_LIMIT : limit!;
     const data = await queryBuilder
       .limit(l)
@@ -59,13 +59,13 @@ export class PostgresAdapter implements IDbAdapter {
   ): Promise<unknown | null> {
     const conn = this.getConnection()!;
     let queryBuilder = conn(table);
-    queryBuilder = this.buildQuery(conditions, queryBuilder);
+    queryBuilder = await this.buildQuery(conditions, queryBuilder);
     return await queryBuilder.first("*");
   }
   async delete(table: string, conditions: DBConditionType[]): Promise<boolean> {
     const conn = this.getConnection()!;
     let queryBuilder = conn(table);
-    queryBuilder = this.buildQuery(conditions, queryBuilder);
+    queryBuilder = await this.buildQuery(conditions, queryBuilder);
     const result = await queryBuilder.limit(1).delete();
     return result > 0;
   }
@@ -84,7 +84,7 @@ export class PostgresAdapter implements IDbAdapter {
   ): Promise<any> {
     const conn = this.getConnection()!;
     let queryBuilder = conn(table);
-    queryBuilder = this.buildQuery(conditions, queryBuilder);
+    queryBuilder = await this.buildQuery(conditions, queryBuilder);
     return await queryBuilder.update(data).returning("*");
   }
   async setMode(mode: DbAdapterMode): Promise<void> {
@@ -110,7 +110,7 @@ export class PostgresAdapter implements IDbAdapter {
     await this.transaction?.rollback();
     await this.setMode(DbAdapterMode.NORMAL);
   }
-  private buildQuery(
+  private async buildQuery(
     conditions: DBConditionType[],
     builder: Knex.QueryBuilder
   ) {
@@ -118,7 +118,7 @@ export class PostgresAdapter implements IDbAdapter {
       const operator = this.getNativeOperator(condition.operator);
       const value =
         typeof condition.value === "string" && condition.value.startsWith("js:")
-          ? this.vm.run(condition.value.slice(3))
+          ? await this.vm.run(condition.value.slice(3))
           : condition.value;
 
       if (condition.chain == "or") {

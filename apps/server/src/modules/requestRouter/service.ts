@@ -1,6 +1,6 @@
 import { getCookie, setCookie } from "hono/cookie";
 import { HttpClient, HttpRoute, HttpRouteParser } from "@fluxify/lib";
-import { Context as BlockContext, ContextVarsType } from "@fluxify/blocks";
+import { Context as BlockContext, BlockOutput, ContextVarsType } from "@fluxify/blocks";
 import { Context } from "hono";
 import { ContentfulStatusCode } from "hono/utils/http-status";
 import { JsVM } from "@fluxify/lib";
@@ -13,6 +13,8 @@ export type HandleRequestType = {
   data?: any;
   status: ContentfulStatusCode;
 };
+
+export const RESPONSE_TIMEOUT = 4 * 1000;
 
 export async function handleRequest(
   ctx: Context,
@@ -36,19 +38,28 @@ export async function handleRequest(
   const vm = createJsVM(vars);
   const dbFactory = createDbFactory(vm);
   const context = createContext(pathId, ctx, requestBody, vm, vars, dbFactory);
+  const timeoutId = setTimeout(() => {
+    context.abortController.abort();
+  }, RESPONSE_TIMEOUT);
+
   const executionResult = await startBlocksExecution(pathId.id, context);
+  clearTimeout(timeoutId);
   if (executionResult) {
-    return {
-      status: executionResult.output?.httpCode || 200,
-      data:
-        executionResult.output?.body || executionResult?.output || "NO RESULT",
-    };
+    return parseResult(executionResult);
   }
   return {
     status: 500,
     data: {
       message: "Internal server error",
     },
+  };
+}
+
+function parseResult(executionResult: BlockOutput) {
+  return {
+    status: executionResult.output?.httpCode || (executionResult.error ? 500 : 200),
+    data:
+      executionResult.output?.body || executionResult?.output || (!executionResult.successful ? ({error: executionResult.error?.toString() || "Unknown error"}) : "NO RESULT"),
   };
 }
 
@@ -68,6 +79,11 @@ function createContext(
     vars,
     dbFactory,
     httpClient: createHttpClient(),
+    abortController: new AbortController(),
+    stopper: {
+      timeoutEnd: 0,
+      duration: RESPONSE_TIMEOUT
+    }
   };
 }
 

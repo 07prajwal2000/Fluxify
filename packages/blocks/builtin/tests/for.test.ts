@@ -79,7 +79,7 @@ describe("testing for loop block", () => {
         undefined,
         true
       ),
-    });
+    }, "");
     const sut = new ForLoopBlock(
       context,
       {

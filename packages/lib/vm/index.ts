@@ -2,7 +2,7 @@ import { Script } from "vm";
 
 export class JsVM {
   private context: Record<string, any>;
-
+  private static readonly DEFAULT_TIMEOUT = 4 * 1000;
   constructor(context: Record<string, any>) {
     this.context = context;
   }
@@ -12,7 +12,7 @@ export class JsVM {
       insideIIFE ? `(function () {${code}}).bind(this)();` : code
     );
     this.context["input"] = extras;
-    return script.runInNewContext(this.context);
+    return script.runInNewContext(this.context, {timeout: JsVM.DEFAULT_TIMEOUT});
   }
   async runAsync(code: string, extras?: any, insideIIFE = true): Promise<any> {
     return new Promise((resolve) => {

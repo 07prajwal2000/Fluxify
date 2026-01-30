@@ -24,23 +24,23 @@ export const conditionSchema = z.object({
     .describe("condition chain to use for evaluation"),
 });
 
-export function evaluateOperator(
+export async function evaluateOperator(
   vm: JsVM,
   lhs: any,
   rhs: any,
   operator: z.infer<typeof operatorSchema>,
   js?: string,
   extras?: any
-): boolean {
+): Promise<boolean> {
   const isLhsScript = typeof lhs == "string" && lhs.startsWith("js:");
   const isRhsScript = typeof rhs == "string" && rhs.startsWith("js:");
 
   if (operator == "js" && !!js) {
-    const result = vm.run(js.startsWith("js:") ? js.slice(3) : js, extras);
+    const result = await vm.run(js.startsWith("js:") ? js.slice(3) : js, extras);
     return vm.truthy(result);
   } else if (isLhsScript || isRhsScript) {
-    lhs = isLhsScript ? vm.run(lhs.slice(3), extras) : lhs;
-    rhs = isRhsScript ? vm.run(rhs.slice(3), extras) : rhs;
+    lhs = isLhsScript ? await vm.run(lhs.slice(3), extras) : lhs;
+    rhs = isRhsScript ? await vm.run(rhs.slice(3), extras) : rhs;
     return evaluateOperator(vm, lhs, rhs, operator);
   } else {
     switch (operator) {

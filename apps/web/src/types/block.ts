@@ -28,6 +28,7 @@ export enum BlockTypes {
   db_native = "db_native",
   db_transaction = "db_transaction",
   stickynote = "sticky_note",
+  errorHandler = "error_handler",
 }
 
 export enum BlockCategory {

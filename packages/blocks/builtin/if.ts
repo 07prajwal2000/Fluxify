@@ -39,7 +39,7 @@ export class IfBlock extends BaseBlock {
   }
   override async executeAsync(params?: any): Promise<BlockOutput> {
     const { conditions } = this.input as z.infer<typeof ifBlockSchema>;
-    const result = ConditionEvaluator.evaluateOperatorsList(
+    const result = await ConditionEvaluator.evaluateOperatorsList(
       conditions,
       this.context.vm,
       params,
@@ -51,20 +51,5 @@ export class IfBlock extends BaseBlock {
       error: undefined,
       next: result ? this.onSuccess : this.onError,
     };
-  }
-  evaluateResult(results: OperatorResult[]): boolean {
-    return ConditionEvaluator.evaluateResult(results);
-  }
-  evaluateOperator(
-    lhs: any,
-    rhs: any,
-    operator: z.infer<typeof operatorSchema>,
-  ): boolean {
-    return ConditionEvaluator.evaluateOperator(
-      lhs,
-      rhs,
-      operator,
-      this.context.vm,
-    );
   }
 }

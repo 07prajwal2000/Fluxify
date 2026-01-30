@@ -170,6 +170,8 @@ export function getHumanReadableBlockName(blockType: BlockTypes) {
   switch (blockType) {
     case BlockTypes.entrypoint:
       return "Entrypoint";
+    case BlockTypes.errorHandler:
+      return "Error Handler";
     case BlockTypes.httprequest:
       return "HTTP Request";
     case BlockTypes.if:

@@ -11,6 +11,11 @@ export interface Context {
   requestBody?: any;
   dbFactory?: DbFactory;
   httpClient?: HttpClient;
+  abortController: AbortController;
+  stopper: {
+    timeoutEnd: number;
+    duration: number;
+  }
 }
 
 export enum HttpCookieSameSite {

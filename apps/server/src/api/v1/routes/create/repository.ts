@@ -9,6 +9,7 @@ import {
 import { db, DbTransactionType } from "../../../../db";
 import { and, eq, or } from "drizzle-orm";
 import { generateID } from "@fluxify/lib";
+import { BlockTypes } from "@fluxify/blocks";
 
 const insertSchema = createInsertSchema(routesEntity);
 
@@ -29,6 +30,7 @@ export async function createDependency(
 ) {
   const id1 = generateID();
   const id2 = generateID();
+  const id3 = generateID();
   await (tx ?? db)?.insert(blocksEntity).values({
     routeId,
     type: "entrypoint",
@@ -49,6 +51,20 @@ export async function createDependency(
     },
     data: {
       httpCode: "200",
+    },
+  });
+  await (tx ?? db)?.insert(blocksEntity).values({
+    id: id3,
+    routeId,
+    type: BlockTypes.errorHandler,
+    position: {
+      x: -100,
+      y: 0,
+    },
+    data: {
+      next: "",
+      retryAfterFail: false,
+      retryCount: 0,
     },
   });
 }

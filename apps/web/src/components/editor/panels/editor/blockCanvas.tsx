@@ -250,7 +250,12 @@ const BlockCanvas = (props: Props) => {
   }
   function duplicateBlock(id: string) {
     const block = blocks.find((block) => block.id === id);
-    if (!block || block.type === BlockTypes.entrypoint) {
+    if (!block || block.type === BlockTypes.entrypoint || block.type === BlockTypes.errorHandler) {
+      showNotification({
+        message: "Cannot duplicate Entrypoint/Error handler block",
+        color: "red",
+        id: "duplicate-block-error-notification"
+      });
       return;
     }
     const position = { x: block.position.x + 50, y: block.position.y + 50 };

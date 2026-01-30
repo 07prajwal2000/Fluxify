@@ -7,7 +7,7 @@ import { JsVM } from "@fluxify/lib";
 
 export const whereConditionSchema = z.object({
   attribute: z.string(),
-  operator: operatorSchema.exclude(["js"]),
+  operator: operatorSchema.exclude(["js", "is_empty", "is_not_empty"]),
   value: z.string().or(z.number()),
   chain: z.enum(["and", "or"]),
 });

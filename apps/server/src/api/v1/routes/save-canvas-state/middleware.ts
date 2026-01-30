@@ -30,6 +30,8 @@ import {
   nativeDbBlockSchema,
   transactionDbBlockSchema,
   updateDbBlockSchema,
+  errorHandlerBlockSchema
+
 } from "@fluxify/blocks";
 import { Context, Next } from "hono";
 import { ValidationError } from "../../../../errors/validationError";
@@ -140,6 +142,12 @@ function blockDataValidator(data: z.infer<typeof requestBodySchema>) {
         break;
       case BlockTypes.sticky_note:
         schema = stickyNotesSchema;
+        break;
+      case BlockTypes.errorHandler:
+        schema = errorHandlerBlockSchema;
+        if (block.id === block.data.next) {
+          throw new BadRequestError("Error handler block cannot be connected to itself");
+        }
         break;
     }
     if (!schema) throw new BadRequestError("Invalid block type");

@@ -11,6 +11,7 @@ import { db } from "../../../../db";
 import { CHAN_ON_ROUTE_CHANGE, publishMessage } from "../../../../db/redis";
 import { generateID } from "@fluxify/lib";
 import { NotFoundError } from "../../../../errors/notFoundError";
+import { HttpMethod } from "../../../../db/schema";
 
 export default async function handleRequest(
   userId: string,
@@ -26,7 +27,7 @@ export default async function handleRequest(
     const existingRoute = await checkRouteExist(
       data.name,
       data.path,
-      data.method,
+      data.method as HttpMethod,
       tx
     );
     if (existingRoute) {

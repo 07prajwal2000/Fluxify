@@ -2,7 +2,7 @@ import { createInsertSchema } from "drizzle-zod";
 import { db, DbTransactionType } from "../../../../db";
 import { blocksEntity, edgesEntity, routesEntity } from "../../../../db/schema";
 import z from "zod";
-import { and, eq, inArray, ne, sql } from "drizzle-orm";
+import { and, count, eq, inArray, ne, sql } from "drizzle-orm";
 import { BlockTypes } from "@fluxify/blocks";
 
 const insertBlocksSchema = createInsertSchema(blocksEntity);
@@ -27,13 +27,24 @@ export async function upsertBlocks(
     });
 }
 
+export async function getBlocksCountByType(routeId: string, blocks: BlockTypes[], tx?: DbTransactionType) {
+  const duplicateBlocks = await (tx ?? db)
+    .select({  count: count(blocksEntity.id), type: blocksEntity.type })
+    .from(blocksEntity)
+    .where(and(eq(blocksEntity.routeId, routeId), inArray(blocksEntity.type, blocks)))
+    .groupBy(blocksEntity.type);
+
+  return duplicateBlocks;
+}
+
 export async function deleteBlocks(blockIds: string[], tx?: DbTransactionType) {
   await (tx ?? db)
     .delete(blocksEntity)
     .where(
       and(
         inArray(blocksEntity.id, blockIds),
-        ne(blocksEntity.type, BlockTypes.entrypoint)
+        ne(blocksEntity.type, BlockTypes.entrypoint),
+        ne(blocksEntity.type, BlockTypes.errorHandler)
       )
     );
 }

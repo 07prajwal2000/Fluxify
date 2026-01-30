@@ -91,8 +91,8 @@ export class ArrayOperationsBlock extends BaseBlock {
         array.unshift(value);
         break;
       case "filter":
-        array = array.filter((item) =>
-          ConditionEvaluator.evaluateOperatorsList(
+        array = array.filter(async (item) =>
+          await ConditionEvaluator.evaluateOperatorsList(
             input.filterConditions || [],
             this.context.vm,
             item,

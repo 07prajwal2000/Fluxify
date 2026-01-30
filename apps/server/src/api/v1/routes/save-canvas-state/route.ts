@@ -23,7 +23,7 @@ const openapiRouteOptions: DescribeRouteOptions = {
       description: "No content returned after successful operation",
     },
     400: {
-      description: "Invalid ID/Data format",
+      description: "Invalid ID/Data format or duplicate block found",
       content: {
         "application/json": {
           schema: resolver(validationErrorSchema),

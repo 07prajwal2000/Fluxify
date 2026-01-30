@@ -61,6 +61,7 @@ import {
   HttpRequestBlock,
   httpRequestBlockSchema,
 } from "./builtin/httpRequest";
+import { ErrorHandlerBlock, errorHandlerBlockSchema } from "./builtin/errorHandler";
 
 export const blockDTOSchema = z.object({
   id: z.uuidv7(),
@@ -105,6 +106,8 @@ export class BlockBuilder {
   private edgesMap: EdgesType = {};
   private blocksMap: { [id: string]: BlockDTOType } = {};
   private entrypoint = "";
+  private errorHandlerId: string = "";
+
   constructor(
     private readonly context: Context,
     private readonly engineFactory: EngineFactory,
@@ -138,6 +141,9 @@ export class BlockBuilder {
       if (block.type == BlockTypes.entrypoint) {
         this.entrypoint = block.id;
       }
+      if (block.type == BlockTypes.errorHandler) {
+        this.errorHandlerId = block.id;
+      }
     }
   }
   public getEdges() {
@@ -146,10 +152,14 @@ export class BlockBuilder {
   public buildGraph(entrypoint: string) {
     const newBlocksMap: { [id: string]: BaseBlock } = {};
     this.build(entrypoint, newBlocksMap);
+    this.build(this.errorHandlerId, newBlocksMap);
     return newBlocksMap;
   }
   public getEntrypoint() {
     return this.entrypoint;
+  }
+  public getErrorHandlerId() {
+    return this.errorHandlerId;
   }
   private build(id: string, newBlockMap: { [id: string]: BaseBlock }) {
     if (id in newBlockMap || !(id in this.blocksMap)) return;
@@ -198,7 +208,6 @@ export class BlockBuilder {
         return this.createHttpGetRequestBodyBlock(block);
       case BlockTypes.httprequest:
         return this.createHttpRequestBlock(block);
-
       case BlockTypes.db_getsingle:
         return this.createDbGetSingleBlock(block);
       case BlockTypes.db_getall:
@@ -215,8 +224,27 @@ export class BlockBuilder {
         return this.createDbNativeBlock(block);
       case BlockTypes.db_transaction:
         return this.createDbTransactionBlock(block);
+      case BlockTypes.errorHandler:
+        return this.createErrorHandlerBlock(block);
     }
   }
+
+  private createErrorHandlerBlock(block: BlockDTOType) {
+    const parsedResult = this.shouldValidateBlockData
+      ? errorHandlerBlockSchema.safeParse(block.data)
+      : { data: block.data, success: true };
+    if (!parsedResult.success) throw new Error("Invalid response block data");
+    const edge = this.findEdge(block, "source");
+    if (edge === block.id) {
+      throw new Error("Error handler block cannot be connected to itself");
+    }
+    return new ErrorHandlerBlock(
+      edge,
+      this.context,
+      parsedResult.data,
+    );
+  }
+
   private createDbTransactionBlock(block: BlockDTOType) {
     const parsedResult = this.shouldValidateBlockData
       ? transactionDbBlockSchema.safeParse(block.data)
