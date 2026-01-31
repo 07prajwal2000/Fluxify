@@ -1,5 +1,12 @@
 import { getCookie, setCookie } from "hono/cookie";
-import { HttpClient, HttpRoute, HttpRouteParser } from "@fluxify/lib";
+import {
+  AbstractLogger,
+  ConsoleLoggerProvider,
+  EmptyLoggerProvider,
+  HttpClient,
+  HttpRoute,
+  HttpRouteParser,
+} from "@fluxify/lib";
 import {
   Context as BlockContext,
   BlockOutput,
@@ -109,7 +116,15 @@ function setupContextVars(
   body: any,
   params?: Record<string, string>,
 ): BlockContext["vars"] {
+  let logger: AbstractLogger = null!;
+  if (process.env.NODE_ENV === "development") {
+    logger = new ConsoleLoggerProvider();
+  } else {
+    // TODO: require configuration from user.
+    logger = new EmptyLoggerProvider();
+  }
   return {
+    logger,
     getCookie(key) {
       return getCookie(ctx, key) || "";
     },
@@ -117,13 +132,13 @@ function setupContextVars(
       return appConfigCache[key];
     },
     setCookie(name, options) {
-      setCookie(ctx, name, options?.value || "", {
+      setCookie(ctx, name, options?.value.toString() || "", {
         domain: options?.domain,
         path: options?.path,
-        expires: options?.expiry as Date,
+        expires: new Date(options?.expiry),
         httpOnly: options?.httpOnly,
         secure: options?.secure,
-        sameSite: options?.samesite,
+        sameSite: options?.samesite || "Strict",
       });
     },
     getHeader(key) {

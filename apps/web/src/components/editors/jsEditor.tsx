@@ -1,4 +1,4 @@
-import { Editor } from "@monaco-editor/react";
+import { Editor, Monaco } from "@monaco-editor/react";
 
 type CodeEditorProps = {
   defaultValue?: string;
@@ -12,6 +12,63 @@ type CodeEditorProps = {
 const JsEditor = (props: CodeEditorProps) => {
   const showLineNumbers = props.showLineNumbers ?? true;
   const height = props.height ? `${props.height}px` : "350px";
+
+  function setupMonaco(monaco: Monaco) {
+    monaco.languages.typescript.javascriptDefaults.setCompilerOptions({
+      target: monaco.languages.typescript.ScriptTarget.ES2020,
+      lib: ["es2020"],
+      strict: true,
+      allowNonTsExtensions: true,
+    });
+    monaco.languages.typescript.javascriptDefaults.addExtraLib(
+      `
+      declare function getQueryParam(key: string): string;
+      declare function getRouteParam(key: string): string;
+      declare function getHeader(key: string): string;
+      declare function setHeader(key: string, value: string): void;
+      declare function setCookie(
+          name: string,
+          value: {
+            value: string | number;
+            domain: string;
+            path: string;
+            expiry: string;
+            httpOnly: boolean;
+            secure: boolean;
+            samesite: "Lax" | "Strict" | "None";
+          }
+        ): void;
+      /**
+       * get http request body
+       */
+      declare function getRequestBody(): any;
+      /**
+       * get the value of the app config
+       * @param key app config key name
+       */
+      declare function getConfig(key: string): string | number | boolean;
+      declare const httpRequestMethod: string;
+      declare const httpRequestRoute: string;
+      /**
+       * run database query inside DB Native block
+       * @param query SQL supported query
+       * @returns
+       */
+      declare function dbQuery(query: string): Promise<unknown>;
+      /**
+       * The output of the previous block
+       */
+      declare const input: any;
+      declare const logger: {
+        info(value: any): void;
+        warn(value: any): void;
+        error(value: any): void;
+      };
+      `,
+      "file:///types.d.ts",
+    );
+  }
+
   return (
     <Editor
       language="javascript"
@@ -27,6 +84,9 @@ const JsEditor = (props: CodeEditorProps) => {
           enabled: false,
         },
         automaticLayout: true,
+      }}
+      onMount={(editor, monaco) => {
+        setupMonaco(monaco);
       }}
     />
   );

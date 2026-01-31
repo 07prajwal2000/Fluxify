@@ -70,12 +70,12 @@ export class SetHttpCookieBlock extends BaseBlock {
     }
     this.context.vars.setCookie(input.name, {
       value: value,
-      domain: input.domain,
-      path: input.path,
-      expiry: input.expiry,
-      httpOnly: input.httpOnly,
-      secure: input.secure,
-      samesite: input.samesite,
+      domain: input.domain!,
+      path: input.path!,
+      expiry: input.expiry!,
+      httpOnly: input.httpOnly!,
+      secure: input.secure!,
+      samesite: input.samesite!,
     });
     return {
       continueIfFail: true,

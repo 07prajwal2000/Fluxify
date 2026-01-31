@@ -1,5 +1,5 @@
 import { DbFactory } from "@fluxify/adapters";
-import { HttpClient } from "@fluxify/lib";
+import { AbstractLogger, HttpClient } from "@fluxify/lib";
 import { JsVM } from "@fluxify/lib";
 import z from "zod";
 
@@ -15,7 +15,7 @@ export interface Context {
   stopper: {
     timeoutEnd: number;
     duration: number;
-  }
+  };
 }
 
 export enum HttpCookieSameSite {
@@ -42,12 +42,33 @@ export interface ContextVarsType {
   getHeader: (key: string) => string;
   setHeader: (key: string, value: string) => void;
   getCookie: (key: string) => string;
-  setCookie(name: string, value: any): void;
+  setCookie(
+    name: string,
+    value: {
+      value: string | number;
+      domain: string;
+      path: string;
+      expiry: string;
+      httpOnly: boolean;
+      secure: boolean;
+      samesite: HttpCookieSameSite;
+    },
+  ): void;
   httpRequestMethod: string;
   httpRequestRoute: string;
   getRequestBody: () => any;
+  /**
+   * get the value of the app config
+   * @param key app config key name
+   */
   getConfig(key: string): string | number | boolean;
-  dbQuery?: (query: string) => Promise<void>;
+  /**
+   * run database query inside DB Native block
+   * @param query SQL supported query
+   * @returns
+   */
+  dbQuery?: (query: string) => Promise<unknown>;
+  logger: AbstractLogger;
 }
 
 export interface BlockOutput {

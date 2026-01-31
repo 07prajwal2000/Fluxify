@@ -18,6 +18,7 @@ import {
   getIntegrationsGroups,
   getIntegrationsVariants,
   getDefaultVariantValue,
+  humanReadableConnectorNames,
 } from "@fluxify/server/src/api/v1/integrations/helpers";
 import { getZodValidatedErrors } from "@/lib/forms";
 import PostgresForm from "./databases/postgres";
@@ -27,6 +28,7 @@ import { TbTrash } from "react-icons/tb";
 import ConfirmDialog from "../dialog/confirmDialog";
 import { useDisclosure } from "@mantine/hooks";
 import RequireRoleInAnyProject from "../auth/requireRoleInAnyProject";
+import OpenObserveIntegrationForm from "./observability/openObserve";
 
 type PropTypes = {
   onSubmit?: (data: any) => void;
@@ -111,7 +113,10 @@ const IntegrationForm = (props: PropTypes) => {
           description="Choose from a range of connectors to get started"
           {...form.getInputProps("group")}
           value={form.values.group}
-          data={getIntegrationsGroups()}
+          data={getIntegrationsGroups().map((grp) => ({
+            label: humanReadableConnectorNames[grp],
+            value: grp,
+          }))}
         />
         {form.values.group && (
           <Select
@@ -125,6 +130,10 @@ const IntegrationForm = (props: PropTypes) => {
         )}
         {form.values.group === "database" &&
           form.values.variant === "PostgreSQL" && <PostgresForm form={form} />}
+        {form.values.group === "observability" &&
+          form.values.variant === "Open Observe" && (
+            <OpenObserveIntegrationForm form={form} />
+          )}
         <Group justify="space-between">
           {props.showTestConnection &&
             form.values.group &&

@@ -1,10 +1,20 @@
-import { z } from "zod";
+import { success, z } from "zod";
 import { requestBodySchema, responseSchema } from "./dto";
-import { databaseVariantSchema, integrationsGroupSchema } from "../schemas";
+import {
+  databaseVariantSchema,
+  integrationsGroupSchema,
+  observabilityVariantSchema,
+  openObserveVariantConfigSchema,
+  postgresVariantConfigSchema,
+} from "../schemas";
 import { getAppConfigKeysFromData } from "../create/service";
 import { getAppConfigs } from "./repository";
 import { parsePostgresUrl } from "../../../../lib/parsers/postgres";
-import { PostgresAdapter } from "@fluxify/adapters";
+import {
+  openObserveSettings,
+  PostgresAdapter,
+  testOpenObserveConnection,
+} from "@fluxify/adapters";
 import { EncryptionService } from "../../../../lib/encryption";
 import { getSchema } from "../helpers";
 
@@ -41,6 +51,8 @@ export async function testIntegrationConnection(
       break;
     case "baas":
       break;
+    case "observability":
+      return testObservibilityConnection(variant, config, appConfigs);
     default:
       return {
         success: false,
@@ -68,7 +80,10 @@ async function testDatabasesConnection(
   switch (variant as z.infer<typeof databaseVariantSchema>) {
     case "PostgreSQL":
       const pgConfig = extractPgConnectionInfo(config, appConfigs);
-      if (!pgConfig) {
+      if (
+        !pgConfig ||
+        !postgresVariantConfigSchema.safeParse(pgConfig).success
+      ) {
         return {
           success: false,
           error: "Invalid configuration",
@@ -88,6 +103,52 @@ async function testDatabasesConnection(
         error: "Invalid variant",
       };
   }
+}
+
+async function testObservibilityConnection(
+  variant: string,
+  config: any,
+  appConfigs: Map<string, string>,
+) {
+  switch (variant as z.infer<typeof observabilityVariantSchema>) {
+    case "Open Observe":
+      if (!openObserveVariantConfigSchema.safeParse(config).success) {
+        return { success: false, error: "Invalid configuration" };
+      }
+      const openObserveConfig = extractOpenObserveConnectionInfo(
+        config,
+        appConfigs,
+      );
+      if (!openObserveConfig) {
+        return { success: false, error: "Invalid configuration" };
+      }
+      const result = await testOpenObserveConnection(openObserveConfig);
+      if (!result) {
+        return { success: false, error: "Failed to connect to Open Observe" };
+      }
+      return { success: true, error: "" };
+    default:
+      return { success: false, error: "Invalid variant" };
+  }
+}
+
+function extractOpenObserveConnectionInfo(
+  config: z.infer<typeof openObserveVariantConfigSchema>,
+  appConfig: Map<string, string>,
+): z.infer<typeof openObserveSettings> | null {
+  const baseUrl = config.baseUrl.startsWith("cfg:")
+    ? appConfig.get(config.baseUrl.substring(3))
+    : config.baseUrl;
+  if (!baseUrl || !z.url().safeParse(baseUrl).success) return null;
+  const credentials = config.credentials;
+
+  return {
+    baseUrl,
+    credentials: typeof credentials === "object" ? credentials : undefined,
+    projectId: "",
+    routeId: "",
+    encodedBasicAuth: typeof credentials === "string" ? credentials : undefined,
+  };
 }
 
 function extractPgConnectionInfo(config: any, appConfigs: Map<string, string>) {

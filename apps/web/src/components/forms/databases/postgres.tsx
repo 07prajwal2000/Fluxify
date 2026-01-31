@@ -10,7 +10,7 @@ import {
   TextInput,
 } from "@mantine/core";
 import { UseFormReturnType } from "@mantine/form";
-import React, { useState } from "react";
+import { useState } from "react";
 
 type PropTypes = {
   form: UseFormReturnType<any>;
@@ -19,7 +19,7 @@ type PropTypes = {
 const PostgresForm = (props: PropTypes) => {
   const form = props.form;
   const [tabSelected, setTabSelected] = useState(
-    form.values.config.source === "url" ? "url" : "credentials"
+    form.values.config.source === "url" ? "url" : "credentials",
   );
   const isUrlSelected = "url" === tabSelected;
   function selectUrl() {

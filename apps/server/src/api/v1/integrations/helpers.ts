@@ -4,19 +4,39 @@ import {
   databaseVariantSchema,
   postgresVariantConfigSchema,
   kvVariantSchema,
+  observabilityVariantSchema,
+  openObserveVariantConfigSchema,
+  baasVariantSchema,
+  aiVariantSchema,
 } from "./schemas";
 
-type Variants = keyof typeof databaseVariantSchema.enum;
+type Variants =
+  | keyof typeof databaseVariantSchema.enum
+  | keyof typeof kvVariantSchema.enum
+  | keyof typeof observabilityVariantSchema.enum
+  | keyof typeof aiVariantSchema.enum
+  | keyof typeof baasVariantSchema.enum;
+
+export const humanReadableConnectorNames = {
+  database: "Databases",
+  kv: "Key Value store",
+  ai: "Artifical Intelligence",
+  baas: "Backend as a Service",
+  observability: "Observability",
+};
 
 export function getIntegrationsGroups() {
   return Object.values(integrationsGroupSchema.options);
 }
 
 export function getIntegrationsVariants(
-  group: z.infer<typeof integrationsGroupSchema>
+  group: z.infer<typeof integrationsGroupSchema>,
 ) {
   if (group === "database") {
     return Object.values(databaseVariantSchema.options);
+  }
+  if (group === "observability") {
+    return Object.values(observabilityVariantSchema.options);
   }
   return [];
 }
@@ -35,12 +55,21 @@ export function getDefaultVariantValue(variant: Variants) {
       source: "credentials",
     } as z.infer<typeof postgresVariantConfigSchema>;
   }
+  if (variant === "Open Observe") {
+    return {
+      baseUrl: "",
+      credentials: {
+        username: "",
+        password: "",
+      },
+    } as z.infer<typeof openObserveVariantConfigSchema>;
+  }
   return null;
 }
 
 export function getSchema(
   group: z.infer<typeof integrationsGroupSchema>,
-  variant: string
+  variant: string,
 ) {
   let schema: ZodType = null!;
   if (group === "database") {
@@ -63,6 +92,16 @@ export function getSchema(
     switch (variant as z.infer<typeof kvVariantSchema>) {
       default:
         return null;
+    }
+  } else if (group === "observability") {
+    const result = observabilityVariantSchema.safeParse(variant);
+    if (!result.success) {
+      return null;
+    }
+    switch (variant as z.infer<typeof observabilityVariantSchema>) {
+      case "Open Observe":
+        schema = openObserveVariantConfigSchema;
+        break;
     }
   }
   return schema;

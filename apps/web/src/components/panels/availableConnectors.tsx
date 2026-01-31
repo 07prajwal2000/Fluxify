@@ -1,9 +1,8 @@
 "use client";
-import { Group, Stack, Text } from "@mantine/core";
-import React from "react";
+import { Stack, Text } from "@mantine/core";
 import { FaRobot, FaTableList } from "react-icons/fa6";
 import { LuServerCrash } from "react-icons/lu";
-import { TbDatabase } from "react-icons/tb";
+import { TbDatabase, TbHeartRateMonitor } from "react-icons/tb";
 import MenuItem from "../rootSidebar/menuItem";
 import {
   IntegrationGroup,
@@ -31,6 +30,11 @@ const connectors = [
     name: "BaaS",
     type: "baas" as IntegrationGroup,
     icon: <LuServerCrash size={20} />,
+  },
+  {
+    name: "Observability",
+    type: "observability" as IntegrationGroup,
+    icon: <TbHeartRateMonitor size={20} />,
   },
 ];
 
