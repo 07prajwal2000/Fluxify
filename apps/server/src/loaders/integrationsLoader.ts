@@ -12,7 +12,7 @@ import {
   databaseVariantSchema,
   observabilityVariantSchema,
 } from "../api/v1/integrations/schemas";
-import { DbFactory, OpenObserve } from "@fluxify/adapters";
+import { DbFactory, LokiLogger, OpenObserve } from "@fluxify/adapters";
 
 export let dbIntegrationsCache: Record<string, any> = {};
 export let kvIntegrationsCache: Record<string, any> = {};
@@ -53,8 +53,15 @@ async function loadFromDB() {
           integration.config as any,
           appConfigCache,
         );
-        observabilityIntegrationsCache[integration.id] = config;
+      } else if (
+        integration.variant === observabilityVariantSchema.enum["Loki"]
+      ) {
+        config = LokiLogger.extractConnectionInfo(
+          integration.config as any,
+          appConfigCache,
+        );
       }
+      observabilityIntegrationsCache[integration.id] = config;
     }
     if (config) {
       config["variant"] = variant;

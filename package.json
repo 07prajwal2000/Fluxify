@@ -4,6 +4,8 @@
   "type": "module",
   "scripts": {
     "dev": "turbo run dev",
+    "dev:server": "bun run --env-file=./apps/server/.env --watch ./apps/server/deployments/standalone.ts",
+    "dev:web": "turbo run dev --filter=@fluxify/web",
     "lint": "turbo run lint",
     "test": "turbo run test",
     "build": "turbo run build",

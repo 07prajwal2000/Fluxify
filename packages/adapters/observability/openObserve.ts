@@ -36,7 +36,9 @@ export class OpenObserve implements AbstractLogger {
     const settings = this.settings;
     const headers = OpenObserve.getHeaders(settings);
     settings.projectId = settings.projectId.replaceAll(" ", "_");
-    const bulkInsertUrl = `${settings.baseUrl}/logs_${settings.projectId}/_multi`; // ND-JSON endpoint
+    const baseUrl = new URL(settings.baseUrl);
+    const openObserveBaseUrl = `${baseUrl.protocol}//${baseUrl.host}`;
+    const bulkInsertUrl = `${openObserveBaseUrl}/logs_${settings.projectId}/_multi`; // ND-JSON endpoint
     const transport = new HttpBufferedTransport({
       url: bulkInsertUrl,
       headers,

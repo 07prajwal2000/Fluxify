@@ -1,5 +1,3 @@
-import pino from "pino";
-
 export interface AbstractLogger {
   logInfo(value: any): void;
   logWarn(value: any): void;

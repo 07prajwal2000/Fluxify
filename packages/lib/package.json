@@ -2,9 +2,9 @@
   "name": "@fluxify/lib",
   "version": "1.0.0",
   "keywords": [],
-  "files": [
-    "dist"
-  ],
+  "exports": {
+    ".": "./index.ts"
+  },
   "author": "",
   "license": "MIT",
   "description": "",

@@ -8,6 +8,7 @@ import {
   openObserveVariantConfigSchema,
   baasVariantSchema,
   aiVariantSchema,
+  lokiVariantConfigSchema,
 } from "./schemas";
 
 type Variants =
@@ -55,7 +56,7 @@ export function getDefaultVariantValue(variant: Variants) {
       source: "credentials",
     } as z.infer<typeof postgresVariantConfigSchema>;
   }
-  if (variant === "Open Observe") {
+  if (variant === "Open Observe" || variant === "Loki") {
     return {
       baseUrl: "",
       credentials: {
@@ -101,6 +102,9 @@ export function getSchema(
     switch (variant as z.infer<typeof observabilityVariantSchema>) {
       case "Open Observe":
         schema = openObserveVariantConfigSchema;
+        break;
+      case "Loki":
+        schema = lokiVariantConfigSchema;
         break;
     }
   }

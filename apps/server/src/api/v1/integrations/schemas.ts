@@ -18,7 +18,7 @@ export const aiVariantSchema = z.enum([
   "OpenAI Compatible",
 ]);
 export const baasVariantSchema = z.enum(["Firebase", "Supabase"]);
-export const observabilityVariantSchema = z.enum(["Open Observe"]);
+export const observabilityVariantSchema = z.enum(["Open Observe", "Loki"]);
 
 // Database
 export const postgresVariantConfigSchema = z
@@ -62,5 +62,21 @@ export const openObserveVariantConfigSchema = z.object({
       username: z.string(),
       password: z.string(),
     })
-    .or(z.string().refine((v) => v.startsWith("cfg:"))),
+    .or(z.string()),
+});
+
+export const lokiVariantConfigSchema = z.object({
+  baseUrl: z
+    .string()
+    .refine((v) =>
+      v.startsWith("cfg:") ? true : z.url().safeParse(v).success,
+    ),
+  // can be object or base64 encoded basic auth
+  credentials: z
+    .object({
+      username: z.string(),
+      password: z.string(),
+    })
+    .optional()
+    .or(z.string().optional()),
 });

@@ -3,7 +3,7 @@ import { db } from "../db";
 import { blocksEntity, edgesEntity } from "../db/schema";
 import { and, eq, ne } from "drizzle-orm";
 import { getCache, hasCacheKey, setCache } from "../db/redis";
-import { createIntegrationObject } from "./integrationFactory";
+import { IntegrationFactory } from "./integrationFactory";
 
 export async function startBlocksExecution(
   path: {
@@ -13,6 +13,7 @@ export async function startBlocksExecution(
   },
   context: Context,
 ) {
+  const integrationFactory = new IntegrationFactory();
   const builder = new BlockBuilder(
     context,
     {
@@ -26,7 +27,7 @@ export async function startBlocksExecution(
     },
     {
       create(options) {
-        return createIntegrationObject({ ...options, path });
+        return integrationFactory.createIntegrationObject({ ...options, path });
       },
     },
     false,

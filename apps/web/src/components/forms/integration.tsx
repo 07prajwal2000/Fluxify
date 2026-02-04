@@ -29,6 +29,7 @@ import ConfirmDialog from "../dialog/confirmDialog";
 import { useDisclosure } from "@mantine/hooks";
 import RequireRoleInAnyProject from "../auth/requireRoleInAnyProject";
 import OpenObserveIntegrationForm from "./observability/openObserve";
+import LokiIntegrationForm from "./observability/loki";
 
 type PropTypes = {
   onSubmit?: (data: any) => void;
@@ -134,6 +135,8 @@ const IntegrationForm = (props: PropTypes) => {
           form.values.variant === "Open Observe" && (
             <OpenObserveIntegrationForm form={form} />
           )}
+        {form.values.group === "observability" &&
+          form.values.variant === "Loki" && <LokiIntegrationForm form={form} />}
         <Group justify="space-between">
           {props.showTestConnection &&
             form.values.group &&

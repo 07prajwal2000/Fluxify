@@ -3,6 +3,7 @@ import { requestBodySchema, responseSchema } from "./dto";
 import {
   databaseVariantSchema,
   integrationsGroupSchema,
+  lokiVariantConfigSchema,
   observabilityVariantSchema,
   openObserveVariantConfigSchema,
   postgresVariantConfigSchema,
@@ -12,6 +13,7 @@ import { getAppConfigs } from "./repository";
 import { parsePostgresUrl } from "../../../../lib/parsers/postgres";
 import {
   extractPgConnectionInfo,
+  LokiLogger,
   OpenObserve,
   PostgresAdapter,
 } from "@fluxify/adapters";
@@ -126,9 +128,24 @@ async function testObservibilityConnection(
       if (!openObserveConfig) {
         return { success: false, error: "Invalid configuration" };
       }
-      const result = await OpenObserve.TestConnection(openObserveConfig);
-      if (!result) {
+      const openObserveResult =
+        await OpenObserve.TestConnection(openObserveConfig);
+      if (!openObserveResult) {
         return { success: false, error: "Failed to connect to Open Observe" };
+      }
+      return { success: true, error: "" };
+
+    case "Loki":
+      if (!lokiVariantConfigSchema.safeParse(config).success) {
+        return { success: false, error: "Invalid configuration" };
+      }
+      const lokiConfig = LokiLogger.extractConnectionInfo(config, appConfigs);
+      if (!lokiConfig) {
+        return { success: false, error: "Invalid configuration" };
+      }
+      const lokiResult = await LokiLogger.TestConnection(lokiConfig);
+      if (!lokiResult) {
+        return { success: false, error: "Failed to connect to Loki" };
       }
       return { success: true, error: "" };
     default:

@@ -23,7 +23,13 @@ export class CloudLogsBlock extends BaseBlock {
     const data = this.input as z.infer<typeof logBlockSchema>;
     const level = data.level;
     const msgOrParams = data.message?.trim() != "" ? data.message : params;
-    const msg = await formatMessage(msgOrParams, level, this.context, params);
+    const msg = await formatMessage(
+      msgOrParams,
+      level,
+      this.context,
+      params,
+      "obj",
+    );
 
     if (level == "info") {
       this.logger.logInfo(msg);
