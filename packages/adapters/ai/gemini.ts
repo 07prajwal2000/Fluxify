@@ -1,4 +1,5 @@
 import { ChatGoogleGenerativeAI } from "@langchain/google-genai";
+import { createAgent, DynamicTool } from "langchain";
 
 type GeminiVariantConfig = {
   apiKey: string;
@@ -6,6 +7,18 @@ type GeminiVariantConfig = {
 };
 
 export class GeminiIntegration {
+  constructor(private readonly config: GeminiVariantConfig) {}
+
+  createAgent(tools?: DynamicTool[]) {
+    const model = new ChatGoogleGenerativeAI({
+      apiKey: this.config.apiKey,
+      model: this.config.model,
+    });
+    return createAgent({
+      model,
+      tools,
+    });
+  }
   static ExtractConnectionInfo(
     config: GeminiVariantConfig,
     appConfigs: Map<string, string>,

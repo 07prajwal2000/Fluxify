@@ -1,11 +1,24 @@
 import { ChatOpenAI } from "@langchain/openai";
-
+import { createAgent, DynamicTool } from "langchain";
 type OpenAIVariantConfig = {
   apiKey: string;
   model: string;
 };
 
 export class OpenAIIntegration {
+  constructor(private readonly config: OpenAIVariantConfig) {}
+
+  createAgent(tools?: DynamicTool[]) {
+    const model = new ChatOpenAI({
+      apiKey: this.config.apiKey,
+      model: this.config.model,
+    });
+    return createAgent({
+      model,
+      tools,
+    });
+  }
+
   static ExtractConnectionInfo(
     config: OpenAIVariantConfig,
     appConfigs: Map<string, string>,

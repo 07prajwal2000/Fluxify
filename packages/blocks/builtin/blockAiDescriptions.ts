@@ -25,6 +25,7 @@ import { setHeaderAiDescription } from "./http/setHttpHeader";
 import { consoleAiDescription } from "./log/console";
 import { forLoopAiDescription } from "./loops/for";
 import { foreachLoopAiDescription } from "./loops/foreach";
+import { cloudLogsAiDescription } from "./log/cloudLogs";
 
 export const blockAiDescriptions = [
   arrayOperationsAiDescription,
@@ -54,4 +55,5 @@ export const blockAiDescriptions = [
   consoleAiDescription,
   forLoopAiDescription,
   foreachLoopAiDescription,
+  cloudLogsAiDescription,
 ];

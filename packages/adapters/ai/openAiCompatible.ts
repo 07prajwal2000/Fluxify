@@ -1,5 +1,5 @@
 import { ChatOpenAI } from "@langchain/openai";
-
+import { createAgent, DynamicTool } from "langchain";
 type OpenAICompatibleVariantConfig = {
   apiKey: string;
   model: string;
@@ -7,6 +7,22 @@ type OpenAICompatibleVariantConfig = {
 };
 
 export class OpenAICompatibleIntegration {
+  constructor(private readonly config: OpenAICompatibleVariantConfig) {}
+
+  createAgent(tools?: DynamicTool[]) {
+    const model = new ChatOpenAI({
+      apiKey: this.config.apiKey,
+      model: this.config.model,
+      configuration: {
+        baseURL: this.config.baseUrl,
+      },
+    });
+    return createAgent({
+      model,
+      tools,
+    });
+  }
+
   static ExtractConnectionInfo(
     config: OpenAICompatibleVariantConfig,
     appConfigs: Map<string, string>,

@@ -3,12 +3,12 @@ site_description: "No/Low Code Backend Engine to Build APIs with ease"
 site_author: "07prajwal2000"
 docs_dir: "./docs"
 repo_name: "Fluxify"
-repo_url: "https://github.com/fluxify-rest/Fluxify"
+repo_url: "https://www.github.com/fluxify-rest/Fluxify"
 site_url: "https://docs.fluxify.rest"
 edit_uri: "https://github.com/fluxify-rest/Fluxify/edit/main/docs/"
 theme:
   name: material
-  logo: "assets/logo.webp"
+  logo: "assets/logo.png"
   favicon: "assets/favicon.ico"
   features:
     - content.code.copy
@@ -35,6 +35,10 @@ nav:
       - Execution Engine: "concepts/execution-engine.md"
       - Globals: "concepts/globals.md"
       - Integrations: "concepts/integrations.md"
+      - Virtual Machine: "concepts/vm.md"
+      - HTTP Client: "concepts/http-client.md"
+      - Evaluators: "concepts/evaluators.md"
+      - Logging: "concepts/logging.md"
   - "Deployments":
       - "deployments/index.md"
       - Cloud: "deployments/cloud.md"
@@ -43,12 +47,12 @@ nav:
       - Standalone Docker: "deployments/standalone-docker.md"
   - "Integrations":
       - "integrations/index.md"
-      - Databases: "integrations/databases/index.md"
-      - Available Connectors: "integrations/databases/available-connectors.md"
-      - How To: "integrations/databases/how-to.md"
-      - Key Points: "integrations/databases/key-points.md"
-      - SQL vs NoSQL: "integrations/databases/sql-vs-nosql.md"
-      - Transactions: "integrations/databases/transactions.md"
+      - "Databases":
+          - "integrations/databases.md"
+      - "Observability":
+          - "integrations/observability.md"
+      - "AI":
+          - "integrations/ai-models.md"
   - "Scripting":
       - "scripting/index.md"
       - Context: "scripting/context.md"
@@ -59,6 +63,9 @@ nav:
       - "blocks/index.md"
       - How They Work: "blocks/how-they-work.md"
       - List of Blocks: "blocks/list-of-blocks.md"
+  - "Logs":
+      - "blocks/cloud-logs.md"
+      - "blocks/console-log.md"
   - "Blog":
       - "blog/index.md"
 copyright: "Copyright &copy; 2025 Fluxify"

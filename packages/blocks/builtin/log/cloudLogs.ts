@@ -9,6 +9,12 @@ export const cloudLogsBlockSchema = z
   })
   .extend(logBlockSchema.shape);
 
+export const cloudLogsAiDescription = {
+  name: "cloud_logs",
+  description: `logs a message to cloud log store`,
+  jsonSchema: JSON.stringify(z.toJSONSchema(cloudLogsBlockSchema)),
+};
+
 export class CloudLogsBlock extends BaseBlock {
   constructor(
     context: Context,

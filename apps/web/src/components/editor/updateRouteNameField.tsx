@@ -23,7 +23,7 @@ const UpdateRouteNameField = () => {
   const router = useRouter();
   const { acl, userData } = useAuthStore();
   const canEdit =
-    userData.isSystemAdmin ??
+    userData.isSystemAdmin ||
     (acl &&
       roleHierarchy[acl[data?.projectId || ""]] >= roleHierarchy["creator"]);
 
