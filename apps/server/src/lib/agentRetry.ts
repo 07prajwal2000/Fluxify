@@ -1,7 +1,14 @@
 import { z } from "zod";
 import yaml from "yaml";
+import { AIMessage, HumanMessage, SystemMessage, ToolMessage } from "langchain";
+import { AiError } from "./ai/errors/aiError";
 
-type Message = ["system" | "user" | "ai", string];
+type Message =
+  | ["system" | "human" | "ai", string]
+  | SystemMessage
+  | HumanMessage
+  | AIMessage
+  | ToolMessage;
 
 interface RetryConfig {
   maxRetries: number;
@@ -16,7 +23,7 @@ export async function withRetry<T>(
   schema: z.ZodSchema<T>,
   initialMessages: Message[],
   config: RetryConfig = { maxRetries: 3 },
-): Promise<T> {
+): Promise<T | undefined> {
   let attempts = config.maxRetries;
   let conversationHistory = [...initialMessages];
 
@@ -47,17 +54,15 @@ export async function withRetry<T>(
       } else if (error instanceof Error) {
         errorMessage = error.message;
       }
-
-      console.error(
-        `Retrying... Attempts left: ${attempts}. Error: ${errorMessage}`,
-      );
-
       // 5. Inject error into history for the next loop
       // We tell the AI exactly what went wrong so it can fix it.
       conversationHistory.push([
         "system",
         `Your previous response was invalid. Please correct it and output ONLY valid JSON.\nError Details: ${errorMessage}`,
       ]);
+      if (attempts === 0) {
+        throw new AiError(errorMessage);
+      }
     }
   }
 

@@ -1,13 +1,16 @@
 import { ChatMistralAI } from "@langchain/mistralai";
 import { createAgent, DynamicTool } from "langchain";
+import { BaseAiIntegration } from "./baseAiIntegration";
 
 type MistralVariantConfig = {
   apiKey: string;
   model: string;
 };
 
-export class MistralIntegration {
-  constructor(private readonly config: MistralVariantConfig) {}
+export class MistralIntegration extends BaseAiIntegration {
+  constructor(private readonly config: MistralVariantConfig) {
+    super();
+  }
 
   static ExtractConnectionInfo(
     config: MistralVariantConfig,
@@ -23,11 +26,15 @@ export class MistralIntegration {
     return config;
   }
 
-  createAgent(tools?: DynamicTool[]) {
-    const model = new ChatMistralAI({
+  override createModel() {
+    return new ChatMistralAI({
       apiKey: this.config.apiKey,
       model: this.config.model,
     });
+  }
+
+  override createAgent(tools?: DynamicTool[]) {
+    const model = this.createModel();
     return createAgent({
       model,
       tools,
@@ -39,10 +46,7 @@ export class MistralIntegration {
     appConfigs: Map<string, string>,
   ) {
     const extractedConfig = this.ExtractConnectionInfo(config, appConfigs);
-    const model = new ChatMistralAI({
-      apiKey: extractedConfig.apiKey,
-      model: extractedConfig.model,
-    });
+    const model = new MistralIntegration(extractedConfig).createModel();
     const result = await model.invoke("Say OK", {
       timeout: 5_000,
     });

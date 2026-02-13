@@ -29,6 +29,7 @@ RUN apk add tini
 # Copy server standalone build
 COPY --from=build /app/apps/server/dist/standalone.js /app/server/standalone.js
 COPY --from=build /app/apps/server/package.json /app/server/package.json
+COPY --from=build /app/docs_index /app/docs_index
 
 # Copy Next.js standalone build
 COPY --from=build /app/apps/web/.next/standalone /app/web

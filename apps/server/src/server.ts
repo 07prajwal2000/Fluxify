@@ -13,6 +13,7 @@ import { auth, initializeAuth } from "./lib/auth";
 import authenticationRouter from "./api/auth/register";
 import { AccessControlRole } from "./db/schema";
 import { setSession } from "./middlewares/session";
+import { initDocsSearch } from "./lib/docs";
 
 const app = new Hono<{
   Variables: {
@@ -37,7 +38,7 @@ app.use(
     allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
     credentials: true,
     maxAge: 86400, // Cache preflight for 24 hours
-  })
+  }),
 );
 
 async function main() {
@@ -48,6 +49,7 @@ async function main() {
   await loadAppConfig();
   await loadIntegrations();
   if (adminRoutesEnabled) {
+    await initDocsSearch();
     app.use("*", setSession);
     initializeAuth(db);
     authenticationRouter.registerHandler(app);

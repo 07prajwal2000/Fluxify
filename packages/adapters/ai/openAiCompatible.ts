@@ -1,25 +1,32 @@
 import { ChatOpenAI } from "@langchain/openai";
 import { createAgent, DynamicTool } from "langchain";
+import { BaseAiIntegration } from "./baseAiIntegration";
 type OpenAICompatibleVariantConfig = {
   apiKey: string;
   model: string;
   baseUrl: string;
 };
 
-export class OpenAICompatibleIntegration {
-  constructor(private readonly config: OpenAICompatibleVariantConfig) {}
+export class OpenAICompatibleIntegration extends BaseAiIntegration {
+  constructor(private readonly config: OpenAICompatibleVariantConfig) {
+    super();
+  }
 
-  createAgent(tools?: DynamicTool[]) {
-    const model = new ChatOpenAI({
+  override createAgent(tools?: any[]) {
+    const model = this.createModel();
+    return createAgent({
+      model,
+      tools,
+    });
+  }
+
+  override createModel() {
+    return new ChatOpenAI({
       apiKey: this.config.apiKey,
       model: this.config.model,
       configuration: {
         baseURL: this.config.baseUrl,
       },
-    });
-    return createAgent({
-      model,
-      tools,
     });
   }
 
@@ -49,13 +56,7 @@ export class OpenAICompatibleIntegration {
     appConfigs: Map<string, string>,
   ) {
     const extractedConfig = this.ExtractConnectionInfo(config, appConfigs);
-    const llm = new ChatOpenAI({
-      apiKey: extractedConfig.apiKey,
-      model: extractedConfig.model,
-      configuration: {
-        baseURL: extractedConfig.baseUrl,
-      },
-    });
+    const llm = new OpenAICompatibleIntegration(extractedConfig).createModel();
     const result = await llm.invoke("Say OK");
     return result.content.length > 0;
   }

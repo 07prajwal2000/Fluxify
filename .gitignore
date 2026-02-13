@@ -7,3 +7,4 @@ settings.json
 dist
 .env.*
 .next
+docs_index

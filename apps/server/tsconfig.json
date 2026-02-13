@@ -11,7 +11,7 @@
     "skipLibCheck": true,
     "isolatedModules": true,
     "esModuleInterop": true,
-    "types": ["node"],
+    "types": ["node", "bun"],
     "jsx": "react",
     "noEmit": false
   },

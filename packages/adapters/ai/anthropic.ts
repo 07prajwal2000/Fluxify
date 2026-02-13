@@ -1,21 +1,29 @@
 import { ChatAnthropic } from "@langchain/anthropic";
 import { createAgent, DynamicTool } from "langchain";
+import { BaseAiIntegration } from "./baseAiIntegration";
+
 type AnthropicVariantConfig = {
   apiKey: string;
   model: string;
 };
 
-export class AnthropicIntegration {
-  constructor(private readonly config: AnthropicVariantConfig) {}
+export class AnthropicIntegration extends BaseAiIntegration {
+  constructor(private readonly config: AnthropicVariantConfig) {
+    super();
+  }
 
-  createAgent(tools?: DynamicTool[]) {
-    const model = new ChatAnthropic({
-      apiKey: this.config.apiKey,
-      model: this.config.model,
-    });
+  override createAgent(tools?: DynamicTool[]) {
+    const model = this.createModel();
     return createAgent({
       model,
       tools,
+    });
+  }
+
+  override createModel() {
+    return new ChatAnthropic({
+      apiKey: this.config.apiKey,
+      model: this.config.model,
     });
   }
 
@@ -38,10 +46,7 @@ export class AnthropicIntegration {
     appConfigs: Map<string, string>,
   ) {
     const extractedConfig = this.ExtractConnectionInfo(config, appConfigs);
-    const model = new ChatAnthropic({
-      apiKey: extractedConfig.apiKey,
-      model: extractedConfig.model,
-    });
+    const model = new AnthropicIntegration(extractedConfig).createModel();
     const result = await model.invoke("Say OK");
     return result.content.length > 0;
   }

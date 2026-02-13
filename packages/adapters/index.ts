@@ -6,3 +6,4 @@ export * from "./ai/anthropic";
 export * from "./ai/gemini";
 export * from "./ai/openAiCompatible";
 export * from "./ai/mistral";
+export * from "./ai/baseAiIntegration";
