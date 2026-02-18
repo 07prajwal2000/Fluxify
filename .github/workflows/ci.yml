@@ -22,7 +22,7 @@ jobs:
 
   build-and-push:
     needs: test
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && github.repository_owner == 'Fluxify-rest'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -52,4 +52,6 @@ jobs:
           context: .
           file: Dockerfile.kit
           push: true
-          tags: ghcr.io/${{ steps.owner.outputs.owner }}/fluxify-kit:${{ steps.commit.outputs.short_sha }}
+          tags: |
+            ghcr.io/${{ steps.owner.outputs.owner }}/fluxify-kit:${{ steps.commit.outputs.short_sha }}
+            ghcr.io/${{ steps.owner.outputs.owner }}/fluxify-kit:latest

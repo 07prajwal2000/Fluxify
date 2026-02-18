@@ -15,24 +15,21 @@ Create complex backend APIs through an intuitive drag-and-drop interface. No cod
 </div>
 
 ## 🚀 **Quick Start**
-1. Clone the repository
-2. Install dependencies
+1. Goto [Fluxify's Docker Repository](https://github.com/Fluxify-rest/Fluxify/pkgs/container/fluxify-kit)
+2. Pull the image
     ```bash
-    npm install
+    docker pull ghcr.io/fluxify-rest/fluxify-kit:latest
     ```
-3. Run dependencies using docker-compose
+3. Create a `.env` file and use the variables from the [env.example](env.example)
+3. Run the image
     ```bash
-    docker-compose up -d
+    docker run -d --env-file .env -p 8080:8080 ghcr.io/fluxify-rest/fluxify-kit:latest
     ```
-4. Start the application
-    ```bash
-    npm run dev
-    ```
-5. Goto http://localhost:8000 to access the application running behind caddy server
+4. Goto http://localhost:8080 to access the application running behind proxy server
 
 ---
 
-## 📈 **Roadmap**
+## 📈 **Features**
 
 - ✅ Visual drag-and-drop editor
 - ✅ Core block library
@@ -40,20 +37,21 @@ Create complex backend APIs through an intuitive drag-and-drop interface. No cod
 - ✅ PostgreSQL integration
 - ✅ TypeScript support
 - ✅ Secrets Management: Secure loading and saving of secrets
-- ✅ Database Interaction Blocks: Native database operation blocks
-- [-] Configurable Integrations: Connect to any service with ease
-  - [x] PostgreSQL
-  - [ ] MySQL
-  - [ ] MongoDB
-  - [ ] Redis/Memcached
-- 👥 **Multi-user Authentication**: User management system (WIP)
+- ✅ **Multi-user Authentication**: User management system
+- 💾 Database Interaction Blocks: Native database operation blocks
+    - ✅ PostgreSQL
+    - MySQL / MongoDB / Others (Looking for contributors)
+- 🔍 Observability: Native observability blocks
+    - Logging
+        - ✅ Open Observe
+        - Loki Logs
+- 🤖 **AI Integration**: AI-powered API generation (**Ongoing**)
 - 🔑 **JWT Blocks**: JSON Web Token handling and validation
 - ☁️ **Serverless Support**: Deploy to serverless functions
 - ⏰ **Cron Support**: Scheduled task execution
-- 🤖 **AI Integration**: AI-powered API generation
-- � **Audit Logs**: Execution history and trails
+- 🗒️ **Audit Logs**: Execution history and trails
 - 🔄 **Realtime Capabilities**: Live collaboration features
-- � **Backups**: Automated data backup systems
+- 💽 **Backups**: Automated data backup systems
 - 🛒 **Marketplace**: Online hub for blocks built by community
 
 ---
