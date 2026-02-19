@@ -20,5 +20,5 @@ const server = http.createServer((req, res) => {
 });
 
 server.listen(port, () => {
-  console.log("Proxy server listening on port 8080");
+  console.log(`Proxy server listening on port ${port}`);
 });

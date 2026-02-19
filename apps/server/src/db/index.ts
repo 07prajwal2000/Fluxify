@@ -1,19 +1,24 @@
 import { ExtractTablesWithRelations } from "drizzle-orm";
+
 import {
   drizzle,
-  NodePgDatabase,
   NodePgQueryResultHKT,
+  NodePgDatabase,
 } from "drizzle-orm/node-postgres";
-import { PgTransaction } from "drizzle-orm/pg-core";
+import type { PgTransaction } from "drizzle-orm/pg-core";
 import type { PgliteDatabase, PgliteQueryResultHKT } from "drizzle-orm/pglite";
+import { migrateDB } from "./migration";
+import { Pool } from "pg";
 
-let db: NodePgDatabase | PgliteDatabase = null!;
+let db: PgliteDatabase | NodePgDatabase = null!;
 
-export async function drizzleInit() {
+export async function drizzleInit(migrate: boolean = false) {
   if (process.env.DB_VARIANT === "pglite") {
-    await initializePgLite();
+    const pglite = await initializePgLite();
+    migrate && (await migrateDB(pglite, "pglite"));
   } else {
-    await initializePostgres();
+    const pg = await initializePostgres();
+    migrate && (await migrateDB(pg, "postgres"));
   }
   return db;
 }
@@ -23,33 +28,38 @@ async function initializePostgres() {
   if (!pgUrl) {
     throw new Error("postgres connection url is required for drizzle");
   }
-  db = drizzle(pgUrl!, { logger: false });
+  const client = new Pool({ connectionString: pgUrl });
+  db = drizzle(client);
   const result = await db.execute(`select 1 as connected`);
   if (result.rows[0].connected) {
     console.log("db initialized");
   } else {
     throw new Error("db connection failed");
   }
+  return client;
 }
 
 async function initializePgLite() {
-  const pglitePath = process.env.DB_PGLITE_PATH as string;
-  if (!pglitePath) {
-    throw new Error("pglite path is required for drizzle");
-  }
   const drizzlePgLite = await import("drizzle-orm/pglite");
-  db = drizzlePgLite.drizzle(pglitePath);
+  const { PGlite } = await import("@electric-sql/pglite");
+
+  const client = new PGlite(process.env.PGLITE_PATH || "memory://");
+  db = drizzlePgLite.drizzle({ client });
+
   const result = await db.execute<{ connected: number }>(
-    `select 1 as connected`
+    "select 1 as connected",
   );
-  if (result.rows[0].connected) {
-    console.log("db initialized");
+
+  if (result.rows[0].connected === 1) {
+    console.log("pglite db initialized");
   } else {
     throw new Error("db connection failed");
   }
+  return client;
 }
 
 export { db };
+
 export type DbTransactionType =
   | PgTransaction<
       NodePgQueryResultHKT,

@@ -1,4 +1,12 @@
-import { describe, it, expect, vi, beforeEach, beforeAll } from "vitest";
+import {
+  describe,
+  it,
+  expect,
+  beforeEach,
+  beforeAll,
+  mock,
+  type Mock,
+} from "bun:test";
 import handleRequest from "../service";
 import {
   getIntegrationById,
@@ -12,30 +20,51 @@ import { NotFoundError } from "../../../../../errors/notFoundError";
 import { ConflictError } from "../../../../../errors/conflictError";
 import { ServerError } from "../../../../../errors/serverError";
 
-vi.mock("../repository");
-vi.mock("../../create/repository");
-vi.mock("../../../../../db", () => {
-  return {
-    db: {
-      transaction: vi.fn(),
-    },
-  };
-});
-vi.mock("../../../../../db/redis");
-vi.mock("../../helpers", () => ({
-  getSchema: vi.fn(() => ({
-    safeParse: vi.fn(() => ({ success: true, data: {} })),
+// Mock dependencies
+mock.module("../repository", () => ({
+  getIntegrationById: mock(),
+  updateIntegration: mock(),
+  integrationExistByName: mock(),
+}));
+
+mock.module("../../create/repository", () => ({
+  getAppConfigKeys: mock(),
+}));
+
+mock.module("../../../../../db", () => ({
+  db: {
+    transaction: mock(),
+  },
+}));
+
+mock.module("../../../../../db/redis", () => ({
+  publishMessage: mock(),
+}));
+
+mock.module("../../helpers", () => ({
+  getSchema: mock(() => ({
+    safeParse: mock(() => ({ success: true, data: {} })),
   })),
 }));
 
-const mockTransaction = vi.fn();
-db.transaction = mockTransaction;
-
-const mockGetIntegrationById = vi.mocked(getIntegrationById);
-const mockUpdateIntegration = vi.mocked(updateIntegration);
-const mockIntegrationExistByName = vi.mocked(integrationExistByName);
-const mockGetAppConfigKeys = vi.mocked(getAppConfigKeys);
-const mockPublishMessage = vi.mocked(publishMessage);
+const mockGetIntegrationById = getIntegrationById as unknown as Mock<
+  typeof getIntegrationById
+>;
+const mockUpdateIntegration = updateIntegration as unknown as Mock<
+  typeof updateIntegration
+>;
+const mockIntegrationExistByName = integrationExistByName as unknown as Mock<
+  typeof integrationExistByName
+>;
+const mockGetAppConfigKeys = getAppConfigKeys as unknown as Mock<
+  typeof getAppConfigKeys
+>;
+const mockDbTransaction = db.transaction as unknown as Mock<
+  typeof db.transaction
+>;
+const mockPublishMessage = publishMessage as unknown as Mock<
+  typeof publishMessage
+>;
 
 describe("updateIntegration service", () => {
   const mockTx = {};
@@ -47,16 +76,22 @@ describe("updateIntegration service", () => {
 
   beforeAll(() => {
     process.env.MASTER_ENCRYPTION_KEY = Buffer.from("a".repeat(32)).toString(
-      "base64"
+      "base64",
     );
   });
 
   beforeEach(() => {
-    vi.clearAllMocks();
-    mockTransaction.mockImplementation(async (callback) => {
+    mockGetIntegrationById.mockClear();
+    mockUpdateIntegration.mockClear();
+    mockIntegrationExistByName.mockClear();
+    mockGetAppConfigKeys.mockClear();
+    mockDbTransaction.mockClear();
+    mockPublishMessage.mockClear();
+
+    mockDbTransaction.mockImplementation(async (callback: any) => {
       return await callback(mockTx);
     });
-    mockGetAppConfigKeys.mockResolvedValue([]);
+    mockGetAppConfigKeys.mockResolvedValue([] as any);
   });
 
   it("should successfully update an integration", async () => {
@@ -73,9 +108,9 @@ describe("updateIntegration service", () => {
       ...updateData,
     };
 
-    mockGetIntegrationById.mockResolvedValueOnce(existingIntegration as any);
-    mockIntegrationExistByName.mockResolvedValueOnce({ id: integrationId });
-    mockUpdateIntegration.mockResolvedValueOnce([updatedIntegration] as any);
+    mockGetIntegrationById.mockResolvedValue(existingIntegration as any);
+    mockIntegrationExistByName.mockResolvedValue({ id: integrationId } as any); // Same ID, so allowed
+    mockUpdateIntegration.mockResolvedValue(updatedIntegration as any);
 
     const result = await handleRequest(integrationId, updateData as any);
 
@@ -83,17 +118,17 @@ describe("updateIntegration service", () => {
     expect(mockUpdateIntegration).toHaveBeenCalledWith(
       integrationId,
       updateData,
-      mockTx
+      mockTx,
     );
     expect(mockPublishMessage).toHaveBeenCalled();
-    expect(result).toEqual([updatedIntegration]);
+    expect(result).toEqual(updatedIntegration);
   });
 
   it("should throw NotFoundError when integration does not exist", async () => {
-    mockGetIntegrationById.mockResolvedValueOnce(null);
+    mockGetIntegrationById.mockResolvedValue(null as any);
 
     await expect(
-      handleRequest(integrationId, updateData as any)
+      handleRequest(integrationId, updateData as any),
     ).rejects.toThrow(NotFoundError);
     expect(mockUpdateIntegration).not.toHaveBeenCalled();
   });
@@ -107,11 +142,11 @@ describe("updateIntegration service", () => {
       config: {},
     };
 
-    mockGetIntegrationById.mockResolvedValueOnce(existingIntegration as any);
-    mockIntegrationExistByName.mockResolvedValueOnce({ id: "different-id" });
+    mockGetIntegrationById.mockResolvedValue(existingIntegration as any);
+    mockIntegrationExistByName.mockResolvedValue({ id: "different-id" } as any); // Different ID
 
     await expect(
-      handleRequest(integrationId, updateData as any)
+      handleRequest(integrationId, updateData as any),
     ).rejects.toThrow(ConflictError);
     expect(mockUpdateIntegration).not.toHaveBeenCalled();
   });
@@ -125,12 +160,17 @@ describe("updateIntegration service", () => {
       config: {},
     };
 
-    mockGetIntegrationById.mockResolvedValueOnce(existingIntegration as any);
-    mockIntegrationExistByName.mockResolvedValueOnce({ id: integrationId });
-    mockUpdateIntegration.mockResolvedValueOnce(null);
+    mockGetIntegrationById.mockResolvedValue(existingIntegration as any);
+    mockIntegrationExistByName.mockResolvedValue(null as any); // Name not taken
+
+    // Simulate failure: updateIntegration returns null or transaction logic fails?
+    // Code says: if (!result) throw ServerError.
+    // Result comes from transaction. Callback returns await updateIntegration().
+    // So if updateIntegration returns null/undefined, then result is null/undefined.
+    mockUpdateIntegration.mockResolvedValue(null as any);
 
     await expect(
-      handleRequest(integrationId, updateData as any)
+      handleRequest(integrationId, updateData as any),
     ).rejects.toThrow(ServerError);
   });
 
@@ -153,15 +193,15 @@ describe("updateIntegration service", () => {
       ...updateDataSameName,
     };
 
-    mockGetIntegrationById.mockResolvedValueOnce(existingIntegration as any);
-    mockIntegrationExistByName.mockResolvedValueOnce({ id: integrationId });
-    mockUpdateIntegration.mockResolvedValueOnce([updatedIntegration] as any);
+    mockGetIntegrationById.mockResolvedValue(existingIntegration as any);
+    mockIntegrationExistByName.mockResolvedValue({ id: integrationId } as any); // Same ID (itself)
+    mockUpdateIntegration.mockResolvedValue(updatedIntegration as any);
 
     const result = await handleRequest(
       integrationId,
-      updateDataSameName as any
+      updateDataSameName as any,
     );
 
-    expect(result).toEqual([updatedIntegration]);
+    expect(result).toEqual(updatedIntegration);
   });
 });

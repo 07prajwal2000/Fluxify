@@ -1,11 +1,4 @@
-import {
-  describe,
-  it,
-  expect,
-  vi,
-  beforeEach,
-  type MockInstance,
-} from "vitest";
+import { describe, it, expect, beforeEach, type MockInstance, mock, spyOn, type Mock } from "bun:test";
 import { getAppConfigById } from "../repository";
 import { responseSchema } from "../dto";
 import handleRequest from "../service";
@@ -13,7 +6,9 @@ import { BadRequestError } from "../../../../../errors/badRequestError";
 import { NotFoundError } from "../../../../../errors/notFoundError";
 
 // Mock the repository and encryption service
-vi.mock("../repository");
+mock.module("../repository", () => ({
+    getAppConfigById: mock()
+}));
 
 describe("getAppConfigById service", () => {
   let mockConfig = {
@@ -30,8 +25,7 @@ describe("getAppConfigById service", () => {
   let getAppConfigByIdMock: MockInstance;
 
   beforeEach(() => {
-    vi.clearAllMocks();
-    getAppConfigByIdMock = vi.mocked(getAppConfigById);
+    getAppConfigByIdMock = getAppConfigById;
   });
 
   it("should return app config with correct structure when found", async () => {

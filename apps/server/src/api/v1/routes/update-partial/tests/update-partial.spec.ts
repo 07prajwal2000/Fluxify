@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, mock, spyOn, type Mock } from "bun:test";
 import { db } from "../../../../../db";
 import { NotFoundError } from "../../../../../errors/notFoundError";
 import { ForbiddenError } from "../../../../../errors/forbidError";
@@ -6,18 +6,18 @@ import handleRequest from "../service";
 import { HttpMethod, AuthACL } from "../../../../../db/schema";
 
 // Mock all imports - must use paths relative to this file
-vi.mock("../../../../../db", () => ({
+mock.module("../../../../../db", () => ({
   db: {
-    transaction: vi.fn(),
+    transaction: mock(),
   },
 }));
-vi.mock("../../../../../db/redis", () => ({
-  publishMessage: vi.fn(),
+mock.module("../../../../../db/redis", () => ({
+  publishMessage: mock(),
   CHAN_ON_ROUTE_CHANGE: "",
 }));
-vi.mock("../../update/repository", () => ({
-  getRouteByNameOrPath: vi.fn(),
-  updateRoute: vi.fn(),
+mock.module("../../update/repository", () => ({
+  getRouteByNameOrPath: mock(),
+  updateRoute: mock(),
 }));
 
 // Import mocked functions after mocking
@@ -27,7 +27,6 @@ const { getRouteByNameOrPath, updateRoute } = await import(
 
 describe("update-partial route", () => {
   beforeEach(() => {
-    vi.clearAllMocks();
   });
 
   it("should have auth layer validation", () => {

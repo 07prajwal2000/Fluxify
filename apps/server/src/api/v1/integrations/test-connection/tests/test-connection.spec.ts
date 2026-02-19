@@ -1,24 +1,26 @@
-import { describe, it, expect, vi, beforeEach, beforeAll } from "vitest";
+import { describe, it, expect, beforeEach, beforeAll, mock, spyOn, type Mock } from "bun:test";
 import handleRequest from "../service";
 import { getAppConfigs } from "../repository";
 
-vi.mock("../repository");
-vi.mock("@fluxify/adapters", async () => {
+mock.module("../repository", () => ({
+    getAppConfigs: mock()
+}));
+mock.module("@fluxify/adapters", async () => {
   return {
     PostgresAdapter: {
-      testConnection: vi.fn(),
+      testConnection: mock(),
     },
-    extractPgConnectionInfo: vi.fn((config) => config),
+    extractPgConnectionInfo: mock((config) => config),
   };
 });
-vi.mock("../../../../../lib/encryption", () => ({
+mock.module("../../../../../lib/encryption", () => ({
   EncryptionService: {
-    decodeData: vi.fn((val) => val),
-    decrypt: vi.fn((val) => val),
+    decodeData: mock((val) => val),
+    decrypt: mock((val) => val),
   },
 }));
 
-const mockGetAppConfigs = vi.mocked(getAppConfigs);
+
 
 describe("testConnection service", () => {
   beforeAll(() => {
@@ -28,7 +30,6 @@ describe("testConnection service", () => {
   });
 
   beforeEach(() => {
-    vi.clearAllMocks();
   });
 
   it("should return error for invalid group", async () => {
@@ -90,7 +91,7 @@ describe("testConnection service", () => {
       success: true,
     });
 
-    mockGetAppConfigs.mockResolvedValueOnce([
+    (getAppConfigs as unknown as Mock<typeof getAppConfigs>).mockResolvedValueOnce([
       {
         key: "db_url",
         value: "postgres://localhost:5432/testdb",
@@ -105,7 +106,7 @@ describe("testConnection service", () => {
       config: { source: "url", url: "cfg:db_url" },
     });
 
-    expect(mockGetAppConfigs).toHaveBeenCalled();
+    expect((getAppConfigs as unknown as Mock<typeof getAppConfigs>)).toHaveBeenCalled();
   });
 
   it("should handle encrypted app configs", async () => {
@@ -114,7 +115,7 @@ describe("testConnection service", () => {
       success: true,
     });
 
-    mockGetAppConfigs.mockResolvedValueOnce([
+    (getAppConfigs as unknown as Mock<typeof getAppConfigs>).mockResolvedValueOnce([
       {
         key: "db_password",
         value: "encrypted_value",
@@ -132,7 +133,7 @@ describe("testConnection service", () => {
       },
     });
 
-    expect(mockGetAppConfigs).toHaveBeenCalledWith(["db_password"]);
+    expect((getAppConfigs as unknown as Mock<typeof getAppConfigs>)).toHaveBeenCalledWith(["db_password"]);
   });
 
   it("should return error for missing required config fields", async () => {
@@ -146,7 +147,7 @@ describe("testConnection service", () => {
   });
 
   it("should parse PostgreSQL connection string correctly", async () => {
-    mockGetAppConfigs.mockResolvedValueOnce([]);
+    (getAppConfigs as unknown as Mock<typeof getAppConfigs>).mockResolvedValueOnce([]);
 
     const result = await handleRequest({
       group: "database",

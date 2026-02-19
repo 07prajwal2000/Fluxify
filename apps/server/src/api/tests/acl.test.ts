@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, mock, spyOn, type Mock } from "bun:test";
 import { canAccess, canAccessProject, roleHierarchy } from "../../lib/acl";
 import { AccessControlRole, AuthACL } from "../../db/schema";
 

@@ -40,20 +40,32 @@ app.use(
   }),
 );
 
+function logSystemDetails() {
+  console.log(`Admin routes enabled: ${process.env.ENABLE_ADMIN}`);
+  console.log(`Node environment: ${process.env.ENVIRONMENT}`);
+  console.log(`DB variant: ${process.env.DB_VARIANT}`);
+}
+
 async function main() {
+  logSystemDetails();
   const adminRoutesEnabled = process.env.ENABLE_ADMIN == "true";
   app.onError(errorHandler);
-  const db = await drizzleInit();
+  const db = await drizzleInit(adminRoutesEnabled);
   await initializeRedis();
-  await loadAppConfig();
-  await loadIntegrations();
+
   if (adminRoutesEnabled) {
     await initDocsSearch();
     app.use("*", setSession);
     initializeAuth(db);
     authenticationRouter.registerHandler(app);
     mapVersionedAdminRoutes(app);
+
+    // Seed data if admin routes are enabled
+    const { seedData } = await import("./db/seed");
+    await seedData(db);
   }
+  await loadAppConfig();
+  await loadIntegrations();
   const parser = await loadRoutes();
   await mapRouter(app, parser);
 }

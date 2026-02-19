@@ -9,6 +9,10 @@
       "cache": false,
       "persistent": true
     },
+    "lint": {
+      "cache": false,
+      "persistent": true
+    },
     "build": {
       "outputs": ["dist"]
     },

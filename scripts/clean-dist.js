@@ -4,6 +4,8 @@ import path from 'path';
 // The starting directory (current folder)
 const rootDir = process.cwd();
 
+const foldersToDelete = ['dist', '.next', 'docs_index', 'pglite'];
+
 function deleteDistFolders(currentDir) {
   // Read directory contents
   let items;
@@ -32,7 +34,7 @@ function deleteDistFolders(currentDir) {
       }
 
       // 2. DELETE dist folders
-      if (item === 'dist' || item === ".next" || item === "docs_index") {
+      if (foldersToDelete.includes(item)) {
         console.log(`Deleting: ${fullPath}`);
         try {
           fs.rmSync(fullPath, { recursive: true, force: true });

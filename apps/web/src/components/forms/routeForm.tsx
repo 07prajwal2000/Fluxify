@@ -3,7 +3,7 @@ import { useForm } from "@mantine/form";
 import { notifications } from "@mantine/notifications";
 import { useParams, usePathname } from "next/navigation";
 import React from "react";
-import { ZodType } from "zod";
+import z from "zod";
 
 type PropTypes = {
   newForm?: boolean;
@@ -23,7 +23,7 @@ type PropTypes = {
     active: boolean;
     projectId?: string;
   }) => void;
-  zodSchema: ZodType;
+  zodSchema: z.ZodType;
   actionSection?: React.ReactNode;
 };
 

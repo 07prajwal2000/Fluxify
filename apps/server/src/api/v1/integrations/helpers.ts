@@ -1,4 +1,4 @@
-import z, { ZodType } from "zod";
+import z, { ZodObject, ZodType } from "zod";
 import {
   integrationsGroupSchema,
   databaseVariantSchema,
@@ -98,7 +98,7 @@ export function getSchema(
   group: z.infer<typeof integrationsGroupSchema>,
   variant: string,
 ) {
-  let schema: ZodType = null!;
+  let schema: z.ZodType = null!;
   if (group === "database") {
     const result = databaseVariantSchema.safeParse(variant);
     if (!result.success) {

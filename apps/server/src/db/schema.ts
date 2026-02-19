@@ -43,7 +43,8 @@ export const projectsEntity = pgTable(
   ],
 );
 
-export const aiChatEntity = pgTable(
+// export disabled. feature not ready for production
+const aiChatEntity = pgTable(
   "ai_chat",
   {
     id: varchar({ length: 50 }).primaryKey().default(generateID()),

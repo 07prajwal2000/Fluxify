@@ -11,6 +11,10 @@ const docsIndexPath = path.join(
 );
 const docsSearch = new DocSearch();
 await docsSearch.build(docsPath, docsIndexPath);
-
-console.log("Building docs index from:", docsPath);
-console.log("Building docs index to:", docsIndexPath);
+const serverPath = path.join(cwd, isRelativeToApp ? "" : "apps/server");
+process.chdir(serverPath);
+console.log("Generating schema.sql");
+const sqlText = await Bun.$`bun x drizzle-kit export --sql`.text();
+const sqlPath = path.join(serverPath, "dist/schema.sql");
+await Bun.file(sqlPath).write(sqlText);
+console.log("Generated", sqlPath);

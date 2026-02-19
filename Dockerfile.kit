@@ -1,4 +1,4 @@
-FROM oven/bun:canary-alpine AS base
+FROM oven/bun:1.3-alpine AS base
 
 FROM base AS build
 WORKDIR /app
@@ -23,11 +23,10 @@ FROM base AS production
 WORKDIR /app
 
 # Install tini for process management
-RUN apk update
-RUN apk add tini
+RUN apk add tini --no-cache
 
 # Copy server standalone build
-COPY --from=build /app/apps/server/dist/standalone.js /app/server/standalone.js
+COPY --from=build /app/apps/server/dist /app/server
 COPY --from=build /app/apps/server/package.json /app/server/package.json
 COPY --from=build /app/apps/server/docs_index /app/server/docs_index
 
@@ -38,12 +37,19 @@ COPY --from=build /app/apps/web/.next/standalone /app/web
 COPY --from=build /app/dist/proxy.js /app/proxy.js
 COPY --from=build /app/scripts/config.json /app/config.json
 
-# Create user
-RUN adduser -D -h /app appuser
-RUN chown -R appuser:appuser /app
+WORKDIR /app
 
-# Set /app to read-only
-RUN chmod -R 555 /app/server
+# Create non-root user
+RUN adduser -D -h /app appuser
+
+# Create server directory
+RUN mkdir -p /app/server
+
+# Give ownership of entire server directory to appuser
+RUN chown -R appuser:appuser /app/server
+
+# Give read & write permissions to owner
+RUN chmod -R 755 /app/server
 
 # Switch to non-root user
 USER appuser
@@ -56,6 +62,7 @@ EXPOSE 5500
 EXPOSE 3000
 
 ENV NODE_ENV=production
+ENV ENVIRONMENT=production
 ENV HOSTNAME=0.0.0.0
 ENV WEB_PORT=3000
 ENV SERVER_PORT=5500
@@ -63,4 +70,4 @@ ENV PROXY_PORT=8080
 
 # Set tini as entrypoint
 ENTRYPOINT ["tini", "--", "sh", "-c"]
-CMD ["bun server/standalone.js --cwd=/app/server & bun web/apps/web/server.js --cwd=/app/web & PORT=$WEB_PORT bun proxy.js config.json --cwd=/app & wait"]
+CMD ["bun --cwd=/app/server standalone.js & bun --cwd=/app/web apps/web/server.js & PORT=$WEB_PORT bun proxy.js config.json --cwd=/app & wait"]

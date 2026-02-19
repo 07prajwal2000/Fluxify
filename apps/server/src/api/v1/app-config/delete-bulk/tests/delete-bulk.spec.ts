@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, mock, spyOn, type Mock } from "bun:test";
 import handleRequest from "../service";
 import * as repository from "../repository";
 import * as redis from "../../../../../db/redis";
@@ -6,11 +6,17 @@ import { BadRequestError } from "../../../../../errors/badRequestError";
 import { db } from "../../../../../db";
 
 // Mock dependencies
-vi.mock("../repository");
-vi.mock("../../../../../db/redis");
-vi.mock("../../../../../db", () => ({
+mock.module("../repository", () => ({
+    checkAppConfigsExist: mock(),
+    deleteAppConfigBulk: mock()
+  }));
+mock.module("../../../../../db/redis", () => ({
+    publishMessage: mock(),
+    CHAN_ON_APPCONFIG_CHANGE: mock()
+  }));
+mock.module("../../../../../db", () => ({
   db: {
-    transaction: vi.fn(async (callback) => {
+    transaction: mock(async (callback) => {
       return callback({});
     }),
   },
@@ -18,15 +24,14 @@ vi.mock("../../../../../db", () => ({
 
 describe("Delete Bulk App Config", () => {
   beforeEach(() => {
-    vi.clearAllMocks();
   });
 
   describe("handleRequest", () => {
     it("should successfully delete multiple app configs", async () => {
       const ids = [1, 2, 3];
-      vi.mocked(repository.checkAppConfigsExist).mockResolvedValue(true);
-      vi.mocked(repository.deleteAppConfigBulk).mockResolvedValue(3);
-      vi.mocked(redis.publishMessage).mockResolvedValue(undefined);
+      repository.checkAppConfigsExist.mockResolvedValue(true);
+      repository.deleteAppConfigBulk.mockResolvedValue(3);
+      redis.publishMessage.mockResolvedValue(undefined);
 
       const result = await handleRequest({ ids });
 
@@ -47,7 +52,7 @@ describe("Delete Bulk App Config", () => {
 
     it("should throw error when not all app configs exist", async () => {
       const ids = [1, 2, 3];
-      vi.mocked(repository.checkAppConfigsExist).mockResolvedValue(false);
+      repository.checkAppConfigsExist.mockResolvedValue(false);
 
       await expect(handleRequest({ ids })).rejects.toThrow(
         "One or more app configs not found"
@@ -56,8 +61,8 @@ describe("Delete Bulk App Config", () => {
 
     it("should throw error when deletion fails", async () => {
       const ids = [1, 2, 3];
-      vi.mocked(repository.checkAppConfigsExist).mockResolvedValue(true);
-      vi.mocked(repository.deleteAppConfigBulk).mockResolvedValue(0);
+      repository.checkAppConfigsExist.mockResolvedValue(true);
+      repository.deleteAppConfigBulk.mockResolvedValue(0);
 
       await expect(handleRequest({ ids })).rejects.toThrow(
         "Failed to delete app configs"
@@ -66,9 +71,9 @@ describe("Delete Bulk App Config", () => {
 
     it("should handle single id deletion", async () => {
       const ids = [1];
-      vi.mocked(repository.checkAppConfigsExist).mockResolvedValue(true);
-      vi.mocked(repository.deleteAppConfigBulk).mockResolvedValue(1);
-      vi.mocked(redis.publishMessage).mockResolvedValue(undefined);
+      repository.checkAppConfigsExist.mockResolvedValue(true);
+      repository.deleteAppConfigBulk.mockResolvedValue(1);
+      redis.publishMessage.mockResolvedValue(undefined);
 
       const result = await handleRequest({ ids });
 
@@ -78,9 +83,9 @@ describe("Delete Bulk App Config", () => {
 
     it("should publish redis message after successful deletion", async () => {
       const ids = [1, 2];
-      vi.mocked(repository.checkAppConfigsExist).mockResolvedValue(true);
-      vi.mocked(repository.deleteAppConfigBulk).mockResolvedValue(2);
-      vi.mocked(redis.publishMessage).mockResolvedValue(undefined);
+      repository.checkAppConfigsExist.mockResolvedValue(true);
+      repository.deleteAppConfigBulk.mockResolvedValue(2);
+      redis.publishMessage.mockResolvedValue(undefined);
 
       await handleRequest({ ids });
 
@@ -93,12 +98,12 @@ describe("Delete Bulk App Config", () => {
     it("should use transaction for atomic operations", async () => {
       const ids = [1, 2, 3];
       const mockTx = {} as any;
-      vi.mocked(db.transaction).mockImplementation(async (callback) => {
+      db.transaction.mockImplementation(async (callback) => {
         return await callback(mockTx);
       });
-      vi.mocked(repository.checkAppConfigsExist).mockResolvedValue(true);
-      vi.mocked(repository.deleteAppConfigBulk).mockResolvedValue(3);
-      vi.mocked(redis.publishMessage).mockResolvedValue(undefined);
+      repository.checkAppConfigsExist.mockResolvedValue(true);
+      repository.deleteAppConfigBulk.mockResolvedValue(3);
+      redis.publishMessage.mockResolvedValue(undefined);
 
       await handleRequest({ ids });
 
@@ -111,7 +116,7 @@ describe("Delete Bulk App Config", () => {
   describe("repository functions", () => {
     it("deleteAppConfigBulk should delete multiple configs", async () => {
       const ids = [1, 2, 3];
-      vi.mocked(repository.deleteAppConfigBulk).mockResolvedValue(3);
+      repository.deleteAppConfigBulk.mockResolvedValue(3);
 
       const result = await repository.deleteAppConfigBulk(ids);
 
@@ -120,7 +125,7 @@ describe("Delete Bulk App Config", () => {
 
     it("checkAppConfigsExist should verify all configs exist", async () => {
       const ids = [1, 2, 3];
-      vi.mocked(repository.checkAppConfigsExist).mockResolvedValue(true);
+      repository.checkAppConfigsExist.mockResolvedValue(true);
 
       const result = await repository.checkAppConfigsExist(ids);
 
@@ -129,7 +134,7 @@ describe("Delete Bulk App Config", () => {
 
     it("checkAppConfigsExist should return false when configs don't exist", async () => {
       const ids = [999, 1000];
-      vi.mocked(repository.checkAppConfigsExist).mockResolvedValue(false);
+      repository.checkAppConfigsExist.mockResolvedValue(false);
 
       const result = await repository.checkAppConfigsExist(ids);
 

@@ -1,15 +1,16 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, mock, spyOn, type Mock } from "bun:test";
 import handleRequest from "../service";
 import { getIntegrationByID } from "../repository";
 import { NotFoundError } from "../../../../../errors/notFoundError";
 
-vi.mock("../repository");
+mock.module("../repository", () => ({
+    getIntegrationByID: mock()
+}));
 
-const mockGetIntegrationByID = vi.mocked(getIntegrationByID);
+
 
 describe("getIntegrationByID service", () => {
   beforeEach(() => {
-    vi.clearAllMocks();
   });
 
   it("should return integration when it exists", async () => {
@@ -21,11 +22,11 @@ describe("getIntegrationByID service", () => {
       config: { url: "postgres://prod" },
     };
 
-    mockGetIntegrationByID.mockResolvedValueOnce(mockIntegration as any);
+    (getIntegrationByID as unknown as Mock<typeof getIntegrationByID>).mockResolvedValueOnce(mockIntegration as any);
 
     const result = await handleRequest("test-id");
 
-    expect(mockGetIntegrationByID).toHaveBeenCalledWith("test-id");
+    expect((getIntegrationByID as unknown as Mock<typeof getIntegrationByID>)).toHaveBeenCalledWith("test-id");
     expect(result).toEqual({
       id: "test-id",
       name: "postgres-prod",
@@ -36,10 +37,10 @@ describe("getIntegrationByID service", () => {
   });
 
   it("should throw NotFoundError when integration does not exist", async () => {
-    mockGetIntegrationByID.mockResolvedValueOnce(null);
+    (getIntegrationByID as unknown as Mock<typeof getIntegrationByID>).mockResolvedValueOnce(null);
 
     await expect(handleRequest("non-existent-id")).rejects.toThrow(NotFoundError);
-    expect(mockGetIntegrationByID).toHaveBeenCalledWith("non-existent-id");
+    expect((getIntegrationByID as unknown as Mock<typeof getIntegrationByID>)).toHaveBeenCalledWith("non-existent-id");
   });
 
   it("should map integration properties correctly", async () => {
@@ -51,7 +52,7 @@ describe("getIntegrationByID service", () => {
       config: { host: "localhost", port: 6379 },
     };
 
-    mockGetIntegrationByID.mockResolvedValueOnce(mockIntegration as any);
+    (getIntegrationByID as unknown as Mock<typeof getIntegrationByID>).mockResolvedValueOnce(mockIntegration as any);
 
     const result = await handleRequest("test-id");
 
@@ -81,7 +82,7 @@ describe("getIntegrationByID service", () => {
     ];
 
     for (const integration of integrations) {
-      mockGetIntegrationByID.mockResolvedValueOnce(integration as any);
+      (getIntegrationByID as unknown as Mock<typeof getIntegrationByID>).mockResolvedValueOnce(integration as any);
       const result = await handleRequest(integration.id);
       expect(result.group).toBe(integration.group);
       expect(result.variant).toBe(integration.variant);

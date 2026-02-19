@@ -1,17 +1,12 @@
-import {
-  describe,
-  it,
-  expect,
-  vi,
-  beforeEach,
-  type MockInstance,
-} from "vitest";
+import { describe, it, expect, beforeEach, mock, type Mock } from "bun:test";
 import { getAppConfigList } from "../repository";
 import { responseSchema } from "../dto";
 import handleRequest from "../service";
 
 // Mock the repository
-vi.mock("../repository");
+mock.module("../repository", () => ({
+  getAppConfigList: mock(),
+}));
 
 describe("getAllAppConfig service", () => {
   const mockConfigs = [
@@ -33,11 +28,12 @@ describe("getAllAppConfig service", () => {
     },
   ] as const;
 
-  let getAppConfigListMock: MockInstance;
+  let getAppConfigListMock: Mock<typeof getAppConfigList>;
 
   beforeEach(() => {
-    vi.clearAllMocks();
-    getAppConfigListMock = vi.mocked(getAppConfigList);
+    getAppConfigListMock = getAppConfigList as unknown as Mock<
+      typeof getAppConfigList
+    >;
   });
 
   it("should return all app configs with correct structure", async () => {

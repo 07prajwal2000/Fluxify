@@ -1,14 +1,15 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, mock, spyOn, type Mock } from "bun:test";
 import handleRequest from "../service";
 import { getAllIntegrationsByGroup } from "../repository";
 
-vi.mock("../repository");
+mock.module("../repository", () => ({
+    getAllIntegrationsByGroup: mock()
+}));
 
-const mockGetAllIntegrationsByGroup = vi.mocked(getAllIntegrationsByGroup);
+
 
 describe("getAllIntegrations service", () => {
   beforeEach(() => {
-    vi.clearAllMocks();
   });
 
   it("should return all integrations for a given group", async () => {
@@ -29,11 +30,11 @@ describe("getAllIntegrations service", () => {
       },
     ];
 
-    mockGetAllIntegrationsByGroup.mockResolvedValueOnce(mockIntegrations as any);
+    (getAllIntegrationsByGroup as unknown as Mock<typeof getAllIntegrationsByGroup>).mockResolvedValueOnce(mockIntegrations as any);
 
     const result = await handleRequest("database");
 
-    expect(mockGetAllIntegrationsByGroup).toHaveBeenCalledWith("database");
+    expect((getAllIntegrationsByGroup as unknown as Mock<typeof getAllIntegrationsByGroup>)).toHaveBeenCalledWith("database");
     expect(result).toHaveLength(2);
     expect(result[0]).toEqual({
       id: "1",
@@ -45,21 +46,21 @@ describe("getAllIntegrations service", () => {
   });
 
   it("should return empty array when no integrations exist for group", async () => {
-    mockGetAllIntegrationsByGroup.mockResolvedValueOnce([]);
+    (getAllIntegrationsByGroup as unknown as Mock<typeof getAllIntegrationsByGroup>).mockResolvedValueOnce([]);
 
     const result = await handleRequest("kv");
 
     expect(result).toEqual([]);
-    expect(mockGetAllIntegrationsByGroup).toHaveBeenCalledWith("kv");
+    expect((getAllIntegrationsByGroup as unknown as Mock<typeof getAllIntegrationsByGroup>)).toHaveBeenCalledWith("kv");
   });
 
   it("should handle different groups", async () => {
     const groups = ["database", "kv", "ai", "baas"];
 
     for (const group of groups) {
-      mockGetAllIntegrationsByGroup.mockResolvedValueOnce([]);
+      (getAllIntegrationsByGroup as unknown as Mock<typeof getAllIntegrationsByGroup>).mockResolvedValueOnce([]);
       await handleRequest(group);
-      expect(mockGetAllIntegrationsByGroup).toHaveBeenCalledWith(group);
+      expect((getAllIntegrationsByGroup as unknown as Mock<typeof getAllIntegrationsByGroup>)).toHaveBeenCalledWith(group);
     }
   });
 
@@ -72,7 +73,7 @@ describe("getAllIntegrations service", () => {
       config: { url: "postgres://localhost", ssl: true },
     };
 
-    mockGetAllIntegrationsByGroup.mockResolvedValueOnce([mockIntegration] as any);
+    (getAllIntegrationsByGroup as unknown as Mock<typeof getAllIntegrationsByGroup>).mockResolvedValueOnce([mockIntegration] as any);
 
     const result = await handleRequest("database");
 

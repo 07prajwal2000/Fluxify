@@ -1,8 +1,8 @@
 import React from "react";
 import { useForm } from "@mantine/form";
-import { ZodType } from "zod";
 import { TextInput } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
+import z from "zod";
 
 type PropTypes = {
   newForm?: boolean;
@@ -10,7 +10,7 @@ type PropTypes = {
     name: string;
   }>;
   onSubmit?: (value: { name: string }) => void;
-  zodSchema: ZodType;
+  zodSchema: z.ZodType;
   actionSection?: React.ReactNode;
 };
 

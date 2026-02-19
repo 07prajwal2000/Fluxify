@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, mock, spyOn, type Mock } from "bun:test";
 import { NotFoundError } from "../../errors/notFoundError";
 import { ConflictError } from "../../errors/conflictError";
 import { ForbiddenError } from "../../errors/forbidError";

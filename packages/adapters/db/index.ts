@@ -1,8 +1,9 @@
+import { Kysely, PostgresDialect } from "kysely";
+import { Pool } from "pg";
 import { operatorSchema } from "@fluxify/lib";
 import z from "zod";
 import { Connection, DbType } from "./connection";
 import { PostgresAdapter } from "./postgresAdapter";
-import knex, { Knex } from "knex";
 import { JsVM } from "@fluxify/lib";
 
 export const whereConditionSchema = z.object({
@@ -60,39 +61,47 @@ export class DbFactory {
     }
     if (connection in this.connectionMap) return this.connectionMap[connection];
     if (cfg.dbType === DbType.POSTGRES) {
-      const knexConn = this.getKnexConnection(connection, cfg);
+      const { db, pool } = this.getKyselyConnection(connection, cfg);
       return (this.connectionMap[connection] = new PostgresAdapter(
-        knexConn,
+        db,
+        pool,
         this.vm,
       ));
     }
     throw new Error("MongoDB Not implemented");
   }
 
-  private static knexConnectionCache: Record<string, Knex> = {};
+  private static kyselyConnectionCache: Record<
+    string,
+    { db: Kysely<any>; pool: Pool }
+  > = {};
 
-  private getKnexConnection(connection: string, cfg: Connection) {
-    if (connection in DbFactory.knexConnectionCache) {
-      return DbFactory.knexConnectionCache[connection];
+  private getKyselyConnection(connection: string, cfg: Connection) {
+    if (connection in DbFactory.kyselyConnectionCache) {
+      return DbFactory.kyselyConnectionCache[connection];
     }
-    return (DbFactory.knexConnectionCache[connection] = knex({
-      client: "pg",
-      connection: {
-        host: cfg.host,
-        port: Number(cfg.port),
-        user: cfg.username,
-        password: cfg.password,
-        database: cfg.database,
-      },
-    }));
+    const pool = new Pool({
+      host: cfg.host,
+      port: Number(cfg.port),
+      user: cfg.username,
+      password: cfg.password,
+      database: cfg.database,
+    });
+    const db = new Kysely<any>({
+      dialect: new PostgresDialect({
+        pool,
+      }),
+    });
+    return (DbFactory.kyselyConnectionCache[connection] = { db, pool });
   }
+
   // called when appconfig/integration changed
   public static async ResetConnections() {
     const proms: Promise<any>[] = [];
-    for (let conn in this.knexConnectionCache) {
-      proms.push(this.knexConnectionCache[conn].destroy());
+    for (let conn in this.kyselyConnectionCache) {
+      proms.push(this.kyselyConnectionCache[conn].db.destroy());
     }
-    this.knexConnectionCache = {};
+    this.kyselyConnectionCache = {};
     try {
       await Promise.allSettled(proms);
     } catch (error) {}

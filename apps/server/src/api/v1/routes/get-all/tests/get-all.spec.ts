@@ -1,18 +1,17 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, mock, spyOn, type Mock } from "bun:test";
 import handleRequest from "../service";
 import { getRoutesList } from "../repository";
 import { HttpMethod, AuthACL } from "../../../../../db/schema";
 
 // Mock the repository
-vi.mock("../repository", () => ({
-  getRoutesList: vi.fn(),
+mock.module("../repository", () => ({
+  getRoutesList: mock(),
 }));
 
-const mockGetRoutesList = vi.mocked(getRoutesList);
+
 
 describe("handleRequest", () => {
   beforeEach(() => {
-    vi.clearAllMocks();
   });
 
   it("should return paginated data with correct pagination info", async () => {
@@ -38,7 +37,7 @@ describe("handleRequest", () => {
         updatedAt: new Date("2023-01-02T00:00:00Z"),
       },
     ];
-    mockGetRoutesList.mockResolvedValue({ result: mockData, totalCount: 5 });
+    (getRoutesList as unknown as Mock<typeof getRoutesList>).mockResolvedValue({ result: mockData, totalCount: 5 });
 
     const query = { page: 1, perPage: 2 } as any;
     const acl: AuthACL[] = [{ projectId: "proj1", role: "creator" }];
@@ -73,7 +72,7 @@ describe("handleRequest", () => {
         },
       ],
     });
-    expect(mockGetRoutesList).toHaveBeenCalledWith(0, 2, expect.any(Object));
+    expect((getRoutesList as unknown as Mock<typeof getRoutesList>)).toHaveBeenCalledWith(0, 2, expect.any(Object));
   });
 
   it("should handle first page correctly", async () => {
@@ -89,7 +88,7 @@ describe("handleRequest", () => {
         updatedAt: new Date("2023-01-01T00:00:00Z"),
       },
     ];
-    mockGetRoutesList.mockResolvedValue({ result: mockData, totalCount: 1 });
+    (getRoutesList as unknown as Mock<typeof getRoutesList>).mockResolvedValue({ result: mockData, totalCount: 1 });
 
     const query = { page: 1, perPage: 10 } as any;
     const acl: AuthACL[] = [{ projectId: "proj1", role: "creator" }];
@@ -100,7 +99,7 @@ describe("handleRequest", () => {
       page: 1,
       totalPages: 1,
     });
-    expect(mockGetRoutesList).toHaveBeenCalledWith(0, 10, expect.any(Object));
+    expect((getRoutesList as unknown as Mock<typeof getRoutesList>)).toHaveBeenCalledWith(0, 10, expect.any(Object));
   });
 
   it("should handle last page correctly", async () => {
@@ -116,7 +115,7 @@ describe("handleRequest", () => {
         updatedAt: new Date("2023-01-03T00:00:00Z"),
       },
     ];
-    mockGetRoutesList.mockResolvedValue({ result: mockData, totalCount: 3 });
+    (getRoutesList as unknown as Mock<typeof getRoutesList>).mockResolvedValue({ result: mockData, totalCount: 3 });
 
     const query = { page: 2, perPage: 2 } as any;
     const acl: AuthACL[] = [{ projectId: "proj1", role: "creator" }];
@@ -127,11 +126,11 @@ describe("handleRequest", () => {
       page: 2,
       totalPages: 2,
     });
-    expect(mockGetRoutesList).toHaveBeenCalledWith(2, 2, expect.any(Object));
+    expect((getRoutesList as unknown as Mock<typeof getRoutesList>)).toHaveBeenCalledWith(2, 2, expect.any(Object));
   });
 
   it("should handle empty results", async () => {
-    mockGetRoutesList.mockResolvedValue({ result: [], totalCount: 0 });
+    (getRoutesList as unknown as Mock<typeof getRoutesList>).mockResolvedValue({ result: [], totalCount: 0 });
 
     const query = { page: 1, perPage: 10 } as any;
     const acl: AuthACL[] = [{ projectId: "proj1", role: "creator" }];
@@ -145,7 +144,7 @@ describe("handleRequest", () => {
       },
       data: [],
     });
-    expect(mockGetRoutesList).toHaveBeenCalledWith(0, 10, expect.any(Object));
+    expect((getRoutesList as unknown as Mock<typeof getRoutesList>)).toHaveBeenCalledWith(0, 10, expect.any(Object));
   });
 
   it("should calculate hasNext correctly when on middle page", async () => {
@@ -161,14 +160,14 @@ describe("handleRequest", () => {
         updatedAt: new Date("2023-01-01T00:00:00Z"),
       },
     ];
-    mockGetRoutesList.mockResolvedValue({ result: mockData, totalCount: 4 });
+    (getRoutesList as unknown as Mock<typeof getRoutesList>).mockResolvedValue({ result: mockData, totalCount: 4 });
 
     const query = { page: 2, perPage: 2 } as any;
     const acl: AuthACL[] = [{ projectId: "proj1", role: "creator" }];
     const result = await handleRequest(query, acl);
 
     expect(result.pagination.hasNext).toBe(true);
-    expect(mockGetRoutesList).toHaveBeenCalledWith(2, 2, expect.any(Object));
+    expect((getRoutesList as unknown as Mock<typeof getRoutesList>)).toHaveBeenCalledWith(2, 2, expect.any(Object));
   });
 
   describe("filter functionality", () => {
@@ -185,7 +184,7 @@ describe("handleRequest", () => {
           updatedAt: new Date("2023-01-01T00:00:00Z"),
         },
       ];
-      mockGetRoutesList.mockResolvedValue({ result: mockData, totalCount: 1 });
+      (getRoutesList as unknown as Mock<typeof getRoutesList>).mockResolvedValue({ result: mockData, totalCount: 1 });
 
       const query = {
         page: 1,
@@ -201,7 +200,7 @@ describe("handleRequest", () => {
 
       expect(result.data).toHaveLength(1);
       expect(result.data[0].name).toBe("Test Route");
-      expect(mockGetRoutesList).toHaveBeenCalledWith(0, 10, expect.any(Object));
+      expect((getRoutesList as unknown as Mock<typeof getRoutesList>)).toHaveBeenCalledWith(0, 10, expect.any(Object));
     });
 
     it("should apply like filter for string fields", async () => {
@@ -217,7 +216,7 @@ describe("handleRequest", () => {
           updatedAt: new Date("2023-01-01T00:00:00Z"),
         },
       ];
-      mockGetRoutesList.mockResolvedValue({ result: mockData, totalCount: 1 });
+      (getRoutesList as unknown as Mock<typeof getRoutesList>).mockResolvedValue({ result: mockData, totalCount: 1 });
 
       const query = {
         page: 1,
@@ -232,7 +231,7 @@ describe("handleRequest", () => {
       const result = await handleRequest(query, acl);
 
       expect(result.data).toHaveLength(1);
-      expect(mockGetRoutesList).toHaveBeenCalledWith(0, 10, expect.any(Object));
+      expect((getRoutesList as unknown as Mock<typeof getRoutesList>)).toHaveBeenCalledWith(0, 10, expect.any(Object));
     });
 
     it("should apply eq filter for method field", async () => {
@@ -248,7 +247,7 @@ describe("handleRequest", () => {
           updatedAt: new Date("2023-01-01T00:00:00Z"),
         },
       ];
-      mockGetRoutesList.mockResolvedValue({ result: mockData, totalCount: 1 });
+      (getRoutesList as unknown as Mock<typeof getRoutesList>).mockResolvedValue({ result: mockData, totalCount: 1 });
 
       const query = {
         page: 1,
@@ -264,7 +263,7 @@ describe("handleRequest", () => {
 
       expect(result.data).toHaveLength(1);
       expect(result.data[0].method).toBe(HttpMethod.POST);
-      expect(mockGetRoutesList).toHaveBeenCalledWith(0, 10, expect.any(Object));
+      expect((getRoutesList as unknown as Mock<typeof getRoutesList>)).toHaveBeenCalledWith(0, 10, expect.any(Object));
     });
 
     it("should convert boolean string values", async () => {
@@ -280,7 +279,7 @@ describe("handleRequest", () => {
           updatedAt: new Date("2023-01-01T00:00:00Z"),
         },
       ];
-      mockGetRoutesList.mockResolvedValue({ result: mockData, totalCount: 1 });
+      (getRoutesList as unknown as Mock<typeof getRoutesList>).mockResolvedValue({ result: mockData, totalCount: 1 });
 
       const query = {
         page: 1,
@@ -295,7 +294,7 @@ describe("handleRequest", () => {
       const result = await handleRequest(query, acl);
 
       expect(result.data).toHaveLength(1);
-      expect(mockGetRoutesList).toHaveBeenCalledWith(0, 10, expect.any(Object));
+      expect((getRoutesList as unknown as Mock<typeof getRoutesList>)).toHaveBeenCalledWith(0, 10, expect.any(Object));
     });
 
     it("should convert numeric string values", async () => {
@@ -311,7 +310,7 @@ describe("handleRequest", () => {
           updatedAt: new Date("2023-01-01T00:00:00Z"),
         },
       ];
-      mockGetRoutesList.mockResolvedValue({ result: mockData, totalCount: 1 });
+      (getRoutesList as unknown as Mock<typeof getRoutesList>).mockResolvedValue({ result: mockData, totalCount: 1 });
 
       const query = {
         page: 1,
@@ -326,7 +325,7 @@ describe("handleRequest", () => {
       const result = await handleRequest(query, acl);
 
       expect(result.data).toHaveLength(1);
-      expect(mockGetRoutesList).toHaveBeenCalledWith(0, 10, expect.any(Object));
+      expect((getRoutesList as unknown as Mock<typeof getRoutesList>)).toHaveBeenCalledWith(0, 10, expect.any(Object));
     });
 
     it("should apply neq filter", async () => {
@@ -342,7 +341,7 @@ describe("handleRequest", () => {
           updatedAt: new Date("2023-01-01T00:00:00Z"),
         },
       ];
-      mockGetRoutesList.mockResolvedValue({ result: mockData, totalCount: 1 });
+      (getRoutesList as unknown as Mock<typeof getRoutesList>).mockResolvedValue({ result: mockData, totalCount: 1 });
 
       const query = {
         page: 1,
@@ -357,7 +356,7 @@ describe("handleRequest", () => {
       const result = await handleRequest(query, acl);
 
       expect(result.data).toHaveLength(1);
-      expect(mockGetRoutesList).toHaveBeenCalledWith(0, 10, expect.any(Object));
+      expect((getRoutesList as unknown as Mock<typeof getRoutesList>)).toHaveBeenCalledWith(0, 10, expect.any(Object));
     });
 
     it("should apply gt filter", async () => {
@@ -373,7 +372,7 @@ describe("handleRequest", () => {
           updatedAt: new Date("2023-01-01T00:00:00Z"),
         },
       ];
-      mockGetRoutesList.mockResolvedValue({ result: mockData, totalCount: 1 });
+      (getRoutesList as unknown as Mock<typeof getRoutesList>).mockResolvedValue({ result: mockData, totalCount: 1 });
 
       const query = {
         page: 1,
@@ -388,7 +387,7 @@ describe("handleRequest", () => {
       const result = await handleRequest(query, acl);
 
       expect(result.data).toHaveLength(1);
-      expect(mockGetRoutesList).toHaveBeenCalledWith(0, 10, expect.any(Object));
+      expect((getRoutesList as unknown as Mock<typeof getRoutesList>)).toHaveBeenCalledWith(0, 10, expect.any(Object));
     });
 
     it("should apply gte filter", async () => {
@@ -404,7 +403,7 @@ describe("handleRequest", () => {
           updatedAt: new Date("2023-01-01T00:00:00Z"),
         },
       ];
-      mockGetRoutesList.mockResolvedValue({ result: mockData, totalCount: 1 });
+      (getRoutesList as unknown as Mock<typeof getRoutesList>).mockResolvedValue({ result: mockData, totalCount: 1 });
 
       const query = {
         page: 1,
@@ -419,7 +418,7 @@ describe("handleRequest", () => {
       const result = await handleRequest(query, acl);
 
       expect(result.data).toHaveLength(1);
-      expect(mockGetRoutesList).toHaveBeenCalledWith(0, 10, expect.any(Object));
+      expect((getRoutesList as unknown as Mock<typeof getRoutesList>)).toHaveBeenCalledWith(0, 10, expect.any(Object));
     });
 
     it("should apply lt filter", async () => {
@@ -435,7 +434,7 @@ describe("handleRequest", () => {
           updatedAt: new Date("2023-01-01T00:00:00Z"),
         },
       ];
-      mockGetRoutesList.mockResolvedValue({ result: mockData, totalCount: 1 });
+      (getRoutesList as unknown as Mock<typeof getRoutesList>).mockResolvedValue({ result: mockData, totalCount: 1 });
 
       const query = {
         page: 1,
@@ -450,7 +449,7 @@ describe("handleRequest", () => {
       const result = await handleRequest(query, acl);
 
       expect(result.data).toHaveLength(1);
-      expect(mockGetRoutesList).toHaveBeenCalledWith(0, 10, expect.any(Object));
+      expect((getRoutesList as unknown as Mock<typeof getRoutesList>)).toHaveBeenCalledWith(0, 10, expect.any(Object));
     });
 
     it("should apply lte filter", async () => {
@@ -466,7 +465,7 @@ describe("handleRequest", () => {
           updatedAt: new Date("2023-01-01T00:00:00Z"),
         },
       ];
-      mockGetRoutesList.mockResolvedValue({ result: mockData, totalCount: 1 });
+      (getRoutesList as unknown as Mock<typeof getRoutesList>).mockResolvedValue({ result: mockData, totalCount: 1 });
 
       const query = {
         page: 1,
@@ -481,7 +480,7 @@ describe("handleRequest", () => {
       const result = await handleRequest(query, acl);
 
       expect(result.data).toHaveLength(1);
-      expect(mockGetRoutesList).toHaveBeenCalledWith(0, 10, expect.any(Object));
+      expect((getRoutesList as unknown as Mock<typeof getRoutesList>)).toHaveBeenCalledWith(0, 10, expect.any(Object));
     });
 
     it("should return all records when no filter is provided", async () => {
@@ -497,14 +496,14 @@ describe("handleRequest", () => {
           updatedAt: new Date("2023-01-01T00:00:00Z"),
         },
       ];
-      mockGetRoutesList.mockResolvedValue({ result: mockData, totalCount: 1 });
+      (getRoutesList as unknown as Mock<typeof getRoutesList>).mockResolvedValue({ result: mockData, totalCount: 1 });
 
       const query = { page: 1, perPage: 10 } as any;
       const acl: AuthACL[] = [{ projectId: "proj1", role: "creator" }];
       const result = await handleRequest(query, acl);
 
       expect(result.data).toHaveLength(1);
-      expect(mockGetRoutesList).toHaveBeenCalledWith(0, 10, expect.any(Object));
+      expect((getRoutesList as unknown as Mock<typeof getRoutesList>)).toHaveBeenCalledWith(0, 10, expect.any(Object));
     });
 
     it("should return all records when filter field is missing", async () => {
@@ -520,7 +519,7 @@ describe("handleRequest", () => {
           updatedAt: new Date("2023-01-01T00:00:00Z"),
         },
       ];
-      mockGetRoutesList.mockResolvedValue({ result: mockData, totalCount: 1 });
+      (getRoutesList as unknown as Mock<typeof getRoutesList>).mockResolvedValue({ result: mockData, totalCount: 1 });
 
       const query = {
         page: 1,
@@ -534,7 +533,7 @@ describe("handleRequest", () => {
       const result = await handleRequest(query, acl);
 
       expect(result.data).toHaveLength(1);
-      expect(mockGetRoutesList).toHaveBeenCalledWith(0, 10, expect.any(Object));
+      expect((getRoutesList as unknown as Mock<typeof getRoutesList>)).toHaveBeenCalledWith(0, 10, expect.any(Object));
     });
 
     it("should return all records when filter operator is missing", async () => {
@@ -550,7 +549,7 @@ describe("handleRequest", () => {
           updatedAt: new Date("2023-01-01T00:00:00Z"),
         },
       ];
-      mockGetRoutesList.mockResolvedValue({ result: mockData, totalCount: 1 });
+      (getRoutesList as unknown as Mock<typeof getRoutesList>).mockResolvedValue({ result: mockData, totalCount: 1 });
 
       const query = {
         page: 1,
@@ -564,7 +563,7 @@ describe("handleRequest", () => {
       const result = await handleRequest(query, acl);
 
       expect(result.data).toHaveLength(1);
-      expect(mockGetRoutesList).toHaveBeenCalledWith(0, 10, expect.any(Object));
+      expect((getRoutesList as unknown as Mock<typeof getRoutesList>)).toHaveBeenCalledWith(0, 10, expect.any(Object));
     });
 
     it("should return all records when filter value is missing", async () => {
@@ -580,7 +579,7 @@ describe("handleRequest", () => {
           updatedAt: new Date("2023-01-01T00:00:00Z"),
         },
       ];
-      mockGetRoutesList.mockResolvedValue({ result: mockData, totalCount: 1 });
+      (getRoutesList as unknown as Mock<typeof getRoutesList>).mockResolvedValue({ result: mockData, totalCount: 1 });
 
       const query = {
         page: 1,
@@ -594,7 +593,7 @@ describe("handleRequest", () => {
       const result = await handleRequest(query, acl);
 
       expect(result.data).toHaveLength(1);
-      expect(mockGetRoutesList).toHaveBeenCalledWith(0, 10, expect.any(Object));
+      expect((getRoutesList as unknown as Mock<typeof getRoutesList>)).toHaveBeenCalledWith(0, 10, expect.any(Object));
     });
 
     it("should return all records when invalid field is provided", async () => {
@@ -610,7 +609,7 @@ describe("handleRequest", () => {
           updatedAt: new Date("2023-01-01T00:00:00Z"),
         },
       ];
-      mockGetRoutesList.mockResolvedValue({ result: mockData, totalCount: 1 });
+      (getRoutesList as unknown as Mock<typeof getRoutesList>).mockResolvedValue({ result: mockData, totalCount: 1 });
 
       const query = {
         page: 1,
@@ -625,7 +624,7 @@ describe("handleRequest", () => {
       const result = await handleRequest(query, acl);
 
       expect(result.data).toHaveLength(1);
-      expect(mockGetRoutesList).toHaveBeenCalledWith(0, 10, expect.any(Object));
+      expect((getRoutesList as unknown as Mock<typeof getRoutesList>)).toHaveBeenCalledWith(0, 10, expect.any(Object));
     });
   });
 
@@ -642,14 +641,14 @@ describe("handleRequest", () => {
         updatedAt: new Date("2023-01-01T00:00:00Z"),
       },
     ];
-    mockGetRoutesList.mockResolvedValue({ result: mockData, totalCount: 1 });
+    (getRoutesList as unknown as Mock<typeof getRoutesList>).mockResolvedValue({ result: mockData, totalCount: 1 });
 
     const query = { page: 1, perPage: 10 } as any;
     const acl: AuthACL[] = [{ projectId: "proj1", role: "creator" }];
     const result = await handleRequest(query, acl);
 
     expect(result.data).toHaveLength(1);
-    expect(mockGetRoutesList).toHaveBeenCalledWith(0, 10, expect.any(Object));
+    expect((getRoutesList as unknown as Mock<typeof getRoutesList>)).toHaveBeenCalledWith(0, 10, expect.any(Object));
   });
 
   it("should allow system admin to see all projects", async () => {
@@ -665,7 +664,7 @@ describe("handleRequest", () => {
         updatedAt: new Date("2023-01-01T00:00:00Z"),
       },
     ];
-    mockGetRoutesList.mockResolvedValue({ result: mockData, totalCount: 1 });
+    (getRoutesList as unknown as Mock<typeof getRoutesList>).mockResolvedValue({ result: mockData, totalCount: 1 });
 
     const query = { page: 1, perPage: 10 } as any;
     const acl: AuthACL[] = [{ projectId: "*", role: "admin" }];

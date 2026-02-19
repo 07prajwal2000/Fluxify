@@ -126,7 +126,7 @@ function setupContextVars(
   params?: Record<string, string>,
 ): BlockContext["vars"] {
   let logger: AbstractLogger = null!;
-  if (process.env.NODE_ENV === "development") {
+  if (process.env.ENVIRONMENT === "development") {
     logger = new ConsoleLoggerProvider();
   } else {
     // TODO: require configuration from user.

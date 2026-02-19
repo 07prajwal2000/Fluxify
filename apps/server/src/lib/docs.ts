@@ -8,8 +8,8 @@ import {
   existsSync,
   readFileSync,
   rmSync,
-} from "node:fs";
-import path from "node:path";
+} from "fs";
+import path from "path";
 
 interface MarkdownDoc {
   id: number;
@@ -23,7 +23,7 @@ export let docsSearch: DocSearch;
 
 export async function initDocsSearch() {
   docsSearch = new DocSearch();
-  if (process.env.NODE_ENV !== "production") {
+  if (process.env.ENVIRONMENT === "development") {
     await docsSearch.build("./docs", "./docs_index");
   }
   await docsSearch.load("./docs_index");
@@ -65,16 +65,22 @@ export class DocSearch {
     docsFolder: string,
     destinationIndexFolder: string,
   ): Promise<void> {
+    const docsDir = path.isAbsolute(docsFolder)
+      ? docsFolder
+      : path.join(import.meta.dirname, "../../../../", docsFolder);
+    if (!existsSync(docsDir)) {
+      console.log(`❌ Cannot find docs folder at ${docsDir}`);
+      return;
+    }
     if (existsSync(destinationIndexFolder)) {
       rmSync(destinationIndexFolder, { recursive: true, force: true });
     }
     mkdirSync(destinationIndexFolder, { recursive: true });
 
     let idCounter = 0;
-    const absoluteDocsPath = path.resolve(docsFolder);
-    console.log(`🔨 Starting fresh docs build from: ${absoluteDocsPath}`);
+    console.log(`🔨 Starting fresh docs build from: ${docsDir}`);
 
-    for (const filePath of this.getMarkdownFiles(absoluteDocsPath)) {
+    for (const filePath of this.getMarkdownFiles(docsDir)) {
       try {
         const rawFile = await Bun.file(filePath).text();
         const { data, content } = matter(rawFile);
