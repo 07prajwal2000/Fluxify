@@ -27,7 +27,6 @@ RUN apk add tini --no-cache
 
 # Copy server standalone build
 COPY --from=build /app/apps/server/dist /app/server
-COPY --from=build /app/apps/server/package.json /app/server/package.json
 COPY --from=build /app/apps/server/docs_index /app/server/docs_index
 
 # Copy Next.js standalone build
@@ -36,6 +35,10 @@ COPY --from=build /app/apps/web/.next/standalone /app/web
 # Copy proxy server
 COPY --from=build /app/dist/proxy.js /app/proxy.js
 COPY --from=build /app/scripts/config.json /app/config.json
+
+# installing pglite
+WORKDIR /app/server
+RUN bun install @electric-sql/pglite
 
 WORKDIR /app
 

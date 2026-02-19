@@ -9,7 +9,7 @@
     "dev": "bun --watch deployments/standalone.ts",
     "test": "bun test",
     "lint": "tsc --noEmit",
-    "build": "bun build deployments/standalone.ts --outdir=dist --bundle --target bun --minify --sourcemap=linked",
+    "build": "bun build deployments/standalone.ts --outdir=dist --bundle --target bun --minify --sourcemap=linked --external @electric-sql/pglite",
     "postbuild": "bun run ./scripts/postbuild.ts",
     "db:generate": "bun x drizzle-kit generate",
     "db:push": "bun x drizzle-kit push"
