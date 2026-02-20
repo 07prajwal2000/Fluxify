@@ -1,50 +1,78 @@
-import { CompiledQuery, Kysely, PostgresDialect, sql } from "kysely";
-import { Pool, PoolClient } from "pg";
+import { SQL } from "bun";
+import { CompiledQuery, Kysely } from "kysely";
 import { Connection, DbAdapterMode, DBConditionType, IDbAdapter } from ".";
 import { JsVM } from "@fluxify/lib";
+import { BunSqlPostgresDialect } from "./kyselySqlDialect";
 
 export class PostgresAdapter implements IDbAdapter {
   private mode: DbAdapterMode = DbAdapterMode.NORMAL;
-  private transaction: Kysely<any> | null = null;
-  private trxClient: PoolClient | null = null;
   private readonly HARD_LIMIT = 1000;
+
+  // Held during a manual transaction
+  private reservedConn: Awaited<ReturnType<SQL["reserve"]>> | null = null;
+  // Kysely instance scoped to the reserved connection
+  private transactionDb: Kysely<any> | null = null;
 
   constructor(
     private readonly db: Kysely<any>,
-    private readonly pool: Pool,
+    private readonly sql: SQL, // Bun.SQL instance (replaces Pool)
     private readonly vm: JsVM,
   ) {}
 
-  public static async testConnection(connection: Connection) {
-    const pool = new Pool({
-      host: connection.host,
-      port: Number(connection.port),
-      user: connection.username,
-      password: connection.password,
-      database: connection.database,
-      ssl: connection.ssl,
+  // ------------------------------------------------------------------
+  // Static factory helpers
+  // ------------------------------------------------------------------
+
+  /**
+   * Build a Kysely<any> instance backed by Bun's native Postgres client.
+   *
+   * Example:
+   *   const sql = new SQL("postgres://user:pass@localhost/mydb");
+   *   const db  = PostgresAdapter.createKysely(sql);
+   *   const adapter = new PostgresAdapter(db, sql, vm);
+   */
+  public static createKysely(sql: SQL): Kysely<any> {
+    return new Kysely<any>({ dialect: new BunSqlPostgresDialect(sql) });
+  }
+
+  /** Quick connectivity check — throws on failure. */
+  public static async testConnection(
+    connection: Connection,
+  ): Promise<{ success: boolean; error?: unknown }> {
+    const url =
+      `postgres://${connection.username}:${connection.password}` +
+      `@${connection.host}:${connection.port}/${connection.database}`;
+
+    const sql = new SQL(url, {
+      tls: connection.ssl,
+      max: 2,
     });
+
     try {
-      const client = await pool.connect();
-      const result = await client.query("SELECT 1 as test");
-      client.release();
-      return { success: result.rows[0].test == 1 };
-    } catch (error: any) {
+      const result = await sql.unsafe("SELECT 1 AS test");
+      return { success: (result as any)[0]?.test == 1 };
+    } catch (error) {
       return { success: false, error };
     } finally {
-      await pool.end();
+      await sql.close();
     }
   }
 
+  // ------------------------------------------------------------------
+  // Raw query
+  // ------------------------------------------------------------------
+
   async raw(query: string | unknown, params?: any[]): Promise<any> {
     if (typeof query !== "string")
-      throw new Error("raw function accepts only string queries.");
+      throw new Error("raw() accepts only string queries.");
+
     const conn = this.getConnection();
-    const result = await conn.executeQuery(
-      CompiledQuery.raw(query as string, params || []),
-    );
-    return result;
+    return conn.executeQuery(CompiledQuery.raw(query, params ?? []));
   }
+
+  // ------------------------------------------------------------------
+  // SELECT helpers
+  // ------------------------------------------------------------------
 
   async getAll(
     table: string,
@@ -54,18 +82,17 @@ export class PostgresAdapter implements IDbAdapter {
     sort: { attribute: string; direction: "asc" | "desc" },
   ): Promise<unknown[]> {
     const conn = this.getConnection();
-    let queryBuilder = conn.selectFrom(table);
-    queryBuilder = this.buildQuery(conditions, queryBuilder);
-    const l = limit < 0 || limit > this.HARD_LIMIT ? this.HARD_LIMIT : limit!;
+    let qb = conn.selectFrom(table);
+    qb = this.buildQuery(conditions, qb);
 
-    // Use dynamic generic type via any to bypass schema check
-    const data = await queryBuilder
+    const l = limit < 0 || limit > this.HARD_LIMIT ? this.HARD_LIMIT : limit;
+
+    return qb
       .selectAll()
       .limit(l)
       .offset(offset)
       .orderBy(sort.attribute, sort.direction)
       .execute();
-    return data;
   }
 
   async getSingle(
@@ -73,24 +100,26 @@ export class PostgresAdapter implements IDbAdapter {
     conditions: DBConditionType[],
   ): Promise<unknown | null> {
     const conn = this.getConnection();
-    let queryBuilder = conn.selectFrom(table);
-    queryBuilder = this.buildQuery(conditions, queryBuilder);
-    const result = await queryBuilder.selectAll().executeTakeFirst();
-    return result || null;
+    let qb = conn.selectFrom(table);
+    qb = this.buildQuery(conditions, qb);
+    return (await qb.selectAll().executeTakeFirst()) ?? null;
   }
+
+  // ------------------------------------------------------------------
+  // Mutating helpers
+  // ------------------------------------------------------------------
 
   async delete(table: string, conditions: DBConditionType[]): Promise<boolean> {
     const conn = this.getConnection();
-    let queryBuilder = conn.deleteFrom(table);
-    queryBuilder = this.buildQuery(conditions, queryBuilder);
-    // limit(1) on PG is typically ignored or ineffective, Kysely PG dialect doesn't support limit on delete.
-    const result = await queryBuilder.execute();
-    return Number(result[0].numDeletedRows) > 0;
+    let qb = conn.deleteFrom(table);
+    qb = this.buildQuery(conditions, qb);
+    const result = await qb.execute();
+    return Number(result[0]?.numDeletedRows ?? 0) > 0;
   }
 
   async insert(table: string, data: unknown): Promise<any> {
     const conn = this.getConnection();
-    return await conn
+    return conn
       .insertInto(table)
       .values(data as any)
       .returningAll()
@@ -98,7 +127,6 @@ export class PostgresAdapter implements IDbAdapter {
   }
 
   async insertBulk(table: string, data: any[]): Promise<any> {
-    // Emulate batchInsert
     const chunkSize = 1000;
     const results: any[] = [];
     const conn = this.getConnection();
@@ -121,94 +149,94 @@ export class PostgresAdapter implements IDbAdapter {
     conditions: DBConditionType[],
   ): Promise<any> {
     const conn = this.getConnection();
-    let queryBuilder = conn.updateTable(table).set(data as any);
-    queryBuilder = this.buildQuery(conditions, queryBuilder);
-    return await queryBuilder.returningAll().execute();
+    let qb = conn.updateTable(table).set(data as any);
+    qb = this.buildQuery(conditions, qb);
+    return qb.returningAll().execute();
   }
 
+  // ------------------------------------------------------------------
+  // Manual transaction support
+  // ------------------------------------------------------------------
+
   async setMode(mode: DbAdapterMode): Promise<void> {
-    // This is called by start/commit/rollback internally mostly
-    // But implementation logic is mainly in start/commit/rollback
     this.mode = mode;
   }
 
-  async startTransaction() {
+  async startTransaction(): Promise<void> {
     if (this.mode === DbAdapterMode.TRANSACTION) return;
 
-    // Secure a client for the transaction
-    this.trxClient = await this.pool.connect();
+    // Reserve a dedicated connection so all statements run on the same socket.
+    this.reservedConn = await this.sql.reserve();
+
     try {
-      await this.trxClient.query("BEGIN");
+      await this.reservedConn.unsafe("BEGIN");
     } catch (e) {
-      this.trxClient.release();
-      this.trxClient = null;
+      this.reservedConn.release();
+      this.reservedConn = null;
       throw e;
     }
 
-    // Create a generic Kysely instance that uses ONLY this client
-    this.transaction = new Kysely<any>({
-      dialect: new PostgresDialect({
-        pool: {
-          connect: async () => this.trxClient!,
-          end: async () => {}, // prevent closing the client via Kysely
-          totalCount: 1,
-          idleCount: 0,
-          waitingCount: 0,
-          on: () => {},
-          removeListener: () => {},
-          emit: () => false,
-        } as any, // Mock pool
-      }),
+    // Wrap the reserved connection in its own Kysely instance.
+    // We pass a thin SQL-like object so BunSqlDriver can call .unsafe() on it.
+    const reservedSql = this.reservedConn as unknown as SQL;
+    this.transactionDb = new Kysely<any>({
+      dialect: new BunSqlPostgresDialect(reservedSql),
     });
 
     await this.setMode(DbAdapterMode.TRANSACTION);
   }
 
-  async commitTransaction() {
-    if (this.mode !== DbAdapterMode.TRANSACTION || !this.trxClient)
-      throw new Error("db adapter is not in transaction mode");
+  async commitTransaction(): Promise<void> {
+    if (this.mode !== DbAdapterMode.TRANSACTION || !this.reservedConn)
+      throw new Error("Not in transaction mode");
 
     try {
-      await this.trxClient.query("COMMIT");
+      await this.reservedConn.unsafe("COMMIT");
     } finally {
-      if (this.transaction) {
-        await this.transaction.destroy(); // cleanup kysely instance
-      }
-      this.trxClient.release();
-      this.trxClient = null;
-      this.transaction = null;
+      await this.transactionDb?.destroy();
+      this.reservedConn.release();
+      this.reservedConn = null;
+      this.transactionDb = null;
       await this.setMode(DbAdapterMode.NORMAL);
     }
   }
 
-  async rollbackTransaction() {
-    if (this.mode !== DbAdapterMode.TRANSACTION || !this.trxClient)
-      throw new Error("db adapter is not in transaction mode");
+  async rollbackTransaction(): Promise<void> {
+    if (this.mode !== DbAdapterMode.TRANSACTION || !this.reservedConn)
+      throw new Error("Not in transaction mode");
 
     try {
-      await this.trxClient.query("ROLLBACK");
+      await this.reservedConn.unsafe("ROLLBACK");
     } finally {
-      if (this.transaction) {
-        await this.transaction.destroy();
-      }
-      this.trxClient.release();
-      this.trxClient = null;
-      this.transaction = null;
+      await this.transactionDb?.destroy();
+      this.reservedConn.release();
+      this.reservedConn = null;
+      this.transactionDb = null;
       await this.setMode(DbAdapterMode.NORMAL);
     }
+  }
+
+  // ------------------------------------------------------------------
+  // Private helpers
+  // ------------------------------------------------------------------
+
+  private getConnection(): Kysely<any> {
+    return this.mode === DbAdapterMode.TRANSACTION && this.transactionDb
+      ? this.transactionDb
+      : this.db;
   }
 
   private buildQuery(conditions: DBConditionType[], builder: any) {
-    for (let condition of conditions) {
+    for (const condition of conditions) {
       const operator = this.getNativeOperator(condition.operator);
-      const value = condition.value;
-
-      // Kysely uses 'is' for null check if explicitly needed, but standard SQL '=' works for values.
-      // Assuming standard operators.
-      if (condition.chain == "or") {
-        builder = builder.orWhere(condition.attribute, operator, value);
+      if (condition.chain === "or") {
+        builder = builder.orWhere(
+          condition.attribute,
+          operator,
+          condition.value,
+        );
       } else {
-        builder = builder.where(condition.attribute, operator, value);
+        builder = builder.where(condition.attribute, operator, condition.value);
       }
     }
     return builder;
@@ -216,22 +244,19 @@ export class PostgresAdapter implements IDbAdapter {
 
   private getNativeOperator(
     operator: "eq" | "neq" | "gt" | "gte" | "lt" | "lte",
-  ) {
-    if (operator == "eq") return "=";
-    else if (operator == "neq") return "<>";
-    else if (operator == "gt") return ">";
-    else if (operator == "gte") return ">=";
-    else if (operator == "lt") return "<";
-    else if (operator == "lte") return "<=";
-    else return "=";
+  ): string {
+    const map = { eq: "=", neq: "<>", gt: ">", gte: ">=", lt: "<", lte: "<=" };
+    return map[operator] ?? "=";
   }
+}
 
-  private getConnection() {
-    if (this.mode === DbAdapterMode.TRANSACTION && this.transaction) {
-      return this.transaction;
-    }
-    return this.db;
-  }
+// ---------------------------------------------------------------------------
+// Connection string helpers (mirrors the original extractPgConnectionInfo)
+// ---------------------------------------------------------------------------
+
+export function buildPgUrl(connection: Connection): string {
+  const { username, password, host, port, database } = connection;
+  return `postgres://${username}:${encodeURIComponent(password)}@${host}:${port}/${database}`;
 }
 
 export function extractPgConnectionInfo(
@@ -241,12 +266,10 @@ export function extractPgConnectionInfo(
 ) {
   if (config.source === "url") {
     config.url = config.url.startsWith("cfg:")
-      ? appConfigs.get(config.url.slice(4)) || ""
+      ? (appConfigs.get(config.url.slice(4)) ?? "")
       : config.url;
     const result = pgUrlParser(config.url);
-    if (result === null) {
-      return null;
-    }
+    if (result === null) return null;
     return {
       host: result.host,
       port: result.port,
@@ -257,13 +280,12 @@ export function extractPgConnectionInfo(
       dbType: result.dbType,
     };
   }
+
   for (const key in config) {
     const value = config[key].toString();
-    if (value.startsWith("cfg:")) {
-      config[key] = appConfigs.get(value.slice(4)) || "";
-    } else {
-      config[key] = value;
-    }
+    config[key] = value.startsWith("cfg:")
+      ? (appConfigs.get(value.slice(4)) ?? "")
+      : value;
   }
   return config;
 }

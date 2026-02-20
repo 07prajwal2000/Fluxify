@@ -1,15 +1,15 @@
 import { existsSync } from "fs";
 import { join } from "path";
+import { SQL } from "bun";
 import { PGlite } from "@electric-sql/pglite";
-import type { Pool } from "pg";
 
 export async function migrateDB(
-  db: PGlite | Pool,
+  db: PGlite | SQL,
   dialect: "pglite" | "postgres",
 ) {
-  // Only run in production
-  const isProduction = process.env.ENVIRONMENT === "production";
   console.log("Initializing production schema migration...");
+
+  const isProduction = process.env.ENVIRONMENT === "production";
   const schemaPath = join(
     isProduction ? process.cwd() : import.meta.dir,
     isProduction ? "" : "../../dist/",
@@ -22,23 +22,21 @@ export async function migrateDB(
   }
 
   try {
-    let result: any = undefined;
+    let result: any;
+
+    const tableCountQuery = `
+      SELECT count(*) as count
+      FROM information_schema.tables
+      WHERE table_schema = 'public'
+    `;
+
     if (dialect === "postgres") {
-      result = await (db as Pool).query(`
-      SELECT count(*) as count 
-      FROM information_schema.tables 
-      WHERE table_schema = 'public'
-    `);
+      result = await (db as SQL).unsafe(tableCountQuery);
     } else {
-      result = await (db as PGlite).query(`
-      SELECT count(*) as count 
-      FROM information_schema.tables 
-      WHERE table_schema = 'public'
-    `);
+      result = await (db as PGlite).query(tableCountQuery);
     }
 
-    // @ts-ignore
-    const tableCount = parseInt(result.rows[0]!.count.toString());
+    const tableCount = parseInt(result[0]!.count.toString());
 
     if (tableCount > 0) {
       console.log(
@@ -50,9 +48,11 @@ export async function migrateDB(
     console.log(`Applying schema from ${schemaPath}...`);
     const schemaSql = await Bun.file(schemaPath).text();
 
-    dialect === "postgres"
-      ? await (db as Pool).query(schemaSql)
-      : await (db as PGlite).exec(schemaSql);
+    if (dialect === "postgres") {
+      await (db as SQL).unsafe(schemaSql);
+    } else {
+      await (db as PGlite).exec(schemaSql);
+    }
 
     console.log("Schema applied successfully.");
   } catch (error) {

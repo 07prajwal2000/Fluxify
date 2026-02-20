@@ -1,16 +1,12 @@
-import { ExtractTablesWithRelations } from "drizzle-orm";
-
-import {
-  drizzle,
-  NodePgQueryResultHKT,
-  NodePgDatabase,
-} from "drizzle-orm/node-postgres";
+import { SQL } from "bun";
+import { drizzle } from "drizzle-orm/bun-sql";
 import type { PgTransaction } from "drizzle-orm/pg-core";
 import type { PgliteDatabase, PgliteQueryResultHKT } from "drizzle-orm/pglite";
+import type { BunSQLQueryResultHKT, BunSQLDatabase } from "drizzle-orm/bun-sql";
+import type { ExtractTablesWithRelations } from "drizzle-orm";
 import { migrateDB } from "./migration";
-import { Pool } from "pg";
 
-let db: PgliteDatabase | NodePgDatabase = null!;
+let db: PgliteDatabase | BunSQLDatabase = null!;
 
 export async function drizzleInit(migrate: boolean = false) {
   if (process.env.DB_VARIANT === "pglite") {
@@ -28,14 +24,19 @@ async function initializePostgres() {
   if (!pgUrl) {
     throw new Error("postgres connection url is required for drizzle");
   }
-  const client = new Pool({ connectionString: pgUrl });
-  db = drizzle(client);
-  const result = await db.execute(`select 1 as connected`);
-  if (result.rows[0].connected) {
+
+  const client = new SQL(pgUrl);
+  db = drizzle({ client });
+
+  const result = await db.execute<{ connected: number }>(
+    `select 1 as connected`,
+  );
+  if (result[0].connected) {
     console.log("db initialized");
   } else {
     throw new Error("db connection failed");
   }
+
   return client;
 }
 
@@ -49,12 +50,12 @@ async function initializePgLite() {
   const result = await db.execute<{ connected: number }>(
     "select 1 as connected",
   );
-
   if (result.rows[0].connected === 1) {
     console.log("pglite db initialized");
   } else {
     throw new Error("db connection failed");
   }
+
   return client;
 }
 
@@ -62,7 +63,7 @@ export { db };
 
 export type DbTransactionType =
   | PgTransaction<
-      NodePgQueryResultHKT,
+      BunSQLQueryResultHKT,
       Record<string, never>,
       ExtractTablesWithRelations<Record<string, never>>
     >

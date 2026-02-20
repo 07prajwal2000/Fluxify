@@ -1,10 +1,12 @@
-import { Kysely, PostgresDialect } from "kysely";
-import { Pool } from "pg";
+import { SQL } from "bun";
+import { Kysely } from "kysely";
 import { operatorSchema } from "@fluxify/lib";
 import z from "zod";
 import { Connection, DbType } from "./connection";
 import { PostgresAdapter } from "./postgresAdapter";
+import { MySqlAdapter } from "./mySqlAdapter";
 import { JsVM } from "@fluxify/lib";
+import { BunSqlPostgresDialect, BunSqlMysqlDialect } from "./kyselySqlDialect";
 
 export const whereConditionSchema = z.object({
   attribute: z.string(),
@@ -49,6 +51,7 @@ export interface IDbAdapter {
 
 export class DbFactory {
   private readonly connectionMap: Record<string, IDbAdapter> = {};
+
   constructor(
     private readonly vm: JsVM,
     private readonly dbConfig: Record<string, Connection>,
@@ -60,53 +63,72 @@ export class DbFactory {
       throw new Error("config is null while creating db adapter");
     }
     if (connection in this.connectionMap) return this.connectionMap[connection];
+
     if (cfg.dbType === DbType.POSTGRES) {
-      const { db, pool } = this.getKyselyConnection(connection, cfg);
+      const { db, sql } = this.getBunSqlConnection(connection, cfg, "postgres");
       return (this.connectionMap[connection] = new PostgresAdapter(
         db,
-        pool,
+        sql,
         this.vm,
       ));
     }
+
+    if (cfg.dbType === DbType.MYSQL) {
+      const { db, sql } = this.getBunSqlConnection(connection, cfg, "mysql");
+      return (this.connectionMap[connection] = new MySqlAdapter(
+        db,
+        sql,
+        this.vm,
+      ));
+    }
+
     throw new Error("MongoDB Not implemented");
   }
 
-  private static kyselyConnectionCache: Record<
+  private static connectionCache: Record<
     string,
-    { db: Kysely<any>; pool: Pool }
+    { db: Kysely<any>; sql: SQL }
   > = {};
 
-  private getKyselyConnection(connection: string, cfg: Connection) {
-    if (connection in DbFactory.kyselyConnectionCache) {
-      return DbFactory.kyselyConnectionCache[connection];
+  private getBunSqlConnection(
+    connection: string,
+    cfg: Connection,
+    adapter: "postgres" | "mysql",
+  ): { db: Kysely<any>; sql: SQL } {
+    if (connection in DbFactory.connectionCache) {
+      return DbFactory.connectionCache[connection];
     }
-    const pool = new Pool({
-      host: cfg.host,
+
+    const sql = new SQL({
+      adapter,
+      hostname: cfg.host,
       port: Number(cfg.port),
-      user: cfg.username,
+      username: cfg.username,
       password: cfg.password,
       database: cfg.database,
+      ...(adapter === "postgres" && cfg.ssl ? { tls: true } : {}),
     });
-    const db = new Kysely<any>({
-      dialect: new PostgresDialect({
-        pool,
-      }),
-    });
-    return (DbFactory.kyselyConnectionCache[connection] = { db, pool });
+
+    const dialect =
+      adapter === "postgres"
+        ? new BunSqlPostgresDialect(sql)
+        : new BunSqlMysqlDialect(sql);
+
+    const db = new Kysely<any>({ dialect });
+
+    return (DbFactory.connectionCache[connection] = { db, sql });
   }
 
-  // called when appconfig/integration changed
+  /** Call when app config / integration credentials change. */
   public static async ResetConnections() {
-    const proms: Promise<any>[] = [];
-    for (let conn in this.kyselyConnectionCache) {
-      proms.push(this.kyselyConnectionCache[conn].db.destroy());
-    }
-    this.kyselyConnectionCache = {};
-    try {
-      await Promise.allSettled(proms);
-    } catch (error) {}
+    const proms = Object.values(this.connectionCache).map(({ db, sql }) =>
+      db.destroy().then(() => sql.close()),
+    );
+    this.connectionCache = {};
+    await Promise.allSettled(proms);
   }
 }
 
 export * from "./postgresAdapter";
+export * from "./mySqlAdapter";
 export * from "./connection";

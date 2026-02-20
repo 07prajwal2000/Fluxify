@@ -1,6 +1,7 @@
 export enum DbType {
   POSTGRES = "pg",
   MONGODB = "mongo",
+  MYSQL = "mysql",
 }
 
 export interface Connection {

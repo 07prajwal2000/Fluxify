@@ -1,67 +1,58 @@
 <div align="center">
 
-<img src="img/logo_title.png" height="100px">
+<img src="img/logo_title.png" height="80px" alt="Fluxify">
 
-### The Ultimate No/Low-Code Backend API Builder
+**The No/Low-Code Backend API Builder**
 
----
+<img src="img/banner.png" height="300px" alt="Fluxify Banner">
 
-### ✨ **Build APIs Visually, Deploy Instantly**
+Build and deploy complex backend APIs through a drag-and-drop interface — no code required, fully extensible when you need it.
 
-<img alt="banner" src="img/banner.png" height="350px">
-
-Create complex backend APIs through an intuitive drag-and-drop interface. No coding required, but fully extensible for advanced use cases.
+[Quick Start](docs/self-hosting.md) · [Features](#-features) · [Contributing](CONTRIBUTING.md) · [Changelog](CHANGELOG.md)
 
 </div>
 
-## 🚀 **Quick Start**
-1. Goto [Fluxify's Docker Repository](https://github.com/Fluxify-rest/Fluxify/pkgs/container/fluxify-kit)
-2. Pull the image
-    ```bash
-    docker pull ghcr.io/fluxify-rest/fluxify-kit:latest
-    ```
-3. Create a `.env` file and use the variables from the [env.example](env.example)
-3. Run the image
-    ```bash
-    docker run -d --env-file .env -p 8080:8080 ghcr.io/fluxify-rest/fluxify-kit:latest
-    ```
-4. Goto http://localhost:8080 to access the application running behind proxy server
+---
+
+## 🚀 Quick Start
+
+```bash
+docker pull ghcr.io/fluxify-rest/fluxify-kit:latest
+```
+
+1. Copy [env.example](env.example) to `.env` and fill in your values
+2. Run the container:
+   ```bash
+   docker run -d --env-file .env -p 8080:8080 ghcr.io/fluxify-rest/fluxify-kit:latest
+   ```
+3. Open [http://localhost:8080](http://localhost:8080)
+
+Full setup guide → [docs/self-hosting.md](docs/self-hosting.md)
 
 ---
 
-## 📈 **Features**
+## ✨ Features
 
-- ✅ Visual drag-and-drop editor
-- ✅ Core block library
-- ✅ REST API generation
-- ✅ PostgreSQL integration
-- ✅ TypeScript support
-- ✅ Secrets Management: Secure loading and saving of secrets
-- ✅ **Multi-user Authentication**: User management system
-- 💾 Database Interaction Blocks: Native database operation blocks
-    - ✅ PostgreSQL
-    - MySQL / MongoDB / Others (Looking for contributors)
-- 🔍 Observability: Native observability blocks
-    - Logging
-        - ✅ Open Observe
-        - Loki Logs
-- 🤖 **AI Integration**: AI-powered API generation (**Ongoing**)
-- 🔑 **JWT Blocks**: JSON Web Token handling and validation
-- ☁️ **Serverless Support**: Deploy to serverless functions
-- ⏰ **Cron Support**: Scheduled task execution
-- 🗒️ **Audit Logs**: Execution history and trails
-- 🔄 **Realtime Capabilities**: Live collaboration features
-- 💽 **Backups**: Automated data backup systems
-- 🛒 **Marketplace**: Online hub for blocks built by community
+| Status | Feature |
+|--------|---------|
+| ✅ | Visual drag-and-drop API editor |
+| ✅ | REST API generation |
+| ✅ | PostgreSQL integration |
+| ✅ | Multi-user authentication & secrets management |
+| ✅ | Observability (OpenObserve, Loki) |
+| 🚧 | MySQL / MongoDB support *(contributors welcome)* |
+| 🚧 | AI-powered API generation |
+| 🚧 | JWT blocks, Cron scheduling, Audit logs |
+| 🔜 | Serverless deploy, Realtime, Backups, Marketplace |
 
 ---
 
-## 📊 **Contributing**
+## 🤝 Contributing
 
-Found a bug 🐛 or have a feature idea? Please open an issue or submit a pull request to an existing issue.
+Bug reports, feature requests, and PRs are welcome. Please read [CONTRIBUTING.md](CONTRIBUTING.md) before submitting.
 
 ---
 
-## 📄 **License**
+## 📄 License
 
-This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) file for details.
+MIT — see [LICENSE](LICENSE) for details.

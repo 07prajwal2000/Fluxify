@@ -1,7 +1,7 @@
 import { betterAuth } from "better-auth";
 import { DB, drizzleAdapter } from "better-auth/adapters/drizzle";
 import { deleteCacheKey, getCache, setCache, setCacheEx } from "../db/redis";
-import { accessControlEntity, projectsEntity } from "../db/schema";
+import { accessControlEntity } from "../db/schema";
 import { eq } from "drizzle-orm";
 import { customSession } from "better-auth/plugins";
 import * as authSchemas from "../db/auth-schema";
