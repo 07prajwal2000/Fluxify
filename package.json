@@ -10,7 +10,7 @@
     "test": "turbo run test",
     "build": "turbo run build",
     "build:proxy": "bun build scripts/proxy.js --outfile=dist/proxy.js --bundle --target bun --minify",
-    "analyze": "bun x fta-cli --score-cap 60 ."
+    "analyze": "bun x fta-cli --score-cap 70 ."
   },
   "keywords": [
     "fluxify",

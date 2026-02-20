@@ -64,6 +64,20 @@
       "when": 1768501517347,
       "tag": "0008_wealthy_leper_queen",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1771622640642,
+      "tag": "0009_purple_mandroid",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1771624297310,
+      "tag": "0010_third_zemo",
+      "breakpoints": true
     }
   ]
 }

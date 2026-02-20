@@ -1,5 +1,5 @@
 import { generateID } from "@fluxify/lib";
-import { sql } from "drizzle-orm";
+import { sql, relations } from "drizzle-orm";
 import {
   boolean,
   index,
@@ -243,3 +243,45 @@ export const accessControlEntity = pgTable(
     index("idx_access_control_project_id").on(table.projectId),
   ],
 );
+
+export const testSuitesEntity = pgTable("test_suites", {
+  id: varchar({ length: 50 })
+    .primaryKey()
+    .$defaultFn(() => generateID()),
+  name: varchar({ length: 255 }).notNull(),
+  description: text(),
+  routeId: varchar("route_id", { length: 50 })
+    .notNull()
+    .references(() => routesEntity.id, { onDelete: "cascade" }),
+
+  // Mock request data
+  headers: jsonb("headers").$type<Record<string, string>>().default({}),
+  params: jsonb("params").$type<Record<string, string>>().default({}),
+  queryParams: jsonb("query_params")
+    .$type<Record<string, string>>()
+    .default({}),
+  routeParams: jsonb("route_params")
+    .$type<Record<string, string>>()
+    .default({}),
+  body: jsonb("body").$type<Record<string, unknown>>(),
+
+  // Assertions
+  assertions: jsonb("assertions").$type<any[]>().notNull().default([]),
+
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at")
+    .defaultNow()
+    .notNull()
+    .$onUpdate(() => new Date()),
+});
+
+export const testSuitesRelations = relations(testSuitesEntity, ({ one }) => ({
+  route: one(routesEntity, {
+    fields: [testSuitesEntity.routeId],
+    references: [routesEntity.id],
+  }),
+}));
+
+export const routesRelations = relations(routesEntity, ({ many }) => ({
+  testSuites: many(testSuitesEntity),
+}));
