@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, type MockInstance, mock, spyOn, type Mock } from "bun:test";
+import { describe, it, expect, beforeEach, mock, type Mock } from "bun:test";
 import { getAppConfigById } from "../repository";
 import { responseSchema } from "../dto";
 import handleRequest from "../service";
@@ -7,7 +7,14 @@ import { NotFoundError } from "../../../../../errors/notFoundError";
 
 // Mock the repository and encryption service
 mock.module("../repository", () => ({
-    getAppConfigById: mock()
+  getAppConfigById: mock(),
+}));
+
+mock.module("../../../../../lib/encryption", () => ({
+  EncryptionService: {
+    maskValue: mock((val) => val.replace(/./g, "*")),
+    decodeData: mock((val) => val),
+  },
 }));
 
 describe("getAppConfigById service", () => {
@@ -22,10 +29,11 @@ describe("getAppConfigById service", () => {
     updatedAt: new Date("2023-01-01T00:00:00.000Z"),
   };
 
-  let getAppConfigByIdMock: MockInstance;
+  let getAppConfigByIdMock: Mock<any>;
 
   beforeEach(() => {
-    getAppConfigByIdMock = getAppConfigById;
+    getAppConfigByIdMock = getAppConfigById as unknown as Mock<any>;
+    getAppConfigByIdMock.mockClear();
   });
 
   it("should return app config with correct structure when found", async () => {
@@ -51,7 +59,7 @@ describe("getAppConfigById service", () => {
     });
 
     const result = await handleRequest(1);
-    // The encrypted value should be masked
+    // The encrypted value should be masked (mock implementation replaces with '*')
     expect(result.value.split("").every((x) => x === "*")).toBe(true);
     expect(result.isEncrypted).toBe(true);
   });
