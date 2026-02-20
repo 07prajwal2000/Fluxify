@@ -40,6 +40,7 @@ Full setup guide → [docs/self-hosting.md](docs/self-hosting.md)
 | ✅ | PostgreSQL integration |
 | ✅ | Multi-user authentication & secrets management |
 | ✅ | Observability (OpenObserve, Loki) |
+| ✅ | Testing System (Playground + Test Suites) |
 | 🚧 | MySQL / MongoDB support *(contributors welcome)* |
 | 🚧 | AI-powered API generation |
 | 🚧 | JWT blocks, Cron scheduling, Audit logs |
