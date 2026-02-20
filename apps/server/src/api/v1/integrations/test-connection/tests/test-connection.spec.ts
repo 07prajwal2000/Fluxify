@@ -9,21 +9,22 @@ import {
 } from "bun:test";
 import handleRequest from "../service";
 import { getAppConfigs } from "../repository";
-// We import adapter to get access to the mocked object for assertions
 import { PostgresAdapter } from "@fluxify/adapters";
+import { parsePostgresUrl } from "../../../../../lib/parsers/postgres";
 
-// Define mocks
+// Mock repositories
 mock.module("../repository", () => ({
   getAppConfigs: mock(),
 }));
 
+// Mock adapters
 mock.module("@fluxify/adapters", () => {
   return {
     PostgresAdapter: {
       testConnection: mock(),
     },
-    extractPgConnectionInfo: mock((config) => config),
-    // Other integrations might be needed if handleRequest imports them
+    // We mock extractPgConnectionInfo to return specific config or null
+    extractPgConnectionInfo: mock(),
     OpenObserve: { TestConnection: mock() },
     LokiLogger: { TestConnection: mock() },
     OpenAIIntegration: { TestConnection: mock() },
@@ -34,6 +35,12 @@ mock.module("@fluxify/adapters", () => {
   };
 });
 
+// Mock parser - Simple mock, we will define return values per test
+mock.module("../../../../../lib/parsers/postgres", () => ({
+  parsePostgresUrl: mock(),
+}));
+
+// Mock encryption
 mock.module("../../../../../lib/encryption", () => ({
   EncryptionService: {
     decodeData: mock((val) => val),
@@ -41,12 +48,21 @@ mock.module("../../../../../lib/encryption", () => ({
   },
 }));
 
+// Access mocks
 const mockGetAppConfigs = getAppConfigs as unknown as Mock<
   typeof getAppConfigs
 >;
-// We need to cast PostgresAdapter.testConnection carefully
 const mockPgTestConnection =
   PostgresAdapter.testConnection as unknown as Mock<any>;
+const mockParsePostgresUrl = parsePostgresUrl as unknown as Mock<
+  typeof parsePostgresUrl
+>;
+
+// We need to access extractPgConnectionInfo mock. Since it is not exported from the module directly in the test (we import PostgresAdapter), we might need to grab it from the module mock definition or import it if we could.
+// However, since we mock the whole module, we can just grab it if we import it.
+import { extractPgConnectionInfo } from "@fluxify/adapters";
+const mockExtractPgConnectionInfo =
+  extractPgConnectionInfo as unknown as Mock<any>;
 
 describe("testConnection service", () => {
   beforeAll(() => {
@@ -56,13 +72,23 @@ describe("testConnection service", () => {
   });
 
   beforeEach(() => {
-    // Clear all mocks to prevent state carrying over
     mockGetAppConfigs.mockClear();
     mockPgTestConnection.mockClear();
+    mockParsePostgresUrl.mockClear();
+    mockExtractPgConnectionInfo.mockClear();
 
     // Default implementations
-    mockGetAppConfigs.mockResolvedValue([]); // Default: no app configs found
-    mockPgTestConnection.mockResolvedValue({ success: true }); // Default: connection success
+    mockGetAppConfigs.mockResolvedValue([]);
+    mockPgTestConnection.mockResolvedValue({ success: true });
+
+    // Default parser behavior: return something valid so schema validation passes by default for "url" source checks
+    // The schema calls parsePostgresUrl(v). check if null.
+    mockParsePostgresUrl.mockReturnValue({} as any);
+
+    // Default extractor behavior: return the config passed to it
+    mockExtractPgConnectionInfo.mockImplementation(
+      (config: any) => config.config || config,
+    );
   });
 
   it("should return error for invalid group", async () => {
@@ -86,11 +112,14 @@ describe("testConnection service", () => {
     expect(result.success).toBe(false);
   });
 
-  it("should return error for invalid config", async () => {
+  it("should return error for invalid config (schema validation)", async () => {
+    // Force schema validation fail for URL
+    mockParsePostgresUrl.mockReturnValue(null); // Schema check fails
+
     const result = await handleRequest({
       group: "database",
       variant: "PostgreSQL",
-      config: { url: "invalid-url" },
+      config: { source: "url", url: "invalid-url" },
     });
 
     expect(result.success).toBe(false);
@@ -109,10 +138,12 @@ describe("testConnection service", () => {
   });
 
   it("should validate PostgreSQL URL format", async () => {
+    mockParsePostgresUrl.mockReturnValue(null); // Invalid URL
+
     const result = await handleRequest({
       group: "database",
       variant: "PostgreSQL",
-      config: { url: "not-a-valid-postgres-url" },
+      config: { source: "url", url: "not-a-valid-postgres-url" },
     });
 
     expect(result.success).toBe(false);
@@ -128,16 +159,20 @@ describe("testConnection service", () => {
       },
     ] as any);
 
+    // Schema validation passes for cfg: because of refine rule (startsWith cfg)
+    // mockParsePostgresUrl not called for cfg: string
+
+    // mockExtractPgConnectionInfo needs to return something valid
+    mockExtractPgConnectionInfo.mockReturnValue({ connectionString: "..." });
+
     const result = await handleRequest({
       group: "database",
       variant: "PostgreSQL",
       config: { source: "url", url: "cfg:db_url" },
     });
 
-    // We expect getAppConfigs to be called with nothing (to get all keys? or keys extracted from config?)
-    // In service: getAppConfigKeysFromData(data) -> returns ["db_url"]
-    // Then getAppConfigs(["db_url"])
     expect(mockGetAppConfigs).toHaveBeenCalledWith(["db_url"]);
+    expect(result.success).toBe(true);
   });
 
   it("should handle encrypted app configs", async () => {
@@ -150,6 +185,8 @@ describe("testConnection service", () => {
       },
     ] as any);
 
+    mockExtractPgConnectionInfo.mockReturnValue({ connectionString: "..." });
+
     const result = await handleRequest({
       group: "database",
       variant: "PostgreSQL",
@@ -160,28 +197,56 @@ describe("testConnection service", () => {
     });
 
     expect(mockGetAppConfigs).toHaveBeenCalledWith(["db_password"]);
+    expect(result.success).toBe(true);
   });
 
   it("should return error for missing required config fields", async () => {
     const result = await handleRequest({
       group: "database",
       variant: "PostgreSQL",
-      config: { host: "localhost" }, // Missing url
+      config: { host: "localhost" }, // Missing url/source
     });
 
     expect(result.success).toBe(false);
   });
 
   it("should parse PostgreSQL connection string correctly", async () => {
-    mockGetAppConfigs.mockResolvedValueOnce([]);
+    mockParsePostgresUrl.mockReturnValue({ host: "localhost" } as any); // Valid
+
+    // extractPgConnectionInfo is called in service.
+    // We want to verify that extractPgConnectionInfo calls were made correctly OR just that logic proceeded.
+    // Logic: if (!pgConfig) return error.
+    mockExtractPgConnectionInfo.mockReturnValue({
+      host: "localhost",
+      user: "user",
+    });
 
     const result = await handleRequest({
       group: "database",
       variant: "PostgreSQL",
-      config: { url: "postgres://user:pass@localhost:5432/testdb" },
+      config: {
+        source: "url",
+        url: "postgres://user:pass@localhost:5432/testdb",
+      },
     });
 
-    expect(result).toHaveProperty("success");
-    // expect(result).toHaveProperty("error"); // Error might be empty string or null depending on success
+    expect(result.success).toBe(true);
+    expect(mockParsePostgresUrl).toHaveBeenCalledWith(
+      "postgres://user:pass@localhost:5432/testdb",
+    );
+  });
+
+  it("should fail if extractPgConnectionInfo returns null (invalid config after processing)", async () => {
+    mockParsePostgresUrl.mockReturnValue({} as any); // Schema passes
+    mockExtractPgConnectionInfo.mockReturnValue(null); // Extraction fails
+
+    const result = await handleRequest({
+      group: "database",
+      variant: "PostgreSQL",
+      config: { source: "url", url: "postgres://valid" },
+    });
+
+    expect(result.success).toBe(false);
+    expect(result.error).toBe("Invalid configuration");
   });
 });
