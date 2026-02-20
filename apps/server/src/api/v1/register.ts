@@ -3,6 +3,7 @@ import routes from "./routes/register";
 import projects from "./projects/register";
 import appConfig from "./app-config/register";
 import integrations from "./integrations/register";
+import testSuites from "./test-suites/register";
 import { HonoServer } from "../../types";
 
 export default {
@@ -26,5 +27,6 @@ export default {
     projects.registerHandler(router);
     appConfig.registerHandler(router);
     integrations.registerHandler(router);
+    testSuites.registerHandler(router);
   },
 };

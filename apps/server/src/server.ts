@@ -68,6 +68,8 @@ async function main() {
   const parser = await loadRoutes();
   await mapRouter(app, parser);
 }
-main();
+if (process.env.NODE_ENV !== "test") {
+  await main();
+}
 
 export { app };
