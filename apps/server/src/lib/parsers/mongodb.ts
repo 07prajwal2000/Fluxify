@@ -16,7 +16,7 @@ interface MongoDbSingleHost {
 export function parseMongoDbSingleHost(url: string): MongoDbSingleHost | null {
   // 1. scheme://[user:pass@]host[:port][/db][?opts]
   const re =
-    /^mongodb(?:\+srv)?:\/\/(?:([^:]+):([^@]+)@)?([^,\/:]+)(?::(\d+))?(?:\/([^?]+))?(?:\?(.+))?$/i;
+    /^mongodb(?:\+srv)?:\/\/(?:([^:]+):([^@]+)@)?([^,/:]+)(?::(\d+))?(?:\/([^?]+))?(?:\?(.+))?$/i;
   const m = url.match(re);
   if (!m) return null;
 

@@ -1,9 +1,8 @@
 "use client";
 
 import { ActionIcon, Badge, Group, Menu, Stack, Table } from "@mantine/core";
-import React, { useMemo, useState } from "react";
+import React, { useMemo } from "react";
 import Pagination from "../pagination/Pagination";
-import { authQuery } from "@/query/authQuery";
 import QueryLoader from "../query/queryLoader";
 import QueryError from "../query/queryError";
 import { TbDots, TbTrash } from "react-icons/tb";
@@ -11,43 +10,46 @@ import { FaAngleDown, FaAngleUp } from "react-icons/fa6";
 import RequireRoleInAnyProject from "../auth/requireRoleInAnyProject";
 import ConfirmDialog from "../dialog/confirmDialog";
 import AddNewUserForm from "./addNewUserForm";
-import { useAuthStore } from "@/store/auth";
-import { showErrorNotification } from "@/lib/errorNotifier";
-import { notifications, showNotification } from "@mantine/notifications";
+import { useUsersList } from "./usersList/useUsersList";
 
 const UsersList = () => {
-  const [page, setPage] = useState(1);
-  const [perPage, setPerPage] = useState(20);
-  const { userData } = useAuthStore();
-  const { mutate: updateUserPartial } = authQuery.updateUserPartial.mutation();
-  const { mutate: deleteUser } = authQuery.deleteUser.mutation();
-  const { data, isLoading, isError, error } = authQuery.listUsers.useQuery({
+  const {
     page,
+    setPage,
     perPage,
-  });
-  const [openDeleteDialog, setOpenDeleteDialog] = useState<{
-    open: boolean;
-    user: { name: string; email: string; id: string } | null;
-  }>({
-    open: false,
-    user: null,
-  });
-  // add promote/demote state with type=promote/demote
-  const [openPromoteDialog, setOpenPromoteDialog] = useState<{
-    open: boolean;
-    type: "promote" | "demote";
-    user: { name: string; email: string; id: string } | null;
-  }>({
-    open: false,
-    type: "promote",
-    user: null,
-  });
+    setPerPage,
+    userData,
+    data,
+    isLoading,
+    isError,
+    error,
+    openDeleteDialog,
+    setOpenDeleteDialog,
+    openPromoteDialog,
+    setOpenPromoteDialog,
+    handlePromote,
+    handleDemote,
+    handleDelete,
+    confirmDelete,
+    handleConfirmPromote,
+  } = useUsersList();
+
   const promotionMessage = useMemo(() => {
     if (!openPromoteDialog.user) return "";
     if (openPromoteDialog.type === "promote") {
-      return <div>Are you sure you want to promote <b>{openPromoteDialog.user.name}</b> as admin?</div>;
+      return (
+        <div>
+          Are you sure you want to promote <b>{openPromoteDialog.user.name}</b>{" "}
+          as admin?
+        </div>
+      );
     } else {
-      return <div>Are you sure you want to demote <b>{openPromoteDialog.user.name}</b> from admin?</div>;
+      return (
+        <div>
+          Are you sure you want to demote <b>{openPromoteDialog.user.name}</b>{" "}
+          from admin?
+        </div>
+      );
     }
   }, [openPromoteDialog]);
 
@@ -56,126 +58,7 @@ const UsersList = () => {
   }
 
   if (isError) {
-    return <QueryError error={error} />;
-  }
-
-  function handlePromote(user: { name: string; email: string; id: string }) {
-    setOpenPromoteDialog({
-      open: true,
-      type: "promote",
-      user,
-    });
-  }
-  function handleDemote(user: { name: string; email: string; id: string }) {
-    setOpenPromoteDialog({
-      open: true,
-      type: "demote",
-      user,
-    });
-  }
-
-  function handleDelete(user: { name: string; email: string; id: string }) {
-    setOpenDeleteDialog({
-      open: true,
-      user,
-    });
-  }
-
-  function handleConfirmPromote() {
-    openPromoteDialog.type === "promote" ? confirmPromote() : confirmDemote();
-  }
-  function confirmPromote() {
-    const notificationId = "promote-notification-id";
-    try {
-      notifications.show({
-        id: notificationId,
-        message: "Promoting user...",
-        loading: true,
-      });
-      updateUserPartial({
-        userId: openPromoteDialog.user!.id,
-        isSystemAdmin: true,
-      });
-      notifications.update({
-        id: notificationId,
-        message: "User promoted successfully",
-        color: "green",
-        loading: false,
-      });
-      setOpenPromoteDialog({
-        open: false,
-        type: "promote",
-        user: null,
-      });
-    } catch (error: any) {
-      notifications.update({
-        id: notificationId,
-        message: "Failed to promote user",
-        color: "red",
-      });
-    }
-  }
-
-  function confirmDemote() {
-    const notificationId = "demote-notification-id";
-    try {
-      notifications.show({
-        id: notificationId,
-        message: "Demoting user...",
-        loading: true,
-      });
-      updateUserPartial({
-        userId: openPromoteDialog.user!.id,
-        isSystemAdmin: false,
-      });
-      notifications.update({
-        id: notificationId,
-        message: "User demoted successfully",
-        color: "green",
-        loading: false,
-      });
-      setOpenPromoteDialog({
-        open: false,
-        type: "demote",
-        user: null,
-      });
-    } catch (error: any) {
-      notifications.update({
-        id: notificationId,
-        message: "Failed to demote user",
-        color: "red",
-        loading: false,
-      });
-    }
-  }
-
-  function confirmDelete() {
-    const notificationId = "delete-notification-id";
-    try {
-      notifications.show({
-        id: notificationId,
-        message: "Deleting user...",
-        loading: true,
-      });
-      deleteUser(openDeleteDialog.user!.id);
-      notifications.update({
-        id: notificationId,
-        message: "User deleted successfully",
-        color: "green",
-        loading: false,
-      });
-      setOpenDeleteDialog({
-        open: false,
-        user: null,
-      });
-    } catch (error: any) {
-      notifications.update({
-        id: notificationId,
-        message: "Failed to delete user",
-        color: "red",
-        loading: false,
-      });
-    }
+    return <QueryError error={error || undefined} />;
   }
 
   return (
@@ -207,7 +90,11 @@ const UsersList = () => {
         <Table.Tbody>
           {data.data.map((user) => {
             const isCurrentUser = user.id === userData.id;
-            const roleMsg = user.role ? user.role === "instance_admin" ? "System Admin" : "User" : "No role assigned";
+            const roleMsg = user.role
+              ? user.role === "instance_admin"
+                ? "System Admin"
+                : "User"
+              : "No role assigned";
             return (
               <Table.Tr key={user.id}>
                 <Table.Td>
@@ -221,45 +108,46 @@ const UsersList = () => {
                 <Table.Td>{user.isSystemAdmin ? "Yes" : "No"}</Table.Td>
                 <RequireRoleInAnyProject requiredRole="system_admin">
                   <Table.Td
-                  style={{
-                    visibility: isCurrentUser ? "hidden" : "visible",
-                  }}
-                >
-                  <Menu withArrow arrowSize={15} shadow="sm">
-                    <Menu.Target>
-                      <ActionIcon variant="subtle" color="violet">
-                        <TbDots />
-                      </ActionIcon>
-                    </Menu.Target>
-                    <Menu.Dropdown>
-                      {user.isSystemAdmin ? (
+                    style={{
+                      visibility: isCurrentUser ? "hidden" : "visible",
+                    }}
+                  >
+                    <Menu withArrow arrowSize={15} shadow="sm">
+                      <Menu.Target>
+                        <ActionIcon variant="subtle" color="violet">
+                          <TbDots />
+                        </ActionIcon>
+                      </Menu.Target>
+                      <Menu.Dropdown>
+                        {user.isSystemAdmin ? (
+                          <Menu.Item
+                            onClick={() => handleDemote(user)}
+                            leftSection={<FaAngleDown size={15} />}
+                          >
+                            Demote
+                          </Menu.Item>
+                        ) : (
+                          <Menu.Item
+                            onClick={() => handlePromote(user)}
+                            leftSection={<FaAngleUp size={15} />}
+                          >
+                            Promote
+                          </Menu.Item>
+                        )}
                         <Menu.Item
-                          onClick={() => handleDemote(user)}
-                          leftSection={<FaAngleDown size={15} />}
+                          color="red"
+                          leftSection={<TbTrash size={15} />}
+                          onClick={() => handleDelete(user)}
                         >
-                          Demote
+                          Delete User
                         </Menu.Item>
-                      ) : (
-                        <Menu.Item
-                          onClick={() => handlePromote(user)}
-                          leftSection={<FaAngleUp size={15} />}
-                        >
-                          Promote
-                        </Menu.Item>
-                      )}
-                      <Menu.Item
-                        color="red"
-                        leftSection={<TbTrash size={15} />}
-                        onClick={() => handleDelete(user)}
-                      >
-                        Delete User
-                      </Menu.Item>
-                    </Menu.Dropdown>
-                  </Menu>
-                </Table.Td>
-              </RequireRoleInAnyProject>
-            </Table.Tr>
-          )})}
+                      </Menu.Dropdown>
+                    </Menu>
+                  </Table.Td>
+                </RequireRoleInAnyProject>
+              </Table.Tr>
+            );
+          })}
         </Table.Tbody>
       </Table>
       <ConfirmDialog

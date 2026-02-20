@@ -1,17 +1,9 @@
-import React, { useContext } from "react";
+import { useContext } from "react";
 import BaseBlock from "../../base";
 import BlockHandle from "../../handle";
 import { NodeProps, Position } from "@xyflow/react";
 import { TbCookie } from "react-icons/tb";
-import {
-  Checkbox,
-  Grid,
-  Radio,
-  RadioGroup,
-  Select,
-  Stack,
-  useMantineTheme,
-} from "@mantine/core";
+import { Checkbox, Grid, Select, Stack, useMantineTheme } from "@mantine/core";
 import { DataSettingsProps } from "../../settingsDialog/blockSettingsDialog";
 import z from "zod";
 import { setHttpCookieBlockSchema } from "@fluxify/blocks";
@@ -48,41 +40,41 @@ const SetCookie = (props: NodeProps) => {
 
 // write set cookie settings panel, need name, value, domain, path, expiry, httpOnly, secure, samesite (Lax, None (default), Strict)
 export function SetCookieSettingsPanel(
-  props: DataSettingsProps<z.infer<typeof setHttpCookieBlockSchema>>
+  props: DataSettingsProps<z.infer<typeof setHttpCookieBlockSchema>>,
 ) {
   const { updateBlockData } = useContext(BlockCanvasContext);
 
-  const onNameChange = (value: string) => {
-    updateBlockData(props.blockId, { name: value });
+  const onNameChange = (name: string) => {
+    updateBlockData(props.blockId, { name });
   };
 
   const onValueChange = (value: string) => {
-    updateBlockData(props.blockId, { value: value });
+    updateBlockData(props.blockId, { value });
   };
 
-  const onDomainChange = (value: string) => {
-    updateBlockData(props.blockId, { domain: value });
+  const onDomainChange = (domain: string) => {
+    updateBlockData(props.blockId, { domain });
   };
 
-  const onPathChange = (value: string) => {
-    updateBlockData(props.blockId, { path: value });
+  const onPathChange = (path: string) => {
+    updateBlockData(props.blockId, { path });
   };
 
-  const onExpiryChange = (value: string) => {
-    updateBlockData(props.blockId, { expiry: value });
+  const onExpiryChange = (expiry: string) => {
+    updateBlockData(props.blockId, { expiry });
   };
 
-  const onHttpOnlyChange = (value: boolean) => {
-    updateBlockData(props.blockId, { httpOnly: value });
+  const onHttpOnlyChange = (httpOnly: boolean) => {
+    updateBlockData(props.blockId, { httpOnly });
   };
 
-  const onSecureChange = (value: boolean) => {
-    updateBlockData(props.blockId, { secure: value });
+  const onSecureChange = (secure: boolean) => {
+    updateBlockData(props.blockId, { secure });
   };
 
-  const onSameSiteChange = (value: string | null) => {
-    if (!value) return;
-    updateBlockData(props.blockId, { samesite: value });
+  const onSameSiteChange = (samesite: string | null) => {
+    if (!samesite) return;
+    updateBlockData(props.blockId, { samesite });
   };
 
   return (

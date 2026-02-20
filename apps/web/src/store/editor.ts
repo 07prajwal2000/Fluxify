@@ -2,94 +2,19 @@ import { BaseBlockType, EdgeType } from "@/types/block";
 import { enableMapSet, produce } from "immer";
 import { create } from "zustand";
 import { immer } from "zustand/middleware/immer";
+import {
+  type Actions,
+  type EditorActionStateType,
+  EditorTab,
+  type State,
+} from "./editorTypes";
+
+export { EditorTab };
+export type { EditorActionStateType };
 
 enableMapSet();
 
-export type EditorActionStateType =
-  | ({
-      variant: "block";
-      actionType: "add" | "edit" | "delete";
-    } & BaseBlockType)
-  | ({
-      variant: "edge";
-      actionType: "add" | "delete";
-    } & EdgeType);
-
-export enum EditorTab {
-  EDITOR = "editor",
-  EXECUTIONS = "settings",
-  TESTING = "testing",
-}
-
 const STACK_SIZE = 20;
-
-type State = {
-  tabs: {
-    activeTab: EditorTab;
-  };
-  searchbar: {
-    opened: boolean;
-    searchQuery: string;
-    currentIndex: number;
-  };
-  aiWindow: {
-    opened: boolean;
-  };
-  actions: {
-    undoStack: EditorActionStateType[];
-    redoStack: EditorActionStateType[];
-    disableRecording: boolean;
-  };
-  changeTracker: {
-    tracker: Map<string, "edge" | "block">;
-  };
-  blockSettings: {
-    opened: boolean;
-    blockId: string;
-  };
-};
-
-type Actions = {
-  tabs: {
-    setEditorTab: (tab: EditorTab) => void;
-  };
-  searchbar: {
-    open: () => void;
-    close: () => void;
-    setSearchQuery: (query: string) => void;
-    setCurrentIndex: (index: number) => void;
-    incrementIndex: (max: number) => void;
-    decrementIndex: () => void;
-  };
-  aiWindow: {
-    toggle: () => void;
-  };
-  reset: () => void;
-  actions: {
-    record: (action: EditorActionStateType) => void;
-    undo: (
-      blocks: BaseBlockType[],
-      edges: EdgeType[]
-    ) => EditorActionStateType | undefined;
-    redo: (
-      blocks: BaseBlockType[],
-      edges: EdgeType[]
-    ) => EditorActionStateType | undefined;
-    disable: () => void;
-    enable: () => void;
-    reset: () => void;
-  };
-  changeTracker: {
-    add: (id: string, type: "edge" | "block") => void;
-    remove: (id: string) => void;
-    reset: () => void;
-  };
-  blockSettings: {
-    open: (id: string) => void;
-    close: () => void;
-    setBlockId: (id: string) => void;
-  };
-};
 
 export const useEditorStore = create<State & Actions>()(
   immer((set, get) => ({

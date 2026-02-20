@@ -1,362 +1,60 @@
 import { Box } from "@mantine/core";
-import { Background, Panel, ReactFlow, useReactFlow } from "@xyflow/react";
-import React, { useEffect, useRef } from "react";
+import { Background, Panel, ReactFlow } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { blocksList } from "../../blocks/blocksList";
-import {
-  useEditorActionsStore,
-  useEditorBlockSettingsStore,
-  useEditorChangeTrackerStore,
-} from "@/store/editor";
-import {
-  BaseBlockType,
-  BlockTypes,
-  clipboardSchema,
-  EdgeType,
-} from "@/types/block";
+import { BaseBlockType } from "@/types/block";
 import {
   useCanvasActionsStore,
   useCanvasBlocksStore,
   useCanvasEdgesStore,
 } from "@/store/canvas";
 import CanvasToolboxPanel from "./toolbox/canvasToolboxPanel";
-import { generateID } from "@fluxify/lib";
 import { edgeTypes } from "../../blocks/customEdge";
-import { notifications, showNotification } from "@mantine/notifications";
 import { BlockCanvasContext } from "@/context/blockCanvas";
 import BlockSearchDrawer from "./blockSearchDrawer";
-import { createBlockData } from "@/lib/blockFactory";
 import EditorToolbox from "./editorToolbox";
 import BlockSettingsDialog from "../../blocks/settingsDialog/blockSettingsDialog";
-import {
-  useBlockDataActionsStore,
-  useBlockDataStore,
-} from "@/store/blockDataStore";
 import CanvasKeyboardAccessibility from "./canvasKeyboardAccessibility";
-import { useParams } from "next/navigation";
-import { routesService } from "@/services/routes";
 import RequireRole from "@/components/auth/requireRole";
 import { routesQueries } from "@/query/routerQuery";
+import { useBlockHistory } from "@/hooks/useBlockHistory";
+import { useCanvasEvents } from "@/hooks/useCanvasEvents";
+import { useCanvasSave } from "@/hooks/useCanvasState";
 
 type Props = {
   readonly?: boolean;
   routeId?: string;
 };
 
-const BlockCanvas = (props: Props) => {
+const BlockCanvas = ({ readonly, routeId }: Props) => {
   const {
-    blocks: {
-      onBlockChange,
-      deleteBlock,
-      addBlock,
-      deleteBulk: deleteBulkBlocks,
-      setSelection: setBlocksSelection,
-    },
-    edges: {
-      onEdgeChange,
-      addEdge,
-      deleteEdge,
-      deleteBulk: deleteBulkEdges,
-      setSelection: setEdgesSelection,
-    },
+    blocks: { onBlockChange },
+    edges: { onEdgeChange },
   } = useCanvasActionsStore();
-  const { data: routeData } = routesQueries.getById.useQuery(
-    props.routeId || "",
-  );
-  const projectId = routeData?.projectId || "";
-  const { updateBlockData, deleteBlockData } = useBlockDataActionsStore();
-  const actions = useEditorActionsStore();
+  const { data: routeData } = routesQueries.getById.useQuery(routeId ?? "");
+  const projectId = routeData?.projectId ?? "";
+
   const blocks = useCanvasBlocksStore();
   const edges = useCanvasEdgesStore();
-  const changeTracker = useEditorChangeTrackerStore();
-  const { screenToFlowPosition } = useReactFlow();
-  const blockSettings = useEditorBlockSettingsStore();
-  const blockDataStore = useBlockDataStore();
 
-  useEffect(() => {
-    window.onbeforeunload = preventRefresh;
-    return () => {
-      window.onbeforeunload = null;
-    };
-  }, [changeTracker.tracker]);
-  useEffect(() => {
-    window.addEventListener("paste", onPaste);
-    return () => {
-      window.removeEventListener("paste", onPaste);
-    };
-  }, []);
+  const { onSave } = useCanvasSave(routeId ?? "");
+  const {
+    addBlockWithHistory,
+    deleteBlockWithHistory,
+    deleteEdgeWithHistory,
+    deleteBulkWithHistory,
+    duplicateBlock,
+    duplicateSelection,
+    updateBlockDataWithHistory,
+  } = useBlockHistory();
+  const { onEdgeConnect, onBlockDragStop, onBlockDblClick, openBlock } =
+    useCanvasEvents();
 
-  function preventRefresh(e: BeforeUnloadEvent) {
-    if (changeTracker.tracker.size === 0) {
-      return;
-    }
-    const confirmed = confirm(
-      "You have unsaved changes, are you sure you want to leave?",
-    );
-    if (confirmed) {
-      return;
-    }
-    e.preventDefault();
-  }
-
-  const { id: routeId } = useParams<{ id: string }>();
   // TODO: Need to implement Undo/Redo
-  function doAction(type: "undo" | "redo") {
-    // NOT IMPLEMENTED YET
-  }
-  async function onPaste(e: ClipboardEvent) {
-    const text = e.clipboardData?.getData("text");
-    if (!text) {
-      return;
-    }
-    try {
-      const data = JSON.parse(text);
-      const { success, data: deconstructed } = clipboardSchema.safeParse(data);
-      if (!success) {
-        showNotification({
-          title: "Error",
-          message: "Invalid clipboard data",
-          color: "red",
-        });
-        return;
-      }
-    } catch (error) {}
-  }
-  function insertNewBlocks() {}
-  function duplicateSelection(blockIds: string[]) {
-    const oldIdToNewIdMap = new Map<string, string>();
-    blockIds.forEach((id) => {
-      const newId = duplicateBlock(id);
-      if (!newId) {
-        return;
-      }
-      oldIdToNewIdMap.set(id, newId);
-    });
-    const edgesToCopy = edges.filter((edge) => {
-      return blockIds.includes(edge.source) && blockIds.includes(edge.target);
-    });
-    edgesToCopy.forEach((edge) => {
-      const newId = generateID();
-      const srcHandle = edge.sourceHandle.slice(
-        edge.sourceHandle.lastIndexOf("-") + 1,
-      );
-      const tgtHandle = edge.targetHandle.slice(
-        edge.targetHandle.lastIndexOf("-") + 1,
-      );
-      const newSrc = oldIdToNewIdMap.get(edge.source);
-      const newTgt = oldIdToNewIdMap.get(edge.target);
-      addEdge({
-        id: newId,
-        source: newSrc!,
-        target: newTgt!,
-        sourceHandle: `${newSrc}-${srcHandle}`,
-        targetHandle: `${newTgt}-${tgtHandle}`,
-        // @ts-ignore
-        type: "custom",
-      });
-      changeTracker.add(newId, "edge");
-    });
-    setBlocksSelection(oldIdToNewIdMap.values().toArray(), true);
-    setEdgesSelection(oldIdToNewIdMap.values().toArray(), true);
-  }
-  function deleteBulkWithHistory(ids: string[], type: "block" | "edge") {
-    if (type === "block") {
-      deleteBulkBlocks(new Set(ids));
-    } else {
-      deleteBulkEdges(new Set(ids));
-    }
-    // TODO: Add to change tracker
-    ids.forEach((id) => {
-      changeTracker.add(id, type);
-    });
-  }
-  function deleteEdgeWithHistory(id: string) {
-    changeTracker.add(id, "edge");
-    deleteEdge(id);
-  }
-  function deleteBlockWithHistory(id: string) {
-    changeTracker.add(id, "block");
-    // delete edges connected to this block
-    edges
-      .filter((edge) => edge.source === id || edge.target === id)
-      .forEach((edge) => {
-        deleteEdgeWithHistory(edge.id);
-      });
-    deleteBlock(id);
-    deleteBlockData(id);
-  }
-  function addBlockWithHistory(block: BlockTypes) {
-    const position = screenToFlowPosition({
-      x: document.body.offsetWidth / 2,
-      y: document.body.offsetHeight / 2,
-    });
-    const data = createBlockData(block);
-    const id = generateID();
-    createNewBlock(id, position, block, data);
-  }
-  function createNewBlock(
-    id: string,
-    position: { x: number; y: number },
-    block: BlockTypes,
-    data?: any,
-  ) {
-    data = data || createBlockData(block);
-    addBlock({
-      id,
-      position,
-      type: block,
-      data,
-    });
-    updateBlockData(id, data);
-    changeTracker.add(id, "block");
-  }
-  function updateBlockDataWithHistory(id: string, data: any) {
-    changeTracker.add(id, "block");
-    updateBlockData(id, data);
-  }
-  function onBlockDragStop(block: BaseBlockType) {
-    changeTracker.add(block.id, "block");
-  }
-  function onEdgeConnect(edge: EdgeType) {
-    if (edge.source === edge.target) {
-      showNotification({
-        title: "Error",
-        message: "Cannot connect to itself",
-        color: "red",
-      });
-      return;
-    }
-    edge.id = generateID();
-    changeTracker.add(edge.id, "edge");
-    // @ts-ignore
-    edge.type = "custom";
-    actions.record(
-      JSON.parse(
-        JSON.stringify({
-          variant: "edge",
-          actionType: "add",
-          ...edge,
-        }),
-      ),
-    );
-    addEdge(edge);
-  }
-  function onBlockDblClick(block: BaseBlockType) {
-    blockSettings.open(block.id);
-  }
-  function openBlock(id: string) {
-    blockSettings.open(id);
-  }
-  function duplicateBlock(id: string) {
-    const block = blocks.find((block) => block.id === id);
-    if (
-      !block ||
-      block.type === BlockTypes.entrypoint ||
-      block.type === BlockTypes.errorHandler
-    ) {
-      showNotification({
-        message: "Cannot duplicate Entrypoint/Error handler block",
-        color: "red",
-        id: "duplicate-block-error-notification",
-      });
-      return;
-    }
-    const position = { x: block.position.x + 50, y: block.position.y + 50 };
-    const newId = generateID();
-    createNewBlock(newId, position, block.type, block.data);
-    return newId;
-  }
-  async function onSave() {
-    const notificationId = "canvas-save-success";
-    try {
-      const blocksMap = new Map<string, (typeof blocks)[0]>();
-      const edgesMap = new Map<string, (typeof edges)[0]>();
-      const blockActionsToPerform: {
-        id: string;
-        action: "upsert" | "delete";
-      }[] = [];
-      const edgeActionsToPerform: {
-        id: string;
-        action: "upsert" | "delete";
-      }[] = [];
-
-      blocks.forEach((block) => blocksMap.set(block.id, block));
-      edges.forEach((edge) => edgesMap.set(edge.id, edge));
-
-      const blocksToSave: typeof blocks = [];
-      const edgesToSave: typeof edges = [];
-
-      changeTracker.tracker.forEach((value, key) => {
-        if (value === "block") {
-          const exist = blocksMap.has(key);
-          blockActionsToPerform.push({
-            id: key,
-            action: exist ? "upsert" : "delete",
-          });
-          if (exist) {
-            const blockData = blockDataStore[key];
-            const block = blocksMap.get(key)!;
-            block.data = blockData;
-            blocksToSave.push(block);
-          }
-        } else if (value === "edge") {
-          const exist = edgesMap.has(key);
-          edgeActionsToPerform.push({
-            id: key,
-            action: exist ? "upsert" : "delete",
-          });
-          if (exist) {
-            edgesToSave.push(edgesMap.get(key)!);
-          }
-        }
-      });
-
-      notifications.show({
-        id: notificationId,
-        loading: true,
-        message: "Saving...",
-        color: "violet",
-        withCloseButton: true,
-      });
-
-      await routesService.saveCanvasItems(routeId, {
-        actionsToPerform: {
-          blocks: blockActionsToPerform,
-          edges: edgeActionsToPerform,
-        },
-        changes: {
-          blocks: blocksToSave,
-          edges: edgesToSave.map((edge) => ({
-            id: edge.id,
-            fromHandle: edge.sourceHandle,
-            toHandle: edge.targetHandle,
-            from: edge.source,
-            to: edge.target,
-          })),
-        },
-      });
-
-      changeTracker.reset();
-      notifications.update({
-        id: notificationId,
-        loading: false,
-        message: "Successfully saved",
-        color: "green",
-        withCloseButton: true,
-      });
-    } catch (error: any) {
-      notifications.update({
-        id: notificationId,
-        loading: false,
-        withCloseButton: true,
-        color: "red",
-        message: "Failed to save",
-      });
-    }
-  }
+  function doAction(_type: "undo" | "redo") {}
 
   return (
-    <Box w={"100%"} h={"100%"}>
+    <Box w="100%" h="100%">
       <BlockCanvasContext.Provider
         value={{
           undo: () => doAction("undo"),
@@ -372,13 +70,14 @@ const BlockCanvas = (props: Props) => {
           duplicateSelection,
         }}
       >
-        <Box style={{ position: "absolute", zIndex: 10, right: 0 }} p={"lg"}>
+        <Box style={{ position: "absolute", zIndex: 10, right: 0 }} p="lg">
           <RequireRole requiredRole="creator" projectId={projectId}>
             <EditorToolbox />
           </RequireRole>
         </Box>
+
         <ReactFlow
-          deleteKeyCode={""}
+          deleteKeyCode=""
           onEdgesChange={onEdgeChange}
           onNodesChange={onBlockChange}
           onConnect={(e) => onEdgeConnect(e as any)}
@@ -389,10 +88,12 @@ const BlockCanvas = (props: Props) => {
           snapGrid={[5, 5]}
           onlyRenderVisibleElements
           selectNodesOnDrag
-          onNodeDoubleClick={(_, node) => onBlockDblClick(node)}
+          onNodeDoubleClick={(_, node) =>
+            onBlockDblClick(node as BaseBlockType)
+          }
           nodeTypes={blocksList}
-          nodesDraggable={!props.readonly}
-          nodesConnectable={!props.readonly}
+          nodesDraggable={!readonly}
+          nodesConnectable={!readonly}
           fitView
           zoomOnScroll={false}
           panOnDrag={[0]}
@@ -406,6 +107,7 @@ const BlockCanvas = (props: Props) => {
             <CanvasKeyboardAccessibility />
           </RequireRole>
         </ReactFlow>
+
         <BlockSettingsDialog />
         <BlockSearchDrawer />
       </BlockCanvasContext.Provider>

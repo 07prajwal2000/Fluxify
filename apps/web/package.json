@@ -6,7 +6,7 @@
     "dev": "next dev --turbopack -p 3000",
     "build": "next build --turbopack",
     "start": "next start -p 5500",
-    "lint": "tsc --noEmit"
+    "lint": "tsgo --noEmit"
   },
   "dependencies": {
     "@dagrejs/dagre": "^1.1.5",
@@ -40,6 +40,7 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@typescript/native-preview": "^7.0.0-dev.20260220.1",
     "eslint": "^9",
     "eslint-config-next": "15.5.5",
     "typescript": "^5"

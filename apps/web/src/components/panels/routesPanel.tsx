@@ -22,8 +22,8 @@ const RoutesPanel = (props: PropTypes) => {
     page,
     perPage,
     filter: {
-      field: Boolean(value) ? (field as any) : "",
-      operator: Boolean(value) ? (operator as any) : "",
+      field: value ? (field as any) : "",
+      operator: value ? (operator as any) : "",
       value: value,
       projectId: props.projectId,
     },

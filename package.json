@@ -9,7 +9,8 @@
     "lint": "turbo run lint",
     "test": "turbo run test",
     "build": "turbo run build",
-    "build:proxy": "bun build scripts/proxy.js --outfile=dist/proxy.js --bundle --target bun --minify"
+    "build:proxy": "bun build scripts/proxy.js --outfile=dist/proxy.js --bundle --target bun --minify",
+    "analyze": "bun x fta-cli --score-cap 60 ."
   },
   "keywords": [
     "fluxify",
@@ -31,6 +32,7 @@
     "@types/bun": "^1.3.9",
     "@typescript/native-preview": "^7.0.0-dev.20260219.1",
     "concurrently": "^9.2.1",
+    "fta-cli": "^3.0.0",
     "turbo": "^2.5.5"
   }
 }
