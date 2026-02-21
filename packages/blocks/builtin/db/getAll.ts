@@ -38,7 +38,8 @@ export const getAllDbBlockSchema = z
 
 export const getAllDbAiDescription = {
   name: "db_get_all",
-  description: `gets multiple records from a database table with optional conditions, sorting, limit, and offset`,
+  description:
+    "Retrieves multiple records from a database table.",
   jsonSchema: JSON.stringify(z.toJSONSchema(getAllDbBlockSchema)),
 };
 

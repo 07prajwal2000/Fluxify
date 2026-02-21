@@ -23,7 +23,8 @@ export const insertDbBlockSchema = z
 
 export const insertDbAiDescription = {
   name: "db_insert",
-  description: `inserts single record into a database table`,
+  description:
+    "Inserts a single record into a database table.",
   jsonSchema: JSON.stringify(z.toJSONSchema(insertDbBlockSchema)),
 };
 

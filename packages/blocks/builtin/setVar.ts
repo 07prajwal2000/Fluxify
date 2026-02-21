@@ -20,7 +20,8 @@ export const setVarSchema = z
 
 export const setVarBlockAiDescription = {
   name: "set_var",
-  description: `sets a global variable in the execution context`,
+  description:
+    "Assigns a value to a variable in the global execution context.",
   jsonSchema: JSON.stringify(z.toJSONSchema(setVarSchema)),
 };
 

@@ -11,7 +11,8 @@ export const cloudLogsBlockSchema = z
 
 export const cloudLogsAiDescription = {
   name: "cloud_logs",
-  description: `logs a message to cloud log store`,
+  description:
+    "Logs a message to the cloud logging service.",
   jsonSchema: JSON.stringify(z.toJSONSchema(cloudLogsBlockSchema)),
 };
 

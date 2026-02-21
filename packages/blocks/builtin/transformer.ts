@@ -24,7 +24,7 @@ export const transformerParamsSchema = z.record(z.string(), z.any().optional());
 export const transformBlockAiDescription = {
   name: "transformer",
   description:
-    "input javascript object is transformed into a new javascript object and returned as output. supports js code execution",
+    "Transforms input data into a new structure using JavaScript.",
   jsonSchema: JSON.stringify(z.toJSONSchema(transformerBlockSchema)),
 };
 

@@ -15,7 +15,8 @@ export const responseBlockSchema = z
 
 export const responseAiDescription = {
   name: "response",
-  description: `terminal block which ends the HTTP request`,
+  description:
+    "Terminates the request and returns the result to the client.",
   jsonSchema: JSON.stringify(z.toJSONSchema(responseBlockSchema)),
 };
 

@@ -1,21 +1,19 @@
-import React, { useState, useEffect, useMemo } from "react";
-import {
-  Box,
-  Button,
-  Loader,
-  Stack,
-  Text,
-  Group,
-  ScrollArea,
-} from "@mantine/core";
+import { useState, useEffect, useMemo } from "react";
+import { Box, Button, Loader, Stack, Text } from "@mantine/core";
 import { TbPlayerPlayFilled } from "react-icons/tb";
 import axios from "axios";
 import { useQuery } from "@tanstack/react-query";
 import UrlBar from "./components/UrlBar";
 import RequestConfig from "./components/RequestConfig";
 import ResponseSection from "./components/ResponseSection";
+import z from "zod";
+import { responseSchema as getByIdResponseSchema } from "@fluxify/server/src/api/v1/routes/get-by-id/dto";
 
-const Playground = ({ route }: { route: any }) => {
+const Playground = ({
+  route,
+}: {
+  route: z.infer<typeof getByIdResponseSchema>;
+}) => {
   const [pathParams, setPathParams] = useState<Record<string, string>>({});
   const [queryParams, setQueryParams] = useState<Record<string, string>>({});
   const [headers, setHeaders] = useState<Record<string, string>>({
@@ -104,16 +102,7 @@ const Playground = ({ route }: { route: any }) => {
     isFetching: loading,
     refetch,
   } = useQuery({
-    queryKey: [
-      "playground",
-      route.id,
-      route.method,
-      route.path,
-      JSON.stringify(pathParams),
-      JSON.stringify(queryParams),
-      JSON.stringify(headers),
-      body,
-    ],
+    queryKey: ["playground", route.id],
     queryFn: fetchRequest,
     enabled: false,
     staleTime: Infinity,

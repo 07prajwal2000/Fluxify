@@ -3,12 +3,15 @@ import { useCanvasBlocksStore, useCanvasEdgesStore } from "@/store/canvas";
 import { useEditorChangeTrackerStore } from "@/store/editor";
 import { useBlockDataStore } from "@/store/blockDataStore";
 import { routesService } from "@/services/routes";
+import { routesQueries } from "@/query/routerQuery";
+import { useQueryClient } from "@tanstack/react-query";
 
 export function useCanvasSave(routeId: string) {
   const blocks = useCanvasBlocksStore();
   const edges = useCanvasEdgesStore();
   const changeTracker = useEditorChangeTrackerStore();
   const blockDataStore = useBlockDataStore();
+  const queryClient = useQueryClient();
 
   async function onSave() {
     const notificationId = "canvas-save-success";
@@ -84,6 +87,7 @@ export function useCanvasSave(routeId: string) {
         color: "green",
         withCloseButton: true,
       });
+      await routesQueries.getById.invalidate(queryClient, routeId);
     } catch {
       notifications.update({
         id: notificationId,

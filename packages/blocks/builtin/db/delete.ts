@@ -19,7 +19,8 @@ export const deleteDbBlockSchema = z
 
 export const deleteDbAiDescription = {
   name: "db_delete",
-  description: `deletes records from a database table based on specified conditions`,
+  description:
+    "Deletes records from a database table matching specific conditions.",
   jsonSchema: JSON.stringify(z.toJSONSchema(deleteDbBlockSchema)),
 };
 

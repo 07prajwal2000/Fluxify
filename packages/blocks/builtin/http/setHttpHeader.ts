@@ -10,7 +10,8 @@ export const setHttpHeaderBlockSchema = z
 
 export const setHeaderAiDescription = {
   name: "set_http_header",
-  description: `sets an HTTP header to the response.`,
+  description:
+    "Sets a header in the HTTP response.",
   jsonSchema: JSON.stringify(z.toJSONSchema(setHttpHeaderBlockSchema)),
 };
 

@@ -26,7 +26,8 @@ export const updateDbBlockSchema = z
 
 export const updateDbAiDescription = {
   name: "db_update",
-  description: `updates one or more database records using a specified table, conditions, and data `,
+  description:
+    "Updates records in a database table matching specific conditions.",
   jsonSchema: JSON.stringify(z.toJSONSchema(updateDbBlockSchema)),
 };
 

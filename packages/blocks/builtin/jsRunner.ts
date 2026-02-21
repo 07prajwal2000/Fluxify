@@ -9,7 +9,8 @@ export const jsRunnerBlockSchema = z
 
 export const jsRunnerAiDescription = {
   name: "js_runner",
-  description: `runs javascript inside Immediately Invoked Function Expression`,
+  description:
+    "Executes JavaScript code within an isolated function scope.",
   jsonSchema: JSON.stringify(z.toJSONSchema(jsRunnerBlockSchema)),
 };
 

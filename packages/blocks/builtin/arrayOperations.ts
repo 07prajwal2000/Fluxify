@@ -38,7 +38,8 @@ export const arrayOperationsBlockSchema = z
 
 export const arrayOperationsAiDescription = {
   name: "array_operations",
-  description: `handles array operations on a variable (supports push, pop, shift, unshift)`,
+  description:
+    "Performs operations on an array variable (push, pop, shift, unshift).",
   jsonSchema: JSON.stringify(z.toJSONSchema(arrayOperationsBlockSchema)),
 };
 

@@ -5,7 +5,8 @@ export const entrypointBlockSchema = z.object(baseBlockDataSchema.shape);
 
 export const entrypointAiDescription = {
   name: "entrypoint",
-  description: `the main entry point block of the request`,
+  description:
+    "The initial block triggered by every incoming API request.",
   jsonSchema: JSON.stringify(z.toJSONSchema(entrypointBlockSchema)),
 };
 

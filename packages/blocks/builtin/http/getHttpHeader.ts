@@ -10,7 +10,8 @@ export const getHttpHeaderBlockSchema = z
 
 export const getHttpHeaderAiDescription = {
   name: "get_http_header",
-  description: `gets a HTTP request header by name`,
+  description:
+    "Retrieves a specific header from the incoming request.",
   jsonSchema: JSON.stringify(z.toJSONSchema(getHttpHeaderBlockSchema)),
 };
 

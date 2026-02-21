@@ -21,7 +21,8 @@ export const insertBulkDbBlockSchema = z
 
 export const insertBulkAiDescription = {
   name: "db_insert_bulk",
-  description: `inserts multiple records into a database table`,
+  description:
+    "Inserts multiple records into a database table in a batch.",
   jsonSchema: JSON.stringify(z.toJSONSchema(insertBulkDbBlockSchema)),
 };
 

@@ -18,7 +18,8 @@ export const httpRequestBlockSchema = z
 
 export const httpRequestAiDescription = {
   name: "http_request",
-  description: `sends an HTTP request`,
+  description:
+    "Sends an HTTP request to an external URL.",
   jsonSchema: JSON.stringify(z.toJSONSchema(httpRequestBlockSchema)),
 };
 

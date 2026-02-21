@@ -20,7 +20,8 @@ export const nativeDbBlockSchema = z
 
 export const nativeDbAiDescription = {
   name: "db_native",
-  description: `executes native js code to interact with a database`,
+  description:
+    "Executes raw SQL or database-specific commands via JavaScript.",
   jsonSchema: JSON.stringify(z.toJSONSchema(nativeDbBlockSchema)),
 };
 export class NativeDbBlock extends BaseBlock {

@@ -11,7 +11,7 @@ export async function mapRouter(app: Hono<any>, parser: HttpRouteParser) {
     } catch (error) {
       return c.json(
         { message: error?.toString() || "Internal server error" },
-        500
+        500,
       );
     }
   });

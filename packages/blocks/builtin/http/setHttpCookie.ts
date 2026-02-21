@@ -33,7 +33,8 @@ export const setHttpCookieBlockSchema = z
 
 export const setCookieAiDescription = {
   name: "set_http_cookie",
-  description: `sets an HTTP cookie to HTTP response`,
+  description:
+    "Sets a cookie in the HTTP response.",
   jsonSchema: JSON.stringify(z.toJSONSchema(setHttpCookieBlockSchema)),
 };
 

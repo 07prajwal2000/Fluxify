@@ -21,10 +21,12 @@ export const transactionDbBlockSchema = z
 
 export const transactionDbAiDescription = {
   name: "db_transaction",
-  description: `executes a database transaction by executing a child block`,
+  description:
+    "Executes a sequence of database operations as a single atomic transaction.",
   jsonSchema: JSON.stringify(z.toJSONSchema(transactionDbBlockSchema)),
-  handleInfo:
-    "handle type 'executor' for the child block to be executed in the transaction (right aligned)",
+  handleInfo: `
+Handles:
+- 'executor': Connect the block to be executed inside the transaction.`,
 };
 
 export class TransactionBlock extends BaseBlock {

@@ -19,7 +19,8 @@ export const getSingleDbBlockSchema = z
 
 export const getSingleDbAiDescription = {
   name: "get_single",
-  description: `gets a single record from a database table using specified conditions`,
+  description:
+    "Retrieves a single record from a database table.",
   jsonSchema: JSON.stringify(z.toJSONSchema(getSingleDbBlockSchema)),
 };
 
