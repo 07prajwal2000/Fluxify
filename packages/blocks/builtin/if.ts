@@ -24,12 +24,19 @@ export const ifBlockSchema = z
 
 export const ifConditionAiDescription = {
   name: "if_condition",
-  description: `conditional block that evaluates list of conditions and directs the flow based on the result`,
+  description:
+    "Branches the flow like an IF/ELSE statement. Directs flow based on whether the condition returns TRUE or FALSE.",
   jsonSchema: JSON.stringify(z.toJSONSchema(ifBlockSchema)),
-  handleInfo:
-    "handle type 'success' for successful evaluation (left aligned) and handle type 'failure' for failed evaluation (right aligned). No handle type 'source' exist for if_condition block",
-};
+  // Optimized handle info with strict logical mapping
+  handleInfo: `
+Handles:
+- 'success': Connects if the condition evaluates to TRUE (The IF branch).
+- 'failure': Connects if the condition evaluates to FALSE (The ELSE branch).
 
+Constraints:
+- This block splits the flow. It does NOT have a 'source' handle.
+- You must choose either 'success' or 'failure' for the connection logic.`,
+};
 export class IfBlock extends BaseBlock {
   constructor(
     private readonly onSuccess: string,

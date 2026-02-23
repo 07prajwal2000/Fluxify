@@ -71,6 +71,46 @@ export interface ContextVarsType {
   logger: AbstractLogger;
 }
 
+export const contextVarsAiDescription = `<js_runtime_context>
+// Global variables and functions available in the JS Engine
+
+// 1. Request Context
+const httpRequestMethod: string; // e.g., "GET", "POST"
+const httpRequestRoute: string;  // e.g., "/api/users/:id"
+const input: any;                // The output data from the previous connected block
+
+// 2. Request Helpers
+function getQueryParam(key: string): string;
+function getRouteParam(key: string): string;
+function getHeader(key: string): string;
+function getRequestBody(): any;  // Returns body object for POST/PUT, else undefined
+
+// 3. Response Helpers
+function setHeader(key: string, value: string): void;
+function setCookie(name: string, options: { 
+  value: string | number; 
+  domain?: string; 
+  path?: string; 
+  expiry?: string; 
+  httpOnly?: boolean; 
+  secure?: boolean; 
+  samesite?: 'Strict' | 'Lax' | 'None'; 
+}): void;
+
+// 4. System & Utilities
+function getConfig(key: string): string | number | boolean | undefined;
+function dbQuery(query: string): Promise<unknown>; // Only available in DB Native block
+const logger: { 
+  logInfo(...args: any[]): void; 
+  logError(...args: any[]): void; 
+  logWarn(...args: any[]): void; 
+};
+
+// 5. Execution Rules
+// - State Sharing: Assign values to global variables (e.g., \`myVar = 123\`) to pass them to the next block.
+// - Constraints: No external libraries (npm/require). Pure ES6+ JavaScript only.
+</js_runtime_context>`;
+
 export interface BlockOutput {
   output?: any;
   next?: string;

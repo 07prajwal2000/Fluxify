@@ -78,7 +78,7 @@ Name | Description
 <output_format>
 {
 "status": "success | vague | impossible",
-"reasoning": "string (Explain why the flow is possible or what is missing)",
+"reasoning": "string (Explain why the flow is possible or what is missing and it will be used as messages history in future. so make it concise and clear.)",
 "clarificationQuestion": "string | null",
 "plannedBlockNames": ["string"]
 }

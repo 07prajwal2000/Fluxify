@@ -10,7 +10,8 @@ export const getHttpCookieBlockSchema = z
 
 export const getCookieAiDescription = {
   name: "get_request_cookie",
-  description: `gets a request cookie by name`,
+  description:
+    "Retrieves a specific cookie from the incoming request.",
   jsonSchema: JSON.stringify(z.toJSONSchema(getHttpCookieBlockSchema)),
 };
 

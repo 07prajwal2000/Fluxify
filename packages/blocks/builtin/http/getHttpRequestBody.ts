@@ -5,7 +5,8 @@ export const getHttpRequestBodyBlockSchema = z.any();
 
 export const getHttpRequestBodyAiDescription = {
   name: "get_http_request_body",
-  description: `gets http request body and returns it as output`,
+  description:
+    "Retrieves and returns the raw body of the incoming request.",
   jsonSchema: JSON.stringify(z.toJSONSchema(getHttpRequestBodyBlockSchema)),
 };
 

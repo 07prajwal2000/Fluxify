@@ -34,7 +34,7 @@ const Page = async (params: any) => {
   const showTabs =
     roleHierarchy[role as AccessControlRole] >= roleHierarchy["creator"];
   return (
-    <Stack style={{ height: "100vh" }} p={"lg"}>
+    <Stack style={{ height: "100vh", overflowY: "hidden" }} p={"lg"}>
       <ProjectPageOverview projectId={projectId} />
       <OverviewTabs
         tabs={showTabs ? extraTabs : undefined}

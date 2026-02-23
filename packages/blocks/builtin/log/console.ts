@@ -4,7 +4,8 @@ import { formatMessage, logBlockSchema } from ".";
 
 export const consoleAiDescription = {
   name: "console_log",
-  description: `logs message to console`,
+  description:
+    "Logs a message to the system console.",
   jsonSchema: JSON.stringify(z.toJSONSchema(logBlockSchema)),
 };
 

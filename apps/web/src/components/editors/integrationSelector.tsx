@@ -1,3 +1,4 @@
+import { RxOpenInNewWindow } from "react-icons/rx";
 import { useDisclosure } from "@mantine/hooks";
 import React, { useMemo } from "react";
 import z from "zod";
@@ -20,6 +21,8 @@ import { TbPlugConnected, TbX } from "react-icons/tb";
 import KeySelector from "./keySelector";
 import { notifications } from "@mantine/notifications";
 import { showErrorNotification } from "@/lib/errorNotifier";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
 
 type Props = {
   group: z.infer<typeof integrationsGroupSchema>;
@@ -31,6 +34,7 @@ type Props = {
 };
 
 const IntegrationSelector = (props: Props) => {
+  const router = useRouter();
   const [opened, { open, close }] = useDisclosure();
   const { data, isLoading, isRefetching, isError, error } =
     integrationsQuery.getAll.query(props.group);
@@ -114,6 +118,18 @@ const IntegrationSelector = (props: Props) => {
                 >
                   <TbPlugConnected />
                 </ActionIcon>
+              </Tooltip>
+            )}
+            {selectedIntegration && (
+              <Tooltip label="Show Integration Settings">
+                <Link
+                  target="_blank"
+                  href={`/integrations?open=${selectedIntegration.id}&group=${props.group}`}
+                >
+                  <ActionIcon variant="subtle" color="violet">
+                    <RxOpenInNewWindow />
+                  </ActionIcon>
+                </Link>
               </Tooltip>
             )}
             {selectedIntegration && (

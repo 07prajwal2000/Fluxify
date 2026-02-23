@@ -11,7 +11,8 @@ export const getHttpParamBlockSchema = z
 
 export const getHttpParamAiDescription = {
   name: "get_http_param",
-  description: `gets a value by name from URL query (?key=value) or path (/:id)`,
+  description:
+    "Retrieves a query parameter or route parameter from the request.",
   jsonSchema: JSON.stringify(z.toJSONSchema(getHttpParamBlockSchema)),
 };
 

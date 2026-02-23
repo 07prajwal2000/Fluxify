@@ -30,7 +30,7 @@ export const routesQueries = {
       });
     },
     invalidate(client: QueryClient, id: string) {
-      client.invalidateQueries({
+      return client.invalidateQueries({
         queryKey: ["routes", id],
         exact: false,
       });
@@ -48,14 +48,14 @@ export const routesQueries = {
       });
     },
     invalidate(client: QueryClient, id: string) {
-      client.invalidateQueries({
+      return client.invalidateQueries({
         queryKey: ["routes", id, "canvas-items"],
         exact: false,
       });
     },
   },
   invalidateAll(client: QueryClient) {
-    client.invalidateQueries({
+    return client.invalidateQueries({
       queryKey: ["routes"],
       exact: false,
     });

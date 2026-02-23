@@ -37,7 +37,7 @@ export const ClassifierNode: GraphNode<typeof AgentStateSchema> = async (
 <output_structure>
 {
   "intent": "string",
-  "reasoning": "string"
+  "reasoning": "string" // your reasoning will be used as messages history in future. so make it concise and clear.
 }
 </output_structure>`,
       ],

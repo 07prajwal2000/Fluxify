@@ -1,3 +1,5 @@
+import { blockAiDescriptions } from "./builtin/blockAiDescriptions";
+
 export * from "./builtin/if";
 export * from "./builtin/jsRunner";
 export * from "./builtin/log/console";

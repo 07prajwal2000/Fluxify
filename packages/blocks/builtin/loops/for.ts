@@ -34,10 +34,12 @@ export const forLoopBlockSchema = z
 
 export const forLoopAiDescription = {
   name: "for_loop",
-  description: `iterates from start to end with optional step (default 1), executing a child block (block) on each iteration`,
+  description:
+    "Iterates a specific number of times, executing a child block each iteration.",
   jsonSchema: JSON.stringify(z.toJSONSchema(forLoopBlockSchema)),
-  handleInfo:
-    "handle type 'executor' for the child block to be executed in each iteration (right aligned)",
+  handleInfo: `
+Handles:
+- 'executor': Connect the block to be executed in each loop iteration.`,
 };
 
 export class ForLoopBlock extends BaseBlock {

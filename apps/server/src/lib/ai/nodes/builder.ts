@@ -2,7 +2,7 @@ import { GraphNode } from "@langchain/langgraph";
 import { withRetry } from "../../agentRetry";
 import { AgentStateSchema } from "../state";
 import { BuilderOutputSchema } from "../schemas";
-import { blockAiDescriptions } from "@fluxify/blocks";
+import { blockAiDescriptions, contextVarsAiDescription } from "@fluxify/blocks";
 import { YAML } from "bun";
 import { searchDocsTool, readDocsContentTool } from "../tools/docs";
 
@@ -11,7 +11,15 @@ export const BUILDER_NODE_ID = "builder";
 export const BuilderNode: GraphNode<typeof AgentStateSchema> = async (
   state,
 ) => {
-  const { userPrompt, messages, modelFactory } = state;
+  const { userPrompt, messages, modelFactory, metadata } = state;
+  const emptyIntegrationListStr = "No integrations available.";
+  const integrationListStr = metadata.integrationsList
+    .map((i) => `- ${i.id} | ${i.name} | ${i.group} | ${i.variant}`)
+    .join("\n");
+  const emptyConfigListStr = "No configs available.";
+  const appConfigListStr = metadata.configsList
+    .map((c) => `- ${c.name} | ${c.description}`)
+    .join("\n");
   const model = modelFactory.createModel();
   model.bindTools([searchDocsTool, readDocsContentTool]);
   const blockSchemasJson = YAML.stringify(
@@ -31,7 +39,8 @@ export const BuilderNode: GraphNode<typeof AgentStateSchema> = async (
       [
         "system",
         `You are Fluxi, the Builder Agent for a Low-Code API builder. You construct the final JSON configuration for the API flow.
-
+        
+<available_resources>
 <global_context>
 Route Metadata:
 - Name: ${state.metadata.route.name}
@@ -53,6 +62,18 @@ Here are the construction blueprints for the available blocks:
 ${blockSchemasJson}
 </block_schemas>
 
+<integrations>
+ID | Name | Group | Variant
+ ${integrationListStr || emptyIntegrationListStr}
+</integrations>
+
+<configs>
+Name | Description
+ ${appConfigListStr || emptyConfigListStr}
+</configs>
+${contextVarsAiDescription}
+</available_resources>
+
 <construction_rules>
 1. **Immutable Blocks**: 
    - NEVER create or delete 'entrypoint' or 'error_handler' blocks.
@@ -62,6 +83,8 @@ ${blockSchemasJson}
 2. **IDs**: 
    - Generate simple string IDs (e.g., 'block_1', 'block_2') for NEW blocks.
    - DO NOT generate UUIDs.
+   - Use the ID for integrations (or Connections for integrating with 3rd party services/tools).
+   - Use the Name for configs. 
 
 3. **Positioning**:
    - Block size is 50x50 units.
@@ -81,15 +104,15 @@ ${blockSchemasJson}
    - Use Route Metadata to fill path/method variables.
    - Use available Integrations/Configs for authentication fields.
    - For modification to existing blocks, use the same ID and update the data and connections.
-   - For JavaScript expressions, use the following syntax: js:{expression}. Search docs for more info about js expressions.
+   - For JavaScript expressions, use the following syntax: js:expression. Search docs for more info about js expressions. Previous block's output is available in \`input\` global variable.
 
-6. **Tools**: If you are unsure how to configure a specific block's schema, use the '${searchDocsTool.name}' and '${readDocsContentTool.name}' tools to find documentation before outputting.
+6. **Tools**: If you are unsure how to configure a specific block's schema or need to know more about blocks, execution, about the api builder, or using javascript, use the '${searchDocsTool.name}' and '${readDocsContentTool.name}' tools to find documentation before outputting.
 </construction_rules>
 
 <output_format>
 Output valid JSON ONLY. No markdown fences.
 {
-  "reasoning": "string",
+  "reasoning": "string", // your reasoning will be used as messages history in future. so make it concise and clear.
   "status": "success | impossible",
   "clarificationQuestion": "string | null",
   "blocks": [
@@ -99,8 +122,8 @@ Output valid JSON ONLY. No markdown fences.
       "data": { ... },
       "position": { "x": 0, "y": 150 },
       "connections": [
-        { "blockId": "block_2", "handle": "success" },
-        { "blockId": "block_3", "handle": "failure" }
+        { "blockId": "block_2", "handle": "success" }, // example: success handle is connected to block for further execution
+        { "blockId": "block_3", "handle": "failure" } // example: failure handle is connected to output the error
       ]
     },
     {

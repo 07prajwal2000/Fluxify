@@ -38,8 +38,33 @@ export const projectsEntity = pgTable(
       .$onUpdate(() => new Date()),
   },
   (table) => [
+    index("idx_projects_id").on(table.id),
     index("idx_projects_name").on(table.name),
     index("idx_projects_updated_at").on(table.updatedAt),
+  ],
+);
+
+export const projectSettingsEntity = pgTable(
+  "project_settings",
+  {
+    id: varchar({ length: 50 }).primaryKey().default(generateID()),
+    projectId: varchar("project_id", { length: 50 }).references(
+      () => projectsEntity.id,
+      {
+        onDelete: "cascade",
+      },
+    ),
+    key: varchar({ length: 50 }).notNull(),
+    value: text().notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at")
+      .defaultNow()
+      .notNull()
+      .$onUpdate(() => new Date()),
+  },
+  (table) => [
+    index("idx_project_settings_project_id").on(table.projectId),
+    index("idx_project_settings_key").on(table.key),
   ],
 );
 

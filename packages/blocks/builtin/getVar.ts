@@ -9,7 +9,8 @@ export const getVarBlockSchema = z
 
 export const getVarAiDescription = {
   name: "get_var",
-  description: `gets a variable from global context`,
+  description:
+    "Retrieves a value from the global execution context.",
   jsonSchema: JSON.stringify(z.toJSONSchema(getVarBlockSchema)),
 };
 

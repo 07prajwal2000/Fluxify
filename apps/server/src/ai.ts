@@ -15,7 +15,7 @@ const cloudModel = new OpenAICompatibleIntegration({
 });
 
 const userPrompt =
-  "build me get a list of todo items from database and use todos table. convert the response to markdown text use table with columns";
+  "build me get single todo item by id from database and use todos table. If the todo is not found, return 404 and a message saying 'Todo not found' else return the todo item.";
 
 const result = await aiAgentGraph.invoke(
   {
@@ -43,7 +43,7 @@ const result = await aiAgentGraph.invoke(
         id: "route_1",
         name: "Get Todos",
         method: "GET",
-        path: "/todos",
+        path: "/todos/:id",
         canvasItems: [],
       },
       userId: "user_1",
@@ -55,5 +55,5 @@ const result = await aiAgentGraph.invoke(
 console.log(
   result.classifierOutput.intent === "DISCUSSION"
     ? result.discussionMode!.output
-    : result.buildMode?.plannerOutput,
+    : JSON.stringify(result.buildMode?.builderOutput, null, 2),
 );
