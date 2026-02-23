@@ -9,6 +9,8 @@ import {
   useIntegrationActions,
   useIntegrationState,
 } from "@/store/integration";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useEffect } from "react";
 
 const connectors = [
   {
@@ -39,11 +41,23 @@ const connectors = [
 ];
 
 const AvailableConnectors = () => {
+  const searchParams = useSearchParams();
+  const group = searchParams.get("group");
+  const router = useRouter();
+
   const { selectedMenu } = useIntegrationState();
   const { setSelectedMenu } = useIntegrationActions();
 
+  useEffect(() => {
+    if (group) {
+      setSelectedMenu(group as IntegrationGroup);
+    }
+    router.push(`?group=${group || "database"}`);
+  }, [group]);
+
   function handleClick(connector: IntegrationGroup) {
     setSelectedMenu(connector);
+    router.push(`?group=${connector}`);
   }
 
   return (

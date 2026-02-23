@@ -14,8 +14,13 @@ import QueryError from "../query/queryError";
 import { useQueryClient } from "@tanstack/react-query";
 import { notifications } from "@mantine/notifications";
 import { showErrorNotification } from "@/lib/errorNotifier";
+import { useRouter, useSearchParams } from "next/navigation";
 
 const IntegrationsList = () => {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const openedIntegration = searchParams.get("open");
+  const group = searchParams.get("group");
   const { selectedMenu, filterVariant, searchQuery } = useIntegrationState();
   const { setFilterVariant, setSearchQuery } = useIntegrationActions();
   const { data, isLoading, isError, error } =
@@ -113,7 +118,12 @@ const IntegrationsList = () => {
           )}
         </Center>
       )}
-      <Accordion>
+      <Accordion
+        defaultValue={openedIntegration}
+        onChange={(value) =>
+          router.push(`?open=${value || ""}&group=${group || ""}`)
+        }
+      >
         {filteredData.map((integration) => (
           <Accordion.Item value={integration.id} key={integration.id}>
             <Accordion.Control>

@@ -16,6 +16,7 @@ import {
   TbPlayerPlayFilled,
 } from "react-icons/tb";
 import { TestSuite } from "./types";
+import MenuItem from "@/components/rootSidebar/menuItem";
 
 interface SidebarProps {
   activeId: string;
@@ -133,44 +134,24 @@ const NavItem = ({
   active: boolean;
   onClick: () => void;
 }) => (
-  <UnstyledButton
+  <MenuItem
     onClick={onClick}
-    px="sm"
-    py={12}
-    w="100%"
-    style={(theme) => ({
-      borderRadius: theme.radius.md,
-      backgroundColor: active ? theme.colors.violet[0] : "transparent",
-      color: active ? theme.colors.violet[9] : theme.colors.gray[8],
-      display: "flex",
-      alignItems: "center",
-      gap: theme.spacing.sm,
-      transition: "all 0.2s ease",
-      "&:hover": {
-        backgroundColor: active ? theme.colors.violet[0] : theme.colors.gray[0],
-      },
-    })}
-  >
-    <Box
-      style={{
-        color: active ? "#7950F2" : "#ADB5BD",
-        display: "flex",
-        alignItems: "center",
-      }}
-    >
-      {icon}
-    </Box>
-    <Box style={{ flex: 1 }}>
-      <Text size="sm" fw={active ? 700 : 600}>
-        {label}
-      </Text>
-      {description && (
-        <Text size="10px" c="dimmed" lineClamp={1} fw={400}>
-          {description}
+    isActive={active}
+    leftIcon={icon}
+    color="dark"
+    text={
+      <Box style={{ flex: 1 }}>
+        <Text size="sm" fw={active ? 700 : 600}>
+          {label}
         </Text>
-      )}
-    </Box>
-  </UnstyledButton>
+        {description && (
+          <Text size="10px" c="dimmed" lineClamp={1} fw={400}>
+            {description}
+          </Text>
+        )}
+      </Box>
+    }
+  />
 );
 
 export default Sidebar;

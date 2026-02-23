@@ -27,10 +27,12 @@ import { testSuitesQueries } from "@/query/testSuitesQuery";
 import { useQueryClient } from "@tanstack/react-query";
 import FormDialog from "../../../dialog/formDialog";
 import ConfirmDialog from "../../../dialog/confirmDialog";
+import z from "zod";
+import { responseSchema as getByIdResponseSchema } from "@fluxify/server/src/api/v1/routes/get-by-id/dto";
 
 interface TestSuiteEditorProps {
   suiteId: string;
-  route: any;
+  route: z.infer<typeof getByIdResponseSchema>;
   onDeleted: () => void;
 }
 
@@ -66,29 +68,32 @@ const TestSuiteEditor = ({
   const [assertions, setAssertions] = useState<any[]>([]);
 
   useEffect(() => {
-    if (suite) {
-      setPathParams(suite.routeParams || {});
-      setQueryParams(suite.queryParams || {});
-      setHeaders(suite.headers || { "Content-Type": "application/json" });
-      setBody(
-        typeof suite.body === "string"
-          ? suite.body
-          : JSON.stringify(suite.body || {}, null, 2),
-      );
-
-      const mappedAssertions = (suite.assertions || []).map((a: any) => ({
-        id: a.id || Math.random().toString(),
-        target: a.target,
-        path: a.property_path,
-        operator: a.operator,
-        expected: a.expected_value,
-        customJs: a.custom_js,
-        message: a.message,
-        success: a.success,
-      }));
-      setAssertions(mappedAssertions.length > 0 ? mappedAssertions : []);
-      setRan(false);
+    if (!suite) {
+      return;
     }
+    if (Object.keys(suite.routeParams).length > 0) {
+      setPathParams(suite.routeParams || {});
+    }
+    setQueryParams(suite.queryParams || {});
+    setHeaders(suite.headers || { "Content-Type": "application/json" });
+    setBody(
+      typeof suite.body === "string"
+        ? suite.body
+        : JSON.stringify(suite.body || {}, null, 2),
+    );
+
+    const mappedAssertions = (suite.assertions || []).map((a: any) => ({
+      id: a.id || Math.random().toString(),
+      target: a.target,
+      path: a.property_path,
+      operator: a.operator,
+      expected: a.expected_value,
+      customJs: a.custom_js,
+      message: a.message,
+      success: a.success,
+    }));
+    setAssertions(mappedAssertions.length > 0 ? mappedAssertions : []);
+    setRan(false);
   }, [suite]);
 
   useEffect(() => {

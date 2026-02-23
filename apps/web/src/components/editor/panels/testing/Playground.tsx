@@ -8,6 +8,7 @@ import RequestConfig from "./components/RequestConfig";
 import ResponseSection from "./components/ResponseSection";
 import z from "zod";
 import { responseSchema as getByIdResponseSchema } from "@fluxify/server/src/api/v1/routes/get-by-id/dto";
+import { showNotification } from "@mantine/notifications";
 
 const Playground = ({
   route,
@@ -52,18 +53,46 @@ const Playground = ({
 
     try {
       let finalPath = route.path;
+      let errors = 0;
       Object.entries(pathParams).forEach(([key, value]) => {
+        if (!value) {
+          errors++;
+        }
         finalPath = finalPath.replace(
           `:${key}`,
           encodeURIComponent(value || `:${key}`),
         );
       });
+      if (errors > 0) {
+        showNotification({
+          title: "Error",
+          message: "Please fill in all path parameters",
+          color: "red",
+          id: "path-params-error",
+        });
+        return;
+      }
 
       let parsedBody;
       try {
         parsedBody = JSON.parse(body);
+        if (!!parsedBody || Object.keys(parsedBody).length === 0) {
+          showNotification({
+            title: "Error",
+            message: "Invalid JSON body",
+            color: "red",
+            id: "invalid-json-body",
+          });
+          return;
+        }
       } catch (e) {
-        parsedBody = body; // Send as is if not valid json, or it could be empty
+        showNotification({
+          title: "Error",
+          message: "Invalid JSON body",
+          color: "red",
+          id: "invalid-json-body",
+        });
+        return;
       }
 
       const res = await axios({
