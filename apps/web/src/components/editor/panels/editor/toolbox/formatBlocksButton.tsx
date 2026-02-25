@@ -5,29 +5,29 @@ import React from "react";
 import { MdOutlineCleaningServices } from "react-icons/md";
 
 const FormatBlocksButton = () => {
-  const { formatBlocks } = useCanvasActionsStore().blocks;
-  const { add } = useEditorChangeTrackerStore();
+	const { formatBlocks } = useCanvasActionsStore().blocks;
+	const { add } = useEditorChangeTrackerStore();
 
-  function onClick() {
-    const ids = formatBlocks();
-    for (const id of ids) {
-      add(id, "block");
-    }
-  }
+	async function onClick() {
+		const ids = await formatBlocks();
+		for (const id of ids) {
+			add(id, "block");
+		}
+	}
 
-  return (
-    <Tooltip
-      onClick={onClick}
-      label={"Format Blocks"}
-      withArrow
-      arrowSize={8}
-      bg={"dark"}
-    >
-      <ActionIcon size={"lg"} variant="subtle" color={"dark"}>
-        <MdOutlineCleaningServices size={18} />
-      </ActionIcon>
-    </Tooltip>
-  );
+	return (
+		<Tooltip
+			onClick={onClick}
+			label={"Format Blocks"}
+			withArrow
+			arrowSize={8}
+			bg={"dark"}
+		>
+			<ActionIcon size={"lg"} variant="subtle" color={"dark"}>
+				<MdOutlineCleaningServices size={18} />
+			</ActionIcon>
+		</Tooltip>
+	);
 };
 
 export default FormatBlocksButton;

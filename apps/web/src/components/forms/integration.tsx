@@ -7,21 +7,23 @@ import QueryError from "../query/queryError";
 import { useQueryClient } from "@tanstack/react-query";
 import { useForm } from "@mantine/form";
 import {
-  ActionIcon,
-  ActionIconProps,
-  Group,
-  Select,
-  Stack,
+	ActionIcon,
+	ActionIconProps,
+	Group,
+	Select,
+	Stack,
 } from "@mantine/core";
 import {
-  getSchema,
-  getIntegrationsGroups,
-  getIntegrationsVariants,
-  getDefaultVariantValue,
-  humanReadableConnectorNames,
+	getSchema,
+	getIntegrationsGroups,
+	getIntegrationsVariants,
+	getDefaultVariantValue,
+	humanReadableConnectorNames,
 } from "@fluxify/server/src/api/v1/integrations/helpers";
 import { getZodValidatedErrors } from "@/lib/forms";
 import PostgresForm from "./databases/postgres";
+import MysqlForm from "./databases/mysql";
+import MongoForm from "./databases/mongo";
 import TestIntegrationConnectionButton from "../buttons/testIntegrationConnectionButton";
 import SaveIntegrationButton from "../buttons/saveIntegrationButton";
 import { TbTrash } from "react-icons/tb";
@@ -30,192 +32,196 @@ import { useDisclosure } from "@mantine/hooks";
 import RequireRoleInAnyProject from "../auth/requireRoleInAnyProject";
 import OpenObserveIntegrationForm from "./observability/openObserve";
 import LokiIntegrationForm from "./observability/loki";
-import GenericAiIntegrationForm from "./observability/genericAi";
+import GenericAiIntegrationForm from "./genericAi";
 
 type PropTypes = {
-  onSubmit?: (data: any) => void;
-  data?: { name: string; group: string; variant: string; config: any };
-  id?: string;
-  showTestConnection?: boolean;
-  isLoading?: boolean;
-  showSaveButton?: boolean;
-  saveButtonLabel?: string;
-  disableButtons?: string[];
-  showDeleteButton?: boolean;
-  onDelete?: () => void;
-  deleteButtonProps?: ActionIconProps;
+	onSubmit?: (data: any) => void;
+	data?: { name: string; group: string; variant: string; config: any };
+	id?: string;
+	showTestConnection?: boolean;
+	isLoading?: boolean;
+	showSaveButton?: boolean;
+	saveButtonLabel?: string;
+	disableButtons?: string[];
+	showDeleteButton?: boolean;
+	onDelete?: () => void;
+	deleteButtonProps?: ActionIconProps;
 };
 
 const IntegrationForm = (props: PropTypes) => {
-  const useQuery = integrationsQuery.getById.query;
-  const variantSelectorRef = useRef<HTMLInputElement>(null);
-  const {
-    data: loadedData,
-    isLoading,
-    isError,
-    error,
-  } = useQuery(props.id || "");
-  const data = props.data || loadedData;
-  const [
-    deleteModalOpened,
-    { open: openDeleteModal, close: closeDeleteModal },
-  ] = useDisclosure();
-  const form = useForm({
-    initialValues: {
-      name: data?.name || "",
-      group: data?.group || "",
-      variant: data?.variant || "",
-      config: data?.config,
-    },
-    onValuesChange(values, previous) {
-      if (values.group !== previous.group) {
-        form.setValues({
-          name: values.name,
-          group: values.group,
-          variant: "",
-          config: {},
-        });
-      }
-      if (previous.variant !== values.variant && values.variant) {
-        form.setValues({
-          ...values,
-          config: (getDefaultVariantValue(values.variant as any) as any) ?? {},
-        });
-      }
-    },
-    validate(values) {
-      const schema = getSchema(values.group as any, values.variant as any);
-      if (!schema) {
-        return {
-          group: "Invalid group",
-          variant: "Invalid variant",
-        };
-      }
-      return getZodValidatedErrors(schema)(values.config, "config.");
-    },
-  });
-  const client = useQueryClient();
+	const useQuery = integrationsQuery.getById.query;
+	const variantSelectorRef = useRef<HTMLInputElement>(null);
+	const {
+		data: loadedData,
+		isLoading,
+		isError,
+		error,
+	} = useQuery(props.id || "");
+	const data = props.data || loadedData;
+	const [
+		deleteModalOpened,
+		{ open: openDeleteModal, close: closeDeleteModal },
+	] = useDisclosure();
+	const form = useForm({
+		initialValues: {
+			name: data?.name || "",
+			group: data?.group || "",
+			variant: data?.variant || "",
+			config: data?.config,
+		},
+		onValuesChange(values, previous) {
+			if (values.group !== previous.group) {
+				form.setValues({
+					name: values.name,
+					group: values.group,
+					variant: "",
+					config: {},
+				});
+			}
+			if (previous.variant !== values.variant && values.variant) {
+				form.setValues({
+					...values,
+					config: (getDefaultVariantValue(values.variant as any) as any) ?? {},
+				});
+			}
+		},
+		validate(values) {
+			const schema = getSchema(values.group as any, values.variant as any);
+			if (!schema) {
+				return {
+					group: "Invalid group",
+					variant: "Invalid variant",
+				};
+			}
+			return getZodValidatedErrors(schema)(values.config, "config.");
+		},
+	});
+	const client = useQueryClient();
 
-  useEffect(() => {
-    if (loadedData) {
-      form.setValues(loadedData);
-    }
-  }, [loadedData]);
+	useEffect(() => {
+		if (loadedData) {
+			form.setValues(loadedData);
+		}
+	}, [loadedData]);
 
-  if (isLoading) {
-    return <QueryLoader skeletonsCols={1} skeletonsRows={3} />;
-  }
-  if (isError) {
-    return (
-      <QueryError
-        error={error}
-        refetcher={() => {
-          integrationsQuery.getById.invalidate(props.id || "", client);
-        }}
-      />
-    );
-  }
-  return (
-    <form onSubmit={form.onSubmit((values) => props.onSubmit?.(values))}>
-      <Stack>
-        <Select
-          readOnly={props.disableButtons?.includes("group")}
-          label="Choose a Connector"
-          description="Choose from a range of connectors to get started"
-          {...form.getInputProps("group")}
-          value={form.values.group}
-          data={getIntegrationsGroups().map((grp) => ({
-            label: humanReadableConnectorNames[grp],
-            value: grp,
-          }))}
-        />
-        {form.values.group && (
-          <Select
-            ref={variantSelectorRef}
-            label="Select Variant"
-            readOnly={props.disableButtons?.includes("variant")}
-            description="Select the service you want to configure & connect to"
-            {...form.getInputProps("variant")}
-            data={getIntegrationsVariants(form.values.group as any)}
-          />
-        )}
-        {form.values.group === "database" &&
-          form.values.variant === "PostgreSQL" && <PostgresForm form={form} />}
-        {form.values.group === "observability" &&
-          form.values.variant === "Open Observe" && (
-            <OpenObserveIntegrationForm form={form} />
-          )}
+	if (isLoading) {
+		return <QueryLoader skeletonsCols={1} skeletonsRows={3} />;
+	}
+	if (isError) {
+		return (
+			<QueryError
+				error={error}
+				refetcher={() => {
+					integrationsQuery.getById.invalidate(props.id || "", client);
+				}}
+			/>
+		);
+	}
+	return (
+		<form onSubmit={form.onSubmit((values) => props.onSubmit?.(values))}>
+			<Stack>
+				<Select
+					readOnly={props.disableButtons?.includes("group")}
+					label="Choose a Connector"
+					description="Choose from a range of connectors to get started"
+					{...form.getInputProps("group")}
+					value={form.values.group}
+					data={getIntegrationsGroups().map((grp) => ({
+						label: humanReadableConnectorNames[grp],
+						value: grp,
+					}))}
+				/>
+				{form.values.group && (
+					<Select
+						ref={variantSelectorRef}
+						label="Select Variant"
+						readOnly={props.disableButtons?.includes("variant")}
+						description="Select the service you want to configure & connect to"
+						{...form.getInputProps("variant")}
+						data={getIntegrationsVariants(form.values.group as any)}
+					/>
+				)}
+				{form.values.group === "database" &&
+					form.values.variant === "PostgreSQL" && <PostgresForm form={form} />}
+				{form.values.group === "database" &&
+					form.values.variant === "MySQL" && <MysqlForm form={form} />}
+				{form.values.group === "database" &&
+					form.values.variant === "MongoDB" && <MongoForm form={form} />}
+				{form.values.group === "observability" &&
+					form.values.variant === "Open Observe" && (
+						<OpenObserveIntegrationForm form={form} />
+					)}
 
-        {/* AI */}
-        {form.values.group === "ai" && form.values.variant === "OpenAI" && (
-          <GenericAiIntegrationForm form={form} />
-        )}
-        {form.values.group === "ai" && form.values.variant === "Anthropic" && (
-          <GenericAiIntegrationForm form={form} />
-        )}
-        {form.values.group === "ai" && form.values.variant === "Gemini" && (
-          <GenericAiIntegrationForm form={form} />
-        )}
-        {form.values.group === "ai" && form.values.variant === "Mistral" && (
-          <GenericAiIntegrationForm form={form} />
-        )}
-        {form.values.group === "ai" &&
-          form.values.variant === "OpenAI Compatible" && (
-            <GenericAiIntegrationForm form={form} showBaseUrl />
-          )}
+				{/* AI */}
+				{form.values.group === "ai" && form.values.variant === "OpenAI" && (
+					<GenericAiIntegrationForm form={form} />
+				)}
+				{form.values.group === "ai" && form.values.variant === "Anthropic" && (
+					<GenericAiIntegrationForm form={form} />
+				)}
+				{form.values.group === "ai" && form.values.variant === "Gemini" && (
+					<GenericAiIntegrationForm form={form} />
+				)}
+				{form.values.group === "ai" && form.values.variant === "Mistral" && (
+					<GenericAiIntegrationForm form={form} />
+				)}
+				{form.values.group === "ai" &&
+					form.values.variant === "OpenAI Compatible" && (
+						<GenericAiIntegrationForm form={form} showBaseUrl />
+					)}
 
-        {form.values.group === "observability" &&
-          form.values.variant === "Loki" && <LokiIntegrationForm form={form} />}
-        <Group justify="space-between">
-          {props.showTestConnection &&
-            form.values.group &&
-            form.values.variant && (
-              <TestIntegrationConnectionButton
-                data={form.values.config}
-                group={form.values.group}
-                variant={form.values.variant}
-              />
-            )}
-          <Group>
-            {props.showDeleteButton && (
-              <>
-                <ConfirmDialog
-                  onClose={closeDeleteModal}
-                  open={deleteModalOpened}
-                  title="Are you sure want to delete the Integration"
-                  onConfirm={() => {
-                    props.onDelete?.();
-                    closeDeleteModal();
-                  }}
-                >
-                  You are about to delete the integration. This action is
-                  irreversible.
-                </ConfirmDialog>
-                <RequireRoleInAnyProject requiredRole="project_admin">
-                  <ActionIcon
-                    size={"lg"}
-                    color="red.7"
-                    onClick={openDeleteModal}
-                    {...props.deleteButtonProps}
-                  >
-                    <TbTrash />
-                  </ActionIcon>
-                </RequireRoleInAnyProject>
-              </>
-            )}
-            {props.showSaveButton &&
-              form.values.group &&
-              form.values.variant && (
-                <SaveIntegrationButton
-                  loading={props.isLoading}
-                  label={props.saveButtonLabel}
-                />
-              )}
-          </Group>
-        </Group>
-      </Stack>
-    </form>
-  );
+				{form.values.group === "observability" &&
+					form.values.variant === "Loki" && <LokiIntegrationForm form={form} />}
+				<Group justify="space-between">
+					{props.showTestConnection &&
+						form.values.group &&
+						form.values.variant && (
+							<TestIntegrationConnectionButton
+								data={form.values.config}
+								group={form.values.group}
+								variant={form.values.variant}
+							/>
+						)}
+					<Group>
+						{props.showDeleteButton && (
+							<>
+								<ConfirmDialog
+									onClose={closeDeleteModal}
+									open={deleteModalOpened}
+									title="Are you sure want to delete the Integration"
+									onConfirm={() => {
+										props.onDelete?.();
+										closeDeleteModal();
+									}}
+								>
+									You are about to delete the integration. This action is
+									irreversible.
+								</ConfirmDialog>
+								<RequireRoleInAnyProject requiredRole="project_admin">
+									<ActionIcon
+										size={"lg"}
+										color="red.7"
+										onClick={openDeleteModal}
+										{...props.deleteButtonProps}
+									>
+										<TbTrash />
+									</ActionIcon>
+								</RequireRoleInAnyProject>
+							</>
+						)}
+						{props.showSaveButton &&
+							form.values.group &&
+							form.values.variant && (
+								<SaveIntegrationButton
+									loading={props.isLoading}
+									label={props.saveButtonLabel}
+								/>
+							)}
+					</Group>
+				</Group>
+			</Stack>
+		</form>
+	);
 };
 
 export default IntegrationForm;

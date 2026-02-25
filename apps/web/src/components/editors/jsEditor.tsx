@@ -60,9 +60,9 @@ const JsEditor = (props: CodeEditorProps) => {
        */
       declare const input: any;
       declare const logger: {
-        info(value: any): void;
-        warn(value: any): void;
-        error(value: any): void;
+        logInfo(value: any): void;
+        logWarn(value: any): void;
+        logError(value: any): void;
       };
       `,
       "file:///types.d.ts",

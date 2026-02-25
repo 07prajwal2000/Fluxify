@@ -1,285 +1,331 @@
-import { SQL } from "bun";
-import { CompiledQuery, Kysely } from "kysely";
+import { CompiledQuery, Kysely, MysqlDialect } from "kysely";
+import { createPool, Pool } from "mysql2";
+import type { PoolConnection } from "mysql2/promise";
 import { Connection, DbAdapterMode, DBConditionType, IDbAdapter } from ".";
 import { JsVM } from "@fluxify/lib";
-import { BunSqlMysqlDialect } from "./kyselySqlDialect";
+
+// A generic schema to satisfy Kysely's strict typing without using 'any'
+type FluxifyDatabase = Record<string, Record<string, any>>;
 
 export class MySqlAdapter implements IDbAdapter {
-  private mode: DbAdapterMode = DbAdapterMode.NORMAL;
-  private readonly HARD_LIMIT = 1000;
+	private mode: DbAdapterMode = DbAdapterMode.NORMAL;
+	private readonly HARD_LIMIT = 1000;
 
-  // Held during a manual transaction
-  private reservedConn: Awaited<ReturnType<SQL["reserve"]>> | null = null;
-  private transactionDb: Kysely<any> | null = null;
+	private reservedConn: PoolConnection | null = null;
+	private originalRelease: (() => void) | null = null;
+	private transactionDb: Kysely<FluxifyDatabase> | null = null;
 
-  constructor(
-    private readonly db: Kysely<any>,
-    private readonly sql: SQL,
-    private readonly vm: JsVM,
-  ) {}
+	constructor(
+		private readonly db: Kysely<FluxifyDatabase>,
+		private readonly pool: Pool,
+		private readonly vm: JsVM,
+	) {}
 
-  public static createKysely(sql: SQL): Kysely<any> {
-    return new Kysely<any>({ dialect: new BunSqlMysqlDialect(sql) });
-  }
+	public static createPool(connection: Connection): Pool {
+		return createPool(buildMysqlUrl(connection));
+	}
 
-  /** Quick connectivity check. */
-  public static async testConnection(
-    connection: Connection,
-  ): Promise<{ success: boolean; error?: unknown }> {
-    const url =
-      `mysql://${connection.username}:${encodeURIComponent(connection.password)}` +
-      `@${connection.host}:${connection.port}/${connection.database}`;
+	public static createKysely(pool: Pool): Kysely<FluxifyDatabase> {
+		return new Kysely<FluxifyDatabase>({
+			dialect: new MysqlDialect({ pool }),
+		});
+	}
 
-    const sql = new SQL(url, { max: 1 });
+	public static async testConnection(
+		connection: Connection,
+	): Promise<{ success: boolean; error?: any }> {
+		let tempPool: Pool | null = null;
+		try {
+			tempPool = createPool(buildMysqlUrl(connection));
+			const [rows] = await tempPool.promise().query("SELECT 1 AS test");
 
-    try {
-      const result = await sql.unsafe("SELECT 1 AS test");
-      return { success: (result as any)[0]?.test == 1 };
-    } catch (error) {
-      return { success: false, error };
-    } finally {
-      await sql.close();
-    }
-  }
+			// Strictly type the rows output
+			const resultRows = rows as Array<Record<string, any>>;
+			return { success: resultRows[0]?.test == 1 };
+		} catch (error) {
+			return { success: false, error };
+		} finally {
+			if (tempPool) {
+				await tempPool.promise().end();
+			}
+		}
+	}
 
-  async raw(query: string | unknown, params?: any[]): Promise<any> {
-    if (typeof query !== "string")
-      throw new Error("raw() accepts only string queries.");
+	async raw(query: string | any, params?: any[]): Promise<any> {
+		if (typeof query !== "string")
+			throw new Error("raw() accepts only string queries.");
 
-    const conn = this.getConnection();
-    return conn.executeQuery(CompiledQuery.raw(query, params ?? []));
-  }
+		const conn = this.getConnection();
+		return conn.executeQuery(CompiledQuery.raw(query, params ?? []));
+	}
 
-  async getAll(
-    table: string,
-    conditions: DBConditionType[],
-    limit: number = this.HARD_LIMIT,
-    offset: number = 0,
-    sort: { attribute: string; direction: "asc" | "desc" },
-  ): Promise<unknown[]> {
-    const conn = this.getConnection();
-    let qb = conn.selectFrom(table);
-    qb = this.buildQuery(conditions, qb);
+	async getAll(
+		table: string,
+		conditions: DBConditionType[],
+		limit: number = this.HARD_LIMIT,
+		offset: number = 0,
+		sort: { attribute: string; direction: "asc" | "desc" },
+	): Promise<any[]> {
+		const conn = this.getConnection();
+		let qb = conn.selectFrom(table as never);
+		qb = this.buildQuery(conditions, qb);
 
-    const l = limit < 0 || limit > this.HARD_LIMIT ? this.HARD_LIMIT : limit;
+		const l = limit < 0 || limit > this.HARD_LIMIT ? this.HARD_LIMIT : limit;
 
-    return qb
-      .selectAll()
-      .limit(l)
-      .offset(offset)
-      .orderBy(sort.attribute, sort.direction)
-      .execute();
-  }
+		return qb
+			.selectAll()
+			.limit(l)
+			.offset(offset)
+			.orderBy(sort.attribute as never, sort.direction)
+			.execute();
+	}
 
-  async getSingle(
-    table: string,
-    conditions: DBConditionType[],
-  ): Promise<unknown | null> {
-    const conn = this.getConnection();
-    let qb = conn.selectFrom(table);
-    qb = this.buildQuery(conditions, qb);
-    return (await qb.selectAll().executeTakeFirst()) ?? null;
-  }
+	async getSingle(
+		table: string,
+		conditions: DBConditionType[],
+	): Promise<any | null> {
+		const conn = this.getConnection();
+		let qb = conn.selectFrom(table as never);
+		qb = this.buildQuery(conditions, qb);
+		return (await qb.selectAll().executeTakeFirst()) ?? null;
+	}
 
-  async delete(table: string, conditions: DBConditionType[]): Promise<boolean> {
-    const conn = this.getConnection();
-    let qb = conn.deleteFrom(table);
-    qb = this.buildQuery(conditions, qb);
-    const result = await qb.execute();
-    return Number(result[0]?.numDeletedRows ?? 0) > 0;
-  }
+	async delete(table: string, conditions: DBConditionType[]): Promise<boolean> {
+		const conn = this.getConnection();
+		let qb = conn.deleteFrom(table as never);
+		qb = this.buildQuery(conditions, qb);
+		const result = await qb.executeTakeFirst();
+		return Number(result.numDeletedRows ?? 0) > 0;
+	}
 
-  async insert(
-    table: string,
-    data: unknown,
-    pkColumn: string = "id",
-  ): Promise<any> {
-    const conn = this.getConnection();
+	async insert(
+		table: string,
+		data: any,
+		pkColumn: string = "id",
+	): Promise<any> {
+		const conn = this.getConnection();
+		const result = await conn
+			.insertInto(table as never)
+			.values(data as never)
+			.executeTakeFirst();
 
-    const result = await conn
-      .insertInto(table)
-      .values(data as any)
-      .executeTakeFirst();
+		const insertId = result?.insertId;
+		if (insertId === undefined || insertId === null) return null;
 
-    const insertId = result?.insertId;
-    if (!insertId) return null;
+		return conn
+			.selectFrom(table as never)
+			.selectAll()
+			.where(pkColumn as never, "=", Number(insertId) as never)
+			.executeTakeFirst();
+	}
 
-    // Fetch the freshly inserted row.
-    return conn
-      .selectFrom(table)
-      .selectAll()
-      .where(pkColumn as any, "=", Number(insertId))
-      .executeTakeFirst();
-  }
+	async insertBulk(
+		table: string,
+		data: Record<string, any>[],
+		pkColumn: string = "id",
+	): Promise<any[]> {
+		if (!data || data.length === 0) return [];
 
-  async insertBulk(
-    table: string,
-    data: any[],
-    pkColumn: string = "id",
-  ): Promise<any[]> {
-    const chunkSize = 1000;
-    const results: any[] = [];
-    const conn = this.getConnection();
+		const chunkSize = 1000;
+		const results: any[] = [];
+		const conn = this.getConnection();
 
-    for (let i = 0; i < data.length; i += chunkSize) {
-      const chunk = data.slice(i, i + chunkSize);
+		for (let i = 0; i < data.length; i += chunkSize) {
+			const chunk = data.slice(i, i + chunkSize);
 
-      const result = await conn
-        .insertInto(table)
-        .values(chunk)
-        .executeTakeFirst();
+			const result = await conn
+				.insertInto(table as never)
+				.values(chunk as never)
+				.executeTakeFirst();
 
-      const firstId = result?.insertId;
-      if (!firstId) continue;
+			const firstId = result?.insertId;
+			if (firstId === undefined || firstId === null) continue;
 
-      const lastId = Number(firstId) + chunk.length - 1;
+			const lastId = Number(firstId) + chunk.length - 1;
 
-      const rows = await conn
-        .selectFrom(table)
-        .selectAll()
-        .where(pkColumn as any, ">=", Number(firstId))
-        .where(pkColumn as any, "<=", lastId)
-        .execute();
+			const rows = await conn
+				.selectFrom(table as never)
+				.selectAll()
+				.where(pkColumn as never, ">=", Number(firstId) as never)
+				.where(pkColumn as never, "<=", lastId as never)
+				.execute();
 
-      results.push(...rows);
-    }
+			results.push(...rows);
+		}
 
-    return results;
-  }
+		return results;
+	}
 
-  async update(
-    table: string,
-    data: unknown,
-    conditions: DBConditionType[],
-    pkColumn: string = "id",
-  ): Promise<any> {
-    const conn = this.getConnection();
-    let qb = conn.updateTable(table).set(data as any);
-    qb = this.buildQuery(conditions, qb);
-    await qb.execute();
+	async update(
+		table: string,
+		data: any,
+		conditions: DBConditionType[],
+		pkColumn: string = "id",
+	): Promise<any> {
+		const conn = this.getConnection();
+		let qb = conn.updateTable(table as never).set(data as never);
+		qb = this.buildQuery(conditions, qb);
+		await qb.execute();
 
-    // Re-fetch updated rows since MySQL has no RETURNING.
-    let selectQb = conn.selectFrom(table);
-    selectQb = this.buildQuery(conditions, selectQb);
-    return selectQb.selectAll().execute();
-  }
+		let selectQb = conn.selectFrom(table as never);
+		selectQb = this.buildQuery(conditions, selectQb);
+		return selectQb.selectAll().execute();
+	}
 
-  async setMode(mode: DbAdapterMode): Promise<void> {
-    this.mode = mode;
-  }
+	async setMode(mode: DbAdapterMode): Promise<void> {
+		this.mode = mode;
+	}
 
-  async startTransaction(): Promise<void> {
-    if (this.mode === DbAdapterMode.TRANSACTION) return;
+	async startTransaction(): Promise<void> {
+		if (this.mode === DbAdapterMode.TRANSACTION) return;
 
-    this.reservedConn = await this.sql.reserve();
+		this.reservedConn = await this.pool.promise().getConnection();
+		await this.reservedConn.beginTransaction();
 
-    try {
-      await this.reservedConn.unsafe("BEGIN");
-    } catch (e) {
-      this.reservedConn.release();
-      this.reservedConn = null;
-      throw e;
-    }
+		// Safely extract the raw callback connection without using 'any'
+		const rawConn = (this.reservedConn as any as { connection: PoolConnection })
+			.connection;
 
-    const reservedSql = this.reservedConn as unknown as SQL;
-    this.transactionDb = new Kysely<any>({
-      dialect: new BunSqlMysqlDialect(reservedSql),
-    });
+		this.originalRelease = rawConn.release.bind(rawConn);
+		rawConn.release = () => {};
 
-    await this.setMode(DbAdapterMode.TRANSACTION);
-  }
+		this.transactionDb = new Kysely<FluxifyDatabase>({
+			dialect: new MysqlDialect({
+				pool: {
+					getConnection: (cb: (err: any, conn: any) => void) =>
+						cb(null, rawConn),
+				} as any as Pool,
+			}),
+		});
 
-  async commitTransaction(): Promise<void> {
-    if (this.mode !== DbAdapterMode.TRANSACTION || !this.reservedConn)
-      throw new Error("Not in transaction mode");
+		await this.setMode(DbAdapterMode.TRANSACTION);
+	}
 
-    try {
-      await this.reservedConn.unsafe("COMMIT");
-    } finally {
-      await this.transactionDb?.destroy();
-      this.reservedConn.release();
-      this.reservedConn = null;
-      this.transactionDb = null;
-      await this.setMode(DbAdapterMode.NORMAL);
-    }
-  }
+	async commitTransaction(): Promise<void> {
+		if (this.mode !== DbAdapterMode.TRANSACTION || !this.reservedConn)
+			throw new Error("Not in transaction mode");
 
-  async rollbackTransaction(): Promise<void> {
-    if (this.mode !== DbAdapterMode.TRANSACTION || !this.reservedConn)
-      throw new Error("Not in transaction mode");
+		try {
+			await this.reservedConn.commit();
+		} finally {
+			this.cleanupTransaction();
+		}
+	}
 
-    try {
-      await this.reservedConn.unsafe("ROLLBACK");
-    } finally {
-      await this.transactionDb?.destroy();
-      this.reservedConn.release();
-      this.reservedConn = null;
-      this.transactionDb = null;
-      await this.setMode(DbAdapterMode.NORMAL);
-    }
-  }
+	async rollbackTransaction(): Promise<void> {
+		if (this.mode !== DbAdapterMode.TRANSACTION || !this.reservedConn)
+			throw new Error("Not in transaction mode");
 
-  private getConnection(): Kysely<any> {
-    return this.mode === DbAdapterMode.TRANSACTION && this.transactionDb
-      ? this.transactionDb
-      : this.db;
-  }
+		try {
+			await this.reservedConn.rollback();
+		} finally {
+			this.cleanupTransaction();
+		}
+	}
 
-  private buildQuery(conditions: DBConditionType[], builder: any) {
-    for (const condition of conditions) {
-      const operator = this.getNativeOperator(condition.operator);
-      if (condition.chain === "or") {
-        builder = builder.orWhere(
-          condition.attribute,
-          operator,
-          condition.value,
-        );
-      } else {
-        builder = builder.where(condition.attribute, operator, condition.value);
-      }
-    }
-    return builder;
-  }
+	private async cleanupTransaction() {
+		if (this.reservedConn && this.originalRelease) {
+			const rawConn = (
+				this.reservedConn as any as { connection: PoolConnection }
+			).connection;
+			rawConn.release = this.originalRelease;
+			this.reservedConn.release();
+		}
+		this.reservedConn = null;
+		this.originalRelease = null;
+		this.transactionDb = null;
+		await this.setMode(DbAdapterMode.NORMAL);
+	}
 
-  private getNativeOperator(
-    operator: "eq" | "neq" | "gt" | "gte" | "lt" | "lte",
-  ): string {
-    const map = { eq: "=", neq: "<>", gt: ">", gte: ">=", lt: "<", lte: "<=" };
-    return map[operator] ?? "=";
-  }
+	private getConnection(): Kysely<FluxifyDatabase> {
+		return this.mode === DbAdapterMode.TRANSACTION && this.transactionDb
+			? this.transactionDb
+			: this.db;
+	}
+
+	// Duck-typing the builder generic to strictly ensure .where exists
+	private buildQuery<B extends { where: Function }>(
+		conditions: DBConditionType[],
+		builder: B,
+	): B {
+		if (!conditions || conditions.length === 0) return builder;
+
+		return builder.where((eb: CallableFunction) => {
+			// 1. Create the initial expression using the ExpressionBuilder (eb)
+			let expr = eb(
+				conditions[0].attribute as never,
+				this.getNativeOperator(conditions[0].operator) as never,
+				conditions[0].value as never,
+			) as { and: Function; or: Function };
+
+			// 2. Chain subsequent expressions just like Kysely Docs Example #2
+			for (let i = 1; i < conditions.length; i++) {
+				const cond = conditions[i];
+				const nextExpr = eb(
+					cond.attribute as never,
+					this.getNativeOperator(cond.operator) as never,
+					cond.value as never,
+				);
+
+				if (cond.chain.toLowerCase() === "or") {
+					expr = expr.or(nextExpr) as { and: Function; or: Function };
+				} else {
+					expr = expr.and(nextExpr) as { and: Function; or: Function };
+				}
+			}
+
+			return expr;
+		}) as B;
+	}
+
+	private getNativeOperator(
+		operator: "eq" | "neq" | "gt" | "gte" | "lt" | "lte",
+	): string {
+		const map: Record<string, string> = {
+			eq: "=",
+			neq: "<>",
+			gt: ">",
+			gte: ">=",
+			lt: "<",
+			lte: "<=",
+		};
+		return map[operator] ?? "=";
+	}
 }
 
 export function buildMysqlUrl(connection: Connection): string {
-  const { username, password, host, port, database } = connection;
-  return `mysql://${username}:${encodeURIComponent(password)}@${host}:${port}/${database}`;
+	const { username, password, host, port, database } = connection;
+	return `mysql://${username}:${encodeURIComponent(password)}@${host}:${port}/${database}`;
 }
 
 export function extractMysqlConnectionInfo(
-  config: any,
-  appConfigs: Map<string, string>,
-  mysqlUrlParser: (url: string) => Connection | null,
+	config: Record<string, any>,
+	appConfigs: Map<string, string>,
+	mysqlUrlParser: (url: string) => Connection | null,
 ) {
-  if (config.source === "url") {
-    config.url = config.url.startsWith("cfg:")
-      ? (appConfigs.get(config.url.slice(4)) ?? "")
-      : config.url;
-    const result = mysqlUrlParser(config.url);
-    if (result === null) return null;
-    return {
-      host: result.host,
-      port: result.port,
-      database: result.database,
-      username: result.username,
-      password: result.password,
-      dbType: result.dbType,
-    };
-  }
+	if (config.source === "url") {
+		let urlStr = String(config.url);
+		urlStr = urlStr.startsWith("cfg:")
+			? (appConfigs.get(urlStr.slice(4)) ?? "")
+			: urlStr;
 
-  for (const key in config) {
-    const value = config[key].toString();
-    config[key] = value.startsWith("cfg:")
-      ? (appConfigs.get(value.slice(4)) ?? "")
-      : value;
-  }
-  return config;
+		const result = mysqlUrlParser(urlStr);
+		if (result === null) return null;
+		return {
+			host: result.host,
+			port: result.port,
+			database: result.database,
+			username: result.username,
+			password: result.password,
+			dbType: result.dbType,
+		};
+	}
+
+	for (const key in config) {
+		const value = String(config[key]);
+		config[key] = value.startsWith("cfg:")
+			? (appConfigs.get(value.slice(4)) ?? "")
+			: value;
+	}
+	return config;
 }
