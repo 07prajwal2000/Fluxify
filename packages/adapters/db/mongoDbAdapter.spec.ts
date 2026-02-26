@@ -9,14 +9,11 @@ import {
 import { MongoAdapter, buildMongoUrl } from "./mongoDbAdapter";
 import { Connection, DbType } from ".";
 import { JsVM } from "@fluxify/lib";
-import Docker from "dockerode";
+import type Docker from "dockerode";
 import { MongoClient } from "mongodb";
 import { fakerEN as faker } from "@faker-js/faker";
+import { docker, pullImage } from "./testHelpers";
 
-const isCI = process.env.CI === "true";
-const docker = isCI
-	? new Docker({ socketPath: "/var/run/docker.sock" })
-	: new Docker({ host: "localhost", port: 2375 });
 const containerName = "fluxify-mongo-adapter-test";
 const exposedPort = 27017;
 
@@ -30,6 +27,8 @@ beforeAll(async () => {
 		const existing = docker.getContainer(containerName);
 		await existing.remove({ force: true });
 	} catch (e) {}
+
+	await pullImage("mongo:7.0");
 
 	// We boot without root credentials specifically to allow easy Replica Set initialization locally
 	container = await docker.createContainer({
