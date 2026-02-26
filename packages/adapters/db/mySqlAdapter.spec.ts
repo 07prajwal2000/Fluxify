@@ -13,7 +13,10 @@ import Docker from "dockerode";
 import { createPool, Pool } from "mysql2";
 import { faker } from "@faker-js/faker";
 
-const docker = new Docker({ host: "localhost", port: 2375 });
+const isCI = process.env.CI === "true";
+const docker = isCI
+	? new Docker({ socketPath: "/var/run/docker.sock" })
+	: new Docker({ host: "localhost", port: 2375 });
 const containerName = "fluxify-mysql-adapter-test";
 const exposedPort = 33006;
 

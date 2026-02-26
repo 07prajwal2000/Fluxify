@@ -13,7 +13,10 @@ import Docker from "dockerode";
 import { MongoClient } from "mongodb";
 import { fakerEN as faker } from "@faker-js/faker";
 
-const docker = new Docker({ host: "localhost", port: 2375 });
+const isCI = process.env.CI === "true";
+const docker = isCI
+	? new Docker({ socketPath: "/var/run/docker.sock" })
+	: new Docker({ host: "localhost", port: 2375 });
 const containerName = "fluxify-mongo-adapter-test";
 const exposedPort = 27017;
 

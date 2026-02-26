@@ -13,7 +13,10 @@ import { JsVM } from "@fluxify/lib";
 import Docker from "dockerode";
 import { faker } from "@faker-js/faker";
 
-const docker = new Docker({ host: "localhost", port: 2375 });
+const isCI = process.env.CI === "true";
+const docker = isCI
+	? new Docker({ socketPath: "/var/run/docker.sock" })
+	: new Docker({ host: "localhost", port: 2375 });
 const containerName = "fluxify-pg-adapter-test";
 const exposedPort = 54320;
 
