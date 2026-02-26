@@ -36,5 +36,12 @@
 		"dockerode": "^4.0.9",
 		"fta-cli": "^3.0.0",
 		"turbo": "^2.5.5"
-	}
+	},
+	"trustedDependencies": [
+		"@faker-js/faker",
+		"@swc/core",
+		"@typescript/native-preview",
+		"esbuild",
+		"sharp"
+	]
 }
