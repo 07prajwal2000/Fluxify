@@ -45,7 +45,7 @@ export async function handleRequest(
   }
 
   let requestBody = await getRequestBody(ctx);
-  const vars = setupContextVars(ctx, requestBody, path.routeParams);
+  const vars = setupContextVars(ctx, requestBody, path.id, path.routeParams);
   const vm = createJsVM(vars);
   const dbFactory = createDbFactory(vm);
   const context = createContext(path, ctx, requestBody, vm, vars, dbFactory);
@@ -117,11 +117,12 @@ function createDbFactory(vm: JsVM) {
 function setupContextVars(
   ctx: Context,
   body: any,
+  routeId: string,
   params?: Record<string, string>,
 ): BlockContext["vars"] {
   let logger: AbstractLogger = null!;
   if (process.env.ENVIRONMENT === "development") {
-    logger = new ConsoleLoggerProvider();
+    logger = new ConsoleLoggerProvider(routeId);
   } else {
     // TODO: require configuration from user.
     logger = new EmptyLoggerProvider();

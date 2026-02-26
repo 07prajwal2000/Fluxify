@@ -76,7 +76,10 @@ const Playground = ({
       let parsedBody;
       try {
         parsedBody = JSON.parse(body);
-        if (!!parsedBody || Object.keys(parsedBody).length === 0) {
+        if (
+          !["POST", "PUT"].includes(route.method.toUpperCase()) &&
+          (!!parsedBody || Object.keys(parsedBody).length === 0)
+        ) {
           showNotification({
             title: "Error",
             message: "Invalid JSON body",

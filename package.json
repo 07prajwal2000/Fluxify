@@ -1,38 +1,47 @@
 {
-  "name": "fluxify",
-  "version": "1.0.0",
-  "type": "module",
-  "scripts": {
-    "dev": "concurrently 'bun run dev:server' 'bun run dev:web'",
-    "dev:server": "bun run --env-file=./apps/server/.env --watch ./apps/server/deployments/standalone.ts",
-    "dev:web": "turbo run dev --filter=@fluxify/web",
-    "lint": "turbo run lint",
-    "test": "turbo run test",
-    "build": "turbo run build",
-    "build:proxy": "bun build scripts/proxy.js --outfile=dist/proxy.js --bundle --target bun --minify",
-    "analyze": "bun x fta-cli --score-cap 70 ."
-  },
-  "keywords": [
-    "fluxify",
-    "@fluxify"
-  ],
-  "workspaces": [
-    "packages/*",
-    "apps/*"
-  ],
-  "packageManager": "bun@1.3.6",
-  "author": "07prajwal2000",
-  "license": "ISC",
-  "description": "",
-  "dependencies": {
-    "@hono/zod-validator": "^0.7.2",
-    "http-proxy": "^1.18.1"
-  },
-  "devDependencies": {
-    "@types/bun": "^1.3.9",
-    "@typescript/native-preview": "^7.0.0-dev.20260219.1",
-    "concurrently": "^9.2.1",
-    "fta-cli": "^3.0.0",
-    "turbo": "^2.5.5"
-  }
+	"name": "fluxify",
+	"version": "1.0.0",
+	"type": "module",
+	"scripts": {
+		"dev": "concurrently 'bun run dev:server' 'bun run dev:web'",
+		"dev:server": "bun run --env-file=./apps/server/.env --watch ./apps/server/deployments/standalone.ts",
+		"dev:web": "turbo run dev --filter=@fluxify/web",
+		"lint": "turbo run lint",
+		"test": "turbo run test",
+		"build": "turbo run build",
+		"build:proxy": "bun build scripts/proxy.js --outfile=dist/proxy.js --bundle --target bun --minify",
+		"analyze": "bun x fta-cli --score-cap 70 ."
+	},
+	"keywords": [
+		"fluxify",
+		"@fluxify"
+	],
+	"workspaces": [
+		"packages/*",
+		"apps/*"
+	],
+	"packageManager": "bun@1.3.6",
+	"author": "07prajwal2000",
+	"license": "ISC",
+	"description": "",
+	"dependencies": {
+		"http-proxy": "^1.18.1"
+	},
+	"devDependencies": {
+		"@faker-js/faker": "^10.3.0",
+		"@types/bun": "^1.3.9",
+		"@types/dockerode": "^4.0.1",
+		"@typescript/native-preview": "^7.0.0-dev.20260219.1",
+		"concurrently": "^9.2.1",
+		"dockerode": "^4.0.9",
+		"fta-cli": "^3.0.0",
+		"turbo": "^2.5.5"
+	},
+	"trustedDependencies": [
+		"@faker-js/faker",
+		"@swc/core",
+		"@typescript/native-preview",
+		"esbuild",
+		"sharp"
+	]
 }

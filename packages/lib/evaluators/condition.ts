@@ -72,7 +72,6 @@ export async function evaluateOperator(
       case "is_empty":
         return isNull(lhs);
       case "is_not_empty":
-        console.log(lhs);
         return !isNull(lhs);
       default:
         return false;
@@ -84,7 +83,6 @@ function isNull(value: any): boolean {
   return (
     value === null ||
     isUndefined(value) ||
-    isNaN(value) ||
     value === "" ||
     isObjectEmpty(value) ||
     isArrayEmpty(value)

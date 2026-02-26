@@ -32,6 +32,7 @@ Here's for devs:
 - Run the development server using `bun run dev` at root folder
 - Access the application at `http://localhost:8000/_/admin/ui`
 - API is available at `http://localhost:8000/_/admin/api` and OpenAPI UI is available at `http://localhost:8000/_/admin/api/openapi/ui`
+- Before testing, set `DOCKER_HOST="npipe:////./pipe/docker_engine"` in your terminal or in `.env` file.
 
 ## Rules
 - Unit tests are mandatory for all new features and bug fixes
@@ -42,7 +43,6 @@ Here's for devs:
 
 ## Areas Looking for Contributors
 
-- MySQL / MongoDB database blocks
 - Additional observability integrations
 - New Block Ideas and implementation
 - Integration with other services

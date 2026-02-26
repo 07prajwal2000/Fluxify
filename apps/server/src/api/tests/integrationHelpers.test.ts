@@ -89,11 +89,6 @@ describe("Integration Helpers", () => {
       expect(schema).not.toBeNull();
     });
 
-    it("should return null for unsupported database variant", () => {
-      const schema = getSchema("database", "MySQL");
-      expect(schema).toBeNull();
-    });
-
     it("should return null for invalid variant", () => {
       const schema = getSchema("database", "FakeDB");
       expect(schema).toBeNull();
