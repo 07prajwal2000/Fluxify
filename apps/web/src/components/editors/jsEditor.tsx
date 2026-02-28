@@ -183,6 +183,10 @@ const JsEditor = (props: CodeEditorProps) => {
          * fully supported underscore.js library
         */
         const _: unknown; 
+        /**
+         * fully supported zod library
+        */
+        const zod: unknown;
       }
       `,
 			"file:///types.d.ts",

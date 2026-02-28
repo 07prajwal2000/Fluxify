@@ -23,6 +23,7 @@ import { startBlocksExecution } from "../../loaders/blocksLoader";
 import { appConfigCache } from "../../loaders/appconfigLoader";
 import { DbFactory } from "@fluxify/adapters";
 import { dbIntegrationsCache } from "../../loaders/integrationsLoader";
+import * as zodLib from "zod";
 
 export type HandleRequestType = {
 	data?: any;
@@ -171,6 +172,7 @@ function setupContextVars(
 		libs: {
 			dayjs: dayjs.extend(dayjsUtc),
 			_: underscore,
+			zod: zodLib,
 		},
 		logger,
 		getCookie(key) {

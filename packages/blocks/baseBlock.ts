@@ -63,6 +63,7 @@ export interface ContextVarsType {
 	libs: {
 		dayjs: dayjs.Dayjs;
 		_: unknown;
+		zod: unknown;
 	};
 	/**
 	 * get the value of the app config
@@ -158,6 +159,7 @@ function setCookie(name: string, options: {
 	const libs: {
 		dayjs: dayjs() // full dayjs library access with utc extended.
 		_: underscore // supports full underscore.js library. 
+		zod: zod // supports full zod library.
 	}
 // 5. JWT
 const jwt: {
