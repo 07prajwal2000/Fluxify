@@ -62,6 +62,7 @@ export interface ContextVarsType {
 	httpClient: HttpClient;
 	libs: {
 		dayjs: dayjs.Dayjs;
+		_: unknown;
 	};
 	/**
 	 * get the value of the app config
@@ -154,8 +155,9 @@ function setCookie(name: string, options: {
 
 		native(): AxiosInstance;
 	}
-	const native: {
+	const libs: {
 		dayjs: dayjs() // full dayjs library access with utc extended.
+		_: underscore // supports full underscore.js library. 
 	}
 // 5. JWT
 const jwt: {

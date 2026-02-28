@@ -1,3 +1,4 @@
+import underscore from "underscore";
 import jwt from "jsonwebtoken";
 import { getCookie, setCookie } from "hono/cookie";
 import dayjs from "dayjs";
@@ -169,6 +170,7 @@ function setupContextVars(
 		},
 		libs: {
 			dayjs: dayjs.extend(dayjsUtc),
+			_: underscore,
 		},
 		logger,
 		getCookie(key) {

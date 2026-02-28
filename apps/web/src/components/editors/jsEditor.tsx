@@ -179,6 +179,10 @@ const JsEditor = (props: CodeEditorProps) => {
         }
 
         const dayjs: DayjsFactory;
+        /**
+         * fully supported underscore.js library
+        */
+        const _: unknown; 
       }
       `,
 			"file:///types.d.ts",
