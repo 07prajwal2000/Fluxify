@@ -1,27 +1,27 @@
 import { Editor, Monaco } from "@monaco-editor/react";
 
 type CodeEditorProps = {
-  defaultValue?: string;
-  onChange?: (value: string) => void;
-  value?: string;
-  readonly?: boolean;
-  height?: number;
-  showLineNumbers?: boolean;
+	defaultValue?: string;
+	onChange?: (value: string) => void;
+	value?: string;
+	readonly?: boolean;
+	height?: number;
+	showLineNumbers?: boolean;
 };
 
 const JsEditor = (props: CodeEditorProps) => {
-  const showLineNumbers = props.showLineNumbers ?? true;
-  const height = props.height ? `${props.height}px` : "350px";
+	const showLineNumbers = props.showLineNumbers ?? true;
+	const height = props.height ? `${props.height}px` : "350px";
 
-  function setupMonaco(monaco: Monaco) {
-    monaco.languages.typescript.javascriptDefaults.setCompilerOptions({
-      target: monaco.languages.typescript.ScriptTarget.ES2020,
-      lib: ["es2020"],
-      strict: true,
-      allowNonTsExtensions: true,
-    });
-    monaco.languages.typescript.javascriptDefaults.addExtraLib(
-      `
+	function setupMonaco(monaco: Monaco) {
+		monaco.languages.typescript.javascriptDefaults.setCompilerOptions({
+			target: monaco.languages.typescript.ScriptTarget.ES2020,
+			lib: ["es2020"],
+			strict: true,
+			allowNonTsExtensions: true,
+		});
+		monaco.languages.typescript.javascriptDefaults.addExtraLib(
+			`
       declare function getQueryParam(key: string): string;
       declare function getRouteParam(key: string): string;
       declare function getHeader(key: string): string;
@@ -64,32 +64,98 @@ const JsEditor = (props: CodeEditorProps) => {
         logWarn(value: any): void;
         logError(value: any): void;
       };
-      `,
-      "file:///types.d.ts",
-    );
-  }
+      // JWT
+      declare const jwt: {
+        sign(payload: object, secretKey: string, options?: object): string;
+        verify(
+          token: string,
+          secretKey: string,
+          options?: object,
+        ): { success: boolean; payload: Record<string, string> | null };
+        decode(
+          token: string,
+          options?: object,
+        ): Record<string, string> | null;
+      };
+      declare type HttpHeaders = Record<string, string>;
+      
+      declare interface AxiosResponse<T = any> {
+        data: T;
+        status: number;
+        statusText: string;
+        headers: any;
+        config: any;
+      }
 
-  return (
-    <Editor
-      language="javascript"
-      height={height}
-      defaultValue={props.defaultValue}
-      theme="vs-dark"
-      value={props.value}
-      onChange={(e) => props.onChange && props.onChange(e!)}
-      options={{
-        readOnly: props.readonly,
-        lineNumbers: showLineNumbers ? "on" : "off",
-        minimap: {
-          enabled: false,
-        },
-        automaticLayout: true,
-      }}
-      onMount={(editor, monaco) => {
-        setupMonaco(monaco);
-      }}
-    />
-  );
+      declare interface AxiosInstance {
+        get<T = any>(url: string, config?: any): Promise<AxiosResponse<T>>;
+        post<T = any>(url: string, data?: any, config?: any): Promise<AxiosResponse<T>>;
+        put<T = any>(url: string, data?: any, config?: any): Promise<AxiosResponse<T>>;
+        delete<T = any>(url: string, config?: any): Promise<AxiosResponse<T>>;
+        patch<T = any>(url: string, data?: any, config?: any): Promise<AxiosResponse<T>>;
+      }
+
+      declare class HttpClient {
+        constructor();
+
+        get<T = any>(
+          url: string,
+          headers?: HttpHeaders
+        ): Promise<AxiosResponse<T>>;
+
+        post<T = any>(
+          url: string,
+          data?: any,
+          headers?: HttpHeaders
+        ): Promise<AxiosResponse<T>>;
+
+        put<T = any>(
+          url: string,
+          data?: any,
+          headers?: HttpHeaders
+        ): Promise<AxiosResponse<T>>;
+
+        delete<T = any>(
+          url: string,
+          headers?: HttpHeaders
+        ): Promise<AxiosResponse<T>>;
+
+        patch<T = any>(
+          url: string,
+          data?: any,
+          headers?: HttpHeaders
+        ): Promise<AxiosResponse<T>>;
+
+        native(): AxiosInstance;
+      }
+
+      declare const httpClient: HttpClient;
+      `,
+			"file:///types.d.ts",
+		);
+	}
+
+	return (
+		<Editor
+			language="javascript"
+			height={height}
+			defaultValue={props.defaultValue}
+			theme="vs-dark"
+			value={props.value}
+			onChange={(e) => props.onChange && props.onChange(e!)}
+			options={{
+				readOnly: props.readonly,
+				lineNumbers: showLineNumbers ? "on" : "off",
+				minimap: {
+					enabled: false,
+				},
+				automaticLayout: true,
+			}}
+			onMount={(editor, monaco) => {
+				setupMonaco(monaco);
+			}}
+		/>
+	);
 };
 
 export default JsEditor;

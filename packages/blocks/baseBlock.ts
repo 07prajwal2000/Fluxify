@@ -1,74 +1,88 @@
+import jwt from "jsonwebtoken";
 import { DbFactory } from "@fluxify/adapters";
 import { AbstractLogger, HttpClient } from "@fluxify/lib";
 import { JsVM } from "@fluxify/lib";
 import z from "zod";
 
 export interface Context {
-  vm: JsVM;
-  route: string;
-  projectId: string;
-  apiId: string;
-  vars: ContextVarsType & Record<string, any>;
-  requestBody?: any;
-  dbFactory?: DbFactory;
-  httpClient?: HttpClient;
-  stopper: {
-    timeoutEnd: number;
-    duration: number;
-  };
+	vm: JsVM;
+	route: string;
+	projectId: string;
+	apiId: string;
+	vars: ContextVarsType & Record<string, any>;
+	requestBody?: any;
+	dbFactory?: DbFactory;
+	httpClient?: HttpClient;
+	stopper: {
+		timeoutEnd: number;
+		duration: number;
+	};
 }
 
 export enum HttpCookieSameSite {
-  Empty = "",
-  Lax = "Lax",
-  Strict = "Strict",
-  None = "None",
+	Empty = "",
+	Lax = "Lax",
+	Strict = "Strict",
+	None = "None",
 }
 
 export interface HttpCookieSettings {
-  name: string;
-  value: string | number;
-  domain?: string;
-  path?: string;
-  expiry?: Date | string;
-  httpOnly?: boolean;
-  secure?: boolean;
-  samesite?: HttpCookieSameSite;
+	name: string;
+	value: string | number;
+	domain?: string;
+	path?: string;
+	expiry?: Date | string;
+	httpOnly?: boolean;
+	secure?: boolean;
+	samesite?: HttpCookieSameSite;
 }
 
 export interface ContextVarsType {
-  getQueryParam: (key: string) => string;
-  getRouteParam: (key: string) => string;
-  getHeader: (key: string) => string;
-  setHeader: (key: string, value: string) => void;
-  getCookie: (key: string) => string;
-  setCookie(
-    name: string,
-    value: {
-      value: string | number;
-      domain: string;
-      path: string;
-      expiry: string;
-      httpOnly: boolean;
-      secure: boolean;
-      samesite: HttpCookieSameSite;
-    },
-  ): void;
-  httpRequestMethod: string;
-  httpRequestRoute: string;
-  getRequestBody: () => any;
-  /**
-   * get the value of the app config
-   * @param key app config key name
-   */
-  getConfig(key: string): string | number | boolean;
-  /**
-   * run database query inside DB Native block
-   * @param query SQL supported query
-   * @returns
-   */
-  dbQuery?: (query: string) => Promise<unknown>;
-  logger: AbstractLogger;
+	getQueryParam: (key: string) => string;
+	getRouteParam: (key: string) => string;
+	getHeader: (key: string) => string;
+	setHeader: (key: string, value: string) => void;
+	getCookie: (key: string) => string;
+	setCookie(
+		name: string,
+		value: {
+			value: string | number;
+			domain: string;
+			path: string;
+			expiry: string;
+			httpOnly: boolean;
+			secure: boolean;
+			samesite: HttpCookieSameSite;
+		},
+	): void;
+	httpRequestMethod: string;
+	httpRequestRoute: string;
+	getRequestBody: () => any;
+	httpClient: HttpClient;
+	/**
+	 * get the value of the app config
+	 * @param key app config key name
+	 */
+	getConfig(key: string): string | number | boolean;
+	/**
+	 * run database query inside DB Native block
+	 * @param query SQL supported query
+	 * @returns
+	 */
+	dbQuery?: (query: string) => Promise<unknown>;
+	logger: AbstractLogger;
+	jwt: {
+		sign(payload: object, secretKey: string, options?: jwt.SignOptions): string;
+		verify(
+			token: string,
+			secretKey: string,
+			options?: jwt.VerifyOptions,
+		): { success: boolean; payload: Record<string, string> | null };
+		decode(
+			token: string,
+			options?: jwt.DecodeOptions,
+		): Record<string, string> | null;
+	};
 }
 
 export const contextVarsAiDescription = `<js_runtime_context>
@@ -105,37 +119,54 @@ const logger: {
   logError(...args: any[]): void; 
   logWarn(...args: any[]): void; 
 };
+const httpClient: 
+// 5. JWT
+const jwt: {
+	// retuns signed JWT token
+	sign(payload: object, secretKey: string, options?: object): string;
+	// verifies if the token, if valid, returns the payload and success=true else false and null payload. 
+	verify(
+		token: string,
+		secretKey: string,
+		options?: object,
+	): { success: boolean; payload: Record<string, string> | null };
+	// just decodes the token and returns the payload
+	decode(
+		token: string,
+		options?: object,
+	): Record<string, string> | null;
+};
 
-// 5. Execution Rules
+// 6. Execution Rules
 // - State Sharing: Assign values to global variables (e.g., \`myVar = 123\`) to pass them to the next block.
 // - Constraints: No external libraries (npm/require). Pure ES6+ JavaScript only.
 </js_runtime_context>`;
 
 export interface BlockOutput {
-  output?: any;
-  next?: string;
-  error?: string;
-  successful: boolean;
-  continueIfFail: boolean;
+	output?: any;
+	next?: string;
+	error?: string;
+	successful: boolean;
+	continueIfFail: boolean;
 }
 
 export const baseBlockDataSchema = z.object({
-  blockName: z.string().optional().default("Name"),
-  blockDescription: z.string().optional().default("Description"),
+	blockName: z.string().optional().default("Name"),
+	blockDescription: z.string().optional().default("Description"),
 });
 
 export type BlockOptions = {
-  timedOut: boolean;
+	timedOut: boolean;
 };
 
 export abstract class BaseBlock {
-  constructor(
-    protected readonly context: Context,
-    protected readonly input?: any,
-    public readonly next?: string,
-  ) {}
-  public abstract executeAsync(
-    params?: any,
-    options?: BlockOptions,
-  ): Promise<BlockOutput>;
+	constructor(
+		protected readonly context: Context,
+		protected readonly input?: any,
+		public readonly next?: string,
+	) {}
+	public abstract executeAsync(
+		params?: any,
+		options?: BlockOptions,
+	): Promise<BlockOutput>;
 }
