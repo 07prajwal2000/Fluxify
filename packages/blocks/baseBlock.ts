@@ -3,6 +3,7 @@ import { DbFactory } from "@fluxify/adapters";
 import { AbstractLogger, HttpClient } from "@fluxify/lib";
 import { JsVM } from "@fluxify/lib";
 import z from "zod";
+import type dayjs from "dayjs";
 
 export interface Context {
 	vm: JsVM;
@@ -59,6 +60,9 @@ export interface ContextVarsType {
 	httpRequestRoute: string;
 	getRequestBody: () => any;
 	httpClient: HttpClient;
+	libs: {
+		dayjs: dayjs.Dayjs;
+	};
 	/**
 	 * get the value of the app config
 	 * @param key app config key name
@@ -112,14 +116,47 @@ function setCookie(name: string, options: {
 }): void;
 
 // 4. System & Utilities
-function getConfig(key: string): string | number | boolean | undefined;
-function dbQuery(query: string): Promise<unknown>; // Only available in DB Native block
-const logger: { 
-  logInfo(...args: any[]): void; 
-  logError(...args: any[]): void; 
-  logWarn(...args: any[]): void; 
-};
-const httpClient: 
+	function getConfig(key: string): string | number | boolean | undefined;
+	function dbQuery(query: string): Promise<unknown>; // Only available in DB Native block
+	const logger: { 
+		logInfo(...args: any[]): void; 
+		logError(...args: any[]): void; 
+		logWarn(...args: any[]): void; 
+	};
+	const httpClient: {
+		get<T = any>(
+			url: string,
+			headers?: HttpHeaders
+		): Promise<AxiosResponse<T>>;
+
+		post<T = any>(
+			url: string,
+			data?: any,
+			headers?: HttpHeaders
+		): Promise<AxiosResponse<T>>;
+
+		put<T = any>(
+			url: string,
+			data?: any,
+			headers?: HttpHeaders
+		): Promise<AxiosResponse<T>>;
+
+		delete<T = any>(
+			url: string,
+			headers?: HttpHeaders
+		): Promise<AxiosResponse<T>>;
+
+		patch<T = any>(
+			url: string,
+			data?: any,
+			headers?: HttpHeaders
+		): Promise<AxiosResponse<T>>;
+
+		native(): AxiosInstance;
+	}
+	const native: {
+		dayjs: dayjs() // full dayjs library access with utc extended.
+	}
 // 5. JWT
 const jwt: {
 	// retuns signed JWT token

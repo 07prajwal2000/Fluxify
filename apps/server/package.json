@@ -45,6 +45,7 @@
 		"@langchain/openai": "^1.2.7",
 		"@toon-format/toon": "^2.1.0",
 		"better-auth": "^1.4.3",
+		"dayjs": "^1.11.19",
 		"dotenv": "^17.2.1",
 		"drizzle-orm": "^0.44.4",
 		"drizzle-zod": "^0.8.3",

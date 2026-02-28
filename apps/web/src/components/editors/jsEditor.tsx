@@ -130,6 +130,56 @@ const JsEditor = (props: CodeEditorProps) => {
       }
 
       declare const httpClient: HttpClient;
+      declare namespace libs {
+        type ConfigType = string | number | Date | Dayjs | null | undefined;
+
+        interface Dayjs {
+          format(template?: string): string;
+
+          toDate(): Date;
+          toISOString(): string;
+          toJSON(): string;
+          valueOf(): number;
+
+          add(value: number, unit: ManipulateType): Dayjs;
+          subtract(value: number, unit: ManipulateType): Dayjs;
+
+          startOf(unit: OpUnitType): Dayjs;
+          endOf(unit: OpUnitType): Dayjs;
+
+          diff(date: ConfigType, unit?: OpUnitType, float?: boolean): number;
+
+          isBefore(date: ConfigType, unit?: OpUnitType): boolean;
+          isAfter(date: ConfigType, unit?: OpUnitType): boolean;
+          isSame(date: ConfigType, unit?: OpUnitType): boolean;
+
+          utc(): Dayjs;           // instance utc()
+          local(): Dayjs;
+
+          isValid(): boolean;
+        }
+
+        type ManipulateType =
+          | "millisecond"
+          | "second"
+          | "minute"
+          | "hour"
+          | "day"
+          | "week"
+          | "month"
+          | "year";
+
+        type OpUnitType = ManipulateType;
+
+        interface DayjsFactory {
+          (date?: ConfigType): Dayjs;
+
+          utc(date?: ConfigType): Dayjs;   // static utc()
+          isDayjs(value: any): value is Dayjs;
+        }
+
+        const dayjs: DayjsFactory;
+      }
       `,
 			"file:///types.d.ts",
 		);

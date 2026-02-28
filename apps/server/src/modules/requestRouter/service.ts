@@ -1,5 +1,7 @@
 import jwt from "jsonwebtoken";
 import { getCookie, setCookie } from "hono/cookie";
+import dayjs from "dayjs";
+import dayjsUtc from "dayjs/plugin/utc";
 import {
 	AbstractLogger,
 	ConsoleLoggerProvider,
@@ -164,6 +166,9 @@ function setupContextVars(
 					return { payload: null, success: false };
 				}
 			},
+		},
+		libs: {
+			dayjs: dayjs.extend(dayjsUtc),
 		},
 		logger,
 		getCookie(key) {
