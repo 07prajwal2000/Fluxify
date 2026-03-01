@@ -183,3 +183,56 @@ export const lokiVariantConfigSchema = z.object({
 		.optional()
 		.or(z.string().optional()),
 });
+
+export const databaseTagsSchema = z.enum(["sql", "nosql"]);
+export const aiTagsSchema = z.enum(["llm", "embedding"]);
+export const observabilityTagsSchema = z.enum(["logs", "metrics", "traces"]);
+export function getIntegrationTags(
+	group: z.infer<typeof integrationsGroupSchema>,
+	variant: string,
+): string[] {
+	if (group === "observability") {
+		const result = observabilityVariantSchema.safeParse(variant);
+		if (!result.success) {
+			return [];
+		}
+		if (variant === "Open Observe") {
+			return [...observabilityTagsSchema.options];
+		}
+		if (variant === "Loki") {
+			return [
+				...observabilityTagsSchema.exclude(["metrics", "traces"]).options,
+			];
+		}
+	}
+	if (group === "database") {
+		const result = databaseVariantSchema.safeParse(variant);
+		if (!result.success) {
+			return [];
+		}
+		if (variant === "PostgreSQL" || variant === "MySQL") {
+			return [...databaseTagsSchema.exclude(["nosql"]).options];
+		}
+		if (variant === "MongoDB") {
+			return [...databaseTagsSchema.exclude(["sql"]).options];
+		}
+	}
+	if (group === "ai") {
+		const result = aiVariantSchema.safeParse(variant);
+		if (!result.success) {
+			return [];
+		}
+		if (
+			variant === "OpenAI" ||
+			variant === "Anthropic" ||
+			variant === "Gemini" ||
+			variant === "Mistral"
+		) {
+			return [...aiTagsSchema.exclude(["embedding"]).options];
+		}
+		if (variant === "OpenAI Compatible") {
+			return [...aiTagsSchema.options];
+		}
+	}
+	return [];
+}

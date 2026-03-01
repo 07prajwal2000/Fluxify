@@ -43,7 +43,7 @@ export interface IDbAdapter {
 		data: unknown,
 		conditions: DBConditionType[],
 	): Promise<any>;
-	raw(query: string | unknown, params?: any[]): Promise<any>;
+	raw(query?: string | unknown, params?: any[]): Promise<any>;
 	delete(table: string, conditions: DBConditionType[]): Promise<boolean>;
 	setMode(mode: DbAdapterMode): Promise<void>;
 	startTransaction(): Promise<void>;

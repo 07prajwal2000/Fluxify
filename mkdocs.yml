@@ -75,7 +75,7 @@ extra:
     - icon: fontawesome/brands/github
       link: https://github.com/fluxify-rest/Fluxify
     - icon: fontawesome/brands/docker
-      link: https://hub.docker.com/u/fluxify
+      link: https://github.com/orgs/Fluxify-rest/packages
 markdown_extensions:
   - toc:
       permalink: true

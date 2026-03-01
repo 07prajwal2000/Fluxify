@@ -1,14 +1,26 @@
 import { db, DbTransactionType } from "../../../../db";
 import { integrationsEntity } from "../../../../db/schema";
-import { eq } from "drizzle-orm";
+import { eq, sql, and, or, SQL, desc, like } from "drizzle-orm";
 
 export async function getAllIntegrationsByGroup(
-  group: string,
-  tx?: DbTransactionType
+	group: string,
+	tags?: string[],
+	tx?: DbTransactionType,
 ) {
-  const result = await (tx ?? db)
-    .select()
-    .from(integrationsEntity)
-    .where(eq(integrationsEntity.group, group));
-  return result;
+	let condition: SQL = eq(integrationsEntity.group, group);
+
+	if (tags && tags.length > 0) {
+		const tagConditions = tags.map((t) =>
+			like(integrationsEntity.tags, `%${t}%`),
+		);
+		condition = and(condition, or(...tagConditions))!;
+	}
+
+	const result = await (tx ?? db)
+		.select()
+		.from(integrationsEntity)
+		.where(condition)
+		.orderBy(desc(integrationsEntity.createdAt));
+
+	return result;
 }

@@ -30,6 +30,7 @@
 		"@types/underscore": "^1.13.0",
 		"@typescript/native-preview": "^7.0.0-dev.20260219.1",
 		"drizzle-kit": "^0.31.4",
+		"pg": "^8.19.0",
 		"typescript": "^5.9.3"
 	},
 	"dependencies": {

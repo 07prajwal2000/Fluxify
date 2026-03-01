@@ -5,28 +5,46 @@ import { ProjectSettingsKeyType } from "../keySchemaMap";
 import { getIntegrationsVariants } from "../../../../integrations/helpers";
 
 export async function testConnectionFn(
-  key: ProjectSettingsKeyType,
-  value: string,
+	key: ProjectSettingsKeyType,
+	value: string,
 ): Promise<{ success: boolean; message: string }> {
-  switch (key) {
-    case "settings.ai.agentConnectionId": {
-      const result = await db
-        .select({ id: integrationsEntity.id })
-        .from(integrationsEntity)
-        .where(
-          and(
-            eq(integrationsEntity.id, value),
-            inArray(integrationsEntity.variant, getIntegrationsVariants("ai")),
-          ),
-        );
-      if (result.length === 0) {
-        return { success: false, message: "Invalid connection ID" };
-      }
-      break;
-    }
-    default: {
-      break;
-    }
-  }
-  return { success: true, message: "" };
+	switch (key) {
+		case "settings.ai.agentConnectionId": {
+			const result = await db
+				.select({ id: integrationsEntity.id })
+				.from(integrationsEntity)
+				.where(
+					and(
+						eq(integrationsEntity.id, value),
+						inArray(integrationsEntity.variant, getIntegrationsVariants("ai")),
+					),
+				);
+			if (result.length === 0) {
+				return { success: false, message: "Invalid connection ID" };
+			}
+			break;
+		}
+		case "settings.ai.loggerConnectionId": {
+			const result = await db
+				.select({ id: integrationsEntity.id })
+				.from(integrationsEntity)
+				.where(
+					and(
+						eq(integrationsEntity.id, value),
+						inArray(
+							integrationsEntity.variant,
+							getIntegrationsVariants("observability"),
+						),
+					),
+				);
+			if (result.length === 0) {
+				return { success: false, message: "Invalid connection ID" };
+			}
+			break;
+		}
+		default: {
+			break;
+		}
+	}
+	return { success: true, message: "" };
 }
