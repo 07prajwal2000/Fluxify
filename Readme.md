@@ -37,11 +37,10 @@ Full setup guide → [docs/self-hosting.md](docs/self-hosting.md)
 |--------|---------|
 | ✅ | Visual drag-and-drop API editor |
 | ✅ | REST API generation |
-| ✅ | PostgreSQL integration |
+| ✅ | PostgreSQL, MySQL, MongoDB integration |
 | ✅ | Multi-user authentication & secrets management |
 | ✅ | Observability (OpenObserve, Loki) |
 | ✅ | Testing System (Playground + Test Suites) |
-| 🚧 | MySQL / MongoDB support *(contributors welcome)* |
 | 🚧 | AI-powered API generation |
 | 🚧 | JWT blocks, Cron scheduling, Audit logs |
 | 🔜 | Serverless deploy, Realtime, Backups, Marketplace |

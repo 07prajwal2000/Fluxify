@@ -32,11 +32,8 @@ export class MongoAdapter implements IDbAdapter {
 		}
 	}
 
-	async raw(query: string | unknown, params?: unknown[]): Promise<unknown> {
-		if (typeof query !== "object" || query === null) {
-			throw new Error("raw() for MongoDB expects a command object.");
-		}
-		return this.db.command(query as Record<string, unknown>, this.getOptions());
+	async raw(): Promise<Db> {
+		return this.db;
 	}
 
 	async getAll(

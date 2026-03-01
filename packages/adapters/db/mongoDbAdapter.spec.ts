@@ -262,11 +262,9 @@ describe("MongoAdapter Integration Tests", () => {
 		await adapter.insert("users", { name: "Raw", age: 100 });
 
 		// In Mongo, raw uses DB commands. We can use the 'count' command here.
-		const result = (await adapter.raw({
-			count: "users",
-			query: { age: 100 },
-		})) as any;
-		expect(result.n).toBeGreaterThan(0);
+		const db = await adapter.raw();
+		const count = await db.collection("users").countDocuments({ age: 100 });
+		expect(count).toBeGreaterThan(0);
 	});
 
 	test("Transaction Lifecycle & Rollbacks", async () => {

@@ -12,6 +12,7 @@
   "license": "ISC",
   "description": "",
   "devDependencies": {
+    "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^24.2.1",
     "@typescript/native-preview": "^7.0.0-dev.20260219.1",
     "typescript": "^5.9.2"
@@ -24,6 +25,7 @@
     "@fluxify/adapters": "workspace:*",
     "@fluxify/lib": "workspace:*",
     "dayjs": "^1.11.19",
+    "jsonwebtoken": "^9.0.3",
     "zod": "^4.0.17"
   }
 }
