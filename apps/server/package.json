@@ -37,6 +37,7 @@
 		"@electric-sql/pglite": "^0.3.16",
 		"@fluxify/adapters": "workspace:*",
 		"@fluxify/blocks": "workspace:*",
+		"@fluxify/common": "workspace:*",
 		"@fluxify/lib": "workspace:*",
 		"@hono/standard-validator": "^0.1.5",
 		"@hono/zod-validator": "^0.7.6",

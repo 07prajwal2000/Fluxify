@@ -3,8 +3,9 @@
 	"version": "1.0.0",
 	"type": "module",
 	"scripts": {
-		"dev": "concurrently 'bun run dev:server' 'bun run dev:web'",
+		"dev": "concurrently 'bun run dev:server' 'bun run dev:web' 'bun run dev:ai'",
 		"dev:server": "bun run --env-file=./apps/server/.env --watch ./apps/server/deployments/standalone.ts",
+		"dev:ai": "bun run --env-file=./apps/ai-gateway/.env --watch ./apps/ai-gateway/src/index.ts",
 		"dev:web": "turbo run dev --filter=@fluxify/web",
 		"lint": "turbo run lint",
 		"test": "turbo run test",

@@ -6,7 +6,7 @@ import { create, insert } from "@orama/orama";
 import { persistToFile } from "@orama/plugin-data-persistence/server";
 import { extractFrontmatter } from "../lib/frontmatter";
 import { chunkMarkdown } from "../lib/token-chunk";
-import { logger, initializeLogger } from "../lib/logger";
+import { logger, initializeLogger } from "@fluxify/common";
 
 // Initialize the logger for this script
 initializeLogger({ serviceName: "fluxify.api-gateway-gather" });

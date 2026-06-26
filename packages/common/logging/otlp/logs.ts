@@ -5,8 +5,8 @@ import {
 	defaultResource,
 } from "@opentelemetry/resources";
 import {
+	BatchLogRecordProcessor,
 	LoggerProvider,
-	SimpleLogRecordProcessor,
 } from "@opentelemetry/sdk-logs";
 
 export interface OtlpLoggerOptions {
@@ -39,7 +39,12 @@ export function initializeOtlpLogger({
 			}),
 		),
 		// SimpleLogRecordProcessor ensures logs ship immediately without batch delays during testing
-		processors: [new SimpleLogRecordProcessor(logExporter)],
+		processors: [
+			new BatchLogRecordProcessor(logExporter, {
+				exportTimeoutMillis: 20 * 1000,
+				maxQueueSize: 100,
+			}),
+		],
 	});
 
 	// 3. Register the provider globally

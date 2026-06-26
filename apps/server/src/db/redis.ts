@@ -1,3 +1,4 @@
+import { logger } from "@fluxify/common";
 import { Redis } from "ioredis";
 
 let redisClient: Redis = null!;
@@ -10,16 +11,16 @@ export const CHAN_ON_INTEGRATION_CHANGE = "chan:on-integration-change";
 export const CHAN_AI_WORKER = "chan:ai-worker";
 export const CHAN_AI_SSE_PREFIX = "chan:ai-sse:";
 
-export function initializeRedis() {
-	const canHotreload = process.env.HOT_RELOAD_ROUTES == "true";
+export function initializeRedis(hotReload?: boolean) {
+	const canHotreload = hotReload || process.env.HOT_RELOAD_ROUTES == "true";
 
 	redisClient = createRedisClient();
 	redisClient.connect(() => {
-		console.log("redis connected");
+		logger.info("[Redis] connected");
 	});
 
-	subscriberClient = createRedisClient();
 	if (canHotreload) {
+		subscriberClient = createRedisClient();
 		subscriberClient.subscribe(
 			CHAN_ON_ROUTE_CHANGE,
 			CHAN_ON_APPCONFIG_CHANGE,
@@ -59,6 +60,7 @@ function createRedisClient() {
 		port: Number(process.env.REDIS_PORT!),
 		username: process.env.REDIS_USER!,
 		password: process.env.REDIS_PASS!,
+		connectionName: crypto.randomUUID().substring(0, 6),
 	});
 }
 

@@ -1,0 +1,30 @@
+{
+	"name": "@fluxify/common",
+	"version": "1.0.0",
+	"keywords": [],
+	"files": [
+		"dist"
+	],
+	"exports": {
+		".": "./index.ts"
+	},
+	"author": "",
+	"license": "ISC",
+	"description": "",
+	"devDependencies": {
+		"@types/bun": "latest",
+		"typescript": "^6.0.3"
+	},
+	"scripts": {
+		"test": "vitest run",
+		"lint": "tsgo --noEmit"
+	},
+	"dependencies": {
+		"@opentelemetry/api-logs": "^0.219.0",
+		"@opentelemetry/exporter-logs-otlp-http": "^0.219.0",
+		"@opentelemetry/resources": "^2.8.0",
+		"@opentelemetry/sdk-logs": "^0.219.0",
+		"@opentelemetry/winston-transport": "^0.29.0",
+		"winston": "^3.19.0"
+	}
+}

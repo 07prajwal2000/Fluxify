@@ -22,8 +22,8 @@ RUN bun run build:proxy
 FROM base AS production
 WORKDIR /app
 
-# Install tini for process management
-RUN apk add tini --no-cache
+# Install tini for process management, local redis for kv-store/pubsub
+RUN apk add tini redis --no-cache
 
 # Copy server standalone build
 COPY --from=build /app/apps/server/dist /app/server
@@ -71,7 +71,16 @@ ENV WEB_PORT=3000
 ENV SERVER_PORT=5500
 ENV PROXY_PORT=8080
 ENV ENABLE_AI=false
+ENV REDIS_HOST=localhost
+ENV REDIS_PORT=6379
+ENV REDIS_USER=
+ENV REDIS_PASS=
 
 # Set tini as entrypoint
 ENTRYPOINT ["tini", "--", "sh", "-c"]
-CMD ["bun --cwd=/app/server standalone.js & bun --cwd=/app/web apps/web/server.js & PORT=$WEB_PORT bun proxy.js config.json --cwd=/app & wait"]
+CMD ["redis-server --daemonize yes --save '' --appendonly no --maxmemory 128mb --maxmemory-policy noeviction && \
+  while ! nc -z 127.0.0.1 6379; do sleep 0.1; done &&\
+  bun --cwd=/app/server standalone.js & \
+  bun --cwd=/app/web apps/web/server.js & \
+  PORT=$WEB_PORT bun proxy.js config.json --cwd=/app & \
+  wait"]

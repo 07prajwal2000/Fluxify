@@ -1,12 +1,5 @@
 import winston from "winston";
 import { OpenTelemetryTransportV3 } from "@opentelemetry/winston-transport";
-import {
-	OTLP_LOGS_ENDPOINT,
-	OTLP_AUTH_HEADER_NAME,
-	OTLP_AUTH_HEADER_VALUE,
-	OTLP_SERVICE_NAME,
-	OTLP_LOGGER_ENABLED,
-} from "./env";
 import { initializeOtlpLogger } from "./otlp/logs";
 
 export interface LoggerConfig {
@@ -38,39 +31,29 @@ export function initializeLogger(config: LoggerConfig = {}): void {
 		return;
 	}
 
-	const serviceName =
-		config.serviceName || OTLP_SERVICE_NAME || "fluxify.api-gateway";
+	const serviceName = config.serviceName;
 	const level = config.level || "info";
-	const otlpEndpoint = config.otlpEndpoint || OTLP_LOGS_ENDPOINT;
-
-	// Enable OTLP only if config.useOtlp is true, or if OTLP_LOGGER_ENABLED is "true" and an endpoint exists
-	const useOtlp =
-		config.useOtlp ?? (OTLP_LOGGER_ENABLED === "true" && !!otlpEndpoint);
-
 	const transports: winston.transport[] = [
 		new winston.transports.Console({
 			format: winston.format.combine(
 				winston.format.timestamp({ format: "YYYY-MM-DD HH:mm:ss" }),
 				winston.format.printf((info) => {
-					return `${info.timestamp} [${info.level.toUpperCase()}]: ${info.message}`;
+					return `${info.timestamp} ${serviceName && `[${serviceName}]`} [${info.level.toUpperCase()}]: ${info.message}`;
 				}),
 			),
 		}),
 	];
 
-	if (useOtlp && otlpEndpoint) {
-		const authHeaderName = OTLP_AUTH_HEADER_NAME ?? "Authorization";
-		const authHeaderValue = OTLP_AUTH_HEADER_VALUE ?? "";
+	if (config.useOtlp && config.otlpEndpoint) {
 		const headers = {
-			[authHeaderName]: authHeaderValue,
 			...config.otlpHeaders,
 		};
 
 		// 1. Setup OpenTelemetry OTLP exporter and logger provider
 		initializeOtlpLogger({
-			url: otlpEndpoint,
+			url: config.otlpEndpoint,
 			headers,
-			serviceName,
+			serviceName: serviceName || "unknown service",
 		});
 
 		// 2. Add OpenTelemetry transport to Winston

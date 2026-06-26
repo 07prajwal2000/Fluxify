@@ -1,3 +1,4 @@
+import { initializeLogger, logger } from "@fluxify/common";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { mapRouter } from "./modules/requestRouter/router";
@@ -14,6 +15,13 @@ import { AccessControlRole } from "./db/schema";
 import { setSession } from "./middlewares/session";
 import { initDocsSearch } from "./lib/docs";
 import { startAiWorker } from "./lib/ai/worker";
+import {
+	OTLP_AUTH_HEADER_NAME,
+	OTLP_AUTH_HEADER_VALUE,
+	OTLP_ENDPOINT,
+	OTLP_LOGGER_ENABLED,
+	OTLP_LOGGER_LEVEL,
+} from "./lib/env";
 
 const app = new Hono<{
 	Variables: {
@@ -41,12 +49,19 @@ app.use(
 );
 
 function logSystemDetails() {
-	console.log(`Admin routes enabled: ${process.env.ENABLE_ADMIN}`);
-	console.log(`Node environment: ${process.env.ENVIRONMENT}`);
-	console.log(`DB variant: ${process.env.DB_VARIANT}`);
+	logger.info(`Admin routes enabled: ${process.env.ENABLE_ADMIN}`);
+	logger.info(`Node environment: ${process.env.ENVIRONMENT}`);
+	logger.info(`DB variant: ${process.env.DB_VARIANT}`);
 }
 
 async function main() {
+	initializeLogger({
+		serviceName: "fluxify.server",
+		level: OTLP_LOGGER_LEVEL,
+		otlpEndpoint: OTLP_ENDPOINT,
+		otlpHeaders: { [OTLP_AUTH_HEADER_NAME]: OTLP_AUTH_HEADER_VALUE },
+		useOtlp: OTLP_LOGGER_ENABLED === "true",
+	});
 	logSystemDetails();
 	const adminRoutesEnabled = process.env.ENABLE_ADMIN == "true";
 	app.onError(errorHandler);

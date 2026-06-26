@@ -7,7 +7,7 @@ const scriptPath = process.argv[1];
 const moduleName = process.argv[2];
 const routeName = process.argv[3];
 let version = Number(process.argv[4]);
-
+const packageName = process.argv[5] || "server";
 if (moduleName == "help") {
   console.log("run 'node script.js module-name route-name'");
   process.exit(0);
@@ -15,7 +15,7 @@ if (moduleName == "help") {
 
 if (isNaN(version) || version < 1) version = 1;
 
-const newPath = path.join(scriptPath, "../../apps/server/src/api/v" + version, moduleName, routeName);
+const newPath = path.join(scriptPath, `../../apps/${packageName}/src/api/v${version}`, moduleName, routeName);
 
 if (!routeName || !moduleName) {
   console.error("no route name provided");
@@ -28,7 +28,7 @@ if (!routeName || !moduleName) {
       content: `import { Hono } from "hono";
 import {
   describeRoute,
-  DescribeRouteOptions,
+  type DescribeRouteOptions,
   resolver,
   validator,
 } from "hono-openapi";
@@ -83,7 +83,7 @@ export const responseSchema = z.object({});`,
     },
     {
       filename: `tests/${routeName}.spec.ts`,
-      content: `import { describe, it } from "vitest";
+      content: `import { describe, it } from "bun:test";
 
 describe("unit tests for ${routeName}", () => {
   it("test 01", () => {});
@@ -91,7 +91,7 @@ describe("unit tests for ${routeName}", () => {
     },
     {
       filename: `tests/${routeName}.test.ts`,
-      content: `import { describe, it } from "vitest";
+      content: `import { describe, it } from "bun:test";
 
 describe("integration tests for ${routeName}", () => {
   it("test 01", () => {});
