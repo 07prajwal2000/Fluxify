@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "bun:test";
+import { describe, expect, it, mock, vi } from "bun:test";
 import { ForLoopBlock } from "../loops/for";
 import { Engine } from "../../engine";
 import { SetVarBlock } from "../setVar";
@@ -107,6 +107,7 @@ describe("testing for loop block", () => {
 			engine,
 		);
 		const result = await sut.executeAsync();
+		expect(mockFn).toHaveBeenCalledTimes(n);
 		expect(result.successful).toBe(true);
 		expect(context.vars.index).toBeDefined();
 	});
