@@ -22,7 +22,7 @@ services:
     image: caddy:2.6.4-alpine
     container_name: caddy
     ports:
-      - 8000:8000
+      - 8080:8080
     volumes:
       - ./Caddyfile.local:/etc/caddy/Caddyfile
     networks:

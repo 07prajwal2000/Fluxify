@@ -32,6 +32,6 @@ export async function runMain() {
 	});
 
 	logger.info(
-		`AI Gateway running at http://${server.hostname}:${server.port}\nMCP: /_/admin/mcp`,
+		`AI Gateway running at http://${server.hostname}:${server.port} and MCP at /_/admin/mcp`,
 	);
 }

@@ -13,7 +13,7 @@ bun --cwd=/app/web apps/web/server.js &
 bun --cwd=/app/ai-gateway index.js &
 
 # Start reverse proxy
-PORT=$PROXY_PORT bun /app/proxy.js /app/config.json &
+caddy run --config /app/Caddyfile &
 
 echo "[kit] All services launched."
 

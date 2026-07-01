@@ -40,12 +40,9 @@ WORKDIR /app/apps/web
 RUN cp -r public .next/standalone/apps/web/public && \
     cp -r .next/static .next/standalone/apps/web/.next/static
 
-# Build proxy (minified single-file)
-WORKDIR /app
-RUN bun run build:proxy
-
-# Build ai-gateway (minified single-file)
-RUN bun run build:ai
+# Build ai-gateway and gather docs index
+WORKDIR /app/apps/ai-gateway
+RUN bun run gather
 
 # ==============================================================================
 # Stage 3: production — Minimal runtime image
@@ -54,8 +51,8 @@ FROM oven/bun:1.3.14-alpine AS production
 
 WORKDIR /app
 
-# Install only tini for init process management (no Redis, no extras)
-RUN apk add --no-cache tini
+# Install only tini for init process management
+RUN apk add --no-cache tini caddy nss-tools
 
 # Create non-root user with no login shell
 RUN adduser -D -s /sbin/nologin -h /app appuser
@@ -72,9 +69,8 @@ COPY --from=build --chown=appuser:appuser /app/apps/web/.next/standalone /app/we
 # AI Gateway: minified single-file bundle
 COPY --from=build --chown=appuser:appuser /app/apps/ai-gateway/dist /app/ai-gateway
 
-# Proxy: bundled proxy + routing config
-COPY --from=build --chown=appuser:appuser /app/dist/proxy.js /app/proxy.js
-COPY --from=build --chown=appuser:appuser /app/scripts/config.json /app/config.json
+# Caddy config
+COPY --chown=appuser:appuser docker/kit/Caddyfile /app/Caddyfile
 
 # Copy entrypoint script
 COPY --chown=appuser:appuser docker/kit/entrypoint.sh /app/entrypoint.sh

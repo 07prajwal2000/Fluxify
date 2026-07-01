@@ -27,12 +27,13 @@ Here's for devs:
 - Recommended to use docker-compose for local development
 - Use postgres for local database
 - Use redis for local cache and pub/sub
-- Use bun for local development
+- Please fill the .env file properly (see [env.example](env.example) and [self-hosting.md](docs/self-hosting.md) for reference) before running the application
+- Use bun for local development and as package manager
 - Migrate the database schema using drizzle-kit
-- Run the development server using `bun run dev` at root folder
-- Access the application at `http://localhost:8000/_/admin/ui`
-- API is available at `http://localhost:8000/_/admin/api` and OpenAPI UI is available at `http://localhost:8000/_/admin/api/openapi/ui`
-- Before testing, set `DOCKER_HOST="npipe:////./pipe/docker_engine"` in your terminal or in `.env` file.
+- Run the development server using `bun run dev` at root folder which uses turbopack to run all the services
+- Access the application at `http://localhost:8080/_/admin/ui`
+- API is available at `http://localhost:8080/_/admin/api` and OpenAPI UI is available at `http://localhost:8080/_/admin/api/openapi/ui`
+- Before testing, set `DOCKER_HOST="npipe:////./pipe/docker_engine"` (windows) or `DOCKER_HOST="unix://var/run/docker.sock"` (linux/mac) in your terminal or in `.env` file. Required for some integration tests.
 
 ## Rules
 - Unit tests are mandatory for all new features and bug fixes

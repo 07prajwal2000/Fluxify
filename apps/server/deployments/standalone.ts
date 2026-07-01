@@ -10,5 +10,5 @@ const server = serve({
 });
 
 logger.info(
-	`standalone server is running at ${server.hostname}:${server.port}`,
+	`standalone server is running at http://${server.hostname}:${server.port}`,
 );

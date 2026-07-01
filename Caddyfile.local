@@ -1,4 +1,4 @@
-http://localhost:8000 {
+http://localhost:8080 {
 
     @admin_ui {
         path /_/admin/ui/*

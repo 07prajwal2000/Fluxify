@@ -29,7 +29,7 @@ initializeWorkflowQueue();
 
 if (isMainThread) {
 	// Spawn the worker thread targeting index.ts
-	new Worker(__filename);
+	new Worker(import.meta.filename);
 	await runMain();
 } else {
 	await runWorker();

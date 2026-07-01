@@ -20,7 +20,7 @@ Build and deploy complex backend APIs through a drag-and-drop interface — no c
 docker pull ghcr.io/fluxify-rest/fluxify-kit:latest
 ```
 
-1. Copy [env.example](env.example) to `.env` and fill in your values
+1. Copy [env.example](env.example) to `.env` and fill in the values
 2. Run the container:
    ```bash
    docker run -d --env-file .env -p 8080:8080 ghcr.io/fluxify-rest/fluxify-kit:latest
@@ -43,7 +43,7 @@ Full setup guide → [docs/self-hosting.md](docs/self-hosting.md)
 | ✅ | Testing System (Playground + Test Suites) |
 | 🚧 | AI-powered API generation |
 | 🚧 | JWT blocks, Cron scheduling, Audit logs |
-| 🔜 | Serverless deploy, Realtime, Backups, Marketplace |
+| 🔜 | Backups, Marketplace |
 
 ---
 

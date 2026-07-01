@@ -20,9 +20,10 @@ import {
 	loadIntegrationsList,
 	loadConfigsList,
 } from "./worker-loaders";
+import { logger } from "better-auth";
 
 export async function startAiWorker() {
-	console.log("[AI Worker] Listening for messages...");
+	logger.info("[AI Worker] Listening for messages...");
 
 	subscribeToChannel(CHAN_AI_WORKER, async (dataStr) => {
 		try {

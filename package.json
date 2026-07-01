@@ -7,6 +7,7 @@
 		"dev:server": "bun run --env-file=./apps/server/.env --watch ./apps/server/deployments/standalone.ts",
 		"dev:ai": "bun run --env-file=./apps/ai-gateway/.env --watch ./apps/ai-gateway/src/index.ts",
 		"dev:web": "turbo run dev --filter=@fluxify/web",
+		"dev:proxy": "bun run --watch ./scripts/proxy.js ./scripts/config.json",
 		"lint": "turbo run lint",
 		"build": "turbo run build",
 		"test:unit": "bun test --path-ignore-patterns \"**/*.test.ts\"",
@@ -28,7 +29,6 @@
 	"license": "ISC",
 	"description": "",
 	"dependencies": {
-		"@huggingface/transformers": "^4.2.0",
 		"@orama/orama": "^3.1.18",
 		"better-auth": "1.6.15",
 		"http-proxy": "^1.18.1"
