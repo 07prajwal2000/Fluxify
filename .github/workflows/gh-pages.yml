@@ -25,6 +25,7 @@ concurrency:
 
 jobs:
   build:
+    if: github.repository == 'Fluxify-rest/Fluxify'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -49,6 +50,7 @@ jobs:
           path: docs/.vitepress/dist
 
   deploy:
+    if: github.repository == 'Fluxify-rest/Fluxify'
     needs: build
     runs-on: ubuntu-latest
     environment:
