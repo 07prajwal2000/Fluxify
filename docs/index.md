@@ -1,36 +1,43 @@
 ---
-title: Welcome to Fluxify
-description: The open-source no-code backend builder.
+layout: home
+
+hero:
+  name: "Fluxify"
+  text: "No/Low Code Backend Engine"
+  tagline: Build, deploy, and scale APIs without writing boilerplate — connect databases, integrate AI, and automate logic visually.
+  image:
+    src: /assets/logo.png
+    alt: Fluxify Logo
+  actions:
+    - theme: brand
+      text: Get Started
+      link: /getting-started/
+    - theme: alt
+      text: View on GitHub
+      link: https://github.com/fluxify-rest/Fluxify
+
+features:
+  - icon: 🧩
+    title: Visual Workflow Builder
+    details: Drag and drop blocks to design your backend logic. Loops, conditions, and error handling — all without writing boilerplate.
+
+  - icon: 🗄️
+    title: Database Integrations
+    details: Connect seamlessly to PostgreSQL to read, write, and manage your data with purpose-built DB blocks.
+
+  - icon: 🤖
+    title: AI-Powered
+    details: Integrate Large Language Models like OpenAI and Anthropic directly into your workflows with first-class AI blocks.
+
+  - icon: 📜
+    title: Scripting Capability
+    details: When you need extra power, use JavaScript in a secure sandboxed VM — full access to request context, JWT, and utility libraries.
+
+  - icon: 📡
+    title: Observability
+    details: Built-in structured logging with support for cloud providers like Loki and OpenObserve for production monitoring.
+
+  - icon: 🚀
+    title: Flexible Deployments
+    details: Deploy as a standalone Docker container, in Kubernetes for high availability, or as a serverless function.
 ---
-
-# Welcome to Fluxify
-
-**Fluxify** is a powerful, open-source platform that enables you to build complex backend logic without writing code.
-
-Whether you are automating a simple task or building a full-fledged API, Fluxify's visual workflow builder makes it easy to connect databases, integrate AI models, and deploy your logic instantly.
-
-## Key Features
-
-- **Visual Workflow Builder**: Drag and drop blocks to design your business logic.
-- **Detailed Control**: Use loops, conditions, and error handling just like in code.
-- **Database Integrations**: Connect seamlessly to PostgreSQL to read, write, and manage your data.
-- **AI-Powered**: Integrate Large Language Models (LLMs) like OpenAI and Anthropic directly into your workflows.
-- **Scripting Capability**: When you need extra power, use JavaScript to handle complex transformations.
-- **Observability**: Built-in logging support for monitoring your applications in production.
-
-## Documentation Guide
-
-### 🚀 [Getting Started](./getting-started/index.md)
-New to Fluxify? Start here to learn how to install the platform and understand the basics.
-
-### 🧩 [Blocks Reference](./blocks/index.md)
-Explore the library of available blocks, from HTTP Requests to Database operations.
-
-### 📜 [Scripting](./scripting/index.md)
-Learn how to extend your workflows with custom JavaScript code using the secure VM.
-
-### 🔌 [Integrations](./integrations/databases.md)
-Connect your workflows to external services like Databases and AI Providers.
-
-### ☁️ [Deployment](./deployments/standalone-docker.md)
-Ready to go live? Check out our deployment guides for Docker and other environments.

@@ -1,4 +1,5 @@
 name: publish-gh-pages
+
 on:
   push:
     branches:
@@ -6,21 +7,55 @@ on:
       - main
     paths:
       - "docs/**"
-      - "mkdocs.yml"
-      - ".github/gh-pages.yml"
+      - ".github/workflows/gh-pages.yml"
+
+  # Allow manual trigger from the Actions tab
+  workflow_dispatch:
+
+# Grant write access so the action can push to gh-pages branch
 permissions:
   contents: write
+  pages: write
+  id-token: write
+
+# Only one deploy at a time; cancel in-progress runs if a new push arrives
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
 jobs:
-  deploy:
+  build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-python@v4
+      - name: Checkout
+        uses: actions/checkout@v4
         with:
-          python-version: 3.x
-      - uses: actions/cache@v4
+          fetch-depth: 0 # Needed for git-based lastUpdated timestamps
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
-          key: ${{ github.ref }}
-          path: .cache
-      - run: pip install mkdocs-material
-      - run: mkdocs gh-deploy --force
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build VitePress docs
+        run: npm run docs:build
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: docs/.vitepress/dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

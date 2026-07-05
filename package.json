@@ -14,7 +14,10 @@
 		"test:integration": "bun test --path-ignore-patterns \"**/*.spec.ts\"",
 		"build:proxy": "bun build scripts/proxy.js --outfile=dist/proxy.js --bundle --target bun --minify",
 		"build:ai": "turbo run build --filter=@fluxify/ai-gateway",
-		"analyze": "bun x fta-cli --score-cap 70 ."
+		"analyze": "bun x fta-cli --score-cap 70 .",
+		"docs:dev": "vitepress dev docs",
+		"docs:build": "vitepress build docs",
+		"docs:preview": "vitepress preview docs"
 	},
 	"keywords": [
 		"fluxify",
@@ -41,7 +44,8 @@
 		"concurrently": "^9.2.1",
 		"dockerode": "^4.0.9",
 		"fta-cli": "^3.0.0",
-		"turbo": "^2.5.5"
+		"turbo": "^2.5.5",
+		"vitepress": "^1.6.4"
 	},
 	"trustedDependencies": [
 		"@faker-js/faker",

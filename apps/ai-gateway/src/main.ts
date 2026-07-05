@@ -29,6 +29,7 @@ export async function runMain() {
 	const server = serve({
 		fetch: app.fetch,
 		port: AI_GATEWAY_PORT,
+		idleTimeout: 60 * 5, // 5 minutes, bcz of ai workflow
 	});
 
 	logger.info(

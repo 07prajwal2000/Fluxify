@@ -1,4 +1,4 @@
-import { QueryClient, useMutation, useQuery } from "@tanstack/react-query";
+import { QueryClient, useMutation, useQuery, useInfiniteQuery } from "@tanstack/react-query";
 import { aiGatewayConversationsService } from "@/services/aiGatewayConversations";
 import { z } from "zod";
 import {
@@ -54,6 +54,53 @@ export const aiGatewayConversationsQuery = {
       queryClient.invalidateQueries({
         queryKey: ["ai-conversations", "listMessages", conversationId],
       });
+    },
+  },
+
+  listMessagesInfinite: {
+    useInfiniteQuery(conversationId: string, perPage = 5) {
+      return useInfiniteQuery({
+        queryKey: ["ai-conversations", "listMessagesInfinite", conversationId, perPage],
+        queryFn: ({ pageParam = 1 }) => {
+          if (!conversationId) return null;
+          return aiGatewayConversationsService.listMessages(conversationId, { page: pageParam, perPage });
+        },
+        initialPageParam: 1,
+        getNextPageParam: (lastPage) => {
+          if (!lastPage || !lastPage.pagination) return undefined;
+          return lastPage.pagination.hasNext ? lastPage.pagination.page + 1 : undefined;
+        },
+        refetchOnWindowFocus: false,
+      });
+    },
+    invalidate(conversationId: string, queryClient: QueryClient) {
+      queryClient.invalidateQueries({
+        queryKey: ["ai-conversations", "listMessagesInfinite", conversationId],
+      });
+    },
+    appendOptimisticMessage(queryClient: QueryClient, conversationId: string, userQuery: string, perPage = 5) {
+      queryClient.setQueryData(
+        ["ai-conversations", "listMessagesInfinite", conversationId, perPage],
+        (old: any) => {
+          if (!old || !old.pages || old.pages.length === 0) return old;
+          const updatedFirstPage = {
+            ...old.pages[0],
+            messages: [
+              ...(old.pages[0].messages || []),
+              {
+                id: `temp-${Date.now()}`,
+                userQuery,
+                status: "running",
+                createdAt: new Date().toISOString(),
+              },
+            ],
+          };
+          return {
+            ...old,
+            pages: [updatedFirstPage, ...old.pages.slice(1)],
+          };
+        },
+      );
     },
   },
 

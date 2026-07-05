@@ -12,6 +12,7 @@ export default async function handleWatchRequest(
 	conversationId: string,
 ) {
 	const redisKey = getConversationKey(conversationId);
+
 	const cacheData = await getCache(redisKey);
 
 	if (!cacheData) {
@@ -43,6 +44,8 @@ export default async function handleWatchRequest(
 				if (!isClientConnected) return;
 
 				try {
+					console.log("msg received");
+
 					await stream.writeSSE({
 						data: JSON.stringify(status),
 					});

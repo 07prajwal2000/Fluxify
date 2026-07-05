@@ -8,3 +8,5 @@ dist
 .next
 docs_index
 .models/
+docs/.vitepress/cache
+docs/.vitepress/dist

@@ -72,6 +72,7 @@ export async function runAIWorkflow(params: RunWorkflowParams) {
 	for (const [toolName, tool] of Object.entries(workflowTools)) {
 		workflow.registerTool(toolName, tool);
 	}
+	await trackConversationStatus(conversationId, conversationStatus, job);
 	// Instantiate and register nodes
 	const classifierNode = new ClassifierNode(modelFactory);
 	const discussionNode = new DiscussionNode(modelFactory);
@@ -88,7 +89,7 @@ export async function runAIWorkflow(params: RunWorkflowParams) {
 			type: "node",
 			input,
 		});
-		trackConversationStatus(conversationId, conversationStatus, job);
+		await trackConversationStatus(conversationId, conversationStatus, job);
 	});
 
 	workflow.onNodeSuccess(async (nodeId, input, output) => {
@@ -100,7 +101,7 @@ export async function runAIWorkflow(params: RunWorkflowParams) {
 			input,
 			output,
 		});
-		trackConversationStatus(conversationId, conversationStatus, job);
+		await trackConversationStatus(conversationId, conversationStatus, job);
 	});
 
 	workflow.onNodeFailure(async (nodeId, input, error) => {
@@ -111,7 +112,7 @@ export async function runAIWorkflow(params: RunWorkflowParams) {
 			input,
 			output: error,
 		});
-		trackConversationStatus(conversationId, conversationStatus, job);
+		await trackConversationStatus(conversationId, conversationStatus, job);
 	});
 
 	workflow.onToolExecution(async (toolName, input, output) => {
@@ -122,7 +123,7 @@ export async function runAIWorkflow(params: RunWorkflowParams) {
 			input,
 			output,
 		});
-		trackConversationStatus(conversationId, conversationStatus, job);
+		await trackConversationStatus(conversationId, conversationStatus, job);
 	});
 
 	// Track the workflow in the active map
@@ -138,9 +139,6 @@ export async function runAIWorkflow(params: RunWorkflowParams) {
 		});
 		conversationStatus.status = "completed";
 		conversationStatus.finalResult = finalResult;
-		logger.info(`[Workflow] Completed for conversation: ${conversationId}`, {
-			finalResult,
-		});
 	} catch (error) {
 		logger.error(`[Workflow] Error in conversation: ${conversationId}`, {
 			error,
@@ -149,7 +147,12 @@ export async function runAIWorkflow(params: RunWorkflowParams) {
 		conversationStatus.finalResult = `Error occured while running the agent`;
 	} finally {
 		// Clean up the active workflow map upon completion or failure
-		trackConversationStatus(conversationId, conversationStatus, job, true);
+		await trackConversationStatus(
+			conversationId,
+			conversationStatus,
+			job,
+			true,
+		);
 		await saveConversationStatus(conversationStatus);
 		activeWorkflows.delete(conversationId);
 

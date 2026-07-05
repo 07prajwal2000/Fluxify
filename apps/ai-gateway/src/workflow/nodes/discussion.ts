@@ -59,7 +59,7 @@ CRITICAL INSTRUCTIONS:
 						[WorkflowToolName.GET_ROUTE_DETAILS]:
 							context.tools[WorkflowToolName.GET_ROUTE_DETAILS],
 					},
-					stopWhen: isStepCount(5),
+					stopWhen: isStepCount(20),
 					maxRetries: 3,
 				},
 				context,

@@ -31,17 +31,31 @@ const FluxifyAIPage = ({ projectId, conversationId }: Props) => {
 		typeof watchConversationDto.watchResponseSchema
 	> | null>(null);
 
-	// Fetch messages if in an existing conversation
+	// Fetch messages if in an existing conversation using infinite query (perPage: 5)
 	const {
 		data: messagesData,
 		isLoading,
 		isError,
 		error,
 		refetch,
-	} = aiGatewayConversationsQuery.listMessages.useQuery(conversationId || "", {
-		page: 1,
-		perPage: 20,
-	});
+		fetchNextPage,
+		hasNextPage,
+		isFetchingNextPage,
+	} = aiGatewayConversationsQuery.listMessagesInfinite.useInfiniteQuery(
+		conversationId || "",
+		5,
+	);
+
+	// Flatten pages in reverse order so array goes from oldest (index 0) to newest (index N)
+	const messages = React.useMemo(() => {
+		if (!messagesData?.pages) return [];
+		return messagesData.pages
+			.slice()
+			.reverse()
+			.flatMap((page) => page?.messages || []);
+	}, [messagesData]);
+
+	const conversationTitle = messagesData?.pages?.[0]?.conversation?.title;
 
 	const postMessageMutation =
 		aiGatewayWorkflowsQuery.postMessage.useMutation(queryClient);
@@ -67,6 +81,7 @@ const FluxifyAIPage = ({ projectId, conversationId }: Props) => {
 		let cleanup: (() => void) | undefined;
 		let isMounted = true;
 		let timeoutId: NodeJS.Timeout;
+		const maxRetries = 4;
 
 		const connect = (retryCount: number) => {
 			if (!isMounted) return;
@@ -78,18 +93,18 @@ const FluxifyAIPage = ({ projectId, conversationId }: Props) => {
 				(status) => {
 					setWorkflowStatus(status);
 					if (status.status === "completed" || status.status === "error") {
-						queryClient.invalidateQueries({
-							queryKey: ["ai-conversations", "listMessages", conversationId],
-						});
+						aiGatewayConversationsQuery.listMessagesInfinite.invalidate(conversationId, queryClient);
 					}
 				},
 				(err) => {
 					if (retryCount > 0) {
-						const baseDelay = 3000;
+						const baseDelay = retryCount === maxRetries ? 1000 : 1500;
 						const backoff = Math.pow(2, 3 - retryCount);
-						const delay = Math.min(baseDelay * backoff, 15000);
-						
-						console.log(`Watch connection failed. Retrying in ${delay}ms... (${retryCount} left)`);
+						const delay = Math.min(baseDelay * backoff, 10000);
+
+						console.log(
+							`Watch connection failed. Retrying in ${delay}ms... (${retryCount} left)`,
+						);
 						timeoutId = setTimeout(() => connect(retryCount - 1), delay);
 					} else {
 						console.error("Workflow watch error after retries", err);
@@ -99,14 +114,12 @@ const FluxifyAIPage = ({ projectId, conversationId }: Props) => {
 				() => {
 					setIsWatching(false);
 					setWorkflowStatus(null);
-					queryClient.invalidateQueries({
-						queryKey: ["ai-conversations", "listMessages", conversationId],
-					});
+					aiGatewayConversationsQuery.listMessagesInfinite.invalidate(conversationId, queryClient);
 				},
 			);
 		};
 
-		connect(3); // Start connection with 3 retries
+		connect(maxRetries); // Start connection with 3 retries
 
 		return () => {
 			isMounted = false;
@@ -154,24 +167,12 @@ const FluxifyAIPage = ({ projectId, conversationId }: Props) => {
 				},
 			);
 		} else {
-			// Optimistic update
-			queryClient.setQueryData(
-				["ai-conversations", "listMessages", conversationId, { page: 1, perPage: 20 }],
-				(old: any) => {
-					if (!old) return old;
-					return {
-						...old,
-						messages: [
-							...(old.messages || []),
-							{
-								id: `temp-${Date.now()}`,
-								userQuery,
-								status: "running",
-								createdAt: new Date().toISOString(),
-							},
-						],
-					};
-				}
+			// Encapsulated Optimistic update
+			aiGatewayConversationsQuery.listMessagesInfinite.appendOptimisticMessage(
+				queryClient,
+				conversationId,
+				userQuery,
+				5,
 			);
 
 			// Immediately set workflowStatus to show "thinking" UI
@@ -199,7 +200,7 @@ const FluxifyAIPage = ({ projectId, conversationId }: Props) => {
 						showErrorNotification(new Error("Failed to send message"));
 						// Optionally rollback optimistic update here by invalidating
 						queryClient.invalidateQueries({
-							queryKey: ["ai-conversations", "listMessages", conversationId],
+							queryKey: ["ai-conversations", "listMessagesInfinite", conversationId],
 						});
 					},
 				},
@@ -209,7 +210,7 @@ const FluxifyAIPage = ({ projectId, conversationId }: Props) => {
 
 	const isConversationEmpty =
 		!conversationId ||
-		(!isLoading && !isError && messagesData?.messages?.length === 0);
+		(!isLoading && !isError && messages.length === 0);
 
 	const showFancyUI = isConversationEmpty && !workflowStatus;
 
@@ -233,7 +234,7 @@ const FluxifyAIPage = ({ projectId, conversationId }: Props) => {
 					activeConversationId={conversationId || null}
 					activeConversationName={
 						conversationId
-							? messagesData?.conversation?.title || "Loading..."
+							? conversationTitle || "Loading..."
 							: "New Conversation"
 					}
 					onSelectConversation={handleSelectConversation}
@@ -269,12 +270,15 @@ const FluxifyAIPage = ({ projectId, conversationId }: Props) => {
 					</Center>
 				) : (
 					<ConversationHistory
-						messages={messagesData?.messages}
+						messages={messages}
 						isLoading={isLoading}
 						isError={isError}
 						error={error}
 						onRetry={refetch}
 						workflowStatus={workflowStatus}
+						fetchNextPage={fetchNextPage}
+						hasNextPage={hasNextPage}
+						isFetchingNextPage={isFetchingNextPage}
 					/>
 				)}
 
@@ -286,7 +290,9 @@ const FluxifyAIPage = ({ projectId, conversationId }: Props) => {
 						isLoading={isActionLoading}
 						showSidebarToggle={!!conversationId && !showArtifactPanel}
 						onToggleSidebar={() => setShowArtifactPanel(true)}
-						staticPlaceholder={conversationId ? "Message Fluxify..." : undefined}
+						staticPlaceholder={
+							conversationId ? "Message Fluxify..." : undefined
+						}
 						minRows={2}
 					/>
 				</Container>

@@ -64,10 +64,6 @@ export abstract class BaseNode<TParams, TReturnType extends NodeResult> {
 			}) as any;
 		}
 
-		const result = await generate(
-			options as Parameters<typeof generate>[0],
-		);
-
 		// Native Telemetry Interception
 		const logTools = (toolResults?: any[]) => {
 			if (!toolResults) return;
@@ -76,12 +72,18 @@ export abstract class BaseNode<TParams, TReturnType extends NodeResult> {
 			}
 		};
 
-		// Safely account for both single-step and multi-step (maxSteps) generation loops
-		if (result.steps && result.steps.length > 0) {
-			result.steps.forEach((step) => logTools(step.toolResults));
-		} else {
-			logTools(result.toolResults);
-		}
+		// Inject onStepFinish to progressively track tools
+		const originalOnStepFinish = options.onStepFinish as ((event: any) => Promise<void> | void) | undefined;
+		options.onStepFinish = async (event: any) => {
+			logTools(event.toolResults);
+			if (originalOnStepFinish && typeof originalOnStepFinish === 'function') {
+				await originalOnStepFinish(event);
+			}
+		};
+
+		const result = await generate(
+			options as Parameters<typeof generate>[0],
+		);
 
 		return result as unknown as GenerateTextResult<TOOLS, any, OUTPUT>;
 	}
