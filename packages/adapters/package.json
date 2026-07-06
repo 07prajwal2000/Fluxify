@@ -12,7 +12,7 @@
 		".": "./index.ts"
 	},
 	"scripts": {
-		"test": "bun test --concurrent",
+		"test": "bun test",
 		"lint": "tsgo --noEmit"
 	},
 	"dependencies": {
@@ -24,7 +24,7 @@
 		"@langchain/openai": "^1.2.7",
 		"kysely": "^0.28.11",
 		"langchain": "^1.2.23",
-		"mongodb": "^7.1.0",
+		"mongodb": "7.2.0",
 		"mysql2": "^3.18.1",
 		"pino": "^10.3.0",
 		"zod": "^4.1.11"
