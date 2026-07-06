@@ -12,7 +12,7 @@
 		".": "./index.ts"
 	},
 	"scripts": {
-		"test": "bun test --concurrent",
+		"test": "bun test",
 		"lint": "tsgo --noEmit"
 	},
 	"dependencies": {
