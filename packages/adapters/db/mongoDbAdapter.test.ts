@@ -18,7 +18,7 @@ const containerName = "fluxify-mongo-adapter-test";
 const exposedPort = 27017;
 
 let container: Docker.Container | null = null;
-let adapter: MongoAdapter;
+let db: any;
 let client: MongoClient;
 let vm: JsVM = {} as JsVM;
 
@@ -86,14 +86,10 @@ beforeAll(async () => {
 
 	if (!ready) throw new Error("MongoDB container did not become ready.");
 
-	const db = client.db("testdb");
-	adapter = new MongoAdapter(client, db, vm);
+	db = client.db("testdb");
 }, 120000);
 
-beforeEach(async () => {
-	// Equivalent to TRUNCATE TABLE
-	await adapter.delete("users", []);
-});
+
 
 afterAll(async () => {
 	if (client) await client.close();
@@ -129,24 +125,26 @@ describe("MongoAdapter Integration Tests", () => {
 	});
 
 	test("CRUD: Single Record Lifecycle", async () => {
+		const adapter = new MongoAdapter(client, db, vm);
+		const collectionName = "users_" + faker.string.alphanumeric(8).toLowerCase();
 		const user = {
 			name: faker.person.firstName(),
 			email: faker.internet.email(),
 			age: faker.number.int({ min: 18, max: 65 }),
 		};
 
-		const inserted = (await adapter.insert("users", user)) as typeof user & {
+		const inserted = (await adapter.insert(collectionName, user)) as typeof user & {
 			id: string;
 		};
 
 		expect(inserted.id).toBeDefined(); // Verifies _id mapped to id
 
-		const fetched = await adapter.getSingle("users", [
+		const fetched = await adapter.getSingle(collectionName, [
 			{ attribute: "id", operator: "eq", value: inserted.id, chain: "and" },
 		]);
 		expect(fetched).toMatchObject(user);
 
-		const notFound = await adapter.getSingle("users", [
+		const notFound = await adapter.getSingle(collectionName, [
 			{
 				attribute: "id",
 				operator: "eq",
@@ -156,32 +154,34 @@ describe("MongoAdapter Integration Tests", () => {
 		]);
 		expect(notFound).toBeNull();
 
-		await adapter.update("users", { age: 29 }, [
+		await adapter.update(collectionName, { age: 29 }, [
 			{ attribute: "id", operator: "eq", value: inserted.id, chain: "and" },
 		]);
 
-		const updated = (await adapter.getSingle("users", [
+		const updated = (await adapter.getSingle(collectionName, [
 			{ attribute: "id", operator: "eq", value: inserted.id, chain: "and" },
 		])) as any;
 		expect(updated.age).toBe(29);
 
-		const isDeleted = await adapter.delete("users", [
+		const isDeleted = await adapter.delete(collectionName, [
 			{ attribute: "id", operator: "eq", value: inserted.id, chain: "and" },
 		]);
 		expect(isDeleted).toBe(true);
 	});
 
 	test("Advanced Filtering & Operators", async () => {
+		const adapter = new MongoAdapter(client, db, vm);
+		const collectionName = "users_" + faker.string.alphanumeric(8).toLowerCase();
 		const users = Array.from({ length: 20 }).map(() => ({
 			name: faker.person.firstName(),
 			email: faker.internet.email(),
 			age: faker.number.int({ min: 18, max: 65 }),
 			score: faker.number.int({ min: 5, max: 40 }),
 		}));
-		await adapter.insertBulk("users", users);
+		await adapter.insertBulk(collectionName, users);
 
 		const filtered = (await adapter.getAll(
-			"users",
+			collectionName,
 			[
 				{ attribute: "age", operator: "gt", value: 10, chain: "and" },
 				{ attribute: "age", operator: "lte", value: 25, chain: "and" },
@@ -195,7 +195,7 @@ describe("MongoAdapter Integration Tests", () => {
 		expect(filtered).toHaveLength(filteredUsers.length);
 
 		const orFiltered = (await adapter.getAll(
-			"users",
+			collectionName,
 			[
 				{ attribute: "age", operator: "eq", value: 5, chain: "or" },
 				{ attribute: "score", operator: "gte", value: 40, chain: "or" },
@@ -212,16 +212,18 @@ describe("MongoAdapter Integration Tests", () => {
 	});
 
 	test("Pagination & Sorting", async () => {
+		const adapter = new MongoAdapter(client, db, vm);
+		const collectionName = "users_" + faker.string.alphanumeric(8).toLowerCase();
 		const users = Array.from({ length: 20 }).map((_, i) => ({
 			name: faker.person.firstName(),
 			email: faker.internet.email(),
 			age: 40 + i,
 		}));
-		await adapter.insertBulk("users", users);
+		await adapter.insertBulk(collectionName, users);
 
 		const skip = 2,
 			limit = 4;
-		const page = (await adapter.getAll("users", [], limit, skip, {
+		const page = (await adapter.getAll(collectionName, [], limit, skip, {
 			attribute: "age",
 			direction: "desc",
 		})) as any[];
@@ -233,18 +235,20 @@ describe("MongoAdapter Integration Tests", () => {
 	});
 
 	test("Bulk Edge Cases & Mass Mutations", async () => {
-		const emptyInsert = await adapter.insertBulk("users", []);
+		const adapter = new MongoAdapter(client, db, vm);
+		const collectionName = "users_" + faker.string.alphanumeric(8).toLowerCase();
+		const emptyInsert = await adapter.insertBulk(collectionName, []);
 		expect(emptyInsert).toEqual([]);
 
-		await adapter.insert("users", { name: "Mass", age: 88 });
-		await adapter.insert("users", { name: "Mass", age: 88 });
+		await adapter.insert(collectionName, { name: "Mass", age: 88 });
+		await adapter.insert(collectionName, { name: "Mass", age: 88 });
 
-		await adapter.update("users", { score: 777 }, [
+		await adapter.update(collectionName, { score: 777 }, [
 			{ attribute: "age", operator: "eq", value: 88, chain: "and" },
 		]);
 
 		const verifyUpdate = (await adapter.getAll(
-			"users",
+			collectionName,
 			[{ attribute: "score", operator: "eq", value: 777, chain: "and" }],
 			10,
 			0,
@@ -252,30 +256,34 @@ describe("MongoAdapter Integration Tests", () => {
 		)) as any[];
 		expect(verifyUpdate.length).toBeGreaterThanOrEqual(2);
 
-		const deleteSuccess = await adapter.delete("users", [
+		const deleteSuccess = await adapter.delete(collectionName, [
 			{ attribute: "score", operator: "eq", value: 777, chain: "and" },
 		]);
 		expect(deleteSuccess).toBe(true);
 	});
 
 	test("Raw Queries (Command API)", async () => {
-		await adapter.insert("users", { name: "Raw", age: 100 });
+		const adapter = new MongoAdapter(client, db, vm);
+		const collectionName = "users_" + faker.string.alphanumeric(8).toLowerCase();
+		await adapter.insert(collectionName, { name: "Raw", age: 100 });
 
 		// In Mongo, raw uses DB commands. We can use the 'count' command here.
-		const db = await adapter.raw();
-		const count = await db.collection("users").countDocuments({ age: 100 });
+		const rawDb = await adapter.raw();
+		const count = await rawDb.collection(collectionName).countDocuments({ age: 100 });
 		expect(count).toBeGreaterThan(0);
 	});
 
 	test("Transaction Lifecycle & Rollbacks", async () => {
+		const adapter = new MongoAdapter(client, db, vm);
+		const collectionName = "users_" + faker.string.alphanumeric(8).toLowerCase();
 		await adapter.startTransaction();
-		const tUser = (await adapter.insert("users", {
+		const tUser = (await adapter.insert(collectionName, {
 			name: "TrxTest",
 			age: 55,
 		})) as any;
 		await adapter.rollbackTransaction();
 
-		const verifyRollback = await adapter.getSingle("users", [
+		const verifyRollback = await adapter.getSingle(collectionName, [
 			{ attribute: "id", operator: "eq", value: tUser.id, chain: "and" },
 		]);
 		expect(verifyRollback).toBeNull();

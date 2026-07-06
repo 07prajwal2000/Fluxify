@@ -18,7 +18,7 @@ const containerName = "fluxify-pg-adapter-test";
 const exposedPort = 54320;
 
 let container: Docker.Container | null = null;
-let adapter: PostgresAdapter;
+let db: any;
 let sql: SQL;
 let vm: JsVM = {} as JsVM;
 
@@ -68,18 +68,7 @@ beforeAll(async () => {
 	if (!ready) throw new Error("PostgreSQL container did not become ready.");
 
 	sql = new SQL(url);
-	const db = PostgresAdapter.createKysely(sql);
-	adapter = new PostgresAdapter(db, sql, vm);
-
-	await adapter.raw(`
-    CREATE TABLE users (
-      id SERIAL PRIMARY KEY,
-      name VARCHAR(255) NOT NULL,
-      email VARCHAR(255) NOT NULL,
-      age INT NOT NULL,
-      score INT DEFAULT 0
-    )
-  `);
+	db = PostgresAdapter.createKysely(sql);
 }, 120000);
 
 afterAll(async () => {
@@ -95,11 +84,6 @@ afterAll(async () => {
 });
 
 describe("PostgresAdapter Integration Tests", () => {
-	beforeEach(async () => {
-		// In Postgres, TRUNCATE RESTART IDENTITY ensures the ID counter resets to 1,
-		// though DELETE FROM works perfectly fine too!
-		await adapter.raw("DELETE FROM users");
-	});
 
 	test("Connection Validation", async () => {
 		const connInfo: Connection = {
@@ -122,48 +106,72 @@ describe("PostgresAdapter Integration Tests", () => {
 	});
 
 	test("CRUD: Single Record Lifecycle", async () => {
+		const adapter = new PostgresAdapter(db, sql, vm);
+		const tableName = "users_" + faker.string.alphanumeric(8).toLowerCase();
+		await adapter.raw(`
+			CREATE TABLE ${tableName} (
+				id SERIAL PRIMARY KEY,
+				name VARCHAR(255) NOT NULL,
+				email VARCHAR(255) NOT NULL,
+				age INT NOT NULL,
+				score INT DEFAULT 0
+			)
+		`);
+
 		const user = {
 			name: faker.person.firstName(),
 			email: faker.internet.email(),
 			age: faker.number.int({ min: 18, max: 65 }),
 		};
 
-		const inserted = (await adapter.insert("users", user)) as any;
+		const inserted = (await adapter.insert(tableName, user)) as any;
 		expect(inserted.id).toBeGreaterThan(0);
 
-		const fetched = await adapter.getSingle("users", [
+		const fetched = await adapter.getSingle(tableName, [
 			{ attribute: "id", operator: "eq", value: inserted.id, chain: "and" },
 		]);
 		expect(fetched).toMatchObject(user);
 
-		const notFound = await adapter.getSingle("users", [
+		const notFound = await adapter.getSingle(tableName, [
 			{ attribute: "id", operator: "eq", value: -1, chain: "and" },
 		]);
 		expect(notFound).toBeNull();
 
-		const updated = (await adapter.update("users", { age: 29 }, [
+		const updated = (await adapter.update(tableName, { age: 29 }, [
 			{ attribute: "id", operator: "eq", value: inserted.id, chain: "and" },
 		])) as any[];
 		expect(updated[0].age).toBe(29);
 
-		const isDeleted = await adapter.delete("users", [
+		const isDeleted = await adapter.delete(tableName, [
 			{ attribute: "id", operator: "eq", value: inserted.id, chain: "and" },
 		]);
 		expect(isDeleted).toBe(true);
 	});
 
 	test("Advanced Filtering & Operators", async () => {
+		const adapter = new PostgresAdapter(db, sql, vm);
+		const tableName = "users_" + faker.string.alphanumeric(8).toLowerCase();
+		await adapter.raw(`
+			CREATE TABLE ${tableName} (
+				id SERIAL PRIMARY KEY,
+				name VARCHAR(255) NOT NULL,
+				email VARCHAR(255) NOT NULL,
+				age INT NOT NULL,
+				score INT DEFAULT 0
+			)
+		`);
+
 		const users = Array.from({ length: 20 }).map(() => ({
 			name: faker.person.firstName(),
 			email: faker.internet.email(),
 			age: faker.number.int({ min: 18, max: 65 }),
 			score: faker.number.int({ min: 5, max: 40 }),
 		}));
-		await adapter.insertBulk("users", users);
+		await adapter.insertBulk(tableName, users);
 
 		// Greater than / Less than or equal
 		const filtered = (await adapter.getAll(
-			"users",
+			tableName,
 			[
 				{ attribute: "age", operator: "gt", value: 10, chain: "and" },
 				{ attribute: "age", operator: "lte", value: 25, chain: "and" },
@@ -181,7 +189,7 @@ describe("PostgresAdapter Integration Tests", () => {
 
 		// OR chaining
 		const orFiltered = (await adapter.getAll(
-			"users",
+			tableName,
 			[
 				{ attribute: "age", operator: "eq", value: 5, chain: "or" },
 				{ attribute: "score", operator: "gte", value: 40, chain: "or" },
@@ -198,16 +206,28 @@ describe("PostgresAdapter Integration Tests", () => {
 	});
 
 	test("Pagination & Sorting", async () => {
+		const adapter = new PostgresAdapter(db, sql, vm);
+		const tableName = "users_" + faker.string.alphanumeric(8).toLowerCase();
+		await adapter.raw(`
+			CREATE TABLE ${tableName} (
+				id SERIAL PRIMARY KEY,
+				name VARCHAR(255) NOT NULL,
+				email VARCHAR(255) NOT NULL,
+				age INT NOT NULL,
+				score INT DEFAULT 0
+			)
+		`);
+
 		const users = Array.from({ length: 20 }).map((_, i) => ({
 			name: faker.person.firstName(),
 			email: faker.internet.email(),
 			age: 40 + i,
 		}));
-		await adapter.insertBulk("users", users);
+		await adapter.insertBulk(tableName, users);
 
 		const skip = 2,
 			limit = 4;
-		const page = (await adapter.getAll("users", [], limit, skip, {
+		const page = (await adapter.getAll(tableName, [], limit, skip, {
 			attribute: "age",
 			direction: "desc",
 		})) as any[];
@@ -219,34 +239,58 @@ describe("PostgresAdapter Integration Tests", () => {
 	});
 
 	test("Bulk Edge Cases & Mass Mutations", async () => {
-		const emptyInsert = await adapter.insertBulk("users", []);
+		const adapter = new PostgresAdapter(db, sql, vm);
+		const tableName = "users_" + faker.string.alphanumeric(8).toLowerCase();
+		await adapter.raw(`
+			CREATE TABLE ${tableName} (
+				id SERIAL PRIMARY KEY,
+				name VARCHAR(255) NOT NULL,
+				email VARCHAR(255) NOT NULL,
+				age INT NOT NULL,
+				score INT DEFAULT 0
+			)
+		`);
+
+		const emptyInsert = await adapter.insertBulk(tableName, []);
 		expect(emptyInsert).toEqual([]);
 
-		await adapter.insert("users", {
+		await adapter.insert(tableName, {
 			name: faker.person.firstName(),
 			email: faker.internet.email(),
 			age: 88,
 		});
-		await adapter.insert("users", {
+		await adapter.insert(tableName, {
 			name: faker.person.firstName(),
 			email: faker.internet.email(),
 			age: 88,
 		});
 
-		const updatedRows = (await adapter.update("users", { score: 999 }, [
+		const updatedRows = (await adapter.update(tableName, { score: 999 }, [
 			{ attribute: "age", operator: "eq", value: 88, chain: "and" },
 		])) as any[];
 		expect(updatedRows.length).toBeGreaterThanOrEqual(2);
 		expect(updatedRows[0].score).toBe(999);
 
-		const deleteSuccess = await adapter.delete("users", [
+		const deleteSuccess = await adapter.delete(tableName, [
 			{ attribute: "score", operator: "eq", value: 999, chain: "and" },
 		]);
 		expect(deleteSuccess).toBe(true);
 	});
 
 	test("Raw Queries", async () => {
-		await adapter.insert("users", {
+		const adapter = new PostgresAdapter(db, sql, vm);
+		const tableName = "users_" + faker.string.alphanumeric(8).toLowerCase();
+		await adapter.raw(`
+			CREATE TABLE ${tableName} (
+				id SERIAL PRIMARY KEY,
+				name VARCHAR(255) NOT NULL,
+				email VARCHAR(255) NOT NULL,
+				age INT NOT NULL,
+				score INT DEFAULT 0
+			)
+		`);
+
+		await adapter.insert(tableName, {
 			name: faker.person.firstName(),
 			email: faker.internet.email(),
 			age: 100,
@@ -254,22 +298,34 @@ describe("PostgresAdapter Integration Tests", () => {
 
 		// Postgres uses $1 for positional parameters
 		const result = (await adapter.raw(
-			"SELECT COUNT(*) as total FROM users WHERE age = $1",
+			`SELECT COUNT(*) as total FROM ${tableName} WHERE age = $1`,
 			[100],
 		)) as any;
 		expect(Number(result.rows[0].total)).toBeGreaterThan(0);
 	});
 
 	test("Transaction Lifecycle & Rollbacks", async () => {
+		const adapter = new PostgresAdapter(db, sql, vm);
+		const tableName = "users_" + faker.string.alphanumeric(8).toLowerCase();
+		await adapter.raw(`
+			CREATE TABLE ${tableName} (
+				id SERIAL PRIMARY KEY,
+				name VARCHAR(255) NOT NULL,
+				email VARCHAR(255) NOT NULL,
+				age INT NOT NULL,
+				score INT DEFAULT 0
+			)
+		`);
+
 		await adapter.startTransaction();
-		const tUser = (await adapter.insert("users", {
+		const tUser = (await adapter.insert(tableName, {
 			name: faker.person.firstName(),
 			email: faker.internet.email(),
 			age: 55,
 		})) as any;
 		await adapter.rollbackTransaction();
 
-		const verifyRollback = await adapter.getSingle("users", [
+		const verifyRollback = await adapter.getSingle(tableName, [
 			{ attribute: "id", operator: "eq", value: tUser.id, chain: "and" },
 		]);
 		expect(verifyRollback).toBeNull();

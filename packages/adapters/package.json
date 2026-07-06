@@ -12,7 +12,7 @@
 		".": "./index.ts"
 	},
 	"scripts": {
-		"test": "bun test --timeout 30000",
+		"test": "bun test --parallel --timeout 600000",
 		"lint": "tsgo --noEmit"
 	},
 	"dependencies": {

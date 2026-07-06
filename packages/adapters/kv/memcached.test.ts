@@ -32,7 +32,7 @@ describe("MemcachedIntegration", () => {
 	});
 
 	it("should perform basic KV operations", async () => {
-		const key = faker.string.alphanumeric(10);
+		const key = "basic_kv_" + faker.string.alphanumeric(10);
 		const value = faker.string.uuid();
 
 		await integration.set(key, value);
@@ -46,7 +46,7 @@ describe("MemcachedIntegration", () => {
 	});
 
 	it("should setex correctly", async () => {
-		const key = faker.string.alphanumeric(10);
+		const key = "setex_" + faker.string.alphanumeric(10);
 		const value = faker.string.uuid();
 
 		await integration.setex(key, 1, value);

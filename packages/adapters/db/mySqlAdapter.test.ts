@@ -18,7 +18,7 @@ const containerName = "fluxify-mysql-adapter-test";
 const exposedPort = 33006;
 
 let container: Docker.Container | null = null;
-let adapter: MySqlAdapter;
+let db: any;
 let pool: Pool;
 let vm: JsVM = {} as JsVM;
 
@@ -72,23 +72,10 @@ beforeAll(async () => {
 	if (!ready) throw new Error("MySQL container did not become ready in time.");
 
 	pool = createPool(connInfo);
-	const db = MySqlAdapter.createKysely(pool);
-	adapter = new MySqlAdapter(db, pool, vm);
-
-	await adapter.raw(`
-		CREATE TABLE users (
-			id INT AUTO_INCREMENT PRIMARY KEY,
-			name VARCHAR(255) NOT NULL,
-			email VARCHAR(255) NOT NULL,
-			age INT NOT NULL,
-			score INT DEFAULT 0
-		)
-	`);
+	db = MySqlAdapter.createKysely(pool);
 }, 120000);
 
-beforeEach(async () => {
-	await adapter.raw("TRUNCATE TABLE users");
-});
+
 
 afterAll(async () => {
 	if (pool) await pool.promise().end();
@@ -123,52 +110,76 @@ describe("MySqlAdapter Integration Tests", () => {
 	});
 
 	test("CRUD: Single Record Lifecycle", async () => {
+		const adapter = new MySqlAdapter(db, pool, vm);
+		const tableName = "users_" + faker.string.alphanumeric(8).toLowerCase();
+		await adapter.raw(`
+			CREATE TABLE ${tableName} (
+				id INT AUTO_INCREMENT PRIMARY KEY,
+				name VARCHAR(255) NOT NULL,
+				email VARCHAR(255) NOT NULL,
+				age INT NOT NULL,
+				score INT DEFAULT 0
+			)
+		`);
+
 		const user = {
 			name: faker.person.firstName(),
 			email: faker.internet.email(),
 			age: faker.number.int({ min: 18, max: 65 }),
 		};
 
-		const inserted = await adapter.insert("users", user);
+		const inserted = await adapter.insert(tableName, user);
 		expect(inserted.id).toBeGreaterThan(0);
 
-		const fetched = await adapter.getSingle("users", [
+		const fetched = await adapter.getSingle(tableName, [
 			{ attribute: "id", operator: "eq", value: inserted.id, chain: "and" },
 		]);
 		expect(fetched).toMatchObject(user);
 
-		const notFound = await adapter.getSingle("users", [
+		const notFound = await adapter.getSingle(tableName, [
 			{ attribute: "id", operator: "eq", value: -1, chain: "and" },
 		]);
 		expect(notFound).toBeNull();
 
-		await adapter.update("users", { age: 29 }, [
+		await adapter.update(tableName, { age: 29 }, [
 			{ attribute: "id", operator: "eq", value: inserted.id, chain: "and" },
 		]);
 
-		const updated = (await adapter.getSingle("users", [
+		const updated = (await adapter.getSingle(tableName, [
 			{ attribute: "id", operator: "eq", value: inserted.id, chain: "and" },
 		])) as any;
 		expect(updated.age).toBe(29);
 
-		const isDeleted = await adapter.delete("users", [
+		const isDeleted = await adapter.delete(tableName, [
 			{ attribute: "id", operator: "eq", value: inserted.id, chain: "and" },
 		]);
 		expect(isDeleted).toBe(true);
 	});
 
 	test("Advanced Filtering & Operators", async () => {
+		const adapter = new MySqlAdapter(db, pool, vm);
+		const tableName = "users_" + faker.string.alphanumeric(8).toLowerCase();
+		await adapter.raw(`
+			CREATE TABLE ${tableName} (
+				id INT AUTO_INCREMENT PRIMARY KEY,
+				name VARCHAR(255) NOT NULL,
+				email VARCHAR(255) NOT NULL,
+				age INT NOT NULL,
+				score INT DEFAULT 0
+			)
+		`);
+
 		const users = Array.from({ length: 20 }).map((_, i) => ({
 			name: faker.person.firstName(),
 			email: faker.internet.email(),
 			age: faker.number.int({ min: 18, max: 65 }),
 			score: faker.number.int({ min: 5, max: 40 }),
 		}));
-		await adapter.insertBulk("users", users);
+		await adapter.insertBulk(tableName, users);
 
 		// Greater than / Less than or equal
 		const filtered = (await adapter.getAll(
-			"users",
+			tableName,
 			[
 				{ attribute: "age", operator: "gt", value: 10, chain: "and" },
 				{ attribute: "age", operator: "lte", value: 25, chain: "and" },
@@ -185,7 +196,7 @@ describe("MySqlAdapter Integration Tests", () => {
 
 		// OR chaining
 		const orFiltered = (await adapter.getAll(
-			"users",
+			tableName,
 			[
 				{ attribute: "age", operator: "eq", value: 5, chain: "or" },
 				{ attribute: "score", operator: "gte", value: 40, chain: "or" },
@@ -201,15 +212,27 @@ describe("MySqlAdapter Integration Tests", () => {
 	});
 
 	test("Pagination & Sorting", async () => {
+		const adapter = new MySqlAdapter(db, pool, vm);
+		const tableName = "users_" + faker.string.alphanumeric(8).toLowerCase();
+		await adapter.raw(`
+			CREATE TABLE ${tableName} (
+				id INT AUTO_INCREMENT PRIMARY KEY,
+				name VARCHAR(255) NOT NULL,
+				email VARCHAR(255) NOT NULL,
+				age INT NOT NULL,
+				score INT DEFAULT 0
+			)
+		`);
+
 		const users = Array.from({ length: 20 }).map((_, i) => ({
 			name: faker.person.firstName(),
 			email: faker.internet.email(),
 			age: 40 + i,
 		}));
-		await adapter.insertBulk("users", users);
+		await adapter.insertBulk(tableName, users);
 		const skip = 2,
 			limit = 4;
-		const page = (await adapter.getAll("users", [], limit, skip, {
+		const page = (await adapter.getAll(tableName, [], limit, skip, {
 			attribute: "age",
 			direction: "desc",
 		})) as any[];
@@ -220,26 +243,38 @@ describe("MySqlAdapter Integration Tests", () => {
 	});
 
 	test("Bulk Edge Cases & Mass Mutations", async () => {
-		const emptyInsert = await adapter.insertBulk("users", []);
+		const adapter = new MySqlAdapter(db, pool, vm);
+		const tableName = "users_" + faker.string.alphanumeric(8).toLowerCase();
+		await adapter.raw(`
+			CREATE TABLE ${tableName} (
+				id INT AUTO_INCREMENT PRIMARY KEY,
+				name VARCHAR(255) NOT NULL,
+				email VARCHAR(255) NOT NULL,
+				age INT NOT NULL,
+				score INT DEFAULT 0
+			)
+		`);
+
+		const emptyInsert = await adapter.insertBulk(tableName, []);
 		expect(emptyInsert).toEqual([]);
 
-		await adapter.insert("users", {
+		await adapter.insert(tableName, {
 			name: faker.person.firstName(),
 			email: faker.internet.email(),
 			age: 88,
 		});
-		await adapter.insert("users", {
+		await adapter.insert(tableName, {
 			name: faker.person.firstName(),
 			email: faker.internet.email(),
 			age: 88,
 		});
 
-		await adapter.update("users", { score: 777 }, [
+		await adapter.update(tableName, { score: 777 }, [
 			{ attribute: "age", operator: "eq", value: 88, chain: "and" },
 		]);
 
 		const verifyUpdate = (await adapter.getAll(
-			"users",
+			tableName,
 			[{ attribute: "score", operator: "eq", value: 777, chain: "and" }],
 			10,
 			0,
@@ -247,36 +282,60 @@ describe("MySqlAdapter Integration Tests", () => {
 		)) as any[];
 		expect(verifyUpdate.length).toBeGreaterThanOrEqual(2);
 
-		const deleteSuccess = await adapter.delete("users", [
+		const deleteSuccess = await adapter.delete(tableName, [
 			{ attribute: "score", operator: "eq", value: 777, chain: "and" },
 		]);
 		expect(deleteSuccess).toBe(true);
 	});
 
 	test("Raw Queries", async () => {
-		await adapter.insert("users", {
+		const adapter = new MySqlAdapter(db, pool, vm);
+		const tableName = "users_" + faker.string.alphanumeric(8).toLowerCase();
+		await adapter.raw(`
+			CREATE TABLE ${tableName} (
+				id INT AUTO_INCREMENT PRIMARY KEY,
+				name VARCHAR(255) NOT NULL,
+				email VARCHAR(255) NOT NULL,
+				age INT NOT NULL,
+				score INT DEFAULT 0
+			)
+		`);
+
+		await adapter.insert(tableName, {
 			name: faker.person.firstName(),
 			email: faker.internet.email(),
 			age: 100,
 		});
 		// MySQL uses ? instead of $1 for parameters
 		const result = await adapter.raw(
-			"SELECT COUNT(*) as total FROM users WHERE age = ?",
+			`SELECT COUNT(*) as total FROM ${tableName} WHERE age = ?`,
 			[100],
 		);
 		expect(Number(result.rows[0].total)).toBeGreaterThan(0);
 	});
 
 	test("Transaction Lifecycle & Rollbacks", async () => {
+		const adapter = new MySqlAdapter(db, pool, vm);
+		const tableName = "users_" + faker.string.alphanumeric(8).toLowerCase();
+		await adapter.raw(`
+			CREATE TABLE ${tableName} (
+				id INT AUTO_INCREMENT PRIMARY KEY,
+				name VARCHAR(255) NOT NULL,
+				email VARCHAR(255) NOT NULL,
+				age INT NOT NULL,
+				score INT DEFAULT 0
+			)
+		`);
+
 		await adapter.startTransaction();
-		const tUser = await adapter.insert("users", {
+		const tUser = await adapter.insert(tableName, {
 			name: faker.person.firstName(),
 			email: faker.internet.email(),
 			age: 55,
 		});
 		await adapter.rollbackTransaction();
 
-		const verifyRollback = await adapter.getSingle("users", [
+		const verifyRollback = await adapter.getSingle(tableName, [
 			{ attribute: "id", operator: "eq", value: tUser.id, chain: "and" },
 		]);
 		expect(verifyRollback).toBeNull();
