@@ -1,7 +1,6 @@
 "use client";
 import React, { useState, useEffect } from "react";
-import { Stack, Group, Center, Text, Container, Box } from "@mantine/core";
-import { TbSparkles } from "react-icons/tb";
+import { Stack, Group, Container } from "@mantine/core";
 import ConversationHeader from "./ConversationHeader";
 import EmptyArtifactPanel from "./EmptyArtifactPanel";
 import { AIPromptInput } from "./AIPromptInput";
@@ -12,9 +11,8 @@ import { useQueryClient } from "@tanstack/react-query";
 import { aiGatewayWorkflowsQuery } from "@/query/aiGatewayWorkflowsQuery";
 import { aiGatewayConversationsQuery } from "@/query/aiGatewayConversationsQuery";
 import { showErrorNotification } from "@/lib/errorNotifier";
-import { aiGatewayWorkflowsService } from "@/services/aiGatewayWorkflows";
-import { watchConversationDto } from "@fluxify/ai-gateway";
-import z from "zod";
+import { useWorkflowWatcher } from "./useWorkflowWatcher";
+import { FluxifyAIWelcome } from "./FluxifyAIWelcome";
 
 interface Props {
 	projectId: string;
@@ -26,10 +24,6 @@ const FluxifyAIPage = ({ projectId, conversationId }: Props) => {
 	const queryClient = useQueryClient();
 	const [message, setMessage] = useState("");
 	const [showArtifactPanel, setShowArtifactPanel] = useState(false);
-	const [isWatching, setIsWatching] = useState(false);
-	const [workflowStatus, setWorkflowStatus] = useState<z.infer<
-		typeof watchConversationDto.watchResponseSchema
-	> | null>(null);
 
 	// Fetch messages if in an existing conversation using infinite query (perPage: 5)
 	const {
@@ -75,58 +69,10 @@ const FluxifyAIPage = ({ projectId, conversationId }: Props) => {
 
 	const [watchTrigger, setWatchTrigger] = useState(0);
 
-	useEffect(() => {
-		if (!conversationId) return;
-
-		let cleanup: (() => void) | undefined;
-		let isMounted = true;
-		let timeoutId: NodeJS.Timeout;
-		const maxRetries = 4;
-
-		const connect = (retryCount: number) => {
-			if (!isMounted) return;
-			setIsWatching(true);
-			if (cleanup) cleanup();
-
-			cleanup = aiGatewayWorkflowsService.watchConversation(
-				conversationId,
-				(status) => {
-					setWorkflowStatus(status);
-					if (status.status === "completed" || status.status === "error") {
-						aiGatewayConversationsQuery.listMessagesInfinite.invalidate(conversationId, queryClient);
-					}
-				},
-				(err) => {
-					if (retryCount > 0) {
-						const baseDelay = retryCount === maxRetries ? 1000 : 1500;
-						const backoff = Math.pow(2, 3 - retryCount);
-						const delay = Math.min(baseDelay * backoff, 10000);
-
-						console.log(
-							`Watch connection failed. Retrying in ${delay}ms... (${retryCount} left)`,
-						);
-						timeoutId = setTimeout(() => connect(retryCount - 1), delay);
-					} else {
-						console.error("Workflow watch error after retries", err);
-						setIsWatching(false);
-					}
-				},
-				() => {
-					setIsWatching(false);
-					setWorkflowStatus(null);
-					aiGatewayConversationsQuery.listMessagesInfinite.invalidate(conversationId, queryClient);
-				},
-			);
-		};
-
-		connect(maxRetries); // Start connection with 3 retries
-
-		return () => {
-			isMounted = false;
-			clearTimeout(timeoutId);
-			if (cleanup) cleanup();
-		};
-	}, [conversationId, watchTrigger]); // Removed queryClient to prevent unnecessary reconnections
+	const { workflowStatus, setWorkflowStatus } = useWorkflowWatcher(
+		conversationId,
+		watchTrigger,
+	);
 
 	const handleSelectConversation = (id: string) => {
 		router.push(APP_ROUTES.PROJECT_AI_CONVERSATION(projectId, id));
@@ -242,32 +188,7 @@ const FluxifyAIPage = ({ projectId, conversationId }: Props) => {
 				/>
 
 				{showFancyUI ? (
-					<Center flex={1} style={{ flexDirection: "column" }} px="md">
-						<Stack align="center" gap="xl" w="100%" maw={700}>
-							<Stack align="center" gap="md" mb="md">
-								<Group gap="xs" align="center">
-									<TbSparkles size={32} color="#7950f2" />
-									<Text
-										size="42px"
-										fw={800}
-										variant="gradient"
-										gradient={{ from: "violet", to: "grape", deg: 45 }}
-										style={{
-											letterSpacing: "-1px",
-											lineHeight: 1.3,
-											paddingBottom: "4px",
-										}}
-									>
-										Fluxify AI
-									</Text>
-								</Group>
-								<Text size="lg" c="dimmed" ta="center" maw={500}>
-									Your intelligent assistant to design and build backend APIs.
-									Describe what you need, and let the AI do the heavy lifting.
-								</Text>
-							</Stack>
-						</Stack>
-					</Center>
+					<FluxifyAIWelcome />
 				) : (
 					<ConversationHistory
 						messages={messages}

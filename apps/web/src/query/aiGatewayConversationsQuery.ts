@@ -155,6 +155,7 @@ export const aiGatewayConversationsQuery = {
           aiGatewayConversationsService.clear(conversationId, body),
         onSuccess: () => {
           aiGatewayConversationsQuery.listMessages.invalidate(conversationId, queryClient);
+          aiGatewayConversationsQuery.listMessagesInfinite.invalidate(conversationId, queryClient);
         },
       });
     },
