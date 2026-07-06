@@ -42,3 +42,27 @@ When creating branches or Pull Requests via the `gh` CLI:
    `import { canAccess } from "@fluxify/server";`
 2. **Types:** When importing types from the server module, always explicitly use `import type` so the bundler drops the import entirely during compilation:
    `import type { AccessControlRole } from "@fluxify/server";`
+
+---
+
+## Codebase Discovery (codebase-memory-mcp)
+**CRITICAL:** This project uses `codebase-memory-mcp` to maintain a knowledge graph of the codebase. 
+You MUST ALWAYS use these MCP graph tools for code discovery instead of builtin tools like `grep_search`, `list_dir`, or running grep via terminal commands.
+
+### Priority Order for Search
+1. **`search_graph`** — Find functions, classes, routes, and variables by pattern.
+2. **`trace_path`** — Trace who calls a function or what a function calls.
+3. **`get_code_snippet`** — Read specific function/class source code efficiently.
+4. **`query_graph`** — Run Cypher queries for complex structural patterns.
+5. **`get_architecture`** — High-level project summary and architectural exploration.
+
+### Fallback Scenarios
+You may fallback to `grep_search` or terminal commands ONLY for:
+- Searching for string literals, error messages, or config values.
+- Searching non-code files (Dockerfiles, shell scripts, config JSONs).
+- When the MCP tools return absolutely insufficient results.
+
+### Examples
+- **Find a handler:** `search_graph(name_pattern=".*OrderHandler.*")`
+- **Find usage:** `trace_path(function_name="OrderHandler", direction="inbound")`
+- **Read source:** `get_code_snippet(qualified_name="pkg/orders.OrderHandler")`
