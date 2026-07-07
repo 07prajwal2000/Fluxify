@@ -9,8 +9,10 @@ import {
 	NavLink,
 	ActionIcon,
 	Text,
+	Burger,
 } from "@mantine/core";
 import { usePathname, useRouter, useParams } from "next/navigation";
+import { useDisclosure } from "@mantine/hooks";
 import {
 	TbArrowLeft,
 	TbSparkles,
@@ -19,6 +21,8 @@ import {
 	TbCloudCog,
 	TbSquareKey,
 	TbSettings,
+	TbLayoutSidebarLeftCollapse,
+	TbLayoutSidebarLeftExpand,
 } from "react-icons/tb";
 import { APP_ROUTES } from "@/constants/routes";
 import { AuthProvider } from "@/components/auth/authProvider";
@@ -27,6 +31,7 @@ import ProfileNav from "@/components/homepage/ProfileNav";
 import { useAuthStore } from "@/store/auth";
 import type { AccessControlRole } from "@fluxify/server";
 import RequireRole from "@/components/auth/requireRole";
+import { useLayoutStore } from "@/store/layout";
 
 const NewProjectLayout = ({ children }: { children: React.ReactNode }) => {
 	const router = useRouter();
@@ -34,6 +39,7 @@ const NewProjectLayout = ({ children }: { children: React.ReactNode }) => {
 	const { projectId } = useParams();
 	const { acl } = useAuthStore();
 	const id = projectId as string;
+	const { sidebarOpened, toggleSidebar } = useLayoutStore();
 
 	const { data: projectsData } = projectsQuery.getAll.useQuery({
 		page: 1,
@@ -78,13 +84,25 @@ const NewProjectLayout = ({ children }: { children: React.ReactNode }) => {
 	return (
 		<AppShell
 			header={{ height: 60 }}
-			navbar={{ width: 250, breakpoint: "sm" }}
+			navbar={{ 
+				width: 250, 
+				breakpoint: "sm",
+				collapsed: { mobile: !sidebarOpened, desktop: !sidebarOpened }
+			}}
 			padding="0"
 		>
 			<AuthProvider>
 				<AppShell.Header>
 					<Group h="100%" px="md" justify="space-between">
 						<Group gap="lg">
+							<ActionIcon 
+								variant="subtle" 
+								color="dark" 
+								size="lg" 
+								onClick={toggleSidebar} 
+							>
+								{sidebarOpened ? <TbLayoutSidebarLeftCollapse size={24} /> : <TbLayoutSidebarLeftExpand size={24} />}
+							</ActionIcon>
 							<Image
 								src="/_/admin/ui/logo_title.webp"
 								alt="Fluxify Logo"

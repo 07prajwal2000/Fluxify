@@ -4,6 +4,9 @@ export type HttpRoute = {
   projectName: string;
   path: string;
   method: "GET" | "POST" | "PUT" | "DELETE";
+  bodySchema?: any;
+  querySchema?: any;
+  paramsSchema?: any;
 };
 
 export type RouteTree = {
@@ -13,6 +16,9 @@ export type RouteTree = {
   id?: string;
   projectId?: string;
   projectName?: string;
+  bodySchema?: any;
+  querySchema?: any;
+  paramsSchema?: any;
 };
 
 export class HttpRouteParser {
@@ -60,6 +66,9 @@ export class HttpRouteParser {
         id: route.routeId,
         projectId: route.projectId,
         projectName: route.projectName,
+        bodySchema: route.bodySchema,
+        querySchema: route.querySchema,
+        paramsSchema: route.paramsSchema,
       };
     }
   }
@@ -71,6 +80,9 @@ export class HttpRouteParser {
     routeParams?: Record<string, string>;
     projectId: string;
     projectName: string;
+    bodySchema?: any;
+    querySchema?: any;
+    paramsSchema?: any;
   } | null {
     const parts = path.split("/").filter((p) => p.trim() != "");
     let current = this.routesTree;
@@ -102,6 +114,9 @@ export class HttpRouteParser {
         routeParams: params,
         projectId: current["<ID>"].projectId!,
         projectName: current["<ID>"].projectName!,
+        bodySchema: current["<ID>"].bodySchema,
+        querySchema: current["<ID>"].querySchema,
+        paramsSchema: current["<ID>"].paramsSchema,
       };
     }
     return null;

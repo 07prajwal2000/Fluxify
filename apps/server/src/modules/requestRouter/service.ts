@@ -21,6 +21,7 @@ import { ContentfulStatusCode } from "hono/utils/http-status";
 import { JsVM } from "@fluxify/lib";
 import { startBlocksExecution } from "../../loaders/blocksLoader";
 import { getAppConfig } from "../../loaders/appconfigLoader";
+import { parseRequestSchema } from "../../lib/schemaParser";
 import { createObservabilityLogger, DbFactory } from "@fluxify/adapters";
 import {
 	dbIntegrationsCache,
@@ -64,6 +65,37 @@ export async function handleRequest(
 		path.routeParams,
 	);
 	const vm = createJsVM(vars);
+
+	if (path.bodySchema && Object.keys(path.bodySchema).length > 0) {
+		const result = await parseRequestSchema(path.bodySchema, requestBody, { vm });
+		if (!result.success) {
+			return {
+				status: 400,
+				data: { message: "Body validation failed", errors: result.errors },
+			};
+		}
+	}
+	
+	if (path.querySchema && Object.keys(path.querySchema).length > 0) {
+		const result = await parseRequestSchema(path.querySchema, ctx.req.query(), { vm, coerce: true });
+		if (!result.success) {
+			return {
+				status: 400,
+				data: { message: "Query validation failed", errors: result.errors },
+			};
+		}
+	}
+	
+	if (path.paramsSchema && Object.keys(path.paramsSchema).length > 0) {
+		const result = await parseRequestSchema(path.paramsSchema, path.routeParams || {}, { vm, coerce: true });
+		if (!result.success) {
+			return {
+				status: 400,
+				data: { message: "Path parameters validation failed", errors: result.errors },
+			};
+		}
+	}
+
 	const dbFactory = createDbFactory(vm);
 	const context = createContext(
 		path,

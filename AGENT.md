@@ -45,6 +45,28 @@ When creating branches or Pull Requests via the `gh` CLI:
 
 ---
 
+## Documentation Writing Rules
+
+The `/docs` directory contains **user-facing documentation** — not a technical or contributing guide. These rules apply whenever writing or updating any file inside `/docs`.
+
+### ❌ DO NOT
+
+- Expose internal implementation details (e.g. class names, file paths, library names, database schemas, Redis channels, trie structures, pub/sub signals, or architecture patterns like "adapter pattern").
+- Use jargon that only a backend engineer would know without explanation.
+- Reference source files or internal module names (e.g. `schemaParser.ts`, `HttpRouteParser`, `routesLoader`).
+- Describe *how* the system is built — only describe *what it does* and *what the user can expect*.
+- Write in a tone that assumes the reader is a senior developer.
+
+### ✅ ALWAYS
+
+- Write in plain, natural English that is understandable by **junior developers, non-technical users, and LLM agents** alike.
+- Explain **behavior** (what happens) not **mechanism** (how it works internally).
+- Use tables, callout blocks (`::: tip`, `::: info`), and clear headings to improve scanability.
+- Keep examples concrete and realistic — show inputs and outputs a user would actually see.
+- Ensure every page is self-contained enough that an AI agent reading it cold can understand what the feature does.
+
+---
+
 ## Codebase Discovery (codebase-memory-mcp)
 **CRITICAL:** This project uses `codebase-memory-mcp` to maintain a knowledge graph of the codebase. 
 You MUST ALWAYS use these MCP graph tools for code discovery instead of builtin tools like `grep_search`, `list_dir`, or running grep via terminal commands.

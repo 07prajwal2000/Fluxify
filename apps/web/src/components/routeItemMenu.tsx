@@ -9,10 +9,7 @@ import { showErrorNotification } from "@/lib/errorNotifier";
 import { routesQueries } from "@/query/routerQuery";
 import { useQueryClient } from "@tanstack/react-query";
 import { notifications } from "@mantine/notifications";
-import FormDialog from "./dialog/formDialog";
-import RouteForm from "./forms/routeForm";
-import QueryLoader from "./query/queryLoader";
-import QueryError from "./query/queryError";
+import { useRouter } from "next/navigation";
 
 type Proptypes = {
   id: string;
@@ -20,12 +17,11 @@ type Proptypes = {
 
 const RouteItemMenu = (props: Proptypes) => {
   const [opened, { open, close }] = useDisclosure(false);
-  const [editOpened, { open: openEdit, close: closeEdit }] =
-    useDisclosure(false);
   const client = useQueryClient();
+  const router = useRouter();
 
   function onEditClicked() {
-    openEdit();
+    router.push(`/editor/${props.id}/settings`);
   }
   function onDuplicateClicked() {}
   function onDownloadJsonClicked() {}
@@ -74,68 +70,8 @@ const RouteItemMenu = (props: Proptypes) => {
           Are you sure want to delete?
         </ConfirmDialog>
       </Menu>
-      <FormDialog open={editOpened} onClose={closeEdit} title="Edit Route">
-        <RouteEditForm id={props.id} close={closeEdit} />
-      </FormDialog>
     </>
   );
 };
-
-function RouteEditForm({ id, close }: { id: string; close: () => void }) {
-  const [saving, setSaving] = useState(false);
-  const { data, isLoading, isError, error } =
-    routesQueries.getById.useQuery(id);
-  const client = useQueryClient();
-
-  if (isLoading) {
-    return <QueryLoader />;
-  }
-  if (isError) {
-    return (
-      <QueryError
-        error={error!}
-        refetcher={() => {
-          routesQueries.getById.invalidate(client, id);
-        }}
-      />
-    );
-  }
-
-  async function onUpdate(data: any) {
-    try {
-      setSaving(true);
-      await routesService.update(id, data);
-      routesQueries.invalidateAll(client);
-      close();
-    } catch (error: any) {
-      showErrorNotification(error);
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  return (
-    <RouteForm
-      values={data}
-      onSubmit={onUpdate}
-      zodSchema={routesService.updateRequestSchema}
-      actionSection={
-        <Group mt={"xs"} gap={"xs"} justify="end">
-          <Button
-            loading={saving}
-            type="submit"
-            variant="outline"
-            color="violet"
-          >
-            Update
-          </Button>
-          <Button onClick={close} variant="subtle" color="dark">
-            Cancel
-          </Button>
-        </Group>
-      }
-    />
-  );
-}
 
 export default RouteItemMenu;

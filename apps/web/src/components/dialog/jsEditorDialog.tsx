@@ -9,6 +9,7 @@ type PropTypes = {
   value?: string;
   readonly?: boolean;
   title?: string;
+  description?: React.ReactNode;
 };
 
 const JsEditorDialog = (props: PropTypes) => {
@@ -21,6 +22,7 @@ const JsEditorDialog = (props: PropTypes) => {
       opened={props.opened}
       onKeyDown={(e) => e.stopPropagation()}
     >
+      {props.description}
       <JsEditor
         defaultValue={js}
         readonly={props.readonly}

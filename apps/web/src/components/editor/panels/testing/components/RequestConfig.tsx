@@ -4,12 +4,15 @@ import KVPEditor from "@/components/editors/kvpEditor";
 import Editor from "@monaco-editor/react";
 import PathVariablesEditor from "./PathVariablesEditor";
 
+import { ValidationSchema } from "@/types/schemaEditor";
+
 interface RequestConfigProps {
   method: string;
   pathParams: Record<string, string>;
   onPathParamsChange: (data: Record<string, string>) => void;
   queryParams: Record<string, string>;
   onQueryParamsChange: (data: Record<string, string>) => void;
+  querySchema?: ValidationSchema;
   headers: Record<string, string>;
   onHeadersChange: (data: Record<string, string>) => void;
   body: string;
@@ -22,6 +25,7 @@ const RequestConfig = ({
   onPathParamsChange,
   queryParams,
   onQueryParamsChange,
+  querySchema,
   headers,
   onHeadersChange,
   body,
@@ -52,6 +56,7 @@ const RequestConfig = ({
                 onDataChange={onQueryParamsChange}
                 addButtonText="Add Query Parameter"
                 inputType="text"
+                schemaProperties={querySchema?.properties}
               />
             </Box>
           </Tabs.Panel>

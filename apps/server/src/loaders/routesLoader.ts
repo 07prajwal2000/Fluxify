@@ -39,6 +39,9 @@ async function fetchRoutes() {
 			routeId: routesEntity.id,
 			projectId: routesEntity.projectId,
 			projectName: projectsEntity.name,
+			bodySchema: routesEntity.bodySchema,
+			querySchema: routesEntity.querySchema,
+			paramsSchema: routesEntity.paramsSchema,
 		})
 		.from(routesEntity)
 		.leftJoin(projectsEntity, eq(routesEntity.projectId, projectsEntity.id))

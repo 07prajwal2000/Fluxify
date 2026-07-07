@@ -149,6 +149,9 @@ export const routesEntity = pgTable(
 			})
 			.default(sql`NULL`),
 		method: varchar({ length: 8 }),
+		bodySchema: jsonb("body_schema"),
+		querySchema: jsonb("query_schema"),
+		paramsSchema: jsonb("params_schema"),
 		createdAt: timestamp("created_at").defaultNow().notNull(),
 		createdBy: varchar("created_by", { length: 50 }),
 		updatedAt: timestamp("updated_at")
