@@ -1,5 +1,5 @@
 import { test, expect, describe } from "bun:test";
-import { validateRouteSchemas } from "./schema-validator";
+import { validateRouteSchemas } from "../schema-validator";
 
 describe("validateRouteSchemas", () => {
   test("returns success for valid schemas without params", () => {
