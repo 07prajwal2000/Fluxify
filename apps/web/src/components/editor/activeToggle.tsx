@@ -44,7 +44,8 @@ const ActiveToggle = (props: Props) => {
         });
       setActive((p) => !p);
       await routesService.updatePartial(props.routeId, { active: !active });
-      invalidate(client, loaderId!.toString());
+      routesQueries.getById.invalidate(client, props.routeId);
+      routesQueries.getAll.invalidate(client);
       props.showToggleNotifications &&
         notifications.update({
           id: loaderId,

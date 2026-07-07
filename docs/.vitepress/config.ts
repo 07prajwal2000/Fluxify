@@ -78,6 +78,7 @@ export default defineConfig({
 					items: [
 						{ text: "Overview", link: "/getting-started/" },
 						{ text: "Guide", link: "/getting-started/basics" },
+						{ text: "Routing & Validation", link: "/getting-started/routing" },
 						{ text: "Contributing", link: "/getting-started/contributing" },
 						{ text: "Local Testing", link: "/getting-started/local-testing" },
 					],

@@ -15,7 +15,7 @@ import { faker } from "@faker-js/faker";
 import { docker, pullImage } from "./testHelpers";
 
 const containerName = "fluxify-mysql-adapter-test";
-const exposedPort = 33006;
+const exposedPort = Math.floor(Math.random() * (65000 - 20000 + 1)) + 20000;
 
 let container: Docker.Container | null = null;
 let db: any;

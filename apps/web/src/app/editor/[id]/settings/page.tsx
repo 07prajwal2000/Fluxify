@@ -1,5 +1,5 @@
 "use server";
-import BackToEditorButton from "@/components/editor/backToEditorButton";
+import EditRouteSettings from "@/components/forms/EditRouteSettings";
 import { authClient } from "@/lib/auth";
 import { canAccess } from "@fluxify/server/src/lib/acl";
 import { Stack } from "@mantine/core";
@@ -22,8 +22,8 @@ const Page = async ({ params }: { params: Promise<{ id: string }> }) => {
     redirect("/");
   }
   return (
-    <Stack p={"xs"}>
-      <BackToEditorButton routeId={routeId} />
+    <Stack p={"xs"} h="100%">
+      <EditRouteSettings routeId={routeId} />
     </Stack>
   );
 };

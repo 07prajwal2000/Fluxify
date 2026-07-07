@@ -1,7 +1,8 @@
-import { ActionIcon, Button, Grid, Stack, TextInput } from "@mantine/core";
-import React, { useState } from "react";
+import { ActionIcon, Button, Grid, Stack, TextInput, Select, NumberInput } from "@mantine/core";
+import React, { useState, useEffect } from "react";
 import { TbTrashFilled } from "react-icons/tb";
 import JsTextInput from "./jsTextInput";
+import { SchemaProperty } from "@/types/schemaEditor";
 
 type InputType = "text" | "js text";
 
@@ -13,6 +14,7 @@ type PropTypes = {
   inputType?: InputType;
   allowDuplicateKeys?: boolean;
   addButtonText?: string;
+  schemaProperties?: SchemaProperty[];
 };
 
 const KVPEditor = ({
@@ -22,10 +24,18 @@ const KVPEditor = ({
   valuePlaceholder = "Value",
   inputType = "text",
   addButtonText = "Add New Key-Value Pair",
+  schemaProperties,
 }: PropTypes) => {
-  const [tempData, setTempData] = useState<[string, string][]>(
-    Object.entries(data)
-  );
+  const [tempData, setTempData] = useState<[string, string][]>(() => Object.entries(data));
+
+  // Sync when data changes structurally (e.g., initialized asynchronously)
+  useEffect(() => {
+    // Only update if lengths differ to avoid overwriting typed uncommitted changes, 
+    // or if the component just mounted with new keys. This is a basic sync.
+    if (Object.keys(data).length !== tempData.length && Object.keys(data).length > 0) {
+      setTempData(Object.entries(data));
+    }
+  }, [data]);
 
   const handleKeyValueChange = (key: string, value: string, index: number) => {
     const newData = [...tempData];
@@ -66,6 +76,50 @@ const KVPEditor = ({
     );
   };
 
+  const renderValueInput = (
+    key: string,
+    value: string,
+    onChange: (value: string) => void,
+    placeholder: string
+  ) => {
+    const propDef = schemaProperties?.find((p) => p.key === key);
+    if (propDef) {
+      if (propDef.dataType === "bool") {
+        return (
+          <Select
+            data={["true", "false"]}
+            value={value || "false"}
+            onChange={(v) => onChange(v || "false")}
+            placeholder={placeholder}
+          />
+        );
+      }
+      if (propDef.dataType === "int" || propDef.dataType === "float") {
+        return (
+          <NumberInput
+            value={value ? Number(value) : ""}
+            onChange={(v) => onChange(v === "" ? "" : String(v))}
+            placeholder={placeholder}
+          />
+        );
+      }
+      if (propDef.dataType === "enum") {
+        const enumRule = propDef.rules?.find((r) => r.type === "enum");
+        if (enumRule && Array.isArray(enumRule.value)) {
+          return (
+            <Select
+              data={enumRule.value.map(String)}
+              value={value}
+              onChange={(v) => onChange(v || "")}
+              placeholder={placeholder}
+            />
+          );
+        }
+      }
+    }
+    return renderInput(value, onChange, placeholder);
+  };
+
   return (
     <Stack>
       {tempData.map(([key, value], index) => (
@@ -78,7 +132,8 @@ const KVPEditor = ({
             )}
           </Grid.Col>
           <Grid.Col span={6}>
-            {renderInput(
+            {renderValueInput(
+              key,
               value,
               (newValue) => handleKeyValueChange(key, newValue, index),
               valuePlaceholder

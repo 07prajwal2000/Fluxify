@@ -45,7 +45,7 @@ export default async function handleRequest(
         ...patchedRoute,
         id,
         updatedAt: new Date(),
-      },
+      } as any,
       tx
     );
   });

@@ -1,5 +1,6 @@
 import z from "zod";
 import { ROUTE_REGEX } from "../constants";
+import { routeSchemaValidationRefinement } from "../schema-validator";
 
 export const requestBodySchema = z.object({
   name: z.string().min(2).max(255),
@@ -8,7 +9,10 @@ export const requestBodySchema = z.object({
   projectId: z.string().refine((v) => {
     return z.uuidv7().safeParse(v).success;
   }),
-});
+  bodySchema: z.any().optional(),
+  querySchema: z.any().optional(),
+  paramsSchema: z.any().optional(),
+}).superRefine(routeSchemaValidationRefinement);
 
 export const responseSchema = z.object({
   id: z.uuidv7(),

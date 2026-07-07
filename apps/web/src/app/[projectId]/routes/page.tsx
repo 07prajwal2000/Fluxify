@@ -4,6 +4,7 @@ import { Stack, Text, Group } from "@mantine/core";
 import RoutesPanel from "@/components/panels/routesPanel";
 import RouterFilter from "@/components/filters/routerFilter";
 import RouterPagination from "@/components/filters/routerPagination";
+import CreateNewMenu from "@/components/createNewMenu";
 import { useParams } from "next/navigation";
 
 const ProjectRoutesPage = () => {
@@ -13,6 +14,7 @@ const ProjectRoutesPage = () => {
 		<Stack style={{ height: "100%" }} p="md" gap="md">
 			<Group justify="end" align="center">
 				<Group>
+					<CreateNewMenu />
 					<RouterPagination />
 					<RouterFilter />
 				</Group>

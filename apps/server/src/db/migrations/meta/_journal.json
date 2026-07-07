@@ -176,6 +176,13 @@
       "when": 1783300282745,
       "tag": "0024_zippy_chameleon",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1783380122288,
+      "tag": "0025_awesome_darkhawk",
+      "breakpoints": true
     }
   ]
 }
