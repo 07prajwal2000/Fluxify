@@ -15,7 +15,7 @@ import { faker } from "@faker-js/faker";
 import { docker, pullImage } from "./testHelpers";
 
 const containerName = "fluxify-pg-adapter-test";
-const exposedPort = 54320;
+const exposedPort = Math.floor(Math.random() * (65000 - 20000 + 1)) + 20000;
 
 let container: Docker.Container | null = null;
 let db: any;
