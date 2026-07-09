@@ -69,10 +69,10 @@ const AppConfigList = () => {
 
 	if (error) {
 		return (
-			<Center py={40}>
+			<Center py={60}>
 				<Stack align="center" gap="md">
-					<Text c="red">Error loading configurations</Text>
-					<Text c="dimmed" size="sm">
+					<Text c="red" fw={600} style={{ fontFamily: "Inter, sans-serif" }}>Error loading configurations</Text>
+					<Text c="dimmed" size="sm" style={{ fontFamily: "Inter, sans-serif" }}>
 						{error instanceof Error ? error.message : "Unknown error"}
 					</Text>
 				</Stack>
@@ -81,18 +81,20 @@ const AppConfigList = () => {
 	}
 
 	return (
-		<Stack gap="md" h="100%">
+		<Stack gap="xl" h="100%" p="md">
 			{/* Toolbar */}
-			<Group justify="space-between" align="flex-end">
-				<Group grow>
+			<Group justify="space-between" align="center" p="xs">
+				<Box style={{ flex: 1, maxWidth: "400px" }}>
 					<DebouncedTextInput
 						placeholder="Search configurations..."
 						value={search}
 						onValueChange={setSearch}
 						debounceDelay={300}
+						size="md"
+						radius="md"
 					/>
-				</Group>
-				<Group gap="xs">
+				</Box>
+				<Group gap="md">
 					{!isLoading && data && (
 						<Pagination
 							page={page}
@@ -108,13 +110,16 @@ const AppConfigList = () => {
 					<AppConfigTableAddButton />
 				</Group>
 			</Group>
+			
 			<Box
 				style={{
 					flex: 1,
 					height: "100%",
 					overflow: "hidden",
-					border: "1px solid #e0e0e0",
-					borderRadius: "4px",
+					backgroundColor: "#ffffff",
+					borderRadius: "16px",
+					boxShadow: "0 4px 20px rgba(0, 0, 0, 0.03)",
+					border: "1px solid rgba(0, 0, 0, 0.04)",
 				}}
 			>
 				<AppConfigTable

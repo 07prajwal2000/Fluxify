@@ -88,3 +88,13 @@ You may fallback to `grep_search` or terminal commands ONLY for:
 - **Find a handler:** `search_graph(name_pattern=".*OrderHandler.*")`
 - **Find usage:** `trace_path(function_name="OrderHandler", direction="inbound")`
 - **Read source:** `get_code_snippet(qualified_name="pkg/orders.OrderHandler")`
+
+---
+
+## Agent Communication Style
+**CRITICAL:** Caveman mode is ACTIVE by default for this project.
+Always adhere strictly to the `caveman` skill rules:
+- Be terse and direct.
+- No filler phrases, no preamble, no postamble.
+- Execute first, talk second.
+- Explain only when result is surprising or asked for.

@@ -49,6 +49,7 @@
 		"dockerode": "^4.0.9",
 		"fta-cli": "^3.0.0",
 		"turbo": "^2.5.5",
+		"ui-ux-pro-max-cli": "^2.10.2",
 		"vitepress": "^1.6.4"
 	},
 	"trustedDependencies": [

@@ -31,11 +31,11 @@ import {
 	transactionDbBlockSchema,
 	updateDbBlockSchema,
 	errorHandlerBlockSchema,
+	cloudLogsBlockSchema,
 } from "@fluxify/blocks";
 import { Context, Next } from "hono";
 import { ValidationError } from "../../../../errors/validationError";
 import { BadRequestError } from "../../../../errors/badRequestError";
-import { cloudLogsBlockSchema } from "@fluxify/blocks";
 
 export async function requestBodyValidator(ctx: Context, next: Next) {
 	const jsonData = await ctx.req.json();
@@ -158,6 +158,7 @@ function blockDataValidator(data: z.infer<typeof requestBodySchema>) {
 		if (!schema) throw new BadRequestError("Invalid block type");
 		const result = schema.safeParse(block.data);
 		if (!result.success) {
+			console.log("result", z.prettifyError(result.error));
 			errorBlocks.push(block.id);
 		} else {
 			block.data = result.data;

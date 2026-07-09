@@ -17,14 +17,18 @@ const FormDialog = ({
       opened={open}
       size={"xl"}
       title={
-        <Text fw={"500"} size="xl">
+        <Text fw={"600"} size="xl" style={{ fontFamily: "Hanken Grotesk, sans-serif" }}>
           {title}
         </Text>
       }
       withCloseButton
       onClose={onClose}
+      styles={{
+        header: { paddingBottom: 4 },
+        body: { paddingTop: 0 }
+      }}
     >
-      <Modal.Body p={"xs"}>{children}</Modal.Body>
+      <Modal.Body pt={0} px="xs" pb="xs">{children}</Modal.Body>
     </Modal>
   );
 };

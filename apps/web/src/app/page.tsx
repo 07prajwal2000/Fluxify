@@ -5,6 +5,7 @@ import Header from "@/components/homepage/Header";
 import ProjectsTab from "@/components/homepage/ProjectsTab";
 import UsersList from "@/components/settings/usersList";
 import InstanceSettingsTab from "@/components/homepage/InstanceSettingsTab";
+import AccountDetails from "@/components/settings/accountDetails";
 import { useAuthStore } from "@/store/auth";
 import { useRouter, useSearchParams } from "next/navigation";
 
@@ -35,8 +36,7 @@ const NewHomepage = () => {
 			<Container
 				size="xl"
 				w="100%"
-				py="xl"
-				style={{ flex: 1, overflowY: "auto" }}
+				style={{ flex: 1, overflowY: "auto", position: "relative" }}
 			>
 				<Tabs
 					value={activeTab}
@@ -44,7 +44,15 @@ const NewHomepage = () => {
 					color="violet"
 					variant="outline"
 				>
-					<Tabs.List>
+					<Tabs.List 
+						style={{ 
+							position: "sticky", 
+							top: 0, 
+							zIndex: 10, 
+							backgroundColor: "#f9f9f9",
+							paddingTop: "24px"
+						}}
+					>
 						<Tabs.Tab value="projects">Projects</Tabs.Tab>
 						{userData?.isSystemAdmin && (
 							<>
@@ -52,23 +60,28 @@ const NewHomepage = () => {
 								<Tabs.Tab value="instance-settings">Instance Settings</Tabs.Tab>
 							</>
 						)}
+						<Tabs.Tab value="account-details">Account details</Tabs.Tab>
 					</Tabs.List>
 
-					<Tabs.Panel value="projects" pt="xl">
+					<Tabs.Panel value="projects" pt="xl" pb="xl">
 						<ProjectsTab />
 					</Tabs.Panel>
 
 					{userData?.isSystemAdmin && (
 						<>
-							<Tabs.Panel value="users" pt="xl">
+							<Tabs.Panel value="users" pt="xl" pb="xl">
 								<UsersList />
 							</Tabs.Panel>
 
-							<Tabs.Panel value="instance-settings" pt="xl">
+							<Tabs.Panel value="instance-settings" pt="xl" pb="xl">
 								<InstanceSettingsTab />
 							</Tabs.Panel>
 						</>
 					)}
+
+					<Tabs.Panel value="account-details" pt="xl" pb="xl">
+						<AccountDetails />
+					</Tabs.Panel>
 				</Tabs>
 			</Container>
 		</Stack>

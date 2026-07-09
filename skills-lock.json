@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "skills": {
+    "caveman": {
+      "source": "Shawnchee/caveman-skill",
+      "sourceType": "github",
+      "skillPath": "caveman/SKILL.md",
+      "computedHash": "6d08b220b3b6289816668cb608dda7ac57232a23647191cea31f676e0e767fa5"
+    }
+  }
+}

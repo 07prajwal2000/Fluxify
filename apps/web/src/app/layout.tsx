@@ -8,6 +8,7 @@ import {
 	ColorSchemeScript,
 	MantineProvider,
 	mantineHtmlProps,
+	createTheme,
 } from "@mantine/core";
 import QueryProvider from "../query/queryProvider";
 import { Notifications } from "@mantine/notifications";
@@ -18,6 +19,15 @@ export const metadata: Metadata = {
 	title: "Fluxify",
 	description: "Fluxify Console",
 };
+
+const theme = createTheme({
+	components: {
+		TextInput: { classNames: { root: "modern-input" } },
+		PasswordInput: { classNames: { root: "modern-input" } },
+		Textarea: { classNames: { root: "modern-input" } },
+		Select: { classNames: { root: "modern-input" } },
+	},
+});
 
 export default async function RootLayout({
 	children,
@@ -30,7 +40,7 @@ export default async function RootLayout({
 				<ColorSchemeScript />
 			</head>
 			<body>
-				<MantineProvider>
+				<MantineProvider theme={theme}>
 					<Notifications />
 					<QueryProvider>
 						<NavigationProgress color="violet" size={2} />

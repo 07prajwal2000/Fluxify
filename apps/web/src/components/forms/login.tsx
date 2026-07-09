@@ -3,25 +3,31 @@
 import { authClient } from "@/lib/auth";
 import { showErrorNotification } from "@/lib/errorNotifier";
 import {
+	Box,
 	Button,
 	Divider,
-	Paper,
 	PasswordInput,
 	Stack,
 	Text,
 	TextInput,
+	Title,
+	Group,
+	ThemeIcon,
+	Image,
 } from "@mantine/core";
 import { useForm } from "@mantine/form";
 import { notifications } from "@mantine/notifications";
 import { isAxiosError } from "axios";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import React, { useState } from "react";
+import { TbHexagonLetterF } from "react-icons/tb";
 
 const LoginForm = () => {
 	const router = useRouter();
 	const params = useSearchParams();
 	const form = useForm({ initialValues: { email: "", password: "" } });
 	const [loading, setLoading] = useState(false);
+
 	const onSubmit = async (values: { email: string; password: string }) => {
 		setLoading(true);
 		const searchParams = new URLSearchParams(params.toString());
@@ -59,36 +65,108 @@ const LoginForm = () => {
 	};
 
 	return (
-		<Paper withBorder p="md" shadow="sm" w={"500px"}>
+		<Box w="100%" style={{ fontFamily: "Inter, sans-serif" }}>
 			<form onSubmit={form.onSubmit(onSubmit)}>
-				<Stack>
-					<Text fw={"bold"} ta={"center"} size={"xl"}>
-						LOGIN
-					</Text>
-					<Divider />
-					<TextInput
-						placeholder="Email"
-						type="email"
-						required
-						{...form.getInputProps("email")}
-					/>
-					<PasswordInput
-						placeholder="Password"
-						required
-						{...form.getInputProps("password")}
-					/>
-					<Button
-						color="violet"
-						type="submit"
-						w={"100%"}
-						mt={"md"}
-						loading={loading}
-					>
-						Login
-					</Button>
+				<Stack gap="xl">
+					{/* Logo and Header */}
+					<Stack gap="sm" align="center" mb="md">
+						<Box mb="xs">
+							<Image
+								src="/_/admin/ui/logo_title.webp"
+								alt="Fluxify Logo"
+								height={40}
+								fit="contain"
+							/>
+						</Box>
+						<Title
+							order={2}
+							c="#111417"
+							style={{
+								fontFamily: "Hanken Grotesk, sans-serif",
+								fontWeight: 700,
+							}}
+						>
+							Welcome back
+						</Title>
+						<Text c="#464749" size="sm" ta="center">
+							Sign in to your account to continue
+						</Text>
+					</Stack>
+
+					{/* Inputs */}
+					<Stack gap="md">
+						<TextInput
+							label="Email address"
+							placeholder="name@company.com"
+							type="email"
+							required
+							size="md"
+							{...form.getInputProps("email")}
+						/>
+						<PasswordInput
+							label="Password"
+							placeholder="Enter your password"
+							required
+							size="md"
+							className="modern-input"
+							{...form.getInputProps("password")}
+						/>
+					</Stack>
+
+					{/* Actions */}
+					<Stack gap="sm" mt="xs">
+						<Button
+							type="submit"
+							w="100%"
+							size="md"
+							radius="md"
+							loading={loading}
+							style={{
+								backgroundColor: "#7432df",
+								color: "#ffffff",
+								fontFamily: "Inter, sans-serif",
+								fontWeight: 600,
+							}}
+						>
+							Sign In
+						</Button>
+
+						<Divider
+							my="xs"
+							label="OR"
+							labelPosition="center"
+							color="#e3e2e4"
+							styles={{
+								label: { color: "#8d9195", backgroundColor: "transparent" },
+							}}
+						/>
+
+						<Button
+							type="button"
+							variant="outline"
+							w="100%"
+							size="md"
+							radius="md"
+							style={{
+								borderColor: "#e3e2e4",
+								color: "#111417",
+								fontFamily: "Inter, sans-serif",
+								fontWeight: 600,
+							}}
+							onClick={() =>
+								notifications.show({
+									title: "SSO Login",
+									message: "SSO Login is not configured yet.",
+									color: "blue",
+								})
+							}
+						>
+							Login with SSO
+						</Button>
+					</Stack>
 				</Stack>
 			</form>
-		</Paper>
+		</Box>
 	);
 };
 

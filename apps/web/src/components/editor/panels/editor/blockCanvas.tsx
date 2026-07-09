@@ -195,7 +195,6 @@ const BlockCanvas = ({ readonly, routeId }: Props) => {
 					nodesDraggable={!readonly}
 					nodesConnectable={!readonly}
 					fitView
-					draggable={canvasEditable}
 					zoomOnScroll={false}
 					panOnDrag={[0]}
 					edgeTypes={edgeTypes}

@@ -4,11 +4,11 @@ import { authClient } from "@/lib/auth";
 import React, { useState } from "react";
 import QueryLoader from "../query/queryLoader";
 import QueryError from "../query/queryError";
-import { Button, Grid, Stack, TextInput } from "@mantine/core";
-import { TbDeviceFloppy } from "react-icons/tb";
+import { Button, Stack, TextInput, Group, Tabs } from "@mantine/core";
 import { showErrorNotification } from "@/lib/errorNotifier";
 import { showNotification } from "@mantine/notifications";
 import PasswordForm from "./passwordForm";
+import { TbUser, TbShieldLock } from "react-icons/tb";
 
 const AccountDetails = () => {
   const { data, error, isPending, refetch, isRefetching } =
@@ -50,34 +50,65 @@ const AccountDetails = () => {
 
   const { email, id } = data!.user;
   return (
-    <Grid w="100%" gutter="xl">
-      <Grid.Col span={6}>
-        <Stack>
-          <TextInput label="User Id" value={id} disabled />
-          <TextInput
-            label="User name"
-            value={username}
-            description="Name of the user"
-            name="username"
-            onChange={(e) => onNameChange(e.target.value)}
-          />
-          <TextInput label="Email" value={email} readOnly />
-          <Button
-            color="violet"
-            leftSection={<TbDeviceFloppy size={20} />}
-            w={"fit-content"}
-            variant="outline"
-            onClick={onSaveClicked}
-            loading={isPending || isRefetching}
-          >
-            Save
-          </Button>
-        </Stack>
-      </Grid.Col>
-      <Grid.Col span={6}>
-        <PasswordForm />
-      </Grid.Col>
-    </Grid>
+    <Stack w="100%" maw={1000} pt="md">
+      <Tabs defaultValue="personal" color="violet" orientation="vertical" variant="pills" keepMounted={false}>
+        <Tabs.List w={{ base: "100%", sm: 250 }} mr={{ base: 0, sm: "xl" }} mb={{ base: "md", sm: 0 }}>
+          <Tabs.Tab value="personal" leftSection={<TbUser size={18} />}>
+            Personal Information
+          </Tabs.Tab>
+          <Tabs.Tab value="security" leftSection={<TbShieldLock size={18} />}>
+            Security Settings
+          </Tabs.Tab>
+        </Tabs.List>
+
+        <Tabs.Panel value="personal" pl={{ base: 0, sm: "xl" }} style={{ flex: 1 }}>
+          <Stack gap="lg" w="100%" maw={600}>
+            <Group grow align="flex-start">
+              <TextInput
+                label="User Name"
+                value={username}
+                description="Your display name"
+                name="username"
+                onChange={(e) => onNameChange(e.target.value)}
+                size="md"
+              />
+              <TextInput 
+                label="Email Address" 
+                value={email} 
+                description="Your primary email (cannot be changed)" 
+                readOnly 
+                size="md" 
+              />
+            </Group>
+            
+            <TextInput 
+              label="User ID" 
+              value={id} 
+              description="Unique identifier for your account" 
+              disabled 
+              size="md" 
+            />
+
+            <Group justify="flex-start" mt="md">
+              <Button
+                color="violet"
+                onClick={onSaveClicked}
+                loading={isPending || isRefetching}
+                size="md"
+                radius="md"
+                style={{ backgroundColor: "#7432df", fontFamily: "Inter, sans-serif", fontWeight: 600 }}
+              >
+                Save Changes
+              </Button>
+            </Group>
+          </Stack>
+        </Tabs.Panel>
+
+        <Tabs.Panel value="security" pl={{ base: 0, sm: "xl" }} style={{ flex: 1 }}>
+          <PasswordForm />
+        </Tabs.Panel>
+      </Tabs>
+    </Stack>
   );
 };
 
