@@ -17,12 +17,12 @@ export default function MockDataEditor({
       <Group gap="sm" mb="sm">
         <TbServer size={18} color="#7950F2" />
         <Text size="sm" fw={700} c="gray.8">
-          Mock Data Injection
+          Request Body
         </Text>
       </Group>
       <Paper withBorder radius="md" bg="#F9FAFB" p="md">
         <Text size="xs" c="gray.5" mb="md">
-          Provide mock data context that can be used during this test execution.
+          Define the JSON payload that will be sent as the body of this HTTP request during test execution.
         </Text>
         <Paper
           withBorder

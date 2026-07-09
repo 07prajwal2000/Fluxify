@@ -30,10 +30,7 @@ const ProjectMembersList = () => {
   }
   return (
     <Stack>
-      <Group justify="space-between" pt={"xs"} px={"xs"}>
-        <Text size="lg" fw={"500"} c="dark">
-          Project Members List
-        </Text>
+      <Group justify="flex-end" pt={"xs"} px={"xs"}>
         <Group>
           <Pagination
             onPageChange={(page) => setMembersPagination(pagination.page, page)}

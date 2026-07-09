@@ -193,5 +193,6 @@ export async function runSuiteAssertions(
 	return {
 		success: allPassed,
 		result,
+		actualData: resBody,
 	};
 }

@@ -12,4 +12,5 @@ export const responseSchema = z.object({
       message: z.string(),
     }),
   ),
+  actualData: z.unknown().optional(),
 });

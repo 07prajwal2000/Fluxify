@@ -12,7 +12,11 @@ const BackToEditorButton = (props: Props) => {
   const router = useRouter();
 
   function onClick() {
-    router.replace(`/editor/${props.routeId}`);
+    if (window.history.length > 1) {
+      router.back();
+    } else {
+      router.push(`/editor/${props.routeId}`);
+    }
   }
 
   return (

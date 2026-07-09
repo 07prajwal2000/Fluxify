@@ -21,7 +21,7 @@ import { ContentfulStatusCode } from "hono/utils/http-status";
 import { JsVM } from "@fluxify/lib";
 import { startBlocksExecution } from "../../loaders/blocksLoader";
 import { getAppConfig } from "../../loaders/appconfigLoader";
-import { parseRequestSchema } from "../../lib/schemaParser";
+import { parseRequestSchema, ValidationError } from "../../lib/schemaParser";
 import { createObservabilityLogger, DbFactory } from "@fluxify/adapters";
 import {
 	dbIntegrationsCache,
@@ -67,7 +67,9 @@ export async function handleRequest(
 	const vm = createJsVM(vars);
 
 	if (path.bodySchema && Object.keys(path.bodySchema).length > 0) {
-		const result = await parseRequestSchema(path.bodySchema, requestBody, { vm });
+		const result = await parseRequestSchema(path.bodySchema, requestBody, {
+			vm,
+		});
 		if (!result.success) {
 			return {
 				status: 400,
@@ -75,9 +77,12 @@ export async function handleRequest(
 			};
 		}
 	}
-	
+
 	if (path.querySchema && Object.keys(path.querySchema).length > 0) {
-		const result = await parseRequestSchema(path.querySchema, ctx.req.query(), { vm, coerce: true });
+		const result = await parseRequestSchema(path.querySchema, ctx.req.query(), {
+			vm,
+			coerce: true,
+		});
 		if (!result.success) {
 			return {
 				status: 400,
@@ -85,13 +90,20 @@ export async function handleRequest(
 			};
 		}
 	}
-	
+
 	if (path.paramsSchema && Object.keys(path.paramsSchema).length > 0) {
-		const result = await parseRequestSchema(path.paramsSchema, path.routeParams || {}, { vm, coerce: true });
+		const result = await parseRequestSchema(
+			path.paramsSchema,
+			path.routeParams || {},
+			{ vm, coerce: true },
+		);
 		if (!result.success) {
 			return {
 				status: 400,
-				data: { message: "Path parameters validation failed", errors: result.errors },
+				data: {
+					message: "Path parameters validation failed",
+					errors: result.errors,
+				},
 			};
 		}
 	}
@@ -198,6 +210,7 @@ function setupContextVars(
 	}
 
 	return {
+		ValidationError: ValidationError,
 		jwt: {
 			decode(token, options) {
 				return jwt.decode(token, options) as Record<string, string>;

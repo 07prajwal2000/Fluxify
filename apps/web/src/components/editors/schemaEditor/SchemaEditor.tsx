@@ -24,7 +24,8 @@ const SchemaEditorContent = forwardRef<SchemaEditorRef, SchemaEditorProps>(({ on
   useImperativeHandle(ref, () => ({
     save: () => {
       onSave?.(schema);
-    }
+    },
+    getSchema: () => schema
   }));
 
   const isRootJs = schema.dataType === 'js';

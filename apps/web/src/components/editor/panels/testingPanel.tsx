@@ -22,6 +22,7 @@ import QueryError from "../../query/queryError";
 import Sidebar from "./testing/Sidebar";
 import Playground from "./testing/Playground";
 import TestSuiteEditor from "./testing/TestSuiteEditor";
+import TestSummaryModal from "./testing/components/TestSummaryModal";
 import FormDialog from "../../dialog/formDialog";
 import ConfirmDialog from "../../dialog/confirmDialog";
 import { testSuitesQueries } from "@/query/testSuitesQuery";
@@ -61,9 +62,15 @@ const TestingPanel = () => {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [newSuite, setNewSuite] = useState({ name: "", description: "" });
 
-  const [isFailedAllDialogOpen, setIsFailedAllDialogOpen] = useState(false);
-  const [failedAllSuites, setFailedAllSuites] = useState<
-    { name?: string; errors?: string[] }[]
+  const [isTestSummaryOpen, setIsTestSummaryOpen] = useState(false);
+  const [summarySuites, setSummarySuites] = useState<
+    { 
+      name?: string; 
+      success?: boolean;
+      errors?: string[]; 
+      assertions?: { success: boolean, message: string }[];
+      actualData?: unknown; 
+    }[]
   >([]);
 
   const handleAddSuite = async () => {
@@ -117,13 +124,10 @@ const TestingPanel = () => {
                 message: "Some test suites failed their assertions.",
                 color: "red",
               });
-              if (res.result) {
-                const failed = res.result.filter((r) => !r.success);
-                if (failed.length > 0) {
-                  setFailedAllSuites(failed);
-                  setIsFailedAllDialogOpen(true);
-                }
-              }
+            }
+            if (res.result && res.result.length > 0) {
+              setSummarySuites(res.result);
+              setIsTestSummaryOpen(true);
             }
           } catch (e: any) {
             notifications.show({
@@ -194,62 +198,11 @@ const TestingPanel = () => {
         </Stack>
       </FormDialog>
 
-      <Modal
-        title={
-          <Text fw={700} c="red.8" size="lg">
-            Test Suites Failed
-          </Text>
-        }
-        opened={isFailedAllDialogOpen}
-        onClose={() => setIsFailedAllDialogOpen(false)}
-        size="lg"
-      >
-        <Alert
-          icon={<TbAlertCircle size={16} />}
-          title={`${failedAllSuites.length} test suite(s) failed during execution.`}
-          color="red"
-          variant="light"
-          mb="md"
-        />
-        <Accordion variant="separated" radius="md" chevronPosition="left">
-          {failedAllSuites.map((suite, i) => (
-            <Accordion.Item key={i} value={suite.name || `Suite ${i}`}>
-              <Accordion.Control>
-                <Text fw={600} size="sm">
-                  {suite.name || "Unknown Suite"}
-                </Text>
-              </Accordion.Control>
-              <Accordion.Panel>
-                <List
-                  spacing="xs"
-                  size="sm"
-                  center
-                  icon={
-                    <ThemeIcon color="red" size={20} radius="xl">
-                      <TbX size={12} />
-                    </ThemeIcon>
-                  }
-                >
-                  {(suite.errors || []).map((err, idx) => (
-                    <List.Item key={idx}>
-                      <Text size="sm" c="gray.8">
-                        {err}
-                      </Text>
-                    </List.Item>
-                  ))}
-                  {(!suite.errors || suite.errors.length === 0) && (
-                    <List.Item>
-                      <Text size="sm" c="gray.5" fs="italic">
-                        No detailed assertions provided or evaluated.
-                      </Text>
-                    </List.Item>
-                  )}
-                </List>
-              </Accordion.Panel>
-            </Accordion.Item>
-          ))}
-        </Accordion>
-      </Modal>
+      <TestSummaryModal
+        opened={isTestSummaryOpen}
+        onClose={() => setIsTestSummaryOpen(false)}
+        suites={summarySuites}
+      />
     </Box>
   );
 };

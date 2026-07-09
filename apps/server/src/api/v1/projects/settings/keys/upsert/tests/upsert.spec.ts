@@ -30,7 +30,6 @@ mock.module("../connection", () => ({
 
 describe("upsert project settings service", () => {
 	beforeEach(() => {
-		mock.restore();
 		(repository.upsertProjectSettingKey as any).mockClear();
 		(repository.checkProjectExists as any).mockClear();
 		(redis.setCache as any).mockClear();

@@ -20,8 +20,10 @@ export async function loadProjectSettings() {
 	projectSettingsCache = await getAllProjectSettings();
 	settingsLoaded = true;
 	logger.info("project settings loaded");
-	await subscribeToChannel(CHAN_ON_PROJECT_SETTING_CHANGE, async () => {
+	await subscribeToChannel(CHAN_ON_PROJECT_SETTING_CHANGE, async (id) => {
 		projectSettingsCache = await getAllProjectSettings();
+		const { invalidateOpenApiCache } = await import("../api/v1/routes/openapi/service");
+		await invalidateOpenApiCache(id);
 		logger.info("project settings reloaded");
 	});
 }

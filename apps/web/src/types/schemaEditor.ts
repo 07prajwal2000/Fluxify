@@ -37,4 +37,5 @@ export interface ValidationSchema {
 
 export interface SchemaEditorRef {
   save: () => void;
+  getSchema: () => ValidationSchema;
 }

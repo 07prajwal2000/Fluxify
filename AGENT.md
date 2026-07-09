@@ -10,6 +10,12 @@ When processing a user request, you must execute the following steps entirely wi
 3. **Prompt Refinement:** Mentally rewrite the user's prompt into a highly structured, LLM-ready prompt. This refined prompt should explicitly state the goal, constraints, required context, and step-by-step logic.
 4. **Execution:** Proceed to solve the task using this mentally refined prompt as your directive. The user is not required to manually prompt you to adopt a persona or specify best practices—you must initialize this high-level expert state automatically.
 
+## Runtime & Package Management
+**CRITICAL:** Always use `bun` as the runtime for this project. 
+- Use `bun run`, `bun install`, `bun test`, etc.
+- Do not use `npm`, `yarn`, or `pnpm` unless explicitly instructed otherwise.
+- Use `bun` to execute JavaScript/TypeScript files.
+
 ## Git & GitHub Workflow Rules
 On each new conversation, you MUST:
 1. Ask the user whether they want to create a new branch or work on the `main` branch.
@@ -67,22 +73,16 @@ The `/docs` directory contains **user-facing documentation** — not a technical
 
 ---
 
-## Codebase Discovery (codebase-memory-mcp)
-**CRITICAL:** This project uses `codebase-memory-mcp` to maintain a knowledge graph of the codebase. 
-You MUST ALWAYS use these MCP graph tools for code discovery instead of builtin tools like `grep_search`, `list_dir`, or running grep via terminal commands.
+## Codebase Discovery (Hybrid Approach)
+**CRITICAL:** This project uses `codebase-memory-mcp` alongside native tools. Mix and match to achieve the best results:
+- **Use `codebase-memory-mcp`** (e.g., `search_graph`, `query_graph`, `trace_path`) for semantic search, finding functions/classes/routes by keyword or pattern, and understanding code relationships. It excels at glob searching and deep code structure.
+- **Use Native Tools** (e.g., `list_dir`, `view_file`, `grep_search`) for exploring physical folder structure, reading exact file contents, or simple text lookups.
 
-### Priority Order for Search
-1. **`search_graph`** — Find functions, classes, routes, and variables by pattern.
-2. **`trace_path`** — Trace who calls a function or what a function calls.
-3. **`get_code_snippet`** — Read specific function/class source code efficiently.
-4. **`query_graph`** — Run Cypher queries for complex structural patterns.
-5. **`get_architecture`** — High-level project summary and architectural exploration.
-
-### Fallback Scenarios
-You may fallback to `grep_search` or terminal commands ONLY for:
-- Searching for string literals, error messages, or config values.
-- Searching non-code files (Dockerfiles, shell scripts, config JSONs).
-- When the MCP tools return absolutely insufficient results.
+### When to use which:
+- **`codebase-memory-mcp` tools:** Finding a specific handler, tracing where a function is called, exploring architecture, or searching for keywords across the knowledge graph.
+- **`list_dir`:** Understanding the physical directory structure or finding where a new component should be placed.
+- **`view_file`:** Reading the full contents of a specific file once located.
+- **`grep_search`:** Finding string literals, error messages, or config values in non-code files.
 
 ### Examples
 - **Find a handler:** `search_graph(name_pattern=".*OrderHandler.*")`

@@ -99,10 +99,10 @@ export default function EditRouteSettings({ routeId }: { routeId: string }) {
       return;
     }
 
-    // Force save schemas before submitting
-    bodySchemaRef.current?.save();
-    querySchemaRef.current?.save();
-    paramsSchemaRef.current?.save();
+    // Get schemas directly from refs to avoid waiting for async React state updates
+    const currentBodySchema = bodySchemaRef.current?.getSchema() ?? bodySchema;
+    const currentQuerySchema = querySchemaRef.current?.getSchema() ?? querySchema;
+    const currentParamsSchema = paramsSchemaRef.current?.getSchema() ?? paramsSchema;
 
     try {
       setLoading(true);
@@ -111,9 +111,9 @@ export default function EditRouteSettings({ routeId }: { routeId: string }) {
         path: generalForm.getValues().path,
         method: generalForm.getValues().method as any,
         active: generalForm.getValues().active,
-        bodySchema: hasBody ? bodySchema : undefined,
-        querySchema,
-        paramsSchema: hasParams ? paramsSchema : undefined,
+        bodySchema: hasBody ? currentBodySchema : undefined,
+        querySchema: currentQuerySchema,
+        paramsSchema: hasParams ? currentParamsSchema : undefined,
       });
       notifications.show({
         title: "Success",

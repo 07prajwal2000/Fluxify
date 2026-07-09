@@ -17,6 +17,7 @@ interface RequestConfigProps {
   onHeadersChange: (data: Record<string, string>) => void;
   body: string;
   onBodyChange: (data: string) => void;
+  hideBodyTab?: boolean;
 }
 
 const RequestConfig = ({
@@ -30,8 +31,9 @@ const RequestConfig = ({
   onHeadersChange,
   body,
   onBodyChange,
+  hideBodyTab,
 }: RequestConfigProps) => {
-  const isBodyDisabled = ["GET", "DELETE"].includes(method.toUpperCase());
+  const isBodyDisabled = ["GET", "DELETE"].includes(method.toUpperCase()) || hideBodyTab;
 
   return (
     <Box bg="white" style={{ display: "flex", flexDirection: "column", height: "100%" }}>

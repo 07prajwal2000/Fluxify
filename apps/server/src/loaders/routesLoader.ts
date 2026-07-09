@@ -18,7 +18,11 @@ export async function loadRoutes() {
 		// register to chan:on-route-change signal from redis event
 		logger.info("routes hot reloading enabled");
 		subscribeToChannel(CHAN_ON_ROUTE_CHANGE, async (id) => {
-			if (id) await deleteCacheKey(`${id}_GRAPH`);
+			if (id) {
+				await deleteCacheKey(`${id}_GRAPH`);
+			}
+			const { invalidateOpenApiCache } = await import("../api/v1/routes/openapi/service");
+			await invalidateOpenApiCache();
 			const fetchedRoutes = await fetchRoutes();
 			// @ts-ignore
 			parser.rebuildRoutes(fetchedRoutes);

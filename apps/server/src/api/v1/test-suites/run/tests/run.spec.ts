@@ -43,7 +43,8 @@ describe("Test Suites Endpoints - RUN", () => {
         { success: true, message: "Passed" },
         { success: false, message: "Failed" },
       ],
-    });
+      actualData: { foo: "bar" },
+    } as any);
 
     const suiteId = crypto.randomUUID();
     const req = new Request(`http://localhost/test-suites/${suiteId}/run`, {
@@ -57,5 +58,7 @@ describe("Test Suites Endpoints - RUN", () => {
     expect(data.result).toHaveLength(2);
     expect(data.result[0].success).toBeTrue();
     expect(data.result[1].success).toBeFalse();
+    expect(data.actualData).toBeDefined();
+    expect(data.actualData.foo).toBe("bar");
   });
 });

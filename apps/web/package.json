@@ -20,6 +20,7 @@
 		"@mantine/notifications": "^8.3.5",
 		"@mantine/nprogress": "^8.3.5",
 		"@monaco-editor/react": "^4.7.0",
+		"@scalar/api-reference-react": "^0.9.54",
 		"@tanstack/react-query": "^5.90.5",
 		"@tanstack/react-virtual": "^3.14.5",
 		"@xyflow/react": "^12.9.0",

@@ -10,7 +10,8 @@ import { useProjectSettingsSidebarStore } from "@/store/projectSettings";
 import { useProjectSettingsActions } from "@/store/projectSettings";
 import ProjectMembersList from "./projectMembersList";
 import ProjectInfo from "./projectInfo";
-import { TbInfoCircle } from "react-icons/tb";
+import ProjectProviders from "./projectProviders";
+import { TbInfoCircle, TbCloudCog } from "react-icons/tb";
 
 interface Props {
   disableNpm?: boolean;
@@ -50,6 +51,15 @@ const ProjectSettings = (props: Props) => {
           }}
           leftIcon={<FaUsers size={20} />}
         />
+        <MenuItem
+          isActive={sidebarStore.active === "projectProviders"}
+          text={"System Providers"}
+          color="dark"
+          onClick={() => {
+            setSidebarActive("projectProviders");
+          }}
+          leftIcon={<TbCloudCog size={20} />}
+        />
         {!props.disableNpm && (
           <RequireRole
             requiredRole="creator"
@@ -70,6 +80,7 @@ const ProjectSettings = (props: Props) => {
       <Stack flex={4} w={"65%"} h={"100%"} style={{ overflow: "hidden" }}>
         {sidebarStore.active === "projectMembers" && <ProjectMembersList />}
         {sidebarStore.active === "projectInfo" && <ProjectInfo />}
+        {sidebarStore.active === "projectProviders" && <ProjectProviders />}
       </Stack>
     </Group>
   );

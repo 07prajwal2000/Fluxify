@@ -1,12 +1,13 @@
 "use client";
 
 import { projectSettingsQuery } from "@/query/projectSettingsQuery";
-import { Stack, Group, Divider, Text, Code } from "@mantine/core";
+import { Stack, Group, Text, Code } from "@mantine/core";
 import { useParams } from "next/navigation";
 import QueryLoader from "../query/queryLoader";
 import QueryError from "../query/queryError";
 import { useQueryClient } from "@tanstack/react-query";
-import IntegrationSelector from "../editors/integrationSelector";
+import { TbApi, TbExternalLink, TbCopy, TbCheck } from "react-icons/tb";
+import { Card, Flex, ActionIcon, CopyButton, Tooltip } from "@mantine/core";
 
 const ProjectInfo = () => {
 	const { projectId } = useParams();
@@ -18,6 +19,7 @@ const ProjectInfo = () => {
 		projId,
 		client,
 	);
+	
 	if (isLoading) return <QueryLoader skeletonsCols={2} skeletonsRows={4} />;
 	if (isError || !data)
 		return (
@@ -27,46 +29,46 @@ const ProjectInfo = () => {
 				error={error || undefined}
 			/>
 		);
+		
 	return (
 		<Stack>
-			<Group justify="space-between">
-				<Text size="lg" fw={"500"} c="dark">
-					Project Info
-				</Text>
-			</Group>
-			<Divider />
 			<Stack>
-				<IntegrationSelector
-					selectedIntegration={data["settings.ai.agentConnectionId"] || ""}
-					group="ai"
-					label="LLM Provider for AI Agent"
-					description="Choose the LLM provider for AI Agent which is used across the project"
-					tags={["llm"]}
-					onSelect={(value) => {
-						upsertMutation.mutate({
-							key: "settings.ai.agentConnectionId",
-							value,
-						});
-					}}
-				/>
-				<IntegrationSelector
-					selectedIntegration={data["settings.ai.loggerConnectionId"] || ""}
-					group="observability"
-					label={
-						<Text>
-							Configure Logger Integration for JavaScript <Code>logger</Code>{" "}
-							api
-						</Text>
-					}
-					description="Choose the logger integration for JavaScript logger api. By default it is set to server's console."
-					tags={["logs"]}
-					onSelect={(value) => {
-						upsertMutation.mutate({
-							key: "settings.ai.loggerConnectionId",
-							value,
-						});
-					}}
-				/>
+				<Card withBorder radius="md" p="md" shadow="sm">
+					<Group justify="space-between">
+						<Group gap="sm">
+							<TbApi size={24} color="#6c757d" />
+							<div>
+								<Text fw={500}>OpenAPI Specification</Text>
+								<Text size="sm" c="dimmed">
+									Access your project's auto-generated OpenAPI spec and UI documentation
+								</Text>
+							</div>
+						</Group>
+						<Flex gap="sm">
+							<CopyButton value={typeof window !== "undefined" ? `${window.location.origin}/_/admin/api/v1/routes/${projId}/openapi.json` : `/_/admin/api/v1/routes/${projId}/openapi.json`} timeout={2000}>
+								{({ copied, copy }) => (
+									<Tooltip label={copied ? "Copied JSON URL" : "Copy JSON URL"} withArrow position="top">
+										<ActionIcon color={copied ? "teal" : "gray"} variant="light" onClick={copy} size="lg">
+											{copied ? <TbCheck size={18} /> : <TbCopy size={18} />}
+										</ActionIcon>
+									</Tooltip>
+								)}
+							</CopyButton>
+							<Tooltip label="Open interactive UI" withArrow position="top">
+								<ActionIcon 
+									component="a" 
+									href={`/_/admin/ui/${projId}/openapi`} 
+									target="_blank" 
+									variant="light" 
+									color="violet"
+									size="lg"
+								>
+									<TbExternalLink size={18} />
+								</ActionIcon>
+							</Tooltip>
+						</Flex>
+					</Group>
+				</Card>
 			</Stack>
 		</Stack>
 	);

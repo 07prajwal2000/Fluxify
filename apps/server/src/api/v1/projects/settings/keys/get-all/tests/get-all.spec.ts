@@ -17,7 +17,10 @@ mock.module("../../../../../../../db/redis", () => ({
 
 describe("get-all project settings service", () => {
   beforeEach(() => {
-    mock.restore();
+    (repository.checkProjectExists as any).mockClear();
+    (repository.getProjectSettingsKeys as any).mockClear();
+    (redis.getCache as any).mockClear();
+    (redis.setCache as any).mockClear();
   });
 
   it("should return cached settings if available", async () => {

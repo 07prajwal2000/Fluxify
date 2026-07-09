@@ -9,82 +9,29 @@ import ResponseSection from "./components/ResponseSection";
 import z from "zod";
 import { responseSchema as getByIdResponseSchema } from "@fluxify/server/src/api/v1/routes/get-by-id/dto";
 import { showNotification } from "@mantine/notifications";
-import { ValidationSchema, SchemaProperty } from "@/types/schemaEditor";
-
-function generateSampleData(prop: ValidationSchema | SchemaProperty): unknown {
-	if (!prop) return null;
-	if (prop.dataType === 'str') return "string";
-	if (prop.dataType === 'int') return 0;
-	if (prop.dataType === 'float') return 0.0;
-	if (prop.dataType === 'bool') return false;
-	if (prop.dataType === 'enum') {
-		const enumRule = prop.rules?.find((r: any) => r.type === 'enum');
-		if (enumRule && Array.isArray(enumRule.value) && enumRule.value.length > 0) {
-			return enumRule.value[0];
-		}
-		return "enum_value";
-	}
-	if (prop.dataType === 'arr') {
-		const p = prop as SchemaProperty;
-		if (p.items) return [generateSampleData(p.items)];
-		return [];
-	}
-	if (prop.dataType === 'object') {
-		const obj: Record<string, unknown> = {};
-		if (prop.properties) {
-			prop.properties.forEach((p: SchemaProperty) => {
-				if (p.key) {
-					obj[p.key] = generateSampleData(p);
-				}
-			});
-		}
-		return obj;
-	}
-	return null;
-}
+import { getInitialRequestData } from "./utils";
+import type { ValidationSchema } from "@/types/schemaEditor";
 
 const Playground = ({
 	route,
 }: {
 	route: z.infer<typeof getByIdResponseSchema>;
 }) => {
-	const [pathParams, setPathParams] = useState<Record<string, string>>(() => {
-		const params = route.path.match(/:[a-zA-Z0-9_]+/g);
-		const initial: Record<string, string> = {};
-		if (params) {
-			params.forEach((p: string) => {
-				initial[p.substring(1)] = "";
-			});
-		}
-		return initial;
-	});
-	const [queryParams, setQueryParams] = useState<Record<string, string>>(() => {
-		const initialQuery: Record<string, string> = {};
-		const querySchema = route.querySchema as ValidationSchema | undefined;
-		if (querySchema?.properties) {
-			querySchema.properties.forEach((p: SchemaProperty) => {
-				if (p.key) {
-					initialQuery[p.key] = "";
-				}
-			});
-		}
-		return initialQuery;
-	});
+	const initialData = useMemo(() => getInitialRequestData(route), [route]);
+	const [pathParams, setPathParams] = useState<Record<string, string>>(initialData.pathParams);
+	const [queryParams, setQueryParams] = useState<Record<string, string>>(initialData.queryParams);
 	const [headers, setHeaders] = useState<Record<string, string>>({
 		"Content-Type": "application/json",
 	});
-	const [body, setBody] = useState<string>(() => {
-		const bodySchema = route.bodySchema as ValidationSchema | undefined;
-		if (bodySchema) {
-			const sampleData = generateSampleData(bodySchema);
-			if (sampleData && typeof sampleData === 'object' && Object.keys(sampleData).length > 0) {
-				return JSON.stringify(sampleData, null, 2);
-			} else if (Array.isArray(sampleData) && sampleData.length > 0) {
-				return JSON.stringify(sampleData, null, 2);
-			}
-		}
-		return "{\n  \n}";
-	});
+	const [body, setBody] = useState<string>(initialData.body);
+
+	// Update states when route changes
+	useEffect(() => {
+		const newInitialData = getInitialRequestData(route);
+		setPathParams(newInitialData.pathParams);
+		setQueryParams(newInitialData.queryParams);
+		setBody(newInitialData.body);
+	}, [route]);
 
 	const resolvedUrl = useMemo(() => {
 		let finalPath = route.path;
@@ -129,10 +76,13 @@ const Playground = ({
 			let parsedBody;
 			try {
 				parsedBody = JSON.parse(body);
+				const objectSchema = z.json();
 				if (
 					["POST", "PUT"].includes(route.method.toUpperCase()) &&
-					(!!parsedBody || Object.keys(parsedBody).length === 0)
+					!parsedBody &&
+					!objectSchema.safeParse(parsedBody).success
 				) {
+					console.log("Invalid JSON body", parsedBody);
 					showNotification({
 						title: "Error",
 						message: "Invalid JSON body",
@@ -213,7 +163,7 @@ const Playground = ({
 					path={route.path}
 					rightSection={
 						<Tooltip label="Route is disabled" disabled={route.active}>
-							<Box style={{ display: 'inline-block' }}>
+							<Box style={{ display: "inline-block" }}>
 								<Button
 									color="violet.6"
 									size="md"

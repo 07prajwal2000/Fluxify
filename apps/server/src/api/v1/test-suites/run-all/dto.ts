@@ -12,6 +12,11 @@ export const responseSchema = z.object({
       success: z.boolean(),
       name: z.string().optional(),
       errors: z.array(z.string()).optional(),
+      assertions: z.array(z.object({
+        success: z.boolean(),
+        message: z.string(),
+      })).optional(),
+      actualData: z.unknown().optional(),
     }),
   ),
 });

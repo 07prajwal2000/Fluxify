@@ -19,6 +19,11 @@ export default async function handleRequest(routeId: string) {
           errors: suiteResult.result
             .filter((r) => !r.success)
             .map((r) => r.message),
+          assertions: suiteResult.result.map((r) => ({
+            success: r.success,
+            message: r.message,
+          })),
+          actualData: suiteResult.actualData,
         });
       } catch (e: unknown) {
         results.push({

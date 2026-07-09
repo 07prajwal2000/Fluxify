@@ -2,7 +2,7 @@ import type { AccessControlRole } from "@fluxify/server/src/db/schema";
 import { create } from "zustand";
 import { immer } from "zustand/middleware/immer";
 
-type SidebarType = "projectMembers" | "npmPackages" | "projectInfo";
+type SidebarType = "projectMembers" | "npmPackages" | "projectInfo" | "projectProviders";
 
 type State = {
   sidebar: {

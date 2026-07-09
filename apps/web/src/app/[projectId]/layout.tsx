@@ -81,6 +81,10 @@ const NewProjectLayout = ({ children }: { children: React.ReactNode }) => {
 		},
 	];
 
+	if (path.endsWith("/openapi")) {
+		return <>{children}</>;
+	}
+
 	return (
 		<AppShell
 			header={{ height: 60 }}

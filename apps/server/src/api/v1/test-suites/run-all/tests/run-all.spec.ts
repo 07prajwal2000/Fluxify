@@ -43,9 +43,9 @@ describe("Test Suites Endpoints - RUN ALL", () => {
 
   it("/run-all one failing suite does not prevent others", async () => {
     spyOn(runner, "runSuiteAssertions")
-      .mockResolvedValueOnce({ success: true, result: [] })
+      .mockResolvedValueOnce({ success: true, result: [], actualData: { a: 1 } } as any)
       .mockRejectedValueOnce(new Error("Network failed"))
-      .mockResolvedValueOnce({ success: true, result: [] });
+      .mockResolvedValueOnce({ success: true, result: [], actualData: { c: 3 } } as any);
 
     const routeId = crypto.randomUUID();
     const req = new Request(
@@ -66,9 +66,11 @@ describe("Test Suites Endpoints - RUN ALL", () => {
     expect(data.result[1].success).toBeFalse();
     expect(data.result[1].name).toBe("Suite 2");
     expect(data.result[1].errors).toBeArrayOfSize(1);
+    expect(data.result[1].actualData).toBeUndefined();
 
     expect(data.result[2].success).toBeTrue();
     expect(data.result[2].name).toBe("Suite 3");
     expect(data.result[2].errors).toBeArrayOfSize(0);
+    expect(data.result[2].actualData.c).toBe(3);
   });
 });
