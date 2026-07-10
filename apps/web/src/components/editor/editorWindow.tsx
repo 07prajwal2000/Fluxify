@@ -1,92 +1,19 @@
 "use client";
 
-import {
-	EditorTab,
-	useEditorActionsStore,
-	useEditorChangeTrackerStore,
-	useEditorStore,
-	useEditorTabStore,
-} from "@/store/editor";
-import React, { useEffect } from "react";
-import EditorPanel from "./panels/editor";
+import { EditorTab, useEditorTabStore } from "@/store/editor";
+import React from "react";
 import ExecutionPanel from "./panels/executionPanel";
 import TestingPanel from "./panels/testingPanel";
-import { routesQueries } from "@/query/routerQuery";
-import { useParams } from "next/navigation";
-import QueryLoader from "../query/queryLoader";
-import QueryError from "../query/queryError";
-import { useCanvasActionsStore } from "@/store/canvas";
-import { useBlockDataActionsStore } from "@/store/blockDataStore";
+import FlowEditor from "./flowEditor";
 
 const EditorWindow = () => {
-	const resetStore = useEditorStore((state) => state.reset);
-	const { bulkInsert } = useCanvasActionsStore();
-	const { bulkInsert: bulkInsertBlockData, clearBlockData } =
-		useBlockDataActionsStore();
-	const { id } = useParams<{ id: string }>();
-	const { useQuery } = routesQueries.getCanvasItems;
-	const { data, isLoading, isError, error, refetch } = useQuery(id);
-	const {
-		reset: resetEditorActions,
-		disable,
-		enable,
-	} = useEditorActionsStore();
-	const { reset: resetChangeTracker } = useEditorChangeTrackerStore();
-
-	const loadedId = React.useRef<string | null>(null);
-
-	useEffect(() => {
-		if (data && loadedId.current !== id) {
-			loadedId.current = id;
-			disable();
-			bulkInsert(
-				data.blocks as any,
-				data.edges.map((edge) => ({
-					id: edge.id,
-					source: edge.from,
-					target: edge.to,
-					sourceHandle: edge.fromHandle,
-					targetHandle: edge.toHandle,
-					type: "custom",
-				})),
-			);
-			bulkInsertBlockData(data.blocks);
-			// After inserting, clear any possible stacks and start recording again
-			resetEditorActions();
-			setTimeout(() => {
-				enable();
-			}, 100);
-		}
-	}, [
-		data,
-		id,
-		disable,
-		bulkInsert,
-		bulkInsertBlockData,
-		resetEditorActions,
-		enable,
-	]);
-	useEffect(() => {
-		return () => {
-			resetStore();
-			clearBlockData();
-			resetEditorActions();
-			resetChangeTracker();
-		};
-	}, []);
-
 	const { activeTab } = useEditorTabStore();
 
-	if (isLoading) {
-		return <QueryLoader type="spinner" />;
+	if (activeTab === EditorTab.EDITOR) {
+		return <FlowEditor />;
+	} else if (activeTab === EditorTab.EXECUTIONS) {
+		return <ExecutionPanel />;
 	}
-
-	if (isError) {
-		return <QueryError error={error} refetcher={refetch} />;
-	}
-
-	if (activeTab === EditorTab.EDITOR) return <EditorPanel />;
-	else if (activeTab === EditorTab.EXECUTIONS) return <ExecutionPanel />;
 	return <TestingPanel />;
 };
 

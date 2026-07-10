@@ -1,8 +1,9 @@
+"use client";
 import { useEditorSearchbarStore } from "@/store/editor";
 import { Box } from "@mantine/core";
 import { useContext, useEffect, useMemo } from "react";
 import SearchBlockItem from "./searchBlocktem";
-import blocksForSearch, { categoryList } from "../../blocks/searchList";
+import blocksForSearch, { categoryList } from "../blocks/searchList";
 import { BlockCanvasContext } from "@/context/blockCanvas";
 import { BlockTypes } from "@/types/block";
 
@@ -20,14 +21,14 @@ const BlockSearchList = () => {
   const { addBlock } = useContext(BlockCanvasContext);
 
   const filteredBlocks = useMemo(() => {
-    return blocksForSearch.filter((block) => {
+    return blocksForSearch.filter((block: any) => {
       if (searchQuery.startsWith("cat:")) {
         return block.category === searchQuery.slice(4);
       }
       return (
         block.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
         block.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        block.tags.filter((tag) =>
+        block.tags.filter((tag: string) =>
           tag.toLowerCase().includes(searchQuery.toLowerCase()),
         ).length > 0
       );
@@ -91,7 +92,7 @@ const BlockSearchList = () => {
           display: inCategoryMode ? "block" : "none",
         }}
       >
-        {categoryList.map((category, i) => (
+        {categoryList.map((category: any, i: number) => (
           <SearchBlockItem
             active={currentIndex === i}
             key={category.id}
@@ -107,7 +108,7 @@ const BlockSearchList = () => {
         ))}
       </Box>
       {!inCategoryMode &&
-        filteredBlocks.map((block, i) => (
+        filteredBlocks.map((block: any, i: number) => (
           <SearchBlockItem
             active={currentIndex === i}
             key={block.id}

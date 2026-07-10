@@ -1,15 +1,18 @@
+"use client";
 import { Group } from "@mantine/core";
 import React from "react";
 import UndoPanel from "./undoPanel";
 import ZoomToolbox from "./zoomToolbox";
 import FormatBlocksButton from "./formatBlocksButton";
+import { useFlowEditorContext } from "../flowEditorContext";
 
 const CanvasToolboxPanel = () => {
+  const { features } = useFlowEditorContext();
   return (
     <Group>
-      <ZoomToolbox />
+      {features.zoomPanel && <ZoomToolbox />}
       <FormatBlocksButton />
-      <UndoPanel />
+      {features.undoRedo && <UndoPanel />}
     </Group>
   );
 };

@@ -1,7 +1,8 @@
+"use client";
 import { Box } from "@mantine/core";
 import { Background, Panel, ReactFlow } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
-import { blocksList } from "../../blocks/blocksList";
+import { blocksList } from "../blocks/blocksList";
 import { BaseBlockType } from "@/types/block";
 import {
 	useCanvasActionsStore,
@@ -9,14 +10,12 @@ import {
 	useCanvasEdgesStore,
 } from "@/store/canvas";
 import CanvasToolboxPanel from "./toolbox/canvasToolboxPanel";
-import { edgeTypes } from "../../blocks/customEdge";
+import { edgeTypes } from "../blocks/customEdge";
 import { BlockCanvasContext } from "@/context/blockCanvas";
 import BlockSearchDrawer from "./blockSearchDrawer";
 import EditorToolbox from "./editorToolbox";
-import BlockSettingsDialog from "../../blocks/settingsDialog/blockSettingsDialog";
+import BlockSettingsDialog from "../blocks/settingsDialog/blockSettingsDialog";
 import CanvasKeyboardAccessibility from "./canvasKeyboardAccessibility";
-import RequireRole from "@/components/auth/requireRole";
-import { routesQueries } from "@/query/routerQuery";
 import { useBlockHistory } from "@/hooks/useBlockHistory";
 import { useCanvasEvents } from "@/hooks/useCanvasEvents";
 import { useCanvasSave } from "@/hooks/useCanvasState";
@@ -27,23 +26,15 @@ import {
 	useBlockDataActionsStore,
 } from "@/store/blockDataStore";
 import { useEditorChangeTrackerStore } from "@/store/editor";
-import { canAccess } from "@fluxify/server/src/lib/acl";
-import { useAuthStore } from "@/store/auth";
+import { useFlowEditorContext } from "./flowEditorContext";
 
-type Props = {
-	readonly?: boolean;
-	routeId?: string;
-};
-
-const BlockCanvas = ({ readonly, routeId }: Props) => {
+const BlockCanvas = () => {
+	const { readonly, routeId, features } = useFlowEditorContext();
+	
 	const {
 		blocks: { onBlockChange },
 		edges: { onEdgeChange },
 	} = useCanvasActionsStore();
-	const { data: routeData } = routesQueries.getById.useQuery(routeId ?? "");
-	const projectId = routeData?.projectId ?? "";
-	const acl = useAuthStore().acl;
-	const canvasEditable = !canAccess(acl[projectId], "creator");
 
 	const blocks = useCanvasBlocksStore();
 	const edges = useCanvasEdgesStore();
@@ -164,9 +155,7 @@ const BlockCanvas = ({ readonly, routeId }: Props) => {
 				}}
 			>
 				<Box style={{ position: "absolute", zIndex: 10, right: 0 }} p="lg">
-					<RequireRole requiredRole="creator" projectId={projectId}>
-						<EditorToolbox />
-					</RequireRole>
+					{!readonly && <EditorToolbox />}
 				</Box>
 
 				<ReactFlow
@@ -203,9 +192,9 @@ const BlockCanvas = ({ readonly, routeId }: Props) => {
 					<Panel position="bottom-left">
 						<CanvasToolboxPanel />
 					</Panel>
-					<RequireRole requiredRole="creator" projectId={projectId}>
+					{!readonly && features.keyboardAccessibility && (
 						<CanvasKeyboardAccessibility />
-					</RequireRole>
+					)}
 				</ReactFlow>
 
 				<BlockSettingsDialog />

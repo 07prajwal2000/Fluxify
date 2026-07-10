@@ -6,6 +6,8 @@ import { canAccess } from "@fluxify/server/src/lib/acl";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import React from "react";
+import { EditorStoreProvider } from "@/store/editor";
+import EditorProvidersWrapper from "@/components/editor/editorProvidersWrapper";
 
 const Page = async () => {
 	const headersList = await headers();
@@ -20,9 +22,13 @@ const Page = async () => {
 		return redirect("/");
 	}
 	return (
-		<EditorAppShell>
-			<EditorWindow />;
-		</EditorAppShell>
+		<EditorStoreProvider>
+			<EditorProvidersWrapper>
+				<EditorAppShell>
+					<EditorWindow />
+				</EditorAppShell>
+			</EditorProvidersWrapper>
+		</EditorStoreProvider>
 	);
 };
 
