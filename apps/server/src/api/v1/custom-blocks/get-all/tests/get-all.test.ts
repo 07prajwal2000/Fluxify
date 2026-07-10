@@ -15,7 +15,7 @@ describe("Get-All Custom Blocks Service", () => {
     const res = await handleRequest({ projectId: "proj_123" });
     expect(res).toHaveLength(1);
     expect(res[0].id).toBe("1");
-    expect(res[0].title).toBe("A");
+    expect(res[0].label).toBe("A");
     expect(res[0].name).toBe("a");
   });
 });

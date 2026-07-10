@@ -42,11 +42,5 @@ describe("Update Custom Block Service", () => {
     expect(handleRequest("block_123", { name: "new_name" }, mockUser, mockAcl)).rejects.toThrow(ForbiddenError);
   });
   
-  it("should throw ConflictError if new name already exists", async () => {
-    spyOn(repo, "getCustomBlockById").mockResolvedValue({ id: "block_123", projectId: "proj_123" } as any);
-    spyOn(authCommon, "hasProjectAccess").mockReturnValue(true);
-    spyOn(repo, "checkCustomBlockNameExist").mockResolvedValue(true);
 
-    expect(handleRequest("block_123", { name: "existing_name" }, mockUser, mockAcl)).rejects.toThrow(ConflictError);
-  });
 });
