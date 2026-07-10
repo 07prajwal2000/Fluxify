@@ -1,8 +1,0 @@
-This PR completes step #2 in the development roadmap and lays the groundwork for step #3.
-
-### Key accomplishments:
-- **Dynamic OpenAPI Generation**: Built the `/:projectId/openapi.json` route to automatically generate comprehensive OpenAPI 3.0 schemas from our custom DB schema representations (parameters, complex body schemas, validation rules).
-- **Interactive API Documentation UI**: Implemented an isolated `/openapi` web UI leveraging Scalar to cleanly render the interactive spec interface without interference from standard navigation wrappers.
-- **Enhanced Test Suite Executions**: Refactored the Test Suite execution API (the `run` and `run-all` endpoints) to meticulously track and surface `actualData` alongside success metrics, greatly improving UI test validation handling.
-- **Improved Test Coverage**: Authored and fully passed comprehensive unit tests covering the OpenAPI generation pipelines, as well as fixing/adjusting the test suite runner specs to cover new data payloads.
-- **Cleaned UI & Settings Layouts**: Streamlined the Project Settings by hiding redundant header titles and integrating a brand new `System Providers` settings panel for project-level LLM and logger configurations.

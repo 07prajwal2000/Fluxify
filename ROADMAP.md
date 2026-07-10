@@ -12,13 +12,13 @@ Crucial for any production API.
 - **OpenAPI / Swagger Generation:** Automatically generate and host a Swagger UI or Redoc portal. The documentation will be driven by the configured routes, inputs (from the Schema Builder), and outputs of the workflows.
 - Use https://scalar.com/products/api-references/integrations/react to display the API documentation. Its more modern and interactive than Swagger UI or Redoc.
 
-## 3. Environment-Aware Testing (Integration & Config Swaps)
+## 3. Environment-Aware Testing (Integration & Config Swaps) ✅
 Safe integration testing and deployments without affecting production data. Since Fluxify relies on robust Test Suites, swapping configurations provides the most powerful testing paradigm without the immense UI overhead of block-level mocking.
 - **Environment Profiles:** Define distinct environments (e.g., Production, Staging, Testing) for the project.
 - **Integration Swapping:** Allow Databases and external integrations to hold different connection strings per environment. Test Suites can execute safely against a "Testing DB" instead of production.
 - **App Config Swapping:** Allow `App Config` variables (like third-party HTTP Client URLs and API secrets) to be overridden in the Testing environment. This automatically points external calls to fake/sandbox endpoints at test time without touching the workflow logic.
 
-## 4. Versioning & API Grouping
+## 4. Versioning & API Grouping (Optional for nows)
 Organizing and evolving APIs without breaking existing clients.
 - **API Grouping & Versioning:** Native support for grouping APIs by a group object or prefix (e.g., `/api/v1/...`, `/api/users/...`).
 - **Environment Management:** Staging vs. Production deployment profiles with environment-specific variables and secrets.

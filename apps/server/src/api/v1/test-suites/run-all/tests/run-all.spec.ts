@@ -1,4 +1,4 @@
-import { describe, it, expect, mock, beforeEach, spyOn } from "bun:test";
+import { describe, it, expect, mock, beforeEach, afterEach, spyOn } from "bun:test";
 import { Hono } from "hono";
 import testSuitesRegister from "../../register";
 import * as runner from "../../runner";
@@ -39,6 +39,10 @@ testSuitesRegister.registerHandler(app);
 describe("Test Suites Endpoints - RUN ALL", () => {
   beforeEach(() => {
     mockDb.select.mockClear();
+  });
+
+  afterEach(() => {
+    mock.restore();
   });
 
   it("/run-all one failing suite does not prevent others", async () => {

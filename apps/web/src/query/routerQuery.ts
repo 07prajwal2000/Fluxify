@@ -27,6 +27,7 @@ export const routesQueries = {
           return await routesService.getByID(id);
         },
         refetchOnWindowFocus: false,
+        enabled: !!id,
       });
     },
     invalidate(client: QueryClient, id: string) {

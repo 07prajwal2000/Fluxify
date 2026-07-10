@@ -1,19 +1,13 @@
-import { describe, expect, it, mock, beforeEach, spyOn } from "bun:test";
+import { describe, expect, it, mock } from "bun:test";
 import { runSuiteAssertions } from "../../runner";
-import * as requestRouterService from "../../../../../modules/requestRouter/service";
-
-// Mock the DbFactory and integrations logic if needed, but we can just mock executeRouteInternal directly
-const executeRouteInternalMock = spyOn(requestRouterService, "executeRouteInternal");
 
 describe("runSuiteAssertions", () => {
-	beforeEach(() => {
-		executeRouteInternalMock.mockClear();
-	});
-
 	it("should apply integration overrides to executeRouteInternal", async () => {
-		executeRouteInternalMock.mockResolvedValue({
-			status: 200,
-			data: { success: true, db_result: "mocked" }
+		const executeRouteInternalMock = mock(async () => {
+			return {
+				status: 200,
+				data: { success: true, db_result: "mocked" },
+			};
 		});
 
 		const suite = {
@@ -28,10 +22,15 @@ describe("runSuiteAssertions", () => {
 			body: { name: "test" },
 			assertions: [
 				{ target: "status", operator: "eq", expectedValue: "200" },
-				{ target: "body", propertyPath: "db_result", operator: "eq", expectedValue: "mocked" }
+				{
+					target: "body",
+					propertyPath: "db_result",
+					operator: "eq",
+					expectedValue: "mocked",
+				},
 			],
 			integrationOverrides: [
-				{ existingId: "prod-db-123", newId: "test-db-123" }
+				{ existingId: "prod-db-123", newId: "test-db-123" },
 			],
 			appConfigOverrides: [],
 			createdAt: new Date(),
@@ -53,17 +52,20 @@ describe("runSuiteAssertions", () => {
 			updatedAt: new Date(),
 		};
 
-		const result = await runSuiteAssertions(suite as any, route as any);
+		const result = await runSuiteAssertions(
+			suite as any,
+			route as any,
+			executeRouteInternalMock as any,
+		);
+		console.log("TEST 1 RESULT:", result);
 
 		expect(executeRouteInternalMock).toHaveBeenCalledTimes(1);
-		
-		const callArgs = executeRouteInternalMock.mock.calls[0];
+
+		const callArgs = executeRouteInternalMock.mock.calls[0] as any;
 		// Argument 3 is ctx (undefined), Argument 4 is overrides
 		expect(callArgs[3]).toEqual({
-			integrations: [
-				{ existingId: "prod-db-123", newId: "test-db-123" }
-			],
-			appConfigs: []
+			integrations: [{ existingId: "prod-db-123", newId: "test-db-123" }],
+			appConfigs: [],
 		});
 
 		expect(result.success).toBe(true);
@@ -71,9 +73,11 @@ describe("runSuiteAssertions", () => {
 	});
 
 	it("should provide fluxify.request.* in customJs assertion", async () => {
-		executeRouteInternalMock.mockResolvedValue({
-			status: 200,
-			data: { result: "ok" }
+		const executeRouteInternalMock = mock(async () => {
+			return {
+				status: 200,
+				data: { result: "ok" },
+			};
 		});
 
 		const suite = {
@@ -81,14 +85,14 @@ describe("runSuiteAssertions", () => {
 			name: "Test Suite JS",
 			description: null,
 			routeId: "route_2",
-			headers: { "authorization": "Bearer token" },
+			headers: { authorization: "Bearer token" },
 			params: {},
 			queryParams: { q: "search" },
 			routeParams: { id: "10" },
 			body: { test: "data" },
 			assertions: [
-				{ 
-					target: "customJs", 
+				{
+					target: "customJs",
 					customJs: `
 						// Verify request properties are exposed correctly
 						return fluxify.request.path === "/api/items/10" &&
@@ -96,8 +100,8 @@ describe("runSuiteAssertions", () => {
 							   fluxify.request.body.test === "data" &&
 							   fluxify.request.headers.authorization === "Bearer token" &&
 							   status === 200;
-					` 
-				}
+					`,
+				},
 			],
 			integrationOverrides: [],
 			appConfigOverrides: [],
@@ -120,7 +124,12 @@ describe("runSuiteAssertions", () => {
 			updatedAt: new Date(),
 		};
 
-		const result = await runSuiteAssertions(suite as any, route as any);
+		const result = await runSuiteAssertions(
+			suite as any,
+			route as any,
+			executeRouteInternalMock as any,
+		);
+		console.log("TEST 2 RESULT:", result);
 
 		expect(result.success).toBe(true);
 		expect(result.result[0].success).toBe(true);

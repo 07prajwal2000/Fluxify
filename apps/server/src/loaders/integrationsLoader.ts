@@ -145,6 +145,15 @@ async function loadFromDB() {
 		if (config) {
 			config["variant"] = variant;
 			config["group"] = group;
+			if (group === integrationsGroupSchema.enum.database) {
+				if (variant === databaseVariantSchema.enum.PostgreSQL) {
+					config["dbType"] = "pg";
+				} else if (variant === databaseVariantSchema.enum.MySQL) {
+					config["dbType"] = "mysql";
+				} else if (variant === databaseVariantSchema.enum.MongoDB) {
+					config["dbType"] = "mongo";
+				}
+			}
 		}
 	}
 }

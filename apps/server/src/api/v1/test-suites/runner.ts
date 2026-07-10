@@ -3,13 +3,14 @@ import { InferSelectModel } from "drizzle-orm";
 import { JsVM } from "@fluxify/lib";
 import { z } from "zod";
 import { assertionSchema } from "./schema";
-import { executeRouteInternal, RequestOverrides } from "../../../modules/requestRouter/service";
+import * as requestRouterService from "../../../modules/requestRouter/service";
 
 export type AssertionType = z.infer<typeof assertionSchema>;
 
 export async function runSuiteAssertions(
 	suite: InferSelectModel<typeof testSuitesEntity>,
 	route: InferSelectModel<typeof routesEntity>,
+	_executeRouteInternal = requestRouterService.executeRouteInternal
 ) {
 	let finalPath = route.path || "";
 	const pathParams = (suite.routeParams as Record<string, string>) || {};
@@ -38,7 +39,7 @@ export async function runSuiteAssertions(
 		headers["Content-Type"] = "application/json";
 	}
 
-	const overrides: RequestOverrides = {
+	const overrides: requestRouterService.RequestOverrides = {
 		integrations: Array.isArray(suite.integrationOverrides) ? suite.integrationOverrides : [],
 		appConfigs: Array.isArray(suite.appConfigOverrides) ? suite.appConfigOverrides : [],
 	};
@@ -48,7 +49,7 @@ export async function runSuiteAssertions(
 	const startTime = Date.now();
 
 	try {
-		const result = await executeRouteInternal(
+		const result = await _executeRouteInternal(
 			{
 				id: route.id,
 				projectId: route.projectId!,
@@ -73,6 +74,7 @@ export async function runSuiteAssertions(
 		resStatus = result.status;
 		resBody = result.data;
 	} catch (e: any) {
+		console.error("RUNNER ERROR:", e);
 		resStatus = 500;
 		resBody = { error: e.message };
 	}

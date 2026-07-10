@@ -9,6 +9,7 @@ import {
   observabilityTagsSchema,
 } from "@fluxify/server/src/api/v1/integrations/schemas";
 import { integrationsQuery } from "@/query/integrationsQuery";
+import { routesQueries } from "@/query/routerQuery";
 import {
   ActionIcon,
   Button,
@@ -45,10 +46,15 @@ type Props = {
 };
 
 const IntegrationSelector = (props: Props) => {
-  const { projectId } = useParams<{ projectId: string }>();
+  const { projectId: paramsProjectId, id: routeId } = useParams<{ projectId?: string; id?: string }>();
+  const { data: routeData } = routesQueries.getById.useQuery(routeId || "");
+  const activeProjectId = paramsProjectId || routeData?.projectId || "";
+
+  const memoizedTags = useMemo(() => props.tags, [JSON.stringify(props.tags)]);
   const [opened, { open, close }] = useDisclosure();
+
   const { data, isLoading, isRefetching, isError, error } =
-    integrationsQuery.getAll.query(projectId || "", props.group, props.tags);
+    integrationsQuery.getAll.query(activeProjectId, props.group, memoizedTags);
   const client = useQueryClient();
   const selectedIntegration = useMemo(() => {
     return data?.filter((x) => x.id === props.selectedIntegration)[0];
@@ -59,7 +65,7 @@ const IntegrationSelector = (props: Props) => {
     mutateAsync,
     isError: isTestConnectionError,
     reset,
-  } = integrationsQuery.testExistingConnection.mutation(projectId || "");
+  } = integrationsQuery.testExistingConnection.mutation(activeProjectId);
 
   useEffect(() => {
     if (!isPending && selectedIntegration) {
@@ -72,7 +78,7 @@ const IntegrationSelector = (props: Props) => {
   }
 
   async function refetchIntegrations() {
-    await integrationsQuery.getAll.invalidate(projectId || "", props.group, client, props.tags);
+    await integrationsQuery.getAll.invalidate(activeProjectId, props.group, client, props.tags);
   }
 
   if (isError) {
