@@ -4,7 +4,7 @@ import { eq, and } from "drizzle-orm";
 import { createUpdateSchema } from "drizzle-zod";
 import z from "zod";
 
-const updateSchema = createUpdateSchema(customBlocksListEntity).omit({ id: true, projectId: true });
+const updateSchema = createUpdateSchema(customBlocksListEntity).omit({ id: true, projectId: true, name: true });
 
 export async function getCustomBlockById(id: string, tx?: DbTransactionType) {
   const block = await (tx ?? db)
@@ -15,23 +15,7 @@ export async function getCustomBlockById(id: string, tx?: DbTransactionType) {
   return block[0];
 }
 
-export async function checkCustomBlockNameExist(
-  projectId: string,
-  name: string,
-  excludeId: string,
-  tx?: DbTransactionType
-) {
-  const exist = await (tx ?? db)
-    .select({ id: customBlocksListEntity.id })
-    .from(customBlocksListEntity)
-    .where(
-      and(
-        eq(customBlocksListEntity.projectId, projectId),
-        eq(customBlocksListEntity.name, name)
-      )
-    );
-  return exist.filter(e => e.id !== excludeId).length > 0;
-}
+// Removed checkCustomBlockNameExist since name is immutable
 
 export async function updateCustomBlock(
   id: string,

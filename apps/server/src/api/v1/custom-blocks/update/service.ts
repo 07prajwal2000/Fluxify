@@ -1,7 +1,8 @@
 import z from "zod";
 import { requestBodySchema, responseSchema } from "./dto";
 import { db } from "../../../../db";
-import { getCustomBlockById, updateCustomBlock, checkCustomBlockNameExist } from "./repository";
+import { getCustomBlockById, updateCustomBlock } from "./repository";
+import { publishMessage, CHAN_ON_CUSTOM_BLOCK_CHANGE } from "../../../../db/redis";
 import { NotFoundError } from "../../../../errors/notFoundError";
 import { ConflictError } from "../../../../errors/conflictError";
 import { ForbiddenError } from "../../../../errors/forbidError";
@@ -26,17 +27,7 @@ export default async function handleRequest(
       throw new ForbiddenError();
     }
 
-    if (data.name) {
-      const nameConflict = await checkCustomBlockNameExist(
-        existingBlock.projectId!,
-        data.name,
-        id,
-        tx
-      );
-      if (nameConflict) {
-        throw new ConflictError("Custom block with this name already exists in project");
-      }
-    }
+    // Name is omitted from update DTO and schema, so we do not check for name conflicts here
 
     const updated = await updateCustomBlock(id, data, tx);
     if (!updated) {
@@ -44,6 +35,8 @@ export default async function handleRequest(
     }
     return updated;
   });
+
+  await publishMessage(CHAN_ON_CUSTOM_BLOCK_CHANGE, id);
 
   return {
     id: result.id,

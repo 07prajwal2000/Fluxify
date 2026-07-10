@@ -77,9 +77,9 @@ export default function CustomBlockForm({
     },
     validate: {
       name: (val) =>
-        /^[a-z0-9_]+$/.test(val)
+        /^[a-z0-9_.]+$/.test(val)
           ? null
-          : "Lowercase letters and underscores only",
+          : "Lowercase letters, numbers, dots, and underscores only",
       label: (val) => (val.length > 0 ? null : "Label is required"),
       iconUrl: (val, values) =>
         values.icon === "custom" && !val ? "Icon URL is required" : null,
@@ -137,8 +137,9 @@ export default function CustomBlockForm({
               <TextInput
                 label="Name"
                 placeholder="e.g. fetch_user_data"
-                description="Unique identifier (lowercase and underscores)"
+                description={isEdit ? "This name is locked to prevent breaking any flows that are already using it." : "Choose carefully! This name cannot be changed later. We'll automatically prefix it based on the source type to prevent naming collisions (lowercase and underscores only)."}
                 required
+                disabled={isEdit}
                 {...form.getInputProps("name")}
               />
               <TextInput

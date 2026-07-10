@@ -8,10 +8,13 @@ export default async function handleRequest(
   const blocks = await getCustomBlocks(query.projectId);
   return blocks.map((block) => ({
     id: block.id,
-    title: block.label,
+    label: block.label,
     name: block.name,
+    description: block.description,
     icon: block.icon,
     iconUrl: block.iconUrl,
-    inputType: block.inputParams,
+    inputParams: block.inputParams,
+    sourceType: block.sourceType,
+    source: block.source,
   }));
 }

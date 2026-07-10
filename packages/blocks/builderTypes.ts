@@ -4,7 +4,7 @@ import { BaseBlock } from "./baseBlock";
 
 export const blockDTOSchema = z.object({
   id: z.uuidv7(),
-  type: z.enum(BlockTypes),
+  type: z.string(),
   data: z.any(),
   position: z.object({
     x: z.number(),

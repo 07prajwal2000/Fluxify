@@ -4,6 +4,7 @@ import { blocksEntity, edgesEntity } from "../db/schema";
 import { and, eq, ne } from "drizzle-orm";
 import { getCache, hasCacheKey, setCache } from "../db/redis";
 import { IntegrationFactory } from "./integrationFactory";
+import { customBlocksCache } from "./customBlocksLoader";
 
 export async function startBlocksExecution(
   path: {
@@ -31,6 +32,13 @@ export async function startBlocksExecution(
       },
     },
     false,
+    (type: string) => {
+      // Find the custom block by name in the cache using an optimized loop
+      for (const key in customBlocksCache) {
+        if (customBlocksCache[key].name === type) return customBlocksCache[key].graphs;
+      }
+      return null;
+    }
   );
 
   // Load blocks and edges from database

@@ -33,6 +33,7 @@ import {
 	errorHandlerBlockSchema,
 	cloudLogsBlockSchema,
 } from "@fluxify/blocks";
+import { customBlockNames } from "../../../../loaders/customBlocksLoader";
 import { Context, Next } from "hono";
 import { ValidationError } from "../../../../errors/validationError";
 import { BadRequestError } from "../../../../errors/badRequestError";
@@ -155,7 +156,12 @@ function blockDataValidator(data: z.infer<typeof requestBodySchema>) {
 				schema = cloudLogsBlockSchema;
 				break;
 		}
-		if (!schema) throw new BadRequestError("Invalid block type");
+		if (!schema) {
+			if (customBlockNames.has(block.type)) {
+				continue;
+			}
+			throw new BadRequestError("Invalid block type");
+		}
 		const result = schema.safeParse(block.data);
 		if (!result.success) {
 			console.log("result", z.prettifyError(result.error));

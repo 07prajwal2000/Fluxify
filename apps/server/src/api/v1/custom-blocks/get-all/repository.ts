@@ -11,6 +11,9 @@ export async function getCustomBlocks(projectId: string) {
       icon: customBlocksListEntity.icon,
       iconUrl: customBlocksListEntity.iconUrl,
       inputParams: customBlocksListEntity.inputParams,
+      description: customBlocksListEntity.description,
+      sourceType: customBlocksListEntity.sourceType,
+      source: customBlocksListEntity.source,
     })
     .from(customBlocksListEntity)
     .where(eq(customBlocksListEntity.projectId, projectId));

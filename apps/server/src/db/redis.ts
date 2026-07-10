@@ -12,6 +12,7 @@ export const CHAN_ON_INTEGRATION_CHANGE = "chan:on-integration-change";
 export const CHAN_AI_WORKER = "chan:ai-worker";
 export const CHAN_AI_SSE_PREFIX = "chan:ai-sse:";
 export const CHAN_ON_PROJECT_SETTING_CHANGE = "chan:on-project-setting-change";
+export const CHAN_ON_CUSTOM_BLOCK_CHANGE = "chan:on-custom-block-change";
 
 export function initializeRedis(hotReload?: boolean) {
 	const canHotreload = hotReload || process.env.HOT_RELOAD_ROUTES == "true";
@@ -27,6 +28,7 @@ export function initializeRedis(hotReload?: boolean) {
 			CHAN_ON_ROUTE_CHANGE,
 			CHAN_ON_APPCONFIG_CHANGE,
 			CHAN_ON_INTEGRATION_CHANGE,
+			CHAN_ON_CUSTOM_BLOCK_CHANGE,
 		);
 	}
 }

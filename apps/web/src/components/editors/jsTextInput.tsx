@@ -26,6 +26,9 @@ type Props = {
 const JsTextInput = ({
   enableJs = true,
   type = "text",
+  onValueChange,
+  onClear,
+  jsEditBtnLabel,
   ...props
 }: Props & TextInputProps) => {
   const [opened, { open, close }] = useDisclosure();
@@ -33,14 +36,14 @@ const JsTextInput = ({
     (typeof props.value === "string" && props.value.startsWith("js:")) || false;
 
   function onClearClicked() {
-    props.onClear && props.onClear();
-    props.onValueChange &&
-      props.onValueChange(props.defaultValue?.toString() ?? "");
+    onClear && onClear();
+    onValueChange &&
+      onValueChange(props.defaultValue?.toString() ?? "");
   }
 
-  function onChange(value: string, isJsValue?: boolean) {
+  function handleValueChange(value: string, isJsValue?: boolean) {
     value = isJsValue ? `js:${value}` : value;
-    props.onValueChange && props.onValueChange(value);
+    onValueChange && onValueChange(value);
     isJsValue && close();
   }
 
@@ -56,7 +59,7 @@ const JsTextInput = ({
         <Paper withBorder p={"4"}>
           <Group>
             <Button flex={20} size="xs" color="violet" onClick={open} fullWidth>
-              {props.jsEditBtnLabel || "View / Edit Js Expression"}
+              {jsEditBtnLabel || "View / Edit Js Expression"}
             </Button>
             <Tooltip label="Clear Js Expression" withArrow arrowSize={8}>
               <ActionIcon
@@ -78,7 +81,7 @@ const JsTextInput = ({
           opened={opened}
           readonly={props.disabled}
           value={props.value!.toString().slice(3)}
-          onSave={(val) => onChange(val, true)}
+          onSave={(val) => handleValueChange(val, true)}
           title="Edit Js Expression"
         />
       </Box>
@@ -101,7 +104,7 @@ const JsTextInput = ({
       <TextInput
         {...props}
         type={type}
-        onChange={(e) => onChange(e.target.value, false)}
+        onChange={(e) => handleValueChange(e.target.value, false)}
         rightSection={
           enableJs && (
             <ActionIcon disabled={props.disabled} color="violet" onClick={open} size={props.size}>
@@ -114,7 +117,7 @@ const JsTextInput = ({
         title="Edit Js Expression"
         onClose={close}
         opened={opened}
-        onSave={(val) => onChange(val, true)}
+        onSave={(val) => handleValueChange(val, true)}
         value={props.value?.toString() || ""}
       />
     </>

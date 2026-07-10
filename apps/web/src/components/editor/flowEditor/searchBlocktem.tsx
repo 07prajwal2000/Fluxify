@@ -15,7 +15,7 @@ type Props = {
   id: string;
   title: string;
   description: string;
-  icon?: React.ReactNode;
+  icon?: React.ReactNode | any;
   active?: boolean;
   showRightArrow?: boolean;
   onClick?: (params: OnClickParams) => void;

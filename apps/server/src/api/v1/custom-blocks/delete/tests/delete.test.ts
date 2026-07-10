@@ -5,6 +5,11 @@ mock.module("../../../../../db", () => ({
   },
 }));
 
+mock.module("../../../../../db/redis", () => ({
+  publishMessage: mock(),
+  CHAN_ON_CUSTOM_BLOCK_CHANGE: "chan:on-custom-block-change",
+}));
+
 import handleRequest from "../service";
 import * as repo from "../repository";
 import { NotFoundError } from "../../../../../errors/notFoundError";

@@ -6,8 +6,17 @@ import SearchBlockItem from "./searchBlocktem";
 import blocksForSearch, { categoryList } from "../blocks/searchList";
 import { BlockCanvasContext } from "@/context/blockCanvas";
 import { BlockTypes } from "@/types/block";
+import { customBlocksQueries } from "@/query/customBlocksQuery";
+import { useFlowEditorContext } from "./flowEditorContext";
+import { getCustomBlockIcon } from "../blocks/customBlockNode";
+import { TbCodeVariable } from "react-icons/tb";
 
 const BlockSearchList = () => {
+  const { projectId } = useFlowEditorContext();
+  const { data: customBlocks } = customBlocksQueries.getAll.useQuery({
+    projectId: projectId!,
+  });
+
   const {
     searchQuery,
     setSearchQuery,
@@ -20,8 +29,48 @@ const BlockSearchList = () => {
 
   const { addBlock } = useContext(BlockCanvasContext);
 
+  const allCategories = useMemo(() => {
+    const categories = [...categoryList];
+    const newCategoriesMap: Record<string, boolean> = {};
+
+    if (customBlocks) {
+      customBlocks.forEach((cb) => {
+        let cat = cb.sourceType === "inhouse" ? "User Defined" : cb.source || "Plugin";
+        if (!categories.find((c) => c.category === cat) && !newCategoriesMap[cat]) {
+          newCategoriesMap[cat] = true;
+          categories.push({
+            id: crypto.randomUUID(),
+            category: cat as any,
+            description: `Blocks from ${cat}`,
+            icon: <TbCodeVariable size={20} />,
+          });
+        }
+      });
+    }
+    return categories;
+  }, [customBlocks]);
+
+  const allBlocks = useMemo(() => {
+    const blocks = [...blocksForSearch];
+    if (customBlocks) {
+      customBlocks.forEach((cb) => {
+        let cat = cb.sourceType === "inhouse" ? "User Defined" : cb.source || "Plugin";
+        blocks.push({
+          id: cb.id,
+          title: cb.label || cb.name,
+          description: cb.description || `Custom block: ${cb.name}`,
+          icon: getCustomBlockIcon(cb.icon || undefined, cb.iconUrl || undefined, 20) as any,
+          tags: ["custom", cb.name],
+          type: cb.name as BlockTypes,
+          category: cat as any,
+        });
+      });
+    }
+    return blocks;
+  }, [customBlocks]);
+
   const filteredBlocks = useMemo(() => {
-    return blocksForSearch.filter((block: any) => {
+    return allBlocks.filter((block: any) => {
       if (searchQuery.startsWith("cat:")) {
         return block.category === searchQuery.slice(4);
       }
@@ -33,7 +82,7 @@ const BlockSearchList = () => {
         ).length > 0
       );
     });
-  }, [searchQuery]);
+  }, [searchQuery, allBlocks]);
 
   useEffect(() => {
     if (opened) {
@@ -45,7 +94,7 @@ const BlockSearchList = () => {
     return () => {
       document.removeEventListener("keydown", handleKeyDownEvent);
     };
-  }, [searchQuery, currentIndex, opened]);
+  }, [searchQuery, currentIndex, opened, allCategories, filteredBlocks]);
 
   function handleKeyDownEvent(ev: KeyboardEvent) {
     if (!opened) return;
@@ -57,14 +106,14 @@ const BlockSearchList = () => {
       incrementor = 1;
     } else if (ev.key === "Enter") {
       if (inCategoryMode) {
-        setSearchQuery(`cat:${categoryList[currentIndex].category}`);
+        setSearchQuery(`cat:${allCategories[currentIndex].category}`);
       } else {
         addBlock(filteredBlocks[currentIndex].type);
         closeSearchbar();
       }
     }
     if (incrementor !== 0) {
-      const max = inCategoryMode ? categoryList.length : filteredBlocks.length;
+      const max = inCategoryMode ? allCategories.length : filteredBlocks.length;
       let newIndex = currentIndex + incrementor;
       if (newIndex < 0) newIndex = max - 1;
       if (newIndex >= max) newIndex = 0;
@@ -92,7 +141,7 @@ const BlockSearchList = () => {
           display: inCategoryMode ? "block" : "none",
         }}
       >
-        {categoryList.map((category: any, i: number) => (
+        {allCategories.map((category: any, i: number) => (
           <SearchBlockItem
             active={currentIndex === i}
             key={category.id}

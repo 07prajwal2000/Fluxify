@@ -8,6 +8,7 @@ import { initializeRedis } from "./db/redis";
 import { loadAppConfig } from "./loaders/appconfigLoader";
 import { loadIntegrations } from "./loaders/integrationsLoader";
 import { loadProjectSettings } from "./loaders/projectSettingsLoader";
+import { loadCustomBlocks, initializeCustomBlocksSubscription } from "./loaders/customBlocksLoader";
 import { mapVersionedAdminRoutes } from "./api/register";
 import { errorHandler } from "./middlewares/errorHandler";
 import { auth, initializeAuth } from "./lib/auth";
@@ -73,7 +74,7 @@ async function main() {
 		initializeAuth(db);
 		authenticationRouter.registerHandler(app);
 		mapVersionedAdminRoutes(app);
-
+		
 		// Seed data if admin routes are enabled
 		const { seedData } = await import("./db/seed");
 		await seedData(db);
@@ -81,6 +82,8 @@ async function main() {
 	await loadAppConfig();
 	await loadIntegrations();
 	await loadProjectSettings();
+	await loadCustomBlocks();
+	initializeCustomBlocksSubscription();
 	const parser = await loadRoutes();
 	await mapRouter(app, parser);
 }

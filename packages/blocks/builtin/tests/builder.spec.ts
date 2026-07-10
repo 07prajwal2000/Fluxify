@@ -181,7 +181,7 @@ describe("Schema Validation", () => {
     expect(result.success).toBe(true);
   });
 
-  it("blockDTOSchema should reject invalid block type", () => {
+  it("blockDTOSchema should accept custom block type string", () => {
     const invalidBlock = {
       id: uuidv7(),
       type: "nonexistent_block_type",
@@ -189,7 +189,7 @@ describe("Schema Validation", () => {
       position: { x: 0, y: 0 },
     };
     const result = blockDTOSchema.safeParse(invalidBlock);
-    expect(result.success).toBe(false);
+    expect(result.success).toBe(true);
   });
 
   it("edgeDTOSchema should accept valid edge array", () => {

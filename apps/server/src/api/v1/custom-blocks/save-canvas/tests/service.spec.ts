@@ -10,6 +10,11 @@ mock.module("../../../../../db", () => ({
   },
 }));
 
+mock.module("../../../../../db/redis", () => ({
+  publishMessage: mock(),
+  CHAN_ON_CUSTOM_BLOCK_CHANGE: "chan:on-custom-block-change",
+}));
+
 describe("Custom Blocks save-canvas service", () => {
   it("should process actions and embed edges correctly", async () => {
     spyOn(repository, "customBlockExist").mockResolvedValue(true);

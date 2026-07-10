@@ -32,6 +32,9 @@ type PropTypes = {
   showOptionsTooltip?: boolean;
   optionsTooltip?: OptionsTooltipType[];
   labelPlacement?: "top" | "bottom" | "left" | "right";
+  optionsPlacement?: "top" | "bottom" | "left" | "right";
+  color?: string;
+  selectedColor?: string;
 };
 
 const BaseBlock = (props: PropTypes) => {
@@ -57,14 +60,14 @@ const BaseBlock = (props: PropTypes) => {
   }
 
   return (
-    <Menu openDelay={250} position={labelPlacement} trigger="hover">
+    <Menu openDelay={250} position={props.optionsPlacement || labelPlacement} trigger="hover">
       <Menu.Target>
         <Paper
           p={"sm"}
           c={"dark"}
           style={{
             outline: nodeProps?.selected ? `3px solid ${gray[2]}` : "none",
-            backgroundColor: nodeProps?.selected ? gray[0] : "white",
+            backgroundColor: nodeProps?.selected ? (props.selectedColor || gray[0]) : (props.color || "white"),
             cursor: "pointer",
             borderTopLeftRadius: props.topLeftRounded
               ? roundedRadius

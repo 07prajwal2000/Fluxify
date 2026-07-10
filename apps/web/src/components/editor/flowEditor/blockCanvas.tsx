@@ -4,6 +4,9 @@ import { Background, Panel, ReactFlow } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { blocksList } from "../blocks/blocksList";
 import { BaseBlockType } from "@/types/block";
+import CustomBlockNode from "../blocks/customBlockNode";
+import { customBlocksQueries } from "@/query/customBlocksQuery";
+import { useMemo } from "react";
 import {
 	useCanvasActionsStore,
 	useCanvasBlocksStore,
@@ -29,7 +32,7 @@ import { useEditorChangeTrackerStore } from "@/store/editor";
 import { useFlowEditorContext } from "./flowEditorContext";
 
 const BlockCanvas = () => {
-	const { readonly, entityId, entityType, features } = useFlowEditorContext();
+	const { readonly, entityId, entityType, features, projectId } = useFlowEditorContext();
 	
 	const {
 		blocks: { onBlockChange },
@@ -58,6 +61,27 @@ const BlockCanvas = () => {
 	const { bulkInsert: bulkInsertBlockData } = useBlockDataActionsStore();
 	const actionsStore = useEditorActionsStore();
 	const changeTracker = useEditorChangeTrackerStore();
+
+	const { data: customBlocks } = customBlocksQueries.getAll.useQuery({
+		projectId: projectId!,
+	});
+
+	const dynamicNodeTypes = useMemo(() => {
+		const types: any = { ...blocksList };
+		if (customBlocks) {
+			customBlocks.forEach((cb) => {
+				types[cb.name] = CustomBlockNode as any;
+			});
+		}
+		
+		blocks.forEach((block) => {
+			if (!types[block.type]) {
+				types[block.type] = CustomBlockNode as any;
+			}
+		});
+
+		return types;
+	}, [customBlocks, blocks]);
 
 	useCanvasSnapshot();
 
@@ -180,7 +204,7 @@ const BlockCanvas = () => {
 					onNodeDoubleClick={(_, node) =>
 						onBlockDblClick(node as BaseBlockType)
 					}
-					nodeTypes={blocksList}
+					nodeTypes={dynamicNodeTypes}
 					nodesDraggable={!readonly}
 					nodesConnectable={!readonly}
 					fitView

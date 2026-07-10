@@ -2,6 +2,7 @@ import z from "zod";
 import { responseSchema } from "./dto";
 import { db } from "../../../../db";
 import { getCustomBlockById, deleteCustomBlock } from "./repository";
+import { publishMessage, CHAN_ON_CUSTOM_BLOCK_CHANGE } from "../../../../db/redis";
 import { NotFoundError } from "../../../../errors/notFoundError";
 import { ForbiddenError } from "../../../../errors/forbidError";
 import { hasProjectAccess } from "../../../auth/common";
@@ -28,6 +29,7 @@ export default async function handleRequest(
     }
 
     await deleteCustomBlock(id, tx);
+    await publishMessage(CHAN_ON_CUSTOM_BLOCK_CHANGE, id);
   });
 
   return { id };

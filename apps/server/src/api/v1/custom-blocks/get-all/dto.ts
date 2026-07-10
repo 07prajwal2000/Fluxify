@@ -7,10 +7,13 @@ export const requestQuerySchema = z.object({
 export const responseSchema = z.array(
   z.object({
     id: z.string(),
-    title: z.string(),
+    label: z.string(),
     name: z.string(),
+    description: z.string().optional().nullable(),
     icon: z.string().optional().nullable(),
     iconUrl: z.string().optional().nullable(),
-    inputType: z.any().optional().nullable(),
+    inputParams: z.any().optional().nullable(),
+    sourceType: z.string().optional().nullable(),
+    source: z.string().optional().nullable(),
   })
 );

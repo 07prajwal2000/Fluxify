@@ -21,6 +21,7 @@ export default async function handleRequest(
 				`project with id ${data.projectId} does not exist`,
 			);
 		}
+		data.name = `${data.sourceType || "inhouse"}.${data.source || "project"}.${data.name}`;
 		const existingBlock = await checkCustomBlockExist(
 			data.projectId,
 			data.name,

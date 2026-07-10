@@ -11,6 +11,7 @@ import {
 } from "./repository";
 import { getCustomBlockGraphs } from "../get-canvas-items/repository";
 import { db } from "../../../../db";
+import { publishMessage, CHAN_ON_CUSTOM_BLOCK_CHANGE } from "../../../../db/redis";
 
 export default async function handleRequest(
   customBlockId: string,
@@ -105,4 +106,6 @@ export default async function handleRequest(
     }
     await setUpdatedAtTimeForCustomBlock(customBlockId, tx);
   });
+  
+  await publishMessage(CHAN_ON_CUSTOM_BLOCK_CHANGE, customBlockId);
 }

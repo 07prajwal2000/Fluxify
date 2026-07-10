@@ -2,35 +2,34 @@ import z from "zod";
 import { BaseBlock, baseBlockDataSchema, BlockOutput } from "../baseBlock";
 
 export const jsRunnerBlockSchema = z
-  .object({
-    value: z.string(),
-  })
-  .extend(baseBlockDataSchema.shape);
+	.object({
+		value: z.string(),
+	})
+	.extend(baseBlockDataSchema.shape);
 
 export const jsRunnerAiDescription = {
-  name: "js_runner",
-  description:
-    "Executes JavaScript code within an isolated function scope.",
-  jsonSchema: JSON.stringify(z.toJSONSchema(jsRunnerBlockSchema)),
+	name: "js_runner",
+	description: "Executes JavaScript code within an isolated function scope.",
+	jsonSchema: JSON.stringify(z.toJSONSchema(jsRunnerBlockSchema)),
 };
 
 export class JsRunnerBlock extends BaseBlock {
-  override async executeAsync(params?: any): Promise<BlockOutput> {
-    try {
-      const result = await this.context.vm.runAsync(this.input.value, params);
-      return {
-        continueIfFail: true,
-        successful: true,
-        output: result,
-        next: this.next,
-      };
-    } catch (error) {
-      return {
-        continueIfFail: false,
-        successful: false,
-        error: error?.toString(),
-        next: this.next,
-      };
-    }
-  }
+	override async executeAsync(params?: any): Promise<BlockOutput> {
+		try {
+			const result = await this.context.vm.runAsync(this.input.value, params);
+			return {
+				continueIfFail: true,
+				successful: true,
+				output: result,
+				next: this.next,
+			};
+		} catch (error) {
+			return {
+				continueIfFail: false,
+				successful: false,
+				error: error?.toString(),
+				next: this.next,
+			};
+		}
+	}
 }

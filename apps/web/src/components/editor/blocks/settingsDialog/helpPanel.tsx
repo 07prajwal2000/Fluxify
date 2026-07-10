@@ -23,6 +23,9 @@ import { JsRunnerHelpPanel } from "../builtin/jsRunner";
 import { NativeBlockHelpPanel } from "../builtin/database/native";
 import { blockIcons } from "../searchList";
 import { TbCheck, TbCopy } from "react-icons/tb";
+import { customBlocksQueries } from "@/query/customBlocksQuery";
+import { useFlowEditorContext } from "../../flowEditor/flowEditorContext";
+import { getCustomBlockIcon } from "../customBlockNode";
 
 type Props = {
   blockId: string;
@@ -34,8 +37,25 @@ type Props = {
 const HelpPanel = (props: Props) => {
   if (props.collapsed) return <></>;
   const { updateBlockData } = useContext(BlockCanvasContext);
+  const { projectId } = useFlowEditorContext();
+  const { data: customBlocks } = customBlocksQueries.getAll.useQuery({
+    projectId: projectId!,
+  });
+
   const data = props.blockData;
   const blockType = props.blockType;
+
+  const customBlock = customBlocks?.find((cb) => cb.name === blockType);
+  const blockName = customBlock
+    ? customBlock.label || customBlock.name
+    : getHumanReadableBlockName(blockType);
+  const icon = customBlock
+    ? getCustomBlockIcon(
+        customBlock.icon || undefined,
+        customBlock.iconUrl || undefined,
+        20
+      )
+    : blockIcons[blockType];
 
   function onBlockNameChange(value: string) {
     updateBlockData(props.blockId, { blockName: value });
@@ -74,12 +94,12 @@ const HelpPanel = (props: Props) => {
         }
       />
       <TextInput
-        leftSection={<Center c={"dark.5"}>{blockIcons[blockType]}</Center>}
+        leftSection={<Center c={"dark.5"}>{icon as any}</Center>}
         placeholder="Block Type"
         label="Block Type"
         spellCheck={false}
         readOnly
-        value={getHumanReadableBlockName(blockType)}
+        value={blockName}
       />
       <DebouncedTextInput
         placeholder="Block Name"

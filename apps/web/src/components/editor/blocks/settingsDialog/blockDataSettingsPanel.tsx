@@ -27,6 +27,9 @@ import { DeleteBlockDataSettingsPanel } from "../builtin/database/delete";
 import { TransactionBlockDataSettingsPanel } from "../builtin/database/transaction";
 import { NativeBlockDataSettingsPanel } from "../builtin/database/native";
 import { CloudSettingsPanel } from "../builtin/logging/cloud";
+import { CustomBlockSettingsPanel } from "./customBlockSettingsPanel";
+import { customBlocksQueries } from "@/query/customBlocksQuery";
+import { useFlowEditorContext } from "../../flowEditor/flowEditorContext";
 
 type Props = {
   blockData: {
@@ -39,6 +42,11 @@ type Props = {
 const BlockDataSettingsPanel = (props: Props) => {
   const blockData = props.blockData.data;
   const blockId = props.blockData.id;
+  const { projectId } = useFlowEditorContext();
+  const { data: customBlocks } = customBlocksQueries.getAll.useQuery({
+    projectId: projectId!,
+  });
+
   switch (props.blockData.type) {
     case BlockTypes.stickynote:
       return (
@@ -132,6 +140,17 @@ const BlockDataSettingsPanel = (props: Props) => {
     case BlockTypes.cloudLogs:
       return <CloudSettingsPanel blockData={blockData} blockId={blockId} />;
     default:
+      const customBlock = customBlocks?.find((cb) => cb.name === props.blockData.type);
+      if (customBlock) {
+        return (
+          <CustomBlockSettingsPanel
+            blockId={blockId}
+            blockData={blockData}
+            customBlock={customBlock}
+          />
+        );
+      }
+
       return (
         <Center>No Data is available to edit for this type of block</Center>
       );

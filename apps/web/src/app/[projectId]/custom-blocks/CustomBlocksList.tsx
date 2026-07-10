@@ -38,7 +38,7 @@ export default function CustomBlocksList({ projectId, searchQuery }: CustomBlock
 
 	const filteredData = data.filter((block) => {
 		const query = searchQuery.toLowerCase();
-		const titleMatch = block.title?.toLowerCase().includes(query);
+		const titleMatch = block.label?.toLowerCase().includes(query);
 		const nameMatch = block.name?.toLowerCase().includes(query);
 		return titleMatch || nameMatch;
 	});

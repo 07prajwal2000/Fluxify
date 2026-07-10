@@ -392,6 +392,7 @@ export const customBlockIconTypeEnum = pgEnum("custom_block_icon_type", [
 export const customBlockSourceTypeEnum = pgEnum("custom_block_source_type", [
 	"plugin",
 	"inhouse",
+	"user-defined",
 ]);
 
 export const customBlocksListEntity = pgTable(
@@ -412,7 +413,8 @@ export const customBlocksListEntity = pgTable(
 			},
 		),
 		inputParams: jsonb("input_params").$type<Record<string, any>[]>(),
-		sourceType: customBlockSourceTypeEnum("source_type").default("inhouse"),
+		sourceType:
+			customBlockSourceTypeEnum("source_type").default("user-defined"),
 		source: text(),
 		createdAt: timestamp("created_at").defaultNow().notNull(),
 		updatedAt: timestamp("updated_at")

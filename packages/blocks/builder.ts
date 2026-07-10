@@ -25,12 +25,14 @@ export class BlockBuilder {
     engineFactory: EngineFactory,
     integrationFactory: IntegrationFactory,
     shouldValidateBlockData?: boolean,
+    public readonly customBlockGetter?: (type: string) => any,
   ) {
     this.blockFactory = new BlockFactory(
       context,
       engineFactory,
       integrationFactory,
       shouldValidateBlockData,
+      customBlockGetter
     );
   }
 

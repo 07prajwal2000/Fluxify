@@ -53,6 +53,9 @@ export class Engine {
         if (!result) break;
 
         if (!result.successful && !result.continueIfFail) {
+          if (!errorBlock) {
+            return result;
+          }
           const errorBlockResult = await errorBlock.executeAsync(result.error);
           if (errorBlockResult?.next) {
             nextParams = errorBlockResult.error;
@@ -74,6 +77,13 @@ export class Engine {
             continueIfFail: false,
             successful: false,
             error: error.message,
+          };
+        }
+        if (!errorBlock) {
+          return {
+            continueIfFail: false,
+            successful: false,
+            error,
           };
         }
         const errorBlockResult = await errorBlock.executeAsync(error);
