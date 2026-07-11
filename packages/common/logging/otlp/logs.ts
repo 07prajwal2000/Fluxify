@@ -15,15 +15,11 @@ export interface OtlpLoggerOptions {
 	serviceName: string;
 }
 
-/**
- * Initializes the OpenTelemetry LoggerProvider, registers it globally,
- * and sets up the OTLP log exporter.
- */
-export function initializeOtlpLogger({
+export function createOtlpLoggerProvider({
 	url,
 	headers,
 	serviceName,
-}: OtlpLoggerOptions): void {
+}: OtlpLoggerOptions): LoggerProvider {
 	// 1. Setup OpenTelemetry OTLP exporter
 	const logExporter = new OTLPLogExporter({
 		url,
@@ -31,7 +27,7 @@ export function initializeOtlpLogger({
 	});
 
 	// 2. Setup the LoggerProvider using SDK 2.x factory methods
-	const loggerProvider = new LoggerProvider({
+	return new LoggerProvider({
 		resource: defaultResource().merge(
 			resourceFromAttributes({
 				"service.name": serviceName,
@@ -46,7 +42,15 @@ export function initializeOtlpLogger({
 			}),
 		],
 	});
+}
 
+/**
+ * Initializes the OpenTelemetry LoggerProvider, registers it globally,
+ * and sets up the OTLP log exporter.
+ */
+export function initializeOtlpLogger(options: OtlpLoggerOptions): void {
+	const loggerProvider = createOtlpLoggerProvider(options);
+	
 	// 3. Register the provider globally
 	logs.setGlobalLoggerProvider(loggerProvider);
 }

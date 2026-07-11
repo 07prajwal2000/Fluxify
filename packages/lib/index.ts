@@ -7,4 +7,3 @@ export * from "./httpClient";
 export * from "./constants/httpcode";
 export * from "./vm";
 export * from "./logger";
-export * from "./loggerTransports/httpBufferedTransport";

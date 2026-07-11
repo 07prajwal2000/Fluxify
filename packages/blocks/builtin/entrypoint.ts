@@ -11,8 +11,6 @@ export const entrypointAiDescription = {
 
 export class EntrypointBlock extends BaseBlock {
 	async executeAsync(params?: any): Promise<BlockOutput> {
-		console.log(this.next, "Hello");
-
 		return {
 			continueIfFail: true,
 			successful: true,

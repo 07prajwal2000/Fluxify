@@ -44,8 +44,6 @@ export default async function handleWatchRequest(
 				if (!isClientConnected) return;
 
 				try {
-					console.log("msg received");
-
 					await stream.writeSSE({
 						data: JSON.stringify(status),
 					});

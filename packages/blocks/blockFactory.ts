@@ -371,7 +371,10 @@ export class BlockFactory {
 		> = [];
 
 		for (const graph of customGraphs) {
-			let data = typeof graph.data === "string" ? JSON.parse(graph.data) : JSON.parse(JSON.stringify(graph.data));
+			let data =
+				typeof graph.data === "string"
+					? JSON.parse(graph.data)
+					: JSON.parse(JSON.stringify(graph.data));
 			const connections = data.connections || [];
 
 			const resolveParams = (obj: any) => {
@@ -421,8 +424,6 @@ export class BlockFactory {
 
 		cbBuilder.loadEdges(edges);
 		cbBuilder.loadBlocks(blocks);
-		console.log("blocks", blocks);
-		console.log("edges", edges);
 
 		const executor = cbBuilder.getEntrypoint();
 		if (!executor) {

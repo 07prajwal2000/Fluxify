@@ -1,6 +1,6 @@
 import winston from "winston";
 import { OpenTelemetryTransportV3 } from "@opentelemetry/winston-transport";
-import { initializeOtlpLogger } from "./otlp/logs";
+import { createOtlpLoggerProvider, initializeOtlpLogger } from "./otlp/logs";
 
 export interface LoggerConfig {
 	serviceName?: string;
@@ -18,7 +18,9 @@ export const logger = winston.createLogger({
 				winston.format.timestamp({ format: "YYYY-MM-DD HH:mm:ss" }),
 				winston.format.printf((info) => {
 					const { timestamp, level, message, service, ...meta } = info;
-					const metaStr = Object.keys(meta).length ? ` ${JSON.stringify(meta)}` : "";
+					const metaStr = Object.keys(meta).length
+						? ` ${JSON.stringify(meta)}`
+						: "";
 					return `${timestamp} [${level.toUpperCase()}]: ${message}${metaStr}`;
 				}),
 			),
@@ -41,7 +43,9 @@ export function initializeLogger(config: LoggerConfig = {}): void {
 				winston.format.timestamp({ format: "YYYY-MM-DD HH:mm:ss" }),
 				winston.format.printf((info) => {
 					const { timestamp, level, message, service, ...meta } = info;
-					const metaStr = Object.keys(meta).length ? ` ${JSON.stringify(meta)}` : "";
+					const metaStr = Object.keys(meta).length
+						? ` ${JSON.stringify(meta)}`
+						: "";
 					return `${timestamp} ${serviceName ? `[${serviceName}] ` : ""}[${level.toUpperCase()}]: ${message}${metaStr}`;
 				}),
 			),
@@ -74,3 +78,6 @@ export function initializeLogger(config: LoggerConfig = {}): void {
 }
 
 export default logger;
+export { createOtlpLoggerProvider };
+export type { LoggerProvider } from "@opentelemetry/sdk-logs";
+export type { Logger } from "@opentelemetry/api-logs";

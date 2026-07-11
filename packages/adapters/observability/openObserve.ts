@@ -1,6 +1,10 @@
 import z from "zod";
-import { AbstractLogger, HttpBufferedTransport } from "@fluxify/lib";
-import pino, { stdTimeFunctions } from "pino";
+import { AbstractLogger } from "@fluxify/lib";
+import {
+	createOtlpLoggerProvider,
+	Logger,
+	LoggerProvider,
+} from "@fluxify/common";
 
 export const openObserveSettings = z.object({
 	baseUrl: z.url(), // e.g. http://localhost:5080/api/<ORG_ID>
@@ -20,62 +24,105 @@ type ConfigType = Map<string, string | number | boolean> | Record<string, any>;
 export class OpenObserve implements AbstractLogger {
 	public static variant = "Open Observe";
 	constructor(private readonly settings: z.infer<typeof openObserveSettings>) {}
-	private logger: pino.Logger = null!;
+	private otelLogger: Logger = null!;
+	private loggerProvider: LoggerProvider = null!;
 
 	public logInfo(value: any, ...extra: any) {
-		const logItem = {
-			message: value,
-			extra:
-				extra.length === 1 ? extra[0] : extra.length > 1 ? extra : undefined,
-		};
-		this.createLogger().info(logItem);
+		this.emitLog(9, "INFO", value, extra);
 	}
 	public logWarn(value: any, ...extra: any) {
-		const logItem = {
-			message: value,
-			extra:
-				extra.length === 1 ? extra[0] : extra.length > 1 ? extra : undefined,
-		};
-		this.createLogger().warn(logItem);
+		this.emitLog(13, "WARN", value, extra);
 	}
 	public logError(value: any, ...extra: any) {
-		const logItem = {
-			message: value,
-			extra:
-				extra.length === 1 ? extra[0] : extra.length > 1 ? extra : undefined,
+		this.emitLog(17, "ERROR", value, extra);
+	}
+
+	private emitLog(
+		severityNumber: number,
+		severityText: string,
+		value: any,
+		extra: any[],
+	) {
+		const logger = this.createLogger();
+		const extraData =
+			extra.length === 1 ? extra[0] : extra.length > 1 ? extra : undefined;
+
+		const attributes: Record<string, string> = {
+			route_id: this.settings.routeId,
+			project_id: this.settings.projectId,
 		};
-		this.createLogger().error(logItem);
+
+		let messageStr = "";
+		if (typeof value === "string") {
+			messageStr = value;
+		} else if (value instanceof Error) {
+			messageStr = value.stack || value.message;
+		} else {
+			messageStr = JSON.stringify(value);
+		}
+
+		attributes.message = messageStr;
+
+		if (extraData !== undefined) {
+			attributes.extra =
+				typeof extraData === "string" ? extraData : JSON.stringify(extraData);
+		}
+
+		logger.emit({
+			severityNumber,
+			severityText,
+			body: messageStr,
+			attributes,
+		});
+
+		// Start flush to ensure logs are not lost in short-lived test processes
+		if (
+			this.loggerProvider &&
+			typeof this.loggerProvider.forceFlush === "function"
+		) {
+			this.loggerProvider.forceFlush().catch(() => {});
+		}
 	}
 
 	private createLogger() {
-		if (this.logger) return this.logger;
+		if (this.otelLogger) return this.otelLogger;
 		const settings = this.settings;
-		const headers = OpenObserve.getHeaders(settings);
-		const bulkInsertUrl = `${settings.baseUrl}/logs_${settings.projectId}/_multi`; // ND-JSON endpoint
-		const transport = new HttpBufferedTransport({
-			url: bulkInsertUrl,
+
+		let credentialsString = "";
+		if (settings.encodedBasicAuth) {
+			credentialsString = settings.encodedBasicAuth;
+		} else if (
+			settings.credentials?.username &&
+			settings.credentials?.password
+		) {
+			credentialsString = btoa(
+				`${settings.credentials.username}:${settings.credentials.password}`,
+			);
+		}
+
+		let cleanUrl = settings.baseUrl.replace(/\/$/, "");
+		if (!cleanUrl.endsWith("/v1/logs")) {
+			cleanUrl = `${cleanUrl}/v1/logs`;
+		}
+
+		const headers = {
+			Authorization: `Basic ${credentialsString}`,
+			"stream-name": `logs_${settings.projectId}`,
+		};
+
+		this.loggerProvider = createOtlpLoggerProvider({
+			url: cleanUrl,
 			headers,
-			bufferSize: 2 * 1024, // 4KB
-			flushInterval: 1000, // 1s
+			serviceName: "fluxify.server",
 		});
-		const pinoLogger = pino(
-			{
-				timestamp: stdTimeFunctions.isoTime,
-				base: {
-					route_id: settings.routeId,
-					project_id: settings.projectId,
-				},
-				nestedKey: "data",
-				formatters: {
-					level(label) {
-						return { level: label };
-					},
-				},
-			},
-			transport,
+
+		// Call getLogger directly on our local provider to avoid global collisions!
+		this.otelLogger = this.loggerProvider.getLogger(
+			"fluxify-openobserve-logger",
 		);
-		return (this.logger = pinoLogger);
+		return this.otelLogger;
 	}
+
 	public static async TestConnection(settings: any, appConfig: ConfigType) {
 		const extracted = OpenObserve.extractConnectionInfo(settings, appConfig);
 		if (!extracted) return false;
@@ -88,6 +135,7 @@ export class OpenObserve implements AbstractLogger {
 			return false;
 		}
 	}
+
 	public static extractConnectionInfo(
 		config: {
 			baseUrl: string;
