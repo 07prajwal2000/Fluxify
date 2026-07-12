@@ -10,7 +10,9 @@ import {
   TbDeviceFloppy, 
   TbPlus, 
   TbCopy as TbDuplicate,
-  TbTransform 
+  TbTransform,
+  TbArrowBackUp,
+  TbArrowForwardUp
 } from "react-icons/tb";
 import RefactorToCustomBlockModal from "./refactorToCustomBlockModal";
 
@@ -20,7 +22,7 @@ interface Props {
 }
 
 export default function CanvasContextMenu({ position, onClose }: Props) {
-  const { duplicateSelection, pasteSelection, onSave, copySelection } = useContext(BlockCanvasContext);
+  const { duplicateSelection, pasteSelection, onSave, copySelection, undo, redo } = useContext(BlockCanvasContext);
   const { open: openSearchbar } = useEditorSearchbarStore();
   const { getNodes, getEdges } = useReactFlow();
 
@@ -74,6 +76,28 @@ export default function CanvasContextMenu({ position, onClose }: Props) {
           
           <Menu.Divider />
           
+          <Menu.Item
+            leftSection={<TbArrowBackUp size={16} />}
+            rightSection={<Kbd ml="md">Ctrl + Z</Kbd>}
+            onClick={() => {
+              undo();
+              onClose();
+            }}
+          >
+            Undo
+          </Menu.Item>
+          <Menu.Item
+            leftSection={<TbArrowForwardUp size={16} />}
+            rightSection={<Kbd ml="md">Ctrl + Y</Kbd>}
+            onClick={() => {
+              redo();
+              onClose();
+            }}
+          >
+            Redo
+          </Menu.Item>
+
+          <Menu.Divider />
           <Menu.Item
             leftSection={<TbCopy size={16} />}
             rightSection={<Kbd ml="md">Ctrl + C</Kbd>}
