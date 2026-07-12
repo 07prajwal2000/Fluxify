@@ -13,4 +13,6 @@ export const BlockCanvasContext = createContext<{
   deleteBulk: (ids: string[], type: "block" | "edge") => void;
   onSave: () => Promise<void>;
   duplicateSelection: (blockIds: string[]) => void;
+  copySelection: () => Promise<void>;
+  pasteSelection: (clipboardData?: any) => void;
 }>({} as any);

@@ -1,12 +1,12 @@
 "use client";
 import { Box } from "@mantine/core";
-import { Background, Panel, ReactFlow } from "@xyflow/react";
+import { Background, Panel, ReactFlow, Node, useReactFlow } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { blocksList } from "../blocks/blocksList";
 import { BaseBlockType } from "@/types/block";
 import CustomBlockNode from "../blocks/customBlockNode";
 import { customBlocksQueries } from "@/query/customBlocksQuery";
-import { useMemo } from "react";
+import { useMemo, useState, useCallback } from "react";
 import {
 	useCanvasActionsStore,
 	useCanvasBlocksStore,
@@ -30,6 +30,7 @@ import {
 } from "@/store/blockDataStore";
 import { useEditorChangeTrackerStore } from "@/store/editor";
 import { useFlowEditorContext } from "./flowEditorContext";
+import CanvasContextMenu from "./contextMenu/canvasContextMenu";
 
 const BlockCanvas = () => {
 	const { readonly, entityId, entityType, features, projectId } = useFlowEditorContext();
@@ -84,6 +85,52 @@ const BlockCanvas = () => {
 	}, [customBlocks, blocks]);
 
 	useCanvasSnapshot();
+	const { getNodes, getEdges } = useReactFlow();
+
+	const copySelection = useCallback(async () => {
+		const selectedBlocks = getNodes().filter(n => n.selected);
+		const selectedEdges = getEdges().filter(e => e.selected);
+
+		if (selectedBlocks.length === 0 && selectedEdges.length === 0) return;
+
+		const blocks = selectedBlocks.map(node => ({
+			id: node.id,
+			position: node.position,
+			type: node.type!,
+			data: blockDataStore[node.id],
+		}));
+
+		const edges = selectedEdges.map(edge => ({
+			id: edge.id,
+			source: edge.source,
+			target: edge.target,
+			sourceHandle: edge.sourceHandle!,
+			targetHandle: edge.targetHandle!,
+			type: edge.type!,
+		}));
+
+		await navigator.clipboard.writeText(
+			JSON.stringify({ source: "FLUXIFY/COPY_PASTE", data: { blocks, edges } })
+		);
+	}, [getNodes, getEdges, blockDataStore]);
+
+	const [contextMenuPosition, setContextMenuPosition] = useState<{ x: number; y: number } | null>(null);
+
+	const onPaneContextMenu = useCallback(
+		(event: React.MouseEvent | MouseEvent) => {
+			event.preventDefault();
+			setContextMenuPosition({ x: event.clientX, y: event.clientY });
+		},
+		[setContextMenuPosition],
+	);
+
+	const onNodeContextMenu = useCallback(
+		(event: React.MouseEvent | MouseEvent, node: Node) => {
+			event.preventDefault();
+			setContextMenuPosition({ x: event.clientX, y: event.clientY });
+		},
+		[setContextMenuPosition],
+	);
 
 	function doAction(_type: "undo" | "redo") {
 		actionsStore.disable();
@@ -176,6 +223,8 @@ const BlockCanvas = () => {
 					deleteBulk: deleteBulkWithHistory,
 					onSave,
 					duplicateSelection,
+					copySelection,
+					pasteSelection,
 				}}
 			>
 				<Box style={{ position: "absolute", zIndex: 10, right: 0 }} p="lg">
@@ -183,6 +232,8 @@ const BlockCanvas = () => {
 				</Box>
 
 				<ReactFlow
+					onPaneContextMenu={onPaneContextMenu}
+					onNodeContextMenu={onNodeContextMenu}
 					deleteKeyCode=""
 					onEdgesChange={(changes) => {
 						changes.forEach((c) => {
@@ -223,6 +274,7 @@ const BlockCanvas = () => {
 
 				<BlockSettingsDialog />
 				<BlockSearchDrawer />
+				<CanvasContextMenu position={contextMenuPosition} onClose={() => setContextMenuPosition(null)} />
 			</BlockCanvasContext.Provider>
 		</Box>
 	);
