@@ -45,8 +45,6 @@ export const requestBodySchema = z.object({
   iconUrl: z.string().max(68266).optional(),
   projectId: z.string(),
   inputParams: z.array(inputParamSchema).optional(),
-  sourceType: z.enum(["plugin", "inhouse"]).optional(),
-  source: z.string().optional(),
 });
 
 export const responseSchema = z.object({

@@ -46,6 +46,14 @@ export default function CanvasContextMenu({ position, onClose }: Props) {
       (node.type === "entrypoint" || node.type === "error_handler" || node.type === "response")
   );
 
+  const [lastPosition, setLastPosition] = useState(position);
+
+  React.useEffect(() => {
+    if (position) {
+      setLastPosition(position);
+    }
+  }, [position]);
+
   return (
     <>
       <Menu 
@@ -62,8 +70,8 @@ export default function CanvasContextMenu({ position, onClose }: Props) {
           <Box
             style={{
               position: "fixed",
-              top: position?.y || 0,
-              left: position?.x || 0,
+              top: lastPosition?.y || 0,
+              left: lastPosition?.x || 0,
               width: 1,
               height: 1,
               pointerEvents: "none",

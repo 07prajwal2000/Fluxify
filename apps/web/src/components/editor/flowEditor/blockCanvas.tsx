@@ -279,9 +279,7 @@ const BlockCanvas = () => {
 
 				<BlockSettingsDialog />
 				<BlockSearchDrawer />
-				{contextMenuPosition && (
-					<CanvasContextMenu position={contextMenuPosition} onClose={() => setContextMenuPosition(null)} />
-				)}
+				<CanvasContextMenu position={contextMenuPosition} onClose={() => setContextMenuPosition(null)} />
 			</BlockCanvasContext.Provider>
 		</Box>
 	);

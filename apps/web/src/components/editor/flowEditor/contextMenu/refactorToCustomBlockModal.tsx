@@ -1,5 +1,5 @@
 import React, { useContext, useState } from "react";
-import { Modal, Button, TextInput, Textarea, Stack, Group, Select } from "@mantine/core";
+import { Modal, Button, TextInput, Stack, Group, Text } from "@mantine/core";
 import { useForm } from "@mantine/form";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { customBlocksService } from "@/services/customBlocks";
@@ -9,6 +9,7 @@ import { useReactFlow } from "@xyflow/react";
 import { useBlockDataStore } from "@/store/blockDataStore";
 import { BlockCanvasContext } from "@/context/blockCanvas";
 import { notifications } from "@mantine/notifications";
+import CustomBlockIconSelector from "@/components/forms/CustomBlockIconSelector";
 
 interface Props {
   opened: boolean;
@@ -28,7 +29,7 @@ export default function RefactorToCustomBlockModal({ opened, onClose, selectedBl
       name: "",
       label: "",
       description: "",
-      icon: "api",
+      icon: "premade-list" as "premade-list" | "custom",
       iconUrl: "",
     },
     validate: {
@@ -158,6 +159,7 @@ export default function RefactorToCustomBlockModal({ opened, onClose, selectedBl
       closeOnClickOutside={!mutation.isPending}
       closeOnEscape={!mutation.isPending}
       withCloseButton={!mutation.isPending}
+      size="xl"
     >
       <form onSubmit={form.onSubmit((values) => mutation.mutate(values))}>
         <Stack gap="md">
@@ -176,42 +178,25 @@ export default function RefactorToCustomBlockModal({ opened, onClose, selectedBl
             disabled={mutation.isPending}
             {...form.getInputProps("label")}
           />
-          <Textarea
-            label="Description"
-            placeholder="What does this block do?"
-            disabled={mutation.isPending}
-            {...form.getInputProps("description")}
-          />
-          <Select
-            label="Icon"
-            placeholder="Select an icon"
-            required
-            disabled={mutation.isPending}
-            data={[
-              { value: "python", label: "Python" },
-              { value: "javascript", label: "JavaScript" },
-              { value: "database", label: "Database" },
-              { value: "cloud", label: "Cloud" },
-              { value: "mail", label: "Mail" },
-              { value: "message", label: "Message" },
-              { value: "api", label: "API" },
-              { value: "webhook", label: "Webhook" },
-              { value: "lock", label: "Lock" },
-              { value: "key", label: "Key" },
-              { value: "custom", label: "Custom (Use URL)" },
-            ]}
-            {...form.getInputProps("icon")}
-          />
-          {form.values.icon === "custom" && (
-            <TextInput
-              label="Icon URL"
-              required
-              disabled={mutation.isPending}
-              {...form.getInputProps("iconUrl")}
-            />
-          )}
-          <Group justify="flex-end" mt="md">
-            <Button variant="subtle" onClick={onClose} disabled={mutation.isPending}>
+          <Text fw={500} size="sm">Icon</Text>
+          <CustomBlockIconSelector form={form} />
+          <Group 
+            justify="flex-end" 
+            mt="md"
+            mx="-md"
+            mb="-md"
+            px="md"
+            pb="md"
+            pt="md"
+            style={{
+              position: "sticky",
+              bottom: "-16px",
+              backgroundColor: "var(--mantine-color-body)",
+              zIndex: 10,
+              borderTop: "1px solid var(--mantine-color-default-border)",
+            }}
+          >
+            <Button variant="subtle" color="dark" onClick={onClose} disabled={mutation.isPending}>
               Cancel
             </Button>
             <Button type="submit" loading={mutation.isPending} color="violet">
