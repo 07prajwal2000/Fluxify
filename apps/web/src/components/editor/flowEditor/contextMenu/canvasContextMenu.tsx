@@ -48,7 +48,7 @@ export default function CanvasContextMenu({ position, onClose }: Props) {
 
   return (
     <>
-      <Menu opened={!!position && !refactorModalOpened} onClose={onClose} shadow="md">
+      <Menu opened={!!position && !refactorModalOpened} onClose={onClose} shadow="md" width={220}>
         <Menu.Target>
           <Box
             style={{
@@ -63,9 +63,9 @@ export default function CanvasContextMenu({ position, onClose }: Props) {
         </Menu.Target>
 
         <Menu.Dropdown>
-          <Menu.Item
-            leftSection={<TbPlus size={16} />}
-            rightSection={<Kbd ml="md">⇧ + A</Kbd>}
+          <Menu.Item fz="sm"
+            leftSection={<TbPlus size={14} />}
+            rightSection={<Kbd ml="md" size="xs">⇧ + A</Kbd>}
             onClick={() => {
               onClose();
               setTimeout(() => openSearchbar(), 0);
@@ -76,9 +76,9 @@ export default function CanvasContextMenu({ position, onClose }: Props) {
           
           <Menu.Divider />
           
-          <Menu.Item
-            leftSection={<TbArrowBackUp size={16} />}
-            rightSection={<Kbd ml="md">Ctrl + Z</Kbd>}
+          <Menu.Item fz="sm"
+            leftSection={<TbArrowBackUp size={14} />}
+            rightSection={<Kbd ml="md" size="xs">Ctrl + Z</Kbd>}
             onClick={() => {
               undo();
               onClose();
@@ -86,9 +86,9 @@ export default function CanvasContextMenu({ position, onClose }: Props) {
           >
             Undo
           </Menu.Item>
-          <Menu.Item
-            leftSection={<TbArrowForwardUp size={16} />}
-            rightSection={<Kbd ml="md">Ctrl + Y</Kbd>}
+          <Menu.Item fz="sm"
+            leftSection={<TbArrowForwardUp size={14} />}
+            rightSection={<Kbd ml="md" size="xs">Ctrl + Y</Kbd>}
             onClick={() => {
               redo();
               onClose();
@@ -98,9 +98,9 @@ export default function CanvasContextMenu({ position, onClose }: Props) {
           </Menu.Item>
 
           <Menu.Divider />
-          <Menu.Item
-            leftSection={<TbCopy size={16} />}
-            rightSection={<Kbd ml="md">Ctrl + C</Kbd>}
+          <Menu.Item fz="sm"
+            leftSection={<TbCopy size={14} />}
+            rightSection={<Kbd ml="md" size="xs">Ctrl + C</Kbd>}
             disabled={!hasSelection}
             onClick={() => {
               copySelection();
@@ -109,9 +109,9 @@ export default function CanvasContextMenu({ position, onClose }: Props) {
           >
             Copy
           </Menu.Item>
-          <Menu.Item
-            leftSection={<TbClipboardText size={16} />}
-            rightSection={<Kbd ml="md">Ctrl + V</Kbd>}
+          <Menu.Item fz="sm"
+            leftSection={<TbClipboardText size={14} />}
+            rightSection={<Kbd ml="md" size="xs">Ctrl + V</Kbd>}
             onClick={() => {
               pasteSelection();
               onClose();
@@ -119,9 +119,9 @@ export default function CanvasContextMenu({ position, onClose }: Props) {
           >
             Paste
           </Menu.Item>
-          <Menu.Item
-            leftSection={<TbDuplicate size={16} />}
-            rightSection={<Kbd ml="md">⇧ + D</Kbd>}
+          <Menu.Item fz="sm"
+            leftSection={<TbDuplicate size={14} />}
+            rightSection={<Kbd ml="md" size="xs">⇧ + D</Kbd>}
             disabled={!hasSelection}
             onClick={() => {
               duplicateSelection(selectedBlocks);
@@ -133,8 +133,8 @@ export default function CanvasContextMenu({ position, onClose }: Props) {
 
           <Menu.Divider />
 
-          <Menu.Item
-            leftSection={<TbTransform size={16} />}
+          <Menu.Item fz="sm"
+            leftSection={<TbTransform size={14} />}
             disabled={!canRefactor}
             onClick={() => setRefactorModalOpened(true)}
           >
@@ -143,9 +143,9 @@ export default function CanvasContextMenu({ position, onClose }: Props) {
 
           <Menu.Divider />
 
-          <Menu.Item
-            leftSection={<TbDeviceFloppy size={16} />}
-            rightSection={<Kbd ml="md">Ctrl + S</Kbd>}
+          <Menu.Item fz="sm"
+            leftSection={<TbDeviceFloppy size={14} />}
+            rightSection={<Kbd ml="md" size="xs">Ctrl + S</Kbd>}
             onClick={() => {
               onSave();
               onClose();
