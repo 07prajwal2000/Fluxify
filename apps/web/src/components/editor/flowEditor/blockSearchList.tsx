@@ -9,7 +9,7 @@ import { BlockTypes } from "@/types/block";
 import { customBlocksQueries } from "@/query/customBlocksQuery";
 import { useFlowEditorContext } from "./flowEditorContext";
 import { getCustomBlockIcon } from "../blocks/customBlockNode";
-import { TbCodeVariable } from "react-icons/tb";
+import { TbCodeVariable, TbPlugConnected } from "react-icons/tb";
 
 const BlockSearchList = () => {
   const { projectId } = useFlowEditorContext();
@@ -35,14 +35,15 @@ const BlockSearchList = () => {
 
     if (customBlocks) {
       customBlocks.forEach((cb) => {
-        let cat = cb.sourceType === "inhouse" ? "User Defined" : cb.source || "Plugin";
+        const isUserDefined = cb.name?.startsWith("user_defined.") || cb.sourceType === "inhouse";
+        let cat = isUserDefined ? "User Defined Blocks" : "Plugin Blocks";
         if (!categories.find((c) => c.category === cat) && !newCategoriesMap[cat]) {
           newCategoriesMap[cat] = true;
           categories.push({
             id: crypto.randomUUID(),
             category: cat as any,
-            description: `Blocks from ${cat}`,
-            icon: <TbCodeVariable size={20} />,
+            description: isUserDefined ? "Your custom built blocks" : "Blocks from plugins",
+            icon: isUserDefined ? <TbCodeVariable size={20} /> : <TbPlugConnected size={20} />,
           });
         }
       });
@@ -54,7 +55,8 @@ const BlockSearchList = () => {
     const blocks = [...blocksForSearch];
     if (customBlocks) {
       customBlocks.forEach((cb) => {
-        let cat = cb.sourceType === "inhouse" ? "User Defined" : cb.source || "Plugin";
+        const isUserDefined = cb.name?.startsWith("user_defined.") || cb.sourceType === "inhouse";
+        let cat = isUserDefined ? "User Defined Blocks" : "Plugin Blocks";
         blocks.push({
           id: cb.id,
           title: cb.label || cb.name,

@@ -150,16 +150,22 @@ export function useBlockHistory() {
 		updateBlockData(id, data);
 	}
 
-	function pasteSelection(clipboardData: any) {
-		const oldIdToNewIdMap = new Map<string, string>();
-		const newBlockIds: string[] = [];
+	async function pasteSelection() {
+		try {
+			const text = await navigator.clipboard.readText();
+			const clipboardData = JSON.parse(text);
+			if (clipboardData.source !== "FLUXIFY/COPY_PASTE" || !clipboardData.data) return;
 
-		clipboardData.blocks.forEach((block: any) => {
-			const isUnduplitable =
-				block.type === BlockTypes.entrypoint ||
-				block.type === BlockTypes.errorHandler;
+			const oldIdToNewIdMap = new Map<string, string>();
+			const newBlockIds: string[] = [];
 
-			if (isUnduplitable) return;
+			clipboardData.data.blocks.forEach((block: any) => {
+				const isUnduplitable =
+					block.type === BlockTypes.entrypoint ||
+					block.type === BlockTypes.errorHandler ||
+					block.type === BlockTypes.response;
+
+				if (isUnduplitable) return;
 
 			const newId = generateID();
 			oldIdToNewIdMap.set(block.id, newId);
@@ -169,7 +175,7 @@ export function useBlockHistory() {
 			createNewBlock(newId, position, block.type, block.data);
 		});
 
-		clipboardData.edges.forEach((edge: any) => {
+		clipboardData.data.edges?.forEach((edge: any) => {
 			if (
 				!oldIdToNewIdMap.has(edge.source) ||
 				!oldIdToNewIdMap.has(edge.target)
@@ -201,6 +207,9 @@ export function useBlockHistory() {
 
 		setBlocksSelection(newBlockIds, true);
 		setEdgesSelection(newBlockIds, true);
+		} catch (error) {
+			console.error("Failed to paste from clipboard", error);
+		}
 	}
 
 	return {
