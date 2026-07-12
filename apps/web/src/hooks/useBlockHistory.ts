@@ -175,7 +175,7 @@ export function useBlockHistory() {
 			createNewBlock(newId, position, block.type, block.data);
 		});
 
-		clipboardData.edges.forEach((edge: any) => {
+		clipboardData.data.edges?.forEach((edge: any) => {
 			if (
 				!oldIdToNewIdMap.has(edge.source) ||
 				!oldIdToNewIdMap.has(edge.target)

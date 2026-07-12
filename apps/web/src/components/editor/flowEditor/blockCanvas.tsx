@@ -89,9 +89,11 @@ const BlockCanvas = () => {
 
 	const copySelection = useCallback(async () => {
 		const selectedBlocks = getNodes().filter(n => n.selected);
-		const selectedEdges = getEdges().filter(e => e.selected);
+		
+		if (selectedBlocks.length === 0) return;
 
-		if (selectedBlocks.length === 0 && selectedEdges.length === 0) return;
+		const selectedBlockIds = selectedBlocks.map(n => n.id);
+		const edgesToCopy = getEdges().filter(e => selectedBlockIds.includes(e.source) && selectedBlockIds.includes(e.target));
 
 		const blocks = selectedBlocks.map(node => ({
 			id: node.id,
@@ -100,7 +102,7 @@ const BlockCanvas = () => {
 			data: blockDataStore[node.id],
 		}));
 
-		const edges = selectedEdges.map(edge => ({
+		const edges = edgesToCopy.map(edge => ({
 			id: edge.id,
 			source: edge.source,
 			target: edge.target,
