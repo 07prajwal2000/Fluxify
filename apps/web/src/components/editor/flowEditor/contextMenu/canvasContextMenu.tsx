@@ -26,8 +26,8 @@ export default function CanvasContextMenu({ position, onClose }: Props) {
   const { open: openSearchbar } = useEditorSearchbarStore();
   const { getNodes, getEdges } = useReactFlow();
 
-  const [selectedBlocks, setSelectedBlocks] = useState<string[]>([]);
-  const [selectedEdges, setSelectedEdges] = useState<string[]>([]);
+  const [selectedBlocks, setSelectedBlocks] = useState<string[]>(() => getNodes().filter(n => n.selected).map(n => n.id));
+  const [selectedEdges, setSelectedEdges] = useState<string[]>(() => getEdges().filter(e => e.selected).map(e => e.id));
   const [refactorModalOpened, setRefactorModalOpened] = useState(false);
 
   const onChange = useCallback(({ nodes, edges }: { nodes: Node[]; edges: Edge[] }) => {
@@ -48,7 +48,16 @@ export default function CanvasContextMenu({ position, onClose }: Props) {
 
   return (
     <>
-      <Menu opened={!!position && !refactorModalOpened} onClose={onClose} shadow="md" width={220}>
+      <Menu 
+        opened={!!position && !refactorModalOpened} 
+        onClose={onClose} 
+        shadow="md" 
+        width={220}
+        styles={{
+          item: { padding: "4px 10px", minHeight: 32 },
+          itemLabel: { fontSize: 13 },
+        }}
+      >
         <Menu.Target>
           <Box
             style={{
