@@ -1,5 +1,5 @@
 import React, { useContext, useState } from "react";
-import { Modal, Button, TextInput, Textarea, Stack, Group } from "@mantine/core";
+import { Modal, Button, TextInput, Textarea, Stack, Group, Select } from "@mantine/core";
 import { useForm } from "@mantine/form";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { customBlocksService } from "@/services/customBlocks";
@@ -28,6 +28,8 @@ export default function RefactorToCustomBlockModal({ opened, onClose, selectedBl
       name: "",
       label: "",
       description: "",
+      icon: "api",
+      iconUrl: "",
     },
     validate: {
       name: (val) =>
@@ -37,6 +39,8 @@ export default function RefactorToCustomBlockModal({ opened, onClose, selectedBl
             : "Lowercase letters, numbers, dots, and underscores only"
           : "Name is required",
       label: (val) => (val.length > 0 ? null : "Label is required"),
+      iconUrl: (val, values) =>
+        values.icon === "custom" && !val ? "Icon URL is required" : null,
     },
   });
 
@@ -44,10 +48,12 @@ export default function RefactorToCustomBlockModal({ opened, onClose, selectedBl
     mutationFn: async (values: typeof form.values) => {
       // 1. Create the custom block
       const createPayload = {
-        ...values,
+        name: values.name,
+        label: values.label,
+        description: values.description,
+        icon: values.icon === "custom" ? ("custom" as const) : ("premade-list" as const),
+        iconUrl: values.icon === "custom" ? values.iconUrl : values.icon,
         projectId: projectId!,
-        icon: "custom" as const,
-        iconUrl: "",
         inputParams: [],
       };
       const createdBlock = await customBlocksService.create(createPayload);
@@ -176,11 +182,39 @@ export default function RefactorToCustomBlockModal({ opened, onClose, selectedBl
             disabled={mutation.isPending}
             {...form.getInputProps("description")}
           />
+          <Select
+            label="Icon"
+            placeholder="Select an icon"
+            required
+            disabled={mutation.isPending}
+            data={[
+              { value: "python", label: "Python" },
+              { value: "javascript", label: "JavaScript" },
+              { value: "database", label: "Database" },
+              { value: "cloud", label: "Cloud" },
+              { value: "mail", label: "Mail" },
+              { value: "message", label: "Message" },
+              { value: "api", label: "API" },
+              { value: "webhook", label: "Webhook" },
+              { value: "lock", label: "Lock" },
+              { value: "key", label: "Key" },
+              { value: "custom", label: "Custom (Use URL)" },
+            ]}
+            {...form.getInputProps("icon")}
+          />
+          {form.values.icon === "custom" && (
+            <TextInput
+              label="Icon URL"
+              required
+              disabled={mutation.isPending}
+              {...form.getInputProps("iconUrl")}
+            />
+          )}
           <Group justify="flex-end" mt="md">
             <Button variant="subtle" onClick={onClose} disabled={mutation.isPending}>
               Cancel
             </Button>
-            <Button type="submit" loading={mutation.isPending}>
+            <Button type="submit" loading={mutation.isPending} color="violet">
               Create
             </Button>
           </Group>

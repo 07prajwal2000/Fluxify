@@ -65,8 +65,8 @@ export default function CanvasContextMenu({ position, onClose }: Props) {
             leftSection={<TbPlus size={16} />}
             rightSection={<Kbd ml="md">⇧ + A</Kbd>}
             onClick={() => {
-              openSearchbar();
               onClose();
+              setTimeout(() => openSearchbar(), 0);
             }}
           >
             Add new

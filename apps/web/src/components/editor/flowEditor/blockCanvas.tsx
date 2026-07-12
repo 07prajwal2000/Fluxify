@@ -234,6 +234,9 @@ const BlockCanvas = () => {
 				<ReactFlow
 					onPaneContextMenu={onPaneContextMenu}
 					onNodeContextMenu={onNodeContextMenu}
+					onSelectionContextMenu={onPaneContextMenu}
+					onPaneClick={() => setContextMenuPosition(null)}
+					onNodeClick={() => setContextMenuPosition(null)}
 					deleteKeyCode=""
 					onEdgesChange={(changes) => {
 						changes.forEach((c) => {
@@ -274,7 +277,9 @@ const BlockCanvas = () => {
 
 				<BlockSettingsDialog />
 				<BlockSearchDrawer />
-				<CanvasContextMenu position={contextMenuPosition} onClose={() => setContextMenuPosition(null)} />
+				{contextMenuPosition && (
+					<CanvasContextMenu position={contextMenuPosition} onClose={() => setContextMenuPosition(null)} />
+				)}
 			</BlockCanvasContext.Provider>
 		</Box>
 	);
