@@ -10,6 +10,7 @@ import {
 } from "@fluxify/server/src/api/v1/integrations/schemas";
 import { integrationsQuery } from "@/query/integrationsQuery";
 import { routesQueries } from "@/query/routerQuery";
+import { APP_ROUTES } from "@/constants/routes";
 import {
   ActionIcon,
   Button,
@@ -152,7 +153,7 @@ const IntegrationSelector = (props: Props) => {
               <Tooltip label="Show Integration Settings">
                 <Link
                   target="_blank"
-                  href={`/integrations?open=${selectedIntegration.id}&group=${props.group}`}
+                  href={`${APP_ROUTES.PROJECT_INTEGRATIONS(activeProjectId)}?open=${selectedIntegration.id}&group=${props.group}`}
                 >
                   <ActionIcon variant="subtle" color="violet">
                     <RxOpenInNewWindow />
