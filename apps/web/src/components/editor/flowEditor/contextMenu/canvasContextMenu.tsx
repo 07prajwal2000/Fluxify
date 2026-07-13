@@ -2,7 +2,7 @@ import React, { useContext, useState, useCallback } from "react";
 import { Menu, Kbd, Group, Text, Box } from "@mantine/core";
 import { BlockCanvasContext } from "@/context/blockCanvas";
 import { useReactFlow, useOnSelectionChange, Node, Edge } from "@xyflow/react";
-import { useEditorSearchbarStore } from "@/store/editor";
+import { useEditorSearchbarStore, useEditorActionsStore, useEditorBlockSettingsStore } from "@/store/editor";
 import { useBlockDataStore } from "@/store/blockDataStore";
 import { 
   TbCopy, 
@@ -12,7 +12,9 @@ import {
   TbCopy as TbDuplicate,
   TbTransform,
   TbArrowBackUp,
-  TbArrowForwardUp
+  TbArrowForwardUp,
+  TbSettings,
+  TbExternalLink
 } from "react-icons/tb";
 import RefactorToCustomBlockModal from "./refactorToCustomBlockModal";
 
@@ -24,7 +26,11 @@ interface Props {
 export default function CanvasContextMenu({ position, onClose }: Props) {
   const { duplicateSelection, pasteSelection, onSave, copySelection, undo, redo } = useContext(BlockCanvasContext);
   const { open: openSearchbar } = useEditorSearchbarStore();
+  const { open } = useEditorBlockSettingsStore();
   const { getNodes, getEdges } = useReactFlow();
+  const { undoStack, redoStack } = useEditorActionsStore();
+  const disableUndo = undoStack.length === 0;
+  const disableRedo = redoStack.length === 0;
 
   const [selectedBlocks, setSelectedBlocks] = useState<string[]>(() => getNodes().filter(n => n.selected).map(n => n.id));
   const [selectedEdges, setSelectedEdges] = useState<string[]>(() => getEdges().filter(e => e.selected).map(e => e.id));
@@ -80,6 +86,19 @@ export default function CanvasContextMenu({ position, onClose }: Props) {
         </Menu.Target>
 
         <Menu.Dropdown>
+          {selectedBlocks.length === 1 && (
+            <Menu.Item fz={13} style={{ minHeight: 28, padding: "4px 8px" }}
+              leftSection={<TbExternalLink size={14} />}
+              rightSection={<Kbd ml="md" size="xs" p="2px 4px">Enter</Kbd>}
+              onClick={() => {
+                open(selectedBlocks[0]);
+                onClose();
+              }}
+            >
+              Open
+            </Menu.Item>
+          )}
+
           <Menu.Item fz={13} style={{ minHeight: 28, padding: "4px 8px" }}
             leftSection={<TbPlus size={14} />}
             rightSection={<Kbd ml="md" size="xs" p="2px 4px">⇧ + A</Kbd>}
@@ -96,6 +115,7 @@ export default function CanvasContextMenu({ position, onClose }: Props) {
           <Menu.Item fz={13} style={{ minHeight: 28, padding: "4px 8px" }}
             leftSection={<TbArrowBackUp size={14} />}
             rightSection={<Kbd ml="md" size="xs" p="2px 4px">Ctrl + Z</Kbd>}
+            disabled={disableUndo}
             onClick={() => {
               undo();
               onClose();
@@ -106,6 +126,7 @@ export default function CanvasContextMenu({ position, onClose }: Props) {
           <Menu.Item fz={13} style={{ minHeight: 28, padding: "4px 8px" }}
             leftSection={<TbArrowForwardUp size={14} />}
             rightSection={<Kbd ml="md" size="xs" p="2px 4px">Ctrl + Y</Kbd>}
+            disabled={disableRedo}
             onClick={() => {
               redo();
               onClose();

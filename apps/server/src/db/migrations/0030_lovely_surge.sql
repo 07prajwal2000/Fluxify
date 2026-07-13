@@ -1,0 +1,1 @@
+ALTER TABLE "custom_blocks_list" ALTER COLUMN "source" SET DEFAULT '';

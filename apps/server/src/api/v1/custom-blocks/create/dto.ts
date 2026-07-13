@@ -37,7 +37,9 @@ export const inputParamSchema = z.discriminatedUnion("type", [
   }),
 ]);
 
-export const requestBodySchema = z.object({
+import { premadeIconEnum } from "../shared";
+
+export const baseRequestBodySchema = z.object({
   name: z.string().regex(/^[a-z0-9_]+$/),
   label: z.string(),
   description: z.string().optional(),
@@ -46,6 +48,21 @@ export const requestBodySchema = z.object({
   projectId: z.string(),
   inputParams: z.array(inputParamSchema).optional(),
 });
+
+export const validatePremadeIcon = (data: any, ctx: z.RefinementCtx) => {
+  if (data.icon === "premade-list") {
+    const result = premadeIconEnum.safeParse(data.iconUrl);
+    if (!result.success) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["iconUrl"],
+        message: "Invalid premade icon name",
+      });
+    }
+  }
+};
+
+export const requestBodySchema = baseRequestBodySchema.superRefine(validatePremadeIcon);
 
 export const responseSchema = z.object({
   id: z.string(),

@@ -390,9 +390,9 @@ export const customBlockIconTypeEnum = pgEnum("custom_block_icon_type", [
 ]);
 
 export const customBlockSourceTypeEnum = pgEnum("custom_block_source_type", [
-	"plugin",
-	"inhouse",
-	"user-defined",
+	"plugin", // from third party sources
+	"inhouse", // built-in or can be added as addon but developed by the project maintainers
+	"user-defined", // custom defined by the user for their project
 ]);
 
 export const customBlocksListEntity = pgTable(
@@ -405,7 +405,7 @@ export const customBlocksListEntity = pgTable(
 		label: varchar({ length: 50 }).notNull(),
 		description: text(),
 		icon: customBlockIconTypeEnum("icon"),
-		iconUrl: text("icon_url"),
+		iconUrl: text("icon_url"), // if custom, then it is either url or base64 encoded. if premade-list, then it is the name of the icon in the list
 		projectId: varchar("project_id", { length: 50 }).references(
 			() => projectsEntity.id,
 			{
@@ -415,7 +415,7 @@ export const customBlocksListEntity = pgTable(
 		inputParams: jsonb("input_params").$type<Record<string, any>[]>(),
 		sourceType:
 			customBlockSourceTypeEnum("source_type").default("user-defined"),
-		source: text().default("user-defined"),
+		source: text().default(""), // if plugin, then the name of plugin, if inhouse, then repository url, if user-defined, then empty
 		createdAt: timestamp("created_at").defaultNow().notNull(),
 		updatedAt: timestamp("updated_at")
 			.defaultNow()

@@ -1,11 +1,11 @@
 "use client";
 import { useEditorSearchbarStore } from "@/store/editor";
-import { Box } from "@mantine/core";
+import { Box, Text } from "@mantine/core";
 import { useContext, useEffect, useMemo } from "react";
 import SearchBlockItem from "./searchBlocktem";
 import blocksForSearch, { categoryList } from "../blocks/searchList";
 import { BlockCanvasContext } from "@/context/blockCanvas";
-import { BlockTypes } from "@/types/block";
+import { BlockTypes, BlockCategory } from "@/types/block";
 import { customBlocksQueries } from "@/query/customBlocksQuery";
 import { useFlowEditorContext } from "./flowEditorContext";
 import { getCustomBlockIcon } from "../blocks/customBlockNode";
@@ -29,44 +29,21 @@ const BlockSearchList = () => {
 
 	const { addBlock } = useContext(BlockCanvasContext);
 
-	const allCategories = useMemo(() => {
-		const categories = [...categoryList];
-		const newCategoriesMap: Record<string, boolean> = {};
+	const ObjectSourceToCategory: Record<string, BlockCategory> = {
+		plugin: BlockCategory.Plugin,
+		inhouse: BlockCategory.Inhouse,
+		"user-defined": BlockCategory.UserDefined,
+	};
 
-		if (customBlocks) {
-			customBlocks.forEach((cb) => {
-				const isUserDefined = cb.sourceType === "user-defined";
-				let cat = isUserDefined ? "User Defined Blocks" : "Plugin Blocks";
-				if (
-					!categories.find((c) => c.category === cat) &&
-					!newCategoriesMap[cat]
-				) {
-					newCategoriesMap[cat] = true;
-					categories.push({
-						id: crypto.randomUUID(),
-						category: cat as any,
-						description: isUserDefined
-							? "Your custom built blocks"
-							: "Blocks from plugins",
-						icon: isUserDefined ? (
-							<TbCodeVariable size={20} />
-						) : (
-							<TbPlugConnected size={20} />
-						),
-					});
-				}
-			});
-		}
-		return categories;
-	}, [customBlocks]);
+	const allCategories = useMemo(() => {
+		return [...categoryList];
+	}, [customBlocks]); // Keeping useMemo to avoid breaking downstream deps, though simple now
 
 	const allBlocks = useMemo(() => {
 		const blocks = [...blocksForSearch];
 		if (customBlocks) {
 			customBlocks.forEach((cb) => {
-				const isUserDefined =
-					cb.name?.startsWith("user_defined.") || cb.sourceType === "inhouse";
-				let cat = isUserDefined ? "User Defined Blocks" : "Plugin Blocks";
+				const cat = ObjectSourceToCategory[cb.sourceType as string] || BlockCategory.UserDefined;
 				blocks.push({
 					id: cb.id,
 					title: cb.label || cb.name,
@@ -172,6 +149,13 @@ const BlockSearchList = () => {
 					/>
 				))}
 			</Box>
+			{!inCategoryMode && filteredBlocks.length === 0 && (
+				<Text c="dimmed" size="sm" ta="center" mt="md">
+					{searchQuery.startsWith("cat:")
+						? "No blocks found for the selected category."
+						: "No blocks found for the search term."}
+				</Text>
+			)}
 			{!inCategoryMode &&
 				filteredBlocks.map((block: any, i: number) => (
 					<SearchBlockItem

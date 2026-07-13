@@ -39,6 +39,9 @@ export enum BlockCategory {
   HTTP = "HTTP", // all req/res blocks, http request
   Logging = "Logging",
   Misc = "Misc", // js runner, transformer
+  Plugin = "Plugin Custom Blocks",
+  Inhouse = "In-house Custom Blocks",
+  UserDefined = "User Defined Custom Blocks",
 }
 
 export type BaseBlockType = {

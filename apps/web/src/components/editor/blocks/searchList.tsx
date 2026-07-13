@@ -28,10 +28,28 @@ import {
 } from "react-icons/md";
 import { BlockCategory, BlockTypes } from "@/types/block";
 import { LuDatabaseZap, LuFileText } from "react-icons/lu";
+import type { PremadeIconType } from "@fluxify/server/src/api/v1/custom-blocks/shared";
+import { premadeIconEnum } from "@fluxify/server/src/api/v1/custom-blocks/shared";
 
 const iconStyles: React.CSSProperties = {};
 
 const iconSize = 20;
+
+export const premadeIconsMap: Record<PremadeIconType, React.ReactNode> = {
+  database: <TbDatabase style={iconStyles} size={iconSize} />,
+  api: <TbWorldCode style={iconStyles} size={iconSize} />,
+  robot: <FaToolbox style={iconStyles} size={iconSize} />,
+  tool: <FaToolbox style={iconStyles} size={iconSize} />,
+  user: <TbCodeVariablePlus style={iconStyles} size={iconSize} />,
+  lock: <TbCodeVariable style={iconStyles} size={iconSize} />,
+  mail: <TbNote style={iconStyles} size={iconSize} />,
+  calendar: <TbDatabase style={iconStyles} size={iconSize} />,
+  file: <TbTerminal2 style={iconStyles} size={iconSize} />,
+  folder: <TbTransform style={iconStyles} size={iconSize} />,
+  chart: <TbMatrix style={iconStyles} size={iconSize} />,
+  image: <TbNote style={iconStyles} size={iconSize} />,
+  code: <FaCode style={iconStyles} size={iconSize} />,
+};
 
 export const categoryList = [
   {
@@ -69,6 +87,24 @@ export const categoryList = [
     category: BlockCategory.Misc,
     description: "Misc blocks that are used for misc operations.",
     icon: <VscSymbolMisc style={iconStyles} size={iconSize} />,
+  },
+  {
+    id: crypto.randomUUID(),
+    category: BlockCategory.UserDefined,
+    description: "Custom defined blocks by the user for their project.",
+    icon: <TbCodeVariablePlus style={iconStyles} size={iconSize} />,
+  },
+  {
+    id: crypto.randomUUID(),
+    category: BlockCategory.Inhouse,
+    description: "Built-in or addon custom blocks developed by maintainers.",
+    icon: <FaToolbox style={iconStyles} size={iconSize} />,
+  },
+  {
+    id: crypto.randomUUID(),
+    category: BlockCategory.Plugin,
+    description: "Custom blocks from third party plugin sources.",
+    icon: <FaCode style={iconStyles} size={iconSize} />,
   },
 ];
 
