@@ -1,10 +1,7 @@
-import { Button, Stack, Text } from "@mantine/core";
+import { Stack, Text } from "@mantine/core";
 import React from "react";
-import FormDialog from "../dialog/formDialog";
-import { useDisclosure } from "@mantine/hooks";
 
 const EmptyRoutePanel = ({ projectId }: { projectId?: string }) => {
-	const [opened, { open, close }] = useDisclosure(false);
 	return (
 		<Stack
 			bg="gray.1"
@@ -21,11 +18,8 @@ const EmptyRoutePanel = ({ projectId }: { projectId?: string }) => {
 			{projectId && (
 				<>
 					<Text c="gray.7" size="md" fw={500}>
-						Create a new route to get started
+						Create a new <b>Route</b> to Get Started
 					</Text>
-					<Button color="dark" variant="outline" onClick={open}>
-						Add New Route
-					</Button>
 				</>
 			)}
 		</Stack>
