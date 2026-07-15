@@ -12,6 +12,7 @@ export const requestBodySchema = z.object({
   bodySchema: z.any().optional(),
   querySchema: z.any().optional(),
   paramsSchema: z.any().optional(),
+  active: z.boolean().optional(),
 }).superRefine(routeSchemaValidationRefinement);
 
 export const responseSchema = z.object({

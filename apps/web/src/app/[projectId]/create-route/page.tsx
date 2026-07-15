@@ -30,6 +30,7 @@ export default function CreateRoutePage() {
         bodySchema: values.bodySchema,
         querySchema: values.querySchema,
         paramsSchema: values.paramsSchema,
+        active: values.active,
       });
       notifications.show({
         title: "Success",
