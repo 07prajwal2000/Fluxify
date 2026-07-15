@@ -1,10 +1,10 @@
 "use client";
 
-import React, { useMemo } from "react";
+import React, { useEffect, useMemo } from "react";
 import { CanvasStoreProvider } from "@/store/canvas";
 import { BlockDataStoreProvider } from "@/store/blockDataStore";
 import { FlowEditorFeatures, FlowEditorProvider } from "./flowEditor/flowEditorContext";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { routesQueries } from "@/query/routerQuery";
 import QueryLoader from "../query/queryLoader";
 import QueryError from "../query/queryError";
@@ -21,18 +21,38 @@ const defaultFeatures: FlowEditorFeatures = {
 };
 
 const EditorProvidersWrapper = ({ children }: { children: React.ReactNode }) => {
-	const { id } = useParams<{ id: string }>();
+	const { routeId } = useParams<{ routeId: string }>();
+	const router = useRouter();
 	const { useQuery } = routesQueries.getCanvasItems;
-	const { data: itemsData, isLoading: itemsLoading, isError: itemsError, error: itemsErrorData, refetch: refetchItems } = useQuery(id);
-	const { data: routeData, isLoading: routeLoading } = routesQueries.getById.useQuery(id);
+	const { data: itemsData, isLoading: itemsLoading, isError: itemsError, error: itemsErrorData, refetch: refetchItems } = useQuery(routeId);
+	const { data: routeData, isLoading: routeLoading, isError: routeError, error: routeErrorData } = routesQueries.getById.useQuery(routeId);
 	const { acl, userData } = useAuthStore();
+
+	useEffect(() => {
+		if (routeError || itemsError) {
+			const err = (routeErrorData || itemsErrorData) as any;
+			const status = err?.response?.status || err?.status;
+			if (status === 404) {
+				const errorData = err?.response?.data || err?.data;
+				if (errorData?.projectId) {
+					router.replace(`/${errorData.projectId}/routes`);
+				} else {
+					router.replace("/");
+				}
+			}
+		}
+	}, [routeError, itemsError, routeErrorData, itemsErrorData, router]);
 
 	if (itemsLoading || routeLoading) {
 		return <QueryLoader type="spinner" />;
 	}
 
 	if (itemsError) {
-		return <QueryError error={itemsErrorData} refetcher={refetchItems} />;
+		const err = itemsErrorData as any;
+		const status = err?.response?.status || err?.status;
+		if (status !== 404) {
+			return <QueryError error={itemsErrorData} refetcher={refetchItems} />;
+		}
 	}
 
 	if (!itemsData || !routeData) {
@@ -61,7 +81,7 @@ const EditorProvidersWrapper = ({ children }: { children: React.ReactNode }) => 
 		<FlowEditorProvider
 			value={{
 				readonly: false,
-				entityId: id,
+				entityId: routeId,
 				entityType: "route",
 				projectId: projectId as string,
 				features: defaultFeatures,

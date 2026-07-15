@@ -40,7 +40,7 @@ export const CustomBlockSettingsPanel = ({
 				<Text size="lg" fw={500}>
 					Parameters
 				</Text>
-				{customBlock.sourceType === "inhouse" && (
+				{customBlock.sourceType === "user-defined" && (
 					<Button
 						component="a"
 						href={`/_/admin/ui/${projectId}/custom-blocks/edit/${customBlock.id}`}

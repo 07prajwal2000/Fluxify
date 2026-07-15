@@ -13,6 +13,7 @@ import { useRouter } from "next/navigation";
 
 type Proptypes = {
   id: string;
+  projectId: string;
 };
 
 const RouteItemMenu = (props: Proptypes) => {
@@ -21,7 +22,7 @@ const RouteItemMenu = (props: Proptypes) => {
   const router = useRouter();
 
   function onEditClicked() {
-    router.push(`/editor/${props.id}/settings`);
+    router.push(`/${props.projectId}/editor/${props.id}/settings`);
   }
   function onDuplicateClicked() {}
   function onDownloadJsonClicked() {}

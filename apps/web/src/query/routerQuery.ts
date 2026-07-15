@@ -27,6 +27,7 @@ export const routesQueries = {
           return await routesService.getByID(id);
         },
         refetchOnWindowFocus: false,
+        retry: false,
         enabled: !!id,
       });
     },
@@ -45,6 +46,7 @@ export const routesQueries = {
           return await routesService.getCanvasItems(id);
         },
         refetchOnWindowFocus: false,
+        retry: false,
         staleTime: Infinity,
       });
     },

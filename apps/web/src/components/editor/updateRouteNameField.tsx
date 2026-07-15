@@ -26,9 +26,9 @@ import Link from "next/link";
 import HttpMethodText from "../httpMethodText";
 
 const UpdateRouteNameField = () => {
-	const { id } = useParams();
+	const { routeId } = useParams();
 	const { useQuery } = routesQueries.getById;
-	const { data, isLoading } = useQuery(id?.toString() || "");
+	const { data, isLoading } = useQuery(routeId?.toString() || "");
 	const [name, setName] = React.useState(data?.name || "");
 	const queryClient = useQueryClient();
 	const [updateLoading, setUpdateLoading] = useState(false);
@@ -157,7 +157,7 @@ const UpdateRouteNameField = () => {
 								<Menu.Item
 									key={route.id}
 									component={Link}
-									href={`/editor/${route.id}`}
+									href={`/${projectId}/editor/${route.id}`}
 								>
 									<Group wrap="nowrap" gap="xs">
 										<HttpMethodText method={route.method as any} small />

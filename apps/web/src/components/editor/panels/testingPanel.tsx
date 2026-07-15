@@ -36,7 +36,7 @@ export type TestSuite = {
 };
 
 const TestingPanel = () => {
-  const { id } = useParams<{ id: string }>();
+  const { routeId } = useParams<{ routeId: string }>();
   const queryClient = useQueryClient();
   const {
     data: route,
@@ -44,9 +44,9 @@ const TestingPanel = () => {
     isError,
     error,
     refetch,
-  } = routesQueries.getById.useQuery(id);
+  } = routesQueries.getById.useQuery(routeId);
 
-  const { data: testSuitesList } = testSuitesQueries.getAll.useQuery(id);
+  const { data: testSuitesList } = testSuitesQueries.getAll.useQuery(routeId);
   const testSuites = (testSuitesList || []) as any[];
 
   const [activeView, setActiveView] = useState<"playground" | string>(
@@ -81,7 +81,7 @@ const TestingPanel = () => {
       route_id: route?.id,
       assertions: [],
     });
-    testSuitesQueries.getAll.invalidate(queryClient, id);
+    testSuitesQueries.getAll.invalidate(queryClient, routeId);
     setActiveView(res.id);
     setNewSuite({ name: "", description: "" });
     setIsAddDialogOpen(false);

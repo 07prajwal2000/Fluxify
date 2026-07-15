@@ -10,7 +10,7 @@ const SaveEditorButton = () => {
 	const { entityId, entityType, readonly } = useFlowEditorContext();
 	const changeTracker = useEditorChangeTrackerStore();
 	const disableButton = changeTracker.tracker.size === 0;
-	const { id: routeId } = useParams<{ id: string }>();
+	const { routeId } = useParams<{ routeId: string }>();
 	const { onSave } = useCanvasSave(entityId ?? "", entityType ?? "route");
 
 	async function onSaveClicked() {

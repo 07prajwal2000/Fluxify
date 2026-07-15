@@ -7,8 +7,10 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import React from "react";
 
-const Page = async ({ params }: { params: Promise<{ id: string }> }) => {
-  const routeId = (await params).id;
+const Page = async ({ params }: { params: Promise<{ projectId: string; routeId: string }> }) => {
+  const resolvedParams = await params;
+  const routeId = resolvedParams.routeId;
+  const projectId = resolvedParams.projectId;
 
   const headersList = await headers();
   const session = await authClient.getSession({
@@ -23,7 +25,7 @@ const Page = async ({ params }: { params: Promise<{ id: string }> }) => {
   }
   return (
     <Stack p={"xs"} h="100%">
-      <EditRouteSettings routeId={routeId} />
+      <EditRouteSettings routeId={routeId} projectId={projectId} />
     </Stack>
   );
 };

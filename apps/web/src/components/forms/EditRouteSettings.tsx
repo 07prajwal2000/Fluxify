@@ -11,7 +11,7 @@ import { ValidationSchema, SchemaEditorRef, DataType } from "@/types/schemaEdito
 import { TbInfoCircle, TbDeviceFloppy } from "react-icons/tb";
 import BackToEditorButton from "../editor/backToEditorButton";
 
-export default function EditRouteSettings({ routeId }: { routeId: string }) {
+export default function EditRouteSettings({ routeId, projectId }: { routeId: string; projectId: string }) {
   const { data: routeData, isLoading, error } = routesQueries.getById.useQuery(routeId);
   const client = useQueryClient();
   const [loading, setLoading] = useState(false);
@@ -209,7 +209,7 @@ export default function EditRouteSettings({ routeId }: { routeId: string }) {
             </Box>
             
             <Box>
-              <BackToEditorButton routeId={routeId} />
+              <BackToEditorButton routeId={routeId} projectId={projectId} />
             </Box>
           </Stack>
         </Paper>

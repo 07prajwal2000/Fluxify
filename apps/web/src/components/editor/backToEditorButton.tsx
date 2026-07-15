@@ -6,6 +6,7 @@ import { TbArrowNarrowLeft } from "react-icons/tb";
 
 type Props = {
   routeId: string;
+  projectId: string;
 };
 
 const BackToEditorButton = (props: Props) => {
@@ -15,7 +16,7 @@ const BackToEditorButton = (props: Props) => {
     if (window.history.length > 1) {
       router.back();
     } else {
-      router.push(`/editor/${props.routeId}`);
+      router.push(`/${props.projectId}/editor/${props.routeId}`);
     }
   }
 

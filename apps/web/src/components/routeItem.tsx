@@ -75,7 +75,7 @@ const RouteItem = (props: Proptypes) => {
   }
 
   function onItemClick() {
-    router.push(`/editor/${props.id}`);
+    router.push(`/${props.projectId}/editor/${props.id}`);
   }
 
   const projectName = props.projectName;
@@ -132,7 +132,7 @@ const RouteItem = (props: Proptypes) => {
                 onChange={toggleActive}
                 checked={active}
               />
-              <RouteItemMenu id={props.id} />
+              <RouteItemMenu id={props.id} projectId={props.projectId} />
             </RequireRole>
           </Group>
         </Grid.Col>

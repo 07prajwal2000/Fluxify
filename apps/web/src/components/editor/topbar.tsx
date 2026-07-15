@@ -11,8 +11,8 @@ import RequireRole from "../auth/requireRole";
 import { routesQueries } from "@/query/routerQuery";
 
 const Topbar = () => {
-  const { id } = useParams();
-  const { data: route } = routesQueries.getById.useQuery(id!.toString());
+  const { routeId } = useParams();
+  const { data: route } = routesQueries.getById.useQuery(routeId!.toString());
   const projectId = route?.projectId;
   return (
     <Paper style={{ zIndex: 10 }} shadow="sm" p={"sm"} pos={"relative"}>
@@ -44,7 +44,7 @@ const Topbar = () => {
             <RequireRole projectId={projectId || ""} requiredRole="creator">
               <ActiveToggle
                 showToggleNotifications
-                routeId={id?.toString() ?? ""}
+                routeId={routeId?.toString() ?? ""}
               />
               <SaveEditorButton />
               <VersionHistoryButton />

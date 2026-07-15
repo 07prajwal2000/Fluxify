@@ -88,7 +88,7 @@ const NewProjectLayout = ({ children }: { children: React.ReactNode }) => {
 		},
 	];
 
-	if (path.endsWith("/openapi") || path.includes("/custom-blocks/edit")) {
+	if (path.endsWith("/openapi") || path.includes("/custom-blocks/edit") || path.includes("/editor/")) {
 		return <>{children}</>;
 	}
 
