@@ -5,6 +5,8 @@ import { app as graphApp } from "./graph";
 import { DbService } from "./internal/dbService";
 import { HumanMessage, type BaseMessage } from "@langchain/core/messages";
 import { HarnessCallbacks } from "./callbacks";
+import { context as otelContext } from "@opentelemetry/api";
+import { FLUXIFY_CONTEXT_KEY } from "../instrumentation";
 
 export interface HarnessStartOptions {
   conversationId: string;
@@ -70,22 +72,34 @@ export class FluxifyHarness {
   private async executeGraph(state: Partial<GlobalGraphState>) {
     // Instantiate the callback handler with the current state context
     const callbacks = new this.callbacksClass(state);
-    const events = await this.graph.streamEvents(state, { version: "v2" });
+    const streamConfig: any = { version: "v2" };
+
+    // Inject custom domain context for OTEL Custom Span Processor
+    const activeContext = otelContext.active().setValue(FLUXIFY_CONTEXT_KEY, {
+      userQuery: state.userQuery,
+      action: state.action ? JSON.stringify(state.action) : undefined,
+    });
+
     let finalState: any = null;
 
-    for await (const event of events) {
-      if (event.event === "on_custom_event") {
-        await callbacks.onCustomEvent(event.name as CustomEventName, event.data);
-      } else if (event.event === "on_chain_start" && event.name !== "LangGraph") {
-        await callbacks.onBefore(event.name as AgentNodeName, event.data);
-      } else if (event.event === "on_chain_end") {
-        if (event.name === "LangGraph") {
-          finalState = event.data.output;
-        } else {
-          await callbacks.onAfter(event.name as AgentNodeName, event.data);
+    await otelContext.with(activeContext, async () => {
+      const events = (await this.graph.streamEvents(state, streamConfig)) as any;
+
+      for await (const event of events) {
+        if (event.event === "on_custom_event") {
+          await callbacks.onCustomEvent(event.name as CustomEventName, event.data);
+        } else if (event.event === "on_chain_start" && event.name !== "LangGraph") {
+          await callbacks.onBefore(event.name as AgentNodeName, event.data);
+        } else if (event.event === "on_chain_end") {
+          if (event.name === "LangGraph") {
+            finalState = event.data.output;
+          } else {
+            await callbacks.onAfter(event.name as AgentNodeName, event.data);
+          }
         }
       }
-    }
+    });
+
     return finalState;
   }
 }

@@ -1,3 +1,4 @@
+import "./instrumentation";
 import { isMainThread, Worker } from "worker_threads";
 import { runMain } from "./main";
 import { runWorker } from "./worker";
@@ -21,7 +22,6 @@ initializeLogger({
 	otlpHeaders: { [OTLP_AUTH_HEADER_NAME]: OTLP_AUTH_HEADER_VALUE },
 	useOtlp: OTLP_LOGGER_ENABLED === "true",
 });
-
 initializeRedis(true);
 await drizzleInit(false);
 
