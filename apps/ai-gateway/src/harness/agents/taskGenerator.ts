@@ -1,4 +1,5 @@
-import { type GlobalGraphState, type Task } from "../types";
+import { type GlobalGraphState, type Task, AgentNode } from "../types";
+import { BaseAgent } from "./base";
 import { subAgents } from "./sub-agents";
 import { z } from "zod";
 import { dispatchAgentEvent } from "../callbacks";
@@ -41,19 +42,77 @@ const taskSchema = z.object({
 		.describe("Directed Acyclic Graph (DAG) of tasks to execute the plan"),
 });
 
-export class TaskGeneratorAgent {
-	private state: GlobalGraphState;
+function topologicalSortByLevel(tasks: Task[]): string[][] {
+	const inDegree = new Map<string, number>();
+	const children = new Map<string, string[]>();
+	const result: string[][] = [];
 
-	constructor(state: GlobalGraphState) {
-		this.state = state;
+	for (const task of tasks) {
+		inDegree.set(task.id, 0);
+		children.set(task.id, []);
 	}
 
-	async execute(): Promise<Task[]> {
+	for (const task of tasks) {
+		if (task.dependsOnAgentId) {
+			for (const parentId of task.dependsOnAgentId) {
+				inDegree.set(task.id, (inDegree.get(task.id) || 0) + 1);
+				if (!children.has(parentId)) {
+					children.set(parentId, []);
+				}
+				children.get(parentId)!.push(task.id);
+			}
+		}
+	}
+
+	let queue: string[] = [];
+	for (const [taskId, deg] of inDegree.entries()) {
+		if (deg === 0) {
+			queue.push(taskId);
+		}
+	}
+
+	let processedCount = 0;
+
+	while (queue.length > 0) {
+		const nextQueue: string[] = [];
+		const currentLevel: string[] = [];
+
+		for (const taskId of queue) {
+			currentLevel.push(taskId);
+			processedCount++;
+
+			const taskChildren = children.get(taskId) || [];
+			for (const childId of taskChildren) {
+				const currentDeg = inDegree.get(childId) || 0;
+				inDegree.set(childId, currentDeg - 1);
+				if (currentDeg - 1 === 0) {
+					nextQueue.push(childId);
+				}
+			}
+		}
+
+		result.push(currentLevel);
+		queue = nextQueue;
+	}
+
+	if (processedCount !== tasks.length) {
+		throw new Error("Cyclic dependency detected in tasks");
+	}
+
+	return result;
+}
+
+export class TaskGeneratorAgent extends BaseAgent {
+	constructor(state: GlobalGraphState) {
+		super(state);
+	}
+
+	async execute(): Promise<Partial<GlobalGraphState>> {
 		await dispatchAgentEvent({
 			name: "agent_status",
 			data: {
 				status: "Generating tasks...",
-				agent: "orchestrator" as any, // Task generator is called by Orchestrator
+				agent: AgentNode.TASK_GENERATOR,
 			},
 		});
 
@@ -100,6 +159,19 @@ ${scratchPadText}`;
 			status: "pending",
 		}));
 
-		return generatedTasks;
+		let taskQueue: string[][] = [];
+		if (generatedTasks.length > 0) {
+			taskQueue = topologicalSortByLevel(generatedTasks);
+		}
+
+		return {
+			currentAgent: AgentNode.TASK_GENERATOR,
+			nextRoute: AgentNode.ORCHESTRATOR,
+			orchestratorState: {
+				...this.state.orchestratorState,
+				tasks: generatedTasks,
+				taskQueue,
+			},
+		};
 	}
 }

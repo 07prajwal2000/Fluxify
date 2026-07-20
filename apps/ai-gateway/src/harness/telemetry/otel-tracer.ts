@@ -67,6 +67,8 @@ export class FluxifyOtelTracer extends BaseCallbackHandler {
 		if (error) {
 			span.recordException(error);
 			span.setStatus({ code: 2, message: error.message }); // 2 = ERROR
+		} else {
+			span.setStatus({ code: 1 }); // 1 = OK
 		}
 
 		if (outputs !== undefined) {
@@ -88,8 +90,11 @@ export class FluxifyOtelTracer extends BaseCallbackHandler {
 		name?: string,
 	) {
 		// Attempt to extract the clearest name for the span
-		let spanName = name || run.name || run.id?.[run.id.length - 1] || "chain";
-		if (metadata?.langgraph_node) {
+		let spanName = typeof name === "string" ? name : (run.name || run.id?.[run.id.length - 1] || "chain");
+		
+		if (spanName === "LangGraph") {
+			spanName = "harness.fluxify";
+		} else if (metadata?.langgraph_node) {
 			spanName = `Node: ${metadata.langgraph_node}`;
 		}
 
@@ -133,6 +138,22 @@ export class FluxifyOtelTracer extends BaseCallbackHandler {
 	}
 
 	async handleLLMEnd(output: any, runId: string) {
+		const span = this.spans.get(runId);
+		if (span && output?.llmOutput) {
+			// LangChain typically returns token usage here
+			const usage = output.llmOutput.tokenUsage || output.llmOutput.estimatedTokenUsage;
+			if (usage) {
+				if (usage.promptTokens !== undefined) {
+					span.setAttribute("llm.token_count.prompt", usage.promptTokens);
+				}
+				if (usage.completionTokens !== undefined) {
+					span.setAttribute("llm.token_count.completion", usage.completionTokens);
+				}
+				if (usage.totalTokens !== undefined) {
+					span.setAttribute("llm.token_count.total", usage.totalTokens);
+				}
+			}
+		}
 		this.endSpan(runId, undefined, output);
 	}
 

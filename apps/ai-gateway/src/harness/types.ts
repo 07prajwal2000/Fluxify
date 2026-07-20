@@ -7,6 +7,7 @@ export enum AgentNode {
 	CLASSIFIER = "classifier",
 	VERIFY_USER_QUERY = "verifyUserQuery",
 	PLANNER = "planner",
+	TASK_GENERATOR = "taskGenerator",
 	DISCUSSION = "discussion",
 	BUILDER = "builder",
 	ORCHESTRATOR = "orchestrator",

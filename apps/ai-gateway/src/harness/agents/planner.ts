@@ -166,7 +166,7 @@ Plan carefully, thoroughly, and output excellent English craft for the user's pl
 			currentAgent: AgentNode.PLANNER,
 			nextRoute: requiresHITL
 				? AgentNode.HUMAN_IN_THE_LOOP
-				: AgentNode.ORCHESTRATOR,
+				: AgentNode.TASK_GENERATOR,
 			plannerState: {
 				markdownPlan: response.markdownPlan,
 				confidenceScore: response.confidenceScore,

@@ -1,6 +1,6 @@
 import { StateGraph, END, START, Send } from "@langchain/langgraph";
 import { GraphState, type GlobalGraphState, AgentNode } from "./types";
-import { RouterAgent, DiscussionAgent, VerifyUserQueryAgent, PlannerAgent, OrchestratorAgent, HumanInTheLoopAgent, SupervisorAgent, RouteConfigAgent } from "./agents";
+import { RouterAgent, DiscussionAgent, VerifyUserQueryAgent, PlannerAgent, OrchestratorAgent, HumanInTheLoopAgent, SupervisorAgent, RouteConfigAgent, TaskGeneratorAgent } from "./agents";
 
 const workflow = new StateGraph(GraphState)
 	.addNode(AgentNode.ROUTER, async (state: GlobalGraphState) => {
@@ -17,6 +17,10 @@ const workflow = new StateGraph(GraphState)
 	})
 	.addNode(AgentNode.PLANNER, async (state: GlobalGraphState) => {
 		const agent = new PlannerAgent(state);
+		return await agent.execute();
+	})
+	.addNode(AgentNode.TASK_GENERATOR, async (state: GlobalGraphState) => {
+		const agent = new TaskGeneratorAgent(state);
 		return await agent.execute();
 	})
 	.addNode(AgentNode.ORCHESTRATOR, async (state: GlobalGraphState) => {
@@ -54,6 +58,12 @@ const workflow = new StateGraph(GraphState)
 		if (state.nextRoute === AgentNode.HUMAN_IN_THE_LOOP) {
 			return AgentNode.HUMAN_IN_THE_LOOP;
 		}
+		if (state.nextRoute === AgentNode.TASK_GENERATOR) {
+			return AgentNode.TASK_GENERATOR;
+		}
+		return END;
+	})
+	.addConditionalEdges(AgentNode.TASK_GENERATOR, (state: GlobalGraphState) => {
 		if (state.nextRoute === AgentNode.ORCHESTRATOR) {
 			return AgentNode.ORCHESTRATOR;
 		}
