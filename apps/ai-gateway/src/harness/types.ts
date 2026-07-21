@@ -1,6 +1,7 @@
 import { Annotation, MessagesAnnotation } from "@langchain/langgraph";
 import type { BaseAgentWrapper } from "./models/base";
 import type { DbService } from "./internal/dbService";
+import type { HarnessService } from "./internal/harnessService";
 
 export enum AgentNode {
 	ROUTER = "router",
@@ -122,7 +123,11 @@ export const GraphState = Annotation.Root({
 		reducer: (oldState, newState) => newState ?? oldState,
 		default: () => undefined as unknown as BaseAgentWrapper,
 	}),
-	internal: Annotation<{ dbService: DbService; metadata?: any }>({
+	internal: Annotation<{
+		dbService: DbService;
+		harnessService: HarnessService;
+		metadata?: any;
+	}>({
 		reducer: (oldState, newState) => newState ?? oldState,
 	}),
 	userQuery: Annotation<string | undefined>({

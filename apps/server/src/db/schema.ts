@@ -530,3 +530,6 @@ export const aiWorkflowBuilderStepsEntity = pgTable(
 		index("idx_ai_wf_steps_step_status").on(table.stepStatus),
 	],
 );
+
+export * from "./agent-harness-schema";
+

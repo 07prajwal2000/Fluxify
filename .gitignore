@@ -11,3 +11,4 @@ docs_index
 docs/.vitepress/cache
 docs/.vitepress/dist
 apps/ai-gateway/src/harness/demo.ts
+apps/ai-gateway/src/test-trace.ts

@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX "uq_harness_steps_run_sub_agent" ON "agent_harness_steps" USING btree ("run_id","sub_agent_id");

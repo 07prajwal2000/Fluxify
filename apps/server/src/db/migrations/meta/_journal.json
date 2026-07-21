@@ -253,6 +253,20 @@
       "when": 1784628591789,
       "tag": "0035_unique_warbird",
       "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1784674751711,
+      "tag": "0036_productive_omega_red",
+      "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "7",
+      "when": 1784675499508,
+      "tag": "0037_stiff_red_skull",
+      "breakpoints": true
     }
   ]
 }
