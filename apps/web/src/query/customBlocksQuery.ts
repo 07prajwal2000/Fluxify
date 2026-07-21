@@ -13,6 +13,7 @@ export const customBlocksQueries = {
           return await customBlocksService.getAll(query);
         },
         refetchOnWindowFocus: false,
+        staleTime: 5 * 60 * 1000,
       });
     },
     invalidate(client: QueryClient, projectId: string) {

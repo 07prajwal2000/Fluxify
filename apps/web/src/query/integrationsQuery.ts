@@ -16,6 +16,7 @@ export const integrationsQuery = {
 				queryKey: ["integrations", projectId, group, tags],
 				queryFn: () => integrationService.getAll(projectId, group, tags),
 				refetchOnWindowFocus: false,
+				staleTime: 5 * 60 * 1000,
 				enabled: !!projectId,
 			});
 		},

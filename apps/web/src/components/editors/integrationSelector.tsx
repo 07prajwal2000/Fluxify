@@ -74,7 +74,7 @@ const IntegrationSelector = (props: Props) => {
     }
   }, [selectedIntegration]);
 
-  if (isLoading || isRefetching) {
+  if (isLoading) {
     return <QueryLoader skeletonsCols={1} skeletonsRows={1} />;
   }
 
