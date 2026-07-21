@@ -5,7 +5,7 @@ import {
 	integrationsEntity,
 	customBlocksListEntity,
 } from "@fluxify/server";
-import { eq, ilike, or, and } from "drizzle-orm";
+import { eq, ilike, or, and, sql } from "drizzle-orm";
 import { logger } from "@fluxify/common";
 import type {
 	FindResourceResult,
@@ -32,7 +32,7 @@ export class DbService {
 					and(
 						eq(routesEntity.projectId, projectId),
 						or(
-							ilike(routesEntity.name, `%${searchQuery}%`),
+							sql`to_tsvector('english', ${routesEntity.name}) @@ plainto_tsquery('english', ${searchQuery})`,
 							ilike(routesEntity.path, `%${searchQuery}%`),
 						),
 					),
@@ -89,8 +89,8 @@ export class DbService {
 					and(
 						eq(appConfigEntity.projectId, projectId),
 						or(
-							ilike(appConfigEntity.keyName, `%${searchQuery}%`),
-							ilike(appConfigEntity.description, `%${searchQuery}%`),
+							sql`to_tsvector('english', ${appConfigEntity.keyName}) @@ plainto_tsquery('english', ${searchQuery})`,
+							sql`to_tsvector('english', coalesce(${appConfigEntity.description}, '')) @@ plainto_tsquery('english', ${searchQuery})`,
 						),
 					),
 				)
@@ -123,7 +123,7 @@ export class DbService {
 				.where(
 					and(
 						eq(integrationsEntity.projectId, projectId),
-						ilike(integrationsEntity.name, `%${searchQuery}%`),
+						sql`to_tsvector('english', ${integrationsEntity.name}) @@ plainto_tsquery('english', ${searchQuery})`,
 					),
 				)
 				.limit(10);

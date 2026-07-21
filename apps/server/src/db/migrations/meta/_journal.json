@@ -246,6 +246,13 @@
       "when": 1784240013444,
       "tag": "0034_typical_nomad",
       "breakpoints": true
+    },
+    {
+      "idx": 35,
+      "version": "7",
+      "when": 1784628591789,
+      "tag": "0035_unique_warbird",
+      "breakpoints": true
     }
   ]
 }

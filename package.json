@@ -37,7 +37,7 @@
 	"description": "",
 	"dependencies": {
 		"@orama/orama": "^3.1.18",
-		"better-auth": "1.6.15",
+		"better-auth": "1.6.23",
 		"http-proxy": "^1.18.1"
 	},
 	"devDependencies": {

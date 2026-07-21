@@ -186,7 +186,7 @@ export const routesEntity = pgTable(
 		id: varchar({ length: 50 })
 			.primaryKey()
 			.$defaultFn(() => generateID()),
-		name: varchar({ length: 50 }),
+		name: varchar({ length: 255 }),
 		path: text(),
 		active: boolean().default(false),
 		projectId: varchar("project_id", { length: 50 })
@@ -208,6 +208,7 @@ export const routesEntity = pgTable(
 	(table) => [
 		index("idx_routes_project_id").on(table.projectId),
 		index("idx_routes_path").on(table.path),
+		index("idx_routes_name_fts").using("gin", sql`to_tsvector('english', ${table.name})`),
 	],
 );
 
@@ -307,6 +308,8 @@ export const appConfigEntity = pgTable(
 		index("idx_app_config_project_id").on(table.projectId),
 		index("idx_app_config_is_encrypted").on(table.isEncrypted),
 		index("idx_app_config_encoding_type").on(table.encodingType),
+		index("idx_app_config_key_name_fts").using("gin", sql`to_tsvector('english', ${table.keyName})`),
+		index("idx_app_config_desc_fts").using("gin", sql`to_tsvector('english', coalesce(${table.description}, ''))`),
 	],
 );
 
@@ -338,6 +341,7 @@ export const integrationsEntity = pgTable(
 		index("idx_integrations_variant").on(table.variant),
 		index("idx_integrations_tags").on(table.tags),
 		index("idx_integrations_project_id").on(table.projectId),
+		index("idx_integrations_name_fts").using("gin", sql`to_tsvector('english', ${table.name})`),
 	],
 );
 
