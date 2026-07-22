@@ -1,0 +1,27 @@
+{
+	"name": "@fluxify/components",
+	"version": "1.0.0",
+	"private": true,
+	"exports": {
+		".": "./index.ts",
+		"./styles.css": "./src/styles.css"
+	},
+	"scripts": {
+		"lint": "tsgo --noEmit"
+	},
+	"dependencies": {
+		"@heroui/react": "3.2.2",
+		"@heroui/styles": "3.2.2",
+		"clsx": "^2.1.1"
+	},
+	"peerDependencies": {
+		"react": ">=19.0.0",
+		"react-dom": ">=19.0.0"
+	},
+	"devDependencies": {
+		"@types/react": "^19",
+		"@types/react-dom": "^19",
+		"@typescript/native-preview": "^7.0.0-dev.20260220.1",
+		"tailwindcss": "^4"
+	}
+}

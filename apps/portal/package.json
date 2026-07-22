@@ -1,0 +1,32 @@
+{
+	"name": "@fluxify/portal",
+	"version": "0.1.0",
+	"private": true,
+	"type": "module",
+	"scripts": {
+		"dev": "vite --port 3001",
+		"build": "vite build",
+		"preview": "vite preview",
+		"lint": "tsgo --noEmit"
+	},
+	"dependencies": {
+		"@fluxify/components": "workspace:*",
+		"@tanstack/react-query": "^5.90.5",
+		"@tanstack/react-router": "^1.170.18",
+		"axios": "^1.13.2",
+		"better-auth": "^1.6.22",
+		"react": "19.1.0",
+		"react-dom": "19.1.0",
+		"zod": "^4.1.12"
+	},
+	"devDependencies": {
+		"@tailwindcss/vite": "^4.3.3",
+		"@tanstack/router-plugin": "^1.168.23",
+		"@types/react": "^19",
+		"@types/react-dom": "^19",
+		"@typescript/native-preview": "^7.0.0-dev.20260220.1",
+		"@vitejs/plugin-react": "^6.0.4",
+		"typescript": "^5",
+		"vite": "^8.1.5"
+	}
+}

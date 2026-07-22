@@ -27,7 +27,28 @@ docker pull ghcr.io/fluxify-rest/fluxify-kit:latest
    ```
 3. Open [http://localhost:8080](http://localhost:8080)
 
-Full setup guide → [docs/self-hosting.md](docs/self-hosting.md)
+Full setup guide → [docs/getting-started/self-hosting.md](docs/getting-started/self-hosting.md)
+
+---
+
+## 💻 Local Development
+
+1. Install dependencies:
+   ```bash
+   bun install
+   ```
+2. Set up environment variables:
+   Copy `env.example` to `.env` in the root and in the respective apps (`apps/server/.env`, `apps/web/.env`, `apps/ai-gateway/.env`) and update the database and redis connection strings.
+3. Push the database schema:
+   ```bash
+   cd apps/server
+   bun x drizzle-kit push
+   cd ../..
+   ```
+4. Start the development server:
+   ```bash
+   bun run dev
+   ```
 
 ---
 
