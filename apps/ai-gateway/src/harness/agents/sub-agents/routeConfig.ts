@@ -7,15 +7,23 @@ import { createGetRouteDetailsTool } from "../../tools/getRouteDetails";
 import { generateID } from "@fluxify/lib";
 
 const routeConfigSchema = z.object({
-	action: z.enum(["create", "delete", "update-partial"]).describe("The operation to perform"),
-	routeId: z.string().optional().describe("The UUID of the route. Leave empty for create action."),
-	data: z.object({
-		method: z.string().optional(),
-		path: z.string().optional(),
-		bodySchema: z.any().optional(),
-		paramsSchema: z.any().optional(),
-		querySchema: z.any().optional(),
-	}).optional().describe("The configuration of the route"),
+	action: z
+		.enum(["create", "delete", "update-partial"])
+		.describe("The operation to perform"),
+	routeId: z
+		.string()
+		.optional()
+		.describe("The UUID of the route. Leave empty for create action."),
+	data: z
+		.object({
+			method: z.string().optional(),
+			path: z.string().optional(),
+			bodySchema: z.any().optional(),
+			paramsSchema: z.any().optional(),
+			querySchema: z.any().optional(),
+		})
+		.optional()
+		.describe("The configuration of the route"),
 });
 
 export class RouteConfigAgent extends BaseAgent {
@@ -34,6 +42,7 @@ export class RouteConfigAgent extends BaseAgent {
 			data: {
 				status: "Analyzing route configuration requirements...",
 				agent: AgentNode.ROUTE_CONFIG_AGENT,
+				agentId: activeTask.id,
 			},
 		});
 
@@ -130,14 +139,17 @@ Determine the exact route configuration intent. Use your tools if you need more 
 
 		const tools = [
 			searchDocsTool,
-			createGetRouteDetailsTool(this.state.internal.dbService, this.state.internal?.metadata || {}),
+			createGetRouteDetailsTool(
+				this.state.internal.dbService,
+				this.state.internal?.metadata || {},
+			),
 		];
 
 		const response = (await this.state.agentWrapper.invokeAgent({
 			zodSchema: routeConfigSchema,
 			systemPrompt,
 			tools,
-			messages: [], 
+			messages: [],
 			userQuery: userQuery,
 		})) as z.infer<typeof routeConfigSchema>;
 
@@ -151,6 +163,7 @@ Determine the exact route configuration intent. Use your tools if you need more 
 				status: "Route configuration intent formulated",
 				agent: AgentNode.ROUTE_CONFIG_AGENT,
 				data: response,
+				agentId: activeTask.id,
 			},
 		});
 
@@ -170,14 +183,22 @@ Determine the exact route configuration intent. Use your tools if you need more 
 	}
 }
 
-export const validateAgentOutput: import("../../types").AgentOutputValidator = (result, taskId, state) => {
+export const validateAgentOutput: import("../../types").AgentOutputValidator = (
+	result,
+	taskId,
+	state,
+) => {
 	const typedResult = result as import("../../types").RouteConfigAgentResult;
-	
+
 	if (!typedResult.action) {
 		return "Missing 'action' field. Must be one of: create, delete, update-partial.";
 	}
 
-	if ((typedResult.action === "update-partial" || typedResult.action === "delete") && !typedResult.routeId) {
+	if (
+		(typedResult.action === "update-partial" ||
+			typedResult.action === "delete") &&
+		!typedResult.routeId
+	) {
 		return `Action '${typedResult.action}' requires a valid 'routeId'.`;
 	}
 

@@ -21,7 +21,9 @@
 		"analyze": "bun x fta-cli --score-cap 70 .",
 		"docs:build": "vitepress build docs",
 		"docs:preview": "vitepress preview docs",
-		"prepare": "bun run scripts/setup-hooks.ts"
+		"prepare": "bun run scripts/setup-hooks.ts",
+		"db:generate": "bun --cwd ./apps/server drizzle-kit generate",
+		"db:migrate": "bun --cwd ./apps/server drizzle-kit push"
 	},
 	"keywords": [
 		"fluxify",

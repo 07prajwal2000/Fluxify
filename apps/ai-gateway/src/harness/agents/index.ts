@@ -7,4 +7,5 @@ export * from "./humanInTheLoop";
 export * from "./orchestrator";
 export * from "./taskGenerator";
 export * from "./supervisor";
+export * from "./summarizer";
 export * from "./sub-agents";

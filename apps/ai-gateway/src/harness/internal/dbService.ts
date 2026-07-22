@@ -8,21 +8,49 @@ import {
 	edgesEntity,
 	customBlockGraphsEntity,
 } from "@fluxify/server";
-import { eq, ilike, or, and, sql, inArray } from "drizzle-orm";
+import { eq, ilike, or, and, sql, inArray, type SQL } from "drizzle-orm";
 import { logger } from "@fluxify/common";
 import type {
 	FindResourceResult,
 	ResourceType,
 } from "../../workflow/nodes/builder/types";
 
+/**
+ * Accepts either a single search string or an array of keywords, so the
+ * agent can pass multiple terms in one call instead of retrying per keyword.
+ */
+export type SearchInput = string | string[];
+
 export class DbService {
 	constructor() {}
 
+	/** Normalize search input into a de-duplicated list of non-empty keywords. */
+	private normalizeKeywords(input: SearchInput): string[] {
+		const arr = Array.isArray(input) ? input : [input];
+		const seen = new Set<string>();
+		for (const raw of arr) {
+			const k = (raw ?? "").trim();
+			if (k) seen.add(k);
+		}
+		return [...seen];
+	}
+
 	async findRoutes(
 		projectId: string,
-		searchQuery: string,
+		searchQuery: SearchInput,
 	): Promise<FindResourceResult[]> {
 		try {
+			const keywords = this.normalizeKeywords(searchQuery);
+			if (keywords.length === 0) return [];
+
+			const matchers: SQL[] = [];
+			for (const k of keywords) {
+				matchers.push(
+					sql`to_tsvector('english', ${routesEntity.name}) @@ plainto_tsquery('english', ${k})`,
+				);
+				matchers.push(ilike(routesEntity.path, `%${k}%`));
+			}
+
 			const routes = await db
 				.select({
 					id: routesEntity.id,
@@ -34,10 +62,7 @@ export class DbService {
 				.where(
 					and(
 						eq(routesEntity.projectId, projectId),
-						or(
-							sql`to_tsvector('english', ${routesEntity.name}) @@ plainto_tsquery('english', ${searchQuery})`,
-							ilike(routesEntity.path, `%${searchQuery}%`),
-						),
+						or(...matchers),
 					),
 				)
 				.limit(10);
@@ -78,9 +103,22 @@ export class DbService {
 
 	async findAppConfigs(
 		projectId: string,
-		searchQuery: string,
+		searchQuery: SearchInput,
 	): Promise<FindResourceResult[]> {
 		try {
+			const keywords = this.normalizeKeywords(searchQuery);
+			if (keywords.length === 0) return [];
+
+			const matchers: SQL[] = [];
+			for (const k of keywords) {
+				matchers.push(
+					sql`to_tsvector('english', ${appConfigEntity.keyName}) @@ plainto_tsquery('english', ${k})`,
+				);
+				matchers.push(
+					sql`to_tsvector('english', coalesce(${appConfigEntity.description}, '')) @@ plainto_tsquery('english', ${k})`,
+				);
+			}
+
 			const configs = await db
 				.select({
 					id: appConfigEntity.id,
@@ -91,10 +129,7 @@ export class DbService {
 				.where(
 					and(
 						eq(appConfigEntity.projectId, projectId),
-						or(
-							sql`to_tsvector('english', ${appConfigEntity.keyName}) @@ plainto_tsquery('english', ${searchQuery})`,
-							sql`to_tsvector('english', coalesce(${appConfigEntity.description}, '')) @@ plainto_tsquery('english', ${searchQuery})`,
-						),
+						or(...matchers),
 					),
 				)
 				.limit(10);
@@ -112,9 +147,17 @@ export class DbService {
 
 	async findIntegrations(
 		projectId: string,
-		searchQuery: string,
+		searchQuery: SearchInput,
 	): Promise<FindResourceResult[]> {
 		try {
+			const keywords = this.normalizeKeywords(searchQuery);
+			if (keywords.length === 0) return [];
+
+			const matchers: SQL[] = keywords.map(
+				(k) =>
+					sql`to_tsvector('english', ${integrationsEntity.name}) @@ plainto_tsquery('english', ${k})`,
+			);
+
 			const integrations = await db
 				.select({
 					id: integrationsEntity.id,
@@ -126,7 +169,7 @@ export class DbService {
 				.where(
 					and(
 						eq(integrationsEntity.projectId, projectId),
-						sql`to_tsvector('english', ${integrationsEntity.name}) @@ plainto_tsquery('english', ${searchQuery})`,
+						or(...matchers),
 					),
 				)
 				.limit(10);
@@ -145,9 +188,18 @@ export class DbService {
 
 	async findCustomBlocks(
 		projectId: string,
-		searchQuery: string,
+		searchQuery: SearchInput,
 	): Promise<FindResourceResult[]> {
 		try {
+			const keywords = this.normalizeKeywords(searchQuery);
+			if (keywords.length === 0) return [];
+
+			const matchers: SQL[] = [];
+			for (const k of keywords) {
+				matchers.push(ilike(customBlocksListEntity.name, `%${k}%`));
+				matchers.push(ilike(customBlocksListEntity.label, `%${k}%`));
+			}
+
 			const customBlocks = await db
 				.select({
 					id: customBlocksListEntity.id,
@@ -161,10 +213,7 @@ export class DbService {
 							eq(customBlocksListEntity.projectId, projectId),
 							eq(customBlocksListEntity.sourceType, "inhouse"),
 						),
-						or(
-							ilike(customBlocksListEntity.name, `%${searchQuery}%`),
-							ilike(customBlocksListEntity.label, `%${searchQuery}%`),
-						),
+						or(...matchers),
 					),
 				)
 				.limit(10);

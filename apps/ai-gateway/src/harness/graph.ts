@@ -1,6 +1,18 @@
 import { StateGraph, END, START, Send } from "@langchain/langgraph";
 import { GraphState, type GlobalGraphState, AgentNode } from "./types";
-import { RouterAgent, DiscussionAgent, VerifyUserQueryAgent, PlannerAgent, OrchestratorAgent, HumanInTheLoopAgent, SupervisorAgent, RouteConfigAgent, TaskGeneratorAgent, BlockBuilderAgent } from "./agents";
+import {
+	RouterAgent,
+	DiscussionAgent,
+	VerifyUserQueryAgent,
+	PlannerAgent,
+	OrchestratorAgent,
+	HumanInTheLoopAgent,
+	SupervisorAgent,
+	RouteConfigAgent,
+	TaskGeneratorAgent,
+	BlockBuilderAgent,
+	SummarizerAgent,
+} from "./agents";
 
 const workflow = new StateGraph(GraphState)
 	.addNode(AgentNode.ROUTER, async (state: GlobalGraphState) => {
@@ -43,6 +55,10 @@ const workflow = new StateGraph(GraphState)
 		const agent = new SupervisorAgent(state);
 		return await agent.execute();
 	})
+	.addNode(AgentNode.SUMMARIZER, async (state: GlobalGraphState) => {
+		const agent = new SummarizerAgent(state);
+		return await agent.execute();
+	})
 	.addEdge(START, AgentNode.ROUTER)
 	.addConditionalEdges(AgentNode.ROUTER, (state: GlobalGraphState) => {
 		if (state.nextRoute === AgentNode.VERIFY_USER_QUERY) {
@@ -52,12 +68,15 @@ const workflow = new StateGraph(GraphState)
 		}
 		return END;
 	})
-	.addConditionalEdges(AgentNode.VERIFY_USER_QUERY, (state: GlobalGraphState) => {
-		if (state.nextRoute === AgentNode.PLANNER) {
-			return AgentNode.PLANNER;
-		}
-		return END;
-	})
+	.addConditionalEdges(
+		AgentNode.VERIFY_USER_QUERY,
+		(state: GlobalGraphState) => {
+			if (state.nextRoute === AgentNode.PLANNER) {
+				return AgentNode.PLANNER;
+			}
+			return END;
+		},
+	)
 	.addConditionalEdges(AgentNode.PLANNER, (state: GlobalGraphState) => {
 		if (state.nextRoute === AgentNode.HUMAN_IN_THE_LOOP) {
 			return AgentNode.HUMAN_IN_THE_LOOP;
@@ -84,12 +103,18 @@ const workflow = new StateGraph(GraphState)
 					}),
 			);
 		}
+		// Build finished: summarize any produced work before ending.
+		const tasks = state.orchestratorState?.tasks;
+		if (tasks && tasks.length > 0) {
+			return AgentNode.SUMMARIZER;
+		}
 		return END;
 	})
 	.addEdge(AgentNode.HUMAN_IN_THE_LOOP, END)
 	.addEdge(AgentNode.DISCUSSION, END)
 	.addEdge(AgentNode.ROUTE_CONFIG_AGENT, AgentNode.SUPERVISOR)
 	.addEdge(AgentNode.BUILDER, AgentNode.SUPERVISOR)
-	.addEdge(AgentNode.SUPERVISOR, AgentNode.ORCHESTRATOR);
+	.addEdge(AgentNode.SUPERVISOR, AgentNode.ORCHESTRATOR)
+	.addEdge(AgentNode.SUMMARIZER, END);
 
 export const app = workflow.compile();

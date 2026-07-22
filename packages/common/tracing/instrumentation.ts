@@ -22,6 +22,14 @@ export interface FluxifyContextData {
 	action?: string;
 }
 
+export function withFluxifyContext<T>(
+	data: FluxifyContextData,
+	fn: () => T
+): T {
+	const activeContext = context.active().setValue(FLUXIFY_CONTEXT_KEY, data);
+	return context.with(activeContext, fn);
+}
+
 class FluxifyContextSpanProcessor implements SpanProcessor {
 	forceFlush(): Promise<void> {
 		return Promise.resolve();

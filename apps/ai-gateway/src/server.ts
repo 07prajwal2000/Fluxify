@@ -12,6 +12,7 @@ import {
 } from "./lib/env";
 import { drizzleInit, initializeRedis } from "@fluxify/server";
 import { initializeWorkflowQueue } from "./workflow/queue";
+import { initializeHarnessQueue } from "./harness/queue";
 
 const serviceName = isMainThread
 	? "fluxify.api-gateway-main"
@@ -28,6 +29,7 @@ initializeRedis(true);
 await drizzleInit(false);
 
 initializeWorkflowQueue();
+initializeHarnessQueue();
 
 if (isMainThread) {
 	// Spawn the worker thread targeting index.ts
