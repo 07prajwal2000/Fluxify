@@ -1,0 +1,52 @@
+name: 🎨 Frontend Issue
+description: Report a bug or request an enhancement for the Fluxify web application
+title: "[Frontend]: "
+labels: ["frontend/canvas"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping improve the Fluxify UI! Please fill out the details below.
+  - type: dropdown
+    id: component
+    attributes:
+      label: Frontend Component
+      description: Select the frontend section affected.
+      options:
+        - "frontend/feature (New Frontend Feature & Enhancements)"
+        - "frontend/canvas (Visual Workflow Builder & Canvas)"
+        - "frontend/dashboard (Dashboard UI & Management Pages)"
+    validations:
+      required: true
+  - type: textarea
+    id: description
+    attributes:
+      label: Issue Description
+      description: Clear explanation of the UI bug, visual defect, or feature request.
+      placeholder: Describe the UI behavior or feature...
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to Reproduce
+      description: Exact user interaction steps to reproduce the issue.
+      placeholder: |
+        1. Navigate to workflow canvas...
+        2. Click on block...
+        3. Observe issue...
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected Behavior
+      description: What the UI should look like or how it should behave.
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: Screenshots / Screen Recording
+      description: Drag and drop screenshots or GIF recordings showing the issue.
+  - type: textarea
+    id: browser
+    attributes:
+      label: Browser & OS Information
+      placeholder: Chrome 120 / Firefox 121 / Safari 17 on macOS Sonoma / Windows 11

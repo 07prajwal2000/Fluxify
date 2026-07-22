@@ -1,0 +1,28 @@
+name: ⚙️ No CI / CI Fix Issue (Maintainers Only)
+description: Reserved for maintainers to report CI/CD pipeline issues or tasks that do not trigger CI workflows
+title: "[CI]: "
+labels: ["ci/fix"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        > ⚠️ **Maintainers Only**: This issue template is reserved for maintainers managing CI/CD infrastructure, workflow fixes, and non-CI tasks.
+  - type: textarea
+    id: description
+    attributes:
+      label: Issue Description / CI Workflow Target *
+      description: Describe the CI issue or task requirement.
+      placeholder: Describe the CI workflow problem or requirement...
+    validations:
+      required: true
+  - type: textarea
+    id: workflow_file
+    attributes:
+      label: Affected Workflow File(s)
+      description: Specify workflow files under `.github/workflows/` (if applicable).
+      placeholder: e.g., .github/workflows/ci.yml
+  - type: textarea
+    id: details
+    attributes:
+      label: Expected Action / Proposed Fix
+      description: Detailed outline of the CI configuration change or fix.
