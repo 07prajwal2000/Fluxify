@@ -10,7 +10,6 @@ import {
 import type z from "zod";
 import { createAnthropic } from "@ai-sdk/anthropic";
 import { createOpenAI } from "@ai-sdk/openai";
-import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 import { createGoogle } from "@ai-sdk/google";
 import { createMistral } from "@ai-sdk/mistral";
 
@@ -36,8 +35,7 @@ export async function createAIModelInstanceFromProjectId(projectId: string) {
 		const config = integration as z.infer<
 			typeof openAiCompatibleVariantConfigSchema
 		>;
-		const openaiCompatible = createOpenAICompatible({
-			name: "openai-compatible",
+		const openaiCompatible = createOpenAI({
 			apiKey: config.apiKey,
 			baseURL: config.baseUrl,
 		});

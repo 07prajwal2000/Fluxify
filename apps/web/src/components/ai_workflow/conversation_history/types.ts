@@ -3,7 +3,7 @@ import { z } from "zod";
 
 export interface Message {
 	id: string;
-	status?: string;
+	status?: "not_started" | "running" | "success" | "error" | "paused" | "plan_rejected" | string;
 	userQuery?: string;
 	finalOutput?: {
 		nodeId: string;
@@ -23,7 +23,8 @@ export interface Message {
 }
 
 export interface ConversationHistoryProps {
-	messages?: Message[];
+	conversationId: string;
+	messages: Message[];
 	isLoading: boolean;
 	isError: boolean;
 	error: any;

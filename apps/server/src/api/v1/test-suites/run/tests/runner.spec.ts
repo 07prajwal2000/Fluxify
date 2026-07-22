@@ -57,7 +57,6 @@ describe("runSuiteAssertions", () => {
 			route as any,
 			executeRouteInternalMock as any,
 		);
-		console.log("TEST 1 RESULT:", result);
 
 		expect(executeRouteInternalMock).toHaveBeenCalledTimes(1);
 
@@ -129,7 +128,6 @@ describe("runSuiteAssertions", () => {
 			route as any,
 			executeRouteInternalMock as any,
 		);
-		console.log("TEST 2 RESULT:", result);
 
 		expect(result.success).toBe(true);
 		expect(result.result[0].success).toBe(true);

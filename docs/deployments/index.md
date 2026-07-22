@@ -268,4 +268,13 @@ OTLP_LOGGER_ENABLED=true
 # Minimum log level to ship via OTLP: info | warn | error
 # Use info to capture all telemetry; use warn or error to reduce volume.
 OTLP_LOGGER_LEVEL=info
+
+# LLM TRACING
+LLM_TRACING_ENABLED=true
+# Change the following values to your own OTLP endpoint and headers. The below uses Arize AI's OpenInference protocol.
+LLM_OTLP_TRACES_ENDPOINT=http://localhost:4318/v1/traces
+# Key value pairs in "Key:Value;Key2:Value2;..."
+LLM_OTLP_TRACES_HEADERS=""
+# Percentage of traces to capture: 0-1 (e.g. 0.01 = 1%, 0.5 = 50%, 1 = 100%)
+LLM_TRACING_SAMPLE_RATE=1
 ```

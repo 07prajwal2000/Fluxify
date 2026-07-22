@@ -16,12 +16,20 @@ import z from "zod";
 import { user } from "./auth-schema";
 import { createSelectSchema } from "drizzle-zod";
 
+/* ============================================================================
+ * 1. GENERAL ENUMS & TYPES
+ * ============================================================================ */
+
 export enum HttpMethod {
 	GET = "GET",
 	POST = "POST",
 	PUT = "PUT",
 	DELETE = "DELETE",
 }
+
+/* ============================================================================
+ * 2. PROJECT MANAGEMENT & CORE DOMAIN
+ * ============================================================================ */
 
 export const projectsEntity = pgTable(
 	"projects",
@@ -70,69 +78,137 @@ export const projectSettingsEntity = pgTable(
 	],
 );
 
-export const aiChatConversationStatusEnum = pgEnum(
-	"ai_chat_conversation_status",
-	["not_started", "running", "completed"],
+/* ============================================================================
+ * 3. ACCESS CONTROL & PERMISSIONS
+ * ============================================================================ */
+
+export const accessControlRoleEnum = pgEnum("access_control_roles", [
+	"viewer", // Can view routes, but not configs/integrations
+	"creator", //can CRUD routes, and CRU access to appconfigs and integrations, but No delete, View access to project settings
+	"project_admin", // All Access for that project, assign/revoke users to projects, edit project configs
+	"system_admin", // Access to everything in the system (create users as well)
+]);
+
+const accessControlRoleEnumSchema = createSelectSchema(accessControlRoleEnum);
+export type AccessControlRole = z.infer<typeof accessControlRoleEnumSchema>;
+export type AuthACL = {
+	projectId: string;
+	role: AccessControlRole;
+};
+
+export const accessControlEntity = pgTable(
+	"access_control",
+	{
+		id: serial().primaryKey(),
+		userId: varchar("user_id", { length: 50 }).references(() => user.id, {
+			onDelete: "cascade",
+		}),
+		projectId: varchar("project_id", { length: 50 }).references(
+			() => projectsEntity.id,
+			{
+				onDelete: "cascade",
+			},
+		),
+		role: accessControlRoleEnum("role"),
+		createdAt: timestamp("created_at").defaultNow(),
+		updatedAt: timestamp("updated_at")
+			.defaultNow()
+			.$onUpdate(() => new Date()),
+	},
+	(table) => [
+		index("idx_access_control_user_id").on(table.userId),
+		index("idx_access_control_project_id").on(table.projectId),
+	],
 );
 
-export const aiConversationLocationEnum = z.enum(["canvas", "ai_window"]);
+/* ============================================================================
+ * 4. APP CONFIGURATIONS & INTEGRATIONS
+ * ============================================================================ */
 
-export const aiChatConversationsEntity = pgTable("ai_chat_conversations", {
-	id: varchar({ length: 50 })
-		.primaryKey()
-		.$defaultFn(() => generateID()),
-	userId: varchar("user_id", { length: 50 }).references(() => user.id, {
-		onDelete: "cascade",
-	}),
-	title: varchar({ length: 255 }).default("New chat"),
-	projectId: varchar("project_id", { length: 50 }).references(
-		() => projectsEntity.id,
-		{
-			onDelete: "cascade",
-		},
-	),
-	metadata: jsonb("metadata")
-		.$type<{
-			location: z.infer<typeof aiConversationLocationEnum>;
-			routeId?: string;
-		}>()
-		.notNull(),
-	status: aiChatConversationStatusEnum("status").default("not_started"),
-	createdAt: timestamp("created_at").defaultNow().notNull(),
-	updatedAt: timestamp("updated_at")
-		.defaultNow()
-		.notNull()
-		.$onUpdate(() => new Date()),
-});
+export const encodingTypeEnum = pgEnum("encoding_types", [
+	"plaintext",
+	"base64",
+	"hex",
+]);
 
-export const aiChatHistoryEntity = pgTable("ai_chat_history", {
-	id: varchar({ length: 50 })
-		.primaryKey()
-		.$defaultFn(() => generateID()),
-	conversationId: varchar("conversation_id", { length: 50 })
-		.references(() => aiChatConversationsEntity.id, {
-			onDelete: "cascade",
-		})
-		.notNull(),
-	status: aiChatConversationStatusEnum("status").default("running"),
-	userQuery: text("user_query").notNull(),
-	finalOutput: jsonb("final_output").$type<{
-		nodeId: string;
-		result: any;
-	}>(),
-	workflowExecutionHistory: jsonb("workflow_execution_history")
-		.$type<
+export const appConfigDataTypeEnum = pgEnum("app_config_data_types", [
+	"string",
+	"number",
+	"boolean",
+]);
+
+const encodingTypeValues = z.enum(encodingTypeEnum.enumValues);
+const appConfigDataTypeValues = z.enum(appConfigDataTypeEnum.enumValues);
+
+export type AppConfigEncodingTypes = z.infer<typeof encodingTypeValues>;
+export type AppConfigDataTypes = z.infer<typeof appConfigDataTypeValues>;
+
+export const appConfigEntity = pgTable(
+	"app_config",
+	{
+		id: serial().primaryKey(),
+		keyName: varchar("key_name", { length: 100 }),
+		description: text(),
+		value: text(),
+		projectId: varchar("project_id", { length: 50 }).references(
+			() => projectsEntity.id,
 			{
-				type: "node" | "tool";
-				id: string;
-				input: any;
-				status: "running" | "success" | "failure";
-				output: any;
-			}[]
-		>()
-		.notNull(),
-	createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+				onDelete: "cascade",
+			},
+		),
+		isEncrypted: boolean("is_encrypted").default(false),
+		encodingType: encodingTypeEnum("encoding_type"),
+		dataType: appConfigDataTypeEnum("data_type").default("string"),
+		createdAt: timestamp("created_at").defaultNow(),
+		updatedAt: timestamp("updated_at")
+			.defaultNow()
+			.$onUpdate(() => new Date()),
+	},
+	(table) => [
+		index("idx_app_config_key_name").on(table.keyName),
+		index("idx_app_config_project_id").on(table.projectId),
+		index("idx_app_config_is_encrypted").on(table.isEncrypted),
+		index("idx_app_config_encoding_type").on(table.encodingType),
+		index("idx_app_config_key_name_fts").using("gin", sql`to_tsvector('english', ${table.keyName})`),
+		index("idx_app_config_desc_fts").using("gin", sql`to_tsvector('english', coalesce(${table.description}, ''))`),
+	],
+);
+
+export const integrationsEntity = pgTable(
+	"integrations",
+	{
+		id: uuid()
+			.$defaultFn(() => generateID())
+			.primaryKey(),
+		name: varchar({ length: 255 }),
+		group: varchar({ length: 255 }),
+		variant: varchar({ length: 255 }),
+		config: jsonb(),
+		tags: varchar({ length: 255 }).default(""),
+		projectId: varchar("project_id", { length: 50 }).references(
+			() => projectsEntity.id,
+			{
+				onDelete: "cascade",
+			},
+		),
+		createdAt: timestamp("created_at").defaultNow(),
+		updatedAt: timestamp("updated_at")
+			.defaultNow()
+			.$onUpdate(() => new Date()),
+	},
+	(table) => [
+		index("idx_integrations_name").on(table.name),
+		index("idx_integrations_group").on(table.group),
+		index("idx_integrations_variant").on(table.variant),
+		index("idx_integrations_tags").on(table.tags),
+		index("idx_integrations_project_id").on(table.projectId),
+		index("idx_integrations_name_fts").using("gin", sql`to_tsvector('english', ${table.name})`),
+	],
+);
+
+/* ============================================================================
+ * 5. ROUTES & WORKFLOW CANVAS
+ * ============================================================================ */
 
 export const routesEntity = pgTable(
 	"routes",
@@ -140,7 +216,7 @@ export const routesEntity = pgTable(
 		id: varchar({ length: 50 })
 			.primaryKey()
 			.$defaultFn(() => generateID()),
-		name: varchar({ length: 50 }),
+		name: varchar({ length: 255 }),
 		path: text(),
 		active: boolean().default(false),
 		projectId: varchar("project_id", { length: 50 })
@@ -162,6 +238,7 @@ export const routesEntity = pgTable(
 	(table) => [
 		index("idx_routes_project_id").on(table.projectId),
 		index("idx_routes_path").on(table.path),
+		index("idx_routes_name_fts").using("gin", sql`to_tsvector('english', ${table.name})`),
 	],
 );
 
@@ -217,122 +294,9 @@ export const edgesEntity = pgTable(
 	],
 );
 
-export const encodingTypeEnum = pgEnum("encoding_types", [
-	"plaintext",
-	"base64",
-	"hex",
-]);
-
-export const appConfigDataTypeEnum = pgEnum("app_config_data_types", [
-	"string",
-	"number",
-	"boolean",
-]);
-
-const encodingTypeValues = z.enum(encodingTypeEnum.enumValues);
-const appConfigDataTypeValues = z.enum(appConfigDataTypeEnum.enumValues);
-
-export type AppConfigEncodingTypes = z.infer<typeof encodingTypeValues>;
-export type AppConfigDataTypes = z.infer<typeof appConfigDataTypeValues>;
-
-export const appConfigEntity = pgTable(
-	"app_config",
-	{
-		id: serial().primaryKey(),
-		keyName: varchar("key_name", { length: 100 }),
-		description: text(),
-		value: text(),
-		projectId: varchar("project_id", { length: 50 }).references(
-			() => projectsEntity.id,
-			{
-				onDelete: "cascade",
-			},
-		),
-		isEncrypted: boolean("is_encrypted").default(false),
-		encodingType: encodingTypeEnum("encoding_type"),
-		dataType: appConfigDataTypeEnum("data_type").default("string"),
-		createdAt: timestamp("created_at").defaultNow(),
-		updatedAt: timestamp("updated_at")
-			.defaultNow()
-			.$onUpdate(() => new Date()),
-	},
-	(table) => [
-		index("idx_app_config_key_name").on(table.keyName),
-		index("idx_app_config_project_id").on(table.projectId),
-		index("idx_app_config_is_encrypted").on(table.isEncrypted),
-		index("idx_app_config_encoding_type").on(table.encodingType),
-	],
-);
-
-export const integrationsEntity = pgTable(
-	"integrations",
-	{
-		id: uuid()
-			.$defaultFn(() => generateID())
-			.primaryKey(),
-		name: varchar({ length: 255 }),
-		group: varchar({ length: 255 }),
-		variant: varchar({ length: 255 }),
-		config: jsonb(),
-		tags: varchar({ length: 255 }).default(""),
-		projectId: varchar("project_id", { length: 50 }).references(
-			() => projectsEntity.id,
-			{
-				onDelete: "cascade",
-			},
-		),
-		createdAt: timestamp("created_at").defaultNow(),
-		updatedAt: timestamp("updated_at")
-			.defaultNow()
-			.$onUpdate(() => new Date()),
-	},
-	(table) => [
-		index("idx_integrations_name").on(table.name),
-		index("idx_integrations_group").on(table.group),
-		index("idx_integrations_variant").on(table.variant),
-		index("idx_integrations_tags").on(table.tags),
-		index("idx_integrations_project_id").on(table.projectId),
-	],
-);
-
-export const accessControlRoleEnum = pgEnum("access_control_roles", [
-	"viewer", // Can view routes, but not configs/integrations
-	"creator", //can CRUD routes, and CRU access to appconfigs and integrations, but No delete, View access to project settings
-	"project_admin", // All Access for that project, assign/revoke users to projects, edit project configs
-	"system_admin", // Access to everything in the system (create users as well)
-]);
-
-const accessControlRoleEnumSchema = createSelectSchema(accessControlRoleEnum);
-export type AccessControlRole = z.infer<typeof accessControlRoleEnumSchema>;
-export type AuthACL = {
-	projectId: string;
-	role: AccessControlRole;
-};
-
-export const accessControlEntity = pgTable(
-	"access_control",
-	{
-		id: serial().primaryKey(),
-		userId: varchar("user_id", { length: 50 }).references(() => user.id, {
-			onDelete: "cascade",
-		}),
-		projectId: varchar("project_id", { length: 50 }).references(
-			() => projectsEntity.id,
-			{
-				onDelete: "cascade",
-			},
-		),
-		role: accessControlRoleEnum("role"),
-		createdAt: timestamp("created_at").defaultNow(),
-		updatedAt: timestamp("updated_at")
-			.defaultNow()
-			.$onUpdate(() => new Date()),
-	},
-	(table) => [
-		index("idx_access_control_user_id").on(table.userId),
-		index("idx_access_control_project_id").on(table.projectId),
-	],
-);
+/* ============================================================================
+ * 6. TESTING & TEST SUITES
+ * ============================================================================ */
 
 export const testSuitesEntity = pgTable("test_suites", {
 	id: varchar({ length: 50 })
@@ -383,6 +347,10 @@ export const testSuitesRelations = relations(testSuitesEntity, ({ one }) => ({
 export const routesRelations = relations(routesEntity, ({ many }) => ({
 	testSuites: many(testSuitesEntity),
 }));
+
+/* ============================================================================
+ * 7. CUSTOM BLOCKS EXTENSIONS
+ * ============================================================================ */
 
 export const customBlockIconTypeEnum = pgEnum("custom_block_icon_type", [
 	"premade-list",
@@ -448,3 +416,120 @@ export const customBlockGraphsEntity = pgTable(
 		index("idx_custom_block_graphs_custom_block_id").on(table.customBlockId),
 	],
 );
+
+/* ============================================================================
+ * 8. AI ASSISTANT & WORKFLOW BUILDER
+ * ============================================================================ */
+
+export const aiChatConversationStatusEnum = pgEnum(
+	"ai_chat_conversation_status",
+	["not_started", "running", "success", "error", "paused", "plan_rejected"],
+);
+
+export const aiConversationLocationEnum = z.enum(["canvas", "ai_window"]);
+
+export const aiChatConversationsEntity = pgTable("ai_chat_conversations", {
+	id: varchar({ length: 50 })
+		.primaryKey()
+		.$defaultFn(() => generateID()),
+	userId: varchar("user_id", { length: 50 }).references(() => user.id, {
+		onDelete: "cascade",
+	}),
+	title: varchar({ length: 255 }).default("New chat"),
+	projectId: varchar("project_id", { length: 50 }).references(
+		() => projectsEntity.id,
+		{
+			onDelete: "cascade",
+		},
+	),
+	metadata: jsonb("metadata")
+		.$type<{
+			location: z.infer<typeof aiConversationLocationEnum>;
+			routeId?: string;
+		}>()
+		.notNull(),
+	status: aiChatConversationStatusEnum("status").default("not_started"),
+	createdAt: timestamp("created_at").defaultNow().notNull(),
+	updatedAt: timestamp("updated_at")
+		.defaultNow()
+		.notNull()
+		.$onUpdate(() => new Date()),
+});
+
+export const aiChatHistoryEntity = pgTable("ai_chat_history", {
+	id: varchar({ length: 50 })
+		.primaryKey()
+		.$defaultFn(() => generateID()),
+	conversationId: varchar("conversation_id", { length: 50 })
+		.references(() => aiChatConversationsEntity.id, {
+			onDelete: "cascade",
+		})
+		.notNull(),
+	status: aiChatConversationStatusEnum("status").default("running"),
+	userQuery: text("user_query").notNull(),
+	finalOutput: jsonb("final_output").$type<{
+		nodeId: string;
+		result: any;
+	}>(),
+	workflowExecutionHistory: jsonb("workflow_execution_history")
+		.$type<
+			{
+				type: "node" | "tool";
+				id: string;
+				status: "running" | "success" | "failure";
+			}[]
+		>()
+		.notNull(),
+	createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const aiWorkflowBuilderStepTypeEnum = pgEnum(
+	"ai_workflow_builder_step_type",
+	["verify", "planner", "orchestrator", "sub_agent", "evaluator"],
+);
+
+export const aiWorkflowBuilderStepStatusEnum = pgEnum(
+	"ai_workflow_builder_step_status",
+	["running", "completed", "failed", "paused", "awaiting_review"],
+);
+
+export const aiWorkflowBuilderStepsEntity = pgTable(
+	"ai_workflow_builder_steps",
+	{
+		id: varchar({ length: 50 })
+			.primaryKey()
+			.$defaultFn(() => generateID()),
+		chatHistoryId: varchar("chat_history_id", { length: 50 })
+			.references(() => aiChatHistoryEntity.id, { onDelete: "cascade" })
+			.notNull(),
+		conversationId: varchar("conversation_id", { length: 50 })
+			.references(() => aiChatConversationsEntity.id, { onDelete: "cascade" })
+			.notNull(),
+		stepType: aiWorkflowBuilderStepTypeEnum("step_type").notNull(),
+		stepStatus: aiWorkflowBuilderStepStatusEnum("step_status")
+			.default("running")
+			.notNull(),
+		stepOrder: serial("step_order"),
+		inputData: jsonb("input_data").$type<any>(),
+		outputData: jsonb("output_data").$type<any>(),
+		metadata: jsonb("metadata").$type<{
+			nodeId: string;
+			stepSource: string;
+			tokenUsage?: { input: number; output: number };
+		}>(),
+		createdAt: timestamp("created_at").defaultNow().notNull(),
+		updatedAt: timestamp("updated_at")
+			.defaultNow()
+			.notNull()
+			.$onUpdate(() => new Date()),
+	},
+	(table) => [
+		index("idx_ai_wf_steps_chat_history_id").on(table.chatHistoryId),
+		index("idx_ai_wf_steps_conversation_id").on(table.conversationId),
+		index("idx_ai_wf_steps_step_type").on(table.stepType),
+		index("idx_ai_wf_steps_step_status").on(table.stepStatus),
+	],
+);
+
+export * from "./agent-harness-schema";
+

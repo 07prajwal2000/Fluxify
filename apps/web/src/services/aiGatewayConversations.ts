@@ -8,6 +8,7 @@ import {
 	listConversationsDto,
 	listMessagesDto,
 	clearMessagesDto,
+	recordActionDto,
 } from "@fluxify/ai-gateway";
 
 const baseUrl = "ai/v1/conversations";
@@ -77,6 +78,17 @@ export const aiGatewayConversationsService = {
 
 		const result = await httpClient.get(
 			`${baseUrl}/${conversationId}/messages?${queryParams.toString()}`,
+		);
+		return result.data;
+	},
+
+	async recordAction(
+		conversationId: string,
+		body: any,
+	): Promise<void> {
+		const result = await httpClient.post(
+			`${baseUrl}/${conversationId}/record-action`,
+			body,
 		);
 		return result.data;
 	},
