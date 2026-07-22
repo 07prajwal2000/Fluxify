@@ -207,6 +207,9 @@ export const agentHarnessHitlActionsEntity = pgTable(
 );
 
 // 6. Artifacts Table
+// The parent artifact is a grouping row that links a run to its sub-artifacts.
+// The human-readable summary markdown is stored on the run (`aiResponse`) — the
+// final result of the harness pass — not here.
 export const agentHarnessArtifactsEntity = pgTable(
 	"agent_harness_artifacts",
 	{
@@ -219,12 +222,44 @@ export const agentHarnessArtifactsEntity = pgTable(
 		runId: varchar("run_id", { length: 50 })
 			.references(() => agentHarnessRunsEntity.id, { onDelete: "cascade" })
 			.notNull(),
-		rawArtifact: jsonb("raw_artifact").$type<Record<string, any>>().notNull(),
 		createdAt: timestamp("created_at").defaultNow().notNull(),
 	},
 	(t) => [
 		index("idx_harness_artifacts_conv_id").on(t.conversationId),
 		index("idx_harness_artifacts_run_id").on(t.runId),
+	],
+);
+
+// 7. Sub-Artifacts Table
+// One row per sub-agent output referenced by the summary markdown. The special
+// syntax tokens (@route, @canvasChanges) point at these rows by id so the
+// frontend can render chips that open the actual implementation.
+export const agentHarnessSubArtifactsEntity = pgTable(
+	"agent_harness_sub_artifacts",
+	{
+		id: varchar({ length: 50 })
+			.primaryKey()
+			.$defaultFn(() => generateID()),
+		artifactId: varchar("artifact_id", { length: 50 })
+			.references(() => agentHarnessArtifactsEntity.id, { onDelete: "cascade" })
+			.notNull(),
+		conversationId: varchar("conversation_id", { length: 50 })
+			.references(() => agentHarnessConversationsEntity.id, { onDelete: "cascade" })
+			.notNull(),
+		runId: varchar("run_id", { length: 50 })
+			.references(() => agentHarnessRunsEntity.id, { onDelete: "cascade" })
+			.notNull(),
+		subAgentId: varchar("sub_agent_id", { length: 100 }),
+		// "route" | "canvas"
+		kind: varchar("kind", { length: 50 }).notNull(),
+		// "add" | "delete" | "changes"
+		action: varchar("action", { length: 50 }),
+		payload: jsonb("payload").$type<Record<string, any>>().notNull(),
+		createdAt: timestamp("created_at").defaultNow().notNull(),
+	},
+	(t) => [
+		index("idx_harness_sub_artifacts_artifact_id").on(t.artifactId),
+		index("idx_harness_sub_artifacts_run_id").on(t.runId),
 	],
 );
 
@@ -303,13 +338,32 @@ export const agentHarnessHitlActionsRelations = relations(
 
 export const agentHarnessArtifactsRelations = relations(
 	agentHarnessArtifactsEntity,
-	({ one }) => ({
+	({ one, many }) => ({
 		conversation: one(agentHarnessConversationsEntity, {
 			fields: [agentHarnessArtifactsEntity.conversationId],
 			references: [agentHarnessConversationsEntity.id],
 		}),
 		run: one(agentHarnessRunsEntity, {
 			fields: [agentHarnessArtifactsEntity.runId],
+			references: [agentHarnessRunsEntity.id],
+		}),
+		subArtifacts: many(agentHarnessSubArtifactsEntity),
+	}),
+);
+
+export const agentHarnessSubArtifactsRelations = relations(
+	agentHarnessSubArtifactsEntity,
+	({ one }) => ({
+		artifact: one(agentHarnessArtifactsEntity, {
+			fields: [agentHarnessSubArtifactsEntity.artifactId],
+			references: [agentHarnessArtifactsEntity.id],
+		}),
+		conversation: one(agentHarnessConversationsEntity, {
+			fields: [agentHarnessSubArtifactsEntity.conversationId],
+			references: [agentHarnessConversationsEntity.id],
+		}),
+		run: one(agentHarnessRunsEntity, {
+			fields: [agentHarnessSubArtifactsEntity.runId],
 			references: [agentHarnessRunsEntity.id],
 		}),
 	}),

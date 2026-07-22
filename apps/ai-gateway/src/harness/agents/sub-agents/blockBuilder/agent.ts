@@ -52,7 +52,11 @@ export class BlockBuilderAgent extends BaseAgent {
 							name,
 							label,
 							description,
-						}: { name: string; label: string; description: string }) => ({
+						}: {
+							name: string;
+							label: string;
+							description: string;
+						}) => ({
 							type: `custom:${name}`,
 							name: label,
 							description,
@@ -73,6 +77,7 @@ export class BlockBuilderAgent extends BaseAgent {
 			data: {
 				status: "Analyzing block builder requirements...",
 				agent: AgentNode.BUILDER,
+				agentId: activeTask.id,
 			},
 		});
 
@@ -118,6 +123,7 @@ export class BlockBuilderAgent extends BaseAgent {
 				status: "Block building intent formulated",
 				agent: AgentNode.BUILDER,
 				data: processedResponse,
+				agentId: activeTask.id,
 			},
 		});
 

@@ -11,8 +11,12 @@ export const createFindResourceTool = (
 ) => {
 	return tool(
 		async ({ searchQuery, resourceType, metadata: toolMetadata }) => {
+			// Normalize to a keyword array; canvas/ID lookups use the first value.
+			const keywords = Array.isArray(searchQuery) ? searchQuery : [searchQuery];
+			const singleId = keywords[0] ?? "";
+
 			logger.info(
-				`[Tools] Searching ${resourceType} for '${searchQuery}' in project ${metadata.projectId}`,
+				`[Tools] Searching ${resourceType} for '${keywords.join(", ")}' in project ${metadata.projectId}`,
 			);
 
 			if (resourceType === "route_canvas") {
@@ -23,36 +27,36 @@ export const createFindResourceTool = (
 						{ id: "error_handler", blockType: "error_handler" }
 					], null, 2);
 				}
-				const canvas = await dbService.getRouteCanvas(metadata.projectId, searchQuery);
+				const canvas = await dbService.getRouteCanvas(metadata.projectId, singleId);
 				return canvas ? JSON.stringify(canvas, null, 2) : "No canvas found.";
 			}
 
 			if (resourceType === "custom_block_canvas") {
-				const canvas = await dbService.getCustomBlockCanvas(metadata.projectId, searchQuery);
+				const canvas = await dbService.getCustomBlockCanvas(metadata.projectId, singleId);
 				return canvas ? JSON.stringify(canvas, null, 2) : "No canvas found.";
 			}
 
 			let results: any[] = [];
 			switch (resourceType as ResourceType) {
 				case "route":
-					results = await dbService.findRoutes(metadata.projectId, searchQuery);
+					results = await dbService.findRoutes(metadata.projectId, keywords);
 					break;
 				case "app_config":
 					results = await dbService.findAppConfigs(
 						metadata.projectId,
-						searchQuery,
+						keywords,
 					);
 					break;
 				case "integration":
 					results = await dbService.findIntegrations(
 						metadata.projectId,
-						searchQuery,
+						keywords,
 					);
 					break;
 				case "custom_block":
 					results = await dbService.findCustomBlocks(
 						metadata.projectId,
-						searchQuery,
+						keywords,
 					);
 					break;
 			}
@@ -76,8 +80,10 @@ export const createFindResourceTool = (
 				"Search the production database for existing resources (routes, app configs, integrations, custom blocks) in the user's project, or retrieve canvas details.",
 			schema: z.object({
 				searchQuery: z
-					.string()
-					.describe("The name, path, description keyword, or ID to search for."),
+					.union([z.string(), z.array(z.string())])
+					.describe(
+						"One or more keywords to full-text search for (name, path, or description). Pass an array of related terms (e.g. ['user', 'auth', 'login']) to widen matching and avoid multiple retries. For 'route_canvas' and 'custom_block_canvas', pass a single resource ID.",
+					),
 				resourceType: z
 					.enum(["route", "app_config", "integration", "custom_block", "route_canvas", "custom_block_canvas"])
 					.describe("The type of resource to search for."),

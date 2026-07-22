@@ -1,5 +1,5 @@
 import { BaseCallbackHandler } from "@langchain/core/callbacks/base";
-import { trace, Span, context } from "@opentelemetry/api";
+import { trace, context, type Span } from "@fluxify/common";
 
 export class FluxifyOtelTracer extends BaseCallbackHandler {
 	name = "fluxify_otel_tracer";

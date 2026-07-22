@@ -15,6 +15,7 @@ export enum AgentNode {
 	HUMAN_IN_THE_LOOP = "humanInTheLoop",
 	ROUTE_CONFIG_AGENT = "routeConfig",
 	SUPERVISOR = "supervisor",
+	SUMMARIZER = "summarizer",
 }
 
 export type AgentNodeName = `${AgentNode}`;
@@ -24,7 +25,7 @@ export type CustomEventName = "agent_status" | "human_in_the_loop_required";
 export type AgentCustomEvent =
 	| {
 			name: "agent_status";
-			data: { status: string; agent: AgentNode; data?: any };
+			data: { status: string; agent: AgentNode; data?: any; agentId?: string };
 	  }
 	| {
 			name: "human_in_the_loop_required";
@@ -73,6 +74,13 @@ export interface DiscussionState {
 	markdown?: string;
 }
 
+export interface SummarizerState {
+	/** Human-readable summary markdown with embedded special syntax tokens. */
+	markdown?: string;
+	/** The parent artifact row this summary was persisted to. */
+	artifactId?: string;
+}
+
 export interface RouteConfigAgentResult {
 	action: "create" | "delete" | "update-partial";
 	routeId?: string;
@@ -94,17 +102,24 @@ export interface BlockBuilderAgentResult {
 	blocks: Record<string, unknown>[];
 }
 
-export type SubAgentResult = RouteConfigAgentResult | BlockBuilderAgentResult | Record<string, any>;
+export type SubAgentResult =
+	| RouteConfigAgentResult
+	| BlockBuilderAgentResult
+	| Record<string, any>;
 
 /**
  * Validator function for sub-agent outputs.
- * 
+ *
  * @param result - The result outputted by the sub-agent.
  * @param taskId - The ID of the task that was executed.
  * @param state - The global graph state.
  * @returns null if valid, or a string describing the error if invalid.
  */
-export type AgentOutputValidator = (result: SubAgentResult, taskId: string, state: GlobalGraphState) => Promise<string | null> | string | null;
+export type AgentOutputValidator = (
+	result: SubAgentResult,
+	taskId: string,
+	state: GlobalGraphState,
+) => Promise<string | null> | string | null;
 
 export interface OrchestratorState {
 	tasks?: Task[];
@@ -177,6 +192,10 @@ export const GraphState = Annotation.Root({
 		default: () => ({}),
 	}),
 	orchestratorState: Annotation<OrchestratorState>({
+		reducer: (oldState, newState) => ({ ...oldState, ...newState }),
+		default: () => ({}),
+	}),
+	summarizerState: Annotation<SummarizerState>({
 		reducer: (oldState, newState) => ({ ...oldState, ...newState }),
 		default: () => ({}),
 	}),
