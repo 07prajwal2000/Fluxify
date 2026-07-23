@@ -1,4 +1,4 @@
-import { Avatar, Button, Dropdown } from "@fluxify/components";
+import { Avatar, Dropdown } from "@fluxify/components";
 import { TbLogout, TbUser } from "react-icons/tb";
 import { useNavigate } from "@tanstack/react-router";
 import { authClient } from "@/lib/auth";
@@ -18,15 +18,16 @@ export function ProfileNav() {
 
 	return (
 		<Dropdown>
-			<Dropdown.Trigger>
-				<Button isIconOnly variant="ghost" aria-label="Account menu">
-					<Avatar>
-						{session.user.image ? (
-							<Avatar.Image src={session.user.image} alt={session.user.name} />
-						) : null}
-						<Avatar.Fallback>{initials}</Avatar.Fallback>
-					</Avatar>
-				</Button>
+			<Dropdown.Trigger
+				aria-label="Account menu"
+				className="rounded-full outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus)]"
+			>
+				<Avatar>
+					{session.user.image ? (
+						<Avatar.Image src={session.user.image} alt={session.user.name} />
+					) : null}
+					<Avatar.Fallback>{initials}</Avatar.Fallback>
+				</Avatar>
 			</Dropdown.Trigger>
 			<Dropdown.Popover>
 				<Dropdown.Menu>

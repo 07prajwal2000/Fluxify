@@ -3,6 +3,9 @@ import { z } from "zod";
 import { Tabs } from "@fluxify/components";
 import { ProfileNav } from "@/components/home/ProfileNav";
 import { ProjectsTab } from "@/components/home/ProjectsTab";
+import { UsersList } from "@/components/home/UsersList";
+import { AccountDetails } from "@/components/home/AccountDetails";
+import { InstanceSettings } from "@/components/home/InstanceSettings";
 import { useAuthStore } from "@/store/auth";
 
 const logo = `${import.meta.env.BASE_URL}logo_title.webp`;
@@ -11,11 +14,6 @@ export const Route = createFileRoute("/_authed/")({
 	validateSearch: z.object({ tab: z.string().optional() }),
 	component: Home,
 });
-
-// ponytail: Users / Instance Settings / Account tabs are stubbed — next slice.
-function Stub({ label }: { label: string }) {
-	return <p className="py-16 text-center text-muted">{label} — coming soon.</p>;
-}
 
 function Home() {
 	const { tab } = Route.useSearch();
@@ -52,14 +50,18 @@ function Home() {
 					<Tabs.Panel id="projects">
 						<ProjectsTab />
 					</Tabs.Panel>
-					<Tabs.Panel id="users">
-						<Stub label="Users" />
-					</Tabs.Panel>
-					<Tabs.Panel id="instance">
-						<Stub label="Instance Settings" />
-					</Tabs.Panel>
+					{userData?.isSystemAdmin && (
+						<Tabs.Panel id="users">
+							<UsersList />
+						</Tabs.Panel>
+					)}
+					{userData?.isSystemAdmin && (
+						<Tabs.Panel id="instance">
+							<InstanceSettings />
+						</Tabs.Panel>
+					)}
 					<Tabs.Panel id="account">
-						<Stub label="Account details" />
+						<AccountDetails />
 					</Tabs.Panel>
 				</Tabs>
 			</main>

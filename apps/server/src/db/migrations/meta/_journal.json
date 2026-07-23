@@ -288,13 +288,6 @@
       "when": 1784804873823,
       "tag": "0040_milky_sunfire",
       "breakpoints": true
-    },
-    {
-      "idx": 41,
-      "version": "7",
-      "when": 1784841189285,
-      "tag": "0041_far_dreaming_celestial",
-      "breakpoints": true
     }
   ]
 }
