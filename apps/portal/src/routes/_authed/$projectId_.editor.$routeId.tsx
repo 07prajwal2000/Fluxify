@@ -15,14 +15,16 @@ import { Button, Spinner } from "@fluxify/components";
 import { TbArrowLeft } from "react-icons/tb";
 import { routesQuery } from "@/query/routesQuery";
 import { GenericBlockNode } from "@/components/editor/GenericBlockNode";
+import { blocksList } from "@/components/editor/blocks/nodes";
 
 export const Route = createFileRoute("/_authed/$projectId_/editor/$routeId")({
 	component: EditorPage,
 });
 
+// Ported per-type node when available; generic node for types not yet ported.
 const nodeTypes = new Proxy(
 	{},
-	{ get: () => GenericBlockNode },
+	{ get: (_t, key: string) => blocksList[key] ?? GenericBlockNode },
 ) as Record<string, typeof GenericBlockNode>;
 
 function EditorPage() {
