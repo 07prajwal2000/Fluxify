@@ -8,27 +8,31 @@ async function main() {
     console.log("1. Running linter...");
     await $`bun run lint`;
 
-    // 2. Run analyze
-    console.log("2. Running code analysis...");
+    // 2. Secret scanning
+    console.log("2. Scanning for secret & credential leaks...");
+    await $`bun x secretlint --format compact "**/*"`;
+
+    // 3. Run analyze
+    console.log("3. Running code analysis...");
     await $`bun run analyze`;
 
-    // 3. Determine changed files
-    console.log("3. Checking git diff for selective testing...");
+    // 4. Determine changed files
+    console.log("4. Checking git diff for selective testing...");
     const diffOutput = await $`git diff --cached --name-only`.text();
     const changedFiles = diffOutput.split("\n").filter(Boolean);
     
-    // 4. Run unit tests
-    console.log("4. Running unit tests...");
+    // 5. Run unit tests
+    console.log("5. Running unit tests...");
     await $`bun run test:unit`;
 
-    // 5. Conditionally run adapters integration tests
+    // 6. Conditionally run adapters integration tests
     const adaptersChanged = changedFiles.some(file => file.startsWith("packages/adapters/"));
     if (adaptersChanged) {
-      console.log("5. Changes in adapters detected. Running adapter integration tests...");
+      console.log("6. Changes in adapters detected. Running adapter integration tests...");
       await $`bun run test:adapters`;
       await $`bun run test:integration`;
     } else {
-      console.log("5. No changes in adapters detected. Skipping adapter integration tests to save time.");
+      console.log("6. No changes in adapters detected. Skipping adapter integration tests to save time.");
     }
 
     console.log("Pre-commit checks passed successfully!");

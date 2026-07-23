@@ -7,8 +7,9 @@ services:
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: fluxify_alpha
     volumes:
-      - pg_cbe:/var/lib/postgresql/data
+      - fluxify_pg_volume:/var/lib/postgresql/data
     networks:
       - default
   valkey:
@@ -64,8 +65,7 @@ services:
       - default
 
 volumes:
-  pg_cbe:
-    external: true
+  fluxify_pg_volume:
 networks:
   default:
     driver: bridge

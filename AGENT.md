@@ -22,14 +22,16 @@ On each new conversation, you MUST:
 2. Check if the GitHub CLI (`gh`) is installed. If it is not installed, hint the user to install it for a better experience.
 3. If `gh` is installed, always use the `gh` CLI for communicating with GitHub, including:
    - Creating Pull Requests
-   - Merging changes
-   - Checking for any errors in CI
-   - Syncing branches and repositories (both the user's fork and the main Fluxify repo)
-4. **Testing Policy:** Before committing, you MUST manually test the application. To save time, test *only* the required changed folders. Specifically, skip the `packages/adapters` tests unless the `git diff` shows modifications inside `packages/adapters/`. A precommit hook handles linting, analysis, and final selective testing before commits.
+   - Viewing/Managing Issues & Discussions
+   - Merging changes & checking CI errors
+   - Syncing branches and repositories
+4. **Remote Repository Target:** ALWAYS use `Fluxify-rest/Fluxify` for Pull Requests, Issues, and anything related to the remote repository (e.g., `gh issue view <id> --repo Fluxify-rest/Fluxify`, `gh pr create --repo Fluxify-rest/Fluxify`).
+5. **Pushing Code:** Only use the local repository and the user account's forked repository for pushing code (`git push origin <branch-name>`).
+6. **Testing Policy:** Before committing, you MUST manually test the application. To save time, test *only* the required changed folders. Specifically, skip the `packages/adapters` tests unless the `git diff` shows modifications inside `packages/adapters/`. A precommit hook handles linting, analysis, and final selective testing before commits.
 
 ### Pull Requests & Branch Naming
 When creating branches or Pull Requests via the `gh` CLI:
-- **Upstream Repository:** ALWAYS create PRs against the main upstream repository (`Fluxify-rest/Fluxify`), rather than the user's fork (`<username>/Fluxify`).
+- **Upstream Repository:** ALWAYS target `Fluxify-rest/Fluxify` for PRs, Issues, and remote repo interactions, while pushing branches to the user's forked repo.
 - **Branch Names:** Must be concise, descriptive, and follow standard conventions (e.g., `feature/add-auth`, `fix/header-alignment`, `chore/update-deps`).
 - **PR Titles:** Must be clear and descriptive, accurately summarizing the change.
 - **PR Descriptions:** Must clearly articulate the *Why* and *What* of the changes, keeping it concise but informative enough for a seamless review process.
