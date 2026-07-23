@@ -1,18 +1,15 @@
-import { db, DbTransactionType } from "../../../db";
-import { user } from "../../../db/auth-schema";
-import { eq } from "drizzle-orm";
+import { DbTransactionType } from "../../../db";
+import {
+  deleteSystemUser,
+  getSystemUserById,
+} from "../../../lib/system-users";
 
+// Deleting the system user cascades the Better Auth user + account/session.
 export async function deleteUser(userId: string, tx?: DbTransactionType) {
-  await (tx ?? db).delete(user).where(eq(user.id, userId));
+  await deleteSystemUser(userId, tx);
 }
 
 export async function getUserRole(userId: string, tx?: DbTransactionType) {
-  const result = await (tx ?? db)
-    .select({
-      role: user.role,
-    })
-    .from(user)
-    .where(eq(user.id, userId));
-
-  return result[0];
+  const su = await getSystemUserById(userId, tx);
+  return su ? { isSystemAdmin: su.isSystemAdmin } : undefined;
 }

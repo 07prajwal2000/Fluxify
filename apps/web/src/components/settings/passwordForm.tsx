@@ -1,13 +1,16 @@
-import { Stack, PasswordInput, Button, Text, Checkbox, Group } from "@mantine/core";
+import { Stack, PasswordInput, Button, Text, Checkbox, Group, Alert } from "@mantine/core";
 import React from "react";
 import { authClient } from "@/lib/auth";
 import { showNotification } from "@mantine/notifications";
+import { useAuthMode } from "@/hooks/useAuthMode";
+import { TbInfoCircle } from "react-icons/tb";
 
 const PasswordForm = () => {
 	const [currentPassword, setCurrentPassword] = React.useState("");
 	const [password, setPassword] = React.useState("");
 	const [pwdLoading, setPwdLoading] = React.useState(false);
 	const [logoutOtherSessions, setLogoutOtherSessions] = React.useState(false);
+	const { ssoOnly } = useAuthMode();
 	function onPasswordChange(value: string) {
 		setPassword(value);
 	}
@@ -49,6 +52,13 @@ const PasswordForm = () => {
 	}
 	return (
 		<Stack gap="lg" w="100%" maw={600}>
+			{ssoOnly && (
+				<Alert icon={<TbInfoCircle size={16} />} color="violet" variant="light">
+					SSO is configured and traditional login is disabled. Password
+					sign-in is managed by your identity provider — this form is
+					disabled.
+				</Alert>
+			)}
 			<Group grow align="flex-start">
 				<PasswordInput
 					description="Type your current password to verify identity"
@@ -57,6 +67,7 @@ const PasswordForm = () => {
 					value={currentPassword}
 					onChange={(e) => onCurrentPasswordChange(e.target.value)}
 					size="md"
+					disabled={ssoOnly}
 				/>
 				<PasswordInput
 					description="Must be at least 8 characters long"
@@ -65,6 +76,7 @@ const PasswordForm = () => {
 					value={password}
 					onChange={(e) => onPasswordChange(e.target.value)}
 					size="md"
+					disabled={ssoOnly}
 				/>
 			</Group>
 
@@ -82,6 +94,7 @@ const PasswordForm = () => {
 					color="violet"
 					onClick={onSavePasswordClicked}
 					loading={pwdLoading}
+					disabled={ssoOnly}
 					size="md"
 					radius="md"
 					style={{ backgroundColor: "#7432df", fontFamily: "Inter, sans-serif", fontWeight: 600 }}

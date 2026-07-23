@@ -1,16 +1,10 @@
-import { db, DbTransactionType } from "../../../db";
-import { user } from "../../../db/auth-schema";
-import { eq } from "drizzle-orm";
+import { DbTransactionType } from "../../../db";
+import { setSystemUserAdmin } from "../../../lib/system-users";
 
 export async function updateUser(
   userId: string,
   data: { isSystemAdmin: boolean },
   tx?: DbTransactionType
 ) {
-  await (tx ?? db)
-    .update(user)
-    .set({
-      isSystemAdmin: data.isSystemAdmin,
-    })
-    .where(eq(user.id, userId));
+  await setSystemUserAdmin(userId, data.isSystemAdmin, tx);
 }

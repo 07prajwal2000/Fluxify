@@ -3,6 +3,14 @@ import { CompiledQuery, Kysely } from "kysely";
 import { Connection, DbAdapterMode, DBConditionType, IDbAdapter } from ".";
 import { JsVM } from "@fluxify/lib";
 import { BunSqlPostgresDialect } from "./kyselySqlDialect";
+import {
+	applyColumns,
+	applyJoins,
+	buildQualifiers,
+	QueryOptions,
+	resolveCondition,
+	resolveJsonOperand,
+} from "./jsonPath";
 
 export type FluxifyDatabase = Record<string, Record<string, any>>;
 
@@ -63,29 +71,40 @@ export class PostgresAdapter implements IDbAdapter {
 		limit: number = this.HARD_LIMIT,
 		offset: number = 0,
 		sort: { attribute: string; direction: "asc" | "desc" },
+		options?: QueryOptions,
 	): Promise<any[]> {
 		const conn = this.getConnection();
-		let qb = conn.selectFrom(table as never);
-		qb = this.buildQuery(conditions, qb);
+		const qualifiers = buildQualifiers(table, options?.joins);
+		let qb = applyJoins(conn.selectFrom(table as never), options?.joins);
+		qb = this.buildQuery(conditions, qb, qualifiers);
 
 		const l = limit < 0 || limit > this.HARD_LIMIT ? this.HARD_LIMIT : limit;
+		const sortExpr = resolveJsonOperand(
+			sort.attribute,
+			false,
+			"postgres",
+			qualifiers,
+		);
 
-		return qb
-			.selectAll()
+		return applyColumns(qb, options?.columns)
 			.limit(l)
 			.offset(offset)
-			.orderBy(sort.attribute as never, sort.direction)
+			.orderBy(sortExpr as never, sort.direction)
 			.execute();
 	}
 
 	async getSingle(
 		table: string,
 		conditions: DBConditionType[],
+		options?: QueryOptions,
 	): Promise<any | null> {
 		const conn = this.getConnection();
-		let qb = conn.selectFrom(table as never);
-		qb = this.buildQuery(conditions, qb);
-		return (await qb.selectAll().executeTakeFirst()) ?? null;
+		const qualifiers = buildQualifiers(table, options?.joins);
+		let qb = applyJoins(conn.selectFrom(table as never), options?.joins);
+		qb = this.buildQuery(conditions, qb, qualifiers);
+		return (
+			(await applyColumns(qb, options?.columns).executeTakeFirst()) ?? null
+		);
 	}
 
 	async delete(table: string, conditions: DBConditionType[]): Promise<boolean> {
@@ -201,24 +220,37 @@ export class PostgresAdapter implements IDbAdapter {
 	private buildQuery<B extends { where: Function }>(
 		conditions: DBConditionType[],
 		builder: B,
+		qualifiers?: Set<string>,
 	): B {
 		if (!conditions || conditions.length === 0) return builder;
 
 		return builder.where((eb: CallableFunction) => {
 			// 1. Create the initial expression using the ExpressionBuilder (eb)
+			const c0 = resolveCondition(
+				conditions[0].attribute,
+				conditions[0].value,
+				"postgres",
+				qualifiers,
+			);
 			let expr = eb(
-				conditions[0].attribute as never,
+				c0.lhs as never,
 				this.getNativeOperator(conditions[0].operator) as never,
-				conditions[0].value as never,
+				c0.rhs as never,
 			) as { and: Function; or: Function };
 
 			// 2. Chain subsequent expressions just like Kysely Docs Example #2
 			for (let i = 1; i < conditions.length; i++) {
 				const cond = conditions[i];
+				const { lhs, rhs } = resolveCondition(
+					cond.attribute,
+					cond.value,
+					"postgres",
+					qualifiers,
+				);
 				const nextExpr = eb(
-					cond.attribute as never,
+					lhs as never,
 					this.getNativeOperator(cond.operator) as never,
-					cond.value as never,
+					rhs as never,
 				);
 
 				if (cond.chain.toLowerCase() === "or") {

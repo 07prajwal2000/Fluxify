@@ -36,12 +36,12 @@ describe("Test Suites Endpoints - CREATE", () => {
   });
 
   it("Happy path returns correct shape on CREATE", async () => {
+    const routeId = crypto.randomUUID();
     const payload = {
       name: "New Suite",
-      routeId: crypto.randomUUID(),
-      assertions: [{ target: "status", operator: "eq", expectedValue: "200" }],
+      description: "A new test suite",
     };
-    const req = new Request("http://localhost/test-suites", {
+    const req = new Request(`http://localhost/test-suites/route/${routeId}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
@@ -52,20 +52,12 @@ describe("Test Suites Endpoints - CREATE", () => {
     expect(data.id).toBe("suite-1");
   });
 
-  it("Validation rejects meaningful bad input case (CREATE property_path)", async () => {
+  it("Validation rejects missing required field (description)", async () => {
+    const routeId = crypto.randomUUID();
     const payload = {
       name: "Invalid Suite",
-      routeId: crypto.randomUUID(),
-      assertions: [
-        {
-          target: "status",
-          operator: "eq",
-          expectedValue: "200",
-          propertyPath: "invalid.path",
-        },
-      ],
     };
-    const req = new Request("http://localhost/test-suites", {
+    const req = new Request(`http://localhost/test-suites/route/${routeId}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
