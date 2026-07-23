@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import {
 	Background,
@@ -11,9 +11,10 @@ import {
 	type Node,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
-import { Button, Spinner } from "@fluxify/components";
+import { Button, Spinner, Switch, toast } from "@fluxify/components";
 import { TbArrowLeft } from "react-icons/tb";
 import { routesQuery } from "@/query/routesQuery";
+import { showErrorNotification } from "@/lib/errorNotifier";
 import { GenericBlockNode } from "@/components/editor/GenericBlockNode";
 import { blocksList } from "@/components/editor/blocks/nodes";
 
@@ -21,21 +22,26 @@ export const Route = createFileRoute("/_authed/$projectId_/editor/$routeId")({
 	component: EditorPage,
 });
 
-// Ported per-type node when available; generic node for types not yet ported.
 const nodeTypes = new Proxy(
 	{},
 	{ get: (_t, key: string) => blocksList[key] ?? GenericBlockNode },
 ) as Record<string, typeof GenericBlockNode>;
 
+const TABS = ["editor", "executions", "testing"] as const;
+type Tab = (typeof TABS)[number];
+
 function EditorPage() {
 	const { projectId, routeId } = Route.useParams();
 	const navigate = useNavigate();
-	const { data, isLoading, isError } = routesQuery.canvasItems.useQuery(routeId);
+	const [tab, setTab] = useState<Tab>("editor");
+
+	const { data: route } = routesQuery.byId.useQuery(routeId);
+	const canvas = routesQuery.canvasItems.useQuery(routeId);
+	const toggle = routesQuery.toggleActive.mutation();
 
 	const { initialNodes, initialEdges } = useMemo(() => {
-		const blocks = data?.blocks ?? [];
-		const rawEdges = data?.edges ?? [];
-		// Collect the handle IDs each block actually uses, from its edges.
+		const blocks = canvas.data?.blocks ?? [];
+		const rawEdges = canvas.data?.edges ?? [];
 		const sourcesByNode: Record<string, Set<string>> = {};
 		const targetsByNode: Record<string, Set<string>> = {};
 		for (const e of rawEdges) {
@@ -60,28 +66,76 @@ function EditorPage() {
 			targetHandle: e.toHandle,
 		}));
 		return { initialNodes, initialEdges };
-	}, [data]);
+	}, [canvas.data]);
 
 	return (
 		<div className="flex h-screen w-screen flex-col bg-background text-foreground">
-			<header className="flex items-center gap-3 border-b border-border px-4 py-2">
-				<Button
-					variant="ghost"
-					onPress={() =>
-						navigate({ to: "/$projectId/routes", params: { projectId } })
-					}
-				>
-					<TbArrowLeft size={16} /> Routes
-				</Button>
-				<span className="text-sm text-muted">Editor</span>
+			<header className="relative flex items-center justify-between border-b border-border px-4 py-2">
+				<div className="flex items-center gap-3">
+					<Button
+						variant="ghost"
+						onPress={() =>
+							navigate({ to: "/$projectId/routes", params: { projectId } })
+						}
+					>
+						<TbArrowLeft size={16} />
+					</Button>
+					<span className="font-medium">{route?.name ?? "Editor"}</span>
+					{route?.method && (
+						<span className="rounded bg-background-secondary px-1.5 py-0.5 font-mono text-xs text-muted">
+							{route.method} {route.path}
+						</span>
+					)}
+				</div>
+
+				{/* centered tab switcher */}
+				<div className="absolute left-1/2 flex -translate-x-1/2 gap-1 rounded-md border border-border p-1">
+					{TABS.map((t) => (
+						<Button
+							key={t}
+							variant={tab === t ? "primary" : "ghost"}
+							onPress={() => setTab(t)}
+						>
+							{t[0].toUpperCase() + t.slice(1)}
+						</Button>
+					))}
+				</div>
+
+				<div className="flex items-center gap-4">
+					{route && (
+						<Switch
+							isSelected={route.active}
+							onChange={(active) =>
+								toggle.mutate(
+									{ id: routeId, active },
+									{
+										onSuccess: () =>
+											toast.success(active ? "Route enabled" : "Route disabled"),
+										onError: (e) => showErrorNotification(e as Error),
+									},
+								)
+							}
+						>
+							{route.active ? "Active" : "Inactive"}
+						</Switch>
+					)}
+					{/* ponytail: Save needs the change-tracker (diff payload) — next stage */}
+					<Button variant="outline" isDisabled>
+						Save
+					</Button>
+				</div>
 			</header>
 
 			<div className="relative min-h-0 flex-1">
-				{isLoading ? (
+				{tab !== "editor" ? (
+					<div className="flex h-full items-center justify-center text-muted">
+						{tab === "executions" ? "Executions" : "Testing"} panel — coming soon.
+					</div>
+				) : canvas.isLoading ? (
 					<div className="flex h-full items-center justify-center">
 						<Spinner />
 					</div>
-				) : isError ? (
+				) : canvas.isError ? (
 					<div className="flex h-full items-center justify-center text-muted">
 						Couldn't load the flow.
 					</div>
@@ -99,7 +153,6 @@ function Canvas({ nodes: initN, edges: initE }: { nodes: Node[]; edges: Edge[] }
 	const [nodes, setNodes, onNodesChange] = useNodesState(initN);
 	const [edges, setEdges, onEdgesChange] = useEdgesState(initE);
 
-	// canvas-items load async; sync once when they arrive
 	useEffect(() => {
 		setNodes(initN);
 		setEdges(initE);

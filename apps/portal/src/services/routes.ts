@@ -6,6 +6,7 @@ import {
 } from "@fluxify/server/src/api/v1/routes/create/dto";
 import { requestBodySchema as updatePartialRequestSchema } from "@fluxify/server/src/api/v1/routes/update-partial/dto";
 import { responseSchema as canvasItemsResponseSchema } from "@fluxify/server/src/api/v1/routes/get-canvas-items/dto";
+import { responseSchema as getByIdResponseSchema } from "@fluxify/server/src/api/v1/routes/get-by-id/dto";
 import { httpClient } from "@/lib/http";
 
 const baseUrl = "/v1/routes";
@@ -43,6 +44,12 @@ export const routesService = {
 		routeId: string,
 	): Promise<z.infer<typeof canvasItemsResponseSchema>> {
 		const result = await httpClient.get(`${baseUrl}/${routeId}/canvas-items`);
+		return result.data;
+	},
+	async getById(
+		routeId: string,
+	): Promise<z.infer<typeof getByIdResponseSchema>> {
+		const result = await httpClient.get(`${baseUrl}/${routeId}`);
 		return result.data;
 	},
 	createRequestSchema,

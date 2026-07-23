@@ -23,6 +23,15 @@ export const routesQuery = {
 			});
 		},
 	},
+	byId: {
+		useQuery(routeId: string) {
+			return useQuery({
+				queryKey: ["routes", routeId, "by-id"],
+				queryFn: () => routesService.getById(routeId),
+				refetchOnWindowFocus: false,
+			});
+		},
+	},
 	create: {
 		mutation() {
 			const qc = useQueryClient();
