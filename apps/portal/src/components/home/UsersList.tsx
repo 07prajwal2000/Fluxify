@@ -3,7 +3,6 @@ import {
 	Button,
 	Chip,
 	Checkbox,
-	Dropdown,
 	Input,
 	Label,
 	Modal,
@@ -12,7 +11,7 @@ import {
 	TextField,
 	toast,
 } from "@fluxify/components";
-import { TbDots, TbPlus } from "react-icons/tb";
+import { TbArrowDown, TbArrowUp, TbPlus, TbTrash } from "react-icons/tb";
 import { authQuery } from "@/query/authQuery";
 import { showErrorNotification } from "@/lib/errorNotifier";
 import { useAuthStore } from "@/store/auth";
@@ -103,33 +102,14 @@ export function UsersList() {
 								<Table.Cell>{user.isSystemAdmin ? "Yes" : "No"}</Table.Cell>
 								<Table.Cell>
 									{isAdmin && !isMe && (
-										<Dropdown>
-											<Dropdown.Trigger
-												aria-label="Row actions"
-												className="inline-flex size-8 items-center justify-center rounded-md text-muted outline-none hover:bg-background hover:text-foreground focus-visible:ring-2 focus-visible:ring-[var(--focus)]"
-											>
-												<TbDots size={16} />
-											</Dropdown.Trigger>
-											<Dropdown.Popover>
-												<Dropdown.Menu>
-													<Dropdown.Item
-														onAction={() =>
-															setPending({
-																action: user.isSystemAdmin ? "demote" : "promote",
-																user,
-															})
-														}
-													>
-														{user.isSystemAdmin ? "Demote from admin" : "Promote to admin"}
-													</Dropdown.Item>
-													<Dropdown.Item
-														onAction={() => setPending({ action: "delete", user })}
-													>
-														Delete user
-													</Dropdown.Item>
-												</Dropdown.Menu>
-											</Dropdown.Popover>
-										</Dropdown>
+										<div className="flex items-center justify-end gap-1">
+												<Button isIconOnly variant="ghost" aria-label={user.isSystemAdmin ? "Demote from admin" : "Promote to admin"} onPress={() => setPending({ action: user.isSystemAdmin ? "demote" : "promote", user })}>
+													{user.isSystemAdmin ? <TbArrowDown size={16} /> : <TbArrowUp size={16} />}
+												</Button>
+												<Button isIconOnly variant="ghost" aria-label="Delete user" onPress={() => setPending({ action: "delete", user })}>
+													<TbTrash size={16} />
+												</Button>
+											</div>
 									)}
 								</Table.Cell>
 							</Table.Row>
