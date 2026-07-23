@@ -6,16 +6,16 @@ mock.module("../repository", () => ({
 	deleteMessages: mock(),
 }));
 
-mock.module("@fluxify/server", () => ({
-	deleteCacheKeysByPattern: mock(),
-}));
-
+import * as server from "@fluxify/server";
 describe("Clear Conversation Service", () => {
 	let deleteSpy: ReturnType<typeof spyOn>;
+	let cacheDeleteSpy: ReturnType<typeof spyOn>;
 
 	beforeEach(() => {
 		deleteSpy = spyOn(repository, "deleteMessages").mockResolvedValue(undefined as never);
 		deleteSpy.mockClear();
+		cacheDeleteSpy = spyOn(server, "deleteCacheKeysByPattern").mockResolvedValue(undefined as never);
+		cacheDeleteSpy.mockClear();
 	});
 
 	it("should clear messages if confirm is true", async () => {

@@ -78,7 +78,7 @@ const TestingPanel = () => {
     const res = await createSuite.mutateAsync({
       name: newSuite.name,
       description: newSuite.description,
-      route_id: route?.id,
+      routeId: route?.id,
       assertions: [],
     });
     testSuitesQueries.getAll.invalidate(queryClient, routeId);

@@ -1,6 +1,7 @@
 import React from "react";
 import { ClassifierNodeDisplay } from "./ClassifierNodeDisplay";
 import { DiscussionNodeDisplay } from "./DiscussionNodeDisplay";
+import { PlannerNodeDisplay } from "./PlannerNodeDisplay";
 import { Stack, Text, Code } from "@mantine/core";
 import { WorkflowExecutionHistory } from "./WorkflowExecutionHistory";
 
@@ -8,14 +9,19 @@ interface NodeResultDisplayProps {
 	nodeId: string;
 	result: any;
 	executionHistory: any[];
+	chatId: string;
+	conversationId: string;
+	status?: string;
 }
 
-export const NodeResultDisplay = ({ nodeId, result, executionHistory }: NodeResultDisplayProps) => {
+export const NodeResultDisplay = ({ nodeId, result, executionHistory, chatId, conversationId, status }: NodeResultDisplayProps) => {
 	switch (nodeId) {
 		case "classifier":
 			return <ClassifierNodeDisplay result={result} executionHistory={executionHistory} />;
 		case "discussion":
 			return <DiscussionNodeDisplay result={result} executionHistory={executionHistory} />;
+		case "planner":
+			return <PlannerNodeDisplay result={result} executionHistory={executionHistory} chatId={chatId} conversationId={conversationId} status={status} />;
 		default:
 			// Fallback display
 			return (

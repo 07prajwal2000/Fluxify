@@ -1,0 +1,1 @@
+ALTER TABLE "agent_harness_artifacts" DROP COLUMN "summary_markdown";

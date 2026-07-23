@@ -1,0 +1,30 @@
+name: 📖 Documentation Issue
+description: Propose an improvement or report an issue in Fluxify documentation
+title: "[Docs]: "
+labels: ["docs/enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for contributing to Fluxify documentation!
+  - type: textarea
+    id: scope
+    attributes:
+      label: Affected Documentation Page(s)
+      description: Specify which page(s) under `/docs` or root guides (`CONTRIBUTING.md`, `README.md`) need updates.
+      placeholder: e.g., docs/deployments/index.md or CONTRIBUTING.md
+    validations:
+      required: true
+  - type: textarea
+    id: description
+    attributes:
+      label: Proposed Enhancement / Issue Details
+      description: Explain what is missing, outdated, or needs improvement in the documentation.
+      placeholder: Describe the requested documentation changes...
+    validations:
+      required: true
+  - type: textarea
+    id: suggested_content
+    attributes:
+      label: Suggested Content / Content Outline
+      description: If you have draft content or outline for the documentation, include it here.

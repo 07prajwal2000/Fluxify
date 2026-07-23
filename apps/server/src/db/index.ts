@@ -42,3 +42,6 @@ export type DbTransactionType = PgTransaction<
 	Record<string, never>,
 	ExtractTablesWithRelations<Record<string, never>>
 >;
+
+export * from "./agent-harness-schema";
+

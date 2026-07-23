@@ -38,4 +38,5 @@ export * from "./builtin/log";
 export * from "./builtin/log/cloudLogs";
 export * from "./builtin/log/console";
 export * from "./builtin/blockAiDescriptions";
+export * from "./builtin/blockSchemasMap";
 export * from "./builtin/errorHandler";

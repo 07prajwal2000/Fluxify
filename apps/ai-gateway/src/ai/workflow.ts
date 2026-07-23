@@ -120,7 +120,9 @@ export class Workflow<TNodeRegistry extends Record<string, any>> {
 				const result: NodeResult = await node.execute(currentParams, context);
 
 				if (result.status === "failure") {
-					throw new Error("failed to execute the node " + this.currentNodeId);
+					const error: any = new Error("failed to execute the node " + this.currentNodeId);
+					error.result = result;
+					throw error;
 				}
 
 				this.nodeExecutionHistory.push({

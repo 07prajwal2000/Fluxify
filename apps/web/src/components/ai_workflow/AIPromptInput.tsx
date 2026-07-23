@@ -15,6 +15,7 @@ interface AIPromptInputProps {
 	autoFocus?: boolean;
 	minRows?: number;
 	maxRows?: number;
+	disabled?: boolean;
 }
 
 const DEFAULT_PLACEHOLDERS = [
@@ -37,6 +38,7 @@ export const AIPromptInput = ({
 	autoFocus = true,
 	minRows = 1,
 	maxRows = 6,
+	disabled = false,
 }: AIPromptInputProps) => {
 	const typeWriterPlaceholder = useTypewriter(placeholderTexts, 40, 30, 2500);
 	const placeholder = staticPlaceholder || typeWriterPlaceholder;
@@ -70,6 +72,7 @@ export const AIPromptInput = ({
 				onChange={(e) => onChange(e.currentTarget.value)}
 				onKeyDown={handleKeyDown}
 				radius="xl"
+				disabled={disabled}
 				styles={{
 					input: {
 						backgroundColor: "#f1f3f5",
@@ -93,7 +96,7 @@ export const AIPromptInput = ({
 						mr={16}
 						onClick={onSend}
 						loading={isLoading}
-						disabled={!value.trim() && !isLoading}
+						disabled={disabled || (!value.trim() && !isLoading)}
 					>
 						<TbSend size={20} />
 					</ActionIcon>

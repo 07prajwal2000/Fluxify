@@ -34,7 +34,7 @@ export const aiGatewayWorkflowsService = {
 					typeof watchConversationDto.watchResponseSchema
 				>;
 				onUpdate(data);
-				if (data.status === "error" || data.status === "completed") {
+				if (data.status === "error" || data.status === "success") {
 					eventSource.close();
 					if (onComplete) onComplete();
 				}

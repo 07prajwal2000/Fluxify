@@ -18,7 +18,8 @@ export const useWorkflowWatcher = (conversationId?: string, watchTrigger: number
 		let cleanup: (() => void) | undefined;
 		let isMounted = true;
 		let timeoutId: NodeJS.Timeout;
-		const maxRetries = 4;
+		let initialTimeoutId: NodeJS.Timeout;
+		const maxRetries = 10;
 		let currentStatus: WorkflowStatus | null = null;
 		let currentRetryCount = maxRetries;
 		let connectTime = Date.now();
@@ -35,7 +36,7 @@ export const useWorkflowWatcher = (conversationId?: string, watchTrigger: number
 				(status) => {
 					setWorkflowStatus(status);
 					currentStatus = status;
-					if (status.status === "completed" || status.status === "error") {
+					if (status.status === "success" || status.status === "error" || status.status === "plan_rejected") {
 						aiGatewayConversationsQuery.listMessagesInfinite.invalidate(conversationId, queryClient);
 					}
 				},
@@ -43,7 +44,7 @@ export const useWorkflowWatcher = (conversationId?: string, watchTrigger: number
 					handleReconnect(err);
 				},
 				() => {
-					if (currentStatus?.status === "completed" || currentStatus?.status === "error") {
+					if (currentStatus?.status === "success" || currentStatus?.status === "error" || currentStatus?.status === "plan_rejected") {
 						setIsWatching(false);
 						setWorkflowStatus(null);
 						aiGatewayConversationsQuery.listMessagesInfinite.invalidate(conversationId, queryClient);
@@ -56,7 +57,7 @@ export const useWorkflowWatcher = (conversationId?: string, watchTrigger: number
 
 		const handleReconnect = (err?: any) => {
 			if (!isMounted) return;
-			if (currentStatus?.status === "completed" || currentStatus?.status === "error") {
+			if (currentStatus?.status === "success" || currentStatus?.status === "error" || currentStatus?.status === "plan_rejected") {
 				setIsWatching(false);
 				setWorkflowStatus(null);
 				return;
@@ -68,8 +69,8 @@ export const useWorkflowWatcher = (conversationId?: string, watchTrigger: number
 			}
 
 			if (currentRetryCount > 0) {
-				const baseDelay = currentRetryCount === maxRetries ? 1000 : 1500;
-				const backoff = Math.pow(2, maxRetries - currentRetryCount);
+				const baseDelay = 2000;
+				const backoff = Math.pow(1.5, maxRetries - currentRetryCount);
 				const delay = Math.min(baseDelay * backoff, 10000);
 
 				console.log(
@@ -84,11 +85,17 @@ export const useWorkflowWatcher = (conversationId?: string, watchTrigger: number
 			}
 		};
 
-		connect();
+		// If watchTrigger > 0, wait a few seconds before connecting to let the workflow scheduling happen
+		if (watchTrigger > 0) {
+			initialTimeoutId = setTimeout(() => connect(), 2500);
+		} else {
+			connect();
+		}
 
 		return () => {
 			isMounted = false;
 			clearTimeout(timeoutId);
+			clearTimeout(initialTimeoutId);
 			if (cleanup) cleanup();
 		};
 		// eslint-disable-next-line react-hooks/exhaustive-deps

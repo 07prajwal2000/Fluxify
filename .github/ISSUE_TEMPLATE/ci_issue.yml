@@ -1,0 +1,28 @@
+name: ⚙️ CI/CD & Pipeline Issue (Maintainers Only)
+description: Report CI/CD pipeline, GitHub Actions workflow, or build infrastructure issues
+title: "[CI/CD]: "
+labels: ["ci/fix"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        > ⚠️ **Maintainers Only**: This issue template is reserved for maintainers managing CI/CD infrastructure, workflow fixes, and automated pipelines.
+  - type: textarea
+    id: description
+    attributes:
+      label: Issue Description / CI Workflow Target *
+      description: Describe the CI/CD issue or pipeline requirement.
+      placeholder: Describe the CI workflow problem or requirement...
+    validations:
+      required: true
+  - type: textarea
+    id: workflow_file
+    attributes:
+      label: Affected Workflow File(s)
+      description: Specify workflow files under `.github/workflows/` (if applicable).
+      placeholder: e.g., .github/workflows/ci.yml
+  - type: textarea
+    id: details
+    attributes:
+      label: Expected Action / Proposed Fix
+      description: Detailed outline of the CI configuration change or fix.

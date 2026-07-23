@@ -6,9 +6,10 @@ import { Message } from "./types";
 
 export interface MessageItemRowProps {
 	message: Message;
+	conversationId: string;
 }
 
-export const MessageItemRow = React.memo(({ message }: MessageItemRowProps) => (
+export const MessageItemRow = React.memo(({ message, conversationId }: MessageItemRowProps) => (
 	<Stack gap="md" w="100%">
 		{message.userQuery && <UserQueryBubble userQuery={message.userQuery} />}
 		{message.finalOutput && message.finalOutput.nodeId && (
@@ -18,6 +19,9 @@ export const MessageItemRow = React.memo(({ message }: MessageItemRowProps) => (
 						nodeId={message.finalOutput.nodeId}
 						result={message.finalOutput.result}
 						executionHistory={message.workflowExecutionHistory || []}
+						chatId={message.id}
+						conversationId={conversationId}
+						status={message.status}
 					/>
 				</Box>
 			</Group>

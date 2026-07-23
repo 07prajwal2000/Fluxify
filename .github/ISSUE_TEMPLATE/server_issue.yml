@@ -1,0 +1,62 @@
+name: 🖥️ Server Issue
+description: Report a bug or request an enhancement for the Fluxify backend server
+title: "[Server]: "
+labels: ["server/engine"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a backend server issue! Please provide as much detail as possible.
+  - type: dropdown
+    id: component
+    attributes:
+      label: Server Component
+      description: Select the backend area this issue affects.
+      options:
+        - "server/feature (New Server Feature & Enhancements)"
+        - "server/engine (Execution Engine & VM)"
+        - "server/blocks (Block System & Logic)"
+        - "server/admin-api (Admin REST API & OpenAPI)"
+        - "server/db (Database Schema & Drizzle ORM)"
+        - "server/auth (Authentication & Authorization)"
+        - "server/integrations (External Services)"
+        - "server/tests (Backend Test Suite)"
+    validations:
+      required: true
+  - type: textarea
+    id: description
+    attributes:
+      label: Problem Description / Requirement
+      description: Clear and concise description of what the issue is or what needs to be changed.
+      placeholder: Describe the backend behavior or feature requirement...
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to Reproduce / Reproduction Code
+      description: Steps or code snippet to reproduce the issue (if applicable).
+      placeholder: |
+        1. Go to...
+        2. Execute endpoint...
+        3. See error...
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected Behavior
+      description: What you expected to happen.
+  - type: textarea
+    id: logs
+    attributes:
+      label: Server Logs / Stack Trace
+      description: Paste relevant server console logs or stack traces here.
+      render: shell
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment Details
+      description: OS, Bun version, Node version, Docker version, PostgreSQL/Redis setup.
+      placeholder: |
+        - OS: Windows 11 / Ubuntu 22.04
+        - Bun Version: 1.x
+        - Docker Version: 24.x

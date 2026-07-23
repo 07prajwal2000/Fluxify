@@ -14,7 +14,14 @@ export const queryParamsSchema = z.clone(paginationRequestQuerySchema).extend({
 
 export const messageSchema = z.object({
 	id: z.string(),
-	status: z.enum(["not_started", "running", "completed"]),
+	status: z.enum([
+		"not_started",
+		"running",
+		"success",
+		"error",
+		"paused",
+		"plan_rejected",
+	]),
 	finalOutput: z.any().nullable().optional(),
 	workflowExecutionHistory: z
 		.array(
