@@ -15,16 +15,17 @@ export function ProjectCard({ id, name, updatedAt, createdAt }: ProjectCardProps
 
 	return (
 		<Card
-			className="cursor-pointer overflow-hidden border border-border p-0 transition-colors hover:border-accent"
 			// ponytail: raw project path; cast until project routes are typed
 			onClick={() => navigate({ to: APP_ROUTES.PROJECT_ROUTES(id) as "/" })}
+			className="h-full cursor-pointer transition-colors hover:border-accent"
 		>
-			<div className="h-24 bg-accent-soft" />
-			<div className="flex flex-col gap-1 bg-background-secondary p-4">
-				<span className="text-base font-medium text-foreground">{name}</span>
-				<span className="text-xs text-muted">Updated {getTimeAgo(updatedAt)}</span>
+			<Card.Header>
+				<Card.Title className="truncate">{name}</Card.Title>
+				<Card.Description>Updated {getTimeAgo(updatedAt)}</Card.Description>
+			</Card.Header>
+			<Card.Content>
 				<span className="text-xs text-muted">Created {getTimeAgo(createdAt)}</span>
-			</div>
+			</Card.Content>
 		</Card>
 	);
 }

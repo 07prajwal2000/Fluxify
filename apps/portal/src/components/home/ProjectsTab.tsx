@@ -90,44 +90,49 @@ function NewProjectCard() {
 	return (
 		<Modal isOpen={open} onOpenChange={setOpen}>
 			<Modal.Trigger>
-				<Card className="flex min-h-50 cursor-pointer items-center justify-center border border-dashed border-border bg-background-secondary text-muted transition-colors hover:border-accent hover:text-accent">
-					<div className="flex flex-col items-center gap-2">
-						<TbPlus size={40} />
-						<span>New Project</span>
-					</div>
+				<Card className="flex h-full min-h-40 cursor-pointer flex-col items-center justify-center gap-2 border border-dashed border-border bg-background-secondary text-muted transition-colors hover:border-accent hover:text-accent">
+					<TbPlus size={32} />
+					<span>New Project</span>
 				</Card>
 			</Modal.Trigger>
-			<Modal.Dialog>
-				<Modal.Header>
-					<Modal.Heading>Create New Project</Modal.Heading>
-				</Modal.Header>
-				<form onSubmit={onSubmit}>
-					<Modal.Body>
-						<TextField
-							isRequired
-							value={name}
-							onChange={setName}
-							isInvalid={!!error}
-						>
-							<Label>Project name</Label>
-							<Input placeholder="My API project" autoFocus />
-							<FieldError>{error}</FieldError>
-						</TextField>
-					</Modal.Body>
-					<Modal.Footer>
-						<Button
-							type="button"
-							variant="ghost"
-							onPress={() => setOpen(false)}
-						>
-							Cancel
-						</Button>
-						<Button type="submit" variant="primary" isPending={saving}>
-							Create
-						</Button>
-					</Modal.Footer>
-				</form>
-			</Modal.Dialog>
+			<Modal.Backdrop>
+				<Modal.Container placement="center" size="sm">
+					<Modal.Dialog>
+						<Modal.Header>
+							<Modal.Heading>Create a project</Modal.Heading>
+							<p className="mt-1 text-sm text-muted">
+								Give it a name to get started — you can rename it later.
+							</p>
+						</Modal.Header>
+						<form onSubmit={onSubmit}>
+							<Modal.Body>
+								<TextField
+									isRequired
+									value={name}
+									onChange={setName}
+									isInvalid={!!error}
+								>
+									<Label>Project name</Label>
+									<Input placeholder="My API project" autoFocus />
+									<FieldError>{error}</FieldError>
+								</TextField>
+							</Modal.Body>
+							<Modal.Footer>
+								<Button
+									type="button"
+									variant="ghost"
+									onPress={() => setOpen(false)}
+								>
+									Cancel
+								</Button>
+								<Button type="submit" variant="primary" isPending={saving}>
+									Create project
+								</Button>
+							</Modal.Footer>
+						</form>
+					</Modal.Dialog>
+				</Modal.Container>
+			</Modal.Backdrop>
 		</Modal>
 	);
 }

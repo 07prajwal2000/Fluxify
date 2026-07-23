@@ -38,7 +38,7 @@ function Home() {
 						navigate({ to: "/", search: { tab: String(key) } })
 					}
 				>
-					<Tabs.List>
+					<Tabs.List className="justify-start gap-8 border-b border-border">
 						<Tabs.Tab id="projects">Projects</Tabs.Tab>
 						{userData?.isSystemAdmin && (
 							<Tabs.Tab id="users">Users</Tabs.Tab>

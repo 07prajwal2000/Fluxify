@@ -16,14 +16,17 @@
 /* Shared brand knobs (apply to both themes). Unlayered so they beat HeroUI's
    @layer base defaults. */
 :root {
-	/* Squared edges everywhere. */
-	--radius: 0px;
+	/* Slightly rounded everywhere (cards, inputs, modal; buttons = radius*3). */
+	--radius: 6px;
 	/* HeroUI leaves form fields borderless by default (width 0), so an unfocused
 	   input is invisible against a matching surface. Give it a resting border. */
 	--field-border-width: 1px;
 	--field-border: var(--border);
 	/* Lime-green accent needs dark text on top for contrast. */
 	--accent-foreground: oklch(0.21 0.006 286);
+	/* Full-strength lime as a focus ring is garish; use a soft halo instead
+	   (still a clearly visible focus indicator). */
+	--focus: color-mix(in oklab, var(--accent) 45%, transparent);
 }
 
 /* Light theme (optional): neutral greys, lime-green accent. */
