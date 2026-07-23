@@ -61,3 +61,21 @@ export type InstanceSettingValue<K extends InstanceSettingKey> = z.infer<
 export function isInstanceSettingKey(key: string): key is InstanceSettingKey {
 	return key in INSTANCE_SETTINGS_REGISTRY;
 }
+
+// ponytail: name-based secret list; add fields as new secret-bearing keys appear.
+const SECRET_FIELDS = new Set(["clientSecret", "samlCert", "privateKey"]);
+
+/**
+ * Mask secret fields for admin reads. Secrets are write-only: config stays
+ * visible/editable but the values are never echoed back. A present secret
+ * becomes "••••••" so the UI can show "set" without exposing it.
+ */
+export function redactSecrets(
+	value: Record<string, unknown>,
+): Record<string, unknown> {
+	const out: Record<string, unknown> = {};
+	for (const [k, v] of Object.entries(value)) {
+		out[k] = SECRET_FIELDS.has(k) && v != null && v !== "" ? "••••••" : v;
+	}
+	return out;
+}
