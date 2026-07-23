@@ -27,6 +27,7 @@ export * from "./builtin/arrayOperations";
 export * from "./builtin/stickyNote";
 export * from "./builtin/response";
 export * from "./builtin/db/delete";
+export * from "./builtin/db/schema";
 export * from "./builtin/db/getAll";
 export * from "./builtin/db/getSingle";
 export * from "./builtin/db/insert";

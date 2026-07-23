@@ -8,35 +8,35 @@ import { HonoServer } from "../../../../types";
 import { requireTestSuiteAccess } from "../middleware";
 
 export default function (app: HonoServer) {
-  app.delete(
-    "/:id",
-    describeRoute({
-      description: "Deletes a test suite.",
-      operationId: "delete-test-suite",
-      tags: ["Test Suites"],
-      responses: {
-        200: {
-          description: "Successful",
-          content: { "application/json": { schema: resolver(responseSchema) } },
-        },
-        400: {
-          description: "Invalid data",
-          content: {
-            "application/json": { schema: resolver(validationErrorSchema) },
-          },
-        },
-        409: {
-          description: "Error",
-          content: { "application/json": { schema: resolver(errorSchema) } },
-        },
-      },
-    }),
-    requireTestSuiteAccess("creator"),
-    validator("param", requestRouteSchema, zodErrorCallbackParser),
-    async (ctx) => {
-      const { id } = ctx.req.valid("param");
-      const result = await handleRequest(id);
-      return ctx.json(result);
-    },
-  );
+	app.delete(
+		"/:id",
+		describeRoute({
+			description: "Deletes a test suite.",
+			operationId: "delete-test-suite",
+			tags: ["Test Suites"],
+			responses: {
+				200: {
+					description: "Successful",
+					content: { "application/json": { schema: resolver(responseSchema) } },
+				},
+				400: {
+					description: "Invalid data",
+					content: {
+						"application/json": { schema: resolver(validationErrorSchema) },
+					},
+				},
+				409: {
+					description: "Error",
+					content: { "application/json": { schema: resolver(errorSchema) } },
+				},
+			},
+		}),
+		requireTestSuiteAccess("creator"),
+		validator("param", requestRouteSchema, zodErrorCallbackParser),
+		async (ctx) => {
+			const { id } = ctx.req.valid("param");
+			const result = await handleRequest(id);
+			return ctx.json(result);
+		},
+	);
 }

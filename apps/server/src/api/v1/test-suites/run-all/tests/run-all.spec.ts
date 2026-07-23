@@ -53,7 +53,7 @@ describe("Test Suites Endpoints - RUN ALL", () => {
 
     const routeId = crypto.randomUUID();
     const req = new Request(
-      `http://localhost/test-suites/run-all?route_id=${routeId}`,
+      `http://localhost/test-suites/route/${routeId}/run-all`,
       { method: "POST" },
     );
     const res = await app.request(req);

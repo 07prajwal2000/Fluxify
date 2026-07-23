@@ -39,11 +39,12 @@ export class NativeDbBlock extends BaseBlock {
 			this.input.js = this.input.js.startsWith("js:")
 				? this.input.js.slice(3)
 				: this.input.js;
-			console.log(this.input.js);
-			const value = await this.context.vm.runAsync(this.input.js, {
-				...params,
-				dbQuery,
-			});
+			const value = await this.context.vm.runAsync(
+				this.input.js,
+				params,
+				true,
+				{ dbQuery },
+			);
 			return {
 				continueIfFail: false,
 				successful: true,
@@ -57,8 +58,6 @@ export class NativeDbBlock extends BaseBlock {
 				successful: false,
 				error: "failed to execute native db block",
 			};
-		} finally {
-			this.context.vars.dbQuery = undefined;
 		}
 	}
 }

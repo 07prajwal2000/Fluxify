@@ -19,7 +19,7 @@ import { useForm } from "@mantine/form";
 import { notifications } from "@mantine/notifications";
 import { isAxiosError } from "axios";
 import { useRouter, useSearchParams } from "next/navigation";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { TbHexagonLetterF } from "react-icons/tb";
 
 const LoginForm = () => {
@@ -27,6 +27,57 @@ const LoginForm = () => {
 	const params = useSearchParams();
 	const form = useForm({ initialValues: { email: "", password: "" } });
 	const [loading, setLoading] = useState(false);
+	const [ssoLoading, setSsoLoading] = useState(false);
+	const [ssoConfig, setSsoConfig] = useState<{
+		enabled: boolean;
+		providerId: string;
+	} | null>(null);
+
+	// Public, unauthenticated: tells us whether SSO is enabled and which
+	// provider to sign in with.
+	useEffect(() => {
+		fetch("/_/admin/api/public-settings", { credentials: "include" })
+			.then((r) => r.json())
+			.then((data) => {
+				const sso = data?.sso_config;
+				if (sso?.enabled) {
+					setSsoConfig({ enabled: true, providerId: sso.providerId ?? "enterprise" });
+				}
+			})
+			.catch(() => {});
+	}, []);
+
+	const onSsoLogin = async () => {
+		setSsoLoading(true);
+		try {
+			const searchParams = new URLSearchParams(params.toString());
+			const callbackURL = searchParams.get("next") || "/_/admin/ui/";
+			const res = await fetch("/_/admin/api/auth/sign-in/sso", {
+				method: "POST",
+				credentials: "include",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({
+					providerId: ssoConfig?.providerId,
+					callbackURL,
+					errorCallbackURL: `/_/admin/ui/login?next=${encodeURIComponent(callbackURL)}`,
+				}),
+			});
+			const data = await res.json();
+			if (res.ok && data?.url) {
+				window.location.href = data.url;
+				return;
+			}
+			notifications.show({
+				title: "Failed to start SSO login",
+				message: data?.message || "Something went wrong.",
+				color: "red",
+			});
+		} catch (error) {
+			showErrorNotification(error as Error, false);
+		} finally {
+			setSsoLoading(false);
+		}
+	};
 
 	const onSubmit = async (values: { email: string; password: string }) => {
 		setLoading(true);
@@ -147,6 +198,7 @@ const LoginForm = () => {
 							w="100%"
 							size="md"
 							radius="md"
+							loading={ssoLoading}
 							style={{
 								borderColor: "#e3e2e4",
 								color: "#111417",
@@ -154,11 +206,13 @@ const LoginForm = () => {
 								fontWeight: 600,
 							}}
 							onClick={() =>
-								notifications.show({
-									title: "SSO Login",
-									message: "SSO Login is not configured yet.",
-									color: "blue",
-								})
+								ssoConfig
+									? onSsoLogin()
+									: notifications.show({
+											title: "SSO Login",
+											message: "SSO Login is not configured yet.",
+											color: "blue",
+										})
 							}
 						>
 							Login with SSO

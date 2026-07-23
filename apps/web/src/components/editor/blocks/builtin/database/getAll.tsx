@@ -4,21 +4,24 @@ import { NodeProps } from "@xyflow/react";
 import { Position } from "@xyflow/react";
 import {
   Box,
+  Button,
   Grid,
   Group,
-  NumberInput,
+  Popover,
   Select,
   Stack,
   Text,
 } from "@mantine/core";
 import BlockHandle from "../../handle";
-import { TbDatabaseSearch } from "react-icons/tb";
+import { TbDatabaseSearch, TbMenu2 } from "react-icons/tb";
 import z from "zod";
-import { getAllDbBlockSchema } from "@fluxify/blocks";
+import { getAllDbBlockSchema, joinSchema } from "@fluxify/blocks";
 import ConditionsEditor from "@/components/editors/conditionsEditor";
 import IntegrationSelector from "@/components/editors/integrationSelector";
 import JsTextInput from "@/components/editors/jsTextInput";
 import { BlockCanvasContext } from "@/context/blockCanvas";
+import JoinsEditor from "@/components/editors/joinsEditor";
+import ArrayEditor from "@/components/editors/arrayEditor";
 
 const GetAll = (props: NodeProps) => {
   return (
@@ -91,6 +94,36 @@ export function GetAllBlockDataSettingsPanel(props: {
     });
   }
 
+  function onJoinsChange(joins: z.infer<typeof joinSchema>[]) {
+    updateBlockData(props.blockId, {
+      joins,
+    });
+  }
+
+  function onColumnChange(index: number, value: string) {
+    const updated = [...(props.blockData.columns ?? ["*"])];
+    updated[index] = value;
+    updateBlockData(props.blockId, {
+      columns: updated,
+    });
+  }
+
+  function onAddColumn() {
+    const updated = [...(props.blockData.columns ?? ["*"]), ""];
+    updateBlockData(props.blockId, {
+      columns: updated,
+    });
+  }
+
+  function onRemoveColumn(index: number) {
+    const updated = (props.blockData.columns ?? ["*"]).filter(
+      (_, i) => i !== index,
+    );
+    updateBlockData(props.blockId, {
+      columns: updated,
+    });
+  }
+
   function onLimitChange(value: number | string) {
     updateBlockData(props.blockId, {
       limit: value,
@@ -130,13 +163,44 @@ export function GetAllBlockDataSettingsPanel(props: {
         selectedIntegration={props.blockData.connection}
         onSelect={onIntegrationSelect}
       />
-      <JsTextInput
-        flex={2}
-        label="Table Name"
-        description="Enter the table name to get all records from or a JS expression that returns the table name"
-        value={props.blockData.tableName}
-        onValueChange={onTableNameChange}
+      <Group align="flex-end" gap="xs">
+        <Box flex={1}>
+          <JsTextInput
+            label="Table Name"
+            description="Enter the table name to get all records from or a JS expression that returns the table name"
+            value={props.blockData.tableName}
+            onValueChange={onTableNameChange}
+          />
+        </Box>
+        <Popover position="right-start" withArrow shadow="md" width={280}>
+          <Popover.Target>
+            <Button
+              variant="outline"
+              color="violet"
+              size="sm"
+              leftSection={<TbMenu2 size={16} />}
+            >
+              Columns
+            </Button>
+          </Popover.Target>
+          <Popover.Dropdown p="xs">
+            <ArrayEditor
+              title="Configure Columns"
+              array={props.blockData.columns ?? ["*"]}
+              onValueChange={onColumnChange}
+              onAdd={onAddColumn}
+              onRemove={onRemoveColumn}
+              showAddButton
+            />
+          </Popover.Dropdown>
+        </Popover>
+      </Group>
+
+      <JoinsEditor
+        joins={props.blockData.joins ?? []}
+        onChange={onJoinsChange}
       />
+
       <Grid columns={2} align="center" justify="center">
         <Grid.Col span={1}>
           <JsTextInput
@@ -208,3 +272,4 @@ export function GetAllBlockDataSettingsPanel(props: {
 }
 
 export default GetAll;
+

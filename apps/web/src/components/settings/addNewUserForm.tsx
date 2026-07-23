@@ -1,14 +1,15 @@
 "use client";
 
-import { Button, Checkbox, PasswordInput, Stack } from "@mantine/core";
+import { Alert, Button, Checkbox, PasswordInput, Stack } from "@mantine/core";
 import React from "react";
-import { TbPlus } from "react-icons/tb";
+import { TbInfoCircle, TbPlus } from "react-icons/tb";
 import FormDialog from "../dialog/formDialog";
 import { useDisclosure } from "@mantine/hooks";
 import { TextInput } from "@mantine/core";
 import { authQuery } from "@/query/authQuery";
 import { showErrorNotification } from "@/lib/errorNotifier";
 import { showNotification } from "@mantine/notifications";
+import { useAuthMode } from "@/hooks/useAuthMode";
 
 const AddNewUserForm = () => {
   const [opened, { open, close }] = useDisclosure(false);
@@ -17,6 +18,7 @@ const AddNewUserForm = () => {
   const [password, setPassword] = React.useState("");
   const [isSystemAdmin, setIsSystemAdmin] = React.useState(false);
   const [loading, setLoading] = React.useState(false);
+  const { ssoOnly } = useAuthMode();
 
   const createUserMutation = authQuery.createUser.mutation();
 
@@ -27,9 +29,9 @@ const AddNewUserForm = () => {
       createUserMutation.mutate({
         email,
         isSystemAdmin,
-        provider: "email-password",
+        provider: ssoOnly ? "sso" : "email-password",
         fullname: name,
-        password,
+        password: ssoOnly ? undefined : password,
       });
 
       showNotification({
@@ -87,14 +89,22 @@ const AddNewUserForm = () => {
             value={email}
             onChange={(e) => setEmail(e.currentTarget.value)}
           />
-          <PasswordInput
-            label="Password"
-            autoComplete=""
-            placeholder="Password"
-            required
-            value={password}
-            onChange={(e) => setPassword(e.currentTarget.value)}
-          />
+          {ssoOnly ? (
+            <Alert icon={<TbInfoCircle size={16} />} color="violet" variant="light">
+              SSO is configured and traditional login is disabled. This user
+              will sign in through your identity provider — no password
+              needed.
+            </Alert>
+          ) : (
+            <PasswordInput
+              label="Password"
+              autoComplete=""
+              placeholder="Password"
+              required
+              value={password}
+              onChange={(e) => setPassword(e.currentTarget.value)}
+            />
+          )}
           <Checkbox
             label="System Admin"
             description="Give this user system admin permissions"

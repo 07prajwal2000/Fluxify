@@ -25,12 +25,16 @@ export function CustomEdge({
 	target,
 	sourceHandleId,
 	targetHandleId,
+	sourcePosition,
+	targetPosition,
 }: EdgeProps) {
 	const [edgePath, labelX, labelY] = getSmoothStepPath({
 		sourceX,
 		sourceY,
 		targetX,
 		targetY,
+		sourcePosition,
+		targetPosition,
 	});
 	const { edges } = useCanvasActionsStore();
 	const changeTracker = useEditorChangeTrackerStore();
@@ -43,7 +47,14 @@ export function CustomEdge({
 
 	return (
 		<>
-			<BaseEdge id={id} path={edgePath} />
+			<BaseEdge
+				id={id}
+				path={edgePath}
+				style={{
+					strokeDasharray: 5,
+					animation: "dashdraw 0.5s linear infinite",
+				}}
+			/>
 			<EdgeLabelRenderer>
 				<Box
 					style={{

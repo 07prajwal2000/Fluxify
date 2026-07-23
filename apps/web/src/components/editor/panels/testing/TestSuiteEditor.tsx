@@ -8,12 +8,17 @@ import {
 	Badge,
 	Loader,
 	Paper,
-	ActionIcon,
 	Divider,
 	TextInput,
 	Textarea,
 } from "@mantine/core";
-import { TbCheck, TbPlus, TbTerminal2, TbPlayerPlayFilled, TbDeviceFloppy } from "react-icons/tb";
+import {
+	TbCheck,
+	TbPlus,
+	TbTerminal2,
+	TbPlayerPlayFilled,
+	TbDeviceFloppy,
+} from "react-icons/tb";
 import Editor from "@monaco-editor/react";
 import UrlBar from "./components/UrlBar";
 import RequestConfig from "./components/RequestConfig";
@@ -50,8 +55,13 @@ const TestSuiteEditor = ({
 	const deleteSuite = testSuitesQueries.delete.useMutation();
 	const runSuiteAction = testSuitesQueries.run.useMutation();
 
-	const { data: appConfigsData } = appConfigQuery.getKeysList.useQuery(route.projectId!, "");
-	const { data: integrationsData } = integrationsQuery.getBasicList.query(route.projectId!);
+	const { data: appConfigsData } = appConfigQuery.getKeysList.useQuery(
+		route.projectId!,
+		"",
+	);
+	const { data: integrationsData } = integrationsQuery.getBasicList.query(
+		route.projectId!,
+	);
 
 	const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
 	const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
@@ -122,9 +132,17 @@ const TestSuiteEditor = ({
 			success: a.success,
 		}));
 		setAssertions(mappedAssertions.length > 0 ? mappedAssertions : []);
-		
-		setAppConfigOverrides(Array.isArray((suite as any).appConfigOverrides) ? (suite as any).appConfigOverrides : []);
-		setIntegrationOverrides(Array.isArray((suite as any).integrationOverrides) ? (suite as any).integrationOverrides : []);
+
+		setAppConfigOverrides(
+			Array.isArray((suite as any).appConfigOverrides)
+				? (suite as any).appConfigOverrides
+				: [],
+		);
+		setIntegrationOverrides(
+			Array.isArray((suite as any).integrationOverrides)
+				? (suite as any).integrationOverrides
+				: [],
+		);
 
 		setRan(false);
 	}, [suite]);
@@ -317,10 +335,7 @@ const TestSuiteEditor = ({
 				}
 				urlBar={
 					<Box>
-						<UrlBar 
-							method={route.method} 
-							path={route.path}
-						/>
+						<UrlBar method={route.method} path={route.path} />
 						<Box mt="xs" px={4}>
 							<Text
 								size="11px"
@@ -328,8 +343,7 @@ const TestSuiteEditor = ({
 								fw={500}
 								style={{ fontFamily: "monospace", wordBreak: "break-all" }}
 							>
-								Preview:{" "}
-								<span style={{ color: "#7950F2" }}>{resolvedUrl}</span>
+								Preview: <span style={{ color: "#7950F2" }}>{resolvedUrl}</span>
 							</Text>
 						</Box>
 					</Box>
@@ -382,10 +396,14 @@ const TestSuiteEditor = ({
 								</Paper>
 							</Box>
 							<Divider color="gray.1" />
-
 							{/* Overrides Section */}
 							<Box>
-								<Paper withBorder radius="md" style={{ overflow: "hidden" }} p="md">
+								<Paper
+									withBorder
+									radius="md"
+									style={{ overflow: "hidden" }}
+									p="md"
+								>
 									<OverridesEditor
 										appConfigOverrides={appConfigOverrides}
 										onAppConfigOverridesChange={setAppConfigOverrides}
@@ -396,7 +414,6 @@ const TestSuiteEditor = ({
 									/>
 								</Paper>
 							</Box>
-
 							{!isMockDataDisabled && (
 								<MockDataEditor mockData={body} onChange={setBody} />
 							)}
@@ -411,21 +428,38 @@ const TestSuiteEditor = ({
 													Response Output
 												</Text>
 											</Group>
-											<Button variant="subtle" color="gray" size="xs" onClick={() => setRan(false)}>
+											<Button
+												variant="subtle"
+												color="gray"
+												size="xs"
+												onClick={() => setRan(false)}
+											>
 												Clear
 											</Button>
 										</Group>
 										<Paper withBorder radius="md" bg="#F9FAFB" p="md">
 											<Text size="xs" c="gray.5" mb="md">
-												This is the actual JSON payload returned by the server during the last test suite execution. It is read-only and provided for your reference to debug assertions.
+												This is the actual JSON payload returned by the server
+												during the last test suite execution. It is read-only
+												and provided for your reference to debug assertions.
 											</Text>
 											<Paper
 												withBorder
 												radius="md"
 												style={{ overflow: "hidden", position: "relative" }}
 											>
-												<Box pos="absolute" top={10} right={10} style={{ zIndex: 5 }}>
-													<Badge variant="light" color="gray" size="sm" radius="sm">
+												<Box
+													pos="absolute"
+													top={10}
+													right={10}
+													style={{ zIndex: 5 }}
+												>
+													<Badge
+														variant="light"
+														color="gray"
+														size="sm"
+														radius="sm"
+													>
 														JSON
 													</Badge>
 												</Box>

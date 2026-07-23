@@ -340,4 +340,166 @@ describe("MySqlAdapter Integration Tests", () => {
 		]);
 		expect(verifyRollback).toBeNull();
 	});
+
+	test("JSON Path Filtering (dot / bracket access)", async () => {
+		const adapter = new MySqlAdapter(db, pool, vm);
+		const tableName = "docs_" + faker.string.alphanumeric(8).toLowerCase();
+		await adapter.raw(`
+			CREATE TABLE ${tableName} (
+				id INT AUTO_INCREMENT PRIMARY KEY,
+				attributes JSON NOT NULL
+			)
+		`);
+
+		const rows = [
+			{ age: 15, min: 18, tags: ["red", "blue"] },
+			{ age: 20, min: 18, tags: ["green", "blue"] },
+			{ age: 30, min: 40, tags: ["red", "yellow"] },
+		];
+		for (const r of rows) {
+			await adapter.raw(`INSERT INTO ${tableName} (attributes) VALUES (?)`, [
+				JSON.stringify(r),
+			]);
+		}
+
+		const sortAsc = { attribute: "id" as const, direction: "asc" as const };
+		const ageOf = (r: any) =>
+			(typeof r.attributes === "string"
+				? JSON.parse(r.attributes)
+				: r.attributes
+			).age;
+
+		// Numeric compare against JSON text (MySQL coerces text<->number).
+		const adults = (await adapter.getAll(
+			tableName,
+			[{ attribute: "attributes.age", operator: "gte", value: 18, chain: "and" }],
+			100,
+			0,
+			sortAsc,
+		)) as any[];
+		expect(adults.map(ageOf)).toEqual([20, 30]);
+
+		// A numeric-like STRING value must behave identically.
+		const adultsStr = (await adapter.getAll(
+			tableName,
+			[
+				{
+					attribute: "attributes.age",
+					operator: "gte",
+					value: "18",
+					chain: "and",
+				},
+			],
+			100,
+			0,
+			sortAsc,
+		)) as any[];
+		expect(adultsStr.map(ageOf)).toEqual([20, 30]);
+
+		// Array index + nested key.
+		const firstRed = (await adapter.getAll(
+			tableName,
+			[
+				{
+					attribute: "attributes.tags[0]",
+					operator: "eq",
+					value: "red",
+					chain: "and",
+				},
+			],
+			100,
+			0,
+			sortAsc,
+		)) as any[];
+		expect(firstRed.map(ageOf)).toEqual([15, 30]);
+
+		// RHS references another JSON path column (age >= min).
+		const meetsMin = (await adapter.getAll(
+			tableName,
+			[
+				{
+					attribute: "attributes.age",
+					operator: "gte",
+					value: "attributes.min",
+					chain: "and",
+				},
+			],
+			100,
+			0,
+			sortAsc,
+		)) as any[];
+		expect(meetsMin.map(ageOf)).toEqual([20]);
+	});
+
+	test("Joins & Column Selection", async () => {
+		const adapter = new MySqlAdapter(db, pool, vm);
+		const authors = "authors_" + faker.string.alphanumeric(6).toLowerCase();
+		const books = "books_" + faker.string.alphanumeric(6).toLowerCase();
+		await adapter.raw(
+			`CREATE TABLE ${authors} (id INT PRIMARY KEY, name VARCHAR(255) NOT NULL)`,
+		);
+		await adapter.raw(
+			`CREATE TABLE ${books} (id INT PRIMARY KEY, author_id INT NOT NULL, title VARCHAR(255) NOT NULL, price INT NOT NULL)`,
+		);
+		await adapter.raw(
+			`INSERT INTO ${authors} (id, name) VALUES (1, 'Alice'), (2, 'Bob')`,
+		);
+		await adapter.raw(
+			`INSERT INTO ${books} (id, author_id, title, price) VALUES (1, 1, 'A1', 10), (2, 1, 'A2', 20), (3, 2, 'B1', 30)`,
+		);
+
+		const sortAsc = { attribute: `${books}.id`, direction: "asc" as const };
+
+		// Inner join, qualified condition + aliased column selection.
+		const byAuthor = (await adapter.getAll(
+			books,
+			[
+				{
+					attribute: `${authors}.name`,
+					operator: "eq",
+					value: "Alice",
+					chain: "and",
+				},
+			],
+			100,
+			0,
+			sortAsc,
+			{
+				joins: [
+					{
+						table: authors,
+						attribute: `${books}.author_id = ${authors}.id`,
+						type: "inner",
+					},
+				],
+				columns: [`${books}.title AS title`, `${authors}.name AS author`],
+			},
+		)) as any[];
+		expect(byAuthor).toEqual([
+			{ title: "A1", author: "Alice" },
+			{ title: "A2", author: "Alice" },
+		]);
+
+		// Left join with alias, qualified numeric compare, table.* + aliased col.
+		const pricey = (await adapter.getAll(
+			books,
+			[{ attribute: `${books}.price`, operator: "gte", value: 20, chain: "and" }],
+			100,
+			0,
+			sortAsc,
+			{
+				joins: [
+					{
+						table: authors,
+						alias: "a",
+						attribute: `${books}.author_id = a.id`,
+						type: "left",
+					},
+				],
+				columns: [`${books}.*`, "a.name AS author"],
+			},
+		)) as any[];
+		expect(pricey.map((r) => r.price)).toEqual([20, 30]);
+		expect(pricey.map((r) => r.author)).toEqual(["Alice", "Bob"]);
+	});
 });
