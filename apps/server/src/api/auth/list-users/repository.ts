@@ -1,6 +1,8 @@
-import { db, DbTransactionType } from "../../../db";
-import { user } from "../../../db/auth-schema";
-import { desc, ilike, or, sql } from "drizzle-orm";
+import { DbTransactionType } from "../../../db";
+import {
+  countSystemUsers,
+  listSystemUsers,
+} from "../../../lib/system-users";
 
 export async function getUsers(
   skip: number,
@@ -8,34 +10,9 @@ export async function getUsers(
   fuzzyTextSearch?: string,
   tx?: DbTransactionType
 ) {
-  const users = await (tx ?? db)
-    .select({
-      id: user.id,
-      name: user.name,
-      email: user.email,
-      isSystemAdmin: user.isSystemAdmin,
-      role: user.role,
-    })
-    .from(user)
-    .where(
-      fuzzyTextSearch
-        ? or(
-            ilike(user.name, `%${fuzzyTextSearch}%`),
-            ilike(user.email, `%${fuzzyTextSearch}%`)
-          )
-        : undefined
-    )
-    .limit(limit)
-    .offset(skip)
-    .orderBy(desc(user.createdAt));
-  return users;
+  return listSystemUsers(skip, limit, fuzzyTextSearch, tx);
 }
 
 export async function getUsersCount(tx?: DbTransactionType) {
-  const count = await (tx ?? db)
-    .select({
-      count: sql<number>`count(*)`,
-    })
-    .from(user);
-  return count[0].count;
+  return countSystemUsers(tx);
 }

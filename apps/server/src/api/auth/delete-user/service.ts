@@ -18,9 +18,9 @@ export default async function handleRequest(
   await db.transaction(async (tx) => {
     const userToDelete = await getUserRole(params.userId, tx);
 
-    if (userToDelete?.role === "instance_admin") {
+    if (userToDelete?.isSystemAdmin) {
       throw new BadRequestError(
-        "You are not allowed to delete an instance admin"
+        "You are not allowed to delete a system admin"
       );
     }
 

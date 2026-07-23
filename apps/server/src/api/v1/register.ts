@@ -6,7 +6,6 @@ import integrations from "./integrations/register";
 import testSuites from "./test-suites/register";
 import customBlocks from "./custom-blocks/register";
 import instanceSettings from "./instance-settings/register";
-import ssoAllowlist from "./sso-allowlist/register";
 import { HonoServer } from "../../types";
 
 export default {
@@ -33,6 +32,5 @@ export default {
 		testSuites.registerHandler(router);
 		customBlocks.registerHandler(router);
 		instanceSettings.registerHandler(router);
-		ssoAllowlist.registerHandler(router);
 	},
 };

@@ -1,10 +1,11 @@
 import { betterAuth } from "better-auth";
 import { DB, drizzleAdapter } from "better-auth/adapters/drizzle";
 import { deleteCacheKey, getCache, setCache, setCacheEx } from "../db/redis";
-import { accessControlEntity, ssoAllowlistEntity } from "../db/schema";
+import { accessControlEntity } from "../db/schema";
 import { eq } from "drizzle-orm";
 import { customSession } from "better-auth/plugins";
 import * as authSchemas from "../db/auth-schema";
+import { systemUsers } from "../db/auth-schema";
 import { admin } from "better-auth/plugins";
 import { sso } from "@better-auth/sso";
 import { generateID } from "@fluxify/lib";
@@ -79,14 +80,6 @@ export function initializeAuth(db: DB) {
 		}),
 		basePath: "/_/admin/api/auth",
 		trustedOrigins: trustedOrigins(),
-		user: {
-			additionalFields: {
-				isSystemAdmin: {
-					type: "boolean",
-					defaultValue: false,
-				},
-			},
-		},
 		emailAndPassword: {
 			enabled: true,
 			disableSignUp: true,
@@ -95,27 +88,24 @@ export function initializeAuth(db: DB) {
 		databaseHooks: {
 			user: {
 				create: {
-					// Gate SSO JIT provisioning to the admin-managed allowlist.
-					// Runs before the row is written, so a blocked login creates
-					// nothing (no orphan, no linking gate).
+					// Bridge every Better Auth user to the canonical system_users
+					// row and share its id (FK target for the cascade delete).
 					before: async (userData) => {
-						if (getSetting("auth_config")?.mode !== "sso_only") return;
 						const email = (userData.email ?? "").toLowerCase();
-						const allowed = await db
-							.select({ id: ssoAllowlistEntity.id })
-							.from(ssoAllowlistEntity)
-							.where(eq(ssoAllowlistEntity.email, email));
-						if (allowed.length === 0) return false; // reject login
-					},
-					// Link the allowlist entry to the new user so deleting the
-					// user cascades the entry away.
-					after: async (userData) => {
-						if (getSetting("auth_config")?.mode !== "sso_only") return;
-						const email = (userData.email ?? "").toLowerCase();
-						await db
-							.update(ssoAllowlistEntity)
-							.set({ userId: userData.id })
-							.where(eq(ssoAllowlistEntity.email, email));
+						const existing = await db
+							.select({ id: systemUsers.id })
+							.from(systemUsers)
+							.where(eq(systemUsers.email, email));
+						if (existing.length > 0) {
+							// pre-created (admin) → reuse its id as the user id
+							return { data: { id: existing[0].id } };
+						}
+						// SSO JIT → create the canonical row first (FK target)
+						await db.insert(systemUsers).values({
+							id: userData.id,
+							email,
+							name: userData.name ?? null,
+						});
 					},
 				},
 			},
@@ -142,11 +132,17 @@ export function initializeAuth(db: DB) {
 		},
 		plugins: [
 			customSession(async ({ user, session }) => {
-				const acl = await getUserAccessControls(db, session.userId);
+				// user.id === system_users.id; isSystemAdmin lives on system_users.
+				const su = await db
+					.select({ isSystemAdmin: systemUsers.isSystemAdmin })
+					.from(systemUsers)
+					.where(eq(systemUsers.id, session.userId));
+				const isSystemAdmin = su[0]?.isSystemAdmin ?? false;
+				const acl = getUserAccessControls(db, session.userId, isSystemAdmin);
 				return {
-					user,
+					user: { ...user, isSystemAdmin },
 					session,
-					acl, // extends session with acl
+					acl: await acl, // extends session with acl
 				};
 			}),
 			admin(),
@@ -161,12 +157,12 @@ export function initializeAuth(db: DB) {
 	return _auth;
 }
 
-async function getUserAccessControls(db: DB, userId: string) {
-	const user = await db
-		.select()
-		.from(authSchemas.user)
-		.where(eq(authSchemas.user.id, userId));
-	if (user[0]?.isSystemAdmin) {
+async function getUserAccessControls(
+	db: DB,
+	userId: string,
+	isSystemAdmin: boolean,
+) {
+	if (isSystemAdmin) {
 		return [
 			{
 				projectId: "*",

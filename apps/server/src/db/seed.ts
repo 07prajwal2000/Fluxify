@@ -1,9 +1,8 @@
 import { auth } from "../lib/auth";
 import { z } from "zod";
-import { user } from "./auth-schema";
-import { eq } from "drizzle-orm";
 import { PgDatabase } from "drizzle-orm/pg-core";
 import { initializeLogger, logger } from "@fluxify/common";
+import { createSystemUser, getSystemUserByEmail } from "../lib/system-users";
 
 const seedUserSchema = z.object({
 	email: z.email(),
@@ -29,24 +28,18 @@ export async function seedData(db: PgDatabase<any>) {
 	}
 
 	try {
-		const existingUser = await db
-			.select({ id: user.id })
-			.from(user)
-			.where(eq(user.email, email))
-			.limit(1);
-
-		if (existingUser.length > 0) {
+		if (await getSystemUserByEmail(email)) {
 			return;
 		}
 
+		// canonical row first (admin), then the Better Auth user (hook links by
+		// email → shared id).
+		await createSystemUser({ email, name, isSystemAdmin: true });
 		await auth.api.createUser({
 			body: {
 				email: result.data.email,
 				name,
 				password: result.data.password!,
-				data: {
-					isSystemAdmin: true,
-				},
 			},
 		});
 

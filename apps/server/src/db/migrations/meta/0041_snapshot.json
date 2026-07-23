@@ -1,5 +1,5 @@
 {
-  "id": "665baa19-0d96-4628-9042-12ff02360af1",
+  "id": "cadc6207-f399-4e2e-a432-5151a1429884",
   "prevId": "824b91ea-74eb-4da7-a9a7-eb0e3f53dcc5",
   "version": "7",
   "dialect": "postgresql",
@@ -81,10 +81,10 @@
         }
       },
       "foreignKeys": {
-        "access_control_user_id_user_id_fk": {
-          "name": "access_control_user_id_user_id_fk",
+        "access_control_user_id_system_users_id_fk": {
+          "name": "access_control_user_id_system_users_id_fk",
           "tableFrom": "access_control",
-          "tableTo": "user",
+          "tableTo": "system_users",
           "columnsFrom": [
             "user_id"
           ],
@@ -174,10 +174,10 @@
       },
       "indexes": {},
       "foreignKeys": {
-        "ai_chat_conversations_user_id_user_id_fk": {
-          "name": "ai_chat_conversations_user_id_user_id_fk",
+        "ai_chat_conversations_user_id_system_users_id_fk": {
+          "name": "ai_chat_conversations_user_id_system_users_id_fk",
           "tableFrom": "ai_chat_conversations",
-          "tableTo": "user",
+          "tableTo": "system_users",
           "columnsFrom": [
             "user_id"
           ],
@@ -1644,73 +1644,6 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "public.sso_allowlist": {
-      "name": "sso_allowlist",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "varchar(50)",
-          "primaryKey": true,
-          "notNull": true
-        },
-        "email": {
-          "name": "email",
-          "type": "varchar(255)",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "user_id": {
-          "name": "user_id",
-          "type": "varchar(50)",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {
-        "sso_allowlist_user_id_user_id_fk": {
-          "name": "sso_allowlist_user_id_user_id_fk",
-          "tableFrom": "sso_allowlist",
-          "tableTo": "user",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {
-        "sso_allowlist_email_unique": {
-          "name": "sso_allowlist_email_unique",
-          "nullsNotDistinct": false,
-          "columns": [
-            "email"
-          ]
-        }
-      },
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
     "public.test_suites": {
       "name": "test_suites",
       "schema": "",
@@ -2024,10 +1957,10 @@
         }
       },
       "foreignKeys": {
-        "agent_harness_conversations_user_id_user_id_fk": {
-          "name": "agent_harness_conversations_user_id_user_id_fk",
+        "agent_harness_conversations_user_id_system_users_id_fk": {
+          "name": "agent_harness_conversations_user_id_system_users_id_fk",
           "tableFrom": "agent_harness_conversations",
-          "tableTo": "user",
+          "tableTo": "system_users",
           "columnsFrom": [
             "user_id"
           ],
@@ -2794,6 +2727,66 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
+    "public.system_users": {
+      "name": "system_users",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "varchar(50)",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "email": {
+          "name": "email",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "is_system_admin": {
+          "name": "is_system_admin",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "system_users_email_unique": {
+          "name": "system_users_email_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "email"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
     "public.user": {
       "name": "user",
       "schema": "",
@@ -2867,17 +2860,24 @@
           "type": "timestamp",
           "primaryKey": false,
           "notNull": false
-        },
-        "is_system_admin": {
-          "name": "is_system_admin",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": false,
-          "default": false
         }
       },
       "indexes": {},
-      "foreignKeys": {},
+      "foreignKeys": {
+        "user_id_system_users_id_fk": {
+          "name": "user_id_system_users_id_fk",
+          "tableFrom": "user",
+          "tableTo": "system_users",
+          "columnsFrom": [
+            "id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {
         "user_email_unique": {

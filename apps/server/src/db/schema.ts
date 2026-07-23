@@ -13,7 +13,7 @@ import {
 	varchar,
 } from "drizzle-orm/pg-core";
 import z from "zod";
-import { user } from "./auth-schema";
+import { systemUsers } from "./auth-schema";
 import { createSelectSchema } from "drizzle-zod";
 
 /* ============================================================================
@@ -100,7 +100,7 @@ export const accessControlEntity = pgTable(
 	"access_control",
 	{
 		id: serial().primaryKey(),
-		userId: varchar("user_id", { length: 50 }).references(() => user.id, {
+		userId: varchar("user_id", { length: 50 }).references(() => systemUsers.id, {
 			onDelete: "cascade",
 		}),
 		projectId: varchar("project_id", { length: 50 }).references(
@@ -432,7 +432,7 @@ export const aiChatConversationsEntity = pgTable("ai_chat_conversations", {
 	id: varchar({ length: 50 })
 		.primaryKey()
 		.$defaultFn(() => generateID()),
-	userId: varchar("user_id", { length: 50 }).references(() => user.id, {
+	userId: varchar("user_id", { length: 50 }).references(() => systemUsers.id, {
 		onDelete: "cascade",
 	}),
 	title: varchar({ length: 255 }).default("New chat"),
@@ -547,26 +547,6 @@ export const instanceSettingsEntity = pgTable("instance_settings", {
 	category: instanceSettingCategoryEnum("category").notNull(),
 	value: jsonb().$type<Record<string, unknown>>().notNull(),
 	isPublic: boolean("is_public").default(false).notNull(),
-	createdAt: timestamp("created_at").defaultNow().notNull(),
-	updatedAt: timestamp("updated_at")
-		.defaultNow()
-		.notNull()
-		.$onUpdate(() => new Date()),
-});
-
-/* ============================================================================
- * SSO ALLOWLIST (pre-authorized emails for SSO JIT provisioning)
- * ============================================================================ */
-
-export const ssoAllowlistEntity = pgTable("sso_allowlist", {
-	id: varchar({ length: 50 })
-		.primaryKey()
-		.$defaultFn(() => generateID()),
-	email: varchar({ length: 255 }).notNull().unique(),
-	// linked on first SSO login so deleting the user cascades away the entry
-	userId: varchar("user_id", { length: 50 }).references(() => user.id, {
-		onDelete: "cascade",
-	}),
 	createdAt: timestamp("created_at").defaultNow().notNull(),
 	updatedAt: timestamp("updated_at")
 		.defaultNow()

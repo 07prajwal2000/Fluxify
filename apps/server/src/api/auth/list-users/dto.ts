@@ -15,9 +15,9 @@ export const responseSchema = z.object({
     z.object({
       id: z.string(),
       email: z.string(),
-      name: z.string(),
+      name: z.string().nullable(),
       isSystemAdmin: z.boolean(),
-      role: z.enum(["user", "instance_admin"]),
+      role: z.enum(["user", "instance_admin"]).nullable(),
     })
   ),
   pagination: paginationResponseSchema,
