@@ -281,6 +281,13 @@
       "when": 1784756948216,
       "tag": "0039_wonderful_black_bolt",
       "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "7",
+      "when": 1784804873823,
+      "tag": "0040_milky_sunfire",
+      "breakpoints": true
     }
   ]
 }

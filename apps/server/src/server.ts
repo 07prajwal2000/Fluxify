@@ -9,6 +9,7 @@ import { loadAppConfig } from "./loaders/appconfigLoader";
 import { loadIntegrations } from "./loaders/integrationsLoader";
 import { loadProjectSettings } from "./loaders/projectSettingsLoader";
 import { loadCustomBlocks, initializeCustomBlocksSubscription } from "./loaders/customBlocksLoader";
+import { loadInstanceSettings } from "./loaders/instanceSettingsLoader";
 import { mapVersionedAdminRoutes } from "./api/register";
 import { errorHandler } from "./middlewares/errorHandler";
 import { auth, initializeAuth } from "./lib/auth";
@@ -37,10 +38,12 @@ app.use(
 	"*",
 	cors({
 		origin: (origin) => {
-			if (origin?.startsWith("http://localhost:")) {
-				return origin;
-			}
-			return null;
+			if (!origin) return null;
+			// dev: any localhost port; prod: explicit TRUSTED_ORIGINS (real DNS behind proxy)
+			if (origin.startsWith("http://localhost:")) return origin;
+			const trusted =
+				process.env.TRUSTED_ORIGINS?.split(",").map((o) => o.trim()) ?? [];
+			return trusted.includes(origin) ? origin : null;
 		},
 		allowHeaders: ["Content-Type", "Authorization", "Accept"],
 		allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
@@ -71,6 +74,7 @@ async function main() {
 
 	if (adminRoutesEnabled) {
 		app.use("*", setSession);
+		await loadInstanceSettings(); // must precede initializeAuth so sso_config is available
 		initializeAuth(db);
 		authenticationRouter.registerHandler(app);
 		mapVersionedAdminRoutes(app);
