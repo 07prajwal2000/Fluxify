@@ -5,9 +5,7 @@ import {
 	Chip,
 	Input,
 	Label,
-	ListBox,
 	Modal,
-	Select,
 	Spinner,
 	Table,
 	TextField,
@@ -200,24 +198,18 @@ function CreateRouteButton({ projectId }: { projectId: string }) {
 									</TextField>
 									<div className="flex flex-col gap-1.5">
 										<Label>Method</Label>
-										<Select
-											aria-label="Method"
-											selectedKey={method}
-											onSelectionChange={(k) => setMethod(String(k))}
-										>
-											<Select.Trigger>
-												<Select.Value />
-											</Select.Trigger>
-											<Select.Popover>
-												<ListBox>
-													{METHODS.map((m) => (
-														<ListBox.Item key={m} id={m}>
-															{m}
-														</ListBox.Item>
-													))}
-												</ListBox>
-											</Select.Popover>
-										</Select>
+										<div className="flex gap-1.5">
+											{METHODS.map((m) => (
+												<Button
+													key={m}
+													type="button"
+													variant={method === m ? "primary" : "outline"}
+													onPress={() => setMethod(m)}
+												>
+													{m}
+												</Button>
+											))}
+										</div>
 									</div>
 									<TextField isRequired value={path} onChange={setPath}>
 										<Label>Path</Label>
