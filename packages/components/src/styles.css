@@ -1,7 +1,7 @@
 /* Fluxify design system. Import once at the app root.
    HeroUI already pulls in Tailwind v4; we layer the Fluxify brand on top.
 
-   Direction: neutral black/grey surfaces, indigo accent, sharp technical
+   Direction: neutral black/grey surfaces, lime-green accent, softly rounded
    corners, Inter throughout. Dark is primary; light is the optional variant.
    Every knob below is a CSS variable — override one to retheme. */
 @import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap");
@@ -47,4 +47,19 @@
 	body {
 		font-family: var(--font-sans);
 	}
+}
+
+/* Card refinements (unlayered so they win over HeroUI's @layer components):
+   roomier padding, a gap between title and description, and footer actions
+   right-aligned. */
+.card {
+	padding: calc(var(--spacing) * 6);
+	gap: calc(var(--spacing) * 5);
+}
+.card__header {
+	gap: calc(var(--spacing) * 2);
+}
+.card__footer {
+	justify-content: flex-end;
+	gap: calc(var(--spacing) * 2);
 }
