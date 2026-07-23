@@ -531,5 +531,28 @@ export const aiWorkflowBuilderStepsEntity = pgTable(
 	],
 );
 
+/* ============================================================================
+ * INSTANCE SETTINGS (dynamic public/private config, e.g. SSO/auth mode)
+ * ============================================================================ */
+
+export const instanceSettingCategoryEnum = pgEnum("instance_setting_category", [
+	"auth",
+]); // add values as new categories appear
+
+export const instanceSettingsEntity = pgTable("instance_settings", {
+	id: varchar({ length: 50 })
+		.primaryKey()
+		.$defaultFn(() => generateID()),
+	key: varchar({ length: 100 }).notNull().unique(),
+	category: instanceSettingCategoryEnum("category").notNull(),
+	value: jsonb().$type<Record<string, unknown>>().notNull(),
+	isPublic: boolean("is_public").default(false).notNull(),
+	createdAt: timestamp("created_at").defaultNow().notNull(),
+	updatedAt: timestamp("updated_at")
+		.defaultNow()
+		.notNull()
+		.$onUpdate(() => new Date()),
+});
+
 export * from "./agent-harness-schema";
 

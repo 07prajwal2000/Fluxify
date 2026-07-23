@@ -2,9 +2,13 @@ import v1Register from "./v1/register";
 import { existsSync, readFileSync } from "fs";
 import { join } from "path";
 import { HonoServer } from "../types";
+import { getPublicSettings } from "../loaders/instanceSettingsLoader";
 
 export function mapVersionedAdminRoutes(app: HonoServer) {
   const router = app.basePath("/_/admin/api");
+  // Public, unauthenticated feature flags. Secrets are stripped by each key's
+  // publicSchema, so is_public rows never leak IdP credentials.
+  router.get("/public-settings", (c) => c.json(getPublicSettings()));
   router.get("/openapi/ui", (c) => {
     try {
       const htmlContent = loadHtmlContent();

@@ -34,6 +34,7 @@
 		"typescript": "^6.0.3"
 	},
 	"dependencies": {
+		"@better-auth/sso": "^1.6.24",
 		"@fluxify/adapters": "workspace:*",
 		"@fluxify/blocks": "workspace:*",
 		"@fluxify/common": "workspace:*",
