@@ -165,6 +165,11 @@ const FluxifyAIPage = ({ projectId, conversationId }: Props) => {
 		createConversationMutation.isPending ||
 		createConversationMutation.isSuccess;
 
+	const lastMessage = messages?.[messages.length - 1];
+	const isUnderReview =
+		workflowStatus?.status === "under_plan_review" ||
+		lastMessage?.status === "paused";
+
 	return (
 		<Group h="100%" gap={0} wrap="nowrap" align="stretch">
 			{/* Main Chat Area */}
@@ -191,7 +196,8 @@ const FluxifyAIPage = ({ projectId, conversationId }: Props) => {
 					<FluxifyAIWelcome />
 				) : (
 					<ConversationHistory
-						messages={messages}
+						conversationId={conversationId || ""}
+						messages={messages || []}
 						isLoading={isLoading}
 						isError={isError}
 						error={error}
@@ -212,8 +218,11 @@ const FluxifyAIPage = ({ projectId, conversationId }: Props) => {
 						showSidebarToggle={!!conversationId && !showArtifactPanel}
 						onToggleSidebar={() => setShowArtifactPanel(true)}
 						staticPlaceholder={
-							conversationId ? "Message Fluxify..." : undefined
+							isUnderReview 
+								? "Please review the proposed plan to continue..." 
+								: (conversationId ? "Message Fluxify..." : undefined)
 						}
+						disabled={isUnderReview}
 						minRows={2}
 					/>
 				</Container>

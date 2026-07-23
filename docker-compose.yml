@@ -7,8 +7,9 @@ services:
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: fluxify_alpha
     volumes:
-      - pg_cbe:/var/lib/postgresql/data
+      - fluxify_pg_volume:/var/lib/postgresql/data
     networks:
       - default
   valkey:
@@ -38,9 +39,33 @@ services:
     networks:
       - default
 
+  # =========================================================================
+  # ARIZE PHOENIX (Open-Source AI Observability & OTel Trace Collector)
+  # =========================================================================
+  # Phoenix is an AI-focused tracing collector that visualizes chat history,
+  # tool calls, token costs, and regular system microservice traces.
+  phoenix:
+    image: arizephoenix/phoenix:latest
+    container_name: phoenix
+    restart: unless-stopped
+    ports:
+      - 6006:6006 # Main Web UI Dashboard
+      # - 4317:4317 # Standard OpenTelemetry (OTel) gRPC collector port
+      - 4318:4318 # Standard OpenTelemetry (OTel) HTTP/JSON collector port
+    environment:
+      # UNUSUAL/IMPORTANT ENV: Phoenix runs with zero authentication by default,
+      # which is perfect for local testing. If you put this on a public server, 
+      # you must set PHOENIX_ENABLE_AUTH=true and provide a PHOENIX_SECRET_KEY.
+      - PHOENIX_PORT=6006
+      - PHOENIX_GRPC_PORT=4317
+      # UNUSUAL PROPERTY (Collector vs Backend): Unlike OpenObserve which uses
+      # dedicated tables/indices for generic log storage, Phoenix processes
+      # OTel spans instantly in memory to build live execution trace trees.
+    networks:
+      - default
+
 volumes:
-  pg_cbe:
-    external: true
+  fluxify_pg_volume:
 networks:
   default:
     driver: bridge

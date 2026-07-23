@@ -18,7 +18,7 @@ import {
 	loadIntegrationsList,
 	loadConfigsList,
 } from "./worker-loaders";
-import { logger } from "better-auth";
+import { logger } from "@fluxify/common";
 
 export async function startAiWorker() {
 	logger.info("[AI Worker] Listening for messages...");
@@ -168,7 +168,7 @@ async function processAiMessage(
 
 		const outputTokens = estimateTokenCount(aiResponseContent) || 0;
 		const totalTokens = inputTokens + outputTokens;
-		logger.info(`[AI Worker] Completed. Total tokens: ${totalTokens}`);
+		console.log(`[AI Worker] Completed. Total tokens: ${totalTokens}`);
 
 		await tracker.update(4, "success", "Completed");
 	} catch (err: any) {

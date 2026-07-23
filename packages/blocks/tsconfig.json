@@ -1,18 +1,19 @@
 {
-  "compilerOptions": {
-    "module": "commonjs",
-    "target": "es2024",
-    "outDir": "dist",
-    "sourceRoot": "index.ts",
-    "sourceMap": true,
-    "strict": true,
-    "noEmitOnError": true,
-    "skipLibCheck": true,
-    "esModuleInterop": true,
-    "isolatedModules": true,
-    "types": ["node", "bun"],
-    "jsx": "react",
-    "noEmit": false
-  },
-  "exclude": ["node_modules", "dist", "**/*.spec.ts", "**/*.test.ts"]
+	"compilerOptions": {
+		"module": "commonjs",
+		"target": "es2024",
+		"outDir": "dist",
+		"sourceRoot": "index.ts",
+		"sourceMap": true,
+		"strict": true,
+		"noEmitOnError": true,
+		"skipLibCheck": true,
+		"esModuleInterop": true,
+		"isolatedModules": true,
+
+		"types": ["node", "bun"],
+		"jsx": "react",
+		"noEmit": false
+	},
+	"exclude": ["node_modules", "dist", "**/*.spec.ts", "**/*.test.ts"]
 }

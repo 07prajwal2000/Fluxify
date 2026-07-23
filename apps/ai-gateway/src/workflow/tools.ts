@@ -3,14 +3,17 @@ import { z } from "zod";
 import { queryDocs } from "../db/vector";
 import { logger } from "@fluxify/common";
 import type { WorkflowMetadata } from "../ai/types";
+import { createFindResourceTool } from "./tools/findResource";
 
 export enum WorkflowToolName {
 	SEARCH_DOCS = "search_docs",
 	GET_ROUTE_DETAILS = "get_route_details",
+	FIND_RESOURCE = "find_resource",
 }
 
 export function createWorkflowTools(metadata: WorkflowMetadata) {
 	return {
+		[WorkflowToolName.FIND_RESOURCE]: createFindResourceTool(metadata),
 		[WorkflowToolName.SEARCH_DOCS]: tool({
 			description:
 				"Search the platform documentation using keywords. Use relevant terms for e.g. if user asks about filters, use keyword filter/filters.",

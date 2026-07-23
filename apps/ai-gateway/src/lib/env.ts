@@ -6,6 +6,12 @@ export const PG_URL = process.env.PG_URL!;
 export const OTLP_AUTH_HEADER_NAME = process.env.OTLP_AUTH_HEADER_NAME!;
 export const OTLP_AUTH_HEADER_VALUE = process.env.OTLP_AUTH_HEADER_VALUE!;
 export const OTLP_LOGGER_ENABLED = process.env.OTLP_LOGGER_ENABLED!;
+
+export const LLM_TRACING_ENABLED = process.env.LLM_TRACING_ENABLED === "true";
+export const LLM_OTLP_TRACES_ENDPOINT = process.env.LLM_OTLP_TRACES_ENDPOINT!;
+export const LLM_OTLP_TRACES_HEADERS = process.env.LLM_OTLP_TRACES_HEADERS;
+export const LLM_TRACING_SAMPLE_RATE = Number(process.env.LLM_TRACING_SAMPLE_RATE ?? "1.0");
+
 export const OTLP_LOGGER_LEVEL: LogLevel =
 	(process.env.OTLP_LOGGER_LEVEL as LogLevel) || "info";
 export const NODE_ENV: EnvType =

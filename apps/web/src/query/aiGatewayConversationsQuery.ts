@@ -7,6 +7,7 @@ import {
   updateMessageDto,
   listConversationsDto,
   listMessagesDto,
+  recordActionDto,
 } from "@fluxify/ai-gateway";
 
 type CreateConversationQueryParams = z.infer<typeof createConversationDto.queryParamsSchema>;
@@ -17,6 +18,8 @@ type ListConversationsQueryParams = z.infer<typeof listConversationsDto.queryPar
 type UpdateConversationBodyParams = z.infer<typeof updateMessageDto.requestBodySchema>;
 
 type ClearConversationBodyParams = z.infer<typeof clearConversationsDto.requestBodySchema>;
+
+type RecordActionBodyParams = z.infer<typeof recordActionDto.recordActionBodySchema>;
 
 type ListMessagesQueryParams = z.infer<typeof listMessagesDto.queryParamsSchema>;
 
@@ -153,6 +156,19 @@ export const aiGatewayConversationsQuery = {
       return useMutation({
         mutationFn: (body: ClearConversationBodyParams) =>
           aiGatewayConversationsService.clear(conversationId, body),
+        onSuccess: () => {
+          aiGatewayConversationsQuery.listMessages.invalidate(conversationId, queryClient);
+          aiGatewayConversationsQuery.listMessagesInfinite.invalidate(conversationId, queryClient);
+        },
+      });
+    },
+  },
+
+  recordAction: {
+    useMutation(conversationId: string, queryClient: QueryClient) {
+      return useMutation({
+        mutationFn: (body: RecordActionBodyParams) =>
+          aiGatewayConversationsService.recordAction(conversationId, body),
         onSuccess: () => {
           aiGatewayConversationsQuery.listMessages.invalidate(conversationId, queryClient);
           aiGatewayConversationsQuery.listMessagesInfinite.invalidate(conversationId, queryClient);

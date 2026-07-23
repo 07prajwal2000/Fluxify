@@ -16,9 +16,12 @@ export default async function handleWatchRequest(
 	const cacheData = await getCache(redisKey);
 
 	if (!cacheData) {
-		throw new NotFoundError(
-			"There are no active workflows running for this conversation",
-		);
+		return streamSSE(c, async (stream) => {
+			await stream.writeSSE({
+				data: JSON.stringify({ status: "success", conversationId, executionHistory: [] }),
+			});
+			await stream.close();
+		});
 	}
 
 	let initialStatus: ConversationWorkflowStatus;
@@ -48,7 +51,7 @@ export default async function handleWatchRequest(
 						data: JSON.stringify(status),
 					});
 
-					if (status.status === "error" || status.status === "completed") {
+					if (status.status === "error" || status.status === "success") {
 						cleanup();
 						await stream.close();
 					}
@@ -65,7 +68,7 @@ export default async function handleWatchRequest(
 
 				if (
 					initialStatus.status === "error" ||
-					initialStatus.status === "completed"
+					initialStatus.status === "success"
 				) {
 					await stream.close();
 					resolve();

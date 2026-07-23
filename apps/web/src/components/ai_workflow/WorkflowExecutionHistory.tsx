@@ -116,18 +116,31 @@ export const WorkflowExecutionHistory = ({
 							const Icon = item.type === "tool" ? TbTool : TbNote;
 
 							return (
-								<Group key={idx} gap="sm" wrap="nowrap">
+								<Group key={idx} gap="sm" wrap="nowrap" align="flex-start">
 									<ThemeIcon
 										color={color}
 										size={20}
 										radius="xl"
 										variant="light"
+										mt={2}
 									>
 										<Icon size={12} />
 									</ThemeIcon>
-									<Text size="sm" c="dimmed" style={{ wordBreak: "break-all" }}>
-										{getText(item)}
-									</Text>
+									<Stack gap={4}>
+										<Text size="sm" c={isFailure ? "red" : "dimmed"} style={{ wordBreak: "break-all" }}>
+											{getText(item)}
+										</Text>
+										{item.output?.reasoning && (
+											<Text size="xs" c="dimmed" fs="italic">
+												Thinking: {item.output.reasoning}
+											</Text>
+										)}
+										{item.output?.rejectReason && (
+											<Text size="xs" c="red" fw={500}>
+												Error: {item.output.rejectReason}
+											</Text>
+										)}
+									</Stack>
 								</Group>
 							);
 						})}

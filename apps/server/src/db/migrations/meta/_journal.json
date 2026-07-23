@@ -218,6 +218,69 @@
       "when": 1783979572891,
       "tag": "0030_lovely_surge",
       "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "7",
+      "when": 1784225452139,
+      "tag": "0031_youthful_celestials",
+      "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1784225576594,
+      "tag": "0032_fresh_ultimatum",
+      "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1784233197349,
+      "tag": "0033_gigantic_lockheed",
+      "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1784240013444,
+      "tag": "0034_typical_nomad",
+      "breakpoints": true
+    },
+    {
+      "idx": 35,
+      "version": "7",
+      "when": 1784628591789,
+      "tag": "0035_unique_warbird",
+      "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1784674751711,
+      "tag": "0036_productive_omega_red",
+      "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "7",
+      "when": 1784675499508,
+      "tag": "0037_stiff_red_skull",
+      "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "7",
+      "when": 1784756188704,
+      "tag": "0038_workable_pixie",
+      "breakpoints": true
+    },
+    {
+      "idx": 39,
+      "version": "7",
+      "when": 1784756948216,
+      "tag": "0039_wonderful_black_bolt",
+      "breakpoints": true
     }
   ]
 }
