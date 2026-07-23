@@ -13,6 +13,15 @@ const baseUrl = "/v1/routes";
 
 export type ListRoutesQuery = { page?: number; perPage?: number; projectId: string };
 
+type CanvasAction = { id: string; action: "upsert" | "delete" };
+export type CanvasSavePayload = {
+	actionsToPerform: { blocks: CanvasAction[]; edges: CanvasAction[] };
+	changes: {
+		blocks: { id: string; type: string; data: unknown; position: { x: number; y: number } }[];
+		edges: { id: string; from: string; to: string; fromHandle: string; toHandle: string }[];
+	};
+};
+
 export const routesService = {
 	async getAll(
 		query: ListRoutesQuery,
@@ -51,6 +60,9 @@ export const routesService = {
 	): Promise<z.infer<typeof getByIdResponseSchema>> {
 		const result = await httpClient.get(`${baseUrl}/${routeId}`);
 		return result.data;
+	},
+	async saveCanvasItems(routeId: string, payload: CanvasSavePayload) {
+		await httpClient.put(`${baseUrl}/${routeId}/save-canvas`, payload);
 	},
 	createRequestSchema,
 };

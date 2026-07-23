@@ -1,6 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { z } from "zod";
-import { type ListRoutesQuery, routesService } from "@/services/routes";
+import {
+	type CanvasSavePayload,
+	type ListRoutesQuery,
+	routesService,
+} from "@/services/routes";
 
 const LIST_KEY = ["routes", "list"];
 
@@ -58,6 +62,17 @@ export const routesQuery = {
 			return useMutation({
 				mutationFn: (id: string) => routesService.delete(id),
 				onSuccess: () => qc.invalidateQueries({ queryKey: LIST_KEY }),
+			});
+		},
+	},
+	saveCanvas: {
+		mutation(routeId: string) {
+			const qc = useQueryClient();
+			return useMutation({
+				mutationFn: (payload: CanvasSavePayload) =>
+					routesService.saveCanvasItems(routeId, payload),
+				onSuccess: () =>
+					qc.invalidateQueries({ queryKey: ["routes", routeId, "canvas-items"] }),
 			});
 		},
 	},

@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import {
+	addEdge,
 	Background,
 	Controls,
 	Panel,
@@ -9,6 +10,7 @@ import {
 	useEdgesState,
 	useNodesState,
 	useReactFlow,
+	type Connection,
 	type Edge,
 	type Node,
 } from "@xyflow/react";
@@ -16,6 +18,7 @@ import "@xyflow/react/dist/style.css";
 import { Button, Spinner, Switch, toast } from "@fluxify/components";
 import { TbArrowLeft, TbPlus } from "react-icons/tb";
 import { routesQuery } from "@/query/routesQuery";
+import type { CanvasSavePayload } from "@/services/routes";
 import { showErrorNotification } from "@/lib/errorNotifier";
 import { GenericBlockNode } from "@/components/editor/GenericBlockNode";
 import { blocksList } from "@/components/editor/blocks/nodes";
@@ -33,6 +36,12 @@ const nodeTypes = new Proxy(
 const TABS = ["editor", "executions", "testing"] as const;
 type Tab = (typeof TABS)[number];
 
+// strip UI-only handle hints before persisting
+function cleanData(data: Record<string, unknown>) {
+	const { sources: _s, targets: _t, ...rest } = data;
+	return rest;
+}
+
 function EditorPage() {
 	const { projectId, routeId } = Route.useParams();
 	const navigate = useNavigate();
@@ -41,35 +50,93 @@ function EditorPage() {
 	const { data: route } = routesQuery.byId.useQuery(routeId);
 	const canvas = routesQuery.canvasItems.useQuery(routeId);
 	const toggle = routesQuery.toggleActive.mutation();
+	const save = routesQuery.saveCanvas.mutation(routeId);
 
-	const { initialNodes, initialEdges } = useMemo(() => {
-		const blocks = canvas.data?.blocks ?? [];
-		const rawEdges = canvas.data?.edges ?? [];
+	const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
+	const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
+	const [dirty, setDirty] = useState(false);
+	const initialIds = useRef({ blocks: new Set<string>(), edges: new Set<string>() });
+
+	// Load canvas items into state once they arrive.
+	useEffect(() => {
+		if (!canvas.data) return;
+		const rawEdges = canvas.data.edges;
 		const sourcesByNode: Record<string, Set<string>> = {};
 		const targetsByNode: Record<string, Set<string>> = {};
 		for (const e of rawEdges) {
 			(sourcesByNode[e.from] ??= new Set()).add(e.fromHandle);
 			(targetsByNode[e.to] ??= new Set()).add(e.toHandle);
 		}
-		const initialNodes: Node[] = blocks.map((b) => ({
-			id: b.id,
-			type: b.type,
-			position: b.position,
-			data: {
-				...((b.data ?? {}) as Record<string, unknown>),
-				sources: [...(sourcesByNode[b.id] ?? [])],
-				targets: [...(targetsByNode[b.id] ?? [])],
+		setNodes(
+			canvas.data.blocks.map((b) => ({
+				id: b.id,
+				type: b.type,
+				position: b.position,
+				data: {
+					...((b.data ?? {}) as Record<string, unknown>),
+					sources: [...(sourcesByNode[b.id] ?? [])],
+					targets: [...(targetsByNode[b.id] ?? [])],
+				},
+			})),
+		);
+		setEdges(
+			rawEdges.map((e) => ({
+				id: e.id,
+				source: e.from,
+				target: e.to,
+				sourceHandle: e.fromHandle,
+				targetHandle: e.toHandle,
+			})),
+		);
+		initialIds.current = {
+			blocks: new Set(canvas.data.blocks.map((b) => b.id)),
+			edges: new Set(rawEdges.map((e) => e.id)),
+		};
+		setDirty(false);
+	}, [canvas.data, setNodes, setEdges]);
+
+	function onSave() {
+		const currentBlockIds = new Set(nodes.map((n) => n.id));
+		const currentEdgeIds = new Set(edges.map((e) => e.id));
+		const payload: CanvasSavePayload = {
+			actionsToPerform: {
+				blocks: [
+					...nodes.map((n) => ({ id: n.id, action: "upsert" as const })),
+					...[...initialIds.current.blocks]
+						.filter((id) => !currentBlockIds.has(id))
+						.map((id) => ({ id, action: "delete" as const })),
+				],
+				edges: [
+					...edges.map((e) => ({ id: e.id, action: "upsert" as const })),
+					...[...initialIds.current.edges]
+						.filter((id) => !currentEdgeIds.has(id))
+						.map((id) => ({ id, action: "delete" as const })),
+				],
 			},
-		}));
-		const initialEdges: Edge[] = rawEdges.map((e) => ({
-			id: e.id,
-			source: e.from,
-			target: e.to,
-			sourceHandle: e.fromHandle,
-			targetHandle: e.toHandle,
-		}));
-		return { initialNodes, initialEdges };
-	}, [canvas.data]);
+			changes: {
+				blocks: nodes.map((n) => ({
+					id: n.id,
+					type: n.type ?? "",
+					data: cleanData(n.data as Record<string, unknown>),
+					position: n.position,
+				})),
+				edges: edges.map((e) => ({
+					id: e.id,
+					from: e.source,
+					to: e.target,
+					fromHandle: e.sourceHandle ?? "",
+					toHandle: e.targetHandle ?? "",
+				})),
+			},
+		};
+		save.mutate(payload, {
+			onSuccess: () => {
+				toast.success("Flow saved");
+				setDirty(false);
+			},
+			onError: (e) => showErrorNotification(e as Error),
+		});
+	}
 
 	return (
 		<div className="flex h-screen w-screen flex-col bg-background text-foreground">
@@ -91,7 +158,6 @@ function EditorPage() {
 					)}
 				</div>
 
-				{/* centered tab switcher */}
 				<div className="absolute left-1/2 flex -translate-x-1/2 gap-1 rounded-md border border-border p-1">
 					{TABS.map((t) => (
 						<Button
@@ -122,8 +188,12 @@ function EditorPage() {
 							{route.active ? "Active" : "Inactive"}
 						</Switch>
 					)}
-					{/* ponytail: Save needs the change-tracker (diff payload) — next stage */}
-					<Button variant="outline" isDisabled>
+					<Button
+						variant="primary"
+						isDisabled={!dirty}
+						isPending={save.isPending}
+						onPress={onSave}
+					>
 						Save
 					</Button>
 				</div>
@@ -144,7 +214,15 @@ function EditorPage() {
 					</div>
 				) : (
 					<ReactFlowProvider>
-						<Canvas nodes={initialNodes} edges={initialEdges} />
+						<Flow
+							nodes={nodes}
+							edges={edges}
+							onNodesChange={onNodesChange}
+							onEdgesChange={onEdgesChange}
+							setNodes={setNodes}
+							setEdges={setEdges}
+							markDirty={() => setDirty(true)}
+						/>
 					</ReactFlowProvider>
 				)}
 			</div>
@@ -152,16 +230,19 @@ function EditorPage() {
 	);
 }
 
-function Canvas({ nodes: initN, edges: initE }: { nodes: Node[]; edges: Edge[] }) {
-	const [nodes, setNodes, onNodesChange] = useNodesState(initN);
-	const [edges, setEdges, onEdgesChange] = useEdgesState(initE);
+type FlowProps = {
+	nodes: Node[];
+	edges: Edge[];
+	onNodesChange: Parameters<typeof ReactFlow>[0]["onNodesChange"];
+	onEdgesChange: Parameters<typeof ReactFlow>[0]["onEdgesChange"];
+	setNodes: ReturnType<typeof useNodesState<Node>>[1];
+	setEdges: ReturnType<typeof useEdgesState<Edge>>[1];
+	markDirty: () => void;
+};
+
+function Flow({ nodes, edges, onNodesChange, onEdgesChange, setNodes, setEdges, markDirty }: FlowProps) {
 	const [paletteOpen, setPaletteOpen] = useState(false);
 	const { screenToFlowPosition } = useReactFlow();
-
-	useEffect(() => {
-		setNodes(initN);
-		setEdges(initE);
-	}, [initN, initE, setNodes, setEdges]);
 
 	function addBlock(type: string) {
 		const position = screenToFlowPosition({
@@ -170,15 +251,16 @@ function Canvas({ nodes: initN, edges: initE }: { nodes: Node[]; edges: Edge[] }
 		});
 		setNodes((n) => [
 			...n,
-			{
-				id: crypto.randomUUID(),
-				type,
-				position,
-				data: { sources: [], targets: [] },
-			},
+			{ id: crypto.randomUUID(), type, position, data: { sources: [], targets: [] } },
 		]);
 		setPaletteOpen(false);
+		markDirty();
 		toast.success("Block added");
+	}
+
+	function onConnect(conn: Connection) {
+		setEdges((e) => addEdge(conn, e));
+		markDirty();
 	}
 
 	return (
@@ -186,8 +268,16 @@ function Canvas({ nodes: initN, edges: initE }: { nodes: Node[]; edges: Edge[] }
 			<ReactFlow
 				nodes={nodes}
 				edges={edges}
-				onNodesChange={onNodesChange}
-				onEdgesChange={onEdgesChange}
+				onNodesChange={(c) => {
+					onNodesChange?.(c);
+					if (c.some((ch) => ch.type !== "select" && ch.type !== "dimensions"))
+						markDirty();
+				}}
+				onEdgesChange={(c) => {
+					onEdgesChange?.(c);
+					if (c.some((ch) => ch.type !== "select")) markDirty();
+				}}
+				onConnect={onConnect}
 				nodeTypes={nodeTypes}
 				fitView
 				proOptions={{ hideAttribution: true }}
