@@ -10,7 +10,7 @@ export enum AgentNode {
 	PLANNER = "planner",
 	TASK_GENERATOR = "taskGenerator",
 	DISCUSSION = "discussion",
-	BUILDER = "builder",
+	BLOCK_BUILDER = "blockBuilder",
 	ORCHESTRATOR = "orchestrator",
 	HUMAN_IN_THE_LOOP = "humanInTheLoop",
 	ROUTE_CONFIG_AGENT = "routeConfig",

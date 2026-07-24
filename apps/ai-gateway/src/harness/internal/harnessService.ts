@@ -94,6 +94,27 @@ export class HarnessService {
 	}
 
 	/**
+	 * Returns the userId that owns this conversation (the pub/sub subject key), or
+	 * null if the conversation has no owner / does not exist.
+	 */
+	async getOwnerUserId(): Promise<string | null> {
+		try {
+			const rows = await db
+				.select({ userId: agentHarnessConversationsEntity.userId })
+				.from(agentHarnessConversationsEntity)
+				.where(eq(agentHarnessConversationsEntity.id, this.conversationId))
+				.limit(1);
+			return rows[0]?.userId ?? null;
+		} catch (error) {
+			logger.error("[HarnessService] Error reading conversation owner", {
+				conversationId: this.conversationId,
+				error,
+			});
+			return null;
+		}
+	}
+
+	/**
 	 * Ensures a conversation row exists for this service's conversationId.
 	 * Inserts with the given owner/project if absent, otherwise leaves it as-is.
 	 * Used before APIs exist to bootstrap a conversation for a run.

@@ -47,7 +47,7 @@ const workflow = new StateGraph(GraphState)
 		const agent = new RouteConfigAgent(state);
 		return await agent.execute();
 	})
-	.addNode(AgentNode.BUILDER, async (state: GlobalGraphState) => {
+	.addNode(AgentNode.BLOCK_BUILDER, async (state: GlobalGraphState) => {
 		const agent = new BlockBuilderAgent(state);
 		return await agent.execute();
 	})
@@ -113,7 +113,7 @@ const workflow = new StateGraph(GraphState)
 	.addEdge(AgentNode.HUMAN_IN_THE_LOOP, END)
 	.addEdge(AgentNode.DISCUSSION, END)
 	.addEdge(AgentNode.ROUTE_CONFIG_AGENT, AgentNode.SUPERVISOR)
-	.addEdge(AgentNode.BUILDER, AgentNode.SUPERVISOR)
+	.addEdge(AgentNode.BLOCK_BUILDER, AgentNode.SUPERVISOR)
 	.addEdge(AgentNode.SUPERVISOR, AgentNode.ORCHESTRATOR)
 	.addEdge(AgentNode.SUMMARIZER, END);
 

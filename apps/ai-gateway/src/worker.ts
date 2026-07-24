@@ -10,6 +10,6 @@ export async function runWorker() {
 	await loadAppConfig();
 	await loadIntegrations();
 	initializeAIWorkflow();
-	initializeHarnessWorker();
+	await initializeHarnessWorker();
 	logger.info("Worker process started successfully.", "Worker");
 }

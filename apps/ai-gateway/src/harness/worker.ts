@@ -1,5 +1,6 @@
 import { Worker } from "bullmq";
 import { logger } from "@fluxify/common";
+import { initializePubSub } from "@fluxify/server";
 import { REDIS_HOST, REDIS_PASS, REDIS_PORT, REDIS_USER } from "../lib/env";
 import { HARNESS_QUEUE_NAME, type HarnessJobData } from "./queue";
 import { AgentFactory } from "./models/factory";
@@ -12,8 +13,12 @@ let worker: Worker<HarnessJobData> | null = null;
  * Starts the BullMQ worker that consumes harness jobs and drives a run through
  * the graph. Runs in the gateway worker thread (see worker.ts -> runWorker).
  */
-export function initializeHarnessWorker() {
+export async function initializeHarnessWorker() {
 	if (worker) return worker;
+
+	// The worker publishes progress to NATS (`conversations.<userId>`); ensure the
+	// pub/sub client is connected before any job runs. Idempotent.
+	await initializePubSub();
 
 	worker = new Worker<HarnessJobData>(
 		HARNESS_QUEUE_NAME,

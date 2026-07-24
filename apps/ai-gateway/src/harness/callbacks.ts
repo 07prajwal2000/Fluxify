@@ -1,4 +1,3 @@
-import type { Job } from "bullmq";
 import { dispatchCustomEvent } from "@langchain/core/callbacks/dispatch";
 import { logger } from "@fluxify/common";
 import {
@@ -19,7 +18,7 @@ import {
 } from "./streamTypes";
 import type { HarnessService } from "./internal/harnessService";
 import type { RedisService } from "./internal/redisService";
-import type { HarnessJobData } from "./queue";
+import { publishHarnessEvent } from "./notifications";
 
 export async function dispatchAgentEvent(event: AgentCustomEvent): Promise<void> {
 	await dispatchCustomEvent(event.name, event.data);
@@ -37,7 +36,9 @@ export interface HarnessCallbackContext {
 	runId: string;
 	harnessService: HarnessService;
 	redisService: RedisService;
-	job?: Job<HarnessJobData>;
+	/** Conversation owner — the `conversations.<userId>` subject to publish to.
+	 *  Null when the conversation has no owner (e.g. the local demo). */
+	userId: string | null;
 }
 
 /**
@@ -55,7 +56,7 @@ export class HarnessCallbacks {
 	private runId: string;
 	private harnessService: HarnessService;
 	private redisService: RedisService;
-	private job?: Job<HarnessJobData>;
+	private userId: string | null;
 	/** Shallow-merged accumulation of node outputs for live-state snapshots. */
 	private mergedState: Partial<GlobalGraphState>;
 	/** Serialized, off-hot-path emit chain. Emitting must never block the
@@ -69,7 +70,7 @@ export class HarnessCallbacks {
 		this.runId = ctx.runId;
 		this.harnessService = ctx.harnessService;
 		this.redisService = ctx.redisService;
-		this.job = ctx.job;
+		this.userId = ctx.userId;
 		this.mergedState = { ...ctx.state };
 	}
 
@@ -103,12 +104,12 @@ export class HarnessCallbacks {
 	}
 
 	/** Non-blocking: schedules the event on the serialized emit chain and returns
-	 *  immediately so the graph is never gated on Redis / BullMQ. */
+	 *  immediately so the graph is never gated on Redis / NATS. */
 	private emit(event: HarnessStreamEvent): void {
 		this.emitChain = this.emitChain.then(async () => {
 			try {
 				await this.redisService.appendEvent(event);
-				await this.job?.updateProgress(event as any);
+				if (this.userId) publishHarnessEvent(this.userId, event);
 			} catch (error) {
 				logger.error("Error emitting event", "HarnessCallbacks", {
 					runId: this.runId,
@@ -162,13 +163,13 @@ export class HarnessCallbacks {
 			}
 			case AgentNode.SUMMARIZER:
 				return { node: AgentNode.SUMMARIZER, data: output.summarizerState ?? {} };
-			case AgentNode.BUILDER:
+			case AgentNode.BLOCK_BUILDER:
 			case AgentNode.ROUTE_CONFIG_AGENT: {
 				const task = output.activeTask ?? input.activeTask;
 				if (!task) return undefined;
 				const result = output.orchestratorState?.subAgentResults?.[task.id];
 				return {
-					node: node as AgentNode.BUILDER | AgentNode.ROUTE_CONFIG_AGENT,
+					node: node as AgentNode.BLOCK_BUILDER | AgentNode.ROUTE_CONFIG_AGENT,
 					data: {
 						task: {
 							id: task.id,
