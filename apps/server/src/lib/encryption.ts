@@ -1,4 +1,5 @@
 import crypto from "crypto";
+import { getEnv } from "./env";
 
 // AES-256-GCM encryption/decryption utilities
 export class EncryptionService {
@@ -8,7 +9,7 @@ export class EncryptionService {
   private static readonly AUTH_TAG_LENGTH = 16; // 128 bits
 
   private static getMasterKey(): Buffer {
-    const key = process.env.MASTER_ENCRYPTION_KEY;
+    const key = getEnv("MASTER_ENCRYPTION_KEY");
     if (!key) {
       throw new Error("MASTER_ENCRYPTION_KEY environment variable is not set");
     }

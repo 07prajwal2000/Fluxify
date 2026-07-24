@@ -5,9 +5,10 @@ import { BlockTypes } from "@fluxify/blocks";
 import { mapBuilderOutput } from "./lib/ai/responseMapper";
 
 import { logger } from "@fluxify/common";
+import { getEnv } from "./lib/env";
 
 const cloudModel = new OpenAICompatibleIntegration({
-  apiKey: process.env.AI_API_KEY!,
+  apiKey: getEnv("AI_API_KEY")!,
   model: "mistral-medium-3-5",
   baseUrl: "https://api.mistral.ai/v1",
 });

@@ -8,12 +8,13 @@ import {
 } from "../db/redis";
 import { eq } from "drizzle-orm";
 import { logger } from "@fluxify/common";
+import { getEnv } from "../lib/env";
 
 export async function loadRoutes() {
 	const parser = new HttpRouteParser();
 	const routes = await fetchRoutes();
 
-	const canHotreload = process.env.HOT_RELOAD_ROUTES == "true";
+	const canHotreload = getEnv("HOT_RELOAD_ROUTES") == "true";
 	if (canHotreload) {
 		// register to chan:on-route-change signal from redis event
 		logger.info("routes hot reloading enabled");

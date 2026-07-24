@@ -15,13 +15,15 @@ export async function revokeSessions(userId: string) {
 	}
 }
 
+import { getEnv } from "../../lib/env";
+
 export function hasAdminAccess(
 	user?: (User & { isSystemAdmin: boolean }) | null,
 	systemAccessKey?: string,
 ): boolean {
 	return !!(
 		user?.isSystemAdmin ||
-		(systemAccessKey && systemAccessKey === process.env.SYSTEM_ACCESS_KEY)
+		(systemAccessKey && systemAccessKey === getEnv("SYSTEM_ACCESS_KEY"))
 	);
 }
 
