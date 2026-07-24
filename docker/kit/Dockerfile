@@ -11,9 +11,11 @@ COPY package.json bun.lock ./
 COPY apps/server/package.json apps/server/package.json
 COPY apps/web/package.json apps/web/package.json
 COPY apps/ai-gateway/package.json apps/ai-gateway/package.json
+COPY apps/portal/package.json apps/portal/package.json
 COPY packages/adapters/package.json packages/adapters/package.json
 COPY packages/blocks/package.json packages/blocks/package.json
 COPY packages/common/package.json packages/common/package.json
+COPY packages/components/package.json packages/components/package.json
 COPY packages/lib/package.json packages/lib/package.json
 COPY scripts/setup-hooks.ts scripts/setup-hooks.ts
 
