@@ -9,7 +9,10 @@ import {
 	OTLP_AUTH_HEADER_VALUE,
 	OTLP_AUTH_HEADER_NAME,
 	OTLP_LOGGER_ENABLED,
+	validateEnv,
 } from "./lib/env";
+
+validateEnv();
 import { drizzleInit, initializeRedis, initializePubSub } from "@fluxify/server";
 import { initializeWorkflowQueue } from "./workflow/queue";
 import { initializeHarnessQueue } from "./harness/queue";

@@ -10,13 +10,14 @@ import { admin } from "better-auth/plugins";
 import { sso } from "@better-auth/sso";
 import { generateID } from "@fluxify/lib";
 import { getSetting } from "../loaders/instanceSettingsLoader";
+import { getEnv } from "./env";
 
 export let auth: ReturnType<typeof initializeAuth> = null!;
 
 function trustedOrigins() {
-	const origins = process.env.TRUSTED_ORIGINS?.split(",").map((o) =>
+	const origins = getEnv("TRUSTED_ORIGINS")?.split(",").map((o) =>
 		o.trim(),
-	) ?? [process.env.SERVER_URL!];
+	) ?? [getEnv("SERVER_URL")!];
 	// The configured SSO issuer is inherently trusted (an admin set it); the SSO
 	// plugin validates the OIDC discovery endpoint against trustedOrigins, so add
 	// the issuer/discovery origin here to allow the discovery fetch.
@@ -65,7 +66,7 @@ function ssoDefaults(): NonNullable<Parameters<typeof sso>[0]>["defaultSSO"] {
 				issuer: cfg.issuer,
 				entryPoint: cfg.entryPoint!,
 				cert: cfg.samlCert!,
-				callbackUrl: `${process.env.SERVER_URL!}/_/admin/api/auth/sso/saml2/callback/${cfg.providerId}`,
+				callbackUrl: `${getEnv("SERVER_URL")!}/_/admin/api/auth/sso/saml2/callback/${cfg.providerId}`,
 				spMetadata: { metadata: "" },
 			},
 		},

@@ -14,6 +14,7 @@ import {
 	OTLP_ENDPOINT,
 	OTLP_LOGGER_ENABLED,
 	OTLP_LOGGER_LEVEL,
+	getEnv,
 } from "../src/lib/env";
 
 // JSON has no BigInt type; DB bigint columns break JSON.stringify (and c.json).
@@ -22,7 +23,7 @@ import {
 	return this.toString();
 };
 
-const port = Number(process.env.WORKER_PORT) || 5600;
+const port = Number(getEnv("WORKER_PORT")) || 5600;
 
 initializeLogger({
 	serviceName: "fluxify.worker",

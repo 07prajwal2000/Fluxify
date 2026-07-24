@@ -5,6 +5,7 @@ import type { BunSQLQueryResultHKT, BunSQLDatabase } from "drizzle-orm/bun-sql";
 import type { ExtractTablesWithRelations } from "drizzle-orm";
 import { migrateDB } from "./migration";
 import { logger } from "@fluxify/common";
+import { getEnv } from "../lib/env";
 
 let db: BunSQLDatabase = null!;
 
@@ -15,7 +16,7 @@ export async function drizzleInit(migrate: boolean = false) {
 }
 
 async function initializePostgres() {
-	const pgUrl = process.env.PG_URL;
+	const pgUrl = getEnv("PG_URL");
 	if (!pgUrl) {
 		throw new Error("postgres connection url is required for drizzle");
 	}

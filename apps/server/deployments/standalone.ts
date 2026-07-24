@@ -3,7 +3,9 @@ import { app } from "../src/server";
 import { logger } from "@fluxify/common";
 import { closePubSub } from "../src/db/pubsub";
 
-const port = Number(process.env.SERVER_PORT) || 5500;
+import { getEnv } from "../src/lib/env";
+
+const port = Number(getEnv("SERVER_PORT")) || 5500;
 
 const server = serve({
 	fetch: app.fetch,

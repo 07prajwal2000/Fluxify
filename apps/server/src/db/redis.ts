@@ -1,5 +1,6 @@
 import { logger } from "@fluxify/common";
 import { Redis } from "ioredis";
+import { getEnv } from "../lib/env";
 
 // Pub/sub moved off Redis to NATS (ioredis subscriber-mode reconnect kept
 // killing hot reload). Re-exported here so existing `db/redis` importers keep
@@ -30,10 +31,10 @@ export function initializeRedis(_hotReload?: boolean) {
 
 function createRedisClient() {
 	return new Redis({
-		host: process.env.REDIS_HOST!,
-		port: Number(process.env.REDIS_PORT!),
-		username: process.env.REDIS_USER!,
-		password: process.env.REDIS_PASS!,
+		host: getEnv("REDIS_HOST")!,
+		port: Number(getEnv("REDIS_PORT")!),
+		username: getEnv("REDIS_USER")!,
+		password: getEnv("REDIS_PASS")!,
 		connectionName: crypto.randomUUID().substring(0, 6),
 	});
 }

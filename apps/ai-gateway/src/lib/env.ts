@@ -1,25 +1,83 @@
-type LogLevel = "info" | "warn" | "error";
-type EnvType = "development" | "production" | "testing" | "staging";
+import { baseEnvSchema, createEnvValidator, validatePortString } from "@fluxify/common";
+import { z } from "zod";
 
-export const OTLP_ENDPOINT = process.env.OTLP_LOGS_ENDPOINT!;
-export const PG_URL = process.env.PG_URL!;
-export const OTLP_AUTH_HEADER_NAME = process.env.OTLP_AUTH_HEADER_NAME!;
-export const OTLP_AUTH_HEADER_VALUE = process.env.OTLP_AUTH_HEADER_VALUE!;
-export const OTLP_LOGGER_ENABLED = process.env.OTLP_LOGGER_ENABLED!;
+type LogLevel = "info" | "warn" | "error" | "debug" | "trace";
+type EnvType = "development" | "production" | "testing" | "test" | "ci" | "staging";
 
-export const LLM_TRACING_ENABLED = process.env.LLM_TRACING_ENABLED === "true";
-export const LLM_OTLP_TRACES_ENDPOINT = process.env.LLM_OTLP_TRACES_ENDPOINT!;
-export const LLM_OTLP_TRACES_HEADERS = process.env.LLM_OTLP_TRACES_HEADERS;
-export const LLM_TRACING_SAMPLE_RATE = Number(process.env.LLM_TRACING_SAMPLE_RATE ?? "1.0");
+export const aiGatewayEnvSchema = baseEnvSchema.extend({
+	AI_GATEWAY_PORT: z
+		.string()
+		.optional()
+		.refine(validatePortString, {
+			message: "AI_GATEWAY_PORT must be an integer between 1001 and 65535",
+		})
+		.describe("Port number for AI Gateway service (1001-65535)"),
+
+	LLM_TRACING_ENABLED: z
+		.enum(["true", "false"])
+		.optional()
+		.describe("Enable OpenTelemetry tracing for LLM operations ('true' | 'false')"),
+
+	LLM_OTLP_TRACES_ENDPOINT: z
+		.string()
+		.optional()
+		.refine((val) => !val || z.string().url().safeParse(val).success, {
+			message: "LLM_OTLP_TRACES_ENDPOINT must be a valid HTTP/HTTPS URL",
+		})
+		.describe("OTLP collector HTTP endpoint URL for LLM trace ingestion"),
+
+	LLM_OTLP_TRACES_HEADERS: z
+		.string()
+		.max(1000)
+		.optional()
+		.describe("Additional HTTP headers for LLM trace exporter (max 1000 characters)"),
+
+	LLM_TRACING_SAMPLE_RATE: z
+		.string()
+		.optional()
+		.refine(
+			(val) => {
+				if (!val) return true;
+				const num = Number(val);
+				return !isNaN(num) && num >= 0.0 && num <= 1.0;
+			},
+			{ message: "LLM_TRACING_SAMPLE_RATE must be a float between 0.0 and 1.0" },
+		)
+		.describe("Sampling rate for LLM traces (0.0 to 1.0)"),
+
+	DOCS_INDEX_FILE_PATH: z
+		.string()
+		.max(500)
+		.optional()
+		.describe("File path to the documentation vector index binary file (max 500 characters)"),
+});
+
+// Extract keys using keyof
+export type AiGatewayEnvKey = keyof z.infer<typeof aiGatewayEnvSchema>;
+
+const validator = createEnvValidator(aiGatewayEnvSchema, "AI Gateway");
+export const validateEnv = validator.validateEnv;
+export const getEnv = validator.getEnv;
+
+export const OTLP_ENDPOINT = getEnv("OTLP_LOGS_ENDPOINT")!;
+export const PG_URL = getEnv("PG_URL")!;
+export const OTLP_AUTH_HEADER_NAME = getEnv("OTLP_AUTH_HEADER_NAME")!;
+export const OTLP_AUTH_HEADER_VALUE = getEnv("OTLP_AUTH_HEADER_VALUE")!;
+export const OTLP_LOGGER_ENABLED = getEnv("OTLP_LOGGER_ENABLED")!;
+
+export const LLM_TRACING_ENABLED = getEnv("LLM_TRACING_ENABLED") === "true";
+export const LLM_OTLP_TRACES_ENDPOINT = getEnv("LLM_OTLP_TRACES_ENDPOINT")!;
+export const LLM_OTLP_TRACES_HEADERS = getEnv("LLM_OTLP_TRACES_HEADERS");
+export const LLM_TRACING_SAMPLE_RATE = Number(getEnv("LLM_TRACING_SAMPLE_RATE") ?? "1.0");
 
 export const OTLP_LOGGER_LEVEL: LogLevel =
-	(process.env.OTLP_LOGGER_LEVEL as LogLevel) || "info";
+	(getEnv("OTLP_LOGGER_LEVEL") as LogLevel) || "info";
 export const NODE_ENV: EnvType =
-	(process.env.NODE_ENV as EnvType) || "development";
-export const REDIS_HOST = process.env.REDIS_HOST!;
-export const REDIS_PORT = process.env.REDIS_PORT!;
-export const REDIS_USER = process.env.REDIS_USER!;
-export const REDIS_PASS = process.env.REDIS_PASS!;
-export const AI_GATEWAY_PORT = Number(process.env.AI_GATEWAY_PORT) || 8001;
+	(getEnv("NODE_ENV") as EnvType) || "development";
+export const REDIS_HOST = getEnv("REDIS_HOST")!;
+export const REDIS_PORT = getEnv("REDIS_PORT")!;
+export const REDIS_USER = getEnv("REDIS_USER")!;
+export const REDIS_PASS = getEnv("REDIS_PASS")!;
+export const AI_GATEWAY_PORT = Number(getEnv("AI_GATEWAY_PORT")) || 8001;
 export const DOCS_INDEX_FILE_PATH =
-	process.env.DOCS_INDEX_FILE_PATH! || "../dist/docs-index.bin";
+	getEnv("DOCS_INDEX_FILE_PATH")! || "../dist/docs-index.bin";

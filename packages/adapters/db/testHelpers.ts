@@ -1,6 +1,7 @@
 import Docker from "dockerode";
+import { getEnv } from "../env";
 
-export const isCI = process.env.CI === "true";
+export const isCI = getEnv("CI") === "true";
 
 export const docker = isCI
 	? new Docker({ socketPath: "/var/run/docker.sock" })
