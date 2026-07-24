@@ -46,7 +46,7 @@ export class SupervisorAgent extends BaseAgent {
 				case AgentNode.ROUTE_CONFIG_AGENT:
 					error = await validateRouteConfig(result, task.id, this.state);
 					break;
-				case AgentNode.BUILDER:
+				case AgentNode.BLOCK_BUILDER:
 					error = await validateBlockBuilderOutput(result, task.id, this.state);
 					break;
 				default:

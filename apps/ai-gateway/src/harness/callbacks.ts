@@ -163,13 +163,13 @@ export class HarnessCallbacks {
 			}
 			case AgentNode.SUMMARIZER:
 				return { node: AgentNode.SUMMARIZER, data: output.summarizerState ?? {} };
-			case AgentNode.BUILDER:
+			case AgentNode.BLOCK_BUILDER:
 			case AgentNode.ROUTE_CONFIG_AGENT: {
 				const task = output.activeTask ?? input.activeTask;
 				if (!task) return undefined;
 				const result = output.orchestratorState?.subAgentResults?.[task.id];
 				return {
-					node: node as AgentNode.BUILDER | AgentNode.ROUTE_CONFIG_AGENT,
+					node: node as AgentNode.BLOCK_BUILDER | AgentNode.ROUTE_CONFIG_AGENT,
 					data: {
 						task: {
 							id: task.id,

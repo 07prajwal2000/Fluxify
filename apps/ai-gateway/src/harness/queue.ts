@@ -1,5 +1,4 @@
 import { Queue } from "bullmq";
-import { EventEmitter } from "events";
 import { logger } from "@fluxify/common";
 import { REDIS_HOST, REDIS_PASS, REDIS_PORT, REDIS_USER } from "../lib/env";
 import type { HitlPlanAction } from "./internal/harnessService";
@@ -42,10 +41,6 @@ function connection() {
 }
 
 export let harnessQueue: Queue<HarnessJobData> = null!;
-/** In-process fan-out for live subscribers (SSE today, socket.io next), keyed by
- *  conversationId. Fed from the NATS `conversations.*` subscriber, not BullMQ —
- *  see notifications.startConversationEventBridge. */
-export let harnessEventEmitter: EventEmitter = null!;
 
 let initialized = false;
 
@@ -55,9 +50,6 @@ export function initializeHarnessQueue() {
 	harnessQueue = new Queue<HarnessJobData>(HARNESS_QUEUE_NAME, {
 		connection: connection(),
 	});
-	harnessEventEmitter = new EventEmitter();
-	// Allow many concurrent subscribers per process.
-	harnessEventEmitter.setMaxListeners(0);
 
 	initialized = true;
 	logger.info("Initialized", "HarnessQueue");

@@ -1,7 +1,6 @@
 import { z } from "zod";
 import { logger } from "@fluxify/common";
 import { publishMessage, subscribeToChannel } from "@fluxify/server";
-import { harnessEventEmitter } from "./queue";
 import type { HarnessStreamEvent } from "./streamTypes";
 
 /* ============================================================================
@@ -104,21 +103,4 @@ export async function subscribeConversations(
 		}
 		handler(parsed.data);
 	});
-}
-
-/**
- * Bridges `conversations.*` into the in-process event bus so local consumers
- * (SSE today, socket.io rooms next) can read live updates without touching
- * NATS directly. Re-emits harness events keyed by conversationId.
- */
-export async function startConversationEventBridge(): Promise<
-	() => Promise<void>
-> {
-	const unsubscribe = await subscribeConversations((message) => {
-		if (message.type === ConversationMsgType.HARNESS_EVENT) {
-			harnessEventEmitter.emit(message.conversationId, message.event);
-		}
-	});
-	logger.info("Subscribed to conversations.*", "Conversations");
-	return unsubscribe;
 }
