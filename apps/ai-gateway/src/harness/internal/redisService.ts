@@ -14,9 +14,13 @@ import type {
  * is race-free. Uses the shared `@fluxify/server` cache helpers (ioredis).
  */
 export class RedisService {
-	/** TTL for cached snapshots (seconds). Kept alive past completion so late
-	 *  subscribers still receive the final state. */
-	private static readonly SNAPSHOT_TTL = 3600;
+	/** TTL while a run is live (seconds). Long enough to never evict mid-run; acts
+	 *  only as a safety net if a worker dies without finalizing (see finalizeSnapshot).
+	 *  ponytail: fixed 6h ceiling — only leaks on a hard worker crash, self-heals. */
+	private static readonly RUNNING_TTL = 6 * 3600;
+	/** TTL applied once a run finishes (any terminal state) so the key auto-evicts
+	 *  shortly after, giving late subscribers a brief window to read the final state. */
+	private static readonly FINALIZE_TTL = 60;
 	/** Max events retained in a snapshot to bound cache size. */
 	private static readonly MAX_EVENTS = 200;
 
@@ -33,7 +37,7 @@ export class RedisService {
 			await setCacheEx(
 				this.activeRunKey(conversationId),
 				runId,
-				RedisService.SNAPSHOT_TTL,
+				RedisService.RUNNING_TTL,
 			);
 		} catch (e) {
 			logger.error("[RedisService] Error setting active run", { conversationId, error: e });
@@ -86,7 +90,7 @@ export class RedisService {
 			await setCacheEx(
 				this.snapshotKey(event.runId),
 				JSON.stringify(snapshot),
-				RedisService.SNAPSHOT_TTL,
+				RedisService.RUNNING_TTL,
 			);
 		} catch (e) {
 			logger.error("[RedisService] Error appending event", {
@@ -94,6 +98,26 @@ export class RedisService {
 				node: event.node,
 				error: e,
 			});
+		}
+	}
+
+	/**
+	 * Marks a run's snapshot as finished by shortening its TTL to FINALIZE_TTL, so
+	 * the whole-run-state key auto-evicts a minute after completion (success,
+	 * failure, or HITL) instead of being deleted instantly. No-op if the snapshot
+	 * has already expired.
+	 */
+	async finalizeSnapshot(runId: string): Promise<void> {
+		try {
+			const snapshot = await this.getSnapshot(runId);
+			if (!snapshot) return;
+			await setCacheEx(
+				this.snapshotKey(runId),
+				JSON.stringify(snapshot),
+				RedisService.FINALIZE_TTL,
+			);
+		} catch (e) {
+			logger.error("[RedisService] Error finalizing snapshot", { runId, error: e });
 		}
 	}
 
