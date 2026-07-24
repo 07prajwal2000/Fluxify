@@ -3,8 +3,10 @@
 	"version": "1.0.0",
 	"type": "module",
 	"scripts": {
-		"dev": "concurrently 'bun run dev:server' 'bun run dev:web' 'bun run dev:ai' 'bun run dev:docs'",
+		"dev": "concurrently 'bun run dev:server' 'bun run dev:worker' 'bun run dev:web' 'bun run dev:ai' 'bun run dev:docs'",
 		"dev:server": "bun run --env-file=./apps/server/.env --watch ./apps/server/deployments/standalone.ts",
+		"dev:worker": "bun run --env-file=./apps/server/.env --watch ./apps/server/deployments/worker.ts",
+		"worker": "bun run --env-file=./apps/server/.env ./apps/server/deployments/worker.ts",
 		"dev:ai": "bun run --env-file=./apps/ai-gateway/.env --watch ./apps/ai-gateway/src/server.ts",
 		"dev:web": "turbo run dev --filter=@fluxify/web",
 		"dev:docs": "vitepress dev docs",
