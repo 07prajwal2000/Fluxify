@@ -1,5 +1,5 @@
 import { isMainThread } from "worker_threads";
-import { initializeTracing } from "@fluxify/common";
+import { initializeTracing } from "@fluxify/common/tracing";
 import { LangChainInstrumentation } from "@arizeai/openinference-instrumentation-langchain";
 import {
 	LLM_TRACING_ENABLED,

@@ -20,7 +20,8 @@ export const AuthProvider = (props: Props) => {
 		!session &&
 		!isPending &&
 		!isRefetching &&
-		!window.location.pathname.includes("/login")
+		!window.location.pathname.includes("/login") &&
+		!window.location.pathname.includes("/sso-test")
 	) {
 		redirect("/login");
 	}

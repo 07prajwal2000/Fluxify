@@ -5,6 +5,7 @@ import { accessControlEntity } from "../db/schema";
 import { eq } from "drizzle-orm";
 import { customSession } from "better-auth/plugins";
 import * as authSchemas from "../db/auth-schema";
+import { systemUsers } from "../db/auth-schema";
 import { admin } from "better-auth/plugins";
 import { sso } from "@better-auth/sso";
 import { generateID } from "@fluxify/lib";
@@ -13,11 +14,22 @@ import { getSetting } from "../loaders/instanceSettingsLoader";
 export let auth: ReturnType<typeof initializeAuth> = null!;
 
 function trustedOrigins() {
-	return (
-		process.env.TRUSTED_ORIGINS?.split(",").map((o) => o.trim()) ?? [
-			process.env.SERVER_URL!,
-		]
-	);
+	const origins = process.env.TRUSTED_ORIGINS?.split(",").map((o) =>
+		o.trim(),
+	) ?? [process.env.SERVER_URL!];
+	// The configured SSO issuer is inherently trusted (an admin set it); the SSO
+	// plugin validates the OIDC discovery endpoint against trustedOrigins, so add
+	// the issuer/discovery origin here to allow the discovery fetch.
+	const sso = getSetting("sso_config");
+	for (const url of [sso?.issuer, sso?.discoveryEndpoint]) {
+		if (!url) continue;
+		try {
+			origins.push(new URL(url).origin);
+		} catch {
+			/* ignore malformed url */
+		}
+	}
+	return [...new Set(origins)];
 }
 
 // Build a single inline SSO provider from instance_settings.sso_config.
@@ -61,101 +73,109 @@ function ssoDefaults(): NonNullable<Parameters<typeof sso>[0]>["defaultSSO"] {
 }
 
 export function initializeAuth(db: DB) {
-  const _auth = betterAuth({
-    database: drizzleAdapter(db, {
-      provider: "pg",
-      schema: authSchemas,
-    }),
-    basePath: "/_/admin/api/auth",
-    trustedOrigins: trustedOrigins(),
-    user: {
-      additionalFields: {
-        isSystemAdmin: {
-          type: "boolean",
-          defaultValue: false,
-        },
-      },
-    },
-    emailAndPassword: {
-      enabled: true,
-      disableSignUp: true,
-      requireEmailVerification: false,
-    },
-    advanced: {
-      database: {
-        generateId: generateID,
-      },
-    },
-    secondaryStorage: {
-      async get(key: string) {
-        return getCache(key);
-      },
-      async set(key: string, value: string, ttl?: number) {
-        if (ttl) {
-          await setCacheEx(key, value, ttl);
-        } else {
-          await setCache(key, value);
-        }
-      },
-      async delete(key: string) {
-        await deleteCacheKey(key);
-      },
-    },
-    plugins: [
-      customSession(async ({ user, session }) => {
-        const acl = await getUserAccessControls(db, session.userId);
-        return {
-          user,
-          session,
-          acl, // extends session with acl
-        };
-      }),
-      admin(),
-      sso({
-        defaultSSO: ssoDefaults(),
-        disableImplicitSignUp: true, // no JIT: unknown emails are never provisioned
-        providersLimit: 0, // single config comes from instance_settings; no runtime registration
-        provisionUser: async ({ userInfo }) => {
-          // Explicit no-JIT guard. disableImplicitSignUp already prevents orphan
-          // rows; this asserts the pre-provisioned invariant and surfaces the
-          // named error if that ever changes.
-          const email = userInfo.email;
-          const existing = email
-            ? await db
-                .select({ id: authSchemas.user.id })
-                .from(authSchemas.user)
-                .where(eq(authSchemas.user.email, email))
-            : [];
-          if (existing.length === 0) {
-            throw new Error("ACCOUNT_NOT_PRE_PROVISIONED");
-          }
-        },
-      }),
-    ],
-  });
-  auth = _auth;
-  return _auth;
+	const _auth = betterAuth({
+		database: drizzleAdapter(db, {
+			provider: "pg",
+			schema: authSchemas,
+		}),
+		basePath: "/_/admin/api/auth",
+		trustedOrigins: trustedOrigins(),
+		emailAndPassword: {
+			enabled: true,
+			disableSignUp: true,
+			requireEmailVerification: false,
+		},
+		databaseHooks: {
+			user: {
+				create: {
+					// Bridge every Better Auth user to the canonical system_users
+					// row and share its id (FK target for the cascade delete).
+					before: async (userData) => {
+						const email = (userData.email ?? "").toLowerCase();
+						const existing = await db
+							.select({ id: systemUsers.id })
+							.from(systemUsers)
+							.where(eq(systemUsers.email, email));
+						if (existing.length > 0) {
+							// pre-created (admin) → reuse its id as the user id
+							return { data: { id: existing[0].id } };
+						}
+						// SSO JIT → create the canonical row first (FK target)
+						await db.insert(systemUsers).values({
+							id: userData.id,
+							email,
+							name: userData.name ?? null,
+						});
+					},
+				},
+			},
+		},
+		advanced: {
+			database: {
+				generateId: generateID,
+			},
+		},
+		secondaryStorage: {
+			async get(key: string) {
+				return getCache(key);
+			},
+			async set(key: string, value: string, ttl?: number) {
+				if (ttl) {
+					await setCacheEx(key, value, ttl);
+				} else {
+					await setCache(key, value);
+				}
+			},
+			async delete(key: string) {
+				await deleteCacheKey(key);
+			},
+		},
+		plugins: [
+			customSession(async ({ user, session }) => {
+				// user.id === system_users.id; isSystemAdmin lives on system_users.
+				const su = await db
+					.select({ isSystemAdmin: systemUsers.isSystemAdmin })
+					.from(systemUsers)
+					.where(eq(systemUsers.id, session.userId));
+				const isSystemAdmin = su[0]?.isSystemAdmin ?? false;
+				const acl = getUserAccessControls(db, session.userId, isSystemAdmin);
+				return {
+					user: { ...user, isSystemAdmin },
+					session,
+					acl: await acl, // extends session with acl
+				};
+			}),
+			admin(),
+			// Single SSO provider loaded from instance_settings.sso_config.
+			// Better Auth handles sign-up + account creation/linking automatically.
+			sso({
+				defaultSSO: ssoDefaults(),
+			}),
+		],
+	});
+	auth = _auth;
+	return _auth;
 }
 
-async function getUserAccessControls(db: DB, userId: string) {
-  const user = await db
-    .select()
-    .from(authSchemas.user)
-    .where(eq(authSchemas.user.id, userId));
-  if (user[0]?.isSystemAdmin) {
-    return [
-      {
-        projectId: "*",
-        role: "system_admin",
-      },
-    ];
-  }
-  const userAccessControls = await db
-    .select({
-      projectId: accessControlEntity.projectId,
-      role: accessControlEntity.role,
-    })
-    .from(accessControlEntity)
-    .where(eq(accessControlEntity.userId, userId));
-  return userAccessControls;
+async function getUserAccessControls(
+	db: DB,
+	userId: string,
+	isSystemAdmin: boolean,
+) {
+	if (isSystemAdmin) {
+		return [
+			{
+				projectId: "*",
+				role: "system_admin",
+			},
+		];
+	}
+	const userAccessControls = await db
+		.select({
+			projectId: accessControlEntity.projectId,
+			role: accessControlEntity.role,
+		})
+		.from(accessControlEntity)
+		.where(eq(accessControlEntity.userId, userId));
+	return userAccessControls;
 }

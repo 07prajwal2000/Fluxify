@@ -17,7 +17,7 @@ export default async function handleRequest(
       email: user.email,
       name: user.name,
       isSystemAdmin: user.isSystemAdmin!,
-      role: user.role as any,
+      role: null,
     })),
     pagination: {
       hasNext,

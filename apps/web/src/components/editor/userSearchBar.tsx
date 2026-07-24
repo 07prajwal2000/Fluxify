@@ -13,7 +13,7 @@ import { TbAlertCircle, TbSearch } from "react-icons/tb";
 
 type User = {
   id: string;
-  name: string;
+  name: string | null;
   email: string;
 };
 

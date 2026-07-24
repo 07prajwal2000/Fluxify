@@ -1,6 +1,13 @@
 import { MongoClient, Db, ClientSession, ObjectId } from "mongodb";
-import { Connection, DbAdapterMode, DBConditionType, IDbAdapter } from ".";
+import {
+	Connection,
+	DbAdapterMode,
+	DBConditionType,
+	IDbAdapter,
+	QueryOptions,
+} from ".";
 import { JsVM } from "@fluxify/lib";
+import { toMongoField, isNumericLike } from "./jsonPath";
 
 export class MongoAdapter implements IDbAdapter {
 	public static variant = "MongoDB";
@@ -37,12 +44,15 @@ export class MongoAdapter implements IDbAdapter {
 		return this.db;
 	}
 
+	// joins are ignored for Mongo (the join UI is hidden when Mongo is selected);
+	// only `columns` applies, as a field projection.
 	async getAll(
 		table: string,
 		conditions: DBConditionType[],
 		limit: number = this.HARD_LIMIT,
 		offset: number = 0,
 		sort: { attribute: string; direction: "asc" | "desc" },
+		options?: QueryOptions,
 	): Promise<unknown[]> {
 		const filter = this.buildFilter(conditions);
 		const l = limit < 0 || limit > this.HARD_LIMIT ? this.HARD_LIMIT : limit;
@@ -52,7 +62,7 @@ export class MongoAdapter implements IDbAdapter {
 
 		const docs = await this.db
 			.collection(table)
-			.find(filter, this.getOptions())
+			.find(filter, this.findOptions(options))
 			.sort(sortDef as Record<string, 1 | -1>)
 			.skip(offset)
 			.limit(l)
@@ -64,11 +74,12 @@ export class MongoAdapter implements IDbAdapter {
 	async getSingle(
 		table: string,
 		conditions: DBConditionType[],
+		options?: QueryOptions,
 	): Promise<unknown | null> {
 		const filter = this.buildFilter(conditions);
 		const doc = await this.db
 			.collection(table)
-			.findOne(filter, this.getOptions());
+			.findOne(filter, this.findOptions(options));
 		return this.mapDoc(doc);
 	}
 
@@ -208,6 +219,23 @@ export class MongoAdapter implements IDbAdapter {
 			: {};
 	}
 
+	// Merges the transaction session with a field projection built from
+	// `columns`. "*"/"table.*"/empty means no projection (all fields). Aliases
+	// (AS) don't apply to Mongo and are dropped; bracket indexes become dots.
+	private findOptions(options?: QueryOptions) {
+		const base = this.getOptions();
+		const cols = options?.columns;
+		if (!cols || cols.length === 0 || cols.some((c) => c.includes("*")))
+			return base;
+
+		const projection: Record<string, 1> = {};
+		for (const raw of cols) {
+			const expr = raw.split(/\s+as\s+/i)[0].trim();
+			projection[expr === "id" ? "_id" : toMongoField(expr)] = 1;
+		}
+		return { ...base, projection };
+	}
+
 	// Arrow function preserves 'this' context when used in array mappings
 	private mapDoc = (doc: Record<string, unknown> | null) => {
 		if (!doc) return null;
@@ -235,11 +263,27 @@ export class MongoAdapter implements IDbAdapter {
 	}
 
 	private createExpr(cond: DBConditionType): Record<string, unknown> {
-		const attr = cond.attribute === "id" ? "_id" : cond.attribute;
+		// "items[0].name" -> "items.0.name"; "id" stays the _id alias.
+		const attr =
+			cond.attribute === "id" ? "_id" : toMongoField(cond.attribute);
 
 		// Explicitly typing as 'unknown' allows us to safely overwrite
 		// the primitive value with a MongoDB ObjectId class instance.
 		let val: unknown = cond.value;
+
+		// Ordering ops carry numeric intent; coerce numeric-like strings so BSON
+		// compares them as numbers instead of by string ordering. eq/neq stay as
+		// typed so string-field equality keeps working.
+		// ponytail: only ordering ops coerce — flip eq/neq here if a numeric field
+		// is ever queried for equality with a string value.
+		if (
+			typeof val === "string" &&
+			cond.operator !== "eq" &&
+			cond.operator !== "neq" &&
+			isNumericLike(val)
+		) {
+			val = Number(val);
+		}
 
 		if (attr === "_id" && typeof val === "string" && val.length === 24) {
 			try {

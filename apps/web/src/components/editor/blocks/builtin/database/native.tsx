@@ -45,7 +45,7 @@ export function NativeBlockHelpPanel(props: {
 			Here you have access to <code>dbQuery</code> async function to perform
 			database operations. The implementation depends on the selected database
 			connection. Please refer to the{" "}
-			<a href="https://docs.fluxify.rest/blocks/db-native/" target="_blank">
+			<a href="https://docs.fluxify.rest/blocks/db-native.html" target="_blank">
 				documentation.
 			</a>
 		</Alert>

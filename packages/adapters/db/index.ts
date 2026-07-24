@@ -19,6 +19,9 @@ export const whereConditionSchema = z.object({
 
 export type DBConditionType = z.infer<typeof whereConditionSchema>;
 
+export type { DBJoinType, QueryOptions } from "./jsonPath";
+import type { QueryOptions } from "./jsonPath";
+
 export enum DbAdapterMode {
 	NORMAL = 1,
 	TRANSACTION = 2,
@@ -31,10 +34,12 @@ export interface IDbAdapter {
 		limit: number,
 		offset: number,
 		sort: { attribute: string; direction: "asc" | "desc" },
+		options?: QueryOptions,
 	): Promise<unknown[]>;
 	getSingle(
 		table: string,
 		conditions: DBConditionType[],
+		options?: QueryOptions,
 	): Promise<unknown | null>;
 	insert(table: string, data: unknown): Promise<any>;
 	insertBulk(table: string, data: unknown[]): Promise<any>;

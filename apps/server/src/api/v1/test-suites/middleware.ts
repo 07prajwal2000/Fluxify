@@ -1,9 +1,9 @@
 import { Next } from "hono";
 import {
-  AccessControlRole,
-  AuthACL,
-  routesEntity,
-  testSuitesEntity,
+	AccessControlRole,
+	AuthACL,
+	routesEntity,
+	testSuitesEntity,
 } from "../../../db/schema";
 import { db } from "../../../db";
 import { eq } from "drizzle-orm";
@@ -13,20 +13,17 @@ import { canAccessProject } from "../../../lib/acl";
 import { User } from "better-auth";
 import { HonoContext } from "../../../types";
 
-export function requireTestSuiteAccess(requiredRole: AccessControlRole) {
+export function requireTestSuiteAccess(
+  requiredRole: AccessControlRole,
+  getParams: (ctx: HonoContext) => { suiteId?: string; routeId?: string } | Promise<{ suiteId?: string; routeId?: string }> = (ctx) => ({ suiteId: ctx.req.param("id") })
+) {
   return async function (ctx: HonoContext, next: Next) {
     // 1. Resolve projectId
-    const suiteId = ctx.req.param("id");
-    let routeId = ctx.req.query("route_id");
+    const { suiteId, routeId } = await getParams(ctx);
     let projectId: string | null = null;
 
-    if (!routeId && ctx.req.method === "POST" && !suiteId) {
-      // Handle body for create endpoint
-      const bodyTemplate = await ctx.req.raw
-        .clone()
-        .json()
-        .catch(() => ({}));
-      routeId = bodyTemplate?.route_id;
+    if (!suiteId && !routeId) {
+      throw new NotFoundError("Test suite ID or Route ID not provided");
     }
 
     if (suiteId) {
@@ -40,6 +37,7 @@ export function requireTestSuiteAccess(requiredRole: AccessControlRole) {
       if (!suite || !suite.test_suites)
         throw new NotFoundError("Test suite not found");
       if (!suite.routes) throw new NotFoundError("Associated route not found");
+
       projectId = suite.routes.projectId as string;
       ctx.set("testSuite", suite.test_suites);
       ctx.set("routeId", suite.routes.id);
@@ -60,16 +58,16 @@ export function requireTestSuiteAccess(requiredRole: AccessControlRole) {
 
     ctx.set("projectId", projectId);
 
-    // 2. Validate Access
-    const user = ctx.get("user") as User & { isSystemAdmin: boolean };
-    if (user?.isSystemAdmin) {
-      return next();
-    }
-    const acl = ctx.get("acl") as AuthACL[];
-    if (!acl || !canAccessProject(acl, projectId, requiredRole)) {
-      throw new ForbiddenError();
-    }
+		// 2. Validate Access
+		const user = ctx.get("user") as User & { isSystemAdmin: boolean };
+		if (user?.isSystemAdmin) {
+			return next();
+		}
+		const acl = ctx.get("acl") as AuthACL[];
+		if (!acl || !canAccessProject(acl, projectId, requiredRole)) {
+			throw new ForbiddenError();
+		}
 
-    return next();
-  };
+		return next();
+	};
 }

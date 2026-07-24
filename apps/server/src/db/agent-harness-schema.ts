@@ -11,7 +11,7 @@ import {
 	timestamp,
 	varchar,
 } from "drizzle-orm/pg-core";
-import { user } from "./auth-schema";
+import { systemUsers } from "./auth-schema";
 import { projectsEntity } from "./schema";
 
 /* ============================================================================
@@ -69,7 +69,7 @@ export const agentHarnessConversationsEntity = pgTable(
 		id: varchar({ length: 50 })
 			.primaryKey()
 			.$defaultFn(() => generateID()),
-		userId: varchar("user_id", { length: 50 }).references(() => user.id, {
+		userId: varchar("user_id", { length: 50 }).references(() => systemUsers.id, {
 			onDelete: "cascade",
 		}),
 		projectId: varchar("project_id", { length: 50 }).references(

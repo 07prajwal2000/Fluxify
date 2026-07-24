@@ -9,14 +9,19 @@ import appRunAll from "./run-all/route";
 import { HonoServer } from "../../../types";
 
 export default {
-  registerHandler(app: HonoServer) {
-    const router = app.basePath("/test-suites");
-    appCreate(router);
-    appUpdate(router);
-    appDelete(router);
-    appGetById(router);
-    appGetAll(router);
-    appRun(router);
-    appRunAll(router);
-  },
+	registerHandler(app: HonoServer) {
+		const router = app.basePath("/test-suites");
+		const routeRouter = app.basePath("/test-suites/route/:routeId");
+
+		// Route-specific test suite operations
+		appCreate(routeRouter);
+		appGetAll(routeRouter);
+		appRunAll(routeRouter);
+
+		// Test suite specific operations
+		appUpdate(router);
+		appDelete(router);
+		appGetById(router);
+		appRun(router);
+	},
 };

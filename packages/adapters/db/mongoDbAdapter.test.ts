@@ -288,4 +288,91 @@ describe("MongoAdapter Integration Tests", () => {
 		]);
 		expect(verifyRollback).toBeNull();
 	});
+
+	test("Nested Path Filtering (dot / bracket access)", async () => {
+		const adapter = new MongoAdapter(client, db, vm);
+		const collectionName =
+			"docs_" + faker.string.alphanumeric(8).toLowerCase();
+
+		const docs = [
+			{ profile: { age: 15 }, tags: ["red", "blue"] },
+			{ profile: { age: 20 }, tags: ["green", "blue"] },
+			{ profile: { age: 30 }, tags: ["red", "yellow"] },
+		];
+		await adapter.insertBulk(collectionName, docs);
+
+		const sortAsc = { attribute: "id" as const, direction: "asc" as const };
+
+		// Nested numeric compare.
+		const adults = (await adapter.getAll(
+			collectionName,
+			[{ attribute: "profile.age", operator: "gte", value: 18, chain: "and" }],
+			100,
+			0,
+			sortAsc,
+		)) as any[];
+		expect(adults.map((r) => r.profile.age)).toEqual([20, 30]);
+
+		// A numeric-like STRING value is coerced for ordering ops.
+		const adultsStr = (await adapter.getAll(
+			collectionName,
+			[
+				{
+					attribute: "profile.age",
+					operator: "gte",
+					value: "18",
+					chain: "and",
+				},
+			],
+			100,
+			0,
+			sortAsc,
+		)) as any[];
+		expect(adultsStr.map((r) => r.profile.age)).toEqual([20, 30]);
+
+		// Array index access -> "tags.0".
+		const firstRed = (await adapter.getAll(
+			collectionName,
+			[
+				{
+					attribute: "tags[0]",
+					operator: "eq",
+					value: "red",
+					chain: "and",
+				},
+			],
+			100,
+			0,
+			sortAsc,
+		)) as any[];
+		expect(firstRed.map((r) => r.profile.age)).toEqual([15, 30]);
+	});
+
+	test("Column Projection (joins ignored)", async () => {
+		const adapter = new MongoAdapter(client, db, vm);
+		const collectionName =
+			"docs_" + faker.string.alphanumeric(8).toLowerCase();
+		await adapter.insertBulk(collectionName, [
+			{ name: "Alice", secret: "x", profile: { age: 20 } },
+			{ name: "Bob", secret: "y", profile: { age: 30 } },
+		]);
+
+		// columns become a projection; joins are silently ignored for Mongo.
+		const rows = (await adapter.getAll(
+			collectionName,
+			[],
+			100,
+			0,
+			{ attribute: "name", direction: "asc" },
+			{
+				columns: ["name", "profile.age"],
+				joins: [{ table: "ignored", attribute: "a = b" }],
+			},
+		)) as any[];
+
+		expect(rows.map((r) => r.name)).toEqual(["Alice", "Bob"]);
+		expect(rows.map((r) => r.profile.age)).toEqual([20, 30]);
+		// Unprojected field is excluded.
+		expect(rows.every((r) => r.secret === undefined)).toBe(true);
+	});
 });

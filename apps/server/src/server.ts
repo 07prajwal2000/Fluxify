@@ -25,6 +25,14 @@ import {
 	OTLP_LOGGER_LEVEL,
 } from "./lib/env";
 
+// JSON has no BigInt type; DB drivers return bigint columns as BigInt, which
+// makes JSON.stringify (and Hono's c.json) throw. Serialize as string to avoid
+// precision loss on values above Number.MAX_SAFE_INTEGER.
+// ponytail: global prototype patch, the standard bigint-serialization fix
+(BigInt.prototype as any).toJSON = function () {
+	return this.toString();
+};
+
 const app = new Hono<{
 	Variables: {
 		user: typeof auth.$Infer.Session.user | null;

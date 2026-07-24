@@ -1,5 +1,6 @@
 import type { Job } from "bullmq";
-import { logger, withFluxifyContext } from "@fluxify/common";
+import { logger } from "@fluxify/common";
+import { withFluxifyContext } from "@fluxify/common/tracing";
 import { HumanMessage, type BaseMessage } from "@langchain/core/messages";
 import {
 	AgentFactory,

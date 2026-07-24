@@ -6,37 +6,40 @@ import handleRequest from "./service";
 import { validationErrorSchema } from "../../../../errors/validationError";
 import { HonoServer } from "../../../../types";
 import { requireTestSuiteAccess } from "../middleware";
+import { z } from "zod";
 
 export default function (app: HonoServer) {
-  app.post(
-    "/",
-    describeRoute({
-      description: "Creates a new test suite.",
-      operationId: "create-test-suite",
-      tags: ["Test Suites"],
-      responses: {
-        200: {
-          description: "Successful",
-          content: { "application/json": { schema: resolver(responseSchema) } },
-        },
-        400: {
-          description: "Invalid data",
-          content: {
-            "application/json": { schema: resolver(validationErrorSchema) },
-          },
-        },
-        409: {
-          description: "Error",
-          content: { "application/json": { schema: resolver(errorSchema) } },
-        },
-      },
-    }),
-    requireTestSuiteAccess("creator"),
-    validator("json", requestBodySchema, zodErrorCallbackParser),
-    async (ctx) => {
-      const data = ctx.req.valid("json");
-      const result = await handleRequest(data);
-      return ctx.json(result);
-    },
-  );
+	app.post(
+		"/",
+		describeRoute({
+			description: "Creates a new test suite.",
+			operationId: "create-test-suite",
+			tags: ["Test Suites"],
+			responses: {
+				200: {
+					description: "Successful",
+					content: { "application/json": { schema: resolver(responseSchema) } },
+				},
+				400: {
+					description: "Invalid data",
+					content: {
+						"application/json": { schema: resolver(validationErrorSchema) },
+					},
+				},
+				409: {
+					description: "Error",
+					content: { "application/json": { schema: resolver(errorSchema) } },
+				},
+			},
+		}),
+		requireTestSuiteAccess("creator", (ctx) => ({ routeId: ctx.req.param("routeId") })),
+		validator("param", z.object({ routeId: z.string().uuid() }), zodErrorCallbackParser),
+		validator("json", requestBodySchema, zodErrorCallbackParser),
+		async (ctx) => {
+			const { routeId } = ctx.req.valid("param");
+			const data = ctx.req.valid("json");
+			const result = await handleRequest({ ...data, routeId });
+			return ctx.json(result);
+		},
+	);
 }

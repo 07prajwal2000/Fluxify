@@ -1,7 +1,7 @@
 import { and, count, desc, eq, ilike, SQL } from "drizzle-orm";
 import { db, DbTransactionType } from "../../../../../db";
 import { accessControlEntity } from "../../../../../db/schema";
-import { user } from "../../../../../db/auth-schema";
+import { systemUsers } from "../../../../../db/auth-schema";
 
 export async function listProjectMembers(
   projectId: string,
@@ -18,22 +18,22 @@ export async function listProjectMembers(
   }
 
   if (filters?.name) {
-    conditions.push(ilike(user.name, `%${filters.name}%`));
+    conditions.push(ilike(systemUsers.name, `%${filters.name}%`));
   }
 
   const where = and(...conditions);
 
   const result = await (tx ?? db)
     .select({
-      id: user.id,
-      name: user.name,
-      userId: user.id,
+      id: systemUsers.id,
+      name: systemUsers.name,
+      userId: systemUsers.id,
       role: accessControlEntity.role,
       createdAt: accessControlEntity.createdAt,
       updatedAt: accessControlEntity.updatedAt,
     })
     .from(accessControlEntity)
-    .leftJoin(user, eq(accessControlEntity.userId, user.id))
+    .leftJoin(systemUsers, eq(accessControlEntity.userId, systemUsers.id))
     .where(where)
     .orderBy(desc(accessControlEntity.updatedAt))
     .offset(skip)
@@ -42,7 +42,7 @@ export async function listProjectMembers(
   const [{ count: totalCount }] = await (tx ?? db)
     .select({ count: count(accessControlEntity.id) })
     .from(accessControlEntity)
-    .leftJoin(user, eq(accessControlEntity.userId, user.id))
+    .leftJoin(systemUsers, eq(accessControlEntity.userId, systemUsers.id))
     .where(where);
 
   return { result, totalCount };

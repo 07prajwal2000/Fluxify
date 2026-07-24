@@ -10,7 +10,7 @@ export type AssertionType = z.infer<typeof assertionSchema>;
 export async function runSuiteAssertions(
 	suite: InferSelectModel<typeof testSuitesEntity>,
 	route: InferSelectModel<typeof routesEntity>,
-	_executeRouteInternal = requestRouterService.executeRouteInternal
+	_executeRouteInternal = requestRouterService.executeRouteInternal,
 ) {
 	let finalPath = route.path || "";
 	const pathParams = (suite.routeParams as Record<string, string>) || {};
@@ -27,10 +27,13 @@ export async function runSuiteAssertions(
 	const method = route.method || "GET";
 
 	// default json
-	const lowerHeaders = Object.keys(headers).reduce((acc, k) => {
-		acc[k.toLowerCase()] = headers[k];
-		return acc;
-	}, {} as Record<string, string>);
+	const lowerHeaders = Object.keys(headers).reduce(
+		(acc, k) => {
+			acc[k.toLowerCase()] = headers[k];
+			return acc;
+		},
+		{} as Record<string, string>,
+	);
 
 	if (
 		!lowerHeaders["content-type"] &&
@@ -40,8 +43,12 @@ export async function runSuiteAssertions(
 	}
 
 	const overrides: requestRouterService.RequestOverrides = {
-		integrations: Array.isArray(suite.integrationOverrides) ? suite.integrationOverrides : [],
-		appConfigs: Array.isArray(suite.appConfigOverrides) ? suite.appConfigOverrides : [],
+		integrations: Array.isArray(suite.integrationOverrides)
+			? suite.integrationOverrides
+			: [],
+		appConfigs: Array.isArray(suite.appConfigOverrides)
+			? suite.appConfigOverrides
+			: [],
 	};
 
 	let resStatus: number = 500;
@@ -68,7 +75,7 @@ export async function runSuiteAssertions(
 				params: pathParams,
 			},
 			undefined,
-			overrides
+			overrides,
 		);
 
 		resStatus = result.status;
@@ -83,7 +90,7 @@ export async function runSuiteAssertions(
 	const resHeaders: Record<string, string> = {}; // executeRouteInternal doesn't currently return headers
 
 	const assertions = (suite.assertions as AssertionType[]) || [];
-	const result = assertions.map((a: AssertionType) => {
+	const result = await Promise.all(assertions.map(async (a: AssertionType) => {
 		let actualValue: unknown;
 		let targetDesc = "";
 
@@ -123,13 +130,13 @@ export async function runSuiteAssertions(
 							body: suite.body,
 							headers,
 							params: pathParams,
-						}
+						},
 					},
 					body: resBody,
 					headers: resHeaders,
 					status: resStatus,
 				});
-				actualValue = vm.run(a.customJs || "return true;");
+				actualValue = await vm.run(a.customJs || "return true;");
 				targetDesc = "Custom JS";
 			}
 
@@ -199,7 +206,7 @@ export async function runSuiteAssertions(
 				message: `Evaluation error: ${err instanceof Error ? err.message : String(err)}`,
 			};
 		}
-	});
+	}));
 
 	const allPassed = result.length === 0 || result.every((r) => r.success);
 

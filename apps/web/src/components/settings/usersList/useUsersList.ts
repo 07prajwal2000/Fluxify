@@ -16,7 +16,7 @@ export function useUsersList() {
 
   const [openDeleteDialog, setOpenDeleteDialog] = useState<{
     open: boolean;
-    user: { name: string; email: string; id: string } | null;
+    user: { name: string | null; email: string; id: string } | null;
   }>({
     open: false,
     user: null,
@@ -25,21 +25,21 @@ export function useUsersList() {
   const [openPromoteDialog, setOpenPromoteDialog] = useState<{
     open: boolean;
     type: "promote" | "demote";
-    user: { name: string; email: string; id: string } | null;
+    user: { name: string | null; email: string; id: string } | null;
   }>({
     open: false,
     type: "promote",
     user: null,
   });
 
-  function handlePromote(user: { name: string; email: string; id: string }) {
+  function handlePromote(user: { name: string | null; email: string; id: string }) {
     setOpenPromoteDialog({
       open: true,
       type: "promote",
       user,
     });
   }
-  function handleDemote(user: { name: string; email: string; id: string }) {
+  function handleDemote(user: { name: string | null; email: string; id: string }) {
     setOpenPromoteDialog({
       open: true,
       type: "demote",
@@ -47,7 +47,7 @@ export function useUsersList() {
     });
   }
 
-  function handleDelete(user: { name: string; email: string; id: string }) {
+  function handleDelete(user: { name: string | null; email: string; id: string }) {
     setOpenDeleteDialog({
       open: true,
       user,

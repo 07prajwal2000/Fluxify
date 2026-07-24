@@ -6,7 +6,8 @@
 		"dist"
 	],
 	"exports": {
-		".": "./index.ts"
+		".": "./index.ts",
+		"./tracing": "./tracing/index.ts"
 	},
 	"author": "",
 	"license": "ISC",

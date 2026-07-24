@@ -23,7 +23,7 @@ const AddProjectMemberButton = (props: Types) => {
   const [loading, setLoading] = useState(false);
   const { mutate } = projectMembersQuery.add.useMutation(props.projectId);
   const [selectedMember, setSelectedMember] = useState<{
-    user: { id: string; name: string; email: string } | null;
+    user: { id: string; name: string | null; email: string } | null;
     role: string;
   }>({
     user: null,
