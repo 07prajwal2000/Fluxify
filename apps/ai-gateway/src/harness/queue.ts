@@ -10,8 +10,8 @@ export const HARNESS_CONTINUE_JOB = "HARNESS_CONTINUE_JOB";
 export interface HarnessJobMetadata {
 	projectId?: string;
 	userId?: string;
-	location?: string;
-	routeId?: string;
+	/** Resource the user was viewing when they sent this message, if any. */
+	location?: { where: "route-canvas" | "custom-block-canvas"; id: string };
 }
 
 /**
