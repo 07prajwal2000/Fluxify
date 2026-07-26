@@ -1,6 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import type { z } from "zod";
-import { type ListAppConfigQuery, appConfigService } from "@/services/appConfig";
+import {
+	type CreateAppConfigBody,
+	type DeleteBulkAppConfigBody,
+	type ListAppConfigQuery,
+	type UpdateAppConfigBody,
+	appConfigService,
+} from "@/services/appConfig";
 
 const key = (projectId: string) => ["app-config", projectId];
 
@@ -14,12 +19,32 @@ export const appConfigQuery = {
 			});
 		},
 	},
+	getById: {
+		useQuery(projectId: string, id: number | string | null | undefined) {
+			return useQuery({
+				queryKey: [...key(projectId), "detail", id],
+				queryFn: () => appConfigService.getById(projectId, id!),
+				enabled: !!projectId && !!id,
+				refetchOnWindowFocus: false,
+			});
+		},
+	},
 	create: {
 		mutation(projectId: string) {
 			const qc = useQueryClient();
 			return useMutation({
-				mutationFn: (body: z.infer<typeof appConfigService.createRequestBodySchema>) =>
+				mutationFn: (body: CreateAppConfigBody) =>
 					appConfigService.create(projectId, body),
+				onSuccess: () => qc.invalidateQueries({ queryKey: key(projectId) }),
+			});
+		},
+	},
+	update: {
+		mutation(projectId: string, id: number | string) {
+			const qc = useQueryClient();
+			return useMutation({
+				mutationFn: (body: UpdateAppConfigBody) =>
+					appConfigService.update(projectId, id, body),
 				onSuccess: () => qc.invalidateQueries({ queryKey: key(projectId) }),
 			});
 		},
@@ -28,9 +53,29 @@ export const appConfigQuery = {
 		mutation(projectId: string) {
 			const qc = useQueryClient();
 			return useMutation({
-				mutationFn: (id: number) => appConfigService.delete(projectId, id),
+				mutationFn: (id: number | string) => appConfigService.delete(projectId, id),
 				onSuccess: () => qc.invalidateQueries({ queryKey: key(projectId) }),
 			});
 		},
 	},
+	deleteBulk: {
+		mutation(projectId: string) {
+			const qc = useQueryClient();
+			return useMutation({
+				mutationFn: (body: DeleteBulkAppConfigBody) =>
+					appConfigService.deleteBulk(projectId, body),
+				onSuccess: () => qc.invalidateQueries({ queryKey: key(projectId) }),
+			});
+		},
+	},
+	getKeysList: {
+		useQuery(projectId: string, search: string) {
+			return useQuery({
+				queryKey: ["app-config", projectId, "keys", search],
+				queryFn: () => appConfigService.getKeysList(projectId, search),
+				refetchOnWindowFocus: false,
+			});
+		},
+	},
 };
+

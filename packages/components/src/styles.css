@@ -4,18 +4,19 @@
    Direction: neutral black/grey surfaces, lime-green accent, softly rounded
    corners, Inter throughout. Dark is primary; light is the optional variant.
    Every knob below is a CSS variable — override one to retheme. */
-@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap");
 @import "@heroui/styles";
 
 @theme {
 	/* Configurable type. Swap this one line to change the product typeface. */
 	--font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+	--font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
 }
 
 /* Shared brand knobs (apply to both themes). Unlayered so they beat HeroUI's
    @layer base defaults. */
 :root {
-	/* Slightly rounded everywhere (cards, inputs, modal; buttons = radius*3). */
+	/* Rounded like the mockup (cards, controls, and buttons all share this radius). */
 	--radius: 6px;
 	/* HeroUI leaves form fields borderless by default (width 0), so an unfocused
 	   input is invisible against a matching surface. Give it a resting border. */
@@ -33,14 +34,28 @@
 .light,
 [data-theme="light"],
 [data-theme="default"] {
-	--accent: oklch(0.9 0.19 122); /* lime green */
+	--accent: oklch(0.9 0.19 122);
+	/* lime green */
 }
 
-/* Dark theme (primary): pure black canvas, neutral greys, lime accent. */
+/* Dark theme (primary): layered near-black surfaces (mockup palette), lime accent. */
 .dark,
 [data-theme="dark"] {
-	--background: oklch(0 0 0); /* pure black */
-	--accent: oklch(0.9 0.2 122); /* lime pops on black (see reference pricing card) */
+	--background: #050507;
+	/* main canvas */
+	--background-secondary: #0a0a0b;
+	/* sidebar / inset fields */
+	--background-tertiary: #0e0e10;
+	--surface: #111113;
+	/* cards */
+	--surface-secondary: #151518;
+	--overlay: #141416;
+	/* popovers / modals */
+	--border: #232326;
+	/* subtle zinc hairline */
+	--border-secondary: #1e1e20;
+	--accent: oklch(0.9 0.2 122);
+	/* lime */
 }
 
 @layer base {
@@ -55,19 +70,23 @@
 	scrollbar-width: thin;
 	scrollbar-color: var(--border) transparent;
 }
+
 ::-webkit-scrollbar {
 	width: 10px;
 	height: 10px;
 }
+
 ::-webkit-scrollbar-track {
 	background: transparent;
 }
+
 ::-webkit-scrollbar-thumb {
 	background-color: var(--border);
 	border: 2px solid transparent;
 	background-clip: content-box;
 	border-radius: 9999px;
 }
+
 ::-webkit-scrollbar-thumb:hover {
 	background-color: var(--muted);
 	background-clip: content-box;
@@ -80,10 +99,18 @@
 	padding: calc(var(--spacing) * 6);
 	gap: calc(var(--spacing) * 5);
 }
+
 .card__header {
 	gap: calc(var(--spacing) * 2);
 }
+
 .card__footer {
 	justify-content: flex-end;
 	gap: calc(var(--spacing) * 2);
+}
+
+/* Button refinement (unlayered so it wins over HeroUI's default pill shape):
+   match the standard 6px radius instead of rounded-3xl. */
+.button {
+	border-radius: var(--radius);
 }

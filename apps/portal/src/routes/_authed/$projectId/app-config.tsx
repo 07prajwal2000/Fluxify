@@ -1,117 +1,169 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
-import {
-	Button,
-	Checkbox,
-	Chip,
-	Input,
-	Label,
-	Modal,
-	Spinner,
-	Table,
-	TextField,
-	toast,
-} from "@fluxify/components";
-import { TbPlus, TbTrash } from "react-icons/tb";
+import { Button, Spinner, toast } from "@fluxify/components";
+import { TbSearch, TbTrash } from "react-icons/tb";
 import { appConfigQuery } from "@/query/appConfigQuery";
 import { showErrorNotification } from "@/lib/errorNotifier";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
-
-const ENCODINGS = ["plaintext", "base64", "hex"] as const;
+import { CreateConfigButton } from "@/components/appConfig/CreateConfigModal";
+import { EditConfigModal } from "@/components/appConfig/EditConfigModal";
+import { AppConfigTable } from "@/components/appConfig/AppConfigTable";
+import type { ConfigRow, SortBy } from "@/components/appConfig/types";
 
 export const Route = createFileRoute("/_authed/$projectId/app-config")({
 	component: AppConfigPage,
 });
 
-type ConfigRow = {
-	id: number;
-	keyName: string;
-	isEncrypted: boolean;
-	dataType: string;
-};
-
 function AppConfigPage() {
 	const { projectId } = Route.useParams();
 	const [page, setPage] = useState(1);
+	const [perPage, setPerPage] = useState(20);
+	const [searchInput, setSearchInput] = useState("");
+	const [debouncedSearch, setDebouncedSearch] = useState("");
+	const [sortBy, setSortBy] = useState<SortBy>("keyName");
+	const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
+	const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+
+	const [editingConfig, setEditingConfig] = useState<ConfigRow | null>(null);
+	const [pendingDelete, setPendingDelete] = useState<ConfigRow | null>(null);
+	const [pendingBulkDelete, setPendingBulkDelete] = useState(false);
+
+	// Debounce search input
+	useEffect(() => {
+		const timer = setTimeout(() => {
+			setDebouncedSearch(searchInput);
+			setPage(1);
+		}, 300);
+		return () => clearTimeout(timer);
+	}, [searchInput]);
+
 	const { data, isLoading, isError } = appConfigQuery.getAll.useQuery(projectId, {
 		page,
-		perPage: 20,
+		perPage,
+		search: debouncedSearch,
+		sortBy,
+		sort: sortOrder,
 	});
-	const remove = appConfigQuery.remove.mutation(projectId);
-	const [pendingDelete, setPendingDelete] = useState<ConfigRow | null>(null);
 
+	const remove = appConfigQuery.remove.mutation(projectId);
+	const deleteBulk = appConfigQuery.deleteBulk.mutation(projectId);
+
+	const items = (data?.data ?? []) as ConfigRow[];
 	const totalPages = data?.pagination?.totalPages ?? 1;
+
+	function handleSort(column: SortBy) {
+		if (sortBy === column) {
+			setSortOrder((prev) => (prev === "asc" ? "desc" : "asc"));
+		} else {
+			setSortBy(column);
+			setSortOrder("asc");
+		}
+	}
 
 	return (
 		<div className="flex flex-col gap-4">
-			<div className="flex items-center justify-between">
+			{/* Top Header */}
+			<div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
 				<div>
-					<h1 className="text-xl font-semibold tracking-tight">App config</h1>
+					<h1 className="text-xl font-semibold tracking-tight">App Config</h1>
 					<p className="text-sm text-muted">
-						Key-value settings available to your routes.
+						Key-value settings and secrets available across your project routes.
 					</p>
 				</div>
-				<CreateConfigButton projectId={projectId} />
+				<div className="flex items-center gap-2">
+					{selectedIds.size > 0 && (
+						<Button
+							variant="danger"
+							onPress={() => setPendingBulkDelete(true)}
+						>
+							<TbTrash size={16} /> Delete ({selectedIds.size})
+						</Button>
+					)}
+					<CreateConfigButton projectId={projectId} />
+				</div>
 			</div>
 
+			{/* Search & Toolbar */}
+			<div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+				<div className="relative w-full max-w-sm">
+					<TbSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-muted" size={16} />
+					<input
+						type="text"
+						placeholder="Search config by key name..."
+						value={searchInput}
+						onChange={(e) => setSearchInput(e.target.value)}
+						className="w-full rounded-md border border-border bg-background pl-9 pr-3 py-1.5 text-sm placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-primary/20"
+					/>
+				</div>
+				<div className="flex items-center gap-2 text-sm text-muted">
+					<span>Rows per page:</span>
+					<select
+						value={perPage}
+						onChange={(e) => {
+							setPerPage(Number(e.target.value));
+							setPage(1);
+						}}
+						className="rounded-md border border-border bg-background px-2 py-1 text-sm focus:outline-none"
+					>
+						<option value={10}>10</option>
+						<option value={20}>20</option>
+						<option value={50}>50</option>
+						<option value={100}>100</option>
+					</select>
+				</div>
+			</div>
+
+			{/* Table Content */}
 			{isLoading ? (
 				<div className="flex justify-center py-16">
 					<Spinner />
 				</div>
 			) : isError ? (
-				<p className="py-16 text-center text-muted">Couldn't load config.</p>
-			) : data && data.data.length === 0 ? (
-				<p className="py-16 text-center text-muted">No config keys yet.</p>
+				<p className="py-16 text-center text-muted">Couldn't load app config.</p>
+			) : items.length === 0 ? (
+				<p className="py-16 text-center text-muted">
+					{debouncedSearch ? `No configurations found matching "${debouncedSearch}"` : "No config keys yet."}
+				</p>
 			) : (
-				<Table>
-					<Table.Content aria-label="App config">
-						<Table.Header>
-							<Table.Column id="key" isRowHeader>Key</Table.Column>
-							<Table.Column id="type">Type</Table.Column>
-							<Table.Column id="encrypted">Encrypted</Table.Column>
-							<Table.Column id="actions" aria-label="Actions">{""}</Table.Column>
-						</Table.Header>
-						<Table.Body items={(data?.data ?? []) as ConfigRow[]}>
-							{(row: ConfigRow) => (
-								<Table.Row id={String(row.id)}>
-									<Table.Cell>
-										<span className="font-mono text-sm">{row.keyName}</span>
-									</Table.Cell>
-									<Table.Cell>{row.dataType}</Table.Cell>
-									<Table.Cell>
-										<Chip>{row.isEncrypted ? "Yes" : "No"}</Chip>
-									</Table.Cell>
-									<Table.Cell>
-										<div className="flex justify-end">
-											<Button
-												isIconOnly
-												variant="ghost"
-												aria-label="Delete config"
-												onPress={() => setPendingDelete(row)}
-											>
-												<TbTrash size={16} />
-											</Button>
-										</div>
-									</Table.Cell>
-								</Table.Row>
-							)}
-						</Table.Body>
-					</Table.Content>
-				</Table>
+				<AppConfigTable
+					items={items}
+					selectedIds={selectedIds}
+					onSelectionChange={setSelectedIds}
+					sortBy={sortBy}
+					sortOrder={sortOrder}
+					onSort={handleSort}
+					onEdit={setEditingConfig}
+					onDelete={setPendingDelete}
+				/>
 			)}
 
+			{/* Pagination Controls */}
 			{totalPages > 1 && (
-				<div className="flex items-center justify-end gap-3 text-sm text-muted">
-					<Button variant="outline" isDisabled={page <= 1} onPress={() => setPage((p) => p - 1)}>
-						Previous
-					</Button>
-					<span>Page {page} of {totalPages}</span>
-					<Button variant="outline" isDisabled={page >= totalPages} onPress={() => setPage((p) => p + 1)}>
-						Next
-					</Button>
+				<div className="flex items-center justify-between border-t border-border pt-4 text-sm text-muted">
+					<div>
+						Showing page <b>{page}</b> of <b>{totalPages}</b>
+					</div>
+					<div className="flex items-center gap-2">
+						<Button variant="outline" isDisabled={page <= 1} onPress={() => setPage((p) => p - 1)}>
+							Previous
+						</Button>
+						<Button variant="outline" isDisabled={page >= totalPages} onPress={() => setPage((p) => p + 1)}>
+							Next
+						</Button>
+					</div>
 				</div>
 			)}
 
+			{/* Edit Config Modal */}
+			{editingConfig && (
+				<EditConfigModal
+					projectId={projectId}
+					config={editingConfig}
+					onClose={() => setEditingConfig(null)}
+				/>
+			)}
+
+			{/* Single Delete Confirm Dialog */}
 			<ConfirmDialog
 				open={!!pendingDelete}
 				onOpenChange={(o) => !o && setPendingDelete(null)}
@@ -122,117 +174,46 @@ function AppConfigPage() {
 				onConfirm={() => {
 					if (!pendingDelete) return;
 					remove.mutate(pendingDelete.id, {
-						onSuccess: () => toast.success("Config deleted"),
+						onSuccess: () => {
+							toast.success("Config deleted");
+							setSelectedIds((prev) => {
+								const next = new Set(prev);
+								next.delete(pendingDelete.id);
+								return next;
+							});
+							setPendingDelete(null);
+						},
 						onError: (e) => showErrorNotification(e as Error),
 					});
-					setPendingDelete(null);
 				}}
 			>
-				Delete <b className="text-foreground">{pendingDelete?.keyName}</b>? This can't be undone.
+				Delete key <b className="text-foreground">{pendingDelete?.keyName}</b>? This cannot be undone.
+			</ConfirmDialog>
+
+			{/* Bulk Delete Confirm Dialog */}
+			<ConfirmDialog
+				open={pendingBulkDelete}
+				onOpenChange={(o) => !o && setPendingBulkDelete(false)}
+				title="Delete selected configs?"
+				danger
+				confirmText={`Delete ${selectedIds.size} items`}
+				pending={deleteBulk.isPending}
+				onConfirm={() => {
+					deleteBulk.mutate(
+						{ ids: Array.from(selectedIds) },
+						{
+							onSuccess: () => {
+								toast.success(`Deleted ${selectedIds.size} config items`);
+								setSelectedIds(new Set());
+								setPendingBulkDelete(false);
+							},
+							onError: (e) => showErrorNotification(e as Error),
+						},
+					);
+				}}
+			>
+				Are you sure you want to delete <b className="text-foreground">{selectedIds.size}</b> selected configuration key(s)? This action cannot be undone.
 			</ConfirmDialog>
 		</div>
-	);
-}
-
-function CreateConfigButton({ projectId }: { projectId: string }) {
-	const create = appConfigQuery.create.mutation(projectId);
-	const [open, setOpen] = useState(false);
-	const [keyName, setKeyName] = useState("");
-	const [description, setDescription] = useState("");
-	const [value, setValue] = useState("");
-	const [isEncrypted, setIsEncrypted] = useState(false);
-	const [encoding, setEncoding] = useState<(typeof ENCODINGS)[number]>("plaintext");
-
-	function reset() {
-		setKeyName("");
-		setDescription("");
-		setValue("");
-		setIsEncrypted(false);
-		setEncoding("plaintext");
-	}
-
-	function submit(e: React.FormEvent) {
-		e.preventDefault();
-		create.mutate(
-			{
-				keyName,
-				description,
-				value,
-				isEncrypted,
-				encodingType: encoding,
-				dataType: "string",
-			},
-			{
-				onSuccess: () => {
-					toast.success("Config created");
-					reset();
-					setOpen(false);
-				},
-				onError: (err) => showErrorNotification(err as Error),
-			},
-		);
-	}
-
-	return (
-		<Modal isOpen={open} onOpenChange={setOpen}>
-			<Modal.Trigger>
-				<Button variant="primary">
-					<TbPlus size={16} /> New key
-				</Button>
-			</Modal.Trigger>
-			<Modal.Backdrop>
-				<Modal.Container placement="center" size="sm">
-					<Modal.Dialog>
-						<Modal.Header>
-							<Modal.Heading>Add a config key</Modal.Heading>
-						</Modal.Header>
-						<form onSubmit={submit}>
-							<Modal.Body>
-								<div className="flex flex-col gap-4">
-									<TextField isRequired value={keyName} onChange={setKeyName}>
-										<Label>Key name</Label>
-										<Input placeholder="API_TIMEOUT" />
-									</TextField>
-									<TextField isRequired value={description} onChange={setDescription}>
-										<Label>Description</Label>
-										<Input placeholder="What this key controls" />
-									</TextField>
-									<TextField isRequired value={value} onChange={setValue}>
-										<Label>Value</Label>
-										<Input placeholder="Value" />
-									</TextField>
-									<div className="flex flex-col gap-1.5">
-										<Label>Encoding</Label>
-										<div className="flex gap-1.5">
-											{ENCODINGS.map((enc) => (
-												<Button
-													key={enc}
-													type="button"
-													variant={encoding === enc ? "primary" : "outline"}
-													onPress={() => setEncoding(enc)}
-												>
-													{enc}
-												</Button>
-											))}
-										</div>
-									</div>
-									<Checkbox isSelected={isEncrypted} onChange={setIsEncrypted}>
-										Encrypt this value
-									</Checkbox>
-								</div>
-							</Modal.Body>
-							<Modal.Footer>
-								<Button variant="ghost" onPress={() => setOpen(false)}>
-									Cancel
-								</Button>
-								<Button type="submit" variant="primary" isPending={create.isPending}>
-									Add key
-								</Button>
-							</Modal.Footer>
-						</form>
-					</Modal.Dialog>
-				</Modal.Container>
-			</Modal.Backdrop>
-		</Modal>
 	);
 }

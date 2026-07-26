@@ -69,6 +69,17 @@ When creating branches or Pull Requests via the `gh` CLI:
 4. **Only use `createAgent`/tool-bound models when you pass real tools.** `[]` tools + `structuredResponse` gives neither tool use nor structured output.
 5. **Retry corrections must be a `["human", ...]` turn**, never `["system", ...]`, so the retried request still ends on a user role (`apps/server/src/lib/agentRetry.ts`).
 
+### React Aria / HeroUI Table Checkbox `slot="selection"` & PressResponder Errors
+**Issue:**
+1. `Error: A slot prop is required. Valid slot names are "selection"` on `<Checkbox>` inside a `<Table>` component.
+2. `Warning: A PressResponder was rendered without a pressable child` when placing a `<button>` inside `<Table.Column>`.
+**Cause:**
+1. React Aria / HeroUI Table expects selection checkboxes rendered inside `<Table.Header>` or `<Table.Cell>` to explicitly declare `slot="selection"`.
+2. `<Table.Column>` is already rendered as an interactive ColumnHeader by React Aria, so embedding a native `<button>` creates conflicting PressResponders.
+**Fix:**
+1. Pass `slot="selection"` on any `<Checkbox>` rendered inside `<Table.Header>` or `<Table.Cell>` (e.g. `<Checkbox slot="selection" ... />`).
+2. Replace nested `<button>` elements inside `<Table.Column>` with clickable `<div>` or `<span>` elements (e.g. `<div role="button" tabIndex={0} onClick={...}>`).
+
 ---
 
 ## Documentation Writing Rules
