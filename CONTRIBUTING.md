@@ -24,11 +24,8 @@ bun install
 # 3. Start background infrastructure
 docker compose up -d
 
-# 4. Prepare environment configuration files
+# 4. Prepare environment configuration file
 cp env.example .env
-cp apps/server/env.example apps/server/.env
-cp apps/ai-gateway/env.example apps/ai-gateway/.env
-cp apps/web/env.example apps/web/.env
 
 # 5. Push database migrations
 bun run db:migrate
@@ -82,13 +79,10 @@ docker compose up -d
 
 ### Step 4: Configure Environment Files
 
-Copy default `.env` templates across the workspace:
+All environment variables across the monorepo are consolidated into a single root `.env` file. Copy the default `.env` template:
 
 ```bash
 cp env.example .env
-cp apps/server/env.example apps/server/.env
-cp apps/ai-gateway/env.example apps/ai-gateway/.env
-cp apps/web/env.example apps/web/.env
 ```
 
 Key environment variables to verify:

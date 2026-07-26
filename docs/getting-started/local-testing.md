@@ -68,7 +68,7 @@ HOSTNAME=localhost
 > [!IMPORTANT]
 > The `SEED_USER_EMAIL` and `SEED_USER_PASSWORD` values define the initial admin account. You must set these before the first run — you will use them to log into the dashboard.
 
-See [Self-Hosting](./self-hosting.md) for the complete `.env` schema and description of every variable.
+See [Self-Hosting Deployment Guides](../deployments/index.md) for the complete `.env` schema and description of every variable.
 ## Step 4: Start Databases with Docker
 
 The project includes a `docker-compose` configuration that starts PostgreSQL and Redis:

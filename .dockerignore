@@ -1,5 +1,6 @@
-# Dependencies
-node_modules
+# Dependencies (match nested workspace node_modules too, so host-platform
+# native bindings never leak into the in-image install/bundle)
+**/node_modules
 
 # Build caches
 .turbo

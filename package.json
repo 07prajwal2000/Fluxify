@@ -3,9 +3,11 @@
 	"version": "1.0.0",
 	"type": "module",
 	"scripts": {
-		"dev": "concurrently 'bun run dev:server' 'bun run dev:web' 'bun run dev:ai' 'bun run dev:docs'",
-		"dev:server": "bun run --env-file=./apps/server/.env --watch ./apps/server/deployments/standalone.ts",
-		"dev:ai": "bun run --env-file=./apps/ai-gateway/.env --watch ./apps/ai-gateway/src/server.ts",
+		"dev": "concurrently 'bun run dev:server' 'bun run dev:worker' 'bun run dev:web' 'bun run dev:ai' 'bun run dev:docs'",
+		"dev:server": "bun run --env-file=.env --watch ./apps/server/deployments/standalone.ts",
+		"dev:worker": "bun run --env-file=.env --watch ./apps/server/deployments/worker.ts",
+		"worker": "bun run --env-file=.env ./apps/server/deployments/worker.ts",
+		"dev:ai": "bun run --env-file=.env --watch ./apps/ai-gateway/src/server.ts",
 		"dev:web": "turbo run dev --filter=@fluxify/web",
 		"dev:docs": "vitepress dev docs",
 		"lint": "turbo run lint",
@@ -23,8 +25,8 @@
 		"docs:build": "vitepress build docs",
 		"docs:preview": "vitepress preview docs",
 		"prepare": "bun run scripts/setup-hooks.ts",
-		"db:generate": "bun --cwd ./apps/server drizzle-kit generate",
-		"db:migrate": "bun --cwd ./apps/server drizzle-kit push"
+		"db:generate": "bun --env-file=../../.env --cwd ./apps/server drizzle-kit generate",
+		"db:migrate": "bun --env-file=../../.env --cwd ./apps/server drizzle-kit push"
 	},
 	"keywords": [
 		"fluxify",
@@ -41,7 +43,7 @@
 	"dependencies": {
 		"@orama/orama": "^3.1.18",
 		"better-auth": "1.6.23",
-		"bson": "^7.3.1",
+		"bson": "7.2.0",
 		"http-proxy": "^1.18.1"
 	},
 	"devDependencies": {
@@ -70,6 +72,7 @@
 		"ansi-regex": "5.0.1"
 	},
 	"overrides": {
-		"ansi-regex": "5.0.1"
+		"ansi-regex": "5.0.1",
+		"bson": "7.2.0"
 	}
 }

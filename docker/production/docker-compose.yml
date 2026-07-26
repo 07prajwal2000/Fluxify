@@ -1,0 +1,148 @@
+# ==============================================================================
+# Fluxify PRODUCTION — scale-out stack.
+#   admin   : control plane (server API + web UI + AI gateway). Runs DB migrations.
+#   worker  : stateless request executor, replicated x2 and load-balanced.
+#   traefik : edge reverse proxy. Chosen over Caddy because it discovers the
+#             worker replicas automatically from Docker labels and load-balances
+#             across them with zero static config.
+#
+#   docker compose -f docker/production/docker-compose.yml up -d
+#
+# Routing (Traefik, by path priority):
+#   /_/admin*  -> admin  (its internal proxy splits ui / api / ai)
+#   /*         -> worker (round-robined across replicas; user API traffic)
+# ==============================================================================
+services:
+  traefik:
+    image: traefik:v3.7.8
+    container_name: traefik
+    restart: unless-stopped
+    command:
+      - --providers.docker=true
+      - --providers.docker.exposedByDefault=false
+      # Explicit socket endpoint (the v3 default; stated for clarity).
+      - --providers.docker.endpoint=unix:///var/run/docker.sock
+      - --entrypoints.web.address=:80
+      # Dashboard + access logs for debugging routing (see :8081).
+      - --api.dashboard=true
+      - --api.insecure=true
+      - --accesslog=true
+      - --log.level=INFO
+    ports:
+      - "8080:80"
+      - "8081:8080" # Traefik dashboard — http://localhost:8081/dashboard/
+    volumes:
+      # Read-only socket access so Traefik can watch service labels.
+      # On Docker Desktop (Windows/Mac) this path is proxied and works as-is.
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - fluxify_net
+
+  admin:
+    # image: ghcr.io/fluxify-rest/fluxify-admin:latest
+    build:
+      context: ../..
+      dockerfile: docker/admin/Dockerfile
+    container_name: fluxify-admin
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      # Control plane only — the worker service serves user API traffic.
+      ENABLE_ADMIN: "true"
+      ENABLE_BUILTIN_WORKER: "false"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      valkey:
+        condition: service_started
+      nats:
+        condition: service_started
+    labels:
+      - traefik.enable=true
+      - "traefik.http.routers.admin.rule=PathPrefix(`/_/admin`)"
+      - traefik.http.routers.admin.priority=100
+      - traefik.http.routers.admin.entrypoints=web
+      - traefik.http.services.admin.loadbalancer.server.port=8080
+    networks:
+      - fluxify_net
+
+  worker:
+    # image: ghcr.io/fluxify-rest/fluxify-worker:latest
+    build:
+      context: ../..
+      dockerfile: docker/worker/Dockerfile
+    restart: unless-stopped
+    env_file:
+      - .env
+    # No container_name: replicas each need a unique name.
+    deploy:
+      replicas: 2
+    depends_on:
+      # admin owns migrations; let it come up first. Workers retry the DB until
+      # ready, and the readiness probe below keeps traffic off them until loaded.
+      admin:
+        condition: service_started
+      postgres:
+        condition: service_healthy
+      valkey:
+        condition: service_started
+      nats:
+        condition: service_started
+    labels:
+      - traefik.enable=true
+      - "traefik.http.routers.worker.rule=PathPrefix(`/`)"
+      - traefik.http.routers.worker.priority=1
+      - traefik.http.routers.worker.entrypoints=web
+      - traefik.http.services.worker.loadbalancer.server.port=5600
+      # Only route to a replica once its dependencies have loaded. If ALL replicas
+      # are still booting the service has no healthy server and Traefik returns
+      # 503 (not 404) — watch this on the dashboard during startup.
+      - traefik.http.services.worker.loadbalancer.healthcheck.path=/_/admin/api/healthchecks/ready
+      - traefik.http.services.worker.loadbalancer.healthcheck.port=5600
+      - traefik.http.services.worker.loadbalancer.healthcheck.interval=10s
+    networks:
+      - fluxify_net
+
+  postgres:
+    image: postgres:bullseye
+    container_name: postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: fluxify_alpha
+    volumes:
+      - fluxify_pg_volume:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d fluxify_alpha"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - fluxify_net
+
+  valkey:
+    image: valkey/valkey:9.0-alpine
+    container_name: valkey
+    restart: unless-stopped
+    networks:
+      - fluxify_net
+
+  nats:
+    image: nats:latest
+    container_name: nats
+    # Single-token auth; the token must match NATS_TOKEN in .env.
+    command: ["--auth", "fluxify_nats_token"]
+    networks:
+      - fluxify_net
+
+volumes:
+  fluxify_pg_volume:
+
+networks:
+  fluxify_net:
+    # Pin the real network name so it isn't prefixed with the compose project
+    # name — keeps it predictable if you ever set --providers.docker.network.
+    name: fluxify_net
+    driver: bridge

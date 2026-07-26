@@ -5,11 +5,11 @@ import { initDocsDB } from "./db/vector";
 import { initializeHarnessWorker } from "./harness/worker";
 
 export async function runWorker() {
-	logger.info("[Worker] Starting worker process...");
+	logger.info("Starting worker process...", "Worker");
 	await initDocsDB();
 	await loadAppConfig();
 	await loadIntegrations();
 	initializeAIWorkflow();
-	initializeHarnessWorker();
-	logger.info("[Worker] Worker process started successfully.");
+	await initializeHarnessWorker();
+	logger.info("Worker process started successfully.", "Worker");
 }

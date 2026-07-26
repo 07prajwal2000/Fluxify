@@ -4,6 +4,7 @@ import { JsVM } from "@fluxify/lib";
 import { z } from "zod";
 import { assertionSchema } from "./schema";
 import * as requestRouterService from "../../../modules/requestRouter/service";
+import { logger } from "@fluxify/common";
 
 export type AssertionType = z.infer<typeof assertionSchema>;
 
@@ -81,7 +82,7 @@ export async function runSuiteAssertions(
 		resStatus = result.status;
 		resBody = result.data;
 	} catch (e: any) {
-		console.error("RUNNER ERROR:", e);
+		logger.error("Test suite runner error", "runner", { error: e });
 		resStatus = 500;
 		resBody = { error: e.message };
 	}

@@ -4,6 +4,7 @@ import { type ContentfulStatusCode } from "hono/utils/http-status";
 import { CustomError } from "../errors/customError";
 import { ValidationError } from "../errors/validationError";
 import { APIError } from "better-auth";
+import { logger } from "@fluxify/common";
 
 export function errorHandler(error: any, c: Context) {
   if (error instanceof CustomError) {
@@ -41,7 +42,7 @@ export function errorHandler(error: any, c: Context) {
   }
 
   // Handle other types of errors
-  console.error("Unhandled error:", error);
+  logger.error("Unhandled error", "errorHandler", { error });
   return c.json(
     { message: "Unknown server error occured", type: "server_error" },
     500

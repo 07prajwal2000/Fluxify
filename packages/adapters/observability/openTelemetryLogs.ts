@@ -4,6 +4,7 @@ import {
 	createOtlpLoggerProvider,
 	Logger,
 	LoggerProvider,
+	logger,
 } from "@fluxify/common";
 
 export const openTelemetryLogsSettings = z.object({
@@ -199,7 +200,7 @@ export class OpenTelemetryLogs implements AbstractLogger {
 			!settings.credentials.username ||
 			!settings.credentials.password
 		) {
-			console.error("[ERROR] [OPENTELEMETRY_LOGS] Credentials not found");
+			logger.error("Credentials not found", "opentelemetry");
 			return {};
 		}
 		const credentials = btoa(

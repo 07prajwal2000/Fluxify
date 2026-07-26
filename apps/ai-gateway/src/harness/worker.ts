@@ -1,9 +1,13 @@
 import { Worker } from "bullmq";
 import { logger } from "@fluxify/common";
+import { initializePubSub } from "@fluxify/server";
 import { REDIS_HOST, REDIS_PASS, REDIS_PORT, REDIS_USER } from "../lib/env";
 import { HARNESS_QUEUE_NAME, type HarnessJobData } from "./queue";
 import { AgentFactory } from "./models/factory";
-import { resolveAgentOptionsFromProjectId } from "./models/projectConfig";
+import {
+	resolveAgentOptionsFromIntegrationId,
+	resolveAgentOptionsFromProjectId,
+} from "./models/projectConfig";
 import { FluxifyHarness, type HarnessRunContext } from "./index";
 
 let worker: Worker<HarnessJobData> | null = null;
@@ -12,8 +16,12 @@ let worker: Worker<HarnessJobData> | null = null;
  * Starts the BullMQ worker that consumes harness jobs and drives a run through
  * the graph. Runs in the gateway worker thread (see worker.ts -> runWorker).
  */
-export function initializeHarnessWorker() {
+export async function initializeHarnessWorker() {
 	if (worker) return worker;
+
+	// The worker publishes progress to NATS (`conversations.<userId>`); ensure the
+	// pub/sub client is connected before any job runs. Idempotent.
+	await initializePubSub();
 
 	worker = new Worker<HarnessJobData>(
 		HARNESS_QUEUE_NAME,
@@ -25,8 +33,12 @@ export function initializeHarnessWorker() {
 				throw new Error("Harness job missing projectId; cannot resolve AI config");
 			}
 
-			// AI provider/keys come from the user's configured integration, never env.
-			const agentOptions = await resolveAgentOptionsFromProjectId(projectId);
+			// AI provider/keys come from the run's picked integration (never env);
+			// fall back to the project default when the user didn't choose one.
+			const integrationId = data.metadata?.integrationId;
+			const agentOptions = integrationId
+				? resolveAgentOptionsFromIntegrationId(integrationId)
+				: await resolveAgentOptionsFromProjectId(projectId);
 			const harness = new FluxifyHarness(
 				new AgentFactory({ ...agentOptions, maxToolIterations: 20 }),
 			);
@@ -69,6 +81,6 @@ export function initializeHarnessWorker() {
 		});
 	});
 
-	logger.info("[HarnessWorker] Initialized");
+	logger.info("Initialized", "HarnessWorker");
 	return worker;
 }

@@ -33,6 +33,7 @@ import {
 	type HarnessRunStatus,
 	type HarnessStreamEvent,
 } from "./streamTypes";
+import { publishHarnessEvent } from "./notifications";
 import type { HarnessJobData, HarnessJobMetadata } from "./queue";
 
 /** Everything a single harness run needs — supplied by the worker from job data. */
@@ -123,13 +124,32 @@ export class FluxifyHarness {
 		state: Partial<GlobalGraphState>,
 	) {
 		const harnessService = state.internal!.harnessService;
+		// Resolve the conversation owner once — it's the `conversations.<userId>`
+		// pub/sub subject every event for this run is published to.
+		const userId = await harnessService.getOwnerUserId();
+
+		// Verify the selected AI provider is actually reachable before spending a
+		// run on it. On failure, exit with a meaningful aiResponse instead of a
+		// cryptic mid-graph error.
+		const connError = await this.checkAgentConnection(state.agentWrapper);
+		if (connError) {
+			await this.failRun(
+				ctx,
+				harnessService,
+				userId,
+				connError,
+				`The selected AI provider could not be reached, so this request was not processed. Please verify the integration's API key, model, and network access.\n\nDetails: ${connError}`,
+			);
+			return undefined;
+		}
+
 		const callbacks = new this.callbacksClass({
 			state,
 			conversationId: ctx.conversationId,
 			runId: ctx.runId,
 			harnessService,
 			redisService: this.redisService,
-			job: ctx.job,
+			userId,
 		});
 		// Attach the OTEL tracer as a run callback (app.invoke used to pass this;
 		// the streamEvents path must supply it explicitly for LLM/agent tracing).
@@ -176,7 +196,7 @@ export class FluxifyHarness {
 			);
 
 			await callbacks.flush();
-			await this.finalizeRun(ctx, harnessService, finalState);
+			await this.finalizeRun(ctx, harnessService, userId, finalState);
 		} catch (error) {
 			logger.error("[FluxifyHarness] Graph execution failed", {
 				conversationId: ctx.conversationId,
@@ -184,9 +204,9 @@ export class FluxifyHarness {
 				error,
 			});
 			// Raw dump so the underlying stack is visible in foreground runs.
-			console.error("[FluxifyHarness] graph error:", error);
+			logger.error("Graph error", "FluxifyHarness", { error });
 			await callbacks.flush().catch(() => {});
-			await this.failRun(ctx, harnessService, error);
+			await this.failRun(ctx, harnessService, userId, error);
 			throw error;
 		} finally {
 			await harnessService.awaitAllPendingBackgroundTasks();
@@ -204,6 +224,7 @@ export class FluxifyHarness {
 	private async finalizeRun(
 		ctx: HarnessRunContext,
 		harnessService: HarnessService,
+		userId: string | null,
 		finalState?: Partial<GlobalGraphState>,
 	) {
 		const reachedHITL =
@@ -224,7 +245,9 @@ export class FluxifyHarness {
 				graphState: finalState,
 			});
 			await harnessService.updateConversationStatus("paused_hitl", ctx.runId);
-			await this.emitTerminal(ctx, "awaiting_hitl", AgentNode.HUMAN_IN_THE_LOOP);
+			await this.emitTerminal(ctx, userId, "awaiting_hitl", AgentNode.HUMAN_IN_THE_LOOP);
+			// HITL is terminal for this run pass — evict its live-state snapshot soon.
+			await this.redisService.finalizeSnapshot(ctx.runId);
 			logger.info("[FluxifyHarness] Run parked for HITL", {
 				runId: ctx.runId,
 				conversationId: ctx.conversationId,
@@ -254,20 +277,44 @@ export class FluxifyHarness {
 		await this.redisService.clearActiveRun(ctx.conversationId);
 		await this.emitTerminal(
 			ctx,
+			userId,
 			"completed",
 			finalState?.currentAgent ?? AgentNode.ORCHESTRATOR,
 		);
+		await this.redisService.finalizeSnapshot(ctx.runId);
+	}
+
+	/**
+	 * Probes the AI provider once before running. Returns an error string if the
+	 * provider is unreachable, or null when it responds.
+	 */
+	private async checkAgentConnection(
+		agent?: BaseAgentWrapper,
+	): Promise<string | null> {
+		if (!agent) return "No AI agent configured for this run";
+		try {
+			await agent.checkConnection();
+			return null;
+		} catch (e) {
+			return e instanceof Error ? e.message : String(e);
+		}
 	}
 
 	private async failRun(
 		ctx: HarnessRunContext,
 		harnessService: HarnessService,
+		userId: string | null,
 		error?: unknown,
+		aiResponse?: string,
 	) {
 		const message =
 			error instanceof Error ? error.message : error ? String(error) : "failed";
 		try {
-			await harnessService.updateRun({ runId: ctx.runId, status: "failed" });
+			await harnessService.updateRun({
+				runId: ctx.runId,
+				status: "failed",
+				aiResponse,
+			});
 			await harnessService.saveLiveState({
 				runId: ctx.runId,
 				conversationId: ctx.conversationId,
@@ -276,7 +323,8 @@ export class FluxifyHarness {
 			});
 			await harnessService.updateConversationStatus("failed", null);
 			await this.redisService.clearActiveRun(ctx.conversationId);
-			await this.emitTerminal(ctx, "failed", AgentNode.ROUTER, message);
+			await this.emitTerminal(ctx, userId, "failed", AgentNode.ROUTER, message);
+			await this.redisService.finalizeSnapshot(ctx.runId);
 		} catch (e) {
 			logger.error("[FluxifyHarness] Error persisting run failure", {
 				runId: ctx.runId,
@@ -285,9 +333,10 @@ export class FluxifyHarness {
 		}
 	}
 
-	/** Emits a run-level terminal event so SSE subscribers get a close signal. */
+	/** Emits a run-level terminal event so subscribers get a close signal. */
 	private async emitTerminal(
 		ctx: HarnessRunContext,
+		userId: string | null,
 		runStatus: HarnessRunStatus,
 		node: AgentNodeName,
 		statusText?: string,
@@ -304,7 +353,7 @@ export class FluxifyHarness {
 		};
 		try {
 			await this.redisService.appendEvent(event);
-			await ctx.job?.updateProgress(event as any);
+			if (userId) publishHarnessEvent(userId, event);
 		} catch (e) {
 			logger.error("[FluxifyHarness] Error emitting terminal event", {
 				runId: ctx.runId,

@@ -9,6 +9,7 @@ import { JsVM } from "@fluxify/lib";
 import z from "zod";
 import { requestParamSchema } from "./dto";
 import { NotFoundError } from "../../../../errors/notFoundError";
+import { logger } from "@fluxify/common";
 
 export async function invalidateOpenApiCache(projectId?: string) {
 	if (projectId) {
@@ -96,7 +97,7 @@ function buildParameter(
         }
       }
     } catch (e) {
-      console.error(`Failed to parse ${inLocation} schema:`, e);
+      logger.error(`Failed to parse ${inLocation} schema`, "openapi", { error: e });
     }
   }
 }
@@ -157,7 +158,7 @@ export async function generateOpenApiSpec(
 					};
 				}
 			} catch (e) {
-				console.error("Failed to parse body schema:", e);
+				logger.error("Failed to parse body schema", "openapi", { error: e });
 			}
 		}
 

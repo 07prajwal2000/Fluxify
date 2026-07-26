@@ -16,7 +16,7 @@ export { trace, context } from "@opentelemetry/api";
 export type { Context, Span } from "@opentelemetry/api";
 
 // Import the internal SDK span type directly from trace-base to satisfy SDK type system
-import type { Span as SdkSpan } from "@opentelemetry/sdk-trace-base";
+import { logger } from "../logging";
 
 export const FLUXIFY_CONTEXT_KEY = createContextKey("fluxify_context");
 
@@ -42,7 +42,7 @@ class FluxifyContextSpanProcessor implements SpanProcessor {
 		return Promise.resolve();
 	}
 
-	onStart(span: SdkSpan, _parentContext: Context): void {
+	onStart(span: any, _parentContext: Context): void {
 		const fluxifyContext = context
 			.active()
 			.getValue(FLUXIFY_CONTEXT_KEY) as FluxifyContextData;
@@ -111,7 +111,7 @@ export async function flushTraces(): Promise<void> {
 				// Silently swallow Bun's http.request keep-alive timeout quirk
 				return;
 			}
-			console.error("OTel flush error:", e);
+			logger.error("OTel flush error", "tracing", { error: e });
 		}
 	}
 }
@@ -124,7 +124,7 @@ export async function shutdownTraces(): Promise<void> {
 			if (e?.message?.includes("Request timed out")) {
 				return;
 			}
-			console.error("OTel shutdown error:", e);
+			logger.error("OTel shutdown error", "tracing", { error: e });
 		}
 	}
 }

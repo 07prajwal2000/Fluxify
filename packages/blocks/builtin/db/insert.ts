@@ -6,6 +6,7 @@ import {
   Context,
 } from "../../baseBlock";
 import { IDbAdapter } from "@fluxify/adapters";
+import { logger } from "@fluxify/common";
 
 export const insertDbBlockSchema = z
   .object({
@@ -75,7 +76,7 @@ export class InsertDbBlock extends BaseBlock {
         next: this.next,
       };
     } catch (e) {
-      console.error(e);
+      logger.error("Failed to execute insert db block", "BLOCKS.insert", { error: e });
       return {
         continueIfFail: false,
         successful: false,

@@ -1,0 +1,4 @@
+id,event,value
+1,page_view,/home
+2,click,cta-signup
+3,purchase,49.99

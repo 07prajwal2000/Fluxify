@@ -76,7 +76,7 @@ export class BlockBuilderAgent extends BaseAgent {
 			name: "agent_status",
 			data: {
 				status: "Analyzing block builder requirements...",
-				agent: AgentNode.BUILDER,
+				agent: AgentNode.BLOCK_BUILDER,
 				agentId: activeTask.id,
 			},
 		});
@@ -121,7 +121,7 @@ export class BlockBuilderAgent extends BaseAgent {
 			name: "agent_status",
 			data: {
 				status: "Block building intent formulated",
-				agent: AgentNode.BUILDER,
+				agent: AgentNode.BLOCK_BUILDER,
 				data: processedResponse,
 				agentId: activeTask.id,
 			},
@@ -130,7 +130,7 @@ export class BlockBuilderAgent extends BaseAgent {
 		const currentResults = this.state.orchestratorState?.subAgentResults || {};
 
 		return {
-			currentAgent: AgentNode.BUILDER,
+			currentAgent: AgentNode.BLOCK_BUILDER,
 			orchestratorState: {
 				...this.state.orchestratorState,
 				subAgentResults: {

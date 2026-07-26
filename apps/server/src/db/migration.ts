@@ -2,11 +2,12 @@ import { existsSync } from "fs";
 import { join } from "path";
 import { SQL } from "bun";
 import { logger } from "@fluxify/common";
+import { getEnv } from "../lib/env";
 
 export async function migrateDB(db: SQL) {
 	logger.info("Initializing production schema migration...");
 
-	const isProduction = process.env.ENVIRONMENT === "production";
+	const isProduction = getEnv("ENVIRONMENT") === "production";
 	const schemaPath = join(
 		isProduction ? process.cwd() : import.meta.dir,
 		isProduction ? "" : "../../dist/",

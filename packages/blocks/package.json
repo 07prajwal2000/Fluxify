@@ -23,6 +23,7 @@
 	},
 	"dependencies": {
 		"@fluxify/adapters": "workspace:*",
+		"@fluxify/common": "workspace:*",
 		"@fluxify/lib": "workspace:*",
 		"dayjs": "^1.11.19",
 		"jsonwebtoken": "^9.0.3",

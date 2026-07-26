@@ -10,17 +10,16 @@ import {
 	TbArrowLeft,
 	TbBox,
 	TbCloudCog,
+	TbLayoutGridFilled,
 	TbSettings,
 	TbSparkles,
 	TbSquareKey,
 	TbStack2,
 } from "react-icons/tb";
-import { Button, ListBox } from "@fluxify/components";
+import { cn } from "@fluxify/components";
 import { authClient } from "@/lib/auth";
 import { projectsQuery } from "@/query/projectsQuery";
 import { ProfileNav } from "@/components/home/ProfileNav";
-
-const logo = `${import.meta.env.BASE_URL}logo_title.webp`;
 
 const NAV = [
 	{ key: "ai", label: "Fluxify AI", to: "/$projectId/ai", icon: TbSparkles },
@@ -55,51 +54,63 @@ function ProjectLayout() {
 
 	return (
 		<div className="flex h-screen w-screen flex-col bg-background text-foreground">
-			<header className="flex items-center justify-between border-b border-border px-5 py-3">
-				<div className="flex items-center gap-4">
-					<img src={logo} alt="Fluxify" className="h-7 object-contain" />
-					<div className="flex items-center gap-2 border-l border-border pl-4">
-						<span className="font-medium">{projectName}</span>
-						<Button
-							isIconOnly
-							variant="ghost"
+			<header className="flex h-[52px] items-center justify-between border-b border-border bg-background-secondary px-4">
+				<div className="flex items-center gap-3">
+					<div className="flex size-7 items-center justify-center rounded-lg bg-accent text-accent-foreground shadow-[0_0_16px_var(--accent-soft)]">
+						<TbLayoutGridFilled size={16} />
+					</div>
+					<span className="text-sm font-bold tracking-tight">FLUXIFY</span>
+					<div className="ml-1 flex items-center gap-1.5 border-l border-border pl-3">
+						<span className="text-sm text-muted">{projectName}</span>
+						<button
+							type="button"
 							aria-label="Project settings"
-							onPress={() =>
+							onClick={() =>
 								navigate({ to: "/$projectId/settings", params: { projectId } })
 							}
+							className="inline-flex size-7 items-center justify-center rounded-md text-muted transition-colors hover:bg-white/5 hover:text-foreground"
 						>
-							<TbSettings size={16} />
-						</Button>
+							<TbSettings size={15} />
+						</button>
 					</div>
 				</div>
 				<ProfileNav />
 			</header>
 
 			<div className="flex min-h-0 flex-1">
-				<aside className="flex w-60 flex-col justify-between border-r border-border p-3">
-					<ListBox
-						aria-label="Project sections"
-						selectionMode="single"
-						selectedKeys={new Set([active])}
-						onSelectionChange={(keys) => {
-							const key = [...(keys as Set<string>)][0];
-							const item = NAV.find((n) => n.key === key);
-							if (item) navigate({ to: item.to, params: { projectId } });
-						}}
-					>
-						{NAV.map((item) => (
-							<ListBox.Item key={item.key} id={item.key} textValue={item.label}>
-								<span className="flex items-center gap-2.5">
-									<item.icon size={18} />
+				<aside className="flex w-[220px] flex-col justify-between border-r border-border bg-background-secondary p-3">
+					<nav className="flex flex-col gap-0.5">
+						{NAV.map((item) => {
+							const isActive = active === item.key;
+							return (
+								<button
+									key={item.key}
+									type="button"
+									onClick={() => navigate({ to: item.to, params: { projectId } })}
+									className={cn(
+										"flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-colors",
+										isActive
+											? "bg-white/5 font-medium text-foreground"
+											: "text-muted hover:bg-white/[0.03] hover:text-foreground",
+									)}
+								>
+									<item.icon
+										size={18}
+										className={isActive ? "text-accent" : ""}
+									/>
 									{item.label}
-								</span>
-							</ListBox.Item>
-						))}
-					</ListBox>
+								</button>
+							);
+						})}
+					</nav>
 
-					<Button variant="ghost" onPress={() => navigate({ to: "/" })}>
+					<button
+						type="button"
+						onClick={() => navigate({ to: "/" })}
+						className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-muted transition-colors hover:bg-white/[0.03] hover:text-foreground"
+					>
 						<TbArrowLeft size={18} /> Back to projects
-					</Button>
+					</button>
 				</aside>
 
 				<main className="min-w-0 flex-1 overflow-y-auto p-6">

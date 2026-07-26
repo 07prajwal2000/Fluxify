@@ -1,34 +1,87 @@
-import type z from "zod";
-import { responseSchema as getBasicListResponseSchema } from "@fluxify/server/src/api/v1/integrations/get-basic-list/dto";
 import { httpClient } from "@/lib/http";
+import { responseSchema as getByIdResponseSchema } from "@fluxify/server/src/api/v1/integrations/get-by-id/dto";
+import { responseSchema as getAllResponseSchema } from "@fluxify/server/src/api/v1/integrations/get-all/dto";
+import { responseSchema as getBasicListResponseSchema } from "@fluxify/server/src/api/v1/integrations/get-basic-list/dto";
+import {
+	requestBodySchema as createRequestSchema,
+	responseSchema as createResponseSchema,
+} from "@fluxify/server/src/api/v1/integrations/create/dto";
+import {
+	requestBodySchema as updateRequestSchema,
+	responseSchema as updateResponseSchema,
+} from "@fluxify/server/src/api/v1/integrations/update/dto";
+import { responseSchema as testConnectionResponseSchema } from "@fluxify/server/src/api/v1/integrations/test-connection/dto";
+import { responseSchema as testExistingConnectionResponseSchema } from "@fluxify/server/src/api/v1/integrations/test-existing-connection/dto";
+import z from "zod";
 
-const base = (projectId: string) => `/v1/${projectId}/integrations`;
+const getBaseUrl = (projectId: string) => `/v1/${projectId}/integrations`;
 
-// Typed locally rather than importing the create DTO: that DTO pulls in
-// integration schemas -> @fluxify/adapters, which drags adapter type-only
-// import violations into the portal typecheck. Server validates the body.
-export type CreateIntegrationBody = {
-	name: string;
-	group: string;
-	variant: string;
-	config: Record<string, unknown>;
-};
-
-export const integrationsService = {
+export const integrationService = {
 	async getBasicList(
 		projectId: string,
 	): Promise<z.infer<typeof getBasicListResponseSchema>> {
-		const res = await httpClient.get(`${base(projectId)}/list-basic`);
+		const res = await httpClient.get(`${getBaseUrl(projectId)}/list-basic`);
+		return res.data;
+	},
+	async getAll(
+		projectId: string,
+		group: string,
+		tags?: string[],
+	): Promise<z.infer<typeof getAllResponseSchema>> {
+		let url = `${getBaseUrl(projectId)}/list/${group}`;
+		if (tags && tags.length > 0) {
+			url += `?tags=${tags.join(",")}`;
+		}
+		const res = await httpClient.get(url);
+		return res.data;
+	},
+	async getById(
+		projectId: string,
+		id: string,
+	): Promise<z.infer<typeof getByIdResponseSchema>> {
+		const res = await httpClient.get(`${getBaseUrl(projectId)}/${id}`);
 		return res.data;
 	},
 	async create(
 		projectId: string,
-		body: CreateIntegrationBody,
-	): Promise<{ id: string }> {
-		const res = await httpClient.post(base(projectId), body);
+		data: z.infer<typeof createRequestSchema>,
+	): Promise<z.infer<typeof createResponseSchema>> {
+		const res = await httpClient.post(getBaseUrl(projectId), data);
+		return res.data;
+	},
+	async update(
+		projectId: string,
+		id: string,
+		data: z.infer<typeof updateRequestSchema>,
+	): Promise<z.infer<typeof updateResponseSchema>> {
+		const res = await httpClient.put(`${getBaseUrl(projectId)}/${id}`, data);
 		return res.data;
 	},
 	async delete(projectId: string, id: string): Promise<void> {
-		await httpClient.delete(`${base(projectId)}/${id}`);
+		await httpClient.delete(`${getBaseUrl(projectId)}/${id}`);
 	},
+	async testExistingConnection(
+		projectId: string,
+		id: string,
+	): Promise<z.infer<typeof testExistingConnectionResponseSchema>> {
+		const res = await httpClient.get(
+			`${getBaseUrl(projectId)}/test-existing-connection/${id}`,
+		);
+		return res.data;
+	},
+	async testConnection(
+		projectId: string,
+		group: string,
+		variant: string,
+		config: unknown,
+	): Promise<z.infer<typeof testConnectionResponseSchema>> {
+		const res = await httpClient.post(`${getBaseUrl(projectId)}/test-connection`, {
+			group,
+			variant,
+			config,
+		});
+		return res.data;
+	},
+	createRequestSchema,
+	updateRequestSchema,
 };

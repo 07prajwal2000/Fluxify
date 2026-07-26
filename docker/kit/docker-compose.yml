@@ -1,0 +1,72 @@
+# ==============================================================================
+# Fluxify KIT — single-container quick-run stack.
+# Everything (admin API, worker, web UI, AI gateway, Caddy proxy) runs inside the
+# one `fluxify-kit` container. Best for local trials and evaluation.
+#
+#   docker compose -f docker/kit/docker-compose.yml up -d
+#
+# For a scale-out, production topology (separate admin + replicated workers)
+# see docker/production/docker-compose.yml.
+# ==============================================================================
+services:
+  fluxify:
+    image: ghcr.io/fluxify-rest/fluxify-kit:nightly
+    # Or build locally:
+    # build:
+    #   context: ../..
+    #   dockerfile: docker/kit/Dockerfile
+    container_name: fluxify-kit
+    restart: unless-stopped
+    ports:
+      - "8080:8080" # single public entrypoint (Caddy)
+    env_file:
+      - .env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      valkey:
+        condition: service_started
+      nats:
+        condition: service_started
+    networks:
+      - fluxify_net
+
+  postgres:
+    image: postgres:bullseye
+    container_name: postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: fluxify_alpha
+    volumes:
+      - fluxify_pg_volume:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d fluxify_alpha"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - fluxify_net
+
+  valkey:
+    image: valkey/valkey:9.0-alpine
+    container_name: valkey
+    restart: unless-stopped
+    networks:
+      - fluxify_net
+
+  nats:
+    image: nats:latest
+    container_name: nats
+    # Single-token auth; the token must match NATS_TOKEN in .env.
+    command: ["--auth", "fluxify_nats_token"]
+    networks:
+      - fluxify_net
+
+volumes:
+  fluxify_pg_volume:
+
+networks:
+  fluxify_net:
+    driver: bridge

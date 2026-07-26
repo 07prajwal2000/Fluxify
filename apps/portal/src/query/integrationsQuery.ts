@@ -1,18 +1,40 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import {
-	type CreateIntegrationBody,
-	integrationsService,
-} from "@/services/integrations";
+import type z from "zod";
+import { integrationService } from "@/services/integrations";
 
-const key = (projectId: string) => ["integrations", projectId, "basic"];
+type CreateIntegrationType = z.infer<typeof integrationService.createRequestSchema>;
+type UpdateIntegrationType = z.infer<typeof integrationService.updateRequestSchema>;
 
 export const integrationsQuery = {
+	getAll: {
+		useQuery(projectId: string, group: string, tags?: string[]) {
+			return useQuery({
+				queryKey: ["integrations", projectId, group, tags],
+				queryFn: () => integrationService.getAll(projectId, group, tags),
+				refetchOnWindowFocus: false,
+				staleTime: 5 * 60 * 1000,
+				enabled: !!projectId,
+			});
+		},
+	},
 	getBasicList: {
 		useQuery(projectId: string) {
 			return useQuery({
-				queryKey: key(projectId),
-				queryFn: () => integrationsService.getBasicList(projectId),
+				queryKey: ["integrations", projectId, "basic-list"],
+				queryFn: () => integrationService.getBasicList(projectId),
 				refetchOnWindowFocus: false,
+				enabled: !!projectId,
+			});
+		},
+	},
+	getById: {
+		useQuery(projectId: string, id: string) {
+			return useQuery({
+				queryKey: ["integrations", projectId, "getById", id],
+				queryFn: () =>
+					!id || !projectId ? null : integrationService.getById(projectId, id),
+				refetchOnWindowFocus: false,
+				enabled: !!projectId && !!id,
 			});
 		},
 	},
@@ -20,9 +42,21 @@ export const integrationsQuery = {
 		mutation(projectId: string) {
 			const qc = useQueryClient();
 			return useMutation({
-				mutationFn: (body: CreateIntegrationBody) =>
-					integrationsService.create(projectId, body),
-				onSuccess: () => qc.invalidateQueries({ queryKey: key(projectId) }),
+				mutationFn: (data: CreateIntegrationType) =>
+					integrationService.create(projectId, data),
+				onSuccess: () =>
+					qc.invalidateQueries({ queryKey: ["integrations", projectId] }),
+			});
+		},
+	},
+	update: {
+		mutation(projectId: string) {
+			const qc = useQueryClient();
+			return useMutation({
+				mutationFn: (params: { id: string; data: UpdateIntegrationType }) =>
+					integrationService.update(projectId, params.id, params.data),
+				onSuccess: () =>
+					qc.invalidateQueries({ queryKey: ["integrations", projectId] }),
 			});
 		},
 	},
@@ -30,8 +64,38 @@ export const integrationsQuery = {
 		mutation(projectId: string) {
 			const qc = useQueryClient();
 			return useMutation({
-				mutationFn: (id: string) => integrationsService.delete(projectId, id),
-				onSuccess: () => qc.invalidateQueries({ queryKey: key(projectId) }),
+				mutationFn: (id: string) => integrationService.delete(projectId, id),
+				onSuccess: () => {
+					// Refetch the lists only. Excluding getById avoids refetching the
+					// just-deleted id (a 404) while its accordion is still collapsing.
+					qc.invalidateQueries({
+						predicate: (q) =>
+							q.queryKey[0] === "integrations" &&
+							q.queryKey[1] === projectId &&
+							q.queryKey[2] !== "getById",
+					});
+				},
+			});
+		},
+	},
+	testConnection: {
+		mutation(projectId: string) {
+			return useMutation({
+				mutationFn: (params: { group: string; variant: string; config: unknown }) =>
+					integrationService.testConnection(
+						projectId,
+						params.group,
+						params.variant,
+						params.config,
+					),
+			});
+		},
+	},
+	testExistingConnection: {
+		mutation(projectId: string) {
+			return useMutation({
+				mutationFn: (id: string) =>
+					integrationService.testExistingConnection(projectId, id),
 			});
 		},
 	},

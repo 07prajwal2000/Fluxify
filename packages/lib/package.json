@@ -13,6 +13,7 @@
 		"lint": "tsgo --noEmit"
 	},
 	"dependencies": {
+		"@fluxify/common": "workspace:*",
 		"axios": "^1.13.1",
 		"pino": "^10.3.0",
 		"uuidv7": "^1.0.2",

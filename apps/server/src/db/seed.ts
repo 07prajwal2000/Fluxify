@@ -3,6 +3,7 @@ import { z } from "zod";
 import { PgDatabase } from "drizzle-orm/pg-core";
 import { initializeLogger, logger } from "@fluxify/common";
 import { createSystemUser, getSystemUserByEmail } from "../lib/system-users";
+import { getEnv } from "../lib/env";
 
 const seedUserSchema = z.object({
 	email: z.email(),
@@ -12,9 +13,9 @@ const seedUserSchema = z.object({
 initializeLogger({ serviceName: "fluxify-server-db-seed" });
 
 export async function seedData(db: PgDatabase<any>) {
-	const email = process.env.SEED_USER_EMAIL;
-	const password = process.env.SEED_USER_PASSWORD;
-	const name = process.env.SEED_USER_NAME || "Admin User";
+	const email = getEnv("SEED_USER_EMAIL");
+	const password = getEnv("SEED_USER_PASSWORD");
+	const name = getEnv("SEED_USER_NAME") || "Admin User";
 
 	if (!email || !password) {
 		logger.warn("No seed user details provided. Skipping seed user creation.");

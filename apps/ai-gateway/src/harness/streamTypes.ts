@@ -61,7 +61,7 @@ export type HarnessNodePayload =
 			data: { tasksByLevel: HarnessTaskView[][]; activeLevel: number };
 	  }
 	| {
-			node: AgentNode.BUILDER;
+			node: AgentNode.BLOCK_BUILDER;
 			data: { task: HarnessTaskView; result?: SubAgentResult };
 	  }
 	| {
@@ -106,7 +106,7 @@ export interface HarnessSnapshot {
 
 /** Sub-agent nodes are dispatched by the orchestrator with an `activeTask`. */
 const SUB_AGENT_NODES: ReadonlySet<AgentNodeName> = new Set<AgentNodeName>([
-	AgentNode.BUILDER,
+	AgentNode.BLOCK_BUILDER,
 	AgentNode.ROUTE_CONFIG_AGENT,
 ]);
 
@@ -129,7 +129,7 @@ export function runStatusForNode(node: AgentNodeName): HarnessRunStatus {
 		case AgentNode.SUPERVISOR:
 		case AgentNode.SUMMARIZER:
 			return "orchestrating";
-		case AgentNode.BUILDER:
+		case AgentNode.BLOCK_BUILDER:
 		case AgentNode.ROUTE_CONFIG_AGENT:
 			return "executing";
 		case AgentNode.HUMAN_IN_THE_LOOP:

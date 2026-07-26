@@ -190,7 +190,11 @@ export default defineConfig({
 			"/deployments/": [
 				{
 					text: "Deployments",
-					items: [{ text: "Self-Hosting", link: "/deployments/" }],
+					items: [
+						{ text: "Self-Hosting", link: "/deployments/" },
+						{ text: "Quick Run (Kit)", link: "/deployments/kit" },
+						{ text: "Production (Admin + Workers)", link: "/deployments/production" },
+					],
 				},
 			],
 

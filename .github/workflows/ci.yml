@@ -3,6 +3,7 @@ name: CI/CD
 on:
   push:
     branches: ["main"]
+    tags: ["v*"] # version tags trigger the admin + worker release build
   pull_request:
 
 jobs:
@@ -41,6 +42,8 @@ jobs:
           bun-version: 1.3.14
       - name: Install Dependencies
         run: bun install
+      - name: Build Portal (generates TanStack route tree for lint)
+        run: bun run build --filter=@fluxify/portal
       - name: Run Lint
         run: bun run lint
       - name: Run Analyzer
@@ -124,14 +127,16 @@ jobs:
       - name: Run Server Integration Tests
         run: bun run test:server:integration
 
+  # Kit is the exception: every push to main publishes a rolling `nightly` build.
+  # Versioned/`latest` kit images come from the tagged release job below.
   build-and-push:
     needs: [lint, test-packages-lib, test-packages-blocks, test-packages-adapters, test-apps-server-unit, test-apps-server-integration]
     if: |
-      always() && 
+      always() &&
       !contains(needs.*.result, 'failure') &&
       !contains(needs.*.result, 'cancelled') &&
-      github.event_name == 'push' && 
-      github.ref == 'refs/heads/main' && 
+      github.event_name == 'push' &&
+      github.ref == 'refs/heads/main' &&
       github.repository_owner == 'Fluxify-rest'
     runs-on: ubuntu-latest
     permissions:
@@ -148,20 +153,68 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Extract commit hash (short)
-        id: commit
-        run: echo "short_sha=$(echo ${{ github.sha }} | cut -c 1-4)" >> $GITHUB_OUTPUT
+      - name: Compute nightly timestamp (UTC, YY-MM-DD-HHMM)
+        id: ts
+        run: echo "stamp=$(date -u +'%y-%m-%d-%H%M')" >> $GITHUB_OUTPUT
 
       - name: Lowercase Repo Owner
         id: owner
         run: echo "owner=$(echo ${{ github.repository_owner }} | tr '[:upper:]' '[:lower:]')" >> $GITHUB_OUTPUT
 
-      - name: Build and push Docker image
+      - name: Build and push Kit (nightly)
         uses: docker/build-push-action@v5
         with:
           context: .
           file: docker/kit/Dockerfile
           push: true
           tags: |
-            ghcr.io/${{ steps.owner.outputs.owner }}/fluxify-kit:${{ steps.commit.outputs.short_sha }}
-            ghcr.io/${{ steps.owner.outputs.owner }}/fluxify-kit:latest
+            ghcr.io/${{ steps.owner.outputs.owner }}/fluxify-kit:nightly
+            ghcr.io/${{ steps.owner.outputs.owner }}/fluxify-kit:nightly-${{ steps.ts.outputs.stamp }}
+
+  # Kit, admin and worker versioned images build ONLY on version tags (e.g. v1.2.3).
+  build-and-push-release:
+    needs: [lint, test-packages-lib, test-packages-blocks, test-packages-adapters, test-apps-server-unit, test-apps-server-integration]
+    if: |
+      always() &&
+      !contains(needs.*.result, 'failure') &&
+      !contains(needs.*.result, 'cancelled') &&
+      github.event_name == 'push' &&
+      startsWith(github.ref, 'refs/tags/v') &&
+      github.repository_owner == 'Fluxify-rest'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      matrix:
+        include:
+          - image: fluxify-kit
+            dockerfile: docker/kit/Dockerfile
+          - image: fluxify-admin
+            dockerfile: docker/admin/Dockerfile
+          - image: fluxify-worker
+            dockerfile: docker/worker/Dockerfile
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Log in to the Container registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Lowercase Repo Owner
+        id: owner
+        run: echo "owner=$(echo ${{ github.repository_owner }} | tr '[:upper:]' '[:lower:]')" >> $GITHUB_OUTPUT
+
+      - name: Build and push ${{ matrix.image }}
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ${{ matrix.dockerfile }}
+          push: true
+          tags: |
+            ghcr.io/${{ steps.owner.outputs.owner }}/${{ matrix.image }}:${{ github.ref_name }}
+            ghcr.io/${{ steps.owner.outputs.owner }}/${{ matrix.image }}:latest

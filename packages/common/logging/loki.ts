@@ -1,5 +1,4 @@
-import winston from "winston";
-import LokiTransport from "winston-loki";
+import type winston from "winston";
 
 export interface LokiLoggerOptions {
 	host: string;
@@ -8,9 +7,15 @@ export interface LokiLoggerOptions {
 }
 
 export function createLokiLogger(options: LokiLoggerOptions): winston.Logger {
-	return winston.createLogger({
+	if (typeof (globalThis as any).window !== "undefined") {
+		return console as unknown as winston.Logger;
+	}
+	const winstonPkg = require("winston");
+	const LokiTransport = require("winston-loki");
+
+	return winstonPkg.createLogger({
 		level: "info",
-		format: winston.format.json(),
+		format: winstonPkg.format.json(),
 		transports: [
 			new LokiTransport({
 				host: options.host,

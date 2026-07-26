@@ -6,7 +6,6 @@ import dayjsUtc from "dayjs/plugin/utc";
 import {
 	AbstractLogger,
 	ConsoleLoggerProvider,
-	EmptyLoggerProvider,
 	HttpClient,
 	HttpRoute,
 	HttpRouteParser,
@@ -15,6 +14,7 @@ import {
 	Context as BlockContext,
 	BlockOutput,
 	ContextVarsType,
+	TriggerContext,
 } from "@fluxify/blocks";
 import { Context } from "hono";
 import { ContentfulStatusCode } from "hono/utils/http-status";
@@ -29,26 +29,65 @@ import {
 } from "../../loaders/integrationsLoader";
 import * as zodLib from "zod";
 import { projectSettingsCache } from "../../loaders/projectSettingsLoader";
+import type { RequestEnvelope, RequestPayload } from "./types";
 
 export type HandleRequestType = {
 	data?: any;
 	status: ContentfulStatusCode;
 };
 
-export type RequestOverrides = {
-	integrations?: Array<{ existingId: string; newId: string }>;
-	appConfigs?: Array<{ key: string; value: string }>;
-};
+// defined in ./types so it has no import cycle with the envelope; re-exported
+// here because the test-suites runner imports it from this module.
+export type { RequestOverrides } from "./types";
+import type { RequestOverrides } from "./types";
 
 export const RESPONSE_TIMEOUT = 4 * 1000;
 
-export async function handleRequest(
-	ctx: Context,
+/** Default origin for in-process callers (test-suite runner) that predate the envelope. */
+const DEFAULT_TRIGGER: TriggerContext = {
+	kind: "route",
+	source: "http",
+	reply: "sync",
+};
+
+/**
+ * HTTP transport adapter: turn an incoming Hono request into a generic
+ * envelope. This is the ONLY Hono-aware ingestion path; a NATS/BullMQ consumer
+ * would build the same envelope from its message and call dispatch() directly.
+ * `reply` is opt-in async via header so schedulers/crons can fire-and-forget.
+ */
+export async function envelopeFromHttp(ctx: Context): Promise<RequestEnvelope> {
+	return {
+		trigger: {
+			kind: "route",
+			source: "http",
+			reply: ctx.req.header("x-fluxify-reply") === "async" ? "async" : "sync",
+			id: ctx.req.header("x-fluxify-id"),
+		},
+		payload: {
+			method: ctx.req.method,
+			path: ctx.req.path,
+			headers: ctx.req.header(),
+			query: ctx.req.query(),
+			body: await getRequestBody(ctx),
+		},
+	};
+}
+
+/**
+ * Transport-agnostic entry point of the worker. Matches the route from the
+ * envelope's payload and runs it. `httpCtx` is only for HTTP side-effects
+ * (response cookies/headers); non-HTTP sources omit it and those calls no-op.
+ */
+export async function dispatch(
+	env: RequestEnvelope,
 	parser: HttpRouteParser,
+	httpCtx?: Context,
 ): Promise<HandleRequestType> {
+	const { payload, trigger, overrides } = env;
 	const path = parser.getRouteId(
-		ctx.req.path,
-		ctx.req.method as HttpRoute["method"],
+		payload.path,
+		payload.method as HttpRoute["method"],
 	);
 	if (!path) {
 		return {
@@ -58,10 +97,6 @@ export async function handleRequest(
 			},
 		};
 	}
-
-	const requestBody = await getRequestBody(ctx);
-	const headers = ctx.req.header();
-	const query = ctx.req.query();
 
 	return executeRouteInternal(
 		{
@@ -74,14 +109,16 @@ export async function handleRequest(
 			paramsSchema: path.paramsSchema,
 		},
 		{
-			method: ctx.req.method,
-			path: ctx.req.path,
-			headers,
-			query,
-			body: requestBody,
-			params: path.routeParams || {},
+			method: payload.method,
+			path: payload.path,
+			headers: payload.headers,
+			query: payload.query,
+			body: payload.body,
+			params: path.routeParams || payload.params || {},
 		},
-		ctx,
+		httpCtx,
+		overrides,
+		trigger,
 	);
 }
 
@@ -105,6 +142,7 @@ export async function executeRouteInternal(
 	},
 	ctx?: Context,
 	overrides?: RequestOverrides,
+	trigger: TriggerContext = DEFAULT_TRIGGER,
 ): Promise<HandleRequestType> {
 	const httpClient = createHttpClient();
 	const vars = setupContextVars(
@@ -114,6 +152,7 @@ export async function executeRouteInternal(
 		httpClient,
 		routeInfo.projectId,
 		overrides,
+		trigger,
 	);
 	const vm = createJsVM(vars);
 
@@ -178,6 +217,7 @@ export async function executeRouteInternal(
 		vars,
 		dbFactory,
 		httpClient,
+		trigger,
 	);
 
 	const executionResult = await startBlocksExecution(
@@ -220,6 +260,7 @@ function createContext(
 	vars: ContextVarsType & Record<string, any>,
 	dbFactory: DbFactory,
 	httpClient: HttpClient,
+	trigger: TriggerContext,
 ): BlockContext {
 	return {
 		apiId: routeInfo.id,
@@ -230,6 +271,7 @@ function createContext(
 		vars,
 		dbFactory,
 		httpClient,
+		trigger,
 		stopper: {
 			timeoutEnd: 0,
 			duration: RESPONSE_TIMEOUT,
@@ -272,6 +314,7 @@ function setupContextVars(
 	httpClient: HttpClient,
 	projectId: string,
 	overrides?: RequestOverrides,
+	trigger: TriggerContext = DEFAULT_TRIGGER,
 ): BlockContext["vars"] {
 	let logger: AbstractLogger = null!;
 
@@ -303,6 +346,9 @@ function setupContextVars(
 
 	return {
 		ValidationError: ValidationError,
+		// origin of this execution (route/job/cron, http/nats/bullmq, sync/async)
+		// so JS-runtime blocks can branch: `trigger.kind === "cron"`
+		trigger,
 		jwt: {
 			decode(token, options) {
 				return jwt.decode(token, options) as Record<string, string>;

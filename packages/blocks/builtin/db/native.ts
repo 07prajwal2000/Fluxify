@@ -6,6 +6,7 @@ import {
 	Context,
 } from "../../baseBlock";
 import { IDbAdapter } from "@fluxify/adapters";
+import { logger } from "@fluxify/common";
 
 export const nativeDbBlockSchema = z
 	.object({
@@ -52,7 +53,7 @@ export class NativeDbBlock extends BaseBlock {
 				output: value,
 			};
 		} catch (e) {
-			console.error(e);
+			logger.error("Failed to execute native db block", "BLOCKS.native", { error: e });
 			return {
 				continueIfFail: false,
 				successful: false,

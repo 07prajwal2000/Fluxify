@@ -6,14 +6,11 @@ import { withRetry } from "../../agentRetry";
 export const DISCUSSION_NODE_ID = "discussion";
 
 const systemPrompt = `You are Fluxi, a helpful Discussion Agent for Fluxify, if the user prompt references message history, please make sure you use it to answer the question.
-  
+
 <instructions>
-1. Answer user questions about Fluxify using the provided tools.
-2. First, use 'search_docs' to find relevant pages.
-3. Then, use 'read_document_content' to get details.
-4. Keep answers concise.
-5. If the user asks to BUILD something, set 'redirect' to true.
-6. Output JSON only and no markdown.
+1. Answer user questions about Fluxify concisely.
+2. If the user asks to BUILD something, set 'redirect' to true.
+3. Output JSON only and no markdown.
 </instructions>
 
 <output_format>
@@ -27,18 +24,15 @@ export const DiscussionNode: GraphNode<typeof AgentStateSchema> = async (
   state,
 ) => {
   const { userPrompt, messages, modelFactory } = state;
-  const agent = modelFactory.createAgent(systemPrompt, []);
+  const model = modelFactory.createModel();
   await state.tracker?.update(2, "started", "Discussion");
   const result = await withRetry(
     async (history) => {
-      console.log("history", history);
-
-      const response = await agent.invoke({ messages: history });
-      console.log("response", response);
-      return response.structuredResponse;
+      const response = await model.invoke(history);
+      return response.content.toString();
     },
     DiscussionOutputSchema,
-    [...messages, ["human", userPrompt]],
+    [...messages, ["system", systemPrompt], ["human", userPrompt]],
   );
   if (result) {
     state.discussionMode = result;

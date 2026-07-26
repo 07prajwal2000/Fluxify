@@ -17,7 +17,7 @@ let docsDB: DocsDB = null!;
 
 export async function initDocsDB() {
 	docsDB = await restoreFromFile("binary", DOCS_INDEX_PATH);
-	logger.info(`[DocsDB] Initialized docs index: ${DOCS_INDEX_PATH}`);
+	logger.info(`Initialized docs index: ${DOCS_INDEX_PATH}`, "DocsDB");
 }
 
 export async function queryDocs(query: string, limit: number = 5) {

@@ -19,6 +19,16 @@ services:
       - 6379:6379
     networks:
       - default
+  nats:
+    image: nats:latest
+    container_name: nats
+    # Single-token auth; must match NATS_TOKEN in the server env.
+    command: ["--auth", "fluxify_nats_token", "--http_port", "8222"]
+    ports:
+      - 4222:4222 # client connections
+      - 8222:8222 # monitoring
+    networks:
+      - default
   caddy:
     image: caddy:2.6.4-alpine
     container_name: caddy

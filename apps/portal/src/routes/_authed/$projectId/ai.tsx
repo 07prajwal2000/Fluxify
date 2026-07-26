@@ -1,6 +1,10 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { ComingSoon } from "@/components/common/ComingSoon";
+import { createFileRoute, Outlet } from "@tanstack/react-router";
+import { AiLayout } from "@/components/ai/AiLayout";
 
 export const Route = createFileRoute("/_authed/$projectId/ai")({
-	component: () => <ComingSoon title="Fluxify AI" />,
+	component: () => (
+		<AiLayout>
+			<Outlet />
+		</AiLayout>
+	),
 });

@@ -1,6 +1,7 @@
 import z from "zod";
 import { BaseBlock, BlockOutput, Context } from "../../baseBlock";
 import { formatMessage, logBlockSchema } from ".";
+import { logger } from "@fluxify/common";
 
 export const consoleAiDescription = {
   name: "console_log",
@@ -24,11 +25,11 @@ export class ConsoleLoggerBlock extends BaseBlock {
     const msgOrParams = data.message?.trim() != "" ? data.message : params;
     const msg = await formatMessage(msgOrParams, level, this.context, params);
     if (level == "info") {
-      console.log(msg);
+      logger.info(msg, "BLOCKS.console");
     } else if (level == "error") {
-      console.error(msg);
+      logger.error(msg, "BLOCKS.console");
     } else {
-      console.warn(msg);
+      logger.warn(msg, "BLOCKS.console");
     }
     return {
       continueIfFail: true,

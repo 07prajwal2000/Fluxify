@@ -9,3 +9,4 @@ export * from "./observability";
 export * from "./kv/base";
 export * from "./kv/redis";
 export * from "./kv/memcached";
+export * from "./env";

@@ -304,7 +304,7 @@ ${comments.map((c: string) => `- ${c}`).join("\n")}`;
 			};
 		}
 	} catch (error) {
-		console.error(error);
+		logger.error("Workflow error", "workflow", { error });
 		conversationStatus.status = "error";
 		conversationStatus.finalResult = `Error occured while continuing the agent`;
 	} finally {

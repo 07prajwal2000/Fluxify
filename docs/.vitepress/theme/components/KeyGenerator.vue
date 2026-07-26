@@ -7,6 +7,7 @@
           <option value="MASTER_ENCRYPTION_KEY">Master Encryption Key (32-byte Base64)</option>
           <option value="BETTER_AUTH_SECRET">Better Auth Secret (High-Entropy Secret)</option>
           <option value="SYSTEM_ACCESS_KEY">System Access Key (M2M Key)</option>
+          <option value="NATS_TOKEN">NATS Token (Event Bus Auth)</option>
           <option value="ALL">All Security Keys (.env format)</option>
         </select>
       </div>
@@ -96,6 +97,11 @@ function generateSystemAccessKey(): string {
   return generateAlphanumeric(32);
 }
 
+function generateNatsToken(): string {
+  // 32-character alphanumeric token shared by the NATS server and every service
+  return generateAlphanumeric(32);
+}
+
 function generateKey() {
   copied.value = false;
   if (selectedKeyType.value === 'MASTER_ENCRYPTION_KEY') {
@@ -104,8 +110,10 @@ function generateKey() {
     outputCode.value = `BETTER_AUTH_SECRET=${generateBetterAuthSecret()}`;
   } else if (selectedKeyType.value === 'SYSTEM_ACCESS_KEY') {
     outputCode.value = `SYSTEM_ACCESS_KEY=${generateSystemAccessKey()}`;
+  } else if (selectedKeyType.value === 'NATS_TOKEN') {
+    outputCode.value = `NATS_TOKEN=${generateNatsToken()}`;
   } else if (selectedKeyType.value === 'ALL') {
-    outputCode.value = `# Generated Security Keys\nMASTER_ENCRYPTION_KEY=${generateMasterKey()}\nBETTER_AUTH_SECRET=${generateBetterAuthSecret()}\nSYSTEM_ACCESS_KEY=${generateSystemAccessKey()}`;
+    outputCode.value = `# Generated Security Keys\nMASTER_ENCRYPTION_KEY=${generateMasterKey()}\nBETTER_AUTH_SECRET=${generateBetterAuthSecret()}\nSYSTEM_ACCESS_KEY=${generateSystemAccessKey()}\nNATS_TOKEN=${generateNatsToken()}`;
   }
 }
 

@@ -9,12 +9,29 @@ import path from "node:path";
 export default defineConfig({
 	base: "/_/admin/ui/",
 	plugins: [
+		{
+			name: "ignore-node-binaries",
+			resolveId(id) {
+				if (id.endsWith(".node") || id.includes("@napi-rs/") || id.includes("snappy")) {
+					return "\0empty-node-binary";
+				}
+			},
+			load(id) {
+				if (id === "\0empty-node-binary") {
+					return "export default {};";
+				}
+			},
+		},
 		tanstackRouter({ target: "react", autoCodeSplitting: true }),
 		react(),
 		tailwindcss(),
 	],
 	resolve: {
-		alias: { "@": path.resolve(import.meta.dirname, "src") },
+		alias: {
+			"@": path.resolve(import.meta.dirname, "src"),
+			"snappy": path.resolve(import.meta.dirname, "src/lib/empty.ts"),
+			"winston-loki": path.resolve(import.meta.dirname, "src/lib/empty.ts"),
+		},
 	},
 	server: {
 		port: 3001,

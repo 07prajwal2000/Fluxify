@@ -21,18 +21,16 @@ import {
 import { logger } from "@fluxify/common";
 
 export async function startAiWorker() {
-	logger.info("[AI Worker] Listening for messages...");
+	logger.info("Listening for messages...", "ai-worker");
 
-	subscribeToChannel(CHAN_AI_WORKER, async (dataStr) => {
+	subscribeToChannel(CHAN_AI_WORKER, async (messageStr) => {
 		try {
-			if (process.env.ENABLE_AI !== "true") return;
-
-			const data = JSON.parse(dataStr);
+			const data = JSON.parse(messageStr);
 			const { messageId, routeId, userId, content } = data;
 
 			await processAiMessage(messageId, routeId, userId, content);
 		} catch (error) {
-			console.error("[AI Worker] Error processing message:", error);
+			logger.error("Error processing message", "ai-worker", { error });
 		}
 	});
 }
@@ -168,11 +166,11 @@ async function processAiMessage(
 
 		const outputTokens = estimateTokenCount(aiResponseContent) || 0;
 		const totalTokens = inputTokens + outputTokens;
-		console.log(`[AI Worker] Completed. Total tokens: ${totalTokens}`);
+		logger.info(`Completed. Total tokens: ${totalTokens}`, "ai-worker", { totalTokens });
 
 		await tracker.update(4, "success", "Completed");
 	} catch (err: any) {
-		console.error("[AI Worker Error]", err);
+		logger.error("AI worker error", "ai-worker", { error: err });
 		await tracker.update(
 			-1,
 			"error",

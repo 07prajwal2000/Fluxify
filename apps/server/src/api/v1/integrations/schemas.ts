@@ -143,11 +143,16 @@ export const memcachedVariantConfigSchema = z
 	);
 
 // AI
+// `useForHarness` opts an AI integration into the agent harness pool: when true,
+// users can pick this integration to drive a harness conversation run. Defaults
+// to false so nothing is harness-eligible until explicitly enabled.
+// TODO(ui): build a toggle in the AI integration form to flip `useForHarness`.
 export const openAIVariantConfigSchema = z.object({
 	apiKey: z
 		.string()
 		.refine((v) => (v.startsWith("cfg:") ? true : v.length > 1)),
 	model: z.string().min(1),
+	useForHarness: z.boolean().default(false),
 });
 
 export const anthropicVariantConfigSchema = z.object({
@@ -155,6 +160,7 @@ export const anthropicVariantConfigSchema = z.object({
 		.string()
 		.refine((v) => (v.startsWith("cfg:") ? true : v.length > 1)),
 	model: z.string().min(1),
+	useForHarness: z.boolean().default(false),
 });
 
 export const mistralVariantConfigSchema = z.object({
@@ -162,6 +168,7 @@ export const mistralVariantConfigSchema = z.object({
 		.string()
 		.refine((v) => (v.startsWith("cfg:") ? true : v.length > 1)),
 	model: z.string().min(1),
+	useForHarness: z.boolean().default(false),
 });
 
 export const geminiVariantConfigSchema = z.object({
@@ -169,6 +176,7 @@ export const geminiVariantConfigSchema = z.object({
 		.string()
 		.refine((v) => (v.startsWith("cfg:") ? true : v.length > 1)),
 	model: z.string().min(1),
+	useForHarness: z.boolean().default(false),
 });
 
 export const openAiCompatibleVariantConfigSchema = z.object({
@@ -181,6 +189,7 @@ export const openAiCompatibleVariantConfigSchema = z.object({
 		.string()
 		.refine((v) => (v.startsWith("cfg:") ? true : v.length > 1)),
 	model: z.string().min(1),
+	useForHarness: z.boolean().default(false),
 });
 
 // Observability

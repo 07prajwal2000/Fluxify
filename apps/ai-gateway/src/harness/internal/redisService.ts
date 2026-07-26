@@ -1,4 +1,4 @@
-import { getCache, setCacheEx, deleteCacheKey } from "@fluxify/server";
+import { getCache, setCacheEx, deleteCacheKey, mgetCache } from "@fluxify/server";
 import { logger } from "@fluxify/common";
 import type {
 	HarnessStreamEvent,
@@ -14,9 +14,13 @@ import type {
  * is race-free. Uses the shared `@fluxify/server` cache helpers (ioredis).
  */
 export class RedisService {
-	/** TTL for cached snapshots (seconds). Kept alive past completion so late
-	 *  subscribers still receive the final state. */
-	private static readonly SNAPSHOT_TTL = 3600;
+	/** TTL while a run is live (seconds). Long enough to never evict mid-run; acts
+	 *  only as a safety net if a worker dies without finalizing (see finalizeSnapshot).
+	 *  ponytail: fixed 6h ceiling — only leaks on a hard worker crash, self-heals. */
+	private static readonly RUNNING_TTL = 6 * 3600;
+	/** TTL applied once a run finishes (any terminal state) so the key auto-evicts
+	 *  shortly after, giving late subscribers a brief window to read the final state. */
+	private static readonly FINALIZE_TTL = 60;
 	/** Max events retained in a snapshot to bound cache size. */
 	private static readonly MAX_EVENTS = 200;
 
@@ -33,7 +37,7 @@ export class RedisService {
 			await setCacheEx(
 				this.activeRunKey(conversationId),
 				runId,
-				RedisService.SNAPSHOT_TTL,
+				RedisService.RUNNING_TTL,
 			);
 		} catch (e) {
 			logger.error("[RedisService] Error setting active run", { conversationId, error: e });
@@ -57,6 +61,44 @@ export class RedisService {
 		} catch (e) {
 			logger.error("[RedisService] Error reading snapshot", { runId, error: e });
 			return null;
+		}
+	}
+
+	/**
+	 * Batched form of getActiveRun: one MGET round trip for N conversations
+	 * instead of N GETs. Used by list endpoints resolving status for a whole
+	 * page at once — avoids an N-way Redis fan-out per request.
+	 */
+	async getActiveRuns(conversationIds: string[]): Promise<Map<string, string>> {
+		if (conversationIds.length === 0) return new Map();
+		try {
+			const values = await mgetCache(conversationIds.map((id) => this.activeRunKey(id)));
+			const map = new Map<string, string>();
+			conversationIds.forEach((id, i) => {
+				const runId = values[i];
+				if (runId) map.set(id, runId);
+			});
+			return map;
+		} catch (e) {
+			logger.error("[RedisService] Error batch-reading active runs", { error: e });
+			return new Map();
+		}
+	}
+
+	/** Batched form of getSnapshot: one MGET round trip for N runs. */
+	async getSnapshots(runIds: string[]): Promise<Map<string, HarnessSnapshot>> {
+		if (runIds.length === 0) return new Map();
+		try {
+			const values = await mgetCache(runIds.map((id) => this.snapshotKey(id)));
+			const map = new Map<string, HarnessSnapshot>();
+			runIds.forEach((id, i) => {
+				const raw = values[i];
+				if (raw) map.set(id, JSON.parse(raw) as HarnessSnapshot);
+			});
+			return map;
+		} catch (e) {
+			logger.error("[RedisService] Error batch-reading snapshots", { error: e });
+			return new Map();
 		}
 	}
 
@@ -86,7 +128,7 @@ export class RedisService {
 			await setCacheEx(
 				this.snapshotKey(event.runId),
 				JSON.stringify(snapshot),
-				RedisService.SNAPSHOT_TTL,
+				RedisService.RUNNING_TTL,
 			);
 		} catch (e) {
 			logger.error("[RedisService] Error appending event", {
@@ -94,6 +136,26 @@ export class RedisService {
 				node: event.node,
 				error: e,
 			});
+		}
+	}
+
+	/**
+	 * Marks a run's snapshot as finished by shortening its TTL to FINALIZE_TTL, so
+	 * the whole-run-state key auto-evicts a minute after completion (success,
+	 * failure, or HITL) instead of being deleted instantly. No-op if the snapshot
+	 * has already expired.
+	 */
+	async finalizeSnapshot(runId: string): Promise<void> {
+		try {
+			const snapshot = await this.getSnapshot(runId);
+			if (!snapshot) return;
+			await setCacheEx(
+				this.snapshotKey(runId),
+				JSON.stringify(snapshot),
+				RedisService.FINALIZE_TTL,
+			);
+		} catch (e) {
+			logger.error("[RedisService] Error finalizing snapshot", { runId, error: e });
 		}
 	}
 

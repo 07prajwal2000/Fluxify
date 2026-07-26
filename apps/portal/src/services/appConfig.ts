@@ -1,6 +1,6 @@
-import z from "zod";
-import { responseSchema as getAllResponseSchema } from "@fluxify/server/src/api/v1/app-config/get-all/dto";
-import {
+import type z from "zod";
+import type { responseSchema as getAllResponseSchema } from "@fluxify/server/src/api/v1/app-config/get-all/dto";
+import type {
 	requestBodySchema as createRequestBodySchema,
 	responseSchema as createResponseSchema,
 } from "@fluxify/server/src/api/v1/app-config/create/dto";
@@ -9,6 +9,7 @@ import { httpClient } from "@/lib/http";
 const baseUrl = (projectId: string) => `/v1/${projectId}/app-config`;
 
 export type ListAppConfigQuery = { page?: number; perPage?: number };
+export type CreateAppConfigBody = z.infer<typeof createRequestBodySchema>;
 
 export const appConfigService = {
 	async getAll(
@@ -23,7 +24,7 @@ export const appConfigService = {
 	},
 	async create(
 		projectId: string,
-		body: z.infer<typeof createRequestBodySchema>,
+		body: CreateAppConfigBody,
 	): Promise<z.infer<typeof createResponseSchema>> {
 		const result = await httpClient.post(baseUrl(projectId), body);
 		return result.data;
@@ -31,5 +32,10 @@ export const appConfigService = {
 	async delete(projectId: string, id: number) {
 		await httpClient.delete(`${baseUrl(projectId)}/${id}`);
 	},
-	createRequestBodySchema,
+	async getKeysList(projectId: string, search: string): Promise<string[]> {
+		const params = new URLSearchParams();
+		if (search) params.set("search", search);
+		const result = await httpClient.get(`${baseUrl(projectId)}/keys?${params}`);
+		return result.data;
+	},
 };

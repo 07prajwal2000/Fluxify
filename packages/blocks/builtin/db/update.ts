@@ -8,6 +8,7 @@ import {
 import type { IDbAdapter } from "@fluxify/adapters";
 import { whereConditionSchema } from "./schema";
 import { ConditionEvaluator } from "../conditionEvaluator";
+import { logger } from "@fluxify/common";
 
 export const updateDbBlockSchema = z
 	.object({
@@ -98,7 +99,7 @@ export class UpdateDbBlock extends BaseBlock {
 				next: this.next,
 			};
 		} catch (e) {
-			console.error(e);
+			logger.error("Failed to execute update db block", "BLOCKS.update", { error: e });
 			return {
 				continueIfFail: false,
 				successful: false,

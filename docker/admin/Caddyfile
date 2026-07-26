@@ -1,0 +1,15 @@
+:8080 {
+    handle /_/admin/ui* {
+        reverse_proxy localhost:3000
+    }
+    handle /_/admin/api/ai* {
+        reverse_proxy localhost:8001
+    }
+    handle /_/admin/api* {
+        reverse_proxy localhost:5500
+    }
+    # User API traffic goes to the separate worker service.
+    handle * {
+        reverse_proxy {$WORKER_UPSTREAM}
+    }
+}

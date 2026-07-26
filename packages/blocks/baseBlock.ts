@@ -5,6 +5,22 @@ import { JsVM } from "@fluxify/lib";
 import z from "zod";
 import type dayjs from "dayjs";
 
+/** How work entered the engine — an HTTP route today; jobs/crons later. */
+export type TriggerKind = "route" | "job" | "cron";
+/** Transport the work physically arrived on. Only "http" is wired today. */
+export type TriggerSource = "http" | "nats" | "bullmq";
+/** sync = caller waits for the result (req/res); async = fire-and-forget. */
+export type ReplyMode = "sync" | "async";
+
+/** Where this execution came from, so blocks/logging can branch on origin. */
+export interface TriggerContext {
+	kind: TriggerKind;
+	source: TriggerSource;
+	reply: ReplyMode;
+	/** correlation id for async replies / tracing */
+	id?: string;
+}
+
 export interface Context {
 	vm: JsVM;
 	route: string;
@@ -14,6 +30,8 @@ export interface Context {
 	requestBody?: any;
 	dbFactory?: DbFactory;
 	httpClient?: HttpClient;
+	/** origin of this execution; absent on legacy in-process callers */
+	trigger?: TriggerContext;
 	stopper: {
 		timeoutEnd: number;
 		duration: number;

@@ -1,0 +1,9 @@
+{
+  "customerId": "cus_12345",
+  "items": [
+    { "sku": "WIDGET-1", "qty": 2 },
+    { "sku": "GADGET-9", "qty": 1 }
+  ],
+  "currency": "USD",
+  "note": "load-test order"
+}
