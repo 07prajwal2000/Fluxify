@@ -16,8 +16,8 @@
 /* Shared brand knobs (apply to both themes). Unlayered so they beat HeroUI's
    @layer base defaults. */
 :root {
-	/* Rounded like the mockup (cards ~12px, controls; buttons = radius*3). */
-	--radius: 12px;
+	/* Rounded like the mockup (cards, controls, and buttons all share this radius). */
+	--radius: 6px;
 	/* HeroUI leaves form fields borderless by default (width 0), so an unfocused
 	   input is invisible against a matching surface. Give it a resting border. */
 	--field-border-width: 1px;
@@ -34,21 +34,28 @@
 .light,
 [data-theme="light"],
 [data-theme="default"] {
-	--accent: oklch(0.9 0.19 122); /* lime green */
+	--accent: oklch(0.9 0.19 122);
+	/* lime green */
 }
 
 /* Dark theme (primary): layered near-black surfaces (mockup palette), lime accent. */
 .dark,
 [data-theme="dark"] {
-	--background: #050507; /* main canvas */
-	--background-secondary: #0a0a0b; /* sidebar / inset fields */
+	--background: #050507;
+	/* main canvas */
+	--background-secondary: #0a0a0b;
+	/* sidebar / inset fields */
 	--background-tertiary: #0e0e10;
-	--surface: #111113; /* cards */
+	--surface: #111113;
+	/* cards */
 	--surface-secondary: #151518;
-	--overlay: #141416; /* popovers / modals */
-	--border: #232326; /* subtle zinc hairline */
+	--overlay: #141416;
+	/* popovers / modals */
+	--border: #232326;
+	/* subtle zinc hairline */
 	--border-secondary: #1e1e20;
-	--accent: oklch(0.9 0.2 122); /* lime */
+	--accent: oklch(0.9 0.2 122);
+	/* lime */
 }
 
 @layer base {
@@ -63,19 +70,23 @@
 	scrollbar-width: thin;
 	scrollbar-color: var(--border) transparent;
 }
+
 ::-webkit-scrollbar {
 	width: 10px;
 	height: 10px;
 }
+
 ::-webkit-scrollbar-track {
 	background: transparent;
 }
+
 ::-webkit-scrollbar-thumb {
 	background-color: var(--border);
 	border: 2px solid transparent;
 	background-clip: content-box;
 	border-radius: 9999px;
 }
+
 ::-webkit-scrollbar-thumb:hover {
 	background-color: var(--muted);
 	background-clip: content-box;
@@ -88,10 +99,18 @@
 	padding: calc(var(--spacing) * 6);
 	gap: calc(var(--spacing) * 5);
 }
+
 .card__header {
 	gap: calc(var(--spacing) * 2);
 }
+
 .card__footer {
 	justify-content: flex-end;
 	gap: calc(var(--spacing) * 2);
+}
+
+/* Button refinement (unlayered so it wins over HeroUI's default pill shape):
+   match the standard 6px radius instead of rounded-3xl. */
+.button {
+	border-radius: var(--radius);
 }
