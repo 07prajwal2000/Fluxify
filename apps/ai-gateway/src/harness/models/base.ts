@@ -44,6 +44,15 @@ export abstract class BaseAgentWrapper {
 	// Each subclass implements this to return the initialized LangChain chat model
 	protected abstract getModel(): BaseChatModel;
 
+	/**
+	 * Lightweight liveness probe — a tiny completion to confirm the provider,
+	 * API key, and model are actually reachable before a full run. Throws on
+	 * failure so callers can bail early with a meaningful message.
+	 */
+	public async checkConnection(): Promise<void> {
+		await this.getModel().invoke([new HumanMessage("ping")]);
+	}
+
 	// Subclasses can override this if they don't natively support withStructuredOutput.
 	protected supportsStructuredOutput(): boolean {
 		return true;
@@ -124,12 +133,18 @@ export abstract class BaseAgentWrapper {
 						}
 					}
 				} else {
-					// No more tool calls, model produced final text (but we need structured output)
-					// Remove the last AIMessage if we are going to force structured output below
+					// No more tool calls — model produced its final answer.
 					if (zodSchema) {
+						// Drop the free-text message; the structured-output block
+						// below will re-ask the base model for JSON.
 						finalMessages.pop();
+						break;
 					}
-					break;
+					// Free-text answer is ready. Return it directly. Re-invoking
+					// the model (line below) with this trailing assistant message
+					// makes providers like Mistral reject the request with
+					// invalid_request_message_order ("got assistant").
+					return response as T;
 				}
 			}
 		}

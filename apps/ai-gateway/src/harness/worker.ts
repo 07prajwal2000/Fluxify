@@ -4,7 +4,10 @@ import { initializePubSub } from "@fluxify/server";
 import { REDIS_HOST, REDIS_PASS, REDIS_PORT, REDIS_USER } from "../lib/env";
 import { HARNESS_QUEUE_NAME, type HarnessJobData } from "./queue";
 import { AgentFactory } from "./models/factory";
-import { resolveAgentOptionsFromProjectId } from "./models/projectConfig";
+import {
+	resolveAgentOptionsFromIntegrationId,
+	resolveAgentOptionsFromProjectId,
+} from "./models/projectConfig";
 import { FluxifyHarness, type HarnessRunContext } from "./index";
 
 let worker: Worker<HarnessJobData> | null = null;
@@ -30,8 +33,12 @@ export async function initializeHarnessWorker() {
 				throw new Error("Harness job missing projectId; cannot resolve AI config");
 			}
 
-			// AI provider/keys come from the user's configured integration, never env.
-			const agentOptions = await resolveAgentOptionsFromProjectId(projectId);
+			// AI provider/keys come from the run's picked integration (never env);
+			// fall back to the project default when the user didn't choose one.
+			const integrationId = data.metadata?.integrationId;
+			const agentOptions = integrationId
+				? resolveAgentOptionsFromIntegrationId(integrationId)
+				: await resolveAgentOptionsFromProjectId(projectId);
 			const harness = new FluxifyHarness(
 				new AgentFactory({ ...agentOptions, maxToolIterations: 20 }),
 			);

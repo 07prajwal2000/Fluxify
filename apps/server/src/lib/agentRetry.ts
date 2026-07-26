@@ -54,10 +54,11 @@ export async function withRetry<T>(
       } else if (error instanceof Error) {
         errorMessage = error.message;
       }
-      // 5. Inject error into history for the next loop
-      // We tell the AI exactly what went wrong so it can fix it.
+      // 5. Inject error into history for the next loop.
+      // Must be a "human" turn, not "system": some providers (e.g. Mistral)
+      // reject a request whose last message role isn't user/tool.
       conversationHistory.push([
-        "system",
+        "human",
         `Your previous response was invalid. Please correct it and output ONLY valid JSON.\nError Details: ${errorMessage}`,
       ]);
       if (attempts === 0) {

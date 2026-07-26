@@ -14,7 +14,20 @@ describe("Send Message Service", () => {
 		spyOn(repository, "getConversationById").mockResolvedValue(undefined as any);
 
 		expect(
-			handleRequest("user1", { conversationId: "conv1", query: "hi" }, false),
+			handleRequest("user1", "proj1", { conversationId: "conv1", query: "hi" }, false),
+		).rejects.toThrow(serverModule.NotFoundError);
+	});
+
+	it("throws NotFoundError when the conversation belongs to a different project", async () => {
+		spyOn(repository, "getConversationById").mockResolvedValue({
+			id: "conv1",
+			userId: "user1",
+			projectId: "proj-other",
+			status: "idle",
+		} as any);
+
+		expect(
+			handleRequest("user1", "proj1", { conversationId: "conv1", query: "hi" }, false),
 		).rejects.toThrow(serverModule.NotFoundError);
 	});
 
@@ -22,11 +35,12 @@ describe("Send Message Service", () => {
 		spyOn(repository, "getConversationById").mockResolvedValue({
 			id: "conv1",
 			userId: "someone-else",
+			projectId: "proj1",
 			status: "idle",
 		} as any);
 
 		expect(
-			handleRequest("user1", { conversationId: "conv1", query: "hi" }, false),
+			handleRequest("user1", "proj1", { conversationId: "conv1", query: "hi" }, false),
 		).rejects.toThrow(serverModule.ForbiddenError);
 	});
 
@@ -34,15 +48,30 @@ describe("Send Message Service", () => {
 		spyOn(repository, "getConversationById").mockResolvedValue({
 			id: "conv1",
 			userId: "user1",
+			projectId: "proj1",
 			status: "running",
 		} as any);
 
 		expect(
-			handleRequest("user1", { conversationId: "conv1", query: "hi" }, false),
+			handleRequest("user1", "proj1", { conversationId: "conv1", query: "hi" }, false),
 		).rejects.toThrow(serverModule.ConflictError);
 	});
 
-	it("creates a fresh conversation and enqueues a start job when conversationId is omitted", async () => {
+	it("throws ConflictError when the conversation is archived", async () => {
+		spyOn(repository, "getConversationById").mockResolvedValue({
+			id: "conv1",
+			userId: "user1",
+			projectId: "proj1",
+			status: "idle",
+			archived: true,
+		} as any);
+
+		expect(
+			handleRequest("user1", "proj1", { conversationId: "conv1", query: "hi" }, false),
+		).rejects.toThrow(serverModule.ConflictError);
+	});
+
+	it("creates a fresh conversation and enqueues a start job with the projectId when conversationId is omitted", async () => {
 		spyOn(cacheVersionModule, "bumpListCacheVersion").mockResolvedValue(undefined as any);
 		const enqueueSpy = spyOn(enqueueModule, "enqueueHarnessStart").mockResolvedValue({
 			conversationId: "conv-new",
@@ -51,6 +80,7 @@ describe("Send Message Service", () => {
 
 		const result = await handleRequest(
 			"user1",
+			"proj1",
 			{ query: "hello", location: { where: "route-canvas", id: "r_1" } },
 			false,
 		);
@@ -58,15 +88,59 @@ describe("Send Message Service", () => {
 		expect(enqueueSpy).toHaveBeenCalledWith({
 			conversationId: undefined,
 			query: "hello",
-			metadata: { userId: "user1", location: { where: "route-canvas", id: "r_1" } },
+			integrationId: undefined,
+			metadata: {
+				userId: "user1",
+				projectId: "proj1",
+				location: { where: "route-canvas", id: "r_1" },
+				integrationId: undefined,
+			},
 		});
 		expect(result).toEqual({ conversationId: "conv-new", runId: "run-new" });
 	});
 
-	it("allows sending to an owned, unlocked conversation", async () => {
+	function mockIntegrationRow(row: any) {
+		return spyOn(repository, "getProjectIntegration").mockResolvedValue(
+			row ?? (undefined as any),
+		);
+	}
+
+	it("throws NotFoundError when the picked integration is missing or not AI", async () => {
+		mockIntegrationRow(null);
+
+		expect(
+			handleRequest("user1", "proj1", { query: "hi", integrationId: "int1" }, false),
+		).rejects.toThrow(serverModule.NotFoundError);
+	});
+
+	it("throws ForbiddenError when the picked integration is not harness-enabled", async () => {
+		mockIntegrationRow({ group: "ai", config: { useForHarness: false } });
+
+		expect(
+			handleRequest("user1", "proj1", { query: "hi", integrationId: "int1" }, false),
+		).rejects.toThrow(serverModule.ForbiddenError);
+	});
+
+	it("enqueues with the picked integration when it is harness-enabled", async () => {
+		mockIntegrationRow({ group: "ai", config: { useForHarness: true } });
+		spyOn(cacheVersionModule, "bumpListCacheVersion").mockResolvedValue(undefined as any);
+		const enqueueSpy = spyOn(enqueueModule, "enqueueHarnessStart").mockResolvedValue({
+			conversationId: "conv-new",
+			runId: "run-new",
+		} as any);
+
+		await handleRequest("user1", "proj1", { query: "hi", integrationId: "int1" }, false);
+
+		expect(enqueueSpy).toHaveBeenCalledWith(
+			expect.objectContaining({ integrationId: "int1" }),
+		);
+	});
+
+	it("allows sending to an owned, unlocked conversation in the same project", async () => {
 		spyOn(repository, "getConversationById").mockResolvedValue({
 			id: "conv1",
 			userId: "user1",
+			projectId: "proj1",
 			status: "completed",
 		} as any);
 		spyOn(cacheVersionModule, "bumpListCacheVersion").mockResolvedValue(undefined as any);
@@ -75,7 +149,12 @@ describe("Send Message Service", () => {
 			runId: "run-2",
 		} as any);
 
-		const result = await handleRequest("user1", { conversationId: "conv1", query: "hi again" }, false);
+		const result = await handleRequest(
+			"user1",
+			"proj1",
+			{ conversationId: "conv1", query: "hi again" },
+			false,
+		);
 
 		expect(enqueueSpy).toHaveBeenCalled();
 		expect(result).toEqual({ conversationId: "conv1", runId: "run-2" });

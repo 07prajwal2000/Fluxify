@@ -44,7 +44,10 @@ describe("List Harness Conversations Service", () => {
 			new Map([["conv1", "executing"]]) as never,
 		);
 
-		const result = await handleRequest("user1", 1, 10, false);
+		const result = await handleRequest("user1", 1, 10, false, {
+			projectId: "proj1",
+			archived: false,
+		});
 
 		expect(getLatestUserQueriesSpy).not.toHaveBeenCalled();
 		expect(getStatusesByIdsSpy).not.toHaveBeenCalled();
@@ -65,17 +68,23 @@ describe("List Harness Conversations Service", () => {
 		spyOn(serverModule, "getCache").mockResolvedValue("");
 		spyOn(repository, "getConversationsByUserId").mockResolvedValue([conversation] as never);
 		spyOn(repository, "countConversationsByUserId").mockResolvedValue(1 as never);
+		const longQuery =
+			"This is a very long user query that exceeds fifty characters in total length";
 		spyOn(repository, "getLatestUserQueries").mockResolvedValue(
-			new Map([["conv1", "This is a very long user query that exceeds thirty chars"]]) as never,
+			new Map([["conv1", longQuery]]) as never,
 		);
 		spyOn(statusModule, "resolveRealtimeStatuses").mockResolvedValue(
 			new Map([["conv1", "idle"]]) as never,
 		);
 
-		const result = await handleRequest("user1", 1, 10, true);
+		const result = await handleRequest("user1", 1, 10, true, {
+			projectId: "proj1",
+			archived: false,
+		});
 
-		expect(result.data[0].userQuery?.endsWith("...")).toBe(true);
-		expect(result.data[0].userQuery?.length).toBe(33);
+		expect(result.data[0].userQuery).toBe(longQuery.slice(0, 50));
+		expect(result.data[0].userQuery?.endsWith("...")).toBe(false);
+		expect(result.data[0].userQuery?.length).toBe(50);
 	});
 
 	it("on a cache hit, refreshes statuses from the DB instead of trusting the cached ones", async () => {
@@ -101,7 +110,10 @@ describe("List Harness Conversations Service", () => {
 			new Map([["conv1", "completed"]]) as never,
 		);
 
-		const result = await handleRequest("user1", 1, 10, false);
+		const result = await handleRequest("user1", 1, 10, false, {
+			projectId: "proj1",
+			archived: false,
+		});
 
 		expect(getStatusesByIdsSpy).toHaveBeenCalledWith(["conv1"]);
 		expect(resolveSpy).toHaveBeenCalledWith([{ id: "conv1", status: "completed" }]);
@@ -115,8 +127,76 @@ describe("List Harness Conversations Service", () => {
 		spyOn(repository, "countConversationsByUserId").mockResolvedValue(0 as never);
 		spyOn(statusModule, "resolveRealtimeStatuses").mockResolvedValue(new Map() as never);
 
-		await handleRequest("user1", 1, 10, false);
+		await handleRequest("user1", 1, 10, false, { projectId: "proj1", archived: false });
 
-		expect(getCacheSpy).toHaveBeenCalledWith("harness-conversations:list:user1:3:1:10:false");
+		expect(getCacheSpy).toHaveBeenCalledWith(
+			"harness-conversations:list:user1:proj1:3:1:10:false:false:any:",
+		);
+	});
+
+	it("forwards the archived/pinned filters to the repository and to the cache key", async () => {
+		spyOn(cacheVersionModule, "getListCacheVersion").mockResolvedValue("0");
+		spyOn(serverModule, "getCache").mockResolvedValue("");
+		const getConversationsSpy = spyOn(repository, "getConversationsByUserId").mockResolvedValue(
+			[] as never,
+		);
+		const countSpy = spyOn(repository, "countConversationsByUserId").mockResolvedValue(0 as never);
+		spyOn(statusModule, "resolveRealtimeStatuses").mockResolvedValue(new Map() as never);
+
+		await handleRequest("user1", 1, 10, false, {
+			projectId: "proj1",
+			archived: true,
+			pinned: true,
+		});
+
+		expect(getConversationsSpy).toHaveBeenCalledWith("user1", 10, 0, {
+			projectId: "proj1",
+			archived: true,
+			pinned: true,
+		});
+		expect(countSpy).toHaveBeenCalledWith("user1", {
+			projectId: "proj1",
+			archived: true,
+			pinned: true,
+		});
+	});
+
+	it("forwards the search filter to the repository and to the cache key", async () => {
+		spyOn(cacheVersionModule, "getListCacheVersion").mockResolvedValue("0");
+		const getCacheSpy = spyOn(serverModule, "getCache").mockResolvedValue("");
+		const getConversationsSpy = spyOn(repository, "getConversationsByUserId").mockResolvedValue(
+			[] as never,
+		);
+		spyOn(repository, "countConversationsByUserId").mockResolvedValue(0 as never);
+		spyOn(statusModule, "resolveRealtimeStatuses").mockResolvedValue(new Map() as never);
+
+		await handleRequest("user1", 1, 10, false, {
+			projectId: "proj1",
+			archived: false,
+			search: "abc",
+		});
+
+		expect(getConversationsSpy).toHaveBeenCalledWith("user1", 10, 0, {
+			projectId: "proj1",
+			archived: false,
+			search: "abc",
+		});
+		expect(getCacheSpy).toHaveBeenCalledWith(
+			"harness-conversations:list:user1:proj1:0:1:10:false:false:any:abc",
+		);
+	});
+
+	it("scopes the cache key to the current project so switching projects doesn't reuse another project's cache", async () => {
+		spyOn(cacheVersionModule, "getListCacheVersion").mockResolvedValue("0");
+		const getCacheSpy = spyOn(serverModule, "getCache").mockResolvedValue("");
+		spyOn(repository, "getConversationsByUserId").mockResolvedValue([] as never);
+		spyOn(repository, "countConversationsByUserId").mockResolvedValue(0 as never);
+		spyOn(statusModule, "resolveRealtimeStatuses").mockResolvedValue(new Map() as never);
+
+		await handleRequest("user1", 1, 10, false, { projectId: "proj2", archived: false });
+
+		expect(getCacheSpy).toHaveBeenCalledWith(
+			"harness-conversations:list:user1:proj2:0:1:10:false:false:any:",
+		);
 	});
 });

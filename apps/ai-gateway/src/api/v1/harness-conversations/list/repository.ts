@@ -3,24 +3,52 @@ import {
 	agentHarnessConversationsEntity,
 	agentHarnessRunsEntity,
 } from "@fluxify/server";
-import { eq, desc, sql, inArray } from "drizzle-orm";
+import { eq, desc, sql, inArray, and, ilike } from "drizzle-orm";
+
+export interface ConversationListFilters {
+	projectId: string;
+	archived: boolean;
+	pinned?: boolean;
+	search?: string;
+}
+
+function listConditions(userId: string, filters: ConversationListFilters) {
+	return and(
+		eq(agentHarnessConversationsEntity.userId, userId),
+		eq(agentHarnessConversationsEntity.projectId, filters.projectId),
+		eq(agentHarnessConversationsEntity.archived, filters.archived),
+		filters.pinned === undefined
+			? undefined
+			: eq(agentHarnessConversationsEntity.pinned, filters.pinned),
+		filters.search === undefined
+			? undefined
+			: ilike(agentHarnessConversationsEntity.title, `%${filters.search}%`),
+	);
+}
 
 export async function getConversationsByUserId(
 	userId: string,
 	limit: number,
 	offset: number,
+	filters: ConversationListFilters,
 ) {
 	return db
 		.select({
 			id: agentHarnessConversationsEntity.id,
 			title: agentHarnessConversationsEntity.title,
 			status: agentHarnessConversationsEntity.status,
+			pinned: agentHarnessConversationsEntity.pinned,
+			archived: agentHarnessConversationsEntity.archived,
 			createdAt: agentHarnessConversationsEntity.createdAt,
 			updatedAt: agentHarnessConversationsEntity.updatedAt,
 		})
 		.from(agentHarnessConversationsEntity)
-		.where(eq(agentHarnessConversationsEntity.userId, userId))
-		.orderBy(desc(agentHarnessConversationsEntity.updatedAt))
+		.where(listConditions(userId, filters))
+		// Pinned conversations always sort first.
+		.orderBy(
+			desc(agentHarnessConversationsEntity.pinned),
+			desc(agentHarnessConversationsEntity.updatedAt),
+		)
 		.limit(limit)
 		.offset(offset);
 }
@@ -43,11 +71,14 @@ export async function getStatusesByIds(
 	return new Map(rows.map((r) => [r.id, r.status]));
 }
 
-export async function countConversationsByUserId(userId: string) {
+export async function countConversationsByUserId(
+	userId: string,
+	filters: ConversationListFilters,
+) {
 	const result = await db
 		.select({ count: sql<number>`count(*)` })
 		.from(agentHarnessConversationsEntity)
-		.where(eq(agentHarnessConversationsEntity.userId, userId));
+		.where(listConditions(userId, filters));
 	return Number(result[0]?.count ?? 0);
 }
 

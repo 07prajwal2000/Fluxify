@@ -5,12 +5,17 @@ export const routeParamsSchema = z.object({
 	conversationId: z.string().min(1),
 });
 
+export const conversationActionEnum = z.enum(["pin", "unpin", "archive", "unarchive"]);
+
 export const requestBodySchema = z.object({
-	title: z.string().min(1).max(255),
+	action: conversationActionEnum,
 });
 
 export const responseSchema = z.object({
 	id: z.string(),
-	title: z.string().nullable(),
+	pinned: z.boolean(),
+	archived: z.boolean(),
 	updatedAt: z.union([z.string(), z.date()]),
 });
+
+export type ConversationAction = z.infer<typeof conversationActionEnum>;
