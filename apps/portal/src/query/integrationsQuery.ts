@@ -35,4 +35,11 @@ export const integrationsQuery = {
 			});
 		},
 	},
+	testExistingConnection: {
+		mutation(projectId: string) {
+			return useMutation({
+				mutationFn: (id: string) => integrationsService.testExistingConnection(projectId, id),
+			});
+		},
+	},
 };

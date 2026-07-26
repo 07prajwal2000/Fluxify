@@ -1,5 +1,6 @@
 import type z from "zod";
 import { responseSchema as getBasicListResponseSchema } from "@fluxify/server/src/api/v1/integrations/get-basic-list/dto";
+import { responseSchema as testExistingConnectionResponseSchema } from "@fluxify/server/src/api/v1/integrations/test-existing-connection/dto";
 import { httpClient } from "@/lib/http";
 
 const base = (projectId: string) => `/v1/${projectId}/integrations`;
@@ -30,5 +31,12 @@ export const integrationsService = {
 	},
 	async delete(projectId: string, id: string): Promise<void> {
 		await httpClient.delete(`${base(projectId)}/${id}`);
+	},
+	async testExistingConnection(
+		projectId: string,
+		id: string,
+	): Promise<z.infer<typeof testExistingConnectionResponseSchema>> {
+		const res = await httpClient.get(`${base(projectId)}/test-existing-connection/${id}`);
+		return res.data;
 	},
 };

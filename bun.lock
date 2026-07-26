@@ -72,6 +72,7 @@
       "name": "@fluxify/portal",
       "version": "0.1.0",
       "dependencies": {
+        "@fluxify/ai-gateway": "workspace:*",
         "@fluxify/components": "workspace:*",
         "@fluxify/server": "workspace:*",
         "@scalar/api-reference-react": "^0.9.54",
