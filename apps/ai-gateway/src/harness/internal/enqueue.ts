@@ -12,6 +12,8 @@ export interface EnqueueStartParams {
 	/** Reuse an existing conversation, or omit to create a fresh one. */
 	conversationId?: string;
 	query: string;
+	/** AI integration chosen for this run; persisted on the run row. */
+	integrationId?: string;
 	metadata?: HarnessJobMetadata;
 }
 
@@ -41,7 +43,10 @@ export async function enqueueHarnessStart(
 		projectId: params.metadata?.projectId,
 		metadata: params.metadata,
 	});
-	const runId = await service.createRun({ userQuery: params.query });
+	const runId = await service.createRun({
+		userQuery: params.query,
+		integrationId: params.integrationId,
+	});
 	await new RedisService().setActiveRun(conversationId, runId);
 
 	await harnessQueue.add(HARNESS_START_JOB, {

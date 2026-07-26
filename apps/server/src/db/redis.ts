@@ -66,3 +66,16 @@ export async function deleteCacheKeysByPattern(pattern: string) {
 		await redisClient.del(...keys);
 	}
 }
+
+/** Batched read: one round trip for N keys instead of N round trips. */
+export async function mgetCache(keys: string[]): Promise<(string | null)[]> {
+	if (keys.length === 0) return [];
+	return redisClient.mget(...keys);
+}
+
+/** O(1) counter bump — use as a cache "generation" key to invalidate a whole
+ *  family of cache keys without a KEYS scan (see deleteCacheKeysByPattern,
+ *  which is O(N) over the full keyspace and blocks Redis while it runs). */
+export async function incrCache(key: string): Promise<number> {
+	return redisClient.incr(key);
+}

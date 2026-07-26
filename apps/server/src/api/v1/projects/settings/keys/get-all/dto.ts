@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { ProjectSettingsKeyType } from "../keySchemaMap";
+import type { ProjectSettingsKeyType } from "../keySchemaMap";
 
 export const responseSchema = z.record(
   z.string<ProjectSettingsKeyType>(),

@@ -1,4 +1,4 @@
-import { getCache, setCacheEx, deleteCacheKey } from "@fluxify/server";
+import { getCache, setCacheEx, deleteCacheKey, mgetCache } from "@fluxify/server";
 import { logger } from "@fluxify/common";
 import type {
 	HarnessStreamEvent,
@@ -61,6 +61,44 @@ export class RedisService {
 		} catch (e) {
 			logger.error("[RedisService] Error reading snapshot", { runId, error: e });
 			return null;
+		}
+	}
+
+	/**
+	 * Batched form of getActiveRun: one MGET round trip for N conversations
+	 * instead of N GETs. Used by list endpoints resolving status for a whole
+	 * page at once — avoids an N-way Redis fan-out per request.
+	 */
+	async getActiveRuns(conversationIds: string[]): Promise<Map<string, string>> {
+		if (conversationIds.length === 0) return new Map();
+		try {
+			const values = await mgetCache(conversationIds.map((id) => this.activeRunKey(id)));
+			const map = new Map<string, string>();
+			conversationIds.forEach((id, i) => {
+				const runId = values[i];
+				if (runId) map.set(id, runId);
+			});
+			return map;
+		} catch (e) {
+			logger.error("[RedisService] Error batch-reading active runs", { error: e });
+			return new Map();
+		}
+	}
+
+	/** Batched form of getSnapshot: one MGET round trip for N runs. */
+	async getSnapshots(runIds: string[]): Promise<Map<string, HarnessSnapshot>> {
+		if (runIds.length === 0) return new Map();
+		try {
+			const values = await mgetCache(runIds.map((id) => this.snapshotKey(id)));
+			const map = new Map<string, HarnessSnapshot>();
+			runIds.forEach((id, i) => {
+				const raw = values[i];
+				if (raw) map.set(id, JSON.parse(raw) as HarnessSnapshot);
+			});
+			return map;
+		} catch (e) {
+			logger.error("[RedisService] Error batch-reading snapshots", { error: e });
+			return new Map();
 		}
 	}
 

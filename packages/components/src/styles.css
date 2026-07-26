@@ -49,6 +49,30 @@
 	}
 }
 
+/* Themed scrollbars across the app (unlayered so they beat browser defaults).
+   Firefox uses scrollbar-color; WebKit/Chromium uses the pseudo-elements. */
+* {
+	scrollbar-width: thin;
+	scrollbar-color: var(--border) transparent;
+}
+::-webkit-scrollbar {
+	width: 10px;
+	height: 10px;
+}
+::-webkit-scrollbar-track {
+	background: transparent;
+}
+::-webkit-scrollbar-thumb {
+	background-color: var(--border);
+	border: 2px solid transparent;
+	background-clip: content-box;
+	border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+	background-color: var(--muted);
+	background-clip: content-box;
+}
+
 /* Card refinements (unlayered so they win over HeroUI's @layer components):
    roomier padding, a gap between title and description, and footer actions
    right-aligned. */

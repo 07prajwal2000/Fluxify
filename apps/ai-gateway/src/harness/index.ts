@@ -127,6 +127,22 @@ export class FluxifyHarness {
 		// Resolve the conversation owner once — it's the `conversations.<userId>`
 		// pub/sub subject every event for this run is published to.
 		const userId = await harnessService.getOwnerUserId();
+
+		// Verify the selected AI provider is actually reachable before spending a
+		// run on it. On failure, exit with a meaningful aiResponse instead of a
+		// cryptic mid-graph error.
+		const connError = await this.checkAgentConnection(state.agentWrapper);
+		if (connError) {
+			await this.failRun(
+				ctx,
+				harnessService,
+				userId,
+				connError,
+				`The selected AI provider could not be reached, so this request was not processed. Please verify the integration's API key, model, and network access.\n\nDetails: ${connError}`,
+			);
+			return undefined;
+		}
+
 		const callbacks = new this.callbacksClass({
 			state,
 			conversationId: ctx.conversationId,
@@ -268,16 +284,37 @@ export class FluxifyHarness {
 		await this.redisService.finalizeSnapshot(ctx.runId);
 	}
 
+	/**
+	 * Probes the AI provider once before running. Returns an error string if the
+	 * provider is unreachable, or null when it responds.
+	 */
+	private async checkAgentConnection(
+		agent?: BaseAgentWrapper,
+	): Promise<string | null> {
+		if (!agent) return "No AI agent configured for this run";
+		try {
+			await agent.checkConnection();
+			return null;
+		} catch (e) {
+			return e instanceof Error ? e.message : String(e);
+		}
+	}
+
 	private async failRun(
 		ctx: HarnessRunContext,
 		harnessService: HarnessService,
 		userId: string | null,
 		error?: unknown,
+		aiResponse?: string,
 	) {
 		const message =
 			error instanceof Error ? error.message : error ? String(error) : "failed";
 		try {
-			await harnessService.updateRun({ runId: ctx.runId, status: "failed" });
+			await harnessService.updateRun({
+				runId: ctx.runId,
+				status: "failed",
+				aiResponse,
+			});
 			await harnessService.saveLiveState({
 				runId: ctx.runId,
 				conversationId: ctx.conversationId,

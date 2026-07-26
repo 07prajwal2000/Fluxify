@@ -163,13 +163,17 @@ export class HarnessService {
 	 * Creates a new run for this conversation and marks it as the active run.
 	 * Returns the new runId. The run starts in `queued`.
 	 */
-	async createRun(input: { userQuery: string }): Promise<string> {
+	async createRun(input: {
+		userQuery: string;
+		integrationId?: string;
+	}): Promise<string> {
 		try {
 			const [run] = await db
 				.insert(agentHarnessRunsEntity)
 				.values({
 					conversationId: this.conversationId,
 					userQuery: input.userQuery,
+					integrationId: input.integrationId,
 					status: "queued",
 				})
 				.returning({ id: agentHarnessRunsEntity.id });

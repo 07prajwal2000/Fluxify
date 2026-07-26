@@ -1,6 +1,7 @@
 import { generateID } from "@fluxify/lib";
 import { relations } from "drizzle-orm";
 import {
+	boolean,
 	index,
 	uniqueIndex,
 	jsonb,
@@ -9,10 +10,11 @@ import {
 	serial,
 	text,
 	timestamp,
+	uuid,
 	varchar,
 } from "drizzle-orm/pg-core";
 import { systemUsers } from "./auth-schema";
-import { projectsEntity } from "./schema";
+import { integrationsEntity, projectsEntity } from "./schema";
 
 /* ============================================================================
  * AGENT HARNESS PERSISTENCE LAYER
@@ -79,6 +81,12 @@ export const agentHarnessConversationsEntity = pgTable(
 		title: varchar({ length: 255 }).default("New Chat"),
 		status: agentHarnessConversationStatusEnum("status").default("idle").notNull(),
 		activeRunId: varchar("active_run_id", { length: 50 }),
+		/** Pinned conversations sort first in the list. Forced back to false
+		 *  whenever `archived` is set true — see harness-conversations/action. */
+		pinned: boolean("pinned").default(false).notNull(),
+		/** Archived conversations are hidden from the default list, can't be
+		 *  pinned, and can't receive new messages. */
+		archived: boolean("archived").default(false).notNull(),
 		metadata: jsonb("metadata").$type<Record<string, any>>(),
 		createdAt: timestamp("created_at").defaultNow().notNull(),
 		updatedAt: timestamp("updated_at")
@@ -89,6 +97,11 @@ export const agentHarnessConversationsEntity = pgTable(
 	(t) => [
 		index("idx_harness_conv_user_id").on(t.userId),
 		index("idx_harness_conv_project_id").on(t.projectId),
+		index("idx_harness_conv_user_archived_pinned").on(
+			t.userId,
+			t.archived,
+			t.pinned,
+		),
 	],
 );
 
@@ -106,6 +119,14 @@ export const agentHarnessRunsEntity = pgTable(
 			.notNull(),
 		userQuery: text("user_query").notNull(),
 		aiResponse: text("ai_response"),
+		// The AI integration the user picked for this run — the harness drives the
+		// whole graph with this provider. `set null` keeps run history if the
+		// integration is later deleted. Nullable so legacy runs (resolved from the
+		// project's default integration) remain valid.
+		integrationId: uuid("integration_id").references(
+			() => integrationsEntity.id,
+			{ onDelete: "set null" },
+		),
 		status: agentHarnessRunStatusEnum("status").default("queued").notNull(),
 		interruptedAt: timestamp("interrupted_at"),
 		createdAt: timestamp("created_at").defaultNow().notNull(),
@@ -118,6 +139,7 @@ export const agentHarnessRunsEntity = pgTable(
 	(t) => [
 		index("idx_harness_runs_conv_id").on(t.conversationId),
 		index("idx_harness_runs_status").on(t.status),
+		index("idx_harness_runs_integration_id").on(t.integrationId),
 	],
 );
 

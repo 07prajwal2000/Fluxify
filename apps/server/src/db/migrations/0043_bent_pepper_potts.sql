@@ -1,0 +1,3 @@
+ALTER TABLE "agent_harness_runs" ADD COLUMN "integration_id" uuid;--> statement-breakpoint
+ALTER TABLE "agent_harness_runs" ADD CONSTRAINT "agent_harness_runs_integration_id_integrations_id_fk" FOREIGN KEY ("integration_id") REFERENCES "public"."integrations"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+CREATE INDEX "idx_harness_runs_integration_id" ON "agent_harness_runs" USING btree ("integration_id");
