@@ -1,6 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import type { z } from "zod";
-import { type ListAppConfigQuery, appConfigService } from "@/services/appConfig";
+import {
+	type CreateAppConfigBody,
+	type ListAppConfigQuery,
+	appConfigService,
+} from "@/services/appConfig";
 
 const key = (projectId: string) => ["app-config", projectId];
 
@@ -18,7 +21,7 @@ export const appConfigQuery = {
 		mutation(projectId: string) {
 			const qc = useQueryClient();
 			return useMutation({
-				mutationFn: (body: z.infer<typeof appConfigService.createRequestBodySchema>) =>
+				mutationFn: (body: CreateAppConfigBody) =>
 					appConfigService.create(projectId, body),
 				onSuccess: () => qc.invalidateQueries({ queryKey: key(projectId) }),
 			});
@@ -30,6 +33,15 @@ export const appConfigQuery = {
 			return useMutation({
 				mutationFn: (id: number) => appConfigService.delete(projectId, id),
 				onSuccess: () => qc.invalidateQueries({ queryKey: key(projectId) }),
+			});
+		},
+	},
+	getKeysList: {
+		useQuery(projectId: string, search: string) {
+			return useQuery({
+				queryKey: ["app-config", projectId, "keys", search],
+				queryFn: () => appConfigService.getKeysList(projectId, search),
+				refetchOnWindowFocus: false,
 			});
 		},
 	},
