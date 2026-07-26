@@ -16,7 +16,7 @@
 /* Shared brand knobs (apply to both themes). Unlayered so they beat HeroUI's
    @layer base defaults. */
 :root {
-	/* Rounded like the mockup (cards ~12px, controls; buttons = radius*3). */
+	/* Rounded like the mockup (cards, controls, and buttons all share this radius). */
 	--radius: 6px;
 	/* HeroUI leaves form fields borderless by default (width 0), so an unfocused
 	   input is invisible against a matching surface. Give it a resting border. */
@@ -107,4 +107,10 @@
 .card__footer {
 	justify-content: flex-end;
 	gap: calc(var(--spacing) * 2);
+}
+
+/* Button refinement (unlayered so it wins over HeroUI's default pill shape):
+   match the standard 6px radius instead of rounded-3xl. */
+.button {
+	border-radius: var(--radius);
 }

@@ -17,7 +17,6 @@ import { ObservabilityForm } from "./connectors/ObservabilityForm";
 
 type IntegrationData = { name: string; group: string; variant: string; config: Record<string, unknown> };
 
-// DB/KV placeholder sets (mirrors each web form verbatim).
 const CRED_PLACEHOLDERS: Record<string, { ph: Record<string, string>; ssl?: boolean; db?: boolean }> = {
 	PostgreSQL: { ph: { name: "My Postgres Database", host: "postgres.company.com", port: "5432", username: "postgres", password: "secret", database: "ecommerce", url: "postgres://user:pass@host:port/dbname?ssl=disable" }, ssl: true, db: true },
 	MySQL: { ph: { name: "My MySQL Database", host: "mysql.company.com", port: "3306", username: "root", password: "secret", database: "ecommerce", url: "mysql://user:pass@host:port/dbname?ssl=disable" }, db: true },
@@ -46,6 +45,7 @@ export function IntegrationForm({
 	lockGroupVariant,
 	showDelete,
 	deletePending,
+	hideActions,
 	onSaved,
 	onDelete,
 }: {
@@ -55,9 +55,8 @@ export function IntegrationForm({
 	lockGroupVariant?: boolean;
 	showDelete?: boolean;
 	deletePending?: boolean;
+	hideActions?: boolean;
 	onSaved?: () => void;
-	// Delete is owned by the parent list (stays mounted so the request + refetch
-	// survive this form unmounting when the accordion collapses).
 	onDelete?: () => void;
 }) {
 	const loaded = integrationsQuery.getById.useQuery(projectId, id ?? "");
@@ -138,42 +137,45 @@ export function IntegrationForm({
 
 	return (
 		<div className="flex flex-col gap-4">
-			{/* Choose a Connector (group) */}
-			<div className="flex flex-col gap-1">
-				<label className="text-sm font-medium text-foreground">Choose a Connector</label>
-				<span className="text-xs text-muted">Choose from a range of connectors to get started</span>
-				<select
-					disabled={lockGroupVariant}
-					value={group}
-					onChange={(e) => onGroup(e.target.value)}
-					className="rounded-md border border-border bg-background-secondary px-3 py-2 text-sm text-foreground outline-none disabled:opacity-60"
-				>
-					<option value="">Select…</option>
-					{getIntegrationsGroups().map((g) => (
-						<option key={g} value={g}>
-							{humanReadableConnectorNames[g as keyof typeof humanReadableConnectorNames]}
-						</option>
-					))}
-				</select>
-			</div>
+			{/* Show Connector & Variant selectors ONLY when creating a new integration (not configured yet) */}
+			{!lockGroupVariant && !id && (
+				<>
+					{/* Choose a Connector (group) */}
+					<div className="flex flex-col gap-1">
+						<label className="text-sm font-medium text-foreground">Choose a Connector</label>
+						<span className="text-xs text-muted">Choose from a range of connectors to get started</span>
+						<select
+							value={group}
+							onChange={(e) => onGroup(e.target.value)}
+							className="rounded-md border border-border bg-background-secondary px-3 py-2 text-sm text-foreground outline-none"
+						>
+							<option value="">Select…</option>
+							{getIntegrationsGroups().map((g) => (
+								<option key={g} value={g}>
+									{humanReadableConnectorNames[g as keyof typeof humanReadableConnectorNames]}
+								</option>
+							))}
+						</select>
+					</div>
 
-			{/* Select Variant */}
-			{group && (
-				<div className="flex flex-col gap-1">
-					<label className="text-sm font-medium text-foreground">Select Variant</label>
-					<span className="text-xs text-muted">Select the service you want to configure &amp; connect to</span>
-					<select
-						disabled={lockGroupVariant}
-						value={variant}
-						onChange={(e) => onVariant(e.target.value)}
-						className="rounded-md border border-border bg-background-secondary px-3 py-2 text-sm text-foreground outline-none disabled:opacity-60"
-					>
-						<option value="">Select…</option>
-						{getIntegrationsVariants(group as never).map((v) => (
-							<option key={v} value={v}>{v}</option>
-						))}
-					</select>
-				</div>
+					{/* Select Variant */}
+					{group && (
+						<div className="flex flex-col gap-1">
+							<label className="text-sm font-medium text-foreground">Select Variant</label>
+							<span className="text-xs text-muted">Select the service you want to configure &amp; connect to</span>
+							<select
+								value={variant}
+								onChange={(e) => onVariant(e.target.value)}
+								className="rounded-md border border-border bg-background-secondary px-3 py-2 text-sm text-foreground outline-none"
+							>
+								<option value="">Select…</option>
+								{getIntegrationsVariants(group as never).map((v) => (
+									<option key={v} value={v}>{v}</option>
+								))}
+							</select>
+						</div>
+					)}
+				</>
 			)}
 
 			{/* Connector-specific form */}
@@ -194,16 +196,18 @@ export function IntegrationForm({
 			)}
 
 			{/* Actions */}
-			{group && variant && (
-				<div className="flex items-center justify-between pt-2">
-					<Button variant="outline" isPending={test.isPending} onPress={onTest}>
-						Test Connection
-					</Button>
+			{!hideActions && group && variant && (
+				<div className="flex items-center justify-end pt-2 border-t border-[#1C202B]">
 					<div className="flex items-center gap-2">
 						{showDelete && id && (
-							<Button isIconOnly variant="danger" aria-label="Delete integration" onPress={() => setConfirmDelete(true)}>
-								<TbTrash size={16} />
-							</Button>
+							<button
+								type="button"
+								onClick={() => setConfirmDelete(true)}
+								className="flex items-center justify-center rounded-xl border border-red-900/30 bg-[#1C181B] p-2 text-red-400 transition-colors hover:bg-red-950/40"
+								aria-label="Delete integration"
+							>
+								<TbTrash size={15} />
+							</button>
 						)}
 						<Button variant="primary" isPending={create.isPending || update.isPending} onPress={onSave}>
 							{id ? "Save changes" : "Connect"}
