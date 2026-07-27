@@ -1,4 +1,4 @@
-import type { WorkflowMetadata } from "../../ai/types";
+import type { WorkflowMetadata } from "../types";
 import type { DbService } from "../internal/dbService";
 import { searchDocsTool } from "./searchDocs";
 import { createGetRouteDetailsTool } from "./getRouteDetails";

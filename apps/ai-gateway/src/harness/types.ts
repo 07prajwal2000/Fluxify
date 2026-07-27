@@ -18,6 +18,25 @@ export enum AgentNode {
 	SUMMARIZER = "summarizer",
 }
 
+export type ResourceType =
+	| "route"
+	| "app_config"
+	| "integration"
+	| "custom_block"
+	| "route_canvas"
+	| "custom_block_canvas";
+
+export interface FindResourceResult {
+	type: ResourceType;
+	id: string;
+	name: string;
+	description?: string;
+	path?: string;
+	method?: string;
+	group?: string;
+	variant?: string;
+}
+
 export type AgentNodeName = `${AgentNode}`;
 
 export type CustomEventName = "agent_status" | "human_in_the_loop_required";
@@ -203,3 +222,13 @@ export const GraphState = Annotation.Root({
 });
 
 export type GlobalGraphState = typeof GraphState.State;
+
+export interface WorkflowMetadata {
+	// combination of userId + projectId + location + routeId
+	conversationId: string;
+	userId: string;
+	projectId: string;
+	location: string;
+	routeId: string;
+	messageHistory: { role: string; content: string }[];
+}

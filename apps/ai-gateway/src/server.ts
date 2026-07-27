@@ -13,8 +13,11 @@ import {
 } from "./lib/env";
 
 validateEnv();
-import { drizzleInit, initializeRedis, initializePubSub } from "@fluxify/server";
-import { initializeWorkflowQueue } from "./workflow/queue";
+import {
+	drizzleInit,
+	initializeRedis,
+	initializePubSub,
+} from "@fluxify/server";
 import { initializeHarnessQueue } from "./harness/queue";
 
 const serviceName = isMainThread
@@ -32,7 +35,6 @@ initializeRedis(true);
 await initializePubSub();
 await drizzleInit(false);
 
-initializeWorkflowQueue();
 initializeHarnessQueue();
 
 if (isMainThread) {

@@ -11,6 +11,7 @@ import { StructuredTool } from "@langchain/core/tools";
 import { z } from "zod";
 import { zodToJsonSchema } from "zod-to-json-schema";
 import { withRetry } from "../../lib/retry";
+import { UserInterruptError } from "../errors";
 
 export interface AgentInvokeOptions {
 	zodSchema?: z.ZodType<any>;
@@ -27,6 +28,24 @@ export abstract class BaseAgentWrapper {
 	protected apiKey?: string;
 	protected additionalHeaders?: Record<string, string>;
 	protected maxToolIterations?: number;
+	/** Set per run by the harness; when aborted, every model call is cancelled and
+	 *  a UserInterruptError is raised. */
+	protected signal?: AbortSignal;
+
+	/** Wires the run's interrupt signal into this agent (called once per run). */
+	public setAbortSignal(signal: AbortSignal): void {
+		this.signal = signal;
+	}
+
+	/** Merges the run's abort signal into a model-invoke config. */
+	private withSignal(config?: RunnableConfig): RunnableConfig {
+		return this.signal ? { ...config, signal: this.signal } : (config ?? {});
+	}
+
+	/** Raises a UserInterruptError if the run has been interrupted. */
+	private throwIfInterrupted(): void {
+		if (this.signal?.aborted) throw new UserInterruptError();
+	}
 
 	constructor(
 		modelName: string,
@@ -61,6 +80,20 @@ export abstract class BaseAgentWrapper {
 	public async invokeAgent<T = any>(
 		options: AgentInvokeOptions,
 	): Promise<T | AIMessage> {
+		try {
+			return await this.invokeAgentInner<T>(options);
+		} catch (error) {
+			// Normalize any underlying abort into a single interrupt error so the
+			// graph's top-level catch handles it uniformly.
+			if (this.signal?.aborted) throw new UserInterruptError();
+			throw error;
+		}
+	}
+
+	private async invokeAgentInner<T = any>(
+		options: AgentInvokeOptions,
+	): Promise<T | AIMessage> {
+		this.throwIfInterrupted();
 		const {
 			zodSchema,
 			userQuery,
@@ -91,9 +124,10 @@ export abstract class BaseAgentWrapper {
 			// Tool execution loop
 			const maxIterations = options.maxToolIterations ?? this.maxToolIterations ?? 15;
 			for (let i = 0; i < maxIterations; i++) {
+				this.throwIfInterrupted();
 				const response = (await model.invoke(
 					finalMessages,
-					config,
+					this.withSignal(config),
 				)) as AIMessage;
 				finalMessages.push(response);
 
@@ -102,7 +136,7 @@ export abstract class BaseAgentWrapper {
 						const tool = tools.find((t) => t.name === tc.name);
 						if (tool) {
 							try {
-								const toolResult = await tool.invoke(tc.args, config);
+								const toolResult = await tool.invoke(tc.args, this.withSignal(config));
 								finalMessages.push(
 									new ToolMessage({
 										tool_call_id: tc.id!,
@@ -155,8 +189,9 @@ export abstract class BaseAgentWrapper {
 				const structuredModel = originalModel.withStructuredOutput(zodSchema);
 				// By using invoke with config, it automatically logs to LangSmith/Langfuse
 				result = await withRetry(
-					() => structuredModel.invoke(finalMessages, config) as Promise<T>,
-					{ maxRetries: 3 },
+					() =>
+						structuredModel.invoke(finalMessages, this.withSignal(config)) as Promise<T>,
+					{ maxRetries: 3, signal: this.signal },
 				);
 			}
 
@@ -169,9 +204,9 @@ export abstract class BaseAgentWrapper {
 							originalModel,
 							finalMessages,
 							zodSchema,
-							config,
+							this.withSignal(config),
 						) as Promise<T>,
-					{ maxRetries: 3 },
+					{ maxRetries: 3, signal: this.signal },
 				);
 			}
 
@@ -181,9 +216,10 @@ export abstract class BaseAgentWrapper {
 			return result;
 		}
 
-		return await withRetry(() => originalModel.invoke(finalMessages, config), {
-			maxRetries: 3,
-		});
+		return await withRetry(
+			() => originalModel.invoke(finalMessages, this.withSignal(config)),
+			{ maxRetries: 3, signal: this.signal },
+		);
 	}
 
 	protected async fallbackStructuredOutput<T>(

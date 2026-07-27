@@ -2,10 +2,20 @@ import { Server as SocketServer } from "socket.io";
 import { Server as Engine } from "@socket.io/bun-engine";
 import { logger } from "@fluxify/common";
 import { and, eq, isNotNull } from "drizzle-orm";
-import { auth, db, agentHarnessConversationsEntity } from "@fluxify/server";
+import {
+	auth,
+	db,
+	agentHarnessConversationsEntity,
+	agentHarnessRunsEntity,
+} from "@fluxify/server";
 import { RedisService } from "./internal/redisService";
 import { subscribeConversations, ConversationMsgType } from "./notifications";
-import type { HarnessSnapshot, HarnessStreamEvent } from "./streamTypes";
+import type { HarnessRunStatus, HarnessSnapshot } from "./streamTypes";
+import {
+	SOCKET_PATH,
+	HARNESS_SOCKET_EVENT,
+	type HarnessSocketMessage,
+} from "./clientContract";
 
 /* ============================================================================
  * SOCKET.IO GATEWAY
@@ -26,15 +36,14 @@ import type { HarnessSnapshot, HarnessStreamEvent } from "./streamTypes";
  * shape is intentionally coarse for now — to be refined once the UI is designed.
  * ========================================================================== */
 
-/** Transport path. Prefixed with `/_/admin/ai` so the reverse proxy (which routes
- *  `/_/admin/*` to the backend, alongside `/_/admin/api/ai/v1` and `/_/admin/mcp`)
- *  forwards the socket.io handshake here. Clients must connect with this `path`.
- *  main.ts routes this prefix to the engine; keep the two in sync via this export. */
-export const SOCKET_PATH = "/_/admin/ai/socket.io/";
-
-/** The single socket.io event name; the `type` discriminant inside the payload
- *  tells the client whether it's a catch-up snapshot or a live update. */
-export const HARNESS_SOCKET_EVENT = "conversation";
+/** The wire contract (path, event name, message union) lives in `clientContract.ts`
+ *  — a runtime-import-free module the browser client imports too. Re-exported here
+ *  so existing server-side importers (main.ts, demo.ts) are unaffected. */
+export {
+	SOCKET_PATH,
+	HARNESS_SOCKET_EVENT,
+	type HarnessSocketMessage,
+} from "./clientContract";
 
 /** Per-user room. Colon-delimited (socket.io convention); independent of the
  *  dot-delimited NATS subject `conversations.<userId>`. */
@@ -42,25 +51,16 @@ export function conversationRoom(userId: string): string {
 	return `conversations:${userId}`;
 }
 
-/**
- * Server -> client message, discriminated by `type`:
- *  - `full_state`: sent once on connect — current run state for every active
- *    conversation the user owns (read from Redis).
- *  - `update`: a single live harness event; `conversationId` + `stepId` identify it.
- */
-export type HarnessSocketMessage =
-	| { type: "full_state"; conversations: HarnessSnapshot[] }
-	| {
-			type: "update";
-			conversationId: string;
-			runId: string;
-			stepId?: string;
-			event: HarnessStreamEvent;
-	  };
-
 /** Events the server emits to clients (keyed by HARNESS_SOCKET_EVENT). */
 interface ServerToClientEvents {
 	conversation: (message: HarnessSocketMessage) => void;
+}
+
+/** Events the client may emit. `sync` re-requests the full_state snapshot — a
+ *  recovery lever the UI can pull after a reconnect if it suspects it missed the
+ *  connect-time catch-up. */
+interface ClientToServerEvents {
+	sync: () => void;
 }
 
 interface HarnessSocketData {
@@ -75,12 +75,28 @@ export interface HarnessSocketHandler {
 
 const redisService = new RedisService();
 
-/** Current cached run state for every conversation the user has active (one with
- *  a live `activeRunId`). Snapshots already evicted from Redis are skipped. */
-async function activeSnapshotsForUser(userId: string): Promise<HarnessSnapshot[]> {
+/**
+ * Current state for every in-flight conversation the user owns (one with a live
+ * `activeRunId`). DB-authoritative for the run status, enriched with the Redis
+ * snapshot (event log + current node) when it's still there.
+ *
+ * The Redis snapshot's TTL drops to 60s on a terminal/HITL state, so a reconnect
+ * a minute later would otherwise find nothing — we synthesize a minimal snapshot
+ * from the DB run status so the client ALWAYS gets the current status on
+ * (re)connect, even without the event history.
+ */
+async function currentStateForUser(userId: string): Promise<HarnessSnapshot[]> {
 	const rows = await db
-		.select({ activeRunId: agentHarnessConversationsEntity.activeRunId })
+		.select({
+			conversationId: agentHarnessConversationsEntity.id,
+			activeRunId: agentHarnessConversationsEntity.activeRunId,
+			runStatus: agentHarnessRunsEntity.status,
+		})
 		.from(agentHarnessConversationsEntity)
+		.leftJoin(
+			agentHarnessRunsEntity,
+			eq(agentHarnessRunsEntity.id, agentHarnessConversationsEntity.activeRunId),
+		)
 		.where(
 			and(
 				eq(agentHarnessConversationsEntity.userId, userId),
@@ -88,10 +104,20 @@ async function activeSnapshotsForUser(userId: string): Promise<HarnessSnapshot[]
 			),
 		);
 
-	const snapshots = await Promise.all(
-		rows.map((r) => redisService.getSnapshot(r.activeRunId!)),
+	return Promise.all(
+		rows.map(async (r): Promise<HarnessSnapshot> => {
+			const snapshot = await redisService.getSnapshot(r.activeRunId!);
+			if (snapshot) return snapshot;
+			// Snapshot evicted or not yet written: fall back to DB status only.
+			return {
+				conversationId: r.conversationId,
+				runId: r.activeRunId!,
+				runStatus: (r.runStatus ?? "queued") as HarnessRunStatus,
+				events: [],
+				updatedAt: Date.now(),
+			};
+		}),
 	);
-	return snapshots.filter((s): s is HarnessSnapshot => s !== null);
 }
 
 /**
@@ -103,7 +129,7 @@ async function activeSnapshotsForUser(userId: string): Promise<HarnessSnapshot[]
 export async function initializeHarnessSocket(): Promise<HarnessSocketHandler> {
 	const engine = new Engine({ path: SOCKET_PATH });
 	const io = new SocketServer<
-		Record<string, never>,
+		ClientToServerEvents,
 		ServerToClientEvents,
 		Record<string, never>,
 		HarnessSocketData
@@ -129,28 +155,44 @@ export async function initializeHarnessSocket(): Promise<HarnessSocketHandler> {
 		}
 	});
 
+	// Catch-up sent to a single socket: current status of the user's in-flight
+	// conversations. Only the connecting/requesting socket, so other tabs aren't
+	// re-flooded.
+	const sendFullState = async (
+		socket: { emit: (e: typeof HARNESS_SOCKET_EVENT, m: HarnessSocketMessage) => void },
+		userId: string,
+	) => {
+		try {
+			const conversations = await currentStateForUser(userId);
+			socket.emit(HARNESS_SOCKET_EVENT, { type: "full_state", conversations });
+			logger.info("[HarnessSocket] Sent full_state", {
+				userId,
+				conversations: conversations.length,
+			});
+		} catch (error) {
+			logger.error("[HarnessSocket] Failed to send full_state", { userId, error });
+		}
+	};
+
 	io.on("connection", async (socket) => {
 		const userId = socket.data.userId;
 		await socket.join(conversationRoom(userId));
 		logger.info("[HarnessSocket] Client connected", {
 			userId,
 			socketId: socket.id,
+			room: conversationRoom(userId),
 		});
 
-		// Catch-up: current run state for all the user's active conversations. Sent
-		// only to the connecting socket so other tabs aren't re-flooded.
-		try {
-			const conversations = await activeSnapshotsForUser(userId);
-			const message: HarnessSocketMessage = { type: "full_state", conversations };
-			socket.emit(HARNESS_SOCKET_EVENT, message);
-		} catch (error) {
-			logger.error("[HarnessSocket] Failed to send full state", { userId, error });
-		}
+		await sendFullState(socket, userId);
+
+		// Reconnect-recovery: client can re-pull the catch-up at any time.
+		socket.on("sync", () => void sendFullState(socket, userId));
 	});
 
 	// Live fan-out: every NATS conversation event to its owner's room.
 	await subscribeConversations((incoming) => {
 		if (incoming.type !== ConversationMsgType.HARNESS_EVENT) return;
+		const room = conversationRoom(incoming.userId);
 		const message: HarnessSocketMessage = {
 			type: "update",
 			conversationId: incoming.conversationId,
@@ -158,7 +200,13 @@ export async function initializeHarnessSocket(): Promise<HarnessSocketHandler> {
 			stepId: incoming.event.stepId,
 			event: incoming.event,
 		};
-		io.to(conversationRoom(incoming.userId)).emit(HARNESS_SOCKET_EVENT, message);
+		io.to(room).emit(HARNESS_SOCKET_EVENT, message);
+		logger.debug("[HarnessSocket] Fanned update", {
+			room,
+			conversationId: incoming.conversationId,
+			node: incoming.event.node,
+			phase: incoming.event.phase,
+		});
 	});
 
 	const handler = engine.handler();

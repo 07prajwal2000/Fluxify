@@ -52,6 +52,25 @@ export const harnessConversationsQuery = {
 			});
 		},
 	},
+	messages: {
+		/** Cursor-paginated history. Each page is already oldest-first, so older
+		 *  pages prepend: `[...data.pages].reverse().flatMap((p) => p.messages)`. */
+		useInfiniteQuery(projectId: string, conversationId: string) {
+			return useInfiniteQuery({
+				queryKey: [...key(projectId), conversationId, "messages"],
+				queryFn: ({ pageParam }) =>
+					harnessConversationsService.listMessages(
+						projectId,
+						conversationId,
+						pageParam,
+					),
+				initialPageParam: undefined as string | undefined,
+				getNextPageParam: (last) => last.pagination.nextCursor ?? undefined,
+				enabled: Boolean(conversationId),
+				refetchOnWindowFocus: false,
+			});
+		},
+	},
 	update: {
 		mutation(projectId: string, conversationId: string) {
 			const qc = useQueryClient();

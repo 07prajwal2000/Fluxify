@@ -5,6 +5,8 @@ export interface RetryOptions {
   baseDelayMs?: number;
   maxDelayMs?: number;
   factor?: number;
+  /** When aborted, the operation is not retried — the error propagates at once. */
+  signal?: AbortSignal;
 }
 
 export async function withRetry<T>(
@@ -24,6 +26,14 @@ export async function withRetry<T>(
     try {
       return await operation();
     } catch (error) {
+      // A user interrupt / abort must never be retried — propagate immediately.
+      if (
+        options.signal?.aborted ||
+        (error instanceof Error &&
+          (error.name === "UserInterruptError" || error.name === "AbortError"))
+      ) {
+        throw error;
+      }
       attempt++;
       if (attempt > maxRetries) {
         logger.error(`[Retry] Operation failed after ${maxRetries} retries.`, { error });

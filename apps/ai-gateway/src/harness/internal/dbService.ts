@@ -10,10 +10,7 @@ import {
 } from "@fluxify/server";
 import { eq, ilike, or, and, sql, inArray, type SQL } from "drizzle-orm";
 import { logger } from "@fluxify/common";
-import type {
-	FindResourceResult,
-	ResourceType,
-} from "../../workflow/nodes/builder/types";
+import { FindResourceResult } from "../types";
 
 /**
  * Accepts either a single search string or an array of keywords, so the
@@ -59,12 +56,7 @@ export class DbService {
 					method: routesEntity.method,
 				})
 				.from(routesEntity)
-				.where(
-					and(
-						eq(routesEntity.projectId, projectId),
-						or(...matchers),
-					),
-				)
+				.where(and(eq(routesEntity.projectId, projectId), or(...matchers)))
 				.limit(10);
 			return routes.map((r) => ({
 				type: "route",
@@ -126,12 +118,7 @@ export class DbService {
 					description: appConfigEntity.description,
 				})
 				.from(appConfigEntity)
-				.where(
-					and(
-						eq(appConfigEntity.projectId, projectId),
-						or(...matchers),
-					),
-				)
+				.where(and(eq(appConfigEntity.projectId, projectId), or(...matchers)))
 				.limit(10);
 			return configs.map((c) => ({
 				type: "app_config",
@@ -167,10 +154,7 @@ export class DbService {
 				})
 				.from(integrationsEntity)
 				.where(
-					and(
-						eq(integrationsEntity.projectId, projectId),
-						or(...matchers),
-					),
+					and(eq(integrationsEntity.projectId, projectId), or(...matchers)),
 				)
 				.limit(10);
 			return integrations.map((i) => ({
@@ -273,9 +257,11 @@ export class DbService {
 				.select()
 				.from(customBlockGraphsEntity)
 				.where(eq(customBlockGraphsEntity.customBlockId, blockId));
-			
+
 			return blocks.map((block) => {
-				const connections = block.next ? [{ blockId: block.next, handle: "source" }] : [];
+				const connections = block.next
+					? [{ blockId: block.next, handle: "source" }]
+					: [];
 				return {
 					id: block.id,
 					blockType: block.type ?? "unknown",
@@ -284,12 +270,16 @@ export class DbService {
 				};
 			});
 		} catch (e) {
-			logger.error("[DbService] Error getting custom block canvas", { error: e });
+			logger.error("[DbService] Error getting custom block canvas", {
+				error: e,
+			});
 			return null;
 		}
 	}
 
-	async getAllCustomBlocks(projectId: string): Promise<{ name: string; label: string; description: string }[]> {
+	async getAllCustomBlocks(
+		projectId: string,
+	): Promise<{ name: string; label: string; description: string }[]> {
 		try {
 			const customBlocks = await db
 				.select({
@@ -315,7 +305,10 @@ export class DbService {
 		}
 	}
 
-	async getCustomBlockInputParams(projectId: string, name: string): Promise<any[] | null> {
+	async getCustomBlockInputParams(
+		projectId: string,
+		name: string,
+	): Promise<any[] | null> {
 		try {
 			const block = await db
 				.select({ inputParams: customBlocksListEntity.inputParams })
@@ -332,7 +325,9 @@ export class DbService {
 				.limit(1);
 			return block.length > 0 ? (block[0].inputParams as any[]) : null;
 		} catch (e) {
-			logger.error("[DbService] Error getting custom block input params", { error: e });
+			logger.error("[DbService] Error getting custom block input params", {
+				error: e,
+			});
 			return null;
 		}
 	}
@@ -364,7 +359,9 @@ export class DbService {
 			}
 			return resultMap;
 		} catch (e) {
-			logger.error("[DbService] Error getting custom blocks batch", { error: e });
+			logger.error("[DbService] Error getting custom blocks batch", {
+				error: e,
+			});
 			return resultMap;
 		}
 	}

@@ -19,7 +19,7 @@ wiring).
 | --- | --- |
 | Library | `socket.io-client` v4 (server is `socket.io` v4) |
 | URL | same origin as the web app (`window.location.origin`) |
-| `path` | **`/_/admin/ai/socket.io/`** (the reverse proxy routes this prefix to the AI gateway) |
+| `path` | **`/_/admin/api/ai/socket.io/`** — import `SOCKET_PATH` from `@fluxify/ai-gateway/src/harness/clientContract` rather than retyping it. It lives under `/_/admin/api/ai` because that is the only prefix the reverse proxies forward to the gateway (:8001); other prefixes fall through to the request worker. |
 | Auth | the better-auth **session cookie**, sent automatically by the browser |
 | `withCredentials` | **`true`** (required so the cookie rides the handshake cross-origin) |
 | Event name | **`conversation`** (single event; discriminated by `type` inside the payload) |
@@ -29,7 +29,7 @@ wiring).
 import { io, type Socket } from "socket.io-client";
 
 const socket: Socket = io(window.location.origin, {
-  path: "/_/admin/ai/socket.io/",
+  path: SOCKET_PATH, // "/_/admin/api/ai/socket.io/"
   withCredentials: true,
   // reconnection is ON by default; see §6 before changing these
   reconnection: true,
@@ -79,8 +79,22 @@ type HarnessSocketMessage =
 
 | `type` | When | Meaning |
 | --- | --- | --- |
-| `full_state` | **once per (re)connect** | Baseline catch-up: the current cached state of **every** conversation the user has running. |
+| `full_state` | **once per (re)connect**, and on demand (see below) | Baseline catch-up: current state of every **in-flight** conversation the user owns (status `running` / `awaiting_hitl`). |
 | `update` | continuously | One live harness event. `conversationId` says which conversation; `stepId` identifies the individual step. |
+
+**`full_state` is DB-authoritative for status.** Each entry always carries the
+correct `runStatus` for the run, even when the Redis snapshot has evicted (its
+TTL drops to 60s after a run finishes/parks). When the snapshot is gone the entry
+still arrives but with **`events: []`** — you get the status, not the event
+history. So: apply `runStatus` from every `full_state` entry; treat empty
+`events` as "no history available", not "reset".
+
+**On-demand re-sync.** The client can re-request `full_state` at any time — e.g.
+right after a reconnect if it suspects it missed the connect-time catch-up:
+
+```ts
+socket.emit("sync"); // server replies with a fresh full_state to this socket
+```
 
 ```ts
 socket.on("conversation", (msg: HarnessSocketMessage) => {
@@ -339,13 +353,15 @@ The same event may appear both in the connect snapshot and as a live update.
 
 ### 6.3 Reconnection replays `full_state` — and you MUST re-merge it
 socket.io auto-reconnects. On every reconnect the server treats it as a **new
-connection** and re-sends `full_state`.
+connection** and re-sends `full_state`. A **browser refresh** is a fresh page +
+fresh socket → same path: a new `full_state` arrives on connect.
 - **Consequence:** events emitted **while you were disconnected** are not
-  delivered as live updates — they exist only in the reconnect `full_state`
-  snapshot.
+  delivered as live updates — the reconnect `full_state` carries the current
+  status (DB-authoritative), but its `events` may be empty (§6.5).
 - **Fix:** always handle `full_state` on **every** connect, not just the first.
   Do **not** reset your store on reconnect; merge the snapshot in. Track a
-  `connected` flag for UI, but keep the data.
+  `connected` flag for UI, but keep the data. If you ever suspect the connect-time
+  catch-up was missed, `socket.emit("sync")` to force a fresh `full_state`.
 
 ### 6.4 The snapshot event log is bounded to the last 200 events
 `HarnessSnapshot.events` keeps only the most recent 200. A long run that
@@ -356,16 +372,20 @@ disconnected early may have dropped the earliest `node_start`s from the snapshot
   `node_start` still creates the step (status `completed`). Don't assume start
   precedes end.
 
-### 6.5 Completed runs disappear from `full_state` after ~60s
-The Redis snapshot's TTL drops to **60 seconds** once a run reaches a terminal
-state. Reconnect >60s after completion and that run is **absent** from
-`full_state`.
-- **Consequence:** if you rely on `full_state` alone, a finished run vanishes
-  from the UI on reconnect.
-- **Fix:** once you mark a run `isTerminal`, **persist its final state
-  client-side** (or fetch history from the REST API). Absence in a later
-  `full_state` means "already finished", not "never existed" — never delete a
-  known terminal run because a new snapshot omits it.
+### 6.5 `full_state` covers in-flight runs; history may be status-only
+`full_state` includes the user's **in-flight** conversations — those with a live
+`activeRunId` (status `running` or `awaiting_hitl`). The `runStatus` is always
+correct (read from the DB). But the event **history** lives in Redis with a 60s
+post-terminal TTL, so:
+- An `awaiting_hitl` conversation you reconnect to >60s later still arrives, with
+  the right `runStatus` but **`events: []`** — render the status; don't expect the
+  step history.
+- A **completed** run (its `activeRunId` is cleared) is **not** in `full_state`
+  at all.
+- **Fix:** apply `runStatus` from every entry regardless of `events`. Once you've
+  marked a run terminal, **persist its final state client-side** (or fetch detail
+  from the REST API). Absence from a later `full_state` means "finished / no
+  longer in-flight", never "delete it".
 
 ### 6.6 Multiple concurrent runs interleave on one socket
 A user can trigger several conversations at once; their updates arrive

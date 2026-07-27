@@ -49,13 +49,20 @@ export async function enqueueHarnessStart(
 	});
 	await new RedisService().setActiveRun(conversationId, runId);
 
-	await harnessQueue.add(HARNESS_START_JOB, {
-		type: "start",
-		conversationId,
-		runId,
-		query: params.query,
-		metadata: params.metadata,
-	});
+	await harnessQueue.add(
+		HARNESS_START_JOB,
+		{
+			type: "start",
+			conversationId,
+			runId,
+			query: params.query,
+			metadata: params.metadata,
+		},
+		// jobId = conversationId: one active run per conversation, and the running
+		// job is addressable by conversationId. Removed on finish so the next
+		// message/continue can reuse the id.
+		{ jobId: conversationId, removeOnComplete: true, removeOnFail: true },
+	);
 
 	return { conversationId, runId };
 }
@@ -64,14 +71,18 @@ export async function enqueueHarnessStart(
 export async function enqueueHarnessContinue(
 	params: EnqueueContinueParams,
 ): Promise<{ conversationId: string; runId: string }> {
-	await harnessQueue.add(HARNESS_CONTINUE_JOB, {
-		type: "continue",
-		conversationId: params.conversationId,
-		runId: params.runId,
-		query: params.query,
-		action: params.action,
-		metadata: params.metadata,
-	});
+	await harnessQueue.add(
+		HARNESS_CONTINUE_JOB,
+		{
+			type: "continue",
+			conversationId: params.conversationId,
+			runId: params.runId,
+			query: params.query,
+			action: params.action,
+			metadata: params.metadata,
+		},
+		{ jobId: params.conversationId, removeOnComplete: true, removeOnFail: true },
+	);
 
 	return { conversationId: params.conversationId, runId: params.runId };
 }

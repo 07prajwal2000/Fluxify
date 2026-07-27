@@ -34,6 +34,12 @@ import {
 	type HarnessStreamEvent,
 } from "./streamTypes";
 import { publishHarnessEvent } from "./notifications";
+import { isUserInterrupt } from "./errors";
+import {
+	registerRunController,
+	unregisterRunController,
+	requestInterrupt,
+} from "./interrupt";
 import type { HarnessJobData, HarnessJobMetadata } from "./queue";
 
 /** Everything a single harness run needs — supplied by the worker from job data. */
@@ -151,11 +157,19 @@ export class FluxifyHarness {
 			redisService: this.redisService,
 			userId,
 		});
+
+		// Per-run interrupt: the AbortController's signal cancels every model call;
+		// aborting it raises UserInterruptError out of the graph (caught below).
+		const abortController = new AbortController();
+		state.agentWrapper?.setAbortSignal(abortController.signal);
+		registerRunController(ctx.conversationId, abortController);
+
 		// Attach the OTEL tracer as a run callback (app.invoke used to pass this;
 		// the streamEvents path must supply it explicitly for LLM/agent tracing).
 		const streamConfig: any = {
 			version: "v2",
 			callbacks: [new FluxifyOtelTracer()],
+			signal: abortController.signal,
 		};
 		let finalState: Partial<GlobalGraphState> | undefined;
 
@@ -198,6 +212,19 @@ export class FluxifyHarness {
 			await callbacks.flush();
 			await this.finalizeRun(ctx, harnessService, userId, finalState);
 		} catch (error) {
+			await callbacks.flush().catch(() => {});
+
+			// User interrupt is a clean terminal, not a failure — finalize as
+			// `interrupted` and don't rethrow (so BullMQ doesn't retry the job).
+			if (isUserInterrupt(error)) {
+				logger.info("[FluxifyHarness] Run interrupted by user", {
+					conversationId: ctx.conversationId,
+					runId: ctx.runId,
+				});
+				await this.interruptRun(ctx, harnessService, userId);
+				return undefined;
+			}
+
 			logger.error("[FluxifyHarness] Graph execution failed", {
 				conversationId: ctx.conversationId,
 				runId: ctx.runId,
@@ -205,10 +232,10 @@ export class FluxifyHarness {
 			});
 			// Raw dump so the underlying stack is visible in foreground runs.
 			logger.error("Graph error", "FluxifyHarness", { error });
-			await callbacks.flush().catch(() => {});
 			await this.failRun(ctx, harnessService, userId, error);
 			throw error;
 		} finally {
+			unregisterRunController(ctx.conversationId);
 			await harnessService.awaitAllPendingBackgroundTasks();
 		}
 
@@ -327,6 +354,48 @@ export class FluxifyHarness {
 			await this.redisService.finalizeSnapshot(ctx.runId);
 		} catch (e) {
 			logger.error("[FluxifyHarness] Error persisting run failure", {
+				runId: ctx.runId,
+				error: e,
+			});
+		}
+	}
+
+	/**
+	 * Requests interruption of a running conversation. Delivered to whichever
+	 * worker is executing the run (over NATS); that worker aborts the run's
+	 * AbortController, which raises UserInterruptError out of the graph and lands
+	 * in `interruptRun`. Safe to call from any process.
+	 */
+	public interrupt(conversationId: string): void {
+		requestInterrupt(conversationId);
+	}
+
+	/** Persists a user-interrupted run as `interrupted` with a meaningful response. */
+	private async interruptRun(
+		ctx: HarnessRunContext,
+		harnessService: HarnessService,
+		userId: string | null,
+	) {
+		const message = "This run was stopped by the user before it finished.";
+		try {
+			await harnessService.updateRun({
+				runId: ctx.runId,
+				status: "interrupted",
+				aiResponse: message,
+				interruptedAt: new Date(),
+			});
+			await harnessService.saveLiveState({
+				runId: ctx.runId,
+				conversationId: ctx.conversationId,
+				currentState: "interrupted",
+				workingMemory: {},
+			});
+			await harnessService.updateConversationStatus("interrupted", null);
+			await this.redisService.clearActiveRun(ctx.conversationId);
+			await this.emitTerminal(ctx, userId, "interrupted", AgentNode.ROUTER, message);
+			await this.redisService.finalizeSnapshot(ctx.runId);
+		} catch (e) {
+			logger.error("[FluxifyHarness] Error persisting run interrupt", {
 				runId: ctx.runId,
 				error: e,
 			});

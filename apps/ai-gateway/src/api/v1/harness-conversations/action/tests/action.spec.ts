@@ -3,6 +3,7 @@ import handleRequest from "../service";
 import * as repository from "../repository";
 import * as cacheVersionModule from "../../cacheVersion";
 import * as serverModule from "@fluxify/server";
+import type { ConversationAction } from "../dto";
 
 mock.module("../repository", () => ({
 	setConversationFlags: mock(),
@@ -12,6 +13,24 @@ mock.module("../../cacheVersion", () => ({
 	bumpListCacheVersion: mock(),
 }));
 
+/** Full conversation row the handler reads, with sensible defaults per test. */
+function conv(overrides: Partial<Parameters<typeof handleRequest>[2]> = {}) {
+	return {
+		id: "conv1",
+		userId: "user1",
+		projectId: "proj1",
+		archived: false,
+		status: "idle",
+		activeRunId: null,
+		...overrides,
+	};
+}
+
+const body = (action: ConversationAction, reviews?: string[]) => ({
+	action,
+	hitl_review: reviews ? { reviews } : undefined,
+});
+
 describe("Harness Conversation Action Service", () => {
 	it("pins a non-archived conversation", async () => {
 		const mockResponse = { id: "conv1", pinned: true, archived: false, updatedAt: new Date() };
@@ -20,7 +39,7 @@ describe("Harness Conversation Action Service", () => {
 		);
 		spyOn(cacheVersionModule, "bumpListCacheVersion").mockResolvedValue(undefined as never);
 
-		const result = await handleRequest("conv1", "pin", { userId: "user1", archived: false });
+		const result = await handleRequest("conv1", body("pin"), conv());
 
 		expect(setFlagsSpy).toHaveBeenCalledWith("conv1", { pinned: true });
 		expect(result).toEqual(mockResponse);
@@ -28,7 +47,7 @@ describe("Harness Conversation Action Service", () => {
 
 	it("rejects pinning an archived conversation", async () => {
 		expect(
-			handleRequest("conv1", "pin", { userId: "user1", archived: true }),
+			handleRequest("conv1", body("pin"), conv({ archived: true })),
 		).rejects.toThrow(serverModule.ConflictError);
 	});
 
@@ -36,7 +55,7 @@ describe("Harness Conversation Action Service", () => {
 		const setFlagsSpy = spyOn(repository, "setConversationFlags").mockResolvedValue({} as never);
 		spyOn(cacheVersionModule, "bumpListCacheVersion").mockResolvedValue(undefined as never);
 
-		await handleRequest("conv1", "unpin", { userId: "user1", archived: false });
+		await handleRequest("conv1", body("unpin"), conv());
 
 		expect(setFlagsSpy).toHaveBeenCalledWith("conv1", { pinned: false });
 	});
@@ -45,7 +64,7 @@ describe("Harness Conversation Action Service", () => {
 		const setFlagsSpy = spyOn(repository, "setConversationFlags").mockResolvedValue({} as never);
 		spyOn(cacheVersionModule, "bumpListCacheVersion").mockResolvedValue(undefined as never);
 
-		await handleRequest("conv1", "archive", { userId: "user1", archived: false });
+		await handleRequest("conv1", body("archive"), conv());
 
 		expect(setFlagsSpy).toHaveBeenCalledWith("conv1", { archived: true, pinned: false });
 	});
@@ -54,7 +73,7 @@ describe("Harness Conversation Action Service", () => {
 		const setFlagsSpy = spyOn(repository, "setConversationFlags").mockResolvedValue({} as never);
 		spyOn(cacheVersionModule, "bumpListCacheVersion").mockResolvedValue(undefined as never);
 
-		await handleRequest("conv1", "unarchive", { userId: "user1", archived: true });
+		await handleRequest("conv1", body("unarchive"), conv({ archived: true }));
 
 		expect(setFlagsSpy).toHaveBeenCalledWith("conv1", { archived: false });
 	});
@@ -65,8 +84,20 @@ describe("Harness Conversation Action Service", () => {
 			undefined as never,
 		);
 
-		await handleRequest("conv1", "pin", { userId: "user1", archived: false });
+		await handleRequest("conv1", body("pin"), conv());
 
 		expect(bumpSpy).toHaveBeenCalledWith("user1");
+	});
+
+	it("rejects interrupt when the conversation is not running", async () => {
+		expect(
+			handleRequest("conv1", body("user_interrupt"), conv({ status: "idle" })),
+		).rejects.toThrow(serverModule.ConflictError);
+	});
+
+	it("rejects a HITL action when not awaiting review", async () => {
+		expect(
+			handleRequest("conv1", body("hitl_approve"), conv({ status: "running" })),
+		).rejects.toThrow(serverModule.ConflictError);
 	});
 });

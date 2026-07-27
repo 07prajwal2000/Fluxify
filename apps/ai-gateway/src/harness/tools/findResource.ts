@@ -1,9 +1,9 @@
 import { tool } from "@langchain/core/tools";
 import { z } from "zod";
 import { logger } from "@fluxify/common";
-import type { WorkflowMetadata } from "../../ai/types";
+import type { WorkflowMetadata } from "../types";
 import type { DbService } from "../internal/dbService";
-import type { ResourceType } from "../../workflow/nodes/builder/types";
+import { ResourceType } from "../types";
 
 export const createFindResourceTool = (
 	dbService: DbService,
@@ -21,18 +21,28 @@ export const createFindResourceTool = (
 
 			if (resourceType === "route_canvas") {
 				if (toolMetadata?.isNewRoute) {
-					return JSON.stringify([
-						{ id: "entrypoint", blockType: "entrypoint" },
-						{ id: "response", blockType: "response" },
-						{ id: "error_handler", blockType: "error_handler" }
-					], null, 2);
+					return JSON.stringify(
+						[
+							{ id: "entrypoint", blockType: "entrypoint" },
+							{ id: "response", blockType: "response" },
+							{ id: "error_handler", blockType: "error_handler" },
+						],
+						null,
+						2,
+					);
 				}
-				const canvas = await dbService.getRouteCanvas(metadata.projectId, singleId);
+				const canvas = await dbService.getRouteCanvas(
+					metadata.projectId,
+					singleId,
+				);
 				return canvas ? JSON.stringify(canvas, null, 2) : "No canvas found.";
 			}
 
 			if (resourceType === "custom_block_canvas") {
-				const canvas = await dbService.getCustomBlockCanvas(metadata.projectId, singleId);
+				const canvas = await dbService.getCustomBlockCanvas(
+					metadata.projectId,
+					singleId,
+				);
 				return canvas ? JSON.stringify(canvas, null, 2) : "No canvas found.";
 			}
 
@@ -68,9 +78,18 @@ export const createFindResourceTool = (
 			// Format as Markdown table
 			const keys = Object.keys(results[0]);
 			const header = `| ${keys.join(" | ")} |\n| ${keys.map(() => "---").join(" | ")} |`;
-			const rows = results.map(row => 
-				`| ${keys.map(key => String(row[key] ?? "").replace(/\|/g, "\\|").replace(/\n/g, " ")).join(" | ")} |`
-			).join("\n");
+			const rows = results
+				.map(
+					(row) =>
+						`| ${keys
+							.map((key) =>
+								String(row[key] ?? "")
+									.replace(/\|/g, "\\|")
+									.replace(/\n/g, " "),
+							)
+							.join(" | ")} |`,
+				)
+				.join("\n");
 
 			return `${header}\n${rows}`;
 		},
@@ -85,11 +104,20 @@ export const createFindResourceTool = (
 						"One or more keywords to full-text search for (name, path, or description). Pass an array of related terms (e.g. ['user', 'auth', 'login']) to widen matching and avoid multiple retries. For 'route_canvas' and 'custom_block_canvas', pass a single resource ID.",
 					),
 				resourceType: z
-					.enum(["route", "app_config", "integration", "custom_block", "route_canvas", "custom_block_canvas"])
+					.enum([
+						"route",
+						"app_config",
+						"integration",
+						"custom_block",
+						"route_canvas",
+						"custom_block_canvas",
+					])
 					.describe("The type of resource to search for."),
-				metadata: z.object({
-					isNewRoute: z.boolean().optional(),
-				}).optional(),
+				metadata: z
+					.object({
+						isNewRoute: z.boolean().optional(),
+					})
+					.optional(),
 			}),
 		},
 	);
