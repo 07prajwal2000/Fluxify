@@ -49,29 +49,41 @@ export interface HarnessTaskView {
 /**
  * Node-typed payload. Discriminated by `node` so the frontend can narrow to the
  * exact state slice a given node emits.
+ *
+ * The discriminants are written as `${AgentNode.X}` — the enum stays the single
+ * source of truth, but the resulting type is the plain string literal. Enum
+ * members remain assignable to it (so servers can keep writing `AgentNode.X`),
+ * while clients that must not import the enum (it drags langgraph into the
+ * bundle) can still build and narrow these payloads from string literals.
  */
 export type HarnessNodePayload =
-	| { node: AgentNode.ROUTER; data: RouterState }
-	| { node: AgentNode.VERIFY_USER_QUERY; data: VerifyUserQueryState }
-	| { node: AgentNode.PLANNER; data: PlannerState }
-	| { node: AgentNode.DISCUSSION; data: DiscussionState }
-	| { node: AgentNode.TASK_GENERATOR; data: { tasksByLevel: HarnessTaskView[][] } }
+	| { node: `${AgentNode.ROUTER}`; data: RouterState }
+	| { node: `${AgentNode.VERIFY_USER_QUERY}`; data: VerifyUserQueryState }
+	| { node: `${AgentNode.PLANNER}`; data: PlannerState }
+	| { node: `${AgentNode.DISCUSSION}`; data: DiscussionState }
 	| {
-			node: AgentNode.ORCHESTRATOR;
+			node: `${AgentNode.TASK_GENERATOR}`;
+			data: { tasksByLevel: HarnessTaskView[][] };
+	  }
+	| {
+			node: `${AgentNode.ORCHESTRATOR}`;
 			data: { tasksByLevel: HarnessTaskView[][]; activeLevel: number };
 	  }
 	| {
-			node: AgentNode.BLOCK_BUILDER;
+			node: `${AgentNode.BLOCK_BUILDER}`;
 			data: { task: HarnessTaskView; result?: SubAgentResult };
 	  }
 	| {
-			node: AgentNode.ROUTE_CONFIG_AGENT;
+			node: `${AgentNode.ROUTE_CONFIG_AGENT}`;
 			data: { task: HarnessTaskView; result?: SubAgentResult };
 	  }
-	| { node: AgentNode.SUPERVISOR; data: { tasksByLevel: HarnessTaskView[][] } }
-	| { node: AgentNode.SUMMARIZER; data: SummarizerState }
 	| {
-			node: AgentNode.HUMAN_IN_THE_LOOP;
+			node: `${AgentNode.SUPERVISOR}`;
+			data: { tasksByLevel: HarnessTaskView[][] };
+	  }
+	| { node: `${AgentNode.SUMMARIZER}`; data: SummarizerState }
+	| {
+			node: `${AgentNode.HUMAN_IN_THE_LOOP}`;
 			data: { reason: string; markdownPlan?: string };
 	  };
 

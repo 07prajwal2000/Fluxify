@@ -36,7 +36,13 @@ export default defineConfig({
 	server: {
 		port: 3001,
 		proxy: {
-			"/_/admin/api/ai": { target: "http://localhost:8001", changeOrigin: true },
+			// ws: the harness socket.io transport lives at /_/admin/api/ai/socket.io/
+			// and upgrades to a websocket; without this it never leaves long-polling.
+			"/_/admin/api/ai": {
+				target: "http://localhost:8001",
+				changeOrigin: true,
+				ws: true,
+			},
 			"/_/admin/api": { target: "http://localhost:5500", changeOrigin: true },
 		},
 	},

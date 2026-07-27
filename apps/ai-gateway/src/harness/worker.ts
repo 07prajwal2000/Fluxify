@@ -9,6 +9,7 @@ import {
 	resolveAgentOptionsFromProjectId,
 } from "./models/projectConfig";
 import { FluxifyHarness, type HarnessRunContext } from "./index";
+import { subscribeInterrupts } from "./interrupt";
 
 let worker: Worker<HarnessJobData> | null = null;
 
@@ -22,6 +23,8 @@ export async function initializeHarnessWorker() {
 	// The worker publishes progress to NATS (`conversations.<userId>`); ensure the
 	// pub/sub client is connected before any job runs. Idempotent.
 	await initializePubSub();
+	// Listen for user interrupt requests targeting runs on this worker.
+	await subscribeInterrupts();
 
 	worker = new Worker<HarnessJobData>(
 		HARNESS_QUEUE_NAME,

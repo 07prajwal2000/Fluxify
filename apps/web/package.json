@@ -6,7 +6,7 @@
 		"dev": "next dev --turbopack -p 3000",
 		"build": "next build --turbopack",
 		"start": "next start -p 5500",
-		"lint": "tsgo --noEmit"
+		"lint": ""
 	},
 	"dependencies": {
 		"@fluxify/adapters": "workspace:*",

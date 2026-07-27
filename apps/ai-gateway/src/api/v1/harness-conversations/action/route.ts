@@ -16,11 +16,15 @@ export default function (app: Hono) {
 			const param = c.req.valid("param");
 			const body = c.req.valid("json");
 			const conversation = c.get("conversation") as {
+				id: string;
 				userId: string | null;
+				projectId: string | null;
 				archived: boolean;
+				status: string;
+				activeRunId: string | null;
 			};
 
-			const result = await handleRequest(param.conversationId, body.action, conversation);
+			const result = await handleRequest(param.conversationId, body, conversation);
 			return c.json(result);
 		},
 	);

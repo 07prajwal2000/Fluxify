@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import { TbCommand, TbAt, TbArrowUp } from "react-icons/tb";
+import { useState, useEffect, useRef } from "react";
+import { TbCommand, TbAt, TbArrowUp, TbPlayerStopFilled } from "react-icons/tb";
 import { Button, Popover, PopoverTrigger, PopoverContent } from "@fluxify/components";
 import { ModelSelect, type AiModel } from "./ModelSelect";
 import { SyntaxHelpModal } from "./SyntaxHelpModal";
@@ -18,34 +18,45 @@ type Props = {
 	isPending?: boolean;
 	models: AiModel[];
 	defaultModelId?: string;
+	minRows?: number;
+	maxRows?: number;
+	placeholder?: string;
+	typewriter?: boolean;
+	isRunning?: boolean;
+	onStop?: () => void;
 };
 
-export function PromptEditor({ projectId, value, onChange, onSubmit, isPending, models, defaultModelId }: Props) {
+export function PromptEditor({ 
+	projectId, value, onChange, onSubmit, isPending, models, defaultModelId, minRows = 1, maxRows = 2,
+	placeholder = "Message AI...", typewriter = true, isRunning, onStop
+}: Props) {
 	const [model, setModel] = useState<string>(defaultModelId ?? (models[0]?.id || ""));
 	const [helpOpen, setHelpOpen] = useState(false);
+	const textareaRef = useRef<HTMLTextAreaElement>(null);
 
 	// Typewriter effect
-	const [placeholder, setPlaceholder] = useState("");
+	const [twPlaceholder, setTwPlaceholder] = useState("");
 	const [phIndex, setPhIndex] = useState(0);
 	const [charIndex, setCharIndex] = useState(0);
 
 	useEffect(() => {
+		if (!typewriter) return;
 		const current = PLACEHOLDERS[phIndex];
 		let timeout: NodeJS.Timeout;
 		if (charIndex < current.length) {
 			timeout = setTimeout(() => {
-				setPlaceholder(p => p + current[charIndex]);
+				setTwPlaceholder(p => p + current[charIndex]);
 				setCharIndex(c => c + 1);
 			}, 40); // typing speed
 		} else {
 			timeout = setTimeout(() => {
-				setPlaceholder("");
+				setTwPlaceholder("");
 				setCharIndex(0);
 				setPhIndex((i) => (i + 1) % PLACEHOLDERS.length);
 			}, 3000); // pause before next
 		}
 		return () => clearTimeout(timeout);
-	}, [charIndex, phIndex]);
+	}, [charIndex, phIndex, typewriter]);
 
 	// Sync default model if it changes or if models load late
 	useEffect(() => {
@@ -53,6 +64,14 @@ export function PromptEditor({ projectId, value, onChange, onSubmit, isPending, 
 			setModel(defaultModelId ?? models[0]?.id);
 		}
 	}, [defaultModelId, models, model]);
+
+	// Auto-resize textarea
+	useEffect(() => {
+		if (textareaRef.current) {
+			textareaRef.current.style.height = "auto";
+			textareaRef.current.style.height = `${textareaRef.current.scrollHeight}px`;
+		}
+	}, [value]);
 
 	const trimmed = value.trim();
 	const canSend = trimmed.length > 0 && !isPending;
@@ -67,6 +86,7 @@ export function PromptEditor({ projectId, value, onChange, onSubmit, isPending, 
 	return (
 		<div className="relative rounded-2xl border border-white/10 bg-[#161618] p-4 shadow-2xl transition-colors focus-within:border-[#ccff00]/50">
 			<textarea
+				ref={textareaRef}
 				value={value}
 				onChange={(e) => onChange(e.target.value)}
 				onKeyDown={(e) => {
@@ -75,9 +95,13 @@ export function PromptEditor({ projectId, value, onChange, onSubmit, isPending, 
 						submit();
 					}
 				}}
-				placeholder={placeholder + (charIndex < PLACEHOLDERS[phIndex].length ? "|" : "")}
-				rows={3}
-				className="max-h-56 min-h-16 w-full resize-none bg-transparent px-1 text-sm leading-relaxed text-foreground outline-none placeholder:text-muted"
+				placeholder={typewriter ? twPlaceholder + (charIndex < PLACEHOLDERS[phIndex].length ? "|" : "") : placeholder}
+				rows={minRows}
+				style={{
+					minHeight: minRows === 1 ? "24px" : `${minRows * 23}px`,
+					maxHeight: `${maxRows * 23}px`,
+				}}
+				className="w-full resize-none bg-transparent px-1 text-sm leading-relaxed text-foreground outline-none placeholder:text-muted"
 			/>
 			
 			<div className="mt-2 flex items-end justify-between gap-3">
@@ -122,16 +146,27 @@ export function PromptEditor({ projectId, value, onChange, onSubmit, isPending, 
 				</div>
 				<div className="flex items-center gap-3">
 					<ModelSelect projectId={projectId} value={model} models={models} onChange={setModel} />
-					<Button
-						isIconOnly
-						className="rounded-xl bg-[#ccff00] text-black hover:bg-[#b3e600] disabled:opacity-50 disabled:bg-[#ccff00]/50 h-8 w-8"
-						aria-label="Send"
-						isDisabled={!canSend}
-						isPending={isPending}
-						onPress={submit}
-					>
-						<TbArrowUp size={18} />
-					</Button>
+					{isRunning ? (
+						<Button
+							isIconOnly
+							className="rounded-xl bg-red-500 text-white hover:bg-red-600 h-8 w-8"
+							aria-label="Stop"
+							onPress={onStop}
+						>
+							<TbPlayerStopFilled size={18} />
+						</Button>
+					) : (
+						<Button
+							isIconOnly
+							className="rounded-xl bg-[#ccff00] text-black hover:bg-[#b3e600] disabled:opacity-50 disabled:bg-[#ccff00]/50 h-8 w-8"
+							aria-label="Send"
+							isDisabled={!canSend}
+							isPending={isPending}
+							onPress={submit}
+						>
+							<TbArrowUp size={18} />
+						</Button>
+					)}
 				</div>
 			</div>
 

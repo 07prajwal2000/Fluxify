@@ -4,6 +4,7 @@ import * as harnessConversationsListDto from "@fluxify/ai-gateway/src/api/v1/har
 import * as harnessConversationsUpdateDto from "@fluxify/ai-gateway/src/api/v1/harness-conversations/update/dto";
 import * as harnessConversationsSendMessageDto from "@fluxify/ai-gateway/src/api/v1/harness-conversations/send-message/dto";
 import * as harnessConversationsActionDto from "@fluxify/ai-gateway/src/api/v1/harness-conversations/action/dto";
+import * as harnessConversationsListMessagesDto from "@fluxify/ai-gateway/src/api/v1/harness-conversations/list-messages/dto";
 
 const baseUrl = (projectId: string) => `ai/v1/${projectId}/harness-conversations`;
 
@@ -24,6 +25,20 @@ export const harnessConversationsService = {
 		if (query.pinned !== undefined) params.set("pinned", String(query.pinned));
 		if (query.search) params.set("search", query.search);
 		const result = await httpClient.get(`${baseUrl(projectId)}?${params}`);
+		return result.data;
+	},
+	/** Messages come back oldest-first, ready to render as-is. `cursor` walks
+	 *  backwards through history 20 at a time. */
+	async listMessages(
+		projectId: string,
+		conversationId: string,
+		cursor?: string,
+	): Promise<z.infer<typeof harnessConversationsListMessagesDto.responseSchema>> {
+		const params = new URLSearchParams();
+		if (cursor) params.set("cursor", cursor);
+		const result = await httpClient.get(
+			`${baseUrl(projectId)}/${conversationId}/messages?${params}`,
+		);
 		return result.data;
 	},
 	async update(
