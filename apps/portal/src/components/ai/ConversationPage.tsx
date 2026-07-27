@@ -1,11 +1,18 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useParams } from "@tanstack/react-router";
+import { useQueryClient } from "@tanstack/react-query";
+import { TbEdit } from "react-icons/tb";
 import { PromptEditor } from "./PromptEditor";
 import { useAiModels } from "./useAiModels";
 import { harnessConversationsQuery } from "@/query/harnessConversationsQuery";
 import { showErrorNotification } from "@/lib/errorNotifier";
-import { useIsRunning } from "@/store/aiHarness";
-import { MarkdownViewer } from "./MarkdownViewer";
+import { useIsRunning, useConversationRun } from "@/store/aiHarness";
+import { UserMessage } from "./UserMessage";
+import { AiMessage } from "./AiMessage";
+import { useScrollToBottom } from "./useScrollToBottom";
+import { ScrollToBottomButton } from "./ScrollToBottomButton";
+import { ChatTitleEditor } from "./ChatTitleEditor";
+import type { HarnessConversation } from "./types";
 
 export function ConversationPage() {
 	const { projectId, conversationId } = useParams({
@@ -21,15 +28,80 @@ export function ConversationPage() {
 	);
 
 	const isRunning = useIsRunning(conversationId);
-	const { data: messagesData } =
-		harnessConversationsQuery.messages.useInfiniteQuery(
-			projectId,
-			conversationId,
-		);
+	const activeRun = useConversationRun(conversationId);
+	const queryClient = useQueryClient();
+	const prevIsRunning = useRef(isRunning);
+	const bottomRef = useRef<HTMLDivElement>(null);
+	const [optimisticQuery, setOptimisticQuery] = useState<string | null>(null);
 
-	// API returns oldest first in each page, but infinite query appends older pages to the end.
-	// We want to render them so newest is at the bottom.
+	const { data: messagesData, isLoading, fetchNextPage, hasNextPage, isFetchingNextPage } = harnessConversationsQuery.messages.useInfiniteQuery(
+		projectId,
+		conversationId,
+	);
+
 	const messages = messagesData?.pages.flatMap((p) => p.messages) ?? [];
+
+	const topRef = useRef<HTMLDivElement>(null);
+	const { isAtBottom, scrollToBottom } = useScrollToBottom(bottomRef, 250);
+
+	// Check active conversation from sidebar cache reactively
+	const [activeConversation, setActiveConversation] = useState<HarnessConversation | null>(null);
+	const isArchived = activeConversation?.archived ?? false;
+
+	useEffect(() => {
+		const checkConversation = () => {
+			const queriesData = queryClient.getQueriesData<any>({
+				queryKey: ["harness-conversations", projectId, "list-infinite"],
+			});
+			let foundConv = null;
+			outer: for (const [, data] of queriesData) {
+				if (!data) continue;
+				for (const page of data.pages) {
+					const found = page.data.find((c: any) => c.id === conversationId);
+					if (found) {
+						foundConv = found;
+						break outer;
+					}
+				}
+			}
+			setActiveConversation(foundConv);
+		};
+
+		checkConversation();
+		const unsubscribe = queryClient.getQueryCache().subscribe((event) => {
+			if (event.query.queryKey[0] === "harness-conversations") {
+				checkConversation();
+			}
+		});
+		return unsubscribe;
+	}, [projectId, conversationId, queryClient]);
+
+	// Infinite scroll observer
+	useEffect(() => {
+		if (!topRef.current || !hasNextPage || isFetchingNextPage) return;
+		const observer = new IntersectionObserver((entries) => {
+			if (entries[0].isIntersecting) fetchNextPage();
+		});
+		observer.observe(topRef.current);
+		return () => observer.disconnect();
+	}, [hasNextPage, isFetchingNextPage, fetchNextPage]);
+
+	// Auto-scroll
+	useEffect(() => {
+		if (optimisticQuery || isAtBottom) {
+			scrollToBottom();
+		}
+	}, [messages.length, optimisticQuery, isAtBottom, scrollToBottom]);
+
+	// Invalidate messages on run completion
+	useEffect(() => {
+		if (prevIsRunning.current && !isRunning) {
+			queryClient.invalidateQueries({
+				queryKey: ["harness-conversations", projectId, conversationId, "messages"],
+			});
+		}
+		prevIsRunning.current = isRunning;
+	}, [isRunning, queryClient, projectId, conversationId]);
 
 	const submit = (q: string, model: string, isFallback: boolean) => {
 		const reqPayload: {
@@ -44,9 +116,17 @@ export function ConversationPage() {
 			reqPayload.integrationId = model;
 		}
 
+		setOptimisticQuery(q);
+
 		sendMessage.mutate(reqPayload, {
-			onSuccess: () => setQuery(""),
-			onError: (err) => showErrorNotification(err),
+			onSuccess: () => {
+				setQuery("");
+				setOptimisticQuery(null);
+			},
+			onError: (err) => {
+				setOptimisticQuery(null);
+				showErrorNotification(err);
+			},
 		});
 	};
 
@@ -59,49 +139,90 @@ export function ConversationPage() {
 
 	return (
 		<div className="flex h-full flex-col relative">
-			<div className="flex-1 overflow-y-auto px-4 py-12">
-				<div className="mx-auto flex w-full max-w-3xl flex-col-reverse gap-6">
-					{messages.length === 0 ? (
-						<div className="text-center">
+			<div className="absolute top-1.5 left-1 z-20 pointer-events-auto">
+				<ChatTitleEditor projectId={projectId} conversation={activeConversation} />
+			</div>
+
+			<div className="flex-1 overflow-y-auto px-4 pb-12 pt-16">
+				<div className="mx-auto flex w-full max-w-[65%] flex-col-reverse gap-6">
+					<div ref={bottomRef} className="h-0 w-0 shrink-0" />
+					
+					{optimisticQuery && (
+						<div className="flex w-full flex-col gap-4">
+							<UserMessage query={optimisticQuery} />
+						</div>
+					)}
+
+					{isLoading ? (
+						<div className="flex w-full flex-col gap-8 animate-pulse pt-8 opacity-60">
+							<div className="flex w-full justify-end">
+								<div className="h-12 w-64 rounded-2xl bg-white/5"></div>
+							</div>
+							<div className="flex w-full flex-col gap-2">
+								<div className="h-3 w-24 rounded-full bg-white/5 mb-1"></div>
+								<div className="h-20 w-full rounded-xl bg-white/5"></div>
+							</div>
+							<div className="flex w-full justify-end">
+								<div className="h-12 w-48 rounded-2xl bg-white/5"></div>
+							</div>
+						</div>
+					) : messages.length === 0 && !optimisticQuery ? (
+						<div className="text-center pt-8">
 							<p className="text-sm text-muted">Conversation</p>
 							<p className="font-mono text-xs text-muted">{conversationId}</p>
 						</div>
 					) : (
-						messages.map((msg) => (
-							<div key={msg.id} className="flex w-full flex-col gap-4">
-								{msg.userQuery && (
-									<div className="flex w-full justify-end">
-										<div className="max-w-[85%] rounded-2xl bg-content2 px-5 py-3 text-sm text-foreground shadow-sm">
-											{msg.userQuery}
-										</div>
-									</div>
-								)}
-								{msg.aiResponse && (
-									<div className="w-full">
-										<MarkdownViewer content={msg.aiResponse} />
-									</div>
-								)}
-							</div>
-						))
+						messages.map((msg, idx) => {
+							const isLatest = idx === 0;
+							const displayStatus = (isLatest && activeRun && !activeRun.isTerminal) ? activeRun.runStatus : msg.status;
+							
+							return (
+								<div key={msg.id} className="flex w-full flex-col gap-4">
+									{msg.userQuery && <UserMessage query={msg.userQuery} />}
+									<AiMessage response={msg.aiResponse} status={displayStatus} />
+								</div>
+							);
+						})
 					)}
+
+					{isFetchingNextPage && (
+						<div className="flex w-full flex-col gap-8 animate-pulse py-8 opacity-60">
+							<div className="flex w-full justify-end">
+								<div className="h-12 w-64 rounded-2xl bg-white/5"></div>
+							</div>
+							<div className="flex w-full flex-col gap-2">
+								<div className="h-3 w-24 rounded-full bg-white/5 mb-1"></div>
+								<div className="h-20 w-full rounded-xl bg-white/5"></div>
+							</div>
+						</div>
+					)}
+					
+					{hasNextPage && <div ref={topRef} className="h-1 w-full" />}
 				</div>
 			</div>
 
-			<div className="sticky bottom-0 p-4 bg-background">
-				<div className="mx-auto w-full max-w-3xl">
-					<PromptEditor
-						projectId={projectId}
-						value={query}
-						onChange={setQuery}
-						onSubmit={submit}
-						isPending={sendMessage.isPending}
-						models={models}
-						defaultModelId={defaultModelId}
-						typewriter={false}
-						placeholder="Reply to AI..."
-						isRunning={isRunning}
-						onStop={stop}
-					/>
+			<div className="sticky bottom-0 px-4 pb-2 pt-4 bg-background relative">
+				<ScrollToBottomButton isVisible={!isAtBottom} onClick={scrollToBottom} />
+				<div className="mx-auto w-full max-w-[65%]">
+					{isArchived ? (
+						<div className="w-full rounded-2xl border border-border bg-surface p-4 text-center text-sm text-muted">
+							This conversation is archived and is read-only.
+						</div>
+					) : (
+						<PromptEditor
+							projectId={projectId}
+							value={query}
+							onChange={setQuery}
+							onSubmit={submit}
+							isPending={sendMessage.isPending}
+							models={models}
+							defaultModelId={defaultModelId}
+							typewriter={false}
+							placeholder="Reply to AI..."
+							isRunning={isRunning}
+							onStop={stop}
+						/>
+					)}
 				</div>
 			</div>
 		</div>

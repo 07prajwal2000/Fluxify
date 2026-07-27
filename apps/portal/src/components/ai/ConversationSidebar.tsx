@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef, useMemo } from "react";
+import { useVirtualizer } from "@tanstack/react-virtual";
 import { TbAlertTriangle, TbChevronsLeft, TbPlus, TbRefresh, TbSearch } from "react-icons/tb";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button, Input, Spinner, Tabs, TextField } from "@fluxify/components";
@@ -19,6 +20,7 @@ type Props = {
 
 export function ConversationSidebar({ projectId, onToggle, onOpen, onNew, activeId }: Props) {
 	const qc = useQueryClient();
+	const parentRef = useRef<HTMLDivElement>(null);
 	const [tab, setTab] = useState<Tab>("all");
 	const [searchInput, setSearchInput] = useState("");
 	const [search, setSearch] = useState("");
@@ -39,6 +41,47 @@ export function ConversationSidebar({ projectId, onToggle, onOpen, onNew, active
 
 	const items = (query.data?.pages.flatMap((p) => p.data) ?? []) as HarnessConversation[];
 	const groups = groupConversations(items, { separatePinned: tab !== "archived" });
+
+	const flatRows = useMemo(() => {
+		const rows: Array<
+			| { type: "header"; label: string; count: number; key: string }
+			| { type: "item"; item: HarnessConversation }
+		> = [];
+		for (const g of groups) {
+			rows.push({ type: "header", label: g.label, count: g.items.length, key: g.key });
+			for (const item of g.items) {
+				rows.push({ type: "item", item });
+			}
+		}
+		return rows;
+	}, [groups]);
+
+	const virtualizer = useVirtualizer({
+		count: flatRows.length,
+		getScrollElement: () => parentRef.current,
+		estimateSize: (i) => (flatRows[i].type === "header" ? 28 : 72),
+		overscan: 5,
+	});
+
+	// Infinite scrolling
+	useEffect(() => {
+		const [lastItem] = [...virtualizer.getVirtualItems()].reverse();
+		if (!lastItem) return;
+
+		if (
+			lastItem.index >= flatRows.length - 1 &&
+			query.hasNextPage &&
+			!query.isFetchingNextPage
+		) {
+			query.fetchNextPage();
+		}
+	}, [
+		virtualizer.getVirtualItems(),
+		query.hasNextPage,
+		query.isFetchingNextPage,
+		flatRows.length,
+		query,
+	]);
 
 	return (
 		<aside className="flex h-full w-80 max-w-[85vw] flex-col gap-3 border-r border-border pr-3">
@@ -101,7 +144,7 @@ export function ConversationSidebar({ projectId, onToggle, onOpen, onNew, active
 				</Tabs.ListContainer>
 			</Tabs>
 
-			<div className="-mr-2 min-h-0 flex-1 overflow-y-auto pr-1">
+			<div ref={parentRef} className="-mr-2 min-h-0 flex-1 overflow-y-auto pr-1">
 				{query.isLoading ? (
 					<div className="flex justify-center py-8">
 						<Spinner size="sm" />
@@ -120,37 +163,54 @@ export function ConversationSidebar({ projectId, onToggle, onOpen, onNew, active
 					</p>
 				) : (
 					<div className="flex flex-col gap-4">
-						{groups.map((g) => (
-							<section key={g.key} className="flex flex-col gap-1">
-								<div className="flex items-center gap-2 px-1 pb-0.5">
-									<span className="text-[11px] font-medium tracking-[0.12em] text-muted uppercase">
-										{g.label}
-									</span>
-									<span className="text-[11px] text-muted">{g.items.length}</span>
-									<span className="h-px flex-1 bg-border" />
-								</div>
-								{g.items.map((c) => (
-									<ConversationItem
-										key={c.id}
-										projectId={projectId}
-										conversation={c}
-										active={activeId === c.id}
-										onOpen={onOpen}
-									/>
-								))}
-							</section>
-						))}
+						<div
+							style={{
+								height: `${virtualizer.getTotalSize()}px`,
+								width: "100%",
+								position: "relative",
+							}}
+						>
+							{virtualizer.getVirtualItems().map((virtualRow) => {
+								const row = flatRows[virtualRow.index];
+								return (
+									<div
+										key={virtualRow.index}
+										style={{
+											position: "absolute",
+											top: 0,
+											left: 0,
+											width: "100%",
+											height: `${virtualRow.size}px`,
+											transform: `translateY(${virtualRow.start}px)`,
+										}}
+									>
+										{row.type === "header" ? (
+											<div className="flex items-center gap-2 px-1 pb-0.5 pt-1">
+												<span className="text-[11px] font-medium tracking-[0.12em] text-muted uppercase">
+													{row.label}
+												</span>
+												<span className="text-[11px] text-muted">{row.count}</span>
+												<span className="h-px flex-1 bg-border" />
+											</div>
+										) : (
+											<div className="px-1 pb-1 h-full">
+												<ConversationItem
+													projectId={projectId}
+													conversation={row.item}
+													active={activeId === row.item.id}
+													onOpen={onOpen}
+												/>
+											</div>
+										)}
+									</div>
+								);
+							})}
+						</div>
 
-						{query.hasNextPage && (
-							<Button
-								variant="ghost"
-								size="sm"
-								className="mx-auto"
-								isPending={query.isFetchingNextPage}
-								onPress={() => query.fetchNextPage()}
-							>
-								Load more
-							</Button>
+						{query.isFetchingNextPage && (
+							<div className="flex justify-center py-4">
+								<Spinner size="sm" />
+							</div>
 						)}
 					</div>
 				)}

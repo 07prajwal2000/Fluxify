@@ -16,6 +16,7 @@
 		"@scalar/api-reference-react": "^0.9.54",
 		"@tanstack/react-query": "^5.90.5",
 		"@tanstack/react-router": "^1.170.18",
+		"@tanstack/react-virtual": "^3.14.8",
 		"@xyflow/react": "^12.9.0",
 		"axios": "^1.13.2",
 		"better-auth": "^1.6.22",

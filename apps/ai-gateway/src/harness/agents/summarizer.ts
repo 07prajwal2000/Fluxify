@@ -87,7 +87,7 @@ export class SummarizerAgent extends BaseAgent {
 						label: label || task.title,
 						actionLabel: type,
 						agentRole: "Route configuration",
-						token: `@route(type="${type}", sub_artifact_id="${subId}")`,
+						token: `:route{type="${type}" sub_artifact_id="${subId}"}`,
 					});
 				} else if (isBlockBuilderResult(result)) {
 					const subId = await harnessService.createSubArtifact({
@@ -116,7 +116,7 @@ export class SummarizerAgent extends BaseAgent {
 						label: task.title,
 						actionLabel: "changes",
 						agentRole: "Canvas builder",
-						token: `@canvasChanges(parent_type="${parentType}", parent="${parentRef}", artifact_id="${subId}")`,
+						token: `:canvasChanges{parent_type="${parentType}" parent="${parentRef}" artifact_id="${subId}"}`,
 					});
 				}
 			}
@@ -144,22 +144,28 @@ The build run has finished. Write a SHORT, concise, human-readable summary of wh
 ## A) Reference tokens — GIVEN to you (never author these yourself)
 The "## Changes" section below lists each change with an EXACT token. You must:
 - Write ONE concise line (a bullet or short sentence) describing that change in plain user language, then append its EXACT token VERBATIM at the very END of that line.
-- Copy the token character-for-character. NEVER invent, guess, edit, reorder, or reformat a token. NEVER fabricate an id, subArtifactId, artifactId, or parent value. NEVER reuse one change's token for another. NEVER create a @route or @canvasChanges token that was not given to you.
+- Copy the token character-for-character. NEVER invent, guess, edit, reorder, or reformat a token. NEVER fabricate an id, subArtifactId, artifactId, or parent value. NEVER reuse one change's token for another. NEVER create a :route or :canvasChanges token that was not given to you.
 - Emit exactly one reference token per change, and cover every change exactly once.
 - These tokens MUST sit at the END of their line (nothing after them) so the chip never breaks the sentence:
-  - \`@route(type="add|delete|changes", sub_artifact_id="...")\` — a route (endpoint) that was added, deleted, or changed.
-  - \`@canvasChanges(parent_type="artifact|route|custom_block", parent="...", artifact_id="...")\` — logic/canvas changes. (parent_type="artifact" means the route is brand new this run; "route"/"custom_block" means it references an existing record.)
+  - \`:route{type="add|delete|changes" sub_artifact_id="..."}\` — a route (endpoint) that was added, deleted, or changed.
+  - \`:canvasChanges{parent_type="artifact|route|custom_block" parent="..." artifact_id="..."}\` — logic/canvas changes. (parent_type="artifact" means the route is brand new this run; "route"/"custom_block" means it references an existing record.)
 
 ## B) Creation chips — YOU author these (only from the Hints section)
 When a hint says the user must create something for the run to work, embed the matching chip INLINE where it reads naturally (these are line-safe and do NOT need to be at line end):
-- \`@createIntegration(label="...")\` — user must set up an integration (e.g. a database/AI connection).
-- \`@createAppConfig(label="...")\` — user must add an app config value/secret.
-- \`@createRoute(label="...")\` — user must create a route.
-- \`@createCustomBlock(label="...")\` — user must create a custom block.
+- \`:createIntegration{label="..."}\` — user must set up an integration (e.g. a database/AI connection).
+- \`:createAppConfig{label="..."}\` — user must add an app config value/secret.
+- \`:createRoute{label="..."}\` — user must create a route.
+- \`:createCustomBlock{label="..."}\` — user must create a custom block.
 Use a short, human-friendly \`label\` (e.g. \`label="Tasks Database"\`). Only emit these when a hint calls for it — do not invent required actions.
 
 ## Token format (all tokens)
-Every attribute value MUST be wrapped in double quotes and every attribute name is snake_case with no spaces (e.g. \`sub_artifact_id\`, \`parent_type\`, \`artifact_id\`). Do not add, drop, rename, or reorder attributes.
+Tokens are markdown directives: a leading colon, the token name, then attributes inside curly braces — \`:name{attr="value" attr2="value2"}\`.
+- Attributes are separated by a SPACE, never a comma.
+- Every attribute value MUST be wrapped in double quotes.
+- Every attribute name is snake_case with no spaces (e.g. \`sub_artifact_id\`, \`parent_type\`, \`artifact_id\`).
+- No space between the token name and \`{\`, and no space just inside the braces.
+- Do not add, drop, rename, or reorder attributes.
+- Never write the old \`@name(...)\` parenthesis form — it will not render.
 
 # STRUCTURE & STYLE
 - Lead with a one-line overview of what the run accomplished (no token on this line).
@@ -170,10 +176,10 @@ Every attribute value MUST be wrapped in double quotes and every attribute name 
 
 # EXAMPLE (shape only — use the real tokens from the Changes section, never these)
 Created a new endpoint to fetch task items and wired up its logic.
-- Added a route to list task items from your tasks table. @route(type="add", sub_artifact_id="abc123")
-- Built the logic that reads and returns the task rows. @canvasChanges(parent_type="artifact", parent="abc123", artifact_id="def456")
+- Added a route to list task items from your tasks table. :route{type="add" sub_artifact_id="abc123"}
+- Built the logic that reads and returns the task rows. :canvasChanges{parent_type="artifact" parent="abc123" artifact_id="def456"}
 
-> Before this works, connect your tasks database: @createIntegration(label="Tasks Database")
+> Before this works, connect your tasks database: :createIntegration{label="Tasks Database"}
 
 # Changes (each has an EXACT token to place at end of its line)
 ${changesTable}

@@ -39,8 +39,10 @@ export function AiLayout({ children }: { children: ReactNode }) {
 			viewTransition: true,
 		});
 
-	const goToNew = () =>
+	const goToNew = () => {
+		setSidebarOpen(false);
 		navigate({ to: "/$projectId/ai", params: { projectId: params.projectId }, viewTransition: true });
+	};
 
 	return (
 		<div className="relative flex h-full min-h-0">
@@ -64,7 +66,7 @@ export function AiLayout({ children }: { children: ReactNode }) {
 				<Button
 					isIconOnly
 					variant="secondary"
-					className="absolute top-1 left-0 z-10"
+					className="absolute top-12 left-0 z-10"
 					aria-label="Open conversations"
 					onPress={() => setSidebarOpen(true)}
 				>

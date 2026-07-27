@@ -240,7 +240,7 @@ export class HarnessService {
 	/**
 	 * Persists a single sub-agent output as a sub-artifact linked to the parent
 	 * artifact. Returns the sub-artifact id (referenced by the summary's special
-	 * syntax tokens, e.g. @route(subArtifactId=...)).
+	 * syntax tokens, e.g. :route{sub_artifact_id="..."}).
 	 */
 	async createSubArtifact(input: {
 		artifactId: string;
