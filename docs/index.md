@@ -39,5 +39,5 @@ features:
 
   - icon: 🚀
     title: Flexible Deployments
-    details: Deploy as a standalone Docker container, in Kubernetes for high availability, or as a serverless function.
+    details: Deploy as a standalone Docker container, in Kubernetes for high availability.
 ---

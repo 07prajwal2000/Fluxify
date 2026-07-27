@@ -7,17 +7,16 @@ import {
 } from "@tanstack/react-router";
 import {
 	TbActivity,
-	TbAdjustmentsHorizontal,
-	TbArrowLeft,
 	TbBox,
-	TbChevronDown,
 	TbCloudCog,
 	TbLayoutGridFilled,
 	TbSparkles,
 	TbSquareKey,
 	TbStack2,
+	TbUser,
+	TbLogout,
 } from "react-icons/tb";
-import { cn } from "@fluxify/components";
+import { cn, Dropdown } from "@fluxify/components";
 import { authClient } from "@/lib/auth";
 import { useAuthStore } from "@/store/auth";
 
@@ -58,51 +57,34 @@ function ProjectLayout() {
 				.slice(0, 2)
 		: "AD";
 
+	async function logout() {
+		await authClient.signOut();
+		navigate({ to: "/login" });
+	}
+
 	return (
-		<div className="flex h-screen w-screen flex-col bg-[#07080A] text-foreground font-sans antialiased">
-			{/* Top Header */}
-			<header className="flex h-[56px] items-center justify-between border-b border-[#161820] bg-[#07080A] px-4">
-				<div className="flex items-center gap-3">
-					<div className="flex size-7 items-center justify-center rounded-lg bg-[#D0F237] text-black shadow-sm">
-						<TbLayoutGridFilled size={16} />
+		<div className="flex h-screen w-screen bg-[#07080A] text-foreground font-sans antialiased">
+			{/* Sidebar spacer */}
+			<div className="w-[60px] shrink-0 border-r border-[#161820]" />
+
+			{/* Actual Sidebar */}
+			<aside className="group absolute left-0 top-0 z-50 flex h-full w-[60px] flex-col justify-between overflow-hidden border-r border-[#161820] bg-[#07080A] transition-[width] duration-300 hover:w-[220px]">
+				<div className="flex flex-col">
+					{/* Logo */}
+					<div className="flex h-[56px] shrink-0 items-center px-4">
+						<div className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-[#D0F237] text-black shadow-sm">
+							<TbLayoutGridFilled size={16} />
+						</div>
+						<span className="ml-3 whitespace-nowrap text-sm font-bold tracking-wider text-white opacity-0 transition-opacity duration-300 group-hover:opacity-100">
+							FLUXIFY
+						</span>
 					</div>
-					<span className="text-sm font-bold tracking-wider text-white">FLUXIFY</span>
-					
-					{/* Environment Dropdown Pill */}
-					<button
-						type="button"
-						onClick={() => navigate({ to: "/$projectId/settings", params: { projectId } })}
-						className="flex items-center gap-2 rounded-full border border-[#202533] bg-[#111319] px-3 py-1 text-xs font-medium text-zinc-300 transition-colors hover:border-[#2f364a]"
-					>
-						<span className="size-2 rounded-full bg-[#10B981]" />
-						<span>Test</span>
-						<TbChevronDown size={12} className="text-zinc-400" />
-					</button>
 
-					{/* Settings/Controls Toggle */}
-					<button
-						type="button"
-						aria-label="Project Settings"
-						onClick={() => navigate({ to: "/$projectId/settings", params: { projectId } })}
-						className="flex size-7 items-center justify-center rounded-full border border-[#202533] bg-[#111319] text-zinc-400 transition-colors hover:text-white"
-					>
-						<TbAdjustmentsHorizontal size={14} />
-					</button>
-				</div>
+					{/* Separator */}
+					<div className="mx-3 mb-3 h-px bg-[#161820]" />
 
-				{/* User Avatar Circle Top Right */}
-				<div className="flex items-center gap-3">
-					<div className="flex size-7 items-center justify-center rounded-full bg-[#202533] text-[11px] font-bold text-zinc-200">
-						{initials}
-					</div>
-				</div>
-			</header>
-
-			{/* Main Layout Area */}
-			<div className="flex min-h-0 flex-1">
-				{/* Sidebar */}
-				<aside className="flex w-[220px] flex-col justify-between border-r border-[#161820] bg-[#07080A] p-3">
-					<nav className="flex flex-col gap-1">
+					{/* Navigation */}
+					<nav className="flex flex-col gap-1 px-2">
 						{NAV.map((item) => {
 							const isActive = active === item.key;
 							return (
@@ -111,7 +93,7 @@ function ProjectLayout() {
 									type="button"
 									onClick={() => navigate({ to: item.to, params: { projectId } })}
 									className={cn(
-										"group relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+										"group/btn relative flex h-10 items-center rounded-lg px-2.5 text-sm font-medium transition-colors",
 										isActive
 											? "bg-[#141720] text-white"
 											: "text-zinc-400 hover:bg-white/[0.04] hover:text-zinc-200",
@@ -119,34 +101,57 @@ function ProjectLayout() {
 								>
 									<item.icon
 										size={18}
-										className={isActive ? "text-[#D0F237]" : "text-zinc-400 group-hover:text-zinc-200"}
+										className={cn(
+											"shrink-0",
+											isActive ? "text-[#D0F237]" : "text-zinc-400 group-hover/btn:text-zinc-200"
+										)}
 									/>
-									<span>{item.label}</span>
+									<span className="ml-3 whitespace-nowrap opacity-0 transition-opacity duration-300 group-hover:opacity-100">
+										{item.label}
+									</span>
 									{isActive && (
-										<span className="ml-auto h-4 w-[3px] rounded-full bg-[#D0F237]" />
+										<span className="absolute -left-2 h-4 w-[3px] rounded-r-full bg-[#D0F237]" />
 									)}
 								</button>
 							);
 						})}
 					</nav>
+				</div>
 
-					{/* Sidebar Footer */}
-					<div className="border-t border-[#161820] pt-3">
-						<button
-							type="button"
-							onClick={() => navigate({ to: "/" })}
-							className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-xs font-medium text-zinc-400 transition-colors hover:bg-white/[0.04] hover:text-white"
+				{/* Sidebar Footer (User Account Menu) */}
+				<div className="border-t border-[#161820] p-2">
+					<Dropdown>
+						<Dropdown.Trigger
+							aria-label="Account menu"
+							className="flex w-full items-center overflow-hidden rounded-lg p-1 outline-none transition-colors hover:bg-white/[0.04] focus-visible:ring-2 focus-visible:ring-[var(--focus)]"
 						>
-							<TbArrowLeft size={16} /> Back to projects
-						</button>
-					</div>
-				</aside>
+							<div className="flex size-[34px] shrink-0 items-center justify-center rounded-full bg-[#202533] text-xs font-bold text-zinc-200">
+								{initials}
+							</div>
+							<div className="ml-3 flex flex-col items-start whitespace-nowrap opacity-0 transition-opacity duration-300 group-hover:opacity-100">
+								<span className="text-sm font-medium text-white">{userData?.name || "User"}</span>
+								<span className="text-[11px] text-zinc-500">{userData?.email || ""}</span>
+							</div>
+						</Dropdown.Trigger>
+						<Dropdown.Popover>
+							<Dropdown.Menu>
+								<Dropdown.Item onAction={() => navigate({ to: "/", search: { tab: "account" } })}>
+									<TbUser size={18} /> Profile
+								</Dropdown.Item>
+								<Dropdown.Item onAction={logout}>
+									<TbLogout size={18} /> Logout
+								</Dropdown.Item>
+							</Dropdown.Menu>
+						</Dropdown.Popover>
+					</Dropdown>
+				</div>
+			</aside>
 
-				{/* Page Content */}
-				<main className="min-w-0 flex-1 overflow-y-auto bg-[#07080A] p-6">
-					<Outlet />
-				</main>
-			</div>
+			{/* Page Content */}
+			<main className="min-w-0 flex-1 overflow-y-auto bg-[#07080A] p-6">
+				<Outlet />
+			</main>
 		</div>
 	);
 }
+

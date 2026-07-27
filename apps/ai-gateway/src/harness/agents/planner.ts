@@ -106,10 +106,12 @@ You have access to the \`find_resource\` tool. You MUST use this tool to search 
 ## Output Instructions
 1. **Markdown Plan (\`markdownPlan\`)**: Create a crystal clear, user-perspective markdown plan.
    - For each task, explain WHAT will change (e.g., "Create a new 'getUser' route", "Add authentication"). Combine related steps (e.g., adding blocks and connecting blocks) into single logical tasks rather than splitting them granularly.
-   - **Crucial Resource Naming (EXISTING RESOURCES ONLY)**: When referring to existing resources you found in the database by the find_resource tool, you MUST use the exact custom syntax \`@resource(type, identifier)\`. 
+   - **Crucial Resource Naming (EXISTING RESOURCES ONLY)**: When referring to existing resources you found in the database by the find_resource tool, you MUST use the exact markdown directive syntax \`:resource{type="..." identifier="..."}\`.
      - \`type\` MUST be one of: \`route\`, \`app_config\`, \`integration\`, \`custom_block\`.
      - \`identifier\` MUST be the EXACT unique ID fetched from the database (e.g. UUID).
-     - Example: "Update the @resource(route, 550e8400-e29b-41d4-a716-446655440000) route". 
+     - Both attribute values MUST be in double quotes, separated by a SPACE (never a comma), with no space between \`resource\` and \`{\`.
+     - Example: "Update the :resource{type="route" identifier="550e8400-e29b-41d4-a716-446655440000"} route".
+     - Never write the old \`@resource(...)\` parenthesis form — it will not render.
      - DO NOT use this syntax for new resources that haven't been created yet. The frontend relies on this specific syntax and exact ID to render interactive resource chips.
    - **Format Rules**: Use minimal markdown features. Use mostly headings, plain text, and bullet points. Use blockquotes, bolding, italic, or underlines for important hints. Use tables ONLY if strictly necessary. DO NOT use hyperlinks.
    - Group tasks logically under section headers.
