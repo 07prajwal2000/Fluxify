@@ -12,17 +12,17 @@ const routeConfigSchema = z.object({
 		.describe("The operation to perform"),
 	routeId: z
 		.string()
-		.optional()
+		.nullish()
 		.describe("The UUID of the route. Leave empty for create action."),
 	data: z
 		.object({
-			method: z.string().optional(),
-			path: z.string().optional(),
-			bodySchema: z.any().optional(),
-			paramsSchema: z.any().optional(),
-			querySchema: z.any().optional(),
+			method: z.string().nullish(),
+			path: z.string().nullish(),
+			bodySchema: z.any().nullish(),
+			paramsSchema: z.any().nullish(),
+			querySchema: z.any().nullish(),
 		})
-		.optional()
+		.nullish()
 		.describe("The configuration of the route"),
 });
 
@@ -151,6 +151,7 @@ Determine the exact route configuration intent. Use your tools if you need more 
 			tools,
 			messages: [],
 			userQuery: userQuery,
+			agentNode: AgentNode.ROUTE_CONFIG_AGENT,
 		})) as z.infer<typeof routeConfigSchema>;
 
 		if (response.action === "create" && !response.routeId) {

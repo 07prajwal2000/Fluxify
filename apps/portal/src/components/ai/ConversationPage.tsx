@@ -6,13 +6,17 @@ import { PromptEditor } from "./PromptEditor";
 import { useAiModels } from "./useAiModels";
 import { harnessConversationsQuery } from "@/query/harnessConversationsQuery";
 import { showErrorNotification } from "@/lib/errorNotifier";
-import { useIsRunning, useConversationRun } from "@/store/aiHarness";
+import { useIsRunning, useConversationRun, useAiHarnessStore } from "@/store/aiHarness";
 import { UserMessage } from "./UserMessage";
 import { AiMessage } from "./AiMessage";
 import { useScrollToBottom } from "./useScrollToBottom";
 import { ScrollToBottomButton } from "./ScrollToBottomButton";
 import { ChatTitleEditor } from "./ChatTitleEditor";
+import { AgentTaskStatus } from "./AgentTaskStatus";
 import type { HarnessConversation } from "./types";
+import { PlanReviewModal } from "./PlanReviewModal";
+import { Button } from "@fluxify/components";
+import { TbListSearch } from "react-icons/tb";
 
 export function ConversationPage() {
 	const { projectId, conversationId } = useParams({
@@ -33,6 +37,26 @@ export function ConversationPage() {
 	const prevIsRunning = useRef(isRunning);
 	const bottomRef = useRef<HTMLDivElement>(null);
 	const [optimisticQuery, setOptimisticQuery] = useState<string | null>(null);
+	const [isPlanReviewModalOpen, setIsPlanReviewModalOpen] = useState(false);
+
+	// Check active conversation from sidebar cache reactively
+	const [activeConversation, setActiveConversation] = useState<HarnessConversation | null>(null);
+	const isArchived = activeConversation?.archived ?? false;
+
+	// Once a live run exists, its socket-driven runStatus is authoritative — the
+	// REST `activeConversation.status` is only a fallback for before any socket
+	// event has arrived (it has no live-update path, so it can't be trusted once
+	// a run is already streaming: it'd freeze the review UI open forever after
+	// the run resumes).
+	const isTransitioning = !!optimisticQuery || actionMutation.isPending;
+
+	const isPausedForHitl = !isTransitioning && (
+		activeRun?.runStatus === "awaiting_hitl" || 
+		(activeRun?.runStatus as string) === "paused_hitl" || 
+		(!activeRun && activeConversation?.status === "paused_hitl")
+	);
+
+	const isPlanReviewMode = isPausedForHitl;
 
 	const { data: messagesData, isLoading, fetchNextPage, hasNextPage, isFetchingNextPage } = harnessConversationsQuery.messages.useInfiniteQuery(
 		projectId,
@@ -44,9 +68,7 @@ export function ConversationPage() {
 	const topRef = useRef<HTMLDivElement>(null);
 	const { isAtBottom, scrollToBottom } = useScrollToBottom(bottomRef, 250);
 
-	// Check active conversation from sidebar cache reactively
-	const [activeConversation, setActiveConversation] = useState<HarnessConversation | null>(null);
-	const isArchived = activeConversation?.archived ?? false;
+	const planText = activeRun?.hitl?.markdownPlan || (isPlanReviewMode && messages.length > 0 ? messages[0].aiResponse : null);
 
 	useEffect(() => {
 		const checkConversation = () => {
@@ -89,9 +111,11 @@ export function ConversationPage() {
 	// Auto-scroll
 	useEffect(() => {
 		if (optimisticQuery || isAtBottom) {
-			scrollToBottom();
+			// Use instant scroll for streams to prevent animation buildup/fighting
+			scrollToBottom(optimisticQuery ? "smooth" : "auto");
 		}
-	}, [messages.length, optimisticQuery, isAtBottom, scrollToBottom]);
+	// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [messages.length, optimisticQuery, activeRun?.lastTimestamp]);
 
 	// Invalidate messages on run completion
 	useEffect(() => {
@@ -116,6 +140,7 @@ export function ConversationPage() {
 			reqPayload.integrationId = model;
 		}
 
+		useAiHarnessStore.getState().clearRun(conversationId);
 		setOptimisticQuery(q);
 
 		sendMessage.mutate(reqPayload, {
@@ -152,6 +177,9 @@ export function ConversationPage() {
 							<UserMessage query={optimisticQuery} />
 						</div>
 					)}
+					<AgentTaskStatus conversationId={conversationId} />
+					
+
 
 					{isLoading ? (
 						<div className="flex w-full flex-col gap-8 animate-pulse pt-8 opacity-60">
@@ -167,19 +195,90 @@ export function ConversationPage() {
 							</div>
 						</div>
 					) : messages.length === 0 && !optimisticQuery ? (
-						<div className="text-center pt-8">
-							<p className="text-sm text-muted">Conversation</p>
-							<p className="font-mono text-xs text-muted">{conversationId}</p>
-						</div>
+						isPlanReviewMode && planText ? (
+							<div className="flex w-full flex-col gap-4 mt-2">
+								<div className="w-full rounded-2xl border border-primary/20 bg-primary/5 p-6 flex flex-col gap-4">
+									<div className="flex items-start gap-4">
+										<div className="bg-primary/20 p-3 rounded-xl text-primary shrink-0">
+											<TbListSearch size={24} />
+										</div>
+										<div className="flex-1">
+											<h3 className="text-lg font-semibold text-foreground">Implementation Plan Ready</h3>
+											<p className="text-sm text-muted mt-1 leading-relaxed">
+												The AI has proposed an implementation plan. Please review the blocks, provide feedback, or approve it to proceed.
+											</p>
+										</div>
+									</div>
+									<Button 
+										variant="primary" 
+										className="w-full font-medium"
+										onPress={() => setIsPlanReviewModalOpen(true)}
+									>
+										Review Plan
+									</Button>
+								</div>
+							</div>
+						) : (
+							<div className="text-center pt-8">
+								<p className="text-sm text-muted">Conversation</p>
+								<p className="font-mono text-xs text-muted">{conversationId}</p>
+							</div>
+						)
 					) : (
 						messages.map((msg, idx) => {
 							const isLatest = idx === 0;
 							const displayStatus = (isLatest && activeRun && !activeRun.isTerminal) ? activeRun.runStatus : msg.status;
 							
+							const looksLikePlan = msg.aiResponse && (
+								msg.aiResponse === planText || 
+								(msg.aiResponse.includes("Plan:") && msg.aiResponse.includes("Task 1:")) ||
+								msg.aiResponse.includes("Implementation Plan")
+							);
+							
+							const isActionablePlan = isPlanReviewMode && isLatest && looksLikePlan;
+							const isHistoricalPlan = !isActionablePlan && looksLikePlan;
+							
 							return (
 								<div key={msg.id} className="flex w-full flex-col gap-4">
 									{msg.userQuery && <UserMessage query={msg.userQuery} />}
-									<AiMessage response={msg.aiResponse} status={displayStatus} />
+									{isActionablePlan && planText ? (
+										<div className="w-full rounded-2xl border border-primary/20 bg-primary/5 p-6 flex flex-col gap-4">
+											<div className="flex items-start gap-4">
+												<div className="bg-primary/20 p-3 rounded-xl text-primary shrink-0">
+													<TbListSearch size={24} />
+												</div>
+												<div className="flex-1">
+													<h3 className="text-lg font-semibold text-foreground">Implementation Plan Ready</h3>
+													<p className="text-sm text-muted mt-1 leading-relaxed">
+														The AI has proposed an implementation plan. Please review the blocks, provide feedback, or approve it to proceed.
+													</p>
+												</div>
+											</div>
+											<Button 
+												variant="primary" 
+												className="w-full font-medium"
+												onPress={() => setIsPlanReviewModalOpen(true)}
+											>
+												Review Plan
+											</Button>
+										</div>
+									) : isHistoricalPlan ? (
+										<div className="w-full rounded-2xl border border-white/10 bg-white/5 p-4 flex flex-col gap-3 opacity-70">
+											<div className="flex items-center gap-4">
+												<div className="bg-white/10 p-2.5 rounded-xl text-foreground shrink-0">
+													<TbListSearch size={20} />
+												</div>
+												<div className="flex-1">
+													<h3 className="text-base font-medium text-foreground">Implementation Plan</h3>
+													<p className="text-xs text-muted mt-0.5">
+														{displayStatus === "running" ? "Plan is currently being executed." : "Plan was reviewed and approved."}
+													</p>
+												</div>
+											</div>
+										</div>
+									) : (
+										<AiMessage response={msg.aiResponse} status={displayStatus} />
+									)}
 								</div>
 							);
 						})
@@ -202,7 +301,7 @@ export function ConversationPage() {
 			</div>
 
 			<div className="sticky bottom-0 px-4 pb-2 pt-4 bg-background relative">
-				<ScrollToBottomButton isVisible={!isAtBottom} onClick={scrollToBottom} />
+				<ScrollToBottomButton isVisible={!isAtBottom} onClick={() => scrollToBottom("smooth")} />
 				<div className="mx-auto w-full max-w-[65%]">
 					{isArchived ? (
 						<div className="w-full rounded-2xl border border-border bg-surface p-4 text-center text-sm text-muted">
@@ -221,10 +320,20 @@ export function ConversationPage() {
 							placeholder="Reply to AI..."
 							isRunning={isRunning}
 							onStop={stop}
+							isDisabled={isPlanReviewMode}
 						/>
 					)}
 				</div>
 			</div>
+			{isPlanReviewMode && planText && (
+				<PlanReviewModal
+					isOpen={isPlanReviewModalOpen}
+					onOpenChange={setIsPlanReviewModalOpen}
+					plan={planText}
+					projectId={projectId}
+					conversationId={conversationId}
+				/>
+			)}
 		</div>
 	);
 }

@@ -13,12 +13,15 @@ import {
 	type HarnessPhase,
 	levelForNode,
 	runStatusForNode,
+	labelForNode,
 	buildTasksByLevel,
 	activeLevelIndex,
 } from "./streamTypes";
 import type { HarnessService } from "./internal/harnessService";
 import type { RedisService } from "./internal/redisService";
 import { publishHarnessEvent } from "./notifications";
+import { explainErrorReason } from "./errors";
+import type { RetryWarningInfo } from "./models/base";
 
 export async function dispatchAgentEvent(event: AgentCustomEvent): Promise<void> {
 	await dispatchCustomEvent(event.name, event.data);
@@ -281,5 +284,20 @@ export class HarnessCallbacks {
 				}),
 			);
 		}
+	}
+
+	/** A model call inside an agent hit a retryable error (bad structured
+	 *  output, transient network blip) and is re-asking rather than failing the
+	 *  run outright. Surfaced live so the UI doesn't just look stuck — wired in
+	 *  from `BaseAgentWrapper.setRetryWarningSink` in `FluxifyHarness.executeGraph`. */
+	public emitRetryWarning(info: RetryWarningInfo): void {
+		const node = (info.agentNode as AgentNodeName) ?? AgentNode.ROUTER;
+		if (!GRAPH_NODES.has(node)) return;
+		const reason = explainErrorReason(info.rawError);
+		const status = `${labelForNode(node)} hit a hiccup and is retrying (attempt ${info.attempt}/${info.maxAttempts}) — ${reason}`;
+		this.emit({
+			...this.makeEvent(node, "warning", status),
+			warning: { attempt: info.attempt, maxAttempts: info.maxAttempts },
+		});
 	}
 }

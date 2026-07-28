@@ -1,5 +1,5 @@
 import { BaseAgent } from "./base";
-import { type GlobalGraphState, AgentNode } from "../types";
+import { type GlobalGraphState, AgentNode, type Task } from "../types";
 import { dispatchAgentEvent } from "../callbacks";
 import { validateAgentOutput as validateRouteConfig } from "./sub-agents/routeConfig";
 import { validateBlockBuilderOutput } from "./sub-agents/blockBuilder";
@@ -25,6 +25,15 @@ export class SupervisorAgent extends BaseAgent {
 
 		let hasErrors = false;
 
+		// Statuses are written to the `tasks` entry by id, not left to the fact that
+		// dispatchedTasks happens to hold the same object references — the
+		// orchestrator only advances when a task's status in `tasks` is settled, so
+		// a lost write here stalls the whole build.
+		const setStatus = (taskId: string, status: Task["status"]) => {
+			const entry = tasks.find((t) => t.id === taskId);
+			if (entry) entry.status = status;
+		};
+
 		for (let i = 0; i < dispatchedTasks.length; i++) {
 			const task = dispatchedTasks[i];
 			// Only verify tasks that are currently running
@@ -34,6 +43,7 @@ export class SupervisorAgent extends BaseAgent {
 
 			if (!result) {
 				dispatchedTasks[i].status = "failed";
+				setStatus(task.id, "failed");
 				scratchpad.push(
 					`[Supervisor Error - Task ${task.id}]: No result provided by agent.`,
 				);
@@ -56,12 +66,14 @@ export class SupervisorAgent extends BaseAgent {
 
 			if (error) {
 				dispatchedTasks[i].status = "failed";
+				setStatus(task.id, "failed");
 				scratchpad.push(
 					`[Supervisor Error - Task ${task.id} (${task.assignedAgentNode})]: ${error}`,
 				);
 				hasErrors = true;
 			} else {
 				dispatchedTasks[i].status = "completed";
+				setStatus(task.id, "completed");
 			}
 		}
 

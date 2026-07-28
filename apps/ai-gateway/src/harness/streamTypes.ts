@@ -21,8 +21,15 @@ import {
 /** Which tier of the harness produced the event. */
 export type HarnessLevel = "harness" | "sub_agent";
 
-/** Lifecycle phase of the event. */
-export type HarnessPhase = "node_start" | "node_end" | "status" | "hitl_required";
+/** Lifecycle phase of the event. `warning` is non-terminal — the agent hit a
+ *  retryable error (e.g. bad structured output) and is re-asking the model; it
+ *  never changes `runStatus` away from what the agent was already doing. */
+export type HarnessPhase =
+	| "node_start"
+	| "node_end"
+	| "status"
+	| "hitl_required"
+	| "warning";
 
 /** Mirrors agentHarnessRunStatusEnum in the DB schema. */
 export type HarnessRunStatus =
@@ -98,6 +105,10 @@ export interface HarnessStreamEvent {
 	status: string;
 	runStatus: HarnessRunStatus;
 	payload?: HarnessNodePayload;
+	/** Present only on `phase: "warning"` — `status` already carries the full
+	 *  human-readable sentence; this is for UIs that want to render retry
+	 *  progress (e.g. "2/3") without parsing text. */
+	warning?: { attempt: number; maxAttempts: number };
 	timestamp: number;
 }
 
@@ -124,6 +135,26 @@ const SUB_AGENT_NODES: ReadonlySet<AgentNodeName> = new Set<AgentNodeName>([
 
 export function levelForNode(node: AgentNodeName): HarnessLevel {
 	return SUB_AGENT_NODES.has(node) ? "sub_agent" : "harness";
+}
+
+/** Human-readable node names for user-facing messages (e.g. failure reports). */
+const NODE_LABELS: Record<string, string> = {
+	[AgentNode.ROUTER]: "request router",
+	[AgentNode.CLASSIFIER]: "request classifier",
+	[AgentNode.VERIFY_USER_QUERY]: "request verification",
+	[AgentNode.PLANNER]: "planner",
+	[AgentNode.TASK_GENERATOR]: "task generator",
+	[AgentNode.DISCUSSION]: "discussion agent",
+	[AgentNode.BLOCK_BUILDER]: "block builder",
+	[AgentNode.ORCHESTRATOR]: "orchestrator",
+	[AgentNode.HUMAN_IN_THE_LOOP]: "plan review",
+	[AgentNode.ROUTE_CONFIG_AGENT]: "route configurator",
+	[AgentNode.SUPERVISOR]: "supervisor",
+	[AgentNode.SUMMARIZER]: "summarizer",
+};
+
+export function labelForNode(node?: AgentNodeName): string {
+	return (node && NODE_LABELS[node]) || "AI harness";
 }
 
 /** Maps a node to the run status it represents while executing. */

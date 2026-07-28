@@ -151,6 +151,7 @@ ${scratchPadText}`;
 			systemPrompt,
 			messages: [], // We only pass the plan to keep it strictly focused
 			userQuery: planText,
+			agentNode: AgentNode.TASK_GENERATOR,
 		})) as z.infer<typeof taskSchema>;
 
 		// Map to our internal state type

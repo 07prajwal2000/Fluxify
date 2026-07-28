@@ -18,15 +18,15 @@ export const BlockSchema = z.object({
 		.describe("The type/category of the block (e.g., 'http_request')."),
 	blockName: z
 		.string()
-		.optional()
+		.nullish()
 		.describe("Human-readable name for the block instance."),
 	blockDescription: z
 		.string()
-		.optional()
+		.nullish()
 		.describe("Brief description of what this block instance does."),
 	data: z
 		.record(z.string(), z.unknown())
-		.optional()
+		.nullish()
 		.describe("Configuration payload specific to the block type."),
 	position: z
 		.object({
@@ -36,7 +36,10 @@ export const BlockSchema = z.object({
 		.describe("Visual position of the block."),
 	connections: z
 		.array(ConnectionSchema)
-		.describe("List of downstream connections from this block."),
+		.default([])
+		.describe(
+			"List of downstream connections from this block (empty for terminal blocks).",
+		),
 });
 
 export const CanvasChangeSchema = z.discriminatedUnion("type", [
@@ -85,11 +88,16 @@ export const CanvasChangeSchema = z.discriminatedUnion("type", [
 export const blockBuilderSchema = z.object({
 	reasoning: z
 		.string()
-		.optional()
+		.nullish()
 		.describe(
 			"Provide a short reasoning ONLY when status is 'impossible' to explain why construction is impossible. Do not provide reasoning when status is 'success'.",
 		),
-	status: z.enum(["success", "impossible"]),
+	status: z
+		.enum(["success", "impossible"])
+		.default("success")
+		.describe(
+			"'success' when the canvas was built, 'impossible' when it cannot be built.",
+		),
 	targetType: z
 		.enum(["route", "custom_block"])
 		.describe("Whether this canvas belongs to a route or custom block"),
@@ -98,8 +106,14 @@ export const blockBuilderSchema = z.object({
 		.describe("The ID of the route or custom block this canvas belongs to"),
 	canvasChanges: z
 		.array(CanvasChangeSchema)
-		.describe("List of changes for existing canvas items"),
-	blocks: z.array(BlockSchema).describe("New blocks to add to the canvas"),
+		.default([])
+		.describe(
+			"List of changes for existing canvas items (empty when nothing existing changes)",
+		),
+	blocks: z
+		.array(BlockSchema)
+		.default([])
+		.describe("New blocks to add to the canvas"),
 });
 
 export type BlockBuilderResult = z.infer<typeof blockBuilderSchema>;

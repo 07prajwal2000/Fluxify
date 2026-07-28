@@ -89,6 +89,33 @@ ${customBlocksTable}
 
 8. **Tools**: Use the 'search_docs' tool to understand specific block capabilities and how to write Javascript expressions. Use 'find_resource' to lookup integrations and existing route/custom block canvas (metadata.isNewRoute=true for new routes). Use 'get_block_schemas' to fetch configuration schemas for any blocks you plan to use. Use 'get_agent_output' to fetch the configuration of a newly created route or custom block from a previous agent's output if it's not yet saved in the DB (the task description will provide the task IDs).
 
+### Output Contract
+
+Use these exact property names — do not rename or omit them:
+
+\`\`\`json
+{
+  "status": "success",
+  "targetType": "route",
+  "targetId": "<route or custom block id>",
+  "blocks": [
+    {
+      "id": "block_1",
+      "blockType": "entrypoint",
+      "blockName": "Entrypoint",
+      "position": { "x": 0, "y": 0 },
+      "data": {},
+      "connections": [{ "blockId": "block_2", "handle": "source" }]
+    }
+  ],
+  "canvasChanges": []
+}
+\`\`\`
+
+- The block's type goes in \`blockType\` (NOT \`type\`).
+- \`connections\` and \`canvasChanges\` are always present — use \`[]\` when empty.
+- Set \`status\` to 'impossible' (with a short \`reasoning\`) only when the canvas genuinely cannot be built.
+
 The orchestrator will apply the configuration after supervisor approval. Keep your reasoning concise.`;
 }
 

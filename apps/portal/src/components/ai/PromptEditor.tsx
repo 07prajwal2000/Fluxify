@@ -24,11 +24,12 @@ type Props = {
 	typewriter?: boolean;
 	isRunning?: boolean;
 	onStop?: () => void;
+	isDisabled?: boolean;
 };
 
 export function PromptEditor({ 
 	projectId, value, onChange, onSubmit, isPending, models, defaultModelId, minRows = 1, maxRows = 2,
-	placeholder = "Message AI...", typewriter = true, isRunning, onStop
+	placeholder = "Message AI...", typewriter = true, isRunning, onStop, isDisabled
 }: Props) {
 	const [model, setModel] = useState<string>(defaultModelId ?? (models[0]?.id || ""));
 	const [helpOpen, setHelpOpen] = useState(false);
@@ -74,7 +75,7 @@ export function PromptEditor({
 	}, [value]);
 
 	const trimmed = value.trim();
-	const canSend = trimmed.length > 0 && !isPending;
+	const canSend = trimmed.length > 0 && !isPending && !isDisabled;
 
 	const submit = () => {
 		if (!canSend) return;
@@ -84,7 +85,7 @@ export function PromptEditor({
 	};
 
 	return (
-		<div className="relative rounded-2xl border border-white/10 bg-[#161618] p-4 shadow-2xl transition-colors focus-within:border-[#ccff00]/50">
+		<div className={`relative rounded-2xl border border-white/10 bg-[#161618] p-4 shadow-2xl transition-colors focus-within:border-[#ccff00]/50 ${isDisabled ? 'opacity-50 pointer-events-none' : ''}`}>
 			<textarea
 				ref={textareaRef}
 				value={value}
@@ -95,13 +96,14 @@ export function PromptEditor({
 						submit();
 					}
 				}}
-				placeholder={typewriter ? twPlaceholder + (charIndex < PLACEHOLDERS[phIndex].length ? "|" : "") : placeholder}
+				disabled={isDisabled}
+				placeholder={isDisabled ? "Please review the implementation plan to continue..." : (typewriter ? twPlaceholder + (charIndex < PLACEHOLDERS[phIndex].length ? "|" : "") : placeholder)}
 				rows={minRows}
 				style={{
 					minHeight: minRows === 1 ? "24px" : `${minRows * 23}px`,
 					maxHeight: `${maxRows * 23}px`,
 				}}
-				className="w-full resize-none bg-transparent px-1 text-sm leading-relaxed text-foreground outline-none placeholder:text-muted"
+				className="w-full resize-none bg-transparent px-1 text-sm leading-relaxed text-foreground outline-none placeholder:text-muted disabled:cursor-not-allowed"
 			/>
 			
 			<div className="mt-2 flex items-end justify-between gap-3">

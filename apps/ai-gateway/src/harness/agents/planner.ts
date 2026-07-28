@@ -5,6 +5,7 @@ import { blockAiDescriptions } from "@fluxify/blocks";
 import { z } from "zod";
 import { subAgents } from "./sub-agents";
 import { createFindResourceTool } from "../tools/findResource";
+import { createGetArtifactTool } from "../tools/getArtifact";
 
 function buildSubAgentsTable(): string {
 	if (subAgents.length === 0) {
@@ -38,7 +39,7 @@ const plannerSchema = z.object({
 		),
 	scratchpadNote: z
 		.string()
-		.optional()
+		.nullish()
 		.describe(
 			"Contextual notes, resource IDs, or warnings to pass to downstream sub-agents.",
 		),
@@ -99,9 +100,16 @@ Other blocks may require secrets from **app configs**.
 - If an integration/config is missing based on context, DO NOT reject the request. Instead, add a prominent warning in your \`markdownPlan\` stating that the user must create it.
 
 ## Available Tools
-You have access to the \`find_resource\` tool. You MUST use this tool to search the database for existing resources (e.g., routes, app configs, integrations, custom blocks) relevant to the user's request.
+**\`find_resource\`** — You MUST use this tool to search the database for existing resources (e.g., routes, app configs, integrations, custom blocks) relevant to the user's request.
 - Always search for the exact resource ID if you are modifying, updating, or deleting an existing resource.
 - Store the found resource IDs (e.g., \`routeId\`) and relevant details in the \`scratchpadNote\` so downstream agents have the exact IDs needed to perform their tasks. Do NOT guess IDs.
+
+**\`get_artifact\`** — Reads back what an earlier run in this conversation actually built. Use it whenever the user's request refers to previous work ("change what you just built", "add auth to that route", "undo the block you added") instead of guessing from the summary text.
+- The ids come from tokens inside earlier assistant messages: \`:route{type="add" sub_artifact_id="abc123"}\` and \`:canvasChanges{parent_type="route" parent="..." artifact_id="def456"}\`. Pass the \`sub_artifact_id\` / \`artifact_id\` values verbatim; never invent one. A parent artifact id returns every output of that run.
+- Each result reports \`applied=yes\` or \`applied=no\`. **This changes the plan:**
+  - \`applied=yes\` — the output is live in the project, so it also exists as a real record. Look it up with \`find_resource\` to get its real DB id, reference it with \`:resource{...}\`, and plan a modification of the existing resource.
+  - \`applied=no\` — it was only proposed and does NOT exist in the project. There is no DB id for it, so never emit a \`:resource{...}\` chip for it and never tell the user it already exists; plan it as work still to be created.
+- Put anything downstream agents need from the artifact (target ids, block names, decisions already made) into the \`scratchpadNote\`.
 
 ## Output Instructions
 1. **Markdown Plan (\`markdownPlan\`)**: Create a crystal clear, user-perspective markdown plan.
@@ -120,12 +128,20 @@ You have access to the \`find_resource\` tool. You MUST use this tool to search 
 2. **Scratchpad (\`scratchpadNote\`)**: Accumulate all resource lookup results (IDs, names), internal reasoning, and technical implementation details into the \`scratchpadNote\`. This is appended to the next agent's prompt so they don't have to re-search and know exactly what blocks to use.
 3. **Confidence Score (\`confidenceScore\`)**: 1-5 score indicating if sub-agents can build this without human reviews.
 4. **Implementation Complexity (\`implementationComplexity\`)**: 'high', 'mid', or 'low' based on how complex the system becomes if AI builds it without human reviews.
-5. **Handling Reviews**: If the user is reviewing a plan (check message history), address their concerns and regenerate the plan accordingly.
+5. **Explicit Review Requests**: If the user's own words ask you to draft/propose/show a plan first and NOT build it automatically (e.g. "just give me a plan", "don't implement yet", "let me review it first", "propose a plan for approval"), that request always forces a review — regardless of how simple the task actually is. Set \`confidenceScore\` to 1-2 and \`implementationComplexity\` to at least 'mid' so it halts for human review, even if you'd otherwise be confident enough to build it straight away.
+6. **Handling Reviews**: Check message history for a prior plan and the user's response to it.
+   - **Approval, in any words**: If the user's response is an approval — "approve", "looks good", "start", "go ahead", "do it", or any other phrasing that means "proceed" — treat the existing plan as accepted. Re-emit the same (or only trivially reformatted) \`markdownPlan\` and set \`confidenceScore\` to 5 so it proceeds straight to implementation. Do NOT ask for review again on an already-approved plan.
+   - **Small, simple feedback**: If the feedback is minor (e.g. renaming a field, tweaking a value, a one-line clarification) and does not change the plan's overall complexity or risk, apply it directly, then raise \`confidenceScore\` accordingly — don't keep bouncing a nearly-finished plan back for review over trivial changes.
+   - **Substantial feedback**: If the feedback changes scope, architecture, or introduces real ambiguity, revise the plan fully and score confidence honestly — it's fine to require another review in that case.
 
 Plan carefully, thoroughly, and output excellent English craft for the user's plan.${scratchPadText}`;
 
 		const tools = [
 			createFindResourceTool(
+				this.state.internal.dbService,
+				this.state.internal.metadata || {},
+			),
+			createGetArtifactTool(
 				this.state.internal.dbService,
 				this.state.internal.metadata || {},
 			),
@@ -137,6 +153,7 @@ Plan carefully, thoroughly, and output excellent English craft for the user's pl
 			tools,
 			messages: this.state.messages,
 			userQuery: this.state.userQuery,
+			agentNode: AgentNode.PLANNER,
 		})) as z.infer<typeof plannerSchema>;
 
 		const requiresHITL =

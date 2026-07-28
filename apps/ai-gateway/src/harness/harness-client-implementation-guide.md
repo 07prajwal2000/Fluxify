@@ -113,8 +113,11 @@ These mirror the server types exactly. Treat them as the wire schema.
 /** Which tier produced the event. */
 type HarnessLevel = "harness" | "sub_agent";
 
-/** Lifecycle phase of a single event. */
-type HarnessPhase = "node_start" | "node_end" | "status" | "hitl_required";
+/** Lifecycle phase of a single event. `warning` is non-terminal: the agent
+ *  named in `node` hit a retryable error (bad structured output, a transient
+ *  network blip) and is re-asking the model — it does not fail the run, and
+ *  `runStatus` stays whatever that agent was already doing. */
+type HarnessPhase = "node_start" | "node_end" | "status" | "hitl_required" | "warning";
 
 /** Overall run status (mirrors the DB run status). */
 type HarnessRunStatus =
@@ -140,13 +143,14 @@ interface HarnessTaskView {
 interface HarnessStreamEvent {
   conversationId: string;
   runId: string;
-  stepId?: string;          // present for node_start/node_end; absent for most status events
+  stepId?: string;          // present for node_start/node_end; absent for most status/warning events
   level: HarnessLevel;
   phase: HarnessPhase;
   node: AgentNodeName;
   status: string;           // human-readable label, e.g. "Running planner"
   runStatus: HarnessRunStatus;
   payload?: HarnessNodePayload; // present mainly on node_end / hitl_required
+  warning?: { attempt: number; maxAttempts: number }; // present only on phase "warning"
   timestamp: number;        // epoch ms — USE THIS for ordering/merge (see §5)
 }
 
@@ -224,6 +228,45 @@ status     <node>          runStatus: completed        ← TERMINAL
 `event.runStatus ∈ { "completed", "failed", "awaiting_hitl" }`. After this, no
 more updates arrive for that run.
 
+**A `warning` event can appear between any `node_start`/`node_end` pair.** It
+means the agent named in `node` hit a retryable error (bad structured output,
+a transient network blip) and is re-asking the model — it is **not**
+terminal, does not change `runStatus`, and the same node's `node_end` still
+follows once the retry succeeds (or the run eventually fails if every retry
+is exhausted):
+
+```
+node_start planner        (planning)
+warning    planner        "Planner hit a hiccup and is retrying (attempt 1/3) — ..."
+warning    planner        "Planner hit a hiccup and is retrying (attempt 2/3) — ..."
+node_end   planner        payload.planner       (markdownPlan)
+```
+
+Render it as a transient inline notice on the step (e.g. "retrying…") — don't
+treat it as an error state for the step, and don't clear it only on the next
+`warning`; clear it on that step's `node_end` (or its absence entirely is the
+common case — most retries never need to be shown because they succeed within
+milliseconds).
+
+**HITL resume (`approve`/`review`) skips part of the cycle — see §4.1.**
+
+### 4.1 HITL resume shortcuts
+
+When the user responds to a paused plan, the resumed run does **not** always
+restart from `router`:
+
+| Decision | Entry point | What you'll see |
+| --- | --- | --- |
+| `hitl_approve` | `taskGenerator` | An immediate `status` event on `taskGenerator` (`runStatus: orchestrating`), then straight into the `taskGenerator` → `orchestrator` → sub-agents → `summarizer` sequence. No `router`/`verifyUserQuery`/`planner` events at all for this pass. |
+| `hitl_review` | `verifyUserQuery` | An immediate `status` event on `verifyUserQuery` (`runStatus: verifying`), then `verifyUserQuery` → `planner` → (park again, or continue) as usual. No `router` event. |
+| `hitl_reject` | *(none)* | The graph never runs. You get a single terminal `status` event with `runStatus: completed` and the run's `aiResponse` is a structured "Plan rejected" message — no `node_start`/`node_end` events precede it. |
+
+The explicit `status` event on resume exists specifically so you have a
+reliable "the run is moving again" signal even though the usual first
+`node_start` (router/verify) you'd wait for may never come for this pass —
+don't gate your "resumed" UI transition on seeing `router` or `verifyUserQuery`
+start; gate it on `runStatus` leaving `awaiting_hitl`/`paused_hitl`.
+
 - `stepId` is **stable across `node_start` → `node_end`** for the same step
   (it's an upsert). Use it to update a step in place.
 - Sub-agent steps (`level: "sub_agent"`, nodes `blockBuilder`/`routeConfig`) can run
@@ -249,6 +292,9 @@ interface ConversationUIState {
   plan?: string;                          // planner.markdownPlan
   summary?: string;                       // summarizer.markdown
   hitl?: { reason: string; markdownPlan?: string };
+  /** Transient — set on a `warning` event, cleared once that node's `node_end`
+   *  arrives (the retry succeeded) or a new node starts. */
+  warning?: { node: AgentNodeName; message: string; attempt: number; maxAttempts: number };
 }
 
 interface StepUIState {
@@ -281,7 +327,15 @@ function applyEvent(state: ConversationUIState, e: HarnessStreamEvent): Conversa
       (e.runStatus === "completed" || e.runStatus === "failed" || e.runStatus === "awaiting_hitl");
   }
 
-  // 2) Step upsert keyed by stepId (node_start/node_end share the stepId).
+  // 2) Warning: transient, keyed by node, cleared on that node's next
+  //    node_start/node_end (the retry resolved one way or the other).
+  if (e.phase === "warning" && e.warning) {
+    next.warning = { node: e.node, message: e.status, ...e.warning };
+  } else if ((e.phase === "node_start" || e.phase === "node_end") && next.warning?.node === e.node) {
+    next.warning = undefined;
+  }
+
+  // 3) Step upsert keyed by stepId (node_start/node_end share the stepId).
   if (e.stepId) {
     const prev = next.steps[e.stepId];
     // don't let an older node_start overwrite a newer node_end
@@ -301,7 +355,7 @@ function applyEvent(state: ConversationUIState, e: HarnessStreamEvent): Conversa
     }
   }
 
-  // 3) Payload-driven fields — REPLACE (tasksByLevel is a full recompute).
+  // 4) Payload-driven fields — REPLACE (tasksByLevel is a full recompute).
   switch (e.payload?.node) {
     case "taskGenerator":
     case "supervisor":
@@ -413,11 +467,14 @@ DAG. Merging arrays produces duplicate/stale tasks.
 
 ### 6.10 HITL is terminal-but-resumable
 `awaiting_hitl` ends the current run pass. The run resumes later as a **new job**
-(and may reuse the run id) — you'll receive fresh `node_start`s again after the
-user submits their decision via the REST API.
+(and may reuse the run id) — you'll receive fresh events again after the user
+submits their decision via the REST API, but **don't assume the first one is
+`router`** — `approve`/`review` skip ahead (§4.1); `reject` produces no
+`node_start` at all, only a terminal `status`.
 - **Fix:** render the `humanInTheLoop` payload (reason + `markdownPlan`) and
   treat `awaiting_hitl` as "paused, waiting on user", not "done". Clear the
-  `hitl` block when new non-HITL events arrive.
+  `hitl` block when new non-HITL events arrive. Gate your "resumed" transition
+  on `runStatus` changing, not on seeing a specific node start.
 
 ### 6.11 React StrictMode / effect cleanup double-connects
 In dev, `useEffect` runs twice; without cleanup you open two sockets and get
@@ -437,6 +494,23 @@ Within one connection socket.io preserves emit order. Across a
 disconnect/reconnect that guarantee is gone (see 6.3/6.4).
 - **Fix:** the `timestamp` guard in the reducer is the ordering source of truth,
   not arrival order.
+
+### 6.14 `warning` events are noise unless you render them deliberately
+A `phase: "warning"` event does not mean anything failed — the agent named in
+`node` is retrying a bad response and will very likely recover on its own
+within a second or two (§4). If you log every socket event to a raw feed,
+warnings will show up there; that's fine. But don't:
+- treat it as a step failure (the step's `StepUIState.status` stays `"running"`;
+  don't flip it to anything error-like),
+- toast/alert on every one (a model can legitimately retry 2-3 times on a
+  single step under normal load — that's not exceptional),
+- leave it showing forever if the step actually did fail — that's what the
+  step's `node_end` never arriving, plus the run's own terminal `failed`
+  status, is for. `warning` is "still working on it", not "here's the error".
+- **Fix:** render it as a small transient inline note next to the step (e.g.
+  "retrying…"), cleared by the reducer's own logic once `node_end` arrives for
+  the same node (§5 step 2). Most users will never see one — it only shows up
+  when a step needed more than one attempt.
 
 ---
 
@@ -488,4 +562,6 @@ the idempotent, timestamp-guarded `applyEvent` from §5.
 - [ ] `tasksByLevel` replaced wholesale.
 - [ ] Terminal runs persisted client-side (survive the 60s snapshot eviction).
 - [ ] Socket disconnected on unmount; single listener; functional dispatch.
+- [ ] `warning` events rendered as a transient per-step notice, not an error state (§6.14).
+- [ ] "Resumed" UI transition keyed off `runStatus`, not off a specific node starting (§4.1, §6.10).
 ```
