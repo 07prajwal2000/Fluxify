@@ -4,7 +4,6 @@ import {
 	boolean,
 	index,
 	uniqueIndex,
-	jsonb,
 	pgEnum,
 	pgTable,
 	serial,
@@ -13,6 +12,7 @@ import {
 	uuid,
 	varchar,
 } from "drizzle-orm/pg-core";
+import { jsonb } from "./jsonbColumn";
 import { systemUsers } from "./auth-schema";
 import { integrationsEntity, projectsEntity } from "./schema";
 

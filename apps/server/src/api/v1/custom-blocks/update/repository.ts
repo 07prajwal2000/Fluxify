@@ -1,10 +1,10 @@
 import { db, DbTransactionType } from "../../../../db";
 import { customBlocksListEntity } from "../../../../db/schema";
 import { eq, and } from "drizzle-orm";
-import { createUpdateSchema } from "drizzle-zod";
-import z from "zod";
 
-const updateSchema = createUpdateSchema(customBlocksListEntity).omit({ id: true, projectId: true, name: true });
+type UpdateCustomBlockData = Partial<
+  Omit<typeof customBlocksListEntity.$inferInsert, "id" | "projectId" | "name">
+>;
 
 export async function getCustomBlockById(id: string, tx?: DbTransactionType) {
   const block = await (tx ?? db)
@@ -19,7 +19,7 @@ export async function getCustomBlockById(id: string, tx?: DbTransactionType) {
 
 export async function updateCustomBlock(
   id: string,
-  data: z.infer<typeof updateSchema>,
+  data: UpdateCustomBlockData,
   tx?: DbTransactionType
 ) {
   const updated = await (tx ?? db)

@@ -1,7 +1,10 @@
 import { getBasicListRepository } from "./repository";
 
-export default async function handleRequest(projectId: string) {
-	const results = await getBasicListRepository(projectId);
+export default async function handleRequest(
+	projectId: string,
+	useForHarness?: boolean,
+) {
+	const results = await getBasicListRepository(projectId, useForHarness);
 
 	return results.map((result) => ({
 		id: result.id,

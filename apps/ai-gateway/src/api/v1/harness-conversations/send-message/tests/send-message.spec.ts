@@ -113,12 +113,29 @@ describe("Send Message Service", () => {
 		).rejects.toThrow(serverModule.NotFoundError);
 	});
 
-	it("throws ForbiddenError when the picked integration is not harness-enabled", async () => {
+	it("throws ForbiddenError when the picked integration is neither harness-enabled nor the project default", async () => {
 		mockIntegrationRow({ group: "ai", config: { useForHarness: false } });
+		spyOn(serverModule, "getProjectSetting").mockResolvedValue("int-other");
 
 		expect(
 			handleRequest("user1", "proj1", { query: "hi", integrationId: "int1" }, false),
 		).rejects.toThrow(serverModule.ForbiddenError);
+	});
+
+	it("enqueues when the picked integration is the project's configured agent connection", async () => {
+		mockIntegrationRow({ group: "ai", config: { useForHarness: false } });
+		spyOn(serverModule, "getProjectSetting").mockResolvedValue("int1");
+		spyOn(cacheVersionModule, "bumpListCacheVersion").mockResolvedValue(undefined as any);
+		const enqueueSpy = spyOn(enqueueModule, "enqueueHarnessStart").mockResolvedValue({
+			conversationId: "conv-new",
+			runId: "run-new",
+		} as any);
+
+		await handleRequest("user1", "proj1", { query: "hi", integrationId: "int1" }, false);
+
+		expect(enqueueSpy).toHaveBeenCalledWith(
+			expect.objectContaining({ integrationId: "int1" }),
+		);
 	});
 
 	it("enqueues with the picked integration when it is harness-enabled", async () => {

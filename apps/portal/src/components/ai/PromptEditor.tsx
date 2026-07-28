@@ -4,6 +4,7 @@ import { Button, Popover, PopoverTrigger, PopoverContent } from "@fluxify/compon
 import { ModelSelect, type AiModel } from "./ModelSelect";
 import { SyntaxHelpModal } from "./SyntaxHelpModal";
 import { STARTERS } from "./starters";
+import { integrationsQuery } from "@/query/integrationsQuery";
 
 const PLACEHOLDERS = [
 	"Generate a blog API with rate limiting, Redis cache...",
@@ -34,6 +35,9 @@ export function PromptEditor({
 	const [model, setModel] = useState<string>(defaultModelId ?? (models[0]?.id || ""));
 	const [helpOpen, setHelpOpen] = useState(false);
 	const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+	const testConn = integrationsQuery.testExistingConnection.mutation(projectId);
+	const [connStatus, setConnStatus] = useState<"testing" | "success" | "error" | "idle">("idle");
 
 	// Typewriter effect
 	const [twPlaceholder, setTwPlaceholder] = useState("");
@@ -66,6 +70,20 @@ export function PromptEditor({
 		}
 	}, [defaultModelId, models, model]);
 
+	useEffect(() => {
+		if (!model) return;
+		setConnStatus("testing");
+		testConn.mutate(model, {
+			onSuccess: (res) => {
+				setConnStatus(res.success ? "success" : "error");
+			},
+			onError: () => {
+				setConnStatus("error");
+			}
+		});
+	// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [model, projectId]);
+
 	// Auto-resize textarea
 	useEffect(() => {
 		if (textareaRef.current) {
@@ -75,7 +93,7 @@ export function PromptEditor({
 	}, [value]);
 
 	const trimmed = value.trim();
-	const canSend = trimmed.length > 0 && !isPending && !isDisabled;
+	const canSend = trimmed.length > 0 && !isPending && !isDisabled && connStatus === "success";
 
 	const submit = () => {
 		if (!canSend) return;
@@ -163,7 +181,7 @@ export function PromptEditor({
 							className="rounded-xl bg-[#ccff00] text-black hover:bg-[#b3e600] disabled:opacity-50 disabled:bg-[#ccff00]/50 h-8 w-8"
 							aria-label="Send"
 							isDisabled={!canSend}
-							isPending={isPending}
+							isPending={isPending || connStatus === "testing"}
 							onPress={submit}
 						>
 							<TbArrowUp size={18} />

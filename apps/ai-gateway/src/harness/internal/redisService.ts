@@ -21,8 +21,9 @@ export class RedisService {
 	/** TTL applied once a run finishes (any terminal state) so the key auto-evicts
 	 *  shortly after, giving late subscribers a brief window to read the final state. */
 	private static readonly FINALIZE_TTL = 60;
-	/** Max events retained in a snapshot to bound cache size. */
-	private static readonly MAX_EVENTS = 200;
+	/** Max events retained in a snapshot to bound cache size. Tool calls emit a
+	 *  started/ended pair each, so a heavy build run is event-dense. */
+	private static readonly MAX_EVENTS = 500;
 
 	private snapshotKey(runId: string): string {
 		return `harness:run:${runId}:snapshot`;
@@ -119,7 +120,7 @@ export class RedisService {
 				conversationId: event.conversationId,
 				runId: event.runId,
 				runStatus: event.runStatus,
-				currentNode: event.node,
+				currentNode: event.currentNode,
 				currentLevel: event.level,
 				events,
 				updatedAt: Date.now(),
@@ -133,7 +134,7 @@ export class RedisService {
 		} catch (e) {
 			logger.error("[RedisService] Error appending event", {
 				runId: event.runId,
-				node: event.node,
+				node: event.currentNode,
 				error: e,
 			});
 		}

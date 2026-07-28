@@ -1,12 +1,13 @@
 import { BaseChatModel } from "@langchain/core/language_models/chat_models";
 import { ChatOpenRouter } from "@langchain/openrouter";
-import { BaseAgentWrapper } from "../base";
+import { BaseAgentWrapper, HARNESS_TEMPERATURE } from "../base";
 
 export class OpenRouterAgentWrapper extends BaseAgentWrapper {
 	protected getModel(): BaseChatModel {
 		return new ChatOpenRouter({
 			model: this.modelName,
 			apiKey: this.apiKey,
+			temperature: HARNESS_TEMPERATURE,
 			...(this.additionalHeaders
 				? { modelKwargs: { extra_headers: this.additionalHeaders } }
 				: {}),
@@ -17,5 +18,11 @@ export class OpenRouterAgentWrapper extends BaseAgentWrapper {
 	// We use our fallback for better predictability.
 	protected supportsStructuredOutput(): boolean {
 		return false;
+	}
+
+	// Upstreams that don't accept it error out, and the fallback loop then drops
+	// the constraint for the remaining attempts.
+	protected jsonModeOptions() {
+		return { response_format: { type: "json_object" as const } };
 	}
 }

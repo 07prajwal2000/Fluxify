@@ -5,7 +5,7 @@ import {
 	resolver,
 	validator,
 } from "hono-openapi";
-import { requestRouteSchema, responseSchema } from "./dto";
+import { requestQuerySchema, requestRouteSchema, responseSchema } from "./dto";
 import handleRequest from "./service";
 import { validationErrorSchema } from "../../../../errors/validationError";
 import zodErrorCallbackParser from "../../../../middlewares/zodErrorCallbackParser";
@@ -42,9 +42,14 @@ export default function (app: HonoServer) {
 		describeRoute(openapiRouteOptions),
 		requireProjectAccess("creator", { key: "projectId", source: "param" }),
 		validator("param", requestRouteSchema, zodErrorCallbackParser),
+		validator("query", requestQuerySchema, zodErrorCallbackParser),
 		async (c) => {
 			const { projectId } = c.req.valid("param");
-			const result = await handleRequest(projectId);
+			const { useForHarness } = c.req.valid("query");
+			const result = await handleRequest(
+				projectId,
+				useForHarness === undefined ? undefined : useForHarness === "true",
+			);
 			return c.json(result);
 		},
 	);

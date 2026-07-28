@@ -27,9 +27,11 @@ function event(patch: Partial<HarnessStreamEvent>): HarnessStreamEvent {
 		conversationId: CONV,
 		runId: RUN,
 		level: "harness",
-		phase: "node_start",
-		node: "planner",
-		status: "Running planner",
+		currentNode: "planner",
+		nodeId: "planner",
+		nodeStatus: "started",
+		executionType: "agent",
+		plainTextMessage: "Drafting an implementation plan",
 		runStatus: "planning",
 		timestamp: 1000,
 		...patch,
@@ -42,7 +44,6 @@ function feed(state: AiHarnessState, ...events: HarnessStreamEvent[]) {
 			type: "update",
 			conversationId: e.conversationId,
 			runId: e.runId,
-			stepId: e.stepId,
 			event: e,
 		});
 	}
@@ -53,26 +54,64 @@ const tasks = (status: HarnessTaskView["status"]): HarnessTaskView[][] => [
 	[{ id: "t1", title: "T1", status, assignedAgentNode: "blockBuilder", level: 0 }],
 ];
 
-test("node_start/node_end upsert one step by stepId", () => {
+test("started/ended upsert one step by nodeId", () => {
 	const run = feed(
 		blankState(),
-		event({ stepId: "s1", phase: "node_start", timestamp: 1 }),
+		event({ nodeStatus: "started", timestamp: 1 }),
 		event({
-			stepId: "s1",
-			phase: "node_end",
+			nodeStatus: "ended",
 			timestamp: 2,
 			payload: { node: "planner", data: { markdownPlan: "# plan" } },
 		}),
 	);
-	expect(Object.keys(run.steps)).toEqual(["s1"]);
-	expect(run.steps.s1.status).toBe("completed");
+	expect(Object.keys(run.steps)).toEqual(["planner"]);
+	expect(run.steps.planner.nodeStatus).toBe("ended");
 	expect(run.plan).toBe("# plan");
+});
+
+test("concurrent sub-agents get one row each via nodeId", () => {
+	const run = feed(
+		blankState(),
+		event({ currentNode: "blockBuilder", nodeId: "blockBuilder:t1", timestamp: 1 }),
+		event({ currentNode: "blockBuilder", nodeId: "blockBuilder:t2", timestamp: 2 }),
+	);
+	expect(Object.keys(run.steps).sort()).toEqual([
+		"blockBuilder:t1",
+		"blockBuilder:t2",
+	]);
+});
+
+test("a tool call updates its parent node row without completing it", () => {
+	const run = feed(
+		blankState(),
+		event({ nodeStatus: "started", timestamp: 1 }),
+		event({
+			nodeStatus: "started",
+			executionType: "tool",
+			toolName: "search_docs",
+			plainTextMessage: "Searching the documentation…",
+			timestamp: 2,
+		}),
+		event({
+			nodeStatus: "ended",
+			executionType: "tool",
+			toolName: "search_docs",
+			plainTextMessage: "Searching the documentation — found 3 results",
+			timestamp: 3,
+		}),
+	);
+	expect(run.steps.planner.nodeStatus).not.toBe("ended");
+	expect(run.steps.planner.label).toBe(
+		"Searching the documentation — found 3 results",
+	);
+	expect(run.steps.planner.toolName).toBeUndefined();
+	expect(run.isTerminal).toBe(false);
 });
 
 test("replaying the same events is a no-op", () => {
 	const events = [
-		event({ stepId: "s1", phase: "node_start", timestamp: 1 }),
-		event({ stepId: "s1", phase: "node_end", timestamp: 2 }),
+		event({ nodeStatus: "started", timestamp: 1 }),
+		event({ nodeStatus: "ended", timestamp: 2 }),
 	];
 	const once = feed(blankState(), ...events);
 	const twice = feed(blankState(), ...events, ...events);
@@ -82,34 +121,36 @@ test("replaying the same events is a no-op", () => {
 test("an older event never regresses newer state", () => {
 	const run = feed(
 		blankState(),
-		event({ stepId: "s1", phase: "node_end", timestamp: 10, runStatus: "orchestrating" }),
-		event({ stepId: "s1", phase: "node_start", timestamp: 5, runStatus: "planning" }),
+		event({ nodeStatus: "ended", timestamp: 10, runStatus: "orchestrating" }),
+		event({ nodeStatus: "started", timestamp: 5, runStatus: "planning" }),
 	);
 	expect(run.runStatus).toBe("orchestrating");
-	expect(run.steps.s1.status).toBe("completed");
+	expect(run.steps.planner.nodeStatus).toBe("ended");
 	expect(run.lastTimestamp).toBe(10);
 });
 
-test("node_end with no preceding node_start still creates the step", () => {
+test("an ended with no preceding started still creates the step", () => {
 	const run = feed(
 		blankState(),
-		event({ stepId: "orphan", phase: "node_end", timestamp: 3 }),
+		event({ nodeId: "orphan", nodeStatus: "ended", timestamp: 3 }),
 	);
-	expect(run.steps.orphan.status).toBe("completed");
+	expect(run.steps.orphan.nodeStatus).toBe("ended");
 });
 
 test("tasksByLevel is replaced wholesale, not merged", () => {
 	const run = feed(
 		blankState(),
 		event({
-			node: "taskGenerator",
-			phase: "node_end",
+			currentNode: "taskGenerator",
+			nodeId: "taskGenerator",
+			nodeStatus: "ended",
 			timestamp: 1,
 			payload: { node: "taskGenerator", data: { tasksByLevel: tasks("pending") } },
 		}),
 		event({
-			node: "supervisor",
-			phase: "node_end",
+			currentNode: "supervisor",
+			nodeId: "supervisor",
+			nodeStatus: "ended",
 			timestamp: 2,
 			payload: { node: "supervisor", data: { tasksByLevel: tasks("completed") } },
 		}),
@@ -119,30 +160,50 @@ test("tasksByLevel is replaced wholesale, not merged", () => {
 	expect(run.tasksByLevel[0][0].status).toBe("completed");
 });
 
-test("terminal is a status event with a terminal runStatus; HITL clears on resume", () => {
+test("only the run-level ended bookend is terminal; HITL clears on resume", () => {
 	const state = blankState();
 	let run = feed(
 		state,
 		event({
-			node: "humanInTheLoop",
-			phase: "hitl_required",
+			currentNode: "humanInTheLoop",
+			nodeId: "humanInTheLoop",
+			nodeStatus: "running",
 			timestamp: 5,
 			runStatus: "awaiting_hitl",
 			payload: { node: "humanInTheLoop", data: { reason: "review plan" } },
 		}),
+	);
+	expect(run.isTerminal).toBe(false);
+
+	run = feed(
+		state,
 		event({
-			node: "humanInTheLoop",
-			phase: "status",
+			currentNode: "run",
+			nodeId: "run",
+			nodeStatus: "ended",
 			timestamp: 6,
 			runStatus: "awaiting_hitl",
+			payload: {
+				node: "run",
+				data: { runStatus: "awaiting_hitl", result: "# plan" },
+			},
 		}),
 	);
 	expect(run.isTerminal).toBe(true);
 	expect(run.hitl?.reason).toBe("review plan");
+	expect(run.result?.result).toBe("# plan");
+	// The run bookend never becomes a step row.
+	expect(run.steps.run).toBeUndefined();
 
 	run = feed(
 		state,
-		event({ node: "taskGenerator", phase: "node_start", timestamp: 7, runStatus: "orchestrating" }),
+		event({
+			currentNode: "taskGenerator",
+			nodeId: "taskGenerator",
+			nodeStatus: "started",
+			timestamp: 7,
+			runStatus: "orchestrating",
+		}),
 	);
 	expect(run.isTerminal).toBe(false);
 	expect(run.hitl).toBeUndefined();
@@ -151,21 +212,27 @@ test("terminal is a status event with a terminal runStatus; HITL clears on resum
 test("full_state merges without clobbering newer live updates, and never drops a finished run", () => {
 	const state = blankState();
 	// A live update raced ahead of the connect snapshot.
-	feed(state, event({ stepId: "s2", phase: "node_end", timestamp: 100, runStatus: "completed" }));
+	feed(
+		state,
+		event({ nodeId: "summarizer", nodeStatus: "ended", timestamp: 100, runStatus: "completed" }),
+	);
 
 	const stale: HarnessSnapshot = {
 		conversationId: CONV,
 		runId: RUN,
 		runStatus: "planning",
 		currentNode: "planner",
-		events: [event({ stepId: "s1", phase: "node_start", timestamp: 50 })],
+		events: [event({ nodeId: "planner", nodeStatus: "started", timestamp: 50 })],
 		updatedAt: 50,
 	};
 	applyMessage(state, { type: "full_state", conversations: [stale] });
 
 	expect(state.runs[CONV].runStatus).toBe("completed");
 	expect(state.runs[CONV].lastTimestamp).toBe(100);
-	expect(Object.keys(state.runs[CONV].steps).sort()).toEqual(["s1", "s2"]);
+	expect(Object.keys(state.runs[CONV].steps).sort()).toEqual([
+		"planner",
+		"summarizer",
+	]);
 
 	// Reconnect after the 60s Redis TTL: the run is gone from the snapshot but
 	// must survive client-side.

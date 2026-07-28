@@ -1,4 +1,9 @@
-import { ForbiddenError, ConflictError, NotFoundError } from "@fluxify/server";
+import {
+	ForbiddenError,
+	ConflictError,
+	NotFoundError,
+	getProjectSetting,
+} from "@fluxify/server";
 import { enqueueHarnessStart } from "../../../../harness/internal/enqueue";
 import { getConversationById, getProjectIntegration } from "../repository";
 import { isConversationLocked } from "../status";
@@ -6,8 +11,10 @@ import { bumpListCacheVersion } from "../cacheVersion";
 import type { SendMessageBody } from "./dto";
 
 /**
- * Verifies the picked AI integration exists in this project and is harness-eligible
- * (`config.useForHarness === true`). Throws otherwise.
+ * Verifies the picked AI integration exists in this project and is harness-eligible:
+ * either `config.useForHarness === true`, or it is the project's configured agent
+ * connection (`settings.ai.agentConnectionId`) — that selection is itself the opt-in,
+ * and there is no UI yet to flip `useForHarness`. Throws otherwise.
  */
 async function assertHarnessIntegration(integrationId: string, projectId: string) {
 	const integration = await getProjectIntegration(integrationId, projectId);
@@ -15,7 +22,15 @@ async function assertHarnessIntegration(integrationId: string, projectId: string
 	if (!integration || integration.group !== "ai") {
 		throw new NotFoundError("AI integration not found for this project");
 	}
-	if ((integration.config as { useForHarness?: boolean })?.useForHarness !== true) {
+	if ((integration.config as { useForHarness?: boolean })?.useForHarness === true) {
+		return;
+	}
+
+	const agentConnectionId = await getProjectSetting(
+		projectId,
+		"settings.ai.agentConnectionId",
+	);
+	if (agentConnectionId !== integrationId) {
 		throw new ForbiddenError(
 			"This integration is not enabled for the agent usage",
 		);

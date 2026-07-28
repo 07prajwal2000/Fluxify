@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { Modal, Button, Popover, PopoverTrigger, PopoverContent } from "@fluxify/components";
-import { TbMessageCirclePlus, TbCheck, TbX, TbEdit } from "react-icons/tb";
+import { TbMessageCirclePlus, TbCheck, TbX, TbEdit, TbPlus } from "react-icons/tb";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { useQueryClient } from "@tanstack/react-query";
@@ -81,24 +81,29 @@ const HoverableBlock = ({
 								{hasReview ? <TbEdit size={14} /> : <TbMessageCirclePlus size={14} />}
 							</Button>
 						</PopoverTrigger>
-						<PopoverContent className="w-64 rounded-xl border border-white/10 bg-[#1e1e20] p-4 shadow-xl">
+						<PopoverContent className="w-[320px] rounded-xl border border-white/10 bg-[#1e1e20] p-4 shadow-xl">
 							<div className="flex w-full flex-col gap-3">
-								<span className="text-sm font-medium">
-									{hasReview ? "Edit Review" : "Add Review"}
-								</span>
 								<textarea
 									ref={textareaRef}
-									placeholder="What needs to be changed?"
+									placeholder="Add a review..."
 									value={reviewText}
 									onChange={(e) => setReviewText(e.target.value)}
-									className="w-full min-h-[60px] rounded-lg bg-black/20 p-2 text-sm text-foreground outline-none placeholder:text-muted resize-y border border-white/10 focus:border-primary/50"
+									className="w-full min-h-[100px] rounded-lg bg-black/20 p-3 text-sm text-foreground outline-none placeholder:text-muted resize-none border border-white/10 focus:border-primary/50"
 								/>
-								<div className="flex justify-end gap-2 pt-1">
-									<Button size="sm" variant="ghost" className="h-7 text-xs px-3" onPress={() => setPopoverOpened(false)}>
+								<div className="flex justify-between items-center pt-1">
+									<button
+										className="text-sm text-muted cursor-pointer hover:text-foreground transition-colors bg-transparent border-none outline-none"
+										onClick={() => setPopoverOpened(false)}
+									>
 										Cancel
-									</Button>
-									<Button size="sm" variant="primary" className="h-7 text-xs px-3" onPress={handleSave}>
-										Save
+									</button>
+									<Button
+										size="sm"
+										variant="primary"
+										className="h-8 text-xs font-semibold px-4 rounded-md"
+										onPress={handleSave}
+									>
+										{hasReview ? "Save Review" : "Add Review"}
 									</Button>
 								</div>
 							</div>
@@ -117,6 +122,11 @@ export function PlanReviewModal({ isOpen, onOpenChange, plan, projectId, convers
 	const [selectedBlockId, setSelectedBlockId] = useState<string | null>(null);
 	const rejectTextareaRef = useRef<HTMLTextAreaElement>(null);
 
+	const [customPopoverOpened, setCustomPopoverOpened] = useState(false);
+	const [customReviewId, setCustomReviewId] = useState<string | null>(null);
+	const [customReviewText, setCustomReviewText] = useState("");
+	const customTextareaRef = useRef<HTMLTextAreaElement>(null);
+
 	useEffect(() => {
 		if (rejectPopoverOpened && rejectTextareaRef.current) {
 			const timeout = setTimeout(() => {
@@ -125,6 +135,15 @@ export function PlanReviewModal({ isOpen, onOpenChange, plan, projectId, convers
 			return () => clearTimeout(timeout);
 		}
 	}, [rejectPopoverOpened]);
+
+	useEffect(() => {
+		if (customPopoverOpened && customTextareaRef.current) {
+			const timeout = setTimeout(() => {
+				customTextareaRef.current?.focus();
+			}, 50);
+			return () => clearTimeout(timeout);
+		}
+	}, [customPopoverOpened]);
 
 	const actionMutation = harnessConversationsQuery.action.mutation(projectId, conversationId);
 
@@ -137,9 +156,15 @@ export function PlanReviewModal({ isOpen, onOpenChange, plan, projectId, convers
 
 	const handleReviewClick = (id: string) => {
 		setSelectedBlockId(id);
-		const element = document.getElementById(id);
-		if (element) {
-			element.scrollIntoView({ behavior: "smooth", block: "center" });
+		if (id.startsWith("custom-")) {
+			setCustomReviewId(id);
+			setCustomReviewText(reviews[id] || "");
+			setCustomPopoverOpened(true);
+		} else {
+			const element = document.getElementById(id);
+			if (element) {
+				element.scrollIntoView({ behavior: "smooth", block: "center" });
+			}
 		}
 	};
 
@@ -184,6 +209,7 @@ export function PlanReviewModal({ isOpen, onOpenChange, plan, projectId, convers
 						action: "hitl_review" as const,
 						hitl_review: {
 							reviews: Object.entries(reviews).map(([id, text]) => {
+								if (id.startsWith("custom-")) return `(Custom Review): ${text}`;
 								const block = blockData.find((b) => b.id === id);
 								const lineNum = block ? block.lineNumber : 1;
 								return `(Line ${lineNum}): ${text}`;
@@ -236,8 +262,58 @@ export function PlanReviewModal({ isOpen, onOpenChange, plan, projectId, convers
 
 							{/* Right Panel: Reviews (40%) */}
 							<div className="w-2/5 flex flex-col bg-surface overflow-hidden">
-								<div className="p-6 pb-4 border-b border-white/10 shrink-0">
+								<div className="p-6 pb-4 border-b border-white/10 shrink-0 flex items-center justify-between">
 									<h4 className="text-lg font-semibold">Your Reviews</h4>
+									{/* @ts-expect-error placement is valid */}
+									<Popover placement="bottom-end" isOpen={customPopoverOpened} onOpenChange={(open) => {
+										if (!open) setCustomPopoverOpened(false);
+									}}>
+										<PopoverTrigger>
+											<Button
+												size="sm"
+												variant="ghost"
+												className="h-7 text-xs border border-primary text-primary hover:bg-primary/20 px-3 rounded-md transition-colors"
+												onPress={() => {
+													setCustomReviewId(null);
+													setCustomReviewText("");
+													setCustomPopoverOpened(true);
+												}}
+											>
+												<TbPlus size={14} /> Add review
+											</Button>
+										</PopoverTrigger>
+										<PopoverContent className="w-[320px] rounded-xl border border-white/10 bg-[#1e1e20] p-4 shadow-xl">
+											<div className="flex w-full flex-col gap-3">
+												<textarea
+													ref={customTextareaRef}
+													placeholder="Add a custom review..."
+													value={customReviewText}
+													onChange={(e) => setCustomReviewText(e.target.value)}
+													className="w-full min-h-[100px] rounded-lg bg-black/20 p-3 text-sm text-foreground outline-none placeholder:text-muted resize-none border border-white/10 focus:border-primary/50"
+												/>
+												<div className="flex justify-between items-center pt-1">
+													<button
+														className="text-sm text-muted cursor-pointer hover:text-foreground transition-colors bg-transparent border-none outline-none"
+														onClick={() => setCustomPopoverOpened(false)}
+													>
+														Cancel
+													</button>
+													<Button
+														size="sm"
+														variant="primary"
+														className="h-8 text-xs font-semibold px-4 rounded-md"
+														onPress={() => {
+															const id = customReviewId || `custom-${Date.now()}`;
+															handleSaveReview(id, customReviewText);
+															setCustomPopoverOpened(false);
+														}}
+													>
+														{customReviewId ? "Save Review" : "Add Review"}
+													</Button>
+												</div>
+											</div>
+										</PopoverContent>
+									</Popover>
 								</div>
 								<div className="flex-1 overflow-y-auto p-6">
 									{hasReviews ? (
@@ -246,14 +322,14 @@ export function PlanReviewModal({ isOpen, onOpenChange, plan, projectId, convers
 												<div
 													key={id}
 													onClick={() => handleReviewClick(id)}
-													className={`group relative flex flex-col gap-2 rounded-xl border p-4 cursor-pointer transition-all duration-200 ${
+													className={`group relative flex flex-col gap-2 rounded-xl border px-4 pt-5 pb-4 cursor-pointer transition-all duration-200 ${
 														selectedBlockId === id
 															? "border-primary bg-primary/10"
 															: "border-white/10 bg-white/5 hover:border-white/20"
 													}`}
 												>
 													<div className="flex justify-between items-start gap-2">
-														<p className="text-sm flex-1 whitespace-pre-wrap break-words m-0">
+														<p className="text-sm flex-1 whitespace-pre-wrap break-words m-0 mt-1">
 															{text}
 														</p>
 														<Button

@@ -28,12 +28,13 @@ import {
  * Each connection is authenticated against the better-auth session and joined to
  * a single per-user room `conversations:<userId>`. One room per user fans every
  * conversation run they may have triggered concurrently out to all their tabs;
- * `conversationId` in the message identifies which conversation, `stepId`
- * identifies the individual step update.
+ * `conversationId` in the message identifies which conversation, `nodeId` inside
+ * the event identifies the individual node instance being updated.
  *
- * On connect the client receives a `full_state` catch-up (the whole run state we
- * cache in Redis). Live `update` messages then stream in per node event. The
- * shape is intentionally coarse for now — to be refined once the UI is designed.
+ * On connect the client receives a `full_state` catch-up (every event of every
+ * in-flight run, replayed from the Redis queue). Live `update` messages then
+ * stream in. Both carry the identical `HarnessStreamEvent` shape — see
+ * `harness_events.md`.
  * ========================================================================== */
 
 /** The wire contract (path, event name, message union) lives in `clientContract.ts`
@@ -197,15 +198,14 @@ export async function initializeHarnessSocket(): Promise<HarnessSocketHandler> {
 			type: "update",
 			conversationId: incoming.conversationId,
 			runId: incoming.runId,
-			stepId: incoming.event.stepId,
 			event: incoming.event,
 		};
 		io.to(room).emit(HARNESS_SOCKET_EVENT, message);
 		logger.debug("[HarnessSocket] Fanned update", {
 			room,
 			conversationId: incoming.conversationId,
-			node: incoming.event.node,
-			phase: incoming.event.phase,
+			nodeId: incoming.event.nodeId,
+			nodeStatus: incoming.event.nodeStatus,
 		});
 	});
 

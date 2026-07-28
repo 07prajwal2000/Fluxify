@@ -7,12 +7,20 @@ import {
 	ToolMessage,
 } from "@langchain/core/messages";
 import { Runnable, RunnableConfig } from "@langchain/core/runnables";
+import { dispatchCustomEvent } from "@langchain/core/callbacks/dispatch";
 import { StructuredTool } from "@langchain/core/tools";
 import { z } from "zod";
 import { zodToJsonSchema } from "zod-to-json-schema";
 import { logger } from "@fluxify/common";
 import { withRetry } from "../../lib/retry";
 import { UserInterruptError } from "../errors";
+import {
+	summarizeToolResult,
+	parseJsonLoose,
+	describeSchemaError,
+	extractText,
+	cleanJsonOutput,
+} from "./jsonUtils";
 
 /** Upper bound for a single model/tool call. Long enough for big reasoning
  *  responses, short enough that a dead connection doesn't stall a run. */
@@ -20,6 +28,10 @@ export const MODEL_CALL_TIMEOUT_MS = 180_000; // 3 minutes
 
 /** How many times the prompt-based structured-output path re-asks the model. */
 const STRUCTURED_OUTPUT_ATTEMPTS = 3;
+
+/** Near-greedy decoding for every harness call. These agents emit JSON and graph
+ *  edits, not prose — sampling variance is pure error surface. */
+export const HARNESS_TEMPERATURE = 0;
 
 export interface AgentInvokeOptions {
 	zodSchema?: z.ZodType<any>;
@@ -33,6 +45,9 @@ export interface AgentInvokeOptions {
 	 *  this provider-agnostic layer doesn't depend on the graph's node enum.
 	 *  Threaded into retry-warning events so the UI can attribute them. */
 	agentNode?: string;
+	/** Task id when a sub-agent is calling — several instances of the same node
+	 *  run concurrently, so events need it to stay attributable. */
+	agentId?: string;
 }
 
 /** A retryable error a caller may want to surface live (e.g. as a socket
@@ -78,6 +93,28 @@ export abstract class BaseAgentWrapper {
 			maxAttempts,
 			rawError: error instanceof Error ? error.message : String(error),
 		});
+	}
+
+	/**
+	 * Publishes a tool-call event onto the graph's custom-event stream, where
+	 * `HarnessCallbacks` turns it into a standard `executionType: "tool"` event.
+	 * Never throws: outside a LangGraph run (unit tests, direct wrapper use)
+	 * there is no callback context to dispatch into, and that must not fail the
+	 * tool call itself.
+	 */
+	private async emitToolEvent(data: {
+		agent?: string;
+		agentId?: string;
+		tool: string;
+		status: "started" | "ended";
+		summary?: string;
+		error?: string;
+	}): Promise<void> {
+		try {
+			await dispatchCustomEvent("tool_call", { ...data, agent: data.agent ?? "" });
+		} catch {
+			/* no run context — nothing to report to */
+		}
 	}
 
 	/**
@@ -130,6 +167,17 @@ export abstract class BaseAgentWrapper {
 		return true;
 	}
 
+	/**
+	 * Provider call options that force raw JSON output (OpenAI's
+	 * `response_format: json_object`, Ollama's `format: "json"`, …), bound only on
+	 * the prompt-based structured-output path. Constrained decoding is what stops
+	 * a model from wrapping the payload in prose, `\boxed{}`, or escaped quotes —
+	 * i.e. the things the parser was left guessing at. Undefined = unsupported.
+	 */
+	protected jsonModeOptions(): Record<string, any> | undefined {
+		return undefined;
+	}
+
 	public async invokeAgent<T = any>(
 		options: AgentInvokeOptions,
 	): Promise<T | AIMessage> {
@@ -155,6 +203,7 @@ export abstract class BaseAgentWrapper {
 			tools,
 			config,
 			agentNode,
+			agentId,
 		} = options;
 
 		let finalMessages: BaseMessage[] = [...messages];
@@ -175,77 +224,13 @@ export abstract class BaseAgentWrapper {
 				model = model.bindTools(tools) as any;
 			}
 
-			// Tool execution loop
-			const maxIterations =
-				options.maxToolIterations ?? this.maxToolIterations ?? 15;
-			for (let i = 0; i < maxIterations; i++) {
-				this.throwIfInterrupted();
-				// Retried like every other model call — a single network timeout
-				// mid-loop used to kill the whole run.
-				const response = (await withRetry(
-					() => model.invoke(finalMessages, this.withSignal(config)),
-					{
-						maxRetries: 2,
-						signal: this.signal,
-						onRetry: (attempt, max, err) =>
-							this.emitRetryWarning(agentNode, attempt, max, err),
-					},
-				)) as AIMessage;
-				finalMessages.push(response);
-
-				if (response.tool_calls && response.tool_calls.length > 0) {
-					for (const tc of response.tool_calls) {
-						const tool = tools.find((t) => t.name === tc.name);
-						if (tool) {
-							try {
-								const toolResult = await tool.invoke(
-									tc.args,
-									this.withSignal(config),
-								);
-								finalMessages.push(
-									new ToolMessage({
-										tool_call_id: tc.id!,
-										content:
-											typeof toolResult === "string"
-												? toolResult
-												: JSON.stringify(toolResult),
-										name: tc.name,
-									}),
-								);
-							} catch (e) {
-								finalMessages.push(
-									new ToolMessage({
-										tool_call_id: tc.id!,
-										content: `Error executing tool ${tc.name}: ${e}`,
-										name: tc.name,
-									}),
-								);
-							}
-						} else {
-							finalMessages.push(
-								new ToolMessage({
-									tool_call_id: tc.id!,
-									content: `Tool ${tc.name} not found.`,
-									name: tc.name,
-								}),
-							);
-						}
-					}
-				} else {
-					// No more tool calls — model produced its final answer.
-					if (zodSchema) {
-						// Drop the free-text message; the structured-output block
-						// below will re-ask the base model for JSON.
-						finalMessages.pop();
-						break;
-					}
-					// Free-text answer is ready. Return it directly. Re-invoking
-					// the model (line below) with this trailing assistant message
-					// makes providers like Mistral reject the request with
-					// invalid_request_message_order ("got assistant").
-					return response as T;
-				}
-			}
+			const result = await this.runToolExecutionLoop<T>(
+				model,
+				finalMessages,
+				tools,
+				options,
+			);
+			if (result.done) return result.value;
 		}
 
 		if (zodSchema) {
@@ -317,6 +302,127 @@ export abstract class BaseAgentWrapper {
 		);
 	}
 
+	/**
+	 * Runs the tool-call loop until the model stops calling tools or the
+	 * iteration cap is hit. `finalMessages` is mutated in place so the caller's
+	 * history stays in sync. Returns `{ done: true, value }` when the caller
+	 * should return immediately (free-text answer with no schema); otherwise
+	 * `{ done: false }` and `finalMessages` is ready for the structured-output
+	 * step below.
+	 */
+	private async runToolExecutionLoop<T>(
+		model: BaseChatModel,
+		finalMessages: BaseMessage[],
+		tools: StructuredTool[],
+		options: AgentInvokeOptions,
+	): Promise<{ done: true; value: T | AIMessage } | { done: false }> {
+		const { zodSchema, config, agentNode, agentId } = options;
+		const maxIterations =
+			options.maxToolIterations ?? this.maxToolIterations ?? 15;
+
+		for (let i = 0; i < maxIterations; i++) {
+			this.throwIfInterrupted();
+			// Retried like every other model call — a single network timeout
+			// mid-loop used to kill the whole run.
+			const response = (await withRetry(
+				() => model.invoke(finalMessages, this.withSignal(config)),
+				{
+					maxRetries: 2,
+					signal: this.signal,
+					onRetry: (attempt, max, err) =>
+						this.emitRetryWarning(agentNode, attempt, max, err),
+				},
+			)) as AIMessage;
+			finalMessages.push(response);
+
+			if (response.tool_calls && response.tool_calls.length > 0) {
+				for (const tc of response.tool_calls) {
+					await this.executeToolCall(tc, tools, finalMessages, {
+						agent: agentNode,
+						agentId,
+						config,
+					});
+				}
+				continue;
+			}
+
+			// No more tool calls — model produced its final answer.
+			if (zodSchema) {
+				// Drop the free-text message; the structured-output block
+				// below will re-ask the base model for JSON.
+				finalMessages.pop();
+				return { done: false };
+			}
+			// Free-text answer is ready. Return it directly. Re-invoking the
+			// model with this trailing assistant message makes providers like
+			// Mistral reject the request with invalid_request_message_order
+			// ("got assistant").
+			return { done: true, value: response as T };
+		}
+
+		return { done: false };
+	}
+
+	/** Invokes a single tool call and pushes its result (or error) as a ToolMessage. */
+	private async executeToolCall(
+		tc: NonNullable<AIMessage["tool_calls"]>[number],
+		tools: StructuredTool[],
+		finalMessages: BaseMessage[],
+		ctx: { agent?: string; agentId?: string; config?: RunnableConfig },
+	): Promise<void> {
+		const tool = tools.find((t) => t.name === tc.name);
+		const toolEvent = { agent: ctx.agent, agentId: ctx.agentId, tool: tc.name };
+		await this.emitToolEvent({ ...toolEvent, status: "started" });
+
+		if (!tool) {
+			finalMessages.push(
+				new ToolMessage({
+					tool_call_id: tc.id!,
+					content: `Tool ${tc.name} not found.`,
+					name: tc.name,
+				}),
+			);
+			await this.emitToolEvent({
+				...toolEvent,
+				status: "ended",
+				error: `tool ${tc.name} not found`,
+			});
+			return;
+		}
+
+		try {
+			const toolResult = await tool.invoke(tc.args, this.withSignal(ctx.config));
+			finalMessages.push(
+				new ToolMessage({
+					tool_call_id: tc.id!,
+					content:
+						typeof toolResult === "string"
+							? toolResult
+							: JSON.stringify(toolResult),
+					name: tc.name,
+				}),
+			);
+			await this.emitToolEvent({
+				...toolEvent,
+				status: "ended",
+				summary: summarizeToolResult(toolResult),
+			});
+		} catch (e) {
+			finalMessages.push(
+				new ToolMessage({
+					tool_call_id: tc.id!,
+					content: `Error executing tool ${tc.name}: ${e}`,
+					name: tc.name,
+				}),
+			);
+			await this.emitToolEvent({
+				...toolEvent,
+				status: "ended",
+				error: e instanceof Error ? e.message : String(e),
+			});
+		}
+	}
+
 	protected async fallbackStructuredOutput<T>(
 		model: BaseChatModel | Runnable<any, any>,
 		messages: BaseMessage[],
@@ -355,13 +461,23 @@ ${JSON.stringify(jsonSchema, null, 2)}
 		// providers like Mistral reject the request outright.
 		let lastError: unknown;
 
+		// Constrained decoding where the provider offers it — far more reliable than
+		// asking politely for "ONLY JSON" and then repairing the answer.
+		const jsonMode = this.jsonModeOptions();
+		let jsonModel =
+			jsonMode && typeof (model as any).bind === "function"
+				? (model as any).bind(jsonMode)
+				: model;
+
 		for (let attempt = 0; attempt < STRUCTURED_OUTPUT_ATTEMPTS; attempt++) {
 			this.throwIfInterrupted();
 
 			let content = "";
+			let rawResponse: unknown;
 			try {
-				const response = await model.invoke(modifiedMessages, config);
-				content = this.cleanJsonOutput(this.extractText(response));
+				const response = await jsonModel.invoke(modifiedMessages, config);
+				rawResponse = response;
+				content = cleanJsonOutput(extractText(response));
 
 				if (!content) {
 					// Common with reasoning models that burn the whole output budget
@@ -371,16 +487,22 @@ ${JSON.stringify(jsonSchema, null, 2)}
 					);
 				}
 
-				// `"field": null` for an omitted optional field is the single most
-				// common drift; drop nulls so optional() accepts them.
-				return schema.parse(
-					JSON.parse(content, (_key, value) =>
-						value === null ? undefined : value,
-					),
-				);
+				return schema.parse(parseJsonLoose(content));
 			} catch (error) {
 				if (this.signal?.aborted) throw error;
 				lastError = error;
+
+				// Nothing came back at all, so the provider rejected the request
+				// itself — usually an upstream that doesn't accept `response_format`
+				// (some OpenRouter models, older compatible servers). Drop the
+				// constraint rather than spending every attempt on the same 400.
+				if (rawResponse === undefined && jsonModel !== model) {
+					logger.warn("[BaseAgentWrapper] JSON mode rejected, dropping it", {
+						model: this.modelName,
+					});
+					jsonModel = model;
+				}
+
 				if (attempt === STRUCTURED_OUTPUT_ATTEMPTS - 1) break;
 
 				logger.warn("[BaseAgentWrapper] Structured output invalid, re-asking", {
@@ -397,12 +519,12 @@ ${JSON.stringify(jsonSchema, null, 2)}
 
 				modifiedMessages = [
 					...modifiedMessages,
-					new AIMessage(content || "(empty response)"),
+					this.asHistoryMessage(rawResponse, content),
 					new HumanMessage(
 						`Your previous response did not satisfy the required JSON schema.
 
 Problem:
-${this.describeSchemaError(error)}
+${describeSchemaError(error)}
 
 Respond again with ONLY the corrected JSON object. Use the exact property names from the schema (do not rename or omit them), and include every required property — use an empty array for required arrays you have nothing to put in.`,
 					),
@@ -411,74 +533,35 @@ Respond again with ONLY the corrected JSON object. Use the exact property names 
 		}
 
 		throw new Error(
-			`Failed to parse structured output after ${STRUCTURED_OUTPUT_ATTEMPTS} attempts. Error: ${this.describeSchemaError(lastError)}`,
+			`Failed to parse structured output after ${STRUCTURED_OUTPUT_ATTEMPTS} attempts. Error: ${describeSchemaError(lastError)}`,
 		);
 	}
 
-	/** Compact, model-readable description of a zod or JSON parse failure. */
-	private describeSchemaError(error: unknown): string {
-		const issues = (error as any)?.issues;
-		if (Array.isArray(issues)) {
-			return issues
-				.slice(0, 20)
-				.map(
-					(i: any) => `- ${(i.path ?? []).join(".") || "(root)"}: ${i.message}`,
-				)
-				.join("\n");
-		}
-		const message = error instanceof Error ? error.message : String(error);
-		return message.slice(0, 500);
-	}
-
 	/**
-	 * Flattens a model response to plain text. Content can be a string, an array
-	 * of content blocks (Anthropic/Google/reasoning models), or empty with the
-	 * real text parked in a provider-specific `reasoning_content` field.
+	 * Feeds the model's own message back into the correction turn, rather than a
+	 * fresh AIMessage built from the cleaned text. Reasoning models carry their
+	 * thinking in content blocks or `additional_kwargs.reasoning_content`, and
+	 * dropping it makes attempt 2 re-derive (and re-botch) the same answer.
 	 */
-	protected extractText(response: {
-		content: unknown;
-		additional_kwargs?: Record<string, any>;
-	}): string {
-		const { content } = response;
-		let text = "";
+	private asHistoryMessage(response: unknown, cleaned: string): AIMessage {
+		const raw = response as
+			| { content?: unknown; additional_kwargs?: Record<string, any> }
+			| undefined;
+		if (!raw) return new AIMessage(cleaned || "(empty response)");
 
-		if (typeof content === "string") {
-			text = content;
-		} else if (Array.isArray(content)) {
-			text = content
-				.map((block: any) =>
-					typeof block === "string" ? block : (block?.text ?? ""),
-				)
-				.join("");
-		}
+		const hasContent =
+			typeof raw.content === "string"
+				? raw.content.trim() !== ""
+				: Array.isArray(raw.content) && raw.content.length > 0;
 
-		if (!text.trim()) {
-			const reasoning = response.additional_kwargs?.reasoning_content;
-			if (typeof reasoning === "string") text = reasoning;
-		}
+		if (hasContent && response instanceof AIMessage) return response;
 
-		return text;
+		return new AIMessage({
+			content: hasContent
+				? (raw.content as any)
+				: extractText(raw as any) || "(empty response)",
+			additional_kwargs: raw.additional_kwargs ?? {},
+		});
 	}
 
-	protected cleanJsonOutput(content: string): string {
-		// Remove <think>...</think> blocks from deepseek or reasoning models
-		content = content.replace(/<think>[\s\S]*?<\/think>/g, "");
-
-		// Remove markdown code blocks if present
-		const codeBlockMatch = content.match(/```(?:json)?\s*([\s\S]*?)```/);
-		if (codeBlockMatch && codeBlockMatch[1]) {
-			content = codeBlockMatch[1];
-		}
-
-		content = content.trim();
-
-		// Strip any prose wrapped around the payload (e.g. "Here is the JSON: {...}").
-		const start = content.search(/[{[]/);
-		if (start > 0) {
-			const end = Math.max(content.lastIndexOf("}"), content.lastIndexOf("]"));
-			if (end > start) content = content.slice(start, end + 1);
-		}
-
-		return content.trim();
-	}
 }

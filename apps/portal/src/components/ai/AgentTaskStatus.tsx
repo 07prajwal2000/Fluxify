@@ -69,16 +69,23 @@ export function AgentTaskStatus({ conversationId }: { conversationId: string }) 
 					);
 
 					const humanName = getHumanFriendlyName(task.assignedAgentNode);
-					const steps = Object.values(run?.steps || {})
-						.filter(step => {
-							if (step.node === task.assignedAgentNode) return true;
-							const isSubAgentTask = task.assignedAgentNode === "blockBuilder" || task.assignedAgentNode === "routeConfig";
-							if (isSubAgentTask && step.level === "sub_agent") {
-								return step.node !== "blockBuilder" && step.node !== "routeConfig";
+					const taskNodeId = `${task.assignedAgentNode}:${task.id}`;
+					const stepUIState = run?.steps[taskNodeId];
+					const rawLogs = stepUIState?.logs || [];
+					
+					const logs: typeof rawLogs = [];
+					for (const log of rawLogs) {
+						if (log.executionType === "tool" && log.toolName) {
+							const existingIdx = logs.findIndex(g => g.executionType === "tool" && g.toolName === log.toolName);
+							if (existingIdx >= 0) {
+								logs[existingIdx] = log;
+							} else {
+								logs.push(log);
 							}
-							return false;
-						})
-						.sort((a, b) => a.timestamp - b.timestamp);
+						} else {
+							logs.push(log);
+						}
+					}
 
 					return (
 						<div key={task.id} className="flex flex-col">
@@ -109,30 +116,31 @@ export function AgentTaskStatus({ conversationId }: { conversationId: string }) 
 
 							{/* Events Accordion */}
 							<div
-								className={`overflow-hidden transition-all duration-300 ease-in-out ${
-									isExpanded ? "max-h-[500px] opacity-100 mt-1 mb-2" : "max-h-0 opacity-0"
+								className={`transition-all duration-300 ease-in-out ${
+									isExpanded ? "max-h-[140px] opacity-100 mt-1 mb-2 overflow-y-auto custom-scrollbar" : "max-h-0 opacity-0 overflow-hidden"
 								}`}
 							>
-								<div className="flex flex-col gap-1.5 pl-7 pr-2 border-l border-border/50 ml-3.5 relative py-1">
-									{steps.map((step, idx) => {
-										let icon = <span className="w-[5px] h-[5px] rounded-full bg-border shrink-0 absolute -left-[3px] top-[7px]" />;
-										let label = step.label;
-										
-										if (label.toLowerCase().includes("tool")) {
-											icon = <TbTool size={11} className="text-muted absolute -left-[6px] top-[4px]" />;
-											label = label.replace(/calling tool:?\s*/i, "Tool: ");
+								<div className="flex flex-col gap-1.5 pl-3 pr-2 border-l border-border/50 ml-3.5 relative py-1">
+									{logs.map((log, idx) => {
+										let icon = <span className="w-[5px] h-[5px] rounded-full bg-border" />;
+										const label = log.label;
+
+										if (log.executionType === "tool") {
+											icon = <TbTool size={11} className="text-muted" />;
 										}
 
 										return (
-											<div key={step.stepId || idx} className="flex items-start gap-2 relative">
-												{icon}
-												<span className="text-[12px] text-muted leading-tight">
+											<div key={`${log.timestamp}-${idx}`} className="flex items-start gap-2 w-full min-w-0">
+												<div className="w-4 flex justify-center shrink-0 mt-[5px]">
+													{icon}
+												</div>
+												<span className="text-[12px] text-muted leading-tight flex-1 min-w-0 break-words whitespace-pre-wrap">
 													{label}
 												</span>
 											</div>
 										);
 									})}
-									{steps.length === 0 && (
+									{logs.length === 0 && (
 										<div className="text-[12px] text-muted/50 italic">No events recorded yet.</div>
 									)}
 								</div>

@@ -2,11 +2,14 @@ import { create } from "zustand";
 import { immer } from "zustand/middleware/immer";
 import { useShallow } from "zustand/react/shallow";
 import {
+	RUN_NODE,
 	TERMINAL_RUN_STATUSES,
-	type AgentNodeName,
+	type HarnessEventNode,
+	type HarnessExecutionType,
 	type HarnessLevel,
 	type HarnessNodePayload,
-	type HarnessPhase,
+	type HarnessNodeStatus,
+	type HarnessRunResult,
 	type HarnessRunStatus,
 	type HarnessSnapshot,
 	type HarnessSocketMessage,
@@ -33,17 +36,29 @@ import { applyNodePayload } from "./harnessNodeReducers";
 
 const TERMINAL = new Set<string>(TERMINAL_RUN_STATUSES);
 
-/** One node execution. `node_start` and `node_end` share a `stepId` → upsert. */
-export interface StepUIState {
-	stepId: string;
-	node: AgentNodeName;
-	level: HarnessLevel;
-	phase: HarnessPhase;
-	status: "running" | "completed";
-	/** Human-readable label from `event.status`, e.g. "Running planner". */
+export interface StepLog {
 	label: string;
+	timestamp: number;
+	executionType: HarnessExecutionType;
+	toolName?: string;
+	nodeStatus: HarnessNodeStatus;
+}
+
+/** One node execution, keyed by `nodeId` — every event of that instance
+ *  (started, running, tool calls, ended) upserts the same entry. */
+export interface StepUIState {
+	nodeId: string;
+	node: HarnessEventNode;
+	level: HarnessLevel;
+	nodeStatus: HarnessNodeStatus;
+	executionType: HarnessExecutionType;
+	/** Latest `plainTextMessage` — what the node is doing right now. */
+	label: string;
+	/** Tool currently running inside this node, if any. */
+	toolName?: string;
 	payload?: HarnessNodePayload;
 	timestamp: number;
+	logs: StepLog[];
 }
 
 /** Everything the UI needs to render one conversation's live/last run. */
@@ -51,7 +66,7 @@ export interface ConversationUIState {
 	conversationId: string;
 	runId: string;
 	runStatus: HarnessRunStatus;
-	currentNode?: AgentNodeName;
+	currentNode?: HarnessEventNode;
 	currentLevel?: HarnessLevel;
 	/** No more events for this run pass. `awaiting_hitl` is terminal-but-resumable. */
 	isTerminal: boolean;
@@ -68,6 +83,8 @@ export interface ConversationUIState {
 	summary?: string;
 	artifactId?: string;
 	hitl?: { reason: string; markdownPlan?: string };
+	/** Set once by the run-level `ended` event — the final outcome + result. */
+	result?: HarnessRunResult;
 }
 
 export type ConversationMeta = z.infer<
@@ -134,43 +151,84 @@ export function applyEvent(
 		event.runId,
 	));
 
+	const isRunLevel = event.currentNode === RUN_NODE;
+
 	// 1) Scalars only ever move forward in time.
 	if (event.timestamp >= run.lastTimestamp) {
 		run.runId = event.runId;
 		run.runStatus = event.runStatus;
-		run.currentNode = event.node;
+		if (!isRunLevel) run.currentNode = event.currentNode;
 		run.currentLevel = event.level;
 		run.lastTimestamp = event.timestamp;
-		run.isTerminal = event.phase === "status" && TERMINAL.has(event.runStatus);
+		// The run-level `ended` bookend is the ONLY terminal signal.
+		run.isTerminal = isRunLevel && event.nodeStatus === "ended";
 		// HITL is a pause, not an end: a fresh node run means the user answered.
-		if (event.phase === "node_start" && event.node !== "humanInTheLoop") {
+		if (
+			event.nodeStatus === "started" &&
+			!isRunLevel &&
+			event.currentNode !== "humanInTheLoop"
+		) {
 			run.hitl = undefined;
 		}
 	}
 
-	// 2) Step upsert. `stepId` is absent on most `status` events, and a `node_end`
-	//    may arrive with no preceding `node_start` (the snapshot log is bounded to
-	//    the last 200 events) — so this creates as readily as it updates.
-	if (event.stepId) {
-		const prev = run.steps[event.stepId];
+	// 2) Step upsert, keyed by `nodeId`. Creates as readily as it updates: the
+	//    Redis queue is bounded, so an `ended` can arrive with no `started`.
+	//    A tool event updates its parent node's row (same nodeId) rather than
+	//    creating one, so `ended` on a tool must not complete the node.
+	if (!isRunLevel) {
+		const prev = run.steps[event.nodeId];
+		const isTool = event.executionType === "tool";
+		
+		const newLog: StepLog = {
+			label: event.plainTextMessage,
+			timestamp: event.timestamp,
+			executionType: event.executionType,
+			toolName: isTool ? event.toolName : undefined,
+			nodeStatus: event.nodeStatus,
+		};
+		
+		const logs = prev?.logs ? [...prev.logs] : [];
+		const isDuplicate = logs.some(
+			(l) =>
+				l.timestamp === newLog.timestamp &&
+				l.label === newLog.label &&
+				l.executionType === newLog.executionType &&
+				l.nodeStatus === newLog.nodeStatus
+		);
+		if (!isDuplicate) {
+			logs.push(newLog);
+			logs.sort((a, b) => a.timestamp - b.timestamp);
+		}
+
 		if (!prev || event.timestamp >= prev.timestamp) {
-			run.steps[event.stepId] = {
-				stepId: event.stepId,
-				node: event.node,
+			run.steps[event.nodeId] = {
+				nodeId: event.nodeId,
+				node: event.currentNode,
 				level: event.level,
-				phase: event.phase,
-				status:
-					event.phase === "node_end" || prev?.status === "completed"
-						? "completed"
-						: "running",
-				label: event.status,
+				nodeStatus: isTool
+					? (prev?.nodeStatus ?? "running")
+					: event.nodeStatus === "started" && prev?.nodeStatus === "ended"
+						? "ended"
+						: event.nodeStatus,
+				executionType: event.executionType,
+				label: event.plainTextMessage,
+				toolName: isTool && event.nodeStatus === "started" ? event.toolName : undefined,
 				payload: event.payload ?? prev?.payload,
 				timestamp: event.timestamp,
+				logs,
 			};
+		} else if (prev) {
+			prev.logs = logs;
 		}
 	}
 
-	// 3) Node-specific projection (plan, summary, task DAG, ...).
+	// 3) The final outcome, delivered once on the run-level `ended` event.
+	if (isRunLevel && event.payload?.node === RUN_NODE) {
+		run.result = event.payload.data;
+	}
+
+	// 4) Node-specific projection (plan, summary, task DAG, ...).
 	if (event.payload) applyNodePayload(run, event.payload, event);
 }
 

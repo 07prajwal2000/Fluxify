@@ -13,6 +13,7 @@ import { useScrollToBottom } from "./useScrollToBottom";
 import { ScrollToBottomButton } from "./ScrollToBottomButton";
 import { ChatTitleEditor } from "./ChatTitleEditor";
 import { AgentTaskStatus } from "./AgentTaskStatus";
+import { HarnessStatusAccordion } from "./HarnessStatusAccordion";
 import type { HarnessConversation } from "./types";
 import { PlanReviewModal } from "./PlanReviewModal";
 import { Button } from "@fluxify/components";
@@ -168,7 +169,7 @@ export function ConversationPage() {
 				<ChatTitleEditor projectId={projectId} conversation={activeConversation} />
 			</div>
 
-			<div className="flex-1 overflow-y-auto px-4 pb-12 pt-16">
+			<div className="flex-1 overflow-y-auto px-4 pb-32 pt-16">
 				<div className="mx-auto flex w-full max-w-[65%] flex-col-reverse gap-6">
 					<div ref={bottomRef} className="h-0 w-0 shrink-0" />
 					
@@ -227,9 +228,13 @@ export function ConversationPage() {
 					) : (
 						messages.map((msg, idx) => {
 							const isLatest = idx === 0;
-							const displayStatus = (isLatest && activeRun && !activeRun.isTerminal) ? activeRun.runStatus : msg.status;
+							const isRunActive = isLatest && activeRun && !activeRun.isTerminal;
+							const displayStatus = isRunActive ? activeRun.runStatus : msg.status;
+							
+							const isHitlMessage = msg.status === "awaiting_hitl" || msg.status.startsWith("hitl_");
 							
 							const looksLikePlan = msg.aiResponse && (
+								isHitlMessage ||
 								msg.aiResponse === planText || 
 								(msg.aiResponse.includes("Plan:") && msg.aiResponse.includes("Task 1:")) ||
 								msg.aiResponse.includes("Implementation Plan")
@@ -263,21 +268,27 @@ export function ConversationPage() {
 											</Button>
 										</div>
 									) : isHistoricalPlan ? (
-										<div className="w-full rounded-2xl border border-white/10 bg-white/5 p-4 flex flex-col gap-3 opacity-70">
-											<div className="flex items-center gap-4">
-												<div className="bg-white/10 p-2.5 rounded-xl text-foreground shrink-0">
-													<TbListSearch size={20} />
-												</div>
-												<div className="flex-1">
-													<h3 className="text-base font-medium text-foreground">Implementation Plan</h3>
-													<p className="text-xs text-muted mt-0.5">
-														{displayStatus === "running" ? "Plan is currently being executed." : "Plan was reviewed and approved."}
-													</p>
+										<div className="flex w-full flex-col gap-2">
+											{isRunActive && <HarnessStatusAccordion conversationId={conversationId} />}
+											<div className="w-full rounded-2xl border border-white/10 bg-white/5 p-4 flex flex-col gap-3 opacity-70">
+												<div className="flex items-center gap-4">
+													<div className="bg-white/10 p-2.5 rounded-xl text-foreground shrink-0">
+														<TbListSearch size={20} />
+													</div>
+													<div className="flex-1">
+														<h3 className="text-base font-medium text-foreground">Implementation Plan</h3>
+														<p className="text-xs text-muted mt-0.5">
+															{isRunActive ? "Plan is currently being executed." : "Plan was reviewed and approved."}
+														</p>
+													</div>
 												</div>
 											</div>
 										</div>
 									) : (
-										<AiMessage response={msg.aiResponse} status={displayStatus} />
+										<div className="flex w-full flex-col gap-2">
+											{isRunActive && <HarnessStatusAccordion conversationId={conversationId} />}
+											<AiMessage response={msg.aiResponse} status={isRunActive ? undefined : displayStatus} />
+										</div>
 									)}
 								</div>
 							);

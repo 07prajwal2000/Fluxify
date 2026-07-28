@@ -80,20 +80,32 @@ When creating branches or Pull Requests via the `gh` CLI:
 1. Pass `slot="selection"` on any `<Checkbox>` rendered inside `<Table.Header>` or `<Table.Cell>` (e.g. `<Checkbox slot="selection" ... />`).
 2. Replace nested `<button>` elements inside `<Table.Column>` with clickable `<div>` or `<span>` elements (e.g. `<div role="button" tabIndex={0} onClick={...}>`).
 
-### Harness Structured Output — "JSON Parse error: Unexpected EOF" / silent parse failures
-**File:** `apps/ai-gateway/src/harness/models/base.ts` (`fallbackStructuredOutput`).
+### Harness Structured Output — "Unrecognized token '\'" / "Unexpected EOF" / silent parse failures
+**File:** `apps/ai-gateway/src/harness/models/base.ts` (`fallbackStructuredOutput`, `cleanJsonOutput`, `sliceBalancedJson`, `parseJsonLoose`).
+
+**First line of defence is JSON mode, not the parser.** `jsonModeOptions()` is a per-provider hook, bound **only** on the prompt-fallback path (`model.bind(...)`): OpenAI / OpenRouter / Mistral → `response_format: { type: "json_object" }`, Ollama → `format: "json"`, Anthropic/Google → none (they use the native path). Constrained decoding is what stops prose, `\boxed{}`, and escaped payloads at the source — every repair below is only a net. Do **not** bind it on the native `withStructuredOutput` path (that already sends `json_schema`). If a provider rejects `response_format` outright (some OpenRouter upstreams, older compatible servers), the loop detects "no response came back at all" and drops the constraint for the remaining attempts instead of burning all 3 on the same 400.
+
 **Symptoms & causes (all fixed, keep the fixes):**
-1. `Model response: .` (empty) — `response.content as string` assumed a plain string. Reasoning/multi-block models return an **array of content blocks**, or park text in `additional_kwargs.reasoning_content`. Use `extractText()`; never cast `.content` to string.
+1. `Model response: .` (empty) — `response.content as string` assumed a plain string. Reasoning/multi-block models return an **array of content blocks**, or park text in `additional_kwargs.reasoning_content` (DeepSeek), `additional_kwargs.reasoning` (OpenRouter), or a `thinking` block. Use `extractText()`; never cast `.content` to string.
 2. Empty content also happens when a model burns its whole output budget on thinking. It throws a named error now — don't let it reach `JSON.parse`.
-3. Prose around the payload ("Here is the JSON: {...}") — `cleanJsonOutput` strips code fences AND slices from the first `{`/`[` to the last `}`/`]`.
-4. `"field": null` for an omitted optional field — zod `.optional()` **rejects null**. Two defenses: `JSON.parse` reviver drops nulls, and agent schemas use `.nullish()` instead of `.optional()`.
+3. **`JSON Parse error: Unrecognized token '\'`** — the model returned the payload as a *quoted, escaped JSON string* (`"{\"blocks\":[]}"`). The old slice-from-first-`{` cut the opening quote and left the escapes behind. `cleanJsonOutput` now unwraps a fully quoted string (`JSON.parse` it once, keep the inner string) **before** slicing, and `parseJsonLoose` retries once with `\"` → `"` for the unquoted variant (`{\"blocks\":[]}`).
+4. Prose/extra braces around the payload — **never use `lastIndexOf("}")`**. It guesses wrong the moment the model appends a brace of its own (`… } {see above}`, `\boxed{{…}}`) or a string *value* contains `}`. `sliceBalancedJson()` counts braces string-aware and returns the first complete value; `null` (no braces / truncated) falls through to the raw content so the EOF error still surfaces to the retry loop.
+5. `"field": null` for an omitted optional field — zod `.optional()` **rejects null**. Two defenses: the `JSON.parse` reviver drops nulls, and agent schemas use `.nullish()` instead of `.optional()`.
+
 **Rules:**
 - Prefer `.nullish()` over `.optional()` in any zod schema an LLM fills.
 - Give required arrays `.default([])` — a terminal block has no `connections`, a fresh canvas has no `canvasChanges`; making the model type `[]` is just an error surface.
 - Every agent prompt must include an **Output Contract** with the exact property names and a concrete JSON example. Field-name drift (`type` vs `blockType`) is a prompt bug, not a model bug.
+- Adding a provider wrapper? Override `jsonModeOptions()` if its SDK exposes a JSON/response-format call option — **verify the field name in `node_modules`**, don't guess (see the field-name check in the "Missing credentials" section).
+
+### Harness Temperature — always near-greedy
+`HARNESS_TEMPERATURE = 0` (exported from `models/base.ts`) is passed by every wrapper. These agents emit JSON and graph edits, not prose; sampling variance is pure error surface and was a direct cause of intermittent schema drift. **Exception:** OpenAI reasoning models (`o1`/`o3`/`o4`/`gpt-5`, matched by `FIXED_TEMPERATURE_MODEL` in `models/openai/index.ts`) **400 on any temperature but the default** — omit the field entirely for those.
 
 ### Harness Retries — a blind retry makes the model repeat the same mistake
-`withRetry` re-sends an identical prompt, so schema violations recur every attempt. `fallbackStructuredOutput` retries internally instead: it appends the bad output as an `AIMessage` plus the compact zod issue list as a **`HumanMessage`** correction, then re-asks (3 attempts). The correction must be a human turn — see the `invalid_request_message_order` rules above.
+`withRetry` re-sends an identical prompt, so schema violations recur every attempt. `fallbackStructuredOutput` retries internally instead: it appends the bad output plus the compact zod issue list as a **`HumanMessage`** correction, then re-asks (3 attempts). The correction must be a human turn — see the `invalid_request_message_order` rules above.
+
+**Echo the model's own message back, not a rebuilt one.** The correction turn uses `asHistoryMessage()`, which returns the original `AIMessage` so provider-specific reasoning (`reasoning_content`, thinking blocks) travels with it. Constructing `new AIMessage(cleanedText)` throws the reasoning away and attempt 2 just re-derives — and re-botches — the same answer. When the response has no textual content, it rebuilds with the extracted reasoning text and preserves `additional_kwargs`.
+
 Also: native `withStructuredOutput` failures are caught and fall through to the prompt fallback rather than killing the run.
 
 ### Harness "The operation timed out." / run hangs
@@ -112,7 +124,7 @@ Also: native `withStructuredOutput` failures are caught and fall through to the 
 **Field-name check per SDK (verified in node_modules, not guessed):** `ChatOpenAI` → `apiKey` only. `ChatAnthropic` → `apiKey` (`anthropicApiKey` still aliased; base URL is `anthropicApiUrl`, NOT `baseUrl`). `ChatGoogle`, `ChatMistralAI`, `ChatOpenRouter` → `apiKey`. When bumping a LangChain package, re-check these — the aliases die quietly with no type error.
 **Fix (`models/openai/index.ts`):**
 - `apiKey: this.apiKey || (this.baseUrl ? "not-required" : undefined)` — a placeholder only when a custom `baseUrl` is set; real OpenAI still requires a real key.
-- `supportsStructuredOutput()` returns `false` when `baseUrl` is set. Compatible servers usually reject the `json_schema` response format, so skip the native path and use the prompt fallback instead of burning 3 retries per call.
+- `supportsStructuredOutput()` returns `false` when `baseUrl` is set. Compatible servers usually reject the `json_schema` response format, so skip the native path and use the prompt fallback instead of burning 3 retries per call. That fallback still constrains output via `json_object` (`jsonModeOptions()`), which every OpenAI-compatible server honours — the two flags are deliberately separate.
 
 ### Harness Orchestrator — skipped/repeated task levels
 **Issue:** Sub-agents appeared to run twice (e.g. block builder inside block builder) and levels got skipped.
