@@ -29,9 +29,11 @@ import { RedisService } from "./internal/redisService";
 import { FluxifyOtelTracer } from "./telemetry/otel-tracer";
 import { HarnessCallbacks } from "./callbacks";
 import {
-	levelForNode,
+	RUN_NODE,
 	labelForNode,
 	runStatusForNode,
+	type HarnessNodeStatus,
+	type HarnessRunResult,
 	type HarnessRunStatus,
 	type HarnessStreamEvent,
 } from "./streamTypes";
@@ -152,6 +154,7 @@ export class FluxifyHarness {
 	) {
 		const harnessService = new HarnessService(ctx.conversationId);
 		const userId = await harnessService.getOwnerUserId();
+		await this.emitRunEvent(ctx, userId, "queued", "started", "Discarding the plan");
 		const aiResponse = `**Plan rejected.** ${
 			action.message
 				? `Reason: ${action.message}`
@@ -172,13 +175,9 @@ export class FluxifyHarness {
 		});
 		await harnessService.updateConversationStatus("completed", null);
 		await this.redisService.clearActiveRun(ctx.conversationId);
-		await this.emitTerminal(
-			ctx,
-			userId,
-			"completed",
-			AgentNode.HUMAN_IN_THE_LOOP,
-			aiResponse,
-		);
+		await this.emitRunEvent(ctx, userId, "completed", "ended", "Plan rejected", {
+			result: aiResponse,
+		});
 		await this.redisService.finalizeSnapshot(ctx.runId);
 		return undefined;
 	}
@@ -240,6 +239,16 @@ export class FluxifyHarness {
 		// Resolve the conversation owner once — it's the `conversations.<userId>`
 		// pub/sub subject every event for this run is published to.
 		const userId = await harnessService.getOwnerUserId();
+
+		// Bookend #1. Emitted before anything can fail (including the provider
+		// probe below) so every run's event log opens the same way.
+		await this.emitRunEvent(
+			ctx,
+			userId,
+			"queued",
+			"started",
+			ctx.action ? "Resuming your request" : "Starting on your request",
+		);
 
 		// Verify the selected AI provider is actually reachable before spending a
 		// run on it. On failure, exit with a meaningful aiResponse instead of a
@@ -311,12 +320,12 @@ export class FluxifyHarness {
 					state.action.type === "approve"
 						? AgentNode.TASK_GENERATOR
 						: AgentNode.VERIFY_USER_QUERY;
-				await this.emitTerminal(
+				await this.emitRunEvent(
 					ctx,
 					userId,
 					runStatusForNode(entryNode),
-					entryNode,
-					`Resuming — ${labelForNode(entryNode)}`,
+					"running",
+					`Resuming at the ${labelForNode(entryNode)}`,
 				);
 			}
 
@@ -430,11 +439,13 @@ export class FluxifyHarness {
 				graphState: finalState,
 			});
 			await harnessService.updateConversationStatus("paused_hitl", ctx.runId);
-			await this.emitTerminal(
+			await this.emitRunEvent(
 				ctx,
 				userId,
 				"awaiting_hitl",
-				AgentNode.HUMAN_IN_THE_LOOP,
+				"ended",
+				"Paused — the plan is waiting for your review",
+				{ result: markdownPlan },
 			);
 			// HITL is terminal for this run pass — evict its live-state snapshot soon.
 			await this.redisService.finalizeSnapshot(ctx.runId);
@@ -465,12 +476,10 @@ export class FluxifyHarness {
 		});
 		await harnessService.updateConversationStatus("completed", null);
 		await this.redisService.clearActiveRun(ctx.conversationId);
-		await this.emitTerminal(
-			ctx,
-			userId,
-			"completed",
-			finalState?.currentAgent ?? AgentNode.ORCHESTRATOR,
-		);
+		await this.emitRunEvent(ctx, userId, "completed", "ended", "All done", {
+			result: aiResponse ?? undefined,
+			artifactId: finalState?.summarizerState?.artifactId,
+		});
 		await this.redisService.finalizeSnapshot(ctx.runId);
 	}
 
@@ -496,7 +505,7 @@ export class FluxifyHarness {
 		userId: string | null,
 		error?: unknown,
 		aiResponse?: string,
-		node: AgentNodeName = AgentNode.ROUTER,
+		node?: AgentNodeName,
 	) {
 		const message =
 			error instanceof Error ? error.message : error ? String(error) : "failed";
@@ -514,7 +523,14 @@ export class FluxifyHarness {
 			});
 			await harnessService.updateConversationStatus("failed", null);
 			await this.redisService.clearActiveRun(ctx.conversationId);
-			await this.emitTerminal(ctx, userId, "failed", node, message);
+			await this.emitRunEvent(
+				ctx,
+				userId,
+				"failed",
+				"ended",
+				`Failed at the ${labelForNode(node)}`,
+				{ result: aiResponse, error: message },
+			);
 			await this.redisService.finalizeSnapshot(ctx.runId);
 		} catch (e) {
 			logger.error("[FluxifyHarness] Error persisting run failure", {
@@ -557,13 +573,9 @@ export class FluxifyHarness {
 			});
 			await harnessService.updateConversationStatus("interrupted", null);
 			await this.redisService.clearActiveRun(ctx.conversationId);
-			await this.emitTerminal(
-				ctx,
-				userId,
-				"interrupted",
-				AgentNode.ROUTER,
-				message,
-			);
+			await this.emitRunEvent(ctx, userId, "interrupted", "ended", message, {
+				result: message,
+			});
 			await this.redisService.finalizeSnapshot(ctx.runId);
 		} catch (e) {
 			logger.error("[FluxifyHarness] Error persisting run interrupt", {
@@ -573,22 +585,33 @@ export class FluxifyHarness {
 		}
 	}
 
-	/** Emits a run-level terminal event so subscribers get a close signal. */
-	private async emitTerminal(
+	/**
+	 * Emits a run-level bookend on the synthetic `run` node — the first and last
+	 * event of every run, whatever happens in between. The `ended` one carries the
+	 * full result (or the failure reason) so a client never has to re-fetch.
+	 */
+	private async emitRunEvent(
 		ctx: HarnessRunContext,
 		userId: string | null,
 		runStatus: HarnessRunStatus,
-		node: AgentNodeName,
-		statusText?: string,
+		nodeStatus: HarnessNodeStatus,
+		message: string,
+		result?: Omit<HarnessRunResult, "runStatus">,
 	) {
 		const event: HarnessStreamEvent = {
 			conversationId: ctx.conversationId,
 			runId: ctx.runId,
-			level: levelForNode(node),
-			phase: "status",
-			node,
-			status: statusText ?? runStatus,
+			currentNode: RUN_NODE,
+			nodeId: RUN_NODE,
+			nodeStatus,
+			executionType: "agent",
+			plainTextMessage: message,
 			runStatus,
+			level: "harness",
+			payload:
+				nodeStatus === "ended"
+					? { node: RUN_NODE, data: { runStatus, ...result } }
+					: undefined,
 			timestamp: Date.now(),
 		};
 		try {

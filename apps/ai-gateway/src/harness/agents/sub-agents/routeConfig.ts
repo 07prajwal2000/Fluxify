@@ -152,6 +152,7 @@ Determine the exact route configuration intent. Use your tools if you need more 
 			messages: [],
 			userQuery: userQuery,
 			agentNode: AgentNode.ROUTE_CONFIG_AGENT,
+			agentId: activeTask.id,
 		})) as z.infer<typeof routeConfigSchema>;
 
 		if (response.action === "create" && !response.routeId) {

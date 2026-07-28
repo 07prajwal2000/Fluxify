@@ -116,15 +116,14 @@ export function AgentTaskStatus({ conversationId }: { conversationId: string }) 
 								<div className="flex flex-col gap-1.5 pl-7 pr-2 border-l border-border/50 ml-3.5 relative py-1">
 									{steps.map((step, idx) => {
 										let icon = <span className="w-[5px] h-[5px] rounded-full bg-border shrink-0 absolute -left-[3px] top-[7px]" />;
-										let label = step.label;
-										
-										if (label.toLowerCase().includes("tool")) {
+										const label = step.label;
+
+										if (step.executionType === "tool") {
 											icon = <TbTool size={11} className="text-muted absolute -left-[6px] top-[4px]" />;
-											label = label.replace(/calling tool:?\s*/i, "Tool: ");
 										}
 
 										return (
-											<div key={step.stepId || idx} className="flex items-start gap-2 relative">
+											<div key={step.nodeId || idx} className="flex items-start gap-2 relative">
 												{icon}
 												<span className="text-[12px] text-muted leading-tight">
 													{label}

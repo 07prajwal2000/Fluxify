@@ -13,13 +13,21 @@
 
 export type {
 	HarnessLevel,
-	HarnessPhase,
+	HarnessEventNode,
+	HarnessNodeStatus,
+	HarnessExecutionType,
 	HarnessRunStatus,
+	HarnessRunResult,
 	HarnessTaskView,
 	HarnessNodePayload,
 	HarnessStreamEvent,
 	HarnessSnapshot,
 } from "./streamTypes";
+
+/** The synthetic node carrying run-level bookends. Declared here as a literal
+ *  rather than re-exported: `streamTypes` pulls in the `AgentNode` enum (a
+ *  runtime value), and this module must stay import-free for the browser. */
+export const RUN_NODE = "run";
 
 export type {
 	AgentNodeName,
@@ -50,9 +58,11 @@ export const HARNESS_SOCKET_EVENT = "conversation";
 
 /**
  * Server -> client message, discriminated by `type`:
- *  - `full_state`: sent on every (re)connect — current run state for each active
- *    conversation the user owns (read from Redis).
- *  - `update`: a single live harness event; `conversationId` + `stepId` identify it.
+ *  - `full_state`: sent on every (re)connect — the full event queue of each
+ *    in-flight conversation the user owns, replayed from Redis.
+ *  - `update`: a single live harness event.
+ *
+ * Both carry the same `HarnessStreamEvent`, so one handler covers both.
  */
 export type HarnessSocketMessage =
 	| { type: "full_state"; conversations: HarnessSnapshot[] }
@@ -60,7 +70,6 @@ export type HarnessSocketMessage =
 			type: "update";
 			conversationId: string;
 			runId: string;
-			stepId?: string;
 			event: HarnessStreamEvent;
 	  };
 

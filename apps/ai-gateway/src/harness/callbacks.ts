@@ -6,14 +6,21 @@ import {
 	type AgentNodeName,
 	type CustomEventName,
 	type AgentCustomEvent,
+	type ToolCallEventData,
 } from "./types";
 import {
 	type HarnessStreamEvent,
 	type HarnessNodePayload,
-	type HarnessPhase,
+	type HarnessNodeStatus,
+	type HarnessExecutionType,
+	type HarnessEventNode,
+	type HarnessRunStatus,
 	levelForNode,
 	runStatusForNode,
 	labelForNode,
+	nodeIdFor,
+	nodeMessage,
+	toolMessage,
 	buildTasksByLevel,
 	activeLevelIndex,
 } from "./streamTypes";
@@ -79,29 +86,31 @@ export class HarnessCallbacks {
 
 	/* ---------------------------------------------------------------- helpers */
 
-	/** subAgentId key: stable per node (and per task for sub-agents) so the
-	 *  step upsert is idempotent across re-executions / dispatch levels. */
-	private stepKey(node: AgentNodeName, taskId?: string): string {
-		return taskId ? `${node}:${taskId}` : node;
-	}
-
-	private makeEvent(
-		node: AgentNodeName,
-		phase: HarnessPhase,
-		status: string,
-		payload?: HarnessNodePayload,
-		stepId?: string,
-	): HarnessStreamEvent {
+	/** Builds the one standard event shape. `nodeId` doubles as the DB
+	 *  `subAgentId` key, so a node's step upsert stays idempotent across
+	 *  re-executions and its events stay correlatable client-side. */
+	private makeEvent(opts: {
+		node: HarnessEventNode;
+		nodeStatus: HarnessNodeStatus;
+		message: string;
+		taskId?: string;
+		executionType?: HarnessExecutionType;
+		toolName?: string;
+		payload?: HarnessNodePayload;
+		runStatus?: HarnessRunStatus;
+	}): HarnessStreamEvent {
 		return {
 			conversationId: this.conversationId,
 			runId: this.runId,
-			stepId,
-			level: levelForNode(node),
-			phase,
-			node,
-			status,
-			runStatus: runStatusForNode(node),
-			payload,
+			currentNode: opts.node,
+			nodeId: nodeIdFor(opts.node, opts.taskId),
+			nodeStatus: opts.nodeStatus,
+			executionType: opts.executionType ?? "agent",
+			toolName: opts.toolName,
+			plainTextMessage: opts.message,
+			runStatus: opts.runStatus ?? runStatusForNode(opts.node),
+			level: levelForNode(opts.node),
+			payload: opts.payload,
 			timestamp: Date.now(),
 		};
 	}
@@ -116,7 +125,7 @@ export class HarnessCallbacks {
 			} catch (error) {
 				logger.error("Error emitting event", "HarnessCallbacks", {
 					runId: this.runId,
-					node: event.node,
+					node: event.currentNode,
 					error,
 				});
 			}
@@ -203,7 +212,7 @@ export class HarnessCallbacks {
 				conversationId: this.conversationId,
 				stepType: node,
 				subAgentRole: node,
-				subAgentId: this.stepKey(node, taskId),
+				subAgentId: nodeIdFor(node, taskId),
 				status: "running",
 			},
 			true, // background
@@ -221,7 +230,12 @@ export class HarnessCallbacks {
 		);
 
 		this.emit(
-			this.makeEvent(node, "node_start", `Running ${node}`, undefined, step?.id),
+			this.makeEvent({
+				node,
+				taskId,
+				nodeStatus: "started",
+				message: nodeMessage(node, "started"),
+			}),
 		);
 	}
 
@@ -233,13 +247,13 @@ export class HarnessCallbacks {
 
 		const taskId = output.activeTask?.id ?? input.activeTask?.id;
 
-		const step = await this.harnessService.upsertStep(
+		await this.harnessService.upsertStep(
 			{
 				runId: this.runId,
 				conversationId: this.conversationId,
 				stepType: node,
 				subAgentRole: node,
-				subAgentId: this.stepKey(node, taskId),
+				subAgentId: nodeIdFor(node, taskId),
 				status: "completed",
 			},
 			true,
@@ -257,7 +271,13 @@ export class HarnessCallbacks {
 
 		const payload = this.buildPayload(node, output, input);
 		this.emit(
-			this.makeEvent(node, "node_end", `Completed ${node}`, payload, step?.id),
+			this.makeEvent({
+				node,
+				taskId,
+				nodeStatus: "ended",
+				message: nodeMessage(node, "ended"),
+				payload,
+			}),
 		);
 	}
 
@@ -267,8 +287,33 @@ export class HarnessCallbacks {
 	): Promise<void> {
 		if (eventName === "agent_status") {
 			const node = (eventData?.agent ?? AgentNode.ROUTER) as AgentNodeName;
+			if (!GRAPH_NODES.has(node)) return;
 			this.emit(
-				this.makeEvent(node, "status", eventData?.status ?? "working"),
+				this.makeEvent({
+					node,
+					taskId: eventData?.agentId,
+					nodeStatus: "running",
+					message: eventData?.status ?? `Working on ${labelForNode(node)}`,
+				}),
+			);
+			return;
+		}
+
+		if (eventName === "tool_call") {
+			const data = eventData as ToolCallEventData;
+			const node = data?.agent as AgentNodeName;
+			if (!GRAPH_NODES.has(node) || !data?.tool) return;
+			this.emit(
+				this.makeEvent({
+					node,
+					taskId: data.agentId,
+					// A tool call is its own started/ended pair nested inside the node's
+					// own pair — same nodeId, so the client can attach it to the row.
+					nodeStatus: data.status,
+					executionType: "tool",
+					toolName: data.tool,
+					message: toolMessage(data.tool, data.status, data.summary, data.error),
+				}),
 			);
 			return;
 		}
@@ -278,9 +323,14 @@ export class HarnessCallbacks {
 			const markdownPlan =
 				eventData?.data?.markdownPlan ?? this.mergedState.plannerState?.markdownPlan;
 			this.emit(
-				this.makeEvent(node, "hitl_required", "Human review required", {
+				this.makeEvent({
 					node,
-					data: { reason: eventData?.reason ?? "review", markdownPlan },
+					nodeStatus: "running",
+					message: "Waiting for you to review the plan",
+					payload: {
+						node,
+						data: { reason: eventData?.reason ?? "review", markdownPlan },
+					},
 				}),
 			);
 		}
@@ -294,10 +344,12 @@ export class HarnessCallbacks {
 		const node = (info.agentNode as AgentNodeName) ?? AgentNode.ROUTER;
 		if (!GRAPH_NODES.has(node)) return;
 		const reason = explainErrorReason(info.rawError);
-		const status = `${labelForNode(node)} hit a hiccup and is retrying (attempt ${info.attempt}/${info.maxAttempts}) — ${reason}`;
-		this.emit({
-			...this.makeEvent(node, "warning", status),
-			warning: { attempt: info.attempt, maxAttempts: info.maxAttempts },
-		});
+		this.emit(
+			this.makeEvent({
+				node,
+				nodeStatus: "running",
+				message: `The ${labelForNode(node)} hit a hiccup and is retrying (attempt ${info.attempt}/${info.maxAttempts}) — ${reason}`,
+			}),
+		);
 	}
 }

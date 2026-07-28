@@ -11,25 +11,39 @@ import {
 } from "./types";
 
 /* ============================================================================
- * HARNESS STREAM / SSE EVENT CONTRACT
+ * HARNESS STREAM EVENT CONTRACT
  * ----------------------------------------------------------------------------
- * Structured, discriminated events emitted per node execution. Stored in Redis
- * (snapshot + event log) and pushed via BullMQ job progress -> QueueEvents ->
- * EventEmitter. The frontend infers the payload TS type from `node` + `level`.
+ * ONE event shape for everything the harness does. Every event answers the same
+ * five questions:
+ *   currentNode      which graph node is talking
+ *   nodeId           which *instance* of it (sub-agents run several at once)
+ *   nodeStatus       started | running | ended
+ *   executionType    agent | tool
+ *   plainTextMessage what to show the user, in plain English
+ *
+ * Events are appended to a Redis queue per run and published to NATS ->
+ * socket.io. A client that connects mid-run gets the whole queue replayed as
+ * `full_state`, then live events, so the two paths are byte-identical.
+ *
+ * See `harness_events.md` in this folder for the full flow and client guide.
  * ========================================================================== */
 
 /** Which tier of the harness produced the event. */
 export type HarnessLevel = "harness" | "sub_agent";
 
-/** Lifecycle phase of the event. `warning` is non-terminal — the agent hit a
- *  retryable error (e.g. bad structured output) and is re-asking the model; it
- *  never changes `runStatus` away from what the agent was already doing. */
-export type HarnessPhase =
-	| "node_start"
-	| "node_end"
-	| "status"
-	| "hitl_required"
-	| "warning";
+/** Synthetic node for run-level bookends (run started / run finished). It is
+ *  deliberately NOT a member of `AgentNode` — no graph node is called "run". */
+export const RUN_NODE = "run";
+
+/** Anything that can appear as `currentNode`. */
+export type HarnessEventNode = AgentNodeName | typeof RUN_NODE;
+
+/** Lifecycle of one node (or one tool call) instance. Exactly one `started` and
+ *  one `ended` per instance, with any number of `running` updates in between. */
+export type HarnessNodeStatus = "started" | "running" | "ended";
+
+/** Whether the harness is inside agent reasoning or executing a tool. */
+export type HarnessExecutionType = "agent" | "tool";
 
 /** Mirrors agentHarnessRunStatusEnum in the DB schema. */
 export type HarnessRunStatus =
@@ -92,32 +106,56 @@ export type HarnessNodePayload =
 	| {
 			node: `${AgentNode.HUMAN_IN_THE_LOOP}`;
 			data: { reason: string; markdownPlan?: string };
-	  };
+	  }
+	| { node: typeof RUN_NODE; data: HarnessRunResult };
 
-/** The event streamed to clients (and cached) for every node execution. */
+/** Final outcome of a run, carried on the run-level `ended` event so a client
+ *  never has to re-fetch to render the result. */
+export interface HarnessRunResult {
+	runStatus: HarnessRunStatus;
+	/** The markdown the harness produced (summary, discussion answer, or plan). */
+	result?: string;
+	/** Artifact row backing the summary, when one was persisted. */
+	artifactId?: string;
+	/** Why the run failed or was interrupted. Absent on success. */
+	error?: string;
+}
+
+/**
+ * The one event shape. Emitted for node entry/exit, in-node progress, tool
+ * calls, and the run-level bookends — nothing else is ever sent.
+ */
 export interface HarnessStreamEvent {
 	conversationId: string;
 	runId: string;
-	stepId?: string;
-	level: HarnessLevel;
-	phase: HarnessPhase;
-	node: AgentNodeName;
-	status: string;
+	/** The graph node this event is about (`"run"` for run-level bookends). */
+	currentNode: HarnessEventNode;
+	/**
+	 * Instance key. `currentNode` for singleton nodes; `currentNode:<taskId>` for
+	 * sub-agents, since the orchestrator can run several blockBuilders at once.
+	 * Stable across the started/running/ended events of one execution — use it as
+	 * the UI row key, not `currentNode`.
+	 */
+	nodeId: string;
+	nodeStatus: HarnessNodeStatus;
+	executionType: HarnessExecutionType;
+	/** Tool being executed. Only set when `executionType === "tool"`. */
+	toolName?: string;
+	/** One short sentence for the user. Always present, never empty. */
+	plainTextMessage: string;
 	runStatus: HarnessRunStatus;
+	level: HarnessLevel;
+	/** Structured data for nodes that produce some (plan, task DAG, result...). */
 	payload?: HarnessNodePayload;
-	/** Present only on `phase: "warning"` — `status` already carries the full
-	 *  human-readable sentence; this is for UIs that want to render retry
-	 *  progress (e.g. "2/3") without parsing text. */
-	warning?: { attempt: number; maxAttempts: number };
 	timestamp: number;
 }
 
-/** Cached per-run snapshot used for SSE catch-up before live events stream in. */
+/** Cached per-run event queue, replayed to any client that (re)connects. */
 export interface HarnessSnapshot {
 	conversationId: string;
 	runId: string;
 	runStatus: HarnessRunStatus;
-	currentNode?: AgentNodeName;
+	currentNode?: HarnessEventNode;
 	currentLevel?: HarnessLevel;
 	events: HarnessStreamEvent[];
 	updatedAt: number;
@@ -133,8 +171,13 @@ const SUB_AGENT_NODES: ReadonlySet<AgentNodeName> = new Set<AgentNodeName>([
 	AgentNode.ROUTE_CONFIG_AGENT,
 ]);
 
-export function levelForNode(node: AgentNodeName): HarnessLevel {
-	return SUB_AGENT_NODES.has(node) ? "sub_agent" : "harness";
+export function levelForNode(node: HarnessEventNode): HarnessLevel {
+	return SUB_AGENT_NODES.has(node as AgentNodeName) ? "sub_agent" : "harness";
+}
+
+/** Instance key for a node execution — see `HarnessStreamEvent.nodeId`. */
+export function nodeIdFor(node: HarnessEventNode, taskId?: string): string {
+	return taskId ? `${node}:${taskId}` : node;
 }
 
 /** Human-readable node names for user-facing messages (e.g. failure reports). */
@@ -151,14 +194,113 @@ const NODE_LABELS: Record<string, string> = {
 	[AgentNode.ROUTE_CONFIG_AGENT]: "route configurator",
 	[AgentNode.SUPERVISOR]: "supervisor",
 	[AgentNode.SUMMARIZER]: "summarizer",
+	[RUN_NODE]: "AI harness",
 };
 
-export function labelForNode(node?: AgentNodeName): string {
+export function labelForNode(node?: HarnessEventNode): string {
 	return (node && NODE_LABELS[node]) || "AI harness";
 }
 
+/* ----------------------------------------------------------------------------
+ * PLAIN-TEXT MESSAGES
+ * ----------------------------------------------------------------------------
+ * Every event carries a sentence the UI can render verbatim. Node entry/exit
+ * uses the table below; mid-node progress ("found 3 routes") comes from the
+ * agent itself via `dispatchAgentEvent`.
+ * -------------------------------------------------------------------------- */
+
+const NODE_MESSAGES: Record<string, { started: string; ended: string }> = {
+	[AgentNode.ROUTER]: {
+		started: "Understanding your request",
+		ended: "Request understood",
+	},
+	[AgentNode.CLASSIFIER]: {
+		started: "Classifying your request",
+		ended: "Request classified",
+	},
+	[AgentNode.VERIFY_USER_QUERY]: {
+		started: "Checking whether this can be built",
+		ended: "Capability check finished",
+	},
+	[AgentNode.PLANNER]: {
+		started: "Drafting an implementation plan",
+		ended: "Plan ready",
+	},
+	[AgentNode.TASK_GENERATOR]: {
+		started: "Breaking the plan into tasks",
+		ended: "Tasks ready",
+	},
+	[AgentNode.DISCUSSION]: {
+		started: "Thinking about your question",
+		ended: "Answer ready",
+	},
+	[AgentNode.ORCHESTRATOR]: {
+		started: "Scheduling the next tasks",
+		ended: "Tasks scheduled",
+	},
+	[AgentNode.BLOCK_BUILDER]: {
+		started: "Building workflow blocks",
+		ended: "Blocks built",
+	},
+	[AgentNode.ROUTE_CONFIG_AGENT]: {
+		started: "Configuring the API route",
+		ended: "Route configured",
+	},
+	[AgentNode.SUPERVISOR]: {
+		started: "Reviewing task results",
+		ended: "Review finished",
+	},
+	[AgentNode.SUMMARIZER]: {
+		started: "Summarising the changes",
+		ended: "Summary ready",
+	},
+	[AgentNode.HUMAN_IN_THE_LOOP]: {
+		started: "Waiting for your review",
+		ended: "Review received",
+	},
+};
+
+/** Sentence for a node entering/leaving. `running` has no default — the agent
+ *  supplies its own progress text. */
+export function nodeMessage(
+	node: HarnessEventNode,
+	status: "started" | "ended",
+): string {
+	const entry = NODE_MESSAGES[node];
+	if (entry) return entry[status];
+	return status === "started"
+		? `Starting ${labelForNode(node)}`
+		: `Finished ${labelForNode(node)}`;
+}
+
+/** What each tool is doing, in the user's words rather than the tool's name. */
+const TOOL_MESSAGES: Record<string, string> = {
+	search_docs: "Searching the documentation",
+	find_resource: "Looking up project resources",
+	get_route_details: "Reading route details",
+	get_block_schemas: "Reading block schemas",
+	get_agent_output: "Reading a previous task's output",
+	get_artifact: "Reading an earlier summary",
+};
+
+/**
+ * Sentence for a tool call. `summary` is a short result description supplied by
+ * the tool loop (e.g. "3 results"); `error` replaces it when the tool threw.
+ */
+export function toolMessage(
+	toolName: string,
+	status: "started" | "ended",
+	summary?: string,
+	error?: string,
+): string {
+	const label = TOOL_MESSAGES[toolName] ?? `Running ${toolName}`;
+	if (status === "started") return `${label}…`;
+	if (error) return `${label} — failed: ${error}`;
+	return summary ? `${label} — found ${summary}` : `${label} — done`;
+}
+
 /** Maps a node to the run status it represents while executing. */
-export function runStatusForNode(node: AgentNodeName): HarnessRunStatus {
+export function runStatusForNode(node: HarnessEventNode): HarnessRunStatus {
 	switch (node) {
 		case AgentNode.ROUTER:
 			return "routing";

@@ -7,6 +7,7 @@ import {
 	ToolMessage,
 } from "@langchain/core/messages";
 import { Runnable, RunnableConfig } from "@langchain/core/runnables";
+import { dispatchCustomEvent } from "@langchain/core/callbacks/dispatch";
 import { StructuredTool } from "@langchain/core/tools";
 import { z } from "zod";
 import { zodToJsonSchema } from "zod-to-json-schema";
@@ -33,6 +34,35 @@ export interface AgentInvokeOptions {
 	 *  this provider-agnostic layer doesn't depend on the graph's node enum.
 	 *  Threaded into retry-warning events so the UI can attribute them. */
 	agentNode?: string;
+	/** Task id when a sub-agent is calling — several instances of the same node
+	 *  run concurrently, so events need it to stay attributable. */
+	agentId?: string;
+}
+
+/**
+ * Short, human-readable description of what a tool returned ("3 results"), so
+ * the client can say *what* was found instead of just "tool finished".
+ * Best-effort: an unrecognised shape simply yields nothing.
+ */
+function summarizeToolResult(result: unknown): string | undefined {
+	let value = result;
+	if (typeof value === "string") {
+		try {
+			value = JSON.parse(value);
+		} catch {
+			return undefined;
+		}
+	}
+	const plural = (n: number, noun: string) =>
+		`${n} ${noun}${n === 1 ? "" : "s"}`;
+
+	if (Array.isArray(value)) return plural(value.length, "result");
+	if (value && typeof value === "object") {
+		for (const [key, entry] of Object.entries(value)) {
+			if (Array.isArray(entry)) return plural(entry.length, key.replace(/s$/, ""));
+		}
+	}
+	return undefined;
 }
 
 /** A retryable error a caller may want to surface live (e.g. as a socket
@@ -78,6 +108,28 @@ export abstract class BaseAgentWrapper {
 			maxAttempts,
 			rawError: error instanceof Error ? error.message : String(error),
 		});
+	}
+
+	/**
+	 * Publishes a tool-call event onto the graph's custom-event stream, where
+	 * `HarnessCallbacks` turns it into a standard `executionType: "tool"` event.
+	 * Never throws: outside a LangGraph run (unit tests, direct wrapper use)
+	 * there is no callback context to dispatch into, and that must not fail the
+	 * tool call itself.
+	 */
+	private async emitToolEvent(data: {
+		agent?: string;
+		agentId?: string;
+		tool: string;
+		status: "started" | "ended";
+		summary?: string;
+		error?: string;
+	}): Promise<void> {
+		try {
+			await dispatchCustomEvent("tool_call", { ...data, agent: data.agent ?? "" });
+		} catch {
+			/* no run context — nothing to report to */
+		}
 	}
 
 	/**
@@ -155,6 +207,7 @@ export abstract class BaseAgentWrapper {
 			tools,
 			config,
 			agentNode,
+			agentId,
 		} = options;
 
 		let finalMessages: BaseMessage[] = [...messages];
@@ -196,6 +249,9 @@ export abstract class BaseAgentWrapper {
 				if (response.tool_calls && response.tool_calls.length > 0) {
 					for (const tc of response.tool_calls) {
 						const tool = tools.find((t) => t.name === tc.name);
+						const toolEvent = { agent: agentNode, agentId, tool: tc.name };
+						await this.emitToolEvent({ ...toolEvent, status: "started" });
+
 						if (tool) {
 							try {
 								const toolResult = await tool.invoke(
@@ -212,6 +268,11 @@ export abstract class BaseAgentWrapper {
 										name: tc.name,
 									}),
 								);
+								await this.emitToolEvent({
+									...toolEvent,
+									status: "ended",
+									summary: summarizeToolResult(toolResult),
+								});
 							} catch (e) {
 								finalMessages.push(
 									new ToolMessage({
@@ -220,6 +281,11 @@ export abstract class BaseAgentWrapper {
 										name: tc.name,
 									}),
 								);
+								await this.emitToolEvent({
+									...toolEvent,
+									status: "ended",
+									error: e instanceof Error ? e.message : String(e),
+								});
 							}
 						} else {
 							finalMessages.push(
@@ -229,6 +295,11 @@ export abstract class BaseAgentWrapper {
 									name: tc.name,
 								}),
 							);
+							await this.emitToolEvent({
+								...toolEvent,
+								status: "ended",
+								error: `tool ${tc.name} not found`,
+							});
 						}
 					}
 				} else {

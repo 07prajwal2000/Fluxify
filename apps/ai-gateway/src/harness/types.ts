@@ -39,7 +39,25 @@ export interface FindResourceResult {
 
 export type AgentNodeName = `${AgentNode}`;
 
-export type CustomEventName = "agent_status" | "human_in_the_loop_required";
+export type CustomEventName =
+	| "agent_status"
+	| "human_in_the_loop_required"
+	| "tool_call";
+
+/** Emitted by the tool-execution loop in `models/base.ts` around every tool
+ *  invocation, so the client sees tool work as first-class progress instead of
+ *  a silent gap inside an agent. */
+export interface ToolCallEventData {
+	/** Graph node whose agent requested the tool. */
+	agent: string;
+	/** Task id when a sub-agent requested it — becomes the event's `nodeId`. */
+	agentId?: string;
+	tool: string;
+	status: "started" | "ended";
+	/** Short description of what came back, e.g. "3 results". */
+	summary?: string;
+	error?: string;
+}
 
 export type AgentCustomEvent =
 	| {
@@ -49,7 +67,8 @@ export type AgentCustomEvent =
 	| {
 			name: "human_in_the_loop_required";
 			data: { agent: string; reason: string; data?: any };
-	  };
+	  }
+	| { name: "tool_call"; data: ToolCallEventData };
 
 export interface Task {
 	id: string;
