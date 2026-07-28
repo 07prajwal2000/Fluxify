@@ -30,17 +30,76 @@ import { FluxifyOtelTracer } from "./telemetry/otel-tracer";
 import { HarnessCallbacks } from "./callbacks";
 import {
 	levelForNode,
+	labelForNode,
+	runStatusForNode,
 	type HarnessRunStatus,
 	type HarnessStreamEvent,
 } from "./streamTypes";
 import { publishHarnessEvent } from "./notifications";
-import { isUserInterrupt } from "./errors";
+import { isUserInterrupt, explainErrorReason } from "./errors";
 import {
 	registerRunController,
 	unregisterRunController,
 	requestInterrupt,
 } from "./interrupt";
 import type { HarnessJobData, HarnessJobMetadata } from "./queue";
+
+/**
+ * Best-effort message for anything thrown. Provider SDKs sometimes reject with
+ * plain objects (`{ code: 23, ... }`) whose `String()` is "[object Object]".
+ */
+function errorMessage(error: unknown): string {
+	if (error instanceof Error) return error.message || error.name;
+	if (typeof error === "string") return error;
+	if (error && typeof error === "object") {
+		const e = error as Record<string, any>;
+		const parts = [e.message, e.error?.message, e.code, e.name].filter(
+			(p) => typeof p === "string" && p.length > 0,
+		);
+		if (parts.length > 0) return parts.join(" ");
+		try {
+			return JSON.stringify(error).slice(0, 500);
+		} catch {
+			return "Unknown error";
+		}
+	}
+	return String(error ?? "Unknown error");
+}
+
+/**
+ * Turns a thrown error into a short, user-readable explanation of why the run
+ * failed. Persisted as the run's `aiResponse` so the UI shows something more
+ * useful than a bare `failed` status.
+ */
+export function describeFailure(error: unknown, node?: AgentNodeName): string {
+	const raw = errorMessage(error);
+	const where = labelForNode(node);
+	const reason = explainErrorReason(raw);
+
+	return `This request could not be completed — it failed at the **${where}** step because ${reason}\n\nDetails: ${raw.slice(0, 500)}`;
+}
+
+/** Turns a HITL decision into the human turn the router/planner actually read
+ *  ("check message history" per the planner prompt) — `state.action` itself is
+ *  never inspected by any graph node, so this is the only path review
+ *  comments have into the model. */
+function describeHitlAction(action: HitlPlanAction): string | undefined {
+	switch (action.type) {
+		case "approve":
+			return "I approve this plan. Proceed with implementation.";
+		case "reject":
+			return `I reject this plan.${action.message ? ` Reason: ${action.message}` : ""}`;
+		case "review": {
+			if (!action.comments?.length) return undefined;
+			const comments = action.comments.map((c) =>
+				typeof c === "string" ? c : c.text,
+			);
+			return `Please revise the plan based on my feedback:\n${comments.map((c) => `- ${c}`).join("\n")}`;
+		}
+		default:
+			return undefined;
+	}
+}
 
 /** Everything a single harness run needs — supplied by the worker from job data. */
 export interface HarnessRunContext {
@@ -75,8 +134,53 @@ export class FluxifyHarness {
 	}
 
 	public async continue(ctx: HarnessRunContext) {
+		// `reject` throws the plan away outright — there's nothing left for the
+		// graph to do, so skip it entirely instead of paying for a router/verify/
+		// planner cycle just to land back on the same rejected plan.
+		if (ctx.action?.type === "reject") {
+			return await this.rejectRun(ctx, ctx.action);
+		}
 		const state = await this.buildState(ctx, "continue");
 		return await this.executeGraph(ctx, state);
+	}
+
+	/** Persists a rejected HITL plan as a completed (non-implemented) run,
+	 *  without invoking the graph. */
+	private async rejectRun(
+		ctx: HarnessRunContext,
+		action: Extract<HitlPlanAction, { type: "reject" }>,
+	) {
+		const harnessService = new HarnessService(ctx.conversationId);
+		const userId = await harnessService.getOwnerUserId();
+		const aiResponse = `**Plan rejected.** ${
+			action.message
+				? `Reason: ${action.message}`
+				: "No reason was provided."
+		} This plan will not be implemented — send a new message to start over.`;
+
+		await harnessService.updateRun({
+			runId: ctx.runId,
+			status: "completed",
+			aiResponse,
+			completedAt: new Date(),
+		});
+		await harnessService.saveLiveState({
+			runId: ctx.runId,
+			conversationId: ctx.conversationId,
+			currentState: "completed",
+			workingMemory: {},
+		});
+		await harnessService.updateConversationStatus("completed", null);
+		await this.redisService.clearActiveRun(ctx.conversationId);
+		await this.emitTerminal(
+			ctx,
+			userId,
+			"completed",
+			AgentNode.HUMAN_IN_THE_LOOP,
+			aiResponse,
+		);
+		await this.redisService.finalizeSnapshot(ctx.runId);
+		return undefined;
 	}
 
 	// Load previous messages from DB using HarnessService
@@ -96,13 +200,16 @@ export class FluxifyHarness {
 		const messages = await harnessService.getConversationMessageHistory();
 		if (ctx.query) {
 			messages.push(new HumanMessage(ctx.query));
+		} else if (mode === "continue" && ctx.action) {
+			const decision = describeHitlAction(ctx.action);
+			if (decision) messages.push(new HumanMessage(decision));
 		}
 
 		// On resume, rehydrate the serializable working-memory slices persisted
 		// when the run parked at HITL.
 		const workingMemory =
 			mode === "continue"
-				? (await harnessService.loadWorkingMemory(ctx.runId)) ?? {}
+				? ((await harnessService.loadWorkingMemory(ctx.runId)) ?? {})
 				: {};
 
 		return {
@@ -162,6 +269,12 @@ export class FluxifyHarness {
 		// aborting it raises UserInterruptError out of the graph (caught below).
 		const abortController = new AbortController();
 		state.agentWrapper?.setAbortSignal(abortController.signal);
+		// Surfaces retryable model errors (bad structured output, transient
+		// network issues) as live "warning" events instead of only finding out
+		// when the run eventually finishes or fails.
+		state.agentWrapper?.setRetryWarningSink((info) =>
+			callbacks.emitRetryWarning(info),
+		);
 		registerRunController(ctx.conversationId, abortController);
 
 		// Attach the OTEL tracer as a run callback (app.invoke used to pass this;
@@ -170,11 +283,42 @@ export class FluxifyHarness {
 			version: "v2",
 			callbacks: [new FluxifyOtelTracer()],
 			signal: abortController.signal,
+			// Each task level costs 3 supersteps (sub-agent -> supervisor ->
+			// orchestrator), so LangGraph's default of 25 fails a perfectly healthy
+			// multi-task build right after it produced correct output.
+			recursionLimit: 100,
 		};
 		let finalState: Partial<GlobalGraphState> | undefined;
+		// Last node the graph entered — the one to blame if the run throws.
+		let lastNode: AgentNodeName | undefined;
 
 		try {
-			await harnessService.updateRun({ runId: ctx.runId, status: "routing" }, true);
+			await harnessService.updateRun(
+				{ runId: ctx.runId, status: "routing" },
+				true,
+			);
+			await harnessService.updateConversationStatus("running", ctx.runId);
+
+			// A HITL `approve`/`review` resume enters the graph past the router (and
+			// past verify, for `approve`) — see graph.ts's conditional START edge. The
+			// WS client's first signal that the run is moving would otherwise be
+			// whatever node it happens to land on, which is easy to lose (a single
+			// event racing the client's resubscribe right after it submitted the
+			// review). Emit an explicit status event for the actual entry node right
+			// away so the UI can't miss the resume.
+			if (state.action?.type === "approve" || state.action?.type === "review") {
+				const entryNode =
+					state.action.type === "approve"
+						? AgentNode.TASK_GENERATOR
+						: AgentNode.VERIFY_USER_QUERY;
+				await this.emitTerminal(
+					ctx,
+					userId,
+					runStatusForNode(entryNode),
+					entryNode,
+					`Resuming — ${labelForNode(entryNode)}`,
+				);
+			}
 
 			await withFluxifyContext(
 				{
@@ -197,12 +341,16 @@ export class FluxifyHarness {
 							event.event === "on_chain_start" &&
 							event.name !== "LangGraph"
 						) {
+							lastNode = event.name as AgentNodeName;
 							await callbacks.onBefore(event.name as AgentNodeName, event.data);
 						} else if (event.event === "on_chain_end") {
 							if (event.name === "LangGraph") {
 								finalState = event.data.output as Partial<GlobalGraphState>;
 							} else {
-								await callbacks.onAfter(event.name as AgentNodeName, event.data);
+								await callbacks.onAfter(
+									event.name as AgentNodeName,
+									event.data,
+								);
 							}
 						}
 					}
@@ -216,7 +364,10 @@ export class FluxifyHarness {
 
 			// User interrupt is a clean terminal, not a failure — finalize as
 			// `interrupted` and don't rethrow (so BullMQ doesn't retry the job).
-			if (isUserInterrupt(error)) {
+			// A bare AbortError only means "interrupted" if this run's controller
+			// actually fired — provider-side timeouts abort too, and those are
+			// failures, not user stops.
+			if (isUserInterrupt(error) && abortController.signal.aborted) {
 				logger.info("[FluxifyHarness] Run interrupted by user", {
 					conversationId: ctx.conversationId,
 					runId: ctx.runId,
@@ -232,7 +383,14 @@ export class FluxifyHarness {
 			});
 			// Raw dump so the underlying stack is visible in foreground runs.
 			logger.error("Graph error", "FluxifyHarness", { error });
-			await this.failRun(ctx, harnessService, userId, error);
+			await this.failRun(
+				ctx,
+				harnessService,
+				userId,
+				error,
+				describeFailure(error, lastNode),
+				lastNode,
+			);
 			throw error;
 		} finally {
 			unregisterRunController(ctx.conversationId);
@@ -272,7 +430,12 @@ export class FluxifyHarness {
 				graphState: finalState,
 			});
 			await harnessService.updateConversationStatus("paused_hitl", ctx.runId);
-			await this.emitTerminal(ctx, userId, "awaiting_hitl", AgentNode.HUMAN_IN_THE_LOOP);
+			await this.emitTerminal(
+				ctx,
+				userId,
+				"awaiting_hitl",
+				AgentNode.HUMAN_IN_THE_LOOP,
+			);
 			// HITL is terminal for this run pass — evict its live-state snapshot soon.
 			await this.redisService.finalizeSnapshot(ctx.runId);
 			logger.info("[FluxifyHarness] Run parked for HITL", {
@@ -333,6 +496,7 @@ export class FluxifyHarness {
 		userId: string | null,
 		error?: unknown,
 		aiResponse?: string,
+		node: AgentNodeName = AgentNode.ROUTER,
 	) {
 		const message =
 			error instanceof Error ? error.message : error ? String(error) : "failed";
@@ -350,7 +514,7 @@ export class FluxifyHarness {
 			});
 			await harnessService.updateConversationStatus("failed", null);
 			await this.redisService.clearActiveRun(ctx.conversationId);
-			await this.emitTerminal(ctx, userId, "failed", AgentNode.ROUTER, message);
+			await this.emitTerminal(ctx, userId, "failed", node, message);
 			await this.redisService.finalizeSnapshot(ctx.runId);
 		} catch (e) {
 			logger.error("[FluxifyHarness] Error persisting run failure", {
@@ -376,7 +540,8 @@ export class FluxifyHarness {
 		harnessService: HarnessService,
 		userId: string | null,
 	) {
-		const message = "This run was stopped by the user before it finished.";
+		const message =
+			"Conversation was interrupted by the user before it finished.";
 		try {
 			await harnessService.updateRun({
 				runId: ctx.runId,
@@ -392,7 +557,13 @@ export class FluxifyHarness {
 			});
 			await harnessService.updateConversationStatus("interrupted", null);
 			await this.redisService.clearActiveRun(ctx.conversationId);
-			await this.emitTerminal(ctx, userId, "interrupted", AgentNode.ROUTER, message);
+			await this.emitTerminal(
+				ctx,
+				userId,
+				"interrupted",
+				AgentNode.ROUTER,
+				message,
+			);
 			await this.redisService.finalizeSnapshot(ctx.runId);
 		} catch (e) {
 			logger.error("[FluxifyHarness] Error persisting run interrupt", {

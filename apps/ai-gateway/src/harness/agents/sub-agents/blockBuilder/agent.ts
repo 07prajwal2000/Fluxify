@@ -108,6 +108,7 @@ export class BlockBuilderAgent extends BaseAgent {
 			tools,
 			messages: [],
 			userQuery,
+			agentNode: AgentNode.BLOCK_BUILDER,
 		})) as z.infer<typeof blockBuilderSchema>;
 
 		const shortIdMap = new Map(

@@ -22,13 +22,13 @@ const verifySchema = z.object({
 		),
 	rejectReason: z
 		.string()
-		.optional()
+		.nullish()
 		.describe(
 			"Human-readable reason if rejected. Must be provided if capable is false.",
 		),
 	scratchpad: z
 		.string()
-		.optional()
+		.nullish()
 		.describe(
 			"A scratchpad note for descendant AI agents. Use this to pass important context, warnings, or missing integration info. Fill only if required.",
 		),
@@ -93,6 +93,7 @@ Analyze the request internally. Instead of raw reasoning, provide a 'scratchpad'
 			systemPrompt,
 			messages: this.state.messages,
 			userQuery: this.state.userQuery,
+			agentNode: AgentNode.VERIFY_USER_QUERY,
 		})) as z.infer<typeof verifySchema>;
 
 		await dispatchAgentEvent({
@@ -111,7 +112,7 @@ Analyze the request internally. Instead of raw reasoning, provide a 'scratchpad'
 			nextRoute: response.capable ? AgentNode.PLANNER : undefined,
 			verifyUserQueryState: {
 				capable: response.capable,
-				rejectReason: response.rejectReason,
+				rejectReason: response.rejectReason ?? undefined,
 			},
 			scratchpad: response.scratchpad ? [response.scratchpad] : [],
 		};

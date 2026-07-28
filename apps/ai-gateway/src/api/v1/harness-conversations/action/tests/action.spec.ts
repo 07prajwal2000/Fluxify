@@ -7,6 +7,7 @@ import type { ConversationAction } from "../dto";
 
 mock.module("../repository", () => ({
 	setConversationFlags: mock(),
+	markSubArtifactApplied: mock(),
 }));
 
 mock.module("../../cacheVersion", () => ({
@@ -99,5 +100,34 @@ describe("Harness Conversation Action Service", () => {
 		expect(
 			handleRequest("conv1", body("hitl_approve"), conv({ status: "running" })),
 		).rejects.toThrow(serverModule.ConflictError);
+	});
+
+	it("marks a sub-artifact applied whatever the run status, as often as asked", async () => {
+		const markSpy = spyOn(repository, "markSubArtifactApplied").mockResolvedValue({
+			id: "sub1",
+			appliedAt: new Date(),
+		} as never);
+		const applyBody = {
+			action: "sub_artifact_applied" as const,
+			sub_artifact: { subArtifactId: "sub1" },
+		};
+
+		await handleRequest("conv1", applyBody, conv({ status: "running" }));
+		await handleRequest("conv1", applyBody, conv({ status: "running" }));
+
+		expect(markSpy).toHaveBeenCalledTimes(2);
+		expect(markSpy).toHaveBeenCalledWith("conv1", "sub1");
+	});
+
+	it("404s when the sub-artifact is not in this conversation", async () => {
+		spyOn(repository, "markSubArtifactApplied").mockResolvedValue(undefined as never);
+
+		expect(
+			handleRequest(
+				"conv1",
+				{ action: "sub_artifact_applied", sub_artifact: { subArtifactId: "other" } },
+				conv(),
+			),
+		).rejects.toThrow(serverModule.NotFoundError);
 	});
 });

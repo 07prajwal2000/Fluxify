@@ -19,7 +19,8 @@ export class AnthropicAgentWrapper extends BaseAgentWrapper {
 	protected getModel(): BaseChatModel {
 		return new ChatAnthropic({
 			model: this.modelName,
-			anthropicApiKey: this.apiKey,
+			// `apiKey` is the canonical field; `anthropicApiKey` is a legacy alias.
+			apiKey: this.apiKey,
 			anthropicApiUrl: this.baseUrl,
 			clientOptions: {
 				defaultHeaders: this.additionalHeaders,

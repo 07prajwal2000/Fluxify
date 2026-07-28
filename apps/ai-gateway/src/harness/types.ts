@@ -1,7 +1,7 @@
 import { Annotation, MessagesAnnotation } from "@langchain/langgraph";
 import type { BaseAgentWrapper } from "./models/base";
 import type { DbService } from "./internal/dbService";
-import type { HarnessService } from "./internal/harnessService";
+import type { HarnessService, HitlPlanAction } from "./internal/harnessService";
 
 export enum AgentNode {
 	ROUTER = "router",
@@ -142,7 +142,10 @@ export type AgentOutputValidator = (
 
 export interface OrchestratorState {
 	tasks?: Task[];
-	taskQueue?: string[][]; // Topologically sorted task IDs grouped by independent execution levels
+	/** Topologically sorted task IDs grouped by level, produced by the task
+	 *  generator. Informational only — the orchestrator derives the next level
+	 *  from task statuses + dependencies so re-entry can't skip or repeat one. */
+	taskQueue?: string[][];
 	dispatchedTasks?: Task[]; // Tasks dispatched in the current tick
 	subAgentResults?: Record<string, SubAgentResult>;
 }
@@ -168,8 +171,7 @@ export const GraphState = Annotation.Root({
 		reducer: (oldState, newState) => newState ?? oldState,
 		default: () => undefined,
 	}),
-	action: Annotation<unknown>({
-		// TODO: implement core details of action (e.g. HITL, approvals) later
+	action: Annotation<HitlPlanAction | undefined>({
 		reducer: (oldState, newState) => newState ?? oldState,
 		default: () => undefined,
 	}),

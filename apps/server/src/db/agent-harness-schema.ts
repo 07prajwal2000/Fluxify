@@ -276,6 +276,10 @@ export const agentHarnessSubArtifactsEntity = pgTable(
 		kind: varchar("kind", { length: 50 }).notNull(),
 		// "add" | "delete" | "changes"
 		action: varchar("action", { length: 50 }),
+		/** Set when the user applies this output to the project. Null = never
+		 *  applied, so sub-agents can tell what is live and what is only proposed.
+		 *  Re-applying just refreshes the timestamp. */
+		appliedAt: timestamp("applied_at"),
 		payload: jsonb("payload").$type<Record<string, any>>().notNull(),
 		createdAt: timestamp("created_at").defaultNow().notNull(),
 	},

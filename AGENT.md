@@ -80,6 +80,47 @@ When creating branches or Pull Requests via the `gh` CLI:
 1. Pass `slot="selection"` on any `<Checkbox>` rendered inside `<Table.Header>` or `<Table.Cell>` (e.g. `<Checkbox slot="selection" ... />`).
 2. Replace nested `<button>` elements inside `<Table.Column>` with clickable `<div>` or `<span>` elements (e.g. `<div role="button" tabIndex={0} onClick={...}>`).
 
+### Harness Structured Output — "JSON Parse error: Unexpected EOF" / silent parse failures
+**File:** `apps/ai-gateway/src/harness/models/base.ts` (`fallbackStructuredOutput`).
+**Symptoms & causes (all fixed, keep the fixes):**
+1. `Model response: .` (empty) — `response.content as string` assumed a plain string. Reasoning/multi-block models return an **array of content blocks**, or park text in `additional_kwargs.reasoning_content`. Use `extractText()`; never cast `.content` to string.
+2. Empty content also happens when a model burns its whole output budget on thinking. It throws a named error now — don't let it reach `JSON.parse`.
+3. Prose around the payload ("Here is the JSON: {...}") — `cleanJsonOutput` strips code fences AND slices from the first `{`/`[` to the last `}`/`]`.
+4. `"field": null` for an omitted optional field — zod `.optional()` **rejects null**. Two defenses: `JSON.parse` reviver drops nulls, and agent schemas use `.nullish()` instead of `.optional()`.
+**Rules:**
+- Prefer `.nullish()` over `.optional()` in any zod schema an LLM fills.
+- Give required arrays `.default([])` — a terminal block has no `connections`, a fresh canvas has no `canvasChanges`; making the model type `[]` is just an error surface.
+- Every agent prompt must include an **Output Contract** with the exact property names and a concrete JSON example. Field-name drift (`type` vs `blockType`) is a prompt bug, not a model bug.
+
+### Harness Retries — a blind retry makes the model repeat the same mistake
+`withRetry` re-sends an identical prompt, so schema violations recur every attempt. `fallbackStructuredOutput` retries internally instead: it appends the bad output as an `AIMessage` plus the compact zod issue list as a **`HumanMessage`** correction, then re-asks (3 attempts). The correction must be a human turn — see the `invalid_request_message_order` rules above.
+Also: native `withStructuredOutput` failures are caught and fall through to the prompt fallback rather than killing the run.
+
+### Harness "The operation timed out." / run hangs
+- Every model+tool call goes through `withSignal()`, which injects `MODEL_CALL_TIMEOUT_MS` (180s, override with `HARNESS_MODEL_TIMEOUT_MS`) so a stuck provider connection can't stall a run. `checkConnection` uses 30s.
+- The tool-execution loop's `model.invoke` must be wrapped in `withRetry` like every other model call — it was the one unretried call, so a single network blip killed the whole run.
+- `isUserInterrupt(error)` returns true for **any** `AbortError`, including provider-side timeouts. Only treat it as a user stop when `abortController.signal.aborted` is also true; otherwise a timeout gets recorded as `interrupted` instead of `failed`.
+
+### Harness Runs Marked `failed` With No Message / after correct output
+1. **No message:** `failRun` used to persist only `status: "failed"` with no `aiResponse`, so the UI showed a bare status. The graph catch now passes `describeFailure(error, lastNode)` — a categorized, user-readable markdown message (structured output / rate limit / auth / context length / timeout / generic) naming the node that failed via `labelForNode`. `lastNode` is tracked from `on_chain_start` events. Non-`Error` rejections go through `errorMessage()` so `{ code: 23 }` doesn't become `[object Object]`.
+2. **Failed right after producing correct output:** LangGraph's default `recursionLimit` is **25**. Each task level costs 3 supersteps (sub-agent → supervisor → orchestrator) plus ~5 for router/verify/planner/taskGenerator/orchestrator, so a 6–7 task sequential build throws `GraphRecursionError` at the very end. `streamConfig` sets `recursionLimit: 100`.
+
+### "OpenAI Compatible" Integration — "Missing credentials. Please pass an apiKey…"
+**Issue:** Selecting the *OpenAI Compatible* AI variant (Ollama, LM Studio, vLLM, LiteLLM) failed the pre-run connection probe with `Missing credentials…set the OPENAI_API_KEY environment variable`.
+**Cause:** That variant maps to provider `openai` (`models/projectConfig.ts`), and local servers need no API key — but the OpenAI SDK refuses to construct without one.
+**Real cause (the one that bites with a valid key too):** the wrapper passed **`openAIApiKey`**. In `@langchain/openai` v1.x, `ChatOpenAI` reads only `fields.apiKey`, `fields.configuration.apiKey`, or `$OPENAI_API_KEY` — `openAIApiKey` is a dead alias on chat models (it still works on `OpenAI()`/`OpenAIEmbeddings`), so the key was silently dropped for every OpenAI-family provider (DeepSeek, Poolside, etc.).
+**Field-name check per SDK (verified in node_modules, not guessed):** `ChatOpenAI` → `apiKey` only. `ChatAnthropic` → `apiKey` (`anthropicApiKey` still aliased; base URL is `anthropicApiUrl`, NOT `baseUrl`). `ChatGoogle`, `ChatMistralAI`, `ChatOpenRouter` → `apiKey`. When bumping a LangChain package, re-check these — the aliases die quietly with no type error.
+**Fix (`models/openai/index.ts`):**
+- `apiKey: this.apiKey || (this.baseUrl ? "not-required" : undefined)` — a placeholder only when a custom `baseUrl` is set; real OpenAI still requires a real key.
+- `supportsStructuredOutput()` returns `false` when `baseUrl` is set. Compatible servers usually reject the `json_schema` response format, so skip the native path and use the prompt fallback instead of burning 3 retries per call.
+
+### Harness Orchestrator — skipped/repeated task levels
+**Issue:** Sub-agents appeared to run twice (e.g. block builder inside block builder) and levels got skipped.
+**Cause:** The orchestrator popped `taskQueue` to pick the next level, so any re-entry into that node consumed a level it never verified. Worse, the supervisor only wrote statuses to `dispatchedTasks[i]`, relying on those being the *same object references* as entries in `tasks` — a fragile aliasing contract across graph state.
+**Fix:**
+- The orchestrator derives the ready level from task statuses + `dependsOnAgentId` (`status === "pending"` and every dependency settled). A `running` task is never dispatched again. `taskQueue` is now informational only.
+- The supervisor writes each verdict into the `tasks` entry **by id** (`setStatus`), not through reference aliasing. A lost write there stalls the build forever.
+
 ---
 
 ## Documentation Writing Rules

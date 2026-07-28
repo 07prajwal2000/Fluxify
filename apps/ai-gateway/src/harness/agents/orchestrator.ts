@@ -21,10 +21,27 @@ export class OrchestratorAgent extends BaseAgent {
 			},
 		});
 
-		let tasks = this.state.orchestratorState?.tasks || [];
-		let taskQueue = this.state.orchestratorState?.taskQueue || [];
+		const tasks = this.state.orchestratorState?.tasks || [];
 
-		if (taskQueue.length === 0) {
+		// Readiness is derived from task statuses, never from popping a queue.
+		// A level with N tasks fans out to N sub-agents, so the graph runs N
+		// supervisors and N orchestrators in the following supersteps — a
+		// queue-shifting orchestrator consumed N levels per round, skipping tasks
+		// and dispatching overlapping levels concurrently. Deriving the next level
+		// makes those concurrent runs produce the identical result instead.
+		const byId = new Map(tasks.map((task) => [task.id, task]));
+		const isSettled = (task?: Task) =>
+			task ? task.status === "completed" || task.status === "failed" : true;
+
+		const readyTasks = tasks.filter(
+			(task) =>
+				task.status === "pending" &&
+				(task.dependsOnAgentId ?? []).every((depId) =>
+					isSettled(byId.get(depId)),
+				),
+		);
+
+		if (readyTasks.length === 0) {
 			await dispatchAgentEvent({
 				name: "agent_status",
 				data: {
@@ -38,25 +55,20 @@ export class OrchestratorAgent extends BaseAgent {
 				orchestratorState: {
 					...this.state.orchestratorState,
 					tasks,
-					taskQueue,
+					dispatchedTasks: [],
 				},
 			};
 		}
 
-		// Pop the next level of tasks
-		const nextTaskIds = taskQueue.shift() || [];
 		const nextRoutes: AgentNodeName[] = [];
 		const assignedTaskIds: string[] = [];
 		const dispatchedTasks: Task[] = [];
 
-		for (const nextTaskId of nextTaskIds) {
-			const nextTaskIndex = tasks.findIndex((t) => t.id === nextTaskId);
-			if (nextTaskIndex !== -1) {
-				tasks[nextTaskIndex].status = "running";
-				nextRoutes.push(tasks[nextTaskIndex].assignedAgentNode);
-				assignedTaskIds.push(nextTaskId);
-				dispatchedTasks.push(tasks[nextTaskIndex]);
-			}
+		for (const task of readyTasks) {
+			task.status = "running";
+			nextRoutes.push(task.assignedAgentNode);
+			assignedTaskIds.push(task.id);
+			dispatchedTasks.push(task);
 		}
 
 		let nextRoute: AgentNodeName | AgentNodeName[] | undefined = undefined;
@@ -83,7 +95,6 @@ export class OrchestratorAgent extends BaseAgent {
 			orchestratorState: {
 				...this.state.orchestratorState,
 				tasks,
-				taskQueue,
 				dispatchedTasks,
 			},
 		};

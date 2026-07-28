@@ -19,8 +19,8 @@ export function useScrollToBottom(bottomRef: RefObject<HTMLElement | null>, thre
 		return () => observer.disconnect();
 	}, [bottomRef, threshold]);
 
-	const scrollToBottom = useCallback(() => {
-		bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+	const scrollToBottom = useCallback((behavior: ScrollBehavior = "smooth") => {
+		bottomRef.current?.scrollIntoView({ behavior, block: "end" });
 	}, [bottomRef]);
 
 	return { isAtBottom, scrollToBottom };

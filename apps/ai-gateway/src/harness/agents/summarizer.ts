@@ -194,6 +194,7 @@ ${hintsText}`;
 			systemPrompt,
 			messages: [],
 			userQuery,
+			agentNode: AgentNode.SUMMARIZER,
 		});
 
 		let markdown =

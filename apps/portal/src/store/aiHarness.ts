@@ -91,6 +91,8 @@ export interface AiHarnessActions {
 	setConversationList: (items: ConversationMeta[]) => void;
 	upsertConversation: (item: ConversationMeta) => void;
 	removeConversation: (conversationId: string) => void;
+	clearRun: (conversationId: string) => void;
+	optimisticResume: (conversationId: string) => void;
 	reset: () => void;
 }
 
@@ -256,6 +258,20 @@ export const useAiHarnessStore = create<AiHarnessState & AiHarnessActions>()(
 			set((state) => {
 				state.list = state.list.filter((c) => c.id !== conversationId);
 				delete state.runs[conversationId];
+			}),
+
+		clearRun: (conversationId) =>
+			set((state) => {
+				delete state.runs[conversationId];
+			}),
+
+		optimisticResume: (conversationId) =>
+			set((state) => {
+				const run = state.runs[conversationId];
+				if (run) {
+					run.runStatus = "executing";
+					run.isTerminal = false;
+				}
 			}),
 
 		// Only for logout / project switch. NOT called on disconnect — reconnects

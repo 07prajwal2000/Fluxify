@@ -7,6 +7,7 @@ import {
 	blocksEntity,
 	edgesEntity,
 	customBlockGraphsEntity,
+	agentHarnessSubArtifactsEntity,
 } from "@fluxify/server";
 import { eq, ilike, or, and, sql, inArray, type SQL } from "drizzle-orm";
 import { logger } from "@fluxify/common";
@@ -17,6 +18,18 @@ import { FindResourceResult } from "../types";
  * agent can pass multiple terms in one call instead of retrying per keyword.
  */
 export type SearchInput = string | string[];
+
+export interface SubArtifactRecord {
+	id: string;
+	artifactId: string;
+	runId: string;
+	kind: string;
+	action: string | null;
+	/** Null until the user applies this output to the project. */
+	appliedAt: Date | null;
+	payload: Record<string, any>;
+	createdAt: Date;
+}
 
 export class DbService {
 	constructor() {}
@@ -274,6 +287,49 @@ export class DbService {
 				error: e,
 			});
 			return null;
+		}
+	}
+
+	/**
+	 * Fetches persisted sub-agent outputs (sub-artifacts) from past runs.
+	 * `ids` may be sub-artifact ids (the ones embedded in summary tokens) or a
+	 * parent artifact id, in which case all its children are returned. Always
+	 * scoped to the conversation so one chat can never read another's artifacts.
+	 */
+	async getSubArtifacts(
+		conversationId: string,
+		ids: string[],
+	): Promise<SubArtifactRecord[]> {
+		try {
+			const clean = this.normalizeKeywords(ids);
+			// No conversation scope => never widen the query, just return nothing.
+			if (!conversationId || clean.length === 0) return [];
+
+			return await db
+				.select({
+					id: agentHarnessSubArtifactsEntity.id,
+					artifactId: agentHarnessSubArtifactsEntity.artifactId,
+					runId: agentHarnessSubArtifactsEntity.runId,
+					kind: agentHarnessSubArtifactsEntity.kind,
+					action: agentHarnessSubArtifactsEntity.action,
+					appliedAt: agentHarnessSubArtifactsEntity.appliedAt,
+					payload: agentHarnessSubArtifactsEntity.payload,
+					createdAt: agentHarnessSubArtifactsEntity.createdAt,
+				})
+				.from(agentHarnessSubArtifactsEntity)
+				.where(
+					and(
+						eq(agentHarnessSubArtifactsEntity.conversationId, conversationId),
+						or(
+							inArray(agentHarnessSubArtifactsEntity.id, clean),
+							inArray(agentHarnessSubArtifactsEntity.artifactId, clean),
+						),
+					),
+				)
+				.limit(20);
+		} catch (e) {
+			logger.error("[DbService] Error getting sub-artifacts", { error: e });
+			return [];
 		}
 	}
 

@@ -59,7 +59,21 @@ const workflow = new StateGraph(GraphState)
 		const agent = new SummarizerAgent(state);
 		return await agent.execute();
 	})
-	.addEdge(START, AgentNode.ROUTER)
+	// A HITL resume skips the parts of the cycle the decision already settled:
+	// `approve` needs no re-planning or re-verification — it goes straight to
+	// breaking the (already-approved) plan into tasks. `review` only needs a
+	// fresh capability check against the revised ask before planning again.
+	// `reject` never reaches here — the harness short-circuits it before
+	// invoking the graph at all (see FluxifyHarness.continue).
+	.addConditionalEdges(START, (state: GlobalGraphState) => {
+		if (state.action?.type === "approve") {
+			return AgentNode.TASK_GENERATOR;
+		}
+		if (state.action?.type === "review") {
+			return AgentNode.VERIFY_USER_QUERY;
+		}
+		return AgentNode.ROUTER;
+	})
 	.addConditionalEdges(AgentNode.ROUTER, (state: GlobalGraphState) => {
 		if (state.nextRoute === AgentNode.VERIFY_USER_QUERY) {
 			return AgentNode.VERIFY_USER_QUERY;

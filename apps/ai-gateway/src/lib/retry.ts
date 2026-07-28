@@ -7,6 +7,9 @@ export interface RetryOptions {
   factor?: number;
   /** When aborted, the operation is not retried — the error propagates at once. */
   signal?: AbortSignal;
+  /** Called right before each retry sleep — lets a caller surface the retry
+   *  (e.g. as a live event) without changing the retry/backoff behavior. */
+  onRetry?: (attempt: number, maxRetries: number, error: unknown) => void;
 }
 
 export async function withRetry<T>(
@@ -43,7 +46,8 @@ export async function withRetry<T>(
       const delay = Math.min(baseDelayMs * Math.pow(factor, attempt - 1), maxDelayMs);
       const errorMessage = error instanceof Error ? error.message : String(error);
       logger.warn(`[Retry] Operation failed (attempt ${attempt}/${maxRetries}). Retrying in ${delay}ms...`, { error: errorMessage });
-      
+      options.onRetry?.(attempt, maxRetries, error);
+
       await new Promise(resolve => setTimeout(resolve, delay));
     }
   }

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Card, Button } from "@fluxify/components";
+import { Card, Button, Typography } from "@fluxify/components";
 import { TbCopy, TbCheck } from "react-icons/tb";
 
 export function UserMessage({ query }: { query: string }) {
@@ -15,9 +15,9 @@ export function UserMessage({ query }: { query: string }) {
 		<div className="group flex w-full justify-end">
 			<div className="flex max-w-[70%] flex-col items-end gap-1">
 				<Card className="rounded-2xl rounded-br-sm border-none bg-default-100 !p-0 shadow-none">
-					<div className="whitespace-pre-wrap px-4 py-3 text-sm leading-relaxed text-foreground/80">
+					<Typography.Paragraph className="whitespace-pre-wrap px-4 py-3 text-sm leading-relaxed text-foreground/80 m-0">
 						{query}
-					</div>
+					</Typography.Paragraph>
 				</Card>
 
 				<div className="opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100">

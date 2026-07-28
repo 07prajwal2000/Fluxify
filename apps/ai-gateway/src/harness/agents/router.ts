@@ -56,6 +56,7 @@ CRITICAL INSTRUCTIONS:
 			systemPrompt,
 			messages: this.state.messages,
 			userQuery: this.state.userQuery,
+			agentNode: AgentNode.ROUTER,
 		})) as z.infer<typeof routerSchema>;
 
 		await dispatchAgentEvent({

@@ -8,7 +8,7 @@ export default function (error: any, ctx: Context) {
 			type: "validation",
 			error: [],
 		};
-		for (let err of error?.error) {
+		for (let err of error?.error?.issues ?? []) {
 			errorsList.error.push({
 				field: err.path[0],
 				message: err.message,
