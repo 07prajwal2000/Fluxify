@@ -36,6 +36,14 @@ import { applyNodePayload } from "./harnessNodeReducers";
 
 const TERMINAL = new Set<string>(TERMINAL_RUN_STATUSES);
 
+export interface StepLog {
+	label: string;
+	timestamp: number;
+	executionType: HarnessExecutionType;
+	toolName?: string;
+	nodeStatus: HarnessNodeStatus;
+}
+
 /** One node execution, keyed by `nodeId` — every event of that instance
  *  (started, running, tool calls, ended) upserts the same entry. */
 export interface StepUIState {
@@ -50,6 +58,7 @@ export interface StepUIState {
 	toolName?: string;
 	payload?: HarnessNodePayload;
 	timestamp: number;
+	logs: StepLog[];
 }
 
 /** Everything the UI needs to render one conversation's live/last run. */
@@ -169,8 +178,30 @@ export function applyEvent(
 	//    creating one, so `ended` on a tool must not complete the node.
 	if (!isRunLevel) {
 		const prev = run.steps[event.nodeId];
+		const isTool = event.executionType === "tool";
+		
+		const newLog: StepLog = {
+			label: event.plainTextMessage,
+			timestamp: event.timestamp,
+			executionType: event.executionType,
+			toolName: isTool ? event.toolName : undefined,
+			nodeStatus: event.nodeStatus,
+		};
+		
+		const logs = prev?.logs ? [...prev.logs] : [];
+		const isDuplicate = logs.some(
+			(l) =>
+				l.timestamp === newLog.timestamp &&
+				l.label === newLog.label &&
+				l.executionType === newLog.executionType &&
+				l.nodeStatus === newLog.nodeStatus
+		);
+		if (!isDuplicate) {
+			logs.push(newLog);
+			logs.sort((a, b) => a.timestamp - b.timestamp);
+		}
+
 		if (!prev || event.timestamp >= prev.timestamp) {
-			const isTool = event.executionType === "tool";
 			run.steps[event.nodeId] = {
 				nodeId: event.nodeId,
 				node: event.currentNode,
@@ -185,7 +216,10 @@ export function applyEvent(
 				toolName: isTool && event.nodeStatus === "started" ? event.toolName : undefined,
 				payload: event.payload ?? prev?.payload,
 				timestamp: event.timestamp,
+				logs,
 			};
+		} else if (prev) {
+			prev.logs = logs;
 		}
 	}
 

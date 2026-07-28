@@ -9,7 +9,7 @@ interface MarkdownViewerProps {
 
 export function MarkdownViewer({ content }: MarkdownViewerProps) {
 	return (
-		<div className="w-full text-left text-sm text-foreground/80 leading-loose">
+		<div className="w-full text-left text-sm text-foreground/80 leading-relaxed">
 			<ReactMarkdown
 				remarkPlugins={[remarkGfm]}
 				components={{
@@ -19,29 +19,29 @@ export function MarkdownViewer({ content }: MarkdownViewerProps) {
 					h4: ({ children }) => <Typography.Heading level={4} className="text-base font-semibold mb-2">{children}</Typography.Heading>,
 					h5: ({ children }) => <Typography.Heading level={5} className="text-sm font-semibold mb-1">{children}</Typography.Heading>,
 					h6: ({ children }) => <Typography.Heading level={6} className="text-sm font-semibold mb-1 text-foreground/80">{children}</Typography.Heading>,
-					p: ({ children }) => <Typography.Paragraph className="mb-4">{children}</Typography.Paragraph>,
-					ul: ({ children }) => <ul className="list-disc ml-6 mb-4">{children}</ul>,
-					ol: ({ children }) => <ol className="list-decimal ml-6 mb-4">{children}</ol>,
-					li: ({ children }) => <li className="mb-1">{children}</li>,
+					p: ({ children }) => <Typography.Paragraph className="mb-3 text-sm text-foreground/80">{children}</Typography.Paragraph>,
+					ul: ({ children }) => <ul className="list-disc ml-6 mb-3 text-sm text-foreground/80">{children}</ul>,
+					ol: ({ children }) => <ol className="list-decimal ml-6 mb-3 text-sm text-foreground/80">{children}</ol>,
+					li: ({ children }) => <li className="mb-1 text-sm">{children}</li>,
 					blockquote: ({ children }) => (
-						<blockquote className="border-l-4 border-white/20 pl-4 italic mb-4">
+						<blockquote className="border-l-4 border-white/20 pl-4 italic mb-3">
 							{children}
 						</blockquote>
 					),
 					pre: ({ children }) => (
-						<pre className="bg-black/20 p-4 rounded-xl mb-4 overflow-x-auto text-sm">
+						<pre className="bg-black/20 p-4 rounded-xl mb-3 overflow-x-auto text-sm">
 							{children}
 						</pre>
 					),
 					code: ({ children, className }) => {
 						const isInline = !className;
 						if (isInline) {
-							return <Typography.Code className="bg-black/20 px-1.5 py-0.5 rounded-md">{children}</Typography.Code>;
+							return <Typography.Code className="bg-[var(--surface-secondary)] border border-[var(--border-secondary)] px-1.5 py-0.5 rounded-md">{children}</Typography.Code>;
 						}
 						return <code className={className}>{children}</code>;
 					},
 					table: ({ children }) => (
-						<div className="mb-4">
+						<div className="mb-3">
 							<Table>
 								<Table.ScrollContainer>
 									<Table.Content>{children}</Table.Content>

@@ -1,5 +1,10 @@
-import { upsertProjectSettingKey, checkProjectExists } from "./repository";
 import {
+	upsertProjectSettingKey,
+	checkProjectExists,
+	markIntegrationForHarness,
+} from "./repository";
+import {
+	CHAN_ON_INTEGRATION_CHANGE,
 	CHAN_ON_PROJECT_SETTING_CHANGE,
 	publishMessage,
 	setCache,
@@ -52,6 +57,11 @@ export default async function handleRequest(
 	}
 
 	await upsertProjectSettingKey(projectId, key, finalValue);
+
+	if (key === "settings.ai.agentConnectionId" && finalValue) {
+		await markIntegrationForHarness(projectId, finalValue);
+		await publishMessage(CHAN_ON_INTEGRATION_CHANGE, finalValue);
+	}
 
 	const cacheKey = constructProjectSettingCacheKey(projectId);
 	const settings = await getProjectSettingsKeys(projectId);

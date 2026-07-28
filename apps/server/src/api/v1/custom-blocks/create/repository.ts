@@ -1,5 +1,3 @@
-import { createInsertSchema } from "drizzle-zod";
-import z from "zod";
 import {
   customBlocksListEntity,
   customBlockGraphsEntity,
@@ -10,10 +8,8 @@ import { eq, and } from "drizzle-orm";
 import { generateID } from "@fluxify/lib";
 import { BlockTypes } from "@fluxify/blocks";
 
-const insertSchema = createInsertSchema(customBlocksListEntity);
-
 export async function createCustomBlock(
-  data: z.infer<typeof insertSchema>,
+  data: typeof customBlocksListEntity.$inferInsert,
   tx?: DbTransactionType
 ) {
   const newBlock = await (tx ?? db)

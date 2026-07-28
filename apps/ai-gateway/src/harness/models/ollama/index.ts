@@ -1,6 +1,6 @@
 import { BaseChatModel } from "@langchain/core/language_models/chat_models";
 import { ChatOllama } from "@langchain/ollama";
-import { BaseAgentWrapper } from "../base";
+import { BaseAgentWrapper, HARNESS_TEMPERATURE } from "../base";
 
 export class OllamaAgentWrapper extends BaseAgentWrapper {
 	private baseUrl?: string;
@@ -19,11 +19,16 @@ export class OllamaAgentWrapper extends BaseAgentWrapper {
 		return new ChatOllama({
 			model: this.modelName,
 			baseUrl: this.baseUrl,
+			temperature: HARNESS_TEMPERATURE,
 		});
 	}
 
 	// Ollama models usually need fallback structured output
 	protected supportsStructuredOutput(): boolean {
 		return false;
+	}
+
+	protected jsonModeOptions() {
+		return { format: "json" };
 	}
 }

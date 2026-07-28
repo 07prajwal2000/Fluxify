@@ -23,7 +23,7 @@ describe("get-basic-list integrations service", () => {
 
 		const result = await handleRequest("proj_1");
 
-		expect(getBasicListRepositoryMock).toHaveBeenCalledWith("proj_1");
+		expect(getBasicListRepositoryMock).toHaveBeenCalledWith("proj_1", undefined);
 		expect(result).toEqual([
 			{
 				id: "int_1",
@@ -37,6 +37,19 @@ describe("get-basic-list integrations service", () => {
 				group: "email",
 				variant: "smtp",
 			},
+		]);
+	});
+
+	it("should pass the useForHarness filter through to the repository", async () => {
+		getBasicListRepositoryMock.mockResolvedValue([
+			{ id: "int_4", name: "Claude", group: "ai", variant: "Anthropic" },
+		]);
+
+		const result = await handleRequest("proj_1", true);
+
+		expect(getBasicListRepositoryMock).toHaveBeenCalledWith("proj_1", true);
+		expect(result).toEqual([
+			{ id: "int_4", name: "Claude", group: "ai", variant: "Anthropic" },
 		]);
 	});
 

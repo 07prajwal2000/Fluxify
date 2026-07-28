@@ -4,7 +4,7 @@ import { projectSettingsKeysQuery } from "@/query/projectSettingsKeysQuery";
 import type { AiModel } from "./ModelSelect";
 
 export function useAiModels(projectId: string) {
-	const { data: integrationsData, isLoading: isLoadingInts } = integrationsQuery.getBasicList.useQuery(projectId);
+	const { data: integrationsData, isLoading: isLoadingInts } = integrationsQuery.getBasicList.useQuery(projectId, true);
 	const { data: settingsData, isLoading: isLoadingSettings } = projectSettingsKeysQuery.getAll.useQuery(projectId);
 
 	return useMemo(() => {
@@ -15,12 +15,13 @@ export function useAiModels(projectId: string) {
 		const allIntegrations = integrationsData ?? [];
 		
 		const aiIntegrations = allIntegrations.filter((i: any) => 
-			i.group === "ai" && (i.config as Record<string, unknown>)?.useForHarness === true
+			i.group === "ai"
 		);
 		
 		let availableModels: AiModel[] = aiIntegrations.map((i: any) => ({
 			id: i.id,
 			name: i.name,
+			variant: i.variant,
 		}));
 
 		let defId = availableModels[0]?.id || "";
@@ -33,6 +34,7 @@ export function useAiModels(projectId: string) {
 				availableModels = [{
 					id: agentConnectionId,
 					name: fallbackInt?.name || "Project Default",
+					variant: fallbackInt?.variant,
 					isFallback: true
 				}];
 				defId = agentConnectionId;

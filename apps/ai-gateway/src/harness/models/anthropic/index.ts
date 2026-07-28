@@ -1,6 +1,6 @@
 import { BaseChatModel } from "@langchain/core/language_models/chat_models";
 import { ChatAnthropic } from "@langchain/anthropic";
-import { BaseAgentWrapper } from "../base";
+import { BaseAgentWrapper, HARNESS_TEMPERATURE } from "../base";
 
 export class AnthropicAgentWrapper extends BaseAgentWrapper {
 	private baseUrl?: string;
@@ -21,6 +21,7 @@ export class AnthropicAgentWrapper extends BaseAgentWrapper {
 			model: this.modelName,
 			// `apiKey` is the canonical field; `anthropicApiKey` is a legacy alias.
 			apiKey: this.apiKey,
+			temperature: HARNESS_TEMPERATURE,
 			anthropicApiUrl: this.baseUrl,
 			clientOptions: {
 				defaultHeaders: this.additionalHeaders,

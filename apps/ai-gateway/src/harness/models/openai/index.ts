@@ -1,6 +1,9 @@
 import { BaseChatModel } from "@langchain/core/language_models/chat_models";
 import { ChatOpenAI } from "@langchain/openai";
-import { BaseAgentWrapper } from "../base";
+import { BaseAgentWrapper, HARNESS_TEMPERATURE } from "../base";
+
+/** Reasoning models reject any temperature but the default and 400 the request. */
+const FIXED_TEMPERATURE_MODEL = /(^|\/)(o\d|gpt-5)/i;
 
 export class OpenAIAgentWrapper extends BaseAgentWrapper {
 	private baseUrl?: string;
@@ -19,6 +22,9 @@ export class OpenAIAgentWrapper extends BaseAgentWrapper {
 	protected getModel(): BaseChatModel {
 		return new ChatOpenAI({
 			model: this.modelName,
+			...(FIXED_TEMPERATURE_MODEL.test(this.modelName)
+				? {}
+				: { temperature: HARNESS_TEMPERATURE }),
 			// Must be `apiKey`. ChatOpenAI reads only `fields.apiKey`,
 			// `configuration.apiKey`, or $OPENAI_API_KEY — `openAIApiKey` is a dead
 			// alias on chat models (it still works on OpenAI() / OpenAIEmbeddings),
@@ -39,5 +45,12 @@ export class OpenAIAgentWrapper extends BaseAgentWrapper {
 	// go straight to the prompt-based fallback instead of burning retries on it.
 	protected supportsStructuredOutput(): boolean {
 		return !this.baseUrl;
+	}
+
+	// `json_object` is the lowest common denominator across the OpenAI-compatible
+	// world (DeepSeek, Groq, LM Studio, vLLM, LiteLLM all honour it) — unlike
+	// `json_schema`, which is what supportsStructuredOutput() opts out of above.
+	protected jsonModeOptions() {
+		return { response_format: { type: "json_object" as const } };
 	}
 }

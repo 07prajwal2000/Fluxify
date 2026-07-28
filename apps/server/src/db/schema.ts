@@ -3,7 +3,6 @@ import { sql, relations } from "drizzle-orm";
 import {
 	boolean,
 	index,
-	jsonb,
 	pgEnum,
 	pgTable,
 	serial,
@@ -12,6 +11,7 @@ import {
 	uuid,
 	varchar,
 } from "drizzle-orm/pg-core";
+import { jsonb } from "./jsonbColumn";
 import z from "zod";
 import { systemUsers } from "./auth-schema";
 import { createSelectSchema } from "drizzle-zod";

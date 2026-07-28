@@ -21,13 +21,14 @@ class TestWrapper extends BaseAgentWrapper {
 	}
 
 	/** Replays `responses` one per attempt, recording what each attempt was sent. */
-	parseSequence(responses: string[]) {
+	parseSequence(responses: (string | Record<string, any>)[]) {
 		const seen: BaseMessage[][] = [];
 		let i = 0;
 		const model = {
 			invoke: async (messages: BaseMessage[]) => {
 				seen.push(messages);
-				return { content: responses[Math.min(i++, responses.length - 1)] };
+				const next = responses[Math.min(i++, responses.length - 1)];
+				return typeof next === "string" ? { content: next } : next;
 			},
 		} as any;
 		return { result: this.fallbackStructuredOutput(model, [], schema), seen };
@@ -57,6 +58,34 @@ describe("fallbackStructuredOutput", () => {
 		expect(result).toEqual({ blocks: [] });
 	});
 
+	it("parses a payload the model emitted as an escaped JSON string", async () => {
+		// The "Unrecognized token '\'" failure: slicing from the first `{` used to
+		// leave the escapes behind.
+		expect(await wrapper.parse('"{\\"blocks\\":[\\"a\\"]}"')).toEqual({
+			blocks: ["a"],
+		});
+		// Same drift without the surrounding quotes.
+		expect(await wrapper.parse('{\\"blocks\\":[]}')).toEqual({ blocks: [] });
+	});
+
+	it("ignores braces the model appended after the payload", async () => {
+		expect(await wrapper.parse('{"blocks":["a"]} — done! {see above}')).toEqual({
+			blocks: ["a"],
+		});
+	});
+
+	it("keeps braces that live inside strings", async () => {
+		expect(await wrapper.parse('{"blocks":["a}b","{c"]}')).toEqual({
+			blocks: ["a}b", "{c"],
+		});
+	});
+
+	it("reads reasoning-model output parked outside content", async () => {
+		expect(await wrapper.parse("", { reasoning: '{"blocks":[]}' })).toEqual({
+			blocks: [],
+		});
+	});
+
 	it("reports empty responses instead of crashing on JSON.parse", async () => {
 		expect(wrapper.parse("")).rejects.toThrow(/empty response/i);
 	});
@@ -74,6 +103,21 @@ describe("fallbackStructuredOutput", () => {
 		expect(retryMessages.length).toBeGreaterThan(seen[0].length);
 		expect(retryMessages.at(-1)!.getType()).toBe("human");
 		expect(retryMessages.at(-1)!.content).toContain("blocks.0");
+	});
+
+	it("carries the model's reasoning into the correction turn", async () => {
+		const { result, seen } = wrapper.parseSequence([
+			{
+				content: '{"blocks":[1]}',
+				additional_kwargs: { reasoning_content: "I picked numbers" },
+			},
+			{ content: '{"blocks":["a"]}' },
+		]);
+		expect(await result).toEqual({ blocks: ["a"] });
+
+		const echoed = seen[1].at(-2)!;
+		expect(echoed.getType()).toBe("ai");
+		expect(echoed.additional_kwargs.reasoning_content).toBe("I picked numbers");
 	});
 
 	it("gives up after the attempt budget with the last validation error", async () => {
