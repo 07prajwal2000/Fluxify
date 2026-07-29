@@ -87,6 +87,12 @@ export interface ConversationUIState {
 	result?: HarnessRunResult;
 }
 
+export interface SelectedArtifact {
+	id: string;
+	type: string;
+	props: Record<string, any>;
+}
+
 export type ConversationMeta = z.infer<
 	typeof harnessConversationsListDto.conversationSchema
 >;
@@ -97,6 +103,8 @@ export interface AiHarnessState {
 	activeConversationId: string | null;
 	list: ConversationMeta[];
 	runs: Record<string, ConversationUIState>;
+	selectedModelId: string | null;
+	selectedArtifact: SelectedArtifact | null;
 }
 
 export interface AiHarnessActions {
@@ -110,6 +118,8 @@ export interface AiHarnessActions {
 	removeConversation: (conversationId: string) => void;
 	clearRun: (conversationId: string) => void;
 	optimisticResume: (conversationId: string) => void;
+	setSelectedModelId: (id: string | null) => void;
+	setSelectedArtifact: (artifact: SelectedArtifact | null) => void;
 	reset: () => void;
 }
 
@@ -118,6 +128,8 @@ const initialState: AiHarnessState = {
 	activeConversationId: null,
 	list: [],
 	runs: {},
+	selectedModelId: null,
+	selectedArtifact: null,
 };
 
 /* ----------------------------------------------------------------------------
@@ -330,6 +342,16 @@ export const useAiHarnessStore = create<AiHarnessState & AiHarnessActions>()(
 					run.runStatus = "executing";
 					run.isTerminal = false;
 				}
+			}),
+
+		setSelectedModelId: (id) =>
+			set((state) => {
+				state.selectedModelId = id;
+			}),
+
+		setSelectedArtifact: (artifact) =>
+			set((state) => {
+				state.selectedArtifact = artifact;
 			}),
 
 		// Only for logout / project switch. NOT called on disconnect — reconnects

@@ -9,12 +9,14 @@ import {
 	TbArchive,
 	TbArchiveOff,
 	TbTrash,
+	TbEdit,
 } from "react-icons/tb";
 import { harnessConversationsQuery } from "@/query/harnessConversationsQuery";
 import { showErrorNotification } from "@/lib/errorNotifier";
 import { getTimeAgo } from "@/lib/datetime";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { StatusDot } from "./StatusDot";
+import { RenameConversationModal } from "./RenameConversationModal";
 import type { HarnessConversation } from "./types";
 import { useConversationRun } from "@/store/aiHarness";
 
@@ -33,6 +35,7 @@ export function ConversationItem({
 }: Props) {
 	const navigate = useNavigate();
 	const [confirmOpen, setConfirmOpen] = useState(false);
+	const [renameOpen, setRenameOpen] = useState(false);
 	const action = harnessConversationsQuery.action.mutation(projectId, c.id);
 	const remove = harnessConversationsQuery.remove.mutation(projectId);
 	const activeRun = useConversationRun(c.id);
@@ -47,13 +50,12 @@ export function ConversationItem({
 
 	const onAction = async (key: Key) => {
 		if (key === "delete") return setConfirmOpen(true);
-		const map = {
-			pin: "pin",
-			unpin: "unpin",
-			archive: "archive",
-			unarchive: "unarchive",
-		} as const;
-		const act = map[key as keyof typeof map];
+		if (key === "rename") return setRenameOpen(true);
+		
+		let act: "pin" | "unpin" | "archive" | "unarchive" | undefined;
+		if (key === "pin_toggle") act = c.pinned ? "unpin" : "pin";
+		else if (key === "archive_toggle") act = c.archived ? "unarchive" : "archive";
+
 		if (act) {
 			try {
 				if (act === "archive" && active) redirectHome();
@@ -109,14 +111,14 @@ export function ConversationItem({
 					<Dropdown.Popover>
 						<Dropdown.Menu onAction={onAction}>
 							<Dropdown.Item
-								id={c.pinned ? "unpin" : "pin"}
+								id="pin_toggle"
 								textValue={c.pinned ? "Unpin" : "Pin"}
 							>
 								{c.pinned ? <TbPinnedOff size={16} /> : <TbPin size={16} />}
 								<Label>{c.pinned ? "Unpin" : "Pin"}</Label>
 							</Dropdown.Item>
 							<Dropdown.Item
-								id={c.archived ? "unarchive" : "archive"}
+								id="archive_toggle"
 								textValue={c.archived ? "Unarchive" : "Archive"}
 							>
 								{c.archived ? (
@@ -125,6 +127,10 @@ export function ConversationItem({
 									<TbArchive size={16} />
 								)}
 								<Label>{c.archived ? "Unarchive" : "Archive"}</Label>
+							</Dropdown.Item>
+							<Dropdown.Item id="rename" textValue="Rename">
+								<TbEdit size={16} />
+								<Label>Rename</Label>
 							</Dropdown.Item>
 							<Dropdown.Item id="delete" variant="danger" textValue="Delete">
 								<TbTrash size={16} />
@@ -152,6 +158,14 @@ export function ConversationItem({
 			>
 				This permanently removes “{c.title ?? "this conversation"}”.
 			</ConfirmDialog>
+
+			<RenameConversationModal
+				open={renameOpen}
+				onOpenChange={setRenameOpen}
+				projectId={projectId}
+				conversationId={c.id}
+				initialTitle={c.title || "Untitled session"}
+			/>
 		</div>
 	);
 }

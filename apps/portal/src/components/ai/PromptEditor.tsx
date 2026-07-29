@@ -1,15 +1,107 @@
 import { useState, useEffect, useRef } from "react";
-import { TbCommand, TbAt, TbArrowUp, TbPlayerStopFilled } from "react-icons/tb";
-import { Button, Popover, PopoverTrigger, PopoverContent } from "@fluxify/components";
+import { TbCommand, TbAt, TbArrowUp, TbPlayerStopFilled, TbStack2, TbCloudCog, TbSquareKey, TbBox } from "react-icons/tb";
+import { Button } from "@fluxify/components";
+import { Input, Spinner } from "@fluxify/components";
 import { ModelSelect, type AiModel } from "./ModelSelect";
 import { SyntaxHelpModal } from "./SyntaxHelpModal";
 import { STARTERS } from "./starters";
 import { integrationsQuery } from "@/query/integrationsQuery";
+import { useAiHarnessStore } from "@/store/aiHarness";
+import { useDebounce } from "@/hooks/useDebounce";
+import { findResourceQuery } from "@/query/findResourceQuery";
+import { integrationIcons } from "@/components/integrations/integrationIcons";
+
+import { LexicalComposer } from "@lexical/react/LexicalComposer";
+import { PlainTextPlugin } from "@lexical/react/LexicalPlainTextPlugin";
+import { ContentEditable } from "@lexical/react/LexicalContentEditable";
+import { HistoryPlugin } from "@lexical/react/LexicalHistoryPlugin";
+import { LexicalErrorBoundary } from "@lexical/react/LexicalErrorBoundary";
+import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext";
+import { KEY_ENTER_COMMAND, KEY_DOWN_COMMAND, COMMAND_PRIORITY_EDITOR, COMMAND_PRIORITY_HIGH, $getSelection, $isRangeSelection } from "lexical";
+
+import { ResourceNode } from "./lexical/ResourceNode";
+import { ResourcePlugin, INSERT_RESOURCE_COMMAND } from "./lexical/ResourcePlugin";
+import { markdownToLexical, lexicalToMarkdown, insertMarkdownAtSelection } from "./lexical/MarkdownTransformer";
 
 const PLACEHOLDERS = [
 	"Generate a blog API with rate limiting, Redis cache...",
 	...STARTERS.map((s) => s.prompt),
 ];
+
+function EditorLogicPlugin({ 
+	value, 
+	onChange, 
+	onSubmit, 
+	onAtTrigger
+}: { 
+	value: string, 
+	onChange: (v: string) => void,
+	onSubmit: () => void,
+	onAtTrigger: () => void
+}) {
+	const [editor] = useLexicalComposerContext();
+	const isFirstRender = useRef(true);
+
+	useEffect(() => {
+		if (isFirstRender.current) {
+			isFirstRender.current = false;
+			markdownToLexical(value, editor);
+		} else {
+			const currentMarkdown = lexicalToMarkdown(editor);
+			if (value === "" && currentMarkdown !== "") {
+				markdownToLexical(value, editor);
+			}
+		}
+	}, [value, editor]);
+
+	useEffect(() => {
+		return editor.registerUpdateListener(({ editorState, dirtyElements, dirtyLeaves }) => {
+			if (dirtyElements.size === 0 && dirtyLeaves.size === 0) return;
+			onChange(lexicalToMarkdown(editor));
+		});
+	}, [editor, onChange]);
+
+	useEffect(() => {
+		return editor.registerCommand(
+			KEY_ENTER_COMMAND,
+			(e: KeyboardEvent) => {
+				if (!e.shiftKey) {
+					e.preventDefault();
+					onSubmit();
+					return true;
+				}
+				return false;
+			},
+			COMMAND_PRIORITY_HIGH
+		);
+	}, [editor, onSubmit]);
+
+	useEffect(() => {
+		return editor.registerCommand(
+			KEY_DOWN_COMMAND,
+			(e: KeyboardEvent) => {
+				if (e.key === "@") {
+					editor.getEditorState().read(() => {
+						const sel = $getSelection();
+						if ($isRangeSelection(sel)) {
+							const textNode = sel.anchor.getNode();
+							const offset = sel.anchor.offset;
+							const textContent = textNode.getTextContent();
+							const prevChar = textContent[offset - 1];
+							if (!prevChar || /\s/.test(prevChar) || prevChar === '\n') {
+								setTimeout(() => onAtTrigger(), 0);
+							}
+						}
+					});
+				}
+				return false;
+			},
+			COMMAND_PRIORITY_HIGH
+		);
+	}, [editor, onAtTrigger]);
+
+	return null;
+}
 
 type Props = {
 	projectId: string;
@@ -32,12 +124,28 @@ export function PromptEditor({
 	projectId, value, onChange, onSubmit, isPending, models, defaultModelId, minRows = 1, maxRows = 2,
 	placeholder = "Message AI...", typewriter = true, isRunning, onStop, isDisabled
 }: Props) {
-	const [model, setModel] = useState<string>(defaultModelId ?? (models[0]?.id || ""));
+	const selectedModelId = useAiHarnessStore((s) => s.selectedModelId);
+	const setSelectedModelId = useAiHarnessStore((s) => s.setSelectedModelId);
+
+	const [model, setModel] = useState<string>(selectedModelId || defaultModelId || "");
 	const [helpOpen, setHelpOpen] = useState(false);
-	const textareaRef = useRef<HTMLTextAreaElement>(null);
 
 	const testConn = integrationsQuery.testExistingConnection.mutation(projectId);
 	const [connStatus, setConnStatus] = useState<"testing" | "success" | "error" | "idle">("idle");
+
+	// Popover & Search State
+	const [popoverOpen, setPopoverOpen] = useState(false);
+	const [searchQuery, setSearchQuery] = useState("");
+	const [selectedIndex, setSelectedIndex] = useState(0);
+	const [wasAtTyped, setWasAtTyped] = useState(false);
+	const debouncedQuery = useDebounce(searchQuery, 300);
+	const { data: searchResults, isLoading, isFetching } = findResourceQuery.search.useQuery(projectId, debouncedQuery);
+	
+	const isDebouncing = searchQuery !== debouncedQuery;
+	const isSearchLoading = isDebouncing || isLoading || isFetching;
+
+	const popoverRef = useRef<HTMLDivElement>(null);
+	const triggerRef = useRef<HTMLButtonElement>(null);
 
 	// Typewriter effect
 	const [twPlaceholder, setTwPlaceholder] = useState("");
@@ -63,12 +171,44 @@ export function PromptEditor({
 		return () => clearTimeout(timeout);
 	}, [charIndex, phIndex, typewriter]);
 
+	const actualPlaceholder = isDisabled ? "Please review the implementation plan to continue..." : (typewriter ? twPlaceholder + (charIndex < PLACEHOLDERS[phIndex].length ? "|" : "") : placeholder);
+
+	// Reset index when results change
+	useEffect(() => {
+		setSelectedIndex(0);
+	}, [searchResults?.results]);
+
+	const closePopover = () => {
+		setPopoverOpen(false);
+		setWasAtTyped(false);
+	};
+
+	// Click outside
+	useEffect(() => {
+		if (!popoverOpen) return;
+		const handleClick = (e: MouseEvent) => {
+			if (
+				popoverRef.current && !popoverRef.current.contains(e.target as Node) &&
+				triggerRef.current && !triggerRef.current.contains(e.target as Node)
+			) {
+				closePopover();
+			}
+		};
+		document.addEventListener("mousedown", handleClick);
+		return () => document.removeEventListener("mousedown", handleClick);
+	}, [popoverOpen]);
+
 	// Sync default model if it changes or if models load late
 	useEffect(() => {
-		if (!model && (defaultModelId || models.length > 0)) {
-			setModel(defaultModelId ?? models[0]?.id);
+		if (models.length > 0) {
+			if (model && !models.some((m) => m.id === model)) {
+				setSelectedModelId(null);
+				setModel(defaultModelId || "");
+			} else if (!model && defaultModelId) {
+				setModel(defaultModelId);
+			}
 		}
-	}, [defaultModelId, models, model]);
+	}, [defaultModelId, model, models, setSelectedModelId]);
 
 	useEffect(() => {
 		if (!model) return;
@@ -84,14 +224,6 @@ export function PromptEditor({
 	// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [model, projectId]);
 
-	// Auto-resize textarea
-	useEffect(() => {
-		if (textareaRef.current) {
-			textareaRef.current.style.height = "auto";
-			textareaRef.current.style.height = `${textareaRef.current.scrollHeight}px`;
-		}
-	}, [value]);
-
 	const trimmed = value.trim();
 	const canSend = trimmed.length > 0 && !isPending && !isDisabled && connStatus === "success";
 
@@ -102,57 +234,151 @@ export function PromptEditor({
 		onSubmit(trimmed, model, isFallback);
 	};
 
+    const initialConfig = {
+        namespace: 'PromptEditor',
+        theme: {
+            paragraph: 'm-0 p-0',
+        },
+        onError: (error: Error) => {
+            console.error(error);
+        },
+        nodes: [ResourceNode]
+    };
+
 	return (
 		<div className={`relative rounded-2xl border border-white/10 bg-[#161618] p-4 shadow-2xl transition-colors focus-within:border-[#ccff00]/50 ${isDisabled ? 'opacity-50 pointer-events-none' : ''}`}>
-			<textarea
-				ref={textareaRef}
-				value={value}
-				onChange={(e) => onChange(e.target.value)}
-				onKeyDown={(e) => {
-					if (e.key === "Enter" && !e.shiftKey) {
-						e.preventDefault();
-						submit();
-					}
-				}}
-				disabled={isDisabled}
-				placeholder={isDisabled ? "Please review the implementation plan to continue..." : (typewriter ? twPlaceholder + (charIndex < PLACEHOLDERS[phIndex].length ? "|" : "") : placeholder)}
-				rows={minRows}
-				style={{
-					minHeight: minRows === 1 ? "24px" : `${minRows * 23}px`,
-					maxHeight: `${maxRows * 23}px`,
-				}}
-				className="w-full resize-none bg-transparent px-1 text-sm leading-relaxed text-foreground outline-none placeholder:text-muted disabled:cursor-not-allowed"
-			/>
+			{popoverOpen && (
+				<div ref={popoverRef} className="absolute bottom-[calc(100%+8px)] left-0 w-full rounded-xl border border-white/10 bg-[#1e1e20] p-2 shadow-xl z-50">
+					<div className="w-full">
+						<div className="flex items-center gap-3">
+							<Input 
+								value={searchQuery}
+								onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearchQuery(e.target.value)}
+								onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => {
+                                    if (e.key === "Escape") {
+                                        e.preventDefault();
+                                        closePopover();
+                                        document.dispatchEvent(new CustomEvent('focus-editor'));
+                                        return;
+                                    }
+                                    if (!searchResults?.results || searchResults.results.length === 0) return;
+                                    
+                                    if (e.key === "ArrowDown") {
+                                        e.preventDefault();
+                                        setSelectedIndex((prev) => Math.min(prev + 1, searchResults.results.length - 1));
+                                    } else if (e.key === "ArrowUp") {
+                                        e.preventDefault();
+                                        setSelectedIndex((prev) => Math.max(prev - 1, 0));
+                                    } else if (e.key === "Enter") {
+                                        e.preventDefault();
+                                        const res = searchResults.results[selectedIndex];
+                                        if (res) {
+                                            document.dispatchEvent(new CustomEvent('insert-resource', {
+                                                detail: { res, wasAtTyped }
+                                            }));
+                                            closePopover();
+                                            setSearchQuery("");
+                                        }
+                                    }
+                                }}
+								placeholder="Search resources..." 
+								autoFocus
+								className="w-64 bg-black/20 hover:bg-black/30 focus-within:ring-1 focus-within:ring-[var(--accent)] border-none rounded-lg h-9 min-h-9 px-3 text-sm text-foreground placeholder:text-muted"
+							/>
+							{isSearchLoading && (
+								<Spinner size="sm" color="current" />
+							)}
+						</div>
+						<div className="mt-2 h-[150px] overflow-y-auto w-full">
+							{isSearchLoading ? (
+								<div className="p-3 text-center text-xs text-muted flex items-center justify-center h-full">Searching...</div>
+							) : searchResults?.results && searchResults.results.length > 0 ? (
+								<div className="flex flex-col gap-1">
+									{searchResults.results.map((res, i) => (
+										<button
+											key={res.id}
+											onClick={() => {
+                                                document.dispatchEvent(new CustomEvent('insert-resource', {
+                                                    detail: { res, wasAtTyped }
+                                                }));
+                                                closePopover();
+                                                setSearchQuery("");
+                                            }}
+											className={`flex items-center gap-3 rounded-lg p-2 text-left hover:bg-white/5 ${i === selectedIndex ? "bg-white/10" : ""}`}
+										>
+											<div className="flex-shrink-0 text-muted-foreground">
+												{res.type === "route" ? <TbStack2 size={16} /> :
+												 res.type === "app_config" ? <TbSquareKey size={16} /> :
+												 res.type === "integration" ? (
+													res.variant && integrationIcons[res.variant] ? (
+														<span className="[&>svg]:w-4 [&>svg]:h-4 inline-flex items-center">
+															{integrationIcons[res.variant]}
+														</span>
+													) : <TbCloudCog size={16} />
+												 ) :
+												 <TbBox size={16} />}
+											</div>
+											<div className="flex flex-col">
+												<span className="text-sm font-medium text-foreground">{res.name}</span>
+												{res.description && (
+													<span className="text-xs text-muted-foreground line-clamp-1">{res.description}</span>
+												)}
+											</div>
+										</button>
+									))}
+								</div>
+							) : debouncedQuery ? (
+								<div className="p-3 text-center text-xs text-muted flex items-center justify-center h-full">No resources found</div>
+							) : (
+								<div className="p-3 text-center text-xs text-muted flex items-center justify-center h-full">Type to search routes, integrations, and configs</div>
+							)}
+						</div>
+					</div>
+				</div>
+			)}
 			
+            <LexicalComposer initialConfig={initialConfig}>
+                <div className="relative w-full min-h-[46px]">
+                    <PlainTextPlugin
+                        contentEditable={<ContentEditable className="w-full resize-none bg-transparent px-1 text-sm leading-relaxed text-foreground outline-none min-h-[46px]" />}
+                        placeholder={<div className="absolute top-0 left-1 pointer-events-none text-muted text-sm">{actualPlaceholder}</div>}
+                        ErrorBoundary={LexicalErrorBoundary}
+                    />
+                    <HistoryPlugin />
+                    <ResourcePlugin />
+                    <EditorLogicPlugin 
+                        value={value} 
+                        onChange={onChange} 
+                        onSubmit={submit}
+                        onAtTrigger={() => {
+                            setPopoverOpen(true);
+                            setWasAtTyped(true);
+                        }}
+                    />
+                    {/* Event listener plugin for inserting resources */}
+                    <EditorEventsPlugin />
+                </div>
+            </LexicalComposer>
+
 			<div className="mt-2 flex items-end justify-between gap-3">
 				<div className="flex items-center gap-1 text-muted-foreground">
-					{/* @ts-expect-error placement is valid in HeroUI Popover */}
-					<Popover placement="top">
-						<PopoverTrigger>
-							<Button
-								isIconOnly
-								size="sm"
-								variant="ghost"
-								className="rounded-full hover:bg-white/5 hover:text-foreground data-[pressed]:bg-white/10 data-[pressed]:text-foreground"
-								aria-label="Insert resource"
-							>
-								<TbAt size={18} />
-							</Button>
-						</PopoverTrigger>
-						<PopoverContent className="mb-2 w-64 rounded-xl border border-white/10 bg-[#1e1e20] p-2 shadow-xl outline-none">
-							<div className="w-full">
-								<input 
-									type="text" 
-									placeholder="Search resources..." 
-									className="w-full rounded-lg bg-black/20 px-3 py-1.5 text-sm text-foreground outline-none placeholder:text-muted"
-									autoFocus
-								/>
-								<div className="p-3 text-center text-xs text-muted">
-									No resources found
-								</div>
-							</div>
-						</PopoverContent>
-					</Popover>
+					<Button
+						ref={triggerRef}
+						isIconOnly
+						size="sm"
+						variant="ghost"
+						className="rounded-full hover:bg-white/5 hover:text-foreground data-[pressed]:bg-white/10 data-[pressed]:text-foreground"
+						aria-label="Insert resource"
+						onPress={() => {
+							if (popoverOpen) {
+								closePopover();
+							} else {
+								setPopoverOpen(true);
+							}
+						}}
+					>
+						<TbAt size={18} />
+					</Button>
 					<Button
 						isIconOnly
 						size="sm"
@@ -165,7 +391,15 @@ export function PromptEditor({
 					</Button>
 				</div>
 				<div className="flex items-center gap-3">
-					<ModelSelect projectId={projectId} value={model} models={models} onChange={setModel} />
+					<ModelSelect 
+						projectId={projectId} 
+						value={model} 
+						models={models} 
+						onChange={(val) => {
+							setModel(val);
+							setSelectedModelId(val || null);
+						}} 
+					/>
 					{isRunning ? (
 						<Button
 							isIconOnly
@@ -193,4 +427,59 @@ export function PromptEditor({
 			<SyntaxHelpModal isOpen={helpOpen} onOpenChange={setHelpOpen} />
 		</div>
 	);
+}
+
+import { PASTE_COMMAND } from "lexical";
+
+function EditorEventsPlugin() {
+    const [editor] = useLexicalComposerContext();
+    useEffect(() => {
+        const insertHandler = (e: any) => {
+            const { res, wasAtTyped } = e.detail;
+            editor.focus();
+            requestAnimationFrame(() => {
+                const data = encodeURIComponent(JSON.stringify(res));
+                editor.dispatchCommand(INSERT_RESOURCE_COMMAND, {
+                    resourceType: res.type,
+                    identifier: res.id,
+                    name: res.name,
+                    data: data,
+                    replaceAt: wasAtTyped
+                });
+            });
+        };
+        const focusHandler = () => {
+            editor.focus();
+        };
+
+        const removePaste = editor.registerCommand(
+            PASTE_COMMAND,
+            (e: ClipboardEvent | InputEvent) => {
+                let text = "";
+                if (e instanceof ClipboardEvent) {
+                    text = e.clipboardData?.getData("text/plain") || "";
+                }
+                
+                if (text && text.includes(":resource{")) {
+                    e.preventDefault();
+                    editor.update(() => {
+                        insertMarkdownAtSelection(text);
+                    });
+                    return true;
+                }
+                return false;
+            },
+            COMMAND_PRIORITY_HIGH
+        );
+
+        document.addEventListener('insert-resource', insertHandler);
+        document.addEventListener('focus-editor', focusHandler);
+        
+        return () => {
+            document.removeEventListener('insert-resource', insertHandler);
+            document.removeEventListener('focus-editor', focusHandler);
+            removePaste();
+        };
+    }, [editor]);
+    return null;
 }

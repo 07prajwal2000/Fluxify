@@ -18,29 +18,38 @@ export function useAiModels(projectId: string) {
 			i.group === "ai"
 		);
 		
-		let availableModels: AiModel[] = aiIntegrations.map((i: any) => ({
+		const availableModels: AiModel[] = aiIntegrations.map((i: any) => ({
 			id: i.id,
 			name: i.name,
 			variant: i.variant,
 		}));
 
-		let defId = availableModels[0]?.id || "";
+		const agentConnectionId = settingsData?.["settings.ai.agentConnectionId"];
+		
+		let defId = "";
 		let blocked = false;
 
-		if (availableModels.length === 0) {
-			const agentConnectionId = settingsData?.["settings.ai.agentConnectionId"];
-			if (agentConnectionId) {
-				const fallbackInt = allIntegrations.find((i: any) => i.id === agentConnectionId);
-				availableModels = [{
-					id: agentConnectionId,
-					name: fallbackInt?.name || "Project Default",
-					variant: fallbackInt?.variant,
-					isFallback: true
-				}];
+		if (agentConnectionId) {
+			const model = availableModels.find((m) => m.id === agentConnectionId);
+			if (model) {
+				model.isFallback = true;
 				defId = agentConnectionId;
 			} else {
-				blocked = true;
+				const fallbackInt = allIntegrations.find((i: any) => i.id === agentConnectionId);
+				if (fallbackInt) {
+					availableModels.push({
+						id: agentConnectionId,
+						name: fallbackInt.name || "Project Default",
+						variant: fallbackInt.variant,
+						isFallback: true
+					});
+					defId = agentConnectionId;
+				}
 			}
+		}
+
+		if (availableModels.length === 0) {
+			blocked = true;
 		}
 
 		return { models: availableModels, defaultModelId: defId, isBlocked: blocked, isLoading: false };

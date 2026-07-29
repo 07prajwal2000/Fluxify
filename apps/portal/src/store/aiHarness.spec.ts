@@ -19,6 +19,8 @@ function blankState(): AiHarnessState {
 		activeConversationId: null,
 		list: [],
 		runs: {},
+		selectedModelId: "gpt-4o-mini",
+		selectedArtifact: null,
 	};
 }
 

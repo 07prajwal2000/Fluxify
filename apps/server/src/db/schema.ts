@@ -203,6 +203,12 @@ export const integrationsEntity = pgTable(
 		index("idx_integrations_tags").on(table.tags),
 		index("idx_integrations_project_id").on(table.projectId),
 		index("idx_integrations_name_fts").using("gin", sql`to_tsvector('english', ${table.name})`),
+		// Users search integrations by what they are ("postgres", "openai") as
+		// often as by what they named them.
+		index("idx_integrations_meta_fts").using(
+			"gin",
+			sql`to_tsvector('english', coalesce(${table.group}, '') || ' ' || coalesce(${table.variant}, '') || ' ' || coalesce(${table.tags}, ''))`,
+		),
 	],
 );
 
@@ -239,6 +245,12 @@ export const routesEntity = pgTable(
 		index("idx_routes_project_id").on(table.projectId),
 		index("idx_routes_path").on(table.path),
 		index("idx_routes_name_fts").using("gin", sql`to_tsvector('english', ${table.name})`),
+		// `/api/users/:id` is one indivisible token to the text-search parser —
+		// splitting on the separators is what makes "users" match.
+		index("idx_routes_path_fts").using(
+			"gin",
+			sql`to_tsvector('english', translate(coalesce(${table.path}, ''), '/:-_', '    '))`,
+		),
 	],
 );
 
