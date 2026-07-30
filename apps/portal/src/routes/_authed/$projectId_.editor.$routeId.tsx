@@ -131,7 +131,7 @@ function EditorPage() {
 		};
 		save.mutate(payload, {
 			onSuccess: () => {
-				toast.success("Flow saved");
+				toast.success("Canvas saved");
 				setDirty(false);
 			},
 			onError: (e) => showErrorNotification(e as Error),
