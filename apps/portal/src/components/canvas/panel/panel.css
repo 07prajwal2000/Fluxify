@@ -1,0 +1,223 @@
+/* Canvas + settings panel side by side. The shell only lays them out; colours
+   come from the same hardcoded pair the blocks use, so the panel matches them. */
+.fx-canvas-shell {
+	display: flex;
+	width: 100%;
+	height: 100%;
+	min-height: 0;
+}
+
+.fx-canvas-shell > .fx-canvas {
+	min-width: 0;
+	flex: 1 1 auto;
+}
+
+.fx-panel {
+	--fx-panel-bg: #ffffff;
+	--fx-panel-fg: #18181b;
+	--fx-panel-border: color-mix(in oklab, var(--fx-panel-fg) 16%, var(--fx-panel-bg));
+	--fx-panel-muted: color-mix(in oklab, var(--fx-panel-fg) 60%, var(--fx-panel-bg));
+
+	display: flex;
+	width: 0;
+	height: 100%;
+	flex: 0 0 auto;
+	flex-direction: column;
+	overflow: hidden;
+	border-left: 0 solid var(--fx-panel-border);
+	background: var(--fx-panel-bg);
+	color: var(--fx-panel-fg);
+	font-size: 13px;
+	opacity: 0;
+	pointer-events: none;
+	/* Slides both ways: the panel stays mounted and only these change. */
+	transition:
+		width 220ms ease,
+		transform 220ms ease,
+		opacity 160ms ease;
+	transform: translateX(100%);
+}
+
+.fx-panel--open {
+	width: 45%;
+	max-width: 720px;
+	min-width: 320px;
+	border-left-width: 1px;
+	opacity: 1;
+	pointer-events: auto;
+	transform: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.fx-panel {
+		transition: none;
+	}
+}
+
+html.dark .fx-panel,
+html[data-theme="dark"] .fx-panel,
+.dark .fx-panel,
+[data-theme="dark"] .fx-panel {
+	--fx-panel-bg: #111113;
+	--fx-panel-fg: #fafafa;
+	--fx-panel-border: #232326;
+}
+
+.fx-panel__header {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	padding: 10px 12px;
+	border-bottom: 1px solid var(--fx-panel-border);
+}
+
+.fx-panel__icon {
+	display: flex;
+	flex: 0 0 auto;
+	align-items: center;
+	justify-content: center;
+	width: 28px;
+	height: 28px;
+	font-size: 20px;
+	line-height: 1;
+}
+
+.fx-panel__titles {
+	display: flex;
+	min-width: 0;
+	flex: 1 1 auto;
+	flex-direction: column;
+	gap: 2px;
+}
+
+.fx-panel__name {
+	overflow: hidden;
+	font-size: 14px;
+	font-weight: 600;
+	line-height: 1.2;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.fx-panel__type {
+	overflow: hidden;
+	/* Matches the name input's border + padding so both texts start at the same x. */
+	padding-left: 5px;
+	color: var(--fx-panel-muted);
+	font-size: 11px;
+	line-height: 1.2;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.fx-panel__close {
+	display: flex;
+	width: 26px;
+	height: 26px;
+	flex: 0 0 auto;
+	align-items: center;
+	justify-content: center;
+	padding: 0;
+	border: none;
+	border-radius: 4px;
+	background: transparent;
+	color: inherit;
+	cursor: pointer;
+	font-size: 16px;
+}
+
+.fx-panel__close:hover {
+	background: color-mix(in oklab, var(--fx-panel-fg) 12%, transparent);
+}
+
+.fx-panel__body {
+	overflow-y: auto;
+	flex: 1 1 auto;
+	padding: 12px;
+}
+
+.fx-panel__section + .fx-panel__section {
+	margin-top: 14px;
+}
+
+/* Fields. Styled to match the design system's inputs without importing them, so
+   the canvas package stays standalone. */
+.fx-panel__input,
+.fx-panel__textarea {
+	box-sizing: border-box;
+	width: 100%;
+	padding: 6px 8px;
+	border: 1px solid var(--fx-panel-border);
+	border-radius: var(--radius, 6px);
+	background: color-mix(in oklab, var(--fx-panel-fg) 4%, var(--fx-panel-bg));
+	color: inherit;
+	font: inherit;
+	font-size: 12px;
+	line-height: 1.35;
+	outline: none;
+}
+
+.fx-panel__textarea {
+	min-height: 42px;
+	resize: vertical;
+}
+
+/* The name, edited in place of the header title: chrome only on hover/focus. */
+.fx-panel__input--title {
+	padding: 2px 4px;
+	border-color: transparent;
+	background: transparent;
+	font-size: 14px;
+	font-weight: 600;
+	line-height: 1.2;
+}
+
+.fx-panel__input--title:hover:not(:disabled) {
+	border-color: var(--fx-panel-border);
+	background: color-mix(in oklab, var(--fx-panel-fg) 4%, var(--fx-panel-bg));
+}
+
+.fx-panel__input::placeholder,
+.fx-panel__textarea::placeholder {
+	color: var(--fx-panel-muted);
+}
+
+.fx-panel__input:hover:not(:disabled),
+.fx-panel__textarea:hover:not(:disabled) {
+	border-color: color-mix(in oklab, var(--fx-panel-fg) 34%, var(--fx-panel-bg));
+}
+
+/* Neutral focus, not the accent ring: these are quiet inline fields. */
+.fx-panel__input:focus,
+.fx-panel__textarea:focus {
+	border-color: color-mix(in oklab, var(--fx-panel-fg) 45%, var(--fx-panel-bg));
+	box-shadow: none;
+	outline: none;
+}
+
+.fx-panel__input:disabled,
+.fx-panel__textarea:disabled {
+	cursor: not-allowed;
+	opacity: 0.6;
+}
+
+/* Too narrow to share the width: cover the canvas instead of squeezing it. */
+@media (max-width: 1024px) {
+	.fx-panel {
+		position: absolute;
+		top: 0;
+		right: 0;
+		bottom: 0;
+		z-index: 5;
+		width: 100%;
+	}
+
+	.fx-panel--open {
+		width: 100%;
+		max-width: none;
+	}
+
+	.fx-canvas-shell {
+		position: relative;
+	}
+}

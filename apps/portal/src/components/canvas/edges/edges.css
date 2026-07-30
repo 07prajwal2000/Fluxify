@@ -1,0 +1,61 @@
+/* Flow edge: a dashed line whose dashes travel from source to target. */
+
+.fx-edge {
+	stroke: color-mix(in oklab, var(--fx-block-fg, #71717a) 45%, transparent);
+	stroke-width: 1.5;
+	stroke-dasharray: 6 4;
+	fill: none;
+	animation: fx-edge-flow 700ms linear infinite;
+}
+
+.fx-edge--selected {
+	stroke: var(--accent, oklch(0.9 0.2 122));
+	stroke-width: 2;
+}
+
+@keyframes fx-edge-flow {
+	to {
+		stroke-dashoffset: -10;
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.fx-edge {
+		animation: none;
+	}
+}
+
+/* Wide invisible stroke so the edge is easy to click/select. */
+.fx-edge__hit {
+	stroke: transparent;
+	stroke-width: 18;
+	fill: none;
+}
+
+.fx-edge__delete {
+	position: absolute;
+	display: flex;
+	width: 16px;
+	height: 16px;
+	align-items: center;
+	justify-content: center;
+	padding: 0;
+	border: 1px solid var(--fx-block-border, #232326);
+	border-radius: 9999px;
+	background: var(--fx-block-bg, #111113);
+	color: var(--fx-block-fg, #fafafa);
+	cursor: pointer;
+	line-height: 1;
+	/* EdgeLabelRenderer content is not interactive by default. */
+	pointer-events: all;
+}
+
+.fx-edge__delete:hover {
+	border-color: var(--danger, #e5484d);
+	color: var(--danger, #e5484d);
+}
+
+.fx-edge__delete:focus-visible {
+	outline: 2px solid var(--accent, oklch(0.9 0.2 122));
+	outline-offset: 1px;
+}

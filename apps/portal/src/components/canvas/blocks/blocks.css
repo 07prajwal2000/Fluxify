@@ -1,0 +1,444 @@
+/* Block + handle styling. Colours read design-system tokens (--background,
+   --border, --foreground, --muted…). Fallbacks are per colour-scheme so the
+   canvas package also renders correctly outside the Fluxify app. */
+
+.fx-block {
+	/* Background and text are explicitly hardcoded to prevent poisoned CSS variables 
+	   from overriding them. Borders/muted text are mixes of the two. */
+	--fx-block-bg: #ffffff;
+	--fx-block-fg: #18181b;
+	--fx-block-border: color-mix(in oklab, var(--fx-block-fg) 16%, var(--fx-block-bg));
+	--fx-block-border-hover: color-mix(
+		in oklab,
+		var(--fx-block-fg) 34%,
+		var(--fx-block-bg)
+	);
+	--fx-block-muted: color-mix(in oklab, var(--fx-block-fg) 60%, var(--fx-block-bg));
+	--fx-block-ok: var(--success, #40c057);
+	--fx-block-fail: var(--danger, #e5484d);
+
+	position: relative;
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	width: 168px;
+	padding: 8px 10px;
+	border: 1px solid var(--fx-block-border);
+	border-radius: var(--radius, 6px);
+	background: var(--fx-block-bg);
+	color: var(--fx-block-fg);
+	transition: border-color 120ms ease, box-shadow 120ms ease;
+}
+
+/* Dark mode explicitly forced when the HTML tag has the dark class */
+html.dark .fx-block,
+html[data-theme="dark"] .fx-block,
+.dark .fx-block,
+[data-theme="dark"] .fx-block {
+	--fx-block-bg: #111113;
+	--fx-block-fg: #fafafa;
+	--fx-block-border: #232326;
+}
+
+
+
+.fx-block:hover {
+	border-color: var(--fx-block-border-hover);
+}
+
+.fx-block--selected,
+.fx-block:focus-visible {
+	border-color: var(--accent, oklch(0.9 0.2 122));
+	box-shadow: 0 0 0 1.5px
+		var(--focus, color-mix(in oklab, var(--accent, oklch(0.9 0.2 122)) 45%, transparent));
+	outline: none;
+}
+
+/* Execution status: outline + badge. Selection still wins over it. */
+.fx-block--ok {
+	border-color: var(--fx-block-ok);
+	box-shadow: 0 0 0 1.5px color-mix(in oklab, var(--fx-block-ok) 40%, transparent);
+}
+
+.fx-block--fail {
+	border-color: var(--fx-block-fail);
+	box-shadow: 0 0 0 1.5px color-mix(in oklab, var(--fx-block-fail) 40%, transparent);
+}
+
+.fx-block__status {
+	position: absolute;
+	top: 0;
+	left: 0;
+	display: flex;
+	width: 14px;
+	height: 14px;
+	align-items: center;
+	justify-content: center;
+	border-radius: 9999px;
+	color: var(--fx-block-bg);
+	font-size: 9px;
+	line-height: 1;
+	transform: translate(-45%, -45%);
+}
+
+.fx-block__status--ok {
+	background: var(--fx-block-ok);
+}
+
+.fx-block__status--fail {
+	background: var(--fx-block-fail);
+}
+
+/* Hover action strip above a block (open/duplicate/copy/delete). Positioned
+   inside the node so it scales with the canvas zoom. */
+.fx-block__toolbar {
+	position: absolute;
+	bottom: 100%;
+	left: 50%;
+	z-index: 2;
+	display: flex;
+	align-items: center;
+	gap: 2px;
+	margin-bottom: 6px;
+	padding: 2px;
+	border: 1px solid var(--fx-block-border);
+	border-radius: var(--radius, 6px);
+	background: var(--fx-block-bg);
+	box-shadow: 0 2px 6px color-mix(in oklab, #000 18%, transparent);
+	color: var(--fx-block-fg);
+	transform: translateX(-50%);
+}
+
+.fx-block__action {
+	display: flex;
+	width: 18px;
+	height: 18px;
+	align-items: center;
+	justify-content: center;
+	padding: 0;
+	border: none;
+	border-radius: 4px;
+	background: transparent;
+	color: inherit;
+	cursor: pointer;
+	font-size: 11px;
+	line-height: 1;
+}
+
+.fx-block__action:hover:not(:disabled) {
+	background: color-mix(in oklab, var(--fx-block-fg) 12%, transparent);
+}
+
+.fx-block__action:disabled {
+	cursor: not-allowed;
+	opacity: 0.4;
+}
+
+.fx-block__action--danger:hover:not(:disabled) {
+	background: color-mix(in oklab, var(--fx-block-fail) 20%, transparent);
+	color: var(--fx-block-fail);
+}
+
+.fx-block__icon {
+	display: flex;
+	flex: 0 0 auto;
+	align-items: center;
+	justify-content: center;
+	width: 24px;
+	height: 24px;
+	font-size: 18px;
+	line-height: 1;
+}
+
+/* min-width:0 lets the description ellipsis instead of stretching the card. */
+.fx-block__text {
+	display: flex;
+	min-width: 0;
+	flex: 1 1 auto;
+	flex-direction: column;
+	gap: 2px;
+}
+
+.fx-block__name {
+	overflow: hidden;
+	font-size: 11px;
+	font-weight: 600;
+	line-height: 1.2;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.fx-block__description {
+	overflow: hidden;
+	font-size: 9px;
+	line-height: 1.2;
+	color: var(--fx-block-muted);
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+/* Sticky note: a resizable markdown card. No sockets, and no selection outline —
+   the resize frame is the selection affordance. */
+/* Sized by the node (React Flow drives width/height while resizing), never
+   clipped — the resize handles sit outside the border. */
+.fx-block--note {
+	--fx-note-tint: #e8b42a;
+
+	display: block;
+	box-sizing: border-box;
+	width: 100%;
+	height: 100%;
+	padding: 6px 8px;
+	border-color: color-mix(in oklab, var(--fx-note-tint) 55%, var(--fx-block-bg));
+	background: color-mix(in oklab, var(--fx-note-tint) 12%, var(--fx-block-bg));
+}
+
+.fx-block--note-red {
+	--fx-note-tint: var(--danger, #e5484d);
+}
+
+.fx-block--note-green {
+	--fx-note-tint: var(--success, #40c057);
+}
+
+.fx-block--note-blue {
+	--fx-note-tint: #3b82f6;
+}
+
+.fx-block--note.fx-block--selected,
+.fx-block--note:hover {
+	border-color: var(--fx-note-tint);
+	box-shadow: none;
+}
+
+.fx-note__body {
+	height: 100%;
+	overflow: hidden;
+	font-size: 9px;
+	line-height: 1.35;
+	word-break: break-word;
+}
+
+.fx-note__body > :first-child {
+	margin-top: 0;
+}
+
+.fx-note__body :is(p, ul, ol, pre, blockquote, table) {
+	margin: 0 0 4px;
+}
+
+.fx-note__body :is(ul, ol) {
+	padding-left: 12px;
+	list-style: revert;
+}
+
+.fx-note__body :is(h1, h2, h3, h4, h5, h6) {
+	margin: 0 0 3px;
+	font-size: 11px;
+	font-weight: 600;
+}
+
+.fx-note__body :is(code, pre) {
+	border-radius: 3px;
+	background: color-mix(in oklab, var(--fx-block-fg) 10%, transparent);
+	font-size: 8px;
+}
+
+.fx-note__body code {
+	padding: 0 2px;
+}
+
+.fx-note__body pre {
+	padding: 3px 4px;
+	overflow-x: auto;
+}
+
+.fx-note__body a {
+	color: inherit;
+	text-decoration: underline;
+}
+
+.fx-note__body blockquote {
+	padding-left: 5px;
+	border-left: 2px solid var(--fx-block-border-hover);
+	color: var(--fx-block-muted);
+}
+
+.fx-note__placeholder {
+	color: var(--fx-block-muted);
+	font-size: 9px;
+}
+
+/* Inline markdown editor — fills the note, keeps the note's own typography. */
+.fx-note__editor {
+	display: block;
+	box-sizing: border-box;
+	width: 100%;
+	height: 100%;
+	padding: 0;
+	border: none;
+	background: transparent;
+	color: inherit;
+	font: inherit;
+	font-size: 9px;
+	line-height: 1.35;
+	outline: none;
+	resize: none;
+}
+
+.fx-note__editor::placeholder {
+	color: var(--fx-block-muted);
+}
+
+/* Colour strip, sits just above the note (legacy sticky note had the same). */
+.fx-note__palette {
+	position: absolute;
+	top: -12px;
+	right: 0;
+	display: flex;
+	gap: 3px;
+}
+
+.fx-note__swatch {
+	width: 9px;
+	height: 9px;
+	padding: 0;
+	border: 1px solid color-mix(in oklab, var(--fx-block-fg) 25%, transparent);
+	border-radius: 2px;
+	cursor: pointer;
+}
+
+.fx-note__swatch--active {
+	border-color: var(--fx-block-fg);
+}
+
+.fx-note__swatch--yellow {
+	background: #e8b42a;
+}
+
+.fx-note__swatch--red {
+	background: var(--danger, #e5484d);
+}
+
+.fx-note__swatch--green {
+	background: var(--success, #40c057);
+}
+
+.fx-note__swatch--blue {
+	background: #3b82f6;
+}
+
+/* Resize frame: React Flow's own controls, restyled — a small rect on every
+   corner (its handles) and on every edge middle (its lines, via ::after). */
+.react-flow__resize-control.fx-note__edge {
+	border-color: color-mix(in oklab, var(--fx-note-tint) 60%, transparent);
+}
+
+.react-flow__resize-control.fx-note__grip {
+	width: 5px;
+	height: 5px;
+	border: 1px solid var(--fx-block-bg);
+	border-radius: 2px;
+	background: var(--fx-block-fg);
+}
+
+.react-flow__resize-control.fx-note__edge::after {
+	position: absolute;
+	width: 5px;
+	height: 5px;
+	border: 1px solid var(--fx-block-bg);
+	border-radius: 2px;
+	background: var(--fx-block-fg);
+	content: "";
+}
+
+.react-flow__resize-control.line.fx-note__edge::after {
+	top: 50%;
+	left: 50%;
+	transform: translate(-50%, -50%);
+}
+
+/* Edge rails: flex containers that space their sockets evenly along one edge. */
+.fx-block__rail {
+	position: absolute;
+	display: flex;
+	align-items: center;
+	justify-content: space-around;
+}
+
+.fx-block__rail--left,
+.fx-block__rail--right {
+	top: 0;
+	height: 100%;
+	flex-direction: column;
+}
+
+.fx-block__rail--left {
+	left: 0;
+	transform: translateX(-50%);
+}
+
+.fx-block__rail--right {
+	right: 0;
+	transform: translateX(50%);
+}
+
+.fx-block__rail--top,
+.fx-block__rail--bottom {
+	left: 0;
+	width: 100%;
+	flex-direction: row;
+}
+
+.fx-block__rail--top {
+	top: 0;
+	transform: translateY(-50%);
+}
+
+.fx-block__rail--bottom {
+	bottom: 0;
+	transform: translateY(50%);
+}
+
+/* React Flow absolutely positions handles by default; hand placement back to
+   the rail's flex layout (handle coordinates are measured from the DOM). */
+.fx-block__rail .fx-handle.react-flow__handle {
+	position: relative;
+	inset: auto;
+	transform: none;
+	border: 1px solid var(--fx-block-bg);
+	min-width: 0;
+	min-height: 0;
+}
+
+.fx-handle--circle {
+	width: 10px;
+	height: 10px;
+	border-radius: 9999px;
+}
+
+/* The inbound socket: a bar on the block's edge. */
+.fx-handle--rect {
+	border-radius: 2px;
+}
+
+.fx-handle--rect.fx-handle--left,
+.fx-handle--rect.fx-handle--right {
+	width: 6px;
+	height: 16px;
+}
+
+.fx-handle--rect.fx-handle--top,
+.fx-handle--rect.fx-handle--bottom {
+	width: 16px;
+	height: 6px;
+}
+
+.fx-handle.react-flow__handle:hover {
+	box-shadow: 0 0 0 3px color-mix(in oklab, currentColor 25%, transparent);
+}
+
+/* Already at its connection limit — no longer a drop target. */
+.fx-handle--full {
+	opacity: 0.45;
+}
