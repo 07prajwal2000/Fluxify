@@ -1,5 +1,5 @@
-import { BadRequestError, ConflictError, NotFoundError } from "@fluxify/server";
-import { markSubArtifactApplied, setConversationFlags } from "./repository";
+import { BadRequestError, ConflictError } from "@fluxify/server";
+import { setConversationFlags } from "./repository";
 import { bumpListCacheVersion } from "../cacheVersion";
 import { requestInterrupt } from "../../../../harness/interrupt";
 import { enqueueHarnessContinue } from "../../../../harness/internal/enqueue";
@@ -75,16 +75,6 @@ export default async function handleRequest(
 		const flags = resolveFlags(action, conversation.archived);
 		const result = await setConversationFlags(conversationId, flags);
 		if (conversation.userId) await bumpListCacheVersion(conversation.userId);
-		return result;
-	}
-
-	// Applying a past output to the project is independent of the run lifecycle,
-	// so no status guard — and it can be resent any number of times.
-	if (action === "sub_artifact_applied") {
-		const subArtifactId = body.sub_artifact?.subArtifactId;
-		if (!subArtifactId) throw new BadRequestError("sub_artifact is required");
-		const result = await markSubArtifactApplied(conversationId, subArtifactId);
-		if (!result) throw new NotFoundError("Sub-artifact not found");
 		return result;
 	}
 

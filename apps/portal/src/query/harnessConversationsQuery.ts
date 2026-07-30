@@ -103,6 +103,68 @@ export const harnessConversationsQuery = {
 			});
 		},
 	},
+	subArtifacts: {
+		/** Chips for one run's outputs. Applying anything invalidates this. */
+		useQuery(projectId: string, conversationId: string, runId: string) {
+			return useQuery({
+				queryKey: [...key(projectId), conversationId, "sub-artifacts", runId],
+				queryFn: () =>
+					harnessConversationsService.listRunSubArtifacts(
+						projectId,
+						conversationId,
+						runId,
+					),
+				enabled: Boolean(conversationId && runId),
+				refetchOnWindowFocus: false,
+			});
+		},
+		/** One output with its `payload` — only fetch when the panel opens. */
+		useDetailQuery(
+			projectId: string,
+			conversationId: string,
+			subArtifactId: string | null,
+		) {
+			return useQuery({
+				queryKey: [...key(projectId), conversationId, "sub-artifact", subArtifactId],
+				queryFn: () =>
+					harnessConversationsService.getSubArtifact(
+						projectId,
+						conversationId,
+						subArtifactId as string,
+					),
+				enabled: Boolean(conversationId && subArtifactId),
+				refetchOnWindowFocus: false,
+			});
+		},
+	},
+	applySubArtifact: {
+		mutation(projectId: string, conversationId: string) {
+			const qc = useQueryClient();
+			return useMutation({
+				mutationFn: (subArtifactId: string) =>
+					harnessConversationsService.applySubArtifact(
+						projectId,
+						conversationId,
+						subArtifactId,
+					),
+				onSuccess: () => qc.invalidateQueries({ queryKey: key(projectId) }),
+			});
+		},
+	},
+	applyArtifact: {
+		mutation(projectId: string, conversationId: string) {
+			const qc = useQueryClient();
+			return useMutation({
+				mutationFn: (artifactId: string) =>
+					harnessConversationsService.applyArtifact(
+						projectId,
+						conversationId,
+						artifactId,
+					),
+				onSuccess: () => qc.invalidateQueries({ queryKey: key(projectId) }),
+			});
+		},
+	},
 	action: {
 		mutation(projectId: string, conversationId: string) {
 			const qc = useQueryClient();

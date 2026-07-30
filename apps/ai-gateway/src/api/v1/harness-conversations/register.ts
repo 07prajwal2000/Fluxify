@@ -5,6 +5,7 @@ import deleteConversation from "./delete/route";
 import sendMessage from "./send-message/route";
 import conversationAction from "./action/route";
 import listMessages from "./list-messages/route";
+import artifacts from "./artifacts/route";
 
 export function registerHarnessConversationRoutes(app: Hono) {
 	const subRoute = app.basePath("/:projectId/harness-conversations");
@@ -14,4 +15,5 @@ export function registerHarnessConversationRoutes(app: Hono) {
 	sendMessage(subRoute);
 	conversationAction(subRoute);
 	listMessages(subRoute);
+	artifacts(subRoute);
 }

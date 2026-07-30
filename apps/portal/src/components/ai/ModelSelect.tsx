@@ -30,31 +30,7 @@ function getModelIcon(variant?: string) {
 }
 
 export function ModelSelect({ projectId, value, models, onChange }: Props) {
-	const [status, setStatus] = useState<"testing" | "success" | "error" | "idle">("idle");
-	const testConn = integrationsQuery.testExistingConnection.mutation(projectId);
-
-	useEffect(() => {
-		if (!value) {
-			setStatus("idle");
-			return;
-		}
-		setStatus("testing");
-		testConn.mutate(value, {
-			onSuccess: (res) => {
-				setStatus(res.success ? "success" : "error");
-			},
-			onError: () => {
-				setStatus("error");
-			}
-		});
-	// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [value, projectId]); // Do not include testConn.mutate
-
 	const selectedModel = models.find((m) => m.id === value);
-	const dotColor =
-		status === "success" ? "bg-green-500" :
-		status === "error" ? "bg-red-500" :
-		status === "testing" ? "bg-yellow-500" : "bg-gray-500";
 
 	return (
 		<Select
@@ -64,13 +40,17 @@ export function ModelSelect({ projectId, value, models, onChange }: Props) {
 			onChange={(v) => v && onChange(String(v as Key))}
 			className="w-[240px]"
 		>
-			<Select.Trigger className="flex w-full h-9 items-center justify-between gap-2 rounded-2xl border border-white/10 bg-transparent px-3 font-medium text-muted-foreground shadow-none hover:bg-white/5 data-[open=true]:bg-white/5 data-[focus-visible=true]:ring-0 transition-colors">
+			<Select.Trigger className="flex w-full h-9 items-center justify-between gap-2 rounded-2xl border border-white/10 bg-transparent px-3 font-medium text-muted-foreground shadow-none hover:bg-white/5 data-[open=true]:bg-white/5 data-[focus-visible=true]:ring-0 transition-colors relative">
+				{!value && (
+					<span className="absolute -top-1 -right-1 flex h-2.5 w-2.5">
+						<span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-500 opacity-75"></span>
+						<span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-500"></span>
+					</span>
+				)}
 				<Select.Value>
 					<span className="flex items-center gap-2.5 overflow-hidden">
-						<span className={`h-1.5 w-1.5 shrink-0 rounded-full ${dotColor}`} />
 						{selectedModel && <span className="shrink-0 flex items-center">{getModelIcon(selectedModel.variant)}</span>}
 						<span className="text-foreground tracking-wide text-[13.5px] truncate">{selectedModel?.name ?? "Select Model"}</span>
-						{selectedModel?.isFallback && <span className="text-muted-foreground/60 text-[11px] shrink-0">• Default</span>}
 					</span>
 				</Select.Value>
 				<Select.Indicator>
@@ -86,11 +66,6 @@ export function ModelSelect({ projectId, value, models, onChange }: Props) {
 									{getModelIcon(m.variant)}
 									<span className="text-[13.5px] font-medium tracking-wide text-foreground/90">{m.name}</span>
 								</div>
-								{m.isFallback && (
-									<span className="rounded-md bg-white/10 px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
-										Default
-									</span>
-								)}
 							</div>
 						</ListBox.Item>
 					))}

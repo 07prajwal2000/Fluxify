@@ -1,0 +1,2 @@
+CREATE INDEX "idx_integrations_meta_fts" ON "integrations" USING gin (to_tsvector('english', coalesce("group", '') || ' ' || coalesce("variant", '') || ' ' || coalesce("tags", '')));--> statement-breakpoint
+CREATE INDEX "idx_routes_path_fts" ON "routes" USING gin (to_tsvector('english', translate(coalesce("path", ''), '/:-_', '    ')));

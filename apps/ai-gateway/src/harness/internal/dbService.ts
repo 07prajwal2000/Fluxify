@@ -31,6 +31,23 @@ export interface SubArtifactRecord {
 	createdAt: Date;
 }
 
+/**
+ * Free text -> a prefix tsquery: `"data ur"` becomes `data:* & ur:*`, so typing
+ * part of a word finds it. `plainto_tsquery` can't do this — it only matches
+ * whole lexemes, which meant "data" missed `DATABASE_URL`.
+ *
+ * Everything that isn't a word character is dropped rather than escaped:
+ * `to_tsquery` throws on stray operators (`&`, `!`, unbalanced quotes) and this
+ * string comes straight off a user's keyboard. Dropping them also splits
+ * `/api/users` into its segments for free.
+ *
+ * Returns null when nothing searchable is left, so the caller can skip the query.
+ */
+export function toPrefixTsQuery(keyword: string): string | null {
+	const terms = keyword.toLowerCase().match(/[a-z0-9]+/g);
+	return terms?.length ? terms.map((t) => `${t}:*`).join(" & ") : null;
+}
+
 export class DbService {
 	constructor() {}
 
@@ -45,20 +62,35 @@ export class DbService {
 		return [...seen];
 	}
 
+	/** Same, as prefix tsqueries — the FTS lookups all want these. */
+	private tsQueries(input: SearchInput): string[] {
+		return [
+			...new Set(
+				this.normalizeKeywords(input)
+					.map(toPrefixTsQuery)
+					.filter((q): q is string => !!q),
+			),
+		];
+	}
+
 	async findRoutes(
 		projectId: string,
 		searchQuery: SearchInput,
 	): Promise<FindResourceResult[]> {
 		try {
-			const keywords = this.normalizeKeywords(searchQuery);
-			if (keywords.length === 0) return [];
+			const queries = this.tsQueries(searchQuery);
+			if (queries.length === 0) return [];
 
 			const matchers: SQL[] = [];
-			for (const k of keywords) {
+			for (const q of queries) {
 				matchers.push(
-					sql`to_tsvector('english', ${routesEntity.name}) @@ plainto_tsquery('english', ${k})`,
+					sql`to_tsvector('english', ${routesEntity.name}) @@ to_tsquery('english', ${q})`,
 				);
-				matchers.push(ilike(routesEntity.path, `%${k}%`));
+				// The path needs its separators flattened or "/api/users" stays a
+				// single token. Mirrors `idx_routes_path_fts`.
+				matchers.push(
+					sql`to_tsvector('english', translate(coalesce(${routesEntity.path}, ''), '/:-_', '    ')) @@ to_tsquery('english', ${q})`,
+				);
 			}
 
 			const routes = await db
@@ -111,16 +143,16 @@ export class DbService {
 		searchQuery: SearchInput,
 	): Promise<FindResourceResult[]> {
 		try {
-			const keywords = this.normalizeKeywords(searchQuery);
-			if (keywords.length === 0) return [];
+			const queries = this.tsQueries(searchQuery);
+			if (queries.length === 0) return [];
 
 			const matchers: SQL[] = [];
-			for (const k of keywords) {
+			for (const q of queries) {
 				matchers.push(
-					sql`to_tsvector('english', ${appConfigEntity.keyName}) @@ plainto_tsquery('english', ${k})`,
+					sql`to_tsvector('english', ${appConfigEntity.keyName}) @@ to_tsquery('english', ${q})`,
 				);
 				matchers.push(
-					sql`to_tsvector('english', coalesce(${appConfigEntity.description}, '')) @@ plainto_tsquery('english', ${k})`,
+					sql`to_tsvector('english', coalesce(${appConfigEntity.description}, '')) @@ to_tsquery('english', ${q})`,
 				);
 			}
 
@@ -150,13 +182,19 @@ export class DbService {
 		searchQuery: SearchInput,
 	): Promise<FindResourceResult[]> {
 		try {
-			const keywords = this.normalizeKeywords(searchQuery);
-			if (keywords.length === 0) return [];
+			const queries = this.tsQueries(searchQuery);
+			if (queries.length === 0) return [];
 
-			const matchers: SQL[] = keywords.map(
-				(k) =>
-					sql`to_tsvector('english', ${integrationsEntity.name}) @@ plainto_tsquery('english', ${k})`,
-			);
+			const matchers: SQL[] = [];
+			for (const q of queries) {
+				matchers.push(
+					sql`to_tsvector('english', ${integrationsEntity.name}) @@ to_tsquery('english', ${q})`,
+				);
+				// "postgres" / "openai" — what the integration is, not what it's called.
+				matchers.push(
+					sql`to_tsvector('english', coalesce(${integrationsEntity.group}, '') || ' ' || coalesce(${integrationsEntity.variant}, '') || ' ' || coalesce(${integrationsEntity.tags}, '')) @@ to_tsquery('english', ${q})`,
+				);
+			}
 
 			const integrations = await db
 				.select({

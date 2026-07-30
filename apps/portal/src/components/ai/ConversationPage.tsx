@@ -14,6 +14,7 @@ import { ScrollToBottomButton } from "./ScrollToBottomButton";
 import { ChatTitleEditor } from "./ChatTitleEditor";
 import { AgentTaskStatus } from "./AgentTaskStatus";
 import { HarnessStatusAccordion } from "./HarnessStatusAccordion";
+import { ArtifactsSidebar } from "./ArtifactsSidebar";
 import type { HarnessConversation } from "./types";
 import { PlanReviewModal } from "./PlanReviewModal";
 import { Button } from "@fluxify/components";
@@ -128,6 +129,11 @@ export function ConversationPage() {
 		prevIsRunning.current = isRunning;
 	}, [isRunning, queryClient, projectId, conversationId]);
 
+	// Clear artifacts sidebar when navigating to a different conversation
+	useEffect(() => {
+		useAiHarnessStore.getState().setSelectedArtifact(null);
+	}, [conversationId]);
+
 	const submit = (q: string, model: string, isFallback: boolean) => {
 		const reqPayload: {
 			query: string;
@@ -164,13 +170,14 @@ export function ConversationPage() {
 	};
 
 	return (
-		<div className="flex h-full flex-col relative">
-			<div className="absolute top-1.5 left-1 z-20 pointer-events-auto">
-				<ChatTitleEditor projectId={projectId} conversation={activeConversation} />
-			</div>
+		<div className="flex h-full w-full overflow-hidden">
+			<div className="flex flex-col flex-1 h-full relative min-w-0 transition-all duration-300 ease-in-out">
+				<div className="absolute top-1.5 left-1 z-20 pointer-events-auto">
+					<ChatTitleEditor projectId={projectId} conversation={activeConversation} />
+				</div>
 
-			<div className="flex-1 overflow-y-auto px-4 pb-32 pt-16">
-				<div className="mx-auto flex w-full max-w-[65%] flex-col-reverse gap-6">
+				<div className="flex-1 overflow-y-auto px-4 pb-32 pt-16">
+					<div className="mx-auto flex w-full max-w-[65%] flex-col-reverse gap-6">
 					<div ref={bottomRef} className="h-0 w-0 shrink-0" />
 					
 					{optimisticQuery && (
@@ -345,6 +352,9 @@ export function ConversationPage() {
 					conversationId={conversationId}
 				/>
 			)}
+			</div>
+			
+			<ArtifactsSidebar />
 		</div>
 	);
 }

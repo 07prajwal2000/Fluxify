@@ -5,11 +5,23 @@ import * as harnessConversationsUpdateDto from "@fluxify/ai-gateway/src/api/v1/h
 import * as harnessConversationsSendMessageDto from "@fluxify/ai-gateway/src/api/v1/harness-conversations/send-message/dto";
 import * as harnessConversationsActionDto from "@fluxify/ai-gateway/src/api/v1/harness-conversations/action/dto";
 import * as harnessConversationsListMessagesDto from "@fluxify/ai-gateway/src/api/v1/harness-conversations/list-messages/dto";
+import * as harnessArtifactsDto from "@fluxify/ai-gateway/src/api/v1/harness-conversations/artifacts/dto";
 
 const baseUrl = (projectId: string) => `ai/v1/${projectId}/harness-conversations`;
 
 export type ListHarnessConversationsQuery = z.infer<
 	typeof harnessConversationsListDto.queryParamsSchema
+>;
+
+/** List shape — no `payload`. Fetch one by id when you need the graph. */
+export type SubArtifactSummary = z.infer<
+	typeof harnessArtifactsDto.subArtifactSummarySchema
+>;
+export type SubArtifactDetail = z.infer<
+	typeof harnessArtifactsDto.subArtifactDetailSchema
+>;
+export type ApplyArtifactResponse = z.infer<
+	typeof harnessArtifactsDto.applyArtifactResponseSchema
 >;
 
 export const harnessConversationsService = {
@@ -70,8 +82,54 @@ export const harnessConversationsService = {
 		);
 		return result.data;
 	},
+	/** Everything one run produced, as chips. */
+	async listRunSubArtifacts(
+		projectId: string,
+		conversationId: string,
+		runId: string,
+	): Promise<z.infer<typeof harnessArtifactsDto.listResponseSchema>> {
+		const result = await httpClient.get(
+			`${baseUrl(projectId)}/${conversationId}/runs/${runId}/sub-artifacts`,
+		);
+		return result.data;
+	},
+	async getSubArtifact(
+		projectId: string,
+		conversationId: string,
+		subArtifactId: string,
+	): Promise<SubArtifactDetail> {
+		const result = await httpClient.get(
+			`${baseUrl(projectId)}/${conversationId}/sub-artifacts/${subArtifactId}`,
+		);
+		return result.data;
+	},
+	/** Applying a canvas whose route this run created 409s until that route is
+	 *  applied first — surface the server message, it names the sub-artifact. */
+	async applySubArtifact(
+		projectId: string,
+		conversationId: string,
+		subArtifactId: string,
+	): Promise<z.infer<typeof harnessArtifactsDto.applySubArtifactResponseSchema>> {
+		const result = await httpClient.post(
+			`${baseUrl(projectId)}/${conversationId}/sub-artifacts/${subArtifactId}/apply`,
+		);
+		return result.data;
+	},
+	/** Applies every output of the run in dependency order (routes first). */
+	async applyArtifact(
+		projectId: string,
+		conversationId: string,
+		artifactId: string,
+	): Promise<ApplyArtifactResponse> {
+		const result = await httpClient.post(
+			`${baseUrl(projectId)}/${conversationId}/artifacts/${artifactId}/apply`,
+		);
+		return result.data;
+	},
 	updateRequestBodySchema: harnessConversationsUpdateDto.requestBodySchema,
 	sendMessageRequestBodySchema: harnessConversationsSendMessageDto.requestBodySchema,
 	actionRequestBodySchema: harnessConversationsActionDto.requestBodySchema,
 	conversationActionEnum: harnessConversationsActionDto.conversationActionEnum,
+	subArtifactSummarySchema: harnessArtifactsDto.subArtifactSummarySchema,
+	subArtifactDetailSchema: harnessArtifactsDto.subArtifactDetailSchema,
 };

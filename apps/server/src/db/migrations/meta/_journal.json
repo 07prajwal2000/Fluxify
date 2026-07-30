@@ -316,6 +316,13 @@
       "when": 1785195371771,
       "tag": "0044_breezy_green_goblin",
       "breakpoints": true
+    },
+    {
+      "idx": 45,
+      "version": "7",
+      "when": 1785278355449,
+      "tag": "0045_nasty_firelord",
+      "breakpoints": true
     }
   ]
 }
