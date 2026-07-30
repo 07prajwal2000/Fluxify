@@ -1,5 +1,7 @@
 import { operatorSchema } from "@fluxify/lib";
 import z from "zod";
+import type { Context } from "../../baseBlock";
+import type { EmitNode } from "../../compiler";
 
 export const whereConditionSchema = z.object({
 	attribute: z.string().describe("column name / attribute name"),
@@ -9,6 +11,33 @@ export const whereConditionSchema = z.object({
 	value: z.string().or(z.number()).describe("value"),
 	chain: z.enum(["and", "or"]).describe("conditional chain"),
 });
+
+/**
+ * Where conditions become a plain JS array literal. `attribute` and `value` may
+ * be js expressions, so those become inlined code; everything else is baked in
+ * at compile time. The adapter still builds the SQL from the result — nothing
+ * about knex changes.
+ */
+export function emitWhereConditions(
+	conditions: z.infer<typeof whereConditionSchema>[],
+	node: EmitNode,
+) {
+	const entries = conditions.map(
+		(condition) =>
+			`{ attribute: ${node.value(condition.attribute)}, operator: ${JSON.stringify(condition.operator)}, value: ${node.value(condition.value)}, chain: ${JSON.stringify(condition.chain)} }`,
+	);
+	return `[${entries.join(", ")}]`;
+}
+
+/** every db block resolves its adapter the same way */
+export function adapterFor(context: Context, connection: string) {
+	return context.dbFactory!.getDbAdapter(connection);
+}
+
+/** keeps the interpreted blocks' error text while preserving the real cause */
+export function dbFailure(block: string, error: unknown): never {
+	throw new Error(`failed to execute ${block} db block`, { cause: error });
+}
 
 export const joinSchema = z.object({
 	table: z.string().describe("table to join"),

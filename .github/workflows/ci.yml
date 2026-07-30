@@ -192,8 +192,8 @@ jobs:
             dockerfile: docker/kit/Dockerfile
           - image: fluxify-admin
             dockerfile: docker/admin/Dockerfile
-          - image: fluxify-worker
-            dockerfile: docker/worker/Dockerfile
+          - image: fluxify-worker-compiled
+            dockerfile: docker/worker-compiled/Dockerfile
 
     steps:
       - uses: actions/checkout@v4

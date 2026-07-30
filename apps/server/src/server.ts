@@ -100,6 +100,15 @@ async function main() {
 		// Seed data if admin routes are enabled
 		const { seedData } = await import("./db/seed");
 		await seedData(db);
+
+		// The compile worker lives here because this is the process that owns the
+		// database connection — request workers must never open one, and compiling
+		// is CPU work that has no business on a node serving traffic.
+		await loadAppConfig();
+		await loadIntegrations();
+		await loadProjectSettings();
+		const { startCompileWorker } = await import("./modules/compiler/consumer");
+		await startCompileWorker();
 	}
 
 	if (builtinWorkerEnabled) {
@@ -107,6 +116,8 @@ async function main() {
 		await loadAppConfig();
 		await loadIntegrations();
 		await loadProjectSettings();
+		// hot reload of compiled artifacts is the compiled worker's job; the
+		// builtin worker keeps interpreting so both paths stay exercised
 		await loadCustomBlocks();
 		initializeCustomBlocksSubscription();
 		const parser = await loadRoutes();

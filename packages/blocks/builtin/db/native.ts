@@ -7,6 +7,8 @@ import {
 } from "../../baseBlock";
 import { IDbAdapter } from "@fluxify/adapters";
 import { logger } from "@fluxify/common";
+import { adapterFor, dbFailure } from "./schema";
+import type { EmitNode } from "../../compiler";
 
 export const nativeDbBlockSchema = z
 	.object({
@@ -24,6 +26,35 @@ export const nativeDbAiDescription = {
 	description: "Executes raw SQL or database-specific commands via JavaScript.",
 	jsonSchema: JSON.stringify(z.toJSONSchema(nativeDbBlockSchema)),
 };
+/**
+ * `dbQuery` is published on vars for the duration of the snippet, which is how
+ * the interpreted block did it too (JsVM assigns the extra global, then deletes
+ * it). Inlined user code reaches it through the scope proxy.
+ */
+export async function runNativeDb(
+	context: Context,
+	connection: string,
+	body: () => Promise<unknown>,
+) {
+	const adapter = adapterFor(context, connection);
+	const vars = context.vars as Record<string, any>;
+	vars.dbQuery = adapter.raw.bind(adapter);
+	try {
+		return await body();
+	} catch (error) {
+		dbFailure("native", error);
+	} finally {
+		delete vars.dbQuery;
+	}
+}
+
+export function emitNativeDb(node: EmitNode) {
+	const input = nativeDbBlockSchema.parse(node.block.data);
+	const code = input.js.startsWith("js:") ? input.js.slice(3) : input.js;
+	return `${node.in} = await lib.dbNative(ctx, ${JSON.stringify(input.connection)}, async () => ${node.js(code, node.in)});
+${node.next()}`;
+}
+
 export class NativeDbBlock extends BaseBlock {
 	constructor(
 		protected readonly context: Context,

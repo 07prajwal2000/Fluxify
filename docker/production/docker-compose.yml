@@ -1,16 +1,24 @@
 # ==============================================================================
 # Fluxify PRODUCTION — scale-out stack.
-#   admin   : control plane (server API + web UI + AI gateway). Runs DB migrations.
-#   worker  : stateless request executor, replicated x2 and load-balanced.
+#   admin   : control plane (server API + web UI + AI gateway). Runs DB
+#             migrations, and hosts the compiler that fills the NATS KV bucket.
+#   worker-project-a / -b : compiled request executors, one service per project,
+#             2 replicas each = 4 containers. No database connection.
 #   traefik : edge reverse proxy. Chosen over Caddy because it discovers the
 #             worker replicas automatically from Docker labels and load-balances
 #             across them with zero static config.
 #
 #   docker compose -f docker/production/docker-compose.yml up -d
 #
-# Routing (Traefik, by path priority):
-#   /_/admin*  -> admin  (its internal proxy splits ui / api / ai)
-#   /*         -> worker (round-robined across replicas; user API traffic)
+# Routing (Traefik):
+#   /_/admin*                 -> admin (its internal proxy splits ui / api / ai)
+#   Host(project-a.localhost) -> worker-project-a replicas
+#   Host(project-b.localhost) -> worker-project-b replicas
+#
+# Required in docker/production/.env, on top of the usual settings:
+#   PROJECT_A_ID, PROJECT_B_ID  — project uuids, one per worker service
+#   MASTER_ENCRYPTION_KEY       — shared by admin and workers; config artifacts
+#                                 are encrypted with it in KV
 # ==============================================================================
 services:
   traefik:
@@ -67,40 +75,86 @@ services:
     networks:
       - fluxify_net
 
-  worker:
-    # image: ghcr.io/fluxify-rest/fluxify-worker:latest
+  # ---------------------------------------------------------------------------
+  # Compiled workers — one SERVICE per project, two replicas each (4 containers).
+  #
+  # A compiled worker serves exactly one project: WORKER_PROJECT_ID decides which
+  # artifacts it pulls from NATS KV. That is why projects cannot share a service
+  # — replicas of a service share their environment, so they share a project.
+  # Adding a project means adding a service, not raising `replicas`.
+  #
+  # Routed by Host, not by path: user API routes own the whole path space, so
+  # there is no prefix left to tell projects apart. Point both hostnames at this
+  # host (/etc/hosts or real DNS) to try it locally.
+  #
+  # These containers never connect to Postgres — no PG_URL, and no dependency on
+  # it. They need NATS (JetStream + KV) and Redis only.
+  # ---------------------------------------------------------------------------
+  worker-project-a:
+    # image: ghcr.io/fluxify-rest/fluxify-worker-compiled:latest
     build:
       context: ../..
-      dockerfile: docker/worker/Dockerfile
+      dockerfile: docker/worker-compiled/Dockerfile
     restart: unless-stopped
     env_file:
       - .env
+    environment:
+      # Replace with the real project uuid from the admin UI.
+      WORKER_PROJECT_ID: "${PROJECT_A_ID:?set PROJECT_A_ID in docker/production/.env}"
     # No container_name: replicas each need a unique name.
     deploy:
       replicas: 2
     depends_on:
-      # admin owns migrations; let it come up first. Workers retry the DB until
-      # ready, and the readiness probe below keeps traffic off them until loaded.
+      # admin runs the compiler, which fills KV. Workers idle harmlessly until
+      # artifacts appear, and the readiness probe keeps traffic off them.
       admin:
         condition: service_started
-      postgres:
-        condition: service_healthy
       valkey:
         condition: service_started
       nats:
         condition: service_started
     labels:
       - traefik.enable=true
-      - "traefik.http.routers.worker.rule=PathPrefix(`/`)"
-      - traefik.http.routers.worker.priority=1
-      - traefik.http.routers.worker.entrypoints=web
-      - traefik.http.services.worker.loadbalancer.server.port=5600
-      # Only route to a replica once its dependencies have loaded. If ALL replicas
-      # are still booting the service has no healthy server and Traefik returns
-      # 503 (not 404) — watch this on the dashboard during startup.
-      - traefik.http.services.worker.loadbalancer.healthcheck.path=/_/admin/api/healthchecks/ready
-      - traefik.http.services.worker.loadbalancer.healthcheck.port=5600
-      - traefik.http.services.worker.loadbalancer.healthcheck.interval=10s
+      - "traefik.http.routers.worker-a.rule=Host(`project-a.localhost`)"
+      - traefik.http.routers.worker-a.priority=1
+      - traefik.http.routers.worker-a.entrypoints=web
+      - traefik.http.services.worker-a.loadbalancer.server.port=5600
+      # Health is on 5601, served by the supervisor. Checking 5600 would hit a
+      # random execution thread (SO_REUSEPORT) and tell you nothing about the rest.
+      - traefik.http.services.worker-a.loadbalancer.healthcheck.path=/_/admin/api/healthchecks/ready
+      - traefik.http.services.worker-a.loadbalancer.healthcheck.port=5601
+      - traefik.http.services.worker-a.loadbalancer.healthcheck.interval=10s
+    networks:
+      - fluxify_net
+
+  worker-project-b:
+    # image: ghcr.io/fluxify-rest/fluxify-worker-compiled:latest
+    build:
+      context: ../..
+      dockerfile: docker/worker-compiled/Dockerfile
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      WORKER_PROJECT_ID: "${PROJECT_B_ID:?set PROJECT_B_ID in docker/production/.env}"
+    deploy:
+      replicas: 2
+    depends_on:
+      admin:
+        condition: service_started
+      valkey:
+        condition: service_started
+      nats:
+        condition: service_started
+    labels:
+      - traefik.enable=true
+      - "traefik.http.routers.worker-b.rule=Host(`project-b.localhost`)"
+      - traefik.http.routers.worker-b.priority=1
+      - traefik.http.routers.worker-b.entrypoints=web
+      - traefik.http.services.worker-b.loadbalancer.server.port=5600
+      - traefik.http.services.worker-b.loadbalancer.healthcheck.path=/_/admin/api/healthchecks/ready
+      - traefik.http.services.worker-b.loadbalancer.healthcheck.port=5601
+      - traefik.http.services.worker-b.loadbalancer.healthcheck.interval=10s
     networks:
       - fluxify_net
 
@@ -132,13 +186,23 @@ services:
   nats:
     image: nats:latest
     container_name: nats
+    # -js enables JetStream, which the compile pipeline REQUIRES: the compile
+    # work queue is a JetStream stream and compiled routes live in a KV bucket
+    # (KV is built on JetStream). Without it the compiler cannot start and
+    # workers have nothing to pull.
     # Single-token auth; the token must match NATS_TOKEN in .env.
-    command: ["--auth", "fluxify_nats_token"]
+    command: ["-js", "--store_dir", "/data", "--auth", "fluxify_nats_token"]
+    volumes:
+      # Compiled artifacts survive a NATS restart. They are rebuilt from the
+      # database at compiler startup anyway, so this is a warm-start, not a
+      # source of truth.
+      - fluxify_nats_volume:/data
     networks:
       - fluxify_net
 
 volumes:
   fluxify_pg_volume:
+  fluxify_nats_volume:
 
 networks:
   fluxify_net:

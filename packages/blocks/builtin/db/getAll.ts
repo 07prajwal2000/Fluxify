@@ -6,8 +6,15 @@ import {
 	Context,
 } from "../../baseBlock";
 import type { IDbAdapter } from "@fluxify/adapters";
-import { joinSchema, whereConditionSchema } from "./schema";
+import {
+	adapterFor,
+	dbFailure,
+	emitWhereConditions,
+	joinSchema,
+	whereConditionSchema,
+} from "./schema";
 import { ConditionEvaluator } from "../conditionEvaluator";
+import type { EmitNode } from "../../compiler";
 
 export const getAllDbBlockSchema = z
 	.object({
@@ -49,6 +56,37 @@ export const getAllDbAiDescription = {
 	description: "Retrieves multiple records from a database table.",
 	jsonSchema: JSON.stringify(z.toJSONSchema(getAllDbBlockSchema)),
 };
+
+export async function runGetAllDb(
+	context: Context,
+	connection: string,
+	tableName: string,
+	conditions: z.infer<typeof whereConditionSchema>[],
+	limit: number,
+	offset: number,
+	sort: { attribute: string; direction: "asc" | "desc" },
+	options: { joins: any[]; columns: string[] },
+) {
+	try {
+		return await adapterFor(context, connection).getAll(
+			tableName,
+			conditions,
+			limit,
+			offset,
+			sort,
+			options,
+		);
+	} catch (error) {
+		dbFailure("get all", error);
+	}
+}
+
+export function emitGetAllDb(node: EmitNode) {
+	const input = getAllDbBlockSchema.parse(node.block.data);
+	const sort = `{ attribute: ${node.value(input.sort.attribute)}, direction: ${JSON.stringify(input.sort.direction)} }`;
+	return `${node.in} = await lib.dbGetAll(ctx, ${JSON.stringify(input.connection)}, ${node.value(input.tableName)}, ${emitWhereConditions(input.conditions, node)}, lib.num(${node.value(input.limit)}, 1000), lib.num(${node.value(input.offset)}, 0), ${sort}, { joins: ${JSON.stringify(input.joins ?? [])}, columns: ${JSON.stringify(input.columns ?? ["*"])} });
+${node.next()}`;
+}
 
 export class GetAllDbBlock extends BaseBlock {
 	constructor(

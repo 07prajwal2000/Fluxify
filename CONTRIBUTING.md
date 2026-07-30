@@ -1,16 +1,40 @@
 # Contributing to Fluxify
 
-Welcome to the Fluxify contributor guide! Fluxify is an open-source Low-Code Agentic Backend development platform built as a monorepo. We welcome all contributions — code fixes, new workflow blocks, security enhancements, and documentation updates.
+Welcome! Fluxify is an open-source low-code agentic backend platform, built as a
+Bun monorepo. Code fixes, new workflow blocks, security hardening, and
+documentation improvements are all welcome.
+
+This guide is written so you can go from a fresh clone to a running stack, and
+know where to put your change, without having to ask anyone.
 
 > [!WARNING]
-> **Alpha Software Notice:** Fluxify is currently in **active alpha development**. Architecture, internal APIs, and features are subject to rapid change. For major contributions, please open an issue or discussion on GitHub first to coordinate with the core team.
+> **Alpha software.** Architecture, internal APIs, and features change quickly.
+> For anything substantial, open an issue or discussion first so you don't build
+> something that's about to move.
 
 > [!TIP]
-> **Automatic Pre-commit Hooks:** Running `bun install` configures Git pre-commit hooks via `scripts/setup-hooks.ts`. Every commit automatically runs linting, secret scanning (`secretlint`), complexity analysis (`fta-cli`), and selective unit tests to protect against credential leaks and maintain high code quality.
+> **Pre-commit hooks are automatic.** `bun install` registers Git hooks via
+> `scripts/setup-hooks.ts`. Every commit runs linting, secret scanning
+> (`secretlint`), complexity analysis (`fta-cli`), and selective unit tests.
 
 ---
 
-## 🚀 Quickstart (TL;DR)
+## Contents
+
+1. [Quickstart](#quickstart)
+2. [Prerequisites](#prerequisites)
+3. [Step-by-step setup](#step-by-step-setup)
+4. [How Fluxify fits together](#how-fluxify-fits-together)
+5. [Fast developer inner-loop](#fast-developer-inner-loop)
+6. [Where to put your change](#where-to-put-your-change)
+7. [Testing](#testing)
+8. [Command reference](#command-reference)
+9. [Git workflow & pull requests](#git-workflow--pull-requests)
+10. [Troubleshooting](#troubleshooting)
+
+---
+
+## Quickstart
 
 For experienced developers who want to start immediately:
 
@@ -21,181 +45,340 @@ git clone https://github.com/YOUR_USERNAME/Fluxify.git && cd Fluxify
 # 2. Install monorepo dependencies & configure git hooks
 bun install
 
-# 3. Start background infrastructure
+# 3. Start background infrastructure (Postgres, Valkey, NATS, telemetry)
 docker compose up -d
 
 # 4. Prepare environment configuration file
 cp env.example .env
 
-# 5. Push database migrations
+# 5. Push the database schema
 bun run db:migrate
 
-# 6. Start full development stack
+# 6. Start the control plane only — you need a project before the worker runs
+bun run dev:server
+```
+
+Then create a project in the dashboard, put its id in `.env` as
+`WORKER_PROJECT_ID`, and start everything:
+
+```bash
 bun run dev
 ```
 
+The two-step start is explained in [Step 6](#step-6-create-a-project-and-start-the-worker).
+
 ---
 
-## 🛠️ Prerequisites
+## Prerequisites
 
-Ensure you have the following installed locally:
-
-| Tool | Minimum Version | Purpose |
+| Tool | Minimum version | Purpose |
 | :--- | :--- | :--- |
-| **Bun** | `v1.3.0+` | Primary JavaScript runtime & workspace package manager ([Install Bun](https://bun.sh)) |
-| **Docker** | `v20.10+` | Container runtime for PostgreSQL, Valkey (Redis), Caddy, OpenObserve, Arize Phoenix |
-| **Git** | `v2.30+` | Version control & pre-commit hooks |
-| **GitHub CLI (`gh`)** | `v2.0+` | Recommended tool for opening PRs, managing issues, and syncing branches |
+| **Bun** | `v1.3.0+` | Runtime and workspace package manager ([install](https://bun.sh)) |
+| **Docker** | `v20.10+` | PostgreSQL, Valkey, NATS, Caddy, OpenObserve, Arize Phoenix |
+| **Git** | `v2.30+` | Version control and pre-commit hooks |
+| **GitHub CLI (`gh`)** | `v2.0+` | Recommended for PRs, issues, and syncing branches |
+
+> [!IMPORTANT]
+> **Use `bun`, never `npm`/`yarn`/`pnpm`.** The workspace layout, lockfile, and
+> scripts all assume Bun. Mixing package managers will corrupt the dependency
+> tree.
 
 ---
 
-## 📦 Step-by-Step Setup
+## Step-by-step setup
 
-### Step 1: Fork & Clone
-
-Fork the repository on GitHub, then clone your fork:
+### Step 1: Fork & clone
 
 ```bash
 git clone https://github.com/YOUR_USERNAME/Fluxify.git
 cd Fluxify
 ```
 
-### Step 2: Install Dependencies
+### Step 2: Install dependencies
 
 ```bash
 bun install
 ```
-*(Triggers `bun run prepare` to register Git pre-commit hooks).*
 
-### Step 3: Start Infrastructure Services
+This also runs `bun run prepare`, which registers the Git pre-commit hooks.
 
-Fluxify relies on PostgreSQL, Valkey (Redis), Caddy, OpenObserve, and Arize Phoenix via [`docker-compose.yml`](docker-compose.yml). Docker Compose automatically manages the persistent database volume `fluxify_pg_volume`.
+### Step 3: Start infrastructure services
 
-Spin up infrastructure containers in the background:
+Local development needs PostgreSQL, Valkey (Redis), and NATS. The root
+[`docker-compose.yml`](docker-compose.yml) also brings up Caddy, OpenObserve
+(logs), and Arize Phoenix (LLM tracing).
 
 ```bash
 docker compose up -d
 ```
 
-### Step 4: Configure Environment Files
+> [!IMPORTANT]
+> **NATS must run with JetStream enabled (`-js`).** Fluxify queues compile work
+> and stores compiled routes there. The bundled compose file already sets this —
+> if you point at your own NATS, add the flag or nothing will compile.
 
-All environment variables across the monorepo are consolidated into a single root `.env` file. Copy the default `.env` template:
+### Step 4: Configure environment
+
+Every app in the monorepo reads one root `.env`:
 
 ```bash
 cp env.example .env
 ```
 
-Key environment variables to verify:
-- `PG_URL`: `postgres://postgres:postgres@localhost:5432/fluxify_alpha`
-- `REDIS_HOST`: `localhost`
-- `REDIS_PORT`: `6379`
-- `DOCKER_HOST` *(for container integration tests)*:
-  - **Windows**: `DOCKER_HOST="npipe:////./pipe/docker_engine"`
-  - **Linux / macOS**: `DOCKER_HOST="unix:///var/run/docker.sock"`
+Values worth checking:
 
-### Step 5: Initialize Database Schema
+| Variable | Local value | Notes |
+| :--- | :--- | :--- |
+| `PG_URL` | `postgres://postgres:postgres@localhost:5432/fluxify_alpha` | |
+| `REDIS_HOST` / `REDIS_PORT` | `localhost` / `6379` | |
+| `NATS_URL` | `nats://localhost:4222` | |
+| `NATS_TOKEN` | `fluxify_nats_token` | Must match the compose file |
+| `MASTER_ENCRYPTION_KEY` | any base64 value | Encrypts stored credentials |
+| `WORKER_PROJECT_ID` | *(empty for now)* | Filled in at Step 6 |
+| `DOCKER_HOST` | see below | Only for container integration tests |
 
-Push the Drizzle ORM schema to your local PostgreSQL instance:
+`DOCKER_HOST` for integration tests:
+- **Windows**: `npipe:////./pipe/docker_engine`
+- **Linux / macOS**: `unix:///var/run/docker.sock`
+
+### Step 5: Initialize the database
 
 ```bash
 bun run db:migrate
 ```
 
-### Step 6: Start Development Servers
+### Step 6: Create a project and start the worker
 
-Start the full monorepo stack:
+Fluxify's request worker serves **exactly one project**, named by
+`WORKER_PROJECT_ID`. On a fresh clone no project exists yet, so start the
+control plane on its own first:
+
+```bash
+bun run dev:server
+```
+
+Open the dashboard, create a project, and copy its id into `.env`:
+
+```env
+WORKER_PROJECT_ID=<your-project-id>
+```
+
+Now start the whole stack:
 
 ```bash
 bun run dev
 ```
 
-Navigate to:
-- **Admin Dashboard UI**: `http://localhost:8080/_/admin/ui` (Visual editor & management interface)
-- **Admin REST API**: `http://localhost:8080/_/admin/api`
-- **OpenAPI Documentation**: `http://localhost:8080/_/admin/api/openapi/ui`
-- **User Application APIs**: `http://localhost:8080/` (Root path `/` serves user-created workflows & endpoints)
+You only do this once. After that, saving a route in the editor compiles it and
+the worker picks it up in place — no restart.
+
+### Step 7: Open it
+
+| Surface | URL |
+| :--- | :--- |
+| Admin dashboard (visual editor) | `http://localhost:8080/_/admin/ui` |
+| Admin REST API | `http://localhost:8080/_/admin/api` |
+| OpenAPI documentation | `http://localhost:8080/_/admin/api/openapi/ui` |
+| Your workflow endpoints | `http://localhost:8080/` |
+| Docs site | `http://localhost:5173` |
 
 > [!NOTE]
-> **Why `/_/admin` Prefix?** Fluxify uses `/_/admin` to isolate internal platform APIs, management features, and the visual workflow builder. This leaves the entire root URL space (`/`) dedicated to user-defined low-code APIs, webhooks, and custom application routes without path collisions.
+> **Why the `/_/admin` prefix?** It isolates platform management and the visual
+> builder, leaving the entire root path `/` free for the APIs users build — so
+> their routes can never collide with ours.
 
 ---
 
-## ⚡ Fast Developer Inner-Loop
+## How Fluxify fits together
 
-To save memory and speed up HMR, you don't always need to run the full stack. Work on individual apps or packages using targeted commands:
+Read [`docs/architecture/`](docs/architecture/) for the user-facing version. The
+short contributor version:
 
-### Running Specific Microservices
+**Fluxify compiles graphs into JavaScript.** When a route is saved, the compiler
+walks the block graph from the entrypoint and emits a single JavaScript function
+for the whole route, which is published to a NATS KV bucket. Workers watch that
+bucket and hot-swap the function in. Requests execute that function directly —
+there is no graph traversal at request time.
 
-| Focus Area | Command | Description |
-| :--- | :--- | :--- |
-| **Full Stack** | `bun run dev` | Runs backend server, visual editor, AI gateway, and docs concurrently |
-| **Backend Server** | `bun run dev:server` | Starts only `apps/server` with hot-reloading |
-| **Visual UI Editor** | `bun run dev:web` | Starts only `apps/web` (Next.js frontend) |
-| **AI Gateway** | `bun run dev:ai` | Starts only `apps/ai-gateway` LLM proxy |
-| **Documentation** | `bun run dev:docs` | Starts VitePress documentation site locally |
+Three consequences shape most contributions:
 
-### Targeted Testing (Fast Feedback)
-
-Instead of running global test suites, run tests relevant to your changes:
-
-| Focus Area | Command | Purpose |
-| :--- | :--- | :--- |
-| **Core Engine** | `bun run test:lib` | Tests `@fluxify/lib` (VM, state, execution engine) |
-| **Workflow Blocks** | `bun run test:blocks` | Tests `@fluxify/blocks` (node definitions & schemas) |
-| **Adapters** | `bun run test:adapters` | Tests `@fluxify/adapters` (integrations & external services) |
-| **Server Unit** | `bun run test:server:unit` | Unit tests for `apps/server` |
-| **Global Unit** | `bun run test:unit` | Fast unit tests across all packages (excluding `*.spec.ts`) |
-| **Security Scan** | `bun run security:scan` | Scans for leaked secrets using `secretlint` |
+1. **A block needs both an interpreter implementation and a compiler emitter.**
+   Adding one without the other means the block works in one engine and not the
+   other.
+2. **Workers never open a database connection.** They receive everything they
+   need over NATS. Don't add a database import to anything under the worker's
+   dependency tree.
+3. **The compiled engine is the default; the interpreter is still around.**
+   `bun run dev:worker` runs the compiled worker. `bun run dev:worker:dag` runs
+   the legacy graph interpreter, kept until the compiled path finishes manual
+   testing. Changes to block behaviour should keep both working.
 
 ---
 
-## 📂 Monorepo Architecture & Commands
+## Fast developer inner-loop
 
-Fluxify separates code into application entrypoints (`apps/`) and reusable core modules (`packages/`):
+You rarely need the full stack. Run only what you're touching:
 
-| Package Path | Workspace Name | 1-Line Description |
+| Focus area | Command | What it starts |
 | :--- | :--- | :--- |
-| `packages/adapters` | `@fluxify/adapters` | Service adapters (database, API, cloud integrations). |
-| `packages/blocks` | `@fluxify/blocks` | Visual workflow block definitions, schemas, and actions. |
-| `packages/common` | `@fluxify/common` | Shared utilities, constants, and helper modules. |
-| `packages/lib` | `@fluxify/lib` | Core workflow execution engine, VM, and state runtime. |
+| **Full stack** | `bun run dev` | Server, worker, web, AI gateway, docs |
+| **Backend server** | `bun run dev:server` | `apps/server` control plane, watch mode |
+| **Request worker** | `bun run dev:worker` | Compiled worker (needs `WORKER_PROJECT_ID`) |
+| **Legacy worker** | `bun run dev:worker:dag` | Graph interpreter — comparison only |
+| **Visual editor** | `bun run dev:web` | `apps/web` (Next.js) |
+| **AI gateway** | `bun run dev:ai` | `apps/ai-gateway` |
+| **Documentation** | `bun run dev:docs` | VitePress site |
 
-### Complete Package Commands Reference
+---
 
-| Script Command | Description & Proper Usage |
+## Where to put your change
+
+| Path | Workspace | What lives there |
+| :--- | :--- | :--- |
+| `apps/server` | `@fluxify/server` | Admin API, compiler, request workers, database schema |
+| `apps/web` | `@fluxify/web` | Admin dashboard (Next.js). Legacy — being migrated to `apps/portal` |
+| `apps/portal` | `@fluxify/portal` | The new dashboard, including the AI assistant UI |
+| `apps/ai-gateway` | `@fluxify/ai-gateway` | AI agent harness, LLM providers, MCP tooling |
+| `packages/blocks` | `@fluxify/blocks` | Block definitions, schemas, runtime actions, compiler emitters |
+| `packages/lib` | `@fluxify/lib` | Execution engine, VM, state runtime |
+| `packages/adapters` | `@fluxify/adapters` | Database, API, and cloud service integrations |
+| `packages/common` | `@fluxify/common` | Shared utilities, logging, constants |
+| `docs/` | — | User-facing documentation (VitePress) |
+
+### Adding a new block
+
+1. Define it in `packages/blocks/builtin/` — schema, runtime action, **and** the
+   compiler emitter that turns it into JavaScript.
+2. Add tests beside it in `packages/blocks/builtin/tests/`.
+3. Document it in `docs/blocks/` and add it to the sidebar in
+   `docs/.vitepress/config.ts`.
+4. Run `bun run test:blocks`.
+
+### Adding an admin API endpoint
+
+Endpoints live in `apps/server/src/api/v1/<resource>/<action>/` and follow a
+consistent four-file shape — `dto.ts` (Zod schemas), `repository.ts` (database),
+`service.ts` (logic), `route.ts` (HTTP + OpenAPI). Copy an existing action
+rather than inventing a new layout.
+
+### Writing documentation
+
+`docs/` is **user-facing**, not a technical guide. Write for junior developers
+and non-technical readers:
+
+- ✅ Explain **what** happens and what to expect.
+- ✅ Use tables, `::: tip` / `::: info` callouts, and concrete examples.
+- ✅ Mermaid diagrams are supported — use a ` ```mermaid ` fence.
+- ❌ Don't reference source files, class names, or internal module names.
+- ❌ Don't describe *how* it's built internally.
+
+---
+
+## Testing
+
+> [!TIP]
+> Run only the suites your change touches. **Skip `test:adapters` unless you
+> modified `packages/adapters/`** — it spins up containers and is slow.
+
+| Focus area | Command | Covers |
+| :--- | :--- | :--- |
+| **Core engine** | `bun run test:lib` | `@fluxify/lib` — VM, state, execution |
+| **Blocks** | `bun run test:blocks` | Block definitions, schemas, compiler output |
+| **Adapters** | `bun run test:adapters` | Integrations (slow — containers) |
+| **Server unit** | `bun run test:server:unit` | `apps/server` unit tests |
+| **Server integration** | `bun run test:server:integration` | `apps/server` integration tests |
+| **All unit** | `bun run test:unit` | Fast unit tests across every package |
+| **All integration** | `bun run test:integration` | Every integration suite |
+| **Secrets** | `bun run security:scan` | Leaked credentials via `secretlint` |
+
+File naming decides which suite a test lands in:
+
+- `*.test.ts` → integration tests
+- `*.spec.ts` → unit tests
+
+Before opening a PR, manually exercise the parts you changed. The pre-commit
+hook handles linting, analysis, and a selective test run.
+
+---
+
+## Command reference
+
+| Command | Description |
 | :--- | :--- |
-| `bun run dev` | Runs all development servers concurrently. |
-| `bun run dev:server` | Starts backend API server (`apps/server`) in watch mode. |
-| `bun run dev:web` | Starts Next.js frontend UI (`apps/web`). |
-| `bun run dev:ai` | Starts AI Gateway proxy (`apps/ai-gateway`). |
-| `bun run dev:docs` | Starts VitePress documentation server with live reload. |
-| `bun run test:lib` | Runs unit & integration tests for `@fluxify/lib`. |
-| `bun run test:blocks` | Runs unit & integration tests for `@fluxify/blocks`. |
-| `bun run test:adapters` | Runs tests for `@fluxify/adapters`. |
-| `bun run test:unit` | Runs fast unit tests across all packages. |
-| `bun run test:integration` | Runs parallel integration test suites (`*.test.ts`). |
-| `bun run test:server:unit` | Runs unit tests for `apps/server`. |
-| `bun run test:server:integration` | Runs integration tests for `apps/server`. |
-| `bun run lint` | Lints all packages and applications via Turborepo. |
-| `bun run analyze` | Runs static code analysis & complexity scoring using `fta-cli`. |
-| `bun run security:scan` | Scans codebase for secret leaks using `secretlint`. |
-| `bun run build` | Builds production bundles across all packages and apps. |
-| `bun run db:generate` | Generates new Drizzle SQL migration files. |
-| `bun run db:migrate` | Applies Drizzle database migrations directly to PostgreSQL. |
-| `bun run docs:build` | Compiles documentation site for production. |
+| `bun run dev` | All development servers concurrently |
+| `bun run dev:server` | Backend control plane, watch mode |
+| `bun run dev:worker` | Compiled request worker, watch mode |
+| `bun run dev:worker:dag` | Legacy graph interpreter worker |
+| `bun run dev:web` | Next.js dashboard |
+| `bun run dev:ai` | AI gateway |
+| `bun run dev:docs` | VitePress docs with live reload |
+| `bun run build` | Production bundles for every package and app |
+| `bun run lint` | Lint everything via Turborepo |
+| `bun run analyze` | Static analysis & complexity scoring (`fta-cli`) |
+| `bun run security:scan` | Secret scanning (`secretlint`) |
+| `bun run test:*` | See [Testing](#testing) |
+| `bun run db:generate` | Generate a new Drizzle migration |
+| `bun run db:migrate` | Apply the schema to PostgreSQL |
+| `bun run docs:build` | Build the documentation site |
+| `bun run docs:preview` | Preview the built documentation site |
 
 ---
 
-## 🔀 Git Workflow & Pull Request Guidelines
+## Git workflow & pull requests
 
-1. **Branch Naming Standard:** Always work in a feature branch off `main`.
-   - `feature/description` (e.g. `feature/add-oauth-block`)
-   - `fix/description` (e.g. `fix/cors-header-bug`)
-   - `docs/description` (e.g. `docs/update-contributing`)
-2. **Submitting Pull Requests:** Use the GitHub CLI (`gh`) to open PRs against the upstream repo:
-   ```bash
-   gh pr create --repo fluxify-rest/Fluxify --base main
-   ```
-3. **PR Expectations:** Include clear descriptions of **Why** and **What** changed. Ensure pre-commit checks (`bun run lint`, `bun run security:scan`, `bun run test:unit`) pass.
+### Branch naming
+
+Always work in a feature branch off `main`:
+
+- `feature/description` — e.g. `feature/add-oauth-block`
+- `fix/description` — e.g. `fix/cors-header-bug`
+- `docs/description` — e.g. `docs/update-contributing`
+- `chore/description` — e.g. `chore/bump-deps`
+
+### Opening a pull request
+
+Push your branch to **your fork**, and open the PR against the **upstream**
+repository:
+
+```bash
+git push origin feature/my-change
+gh pr create --repo Fluxify-rest/Fluxify --base main
+```
+
+### What a good PR looks like
+
+- **Title** clearly summarises the change.
+- **Description** covers the *why* and the *what* — enough for a reviewer to
+  understand without reading every line.
+- **Scope** is one logical change. Split unrelated work into separate PRs.
+- **Checks pass**: `bun run lint`, `bun run security:scan`, and the test suites
+  relevant to your change.
+- **Docs updated** if you changed behaviour a user would notice.
+
+---
+
+## Troubleshooting
+
+**`bun run dev` exits with "WORKER_PROJECT_ID is required"**
+The compiled worker needs a project to serve. See
+[Step 6](#step-6-create-a-project-and-start-the-worker).
+
+**Routes save but never become reachable**
+NATS is running without JetStream. Restart it with `-js` — the bundled compose
+file already does this.
+
+**"Module not found: Can't resolve 'child_process'" in the web app**
+You imported from the root of `@fluxify/server`, which pulls in the whole server
+barrel file. Use a deep import for utilities
+(`@fluxify/server/src/lib/acl`) and `import type` for types.
+
+**Worker starts and then fails every request**
+`MASTER_ENCRYPTION_KEY` differs between the control plane and the worker.
+Project configuration reaches the worker encrypted with it, so both must match.
+
+**Integration tests can't reach Docker**
+Set `DOCKER_HOST` — see [Step 4](#step-4-configure-environment).
+
+---
 
 Thank you for helping build Fluxify! 🚀

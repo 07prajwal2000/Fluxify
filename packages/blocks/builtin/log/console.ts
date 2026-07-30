@@ -4,15 +4,18 @@ import { formatMessage, logBlockSchema } from ".";
 import { logger } from "@fluxify/common";
 import type { EmitNode } from "../../compiler";
 
-/** shared by the interpreted block and the compiled `lib.log(...)` call */
+/**
+ * Shared by the interpreted block and the compiled `lib.log(...)` call.
+ * `message` is whatever the block resolved to — the compiled path hands over an
+ * already-evaluated value, so `formatMessage`'s js branch simply does not fire.
+ */
 export async function runConsoleLog(
   context: Context,
-  data: z.infer<typeof logBlockSchema>,
+  level: "info" | "warn" | "error",
+  message: any,
   params: any,
 ) {
-  const level = data.level;
-  const msgOrParams = data.message?.trim() != "" ? data.message : params;
-  const msg = await formatMessage(msgOrParams, level, context, params);
+  const msg = await formatMessage(message, level, context, params);
   if (level == "info") {
     logger.info(msg, "BLOCKS.console");
   } else if (level == "error") {
@@ -22,9 +25,17 @@ export async function runConsoleLog(
   }
 }
 
+/** the configured message wins over the flowing value, exactly as the block does */
+export function emitLogMessage(
+  message: string | undefined,
+  node: EmitNode,
+) {
+  return message?.trim() ? node.value(message) : node.in;
+}
+
 export function emitConsoleLog(node: EmitNode) {
-  const data = logBlockSchema.parse(node.block.data);
-  return `await lib.log(ctx, ${JSON.stringify(data)}, ${node.in});\n${node.next()}`;
+  const { level, message } = logBlockSchema.parse(node.block.data);
+  return `await lib.log(ctx, ${JSON.stringify(level)}, ${emitLogMessage(message, node)}, ${node.in});\n${node.next()}`;
 }
 
 export const consoleAiDescription = {
@@ -44,9 +55,11 @@ export class ConsoleLoggerBlock extends BaseBlock {
   }
 
   override async executeAsync(params: any): Promise<BlockOutput> {
+    const data = this.input as z.infer<typeof logBlockSchema>;
     await runConsoleLog(
       this.context,
-      this.input as z.infer<typeof logBlockSchema>,
+      data.level,
+      data.message?.trim() != "" ? data.message : params,
       params,
     );
     return {

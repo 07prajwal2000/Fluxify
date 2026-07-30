@@ -9,6 +9,10 @@ Fluxify is built to run on your own infrastructure. There are **two ways** to
 deploy it, and this page helps you pick the right one and points you to the exact
 steps for each.
 
+> [!TIP]
+> New to how Fluxify works internally? The [Architecture](/architecture/) section
+> explains the control plane / worker split that both setups below are built on.
+
 > [!WARNING]
 > **Alpha software.** Fluxify is in active alpha development. It is suitable for
 > self-hosted trials and early production use, but internal schemas may change
@@ -50,33 +54,60 @@ they differ only in how the application containers are split up.
 
 **Kit — everything in one container:**
 
-```
-Client ──▶ Kit container :8080
-             ├─ Web dashboard
-             ├─ Admin API
-             ├─ Request worker
-             └─ AI gateway
-                    │
-        PostgreSQL · Valkey · NATS
+```mermaid
+flowchart TB
+    C(["Client"]) --> K
+    subgraph K["Kit container :8080"]
+        direction LR
+        WEB["Web dashboard"]
+        ADM["Admin API<br/>+ compiler"]
+        WRK["Request worker"]
+        AI["AI gateway"]
+    end
+    K --> BS["PostgreSQL · Valkey · NATS"]
+
+    style C fill:#ffe8e8,stroke:#d9534f,color:#1a1a2e
+    style K fill:#f4f2ff,stroke:#5f67ee,color:#1a1a2e
+    style BS fill:#fff8e6,stroke:#d9a441,color:#1a1a2e
 ```
 
 **Admin + Workers — control plane split from a worker pool:**
 
+```mermaid
+flowchart TB
+    C(["Client"]) --> T["Traefik :80"]
+    T -->|"/_/admin*"| A["Admin container<br/>dashboard · admin API<br/>compiler · AI gateway"]
+    T -->|"/*"| W1["Worker"] & W2["Worker"] & W3["Worker"]
+    A --> DB[("PostgreSQL")]
+    A --> BUS["NATS"]
+    BUS --> W1 & W2 & W3
+    A --> R["Valkey"]
+    W1 & W2 & W3 --> R
+
+    style C fill:#ffe8e8,stroke:#d9534f,color:#1a1a2e
+    style A fill:#f4f2ff,stroke:#5f67ee,color:#1a1a2e
+    style W1 fill:#eefaf2,stroke:#2b9d5b,color:#1a1a2e
+    style W2 fill:#eefaf2,stroke:#2b9d5b,color:#1a1a2e
+    style W3 fill:#eefaf2,stroke:#2b9d5b,color:#1a1a2e
 ```
-Client ──▶ Traefik :80
-             ├─ /_/admin*  ─▶ Admin container (dashboard, admin API, AI gateway)
-             └─ /*         ─▶ Worker pool (x N, load-balanced)
-                                     │
-                         PostgreSQL · Valkey · NATS
-```
+
+Notice that only the admin container reaches PostgreSQL. Workers receive your
+routes ready to run over NATS, so they never need database access — see
+[Request Lifecycle](/architecture/request-lifecycle).
 
 ### Backing services (both setups)
 
 | Service | Role |
 | :--- | :--- |
-| **PostgreSQL** | Stores workflows, project configuration, and user accounts. |
+| **PostgreSQL** | Stores workflows, project configuration, and user accounts. Only the admin container connects to it. |
 | **Valkey / Redis** | Caching and fast lookups. |
-| **NATS** | Event bus that keeps every container's live configuration in sync. |
+| **NATS** | Delivers compiled routes to workers and keeps live configuration in sync. |
+
+> [!WARNING]
+> **NATS must be started with JetStream enabled** (`-js` on the command line).
+> Fluxify uses it to queue compile work and to store the compiled routes that
+> workers pull. Without it the compiler will not start and your workers will
+> have nothing to serve. The bundled compose files already set this.
 
 ### URL layout (both setups)
 
@@ -118,6 +149,23 @@ follow the guide for your chosen setup:
 > [!WARNING]
 > Back up `MASTER_ENCRYPTION_KEY`. If you lose or change it after storing data,
 > every saved credential becomes permanently unreadable.
+
+> [!IMPORTANT]
+> **Admin and workers must share the same `MASTER_ENCRYPTION_KEY`.** Project
+> configuration reaches workers encrypted with it; a worker with a different key
+> starts up and then fails every request. A worker refuses to start without one.
+
+### One more setting: which project a worker serves
+
+Each request worker serves exactly **one** project, named by `WORKER_PROJECT_ID`.
+You get that id from the project's settings page in the dashboard.
+
+This is why you create a project *before* the worker can run — on a first
+install there simply isn't one yet. Both guides walk you through the two-step
+start.
+
+To serve several projects, run a separate group of workers for each. Copies of
+the same worker share their settings, so they always share a project.
 
 ---
 

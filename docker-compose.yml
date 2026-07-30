@@ -22,8 +22,12 @@ services:
   nats:
     image: nats:latest
     container_name: nats
+    # -js enables JetStream, which the compile pipeline REQUIRES: the compile
+    # work queue is a JetStream stream and compiled routes live in a KV bucket
+    # (KV is built on JetStream). Without it the compiler cannot start and the
+    # worker has nothing to serve.
     # Single-token auth; must match NATS_TOKEN in the server env.
-    command: ["--auth", "fluxify_nats_token", "--http_port", "8222"]
+    command: ["-js", "--auth", "fluxify_nats_token", "--http_port", "8222"]
     ports:
       - 4222:4222 # client connections
       - 8222:8222 # monitoring

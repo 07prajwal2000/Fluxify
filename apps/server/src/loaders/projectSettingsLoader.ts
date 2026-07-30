@@ -13,6 +13,16 @@ export let projectSettingsCache: Record<
 > = {};
 let settingsLoaded = false;
 
+/** fill the cache from an artifact instead of the database (compiled worker) */
+export function hydrateProjectSettings(
+	projectId: string,
+	settings: Record<string, string>,
+) {
+	projectSettingsCache[projectId] =
+		settings as (typeof projectSettingsCache)[string];
+	settingsLoaded = true;
+}
+
 export async function loadProjectSettings() {
 	if (settingsLoaded) {
 		return;

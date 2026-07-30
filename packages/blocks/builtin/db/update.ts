@@ -6,9 +6,15 @@ import {
 	Context,
 } from "../../baseBlock";
 import type { IDbAdapter } from "@fluxify/adapters";
-import { whereConditionSchema } from "./schema";
+import {
+	adapterFor,
+	dbFailure,
+	emitWhereConditions,
+	whereConditionSchema,
+} from "./schema";
 import { ConditionEvaluator } from "../conditionEvaluator";
 import { logger } from "@fluxify/common";
+import { emitJsObject, type EmitNode } from "../../compiler";
 
 export const updateDbBlockSchema = z
 	.object({
@@ -37,6 +43,45 @@ export const updateDbAiDescription = {
 		"Updates records in a database table matching specific conditions.",
 	jsonSchema: JSON.stringify(z.toJSONSchema(updateDbBlockSchema)),
 };
+
+export async function runUpdateDb(
+	context: Context,
+	connection: string,
+	tableName: string,
+	data: object,
+	conditions: z.infer<typeof whereConditionSchema>[],
+) {
+	try {
+		return await adapterFor(context, connection).update(
+			tableName,
+			data,
+			conditions,
+		);
+	} catch (error) {
+		dbFailure("update", error);
+	}
+}
+
+/** read without parsing — `data.value` is `z.object()`, which strips every key */
+export function emitUpdateDb(node: EmitNode) {
+	const input = node.block.data as z.infer<typeof updateDbBlockSchema>;
+	const data = node.v("data");
+	const value = input.data.value;
+
+	let payload: string;
+	if (input.useParam) {
+		payload = `await lib.evalJsDeep(ctx, ${node.in})`;
+	} else if (input.data.source === "js" && typeof value === "string") {
+		payload = `await lib.evalJsDeep(ctx, ${node.js(value, node.in)})`;
+	} else {
+		payload = emitJsObject(value, node);
+	}
+
+	return `const ${data} = ${payload};
+if (typeof ${data} !== "object") throw new Error("error in update: data to update is not an object");
+${node.in} = await lib.dbUpdate(ctx, ${JSON.stringify(input.connection)}, ${node.value(input.tableName)}, ${data}, ${emitWhereConditions(input.conditions, node)});
+${node.next()}`;
+}
 
 export class UpdateDbBlock extends BaseBlock {
 	constructor(

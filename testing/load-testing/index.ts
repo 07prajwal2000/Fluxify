@@ -1,88 +1,103 @@
 // ============================================================================
-// k6 load-test runner. Config-driven — everything about WHAT to hit lives in
-// config.ts; this file only decides HOW to send it.
+// k6 load-test runner. Single-file standalone version.
 //
-//   k6 run --compatibility-mode=experimental_enhanced index.ts
-//   k6 run --compatibility-mode=experimental_enhanced -e BASE_URL=https://api.example.com index.ts
-//
-// The enhanced compatibility mode is REQUIRED — it enables the esbuild loader
-// that transpiles TypeScript/ESM. Without it k6 fails to parse the types.
-// Tip: export K6_COMPATIBILITY_MODE=experimental_enhanced to skip the flag.
-// For editor IntelliSense: bun add -d @types/k6
+//   k6 run index.js
+//   k6 run -e BASE_URL=https://api.example.com index.js
 // ============================================================================
 import http from "k6/http";
 import { check, sleep } from "k6";
-import { baseUrl, requests, options as cfgOptions, type RequestSpec } from "./config.ts";
 
-// k6 globals available only at init time.
-declare function open(path: string): string;
+/** Base URL every request path is appended to. Override with -e BASE_URL=... */
+const baseUrl = "http://localhost:5603";
 
-export const options = cfgOptions;
+/** The requests exercised on every iteration. */
+const requests = [
+  {
+    name: "health",
+    method: "GET",
+    path: "/users",
+    // We pass a function to generate dynamic query parameters on every execution
+    query: () => ({ id: Math.floor(Math.random() * 10) + 1 }),
+    expectStatus: 200,
+  },
+];
 
-// --- Init stage: preload every file-based body ONCE. k6's open() can only run
-// here (not inside the default function), so we read all referenced files up
-// front and reuse the strings across iterations. ---
-const fileBodies: Record<string, string> = {};
+/** k6 execution profile — Fast 1-minute high-load test */
+export const options = {
+  stages: [
+    { duration: "20s", target: 100 }, // Fast ramp up to 100 virtual users
+    { duration: "30s", target: 100 }, // Hold at 100 users to watch CPU/RAM
+    { duration: "10s", target: 0 }, // Fast ramp down
+  ],
+  thresholds: {
+    http_req_failed: ["rate<0.01"], // <1% errors
+    http_req_duration: ["p(95)<500"], // 95% of requests under 500ms
+  },
+};
+
+// --- Init stage: preload every file-based body ONCE. ---
+const fileBodies = {};
 for (const r of requests) {
-	if (r.bodyFile && fileBodies[r.bodyFile] === undefined) {
-		fileBodies[r.bodyFile] = open(r.bodyFile);
-	}
+  if (r.bodyFile && fileBodies[r.bodyFile] === undefined) {
+    fileBodies[r.bodyFile] = open(r.bodyFile);
+  }
 }
 
-function buildUrl(spec: RequestSpec): string {
-	let url = baseUrl.replace(/\/$/, "") + spec.path;
-	const q = spec.query;
-	if (q && Object.keys(q).length > 0) {
-		const qs = Object.keys(q)
-			.map((k) => `${encodeURIComponent(k)}=${encodeURIComponent(String(q[k]))}`)
-			.join("&");
-		url += (url.indexOf("?") === -1 ? "?" : "&") + qs;
-	}
-	return url;
+function buildUrl(spec) {
+  let url = baseUrl.replace(/\/$/, "") + spec.path;
+
+  // Evaluate the query if it is a function, otherwise use it as an object
+  const q = typeof spec.query === "function" ? spec.query() : spec.query;
+
+  if (q && Object.keys(q).length > 0) {
+    const qs = Object.keys(q)
+      .map(
+        (k) => `${encodeURIComponent(k)}=${encodeURIComponent(String(q[k]))}`,
+      )
+      .join("&");
+    url += (url.indexOf("?") === -1 ? "?" : "&") + qs;
+  }
+  return url;
 }
 
-function resolveBody(spec: RequestSpec): {
-	body: string | null;
-	contentType: string | null;
-} {
-	// File body wins over inline. Content type is inferred from the extension.
-	if (spec.bodyFile) {
-		const isJson = spec.bodyFile.toLowerCase().endsWith(".json");
-		return {
-			body: fileBodies[spec.bodyFile],
-			contentType: isJson ? "application/json" : "text/plain",
-		};
-	}
-	if (spec.body === undefined || spec.body === null) {
-		return { body: null, contentType: null };
-	}
-	if (typeof spec.body === "string") {
-		return { body: spec.body, contentType: "text/plain" };
-	}
-	return { body: JSON.stringify(spec.body), contentType: "application/json" };
+function resolveBody(spec) {
+  if (spec.bodyFile) {
+    const isJson = spec.bodyFile.toLowerCase().endsWith(".json");
+    return {
+      body: fileBodies[spec.bodyFile],
+      contentType: isJson ? "application/json" : "text/plain",
+    };
+  }
+  if (spec.body === undefined || spec.body === null) {
+    return { body: null, contentType: null };
+  }
+  if (typeof spec.body === "string") {
+    return { body: spec.body, contentType: "text/plain" };
+  }
+  return { body: JSON.stringify(spec.body), contentType: "application/json" };
 }
 
 export default function () {
-	for (const spec of requests) {
-		const url = buildUrl(spec);
-		const { body, contentType } = resolveBody(spec);
+  for (const spec of requests) {
+    const url = buildUrl(spec);
+    const { body, contentType } = resolveBody(spec);
 
-		const headers: Record<string, string> = {};
-		if (contentType) headers["Content-Type"] = contentType;
-		if (spec.headers) {
-			for (const k in spec.headers) headers[k] = spec.headers[k];
-		}
+    const headers = {};
+    if (contentType) headers["Content-Type"] = contentType;
+    if (spec.headers) {
+      for (const k in spec.headers) headers[k] = spec.headers[k];
+    }
 
-		const res = http.request(spec.method, url, body, {
-			headers,
-			tags: { name: spec.name },
-		});
+    const res = http.request(spec.method, url, body, {
+      headers,
+      tags: { name: spec.name },
+    });
 
-		const expected = spec.expectStatus ?? 200;
-		check(res, {
-			[`${spec.name} -> ${expected}`]: (r) => r.status === expected,
-		});
-	}
+    const expected = spec.expectStatus ?? 200;
+    check(res, {
+      [`${spec.name} -> ${expected}`]: (r) => r.status === expected,
+    });
+  }
 
-	sleep(1);
+  // sleep(1);
 }

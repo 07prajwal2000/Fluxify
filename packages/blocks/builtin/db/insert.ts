@@ -7,6 +7,9 @@ import {
 } from "../../baseBlock";
 import { IDbAdapter } from "@fluxify/adapters";
 import { logger } from "@fluxify/common";
+import { adapterFor, dbFailure } from "./schema";
+import { emitJsObject } from "../../compiler";
+import type { EmitNode } from "../../compiler";
 
 export const insertDbBlockSchema = z
   .object({
@@ -28,6 +31,47 @@ export const insertDbAiDescription = {
     "Inserts a single record into a database table.",
   jsonSchema: JSON.stringify(z.toJSONSchema(insertDbBlockSchema)),
 };
+
+export async function runInsertDb(
+  context: Context,
+  connection: string,
+  tableName: string,
+  data: object,
+) {
+  try {
+    return await adapterFor(context, connection).insert(tableName, data);
+  } catch (error) {
+    dbFailure("insert", error);
+  }
+}
+
+/**
+ * A literal payload is walked at compile time, so its `js:` values become
+ * inlined code. A payload that only exists at runtime (useParam, or the whole
+ * object produced by a js expression) still has to be scanned per request.
+ *
+ * Read without parsing: the schema types `data.value` as an object, but the
+ * block also accepts a string there when `source` is "js".
+ */
+export function emitInsertDb(node: EmitNode) {
+  const input = node.block.data as z.infer<typeof insertDbBlockSchema>;
+  const data = node.v("data");
+  const value = input.data.value as unknown;
+
+  let payload: string;
+  if (input.useParam) {
+    payload = `await lib.evalJsDeep(ctx, ${node.in})`;
+  } else if (input.data.source === "js" && typeof value === "string") {
+    payload = `await lib.evalJsDeep(ctx, ${node.js(value, node.in)})`;
+  } else {
+    payload = emitJsObject(value, node);
+  }
+
+  return `const ${data} = ${payload};
+if (typeof ${data} !== "object") throw new Error("error in insert: data to insert is not an object");
+${node.in} = await lib.dbInsert(ctx, ${JSON.stringify(input.connection)}, ${node.value(input.tableName)}, ${data});
+${node.next()}`;
+}
 
 export class InsertDbBlock extends BaseBlock {
   constructor(

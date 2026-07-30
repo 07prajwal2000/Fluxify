@@ -1,11 +1,30 @@
 # ==============================================================================
-# Fluxify KIT — single-container quick-run stack.
-# Everything (admin API, worker, web UI, AI gateway, Caddy proxy) runs inside the
-# one `fluxify-kit` container. Best for local trials and evaluation.
+# Fluxify KIT — the quickest way to run the whole platform.
 #
+# One Fluxify container (admin API, compiler, web UI, AI gateway and the
+# compiled request worker) plus the three backing services it needs. Best for
+# trying Fluxify out, local development against a realistic stack, demos, and
+# small single-project deployments.
+#
+#   cp docker/kit/env.example docker/kit/.env
 #   docker compose -f docker/kit/docker-compose.yml up -d
 #
-# For a scale-out, production topology (separate admin + replicated workers)
+# Then open http://localhost:8080/_/admin/ui
+#
+# ------------------------------------------------------------------------------
+# FIRST RUN — two steps, because a worker serves exactly one project
+#
+#   1. Bring the stack up and create a project in the UI. The kit logs
+#      "WORKER_PROJECT_ID is not set" and starts everything except the request
+#      worker; that is expected, there is no project to serve yet.
+#   2. Copy the project id, put it in docker/kit/.env as WORKER_PROJECT_ID, then
+#      `docker compose -f docker/kit/docker-compose.yml up -d` again.
+#
+# After that, saving a route compiles it and the worker picks it up in place —
+# no restart, no redeploy.
+#
+# ------------------------------------------------------------------------------
+# For a scale-out topology (separate admin + replicated workers behind Traefik)
 # see docker/production/docker-compose.yml.
 # ==============================================================================
 services:
@@ -19,6 +38,8 @@ services:
     restart: unless-stopped
     ports:
       - "8080:8080" # single public entrypoint (Caddy)
+      # Uncomment to reach the worker's health/readiness probe from the host.
+      # - "5601:5601"
     env_file:
       - .env
     depends_on:
@@ -59,13 +80,23 @@ services:
   nats:
     image: nats:latest
     container_name: nats
+    # -js enables JetStream, which the compile pipeline REQUIRES: the compile
+    # work queue is a JetStream stream and compiled routes live in a KV bucket
+    # (KV is built on JetStream). Without it the compiler cannot start and the
+    # worker has nothing to pull.
     # Single-token auth; the token must match NATS_TOKEN in .env.
-    command: ["--auth", "fluxify_nats_token"]
+    command: ["-js", "--store_dir", "/data", "--auth", "fluxify_nats_token"]
+    volumes:
+      # Compiled routes survive a NATS restart. They are rebuilt from the
+      # database at compiler startup anyway, so this is a warm start, not a
+      # source of truth.
+      - fluxify_nats_volume:/data
     networks:
       - fluxify_net
 
 volumes:
   fluxify_pg_volume:
+  fluxify_nats_volume:
 
 networks:
   fluxify_net:

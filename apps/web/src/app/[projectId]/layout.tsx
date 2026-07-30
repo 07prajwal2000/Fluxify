@@ -15,7 +15,6 @@ import { usePathname, useRouter, useParams } from "next/navigation";
 import { useDisclosure } from "@mantine/hooks";
 import {
 	TbArrowLeft,
-	TbSparkles,
 	TbStack2,
 	TbActivity,
 	TbCloudCog,
@@ -49,13 +48,8 @@ const NewProjectLayout = ({ children }: { children: React.ReactNode }) => {
 	const projectName =
 		projectsData?.data?.find((p: any) => p.id === id)?.name || "Project";
 
+	// Fluxify AI lives in the portal now; the old in-app assistant was removed.
 	const navItems = [
-		{
-			label: "Fluxify AI",
-			icon: <TbSparkles size={20} />,
-			href: APP_ROUTES.PROJECT_AI(id),
-			requiredRole: "creator" as AccessControlRole,
-		},
 		{
 			label: "Routes",
 			icon: <TbStack2 size={20} />,
@@ -161,20 +155,13 @@ const NewProjectLayout = ({ children }: { children: React.ReactNode }) => {
 								<NavLink
 									label={item.label}
 									leftSection={item.icon}
-									active={
-										path === item.href ||
-										(item.href.includes("/ai") && path.includes("/ai"))
-									}
+									active={path === item.href}
 									onClick={() => router.push(item.href)}
 									color="violet"
 									variant="filled"
 									style={{
 										borderRadius: 4,
-										fontWeight:
-											path === item.href ||
-											(item.href.includes("/ai") && path.includes("/ai"))
-												? 600
-												: 400,
+										fontWeight: path === item.href ? 600 : 400,
 									}}
 								/>
 							</RequireRole>

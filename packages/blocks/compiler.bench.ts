@@ -216,35 +216,45 @@ async function time(reps: number, fn: () => Promise<any>) {
 
 async function bench(testCase: Case) {
 	const compileStarted = performance.now();
-	const { run, source } = compileGraph(testCase.blocks, testCase.edges);
+	const inlined = compileGraph(testCase.blocks, testCase.edges);
 	const compileMs = performance.now() - compileStarted;
+	const sandboxed = compileGraph(testCase.blocks, testCase.edges, {
+		inlineJs: false,
+	});
 
 	const interpretedCtx = createContext();
-	const compiledCtx = createContext();
-	const interpreted = await runInterpreted(testCase, interpretedCtx);
-	const compiled = await run(compiledCtx, testCase.input);
-	const same =
-		JSON.stringify(interpreted?.output) === JSON.stringify(compiled?.output);
+	const sandboxedCtx = createContext();
+	const inlinedCtx = createContext();
+	const outputs = [
+		(await runInterpreted(testCase, interpretedCtx))?.output,
+		(await sandboxed.run(sandboxedCtx, testCase.input))?.output,
+		(await inlined.run(inlinedCtx, testCase.input))?.output,
+	].map((output) => JSON.stringify(output));
+	const same = outputs.every((output) => output === outputs[0]);
 
 	const interpretedMs = await time(testCase.reps, () => runInterpreted(testCase));
-	const compiledMs = await time(testCase.reps, () =>
-		run(createContext(), testCase.input),
+	const sandboxedMs = await time(testCase.reps, () =>
+		sandboxed.run(createContext(), testCase.input),
+	);
+	const inlinedMs = await time(testCase.reps, () =>
+		inlined.run(createContext(), testCase.input),
 	);
 
 	console.log(`\n${testCase.name}`);
-	console.log(`  outputs match : ${same ? "yes" : "NO — results differ!"}`);
-	if (!same) {
-		console.log(`    interpreted : ${JSON.stringify(interpreted?.output)?.slice(0, 120)}`);
-		console.log(`    compiled    : ${JSON.stringify(compiled?.output)?.slice(0, 120)}`);
-	}
-	console.log(`  interpreted   : ${interpretedMs.toFixed(3)} ms/request`);
-	console.log(`  compiled      : ${compiledMs.toFixed(3)} ms/request`);
-	console.log(`  speedup       : ${(interpretedMs / compiledMs).toFixed(2)}x`);
+	console.log(`  outputs match      : ${same ? "yes" : "NO — results differ!"}`);
+	if (!same) outputs.forEach((o) => console.log(`    ${o?.slice(0, 110)}`));
+	console.log(`  interpreted        : ${interpretedMs.toFixed(3)} ms/request`);
 	console.log(
-		`  compile once  : ${compileMs.toFixed(3)} ms  (${source.split("\n").length} lines of JS)`,
+		`  compiled (vm)      : ${sandboxedMs.toFixed(3)} ms/request   ${(interpretedMs / sandboxedMs).toFixed(2)}x`,
 	);
 	console.log(
-		`  sandbox calls : ${interpretedCtx.counted.calls} interpreted / ${compiledCtx.counted.calls} compiled`,
+		`  compiled (inlined) : ${inlinedMs.toFixed(3)} ms/request   ${(interpretedMs / inlinedMs).toFixed(2)}x`,
+	);
+	console.log(
+		`  compile once       : ${compileMs.toFixed(3)} ms  (${inlined.source.split("\n").length} lines of JS)`,
+	);
+	console.log(
+		`  sandbox calls      : ${interpretedCtx.counted.calls} interpreted / ${sandboxedCtx.counted.calls} compiled-vm / ${inlinedCtx.counted.calls} inlined`,
 	);
 }
 
