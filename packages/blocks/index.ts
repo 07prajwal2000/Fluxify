@@ -9,6 +9,7 @@ export * from "./builtin/entrypoint";
 export * from "./builtin/loops/for";
 export * from "./builtin/loops/foreach";
 export * from "./engine";
+export * from "./compiler";
 export * from "./blockTypes";
 export * from "./baseBlock";
 export * from "./categories";

@@ -6,6 +6,7 @@ import {
   HttpCookieSameSite,
 } from "../../baseBlock";
 import dayjs from "dayjs";
+import type { EmitNode } from "../../compiler";
 
 export const setHttpCookieBlockSchema = z
   .object({
@@ -37,6 +38,20 @@ export const setCookieAiDescription = {
     "Sets a cookie in the HTTP response.",
   jsonSchema: JSON.stringify(z.toJSONSchema(setHttpCookieBlockSchema)),
 };
+
+export function emitSetHttpCookie(node: EmitNode) {
+  const input = setHttpCookieBlockSchema.parse(node.block.data);
+  return `vars.setCookie(${node.value(input.name)}, {
+value: ${node.value(input.value)},
+domain: ${node.value(input.domain)},
+path: ${node.value(input.path)},
+expiry: lib.isoDate(${node.value(input.expiry)}),
+httpOnly: ${JSON.stringify(input.httpOnly ?? null)},
+secure: ${JSON.stringify(input.secure ?? null)},
+samesite: ${JSON.stringify(input.samesite ?? null)},
+});
+${node.next()}`;
+}
 
 export class SetHttpCookieBlock extends BaseBlock {
   override async executeAsync(params?: any): Promise<BlockOutput> {

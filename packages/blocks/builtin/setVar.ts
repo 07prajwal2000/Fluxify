@@ -5,6 +5,7 @@ import {
   BlockOutput,
   Context,
 } from "../baseBlock";
+import type { EmitNode } from "../compiler";
 
 export const setVarSchema = z
   .object({
@@ -24,6 +25,11 @@ export const setVarBlockAiDescription = {
     "Assigns a value to a variable in the global execution context.",
   jsonSchema: JSON.stringify(z.toJSONSchema(setVarSchema)),
 };
+
+export function emitSetVar(node: EmitNode) {
+  const { key, value } = setVarSchema.parse(node.block.data);
+  return `${node.in} = vars[${JSON.stringify(key)}] = ${node.value(value)};\n${node.next()}`;
+}
 
 export class SetVarBlock extends BaseBlock {
   constructor(

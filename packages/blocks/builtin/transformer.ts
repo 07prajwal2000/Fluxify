@@ -1,6 +1,7 @@
 import z from "zod";
 import { BaseBlock, BlockOutput, Context } from "../baseBlock";
 import { baseBlockDataSchema } from "../baseBlock";
+import type { EmitNode } from "../compiler";
 
 export const transformerBlockSchema = z
   .object({
@@ -27,6 +28,17 @@ export const transformBlockAiDescription = {
     "Transforms input data into a new structure using JavaScript.",
   jsonSchema: JSON.stringify(z.toJSONSchema(transformerBlockSchema)),
 };
+
+export function emitTransformer(node: EmitNode) {
+  const { fieldMap, js, useJs } = transformerBlockSchema.parse(node.block.data);
+  if (useJs) {
+    return `${node.in} = ${node.js(js || "", node.in)};\n${node.next()}`;
+  }
+  const fields = Object.entries(fieldMap).map(
+    ([from, to]) => `${JSON.stringify(to)}: ${node.in}[${JSON.stringify(from)}]`,
+  );
+  return `${node.in} = { ${fields.join(", ")} };\n${node.next()}`;
+}
 
 export class TransformerBlock extends BaseBlock {
   constructor(

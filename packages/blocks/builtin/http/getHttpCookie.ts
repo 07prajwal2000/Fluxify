@@ -1,6 +1,7 @@
 import z from "zod";
 import { BaseBlock, BlockOutput } from "../../baseBlock";
 import { baseBlockDataSchema } from "../../baseBlock";
+import type { EmitNode } from "../../compiler";
 
 export const getHttpCookieBlockSchema = z
   .object({
@@ -14,6 +15,11 @@ export const getCookieAiDescription = {
     "Retrieves a specific cookie from the incoming request.",
   jsonSchema: JSON.stringify(z.toJSONSchema(getHttpCookieBlockSchema)),
 };
+
+export function emitGetHttpCookie(node: EmitNode) {
+  const { name } = getHttpCookieBlockSchema.parse(node.block.data);
+  return `${node.in} = vars.getCookie(${node.value(name)});\n${node.next()}`;
+}
 
 export class GetHttpCookieBlock extends BaseBlock {
   override async executeAsync(): Promise<BlockOutput> {

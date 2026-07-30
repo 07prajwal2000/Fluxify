@@ -8,6 +8,7 @@ import {
 } from "../../baseBlock";
 import { Engine } from "../../engine";
 import { ExecutionTimeoutError } from "../../errors/timeout";
+import type { EmitNode } from "../../compiler";
 
 export const forLoopBlockSchema = z
   .object({
@@ -42,6 +43,25 @@ Handles:
 - 'executor': Connect the block to be executed in each loop iteration.`,
 };
 
+/** bounds may be js expressions — those are evaluated once, before the loop */
+export function boundToJs(bound: number | string, node: EmitNode) {
+  if (typeof bound === "number") return String(bound);
+  return node.js(bound.startsWith("js:") ? bound.slice(3) : bound);
+}
+
+export function emitForLoop(node: EmitNode) {
+  const { start, end, step } = forLoopBlockSchema.parse(node.block.data);
+  const i = node.v("i");
+  const to = node.v("end");
+  const by = node.v("step");
+  return `const ${to} = ${boundToJs(end, node)}, ${by} = ${boundToJs(step, node)};
+for (let ${i} = ${boundToJs(start, node)}; ${i} < ${to}; ${i} += ${by}) {
+${node.body("executor", i)}
+}
+${node.in} = undefined;
+${node.next()}`;
+}
+
 export class ForLoopBlock extends BaseBlock {
   constructor(
     context: Context,
@@ -55,10 +75,16 @@ export class ForLoopBlock extends BaseBlock {
     super(context, input, next);
   }
 
-  override async executeAsync(
-    callback?: (i: number) => void,
+  /**
+   * Runs `body` once per iteration, resolving js expression bounds first.
+   * Separate from executeAsync because the engine calls executeAsync with the
+   * previous block's *output* as the first argument — a loop that took its
+   * callback there crashed on any truthy input, which also made nested for
+   * loops impossible.
+   */
+  public async iterate(
+    body: (i: number) => unknown,
     options?: BlockOptions,
-    useEngine: boolean = true,
   ): Promise<BlockOutput> {
     const { data: input, success } = forLoopBlockSchema.safeParse(this.input);
     if (!success) {
@@ -90,15 +116,22 @@ export class ForLoopBlock extends BaseBlock {
       if (options?.timedOut) {
         throw new ExecutionTimeoutError("Execution timed out");
       }
-      if (input.block && useEngine) {
-        await this.childEngine.start(input.block, i);
-      }
-      callback && (await callback(i));
+      await body(i);
     }
     return {
       continueIfFail: true,
       successful: true,
       next: this.next,
     };
+  }
+
+  override async executeAsync(
+    params?: any,
+    options?: BlockOptions,
+  ): Promise<BlockOutput> {
+    const { block } = this.input as z.infer<typeof forLoopBlockSchema>;
+    return this.iterate(async (i) => {
+      if (block) await this.childEngine.start(block, i);
+    }, options);
   }
 }
