@@ -90,14 +90,16 @@ function CanvasDemoPage() {
 					{graph.blocks.length} blocks · {graph.edges.length} edges ·{" "}
 					{pendingCount} unsaved
 				</span>
-				<Button
-					variant="primary"
-					isDisabled={pendingCount === 0 || isSaving}
-					isPending={isSaving}
-					onPress={() => void onSave()}
-				>
-					Save
-				</Button>
+				{!readOnly && (
+					<Button
+						variant="primary"
+						isDisabled={pendingCount === 0 || isSaving}
+						isPending={isSaving}
+						onPress={() => void onSave()}
+					>
+						Save
+					</Button>
+				)}
 			</header>
 
 			<div className="min-h-0 flex-1">

@@ -69,16 +69,21 @@ When creating branches or Pull Requests via the `gh` CLI:
 4. **Only use `createAgent`/tool-bound models when you pass real tools.** `[]` tools + `structuredResponse` gives neither tool use nor structured output.
 5. **Retry corrections must be a `["human", ...]` turn**, never `["system", ...]`, so the retried request still ends on a user role (`apps/server/src/lib/agentRetry.ts`).
 
-### React Aria / HeroUI Table Checkbox `slot="selection"` & PressResponder Errors
+### React Aria / HeroUI Table Checkbox `slot="selection"` & Theme Compatibility
 **Issue:**
-1. `Error: A slot prop is required. Valid slot names are "selection"` on `<Checkbox>` inside a `<Table>` component.
-2. `Warning: A PressResponder was rendered without a pressable child` when placing a `<button>` inside `<Table.Column>`.
+1. Default HeroUI v3 `<Checkbox>` fails to render properly or breaks contrast in custom themes (light/dark mode) due to strict subcomponent structure expectations and unstyled SVG icon defaults.
+2. `Error: A slot prop is required. Valid slot names are "selection"` on `<Checkbox>` inside a `<Table>` component.
+3. `Warning: A PressResponder was rendered without a pressable child` when placing a `<button>` inside `<Table.Column>`.
+
 **Cause:**
-1. React Aria / HeroUI Table expects selection checkboxes rendered inside `<Table.Header>` or `<Table.Cell>` to explicitly declare `slot="selection"`.
-2. `<Table.Column>` is already rendered as an interactive ColumnHeader by React Aria, so embedding a native `<button>` creates conflicting PressResponders.
-**Fix:**
-1. Pass `slot="selection"` on any `<Checkbox>` rendered inside `<Table.Header>` or `<Table.Cell>` (e.g. `<Checkbox slot="selection" ... />`).
-2. Replace nested `<button>` elements inside `<Table.Column>` with clickable `<div>` or `<span>` elements (e.g. `<div role="button" tabIndex={0} onClick={...}>`).
+1. HeroUI v3 Checkbox requires specific compound component wrapping (`Checkbox.Root`, `Checkbox.Control`, `Checkbox.Indicator`) and theme tokens; unstyled or raw usage breaks contrast/layout in dark/light themes.
+2. React Aria / HeroUI Table expects selection checkboxes rendered inside `<Table.Header>` or `<Table.Cell>` to explicitly declare `slot="selection"`.
+3. `<Table.Column>` is already rendered as an interactive ColumnHeader by React Aria, so embedding a native `<button>` creates conflicting PressResponders.
+
+**Fix & Best Practices:**
+1. **Always use `@fluxify/components` Checkbox:** Use `import { Checkbox } from "@fluxify/components"` located in `packages/components/src/Checkbox`. It is self-contained, fully typed without `any`, uses theme CSS variables (`var(--accent)`, `var(--accent-foreground)`, `var(--border)`, `var(--surface)`, `var(--focus)`) for light/dark theme compatibility, handles `checked`, `indeterminate`, `size`, `variant`, `label`, `description`, `errorMessage`, and supports `forwardRef`.
+2. **Table Selection:** Pass `slot="selection"` on any `<Checkbox>` rendered inside `<Table.Header>` or `<Table.Cell>` (e.g. `<Checkbox slot="selection" ... />`).
+3. Replace nested `<button>` elements inside `<Table.Column>` with clickable `<div>` or `<span>` elements (e.g. `<div role="button" tabIndex={0} onClick={...}>`).
 
 ### Harness Structured Output — "Unrecognized token '\'" / "Unexpected EOF" / silent parse failures
 **File:** `apps/ai-gateway/src/harness/models/base.ts` (`fallbackStructuredOutput`, `cleanJsonOutput`, `sliceBalancedJson`, `parseJsonLoose`).
@@ -132,6 +137,13 @@ Also: native `withStructuredOutput` failures are caught and fall through to the 
 **Fix:**
 - The orchestrator derives the ready level from task statuses + `dependsOnAgentId` (`status === "pending"` and every dependency settled). A `running` task is never dispatched again. `taskQueue` is now informational only.
 - The supervisor writes each verdict into the `tasks` entry **by id** (`setStatus`), not through reference aliasing. A lost write there stalls the build forever.
+
+### Canvas Readonly Mode Enforcement & Save Button Visibility
+**Issue:** When the canvas is set to `readOnly`, block settings panel inputs could remain interactive if fields didn't check change tracking state, and the top-level Save button remained visible. Furthermore, disabling `elementsSelectable` prevented users from opening and inspecting block settings panels in read-only mode.
+**Fix & Best Practices:**
+1. **Readonly Settings Panel Inputs:** All settings panel controls (`BlockTextField`, `BlockJsTextField`, `BlockSelectField`, `ConditionsBuilder`, `FieldMapEditor`, `JavaScriptTextArea`, `BlockNameInput`, `BlockDescriptionField`) must check `useCanvasChanges().enabled` (`editable`) and set `isDisabled={!editable}` or `readOnly={!editable}`.
+2. **Hide Save Button in Readonly Mode:** The header Save button must be conditionally rendered (`{!readOnly && <Button ...>Save</Button>}`) so no save trigger is accessible in read-only mode.
+3. **Keep Elements Selectable:** Set `elementsSelectable={true}` on `<ReactFlow>` so users can still select nodes and open side panels to inspect block configurations in read-only mode, while keeping `nodesDraggable={!readOnly}`, `nodesConnectable={!readOnly}`, and `deleteKeyCode={null}` disabled.
 
 ---
 

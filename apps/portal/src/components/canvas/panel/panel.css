@@ -5,6 +5,7 @@
 	width: 100%;
 	height: 100%;
 	min-height: 0;
+	overflow: hidden;
 }
 
 .fx-canvas-shell > .fx-canvas {
@@ -18,6 +19,7 @@
 	--fx-panel-border: color-mix(in oklab, var(--fx-panel-fg) 16%, var(--fx-panel-bg));
 	--fx-panel-muted: color-mix(in oklab, var(--fx-panel-fg) 60%, var(--fx-panel-bg));
 
+	position: relative;
 	display: flex;
 	width: 0;
 	height: 100%;
@@ -39,13 +41,88 @@
 }
 
 .fx-panel--open {
-	width: 45%;
-	max-width: 720px;
-	min-width: 320px;
+	width: 550px;
+	max-width: 850px;
+	min-width: 470px;
 	border-left-width: 1px;
 	opacity: 1;
 	pointer-events: auto;
 	transform: none;
+	overflow: visible;
+}
+
+.fx-panel__block-id {
+	display: inline-flex;
+	align-items: center;
+	padding: 2px 6px;
+	border-radius: 4px;
+	background: color-mix(in oklab, var(--fx-panel-fg) 6%, var(--fx-panel-bg));
+	color: var(--fx-panel-muted);
+	font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+	font-size: 11px;
+	font-weight: 500;
+	margin-left: auto;
+	border: 1px solid color-mix(in oklab, var(--fx-panel-fg) 12%, transparent);
+	user-select: all;
+}
+
+
+
+.fx-panel--resizing {
+	transition: none !important;
+	user-select: none;
+}
+
+/* Resize handle on the left edge of the panel */
+.fx-panel__resize-handle {
+	position: absolute;
+	top: 0;
+	bottom: 0;
+	left: -6px;
+	width: 12px;
+	cursor: col-resize;
+	z-index: 20;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	touch-action: none;
+	user-select: none;
+}
+
+.fx-panel__resize-handle:focus-visible {
+	outline: none;
+}
+
+.fx-panel__resize-handle:focus-visible .fx-panel__resize-knob {
+	border-color: var(--fx-panel-fg);
+	box-shadow: 0 0 0 2px color-mix(in oklab, var(--fx-panel-fg) 30%, transparent);
+}
+
+.fx-panel__resize-knob {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 16px;
+	height: 32px;
+	border-radius: 9999px;
+	background: var(--fx-panel-bg);
+	border: 1px solid var(--fx-panel-border);
+	color: var(--fx-panel-muted);
+	box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15);
+	transition: background-color 150ms ease, border-color 150ms ease, color 150ms ease, transform 150ms ease;
+}
+
+.fx-panel__resize-handle:hover .fx-panel__resize-knob,
+.fx-panel--resizing .fx-panel__resize-knob {
+	background: color-mix(in oklab, var(--fx-panel-fg) 8%, var(--fx-panel-bg));
+	border-color: color-mix(in oklab, var(--fx-panel-fg) 40%, var(--fx-panel-bg));
+	color: var(--fx-panel-fg);
+	transform: scale(1.12);
+}
+
+.fx-panel__resize-icon {
+	display: block;
+	pointer-events: none;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -92,7 +169,7 @@ html[data-theme="dark"] .fx-panel,
 
 .fx-panel__name {
 	overflow: hidden;
-	font-size: 14px;
+	font-size: 12px;
 	font-weight: 600;
 	line-height: 1.2;
 	text-overflow: ellipsis;
@@ -101,8 +178,6 @@ html[data-theme="dark"] .fx-panel,
 
 .fx-panel__type {
 	overflow: hidden;
-	/* Matches the name input's border + padding so both texts start at the same x. */
-	padding-left: 5px;
 	color: var(--fx-panel-muted);
 	font-size: 11px;
 	line-height: 1.2;
@@ -130,75 +205,67 @@ html[data-theme="dark"] .fx-panel,
 	background: color-mix(in oklab, var(--fx-panel-fg) 12%, transparent);
 }
 
+/* The body itself does not scroll — the open tab's panel does, so the tab row
+   stays put while the settings under it move. */
 .fx-panel__body {
-	overflow-y: auto;
+	display: flex;
+	min-height: 0;
 	flex: 1 1 auto;
-	padding: 12px;
+	flex-direction: column;
+	/* No top gap: the tab row sits right under the header, and the spacing it
+	   would have had lives under it instead (see the tab panel). */
+	padding: 0 12px 12px;
 }
 
 .fx-panel__section + .fx-panel__section {
 	margin-top: 14px;
 }
 
-/* Fields. Styled to match the design system's inputs without importing them, so
-   the canvas package stays standalone. */
-.fx-panel__input,
-.fx-panel__textarea {
-	box-sizing: border-box;
+.fx-panel__divider {
 	width: 100%;
-	padding: 6px 8px;
-	border: 1px solid var(--fx-panel-border);
-	border-radius: var(--radius, 6px);
-	background: color-mix(in oklab, var(--fx-panel-fg) 4%, var(--fx-panel-bg));
-	color: inherit;
-	font: inherit;
+	height: 0;
+	margin: 4px 0;
+	border: none;
+	border-top: 1px solid var(--fx-panel-border);
+}
+
+/* Tabs come from the design system (secondary = underlined). Its tabs are
+   page-sized and stretch to fill the row; in a side panel they sit inline and
+   compact, so the size slots are overridden here. */
+.fx-panel__tabs .tabs__list {
+	width: auto;
+	min-width: 0;
+}
+
+.fx-panel__tabs .tabs__tab {
+	width: auto;
+	height: 28px;
+	flex: 0 0 auto;
+	padding-inline: 10px;
 	font-size: 12px;
-	line-height: 1.35;
-	outline: none;
 }
 
-.fx-panel__textarea {
-	min-height: 42px;
-	resize: vertical;
+.fx-panel__tabs {
+	min-height: 0;
+	flex: 1 1 auto;
 }
 
-/* The name, edited in place of the header title: chrome only on hover/focus. */
-.fx-panel__input--title {
-	padding: 2px 4px;
-	border-color: transparent;
-	background: transparent;
-	font-size: 14px;
-	font-weight: 600;
-	line-height: 1.2;
+.fx-panel__tabs > .tabs__list-container {
+	flex: 0 0 auto;
 }
 
-.fx-panel__input--title:hover:not(:disabled) {
-	border-color: var(--fx-panel-border);
-	background: color-mix(in oklab, var(--fx-panel-fg) 4%, var(--fx-panel-bg));
-}
-
-.fx-panel__input::placeholder,
-.fx-panel__textarea::placeholder {
-	color: var(--fx-panel-muted);
-}
-
-.fx-panel__input:hover:not(:disabled),
-.fx-panel__textarea:hover:not(:disabled) {
-	border-color: color-mix(in oklab, var(--fx-panel-fg) 34%, var(--fx-panel-bg));
-}
-
-/* Neutral focus, not the accent ring: these are quiet inline fields. */
-.fx-panel__input:focus,
-.fx-panel__textarea:focus {
-	border-color: color-mix(in oklab, var(--fx-panel-fg) 45%, var(--fx-panel-bg));
-	box-shadow: none;
-	outline: none;
-}
-
-.fx-panel__input:disabled,
-.fx-panel__textarea:disabled {
-	cursor: not-allowed;
-	opacity: 0.6;
+.fx-panel__tabs .tabs__panel,
+.fx-panel__tabs [data-slot="tabs-panel"],
+.fx-panel__tab-panel,
+[data-slot="tabs-panel"] {
+	display: flex;
+	min-height: 0;
+	flex: 1 1 auto;
+	flex-direction: column;
+	overflow-y: auto;
+	gap: 12px;
+	padding: 12px 6px;
+	margin-top: 0;
 }
 
 /* Too narrow to share the width: cover the canvas instead of squeezing it. */
@@ -215,6 +282,10 @@ html[data-theme="dark"] .fx-panel,
 	.fx-panel--open {
 		width: 100%;
 		max-width: none;
+	}
+
+	.fx-panel__resize-handle {
+		display: none;
 	}
 
 	.fx-canvas-shell {

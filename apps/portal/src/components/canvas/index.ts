@@ -1,4 +1,5 @@
 export { BlockCanvas } from "./BlockCanvas";
+export * from "./aiButton";
 export * from "./blocks";
 export { DEFAULT_EDGE_TYPES, FLOW_EDGE_TYPE, FlowEdge } from "./edges";
 export * from "./changes";

@@ -9,7 +9,7 @@ import { integrationsQuery } from "@/query/integrationsQuery";
 import { useAiHarnessStore } from "@/store/aiHarness";
 import { useDebounce } from "@/hooks/useDebounce";
 import { findResourceQuery } from "@/query/findResourceQuery";
-import { integrationIcons } from "@/components/integrations/integrationIcons";
+import { integrationIcons } from "@fluxify/components";
 
 import { LexicalComposer } from "@lexical/react/LexicalComposer";
 import { PlainTextPlugin } from "@lexical/react/LexicalPlainTextPlugin";

@@ -89,22 +89,23 @@ export function BlockToolbar({
 		if (clipboard.copy() === 0) clipboard.copy([blockId]);
 	}, [blockId, clipboard]);
 
-	if (!editable || !visible) return null;
+	if (!visible) return null;
 
 	return (
 		// nodrag: pressing a button must not start dragging the block.
 		<div className="fx-block__toolbar nodrag" {...hoverProps}>
-			<button
-				type="button"
-				className="fx-block__action"
-				title="Open"
-				aria-label="Open block"
-				disabled={!panel.enabled}
-				onClick={() => panel.open(blockId)}
-			>
-				<TbExternalLink />
-			</button>
-			{clipboard.enabled && (
+			{panel.enabled && (
+				<button
+					type="button"
+					className="fx-block__action"
+					title="Open"
+					aria-label="Open block"
+					onClick={() => panel.open(blockId)}
+				>
+					<TbExternalLink />
+				</button>
+			)}
+			{editable && clipboard.enabled && (
 				<>
 					<button
 						type="button"
@@ -126,15 +127,17 @@ export function BlockToolbar({
 					</button>
 				</>
 			)}
-			<button
-				type="button"
-				className="fx-block__action fx-block__action--danger"
-				title="Delete"
-				aria-label="Delete block"
-				onClick={onDelete}
-			>
-				<TbTrash />
-			</button>
+			{editable && (
+				<button
+					type="button"
+					className="fx-block__action fx-block__action--danger"
+					title="Delete"
+					aria-label="Delete block"
+					onClick={onDelete}
+				>
+					<TbTrash />
+				</button>
+			)}
 		</div>
 	);
 }

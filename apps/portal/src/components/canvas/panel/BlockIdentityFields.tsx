@@ -1,4 +1,5 @@
 import { useCallback, useState, type KeyboardEvent } from "react";
+import { Input, Label, TextArea, TextField } from "@fluxify/components";
 import { useReactFlow } from "@xyflow/react";
 import { useCanvasChanges } from "../changes/ChangesContext";
 import type { BlockData } from "../types";
@@ -52,7 +53,7 @@ export type BlockFieldProps = {
 	placeholder: string;
 };
 
-/** The block's name, edited in the panel header. */
+/** The block's name. */
 export function BlockNameInput({ blockId, data, placeholder }: BlockFieldProps) {
 	const { value, editable, onChange, commit } = useBlockField(
 		blockId,
@@ -65,17 +66,16 @@ export function BlockNameInput({ blockId, data, placeholder }: BlockFieldProps) 
 	}, []);
 
 	return (
-		<input
-			className="fx-panel__input fx-panel__input--title"
-			type="text"
-			aria-label="Block name"
-			value={value}
-			placeholder={placeholder}
-			disabled={!editable}
-			onChange={(event) => onChange(event.target.value)}
-			onBlur={commit}
-			onKeyDown={onKeyDown}
-		/>
+		<TextField
+			fullWidth
+			variant="secondary"
+			isDisabled={!editable}
+      value={value}
+			onChange={onChange}
+		>
+			<Label>Name</Label>
+			<Input placeholder={placeholder} onBlur={commit} onKeyDown={onKeyDown} />
+		</TextField>
 	);
 }
 
@@ -92,15 +92,15 @@ export function BlockDescriptionField({
 	);
 
 	return (
-		<textarea
-			className="fx-panel__textarea"
-			aria-label="Block description"
-			rows={2}
+		<TextField
+			fullWidth
+			variant="secondary"
+			isDisabled={!editable}
 			value={value}
-			placeholder={placeholder}
-			disabled={!editable}
-			onChange={(event) => onChange(event.target.value)}
-			onBlur={commit}
-		/>
+			onChange={onChange}
+		>
+			<Label>Description</Label>
+			<TextArea rows={2} placeholder={placeholder} onBlur={commit} />
+		</TextField>
 	);
 }

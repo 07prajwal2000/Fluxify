@@ -72,8 +72,8 @@ function ProjectLayout() {
 				<div className="flex flex-col">
 					{/* Logo */}
 					<div className="flex h-[56px] shrink-0 items-center px-4">
-						<div className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-[#D0F237] text-black shadow-sm">
-							<TbLayoutGridFilled size={16} />
+						<div className="flex size-7 shrink-0 items-center justify-center rounded-lg text-black shadow-sm">
+							<img src="/_/admin/ui/public/icons/logo.svg" alt="logo" />
 						</div>
 						<span className="ml-3 whitespace-nowrap text-sm font-bold tracking-wider text-white opacity-0 transition-opacity duration-300 group-hover:opacity-100">
 							FLUXIFY
@@ -154,4 +154,3 @@ function ProjectLayout() {
 		</div>
 	);
 }
-

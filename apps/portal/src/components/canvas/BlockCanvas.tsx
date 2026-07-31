@@ -15,6 +15,7 @@ import {
 import "@xyflow/react/dist/style.css";
 import "./canvas.css";
 import { flowToGraph, graphToFlow } from "./adapters";
+import { AiCanvasButton } from "./aiButton";
 import {
 	CanvasChangesProvider,
 	cloneChangeSet,
@@ -336,7 +337,7 @@ function CanvasInner({
 					onNodeDoubleClick={onNodeDoubleClick}
 					nodesDraggable={!readOnly}
 					nodesConnectable={!readOnly}
-					elementsSelectable={!readOnly}
+					elementsSelectable={true}
 					deleteKeyCode={readOnly ? null : ["Backspace", "Delete"]}
 					fitView={fitViewOnInit}
 					defaultViewport={defaultViewport}
@@ -346,12 +347,14 @@ function CanvasInner({
 						variant={BackgroundVariant.Dots}
 						color="var(--fx-canvas-dot)"
 					/>
+					{/* React Flow's Controls has no icon props; its buttons are styled in canvas.css */}
 					<Controls showInteractive={!readOnly}>
 						<HistoryControls />
 						<FormatControls />
 					</Controls>
 					{children}
 				</ReactFlow>
+				<AiCanvasButton />
 				{nodes.length === 0 && (
 					<div className="fx-canvas__empty">
 						{readOnly

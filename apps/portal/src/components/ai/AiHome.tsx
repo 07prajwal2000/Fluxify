@@ -10,7 +10,7 @@ import { PromptEditor } from "./PromptEditor";
 import { STARTERS } from "./starters";
 import { useAiModels } from "./useAiModels";
 
-const logo = `${import.meta.env.BASE_URL}logo.webp`;
+const logo = `/_/admin/ui/public/icons/logo.svg`;
 
 export function AiHome() {
 	const { projectId } = useParams({ from: "/_authed/$projectId/ai/" });
@@ -64,7 +64,7 @@ export function AiHome() {
 						You need to configure an AI integration to use the agent. Please set up a model and enable "Use for Harness", or set the project default agent connection.
 					</p>
 				</div>
-				<a 
+				<a
 					href={`/_/admin/ui/${projectId}/integrations?group=ai`}
 					className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
 				>
@@ -77,11 +77,11 @@ export function AiHome() {
 
 	return (
 		<div className="h-full overflow-y-auto">
-			<div className="mx-auto flex w-full max-w-3xl flex-col gap-8 px-4 pt-24 pb-12">
+			<div className="mx-auto flex w-full max-w-3xl flex-col gap-8 px-4 pt-8 pb-12">
 			<div className="flex flex-col items-center gap-4 text-center">
 				<div className="relative">
 					<div className="pointer-events-none absolute inset-0 -z-10 scale-150 rounded-full bg-accent/20 blur-3xl" />
-					<img src={logo} alt="Fluxify AI" className="size-16 object-contain" />
+					<img src={logo} alt="Fluxify AI" className="size-32 object-contain" />
 				</div>
 				<div className="flex flex-col gap-2">
 					<h1 className="text-4xl font-bold tracking-tight text-foreground">
