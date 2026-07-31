@@ -30,6 +30,10 @@ export interface Context {
 	requestBody?: any;
 	dbFactory?: DbFactory;
 	httpClient?: HttpClient;
+	/** resolves integrations (observability loggers) for compiled graphs */
+	integrationFactory?: {
+		create(options: { integrationId: string; type: string }): any;
+	};
 	/** origin of this execution; absent on legacy in-process callers */
 	trigger?: TriggerContext;
 	stopper: {

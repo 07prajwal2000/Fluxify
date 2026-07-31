@@ -8,12 +8,17 @@
 	"scripts": {
 		"dev": "bun --watch deployments/standalone.ts",
 		"dev:worker": "bun --watch deployments/worker.ts",
+		"dev:worker:compiled": "bun --watch deployments/compiledWorker.ts",
 		"test": "bun test --parallel",
 		"lint": "tsgo --noEmit",
 		"start": "bun run deployments/standalone.ts",
 		"worker": "bun run deployments/worker.ts",
+		"worker:compiled": "bun run deployments/compiledWorker.ts",
 		"build": "bun build deployments/standalone.ts --outdir=dist --bundle --target bun --minify --sourcemap=linked --conditions=module",
 		"build:worker": "bun build deployments/worker.ts --outdir=dist --bundle --target bun --minify --sourcemap=linked --conditions=module",
+		"build:worker:compiled": "bun run build:worker:compiled:supervisor && bun run build:worker:compiled:thread",
+		"build:worker:compiled:supervisor": "bun build deployments/compiledWorker.ts --outdir=dist --bundle --target bun --minify --sourcemap=linked --conditions=module",
+		"build:worker:compiled:thread": "bun build src/modules/requestRouter/executionThread.ts --outdir=dist --bundle --target bun --minify --sourcemap=linked --conditions=module",
 		"postbuild": "bun run ./scripts/buildExtras.ts",
 		"db:generate": "bun x drizzle-kit generate",
 		"db:push": "bun x drizzle-kit push"

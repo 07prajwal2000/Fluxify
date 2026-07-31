@@ -6,8 +6,14 @@ import {
   Context,
 } from "../../baseBlock";
 import type { IDbAdapter } from "@fluxify/adapters";
-import { whereConditionSchema } from "./schema";
+import {
+  adapterFor,
+  dbFailure,
+  emitWhereConditions,
+  whereConditionSchema,
+} from "./schema";
 import { ConditionEvaluator } from "../conditionEvaluator";
+import type { EmitNode } from "../../compiler";
 
 export const deleteDbBlockSchema = z
   .object({
@@ -23,6 +29,25 @@ export const deleteDbAiDescription = {
     "Deletes records from a database table matching specific conditions.",
   jsonSchema: JSON.stringify(z.toJSONSchema(deleteDbBlockSchema)),
 };
+
+export async function runDeleteDb(
+  context: Context,
+  connection: string,
+  tableName: string,
+  conditions: z.infer<typeof whereConditionSchema>[],
+) {
+  try {
+    return await adapterFor(context, connection).delete(tableName, conditions);
+  } catch (error) {
+    dbFailure("delete", error);
+  }
+}
+
+export function emitDeleteDb(node: EmitNode) {
+  const input = deleteDbBlockSchema.parse(node.block.data);
+  return `${node.in} = await lib.dbDelete(ctx, ${JSON.stringify(input.connection)}, ${node.value(input.tableName)}, ${emitWhereConditions(input.conditions, node)});
+${node.next()}`;
+}
 
 export class DeleteDbBlock extends BaseBlock {
   constructor(

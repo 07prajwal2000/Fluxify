@@ -35,6 +35,23 @@ export let kvIntegrationsCache: Record<string, any> = {};
 export let observabilityIntegrationsCache: Record<string, any> = {};
 export let aiIntegrationsCache: Record<string, any> = {};
 
+/**
+ * Fill the caches from an artifact instead of the database. Configs are already
+ * resolved when the compiler publishes them (cfg: references expanded, urls
+ * parsed), so there is nothing left to look up.
+ */
+export function hydrateIntegrations(caches: {
+	db?: Record<string, any>;
+	kv?: Record<string, any>;
+	observability?: Record<string, any>;
+	ai?: Record<string, any>;
+}) {
+	if (caches.db) dbIntegrationsCache = caches.db;
+	if (caches.kv) kvIntegrationsCache = caches.kv;
+	if (caches.observability) observabilityIntegrationsCache = caches.observability;
+	if (caches.ai) aiIntegrationsCache = caches.ai;
+}
+
 export async function loadIntegrations() {
 	await loadFromDB();
 	subscribeToChannel(CHAN_ON_INTEGRATION_CHANGE, async () => {

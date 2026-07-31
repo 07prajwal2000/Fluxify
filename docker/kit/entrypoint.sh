@@ -17,19 +17,29 @@ term() {
 }
 trap term TERM INT
 
-# Admin/control-plane server
+# Admin/control-plane server. Runs migrations and hosts the compiler, which
+# turns saved routes into JavaScript and publishes them to the NATS KV bucket.
 start bun --cwd=/app/server standalone.js
 
-# Request worker (serves user API traffic; snappy.node sits beside worker.js)
-start bun --cwd=/app/server worker.js
+# Compiled request worker — serves user API traffic from those artifacts.
+#
+# It serves exactly one project, so it cannot start before a project exists.
+# On a first boot that is the normal state: bring the kit up without it, create
+# a project in the UI, then set WORKER_PROJECT_ID and restart.
+if [ -n "$WORKER_PROJECT_ID" ]; then
+	start bun --cwd=/app/server compiledWorker.js
+else
+	echo "[kit] WORKER_PROJECT_ID is not set — starting without the request worker."
+	echo "[kit] Create a project at /_/admin/ui, then set WORKER_PROJECT_ID and restart."
+fi
 
-# Next.js frontend
+# Next.js admin UI
 start bun --cwd=/app/web apps/web/server.js
 
 # AI Gateway
 start bun --cwd=/app/ai-gateway server.js
 
-# Reverse proxy
+# Reverse proxy — the single published port
 start caddy run --config /app/Caddyfile
 
 echo "[kit] All services launched."

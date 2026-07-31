@@ -38,6 +38,7 @@
     <a href="https://docs.fluxify.rest"><b>📖 Documentation</b></a> •
     <a href="#-quick-start-docker-kit"><b>🚀 Quick Start</b></a> •
     <a href="#-core-capabilities"><b>✨ Core Capabilities</b></a> •
+    <a href="https://docs.fluxify.rest/architecture/"><b>🏗️ Architecture</b></a> •
     <a href="CONTRIBUTING.md"><b>🤝 Contributing</b></a> •
     <a href="LICENSE"><b>📄 License</b></a>
   </p>
@@ -49,8 +50,10 @@
 ## ⚡ Why Fluxify?
 
 - 🤖 **Low-Code Agentic Backend Engine**: Seamlessly blend AI agents, LLM tool-calling, custom logic blocks, and database operations into visual, event-driven workflows.
+- ⚡ **Compiled, Not Interpreted**: Your visual flow is translated into real JavaScript **once, when you save it** — not walked block-by-block on every request. Measured against the interpreter: **+63% throughput, −43% median latency, −43% CPU per request.** See the [benchmark](https://docs.fluxify.rest/architecture/performance.html).
 - 💥 **Built for Real Workloads, Not Just Internal Tools**: Designed for public-facing, low-latency APIs and high-concurrency production applications — beyond simple internal prototypes.
 - 📈 **Elastic Horizontal Scaling (10 to 50+ Worker Nodes)**: Decoupled architecture separates the control plane from stateless request execution workers, allowing you to scale up to 50+ worker replicas with zero downtime.
+- 🔒 **Workers Never Touch Your Database**: Request nodes receive routes pre-compiled over the event bus. They hold no database credentials, so a bug in your API logic cannot reach the platform's own data.
 - 🔧 **Fully Extensible & Open**: Add custom blocks, integrate external databases/services, and manage environment secrets effortlessly with **App Config**.
 - 🛡️ **Enterprise Security & Governance**: SSO & SAML support (beta), granular team role-based access control, project isolation, and complete OpenAPI (Swagger) spec generation.
 
@@ -70,22 +73,27 @@
 
 ## 🚀 Quick Start (Docker Kit)
 
-Run the full Fluxify stack in a single container using the quick-run Kit image (*nightly build — official release coming soon*):
+Run the full Fluxify stack — plus PostgreSQL, Valkey and NATS — with one command
+(*nightly build — official release coming soon*):
 
 ```bash
-# 1. Pull the nightly Kit image
-docker pull ghcr.io/fluxify-rest/fluxify-kit:nightly
+# 1. Copy the environment template
+cp docker/kit/env.example docker/kit/.env
 
-# 2. Copy default environment configuration
-cp env.example .env
-
-# 3. Start the container stack
-docker run -d --env-file .env -p 8080:8080 ghcr.io/fluxify-rest/fluxify-kit:nightly
+# 2. Start the stack
+docker compose -f docker/kit/docker-compose.yml up -d
 ```
 
 Access the platform at:
 - **Admin UI**: [http://localhost:8080/_/admin/ui](http://localhost:8080/_/admin/ui)
 - **Admin API**: [http://localhost:8080/_/admin/api](http://localhost:8080/_/admin/api)
+
+> [!NOTE]
+> On the first start you'll see `WORKER_PROJECT_ID is not set — starting without
+> the request worker`. That's expected: a worker serves exactly one project, and
+> you don't have one yet. Create a project in the dashboard, put its id in
+> `docker/kit/.env` as `WORKER_PROJECT_ID`, and run the `up -d` command again.
+> Full walkthrough: [Quick Run with the Kit Image](https://docs.fluxify.rest/deployments/kit.html).
 
 > 📖 For production deployments with 10–50+ worker nodes, see the [Scale-Out Production Deployment Guide](https://docs.fluxify.rest/deployments/production.html).
 
@@ -117,7 +125,14 @@ bun run dev
 The local services will be available at:
 - **Web Dashboard**: `http://localhost:3000`
 - **Backend Server**: `http://localhost:5500`
+- **Request Worker**: `http://localhost:5600` (health on `5601`)
 - **AI Gateway**: `http://localhost:8001`
+- **Docs Site**: `http://localhost:5173`
+
+> [!TIP]
+> `bun run dev` starts the compiled worker, which needs `WORKER_PROJECT_ID` in
+> your `.env`. Run `bun run dev:server` on its own first, create a project, then
+> set it. See [CONTRIBUTING.md](CONTRIBUTING.md) for the full setup.
 
 ---
 

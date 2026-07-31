@@ -1,6 +1,7 @@
 import z from "zod";
 import { BaseBlock, BlockOutput } from "../../baseBlock";
 import { baseBlockDataSchema } from "../../baseBlock";
+import type { EmitNode } from "../../compiler";
 
 export const getHttpHeaderBlockSchema = z
   .object({
@@ -14,6 +15,11 @@ export const getHttpHeaderAiDescription = {
     "Retrieves a specific header from the incoming request.",
   jsonSchema: JSON.stringify(z.toJSONSchema(getHttpHeaderBlockSchema)),
 };
+
+export function emitGetHttpHeader(node: EmitNode) {
+  const { name } = getHttpHeaderBlockSchema.parse(node.block.data);
+  return `${node.in} = vars.getHeader(${node.value(name)});\n${node.next()}`;
+}
 
 export class GetHttpHeaderBlock extends BaseBlock {
   override async executeAsync(): Promise<BlockOutput> {

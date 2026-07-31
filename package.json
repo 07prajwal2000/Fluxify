@@ -5,13 +5,13 @@
 	"scripts": {
 		"dev": "concurrently 'bun run dev:server' 'bun run dev:worker' 'bun run dev:web' 'bun run dev:ai' 'bun run dev:docs'",
 		"dev:server": "bun run --env-file=.env --watch ./apps/server/deployments/standalone.ts",
-		"dev:worker": "bun run --env-file=.env --watch ./apps/server/deployments/worker.ts",
-		"worker": "bun run --env-file=.env ./apps/server/deployments/worker.ts",
-		"dev:ai": "bun run --env-file=.env --watch ./apps/ai-gateway/src/server.ts",
+		"dev:worker": "bun run --env-file=.env --watch ./apps/server/deployments/compiledWorker.ts",
+		"dev:worker:dag": "bun run --env-file=.env --watch ./apps/server/deployments/worker.ts",
 		"dev:web": "turbo run dev --filter=@fluxify/web",
+		"dev:ai": "bun run --env-file=.env --watch ./apps/ai-gateway/src/server.ts",
 		"dev:docs": "vitepress dev docs",
-		"lint": "turbo run lint",
 		"build": "turbo run build",
+		"lint": "turbo run lint",
 		"test:unit": "bun test --path-ignore-patterns \"**/*.test.ts\"",
 		"test:integration": "bun test --parallel --path-ignore-patterns \"**/*.spec.ts\"",
 		"test:lib": "bun run --parallel --cwd packages/lib test",
@@ -19,14 +19,18 @@
 		"test:adapters": "bun run --parallel --cwd packages/adapters test",
 		"test:server:unit": "bun test --parallel --cwd apps/server --path-ignore-patterns \"**/*.test.ts\"",
 		"test:server:integration": "bun test --parallel --cwd apps/server --path-ignore-patterns \"**/*.spec.ts\"",
-		"build:ai": "turbo run build --filter=@fluxify/ai-gateway",
 		"analyze": "bun x fta-cli --score-cap 70 .",
 		"security:scan": "bun x secretlint --format compact \"**/*\"",
 		"docs:build": "vitepress build docs",
 		"docs:preview": "vitepress preview docs",
-		"prepare": "bun run scripts/setup-hooks.ts",
 		"db:generate": "bun --env-file=../../.env --cwd ./apps/server drizzle-kit generate",
-		"db:migrate": "bun --env-file=../../.env --cwd ./apps/server drizzle-kit push"
+		"db:migrate": "bun --env-file=../../.env --cwd ./apps/server drizzle-kit push",
+		"prepare": "bun run scripts/setup-hooks.ts"
+	},
+	"//scripts": {
+		"dev:worker": "Compiled worker — runs routes as generated JavaScript. This is the default execution engine.",
+		"dev:worker:dag": "LEGACY graph interpreter. Kept only until the compiled worker clears manual testing, then removed.",
+		"build:ai": "Removed — `bun run build` already builds the AI gateway through turbo."
 	},
 	"keywords": [
 		"fluxify",
@@ -55,10 +59,12 @@
 		"concurrently": "^9.2.1",
 		"dockerode": "^4.0.9",
 		"fta-cli": "^3.0.0",
+		"mermaid": "^11.16.0",
 		"secretlint": "^13.0.4",
 		"turbo": "^2.5.5",
 		"ui-ux-pro-max-cli": "^2.10.2",
-		"vitepress": "^1.6.4"
+		"vitepress": "^1.6.4",
+		"vitepress-plugin-mermaid": "^2.0.17"
 	},
 	"trustedDependencies": [
 		"@faker-js/faker",

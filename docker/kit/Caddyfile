@@ -1,3 +1,4 @@
+# Single published port for the whole kit. Everything below is in-container.
 :8080 {
     handle /_/admin/ui* {
         reverse_proxy localhost:3000
@@ -8,7 +9,9 @@
     handle /_/admin/api* {
         reverse_proxy localhost:5500
     }
-    # User API traffic goes to the in-container request worker.
+    # Everything else is user API traffic, served by the compiled worker.
+    # A 502 here means the worker is not running — most likely
+    # WORKER_PROJECT_ID is unset (see docker/kit/entrypoint.sh).
     handle * {
         reverse_proxy localhost:5600
     }

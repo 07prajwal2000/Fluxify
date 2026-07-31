@@ -1,5 +1,6 @@
 import z from "zod";
 import { BaseBlock, baseBlockDataSchema, BlockOutput } from "../baseBlock";
+import type { EmitNode } from "../compiler";
 
 export const getVarBlockSchema = z
   .object({
@@ -13,6 +14,11 @@ export const getVarAiDescription = {
     "Retrieves a value from the global execution context.",
   jsonSchema: JSON.stringify(z.toJSONSchema(getVarBlockSchema)),
 };
+
+export function emitGetVar(node: EmitNode) {
+  const { key } = getVarBlockSchema.parse(node.block.data);
+  return `${node.in} = vars[${JSON.stringify(key)}];\n${node.next()}`;
+}
 
 export class GetVarBlock extends BaseBlock {
   override async executeAsync(params?: any): Promise<BlockOutput> {

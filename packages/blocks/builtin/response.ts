@@ -6,6 +6,7 @@ import {
   Context,
 } from "../baseBlock";
 import { httpcodes } from "@fluxify/lib";
+import type { EmitNode } from "../compiler";
 
 export const responseBlockSchema = z
   .object({
@@ -25,6 +26,12 @@ export interface ResponseBlockHTTPResult extends BlockOutput {
     httpCode: string;
     body: unknown;
   };
+}
+
+/** terminal — nothing after a response block runs */
+export function emitResponse(node: EmitNode) {
+  const { httpCode } = responseBlockSchema.parse(node.block.data);
+  return `return { successful: true, continueIfFail: true, output: { httpCode: ${JSON.stringify(httpCode)}, body: ${node.in} ?? null } };`;
 }
 
 export class ResponseBlock extends BaseBlock {

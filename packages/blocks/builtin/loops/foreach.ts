@@ -7,6 +7,7 @@ import {
 } from "../../baseBlock";
 import { Engine } from "../../engine";
 import { ForLoopBlock, forLoopBlockSchema } from "./for";
+import type { EmitNode } from "../../compiler";
 import { ExecutionTimeoutError } from "../../errors/timeout";
 
 const valuesSchema = z.array(z.any());
@@ -34,6 +35,18 @@ export const foreachLoopAiDescription = {
 Handles:
 - 'executor': Connect the block to be executed for each array item.`,
 };
+
+export function emitForEachLoop(node: EmitNode) {
+  const { values, useParam } = forEachLoopBlockSchema.parse(node.block.data);
+  const arr = node.v("arr");
+  const i = node.v("i");
+  return `const ${arr} = ${useParam ? node.in : JSON.stringify(values)};
+for (let ${i} = 0; ${i} < ${arr}.length; ${i}++) {
+${node.body("executor", `${arr}[${i}]`)}
+}
+${node.in} = undefined;
+${node.next()}`;
+}
 
 export class ForEachLoopBlock extends ForLoopBlock {
   private readonly values: any[] | string = null!;
@@ -91,16 +104,12 @@ export class ForEachLoopBlock extends ForLoopBlock {
       input.end = params.length;
     }
     const array = this.foreachInput.useParam ? paramValues.data! : this.values;
-    await super.executeAsync(
-      async (i) => {
-        if (options?.timedOut) {
-          throw new ExecutionTimeoutError("Execution timed out");
-        }
-        await this.childEngine.start(input.block!, array[i]);
-      },
-      options,
-      false,
-    );
+    await this.iterate(async (i) => {
+      if (options?.timedOut) {
+        throw new ExecutionTimeoutError("Execution timed out");
+      }
+      await this.childEngine.start(input.block!, array[i]);
+    }, options);
     return {
       continueIfFail: true,
       successful: true,

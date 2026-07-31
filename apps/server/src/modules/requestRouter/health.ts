@@ -25,3 +25,22 @@ export function registerHealthRoutes(app: Hono<any>) {
 		return c.body(null, ready ? 200 : 503);
 	});
 }
+
+export const STARTUP_PATH = "/_/admin/api/healthchecks/startup";
+export const READY_PATH = "/_/admin/api/healthchecks/ready";
+
+/**
+ * Same two probes without Hono, for the compiled worker's supervisor — it
+ * serves nothing else, so a router is pure weight. Paths are shared with the
+ * Hono version above so deployment probes stay identical.
+ */
+export function healthResponse(request: Request): Response | null {
+	const { pathname } = new URL(request.url);
+	if (pathname === STARTUP_PATH) return new Response(null, { status: 200 });
+	if (pathname === READY_PATH) {
+		return new Response(null, {
+			status: depsReady && natsConnected() ? 200 : 503,
+		});
+	}
+	return null;
+}

@@ -1,5 +1,6 @@
 import z from "zod";
 import { BaseBlock, baseBlockDataSchema, BlockOutput } from "../baseBlock";
+import type { EmitNode } from "../compiler";
 
 export const jsRunnerBlockSchema = z
 	.object({
@@ -12,6 +13,11 @@ export const jsRunnerAiDescription = {
 	description: "Executes JavaScript code within an isolated function scope.",
 	jsonSchema: JSON.stringify(z.toJSONSchema(jsRunnerBlockSchema)),
 };
+
+export function emitJsRunner(node: EmitNode) {
+	const { value } = jsRunnerBlockSchema.parse(node.block.data);
+	return `${node.in} = ${node.js(value, node.in)};\n${node.next()}`;
+}
 
 export class JsRunnerBlock extends BaseBlock {
 	override async executeAsync(params?: any): Promise<BlockOutput> {

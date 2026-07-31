@@ -6,8 +6,15 @@ import {
 	Context,
 } from "../../baseBlock";
 import type { IDbAdapter } from "@fluxify/adapters";
-import { joinSchema, whereConditionSchema } from "./schema";
+import {
+	adapterFor,
+	dbFailure,
+	emitWhereConditions,
+	joinSchema,
+	whereConditionSchema,
+} from "./schema";
 import { ConditionEvaluator } from "../conditionEvaluator";
+import type { EmitNode } from "../../compiler";
 
 export const getSingleDbBlockSchema = z
 	.object({
@@ -30,6 +37,30 @@ export const getSingleDbAiDescription = {
 	description: "Retrieves a single record from a database table.",
 	jsonSchema: JSON.stringify(z.toJSONSchema(getSingleDbBlockSchema)),
 };
+
+export async function runGetSingleDb(
+	context: Context,
+	connection: string,
+	tableName: string,
+	conditions: z.infer<typeof whereConditionSchema>[],
+	options: { joins: any[]; columns: string[] },
+) {
+	try {
+		return await adapterFor(context, connection).getSingle(
+			tableName,
+			conditions,
+			options,
+		);
+	} catch (error) {
+		dbFailure("get single", error);
+	}
+}
+
+export function emitGetSingleDb(node: EmitNode) {
+	const input = getSingleDbBlockSchema.parse(node.block.data);
+	return `${node.in} = await lib.dbGetSingle(ctx, ${JSON.stringify(input.connection)}, ${node.value(input.tableName)}, ${emitWhereConditions(input.conditions, node)}, { joins: ${JSON.stringify(input.joins ?? [])}, columns: ${JSON.stringify(input.columns ?? ["*"])} });
+${node.next()}`;
+}
 
 export class GetSingleDbBlock extends BaseBlock {
 	constructor(

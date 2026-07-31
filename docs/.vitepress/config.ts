@@ -1,7 +1,9 @@
 import { defineConfig } from "vitepress";
+import { withMermaid } from "vitepress-plugin-mermaid";
 
+// withMermaid wraps the config so ```mermaid code fences render as diagrams.
 // https://vitepress.dev/reference/site-config
-export default defineConfig({
+export default withMermaid(defineConfig({
 	title: "Fluxify",
 	description: "No/Low Code Backend Engine to Build APIs with ease",
 	lang: "en-US",
@@ -33,6 +35,7 @@ export default defineConfig({
 		nav: [
 			{ text: "Home", link: "/" },
 			{ text: "Getting Started", link: "/getting-started/" },
+			{ text: "Architecture", link: "/architecture/" },
 			{
 				text: "Concepts",
 				items: [
@@ -81,6 +84,17 @@ export default defineConfig({
 						{ text: "Routing & Validation", link: "/getting-started/routing" },
 						{ text: "Contributing", link: "/getting-started/contributing" },
 						{ text: "Local Testing", link: "/getting-started/local-testing" },
+					],
+				},
+			],
+
+			"/architecture/": [
+				{
+					text: "Architecture",
+					items: [
+						{ text: "Overview", link: "/architecture/" },
+						{ text: "Request Lifecycle", link: "/architecture/request-lifecycle" },
+						{ text: "Performance", link: "/architecture/performance" },
 					],
 				},
 			],
@@ -257,4 +271,4 @@ export default defineConfig({
 		// Container aliases that map mkdocs admonition-style blocks:
 		// Use ::: tip / ::: warning / ::: danger / ::: info in markdown files.
 	},
-});
+}));

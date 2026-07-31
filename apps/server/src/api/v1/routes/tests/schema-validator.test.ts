@@ -1,5 +1,5 @@
 import { test, expect, describe } from "bun:test";
-import { validateRouteSchemas } from "../schema-validator";
+import { normalizeParamsSchema, validateRouteSchemas } from "../schema-validator";
 
 describe("validateRouteSchemas", () => {
   test("returns success for valid schemas without params", () => {
@@ -56,5 +56,33 @@ describe("validateRouteSchemas", () => {
     expect(result.success).toBe(false);
     expect(result.errors.length).toBe(1);
     expect(result.errors[0].message).toContain("not in the route path");
+  });
+});
+
+describe("normalizeParamsSchema", () => {
+  const schema = {
+    dataType: "object",
+    properties: [{ key: "id", dataType: "str" }],
+  };
+
+  test("clears the params schema when the path has no params", () => {
+    // The regression: /users/:id edited down to /users/without-params used to
+    // keep the dead `id` schema, because an omitted field is skipped by the
+    // update statement rather than nulled.
+    const result = normalizeParamsSchema({
+      path: "/users/without-params",
+      paramsSchema: schema,
+    });
+    expect(result.paramsSchema).toBeNull();
+  });
+
+  test("nulls an omitted schema on a param-less path so the column is overwritten", () => {
+    const result = normalizeParamsSchema({ path: "/users/all" });
+    expect(result.paramsSchema).toBeNull();
+  });
+
+  test("leaves the schema untouched when the path still declares params", () => {
+    const result = normalizeParamsSchema({ path: "/users/:id", paramsSchema: schema });
+    expect(result.paramsSchema).toBe(schema);
   });
 });

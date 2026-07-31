@@ -1,6 +1,7 @@
 import z from "zod";
 import { BaseBlock, BlockOutput } from "../../baseBlock";
 import { baseBlockDataSchema } from "../../baseBlock";
+import type { EmitNode } from "../../compiler";
 
 export const getHttpParamBlockSchema = z
   .object({
@@ -15,6 +16,12 @@ export const getHttpParamAiDescription = {
     "Retrieves a query parameter or route parameter from the request.",
   jsonSchema: JSON.stringify(z.toJSONSchema(getHttpParamBlockSchema)),
 };
+
+export function emitGetHttpParam(node: EmitNode) {
+  const { name, source } = getHttpParamBlockSchema.parse(node.block.data);
+  const getter = source === "path" ? "getRouteParam" : "getQueryParam";
+  return `${node.in} = vars.${getter}(${node.value(name)});\n${node.next()}`;
+}
 
 export class GetHttpParamBlock extends BaseBlock {
   override async executeAsync(): Promise<BlockOutput> {

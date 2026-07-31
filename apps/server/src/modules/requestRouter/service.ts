@@ -19,7 +19,7 @@ import {
 import { Context } from "hono";
 import { ContentfulStatusCode } from "hono/utils/http-status";
 import { JsVM } from "@fluxify/lib";
-import { startBlocksExecution } from "../../loaders/blocksLoader";
+import { runBlocks } from "./executor";
 import { getAppConfig } from "../../loaders/appconfigLoader";
 import { parseRequestSchema, ValidationError } from "../../lib/schemaParser";
 import { createObservabilityLogger, DbFactory } from "@fluxify/adapters";
@@ -220,7 +220,7 @@ export async function executeRouteInternal(
 		trigger,
 	);
 
-	const executionResult = await startBlocksExecution(
+	const executionResult = await runBlocks(
 		{
 			projectId: routeInfo.projectId,
 			routeId: routeInfo.id,

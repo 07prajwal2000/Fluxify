@@ -18,6 +18,33 @@ export const serverEnvSchema = baseEnvSchema.extend({
 		})
 		.describe("Port number for dedicated request router worker process (1001-65535)"),
 
+	WORKER_HEALTH_PORT: z
+		.string()
+		.optional()
+		.refine(validatePortString, {
+			message: "WORKER_HEALTH_PORT must be an integer between 1001 and 65535",
+		})
+		.describe(
+			"Port the compiled worker's supervisor serves health/readiness on. Separate from WORKER_PORT because execution threads share that one (defaults to WORKER_PORT + 1)",
+		),
+
+	WORKER_THREADS: z
+		.string()
+		.optional()
+		.refine((val) => !val || (Number.isInteger(Number(val)) && Number(val) > 0), {
+			message: "WORKER_THREADS must be a positive integer",
+		})
+		.describe(
+			"Execution threads per compiled worker container (default 1). Threads provide isolation and a kill boundary, not parallelism — scale out with replicas, not this",
+		),
+
+	WORKER_PROJECT_ID: z
+		.string()
+		.optional()
+		.describe(
+			"Project this worker serves. The compiled worker watches only this project's artifacts and never connects to the database",
+		),
+
 	AI_API_KEY: z
 		.string()
 		.max(255)
@@ -120,3 +147,5 @@ export const NATS_TOKEN = getEnv("NATS_TOKEN")!;
 // true = run the API-serving worker inside this admin process (testing);
 // false = admin is control-plane only, a separate worker node serves user APIs.
 export const ENABLE_BUILTIN_WORKER = getEnv("ENABLE_BUILTIN_WORKER")!;
+// which project's compiled artifacts this worker pulls and serves
+export const WORKER_PROJECT_ID = getEnv("WORKER_PROJECT_ID")!;

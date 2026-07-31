@@ -25,6 +25,13 @@ export async function initializeNats() {
 	return nc;
 }
 
+/** the live connection, for JetStream and KV callers */
+export function natsConnection(): NatsConnection {
+	if (!nc)
+		throw new Error("NATS not initialized — call initializePubSub() at startup");
+	return nc;
+}
+
 export function natsPublish(subject: string, data: string) {
 	if (!nc) throw new Error("NATS not initialized — call initializePubSub() at startup");
 	nc.publish(subject, sc.encode(data));

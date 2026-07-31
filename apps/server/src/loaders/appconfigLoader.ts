@@ -57,6 +57,17 @@ async function loadConfigFromDB() {
 	return config;
 }
 
+/**
+ * Fill the cache from an artifact instead of the database — the compiled worker
+ * has no database connection, so its config arrives already decrypted over KV.
+ */
+export function hydrateAppConfig(
+	projectId: string,
+	config: Record<string, string | number | boolean>,
+) {
+	appConfigCache[projectId] = config;
+}
+
 export function getProjectAppConfig(projectId: string) {
 	return appConfigCache[projectId];
 }

@@ -24,7 +24,7 @@ describe("testing for loop block", () => {
 		const callback = vi.fn((i) => {
 			idx = i;
 		});
-		await sut.executeAsync(callback);
+		await sut.iterate(callback);
 		expect(callback).toHaveBeenCalledTimes(n);
 		expect(idx).toBe(n - 1);
 	});
@@ -55,7 +55,7 @@ describe("testing for loop block", () => {
 		const callback = vi.fn((i) => {
 			idx = i;
 		});
-		const result = await sut.executeAsync(callback);
+		const result = await sut.iterate(callback);
 		expect(result.successful).toBe(true);
 		expect(callback).toHaveBeenCalledTimes(n);
 		expect(idx).toBe(n - 1);
@@ -110,5 +110,43 @@ describe("testing for loop block", () => {
 		expect(mockFn).toHaveBeenCalledTimes(n);
 		expect(result.successful).toBe(true);
 		expect(context.vars.index).toBeDefined();
+	});
+
+	// regression: the engine passes the previous block's output as executeAsync's
+	// first argument. When that argument was the loop callback, any truthy value
+	// threw "callback is not a function" — so an outer loop could never drive an
+	// inner one (it hands down the index), and iteration 0 was the only one to run.
+	it("should run a nested for loop for every outer iteration", async () => {
+		const outer = 3;
+		const inner = 4;
+		const vars: Record<string, any> = { hits: 0 };
+		const context: Context = {
+			vm: new JsVM(vars) as any,
+			route: "/nested",
+			apiId: "123",
+			vars: vars as any,
+			projectId: "",
+			stopper: { duration: 30000, timeoutEnd: 0 },
+		};
+		const bounds = { step: 1, blockName: "", blockDescription: "" };
+		const count = vi.fn();
+
+		const innerLoop = new ForLoopBlock(
+			context,
+			{ block: "counter", start: 0, end: inner, ...bounds },
+			new Engine(
+				{ counter: new InterceptorBlock(context, undefined, count) },
+				{ errorHandlerId: "", context },
+			),
+		);
+		const outerLoop = new ForLoopBlock(
+			context,
+			{ block: "inner", start: 0, end: outer, ...bounds },
+			new Engine({ inner: innerLoop }, { errorHandlerId: "", context }),
+		);
+
+		const result = await outerLoop.executeAsync("a truthy output from a previous block");
+		expect(result.successful).toBe(true);
+		expect(count).toHaveBeenCalledTimes(outer * inner);
 	});
 });
