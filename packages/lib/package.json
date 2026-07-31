@@ -6,7 +6,7 @@
 		".": "./index.ts"
 	},
 	"author": "",
-	"license": "MIT",
+	"license": "Apache-2.0",
 	"description": "",
 	"scripts": {
 		"test": "bun test --parallel",

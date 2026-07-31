@@ -17,6 +17,11 @@ know where to put your change, without having to ask anyone.
 > `scripts/setup-hooks.ts`. Every commit runs linting, secret scanning
 > (`secretlint`), complexity analysis (`fta-cli`), and selective unit tests.
 
+> [!IMPORTANT]
+> **First-time contributors sign a CLA.** It's one comment on your first pull
+> request — a bot posts the link. You keep ownership of your work. See
+> [Contributor License Agreement](#contributor-license-agreement) below.
+
 ---
 
 ## Contents
@@ -30,7 +35,8 @@ know where to put your change, without having to ask anyone.
 7. [Testing](#testing)
 8. [Command reference](#command-reference)
 9. [Git workflow & pull requests](#git-workflow--pull-requests)
-10. [Troubleshooting](#troubleshooting)
+10. [Contributor License Agreement](#contributor-license-agreement)
+11. [Troubleshooting](#troubleshooting)
 
 ---
 
@@ -346,6 +352,47 @@ gh pr create --repo Fluxify-rest/Fluxify --base main
 ```
 
 ### What a good PR looks like
+
+Also make sure you've signed the CLA — see below. A bot will prompt you on your
+first PR, so there's nothing to do in advance.
+
+## Contributor License Agreement
+
+Fluxify is licensed under the [Apache License 2.0](LICENSE). First-time
+contributors sign a [Contributor License Agreement](CLA.md).
+
+**Signing takes one comment.** A bot posts a link on your first pull request;
+reply with:
+
+```
+I have read the CLA Document and I hereby sign the CLA
+```
+
+Your signature is recorded once and covers all future contributions.
+
+### What it does and doesn't do
+
+| | |
+| :--- | :--- |
+| ✅ You keep copyright of your work | The CLA grants a licence, not ownership |
+| ✅ Your code stays Apache 2.0 | In every version already released — forever |
+| ✅ You can use your own contribution anywhere | It's still yours |
+| ⚠️ The project may sublicense it | So a future licensing decision doesn't require tracking down every past contributor |
+
+> [!NOTE]
+> **Why a CLA and not just a DCO?** A DCO certifies you had the right to submit
+> your code. It does not let the project make licensing decisions later without
+> the written consent of every contributor. A CLA does — which is the difference
+> between a project that can adapt and one that's frozen by its own history.
+>
+> This is not a plan to close the source. Apache 2.0 is irrevocable for every
+> version already published; nothing can take that back.
+
+### Contributing on behalf of an employer
+
+If you're contributing as part of your job, make sure your employer has approved
+it. If they need a Corporate CLA, open a
+[discussion](https://github.com/Fluxify-rest/Fluxify/discussions).
 
 - **Title** clearly summarises the change.
 - **Description** covers the *why* and the *what* — enough for a reviewer to

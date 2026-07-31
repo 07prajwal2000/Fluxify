@@ -3,7 +3,7 @@
 	"version": "1.0.0",
 	"keywords": [],
 	"author": "",
-	"license": "MIT",
+	"license": "Apache-2.0",
 	"description": "",
 	"files": [
 		"dist"

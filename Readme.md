@@ -9,7 +9,7 @@
 
   <p align="center">
     <a href="LICENSE">
-      <img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="License">
+      <img src="https://img.shields.io/badge/License-Apache%202.0-blue.svg" alt="License: Apache 2.0">
     </a>
     <a href="https://github.com/07prajwal2000/Fluxify">
       <img src="https://img.shields.io/badge/Status-In%20Development%20(Alpha)-orange.svg" alt="Status: In Development">
@@ -144,4 +144,11 @@ We welcome contributions from the community! Please read our [CONTRIBUTING.md](C
 
 ## 📄 License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+Fluxify is open source under the **[Apache License 2.0](LICENSE)** — free to use,
+modify, self-host, and deploy commercially, with an explicit patent grant.
+
+Contributions require signing our [CLA](CLA.md), which is a one-line comment on
+your first pull request.
+
+> Versions released before v0.x carried the MIT License and remain available
+> under those terms.
