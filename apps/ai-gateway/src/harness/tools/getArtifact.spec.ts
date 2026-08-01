@@ -37,7 +37,9 @@ describe("get_artifact", () => {
 
 		expect(calls[0]).toEqual(["conv-1", ["sub-1"]]);
 		expect(out).toContain("kind=route, action=add");
-		expect(out).toContain('"path": "/users"');
+		// Compact, not pretty-printed — indentation was ~15% of the payload and
+		// this result is re-sent on every later tool iteration.
+		expect(out).toContain('"path":"/users"');
 	});
 
 	it("tells the agent whether the output is already applied", async () => {

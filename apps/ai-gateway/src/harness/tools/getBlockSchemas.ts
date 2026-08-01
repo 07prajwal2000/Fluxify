@@ -44,6 +44,10 @@ function mapInputParamsToNaturalLanguage(inputParams: any[]): string {
 	return `{\n${props.join("\n")}\n}`;
 }
 
+/** ponytail: flat cap. Raise it if a legitimate build needs more blocks
+ *  configured in one turn. */
+const MAX_BLOCK_TYPES_PER_CALL = 8;
+
 export const createGetBlockSchemasTool = (
 	dbService: DbService,
 	projectId: string,
@@ -53,7 +57,14 @@ export const createGetBlockSchemasTool = (
 			logger.info(`[Tools] Fetching schemas for blocks: ${blockTypes.join(", ")}`);
 			
 			const results: string[] = [];
-			const requestedTypes = new Set(blockTypes);
+			// Uncapped, the model can ask for all 28 built-ins in one call — around
+			// 5,000 tokens, re-sent on every later tool iteration. It only ever
+			// needs the handful it is about to configure.
+			const requestedTypes = [...new Set(blockTypes)].slice(
+				0,
+				MAX_BLOCK_TYPES_PER_CALL,
+			);
+			const dropped = new Set(blockTypes).size - requestedTypes.length;
 
 			for (const blockType of requestedTypes) {
 				if (blockType.startsWith("custom:")) {
@@ -76,16 +87,22 @@ export const createGetBlockSchemasTool = (
 				}
 			}
 
+			if (dropped > 0) {
+				results.push(
+					`// ${dropped} more block type(s) were not returned: this tool serves at most ${MAX_BLOCK_TYPES_PER_CALL} per call. Call it again for the rest.`,
+				);
+			}
+
 			return results.join("\n\n");
 		},
 		{
 			name: "get_block_schemas",
 			description:
-				"Fetches the detailed configuration schemas for the requested block types. For custom blocks, prefix the block name with 'custom:'.",
+				`Fetches the detailed configuration schemas for the requested block types. For custom blocks, prefix the block name with 'custom:'. Returns at most ${MAX_BLOCK_TYPES_PER_CALL} schemas per call — request only the blocks you are about to configure.`,
 			schema: z.object({
 				blockTypes: z
 					.array(z.string())
-					.describe("Array of block types to fetch schemas for (e.g. ['http_request', 'custom:stripe_charge'])."),
+					.describe(`Array of block types to fetch schemas for (e.g. ['http_request', 'custom:stripe_charge']). At most ${MAX_BLOCK_TYPES_PER_CALL} per call.`),
 			}),
 		},
 	);

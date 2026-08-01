@@ -35,7 +35,7 @@ export const createGetArtifactTool = (
 			const body = rows
 				.map(
 					(r) =>
-						`## artifact ${r.id} (kind=${r.kind}, action=${r.action ?? "n/a"}, applied=${r.appliedAt ? `yes, at ${new Date(r.appliedAt).toISOString()}` : "no"}, run=${r.runId}, created=${new Date(r.createdAt).toISOString()})\n${JSON.stringify(r.payload, null, 2)}`,
+						`## artifact ${r.id} (kind=${r.kind}, action=${r.action ?? "n/a"}, applied=${r.appliedAt ? `yes, at ${new Date(r.appliedAt).toISOString()}` : "no"}, run=${r.runId}, created=${new Date(r.createdAt).toISOString()})\n${JSON.stringify(r.payload)}`,
 				)
 				.join("\n\n");
 

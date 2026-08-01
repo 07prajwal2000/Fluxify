@@ -1,6 +1,10 @@
 import { BaseChatModel } from "@langchain/core/language_models/chat_models";
 import { ChatOpenRouter } from "@langchain/openrouter";
-import { BaseAgentWrapper, HARNESS_TEMPERATURE } from "../base";
+import {
+	BaseAgentWrapper,
+	HARNESS_MAX_TOKENS,
+	HARNESS_TEMPERATURE,
+} from "../base";
 
 export class OpenRouterAgentWrapper extends BaseAgentWrapper {
 	protected getModel(): BaseChatModel {
@@ -8,6 +12,7 @@ export class OpenRouterAgentWrapper extends BaseAgentWrapper {
 			model: this.modelName,
 			apiKey: this.apiKey,
 			temperature: HARNESS_TEMPERATURE,
+			maxTokens: HARNESS_MAX_TOKENS,
 			...(this.additionalHeaders
 				? { modelKwargs: { extra_headers: this.additionalHeaders } }
 				: {}),

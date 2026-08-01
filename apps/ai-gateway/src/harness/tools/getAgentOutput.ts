@@ -13,7 +13,7 @@ export const createGetAgentOutputTool = (
 					results[id] = subAgentResults[id];
 				}
 			}
-			return JSON.stringify(results, null, 2);
+			return JSON.stringify(results);
 		},
 		{
 			name: "get_agent_output",

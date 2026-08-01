@@ -32,6 +32,58 @@ const STRUCTURED_OUTPUT_ATTEMPTS = 3;
  *  edits, not prose — sampling variance is pure error surface. */
 export const HARNESS_TEMPERATURE = 0;
 
+/** Output cap for every harness call. Agents emit JSON graph edits and short
+ *  summaries; without a cap, a model that decides to narrate runs to the
+ *  provider's own limit and burns the budget before it ever emits the payload. */
+export const HARNESS_MAX_TOKENS = Number(
+	process.env.HARNESS_MAX_TOKENS ?? 8192,
+);
+
+/** Successful connection probes, keyed per provider+model+credential.
+ *  See `checkConnection`. */
+const connectionProbeCache = new Map<string, number>();
+const CONNECTION_PROBE_TTL_MS = 5 * 60_000;
+
+/** Tool results older than this many tool turns are replaced with a one-line
+ *  summary. The whole history is re-sent every iteration, so without this the
+ *  first tool result is billed once per remaining turn. */
+const VERBATIM_TOOL_RESULTS = 2;
+
+/**
+ * Replaces all but the most recent tool results with a one-line summary, in
+ * place. The full history is re-sent on every tool iteration, so a fat result
+ * from turn 1 is otherwise billed again on turns 2..n — the single biggest
+ * source of token growth in a multi-tool run.
+ *
+ * The last {@link VERBATIM_TOOL_RESULTS} stay intact because those are what the
+ * model is reasoning over right now. Older ones only need to record that the
+ * call happened and roughly what came back. Compacted messages are marked so a
+ * second pass doesn't summarise a summary.
+ */
+export function compactToolHistory(messages: BaseMessage[]): void {
+	const toolIndexes: number[] = [];
+	messages.forEach((m, i) => {
+		if (m instanceof ToolMessage) toolIndexes.push(i);
+	});
+
+	for (const i of toolIndexes.slice(0, -VERBATIM_TOOL_RESULTS)) {
+		const msg = messages[i] as ToolMessage;
+		if (msg.additional_kwargs?.compacted) continue;
+		const text = typeof msg.content === "string" ? msg.content : "";
+		messages[i] = new ToolMessage({
+			tool_call_id: msg.tool_call_id,
+			name: msg.name,
+			// summarizeToolResult only understands JSON; markdown tables and prose
+			// fall back to a head slice.
+			content: `[earlier result from ${msg.name ?? "tool"}, condensed] ${
+				summarizeToolResult(text) ??
+				(text.length > 300 ? `${text.slice(0, 300)}…` : text)
+			}`,
+			additional_kwargs: { ...msg.additional_kwargs, compacted: true },
+		});
+	}
+}
+
 export interface AgentInvokeOptions {
 	zodSchema?: z.ZodType<any>;
 	userQuery?: string;
@@ -63,6 +115,7 @@ export abstract class BaseAgentWrapper {
 	protected apiKey?: string;
 	protected additionalHeaders?: Record<string, string>;
 	protected maxToolIterations?: number;
+	private readonly connectionBaseUrl?: string;
 	/** Set per run by the harness; when aborted, every model call is cancelled and
 	 *  a UserInterruptError is raised. */
 	protected signal?: AbortSignal;
@@ -145,6 +198,11 @@ export abstract class BaseAgentWrapper {
 		this.apiKey = apiKey;
 		this.additionalHeaders = additionalHeaders;
 		this.maxToolIterations = maxToolIterations;
+		// Subclasses keep their own `baseUrl` (each SDK names the field
+		// differently); this copy exists only to key the connection probe cache,
+		// so two integrations pointing the same model at different servers don't
+		// share a result.
+		this.connectionBaseUrl = baseUrl;
 	}
 
 	// Each subclass implements this to return the initialized LangChain chat model
@@ -156,9 +214,17 @@ export abstract class BaseAgentWrapper {
 	 * failure so callers can bail early with a meaningful message.
 	 */
 	public async checkConnection(): Promise<void> {
+		// This runs before every run, so an uncached probe is a full RTT (plus
+		// cold-connection TLS) added to every user request. Only successes are
+		// cached — a failure must re-probe so a user who fixes their key isn't
+		// locked out for the rest of the TTL.
+		const key = `${this.constructor.name}:${this.modelName}:${this.connectionBaseUrl ?? ""}:${this.apiKey ?? ""}`;
+		if ((connectionProbeCache.get(key) ?? 0) > Date.now()) return;
+
 		await this.getModel().invoke([new HumanMessage("ping")], {
 			timeout: 30_000,
 		});
+		connectionProbeCache.set(key, Date.now() + CONNECTION_PROBE_TTL_MS);
 	}
 
 	// Subclasses can override this if they don't natively support withStructuredOutput.
@@ -317,10 +383,11 @@ export abstract class BaseAgentWrapper {
 	): Promise<{ done: true; value: T | AIMessage } | { done: false }> {
 		const { zodSchema, config, agentNode, agentId } = options;
 		const maxIterations =
-			options.maxToolIterations ?? this.maxToolIterations ?? 15;
+			options.maxToolIterations ?? this.maxToolIterations ?? 8;
 
 		for (let i = 0; i < maxIterations; i++) {
 			this.throwIfInterrupted();
+			compactToolHistory(finalMessages);
 			// Retried like every other model call — a single network timeout
 			// mid-loop used to kill the whole run.
 			const response = (await withRetry(

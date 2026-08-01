@@ -22,8 +22,19 @@ export const createGetRouteDetailsTool = (
 				return "Route not found.";
 			}
 
-			// We return JSON stringified to prevent crashing LLM with huge objects
-			return JSON.stringify(route, null, 2);
+			// Project only what the tool description promises. The raw row also
+			// carries projectId, createdBy and timestamps — tokens the model pays
+			// for on every re-send and can do nothing with.
+			return JSON.stringify({
+				id: route.id,
+				name: route.name,
+				method: route.method,
+				path: route.path,
+				active: route.active,
+				bodySchema: route.bodySchema,
+				querySchema: route.querySchema,
+				paramsSchema: route.paramsSchema,
+			});
 		},
 		{
 			name: "get_route_details",
