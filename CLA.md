@@ -16,19 +16,14 @@ Contributor License Agreement v2.0.
 
 ---
 
-## How to sign
+## How this is accepted
 
-You do not need to send anything by email or print anything.
+There is nothing to sign. No bot, no comment, no email, no paperwork.
 
-When you open your first pull request, a bot will comment with a link. Reply to
-that comment with:
-
-```
-I have read the CLA Document and I hereby sign the CLA
-```
-
-That's it. Your signature is recorded once and covers all your future
-contributions.
+**By submitting a contribution to this project, you agree to the terms below.**
+Opening a pull request, pushing a commit, or otherwise submitting work for
+inclusion is your acceptance. This applies to your first contribution and to
+every one after it.
 
 ---
 
@@ -63,6 +58,11 @@ perpetual, worldwide, non-exclusive, no-charge, royalty-free, irrevocable
 copyright licence to reproduce, prepare derivative works of, publicly display,
 publicly perform, **sublicense**, and distribute Your Contributions and such
 derivative works.
+
+This grant expressly includes the right to use Your Contributions for
+**commercial purposes**, including selling, licensing for a fee, offering them
+as part of a paid or hosted service, and otherwise deriving revenue from them,
+without any obligation to account or pay royalties to You.
 
 > **What the sublicense right means in practice.** It allows the Project to
 > distribute your contribution under a different licence in future — for
