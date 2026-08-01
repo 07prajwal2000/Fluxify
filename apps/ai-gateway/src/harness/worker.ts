@@ -42,9 +42,11 @@ export async function initializeHarnessWorker() {
 			const agentOptions = integrationId
 				? resolveAgentOptionsFromIntegrationId(integrationId)
 				: await resolveAgentOptionsFromProjectId(projectId);
-			const harness = new FluxifyHarness(
-				new AgentFactory({ ...agentOptions, maxToolIterations: 20 }),
-			);
+			// No maxToolIterations override — the wrapper default (8) is already
+			// well above what a correct sub-agent run needs (2-4). Reaching the
+			// cap means the agent is thrashing, and every iteration costs a full
+			// round trip carrying the whole history.
+			const harness = new FluxifyHarness(new AgentFactory(agentOptions));
 			const ctx: HarnessRunContext = {
 				conversationId: data.conversationId,
 				runId: data.runId,

@@ -1,8 +1,12 @@
 import { describe, expect, it } from "bun:test";
 import { z } from "zod";
 import { BaseChatModel } from "@langchain/core/language_models/chat_models";
-import type { BaseMessage } from "@langchain/core/messages";
-import { BaseAgentWrapper } from "./base";
+import {
+	HumanMessage,
+	ToolMessage,
+	type BaseMessage,
+} from "@langchain/core/messages";
+import { BaseAgentWrapper, compactToolHistory } from "./base";
 import { OpenAIAgentWrapper } from "./openai";
 import { describeFailure } from "../index";
 import { AgentNode } from "../types";
@@ -203,5 +207,62 @@ describe("describeFailure", () => {
 
 	it("falls back to a generic explanation", () => {
 		expect(describeFailure(new Error("boom"))).toContain("unexpected error");
+	});
+});
+
+describe("compactToolHistory", () => {
+	const toolMsg = (name: string, content: string) =>
+		new ToolMessage({ tool_call_id: `call_${name}`, name, content });
+
+	it("leaves the most recent tool results verbatim", () => {
+		const messages: BaseMessage[] = [
+			new HumanMessage("build it"),
+			toolMsg("a", JSON.stringify([1, 2, 3])),
+			toolMsg("b", JSON.stringify([4, 5])),
+		];
+		compactToolHistory(messages);
+		expect(messages[1]!.content).toBe(JSON.stringify([1, 2, 3]));
+		expect(messages[2]!.content).toBe(JSON.stringify([4, 5]));
+	});
+
+	it("condenses older tool results and keeps them addressable", () => {
+		const big = JSON.stringify(Array.from({ length: 40 }, (_, i) => ({ i })));
+		const messages: BaseMessage[] = [
+			toolMsg("find_resource", big),
+			toolMsg("b", "{}"),
+			toolMsg("c", "{}"),
+		];
+		compactToolHistory(messages);
+
+		const first = messages[0] as ToolMessage;
+		expect(first.content).not.toBe(big);
+		expect(String(first.content)).toContain("40 results");
+		// The tool_call_id must survive — a ToolMessage without its matching id
+		// is rejected by every provider.
+		expect(first.tool_call_id).toBe("call_find_resource");
+		expect(first.name).toBe("find_resource");
+	});
+
+	it("summarises non-JSON results by truncation", () => {
+		const markdown = "x".repeat(500);
+		const messages: BaseMessage[] = [
+			toolMsg("a", markdown),
+			toolMsg("b", "{}"),
+			toolMsg("c", "{}"),
+		];
+		compactToolHistory(messages);
+		expect(String(messages[0]!.content).length).toBeLessThan(400);
+	});
+
+	it("is idempotent — a second pass doesn't summarise the summary", () => {
+		const messages: BaseMessage[] = [
+			toolMsg("a", JSON.stringify([1, 2, 3])),
+			toolMsg("b", "{}"),
+			toolMsg("c", "{}"),
+		];
+		compactToolHistory(messages);
+		const once = messages[0]!.content;
+		compactToolHistory(messages);
+		expect(messages[0]!.content).toBe(once);
 	});
 });
