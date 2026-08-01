@@ -18,8 +18,8 @@ know where to put your change, without having to ask anyone.
 > (`secretlint`), complexity analysis (`fta-cli`), and selective unit tests.
 
 > [!IMPORTANT]
-> **First-time contributors sign a CLA.** It's one comment on your first pull
-> request — a bot posts the link. You keep ownership of your work. See
+> **Contributing accepts our CLA.** There is nothing to sign — opening a pull
+> request is your acceptance. You keep ownership of your work. See
 > [Contributor License Agreement](#contributor-license-agreement) below.
 
 ---
@@ -353,22 +353,17 @@ gh pr create --repo Fluxify-rest/Fluxify --base main
 
 ### What a good PR looks like
 
-Also make sure you've signed the CLA — see below. A bot will prompt you on your
-first PR, so there's nothing to do in advance.
+Opening a PR also accepts our CLA — see below. There's nothing to do in advance.
 
 ## Contributor License Agreement
 
-Fluxify is licensed under the [Apache License 2.0](LICENSE). First-time
-contributors sign a [Contributor License Agreement](CLA.md).
+Fluxify is licensed under the [Apache License 2.0](LICENSE). Contributions are
+covered by our [Contributor License Agreement](CLA.md).
 
-**Signing takes one comment.** A bot posts a link on your first pull request;
-reply with:
-
-```
-I have read the CLA Document and I hereby sign the CLA
-```
-
-Your signature is recorded once and covers all future contributions.
+**There is nothing to sign.** Submitting a contribution — opening a pull
+request, pushing a commit, or otherwise offering work for inclusion — is your
+acceptance of the CLA. This covers your first contribution and every one after
+it.
 
 ### What it does and doesn't do
 

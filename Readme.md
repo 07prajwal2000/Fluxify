@@ -147,8 +147,7 @@ We welcome contributions from the community! Please read our [CONTRIBUTING.md](C
 Fluxify is open source under the **[Apache License 2.0](LICENSE)** — free to use,
 modify, self-host, and deploy commercially, with an explicit patent grant.
 
-Contributions require signing our [CLA](CLA.md), which is a one-line comment on
-your first pull request.
+Submitting a contribution accepts our [CLA](CLA.md). There is nothing to sign.
 
 > Versions released before v0.x carried the MIT License and remain available
 > under those terms.
