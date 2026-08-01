@@ -4,6 +4,7 @@ import {
 	DbAdapterMode,
 	DBConditionType,
 	IDbAdapter,
+	IntrospectedTable,
 	QueryOptions,
 } from ".";
 import { JsVM } from "@fluxify/lib";
@@ -42,6 +43,34 @@ export class MongoAdapter implements IDbAdapter {
 
 	async raw(): Promise<Db> {
 		return this.db;
+	}
+
+	// Mongo has no schema: infer field names/types from the first 5 documents.
+	// ponytail: top-level fields only; walk nested objects if the UI needs dotted paths.
+	async introspect(): Promise<IntrospectedTable[]> {
+		const collections = await this.db.listCollections().toArray();
+		const result: IntrospectedTable[] = [];
+
+		for (const { name } of collections) {
+			const docs = await this.db.collection(name).find({}).limit(5).toArray();
+			const types = new Map<string, Set<string>>();
+			for (const doc of docs) {
+				for (const [key, value] of Object.entries(doc)) {
+					const field = key === "_id" ? "id" : key;
+					if (!types.has(field)) types.set(field, new Set());
+					types.get(field)!.add(mongoTypeOf(value));
+				}
+			}
+			result.push({
+				table: name,
+				columns: [...types].map(([field, kinds]) => ({
+					name: field,
+					type: [...kinds].sort().join(" | "),
+					owner: name,
+				})),
+			});
+		}
+		return result;
 	}
 
 	// joins are ignored for Mongo (the join UI is hidden when Mongo is selected);
@@ -315,6 +344,14 @@ export class MongoAdapter implements IDbAdapter {
 		};
 		return map[operator] ?? "$eq";
 	}
+}
+
+function mongoTypeOf(value: unknown): string {
+	if (value === null || value === undefined) return "null";
+	if (value instanceof ObjectId) return "objectId";
+	if (value instanceof Date) return "date";
+	if (Array.isArray(value)) return "array";
+	return typeof value;
 }
 
 export function buildMongoUrl(connection: Connection): string {

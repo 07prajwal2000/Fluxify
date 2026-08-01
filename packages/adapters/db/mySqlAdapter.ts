@@ -1,7 +1,14 @@
 import { CompiledQuery, Kysely, MysqlDialect } from "kysely";
 import { createPool, Pool } from "mysql2";
 import type { PoolConnection } from "mysql2/promise";
-import { Connection, DbAdapterMode, DBConditionType, IDbAdapter } from ".";
+import {
+	Connection,
+	DbAdapterMode,
+	DBConditionType,
+	groupIntrospectionRows,
+	IDbAdapter,
+	IntrospectedTable,
+} from ".";
 import { JsVM } from "@fluxify/lib";
 import {
 	applyColumns,
@@ -14,6 +21,19 @@ import {
 
 // A generic schema to satisfy Kysely's strict typing without using 'any'
 type FluxifyDatabase = Record<string, Record<string, any>>;
+
+const INTROSPECT_SQL = `
+	SELECT c.TABLE_NAME AS table_name, c.COLUMN_NAME AS column_name,
+	       c.COLUMN_TYPE AS data_type, k.REFERENCED_TABLE_NAME AS ref_table
+	FROM information_schema.COLUMNS c
+	LEFT JOIN information_schema.KEY_COLUMN_USAGE k
+	  ON k.TABLE_SCHEMA = c.TABLE_SCHEMA
+	 AND k.TABLE_NAME = c.TABLE_NAME
+	 AND k.COLUMN_NAME = c.COLUMN_NAME
+	 AND k.REFERENCED_TABLE_NAME IS NOT NULL
+	WHERE c.TABLE_SCHEMA = DATABASE()
+	ORDER BY c.TABLE_NAME, c.ORDINAL_POSITION
+`;
 
 export class MySqlAdapter implements IDbAdapter {
 	public static variant = "MySQL";
@@ -66,6 +86,11 @@ export class MySqlAdapter implements IDbAdapter {
 
 		const conn = this.getConnection();
 		return conn.executeQuery(CompiledQuery.raw(query, params ?? []));
+	}
+
+	async introspect(): Promise<IntrospectedTable[]> {
+		const result = await this.raw(INTROSPECT_SQL);
+		return groupIntrospectionRows(result.rows ?? result);
 	}
 
 	async getAll(

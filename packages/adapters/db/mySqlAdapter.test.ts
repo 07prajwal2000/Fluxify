@@ -109,6 +109,33 @@ describe("MySqlAdapter Integration Tests", () => {
 		expect(badRes.success).toBe(false);
 	});
 
+	test("introspect: tables, column types and foreign key owners", async () => {
+		const adapter = new MySqlAdapter(db, pool, vm);
+		const suffix = faker.string.alphanumeric(8).toLowerCase();
+		const parent = `authors_${suffix}`;
+		const child = `books_${suffix}`;
+		await adapter.raw(
+			`CREATE TABLE ${parent} (id INT AUTO_INCREMENT PRIMARY KEY, name VARCHAR(255) NOT NULL)`,
+		);
+		await adapter.raw(
+			`CREATE TABLE ${child} (id INT AUTO_INCREMENT PRIMARY KEY, title VARCHAR(255), author_id INT, FOREIGN KEY (author_id) REFERENCES ${parent}(id))`,
+		);
+
+		const schema = await adapter.introspect();
+		const books = schema.find((t) => t.table === child);
+		expect(books).toBeDefined();
+		expect(schema.some((t) => t.table === parent)).toBe(true);
+
+		const title = books!.columns.find((c) => c.name === "title");
+		expect(title?.type).toBe("varchar(255)");
+		// a plain column is owned by its own table
+		expect(title?.owner).toBe(child);
+		// a foreign key is owned by the table it references
+		expect(books!.columns.find((c) => c.name === "author_id")?.owner).toBe(
+			parent,
+		);
+	});
+
 	test("CRUD: Single Record Lifecycle", async () => {
 		const adapter = new MySqlAdapter(db, pool, vm);
 		const tableName = "users_" + faker.string.alphanumeric(8).toLowerCase();

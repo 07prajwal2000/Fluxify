@@ -1,6 +1,13 @@
 import { SQL } from "bun";
 import { CompiledQuery, Kysely } from "kysely";
-import { Connection, DbAdapterMode, DBConditionType, IDbAdapter } from ".";
+import {
+	Connection,
+	DbAdapterMode,
+	DBConditionType,
+	groupIntrospectionRows,
+	IDbAdapter,
+	IntrospectedTable,
+} from ".";
 import { JsVM } from "@fluxify/lib";
 import { BunSqlPostgresDialect } from "./kyselySqlDialect";
 import {
@@ -13,6 +20,27 @@ import {
 } from "./jsonPath";
 
 export type FluxifyDatabase = Record<string, Record<string, any>>;
+
+const INTROSPECT_SQL = `
+	SELECT c.table_name, c.column_name, c.data_type, fk.ref_table
+	FROM information_schema.columns c
+	LEFT JOIN (
+		SELECT kcu.table_schema, kcu.table_name, kcu.column_name,
+		       ccu.table_name AS ref_table
+		FROM information_schema.table_constraints tc
+		JOIN information_schema.key_column_usage kcu
+		  ON kcu.constraint_name = tc.constraint_name
+		 AND kcu.constraint_schema = tc.constraint_schema
+		JOIN information_schema.constraint_column_usage ccu
+		  ON ccu.constraint_name = tc.constraint_name
+		 AND ccu.constraint_schema = tc.constraint_schema
+		WHERE tc.constraint_type = 'FOREIGN KEY'
+	) fk ON fk.table_schema = c.table_schema
+	    AND fk.table_name = c.table_name
+	    AND fk.column_name = c.column_name
+	WHERE c.table_schema NOT IN ('pg_catalog', 'information_schema')
+	ORDER BY c.table_name, c.ordinal_position
+`;
 
 export class PostgresAdapter implements IDbAdapter {
 	public static variant = "PostgreSQL";
@@ -63,6 +91,11 @@ export class PostgresAdapter implements IDbAdapter {
 
 		const conn = this.getConnection();
 		return conn.executeQuery(CompiledQuery.raw(query, params ?? []));
+	}
+
+	async introspect(): Promise<IntrospectedTable[]> {
+		const result = await this.raw(INTROSPECT_SQL);
+		return groupIntrospectionRows(result.rows ?? result);
 	}
 
 	async getAll(

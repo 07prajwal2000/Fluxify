@@ -124,6 +124,30 @@ describe("MongoAdapter Integration Tests", () => {
 		expect(badRes.success).toBe(false);
 	});
 
+	test("introspect: infers fields from sampled documents", async () => {
+		const adapter = new MongoAdapter(client, db, vm);
+		const collectionName = "docs_" + faker.string.alphanumeric(8).toLowerCase();
+		await adapter.insertBulk(collectionName, [
+			{ name: "a", age: 1, tags: ["x"], joined: new Date() },
+			{ name: "b", age: 2, tags: [], joined: new Date(), extra: true },
+		]);
+
+		const schema = await adapter.introspect();
+		const coll = schema.find((t) => t.table === collectionName);
+		expect(coll).toBeDefined();
+
+		const types = Object.fromEntries(
+			coll!.columns.map((c) => [c.name, c.type]),
+		);
+		expect(types.id).toBe("objectId"); // _id is exposed as id
+		expect(types.name).toBe("string");
+		expect(types.age).toBe("number");
+		expect(types.tags).toBe("array");
+		expect(types.joined).toBe("date");
+		expect(types.extra).toBe("boolean"); // present in only one sampled doc
+		expect(coll!.columns.every((c) => c.owner === collectionName)).toBe(true);
+	});
+
 	test("CRUD: Single Record Lifecycle", async () => {
 		const adapter = new MongoAdapter(client, db, vm);
 		const collectionName = "users_" + faker.string.alphanumeric(8).toLowerCase();
