@@ -6,6 +6,7 @@ import { BaseAgentWrapper } from "./base";
 import { OpenAIAgentWrapper } from "./openai";
 import { describeFailure } from "../index";
 import { AgentNode } from "../types";
+import { blockBuilderSchema } from "../agents/sub-agents/blockBuilder/schemas";
 
 const schema = z.object({ blocks: z.array(z.string()) });
 
@@ -160,6 +161,21 @@ describe("OpenAIAgentWrapper", () => {
 		expect(
 			new Probe("gpt-4o", "sk-test").usesNativeStructuredOutput(),
 		).toBe(true);
+	});
+});
+
+describe("fallbackStructuredOutput schema conversion", () => {
+	it("produces a real JSON schema for the block builder schema, not an empty one", () => {
+		// zod-to-json-schema (v3) reads zod v3 `_def` internals and silently emits
+		// `{"$schema": "..."}` against a zod v4 schema — the prompt then tells the
+		// model to match `{}` and it guesses field names. Guard against that regressing.
+		const jsonSchema = z.toJSONSchema(blockBuilderSchema, {
+			target: "draft-7",
+			io: "output",
+		}) as { properties?: Record<string, unknown> };
+
+		expect(jsonSchema.properties).toBeTruthy();
+		expect(Object.keys(jsonSchema.properties!).length).toBeGreaterThan(0);
 	});
 });
 
