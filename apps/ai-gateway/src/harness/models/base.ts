@@ -10,7 +10,6 @@ import { Runnable, RunnableConfig } from "@langchain/core/runnables";
 import { dispatchCustomEvent } from "@langchain/core/callbacks/dispatch";
 import { StructuredTool } from "@langchain/core/tools";
 import { z } from "zod";
-import { zodToJsonSchema } from "zod-to-json-schema";
 import { logger } from "@fluxify/common";
 import { withRetry } from "../../lib/retry";
 import { UserInterruptError } from "../errors";
@@ -430,7 +429,10 @@ export abstract class BaseAgentWrapper {
 		config?: RunnableConfig,
 		agentNode?: string,
 	): Promise<T> {
-		const jsonSchema = zodToJsonSchema(schema as any);
+		// zod-to-json-schema (v3) reads zod v3 `_def` internals and silently emits
+		// an empty schema against a zod v4 schema — the model then gets "match
+		// this schema: {}" and guesses field names. zod v4 ships its own converter.
+		const jsonSchema = z.toJSONSchema(schema, { target: "draft-7", io: "output" });
 
 		const formatInstructions = `
 You must respond with ONLY a valid JSON object matching the following JSON schema. 
