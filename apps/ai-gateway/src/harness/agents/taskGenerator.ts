@@ -42,6 +42,81 @@ const taskSchema = z.object({
 		.describe("Directed Acyclic Graph (DAG) of tasks to execute the plan"),
 });
 
+/**
+ * The model writes task ids, agent node names and dependency edges by hand, so
+ * all three arrive wrong sometimes. Repair them here, before they reach the
+ * graph, because each one fails badly downstream:
+ *
+ * - an unknown `assignedAgentNode` throws inside `new Send()` and kills the
+ *   run; a *valid but wrong* one (`orchestrator`, `planner`) is worse — it
+ *   dispatches back into the control plane and loops until `recursionLimit`.
+ * - a `dependsOnAgentId` naming a task that doesn't exist leaves the child's
+ *   in-degree permanently above zero, so the topological sort reports a cycle
+ *   that isn't there.
+ * - a duplicate id makes `supervisor.setStatus` update only the first match,
+ *   stranding the other task as `running` forever.
+ *
+ * Repairs are recorded so the caller can put them in the scratchpad — a
+ * dropped task is lost work and shouldn't happen silently.
+ */
+export function sanitizeTasks(
+	raw: z.infer<typeof taskSchema>["tasks"],
+): { tasks: Task[]; notes: string[] } {
+	const validNodes = new Map(
+		subAgents.map((a) => [a.nodeName.toLowerCase(), a.nodeName]),
+	);
+	const notes: string[] = [];
+
+	const kept: Task[] = [];
+	const seenIds = new Set<string>();
+
+	for (const t of raw) {
+		const node = validNodes.get(t.assignedAgentNode?.trim().toLowerCase());
+		if (!node) {
+			notes.push(
+				`Task "${t.title}" was dropped: it was assigned to "${t.assignedAgentNode}", which is not an available sub-agent.`,
+			);
+			continue;
+		}
+
+		let id = t.id?.trim();
+		if (!id || seenIds.has(id)) {
+			const replacement = `t${kept.length}${Math.random().toString(36).slice(2, 5)}`;
+			notes.push(
+				`Task "${t.title}" had a ${id ? "duplicate" : "missing"} id${id ? ` ("${id}")` : ""}; re-keyed to "${replacement}".`,
+			);
+			id = replacement;
+		}
+		seenIds.add(id);
+
+		kept.push({
+			...t,
+			id,
+			assignedAgentNode: node,
+			dependsOnAgentId: t.dependsOnAgentId ?? [],
+			status: "pending",
+		});
+	}
+
+	// Second pass: edges can only be checked once every surviving id is known.
+	for (const task of kept) {
+		const resolved = task.dependsOnAgentId.filter(
+			(dep) => dep !== task.id && seenIds.has(dep),
+		);
+		if (resolved.length !== task.dependsOnAgentId.length) {
+			notes.push(
+				`Task "${task.title}" depended on ${task.dependsOnAgentId
+					.filter((d) => !resolved.includes(d))
+					.map((d) => `"${d}"`)
+					.join(", ")}, which do not exist; those dependencies were removed.`,
+			);
+			task.dependsOnAgentId = resolved;
+		}
+	}
+
+	return { tasks: kept, notes };
+}
+
 function topologicalSortByLevel(tasks: Task[]): string[][] {
 	const inDegree = new Map<string, number>();
 	const children = new Map<string, string[]>();
@@ -154,12 +229,7 @@ ${scratchPadText}`;
 			agentNode: AgentNode.TASK_GENERATOR,
 		})) as z.infer<typeof taskSchema>;
 
-		// Map to our internal state type
-		const generatedTasks: Task[] = response.tasks.map((t) => ({
-			...t,
-			assignedAgentNode: t.assignedAgentNode as any,
-			status: "pending",
-		}));
+		const { tasks: generatedTasks, notes } = sanitizeTasks(response.tasks);
 
 		let taskQueue: string[][] = [];
 		if (generatedTasks.length > 0) {
@@ -169,6 +239,8 @@ ${scratchPadText}`;
 		return {
 			currentAgent: AgentNode.TASK_GENERATOR,
 			nextRoute: AgentNode.ORCHESTRATOR,
+			// `scratchpad`'s reducer appends, so return only the new notes.
+			scratchpad: notes,
 			orchestratorState: {
 				...this.state.orchestratorState,
 				tasks: generatedTasks,
