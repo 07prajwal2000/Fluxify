@@ -9,7 +9,7 @@ import {
 } from "react-icons/tb";
 import { Popover, PopoverTrigger, PopoverContent, Button } from "@fluxify/components";
 import { useParams, Link } from "@tanstack/react-router";
-import { integrationIcons } from "@/components/integrations/integrationIcons";
+import { integrationIcons } from "@fluxify/components";
 
 export interface ResourceChipProps {
 	type: "route" | "app_config" | "integration" | "custom_block";

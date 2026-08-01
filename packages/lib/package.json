@@ -3,7 +3,8 @@
 	"version": "1.0.0",
 	"keywords": [],
 	"exports": {
-		".": "./index.ts"
+		".": "./index.ts",
+		"./constants/httpcode": "./constants/httpcode.ts"
 	},
 	"author": "",
 	"license": "Apache-2.0",

@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
-import { Button, Spinner, toast } from "@fluxify/components";
-import { TbSearch, TbTrash } from "react-icons/tb";
+import { Button, Input, ListBox, Select, Spinner, TextField, toast } from "@fluxify/components";
+import type { Key } from "@fluxify/components";
+import { TbChevronDown, TbSearch, TbTrash } from "react-icons/tb";
 import { appConfigQuery } from "@/query/appConfigQuery";
 import { showErrorNotification } from "@/lib/errorNotifier";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
@@ -85,31 +86,43 @@ function AppConfigPage() {
 
 			{/* Search & Toolbar */}
 			<div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-				<div className="relative w-full max-w-sm">
-					<TbSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-muted" size={16} />
-					<input
-						type="text"
-						placeholder="Search config by key name..."
-						value={searchInput}
-						onChange={(e) => setSearchInput(e.target.value)}
-						className="w-full rounded-md border border-border bg-background pl-9 pr-3 py-1.5 text-sm placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-primary/20"
-					/>
-				</div>
+				<TextField
+					aria-label="Search config by key name"
+					value={searchInput}
+					onChange={setSearchInput}
+					className="relative w-full max-w-sm"
+				>
+					<TbSearch className="absolute left-3 top-1/2 -translate-y-1/2 z-10 text-muted" size={16} />
+					<Input placeholder="Search config by key name..." className="pl-9" />
+				</TextField>
 				<div className="flex items-center gap-2 text-sm text-muted">
 					<span>Rows per page:</span>
-					<select
-						value={perPage}
-						onChange={(e) => {
-							setPerPage(Number(e.target.value));
+					<Select
+						aria-label="Rows per page"
+						value={String(perPage)}
+						onChange={(v) => {
+							if (!v) return;
+							setPerPage(Number(v as Key));
 							setPage(1);
 						}}
-						className="rounded-md border border-border bg-background px-2 py-1 text-sm focus:outline-none"
+						className="w-[80px]"
 					>
-						<option value={10}>10</option>
-						<option value={20}>20</option>
-						<option value={50}>50</option>
-						<option value={100}>100</option>
-					</select>
+						<Select.Trigger className="flex h-8 items-center justify-between gap-1 rounded-md border border-border bg-background px-2 text-sm">
+							<Select.Value />
+							<Select.Indicator>
+								<TbChevronDown size={14} className="text-muted shrink-0" />
+							</Select.Indicator>
+						</Select.Trigger>
+						<Select.Popover>
+							<ListBox>
+								{[10, 20, 50, 100].map((n) => (
+									<ListBox.Item key={n} id={String(n)} textValue={String(n)}>
+										{n}
+									</ListBox.Item>
+								))}
+							</ListBox>
+						</Select.Popover>
+					</Select>
 				</div>
 			</div>
 

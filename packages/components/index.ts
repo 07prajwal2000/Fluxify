@@ -2,3 +2,32 @@
 // directly, so swapping the underlying library stays a one-package change.
 export * from "@heroui/react";
 export { Providers } from "./src/providers";
+
+// Fluxify components. One folder each, re-exported here so consumers only ever
+// import from "@fluxify/components".
+export * from "./src/JavaScriptTextArea";
+export * from "./src/JsTextField";
+export * from "./src/ConditionsBuilder";
+export * from "./src/FieldMapEditor";
+export * from "./src/IntegrationSelector";
+export {
+	Checkbox,
+	CheckboxControl,
+	CheckboxDescription,
+	CheckboxIndicator,
+	CheckboxLabel,
+	CheckboxRoot,
+	type CheckboxControlProps,
+	type CheckboxDescriptionProps,
+	type CheckboxIndicatorProps,
+	type CheckboxLabelProps,
+	type CheckboxProps,
+	type CheckboxRenderProps,
+	type CheckboxRootProps,
+	type CheckboxSize,
+	type CheckboxVariant,
+} from "./src/Checkbox";
+
+
+
+

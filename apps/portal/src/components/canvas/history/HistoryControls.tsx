@@ -1,5 +1,5 @@
 import { ControlButton } from "@xyflow/react";
-import { TbArrowBackUp, TbArrowForwardUp } from "react-icons/tb";
+import { TbArrowBackUp } from "react-icons/tb";
 import { useCanvasHistoryContext } from "./HistoryContext";
 
 /**
@@ -26,7 +26,7 @@ export function HistoryControls() {
 				title="Redo (Ctrl+Y)"
 				aria-label="Redo"
 			>
-				<TbArrowForwardUp />
+				<TbArrowBackUp className="-scale-x-100" />
 			</ControlButton>
 		</>
 	);

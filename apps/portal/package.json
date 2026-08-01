@@ -12,6 +12,7 @@
 	"dependencies": {
 		"@fluxify/ai-gateway": "workspace:*",
 		"@fluxify/components": "workspace:*",
+		"@fluxify/lib": "workspace:*",
 		"@fluxify/server": "workspace:*",
 		"@lexical/react": "^0.48.0",
 		"@scalar/api-reference-react": "^0.9.54",
@@ -21,6 +22,7 @@
 		"@xyflow/react": "^12.9.0",
 		"axios": "^1.13.2",
 		"better-auth": "^1.6.22",
+		"clsx": "^2.1.1",
 		"dayjs": "^1.11.21",
 		"elkjs": "^0.11.0",
 		"immer": "^10.1.3",

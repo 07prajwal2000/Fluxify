@@ -109,8 +109,16 @@
 	gap: calc(var(--spacing) * 2);
 }
 
-/* Button refinement (unlayered so it wins over HeroUI's default pill shape):
-   match the standard 6px radius instead of rounded-3xl. */
+/* Button & Overlay refinements:
+   Buttons use --radius (6px); popovers and modals use rounded-xl (12px). */
 .button {
 	border-radius: var(--radius);
+}
+
+.popover {
+	border-radius: 12px;
+}
+
+.modal__dialog {
+	border-radius: 12px;
 }

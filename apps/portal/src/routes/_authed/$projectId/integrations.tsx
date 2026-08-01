@@ -20,7 +20,7 @@ import {
 import { integrationsQuery } from "@/query/integrationsQuery";
 import { showErrorNotification } from "@/lib/errorNotifier";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
-import { integrationIcons } from "@/components/integrations/integrationIcons";
+import { integrationIcons } from "@fluxify/components";
 import { IntegrationForm } from "@/components/integrations/IntegrationForm";
 import {
 	type IntegrationGroup,
