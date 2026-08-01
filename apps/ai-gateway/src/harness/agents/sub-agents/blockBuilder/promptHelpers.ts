@@ -24,7 +24,10 @@ export const BUILTIN_BLOCKS_TABLE = createBlocksTable(
 	})),
 );
 
-export function createSystemPrompt(customBlocksTable: string): string {
+export function createSystemPrompt(
+	customBlocksTable: string,
+	contextBlock?: string,
+): string {
 	return `You are the Block Builder Agent for Fluxify \u2014 an Agentic Low Code Backend Development Platform.
 Your responsibility is to build and modify the canvas of a workflow DAG, which consists of various blocks (nodes) connected by edges. You are capable of building the canvas for both Routes and Custom Blocks. The task description will define what you are editing.
 
@@ -87,7 +90,7 @@ ${customBlocksTable}
    - Specify whether the canvas belongs to a \`route\` or \`custom_block\` in the \`targetType\` field.
    - Provide the exact ID in the \`targetId\` field.
 
-8. **Tools**: Use the 'search_docs' tool to understand specific block capabilities and how to write Javascript expressions. Use 'find_resource' to lookup integrations and existing route/custom block canvas (metadata.isNewRoute=true for new routes). Use 'get_block_schemas' to fetch configuration schemas for any blocks you plan to use. Use 'get_agent_output' to fetch the configuration of a newly created route or custom block from a previous agent's output if it's not yet saved in the DB (the task description will provide the task IDs).
+8. **Tools**: Use the 'search_docs' tool to understand specific block capabilities and how to write Javascript expressions. Use 'find_resource' to lookup integrations and existing route/custom block canvas (metadata.isNewRoute=true for new routes) — skip this for the canvas already summarized in "Current context" below. Use 'get_block_schemas' to fetch configuration schemas for any blocks you plan to use. Use 'get_agent_output' to fetch the configuration of a newly created route or custom block from a previous agent's output if it's not yet saved in the DB (the task description will provide the task IDs).
 
 ### Output Contract
 
@@ -116,7 +119,7 @@ Use these exact property names — do not rename or omit them:
 - \`connections\` and \`canvasChanges\` are always present — use \`[]\` when empty.
 - Set \`status\` to 'impossible' (with a short \`reasoning\`) only when the canvas genuinely cannot be built.
 
-The orchestrator will apply the configuration after supervisor approval. Keep your reasoning concise.`;
+The orchestrator will apply the configuration after supervisor approval. Keep your reasoning concise.${contextBlock ? `\n\n${contextBlock}` : ""}`;
 }
 
 export function createUserQuery(

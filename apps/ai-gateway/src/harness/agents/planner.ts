@@ -75,6 +75,8 @@ export class PlannerAgent extends BaseAgent {
 			? `\n\n## Context / Scratch Pad from Previous Agents\nHere is information gathered from previous steps:\n${this.state.scratchpad.map((s) => `- ${s}`).join("\n")}`
 			: "";
 
+		const contextBlock = this.state.internal?.metadata?.contextBlock;
+
 		const systemPrompt = `You are the Expert Planner Agent for Fluxify — a No/Low-Code Backend Engine.
 Fluxify allows users to build, deploy, and scale APIs visually without writing boilerplate code. It uses a visual graph where "Blocks" (units of logic like DB fetching, AI generation, or JS VM execution) are connected by "Edges" (defining direct flow, decision paths, and error handling paths).
 
@@ -100,8 +102,8 @@ Other blocks may require secrets from **app configs**.
 - If an integration/config is missing based on context, DO NOT reject the request. Instead, add a prominent warning in your \`markdownPlan\` stating that the user must create it.
 
 ## Available Tools
-**\`find_resource\`** — You MUST use this tool to search the database for existing resources (e.g., routes, app configs, integrations, custom blocks) relevant to the user's request.
-- Always search for the exact resource ID if you are modifying, updating, or deleting an existing resource.
+**\`find_resource\`** — Search the database for existing resources (e.g., routes, app configs, integrations, custom blocks) relevant to the user's request. If a "Current context" block below already names the target resource, use that id directly and do NOT call this tool to re-find it — only use it for resources the current context doesn't cover.
+- Always search for the exact resource ID if you are modifying, updating, or deleting an existing resource that isn't already given to you.
 - Store the found resource IDs (e.g., \`routeId\`) and relevant details in the \`scratchpadNote\` so downstream agents have the exact IDs needed to perform their tasks. Do NOT guess IDs.
 
 **\`get_artifact\`** — Reads back what an earlier run in this conversation actually built. Use it whenever the user's request refers to previous work ("change what you just built", "add auth to that route", "undo the block you added") instead of guessing from the summary text.
@@ -134,7 +136,7 @@ Other blocks may require secrets from **app configs**.
    - **Small, simple feedback**: If the feedback is minor (e.g. renaming a field, tweaking a value, a one-line clarification) and does not change the plan's overall complexity or risk, apply it directly, then raise \`confidenceScore\` accordingly — don't keep bouncing a nearly-finished plan back for review over trivial changes.
    - **Substantial feedback**: If the feedback changes scope, architecture, or introduces real ambiguity, revise the plan fully and score confidence honestly — it's fine to require another review in that case.
 
-Plan carefully, thoroughly, and output excellent English craft for the user's plan.${scratchPadText}`;
+Plan carefully, thoroughly, and output excellent English craft for the user's plan.${scratchPadText}${contextBlock ? `\n\n${contextBlock}` : ""}`;
 
 		const tools = [
 			createFindResourceTool(

@@ -48,6 +48,8 @@ export class VerifyUserQueryAgent extends BaseAgent {
 			},
 		});
 
+		const contextBlock = this.state.internal?.metadata?.contextBlock;
+
 		const systemPrompt = `You are the Verify User Query Agent for Fluxify — The Agentic Low-Code Backend Development Platform.
 
 ## Your Responsibility
@@ -86,7 +88,7 @@ Some blocks (especially Database blocks) require an \`integration ID\` (a connec
 5. **Reject (capable: false)** if the request is completely unrelated to API building or Fluxify.
 
 ## Output
-Analyze the request internally. Instead of raw reasoning, provide a 'scratchpad' note for future AI agents if there are important context, warnings, or missing integration details. If rejecting, provide a clear 'rejectReason' for the user.`;
+Analyze the request internally. Instead of raw reasoning, provide a 'scratchpad' note for future AI agents if there are important context, warnings, or missing integration details. If rejecting, provide a clear 'rejectReason' for the user.${contextBlock ? `\n\n${contextBlock}` : ""}`;
 
 		const response = (await this.state.agentWrapper.invokeAgent({
 			zodSchema: verifySchema,

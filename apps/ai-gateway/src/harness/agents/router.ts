@@ -26,6 +26,8 @@ export class RouterAgent extends BaseAgent {
 			},
 		});
 
+		const contextBlock = this.state.internal?.metadata?.contextBlock;
+
 		const systemPrompt = `You are the primary Router and Classifier Agent for Fluxify, an Agentic Low Code Backend Development Platform.
 Your absolute critical responsibility is to analyze the user's incoming query and conversation history, then decide the correct routing mode.
 
@@ -49,7 +51,7 @@ CRITICAL INSTRUCTIONS:
 - You must carefully analyze the query semantics and history. Do not guess.
 - Your output must rigidly conform to the provided schema. 
 - You MUST select exactly ONE 'intent': either "discussion" or "builder".
-- Provide a concise but definitive reason for your classification in the 'reason' field.`;
+- Provide a concise but definitive reason for your classification in the 'reason' field.${contextBlock ? `\n\n${contextBlock}` : ""}`;
 
 		const response = (await this.state.agentWrapper.invokeAgent({
 			zodSchema: routerSchema,
