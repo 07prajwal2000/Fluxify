@@ -17,6 +17,7 @@ import {
 import { BaseAgentWrapper, type AgentInvokeOptions } from "./models/base";
 import { app as graphApp } from "./graph";
 import { DbService } from "./internal/dbService";
+import { buildContextBlock } from "./internal/contextBlock";
 import {
 	extractWorkingMemory,
 	HarnessService,
@@ -211,6 +212,15 @@ export class FluxifyHarness {
 				? ((await harnessService.loadWorkingMemory(ctx.runId)) ?? {})
 				: {};
 
+		// Resolve the resource the user was viewing (if any) once, here, instead
+		// of letting the planner burn a find_resource tool call rediscovering an
+		// id the request already carried. One cheap DB hit, zero model tokens.
+		const contextBlock = await buildContextBlock(
+			this.dbService,
+			ctx.metadata?.projectId,
+			ctx.metadata?.location,
+		);
+
 		return {
 			...workingMemory,
 			messages,
@@ -225,6 +235,7 @@ export class FluxifyHarness {
 					...ctx.metadata,
 					runId: ctx.runId,
 					conversationId: ctx.conversationId,
+					contextBlock,
 				},
 			},
 			agentWrapper: this.agentFactory.createAgent(),

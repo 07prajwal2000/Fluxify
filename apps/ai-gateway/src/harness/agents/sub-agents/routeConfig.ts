@@ -46,6 +46,8 @@ export class RouteConfigAgent extends BaseAgent {
 			},
 		});
 
+		const contextBlock = this.state.internal?.metadata?.contextBlock;
+
 		const systemPrompt = `You are the Route Config Agent for Fluxify — an Agentic Low Code Backend Development Platform.
 Your responsibility is to determine the exact Create, Update, or Delete (CUD) intent for a route based on the task description.
 
@@ -124,13 +126,13 @@ Fluxify uses a specific JSON format for schemas. DO NOT output standard JSON Sch
 ## Instructions
 1. Analyze the assigned task to understand the exact route modifications required.
 2. If you need to search for documentation about Javascript APIs, Scripting, or other Fluxify concepts, use the \`search_docs\` tool provided to you.
-3. If you need to know the details of an existing route configuration to perform an update or deletion, use the \`get_route_details\` tool provided to you.
+3. If you need to know the details of an existing route configuration to perform an update or deletion, use the \`get_route_details\` tool provided to you — unless the "Current context" block below already describes that exact route.
 4. Determine if the action is \`create\`, \`delete\`, or \`update-partial\`.
 5. If creating or updating a route, define the \`method\`, \`path\`, and relevant schemas in the \`data\` object.
 6. **DO NOT generate a UUID for new routes.** Leave \`routeId\` empty/undefined when the action is \`create\`. The system will generate it.
 7. If the action is \`update-partial\` or \`delete\`, you MUST include the \`routeId\` extracted from the task context.
 8. Make sure to generate the schemas (\`bodySchema\`, \`querySchema\`, \`paramsSchema\`) exactly following the custom \`ValidationSchemaZod\` format above. 
-9. The orchestrator will use your exact structured output to apply the changes after human approval.`;
+9. The orchestrator will use your exact structured output to apply the changes after human approval.${contextBlock ? `\n\n${contextBlock}` : ""}`;
 
 		const userQuery = `Task Title: ${activeTask.title}
 Task Description: ${activeTask.description}
