@@ -22,6 +22,40 @@ export type DBConditionType = z.infer<typeof whereConditionSchema>;
 export type { DBJoinType, QueryOptions } from "./jsonPath";
 import type { QueryOptions } from "./jsonPath";
 
+export type IntrospectedColumn = {
+	name: string;
+	type: string;
+	/** table that owns the column — the referenced table for a foreign key, else the column's own table */
+	owner: string;
+};
+
+export type IntrospectedTable = {
+	table: string;
+	columns: IntrospectedColumn[];
+};
+
+/** groups flat information_schema rows into the IntrospectedTable shape */
+export function groupIntrospectionRows(
+	rows: Array<{
+		table_name: string;
+		column_name: string;
+		data_type: string;
+		ref_table: string | null;
+	}>,
+): IntrospectedTable[] {
+	const byTable = new Map<string, IntrospectedTable>();
+	for (const r of rows) {
+		let entry = byTable.get(r.table_name);
+		if (!entry) byTable.set(r.table_name, (entry = { table: r.table_name, columns: [] }));
+		entry.columns.push({
+			name: r.column_name,
+			type: r.data_type,
+			owner: r.ref_table ?? r.table_name,
+		});
+	}
+	return [...byTable.values()];
+}
+
 export enum DbAdapterMode {
 	NORMAL = 1,
 	TRANSACTION = 2,
@@ -49,6 +83,8 @@ export interface IDbAdapter {
 		conditions: DBConditionType[],
 	): Promise<any>;
 	raw(query?: string | unknown, params?: any[]): Promise<any>;
+	/** optional — adapters that cannot describe their schema simply omit it */
+	introspect?(): Promise<IntrospectedTable[]>;
 	delete(table: string, conditions: DBConditionType[]): Promise<boolean>;
 	setMode(mode: DbAdapterMode): Promise<void>;
 	startTransaction(): Promise<void>;
@@ -171,6 +207,63 @@ export class DbFactory {
 
 		await Promise.allSettled([...proms, ...mongoProms]);
 	}
+}
+
+/**
+ * Opens a short-lived connection, describes the schema and closes it again.
+ * Design-time only — runtime queries go through DbFactory's pooled adapters.
+ */
+export async function introspectConnection(
+	cfg: Connection,
+): Promise<IntrospectedTable[]> {
+	const vm = {} as JsVM; // introspection never evaluates js conditions
+
+	if (cfg.dbType.toLowerCase() === DbType.POSTGRES.toLowerCase()) {
+		const sql = new SQL({
+			adapter: "postgres",
+			hostname: cfg.host,
+			port: Number(cfg.port),
+			username: cfg.username,
+			password: cfg.password,
+			database: cfg.database,
+			tls: cfg.ssl,
+			max: 2,
+		});
+		const db = PostgresAdapter.createKysely(sql);
+		try {
+			return await new PostgresAdapter(db, sql, vm).introspect();
+		} finally {
+			await sql.close();
+		}
+	}
+
+	if (cfg.dbType.toLowerCase() === DbType.MYSQL.toLowerCase()) {
+		const pool = MySqlAdapter.createPool(cfg);
+		try {
+			return await new MySqlAdapter(
+				MySqlAdapter.createKysely(pool),
+				pool,
+				vm,
+			).introspect();
+		} finally {
+			await pool.promise().end();
+		}
+	}
+
+	if (cfg.dbType.toLowerCase() === DbType.MONGODB.toLowerCase()) {
+		const { MongoClient } = require("mongodb");
+		const client = new MongoClient(buildMongoUrl(cfg), {
+			serverSelectionTimeoutMS: 5000,
+		});
+		try {
+			await client.connect();
+			return await new MongoAdapter(client, client.db(cfg.database), vm).introspect();
+		} finally {
+			await client.close();
+		}
+	}
+
+	throw new Error(`${cfg.dbType} introspection not implemented`);
 }
 
 export * from "./postgresAdapter";

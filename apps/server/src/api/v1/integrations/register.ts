@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import registerGetAllRoute from "./get-all/route";
 import registerGetByIdRoute from "./get-by-id/route";
+import registerGetMetadataRoute from "./get-metadata/route";
 import registerCreateRoute from "./create/route";
 import registerUpdateRoute from "./update/route";
 import registerDeleteRoute from "./delete/route";
@@ -16,6 +17,7 @@ export default {
     registerGetBasicListRoute(router);
     registerGetAllRoute(router);
     registerGetByIdRoute(router);
+    registerGetMetadataRoute(router);
     registerCreateRoute(router);
     registerUpdateRoute(router);
     registerDeleteRoute(router);

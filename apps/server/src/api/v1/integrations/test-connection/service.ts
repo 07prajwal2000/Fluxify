@@ -291,7 +291,7 @@ export async function testAiConnection(
 	}
 }
 
-async function decodeAppConfig(keys: string[], projectId: string) {
+export async function decodeAppConfig(keys: string[], projectId: string) {
 	const appConfigs = await getAppConfigs(keys, projectId);
 	const configMap = new Map<string, string>();
 	appConfigs.forEach((config) => {
