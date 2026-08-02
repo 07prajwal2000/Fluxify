@@ -20,6 +20,14 @@ import {
 	extractText,
 	cleanJsonOutput,
 } from "./jsonUtils";
+import {
+	SUBMIT_RESULT_TOOL,
+	SUBMIT_RESULT_INSTRUCTION,
+	compactToolHistory,
+	flattenToolMessages,
+	makeSubmitResultTool,
+	parseAsSchema,
+} from "./toolLoop";
 
 /** Upper bound for a single model/tool call. Long enough for big reasoning
  *  responses, short enough that a dead connection doesn't stall a run. */
@@ -43,46 +51,6 @@ export const HARNESS_MAX_TOKENS = Number(
  *  See `checkConnection`. */
 const connectionProbeCache = new Map<string, number>();
 const CONNECTION_PROBE_TTL_MS = 5 * 60_000;
-
-/** Tool results older than this many tool turns are replaced with a one-line
- *  summary. The whole history is re-sent every iteration, so without this the
- *  first tool result is billed once per remaining turn. */
-const VERBATIM_TOOL_RESULTS = 2;
-
-/**
- * Replaces all but the most recent tool results with a one-line summary, in
- * place. The full history is re-sent on every tool iteration, so a fat result
- * from turn 1 is otherwise billed again on turns 2..n — the single biggest
- * source of token growth in a multi-tool run.
- *
- * The last {@link VERBATIM_TOOL_RESULTS} stay intact because those are what the
- * model is reasoning over right now. Older ones only need to record that the
- * call happened and roughly what came back. Compacted messages are marked so a
- * second pass doesn't summarise a summary.
- */
-export function compactToolHistory(messages: BaseMessage[]): void {
-	const toolIndexes: number[] = [];
-	messages.forEach((m, i) => {
-		if (m instanceof ToolMessage) toolIndexes.push(i);
-	});
-
-	for (const i of toolIndexes.slice(0, -VERBATIM_TOOL_RESULTS)) {
-		const msg = messages[i] as ToolMessage;
-		if (msg.additional_kwargs?.compacted) continue;
-		const text = typeof msg.content === "string" ? msg.content : "";
-		messages[i] = new ToolMessage({
-			tool_call_id: msg.tool_call_id,
-			name: msg.name,
-			// summarizeToolResult only understands JSON; markdown tables and prose
-			// fall back to a head slice.
-			content: `[earlier result from ${msg.name ?? "tool"}, condensed] ${
-				summarizeToolResult(text) ??
-				(text.length > 300 ? `${text.slice(0, 300)}…` : text)
-			}`,
-			additional_kwargs: { ...msg.additional_kwargs, compacted: true },
-		});
-	}
-}
 
 export interface AgentInvokeOptions {
 	zodSchema?: z.ZodType<any>;
@@ -273,8 +241,21 @@ export abstract class BaseAgentWrapper {
 
 		let finalMessages: BaseMessage[] = [...messages];
 
+		// A tool-using agent returns its answer through `submit_result` instead of
+		// writing it out and having it regenerated as JSON afterwards.
+		const submitTool =
+			zodSchema && tools && tools.length > 0
+				? makeSubmitResultTool(zodSchema)
+				: undefined;
+
 		if (systemPrompt && !finalMessages.some((m) => m.type === "system")) {
-			finalMessages.unshift(new SystemMessage(systemPrompt));
+			finalMessages.unshift(
+				new SystemMessage(
+					submitTool
+						? `${systemPrompt}\n\n${SUBMIT_RESULT_INSTRUCTION}`
+						: systemPrompt,
+				),
+			);
 		}
 
 		if (userQuery) {
@@ -285,8 +266,9 @@ export abstract class BaseAgentWrapper {
 		const originalModel = model;
 
 		if (tools && tools.length > 0) {
+			const boundTools = submitTool ? [...tools, submitTool] : tools;
 			if (model.bindTools) {
-				model = model.bindTools(tools) as any;
+				model = model.bindTools(boundTools) as any;
 			}
 
 			const result = await this.runToolExecutionLoop<T>(
@@ -296,6 +278,10 @@ export abstract class BaseAgentWrapper {
 				options,
 			);
 			if (result.done) return result.value;
+
+			// Everything below invokes the unbound model, which cannot be sent
+			// `tool_use` blocks.
+			finalMessages = flattenToolMessages(finalMessages);
 		}
 
 		if (zodSchema) {
@@ -403,6 +389,22 @@ export abstract class BaseAgentWrapper {
 
 			if (response.tool_calls && response.tool_calls.length > 0) {
 				for (const tc of response.tool_calls) {
+					if (tc.name === SUBMIT_RESULT_TOOL && zodSchema) {
+						const parsed = zodSchema.safeParse(tc.args);
+						if (parsed.success)
+							return { done: true, value: parsed.data as T };
+						// Answer the call so the history stays valid (a tool_call with no
+						// result is rejected outright) and let the model correct itself
+						// on the next iteration.
+						finalMessages.push(
+							new ToolMessage({
+								tool_call_id: tc.id!,
+								name: tc.name,
+								content: `Rejected — the result did not match the required schema.\n\n${describeSchemaError(parsed.error)}\n\nCall ${SUBMIT_RESULT_TOOL} again with the corrected values.`,
+							}),
+						);
+						continue;
+					}
 					await this.executeToolCall(tc, tools, finalMessages, {
 						agent: agentNode,
 						agentId,
@@ -414,8 +416,13 @@ export abstract class BaseAgentWrapper {
 
 			// No more tool calls — model produced its final answer.
 			if (zodSchema) {
-				// Drop the free-text message; the structured-output block
-				// below will re-ask the base model for JSON.
+				// It may have written the JSON out as text instead of calling
+				// submit_result. Parse it before paying to regenerate the same
+				// content; only fall through to the structured-output step if it
+				// really isn't the answer.
+				const parsed = parseAsSchema<T>(zodSchema, extractText(response));
+				if (parsed !== undefined) return { done: true, value: parsed };
+
 				finalMessages.pop();
 				return { done: false };
 			}
