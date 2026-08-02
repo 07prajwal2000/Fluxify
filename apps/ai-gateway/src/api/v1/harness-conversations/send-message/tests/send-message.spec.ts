@@ -1,4 +1,4 @@
-import { describe, it, expect, spyOn, mock, afterEach } from "bun:test";
+import { describe, it, expect, spyOn, mock, afterEach, beforeEach } from "bun:test";
 import handleRequest from "../service";
 import * as repository from "../../repository";
 import * as enqueueModule from "../../../../../harness/internal/enqueue";
@@ -6,6 +6,14 @@ import * as cacheVersionModule from "../../cacheVersion";
 import * as serverModule from "@fluxify/server";
 
 describe("Send Message Service", () => {
+	beforeEach(() => {
+		// The run quota talks to Redis, which isn't up in unit tests. It fails open
+		// either way; stubbing it keeps that out of these assertions (and out of
+		// the log). Its own behavior is covered in rateLimit.spec.ts.
+		spyOn(serverModule, "incrCache").mockResolvedValue(1);
+		spyOn(serverModule, "expireCache").mockResolvedValue(1);
+	});
+
 	afterEach(() => {
 		mock.restore();
 	});
