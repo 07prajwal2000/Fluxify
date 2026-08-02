@@ -4,6 +4,9 @@ import { dispatchAgentEvent } from "../callbacks";
 import { validateAgentOutput as validateRouteConfig } from "./sub-agents/routeConfig";
 import { validateBlockBuilderOutput } from "./sub-agents/blockBuilder";
 
+/** Total validation rounds a task gets — the first run plus its retries. */
+export const MAX_TASK_ATTEMPTS = 2;
+
 export class SupervisorAgent extends BaseAgent {
 	constructor(state: GlobalGraphState) {
 		super(state);
@@ -34,6 +37,28 @@ export class SupervisorAgent extends BaseAgent {
 			if (entry) entry.status = status;
 		};
 
+		// A rejection is feedback, not a verdict. The sub-agent prompts read
+		// `supervisorReviews`, so put the reason there and send the task back to
+		// `pending` — the orchestrator re-dispatches it with the correction in
+		// context. Only once the attempts run out does the task fail terminally,
+		// and a terminal failure must take its dependents with it (orchestrator).
+		const reject = (i: number, task: Task, reason: string) => {
+			const entry = tasks.find((t) => t.id === task.id) ?? task;
+			entry.attempts = (entry.attempts ?? 0) + 1;
+			entry.supervisorReviews = reason;
+
+			const terminal = entry.attempts >= MAX_TASK_ATTEMPTS;
+			const status = terminal ? "failed" : "pending";
+			dispatchedTasks[i].status = status;
+			setStatus(task.id, status);
+			scratchpad.push(
+				terminal
+					? `[Supervisor Error - Task ${task.id} (${task.assignedAgentNode})]: ${reason}`
+					: `[Supervisor Retry ${entry.attempts}/${MAX_TASK_ATTEMPTS} - Task ${task.id} (${task.assignedAgentNode})]: ${reason}`,
+			);
+			hasErrors = true;
+		};
+
 		for (let i = 0; i < dispatchedTasks.length; i++) {
 			const task = dispatchedTasks[i];
 			// Only verify tasks that are currently running
@@ -42,12 +67,7 @@ export class SupervisorAgent extends BaseAgent {
 			const result = results[task.id];
 
 			if (!result) {
-				dispatchedTasks[i].status = "failed";
-				setStatus(task.id, "failed");
-				scratchpad.push(
-					`[Supervisor Error - Task ${task.id}]: No result provided by agent.`,
-				);
-				hasErrors = true;
+				reject(i, task, "No result provided by agent.");
 				continue;
 			}
 
@@ -65,12 +85,7 @@ export class SupervisorAgent extends BaseAgent {
 			}
 
 			if (error) {
-				dispatchedTasks[i].status = "failed";
-				setStatus(task.id, "failed");
-				scratchpad.push(
-					`[Supervisor Error - Task ${task.id} (${task.assignedAgentNode})]: ${error}`,
-				);
-				hasErrors = true;
+				reject(i, task, error);
 			} else {
 				dispatchedTasks[i].status = "completed";
 				setStatus(task.id, "completed");

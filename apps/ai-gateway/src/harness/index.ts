@@ -475,23 +475,39 @@ export class FluxifyHarness {
 			finalState?.routerState?.rejectReason ??
 			null;
 
+		// A build whose tasks didn't all land is not "All done". The summary still
+		// ships as the response — it names what was and wasn't built — but the run
+		// must not report success over a route that was never configured.
+		const failedTasks = (finalState?.orchestratorState?.tasks ?? []).filter(
+			(task) => task.status === "failed",
+		);
+		const status = failedTasks.length > 0 ? "failed" : "completed";
+		const message =
+			failedTasks.length > 0
+				? `Finished with ${failedTasks.length} unfinished task${failedTasks.length === 1 ? "" : "s"}`
+				: "All done";
+
 		await harnessService.updateRun({
 			runId: ctx.runId,
-			status: "completed",
+			status,
 			aiResponse: aiResponse ?? undefined,
 			completedAt: new Date(),
 		});
 		await harnessService.saveLiveState({
 			runId: ctx.runId,
 			conversationId: ctx.conversationId,
-			currentState: "completed",
+			currentState: status,
 			graphState: finalState,
 		});
-		await harnessService.updateConversationStatus("completed", null);
+		await harnessService.updateConversationStatus(status, null);
 		await this.redisService.clearActiveRun(ctx.conversationId);
-		await this.emitRunEvent(ctx, userId, "completed", "ended", "All done", {
+		await this.emitRunEvent(ctx, userId, status, "ended", message, {
 			result: aiResponse ?? undefined,
 			artifactId: finalState?.summarizerState?.artifactId,
+			error:
+				failedTasks.length > 0
+					? failedTasks.map((t) => t.title).join("; ")
+					: undefined,
 		});
 		await this.redisService.finalizeSnapshot(ctx.runId);
 	}
