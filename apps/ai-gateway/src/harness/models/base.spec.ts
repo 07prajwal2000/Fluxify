@@ -2,11 +2,18 @@ import { describe, expect, it } from "bun:test";
 import { z } from "zod";
 import { BaseChatModel } from "@langchain/core/language_models/chat_models";
 import {
+	AIMessage,
 	HumanMessage,
 	ToolMessage,
 	type BaseMessage,
 } from "@langchain/core/messages";
-import { BaseAgentWrapper, compactToolHistory } from "./base";
+import { tool, type StructuredTool } from "@langchain/core/tools";
+import { BaseAgentWrapper } from "./base";
+import {
+	SUBMIT_RESULT_TOOL,
+	compactToolHistory,
+	flattenToolMessages,
+} from "./toolLoop";
 import { OpenAIAgentWrapper } from "./openai";
 import { describeFailure } from "../index";
 import { AgentNode } from "../types";
@@ -207,6 +214,110 @@ describe("describeFailure", () => {
 
 	it("falls back to a generic explanation", () => {
 		expect(describeFailure(new Error("boom"))).toContain("unexpected error");
+	});
+});
+
+describe("submit_result", () => {
+	const pingTool = tool(async () => "pong", {
+		name: "ping",
+		description: "ping",
+		schema: z.object({}),
+	}) as unknown as StructuredTool;
+
+	/** Replays a scripted list of model responses through the real tool loop. */
+	class LoopWrapper extends BaseAgentWrapper {
+		calls: BaseMessage[][] = [];
+		boundTools: StructuredTool[] = [];
+
+		constructor(private responses: AIMessage[]) {
+			super("test-model");
+		}
+
+		protected getModel(): BaseChatModel {
+			let i = 0;
+			const model: any = {
+				bindTools: (tools: StructuredTool[]) => {
+					this.boundTools = tools;
+					return model;
+				},
+				invoke: async (messages: BaseMessage[]) => {
+					this.calls.push([...messages]);
+					return this.responses[Math.min(i++, this.responses.length - 1)];
+				},
+			};
+			return model as BaseChatModel;
+		}
+
+		run() {
+			return this.invokeAgent({
+				zodSchema: schema,
+				systemPrompt: "you are a builder",
+				userQuery: "build it",
+				tools: [pingTool],
+			});
+		}
+	}
+
+	const submitCall = (args: unknown, id = "call_1") =>
+		new AIMessage({
+			content: "",
+			tool_calls: [{ id, name: SUBMIT_RESULT_TOOL, args: args as any }],
+		});
+
+	it("returns the tool arguments as the answer in a single model call", async () => {
+		const wrapper = new LoopWrapper([submitCall({ blocks: ["a"] })]);
+		expect(await wrapper.run()).toEqual({ blocks: ["a"] });
+		// The whole point: no second generation of the same content.
+		expect(wrapper.calls.length).toBe(1);
+		expect(wrapper.boundTools.map((t) => t.name)).toContain(SUBMIT_RESULT_TOOL);
+	});
+
+	it("rejects invalid arguments in-loop and accepts the correction", async () => {
+		const wrapper = new LoopWrapper([
+			submitCall({ blocks: [1] }),
+			submitCall({ blocks: ["a"] }, "call_2"),
+		]);
+		expect(await wrapper.run()).toEqual({ blocks: ["a"] });
+		expect(wrapper.calls.length).toBe(2);
+
+		// The rejected call must still be answered — a tool_call with no matching
+		// result is rejected by the provider.
+		const answer = wrapper.calls[1]!.at(-1) as ToolMessage;
+		expect(answer.tool_call_id).toBe("call_1");
+		expect(String(answer.content)).toContain("blocks.0");
+	});
+
+	it("accepts an answer written as free text without regenerating it", async () => {
+		const wrapper = new LoopWrapper([new AIMessage('{"blocks":["a"]}')]);
+		expect(await wrapper.run()).toEqual({ blocks: ["a"] });
+		expect(wrapper.calls.length).toBe(1);
+	});
+});
+
+describe("flattenToolMessages", () => {
+	it("strips tool_use blocks and ends on a human turn", () => {
+		// Anthropic and Mistral reject a request carrying tool_use blocks when no
+		// tools are declared, and the structured-output fallback is unbound.
+		const flat = flattenToolMessages([
+			new HumanMessage("build it"),
+			new AIMessage({
+				content: "let me look",
+				tool_calls: [{ id: "1", name: "find_resource", args: {} }],
+			}),
+			new ToolMessage({
+				tool_call_id: "1",
+				name: "find_resource",
+				content: '{"routes":[]}',
+			}),
+		]);
+
+		expect(flat.some((m) => (m as AIMessage).tool_calls?.length)).toBe(false);
+		expect(flat.some((m) => m instanceof ToolMessage)).toBe(false);
+		expect(flat.at(-1)!.getType()).toBe("human");
+		// The findings themselves must survive — that's why the tools ran.
+		expect(String(flat.at(-1)!.content)).toContain('{"routes":[]}');
+		// Reasoning written alongside the call is kept.
+		expect(flat.some((m) => m.content === "let me look")).toBe(true);
 	});
 });
 
