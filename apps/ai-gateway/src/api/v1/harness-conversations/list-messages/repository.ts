@@ -28,6 +28,7 @@ export async function getMessagesPage(
 			status: agentHarnessRunsEntity.status,
 			createdAt: agentHarnessRunsEntity.createdAt,
 			completedAt: agentHarnessRunsEntity.completedAt,
+			usage: agentHarnessRunsEntity.usage,
 			artifactId: agentHarnessArtifactsEntity.id,
 		})
 		.from(agentHarnessRunsEntity)

@@ -20,6 +20,10 @@ export const messageSchema = z.object({
 	aiResponse: z.string().nullable(),
 	status: z.string(),
 	artifactId: z.string().nullable(),
+	/** Model calls, tokens (prompt/completion/cached) and time this run spent,
+	 *  with a per-agent breakdown. Null for runs that predate usage tracking or
+	 *  never reached a terminal state. */
+	usage: z.record(z.string(), z.any()).nullable(),
 	createdAt: z.union([z.string(), z.date()]),
 	completedAt: z.union([z.string(), z.date()]).nullable(),
 });

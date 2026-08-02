@@ -19,6 +19,28 @@ export type HitlPlanAction =
 	| { type: "reject"; message: string }
 	| { type: "review"; comments: Array<{ text: string; sectionId?: string; [key: string]: any }> | string[] };
 
+/** Turns a HITL decision into the human turn the router/planner actually read
+ *  ("check message history" per the planner prompt) — `state.action` itself is
+ *  never inspected by any graph node, so this is the only path review
+ *  comments have into the model. */
+export function describeHitlAction(action: HitlPlanAction): string | undefined {
+	switch (action.type) {
+		case "approve":
+			return "I approve this plan. Proceed with implementation.";
+		case "reject":
+			return `I reject this plan.${action.message ? ` Reason: ${action.message}` : ""}`;
+		case "review": {
+			if (!action.comments?.length) return undefined;
+			const comments = action.comments.map((c) =>
+				typeof c === "string" ? c : c.text,
+			);
+			return `Please revise the plan based on my feedback:\n${comments.map((c) => `- ${c}`).join("\n")}`;
+		}
+		default:
+			return undefined;
+	}
+}
+
 export interface RecordHitlActionInput {
 	runId: string;
 	stepId?: string;
@@ -63,6 +85,9 @@ export interface UpdateRunInput {
 		| "failed";
 	interruptedAt?: Date | null;
 	completedAt?: Date | null;
+	/** Final model spend for the run (calls, tokens, time, per-agent breakdown).
+	 *  Written once, on the terminal update. */
+	usage?: Record<string, any>;
 	background?: boolean;
 }
 
@@ -412,6 +437,7 @@ export class HarnessService {
 				if (input.status !== undefined) updateData.status = input.status;
 				if (input.interruptedAt !== undefined) updateData.interruptedAt = input.interruptedAt;
 				if (input.completedAt !== undefined) updateData.completedAt = input.completedAt;
+				if (input.usage !== undefined) updateData.usage = input.usage;
 
 				const [updated] = await db
 					.update(agentHarnessRunsEntity)

@@ -60,13 +60,17 @@ export class FluxifyOtelTracer extends BaseCallbackHandler {
 		this.spans.set(id, span);
 	}
 
-	private endSpan(id: string, error?: Error, outputs?: any) {
+	private endSpan(id: string, error?: unknown, outputs?: any) {
 		const span = this.spans.get(id);
 		if (!span) return;
 
 		if (error) {
-			span.recordException(error);
-			span.setStatus({ code: 2, message: error.message }); // 2 = ERROR
+			// Provider SDKs reject with plain objects as happily as with Errors
+			// (`{ code: 23 }`), and `recordException` would keep none of it.
+			const thrown =
+				error instanceof Error ? error : new Error(this.safeStringify(error));
+			span.recordException(thrown);
+			span.setStatus({ code: 2, message: thrown.message }); // 2 = ERROR
 		} else {
 			span.setStatus({ code: 1 }); // 1 = OK
 		}
@@ -131,28 +135,65 @@ export class FluxifyOtelTracer extends BaseCallbackHandler {
 		const span = this.spans.get(runId);
 		if (span) {
 			span.setAttribute("input.value", this.safeStringify(prompts));
+			// Which model actually served the call — the run may be configured with
+			// one and fall back to another, and token counts mean nothing without it.
+			const params = extraParams?.invocation_params;
+			const model = params?.model ?? params?.model_name;
+			if (model) span.setAttribute("llm.model_name", String(model));
 			if (metadata) {
 				span.setAttribute("llm.metadata", JSON.stringify(metadata));
 			}
 		}
 	}
 
+	/**
+	 * Token usage for one model call, in OpenInference attribute names.
+	 *
+	 * `llmOutput.tokenUsage` is the OpenAI-shaped field and is simply absent for
+	 * several providers; the portable place is `usage_metadata` on the returned
+	 * message, which every LangChain chat model normalizes to. Read both, prefer
+	 * the message, and carry the cache-read count — prompt caching is invisible
+	 * without it, and it is the cheapest token there is.
+	 */
+	private usageAttributes(output: any): Record<string, number> {
+		const messages = (output?.generations ?? [])
+			.flat()
+			.map((generation: any) => generation?.message)
+			.filter(Boolean);
+
+		const totals = { prompt: 0, completion: 0, cacheRead: 0, cacheWrite: 0 };
+		let found = false;
+		for (const message of messages) {
+			const usage = message.usage_metadata;
+			if (!usage) continue;
+			found = true;
+			totals.prompt += usage.input_tokens ?? 0;
+			totals.completion += usage.output_tokens ?? 0;
+			totals.cacheRead += usage.input_token_details?.cache_read ?? 0;
+			totals.cacheWrite += usage.input_token_details?.cache_creation ?? 0;
+		}
+
+		if (!found) {
+			const legacy =
+				output?.llmOutput?.tokenUsage || output?.llmOutput?.estimatedTokenUsage;
+			if (!legacy) return {};
+			totals.prompt = legacy.promptTokens ?? 0;
+			totals.completion = legacy.completionTokens ?? 0;
+		}
+
+		return {
+			"llm.token_count.prompt": totals.prompt,
+			"llm.token_count.completion": totals.completion,
+			"llm.token_count.total": totals.prompt + totals.completion,
+			"llm.token_count.prompt_details.cache_read": totals.cacheRead,
+			"llm.token_count.prompt_details.cache_write": totals.cacheWrite,
+		};
+	}
+
 	async handleLLMEnd(output: any, runId: string) {
 		const span = this.spans.get(runId);
-		if (span && output?.llmOutput) {
-			// LangChain typically returns token usage here
-			const usage = output.llmOutput.tokenUsage || output.llmOutput.estimatedTokenUsage;
-			if (usage) {
-				if (usage.promptTokens !== undefined) {
-					span.setAttribute("llm.token_count.prompt", usage.promptTokens);
-				}
-				if (usage.completionTokens !== undefined) {
-					span.setAttribute("llm.token_count.completion", usage.completionTokens);
-				}
-				if (usage.totalTokens !== undefined) {
-					span.setAttribute("llm.token_count.total", usage.totalTokens);
-				}
-			}
+		if (span) {
+			span.setAttributes(this.usageAttributes(output));
 		}
 		this.endSpan(runId, undefined, output);
 	}

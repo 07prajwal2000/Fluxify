@@ -128,6 +128,10 @@ export const agentHarnessRunsEntity = pgTable(
 			{ onDelete: "set null" },
 		),
 		status: agentHarnessRunStatusEnum("status").default("queued").notNull(),
+		// What the run cost the provider: model calls, prompt/completion/cached
+		// tokens, wall clock, and the same breakdown per agent. Written once when
+		// the run reaches a terminal state; null for runs that never got there.
+		usage: jsonb("usage").$type<Record<string, any>>(),
 		interruptedAt: timestamp("interrupted_at"),
 		createdAt: timestamp("created_at").defaultNow().notNull(),
 		completedAt: timestamp("completed_at"),

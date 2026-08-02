@@ -17,6 +17,8 @@ import {
 } from "./toolLoop";
 import { OpenAIAgentWrapper } from "./openai";
 import { AnthropicAgentWrapper } from "./anthropic";
+import { RunBudget, RunBudgetExceededError } from "./budget";
+import { withRetry } from "../../lib/retry";
 import { describeFailure } from "../index";
 import { AgentNode } from "../types";
 import { blockBuilderSchema } from "../agents/sub-agents/blockBuilder/schemas";
@@ -298,6 +300,87 @@ describe("prompt caching", () => {
 		// It is the third-newest tool result, not the system prompt or the query.
 		expect(history.length - diverged).toBeLessThanOrEqual(5);
 		expect(history[0]!.content).toBe("static prompt");
+	});
+});
+
+describe("run budget", () => {
+	/** Answers with a fixed token cost, and counts how often it was asked. */
+	class BudgetedWrapper extends BaseAgentWrapper {
+		calls = 0;
+
+		protected createModel(): BaseChatModel {
+			return {
+				invoke: async () => {
+					this.calls++;
+					return new AIMessage({
+						content: "ok",
+						usage_metadata: {
+							input_tokens: 300,
+							output_tokens: 20,
+							total_tokens: 320,
+							input_token_details: { cache_read: 200 },
+						},
+					});
+				},
+			} as unknown as BaseChatModel;
+		}
+
+		run(options: Parameters<BaseAgentWrapper["invokeAgent"]>[0]) {
+			return this.invokeAgent(options);
+		}
+	}
+
+	it("books every model call against the run's usage", async () => {
+		const wrapper = new BudgetedWrapper("test-model");
+		const budget = new RunBudget({ deadlineMs: 60_000, tokenBudget: 0 });
+		wrapper.setRunBudget(budget);
+
+		await wrapper.run({ systemPrompt: "s", userQuery: "a", agentNode: "planner" });
+
+		const usage = budget.snapshot();
+		expect(usage.calls).toBe(1);
+		expect(usage.totalTokens).toBe(320);
+		expect(usage.cachedInputTokens).toBe(200);
+		expect(usage.byAgent.planner!.calls).toBe(1);
+	});
+
+	it("refuses to spend past the ceiling instead of failing mid-call", async () => {
+		const wrapper = new BudgetedWrapper("test-model");
+		const budget = new RunBudget({ deadlineMs: 60_000, tokenBudget: 300 });
+		wrapper.setRunBudget(budget);
+
+		await wrapper.run({ userQuery: "a", agentNode: "planner" });
+		// The first call spent 320 of a 300-token budget, so the second is never
+		// made — the provider isn't billed for work the run can no longer use.
+		await expect(
+			wrapper.run({ userQuery: "b", agentNode: "planner" }),
+		).rejects.toThrow(RunBudgetExceededError);
+		expect(wrapper.calls).toBe(1);
+	});
+
+	it("is not retried — a blown budget only gets more blown", async () => {
+		// withRetry would otherwise re-issue the call three more times.
+		let attempts = 0;
+		await expect(
+			withRetry(
+				async () => {
+					attempts++;
+					throw new RunBudgetExceededError("Run budget exceeded: out of time.");
+				},
+				{ maxRetries: 3, baseDelayMs: 1 },
+			),
+		).rejects.toThrow(RunBudgetExceededError);
+		expect(attempts).toBe(1);
+	});
+
+	it("explains a budget failure as a harness limit, not a provider problem", () => {
+		const msg = describeFailure(
+			new RunBudgetExceededError(
+				"Run budget exceeded: this request used 2000000 tokens, above the 2000000 token limit.",
+			),
+			AgentNode.BLOCK_BUILDER,
+		);
+		expect(msg).toContain("limit set for a single request");
 	});
 });
 
