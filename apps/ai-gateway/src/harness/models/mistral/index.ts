@@ -7,7 +7,7 @@ import {
 } from "../base";
 
 export class MistralAgentWrapper extends BaseAgentWrapper {
-	protected getModel(): BaseChatModel {
+	protected createModel(): BaseChatModel {
 		return new ChatMistralAI({
 			model: this.modelName,
 			apiKey: this.apiKey,

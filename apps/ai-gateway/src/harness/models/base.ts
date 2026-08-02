@@ -56,6 +56,12 @@ export interface AgentInvokeOptions {
 	zodSchema?: z.ZodType<any>;
 	userQuery?: string;
 	systemPrompt?: string;
+	/** Per-run volatile context (scratchpad notes, the "Current context" block).
+	 *  It belongs here rather than concatenated onto `systemPrompt`: a system
+	 *  prompt that changes per run can never be a cached prefix, and providers
+	 *  cache by byte-identical prefix. Sent as part of the trailing human turn,
+	 *  ahead of `userQuery`. */
+	context?: string;
 	messages?: BaseMessage[];
 	tools?: StructuredTool[];
 	config?: RunnableConfig;
@@ -174,7 +180,24 @@ export abstract class BaseAgentWrapper {
 	}
 
 	// Each subclass implements this to return the initialized LangChain chat model
-	protected abstract getModel(): BaseChatModel;
+	protected abstract createModel(): BaseChatModel;
+
+	/** The model is immutable for the life of a wrapper (one wrapper per run), yet
+	 *  every invokeAgent used to construct a fresh SDK client — and throw away its
+	 *  connection pool with it. Built once, on first use. */
+	protected getModel(): BaseChatModel {
+		this.model ??= this.createModel();
+		return this.model;
+	}
+	private model?: BaseChatModel;
+
+	/**
+	 * Wraps the system prompt in a provider-native message. Anthropic overrides
+	 * this to attach a cache breakpoint; everyone else gets a plain string.
+	 */
+	protected buildSystemMessage(text: string): SystemMessage {
+		return new SystemMessage(text);
+	}
 
 	/**
 	 * Lightweight liveness probe — a tiny completion to confirm the provider,
@@ -232,6 +255,7 @@ export abstract class BaseAgentWrapper {
 			zodSchema,
 			userQuery,
 			systemPrompt,
+			context,
 			messages = [],
 			tools,
 			config,
@@ -250,7 +274,7 @@ export abstract class BaseAgentWrapper {
 
 		if (systemPrompt && !finalMessages.some((m) => m.type === "system")) {
 			finalMessages.unshift(
-				new SystemMessage(
+				this.buildSystemMessage(
 					submitTool
 						? `${systemPrompt}\n\n${SUBMIT_RESULT_INSTRUCTION}`
 						: systemPrompt,
@@ -258,8 +282,14 @@ export abstract class BaseAgentWrapper {
 			);
 		}
 
-		if (userQuery) {
-			finalMessages.push(new HumanMessage(userQuery));
+		// Volatile context rides with the user's turn, not the system prompt, so
+		// the prefix ahead of it stays byte-identical across runs and can be
+		// served from the provider's cache. Being last is also where a model
+		// reads it most reliably.
+		if (userQuery || context) {
+			finalMessages.push(
+				new HumanMessage([context, userQuery].filter(Boolean).join("\n\n")),
+			);
 		}
 
 		let model = this.getModel();

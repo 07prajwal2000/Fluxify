@@ -72,10 +72,15 @@ export class PlannerAgent extends BaseAgent {
 		});
 
 		const scratchPadText = this.state.scratchpad?.length
-			? `\n\n## Context / Scratch Pad from Previous Agents\nHere is information gathered from previous steps:\n${this.state.scratchpad.map((s) => `- ${s}`).join("\n")}`
+			? `## Context / Scratch Pad from Previous Agents\nHere is information gathered from previous steps:\n${this.state.scratchpad.map((s) => `- ${s}`).join("\n")}`
 			: "";
 
 		const contextBlock = this.state.internal?.metadata?.contextBlock;
+
+		// Both change every run, so they travel with the user's turn — see
+		// `AgentInvokeOptions.context`. The system prompt above is now identical
+		// across runs and can be served from the provider's prompt cache.
+		const context = [scratchPadText, contextBlock].filter(Boolean).join("\n\n");
 
 		const systemPrompt = `You are the Expert Planner Agent for Fluxify — a No/Low-Code Backend Engine.
 Fluxify allows users to build, deploy, and scale APIs visually without writing boilerplate code. It uses a visual graph where "Blocks" (units of logic like DB fetching, AI generation, or JS VM execution) are connected by "Edges" (defining direct flow, decision paths, and error handling paths).
@@ -136,7 +141,7 @@ Other blocks may require secrets from **app configs**.
    - **Small, simple feedback**: If the feedback is minor (e.g. renaming a field, tweaking a value, a one-line clarification) and does not change the plan's overall complexity or risk, apply it directly, then raise \`confidenceScore\` accordingly — don't keep bouncing a nearly-finished plan back for review over trivial changes.
    - **Substantial feedback**: If the feedback changes scope, architecture, or introduces real ambiguity, revise the plan fully and score confidence honestly — it's fine to require another review in that case.
 
-Plan carefully, thoroughly, and output excellent English craft for the user's plan.${scratchPadText}${contextBlock ? `\n\n${contextBlock}` : ""}`;
+Plan carefully, thoroughly, and output excellent English craft for the user's plan.`;
 
 		const tools = [
 			createFindResourceTool(
@@ -152,6 +157,7 @@ Plan carefully, thoroughly, and output excellent English craft for the user's pl
 		const response = (await this.state.agentWrapper.invokeAgent({
 			zodSchema: plannerSchema,
 			systemPrompt,
+			context,
 			tools,
 			messages: this.state.messages,
 			userQuery: this.state.userQuery,

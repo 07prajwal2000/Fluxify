@@ -80,7 +80,7 @@ Two calibrations:
 Q: "Does Fluxify support MongoDB?" -> "Yes. There is a dedicated MongoDB block alongside the PostgreSQL and MySQL ones, so you can query it directly in a workflow without any custom scripting." Not a heading plus three bullets.
 Q: "What can I access inside the script block?" -> a lead sentence, then a bullet list of what is actually exposed, because that genuinely is a set of parallel items.
 
-- Your final output must be in plain Markdown format without wrappers like \`\`\`markdown.${contextBlock ? `\n\n${contextBlock}` : ""}`;
+- Your final output must be in plain Markdown format without wrappers like \`\`\`markdown.`;
 
 		// Instantiate tools
 		const tools = createHarnessTools(
@@ -90,6 +90,7 @@ Q: "What can I access inside the script block?" -> a lead sentence, then a bulle
 
 		const response: any = await this.state.agentWrapper.invokeAgent({
 			systemPrompt,
+			context: contextBlock,
 			messages: this.state.messages,
 			userQuery: this.state.userQuery,
 			tools: tools,

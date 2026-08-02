@@ -115,11 +115,12 @@ CRITICAL INSTRUCTIONS:
 - Your output must rigidly conform to the provided schema.
 - You MUST select exactly ONE 'intent': either "discussion" or "builder".
 - Provide a concise but definitive reason for your classification in the 'reason' field.
-- Instead of raw reasoning, provide a 'scratchpad' note for the downstream agents if there is important context, a warning, or a missing integration detail.${contextBlock ? `\n\n${contextBlock}` : ""}`;
+- Instead of raw reasoning, provide a 'scratchpad' note for the downstream agents if there is important context, a warning, or a missing integration detail.`;
 
 		const response = (await this.state.agentWrapper.invokeAgent({
 			zodSchema: routerSchema,
 			systemPrompt,
+			context: contextBlock,
 			messages: this.state.messages,
 			userQuery: this.state.userQuery,
 			agentNode: AgentNode.ROUTER,

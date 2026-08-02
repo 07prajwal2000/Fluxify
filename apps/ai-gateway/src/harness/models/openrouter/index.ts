@@ -7,7 +7,7 @@ import {
 } from "../base";
 
 export class OpenRouterAgentWrapper extends BaseAgentWrapper {
-	protected getModel(): BaseChatModel {
+	protected createModel(): BaseChatModel {
 		return new ChatOpenRouter({
 			model: this.modelName,
 			apiKey: this.apiKey,

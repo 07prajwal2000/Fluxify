@@ -84,7 +84,7 @@ export class BlockBuilderAgent extends BaseAgent {
 		const projectId = this.state.internal?.metadata?.projectId || "NONE";
 		const customBlocksTable = await this.getCustomBlocksInfo(projectId);
 		const contextBlock = this.state.internal?.metadata?.contextBlock;
-		const systemPrompt = createSystemPrompt(customBlocksTable, contextBlock);
+		const systemPrompt = createSystemPrompt(customBlocksTable);
 		const userQuery = createUserQuery(activeTask);
 
 		const tools = [
@@ -106,6 +106,7 @@ export class BlockBuilderAgent extends BaseAgent {
 		const response = (await this.state.agentWrapper.invokeAgent({
 			zodSchema: blockBuilderSchema,
 			systemPrompt,
+			context: contextBlock,
 			tools,
 			messages: [],
 			userQuery,
