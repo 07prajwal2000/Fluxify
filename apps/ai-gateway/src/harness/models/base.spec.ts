@@ -335,6 +335,102 @@ describe("submit_result", () => {
 	});
 });
 
+describe("parallel tool calls", () => {
+	let active = 0;
+	let peak = 0;
+
+	const slowTool = (name: string, output: string) =>
+		tool(
+			async () => {
+				peak = Math.max(peak, ++active);
+				await new Promise((r) => setTimeout(r, 10));
+				active--;
+				return output;
+			},
+			{ name, description: name, schema: z.object({}) },
+		) as unknown as StructuredTool;
+
+	class BatchWrapper extends BaseAgentWrapper {
+		calls: BaseMessage[][] = [];
+
+		constructor(private responses: AIMessage[]) {
+			super("test-model");
+		}
+
+		protected getModel(): BaseChatModel {
+			let i = 0;
+			const model: any = {
+				bindTools: () => model,
+				invoke: async (messages: BaseMessage[]) => {
+					this.calls.push([...messages]);
+					return this.responses[Math.min(i++, this.responses.length - 1)];
+				},
+			};
+			return model as BaseChatModel;
+		}
+
+		run() {
+			return this.invokeAgent({
+				zodSchema: schema,
+				systemPrompt: "you are a builder",
+				userQuery: "build it",
+				tools: [slowTool("tool_a", "A"), slowTool("tool_b", "B")],
+			});
+		}
+	}
+
+	it("runs a batch concurrently and appends results in call order", async () => {
+		active = 0;
+		peak = 0;
+		const wrapper = new BatchWrapper([
+			new AIMessage({
+				content: "",
+				tool_calls: [
+					{ id: "call_a", name: "tool_a", args: {} },
+					{ id: "call_b", name: "tool_b", args: {} },
+				],
+			}),
+			new AIMessage({
+				content: "",
+				tool_calls: [
+					{ id: "call_s", name: SUBMIT_RESULT_TOOL, args: { blocks: ["a"] } },
+				],
+			}),
+		]);
+
+		expect(await wrapper.run()).toEqual({ blocks: ["a"] });
+		// Both tools were in flight at the same time — the whole point.
+		expect(peak).toBe(2);
+
+		// Completion order must not leak into the history: a ToolMessage that
+		// doesn't line up with its tool_call is rejected by strict providers.
+		const second = wrapper.calls[1]!;
+		const results = second.filter(
+			(m): m is ToolMessage => m instanceof ToolMessage,
+		);
+		expect(results.map((m) => m.tool_call_id)).toEqual(["call_a", "call_b"]);
+		expect(results.map((m) => String(m.content))).toEqual(["A", "B"]);
+	});
+
+	it("skips the rest of the batch when submit_result validates", async () => {
+		active = 0;
+		peak = 0;
+		const wrapper = new BatchWrapper([
+			new AIMessage({
+				content: "",
+				tool_calls: [
+					{ id: "call_s", name: SUBMIT_RESULT_TOOL, args: { blocks: ["a"] } },
+					{ id: "call_a", name: "tool_a", args: {} },
+				],
+			}),
+		]);
+
+		expect(await wrapper.run()).toEqual({ blocks: ["a"] });
+		// The answer is in hand; running the rest is paid-for work nobody reads.
+		expect(peak).toBe(0);
+	});
+});
+
 describe("flattenToolMessages", () => {
 	it("strips tool_use blocks and ends on a human turn", () => {
 		// Anthropic and Mistral reject a request carrying tool_use blocks when no
