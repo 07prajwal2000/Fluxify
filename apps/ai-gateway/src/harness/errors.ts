@@ -1,3 +1,6 @@
+import { labelForNode } from "./streamTypes";
+import type { AgentNodeName } from "./types";
+
 /**
  * Thrown when a user interrupts a running harness graph. Propagates out of the
  * AI model layer (via the run's AbortSignal), is NOT retried by the retry
@@ -18,6 +21,28 @@ export function isUserInterrupt(error: unknown): boolean {
 }
 
 /**
+ * Best-effort message for anything thrown. Provider SDKs sometimes reject with
+ * plain objects (`{ code: 23, ... }`) whose `String()` is "[object Object]".
+ */
+export function errorMessage(error: unknown): string {
+	if (error instanceof Error) return error.message || error.name;
+	if (typeof error === "string") return error;
+	if (error && typeof error === "object") {
+		const e = error as Record<string, any>;
+		const parts = [e.message, e.error?.message, e.code, e.name].filter(
+			(p) => typeof p === "string" && p.length > 0,
+		);
+		if (parts.length > 0) return parts.join(" ");
+		try {
+			return JSON.stringify(error).slice(0, 500);
+		} catch {
+			return "Unknown error";
+		}
+	}
+	return String(error ?? "Unknown error");
+}
+
+/**
  * Turns a raw error message into a human-readable explanation, shared by the
  * terminal failure report (`describeFailure`) and the live retry-warning
  * events (`HarnessCallbacks.emitRetryWarning`) — both need the same
@@ -25,6 +50,13 @@ export function isUserInterrupt(error: unknown): boolean {
  */
 export function explainErrorReason(raw: string): string {
 	const lower = raw.toLowerCase();
+
+	// First: the harness stopped this run itself, so none of the provider-shaped
+	// diagnoses below apply (the message names both tokens and a time limit and
+	// would otherwise match two of them).
+	if (lower.includes("run budget exceeded")) {
+		return "it ran past the limit set for a single request (wall-clock time or total tokens). This usually means an agent got stuck repeating itself, or the request was too large to finish in one go — try splitting it into smaller steps.";
+	}
 
 	// Order matters: the two cases below both mention JSON, but they call for
 	// completely different action, so they must be matched before the generic
@@ -81,4 +113,17 @@ export function explainErrorReason(raw: string): string {
 		return "the AI provider took too long to respond or could not be reached. This request involved a lot of back-and-forth with the model — try again, or use a faster model.";
 	}
 	return "an unexpected error occurred while processing this request.";
+}
+
+/**
+ * Turns a thrown error into a short, user-readable explanation of why the run
+ * failed. Persisted as the run's `aiResponse` so the UI shows something more
+ * useful than a bare `failed` status.
+ */
+export function describeFailure(error: unknown, node?: AgentNodeName): string {
+	const raw = errorMessage(error);
+	const where = labelForNode(node);
+	const reason = explainErrorReason(raw);
+
+	return `This request could not be completed — it failed at the **${where}** step because ${reason}\n\nDetails: ${raw.slice(0, 500)}`;
 }

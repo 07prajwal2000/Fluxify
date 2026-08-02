@@ -79,3 +79,10 @@ export async function mgetCache(keys: string[]): Promise<(string | null)[]> {
 export async function incrCache(key: string): Promise<number> {
 	return redisClient.incr(key);
 }
+
+/** Puts a TTL on an existing key — pair with `incrCache` to build a counter
+ *  that expires (a rate-limit window), which `setCacheEx` can't do without
+ *  overwriting the count. */
+export async function expireCache(key: string, ttl: number): Promise<number> {
+	return redisClient.expire(key, ttl);
+}

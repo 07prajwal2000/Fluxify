@@ -30,10 +30,13 @@ export async function withRetry<T>(
       return await operation();
     } catch (error) {
       // A user interrupt / abort must never be retried — propagate immediately.
+      // Nor a blown run budget: retrying only spends more of what ran out.
       if (
         options.signal?.aborted ||
         (error instanceof Error &&
-          (error.name === "UserInterruptError" || error.name === "AbortError"))
+          (error.name === "UserInterruptError" ||
+            error.name === "AbortError" ||
+            error.name === "RunBudgetExceededError"))
       ) {
         throw error;
       }

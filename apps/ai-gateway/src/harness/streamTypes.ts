@@ -8,6 +8,7 @@ import {
 	type SummarizerState,
 	type SubAgentResult,
 } from "./types";
+import type { RunUsage } from "./models/budget";
 
 /* ============================================================================
  * HARNESS STREAM EVENT CONTRACT
@@ -119,6 +120,9 @@ export interface HarnessRunResult {
 	artifactId?: string;
 	/** Why the run failed or was interrupted. Absent on success. */
 	error?: string;
+	/** What the run cost: model calls, tokens (including cache reads) and time,
+	 *  with a per-agent breakdown. */
+	usage?: RunUsage;
 }
 
 /**

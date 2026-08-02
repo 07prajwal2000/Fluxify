@@ -28,6 +28,7 @@ import {
 	makeSubmitResultTool,
 	parseAsSchema,
 } from "./toolLoop";
+import type { RunBudget } from "./budget";
 
 /** Upper bound for a single model/tool call. Long enough for big reasoning
  *  responses, short enough that a dead connection doesn't stall a run. */
@@ -96,10 +97,18 @@ export abstract class BaseAgentWrapper {
 	/** Set per run by the harness — lets retryable errors (bad structured output,
 	 *  transient network issues) be surfaced live instead of only on failure. */
 	private retryWarningSink?: (info: RetryWarningInfo) => void;
+	/** Set per run by the harness. Every model call is booked against it and
+	 *  checked against it — this class is the only place they happen. */
+	private budget?: RunBudget;
 
 	/** Wires the run's interrupt signal into this agent (called once per run). */
 	public setAbortSignal(signal: AbortSignal): void {
 		this.signal = signal;
+	}
+
+	/** Wires the run's deadline/token budget into this agent (once per run). */
+	public setRunBudget(budget: RunBudget): void {
+		this.budget = budget;
 	}
 
 	/** Wires a live retry-warning sink into this agent (called once per run). */
@@ -149,16 +158,34 @@ export abstract class BaseAgentWrapper {
 	 * until some outer layer gives up; bounded here so withRetry can retry it.
 	 */
 	private withSignal(config?: RunnableConfig): RunnableConfig {
+		// A call that would outlive the run's deadline is wasted spend — the run
+		// fails the moment it returns. Never below 1s: ensureConfig rejects a
+		// non-positive timeout, and `checkRunLimits` has already thrown by then.
+		const remaining = this.budget?.remainingMs() ?? MODEL_CALL_TIMEOUT_MS;
 		return {
-			timeout: MODEL_CALL_TIMEOUT_MS,
+			timeout: Math.max(1_000, Math.min(MODEL_CALL_TIMEOUT_MS, remaining)),
 			...config,
 			...(this.signal ? { signal: this.signal } : {}),
 		};
 	}
 
-	/** Raises a UserInterruptError if the run has been interrupted. */
-	private throwIfInterrupted(): void {
+	/** Raises before a model call the run can't afford: a UserInterruptError if
+	 *  the user stopped it, a RunBudgetExceededError if it is out of time or
+	 *  tokens. */
+	private checkRunLimits(): void {
 		if (this.signal?.aborted) throw new UserInterruptError();
+		this.budget?.check();
+	}
+
+	/** Books a completed model call against the run budget. `response` is an
+	 *  AIMessage on every path; anything without `usage_metadata` (compatible
+	 *  servers that don't report it) still counts as a call. */
+	private recordUsage(
+		agentNode: string | undefined,
+		response: unknown,
+		startedAt: number,
+	): void {
+		this.budget?.record(agentNode, response, Date.now() - startedAt);
 	}
 
 	constructor(
@@ -250,7 +277,7 @@ export abstract class BaseAgentWrapper {
 	private async invokeAgentInner<T = any>(
 		options: AgentInvokeOptions,
 	): Promise<T | AIMessage> {
-		this.throwIfInterrupted();
+		this.checkRunLimits();
 		const {
 			zodSchema,
 			userQuery,
@@ -320,15 +347,28 @@ export abstract class BaseAgentWrapper {
 				this.supportsStructuredOutput() &&
 				originalModel.withStructuredOutput
 			) {
-				const structuredModel = originalModel.withStructuredOutput(zodSchema);
+				// `includeRaw` keeps the underlying AIMessage, which is the only place
+				// this path's token usage exists — without it the natively-structured
+				// calls (a whole provider family) are invisible to the budget.
+				const structuredModel = originalModel.withStructuredOutput(zodSchema, {
+					includeRaw: true,
+				});
 				try {
 					// By using invoke with config, it automatically logs to LangSmith/Langfuse
 					result = await withRetry(
-						() =>
-							structuredModel.invoke(
-								finalMessages,
-								this.withSignal(config),
-							) as Promise<T>,
+						async () => {
+							const startedAt = Date.now();
+							const { raw, parsed, parsingError } =
+								(await structuredModel.invoke(
+									finalMessages,
+									this.withSignal(config),
+								)) as { raw: AIMessage; parsed: T; parsingError?: Error };
+							this.recordUsage(agentNode, raw, startedAt);
+							// Without includeRaw this would have thrown out of `invoke`;
+							// rethrow so the retry and the prompt fallback below still see it.
+							if (parsingError) throw parsingError;
+							return parsed;
+						},
 						{
 							maxRetries: 3,
 							signal: this.signal,
@@ -339,8 +379,9 @@ export abstract class BaseAgentWrapper {
 				} catch (e) {
 					// Native structured output can fail outright (unsupported schema
 					// features, provider quirks). Fall through to the prompt-based
-					// fallback below rather than killing the run.
-					this.throwIfInterrupted();
+					// fallback below rather than killing the run. A budget failure is
+					// not a provider quirk, though — `checkRunLimits` rethrows it.
+					this.checkRunLimits();
 					logger.warn(
 						"[BaseAgentWrapper] Native structured output failed, using prompt fallback",
 						{
@@ -373,7 +414,15 @@ export abstract class BaseAgentWrapper {
 		}
 
 		return await withRetry(
-			() => originalModel.invoke(finalMessages, this.withSignal(config)),
+			async () => {
+				const startedAt = Date.now();
+				const response = await originalModel.invoke(
+					finalMessages,
+					this.withSignal(config),
+				);
+				this.recordUsage(agentNode, response, startedAt);
+				return response;
+			},
 			{
 				maxRetries: 3,
 				signal: this.signal,
@@ -402,12 +451,20 @@ export abstract class BaseAgentWrapper {
 			options.maxToolIterations ?? this.maxToolIterations ?? 8;
 
 		for (let i = 0; i < maxIterations; i++) {
-			this.throwIfInterrupted();
+			this.checkRunLimits();
 			compactToolHistory(finalMessages);
 			// Retried like every other model call — a single network timeout
 			// mid-loop used to kill the whole run.
 			const response = (await withRetry(
-				() => model.invoke(finalMessages, this.withSignal(config)),
+				async () => {
+					const startedAt = Date.now();
+					const message = await model.invoke(
+						finalMessages,
+						this.withSignal(config),
+					);
+					this.recordUsage(agentNode, message, startedAt);
+					return message;
+				},
 				{
 					maxRetries: 2,
 					signal: this.signal,
@@ -577,12 +634,14 @@ ${JSON.stringify(jsonSchema, null, 2)}`;
 				: model;
 
 		for (let attempt = 0; attempt < STRUCTURED_OUTPUT_ATTEMPTS; attempt++) {
-			this.throwIfInterrupted();
+			this.checkRunLimits();
 
 			let content = "";
 			let rawResponse: unknown;
 			try {
+				const startedAt = Date.now();
 				const response = await jsonModel.invoke(modifiedMessages, config);
+				this.recordUsage(agentNode, response, startedAt);
 				rawResponse = response;
 				content = cleanJsonOutput(extractText(response));
 

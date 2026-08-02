@@ -8,6 +8,7 @@ import { enqueueHarnessStart } from "../../../../harness/internal/enqueue";
 import { getConversationById, getProjectIntegration } from "../repository";
 import { isConversationLocked } from "../status";
 import { bumpListCacheVersion } from "../cacheVersion";
+import { assertRunQuota } from "./rateLimit";
 import type { SendMessageBody } from "./dto";
 
 /**
@@ -43,6 +44,10 @@ export default async function handleRequest(
 	body: SendMessageBody,
 	isSystemAdmin: boolean,
 ) {
+	// Before any of the checks below: they are all about *this* request being
+	// well-formed, and the quota is about how many the user has already sent.
+	await assertRunQuota(userId);
+
 	if (body.conversationId) {
 		const conversation = await getConversationById(body.conversationId);
 		if (!conversation || conversation.projectId !== projectId) {
