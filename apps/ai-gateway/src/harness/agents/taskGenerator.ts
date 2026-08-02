@@ -191,8 +191,10 @@ export class TaskGeneratorAgent extends BaseAgent {
 			},
 		});
 
+		// Volatile — kept out of the system prompt so the prefix stays cacheable
+		// (see `AgentInvokeOptions.context`).
 		const scratchPadText = this.state.scratchpad?.length
-			? `\n\n## Context / Scratch Pad from Previous Agents\nHere is information gathered from previous steps:\n${this.state.scratchpad.map((s) => `- ${s}`).join("\n")}`
+			? `## Context / Scratch Pad from Previous Agents\nHere is information gathered from previous steps:\n${this.state.scratchpad.map((s) => `- ${s}`).join("\n")}`
 			: "";
 
 		const systemPrompt = `You are the Expert Task Generator Agent for Fluxify — an Agentic Low Code Backend Development Platform.
@@ -213,8 +215,7 @@ ${SUB_AGENTS_TABLE}
 7. **Resource Identifiers**: The plan may contain \`:resource{type="..." identifier="..."}\` directives. You MUST extract the exact \`identifier\` value from these directives and explicitly include it in the task description for the assigned sub-agent so they know exactly which resource to operate on. Write the plain ID in the description — do NOT copy the directive syntax into task descriptions.
 8. **Consolidate Tasks**: Combine related tasks that are assigned to the SAME sub-agent to minimize redundant graph executions. For example, if the plan involves adding blocks and connecting blocks, combine them into a single comprehensive task for the Block Builder Agent.
 
-If there are no sub-agents available, output an empty task list.
-${scratchPadText}`;
+If there are no sub-agents available, output an empty task list.`;
 
 		// Provide the plan as the query to focus the LLM on breaking it down
 		const planText = this.state.plannerState?.markdownPlan
@@ -224,6 +225,7 @@ ${scratchPadText}`;
 		const response = (await this.state.agentWrapper.invokeAgent({
 			zodSchema: taskSchema,
 			systemPrompt,
+			context: scratchPadText,
 			messages: [], // We only pass the plan to keep it strictly focused
 			userQuery: planText,
 			agentNode: AgentNode.TASK_GENERATOR,

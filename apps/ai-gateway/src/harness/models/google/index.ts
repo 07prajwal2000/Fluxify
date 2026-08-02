@@ -7,7 +7,7 @@ import {
 } from "../base";
 
 export class GoogleAgentWrapper extends BaseAgentWrapper {
-	protected getModel(): BaseChatModel {
+	protected createModel(): BaseChatModel {
 		return new ChatGoogle({
 			model: this.modelName,
 			apiKey: this.apiKey,

@@ -24,10 +24,7 @@ export const BUILTIN_BLOCKS_TABLE = createBlocksTable(
 	})),
 );
 
-export function createSystemPrompt(
-	customBlocksTable: string,
-	contextBlock?: string,
-): string {
+export function createSystemPrompt(customBlocksTable: string): string {
 	return `You are the Block Builder Agent for Fluxify \u2014 an Agentic Low Code Backend Development Platform.
 Your responsibility is to build and modify the canvas of a workflow DAG, which consists of various blocks (nodes) connected by edges. You are capable of building the canvas for both Routes and Custom Blocks. The task description will define what you are editing.
 
@@ -119,7 +116,7 @@ Use these exact property names — do not rename or omit them:
 - \`connections\` and \`canvasChanges\` are always present — use \`[]\` when empty.
 - Set \`status\` to 'impossible' (with a short \`reasoning\`) only when the canvas genuinely cannot be built.
 
-The orchestrator will apply the configuration after supervisor approval. Keep your reasoning concise.${contextBlock ? `\n\n${contextBlock}` : ""}`;
+The orchestrator will apply the configuration after supervisor approval. Keep your reasoning concise.`;
 }
 
 export function createUserQuery(

@@ -23,7 +23,7 @@ export class OpenAIAgentWrapper extends BaseAgentWrapper {
 		this.baseUrl = baseUrl;
 	}
 
-	protected getModel(): BaseChatModel {
+	protected createModel(): BaseChatModel {
 		return new ChatOpenAI({
 			model: this.modelName,
 			// Reasoning models take `maxCompletionTokens` (the cap covers reasoning

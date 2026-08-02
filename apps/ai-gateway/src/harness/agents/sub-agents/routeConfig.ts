@@ -132,7 +132,7 @@ Fluxify uses a specific JSON format for schemas. DO NOT output standard JSON Sch
 6. **DO NOT generate a UUID for new routes.** Leave \`routeId\` empty/undefined when the action is \`create\`. The system will generate it.
 7. If the action is \`update-partial\` or \`delete\`, you MUST include the \`routeId\` extracted from the task context.
 8. Make sure to generate the schemas (\`bodySchema\`, \`querySchema\`, \`paramsSchema\`) exactly following the custom \`ValidationSchemaZod\` format above. 
-9. The orchestrator will use your exact structured output to apply the changes after human approval.${contextBlock ? `\n\n${contextBlock}` : ""}`;
+9. The orchestrator will use your exact structured output to apply the changes after human approval.`;
 
 		const userQuery = `Task Title: ${activeTask.title}
 Task Description: ${activeTask.description}
@@ -150,6 +150,7 @@ Determine the exact route configuration intent. Use your tools if you need more 
 		const response = (await this.state.agentWrapper.invokeAgent({
 			zodSchema: routeConfigSchema,
 			systemPrompt,
+			context: contextBlock,
 			tools,
 			messages: [],
 			userQuery: userQuery,

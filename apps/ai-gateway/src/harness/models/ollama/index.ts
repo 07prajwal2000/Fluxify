@@ -19,7 +19,7 @@ export class OllamaAgentWrapper extends BaseAgentWrapper {
 		this.baseUrl = baseUrl;
 	}
 
-	protected getModel(): BaseChatModel {
+	protected createModel(): BaseChatModel {
 		return new ChatOllama({
 			model: this.modelName,
 			baseUrl: this.baseUrl,

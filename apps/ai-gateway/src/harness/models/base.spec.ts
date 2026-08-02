@@ -16,6 +16,7 @@ import {
 	flattenToolMessages,
 } from "./toolLoop";
 import { OpenAIAgentWrapper } from "./openai";
+import { AnthropicAgentWrapper } from "./anthropic";
 import { describeFailure } from "../index";
 import { AgentNode } from "../types";
 import { blockBuilderSchema } from "../agents/sub-agents/blockBuilder/schemas";
@@ -24,7 +25,7 @@ const schema = z.object({ blocks: z.array(z.string()) });
 
 /** Exposes the protected fallback path and lets a test supply a canned response. */
 class TestWrapper extends BaseAgentWrapper {
-	protected getModel(): BaseChatModel {
+	protected createModel(): BaseChatModel {
 		throw new Error("not used");
 	}
 
@@ -201,6 +202,105 @@ describe("OpenAIAgentWrapper", () => {
 	});
 });
 
+describe("prompt caching", () => {
+	/** Records every message array sent, and how often the client was built. */
+	class CountingWrapper extends BaseAgentWrapper {
+		built = 0;
+		calls: BaseMessage[][] = [];
+
+		protected createModel(): BaseChatModel {
+			this.built++;
+			return {
+				invoke: async (messages: BaseMessage[]) => {
+					this.calls.push([...messages]);
+					return new AIMessage("ok");
+				},
+			} as unknown as BaseChatModel;
+		}
+
+		run(options: Parameters<BaseAgentWrapper["invokeAgent"]>[0]) {
+			return this.invokeAgent(options);
+		}
+	}
+
+	it("builds the chat client once per wrapper, not once per call", async () => {
+		const wrapper = new CountingWrapper("test-model");
+		await wrapper.run({ systemPrompt: "static", userQuery: "a" });
+		await wrapper.run({ systemPrompt: "static", userQuery: "b" });
+		expect(wrapper.built).toBe(1);
+	});
+
+	it("keeps volatile context out of the system prompt", async () => {
+		const wrapper = new CountingWrapper("test-model");
+		await wrapper.run({
+			systemPrompt: "you are the planner",
+			context: "## Current context\nroute abc",
+			userQuery: "build it",
+		});
+
+		const sent = wrapper.calls[0]!;
+		// The cached prefix: byte-identical whatever the run's context is.
+		expect(sent[0]!.getType()).toBe("system");
+		expect(sent[0]!.content).toBe("you are the planner");
+		// Context rides with the user's turn, ahead of the request itself.
+		expect(sent.at(-1)!.getType()).toBe("human");
+		expect(sent.at(-1)!.content).toBe(
+			"## Current context\nroute abc\n\nbuild it",
+		);
+	});
+
+	it("marks the Anthropic system block as a cache breakpoint", () => {
+		class Probe extends AnthropicAgentWrapper {
+			system(text: string) {
+				return this.buildSystemMessage(text);
+			}
+		}
+		const content = new Probe("claude-sonnet-4-5", "sk-test").system("prompt")
+			.content as Array<Record<string, any>>;
+
+		expect(content).toEqual([
+			{ type: "text", text: "prompt", cache_control: { type: "ephemeral" } },
+		]);
+	});
+
+	it("leaves the cacheable prefix untouched when history is compacted", () => {
+		// #148 flagged compaction and prefix caching as mutually exclusive. They
+		// are not: compaction only ever rewrites near the tail, so everything
+		// ahead of that point stays byte-identical and still hits the cache.
+		const history: BaseMessage[] = [
+			new SystemMessage("static prompt"),
+			new HumanMessage("build it"),
+		];
+		const addToolTurn = (name: string) => {
+			history.push(new AIMessage({ content: "", tool_calls: [] }));
+			history.push(
+				new ToolMessage({
+					tool_call_id: `call_${name}`,
+					name,
+					content: JSON.stringify(Array.from({ length: 30 }, (_, i) => ({ i }))),
+				}),
+			);
+		};
+
+		addToolTurn("a");
+		addToolTurn("b");
+		addToolTurn("c");
+		compactToolHistory(history);
+		const before = history.map((m) => JSON.stringify(m.content));
+
+		addToolTurn("d");
+		compactToolHistory(history);
+		const after = history.map((m) => JSON.stringify(m.content));
+
+		// The first message that changed — everything before it is a cache hit.
+		const diverged = after.findIndex((c, i) => c !== before[i]);
+		expect(diverged).toBeGreaterThan(0);
+		// It is the third-newest tool result, not the system prompt or the query.
+		expect(history.length - diverged).toBeLessThanOrEqual(5);
+		expect(history[0]!.content).toBe("static prompt");
+	});
+});
+
 describe("fallbackStructuredOutput schema conversion", () => {
 	it("produces a real JSON schema for the block builder schema, not an empty one", () => {
 		// zod-to-json-schema (v3) reads zod v3 `_def` internals and silently emits
@@ -274,7 +374,7 @@ describe("submit_result", () => {
 			super("test-model");
 		}
 
-		protected getModel(): BaseChatModel {
+		protected createModel(): BaseChatModel {
 			let i = 0;
 			const model: any = {
 				bindTools: (tools: StructuredTool[]) => {
@@ -357,7 +457,7 @@ describe("parallel tool calls", () => {
 			super("test-model");
 		}
 
-		protected getModel(): BaseChatModel {
+		protected createModel(): BaseChatModel {
 			let i = 0;
 			const model: any = {
 				bindTools: () => model,
