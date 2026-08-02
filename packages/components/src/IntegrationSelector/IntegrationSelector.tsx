@@ -18,25 +18,47 @@ import {
 } from "react";
 import type { ReactNode } from "react";
 import {
+	TbCloudCog,
 	TbDatabase,
 	TbExternalLink,
 	TbPlugConnected,
+	TbPlus,
 	TbRefresh,
 	TbSearch,
 	TbX,
-	TbPlus,
 } from "react-icons/tb";
 import { integrationIcons } from "./integrationIcons";
 import type {
 	Integration,
 	IntegrationSelectorProps,
 	LoadStatus,
+	ModalSize,
 	TestStatus,
 } from "./types";
 
 // ─── constants ────────────────────────────────────────────────────────────────
 
 const TEST_RESET_MS = 5_000;
+
+type HeroUIModalContainerSize = "cover" | "full" | "lg" | "md" | "sm" | "xs";
+
+const MODAL_SIZE_CONFIG: Record<
+	ModalSize,
+	{
+		container: HeroUIModalContainerSize;
+		dialog: string;
+		minHeight: string;
+		height: string;
+	}
+> = {
+	xs: { container: "xs", dialog: "max-w-xs", minHeight: "40vh", height: "45vh" },
+	sm: { container: "sm", dialog: "max-w-md", minHeight: "50vh", height: "55vh" },
+	md: { container: "md", dialog: "max-w-xl", minHeight: "60vh", height: "65vh" },
+	lg: { container: "lg", dialog: "max-w-4xl", minHeight: "68vh", height: "72vh" },
+	xl: { container: "lg", dialog: "max-w-5xl", minHeight: "72vh", height: "78vh" },
+	"2xl": { container: "full", dialog: "max-w-6xl", minHeight: "75vh", height: "82vh" },
+	full: { container: "full", dialog: "max-w-[95vw]", minHeight: "90vh", height: "92vh" },
+};
 
 // ─── sub-components ───────────────────────────────────────────────────────────
 
@@ -67,6 +89,8 @@ interface PickerModalProps {
 	selectedId: string;
 	onSelect: (id: string) => void;
 	createIntegrationUrl?: string;
+	modalSize?: ModalSize;
+	modalHeight?: string;
 }
 
 function PickerModal({
@@ -76,6 +100,8 @@ function PickerModal({
 	selectedId,
 	onSelect,
 	createIntegrationUrl,
+	modalSize = "lg",
+	modalHeight,
 }: PickerModalProps) {
 	const [search, setSearch] = useState("");
 
@@ -102,17 +128,33 @@ function PickerModal({
 
 	const hasIntegrations = integrations.length > 0;
 	const hasResults = filtered.length > 0;
+	const sizeConfig = MODAL_SIZE_CONFIG[modalSize] ?? MODAL_SIZE_CONFIG.lg;
 
 	return (
 		<Modal isOpen={isOpen} onOpenChange={(open) => !open && onClose()}>
 			<Modal.Backdrop>
-				<Modal.Container placement="center" size="lg">
-					{/* max-w-4xl for a wide, comfortable picker */}
-					<Modal.Dialog className="max-w-4xl w-full">
-						{/* ── Header — flex space-between, no border ────────────── */}
-						<Modal.Header className="px-5 py-3 pb-1">
+				<Modal.Container placement="center" size={sizeConfig.container}>
+					<Modal.Dialog
+						className={clsx(
+							"w-full flex flex-col max-h-[90vh]",
+							sizeConfig.dialog,
+						)}
+						style={{
+							minHeight: modalHeight ? undefined : sizeConfig.minHeight,
+							height: modalHeight || sizeConfig.height,
+						}}
+					>
+						{/* ── Header — title with sidebar integration icon ───────── */}
+						<Modal.Header className="px-5 py-3.5 pb-2 shrink-0 border-b border-border/50">
 							<div className="flex w-full items-center justify-between">
-								<h3 className="text-sm font-semibold text-foreground">Choose Integration</h3>
+								<div className="flex items-center gap-2.5">
+									<div className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-surface-secondary text-foreground">
+										<TbCloudCog className="size-4 text-foreground/80" />
+									</div>
+									<Modal.Heading className="text-sm font-semibold text-foreground">
+										Choose Integration
+									</Modal.Heading>
+								</div>
 								<Button
 									isIconOnly
 									variant="ghost"
@@ -125,22 +167,19 @@ function PickerModal({
 							</div>
 						</Modal.Header>
 
-						{/* ── Search — half-width HeroUI Input, no border ────── */}
-						<div className="px-4 py-2">
-							<TextField value={search} onChange={setSearch} className="w-1/2">
+						{/* ── Search — full-width HeroUI Input ─────────────────── */}
+						<div className="px-5 py-3 shrink-0">
+							<TextField value={search} onChange={setSearch} className="w-full">
 								<Label className="sr-only">Search integrations</Label>
 								<Input placeholder="Search by name, variant or group…" />
 							</TextField>
 						</div>
 
-						{/* ── Body: table or empty states ──────────────────────── */}
-						<Modal.Body
-							className="p-0 overflow-y-auto"
-							style={{ maxHeight: "calc(90vh - 220px)" }}
-						>
+						{/* ── Body: table or empty states (exact height container) ── */}
+						<Modal.Body className="p-0 flex-1 min-h-0 overflow-y-auto">
 							{!hasIntegrations ? (
 								/* No integrations exist at all */
-								<div className="flex flex-col items-center justify-center gap-5 px-8 py-16 text-center">
+								<div className="flex flex-col items-center justify-center gap-5 px-8 h-full text-center">
 									<span className="flex h-16 w-16 items-center justify-center rounded-full border border-border bg-surface-secondary text-muted-foreground">
 										<TbDatabase size={32} />
 									</span>
@@ -154,17 +193,21 @@ function PickerModal({
 										</p>
 									</div>
 									{createIntegrationUrl && (
-										<a href={createIntegrationUrl} target="_blank" rel="noreferrer">
-											<Button variant="primary" size="sm">
-												<TbPlus size={14} className="mr-1" />
-												Create Integration
-											</Button>
-										</a>
+										<Button
+											variant="primary"
+											size="sm"
+											onPress={() => {
+												window.open(createIntegrationUrl, "_blank", "noopener,noreferrer");
+											}}
+										>
+											<TbPlus size={14} className="mr-1" />
+											Create Integration
+										</Button>
 									)}
 								</div>
 							) : !hasResults ? (
 								/* Search produced no results */
-								<div className="flex flex-col items-center justify-center gap-2 px-8 py-14 text-center">
+								<div className="flex flex-col items-center justify-center gap-2 px-8 h-full text-center">
 									<TbSearch size={28} className="text-muted-foreground" />
 									<p className="text-sm text-muted-foreground">
 										No integrations match{" "}
@@ -175,7 +218,6 @@ function PickerModal({
 								/* ── Table — matches AppConfigTable pattern exactly ── */
 								<Table>
 									<Table.Content aria-label="Integrations">
-										{/* bg-surface-secondary matches the AppConfig table header bg */}
 										<Table.Header className="bg-surface-secondary">
 											<Table.Column id="icon" aria-label="Icon">{""}</Table.Column>
 											<Table.Column id="name" isRowHeader>Name</Table.Column>
@@ -250,7 +292,10 @@ export function IntegrationSelector({
 	onTestConnection,
 	openInNewTabUrl,
 	createIntegrationUrl,
+	group,
 	selectBtnLabel = "Choose",
+	modalSize = "lg",
+	modalHeight,
 	label,
 	description,
 	className,
@@ -258,6 +303,15 @@ export function IntegrationSelector({
 	const [integrations, setIntegrations] = useState<Integration[]>([]);
 	const [loadStatus, setLoadStatus] = useState<LoadStatus>("idle");
 	const [loadError, setLoadError] = useState<string | null>(null);
+
+	const resolvedCreateUrl = useMemo(() => {
+		if (!createIntegrationUrl) return undefined;
+		if (group && !createIntegrationUrl.includes("group=")) {
+			const separator = createIntegrationUrl.includes("?") ? "&" : "?";
+			return `${createIntegrationUrl}${separator}group=${encodeURIComponent(group)}`;
+		}
+		return createIntegrationUrl;
+	}, [createIntegrationUrl, group]);
 
 	const [testStatus, setTestStatus] = useState<TestStatus>("idle");
 	const testResetTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -322,7 +376,6 @@ export function IntegrationSelector({
 	}
 
 	// ── Icon-button shared class ───────────────────────────────────────────────
-	// Slightly larger padding (p-2) and icon (18px) compared to first version
 	const iconBtnBase =
 		"inline-flex shrink-0 items-center justify-center rounded-[var(--radius)] p-2 transition-colors";
 
@@ -418,16 +471,17 @@ export function IntegrationSelector({
 
 								{/* Open in new tab */}
 								{selectedIntegration && openInNewTabUrl && (
-									<a href={openInNewTabUrl} target="_blank" rel="noreferrer">
-										<Button
-											aria-label="Open Integration Settings"
-											size="sm"
-											variant="ghost"
-											className={iconBtnClass}
-										>
-											<TbExternalLink size={18} />
-										</Button>
-									</a>
+									<Button
+										aria-label="Open Integration Settings"
+										size="sm"
+										variant="ghost"
+										className={iconBtnClass}
+										onPress={() => {
+											window.open(openInNewTabUrl, "_blank", "noopener,noreferrer");
+										}}
+									>
+										<TbExternalLink size={18} />
+									</Button>
 								)}
 
 								{/* Clear */}
@@ -473,7 +527,9 @@ export function IntegrationSelector({
 					onSelect?.(id);
 					setTestStatus("idle");
 				}}
-				createIntegrationUrl={createIntegrationUrl}
+				createIntegrationUrl={resolvedCreateUrl}
+				modalSize={modalSize}
+				modalHeight={modalHeight}
 			/>
 		</>
 	);

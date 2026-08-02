@@ -29,13 +29,15 @@ export type JsTextFieldProps = {
 	label?: string;
 	placeholder?: string;
 	/** Shown under the field. */
-	description?: string;
+	description?: ReactNode;
 	isDisabled?: boolean;
 	fullWidth?: boolean;
 	variant?: "primary" | "secondary";
 	className?: string;
 	name?: string;
 	onBlur?: () => void;
+	/** If true, disables JavaScript expression mode and hides the JS toggle. */
+	disableJs?: boolean;
 };
 
 /**
@@ -56,6 +58,7 @@ export function JsTextField({
 	className,
 	name,
 	onBlur,
+	disableJs = false,
 }: JsTextFieldProps) {
 	const triggerRef = useRef<HTMLDivElement>(null);
 	const justClosedRef = useRef<boolean>(false);
@@ -63,7 +66,7 @@ export function JsTextField({
 	const [draft, setDraft] = useState("");
 	const popover = useMemo(() => popoverVariants(), []);
 
-	const isJs = isJsExpression(value);
+	const isJs = !disableJs && isJsExpression(value);
 	const title = label ? `${label} — JavaScript` : "JavaScript Expression";
 
 	const open = useCallback(
@@ -151,43 +154,45 @@ export function JsTextField({
 							placeholder={isJs ? "JavaScript expression" : placeholder}
 							readOnly={isJs}
 						/>
-						<InputGroup.Suffix className="shrink-0 gap-0.5 px-1.5">
-							{isJs ? (
-								<>
+						{!disableJs && (
+							<InputGroup.Suffix className="shrink-0 gap-0.5 px-1.5">
+								{isJs ? (
+									<>
+										<Button
+											aria-label="Clear expression"
+											isIconOnly
+											isDisabled={isDisabled}
+											size="sm"
+											variant="ghost"
+											onPress={clear}
+										>
+											<FiX />
+										</Button>
+										<Button
+											aria-label="Expand editor"
+											isIconOnly
+											isDisabled={isDisabled}
+											size="sm"
+											variant="ghost"
+											onPress={() => open("modal")}
+										>
+											<FiMaximize2 />
+										</Button>
+									</>
+								) : (
 									<Button
-										aria-label="Clear expression"
+										aria-label="Use a JavaScript expression"
 										isIconOnly
 										isDisabled={isDisabled}
 										size="sm"
 										variant="ghost"
-										onPress={clear}
+										onPress={() => open("popover")}
 									>
-										<FiX />
+										<SiJavascript />
 									</Button>
-									<Button
-										aria-label="Expand editor"
-										isIconOnly
-										isDisabled={isDisabled}
-										size="sm"
-										variant="ghost"
-										onPress={() => open("modal")}
-									>
-										<FiMaximize2 />
-									</Button>
-								</>
-							) : (
-								<Button
-									aria-label="Use a JavaScript expression"
-									isIconOnly
-									isDisabled={isDisabled}
-									size="sm"
-									variant="ghost"
-									onPress={() => open("popover")}
-								>
-									<SiJavascript />
-								</Button>
-							)}
-						</InputGroup.Suffix>
+								)}
+							</InputGroup.Suffix>
+						)}
 					</InputGroup>
 				</div>
 				{description && <Description>{description}</Description>}

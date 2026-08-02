@@ -19,6 +19,9 @@ export type LoadStatus = "idle" | "loading" | "success" | "error";
 /** Internal test-connection state per run. */
 export type TestStatus = "idle" | "testing" | "success" | "error";
 
+/** Modal size options */
+export type ModalSize = "xs" | "sm" | "md" | "lg" | "xl" | "2xl" | "full";
+
 export interface IntegrationSelectorProps {
 	/** Currently selected integration id. Pass empty string for none. */
 	selectedId: string;
@@ -47,8 +50,14 @@ export interface IntegrationSelectorProps {
 	 * empty-state view inside the picker modal.
 	 */
 	createIntegrationUrl?: string;
+	/** Integration group (e.g. 'observability', 'database') to filter or append as query param. */
+	group?: string;
 	/** Label text for the "Choose" button. Defaults to "Choose". */
 	selectBtnLabel?: string;
+	/** Modal size: "xs" | "sm" | "md" | "lg" | "xl" | "2xl" | "full". Defaults to "lg". */
+	modalSize?: ModalSize;
+	/** Custom exact modal height (e.g. "580px" or "70vh"). Overrides default height for the size. */
+	modalHeight?: string;
 	/** Field label rendered above the selector. */
 	label?: string | ReactNode;
 	/** Helper description rendered below the label. */

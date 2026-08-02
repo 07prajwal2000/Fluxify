@@ -2,12 +2,13 @@ import { createRoot } from "react-dom/client";
 import { RouterProvider, createRouter } from "@tanstack/react-router";
 import { QueryClientProvider } from "@tanstack/react-query";
 import "@fluxify/components/styles.css";
+import { BASE_PATH } from "./constants/routes";
 import { routeTree } from "./routeTree.gen";
 import { queryClient } from "./lib/query";
 
 const router = createRouter({
 	routeTree,
-	basepath: "/_/admin/ui",
+	basepath: BASE_PATH,
 	context: { queryClient },
 	defaultPreload: "intent",
 });
