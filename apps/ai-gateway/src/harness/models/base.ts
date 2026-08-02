@@ -388,29 +388,40 @@ export abstract class BaseAgentWrapper {
 			finalMessages.push(response);
 
 			if (response.tool_calls && response.tool_calls.length > 0) {
-				for (const tc of response.tool_calls) {
-					if (tc.name === SUBMIT_RESULT_TOOL && zodSchema) {
-						const parsed = zodSchema.safeParse(tc.args);
-						if (parsed.success)
-							return { done: true, value: parsed.data as T };
-						// Answer the call so the history stays valid (a tool_call with no
-						// result is rejected outright) and let the model correct itself
-						// on the next iteration.
-						finalMessages.push(
-							new ToolMessage({
+				// `submit_result` is the answer, not work — if it validates, nothing
+				// else the model asked for in this batch is worth running.
+				const submit = zodSchema
+					? response.tool_calls.find((tc) => tc.name === SUBMIT_RESULT_TOOL)
+					: undefined;
+				const submitParsed = submit && zodSchema?.safeParse(submit.args);
+				if (submitParsed?.success)
+					return { done: true, value: submitParsed.data as T };
+
+				// Models emit parallel tool calls precisely so they can run in
+				// parallel; running them in sequence costs the sum of the round
+				// trips instead of the max. Results are pushed in call order, not
+				// completion order — strict providers reject a batch whose
+				// ToolMessages don't line up with their tool_calls.
+				const results = await Promise.all(
+					response.tool_calls.map((tc) => {
+						if (submitParsed && !submitParsed.success && tc === submit) {
+							// Answer the call so the history stays valid (a tool_call with
+							// no result is rejected outright) and let the model correct
+							// itself on the next iteration.
+							return new ToolMessage({
 								tool_call_id: tc.id!,
 								name: tc.name,
-								content: `Rejected — the result did not match the required schema.\n\n${describeSchemaError(parsed.error)}\n\nCall ${SUBMIT_RESULT_TOOL} again with the corrected values.`,
-							}),
-						);
-						continue;
-					}
-					await this.executeToolCall(tc, tools, finalMessages, {
-						agent: agentNode,
-						agentId,
-						config,
-					});
-				}
+								content: `Rejected — the result did not match the required schema.\n\n${describeSchemaError(submitParsed.error)}\n\nCall ${SUBMIT_RESULT_TOOL} again with the corrected values.`,
+							});
+						}
+						return this.executeToolCall(tc, tools, {
+							agent: agentNode,
+							agentId,
+							config,
+						});
+					}),
+				);
+				finalMessages.push(...results);
 				continue;
 			}
 
@@ -436,62 +447,58 @@ export abstract class BaseAgentWrapper {
 		return { done: false };
 	}
 
-	/** Invokes a single tool call and pushes its result (or error) as a ToolMessage. */
+	/**
+	 * Invokes a single tool call and returns its result (or error) as a
+	 * ToolMessage. It returns rather than appending so a batch can run
+	 * concurrently and still be appended in call order.
+	 */
 	private async executeToolCall(
 		tc: NonNullable<AIMessage["tool_calls"]>[number],
 		tools: StructuredTool[],
-		finalMessages: BaseMessage[],
 		ctx: { agent?: string; agentId?: string; config?: RunnableConfig },
-	): Promise<void> {
+	): Promise<ToolMessage> {
 		const tool = tools.find((t) => t.name === tc.name);
 		const toolEvent = { agent: ctx.agent, agentId: ctx.agentId, tool: tc.name };
 		await this.emitToolEvent({ ...toolEvent, status: "started" });
 
 		if (!tool) {
-			finalMessages.push(
-				new ToolMessage({
-					tool_call_id: tc.id!,
-					content: `Tool ${tc.name} not found.`,
-					name: tc.name,
-				}),
-			);
 			await this.emitToolEvent({
 				...toolEvent,
 				status: "ended",
 				error: `tool ${tc.name} not found`,
 			});
-			return;
+			return new ToolMessage({
+				tool_call_id: tc.id!,
+				content: `Tool ${tc.name} not found.`,
+				name: tc.name,
+			});
 		}
 
 		try {
 			const toolResult = await tool.invoke(tc.args, this.withSignal(ctx.config));
-			finalMessages.push(
-				new ToolMessage({
-					tool_call_id: tc.id!,
-					content:
-						typeof toolResult === "string"
-							? toolResult
-							: JSON.stringify(toolResult),
-					name: tc.name,
-				}),
-			);
 			await this.emitToolEvent({
 				...toolEvent,
 				status: "ended",
 				summary: summarizeToolResult(toolResult),
 			});
+			return new ToolMessage({
+				tool_call_id: tc.id!,
+				content:
+					typeof toolResult === "string"
+						? toolResult
+						: JSON.stringify(toolResult),
+				name: tc.name,
+			});
 		} catch (e) {
-			finalMessages.push(
-				new ToolMessage({
-					tool_call_id: tc.id!,
-					content: `Error executing tool ${tc.name}: ${e}`,
-					name: tc.name,
-				}),
-			);
 			await this.emitToolEvent({
 				...toolEvent,
 				status: "ended",
 				error: e instanceof Error ? e.message : String(e),
+			});
+			return new ToolMessage({
+				tool_call_id: tc.id!,
+				content: `Error executing tool ${tc.name}: ${e}`,
+				name: tc.name,
 			});
 		}
 	}
