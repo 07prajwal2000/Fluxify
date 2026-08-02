@@ -4,6 +4,7 @@ import { BaseChatModel } from "@langchain/core/language_models/chat_models";
 import {
 	AIMessage,
 	HumanMessage,
+	SystemMessage,
 	ToolMessage,
 	type BaseMessage,
 } from "@langchain/core/messages";
@@ -33,7 +34,10 @@ class TestWrapper extends BaseAgentWrapper {
 	}
 
 	/** Replays `responses` one per attempt, recording what each attempt was sent. */
-	parseSequence(responses: (string | Record<string, any>)[]) {
+	parseSequence(
+		responses: (string | Record<string, any>)[],
+		history: BaseMessage[] = [],
+	) {
 		const seen: BaseMessage[][] = [];
 		let i = 0;
 		const model = {
@@ -43,7 +47,10 @@ class TestWrapper extends BaseAgentWrapper {
 				return typeof next === "string" ? { content: next } : next;
 			},
 		} as any;
-		return { result: this.fallbackStructuredOutput(model, [], schema), seen };
+		return {
+			result: this.fallbackStructuredOutput(model, history, schema),
+			seen,
+		};
 	}
 }
 
@@ -132,6 +139,25 @@ describe("fallbackStructuredOutput", () => {
 		expect(echoed.additional_kwargs.reasoning_content).toBe("I picked numbers");
 	});
 
+	it("puts the JSON contract in the last turn, not in the system prompt", async () => {
+		// Buried at the end of a long system prompt, the contract loses to the
+		// user's question — providers that ignore `response_format` answer in
+		// prose and attempt 1 is wasted. Attempt 2 only worked because the
+		// correction was the last thing the model read.
+		const { result, seen } = wrapper.parseSequence(
+			['{"blocks":[]}'],
+			[new SystemMessage("You are the router."), new HumanMessage("build a route")],
+		);
+		expect(await result).toEqual({ blocks: [] });
+
+		const sent = seen[0]!;
+		expect(sent.at(-1)!.getType()).toBe("human");
+		expect(sent.at(-1)!.content).toContain("JSON schema");
+		// The agent's own prompt is left exactly as the agent wrote it.
+		expect(sent[0]!.content).toBe("You are the router.");
+		expect(sent.at(-2)!.content).toBe("build a route");
+	});
+
 	it("gives up after the attempt budget with the last validation error", async () => {
 		const { result, seen } = wrapper.parseSequence(['{"blocks":[1]}']);
 		expect(result).rejects.toThrow(/after 3 attempts/);
@@ -198,6 +224,21 @@ describe("describeFailure", () => {
 		);
 		expect(msg).toContain("block builder");
 		expect(msg).toContain("required format");
+	});
+
+	it("tells prose-instead-of-JSON apart from running out of output space", () => {
+		// Both mention JSON but need opposite advice: one is the provider ignoring
+		// the JSON format, the other is a model that reasoned away its budget.
+		const prose = describeFailure(
+			new Error('JSON Parse error: Unexpected identifier "Fluxify"'),
+			AgentNode.ROUTER,
+		);
+		expect(prose).toContain("plain prose");
+		expect(prose).not.toContain("ran out of output space");
+
+		expect(
+			describeFailure(new Error("The model returned an empty response instead of the required JSON")),
+		).toContain("output budget on reasoning");
 	});
 
 	it("explains provider timeouts", () => {

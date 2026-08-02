@@ -508,28 +508,22 @@ export abstract class BaseAgentWrapper {
 		// this schema: {}" and guesses field names. zod v4 ships its own converter.
 		const jsonSchema = z.toJSONSchema(schema, { target: "draft-7", io: "output" });
 
-		const formatInstructions = `
-You must respond with ONLY a valid JSON object matching the following JSON schema. 
+		const formatInstructions = `You must respond with ONLY a valid JSON object matching the following JSON schema.
 Do not include any markdown formatting (like \`\`\`json) or <think> tags in your final JSON output.
+Do not explain your answer in prose — the JSON object IS the answer.
 Your output will be parsed directly by JSON.parse().
 
 Schema:
-${JSON.stringify(jsonSchema, null, 2)}
-`;
+${JSON.stringify(jsonSchema, null, 2)}`;
 
-		let modifiedMessages = [...messages];
-		const systemMessageIndex = modifiedMessages.findIndex(
-			(m) => m.type === "system",
-		);
-
-		if (systemMessageIndex >= 0) {
-			const existingSystem = modifiedMessages[systemMessageIndex].content;
-			modifiedMessages[systemMessageIndex] = new SystemMessage(
-				`${existingSystem}\n\n${formatInstructions}`,
-			);
-		} else {
-			modifiedMessages.unshift(new SystemMessage(formatInstructions));
-		}
+		// The contract goes in the LAST turn, not appended to the system prompt.
+		// Buried behind a long system prompt plus history, providers that ignore
+		// `response_format` (Poolside, some compatible servers) answer the user's
+		// question in prose and the first attempt is spent discovering that — the
+		// correction turn then works purely because it is the last thing read.
+		// A trailing human turn keeps the history provider-valid (see the
+		// `invalid_request_message_order` rules in AGENT.md).
+		let modifiedMessages = [...messages, new HumanMessage(formatInstructions)];
 
 		// Self-correcting loop: a blind retry just makes the model repeat the same
 		// mistake, so each attempt shows it what it got back and what was wrong.

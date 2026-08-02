@@ -26,6 +26,20 @@ export function isUserInterrupt(error: unknown): boolean {
 export function explainErrorReason(raw: string): string {
 	const lower = raw.toLowerCase();
 
+	// Order matters: the two cases below both mention JSON, but they call for
+	// completely different action, so they must be matched before the generic
+	// structured-output branch.
+	if (lower.includes("empty response")) {
+		return "the AI model returned nothing at all — it most likely spent its whole output budget on reasoning. Try a model with a larger output limit, or one that does not reason as heavily.";
+	}
+	if (
+		lower.includes("json parse error") ||
+		lower.includes("unexpected identifier") ||
+		lower.includes("unexpected token") ||
+		lower.includes("unexpected eof")
+	) {
+		return "the AI model replied in plain prose instead of JSON. Models behind an OpenAI-compatible endpoint often ignore the JSON output format — the harness re-asks and usually recovers, but a model with reliable JSON support will be faster.";
+	}
 	if (
 		lower.includes("structured output") ||
 		lower.includes("json") ||
