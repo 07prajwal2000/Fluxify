@@ -6,7 +6,6 @@ import type { HarnessService, HitlPlanAction } from "./internal/harnessService";
 export enum AgentNode {
 	ROUTER = "router",
 	CLASSIFIER = "classifier",
-	VERIFY_USER_QUERY = "verifyUserQuery",
 	PLANNER = "planner",
 	TASK_GENERATOR = "taskGenerator",
 	DISCUSSION = "discussion",
@@ -83,17 +82,16 @@ export interface Task {
 export interface RouterState {
 	intent?: "discussion" | "builder";
 	reason?: string;
+	/** Capability gate — false only when a build request cannot be delivered. */
+	capable?: boolean;
+	/** Why the build request was rejected. Set only when `capable` is false. */
+	rejectReason?: string;
 }
 
 export interface ClassifierState {
 	status?: boolean;
 	reasoning?: string;
 	data?: "discussion" | "builder";
-}
-
-export interface VerifyUserQueryState {
-	capable?: boolean;
-	rejectReason?: string;
 }
 
 export interface BuilderState {
@@ -216,10 +214,6 @@ export const GraphState = Annotation.Root({
 		default: () => ({}),
 	}),
 	classifierState: Annotation<ClassifierState>({
-		reducer: (oldState, newState) => ({ ...oldState, ...newState }),
-		default: () => ({}),
-	}),
-	verifyUserQueryState: Annotation<VerifyUserQueryState>({
 		reducer: (oldState, newState) => ({ ...oldState, ...newState }),
 		default: () => ({}),
 	}),

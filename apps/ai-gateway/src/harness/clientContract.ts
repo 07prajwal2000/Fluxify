@@ -33,7 +33,6 @@ export type {
 	AgentNodeName,
 	Task,
 	RouterState,
-	VerifyUserQueryState,
 	PlannerState,
 	DiscussionState,
 	SummarizerState,

@@ -37,8 +37,7 @@ The graph node the event is about. One of:
 
 | Value | Who |
 | --- | --- |
-| `router` | Decides discussion vs. build |
-| `verifyUserQuery` | Checks the request is buildable |
+| `router` | Decides discussion vs. build, and whether a build is possible |
 | `planner` | Writes the implementation plan |
 | `humanInTheLoop` | Parks the run for plan review |
 | `taskGenerator` | Splits the plan into tasks |
@@ -107,7 +106,7 @@ Never parse it. If you need to branch, branch on `currentNode`, `nodeStatus`,
 
 ### `runStatus`
 
-`queued` → `routing` → `verifying` → `planning` → `orchestrating` → `executing`
+`queued` → `routing` → `planning` → `orchestrating` → `executing`
 → one of `completed` | `failed` | `interrupted` | `awaiting_hitl`.
 
 Terminal values are exported as `TERMINAL_RUN_STATUSES`. `awaiting_hitl` is
@@ -182,8 +181,7 @@ produce data. It is a discriminated union on `payload.node`:
 
 | `payload.node` | `payload.data` |
 | --- | --- |
-| `router` | `{ intent, reason }` |
-| `verifyUserQuery` | `{ capable, rejectReason }` |
+| `router` | `{ intent, reason, capable, rejectReason }` |
 | `planner` | `{ markdownPlan, scratchpadNote, confidenceScore, implementationComplexity }` |
 | `discussion` | `{ markdown }` |
 | `taskGenerator` | `{ tasksByLevel }` |
@@ -305,8 +303,7 @@ run              ended     completed       All done                      → pay
 
 ```
 run              started   queued          Starting on your request
-router           started/…/ended
-verifyUserQuery  started/…/ended                                         → payload.verifyUserQuery
+router           started/…/ended                                         → payload.router
 planner          started   planning        Drafting an implementation plan
 planner     TOOL started   planning        Looking up project resources…
 planner     TOOL ended     planning        Looking up project resources — found 3 routes
@@ -319,15 +316,16 @@ run              ended     awaiting_hitl   Paused — the plan is waiting for yo
 ```
 
 The user then approves / requests changes / rejects, which starts a **new run
-pass** with its own `run started … run ended` bookends. On approve/review the
-graph enters past the router, so the second pass emits an extra run-level
-`running` event ("Resuming at the task generator") right after its bookend.
+pass** with its own `run started … run ended` bookends. On approve the graph
+enters past the router (a review re-enters at it), so the second pass emits an
+extra run-level `running` event ("Resuming at the task generator") right after
+its bookend.
 
 ### Build, executing tasks
 
 ```
 run              started   queued
-router / verifyUserQuery / planner …
+router / planner …
 taskGenerator    started   orchestrating   Breaking the plan into tasks
 taskGenerator    ended     orchestrating   Tasks ready                   → payload.taskGenerator
 orchestrator     started   orchestrating   Scheduling the next tasks

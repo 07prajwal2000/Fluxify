@@ -29,10 +29,10 @@ export type NodePayloadReducers = {
 };
 
 export const nodePayloadReducers: NodePayloadReducers = {
+	// The router is also the capability gate — a rejected build request carries
+	// its reason here and the run ends straight after.
 	router: (draft, data) => {
 		if (data.intent) draft.intent = data.intent;
-	},
-	verifyUserQuery: (draft, data) => {
 		if (data.capable !== undefined) draft.capable = data.capable;
 		if (data.rejectReason) draft.rejectReason = data.rejectReason;
 	},

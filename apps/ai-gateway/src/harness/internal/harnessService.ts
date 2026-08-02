@@ -12,6 +12,7 @@ import { eq, desc, and } from "drizzle-orm";
 import { logger } from "@fluxify/common";
 import { HumanMessage, AIMessage, type BaseMessage } from "@langchain/core/messages";
 import type { GlobalGraphState } from "../types";
+import { capHistory, truncateMiddle } from "./history";
 
 export type HitlPlanAction =
 	| { type: "approve" }
@@ -350,7 +351,9 @@ export class HarnessService {
 
 	/**
 	 * Fetches the message history for the conversation.
-	 * Fetches up to topN (default 5) most recent runs and returns them in chronological order.
+	 * Fetches up to topN (default 5) most recent runs and returns them in
+	 * chronological order, trimmed to {@link HISTORY_TOTAL_BUDGET} characters —
+	 * see `capHistory`.
 	 */
 	async getConversationMessageHistory(limit: number = 5): Promise<BaseMessage[]> {
 		try {
@@ -374,14 +377,14 @@ export class HarnessService {
 
 			for (const run of runs) {
 				if (run.userQuery) {
-					messages.push(new HumanMessage(run.userQuery));
+					messages.push(new HumanMessage(truncateMiddle(run.userQuery)));
 				}
 				if (run.aiResponse) {
-					messages.push(new AIMessage(run.aiResponse));
+					messages.push(new AIMessage(truncateMiddle(run.aiResponse)));
 				}
 			}
 
-			return messages;
+			return capHistory(messages);
 		} catch (error) {
 			logger.error("[HarnessService] Error fetching conversation message history", {
 				conversationId: this.conversationId,

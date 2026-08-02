@@ -3,7 +3,6 @@ import {
 	type AgentNodeName,
 	type Task,
 	type RouterState,
-	type VerifyUserQueryState,
 	type PlannerState,
 	type DiscussionState,
 	type SummarizerState,
@@ -45,7 +44,9 @@ export type HarnessNodeStatus = "started" | "running" | "ended";
 /** Whether the harness is inside agent reasoning or executing a tool. */
 export type HarnessExecutionType = "agent" | "tool";
 
-/** Mirrors agentHarnessRunStatusEnum in the DB schema. */
+/** Mirrors agentHarnessRunStatusEnum in the DB schema. Note `verifying` is no
+ *  longer produced — the router absorbed the capability check — but it stays in
+ *  the union (and the pg enum) so historical runs still read back. */
 export type HarnessRunStatus =
 	| "queued"
 	| "routing"
@@ -79,7 +80,6 @@ export interface HarnessTaskView {
  */
 export type HarnessNodePayload =
 	| { node: `${AgentNode.ROUTER}`; data: RouterState }
-	| { node: `${AgentNode.VERIFY_USER_QUERY}`; data: VerifyUserQueryState }
 	| { node: `${AgentNode.PLANNER}`; data: PlannerState }
 	| { node: `${AgentNode.DISCUSSION}`; data: DiscussionState }
 	| {
@@ -184,7 +184,6 @@ export function nodeIdFor(node: HarnessEventNode, taskId?: string): string {
 const NODE_LABELS: Record<string, string> = {
 	[AgentNode.ROUTER]: "request router",
 	[AgentNode.CLASSIFIER]: "request classifier",
-	[AgentNode.VERIFY_USER_QUERY]: "request verification",
 	[AgentNode.PLANNER]: "planner",
 	[AgentNode.TASK_GENERATOR]: "task generator",
 	[AgentNode.DISCUSSION]: "discussion agent",
@@ -217,10 +216,6 @@ const NODE_MESSAGES: Record<string, { started: string; ended: string }> = {
 	[AgentNode.CLASSIFIER]: {
 		started: "Classifying your request",
 		ended: "Request classified",
-	},
-	[AgentNode.VERIFY_USER_QUERY]: {
-		started: "Checking whether this can be built",
-		ended: "Capability check finished",
 	},
 	[AgentNode.PLANNER]: {
 		started: "Drafting an implementation plan",
@@ -304,8 +299,6 @@ export function runStatusForNode(node: HarnessEventNode): HarnessRunStatus {
 	switch (node) {
 		case AgentNode.ROUTER:
 			return "routing";
-		case AgentNode.VERIFY_USER_QUERY:
-			return "verifying";
 		case AgentNode.PLANNER:
 		case AgentNode.DISCUSSION:
 			return "planning";
