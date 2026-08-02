@@ -319,18 +319,17 @@ export class FluxifyHarness {
 			);
 			await harnessService.updateConversationStatus("running", ctx.runId);
 
-			// A HITL `approve`/`review` resume enters the graph past the router (and
-			// past verify, for `approve`) — see graph.ts's conditional START edge. The
-			// WS client's first signal that the run is moving would otherwise be
-			// whatever node it happens to land on, which is easy to lose (a single
-			// event racing the client's resubscribe right after it submitted the
-			// review). Emit an explicit status event for the actual entry node right
-			// away so the UI can't miss the resume.
+			// An `approve` resume enters the graph past the router — see graph.ts's
+			// conditional START edge. The WS client's first signal that the run is
+			// moving would otherwise be whatever node it happens to land on, which is
+			// easy to lose (a single event racing the client's resubscribe right after
+			// it submitted the review). Emit an explicit status event for the actual
+			// entry node right away so the UI can't miss the resume.
 			if (state.action?.type === "approve" || state.action?.type === "review") {
 				const entryNode =
 					state.action.type === "approve"
 						? AgentNode.TASK_GENERATOR
-						: AgentNode.VERIFY_USER_QUERY;
+						: AgentNode.ROUTER;
 				await this.emitRunEvent(
 					ctx,
 					userId,
@@ -471,6 +470,9 @@ export class FluxifyHarness {
 			finalState?.summarizerState?.markdown ??
 			finalState?.discussionState?.markdown ??
 			finalState?.plannerState?.markdownPlan ??
+			// The router rejected the request as unbuildable. Without this the run
+			// completes with no message at all and the user never learns why.
+			finalState?.routerState?.rejectReason ??
 			null;
 
 		await harnessService.updateRun({

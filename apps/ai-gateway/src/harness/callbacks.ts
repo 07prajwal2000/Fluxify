@@ -146,11 +146,6 @@ export class HarnessCallbacks {
 		switch (node) {
 			case AgentNode.ROUTER:
 				return { node: AgentNode.ROUTER, data: output.routerState ?? {} };
-			case AgentNode.VERIFY_USER_QUERY:
-				return {
-					node: AgentNode.VERIFY_USER_QUERY,
-					data: output.verifyUserQueryState ?? {},
-				};
 			case AgentNode.PLANNER:
 				return { node: AgentNode.PLANNER, data: output.plannerState ?? {} };
 			case AgentNode.DISCUSSION:

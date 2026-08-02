@@ -3,7 +3,6 @@ import { GraphState, type GlobalGraphState, AgentNode } from "./types";
 import {
 	RouterAgent,
 	DiscussionAgent,
-	VerifyUserQueryAgent,
 	PlannerAgent,
 	OrchestratorAgent,
 	HumanInTheLoopAgent,
@@ -17,10 +16,6 @@ import {
 const workflow = new StateGraph(GraphState)
 	.addNode(AgentNode.ROUTER, async (state: GlobalGraphState) => {
 		const agent = new RouterAgent(state);
-		return await agent.execute();
-	})
-	.addNode(AgentNode.VERIFY_USER_QUERY, async (state: GlobalGraphState) => {
-		const agent = new VerifyUserQueryAgent(state);
 		return await agent.execute();
 	})
 	.addNode(AgentNode.DISCUSSION, async (state: GlobalGraphState) => {
@@ -60,37 +55,28 @@ const workflow = new StateGraph(GraphState)
 		return await agent.execute();
 	})
 	// A HITL resume skips the parts of the cycle the decision already settled:
-	// `approve` needs no re-planning or re-verification — it goes straight to
-	// breaking the (already-approved) plan into tasks. `review` only needs a
-	// fresh capability check against the revised ask before planning again.
-	// `reject` never reaches here — the harness short-circuits it before
-	// invoking the graph at all (see FluxifyHarness.continue).
+	// `approve` needs no re-planning or re-routing — it goes straight to
+	// breaking the (already-approved) plan into tasks. `review` re-enters at the
+	// router, which re-classifies and re-checks capability against the revised
+	// ask before planning again. `reject` never reaches here — the harness
+	// short-circuits it before invoking the graph at all (see
+	// FluxifyHarness.continue).
 	.addConditionalEdges(START, (state: GlobalGraphState) => {
 		if (state.action?.type === "approve") {
 			return AgentNode.TASK_GENERATOR;
 		}
-		if (state.action?.type === "review") {
-			return AgentNode.VERIFY_USER_QUERY;
-		}
 		return AgentNode.ROUTER;
 	})
+	// The router is also the capability gate: an unbuildable request leaves
+	// `nextRoute` unset and ends the run with `routerState.rejectReason`.
 	.addConditionalEdges(AgentNode.ROUTER, (state: GlobalGraphState) => {
-		if (state.nextRoute === AgentNode.VERIFY_USER_QUERY) {
-			return AgentNode.VERIFY_USER_QUERY;
+		if (state.nextRoute === AgentNode.PLANNER) {
+			return AgentNode.PLANNER;
 		} else if (state.nextRoute === AgentNode.DISCUSSION) {
 			return AgentNode.DISCUSSION;
 		}
 		return END;
 	})
-	.addConditionalEdges(
-		AgentNode.VERIFY_USER_QUERY,
-		(state: GlobalGraphState) => {
-			if (state.nextRoute === AgentNode.PLANNER) {
-				return AgentNode.PLANNER;
-			}
-			return END;
-		},
-	)
 	.addConditionalEdges(AgentNode.PLANNER, (state: GlobalGraphState) => {
 		if (state.nextRoute === AgentNode.HUMAN_IN_THE_LOOP) {
 			return AgentNode.HUMAN_IN_THE_LOOP;
