@@ -76,7 +76,11 @@ export interface Task {
 	dependsOnAgentId: string[];
 	status: "pending" | "running" | "completed" | "failed";
 	assignedAgentNode: AgentNodeName;
+	/** The supervisor's rejection reason, fed back to the sub-agent on its retry. */
 	supervisorReviews?: string;
+	/** Rejected rounds so far. The task is re-queued with the feedback above
+	 *  until this reaches MAX_TASK_ATTEMPTS, then it fails terminally. */
+	attempts?: number;
 }
 
 export interface RouterState {

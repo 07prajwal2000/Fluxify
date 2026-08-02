@@ -30,14 +30,36 @@ export class OrchestratorAgent extends BaseAgent {
 		// and dispatching overlapping levels concurrently. Deriving the next level
 		// makes those concurrent runs produce the identical result instead.
 		const byId = new Map(tasks.map((task) => [task.id, task]));
-		const isSettled = (task?: Task) =>
-			task ? task.status === "completed" || task.status === "failed" : true;
+
+		// A failed dependency is not a satisfied one. Dispatching its dependents
+		// anyway produced work referencing a route that was never configured — and
+		// the run still finalized as `completed`. They fail with it instead,
+		// transitively, since a chain can be several levels deep. An unknown
+		// dependency id can't fail and can't block: the task generator already
+		// strips those, so anything left is treated as satisfied rather than
+		// stalling the build forever.
+		for (let changed = true; changed; ) {
+			changed = false;
+			for (const task of tasks) {
+				if (task.status !== "pending") continue;
+				const failedDep = (task.dependsOnAgentId ?? []).find(
+					(depId) => byId.get(depId)?.status === "failed",
+				);
+				if (!failedDep) continue;
+				task.status = "failed";
+				task.supervisorReviews = `Skipped — it depends on task ${failedDep}, which failed.`;
+				changed = true;
+			}
+		}
+
+		const isSatisfied = (task?: Task) =>
+			task ? task.status === "completed" : true;
 
 		const readyTasks = tasks.filter(
 			(task) =>
 				task.status === "pending" &&
 				(task.dependsOnAgentId ?? []).every((depId) =>
-					isSettled(byId.get(depId)),
+					isSatisfied(byId.get(depId)),
 				),
 		);
 

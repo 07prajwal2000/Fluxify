@@ -136,7 +136,7 @@ Fluxify uses a specific JSON format for schemas. DO NOT output standard JSON Sch
 
 		const userQuery = `Task Title: ${activeTask.title}
 Task Description: ${activeTask.description}
-
+${activeTask.supervisorReviews ? `\nYour previous attempt was rejected. Fix this:\n${activeTask.supervisorReviews}\n` : ""}
 Determine the exact route configuration intent. Use your tools if you need more context before generating the configuration schema.`;
 
 		const tools = [

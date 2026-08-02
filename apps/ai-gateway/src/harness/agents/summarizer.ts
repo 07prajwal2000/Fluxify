@@ -62,6 +62,10 @@ export class SummarizerAgent extends BaseAgent {
 			let newRouteSubArtifactId: string | undefined;
 
 			for (const task of tasks) {
+				// A failed task's last (rejected) output is still sitting in
+				// subAgentResults — persisting it would show the user a chip for work
+				// that was never applied.
+				if (task.status === "failed") continue;
 				const result = (results as Record<string, any>)[task.id];
 				if (!result) continue;
 
@@ -131,6 +135,16 @@ export class SummarizerAgent extends BaseAgent {
 					.join("\n\n")
 			: "No structured changes were produced by the build agents.";
 
+		const failedTasks = tasks.filter((t) => t.status === "failed");
+		const failedText = failedTasks.length
+			? failedTasks
+					.map(
+						(t) =>
+							`- "${t.title}" — ${t.supervisorReviews ?? "the agent produced no usable result"}`,
+					)
+					.join("\n")
+			: "None.";
+
 		const hintsText = scratchpad.length
 			? scratchpad.map((s) => `- ${s}`).join("\n")
 			: "None.";
@@ -169,6 +183,7 @@ Tokens are markdown directives: a leading colon, the token name, then attributes
 
 # STRUCTURE & STYLE
 - Lead with a one-line overview of what the run accomplished (no token on this line).
+- If the "Parts that did NOT get done" section is not "None.", say so plainly right after the overview — name what was not completed, in the user's language, and never describe it as done or imply it exists. Do not emit a token for it.
 - Then one line per change, each ending with its exact reference token (section A).
 - Put required user actions in markdown blockquotes (\`> ...\`), with any creation chips (section B) inline inside them.
 - Be concise and to the point: what changed + what the user must do. NO preamble, NO restating these instructions, NO internal implementation details (no block ids, schemas, agent names, or internal reasoning).
@@ -183,6 +198,9 @@ Created a new endpoint to fetch task items and wired up its logic.
 
 # Changes (each has an EXACT token to place at end of its line)
 ${changesTable}
+
+# Parts that did NOT get done
+${failedText}
 
 # Hints / required user actions (from the build agents)
 ${hintsText}`;

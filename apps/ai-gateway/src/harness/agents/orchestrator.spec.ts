@@ -49,6 +49,24 @@ describe("OrchestratorAgent", () => {
 		expect((await dispatch([a, b])).map((t) => t.id)).toEqual(["b"]);
 	});
 
+	it("fails dependents of a failed task instead of dispatching them", async () => {
+		const a = task("a");
+		a.status = "failed";
+		const b = task("b", ["a"]);
+		const c = task("c", ["b"]); // transitive
+
+		expect(await dispatch([a, b, c])).toEqual([]);
+		expect([b.status, c.status]).toEqual(["failed", "failed"]);
+		expect(b.supervisorReviews).toContain("a");
+	});
+
+	it("still dispatches siblings of a failed task", async () => {
+		const a = task("a");
+		a.status = "failed";
+		const dispatched = await dispatch([a, task("b", ["a"]), task("c")]);
+		expect(dispatched.map((t) => t.id)).toEqual(["c"]);
+	});
+
 	it("ends the run when nothing is left to dispatch", async () => {
 		const done = task("a");
 		done.status = "completed";
