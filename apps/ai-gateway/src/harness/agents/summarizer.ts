@@ -1,6 +1,7 @@
 import { BaseAgent } from "./base";
 import { type GlobalGraphState, AgentNode } from "../types";
 import { dispatchAgentEvent } from "../callbacks";
+import { enforceTokenAllowlist } from "./summarizerTokens";
 
 /** A single change the harness made, with its verbatim special-syntax token. */
 interface ChangeRef {
@@ -218,10 +219,13 @@ ${hintsText}`;
 		let markdown =
 			typeof response === "string" ? response : response?.content || "";
 		if (typeof markdown === "string") {
-			markdown = markdown
-				.replace(/^```(?:markdown)?\s*\n?/i, "")
-				.replace(/\n?```$/i, "")
-				.trim();
+			markdown = enforceTokenAllowlist(
+				markdown
+					.replace(/^```(?:markdown)?\s*\n?/i, "")
+					.replace(/\n?```$/i, "")
+					.trim(),
+				changes.map((c) => c.token),
+			);
 		}
 
 		await dispatchAgentEvent({

@@ -20,6 +20,7 @@ import { AnthropicAgentWrapper } from "./anthropic";
 import { RunBudget, RunBudgetExceededError } from "./budget";
 import { withRetry } from "../../lib/retry";
 import { describeFailure } from "../index";
+import { UNTRUSTED_DATA_RULE } from "../internal/untrusted";
 import { AgentNode } from "../types";
 import { blockBuilderSchema } from "../agents/sub-agents/blockBuilder/schemas";
 
@@ -241,9 +242,12 @@ describe("prompt caching", () => {
 		});
 
 		const sent = wrapper.calls[0]!;
-		// The cached prefix: byte-identical whatever the run's context is.
+		// The cached prefix: byte-identical whatever the run's context is. The
+		// untrusted-content rule is part of it precisely because it never varies.
 		expect(sent[0]!.getType()).toBe("system");
-		expect(sent[0]!.content).toBe("you are the planner");
+		expect(sent[0]!.content).toBe(
+			`you are the planner\n\n${UNTRUSTED_DATA_RULE}`,
+		);
 		// Context rides with the user's turn, ahead of the request itself.
 		expect(sent.at(-1)!.getType()).toBe("human");
 		expect(sent.at(-1)!.content).toBe(
@@ -432,8 +436,13 @@ describe("describeFailure", () => {
 		expect(msg).toContain("took too long");
 	});
 
-	it("reads a message out of non-Error rejections", () => {
-		expect(describeFailure({ code: "ETIMEDOUT" })).toContain("ETIMEDOUT");
+	it("categorizes non-Error rejections without echoing them back", () => {
+		// `{ code: 23 }`-shaped rejections still have to reach the right branch,
+		// but the provider's own words never reach the user — they carry fragments
+		// of the failing request, which here means prompt content.
+		const msg = describeFailure({ code: "ETIMEDOUT" });
+		expect(msg).toContain("took too long");
+		expect(msg).not.toContain("ETIMEDOUT");
 	});
 
 	it("falls back to a generic explanation", () => {

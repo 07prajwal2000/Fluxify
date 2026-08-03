@@ -1,5 +1,6 @@
 import { logger } from "@fluxify/common";
 import type { DbService } from "./dbService";
+import { fenceUntrusted } from "./untrusted";
 import type { HarnessJobMetadata } from "../queue";
 
 /** One line per block: id, type, and outgoing connections only — never the
@@ -43,8 +44,11 @@ export async function buildContextBlock(
 			if (!route) return undefined;
 
 			return `## Current context
-The user is currently viewing route \`${location.id}\` (${route.method} ${route.path}, "${route.name}").
-Its canvas has ${summarizeCanvas(canvas ?? [])}.
+${fenceUntrusted(
+	"current_context",
+	`The user is currently viewing route \`${location.id}\` (${route.method} ${route.path}, "${route.name}").
+Its canvas has ${summarizeCanvas(canvas ?? [])}.`,
+)}
 Treat this as the target unless the request names another resource.
 Do NOT call find_resource to look this up — you already have it.`;
 		}
@@ -57,8 +61,11 @@ Do NOT call find_resource to look this up — you already have it.`;
 			if (!canvas) return undefined;
 
 			return `## Current context
-The user is currently viewing custom block \`${location.id}\`.
-Its canvas has ${summarizeCanvas(canvas)}.
+${fenceUntrusted(
+	"current_context",
+	`The user is currently viewing custom block \`${location.id}\`.
+Its canvas has ${summarizeCanvas(canvas)}.`,
+)}
 Treat this as the target unless the request names another resource.
 Do NOT call find_resource to look this up — you already have it.`;
 		}

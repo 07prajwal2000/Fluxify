@@ -8,6 +8,7 @@ import { createGetRouteDetailsTool } from "../../../tools/getRouteDetails";
 import { createFindResourceTool } from "../../../tools/findResource";
 import { createGetBlockSchemasTool } from "../../../tools/getBlockSchemas";
 import { createGetAgentOutputTool } from "../../../tools/getAgentOutput";
+import { fenceUntrusted } from "../../../internal/untrusted";
 import { blockBuilderSchema } from "./schemas";
 import {
 	createBlocksTable,
@@ -45,25 +46,30 @@ export class BlockBuilderAgent extends BaseAgent {
 		const customBlocks =
 			await this.state.internal.dbService.getAllCustomBlocks(projectId);
 
-		return customBlocks.length > 0
-			? createBlocksTable(
-					customBlocks.map(
-						({
-							name,
-							label,
-							description,
-						}: {
-							name: string;
-							label: string;
-							description: string;
-						}) => ({
-							type: `custom:${name}`,
-							name: label,
-							description,
-						}),
-					),
-				)
-			: "No custom blocks available.";
+		if (customBlocks.length === 0) return "No custom blocks available.";
+
+		const table = createBlocksTable(
+			customBlocks.map(
+				({
+					name,
+					label,
+					description,
+				}: {
+					name: string;
+					label: string;
+					description: string;
+				}) => ({
+					type: `custom:${name}`,
+					name: label,
+					description,
+				}),
+			),
+		);
+
+		// Names, labels and descriptions authored by whoever built the custom
+		// block — untrusted, and this one lands in the system prompt rather than
+		// in a tool result, so it needs the fence more than most.
+		return fenceUntrusted("custom_blocks", table);
 	}
 
 	async execute(): Promise<Partial<GlobalGraphState>> {

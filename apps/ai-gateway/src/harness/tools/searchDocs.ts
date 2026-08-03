@@ -1,4 +1,4 @@
-import { tool } from "@langchain/core/tools";
+import { fencedTool } from "./fenced";
 import { z } from "zod";
 import { logger } from "@fluxify/common";
 import { queryDocs } from "../../db/vector";
@@ -16,7 +16,7 @@ async function performDocsSearch(
 	}
 }
 
-export const searchDocsTool = tool(
+export const searchDocsTool = fencedTool(
 	async ({ searchQuery }) => {
 		logger.info(`[Tools] Searching docs for: ${searchQuery}`);
 		return await performDocsSearch(searchQuery);

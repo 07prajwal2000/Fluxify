@@ -1,4 +1,4 @@
-import { tool } from "@langchain/core/tools";
+import { fencedTool } from "./fenced";
 import { z } from "zod";
 import { logger } from "@fluxify/common";
 import type { WorkflowMetadata } from "../types";
@@ -23,7 +23,7 @@ export const createFindResourceTool = (
 	dbService: DbService,
 	metadata: WorkflowMetadata,
 ) => {
-	return tool(
+	return fencedTool(
 		async ({ searchQuery, resourceType, metadata: toolMetadata }) => {
 			// Normalize to a keyword array; canvas/ID lookups use the first value.
 			const keywords = Array.isArray(searchQuery) ? searchQuery : [searchQuery];

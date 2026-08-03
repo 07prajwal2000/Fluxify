@@ -125,5 +125,28 @@ export function describeFailure(error: unknown, node?: AgentNodeName): string {
 	const where = labelForNode(node);
 	const reason = explainErrorReason(raw);
 
-	return `This request could not be completed — it failed at the **${where}** step because ${reason}\n\nDetails: ${raw.slice(0, 500)}`;
+	// The raw provider message used to be appended here. Provider SDKs echo
+	// fragments of the failing request back in their errors — which for this
+	// system means prompt content: route paths, block configuration, whatever
+	// the user asked about. Redaction can't reliably tell that apart from the
+	// diagnosis, so it stays out of the user-facing text entirely. It is
+	// recorded in full on the run's trace span and in the logs.
+	return `This request could not be completed — it failed at the **${where}** step because ${reason}`;
+}
+
+/**
+ * Strips credential-shaped strings from text that IS shown to the user.
+ * Only used where the provider's own words are worth surfacing (the
+ * pre-run connection probe, whose request body is the word "ping" and so
+ * carries no prompt content) — never as a substitute for not showing it.
+ */
+export function redactSecrets(text: string): string {
+	return text
+		.replace(/\b(?:sk|rk|pk)-[A-Za-z0-9_-]{8,}/gi, "[redacted]")
+		.replace(/\bAIza[0-9A-Za-z_-]{20,}/g, "[redacted]")
+		.replace(/\bBearer\s+[A-Za-z0-9._-]{8,}/gi, "Bearer [redacted]")
+		.replace(
+			/\b(api[-_]?key|authorization|token)("?\s*[:=]\s*"?)[A-Za-z0-9._-]{8,}/gi,
+			"$1$2[redacted]",
+		);
 }
