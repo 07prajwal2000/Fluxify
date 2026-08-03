@@ -125,6 +125,7 @@ export interface RouteConfigAgentResult {
 	action: "create" | "delete" | "update-partial";
 	routeId?: string;
 	data?: {
+		name?: string;
 		method?: string;
 		path?: string;
 		bodySchema?: any;

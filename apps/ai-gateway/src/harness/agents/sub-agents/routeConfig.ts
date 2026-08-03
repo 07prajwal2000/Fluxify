@@ -16,6 +16,12 @@ const routeConfigSchema = z.object({
 		.describe("The UUID of the route. Leave empty for create action."),
 	data: z
 		.object({
+			name: z
+				.string()
+				.nullish()
+				.describe(
+					"Short human-readable name for the route, e.g. 'Create Order'. Required when creating.",
+				),
 			method: z.string().nullish(),
 			path: z.string().nullish(),
 			bodySchema: z.any().nullish(),
@@ -128,7 +134,9 @@ Fluxify uses a specific JSON format for schemas. DO NOT output standard JSON Sch
 2. If you need to search for documentation about Javascript APIs, Scripting, or other Fluxify concepts, use the \`search_docs\` tool provided to you.
 3. If you need to know the details of an existing route configuration to perform an update or deletion, use the \`get_route_details\` tool provided to you — unless the "Current context" block below already describes that exact route.
 4. Determine if the action is \`create\`, \`delete\`, or \`update-partial\`.
-5. If creating or updating a route, define the \`method\`, \`path\`, and relevant schemas in the \`data\` object.
+5. If creating or updating a route, define the \`name\`, \`method\`, \`path\`, and relevant schemas in the \`data\` object.
+   - \`name\` is REQUIRED for \`create\`. It is the label the user sees in the routes list, so write it in Title Case describing the operation — "Create Order", "List Users", "Delete Product By Id". Never leave it empty, never emit the path as the name.
+   - For \`update-partial\`, only include \`name\` if the task actually asks to rename the route.
 6. **DO NOT generate a UUID for new routes.** Leave \`routeId\` empty/undefined when the action is \`create\`. The system will generate it.
 7. If the action is \`update-partial\` or \`delete\`, you MUST include the \`routeId\` extracted from the task context.
 8. Make sure to generate the schemas (\`bodySchema\`, \`querySchema\`, \`paramsSchema\`) exactly following the custom \`ValidationSchemaZod\` format above. 
@@ -209,6 +217,13 @@ export const validateAgentOutput: import("../../types").AgentOutputValidator = (
 
 	if (typedResult.action !== "delete" && !typedResult.data) {
 		return `Action '${typedResult.action}' requires a 'data' object with configuration details.`;
+	}
+
+	// The routes list shows `name`, not the path. A create that omits it lands a
+	// nameless row the user has to go and fix by hand, so bounce it back here
+	// rather than let the supervisor pass it.
+	if (typedResult.action === "create" && !typedResult.data?.name?.trim()) {
+		return "Action 'create' requires a non-empty 'data.name' — a short Title Case label for the route, e.g. 'Create Order'.";
 	}
 
 	return null; // Valid
