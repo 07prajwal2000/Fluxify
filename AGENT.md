@@ -145,6 +145,23 @@ Also: native `withStructuredOutput` failures are caught and fall through to the 
 2. **Hide Save Button in Readonly Mode:** The header Save button must be conditionally rendered (`{!readOnly && <Button ...>Save</Button>}`) so no save trigger is accessible in read-only mode.
 3. **Keep Elements Selectable:** Set `elementsSelectable={true}` on `<ReactFlow>` so users can still select nodes and open side panels to inspect block configurations in read-only mode, while keeping `nodesDraggable={!readOnly}`, `nodesConnectable={!readOnly}`, and `deleteKeyCode={null}` disabled.
 
+### Resolving a Merge Conflict in the GitHub Web Editor Ships Broken Code
+**Issue:** `main` broke after two PRs that touched the same function were merged — `find_resource` threw `ReferenceError: searchBy is not defined` on every call, for every agent holding the tool. CI reported only a failing lint job.
+**Cause:** The conflict was resolved in GitHub's web editor. That path runs **no** local hooks, so the pre-commit chain (lint → FTA analyze → selective tests) never executed. The resolution kept both sides' *bodies* — one PR's wrapper, the other's new logic — but dropped an identifier from the destructuring pattern the second PR had added. Nothing on the server catches a free identifier.
+**Fix & Best Practices:**
+1. **Never resolve a conflict in the GitHub web editor when both sides touched the same function.** Pull the branch, resolve locally, let the pre-commit hook run, then push.
+2. After any merge you resolved by hand, run `bun run --cwd apps/<app> lint` (`tsgo --noEmit`) on `main` before assuming it is green. A failing lint job may be hiding a runtime break, not a style nit.
+3. When two PRs edit one function, expect the conflict to land on the *signature*: verify every parameter each side added still exists in the merged destructuring/argument list.
+
+### Drizzle `sql` Template — Interpolation Is Parameterized, `sql.raw()` Is Not
+**Issue:** Reviewing whether user/LLM-supplied search terms in `harness/internal/dbService.ts` could be injected.
+**Cause/behaviour (verified in `node_modules`, not assumed):** In the `sql` tagged template, literal pieces become `StringChunk`s and every **interpolated value** falls through to `escapeParam(idx, chunk)` → a `$1`-style bound parameter. A `Column` interpolates as an escaped identifier. `sql.raw()` is the **only** path that concatenates text into the query.
+**Rules:**
+1. `sql\`${column} = ${userValue}\`` is safe — never hand-quote or hand-escape the value, that only creates a double-escaping bug.
+2. Treat any `sql.raw()` on a request-derived string as an injection finding.
+3. Two things parameterization does **not** cover: values that are *syntax* for another parser (a `to_tsquery` string is bound safely but can still be a malformed tsquery → a runtime error), and `ilike(col, \`%${k}%\`)`, where user `%`/`_` act as LIKE wildcards. Bound ≠ harmless — bound means "cannot escape the value slot".
+4. Postgres also errors outright on a type mismatch against a typed id column (`uuid = 'auth'`, `serial = 'auth'`). Where the caller swallows errors into `[]`, one ordinary keyword blanks the entire search — an availability bug, so guard id comparisons with a shape check before they reach the query.
+
 ---
 
 ## Documentation Writing Rules

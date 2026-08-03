@@ -331,7 +331,18 @@ export class FluxifyHarness {
 			);
 
 			await callbacks.flush();
-			await this.finalizeRun(ctx, harnessService, userId, budget, finalState);
+			// The graph is already done here. `finalizeRun` is bookkeeping, and a DB
+			// blip inside it must not fall into the catch below and re-brand a
+			// finished run as failed — the user's build landed either way.
+			try {
+				await this.finalizeRun(ctx, harnessService, userId, budget, finalState);
+			} catch (error) {
+				logger.error("[FluxifyHarness] Failed to finalize a completed run", {
+					conversationId: ctx.conversationId,
+					runId: ctx.runId,
+					error,
+				});
+			}
 		} catch (error) {
 			await callbacks.flush().catch(() => {});
 

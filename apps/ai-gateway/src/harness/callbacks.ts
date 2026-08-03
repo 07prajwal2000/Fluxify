@@ -40,6 +40,13 @@ const GRAPH_NODES: ReadonlySet<string> = new Set<string>(
 	Object.values(AgentNode),
 );
 
+/** Nodes whose accumulated state a later run pass actually reads back — i.e.
+ *  the ones a HITL resume rehydrates from. See `onAfter`. */
+const RESUMABLE_NODES: ReadonlySet<string> = new Set<string>([
+	AgentNode.PLANNER,
+	AgentNode.HUMAN_IN_THE_LOOP,
+]);
+
 export interface HarnessCallbackContext {
 	state: Partial<GlobalGraphState>;
 	conversationId: string;
@@ -201,7 +208,7 @@ export class HarnessCallbacks {
 		const input = (eventData?.input ?? {}) as Partial<GlobalGraphState>;
 		const taskId = input.activeTask?.id;
 
-		const step = await this.harnessService.upsertStep(
+		await this.harnessService.upsertStep(
 			{
 				runId: this.runId,
 				conversationId: this.conversationId,
@@ -211,17 +218,6 @@ export class HarnessCallbacks {
 				status: "running",
 			},
 			true, // background
-		);
-
-		await this.harnessService.saveLiveState(
-			{
-				runId: this.runId,
-				conversationId: this.conversationId,
-				currentState: "running",
-				activeStepId: step?.id,
-				graphState: this.mergedState,
-			},
-			true,
 		);
 
 		this.emit(
@@ -254,15 +250,23 @@ export class HarnessCallbacks {
 			true,
 		);
 
-		await this.harnessService.saveLiveState(
-			{
-				runId: this.runId,
-				conversationId: this.conversationId,
-				currentState: "running",
-				graphState: this.mergedState,
-			},
-			true,
-		);
+		// Only a resumable node's state is ever read back: `loadWorkingMemory` has
+		// exactly one caller — rehydrating a run that parked for plan review — and
+		// every terminal path (finalize / interrupt / fail) saves the full state
+		// itself. Writing the whole accumulated state (every canvas the run has
+		// produced, growing all run) twice per node was load nobody read, and
+		// `awaitAllPendingBackgroundTasks` waits for all of it before the run ends.
+		if (RESUMABLE_NODES.has(node)) {
+			await this.harnessService.saveLiveState(
+				{
+					runId: this.runId,
+					conversationId: this.conversationId,
+					currentState: "running",
+					graphState: this.mergedState,
+				},
+				true,
+			);
+		}
 
 		const payload = this.buildPayload(node, output, input);
 		this.emit(
