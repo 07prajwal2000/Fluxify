@@ -35,7 +35,7 @@ export type CanvasGraph = {
 
 /** React Flow representations used inside the canvas. */
 export type BlockNode = Node<BlockData>;
-export type BlockEdge = Edge;
+export type BlockEdge = Edge<{ cycle?: boolean; cycleFlash?: boolean }>;
 
 export type CanvasMode = "edit" | "readonly";
 
@@ -67,6 +67,8 @@ export type BlockCanvasProps = {
 	defaultViewport?: Viewport;
 	/** Extra class on the canvas root. */
 	className?: string;
+	/** Increment to briefly flash every invalid cycle path. */
+	cycleFeedbackToken?: number;
 	/** Rendered inside React Flow — use for `<Panel>` based toolbars/overlays. */
 	children?: React.ReactNode;
 };

@@ -28,6 +28,7 @@ import {
 	type GraphPart,
 } from "./clipboard";
 import { DEFAULT_EDGE_TYPES, FLOW_EDGE_TYPE } from "./edges";
+import { findCycleEdgeIds } from "./cycleDetection";
 import { uuidv7 } from "./ids";
 import {
 	CanvasHistoryProvider,
@@ -99,6 +100,7 @@ function CanvasInner({
 	fitViewOnInit = true,
 	defaultViewport,
 	className,
+	cycleFeedbackToken = 0,
 	children,
 }: BlockCanvasProps) {
 	const readOnly = mode === "readonly";
@@ -109,6 +111,40 @@ function CanvasInner({
 	const [edges, setEdges, onEdgesChange] = useEdgesState<BlockEdge>(
 		initial.edges,
 	);
+	const latest = useRef({ nodes, edges });
+	latest.current = { nodes, edges };
+	const [flashingCycleEdgeIds, setFlashingCycleEdgeIds] = useState<Set<string>>(
+		new Set(),
+	);
+	const cycleFlashTimeout = useRef<number | undefined>(undefined);
+
+	useEffect(() => {
+		if (cycleFeedbackToken === 0) return;
+		const cycleEdgeIds = findCycleEdgeIds(
+			flowToGraph(latest.current.nodes, latest.current.edges).edges,
+		);
+		setFlashingCycleEdgeIds(cycleEdgeIds);
+		if (cycleFlashTimeout.current) window.clearTimeout(cycleFlashTimeout.current);
+		cycleFlashTimeout.current = window.setTimeout(
+			() => setFlashingCycleEdgeIds(new Set()),
+			1_500,
+		);
+		return () => {
+			if (cycleFlashTimeout.current) window.clearTimeout(cycleFlashTimeout.current);
+		};
+	}, [cycleFeedbackToken]);
+
+	const renderedEdges = useMemo(() => {
+		const cycleEdgeIds = findCycleEdgeIds(flowToGraph(nodes, edges).edges);
+		return edges.map((edge) => ({
+			...edge,
+			data: {
+				...edge.data,
+				cycle: cycleEdgeIds.has(edge.id),
+				cycleFlash: flashingCycleEdgeIds.has(edge.id),
+			},
+		}));
+	}, [nodes, edges, flashingCycleEdgeIds]);
 
 	const tracker = useChangeTracker(!readOnly);
 
@@ -137,22 +173,24 @@ function CanvasInner({
 		onChange?.(flowToGraph(nodes, edges), cloneChangeSet(tracker.changes));
 	}, [nodes, edges, onChange, tracker]);
 
-	// Latest graph, readable from history callbacks without re-creating them.
-	const latest = useRef({ nodes, edges });
-	latest.current = { nodes, edges };
-
 	const getSnapshot = useCallback((): CanvasSnapshot => {
-		const positions: CanvasSnapshot["positions"] = {};
-		for (const node of latest.current.nodes) positions[node.id] = node.position;
-		return { positions, edges: latest.current.edges };
+		return { nodes: latest.current.nodes, edges: latest.current.edges };
 	}, []);
 
-	// Positions are merged back per block so a block's `data` is never rewritten.
+	// Existing blocks keep live config data; restored blocks get saved data.
 	const applySnapshot = useCallback(
 		(snapshot: CanvasSnapshot) => {
 			pendingEmit.current = true;
+			const snapshotNodeIds = new Set(snapshot.nodes.map((node) => node.id));
+			const currentNodeIds = new Set(
+				latest.current.nodes.map((node) => node.id),
+			);
 			const restored = new Set(snapshot.edges.map((edge) => edge.id));
-			tracker.markUpserted("blocks", Object.keys(snapshot.positions));
+			tracker.markUpserted("blocks", snapshotNodeIds);
+			tracker.markDeleted(
+				"blocks",
+				[...currentNodeIds].filter((id) => !snapshotNodeIds.has(id)),
+			);
 			tracker.markUpserted("edges", restored);
 			tracker.markDeleted(
 				"edges",
@@ -160,12 +198,13 @@ function CanvasInner({
 					.filter((edge) => !restored.has(edge.id))
 					.map((edge) => edge.id),
 			);
-			setNodes((current) =>
-				current.map((node) => {
-					const position = snapshot.positions[node.id];
-					return position ? { ...node, position } : node;
-				}),
-			);
+			setNodes((current) => {
+				const byId = new Map(current.map((node) => [node.id, node]));
+				return snapshot.nodes.map((node) => {
+					const existing = byId.get(node.id);
+					return existing ? { ...node, data: existing.data } : node;
+				});
+			});
 			setEdges(snapshot.edges);
 		},
 		[setNodes, setEdges, tracker],
@@ -242,7 +281,13 @@ function CanvasInner({
 			if (Object.keys(positions).length === 0) return;
 			// Commit only once the layout succeeded, so a failure leaves no entry.
 			history.commit();
-			applySnapshot({ positions, edges: latest.current.edges });
+			applySnapshot({
+				nodes: current.map((node) => ({
+					...node,
+					position: positions[node.id] ?? node.position,
+				})),
+				edges: latest.current.edges,
+			});
 		} finally {
 			setIsFormatting(false);
 		}
@@ -265,19 +310,21 @@ function CanvasInner({
 
 	const handleEdgesChange = useCallback(
 		(changes: EdgeChange<BlockEdge>[]) => {
-			// One commit for the whole batch: a multi-edge delete undoes in one step.
-			if (!readOnly && changes.some((c) => c.type === "remove")) history.commit();
 			onEdgesChange(changes);
 			if (readOnly) return;
 			track(tracker, "edges", changes);
 			if (changes.some((c) => !isCosmetic(c))) pendingEmit.current = true;
 		},
-		[onEdgesChange, readOnly, history, tracker],
+		[onEdgesChange, readOnly, tracker],
 	);
 
-	// A block feeding itself is the one cycle worth blocking outright: longer
-	// cycles are sub-graphs that simply never run unless reached from the
-	// entrypoint, so they stay legal.
+	const onBeforeDelete = useCallback(async () => {
+		if (!readOnly) history.commit();
+		return true;
+	}, [readOnly, history]);
+
+	// Cycles are shown immediately and rejected on save. Connections remain
+	// creatable so users can see and remove the entire invalid path.
 	const isValidConnection = useCallback(
 		(connection: Connection | BlockEdge) => connection.source !== connection.target,
 		[],
@@ -325,13 +372,14 @@ function CanvasInner({
 			>
 				<ReactFlow<BlockNode, BlockEdge>
 					nodes={nodes}
-					edges={edges}
+					edges={renderedEdges}
 					nodeTypes={nodeTypes ?? EMPTY_NODE_TYPES}
 					edgeTypes={edgeTypes ?? DEFAULT_EDGE_TYPES}
 					defaultEdgeOptions={DEFAULT_EDGE_OPTIONS}
 					onNodesChange={handleNodesChange}
 					onEdgesChange={handleEdgesChange}
 					onConnect={onConnect}
+					onBeforeDelete={onBeforeDelete}
 					isValidConnection={isValidConnection}
 					onNodeDragStart={onNodeDragStart}
 					onNodeDoubleClick={onNodeDoubleClick}

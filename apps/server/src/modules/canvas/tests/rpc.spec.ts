@@ -33,6 +33,7 @@ const parentExists = spyOn(repository, "parentExists");
 const upsertBlocks = spyOn(repository, "upsertBlocks");
 const upsertEdges = spyOn(repository, "upsertEdges");
 const getBlocks = spyOn(repository, "getBlocks");
+const getEdges = spyOn(repository, "getEdges");
 
 /** everything saveCanvas writes, in order — the observable database state */
 const writes = () =>
@@ -40,7 +41,8 @@ const writes = () =>
 
 describe("fluxify.ops.canvas responder", () => {
 	beforeEach(() => {
-		for (const spy of [upsertBlocks, upsertEdges, getBlocks]) spy.mockClear();
+		for (const spy of [upsertBlocks, upsertEdges, getBlocks, getEdges])
+			spy.mockClear();
 		spyOn(repository, "deleteBlocks").mockResolvedValue(undefined);
 		spyOn(repository, "deleteEdges").mockResolvedValue(undefined);
 		spyOn(repository, "getBlocksCountByType").mockResolvedValue([]);
@@ -48,6 +50,7 @@ describe("fluxify.ops.canvas responder", () => {
 		upsertBlocks.mockResolvedValue(undefined);
 		upsertEdges.mockResolvedValue(undefined);
 		getBlocks.mockResolvedValue([] as any);
+		getEdges.mockResolvedValue([] as any);
 		parentExists.mockResolvedValue(true);
 	});
 

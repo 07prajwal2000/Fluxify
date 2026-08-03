@@ -1,12 +1,16 @@
 import { expect, test } from "bun:test";
+import type { BlockNode } from "../types";
 import { createHistoryStack } from "./historyStack";
 import type { CanvasSnapshot } from "./useCanvasHistory";
 
 function snapshot(positions: Record<string, [number, number]>): CanvasSnapshot {
 	return {
-		positions: Object.fromEntries(
-			Object.entries(positions).map(([id, [x, y]]) => [id, { x, y }]),
-		),
+		nodes: Object.entries(positions).map<BlockNode>(([id, [x, y]]) => ({
+			id,
+			type: "consolelog",
+			position: { x, y },
+			data: {},
+		})),
 		edges: [],
 	};
 }
@@ -49,5 +53,18 @@ test("the stack is capped at its limit", () => {
 	for (let i = 0; i < 10; i++) stack.commit(snapshot({ a: [i, i] }));
 	expect(stack.sizes().past).toBe(3);
 	// Oldest entries dropped: the next undo returns the most recent commit.
-	expect(stack.undo(snapshot({ a: [99, 99] }))?.positions.a).toEqual({ x: 9, y: 9 });
+	expect(stack.undo(snapshot({ a: [99, 99] }))?.nodes[0]?.position).toEqual({
+		x: 9,
+		y: 9,
+	});
+});
+
+test("a snapshot restores a deleted block", () => {
+	const stack = createHistoryStack<CanvasSnapshot>();
+	const before = snapshot({ a: [0, 0], b: [100, 100] });
+	const after = snapshot({ a: [0, 0] });
+
+	stack.commit(before);
+	expect(stack.undo(after)?.nodes.map((node) => node.id)).toEqual(["a", "b"]);
+	expect(stack.redo(before)?.nodes.map((node) => node.id)).toEqual(["a"]);
 });
