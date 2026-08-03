@@ -1,5 +1,5 @@
 import { BlockTypes } from "@fluxify/blocks";
-import { db } from "../../db";
+import { db, type DbTransactionType } from "../../db";
 import { BadRequestError } from "../../errors/badRequestError";
 import { NotFoundError } from "../../errors/notFoundError";
 import {
@@ -32,6 +32,39 @@ const NOT_FOUND = {
 } as const;
 
 /**
+ * An edge whose endpoint is neither in this payload nor already stored would
+ * otherwise surface as a raw foreign key violation. Catch it here so every
+ * caller gets the same readable error naming the block.
+ */
+async function assertEdgeTargetsExist(
+	parent: CanvasParent,
+	data: CanvasChanges,
+	deleteBlockIds: string[],
+	tx?: DbTransactionType,
+) {
+	const incoming = new Set(data.changes.blocks.map((b) => b.id));
+	const referenced = new Set<string>();
+	for (const edge of data.changes.edges) {
+		for (const id of [edge.from, edge.to])
+			if (!incoming.has(id)) referenced.add(id);
+	}
+	if (referenced.size === 0) return;
+
+	// ponytail: reads every block of the canvas. Fine at canvas sizes; narrow to
+	// a `where id in (...)` if a canvas ever gets big enough to notice.
+	const stored = await getBlocks(parent, tx);
+	const known = new Set(stored.map((b) => b.id));
+	for (const id of deleteBlockIds) known.delete(id);
+
+	const missing = [...referenced].filter((id) => !known.has(id));
+	if (missing.length > 0) {
+		throw new BadRequestError(
+			`Edge references unknown block(s): ${missing.join(", ")}`,
+		);
+	}
+}
+
+/**
  * The single source of truth for canvas mutations. Every caller — both HTTP
  * endpoints and the internal ops bus — goes through here, so a canvas is
  * changed exactly one way whatever it hangs off.
@@ -54,6 +87,7 @@ export async function saveCanvas(
 		.map((c) => c.id);
 
 	await db.transaction(async (tx) => {
+		await assertEdgeTargetsExist(parent, data, deleteBlockIds, tx);
 		await upsertBlocks(
 			data.changes.blocks.map((block) => ({ ...block, ...keys })),
 			tx,

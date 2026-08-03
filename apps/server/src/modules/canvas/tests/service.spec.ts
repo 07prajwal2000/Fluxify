@@ -42,6 +42,8 @@ describe("canvas saveCanvas", () => {
 	beforeEach(() => {
 		published.length = 0;
 		spyOn(repository, "getBlocksCountByType").mockResolvedValue([]);
+		// e1 points at b2, which the fixture leaves already stored
+		spyOn(repository, "getBlocks").mockResolvedValue([{ id: "b2" }] as any);
 		spyOn(repository, "touchParent").mockResolvedValue(undefined);
 		for (const spy of [upsertBlocks, upsertEdges, delBlocks, delEdges]) {
 			spy.mockClear();
