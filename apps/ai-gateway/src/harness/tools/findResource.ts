@@ -2,7 +2,7 @@ import { tool } from "@langchain/core/tools";
 import { z } from "zod";
 import { logger } from "@fluxify/common";
 import type { WorkflowMetadata } from "../types";
-import type { DbService } from "../internal/dbService";
+import type { DbService, SearchMode } from "../internal/dbService";
 import { ResourceType } from "../types";
 
 /**
@@ -24,13 +24,15 @@ export const createFindResourceTool = (
 	metadata: WorkflowMetadata,
 ) => {
 	return tool(
-		async ({ searchQuery, resourceType, metadata: toolMetadata }) => {
+		async ({ searchQuery, resourceType, searchBy, metadata: toolMetadata }) => {
 			// Normalize to a keyword array; canvas/ID lookups use the first value.
 			const keywords = Array.isArray(searchQuery) ? searchQuery : [searchQuery];
 			const singleId = keywords[0] ?? "";
+			// `.nullish()` per the schema rules, so null has to collapse too.
+			const mode: SearchMode = searchBy === "id" ? "id" : "keyword";
 
 			logger.info(
-				`[Tools] Searching ${resourceType} for '${keywords.join(", ")}' in project ${metadata.projectId}`,
+				`[Tools] ${mode === "id" ? "Fetching" : "Searching"} ${resourceType} by ${mode} '${keywords.join(", ")}' in project ${metadata.projectId}`,
 			);
 
 			if (resourceType === "route_canvas") {
@@ -59,30 +61,39 @@ export const createFindResourceTool = (
 			let results: any[] = [];
 			switch (resourceType as ResourceType) {
 				case "route":
-					results = await dbService.findRoutes(metadata.projectId, keywords);
+					results = await dbService.findRoutes(
+						metadata.projectId,
+						keywords,
+						mode,
+					);
 					break;
 				case "app_config":
 					results = await dbService.findAppConfigs(
 						metadata.projectId,
 						keywords,
+						mode,
 					);
 					break;
 				case "integration":
 					results = await dbService.findIntegrations(
 						metadata.projectId,
 						keywords,
+						mode,
 					);
 					break;
 				case "custom_block":
 					results = await dbService.findCustomBlocks(
 						metadata.projectId,
 						keywords,
+						mode,
 					);
 					break;
 			}
 
 			if (!results || results.length === 0) {
-				return "No resources found.";
+				return mode === "id"
+					? "No resource with that ID. It may have been deleted, or the ID may belong to another project — search by keyword instead of guessing another ID."
+					: "No resources found.";
 			}
 
 			// Format as Markdown table
@@ -111,7 +122,13 @@ export const createFindResourceTool = (
 				searchQuery: z
 					.union([z.string(), z.array(z.string())])
 					.describe(
-						"One or more keywords to full-text search for (name, path, or description), or an exact resource ID if you already have one. Pass an array of related terms (e.g. ['user', 'auth', 'login']) to widen matching and avoid multiple retries. For 'route_canvas' and 'custom_block_canvas', pass a single resource ID.",
+						"What to look up. With searchBy='keyword' (default), one or more keywords matched against name, path and description — pass an array of related terms (e.g. ['user', 'auth', 'login']) to widen matching and avoid multiple retries. With searchBy='id', the exact resource ID. For 'route_canvas' and 'custom_block_canvas', pass a single resource ID.",
+					),
+				searchBy: z
+					.enum(["keyword", "id"])
+					.nullish()
+					.describe(
+						"'keyword' (default) fuzzy-searches names and descriptions. Use 'id' when you already have the resource's exact ID — from the plan, from your task description, or from an earlier tool result — and want that one record. An ID is not a keyword: fuzzy search will not find it.",
 					),
 				resourceType: z
 					.enum([

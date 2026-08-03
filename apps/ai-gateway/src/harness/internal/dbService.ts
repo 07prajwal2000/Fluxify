@@ -20,6 +20,14 @@ import { FindResourceResult } from "../types";
  */
 export type SearchInput = string | string[];
 
+/**
+ * `"id"` looks the input up as an exact resource id, `"keyword"` full-text
+ * searches names and descriptions. The caller says which — an id and a search
+ * term are different intents, and guessing from the string's shape hides that
+ * from both the model and the trace.
+ */
+export type SearchMode = "keyword" | "id";
+
 export interface SubArtifactRecord {
 	id: string;
 	artifactId: string;
@@ -77,8 +85,10 @@ export class DbService {
 		return [...seen];
 	}
 
-	/** Same, as prefix tsqueries — the FTS lookups all want these. */
-	private tsQueries(input: SearchInput): string[] {
+	/** Same, as prefix tsqueries — the FTS lookups all want these. Empty in id
+	 *  mode: an exact lookup should not also drag in fuzzy name matches. */
+	private tsQueries(input: SearchInput, mode: SearchMode): string[] {
+		if (mode === "id") return [];
 		return [
 			...new Set(
 				this.normalizeKeywords(input)
@@ -89,31 +99,38 @@ export class DbService {
 	}
 
 	/**
-	 * An id the harness itself issued is the one input FTS is guaranteed to
-	 * miss: `toPrefixTsQuery` turns a uuid into hex prefix terms and matches
-	 * them against the *name* column. The planner hands ids to sub-agents in
-	 * task descriptions and writes them into `:resource{}` markup, so those
-	 * lookups came back empty and the agent told the user the resource was
-	 * gone. Match the id column directly alongside the text search.
+	 * An id the harness itself issued is the one input FTS cannot resolve:
+	 * `toPrefixTsQuery` turns a uuid into hex prefix terms and matches them
+	 * against the *name* column. The planner hands ids to sub-agents in task
+	 * descriptions and writes them into `:resource{}` markup, so those lookups
+	 * came back empty and the agent told the user the resource was gone.
+	 *
+	 * Returned empty in keyword mode: the id column is only searched when the
+	 * caller asked for an id lookup, so a fuzzy search stays fuzzy and the
+	 * trace shows which of the two the agent meant.
 	 */
 	private idMatchers(
 		column: PgColumn,
 		keywords: string[],
+		mode: SearchMode,
 		accept?: RegExp,
 	): SQL[] {
+		if (mode !== "id") return [];
 		return idLookups(keywords, accept).map((k) => sql`${column} = ${k}`);
 	}
 
 	async findRoutes(
 		projectId: string,
 		searchQuery: SearchInput,
+		mode: SearchMode = "keyword",
 	): Promise<FindResourceResult[]> {
 		try {
 			const matchers: SQL[] = this.idMatchers(
 				routesEntity.id,
 				this.normalizeKeywords(searchQuery),
+				mode,
 			);
-			for (const q of this.tsQueries(searchQuery)) {
+			for (const q of this.tsQueries(searchQuery, mode)) {
 				matchers.push(
 					sql`to_tsvector('english', ${routesEntity.name}) @@ to_tsquery('english', ${q})`,
 				);
@@ -173,14 +190,16 @@ export class DbService {
 	async findAppConfigs(
 		projectId: string,
 		searchQuery: SearchInput,
+		mode: SearchMode = "keyword",
 	): Promise<FindResourceResult[]> {
 		try {
 			const matchers: SQL[] = this.idMatchers(
 				appConfigEntity.id,
 				this.normalizeKeywords(searchQuery),
+				mode,
 				INTEGER,
 			);
-			for (const q of this.tsQueries(searchQuery)) {
+			for (const q of this.tsQueries(searchQuery, mode)) {
 				matchers.push(
 					sql`to_tsvector('english', ${appConfigEntity.keyName}) @@ to_tsquery('english', ${q})`,
 				);
@@ -214,14 +233,16 @@ export class DbService {
 	async findIntegrations(
 		projectId: string,
 		searchQuery: SearchInput,
+		mode: SearchMode = "keyword",
 	): Promise<FindResourceResult[]> {
 		try {
 			const matchers: SQL[] = this.idMatchers(
 				integrationsEntity.id,
 				this.normalizeKeywords(searchQuery),
+				mode,
 				UUID,
 			);
-			for (const q of this.tsQueries(searchQuery)) {
+			for (const q of this.tsQueries(searchQuery, mode)) {
 				matchers.push(
 					sql`to_tsvector('english', ${integrationsEntity.name}) @@ to_tsquery('english', ${q})`,
 				);
@@ -260,6 +281,7 @@ export class DbService {
 	async findCustomBlocks(
 		projectId: string,
 		searchQuery: SearchInput,
+		mode: SearchMode = "keyword",
 	): Promise<FindResourceResult[]> {
 		try {
 			const keywords = this.normalizeKeywords(searchQuery);
@@ -268,11 +290,13 @@ export class DbService {
 			const matchers: SQL[] = this.idMatchers(
 				customBlocksListEntity.id,
 				keywords,
+				mode,
 			);
-			for (const k of keywords) {
+			for (const k of mode === "id" ? [] : keywords) {
 				matchers.push(ilike(customBlocksListEntity.name, `%${k}%`));
 				matchers.push(ilike(customBlocksListEntity.label, `%${k}%`));
 			}
+			if (matchers.length === 0) return [];
 
 			const customBlocks = await db
 				.select({
