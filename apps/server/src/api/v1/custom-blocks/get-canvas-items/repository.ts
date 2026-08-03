@@ -1,18 +1,6 @@
 import { eq } from "drizzle-orm";
 import { db, DbTransactionType } from "../../../../db";
-import { customBlockGraphsEntity, customBlocksListEntity } from "../../../../db/schema";
-
-export async function getCustomBlockGraphs(customBlockId: string, tx?: DbTransactionType) {
-  const blocks = await (tx ?? db)
-    .select({
-      id: customBlockGraphsEntity.id,
-      type: customBlockGraphsEntity.type,
-      data: customBlockGraphsEntity.data,
-    })
-    .from(customBlockGraphsEntity)
-    .where(eq(customBlockGraphsEntity.customBlockId, customBlockId));
-  return blocks;
-}
+import { customBlocksListEntity } from "../../../../db/schema";
 
 export async function getCustomBlockById(id: string, tx?: DbTransactionType) {
   const block = await (tx ?? db)

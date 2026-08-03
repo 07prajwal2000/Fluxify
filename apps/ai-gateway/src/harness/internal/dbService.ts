@@ -6,7 +6,6 @@ import {
 	customBlocksListEntity,
 	blocksEntity,
 	edgesEntity,
-	customBlockGraphsEntity,
 	agentHarnessSubArtifactsEntity,
 } from "@fluxify/server";
 import { eq, ilike, or, and, sql, inArray, type SQL } from "drizzle-orm";
@@ -331,10 +330,23 @@ export class DbService {
 		projectId: string,
 		routeId: string,
 	): Promise<any | null> {
+		return this.getCanvas("route", routeId);
+	}
+
+	/** route and custom block canvases are the same graph, read the same way */
+	private async getCanvas(
+		parentType: "route" | "custom_block",
+		parentId: string,
+	): Promise<any | null> {
 		try {
+			const owns = (table: typeof blocksEntity | typeof edgesEntity) =>
+				and(
+					eq(table.parentType, parentType),
+					eq(table.parentId, parentId),
+				);
 			const [blocks, edges] = await Promise.all([
-				db.select().from(blocksEntity).where(eq(blocksEntity.routeId, routeId)),
-				db.select().from(edgesEntity).where(eq(edgesEntity.routeId, routeId)),
+				db.select().from(blocksEntity).where(owns(blocksEntity)),
+				db.select().from(edgesEntity).where(owns(edgesEntity)),
 			]);
 
 			return blocks.map((block) => {
@@ -357,7 +369,7 @@ export class DbService {
 				};
 			});
 		} catch (e) {
-			logger.error("[DbService] Error getting route canvas", { error: e });
+			logger.error("[DbService] Error getting canvas", { error: e });
 			return null;
 		}
 	}
@@ -366,29 +378,7 @@ export class DbService {
 		projectId: string,
 		blockId: string,
 	): Promise<any | null> {
-		try {
-			const blocks = await db
-				.select()
-				.from(customBlockGraphsEntity)
-				.where(eq(customBlockGraphsEntity.customBlockId, blockId));
-
-			return blocks.map((block) => {
-				const connections = block.next
-					? [{ blockId: block.next, handle: "source" }]
-					: [];
-				return {
-					id: block.id,
-					blockType: block.type ?? "unknown",
-					data: block.data ?? {},
-					connections,
-				};
-			});
-		} catch (e) {
-			logger.error("[DbService] Error getting custom block canvas", {
-				error: e,
-			});
-			return null;
-		}
+		return this.getCanvas("custom_block", blockId);
 	}
 
 	/**

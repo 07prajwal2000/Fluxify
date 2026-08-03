@@ -274,8 +274,28 @@ export const blocksEntity = pgTable(
 				onDelete: "cascade",
 			},
 		),
+		customBlockId: varchar("custom_block_id", { length: 50 }).references(
+			() => customBlocksListEntity.id,
+			{
+				onDelete: "cascade",
+			},
+		),
+		// Read surface for the unified canvas: one pair of columns to filter on,
+		// whatever the canvas belongs to. Kept as generated columns so the real
+		// foreign keys (and their ON DELETE CASCADE) still own integrity — a bare
+		// polymorphic parent_id cannot cascade.
+		parentType: varchar("parent_type", { length: 20 }).generatedAlwaysAs(
+			sql`CASE WHEN custom_block_id IS NOT NULL THEN 'custom_block' ELSE 'route' END`,
+		),
+		parentId: varchar("parent_id", { length: 50 }).generatedAlwaysAs(
+			sql`COALESCE(route_id, custom_block_id)`,
+		),
 	},
-	(table) => [index("idx_blocks_route_id").on(table.routeId)],
+	(table) => [
+		index("idx_blocks_route_id").on(table.routeId),
+		index("idx_blocks_custom_block_id").on(table.customBlockId),
+		index("idx_blocks_parent").on(table.parentType, table.parentId),
+	],
 );
 
 export const edgesEntity = pgTable(
@@ -298,11 +318,25 @@ export const edgesEntity = pgTable(
 				onDelete: "cascade",
 			},
 		),
+		customBlockId: varchar("custom_block_id", { length: 50 }).references(
+			() => customBlocksListEntity.id,
+			{
+				onDelete: "cascade",
+			},
+		),
+		parentType: varchar("parent_type", { length: 20 }).generatedAlwaysAs(
+			sql`CASE WHEN custom_block_id IS NOT NULL THEN 'custom_block' ELSE 'route' END`,
+		),
+		parentId: varchar("parent_id", { length: 50 }).generatedAlwaysAs(
+			sql`COALESCE(route_id, custom_block_id)`,
+		),
 	},
 	(table) => [
 		index("idx_edges_from").on(table.from),
 		index("idx_edges_to").on(table.to),
 		index("idx_edges_route_id").on(table.routeId),
+		index("idx_edges_custom_block_id").on(table.customBlockId),
+		index("idx_edges_parent").on(table.parentType, table.parentId),
 	],
 );
 
@@ -408,26 +442,8 @@ export const customBlocksListEntity = pgTable(
 	],
 );
 
-export const customBlockGraphsEntity = pgTable(
-	"custom_block_graphs",
-	{
-		id: varchar({ length: 50 })
-			.primaryKey()
-			.$defaultFn(() => generateID()),
-		customBlockId: varchar("custom_block_id", { length: 50 }).references(
-			() => customBlocksListEntity.id,
-			{
-				onDelete: "cascade",
-			},
-		),
-		type: varchar({ length: 100 }),
-		data: jsonb("data").$type<any>(),
-		next: varchar("next_block_id", { length: 50 }),
-	},
-	(table) => [
-		index("idx_custom_block_graphs_custom_block_id").on(table.customBlockId),
-	],
-);
+// Custom block canvases live in `blocks`/`edges` alongside route canvases —
+// see `modules/canvas`. The old `custom_block_graphs` table is gone.
 
 /* ============================================================================
  * INSTANCE SETTINGS (dynamic public/private config, e.g. SSO/auth mode)

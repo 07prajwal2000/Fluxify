@@ -330,6 +330,20 @@
       "when": 1785710041862,
       "tag": "0046_fixed_hiroim",
       "breakpoints": true
+    },
+    {
+      "idx": 47,
+      "version": "7",
+      "when": 1785776362637,
+      "tag": "0047_unified_canvas_storage",
+      "breakpoints": true
+    },
+    {
+      "idx": 48,
+      "version": "7",
+      "when": 1785776711392,
+      "tag": "0048_drop_custom_block_graphs",
+      "breakpoints": true
     }
   ]
 }
