@@ -29,6 +29,7 @@ import {
 	parseAsSchema,
 } from "./toolLoop";
 import type { RunBudget } from "./budget";
+import { UNTRUSTED_DATA_RULE } from "../internal/untrusted";
 
 /** Upper bound for a single model/tool call. Long enough for big reasoning
  *  responses, short enough that a dead connection doesn't stall a run. */
@@ -300,12 +301,15 @@ export abstract class BaseAgentWrapper {
 				: undefined;
 
 		if (systemPrompt && !finalMessages.some((m) => m.type === "system")) {
+			// The untrusted-content rule is appended unconditionally, not only for
+			// tool-using agents: fenced content also arrives through `context`, and
+			// a rule that comes and goes would vary the cached system prefix.
+			const suffix = [
+				UNTRUSTED_DATA_RULE,
+				submitTool ? SUBMIT_RESULT_INSTRUCTION : undefined,
+			].filter(Boolean);
 			finalMessages.unshift(
-				this.buildSystemMessage(
-					submitTool
-						? `${systemPrompt}\n\n${SUBMIT_RESULT_INSTRUCTION}`
-						: systemPrompt,
-				),
+				this.buildSystemMessage([systemPrompt, ...suffix].join("\n\n")),
 			);
 		}
 

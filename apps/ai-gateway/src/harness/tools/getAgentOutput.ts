@@ -1,11 +1,11 @@
-import { tool } from "@langchain/core/tools";
+import { fencedTool } from "./fenced";
 import { z } from "zod";
 import type { SubAgentResult } from "../types";
 
 export const createGetAgentOutputTool = (
 	subAgentResults: Record<string, SubAgentResult> = {},
 ) => {
-	return tool(
+	return fencedTool(
 		async ({ taskIds }) => {
 			const results: Record<string, SubAgentResult> = {};
 			for (const id of taskIds) {
