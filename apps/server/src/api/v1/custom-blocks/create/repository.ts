@@ -1,6 +1,6 @@
 import {
   customBlocksListEntity,
-  customBlockGraphsEntity,
+  blocksEntity,
   projectsEntity,
 } from "../../../../db/schema";
 import { db, DbTransactionType } from "../../../../db";
@@ -26,26 +26,26 @@ export async function createDependencies(
   const id1 = generateID();
   const id3 = generateID();
   
-  await (tx ?? db)?.insert(customBlockGraphsEntity).values({
-    id: id1,
-    customBlockId,
-    type: BlockTypes.entrypoint,
-    data: {
-      position: { x: 0, y: 0 }
+  await (tx ?? db)?.insert(blocksEntity).values([
+    {
+      id: id1,
+      customBlockId,
+      type: BlockTypes.entrypoint,
+      position: { x: 0, y: 0 },
+      data: {},
     },
-  });
-  
-  await (tx ?? db)?.insert(customBlockGraphsEntity).values({
-    id: id3,
-    customBlockId,
-    type: BlockTypes.errorHandler,
-    data: {
+    {
+      id: id3,
+      customBlockId,
+      type: BlockTypes.errorHandler,
       position: { x: 25, y: 0 },
-      next: "",
-      retryAfterFail: false,
-      retryCount: 0,
+      data: {
+        next: "",
+        retryAfterFail: false,
+        retryCount: 0,
+      },
     },
-  });
+  ]);
 }
 
 export async function checkCustomBlockExist(

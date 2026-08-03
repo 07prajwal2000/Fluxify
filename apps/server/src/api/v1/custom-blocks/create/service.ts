@@ -7,14 +7,19 @@ import {
 	checkProjectExist,
 } from "./repository";
 import { ConflictError } from "../../../../errors/conflictError";
-import { db } from "../../../../db";
+import { db, type DbTransactionType } from "../../../../db";
 import { generateID } from "@fluxify/lib";
 import { NotFoundError } from "../../../../errors/notFoundError";
 
+/**
+ * `outer` joins a transaction already in progress, so the ops bus can create a
+ * custom block and its canvas atomically.
+ */
 export default async function handleRequest(
 	data: z.infer<typeof requestBodySchema>,
+	outer?: DbTransactionType,
 ): Promise<z.infer<typeof responseSchema>> {
-	const result = await db.transaction(async (tx) => {
+	const result = await (outer ?? db).transaction(async (tx) => {
 		const projectExist = await checkProjectExist(data.projectId, tx);
 		if (!projectExist) {
 			throw new NotFoundError(

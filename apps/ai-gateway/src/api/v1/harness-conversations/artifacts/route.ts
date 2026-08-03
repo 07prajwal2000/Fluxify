@@ -46,6 +46,9 @@ export default function (app: Hono) {
 			const param = c.req.valid("param");
 			return c.json(
 				await applySubArtifact(
+					// the authenticated identity travels into the bus envelope;
+					// the harness never invents a caller
+					c.get("user").id,
 					param.conversationId,
 					param.projectId,
 					param.subArtifactId,
@@ -62,7 +65,12 @@ export default function (app: Hono) {
 		async (c: any) => {
 			const param = c.req.valid("param");
 			return c.json(
-				await applyArtifact(param.conversationId, param.projectId, param.artifactId),
+				await applyArtifact(
+					c.get("user").id,
+					param.conversationId,
+					param.projectId,
+					param.artifactId,
+				),
 			);
 		},
 	);

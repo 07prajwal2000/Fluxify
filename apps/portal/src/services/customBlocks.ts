@@ -5,6 +5,7 @@ import {
 	responseSchema as createResponseSchema,
 } from "@fluxify/server/src/api/v1/custom-blocks/create/dto";
 import { httpClient } from "@/lib/http";
+import { canvasEndpoints } from "./canvas";
 
 const baseUrl = "/v1/custom-blocks";
 
@@ -22,5 +23,7 @@ export const customBlocksService = {
 	async delete(id: string) {
 		await httpClient.delete(`${baseUrl}/${id}`);
 	},
+	// a custom block's canvas is stored and served exactly like a route's
+	...canvasEndpoints(baseUrl),
 	createRequestSchema,
 };

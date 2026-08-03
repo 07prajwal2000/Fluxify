@@ -5,22 +5,15 @@ import {
 	responseSchema as createResponseSchema,
 } from "@fluxify/server/src/api/v1/routes/create/dto";
 import { requestBodySchema as updatePartialRequestSchema } from "@fluxify/server/src/api/v1/routes/update-partial/dto";
-import { responseSchema as canvasItemsResponseSchema } from "@fluxify/server/src/api/v1/routes/get-canvas-items/dto";
 import { responseSchema as getByIdResponseSchema } from "@fluxify/server/src/api/v1/routes/get-by-id/dto";
 import { httpClient } from "@/lib/http";
+import { canvasEndpoints } from "./canvas";
 
 const baseUrl = "/v1/routes";
 
 export type ListRoutesQuery = { page?: number; perPage?: number; projectId: string };
 
-type CanvasAction = { id: string; action: "upsert" | "delete" };
-export type CanvasSavePayload = {
-	actionsToPerform: { blocks: CanvasAction[]; edges: CanvasAction[] };
-	changes: {
-		blocks: { id: string; type: string; data: unknown; position: { x: number; y: number } }[];
-		edges: { id: string; from: string; to: string; fromHandle: string; toHandle: string }[];
-	};
-};
+export type { CanvasSavePayload } from "./canvas";
 
 export const routesService = {
 	async getAll(
@@ -49,20 +42,12 @@ export const routesService = {
 	async delete(id: string) {
 		await httpClient.delete(`${baseUrl}/${id}`);
 	},
-	async getCanvasItems(
-		routeId: string,
-	): Promise<z.infer<typeof canvasItemsResponseSchema>> {
-		const result = await httpClient.get(`${baseUrl}/${routeId}/canvas-items`);
-		return result.data;
-	},
+	...canvasEndpoints(baseUrl),
 	async getById(
 		routeId: string,
 	): Promise<z.infer<typeof getByIdResponseSchema>> {
 		const result = await httpClient.get(`${baseUrl}/${routeId}`);
 		return result.data;
-	},
-	async saveCanvasItems(routeId: string, payload: CanvasSavePayload) {
-		await httpClient.put(`${baseUrl}/${routeId}/save-canvas`, payload);
 	},
 	createRequestSchema,
 };

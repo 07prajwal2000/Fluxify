@@ -8,6 +8,7 @@ import type { RedisService } from "./internal/redisService";
 /** Collects every event the callbacks emit, in order. */
 function harness() {
 	const events: HarnessStreamEvent[] = [];
+	const liveStateSaves: any[] = [];
 	const callbacks = new HarnessCallbacks({
 		state: {},
 		conversationId: "conv-1",
@@ -15,7 +16,9 @@ function harness() {
 		userId: null, // skips the NATS publish
 		harnessService: {
 			upsertStep: async () => ({ id: "step-1" }),
-			saveLiveState: async () => undefined,
+			saveLiveState: async (input: any) => {
+				liveStateSaves.push(input);
+			},
 		} as unknown as HarnessService,
 		redisService: {
 			appendEvent: async (event: HarnessStreamEvent) => {
@@ -23,7 +26,7 @@ function harness() {
 			},
 		} as unknown as RedisService,
 	});
-	return { callbacks, events };
+	return { callbacks, events, liveStateSaves };
 }
 
 describe("harness event contract", () => {
@@ -110,6 +113,29 @@ describe("harness event contract", () => {
 			nodeStatus: "running",
 			executionType: "agent",
 			plainTextMessage: "routing query",
+		});
+	});
+
+	it("saves live state once per node end, and only for nodes a resume reads", async () => {
+		// The snapshot carries every canvas the run has produced, so writing it on
+		// both ends of all ~20 nodes was load nobody read back.
+		const { callbacks, liveStateSaves } = harness();
+		const task = { id: "t-7", title: "T", status: "running" } as any;
+
+		await callbacks.onBefore(AgentNode.PLANNER, { input: {} });
+		await callbacks.onAfter(AgentNode.PLANNER, { output: {} });
+		await callbacks.onBefore(AgentNode.BLOCK_BUILDER, {
+			input: { activeTask: task },
+		});
+		await callbacks.onAfter(AgentNode.BLOCK_BUILDER, {
+			input: { activeTask: task },
+			output: {},
+		});
+
+		expect(liveStateSaves).toHaveLength(1);
+		expect(liveStateSaves[0]).toMatchObject({
+			runId: "run-1",
+			currentState: "running",
 		});
 	});
 
