@@ -24,7 +24,7 @@ export const createFindResourceTool = (
 	metadata: WorkflowMetadata,
 ) => {
 	return fencedTool(
-		async ({ searchQuery, resourceType, metadata: toolMetadata }) => {
+		async ({ searchQuery, resourceType, searchBy, metadata: toolMetadata }) => {
 			// Normalize to a keyword array; canvas/ID lookups use the first value.
 			const keywords = Array.isArray(searchQuery) ? searchQuery : [searchQuery];
 			const singleId = keywords[0] ?? "";
