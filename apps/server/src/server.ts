@@ -109,6 +109,11 @@ async function main() {
 		await loadProjectSettings();
 		const { startCompileWorker } = await import("./modules/compiler/consumer");
 		await startCompileWorker();
+
+		// Internal ops bus. Lives here for the same reason as the compile worker:
+		// this is the process that owns the database connection.
+		const { registerCanvasResponder } = await import("./modules/canvas/rpc");
+		registerCanvasResponder();
 	}
 
 	if (builtinWorkerEnabled) {
