@@ -93,6 +93,24 @@ export async function markSubArtifactsApplied(
 		});
 }
 
+/** The id an agent invented for a route is not the id storage chose, so the
+ *  payload is rewritten once the real one is known. */
+export async function updateSubArtifactPayload(
+	conversationId: string,
+	subArtifactId: string,
+	payload: Record<string, any>,
+) {
+	await db
+		.update(subArtifacts)
+		.set({ payload })
+		.where(
+			and(
+				eq(subArtifacts.id, subArtifactId),
+				eq(subArtifacts.conversationId, conversationId),
+			),
+		);
+}
+
 /** Which of these route ids are actually live in the project. */
 export async function findExistingRouteIds(projectId: string, routeIds: string[]) {
 	if (routeIds.length === 0) return new Set<string>();
