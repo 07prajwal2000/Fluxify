@@ -19,6 +19,7 @@ import { RunBudget, logRunUsage } from "./models/budget";
 import { app as graphApp } from "./graph";
 import { DbService } from "./internal/dbService";
 import { buildContextBlock } from "./internal/contextBlock";
+import { sanitizeUserQuery } from "./internal/untrusted";
 import {
 	describeHitlAction,
 	extractWorkingMemory,
@@ -47,7 +48,7 @@ import {
 	type HarnessStreamEvent,
 } from "./streamTypes";
 import { publishHarnessEvent } from "./notifications";
-import { isUserInterrupt, describeFailure } from "./errors";
+import { isUserInterrupt, describeFailure, redactSecrets } from "./errors";
 import {
 	registerRunController,
 	unregisterRunController,
@@ -149,8 +150,14 @@ export class FluxifyHarness {
 	): Promise<Partial<GlobalGraphState>> {
 		const harnessService = new HarnessService(ctx.conversationId);
 		const messages = await harnessService.getConversationMessageHistory();
-		if (ctx.query) {
-			messages.push(new HumanMessage(ctx.query));
+		// The composer sends @-mentions as raw `:resource{...}` markup. Nothing
+		// downstream parsed it, so agents saw markup, guessed a keyword, and told
+		// the user their own resource did not exist. Rewriting it here also keeps
+		// hand-typed chip syntax from reaching the model. The stored message keeps
+		// the markup — that is what renders the chip back to the user.
+		const query = ctx.query ? sanitizeUserQuery(ctx.query) : ctx.query;
+		if (query) {
+			messages.push(new HumanMessage(query));
 		} else if (mode === "continue" && ctx.action) {
 			const decision = describeHitlAction(ctx.action);
 			if (decision) messages.push(new HumanMessage(decision));
@@ -175,7 +182,7 @@ export class FluxifyHarness {
 		return {
 			...workingMemory,
 			messages,
-			userQuery: ctx.query,
+			userQuery: query,
 			action: ctx.action,
 			internal: {
 				dbService: this.dbService,
@@ -222,7 +229,7 @@ export class FluxifyHarness {
 				harnessService,
 				userId,
 				connError,
-				`The selected AI provider could not be reached, so this request was not processed. Please verify the integration's API key, model, and network access.\n\nDetails: ${connError}`,
+				`The selected AI provider could not be reached, so this request was not processed. Please verify the integration's API key, model, and network access.\n\nDetails: ${redactSecrets(connError)}`,
 			);
 			return undefined;
 		}

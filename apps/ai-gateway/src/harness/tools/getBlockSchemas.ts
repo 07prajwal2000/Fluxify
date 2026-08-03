@@ -1,4 +1,4 @@
-import { tool } from "@langchain/core/tools";
+import { fencedTool } from "./fenced";
 import { z } from "zod";
 import { logger } from "@fluxify/common";
 import { blockAiDescriptions } from "@fluxify/blocks";
@@ -52,7 +52,7 @@ export const createGetBlockSchemasTool = (
 	dbService: DbService,
 	projectId: string,
 ) => {
-	return tool(
+	return fencedTool(
 		async ({ blockTypes }) => {
 			logger.info(`[Tools] Fetching schemas for blocks: ${blockTypes.join(", ")}`);
 			
