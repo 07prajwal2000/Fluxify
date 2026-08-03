@@ -51,13 +51,15 @@ describe("OrchestratorAgent", () => {
 
 	it("fails dependents of a failed task instead of dispatching them", async () => {
 		const a = task("a");
+		a.title = "Create the orders route";
 		a.status = "failed";
 		const b = task("b", ["a"]);
 		const c = task("c", ["b"]); // transitive
 
 		expect(await dispatch([a, b, c])).toEqual([]);
 		expect([b.status, c.status]).toEqual(["failed", "failed"]);
-		expect(b.supervisorReviews).toContain("a");
+		// The summarizer shows this to the user, so it names the task, not its id.
+		expect(b.supervisorReviews).toContain("Create the orders route");
 	});
 
 	it("still dispatches siblings of a failed task", async () => {

@@ -47,7 +47,10 @@ export class OrchestratorAgent extends BaseAgent {
 				);
 				if (!failedDep) continue;
 				task.status = "failed";
-				task.supervisorReviews = `Skipped — it depends on task ${failedDep}, which failed.`;
+				// The summarizer puts this reason in front of the user verbatim, so
+				// name the dependency the way the plan did — a raw task id means
+				// nothing to someone who never saw the task graph.
+				task.supervisorReviews = `Skipped — it depends on "${byId.get(failedDep)?.title ?? failedDep}", which failed.`;
 				changed = true;
 			}
 		}
