@@ -7,17 +7,23 @@ import {
   checkProjectExist,
 } from "./repository";
 import { ConflictError } from "../../../../errors/conflictError";
-import { db } from "../../../../db";
+import { db, DbTransactionType } from "../../../../db";
 import { CHAN_ON_ROUTE_CHANGE, publishMessage } from "../../../../db/redis";
 import { generateID } from "@fluxify/lib";
 import { NotFoundError } from "../../../../errors/notFoundError";
 import { HttpMethod } from "../../../../db/schema";
 
+/**
+ * `outer` joins a transaction already in progress, so the ops bus can create a
+ * route and its canvas atomically. The change signal is then the caller's to
+ * publish once that transaction commits.
+ */
 export default async function handleRequest(
   userId: string,
-  data: z.infer<typeof requestBodySchema>
+  data: z.infer<typeof requestBodySchema>,
+  outer?: DbTransactionType
 ): Promise<z.infer<typeof responseSchema>> {
-  const result = await db.transaction(async (tx) => {
+  const result = await (outer ?? db).transaction(async (tx) => {
     const projectExist = await checkProjectExist(data.projectId, tx);
     if (!projectExist) {
       throw new NotFoundError(
@@ -43,6 +49,6 @@ export default async function handleRequest(
       id: newRouteId,
     };
   });
-  await publishMessage(CHAN_ON_ROUTE_CHANGE, result.id);
+  if (!outer) await publishMessage(CHAN_ON_ROUTE_CHANGE, result.id);
   return result;
 }

@@ -68,13 +68,18 @@ async function assertEdgeTargetsExist(
  * The single source of truth for canvas mutations. Every caller — both HTTP
  * endpoints and the internal ops bus — goes through here, so a canvas is
  * changed exactly one way whatever it hangs off.
+ *
+ * Pass `outer` to join a transaction already in progress — that is how
+ * "create the parent and its canvas or neither" is possible on the ops bus.
+ * The change signal is then the outer caller's to publish, after it commits.
  */
 export async function saveCanvas(
 	parent: CanvasParent,
 	data: CanvasChanges,
 	projectIds: string[] = [],
+	outer?: DbTransactionType,
 ) {
-	if (!(await parentExists(parent, projectIds))) {
+	if (!(await parentExists(parent, projectIds, outer))) {
 		throw new NotFoundError(NOT_FOUND[parent.type]);
 	}
 
@@ -86,7 +91,8 @@ export async function saveCanvas(
 		.filter((c) => c.action === "delete")
 		.map((c) => c.id);
 
-	await db.transaction(async (tx) => {
+	// a tx nests as a savepoint, so the outer transaction still decides the outcome
+	await (outer ?? db).transaction(async (tx) => {
 		await assertEdgeTargetsExist(parent, data, deleteBlockIds, tx);
 		await upsertBlocks(
 			data.changes.blocks.map((block) => ({ ...block, ...keys })),
@@ -113,7 +119,7 @@ export async function saveCanvas(
 		}
 	});
 
-	await publishMessage(CHANGE_CHANNEL[parent.type], parent.id);
+	if (!outer) await publishMessage(CHANGE_CHANNEL[parent.type], parent.id);
 }
 
 export async function getCanvas(

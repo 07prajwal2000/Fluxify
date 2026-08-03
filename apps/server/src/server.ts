@@ -113,7 +113,13 @@ async function main() {
 		// Internal ops bus. Lives here for the same reason as the compile worker:
 		// this is the process that owns the database connection.
 		const { registerCanvasResponder } = await import("./modules/canvas/rpc");
+		const { registerRouteResponder } = await import("./modules/ops/route");
+		const { registerCustomBlockResponder } = await import(
+			"./modules/ops/customBlock"
+		);
 		registerCanvasResponder();
+		registerRouteResponder();
+		registerCustomBlockResponder();
 	}
 
 	if (builtinWorkerEnabled) {
