@@ -111,7 +111,7 @@ export const createFindResourceTool = (
 				searchQuery: z
 					.union([z.string(), z.array(z.string())])
 					.describe(
-						"One or more keywords to full-text search for (name, path, or description). Pass an array of related terms (e.g. ['user', 'auth', 'login']) to widen matching and avoid multiple retries. For 'route_canvas' and 'custom_block_canvas', pass a single resource ID.",
+						"One or more keywords to full-text search for (name, path, or description), or an exact resource ID if you already have one. Pass an array of related terms (e.g. ['user', 'auth', 'login']) to widen matching and avoid multiple retries. For 'route_canvas' and 'custom_block_canvas', pass a single resource ID.",
 					),
 				resourceType: z
 					.enum([

@@ -10,6 +10,7 @@ import {
 	agentHarnessSubArtifactsEntity,
 } from "@fluxify/server";
 import { eq, ilike, or, and, sql, inArray, type SQL } from "drizzle-orm";
+import type { PgColumn } from "drizzle-orm/pg-core";
 import { logger } from "@fluxify/common";
 import { FindResourceResult } from "../types";
 
@@ -48,6 +49,20 @@ export function toPrefixTsQuery(keyword: string): string | null {
 	return terms?.length ? terms.map((t) => `${t}:*`).join(" & ") : null;
 }
 
+export const UUID =
+	/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+export const INTEGER = /^\d+$/;
+
+/**
+ * Which keywords are safe to compare against a typed id column. Postgres
+ * errors outright on `uuid = 'auth'` or `serial = 'auth'`, and the caller
+ * swallows errors into an empty result — so one ordinary word in the list
+ * would silently blank out the whole search.
+ */
+export function idLookups(keywords: string[], accept?: RegExp): string[] {
+	return accept ? keywords.filter((k) => accept.test(k)) : keywords;
+}
+
 export class DbService {
 	constructor() {}
 
@@ -73,16 +88,32 @@ export class DbService {
 		];
 	}
 
+	/**
+	 * An id the harness itself issued is the one input FTS is guaranteed to
+	 * miss: `toPrefixTsQuery` turns a uuid into hex prefix terms and matches
+	 * them against the *name* column. The planner hands ids to sub-agents in
+	 * task descriptions and writes them into `:resource{}` markup, so those
+	 * lookups came back empty and the agent told the user the resource was
+	 * gone. Match the id column directly alongside the text search.
+	 */
+	private idMatchers(
+		column: PgColumn,
+		keywords: string[],
+		accept?: RegExp,
+	): SQL[] {
+		return idLookups(keywords, accept).map((k) => sql`${column} = ${k}`);
+	}
+
 	async findRoutes(
 		projectId: string,
 		searchQuery: SearchInput,
 	): Promise<FindResourceResult[]> {
 		try {
-			const queries = this.tsQueries(searchQuery);
-			if (queries.length === 0) return [];
-
-			const matchers: SQL[] = [];
-			for (const q of queries) {
+			const matchers: SQL[] = this.idMatchers(
+				routesEntity.id,
+				this.normalizeKeywords(searchQuery),
+			);
+			for (const q of this.tsQueries(searchQuery)) {
 				matchers.push(
 					sql`to_tsvector('english', ${routesEntity.name}) @@ to_tsquery('english', ${q})`,
 				);
@@ -92,6 +123,7 @@ export class DbService {
 					sql`to_tsvector('english', translate(coalesce(${routesEntity.path}, ''), '/:-_', '    ')) @@ to_tsquery('english', ${q})`,
 				);
 			}
+			if (matchers.length === 0) return [];
 
 			const routes = await db
 				.select({
@@ -143,11 +175,12 @@ export class DbService {
 		searchQuery: SearchInput,
 	): Promise<FindResourceResult[]> {
 		try {
-			const queries = this.tsQueries(searchQuery);
-			if (queries.length === 0) return [];
-
-			const matchers: SQL[] = [];
-			for (const q of queries) {
+			const matchers: SQL[] = this.idMatchers(
+				appConfigEntity.id,
+				this.normalizeKeywords(searchQuery),
+				INTEGER,
+			);
+			for (const q of this.tsQueries(searchQuery)) {
 				matchers.push(
 					sql`to_tsvector('english', ${appConfigEntity.keyName}) @@ to_tsquery('english', ${q})`,
 				);
@@ -155,6 +188,7 @@ export class DbService {
 					sql`to_tsvector('english', coalesce(${appConfigEntity.description}, '')) @@ to_tsquery('english', ${q})`,
 				);
 			}
+			if (matchers.length === 0) return [];
 
 			const configs = await db
 				.select({
@@ -182,11 +216,12 @@ export class DbService {
 		searchQuery: SearchInput,
 	): Promise<FindResourceResult[]> {
 		try {
-			const queries = this.tsQueries(searchQuery);
-			if (queries.length === 0) return [];
-
-			const matchers: SQL[] = [];
-			for (const q of queries) {
+			const matchers: SQL[] = this.idMatchers(
+				integrationsEntity.id,
+				this.normalizeKeywords(searchQuery),
+				UUID,
+			);
+			for (const q of this.tsQueries(searchQuery)) {
 				matchers.push(
 					sql`to_tsvector('english', ${integrationsEntity.name}) @@ to_tsquery('english', ${q})`,
 				);
@@ -195,6 +230,7 @@ export class DbService {
 					sql`to_tsvector('english', coalesce(${integrationsEntity.group}, '') || ' ' || coalesce(${integrationsEntity.variant}, '') || ' ' || coalesce(${integrationsEntity.tags}, '')) @@ to_tsquery('english', ${q})`,
 				);
 			}
+			if (matchers.length === 0) return [];
 
 			const integrations = await db
 				.select({
@@ -229,7 +265,10 @@ export class DbService {
 			const keywords = this.normalizeKeywords(searchQuery);
 			if (keywords.length === 0) return [];
 
-			const matchers: SQL[] = [];
+			const matchers: SQL[] = this.idMatchers(
+				customBlocksListEntity.id,
+				keywords,
+			);
 			for (const k of keywords) {
 				matchers.push(ilike(customBlocksListEntity.name, `%${k}%`));
 				matchers.push(ilike(customBlocksListEntity.label, `%${k}%`));
