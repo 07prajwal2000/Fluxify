@@ -7,6 +7,8 @@ import {
 	FieldMapEditor,
 	IntegrationSelector,
 	type Integration,
+	JsonEditor,
+	type JsonContainer,
 	JsTextField,
 	Label,
 	ListBox,
@@ -109,6 +111,57 @@ function FieldMapEditorDemo() {
 	);
 }
 
+const INITIAL_JSON_VALUE: JsonContainer = {
+	name: "Fluxify API",
+	enabled: true,
+	retries: 3,
+	tags: ["development", "playground"],
+	metadata: {
+		owner: "platform-team",
+		description: null,
+	},
+};
+
+function JsonEditorDemo() {
+	const [value, setValue] = useState<JsonContainer>(INITIAL_JSON_VALUE);
+
+	return (
+		<div className="flex flex-col gap-6">
+			<JsonEditor
+				allowExpressions
+				description="Changes from this field are committed immediately. Try nested objects, arrays, type switching, and preview mode."
+				label="Inline JSON editor"
+				mode="inline"
+				onChange={setValue}
+				value={value}
+			/>
+
+			<div className="flex flex-col items-start gap-2 border-t border-border pt-5">
+				<span className="text-sm font-medium text-foreground">Modal JSON editor</span>
+				<p className="text-xs text-muted">
+					Modal edits remain a draft until you press Save. Cancel closes it without changing the committed value below.
+				</p>
+				<JsonEditor
+					allowExpressions
+					modalTitle="Edit playground JSON"
+					modalWidth="min(76rem, calc(100vw - 2rem))"
+					mode="modal"
+					onChange={setValue}
+					triggerLabel="Open JSON editor"
+					value={value}
+				/>
+			</div>
+
+			<div className="flex flex-col gap-2">
+				<span className="text-xs font-medium text-muted">Committed value</span>
+				<pre className="max-h-80 overflow-auto rounded-[var(--radius)] border border-border bg-background p-3 font-mono text-xs text-foreground">
+					{JSON.stringify(value, null, 2)}
+				</pre>
+			</div>
+		</div>
+	);
+}
+
 // ── Mock data for IntegrationSelector playground demo ────────────────────────
 const MOCK_DB_INTEGRATIONS: Integration[] = [
 	{ id: "int-1", name: "Production Postgres", group: "database", variant: "PostgreSQL", config: {} },
@@ -159,6 +212,7 @@ function IntegrationSelectorDemo() {
 }
 
 const DEMOS: { name: string; render: () => ReactNode }[] = [
+	{ name: "JsonEditor", render: () => <JsonEditorDemo /> },
 	{ name: "JsTextField", render: () => <JsTextFieldDemo /> },
 	{ name: "ConditionsBuilder", render: () => <ConditionsBuilderDemo /> },
 	{ name: "FieldMapEditor", render: () => <FieldMapEditorDemo /> },

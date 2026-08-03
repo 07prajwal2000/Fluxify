@@ -44,6 +44,10 @@ export interface ConditionsBuilderProps {
 	ignoreOperators?: ConditionOperator[];
 	/** Disables editing for all fields. */
 	isDisabled?: boolean;
+	/** Autocomplete suggestions for LHS condition field. */
+	lhsSuggestions?: string[];
+	/** Autocomplete suggestions for RHS condition field. */
+	rhsSuggestions?: string[];
 	/** Whether to show outer border. Default is false. */
 	hasBorder?: boolean;
 	/** Additional CSS class names. */

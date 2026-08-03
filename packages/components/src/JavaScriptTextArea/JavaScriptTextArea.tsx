@@ -93,6 +93,7 @@ export function JavaScriptTextArea({
 				onChange={(next) => onChange?.(next ?? "")}
 				onMount={onMount}
 				options={{
+					fixedOverflowWidgets: true,
 					readOnly,
 					fontSize: FONT_SIZE,
 					lineHeight: LINE_HEIGHT,
@@ -109,6 +110,30 @@ export function JavaScriptTextArea({
 					renderLineHighlight: "none",
 					tabSize: 2,
 					contextmenu: false,
+					suggest: {
+						showInlineDetails: true,
+						preview: true,
+						showMethods: true,
+						showFunctions: true,
+						showVariables: true,
+						showConstants: true,
+						showFields: true,
+						showClasses: true,
+					},
+					hover: {
+						enabled: "on",
+						delay: 300,
+						above: true,
+					},
+					parameterHints: {
+						enabled: true,
+						cycle: true,
+					},
+					quickSuggestions: {
+						other: true,
+						comments: false,
+						strings: true,
+					},
 				}}
 				theme={resolveTheme(theme)}
 				value={value}

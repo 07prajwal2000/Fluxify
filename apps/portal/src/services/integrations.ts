@@ -2,6 +2,7 @@ import { httpClient } from "@/lib/http";
 import { responseSchema as getByIdResponseSchema } from "@fluxify/server/src/api/v1/integrations/get-by-id/dto";
 import { responseSchema as getAllResponseSchema } from "@fluxify/server/src/api/v1/integrations/get-all/dto";
 import { responseSchema as getBasicListResponseSchema } from "@fluxify/server/src/api/v1/integrations/get-basic-list/dto";
+import { responseSchema as getMetadataResponseSchema } from "@fluxify/server/src/api/v1/integrations/get-metadata/dto";
 import {
 	requestBodySchema as createRequestSchema,
 	responseSchema as createResponseSchema,
@@ -82,6 +83,15 @@ export const integrationService = {
 			variant,
 			config,
 		});
+		return res.data;
+	},
+	async getMetadata(
+		projectId: string,
+		integrationId: string,
+	): Promise<z.infer<typeof getMetadataResponseSchema>> {
+		const res = await httpClient.get(
+			`${getBaseUrl(projectId)}/${integrationId}/metadata`,
+		);
 		return res.data;
 	},
 	createRequestSchema,

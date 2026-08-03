@@ -10,6 +10,9 @@ export * from "./src/JsTextField";
 export * from "./src/ConditionsBuilder";
 export * from "./src/FieldMapEditor";
 export * from "./src/IntegrationSelector";
+export * from "./src/JsonEditor";
+export * from "./src/ArrayEditor";
+export * from "./src/JoinsEditor";
 export {
 	Checkbox,
 	CheckboxControl,
@@ -27,7 +30,3 @@ export {
 	type CheckboxSize,
 	type CheckboxVariant,
 } from "./src/Checkbox";
-
-
-
-

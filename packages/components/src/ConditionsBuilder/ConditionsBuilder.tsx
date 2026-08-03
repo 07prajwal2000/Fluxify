@@ -18,6 +18,8 @@ export function ConditionsBuilder({
 	disableJsConditions = false,
 	ignoreOperators = [],
 	isDisabled = false,
+	lhsSuggestions,
+	rhsSuggestions,
 	hasBorder = false,
 	className,
 }: ConditionsBuilderProps) {
@@ -115,6 +117,8 @@ export function ConditionsBuilder({
 					ignoreOperators={ignoreOperators}
 					index={index}
 					isDisabled={isDisabled}
+					lhsSuggestions={lhsSuggestions}
+					rhsSuggestions={rhsSuggestions}
 					onJsChange={handleJsChange}
 					onLHSChange={handleLHSChange}
 					onOperatorChange={handleOperatorChange}

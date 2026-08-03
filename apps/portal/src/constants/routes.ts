@@ -1,3 +1,10 @@
+export const BASE_PATH = "/_/admin/ui";
+
+export function withBasePath(path: string): string {
+	const clean = path.startsWith("/") ? path : `/${path}`;
+	return `${BASE_PATH}${clean}`;
+}
+
 export const APP_ROUTES = {
 	HOME: "/",
 	PROJECT_ROUTES: (projectId: string) => `/${projectId}/routes`,
@@ -8,3 +15,4 @@ export const APP_ROUTES = {
 	PROJECT_SETTINGS: (projectId: string) => `/${projectId}/settings`,
 	PROJECT_CUSTOM_BLOCKS: (projectId: string) => `/${projectId}/custom-blocks`,
 } as const;
+

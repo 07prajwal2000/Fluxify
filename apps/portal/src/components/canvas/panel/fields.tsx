@@ -1,15 +1,23 @@
 import {
+	ArrayEditor,
 	Checkbox,
 	Description,
 	Input,
+	IntegrationSelector,
+	JoinsEditor,
+	type JoinItem,
 	JsTextField,
 	Label,
 	ListBox,
 	Select,
 	TextField,
 } from "@fluxify/components";
+import { useParams } from "@tanstack/react-router";
 import { useReactFlow } from "@xyflow/react";
 import { useCallback, useEffect, useState } from "react";
+import type { ReactNode } from "react";
+import { withBasePath } from "@/constants/routes";
+import { integrationService } from "@/services/integrations";
 import { useCanvasChanges } from "../changes/ChangesContext";
 import type { BlockData } from "../types";
 
@@ -20,7 +28,7 @@ export type FieldProps = {
 	name: string;
 	label: string;
 	/** Shown under the control. */
-	hint?: string;
+	hint?: ReactNode;
 };
 
 export type SelectOption = { value: string; label: string };
@@ -132,6 +140,8 @@ export function BlockTextField({
 
 export type BlockJsTextFieldProps = FieldProps & {
 	placeholder?: string;
+	disableJs?: boolean;
+	suggestions?: string[];
 };
 
 /**
@@ -145,10 +155,20 @@ export function BlockJsTextField({
 	label,
 	hint,
 	placeholder,
+	disableJs,
+	suggestions,
 }: BlockJsTextFieldProps) {
 	const { updateNodeData } = useReactFlow();
 	const { enabled: editable } = useCanvasChanges();
-	const value = typeof data[name] === "string" ? (data[name] as string) : "";
+	const rawValue = data[name];
+	const value =
+		typeof rawValue === "string"
+			? rawValue
+			: typeof rawValue === "object" && rawValue !== null
+				? JSON.stringify(rawValue)
+				: rawValue != null
+					? String(rawValue)
+					: "";
 
 	return (
 		<JsTextField
@@ -159,7 +179,17 @@ export function BlockJsTextField({
 			description={hint}
 			placeholder={placeholder}
 			value={value}
-			onChange={(next) => updateNodeData(blockId, { [name]: next })}
+			disableJs={disableJs}
+			suggestions={suggestions}
+			onChange={(next) => {
+				const trimmed = next.trim();
+				const num = Number(trimmed);
+				const val =
+					trimmed !== "" && !isNaN(num) && !trimmed.startsWith("js:")
+						? num
+						: next;
+				updateNodeData(blockId, { [name]: val });
+			}}
 		/>
 	);
 }
@@ -193,6 +223,180 @@ export function BlockCheckboxField({
 		/>
 	);
 }
+
+export type BlockIntegrationFieldProps = {
+	blockId: string;
+	data: BlockData;
+	name: string;
+	group?: string;
+	label?: ReactNode;
+	description?: string;
+};
+
+/**
+ * An integration selector block setting field backed by IntegrationSelector.
+ */
+export function BlockIntegrationField({
+	blockId,
+	data,
+	name,
+	group = "database",
+	label,
+	description,
+}: BlockIntegrationFieldProps) {
+	const { updateNodeData } = useReactFlow();
+	const { enabled: editable } = useCanvasChanges();
+	const params = useParams({ strict: false }) as { projectId?: string };
+	const projectId = params?.projectId ?? "";
+	const selectedId = typeof data[name] === "string" ? (data[name] as string) : "";
+
+	const loadIntegrations = useCallback(async () => {
+		if (!projectId) return [];
+		const list = await integrationService.getAll(projectId, group);
+		return (list || []).map((item) => ({
+			id: item.id,
+			name: item.name,
+			group: item.group,
+			variant: item.variant,
+			config: (item.config ?? {}) as Record<string, unknown>,
+			tags: item.tags,
+		}));
+	}, [projectId, group]);
+
+	const handleTestConnection = useCallback(
+		async (id: string) => {
+			if (!projectId || !id) return;
+			await integrationService.testExistingConnection(projectId, id);
+		},
+		[projectId],
+	);
+
+	const groupParam = group ? `group=${encodeURIComponent(group)}` : "";
+	const openParam = selectedId ? `open=${encodeURIComponent(selectedId)}` : "";
+	const searchParams = [groupParam, openParam].filter(Boolean).join("&");
+	const searchStr = searchParams ? `?${searchParams}` : "";
+
+	return (
+		<IntegrationSelector
+			label={label}
+			description={description}
+			group={group}
+			selectedId={selectedId}
+			loadIntegrations={loadIntegrations}
+			onSelect={(id) => {
+				if (!editable) return;
+				updateNodeData(blockId, { [name]: id });
+			}}
+			onTestConnection={projectId ? handleTestConnection : undefined}
+			openInNewTabUrl={
+				projectId
+					? withBasePath(`/${projectId}/integrations${searchStr}`)
+					: undefined
+			}
+			createIntegrationUrl={
+				projectId
+					? withBasePath(
+							`/${projectId}/integrations${group ? `?group=${encodeURIComponent(group)}` : ""}`,
+						)
+					: undefined
+			}
+		/>
+	);
+}
+
+export type BlockArrayEditorFieldProps = {
+	blockId: string;
+	data: BlockData;
+	name: string;
+	label?: ReactNode;
+	description?: ReactNode;
+	placeholder?: string;
+	addButtonLabel?: string;
+	disableJs?: boolean;
+	emptyMessage?: string;
+	suggestions?: string[];
+};
+
+/**
+ * An array setting field backed by ArrayEditor.
+ */
+export function BlockArrayEditorField({
+	blockId,
+	data,
+	name,
+	label,
+	description,
+	placeholder,
+	addButtonLabel,
+	disableJs,
+	emptyMessage,
+	suggestions,
+}: BlockArrayEditorFieldProps) {
+	const { updateNodeData } = useReactFlow();
+	const { enabled: editable } = useCanvasChanges();
+	const values = Array.isArray(data[name]) ? (data[name] as string[]) : [];
+
+	return (
+		<ArrayEditor
+			label={label}
+			description={description}
+			placeholder={placeholder}
+			addButtonLabel={addButtonLabel}
+			disableJs={disableJs}
+			emptyMessage={emptyMessage}
+			isDisabled={!editable}
+			values={values}
+			suggestions={suggestions}
+			onChange={(next) => updateNodeData(blockId, { [name]: next })}
+		/>
+	);
+}
+
+export type BlockJoinsEditorFieldProps = {
+	blockId: string;
+	data: BlockData;
+	name: string;
+	label?: ReactNode;
+	description?: ReactNode;
+	emptyMessage?: string;
+	tableSuggestions?: string[];
+	columnSuggestions?: string[];
+	getColumnSuggestions?: (tableName?: string) => string[];
+};
+
+/**
+ * A joins setting field backed by JoinsEditor.
+ */
+export function BlockJoinsEditorField({
+	blockId,
+	data,
+	name,
+	label,
+	description,
+	emptyMessage,
+	tableSuggestions,
+	columnSuggestions,
+	getColumnSuggestions,
+}: BlockJoinsEditorFieldProps) {
+	const { updateNodeData } = useReactFlow();
+	const { enabled: editable } = useCanvasChanges();
+	const joins = Array.isArray(data[name]) ? (data[name] as JoinItem[]) : [];
+
+	return (
+		<JoinsEditor
+			label={label}
+			description={description}
+			emptyMessage={emptyMessage}
+			isDisabled={!editable}
+			joins={joins}
+			tableSuggestions={tableSuggestions}
+			columnSuggestions={columnSuggestions}
+			getColumnSuggestions={getColumnSuggestions}
+			onChange={(next) => updateNodeData(blockId, { [name]: next })}
+		/>
+	);
+}
+
 
 
 
