@@ -20,6 +20,16 @@ export type RpcRequest<T> = {
 	payload: T;
 };
 
+/**
+ * One responder per subject. Payload shapes are defined by each operation's
+ * own module; this file only owns the envelope around them.
+ */
+export const RPC_SUBJECTS = {
+	route: "fluxify.ops.route",
+	customBlock: "fluxify.ops.custom_block",
+	canvas: "fluxify.ops.canvas",
+} as const;
+
 export type RpcErrorCode =
 	| "VALIDATION_FAILED"
 	| "NOT_FOUND"
@@ -27,6 +37,7 @@ export type RpcErrorCode =
 	| "CONFLICT"
 	| "FORBIDDEN"
 	| "TIMEOUT"
+	| "PAYLOAD_TOO_LARGE"
 	| "INTERNAL";
 
 export type RpcResponse<T> =
@@ -36,10 +47,41 @@ export type RpcResponse<T> =
 			error: { code: RpcErrorCode; message: string; details?: unknown };
 	  };
 
-// Canvas payloads are the bulky ones. JSON is what the whole stack already
-// speaks and what makes a stuck request readable in `nats sub`; swap the codec
-// here (one place) if a measured round trip ever says otherwise.
+// Canvas payloads are the bulky ones. Measured round trip (encode+decode) on a
+// synthetic canvas, 200 iterations:
+//
+//   blocks/edges   JSON          JSON+gzip
+//   50/80          0.29ms  49KiB  0.37ms   2KiB
+//   250/400        1.22ms 245KiB  1.87ms   7KiB
+//   1000/1600      5.45ms 985KiB  8.05ms  29KiB
+//
+// Time is irrelevant next to the DB transaction on the other end; *size* is
+// not — plain JSON reaches NATS's 1MiB `max_payload` at around a thousand
+// blocks and the request is then dropped by the server, not by us. So: JSON,
+// gzipped once it gets big. (The bench data is repetitive, so the real ratio
+// will be worse than 33x — but even 5x moves the ceiling out of reach.)
+//
+// Small messages stay literally plain JSON on the wire, so `nats sub` is still
+// readable when something is stuck. Gzip's magic bytes tell the two apart, so
+// no framing byte is needed.
 const codec = JSONCodec<unknown>();
+const COMPRESS_ABOVE_BYTES = 32 * 1024;
+/** NATS server default is 1MiB; leave headroom for subject and headers. */
+export const MAX_PAYLOAD_BYTES = 1_000_000;
+
+// nats types its buffers as Uint8Array<ArrayBufferLike>, Bun's zlib wants
+// Uint8Array<ArrayBuffer>. Same bytes; the cast is the whole difference.
+const bytes = (b: Uint8Array) => b as Uint8Array<ArrayBuffer>;
+
+function encode(value: unknown): Uint8Array {
+	const raw = codec.encode(value);
+	return raw.length > COMPRESS_ABOVE_BYTES ? Bun.gzipSync(bytes(raw)) : raw;
+}
+
+function decode<T>(data: Uint8Array): T {
+	const gzipped = data[0] === 0x1f && data[1] === 0x8b;
+	return codec.decode(gzipped ? Bun.gunzipSync(bytes(data)) : data) as T;
+}
 
 /** default request deadline; a canvas apply is a transaction, not a lookup */
 export const RPC_TIMEOUT_MS = 15_000;
@@ -64,10 +106,20 @@ export async function rpcRequest<TReq, TRes>(
 ): Promise<TRes> {
 	const requestId = generateID();
 	const request: RpcRequest<TReq> = { caller, requestId, payload };
+	const body = encode(request);
+
+	// The server drops an oversized message and the caller just sees a timeout.
+	// Fail here instead, where we can say what actually happened.
+	if (body.length > MAX_PAYLOAD_BYTES)
+		throw new RpcError(
+			"PAYLOAD_TOO_LARGE",
+			`Request to ${subject} is ${body.length} bytes, over the ${MAX_PAYLOAD_BYTES} limit — split it into smaller batches`,
+			{ requestId, bytes: body.length },
+		);
 
 	let message;
 	try {
-		message = await natsConnection().request(subject, codec.encode(request), {
+		message = await natsConnection().request(subject, body, {
 			timeout: timeoutMs,
 		});
 	} catch (error) {
@@ -78,7 +130,7 @@ export async function rpcRequest<TReq, TRes>(
 		);
 	}
 
-	const response = codec.decode(message.data) as RpcResponse<TRes>;
+	const response = decode<RpcResponse<TRes>>(message.data);
 	if (!response?.ok) {
 		const err = response?.error;
 		throw new RpcError(
@@ -106,7 +158,7 @@ export function rpcRespond<TReq, TRes>(
 			let requestId = "unknown";
 			let response: RpcResponse<TRes>;
 			try {
-				const request = codec.decode(message.data) as RpcRequest<TReq>;
+				const request = decode<RpcRequest<TReq>>(message.data);
 				requestId = request?.requestId ?? "unknown";
 				response = {
 					ok: true,
@@ -132,7 +184,23 @@ export function rpcRespond<TReq, TRes>(
 					},
 				};
 			}
-			message.respond(codec.encode(response));
+			// Same reasoning as the request side: an oversized reply is dropped
+			// by the server and the caller sees a bare timeout. Send an error
+			// that fits instead — a huge canvas read is the realistic case.
+			let body = encode(response);
+			if (body.length > MAX_PAYLOAD_BYTES) {
+				logger.error(
+					`[RPC] ${subject} response too large (${requestId}): ${body.length} bytes`,
+				);
+				body = encode({
+					ok: false,
+					error: {
+						code: "PAYLOAD_TOO_LARGE",
+						message: `Response is ${body.length} bytes, over the ${MAX_PAYLOAD_BYTES} limit — request a narrower slice`,
+					},
+				} satisfies RpcResponse<never>);
+			}
+			message.respond(body);
 		}
 	})();
 	return async () => {
