@@ -1,3 +1,4 @@
+import { logger } from "@fluxify/common";
 import { BaseAgent } from "./base";
 import { type GlobalGraphState, AgentNode } from "../types";
 import { dispatchAgentEvent } from "../callbacks";
@@ -58,73 +59,83 @@ export class SummarizerAgent extends BaseAgent {
 		const changes: ChangeRef[] = [];
 		let artifactId: string | undefined;
 
-		if (harnessService && runId) {
-			artifactId = await harnessService.createArtifact({ runId });
-			let newRouteSubArtifactId: string | undefined;
+		// A DB blip here used to throw out of the last node in the graph and fail
+		// the whole run — losing a build whose results are sitting in state. The
+		// chips are a nicety; a summary without them beats no summary at all.
+		try {
+			if (harnessService && runId) {
+				artifactId = await harnessService.createArtifact({ runId });
+				let newRouteSubArtifactId: string | undefined;
 
-			for (const task of tasks) {
-				// A failed task's last (rejected) output is still sitting in
-				// subAgentResults — persisting it would show the user a chip for work
-				// that was never applied.
-				if (task.status === "failed") continue;
-				const result = (results as Record<string, any>)[task.id];
-				if (!result) continue;
+				for (const task of tasks) {
+					// A failed task's last (rejected) output is still sitting in
+					// subAgentResults — persisting it would show the user a chip for work
+					// that was never applied.
+					if (task.status === "failed") continue;
+					const result = (results as Record<string, any>)[task.id];
+					if (!result) continue;
 
-				if (isRouteConfigResult(result)) {
-					const type =
-						result.action === "create"
-							? "add"
-							: result.action === "delete"
-								? "delete"
-								: "changes";
-					const subId = await harnessService.createSubArtifact({
-						artifactId,
-						runId,
-						subAgentId: task.id,
-						kind: "route",
-						action: type,
-						payload: result,
-					});
-					if (type === "add") newRouteSubArtifactId = subId;
-					const label =
-						`${result.data?.method ?? ""} ${result.data?.path ?? task.title}`.trim();
-					changes.push({
-						label: label || task.title,
-						actionLabel: type,
-						agentRole: "Route configuration",
-						token: `:route{type="${type}" sub_artifact_id="${subId}"}`,
-					});
-				} else if (isBlockBuilderResult(result)) {
-					const subId = await harnessService.createSubArtifact({
-						artifactId,
-						runId,
-						subAgentId: task.id,
-						kind: "canvas",
-						action: "changes",
-						payload: result,
-					});
-					let parentType: string;
-					let parentRef: string;
-					if (result.targetType === "route" && result.targetId) {
-						parentType = "route";
-						parentRef = result.targetId;
-					} else if (result.targetType === "custom_block" && result.targetId) {
-						parentType = "custom_block";
-						parentRef = result.targetId;
-					} else {
-						// No existing DB record => the canvas belongs to a route created
-						// in this run (parent_type=artifact references the route sub-artifact).
-						parentType = "artifact";
-						parentRef = newRouteSubArtifactId ?? subId;
+					if (isRouteConfigResult(result)) {
+						const type =
+							result.action === "create"
+								? "add"
+								: result.action === "delete"
+									? "delete"
+									: "changes";
+						const subId = await harnessService.createSubArtifact({
+							artifactId,
+							runId,
+							subAgentId: task.id,
+							kind: "route",
+							action: type,
+							payload: result,
+						});
+						if (type === "add") newRouteSubArtifactId = subId;
+						const label =
+							`${result.data?.method ?? ""} ${result.data?.path ?? task.title}`.trim();
+						changes.push({
+							label: label || task.title,
+							actionLabel: type,
+							agentRole: "Route configuration",
+							token: `:route{type="${type}" sub_artifact_id="${subId}"}`,
+						});
+					} else if (isBlockBuilderResult(result)) {
+						const subId = await harnessService.createSubArtifact({
+							artifactId,
+							runId,
+							subAgentId: task.id,
+							kind: "canvas",
+							action: "changes",
+							payload: result,
+						});
+						let parentType: string;
+						let parentRef: string;
+						if (result.targetType === "route" && result.targetId) {
+							parentType = "route";
+							parentRef = result.targetId;
+						} else if (result.targetType === "custom_block" && result.targetId) {
+							parentType = "custom_block";
+							parentRef = result.targetId;
+						} else {
+							// No existing DB record => the canvas belongs to a route created
+							// in this run (parent_type=artifact references the route sub-artifact).
+							parentType = "artifact";
+							parentRef = newRouteSubArtifactId ?? subId;
+						}
+						changes.push({
+							label: task.title,
+							actionLabel: "changes",
+							agentRole: "Canvas builder",
+							token: `:canvasChanges{parent_type="${parentType}" parent="${parentRef}" artifact_id="${subId}"}`,
+						});
 					}
-					changes.push({
-						label: task.title,
-						actionLabel: "changes",
-						agentRole: "Canvas builder",
-						token: `:canvasChanges{parent_type="${parentType}" parent="${parentRef}" artifact_id="${subId}"}`,
-					});
 				}
 			}
+		} catch (error) {
+			logger.error("[Summarizer] Failed to persist run artifacts", {
+				runId,
+				error,
+			});
 		}
 
 		const changesTable = changes.length
