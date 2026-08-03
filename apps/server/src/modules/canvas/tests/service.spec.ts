@@ -16,6 +16,7 @@ mock.module("../../../db/redis", () => ({
 import * as repository from "../repository";
 import { saveCanvas } from "../service";
 import { NotFoundError } from "../../../errors/notFoundError";
+import { ConflictError } from "../../../errors/conflictError";
 
 const changes = {
 	actionsToPerform: {
@@ -37,6 +38,7 @@ const upsertBlocks = spyOn(repository, "upsertBlocks");
 const upsertEdges = spyOn(repository, "upsertEdges");
 const delBlocks = spyOn(repository, "deleteBlocks");
 const delEdges = spyOn(repository, "deleteEdges");
+const getEdges = spyOn(repository, "getEdges");
 
 describe("canvas saveCanvas", () => {
 	beforeEach(() => {
@@ -44,6 +46,7 @@ describe("canvas saveCanvas", () => {
 		spyOn(repository, "getBlocksCountByType").mockResolvedValue([]);
 		// e1 points at b2, which the fixture leaves already stored
 		spyOn(repository, "getBlocks").mockResolvedValue([{ id: "b2" }] as any);
+		getEdges.mockResolvedValue([] as any);
 		spyOn(repository, "touchParent").mockResolvedValue(undefined);
 		for (const spy of [upsertBlocks, upsertEdges, delBlocks, delEdges]) {
 			spy.mockClear();
@@ -93,5 +96,57 @@ describe("canvas saveCanvas", () => {
 			saveCanvas({ type: "route", id: "nope" }, changes, ["p1"]),
 		).rejects.toThrow(NotFoundError);
 		expect(upsertBlocks).not.toHaveBeenCalled();
+	});
+
+	it.each(["route", "custom_block"] as const)(
+		"rejects a cycle for a %s canvas before it writes",
+		async (type) => {
+			const loop = {
+				actionsToPerform: { blocks: [], edges: [] },
+				changes: {
+					blocks: [
+						{ id: "if", type: "if", data: {}, position: { x: 1, y: 1 } },
+						{ id: "db", type: "db_getall", data: {}, position: { x: 2, y: 2 } },
+					],
+					edges: [
+						{ id: "false", from: "if", to: "db", fromHandle: "false", toHandle: "" },
+						{ id: "back", from: "db", to: "if", fromHandle: "", toHandle: "" },
+					],
+				},
+			};
+
+			await expect(saveCanvas({ type, id: "parent-1" }, loop, ["p1"])).rejects.toThrow(
+				ConflictError,
+			);
+			expect(upsertBlocks).not.toHaveBeenCalled();
+			expect(upsertEdges).not.toHaveBeenCalled();
+		},
+	);
+
+	it("rejects a newly-added return edge that closes a stored path", async () => {
+		spyOn(repository, "getBlocks").mockResolvedValue([
+			{ id: "if" },
+			{ id: "db" },
+		] as any);
+		getEdges.mockResolvedValue([
+			{ id: "false", from: "if", to: "db", fromHandle: "false", toHandle: "" },
+		] as any);
+
+		await expect(
+			saveCanvas(
+				{ type: "route", id: "r-1" },
+				{
+					actionsToPerform: { blocks: [], edges: [] },
+					changes: {
+						blocks: [],
+						edges: [
+							{ id: "back", from: "db", to: "if", fromHandle: "", toHandle: "" },
+						],
+					},
+				},
+				["p1"],
+			),
+		).rejects.toThrow(ConflictError);
+		expect(upsertEdges).not.toHaveBeenCalled();
 	});
 });

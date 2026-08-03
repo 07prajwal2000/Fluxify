@@ -1,6 +1,7 @@
 import { BlockTypes } from "@fluxify/blocks";
 import { db, type DbTransactionType } from "../../db";
 import { BadRequestError } from "../../errors/badRequestError";
+import { ConflictError } from "../../errors/conflictError";
 import { NotFoundError } from "../../errors/notFoundError";
 import {
 	CHAN_ON_CUSTOM_BLOCK_CHANGE,
@@ -19,6 +20,10 @@ import {
 	upsertBlocks,
 	upsertEdges,
 } from "./repository";
+import {
+	findCycleEdgeIds,
+	type DirectedCanvasEdge,
+} from "./cycleDetection";
 import type { CanvasChanges, CanvasParent } from "./types";
 
 const CHANGE_CHANNEL = {
@@ -64,6 +69,49 @@ async function assertEdgeTargetsExist(
 	}
 }
 
+/** Build the edge set that will exist after this delta is applied. */
+async function canvasEdgesAfterSave(
+	parent: CanvasParent,
+	data: CanvasChanges,
+	deleteBlockIds: string[],
+	deleteEdgeIds: string[],
+	tx: DbTransactionType,
+) {
+	const edges = new Map<string, DirectedCanvasEdge>(
+		(await getEdges(parent, tx)).map((edge) => [edge.id, edge]),
+	);
+	for (const edge of data.changes.edges) edges.set(edge.id, edge);
+	for (const edgeId of deleteEdgeIds) edges.delete(edgeId);
+
+	const deletedBlocks = new Set(deleteBlockIds);
+	return [...edges.values()].filter(
+		(edge) => !deletedBlocks.has(edge.from ?? "") && !deletedBlocks.has(edge.to ?? ""),
+	);
+}
+
+async function assertCanvasHasNoCycles(
+	parent: CanvasParent,
+	data: CanvasChanges,
+	deleteBlockIds: string[],
+	deleteEdgeIds: string[],
+	tx: DbTransactionType,
+) {
+	const cycleEdgeIds = findCycleEdgeIds(
+		await canvasEdgesAfterSave(
+			parent,
+			data,
+			deleteBlockIds,
+			deleteEdgeIds,
+			tx,
+		),
+	);
+	if (cycleEdgeIds.size === 0) return;
+
+	throw new ConflictError(
+		`Canvas cannot contain cycles. Remove connection(s): ${[...cycleEdgeIds].join(", ")}`,
+	);
+}
+
 /**
  * The single source of truth for canvas mutations. Every caller — both HTTP
  * endpoints and the internal ops bus — goes through here, so a canvas is
@@ -94,6 +142,13 @@ export async function saveCanvas(
 	// a tx nests as a savepoint, so the outer transaction still decides the outcome
 	await (outer ?? db).transaction(async (tx) => {
 		await assertEdgeTargetsExist(parent, data, deleteBlockIds, tx);
+		await assertCanvasHasNoCycles(
+			parent,
+			data,
+			deleteBlockIds,
+			deleteEdgeIds,
+			tx,
+		);
 		await upsertBlocks(
 			data.changes.blocks.map((block) => ({ ...block, ...keys })),
 			tx,

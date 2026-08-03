@@ -5,6 +5,7 @@ import type { CanvasItems, CanvasSavePayload } from "@/services/canvas";
 import { BlockCanvas } from "./BlockCanvas";
 import { createBlockNodeTypes } from "./blocks";
 import { emptyGraph } from "./adapters";
+import { findCycleEdgeIds } from "./cycleDetection";
 import { saveWithDoctor, type ChangeSet } from "./changes";
 import type { BlockData, CanvasGraph } from "./types";
 
@@ -40,12 +41,18 @@ export function CanvasWorkbench({ title, items, reload, save }: CanvasWorkbenchP
 	const [readOnly, setReadOnly] = useState(false);
 	const [pendingCount, setPendingCount] = useState(0);
 	const [isSaving, setIsSaving] = useState(false);
+	const [cycleFeedbackToken, setCycleFeedbackToken] = useState(0);
 	// Latest graph + delta reported by the canvas; only the delta gets saved.
 	const edited = useRef<{ graph: CanvasGraph; changes: ChangeSet } | null>(null);
 
 	async function onSave() {
 		const current = edited.current;
 		if (!current || isSaving) return;
+		if (findCycleEdgeIds(current.graph.edges).size > 0) {
+			setCycleFeedbackToken((token) => token + 1);
+			toast.danger("Canvas contains a loop. Remove every red connection before saving.");
+			return;
+		}
 		setIsSaving(true);
 		try {
 			const outcome = await saveWithDoctor({
@@ -114,6 +121,7 @@ export function CanvasWorkbench({ title, items, reload, save }: CanvasWorkbenchP
 						graph={graph}
 						mode={readOnly ? "readonly" : "edit"}
 						nodeTypes={nodeTypes}
+						cycleFeedbackToken={cycleFeedbackToken}
 						onChange={(next, changes) => {
 							edited.current = { graph: next, changes };
 							setPendingCount(changes.blocks.size + changes.edges.size);

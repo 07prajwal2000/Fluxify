@@ -7,6 +7,7 @@ import {
 	type EdgeProps,
 } from "@xyflow/react";
 import { TbX } from "react-icons/tb";
+import type { BlockEdge } from "../types";
 import "./edges.css";
 
 /**
@@ -25,7 +26,8 @@ export function FlowEdge({
 	selected,
 	markerEnd,
 	style,
-}: EdgeProps) {
+	data,
+}: EdgeProps<BlockEdge>) {
 	const { deleteElements } = useReactFlow();
 	const [path, labelX, labelY] = getBezierPath({
 		sourceX,
@@ -35,6 +37,14 @@ export function FlowEdge({
 		sourcePosition,
 		targetPosition,
 	});
+	const edgeClassName = [
+		"fx-edge",
+		selected && "fx-edge--selected",
+		data?.cycle && "fx-edge--cycle",
+		data?.cycleFlash && "fx-edge--cycle-flash",
+	]
+		.filter(Boolean)
+		.join(" ");
 
 	// deleteElements (not setEdges) so the removal reaches onEdgesChange.
 	const remove = useCallback(() => {
@@ -50,7 +60,7 @@ export function FlowEdge({
 				path={path}
 				markerEnd={markerEnd}
 				style={style}
-				className={`fx-edge${selected ? " fx-edge--selected" : ""}`}
+				className={edgeClassName}
 			/>
 			{selected && (
 				<EdgeLabelRenderer>

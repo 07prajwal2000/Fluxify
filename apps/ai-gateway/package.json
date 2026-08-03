@@ -11,7 +11,8 @@
 		"dev": "bun --watch run src/server.ts",
 		"build": "bun build src/server.ts --outdir=./dist --bundle --target bun --minify --sourcemap=linked --conditions=module",
 		"gather": "bun ./src/scripts/gather.ts",
-		"lint": "tsgo --noEmit"
+		"lint": "tsgo --noEmit",
+		"test": "bun test --parallel"
 	},
 	"peerDependencies": {
 		"typescript": "^6.0.3"

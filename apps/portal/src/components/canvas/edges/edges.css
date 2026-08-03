@@ -13,6 +13,23 @@
 	stroke-width: 2;
 }
 
+.fx-edge--cycle {
+	stroke: var(--danger, #e5484d);
+	stroke-width: 2.5;
+}
+
+.fx-edge--cycle-flash {
+	animation: fx-edge-cycle-flash 180ms linear 8;
+}
+
+@keyframes fx-edge-cycle-flash {
+	50% {
+		stroke: color-mix(in oklab, var(--danger, #e5484d) 45%, transparent);
+		stroke-width: 4;
+		filter: drop-shadow(0 0 3px var(--danger, #e5484d));
+	}
+}
+
 @keyframes fx-edge-flow {
 	to {
 		stroke-dashoffset: -10;
@@ -20,7 +37,8 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-	.fx-edge {
+	.fx-edge,
+	.fx-edge--cycle-flash {
 		animation: none;
 	}
 }

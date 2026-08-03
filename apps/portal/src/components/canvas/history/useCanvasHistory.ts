@@ -1,16 +1,16 @@
 import { useCallback, useMemo, useRef, useState } from "react";
-import type { BlockEdge } from "../types";
+import type { BlockEdge, BlockNode } from "../types";
 import { createHistoryStack, type HistoryStack } from "./historyStack";
 
 /**
- * What history tracks: block positions and the edge set. Block `data` is
- * deliberately excluded — editing a block's config is not undoable here.
+ * What history tracks: block membership, layout and edge set. Config edits are
+ * not independently undoable; current data is preserved during restoration.
  *
  * A snapshot covers the *whole* graph, so one entry undoes a bulk change (a
  * multi-select drag, a paste, a multi-edge delete) in a single step.
  */
 export type CanvasSnapshot = {
-	positions: Record<string, { x: number; y: number }>;
+	nodes: BlockNode[];
 	edges: BlockEdge[];
 };
 
