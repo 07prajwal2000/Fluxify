@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import {
 	Button,
 	Card,
@@ -25,6 +25,7 @@ function CustomBlocksPage() {
 	const { projectId } = Route.useParams();
 	const { data, isLoading, isError } = customBlocksQuery.getAll.useQuery(projectId);
 	const remove = customBlocksQuery.remove.mutation(projectId);
+	const navigate = useNavigate();
 	const [pendingDelete, setPendingDelete] = useState<Block | null>(null);
 
 	return (
@@ -58,7 +59,18 @@ function CustomBlocksPage() {
 									{block.description || "No description"}
 								</p>
 							</Card.Content>
-							<Card.Footer>
+							<Card.Footer className="flex items-center gap-2">
+								<Button
+									variant="ghost"
+									onPress={() =>
+										navigate({
+											to: "/$projectId/custom-block-canvas/$blockId",
+											params: { projectId, blockId: block.id },
+										})
+									}
+								>
+									Open canvas
+								</Button>
 								<Button
 									isIconOnly
 									variant="ghost"
