@@ -22,6 +22,7 @@ export function ArrayEditor({
 	readOnly,
 	className,
 	emptyMessage = "No items added yet.",
+	suggestions,
 }: ArrayEditorProps) {
 	const disabled = Boolean(isDisabled || readOnly);
 	const items = values ?? array ?? [];
@@ -89,6 +90,7 @@ export function ArrayEditor({
 									isDisabled={disabled}
 									placeholder={placeholder}
 									value={item ?? ""}
+									suggestions={suggestions}
 									onChange={(val) => handleItemChange(index, val)}
 									variant="secondary"
 								/>

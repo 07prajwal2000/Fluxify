@@ -66,6 +66,12 @@ test("a note renders as its own resizable type with no sockets", () => {
 	expect(BLOCK_CATALOG[BLOCK_TYPES.stickynote].handles).toEqual([]);
 });
 
+test("custom and unknown block types resolve to BlockNode automatically", () => {
+	const nodeTypes = createBlockNodeTypes();
+	expect(nodeTypes["my_custom_block"]).toBeDefined();
+	expect(nodeTypes["my_custom_block"]).toBeTruthy();
+});
+
 test("note data is normalised into the shape the server validates", () => {
 	// Empty data must still produce every required field.
 	const fresh = stickyNoteData(undefined);

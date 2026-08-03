@@ -2,6 +2,11 @@ import { useMemo } from "react";
 import {
 	ConditionsBuilder,
 	type Condition,
+	Description,
+	JsTextField,
+	Label,
+	ListBox,
+	Select,
 } from "@fluxify/components";
 import { useParams } from "@tanstack/react-router";
 import { useReactFlow } from "@xyflow/react";
@@ -23,6 +28,11 @@ type RawWhereCondition = {
 	rhs?: string | number;
 	operator?: string;
 	chain?: "and" | "or";
+};
+
+type SortConfig = {
+	attribute?: string;
+	direction?: "asc" | "desc";
 };
 
 function parseConditions(block: BlockNode): Condition[] {
@@ -52,8 +62,16 @@ function parseJoins(block: BlockNode): unknown[] {
 	return [];
 }
 
+function parseSort(block: BlockNode): { attribute: string; direction: "asc" | "desc" } {
+	const rawSort = block.data.sort as Partial<SortConfig> | undefined;
+	return {
+		attribute: typeof rawSort?.attribute === "string" ? rawSort.attribute : "id",
+		direction: rawSort?.direction === "desc" ? "desc" : "asc",
+	};
+}
+
 /** General tab: Connection selection and Table Name */
-export function GetSingleDbGeneralSettings({ block }: { block: BlockNode }) {
+export function GetAllDbGeneralSettings({ block }: { block: BlockNode }) {
 	const params = useParams({ strict: false }) as { projectId?: string };
 	const projectId = params?.projectId ?? "";
 	const connectionId =
@@ -89,8 +107,115 @@ export function GetSingleDbGeneralSettings({ block }: { block: BlockNode }) {
 	);
 }
 
+/** Pagination tab: Limit, Offset, and Sorting configuration */
+export function GetAllDbPaginationSettings({ block }: { block: BlockNode }) {
+	const { updateNodeData } = useReactFlow();
+	const { enabled: editable } = useCanvasChanges();
+	const params = useParams({ strict: false }) as { projectId?: string };
+	const projectId = params?.projectId ?? "";
+	const connectionId =
+		typeof block.data.connection === "string"
+			? block.data.connection
+			: typeof block.data.integration === "string"
+				? block.data.integration
+				: typeof block.data.integrationId === "string"
+					? block.data.integrationId
+					: "";
+	const tableName =
+		typeof block.data.tableName === "string"
+			? block.data.tableName
+			: typeof block.data.table === "string"
+				? block.data.table
+				: "";
+	const { getColumnsForTable, allColumns } = useDbMetadata(projectId, connectionId);
+	const tableColumns = getColumnsForTable(tableName);
+	const columnSuggestions = tableColumns.length > 0 ? tableColumns : allColumns;
+	const sort = parseSort(block);
+
+	const handleSortAttributeChange = (attribute: string) => {
+		updateNodeData(block.id, {
+			sort: {
+				...sort,
+				attribute,
+			},
+		});
+	};
+
+	const handleSortDirectionChange = (direction: string) => {
+		updateNodeData(block.id, {
+			sort: {
+				...sort,
+				direction: direction as "asc" | "desc",
+			},
+		});
+	};
+
+	return (
+		<div className="flex flex-col gap-4 w-full">
+			<div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full">
+				<BlockJsTextField
+					blockId={block.id}
+					data={block.data}
+					name="limit"
+					label="Limit"
+					placeholder="1000"
+					hint="Maximum records to return (supports js: expression)."
+				/>
+				<BlockJsTextField
+					blockId={block.id}
+					data={block.data}
+					name="offset"
+					label="Offset"
+					placeholder="0"
+					hint="Skip count for pagination (supports js: expression)."
+				/>
+			</div>
+			<div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full">
+				<JsTextField
+					fullWidth
+					variant="secondary"
+					isDisabled={!editable}
+					label="Sort Attribute"
+					description="Column/attribute to sort on (supports js: expression)."
+					placeholder="id"
+					value={sort.attribute}
+					suggestions={columnSuggestions}
+					onChange={handleSortAttributeChange}
+				/>
+				<Select
+					fullWidth
+					variant="secondary"
+					isDisabled={!editable}
+					placeholder="Sort direction"
+					value={sort.direction}
+					onChange={(val) => handleSortDirectionChange(String(val))}
+				>
+					<Label>Sort Direction</Label>
+					<Select.Trigger>
+						<Select.Value />
+						<Select.Indicator />
+					</Select.Trigger>
+					<Description>Direction to sort records by.</Description>
+					<Select.Popover>
+						<ListBox>
+							<ListBox.Item id="asc" textValue="Ascending">
+								Ascending
+								<ListBox.ItemIndicator />
+							</ListBox.Item>
+							<ListBox.Item id="desc" textValue="Descending">
+								Descending
+								<ListBox.ItemIndicator />
+							</ListBox.Item>
+						</ListBox>
+					</Select.Popover>
+				</Select>
+			</div>
+		</div>
+	);
+}
+
 /** Columns tab: Selected columns array editor (plain strings, no JS expressions) */
-export function GetSingleDbColumnsSettings({ block }: { block: BlockNode }) {
+export function GetAllDbColumnsSettings({ block }: { block: BlockNode }) {
 	const params = useParams({ strict: false }) as { projectId?: string };
 	const projectId = params?.projectId ?? "";
 	const connectionId =
@@ -139,7 +264,7 @@ export function GetSingleDbColumnsSettings({ block }: { block: BlockNode }) {
 }
 
 /** Joins tab: Table joins configuration */
-export function GetSingleDbJoinsSettings({ block }: { block: BlockNode }) {
+export function GetAllDbJoinsSettings({ block }: { block: BlockNode }) {
 	const params = useParams({ strict: false }) as { projectId?: string };
 	const projectId = params?.projectId ?? "";
 	const connectionId =
@@ -178,7 +303,7 @@ export function GetSingleDbJoinsSettings({ block }: { block: BlockNode }) {
 }
 
 /** Conditions tab: WHERE conditions builder */
-export function GetSingleDbConditionsSettings({ block }: { block: BlockNode }) {
+export function GetAllDbConditionsSettings({ block }: { block: BlockNode }) {
 	const { updateNodeData } = useReactFlow();
 	const { enabled: editable } = useCanvasChanges();
 	const params = useParams({ strict: false }) as { projectId?: string };
@@ -210,7 +335,7 @@ export function GetSingleDbConditionsSettings({ block }: { block: BlockNode }) {
 				disableJsConditions={true}
 				ignoreOperators={["is_empty", "is_not_empty"]}
 				label="Conditions"
-				description="The conditions used to match the single record from the database."
+				description="The conditions used to match records from the database."
 				isDisabled={!editable}
 				conditions={conditions}
 				lhsSuggestions={columnSuggestions}
@@ -228,14 +353,17 @@ export function GetSingleDbConditionsSettings({ block }: { block: BlockNode }) {
 	);
 }
 
-export function getSingleDbSettings(block: BlockNode) {
+export function getAllDbSettings(block: BlockNode) {
 	const columnsCount = parseColumns(block).length;
 	const joinsCount = parseJoins(block).length;
 	const conditionsCount = parseConditions(block).length;
 
 	return [
 		<BlockSettings.TabHead key="general" name="General">
-			<GetSingleDbGeneralSettings block={block} />
+			<GetAllDbGeneralSettings block={block} />
+		</BlockSettings.TabHead>,
+		<BlockSettings.TabHead key="pagination" name="Pagination">
+			<GetAllDbPaginationSettings block={block} />
 		</BlockSettings.TabHead>,
 		<BlockSettings.TabHead
 			key="columns"
@@ -251,7 +379,7 @@ export function getSingleDbSettings(block: BlockNode) {
 				</span>
 			}
 		>
-			<GetSingleDbColumnsSettings block={block} />
+			<GetAllDbColumnsSettings block={block} />
 		</BlockSettings.TabHead>,
 		<BlockSettings.TabHead
 			key="joins"
@@ -267,7 +395,7 @@ export function getSingleDbSettings(block: BlockNode) {
 				</span>
 			}
 		>
-			<GetSingleDbJoinsSettings block={block} />
+			<GetAllDbJoinsSettings block={block} />
 		</BlockSettings.TabHead>,
 		<BlockSettings.TabHead
 			key="conditions"
@@ -283,7 +411,7 @@ export function getSingleDbSettings(block: BlockNode) {
 				</span>
 			}
 		>
-			<GetSingleDbConditionsSettings block={block} />
+			<GetAllDbConditionsSettings block={block} />
 		</BlockSettings.TabHead>,
 	];
 }

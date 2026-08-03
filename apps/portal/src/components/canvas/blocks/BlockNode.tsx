@@ -44,11 +44,18 @@ export function BlockNode({
 	);
 }
 
-/** `nodeTypes` for React Flow covering every catalog block type. */
+/** `nodeTypes` for React Flow covering every catalog block type and custom block fallback. */
 export function createBlockNodeTypes(extra?: NodeTypes): NodeTypes {
 	const types: NodeTypes = {};
 	for (const [type] of blockCatalogEntries()) types[type] = BlockNode;
 	// Notes are markdown + resizable, not the icon/name/description card.
 	types[BLOCK_TYPES.stickynote] = StickyNoteBlock;
-	return { ...types, ...extra };
+	Object.assign(types, extra);
+
+	return new Proxy(types, {
+		get(target, prop: string) {
+			if (prop in target) return target[prop];
+			return BlockNode;
+		},
+	});
 }

@@ -5,7 +5,14 @@ import { cloudLogSettings } from "./blocks/CloudLogSettings";
 import { consoleLogSettings } from "./blocks/ConsoleLogSettings";
 import { forLoopSettings } from "./blocks/ForLoopSettings";
 import { foreachLoopSettings } from "./blocks/ForeachLoopSettings";
+import { deleteDbSettings } from "./blocks/db/DeleteDbSettings";
+import { getAllDbSettings } from "./blocks/db/GetAllDbSettings";
 import { getSingleDbSettings } from "./blocks/db/GetSingleDbSettings";
+import { insertBulkDbSettings } from "./blocks/db/InsertBulkDbSettings";
+import { insertDbSettings } from "./blocks/db/InsertDbSettings";
+import { nativeDbSettings } from "./blocks/db/NativeDbSettings";
+import { transactionDbSettings } from "./blocks/db/TransactionDbSettings";
+import { updateDbSettings } from "./blocks/db/UpdateDbSettings";
 import { getCookieSettings } from "./blocks/GetCookieSettings";
 import { getHeaderSettings } from "./blocks/GetHeaderSettings";
 import { getParamSettings } from "./blocks/GetParamSettings";
@@ -18,6 +25,7 @@ import { setCookieSettings } from "./blocks/SetCookieSettings";
 import { setHeaderSettings } from "./blocks/SetHeaderSettings";
 import { setVarSettings } from "./blocks/SetVarSettings";
 import { transformerSettings } from "./blocks/TransformerSettings";
+import { customBlockSettings } from "./blocks/CustomBlockSettings";
 import type { BlockNode } from "../types";
 
 /**
@@ -46,10 +54,28 @@ export const BLOCK_SETTINGS_TABS: Record<string, BlockTabs> = {
 	[BLOCK_TYPES.consolelog]: consoleLogSettings,
 	[BLOCK_TYPES.cloudLogs]: cloudLogSettings,
 	[BLOCK_TYPES.db_getsingle]: getSingleDbSettings,
+	[BLOCK_TYPES.db_getall]: getAllDbSettings,
+	[BLOCK_TYPES.db_delete]: deleteDbSettings,
+	[BLOCK_TYPES.db_insert]: insertDbSettings,
+	[BLOCK_TYPES.db_insertbulk]: insertBulkDbSettings,
+	[BLOCK_TYPES.db_update]: updateDbSettings,
+	[BLOCK_TYPES.db_transaction]: transactionDbSettings,
+	[BLOCK_TYPES.db_native]: nativeDbSettings,
 };
 
+const NO_EXTRA_TABS_BUILTIN = new Set<string>([
+	BLOCK_TYPES.entrypoint,
+	BLOCK_TYPES.errorHandler,
+	BLOCK_TYPES.httpgetrequestbody,
+	BLOCK_TYPES.stickynote,
+]);
+
 export function blockSettingsTabs(type: string | undefined): BlockTabs | undefined {
-	return type ? BLOCK_SETTINGS_TABS[type] : undefined;
+	if (!type || NO_EXTRA_TABS_BUILTIN.has(type)) return undefined;
+	const builtinTabs = BLOCK_SETTINGS_TABS[type];
+	if (builtinTabs) return builtinTabs;
+	return customBlockSettings;
 }
+
 
 

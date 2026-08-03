@@ -11,6 +11,8 @@ export interface ConditionsBuilderRowProps {
 	isDisabled?: boolean;
 	disableJsConditions?: boolean;
 	ignoreOperators?: ConditionOperator[];
+	lhsSuggestions?: string[];
+	rhsSuggestions?: string[];
 	onLHSChange: (index: number, value: string) => void;
 	onRHSChange: (index: number, value: string) => void;
 	onOperatorChange: (index: number, operator: ConditionOperator) => void;
@@ -24,6 +26,8 @@ export function ConditionsBuilderRow({
 	isDisabled,
 	disableJsConditions,
 	ignoreOperators = [],
+	lhsSuggestions,
+	rhsSuggestions,
 	onLHSChange,
 	onRHSChange,
 	onOperatorChange,
@@ -131,6 +135,7 @@ export function ConditionsBuilderRow({
 							onChange={(val) => onLHSChange(index, val)}
 							placeholder="Left value"
 							value={String(condition.lhs ?? "")}
+							suggestions={lhsSuggestions}
 						/>
 					</div>
 					<div className={hideRhs ? "flex-1 min-w-0" : "w-52 shrink-0"}>
@@ -169,6 +174,7 @@ export function ConditionsBuilderRow({
 								onChange={(val) => onRHSChange(index, val)}
 								placeholder="Right value"
 								value={String(condition.rhs ?? "")}
+								suggestions={rhsSuggestions}
 							/>
 						</div>
 					)}

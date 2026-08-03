@@ -33,4 +33,6 @@ export interface ArrayEditorProps {
 	className?: string;
 	/** Empty state message */
 	emptyMessage?: string;
+	/** Optional list of autocomplete suggestions passed down to each item input */
+	suggestions?: string[];
 }

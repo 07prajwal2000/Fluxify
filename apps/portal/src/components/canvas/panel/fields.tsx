@@ -140,6 +140,8 @@ export function BlockTextField({
 
 export type BlockJsTextFieldProps = FieldProps & {
 	placeholder?: string;
+	disableJs?: boolean;
+	suggestions?: string[];
 };
 
 /**
@@ -153,6 +155,8 @@ export function BlockJsTextField({
 	label,
 	hint,
 	placeholder,
+	disableJs,
+	suggestions,
 }: BlockJsTextFieldProps) {
 	const { updateNodeData } = useReactFlow();
 	const { enabled: editable } = useCanvasChanges();
@@ -175,6 +179,8 @@ export function BlockJsTextField({
 			description={hint}
 			placeholder={placeholder}
 			value={value}
+			disableJs={disableJs}
+			suggestions={suggestions}
 			onChange={(next) => {
 				const trimmed = next.trim();
 				const num = Number(trimmed);
@@ -308,6 +314,7 @@ export type BlockArrayEditorFieldProps = {
 	addButtonLabel?: string;
 	disableJs?: boolean;
 	emptyMessage?: string;
+	suggestions?: string[];
 };
 
 /**
@@ -323,6 +330,7 @@ export function BlockArrayEditorField({
 	addButtonLabel,
 	disableJs,
 	emptyMessage,
+	suggestions,
 }: BlockArrayEditorFieldProps) {
 	const { updateNodeData } = useReactFlow();
 	const { enabled: editable } = useCanvasChanges();
@@ -338,6 +346,7 @@ export function BlockArrayEditorField({
 			emptyMessage={emptyMessage}
 			isDisabled={!editable}
 			values={values}
+			suggestions={suggestions}
 			onChange={(next) => updateNodeData(blockId, { [name]: next })}
 		/>
 	);
@@ -350,6 +359,9 @@ export type BlockJoinsEditorFieldProps = {
 	label?: ReactNode;
 	description?: ReactNode;
 	emptyMessage?: string;
+	tableSuggestions?: string[];
+	columnSuggestions?: string[];
+	getColumnSuggestions?: (tableName?: string) => string[];
 };
 
 /**
@@ -362,6 +374,9 @@ export function BlockJoinsEditorField({
 	label,
 	description,
 	emptyMessage,
+	tableSuggestions,
+	columnSuggestions,
+	getColumnSuggestions,
 }: BlockJoinsEditorFieldProps) {
 	const { updateNodeData } = useReactFlow();
 	const { enabled: editable } = useCanvasChanges();
@@ -374,6 +389,9 @@ export function BlockJoinsEditorField({
 			emptyMessage={emptyMessage}
 			isDisabled={!editable}
 			joins={joins}
+			tableSuggestions={tableSuggestions}
+			columnSuggestions={columnSuggestions}
+			getColumnSuggestions={getColumnSuggestions}
 			onChange={(next) => updateNodeData(blockId, { [name]: next })}
 		/>
 	);

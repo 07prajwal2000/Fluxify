@@ -99,4 +99,23 @@ export const integrationsQuery = {
 			});
 		},
 	},
+	getMetadata: {
+		useQuery(projectId: string, integrationId?: string) {
+			return useQuery({
+				queryKey: ["integrations", projectId, "metadata", integrationId],
+				queryFn: async () => {
+					if (!projectId || !integrationId) return null;
+					try {
+						return await integrationService.getMetadata(projectId, integrationId);
+					} catch {
+						return null;
+					}
+				},
+				refetchOnWindowFocus: false,
+				staleTime: 5 * 60 * 1000,
+				enabled: Boolean(projectId) && Boolean(integrationId),
+				retry: false,
+			});
+		},
+	},
 };

@@ -19,6 +19,9 @@ export function JoinsEditor({
 	onChange,
 	isDisabled,
 	readOnly,
+	tableSuggestions,
+	columnSuggestions,
+	getColumnSuggestions,
 	className,
 	emptyMessage = "No joins added",
 }: JoinsEditorProps) {
@@ -76,6 +79,11 @@ export function JoinsEditor({
 								? rawAttr.slice(equalsIndex + 1).trim()
 								: "";
 
+						const rightColSuggestions =
+							join.table && getColumnSuggestions
+								? getColumnSuggestions(join.table)
+								: columnSuggestions;
+
 						return (
 							<div
 								key={index}
@@ -125,6 +133,7 @@ export function JoinsEditor({
 												isDisabled={disabled}
 												placeholder="Table (e.g. orders)"
 												value={join.table || ""}
+												suggestions={tableSuggestions}
 												onChange={(val) => handleUpdate(index, { table: val })}
 												variant="secondary"
 											/>
@@ -140,6 +149,7 @@ export function JoinsEditor({
 												isDisabled={disabled}
 												placeholder="users.id"
 												value={leftAttr}
+												suggestions={columnSuggestions}
 												onChange={(val) => {
 													const newAttr = rightAttr
 														? `${val} = ${rightAttr}`
@@ -161,6 +171,7 @@ export function JoinsEditor({
 												isDisabled={disabled}
 												placeholder="orders.user_id"
 												value={rightAttr}
+												suggestions={rightColSuggestions}
 												onChange={(val) => {
 													const newAttr = `${leftAttr} = ${val}`;
 													handleUpdate(index, { attribute: newAttr });
