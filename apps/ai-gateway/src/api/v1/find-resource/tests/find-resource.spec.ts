@@ -1,5 +1,11 @@
 import { describe, it, expect, spyOn } from "bun:test";
-import { DbService, toPrefixTsQuery } from "../../../../harness/internal/dbService";
+import {
+	DbService,
+	idLookups,
+	INTEGER,
+	toPrefixTsQuery,
+	UUID,
+} from "../../../../harness/internal/dbService";
 import handleRequest from "../service";
 import { queryParamsSchema } from "../dto";
 
@@ -19,6 +25,26 @@ describe("toPrefixTsQuery", () => {
 		expect(toPrefixTsQuery("a & b | !c")).toBe("a:* & b:* & c:*");
 		expect(toPrefixTsQuery("'\"(")).toBeNull();
 		expect(toPrefixTsQuery("   ")).toBeNull();
+	});
+});
+
+describe("idLookups", () => {
+	it("matches an id the text search can never find", () => {
+		// `toPrefixTsQuery` turns this into hex prefix terms and compares them
+		// against the *name* column, so the id the planner handed the agent is
+		// the one input guaranteed to miss.
+		const id = "019f8c3d-1a2b-7c4d-8e5f-6a7b8c9d0e1f";
+		expect(toPrefixTsQuery(id)).not.toContain(id);
+		expect(idLookups([id], UUID)).toEqual([id]);
+		expect(idLookups(["users", "auth"])).toEqual(["users", "auth"]);
+	});
+
+	it("drops keywords a typed id column would reject", () => {
+		// Postgres errors on `uuid = 'auth'`, and the caller turns any error into
+		// an empty result — one ordinary word would blank the whole search.
+		expect(idLookups(["auth", "019f8c3d-1a2b-7c4d-8e5f-6a7b8c9d0e1f"], UUID))
+			.toEqual(["019f8c3d-1a2b-7c4d-8e5f-6a7b8c9d0e1f"]);
+		expect(idLookups(["DATABASE_URL", "42"], INTEGER)).toEqual(["42"]);
 	});
 });
 

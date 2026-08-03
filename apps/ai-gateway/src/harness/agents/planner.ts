@@ -110,6 +110,7 @@ Other blocks may require secrets from **app configs**.
 **\`find_resource\`** — Search the database for existing resources (e.g., routes, app configs, integrations, custom blocks) relevant to the user's request. If a "Current context" block below already names the target resource, use that id directly and do NOT call this tool to re-find it — only use it for resources the current context doesn't cover.
 - Always search for the exact resource ID if you are modifying, updating, or deleting an existing resource that isn't already given to you.
 - Store the found resource IDs (e.g., \`routeId\`) and relevant details in the \`scratchpadNote\` so downstream agents have the exact IDs needed to perform their tasks. Do NOT guess IDs.
+- When you already hold an ID (from \`get_artifact\`, an earlier result, or the current context) and want that one record, pass \`searchBy: "id"\`. The default keyword search matches names and descriptions, so it will never find an ID.
 
 **\`get_artifact\`** — Reads back what an earlier run in this conversation actually built. Use it whenever the user's request refers to previous work ("change what you just built", "add auth to that route", "undo the block you added") instead of guessing from the summary text.
 - The ids come from tokens inside earlier assistant messages: \`:route{type="add" sub_artifact_id="abc123"}\` and \`:canvasChanges{parent_type="route" parent="..." artifact_id="def456"}\`. Pass the \`sub_artifact_id\` / \`artifact_id\` values verbatim; never invent one. A parent artifact id returns every output of that run.
