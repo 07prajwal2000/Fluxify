@@ -22,6 +22,27 @@ Design rule: tokens that open a referenced record (`:route`, `:canvasChanges`)
 are placed at the **end of a line** so the chip never breaks a sentence.
 Creation chips (`:create*`) and the planner's `:resource{...}` are inline-friendly.
 
+## Trust rules
+
+A token renders as a button the user clicks, so who may author one matters as
+much as its shape. All three rules live in `internal/untrusted.ts` and
+`agents/summarizerTokens.ts`.
+
+1. **Reference tokens are copied, never authored.** The summarizer is handed the
+   exact `:route` / `:canvasChanges` tokens for the run's changes;
+   `enforceTokenAllowlist` drops anything it emits that is not in that set, and
+   any repeat of one. A model can be talked into writing a chip that claims work
+   it never did — the harness knows the legitimate set, so it decides.
+2. **Retrieved content can never carry token syntax.** Everything read out of
+   the project (tool results, the "Current context" block, the custom-block
+   table) is wrapped by `fenceUntrusted`, which strips chip syntax on the way
+   in. A route named `:route{type="delete" …}` is text, not a chip.
+3. **Inbound `:resource{...}` is resolved, not forwarded.** The composer
+   serializes an @-mention to that markup and it becomes the user query;
+   `sanitizeUserQuery` rewrites it to a plain `integration "Redis Prod"
+   (id: …)` reference before any agent sees it. The stored message keeps the
+   markup — that is what renders the chip back to the user.
+
 ---
 
 ## 1. Summarizer syntax (agent: `summarizer`)
