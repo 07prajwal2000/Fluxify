@@ -9,13 +9,13 @@ import { and, eq, inArray, ne } from "drizzle-orm";
 import { db } from "../../db";
 import {
 	blocksEntity,
-	customBlockGraphsEntity,
 	customBlocksListEntity,
 	edgesEntity,
 	projectsEntity,
 	routesEntity,
 } from "../../db/schema";
 import { deleteArtifact, putArtifact } from "../../db/natsKv";
+import type { CanvasParent } from "../canvas/types";
 import { getProjectAppConfig } from "../../loaders/appconfigLoader";
 import {
 	aiIntegrationsCache,
@@ -109,7 +109,7 @@ export async function compileRoute(routeId: string) {
 		return;
 	}
 
-	const { blocks, edges } = await loadGraph(routeId);
+	const { blocks, edges } = await loadGraph({ type: "route", id: routeId });
 	const { source } = compileGraph(blocks, edges);
 
 	const artifact: RouteArtifact = {
@@ -148,16 +148,7 @@ export async function compileCustomBlock(id: string) {
 		return;
 	}
 
-	const graphs = await db
-		.select({
-			id: customBlockGraphsEntity.id,
-			type: customBlockGraphsEntity.type,
-			data: customBlockGraphsEntity.data,
-		})
-		.from(customBlockGraphsEntity)
-		.where(eq(customBlockGraphsEntity.customBlockId, id));
-
-	const { blocks, edges } = customBlockGraphToDto(graphs);
+	const { blocks, edges } = await loadGraph({ type: "custom_block", id });
 	// `param:` placeholders resolve from the invocation, not from a caller's data
 	const { source } = compileGraph(blocks, edges, { asCustomBlock: true });
 
@@ -212,13 +203,14 @@ export async function publishProjectConfig(projectId: string) {
 	await putArtifact(projectConfigKey(projectId), artifact);
 }
 
-async function loadGraph(routeId: string) {
+async function loadGraph(parent: CanvasParent) {
 	const blockRows = await db
 		.select()
 		.from(blocksEntity)
 		.where(
 			and(
-				eq(blocksEntity.routeId, routeId),
+				eq(blocksEntity.parentType, parent.type),
+				eq(blocksEntity.parentId, parent.id),
 				ne(blocksEntity.type, BlockTypes.sticky_note),
 			),
 		);
@@ -241,7 +233,12 @@ async function loadGraph(routeId: string) {
 			toHandle: edgesEntity.toHandle,
 		})
 		.from(edgesEntity)
-		.where(eq(edgesEntity.routeId, routeId));
+		.where(
+			and(
+				eq(edgesEntity.parentType, parent.type),
+				eq(edgesEntity.parentId, parent.id),
+			),
+		);
 
 	// the loader swaps the handles; keep the compiler on the same convention
 	const edges = edgeRows.map((edge) => ({
@@ -255,41 +252,3 @@ async function loadGraph(routeId: string) {
 	return { blocks, edges };
 }
 
-/**
- * Custom block graphs store their wiring inside `data.connections` rather than
- * an edges table — the same shape BlockFactory unpacks when it builds one.
- */
-function customBlockGraphToDto(
-	graphs: { id: string; type: string | null; data: any }[],
-) {
-	const blocks: BlockDTOType[] = [];
-	const edges: any[] = [];
-
-	for (const graph of graphs) {
-		const data =
-			typeof graph.data === "string"
-				? JSON.parse(graph.data)
-				: JSON.parse(JSON.stringify(graph.data ?? {}));
-		const connections = data.connections || [];
-
-		for (const connection of connections) {
-			edges.push({
-				id: connection.id,
-				from: graph.id,
-				to: connection.to,
-				fromHandle: connection.toHandle,
-				toHandle: connection.fromHandle,
-			});
-		}
-		delete data.connections;
-
-		blocks.push({
-			id: graph.id,
-			type: graph.type as string,
-			data,
-			position: data.position || { x: 0, y: 0 },
-		});
-	}
-
-	return { blocks, edges: edges as EdgeDTOSchemaType };
-}

@@ -1,13 +1,13 @@
 import { db } from "../db";
-import { customBlocksListEntity, customBlockGraphsEntity } from "../db/schema";
+import { customBlocksListEntity } from "../db/schema";
 import { CHAN_ON_CUSTOM_BLOCK_CHANGE, subscribeToChannel } from "../db/redis";
 import { logger } from "@fluxify/common";
-import { eq, inArray } from "drizzle-orm";
+import { eq } from "drizzle-orm";
+import { getGraphsWithConnections } from "../modules/canvas/repository";
 
 export type CustomBlockGraphCache = {
   id: string;
   type: string | null;
-  next: string | null;
   data: Record<string, unknown>;
 };
 
@@ -47,17 +47,11 @@ async function loadAllCustomBlocks() {
     return;
   }
 
-  const graphs = await db
-    .select({
-      id: customBlockGraphsEntity.id,
-      customBlockId: customBlockGraphsEntity.customBlockId,
-      type: customBlockGraphsEntity.type,
-      next: customBlockGraphsEntity.next,
-      data: customBlockGraphsEntity.data,
-    })
-    .from(customBlockGraphsEntity)
-    .where(inArray(customBlockGraphsEntity.customBlockId, blocks.map(b => b.id)));
-    
+  const graphs = await getGraphsWithConnections(
+    "custom_block",
+    blocks.map((b) => b.id),
+  );
+
   rebuildCache(blocks, graphs);
 }
 
@@ -80,22 +74,13 @@ async function loadSingleCustomBlock(id: string) {
     return;
   }
 
-  const graphs = await db
-    .select({
-      id: customBlockGraphsEntity.id,
-      customBlockId: customBlockGraphsEntity.customBlockId,
-      type: customBlockGraphsEntity.type,
-      next: customBlockGraphsEntity.next,
-      data: customBlockGraphsEntity.data,
-    })
-    .from(customBlockGraphsEntity)
-    .where(eq(customBlockGraphsEntity.customBlockId, id));
+  const graphs = await getGraphsWithConnections("custom_block", [id]);
 
   rebuildCache(blocks, graphs, true);
 }
 
 type DbBlock = { id: string; name: string; inputParams: Record<string, unknown>[] | null };
-type DbGraph = { id: string; customBlockId: string | null; type: string | null; next: string | null; data: any };
+type DbGraph = { id: string; parentId: string | null; type: string | null; data: any };
 
 function rebuildCache(blocks: DbBlock[], graphs: DbGraph[], isSingle: boolean = false) {
   if (!isSingle) {
@@ -106,18 +91,17 @@ function rebuildCache(blocks: DbBlock[], graphs: DbGraph[], isSingle: boolean = 
   // Group graphs by customBlockId
   const graphsByBlockId: Record<string, CustomBlockGraphCache[]> = {};
   for (const graph of graphs) {
-    if (!graph.customBlockId) continue;
-    if (!graphsByBlockId[graph.customBlockId]) {
-      graphsByBlockId[graph.customBlockId] = [];
+    if (!graph.parentId) continue;
+    if (!graphsByBlockId[graph.parentId]) {
+      graphsByBlockId[graph.parentId] = [];
     }
-    
+
     // Omit UI specific properties (position, image, etc.)
     const { position, image, iconUrl, ...restData } = graph.data || {};
-    
-    graphsByBlockId[graph.customBlockId].push({
+
+    graphsByBlockId[graph.parentId].push({
       id: graph.id,
       type: graph.type,
-      next: graph.next,
       data: restData,
     });
   }
