@@ -88,8 +88,8 @@ Because your routes own the whole URL path space, projects are told apart by
 ## Experimental CPU-stall protection
 
 Compiled workers normally run with no execution-watchdog overhead. To enable
-CPU-stall containment for one project, save this project setting in the admin
-API or dashboard:
+CPU-stall containment for one project, save this project setting through the
+admin API:
 
 ```text
 experimental.workerTimeouts.enabled = true
