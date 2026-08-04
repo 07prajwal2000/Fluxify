@@ -43,7 +43,8 @@
 # OPTIONAL
 #   NATS_TOKEN              NATS auth token
 #   ENABLE_AI               "true" to enable the AI assistant (default false)
-#   WORKER_THREADS          execution threads (default 1; scale out, not up)
+#   INTEGRATION_TIMEOUT_POLICY_IN_SEC
+#                           idle database-integration timeout (default 450 / 7.5 minutes)
 #   PROXY_PORT              published port (default 8080)
 #   SEED_USER_EMAIL / SEED_USER_PASSWORD / SEED_USER_NAME
 #                           first admin account created on an empty database
@@ -153,6 +154,7 @@ ENV NODE_ENV=production \
     SERVER_PORT=5500 \
     WORKER_PORT=5600 \
     WORKER_HEALTH_PORT=5601 \
+    INTEGRATION_TIMEOUT_POLICY_IN_SEC=450 \
     PROXY_PORT=8080 \
     AI_GATEWAY_PORT=8001 \
     ENABLE_ADMIN=true \

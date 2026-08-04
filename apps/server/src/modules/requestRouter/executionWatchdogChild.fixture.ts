@@ -11,7 +11,7 @@ process.send?.({
 });
 
 if (mode === "async") {
-	await Bun.sleep(150);
+	await Bun.sleep(500);
 	clearInterval(heartbeat);
 	process.send?.({ type: "execution-finished", requestId: "test-request" });
 	process.exit(0);

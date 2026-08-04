@@ -61,9 +61,9 @@ export type ProjectConfigArtifact = {
 };
 
 /**
- * What the supervisor forwards to an execution thread. It unseals the config in
- * its own thread, so MASTER_ENCRYPTION_KEY never enters the thread that runs
- * user JS — only the resolved values that thread genuinely needs.
+ * What the supervisor forwards to the isolated execution process. It unseals
+ * the config itself, so MASTER_ENCRYPTION_KEY never enters the process that
+ * runs user JS — only the resolved values it genuinely needs.
  */
 export type UnsealedProjectConfig = {
 	projectId: string;

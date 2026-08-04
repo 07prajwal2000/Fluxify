@@ -1,6 +1,10 @@
 import { initializeLogger, logger } from "@fluxify/common";
 import { createHttpContext } from "./httpContext";
-import { applyArtifactUpdate, initCompiledRuntime } from "./compiledRuntime";
+import {
+	applyArtifactUpdate,
+	initCompiledRuntime,
+	shutdownCompiledRuntime,
+} from "./compiledRuntime";
 import { dispatch, envelopeFromHttp, type RouteExecutionObserver } from "./service";
 import type {
 	ExecutionBootstrap,
@@ -14,6 +18,8 @@ let boot: ExecutionBootstrap | undefined;
 let monitoringEnabled = false;
 let heartbeat: ReturnType<typeof setInterval> | undefined;
 let parser: ReturnType<typeof initCompiledRuntime> | undefined;
+let server: ReturnType<typeof Bun.serve> | undefined;
+let shuttingDown = false;
 
 // The child process never needs supervisor secrets. Clear inherited values
 // before compiled user code is instantiated.
@@ -41,10 +47,10 @@ function bootstrap(nextBoot: ExecutionBootstrap) {
 		otlpHeaders: boot.logging.otlpHeaders,
 		useOtlp: boot.logging.useOtlp,
 	});
-	parser = initCompiledRuntime(boot.artifacts);
+	parser = initCompiledRuntime(boot.artifacts, boot.databaseIdleTimeoutMs);
 	setMonitoring(boot.workerTimeoutsEnabled);
 
-	const server = Bun.serve({ port: boot.port, reusePort: true, fetch: handle });
+	server = Bun.serve({ port: boot.port, reusePort: true, fetch: handle });
 	send({ type: "ready" });
 	logger.info(`[execution] serving port ${server.port}`, "WORKER.execution");
 }
@@ -110,3 +116,15 @@ function json(data: unknown, status: number, headers: Headers) {
 	headers.set("content-type", "application/json");
 	return new Response(JSON.stringify(data), { status, headers });
 }
+
+async function shutdown() {
+	if (shuttingDown) return;
+	shuttingDown = true;
+	if (heartbeat) clearInterval(heartbeat);
+	server?.stop(true);
+	await shutdownCompiledRuntime();
+	process.exit(0);
+}
+
+process.on("SIGTERM", () => void shutdown());
+process.on("SIGINT", () => void shutdown());

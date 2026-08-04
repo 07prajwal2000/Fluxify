@@ -22,7 +22,11 @@ import { JsVM } from "@fluxify/lib";
 import { runBlocks } from "./executor";
 import { getAppConfig } from "../../loaders/appconfigLoader";
 import { parseRequestSchema, ValidationError } from "../../lib/schemaParser";
-import { createObservabilityLogger, DbFactory } from "@fluxify/adapters";
+import {
+	createObservabilityLogger,
+	DbConnectionManager,
+	DbFactory,
+} from "@fluxify/adapters";
 import {
 	dbIntegrationsCache,
 	observabilityIntegrationsCache,
@@ -51,6 +55,12 @@ export type { RequestOverrides } from "./types";
 import type { RequestOverrides } from "./types";
 
 export const DEFAULT_ROUTE_TIMEOUT_SECONDS = 30;
+let dbConnectionManager: DbConnectionManager | undefined;
+
+/** The compiled runtime supplies one manager for its isolated process. */
+export function setDbConnectionManager(manager?: DbConnectionManager) {
+	dbConnectionManager = manager;
+}
 
 /** Default origin for in-process callers (test-suite runner) that predate the envelope. */
 const DEFAULT_TRIGGER: TriggerContext = {
@@ -249,24 +259,24 @@ export async function executeRouteInternal(
 		routeInfo.timeoutSeconds ?? DEFAULT_ROUTE_TIMEOUT_SECONDS,
 	);
 
-	const executionResult = await runBlocks(
-		{
-			projectId: routeInfo.projectId,
-			routeId: routeInfo.id,
-			projectName: routeInfo.projectName,
-		},
-		context,
-	);
+	try {
+		const executionResult = await runBlocks(
+			{
+				projectId: routeInfo.projectId,
+				routeId: routeInfo.id,
+				projectName: routeInfo.projectName,
+			},
+			context,
+		);
 
-	if (executionResult) {
-		return parseResult(executionResult);
+		if (executionResult) return parseResult(executionResult);
+		return {
+			status: 500,
+			data: { message: "Internal server error" },
+		};
+	} finally {
+		dbFactory.dispose();
 	}
-	return {
-		status: 500,
-		data: {
-			message: "Internal server error",
-		},
-	};
 }
 
 function parseResult(executionResult: BlockOutput) {
@@ -352,7 +362,7 @@ function createDbFactory(
 	integrationOverrides?: Array<{ existingId: string; newId: string }>,
 ) {
 	if (!integrationOverrides || integrationOverrides.length === 0) {
-		return new DbFactory(vm, dbIntegrationsCache);
+		return new DbFactory(vm, dbIntegrationsCache, dbConnectionManager);
 	}
 
 	const customDbCache = { ...dbIntegrationsCache };
@@ -363,7 +373,7 @@ function createDbFactory(
 		if (!target || !ownsIntegration(target, projectId)) continue;
 		customDbCache[override.existingId] = target;
 	}
-	return new DbFactory(vm, customDbCache);
+	return new DbFactory(vm, customDbCache, dbConnectionManager);
 }
 
 function setupContextVars(

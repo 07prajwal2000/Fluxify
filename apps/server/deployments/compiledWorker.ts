@@ -39,6 +39,9 @@ import {
 const port = Number(getEnv("WORKER_PORT")) || 5600;
 const healthPort = Number(getEnv("WORKER_HEALTH_PORT")) || port + 1;
 const HEARTBEAT_CHECK_MS = 500;
+/** Idle database integration timeout, supplied to the execution process. */
+const databaseIdleTimeoutMs =
+	Number(getEnv("INTEGRATION_TIMEOUT_POLICY_IN_SEC") || 450) * 1_000;
 
 initializeLogger({
 	serviceName: "fluxify.worker.compiled",
@@ -119,6 +122,7 @@ function spawnExecution() {
 	const bootstrap: ExecutionBootstrap = {
 		projectId: WORKER_PROJECT_ID,
 		port,
+		databaseIdleTimeoutMs,
 		artifacts: [...artifacts.values()],
 		workerTimeoutsEnabled: timeoutPolicyEnabled(),
 		logging: {
@@ -206,5 +210,6 @@ async function shutdown(sig: string) {
 		process.exit(0);
 	}
 }
+
 process.on("SIGTERM", () => shutdown("SIGTERM"));
 process.on("SIGINT", () => shutdown("SIGINT"));

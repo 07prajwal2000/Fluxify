@@ -4,11 +4,13 @@ import type { ArtifactEntry } from "./compiledRuntime";
 export type ExecutionBootstrap = {
 	projectId: string;
 	port: number;
+	/** idle database integration timeout, supplied by the supervisor in milliseconds */
+	databaseIdleTimeoutMs: number;
 	/** the full artifact set as of spawn, already unsealed */
 	artifacts: ArtifactEntry[];
 	/** hot-reloadable supervisor policy; false means no heartbeat or tracking */
 	workerTimeoutsEnabled: boolean;
-	/** the thread clears its env, so logging config has to travel with it */
+	/** the execution process clears its env, so logging config travels with it */
 	logging: {
 		level: any;
 		otlpEndpoint: string;

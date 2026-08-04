@@ -190,6 +190,7 @@ set PROJECT_A_ID in docker/production/.env
    ```env
    PROJECT_A_ID=<first-project-id>
    PROJECT_B_ID=<second-project-id>
+   INTEGRATION_TIMEOUT_POLICY_IN_SEC=450
    ```
 
 4. Bring the stack up again:
@@ -237,13 +238,30 @@ Traefik picks up the new replicas automatically — no proxy change needed.
 Workers hold no state, so you can scale up and down freely.
 
 > [!TIP]
-> **Scale out, not up.** Add replicas rather than raising `WORKER_THREADS`.
-> A worker container is sized for roughly one CPU; extra threads inside one
-> container split that same CPU while each pays its own memory overhead.
+> **Scale out with replicas.** Each worker container has one isolated execution
+> process, so replicas add capacity without competing for the same CPU budget.
 
 > [!IMPORTANT]
 > Scale **workers**, not the admin. Keep a single admin container so database
 > updates and the seed step run exactly once.
+
+---
+
+## Database integration idle timeout
+
+Compiled workers share database clients across requests. To avoid retaining a
+pool for an integration that has gone quiet, set
+`INTEGRATION_TIMEOUT_POLICY_IN_SEC` in `docker/production/.env`:
+
+```env
+INTEGRATION_TIMEOUT_POLICY_IN_SEC=450
+```
+
+`450` is the default and means 7.5 minutes. When an integration has no
+in-flight request or transaction for that period, its PostgreSQL, MySQL, or
+MongoDB client closes. The next request opens a fresh client. This never closes
+a client while a request is using it; choose a larger value when avoiding a
+connection cold-start matters more than releasing idle sockets.
 
 ---
 

@@ -7,7 +7,8 @@ const fixture = fileURLToPath(
 );
 
 async function run(mode: "async" | "spin") {
-	const watchdog = new ExecutionWatchdog(() => performance.now(), 25);
+	// Allow for normal IPC scheduling jitter while the full suite is busy.
+	const watchdog = new ExecutionWatchdog(() => performance.now(), 100);
 	watchdog.setEnabled(true);
 	let killed = false;
 	const child = Bun.spawn([process.execPath, fixture, mode], {

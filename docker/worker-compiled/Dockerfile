@@ -34,8 +34,8 @@
 #   REDIS_PORT / REDIS_USER / REDIS_PASS
 #   WORKER_PORT             traffic port (default 5600)
 #   WORKER_HEALTH_PORT      health port (default 5601)
-#   WORKER_THREADS          execution threads (default 1) — see the note on
-#                           EXPOSE below before raising this
+#   INTEGRATION_TIMEOUT_POLICY_IN_SEC
+#                           idle database-integration timeout (default 450 / 7.5 minutes)
 #   OTLP_*                  log shipping; see docker/kit/env.example
 #
 # DELIBERATELY NOT USED
@@ -123,24 +123,21 @@ COPY --from=build --chown=appuser:appuser /app/apps/server/dist /app/worker
 
 USER appuser
 
-# 5600 — user API traffic, bound by the execution thread. With WORKER_THREADS>1
-#        every thread binds it via SO_REUSEPORT and the kernel picks which one
-#        takes each connection; at the default of 1 thread that is a no-op.
-# 5601 — health/readiness, served by the supervisor alone. Deliberately NOT on
-#        5600: with SO_REUSEPORT a probe there is answered by whichever thread
-#        the kernel happened to choose, so it cannot tell you the others are
-#        alive. Point your probes and load-balancer health checks at 5601.
+# 5600 — user API traffic, bound by the isolated execution process.
+# 5601 — health/readiness, served by the supervisor. Point probes and
+#        load-balancer health checks here rather than at the traffic port.
 EXPOSE 5600 5601
 
 ENV NODE_ENV=production \
     ENVIRONMENT=production \
     WORKER_PORT=5600 \
-    WORKER_HEALTH_PORT=5601
+    WORKER_HEALTH_PORT=5601 \
+    INTEGRATION_TIMEOUT_POLICY_IN_SEC=450
 
 # Readiness, not liveness: 200 only once compiled routes have been loaded, so a
 # worker that came up before the compiler published anything is not sent traffic.
 HEALTHCHECK --interval=15s --timeout=5s --start-period=20s --retries=3 \
     CMD wget -qO- http://localhost:5601/_/admin/api/healthchecks/ready || exit 1
 
-# Scale this deployment with replicas, not with WORKER_THREADS — see EXPOSE.
+# Scale this deployment with replicas; each container has one execution process.
 ENTRYPOINT ["bun", "run", "/app/worker/compiledWorker.js"]
