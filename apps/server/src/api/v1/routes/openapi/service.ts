@@ -5,7 +5,6 @@ import {
 	deleteCacheKeysByPattern,
 } from "../../../../db/redis";
 import { getProject, getActiveRoutes } from "./repository";
-import { JsVM } from "@fluxify/lib";
 import z from "zod";
 import { requestParamSchema } from "./dto";
 import { NotFoundError } from "../../../../errors/notFoundError";
@@ -123,8 +122,6 @@ export async function generateOpenApiSpec(
 
 	const routes = await getActiveRoutes(projectId);
 	const paths: Record<string, any> = {};
-	const vm = new JsVM({});
-	const context = { vm };
 
 	for (const route of routes) {
 		const method = (route.method || "get").toLowerCase();

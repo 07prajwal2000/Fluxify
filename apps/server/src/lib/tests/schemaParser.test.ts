@@ -1,9 +1,8 @@
 import { test, expect, describe } from 'bun:test';
 import { compileRequestSchema, parseRequestSchema } from '../schemaParser';
-import { JsVM } from '@fluxify/lib';
 
 describe('schemaParser Exhaustive Test Suite', () => {
-  const context = { vm: new JsVM({}) };
+  const context = { vars: {} };
 
   describe('Primitive Types and Boundary Rules', () => {
     test('String validations (length, regex, startsWith, endsWith, contains, notContains)', async () => {
@@ -130,7 +129,7 @@ describe('schemaParser Exhaustive Test Suite', () => {
     });
   });
 
-  describe('Custom JavaScript Validations in VM', () => {
+  describe('Compiled Custom JavaScript Validations', () => {
     test('Returns boolean pass/fail', async () => {
       const schema = {
         dataType: 'js',
@@ -195,12 +194,10 @@ describe('schemaParser Exhaustive Test Suite', () => {
         dataType: 'js',
         js: 'await Promise.resolve(); return input === expected;',
       });
-      const vm = new JsVM({});
-
       const [first, second, rejected] = await Promise.all([
-        schema.validate('alpha', { vm, vars: { expected: 'alpha' } }),
-        schema.validate('beta', { vm, vars: { expected: 'beta' } }),
-        schema.validate('wrong', { vm, vars: { expected: 'gamma' } }),
+        schema.validate('alpha', { vars: { expected: 'alpha' } }),
+        schema.validate('beta', { vars: { expected: 'beta' } }),
+        schema.validate('wrong', { vars: { expected: 'gamma' } }),
       ]);
 
       expect(first.success).toBe(true);

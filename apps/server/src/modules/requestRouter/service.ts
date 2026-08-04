@@ -205,7 +205,6 @@ export async function executeRouteInternal(
 		overrides,
 		trigger,
 	);
-	const vm = createJsVM(vars);
 
 	if (routeInfo.bodySchema && Object.keys(routeInfo.bodySchema).length > 0) {
 		const result = await validateSchema(
@@ -213,7 +212,6 @@ export async function executeRouteInternal(
 			routeInfo.bodySchema,
 			requestData.body,
 			{
-				vm,
 				vars,
 			},
 		);
@@ -231,7 +229,6 @@ export async function executeRouteInternal(
 			routeInfo.querySchema,
 			requestData.query,
 			{
-				vm,
 				vars,
 				coerce: true,
 			},
@@ -252,7 +249,7 @@ export async function executeRouteInternal(
 			routeInfo.validators?.params,
 			routeInfo.paramsSchema,
 			requestData.params,
-			{ vm, vars, coerce: true },
+			{ vars, coerce: true },
 		);
 		if (!result.success) {
 			return {
@@ -265,6 +262,7 @@ export async function executeRouteInternal(
 		}
 	}
 
+	const vm = createJsVM(vars);
 	const dbFactory = createDbFactory(
 		vm,
 		routeInfo.projectId,
