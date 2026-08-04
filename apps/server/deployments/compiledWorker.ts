@@ -151,7 +151,7 @@ async function shutdown(sig: string) {
 	shuttingDown = true;
 	logger.info(`received ${sig} — shutting down`);
 	try {
-		for (const thread of threads) thread.terminate();
+		await Promise.all(threads.map(stopThread));
 		healthServer.stop(true);
 		await closePubSub();
 	} catch (e) {
@@ -159,6 +159,24 @@ async function shutdown(sig: string) {
 	} finally {
 		process.exit(0);
 	}
+}
+
+function stopThread(thread: Worker) {
+	return new Promise<void>((resolve) => {
+		const timeout = setTimeout(() => {
+			thread.terminate();
+			resolve();
+		}, 5_000);
+		const onMessage = (event: MessageEvent) => {
+			if (event.data?.type !== "stopped") return;
+			clearTimeout(timeout);
+			thread.removeEventListener("message", onMessage);
+			thread.terminate();
+			resolve();
+		};
+		thread.addEventListener("message", onMessage);
+		thread.postMessage({ type: "shutdown" } satisfies ThreadMessage);
+	});
 }
 process.on("SIGTERM", () => shutdown("SIGTERM"));
 process.on("SIGINT", () => shutdown("SIGINT"));

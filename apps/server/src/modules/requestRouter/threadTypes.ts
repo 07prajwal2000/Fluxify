@@ -17,7 +17,11 @@ export type ThreadBootstrap = {
 };
 
 /** supervisor -> thread, after spawn */
-export type ThreadMessage = { type: "artifact"; entry: ArtifactEntry };
+export type ThreadMessage =
+	| { type: "artifact"; entry: ArtifactEntry }
+	| { type: "shutdown" };
 
 /** thread -> supervisor */
-export type ThreadEvent = { type: "ready"; threadId: number };
+export type ThreadEvent =
+	| { type: "ready"; threadId: number }
+	| { type: "stopped"; threadId: number };

@@ -1,6 +1,10 @@
 import { workerData, parentPort } from "node:worker_threads";
 import { initializeLogger, logger } from "@fluxify/common";
-import { initCompiledRuntime, applyArtifactUpdate } from "./compiledRuntime";
+import {
+	initCompiledRuntime,
+	applyArtifactUpdate,
+	shutdownCompiledRuntime,
+} from "./compiledRuntime";
 import { createHttpContext } from "./httpContext";
 import { dispatch, envelopeFromHttp } from "./service";
 import type { ThreadBootstrap, ThreadMessage } from "./threadTypes";
@@ -41,6 +45,7 @@ parentPort?.on("message", (message: ThreadMessage) => {
 	if (message.type === "artifact") {
 		applyArtifactUpdate(message.entry.key, message.entry.value);
 	}
+	if (message.type === "shutdown") void shutdown();
 });
 
 const server = Bun.serve({
@@ -87,3 +92,12 @@ logger.info(
 	`[thread ${boot.threadId}] serving port ${server.port}`,
 	"WORKER.thread",
 );
+
+let shuttingDown = false;
+async function shutdown() {
+	if (shuttingDown) return;
+	shuttingDown = true;
+	server.stop(true);
+	await shutdownCompiledRuntime();
+	parentPort?.postMessage({ type: "stopped", threadId: boot.threadId });
+}
