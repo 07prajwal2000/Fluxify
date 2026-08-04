@@ -11,6 +11,11 @@ export const projectSettingsKeySchemaMap = {
 		defaultValue: "",
 		dataType: "string",
 	},
+	"experimental.workerTimeouts.enabled": {
+		schema: z.enum(["true", "false"]),
+		defaultValue: "false",
+		dataType: "boolean",
+	},
 };
 
 export type ProjectSettingsKeyType = keyof typeof projectSettingsKeySchemaMap;

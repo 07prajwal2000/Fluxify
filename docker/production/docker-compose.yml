@@ -121,7 +121,7 @@ services:
       - traefik.http.routers.worker-a.entrypoints=web
       - traefik.http.services.worker-a.loadbalancer.server.port=5600
       # Health is on 5601, served by the supervisor. Checking 5600 would hit a
-      # random execution thread (SO_REUSEPORT) and tell you nothing about the rest.
+      # isolated execution process and does not describe supervisor health.
       - traefik.http.services.worker-a.loadbalancer.healthcheck.path=/_/admin/api/healthchecks/ready
       - traefik.http.services.worker-a.loadbalancer.healthcheck.port=5601
       - traefik.http.services.worker-a.loadbalancer.healthcheck.interval=10s

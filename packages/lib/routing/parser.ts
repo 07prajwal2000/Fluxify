@@ -7,6 +7,7 @@ export type HttpRoute = {
   bodySchema?: any;
   querySchema?: any;
   paramsSchema?: any;
+  timeoutSeconds?: number;
 };
 
 export type RouteTree = {
@@ -19,6 +20,7 @@ export type RouteTree = {
   bodySchema?: any;
   querySchema?: any;
   paramsSchema?: any;
+  timeoutSeconds?: number;
 };
 
 export class HttpRouteParser {
@@ -69,6 +71,7 @@ export class HttpRouteParser {
         bodySchema: route.bodySchema,
         querySchema: route.querySchema,
         paramsSchema: route.paramsSchema,
+        timeoutSeconds: route.timeoutSeconds,
       };
     }
   }
@@ -83,6 +86,7 @@ export class HttpRouteParser {
     bodySchema?: any;
     querySchema?: any;
     paramsSchema?: any;
+    timeoutSeconds?: number;
   } | null {
     const parts = path.split("/").filter((p) => p.trim() != "");
     let current = this.routesTree;
@@ -117,6 +121,7 @@ export class HttpRouteParser {
         bodySchema: current["<ID>"].bodySchema,
         querySchema: current["<ID>"].querySchema,
         paramsSchema: current["<ID>"].paramsSchema,
+        timeoutSeconds: current["<ID>"].timeoutSeconds,
       };
     }
     return null;

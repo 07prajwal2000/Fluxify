@@ -18,6 +18,33 @@ Path parameters like `:id` or `:slug` are captured automatically and made availa
 ::: tip Hot Reloading
 Routes update in real time. When you create or change a route in the dashboard, the change takes effect immediately — no server restart needed.
 :::
+## Experimental CPU-Stall Timeout
+
+Every route has a `timeoutSeconds` setting. It defaults to **30 seconds** and
+can only be increased. The setting is carried with the compiled route whenever
+you save it, so a timeout change takes effect through the normal route hot
+reload path.
+
+The timeout becomes active only when the project's experimental worker-timeout
+policy is enabled:
+
+```bash
+curl -X PUT "http://localhost:8080/_/admin/api/v1/projects/<project-id>/settings/keys" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <access-token>" \
+  -d '{"key":"experimental.workerTimeouts.enabled","value":"true"}'
+```
+
+This policy detects synchronous CPU stalls, such as an infinite loop in custom
+JavaScript. It does **not** time out a long asynchronous operation while the
+execution process remains responsive. When a CPU stall exceeds the configured
+route timeout, the in-flight connection is dropped and only the isolated
+execution process is replaced; the worker container continues receiving NATS
+hot updates.
+
+When the policy is disabled (the default), no execution heartbeats or timeout
+tracking are created.
+
 ## What Happens Before Your Workflow Runs
 
 Before Fluxify executes a single block in your workflow, it runs through a quick validation pipeline:

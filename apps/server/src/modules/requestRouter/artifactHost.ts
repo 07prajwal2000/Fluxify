@@ -10,11 +10,11 @@ import type { ArtifactEntry } from "./compiledRuntime";
 
 /**
  * Supervisor-side half of the pipeline. This is the only place that talks to
- * NATS, and the only place that holds MASTER_ENCRYPTION_KEY — execution threads
+ * NATS, and the only place that holds MASTER_ENCRYPTION_KEY — execution processes
  * receive artifacts already unsealed and never open a connection of their own.
  */
 
-/** everything currently published for this project, ready to hand to a thread */
+/** everything currently published for this project, ready to hand to a process */
 export async function loadProjectArtifacts(
 	projectId: string,
 ): Promise<ArtifactEntry[]> {

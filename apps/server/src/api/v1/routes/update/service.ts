@@ -55,7 +55,8 @@ export default async function handleRequest(
     id: result.id,
     name: result.name!,
     path: result.path!,
-    method: result.method!,
+		method: result.method!,
+		timeoutSeconds: result.timeoutSeconds,
     createdAt: result.createdAt.toISOString(),
     updatedAt: result.updatedAt.toISOString(),
   };

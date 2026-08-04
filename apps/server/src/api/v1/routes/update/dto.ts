@@ -12,6 +12,7 @@ export const requestBodySchema = z
 		bodySchema: z.any().optional(),
 		querySchema: z.any().optional(),
 		paramsSchema: z.any().optional(),
+		timeoutSeconds: z.number().int().min(30).optional(),
 	})
 	.superRefine(routeSchemaValidationRefinement);
 
@@ -24,6 +25,7 @@ export const responseSchema = z.object({
 	name: z.string(),
 	path: z.string(),
 	method: z.string(),
+	timeoutSeconds: z.number().int(),
 	createdAt: z.string(),
 	updatedAt: z.string(),
 });

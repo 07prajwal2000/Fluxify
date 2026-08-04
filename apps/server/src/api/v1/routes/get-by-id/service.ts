@@ -33,5 +33,6 @@ export default async function handleRequest(
 		bodySchema: route.bodySchema,
 		querySchema: route.querySchema,
 		paramsSchema: route.paramsSchema,
+		timeoutSeconds: route.timeoutSeconds,
 	};
 }

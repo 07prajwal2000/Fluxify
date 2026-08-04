@@ -43,7 +43,6 @@
 # OPTIONAL
 #   NATS_TOKEN              NATS auth token
 #   ENABLE_AI               "true" to enable the AI assistant (default false)
-#   WORKER_THREADS          execution threads (default 1; scale out, not up)
 #   INTEGRATION_TIMEOUT_POLICY_IN_SEC
 #                           idle database-integration timeout (default 450 / 7.5 minutes)
 #   PROXY_PORT              published port (default 8080)
@@ -90,8 +89,8 @@ RUN bun install --frozen-lockfile
 RUN bun run build
 
 # The compiled worker is TWO bundles, not one. Bun's bundler does not pull a
-# worker thread into its parent's bundle; it leaves the reference and resolves
-# it at runtime. compiledWorker.js looks for ./executionThread.js beside itself,
+# child-process entry point into its parent's bundle; it leaves the reference and resolves
+# it at runtime. compiledWorker.js looks for ./executionProcess.js beside itself,
 # so this flat sibling layout in dist/ is load-bearing — do not nest it.
 RUN bun run --cwd apps/server build:worker:compiled
 

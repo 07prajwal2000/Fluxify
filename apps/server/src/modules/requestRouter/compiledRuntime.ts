@@ -28,7 +28,7 @@ import { setDbConnectionManager } from "./service";
  * route table, custom block library and hydrated config.
  *
  * Deliberately imports nothing that opens a connection — no NATS, no Redis, no
- * database. This module runs inside the execution thread, and anything it
+ * database. This module runs inside the isolated execution process, and anything it
  * initialises becomes reachable from user JS running in that same thread. The
  * supervisor owns the connections and feeds artifacts in.
  */
@@ -95,7 +95,7 @@ export function applyArtifactUpdate(key: string, value: any | null) {
 	if (artifactKind(key) === "route") rebuildParser();
 }
 
-/** Releases all long-lived database clients before the execution thread exits. */
+/** Releases all long-lived database clients before the execution process exits. */
 export async function shutdownCompiledRuntime() {
 	await dbConnectionManager?.close();
 	dbConnectionManager = undefined;
@@ -196,6 +196,7 @@ function rebuildParser() {
 		bodySchema: artifact.bodySchema,
 		querySchema: artifact.querySchema,
 		paramsSchema: artifact.paramsSchema,
+		timeoutSeconds: artifact.timeoutSeconds,
 	}));
 	// @ts-ignore — same loose shape routesLoader passes
 	built ? parser.rebuildRoutes(definitions) : parser.buildRoutes(definitions);

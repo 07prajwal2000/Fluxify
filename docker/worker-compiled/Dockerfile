@@ -34,8 +34,6 @@
 #   REDIS_PORT / REDIS_USER / REDIS_PASS
 #   WORKER_PORT             traffic port (default 5600)
 #   WORKER_HEALTH_PORT      health port (default 5601)
-#   WORKER_THREADS          execution threads (default 1) — see the note on
-#                           EXPOSE below before raising this
 #   INTEGRATION_TIMEOUT_POLICY_IN_SEC
 #                           idle database-integration timeout (default 450 / 7.5 minutes)
 #   OTLP_*                  log shipping; see docker/kit/env.example
@@ -74,10 +72,10 @@ RUN bun install --frozen-lockfile
 # ------------------------------------------------------------------------------
 # Stage 2: build — TWO bundles, not one.
 #
-# Bun's bundler does not pull a worker thread into its parent's bundle; it
-# leaves the reference and resolves it at runtime. So the supervisor and the
-# execution thread are built as separate entry points and land side by side in
-# dist/. compiledWorker.ts looks for ./executionThread.js next to itself, so
+# Bun's bundler does not pull a child-process entry point into its parent's
+# bundle; it leaves the reference and resolves it at runtime. So the supervisor
+# and execution process are built as separate entry points and land side by side in
+# dist/. compiledWorker.ts looks for ./executionProcess.js next to itself, so
 # this flat layout is load-bearing — do not nest the outputs.
 #
 # Only apps/server and the four workspace packages it imports are copied — no
@@ -120,18 +118,14 @@ LABEL org.opencontainers.image.title="Fluxify Compiled Worker" \
 # Non-root, no login shell.
 RUN adduser -D -s /sbin/nologin -h /app appuser
 
-# compiledWorker.js + executionThread.js + native assets, siblings in one dir.
+# compiledWorker.js + executionProcess.js + native assets, siblings in one dir.
 COPY --from=build --chown=appuser:appuser /app/apps/server/dist /app/worker
 
 USER appuser
 
-# 5600 — user API traffic, bound by the execution thread. With WORKER_THREADS>1
-#        every thread binds it via SO_REUSEPORT and the kernel picks which one
-#        takes each connection; at the default of 1 thread that is a no-op.
-# 5601 — health/readiness, served by the supervisor alone. Deliberately NOT on
-#        5600: with SO_REUSEPORT a probe there is answered by whichever thread
-#        the kernel happened to choose, so it cannot tell you the others are
-#        alive. Point your probes and load-balancer health checks at 5601.
+# 5600 — user API traffic, bound by the isolated execution process.
+# 5601 — health/readiness, served by the supervisor. Point probes and
+#        load-balancer health checks here rather than at the traffic port.
 EXPOSE 5600 5601
 
 ENV NODE_ENV=production \
@@ -145,5 +139,5 @@ ENV NODE_ENV=production \
 HEALTHCHECK --interval=15s --timeout=5s --start-period=20s --retries=3 \
     CMD wget -qO- http://localhost:5601/_/admin/api/healthchecks/ready || exit 1
 
-# Scale this deployment with replicas, not with WORKER_THREADS — see EXPOSE.
+# Scale this deployment with replicas; each container has one execution process.
 ENTRYPOINT ["bun", "run", "/app/worker/compiledWorker.js"]

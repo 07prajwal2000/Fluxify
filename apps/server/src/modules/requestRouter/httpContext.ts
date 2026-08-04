@@ -1,7 +1,7 @@
 /**
  * A Hono-shaped view over a native Request.
  *
- * The execution thread serves with Bun.serve directly — Hono's router is dead
+ * The execution process serves with Bun.serve directly — Hono's router is dead
  * weight when HttpRouteParser already does the matching. But dispatch() and the
  * block context read the request through a handful of Hono accessors, and
  * hono/cookie's helpers are pure functions over `req.raw.headers` and

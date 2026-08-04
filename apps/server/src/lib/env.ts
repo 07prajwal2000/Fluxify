@@ -25,17 +25,7 @@ export const serverEnvSchema = baseEnvSchema.extend({
 			message: "WORKER_HEALTH_PORT must be an integer between 1001 and 65535",
 		})
 		.describe(
-			"Port the compiled worker's supervisor serves health/readiness on. Separate from WORKER_PORT because execution threads share that one (defaults to WORKER_PORT + 1)",
-		),
-
-	WORKER_THREADS: z
-		.string()
-		.optional()
-		.refine((val) => !val || (Number.isInteger(Number(val)) && Number(val) > 0), {
-			message: "WORKER_THREADS must be a positive integer",
-		})
-		.describe(
-			"Execution threads per compiled worker container (default 1). Threads provide isolation and a kill boundary, not parallelism — scale out with replicas, not this",
+			"Port the compiled worker's supervisor serves health/readiness on (defaults to WORKER_PORT + 1)",
 		),
 
 	INTEGRATION_TIMEOUT_POLICY_IN_SEC: z

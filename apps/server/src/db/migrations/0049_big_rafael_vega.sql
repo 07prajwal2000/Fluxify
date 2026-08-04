@@ -1,0 +1,1 @@
+ALTER TABLE "routes" ADD COLUMN "timeout_seconds" integer DEFAULT 30 NOT NULL;

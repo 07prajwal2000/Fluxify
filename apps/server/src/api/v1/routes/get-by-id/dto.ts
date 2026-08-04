@@ -15,6 +15,7 @@ export const responseSchema = z.object({
 	bodySchema: z.any().optional(),
 	querySchema: z.any().optional(),
 	paramsSchema: z.any().optional(),
+	timeoutSeconds: z.number().int(),
 	createdAt: z.string(),
 	createdBy: z.string(),
 	updatedAt: z.string(),

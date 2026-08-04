@@ -168,7 +168,14 @@ function CreateRouteButton({ projectId }: { projectId: string }) {
 	function submit(e: React.FormEvent) {
 		e.preventDefault();
 		create.mutate(
-			{ name, path, method: method as "GET", projectId, active: true },
+			{
+				name,
+				path,
+				method: method as "GET",
+				projectId,
+				active: true,
+				timeoutSeconds: 30,
+			},
 			{
 				onSuccess: () => {
 					toast.success("Route created");
