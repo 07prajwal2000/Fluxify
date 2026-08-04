@@ -26,6 +26,7 @@ import { createObservabilityLogger, DbFactory } from "@fluxify/adapters";
 import {
 	dbIntegrationsCache,
 	observabilityIntegrationsCache,
+	ownsIntegration,
 } from "../../loaders/integrationsLoader";
 import * as zodLib from "zod";
 import { projectSettingsCache } from "../../loaders/projectSettingsLoader";
@@ -144,6 +145,9 @@ export async function executeRouteInternal(
 	overrides?: RequestOverrides,
 	trigger: TriggerContext = DEFAULT_TRIGGER,
 ): Promise<HandleRequestType> {
+	const denied = assertOverridesOwned(routeInfo.projectId, overrides);
+	if (denied) return denied;
+
 	const httpClient = createHttpClient();
 	const vars = setupContextVars(
 		ctx,
@@ -209,7 +213,11 @@ export async function executeRouteInternal(
 		}
 	}
 
-	const dbFactory = createDbFactory(vm, overrides?.integrations);
+	const dbFactory = createDbFactory(
+		vm,
+		routeInfo.projectId,
+		overrides?.integrations,
+	);
 	const context = createContext(
 		routeInfo,
 		requestData,
@@ -283,8 +291,42 @@ function createHttpClient() {
 	return new HttpClient();
 }
 
+/**
+ * Every integration id an override names must belong to the project the route
+ * belongs to. Rejected outright rather than ignored: a request aimed at another
+ * tenant's integration should fail loudly, not silently run against the real one.
+ */
+function assertOverridesOwned(
+	projectId: string,
+	overrides?: RequestOverrides,
+): HandleRequestType | null {
+	const foreign = (overrides?.integrations ?? [])
+		.map((o) => o.newId)
+		.filter((id) => {
+			const config =
+				dbIntegrationsCache[id] ?? observabilityIntegrationsCache[id];
+			return config && !ownsIntegration(config, projectId);
+		});
+
+	if (foreign.length === 0) return null;
+	return {
+		status: 403,
+		data: {
+			message: "Integration override not permitted",
+			integrations: foreign,
+		},
+	};
+}
+
+/**
+ * Overrides are the integration-mocking seam: a request may point a block at a
+ * different integration id. They are request input, so the target must be
+ * checked against the project — otherwise any request can name another tenant's
+ * integration id and read their database.
+ */
 function createDbFactory(
 	vm: JsVM,
+	projectId: string,
 	integrationOverrides?: Array<{ existingId: string; newId: string }>,
 ) {
 	if (!integrationOverrides || integrationOverrides.length === 0) {
@@ -293,9 +335,11 @@ function createDbFactory(
 
 	const customDbCache = { ...dbIntegrationsCache };
 	for (const override of integrationOverrides) {
-		if (dbIntegrationsCache[override.newId]) {
-			customDbCache[override.existingId] = dbIntegrationsCache[override.newId];
-		}
+		const target = dbIntegrationsCache[override.newId];
+		// ownership is already gated by assertOverridesOwned(); this is the
+		// second half of the same check, so a missed gate cannot leak
+		if (!target || !ownsIntegration(target, projectId)) continue;
+		customDbCache[override.existingId] = target;
 	}
 	return new DbFactory(vm, customDbCache);
 }
@@ -327,13 +371,16 @@ function setupContextVars(
 			const override = overrides.integrations.find(
 				(o) => o.existingId === connectionId,
 			);
-			if (override) {
+			if (
+				override &&
+				ownsIntegration(observabilityIntegrationsCache[override.newId], projectId)
+			) {
 				connectionId = override.newId;
 			}
 		}
 
 		const config = observabilityIntegrationsCache[connectionId];
-		if (!!config) {
+		if (ownsIntegration(config, projectId)) {
 			config.projectId = projectId;
 			config.routeId = routeId;
 			logger = createObservabilityLogger(config["variant"], config)!;

@@ -36,20 +36,71 @@ export let observabilityIntegrationsCache: Record<string, any> = {};
 export let aiIntegrationsCache: Record<string, any> = {};
 
 /**
+ * Every cached config carries the id of the project that owns it. Nothing else
+ * in the cache records ownership — the key is the integration id — so without
+ * this any code holding the cache can hand one project's credentials to
+ * another. Prefixed to keep it clear of the connection fields adapters read.
+ */
+export const OWNER_KEY = "__projectId";
+
+/** null owner = not project-scoped, usable by everyone */
+export function ownsIntegration(config: any, projectId: string) {
+	const owner = config?.[OWNER_KEY];
+	return !!config && (owner == null || owner === projectId);
+}
+
+/** only the entries `projectId` is allowed to see */
+export function scopeToProject<T>(
+	cache: Record<string, T>,
+	projectId: string,
+): Record<string, T> {
+	const scoped: Record<string, T> = {};
+	for (const id in cache) {
+		if (ownsIntegration(cache[id], projectId)) scoped[id] = cache[id]!;
+	}
+	return scoped;
+}
+
+/**
  * Fill the caches from an artifact instead of the database. Configs are already
  * resolved when the compiler publishes them (cfg: references expanded, urls
  * parsed), so there is nothing left to look up.
+ *
+ * Merged per project rather than replaced: a worker running with
+ * WORKER_PROJECT_ID=* holds several projects at once, and each project's config
+ * artifact arrives as its own update.
  */
-export function hydrateIntegrations(caches: {
-	db?: Record<string, any>;
-	kv?: Record<string, any>;
-	observability?: Record<string, any>;
-	ai?: Record<string, any>;
-}) {
-	if (caches.db) dbIntegrationsCache = caches.db;
-	if (caches.kv) kvIntegrationsCache = caches.kv;
-	if (caches.observability) observabilityIntegrationsCache = caches.observability;
-	if (caches.ai) aiIntegrationsCache = caches.ai;
+export function hydrateIntegrations(
+	projectId: string,
+	caches: {
+		db?: Record<string, any>;
+		kv?: Record<string, any>;
+		observability?: Record<string, any>;
+		ai?: Record<string, any>;
+	},
+) {
+	if (caches.db) dbIntegrationsCache = merge(dbIntegrationsCache, caches.db, projectId);
+	if (caches.kv) kvIntegrationsCache = merge(kvIntegrationsCache, caches.kv, projectId);
+	if (caches.observability)
+		observabilityIntegrationsCache = merge(
+			observabilityIntegrationsCache,
+			caches.observability,
+			projectId,
+		);
+	if (caches.ai) aiIntegrationsCache = merge(aiIntegrationsCache, caches.ai, projectId);
+}
+
+/** drop what this project used to own, then take what it owns now */
+function merge(
+	current: Record<string, any>,
+	incoming: Record<string, any>,
+	projectId: string,
+) {
+	const next: Record<string, any> = {};
+	for (const id in current) {
+		if (current[id]?.[OWNER_KEY] !== projectId) next[id] = current[id];
+	}
+	return Object.assign(next, incoming);
 }
 
 export async function loadIntegrations() {
@@ -162,6 +213,7 @@ async function loadFromDB() {
 		if (config) {
 			config["variant"] = variant;
 			config["group"] = group;
+			config[OWNER_KEY] = integration.projectId ?? null;
 			if (group === integrationsGroupSchema.enum.database) {
 				if (variant === databaseVariantSchema.enum.PostgreSQL) {
 					config["dbType"] = "pg";

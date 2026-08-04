@@ -22,6 +22,7 @@ import {
 	dbIntegrationsCache,
 	kvIntegrationsCache,
 	observabilityIntegrationsCache,
+	scopeToProject,
 } from "../../loaders/integrationsLoader";
 import { projectSettingsCache } from "../../loaders/projectSettingsLoader";
 import type {
@@ -184,10 +185,16 @@ export async function publishProjectConfig(projectId: string) {
 			string,
 			string | number | boolean
 		>,
-		dbIntegrations: dbIntegrationsCache,
-		kvIntegrations: kvIntegrationsCache,
-		observabilityIntegrations: observabilityIntegrationsCache,
-		aiIntegrations: aiIntegrationsCache,
+		// scoped, not the whole cache: an artifact is per project, so shipping the
+		// global cache would put every tenant's database password in every other
+		// tenant's worker
+		dbIntegrations: scopeToProject(dbIntegrationsCache, projectId),
+		kvIntegrations: scopeToProject(kvIntegrationsCache, projectId),
+		observabilityIntegrations: scopeToProject(
+			observabilityIntegrationsCache,
+			projectId,
+		),
+		aiIntegrations: scopeToProject(aiIntegrationsCache, projectId),
 		projectSettings: (projectSettingsCache[projectId] ?? {}) as Record<
 			string,
 			string

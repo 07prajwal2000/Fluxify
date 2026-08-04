@@ -150,7 +150,7 @@ function removeCustomBlock(id: string) {
 function applyProjectConfig(artifact: UnsealedProjectConfig) {
 	const { payload } = artifact;
 	hydrateAppConfig(artifact.projectId, payload.appConfig);
-	hydrateIntegrations({
+	hydrateIntegrations(artifact.projectId, {
 		db: payload.dbIntegrations,
 		kv: payload.kvIntegrations,
 		observability: payload.observabilityIntegrations,
