@@ -38,6 +38,17 @@ export const serverEnvSchema = baseEnvSchema.extend({
 			"Execution threads per compiled worker container (default 1). Threads provide isolation and a kill boundary, not parallelism — scale out with replicas, not this",
 		),
 
+	INTEGRATION_TIMEOUT_POLICY_IN_SEC: z
+		.string()
+		.optional()
+		.refine(
+			(val) => !val || (Number.isInteger(Number(val)) && Number(val) > 0),
+			{ message: "INTEGRATION_TIMEOUT_POLICY_IN_SEC must be a positive integer" },
+		)
+		.describe(
+			"Idle database integration timeout in seconds for compiled workers (default 450 / 7.5 minutes)",
+		),
+
 	WORKER_PROJECT_ID: z
 		.string()
 		.optional()

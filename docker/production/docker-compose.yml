@@ -101,6 +101,7 @@ services:
     environment:
       # Replace with the real project uuid from the admin UI.
       WORKER_PROJECT_ID: "${PROJECT_A_ID:?set PROJECT_A_ID in docker/production/.env}"
+      INTEGRATION_TIMEOUT_POLICY_IN_SEC: "${INTEGRATION_TIMEOUT_POLICY_IN_SEC:-450}"
     # No container_name: replicas each need a unique name.
     deploy:
       replicas: 2
@@ -137,6 +138,7 @@ services:
       - .env
     environment:
       WORKER_PROJECT_ID: "${PROJECT_B_ID:?set PROJECT_B_ID in docker/production/.env}"
+      INTEGRATION_TIMEOUT_POLICY_IN_SEC: "${INTEGRATION_TIMEOUT_POLICY_IN_SEC:-450}"
     deploy:
       replicas: 2
     depends_on:

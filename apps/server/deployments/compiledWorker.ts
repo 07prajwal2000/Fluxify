@@ -50,6 +50,8 @@ const healthPort = Number(getEnv("WORKER_HEALTH_PORT")) || port + 1;
  * larger containers with several CPUs each.
  */
 const threadCount = Number(getEnv("WORKER_THREADS")) || 1;
+const databaseIdleTimeoutMs =
+	Number(getEnv("INTEGRATION_TIMEOUT_POLICY_IN_SEC") || 450) * 1_000;
 
 initializeLogger({
 	serviceName: "fluxify.worker.compiled",
@@ -116,6 +118,7 @@ for (let threadId = 0; threadId < threadCount; threadId++) {
 		threadId,
 		projectId: WORKER_PROJECT_ID,
 		port,
+		databaseIdleTimeoutMs,
 		artifacts,
 		logging: {
 			level: OTLP_LOGGER_LEVEL,
@@ -151,7 +154,7 @@ async function shutdown(sig: string) {
 	shuttingDown = true;
 	logger.info(`received ${sig} — shutting down`);
 	try {
-		for (const thread of threads) thread.terminate();
+		await Promise.all(threads.map(stopThread));
 		healthServer.stop(true);
 		await closePubSub();
 	} catch (e) {
@@ -159,6 +162,24 @@ async function shutdown(sig: string) {
 	} finally {
 		process.exit(0);
 	}
+}
+
+function stopThread(thread: Worker) {
+	return new Promise<void>((resolve) => {
+		const timeout = setTimeout(() => {
+			thread.terminate();
+			resolve();
+		}, 5_000);
+		const onMessage = (event: MessageEvent) => {
+			if (event.data?.type !== "stopped") return;
+			clearTimeout(timeout);
+			thread.removeEventListener("message", onMessage);
+			thread.terminate();
+			resolve();
+		};
+		thread.addEventListener("message", onMessage);
+		thread.postMessage({ type: "shutdown" } satisfies ThreadMessage);
+	});
 }
 process.on("SIGTERM", () => shutdown("SIGTERM"));
 process.on("SIGINT", () => shutdown("SIGINT"));

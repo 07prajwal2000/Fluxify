@@ -1,14 +1,12 @@
-import { password, SQL } from "bun";
-import { Kysely } from "kysely";
+import { SQL } from "bun";
 import { operatorSchema } from "@fluxify/lib";
 import z from "zod";
 import { Connection, DbType } from "./connection";
 import { PostgresAdapter } from "./postgresAdapter";
 import { MySqlAdapter } from "./mySqlAdapter";
 import { JsVM } from "@fluxify/lib";
-import { BunSqlPostgresDialect, BunSqlMysqlDialect } from "./kyselySqlDialect";
 import { MongoAdapter, buildMongoUrl } from "./mongoDbAdapter";
-import { createPool } from "mysql2";
+import { DbConnectionManager, type DbConnectionLease } from "./connectionManager";
 
 export const whereConditionSchema = z.object({
 	attribute: z.string(),
@@ -94,10 +92,13 @@ export interface IDbAdapter {
 
 export class DbFactory {
 	private readonly connectionMap: Record<string, IDbAdapter> = {};
+	private readonly connectionLeases: Record<string, DbConnectionLease> = {};
+	private static readonly defaultConnectionManager = new DbConnectionManager();
 
 	constructor(
 		private readonly vm: JsVM,
 		private readonly dbConfig: Record<string, Connection>,
+		private readonly connectionManager: DbConnectionManager = DbFactory.defaultConnectionManager,
 	) {}
 
 	public getDbAdapter(connection: string): IDbAdapter {
@@ -107,105 +108,45 @@ export class DbFactory {
 		}
 		if (connection in this.connectionMap) return this.connectionMap[connection];
 
+		const lease = this.connectionManager.borrow(connection, cfg);
+		this.connectionLeases[connection] = lease;
+
 		if (cfg.dbType.toLowerCase() === DbType.POSTGRES.toLowerCase()) {
-			const { db, sql } = this.getBunPostgresSqlConnection(connection, cfg);
 			return (this.connectionMap[connection] = new PostgresAdapter(
-				db,
-				sql,
+				lease.connection.db,
+				lease.connection.sql!,
 				this.vm,
 			));
 		} else if (cfg.dbType.toLowerCase() === DbType.MYSQL.toLowerCase()) {
-			const pool = createPool({
-				host: cfg.host,
-				port: Number(cfg.port),
-				user: cfg.username,
-				password: cfg.password,
-				database: cfg.database,
-				connectionLimit: 2,
-			});
-			const db = MySqlAdapter.createKysely(pool);
 			return (this.connectionMap[connection] = new MySqlAdapter(
-				db,
-				pool,
+				lease.connection.db,
+				lease.connection.pool!,
 				this.vm,
 			));
 		} else if (cfg.dbType.toLowerCase() === DbType.MONGODB.toLowerCase()) {
-			const { client, db } = this.getMongoClient(connection, cfg);
 			return (this.connectionMap[connection] = new MongoAdapter(
-				client,
-				db,
+				lease.connection.client!,
+				lease.connection.db,
 				this.vm,
 			));
 		}
 
+		lease.release();
+		delete this.connectionLeases[connection];
 		throw new Error(`${cfg.dbType} Not implemented`);
 	}
 
-	private static connectionCache: Record<
-		string,
-		{ db: Kysely<any>; sql: SQL }
-	> = {};
-
-	private getBunPostgresSqlConnection(
-		connection: string,
-		cfg: Connection,
-	): { db: Kysely<any>; sql: SQL } {
-		if (connection in DbFactory.connectionCache) {
-			return DbFactory.connectionCache[connection];
+	/** Releases this request's database-client leases. */
+	public dispose() {
+		for (const connection of Object.keys(this.connectionLeases)) {
+			this.connectionLeases[connection].release();
+			delete this.connectionLeases[connection];
 		}
-
-		const sql = new SQL({
-			adapter: "postgres",
-			hostname: cfg.host,
-			port: Number(cfg.port),
-			username: cfg.username,
-			password: cfg.password,
-			database: cfg.database,
-			tls: cfg.ssl,
-		});
-
-		const dialect = new BunSqlPostgresDialect(sql);
-
-		const db = new Kysely<any>({ dialect });
-
-		return (DbFactory.connectionCache[connection] = { db, sql });
 	}
 
-	private static mongoConnectionCache: Record<
-		string,
-		{ client: any; db: any }
-	> = {};
-
-	private getMongoClient(
-		connection: string,
-		cfg: Connection,
-	): { client: any; db: any } {
-		if (connection in DbFactory.mongoConnectionCache) {
-			return DbFactory.mongoConnectionCache[connection];
-		}
-
-		// Lazy load to avoid requiring it if unused or to match current pattern
-		const { MongoClient } = require("mongodb");
-		const url = buildMongoUrl(cfg);
-		const client = new MongoClient(url);
-		const db = client.db(cfg.database);
-
-		return (DbFactory.mongoConnectionCache[connection] = { client, db });
-	}
-
-	/** Call when app config / integration credentials change. */
+	/** Compatibility hook for legacy workers that use the process-wide manager. */
 	public static async ResetConnections() {
-		const proms = Object.values(this.connectionCache).map(({ db, sql }) =>
-			db.destroy().then(() => sql.close()),
-		);
-		this.connectionCache = {};
-
-		const mongoProms = Object.values(this.mongoConnectionCache).map(
-			({ client }) => client.close(),
-		);
-		this.mongoConnectionCache = {};
-
-		await Promise.allSettled([...proms, ...mongoProms]);
+		await this.defaultConnectionManager.close();
 	}
 }
 
@@ -270,3 +211,4 @@ export * from "./postgresAdapter";
 export * from "./mySqlAdapter";
 export * from "./mongoDbAdapter";
 export * from "./connection";
+export * from "./connectionManager";

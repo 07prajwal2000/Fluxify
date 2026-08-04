@@ -14,9 +14,14 @@ import type {
 	UnsealedProjectConfig,
 } from "../compiler/artifacts";
 import { hydrateAppConfig } from "../../loaders/appconfigLoader";
-import { hydrateIntegrations } from "../../loaders/integrationsLoader";
+import {
+	dbIntegrationsCache,
+	hydrateIntegrations,
+} from "../../loaders/integrationsLoader";
 import { hydrateProjectSettings } from "../../loaders/projectSettingsLoader";
 import { setBlocksExecutor } from "./executor";
+import { DbConnectionManager } from "@fluxify/adapters";
+import { setDbConnectionManager } from "./service";
 
 /**
  * Execution-side half of the compile pipeline: turns artifacts into a live
@@ -39,6 +44,7 @@ type CompiledRoute = {
 const routes = new Map<string, CompiledRoute>();
 /** custom block artifact id -> registered name, so a delete can unregister it */
 const customBlockNamesById = new Map<string, string>();
+let dbConnectionManager: DbConnectionManager | undefined;
 /** one instance for the process — the router captured it, so rebuild in place */
 const parser = new HttpRouteParser();
 let built = false;
@@ -51,7 +57,14 @@ export function compiledRouteParser() {
  * Builds the runtime from the artifact set handed over at spawn. Returns the
  * route parser dispatch() matches against.
  */
-export function initCompiledRuntime(entries: ArtifactEntry[]): HttpRouteParser {
+export function initCompiledRuntime(
+	entries: ArtifactEntry[],
+	databaseIdleTimeoutMs?: number,
+): HttpRouteParser {
+	dbConnectionManager = new DbConnectionManager(undefined, {
+		idleTimeoutMs: databaseIdleTimeoutMs,
+	});
+	setDbConnectionManager(dbConnectionManager);
 	// custom blocks first: a route that invokes one needs it in the library
 	for (const { key, value } of entries) {
 		if (artifactKind(key) !== "route") applyArtifact(key, value);
@@ -80,6 +93,13 @@ export function initCompiledRuntime(entries: ArtifactEntry[]): HttpRouteParser {
 export function applyArtifactUpdate(key: string, value: any | null) {
 	applyArtifact(key, value);
 	if (artifactKind(key) === "route") rebuildParser();
+}
+
+/** Releases all long-lived database clients before the execution thread exits. */
+export async function shutdownCompiledRuntime() {
+	await dbConnectionManager?.close();
+	dbConnectionManager = undefined;
+	setDbConnectionManager();
 }
 
 function applyArtifact(key: string, value: any | null) {
@@ -156,6 +176,9 @@ function applyProjectConfig(artifact: UnsealedProjectConfig) {
 		observability: payload.observabilityIntegrations,
 		ai: payload.aiIntegrations,
 	});
+	// The hydrated cache is the runtime's complete view. Swapping here makes
+	// changed credentials available to new requests before old clients drain.
+	dbConnectionManager?.synchronize(dbIntegrationsCache);
 	hydrateProjectSettings(artifact.projectId, payload.projectSettings);
 	logger.info(
 		`[worker] project config applied (${artifact.compiledAt})`,
