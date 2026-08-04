@@ -173,6 +173,7 @@ function rebuildParser() {
 		bodySchema: artifact.bodySchema,
 		querySchema: artifact.querySchema,
 		paramsSchema: artifact.paramsSchema,
+		timeoutSeconds: artifact.timeoutSeconds,
 	}));
 	// @ts-ignore — same loose shape routesLoader passes
 	built ? parser.rebuildRoutes(definitions) : parser.buildRoutes(definitions);

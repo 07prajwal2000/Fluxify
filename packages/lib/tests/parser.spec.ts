@@ -15,6 +15,7 @@ describe("Testing routing parser", () => {
         method: "GET",
         projectId: "",
         projectName: "",
+		timeoutSeconds: 45,
       },
       {
         routeId: "2",
@@ -25,6 +26,7 @@ describe("Testing routing parser", () => {
       },
     ]);
     expect(parser.getRouteId("/api/users", "GET")?.id).toBe("1");
+    expect(parser.getRouteId("/api/users", "GET")?.timeoutSeconds).toBe(45);
   });
   it("should return null when no matching found", () => {
     parser.buildRoutes([

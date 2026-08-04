@@ -155,6 +155,46 @@ describe("upsert project settings service", () => {
 		expect(result).toEqual({ message: "Setting saved successfully" });
 	});
 
+	it("stores the experimental worker timeout flag without a connection check", async () => {
+		const projectId = "proj-1";
+		(repository.checkProjectExists as any).mockResolvedValue(true);
+		(repository.upsertProjectSettingKey as any).mockResolvedValue({});
+		(getAllRepository.getProjectSettingsKeys as any).mockResolvedValue([
+			{ key: "experimental.workerTimeouts.enabled", value: "true" },
+		]);
+
+		await handleRequest(projectId, {
+			key: "experimental.workerTimeouts.enabled",
+			value: "true",
+		});
+
+		expect(connection.testConnectionFn).not.toHaveBeenCalled();
+		expect(repository.upsertProjectSettingKey).toHaveBeenCalledWith(
+			projectId,
+			"experimental.workerTimeouts.enabled",
+			"true",
+		);
+	});
+
+	it("defaults the experimental worker timeout flag to disabled", async () => {
+		const projectId = "proj-1";
+		(repository.checkProjectExists as any).mockResolvedValue(true);
+		(repository.upsertProjectSettingKey as any).mockResolvedValue({});
+		(getAllRepository.getProjectSettingsKeys as any).mockResolvedValue([
+			{ key: "experimental.workerTimeouts.enabled", value: "false" },
+		]);
+
+		await handleRequest(projectId, {
+			key: "experimental.workerTimeouts.enabled",
+		});
+
+		expect(repository.upsertProjectSettingKey).toHaveBeenCalledWith(
+			projectId,
+			"experimental.workerTimeouts.enabled",
+			"false",
+		);
+	});
+
 	it("should throw NotFoundError if project does not exist", async () => {
 		const projectId = "proj-1";
 		(repository.checkProjectExists as any).mockResolvedValue(false);

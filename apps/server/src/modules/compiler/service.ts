@@ -99,6 +99,7 @@ export async function compileRoute(routeId: string) {
 			bodySchema: routesEntity.bodySchema,
 			querySchema: routesEntity.querySchema,
 			paramsSchema: routesEntity.paramsSchema,
+			timeoutSeconds: routesEntity.timeoutSeconds,
 		})
 		.from(routesEntity)
 		.leftJoin(projectsEntity, eq(routesEntity.projectId, projectsEntity.id))
@@ -122,6 +123,7 @@ export async function compileRoute(routeId: string) {
 		bodySchema: route.bodySchema,
 		querySchema: route.querySchema,
 		paramsSchema: route.paramsSchema,
+		timeoutSeconds: route.timeoutSeconds,
 		source,
 		compiledAt: new Date().toISOString(),
 	};

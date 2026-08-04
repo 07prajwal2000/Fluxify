@@ -149,6 +149,10 @@ So:
 
 The worker now starts, and `http://localhost:8080/` serves your routes.
 
+To opt into experimental CPU-stall protection, set the project setting
+`experimental.workerTimeouts.enabled` to `true`. The worker receives that
+change through NATS immediately; no Docker restart is required.
+
 > [!TIP]
 > From here on, saving a route in the editor publishes it to the worker in place
 > — no restart and no redeploy. You only ever do this step again if you switch

@@ -2,6 +2,7 @@ import { generateID } from "@fluxify/lib";
 import { sql, relations } from "drizzle-orm";
 import {
 	boolean,
+	integer,
 	index,
 	pgEnum,
 	pgTable,
@@ -234,6 +235,8 @@ export const routesEntity = pgTable(
 		bodySchema: jsonb("body_schema"),
 		querySchema: jsonb("query_schema"),
 		paramsSchema: jsonb("params_schema"),
+		/** CPU-stall budget for compiled execution; users may raise but not lower it. */
+		timeoutSeconds: integer("timeout_seconds").default(30).notNull(),
 		createdAt: timestamp("created_at").defaultNow().notNull(),
 		createdBy: varchar("created_by", { length: 50 }),
 		updatedAt: timestamp("updated_at")

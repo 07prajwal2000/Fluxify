@@ -18,6 +18,7 @@ export async function getRouteById(id: string, tx?: DbTransactionType) {
 			bodySchema: routesEntity.bodySchema,
 			querySchema: routesEntity.querySchema,
 			paramsSchema: routesEntity.paramsSchema,
+			timeoutSeconds: routesEntity.timeoutSeconds,
 		})
 		.from(routesEntity)
 		.leftJoin(projectsEntity, eq(routesEntity.projectId, projectsEntity.id))

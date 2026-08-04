@@ -85,6 +85,25 @@ Because your routes own the whole URL path space, projects are told apart by
 
 ---
 
+## Experimental CPU-stall protection
+
+Compiled workers normally run with no execution-watchdog overhead. To enable
+CPU-stall containment for one project, save this project setting in the admin
+API or dashboard:
+
+```text
+experimental.workerTimeouts.enabled = true
+```
+
+The setting is published through NATS and takes effect without redeploying or
+restarting the container. When enabled, each route's `timeoutSeconds` defaults
+to 30 seconds and may be increased. A route is terminated only when its event
+loop is blocked past that budget; long asynchronous work remains running while
+the execution process continues to heartbeat. The supervisor then replaces only
+the isolated execution process, so the container and its NATS watcher stay up.
+
+---
+
 ## Step 1 — Create your `.env` {#env}
 
 Copy `docker/production/env.example` to `docker/production/.env` next to the

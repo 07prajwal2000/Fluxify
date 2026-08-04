@@ -12,6 +12,7 @@ export const requestBodySchema = z.object({
     .enum(["GET", "POST", "PUT", "DELETE"], "Must be a HTTP Method")
     .optional(),
   active: z.boolean().optional(),
+  timeoutSeconds: z.number().int().min(30).optional(),
 });
 
 export const requestRouteSchema = z.object({
@@ -23,6 +24,7 @@ export const responseSchema = z.object({
   name: z.string(),
   path: z.string(),
   method: z.string(),
+	timeoutSeconds: z.number().int(),
   createdAt: z.string(),
   updatedAt: z.string(),
 });

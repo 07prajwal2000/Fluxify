@@ -1,14 +1,20 @@
 import { existsSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import { initializeLogger, logger } from "@fluxify/common";
 import { healthResponse, markReady } from "../src/modules/requestRouter/health";
 import {
 	loadProjectArtifacts,
 	watchProjectArtifacts,
 } from "../src/modules/requestRouter/artifactHost";
+import type { UnsealedProjectConfig } from "../src/modules/compiler/artifacts";
+import { artifactKind } from "../src/modules/compiler/subjects";
 import type {
-	ThreadBootstrap,
-	ThreadMessage,
+	ExecutionBootstrap,
+	ExecutionEvent,
+	ExecutionMessage,
 } from "../src/modules/requestRouter/threadTypes";
+import { ExecutionWatchdog } from "../src/modules/requestRouter/executionWatchdog";
+import { workerTimeoutsEnabled } from "../src/modules/requestRouter/workerTimeouts";
 import { initializeRedis } from "../src/db/redis";
 import { closePubSub, initializePubSub } from "../src/db/pubsub";
 import {
@@ -22,34 +28,17 @@ import {
 } from "../src/lib/env";
 
 /**
- * Supervisor for the compiled request worker.
- *
- * It serves no user traffic. Its job is to own the things user code must not
- * reach — the NATS connection, the artifact bucket, MASTER_ENCRYPTION_KEY — and
- * feed execution threads through workerData and postMessage. The threads bind
- * the traffic port themselves with SO_REUSEPORT, so requests are never handed
- * across a thread boundary.
- *
- * Health lives here on its own port: with reusePort a probe sent to the traffic
- * port would be answered by whichever thread the kernel picked, which tells you
- * nothing about the others.
+ * Trusted compiled-worker supervisor. It owns NATS and encrypted artifacts;
+ * a separate child process owns user-code execution and can be replaced without
+ * restarting this container or interrupting artifact hot reload.
  */
-
-// JSON has no BigInt type; DB bigint columns break JSON.stringify.
 (BigInt.prototype as any).toJSON = function () {
 	return this.toString();
 };
 
 const port = Number(getEnv("WORKER_PORT")) || 5600;
 const healthPort = Number(getEnv("WORKER_HEALTH_PORT")) || port + 1;
-/**
- * One execution thread by default. The thread exists for isolation and for
- * being killable, not for parallelism — scaling is horizontal, so a container
- * gets roughly one CPU and extra threads would split it while each pays its own
- * copy of the module graph. Raise this only if you deliberately run fewer,
- * larger containers with several CPUs each.
- */
-const threadCount = Number(getEnv("WORKER_THREADS")) || 1;
+const HEARTBEAT_CHECK_MS = 500;
 
 initializeLogger({
 	serviceName: "fluxify.worker.compiled",
@@ -60,30 +49,11 @@ initializeLogger({
 });
 
 if (!WORKER_PROJECT_ID) {
-	logger.error(
-		"WORKER_PROJECT_ID is required — set a project id, or * to serve every project",
-	);
+	logger.error("WORKER_PROJECT_ID is required — set a project id, or * to serve every project");
 	process.exit(1);
 }
-
-/**
- * `*` serves every project in the bucket. The artifact key filters are already
- * `<kind>.<projectId>.*`, so a literal `*` is a valid KV wildcard and needs no
- * special casing below — it just widens what this worker watches.
- *
- * ponytail: routes from all projects share one route table, so two projects
- * with the same method+path collide. Fine for single-tenant and dev
- * deployments, which is what this is for; per-project routing (host or prefix
- * based) is the upgrade path if it ever has to serve untrusted tenants.
- */
-const ALL_PROJECTS = WORKER_PROJECT_ID === "*";
-
-// Project config arrives sealed. Without the key the worker boots fine and then
-// fails on every request with no integrations — fail loudly here instead.
 if (!getEnv("MASTER_ENCRYPTION_KEY")) {
-	logger.error(
-		"MASTER_ENCRYPTION_KEY is required — project config artifacts are encrypted",
-	);
+	logger.error("MASTER_ENCRYPTION_KEY is required — project config artifacts are encrypted");
 	process.exit(1);
 }
 
@@ -96,27 +66,61 @@ logger.info(`supervisor health on http://${healthServer.hostname}:${healthPort}`
 initializeRedis();
 await initializePubSub();
 
-/**
- * Bun's bundler does not pull a worker into the build — it leaves the reference
- * as-is and resolves it at runtime. So the thread is built as its own entry
- * point (see build:worker:compiled) and lands beside this file as .js, while in
- * dev it is still the .ts source two directories up. Pick whichever exists
- * rather than making the deployment carry a path setting.
- */
-const bundledThread = new URL("./executionThread.js", import.meta.url);
-const threadEntry = existsSync(bundledThread)
-	? bundledThread
-	: new URL("../src/modules/requestRouter/executionThread.ts", import.meta.url);
+const bundledProcess = new URL("./executionProcess.js", import.meta.url);
+const processEntry = existsSync(bundledProcess)
+	? bundledProcess
+	: new URL("../src/modules/requestRouter/executionProcess.ts", import.meta.url);
+const initialArtifacts = await loadProjectArtifacts(WORKER_PROJECT_ID);
+const artifacts = new Map(initialArtifacts.map((entry) => [entry.key, entry]));
+const timeoutProjects = new Map<string, boolean>();
+for (const entry of initialArtifacts) updateTimeoutPolicy(entry.key, entry.value);
 
-const artifacts = await loadProjectArtifacts(WORKER_PROJECT_ID);
-const threads: Worker[] = [];
+const watchdog = new ExecutionWatchdog();
+let execution: any;
+let shuttingDown = false;
+let terminatingForTimeout = false;
+let watchdogTimer: ReturnType<typeof setInterval> | undefined;
 
-for (let threadId = 0; threadId < threadCount; threadId++) {
-	const bootstrap: ThreadBootstrap = {
-		threadId,
+function timeoutPolicyEnabled() {
+	return [...timeoutProjects.values()].some(Boolean);
+}
+
+function updateTimeoutPolicy(key: string, value: unknown) {
+	if (artifactKind(key) !== "project-config") return;
+	if (!value) {
+		const projectId = key.split(".")[1];
+		if (projectId) timeoutProjects.delete(projectId);
+		return;
+	}
+	const config = value as UnsealedProjectConfig;
+	timeoutProjects.set(
+		config.projectId,
+		workerTimeoutsEnabled(config.payload.projectSettings),
+	);
+}
+
+function synchronizeMonitoring() {
+	const enabled = timeoutPolicyEnabled();
+	watchdog.setEnabled(enabled);
+	execution?.send({ type: "monitoring", enabled } satisfies ExecutionMessage);
+	if (enabled && !watchdogTimer) {
+		watchdogTimer = setInterval(evaluateTimeouts, HEARTBEAT_CHECK_MS);
+	} else if (!enabled && watchdogTimer) {
+		clearInterval(watchdogTimer);
+		watchdogTimer = undefined;
+	}
+	logger.info(
+		`experimental worker timeouts ${enabled ? "enabled" : "disabled"}`,
+		"WORKER.timeout",
+	);
+}
+
+function spawnExecution() {
+	const bootstrap: ExecutionBootstrap = {
 		projectId: WORKER_PROJECT_ID,
 		port,
-		artifacts,
+		artifacts: [...artifacts.values()],
+		workerTimeoutsEnabled: timeoutPolicyEnabled(),
 		logging: {
 			level: OTLP_LOGGER_LEVEL,
 			otlpEndpoint: OTLP_ENDPOINT,
@@ -124,38 +128,80 @@ for (let threadId = 0; threadId < threadCount; threadId++) {
 			useOtlp: OTLP_LOGGER_ENABLED === "true",
 		},
 	};
-	const thread = new Worker(threadEntry, { workerData: bootstrap } as any);
-	thread.addEventListener("error", (event: any) =>
-		logger.error(`[thread ${threadId}] ${event?.message ?? event}`),
-	);
-	threads.push(thread);
+	const child = Bun.spawn([process.execPath, fileURLToPath(processEntry)], {
+		env: {},
+		stdout: "inherit",
+		stderr: "inherit",
+		ipc: (event) => onExecutionEvent(event as ExecutionEvent),
+		onExit: (process, exitCode, signalCode, error) => {
+			if (execution !== process) return;
+			execution = undefined;
+			watchdog.setEnabled(timeoutPolicyEnabled());
+			if (shuttingDown) return;
+			logger.error(
+				`execution process exited (code=${exitCode}, signal=${signalCode}): ${error?.message ?? "restarting"}`,
+				"WORKER.execution",
+			);
+			terminatingForTimeout = false;
+			spawnExecution();
+		},
+	});
+	execution = child;
+	child.send({ type: "bootstrap", bootstrap } satisfies ExecutionMessage);
 }
 
-// KV updates are pushed to every thread; each keeps its own route table so a
-// request never waits on the supervisor
+function onExecutionEvent(event: ExecutionEvent) {
+	switch (event.type) {
+		case "ready":
+			logger.info("execution process ready", "WORKER.execution");
+			return;
+		case "heartbeat":
+			return watchdog.heartbeat();
+		case "execution-started":
+			return watchdog.start(event);
+		case "execution-finished":
+			return watchdog.finish(event.requestId);
+	}
+}
+
+spawnExecution();
+synchronizeMonitoring();
+
+function evaluateTimeouts() {
+	const timedOut = watchdog.findTimedOut();
+	if (!timedOut || !execution || terminatingForTimeout) return;
+	terminatingForTimeout = true;
+	logger.error(
+		`terminating blocked execution process for route ${timedOut.routeId} after ${timedOut.timeoutMs}ms (heartbeat stalled ${Math.round(timedOut.stalledForMs)}ms)`,
+		"WORKER.timeout",
+	);
+	// TODO(#195): emit a killed-execution span from the supervisor telemetry path.
+	execution.kill();
+}
+
 await watchProjectArtifacts(WORKER_PROJECT_ID, (entry) => {
-	const message: ThreadMessage = { type: "artifact", entry };
-	for (const thread of threads) thread.postMessage(message);
+	const policyChanged = artifactKind(entry.key) === "project-config";
+	if (entry.value === null) artifacts.delete(entry.key);
+	else artifacts.set(entry.key, entry);
+	if (policyChanged) updateTimeoutPolicy(entry.key, entry.value);
+	execution?.send({ type: "artifact", entry } satisfies ExecutionMessage);
+	if (policyChanged) synchronizeMonitoring();
 });
 
 markReady();
-logger.info(
-	`compiled worker ready — ${threadCount} threads on port ${port}, ${
-		ALL_PROJECTS ? "all projects" : `project ${WORKER_PROJECT_ID}`
-	}`,
-);
+logger.info(`compiled worker ready — isolated execution process on port ${port}`);
 
-let shuttingDown = false;
 async function shutdown(sig: string) {
 	if (shuttingDown) return;
 	shuttingDown = true;
+	if (watchdogTimer) clearInterval(watchdogTimer);
 	logger.info(`received ${sig} — shutting down`);
 	try {
-		for (const thread of threads) thread.terminate();
+		execution?.kill();
 		healthServer.stop(true);
 		await closePubSub();
-	} catch (e) {
-		logger.error(`shutdown error: ${e?.toString()}`);
+	} catch (error) {
+		logger.error(`shutdown error: ${String(error)}`);
 	} finally {
 		process.exit(0);
 	}

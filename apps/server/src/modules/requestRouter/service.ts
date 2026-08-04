@@ -37,12 +37,20 @@ export type HandleRequestType = {
 	status: ContentfulStatusCode;
 };
 
+export type RouteExecutionObserver = {
+	onRouteStart(route: {
+		routeId: string;
+		projectId: string;
+		timeoutSeconds: number;
+	}): (() => void) | void;
+};
+
 // defined in ./types so it has no import cycle with the envelope; re-exported
 // here because the test-suites runner imports it from this module.
 export type { RequestOverrides } from "./types";
 import type { RequestOverrides } from "./types";
 
-export const RESPONSE_TIMEOUT = 4 * 1000;
+export const DEFAULT_ROUTE_TIMEOUT_SECONDS = 30;
 
 /** Default origin for in-process callers (test-suite runner) that predate the envelope. */
 const DEFAULT_TRIGGER: TriggerContext = {
@@ -84,6 +92,7 @@ export async function dispatch(
 	env: RequestEnvelope,
 	parser: HttpRouteParser,
 	httpCtx?: Context,
+	observer?: RouteExecutionObserver,
 ): Promise<HandleRequestType> {
 	const { payload, trigger, overrides } = env;
 	const path = parser.getRouteId(
@@ -99,28 +108,38 @@ export async function dispatch(
 		};
 	}
 
-	return executeRouteInternal(
-		{
-			id: path.id,
-			projectId: path.projectId!,
-			projectName: path.projectName!,
-			routeParams: path.routeParams,
-			bodySchema: path.bodySchema,
-			querySchema: path.querySchema,
-			paramsSchema: path.paramsSchema,
-		},
-		{
-			method: payload.method,
-			path: payload.path,
-			headers: payload.headers,
-			query: payload.query,
-			body: payload.body,
-			params: path.routeParams || payload.params || {},
-		},
-		httpCtx,
-		overrides,
-		trigger,
-	);
+	const finish = observer?.onRouteStart({
+		routeId: path.id,
+		projectId: path.projectId!,
+		timeoutSeconds: path.timeoutSeconds ?? DEFAULT_ROUTE_TIMEOUT_SECONDS,
+	});
+	try {
+		return await executeRouteInternal(
+			{
+				id: path.id,
+				projectId: path.projectId!,
+				projectName: path.projectName!,
+				routeParams: path.routeParams,
+				bodySchema: path.bodySchema,
+				querySchema: path.querySchema,
+				paramsSchema: path.paramsSchema,
+				timeoutSeconds: path.timeoutSeconds,
+			},
+			{
+				method: payload.method,
+				path: payload.path,
+				headers: payload.headers,
+				query: payload.query,
+				body: payload.body,
+				params: path.routeParams || payload.params || {},
+			},
+			httpCtx,
+			overrides,
+			trigger,
+		);
+	} finally {
+		finish?.();
+	}
 }
 
 export async function executeRouteInternal(
@@ -132,6 +151,7 @@ export async function executeRouteInternal(
 		bodySchema?: any;
 		querySchema?: any;
 		paramsSchema?: any;
+		timeoutSeconds?: number;
 	},
 	requestData: {
 		method: string;
@@ -226,6 +246,7 @@ export async function executeRouteInternal(
 		dbFactory,
 		httpClient,
 		trigger,
+		routeInfo.timeoutSeconds ?? DEFAULT_ROUTE_TIMEOUT_SECONDS,
 	);
 
 	const executionResult = await runBlocks(
@@ -269,6 +290,7 @@ function createContext(
 	dbFactory: DbFactory,
 	httpClient: HttpClient,
 	trigger: TriggerContext,
+	timeoutSeconds: number,
 ): BlockContext {
 	return {
 		apiId: routeInfo.id,
@@ -282,7 +304,7 @@ function createContext(
 		trigger,
 		stopper: {
 			timeoutEnd: 0,
-			duration: RESPONSE_TIMEOUT,
+			duration: timeoutSeconds * 1000,
 		},
 	};
 }

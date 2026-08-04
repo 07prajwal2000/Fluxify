@@ -13,6 +13,7 @@ export type RouteArtifact = {
 	bodySchema?: unknown;
 	querySchema?: unknown;
 	paramsSchema?: unknown;
+	timeoutSeconds: number;
 	/** compiled graph source, instantiated by the worker */
 	source: string;
 	compiledAt: string;

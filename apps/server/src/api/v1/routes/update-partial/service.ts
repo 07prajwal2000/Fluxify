@@ -40,6 +40,9 @@ export default async function handleRequest(
     if (data.path) patchedRoute.path = data.path;
     if (data.method) patchedRoute.method = data.method;
     if (data.active !== undefined) patchedRoute.active = data.active;
+		if (data.timeoutSeconds !== undefined) {
+			patchedRoute.timeoutSeconds = data.timeoutSeconds;
+		}
     return await updateRoute(
       {
         ...patchedRoute,
@@ -58,6 +61,7 @@ export default async function handleRequest(
     name: result.name!,
     path: result.path!,
     method: result.method!,
+		timeoutSeconds: result.timeoutSeconds,
     createdAt: result.createdAt.toISOString(),
     updatedAt: result.updatedAt.toISOString(),
   };

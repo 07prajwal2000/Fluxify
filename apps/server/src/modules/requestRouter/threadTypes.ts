@@ -1,12 +1,13 @@
 import type { ArtifactEntry } from "./compiledRuntime";
 
-/** handed to an execution thread in workerData at spawn */
-export type ThreadBootstrap = {
-	threadId: number;
+/** handed to the isolated execution process over Bun IPC at spawn */
+export type ExecutionBootstrap = {
 	projectId: string;
 	port: number;
 	/** the full artifact set as of spawn, already unsealed */
 	artifacts: ArtifactEntry[];
+	/** hot-reloadable supervisor policy; false means no heartbeat or tracking */
+	workerTimeoutsEnabled: boolean;
 	/** the thread clears its env, so logging config has to travel with it */
 	logging: {
 		level: any;
@@ -16,8 +17,20 @@ export type ThreadBootstrap = {
 	};
 };
 
-/** supervisor -> thread, after spawn */
-export type ThreadMessage = { type: "artifact"; entry: ArtifactEntry };
+/** supervisor -> isolated execution process */
+export type ExecutionMessage =
+	| { type: "bootstrap"; bootstrap: ExecutionBootstrap }
+	| { type: "artifact"; entry: ArtifactEntry }
+	| { type: "monitoring"; enabled: boolean };
 
-/** thread -> supervisor */
-export type ThreadEvent = { type: "ready"; threadId: number };
+/** isolated execution process -> supervisor */
+export type ExecutionEvent =
+	| { type: "ready" }
+	| { type: "heartbeat" }
+	| {
+			type: "execution-started";
+			requestId: string;
+			routeId: string;
+			timeoutMs: number;
+		}
+	| { type: "execution-finished"; requestId: string };

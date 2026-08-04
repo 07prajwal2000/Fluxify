@@ -46,7 +46,11 @@ export default async function handleRequest(
 		throw new BadRequestError(`Invalid value for key ${key}`);
 	}
 
-	if (finalValue) {
+	if (
+		finalValue &&
+		(key === "settings.ai.agentConnectionId" ||
+			key === "settings.ai.loggerConnectionId")
+	) {
 		const connectionTest = await testConnectionFn(
 			key as ProjectSettingsKeyType,
 			finalValue,

@@ -72,10 +72,10 @@ RUN bun install --frozen-lockfile
 # ------------------------------------------------------------------------------
 # Stage 2: build — TWO bundles, not one.
 #
-# Bun's bundler does not pull a worker thread into its parent's bundle; it
-# leaves the reference and resolves it at runtime. So the supervisor and the
-# execution thread are built as separate entry points and land side by side in
-# dist/. compiledWorker.ts looks for ./executionThread.js next to itself, so
+# Bun's bundler does not pull a child-process entry point into its parent's
+# bundle; it leaves the reference and resolves it at runtime. So the supervisor
+# and execution process are built as separate entry points and land side by side in
+# dist/. compiledWorker.ts looks for ./executionProcess.js next to itself, so
 # this flat layout is load-bearing — do not nest the outputs.
 #
 # Only apps/server and the four workspace packages it imports are copied — no
@@ -118,7 +118,7 @@ LABEL org.opencontainers.image.title="Fluxify Compiled Worker" \
 # Non-root, no login shell.
 RUN adduser -D -s /sbin/nologin -h /app appuser
 
-# compiledWorker.js + executionThread.js + native assets, siblings in one dir.
+# compiledWorker.js + executionProcess.js + native assets, siblings in one dir.
 COPY --from=build --chown=appuser:appuser /app/apps/server/dist /app/worker
 
 USER appuser
