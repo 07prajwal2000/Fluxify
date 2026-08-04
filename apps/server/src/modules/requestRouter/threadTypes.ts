@@ -1,4 +1,5 @@
 import type { ArtifactEntry } from "./compiledRuntime";
+import type { AsyncExecutorLimits } from "./asyncExecutor";
 
 /** handed to the isolated execution process over Bun IPC at spawn */
 export type ExecutionBootstrap = {
@@ -6,6 +7,8 @@ export type ExecutionBootstrap = {
 	port: number;
 	/** idle database integration timeout, supplied by the supervisor in milliseconds */
 	databaseIdleTimeoutMs: number;
+	/** bounded process-local runner for optional async trigger replies */
+	asyncExecutor: AsyncExecutorLimits;
 	/** the full artifact set as of spawn, already unsealed */
 	artifacts: ArtifactEntry[];
 	/** hot-reloadable supervisor policy; false means no heartbeat or tracking */

@@ -60,4 +60,46 @@ describe("dispatch", () => {
 		expect(res.status).toBe(404);
 		expect(res.data).toEqual({ message: "Route not found" });
 	});
+
+	it("uses a supplied artifact-time validator before creating route resources", async () => {
+		let validations = 0;
+		const parser = {
+			getRouteId: () => ({
+				id: "route-1",
+				projectId: "project-1",
+				projectName: "Project",
+				bodySchema: { dataType: "str" },
+			}),
+		} as unknown as HttpRouteParser;
+		const env = {
+			trigger: { kind: "route", source: "http", reply: "sync" as const },
+			payload: {
+				method: "POST",
+				path: "/jobs",
+				headers: {},
+				query: {},
+				body: "input",
+			},
+		};
+		const cachedValidator = {
+			validate: async () => {
+				validations++;
+				return {
+					success: false,
+					errors: [{ path: "", property: "", errors: ["expected failure"] }],
+				};
+			},
+		};
+
+		const res = await dispatch(env, parser, undefined, undefined, () => ({
+			body: cachedValidator as any,
+		}));
+
+		expect(validations).toBe(1);
+		expect(res.status).toBe(400);
+		expect(res.data).toEqual({
+			message: "Body validation failed",
+			errors: [{ path: "", property: "", errors: ["expected failure"] }],
+		});
+	});
 });

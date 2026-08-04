@@ -102,6 +102,13 @@ return true;
 ```
 
 Whatever you pass to `ValidationError` is returned directly to the caller — giving you full control over your error messages.
+
+Validation schemas and their trusted JavaScript validators are compiled when a
+route artifact loads or hot-reloads. Requests only call the cached validator;
+they never compile schema definitions or request-provided `js:` strings. Values
+received from a caller are always treated as data, including strings beginning
+with `js:`.
+
 ## Validation Error Response
 
 When a request fails validation, the caller receives a `400 Bad Request` with a JSON body that clearly describes what went wrong.

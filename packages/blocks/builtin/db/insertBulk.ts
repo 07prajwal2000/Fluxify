@@ -50,10 +50,10 @@ export function emitInsertBulkDb(node: EmitNode) {
 
   let payload: string;
   if (input.useParam) {
-    payload = `await lib.evalJsDeep(ctx, ${node.in})`;
+    payload = node.in;
   } else if (input.data.source === "js" && typeof value === "string") {
     // matches the block: the stored string is expected to carry the js: prefix
-    payload = `await lib.evalJsDeep(ctx, ${node.js(value.slice(3), node.in)})`;
+    payload = node.js(value.slice(3), node.in);
   } else {
     payload = emitJsObject(value, node);
   }

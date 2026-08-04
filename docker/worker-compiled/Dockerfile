@@ -36,6 +36,10 @@
 #   WORKER_HEALTH_PORT      health port (default 5601)
 #   INTEGRATION_TIMEOUT_POLICY_IN_SEC
 #                           idle database-integration timeout (default 450 / 7.5 minutes)
+#   ASYNC_EXECUTOR_MAX_IN_FLIGHT / ASYNC_EXECUTOR_MAX_QUEUE_DEPTH
+#                           bounded local async-trigger capacity (defaults 10 / 100)
+#   ASYNC_EXECUTOR_DRAIN_TIMEOUT_MS
+#                           graceful drain deadline (default 30000)
 #   OTLP_*                  log shipping; see docker/kit/env.example
 #
 # DELIBERATELY NOT USED
@@ -132,7 +136,10 @@ ENV NODE_ENV=production \
     ENVIRONMENT=production \
     WORKER_PORT=5600 \
     WORKER_HEALTH_PORT=5601 \
-    INTEGRATION_TIMEOUT_POLICY_IN_SEC=450
+    INTEGRATION_TIMEOUT_POLICY_IN_SEC=450 \
+    ASYNC_EXECUTOR_MAX_IN_FLIGHT=10 \
+    ASYNC_EXECUTOR_MAX_QUEUE_DEPTH=100 \
+    ASYNC_EXECUTOR_DRAIN_TIMEOUT_MS=30000
 
 # Readiness, not liveness: 200 only once compiled routes have been loaded, so a
 # worker that came up before the compiler published anything is not sent traffic.

@@ -15,6 +15,7 @@ import type {
 } from "../src/modules/requestRouter/threadTypes";
 import { ExecutionWatchdog } from "../src/modules/requestRouter/executionWatchdog";
 import { workerTimeoutsEnabled } from "../src/modules/requestRouter/workerTimeouts";
+import { asyncExecutorLimitsFromEnv } from "../src/modules/requestRouter/asyncExecutor";
 import { initializeRedis } from "../src/db/redis";
 import { closePubSub, initializePubSub } from "../src/db/pubsub";
 import {
@@ -42,6 +43,7 @@ const HEARTBEAT_CHECK_MS = 500;
 /** Idle database integration timeout, supplied to the execution process. */
 const databaseIdleTimeoutMs =
 	Number(getEnv("INTEGRATION_TIMEOUT_POLICY_IN_SEC") || 450) * 1_000;
+const asyncExecutor = asyncExecutorLimitsFromEnv();
 
 initializeLogger({
 	serviceName: "fluxify.worker.compiled",
@@ -123,6 +125,7 @@ function spawnExecution() {
 		projectId: WORKER_PROJECT_ID,
 		port,
 		databaseIdleTimeoutMs,
+		asyncExecutor,
 		artifacts: [...artifacts.values()],
 		workerTimeoutsEnabled: timeoutPolicyEnabled(),
 		logging: {

@@ -1,4 +1,6 @@
 import { z } from 'zod';
+import { AsyncLocalStorage } from 'node:async_hooks';
+import { scopeFor } from '@fluxify/blocks';
 import { ValidationSchemaZod } from './validationSchemaZod';
 import { JsVM } from '@fluxify/lib';
 
@@ -11,10 +13,41 @@ export class ValidationError extends Error {
   }
 }
 
-type ParserContext = {
+export type ParserContext = {
   vm: JsVM;
+  /** Present in the compiled worker: trusted validators run against these vars. */
+  vars?: Record<string, any>;
   coerce?: boolean;
 };
+
+type CompiledValidator = (input: any, scope: any) => Promise<unknown>;
+
+export type CompiledRequestSchema = {
+  validate(requestData: any, context: ParserContext): Promise<ParseResult>;
+};
+
+type ParseResult = {
+  success: boolean;
+  errors?: Array<{ path: string; property: string; errors: any[] }>;
+};
+
+/**
+ * The source is part of the persisted route definition, never request input.
+ * Give every artifact-time function a private generated name so validators from
+ * different routes cannot collide in diagnostics or generated snapshots.
+ */
+function compileValidator(code: string): CompiledValidator {
+  const name = `validator_${crypto.randomUUID().replaceAll('-', '')}`;
+  try {
+    return new Function(
+      `return async function ${name}(input, $scope) { with ($scope) {\n${code}\n} }`,
+    )() as CompiledValidator;
+  } catch (error) {
+    // Keep the old behaviour: a malformed stored validator becomes a normal
+    // validation error, rather than making the whole route fail to load.
+    return async () => { throw error; };
+  }
+}
 
 // Map primitive types to base Zod schemas
 function getBaseZodType(dataType: string, coerce = false): z.ZodTypeAny {
@@ -58,16 +91,21 @@ function applyRules(schema: z.ZodTypeAny, dataType: string, rules: any[] = []): 
   return s;
 }
 
-export function buildZodSchema(schemaDef: any, context: ParserContext): z.ZodTypeAny {
+export function buildZodSchema(schemaDef: any, coerce = false): z.ZodTypeAny {
   const { dataType, properties, items, rules, js, required } = schemaDef;
 
   let zSchema: z.ZodTypeAny;
 
   if (dataType === 'js') {
+    const validator = js ? compileValidator(js) : undefined;
     zSchema = z.any().superRefine(async (val, ctx) => {
       if (!js) return;
       try {
-        const result = await context.vm.runAsync(js, val);
+        const context = validationContext.getStore();
+        if (!context) throw new Error('Validation context unavailable');
+        const result = context.vars
+          ? await validator!(val, scopeFor(context.vars))
+          : await context.vm.runAsync(js, val);
         if (!result) {
           ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Custom JS validation failed' });
         }
@@ -93,16 +131,16 @@ export function buildZodSchema(schemaDef: any, context: ParserContext): z.ZodTyp
       zSchema = z.any(); // fallback if no enum values defined
     }
   } else {
-    zSchema = getBaseZodType(dataType, context.coerce);
+    zSchema = getBaseZodType(dataType, coerce);
 
     if (dataType === 'object' && properties) {
       const shape: Record<string, z.ZodTypeAny> = {};
       for (const prop of properties) {
-        shape[prop.key] = buildZodSchema(prop, context);
+        shape[prop.key] = buildZodSchema(prop, coerce);
       }
       zSchema = z.object(shape);
     } else if (dataType === 'arr' && items) {
-      zSchema = z.array(buildZodSchema(items, context));
+      zSchema = z.array(buildZodSchema(items, coerce));
     }
     
     zSchema = applyRules(zSchema, dataType, rules);
@@ -115,37 +153,60 @@ export function buildZodSchema(schemaDef: any, context: ParserContext): z.ZodTyp
   return zSchema;
 }
 
-export const parseRequestSchema = async (schemaJson: any, requestData: any, context: ParserContext) => {
+const validationContext = new AsyncLocalStorage<ParserContext>();
+
+function formatResult(result: z.ZodSafeParseResult<unknown>): ParseResult {
+  if (result.success) return { success: true };
+  const errors = result.error.issues.map(issue => {
+    let customErrorObj = null;
+    try {
+      customErrorObj = JSON.parse(issue.message);
+    } catch {
+      // Not a JSON string (standard zod error message).
+    }
+    return {
+      path: issue.path.join('.'),
+      property: issue.path[issue.path.length - 1]?.toString() || '',
+      errors: customErrorObj ? [customErrorObj] : [issue.message],
+    };
+  });
+  return { success: false, errors };
+}
+
+/** Compile the definition once at artifact load, then validate many requests. */
+export function compileRequestSchema(
+  schemaJson: any,
+  { coerce = false }: Pick<ParserContext, 'coerce'> = {},
+): CompiledRequestSchema {
   // Validate schema JSON itself against DB Zod schema
   const parsedDef = ValidationSchemaZod.safeParse(schemaJson);
   if (!parsedDef.success) {
-    return { 
-      success: false, 
-      errors: [{ path: 'schema', property: 'schema', errors: ['Invalid schema definition format'] }] 
+    return {
+      async validate() {
+        return {
+          success: false,
+          errors: [{ path: 'schema', property: 'schema', errors: ['Invalid schema definition format'] }],
+        };
+      },
     };
   }
 
-  const executableSchema = buildZodSchema(parsedDef.data, context);
-  const result = await executableSchema.safeParseAsync(requestData);
+  const executableSchema = buildZodSchema(parsedDef.data, coerce);
+  return {
+    async validate(requestData: any, context: ParserContext): Promise<ParseResult> {
+      // A cached schema is shared by concurrent requests. The JS refinement reads
+      // its own async-local context, so parallel requests cannot leak vars.
+      return validationContext.run(context, async () =>
+        formatResult(await executableSchema.safeParseAsync(requestData)),
+      );
+    },
+  };
+}
 
-  if (result.success) {
-    return { success: true };
-  } else {
-    const formattedErrors = result.error.issues.map(issue => {
-      let customErrorObj = null;
-      try { 
-        customErrorObj = JSON.parse(issue.message); 
-      } catch (e) {
-        // Not a JSON string (standard zod error message)
-      }
-
-      return {
-        path: issue.path.join('.'),
-        property: issue.path[issue.path.length - 1]?.toString() || '',
-        errors: customErrorObj ? [customErrorObj] : [issue.message]
-      };
-    });
-    
-    return { success: false, errors: formattedErrors };
-  }
+export const parseRequestSchema = async (
+  schemaJson: any,
+  requestData: any,
+  context: ParserContext,
+) => {
+  return compileRequestSchema(schemaJson, context).validate(requestData, context);
 };

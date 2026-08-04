@@ -164,16 +164,44 @@ sequenceDiagram
     P->>W: Forward
     W->>W: Match path → "Get user", extract id = 42
     W->>W: Validate request against your schemas
-    W->>W: Run the translated function
-    W->>DB: SELECT the user row
-    DB-->>W: Row
-    W-->>P: 200 with JSON body
-    P-->>U: 200 with JSON body
+    alt Normal route reply
+        W->>W: Run the translated function
+        W->>DB: SELECT the user row
+        DB-->>W: Row
+        W-->>P: 200 with JSON body
+        P-->>U: 200 with JSON body
+    else Future async trigger reply
+        W->>W: Submit envelope to bounded local executor
+        W-->>P: 202 Accepted
+        P-->>U: 202 Accepted
+        Note over W: queueMicrotask starts accepted work<br/>when executor capacity is available
+        W->>W: Run the translated function in background
+    end
 ```
 
 Matching the path is a lookup, not a search — adding more routes doesn't slow
 down the ones you already have. Everything after the match is your route's own
 code running directly.
+
+### Foundation for future async triggers
+
+The worker already has a bounded, process-local async executor. It accepts the
+same transport-neutral route envelope as HTTP dispatch, returns an immediate
+`202` once accepted, and starts detached work through `queueMicrotask`. This is
+an internal foundation only: there is not yet a dashboard route setting or
+supported public trigger endpoint that schedules work this way.
+
+Future webhook, route-to-route, NATS/JetStream, Kafka, SQS, RabbitMQ and cron
+adapters can all submit into this boundary. A later distributed workflow system
+can replace the local executor with durable JetStream scheduling without
+changing route execution itself.
+
+The local runner defaults to 10 in-flight jobs and 100 queued jobs per worker.
+When full, it rejects new async submissions with `429` rather than retaining
+unbounded request bodies. It is for I/O-bound work only: JavaScript loops,
+image/file processing, and other CPU-heavy work still share the execution
+process event loop and can delay ordinary routes. Those workloads need a
+dedicated CPU-worker design.
 
 ### What the worker is *not* doing
 

@@ -70,9 +70,9 @@ export function emitUpdateDb(node: EmitNode) {
 
 	let payload: string;
 	if (input.useParam) {
-		payload = `await lib.evalJsDeep(ctx, ${node.in})`;
+		payload = node.in;
 	} else if (input.data.source === "js" && typeof value === "string") {
-		payload = `await lib.evalJsDeep(ctx, ${node.js(value, node.in)})`;
+		payload = node.js(value, node.in);
 	} else {
 		payload = emitJsObject(value, node);
 	}

@@ -7,6 +7,10 @@ import {
 	type BlockOutput,
 	type Context,
 } from "@fluxify/blocks";
+import {
+	compileRequestSchema,
+	type CompiledRequestSchema,
+} from "../../lib/schemaParser";
 import { artifactId, artifactKind } from "../compiler/subjects";
 import type {
 	CustomBlockArtifact,
@@ -39,6 +43,13 @@ export type ArtifactEntry = { key: string; value: any | null };
 type CompiledRoute = {
 	artifact: RouteArtifact;
 	run: (ctx: Context, input?: any) => Promise<BlockOutput | null>;
+	validators: RouteValidators;
+};
+
+export type RouteValidators = {
+	body?: CompiledRequestSchema;
+	query?: CompiledRequestSchema;
+	params?: CompiledRequestSchema;
 };
 
 const routes = new Map<string, CompiledRoute>();
@@ -51,6 +62,11 @@ let built = false;
 
 export function compiledRouteParser() {
 	return parser;
+}
+
+/** Cached alongside the compiled graph; no Zod tree is rebuilt per request. */
+export function compiledRouteValidators(routeId: string): RouteValidators | undefined {
+	return routes.get(routeId)?.validators;
 }
 
 /**
@@ -122,6 +138,7 @@ function addRoute(artifact: RouteArtifact) {
 		routes.set(artifact.routeId, {
 			artifact,
 			run: instantiateCompiled(artifact.source),
+			validators: compileRouteValidators(artifact),
 		});
 		logger.info(
 			`[worker] loaded ${artifact.method} ${artifact.path}`,
@@ -134,6 +151,20 @@ function addRoute(artifact: RouteArtifact) {
 			"WORKER.compiled",
 		);
 	}
+}
+
+function compileRouteValidators(artifact: RouteArtifact): RouteValidators {
+	return {
+		body: schemaValidator(artifact.bodySchema),
+		query: schemaValidator(artifact.querySchema, true),
+		params: schemaValidator(artifact.paramsSchema, true),
+	};
+}
+
+function schemaValidator(schema: unknown, coerce = false) {
+	return schema && typeof schema === "object" && Object.keys(schema).length > 0
+		? compileRequestSchema(schema, { coerce })
+		: undefined;
 }
 
 function removeRoute(routeId: string) {
