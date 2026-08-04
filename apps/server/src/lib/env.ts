@@ -42,7 +42,7 @@ export const serverEnvSchema = baseEnvSchema.extend({
 		.string()
 		.optional()
 		.describe(
-			"Project this worker serves. The compiled worker watches only this project's artifacts and never connects to the database",
+			"Project this worker serves. The compiled worker watches only this project's artifacts and never connects to the database. Set to * to serve every project in the artifact bucket (single-tenant and dev deployments — route paths are shared across projects)",
 		),
 
 	AI_API_KEY: z

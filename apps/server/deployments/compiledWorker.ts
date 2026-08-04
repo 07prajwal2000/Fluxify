@@ -61,10 +61,22 @@ initializeLogger({
 
 if (!WORKER_PROJECT_ID) {
 	logger.error(
-		"WORKER_PROJECT_ID is required — a compiled worker serves exactly one project",
+		"WORKER_PROJECT_ID is required — set a project id, or * to serve every project",
 	);
 	process.exit(1);
 }
+
+/**
+ * `*` serves every project in the bucket. The artifact key filters are already
+ * `<kind>.<projectId>.*`, so a literal `*` is a valid KV wildcard and needs no
+ * special casing below — it just widens what this worker watches.
+ *
+ * ponytail: routes from all projects share one route table, so two projects
+ * with the same method+path collide. Fine for single-tenant and dev
+ * deployments, which is what this is for; per-project routing (host or prefix
+ * based) is the upgrade path if it ever has to serve untrusted tenants.
+ */
+const ALL_PROJECTS = WORKER_PROJECT_ID === "*";
 
 // Project config arrives sealed. Without the key the worker boots fine and then
 // fails on every request with no integrations — fail loudly here instead.
@@ -128,7 +140,9 @@ await watchProjectArtifacts(WORKER_PROJECT_ID, (entry) => {
 
 markReady();
 logger.info(
-	`compiled worker ready — ${threadCount} threads on port ${port}, project ${WORKER_PROJECT_ID}`,
+	`compiled worker ready — ${threadCount} threads on port ${port}, ${
+		ALL_PROJECTS ? "all projects" : `project ${WORKER_PROJECT_ID}`
+	}`,
 );
 
 let shuttingDown = false;

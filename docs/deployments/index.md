@@ -167,6 +167,15 @@ start.
 To serve several projects, run a separate group of workers for each. Copies of
 the same worker share their settings, so they always share a project.
 
+::: tip Serving every project from one worker
+Set `WORKER_PROJECT_ID` to `*` and the worker serves every project you have,
+picking up new ones as you create them — no restart, no id to copy.
+
+Good for a personal install or a staging box. Not recommended when projects
+belong to different people: they share one worker, so a route path used by two
+projects can only resolve to one of them, and a slow project slows the rest.
+:::
+
 ---
 
 ## Next steps
