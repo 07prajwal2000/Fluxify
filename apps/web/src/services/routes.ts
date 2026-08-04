@@ -48,7 +48,7 @@ export const routesService = {
     return result.data;
   },
   async create(
-    data: z.infer<typeof createRequestSchema>
+    data: z.input<typeof createRequestSchema>
   ): Promise<z.infer<typeof createResponseSchema>> {
     const result = await httpClient.post(`${baseUrl}`, data);
     return result.data;
