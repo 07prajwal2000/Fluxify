@@ -16,6 +16,7 @@ import type {
 import { ExecutionWatchdog } from "../src/modules/requestRouter/executionWatchdog";
 import { workerTimeoutsEnabled } from "../src/modules/requestRouter/workerTimeouts";
 import { asyncExecutorLimitsFromEnv } from "../src/modules/requestRouter/asyncExecutor";
+import { executionRuntimeEnvironment } from "../src/modules/requestRouter/executionEnvironment";
 import { initializeRedis } from "../src/db/redis";
 import { closePubSub, initializePubSub } from "../src/db/pubsub";
 import {
@@ -136,7 +137,7 @@ function spawnExecution() {
 		},
 	};
 	const child = Bun.spawn([process.execPath, fileURLToPath(processEntry)], {
-		env: {},
+		env: executionRuntimeEnvironment(),
 		stdout: "inherit",
 		stderr: "inherit",
 		ipc: (event) => onExecutionEvent(event as ExecutionEvent),

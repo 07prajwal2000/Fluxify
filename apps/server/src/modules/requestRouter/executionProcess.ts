@@ -15,6 +15,7 @@ import type {
 import { projectSettingsCache } from "../../loaders/projectSettingsLoader";
 import { workerTimeoutsEnabled } from "./workerTimeouts";
 import { AsyncExecutor } from "./asyncExecutor";
+import { executionRuntimeEnvironment } from "./executionEnvironment";
 
 let boot: ExecutionBootstrap | undefined;
 let monitoringEnabled = false;
@@ -24,10 +25,9 @@ let server: ReturnType<typeof Bun.serve> | undefined;
 let shuttingDown = false;
 let asyncExecutor: AsyncExecutor | undefined;
 
-// The child process never needs supervisor secrets. Clear inherited values
-// before compiled user code is instantiated.
-for (const key of Object.keys(process.env)) delete process.env[key];
-process.env = {};
+// The child process never needs supervisor secrets. Preserve only the Windows
+// compatibility value Bun needs for networking before compiled user code loads.
+process.env = executionRuntimeEnvironment();
 process.argv = [];
 process.execArgv = [];
 
