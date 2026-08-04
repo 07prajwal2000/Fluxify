@@ -155,7 +155,7 @@ describe("compiled db blocks", () => {
 		});
 	});
 
-	it("scans runtime payloads for js values when useParam is set", async () => {
+	it("treats runtime js-prefixed payload strings as data when useParam is set", async () => {
 		const mock = createDbAdapter({ insert: { id: 1 } });
 		const target = block("db", BlockTypes.db_insert, {
 			connection: "conn-1",
@@ -164,10 +164,10 @@ describe("compiled db blocks", () => {
 			data: { source: "raw", value: {} },
 		});
 
-		// the js string only exists at runtime, so it cannot be compiled away
+		// Request/previous-block data never becomes executable code at runtime.
 		await runAround(target, { total: "js:return 6 * 7", label: "x" }, mock);
 
-		expect(mock.calls[0].args[1]).toEqual({ total: 42, label: "x" });
+		expect(mock.calls[0].args[1]).toEqual({ total: "js:return 6 * 7", label: "x" });
 	});
 
 	it("rejects a non-object insert payload", async () => {

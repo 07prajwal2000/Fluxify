@@ -1,5 +1,5 @@
 import { test, expect, describe } from 'bun:test';
-import { parseRequestSchema } from '../schemaParser';
+import { compileRequestSchema, parseRequestSchema } from '../schemaParser';
 import { JsVM } from '@fluxify/lib';
 
 describe('schemaParser Exhaustive Test Suite', () => {
@@ -186,6 +186,26 @@ describe('schemaParser Exhaustive Test Suite', () => {
       expect(result.success).toBe(false);
       // It should capture the JS execution error gracefully instead of crashing the server
       expect(result.errors?.[0]?.errors?.[0]).toContain('Unexpected identifier'); 
+    });
+  });
+
+  describe('Compiled schemas', () => {
+    test('reuses trusted JS validation code without leaking concurrent request vars', async () => {
+      const schema = compileRequestSchema({
+        dataType: 'js',
+        js: 'await Promise.resolve(); return input === expected;',
+      });
+      const vm = new JsVM({});
+
+      const [first, second, rejected] = await Promise.all([
+        schema.validate('alpha', { vm, vars: { expected: 'alpha' } }),
+        schema.validate('beta', { vm, vars: { expected: 'beta' } }),
+        schema.validate('wrong', { vm, vars: { expected: 'gamma' } }),
+      ]);
+
+      expect(first.success).toBe(true);
+      expect(second.success).toBe(true);
+      expect(rejected.success).toBe(false);
     });
   });
 

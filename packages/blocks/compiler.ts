@@ -104,7 +104,6 @@ export const compilerLib = {
 	httpRequest: runHttpRequest,
 	isoDate: (value: any) => dayjs(value).toISOString(),
 	scope: scopeFor,
-	evalJsDeep: evaluateJsDeep,
 	/** Number() with the block's documented fallback for NaN */
 	num: (value: any, fallback: number) => {
 		const parsed = Number(value);
@@ -171,42 +170,6 @@ export function scopeFor(vars: Record<string, any>) {
 		scopes.set(vars, scope);
 	}
 	return scope;
-}
-
-const dynamicScripts = new Map<string, (input: any, scope: any) => Promise<any>>();
-
-/**
- * Evaluates `js:` strings the compiler could not see — values that arrive at
- * runtime inside a previous block's output (db insert/update with useParam).
- * Compiled once per distinct snippet and cached, so it costs a Map lookup after
- * the first request.
- * ponytail: unbounded cache keyed by source; snippet count is bounded by the
- * data users push through, so cap it if that ever stops being true.
- */
-export async function evaluateJsDeep(
-	context: { vars: Record<string, any> },
-	value: any,
-): Promise<any> {
-	if (typeof value === "string" && value.startsWith("js:")) {
-		const code = value.slice(3);
-		let script = dynamicScripts.get(code);
-		if (!script) {
-			script = new AsyncFunction("input", "$scope", `with ($scope) {\n${code}\n}`) as any;
-			dynamicScripts.set(code, script!);
-		}
-		return script!(undefined, scopeFor(context.vars));
-	}
-	if (Array.isArray(value)) {
-		return Promise.all(value.map((item) => evaluateJsDeep(context, item)));
-	}
-	if (value && typeof value === "object") {
-		const result: any = {};
-		for (const key in value) {
-			result[key] = await evaluateJsDeep(context, value[key]);
-		}
-		return result;
-	}
-	return value;
 }
 
 /** mirrors JsVM.truthy / the `is_empty` operator, inlined into every program */

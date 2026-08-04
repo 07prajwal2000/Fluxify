@@ -21,7 +21,11 @@ import { ContentfulStatusCode } from "hono/utils/http-status";
 import { JsVM } from "@fluxify/lib";
 import { runBlocks } from "./executor";
 import { getAppConfig } from "../../loaders/appconfigLoader";
-import { parseRequestSchema, ValidationError } from "../../lib/schemaParser";
+import {
+	parseRequestSchema,
+	ValidationError,
+	type CompiledRequestSchema,
+} from "../../lib/schemaParser";
 import {
 	createObservabilityLogger,
 	DbConnectionManager,
@@ -48,6 +52,12 @@ export type RouteExecutionObserver = {
 		timeoutSeconds: number;
 	}): (() => void) | void;
 };
+
+export type RouteValidatorResolver = (routeId: string) => {
+	body?: CompiledRequestSchema;
+	query?: CompiledRequestSchema;
+	params?: CompiledRequestSchema;
+} | undefined;
 
 // defined in ./types so it has no import cycle with the envelope; re-exported
 // here because the test-suites runner imports it from this module.
@@ -103,6 +113,7 @@ export async function dispatch(
 	parser: HttpRouteParser,
 	httpCtx?: Context,
 	observer?: RouteExecutionObserver,
+	resolveValidators?: RouteValidatorResolver,
 ): Promise<HandleRequestType> {
 	const { payload, trigger, overrides } = env;
 	const path = parser.getRouteId(
@@ -134,6 +145,7 @@ export async function dispatch(
 				querySchema: path.querySchema,
 				paramsSchema: path.paramsSchema,
 				timeoutSeconds: path.timeoutSeconds,
+				validators: resolveValidators?.(path.id),
 			},
 			{
 				method: payload.method,
@@ -162,6 +174,11 @@ export async function executeRouteInternal(
 		querySchema?: any;
 		paramsSchema?: any;
 		timeoutSeconds?: number;
+		validators?: {
+			body?: CompiledRequestSchema;
+			query?: CompiledRequestSchema;
+			params?: CompiledRequestSchema;
+		};
 	},
 	requestData: {
 		method: string;
@@ -191,11 +208,13 @@ export async function executeRouteInternal(
 	const vm = createJsVM(vars);
 
 	if (routeInfo.bodySchema && Object.keys(routeInfo.bodySchema).length > 0) {
-		const result = await parseRequestSchema(
+		const result = await validateSchema(
+			routeInfo.validators?.body,
 			routeInfo.bodySchema,
 			requestData.body,
 			{
 				vm,
+				vars,
 			},
 		);
 		if (!result.success) {
@@ -207,11 +226,13 @@ export async function executeRouteInternal(
 	}
 
 	if (routeInfo.querySchema && Object.keys(routeInfo.querySchema).length > 0) {
-		const result = await parseRequestSchema(
+		const result = await validateSchema(
+			routeInfo.validators?.query,
 			routeInfo.querySchema,
 			requestData.query,
 			{
 				vm,
+				vars,
 				coerce: true,
 			},
 		);
@@ -227,10 +248,11 @@ export async function executeRouteInternal(
 		routeInfo.paramsSchema &&
 		Object.keys(routeInfo.paramsSchema).length > 0
 	) {
-		const result = await parseRequestSchema(
+		const result = await validateSchema(
+			routeInfo.validators?.params,
 			routeInfo.paramsSchema,
 			requestData.params,
-			{ vm, coerce: true },
+			{ vm, vars, coerce: true },
 		);
 		if (!result.success) {
 			return {
@@ -277,6 +299,17 @@ export async function executeRouteInternal(
 	} finally {
 		dbFactory.dispose();
 	}
+}
+
+function validateSchema(
+	compiled: CompiledRequestSchema | undefined,
+	schema: unknown,
+	value: unknown,
+	context: Parameters<CompiledRequestSchema["validate"]>[1],
+) {
+	return compiled
+		? compiled.validate(value, context)
+		: parseRequestSchema(schema, value, context);
 }
 
 function parseResult(executionResult: BlockOutput) {

@@ -2,6 +2,7 @@ import { initializeLogger, logger } from "@fluxify/common";
 import { createHttpContext } from "./httpContext";
 import {
 	applyArtifactUpdate,
+	compiledRouteValidators,
 	initCompiledRuntime,
 	shutdownCompiledRuntime,
 } from "./compiledRuntime";
@@ -13,6 +14,8 @@ import type {
 } from "./threadTypes";
 import { projectSettingsCache } from "../../loaders/projectSettingsLoader";
 import { workerTimeoutsEnabled } from "./workerTimeouts";
+import { AsyncExecutor } from "./asyncExecutor";
+import { executionRuntimeEnvironment } from "./executionEnvironment";
 
 let boot: ExecutionBootstrap | undefined;
 let monitoringEnabled = false;
@@ -20,11 +23,11 @@ let heartbeat: ReturnType<typeof setInterval> | undefined;
 let parser: ReturnType<typeof initCompiledRuntime> | undefined;
 let server: ReturnType<typeof Bun.serve> | undefined;
 let shuttingDown = false;
+let asyncExecutor: AsyncExecutor | undefined;
 
-// The child process never needs supervisor secrets. Clear inherited values
-// before compiled user code is instantiated.
-for (const key of Object.keys(process.env)) delete process.env[key];
-process.env = {};
+// The child process never needs supervisor secrets. Preserve only the Windows
+// compatibility value Bun needs for networking before compiled user code loads.
+process.env = executionRuntimeEnvironment();
 process.argv = [];
 process.execArgv = [];
 
@@ -48,6 +51,9 @@ function bootstrap(nextBoot: ExecutionBootstrap) {
 		useOtlp: boot.logging.useOtlp,
 	});
 	parser = initCompiledRuntime(boot.artifacts, boot.databaseIdleTimeoutMs);
+	asyncExecutor = new AsyncExecutor(boot.asyncExecutor, (error) =>
+		logger.error(`async dispatch failed: ${String(error)}`, "WORKER.execution"),
+	);
 	setMonitoring(boot.workerTimeoutsEnabled);
 
 	server = Bun.serve({ port: boot.port, reusePort: true, fetch: handle });
@@ -62,16 +68,29 @@ async function handle(request: Request): Promise<Response> {
 	const observer = createObserver();
 
 	if (env.trigger.reply === "async") {
-		queueMicrotask(() =>
-			dispatch(env, parser!, ctx as any, observer).catch((error) =>
-				logger.error(`async dispatch failed: ${error?.toString()}`),
-			),
-		);
+		const accepted = asyncExecutor?.submit(async () => {
+			// The HTTP response is already a 202. Do not retain the HTTP context or
+			// attempt late cookie/header writes while the detached route runs.
+			await dispatch(env, parser!, undefined, observer, compiledRouteValidators);
+		});
+		if (!accepted) {
+			return json(
+				{ message: "Async execution capacity is full" },
+				429,
+				ctx.responseHeaders,
+			);
+		}
 		return json({ accepted: true, id: env.trigger.id }, 202, ctx.responseHeaders);
 	}
 
 	try {
-		const response = await dispatch(env, parser, ctx as any, observer);
+		const response = await dispatch(
+			env,
+			parser,
+			ctx as any,
+			observer,
+			compiledRouteValidators,
+		);
 		return json(response.data, response.status, ctx.responseHeaders);
 	} catch (error) {
 		return json(
@@ -122,6 +141,10 @@ async function shutdown() {
 	shuttingDown = true;
 	if (heartbeat) clearInterval(heartbeat);
 	server?.stop(true);
+	const drained = await asyncExecutor?.drain();
+	if (drained === false) {
+		logger.warn("async executor drain deadline elapsed", "WORKER.execution");
+	}
 	await shutdownCompiledRuntime();
 	process.exit(0);
 }

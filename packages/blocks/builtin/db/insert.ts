@@ -47,8 +47,8 @@ export async function runInsertDb(
 
 /**
  * A literal payload is walked at compile time, so its `js:` values become
- * inlined code. A payload that only exists at runtime (useParam, or the whole
- * object produced by a js expression) still has to be scanned per request.
+ * inlined code. A payload that only exists at runtime is data: it is forwarded
+ * unchanged and can never introduce a new executable `js:` expression.
  *
  * Read without parsing: the schema types `data.value` as an object, but the
  * block also accepts a string there when `source` is "js".
@@ -60,9 +60,9 @@ export function emitInsertDb(node: EmitNode) {
 
   let payload: string;
   if (input.useParam) {
-    payload = `await lib.evalJsDeep(ctx, ${node.in})`;
+    payload = node.in;
   } else if (input.data.source === "js" && typeof value === "string") {
-    payload = `await lib.evalJsDeep(ctx, ${node.js(value, node.in)})`;
+    payload = node.js(value, node.in);
   } else {
     payload = emitJsObject(value, node);
   }

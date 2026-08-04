@@ -45,6 +45,10 @@
 #   ENABLE_AI               "true" to enable the AI assistant (default false)
 #   INTEGRATION_TIMEOUT_POLICY_IN_SEC
 #                           idle database-integration timeout (default 450 / 7.5 minutes)
+#   ASYNC_EXECUTOR_MAX_IN_FLIGHT / ASYNC_EXECUTOR_MAX_QUEUE_DEPTH
+#                           bounded local async-trigger capacity (defaults 10 / 100)
+#   ASYNC_EXECUTOR_DRAIN_TIMEOUT_MS
+#                           graceful drain deadline (default 30000)
 #   PROXY_PORT              published port (default 8080)
 #   SEED_USER_EMAIL / SEED_USER_PASSWORD / SEED_USER_NAME
 #                           first admin account created on an empty database
@@ -155,6 +159,9 @@ ENV NODE_ENV=production \
     WORKER_PORT=5600 \
     WORKER_HEALTH_PORT=5601 \
     INTEGRATION_TIMEOUT_POLICY_IN_SEC=450 \
+    ASYNC_EXECUTOR_MAX_IN_FLIGHT=10 \
+    ASYNC_EXECUTOR_MAX_QUEUE_DEPTH=100 \
+    ASYNC_EXECUTOR_DRAIN_TIMEOUT_MS=30000 \
     PROXY_PORT=8080 \
     AI_GATEWAY_PORT=8001 \
     ENABLE_ADMIN=true \

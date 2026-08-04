@@ -104,6 +104,27 @@ the isolated execution process, so the container and its NATS watcher stay up.
 
 ---
 
+## Local async executor
+
+Compiled workers include a bounded local executor for the future async-trigger
+and workflow runtime. It is currently an internal capability rather than a
+route setting or public scheduling API. It queues only I/O-oriented detached
+work in the same execution process; it does not isolate CPU-heavy work.
+
+Configure its per-worker bounds through environment variables:
+
+```env
+# Defaults shown. A full executor returns 429 for a new async submission.
+ASYNC_EXECUTOR_MAX_IN_FLIGHT=10
+ASYNC_EXECUTOR_MAX_QUEUE_DEPTH=100
+# Graceful shutdown waits this long for accepted work before the process exits.
+ASYNC_EXECUTOR_DRAIN_TIMEOUT_MS=30000
+```
+
+Future route-to-route, webhook, cron and message-bus adapters use this same
+submission boundary. Distributed workflows will use durable JetStream
+scheduling instead of relying on the process-local queue.
+
 ## Step 1 — Create your `.env` {#env}
 
 Copy `docker/production/env.example` to `docker/production/.env` next to the
