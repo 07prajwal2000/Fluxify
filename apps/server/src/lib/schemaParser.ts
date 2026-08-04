@@ -2,7 +2,6 @@ import { z } from 'zod';
 import { AsyncLocalStorage } from 'node:async_hooks';
 import { scopeFor } from '@fluxify/blocks';
 import { ValidationSchemaZod } from './validationSchemaZod';
-import { JsVM } from '@fluxify/lib';
 
 export class ValidationError extends Error {
   payload: any;
@@ -14,9 +13,8 @@ export class ValidationError extends Error {
 }
 
 export type ParserContext = {
-  vm: JsVM;
-  /** Present in the compiled worker: trusted validators run against these vars. */
-  vars?: Record<string, any>;
+  /** Trusted validators run against these request-scoped vars. */
+  vars: Record<string, any>;
   coerce?: boolean;
 };
 
@@ -103,9 +101,7 @@ export function buildZodSchema(schemaDef: any, coerce = false): z.ZodTypeAny {
       try {
         const context = validationContext.getStore();
         if (!context) throw new Error('Validation context unavailable');
-        const result = context.vars
-          ? await validator!(val, scopeFor(context.vars))
-          : await context.vm.runAsync(js, val);
+        const result = await validator!(val, scopeFor(context.vars));
         if (!result) {
           ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Custom JS validation failed' });
         }
