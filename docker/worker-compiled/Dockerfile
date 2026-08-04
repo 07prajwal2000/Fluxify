@@ -36,6 +36,8 @@
 #   WORKER_HEALTH_PORT      health port (default 5601)
 #   WORKER_THREADS          execution threads (default 1) — see the note on
 #                           EXPOSE below before raising this
+#   INTEGRATION_TIMEOUT_POLICY_IN_SEC
+#                           idle database-integration timeout (default 450 / 7.5 minutes)
 #   OTLP_*                  log shipping; see docker/kit/env.example
 #
 # DELIBERATELY NOT USED
@@ -135,7 +137,8 @@ EXPOSE 5600 5601
 ENV NODE_ENV=production \
     ENVIRONMENT=production \
     WORKER_PORT=5600 \
-    WORKER_HEALTH_PORT=5601
+    WORKER_HEALTH_PORT=5601 \
+    INTEGRATION_TIMEOUT_POLICY_IN_SEC=450
 
 # Readiness, not liveness: 200 only once compiled routes have been loaded, so a
 # worker that came up before the compiler published anything is not sent traffic.

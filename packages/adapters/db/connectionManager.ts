@@ -9,6 +9,7 @@ import { MongoAdapter, buildMongoUrl } from "./mongoDbAdapter";
 import { PostgresAdapter } from "./postgresAdapter";
 
 const DEFAULT_DRAIN_TIMEOUT_MS = 30_000;
+const DEFAULT_IDLE_TIMEOUT_MS = 7.5 * 60_000;
 
 export type ManagedDbConnection = {
 	type: DbType;
@@ -30,13 +31,30 @@ export type DbConnectionFactory = (
 	fingerprint: string,
 ) => ManagedDbConnection;
 
+export type DbConnectionTimer = {
+	setTimeout(handler: () => void, timeoutMs: number): unknown;
+	clearTimeout(handle: unknown): void;
+};
+
+export type DbConnectionManagerOptions = {
+	drainTimeoutMs?: number;
+	idleTimeoutMs?: number;
+	timer?: DbConnectionTimer;
+};
+
+const systemTimer: DbConnectionTimer = {
+	setTimeout: (handler, timeoutMs) => setTimeout(handler, timeoutMs),
+	clearTimeout: (handle) => clearTimeout(handle as ReturnType<typeof setTimeout>),
+};
+
 type Entry = {
 	integrationId: string;
 	fingerprint: string;
 	connection: ManagedDbConnection;
 	leases: number;
 	retired: boolean;
-	drainTimer?: ReturnType<typeof setTimeout>;
+	drainTimer?: unknown;
+	idleTimer?: unknown;
 	closePromise?: Promise<void>;
 };
 
@@ -50,8 +68,16 @@ export class DbConnectionManager {
 
 	constructor(
 		private readonly createConnection: DbConnectionFactory = createManagedConnection,
-		private readonly drainTimeoutMs = DEFAULT_DRAIN_TIMEOUT_MS,
-	) {}
+		options: DbConnectionManagerOptions = {},
+	) {
+		this.drainTimeoutMs = options.drainTimeoutMs ?? DEFAULT_DRAIN_TIMEOUT_MS;
+		this.idleTimeoutMs = options.idleTimeoutMs ?? DEFAULT_IDLE_TIMEOUT_MS;
+		this.timer = options.timer ?? systemTimer;
+	}
+
+	private readonly drainTimeoutMs: number;
+	private readonly idleTimeoutMs: number;
+	private readonly timer: DbConnectionTimer;
 
 	borrow(integrationId: string, config: Connection): DbConnectionLease {
 		const fingerprint = connectionFingerprint(config);
@@ -60,6 +86,7 @@ export class DbConnectionManager {
 			entry = this.replace(integrationId, config, fingerprint, entry);
 		}
 
+		this.cancelIdleClose(entry);
 		entry.leases += 1;
 		let released = false;
 		return {
@@ -68,7 +95,11 @@ export class DbConnectionManager {
 				if (released) return;
 				released = true;
 				entry!.leases -= 1;
-				if (entry!.retired && entry!.leases === 0) void this.closeEntry(entry!);
+				if (entry!.retired && entry!.leases === 0) {
+					void this.closeEntry(entry!);
+				} else if (entry!.leases === 0) {
+					this.scheduleIdleClose(entry!);
+				}
 			},
 		};
 	}
@@ -99,7 +130,8 @@ export class DbConnectionManager {
 		this.retiring.clear();
 		for (const entry of entries) {
 			entry.retired = true;
-			if (entry.drainTimer) clearTimeout(entry.drainTimer);
+			if (entry.drainTimer) this.timer.clearTimeout(entry.drainTimer);
+			this.cancelIdleClose(entry);
 		}
 		await Promise.all(entries.map((entry) => this.closeEntry(entry)));
 	}
@@ -144,12 +176,33 @@ export class DbConnectionManager {
 			void this.closeEntry(entry);
 			return;
 		}
-		entry.drainTimer = setTimeout(() => void this.closeEntry(entry), this.drainTimeoutMs);
+		entry.drainTimer = this.timer.setTimeout(
+			() => void this.closeEntry(entry),
+			this.drainTimeoutMs,
+		);
+	}
+
+	private scheduleIdleClose(entry: Entry) {
+		if (this.idleTimeoutMs <= 0 || entry.retired) return;
+		this.cancelIdleClose(entry);
+		entry.idleTimer = this.timer.setTimeout(() => {
+			entry.idleTimer = undefined;
+			if (entry.leases !== 0 || entry.retired) return;
+			if (this.active.get(entry.integrationId) !== entry) return;
+			this.active.delete(entry.integrationId);
+			this.retire(entry);
+		}, this.idleTimeoutMs);
+	}
+
+	private cancelIdleClose(entry: Entry) {
+		if (entry.idleTimer) this.timer.clearTimeout(entry.idleTimer);
+		entry.idleTimer = undefined;
 	}
 
 	private closeEntry(entry: Entry) {
 		if (entry.closePromise) return entry.closePromise;
-		if (entry.drainTimer) clearTimeout(entry.drainTimer);
+		if (entry.drainTimer) this.timer.clearTimeout(entry.drainTimer);
+		this.cancelIdleClose(entry);
 		entry.closePromise = Promise.resolve(entry.connection.close())
 			.catch(() => undefined)
 			.then(() => {

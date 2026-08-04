@@ -39,7 +39,7 @@ initializeLogger({
 	useOtlp: boot.logging.useOtlp,
 });
 
-const parser = initCompiledRuntime(boot.artifacts);
+const parser = initCompiledRuntime(boot.artifacts, boot.databaseIdleTimeoutMs);
 
 parentPort?.on("message", (message: ThreadMessage) => {
 	if (message.type === "artifact") {

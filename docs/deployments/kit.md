@@ -64,6 +64,7 @@ NATS_TOKEN=fluxify_nats_token
 #====================== THE PROJECT THIS KIT SERVES ======================
 # Leave empty for now — you don't have a project yet. Step 4 fills this in.
 WORKER_PROJECT_ID=
+INTEGRATION_TIMEOUT_POLICY_IN_SEC=450
 
 #====================== SECURITY & KEYS ======================
 MASTER_ENCRYPTION_KEY=<openssl rand -base64 32>

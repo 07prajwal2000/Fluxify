@@ -50,6 +50,8 @@ const healthPort = Number(getEnv("WORKER_HEALTH_PORT")) || port + 1;
  * larger containers with several CPUs each.
  */
 const threadCount = Number(getEnv("WORKER_THREADS")) || 1;
+const databaseIdleTimeoutMs =
+	Number(getEnv("INTEGRATION_TIMEOUT_POLICY_IN_SEC") || 450) * 1_000;
 
 initializeLogger({
 	serviceName: "fluxify.worker.compiled",
@@ -116,6 +118,7 @@ for (let threadId = 0; threadId < threadCount; threadId++) {
 		threadId,
 		projectId: WORKER_PROJECT_ID,
 		port,
+		databaseIdleTimeoutMs,
 		artifacts,
 		logging: {
 			level: OTLP_LOGGER_LEVEL,

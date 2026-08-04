@@ -44,7 +44,7 @@ type CompiledRoute = {
 const routes = new Map<string, CompiledRoute>();
 /** custom block artifact id -> registered name, so a delete can unregister it */
 const customBlockNamesById = new Map<string, string>();
-const dbConnectionManager = new DbConnectionManager();
+let dbConnectionManager: DbConnectionManager | undefined;
 /** one instance for the process — the router captured it, so rebuild in place */
 const parser = new HttpRouteParser();
 let built = false;
@@ -57,7 +57,13 @@ export function compiledRouteParser() {
  * Builds the runtime from the artifact set handed over at spawn. Returns the
  * route parser dispatch() matches against.
  */
-export function initCompiledRuntime(entries: ArtifactEntry[]): HttpRouteParser {
+export function initCompiledRuntime(
+	entries: ArtifactEntry[],
+	databaseIdleTimeoutMs?: number,
+): HttpRouteParser {
+	dbConnectionManager = new DbConnectionManager(undefined, {
+		idleTimeoutMs: databaseIdleTimeoutMs,
+	});
 	setDbConnectionManager(dbConnectionManager);
 	// custom blocks first: a route that invokes one needs it in the library
 	for (const { key, value } of entries) {
@@ -91,7 +97,8 @@ export function applyArtifactUpdate(key: string, value: any | null) {
 
 /** Releases all long-lived database clients before the execution thread exits. */
 export async function shutdownCompiledRuntime() {
-	await dbConnectionManager.close();
+	await dbConnectionManager?.close();
+	dbConnectionManager = undefined;
 	setDbConnectionManager();
 }
 
@@ -171,7 +178,7 @@ function applyProjectConfig(artifact: UnsealedProjectConfig) {
 	});
 	// The hydrated cache is the runtime's complete view. Swapping here makes
 	// changed credentials available to new requests before old clients drain.
-	dbConnectionManager.synchronize(dbIntegrationsCache);
+	dbConnectionManager?.synchronize(dbIntegrationsCache);
 	hydrateProjectSettings(artifact.projectId, payload.projectSettings);
 	logger.info(
 		`[worker] project config applied (${artifact.compiledAt})`,
