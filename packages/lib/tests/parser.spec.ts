@@ -91,4 +91,40 @@ describe("Testing routing parser", () => {
     expect(result3?.routeParams?.tenant).toBe("example_company");
     expect(result3?.routeParams?.id).toBe("456");
   });
+
+  it("updates and removes one route without replacing unrelated routes", () => {
+    parser.buildRoutes([
+      {
+        routeId: "users",
+        path: "/api/users",
+        method: "GET",
+        projectId: "project",
+        projectName: "Project",
+      },
+      {
+        routeId: "posts",
+        path: "/api/posts",
+        method: "GET",
+        projectId: "project",
+        projectName: "Project",
+      },
+    ]);
+
+    parser.upsertRoute({
+      routeId: "users",
+      path: "/api/members",
+      method: "GET",
+      projectId: "project",
+      projectName: "Project",
+    });
+
+    expect(parser.getRouteId("/api/users", "GET")).toBeNull();
+    expect(parser.getRouteId("/api/members", "GET")?.id).toBe("users");
+    expect(parser.getRouteId("/api/posts", "GET")?.id).toBe("posts");
+
+    parser.removeRoute("users");
+
+    expect(parser.getRouteId("/api/members", "GET")).toBeNull();
+    expect(parser.getRouteId("/api/posts", "GET")?.id).toBe("posts");
+  });
 });

@@ -1,9 +1,12 @@
 import { existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { initializeLogger, logger } from "@fluxify/common";
-import { healthResponse, markReady } from "../src/modules/requestRouter/health";
 import {
-	loadProjectArtifacts,
+	healthResponse,
+	markNotReady,
+	markReady,
+} from "../src/modules/requestRouter/health";
+import {
 	watchProjectArtifacts,
 } from "../src/modules/requestRouter/artifactHost";
 import type { UnsealedProjectConfig } from "../src/modules/compiler/artifacts";
@@ -17,6 +20,7 @@ import { ExecutionWatchdog } from "../src/modules/requestRouter/executionWatchdo
 import { workerTimeoutsEnabled } from "../src/modules/requestRouter/workerTimeouts";
 import { asyncExecutorLimitsFromEnv } from "../src/modules/requestRouter/asyncExecutor";
 import { executionRuntimeEnvironment } from "../src/modules/requestRouter/executionEnvironment";
+import type { ArtifactEntry } from "../src/modules/requestRouter/compiledRuntime";
 import { initializeRedis } from "../src/db/redis";
 import { closePubSub, initializePubSub } from "../src/db/pubsub";
 import {
@@ -76,10 +80,8 @@ const bundledProcess = new URL("./executionProcess.js", import.meta.url);
 const processEntry = existsSync(bundledProcess)
 	? bundledProcess
 	: new URL("../src/modules/requestRouter/executionProcess.ts", import.meta.url);
-const initialArtifacts = await loadProjectArtifacts(WORKER_PROJECT_ID);
-const artifacts = new Map(initialArtifacts.map((entry) => [entry.key, entry]));
+const artifacts = new Map<string, ArtifactEntry>();
 const timeoutProjects = new Map<string, boolean>();
-for (const entry of initialArtifacts) updateTimeoutPolicy(entry.key, entry.value);
 
 const watchdog = new ExecutionWatchdog();
 let execution: any;
@@ -144,6 +146,7 @@ function spawnExecution() {
 		onExit: (process, exitCode, signalCode, error) => {
 			if (execution !== process) return;
 			execution = undefined;
+			markNotReady();
 			watchdog.setEnabled(timeoutPolicyEnabled());
 			if (shuttingDown) return;
 			logger.error(
@@ -161,6 +164,7 @@ function spawnExecution() {
 function onExecutionEvent(event: ExecutionEvent) {
 	switch (event.type) {
 		case "ready":
+			markReady();
 			logger.info("execution process ready", "WORKER.execution");
 			return;
 		case "heartbeat":
@@ -171,6 +175,21 @@ function onExecutionEvent(event: ExecutionEvent) {
 			return watchdog.finish(event.requestId);
 	}
 }
+
+function handleArtifactChange(entry: ArtifactEntry) {
+	const policyChanged = artifactKind(entry.key) === "project-config";
+	if (entry.value === null) artifacts.delete(entry.key);
+	else artifacts.set(entry.key, entry);
+	if (policyChanged) updateTimeoutPolicy(entry.key, entry.value);
+	execution?.send({ type: "artifact", entry } satisfies ExecutionMessage);
+	if (policyChanged && execution) synchronizeMonitoring();
+}
+
+const artifactWatch = await watchProjectArtifacts(
+	WORKER_PROJECT_ID,
+	handleArtifactChange,
+);
+await artifactWatch.initialized;
 
 spawnExecution();
 synchronizeMonitoring();
@@ -187,16 +206,6 @@ function evaluateTimeouts() {
 	execution.kill();
 }
 
-await watchProjectArtifacts(WORKER_PROJECT_ID, (entry) => {
-	const policyChanged = artifactKind(entry.key) === "project-config";
-	if (entry.value === null) artifacts.delete(entry.key);
-	else artifacts.set(entry.key, entry);
-	if (policyChanged) updateTimeoutPolicy(entry.key, entry.value);
-	execution?.send({ type: "artifact", entry } satisfies ExecutionMessage);
-	if (policyChanged) synchronizeMonitoring();
-});
-
-markReady();
 logger.info(`compiled worker ready — isolated execution process on port ${port}`);
 
 async function shutdown(sig: string) {
@@ -206,6 +215,7 @@ async function shutdown(sig: string) {
 	logger.info(`received ${sig} — shutting down`);
 	try {
 		execution?.kill();
+		artifactWatch.stop();
 		healthServer.stop(true);
 		await closePubSub();
 	} catch (error) {

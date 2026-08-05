@@ -1,4 +1,4 @@
-import { listArtifacts, watchArtifacts } from "../../db/natsKv";
+import { watchArtifacts } from "../../db/natsKv";
 import { artifactKind, projectArtifactFilters } from "../compiler/subjects";
 import type {
 	ProjectConfigArtifact,
@@ -14,21 +14,18 @@ import type { ArtifactEntry } from "./compiledRuntime";
  * receive artifacts already unsealed and never open a connection of their own.
  */
 
-/** everything currently published for this project, ready to hand to a process */
-export async function loadProjectArtifacts(
-	projectId: string,
-): Promise<ArtifactEntry[]> {
-	const existing = await listArtifacts<any>(projectArtifactFilters(projectId));
-	return existing.map(({ key, value }) => ({ key, value: unseal(key, value) }));
-}
-
-/** every later change; the KV update is itself the fan-out signal */
+/**
+ * One watch supplies both initial snapshot and later changes. A separate
+ * snapshot read plus subscription can miss a write between those operations.
+ */
 export async function watchProjectArtifacts(
 	projectId: string,
 	onChange: (entry: ArtifactEntry) => void,
 ) {
-	await watchArtifacts<any>(projectArtifactFilters(projectId), (key, value) =>
-		onChange({ key, value: unseal(key, value) }),
+	return watchArtifacts<any>(
+		projectArtifactFilters(projectId),
+		(key, value) => onChange({ key, value: unseal(key, value) }),
+		{ includeExisting: true },
 	);
 }
 

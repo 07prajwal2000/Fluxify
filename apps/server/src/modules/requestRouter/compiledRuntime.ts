@@ -1,30 +1,30 @@
-import { logger } from "@fluxify/common";
-import { HttpRouteParser } from "@fluxify/lib";
+import { DbConnectionManager } from "@fluxify/adapters";
 import {
 	instantiateCompiled,
 	registerCompiledCustomBlock,
-	unregisterCustomBlock,
 	type BlockOutput,
 	type Context,
+	unregisterCustomBlock,
 } from "@fluxify/blocks";
+import { logger } from "@fluxify/common";
+import { HttpRouteParser, type HttpRoute } from "@fluxify/lib";
 import {
 	compileRequestSchema,
 	type CompiledRequestSchema,
 } from "../../lib/schemaParser";
-import { artifactId, artifactKind } from "../compiler/subjects";
-import type {
-	CustomBlockArtifact,
-	RouteArtifact,
-	UnsealedProjectConfig,
-} from "../compiler/artifacts";
 import { hydrateAppConfig } from "../../loaders/appconfigLoader";
 import {
 	dbIntegrationsCache,
 	hydrateIntegrations,
 } from "../../loaders/integrationsLoader";
 import { hydrateProjectSettings } from "../../loaders/projectSettingsLoader";
+import type {
+	CustomBlockArtifact,
+	RouteArtifact,
+	UnsealedProjectConfig,
+} from "../compiler/artifacts";
+import { artifactId, artifactKind } from "../compiler/subjects";
 import { setBlocksExecutor } from "./executor";
-import { DbConnectionManager } from "@fluxify/adapters";
 import { setDbConnectionManager } from "./service";
 
 /**
@@ -56,9 +56,8 @@ const routes = new Map<string, CompiledRoute>();
 /** custom block artifact id -> registered name, so a delete can unregister it */
 const customBlockNamesById = new Map<string, string>();
 let dbConnectionManager: DbConnectionManager | undefined;
-/** one instance for the process — the router captured it, so rebuild in place */
+/** one instance for the process — the router captured it, so update in place */
 const parser = new HttpRouteParser();
-let built = false;
 
 export function compiledRouteParser() {
 	return parser;
@@ -88,7 +87,6 @@ export function initCompiledRuntime(
 	for (const { key, value } of entries) {
 		if (artifactKind(key) === "route") applyArtifact(key, value);
 	}
-	rebuildParser();
 
 	setBlocksExecutor(async (target, context) => {
 		const compiled = routes.get(target.routeId);
@@ -108,7 +106,6 @@ export function initCompiledRuntime(
 /** a later update pushed down by the supervisor */
 export function applyArtifactUpdate(key: string, value: any | null) {
 	applyArtifact(key, value);
-	if (artifactKind(key) === "route") rebuildParser();
 }
 
 /** Releases all long-lived database clients before the execution process exits. */
@@ -140,6 +137,7 @@ function addRoute(artifact: RouteArtifact) {
 			run: instantiateCompiled(artifact.source),
 			validators: compileRouteValidators(artifact),
 		});
+		parser.upsertRoute(routeDefinition(artifact));
 		logger.info(
 			`[worker] loaded ${artifact.method} ${artifact.path}`,
 			"WORKER.compiled",
@@ -169,8 +167,23 @@ function schemaValidator(schema: unknown, coerce = false) {
 
 function removeRoute(routeId: string) {
 	if (routes.delete(routeId)) {
+		parser.removeRoute(routeId);
 		logger.info(`[worker] removed route ${routeId}`, "WORKER.compiled");
 	}
+}
+
+function routeDefinition(artifact: RouteArtifact): HttpRoute {
+	return {
+		method: artifact.method as HttpRoute["method"],
+		path: artifact.path,
+		routeId: artifact.routeId,
+		projectId: artifact.projectId,
+		projectName: artifact.projectName,
+		bodySchema: artifact.bodySchema,
+		querySchema: artifact.querySchema,
+		paramsSchema: artifact.paramsSchema,
+		timeoutSeconds: artifact.timeoutSeconds,
+	};
 }
 
 function addCustomBlock(artifact: CustomBlockArtifact) {
@@ -215,21 +228,4 @@ function applyProjectConfig(artifact: UnsealedProjectConfig) {
 		`[worker] project config applied (${artifact.compiledAt})`,
 		"WORKER.compiled",
 	);
-}
-
-function rebuildParser() {
-	const definitions = [...routes.values()].map(({ artifact }) => ({
-		method: artifact.method,
-		path: artifact.path,
-		routeId: artifact.routeId,
-		projectId: artifact.projectId,
-		projectName: artifact.projectName,
-		bodySchema: artifact.bodySchema,
-		querySchema: artifact.querySchema,
-		paramsSchema: artifact.paramsSchema,
-		timeoutSeconds: artifact.timeoutSeconds,
-	}));
-	// @ts-ignore — same loose shape routesLoader passes
-	built ? parser.rebuildRoutes(definitions) : parser.buildRoutes(definitions);
-	built = true;
 }
