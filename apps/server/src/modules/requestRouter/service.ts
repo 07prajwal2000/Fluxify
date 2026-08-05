@@ -40,6 +40,8 @@ import * as zodLib from "zod";
 import { projectSettingsCache } from "../../loaders/projectSettingsLoader";
 import type { RequestEnvelope, RequestPayload } from "./types";
 
+dayjs.extend(dayjsUtc);
+
 export type HandleRequestType = {
 	data?: any;
 	status: ContentfulStatusCode;
@@ -66,6 +68,7 @@ import type { RequestOverrides } from "./types";
 
 export const DEFAULT_ROUTE_TIMEOUT_SECONDS = 30;
 let dbConnectionManager: DbConnectionManager | undefined;
+const httpClient = new HttpClient();
 
 /** The compiled runtime supplies one manager for its isolated process. */
 export function setDbConnectionManager(manager?: DbConnectionManager) {
@@ -195,7 +198,6 @@ export async function executeRouteInternal(
 	const denied = assertOverridesOwned(routeInfo.projectId, overrides);
 	if (denied) return denied;
 
-	const httpClient = createHttpClient();
 	const vars = setupContextVars(
 		ctx,
 		requestData,
@@ -350,10 +352,6 @@ function createContext(
 	};
 }
 
-function createHttpClient() {
-	return new HttpClient();
-}
-
 /**
  * Every integration id an override names must belong to the project the route
  * belongs to. Rejected outright rather than ignored: a request aimed at another
@@ -423,6 +421,12 @@ function setupContextVars(
 	overrides?: RequestOverrides,
 	trigger: TriggerContext = DEFAULT_TRIGGER,
 ): BlockContext["vars"] {
+	const headers = new Map(
+		Object.entries(requestData.headers).map(([key, value]) => [
+			key.toLowerCase(),
+			value,
+		]),
+	);
 	let logger: AbstractLogger = null!;
 
 	const projectSettings = projectSettingsCache[projectId];
@@ -479,7 +483,7 @@ function setupContextVars(
 			},
 		},
 		libs: {
-			dayjs: dayjs.extend(dayjsUtc),
+			dayjs,
 			_: underscore,
 			zod: zodLib,
 		},
@@ -507,13 +511,7 @@ function setupContextVars(
 			}
 		},
 		getHeader(key) {
-			const lowerKey = key.toLowerCase();
-			for (const k in requestData.headers) {
-				if (k.toLowerCase() === lowerKey) {
-					return requestData.headers[k] || "";
-				}
-			}
-			return "";
+			return headers.get(key.toLowerCase()) || "";
 		},
 		getQueryParam(key) {
 			return (requestData.query[key] as string) || "";

@@ -2,29 +2,26 @@ import axios, { type AxiosInstance } from "axios";
 
 type HttpHeaders = Record<string, string>;
 
+// Request routes share one private transport. Keeping the instance module-local
+// prevents user code from installing global interceptors or mutating defaults.
+const sharedInstance: AxiosInstance = axios.create({
+  baseURL: "http://localhost:3000",
+});
+
 export class HttpClient {
-  private instance: AxiosInstance;
-  constructor() {
-    this.instance = axios.create({
-      baseURL: "http://localhost:3000",
-    });
-  }
   public get<T>(url: string, headers?: HttpHeaders) {
-    return this.instance.get<T>(url, { headers });
+    return sharedInstance.get<T>(url, { headers });
   }
   public post<T>(url: string, data?: any, headers?: HttpHeaders) {
-    return this.instance.post<T>(url, data, { headers });
+    return sharedInstance.post<T>(url, data, { headers });
   }
   public put<T>(url: string, data?: any, headers?: HttpHeaders) {
-    return this.instance.put<T>(url, data, { headers });
+    return sharedInstance.put<T>(url, data, { headers });
   }
   public delete<T>(url: string, headers?: HttpHeaders) {
-    return this.instance.delete<T>(url, { headers });
+    return sharedInstance.delete<T>(url, { headers });
   }
   public patch<T>(url: string, data?: any, headers?: HttpHeaders) {
-    return this.instance.patch<T>(url, data, { headers });
-  }
-  public native() {
-    return this.instance;
+    return sharedInstance.patch<T>(url, data, { headers });
   }
 }

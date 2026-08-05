@@ -3,7 +3,6 @@ import { DbFactory } from "@fluxify/adapters";
 import { AbstractLogger, HttpClient } from "@fluxify/lib";
 import { JsVM } from "@fluxify/lib";
 import z from "zod";
-import type dayjs from "dayjs";
 
 /** How work entered the engine — an HTTP route today; jobs/crons later. */
 export type TriggerKind = "route" | "job" | "cron";
@@ -83,7 +82,7 @@ export interface ContextVarsType {
 	getRequestBody: () => any;
 	httpClient: HttpClient;
 	libs: {
-		dayjs: dayjs.Dayjs;
+		dayjs: typeof import("dayjs");
 		_: unknown;
 		zod: unknown;
 	};

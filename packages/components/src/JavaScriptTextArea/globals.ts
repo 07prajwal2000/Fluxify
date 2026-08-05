@@ -75,7 +75,6 @@ declare class HttpClient {
   put<T = any>(url: string, data?: any, headers?: HttpHeaders): Promise<AxiosResponse<T>>;
   delete<T = any>(url: string, headers?: HttpHeaders): Promise<AxiosResponse<T>>;
   patch<T = any>(url: string, data?: any, headers?: HttpHeaders): Promise<AxiosResponse<T>>;
-  native(): AxiosInstance;
 }
 
 declare const httpClient: HttpClient;
