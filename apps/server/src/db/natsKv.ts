@@ -1,5 +1,10 @@
 import { logger } from "@fluxify/common";
-import { StringCodec, type KV, type KvEntry } from "nats";
+import {
+	KvWatchInclude,
+	StringCodec,
+	type KV,
+	type KvEntry,
+} from "nats";
 import { natsConnection } from "./nats";
 
 /**
@@ -53,9 +58,8 @@ export async function listArtifacts<T>(
 }
 
 /**
- * Push updates for a key filter. The initial pass replays what is already
- * stored, so a booting worker gets the current state and every later change
- * through the same callback. Returns a stop function.
+ * Push updates for a key filter. Callers can request the initial replay and
+ * await `initialized` before treating the watched state as complete.
  */
 export async function watchArtifacts<T>(
 	filter: string | string[],
@@ -63,29 +67,64 @@ export async function watchArtifacts<T>(
 	options: { includeExisting?: boolean } = {},
 ) {
 	const store = await artifactStore();
+	const includeExisting = options.includeExisting === true;
+	let resolveInitialized: (() => void) | undefined;
+	let rejectInitialized: ((error: Error) => void) | undefined;
+	let initialized = !includeExisting;
+	const initialization = new Promise<void>((resolve, reject) => {
+		resolveInitialized = resolve;
+		rejectInitialized = reject;
+	});
 	const iterator = await store.watch({
 		key: filter,
-		initializedFn: options.includeExisting ? undefined : () => {},
+		// `initializedFn` signals replay completion; it does not disable replay.
+		include: includeExisting
+			? KvWatchInclude.LastValue
+			: KvWatchInclude.UpdatesOnly,
+		initializedFn: includeExisting
+			? () => {
+				initialized = true;
+				resolveInitialized?.();
+			}
+			: undefined,
 	});
 
-	(async () => {
-		for await (const entry of iterator) {
-			try {
-				await onChange(
-					entry.key,
-					entry.operation === "PUT" ? decode<T>(entry) : null,
+	void (async () => {
+		try {
+			for await (const entry of iterator) {
+				try {
+					await onChange(
+						entry.key,
+						entry.operation === "PUT" ? decode<T>(entry) : null,
+					);
+				} catch (error) {
+					logger.error(
+						`[KV] failed handling ${entry.key}: ${String(error)}`,
+						"KV.watch",
+					);
+				}
+			}
+		} catch (error) {
+			if (!initialized) {
+				rejectInitialized?.(
+					error instanceof Error ? error : new Error(String(error)),
 				);
-			} catch (error) {
-				logger.error(
-					`[KV] failed handling ${entry.key}: ${String(error)}`,
-					"KV.watch",
+			}
+			logger.error(`[KV] artifact watch stopped: ${String(error)}`, "KV.watch");
+		} finally {
+			if (!initialized) {
+				rejectInitialized?.(
+					new Error("artifact watch stopped before initial replay completed"),
 				);
 			}
 		}
 	})();
 
-	return async () => {
-		iterator.stop();
+	return {
+		initialized: includeExisting ? initialization : Promise.resolve(),
+		stop: () => {
+			iterator.stop();
+		},
 	};
 }
 

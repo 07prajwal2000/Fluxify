@@ -10,6 +10,10 @@ export function markReady() {
 	depsReady = true;
 }
 
+export function markNotReady() {
+	depsReady = false;
+}
+
 /**
  * k8s-style probes. Register BEFORE mapRouter so its `all("*")` catch-all
  * doesn't swallow these paths.
