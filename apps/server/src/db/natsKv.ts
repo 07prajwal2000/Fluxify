@@ -43,20 +43,6 @@ export async function deleteArtifact(key: string) {
 	await store.delete(key);
 }
 
-/** every artifact whose key matches the filter, e.g. `route.<projectId>.*` */
-export async function listArtifacts<T>(
-	filter: string | string[],
-): Promise<{ key: string; value: T }[]> {
-	const store = await artifactStore();
-	const found: { key: string; value: T }[] = [];
-	const keys = await store.keys(filter);
-	for await (const key of keys) {
-		const value = await getArtifact<T>(key);
-		if (value) found.push({ key, value });
-	}
-	return found;
-}
-
 /**
  * Push updates for a key filter. Callers can request the initial replay and
  * await `initialized` before treating the watched state as complete.
