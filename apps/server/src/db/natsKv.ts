@@ -5,7 +5,7 @@ import {
 	type KV,
 	type KvEntry,
 } from "nats";
-import { natsConnection } from "./nats";
+import { initializeNats } from "./nats";
 
 /**
  * Compiled artifacts live in a NATS KV bucket rather than the database, so a
@@ -20,7 +20,7 @@ let bucket: KV | null = null;
 
 export async function artifactStore(): Promise<KV> {
 	if (bucket) return bucket;
-	const js = natsConnection().jetstream();
+	const js = (await initializeNats()).jetstream();
 	// creates the bucket when missing; history 1 — only the current artifact matters
 	bucket = await js.views.kv(ARTIFACT_BUCKET, { history: 1 });
 	return bucket;

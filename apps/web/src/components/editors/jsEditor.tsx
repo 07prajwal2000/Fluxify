@@ -126,7 +126,6 @@ const JsEditor = (props: CodeEditorProps) => {
           headers?: HttpHeaders
         ): Promise<AxiosResponse<T>>;
 
-        native(): AxiosInstance;
       }
 
       declare const httpClient: HttpClient;

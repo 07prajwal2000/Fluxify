@@ -1,6 +1,7 @@
 import { describe, expect, it } from "bun:test";
 import type { HttpRouteParser } from "@fluxify/lib";
-import { dispatch, envelopeFromHttp } from "../service";
+import { setBlocksExecutor } from "../executor";
+import { dispatch, envelopeFromHttp, executeRouteInternal } from "../service";
 
 function fakeCtx(opts: {
 	method: string;
@@ -101,5 +102,36 @@ describe("dispatch", () => {
 			message: "Body validation failed",
 			errors: [{ path: "", property: "", errors: ["expected failure"] }],
 		});
+	});
+
+	it("reuses the HTTP client and normalizes headers once per execution", async () => {
+		let firstClient: unknown;
+		let executions = 0;
+		setBlocksExecutor(async (_target, context) => {
+			executions++;
+			expect(context.vars.getHeader("x-request-id")).toBe("request-42");
+			expect(context.vars.getHeader("X-REQUEST-ID")).toBe("request-42");
+			if (firstClient) expect(context.httpClient).toBe(firstClient);
+			else firstClient = context.httpClient;
+			return { successful: true, output: { body: "ok" } } as any;
+		});
+
+		const route = {
+			id: "route-1",
+			projectId: "project-1",
+			projectName: "Project",
+		};
+		const request = {
+			method: "GET",
+			path: "/jobs",
+			headers: { "X-Request-Id": "request-42" },
+			query: {},
+			body: null,
+			params: {},
+		};
+
+		await executeRouteInternal(route, request);
+		await executeRouteInternal(route, request);
+		expect(executions).toBe(2);
 	});
 });

@@ -21,8 +21,7 @@ import { workerTimeoutsEnabled } from "../src/modules/requestRouter/workerTimeou
 import { asyncExecutorLimitsFromEnv } from "../src/modules/requestRouter/asyncExecutor";
 import { executionRuntimeEnvironment } from "../src/modules/requestRouter/executionEnvironment";
 import type { ArtifactEntry } from "../src/modules/requestRouter/compiledRuntime";
-import { initializeRedis } from "../src/db/redis";
-import { closePubSub, initializePubSub } from "../src/db/pubsub";
+import { closeNats } from "../src/db/nats";
 import {
 	OTLP_AUTH_HEADER_NAME,
 	OTLP_AUTH_HEADER_VALUE,
@@ -72,9 +71,6 @@ const healthServer = Bun.serve({
 	fetch: (request) => healthResponse(request) ?? new Response(null, { status: 404 }),
 });
 logger.info(`supervisor health on http://${healthServer.hostname}:${healthPort}`);
-
-initializeRedis();
-await initializePubSub();
 
 const bundledProcess = new URL("./executionProcess.js", import.meta.url);
 const processEntry = existsSync(bundledProcess)
@@ -217,7 +213,7 @@ async function shutdown(sig: string) {
 		execution?.kill();
 		artifactWatch.stop();
 		healthServer.stop(true);
-		await closePubSub();
+		await closeNats();
 	} catch (error) {
 		logger.error(`shutdown error: ${String(error)}`);
 	} finally {
