@@ -1,6 +1,7 @@
 import dayjs from "dayjs";
 import { BlockTypes } from "./blockTypes";
 import type { BlockDTOType, EdgeDTOSchemaType, EdgesType } from "./builderTypes";
+import type { BlockOutput, Context } from "./baseBlock";
 import { emitArrayOps } from "./builtin/arrayOperations";
 import { emitEntrypoint } from "./builtin/entrypoint";
 import { emitGetVar } from "./builtin/getVar";
@@ -54,6 +55,8 @@ export type EmitNode = {
 	next(handle?: string): string;
 	/** nested chain (loop bodies): its own flowing variable, falls through at the end */
 	body(handle: string, initExpr: string): string;
+	/** record this terminal block's output, then return it from its block function */
+	complete(output: string): string;
 	/** JS expression for a value from block data (`js:` prefixed ones are evaluated) */
 	value(raw: unknown): string;
 	/**
@@ -173,17 +176,27 @@ export function scopeFor(vars: Record<string, any>) {
 }
 
 /** mirrors JsVM.truthy / the `is_empty` operator, inlined into every program */
-const PRELUDE = `const vars = ctx.vars;
-const $truthy = (v) => { const t = typeof v; return t === "bigint" || t === "number" || t === "string" || t === "boolean" ? !!v : (t === "object" && v !== null); };
-const $isEmpty = (v) => v === null || v === undefined || v === "" || (typeof v === "object" && Object.keys(v).length === 0);
-const $scope = lib.scope(vars);`;
+const PRELUDE = `const $truthy = (v) => { const t = typeof v; return t === "bigint" || t === "number" || t === "string" || t === "boolean" ? !!v : (t === "object" && v !== null); };
+const $isEmpty = (v) => v === null || v === undefined || v === "" || (typeof v === "object" && Object.keys(v).length === 0);`;
+
+/** marker lets a newer worker load older artifacts during a rolling update */
+const COMPILED_ROUTE_FACTORY = "/* fluxify-compiled-route-factory */";
+
+type CompiledRun = (
+	ctx: Context,
+	input?: unknown,
+) => Promise<BlockOutput>;
 
 const AsyncFunction = Object.getPrototypeOf(async function () {})
 	.constructor as new (...args: string[]) => (
-	ctx: any,
-	input: any,
+	ctx: Context,
+	input: unknown,
 	lib: typeof compilerLib,
-) => Promise<any>;
+) => Promise<BlockOutput>;
+
+const CompiledRouteFactory = Function as unknown as new (
+	...args: string[]
+) => (lib: typeof compilerLib) => CompiledRun;
 
 /** same handle normalisation BlockBuilder.loadEdges does */
 function buildEdgeMap(edges: EdgeDTOSchemaType): EdgesType {
@@ -223,8 +236,15 @@ export type CompileOptions = {
 
 /** turn compiled source back into a runnable graph (worker side, no compiler) */
 export function instantiateCompiled(source: string) {
+	if (source.startsWith(COMPILED_ROUTE_FACTORY)) {
+		const factory = new CompiledRouteFactory("lib", source);
+		return factory(compilerLib);
+	}
+
+	// Existing artifacts remain executable while workers are rolling over to the
+	// factory format. They disappear naturally on the next route compilation.
 	const compiled = new AsyncFunction("ctx", "input", "lib", source);
-	return (ctx: any, input?: any) => compiled(ctx, input, compilerLib);
+	return (ctx: Context, input?: unknown) => compiled(ctx, input, compilerLib);
 }
 
 export function compileGraph(
@@ -239,12 +259,54 @@ export function compileGraph(
 	const errorHandler = blocks.find((b) => b.type === BlockTypes.errorHandler);
 
 	let counter = 0;
-	// ponytail: a path set only rejects cycles, and a diamond re-emits its shared
-	// tail once per branch. Emit-shared-blocks-as-functions when a real graph hurts.
-	const path = new Set<string>();
+	const blockFunctionNames = new Map<string, string>();
+	const reachable = new Set<string>();
+	const visiting = new Set<string>();
+	const emissionOrder: string[] = [];
 
 	function edgeTo(id: string, handle: string) {
-		return edgeMap[id]?.find((e) => e.handle === handle)?.to;
+		const outgoing = edgeMap[id]?.filter((edge) => edge.handle === handle) ?? [];
+		if (outgoing.length > 1) {
+			throw new Error(
+				`Block ${id} has ${outgoing.length} outgoing edges on handle ${handle}; multi-edge fan-out is not supported yet`,
+			);
+		}
+		return outgoing[0]?.to;
+	}
+
+	function validateEdges() {
+		for (const [id, outgoing] of Object.entries(edgeMap)) {
+			const countByHandle = new Map<string, number>();
+			for (const edge of outgoing) {
+				countByHandle.set(edge.handle, (countByHandle.get(edge.handle) ?? 0) + 1);
+			}
+			for (const [handle, count] of countByHandle) {
+				if (count > 1) edgeTo(id, handle);
+			}
+		}
+	}
+
+	function blockFunctionName(id: string) {
+		let name = blockFunctionNames.get(id);
+		if (!name) {
+			name = `$block_${blockFunctionNames.size}`;
+			blockFunctionNames.set(id, name);
+		}
+		return name;
+	}
+
+	function collectReachable(id: string | undefined) {
+		if (!id || reachable.has(id)) return;
+		if (visiting.has(id)) {
+			throw new Error(`Cycle through block ${id} is not supported yet`);
+		}
+		if (!byId.has(id)) throw new Error(`Block not found: ${id}`);
+
+		visiting.add(id);
+		emissionOrder.push(id);
+		for (const edge of edgeMap[id] ?? []) collectReachable(edge.to);
+		visiting.delete(id);
+		reachable.add(id);
 	}
 
 	function js(code: string, extras?: string, sync = false) {
@@ -255,7 +317,7 @@ export function compileGraph(
 		return `(await (async function (input) { with ($scope) {\n${code}\n} })(${extras ?? "undefined"}))`;
 	}
 
-	function emit(id: string, inVar: string, tail: string): string {
+	function emitBlock(id: string): string {
 		const block = byId.get(id);
 		if (!block) throw new Error(`Block not found: ${id}`);
 		// anything not built in is a custom block, resolved from the worker-global
@@ -264,62 +326,129 @@ export function compileGraph(
 			? emitCustomBlock
 			: emitters[block.type as BlockTypes];
 		if (!emitter) throw new Error(`No codegen for block type: ${block.type}`);
-		if (path.has(id)) throw new Error(`Cycle through block ${id} is not supported yet`);
-		path.add(id);
+		const blockId = JSON.stringify(block.id);
+		const blockType = JSON.stringify(block.type);
+
+		function recordSpan(
+			output: string,
+			error?: string,
+			branch?: "success" | "failure",
+		) {
+			const outcome = error === undefined ? "success" : "failure";
+			const branchField = branch ? `, branch: ${JSON.stringify(branch)}` : "";
+			const errorField = error === undefined ? "" : `, error: ${error}`;
+			const span = `{ blockId: ${blockId}, blockType: ${blockType}, input: $input, output: ${output}, outcome: ${JSON.stringify(outcome)}${branchField}${errorField} }`;
+			return `$recorded = true;
+if ($trace) {
+try {
+$trace.recordSpan(${span});
+} catch {
+// Telemetry must never change route execution.
+}
+}`;
+		}
 
 		const code = emitter({
 			block,
-			in: inVar,
+			in: "$in",
 			v: (prefix) => `$${prefix}_${counter++}`,
 			next(handle = "source") {
 				const to = edgeTo(id, handle);
-				return to ? emit(to, inVar, tail) : tail;
+				const branch =
+					block.type === BlockTypes.if &&
+					(handle === "success" || handle === "failure")
+						? handle
+						: undefined;
+				const continuation = to
+					? `return await ${blockFunctionName(to)}($state, $in, $end);`
+					: "return $end($in);";
+				return `${recordSpan("$in", undefined, branch)}
+${continuation}`;
 			},
 			body(handle, initExpr) {
 				const to = edgeTo(id, handle);
 				if (!to) return "";
-				const scoped = `$b_${counter++}`;
-				return `let ${scoped} = ${initExpr};\n${emit(to, scoped, "")}`;
+				const result = `$bodyResult_${counter++}`;
+				// mark this block as reported before handing off — an executor's
+				// throw must not be misattributed to the loop block that called it
+				return `$recorded = true;
+const ${result} = await ${blockFunctionName(to)}($state, ${initExpr}, $endBody);
+if (${result} !== undefined) return ${result};`;
+			},
+			complete(output) {
+				const result = `$result_${counter++}`;
+				return `const ${result} = ${output};
+${recordSpan(result)}
+return ${result};`;
 			},
 			value(raw) {
 				if (typeof raw !== "string") return JSON.stringify(raw ?? null);
-				if (raw.startsWith("js:")) return js(raw.slice(3), inVar);
+				if (raw.startsWith("js:")) return js(raw.slice(3), "$in");
 				if (asCustomBlock && raw.startsWith("param:")) {
-					return `$params[${JSON.stringify(raw.slice(6))}]`;
+					return `$state.params[${JSON.stringify(raw.slice(6))}]`;
 				}
 				return JSON.stringify(raw);
 			},
 			js,
 		});
 
-		path.delete(id);
-		return `// ${block.type} ${id}\n${code}`;
+		return `// ${block.type} ${id}
+async function ${blockFunctionName(id)}($state, $input, $end) {
+const { ctx, vars, scope: $scope, trace: $trace } = $state;
+let $in = $input;
+let $recorded = false;
+try {
+${code}
+} catch ($error) {
+if (!$recorded) {
+${recordSpan("undefined", "$error")}
+}
+throw $error;
+}
+}`;
 	}
-
-	const IN = "$in";
-	const done = `return { successful: true, continueIfFail: true, output: ${IN} };`;
-	const main = `let ${IN} = input;\n${emit(entry.id, IN, done)}`;
 
 	// the error handler is unreachable by edges — the engine jumps to it on failure
 	const handlerEntry = errorHandler && edgeTo(errorHandler.id, "source");
-	const body = handlerEntry
-		? `try {
-${main}
-} catch ($e) {
-let $err = $e?.toString();
-${emit(handlerEntry, "$err", `return { successful: false, continueIfFail: false, error: $err };`)}
-}`
-		: `try {
-${main}
-} catch ($e) {
-return { successful: false, continueIfFail: false, error: $e };
-}`;
+	validateEdges();
+	collectReachable(entry.id);
+	collectReachable(handlerEntry);
 
-	const params = asCustomBlock ? "const $params = input ?? {};\n" : "";
-	const source = `${PRELUDE}\n${params}${body}`;
-	const compiled = new AsyncFunction("ctx", "input", "lib", source);
+	for (const id of emissionOrder) blockFunctionName(id);
+	const functions = emissionOrder.map(emitBlock).join("\n\n");
+	const errorHandlerBody = handlerEntry
+		? [
+				"const $err = $error?.toString();",
+				`return await ${blockFunctionName(handlerEntry)}($state, $err, $endFailure);`,
+			].join("\n")
+		: "return $endFailure($error);";
+	const source = [
+		COMPILED_ROUTE_FACTORY,
+		PRELUDE,
+		"const $endSuccess = (output) => ({ successful: true, continueIfFail: true, output });",
+		"const $endFailure = (error) => ({ successful: false, continueIfFail: false, error });",
+		"const $endBody = () => undefined;",
+		functions,
+		"",
+		"return async function $run(ctx, input) {",
+		"const vars = ctx.vars;",
+		"const $state = {",
+		"ctx,",
+		"vars,",
+		"scope: lib.scope(vars),",
+		"trace: ctx.trace,",
+		`params: ${asCustomBlock ? "input ?? {}" : "undefined"},`,
+		"};",
+		"try {",
+		`return await ${blockFunctionName(entry.id)}($state, input, $endSuccess);`,
+		"} catch ($error) {",
+		errorHandlerBody,
+		"}",
+		"}",
+	].join("\n");
+	const run = instantiateCompiled(source);
 	return {
 		source,
-		run: (ctx: any, input?: any) => compiled(ctx, input, compilerLib),
+		run,
 	};
 }

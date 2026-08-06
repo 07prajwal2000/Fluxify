@@ -30,12 +30,10 @@ export type EdgeDTOSchemaType = z.infer<typeof edgeDTOSchema>;
 
 export type EdgesType = Record<
   string,
-  [
-    {
-      to: string;
-      handle: string;
-    },
-  ]
+  {
+    to: string;
+    handle: string;
+  }[]
 >;
 
 export interface BlockBuilderInterface {

@@ -20,6 +20,30 @@ export interface TriggerContext {
 	id?: string;
 }
 
+/** One completed block execution within a request-level trace. */
+export type BlockTraceSpan = {
+	blockId: string;
+	blockType: string;
+	input: unknown;
+	output: unknown;
+	/** whether this block completed normally or threw */
+	outcome: "success" | "failure";
+	/** selected branch for condition blocks */
+	branch?: "success" | "failure";
+	error?: unknown;
+};
+
+/**
+ * Request-owned tracing hook for compiled graphs.
+ *
+ * The compiler only reports completed block spans through this hook. Buffering,
+ * transport, persistence, and request trace lifecycle belong to the worker
+ * telemetry pipeline, not the generated route code.
+ */
+export interface BlockTrace {
+	recordSpan(span: BlockTraceSpan): void;
+}
+
 export interface Context {
 	vm: JsVM;
 	route: string;
@@ -35,6 +59,8 @@ export interface Context {
 	};
 	/** origin of this execution; absent on legacy in-process callers */
 	trigger?: TriggerContext;
+	/** optional request-level trace; one Context represents one trace */
+	trace?: BlockTrace;
 	stopper: {
 		timeoutEnd: number;
 		duration: number;
