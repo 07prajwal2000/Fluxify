@@ -1,35 +1,9 @@
 import { describe, it, expect } from "bun:test";
-import { JsVM } from "@fluxify/lib";
 import { compileGraph } from "../../compiler";
 import { BlockTypes } from "../../blockTypes";
-import type { BlockDTOType, EdgeDTOSchemaType } from "../../builderTypes";
-
-function createContext() {
-	const vars: Record<string, any> = {};
-	return {
-		vm: new JsVM(vars),
-		route: "/test",
-		apiId: "api-1",
-		projectId: "proj-1",
-		vars,
-		stopper: { timeoutEnd: 0, duration: 10000 },
-	} as any;
-}
-
-const block = (id: string, type: BlockTypes, data: any = {}): BlockDTOType => ({
-	id,
-	type,
-	data,
-	position: { x: 0, y: 0 },
-});
-
-const edge = (from: string, to: string, toHandle = "source") => ({
-	id: `e-${from}-${to}`,
-	from,
-	to,
-	fromHandle: "source",
-	toHandle,
-});
+import type { BlockTraceSpan } from "../../baseBlock";
+import type { EdgeDTOSchemaType } from "../../builderTypes";
+import { block, createContext, edge, occurrences } from "./compilerTestHelpers";
 
 describe("compileGraph", () => {
 	it("compiles entrypoint -> setvar -> getvar -> jsrunner -> response", async () => {
@@ -110,8 +84,27 @@ describe("compileGraph", () => {
 		const { run, source } = compileGraph(blocks, edges);
 		expect(source).not.toContain("ctx.vm");
 
-		expect((await run(createContext(), { n: 42 })).output.httpCode).toBe("200");
-		expect((await run(createContext(), { n: 1 })).output.httpCode).toBe("400");
+		const successSpans: BlockTraceSpan[] = [];
+		const successContext = createContext();
+		successContext.trace = {
+			recordSpan: (span: BlockTraceSpan) => successSpans.push(span),
+		};
+		expect((await run(successContext, { n: 42 })).output.httpCode).toBe("200");
+		expect(successSpans.find((span) => span.blockId === "2")).toMatchObject({
+			outcome: "success",
+			branch: "success",
+		});
+
+		const failureSpans: BlockTraceSpan[] = [];
+		const failureContext = createContext();
+		failureContext.trace = {
+			recordSpan: (span: BlockTraceSpan) => failureSpans.push(span),
+		};
+		expect((await run(failureContext, { n: 1 })).output.httpCode).toBe("400");
+		expect(failureSpans.find((span) => span.blockId === "2")).toMatchObject({
+			outcome: "success",
+			branch: "failure",
+		});
 	});
 
 	it("still routes through the sandbox when inlineJs is off", async () => {
@@ -127,6 +120,99 @@ describe("compileGraph", () => {
 		const ctx = createContext();
 		expect((await run(ctx, 21)).output.body).toBe(42);
 		expect(ctx.vars.shared).toBe(42);
+	});
+
+	it("emits a shared tail once and reuses its block function", async () => {
+		const blocks = [
+			block("entry", BlockTypes.entrypoint),
+			block("branch", BlockTypes.if, {
+				conditions: [
+					{ lhs: "js:return input", rhs: 0, operator: "gt", chain: "and" },
+				],
+			}),
+			block("shared", BlockTypes.jsrunner, { value: "return input * 2;" }),
+			block("response", BlockTypes.response, { httpCode: "200" }),
+		];
+		const edges: EdgeDTOSchemaType = [
+			edge("entry", "branch"),
+			edge("branch", "shared", "success"),
+			edge("branch", "shared", "failure"),
+			edge("shared", "response"),
+		];
+
+		const { run, source } = compileGraph(blocks, edges);
+		expect(source.startsWith("/* fluxify-compiled-route-factory */")).toBe(true);
+		expect(occurrences(source, "// jsrunner shared")).toBe(1);
+		expect(occurrences(source, "async function $block_")).toBe(4);
+		expect((await run(createContext(), 3)).output.body).toBe(6);
+		expect((await run(createContext(), -2)).output.body).toBe(-4);
+	});
+
+	it("keeps generated source linear across repeated diamonds", () => {
+		function graph(levels: number) {
+			const blocks = [block("entry", BlockTypes.entrypoint)];
+			const edges: EdgeDTOSchemaType = [edge("entry", "if-0")];
+
+			for (let index = 0; index < levels; index++) {
+				const id = "if-" + index;
+				const next = index === levels - 1 ? "response" : "if-" + (index + 1);
+				blocks.push(block(id, BlockTypes.if, { conditions: [] }));
+				edges.push(edge(id, next, "success"), edge(id, next, "failure"));
+			}
+			blocks.push(block("response", BlockTypes.response, { httpCode: "200" }));
+			return { blocks, edges };
+		}
+
+		const four = graph(4);
+		const eight = graph(8);
+		const shortSource = compileGraph(four.blocks, four.edges).source;
+		const longSource = compileGraph(eight.blocks, eight.edges).source;
+
+		expect(occurrences(longSource, "async function $block_")).toBe(10);
+		expect(longSource.length).toBeLessThan(shortSource.length * 3);
+	});
+
+	it("preserves a response from a loop executor", async () => {
+		const { run } = compileGraph(
+			[
+				block("entry", BlockTypes.entrypoint),
+				block("loop", BlockTypes.forloop, { start: 0, end: 2, step: 1 }),
+				block("inside", BlockTypes.response, { httpCode: "201" }),
+				block("after", BlockTypes.response, { httpCode: "200" }),
+			],
+			[
+				edge("entry", "loop"),
+				edge("loop", "inside", "executor"),
+				edge("loop", "after"),
+			],
+		);
+
+		expect((await run(createContext(), null)).output).toEqual({
+			httpCode: "201",
+			body: 0,
+		});
+	});
+
+	it("runs each loop executor before its source continuation", async () => {
+		const { run } = compileGraph(
+			[
+				block("entry", BlockTypes.entrypoint),
+				block("loop", BlockTypes.forloop, { start: 0, end: 3, step: 1 }),
+				block("executor", BlockTypes.jsrunner, {
+					value: "total = (total ?? 0) + input; return input;",
+				}),
+				block("total", BlockTypes.getvar, { key: "total" }),
+				block("response", BlockTypes.response, { httpCode: "200" }),
+			],
+			[
+				edge("entry", "loop"),
+				edge("loop", "executor", "executor"),
+				edge("loop", "total"),
+				edge("total", "response"),
+			],
+		);
+
+		expect((await run(createContext(), null)).output.body).toBe(3);
 	});
 
 	it("rejects cycles and unknown block types", () => {

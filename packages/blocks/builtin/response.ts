@@ -31,7 +31,9 @@ export interface ResponseBlockHTTPResult extends BlockOutput {
 /** terminal — nothing after a response block runs */
 export function emitResponse(node: EmitNode) {
   const { httpCode } = responseBlockSchema.parse(node.block.data);
-  return `return { successful: true, continueIfFail: true, output: { httpCode: ${JSON.stringify(httpCode)}, body: ${node.in} ?? null } };`;
+  return node.complete(
+    `{ successful: true, continueIfFail: true, output: { httpCode: ${JSON.stringify(httpCode)}, body: ${node.in} ?? null } }`,
+  );
 }
 
 export class ResponseBlock extends BaseBlock {
