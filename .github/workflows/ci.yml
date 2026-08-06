@@ -1,6 +1,7 @@
 name: CI/CD
 
 on:
+  workflow_dispatch:
   push:
     branches: ["main"]
     tags: ["v*"] # version tags trigger the admin + worker release build
