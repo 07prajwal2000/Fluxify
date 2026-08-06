@@ -99,6 +99,8 @@ export function useDbMetadata(projectId?: string, connectionId?: string) {
 		tableNames,
 		allColumns,
 		getColumnsForTable,
+		/** e.g. "PostgreSQL" | "MySQL" | "MongoDB" — drives engine-specific UI */
+		variant: data?.variant,
 	};
 }
 

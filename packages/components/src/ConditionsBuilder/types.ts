@@ -11,7 +11,28 @@ export type ConditionOperator =
 
 export type ConditionChain = "and" | "or";
 
-export type ConditionValue = string | number | boolean;
+/**
+ * A side that names a column instead of holding a value. Tagged rather than
+ * inferred from the text: a value that merely looks like a column path
+ * (`ada@example.com`, `1.2.3`) is a value, and guessing from its shape is how
+ * every lookup by email once compiled to a broken identifier.
+ */
+export interface ColumnRef {
+	kind: "column";
+	value: string;
+}
+
+/** The mirror: a side that holds a value where a column is the default. */
+export interface LiteralRef {
+	kind: "literal";
+	value: string | number | boolean;
+}
+
+/**
+ * Each side tags only what it is *not* by default — the left is a column, the
+ * right is a literal — so an untagged side never changes meaning.
+ */
+export type ConditionValue = string | number | boolean | ColumnRef | LiteralRef;
 
 export interface Condition {
 	lhs: ConditionValue;
@@ -48,6 +69,13 @@ export interface ConditionsBuilderProps {
 	lhsSuggestions?: string[];
 	/** Autocomplete suggestions for RHS condition field. */
 	rhsSuggestions?: string[];
+	/**
+	 * Lets either side be switched between a column and a value. Off by default:
+	 * only a database query can compare a field against another field. When on,
+	 * suggestions are offered in column mode only — proposing column names while
+	 * the user is typing a literal is just misleading.
+	 */
+	allowColumnRefs?: boolean;
 	/** Whether to show outer border. Default is false. */
 	hasBorder?: boolean;
 	/** Additional CSS class names. */

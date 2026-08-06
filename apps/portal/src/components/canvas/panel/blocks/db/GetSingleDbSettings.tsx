@@ -1,8 +1,5 @@
 import { useMemo } from "react";
-import {
-	ConditionsBuilder,
-	type Condition,
-} from "@fluxify/components";
+import { ConditionsBuilder } from "@fluxify/components";
 import { useParams } from "@tanstack/react-router";
 import { useReactFlow } from "@xyflow/react";
 import { useDbMetadata } from "@/query/findResourceQuery";
@@ -14,29 +11,12 @@ import {
 	BlockJsTextField,
 	BlockJoinsEditorField,
 } from "../../fields";
+import {
+	parseDbConditions,
+	readDbBinding,
+	serializeDbConditions,
+} from "./conditions";
 import type { BlockNode } from "../../../types";
-
-type RawWhereCondition = {
-	attribute?: string;
-	lhs?: string;
-	value?: string | number;
-	rhs?: string | number;
-	operator?: string;
-	chain?: "and" | "or";
-};
-
-function parseConditions(block: BlockNode): Condition[] {
-	const raw = Array.isArray(block.data.conditions)
-		? (block.data.conditions as RawWhereCondition[])
-		: [];
-
-	return raw.map((c) => ({
-		chain: c.chain || "and",
-		lhs: String(c.attribute ?? c.lhs ?? ""),
-		rhs: String(c.value ?? c.rhs ?? ""),
-		operator: (c.operator as any) || "equal_to",
-	}));
-}
 
 function parseColumns(block: BlockNode): string[] {
 	if (Array.isArray(block.data.columns)) {
@@ -56,14 +36,7 @@ function parseJoins(block: BlockNode): unknown[] {
 export function GetSingleDbGeneralSettings({ block }: { block: BlockNode }) {
 	const params = useParams({ strict: false }) as { projectId?: string };
 	const projectId = params?.projectId ?? "";
-	const connectionId =
-		typeof block.data.connection === "string"
-			? block.data.connection
-			: typeof block.data.integration === "string"
-				? block.data.integration
-				: typeof block.data.integrationId === "string"
-					? block.data.integrationId
-					: "";
+	const { connectionId } = readDbBinding(block);
 	const { tableNames } = useDbMetadata(projectId, connectionId);
 
 	return (
@@ -93,20 +66,7 @@ export function GetSingleDbGeneralSettings({ block }: { block: BlockNode }) {
 export function GetSingleDbColumnsSettings({ block }: { block: BlockNode }) {
 	const params = useParams({ strict: false }) as { projectId?: string };
 	const projectId = params?.projectId ?? "";
-	const connectionId =
-		typeof block.data.connection === "string"
-			? block.data.connection
-			: typeof block.data.integration === "string"
-				? block.data.integration
-				: typeof block.data.integrationId === "string"
-					? block.data.integrationId
-					: "";
-	const tableName =
-		typeof block.data.tableName === "string"
-			? block.data.tableName
-			: typeof block.data.table === "string"
-				? block.data.table
-				: "";
+	const { connectionId, tableName } = readDbBinding(block);
 	const { getColumnsForTable, allColumns } = useDbMetadata(projectId, connectionId);
 	const tableColumns = getColumnsForTable(tableName);
 	const columnSuggestions = useMemo(() => {
@@ -142,20 +102,7 @@ export function GetSingleDbColumnsSettings({ block }: { block: BlockNode }) {
 export function GetSingleDbJoinsSettings({ block }: { block: BlockNode }) {
 	const params = useParams({ strict: false }) as { projectId?: string };
 	const projectId = params?.projectId ?? "";
-	const connectionId =
-		typeof block.data.connection === "string"
-			? block.data.connection
-			: typeof block.data.integration === "string"
-				? block.data.integration
-				: typeof block.data.integrationId === "string"
-					? block.data.integrationId
-					: "";
-	const tableName =
-		typeof block.data.tableName === "string"
-			? block.data.tableName
-			: typeof block.data.table === "string"
-				? block.data.table
-				: "";
+	const { connectionId, tableName } = readDbBinding(block);
 	const { tableNames, getColumnsForTable, allColumns } = useDbMetadata(projectId, connectionId);
 	const tableColumns = getColumnsForTable(tableName);
 	const columnSuggestions = tableColumns.length > 0 ? tableColumns : allColumns;
@@ -183,25 +130,13 @@ export function GetSingleDbConditionsSettings({ block }: { block: BlockNode }) {
 	const { enabled: editable } = useCanvasChanges();
 	const params = useParams({ strict: false }) as { projectId?: string };
 	const projectId = params?.projectId ?? "";
-	const connectionId =
-		typeof block.data.connection === "string"
-			? block.data.connection
-			: typeof block.data.integration === "string"
-				? block.data.integration
-				: typeof block.data.integrationId === "string"
-					? block.data.integrationId
-					: "";
-	const tableName =
-		typeof block.data.tableName === "string"
-			? block.data.tableName
-			: typeof block.data.table === "string"
-				? block.data.table
-				: "";
-	const { getColumnsForTable, allColumns } = useDbMetadata(projectId, connectionId);
+	const { connectionId, tableName } = readDbBinding(block);
+	const { getColumnsForTable, allColumns, variant } = useDbMetadata(
+		projectId,
+		connectionId,
+	);
 	const tableColumns = getColumnsForTable(tableName);
 	const columnSuggestions = tableColumns.length > 0 ? tableColumns : allColumns;
-
-	const conditions = parseConditions(block);
 
 	return (
 		<div className="flex flex-col gap-4 w-full">
@@ -212,16 +147,15 @@ export function GetSingleDbConditionsSettings({ block }: { block: BlockNode }) {
 				label="Conditions"
 				description="The conditions used to match the single record from the database."
 				isDisabled={!editable}
-				conditions={conditions}
+				conditions={parseDbConditions(block)}
 				lhsSuggestions={columnSuggestions}
+				rhsSuggestions={columnSuggestions}
+				// MongoDB has no field-to-field comparison in this query builder
+				allowColumnRefs={variant !== "MongoDB"}
 				onChange={(nextConditions) => {
-					const serialized = nextConditions.map((c) => ({
-						attribute: c.lhs,
-						value: c.rhs,
-						operator: c.operator,
-						chain: c.chain,
-					}));
-					updateNodeData(block.id, { conditions: serialized });
+					updateNodeData(block.id, {
+						conditions: serializeDbConditions(nextConditions),
+					});
 				}}
 			/>
 		</div>
@@ -231,7 +165,7 @@ export function GetSingleDbConditionsSettings({ block }: { block: BlockNode }) {
 export function getSingleDbSettings(block: BlockNode) {
 	const columnsCount = parseColumns(block).length;
 	const joinsCount = parseJoins(block).length;
-	const conditionsCount = parseConditions(block).length;
+	const conditionsCount = parseDbConditions(block).length;
 
 	return [
 		<BlockSettings.TabHead key="general" name="General">

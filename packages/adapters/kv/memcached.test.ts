@@ -1,18 +1,28 @@
 import { describe, it, expect, beforeAll, afterAll } from "bun:test";
-import { $ } from "bun";
 import { faker } from "@faker-js/faker";
 import { MemcachedIntegration } from "./memcached";
+import type Docker from "dockerode";
+import { docker, startContainerWithRandomPort } from "../containerTestHelpers";
 
 describe("MemcachedIntegration", () => {
 	const containerName = "fluxify-memcached-test";
-	const port = 11212;
+	let port: number;
+	let container: Docker.Container | undefined;
 	let integration: MemcachedIntegration;
 
 	beforeAll(async () => {
-		try { await $`docker stop ${containerName}`.quiet(); } catch {}
-		try { await $`docker rm ${containerName}`.quiet(); } catch {}
-		
-		await $`docker run --name ${containerName} -p ${port}:11211 -d memcached:latest`;
+		await docker.getContainer(containerName).remove({ force: true }).catch(() => {});
+		const started = await startContainerWithRandomPort((hostPort) =>
+			docker.createContainer({
+				Image: "memcached:latest",
+				name: containerName,
+				HostConfig: {
+					PortBindings: { "11211/tcp": [{ HostPort: String(hostPort) }] },
+				},
+			}),
+		);
+		container = started.container;
+		port = started.port;
 		
 		await new Promise((r) => setTimeout(r, 2000));
 
@@ -27,8 +37,7 @@ describe("MemcachedIntegration", () => {
 		if (integration) {
 			await integration.disconnect();
 		}
-		try { await $`docker stop ${containerName}`.quiet(); } catch {}
-		try { await $`docker rm ${containerName}`.quiet(); } catch {}
+		if (container) await container.remove({ force: true }).catch(() => {});
 	});
 
 	it("should perform basic KV operations", async () => {

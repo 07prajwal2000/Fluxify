@@ -12,10 +12,10 @@ import { JsVM } from "@fluxify/lib";
 import type Docker from "dockerode";
 import { MongoClient } from "mongodb";
 import { fakerEN as faker } from "@faker-js/faker";
-import { docker, pullImage } from "./testHelpers";
+import { docker, pullImage, startContainerWithRandomPort } from "./testHelpers";
 
 const containerName = "fluxify-mongo-adapter-test";
-const exposedPort = Math.floor(Math.random() * (65000 - 20000 + 1)) + 20000;
+let exposedPort: number;
 
 let container: Docker.Container | null = null;
 let db: any;
@@ -31,16 +31,18 @@ beforeAll(async () => {
 	await pullImage("mongo:7.0");
 
 	// We boot without root credentials specifically to allow easy Replica Set initialization locally
-	container = await docker.createContainer({
-		Image: "mongo:7.0",
-		name: containerName,
-		Cmd: ["mongod", "--replSet", "rs0", "--bind_ip_all"],
-		HostConfig: {
-			PortBindings: { "27017/tcp": [{ HostPort: exposedPort.toString() }] },
-		},
-	});
-
-	await container.start();
+	const started = await startContainerWithRandomPort((port) =>
+		docker.createContainer({
+			Image: "mongo:7.0",
+			name: containerName,
+			Cmd: ["mongod", "--replSet", "rs0", "--bind_ip_all"],
+			HostConfig: {
+				PortBindings: { "27017/tcp": [{ HostPort: port.toString() }] },
+			},
+		}),
+	);
+	container = started.container;
+	exposedPort = started.port;
 
 	const connInfo: Connection = {
 		dbType: DbType.MONGODB,

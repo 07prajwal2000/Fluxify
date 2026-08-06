@@ -1,11 +1,8 @@
 import Docker from "dockerode";
+import { getEnv } from "./env";
 
-/**
- * A local daemon on 2375, the mounted socket in CI — the same arrangement the
- * adapter integration tests already require.
- */
 export const docker =
-	process.env.CI === "true"
+	getEnv("CI") === "true"
 		? new Docker({ socketPath: "/var/run/docker.sock" })
 		: new Docker({ host: "localhost", port: 2375 });
 
@@ -13,6 +10,11 @@ const TEST_PORT_MIN = 20_000;
 const TEST_PORT_MAX = 55_000;
 const PORT_START_ATTEMPTS = 3;
 
+export function randomTestPort() {
+	return Math.floor(Math.random() * (TEST_PORT_MAX - TEST_PORT_MIN + 1)) + TEST_PORT_MIN;
+}
+
+/** Retry Docker host-port allocation because concurrent test containers can collide. */
 export async function startContainerWithRandomPort(
 	create: (port: number) => Promise<Docker.Container>,
 ) {
@@ -20,9 +22,7 @@ export async function startContainerWithRandomPort(
 	for (let attempt = 0; attempt < PORT_START_ATTEMPTS; attempt++) {
 		let container: Docker.Container | undefined;
 		try {
-			const port =
-				Math.floor(Math.random() * (TEST_PORT_MAX - TEST_PORT_MIN + 1)) +
-				TEST_PORT_MIN;
+			const port = randomTestPort();
 			container = await create(port);
 			await container.start();
 			return { container, port };
@@ -46,12 +46,4 @@ export function pullImage(image: string): Promise<void> {
 			);
 		});
 	});
-}
-
-export async function removeIfPresent(name: string) {
-	try {
-		await docker.getContainer(name).remove({ force: true });
-	} catch {
-		// no such container — the normal case
-	}
 }

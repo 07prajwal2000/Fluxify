@@ -54,9 +54,9 @@
 				"tableName": "auth_users",
 				"conditions": [
 					{
-						"attribute": "email",
+						"attribute": { "kind": "column", "value": "email" },
 						"operator": "eq",
-						"value": "js:return getRequestBody().email;",
+						"value": { "kind": "literal", "value": "js:return getRequestBody().email;" },
 						"chain": "and"
 					}
 				],

@@ -3,7 +3,13 @@ import clsx from "clsx";
 import { useCallback, useMemo, useState } from "react";
 import { TbChevronDown } from "react-icons/tb";
 import { ConditionsBuilderRow } from "./ConditionsBuilderRow";
-import type { Condition, ConditionChain, ConditionOperator, ConditionsBuilderProps } from "./types";
+import type {
+	Condition,
+	ConditionChain,
+	ConditionOperator,
+	ConditionsBuilderProps,
+	ConditionValue,
+} from "./types";
 import { formatConditionsSummary } from "./utils";
 
 export function ConditionsBuilder({
@@ -20,6 +26,7 @@ export function ConditionsBuilder({
 	isDisabled = false,
 	lhsSuggestions,
 	rhsSuggestions,
+	allowColumnRefs = false,
 	hasBorder = false,
 	className,
 }: ConditionsBuilderProps) {
@@ -65,7 +72,7 @@ export function ConditionsBuilder({
 	);
 
 	const handleLHSChange = useCallback(
-		(index: number, value: string) => {
+		(index: number, value: ConditionValue) => {
 			const next = [...conditions];
 			next[index] = { ...next[index], lhs: value };
 			updateConditions(next);
@@ -74,7 +81,7 @@ export function ConditionsBuilder({
 	);
 
 	const handleRHSChange = useCallback(
-		(index: number, value: string) => {
+		(index: number, value: ConditionValue) => {
 			const next = [...conditions];
 			next[index] = { ...next[index], rhs: value };
 			updateConditions(next);
@@ -117,6 +124,7 @@ export function ConditionsBuilder({
 					ignoreOperators={ignoreOperators}
 					index={index}
 					isDisabled={isDisabled}
+					allowColumnRefs={allowColumnRefs}
 					lhsSuggestions={lhsSuggestions}
 					rhsSuggestions={rhsSuggestions}
 					onJsChange={handleJsChange}

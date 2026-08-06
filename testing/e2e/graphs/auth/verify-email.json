@@ -50,9 +50,9 @@
 				"useParam": false,
 				"conditions": [
 					{
-						"attribute": "id",
+						"attribute": { "kind": "column", "value": "id" },
 						"operator": "eq",
-						"value": "js:return Number(getRouteParam(\"userId\"));",
+						"value": { "kind": "literal", "value": "js:return Number(getRouteParam(\"userId\"));" },
 						"chain": "and"
 					}
 				],

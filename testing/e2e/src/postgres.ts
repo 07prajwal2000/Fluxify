@@ -1,7 +1,12 @@
 import { SQL } from "bun";
 import Docker from "dockerode";
 import { DbType, type Connection } from "@fluxify/adapters";
-import { docker, pullImage, removeIfPresent } from "./docker";
+import {
+	docker,
+	pullImage,
+	removeIfPresent,
+	startContainerWithRandomPort,
+} from "./docker";
 
 /**
  * One throwaway Postgres for the entire e2e run.
@@ -57,25 +62,26 @@ async function waitForReady(url: string) {
 }
 
 async function start(): Promise<TestDatabase> {
-	const port = 20000 + Math.floor(Math.random() * 45000);
 	await removeIfPresent(CONTAINER);
 	await pullImage(IMAGE);
 
-	const container = await docker.createContainer({
-		Image: IMAGE,
-		name: CONTAINER,
-		Env: [
-			"POSTGRES_USER=postgres",
-			`POSTGRES_PASSWORD=${PASSWORD}`,
-			"POSTGRES_DB=fluxify_e2e",
-		],
-		HostConfig: {
-			PortBindings: { "5432/tcp": [{ HostPort: String(port) }] },
-			// disposable by construction, so a killed run leaves nothing behind
-			AutoRemove: true,
-		},
-	});
-	await container.start();
+	const started = await startContainerWithRandomPort((port) =>
+		docker.createContainer({
+			Image: IMAGE,
+			name: CONTAINER,
+			Env: [
+				"POSTGRES_USER=postgres",
+				`POSTGRES_PASSWORD=${PASSWORD}`,
+				"POSTGRES_DB=fluxify_e2e",
+			],
+			HostConfig: {
+				PortBindings: { "5432/tcp": [{ HostPort: String(port) }] },
+				// disposable by construction, so a killed run leaves nothing behind
+				AutoRemove: true,
+			},
+		}),
+	);
+	const { container, port } = started;
 
 	const url = `postgres://postgres:${PASSWORD}@127.0.0.1:${port}/fluxify_e2e`;
 	await waitForReady(url);

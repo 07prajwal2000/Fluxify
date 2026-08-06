@@ -12,10 +12,10 @@ import { JsVM } from "@fluxify/lib";
 import type Docker from "dockerode";
 import { createPool, Pool } from "mysql2";
 import { faker } from "@faker-js/faker";
-import { docker, pullImage } from "./testHelpers";
+import { docker, pullImage, startContainerWithRandomPort } from "./testHelpers";
 
 const containerName = "fluxify-mysql-adapter-test";
-const exposedPort = Math.floor(Math.random() * (65000 - 20000 + 1)) + 20000;
+let exposedPort: number;
 
 let container: Docker.Container | null = null;
 let db: any;
@@ -30,16 +30,18 @@ beforeAll(async () => {
 
 	await pullImage("mysql:8.0.36-bullseye");
 
-	container = await docker.createContainer({
-		Image: "mysql:8.0.36-bullseye",
-		name: containerName,
-		Env: ["MYSQL_ROOT_PASSWORD=12345", "MYSQL_DATABASE=testdb"],
-		HostConfig: {
-			PortBindings: { "3306/tcp": [{ HostPort: exposedPort.toString() }] },
-		},
-	});
-
-	await container.start();
+	const started = await startContainerWithRandomPort((port) =>
+		docker.createContainer({
+			Image: "mysql:8.0.36-bullseye",
+			name: containerName,
+			Env: ["MYSQL_ROOT_PASSWORD=12345", "MYSQL_DATABASE=testdb"],
+			HostConfig: {
+				PortBindings: { "3306/tcp": [{ HostPort: port.toString() }] },
+			},
+		}),
+	);
+	container = started.container;
+	exposedPort = started.port;
 
 	const connInfo = {
 		host: "127.0.0.1",
@@ -440,14 +442,15 @@ describe("MySqlAdapter Integration Tests", () => {
 		)) as any[];
 		expect(firstRed.map(ageOf)).toEqual([15, 30]);
 
-		// RHS references another JSON path column (age >= min).
+		// RHS references another JSON path column (age >= min). The tag is what
+		// makes it a column — an untagged "attributes.min" is a literal string.
 		const meetsMin = (await adapter.getAll(
 			tableName,
 			[
 				{
 					attribute: "attributes.age",
 					operator: "gte",
-					value: "attributes.min",
+					value: { kind: "column", value: "attributes.min" },
 					chain: "and",
 				},
 			],

@@ -8,10 +8,24 @@ import { JsVM } from "@fluxify/lib";
 import { MongoAdapter, buildMongoUrl } from "./mongoDbAdapter";
 import { DbConnectionManager, type DbConnectionLease } from "./connectionManager";
 
+/** opt-in tag that makes a side name a column instead of holding a value */
+export const columnRefSchema = z.object({
+	kind: z.literal("column"),
+	value: z.string(),
+});
+
+/** the mirror tag: a side that holds a value where a column is the default */
+export const literalRefSchema = z.object({
+	kind: z.literal("literal"),
+	value: z.union([z.string(), z.number(), z.boolean()]),
+});
+
 export const whereConditionSchema = z.object({
-	attribute: z.string(),
+	// untagged: a column, which is what an attribute is by position
+	attribute: z.union([z.string(), columnRefSchema, literalRefSchema]),
 	operator: operatorSchema.exclude(["js", "is_empty", "is_not_empty"]),
-	value: z.string().or(z.number()),
+	// untagged: a literal, so a dotted value is never read as a column path
+	value: z.union([z.string(), z.number(), columnRefSchema, literalRefSchema]),
 	chain: z.enum(["and", "or"]),
 });
 

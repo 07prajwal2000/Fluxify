@@ -148,4 +148,30 @@ describe("ConditionEvaluator", () => {
       expect(result).toBe(true);
     });
   });
+
+  describe("evaluateScript()", () => {
+    const vm = new JsVM({});
+
+    it("runs a js expression inside a tagged side and keeps the tag", async () => {
+      const { lhs, rhs } = await ConditionEvaluator.evaluateScript(
+        { kind: "column", value: "id" },
+        { kind: "literal", value: "js:return 1 + 6;" },
+        vm,
+      );
+      expect(lhs).toEqual({ kind: "column", value: "id" });
+      // without unwrapping, the literal string "js:..." reached the query and
+      // Postgres rejected it against a typed id column
+      expect(rhs).toEqual({ kind: "literal", value: 7 });
+    });
+
+    it("still evaluates untagged sides", async () => {
+      const { lhs, rhs } = await ConditionEvaluator.evaluateScript(
+        "id",
+        "js:return 42;",
+        vm,
+      );
+      expect(lhs).toBe("id");
+      expect(rhs).toBe(42);
+    });
+  });
 });

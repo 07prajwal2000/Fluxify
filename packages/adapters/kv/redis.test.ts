@@ -1,18 +1,28 @@
 import { describe, it, expect, beforeAll, afterAll } from "bun:test";
-import { $ } from "bun";
 import { faker } from "@faker-js/faker";
 import { RedisIntegration } from "./redis";
+import type Docker from "dockerode";
+import { docker, startContainerWithRandomPort } from "../containerTestHelpers";
 
 describe("RedisIntegration", () => {
 	const containerName = "fluxify-redis-test";
-	const port = 6380;
+	let port: number;
+	let container: Docker.Container | undefined;
 	let integration: RedisIntegration;
 
 	beforeAll(async () => {
-		try { await $`docker stop ${containerName}`.quiet(); } catch {}
-		try { await $`docker rm ${containerName}`.quiet(); } catch {}
-		
-		await $`docker run --name ${containerName} -p ${port}:6379 -d redis:latest`;
+		await docker.getContainer(containerName).remove({ force: true }).catch(() => {});
+		const started = await startContainerWithRandomPort((hostPort) =>
+			docker.createContainer({
+				Image: "redis:latest",
+				name: containerName,
+				HostConfig: {
+					PortBindings: { "6379/tcp": [{ HostPort: String(hostPort) }] },
+				},
+			}),
+		);
+		container = started.container;
+		port = started.port;
 		
 		await new Promise((r) => setTimeout(r, 2000));
 
@@ -27,8 +37,7 @@ describe("RedisIntegration", () => {
 		if (integration) {
 			await integration.disconnect();
 		}
-		try { await $`docker stop ${containerName}`.quiet(); } catch {}
-		try { await $`docker rm ${containerName}`.quiet(); } catch {}
+		if (container) await container.remove({ force: true }).catch(() => {});
 	});
 
 	it("should perform basic KV operations", async () => {

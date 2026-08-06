@@ -12,10 +12,10 @@ import { Connection, DbType } from ".";
 import { JsVM } from "@fluxify/lib";
 import type Docker from "dockerode";
 import { faker } from "@faker-js/faker";
-import { docker, pullImage } from "./testHelpers";
+import { docker, pullImage, startContainerWithRandomPort } from "./testHelpers";
 
 const containerName = "fluxify-pg-adapter-test";
-const exposedPort = Math.floor(Math.random() * (65000 - 20000 + 1)) + 20000;
+let exposedPort: number;
 
 let container: Docker.Container | null = null;
 let db: any;
@@ -30,20 +30,22 @@ beforeAll(async () => {
 
 	await pullImage("postgres:bullseye");
 
-	container = await docker.createContainer({
-		Image: "postgres:bullseye",
-		name: containerName,
-		Env: [
-			"POSTGRES_USER=postgres",
-			"POSTGRES_PASSWORD=12345",
-			"POSTGRES_DB=testdb",
-		],
-		HostConfig: {
-			PortBindings: { "5432/tcp": [{ HostPort: exposedPort.toString() }] },
-		},
-	});
-
-	await container.start();
+	const started = await startContainerWithRandomPort((port) =>
+		docker.createContainer({
+			Image: "postgres:bullseye",
+			name: containerName,
+			Env: [
+				"POSTGRES_USER=postgres",
+				"POSTGRES_PASSWORD=12345",
+				"POSTGRES_DB=testdb",
+			],
+			HostConfig: {
+				PortBindings: { "5432/tcp": [{ HostPort: port.toString() }] },
+			},
+		}),
+	);
+	container = started.container;
+	exposedPort = started.port;
 	const url = `postgres://postgres:12345@127.0.0.1:${exposedPort}/testdb`;
 
 	let ready = false;
@@ -433,9 +435,11 @@ describe("PostgresAdapter Integration Tests", () => {
 			tableName,
 			[
 				{
+					// the tag is what makes it a column — an untagged
+					// "attributes.min" is a literal string
 					attribute: "attributes.age",
 					operator: "gte",
-					value: "attributes.min",
+					value: { kind: "column", value: "attributes.min" },
 					chain: "and",
 				},
 			],

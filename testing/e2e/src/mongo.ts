@@ -1,7 +1,12 @@
 import Docker from "dockerode";
 import { MongoClient, type Db } from "mongodb";
 import { buildMongoUrl, DbType, type Connection } from "@fluxify/adapters";
-import { docker, pullImage, removeIfPresent } from "./docker";
+import {
+	docker,
+	pullImage,
+	removeIfPresent,
+	startContainerWithRandomPort,
+} from "./docker";
 
 /**
  * One throwaway Mongo for the entire e2e run, started lazily like the Postgres
@@ -75,22 +80,23 @@ async function initiateReplicaSet(client: MongoClient) {
 }
 
 async function start(): Promise<TestMongo> {
-	const port = 20000 + Math.floor(Math.random() * 45000);
 	await removeIfPresent(CONTAINER);
 	await pullImage(IMAGE);
 
-	const container = await docker.createContainer({
-		Image: IMAGE,
-		name: CONTAINER,
-		// no root credentials: a keyfile-less replica set cannot be initiated
-		// once authentication is enabled
-		Cmd: ["mongod", "--replSet", "rs0", "--bind_ip_all"],
-		HostConfig: {
-			PortBindings: { "27017/tcp": [{ HostPort: String(port) }] },
-			AutoRemove: true,
-		},
-	});
-	await container.start();
+	const started = await startContainerWithRandomPort((port) =>
+		docker.createContainer({
+			Image: IMAGE,
+			name: CONTAINER,
+			// no root credentials: a keyfile-less replica set cannot be initiated
+			// once authentication is enabled
+			Cmd: ["mongod", "--replSet", "rs0", "--bind_ip_all"],
+			HostConfig: {
+				PortBindings: { "27017/tcp": [{ HostPort: String(port) }] },
+				AutoRemove: true,
+			},
+		}),
+	);
+	const { container, port } = started;
 
 	const connection: Connection = {
 		dbType: DbType.MONGODB,

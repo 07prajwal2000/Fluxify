@@ -131,38 +131,108 @@ export function resolveJsonOperand(
 	return castNumeric ? sql`(${frag})::numeric` : frag;
 }
 
-// Reusable entry point for adapters: resolves both sides of a condition. Either
-// side may be a JSON path or a qualified column (the RHS can reference a column
-// too); the numeric cast on one side is driven by whether the opposite operand
-// looks numeric.
+/**
+ * A condition's right-hand side, when it names a column instead of holding a
+ * value. Tagged rather than inferred: the RHS is a value slot, and deciding
+ * "this string looks like a column" from its shape is wrong the moment a user's
+ * data looks like syntax. It was — every email address did, so
+ * `WHERE email = 'ada@example.com'` compiled to
+ * `WHERE email = "ada@example" ->> 'com'` and no lookup by email worked at all
+ * on Postgres or MySQL.
+ *
+ * The LHS needs no tag: `attribute` is a column by position.
+ */
+export type ColumnRef = { kind: "column"; value: string };
+
+/**
+ * The mirror image: a condition side that holds a value where a column would
+ * otherwise be assumed. Only the attribute side needs it — `WHERE 18 <= age`.
+ */
+export type LiteralRef = { kind: "literal"; value: unknown };
+
+export function isColumnRef(value: unknown): value is ColumnRef {
+	return (
+		typeof value === "object" &&
+		value !== null &&
+		(value as ColumnRef).kind === "column" &&
+		typeof (value as ColumnRef).value === "string"
+	);
+}
+
+export function isLiteralRef(value: unknown): value is LiteralRef {
+	return (
+		typeof value === "object" &&
+		value !== null &&
+		(value as LiteralRef).kind === "literal"
+	);
+}
+
+/** The payload behind either tag; anything untagged is already its own value. */
+function unwrapRef(operand: unknown): unknown {
+	return isColumnRef(operand) || isLiteralRef(operand) ? operand.value : operand;
+}
+
+// A tagged column reference in an identifier position. resolveJsonOperand hands
+// back a bare string when there is no JSON path to build, and the query builder
+// would bind that as a *value* — so name it explicitly. Validated here because
+// this is the one place a stored graph string reaches an identifier position.
+function resolveColumnRef(
+	path: string,
+	castNumeric: boolean,
+	dialect: JsonSqlDialect,
+	qualifiers?: Set<string>,
+): unknown {
+	const resolved = resolveJsonOperand(path, castNumeric, dialect, qualifiers);
+	return typeof resolved === "string"
+		? sql.ref(assertMatch(COLUMN_REF, resolved, "column reference"))
+		: resolved;
+}
+
+// Reusable entry point for adapters: resolves both sides of a condition.
+//
+// Each side tags only what it is *not* by default — an attribute is a column
+// unless tagged `literal`, a value is a literal unless tagged `column`. An
+// untagged side therefore never changes meaning, so no stored graph migrates,
+// and neither side is ever guessed at from the shape of its text.
+//
+// The numeric cast on one side is driven by whether the opposite operand looks
+// numeric.
 // ponytail: numeric cast fires only when the opposite operand is a numeric-like
-// literal; JSON-path-vs-JSON-path comparisons stay text — add per-side type
-// hints if numeric column-to-column JSON comparison is ever needed.
+// literal; column-vs-column comparisons stay text — add per-side type hints if
+// numeric column-to-column JSON comparison is ever needed.
 export function resolveCondition(
-	attribute: string,
+	attribute: unknown,
 	value: unknown,
 	dialect: JsonSqlDialect,
 	qualifiers?: Set<string>,
 ): { lhs: unknown; rhs: unknown } {
+	const lhsIsColumn = !isLiteralRef(attribute);
+	const rhsIsColumn = isColumnRef(value);
+	const lhsRaw = unwrapRef(attribute);
+	const rhsRaw = unwrapRef(value);
+
 	return {
-		lhs: resolveJsonOperand(attribute, isNumericLike(value), dialect, qualifiers),
-		rhs: isColumnReference(value)
-			? resolveJsonOperand(value, isNumericLike(attribute), dialect, qualifiers)
-			: value,
+		lhs: lhsIsColumn
+			? resolveJsonOperand(
+					lhsRaw,
+					!rhsIsColumn && isNumericLike(rhsRaw),
+					dialect,
+					qualifiers,
+				)
+			: // the query builder reads a bare string in this position as a column
+				// name, so a literal attribute has to be bound explicitly
+				sql`${lhsRaw}`,
+		rhs: rhsIsColumn
+			? resolveColumnRef(
+					rhsRaw as string,
+					// symmetric with the LHS: cast when the *opposite* side is a
+					// numeric-like literal
+					!lhsIsColumn && isNumericLike(lhsRaw),
+					dialect,
+					qualifiers,
+				)
+			: rhsRaw,
 	};
-}
-
-// The RHS is a value first and a column reference second, so it only earns path
-// treatment when it is actually shaped like one. Without this, any dotted
-// literal is emitted as an identifier: `WHERE email = 'ada@example.com'` became
-// `WHERE email = "ada@example" ->> 'com'`, which Postgres rejects with
-// `column "ada@example" does not exist` — i.e. no lookup by email worked at all.
-// The LHS is unaffected: an attribute is a column by definition, and JSON keys
-// there may legitimately be things an identifier regex would reject.
-const PATH_LIKE = /^[A-Za-z_]\w*(?:\.[A-Za-z_]\w*|\[\d+\])+$/;
-
-function isColumnReference(value: unknown): boolean {
-	return typeof value === "string" && PATH_LIKE.test(value);
 }
 
 // Applies declared joins to a Kysely query builder. The join condition is an

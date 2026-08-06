@@ -3,31 +3,57 @@ import z from "zod";
 import type { Context } from "../../baseBlock";
 import type { EmitNode } from "../../compiler";
 
-export const whereConditionSchema = z.object({
-	attribute: z.string().describe("column name / attribute name"),
-	operator: operatorSchema
-		.exclude(["js", "is_empty", "is_not_empty"])
-		.describe("operator for comparison"),
-	value: z.string().or(z.number()).describe("value"),
-	chain: z.enum(["and", "or"]).describe("conditional chain"),
+/**
+ * Makes a condition side name a column instead of holding a value. Each side
+ * tags only what it is *not* by default — an attribute is a column, a value is
+ * a literal — so an untagged side never changes meaning and a dotted string
+ * like an email address can never be mistaken for a column path.
+ */
+export const columnRefSchema = z.object({
+	kind: z.literal("column"),
+	value: z.string().describe("column name / json path to compare against"),
 });
 
-/**
- * Where conditions become a plain JS array literal. `attribute` and `value` may
- * be js expressions, so those become inlined code; everything else is baked in
- * at compile time. The adapter still builds the SQL from the result — nothing
- * about knex changes.
- */
-export function emitWhereConditions(
-	conditions: z.infer<typeof whereConditionSchema>[],
-	node: EmitNode,
-) {
-	const entries = conditions.map(
-		(condition) =>
-			`{ attribute: ${node.value(condition.attribute)}, operator: ${JSON.stringify(condition.operator)}, value: ${node.value(condition.value)}, chain: ${JSON.stringify(condition.chain)} }`,
-	);
-	return `[${entries.join(", ")}]`;
-}
+export const literalRefSchema = z.object({
+	kind: z.literal("literal"),
+	value: z
+		.union([z.string(), z.number(), z.boolean()])
+		.describe("value to compare against"),
+});
+
+export const dbWhereConditionsDescription =
+	"Database WHERE clause. Always emit an array of condition objects; never emit strings, SQL snippets, or if-block conditions. Each attribute and value must be a tagged object. Example: [{ attribute: { kind: 'column', value: 'status' }, operator: 'eq', value: { kind: 'literal', value: 'active' }, chain: 'and' }].";
+
+export const dbConditionSideSchema = z.discriminatedUnion("kind", [
+	columnRefSchema,
+	literalRefSchema,
+]);
+
+export const whereConditionSchema = z
+	.object({
+	attribute: dbConditionSideSchema
+		.describe(
+			"Required DB condition-side object: { kind: 'column', value: 'table.column' } or { kind: 'literal', value }. Never a bare string or number.",
+		),
+	operator: operatorSchema
+		.exclude(["js", "is_empty", "is_not_empty"])
+		.describe("Database comparison operator, for example eq, neq, gt, gte, lt, lte."),
+	value: dbConditionSideSchema
+		.describe("Required DB condition-side object: { kind: 'literal', value } or { kind: 'column', value: 'table.column' }. Never a bare string or number."),
+	chain: z.enum(["and", "or"]).describe("How this condition joins to next WHERE condition."),
+	})
+	.superRefine((condition, context) => {
+		if (
+			condition.attribute.kind === "literal" &&
+			condition.value.kind === "literal"
+		) {
+			context.addIssue({
+				code: "custom",
+				message: "A database WHERE condition must reference at least one column.",
+				path: ["value"],
+			});
+		}
+	});
 
 /** every db block resolves its adapter the same way */
 export function adapterFor(context: Context, connection: string) {

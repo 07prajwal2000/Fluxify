@@ -20,15 +20,15 @@
 				"tableName": "todos",
 				"conditions": [
 					{
-						"attribute": "status",
+						"attribute": { "kind": "column", "value": "status" },
 						"operator": "eq",
-						"value": "pending",
+						"value": { "kind": "literal", "value": "pending" },
 						"chain": "and"
 					},
 					{
-						"attribute": "priority",
+						"attribute": { "kind": "column", "value": "priority" },
 						"operator": "lte",
-						"value": "9",
+						"value": { "kind": "literal", "value": "9" },
 						"chain": "and"
 					}
 				],

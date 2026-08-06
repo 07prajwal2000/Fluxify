@@ -62,9 +62,9 @@
 				"tableName": "auth_users",
 				"conditions": [
 					{
-						"attribute": "id",
+						"attribute": { "kind": "column", "value": "id" },
 						"operator": "eq",
-						"value": "js:return Number(input.payload.sub);",
+						"value": { "kind": "literal", "value": "js:return Number(input.payload.sub);" },
 						"chain": "and"
 					}
 				],
