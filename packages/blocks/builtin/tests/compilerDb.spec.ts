@@ -84,8 +84,8 @@ describe("compiled db blocks", () => {
 			connection: "conn-1",
 			tableName: "users",
 			conditions: [
-				{ attribute: "id", operator: "eq", value: "js:return input.id", chain: "and" },
-				{ attribute: "status", operator: "neq", value: "deleted", chain: "and" },
+				{ attribute: { kind: "column", value: "id" }, operator: "eq", value: { kind: "literal", value: "js:return input.id" }, chain: "and" },
+				{ attribute: { kind: "column", value: "status" }, operator: "neq", value: { kind: "literal", value: "deleted" }, chain: "and" },
 			],
 			columns: ["id", "name"],
 			joins: [],
@@ -98,11 +98,43 @@ describe("compiled db blocks", () => {
 		expect(mock.calls[0].method).toBe("getSingle");
 		expect(mock.calls[0].args[0]).toBe("users");
 		expect(mock.calls[0].args[1]).toEqual([
-			{ attribute: "id", operator: "eq", value: 7, chain: "and" },
-			{ attribute: "status", operator: "neq", value: "deleted", chain: "and" },
+			{ attribute: { kind: "column", value: "id" }, operator: "eq", value: { kind: "literal", value: 7 }, chain: "and" },
+			{ attribute: { kind: "column", value: "status" }, operator: "neq", value: { kind: "literal", value: "deleted" }, chain: "and" },
 		]);
 		expect(mock.calls[0].args[2]).toEqual({ joins: [], columns: ["id", "name"] });
 		expect(result.output.body).toEqual({ id: 7, name: "ada" });
+	});
+
+	it("evaluates a js expression inside a tagged condition side", async () => {
+		const mock = createDbAdapter({ getSingle: { id: 7 } });
+		const target = block("db", BlockTypes.db_getsingle, {
+			connection: "conn-1",
+			tableName: "users",
+			conditions: [
+				// a tagged side is an object, and objects used to be baked in
+				// verbatim — the js: below shipped to the adapter as literal text
+				{
+					attribute: { kind: "literal", value: "js:return input.id" },
+					operator: "eq",
+					value: { kind: "column", value: "id" },
+					chain: "and",
+				},
+			],
+			columns: [],
+			joins: [],
+		});
+
+		const { result } = await runAround(target, { id: 7 }, mock);
+
+		expect(mock.calls[0].args[1]).toEqual([
+			{
+				attribute: { kind: "literal", value: 7 },
+				operator: "eq",
+				value: { kind: "column", value: "id" },
+				chain: "and",
+			},
+		]);
+		expect(result.output.body).toEqual({ id: 7 });
 	});
 
 	it("evaluates js table names, limit and offset for get all", async () => {
@@ -125,6 +157,36 @@ describe("compiled db blocks", () => {
 		expect(offset).toBe(0); // NaN falls back, same as the interpreted block
 		expect(sort).toEqual({ attribute: "id", direction: "desc" });
 		expect(result.output.body).toEqual([{ id: 1 }]);
+	});
+
+	it("passes tagged conditions to get all", async () => {
+		const mock = createDbAdapter({ getAll: [{ id: 7 }] });
+		const target = block("db", BlockTypes.db_getall, {
+			connection: "conn-1",
+			tableName: "users",
+			conditions: [
+				{
+					attribute: { kind: "column", value: "id" },
+					operator: "eq",
+					value: { kind: "literal", value: "js:return input.id" },
+					chain: "and",
+				},
+			],
+			limit: 10,
+			offset: 0,
+			sort: { attribute: "id", direction: "asc" },
+		});
+
+		await runAround(target, { id: 7 }, mock);
+
+		expect(mock.calls[0].args[1]).toEqual([
+			{
+				attribute: { kind: "column", value: "id" },
+				operator: "eq",
+				value: { kind: "literal", value: 7 },
+				chain: "and",
+			},
+		]);
 	});
 
 	it("inlines js values inside a literal insert payload", async () => {
@@ -196,7 +258,7 @@ describe("compiled db blocks", () => {
 				tableName: "users",
 				useParam: false,
 				conditions: [
-					{ attribute: "id", operator: "eq", value: "js:return input.id", chain: "and" },
+					{ attribute: { kind: "column", value: "id" }, operator: "eq", value: { kind: "literal", value: "js:return input.id" }, chain: "and" },
 				],
 				data: { source: "raw", value: { name: "js:return input.name" } },
 			}),
@@ -206,7 +268,7 @@ describe("compiled db blocks", () => {
 		expect(updateMock.calls[0].args).toEqual([
 			"users",
 			{ name: "grace" },
-			[{ attribute: "id", operator: "eq", value: 3, chain: "and" }],
+			[{ attribute: { kind: "column", value: "id" }, operator: "eq", value: { kind: "literal", value: 3 }, chain: "and" }],
 		]);
 
 		const deleteMock = createDbAdapter({ delete: 1 });
@@ -215,7 +277,7 @@ describe("compiled db blocks", () => {
 				connection: "conn-1",
 				tableName: "users",
 				conditions: [
-					{ attribute: "id", operator: "eq", value: "js:return input.id", chain: "and" },
+					{ attribute: { kind: "column", value: "id" }, operator: "eq", value: { kind: "literal", value: "js:return input.id" }, chain: "and" },
 				],
 			}),
 			{ id: 3 },
@@ -223,7 +285,7 @@ describe("compiled db blocks", () => {
 		);
 		expect(deleteMock.calls[0].args).toEqual([
 			"users",
-			[{ attribute: "id", operator: "eq", value: 3, chain: "and" }],
+			[{ attribute: { kind: "column", value: "id" }, operator: "eq", value: { kind: "literal", value: 3 }, chain: "and" }],
 		]);
 	});
 

@@ -243,6 +243,7 @@
         "@fluxify/lib": "workspace:*",
         "dayjs": "^1.11.19",
         "jsonwebtoken": "^9.0.3",
+        "underscore": "^1.13.8",
         "zod": "^4.0.17",
       },
       "devDependencies": {
@@ -315,6 +316,27 @@
       "devDependencies": {
         "@types/node": "^24.10.1",
         "@typescript/native-preview": "^7.0.0-dev.20260219.1",
+      },
+    },
+    "testing/e2e": {
+      "name": "@fluxify/e2e",
+      "version": "1.0.0",
+      "dependencies": {
+        "@fluxify/adapters": "workspace:*",
+        "@fluxify/blocks": "workspace:*",
+        "@fluxify/lib": "workspace:*",
+        "@fluxify/server": "workspace:*",
+      },
+      "devDependencies": {
+        "@faker-js/faker": "^10.3.0",
+        "@types/bun": "^1.3.9",
+        "@types/dockerode": "^4.0.1",
+        "@types/jsonwebtoken": "^9.0.10",
+        "@types/node": "^24.2.1",
+        "@typescript/native-preview": "^7.0.0-dev.20260219.1",
+        "dockerode": "^4.0.9",
+        "jsonwebtoken": "^9.0.3",
+        "mongodb": "7.2.0",
       },
     },
   },
@@ -606,6 +628,8 @@
     "@fluxify/common": ["@fluxify/common@workspace:packages/common"],
 
     "@fluxify/components": ["@fluxify/components@workspace:packages/components"],
+
+    "@fluxify/e2e": ["@fluxify/e2e@workspace:testing/e2e"],
 
     "@fluxify/lib": ["@fluxify/lib@workspace:packages/lib"],
 

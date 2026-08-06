@@ -1,0 +1,145 @@
+{
+	"name": "auth/logout",
+	"description": "POST /auth/logout — acknowledges a valid bearer token. Nothing is revoked: JWTs are stateless until session storage exists.",
+	"engine": "pg",
+	"route": {
+		"method": "POST",
+		"path": "/auth/logout"
+	},
+	"blocks": [
+		{
+			"id": "entry",
+			"type": "entrypoint",
+			"position": {
+				"x": 0,
+				"y": 0
+			},
+			"data": {
+				"blockName": "Request"
+			}
+		},
+		{
+			"id": "verify-token",
+			"type": "jsrunner",
+			"position": {
+				"x": 240,
+				"y": 0
+			},
+			"data": {
+				"blockName": "Verify the bearer token",
+				"value": "const header = getHeader(\"authorization\");\nreturn jwt.verify(header.replace(/^Bearer\\s+/i, \"\"), \"e2e-jwt-secret\", { issuer: \"fluxify-e2e\" });"
+			}
+		},
+		{
+			"id": "authenticated",
+			"type": "if",
+			"position": {
+				"x": 480,
+				"y": 0
+			},
+			"data": {
+				"blockName": "Token valid?",
+				"conditions": [
+					{
+						"lhs": "js:return input.success;",
+						"rhs": true,
+						"operator": "eq",
+						"chain": "and"
+					}
+				]
+			}
+		},
+		{
+			"id": "ok-body",
+			"type": "jsrunner",
+			"position": {
+				"x": 720,
+				"y": -120
+			},
+			"data": {
+				"blockName": "Logout payload",
+				"value": "return { ok: true, sub: input.payload.sub };"
+			}
+		},
+		{
+			"id": "logged-out",
+			"type": "response",
+			"position": {
+				"x": 960,
+				"y": -120
+			},
+			"data": {
+				"blockName": "200 OK",
+				"httpCode": "200"
+			}
+		},
+		{
+			"id": "anonymous-body",
+			"type": "jsrunner",
+			"position": {
+				"x": 720,
+				"y": 120
+			},
+			"data": {
+				"blockName": "Unauthenticated payload",
+				"value": "return { error: \"unauthenticated\" };"
+			}
+		},
+		{
+			"id": "anonymous",
+			"type": "response",
+			"position": {
+				"x": 960,
+				"y": 120
+			},
+			"data": {
+				"blockName": "401 Unauthorized",
+				"httpCode": "401"
+			}
+		}
+	],
+	"edges": [
+		{
+			"id": "e-entry-verify",
+			"from": "entry",
+			"to": "verify-token",
+			"fromHandle": "source",
+			"toHandle": "source"
+		},
+		{
+			"id": "e-verify-check",
+			"from": "verify-token",
+			"to": "authenticated",
+			"fromHandle": "source",
+			"toHandle": "source"
+		},
+		{
+			"id": "e-check-ok",
+			"from": "authenticated",
+			"to": "ok-body",
+			"fromHandle": "success",
+			"toHandle": "success"
+		},
+		{
+			"id": "e-ok-response",
+			"from": "ok-body",
+			"to": "logged-out",
+			"fromHandle": "source",
+			"toHandle": "source"
+		},
+		{
+			"id": "e-check-anonymous",
+			"from": "authenticated",
+			"to": "anonymous-body",
+			"fromHandle": "failure",
+			"toHandle": "failure"
+		},
+		{
+			"id": "e-anonymous-response",
+			"from": "anonymous-body",
+			"to": "anonymous",
+			"fromHandle": "source",
+			"toHandle": "source"
+		}
+	]
+}

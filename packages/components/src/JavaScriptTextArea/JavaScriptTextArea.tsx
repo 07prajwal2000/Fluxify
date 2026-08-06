@@ -74,8 +74,9 @@ export function JavaScriptTextArea({
 	);
 
 	return (
-		// Monaco owns Tab for indentation. Without this, an enclosing focus scope
-		// (popover/modal) steals the key and the user can't indent their code.
+		// Monaco owns keyboard input inside its editor. Without stopping propagation,
+		// enclosing containers (canvas, focus scopes, popovers, modals, hotkey listeners)
+		// intercept keys like Space, Tab, Delete, etc., blocking normal code editing.
 		<div
 			aria-label={ariaLabel}
 			className={clsx(
@@ -83,7 +84,7 @@ export function JavaScriptTextArea({
 				className,
 			)}
 			onKeyDown={(event) => {
-				if (event.key === "Tab") event.stopPropagation();
+				event.stopPropagation();
 			}}
 		>
 			<Editor

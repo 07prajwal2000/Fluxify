@@ -1,0 +1,3 @@
+[test]
+# One shared container for the whole run — the teardown has to be global.
+preload = ["./src/setup.ts"]

@@ -48,5 +48,6 @@ const total = rawAmount * (1 + taxRate);
 To write effective scripts, you should be familiar with the following three concepts:
 
 - **[Scripting Context](./context.md)**: A global scope injected with helper functions (`getQueryParam`, `setHeader`, `jwt.sign`), third-party libraries (Zod, Underscore, Day.js), and workflow state variable definitions.
+- **[Imports & Libraries](./imports.md)**: Load modules with standard `import` syntax. Imports are hoisted, so they cost nothing per request.
 - **The `input` Variable**: A special local variable containing the outputs of the block immediately preceding the script block.
 - **[Execution Limits & Safety](./key-considerations.md)**: Strict runtime timeouts (4 seconds) and sandbox isolations designed to prevent resource abuse and guarantee API availability.

@@ -9,9 +9,10 @@ import type { IDbAdapter } from "@fluxify/adapters";
 import {
 	adapterFor,
 	dbFailure,
-	emitWhereConditions,
+	dbWhereConditionsDescription,
 	whereConditionSchema,
 } from "./schema";
+import { emitWhereConditions } from "./emitConditions";
 import { ConditionEvaluator } from "../conditionEvaluator";
 import { logger } from "@fluxify/common";
 import { emitJsObject, type EmitNode } from "../../compiler";
@@ -20,7 +21,7 @@ export const updateDbBlockSchema = z
 	.object({
 		connection: z.string().describe("integration id"),
 		tableName: z.string().describe("table name (supports js expression)"),
-		conditions: z.array(whereConditionSchema).describe("list of conditions"),
+		conditions: z.array(whereConditionSchema).describe(dbWhereConditionsDescription),
 		data: z.object({
 			source: z.enum(["raw", "js"]).describe("source of the value"),
 			value: z

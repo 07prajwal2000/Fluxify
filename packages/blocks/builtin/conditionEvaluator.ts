@@ -59,19 +59,25 @@ export class ConditionEvaluator {
     return totalTrues == totalOperators - checkpoint;
   }
   public static async evaluateScript(lhs: any, rhs: any, vm: JsVM) {
-    lhs =
-      typeof lhs === "string"
-        ? lhs.startsWith("js:")
-          ? await vm.run(lhs.slice(3))
-          : lhs
-        : lhs;
-    rhs =
-      typeof rhs === "string"
-        ? rhs.startsWith("js:")
-          ? await vm.run(rhs.slice(3))
-          : rhs
-        : rhs;
-    return { lhs, rhs };
+    return {
+      lhs: await ConditionEvaluator.evaluateSide(lhs, vm),
+      rhs: await ConditionEvaluator.evaluateSide(rhs, vm),
+    };
+  }
+
+  /**
+   * A db condition side is either a bare value or a `{ kind, value }` tag. The
+   * js: prefix lives on the payload either way, so unwrap the tag, run the
+   * expression, and put the result back under the same kind — dropping the tag
+   * here would turn a literal into a column reference.
+   */
+  private static async evaluateSide(side: any, vm: JsVM): Promise<any> {
+    if (side && typeof side === "object" && "kind" in side) {
+      return { ...side, value: await ConditionEvaluator.evaluateSide(side.value, vm) };
+    }
+    return typeof side === "string" && side.startsWith("js:")
+      ? await vm.run(side.slice(3))
+      : side;
   }
   public static async evaluateOperator(
     lhs: any,

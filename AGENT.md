@@ -16,6 +16,24 @@ When processing a user request, you must execute the following steps entirely wi
 - Do not use `npm`, `yarn`, or `pnpm` unless explicitly instructed otherwise.
 - Use `bun` to execute JavaScript/TypeScript files.
 
+## Frontend Location — `apps/portal` ONLY
+**CRITICAL:** The frontend is `apps/portal`. **`apps/web` is LEGACY — never edit it.**
+- Do not add, modify, or "fix" anything under `apps/web`, even when a file there
+  looks like exactly the thing the task describes. It is the older Next.js app
+  and is not the shipping UI.
+- Both apps contain same-named components for the same features (block settings
+  panels, conditions editors, integration selectors). Matching a filename is NOT
+  evidence you are in the right app — check the path prefix first.
+- `apps/web` also has `"lint": ""` in its `package.json`, so `bun run lint`
+  reports success without typechecking it. A green lint does not mean work there
+  was validated.
+- Portal specifics worth knowing before searching: shared UI lives in
+  `packages/components` (HeroUI, e.g. `ConditionsBuilder`, `JsTextField`),
+  block settings panels in `apps/portal/src/components/canvas/panel/blocks/`,
+  and database introspection is already available via `useDbMetadata`
+  (`tableNames` / `getColumnsForTable` / `allColumns`). Check these before
+  building a new component — the equivalent usually already exists.
+
 ## Git & GitHub Workflow Rules
 On each new conversation, you MUST:
 1. Ask the user whether they want to create a new branch or work on the `main` branch.

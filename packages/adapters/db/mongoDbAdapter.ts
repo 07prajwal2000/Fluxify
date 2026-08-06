@@ -8,7 +8,7 @@ import {
 	QueryOptions,
 } from ".";
 import { JsVM } from "@fluxify/lib";
-import { toMongoField, isNumericLike } from "./jsonPath";
+import { toMongoField, isNumericLike, isColumnRef, isLiteralRef } from "./jsonPath";
 
 export class MongoAdapter implements IDbAdapter {
 	public static variant = "MongoDB";
@@ -292,13 +292,29 @@ export class MongoAdapter implements IDbAdapter {
 	}
 
 	private createExpr(cond: DBConditionType): Record<string, unknown> {
+		// ponytail: both of these need $expr on Mongo, which the rest of this
+		// builder isn't shaped for. Rejected loudly rather than silently matching
+		// the literal string "email". Wire $expr here when a graph needs it.
+		if (isColumnRef(cond.value))
+			throw new Error(
+				"column references in conditions are not supported on MongoDB",
+			);
+		if (isLiteralRef(cond.attribute))
+			throw new Error(
+				"literal attributes in conditions are not supported on MongoDB",
+			);
+
+		// a tagged column means exactly what the untagged string does here
+		const attribute = isColumnRef(cond.attribute)
+			? cond.attribute.value
+			: cond.attribute;
+
 		// "items[0].name" -> "items.0.name"; "id" stays the _id alias.
-		const attr =
-			cond.attribute === "id" ? "_id" : toMongoField(cond.attribute);
+		const attr = attribute === "id" ? "_id" : toMongoField(attribute);
 
 		// Explicitly typing as 'unknown' allows us to safely overwrite
 		// the primitive value with a MongoDB ObjectId class instance.
-		let val: unknown = cond.value;
+		let val: unknown = isLiteralRef(cond.value) ? cond.value.value : cond.value;
 
 		// Ordering ops carry numeric intent; coerce numeric-like strings so BSON
 		// compares them as numbers instead of by string ordering. eq/neq stay as

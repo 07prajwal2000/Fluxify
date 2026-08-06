@@ -30,7 +30,11 @@ If a column stores JSON data (for example a Postgres `jsonb` column or a MongoDB
 
 Example: a condition on `attributes.age` with operator `>=` and value `18` matches a record where the `age` field inside `attributes` is 18 or higher. This works the same way whether the value is stored as a number or as a numeric-looking string.
 
-The value side of a condition can also point at a field instead of a fixed value — for example, checking that `attributes.age` is greater than or equal to `attributes.minAge` compares two fields on the same record.
+The value side of a condition can also point at a field instead of a fixed value — for example, checking that `attributes.age` is greater than or equal to `attributes.minAge` compares two fields on the same record. This has to be marked explicitly as a field reference; otherwise the value is always compared as-is, so an ordinary value that happens to contain dots (an email address, a version number, a domain) is matched exactly and never mistaken for a field name.
+
+::: info MongoDB
+Comparing two fields against each other is only available on SQL databases.
+:::
 
 ## Joins
 

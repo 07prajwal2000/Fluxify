@@ -1,0 +1,179 @@
+{
+	"name": "auth/verify-email",
+	"description": "POST /auth/verify/:userId — flips verified to true for the account named by the route param, 404 when no row was touched.",
+	"engine": "pg",
+	"route": {
+		"method": "POST",
+		"path": "/auth/verify/:userId"
+	},
+	"schemas": {
+		"params": {
+			"dataType": "object",
+			"properties": [
+				{
+					"key": "userId",
+					"dataType": "int",
+					"required": true,
+					"rules": [
+						{
+							"type": "min",
+							"value": 1
+						}
+					]
+				}
+			]
+		}
+	},
+	"blocks": [
+		{
+			"id": "entry",
+			"type": "entrypoint",
+			"position": {
+				"x": 0,
+				"y": 0
+			},
+			"data": {
+				"blockName": "Request"
+			}
+		},
+		{
+			"id": "mark-verified",
+			"type": "db_update",
+			"position": {
+				"x": 240,
+				"y": 0
+			},
+			"data": {
+				"blockName": "Mark verified",
+				"connection": "primary",
+				"tableName": "auth_users",
+				"useParam": false,
+				"conditions": [
+					{
+						"attribute": { "kind": "column", "value": "id" },
+						"operator": "eq",
+						"value": { "kind": "literal", "value": "js:return Number(getRouteParam(\"userId\"));" },
+						"chain": "and"
+					}
+				],
+				"data": {
+					"source": "raw",
+					"value": {
+						"verified": true
+					}
+				}
+			}
+		},
+		{
+			"id": "row-updated",
+			"type": "if",
+			"position": {
+				"x": 480,
+				"y": 0
+			},
+			"data": {
+				"blockName": "Any row updated?",
+				"conditions": [
+					{
+						"lhs": "js:return input.length > 0;",
+						"rhs": true,
+						"operator": "eq",
+						"chain": "and"
+					}
+				]
+			}
+		},
+		{
+			"id": "verified-body",
+			"type": "jsrunner",
+			"position": {
+				"x": 720,
+				"y": -120
+			},
+			"data": {
+				"blockName": "Verified payload",
+				"value": "return { id: input[0].id, email: input[0].email, verified: input[0].verified };"
+			}
+		},
+		{
+			"id": "verified",
+			"type": "response",
+			"position": {
+				"x": 960,
+				"y": -120
+			},
+			"data": {
+				"blockName": "200 OK",
+				"httpCode": "200"
+			}
+		},
+		{
+			"id": "missing-body",
+			"type": "jsrunner",
+			"position": {
+				"x": 720,
+				"y": 120
+			},
+			"data": {
+				"blockName": "Not found payload",
+				"value": "return { error: \"user_not_found\" };"
+			}
+		},
+		{
+			"id": "missing",
+			"type": "response",
+			"position": {
+				"x": 960,
+				"y": 120
+			},
+			"data": {
+				"blockName": "404 Not Found",
+				"httpCode": "404"
+			}
+		}
+	],
+	"edges": [
+		{
+			"id": "e-entry-update",
+			"from": "entry",
+			"to": "mark-verified",
+			"fromHandle": "source",
+			"toHandle": "source"
+		},
+		{
+			"id": "e-update-check",
+			"from": "mark-verified",
+			"to": "row-updated",
+			"fromHandle": "source",
+			"toHandle": "source"
+		},
+		{
+			"id": "e-check-verified",
+			"from": "row-updated",
+			"to": "verified-body",
+			"fromHandle": "success",
+			"toHandle": "success"
+		},
+		{
+			"id": "e-verified-response",
+			"from": "verified-body",
+			"to": "verified",
+			"fromHandle": "source",
+			"toHandle": "source"
+		},
+		{
+			"id": "e-check-missing",
+			"from": "row-updated",
+			"to": "missing-body",
+			"fromHandle": "failure",
+			"toHandle": "failure"
+		},
+		{
+			"id": "e-missing-response",
+			"from": "missing-body",
+			"to": "missing",
+			"fromHandle": "source",
+			"toHandle": "source"
+		}
+	]
+}

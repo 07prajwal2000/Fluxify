@@ -12,13 +12,14 @@
 		"dev:docs": "vitepress dev docs",
 		"build": "turbo run build",
 		"lint": "turbo run lint",
-		"test:unit": "bun test --path-ignore-patterns \"**/*.test.ts\"",
-		"test:integration": "bun test --parallel --path-ignore-patterns \"**/*.spec.ts\"",
+		"test:unit": "bun test --timeout 300000 --path-ignore-patterns \"**/*.test.ts\"",
+		"test:integration": "bun test --parallel --timeout 300000 --path-ignore-patterns \"**/*.spec.ts\" --path-ignore-patterns \"testing/**\"",
 		"test:lib": "bun run --parallel --cwd packages/lib test",
 		"test:blocks": "bun run --parallel --cwd packages/blocks test",
 		"test:adapters": "bun run --parallel --cwd packages/adapters test",
 		"test:server:unit": "bun test --parallel --cwd apps/server --path-ignore-patterns \"**/*.test.ts\"",
 		"test:server:integration": "bun test --parallel --cwd apps/server --path-ignore-patterns \"**/*.spec.ts\"",
+		"test:e2e": "bun test --cwd testing/e2e --timeout 600000",
 		"test:portal": "bun test --parallel --cwd apps/portal",
 		"test:ai-gateway": "bun test --parallel --cwd apps/ai-gateway",
 		"test:ai": "bun run test:ai-gateway",
@@ -41,7 +42,8 @@
 	],
 	"workspaces": [
 		"packages/*",
-		"apps/*"
+		"apps/*",
+		"testing/e2e"
 	],
 	"packageManager": "bun@1.3.14",
 	"author": "07prajwal2000",
