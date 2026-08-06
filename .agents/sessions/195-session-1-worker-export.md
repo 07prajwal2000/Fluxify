@@ -76,6 +76,12 @@ yet. An untraced route is byte-identical to today.
    at the `RouteExecutionObserver` start hook. Caps: spans/run, runs buffered,
    bytes/span, flush queue depth. Overflow drops the whole affected trace and
    bumps a counter — never delays the request.
+
+   **The run header must carry both `Date.now()` and the `performance.now()`
+   origin taken at the same instant.** Span times are `performance.now()`
+   readings, meaningless off-box; the telemetry worker reconstructs wall clock as
+   `wallStart + (spanT − perfOrigin)`. Without both, every exported span is
+   timestamped wrong. (Found while scoping session 2.)
 4. **IPC batching** — new `ExecutionEvent` variants in `threadTypes.ts`. Flush
    interval must be well under the route timeout: the watchdog `kill()`s the child
    and anything buffered dies with it.

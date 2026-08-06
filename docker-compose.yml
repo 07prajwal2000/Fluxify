@@ -54,32 +54,54 @@ services:
       - default
 
   # =========================================================================
-  # ARIZE PHOENIX (Open-Source AI Observability & OTel Trace Collector)
+  # JAEGER (OpenTelemetry trace collector and trace UI)
   # =========================================================================
-  # Phoenix is an AI-focused tracing collector that visualizes chat history,
-  # tool calls, token costs, and regular system microservice traces.
-  phoenix:
-    image: arizephoenix/phoenix:latest
-    container_name: phoenix
+  jaeger:
+    image: jaegertracing/all-in-one:latest
+    container_name: jaeger
     restart: unless-stopped
     ports:
-      - 6006:6006 # Main Web UI Dashboard
-      # - 4317:4317 # Standard OpenTelemetry (OTel) gRPC collector port
-      - 4318:4318 # Standard OpenTelemetry (OTel) HTTP/JSON collector port
+      - 16686:16686 # Jaeger trace UI
+      - 4317:4317 # OpenTelemetry Protocol (OTLP) over gRPC
+      - 4318:4318 # OpenTelemetry Protocol (OTLP) over HTTP
+    networks:
+      - default
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    restart: unless-stopped
+    ports:
+      - 3000:3000 # Grafana UI
     environment:
-      # UNUSUAL/IMPORTANT ENV: Phoenix runs with zero authentication by default,
-      # which is perfect for local testing. If you put this on a public server, 
-      # you must set PHOENIX_ENABLE_AUTH=true and provide a PHOENIX_SECRET_KEY.
-      - PHOENIX_PORT=6006
-      - PHOENIX_GRPC_PORT=4317
-      # UNUSUAL PROPERTY (Collector vs Backend): Unlike OpenObserve which uses
-      # dedicated tables/indices for generic log storage, Phoenix processes
-      # OTel spans instantly in memory to build live execution trace trees.
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_AUTH_ANONYMOUS_ENABLED: "false"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./docker/grafana/provisioning:/etc/grafana/provisioning:ro
+    networks:
+      - default
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    restart: unless-stopped
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --web.enable-otlp-receiver
+    ports:
+      - 9090:9090 # Prometheus UI and OTLP HTTP metrics receiver
+    volumes:
+      - ./docker/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
     networks:
       - default
 
 volumes:
   fluxify_pg_volume:
+  grafana_data:
+  prometheus_data:
 networks:
   default:
     driver: bridge
