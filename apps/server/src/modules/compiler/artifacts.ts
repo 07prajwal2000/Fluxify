@@ -14,6 +14,17 @@ export type RouteArtifact = {
 	querySchema?: unknown;
 	paramsSchema?: unknown;
 	timeoutSeconds: number;
+	/** spans exported to the project's OTEL destination; nothing is stored by us */
+	tracingEnabled: boolean;
+	/** debug recording, persisted for the portal trace viewer; expensive */
+	recordExecution: boolean;
+	/**
+	 * Identifies the graph a recorded run belongs to. Route versioning is not
+	 * built yet, so this is the compile timestamp — a real, distinct value per
+	 * publish that the portal can resolve a recorded run against. It becomes the
+	 * version id when versioning lands; it travels on the run header, not per span.
+	 */
+	routeVersion: string;
 	/** compiled graph source, instantiated by the worker */
 	source: string;
 	compiledAt: string;

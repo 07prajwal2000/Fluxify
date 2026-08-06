@@ -13,6 +13,8 @@ export const requestBodySchema = z.object({
     .optional(),
   active: z.boolean().optional(),
   timeoutSeconds: z.number().int().min(30).optional(),
+  tracingEnabled: z.boolean().optional(),
+  recordExecution: z.boolean().optional(),
 });
 
 export const requestRouteSchema = z.object({

@@ -100,6 +100,8 @@ export async function compileRoute(routeId: string) {
 			querySchema: routesEntity.querySchema,
 			paramsSchema: routesEntity.paramsSchema,
 			timeoutSeconds: routesEntity.timeoutSeconds,
+			tracingEnabled: routesEntity.tracingEnabled,
+			recordExecution: routesEntity.recordExecution,
 		})
 		.from(routesEntity)
 		.leftJoin(projectsEntity, eq(routesEntity.projectId, projectsEntity.id))
@@ -114,6 +116,7 @@ export async function compileRoute(routeId: string) {
 	const { blocks, edges } = await loadGraph({ type: "route", id: routeId });
 	const { source } = compileGraph(blocks, edges);
 
+	const compiledAt = new Date().toISOString();
 	const artifact: RouteArtifact = {
 		routeId,
 		projectId: route.projectId!,
@@ -124,8 +127,12 @@ export async function compileRoute(routeId: string) {
 		querySchema: route.querySchema,
 		paramsSchema: route.paramsSchema,
 		timeoutSeconds: route.timeoutSeconds,
+		tracingEnabled: route.tracingEnabled,
+		recordExecution: route.recordExecution,
+		// no versioning yet — the compile timestamp is the version (see RouteArtifact)
+		routeVersion: compiledAt,
 		source,
-		compiledAt: new Date().toISOString(),
+		compiledAt,
 	};
 	await putArtifact(routeKey(route.projectId!, routeId), artifact);
 	logger.info(`[compiler] compiled route ${route.method} ${route.path}`, "COMPILER");

@@ -127,4 +127,24 @@ describe("Testing routing parser", () => {
     expect(parser.getRouteId("/api/members", "GET")).toBeNull();
     expect(parser.getRouteId("/api/posts", "GET")?.id).toBe("posts");
   });
+
+  it("carries the whole route through a match, not a copied subset", () => {
+    parser.upsertRoute({
+      routeId: "traced",
+      path: "/api/traced",
+      method: "GET",
+      projectId: "project",
+      projectName: "Project",
+      timeoutSeconds: 45,
+      tracingEnabled: true,
+      recordExecution: true,
+      routeVersion: "2026-08-06T00:00:00.000Z",
+    });
+
+    const match = parser.getRouteId("/api/traced", "GET");
+    expect(match?.timeoutSeconds).toBe(45);
+    expect(match?.tracingEnabled).toBe(true);
+    expect(match?.recordExecution).toBe(true);
+    expect(match?.routeVersion).toBe("2026-08-06T00:00:00.000Z");
+  });
 });

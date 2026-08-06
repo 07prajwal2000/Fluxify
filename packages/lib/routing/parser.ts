@@ -8,19 +8,20 @@ export type HttpRoute = {
   querySchema?: any;
   paramsSchema?: any;
   timeoutSeconds?: number;
+  /** spans exported to the project's OTEL destination; nothing is stored by us */
+  tracingEnabled?: boolean;
+  /** debug recording, persisted for the portal trace viewer; expensive */
+  recordExecution?: boolean;
+  /** identifies the graph a recorded run belongs to, for the portal overlay */
+  routeVersion?: string;
 };
 
 export type RouteTree = {
   subPath: string;
   isParam: boolean;
   children: Record<string, RouteTree>;
-  id?: string;
-  projectId?: string;
-  projectName?: string;
-  bodySchema?: any;
-  querySchema?: any;
-  paramsSchema?: any;
-  timeoutSeconds?: number;
+  /** only set on a `<ID>` leaf — the matched route, carried whole */
+  route?: HttpRoute;
 };
 
 export class HttpRouteParser {
@@ -71,13 +72,7 @@ export class HttpRouteParser {
       children: {},
       isParam: false,
       subPath: "",
-      id: route.routeId,
-      projectId: route.projectId,
-      projectName: route.projectName,
-      bodySchema: route.bodySchema,
-      querySchema: route.querySchema,
-      paramsSchema: route.paramsSchema,
-      timeoutSeconds: route.timeoutSeconds,
+      route,
     };
   }
 
@@ -107,7 +102,7 @@ export class HttpRouteParser {
       current = branch.children;
     }
 
-    if (current["<ID>"]?.id === routeId) {
+    if (current["<ID>"]?.route?.routeId === routeId) {
       delete current["<ID>"];
       for (const { parent, key } of branches.toReversed()) {
         const branch = parent[key];
@@ -124,16 +119,7 @@ export class HttpRouteParser {
   public getRouteId(
     path: string,
     method: HttpRoute["method"],
-  ): {
-    id: string;
-    routeParams?: Record<string, string>;
-    projectId: string;
-    projectName: string;
-    bodySchema?: any;
-    querySchema?: any;
-    paramsSchema?: any;
-    timeoutSeconds?: number;
-  } | null {
+  ): (HttpRoute & { id: string; routeParams?: Record<string, string> }) | null {
     const parts = path.split("/").filter((p) => p.trim() != "");
     let current = this.routesTree;
     const params: Record<string, string> = {};
@@ -159,16 +145,9 @@ export class HttpRouteParser {
       }
     }
     if (match == parts.length && "<ID>" in current) {
-      return {
-        id: current["<ID>"].id!,
-        routeParams: params,
-        projectId: current["<ID>"].projectId!,
-        projectName: current["<ID>"].projectName!,
-        bodySchema: current["<ID>"].bodySchema,
-        querySchema: current["<ID>"].querySchema,
-        paramsSchema: current["<ID>"].paramsSchema,
-        timeoutSeconds: current["<ID>"].timeoutSeconds,
-      };
+      const route = current["<ID>"].route!;
+      // `id` is the historical name callers match on; keep it alongside routeId
+      return { ...route, id: route.routeId, routeParams: params };
     }
     return null;
   }
