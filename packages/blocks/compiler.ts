@@ -337,7 +337,7 @@ export function compileGraph(
 			const outcome = error === undefined ? "success" : "failure";
 			const branchField = branch ? `, branch: ${JSON.stringify(branch)}` : "";
 			const errorField = error === undefined ? "" : `, error: ${error}`;
-			const span = `{ blockId: ${blockId}, blockType: ${blockType}, input: $input, output: ${output}, outcome: ${JSON.stringify(outcome)}${branchField}${errorField} }`;
+			const span = `{ blockId: ${blockId}, blockType: ${blockType}, input: $input, output: ${output}, startedAt: $t0, endedAt: performance.now(), outcome: ${JSON.stringify(outcome)}${branchField}${errorField} }`;
 			return `$recorded = true;
 if ($trace) {
 try {
@@ -395,6 +395,7 @@ return ${result};`;
 		return `// ${block.type} ${id}
 async function ${blockFunctionName(id)}($state, $input, $end) {
 const { ctx, vars, scope: $scope, trace: $trace } = $state;
+const $t0 = $trace ? performance.now() : 0;
 let $in = $input;
 let $recorded = false;
 try {

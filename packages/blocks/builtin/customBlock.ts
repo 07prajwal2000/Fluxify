@@ -66,14 +66,40 @@ function lookup(name: string): CompiledCustomBlock {
 	return compiled;
 }
 
+/**
+ * A nested graph shares the caller's Context, so without this its spans would
+ * land flat in the parent trace with nothing saying which block invoked them or
+ * which canvas their block ids belong to. `blockId` is the invoking block.
+ */
+function traced(
+	context: Context,
+	name: string,
+	blockId: string | undefined,
+	detached: boolean,
+) {
+	if (!context.trace || !blockId) return { context, close: () => {} };
+	const scope = context.trace.enterCustomBlock({ blockId, name, detached });
+	// a detached invocation records into its own trace, so it needs its own
+	// context — mutating the caller's would follow the request back out
+	const child =
+		scope.trace === context.trace ? context : { ...context, trace: scope.trace };
+	return { context: child, close: () => scope.close() };
+}
+
 /** sync: wait for the custom block and hand back its output */
 export async function invokeCustomBlock(
 	context: Context,
 	name: string,
 	params: any,
+	blockId?: string,
 ) {
-	const result = await lookup(name)(context, params);
-	return result?.output;
+	const scope = traced(context, name, blockId, false);
+	try {
+		const result = await lookup(name)(scope.context, params);
+		return result?.output;
+	} finally {
+		scope.close();
+	}
 }
 
 /**
@@ -85,12 +111,16 @@ export function invokeCustomBlockAsync(
 	context: Context,
 	name: string,
 	params: any,
+	blockId?: string,
 ) {
-	lookup(name)(context, params).catch((error) => {
-		logger.error(`Async custom block '${name}' failed`, "BLOCKS.customBlock", {
-			error,
-		});
-	});
+	const scope = traced(context, name, blockId, true);
+	lookup(name)(scope.context, params)
+		.catch((error) => {
+			logger.error(`Async custom block '${name}' failed`, "BLOCKS.customBlock", {
+				error,
+			});
+		})
+		.finally(() => scope.close());
 }
 
 export function emitCustomBlock(node: EmitNode) {
@@ -100,11 +130,12 @@ export function emitCustomBlock(node: EmitNode) {
 	const name = JSON.stringify(node.block.type);
 	// same shape the interpreted block passes: evaluated params plus the input
 	const args = `{ ...${emitJsObject(params, node)}, input: ${node.in} }`;
+	const id = JSON.stringify(node.block.id);
 
 	if (mode === "async") {
-		return `lib.invokeAsync(ctx, ${name}, ${args});\n${node.next()}`;
+		return `lib.invokeAsync(ctx, ${name}, ${args}, ${id});\n${node.next()}`;
 	}
-	return `${node.in} = await lib.invoke(ctx, ${name}, ${args});\n${node.next()}`;
+	return `${node.in} = await lib.invoke(ctx, ${name}, ${args}, ${id});\n${node.next()}`;
 }
 
 export class CustomBlock extends BaseBlock {
