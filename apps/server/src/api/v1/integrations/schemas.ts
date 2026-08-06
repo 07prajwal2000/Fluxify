@@ -22,7 +22,32 @@ export const aiVariantSchema = z.enum([
 	"OpenAI Compatible",
 ]);
 export const baasVariantSchema = z.enum(["Firebase", "Supabase"]);
-export const observabilityVariantSchema = z.enum(["Open Telemetry Logs", "Loki"]);
+export const observabilityVariantSchema = z.enum(["Open Telemetry", "Loki"]);
+
+/**
+ * `"Open Telemetry Logs"` was the original name, from when logs were the only
+ * signal. It is stored verbatim in `integrations.variant` and matched by literal
+ * string everywhere, so existing rows keep working through this map rather than
+ * through a data migration. Kept out of `observabilityVariantSchema` on purpose:
+ * that enum is what the variant dropdown renders, and an alias in it would show
+ * up as a second pickable entry for the same thing.
+ */
+const OBSERVABILITY_VARIANT_ALIASES: Record<string, string> = {
+	"Open Telemetry Logs": "Open Telemetry",
+};
+
+export function normalizeObservabilityVariant(variant: string): string {
+	return OBSERVABILITY_VARIANT_ALIASES[variant] ?? variant;
+}
+
+/**
+ * Variant names that only ever appear on stored rows. Anything matching a
+ * `integrations.variant` column against the enum needs these too, or a row
+ * created before the rename reads as an unknown integration.
+ */
+export const observabilityLegacyVariants = Object.keys(
+	OBSERVABILITY_VARIANT_ALIASES,
+);
 
 // Database
 export const postgresVariantConfigSchema = z
@@ -193,7 +218,15 @@ export const openAiCompatibleVariantConfigSchema = z.object({
 });
 
 // Observability
-export const openTelemetryLogsVariantConfigSchema = z.object({
+/**
+ * Extra headers sent with every OTLP request, for ingestors that key on
+ * something other than basic auth — an api key, a tenant id, a dataset name.
+ * Values accept `cfg:` references like every other credential field, so a token
+ * lives in app config rather than in the integration row.
+ */
+const customHeadersSchema = z.record(z.string().min(1), z.string()).optional();
+
+export const openTelemetryVariantConfigSchema = z.object({
 	baseUrl: z
 		.string()
 		.refine((v) =>
@@ -206,7 +239,12 @@ export const openTelemetryLogsVariantConfigSchema = z.object({
 			password: z.string(),
 		})
 		.or(z.string()),
+	headers: customHeadersSchema,
 });
+
+/** @deprecated the variant is now "Open Telemetry" — kept for existing importers */
+export const openTelemetryLogsVariantConfigSchema =
+	openTelemetryVariantConfigSchema;
 
 export const lokiVariantConfigSchema = z.object({
 	baseUrl: z
@@ -222,6 +260,7 @@ export const lokiVariantConfigSchema = z.object({
 		})
 		.optional()
 		.or(z.string().optional()),
+	headers: customHeadersSchema,
 });
 
 export const databaseTagsSchema = z.enum(["sql", "nosql"]);
@@ -233,11 +272,16 @@ export function getIntegrationTags(
 	variant: string,
 ): string[] {
 	if (group === "observability") {
+		variant = normalizeObservabilityVariant(variant);
 		const result = observabilityVariantSchema.safeParse(variant);
 		if (!result.success) {
 			return [];
 		}
-		if (variant === "Open Observe") {
+		// One OTLP endpoint carries all three signals — whether a project actually
+		// exports a given one is decided by which `settings.telemetry.*` key points
+		// at this integration, not here. These tags say what it *can* do, which is
+		// what the client filters the picker on.
+		if (variant === "Open Telemetry") {
 			return [...observabilityTagsSchema.options];
 		}
 		if (variant === "Loki") {

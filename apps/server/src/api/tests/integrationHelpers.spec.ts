@@ -7,6 +7,7 @@ import {
 } from "../v1/integrations/helpers";
 import {
   integrationsGroupSchema,
+  getIntegrationTags,
   postgresVariantConfigSchema,
   openTelemetryLogsVariantConfigSchema,
   openAIVariantConfigSchema,
@@ -14,6 +15,30 @@ import {
 } from "../v1/integrations/schemas";
 
 describe("Integration Helpers", () => {
+  // The client filters the integration picker by these tags, so an empty list
+  // means the integration cannot be selected at all. Every OTEL integration used
+  // to return [] — the branch tested a variant name that was not in the enum.
+  describe("getIntegrationTags()", () => {
+    it("gives an OTEL integration all three signal tags", () => {
+      const tags = getIntegrationTags("observability", "Open Telemetry");
+      expect(tags.sort()).toEqual(["logs", "metrics", "traces"]);
+    });
+
+    it("gives stored rows on the legacy variant the same tags", () => {
+      expect(getIntegrationTags("observability", "Open Telemetry Logs").sort()).toEqual(
+        ["logs", "metrics", "traces"],
+      );
+    });
+
+    it("keeps Loki logs-only", () => {
+      expect(getIntegrationTags("observability", "Loki")).toEqual(["logs"]);
+    });
+
+    it("returns nothing for an unknown variant", () => {
+      expect(getIntegrationTags("observability", "Splunk")).toEqual([]);
+    });
+  });
+
   describe("getIntegrationsGroups()", () => {
     it("should return all integration group types", () => {
       const groups = getIntegrationsGroups();
@@ -33,7 +58,9 @@ describe("Integration Helpers", () => {
 
     it("should return observability variants", () => {
       const variants = getIntegrationsVariants("observability");
-      expect(variants).toContain("Open Telemetry Logs");
+      expect(variants).toContain("Open Telemetry");
+      // the legacy name must NOT be offered — it is accepted on stored rows only
+      expect(variants).not.toContain("Open Telemetry Logs");
       expect(variants).toContain("Loki");
     });
 
@@ -64,8 +91,8 @@ describe("Integration Helpers", () => {
       expect(config.host).toBe("");
     });
 
-    it("should return default Open Telemetry Logs config", () => {
-      const config = getDefaultVariantValue("Open Telemetry Logs") as any;
+    it("should return default Open Telemetry config", () => {
+      const config = getDefaultVariantValue("Open Telemetry") as any;
       expect(config).not.toBeNull();
       expect(config.baseUrl).toBe("");
       expect(config.credentials).toBeDefined();
@@ -112,6 +139,8 @@ describe("Integration Helpers", () => {
     });
 
     it("should return schema for observability variants", () => {
+      expect(getSchema("observability", "Open Telemetry")).not.toBeNull();
+      // stored rows still carrying the old variant must resolve to the same schema
       expect(getSchema("observability", "Open Telemetry Logs")).not.toBeNull();
       expect(getSchema("observability", "Loki")).not.toBeNull();
     });

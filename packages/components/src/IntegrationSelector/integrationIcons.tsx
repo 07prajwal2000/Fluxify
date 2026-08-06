@@ -23,6 +23,6 @@ export const integrationIcons: Record<string, ReactNode> = {
 	OpenAI: <RiOpenaiFill size={size} />,
 	Mistral: <RiRobot2Fill size={size} />,
 	Gemini: <RiGeminiFill size={size} />,
-	"Open Telemetry Logs": <IoTelescope size={size} />,
+	"Open Telemetry": <IoTelescope size={size} />,
 	Loki: <PiNotebookLight size={size} />,
 };

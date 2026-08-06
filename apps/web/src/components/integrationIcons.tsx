@@ -40,7 +40,7 @@ export const integrationIcons: IntegrationIcons = {
 	OpenAI: <RiOpenaiFill size={iconSize} style={iconStyles} />,
 	Mistral: <RiRobot2Fill size={iconSize} style={iconStyles} />,
 	Gemini: <RiGeminiFill size={iconSize} style={iconStyles} />,
-	"Open Telemetry Logs": (
+	"Open Telemetry": (
 		<div style={{ display: "flex", alignItems: "center", gap: "2px" }}>
 			<svg width={iconSize} height={iconSize} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={iconStyles}>
 				{/* OTel Logo approximation (telescope/node graph) + logs */}

@@ -5,8 +5,9 @@ import {
 	databaseVariantSchema,
 	integrationsGroupSchema,
 	lokiVariantConfigSchema,
+	normalizeObservabilityVariant,
 	observabilityVariantSchema,
-	openTelemetryLogsVariantConfigSchema,
+	openTelemetryVariantConfigSchema,
 	postgresVariantConfigSchema,
 	kvVariantSchema,
 } from "../schemas";
@@ -24,6 +25,7 @@ import {
 	OpenAICompatibleIntegration,
 	OpenAIIntegration,
 	OpenTelemetryLogs,
+	type OtlpSignal,
 	PostgresAdapter,
 	MySqlAdapter,
 	MongoAdapter,
@@ -41,6 +43,8 @@ export async function testIntegrationConnection(
 	group: z.infer<typeof integrationsGroupSchema>,
 	variant: string,
 	config: any,
+	/** which signal to probe; observability only, defaults to logs */
+	signal: OtlpSignal = "logs",
 ): Promise<z.infer<typeof responseSchema>> {
 	const schema = getSchema(group, variant);
 	if (!schema) {
@@ -71,7 +75,7 @@ export async function testIntegrationConnection(
 		case "baas":
 			break;
 		case "observability":
-			return testObservibilityConnection(variant, config, appConfigs);
+			return testObservibilityConnection(variant, config, appConfigs, signal);
 		default:
 			return {
 				success: false,
@@ -205,24 +209,39 @@ async function testObservibilityConnection(
 	variant: string,
 	config: any,
 	appConfigs: Map<string, string>,
+	signal: OtlpSignal,
 ) {
-	switch (variant as z.infer<typeof observabilityVariantSchema>) {
-
-		case "Open Telemetry Logs": {
-			const parsed = openTelemetryLogsVariantConfigSchema.safeParse(config);
+	// stored rows may still carry the pre-rename variant; `getSchema` already
+	// normalizes, so without this the config validates and then falls through to
+	// "Invalid variant"
+	switch (
+		normalizeObservabilityVariant(variant) as z.infer<
+			typeof observabilityVariantSchema
+		>
+	) {
+		case "Open Telemetry": {
+			const parsed = openTelemetryVariantConfigSchema.safeParse(config);
 			if (!parsed.success) return { success: false, error: "Invalid Data" };
 			const openTelemetryLogsResult = await OpenTelemetryLogs.TestConnection(
 				parsed.data,
 				appConfigs,
+				signal,
 			);
 			return {
 				success: openTelemetryLogsResult,
-				error: openTelemetryLogsResult ? "" : "Failed to connect to OpenTelemetry Logs",
+				error: openTelemetryLogsResult
+					? ""
+					: `Failed to send ${signal} to the OpenTelemetry endpoint`,
 			};
 		}
 		case "Loki":
 			if (!lokiVariantConfigSchema.safeParse(config).success) {
 				return { success: false, error: "Invalid configuration" };
+			}
+			// Loki carries logs and nothing else, which is why it is not tagged for
+			// the other two — say so rather than probing an endpoint it never has
+			if (signal !== "logs") {
+				return { success: false, error: `Loki cannot receive ${signal}` };
 			}
 			const lokiResult = await LokiLogger.TestConnection(config, appConfigs);
 			return {

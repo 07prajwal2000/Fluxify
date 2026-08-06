@@ -3,6 +3,7 @@ import { db } from "../../../../../../db";
 import { integrationsEntity } from "../../../../../../db/schema";
 import { ProjectSettingsKeyType } from "../keySchemaMap";
 import { getIntegrationsVariants } from "../../../../integrations/helpers";
+import { observabilityLegacyVariants } from "../../../../integrations/schemas";
 
 export async function testConnectionFn(
 	key: ProjectSettingsKeyType,
@@ -24,17 +25,21 @@ export async function testConnectionFn(
 			}
 			break;
 		}
-		case "settings.ai.loggerConnectionId": {
+		case "settings.ai.loggerConnectionId":
+		case "settings.telemetry.logsConnectionId":
+		case "settings.telemetry.tracesConnectionId":
+		case "settings.telemetry.metricsConnectionId": {
 			const result = await db
 				.select({ id: integrationsEntity.id })
 				.from(integrationsEntity)
 				.where(
 					and(
 						eq(integrationsEntity.id, value),
-						inArray(
-							integrationsEntity.variant,
-							getIntegrationsVariants("observability"),
-						),
+						inArray(integrationsEntity.variant, [
+							...getIntegrationsVariants("observability"),
+							// a row created before the rename is still a valid destination
+							...observabilityLegacyVariants,
+						]),
 					),
 				);
 			if (result.length === 0) {

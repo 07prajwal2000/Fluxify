@@ -53,55 +53,8 @@ services:
     networks:
       - default
 
-  # =========================================================================
-  # JAEGER (OpenTelemetry trace collector and trace UI)
-  # =========================================================================
-  jaeger:
-    image: jaegertracing/all-in-one:latest
-    container_name: jaeger
-    restart: unless-stopped
-    ports:
-      - 16686:16686 # Jaeger trace UI
-      - 4317:4317 # OpenTelemetry Protocol (OTLP) over gRPC
-      - 4318:4318 # OpenTelemetry Protocol (OTLP) over HTTP
-    networks:
-      - default
-
-  grafana:
-    image: grafana/grafana:latest
-    container_name: grafana
-    restart: unless-stopped
-    ports:
-      - 3000:3000 # Grafana UI
-    environment:
-      GF_SECURITY_ADMIN_USER: admin
-      GF_SECURITY_ADMIN_PASSWORD: admin
-      GF_AUTH_ANONYMOUS_ENABLED: "false"
-    volumes:
-      - grafana_data:/var/lib/grafana
-      - ./docker/grafana/provisioning:/etc/grafana/provisioning:ro
-    networks:
-      - default
-
-  prometheus:
-    image: prom/prometheus:latest
-    container_name: prometheus
-    restart: unless-stopped
-    command:
-      - --config.file=/etc/prometheus/prometheus.yml
-      - --web.enable-otlp-receiver
-    ports:
-      - 9090:9090 # Prometheus UI and OTLP HTTP metrics receiver
-    volumes:
-      - ./docker/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
-      - prometheus_data:/prometheus
-    networks:
-      - default
-
 volumes:
   fluxify_pg_volume:
-  grafana_data:
-  prometheus_data:
 networks:
   default:
     driver: bridge

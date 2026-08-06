@@ -2,6 +2,7 @@ import z from "zod";
 import {
   integrationsGroupSchema,
   observabilityVariantSchema,
+  normalizeObservabilityVariant,
 } from "../api/v1/integrations/schemas";
 import { observabilityIntegrationsCache } from "./integrationsLoader";
 import { LokiLogger, OpenTelemetryLogs } from "@fluxify/adapters";
@@ -47,9 +48,9 @@ export class IntegrationFactory {
       projectName: string;
     },
   ) {
-    const type = data.variant;
+    const type = normalizeObservabilityVariant(data.variant);
     switch (type as z.infer<typeof observabilityVariantSchema>) {
-      case "Open Telemetry Logs":
+      case "Open Telemetry":
         return new OpenTelemetryLogs({
           ...data,
           projectId: path.projectName,
