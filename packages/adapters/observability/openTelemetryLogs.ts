@@ -6,6 +6,7 @@ import {
 	LoggerProvider,
 	logger,
 } from "@fluxify/common";
+import { resolveCustomHeaders } from "./customHeaders";
 
 export const openTelemetryLogsSettings = z.object({
 	baseUrl: z.url(), // e.g. http://localhost:5080/api/<ORG_ID>
@@ -16,14 +17,28 @@ export const openTelemetryLogsSettings = z.object({
 		})
 		.optional(),
 	encodedBasicAuth: z.string().optional(),
+	/** user-supplied extra headers, already `cfg:`-resolved */
+	headers: z.record(z.string(), z.string()).optional(),
 	projectId: z.uuidv7(),
 	routeId: z.uuidv7(),
 });
 
 type ConfigType = Map<string, string | number | boolean> | Record<string, any>;
 
+export type OtlpSignal = "logs" | "traces" | "metrics";
+
+/** An empty batch per signal — accepted and stored by nothing. */
+const EMPTY_OTLP_BODY: Record<OtlpSignal, string> = {
+	logs: '{"resourceLogs":[]}',
+	traces: '{"resourceSpans":[]}',
+	metrics: '{"resourceMetrics":[]}',
+};
+
 export class OpenTelemetryLogs implements AbstractLogger {
-	public static variant = "Open Telemetry Logs";
+	// renamed from "Open Telemetry Logs" — one OTLP endpoint carries logs, traces
+	// and metrics, and the old name only described the first of the three. Rows
+	// still storing it are normalized before they reach here.
+	public static variant = "Open Telemetry";
 	constructor(
 		private readonly settings: z.infer<typeof openTelemetryLogsSettings>,
 	) {}
@@ -108,7 +123,10 @@ export class OpenTelemetryLogs implements AbstractLogger {
 			cleanUrl = `${cleanUrl}/v1/logs`;
 		}
 
+		// user headers first so they cannot clobber auth or the stream routing this
+		// adapter depends on
 		const headers = {
+			...(settings.headers ?? {}),
 			Authorization: `Basic ${credentialsString}`,
 			"stream-name": `logs_${settings.projectId}`,
 		};
@@ -126,17 +144,39 @@ export class OpenTelemetryLogs implements AbstractLogger {
 		return this.otelLogger;
 	}
 
-	public static async TestConnection(settings: any, appConfig: ConfigType) {
+	/**
+	 * Probes the OTLP endpoint for one signal by posting an empty payload of that
+	 * signal's shape. An empty batch ingests nothing and is answered 200 by a
+	 * working receiver and 401 by one that rejects the credentials, so it tests
+	 * the exact path telemetry will take — per signal, since a destination can be
+	 * configured for traces but not metrics.
+	 *
+	 * Replaces a `GET {baseUrl}/settings` probe, which is an OpenObserve admin
+	 * path: any other OTLP collector 404s it and read as unreachable.
+	 */
+	public static async TestConnection(
+		settings: any,
+		appConfig: ConfigType,
+		signal: OtlpSignal = "logs",
+	) {
 		const extracted = OpenTelemetryLogs.ExtractConnectionInfo(
 			settings,
 			appConfig,
 		);
 		if (!extracted) return false;
-		const headers = OpenTelemetryLogs.getHeaders(extracted);
-		const settingsUrl = `${extracted.baseUrl}/settings`;
+		const headers = {
+			...OpenTelemetryLogs.getHeaders(extracted),
+			"Content-Type": "application/json",
+		};
+		const url = `${extracted.baseUrl.replace(/\/$/, "")}/v1/${signal}`;
 		try {
-			const result = await fetch(settingsUrl, { headers, method: "GET" });
-			return result.status === 200;
+			const result = await fetch(url, {
+				method: "POST",
+				headers,
+				body: EMPTY_OTLP_BODY[signal],
+				signal: AbortSignal.timeout(5000),
+			});
+			return result.ok;
 		} catch {
 			return false;
 		}
@@ -146,11 +186,12 @@ export class OpenTelemetryLogs implements AbstractLogger {
 		config: {
 			baseUrl: string;
 			credentials: string | { username: string; password: string };
+			headers?: Record<string, string>;
 		},
 		appConfig: ConfigType,
 	): z.infer<typeof openTelemetryLogsSettings> | null {
 		const baseUrl = config?.baseUrl?.startsWith("cfg:")
-			? OpenTelemetryLogs.getConfig(appConfig, config.baseUrl.substring(3))
+			? OpenTelemetryLogs.getConfig(appConfig, config.baseUrl.slice(4))
 			: config.baseUrl;
 		if (!baseUrl || !z.url().safeParse(baseUrl).success) return null;
 		let credentials = config.credentials;
@@ -158,13 +199,13 @@ export class OpenTelemetryLogs implements AbstractLogger {
 			const username = credentials.username.startsWith("cfg:")
 				? OpenTelemetryLogs.getConfig(
 						appConfig,
-						credentials.username.substring(3),
+						credentials.username.slice(4),
 					)
 				: credentials.username;
 			const password = credentials.password.startsWith("cfg:")
 				? OpenTelemetryLogs.getConfig(
 						appConfig,
-						credentials.password.substring(3),
+						credentials.password.slice(4),
 					)
 				: credentials.password;
 			if (!username || !password) return null;
@@ -172,7 +213,7 @@ export class OpenTelemetryLogs implements AbstractLogger {
 			credentials.username = username;
 		} else {
 			const encodedBasicAuth = credentials.startsWith("cfg:")
-				? OpenTelemetryLogs.getConfig(appConfig, credentials.substring(3))
+				? OpenTelemetryLogs.getConfig(appConfig, credentials.slice(4))
 				: credentials;
 			if (!encodedBasicAuth) return null;
 			credentials = encodedBasicAuth;
@@ -181,6 +222,7 @@ export class OpenTelemetryLogs implements AbstractLogger {
 		return {
 			baseUrl,
 			credentials: typeof credentials === "object" ? credentials : undefined,
+			headers: resolveCustomHeaders(config.headers, appConfig),
 			projectId: "",
 			routeId: "",
 			encodedBasicAuth:
@@ -190,8 +232,10 @@ export class OpenTelemetryLogs implements AbstractLogger {
 	private static getHeaders(
 		settings: z.infer<typeof openTelemetryLogsSettings>,
 	): Record<string, string> {
+		const extra = settings.headers ?? {};
 		if (settings.encodedBasicAuth) {
 			return {
+				...extra,
 				Authorization: `Basic ${settings.encodedBasicAuth}`,
 			};
 		}
@@ -201,12 +245,14 @@ export class OpenTelemetryLogs implements AbstractLogger {
 			!settings.credentials.password
 		) {
 			logger.error("Credentials not found", "opentelemetry");
-			return {};
+			// no auth is a valid setup when the ingestor keys on a custom header
+			return extra;
 		}
 		const credentials = btoa(
 			`${settings.credentials.username}:${settings.credentials.password}`,
 		);
 		return {
+			...extra,
 			Authorization: `Basic ${credentials}`,
 		};
 	}

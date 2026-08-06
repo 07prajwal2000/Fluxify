@@ -28,6 +28,16 @@ export const serverEnvSchema = baseEnvSchema.extend({
 			"Port the compiled worker's supervisor serves health/readiness on (defaults to WORKER_PORT + 1)",
 		),
 
+	TELEMETRY_HEALTH_PORT: z
+		.string()
+		.optional()
+		.refine(validatePortString, {
+			message: "TELEMETRY_HEALTH_PORT must be an integer between 1001 and 65535",
+		})
+		.describe(
+			"Port the telemetry worker serves health/readiness on (defaults to 5700)",
+		),
+
 	INTEGRATION_TIMEOUT_POLICY_IN_SEC: z
 		.string()
 		.optional()

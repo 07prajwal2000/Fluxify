@@ -1,5 +1,6 @@
 import { AbstractLogger } from "@fluxify/lib";
 import { createLokiLogger } from "@fluxify/common";
+import { resolveCustomHeaders } from "./customHeaders";
 import z from "zod";
 
 export const lokiLoggerSettings = z.object({
@@ -11,6 +12,8 @@ export const lokiLoggerSettings = z.object({
 		})
 		.optional(),
 	encodedBasicAuth: z.string().optional(),
+	/** user-supplied extra headers, already `cfg:`-resolved */
+	headers: z.record(z.string(), z.string()).optional(),
 	projectId: z.string().uuid().optional(), // Fixed: Swapped to uuid/optional to avoid empty string validation failure
 	routeId: z.string().uuid().optional(),
 });
@@ -36,8 +39,11 @@ export class LokiLogger implements AbstractLogger {
 	private static getHeader(
 		settings: z.infer<typeof lokiLoggerSettings>,
 	): Record<string, string> {
+		// user headers first so they cannot clobber auth
+		const extra = settings.headers ?? {};
 		if (settings.encodedBasicAuth) {
 			return {
+				...extra,
 				Authorization: `Basic ${settings.encodedBasicAuth}`,
 			};
 		}
@@ -46,12 +52,15 @@ export class LokiLogger implements AbstractLogger {
 			!settings.credentials.username ||
 			!settings.credentials.password
 		) {
-			return {};
+			// Loki is commonly run unauthenticated, and a tenant is often supplied as
+			// a header instead — so no credentials still means send the extras
+			return extra;
 		}
 		const credentials = btoa(
 			`${settings.credentials.username}:${settings.credentials.password}`,
 		);
 		return {
+			...extra,
 			Authorization: `Basic ${credentials}`,
 		};
 	}
@@ -129,11 +138,12 @@ export class LokiLogger implements AbstractLogger {
 		config: {
 			baseUrl: string;
 			credentials: string | { username: string; password: string };
+			headers?: Record<string, string>;
 		},
 		appConfig: ConfigType,
 	): z.infer<typeof lokiLoggerSettings> | null {
 		const baseUrl = config.baseUrl.startsWith("cfg:")
-			? LokiLogger.getConfig(appConfig, config.baseUrl.substring(3))
+			? LokiLogger.getConfig(appConfig, config.baseUrl.slice(4))
 			: config.baseUrl;
 
 		if (!baseUrl || !z.string().url().safeParse(baseUrl).success) return null;
@@ -141,15 +151,15 @@ export class LokiLogger implements AbstractLogger {
 		let credentials = config.credentials;
 		if (typeof credentials === "object") {
 			const username = credentials.username.startsWith("cfg:")
-				? LokiLogger.getConfig(appConfig, credentials.username.substring(3))
+				? LokiLogger.getConfig(appConfig, credentials.username.slice(4))
 				: credentials.username;
 			const password = credentials.password.startsWith("cfg:")
-				? LokiLogger.getConfig(appConfig, credentials.password.substring(3))
+				? LokiLogger.getConfig(appConfig, credentials.password.slice(4))
 				: credentials.password;
 			credentials = { username, password };
 		} else if (typeof credentials === "string") {
 			const encodedBasicAuth = credentials.startsWith("cfg:")
-				? LokiLogger.getConfig(appConfig, credentials.substring(3))
+				? LokiLogger.getConfig(appConfig, credentials.slice(4))
 				: credentials;
 			credentials = encodedBasicAuth;
 		}
@@ -157,6 +167,7 @@ export class LokiLogger implements AbstractLogger {
 		return {
 			baseUrl,
 			credentials: typeof credentials === "object" ? credentials : undefined,
+			headers: resolveCustomHeaders(config.headers, appConfig),
 			projectId: undefined, // Safe initialization due to schema change
 			routeId: undefined,
 			encodedBasicAuth:

@@ -16,6 +16,8 @@ export const responseSchema = z.object({
 	querySchema: z.any().optional(),
 	paramsSchema: z.any().optional(),
 	timeoutSeconds: z.number().int(),
+	tracingEnabled: z.boolean(),
+	recordExecution: z.boolean(),
 	createdAt: z.string(),
 	createdBy: z.string(),
 	updatedAt: z.string(),

@@ -157,7 +157,7 @@ const IntegrationForm = (props: PropTypes) => {
           form.values.variant === "Memcached" && <MemcachedForm form={form} />}
 
         {form.values.group === "observability" &&
-          form.values.variant === "Open Telemetry Logs" && (
+          form.values.variant === "Open Telemetry" && (
             <OpenTelemetryLogsIntegrationForm form={form} />
           )}
 

@@ -49,7 +49,8 @@ export default async function handleRequest(
 	if (
 		finalValue &&
 		(key === "settings.ai.agentConnectionId" ||
-			key === "settings.ai.loggerConnectionId")
+			key === "settings.ai.loggerConnectionId" ||
+			key.startsWith("settings.telemetry."))
 	) {
 		const connectionTest = await testConnectionFn(
 			key as ProjectSettingsKeyType,

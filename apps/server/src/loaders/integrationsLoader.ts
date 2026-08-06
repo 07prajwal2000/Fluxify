@@ -13,6 +13,7 @@ import {
 	integrationsGroupSchema,
 	databaseVariantSchema,
 	observabilityVariantSchema,
+	normalizeObservabilityVariant,
 	aiVariantSchema,
 	kvVariantSchema,
 } from "../api/v1/integrations/schemas";
@@ -144,15 +145,18 @@ async function loadFromDB() {
 		} else if (
 			integration.group === integrationsGroupSchema.enum.observability
 		) {
+			// normalized so rows still carrying the old "Open Telemetry Logs" name
+			// resolve to the same adapter
+			const observabilityVariant = normalizeObservabilityVariant(variant);
 			if (
-				integration.variant === observabilityVariantSchema.enum["Open Telemetry Logs"]
+				observabilityVariant === observabilityVariantSchema.enum["Open Telemetry"]
 			) {
 				config = OpenTelemetryLogs.ExtractConnectionInfo(
 					integration.config as any,
 					getProjectAppConfig(integration.projectId!),
 				);
 			} else if (
-				integration.variant === observabilityVariantSchema.enum["Loki"]
+				observabilityVariant === observabilityVariantSchema.enum["Loki"]
 			) {
 				config = LokiLogger.extractConnectionInfo(
 					integration.config as any,
@@ -211,7 +215,12 @@ async function loadFromDB() {
 			aiIntegrationsCache[integration.id] = config;
 		}
 		if (config) {
-			config["variant"] = variant;
+			// the cached variant is what IntegrationFactory switches on, so it has to
+			// be the current name even when the row still stores the old one
+			config["variant"] =
+				group === integrationsGroupSchema.enum.observability
+					? normalizeObservabilityVariant(variant)
+					: variant;
 			config["group"] = group;
 			config[OWNER_KEY] = integration.projectId ?? null;
 			if (group === integrationsGroupSchema.enum.database) {

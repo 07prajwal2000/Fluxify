@@ -80,7 +80,7 @@ The two-step start is explained in [Step 6](#step-6-create-a-project-and-start-t
 | Tool | Minimum version | Purpose |
 | :--- | :--- | :--- |
 | **Bun** | `v1.3.0+` | Runtime and workspace package manager ([install](https://bun.sh)) |
-| **Docker** | `v20.10+` | PostgreSQL, Valkey, NATS, Caddy, OpenObserve, Arize Phoenix |
+| **Docker** | `v20.10+` | PostgreSQL, Valkey, NATS, Caddy, OpenObserve, Jaeger, Prometheus, Grafana |
 | **Git** | `v2.30+` | Version control and pre-commit hooks |
 | **GitHub CLI (`gh`)** | `v2.0+` | Recommended for PRs, issues, and syncing branches |
 
@@ -112,7 +112,8 @@ This also runs `bun run prepare`, which registers the Git pre-commit hooks.
 
 Local development needs PostgreSQL, Valkey (Redis), and NATS. The root
 [`docker-compose.yml`](docker-compose.yml) also brings up Caddy, OpenObserve
-(logs), and Arize Phoenix (LLM tracing).
+(logs), Jaeger (OpenTelemetry traces), Prometheus (metrics), and Grafana
+(observability UI).
 
 ```bash
 docker compose up -d
@@ -139,6 +140,9 @@ Values worth checking:
 | `REDIS_HOST` / `REDIS_PORT` | `localhost` / `6379` | |
 | `NATS_URL` | `nats://localhost:4222` | |
 | `NATS_TOKEN` | `fluxify_nats_token` | Must match the compose file |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | `http://localhost:4318` | Jaeger OTLP HTTP endpoint |
+| `OTEL_EXPORTER_OTLP_PROTOCOL` | `http/protobuf` | Use `grpc` with `http://localhost:4317` for OTLP gRPC |
+| `OTEL_EXPORTER_OTLP_METRICS_ENDPOINT` | `http://localhost:9090/api/v1/otlp/v1/metrics` | Prometheus OTLP HTTP metrics endpoint |
 | `MASTER_ENCRYPTION_KEY` | any base64 value | Encrypts stored credentials |
 | `WORKER_PROJECT_ID` | *(empty for now)* | Filled in at Step 6 |
 | `DOCKER_HOST` | see below | Only for container integration tests |
@@ -187,11 +191,35 @@ the worker picks it up in place — no restart.
 | OpenAPI documentation | `http://localhost:8080/_/admin/api/openapi/ui` |
 | Your workflow endpoints | `http://localhost:8080/` |
 | Docs site | `http://localhost:5173` |
+| Jaeger trace UI | `http://localhost:16686` |
+| Prometheus UI | `http://localhost:9090` |
+| Grafana UI | `http://localhost:3000` (default login: `admin` / `admin`) |
 
 > [!NOTE]
 > **Why the `/_/admin` prefix?** It isolates platform management and the visual
 > builder, leaving the entire root path `/` free for the APIs users build — so
 > their routes can never collide with ours.
+
+### Local tracing
+
+The local stack accepts OpenTelemetry traces through either OTLP transport:
+
+| Transport | Endpoint |
+| :--- | :--- |
+| OTLP/gRPC | `http://localhost:4317` |
+| OTLP/HTTP | `http://localhost:4318` |
+
+Open Jaeger at `http://localhost:16686` to search trace data directly. Grafana
+is available at `http://localhost:3000`; its provisioned **Jaeger** data source
+points at the local collector automatically. The Jaeger all-in-one container is
+intended for development, so its trace storage is ephemeral.
+
+### Local metrics
+
+Prometheus accepts metrics pushed through OTLP/HTTP at
+`http://localhost:9090/api/v1/otlp/v1/metrics`; configure this as
+`OTEL_EXPORTER_OTLP_METRICS_ENDPOINT`. Its UI is at `http://localhost:9090`,
+and Grafana automatically includes it as the **Prometheus** data source.
 
 ---
 

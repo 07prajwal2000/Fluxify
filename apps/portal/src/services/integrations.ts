@@ -66,9 +66,11 @@ export const integrationService = {
 	async testExistingConnection(
 		projectId: string,
 		id: string,
+		/** observability only — probes that signal's OTLP endpoint */
+		signal?: "logs" | "traces" | "metrics",
 	): Promise<z.infer<typeof testExistingConnectionResponseSchema>> {
 		const res = await httpClient.get(
-			`${getBaseUrl(projectId)}/test-existing-connection/${id}`,
+			`${getBaseUrl(projectId)}/test-existing-connection/${id}${signal ? `?signal=${signal}` : ""}`,
 		);
 		return res.data;
 	},

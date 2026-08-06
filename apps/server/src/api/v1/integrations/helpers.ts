@@ -7,7 +7,8 @@ import {
 	mongoVariantConfigSchema,
 	kvVariantSchema,
 	observabilityVariantSchema,
-	openTelemetryLogsVariantConfigSchema,
+	normalizeObservabilityVariant,
+	openTelemetryVariantConfigSchema,
 	baasVariantSchema,
 	aiVariantSchema,
 	lokiVariantConfigSchema,
@@ -88,14 +89,17 @@ export function getDefaultVariantValue(variant: Variants) {
 			source: "credentials",
 		} as z.infer<typeof mysqlVariantConfigSchema>;
 	}
-	if (variant === "Open Telemetry Logs" || variant === "Loki") {
+	// no legacy alias here: this supplies blank form defaults for a variant the
+	// user just picked from the current enum, never for a stored row
+	if (variant === "Open Telemetry" || variant === "Loki") {
 		return {
 			baseUrl: "",
 			credentials: {
 				username: "",
 				password: "",
 			},
-		} as z.infer<typeof openTelemetryLogsVariantConfigSchema>;
+			headers: {},
+		} as z.infer<typeof openTelemetryVariantConfigSchema>;
 	}
 	if (
 		variant === "OpenAI" ||
@@ -168,13 +172,14 @@ export function getSchema(
 				return null;
 		}
 	} else if (group === "observability") {
+		variant = normalizeObservabilityVariant(variant);
 		const result = observabilityVariantSchema.safeParse(variant);
 		if (!result.success) {
 			return null;
 		}
 		switch (variant as z.infer<typeof observabilityVariantSchema>) {
-			case "Open Telemetry Logs":
-				schema = openTelemetryLogsVariantConfigSchema;
+			case "Open Telemetry":
+				schema = openTelemetryVariantConfigSchema;
 				break;
 			case "Loki":
 				schema = lokiVariantConfigSchema;

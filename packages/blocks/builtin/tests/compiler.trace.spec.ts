@@ -2,13 +2,17 @@ import { describe, it, expect } from "bun:test";
 import { compileGraph } from "../../compiler";
 import { BlockTypes } from "../../blockTypes";
 import type { BlockTraceSpan } from "../../baseBlock";
-import { block, createContext, edge } from "./compilerTestHelpers";
+import { registerCustomBlock, unregisterCustomBlock } from "../customBlock";
+import { block, collectSpans, createContext, edge } from "./compilerTestHelpers";
+
+/** timings are real clock readings; assert them separately from the payload */
+const withoutTiming = ({ startedAt, endedAt, ...span }: BlockTraceSpan) => span;
 
 describe("compileGraph tracing and edge validation", () => {
 	it("reports one span per completed block without changing route execution", async () => {
-		const spans: BlockTraceSpan[] = [];
+		const { spans, trace } = collectSpans();
 		const ctx = createContext();
-		ctx.trace = { recordSpan: (span: BlockTraceSpan) => spans.push(span) };
+		ctx.trace = trace;
 		const { run, source } = compileGraph(
 			[
 				block("entry", BlockTypes.entrypoint),
@@ -23,7 +27,7 @@ describe("compileGraph tracing and edge validation", () => {
 		expect(result.output).toEqual({ httpCode: "200", body: 42 });
 		expect(source).toContain("if ($trace)");
 		expect(source).not.toContain("function $recordSpan");
-		expect(spans).toEqual([
+		expect(spans.map(withoutTiming)).toEqual([
 			{
 				blockId: "entry",
 				blockType: BlockTypes.entrypoint,
@@ -50,12 +54,18 @@ describe("compileGraph tracing and edge validation", () => {
 				outcome: "success",
 			},
 		]);
+		for (const span of spans) {
+			expect(span.endedAt).toBeGreaterThanOrEqual(span.startedAt);
+		}
+		// blocks run in order, so each span starts no earlier than the last ended
+		expect(spans[1]!.startedAt).toBeGreaterThanOrEqual(spans[0]!.startedAt);
+		expect(spans[2]!.startedAt).toBeGreaterThanOrEqual(spans[1]!.startedAt);
 	});
 
 	it("records an error on the block that throws", async () => {
-		const spans: BlockTraceSpan[] = [];
+		const { spans, trace } = collectSpans();
 		const ctx = createContext();
-		ctx.trace = { recordSpan: (span: BlockTraceSpan) => spans.push(span) };
+		ctx.trace = trace;
 		const { run } = compileGraph(
 			[
 				block("entry", BlockTypes.entrypoint),
@@ -79,9 +89,9 @@ describe("compileGraph tracing and edge validation", () => {
 	});
 
 	it("attributes a loop executor's error to the executor, not the loop block", async () => {
-		const spans: BlockTraceSpan[] = [];
+		const { spans, trace } = collectSpans();
 		const ctx = createContext();
-		ctx.trace = { recordSpan: (span: BlockTraceSpan) => spans.push(span) };
+		ctx.trace = trace;
 		const { run } = compileGraph(
 			[
 				block("entry", BlockTypes.entrypoint),
@@ -104,6 +114,7 @@ describe("compileGraph tracing and edge validation", () => {
 	it("does not let a trace recorder failure fail a route", async () => {
 		const ctx = createContext();
 		ctx.trace = {
+			...collectSpans().trace,
 			recordSpan() {
 				throw new Error("telemetry unavailable");
 			},
@@ -117,6 +128,38 @@ describe("compileGraph tracing and edge validation", () => {
 		);
 
 		expect((await run(ctx, "safe")).output.body).toBe("safe");
+	});
+
+	it("scopes a custom block's spans to the block that invoked it", async () => {
+		registerCustomBlock(
+			"scoped_block",
+			[
+				block("inner-entry", BlockTypes.entrypoint),
+				block("inner-double", BlockTypes.jsrunner, {
+					value: "return input.value * 2;",
+				}),
+			],
+			[edge("inner-entry", "inner-double")],
+		);
+		const { spans, entered, trace } = collectSpans();
+		const ctx = createContext();
+		ctx.trace = trace;
+		const { run } = compileGraph(
+			[
+				block("entry", BlockTypes.entrypoint),
+				block("invoke", "scoped_block" as BlockTypes, { value: 21, invoke: "sync" }),
+			],
+			[edge("entry", "invoke")],
+		);
+
+		await run(ctx, null);
+
+		expect(entered).toEqual([
+			{ blockId: "invoke", name: "scoped_block", detached: false },
+		]);
+		// the nested graph's own blocks report too, so a trace can rebuild the tree
+		expect(spans.map((span) => span.blockId)).toContain("inner-double");
+		unregisterCustomBlock("scoped_block");
 	});
 
 	it("rejects multiple outgoing edges on one handle", () => {

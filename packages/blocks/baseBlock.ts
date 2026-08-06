@@ -26,11 +26,25 @@ export type BlockTraceSpan = {
 	blockType: string;
 	input: unknown;
 	output: unknown;
+	/**
+	 * Monotonic `performance.now()` readings around the block's own work, not
+	 * wall clock — the compiler cannot know when the run started. The trace
+	 * implementation owns duration and the conversion to a timestamp.
+	 */
+	startedAt: number;
+	endedAt: number;
 	/** whether this block completed normally or threw */
 	outcome: "success" | "failure";
 	/** selected branch for condition blocks */
 	branch?: "success" | "failure";
 	error?: unknown;
+};
+
+/** a nested graph invoked by one block, for the duration of that invocation */
+export type CustomBlockScope = {
+	/** the trace the nested graph records into */
+	trace: BlockTrace;
+	close(): void;
 };
 
 /**
@@ -42,6 +56,18 @@ export type BlockTraceSpan = {
  */
 export interface BlockTrace {
 	recordSpan(span: BlockTraceSpan): void;
+	/**
+	 * Attributes everything a nested graph records to the invoking block.
+	 *
+	 * `detached` is an async invocation: it outlives the request, so its spans
+	 * cannot belong to this run and the returned trace is expected to be a
+	 * separate one linked back to it.
+	 */
+	enterCustomBlock(invocation: {
+		blockId: string;
+		name: string;
+		detached: boolean;
+	}): CustomBlockScope;
 }
 
 export interface Context {

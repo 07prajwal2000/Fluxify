@@ -237,6 +237,14 @@ export const routesEntity = pgTable(
 		paramsSchema: jsonb("params_schema"),
 		/** CPU-stall budget for compiled execution; users may raise but not lower it. */
 		timeoutSeconds: integer("timeout_seconds").default(30).notNull(),
+		/**
+		 * Two independent switches, deliberately not one:
+		 * `tracingEnabled` exports spans to the project's own OTEL destination and
+		 * stores nothing here; `recordExecution` persists a debug recording for the
+		 * portal trace viewer and is expensive, so it stays off by default.
+		 */
+		tracingEnabled: boolean("tracing_enabled").default(false).notNull(),
+		recordExecution: boolean("record_execution").default(false).notNull(),
 		createdAt: timestamp("created_at").defaultNow().notNull(),
 		createdBy: varchar("created_by", { length: 50 }),
 		updatedAt: timestamp("updated_at")

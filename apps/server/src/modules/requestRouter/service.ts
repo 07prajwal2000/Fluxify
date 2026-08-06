@@ -325,6 +325,31 @@ function parseResult(executionResult: BlockOutput) {
 	};
 }
 
+/**
+ * The logger for one integration id, or the server console when the id is empty,
+ * unknown, or owned by another project. Shared by the JS `logger` api and the
+ * cloud logs block so both resolve a destination the same way.
+ *
+ * The config is spread, never mutated: the cache entry is shared by every
+ * in-flight request, so writing route ids into it cross-labels concurrent logs.
+ * A provider is still built per call — that lifecycle is #204, not this.
+ */
+function observabilityLoggerFor(
+	connectionId: string,
+	projectId: string,
+	routeId: string,
+): AbstractLogger {
+	const config = observabilityIntegrationsCache[connectionId];
+	if (!ownsIntegration(config, projectId)) {
+		return new ConsoleLoggerProvider(routeId);
+	}
+	return createObservabilityLogger(config["variant"], {
+		...config,
+		projectId,
+		routeId,
+	})!;
+}
+
 function createContext(
 	routeInfo: { id: string; projectId: string },
 	requestData: { path: string; body: any },
@@ -345,6 +370,20 @@ function createContext(
 		dbFactory,
 		httpClient,
 		trigger,
+		// The cloud logs block picks its own integration per block, so it resolves
+		// through here rather than through the project's logs destination. Only the
+		// legacy interpreted path used to supply this, which left the block throwing
+		// on a missing factory for every compiled route.
+		integrationFactory: {
+			create({ integrationId, type }) {
+				if (type !== "observability") return undefined;
+				return observabilityLoggerFor(
+					integrationId,
+					routeInfo.projectId,
+					routeInfo.id,
+				);
+			},
+		},
 		stopper: {
 			timeoutEnd: 0,
 			duration: timeoutSeconds * 1000,
@@ -427,36 +466,28 @@ function setupContextVars(
 			value,
 		]),
 	);
-	let logger: AbstractLogger = null!;
-
 	const projectSettings = projectSettingsCache[projectId];
-	if (projectSettings && "settings.ai.loggerConnectionId" in projectSettings) {
-		let connectionId = projectSettings["settings.ai.loggerConnectionId"];
+	// new key first, legacy second — the same order the telemetry worker reads
+	// them in. Projects configured through the current UI only have the new one.
+	let connectionId =
+		projectSettings?.["settings.telemetry.logsConnectionId"] ||
+		projectSettings?.["settings.ai.loggerConnectionId"] ||
+		"";
 
-		// Apply integration override for logger if present
-		if (overrides?.integrations) {
-			const override = overrides.integrations.find(
-				(o) => o.existingId === connectionId,
-			);
-			if (
-				override &&
-				ownsIntegration(observabilityIntegrationsCache[override.newId], projectId)
-			) {
-				connectionId = override.newId;
-			}
+	// Apply integration override for logger if present
+	if (connectionId && overrides?.integrations) {
+		const override = overrides.integrations.find(
+			(o) => o.existingId === connectionId,
+		);
+		if (
+			override &&
+			ownsIntegration(observabilityIntegrationsCache[override.newId], projectId)
+		) {
+			connectionId = override.newId;
 		}
-
-		const config = observabilityIntegrationsCache[connectionId];
-		if (ownsIntegration(config, projectId)) {
-			config.projectId = projectId;
-			config.routeId = routeId;
-			logger = createObservabilityLogger(config["variant"], config)!;
-		} else {
-			logger = new ConsoleLoggerProvider(routeId);
-		}
-	} else {
-		logger = new ConsoleLoggerProvider(routeId);
 	}
+
+	const logger = observabilityLoggerFor(connectionId, projectId, routeId);
 
 	return {
 		ValidationError: ValidationError,

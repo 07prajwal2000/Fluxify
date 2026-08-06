@@ -43,6 +43,12 @@ export default async function handleRequest(
 		if (data.timeoutSeconds !== undefined) {
 			patchedRoute.timeoutSeconds = data.timeoutSeconds;
 		}
+		if (data.tracingEnabled !== undefined) {
+			patchedRoute.tracingEnabled = data.tracingEnabled;
+		}
+		if (data.recordExecution !== undefined) {
+			patchedRoute.recordExecution = data.recordExecution;
+		}
     return await updateRoute(
       {
         ...patchedRoute,

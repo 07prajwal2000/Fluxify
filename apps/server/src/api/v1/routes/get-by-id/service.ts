@@ -34,5 +34,7 @@ export default async function handleRequest(
 		querySchema: route.querySchema,
 		paramsSchema: route.paramsSchema,
 		timeoutSeconds: route.timeoutSeconds,
+		tracingEnabled: route.tracingEnabled,
+		recordExecution: route.recordExecution,
 	};
 }

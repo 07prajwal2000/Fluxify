@@ -1,6 +1,24 @@
 import { JsVM } from "@fluxify/lib";
 import type { BlockTypes } from "../../blockTypes";
+import type { BlockTrace, BlockTraceSpan } from "../../baseBlock";
 import type { BlockDTOType } from "../../builderTypes";
+
+/**
+ * A recording trace. `entered` is the custom block invocations, so a test can
+ * assert nesting without reimplementing a scope stack.
+ */
+export function collectSpans() {
+	const spans: BlockTraceSpan[] = [];
+	const entered: { blockId: string; name: string; detached: boolean }[] = [];
+	const trace: BlockTrace = {
+		recordSpan: (span) => spans.push(span),
+		enterCustomBlock(invocation) {
+			entered.push(invocation);
+			return { trace, close: () => {} };
+		},
+	};
+	return { spans, entered, trace };
+}
 
 export function createContext() {
 	const vars: Record<string, any> = {};
