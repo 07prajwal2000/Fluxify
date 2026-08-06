@@ -16,6 +16,8 @@ export * from "./baseBlock";
 export * from "./categories";
 export * from "./builtin/getVar";
 export * from "./builder";
+// the graph DTO shapes — anything that builds or loads a graph needs them
+export type * from "./builderTypes";
 export * from "./categories";
 export * from "./builtin/http/getHttpCookie";
 export * from "./builtin/http/setHttpCookie";

@@ -1,0 +1,241 @@
+{
+	"name": "auth/signup",
+	"description": "POST /auth/signup — rejects a taken email with 409, otherwise SHA-256 hashes the password in a JS block and inserts the account.",
+	"engine": "pg",
+	"route": {
+		"method": "POST",
+		"path": "/auth/signup"
+	},
+	"schemas": {
+		"body": {
+			"dataType": "object",
+			"properties": [
+				{
+					"key": "username",
+					"dataType": "str",
+					"required": true,
+					"rules": [
+						{
+							"type": "minLength",
+							"value": 3
+						}
+					]
+				},
+				{
+					"key": "email",
+					"dataType": "str",
+					"required": true,
+					"rules": [
+						{
+							"type": "contains",
+							"value": "@"
+						}
+					]
+				},
+				{
+					"key": "password",
+					"dataType": "str",
+					"required": true,
+					"rules": [
+						{
+							"type": "minLength",
+							"value": 8
+						}
+					]
+				}
+			]
+		}
+	},
+	"blocks": [
+		{
+			"id": "entry",
+			"type": "entrypoint",
+			"position": {
+				"x": 0,
+				"y": 0
+			},
+			"data": {
+				"blockName": "Request"
+			}
+		},
+		{
+			"id": "find-existing",
+			"type": "db_getsingle",
+			"position": {
+				"x": 240,
+				"y": 0
+			},
+			"data": {
+				"blockName": "Look up the email",
+				"connection": "primary",
+				"tableName": "auth_users",
+				"conditions": [
+					{
+						"attribute": "email",
+						"operator": "eq",
+						"value": "js:return getRequestBody().email;",
+						"chain": "and"
+					}
+				],
+				"columns": [
+					"id"
+				]
+			}
+		},
+		{
+			"id": "email-available",
+			"type": "if",
+			"position": {
+				"x": 480,
+				"y": 0
+			},
+			"data": {
+				"blockName": "Email available?",
+				"conditions": [
+					{
+						"lhs": "js:return input === null;",
+						"rhs": true,
+						"operator": "eq",
+						"chain": "and"
+					}
+				]
+			}
+		},
+		{
+			"id": "hash-password",
+			"type": "jsrunner",
+			"position": {
+				"x": 720,
+				"y": -120
+			},
+			"data": {
+				"blockName": "Hash the password",
+				"value": "import { createHash } from \"node:crypto\";\nconst body = getRequestBody();\nreturn {\n\tusername: body.username,\n\temail: body.email,\n\tpassword_hash: createHash(\"sha256\").update(body.password).digest(\"hex\"),\n\tverified: false,\n\troles: \"user\",\n};"
+			}
+		},
+		{
+			"id": "insert-user",
+			"type": "db_insert",
+			"position": {
+				"x": 960,
+				"y": -120
+			},
+			"data": {
+				"blockName": "Create the account",
+				"connection": "primary",
+				"tableName": "auth_users",
+				"useParam": true,
+				"data": {
+					"source": "raw",
+					"value": {}
+				}
+			}
+		},
+		{
+			"id": "created-body",
+			"type": "jsrunner",
+			"position": {
+				"x": 1200,
+				"y": -120
+			},
+			"data": {
+				"blockName": "Shape the response",
+				"value": "return { id: input.id, username: input.username, email: input.email, verified: input.verified };"
+			}
+		},
+		{
+			"id": "created",
+			"type": "response",
+			"position": {
+				"x": 1440,
+				"y": -120
+			},
+			"data": {
+				"blockName": "201 Created",
+				"httpCode": "201"
+			}
+		},
+		{
+			"id": "conflict-body",
+			"type": "jsrunner",
+			"position": {
+				"x": 720,
+				"y": 120
+			},
+			"data": {
+				"blockName": "Conflict payload",
+				"value": "return { error: \"email_taken\" };"
+			}
+		},
+		{
+			"id": "conflict",
+			"type": "response",
+			"position": {
+				"x": 960,
+				"y": 120
+			},
+			"data": {
+				"blockName": "409 Conflict",
+				"httpCode": "409"
+			}
+		}
+	],
+	"edges": [
+		{
+			"id": "e-entry-find",
+			"from": "entry",
+			"to": "find-existing",
+			"fromHandle": "source",
+			"toHandle": "source"
+		},
+		{
+			"id": "e-find-check",
+			"from": "find-existing",
+			"to": "email-available",
+			"fromHandle": "source",
+			"toHandle": "source"
+		},
+		{
+			"id": "e-check-hash",
+			"from": "email-available",
+			"to": "hash-password",
+			"fromHandle": "success",
+			"toHandle": "success"
+		},
+		{
+			"id": "e-hash-insert",
+			"from": "hash-password",
+			"to": "insert-user",
+			"fromHandle": "source",
+			"toHandle": "source"
+		},
+		{
+			"id": "e-insert-body",
+			"from": "insert-user",
+			"to": "created-body",
+			"fromHandle": "source",
+			"toHandle": "source"
+		},
+		{
+			"id": "e-body-created",
+			"from": "created-body",
+			"to": "created",
+			"fromHandle": "source",
+			"toHandle": "source"
+		},
+		{
+			"id": "e-check-conflict",
+			"from": "email-available",
+			"to": "conflict-body",
+			"fromHandle": "failure",
+			"toHandle": "failure"
+		},
+		{
+			"id": "e-conflict-body-response",
+			"from": "conflict-body",
+			"to": "conflict",
+			"fromHandle": "source",
+			"toHandle": "source"
+		}
+	]
+}

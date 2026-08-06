@@ -1,0 +1,50 @@
+{
+	"name": "get-users",
+	"description": "GET /users — the smallest graph that touches a real database: entrypoint, one read, one response.",
+	"route": { "method": "GET", "path": "/users" },
+	"blocks": [
+		{
+			"id": "entry",
+			"type": "entrypoint",
+			"position": { "x": 0, "y": 0 },
+			"data": { "blockName": "Request" }
+		},
+		{
+			"id": "fetch-users",
+			"type": "db_getall",
+			"position": { "x": 240, "y": 0 },
+			"data": {
+				"blockName": "Fetch users",
+				"connection": "primary",
+				"tableName": "users",
+				"conditions": [],
+				"columns": ["id", "name", "email"],
+				"limit": 100,
+				"offset": 0,
+				"sort": { "attribute": "id", "direction": "asc" }
+			}
+		},
+		{
+			"id": "reply",
+			"type": "response",
+			"position": { "x": 480, "y": 0 },
+			"data": { "blockName": "200 OK", "httpCode": "200" }
+		}
+	],
+	"edges": [
+		{
+			"id": "e-entry-fetch",
+			"from": "entry",
+			"to": "fetch-users",
+			"fromHandle": "source",
+			"toHandle": "source"
+		},
+		{
+			"id": "e-fetch-reply",
+			"from": "fetch-users",
+			"to": "reply",
+			"fromHandle": "source",
+			"toHandle": "source"
+		}
+	]
+}

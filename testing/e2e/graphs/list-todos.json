@@ -1,0 +1,64 @@
+{
+	"name": "list-todos",
+	"description": "GET /todos — lists pending todos from MongoDB: a string equality filter chained with a numeric range whose value arrives as a string, ordered by a numeric field, with a projection.",
+	"engine": "mongo",
+	"route": { "method": "GET", "path": "/todos" },
+	"blocks": [
+		{
+			"id": "entry",
+			"type": "entrypoint",
+			"position": { "x": 0, "y": 0 },
+			"data": { "blockName": "Request" }
+		},
+		{
+			"id": "list-todos",
+			"type": "db_getall",
+			"position": { "x": 240, "y": 0 },
+			"data": {
+				"blockName": "List pending todos",
+				"connection": "primary",
+				"tableName": "todos",
+				"conditions": [
+					{
+						"attribute": "status",
+						"operator": "eq",
+						"value": "pending",
+						"chain": "and"
+					},
+					{
+						"attribute": "priority",
+						"operator": "lte",
+						"value": "9",
+						"chain": "and"
+					}
+				],
+				"columns": ["title", "priority", "status"],
+				"limit": 10,
+				"offset": 0,
+				"sort": { "attribute": "priority", "direction": "asc" }
+			}
+		},
+		{
+			"id": "reply",
+			"type": "response",
+			"position": { "x": 480, "y": 0 },
+			"data": { "blockName": "200 OK", "httpCode": "200" }
+		}
+	],
+	"edges": [
+		{
+			"id": "e-entry-list",
+			"from": "entry",
+			"to": "list-todos",
+			"fromHandle": "source",
+			"toHandle": "source"
+		},
+		{
+			"id": "e-list-reply",
+			"from": "list-todos",
+			"to": "reply",
+			"fromHandle": "source",
+			"toHandle": "source"
+		}
+	]
+}

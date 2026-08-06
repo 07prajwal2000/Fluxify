@@ -165,4 +165,4 @@ try {
 | **Async support** | `async/await` is fully supported. |
 | **ES6+ syntax** | Arrow functions, destructuring, spread, template literals, etc. all work. |
 
-See [JavaScript VM](../concepts/vm.md) for more detail on the sandbox, and [NPM Packages](../scripting/npm-packages.md) for information on available libraries.
+See [JavaScript VM](../concepts/vm.md) for more detail on the sandbox, and [Imports & Libraries](../scripting/imports.md) for how to import modules and which libraries are available.

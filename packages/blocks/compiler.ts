@@ -35,6 +35,7 @@ import { emitUpdateDb, runUpdateDb } from "./builtin/db/update";
 import { emitDeleteDb, runDeleteDb } from "./builtin/db/delete";
 import { emitNativeDb, runNativeDb } from "./builtin/db/native";
 import { emitTransactionDb, runTransactionDb } from "./builtin/db/transaction";
+import { hoistImports, type HoistedImport } from "./imports";
 
 /**
  * Everything an emitter needs to turn one block into a JS snippet.
@@ -152,27 +153,36 @@ const scopes = new WeakMap<object, any>();
  * reproduces that. `has` claims every name so reads resolve here first, falling
  * back to globalThis for Math/JSON/Date; assignments always land in vars, which
  * is how blocks share state. `input` is excluded so it resolves to the wrapper
- * function's parameter instead of leaking into vars.
+ * function's parameter instead of leaking into vars, and so are the graph's
+ * hoisted import names, which resolve to the module bindings around the block
+ * functions.
  */
-export function scopeFor(vars: Record<string, any>) {
+export function scopeFor(vars: Record<string, any>, skip?: Set<string>) {
+	// only the plain case is cached: the skip set belongs to one compiled graph,
+	// and a custom block shares the caller's vars with a different set
+	if (skip?.size) return makeScope(vars, skip);
 	let scope = scopes.get(vars);
 	if (!scope) {
-		scope = new Proxy(vars, {
-			has: (target, key) => key !== "input",
-			get: (target, key: any) =>
-				key === Symbol.unscopables
-					? undefined
-					: Object.hasOwn(target, key)
-						? target[key]
-						: (globalThis as any)[key],
-			set: (target, key: any, value) => {
-				target[key] = value;
-				return true;
-			},
-		});
+		scope = makeScope(vars);
 		scopes.set(vars, scope);
 	}
 	return scope;
+}
+
+function makeScope(vars: Record<string, any>, skip?: Set<string>) {
+	return new Proxy(vars, {
+		has: (target, key: any) => key !== "input" && !skip?.has(key),
+		get: (target, key: any) =>
+			key === Symbol.unscopables
+				? undefined
+				: Object.hasOwn(target, key)
+					? target[key]
+					: (globalThis as any)[key],
+		set: (target, key: any, value) => {
+			target[key] = value;
+			return true;
+		},
+	});
 }
 
 /** mirrors JsVM.truthy / the `is_empty` operator, inlined into every program */
@@ -309,12 +319,91 @@ export function compileGraph(
 		reachable.add(id);
 	}
 
-	function js(code: string, extras?: string, sync = false) {
+	/** spec -> local name -> property read off the namespace (null = namespace) */
+	const importsBySpec = new Map<string, Map<string, string | null>>();
+	/** local name -> the spec that bound it, so a clash is a compile error */
+	const importOwners = new Map<string, string>();
+
+	function registerImports(imports: HoistedImport[]) {
+		for (const { spec, bindings } of imports) {
+			let bound = importsBySpec.get(spec);
+			if (!bound) importsBySpec.set(spec, (bound = new Map()));
+			for (const { local, imported } of bindings) {
+				const owner = importOwners.get(local);
+				if (owner && owner !== spec) {
+					throw new Error(
+						`Import name '${local}' is bound to both "${owner}" and "${spec}"; hoisted imports share one scope across the graph`,
+					);
+				}
+				importOwners.set(local, spec);
+				bound.set(local, imported);
+			}
+		}
+	}
+
+	function js(rawCode: string, extras?: string, sync = false) {
+		const { code, imports } = hoistImports(rawCode);
+		if (imports.length && !inlineJs) {
+			throw new Error("import is only supported when user JS is inlined");
+		}
+		registerImports(imports);
 		if (!inlineJs) {
 			const method = sync ? "run" : "runAsync";
 			return `(await ctx.vm.${method}(${JSON.stringify(code)}${extras ? `, ${extras}` : ""}))`;
 		}
 		return `(await (async function (input) { with ($scope) {\n${code}\n} })(${extras ?? "undefined"}))`;
+	}
+
+	/**
+	 * Imports resolve once per compiled artifact — at instantiation, i.e. on
+	 * compile and on hot reload — into bindings the block functions close over.
+	 * The loads start the moment the factory runs, so they are normally settled
+	 * before the first request; after that `$importsReady` is a plain boolean and
+	 * a request pays nothing at all, not even a microtask.
+	 *
+	 * `import(...)` is emitted directly rather than through a `lib` helper: an
+	 * artifact outlives the runtime that compiled it, and a worker mid-rollout
+	 * would hand this source an older `lib` with no such helper on it.
+	 */
+	function emitImports() {
+		// side-effect-only imports bind nothing but still have to be loaded
+		if (!importsBySpec.size) return { declarations: "", ready: "", scopeSkip: "" };
+		const names = [...importOwners.keys()];
+		const loads = [...importsBySpec].map(([spec, bound], index) => {
+			const namespace = `$mod_${index}`;
+			const lines = [`const ${namespace} = await import(${JSON.stringify(spec)});`];
+			const destructured: string[] = [];
+			for (const [local, imported] of bound) {
+				if (imported === null) lines.push(`${local} = ${namespace};`);
+				// default interop: a CJS module has no `default`, it is the export
+				else if (imported === "default")
+					lines.push(`${local} = ${namespace}.default ?? ${namespace};`);
+				else destructured.push(local === imported ? local : `${imported}: ${local}`);
+			}
+			if (destructured.length) {
+				lines.push(`({ ${destructured.join(", ")} } = ${namespace});`);
+			}
+			return lines.join("\n");
+		});
+		return {
+			declarations: [
+				names.length ? `let ${names.join(", ")};` : "",
+				names.length ? `const $importNames = new Set(${JSON.stringify(names)});` : "",
+				"let $importsReady = false;",
+				`const $imports = (async () => {\n${loads.join(
+					"\n",
+				)}\n})().then(() => { $importsReady = true; });`,
+				// keeps a bad specifier from surfacing as an unhandled rejection; the
+				// await below still rejects, so the failure reaches the request
+				"$imports.catch(() => {});",
+			]
+				.filter(Boolean)
+				.join("\n"),
+			// settled by the time traffic arrives in every normal case, and then this
+			// is a boolean test — no await, no microtask on the hot path
+			ready: "if (!$importsReady) await $imports;",
+			scopeSkip: names.length ? ", $importNames" : "",
+		};
 	}
 
 	function emitBlock(id: string): string {
@@ -423,20 +512,23 @@ throw $error;
 				`return await ${blockFunctionName(handlerEntry)}($state, $err, $endFailure);`,
 			].join("\n")
 		: "return $endFailure($error);";
+	const imports = emitImports();
 	const source = [
 		COMPILED_ROUTE_FACTORY,
 		PRELUDE,
+		imports.declarations,
 		"const $endSuccess = (output) => ({ successful: true, continueIfFail: true, output });",
 		"const $endFailure = (error) => ({ successful: false, continueIfFail: false, error });",
 		"const $endBody = () => undefined;",
 		functions,
 		"",
 		"return async function $run(ctx, input) {",
+		imports.ready,
 		"const vars = ctx.vars;",
 		"const $state = {",
 		"ctx,",
 		"vars,",
-		"scope: lib.scope(vars),",
+		`scope: lib.scope(vars${imports.scopeSkip}),`,
 		"trace: ctx.trace,",
 		`params: ${asCustomBlock ? "input ?? {}" : "undefined"},`,
 		"};",

@@ -187,37 +187,37 @@ return payload.userId;
 ```
 ## Built-in Libraries (`libs`)
 
-Three third-party libraries are bundled and available as top-level globals inside scripts. No import statement is needed.
+Three third-party libraries are bundled and reachable through the `libs` object. No import statement is needed. See [Imports & Libraries](./imports.md) if you would rather import them by name, or import something else.
 
-### `dayjs` — Date & Time
+### `libs.dayjs` — Date & Time
 
 Full [Day.js](https://day.js.org/) library with the `utc` plugin pre-loaded.
 
 ```javascript
-const now = dayjs().utc().toISOString();
-const formatted = dayjs("2026-01-15").format("MMMM D, YYYY"); // → "January 15, 2026"
-const future = dayjs().add(7, "day").toDate();
+const now = libs.dayjs().utc().toISOString();
+const formatted = libs.dayjs("2026-01-15").format("MMMM D, YYYY"); // → "January 15, 2026"
+const future = libs.dayjs().add(7, "day").toDate();
 ```
 
-### `_` — Underscore.js
+### `libs._` — Underscore.js
 
 Full [Underscore.js](https://underscorejs.org/) utility library for functional programming.
 
 ```javascript
 const users = input.users;
-const activeUsers = _.filter(users, u => u.active);
-const names = _.pluck(activeUsers, "name");
-const grouped = _.groupBy(users, "role");
+const activeUsers = libs._.filter(users, u => u.active);
+const names = libs._.pluck(activeUsers, "name");
+const grouped = libs._.groupBy(users, "role");
 ```
 
-### `zod` — Schema Validation
+### `libs.zod` — Schema Validation
 
 Full [Zod](https://zod.dev/) library for runtime schema validation and parsing.
 
 ```javascript
-const schema = zod.object({
-  name: zod.string().min(1),
-  age: zod.number().positive()
+const schema = libs.zod.object({
+  name: libs.zod.string().min(1),
+  age: libs.zod.number().positive()
 });
 const result = schema.safeParse(getRequestBody());
 if (!result.success) {
@@ -247,7 +247,7 @@ The scripting environment is a secure **V8 sandbox** (via Node.js `vm` module). 
 | Constraint | Detail |
 | :--- | :--- |
 | **No Node.js globals** | `process`, `fs`, `require`, `__dirname`, etc. are not accessible. |
-| **No arbitrary imports** | `require()` and ES `import` statements are not supported. |
+| **Imports** | ES `import` statements are supported for built-in and bundled modules — see [Imports & Libraries](./imports.md). `require()` is not supported. |
 | **Execution timeout** | Scripts are killed after **4 seconds**. Design scripts to be fast. |
 | **No cross-request state** | Variables exist only for the duration of a single workflow run. |
 | **Async supported** | `async/await` is fully supported. The VM waits for promise resolution. |
@@ -285,9 +285,10 @@ jwt.verify(token, secret, options?)
 jwt.decode(token, options?)
 
 // ─── Libraries ────────────────────────────────────────────────
-dayjs()                        // Day.js (UTC extended)
-_                              // Underscore.js
-zod                            // Zod schema validation
+libs.dayjs()                   // Day.js (UTC extended)
+libs._                         // Underscore.js
+libs.zod                       // Zod schema validation
+import { z } from "zod";       // or import them by name instead
 
 // ─── DB Native block only ─────────────────────────────────────
 dbQuery("SELECT ...")
@@ -298,4 +299,5 @@ dbQuery("SELECT ...")
 - **`vars` is the canonical source**: Both built-in helpers and user-defined runtime variables live on the same `vars` object (`ContextVarsType & Record<string, any>`). User variables are simply additional keys added at runtime.
 - **`input` is a separate injection**: The `input` variable is passed as a parameter to the VM `runAsync` call, not from `vars`. It changes with each block execution.
 - **`dbQuery` is conditionally injected**: The DB Native block patches `vars.dbQuery` before running the VM, then removes it after — it is never a permanent global.
-- **Libraries are server-side bundles**: `dayjs`, `_`, and `zod` are actual npm packages bundled in the server, not CDN links. They run in Node.js, not the browser.
+- **Libraries are server-side bundles**: `libs.dayjs`, `libs._`, and `libs.zod` are actual npm packages bundled in the server, not CDN links. They run server-side, not in the browser.
+- **Imports are hoisted**: `import` statements are lifted out of your script and loaded once when the workflow is saved, not on each request.

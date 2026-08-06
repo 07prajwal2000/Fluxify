@@ -1,0 +1,14 @@
+{
+	"compilerOptions": {
+		"module": "preserve",
+		"target": "es2024",
+		"moduleResolution": "bundler",
+		"strict": true,
+		"skipLibCheck": true,
+		"esModuleInterop": true,
+		"isolatedModules": true,
+		"types": ["node", "bun"],
+		"noEmit": true
+	},
+	"exclude": ["node_modules"]
+}

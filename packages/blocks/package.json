@@ -27,6 +27,7 @@
 		"@fluxify/lib": "workspace:*",
 		"dayjs": "^1.11.19",
 		"jsonwebtoken": "^9.0.3",
+		"underscore": "^1.13.8",
 		"zod": "^4.0.17"
 	}
 }

@@ -1,0 +1,145 @@
+{
+	"name": "auth/session",
+	"description": "GET /auth/session — verifies the bearer token and returns its claims (iss, sub, roles, exp). 401 when the token is missing, forged, or issued by someone else.",
+	"engine": "pg",
+	"route": {
+		"method": "GET",
+		"path": "/auth/session"
+	},
+	"blocks": [
+		{
+			"id": "entry",
+			"type": "entrypoint",
+			"position": {
+				"x": 0,
+				"y": 0
+			},
+			"data": {
+				"blockName": "Request"
+			}
+		},
+		{
+			"id": "verify-token",
+			"type": "jsrunner",
+			"position": {
+				"x": 240,
+				"y": 0
+			},
+			"data": {
+				"blockName": "Verify the bearer token",
+				"value": "const header = getHeader(\"authorization\");\nreturn jwt.verify(header.replace(/^Bearer\\s+/i, \"\"), \"e2e-jwt-secret\", { issuer: \"fluxify-e2e\" });"
+			}
+		},
+		{
+			"id": "authenticated",
+			"type": "if",
+			"position": {
+				"x": 480,
+				"y": 0
+			},
+			"data": {
+				"blockName": "Token valid?",
+				"conditions": [
+					{
+						"lhs": "js:return input.success;",
+						"rhs": true,
+						"operator": "eq",
+						"chain": "and"
+					}
+				]
+			}
+		},
+		{
+			"id": "claims",
+			"type": "jsrunner",
+			"position": {
+				"x": 720,
+				"y": -120
+			},
+			"data": {
+				"blockName": "Claims payload",
+				"value": "const { sub, iss, roles, username, email, verified, iat, exp } = input.payload;\nreturn { sub, iss, roles, username, email, verified, iat, exp };"
+			}
+		},
+		{
+			"id": "session",
+			"type": "response",
+			"position": {
+				"x": 960,
+				"y": -120
+			},
+			"data": {
+				"blockName": "200 OK",
+				"httpCode": "200"
+			}
+		},
+		{
+			"id": "anonymous-body",
+			"type": "jsrunner",
+			"position": {
+				"x": 720,
+				"y": 120
+			},
+			"data": {
+				"blockName": "Unauthenticated payload",
+				"value": "return { error: \"unauthenticated\" };"
+			}
+		},
+		{
+			"id": "anonymous",
+			"type": "response",
+			"position": {
+				"x": 960,
+				"y": 120
+			},
+			"data": {
+				"blockName": "401 Unauthorized",
+				"httpCode": "401"
+			}
+		}
+	],
+	"edges": [
+		{
+			"id": "e-entry-verify",
+			"from": "entry",
+			"to": "verify-token",
+			"fromHandle": "source",
+			"toHandle": "source"
+		},
+		{
+			"id": "e-verify-check",
+			"from": "verify-token",
+			"to": "authenticated",
+			"fromHandle": "source",
+			"toHandle": "source"
+		},
+		{
+			"id": "e-check-claims",
+			"from": "authenticated",
+			"to": "claims",
+			"fromHandle": "success",
+			"toHandle": "success"
+		},
+		{
+			"id": "e-claims-response",
+			"from": "claims",
+			"to": "session",
+			"fromHandle": "source",
+			"toHandle": "source"
+		},
+		{
+			"id": "e-check-anonymous",
+			"from": "authenticated",
+			"to": "anonymous-body",
+			"fromHandle": "failure",
+			"toHandle": "failure"
+		},
+		{
+			"id": "e-anonymous-response",
+			"from": "anonymous-body",
+			"to": "anonymous",
+			"fromHandle": "source",
+			"toHandle": "source"
+		}
+	]
+}

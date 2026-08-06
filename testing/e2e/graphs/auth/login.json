@@ -1,0 +1,186 @@
+{
+	"name": "auth/login",
+	"description": "POST /auth/login — re-hashes the submitted password and compares it to the stored digest, then signs a JWT. 401 on either a missing account or a bad password.",
+	"engine": "pg",
+	"route": {
+		"method": "POST",
+		"path": "/auth/login"
+	},
+	"schemas": {
+		"body": {
+			"dataType": "object",
+			"properties": [
+				{
+					"key": "email",
+					"dataType": "str",
+					"required": true
+				},
+				{
+					"key": "password",
+					"dataType": "str",
+					"required": true,
+					"rules": [
+						{
+							"type": "minLength",
+							"value": 8
+						}
+					]
+				}
+			]
+		}
+	},
+	"blocks": [
+		{
+			"id": "entry",
+			"type": "entrypoint",
+			"position": {
+				"x": 0,
+				"y": 0
+			},
+			"data": {
+				"blockName": "Request"
+			}
+		},
+		{
+			"id": "find-user",
+			"type": "db_getsingle",
+			"position": {
+				"x": 240,
+				"y": 0
+			},
+			"data": {
+				"blockName": "Load the account",
+				"connection": "primary",
+				"tableName": "auth_users",
+				"conditions": [
+					{
+						"attribute": "email",
+						"operator": "eq",
+						"value": "js:return getRequestBody().email;",
+						"chain": "and"
+					}
+				],
+				"columns": [
+					"id",
+					"username",
+					"email",
+					"password_hash",
+					"verified",
+					"roles"
+				]
+			}
+		},
+		{
+			"id": "password-matches",
+			"type": "if",
+			"position": {
+				"x": 480,
+				"y": 0
+			},
+			"data": {
+				"blockName": "Password matches?",
+				"conditions": [
+					{
+						"lhs": "",
+						"rhs": "",
+						"operator": "js",
+						"chain": "and",
+						"js": "import { createHash } from \"node:crypto\";\nif (!input) return false;\nconst attempt = createHash(\"sha256\").update(getRequestBody().password).digest(\"hex\");\nreturn attempt === input.password_hash;"
+					}
+				]
+			}
+		},
+		{
+			"id": "issue-token",
+			"type": "jsrunner",
+			"position": {
+				"x": 720,
+				"y": -120
+			},
+			"data": {
+				"blockName": "Sign the JWT",
+				"value": "const token = jwt.sign(\n\t{\n\t\tsub: String(input.id),\n\t\tusername: input.username,\n\t\temail: input.email,\n\t\troles: input.roles.split(\",\"),\n\t\tverified: input.verified,\n\t},\n\t\"e2e-jwt-secret\",\n\t{ expiresIn: \"1h\", issuer: \"fluxify-e2e\" },\n);\nreturn { token, user: { id: input.id, username: input.username, email: input.email } };"
+			}
+		},
+		{
+			"id": "logged-in",
+			"type": "response",
+			"position": {
+				"x": 960,
+				"y": -120
+			},
+			"data": {
+				"blockName": "200 OK",
+				"httpCode": "200"
+			}
+		},
+		{
+			"id": "rejected-body",
+			"type": "jsrunner",
+			"position": {
+				"x": 720,
+				"y": 120
+			},
+			"data": {
+				"blockName": "Rejection payload",
+				"value": "return { error: \"invalid_credentials\" };"
+			}
+		},
+		{
+			"id": "rejected",
+			"type": "response",
+			"position": {
+				"x": 960,
+				"y": 120
+			},
+			"data": {
+				"blockName": "401 Unauthorized",
+				"httpCode": "401"
+			}
+		}
+	],
+	"edges": [
+		{
+			"id": "e-entry-find",
+			"from": "entry",
+			"to": "find-user",
+			"fromHandle": "source",
+			"toHandle": "source"
+		},
+		{
+			"id": "e-find-check",
+			"from": "find-user",
+			"to": "password-matches",
+			"fromHandle": "source",
+			"toHandle": "source"
+		},
+		{
+			"id": "e-check-token",
+			"from": "password-matches",
+			"to": "issue-token",
+			"fromHandle": "success",
+			"toHandle": "success"
+		},
+		{
+			"id": "e-token-response",
+			"from": "issue-token",
+			"to": "logged-in",
+			"fromHandle": "source",
+			"toHandle": "source"
+		},
+		{
+			"id": "e-check-rejected",
+			"from": "password-matches",
+			"to": "rejected-body",
+			"fromHandle": "failure",
+			"toHandle": "failure"
+		},
+		{
+			"id": "e-rejected-response",
+			"from": "rejected-body",
+			"to": "rejected",
+			"fromHandle": "source",
+			"toHandle": "source"
+		}
+	]
+}

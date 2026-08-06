@@ -146,8 +146,23 @@ export function resolveCondition(
 ): { lhs: unknown; rhs: unknown } {
 	return {
 		lhs: resolveJsonOperand(attribute, isNumericLike(value), dialect, qualifiers),
-		rhs: resolveJsonOperand(value, isNumericLike(attribute), dialect, qualifiers),
+		rhs: isColumnReference(value)
+			? resolveJsonOperand(value, isNumericLike(attribute), dialect, qualifiers)
+			: value,
 	};
+}
+
+// The RHS is a value first and a column reference second, so it only earns path
+// treatment when it is actually shaped like one. Without this, any dotted
+// literal is emitted as an identifier: `WHERE email = 'ada@example.com'` became
+// `WHERE email = "ada@example" ->> 'com'`, which Postgres rejects with
+// `column "ada@example" does not exist` — i.e. no lookup by email worked at all.
+// The LHS is unaffected: an attribute is a column by definition, and JSON keys
+// there may legitimately be things an identifier regex would reject.
+const PATH_LIKE = /^[A-Za-z_]\w*(?:\.[A-Za-z_]\w*|\[\d+\])+$/;
+
+function isColumnReference(value: unknown): boolean {
+	return typeof value === "string" && PATH_LIKE.test(value);
 }
 
 // Applies declared joins to a Kysely query builder. The join condition is an
