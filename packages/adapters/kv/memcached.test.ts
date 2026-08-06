@@ -2,7 +2,9 @@ import { describe, it, expect, beforeAll, afterAll } from "bun:test";
 import { faker } from "@faker-js/faker";
 import { MemcachedIntegration } from "./memcached";
 import type Docker from "dockerode";
-import { docker, startContainerWithRandomPort } from "../containerTestHelpers";
+import { docker, ensureImage, startContainerWithRandomPort } from "../containerTestHelpers";
+
+const MEMCACHED_IMAGE = "memcached:1.6-alpine";
 
 describe("MemcachedIntegration", () => {
 	const containerName = "fluxify-memcached-test";
@@ -12,9 +14,10 @@ describe("MemcachedIntegration", () => {
 
 	beforeAll(async () => {
 		await docker.getContainer(containerName).remove({ force: true }).catch(() => {});
+		await ensureImage(MEMCACHED_IMAGE);
 		const started = await startContainerWithRandomPort((hostPort) =>
 			docker.createContainer({
-				Image: "memcached:latest",
+				Image: MEMCACHED_IMAGE,
 				name: containerName,
 				HostConfig: {
 					PortBindings: { "11211/tcp": [{ HostPort: String(hostPort) }] },
@@ -23,8 +26,6 @@ describe("MemcachedIntegration", () => {
 		);
 		container = started.container;
 		port = started.port;
-		
-		await new Promise((r) => setTimeout(r, 2000));
 
 		integration = new MemcachedIntegration({
 			host: "127.0.0.1",

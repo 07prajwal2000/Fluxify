@@ -80,13 +80,14 @@ export class RedisIntegration extends BaseKVIntegration {
 		appConfigs: Map<string, string>,
 	): Promise<{ success: boolean; error?: string }> {
 		let integration: RedisIntegration | null = null;
+		let timeout: ReturnType<typeof setTimeout> | undefined;
 		try {
 			const extractedConfig = this.ExtractConnectionInfo(config, appConfigs);
 			integration = new RedisIntegration(extractedConfig, true);
 			
 			const pingPromise = integration.client.ping();
 			const timeoutPromise = new Promise<never>((_, reject) => 
-				setTimeout(() => reject(new Error("Connection timed out after 5 seconds")), 5000)
+				timeout = setTimeout(() => reject(new Error("Connection timed out after 5 seconds")), 5000)
 			);
 			await Promise.race([pingPromise, timeoutPromise]);
 			
@@ -94,6 +95,7 @@ export class RedisIntegration extends BaseKVIntegration {
 		} catch (error: any) {
 			return { success: false, error: error.message };
 		} finally {
+			if (timeout) clearTimeout(timeout);
 			if (integration) {
 				await integration.disconnect();
 			}
