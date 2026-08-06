@@ -90,13 +90,14 @@ export class MemcachedIntegration extends BaseKVIntegration {
 		appConfigs: Map<string, string>,
 	): Promise<{ success: boolean; error?: string }> {
 		let integration: MemcachedIntegration | null = null;
+		let timeout: ReturnType<typeof setTimeout> | undefined;
 		try {
 			const extractedConfig = this.ExtractConnectionInfo(config, appConfigs);
 			integration = new MemcachedIntegration(extractedConfig, true);
 			
 			const pingPromise = integration.set("test_ping", "1");
 			const timeoutPromise = new Promise<never>((_, reject) => 
-				setTimeout(() => reject(new Error("Connection timed out after 5 seconds")), 5000)
+				timeout = setTimeout(() => reject(new Error("Connection timed out after 5 seconds")), 5000)
 			);
 			await Promise.race([pingPromise, timeoutPromise]);
 			
@@ -104,6 +105,7 @@ export class MemcachedIntegration extends BaseKVIntegration {
 		} catch (error: any) {
 			return { success: false, error: error.message };
 		} finally {
+			if (timeout) clearTimeout(timeout);
 			if (integration) {
 				await integration.disconnect();
 			}

@@ -47,3 +47,13 @@ export function pullImage(image: string): Promise<void> {
 		});
 	});
 }
+
+/** Pull an image only when the local Docker daemon does not already have it. */
+export async function ensureImage(image: string): Promise<void> {
+	try {
+		await docker.getImage(image).inspect();
+	} catch (error: any) {
+		if (error.statusCode !== 404) throw error;
+		await pullImage(image);
+	}
+}
