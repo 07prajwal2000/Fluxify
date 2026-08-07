@@ -13,6 +13,7 @@ export * from "./src/IntegrationSelector";
 export * from "./src/JsonEditor";
 export * from "./src/ArrayEditor";
 export * from "./src/JoinsEditor";
+export * from "./src/MultiSelect";
 export {
 	Checkbox,
 	CheckboxControl,

@@ -1,6 +1,11 @@
 import { HttpRouteParser } from "@fluxify/lib";
 import { db } from "../db";
-import { projectsEntity, routesEntity } from "../db/schema";
+import {
+	httpRouteConfigEntity,
+	projectsEntity,
+	routesEntity,
+} from "../db/schema";
+import { acceptedContentTypes } from "../lib/routeConfig";
 import {
 	CHAN_ON_ROUTE_CHANGE,
 	deleteCacheKey,
@@ -37,7 +42,7 @@ export async function loadRoutes() {
 }
 
 async function fetchRoutes() {
-	return await db
+	const routes = await db
 		.select({
 			method: routesEntity.method,
 			path: routesEntity.path,
@@ -48,8 +53,18 @@ async function fetchRoutes() {
 			querySchema: routesEntity.querySchema,
 			paramsSchema: routesEntity.paramsSchema,
 			timeoutSeconds: routesEntity.timeoutSeconds,
+			routeConfig: httpRouteConfigEntity.routeConfig,
 		})
 		.from(routesEntity)
 		.leftJoin(projectsEntity, eq(routesEntity.projectId, projectsEntity.id))
+		.leftJoin(
+			httpRouteConfigEntity,
+			eq(httpRouteConfigEntity.routeId, routesEntity.id),
+		)
 		.where(eq(routesEntity.active, true));
+
+	return routes.map(({ routeConfig, ...route }) => ({
+		...route,
+		acceptedContentTypes: acceptedContentTypes(routeConfig),
+	}));
 }

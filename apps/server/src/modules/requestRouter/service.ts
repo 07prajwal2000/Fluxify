@@ -39,6 +39,9 @@ import {
 import * as zodLib from "zod";
 import { projectSettingsCache } from "../../loaders/projectSettingsLoader";
 import type { RequestEnvelope, RequestPayload } from "./types";
+import { bodyReader, RequestBodyError } from "./requestBody";
+import { DEFAULT_CONTENT_TYPES } from "../../lib/routeConfig";
+import { MAX_REQUEST_BODY_BYTES } from "../../lib/env";
 
 dayjs.extend(dayjsUtc);
 
@@ -89,7 +92,8 @@ const DEFAULT_TRIGGER: TriggerContext = {
  * `reply` is opt-in async via header so schedulers/crons can fire-and-forget.
  */
 export async function envelopeFromHttp(ctx: Context): Promise<RequestEnvelope> {
-	return {
+	const reader = bodyReader(ctx.req, MAX_REQUEST_BODY_BYTES);
+	const envelope: RequestEnvelope = {
 		trigger: {
 			kind: "route",
 			source: "http",
@@ -101,9 +105,13 @@ export async function envelopeFromHttp(ctx: Context): Promise<RequestEnvelope> {
 			path: ctx.req.path,
 			headers: ctx.req.header(),
 			query: ctx.req.query(),
-			body: await getRequestBody(ctx),
+			body: null,
+			bodyReader: reader,
 		},
 	};
+	// an async reply is sent before the route runs; the stream may not survive it
+	if (reader && envelope.trigger.reply === "async") await reader.materialize();
+	return envelope;
 }
 
 /**
@@ -132,6 +140,18 @@ export async function dispatch(
 		};
 	}
 
+	let body = payload.body;
+	if (payload.bodyReader) {
+		try {
+			body = await payload.bodyReader.parse(
+				path.acceptedContentTypes ?? DEFAULT_CONTENT_TYPES,
+			);
+		} catch (error) {
+			if (!(error instanceof RequestBodyError)) throw error;
+			return { status: error.status, data: { message: error.message } };
+		}
+	}
+
 	const finish = observer?.onRouteStart({
 		routeId: path.id,
 		projectId: path.projectId!,
@@ -155,7 +175,7 @@ export async function dispatch(
 				path: payload.path,
 				headers: payload.headers,
 				query: payload.query,
-				body: payload.body,
+				body,
 				params: path.routeParams || payload.params || {},
 			},
 			httpCtx,
@@ -569,17 +589,3 @@ function createJsVM(vars: Record<string, any>) {
 	return vm;
 }
 
-async function getRequestBody(ctx: Context) {
-	const method = ctx.req.method;
-	if (method == "POST" || method == "PUT") {
-		const contentType = ctx.req.header("Content-Type");
-		if (contentType === "application/json") {
-			return await ctx.req.json();
-		}
-		if (contentType === "application/x-www-form-urlencoded") {
-			return await ctx.req.formData();
-		}
-		return await ctx.req.text();
-	}
-	return null;
-}

@@ -12,6 +12,8 @@ import { CHAN_ON_ROUTE_CHANGE, publishMessage } from "../../../../db/redis";
 import { generateID } from "@fluxify/lib";
 import { NotFoundError } from "../../../../errors/notFoundError";
 import { HttpMethod } from "../../../../db/schema";
+import { patchRouteConfig } from "../routeConfigRepository";
+import { DEFAULT_CONTENT_TYPES } from "../../../../lib/routeConfig";
 
 /**
  * `outer` joins a transaction already in progress, so the ops bus can create a
@@ -40,11 +42,18 @@ export default async function handleRequest(
       throw new ConflictError(`route with name or path already exist`);
     }
     const id = generateID();
+    const { acceptedContentTypes, ...route } = data;
     const newRouteId = await createRoute(
-      { ...data, id, createdBy: userId },
+      { ...route, id, createdBy: userId },
       tx
     );
     await createDependency(newRouteId, tx);
+    await patchRouteConfig(
+      newRouteId,
+      data.projectId,
+      { acceptedContentTypes: acceptedContentTypes ?? DEFAULT_CONTENT_TYPES },
+      tx
+    );
     return {
       id: newRouteId,
     };

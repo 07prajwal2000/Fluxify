@@ -8,6 +8,7 @@ import { publishMessage, CHAN_ON_ROUTE_CHANGE } from "../../../../db/redis";
 import { ServerError } from "../../../../errors/serverError";
 import { AuthACL } from "../../../../db/schema";
 import { ForbiddenError } from "../../../../errors/forbidError";
+import { patchRouteConfig } from "../routeConfigRepository";
 
 export default async function handleRequest(
   id: string,
@@ -48,6 +49,14 @@ export default async function handleRequest(
 		}
 		if (data.recordExecution !== undefined) {
 			patchedRoute.recordExecution = data.recordExecution;
+		}
+		if (data.acceptedContentTypes !== undefined) {
+			await patchRouteConfig(
+				id,
+				existingRoute.projectId,
+				{ acceptedContentTypes: data.acceptedContentTypes },
+				tx,
+			);
 		}
     return await updateRoute(
       {

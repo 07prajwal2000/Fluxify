@@ -104,6 +104,34 @@ the isolated execution process, so the container and its NATS watcher stay up.
 
 ---
 
+## Request body size {#request-body-size}
+
+Every request body a route receives is capped. The default is **8 MB**, and a
+request above it is rejected with `413` before any workflow runs.
+
+```env
+# Kilobytes. 8192 = 8 MB (the default).
+WORKER_MAX_STREAM_SIZE=8192
+```
+
+Set it in the same `.env` the workers read (see [Step 1](#env)), or per service
+in your compose file. Raise it deliberately: the whole body is held in memory
+while the route runs, so the cap multiplied by your concurrency is memory the
+worker has to have.
+
+::: warning Fluxify is an API server, not an upload service
+Routing large files through your API means the upload is paid for twice — once
+into the worker, once out of it — and every megabyte competes with the requests
+you actually want to serve.
+
+For file uploads, have your client upload **directly to object storage** with a
+pre-signed URL: your route issues a short-lived signed S3 (or compatible) URL,
+the client `PUT`s the file straight to storage, then calls your API again with
+the resulting object key. Only the key ever passes through Fluxify.
+:::
+
+---
+
 ## Local async executor
 
 Compiled workers include a bounded local executor for the future async-trigger

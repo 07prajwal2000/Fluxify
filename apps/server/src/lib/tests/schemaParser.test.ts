@@ -206,6 +206,78 @@ describe('schemaParser Exhaustive Test Suite', () => {
     });
   });
 
+  describe('Uploaded files and raw binary bodies', () => {
+    const png = (bytes: number, type = 'image/png') =>
+      new File(['x'.repeat(bytes)], 'avatar.png', { type });
+
+    test('File size and mime rules', async () => {
+      const schema = {
+        dataType: 'object',
+        properties: [
+          {
+            key: 'avatar',
+            dataType: 'file',
+            rules: [
+              { type: 'maxSize', value: 10 },
+              { type: 'minSize', value: 2 },
+              { type: 'mimeTypes', value: 'image/png, image/jpeg' },
+            ],
+          },
+        ],
+      };
+
+      expect((await parseRequestSchema(schema, { avatar: png(5) }, context)).success).toBe(true);
+      expect((await parseRequestSchema(schema, { avatar: png(50) }, context)).success).toBe(false); // too big
+      expect((await parseRequestSchema(schema, { avatar: png(1) }, context)).success).toBe(false); // too small
+      expect((await parseRequestSchema(schema, { avatar: png(5, 'application/pdf') }, context)).success).toBe(false);
+      expect((await parseRequestSchema(schema, { avatar: 'not-a-file' }, context)).success).toBe(false);
+    });
+
+    test('mimeTypes accepts an array as well as a comma-separated string', async () => {
+      const schema = {
+        dataType: 'file',
+        rules: [{ type: 'mimeTypes', value: ['image/png'] }],
+      };
+
+      expect((await parseRequestSchema(schema, png(3), context)).success).toBe(true);
+      expect((await parseRequestSchema(schema, png(3, 'image/gif'), context)).success).toBe(false);
+    });
+
+    test('A content type carrying parameters still matches its mime rule', async () => {
+      // a text part is commonly announced as `text/plain;charset=utf-8`
+      const schema = {
+        dataType: 'file',
+        rules: [{ type: 'mimeTypes', value: 'text/plain' }],
+      };
+      const upload = new File(['hi'], 'note.txt', { type: 'text/plain;charset=utf-8' });
+
+      expect((await parseRequestSchema(schema, upload, context)).success).toBe(true);
+    });
+
+    test('Arrays of files reuse the item rules', async () => {
+      const schema = {
+        dataType: 'arr',
+        items: { key: 'docs', dataType: 'file', rules: [{ type: 'maxSize', value: 4 }] },
+        rules: [{ type: 'maxItems', value: 2 }],
+      };
+
+      expect((await parseRequestSchema(schema, [png(2), png(3)], context)).success).toBe(true);
+      expect((await parseRequestSchema(schema, [png(2), png(9)], context)).success).toBe(false); // one too big
+      expect((await parseRequestSchema(schema, [png(1), png(1), png(1)], context)).success).toBe(false); // too many
+    });
+
+    test('Blob accepts a raw octet-stream body, and its size rule holds', async () => {
+      const schema = {
+        dataType: 'blob',
+        rules: [{ type: 'maxSize', value: 4 }],
+      };
+
+      expect((await parseRequestSchema(schema, new Blob(['abc']), context)).success).toBe(true);
+      expect((await parseRequestSchema(schema, new Blob(['abcdefgh']), context)).success).toBe(false);
+      expect((await parseRequestSchema(schema, 'abc', context)).success).toBe(false);
+    });
+  });
+
   describe('DB Zod Schema Protection', () => {
     test('Rejects malformed JSON definitions entirely before execution', async () => {
       const malformedSchema = {

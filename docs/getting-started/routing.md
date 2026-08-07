@@ -50,13 +50,37 @@ tracking are created.
 Before Fluxify executes a single block in your workflow, it runs through a quick validation pipeline:
 
 1. **Match the route** — find the right workflow for this request.
-2. **Parse the request body** — read the JSON data sent by the caller.
-3. **Validate the body** — check it against your Body Schema (if set).
-4. **Validate query parameters** — check URL query strings against your Query Schema (if set).
-5. **Validate path parameters** — check URL path values against your Params Schema (if set).
-6. **Run your workflow** — only if everything above passed.
+2. **Check the content type** — make sure the caller sent a format this route accepts.
+3. **Parse the request body** — turn it into data your blocks can use.
+4. **Validate the body** — check it against your Body Schema (if set).
+5. **Validate query parameters** — check URL query strings against your Query Schema (if set).
+6. **Validate path parameters** — check URL path values against your Params Schema (if set).
+7. **Run your workflow** — only if everything above passed.
 
 If any validation step fails, the workflow never runs and the caller immediately gets a clear error response.
+## Accepted Content Types
+
+A route declares which body formats it accepts. New routes accept
+**`application/json`** only; choose more under **Accepted content types** when
+you create the route.
+
+| Content type | What your workflow receives |
+| :--- | :--- |
+| `application/json` | The parsed JSON value |
+| `application/x-www-form-urlencoded` | An object of field names and text values |
+| `multipart/form-data` | An object of text fields plus any uploaded files |
+| `application/octet-stream` | The raw binary body |
+| `text/plain` | The text as sent |
+
+A request in any other format — or in a format this particular route wasn't set
+up for — is rejected with `415` and the workflow never runs. `GET` and `DELETE`
+requests carry no body at all.
+
+::: tip Bodies have a size limit
+8 MB by default, and larger requests get a `413`. See
+[request body size](../deployments/production.md#request-body-size).
+:::
+
 ## Request Validation
 
 Each route optionally has three schemas you can configure in the Schema Editor:
@@ -80,6 +104,8 @@ You only need to configure the ones that matter for your route — unused schema
 | `Array` | A list of items, with optional min/max item count |
 | `Object` | A structured set of named fields (can be nested) |
 | `Enum` | One specific value from a predefined list |
+| `File` | An uploaded file from a `multipart/form-data` request, with optional size and file-type rules |
+| `Blob` | A raw binary body (`application/octet-stream`), with optional size rules |
 | `Use JavaScript` | Custom validation logic you write yourself |
 
 ### Marking Fields as Required
@@ -146,6 +172,9 @@ Here's every possible outcome and what the caller receives:
 | Situation | Status | Response |
 | :--- | :--- | :--- |
 | Route doesn't exist | `404` | `{ "message": "Route not found" }` |
+| Content type not accepted | `415` | `{ "message": "Unsupported content type ..." }` |
+| Body too large | `413` | `{ "message": "Request body exceeds the ...KB limit" }` |
+| Body couldn't be read | `400` | `{ "message": "Malformed ... body: ..." }` |
 | Validation failed | `400` | `{ "message": "...", "errors": [...] }` |
 | Workflow error | `500` | `{ "error": "description" }` |
 | Unexpected crash | `500` | `{ "message": "Internal server error" }` |

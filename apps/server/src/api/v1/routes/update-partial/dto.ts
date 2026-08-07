@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { ROUTE_REGEX } from "../constants";
+import { CONTENT_TYPES } from "../../../../lib/routeConfig";
 
 export const requestBodySchema = z.object({
   name: z.string().min(2).max(255).optional(),
@@ -15,6 +16,7 @@ export const requestBodySchema = z.object({
   timeoutSeconds: z.number().int().min(30).optional(),
   tracingEnabled: z.boolean().optional(),
   recordExecution: z.boolean().optional(),
+  acceptedContentTypes: z.array(z.enum(CONTENT_TYPES)).min(1).optional(),
 });
 
 export const requestRouteSchema = z.object({

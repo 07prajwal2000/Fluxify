@@ -56,7 +56,13 @@ function bootstrap(nextBoot: ExecutionBootstrap) {
 	);
 	setMonitoring(boot.workerTimeoutsEnabled);
 
-	server = Bun.serve({ port: boot.port, reusePort: true, fetch: handle });
+	server = Bun.serve({
+		port: boot.port,
+		reusePort: true,
+		// hard ceiling: Bun rejects a larger body before user code ever sees it
+		maxRequestBodySize: boot.maxRequestBodyBytes,
+		fetch: handle,
+	});
 	send({ type: "ready" });
 	logger.info(`[execution] serving port ${server.port}`, "WORKER.execution");
 }

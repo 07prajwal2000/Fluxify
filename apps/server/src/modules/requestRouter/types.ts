@@ -1,4 +1,5 @@
 import type { TriggerContext } from "@fluxify/blocks";
+import type { BodyReader } from "./requestBody";
 
 export type RequestOverrides = {
 	integrations?: Array<{ existingId: string; newId: string }>;
@@ -20,6 +21,12 @@ export type RequestPayload = {
 	body: any;
 	/** route params; usually filled by the router after matching */
 	params?: Record<string, string>;
+	/**
+	 * HTTP only. The accepted content types are a per-route setting, so the body
+	 * is parsed once the route is known; `body` above stays undefined until then.
+	 * Non-HTTP producers supply a plain `body` and leave this unset.
+	 */
+	bodyReader?: BodyReader;
 };
 
 export type RequestEnvelope = {

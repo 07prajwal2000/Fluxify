@@ -14,6 +14,8 @@ export type RouteArtifact = {
 	querySchema?: unknown;
 	paramsSchema?: unknown;
 	timeoutSeconds: number;
+	/** body formats this route accepts; anything else is rejected with a 415 */
+	acceptedContentTypes: string[];
 	/** spans exported to the project's OTEL destination; nothing is stored by us */
 	tracingEnabled: boolean;
 	/** debug recording, persisted for the portal trace viewer; expensive */

@@ -14,6 +14,7 @@ import {
 	OTLP_ENDPOINT,
 	OTLP_LOGGER_ENABLED,
 	OTLP_LOGGER_LEVEL,
+	MAX_REQUEST_BODY_BYTES,
 	getEnv,
 } from "../src/lib/env";
 
@@ -38,7 +39,11 @@ initializeLogger({
 const app = new Hono();
 registerHealthRoutes(app);
 
-const server = serve({ fetch: app.fetch, port });
+const server = serve({
+	fetch: app.fetch,
+	port,
+	maxRequestBodySize: MAX_REQUEST_BODY_BYTES,
+});
 logger.info(
 	`request worker running at http://${server.hostname}:${server.port}`,
 );
