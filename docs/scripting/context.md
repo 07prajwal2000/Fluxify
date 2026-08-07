@@ -56,7 +56,7 @@ Read data from the incoming HTTP request that triggered this workflow. All funct
 | `getRouteParam(key)` | `(key: string) => string` | Returns the value of a dynamic path segment defined in the route (e.g., `:id`). |
 | `getHeader(key)` | `(key: string) => string` | Returns a request header value. Header lookup is case-insensitive. |
 | `getCookie(key)` | `(key: string) => string` | Returns a cookie value sent with the request. |
-| `getRequestBody()` | `() => any` | Returns the parsed request body. Returns `null` for GET requests. Supports JSON, `application/x-www-form-urlencoded`, and plain text. |
+| `getRequestBody()` | `() => any` | Returns the parsed request body, or `null` when the request has none. JSON becomes a value, form data becomes an object (uploaded files included), a raw binary body a file-like value. See [accepted content types](../getting-started/routing.md#accepted-content-types). |
 | `httpRequestMethod` | `string` (constant) | The HTTP method of the request: `"GET"`, `"POST"`, `"PUT"`, `"DELETE"`, etc. |
 | `httpRequestRoute` | `string` (constant) | The full path of the incoming request, e.g., `"/api/orders/99"`. |
 

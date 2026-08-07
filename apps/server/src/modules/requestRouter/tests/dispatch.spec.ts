@@ -21,6 +21,27 @@ function fakeCtx(opts: {
 	} as any;
 }
 
+/** a real Request, so the body reader sees real headers and a real stream */
+function postCtx(body: string, contentType: string) {
+	const raw = new Request("http://localhost/jobs", {
+		method: "POST",
+		body,
+		headers: { "content-type": contentType },
+	});
+	return {
+		req: {
+			method: "POST",
+			path: "/jobs",
+			header: (name?: string) =>
+				name === undefined
+					? Object.fromEntries(raw.headers.entries())
+					: (raw.headers.get(name) ?? undefined),
+			query: () => ({}),
+			raw,
+		},
+	} as any;
+}
+
 describe("envelopeFromHttp", () => {
 	it("maps an HTTP request to a sync route envelope by default", async () => {
 		const env = await envelopeFromHttp(
@@ -102,6 +123,65 @@ describe("dispatch", () => {
 			message: "Body validation failed",
 			errors: [{ path: "", property: "", errors: ["expected failure"] }],
 		});
+	});
+
+	it("rejects a body the matched route does not accept", async () => {
+		const parser = {
+			getRouteId: () => ({
+				id: "route-1",
+				projectId: "project-1",
+				projectName: "Project",
+				acceptedContentTypes: ["multipart/form-data"],
+			}),
+		} as unknown as HttpRouteParser;
+		const env = await envelopeFromHttp(
+			postCtx('{"a":1}', "application/json"),
+		);
+
+		const res = await dispatch(env, parser);
+
+		expect(res.status).toBe(415);
+		expect((res.data as { message: string }).message).toContain(
+			"multipart/form-data",
+		);
+	});
+
+	it("parses the body only after the route matched, and hands it to the graph", async () => {
+		let seen: unknown;
+		setBlocksExecutor(async (_target, context) => {
+			seen = context.requestBody;
+			return { successful: true, output: { body: "ok" } } as any;
+		});
+		const parser = {
+			getRouteId: () => ({
+				id: "route-1",
+				projectId: "project-1",
+				projectName: "Project",
+				acceptedContentTypes: ["application/x-www-form-urlencoded"],
+			}),
+		} as unknown as HttpRouteParser;
+		const env = await envelopeFromHttp(
+			postCtx("name=Alice", "application/x-www-form-urlencoded"),
+		);
+
+		await dispatch(env, parser);
+
+		expect(seen).toEqual({ name: "Alice" });
+	});
+
+	it("falls back to JSON only when a route carries no content type config", async () => {
+		const parser = {
+			getRouteId: () => ({
+				id: "route-1",
+				projectId: "project-1",
+				projectName: "Project",
+			}),
+		} as unknown as HttpRouteParser;
+		const env = await envelopeFromHttp(postCtx("plain", "text/plain"));
+
+		const res = await dispatch(env, parser);
+
+		expect(res.status).toBe(415);
 	});
 
 	it("reuses the HTTP client and normalizes headers once per execution", async () => {

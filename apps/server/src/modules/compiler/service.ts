@@ -11,9 +11,11 @@ import {
 	blocksEntity,
 	customBlocksListEntity,
 	edgesEntity,
+	httpRouteConfigEntity,
 	projectsEntity,
 	routesEntity,
 } from "../../db/schema";
+import { acceptedContentTypes } from "../../lib/routeConfig";
 import { deleteArtifact, putArtifact } from "../../db/natsKv";
 import type { CanvasParent } from "../canvas/types";
 import { getProjectAppConfig } from "../../loaders/appconfigLoader";
@@ -102,9 +104,14 @@ export async function compileRoute(routeId: string) {
 			timeoutSeconds: routesEntity.timeoutSeconds,
 			tracingEnabled: routesEntity.tracingEnabled,
 			recordExecution: routesEntity.recordExecution,
+			routeConfig: httpRouteConfigEntity.routeConfig,
 		})
 		.from(routesEntity)
 		.leftJoin(projectsEntity, eq(routesEntity.projectId, projectsEntity.id))
+		.leftJoin(
+			httpRouteConfigEntity,
+			eq(httpRouteConfigEntity.routeId, routesEntity.id),
+		)
 		.where(eq(routesEntity.id, routeId));
 
 	if (!route || !route.active) {
@@ -127,6 +134,7 @@ export async function compileRoute(routeId: string) {
 		querySchema: route.querySchema,
 		paramsSchema: route.paramsSchema,
 		timeoutSeconds: route.timeoutSeconds,
+		acceptedContentTypes: acceptedContentTypes(route.routeConfig),
 		tracingEnabled: route.tracingEnabled,
 		recordExecution: route.recordExecution,
 		// no versioning yet — the compile timestamp is the version (see RouteArtifact)

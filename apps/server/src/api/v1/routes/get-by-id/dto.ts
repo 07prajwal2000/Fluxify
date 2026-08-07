@@ -18,6 +18,7 @@ export const responseSchema = z.object({
 	timeoutSeconds: z.number().int(),
 	tracingEnabled: z.boolean(),
 	recordExecution: z.boolean(),
+	acceptedContentTypes: z.array(z.string()),
 	createdAt: z.string(),
 	createdBy: z.string(),
 	updatedAt: z.string(),

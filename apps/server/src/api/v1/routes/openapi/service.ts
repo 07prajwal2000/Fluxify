@@ -9,6 +9,7 @@ import z from "zod";
 import { requestParamSchema } from "./dto";
 import { NotFoundError } from "../../../../errors/notFoundError";
 import { logger } from "@fluxify/common";
+import { acceptedContentTypes } from "../../../../lib/routeConfig";
 
 export async function invalidateOpenApiCache(projectId?: string) {
 	if (projectId) {
@@ -146,12 +147,14 @@ export async function generateOpenApiSpec(
 				const parsedDef = typeof route.bodySchema === "string" ? safelyParseJSON(route.bodySchema) : route.bodySchema;
 				if (parsedDef && typeof parsedDef === "object") {
 					const jsonSchema = schemaDefToOpenApi(parsedDef);
+					// one entry per content type the route actually accepts
 					operation.requestBody = {
-						content: {
-							"application/json": {
-								schema: jsonSchema,
-							},
-						},
+						content: Object.fromEntries(
+							acceptedContentTypes(route.routeConfig).map((contentType) => [
+								contentType,
+								{ schema: jsonSchema },
+							]),
+						),
 					};
 				}
 			} catch (e) {

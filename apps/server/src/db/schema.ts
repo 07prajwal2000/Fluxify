@@ -405,6 +405,34 @@ export const routesRelations = relations(routesEntity, ({ many }) => ({
 	testSuites: many(testSuitesEntity),
 }));
 
+/**
+ * Per-route knobs that are not worth a column each. One row per route, keyed by
+ * the route itself: `route_config` is an open bag so a new setting is a change
+ * to `lib/routeConfig.ts`, not a migration. A route with no row uses defaults.
+ */
+export const httpRouteConfigEntity = pgTable(
+	"http_route_config",
+	{
+		routeId: varchar("route_id", { length: 50 })
+			.primaryKey()
+			.references(() => routesEntity.id, { onDelete: "cascade" }),
+		projectId: varchar("project_id", { length: 50 }).references(
+			() => projectsEntity.id,
+			{ onDelete: "cascade" },
+		),
+		routeConfig: jsonb("route_config")
+			.$type<Record<string, unknown>>()
+			.default({})
+			.notNull(),
+		createdAt: timestamp("created_at").defaultNow().notNull(),
+		updatedAt: timestamp("updated_at")
+			.defaultNow()
+			.notNull()
+			.$onUpdate(() => new Date()),
+	},
+	(table) => [index("idx_http_route_config_project_id").on(table.projectId)],
+);
+
 /* ============================================================================
  * 7. CUSTOM BLOCKS EXTENSIONS
  * ============================================================================ */

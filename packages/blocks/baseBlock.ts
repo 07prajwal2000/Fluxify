@@ -176,7 +176,7 @@ const input: any;                // The output data from the previous connected 
 function getQueryParam(key: string): string;
 function getRouteParam(key: string): string;
 function getHeader(key: string): string;
-function getRequestBody(): any;  // Returns body object for POST/PUT, else undefined
+function getRequestBody(): any;  // POST/PUT body: JSON value, form object (files included), or null
 
 // 3. Response Helpers
 function setHeader(key: string, value: string): void;

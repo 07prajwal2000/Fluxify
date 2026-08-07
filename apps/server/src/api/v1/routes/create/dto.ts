@@ -1,6 +1,7 @@
 import z from "zod";
 import { ROUTE_REGEX } from "../constants";
 import { routeSchemaValidationRefinement } from "../schema-validator";
+import { CONTENT_TYPES } from "../../../../lib/routeConfig";
 
 export const requestBodySchema = z.object({
   name: z.string().min(2).max(255),
@@ -14,6 +15,7 @@ export const requestBodySchema = z.object({
   paramsSchema: z.any().optional(),
   timeoutSeconds: z.number().int().min(30).default(30),
   active: z.boolean().optional(),
+  acceptedContentTypes: z.array(z.enum(CONTENT_TYPES)).min(1).optional(),
 }).superRefine(routeSchemaValidationRefinement);
 
 export const responseSchema = z.object({

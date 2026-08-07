@@ -1,7 +1,9 @@
 import { z } from 'zod';
 
 export const DataTypeZod = z.enum([
-  'str', 'int', 'float', 'bool', 'object', 'arr', 'js', 'enum'
+  'str', 'int', 'float', 'bool', 'object', 'arr', 'js', 'enum',
+  // uploaded parts: 'file' is a multipart field, 'blob' a raw binary body
+  'file', 'blob',
 ]);
 
 export const ChainTypeZod = z.enum(['or', 'and']);

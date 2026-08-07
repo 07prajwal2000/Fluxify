@@ -183,6 +183,7 @@ function routeDefinition(artifact: RouteArtifact): HttpRoute {
 		querySchema: artifact.querySchema,
 		paramsSchema: artifact.paramsSchema,
 		timeoutSeconds: artifact.timeoutSeconds,
+		acceptedContentTypes: artifact.acceptedContentTypes,
 		tracingEnabled: artifact.tracingEnabled,
 		recordExecution: artifact.recordExecution,
 		routeVersion: artifact.routeVersion,

@@ -4,6 +4,7 @@ import { getRouteById } from "./repository";
 import { responseSchema } from "./dto";
 import { AuthACL } from "../../../../db/schema";
 import { ForbiddenError } from "../../../../errors/forbidError";
+import { acceptedContentTypes } from "../../../../lib/routeConfig";
 
 export default async function handleRequest(
 	id: string,
@@ -36,5 +37,6 @@ export default async function handleRequest(
 		timeoutSeconds: route.timeoutSeconds,
 		tracingEnabled: route.tracingEnabled,
 		recordExecution: route.recordExecution,
+		acceptedContentTypes: acceptedContentTypes(route.routeConfig),
 	};
 }

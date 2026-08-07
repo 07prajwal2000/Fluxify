@@ -56,6 +56,9 @@ function getBaseZodType(dataType: string, coerce = false): z.ZodTypeAny {
     case 'bool': return coerce ? z.coerce.boolean() : z.boolean();
     case 'object': return z.object({});
     case 'arr': return z.array(z.any());
+    // multipart fields arrive as File, a raw octet-stream body as Blob
+    case 'file': return z.file();
+    case 'blob': return z.instanceof(Blob);
     default: return z.any();
   }
 }
@@ -85,8 +88,39 @@ function applyRules(schema: z.ZodTypeAny, dataType: string, rules: any[] = []): 
       if (rule.type === 'minItems' && rule.value != null) s = s.min(Number(rule.value));
       if (rule.type === 'maxItems' && rule.value != null) s = s.max(Number(rule.value));
     }
+
+    // Sizes are bytes. The per-request ceiling (WORKER_MAX_STREAM_SIZE) is a
+    // blunt instrument; this is where "avatar <= 2MB, image/* only" lives.
+    if (dataType === 'file' || dataType === 'blob') {
+      if (rule.type === 'maxSize' && rule.value != null) {
+        const max = Number(rule.value);
+        s = s.refine((val: Blob) => val.size <= max, {
+          message: `Must be at most ${max} bytes`,
+        });
+      }
+      if (rule.type === 'minSize' && rule.value != null) {
+        const min = Number(rule.value);
+        s = s.refine((val: Blob) => val.size >= min, {
+          message: `Must be at least ${min} bytes`,
+        });
+      }
+      if (rule.type === 'mimeTypes' && rule.value) {
+        const allowed = toMimeList(rule.value);
+        if (allowed.length > 0) {
+          s = s.refine((val: Blob) => allowed.includes(val.type.toLowerCase()), {
+            message: `Must be one of: ${allowed.join(', ')}`,
+          });
+        }
+      }
+    }
   }
   return s;
+}
+
+/** authored either as a list or as a comma-separated string — accept both */
+function toMimeList(value: unknown): string[] {
+  const raw = Array.isArray(value) ? value : String(value).split(',');
+  return raw.map((entry) => String(entry).trim().toLowerCase()).filter(Boolean);
 }
 
 export function buildZodSchema(schemaDef: any, coerce = false): z.ZodTypeAny {

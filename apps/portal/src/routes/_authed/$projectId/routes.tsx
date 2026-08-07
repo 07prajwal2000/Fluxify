@@ -6,6 +6,7 @@ import {
 	Input,
 	Label,
 	Modal,
+	MultiSelect,
 	Spinner,
 	Table,
 	TextField,
@@ -15,8 +16,21 @@ import { TbPlus, TbTrash } from "react-icons/tb";
 import { routesQuery } from "@/query/routesQuery";
 import { showErrorNotification } from "@/lib/errorNotifier";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
+import {
+	CONTENT_TYPES,
+	DEFAULT_CONTENT_TYPES,
+	type ContentType,
+} from "@fluxify/server/src/lib/routeConfig";
 
 const METHODS = ["GET", "POST", "PUT", "DELETE"] as const;
+
+// only these carry a body — see the request body reader on the server
+const METHODS_WITH_BODY: readonly string[] = ["POST", "PUT"];
+
+const CONTENT_TYPE_OPTIONS = CONTENT_TYPES.map((value) => ({
+	value,
+	label: value,
+}));
 
 export const Route = createFileRoute("/_authed/$projectId/routes")({
 	component: RoutesPage,
@@ -158,11 +172,14 @@ function CreateRouteButton({ projectId }: { projectId: string }) {
 	const [name, setName] = useState("");
 	const [path, setPath] = useState("");
 	const [method, setMethod] = useState<string>("GET");
+	const [contentTypes, setContentTypes] =
+		useState<string[]>(DEFAULT_CONTENT_TYPES);
 
 	function reset() {
 		setName("");
 		setPath("");
 		setMethod("GET");
+		setContentTypes(DEFAULT_CONTENT_TYPES);
 	}
 
 	function submit(e: React.FormEvent) {
@@ -175,6 +192,7 @@ function CreateRouteButton({ projectId }: { projectId: string }) {
 				projectId,
 				active: true,
 				timeoutSeconds: 30,
+				acceptedContentTypes: contentTypes as [ContentType, ...ContentType[]],
 			},
 			{
 				onSuccess: () => {
@@ -226,6 +244,19 @@ function CreateRouteButton({ projectId }: { projectId: string }) {
 										<Label>Path</Label>
 										<Input placeholder="/users" />
 									</TextField>
+									{METHODS_WITH_BODY.includes(method) && (
+										<MultiSelect
+											label="Accepted content types"
+											description="Requests sent with any other content type are rejected."
+											options={CONTENT_TYPE_OPTIONS}
+											value={contentTypes}
+											onChange={(next) =>
+												setContentTypes(
+													next.length > 0 ? next : DEFAULT_CONTENT_TYPES,
+												)
+											}
+										/>
+									)}
 								</div>
 							</Modal.Body>
 							<Modal.Footer>

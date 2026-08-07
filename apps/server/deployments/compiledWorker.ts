@@ -29,6 +29,7 @@ import {
 	OTLP_LOGGER_ENABLED,
 	OTLP_LOGGER_LEVEL,
 	WORKER_PROJECT_ID,
+	MAX_REQUEST_BODY_BYTES,
 	getEnv,
 } from "../src/lib/env";
 
@@ -127,6 +128,7 @@ function spawnExecution() {
 		asyncExecutor,
 		artifacts: [...artifacts.values()],
 		workerTimeoutsEnabled: timeoutPolicyEnabled(),
+		maxRequestBodyBytes: MAX_REQUEST_BODY_BYTES,
 		logging: {
 			level: OTLP_LOGGER_LEVEL,
 			otlpEndpoint: OTLP_ENDPOINT,

@@ -49,6 +49,17 @@ export const serverEnvSchema = baseEnvSchema.extend({
 			"Idle database integration timeout in seconds for compiled workers (default 450 / 7.5 minutes)",
 		),
 
+	WORKER_MAX_STREAM_SIZE: z
+		.string()
+		.optional()
+		.refine(
+			(val) => !val || (Number.isInteger(Number(val)) && Number(val) > 0),
+			{ message: "WORKER_MAX_STREAM_SIZE must be a positive integer" },
+		)
+		.describe(
+			"Hard cap on incoming request body size in kilobytes (default 8192 / 8 MB). Fluxify is an API server, not an upload gateway — raise it deliberately",
+		),
+
 	WORKER_PROJECT_ID: z
 		.string()
 		.optional()
@@ -160,3 +171,7 @@ export const NATS_TOKEN = getEnv("NATS_TOKEN")!;
 export const ENABLE_BUILTIN_WORKER = getEnv("ENABLE_BUILTIN_WORKER")!;
 // which project's compiled artifacts this worker pulls and serves
 export const WORKER_PROJECT_ID = getEnv("WORKER_PROJECT_ID")!;
+
+/** hard body-size ceiling for user-facing routes, in bytes (env is in KB) */
+export const MAX_REQUEST_BODY_BYTES =
+	(Number(getEnv("WORKER_MAX_STREAM_SIZE")) || 8192) * 1024;

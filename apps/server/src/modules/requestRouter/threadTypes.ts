@@ -13,6 +13,8 @@ export type ExecutionBootstrap = {
 	artifacts: ArtifactEntry[];
 	/** hot-reloadable supervisor policy; false means no heartbeat or tracking */
 	workerTimeoutsEnabled: boolean;
+	/** hard request body ceiling in bytes; the child cannot read the env itself */
+	maxRequestBodyBytes: number;
 	/** the execution process clears its env, so logging config travels with it */
 	logging: {
 		level: any;
