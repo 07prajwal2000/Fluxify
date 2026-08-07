@@ -42,6 +42,27 @@ function postCtx(body: string, contentType: string) {
 	} as any;
 }
 
+function multipartCtx(fields: Record<string, string | File>) {
+	const form = new FormData();
+	for (const [key, value] of Object.entries(fields)) form.set(key, value);
+	const raw = new Request("http://localhost/jobs", {
+		method: "POST",
+		body: form,
+	});
+	return {
+		req: {
+			method: "POST",
+			path: "/jobs",
+			header: (name?: string) =>
+				name === undefined
+					? Object.fromEntries(raw.headers.entries())
+					: (raw.headers.get(name) ?? undefined),
+			query: () => ({}),
+			raw,
+		},
+	} as any;
+}
+
 describe("envelopeFromHttp", () => {
 	it("maps an HTTP request to a sync route envelope by default", async () => {
 		const env = await envelopeFromHttp(
@@ -182,6 +203,115 @@ describe("dispatch", () => {
 		const res = await dispatch(env, parser);
 
 		expect(res.status).toBe(415);
+	});
+
+	it("validates an uploaded file against the route's body schema", async () => {
+		// the seam: what the multipart parser produces must be what the schema
+		// parser's `file` type accepts, size rules included
+		const bodySchema = {
+			dataType: "object",
+			properties: [
+				{
+					key: "avatar",
+					dataType: "file",
+					rules: [
+						{ type: "maxSize", value: 8 },
+						{ type: "mimeTypes", value: "image/png" },
+					],
+				},
+				{ key: "title", dataType: "str" },
+			],
+		};
+		const parser = {
+			getRouteId: () => ({
+				id: "route-1",
+				projectId: "project-1",
+				projectName: "Project",
+				acceptedContentTypes: ["multipart/form-data"],
+				bodySchema,
+			}),
+		} as unknown as HttpRouteParser;
+
+		let seen: any;
+		setBlocksExecutor(async (_target, context) => {
+			seen = context.requestBody;
+			return { successful: true, output: { body: "ok" } } as any;
+		});
+
+		const accepted = await dispatch(
+			await envelopeFromHttp(
+				multipartCtx({
+					title: "avatar",
+					avatar: new File(["12345"], "a.png", { type: "image/png" }),
+				}),
+			),
+			parser,
+		);
+		expect(accepted.status).toBe(200);
+		expect(seen.avatar).toBeInstanceOf(File);
+		expect(seen.title).toBe("avatar");
+
+		const tooBig = await dispatch(
+			await envelopeFromHttp(
+				multipartCtx({
+					title: "avatar",
+					avatar: new File(["x".repeat(64)], "a.png", { type: "image/png" }),
+				}),
+			),
+			parser,
+		);
+		expect(tooBig.status).toBe(400);
+		expect((tooBig.data as any).message).toBe("Body validation failed");
+		expect((tooBig.data as any).errors[0].property).toBe("avatar");
+
+		const wrongType = await dispatch(
+			await envelopeFromHttp(
+				multipartCtx({
+					title: "avatar",
+					avatar: new File(["12345"], "a.pdf", { type: "application/pdf" }),
+				}),
+			),
+			parser,
+		);
+		expect(wrongType.status).toBe(400);
+	});
+
+	it("validates a urlencoded body against the route's body schema", async () => {
+		// every value a form sends is text, so a numeric field must be coerced
+		// by the schema author, not silently accepted
+		const parser = {
+			getRouteId: () => ({
+				id: "route-1",
+				projectId: "project-1",
+				projectName: "Project",
+				acceptedContentTypes: ["application/x-www-form-urlencoded"],
+				bodySchema: {
+					dataType: "object",
+					properties: [
+						{ key: "name", dataType: "str", rules: [{ type: "minLength", value: 2 }] },
+					],
+				},
+			}),
+		} as unknown as HttpRouteParser;
+
+		setBlocksExecutor(async () => ({ successful: true, output: {} }) as any);
+
+		const ok = await dispatch(
+			await envelopeFromHttp(
+				postCtx("name=Alice", "application/x-www-form-urlencoded"),
+			),
+			parser,
+		);
+		expect(ok.status).toBe(200);
+
+		const rejected = await dispatch(
+			await envelopeFromHttp(
+				postCtx("name=A", "application/x-www-form-urlencoded"),
+			),
+			parser,
+		);
+		expect(rejected.status).toBe(400);
+		expect((rejected.data as any).errors[0].property).toBe("name");
 	});
 
 	it("reuses the HTTP client and normalizes headers once per execution", async () => {
