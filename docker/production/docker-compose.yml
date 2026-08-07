@@ -59,6 +59,15 @@ services:
       # Control plane only — the worker service serves user API traffic.
       ENABLE_ADMIN: "true"
       ENABLE_BUILTIN_WORKER: "false"
+    # Test suites run user-authored code in child processes of THIS container,
+    # so it needs a ceiling. Per-child rlimits are set at spawn time; these are
+    # the backstop for a fleet of them. A Dockerfile cannot set either — ulimits
+    # and memory are runtime settings.
+    ulimits:
+      nofile:
+        soft: 4096
+        hard: 8192
+    mem_limit: 2g
     depends_on:
       postgres:
         condition: service_healthy

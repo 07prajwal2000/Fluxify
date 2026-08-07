@@ -110,6 +110,11 @@ async function main() {
 		const { startCompileWorker } = await import("./modules/compiler/consumer");
 		await startCompileWorker();
 
+		// Test runs are queued in memory, so anything left queued/running belongs
+		// to a process that no longer exists.
+		const { sweepStrandedTestRuns } = await import("./modules/testRunner/sweep");
+		await sweepStrandedTestRuns();
+
 		// Internal ops bus. Lives here for the same reason as the compile worker:
 		// this is the process that owns the database connection.
 		const { registerCanvasResponder } = await import("./modules/canvas/rpc");
