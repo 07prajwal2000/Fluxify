@@ -2,7 +2,7 @@ import { describe, it, expect, beforeAll, afterAll } from "bun:test";
 import { faker } from "@faker-js/faker";
 import { MemcachedIntegration } from "./memcached";
 import type Docker from "dockerode";
-import { docker, ensureImage, startContainerWithRandomPort } from "../containerTestHelpers";
+import { docker, pullImage, startContainerWithRandomPort } from "../containerTestHelpers";
 
 const MEMCACHED_IMAGE = "memcached:1.6-alpine";
 
@@ -14,7 +14,7 @@ describe("MemcachedIntegration", () => {
 
 	beforeAll(async () => {
 		await docker.getContainer(containerName).remove({ force: true }).catch(() => {});
-		await ensureImage(MEMCACHED_IMAGE);
+		await pullImage(MEMCACHED_IMAGE);
 		const started = await startContainerWithRandomPort((hostPort) =>
 			docker.createContainer({
 				Image: MEMCACHED_IMAGE,

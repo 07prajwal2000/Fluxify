@@ -2,9 +2,9 @@ import { describe, it, expect, beforeAll, afterAll } from "bun:test";
 import { faker } from "@faker-js/faker";
 import { RedisIntegration } from "./redis";
 import type Docker from "dockerode";
-import { docker, ensureImage, startContainerWithRandomPort } from "../containerTestHelpers";
+import { docker, pullImage, startContainerWithRandomPort } from "../containerTestHelpers";
 
-const REDIS_IMAGE = "redis:7.4-alpine";
+const REDIS_IMAGE = "valkey/valkey:8-alpine";
 
 describe("RedisIntegration", () => {
 	const containerName = "fluxify-redis-test";
@@ -14,7 +14,7 @@ describe("RedisIntegration", () => {
 
 	beforeAll(async () => {
 		await docker.getContainer(containerName).remove({ force: true }).catch(() => {});
-		await ensureImage(REDIS_IMAGE);
+		await pullImage(REDIS_IMAGE);
 		const started = await startContainerWithRandomPort((hostPort) =>
 			docker.createContainer({
 				Image: REDIS_IMAGE,
