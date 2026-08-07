@@ -20,7 +20,13 @@
 #   docker build -f docker/admin/Dockerfile -t fluxify-admin .
 #
 # RUN
-#   docker run --rm -p 8080:8080 --env-file .env fluxify-admin
+#   docker run --rm -p 8080:8080 --env-file .env \
+#     --ulimit nofile=4096:8192 -m 2g fluxify-admin
+#
+#   The limits are not optional extras: test suites run user-authored code in
+#   child processes of this container. They cannot live in this Dockerfile —
+#   ulimits and memory are runtime settings. See docker/production/
+#   docker-compose.yml for the composed equivalent.
 #
 # ------------------------------------------------------------------------------
 # REQUIRED ENVIRONMENT
