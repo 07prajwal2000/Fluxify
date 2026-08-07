@@ -95,6 +95,7 @@ jobs:
     needs: detect-changes
     if: needs.detect-changes.outputs.adapters == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
