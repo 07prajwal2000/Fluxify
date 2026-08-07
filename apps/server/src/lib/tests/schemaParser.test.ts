@@ -243,6 +243,17 @@ describe('schemaParser Exhaustive Test Suite', () => {
       expect((await parseRequestSchema(schema, png(3, 'image/gif'), context)).success).toBe(false);
     });
 
+    test('A content type carrying parameters still matches its mime rule', async () => {
+      // a text part is commonly announced as `text/plain;charset=utf-8`
+      const schema = {
+        dataType: 'file',
+        rules: [{ type: 'mimeTypes', value: 'text/plain' }],
+      };
+      const upload = new File(['hi'], 'note.txt', { type: 'text/plain;charset=utf-8' });
+
+      expect((await parseRequestSchema(schema, upload, context)).success).toBe(true);
+    });
+
     test('Arrays of files reuse the item rules', async () => {
       const schema = {
         dataType: 'arr',

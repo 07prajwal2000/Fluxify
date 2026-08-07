@@ -107,7 +107,7 @@ function applyRules(schema: z.ZodTypeAny, dataType: string, rules: any[] = []): 
       if (rule.type === 'mimeTypes' && rule.value) {
         const allowed = toMimeList(rule.value);
         if (allowed.length > 0) {
-          s = s.refine((val: Blob) => allowed.includes(val.type.toLowerCase()), {
+          s = s.refine((val: Blob) => allowed.includes(baseMime(val.type)), {
             message: `Must be one of: ${allowed.join(', ')}`,
           });
         }
@@ -120,7 +120,15 @@ function applyRules(schema: z.ZodTypeAny, dataType: string, rules: any[] = []): 
 /** authored either as a list or as a comma-separated string — accept both */
 function toMimeList(value: unknown): string[] {
   const raw = Array.isArray(value) ? value : String(value).split(',');
-  return raw.map((entry) => String(entry).trim().toLowerCase()).filter(Boolean);
+  return raw.map((entry) => baseMime(String(entry))).filter(Boolean);
+}
+
+/**
+ * `text/plain;charset=utf-8` -> `text/plain`. A part's content type may carry
+ * parameters, and an exact string compare would reject a file that matches.
+ */
+function baseMime(value: string): string {
+  return value.split(';')[0]!.trim().toLowerCase();
 }
 
 export function buildZodSchema(schemaDef: any, coerce = false): z.ZodTypeAny {
