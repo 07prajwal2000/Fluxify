@@ -394,6 +394,132 @@ export const testSuitesEntity = pgTable("test_suites", {
 		.$onUpdate(() => new Date()),
 });
 
+export const testRunStatusEnum = pgEnum("test_run_status", [
+	"queued",
+	"running",
+	"passed",
+	"failed",
+	"timeout",
+	"error",
+]);
+
+export type TestRunStatus = (typeof testRunStatusEnum.enumValues)[number];
+
+/** One assertion verdict — same shape the in-process runner already returns. */
+export type AssertionResult = { success: boolean; message: string };
+
+/** jsonb payload on a single suite run. */
+export type SuiteRunResult = {
+	success: boolean;
+	result: AssertionResult[];
+	/** Raw response body the suite's request produced. */
+	actualData?: unknown;
+	statusCode?: number;
+	headers?: Record<string, string>;
+	error?: string;
+};
+
+/** jsonb payload on the parent run. */
+export type TestRunSummary = {
+	total: number;
+	passed: number;
+	failed: number;
+	/** suite id -> terminal status */
+	suites: Record<string, TestRunStatus>;
+	error?: string;
+};
+
+/**
+ * A test run is one request to execute suites for a route: one parent row plus a
+ * child row per suite, written as each suite settles so the UI can poll progress.
+ *
+ * ponytail: results are pinned to no code version — tests always run the latest
+ * graph. When version control lands, add `versionId` to BOTH tables, otherwise a
+ * past failure can never be reproduced.
+ * ponytail: no retention job — rows grow unbounded. Add a scheduled delete
+ * (30 days) when the table gets big enough to notice.
+ */
+export const testRunsEntity = pgTable(
+	"test_runs",
+	{
+		id: varchar({ length: 50 })
+			.primaryKey()
+			.$defaultFn(() => generateID()),
+		projectId: varchar("project_id", { length: 50 })
+			.notNull()
+			.references(() => projectsEntity.id, { onDelete: "cascade" }),
+		routeId: varchar("route_id", { length: 50 })
+			.notNull()
+			.references(() => routesEntity.id, { onDelete: "cascade" }),
+		status: testRunStatusEnum("status").default("queued").notNull(),
+		totalSuites: integer("total_suites").notNull(),
+		passedCount: integer("passed_count").default(0).notNull(),
+		failedCount: integer("failed_count").default(0).notNull(),
+		result: jsonb("result").$type<TestRunSummary | null>(),
+		durationMs: integer("duration_ms"),
+		startedAt: timestamp("started_at"),
+		finishedAt: timestamp("finished_at"),
+		createdAt: timestamp("created_at").defaultNow().notNull(),
+	},
+	(table) => [
+		index("idx_test_runs_project_route").on(
+			table.projectId,
+			table.routeId,
+			table.createdAt,
+		),
+	],
+);
+
+export const testSuiteRunsEntity = pgTable(
+	"test_suite_runs",
+	{
+		id: varchar({ length: 50 })
+			.primaryKey()
+			.$defaultFn(() => generateID()),
+		testRunId: varchar("test_run_id", { length: 50 })
+			.notNull()
+			.references(() => testRunsEntity.id, { onDelete: "cascade" }),
+		// Denormalized so filtering run history by project needs no join through routes.
+		projectId: varchar("project_id", { length: 50 })
+			.notNull()
+			.references(() => projectsEntity.id, { onDelete: "cascade" }),
+		routeId: varchar("route_id", { length: 50 })
+			.notNull()
+			.references(() => routesEntity.id, { onDelete: "cascade" }),
+		// Deliberately NOT a foreign key: deleting a suite must not erase the
+		// history of the runs that used it.
+		testSuiteId: varchar("test_suite_id", { length: 50 }).notNull(),
+		status: testRunStatusEnum("status").default("queued").notNull(),
+		result: jsonb("result").$type<SuiteRunResult | null>(),
+		durationMs: integer("duration_ms"),
+		startedAt: timestamp("started_at"),
+		finishedAt: timestamp("finished_at"),
+		createdAt: timestamp("created_at").defaultNow().notNull(),
+	},
+	(table) => [
+		index("idx_test_suite_runs_run").on(table.testRunId),
+		index("idx_test_suite_runs_project").on(table.projectId, table.createdAt),
+	],
+);
+
+export const testRunsRelations = relations(testRunsEntity, ({ many, one }) => ({
+	suiteRuns: many(testSuiteRunsEntity),
+	route: one(routesEntity, {
+		fields: [testRunsEntity.routeId],
+		references: [routesEntity.id],
+	}),
+}));
+
+export const testSuiteRunsRelations = relations(
+	testSuiteRunsEntity,
+	({ one }) => ({
+		testRun: one(testRunsEntity, {
+			fields: [testSuiteRunsEntity.testRunId],
+			references: [testRunsEntity.id],
+		}),
+	}),
+);
+
 export const testSuitesRelations = relations(testSuitesEntity, ({ one }) => ({
 	route: one(routesEntity, {
 		fields: [testSuitesEntity.routeId],
