@@ -227,7 +227,12 @@ export async function publishProjectConfig(projectId: string) {
 	await putArtifact(projectConfigKey(projectId), artifact);
 }
 
-async function loadGraph(parent: CanvasParent) {
+/**
+ * Exported for the test runner: a suite runs the canvas as it is saved right
+ * now, not the last published artifact, so it compiles the graph itself rather
+ * than reading the artifact store.
+ */
+export async function loadGraph(parent: CanvasParent) {
 	const blockRows = await db
 		.select()
 		.from(blocksEntity)
