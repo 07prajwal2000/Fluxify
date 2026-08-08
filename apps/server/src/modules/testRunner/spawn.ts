@@ -19,10 +19,19 @@ function positiveInt(value: string | undefined, fallback: number) {
 /**
  * The argv that starts one suite child.
  *
- * The route is user-authored code, so the descriptor and address-space caps are
- * applied by the shell that becomes the process rather than trusted to it.
- * `ulimit` is POSIX-only, so Windows spawns bun directly — dev has to work there
- * too, it just runs without the caps.
+ * The route is user-authored code, so the descriptor cap is applied by the shell
+ * that becomes the process rather than trusted to it. `ulimit` is POSIX-only, so
+ * Windows spawns bun directly — dev has to work there too, it just runs without
+ * the cap.
+ *
+ * There is deliberately no `ulimit -v`. It caps *address space*, which JSC uses
+ * as a reservation, not as memory: a plain `bun` process peaks at ~129 GB of
+ * virtual address space. Any value low enough to be a real cap aborts the
+ * runtime with SIGABRT before user code runs (`MemoryExhaustion` — every child
+ * died this way), and any value above the reservation caps nothing.
+ * `BUN_JSC_forceRAMSize` is only a GC heuristic and does not bound the heap
+ * either. The memory ceiling is the container's `mem_limit`, which is a real
+ * cgroup limit — see the `admin` service in docker/production/docker-compose.yml.
  *
  * The interpreter and entry path are passed as shell *arguments* ("$0"/"$1"),
  * never interpolated into the script: a path with a space or a quote would
@@ -35,11 +44,10 @@ export function spawnCommand(
 ) {
 	if (platform === "win32") return [process.execPath, "--smol", entry];
 	const fds = positiveInt(env.TEST_RUNNER_MAX_FDS, 256);
-	const vmemKb = positiveInt(env.TEST_RUNNER_MAX_VMEM_KB, 1_048_576);
 	return [
 		"/bin/sh",
 		"-c",
-		`ulimit -n ${fds}; ulimit -v ${vmemKb}; exec "$0" --smol "$1"`,
+		`ulimit -n ${fds}; exec "$0" --smol "$1"`,
 		process.execPath,
 		entry,
 	];

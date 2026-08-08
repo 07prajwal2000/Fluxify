@@ -60,9 +60,11 @@ services:
       ENABLE_ADMIN: "true"
       ENABLE_BUILTIN_WORKER: "false"
     # Test suites run user-authored code in child processes of THIS container,
-    # so it needs a ceiling. Per-child rlimits are set at spawn time; these are
-    # the backstop for a fleet of them. A Dockerfile cannot set either — ulimits
-    # and memory are runtime settings.
+    # so it needs a ceiling. Descriptors are also capped per child at spawn time
+    # and this is the backstop for a fleet of them; memory is capped ONLY here.
+    # A per-child `ulimit -v` is not an option — it bounds address space, which
+    # JSC reserves ~129 GB of, so any usable value aborts Bun at startup.
+    # A Dockerfile cannot set either — ulimits and memory are runtime settings.
     ulimits:
       nofile:
         soft: 4096
