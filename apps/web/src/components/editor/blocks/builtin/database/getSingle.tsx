@@ -77,8 +77,8 @@ export function GetSingleFromDBSettingsPanel(props: {
   ) {
     updateBlockData(props.blockId, {
       conditions: value.map((x) => ({
-        attribute: x.lhs,
-        value: x.rhs,
+        attribute: { kind: "column" as const, value: x.lhs },
+        value: { kind: "literal" as const, value: x.rhs },
         operator: x.operator,
         chain: x.chain,
       })),
@@ -172,8 +172,8 @@ export function GetSingleFromDBSettingsPanel(props: {
           conditions={
             props.blockData.conditions.map((condition) => ({
               ...condition,
-              lhs: condition.attribute,
-              rhs: condition.value,
+              lhs: condition.attribute.value,
+              rhs: condition.value.value,
             })) ?? []
           }
           ignoreOperators={["is_empty", "is_not_empty"]}
