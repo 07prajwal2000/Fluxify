@@ -1,18 +1,19 @@
 import { describeRoute, resolver, validator } from "hono-openapi";
-import zodErrorCallbackParser from "../../../../middlewares/zodErrorCallbackParser";
-import { requestRouteSchema, responseSchema } from "./dto";
+import { requireProjectAccess } from "../../../auth/middleware";
 import { errorSchema } from "../../../../errors/customError";
-import handleRequest from "./service";
 import { validationErrorSchema } from "../../../../errors/validationError";
+import zodErrorCallbackParser from "../../../../middlewares/zodErrorCallbackParser";
 import { HonoServer } from "../../../../types";
-import { requireTestSuiteAccess } from "../middleware";
+import { requestParamSchema, responseSchema } from "./dto";
+import handleRequest from "./service";
 
 export default function (app: HonoServer) {
-	app.post(
-		"/:id/run",
+	app.get(
+		"/:runId",
 		describeRoute({
-			description: "Runs a single test suite's assertions.",
-			operationId: "run-test-suite",
+			description:
+				"Gets one test run with the state of every suite it covers. Poll this while the run is queued or running.",
+			operationId: "get-test-run",
 			tags: ["Test Suites"],
 			responses: {
 				200: {
@@ -25,18 +26,17 @@ export default function (app: HonoServer) {
 						"application/json": { schema: resolver(validationErrorSchema) },
 					},
 				},
-				409: {
-					description: "Error",
+				404: {
+					description: "Run not found",
 					content: { "application/json": { schema: resolver(errorSchema) } },
 				},
 			},
 		}),
-		requireTestSuiteAccess("creator"),
-		validator("param", requestRouteSchema, zodErrorCallbackParser),
+		requireProjectAccess("creator", { key: "projectId", source: "param" }),
+		validator("param", requestParamSchema, zodErrorCallbackParser),
 		async (ctx) => {
-			const { id } = ctx.req.valid("param");
-			const result = await handleRequest(id);
-			return ctx.json(result, result.success ? 200 : 400);
+			const { projectId, routeId, runId } = ctx.req.valid("param");
+			return ctx.json(await handleRequest(projectId, routeId, runId));
 		},
 	);
 }
