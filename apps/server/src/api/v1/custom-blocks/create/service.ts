@@ -18,6 +18,8 @@ import { NotFoundError } from "../../../../errors/notFoundError";
 export default async function handleRequest(
 	data: z.infer<typeof requestBodySchema>,
 	outer?: DbTransactionType,
+	/** false when the caller is about to write its own canvas for this block. */
+	seedDefaultBlocks = true,
 ): Promise<z.infer<typeof responseSchema>> {
 	const result = await (outer ?? db).transaction(async (tx) => {
 		const projectExist = await checkProjectExist(data.projectId, tx);
@@ -39,7 +41,7 @@ export default async function handleRequest(
 		}
 		const id = generateID();
 		const newBlockId = await createCustomBlock({ ...data, id }, tx);
-		await createDependencies(newBlockId, tx);
+		if (seedDefaultBlocks) await createDependencies(newBlockId, tx);
 		return {
 			id: newBlockId,
 		};

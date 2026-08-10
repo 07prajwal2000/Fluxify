@@ -61,11 +61,15 @@ export function createRoute(
 	caller: RpcCaller,
 	data: Record<string, unknown>,
 	canvas?: CanvasChanges,
+	/** the id the run already planned for this route, so its canvas output does
+	 *  not end up naming a route that never existed */
+	id?: string,
 ) {
 	return call<{ id: string }>(RPC_SUBJECTS.route, caller, {
 		action: "create",
 		data,
 		canvas,
+		id,
 	});
 }
 

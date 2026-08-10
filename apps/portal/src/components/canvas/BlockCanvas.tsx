@@ -402,7 +402,8 @@ function CanvasInner({
 					</Controls>
 					{children}
 				</ReactFlow>
-				<AiCanvasButton />
+				{/* the AI edits the graph — nothing to offer on a readonly view */}
+				{!readOnly && <AiCanvasButton />}
 				{nodes.length === 0 && (
 					<div className="fx-canvas__empty">
 						{readOnly

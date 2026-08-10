@@ -17,6 +17,7 @@ import * as repository from "../repository";
 import { saveCanvas } from "../service";
 import { NotFoundError } from "../../../errors/notFoundError";
 import { ConflictError } from "../../../errors/conflictError";
+import { BadRequestError } from "../../../errors/badRequestError";
 
 const changes = {
 	actionsToPerform: {
@@ -38,6 +39,7 @@ const upsertBlocks = spyOn(repository, "upsertBlocks");
 const upsertEdges = spyOn(repository, "upsertEdges");
 const delBlocks = spyOn(repository, "deleteBlocks");
 const delEdges = spyOn(repository, "deleteEdges");
+const delStructural = spyOn(repository, "deleteStructuralBlocks");
 const getEdges = spyOn(repository, "getEdges");
 
 describe("canvas saveCanvas", () => {
@@ -48,7 +50,7 @@ describe("canvas saveCanvas", () => {
 		spyOn(repository, "getBlocks").mockResolvedValue([{ id: "b2" }] as any);
 		getEdges.mockResolvedValue([] as any);
 		spyOn(repository, "touchParent").mockResolvedValue(undefined);
-		for (const spy of [upsertBlocks, upsertEdges, delBlocks, delEdges]) {
+		for (const spy of [upsertBlocks, upsertEdges, delBlocks, delEdges, delStructural]) {
 			spy.mockClear();
 			spy.mockResolvedValue(undefined);
 		}
@@ -148,5 +150,58 @@ describe("canvas saveCanvas", () => {
 			),
 		).rejects.toThrow(ConflictError);
 		expect(upsertEdges).not.toHaveBeenCalled();
+	});
+
+	it("rejects a duplicate structural block when the caller is not the AI harness", async () => {
+		spyOn(repository, "getBlocksCountByType").mockResolvedValue([
+			{ count: 2, type: "entrypoint" },
+		] as any);
+
+		await expect(
+			saveCanvas({ type: "route", id: "r-1" }, changes, ["p1"]),
+		).rejects.toThrow(BadRequestError);
+		expect(delStructural).not.toHaveBeenCalled();
+	});
+
+	it("merges a stale entrypoint into the incoming one when mergeAiDuplicates is set", async () => {
+		spyOn(repository, "getBlocksCountByType").mockResolvedValue([
+			{ count: 2, type: "entrypoint" },
+		] as any);
+		// b1 is what this save is writing; stale-entry is the old default that
+		// now collides with it
+		spyOn(repository, "getBlocks").mockResolvedValue([
+			{ id: "b2" },
+			{ id: "stale-entry", type: "entrypoint" },
+		] as any);
+		getEdges.mockResolvedValue([
+			{ id: "dangling", from: "stale-entry", to: "b2" },
+		] as any);
+
+		await saveCanvas({ type: "route", id: "r-1" }, changes, ["p1"], undefined, true);
+
+		expect(delStructural.mock.calls[0][0]).toEqual(["stale-entry"]);
+		expect(delEdges.mock.calls.at(-1)?.[0]).toEqual(["dangling"]);
+	});
+
+	it("still rejects when the incoming payload itself has more than one of the type", async () => {
+		spyOn(repository, "getBlocksCountByType").mockResolvedValue([
+			{ count: 2, type: "entrypoint" },
+		] as any);
+
+		const ambiguous = {
+			actionsToPerform: { blocks: [], edges: [] },
+			changes: {
+				blocks: [
+					{ id: "b1", type: "entrypoint", data: {}, position: { x: 0, y: 0 } },
+					{ id: "b2", type: "entrypoint", data: {}, position: { x: 1, y: 1 } },
+				],
+				edges: [],
+			},
+		};
+
+		await expect(
+			saveCanvas({ type: "route", id: "r-1" }, ambiguous, ["p1"], undefined, true),
+		).rejects.toThrow(BadRequestError);
+		expect(delStructural).not.toHaveBeenCalled();
 	});
 });

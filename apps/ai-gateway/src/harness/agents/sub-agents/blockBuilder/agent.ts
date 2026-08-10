@@ -1,3 +1,4 @@
+import { logger } from "@fluxify/common";
 import { generateID } from "@fluxify/lib";
 import type { z } from "zod";
 import { BaseAgent } from "../../base";
@@ -19,6 +20,43 @@ import {
 export class BlockBuilderAgent extends BaseAgent {
 	constructor(state: GlobalGraphState) {
 		super(state);
+	}
+
+	/**
+	 * `targetId` is copied by the model from another agent's output, and a model
+	 * that mistypes or invents it produces a canvas hanging off a route that does
+	 * not exist — which only surfaces at apply time, as a 404. The run already
+	 * knows the answer: if the id names no live route and this run configured
+	 * exactly one, that route is the target.
+	 */
+	private async reconcileRouteTarget<T extends { targetType?: string; targetId?: string }>(
+		result: T,
+		projectId: string,
+	): Promise<T> {
+		if (result.targetType !== "route" || !result.targetId) return result;
+
+		const plannedRouteIds = Object.values(
+			this.state.orchestratorState?.subAgentResults ?? {},
+		)
+			.map((value) => (value as { routeId?: string; action?: string }) ?? {})
+			.filter((value) => value.routeId && value.action !== "delete")
+			.map((value) => value.routeId as string);
+
+		if (plannedRouteIds.includes(result.targetId)) return result;
+		if (plannedRouteIds.length !== 1) return result;
+
+		// an id this run did not plan is still fine if the project really has it
+		const live = await this.state.internal?.dbService?.getRouteDetails(
+			projectId,
+			result.targetId,
+		);
+		if (live) return result;
+
+		logger.warn("[BlockBuilder] Re-pointing canvas target at the route this run created", {
+			claimed: result.targetId,
+			actual: plannedRouteIds[0],
+		});
+		return { ...result, targetId: plannedRouteIds[0] };
 	}
 
 	private replaceShortIds<T>(value: T, shortIdMap: Map<string, string>): T {
@@ -125,7 +163,10 @@ export class BlockBuilderAgent extends BaseAgent {
 				.filter((block) => block.id.length <= 15)
 				.map((block) => [block.id, generateID()]),
 		);
-		const processedResponse = this.replaceShortIds(response, shortIdMap);
+		const processedResponse = await this.reconcileRouteTarget(
+			this.replaceShortIds(response, shortIdMap),
+			projectId,
+		);
 
 		await dispatchAgentEvent({
 			name: "agent_status",

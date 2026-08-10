@@ -1,5 +1,7 @@
 import { useAiHarnessStore } from "@/store/aiHarness";
 import { TbChevronsRight } from "react-icons/tb";
+import { RouteArtifact } from "./artifacts/RouteArtifact";
+import { CanvasArtifact } from "./artifacts/CanvasArtifact";
 
 export function ArtifactsSidebar() {
 	const selectedArtifact = useAiHarnessStore((s) => s.selectedArtifact);
@@ -23,7 +25,17 @@ export function ArtifactsSidebar() {
 				</div>
 				
 				<div className="flex-1 overflow-y-auto p-4 custom-scrollbar">
-					{selectedArtifact && (
+					{selectedArtifact?.type.startsWith("Route ") ? (
+						<RouteArtifact
+							key={selectedArtifact.id}
+							subArtifactId={selectedArtifact.id}
+						/>
+					) : selectedArtifact?.type.startsWith("Canvas Changes") ? (
+						<CanvasArtifact
+							key={selectedArtifact.id}
+							subArtifactId={selectedArtifact.id}
+						/>
+					) : (selectedArtifact && (
 						<div className="flex flex-col gap-5">
 							<div>
 								<span className="text-[10px] text-muted uppercase font-bold tracking-wider">ID</span>
@@ -42,7 +54,7 @@ export function ArtifactsSidebar() {
 								</pre>
 							</div>
 						</div>
-					)}
+					))}
 				</div>
 			</div>
 		</div>

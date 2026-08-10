@@ -1,6 +1,7 @@
 import {
 	useInfiniteQuery,
 	useMutation,
+	useQueries,
 	useQuery,
 	useQueryClient,
 } from "@tanstack/react-query";
@@ -134,6 +135,19 @@ export const harnessConversationsQuery = {
 					),
 				enabled: Boolean(conversationId && subArtifactId),
 				refetchOnWindowFocus: false,
+			});
+		},
+		/** Several outputs at once — used to link a canvas to its route, which
+		 *  only the payloads know. Shares the detail cache keys. */
+		useDetailsQuery(projectId: string, conversationId: string, ids: string[]) {
+			return useQueries({
+				queries: ids.map((id) => ({
+					queryKey: [...key(projectId), conversationId, "sub-artifact", id],
+					queryFn: () =>
+						harnessConversationsService.getSubArtifact(projectId, conversationId, id),
+					enabled: Boolean(conversationId && id),
+					refetchOnWindowFocus: false,
+				})),
 			});
 		},
 	},

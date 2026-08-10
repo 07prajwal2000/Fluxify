@@ -155,6 +155,47 @@ describe("canvasChangesFromPayload", () => {
 		]);
 	});
 
+	it("remaps a declared entrypoint/errorHandler onto the stored singleton instead of minting a duplicate", () => {
+		const existing: CanvasItems = {
+			blocks: [
+				{ id: "stored-entry", type: "entrypoint", data: {}, position: { x: 0, y: 0 } },
+				{ id: "stored-err", type: "error_handler", data: {}, position: { x: -100, y: 0 } },
+				{ id: "stored-response", type: "response", data: {}, position: { x: 0, y: 100 } },
+			],
+			edges: [],
+		};
+
+		const result = canvasChangesFromPayload(
+			{
+				targetType: "route",
+				targetId: "r-1",
+				blocks: [
+					{
+						id: "agent_entry",
+						blockType: "entrypoint",
+						position: { x: 0, y: 0 },
+						connections: [{ blockId: "stored-response", handle: "source" }],
+					},
+					{
+						id: "agent_err",
+						blockType: "errorHandler",
+						position: { x: -100, y: 0 },
+						connections: [],
+					},
+				],
+			},
+			existing,
+		);
+
+		const ids = result.changes.blocks.map((b) => b.id);
+		expect(ids).toContain("stored-entry");
+		expect(ids).toContain("stored-err");
+		expect(ids).not.toContain("agent_entry");
+		expect(ids).not.toContain("agent_err");
+		expect(result.changes.blocks.filter((b) => b.type === "entrypoint")).toHaveLength(1);
+		expect(result.changes.blocks.filter((b) => b.type === "error_handler")).toHaveLength(1);
+	});
+
 	it("removes blocks and drops edges that would dangle", () => {
 		const existing: CanvasItems = {
 			blocks: [

@@ -51,16 +51,17 @@ ${customBlocksTable}
    - DO NOT change the IDs of existing blocks on the canvas. Use exact existing UUIDs when modifying them.
 
 3. **Positioning**:
-   - Block size is 50x50 units.
-   - Layout flows Top -> Bottom.
-   - Vertical spacing: 100 units.
-   - Horizontal spacing (if branching or any handle types other than 'source'): 100 units.
-   - Start new nodes below the lowest existing node in the canvas.
+   - Block size is 168 units wide (rectangular, height auto-fits content) — not square.
+   - Layout flows Left -> Right.
+   - Horizontal spacing between sequential blocks: ~192 units (168 width + 24 gap).
+   - Vertical spacing between parallel/branching blocks: ~72 units (48 height + 24 gap).
+   - Start new nodes to the right of the rightmost existing node in the canvas.
 
 4. **Connections**:
    - Use the 'connections' array to define edges.
-   - Standard blocks use handle type: 'source'.
-   - Control blocks (If, ForLoop, Transaction, ForEach) use handle types: 'success', 'failure', 'executor'.
+   - Standard blocks use handle type: 'source' (right side) connecting to 'target' (left side of the next block).
+   - Control blocks with a body/loop (ForLoop, ForEach, Transaction) additionally have an 'executor' handle (top side) for their inner block chain.
+   - The 'if' block additionally has 'success' and 'failure' handles (right side) instead of 'source'.
    - Connect new blocks to the existing canvas logic.
 
 5. **Data Filling**:
