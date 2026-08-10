@@ -22,6 +22,10 @@ const requestSchema = z.discriminatedUnion("action", [
 	z.object({
 		action: z.literal("create"),
 		data: createSchema,
+		/** optional, create only — lets the caller keep an id it already handed
+		 *  to other outputs (a canvas naming its route) instead of learning a
+		 *  new one after the fact */
+		id: z.uuidv7().nullish(),
 		/** optional, create only — written in the same transaction as the route */
 		canvas: canvasChangesSchema.nullish(),
 	}),
@@ -53,14 +57,22 @@ export async function handleRouteOp(payload: unknown, caller: RpcCaller) {
 		if (!canAccessProject(acl, op.data.projectId, "creator"))
 			throw new ForbiddenError();
 
+		const hasCanvasBlocks = (op.canvas?.changes.blocks.length ?? 0) > 0;
 		const result = await db.transaction(async (tx) => {
-			const created = await createRoute(caller.userId, op.data, tx);
+			const created = await createRoute(
+				caller.userId,
+				op.data,
+				tx,
+				op.id ?? undefined,
+				!hasCanvasBlocks,
+			);
 			if (op.canvas)
 				await saveCanvas(
 					{ type: "route", id: created.id },
 					op.canvas,
 					caller.projectIds,
 					tx,
+					true,
 				);
 			return created;
 		});

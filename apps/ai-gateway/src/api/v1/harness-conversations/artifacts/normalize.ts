@@ -1,5 +1,8 @@
-import { BlockTypes } from "@fluxify/blocks";
-import { generateID } from "@fluxify/lib";
+// Deep imports on purpose: the portal imports this module to preview a canvas
+// output, and both barrels pull in Node built-ins (`vm`, pino) that break the
+// browser build.
+import { BlockTypes } from "@fluxify/blocks/blockTypes";
+import { generateID } from "@fluxify/lib/random/id";
 import type { canvasChangesSchema } from "@fluxify/server/src/modules/canvas/types";
 import type { z } from "zod";
 
@@ -153,9 +156,30 @@ export function canvasChangesFromPayload(
 	existing: CanvasItems,
 ): CanvasChanges {
 	const storedIds = new Set(existing.blocks.map((b) => b.id));
+
+	// entrypoint/errorHandler can only exist once per canvas. The agent has no
+	// way to know the id storage already gave the route's default one, so if it
+	// declares its own under a different id, map it onto the stored one instead
+	// of minting a new one — otherwise saveCanvas's structural check rejects the
+	// resulting duplicate.
+	const SINGLETON_TYPES = new Set<string>([BlockTypes.entrypoint, BlockTypes.errorHandler]);
+	const existingSingletonId = new Map<string, string>();
+	for (const b of existing.blocks) {
+		if (SINGLETON_TYPES.has(b.type)) existingSingletonId.set(b.type, b.id);
+	}
+
+	const changes = payload.canvasChanges ?? [];
+	const edited: AgentBlock[] = changes
+		.filter((c) => c?.type === "block_change")
+		.flatMap((c) => (c.data?.blocksInfo ?? []) as AgentBlock[]);
+	const declared = [...(payload.blocks ?? []), ...edited].filter((b) => b?.id);
+	const rawTypeOf = new Map(declared.map((b) => [b.id, canonicalType(b.blockType ?? "")]));
+
 	const minted = new Map<string, string>();
 	const idFor = (raw: string) => {
 		if (storedIds.has(raw)) return raw;
+		const singleton = existingSingletonId.get(rawTypeOf.get(raw) ?? "");
+		if (singleton) return singleton;
 		let id = minted.get(raw);
 		if (!id) {
 			id = generateID();
@@ -163,12 +187,6 @@ export function canvasChangesFromPayload(
 		}
 		return id;
 	};
-
-	const changes = payload.canvasChanges ?? [];
-	const edited: AgentBlock[] = changes
-		.filter((c) => c?.type === "block_change")
-		.flatMap((c) => (c.data?.blocksInfo ?? []) as AgentBlock[]);
-	const declared = [...(payload.blocks ?? []), ...edited].filter((b) => b?.id);
 
 	const removed = new Set<string>();
 	for (const change of changes) {

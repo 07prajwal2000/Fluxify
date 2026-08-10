@@ -95,12 +95,33 @@ describe("Harness Artifacts Service", () => {
 
 	it("applies a route sub-artifact with no dependency check", async () => {
 		spyOn(repository, "getSubArtifactById").mockResolvedValue(routeRow() as never);
-		const artifactSpy = spyOn(repository, "getArtifactSubArtifacts");
+		spyOn(repository, "getArtifactSubArtifacts").mockResolvedValue([] as never);
 
 		const result = await applySubArtifact("user1", "conv1", "proj1", "route-sub");
 
-		expect(artifactSpy).not.toHaveBeenCalled();
+		expect(bus.map((b) => b.call)).toEqual(["createRoute"]);
+		// the planned id travels with the create — the canvas output already
+		// names it, so letting storage mint a new one orphans the pair
+		expect(bus[0]?.args[3]).toBe("route-1");
 		expect(result?.appliedAt).toBeInstanceOf(Date);
+	});
+
+	it("re-points a canvas sibling at the id storage gave the new route", async () => {
+		spyOn(repository, "getSubArtifactById").mockResolvedValue(routeRow() as never);
+		spyOn(repository, "getArtifactSubArtifacts").mockResolvedValue([
+			canvasRow(),
+		] as never);
+		const update = spyOn(repository, "updateSubArtifactPayload");
+
+		await applySubArtifact("user1", "conv1", "proj1", "route-sub");
+
+		// without this the canvas still names the id the agent invented, and every
+		// later read of the link — the apply gate included — thinks it is missing
+		expect(update).toHaveBeenCalledWith(
+			"conv1",
+			"canvas-sub",
+			expect.objectContaining({ targetId: "live-route" }),
+		);
 	});
 
 	it("rejects a canvas whose route from this run is not applied yet", async () => {
@@ -125,6 +146,27 @@ describe("Harness Artifacts Service", () => {
 		const result = await applySubArtifact("user1", "conv1", "proj1", "canvas-sub");
 
 		expect(result?.appliedAt).toBeInstanceOf(Date);
+	});
+
+	it("repairs a canvas naming a route id nobody created", async () => {
+		// the block builder copies the id out of another agent's output and can
+		// get it wrong; the run configured exactly one route, so that is the target
+		spyOn(repository, "getSubArtifactById").mockResolvedValue(
+			canvasRow({ payload: { targetType: "route", targetId: "hallucinated", blocks: [] } }) as never,
+		);
+		spyOn(repository, "getArtifactSubArtifacts").mockResolvedValue([
+			routeRow({ appliedAt: new Date() }),
+		] as never);
+		const update = spyOn(repository, "updateSubArtifactPayload");
+
+		await applySubArtifact("user1", "conv1", "proj1", "canvas-sub");
+
+		expect(update).toHaveBeenCalledWith(
+			"conv1",
+			"canvas-sub",
+			expect.objectContaining({ targetId: "route-1" }),
+		);
+		expect(bus.find((b) => b.call === "saveCanvas")?.args[2]).toBe("route-1");
 	});
 
 	it("404s a canvas whose pre-existing route is gone from the project", async () => {

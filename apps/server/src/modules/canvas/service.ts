@@ -11,6 +11,7 @@ import {
 import {
 	deleteBlocks,
 	deleteEdges,
+	deleteStructuralBlocks,
 	getBlocks,
 	getBlocksCountByType,
 	getEdges,
@@ -113,6 +114,45 @@ async function assertCanvasHasNoCycles(
 }
 
 /**
+ * A verified agent run's canvas can arrive after the entrypoint/error handler
+ * it means to replace already exist under different ids (e.g. the route was
+ * created with its own defaults before this canvas landed). The agent's
+ * output was already checked by the verifier, so when it settles on exactly
+ * one block of the type, the stale one it did not know about is safe to drop
+ * — along with any edge left dangling off it. Ambiguous cases (zero or more
+ * than one incoming block of that type) are not resolved here; they fall
+ * through to the same error a human duplicate would get.
+ */
+async function mergeStaleSingleton(
+	parent: CanvasParent,
+	data: CanvasChanges,
+	type: string,
+	tx: DbTransactionType,
+) {
+	const incomingIds = data.changes.blocks
+		.filter((b) => b.type === type)
+		.map((b) => b.id);
+	if (incomingIds.length !== 1) return false;
+	const [keepId] = incomingIds;
+
+	const stored = await getBlocks(parent, tx);
+	const staleIds = stored
+		.filter((b) => b.type === type && b.id !== keepId)
+		.map((b) => b.id);
+	if (staleIds.length === 0) return false;
+
+	const edges = await getEdges(parent, tx);
+	const stale = new Set(staleIds);
+	const staleEdgeIds = edges
+		.filter((e) => stale.has(e.from ?? "") || stale.has(e.to ?? ""))
+		.map((e) => e.id);
+
+	await deleteStructuralBlocks(staleIds, tx);
+	if (staleEdgeIds.length > 0) await deleteEdges(staleEdgeIds, tx);
+	return true;
+}
+
+/**
  * The single source of truth for canvas mutations. Every caller — both HTTP
  * endpoints and the internal ops bus — goes through here, so a canvas is
  * changed exactly one way whatever it hangs off.
@@ -120,12 +160,17 @@ async function assertCanvasHasNoCycles(
  * Pass `outer` to join a transaction already in progress — that is how
  * "create the parent and its canvas or neither" is possible on the ops bus.
  * The change signal is then the outer caller's to publish, after it commits.
+ *
+ * `mergeAiDuplicates` is only ever set by the AI harness apply path (the ops
+ * RPC bus) — see `mergeStaleSingleton`. A human-driven save always gets the
+ * strict duplicate error.
  */
 export async function saveCanvas(
 	parent: CanvasParent,
 	data: CanvasChanges,
 	projectIds: string[] = [],
 	outer?: DbTransactionType,
+	mergeAiDuplicates = false,
 ) {
 	if (!(await parentExists(parent, projectIds, outer))) {
 		throw new NotFoundError(NOT_FOUND[parent.type]);
@@ -167,10 +212,13 @@ export async function saveCanvas(
 		);
 		await touchParent(parent, tx);
 		for (const block of structural) {
-			if (block.count !== 1) {
-				tx.rollback();
-				throw new BadRequestError(`Duplicate block ${block.type} found`);
-			}
+			if (block.count === 1) continue;
+			if (
+				mergeAiDuplicates &&
+				(await mergeStaleSingleton(parent, data, block.type!, tx))
+			)
+				continue;
+			throw new BadRequestError(`Duplicate block ${block.type} found`);
 		}
 	});
 

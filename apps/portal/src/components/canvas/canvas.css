@@ -110,3 +110,21 @@
 	font-size: 0.875rem;
 	color: var(--fx-canvas-muted);
 }
+
+/* The shell wraps the canvas and its settings panel. Without a height of its
+   own, `.fx-canvas`'s `height: 100%` resolves against `auto` and collapses —
+   which is what happens whenever the canvas is dropped into a sized box
+   (a modal, a sidebar thumbnail) rather than a full page. */
+.fx-canvas-shell {
+	position: relative;
+	height: 100%;
+	min-height: 0;
+}
+
+/* HeroUI's modal container is `width: fit-content` — fine for text, fatal for a
+   canvas, which sizes itself off its parent and so collapses to nothing. Give
+   the container a width of its own wherever a canvas is the dialog's content. */
+.fx-canvas-modal {
+	width: 100% !important;
+	max-width: 1400px !important;
+}

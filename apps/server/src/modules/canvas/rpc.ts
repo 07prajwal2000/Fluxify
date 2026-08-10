@@ -28,6 +28,7 @@ export async function handleCanvasOp(payload: unknown, caller: RpcCaller) {
 	try {
 		if (!actionsToPerform && !changes)
 			return await getCanvas(parent, caller.projectIds);
+		console.log(actionsToPerform, changes);
 
 		await saveCanvas(
 			parent,
@@ -36,9 +37,14 @@ export async function handleCanvasOp(payload: unknown, caller: RpcCaller) {
 				changes: changes ?? { blocks: [], edges: [] },
 			},
 			caller.projectIds,
+			undefined,
+			// this subject is only ever reached over the internal ops bus (the AI
+			// harness apply path) — never by a portal user's canvas save
+			true,
 		);
 		return null;
 	} catch (error) {
+		console.log("Canvas RPC error", error);
 		throw toRpcError(error);
 	}
 }

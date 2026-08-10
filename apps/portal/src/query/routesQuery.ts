@@ -23,6 +23,7 @@ export const routesQuery = {
 			return useQuery({
 				queryKey: ["routes", routeId, "canvas-items"],
 				queryFn: () => routesService.getCanvasItems(routeId),
+				enabled: Boolean(routeId),
 				refetchOnWindowFocus: false,
 			});
 		},
@@ -32,6 +33,7 @@ export const routesQuery = {
 			return useQuery({
 				queryKey: ["routes", routeId, "by-id"],
 				queryFn: () => routesService.getById(routeId),
+				enabled: Boolean(routeId),
 				refetchOnWindowFocus: false,
 			});
 		},

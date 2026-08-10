@@ -49,14 +49,16 @@ export async function handleCustomBlockOp(payload: unknown, caller: RpcCaller) {
 		if (!canAccessProject(acl, op.data.projectId, "creator"))
 			throw new ForbiddenError();
 
+		const hasCanvasBlocks = (op.canvas?.changes.blocks.length ?? 0) > 0;
 		const result = await db.transaction(async (tx) => {
-			const created = await createCustomBlock(op.data, tx);
+			const created = await createCustomBlock(op.data, tx, !hasCanvasBlocks);
 			if (op.canvas)
 				await saveCanvas(
 					{ type: "custom_block", id: created.id },
 					op.canvas,
 					caller.projectIds,
 					tx,
+					true,
 				);
 			return created;
 		});

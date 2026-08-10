@@ -4,6 +4,7 @@
 	"keywords": [],
 	"exports": {
 		".": "./index.ts",
+		"./random/id": "./random/id.ts",
 		"./constants/httpcode": "./constants/httpcode.ts"
 	},
 	"author": "",

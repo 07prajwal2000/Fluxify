@@ -92,6 +92,45 @@ async function assertParentRoutesReady(
 	}
 }
 
+/**
+ * The canvas agent copies `targetId` out of another agent's output, so a run can
+ * end up with a canvas naming a route nobody created. When the id names neither
+ * a live route nor a sibling output, and the run configured exactly one route,
+ * that route is the only thing it can have meant — repair it rather than 404 on
+ * an id the user never saw. The repair is persisted so later reads agree.
+ */
+async function resolveCanvasTarget<
+	T extends { id: string; payload: Record<string, any> | null },
+>(conversationId: string, projectId: string, row: T, siblings: DependencyRow[]) {
+	const payload = row.payload ?? {};
+	const targetId = payload.targetId as string | undefined;
+	if (payload.targetType !== "route" || !targetId) return row;
+
+	// Only an *applied* route is safe to adopt: an unapplied one leaves the case
+	// where the canvas legitimately targeted an older route that has since been
+	// deleted indistinguishable from a mis-copied id, and silently rebuilding
+	// the graph on the wrong route is worse than refusing.
+	const planned = siblings.filter(
+		(s) =>
+			s.kind === "route" &&
+			s.appliedAt &&
+			routeIdOf(s) &&
+			s.payload?.action !== "delete",
+	);
+	if (planned.some((s) => routeIdOf(s) === targetId)) return row;
+	if (planned.length !== 1) return row;
+
+	const existing = await findExistingRouteIds(projectId, [targetId]);
+	if (existing.has(targetId)) return row;
+
+	const actual = routeIdOf(planned[0] as DependencyRow) as string;
+	await updateSubArtifactPayload(conversationId, row.id, {
+		...payload,
+		targetId: actual,
+	});
+	return { ...row, payload: { ...payload, targetId: actual } };
+}
+
 export async function getSubArtifact(conversationId: string, subArtifactId: string) {
 	const row = await getSubArtifactById(conversationId, subArtifactId);
 	if (!row) throw new NotFoundError("Sub-artifact not found");
@@ -150,7 +189,9 @@ async function applyRouteRow(
 		return;
 	}
 
-	const { id } = await createRoute(ctx.caller, op.data, canvas);
+	// Keep the id the run planned: the canvas output already names it, and every
+	// link between the two outputs is that id.
+	const { id } = await createRoute(ctx.caller, op.data, canvas, payload.routeId ?? undefined);
 	if (payload.routeId) ctx.routeIds.set(payload.routeId, id);
 	await rememberRealRouteId(ctx.conversationId, row, "routeId", id);
 }
@@ -198,10 +239,25 @@ export async function applySubArtifact(
 
 	if (row.kind === "canvas") {
 		const siblings = await getArtifactSubArtifacts(conversationId, row.artifactId);
-		await assertParentRoutesReady(projectId, [row], siblings, new Set());
-		await applyCanvasRow(ctx, row);
+		const resolved = await resolveCanvasTarget(conversationId, projectId, row, siblings);
+		await assertParentRoutesReady(projectId, [resolved], siblings, new Set());
+		await applyCanvasRow(ctx, resolved);
 	} else if (row.kind === "route") {
+		const agentRouteId = row.payload?.routeId as string | undefined;
 		await applyRouteRow(ctx, row);
+		// The route now has the id storage chose, but its canvas siblings still
+		// point at the id the agent invented. Leaving them stale breaks every
+		// later read of the link — the apply gate cannot tell the route is live.
+		const realId = agentRouteId ? ctx.routeIds.get(agentRouteId) : undefined;
+		if (realId && agentRouteId !== realId) {
+			const siblings = await getArtifactSubArtifacts(conversationId, row.artifactId);
+			for (const sibling of siblings) {
+				if (sibling.kind !== "canvas") continue;
+				if (sibling.payload?.targetType !== "route") continue;
+				if (sibling.payload?.targetId !== agentRouteId) continue;
+				await rememberRealRouteId(conversationId, sibling, "targetId", realId);
+			}
+		}
 	}
 
 	const [applied] = await markSubArtifactsApplied(
@@ -223,7 +279,11 @@ export async function applyArtifact(
 	if (rows.length === 0) throw new NotFoundError("Artifact not found");
 
 	const routes = rows.filter((r) => r.kind === "route");
-	const canvases = rows.filter((r) => r.kind === "canvas");
+	const canvases = await Promise.all(
+		rows
+			.filter((r) => r.kind === "canvas")
+			.map((r) => resolveCanvasTarget(conversationId, projectId, r, rows)),
+	);
 	const rest = rows.filter((r) => r.kind !== "route" && r.kind !== "canvas");
 
 	// Routes go first, so a canvas referencing a route this run created is
