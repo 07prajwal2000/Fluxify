@@ -35,6 +35,7 @@ export default withMermaid(defineConfig({
 		nav: [
 			{ text: "Home", link: "/" },
 			{ text: "Getting Started", link: "/getting-started/" },
+			{ text: "Blog", link: "/blog/" },
 			{ text: "Architecture", link: "/architecture/" },
 			{
 				text: "Concepts",
@@ -270,5 +271,16 @@ export default withMermaid(defineConfig({
 		lineNumbers: false,
 		// Container aliases that map mkdocs admonition-style blocks:
 		// Use ::: tip / ::: warning / ::: danger / ::: info in markdown files.
+	},
+
+	vite: {
+		optimizeDeps: {
+			// vitepress-plugin-mermaid injects the Mermaid component into every
+			// page's client entry via a post-transform, which Vite's cold-start
+			// dependency scanner doesn't see. Without this, mermaid (and its
+			// CJS `dayjs` dependency) gets served unbundled on a fresh cache,
+			// throwing "does not provide an export named 'default'".
+			include: ["mermaid"],
+		},
 	},
 }));
