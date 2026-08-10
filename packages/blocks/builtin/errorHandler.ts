@@ -1,3 +1,4 @@
+import { BlockTypes } from "../blockTypes";
 import {
   BaseBlock,
   baseBlockDataSchema,
@@ -18,6 +19,13 @@ export const errorHandlerBlockSchema = z
       }),
   })
   .extend(baseBlockDataSchema.shape);
+
+export const errorHandlerAiDescription = {
+  name: BlockTypes.errorHandler,
+  description:
+    "Catches a failure from any block on the canvas. Exactly one per canvas; connect its source handle to whatever should run when a block fails.",
+  jsonSchema: JSON.stringify(z.toJSONSchema(errorHandlerBlockSchema)),
+};
 
 export class ErrorHandlerBlock extends BaseBlock {
   private processed: boolean = false;

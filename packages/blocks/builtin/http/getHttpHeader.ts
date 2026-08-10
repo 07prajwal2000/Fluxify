@@ -1,3 +1,4 @@
+import { BlockTypes } from "../../blockTypes";
 import z from "zod";
 import { BaseBlock, BlockOutput } from "../../baseBlock";
 import { baseBlockDataSchema } from "../../baseBlock";
@@ -10,7 +11,7 @@ export const getHttpHeaderBlockSchema = z
   .extend(baseBlockDataSchema.shape);
 
 export const getHttpHeaderAiDescription = {
-  name: "get_http_header",
+  name: BlockTypes.httpGetHeader,
   description:
     "Retrieves a specific header from the incoming request.",
   jsonSchema: JSON.stringify(z.toJSONSchema(getHttpHeaderBlockSchema)),

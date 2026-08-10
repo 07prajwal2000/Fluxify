@@ -1,3 +1,4 @@
+import { BlockTypes } from "../../blockTypes";
 import z from "zod";
 import {
   baseBlockDataSchema,
@@ -26,7 +27,7 @@ export const insertDbBlockSchema = z
   .extend(baseBlockDataSchema.shape);
 
 export const insertDbAiDescription = {
-  name: "db_insert",
+  name: BlockTypes.db_insert,
   description:
     "Inserts a single record into a database table.",
   jsonSchema: JSON.stringify(z.toJSONSchema(insertDbBlockSchema)),

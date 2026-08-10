@@ -26,6 +26,7 @@ import { consoleAiDescription } from "./log/console";
 import { forLoopAiDescription } from "./loops/for";
 import { foreachLoopAiDescription } from "./loops/foreach";
 import { cloudLogsAiDescription } from "./log/cloudLogs";
+import { errorHandlerAiDescription } from "./errorHandler";
 
 export const blockAiDescriptions = [
   arrayOperationsAiDescription,
@@ -56,4 +57,5 @@ export const blockAiDescriptions = [
   forLoopAiDescription,
   foreachLoopAiDescription,
   cloudLogsAiDescription,
+  errorHandlerAiDescription,
 ];

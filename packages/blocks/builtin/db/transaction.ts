@@ -1,3 +1,4 @@
+import { BlockTypes } from "../../blockTypes";
 import z from "zod";
 import {
   baseBlockDataSchema,
@@ -22,7 +23,7 @@ export const transactionDbBlockSchema = z
   .extend(baseBlockDataSchema.shape);
 
 export const transactionDbAiDescription = {
-  name: "db_transaction",
+  name: BlockTypes.db_transaction,
   description:
     "Executes a sequence of database operations as a single atomic transaction.",
   jsonSchema: JSON.stringify(z.toJSONSchema(transactionDbBlockSchema)),

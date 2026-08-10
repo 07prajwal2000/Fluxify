@@ -5,6 +5,7 @@ import { getHttpHeaderBlockSchema } from "./http/getHttpHeader";
 import { getHttpParamBlockSchema } from "./http/getHttpParam";
 import { getHttpCookieBlockSchema } from "./http/getHttpCookie";
 import { setHttpCookieBlockSchema } from "./http/setHttpCookie";
+import { setHttpHeaderBlockSchema } from "./http/setHttpHeader";
 import { forLoopBlockSchema } from "./loops/for";
 import { forEachLoopBlockSchema } from "./loops/foreach";
 import { transformerBlockSchema } from "./transformer";
@@ -28,7 +29,7 @@ export const builtinBlockSchemas: Record<string, z.ZodTypeAny> = {
 	if: ifBlockSchema,
 	httprequest: httpRequestBlockSchema,
 	httpgetheader: getHttpHeaderBlockSchema,
-	httpsetheader: getHttpHeaderBlockSchema,
+	httpsetheader: setHttpHeaderBlockSchema,
 	httpgetparam: getHttpParamBlockSchema,
 	httpgetcookie: getHttpCookieBlockSchema,
 	httpsetcookie: setHttpCookieBlockSchema,
@@ -40,7 +41,6 @@ export const builtinBlockSchemas: Record<string, z.ZodTypeAny> = {
 	jsrunner: jsRunnerBlockSchema,
 	response: responseBlockSchema,
 	arrayops: arrayOperationsBlockSchema,
-	arrayoperations: arrayOperationsBlockSchema,
 	dbgetsingle: getSingleDbBlockSchema,
 	dbgetall: getAllDbBlockSchema,
 	dbdelete: deleteDbBlockSchema,

@@ -1,3 +1,4 @@
+import { BlockTypes } from "../blockTypes";
 import z from "zod";
 import {
   BaseBlock,
@@ -15,9 +16,9 @@ export const responseBlockSchema = z
   .extend(baseBlockDataSchema.shape);
 
 export const responseAiDescription = {
-  name: "response",
+  name: BlockTypes.response,
   description:
-    "Terminates the request and returns the result to the client.",
+    "Terminates the request and returns the result to the client. Only sets the status code — the response body is whatever the previous block output, so shape the body in the block feeding this one.",
   jsonSchema: JSON.stringify(z.toJSONSchema(responseBlockSchema)),
 };
 

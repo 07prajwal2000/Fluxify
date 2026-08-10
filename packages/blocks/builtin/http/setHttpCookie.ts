@@ -1,3 +1,4 @@
+import { BlockTypes } from "../../blockTypes";
 import z from "zod";
 import {
   baseBlockDataSchema,
@@ -33,7 +34,7 @@ export const setHttpCookieBlockSchema = z
   .extend(baseBlockDataSchema.shape);
 
 export const setCookieAiDescription = {
-  name: "set_http_cookie",
+  name: BlockTypes.httpSetCookie,
   description:
     "Sets a cookie in the HTTP response.",
   jsonSchema: JSON.stringify(z.toJSONSchema(setHttpCookieBlockSchema)),

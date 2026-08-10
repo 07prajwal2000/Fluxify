@@ -1,3 +1,4 @@
+import { BlockTypes } from "../blockTypes";
 import z from "zod";
 import {
   BaseBlock,
@@ -18,7 +19,7 @@ export const httpRequestBlockSchema = z
   .extend(baseBlockDataSchema.shape);
 
 export const httpRequestAiDescription = {
-  name: "http_request",
+  name: BlockTypes.httprequest,
   description:
     "Sends an HTTP request to an external URL.",
   jsonSchema: JSON.stringify(z.toJSONSchema(httpRequestBlockSchema)),

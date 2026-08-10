@@ -1,3 +1,4 @@
+import { BlockTypes } from "../../blockTypes";
 import z from "zod";
 import {
 	baseBlockDataSchema,
@@ -34,7 +35,7 @@ export const getSingleDbBlockSchema = z
 	.extend(baseBlockDataSchema.shape);
 
 export const getSingleDbAiDescription = {
-	name: "get_single",
+	name: BlockTypes.db_getsingle,
 	description: "Retrieves a single record from a database table.",
 	jsonSchema: JSON.stringify(z.toJSONSchema(getSingleDbBlockSchema)),
 };

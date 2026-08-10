@@ -1,3 +1,4 @@
+import { BlockTypes } from "../../blockTypes";
 import z from "zod";
 import {
 	baseBlockDataSchema,
@@ -22,7 +23,7 @@ export const nativeDbBlockSchema = z
 	.extend(baseBlockDataSchema.shape);
 
 export const nativeDbAiDescription = {
-	name: "db_native",
+	name: BlockTypes.db_native,
 	description: "Executes raw SQL or database-specific commands via JavaScript.",
 	jsonSchema: JSON.stringify(z.toJSONSchema(nativeDbBlockSchema)),
 };

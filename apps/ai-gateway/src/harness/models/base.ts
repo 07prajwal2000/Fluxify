@@ -12,7 +12,7 @@ import { StructuredTool } from "@langchain/core/tools";
 import { z } from "zod";
 import { logger } from "@fluxify/common";
 import { withRetry } from "../../lib/retry";
-import { UserInterruptError } from "../errors";
+import { UserInterruptError, isCallTimeout } from "../errors";
 import {
 	summarizeToolResult,
 	parseJsonLoose,
@@ -24,6 +24,7 @@ import {
 	SUBMIT_RESULT_TOOL,
 	SUBMIT_RESULT_INSTRUCTION,
 	compactToolHistory,
+	debugPrompt,
 	flattenToolMessages,
 	makeSubmitResultTool,
 	parseAsSchema,
@@ -462,6 +463,7 @@ export abstract class BaseAgentWrapper {
 			const response = (await withRetry(
 				async () => {
 					const startedAt = Date.now();
+					debugPrompt(agentNode, finalMessages);
 					const message = await model.invoke(
 						finalMessages,
 						this.withSignal(config),
@@ -660,6 +662,11 @@ ${JSON.stringify(jsonSchema, null, 2)}`;
 				return schema.parse(parseJsonLoose(content));
 			} catch (error) {
 				if (this.signal?.aborted) throw error;
+				// A call that timed out produced no output to correct. Re-asking just
+				// spends another full MODEL_CALL_TIMEOUT_MS on a provider that is
+				// already too slow, and the run dies on its deadline instead of
+				// reporting the real reason.
+				if (isCallTimeout(error)) throw error;
 				lastError = error;
 
 				// Nothing came back at all, so the provider rejected the request
