@@ -50,6 +50,21 @@ export function ownsIntegration(config: any, projectId: string) {
 	return !!config && (owner == null || owner === projectId);
 }
 
+/**
+ * The cached config for an integration id, whichever group it belongs to.
+ *
+ * An id alone does not say which cache holds it, so any ownership check written
+ * against one or two of the four silently passes every id in the others.
+ */
+export function findIntegrationConfig(id: string) {
+	return (
+		dbIntegrationsCache[id] ??
+		kvIntegrationsCache[id] ??
+		observabilityIntegrationsCache[id] ??
+		aiIntegrationsCache[id]
+	);
+}
+
 /** only the entries `projectId` is allowed to see */
 export function scopeToProject<T>(
 	cache: Record<string, T>,

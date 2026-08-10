@@ -33,6 +33,7 @@ import {
 } from "@fluxify/adapters";
 import {
 	dbIntegrationsCache,
+	findIntegrationConfig,
 	observabilityIntegrationsCache,
 	ownsIntegration,
 } from "../../loaders/integrationsLoader";
@@ -416,15 +417,16 @@ function createContext(
  * belongs to. Rejected outright rather than ignored: a request aimed at another
  * tenant's integration should fail loudly, not silently run against the real one.
  */
-function assertOverridesOwned(
+export function assertOverridesOwned(
 	projectId: string,
 	overrides?: RequestOverrides,
 ): HandleRequestType | null {
 	const foreign = (overrides?.integrations ?? [])
 		.map((o) => o.newId)
 		.filter((id) => {
-			const config =
-				dbIntegrationsCache[id] ?? observabilityIntegrationsCache[id];
+			// every group, not just db and observability: a kv or ai override
+			// naming another tenant's integration used to pass unchecked
+			const config = findIntegrationConfig(id);
 			return config && !ownsIntegration(config, projectId);
 		});
 
