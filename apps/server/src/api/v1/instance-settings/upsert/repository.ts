@@ -2,6 +2,7 @@ import { eq } from "drizzle-orm";
 import { db } from "../../../../db";
 import { instanceSettingsEntity } from "../../../../db/schema";
 import { generateID } from "@fluxify/lib";
+import { resolveIsPublic } from "../../../../lib/instance-settings/schemas";
 
 export async function getInstanceSettingByKey(key: string) {
 	const rows = await db
@@ -19,7 +20,7 @@ export async function upsertInstanceSetting(data: {
 }) {
 	const now = new Date();
 	const existing = await getInstanceSettingByKey(data.key);
-	const isPublic = data.isPublic ?? existing?.isPublic ?? false;
+	const isPublic = resolveIsPublic(data.key, data.isPublic, existing?.isPublic);
 
 	const [updated] = await db
 		.insert(instanceSettingsEntity)
