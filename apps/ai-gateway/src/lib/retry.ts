@@ -14,13 +14,14 @@ export interface RetryOptions {
 
 /**
  * Rate limits are quota windows, not blips: a provider's per-minute token bucket
- * refills in seconds, so the exponential 0.5s/1s ladder just burns both retries
- * inside the same window and fails the run. Honour `retry-after` when the
- * provider sends one, otherwise wait a flat window.
+ * refills in seconds, so the 0.5s/1s ladder just burns both retries inside the
+ * same window and fails the run. Honour `retry-after` when the provider sends
+ * one, otherwise climb 5s → 10s → 20s, capped at a minute.
  */
-const RATE_LIMIT_WAIT_MS = 20000;
+const RATE_LIMIT_BASE_MS = 5000;
+const RATE_LIMIT_MAX_MS = 60000;
 
-export function rateLimitDelayMs(error: unknown): number | null {
+export function rateLimitDelayMs(error: unknown, attempt = 1): number | null {
   const status = (error as { statusCode?: number; status?: number })?.statusCode
     ?? (error as { status?: number })?.status;
   if (status !== 429) return null;
@@ -30,9 +31,12 @@ export function rateLimitDelayMs(error: unknown): number | null {
       ? headers.get("retry-after")
       : (headers as Record<string, string> | undefined)?.["retry-after"];
   const seconds = Number(retryAfter);
-  return Number.isFinite(seconds) && seconds > 0
-    ? Math.min(seconds * 1000, 60000)
-    : RATE_LIMIT_WAIT_MS;
+  if (Number.isFinite(seconds) && seconds > 0)
+    return Math.min(seconds * 1000, RATE_LIMIT_MAX_MS);
+  return Math.min(
+    RATE_LIMIT_BASE_MS * Math.pow(2, Math.max(attempt, 1) - 1),
+    RATE_LIMIT_MAX_MS,
+  );
 }
 
 export async function withRetry<T>(
@@ -70,7 +74,7 @@ export async function withRetry<T>(
       }
       
       const delay =
-        rateLimitDelayMs(error) ??
+        rateLimitDelayMs(error, attempt) ??
         Math.min(baseDelayMs * Math.pow(factor, attempt - 1), maxDelayMs);
       const errorMessage = error instanceof Error ? error.message : String(error);
       logger.warn(`[Retry] Operation failed (attempt ${attempt}/${maxRetries}). Retrying in ${delay}ms...`, { error: errorMessage });
