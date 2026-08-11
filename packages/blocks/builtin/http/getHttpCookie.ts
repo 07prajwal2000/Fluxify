@@ -1,3 +1,4 @@
+import { BlockTypes } from "../../blockTypes";
 import z from "zod";
 import { BaseBlock, BlockOutput } from "../../baseBlock";
 import { baseBlockDataSchema } from "../../baseBlock";
@@ -10,7 +11,7 @@ export const getHttpCookieBlockSchema = z
   .extend(baseBlockDataSchema.shape);
 
 export const getCookieAiDescription = {
-  name: "get_request_cookie",
+  name: BlockTypes.httpGetCookie,
   description:
     "Retrieves a specific cookie from the incoming request.",
   jsonSchema: JSON.stringify(z.toJSONSchema(getHttpCookieBlockSchema)),

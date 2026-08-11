@@ -1,3 +1,4 @@
+import { BlockTypes } from "../../blockTypes";
 import z from "zod";
 import {
   baseBlockDataSchema,
@@ -23,7 +24,7 @@ export const insertBulkDbBlockSchema = z
   .extend(baseBlockDataSchema.shape);
 
 export const insertBulkAiDescription = {
-  name: "db_insert_bulk",
+  name: BlockTypes.db_insertbulk,
   description:
     "Inserts multiple records into a database table in a batch.",
   jsonSchema: JSON.stringify(z.toJSONSchema(insertBulkDbBlockSchema)),

@@ -1,3 +1,4 @@
+import { BlockTypes } from "../blockTypes";
 import z from "zod";
 import {
   BaseBlock,
@@ -20,7 +21,7 @@ export const setVarSchema = z
   .describe("A useful block to set a variable in the context");
 
 export const setVarBlockAiDescription = {
-  name: "set_var",
+  name: BlockTypes.setvar,
   description:
     "Assigns a value to a variable in the global execution context.",
   jsonSchema: JSON.stringify(z.toJSONSchema(setVarSchema)),

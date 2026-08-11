@@ -1,3 +1,4 @@
+import { BlockTypes } from "../../blockTypes";
 import z from "zod";
 import { BaseBlock, BlockOutput, Context } from "../../baseBlock";
 import { formatMessage, logBlockSchema } from ".";
@@ -39,7 +40,7 @@ export function emitConsoleLog(node: EmitNode) {
 }
 
 export const consoleAiDescription = {
-  name: "console_log",
+  name: BlockTypes.consolelog,
   description:
     "Logs a message to the system console.",
   jsonSchema: JSON.stringify(z.toJSONSchema(logBlockSchema)),

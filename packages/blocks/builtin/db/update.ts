@@ -1,3 +1,4 @@
+import { BlockTypes } from "../../blockTypes";
 import z from "zod";
 import {
 	baseBlockDataSchema,
@@ -39,7 +40,7 @@ export const updateDbBlockSchema = z
 	.extend(baseBlockDataSchema.shape);
 
 export const updateDbAiDescription = {
-	name: "db_update",
+	name: BlockTypes.db_update,
 	description:
 		"Updates records in a database table matching specific conditions.",
 	jsonSchema: JSON.stringify(z.toJSONSchema(updateDbBlockSchema)),

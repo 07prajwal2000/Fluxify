@@ -1,3 +1,4 @@
+import { BlockTypes } from "../blockTypes";
 import z from "zod";
 import { BaseBlock, baseBlockDataSchema, BlockOutput } from "../baseBlock";
 import type { EmitNode } from "../compiler";
@@ -9,7 +10,7 @@ export const getVarBlockSchema = z
   .extend(baseBlockDataSchema.shape);
 
 export const getVarAiDescription = {
-  name: "get_var",
+  name: BlockTypes.getvar,
   description:
     "Retrieves a value from the global execution context.",
   jsonSchema: JSON.stringify(z.toJSONSchema(getVarBlockSchema)),

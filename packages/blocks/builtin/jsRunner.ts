@@ -1,3 +1,4 @@
+import { BlockTypes } from "../blockTypes";
 import z from "zod";
 import { BaseBlock, baseBlockDataSchema, BlockOutput } from "../baseBlock";
 import type { EmitNode } from "../compiler";
@@ -9,7 +10,7 @@ export const jsRunnerBlockSchema = z
 	.extend(baseBlockDataSchema.shape);
 
 export const jsRunnerAiDescription = {
-	name: "js_runner",
+	name: BlockTypes.jsrunner,
 	description: "Executes JavaScript code within an isolated function scope.",
 	jsonSchema: JSON.stringify(z.toJSONSchema(jsRunnerBlockSchema)),
 };

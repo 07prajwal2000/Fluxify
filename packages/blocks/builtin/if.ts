@@ -1,3 +1,4 @@
+import { BlockTypes } from "../blockTypes";
 import {
   conditionSchema,
   evaluateOperator,
@@ -24,7 +25,7 @@ export const ifBlockSchema = z
   .extend(baseBlockDataSchema.shape);
 
 export const ifConditionAiDescription = {
-  name: "if_condition",
+  name: BlockTypes.if,
   description:
     "Branches the flow like an IF/ELSE statement. Directs flow based on whether the condition returns TRUE or FALSE.",
   jsonSchema: JSON.stringify(z.toJSONSchema(ifBlockSchema)),

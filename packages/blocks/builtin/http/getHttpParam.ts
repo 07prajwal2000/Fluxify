@@ -1,3 +1,4 @@
+import { BlockTypes } from "../../blockTypes";
 import z from "zod";
 import { BaseBlock, BlockOutput } from "../../baseBlock";
 import { baseBlockDataSchema } from "../../baseBlock";
@@ -11,7 +12,7 @@ export const getHttpParamBlockSchema = z
   .extend(baseBlockDataSchema.shape);
 
 export const getHttpParamAiDescription = {
-  name: "get_http_param",
+  name: BlockTypes.httpGetParam,
   description:
     "Retrieves a query parameter or route parameter from the request.",
   jsonSchema: JSON.stringify(z.toJSONSchema(getHttpParamBlockSchema)),

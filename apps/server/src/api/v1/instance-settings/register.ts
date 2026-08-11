@@ -2,6 +2,8 @@ import registerGetAllRoute from "./get-all/route";
 import registerGetByCategoryRoute from "./get-by-category/route";
 import registerGetByKeyRoute from "./get-by-key/route";
 import registerUpsertRoute from "./upsert/route";
+import registerGetAuthSettingsRoute from "./get-auth-settings/route";
+import registerPatchAuthSettingsRoute from "./patch-auth-settings/route";
 import { HonoServer } from "../../../types";
 
 export default {
@@ -12,5 +14,7 @@ export default {
 		registerGetByCategoryRoute(router);
 		registerGetByKeyRoute(router);
 		registerUpsertRoute(router);
+		registerGetAuthSettingsRoute(router);
+		registerPatchAuthSettingsRoute(router);
 	},
 };

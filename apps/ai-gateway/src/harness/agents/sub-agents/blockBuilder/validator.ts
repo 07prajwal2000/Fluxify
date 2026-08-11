@@ -1,14 +1,10 @@
-import { builtinBlockSchemas } from "@fluxify/blocks";
+import { builtinBlockSchemas, BlockTypes } from "@fluxify/blocks";
 import type { AgentOutputValidator } from "../../../types";
 import { detectCycles } from "./cycleDetector";
 import type { BlockBuilderResult, ValidatableBlock } from "./schemas";
 
-const BUILTIN_WHITELIST = new Set([
-	"entrypoint",
-	"consolelog",
-	"httpgetrequestbody",
-	"sticky_note",
-]);
+/** Storage stores these exact strings — anything else is a broken canvas. */
+const BUILTIN_TYPES = new Set<string>(Object.values(BlockTypes));
 
 function extractBlocksToValidate(
 	typedResult: BlockBuilderResult,
@@ -50,15 +46,10 @@ function collectCustomBlockNames(
 		const bType = block.blockType || "";
 		if (bType.startsWith("custom:")) {
 			customBlockNames.add(bType.slice(7));
-		} else {
-			const normType = bType.toLowerCase().replace(/_/g, "");
-			if (
-				!builtinBlockSchemas[normType] &&
-				bType &&
-				!BUILTIN_WHITELIST.has(bType)
-			) {
-				customBlockNames.add(bType);
-			}
+		} else if (bType && !BUILTIN_TYPES.has(bType)) {
+			// not a stored built-in type — the only other thing it can legally be
+			// is a custom block the user authored, so look that up before failing it
+			customBlockNames.add(bType);
 		}
 	}
 	return customBlockNames;
@@ -111,9 +102,7 @@ function validateBlockAgainstSchemas(
 	const errors: string[] = [];
 	const rawType = block.blockType || "";
 	const normType = rawType.toLowerCase().replace(/_/g, "");
-	const isCustom =
-		rawType.startsWith("custom:") ||
-		(!builtinBlockSchemas[normType] && customBlockSchemasMap.has(rawType));
+	const isCustom = rawType.startsWith("custom:") || !BUILTIN_TYPES.has(rawType);
 	const customName = isCustom
 		? rawType.startsWith("custom:")
 			? rawType.slice(7)
@@ -123,8 +112,15 @@ function validateBlockAgainstSchemas(
 	if (isCustom && customName) {
 		const inputParams = customBlockSchemasMap.get(customName);
 		if (!inputParams) {
+			// A near-miss on a built-in name (`get_http_header` for `httpgetheader`)
+			// used to sail through and persist a type nothing can execute.
+			const suggestion = [...BUILTIN_TYPES].find(
+				(type) => type.replace(/_/g, "").toLowerCase() === normType,
+			);
 			errors.push(
-				`Block "${block.id}" specifies custom block type "${customName}", but no custom block with that name exists in the project.`,
+				suggestion
+					? `Block "${block.id}" uses blockType "${rawType}", which is not a valid type. Use "${suggestion}" exactly as listed in the available blocks table.`
+					: `Block "${block.id}" specifies block type "${customName}", but it is neither a built-in block nor a custom block in this project. Use a type exactly as listed in the available blocks table.`,
 			);
 			return errors;
 		}
