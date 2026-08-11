@@ -1,3 +1,4 @@
+import { BlockTypes } from "../../blockTypes";
 import z from "zod";
 import {
   baseBlockDataSchema,
@@ -27,7 +28,7 @@ export const forEachLoopBlockSchema = z
   .extend(baseBlockDataSchema.shape);
 
 export const foreachLoopAiDescription = {
-  name: "foreach_loop",
+  name: BlockTypes.foreachloop,
   description:
     "Iterates over an array of items, executing a child block for each item.",
   jsonSchema: JSON.stringify(z.toJSONSchema(forEachLoopBlockSchema)),

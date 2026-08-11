@@ -1,3 +1,4 @@
+import { BlockTypes } from "../blockTypes";
 import z from "zod";
 import { BaseBlock, BlockOutput, Context } from "../baseBlock";
 import { baseBlockDataSchema } from "../baseBlock";
@@ -23,7 +24,7 @@ export const transformerBlockSchema = z
 export const transformerParamsSchema = z.record(z.string(), z.any().optional());
 
 export const transformBlockAiDescription = {
-  name: "transformer",
+  name: BlockTypes.transformer,
   description:
     "Transforms input data into a new structure using JavaScript.",
   jsonSchema: JSON.stringify(z.toJSONSchema(transformerBlockSchema)),

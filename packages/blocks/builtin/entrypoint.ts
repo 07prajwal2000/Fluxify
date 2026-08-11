@@ -1,3 +1,4 @@
+import { BlockTypes } from "../blockTypes";
 import z from "zod";
 import { BaseBlock, baseBlockDataSchema, BlockOutput } from "../baseBlock";
 import type { EmitNode } from "../compiler";
@@ -5,7 +6,7 @@ import type { EmitNode } from "../compiler";
 export const entrypointBlockSchema = z.object(baseBlockDataSchema.shape);
 
 export const entrypointAiDescription = {
-	name: "entrypoint",
+	name: BlockTypes.entrypoint,
 	description: "The initial block triggered by every incoming API request.",
 	jsonSchema: JSON.stringify(z.toJSONSchema(entrypointBlockSchema)),
 };

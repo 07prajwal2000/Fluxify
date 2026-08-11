@@ -5,6 +5,7 @@ import {
 	ToolMessage,
 } from "@langchain/core/messages";
 import { StructuredTool, tool } from "@langchain/core/tools";
+import { logger } from "@fluxify/common";
 import { z } from "zod";
 import {
 	summarizeToolResult,
@@ -136,4 +137,25 @@ export function flattenToolMessages(messages: BaseMessage[]): BaseMessage[] {
 		);
 	}
 	return out;
+}
+
+/**
+ * Logs what a call is about to send, per message. Off unless
+ * HARNESS_DEBUG_PROMPT=1 — a run's prompt growth is invisible otherwise, and
+ * "the block builder is slow" is usually "its history grew to six figures".
+ */
+export function debugPrompt(
+	agentNode: string | undefined,
+	messages: BaseMessage[],
+): void {
+	if (process.env.HARNESS_DEBUG_PROMPT !== "1") return;
+	const size = (m: BaseMessage) =>
+		JSON.stringify(m.content).length +
+		JSON.stringify(m.additional_kwargs ?? {}).length;
+	logger.info("[Harness] prompt", {
+		agent: agentNode,
+		messages: messages.length,
+		chars: messages.reduce((sum, m) => sum + size(m), 0),
+		breakdown: messages.map((m) => `${m.getType()}:${size(m)}`).join(" "),
+	});
 }

@@ -104,6 +104,8 @@ export function explainErrorReason(raw: string): string {
 	if (
 		lower.includes("timeout") ||
 		lower.includes("timed out") ||
+		// what LangChain raises when the per-call timeout fires
+		lower.includes("invocation was aborted") ||
 		lower.includes("etimedout") ||
 		lower.includes("econnreset") ||
 		lower.includes("socket") ||
@@ -149,4 +151,18 @@ export function redactSecrets(text: string): string {
 			/\b(api[-_]?key|authorization|token)("?\s*[:=]\s*"?)[A-Za-z0-9._-]{8,}/gi,
 			"$1$2[redacted]",
 		);
+}
+
+/**
+ * True for the per-call timeout in the model wrapper (LangChain raises
+ * `ModelAbortError`/`AbortError` for it). Distinct from a user interrupt, which
+ * also aborts the run's signal — callers check that first.
+ */
+export function isCallTimeout(error: unknown): boolean {
+	const name = (error as { name?: string })?.name;
+	return (
+		name === "ModelAbortError" ||
+		name === "TimeoutError" ||
+		name === "AbortError"
+	);
 }

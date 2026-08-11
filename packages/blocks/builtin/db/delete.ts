@@ -1,3 +1,4 @@
+import { BlockTypes } from "../../blockTypes";
 import z from "zod";
 import {
   BaseBlock,
@@ -25,7 +26,7 @@ export const deleteDbBlockSchema = z
   .extend(baseBlockDataSchema.shape);
 
 export const deleteDbAiDescription = {
-  name: "db_delete",
+  name: BlockTypes.db_delete,
   description:
     "Deletes records from a database table matching specific conditions.",
   jsonSchema: JSON.stringify(z.toJSONSchema(deleteDbBlockSchema)),

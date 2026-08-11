@@ -1,3 +1,4 @@
+import { BlockTypes } from "../../blockTypes";
 import { baseBlockDataSchema, BaseBlock, BlockOutput } from "../../baseBlock";
 import z from "zod";
 import type { EmitNode } from "../../compiler";
@@ -10,7 +11,7 @@ export const setHttpHeaderBlockSchema = z
   .extend(baseBlockDataSchema.shape);
 
 export const setHeaderAiDescription = {
-  name: "set_http_header",
+  name: BlockTypes.httpSetHeader,
   description:
     "Sets a header in the HTTP response.",
   jsonSchema: JSON.stringify(z.toJSONSchema(setHttpHeaderBlockSchema)),

@@ -1,3 +1,4 @@
+import { BlockTypes } from "../../blockTypes";
 import z from "zod";
 import { BaseBlock, BlockOutput, Context } from "../../baseBlock";
 import { formatMessage, logBlockSchema } from ".";
@@ -12,7 +13,7 @@ export const cloudLogsBlockSchema = z
 	.extend(logBlockSchema.shape);
 
 export const cloudLogsAiDescription = {
-	name: "cloud_logs",
+	name: BlockTypes.cloudLogs,
 	description: "Logs a message to the cloud logging service.",
 	jsonSchema: JSON.stringify(z.toJSONSchema(cloudLogsBlockSchema)),
 };

@@ -41,6 +41,16 @@ const delBlocks = spyOn(repository, "deleteBlocks");
 const delEdges = spyOn(repository, "deleteEdges");
 const delStructural = spyOn(repository, "deleteStructuralBlocks");
 const getEdges = spyOn(repository, "getEdges");
+const customBlockNames = spyOn(repository, "getCustomBlockNames");
+
+/** `changes` with its single block retyped */
+const withBlockType = (type: string) => ({
+	...changes,
+	changes: {
+		...changes.changes,
+		blocks: [{ ...changes.changes.blocks[0], type }],
+	},
+});
 
 describe("canvas saveCanvas", () => {
 	beforeEach(() => {
@@ -55,6 +65,29 @@ describe("canvas saveCanvas", () => {
 			spy.mockResolvedValue(undefined);
 		}
 		parentExists.mockResolvedValue(true);
+		customBlockNames.mockResolvedValue([]);
+	});
+
+	it("rejects a block type that is neither built-in nor a custom block", async () => {
+		// the exact shape an AI agent used to persist: a near-miss built-in name
+		const bad = withBlockType("get_http_header");
+
+		expect(saveCanvas({ type: "route", id: "r-1" }, bad, ["p1"])).rejects.toThrow(
+			BadRequestError,
+		);
+		expect(upsertBlocks).not.toHaveBeenCalled();
+	});
+
+	it("accepts a custom block defined in the project", async () => {
+		customBlockNames.mockResolvedValue(["stripe_charge"]);
+
+		await saveCanvas({ type: "route", id: "r-1" }, withBlockType("stripe_charge"), [
+			"p1",
+		]);
+
+		expect(upsertBlocks.mock.calls[0][0][0]).toMatchObject({
+			type: "stripe_charge",
+		});
 	});
 
 	it("writes a custom block canvas through the custom_block foreign key", async () => {

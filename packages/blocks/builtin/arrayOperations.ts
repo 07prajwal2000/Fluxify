@@ -1,3 +1,4 @@
+import { BlockTypes } from "../blockTypes";
 import z from "zod";
 import { BaseBlock, baseBlockDataSchema, BlockOutput } from "../baseBlock";
 import { conditionSchema } from "@fluxify/lib";
@@ -39,7 +40,7 @@ export const arrayOperationsBlockSchema = z
   .extend(baseBlockDataSchema.shape);
 
 export const arrayOperationsAiDescription = {
-  name: "array_operations",
+  name: BlockTypes.arrayops,
   description:
     "Performs operations on an array variable (push, pop, shift, unshift).",
   jsonSchema: JSON.stringify(z.toJSONSchema(arrayOperationsBlockSchema)),
