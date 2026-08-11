@@ -223,6 +223,31 @@ export async function parentExists(
 	return rows.length > 0;
 }
 
+/**
+ * The custom block names usable on this canvas — a custom block instance stores
+ * the block's `name` as its type (see `blocksLoader`'s customBlockGetter), so
+ * this is the other half of the valid-type set, next to `BlockTypes`.
+ */
+export async function getCustomBlockNames(
+	parent: CanvasParent,
+	tx?: DbTransactionType,
+): Promise<string[]> {
+	const table = parent.type === "route" ? routesEntity : customBlocksListEntity;
+	const rows = await (tx ?? db)
+		.select({ name: customBlocksListEntity.name })
+		.from(customBlocksListEntity)
+		.where(
+			eq(
+				customBlocksListEntity.projectId,
+				(tx ?? db)
+					.select({ projectId: table.projectId })
+					.from(table)
+					.where(eq(table.id, parent.id)),
+			),
+		);
+	return rows.map((row) => row.name);
+}
+
 export async function touchParent(
 	parent: CanvasParent,
 	tx?: DbTransactionType,

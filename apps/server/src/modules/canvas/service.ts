@@ -14,6 +14,7 @@ import {
 	deleteStructuralBlocks,
 	getBlocks,
 	getBlocksCountByType,
+	getCustomBlockNames,
 	getEdges,
 	parentExists,
 	parentKeys,
@@ -114,6 +115,35 @@ async function assertCanvasHasNoCycles(
 }
 
 /**
+ * A block whose type is neither a built-in nor one of the project's custom
+ * blocks cannot be built — `BlockFactory` throws "Unknown block type" the first
+ * time the route is hit. Storage used to take any string, so a typo (or an AI
+ * agent using a near-miss name) was persisted and only surfaced at request time,
+ * on a canvas that looked fine in the editor.
+ */
+async function assertBlockTypesExist(
+	parent: CanvasParent,
+	data: CanvasChanges,
+	tx: DbTransactionType,
+) {
+	const builtin = new Set<string>(Object.values(BlockTypes));
+	const unknown = [
+		...new Set(
+			data.changes.blocks.map((b) => b.type).filter((t) => !builtin.has(t)),
+		),
+	];
+	if (unknown.length === 0) return;
+
+	const custom = new Set(await getCustomBlockNames(parent, tx));
+	const bad = unknown.filter((type) => !custom.has(type));
+	if (bad.length === 0) return;
+
+	throw new BadRequestError(
+		`Unknown block type(s): ${bad.join(", ")}. Use a built-in block type or a custom block defined in this project.`,
+	);
+}
+
+/**
  * A verified agent run's canvas can arrive after the entrypoint/error handler
  * it means to replace already exist under different ids (e.g. the route was
  * created with its own defaults before this canvas landed). The agent's
@@ -186,6 +216,7 @@ export async function saveCanvas(
 
 	// a tx nests as a savepoint, so the outer transaction still decides the outcome
 	await (outer ?? db).transaction(async (tx) => {
+		await assertBlockTypesExist(parent, data, tx);
 		await assertEdgeTargetsExist(parent, data, deleteBlockIds, tx);
 		await assertCanvasHasNoCycles(
 			parent,

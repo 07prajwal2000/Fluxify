@@ -134,8 +134,10 @@ function key(value: string) {
 }
 
 function canonicalType(raw: string) {
-	// custom blocks are named by the user, so only built-ins are mapped
-	if (raw.startsWith("custom:")) return raw;
+	// A custom block instance stores the block's own name — the `custom:` prefix
+	// is prompt syntax for "this one is custom" and has no meaning to storage or
+	// to the block factory, so it is dropped here rather than persisted.
+	if (raw.startsWith("custom:")) return raw.slice("custom:".length);
 	return CANONICAL_TYPE.get(key(raw)) ?? raw;
 }
 
