@@ -17,6 +17,7 @@ export default async function handleRequest(
       email: user.email,
       name: user.name,
       isSystemAdmin: user.isSystemAdmin!,
+      providerIds: user.providerIds,
       role: null,
     })),
     pagination: {
