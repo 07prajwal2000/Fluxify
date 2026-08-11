@@ -3,6 +3,7 @@ import {
 	Button,
 	Chip,
 	Checkbox,
+	Dropdown,
 	Input,
 	Label,
 	Modal,
@@ -10,14 +11,31 @@ import {
 	Table,
 	TextField,
 	toast,
+	Tooltip,
 } from "@fluxify/components";
-import { TbArrowDown, TbArrowUp, TbPlus, TbTrash } from "react-icons/tb";
+import {
+	TbArrowDown,
+	TbArrowUp,
+	TbDots,
+	TbKey,
+	TbPlus,
+	TbReload,
+	TbTrash,
+} from "react-icons/tb";
 import { authQuery } from "@/query/authQuery";
 import { showErrorNotification } from "@/lib/errorNotifier";
 import { useAuthStore } from "@/store/auth";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
+import { usePublicSettings } from "@/hooks/usePublicSettings";
 
-type UserRow = { id: string; name: string; email: string; role?: string | null; isSystemAdmin?: boolean };
+type UserRow = {
+	id: string;
+	name: string;
+	email: string;
+	role?: string | null;
+	isSystemAdmin?: boolean;
+	providerIds?: string;
+};
 type Pending = { action: "promote" | "demote" | "delete"; user: UserRow } | null;
 
 export function UsersList() {
@@ -27,7 +45,9 @@ export function UsersList() {
 	const { data, isLoading, isError } = authQuery.listUsers.useQuery({ page, perPage });
 	const updateUser = authQuery.updateUserPartial.mutation();
 	const deleteUser = authQuery.deleteUser.mutation();
+	const changeUserPassword = authQuery.changeUserPassword.mutation();
 	const [pending, setPending] = useState<Pending>(null);
+	const [passwordUser, setPasswordUser] = useState<UserRow | null>(null);
 
 	if (isLoading) {
 		return (
@@ -85,6 +105,9 @@ export function UsersList() {
 				<Table.Body items={data.data as UserRow[]}>
 					{(user: UserRow) => {
 						const isMe = user.id === userData?.id;
+						const hasCredentialAccount = user.providerIds
+							?.split(",")
+							.includes("credential");
 						const role = user.role
 							? user.role === "instance_admin"
 								? "System admin"
@@ -103,14 +126,41 @@ export function UsersList() {
 								<Table.Cell>{user.isSystemAdmin ? "Yes" : "No"}</Table.Cell>
 								<Table.Cell>
 									{isAdmin && !isMe && (
-										<div className="flex items-center justify-end gap-1">
-												<Button isIconOnly variant="ghost" aria-label={user.isSystemAdmin ? "Demote from admin" : "Promote to admin"} onPress={() => setPending({ action: user.isSystemAdmin ? "demote" : "promote", user })}>
-													{user.isSystemAdmin ? <TbArrowDown size={16} /> : <TbArrowUp size={16} />}
-												</Button>
-												<Button isIconOnly variant="ghost" aria-label="Delete user" onPress={() => setPending({ action: "delete", user })}>
-													<TbTrash size={16} />
-												</Button>
-											</div>
+										<div className="flex justify-end">
+												<Dropdown>
+													<Dropdown.Trigger>
+														<Button isIconOnly variant="ghost" aria-label="User options">
+															<TbDots size={16} />
+														</Button>
+													</Dropdown.Trigger>
+													<Dropdown.Popover>
+														<Dropdown.Menu>
+															<Dropdown.Item
+																onAction={() =>
+																	setPending({
+																		action: user.isSystemAdmin ? "demote" : "promote",
+																		user,
+																	})
+																}
+																textValue={user.isSystemAdmin ? "Demote from admin" : "Promote to admin"}
+															>
+																{user.isSystemAdmin ? <TbArrowDown size={16} /> : <TbArrowUp size={16} />}
+																<Label>{user.isSystemAdmin ? "Demote from admin" : "Promote to admin"}</Label>
+															</Dropdown.Item>
+															{hasCredentialAccount && (
+																<Dropdown.Item onAction={() => setPasswordUser(user)} textValue="Change password">
+																	<TbKey size={16} />
+																	<Label>Change password</Label>
+																</Dropdown.Item>
+															)}
+															<Dropdown.Item onAction={() => setPending({ action: "delete", user })} variant="danger" textValue="Delete user">
+																<TbTrash size={16} />
+																<Label>Delete user</Label>
+															</Dropdown.Item>
+														</Dropdown.Menu>
+													</Dropdown.Popover>
+												</Dropdown>
+										</div>
 									)}
 								</Table.Cell>
 							</Table.Row>
@@ -167,12 +217,114 @@ export function UsersList() {
 					</>
 				) : null}
 			</ConfirmDialog>
+
+			<ChangePasswordModal
+				user={passwordUser}
+				isPending={changeUserPassword.isPending}
+				onClose={() => setPasswordUser(null)}
+				onSubmit={(newPassword) =>
+					changeUserPassword.mutate(
+						{ userId: passwordUser!.id, newPassword },
+						{
+							onSuccess: () => {
+								toast.success("Password updated");
+								setPasswordUser(null);
+							},
+							onError: (error) => showErrorNotification(error as Error),
+						},
+					)
+				}
+			/>
 		</div>
+	);
+}
+
+function ChangePasswordModal({
+	user,
+	isPending,
+	onClose,
+	onSubmit,
+}: {
+	user: UserRow | null;
+	isPending: boolean;
+	onClose: () => void;
+	onSubmit: (newPassword: string) => void;
+}) {
+	const [password, setPassword] = useState("");
+
+	function generatePassword() {
+		const alphabet =
+			"ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%^&*";
+		const values = crypto.getRandomValues(new Uint32Array(20));
+		const generated = Array.from(values, (value) => alphabet[value % alphabet.length]).join("");
+		setPassword(generated);
+		if (!navigator.clipboard?.writeText) {
+			toast.warning("Generated password could not be copied");
+			return;
+		}
+		void navigator.clipboard
+			.writeText(generated)
+			.then(() => toast.success("Generated password copied to clipboard"))
+			.catch(() => toast.warning("Generated password could not be copied"));
+	}
+
+	function close() {
+		setPassword("");
+		onClose();
+	}
+
+	return (
+		<Modal isOpen={!!user} onOpenChange={(open) => !open && close()}>
+			<Modal.Backdrop>
+				<Modal.Container placement="center" size="sm">
+					<Modal.Dialog>
+						<Modal.Header>
+							<Modal.Heading>Change password</Modal.Heading>
+						</Modal.Header>
+						<form
+							onSubmit={(event) => {
+								event.preventDefault();
+								onSubmit(password);
+							}}
+						>
+							<Modal.Body>
+								<div className="flex flex-col gap-4">
+									<p className="text-sm text-muted">
+										Set a new password for <span className="font-medium text-foreground">{user?.name || user?.email}</span>.
+									</p>
+									<TextField isRequired type="password" value={password} onChange={setPassword}>
+										<Label>New password</Label>
+										<div className="flex gap-2">
+											<Input className="flex-1" placeholder="At least 8 characters" />
+											<Tooltip>
+												<Button type="button" isIconOnly variant="outline" aria-label="Generate and copy password" onPress={generatePassword}>
+													<TbReload size={16} />
+												</Button>
+												<Tooltip.Content>Generate and copy a random password</Tooltip.Content>
+											</Tooltip>
+										</div>
+									</TextField>
+								</div>
+							</Modal.Body>
+							<Modal.Footer>
+								<Button type="button" variant="ghost" onPress={close}>
+									Cancel
+								</Button>
+								<Button type="submit" variant="primary" isPending={isPending}>
+									Update password
+								</Button>
+							</Modal.Footer>
+						</form>
+					</Modal.Dialog>
+				</Modal.Container>
+			</Modal.Backdrop>
+		</Modal>
 	);
 }
 
 function AddUserButton() {
 	const create = authQuery.createUser.mutation();
+	const { authConfig } = usePublicSettings();
 	const [open, setOpen] = useState(false);
 	const [name, setName] = useState("");
 	const [email, setEmail] = useState("");
@@ -188,8 +340,9 @@ function AddUserButton() {
 
 	function submit(e: React.FormEvent) {
 		e.preventDefault();
+		const ssoOnly = authConfig?.mode === "sso_only";
 		create.mutate(
-			{ email, fullname: name, password, isSystemAdmin: admin, provider: "email-password" },
+			{ email, fullname: name, password: ssoOnly ? undefined : password, isSystemAdmin: admin, provider: ssoOnly ? "sso" : "email-password" },
 			{
 				onSuccess: () => {
 					toast.success("User created");
@@ -225,10 +378,16 @@ function AddUserButton() {
 										<Label>Email</Label>
 										<Input placeholder="ada@company.com" />
 									</TextField>
-									<TextField isRequired type="password" value={password} onChange={setPassword}>
-										<Label>Password</Label>
-										<Input placeholder="Temporary password" />
-									</TextField>
+									{authConfig?.mode === "sso_only" ? (
+										<div className="rounded-md bg-violet-50 p-3 text-sm text-violet-900 border border-violet-200">
+											SSO is configured and traditional login is disabled. This user will sign in through your identity provider — no password needed.
+										</div>
+									) : (
+										<TextField isRequired type="password" value={password} onChange={setPassword}>
+											<Label>Password</Label>
+											<Input placeholder="Temporary password" />
+										</TextField>
+									)}
 									<Checkbox isSelected={admin} onChange={setAdmin}>
 										Make system admin
 									</Checkbox>

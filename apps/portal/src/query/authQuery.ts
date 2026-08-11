@@ -46,4 +46,14 @@ export const authQuery = {
 			});
 		},
 	},
+	changeUserPassword: {
+		mutation() {
+			return useMutation({
+				mutationFn: (data: { userId: string; newPassword: string }) =>
+					authService.changeUserPassword(data.userId, {
+						newPassword: data.newPassword,
+					}),
+			});
+		},
+	},
 };

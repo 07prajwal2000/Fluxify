@@ -1,7 +1,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { z } from "zod";
-import { Modal, Spinner, cn, toast } from "@fluxify/components";
+import { Spinner, cn, toast } from "@fluxify/components";
 import { FaRobot, FaTableList } from "react-icons/fa6";
 import { LuServerCrash } from "react-icons/lu";
 import {
@@ -22,6 +22,7 @@ import { showErrorNotification } from "@/lib/errorNotifier";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { integrationIcons } from "@fluxify/components";
 import { IntegrationForm } from "@/components/integrations/IntegrationForm";
+import { IntegrationOnboardingModal } from "@/components/integrations/IntegrationOnboardingModal";
 import {
 	type IntegrationGroup,
 	useIntegrationActions,
@@ -139,21 +140,7 @@ function IntegrationsPage() {
 				<RightHelpPanel projectId={projectId} activeGroup={selectedMenu} />
 			</div>
 
-			{/* Connect modal (create) */}
-			<Modal isOpen={connectOpen} onOpenChange={setConnectOpen}>
-				<Modal.Backdrop>
-					<Modal.Container placement="center" size="lg">
-						<Modal.Dialog className="bg-[#0E1015] border border-[#1C202B]">
-							<Modal.Header>
-								<Modal.Heading className="text-white">Connect a new App/Service</Modal.Heading>
-							</Modal.Header>
-							<Modal.Body>
-								<IntegrationForm projectId={projectId} onSaved={() => setConnectOpen(false)} />
-							</Modal.Body>
-						</Modal.Dialog>
-					</Modal.Container>
-				</Modal.Backdrop>
-			</Modal>
+			<IntegrationOnboardingModal projectId={projectId} isOpen={connectOpen} onOpenChange={setConnectOpen} />
 		</div>
 	);
 }
