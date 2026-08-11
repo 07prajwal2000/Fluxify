@@ -8,12 +8,20 @@ import {
 	Spinner,
 	TextField,
 	toast,
+	CustomSelect,
 } from "@fluxify/components";
+import { TbBraces, TbLock } from "react-icons/tb";
 import { appConfigQuery } from "@/query/appConfigQuery";
 import { showErrorNotification } from "@/lib/errorNotifier";
 import type { ConfigRow } from "./types";
 
 const ENCODINGS = ["plaintext", "base64", "hex"] as const;
+const DATA_TYPES = ["string", "number", "boolean"] as const;
+const ENCODING_LABELS: Record<(typeof ENCODINGS)[number], string> = {
+	plaintext: "Plain text",
+	base64: "Base64",
+	hex: "Hexadecimal",
+};
 
 export function EditConfigModal({
 	projectId,
@@ -27,7 +35,6 @@ export function EditConfigModal({
 	const { data: detail, isLoading } = appConfigQuery.getById.useQuery(projectId, config.id);
 	const update = appConfigQuery.update.mutation(projectId, config.id);
 
-	const [keyName, setKeyName] = useState(config.keyName);
 	const [description, setDescription] = useState("");
 	const [value, setValue] = useState("");
 	const [booleanValue, setBooleanValue] = useState(false);
@@ -36,7 +43,6 @@ export function EditConfigModal({
 
 	useEffect(() => {
 		if (detail) {
-			setKeyName(detail.keyName);
 			setDescription(detail.description || "");
 			setIsEncrypted(detail.isEncrypted);
 			setEncoding(detail.encodingType);
@@ -54,7 +60,7 @@ export function EditConfigModal({
 
 		update.mutate(
 			{
-				keyName,
+				keyName: config.keyName,
 				description,
 				value: finalValue,
 				isEncrypted,
@@ -73,10 +79,10 @@ export function EditConfigModal({
 	return (
 		<Modal isOpen onOpenChange={(o) => !o && onClose()}>
 			<Modal.Backdrop>
-				<Modal.Container placement="center" size="sm">
+				<Modal.Container placement="center" scroll="inside" size="lg">
 					<Modal.Dialog>
 						<Modal.Header>
-							<Modal.Heading>Edit config key: {config.keyName}</Modal.Heading>
+							<Modal.Heading>Edit config key</Modal.Heading>
 						</Modal.Header>
 						{isLoading ? (
 							<div className="flex justify-center py-8">
@@ -85,69 +91,86 @@ export function EditConfigModal({
 						) : (
 							<form onSubmit={submit}>
 								<Modal.Body>
-									<div className="flex flex-col gap-4">
-										<TextField isRequired value={keyName} onChange={setKeyName}>
-											<Label>Key name</Label>
-											<Input />
-										</TextField>
+									<div className="flex flex-col gap-4 pt-2">
+										<div className="flex flex-col gap-1">
+											<TextField value={config.keyName} isDisabled>
+												<Label className="flex items-center gap-1.5 text-sm font-medium text-muted">
+													<TbLock aria-hidden="true" size={16} /> Key name
+												</Label>
+												<Input className="font-mono" />
+											</TextField>
+											<p className="text-xs text-muted mt-1">
+												Key names are permanent because they may be referenced throughout your application.
+											</p>
+										</div>
 
-										<div className="flex flex-col gap-1 text-sm">
-											<span className="font-medium text-muted">Data Type</span>
-											<span className="font-mono text-sm font-semibold capitalize">{config.dataType}</span>
+										<div className="grid grid-cols-2 gap-4 mt-2">
+											<CustomSelect
+												label={
+													<div className="flex items-center gap-1.5 text-sm font-medium text-muted">
+														<TbBraces size={16} /> Data type
+													</div>
+												}
+												options={DATA_TYPES.map(dt => ({ value: dt, label: dt[0].toUpperCase() + dt.slice(1) }))}
+												value={config.dataType}
+												isDisabled
+											/>
+
+											<CustomSelect
+												label={<span className="text-sm font-medium text-muted">Encoding</span>}
+												options={ENCODINGS.map(enc => ({ value: enc, label: ENCODING_LABELS[enc] }))}
+												value={encoding}
+												onChange={(enc) => setEncoding(enc as any)}
+											/>
 										</div>
 
 										{config.dataType === "boolean" ? (
-											<Checkbox isSelected={booleanValue} onChange={setBooleanValue}>
+											<div className="flex flex-col gap-1 mt-2">
+												<Label className="text-sm font-medium text-foreground">Value</Label>
+												<div className="rounded-lg border border-border p-2 bg-surface-50/50">
+													<Checkbox isSelected={booleanValue} onChange={setBooleanValue}>
+														<Checkbox.Content>
+															<Checkbox.Control>
+																<Checkbox.Indicator />
+															</Checkbox.Control>
+															<Label>Boolean Value: {booleanValue ? "True" : "False"}</Label>
+														</Checkbox.Content>
+													</Checkbox>
+												</div>
+											</div>
+										) : (
+											<div className="mt-2">
+												<TextField isRequired value={value} onChange={setValue}>
+													<Label>Value</Label>
+													<Input
+														type={config.dataType === "number" ? "number" : "text"}
+														className="font-mono"
+													/>
+												</TextField>
+											</div>
+										)}
+
+										<div className="mt-2">
+											<TextField value={description} onChange={setDescription}>
+												<Label>Description</Label>
+												<Input placeholder="What this key controls" />
+											</TextField>
+										</div>
+
+										<div className="mt-2 rounded-lg border border-border p-3 bg-surface-50/50">
+											<Checkbox
+												isSelected={isEncrypted}
+												onChange={setIsEncrypted}
+												isDisabled={config.isEncrypted}
+											>
 												<Checkbox.Content>
 													<Checkbox.Control>
 														<Checkbox.Indicator />
 													</Checkbox.Control>
-													<Label>Boolean Value: {booleanValue ? "True" : "False"}</Label>
+													<Label>{config.isEncrypted ? "Encrypted (cannot be decrypted)" : "Encrypt this value in storage"}</Label>
 												</Checkbox.Content>
 											</Checkbox>
-										) : (
-											<TextField isRequired value={value} onChange={setValue}>
-												<Label>Value</Label>
-												<Input
-													type={config.dataType === "number" ? "number" : "text"}
-												/>
-											</TextField>
-										)}
-
-										<TextField value={description} onChange={setDescription}>
-											<Label>Description</Label>
-											<Input placeholder="What this key controls" />
-										</TextField>
-
-										<div className="flex flex-col gap-1.5">
-											<Label>Encoding</Label>
-											<div className="flex gap-1.5">
-												{ENCODINGS.map((enc) => (
-													<Button
-														key={enc}
-														type="button"
-														size="sm"
-														variant={encoding === enc ? "primary" : "outline"}
-														onPress={() => setEncoding(enc)}
-													>
-														{enc}
-													</Button>
-												))}
-											</div>
 										</div>
-
-										<Checkbox
-											isSelected={isEncrypted}
-											onChange={setIsEncrypted}
-											isDisabled={config.isEncrypted}
-										>
-											<Checkbox.Content>
-												<Checkbox.Control>
-													<Checkbox.Indicator />
-												</Checkbox.Control>
-												<Label>{config.isEncrypted ? "Encrypted (cannot be decrypted)" : "Encrypt this value in storage"}</Label>
-											</Checkbox.Content>
-										</Checkbox>
 									</div>
 								</Modal.Body>
 								<Modal.Footer>

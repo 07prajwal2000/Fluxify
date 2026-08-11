@@ -7,13 +7,19 @@ import {
 	Modal,
 	TextField,
 	toast,
+	CustomSelect,
 } from "@fluxify/components";
-import { TbPlus } from "react-icons/tb";
+import { TbBraces, TbPlus } from "react-icons/tb";
 import { appConfigQuery } from "@/query/appConfigQuery";
 import { showErrorNotification } from "@/lib/errorNotifier";
 
 const ENCODINGS = ["plaintext", "base64", "hex"] as const;
 const DATA_TYPES = ["string", "number", "boolean"] as const;
+const ENCODING_LABELS: Record<(typeof ENCODINGS)[number], string> = {
+	plaintext: "Plain text",
+	base64: "Base64",
+	hex: "Hexadecimal",
+};
 
 export function CreateConfigButton({ projectId }: { projectId: string }) {
 	const create = appConfigQuery.create.mutation(projectId);
@@ -68,85 +74,90 @@ export function CreateConfigButton({ projectId }: { projectId: string }) {
 				</Button>
 			</Modal.Trigger>
 			<Modal.Backdrop>
-				<Modal.Container placement="center" size="sm">
+				<Modal.Container placement="center" scroll="inside" size="lg">
 					<Modal.Dialog>
 						<Modal.Header>
 							<Modal.Heading>Add a config key</Modal.Heading>
 						</Modal.Header>
 						<form onSubmit={submit}>
 							<Modal.Body>
-								<div className="flex flex-col gap-4">
-									<TextField isRequired value={keyName} onChange={setKeyName}>
-										<Label>Key name</Label>
-										<Input placeholder="API_TIMEOUT" />
-									</TextField>
+								<div className="flex flex-col gap-4 pt-2">
+									<div className="flex flex-col gap-1">
+										<TextField isRequired value={keyName} onChange={setKeyName}>
+											<Label>Key name</Label>
+											<Input placeholder="API_TIMEOUT" className="font-mono" />
+										</TextField>
+										<p className="text-xs text-muted mt-1">Use a stable, descriptive name because it cannot be changed after creation.</p>
+									</div>
 
-									<div className="flex flex-col gap-1.5">
-										<Label>Data Type</Label>
-										<div className="flex gap-1.5">
-											{DATA_TYPES.map((dt) => (
-												<Button
-													key={dt}
-													type="button"
-													size="sm"
-													variant={dataType === dt ? "primary" : "outline"}
-													onPress={() => setDataType(dt)}
-												>
-													{dt}
-												</Button>
-											))}
-										</div>
+									<div className="grid grid-cols-2 gap-4 mt-2">
+										<CustomSelect
+											label={
+												<div className="flex items-center gap-1.5 text-sm font-medium text-muted">
+													<TbBraces size={16} /> Data type
+												</div>
+											}
+											options={DATA_TYPES.map(dt => ({ value: dt, label: dt[0].toUpperCase() + dt.slice(1) }))}
+											value={dataType}
+											onChange={(dt) => {
+												setDataType(dt as any);
+												if (dt === "boolean") setBooleanValue(false);
+												else setValue("");
+											}}
+										/>
+
+										<CustomSelect
+											label={<span className="text-sm font-medium text-muted">Encoding</span>}
+											options={ENCODINGS.map(enc => ({ value: enc, label: ENCODING_LABELS[enc] }))}
+											value={encoding}
+											onChange={(enc) => setEncoding(enc as any)}
+										/>
 									</div>
 
 									{dataType === "boolean" ? (
-										<Checkbox isSelected={booleanValue} onChange={setBooleanValue}>
+										<div className="flex flex-col gap-1 mt-2">
+											<Label className="text-sm font-medium text-foreground">Value</Label>
+											<div className="rounded-lg border border-border p-2 bg-surface-50/50">
+												<Checkbox isSelected={booleanValue} onChange={setBooleanValue}>
+													<Checkbox.Content>
+														<Checkbox.Control>
+															<Checkbox.Indicator />
+														</Checkbox.Control>
+														<Label>Boolean Value: {booleanValue ? "True" : "False"}</Label>
+													</Checkbox.Content>
+												</Checkbox>
+											</div>
+										</div>
+									) : (
+										<div className="mt-2">
+											<TextField isRequired value={value} onChange={setValue}>
+												<Label>Value</Label>
+												<Input
+													type={dataType === "number" ? "number" : "text"}
+													placeholder={dataType === "number" ? "3000" : "Value"}
+													className="font-mono"
+												/>
+											</TextField>
+										</div>
+									)}
+
+									<div className="mt-2">
+										<TextField value={description} onChange={setDescription}>
+											<Label>Description</Label>
+											<Input placeholder="What this key controls" />
+										</TextField>
+									</div>
+
+									<div className="mt-2 rounded-lg border border-border p-3 bg-surface-50/50">
+										<Checkbox isSelected={isEncrypted} onChange={setIsEncrypted}>
 											<Checkbox.Content>
 												<Checkbox.Control>
 													<Checkbox.Indicator />
 												</Checkbox.Control>
-												<Label>Boolean Value: {booleanValue ? "True" : "False"}</Label>
+												<Label>Encrypt this value in storage</Label>
 											</Checkbox.Content>
 										</Checkbox>
-									) : (
-										<TextField isRequired value={value} onChange={setValue}>
-											<Label>Value</Label>
-											<Input
-												type={dataType === "number" ? "number" : "text"}
-												placeholder={dataType === "number" ? "3000" : "Value"}
-											/>
-										</TextField>
-									)}
-
-									<TextField value={description} onChange={setDescription}>
-										<Label>Description</Label>
-										<Input placeholder="What this key controls" />
-									</TextField>
-
-									<div className="flex flex-col gap-1.5">
-										<Label>Encoding</Label>
-										<div className="flex gap-1.5">
-											{ENCODINGS.map((enc) => (
-												<Button
-													key={enc}
-													type="button"
-													size="sm"
-													variant={encoding === enc ? "primary" : "outline"}
-													onPress={() => setEncoding(enc)}
-												>
-													{enc}
-												</Button>
-											))}
-										</div>
 									</div>
-
-									<Checkbox isSelected={isEncrypted} onChange={setIsEncrypted}>
-										<Checkbox.Content>
-											<Checkbox.Control>
-												<Checkbox.Indicator />
-											</Checkbox.Control>
-											<Label>Encrypt this value in storage</Label>
-										</Checkbox.Content>
-									</Checkbox>
 								</div>
 							</Modal.Body>
 							<Modal.Footer>

@@ -44,6 +44,16 @@ export const authService = {
 		const result = await httpClient.delete(`/auth/delete-user/${userId}`);
 		return result.data;
 	},
+	async changeUserPassword(
+		userId: string,
+		body: { newPassword: string },
+	): Promise<{ message: string }> {
+		const result = await httpClient.patch(
+			`/auth/change-user-password/${userId}`,
+			body,
+		);
+		return result.data;
+	},
 	listUsersRequestBodySchema,
 	createUserRequestBodySchema,
 };

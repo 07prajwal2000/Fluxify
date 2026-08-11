@@ -99,7 +99,7 @@ When creating branches or Pull Requests via the `gh` CLI:
 3. `<Table.Column>` is already rendered as an interactive ColumnHeader by React Aria, so embedding a native `<button>` creates conflicting PressResponders.
 
 **Fix & Best Practices:**
-1. **Always use `@fluxify/components` Checkbox:** Use `import { Checkbox } from "@fluxify/components"` located in `packages/components/src/Checkbox`. It is self-contained, fully typed without `any`, uses theme CSS variables (`var(--accent)`, `var(--accent-foreground)`, `var(--border)`, `var(--surface)`, `var(--focus)`) for light/dark theme compatibility, handles `checked`, `indeterminate`, `size`, `variant`, `label`, `description`, `errorMessage`, and supports `forwardRef`.
+1. **Always use `@fluxify/components` Checkbox:** Use `import { Checkbox } from "@fluxify/components"` located in `packages/components/src/Checkbox`. It is self-contained, fully typed without `any`, uses theme CSS variables (`var(--accent)`, `var(--accent-foreground)`, `var(--border)`, `var(--surface)`, `var(--focus)`) for light/dark theme compatibility, handles `checked`, `indeterminate`, `size`, `variant`, `label`, `description`, `errorMessage`, and supports `forwardRef`. Additionally, ALWAYS use this `Checkbox` component for UI toggle switches instead of importing or using a standalone `Switch` component.
 2. **Table Selection:** Pass `slot="selection"` on any `<Checkbox>` rendered inside `<Table.Header>` or `<Table.Cell>` (e.g. `<Checkbox slot="selection" ... />`).
 3. Replace nested `<button>` elements inside `<Table.Column>` with clickable `<div>` or `<span>` elements (e.g. `<div role="button" tabIndex={0} onClick={...}>`).
 

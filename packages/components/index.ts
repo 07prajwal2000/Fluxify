@@ -14,6 +14,7 @@ export * from "./src/JsonEditor";
 export * from "./src/ArrayEditor";
 export * from "./src/JoinsEditor";
 export * from "./src/MultiSelect";
+export * from "./src/CustomSelect";
 export {
 	Checkbox,
 	CheckboxControl,
@@ -31,3 +32,7 @@ export {
 	type CheckboxSize,
 	type CheckboxVariant,
 } from "./src/Checkbox";
+export {
+	Switch,
+	type SwitchProps,
+} from "./src/Switch";

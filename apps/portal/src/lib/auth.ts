@@ -1,4 +1,5 @@
 import { createAuthClient } from "better-auth/react";
+import { ssoClient } from "@better-auth/sso/client";
 
 // baseURL omitted in dev so requests hit the current origin and go through the
 // Vite proxy (see vite.config.ts). Override with VITE_SERVER_URL if needed.
@@ -9,4 +10,5 @@ export const authClient = createAuthClient({
 		refetchInterval: 2 * 60 * 1000,
 		refetchOnWindowFocus: false,
 	},
+	plugins: [ssoClient()],
 });

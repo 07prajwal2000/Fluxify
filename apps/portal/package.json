@@ -11,6 +11,7 @@
 		"test": "bun test --parallel"
 	},
 	"dependencies": {
+		"@better-auth/sso": "^1.6.26",
 		"@fluxify/ai-gateway": "workspace:*",
 		"@fluxify/components": "workspace:*",
 		"@fluxify/lib": "workspace:*",
