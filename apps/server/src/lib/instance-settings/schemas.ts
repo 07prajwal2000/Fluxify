@@ -43,11 +43,15 @@ export const INSTANCE_SETTINGS_REGISTRY = {
 		category: "auth",
 		schema: ssoConfigSchema,
 		publicSchema: ssoConfigPublicSchema,
+		// the login screen needs provider/enabled/issuer/domain before the user
+		// is authenticated; publicSchema already strips secrets, so this is safe.
+		alwaysPublic: true,
 	},
 	auth_config: {
 		category: "auth",
 		schema: authConfigSchema,
 		publicSchema: authConfigSchema,
+		alwaysPublic: true,
 	},
 } as const;
 
@@ -60,6 +64,22 @@ export type InstanceSettingValue<K extends InstanceSettingKey> = z.infer<
 
 export function isInstanceSettingKey(key: string): key is InstanceSettingKey {
 	return key in INSTANCE_SETTINGS_REGISTRY;
+}
+
+/**
+ * Registry-forced keys (auth_config/sso_config) are always public — the
+ * login screen needs them pre-auth, and publicSchema already strips
+ * secrets — so no caller can opt them back into private.
+ */
+export function resolveIsPublic(
+	key: string,
+	callerIsPublic: boolean | undefined,
+	existingIsPublic: boolean | undefined,
+): boolean {
+	if (isInstanceSettingKey(key) && INSTANCE_SETTINGS_REGISTRY[key].alwaysPublic) {
+		return true;
+	}
+	return callerIsPublic ?? existingIsPublic ?? false;
 }
 
 // ponytail: name-based secret list; add fields as new secret-bearing keys appear.
