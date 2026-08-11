@@ -17,6 +17,7 @@ export const responseSchema = z.object({
       email: z.string(),
       name: z.string().nullable(),
       isSystemAdmin: z.boolean(),
+      providerIds: z.string(),
       role: z.enum(["user", "instance_admin"]).nullable(),
     })
   ),

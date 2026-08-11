@@ -3,11 +3,9 @@ import { requestBodySchema, responseSchema } from "./dto";
 import { db } from "../../../../db";
 import {
   getConfigById,
-  getConfigByKeyName,
   updateAppConfig,
 } from "./repository";
 import { NotFoundError } from "../../../../errors/notFoundError";
-import { ConflictError } from "../../../../errors/conflictError";
 import { EncryptionService } from "../../../../lib/encryption";
 import { ServerError } from "../../../../errors/serverError";
 import { BadRequestError } from "../../../../errors/badRequestError";
@@ -29,10 +27,6 @@ export default async function handleRequest(
     if (config.isEncrypted && !body.isEncrypted) {
       throw new BadRequestError("Cannot decrypt value once it is encrypted");
     }
-    const keyNameExists = await getConfigByKeyName(body.keyName, projectId, tx);
-    if (keyNameExists?.id && keyNameExists.id !== id) {
-      throw new ConflictError("Key name already exists");
-    }
     if ((config.isEncrypted || body.isEncrypted) && body.value !== undefined) {
       body.value = EncryptionService.encrypt(body.value.toString());
       body.value = EncryptionService.encodeData(body.value, body.encodingType);
@@ -51,7 +45,8 @@ export default async function handleRequest(
         body.encodingType,
       );
     }
-    const cfg = { ...body, value: body.value?.toString() };
+    const { keyName: _keyName, ...updates } = body;
+    const cfg = { ...updates, value: updates.value?.toString() };
     const updatedConfig = await updateAppConfig(id, projectId, cfg, tx);
     return updatedConfig;
   });

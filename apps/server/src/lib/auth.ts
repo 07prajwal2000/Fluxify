@@ -1,11 +1,12 @@
 import { betterAuth } from "better-auth";
+import { APIError } from "better-auth/api";
 import { DB, drizzleAdapter } from "better-auth/adapters/drizzle";
 import { deleteCacheKey, getCache, setCache, setCacheEx } from "../db/redis";
 import { accessControlEntity } from "../db/schema";
 import { eq } from "drizzle-orm";
 import { customSession } from "better-auth/plugins";
 import * as authSchemas from "../db/auth-schema";
-import { systemUsers } from "../db/auth-schema";
+import { account, systemUsers } from "../db/auth-schema";
 import { admin } from "better-auth/plugins";
 import { sso } from "@better-auth/sso";
 import { generateID } from "@fluxify/lib";
@@ -15,9 +16,9 @@ import { getEnv } from "./env";
 export let auth: ReturnType<typeof initializeAuth> = null!;
 
 function trustedOrigins() {
-	const origins = getEnv("TRUSTED_ORIGINS")?.split(",").map((o) =>
-		o.trim(),
-	) ?? [getEnv("SERVER_URL")!];
+	const origins = getEnv("TRUSTED_ORIGINS")
+		?.split(",")
+		.map((o) => o.trim()) ?? [getEnv("SERVER_URL")!];
 	// The configured SSO issuer is inherently trusted (an admin set it); the SSO
 	// plugin validates the OIDC discovery endpoint against trustedOrigins, so add
 	// the issuer/discovery origin here to allow the discovery fetch.
@@ -81,10 +82,26 @@ export function initializeAuth(db: DB) {
 		}),
 		basePath: "/_/admin/api/auth",
 		trustedOrigins: trustedOrigins(),
+		// Never render Better Auth's built-in error page from the API origin.
+		// OAuth/SSO failures instead return to the portal, which owns the
+		// user-facing copy for each error code.
+		onAPIError: {
+			errorURL: `${getEnv("SERVER_URL")!}/_/admin/ui/login`,
+		},
 		emailAndPassword: {
 			enabled: true,
 			disableSignUp: true,
 			requireEmailVerification: false,
+		},
+		account: {
+			accountLinking: {
+				enabled: true,
+				// Legacy credential users are created by an administrator and do not
+				// necessarily have Better Auth's local emailVerified flag set. The
+				// configured SSO connection is trusted below and still has to match
+				// its verified domain before Better Auth may link its account.
+				requireLocalEmailVerified: false,
+			},
 		},
 		databaseHooks: {
 			user: {
@@ -101,11 +118,12 @@ export function initializeAuth(db: DB) {
 							// pre-created (admin) → reuse its id as the user id
 							return { data: { id: existing[0].id } };
 						}
-						// SSO JIT → create the canonical row first (FK target)
-						await db.insert(systemUsers).values({
-							id: userData.id,
-							email,
-							name: userData.name ?? null,
+						// SSO users must be pre-provisioned in system_users by an administrator.
+						throw new APIError("NOT_FOUND", {
+							code: "ACCOUNT_NOT_PRE_PROVISIONED",
+							// The SSO callback forwards the message in its redirect query, so
+							// keep it as the same stable code the portal maps below.
+							message: "ACCOUNT_NOT_PRE_PROVISIONED",
 						});
 					},
 				},
@@ -134,15 +152,23 @@ export function initializeAuth(db: DB) {
 		plugins: [
 			customSession(async ({ user, session }) => {
 				// user.id === system_users.id; isSystemAdmin lives on system_users.
-				const su = await db
-					.select({ isSystemAdmin: systemUsers.isSystemAdmin })
-					.from(systemUsers)
-					.where(eq(systemUsers.id, session.userId));
+				const [su, userAccount] = await Promise.all([
+					db
+						.select({ isSystemAdmin: systemUsers.isSystemAdmin })
+						.from(systemUsers)
+						.where(eq(systemUsers.id, session.userId)),
+					db
+						.select({ providerId: account.providerId })
+						.from(account)
+						.where(eq(account.userId, session.userId))
+						.limit(1),
+				]);
 				const isSystemAdmin = su[0]?.isSystemAdmin ?? false;
 				const acl = getUserAccessControls(db, session.userId, isSystemAdmin);
 				return {
 					user: { ...user, isSystemAdmin },
 					session,
+					providerId: userAccount[0]?.providerId ?? null,
 					acl: await acl, // extends session with acl
 				};
 			}),
@@ -151,6 +177,16 @@ export function initializeAuth(db: DB) {
 			// Better Auth handles sign-up + account creation/linking automatically.
 			sso({
 				defaultSSO: ssoDefaults(),
+				// SSO sign-in is limited to users an administrator has already
+				// provisioned. This stops Better Auth before it attempts to create a
+				// new user/account; the database hook remains a defense in depth.
+				disableImplicitSignUp: true,
+				// defaultSSO is configured by this instance's administrator rather than
+				// end users. Better Auth marks these static providers as domain-verified
+				// when this mode is enabled, allowing a same-email SSO identity to be
+				// linked to the existing credential account (instead of rejecting it as
+				// "account not linked"). No ssoProvider row is used for defaultSSO.
+				domainVerification: { enabled: true },
 			}),
 		],
 	});

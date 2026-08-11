@@ -1,5 +1,5 @@
 import { db, DbTransactionType } from "../db";
-import { systemUsers } from "../db/auth-schema";
+import { account, systemUsers } from "../db/auth-schema";
 import { desc, eq, ilike, or, sql } from "drizzle-orm";
 
 // Canonical user table. All app code goes through here — never the Better Auth
@@ -51,8 +51,10 @@ export async function listSystemUsers(
 			name: systemUsers.name,
 			email: systemUsers.email,
 			isSystemAdmin: systemUsers.isSystemAdmin,
+			providerIds: sql<string>`coalesce(string_agg(distinct ${account.providerId}, ','), '')`,
 		})
 		.from(systemUsers)
+		.leftJoin(account, eq(account.userId, systemUsers.id))
 		.where(
 			fuzzyTextSearch
 				? or(
@@ -63,7 +65,13 @@ export async function listSystemUsers(
 		)
 		.limit(limit)
 		.offset(skip)
-		.orderBy(desc(systemUsers.createdAt));
+		.orderBy(desc(systemUsers.createdAt))
+		.groupBy(
+			systemUsers.id,
+			systemUsers.name,
+			systemUsers.email,
+			systemUsers.isSystemAdmin,
+		);
 }
 
 export async function countSystemUsers(tx?: DbTransactionType) {
