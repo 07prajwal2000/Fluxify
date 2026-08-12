@@ -39,6 +39,7 @@ export const projectsEntity = pgTable(
 			.primaryKey()
 			.$defaultFn(() => generateID()),
 		name: varchar({ length: 50 }),
+		description: text(),
 		createdAt: timestamp("created_at").defaultNow().notNull(),
 		hidden: boolean().default(false),
 		updatedAt: timestamp("updated_at")
