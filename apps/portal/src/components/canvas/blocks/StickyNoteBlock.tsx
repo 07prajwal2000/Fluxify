@@ -1,9 +1,11 @@
 import { useCallback, useState, type KeyboardEvent, type MouseEvent } from "react";
 import Markdown from "react-markdown";
 import { NodeResizer, useReactFlow, type NodeProps } from "@xyflow/react";
+import { TbTrash } from "react-icons/tb";
 import "./blocks.css";
 import { useCanvasChanges } from "../changes/ChangesContext";
-import { NOTE_COLORS, NOTE_SIZE_LIMITS, stickyNoteData } from "./stickyNoteData";
+import { useCanvasLayoutLocked } from "../CanvasLayoutLockContext";
+import { NOTE_COLORS, NOTE_MIN_SIZE, stickyNoteData } from "./stickyNoteData";
 
 /**
  * A resizable comment on the canvas: renders its `notes` as markdown and has no
@@ -18,9 +20,10 @@ import { NOTE_COLORS, NOTE_SIZE_LIMITS, stickyNoteData } from "./stickyNoteData"
  */
 export function StickyNoteBlock({ id, data, selected }: NodeProps) {
 	const note = stickyNoteData(data);
-	const { updateNodeData } = useReactFlow();
+	const { deleteElements, updateNode, updateNodeData } = useReactFlow();
 	// Disabled tracking means a readonly canvas: view the note, don't edit it.
 	const { enabled: editable } = useCanvasChanges();
+	const layoutLocked = useCanvasLayoutLocked();
 	// `null` = not editing; anything else is the in-progress markdown.
 	const [draft, setDraft] = useState<string | null>(null);
 
@@ -29,9 +32,12 @@ export function StickyNoteBlock({ id, data, selected }: NodeProps) {
 			if (!editable) return;
 			// Otherwise React Flow zooms in on the double click.
 			event.stopPropagation();
+			// A note is normally a background grouping layer. Raise it only while
+			// its editor needs to receive the pointer and keyboard interaction.
+			updateNode(id, { zIndex: 1 });
 			setDraft(note.notes);
 		},
-		[editable, note.notes],
+		[editable, id, note.notes, updateNode],
 	);
 
 	const commit = useCallback(() => {
@@ -41,16 +47,26 @@ export function StickyNoteBlock({ id, data, selected }: NodeProps) {
 			}
 			return null;
 		});
-	}, [id, note.notes, updateNodeData]);
+		updateNode(id, { zIndex: -1 });
+	}, [id, note.notes, updateNode, updateNodeData]);
+
+	const cancel = useCallback(() => {
+		setDraft(null);
+		updateNode(id, { zIndex: -1 });
+	}, [id, updateNode]);
+
+	const remove = useCallback(() => {
+		void deleteElements({ nodes: [{ id }] });
+	}, [deleteElements, id]);
 
 	const onKeyDown = useCallback(
 		(event: KeyboardEvent<HTMLTextAreaElement>) => {
 			// Stop the canvas from treating typing as shortcuts (delete, undo…).
 			event.stopPropagation();
-			if (event.key === "Escape") setDraft(null);
+			if (event.key === "Escape") cancel();
 			else if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) commit();
 		},
-		[commit],
+		[cancel, commit],
 	);
 
 	return (
@@ -64,8 +80,9 @@ export function StickyNoteBlock({ id, data, selected }: NodeProps) {
 		>
 			<NodeResizer
 				nodeId={id}
-				isVisible={selected && editable}
-				{...NOTE_SIZE_LIMITS}
+				isVisible={selected && editable && !layoutLocked}
+				minWidth={NOTE_MIN_SIZE}
+				minHeight={NOTE_MIN_SIZE}
 				handleClassName="fx-note__grip"
 				lineClassName="fx-note__edge"
 			/>
@@ -85,6 +102,15 @@ export function StickyNoteBlock({ id, data, selected }: NodeProps) {
 							onClick={() => updateNodeData(id, { color })}
 						/>
 					))}
+					<button
+						type="button"
+						title="Delete note"
+						aria-label="Delete note"
+						className="fx-note__swatch fx-note__delete"
+						onClick={remove}
+					>
+						<TbTrash />
+					</button>
 				</div>
 			)}
 

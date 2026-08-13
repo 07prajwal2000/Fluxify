@@ -10,20 +10,15 @@ export type StickyNoteData = {
 	size: NoteSize;
 };
 
-/** Bounds the server enforces on a note's box; the resizer must not exceed them. */
-export const NOTE_SIZE_LIMITS = {
-	minWidth: 75,
-	minHeight: 75,
-	maxWidth: 200,
-	maxHeight: 200,
-} as const;
+/** Notes can grow without a cap, but must remain usable on the canvas. */
+export const NOTE_MIN_SIZE = 50;
 
 const DEFAULT_SIZE: NoteSize = { width: 180, height: 120 };
 
-function dimension(value: unknown, fallback: number, min: number, max: number) {
+function dimension(value: unknown, fallback: number) {
 	const size =
 		typeof value === "number" && Number.isFinite(value) ? value : fallback;
-	return Math.min(Math.max(Math.round(size), min), max);
+	return Math.max(Math.round(size), NOTE_MIN_SIZE);
 }
 
 /**
@@ -43,18 +38,8 @@ export function stickyNoteData(data: unknown): StickyNoteData {
 			? (color as NoteColor)
 			: "yellow",
 		size: {
-			width: dimension(
-				size.width,
-				DEFAULT_SIZE.width,
-				NOTE_SIZE_LIMITS.minWidth,
-				NOTE_SIZE_LIMITS.maxWidth,
-			),
-			height: dimension(
-				size.height,
-				DEFAULT_SIZE.height,
-				NOTE_SIZE_LIMITS.minHeight,
-				NOTE_SIZE_LIMITS.maxHeight,
-			),
+			width: dimension(size.width, DEFAULT_SIZE.width),
+			height: dimension(size.height, DEFAULT_SIZE.height),
 		},
 	};
 }

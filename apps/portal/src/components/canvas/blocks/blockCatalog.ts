@@ -13,9 +13,9 @@ export type BlockDefinition = {
 	category: "Core" | "Flow" | "Database" | "HTTP" | "Logging" | "Misc";
 };
 
-const GREEN = "var(--success, #40c057)";
-const VIOLET = "var(--violet, #7c5cff)";
-const RED = "var(--danger, #e5484d)";
+const GREEN = "var(--success)";
+const VIOLET = "var(--accent)";
+const RED = "var(--danger)";
 
 /** Inbound + one outbound "next" — the shape almost every block has. */
 const STD: HandleKind[] = ["target", "source"];
@@ -213,6 +213,29 @@ export const BLOCK_CATALOG: Record<BlockType, BlockDefinition> = {
 
 export function blockCatalogEntries(): [BlockType, BlockDefinition][] {
 	return Object.entries(BLOCK_CATALOG) as [BlockType, BlockDefinition][];
+}
+
+/** Route-owned blocks are created by the route, never by the canvas picker. */
+const ROUTE_OWNED_BLOCK_TYPES = new Set<BlockType>([
+	BLOCK_TYPES.entrypoint,
+	BLOCK_TYPES.errorHandler,
+]);
+
+/** Notes have their own quick action beside the picker trigger. */
+const CANVAS_QUICK_ACTION_BLOCK_TYPES = new Set<BlockType>([
+	BLOCK_TYPES.stickynote,
+]);
+
+export function canAddBlock(type: BlockType): boolean {
+	return !ROUTE_OWNED_BLOCK_TYPES.has(type);
+}
+
+export function canPickBlock(type: BlockType): boolean {
+	return canAddBlock(type) && !CANVAS_QUICK_ACTION_BLOCK_TYPES.has(type);
+}
+
+export function pickerBlockCatalogEntries(): [BlockType, BlockDefinition][] {
+	return blockCatalogEntries().filter(([type]) => canPickBlock(type));
 }
 
 /** Definition for any type, including unknown/custom ones. */

@@ -293,19 +293,29 @@ html[data-theme="dark"] .fx-block,
 /* Colour strip, sits just above the note (legacy sticky note had the same). */
 .fx-note__palette {
 	position: absolute;
-	top: -12px;
+	top: -25px;
 	right: 0;
 	display: flex;
-	gap: 3px;
+	align-items: center;
+	gap: 4px;
+	padding: 3px;
+	border: 1px solid var(--fx-block-border);
+	border-radius: var(--radius, 6px);
+	background: var(--fx-block-bg);
+	box-shadow: 0 3px 8px color-mix(in oklab, #000 18%, transparent);
 }
 
 .fx-note__swatch {
-	width: 9px;
-	height: 9px;
+	display: inline-flex;
+	width: 15px;
+	height: 15px;
+	align-items: center;
+	justify-content: center;
 	padding: 0;
 	border: 1px solid color-mix(in oklab, var(--fx-block-fg) 25%, transparent);
 	border-radius: 2px;
 	cursor: pointer;
+	transition: border-color 120ms ease, background-color 120ms ease, color 120ms ease;
 }
 
 .fx-note__swatch--active {
@@ -326,6 +336,21 @@ html[data-theme="dark"] .fx-block,
 
 .fx-note__swatch--blue {
 	background: #3b82f6;
+}
+
+.fx-note__delete {
+	background: color-mix(in oklab, var(--danger, #e5484d) 10%, var(--fx-block-bg));
+	color: var(--danger, #e5484d);
+}
+
+.fx-note__delete:hover {
+	border-color: var(--danger, #e5484d);
+	background: color-mix(in oklab, var(--danger, #e5484d) 15%, var(--fx-block-bg));
+}
+
+.fx-note__delete svg {
+	width: 10px;
+	height: 10px;
 }
 
 /* Resize frame: React Flow's own controls, restyled — a small rect on every

@@ -25,6 +25,8 @@ export type BaseBlockProps = {
 	/** Show the hover action strip (open/duplicate/copy/delete). Default `true`;
 	 *  always hidden in readonly mode. */
 	showToolbar?: boolean;
+	/** Permit delete, copy and duplicate in the action strip. */
+	allowMutatingActions?: boolean;
 	className?: string;
 	/** `<BlockHandle>` children get routed to edge rails; anything else renders
 	 *  after the text column. */
@@ -65,6 +67,7 @@ export function BaseBlock({
 	status,
 	color,
 	showToolbar = true,
+	allowMutatingActions = true,
 	className,
 	children,
 }: BaseBlockProps) {
@@ -94,6 +97,7 @@ export function BaseBlock({
 					blockId={blockId}
 					visible={hovered}
 					hoverProps={hoverProps}
+					allowMutatingActions={allowMutatingActions}
 				/>
 			)}
 			{status != null && (

@@ -1,6 +1,7 @@
 import { Button } from "@fluxify/components";
 import { TbSparkles } from "react-icons/tb";
 import clsx from "clsx";
+import "./aiCanvasButton.css";
 
 export type AiCanvasButtonProps = {
 	/** Click/press handler, e.g. to open AI assistant panel or route */
@@ -27,15 +28,12 @@ export function AiCanvasButton({
 			<Button
 				isIconOnly
 				aria-label={ariaLabel}
-				variant="secondary"
-				className={clsx(
-					"size-10 rounded-xl border border-[#161820] bg-[#141720] p-0 shadow-lg backdrop-blur-md hover:bg-[#1c202d] transition-all",
-					className,
-				)}
+				variant="ghost"
+				className={clsx("fx-ai-canvas-button", className)}
 				onPress={onPress}
 				onClick={onClick}
 			>
-				<TbSparkles className="size-5 text-[#D0F237] shrink-0" />
+				<TbSparkles className="fx-ai-canvas-button__icon" />
 			</Button>
 		</div>
 	);

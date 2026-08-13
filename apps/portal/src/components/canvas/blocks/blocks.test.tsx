@@ -1,13 +1,19 @@
 import { expect, test } from "bun:test";
 import { blockToNode, nodeToBlock } from "../adapters";
 import { splitChildren } from "./BaseBlock";
-import { BLOCK_CATALOG, blockDefinition } from "./blockCatalog";
+import {
+	BLOCK_CATALOG,
+	blockDefinition,
+	canAddBlock,
+	canPickBlock,
+	pickerBlockCatalogEntries,
+} from "./blockCatalog";
 import { BLOCK_ICON_MAP } from "./blockIconMap";
 import { blockLabels } from "./blockLabels";
 import { createBlockNodeTypes } from "./BlockNode";
 import { BLOCK_TYPES, BLOCK_TYPE_LIST } from "./blockTypes";
 import { StickyNoteBlock } from "./StickyNoteBlock";
-import { NOTE_SIZE_LIMITS, stickyNoteData } from "./stickyNoteData";
+import { NOTE_MIN_SIZE, stickyNoteData } from "./stickyNoteData";
 import { BlockHandle } from "./handles/BlockHandle";
 import { HANDLE_CONFIG, type HandleKind } from "./handles/handleConfig";
 
@@ -35,6 +41,19 @@ test("every block type has an icon and a catalog entry", () => {
 	}
 	// Unknown types still render rather than crashing the canvas.
 	expect(blockDefinition("some_plugin_block").handles).toEqual(["target", "source"]);
+});
+
+test("route-owned blocks cannot be added from the canvas picker", () => {
+	expect(canAddBlock(BLOCK_TYPES.entrypoint)).toBe(false);
+	expect(canAddBlock(BLOCK_TYPES.errorHandler)).toBe(false);
+	expect(canAddBlock(BLOCK_TYPES.response)).toBe(true);
+	expect(pickerBlockCatalogEntries().map(([type]) => type)).not.toContain(
+		BLOCK_TYPES.entrypoint,
+	);
+	expect(pickerBlockCatalogEntries().map(([type]) => type)).not.toContain(
+		BLOCK_TYPES.errorHandler,
+	);
+	expect(canPickBlock(BLOCK_TYPES.stickynote)).toBe(false);
 });
 
 test("a block's own name wins over the catalog, placeholders do not", () => {
@@ -77,14 +96,13 @@ test("note data is normalised into the shape the server validates", () => {
 	const fresh = stickyNoteData(undefined);
 	expect(fresh.notes).toBe("");
 	expect(fresh.color).toBe("yellow");
-	expect(fresh.size.width).toBeGreaterThanOrEqual(NOTE_SIZE_LIMITS.minWidth);
-	expect(fresh.size.height).toBeLessThanOrEqual(NOTE_SIZE_LIMITS.maxHeight);
+	expect(fresh.size).toEqual({ width: 180, height: 120 });
 
 	expect(
 		stickyNoteData({ notes: "# hi", color: "blue", size: { width: 90, height: 80 } }),
 	).toEqual({ notes: "# hi", color: "blue", size: { width: 90, height: 80 } });
 
-	// Out-of-range or junk values are clamped/replaced, never passed through.
+	// Notes can be arbitrarily large grouping layers; only invalid values reset.
 	const fixed = stickyNoteData({
 		notes: 12,
 		color: "purple",
@@ -92,8 +110,12 @@ test("note data is normalised into the shape the server validates", () => {
 	});
 	expect(fixed.notes).toBe("");
 	expect(fixed.color).toBe("yellow");
-	expect(fixed.size.width).toBe(NOTE_SIZE_LIMITS.maxWidth);
+	expect(fixed.size.width).toBe(4000);
 	expect(fixed.size.height).toBe(fresh.size.height);
+	expect(stickyNoteData({ size: { width: 1, height: 0 } }).size).toEqual({
+		width: NOTE_MIN_SIZE,
+		height: NOTE_MIN_SIZE,
+	});
 });
 
 test("a loaded note is sized from its data and normalised", () => {
@@ -107,6 +129,7 @@ test("a loaded note is sized from its data and normalised", () => {
 	const data = stickyNoteData(node.data);
 	expect(node.width).toBe(data.size.width);
 	expect(node.height).toBe(data.size.height);
+	expect(node.zIndex).toBe(-1);
 	expect(data.color).toBe("yellow");
 });
 

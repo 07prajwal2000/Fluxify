@@ -16,6 +16,7 @@ function RouteCanvasPage() {
 	return (
 		<CanvasWorkbench
 			title="Route canvas"
+			enableBlockPicker
 			items={routesQuery.canvasItems.useQuery(routeId)}
 			reload={() => routesService.getCanvasItems(routeId)}
 			save={(payload) => save.mutateAsync(payload)}

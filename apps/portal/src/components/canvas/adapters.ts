@@ -16,10 +16,10 @@ import type {
  */
 function noteNodeFields(
 	block: CanvasBlock,
-): Partial<Pick<BlockNode, "data" | "width" | "height">> {
+): Partial<Pick<BlockNode, "data" | "width" | "height" | "zIndex">> {
 	if (block.type !== BLOCK_TYPES.stickynote) return {};
 	const data = stickyNoteData(block.data);
-	return { data, width: data.size.width, height: data.size.height };
+	return { data, width: data.size.width, height: data.size.height, zIndex: -1 };
 }
 
 export function blockToNode(block: CanvasBlock): BlockNode {

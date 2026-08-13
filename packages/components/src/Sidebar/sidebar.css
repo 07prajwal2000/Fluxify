@@ -1,0 +1,39 @@
+.fx-sidebar-backdrop {
+	position: fixed;
+	inset: 0;
+	z-index: 1000;
+	display: flex;
+	background: color-mix(in srgb, var(--foreground) 32%, transparent);
+}
+
+.fx-sidebar {
+	display: flex;
+	width: min(100%, 26rem);
+	height: 100dvh;
+	flex-direction: column;
+	background: var(--overlay);
+	box-shadow: 0 0 2rem color-mix(in srgb, var(--foreground) 24%, transparent);
+	animation: fx-sidebar-enter 160ms ease-out;
+}
+
+.fx-sidebar--right {
+	margin-left: auto;
+	border-left: 1px solid var(--border);
+}
+
+.fx-sidebar--left {
+	margin-right: auto;
+	border-right: 1px solid var(--border);
+	--fx-sidebar-enter-offset: -1rem;
+}
+
+@keyframes fx-sidebar-enter {
+	from {
+		opacity: 0;
+		transform: translateX(var(--fx-sidebar-enter-offset, 1rem));
+	}
+	to {
+		opacity: 1;
+		transform: translateX(0);
+	}
+}

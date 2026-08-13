@@ -7,8 +7,8 @@ export const stickyNotesSchema = z
     notes: z.string(),
     color: z.enum(["red", "blue", "green", "yellow"]).default("yellow"),
     size: z.object({
-      width: z.number().min(75).max(200).default(100),
-      height: z.number().min(75).max(200).default(100),
+      width: z.number().min(50).default(100),
+      height: z.number().min(50).default(100),
     }),
   })
   .extend(baseBlockDataSchema.shape);

@@ -34,7 +34,7 @@
 .light,
 [data-theme="light"],
 [data-theme="default"] {
-	--accent: oklch(0.9 0.19 122);
+	--accent: oklch(0.72 0.17 122);
 	/* lime green */
 }
 
