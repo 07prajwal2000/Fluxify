@@ -1,8 +1,13 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { ApiReferenceReact } from "@scalar/api-reference-react";
 import "@scalar/api-reference-react/style.css";
+import { createRouteHead } from "@/lib/seo";
 
 export const Route = createFileRoute("/_authed/$projectId/openapi")({
+	head: createRouteHead(
+		"API Documentation (OpenAPI)",
+		"Interactive OpenAPI specification and API reference documentation.",
+	),
 	component: OpenApiPage,
 });
 

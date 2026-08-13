@@ -15,6 +15,7 @@ export * from "./src/ArrayEditor";
 export * from "./src/JoinsEditor";
 export * from "./src/MultiSelect";
 export * from "./src/CustomSelect";
+export { LazyLoader } from "./src/LazyLoader/LazyLoader";
 export {
 	Checkbox,
 	CheckboxControl,

@@ -14,8 +14,13 @@ import { TbPlus, TbTrash } from "react-icons/tb";
 import { customBlocksQuery } from "@/query/customBlocksQuery";
 import { showErrorNotification } from "@/lib/errorNotifier";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
+import { createRouteHead } from "@/lib/seo";
 
 export const Route = createFileRoute("/_authed/$projectId/custom-blocks")({
+	head: createRouteHead(
+		"Custom Blocks",
+		"Manage custom reusable workflow blocks for your project.",
+	),
 	component: CustomBlocksPage,
 });
 

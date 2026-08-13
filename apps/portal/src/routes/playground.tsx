@@ -15,6 +15,8 @@ import {
 	Select,
 } from "@fluxify/components";
 
+import { createRouteHead } from "@/lib/seo";
+
 /**
  * Component playground. Sits outside `_authed` on purpose — no session needed,
  * so shared components can be poked at without a project or a login.
@@ -22,6 +24,10 @@ import {
  * To add a component: write a demo below and add one entry to DEMOS.
  */
 export const Route = createFileRoute("/playground")({
+	head: createRouteHead(
+		"Component Playground",
+		"Interactive UI component playground for testing Fluxify design system components.",
+	),
 	component: PlaygroundPage,
 });
 

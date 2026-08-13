@@ -6,6 +6,7 @@ import { UsersList } from "@/components/home/UsersList";
 import { AccountDetails } from "@/components/home/AccountDetails";
 import { InstanceSettings } from "@/components/home/InstanceSettings";
 import { useAuthStore } from "@/store/auth";
+import { createDynamicRouteHead } from "@/lib/seo";
 
 const logo = `${import.meta.env.BASE_URL}icons/logo.svg`;
 
@@ -13,6 +14,19 @@ export const Route = createFileRoute("/_authed/")({
 	validateSearch: z.object({
 		tab: z.string().optional(),
 		settingsTab: z.string().optional(),
+	}),
+	head: createDynamicRouteHead(({ search }) => {
+		const tabNames: Record<string, string> = {
+			projects: "Projects Dashboard",
+			users: "User & Access Management",
+			instance: "Instance Settings",
+			account: "Account Profile",
+		};
+		const tabKey = search.tab || "projects";
+		return {
+			title: tabNames[tabKey] ?? "Projects Dashboard",
+			description: "Manage projects, users, and instance settings in your Fluxify workspace.",
+		};
 	}),
 	component: Home,
 });

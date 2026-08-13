@@ -47,22 +47,33 @@ export function ProjectsTab() {
 	}
 
 	return (
-		<div className="grid grid-cols-1 gap-4 pt-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
-			{data?.data?.map((project) => (
-				<ProjectCard
-					key={project.id}
-					id={project.id}
-					name={project.name!}
-					updatedAt={project.updatedAt}
-					createdAt={project.createdAt}
-				/>
-			))}
-			{userData?.isSystemAdmin && <NewProjectCard />}
+		<div className="pt-4">
+			<div className="mb-8 flex items-center justify-between">
+				<div>
+					<h1 className="text-3xl font-bold tracking-tight text-foreground">Projects</h1>
+					<p className="mt-1 text-sm text-muted-foreground">Build and manage your low-code applications</p>
+				</div>
+				{userData?.isSystemAdmin && <NewProjectButton />}
+			</div>
+			<div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+				{data?.data?.map((project: any) => (
+					<ProjectCard
+						key={project.id}
+						id={project.id}
+						name={project.name!}
+						description={project.description}
+						totalUsers={project.totalUsers}
+						totalRoutes={project.totalRoutes}
+						updatedAt={project.updatedAt}
+						createdAt={project.createdAt}
+					/>
+				))}
+			</div>
 		</div>
 	);
 }
 
-function NewProjectCard() {
+function NewProjectButton() {
 	const client = useQueryClient();
 	const [open, setOpen] = useState(false);
 	const [name, setName] = useState("");
@@ -90,10 +101,10 @@ function NewProjectCard() {
 	return (
 		<Modal isOpen={open} onOpenChange={setOpen}>
 			<Modal.Trigger>
-				<Card className="flex h-full min-h-40 cursor-pointer flex-col items-center justify-center gap-2 border border-dashed border-border bg-background-secondary text-muted transition-colors hover:border-accent hover:text-accent">
-					<TbPlus size={32} />
-					<span>New Project</span>
-				</Card>
+				<button className="flex items-center gap-2 rounded-md bg-[#ccff00] px-4 py-2 text-sm font-medium text-black transition-colors hover:bg-[#b3e600]">
+					<TbPlus className="h-4 w-4" />
+					New Project
+				</button>
 			</Modal.Trigger>
 			<Modal.Backdrop>
 				<Modal.Container placement="center" size="sm">

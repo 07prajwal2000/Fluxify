@@ -15,8 +15,8 @@ import { isAxiosError } from "axios";
 import { authClient } from "@/lib/auth";
 import { showErrorNotification } from "@/lib/errorNotifier";
 import { BASE_PATH } from "@/constants/routes";
-
 import { usePublicSettings } from "@/hooks/usePublicSettings";
+import { createRouteHead } from "@/lib/seo";
 
 const logo = `${import.meta.env.BASE_URL}icons/logo.svg`;
 const SSO_ERROR_MESSAGES: Record<string, string> = {
@@ -26,6 +26,10 @@ const SSO_ERROR_MESSAGES: Record<string, string> = {
 };
 
 export const Route = createFileRoute("/login")({
+	head: createRouteHead(
+		"Sign In",
+		"Sign in to your Fluxify workspace to manage API routes, workflows, and integrations.",
+	),
 	validateSearch: z.object({
 		next: z.string().optional(),
 		error: z.string().optional(),

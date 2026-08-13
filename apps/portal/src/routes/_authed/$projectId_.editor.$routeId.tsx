@@ -23,8 +23,13 @@ import { showErrorNotification } from "@/lib/errorNotifier";
 import { GenericBlockNode } from "@/components/editor/GenericBlockNode";
 import { blocksList } from "@/components/editor/blocks/nodes";
 import { BlockPalette } from "@/components/editor/BlockPalette";
+import { createRouteHead } from "@/lib/seo";
 
 export const Route = createFileRoute("/_authed/$projectId_/editor/$routeId")({
+	head: createRouteHead(
+		"Flow Editor",
+		"Build and edit node flow diagrams for your API routes.",
+	),
 	component: EditorPage,
 });
 
