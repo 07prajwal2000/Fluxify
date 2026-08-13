@@ -59,6 +59,8 @@ export function useHoverIntent(
 export type BlockToolbarProps = {
 	blockId: string;
 	visible: boolean;
+	/** System-owned blocks can still be opened, but cannot be copied or removed. */
+	allowMutatingActions?: boolean;
 	/** Keeps the toolbar open while the pointer is on it. */
 	hoverProps?: HoverIntent["hoverProps"];
 };
@@ -71,6 +73,7 @@ export type BlockToolbarProps = {
 export function BlockToolbar({
 	blockId,
 	visible,
+	allowMutatingActions = true,
 	hoverProps,
 }: BlockToolbarProps) {
 	const { deleteElements } = useReactFlow();
@@ -105,7 +108,7 @@ export function BlockToolbar({
 					<TbExternalLink />
 				</button>
 			)}
-			{editable && clipboard.enabled && (
+			{editable && allowMutatingActions && clipboard.enabled && (
 				<>
 					<button
 						type="button"
@@ -127,7 +130,7 @@ export function BlockToolbar({
 					</button>
 				</>
 			)}
-			{editable && (
+			{editable && allowMutatingActions && (
 				<button
 					type="button"
 					className="fx-block__action fx-block__action--danger"

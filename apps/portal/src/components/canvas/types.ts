@@ -59,6 +59,12 @@ export type BlockCanvasProps = {
 	/** Block settings side panel, opened by double click or the block's open
 	 *  action. Default `true`; available in `readonly` too (it only reads). */
 	enablePanel?: boolean;
+	/**
+	 * Composable canvas features must default to disabled. Enable them explicitly
+	 * from their owning route so embeds do not gain controls unintentionally.
+	 * Core block picker and canvas quick actions. Default `false`; off in readonly.
+	 */
+	enableBlockPicker?: boolean;
 	/** Copy/paste/duplicate of blocks and the edges between them. Default `true`;
 	 *  always off in `readonly`. Also hides the copy/duplicate block actions. */
 	enableClipboard?: boolean;

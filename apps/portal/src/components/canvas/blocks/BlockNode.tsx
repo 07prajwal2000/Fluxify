@@ -24,6 +24,8 @@ export function BlockNode({
 	positionAbsoluteY,
 }: NodeProps) {
 	const { name, description, definition } = blockLabels(type, data);
+	const isRouteOwned =
+		type === BLOCK_TYPES.entrypoint || type === BLOCK_TYPES.errorHandler;
 
 	return (
 		<BaseBlock
@@ -36,6 +38,7 @@ export function BlockNode({
 			color={definition.tint}
 			selected={selected}
 			status={status(data?.status)}
+			allowMutatingActions={!isRouteOwned}
 		>
 			{definition.handles.map((kind) => (
 				<BlockHandle key={kind} blockId={id} kind={kind} />

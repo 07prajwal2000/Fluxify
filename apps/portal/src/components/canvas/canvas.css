@@ -3,14 +3,13 @@
    are overridable CSS variables so a host app can theme the canvas. */
 
 .fx-canvas {
-	/* Tokens first (host app theme), hex only as a standalone fallback. */
-	--fx-canvas-bg: var(--background, #fafafa);
-	--fx-canvas-fg: var(--foreground, #18181b);
-	--fx-canvas-surface: var(--surface, #ffffff);
+	--fx-canvas-bg: var(--background);
+	--fx-canvas-fg: var(--foreground);
+	--fx-canvas-surface: var(--surface);
 	--fx-canvas-border: color-mix(in oklab, var(--fx-canvas-fg) 16%, var(--fx-canvas-bg));
 	--fx-canvas-dot: color-mix(in oklab, var(--fx-canvas-fg) 22%, var(--fx-canvas-bg));
 	--fx-canvas-muted: color-mix(in oklab, var(--fx-canvas-fg) 60%, var(--fx-canvas-bg));
-	--fx-canvas-accent: var(--accent, #6366f1);
+	--fx-canvas-accent: var(--accent);
 
 	position: relative;
 	width: 100%;
@@ -23,73 +22,121 @@
 /* The app switches theme with a class, not the OS scheme — cover both. */
 .dark .fx-canvas,
 [data-theme="dark"] .fx-canvas {
-	--fx-canvas-bg: var(--background, #18181b);
-	--fx-canvas-fg: var(--foreground, #fafafa);
-	--fx-canvas-surface: var(--surface, #27272a);
+	--fx-canvas-bg: var(--background);
+	--fx-canvas-fg: var(--foreground);
+	--fx-canvas-surface: var(--surface);
 }
 
 @media (prefers-color-scheme: dark) {
 	.fx-canvas {
-		--fx-canvas-bg: var(--background, #18181b);
-		--fx-canvas-fg: var(--foreground, #fafafa);
-		--fx-canvas-surface: var(--surface, #27272a);
+		--fx-canvas-bg: var(--background);
+		--fx-canvas-fg: var(--foreground);
+		--fx-canvas-surface: var(--surface);
 	}
 }
 
-/* React Flow's control toolbar styling. */
-.fx-canvas .react-flow__controls {
-	box-shadow: 0 8px 20px -4px rgba(0, 0, 0, 0.5) !important;
-	border-radius: 0.75rem !important;
-	border: 1px solid #161820 !important;
-	background: #141720 !important;
-	backdrop-filter: blur(12px) !important;
-	padding: 3px !important;
-	display: flex !important;
-	flex-direction: column !important;
-	gap: 2px !important;
-	overflow: hidden !important;
+/* Product-owned canvas toolbar. It deliberately does not inherit React Flow's
+   default controls, while every surface and state still resolves through the
+   shared component theme tokens. */
+.fx-canvas-toolbar {
+	--fx-toolbar-bg: var(--overlay, var(--surface));
+	--fx-toolbar-fg: var(--foreground);
+	--fx-toolbar-border: var(--border);
+
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	padding: 4px;
+	border: 1px solid var(--fx-toolbar-border);
+	border-radius: calc(var(--radius) + 4px);
+	/* Opaque by design: a translucent surface can blend to white through the
+	   React Flow viewport, even when the application theme is dark. */
+	background: var(--fx-toolbar-bg);
+	backdrop-filter: blur(14px);
+	color: var(--fx-toolbar-fg);
 }
 
-.fx-canvas .react-flow__controls-button {
-	width: 28px !important;
-	height: 28px !important;
-	padding: 5px !important;
-	border: none !important;
-	border-bottom: none !important;
-	border-radius: 0.5rem !important;
-	background: transparent !important;
-	color: #D0F237 !important;
-	fill: #D0F237 !important;
-	display: flex !important;
-	align-items: center !important;
-	justify-content: center !important;
-	transition: background-color 0.15s ease, opacity 0.15s ease !important;
+/* The design-system theme class may be on html or any app shell ancestor.
+   Keep the portal's control surface deterministic in every supported form. */
+html.dark .fx-canvas-toolbar,
+html[data-theme="dark"] .fx-canvas-toolbar,
+.dark .fx-canvas-toolbar,
+[data-theme="dark"] .fx-canvas-toolbar {
+	--fx-toolbar-bg: #141416;
+	--fx-toolbar-fg: #fafafa;
+	--fx-toolbar-border: #232326;
 }
 
-.fx-canvas .react-flow__controls-button:hover {
-	background: rgba(208, 242, 55, 0.12) !important;
-	color: #D0F237 !important;
+.fx-canvas-toolbar__group {
+	display: flex;
+	align-items: center;
+	gap: 2px;
 }
 
-.fx-canvas .react-flow__controls-button:active {
-	background: rgba(208, 242, 55, 0.22) !important;
+.fx-canvas-toolbar__divider {
+	width: 1px;
+	height: 20px;
+	margin: 0 2px;
+	background: var(--fx-toolbar-border);
 }
 
-.fx-canvas .react-flow__controls-button:disabled {
-	opacity: 0.3 !important;
-	background: transparent !important;
-	color: #71717a !important;
-	fill: #71717a !important;
-	cursor: not-allowed !important;
+.fx-canvas-toolbar__button,
+.fx-canvas-toolbar__zoom {
+	display: inline-flex;
+	width: 30px;
+	height: 30px;
+	align-items: center;
+	justify-content: center;
+	padding: 0;
+	border: 0;
+	border-radius: var(--radius);
+	background: transparent;
+	color: var(--fx-toolbar-fg);
+	cursor: pointer;
+	transition: background-color 150ms ease, color 150ms ease, opacity 150ms ease;
 }
 
-.fx-canvas .react-flow__controls-button svg {
-	width: 15px !important;
-	height: 15px !important;
-	max-width: 15px !important;
-	max-height: 15px !important;
-	stroke: currentColor !important;
-	stroke-width: 2 !important;
+.fx-canvas-toolbar__button:hover:not(:disabled),
+.fx-canvas-toolbar__zoom:hover {
+	background: color-mix(in srgb, var(--accent) 13%, transparent);
+	color: var(--accent);
+}
+
+.fx-canvas-toolbar__button[aria-pressed="true"] {
+	background: color-mix(in srgb, var(--accent) 18%, transparent);
+	color: var(--accent);
+}
+
+.fx-canvas-toolbar__button:focus-visible,
+.fx-canvas-toolbar__zoom:focus-visible {
+	outline: 2px solid var(--focus);
+	outline-offset: 1px;
+}
+
+.fx-canvas-toolbar__button:disabled {
+	cursor: not-allowed;
+	opacity: 0.35;
+}
+
+.fx-canvas-toolbar__button svg {
+	width: 15px;
+	height: 15px;
+}
+
+.fx-canvas-toolbar__zoom {
+	width: 44px;
+	font-size: 11px;
+	font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 640px) {
+	.fx-canvas-toolbar {
+		gap: 2px;
+	}
+
+	.fx-canvas-toolbar__divider {
+		display: none;
+	}
 }
 
 .fx-canvas .react-flow__minimap {
@@ -109,6 +156,22 @@
 	pointer-events: none;
 	font-size: 0.875rem;
 	color: var(--fx-canvas-muted);
+}
+
+.fx-canvas__quick-actions {
+	position: absolute;
+	top: 1rem;
+	right: 1rem;
+	z-index: 5;
+	display: flex;
+	flex-direction: column;
+	gap: 0.5rem;
+}
+
+.fx-canvas__quick-action {
+	background: transparent;
+	border: 1px solid var(--border);
+	box-shadow: 0 0.25rem 0.75rem color-mix(in srgb, var(--foreground) 14%, transparent);
 }
 
 /* The shell wraps the canvas and its settings panel. Without a height of its

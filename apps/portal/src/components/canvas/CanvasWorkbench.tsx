@@ -17,6 +17,8 @@ import type { BlockData, CanvasGraph } from "./types";
 export type CanvasWorkbenchProps = {
 	title: string;
 	items: { data: CanvasItems | undefined; isLoading: boolean; isError: boolean };
+	/** Opt-in only: this workbench is reused by route, custom-block, and embedded canvases. */
+	enableBlockPicker?: boolean;
 	/** re-read from the server, for diagnosing a rejected save */
 	reload: () => Promise<CanvasItems>;
 	save: (payload: CanvasSavePayload) => Promise<unknown>;
@@ -37,7 +39,13 @@ function toGraph(data: CanvasItems | undefined): CanvasGraph {
 
 const nodeTypes = createBlockNodeTypes();
 
-export function CanvasWorkbench({ title, items, reload, save }: CanvasWorkbenchProps) {
+export function CanvasWorkbench({
+	title,
+	items,
+	reload,
+	save,
+	enableBlockPicker = false,
+}: CanvasWorkbenchProps) {
 	const [readOnly, setReadOnly] = useState(false);
 	const [pendingCount, setPendingCount] = useState(0);
 	const [isSaving, setIsSaving] = useState(false);
@@ -121,6 +129,7 @@ export function CanvasWorkbench({ title, items, reload, save }: CanvasWorkbenchP
 						graph={graph}
 						mode={readOnly ? "readonly" : "edit"}
 						nodeTypes={nodeTypes}
+						enableBlockPicker={enableBlockPicker}
 						cycleFeedbackToken={cycleFeedbackToken}
 						onChange={(next, changes) => {
 							edited.current = { graph: next, changes };

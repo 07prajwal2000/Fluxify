@@ -11,6 +11,9 @@ export {
 export {
 	BLOCK_CATALOG,
 	blockCatalogEntries,
+	canAddBlock,
+	canPickBlock,
+	pickerBlockCatalogEntries,
 	blockDefinition,
 	type BlockDefinition,
 } from "./blockCatalog";
@@ -19,7 +22,7 @@ export { BLOCK_TYPES, BLOCK_TYPE_LIST, type BlockType } from "./blockTypes";
 export { StickyNoteBlock } from "./StickyNoteBlock";
 export {
 	NOTE_COLORS,
-	NOTE_SIZE_LIMITS,
+	NOTE_MIN_SIZE,
 	stickyNoteData,
 	type NoteColor,
 	type NoteSize,
