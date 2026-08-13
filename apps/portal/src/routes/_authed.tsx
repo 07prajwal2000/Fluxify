@@ -2,10 +2,12 @@ import { useEffect } from "react";
 import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
 import { authClient } from "@/lib/auth";
 import { useAuthStoreActions } from "@/store/auth";
+import { createRouteHead } from "@/lib/seo";
 
 // Guard for every authenticated route. Bounces to /login (remembering where the
 // user was) when there is no session; child routes render through <Outlet />.
 export const Route = createFileRoute("/_authed")({
+	head: createRouteHead("Portal", "Fluxify automation portal"),
 	beforeLoad: async ({ location }) => {
 		const session = await authClient.getSession();
 		if (!session.data?.user) {

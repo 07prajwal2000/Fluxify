@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient, useInfiniteQuery } from "@tanstack/react-query";
 import type { z } from "zod";
 import { authService } from "@/services/auth";
 
@@ -10,6 +10,20 @@ export const authQuery = {
 			return useQuery({
 				queryKey: [...LIST_KEY, query],
 				queryFn: () => authService.listUsers(query),
+				refetchOnWindowFocus: false,
+			});
+		},
+		useInfiniteQuery(query: Omit<z.infer<typeof authService.listUsersRequestBodySchema>, "page">) {
+			return useInfiniteQuery({
+				queryKey: [...LIST_KEY, "infinite", query],
+				queryFn: ({ pageParam = 1 }) => authService.listUsers({ ...query, page: pageParam }),
+				getNextPageParam: (lastPage) => {
+					if (lastPage.pagination && lastPage.pagination.page < lastPage.pagination.totalPages) {
+						return lastPage.pagination.page + 1;
+					}
+					return undefined;
+				},
+				initialPageParam: 1,
 				refetchOnWindowFocus: false,
 			});
 		},

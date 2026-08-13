@@ -10,7 +10,6 @@ import {
 	TbChevronDown,
 	TbCloudCog,
 	TbDatabase,
-	TbDots,
 	TbExternalLink,
 	TbHeartRateMonitor,
 	TbLock,
@@ -28,11 +27,26 @@ import {
 	useIntegrationActions,
 	useIntegrationState,
 } from "@/store/integration";
+import { createDynamicRouteHead } from "@/lib/seo";
 
 export const Route = createFileRoute("/_authed/$projectId/integrations")({
 	validateSearch: z.object({
 		group: z.string().optional(),
 		open: z.string().optional(),
+	}),
+	head: createDynamicRouteHead(({ search }) => {
+		const groupLabels: Record<string, string> = {
+			database: "Databases",
+			kv: "KV Stores",
+			ai: "AI Models",
+			baas: "BaaS",
+			observability: "Observability",
+		};
+		const category = search.group ? groupLabels[search.group] || search.group : "All";
+		return {
+			title: `Integrations (${category})`,
+			description: "Connect databases, AI models, KV stores, and third-party services.",
+		};
 	}),
 	component: IntegrationsPage,
 });

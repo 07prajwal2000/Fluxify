@@ -16,6 +16,13 @@ export const projectMembersService = {
 		const res = await httpClient.get(`${base(projectId)}/list?${params}`);
 		return res.data;
 	},
+	async add(
+		projectId: string,
+		body: { userId: string; role: "viewer" | "creator" | "project_admin" },
+	) {
+		const res = await httpClient.post(`${base(projectId)}/add`, body);
+		return res.data;
+	},
 	async update(
 		projectId: string,
 		userId: string,

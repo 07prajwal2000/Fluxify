@@ -15,10 +15,13 @@ import {
 	TbStack2,
 	TbUser,
 	TbLogout,
+	TbArrowLeft,
+	TbSettings,
 } from "react-icons/tb";
-import { cn, Dropdown } from "@fluxify/components";
+import { cn, Dropdown, Tooltip } from "@fluxify/components";
 import { authClient } from "@/lib/auth";
 import { useAuthStore } from "@/store/auth";
+import { createRouteHead } from "@/lib/seo";
 
 const NAV = [
 	{ key: "ai", label: "Fluxify AI", to: "/$projectId/ai", icon: TbSparkles },
@@ -30,6 +33,7 @@ const NAV = [
 ] as const;
 
 export const Route = createFileRoute("/_authed/$projectId")({
+	head: createRouteHead("Project Workspace", "Manage project API routes, workflows, and configurations."),
 	beforeLoad: async ({ params }) => {
 		const session = await authClient.getSession();
 		const acl = (session.data as { acl?: { projectId: string }[] } | null)?.acl ?? [];
@@ -46,7 +50,9 @@ function ProjectLayout() {
 	const navigate = useNavigate();
 	const location = useLocation();
 	const { userData } = useAuthStore();
-	const active = NAV.find((n) => location.pathname.includes(`/${n.key}`))?.key ?? "routes";
+	const active = location.pathname.includes("/settings")
+		? "settings"
+		: NAV.find((n) => location.pathname.includes(`/${n.key}`))?.key ?? "routes";
 
 	const initials = userData?.name
 		? userData.name
@@ -75,9 +81,19 @@ function ProjectLayout() {
 						<div className="flex size-7 shrink-0 items-center justify-center rounded-lg text-black shadow-sm">
 							<img src="/_/admin/ui/public/icons/logo.svg" alt="logo" />
 						</div>
-						<span className="ml-3 whitespace-nowrap text-sm font-bold tracking-wider text-white opacity-0 transition-opacity duration-300 group-hover:opacity-100">
+						<span className="ml-3 flex-1 whitespace-nowrap text-sm font-bold tracking-wider text-white opacity-0 transition-opacity duration-300 group-hover:opacity-100">
 							FLUXIFY
 						</span>
+						<Tooltip>
+							<button
+								type="button"
+								onClick={() => navigate({ to: "/" })}
+								className="flex size-7 shrink-0 items-center justify-center rounded-lg text-zinc-400 opacity-0 transition-all duration-300 hover:bg-white/[0.04] hover:text-zinc-200 group-hover:opacity-100"
+							>
+								<TbArrowLeft size={18} />
+							</button>
+							<Tooltip.Content>Back to projects</Tooltip.Content>
+						</Tooltip>
 					</div>
 
 					{/* Separator */}
@@ -119,7 +135,31 @@ function ProjectLayout() {
 				</div>
 
 				{/* Sidebar Footer (User Account Menu) */}
-				<div className="border-t border-[#161820] p-2">
+				<div className="flex flex-col gap-1 border-t border-[#161820] p-2">
+					<button
+						type="button"
+						onClick={() => navigate({ to: "/$projectId/settings", params: { projectId } })}
+						className={cn(
+							"group/btn relative flex h-10 items-center rounded-lg px-2.5 text-sm font-medium transition-colors",
+							active === "settings"
+								? "bg-[#141720] text-white"
+								: "text-zinc-400 hover:bg-white/[0.04] hover:text-zinc-200",
+						)}
+					>
+						<TbSettings
+							size={18}
+							className={cn(
+								"shrink-0",
+								active === "settings" ? "text-[#D0F237]" : "text-zinc-400 group-hover/btn:text-zinc-200"
+							)}
+						/>
+						<span className="ml-3 whitespace-nowrap opacity-0 transition-opacity duration-300 group-hover:opacity-100">
+							Project Settings
+						</span>
+						{active === "settings" && (
+							<span className="absolute -left-2 h-4 w-[3px] rounded-r-full bg-[#D0F237]" />
+						)}
+					</button>
 					<Dropdown>
 						<Dropdown.Trigger
 							aria-label="Account menu"

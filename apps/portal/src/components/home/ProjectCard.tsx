@@ -1,31 +1,86 @@
 import { Card } from "@fluxify/components";
 import { useNavigate } from "@tanstack/react-router";
-import { getTimeAgo } from "@/lib/datetime";
 import { APP_ROUTES } from "@/constants/routes";
+import { TbUsers, TbHierarchy } from "react-icons/tb";
 
 type ProjectCardProps = {
 	id: string;
 	name: string;
+	description?: string | null;
+	totalUsers?: number;
+	totalRoutes?: number;
 	updatedAt: string | Date;
 	createdAt: string | Date;
 };
 
-export function ProjectCard({ id, name, updatedAt, createdAt }: ProjectCardProps) {
+function formatQuantity(num: number) {
+	if (num >= 1000) {
+		return (num / 1000).toFixed(num % 1000 === 0 ? 0 : 1) + 'K';
+	}
+	return num.toString();
+}
+
+export function ProjectCard({ id, name, description, totalUsers, totalRoutes, updatedAt, createdAt }: ProjectCardProps) {
 	const navigate = useNavigate();
 
+	const initials = name
+		.split(' ')
+		.map(word => word[0])
+		.join('')
+		.substring(0, 2)
+		.toUpperCase();
+
+	const usersCount = totalUsers ?? 0;
+	const routesCount = totalRoutes ?? 0;
+
 	return (
-		<Card
-			// ponytail: raw project path; cast until project routes are typed
+		<div
+			role="button"
+			tabIndex={0}
 			onClick={() => navigate({ to: APP_ROUTES.PROJECT_ROUTES(id) as "/" })}
-			className="h-full cursor-pointer transition-colors hover:border-accent"
+			onKeyDown={(e) => {
+				if (e.key === "Enter" || e.key === " ") {
+					e.preventDefault();
+					navigate({ to: APP_ROUTES.PROJECT_ROUTES(id) as "/" });
+				}
+			}}
+			className="group relative flex cursor-pointer flex-col justify-between overflow-hidden rounded-xl border border-border bg-background-secondary transition-all duration-300 hover:scale-[1.01] hover:border-accent"
 		>
-			<Card.Header>
-				<Card.Title className="truncate">{name}</Card.Title>
-				<Card.Description>Updated {getTimeAgo(updatedAt)}</Card.Description>
-			</Card.Header>
-			<Card.Content>
-				<span className="text-xs text-muted">Created {getTimeAgo(createdAt)}</span>
-			</Card.Content>
-		</Card>
+			<div className="flex flex-col p-5">
+				<div className="flex items-start justify-between">
+					<div className="flex items-center gap-3">
+						<div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-border bg-background text-sm font-bold text-foreground shadow-sm">
+							{initials}
+						</div>
+						<div className="flex flex-col">
+							<span className="text-base font-semibold text-foreground">{name}</span>
+						</div>
+					</div>
+					
+					<button className="rounded bg-[#ccff00] px-3 py-1.5 text-xs font-semibold text-black opacity-0 transition-all duration-300 group-hover:opacity-100">
+						Open
+					</button>
+				</div>
+				
+				<div className="mt-4 text-sm text-muted-foreground">
+					{description ? (
+						<p className="truncate">{description}</p>
+					) : (
+						<p className="truncate italic text-muted">no description</p>
+					)}
+				</div>
+			</div>
+
+			<div className="flex items-center gap-5 border-t border-border/50 px-5 py-3">
+				<div className="flex items-center gap-1.5 text-muted-foreground">
+					<TbUsers className="h-4 w-4" />
+					<span className="text-xs font-medium">{formatQuantity(usersCount)}</span>
+				</div>
+				<div className="flex items-center gap-1.5 text-muted-foreground">
+					<TbHierarchy className="h-4 w-4" />
+					<span className="text-xs font-medium">{formatQuantity(routesCount)}</span>
+				</div>
+			</div>
+		</div>
 	);
 }

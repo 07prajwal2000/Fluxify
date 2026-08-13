@@ -24,6 +24,16 @@ export const projectMembersQuery = {
 			});
 		},
 	},
+	add: {
+		mutation(projectId: string) {
+			const qc = useQueryClient();
+			return useMutation({
+				mutationFn: (data: { userId: string; role: Role }) =>
+					projectMembersService.add(projectId, data),
+				onSuccess: () => qc.invalidateQueries({ queryKey: key(projectId) }),
+			});
+		},
+	},
 	remove: {
 		mutation(projectId: string) {
 			const qc = useQueryClient();

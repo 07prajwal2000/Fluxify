@@ -21,6 +21,7 @@ import {
 	DEFAULT_CONTENT_TYPES,
 	type ContentType,
 } from "@fluxify/server/src/lib/routeConfig";
+import { createRouteHead } from "@/lib/seo";
 
 const METHODS = ["GET", "POST", "PUT", "DELETE"] as const;
 
@@ -33,6 +34,10 @@ const CONTENT_TYPE_OPTIONS = CONTENT_TYPES.map((value) => ({
 }));
 
 export const Route = createFileRoute("/_authed/$projectId/routes")({
+	head: createRouteHead(
+		"API Routes",
+		"Configure, inspect, and manage API routes and endpoints for your project.",
+	),
 	component: RoutesPage,
 });
 

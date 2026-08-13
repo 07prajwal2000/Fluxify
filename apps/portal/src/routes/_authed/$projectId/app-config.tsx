@@ -10,8 +10,13 @@ import { CreateConfigButton } from "@/components/appConfig/CreateConfigModal";
 import { EditConfigModal } from "@/components/appConfig/EditConfigModal";
 import { AppConfigTable } from "@/components/appConfig/AppConfigTable";
 import type { ConfigRow, SortBy } from "@/components/appConfig/types";
+import { createRouteHead } from "@/lib/seo";
 
 export const Route = createFileRoute("/_authed/$projectId/app-config")({
+	head: createRouteHead(
+		"App Configuration & Secrets",
+		"Manage environment variables, configuration keys, and secrets for your project.",
+	),
 	component: AppConfigPage,
 });
 
