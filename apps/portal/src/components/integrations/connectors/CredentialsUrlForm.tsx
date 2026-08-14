@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Button, Checkbox, Input, Label, cn } from "@fluxify/components";
+import { Checkbox, Input, cn } from "@fluxify/components";
 import { AppConfigSelector } from "../AppConfigSelector";
 import type { ConnectorFormProps } from "./types";
 
@@ -34,10 +34,11 @@ export function CredentialsUrlForm({
 	const isUrl = tab === "url";
 
 	return (
-		<div className="flex flex-col gap-4">
+		<div className="flex flex-col gap-3.5">
 			<div className="flex flex-col gap-1">
-				<Label>Name *</Label>
-				<span className="text-xs text-muted">Unique Name for the integration</span>
+				<label className="text-xs font-medium text-zinc-300">
+					Integration Name <span className="text-[#D0F237]">*</span>
+				</label>
 				<Input
 					value={name}
 					onChange={(e) => onName(e.currentTarget.value)}
@@ -45,20 +46,24 @@ export function CredentialsUrlForm({
 				/>
 			</div>
 
-			<div className="flex gap-1.5 rounded-md border border-border p-1">
+			<div className="flex rounded-lg border border-[#232836] bg-[#141720] p-1">
 				{(["credentials", "url"] as const).map((t) => (
-					<Button
+					<button
 						key={t}
 						type="button"
-						fullWidth
-						variant={tab === t ? "primary" : "ghost"}
-						onPress={() => {
+						onClick={() => {
 							setField("source", t === "url" ? "url" : "credentials");
 							setTab(t);
 						}}
+						className={cn(
+							"flex-1 rounded-md py-1 text-xs font-medium transition-all duration-150",
+							tab === t
+								? "bg-[#232938] text-white shadow-sm"
+								: "text-zinc-400 hover:text-zinc-200",
+						)}
 					>
 						{t === "url" ? "Via URL" : "Credentials"}
-					</Button>
+					</button>
 				))}
 			</div>
 
@@ -102,7 +107,7 @@ export function CredentialsUrlForm({
 						/>
 					)}
 					{hasSSL && (
-						<div className={cn("flex items-end", hasDatabase ? "" : "col-span-2")}>
+						<div className={cn("flex items-end pb-1.5", hasDatabase ? "" : "col-span-2")}>
 							<Checkbox
 								isSelected={Boolean(config.useSSL)}
 								onChange={(v) => setField("useSSL", v)}

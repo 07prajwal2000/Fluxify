@@ -125,6 +125,13 @@ export interface SchemaEditorProps {
 	 */
 	typeOverrides?: Record<string, DataType[]>;
 
+	/**
+	 * Keys are fixed: no adding, removing or renaming properties, and every one
+	 * of them stays required. Types and rules are still editable. For a schema
+	 * whose keys come from somewhere else — path params are declared by the
+	 * route path, not by this editor, and a declared one always has a value.
+	 */
+	lockKeys?: boolean;
 	/** Drops the `js` type and the Custom JS tab. */
 	disableJs?: boolean;
 	/** Show the Preview tab. Default true. */

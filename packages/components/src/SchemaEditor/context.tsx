@@ -51,6 +51,8 @@ interface SchemaEditorContextValue {
 	) => void;
 
 	isReadOnly: boolean;
+	/** Property keys are fixed — no add, remove or rename. */
+	lockKeys: boolean;
 	disableJs: boolean;
 	jsEditorRows: number;
 	ruleEditors: Partial<Record<DataType, ComponentType<RuleEditorProps>>>;
@@ -84,6 +86,7 @@ export function SchemaEditorProvider({
 	allowedDataTypes = ALL_DATA_TYPES,
 	allowedRootTypes,
 	typeOverrides,
+	lockKeys = false,
 	disableJs = false,
 	maxDepth = Number.POSITIVE_INFINITY,
 	ruleEditors,
@@ -201,6 +204,7 @@ export function SchemaEditorProvider({
 			removeProperty,
 			updateProperty,
 			isReadOnly: readOnlyResolved,
+			lockKeys,
 			disableJs,
 			jsEditorRows,
 			ruleEditors: resolvedRuleEditors,
@@ -218,6 +222,7 @@ export function SchemaEditorProvider({
 			hasTypeOverride,
 			jsEditorRows,
 			labelFor,
+			lockKeys,
 			openDrawer,
 			path,
 			readOnlyResolved,

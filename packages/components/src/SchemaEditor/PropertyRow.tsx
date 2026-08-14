@@ -1,4 +1,10 @@
-import { Button, InputGroup, TextField, Tooltip } from "@heroui/react";
+import {
+	Button,
+	FieldError,
+	InputGroup,
+	TextField,
+	Tooltip,
+} from "@heroui/react";
 import { IoLogoJavascript } from "react-icons/io5";
 import { TbChevronRight, TbSettings, TbTrash } from "react-icons/tb";
 import { Checkbox } from "../Checkbox";
@@ -11,12 +17,19 @@ interface PropertyRowProps {
 	property: SchemaProperty;
 	/** Full path to this property, used for overrides and mutations. */
 	path: SchemaPath;
+	/** A sibling already uses this key — the compiled object would drop one. */
+	isDuplicateKey?: boolean;
 }
 
 /** One `key : type` line. Containers navigate; everything else opens the drawer. */
-export function PropertyRow({ property, path }: PropertyRowProps) {
+export function PropertyRow({
+	property,
+	path,
+	isDuplicateKey,
+}: PropertyRowProps) {
 	const {
 		isReadOnly,
+		lockKeys,
 		removeProperty,
 		updateProperty,
 		openDrawer,
@@ -45,8 +58,13 @@ export function PropertyRow({ property, path }: PropertyRowProps) {
 
 	return (
 		<div className="flex w-full flex-col gap-2 rounded-[var(--radius)] border border-border bg-surface p-2 sm:flex-row sm:items-center">
-			<div className="min-w-0 flex-[2]">
-				<TextField fullWidth isDisabled={isReadOnly} variant="secondary">
+			<div className="min-w-0 flex-1">
+				<TextField
+					fullWidth
+					isDisabled={isReadOnly || lockKeys}
+					isInvalid={isDuplicateKey}
+					variant="secondary"
+				>
 					<InputGroup fullWidth variant="secondary">
 						<InputGroup.Input
 							aria-label="Property key"
@@ -55,22 +73,23 @@ export function PropertyRow({ property, path }: PropertyRowProps) {
 							value={property.key}
 						/>
 					</InputGroup>
+					{isDuplicateKey && (
+						<FieldError>Duplicate key at this level.</FieldError>
+					)}
 				</TextField>
 			</div>
 
-			<div className="min-w-0 flex-[2]">
-				<DataTypeSelect
-					isDisabled={!typeIsEditable}
-					label={`Data type for ${property.key || "property"}`}
-					onChange={(dataType) => update({ dataType })}
-					options={typeOptionsFor(path)}
-					value={property.dataType}
-				/>
-			</div>
+			<DataTypeSelect
+				isDisabled={!typeIsEditable}
+				label={`Data type for ${property.key || "property"}`}
+				onChange={(dataType) => update({ dataType })}
+				options={typeOptionsFor(path)}
+				value={property.dataType}
+			/>
 
 			<div className="flex shrink-0 items-center gap-2 sm:w-40 sm:justify-end">
 				<Checkbox
-					isDisabled={isReadOnly}
+					isDisabled={isReadOnly || lockKeys}
 					isSelected={property.required ?? true}
 					label="Required"
 					onChange={(next) => update({ required: next })}
@@ -110,7 +129,7 @@ export function PropertyRow({ property, path }: PropertyRowProps) {
 					<span aria-hidden className="inline-block size-8" />
 				)}
 
-				{!isReadOnly && (
+				{!isReadOnly && !lockKeys && (
 					<Button
 						aria-label={`Remove ${property.key || "property"}`}
 						isIconOnly

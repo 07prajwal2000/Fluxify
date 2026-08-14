@@ -1,4 +1,4 @@
-import { Button, Input, Label } from "@fluxify/components";
+import { Input, cn } from "@fluxify/components";
 import { AppConfigSelector } from "../AppConfigSelector";
 import type { ConnectorFormProps } from "./types";
 
@@ -21,10 +21,11 @@ export function ObservabilityForm({
 	const creds = (config.credentials ?? {}) as { username?: string; password?: string };
 
 	return (
-		<div className="flex flex-col gap-4">
+		<div className="flex flex-col gap-3.5">
 			<div className="flex flex-col gap-1">
-				<Label>Name *</Label>
-				<span className="text-xs text-muted">Unique Name for the integration</span>
+				<label className="text-xs font-medium text-zinc-300">
+					Integration Name <span className="text-[#D0F237]">*</span>
+				</label>
 				<Input value={name} onChange={(e) => onName(e.currentTarget.value)} placeholder={namePlaceholder} />
 			</div>
 
@@ -32,28 +33,36 @@ export function ObservabilityForm({
 				projectId={projectId}
 				value={(config.baseUrl as string) ?? ""}
 				onChange={(v) => setField("baseUrl", v)}
-				label="Base Url"
+				label="Base URL"
 				description={baseUrlDescription}
 				placeholder={baseUrlPlaceholder}
 			/>
 
-			<div className="flex gap-1.5 rounded-md border border-border p-1">
-				<Button
+			<div className="flex rounded-lg border border-[#232836] bg-[#141720] p-1">
+				<button
 					type="button"
-					fullWidth
-					variant={isCredentials ? "ghost" : "primary"}
-					onPress={() => setField("credentials", "")}
+					onClick={() => setField("credentials", "")}
+					className={cn(
+						"flex-1 rounded-md py-1 text-xs font-medium transition-all duration-150",
+						!isCredentials
+							? "bg-[#232938] text-white shadow-sm"
+							: "text-zinc-400 hover:text-zinc-200",
+					)}
 				>
 					Base64 Encoded
-				</Button>
-				<Button
+				</button>
+				<button
 					type="button"
-					fullWidth
-					variant={isCredentials ? "primary" : "ghost"}
-					onPress={() => setField("credentials", { username: "", password: "" })}
+					onClick={() => setField("credentials", { username: "", password: "" })}
+					className={cn(
+						"flex-1 rounded-md py-1 text-xs font-medium transition-all duration-150",
+						isCredentials
+							? "bg-[#232938] text-white shadow-sm"
+							: "text-zinc-400 hover:text-zinc-200",
+					)}
 				>
 					Credentials
-				</Button>
+				</button>
 			</div>
 
 			{!isCredentials ? (
@@ -72,7 +81,6 @@ export function ObservabilityForm({
 						value={creds.username ?? ""}
 						onChange={(v) => setField("credentials.username", v)}
 						label="Email"
-						description="Email / username"
 						placeholder="email@company.co"
 					/>
 					<AppConfigSelector
@@ -80,7 +88,6 @@ export function ObservabilityForm({
 						value={creds.password ?? ""}
 						onChange={(v) => setField("credentials.password", v)}
 						label="Password"
-						description="Password"
 						placeholder="password"
 					/>
 				</div>

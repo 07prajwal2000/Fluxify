@@ -20,6 +20,25 @@ export const newProperty = (): SchemaProperty => ({
 
 const DEFAULT_ITEMS: SchemaProperty = { key: "", dataType: "str", rules: [] };
 
+/**
+ * Keys used more than once among siblings. An object key is unique by
+ * definition, so a duplicate silently drops a field at compile time. Blanks are
+ * ignored — a new row starts empty and is not yet a conflict.
+ */
+export function findDuplicateKeys(
+	properties: readonly SchemaProperty[] = [],
+): Set<string> {
+	const seen = new Set<string>();
+	const duplicates = new Set<string>();
+	for (const property of properties) {
+		const key = property.key.trim();
+		if (!key) continue;
+		if (seen.has(key)) duplicates.add(key);
+		seen.add(key);
+	}
+	return duplicates;
+}
+
 /** The node at `path`, or `undefined` if the path runs off the tree. */
 export function getAtPath(
 	root: SchemaNode,

@@ -9,6 +9,7 @@ import { publishMessage, CHAN_ON_ROUTE_CHANGE } from "../../../../db/redis";
 import { normalizeParamsSchema } from "../schema-validator";
 import { AuthACL } from "../../../../db/schema";
 import { ForbiddenError } from "../../../../errors/forbidError";
+import { patchRouteConfig } from "../routeConfigRepository";
 
 export default async function handleRequest(
   id: string,
@@ -36,13 +37,22 @@ export default async function handleRequest(
     if (existingRoute.id !== id) {
       throw new ConflictError("Route already exists");
     }
+    const { acceptedContentTypes, ...route } = data;
+    if (acceptedContentTypes !== undefined) {
+      await patchRouteConfig(
+        id,
+        existingRoute.projectId,
+        { acceptedContentTypes },
+        tx,
+      );
+    }
     // An undefined field is skipped by the update statement, so an omitted
     // paramsSchema would leave the previous one behind. Normalise so a path
     // that no longer declares `:params` writes an explicit null instead.
     return await updateRoute(
       {
         id,
-        ...normalizeParamsSchema(data),
+        ...normalizeParamsSchema(route),
       },
       tx,
     );

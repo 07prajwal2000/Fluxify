@@ -164,7 +164,6 @@ function IntegrationsList({ projectId, group }: { projectId: string; group: stri
 	const navigate = useNavigate();
 	const { data, isLoading, isError } = integrationsQuery.getAll.useQuery(projectId, group);
 	const remove = integrationsQuery.remove.mutation(projectId);
-	const test = integrationsQuery.testConnection.mutation(projectId);
 
 	const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
 
@@ -189,18 +188,6 @@ function IntegrationsList({ projectId, group }: { projectId: string; group: stri
 		navigate({ to: ".", search: { group, open: open === id ? undefined : id } });
 	}
 
-	function handleTest(e: React.MouseEvent, integration: NonNullable<typeof data>[number]) {
-		e.stopPropagation();
-		test.mutate(
-			{ group: integration.group, variant: integration.variant, config: integration.config as Record<string, unknown> },
-			{
-				onSuccess: (res) =>
-					res?.success ? toast.success("Connection successful") : toast.danger(res?.error ?? "Connection failed"),
-				onError: (err) => showErrorNotification(err as Error),
-			},
-		);
-	}
-
 	function handleDelete(e: React.MouseEvent, id: string) {
 		e.stopPropagation();
 		setPendingDeleteId(id);
@@ -215,7 +202,7 @@ function IntegrationsList({ projectId, group }: { projectId: string; group: stri
 						key={integration.id}
 						className="overflow-hidden rounded-2xl border border-[#1C202B] bg-[#0E1015] transition-all"
 					>
-						{/* Card Header Bar — Contains Title, ID, Test Connection, Delete, & Chevron */}
+						{/* Card Header Bar — Contains Title, ID, Delete, & Chevron */}
 						<div
 							role="button"
 							tabIndex={0}
@@ -243,21 +230,11 @@ function IntegrationsList({ projectId, group }: { projectId: string; group: stri
 									ID: {integration.id.slice(0, 8)}
 								</span>
 
-								{/* Test Connection Button */}
-								<button
-									type="button"
-									onClick={(e) => handleTest(e, integration)}
-									className="flex items-center gap-1.5 rounded-xl border border-[#252A38] bg-[#141720] px-3 py-1.5 text-xs font-medium text-zinc-200 transition-colors hover:bg-[#1C202B]"
-								>
-									<TbBolt size={14} className="text-[#D0F237]" />
-									<span>Test Connection</span>
-								</button>
-
 								{/* Delete Button */}
 								<button
 									type="button"
 									onClick={(e) => handleDelete(e, integration.id)}
-									className="flex items-center justify-center rounded-xl border border-red-900/30 bg-[#1C181B] p-2 text-red-400 transition-colors hover:bg-red-950/40"
+									className="flex size-8 items-center justify-center rounded-xl border border-red-900/30 bg-[#1C181B] text-red-400 transition-colors hover:bg-red-950/40"
 									aria-label="Delete integration"
 								>
 									<TbTrash size={15} />

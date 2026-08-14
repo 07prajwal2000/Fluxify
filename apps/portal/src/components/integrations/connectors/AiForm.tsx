@@ -1,4 +1,4 @@
-import { Input, Label } from "@fluxify/components";
+import { Input } from "@fluxify/components";
 import { AppConfigSelector } from "../AppConfigSelector";
 import type { ConnectorFormProps } from "./types";
 
@@ -12,11 +12,12 @@ export function AiForm({
 	showBaseUrl = false,
 }: ConnectorFormProps & { showBaseUrl?: boolean }) {
 	return (
-		<div className="flex flex-col gap-4">
+		<div className="flex flex-col gap-3.5">
 			<div className="flex flex-col gap-1">
-				<Label>Name *</Label>
-				<span className="text-xs text-muted">Unique Name for the integration</span>
-				<Input value={name} onChange={(e) => onName(e.currentTarget.value)} placeholder="name" />
+				<label className="text-xs font-medium text-zinc-300">
+					Integration Name <span className="text-[#D0F237]">*</span>
+				</label>
+				<Input value={name} onChange={(e) => onName(e.currentTarget.value)} placeholder="e.g. Production OpenAI" />
 			</div>
 
 			{showBaseUrl && (
@@ -25,7 +26,6 @@ export function AiForm({
 					value={(config.baseUrl as string) ?? ""}
 					onChange={(v) => setField("baseUrl", v)}
 					label="Base URL"
-					description="Base URL for the AI"
 					placeholder="https://api.openai.com/v1"
 				/>
 			)}
@@ -34,16 +34,16 @@ export function AiForm({
 				value={(config.apiKey as string) ?? ""}
 				onChange={(v) => setField("apiKey", v)}
 				label="API Key"
-				description="API Key for the AI"
-				placeholder="api-key"
+				placeholder="sk-..."
 			/>
 			<div className="flex flex-col gap-1">
-				<Label>Model *</Label>
-				<span className="text-xs text-muted">Model for the AI</span>
+				<label className="text-xs font-medium text-zinc-300">
+					Model <span className="text-[#D0F237]">*</span>
+				</label>
 				<Input
 					value={(config.model as string) ?? ""}
 					onChange={(e) => setField("model", e.currentTarget.value)}
-					placeholder="model-name"
+					placeholder="e.g. gpt-4o, claude-3-5-sonnet, gemini-1.5-pro"
 				/>
 			</div>
 		</div>

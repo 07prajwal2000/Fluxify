@@ -28,6 +28,7 @@ export type {
 export {
 	addPropertyAtPath,
 	buildBreadcrumbs,
+	findDuplicateKeys,
 	getAtPath,
 	getRuleValue,
 	mergeAtPath,
