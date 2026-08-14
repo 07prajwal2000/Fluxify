@@ -340,7 +340,7 @@ export function JsTextField({
 				<Popover.Content
 					className={clsx(
 						popover.base(),
-						"w-[var(--trigger-width)] rounded-xl",
+						"w-[var(--trigger-width)] min-w-[230px] rounded-xl",
 					)}
 					style={{
 						width: "var(--trigger-width)",

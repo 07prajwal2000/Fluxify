@@ -1,0 +1,38 @@
+{
+  "entry": "index.d.ts",
+  "files": [
+    "bun.d.ts",
+    "bun.ns.d.ts",
+    "bundle.d.ts",
+    "deprecated.d.ts",
+    "devserver.d.ts",
+    "extensions.d.ts",
+    "fetch.d.ts",
+    "ffi.d.ts",
+    "globals.d.ts",
+    "html-rewriter.d.ts",
+    "index.d.ts",
+    "jsc.d.ts",
+    "jsx.d.ts",
+    "overrides.d.ts",
+    "package.json",
+    "redis.d.ts",
+    "s3.d.ts",
+    "security.d.ts",
+    "serve.d.ts",
+    "shell.d.ts",
+    "sql.d.ts",
+    "sqlite.d.ts",
+    "test-globals.d.ts",
+    "test.d.ts",
+    "vendor/expect-type/branding.d.ts",
+    "vendor/expect-type/index.d.ts",
+    "vendor/expect-type/messages.d.ts",
+    "vendor/expect-type/overloads.d.ts",
+    "vendor/expect-type/utils.d.ts",
+    "wasm.d.ts"
+  ],
+  "dependencies": [
+    "@types/node"
+  ]
+}
