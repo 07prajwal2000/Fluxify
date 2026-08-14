@@ -10,7 +10,7 @@ import { PromptEditor } from "./PromptEditor";
 import { STARTERS } from "./starters";
 import { useAiModels } from "./useAiModels";
 
-const logo = `/_/admin/ui/public/icons/logo.svg`;
+const logo = `${import.meta.env.BASE_URL}icons/logo.webp`;
 
 export function AiHome() {
 	const { projectId } = useParams({ from: "/_authed/$projectId/ai/" });
