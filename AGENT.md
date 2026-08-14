@@ -58,6 +58,22 @@ When creating branches or Pull Requests via the `gh` CLI:
 
 ## Known Issues & Fixes
 
+### ⚠️ CRITICAL — Never Hardcode Colors in Portal UI
+**Issue:** New portal pages render unthemed — wrong background, invisible text, borders that vanish — because the markup carries literal hex values (`bg-[#12151D]`, `border-[#1E232F]`, `text-[#D0F237]`, `bg-[#ccff00]`) or Tailwind's default palette (`text-zinc-400`, `text-white`, `text-black`, `bg-white/[0.04]`). These are frozen dark-theme values: they ignore `--accent`, do not flip under `.light` / `[data-theme="light"]`, and drift from the design system the moment a token changes.
+**Cause:** Copying an existing page as a starting point. Several older files still contain hardcoded hex, so the wrong pattern looks like the house style. **A hex value in a neighbouring file is NOT precedent — it is unconverted debt.**
+**Fix & Best Practices:**
+1. **Always use the semantic utility classes.** The theme is defined in `packages/components/src/styles.css` as CSS variables; the Tailwind utilities built on them are the only supported way to colour portal UI:
+   - Surfaces: `bg-background`, `bg-background-secondary`, `bg-surface`, `bg-surface-secondary`, `bg-overlay`
+   - Text: `text-foreground`, `text-muted`, `text-muted-foreground`, `text-accent`, `text-accent-foreground`
+   - Lines & rings: `border-border`, `border-accent`, `ring-accent`, `ring-focus`
+   - Status: `text-danger`, `text-success`, `bg-warning` (and their `border-*` / `bg-*` forms)
+2. **Never write `text-white` / `text-black` / `text-zinc-*` / `bg-white/[0.04]`.** Map them: primary text → `text-foreground`, secondary text → `text-muted`, hover wash → `hover:bg-surface-secondary`, selected wash → `bg-accent/10`, hairline ring → `ring-border`.
+3. **The lime accent is `--accent`, never a literal.** `#ccff00` / `#D0F237` → `bg-accent` with `text-accent-foreground` (the accent needs dark text for contrast; `text-accent-foreground` already encodes that).
+4. **Prefer the component over restyling a native element.** A lime CTA is `<Button variant="primary">`, not a `<button>` with an accent background pasted on — the variant already tracks the theme.
+5. **Opacity modifiers on a token are fine** (`bg-accent/10`, `text-muted/50`); they stay theme-aware. Literal rgba/hex overlays are not.
+6. **Check before committing any portal UI:**
+   `grep -nE "(bg|text|border|ring)-\[#|zinc-[0-9]|text-(white|black)" <changed files>` — this must return nothing.
+
 ### Monorepo Server to Frontend Package Bleed
 **Issue:** "Module not found: Can't resolve 'child_process'" or similar Node.js built-in errors in Next.js client code.
 **Cause:** Importing utilities (like `canAccess`) or types directly from the root of a server module (e.g., `@fluxify/server`) forces the Next.js bundler to evaluate the server's main barrel file (`index.ts`). This barrel file exports modules that rely on Node.js built-ins (like database schemas, ORMs, and `pg`), breaking the frontend build.

@@ -1,20 +1,8 @@
-import { useState } from "react";
-import {
-	Button,
-	Card,
-	Modal,
-	Spinner,
-	TextField,
-	Label,
-	Input,
-	FieldError,
-	toast,
-} from "@fluxify/components";
+import { Button, Spinner } from "@fluxify/components";
 import { TbPlus } from "react-icons/tb";
+import { useNavigate } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import { projectsQuery } from "@/query/projectsQuery";
-import { projectsService } from "@/services/projects";
-import { showErrorNotification } from "@/lib/errorNotifier";
 import { useAuthStore } from "@/store/auth";
 import { ProjectCard } from "./ProjectCard";
 
@@ -74,76 +62,12 @@ export function ProjectsTab() {
 }
 
 function NewProjectButton() {
-	const client = useQueryClient();
-	const [open, setOpen] = useState(false);
-	const [name, setName] = useState("");
-	const [error, setError] = useState<string>();
-	const [saving, setSaving] = useState(false);
-
-	async function onSubmit(e: React.FormEvent) {
-		e.preventDefault();
-		setSaving(true);
-		setError(undefined);
-		try {
-			await projectsService.create({ name });
-			projectsQuery.invalidateAll(client);
-			setOpen(false);
-			setName("");
-			toast.success("Project created");
-		} catch (err) {
-			showErrorNotification(err as Error);
-			setError((err as Error).message);
-		} finally {
-			setSaving(false);
-		}
-	}
+	const navigate = useNavigate();
 
 	return (
-		<Modal isOpen={open} onOpenChange={setOpen}>
-			<Modal.Trigger>
-				<button className="flex items-center gap-2 rounded-md bg-[#ccff00] px-4 py-2 text-sm font-medium text-black transition-colors hover:bg-[#b3e600]">
-					<TbPlus className="h-4 w-4" />
-					New Project
-				</button>
-			</Modal.Trigger>
-			<Modal.Backdrop>
-				<Modal.Container placement="center" size="sm">
-					<Modal.Dialog>
-						<Modal.Header>
-							<Modal.Heading>Create a project</Modal.Heading>
-							<p className="mt-1 text-sm text-muted">
-								Give it a name to get started — you can rename it later.
-							</p>
-						</Modal.Header>
-						<form onSubmit={onSubmit}>
-							<Modal.Body>
-								<TextField
-									isRequired
-									value={name}
-									onChange={setName}
-									isInvalid={!!error}
-								>
-									<Label>Project name</Label>
-									<Input placeholder="My API project" autoFocus />
-									<FieldError>{error}</FieldError>
-								</TextField>
-							</Modal.Body>
-							<Modal.Footer>
-								<Button
-									type="button"
-									variant="ghost"
-									onPress={() => setOpen(false)}
-								>
-									Cancel
-								</Button>
-								<Button type="submit" variant="primary" isPending={saving}>
-									Create project
-								</Button>
-							</Modal.Footer>
-						</form>
-					</Modal.Dialog>
-				</Modal.Container>
-			</Modal.Backdrop>
-		</Modal>
+		<Button variant="primary" onPress={() => navigate({ to: "/projects/new" })}>
+			<TbPlus className="h-4 w-4" />
+			New Project
+		</Button>
 	);
 }

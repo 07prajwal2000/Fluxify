@@ -1,6 +1,6 @@
 import { TbCheck } from "react-icons/tb";
 
-const ROLES = [
+export const ROLES = [
 	{ id: "viewer", title: "Viewer", description: "Can read and run" },
 	{ id: "creator", title: "Creator", description: "Can build and deploy" },
 	{ id: "project_admin", title: "Project Admin", description: "Full project control" },
