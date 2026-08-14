@@ -1,9 +1,12 @@
 http://localhost:8080 {
 
-    @admin_ui {
-        path /_/admin/ui/*
-        path /_/admin/ui
+    # vite's base is /_/admin/ui/ and it won't redirect the bare path itself
+    @admin_ui_bare path /_/admin/ui
+    handle @admin_ui_bare {
+        redir * /_/admin/ui/ 308
     }
+
+    @admin_ui path /_/admin/ui/*
 
     handle @admin_ui {
         reverse_proxy host.docker.internal:3000

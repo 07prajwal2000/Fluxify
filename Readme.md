@@ -24,7 +24,7 @@
 
   <br />
 
-  <a href="https://github.com/07prajwal2000/Fluxify">
+  <a href="https://www.fluxify.rest">
     <img src="img/banner.png" width="100%" alt="Fluxify Platform Preview" style="border-radius: 10px;">
   </a>
 

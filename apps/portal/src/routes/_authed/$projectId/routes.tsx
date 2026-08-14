@@ -94,7 +94,7 @@ function RoutesPage() {
 								</Table.Cell>
 								<Table.Cell>
 									<div className="flex items-center justify-end gap-2">
-										<Button variant="primary" onPress={() => navigate({ to: "/$projectId/editor/$routeId", params: { projectId, routeId: route.id } })}>Open</Button>
+										<Button variant="primary" onPress={() => navigate({ to: "/$projectId/canvas/$routeId", params: { projectId, routeId: route.id } })}>Open</Button>
 										<Button
 											variant="outline"
 											onPress={() =>

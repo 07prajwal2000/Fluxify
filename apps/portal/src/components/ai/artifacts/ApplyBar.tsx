@@ -11,11 +11,9 @@ import { useArtifactParams } from "./useArtifact";
 function Applied({
 	appliedAt,
 	routeId,
-	target,
 }: {
 	appliedAt: string | Date;
 	routeId?: string;
-	target: "editor" | "canvas";
 }) {
 	const { projectId } = useArtifactParams();
 	return (
@@ -23,11 +21,7 @@ function Applied({
 			{routeId && (
 				<Button size="sm" className="cursor-pointer">
 					<Link
-						to={
-							target === "canvas"
-								? "/$projectId/canvas/$routeId"
-								: "/$projectId/editor/$routeId"
-						}
+						to="/$projectId/canvas/$routeId"
 						params={{ projectId, routeId }}
 						className="flex items-center gap-2"
 					>
@@ -65,20 +59,17 @@ export function ApplyBar({
 	subArtifactId,
 	appliedAt,
 	routeId,
-	target = "editor",
 	label = "Apply",
 }: {
 	subArtifactId: string;
 	appliedAt: string | Date | null;
 	/** live route to link to once applied; omit to only show the applied stamp */
 	routeId?: string;
-	target?: "editor" | "canvas";
 	label?: string;
 }) {
 	const { run, isPending } = useApply();
 
-	if (appliedAt)
-		return <Applied appliedAt={appliedAt} routeId={routeId} target={target} />;
+	if (appliedAt) return <Applied appliedAt={appliedAt} routeId={routeId} />;
 
 	return (
 		<Button
@@ -123,8 +114,7 @@ export function RouteApplyBar({
 	const [open, setOpen] = useState(false);
 	const verb = VERB[action] ?? "Apply";
 
-	if (appliedAt)
-		return <Applied appliedAt={appliedAt} routeId={routeId} target="editor" />;
+	if (appliedAt) return <Applied appliedAt={appliedAt} routeId={routeId} />;
 
 	if (!canvasSubArtifactId)
 		return (

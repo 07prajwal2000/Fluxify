@@ -1,0 +1,6 @@
+# Shell scripts must keep LF: a CRLF shebang makes the kernel look for
+# "/bin/sh" and the container dies with "exec ... No such file or directory".
+*.sh text eol=lf
+Dockerfile text eol=lf
+Caddyfile* text eol=lf
+entrypoint.sh text eol=lf

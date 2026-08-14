@@ -23,6 +23,11 @@ import { authClient } from "@/lib/auth";
 import { useAuthStore } from "@/store/auth";
 import { createRouteHead } from "@/lib/seo";
 
+// BASE_URL, not a hardcoded path: files in public/ are served from the bundle
+// root, so the literal "/_/admin/ui/public/..." resolved to nothing and the SPA
+// fallback answered with index.html — an HTML body where an image was expected.
+const logo = `${import.meta.env.BASE_URL}icons/logo.webp`;
+
 const NAV = [
 	{ key: "ai", label: "Fluxify AI", to: "/$projectId/ai", icon: TbSparkles },
 	{ key: "routes", label: "Routes", to: "/$projectId/routes", icon: TbStack2 },
@@ -79,7 +84,7 @@ function ProjectLayout() {
 					{/* Logo */}
 					<div className="flex h-[56px] shrink-0 items-center px-4">
 						<div className="flex size-7 shrink-0 items-center justify-center rounded-lg shadow-sm">
-							<img src="/_/admin/ui/public/icons/logo.svg" alt="logo" />
+							<img src={logo} alt="logo" />
 						</div>
 						<span className="ml-3 flex-1 whitespace-nowrap text-sm font-bold tracking-wider text-foreground opacity-0 transition-opacity duration-300 group-hover:opacity-100">
 							FLUXIFY
