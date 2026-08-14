@@ -192,14 +192,14 @@ export function ConversationPage() {
 					{isLoading ? (
 						<div className="flex w-full flex-col gap-8 animate-pulse pt-8 opacity-60">
 							<div className="flex w-full justify-end">
-								<div className="h-12 w-64 rounded-2xl bg-white/5"></div>
+								<div className="h-12 w-64 rounded-2xl bg-surface-secondary"></div>
 							</div>
 							<div className="flex w-full flex-col gap-2">
-								<div className="h-3 w-24 rounded-full bg-white/5 mb-1"></div>
-								<div className="h-20 w-full rounded-xl bg-white/5"></div>
+								<div className="h-3 w-24 rounded-full bg-surface-secondary mb-1"></div>
+								<div className="h-20 w-full rounded-xl bg-surface-secondary"></div>
 							</div>
 							<div className="flex w-full justify-end">
-								<div className="h-12 w-48 rounded-2xl bg-white/5"></div>
+								<div className="h-12 w-48 rounded-2xl bg-surface-secondary"></div>
 							</div>
 						</div>
 					) : messages.length === 0 && !optimisticQuery ? (
@@ -277,9 +277,9 @@ export function ConversationPage() {
 									) : isHistoricalPlan ? (
 										<div className="flex w-full flex-col gap-2">
 											{isRunActive && <HarnessStatusAccordion conversationId={conversationId} />}
-											<div className="w-full rounded-2xl border border-white/10 bg-white/5 p-4 flex flex-col gap-3 opacity-70">
+											<div className="w-full rounded-2xl border border-border bg-surface-secondary p-4 flex flex-col gap-3 opacity-70">
 												<div className="flex items-center gap-4">
-													<div className="bg-white/10 p-2.5 rounded-xl text-foreground shrink-0">
+													<div className="bg-surface p-2.5 rounded-xl text-foreground shrink-0 border border-border">
 														<TbListSearch size={20} />
 													</div>
 													<div className="flex-1">
@@ -305,11 +305,11 @@ export function ConversationPage() {
 					{isFetchingNextPage && (
 						<div className="flex w-full flex-col gap-8 animate-pulse py-8 opacity-60">
 							<div className="flex w-full justify-end">
-								<div className="h-12 w-64 rounded-2xl bg-white/5"></div>
+								<div className="h-12 w-64 rounded-2xl bg-surface-secondary"></div>
 							</div>
 							<div className="flex w-full flex-col gap-2">
-								<div className="h-3 w-24 rounded-full bg-white/5 mb-1"></div>
-								<div className="h-20 w-full rounded-xl bg-white/5"></div>
+								<div className="h-3 w-24 rounded-full bg-surface-secondary mb-1"></div>
+								<div className="h-20 w-full rounded-xl bg-surface-secondary"></div>
 							</div>
 						</div>
 					)}

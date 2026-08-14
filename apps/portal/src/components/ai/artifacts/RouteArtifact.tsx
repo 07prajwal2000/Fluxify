@@ -52,7 +52,7 @@ function Field({
 				className={`text-xs whitespace-pre-wrap break-all mt-1 p-2 rounded-md border ${
 					changed
 						? "bg-success/10 border-success/30 text-foreground"
-						: "bg-black/20 border-white/5 text-muted"
+						: "bg-surface-secondary border-border text-muted"
 				}`}
 			>
 				{(changed ? after : before) || "—"}
@@ -92,7 +92,7 @@ export function RouteArtifact({ subArtifactId }: { subArtifactId: string }) {
 	return (
 		<div className="flex flex-col gap-5">
 			<div className="flex items-center gap-2">
-				<span className="text-xs px-2 py-0.5 rounded-md border border-white/10 bg-black/20 uppercase tracking-wider text-foreground">
+				<span className="text-xs px-2 py-0.5 rounded-md border border-border bg-surface-secondary uppercase tracking-wider text-foreground">
 					{action}
 				</span>
 				{subArtifact.appliedAt && (

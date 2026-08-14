@@ -1,4 +1,4 @@
-import { Modal } from "@fluxify/components";
+import { Modal, CloseButton } from "@fluxify/components";
 import { IntegrationOnboardingForm } from "./IntegrationOnboardingForm";
 
 type IntegrationOnboardingModalProps = {
@@ -13,9 +13,10 @@ export function IntegrationOnboardingModal({ projectId, isOpen, onOpenChange }: 
 		<Modal isOpen={isOpen} onOpenChange={onOpenChange}>
 			<Modal.Backdrop>
 				<Modal.Container placement="center" scroll="inside" size="lg">
-					<Modal.Dialog className="w-full !max-w-2xl border border-[#1C202B] bg-[#0E1015]">
-						<Modal.Header className="px-6 pb-2 pt-5">
-							<Modal.Heading className="text-white">Connect an integration</Modal.Heading>
+					<Modal.Dialog className="w-full !max-w-2xl">
+						<Modal.Header className="px-6 pb-2 pt-5 flex flex-row items-center justify-between">
+							<Modal.Heading>Connect an integration</Modal.Heading>
+							<CloseButton />
 						</Modal.Header>
 						<Modal.Body className="px-6 pb-6 pt-1">
 							{isOpen && <IntegrationOnboardingForm projectId={projectId} onSaved={() => onOpenChange(false)} />}

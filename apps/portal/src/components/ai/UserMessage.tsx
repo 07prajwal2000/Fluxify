@@ -63,10 +63,10 @@ export function UserMessage({ query }: { query: string }) {
 						</div>
 					)}
 					{isExpanded && (
-						<div className="flex justify-center py-2 border-t border-white/5 bg-default-100">
+						<div className="flex justify-center py-2 border-t border-border bg-default-100">
 							<button 
 								onClick={() => setIsExpanded(false)}
-								className="text-xs text-muted-foreground font-medium hover:text-foreground"
+								className="text-xs text-muted font-medium hover:text-foreground"
 							>
 								Show less
 							</button>

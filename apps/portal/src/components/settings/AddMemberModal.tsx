@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { Button, Modal, Input, toast, LazyLoader } from "@fluxify/components";
+import { Button, Modal, CloseButton, Input, toast, LazyLoader } from "@fluxify/components";
 import { TbSearch } from "react-icons/tb";
 import { authQuery } from "@/query/authQuery";
 import { projectMembersQuery } from "@/query/projectMembersQuery";
@@ -96,14 +96,15 @@ export function AddMemberModal({
 						<Modal.Header>
 							<div className="flex items-center justify-between pb-3">
 								<Modal.Heading>Add member</Modal.Heading>
+								<CloseButton onPress={handleClose} />
 							</div>
 							{/* Stepper highlight */}
 							<div className="flex gap-2 mb-4">
 								<div
-									className={`h-1 flex-1 rounded-full transition-colors ${step >= 1 ? "bg-[#ccff00]" : "bg-[#252836]"}`}
+									className={`h-1 flex-1 rounded-full transition-colors ${step >= 1 ? "bg-accent" : "bg-border"}`}
 								/>
 								<div
-									className={`h-1 flex-1 rounded-full transition-colors ${step >= 2 ? "bg-[#ccff00]" : "bg-[#252836]"}`}
+									className={`h-1 flex-1 rounded-full transition-colors ${step >= 2 ? "bg-accent" : "bg-border"}`}
 								/>
 							</div>
 						</Modal.Header>
@@ -133,10 +134,10 @@ export function AddMemberModal({
 												<button
 													key={user.id}
 													type="button"
-													className="flex items-center gap-3 rounded-lg p-2 text-left transition-colors hover:bg-white/[0.04]"
+													className="flex items-center gap-3 rounded-lg p-2 text-left transition-colors hover:bg-surface-secondary"
 													onClick={() => handleUserSelect(user)}
 												>
-													<div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#1A1C23] text-xs font-semibold text-zinc-300 ring-1 ring-white/10">
+													<div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-surface-secondary text-xs font-semibold text-foreground ring-1 ring-border">
 														{getInitials(user.name, user.email)}
 													</div>
 													<div className="flex flex-col">
@@ -168,7 +169,6 @@ export function AddMemberModal({
 									variant="primary"
 									onPress={handleAdd}
 									isPending={addMutation.isPending}
-									className="bg-[#ccff00] text-black hover:bg-[#b3e600]"
 								>
 									Add to project
 								</Button>

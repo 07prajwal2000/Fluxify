@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Button, Modal } from "@fluxify/components";
+import { Button, Modal, CloseButton } from "@fluxify/components";
 import { TbEye } from "react-icons/tb";
 import { BlockCanvas } from "@/components/canvas/BlockCanvas";
 import { createBlockNodeTypes } from "@/components/canvas/blocks";
@@ -42,14 +42,15 @@ export function CanvasPreview({ graph, title }: { graph: CanvasGraph; title: str
 
 	return (
 		<>
-			<div className="group relative h-52 rounded-lg border border-white/10 overflow-hidden">
+			<div className="group relative h-52 rounded-lg border border-border overflow-hidden">
 				{/* the thumbnail is decoration; every interaction goes through the modal */}
 				<div className="h-full pointer-events-none">
 					<ReadonlyCanvas graph={graph} />
 				</div>
-				<div className="absolute inset-0 flex items-center justify-center bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity">
+				<div className="absolute inset-0 flex items-center justify-center bg-overlay/60 backdrop-blur-xs opacity-0 group-hover:opacity-100 transition-opacity">
 					<Button
 						size="sm"
+						variant="primary"
 						className="flex items-center gap-2 cursor-pointer"
 						onPress={() => setOpen(true)}
 					>
@@ -69,8 +70,9 @@ export function CanvasPreview({ graph, title }: { graph: CanvasGraph; title: str
 							className="fx-canvas-modal"
 						>
 						<Modal.Dialog className="min-h-0">
-							<Modal.Header className="border-b border-white/10 px-6 py-3">
+							<Modal.Header className="border-b border-border px-6 py-3 flex flex-row items-center justify-between">
 								<h3 className="text-lg font-semibold">{title}</h3>
+								<CloseButton />
 							</Modal.Header>
 							<Modal.Body className="p-0 overflow-hidden flex-1 min-h-0">
 								{sized && <ReadonlyCanvas graph={graph} />}

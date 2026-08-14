@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Modal, toast, Button } from "@fluxify/components";
+import { Modal, toast, Button, CloseButton } from "@fluxify/components";
 import { projectMembersQuery } from "@/query/projectMembersQuery";
 import { showErrorNotification } from "@/lib/errorNotifier";
 import type { Member } from "./MembersSettings";
@@ -36,8 +36,9 @@ export function ChangeRoleDialog({
 			<Modal.Backdrop>
 				<Modal.Container placement="center" size="sm">
 					<Modal.Dialog>
-						<Modal.Header>
+						<Modal.Header className="flex flex-row items-center justify-between">
 							<Modal.Heading>Change role</Modal.Heading>
+							<CloseButton onPress={onClose} />
 						</Modal.Header>
 						<Modal.Body>
 							<UserRoleSelector

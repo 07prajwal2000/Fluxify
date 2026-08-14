@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Modal, Button, Popover, PopoverTrigger, PopoverContent } from "@fluxify/components";
+import { Modal, Button, CloseButton, DeleteIconButton, Popover, PopoverTrigger, PopoverContent } from "@fluxify/components";
 import { TbMessageCirclePlus, TbCheck, TbX, TbEdit, TbPlus } from "react-icons/tb";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -59,9 +59,9 @@ const HoverableBlock = ({
 			onMouseLeave={() => setHovered(false)}
 			className={`relative px-3 py-1 pr-12 my-1 rounded-lg transition-all duration-200 border-l-2 ${
 				isSelected || hasReview
-					? "bg-primary/20 border-primary"
+					? "bg-accent/15 border-accent"
 					: hovered
-						? "bg-white/5 border-transparent"
+						? "bg-surface-secondary border-transparent"
 						: "border-transparent"
 			}`}
 		>
@@ -76,19 +76,19 @@ const HoverableBlock = ({
 								isIconOnly
 								size="sm"
 								variant={hasReview ? "primary" : "secondary"}
-								className={`rounded-full h-7 w-7 shadow-md ${!hasReview && "bg-[#2a2a2b] hover:bg-[#3a3a3b] text-white"}`}
+								className="rounded-full h-7 w-7 shadow-md"
 							>
 								{hasReview ? <TbEdit size={14} /> : <TbMessageCirclePlus size={14} />}
 							</Button>
 						</PopoverTrigger>
-						<PopoverContent className="w-[320px] rounded-xl border border-white/10 bg-[#1e1e20] p-4 shadow-xl">
+						<PopoverContent className="w-[320px] rounded-xl border border-border bg-overlay p-4 shadow-xl">
 							<div className="flex w-full flex-col gap-3">
 								<textarea
 									ref={textareaRef}
 									placeholder="Add a review..."
 									value={reviewText}
 									onChange={(e) => setReviewText(e.target.value)}
-									className="w-full min-h-[100px] rounded-lg bg-black/20 p-3 text-sm text-foreground outline-none placeholder:text-muted resize-none border border-white/10 focus:border-primary/50"
+									className="w-full min-h-[100px] rounded-lg bg-surface p-3 text-sm text-foreground outline-none placeholder:text-muted resize-none border border-border focus:border-accent"
 								/>
 								<div className="flex justify-between items-center pt-1">
 									<button
@@ -236,12 +236,13 @@ export function PlanReviewModal({ isOpen, onOpenChange, plan, projectId, convers
 			<Modal.Backdrop>
 				<Modal.Container placement="center" size="lg">
 					<Modal.Dialog className="max-w-6xl w-full">
-						<Modal.Header className="border-b border-white/10 px-6 py-3">
+						<Modal.Header className="border-b border-border px-6 py-3 flex flex-row items-center justify-between">
 							<h3 className="text-lg font-semibold">Review Proposed Plan</h3>
+							<CloseButton />
 						</Modal.Header>
 						<Modal.Body className="p-0 flex flex-row overflow-hidden" style={{ height: "calc(90vh - 140px)" }}>
 							{/* Left Panel: Markdown Content (60%) */}
-							<div className="flex-1 overflow-y-auto p-6 border-r border-white/10 bg-background/50">
+							<div className="flex-1 overflow-y-auto p-6 border-r border-border bg-background">
 								<div className="mx-auto max-w-3xl">
 									{blockData.map((block) => {
 										return (
@@ -262,7 +263,7 @@ export function PlanReviewModal({ isOpen, onOpenChange, plan, projectId, convers
 
 							{/* Right Panel: Reviews (40%) */}
 							<div className="w-2/5 flex flex-col bg-surface overflow-hidden">
-								<div className="p-6 pb-4 border-b border-white/10 shrink-0 flex items-center justify-between">
+								<div className="p-6 pb-4 border-b border-border shrink-0 flex items-center justify-between">
 									<h4 className="text-lg font-semibold">Your Reviews</h4>
 									{/* @ts-expect-error placement is valid */}
 									<Popover placement="bottom-end" isOpen={customPopoverOpened} onOpenChange={(open) => {
@@ -272,7 +273,7 @@ export function PlanReviewModal({ isOpen, onOpenChange, plan, projectId, convers
 											<Button
 												size="sm"
 												variant="ghost"
-												className="h-7 text-xs border border-primary text-primary hover:bg-primary/20 px-3 rounded-md transition-colors"
+												className="h-7 text-xs border border-accent text-accent hover:bg-accent/10 px-3 rounded-md transition-colors"
 												onPress={() => {
 													setCustomReviewId(null);
 													setCustomReviewText("");
@@ -282,14 +283,14 @@ export function PlanReviewModal({ isOpen, onOpenChange, plan, projectId, convers
 												<TbPlus size={14} /> Add review
 											</Button>
 										</PopoverTrigger>
-										<PopoverContent className="w-[320px] rounded-xl border border-white/10 bg-[#1e1e20] p-4 shadow-xl">
+										<PopoverContent className="w-[320px] rounded-xl border border-border bg-overlay p-4 shadow-xl">
 											<div className="flex w-full flex-col gap-3">
 												<textarea
 													ref={customTextareaRef}
 													placeholder="Add a custom review..."
 													value={customReviewText}
 													onChange={(e) => setCustomReviewText(e.target.value)}
-													className="w-full min-h-[100px] rounded-lg bg-black/20 p-3 text-sm text-foreground outline-none placeholder:text-muted resize-none border border-white/10 focus:border-primary/50"
+													className="w-full min-h-[100px] rounded-lg bg-surface p-3 text-sm text-foreground outline-none placeholder:text-muted resize-none border border-border focus:border-accent"
 												/>
 												<div className="flex justify-between items-center pt-1">
 													<button
@@ -324,25 +325,23 @@ export function PlanReviewModal({ isOpen, onOpenChange, plan, projectId, convers
 													onClick={() => handleReviewClick(id)}
 													className={`group relative flex flex-col gap-2 rounded-xl border px-4 pt-5 pb-4 cursor-pointer transition-all duration-200 ${
 														selectedBlockId === id
-															? "border-primary bg-primary/10"
-															: "border-white/10 bg-white/5 hover:border-white/20"
+															? "border-accent bg-accent/10"
+															: "border-border bg-surface-secondary hover:border-accent/50"
 													}`}
 												>
 													<div className="flex justify-between items-start gap-2">
 														<p className="text-sm flex-1 whitespace-pre-wrap break-words m-0 mt-1">
 															{text}
 														</p>
-														<Button
-															isIconOnly
+														<DeleteIconButton
 															size="sm"
-															variant="danger"
+															icon={<TbX size={14} />}
 															className="opacity-0 group-hover:opacity-100 h-6 w-6 rounded-full shrink-0"
-															onPress={(e) => {
+															aria-label="Remove review"
+															onPress={() => {
 																handleSaveReview(id, "");
 															}}
-														>
-															<TbX size={14} />
-														</Button>
+														/>
 													</div>
 												</div>
 											))}
@@ -355,15 +354,15 @@ export function PlanReviewModal({ isOpen, onOpenChange, plan, projectId, convers
 								</div>
 
 								{/* Footer Actions */}
-								<div className="p-4 border-t border-white/10 bg-black/20 shrink-0 flex justify-end gap-3 items-center">
+								<div className="p-4 border-t border-border bg-surface-secondary shrink-0 flex justify-end gap-3 items-center">
 									{/* @ts-expect-error placement is valid */}
 									<Popover placement="top-end" isOpen={rejectPopoverOpened} onOpenChange={setRejectPopoverOpened}>
 										<PopoverTrigger>
-											<Button variant="danger" size="sm" isPending={actionMutation.isPending}>
+											<Button variant="danger-soft" size="sm" isPending={actionMutation.isPending}>
 												<TbX size={16} /> Reject
 											</Button>
 										</PopoverTrigger>
-										<PopoverContent className="w-72 rounded-xl border border-white/10 bg-[#1e1e20] p-4 shadow-xl">
+										<PopoverContent className="w-72 rounded-xl border border-border bg-overlay p-4 shadow-xl">
 											<div className="flex flex-col gap-3 w-full">
 												<span className="text-sm font-medium">Rejection Reason (Optional)</span>
 												<textarea
@@ -371,13 +370,13 @@ export function PlanReviewModal({ isOpen, onOpenChange, plan, projectId, convers
 													placeholder="Why are you rejecting this plan?"
 													value={rejectReason}
 													onChange={(e) => setRejectReason(e.target.value)}
-													className="w-full min-h-[60px] rounded-lg bg-black/20 p-2 text-sm text-foreground outline-none border border-white/10 focus:border-danger/50"
+													className="w-full min-h-[60px] rounded-lg bg-surface p-2 text-sm text-foreground outline-none border border-border focus:border-danger"
 												/>
 												<div className="flex justify-end gap-2 pt-1">
 													<Button size="sm" variant="ghost" className="h-7 text-xs px-3" onPress={() => setRejectPopoverOpened(false)}>
 														Cancel
 													</Button>
-													<Button size="sm" variant="danger" className="h-7 text-xs px-3" onPress={() => {
+													<Button size="sm" variant="danger-soft" className="h-7 text-xs px-3" onPress={() => {
 														setRejectPopoverOpened(false);
 														handleAction("reject");
 													}}>

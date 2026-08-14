@@ -2,6 +2,7 @@ import { useState } from "react";
 import {
 	Button,
 	Checkbox,
+	CloseButton,
 	Input,
 	Label,
 	Modal,
@@ -76,8 +77,9 @@ export function CreateConfigButton({ projectId }: { projectId: string }) {
 			<Modal.Backdrop>
 				<Modal.Container placement="center" scroll="inside" size="lg">
 					<Modal.Dialog>
-						<Modal.Header>
+						<Modal.Header className="flex flex-row items-center justify-between">
 							<Modal.Heading>Add a config key</Modal.Heading>
+							<CloseButton />
 						</Modal.Header>
 						<form onSubmit={submit}>
 							<Modal.Body>

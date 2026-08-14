@@ -3,6 +3,8 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import {
 	Button,
 	Card,
+	CloseButton,
+	DeleteIconButton,
 	Input,
 	Label,
 	Modal,
@@ -10,7 +12,7 @@ import {
 	TextField,
 	toast,
 } from "@fluxify/components";
-import { TbPlus, TbTrash } from "react-icons/tb";
+import { TbPlus } from "react-icons/tb";
 import { customBlocksQuery } from "@/query/customBlocksQuery";
 import { showErrorNotification } from "@/lib/errorNotifier";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
@@ -76,14 +78,10 @@ function CustomBlocksPage() {
 								>
 									Open canvas
 								</Button>
-								<Button
-									isIconOnly
-									variant="ghost"
+								<DeleteIconButton
 									aria-label="Delete block"
 									onPress={() => setPendingDelete(block as Block)}
-								>
-									<TbTrash size={16} />
-								</Button>
+								/>
 							</Card.Footer>
 						</Card>
 					))}
@@ -150,11 +148,14 @@ function CreateBlockButton({ projectId }: { projectId: string }) {
 			<Modal.Backdrop>
 				<Modal.Container placement="center" size="sm">
 					<Modal.Dialog>
-						<Modal.Header>
-							<Modal.Heading>Create a custom block</Modal.Heading>
-							<p className="mt-1 text-sm text-muted">
-								You can build its logic on the canvas afterwards.
-							</p>
+						<Modal.Header className="flex flex-row items-start justify-between">
+							<div>
+								<Modal.Heading>Create a custom block</Modal.Heading>
+								<p className="mt-1 text-sm text-muted">
+									You can build its logic on the canvas afterwards.
+								</p>
+							</div>
+							<CloseButton />
 						</Modal.Header>
 						<form onSubmit={submit}>
 							<Modal.Body>

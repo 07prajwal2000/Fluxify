@@ -1,11 +1,10 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { z } from "zod";
-import { Spinner, cn, toast } from "@fluxify/components";
+import { Button, Spinner, cn, toast } from "@fluxify/components";
 import { FaRobot, FaTableList } from "react-icons/fa6";
 import { LuServerCrash } from "react-icons/lu";
 import {
-	TbBolt,
 	TbBook,
 	TbChevronDown,
 	TbCloudCog,
@@ -14,11 +13,9 @@ import {
 	TbHeartRateMonitor,
 	TbLock,
 	TbPlugConnected,
-	TbTrash,
 } from "react-icons/tb";
 import { integrationsQuery } from "@/query/integrationsQuery";
 import { showErrorNotification } from "@/lib/errorNotifier";
-import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { integrationIcons } from "@fluxify/components";
 import { IntegrationForm } from "@/components/integrations/IntegrationForm";
 import { IntegrationOnboardingModal } from "@/components/integrations/IntegrationOnboardingModal";
@@ -93,26 +90,25 @@ function IntegrationsPage() {
 	}
 
 	return (
-		<div className="flex flex-col gap-6">
+		<div className="flex h-full flex-col gap-6 overflow-hidden">
 			{/* Header */}
-			<div className="flex items-center justify-between">
+			<div className="flex shrink-0 items-center justify-between">
 				<div>
-					<h1 className="text-2xl font-bold tracking-tight text-white">Integrations</h1>
-					<p className="text-sm text-zinc-400">Connect &amp; Configure 3rd Party Services</p>
+					<h1 className="text-2xl font-bold tracking-tight text-foreground">Integrations</h1>
+					<p className="text-sm text-muted">Connect &amp; Configure 3rd Party Services</p>
 				</div>
-				<button
-					type="button"
-					onClick={() => setConnectOpen(true)}
-					className="flex items-center gap-2 rounded-xl bg-[#D0F237] px-4 py-2 text-sm font-semibold text-black transition-colors hover:bg-[#bce028]"
+				<Button
+					variant="primary"
+					onPress={() => setConnectOpen(true)}
 				>
 					<TbPlugConnected size={16} /> Connect App / Service
-				</button>
+				</Button>
 			</div>
 
-			<div className="flex min-h-0 flex-1 gap-6">
+			<div className="flex min-h-0 flex-1 gap-6 overflow-hidden">
 				{/* Column 1 — CATEGORIES Rail */}
-				<nav className="flex w-56 shrink-0 flex-col gap-1">
-					<div className="mb-2 px-3 text-[10px] font-bold uppercase tracking-widest text-zinc-500">
+				<nav className="flex w-56 shrink-0 flex-col gap-1 overflow-y-auto pr-1">
+					<div className="mb-2 px-3 text-[10px] font-bold uppercase tracking-widest text-muted">
 						CATEGORIES
 					</div>
 					{CONNECTORS.map((c) => {
@@ -124,18 +120,18 @@ function IntegrationsPage() {
 								type="button"
 								onClick={() => selectGroup(c.type)}
 								className={cn(
-									"flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all",
+									"flex items-center gap-3 rounded-xl border px-3 py-2.5 text-sm font-medium transition-all",
 									active
-										? "border border-[#202533] bg-[#13151D] text-white shadow-sm"
-										: "text-zinc-400 hover:bg-white/[0.03] hover:text-zinc-200",
+										? "border-border bg-surface text-foreground shadow-sm"
+										: "border-transparent text-muted hover:bg-surface-secondary hover:text-foreground",
 								)}
 							>
-								<span className={cn(active ? "text-[#D0F237]" : "text-zinc-400")}>{c.icon}</span>
+								<span className={cn(active ? "text-accent" : "text-muted")}>{c.icon}</span>
 								<span>{c.name}</span>
 								<span
 									className={cn(
 										"ml-auto rounded-full px-2 py-0.5 text-xs font-semibold",
-										active ? "bg-[#202533] text-zinc-200" : "bg-[#161822] text-zinc-500",
+										active ? "bg-surface-secondary text-foreground" : "bg-surface-secondary text-muted",
 									)}
 								>
 									{count}
@@ -146,7 +142,7 @@ function IntegrationsPage() {
 				</nav>
 
 				{/* Column 2 — Center configured list or active creation/editing */}
-				<div className="min-w-0 flex-1 overflow-y-auto">
+				<div className="min-w-0 flex-1 overflow-y-auto pr-2">
 					<IntegrationsList projectId={projectId} group={selectedMenu} />
 				</div>
 
@@ -165,18 +161,16 @@ function IntegrationsList({ projectId, group }: { projectId: string; group: stri
 	const { data, isLoading, isError } = integrationsQuery.getAll.useQuery(projectId, group);
 	const remove = integrationsQuery.remove.mutation(projectId);
 
-	const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
-
 	if (isLoading) return <div className="flex justify-center py-16"><Spinner /></div>;
 	if (isError) return <p className="py-16 text-center text-muted">Couldn't load integrations.</p>;
 
 	if (!data || data.length === 0) {
 		return (
-			<div className="flex flex-col items-center gap-3 rounded-2xl border border-[#1C202B] bg-[#0E1015] p-8 text-center">
-				<TbCloudCog size={36} className="text-zinc-600" />
+			<div className="flex flex-col items-center gap-3 rounded-2xl border border-border bg-surface p-8 text-center">
+				<TbCloudCog size={36} className="text-muted" />
 				<div>
-					<p className="text-base font-semibold text-white">No integrations found</p>
-					<p className="mt-1 text-xs text-zinc-400">
+					<p className="text-base font-semibold text-foreground">No integrations found</p>
+					<p className="mt-1 text-xs text-muted">
 						No configured services in this category yet. Click "Connect App / Service" to add one.
 					</p>
 				</div>
@@ -188,11 +182,6 @@ function IntegrationsList({ projectId, group }: { projectId: string; group: stri
 		navigate({ to: ".", search: { group, open: open === id ? undefined : id } });
 	}
 
-	function handleDelete(e: React.MouseEvent, id: string) {
-		e.stopPropagation();
-		setPendingDeleteId(id);
-	}
-
 	return (
 		<div className="flex flex-col gap-4">
 			{data.map((integration) => {
@@ -200,25 +189,25 @@ function IntegrationsList({ projectId, group }: { projectId: string; group: stri
 				return (
 					<div
 						key={integration.id}
-						className="overflow-hidden rounded-2xl border border-[#1C202B] bg-[#0E1015] transition-all"
+						className="overflow-hidden rounded-2xl border border-border bg-surface transition-all"
 					>
-						{/* Card Header Bar — Contains Title, ID, Delete, & Chevron */}
+						{/* Card Header Bar — Contains Title, ID, & Chevron */}
 						<div
 							role="button"
 							tabIndex={0}
 							onClick={() => toggle(integration.id)}
 							onKeyDown={(e) => e.key === "Enter" && toggle(integration.id)}
-							className="flex flex-wrap items-center justify-between gap-3 border-b border-[#1C202B] px-5 py-4 hover:bg-white/[0.02] cursor-pointer"
+							className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-5 py-4 hover:bg-surface-secondary cursor-pointer"
 						>
 							<div className="flex items-center gap-3">
-								<div className="flex size-9 items-center justify-center rounded-xl bg-[#161822] text-[#D0F237]">
+								<div className="flex size-9 items-center justify-center rounded-xl bg-surface-secondary text-accent">
 									{integrationIcons[integration.variant] ?? <TbDatabase size={18} />}
 								</div>
 								<div>
 									<div className="flex items-center gap-2">
-										<span className="font-semibold text-white">{integration.name}</span>
+										<span className="font-semibold text-foreground">{integration.name}</span>
 									</div>
-									<div className="text-xs text-zinc-400">
+									<div className="text-xs text-muted">
 										{integration.variant} • {group}
 									</div>
 								</div>
@@ -226,25 +215,15 @@ function IntegrationsList({ projectId, group }: { projectId: string; group: stri
 
 							{/* Right Actions Bar — Available even when accordion is closed */}
 							<div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
-								<span className="rounded-full border border-[#252A38] bg-[#191C26] px-2.5 py-1 text-[11px] font-mono text-zinc-400">
+								<span className="rounded-full border border-border bg-surface-secondary px-2.5 py-1 text-[11px] font-mono text-muted">
 									ID: {integration.id.slice(0, 8)}
 								</span>
-
-								{/* Delete Button */}
-								<button
-									type="button"
-									onClick={(e) => handleDelete(e, integration.id)}
-									className="flex size-8 items-center justify-center rounded-xl border border-red-900/30 bg-[#1C181B] text-red-400 transition-colors hover:bg-red-950/40"
-									aria-label="Delete integration"
-								>
-									<TbTrash size={15} />
-								</button>
 
 								{/* Chevron indicator */}
 								<button
 									type="button"
 									onClick={() => toggle(integration.id)}
-									className="p-1 text-zinc-400 hover:text-white"
+									className="p-1 text-muted hover:text-foreground"
 								>
 									<TbChevronDown
 										size={18}
@@ -261,7 +240,17 @@ function IntegrationsList({ projectId, group }: { projectId: string; group: stri
 									projectId={projectId}
 									id={integration.id}
 									lockGroupVariant
-									showDelete={false}
+									showDelete
+									deletePending={remove.isPending}
+									onDelete={() => {
+										remove.mutate(integration.id, {
+											onSuccess: () => {
+												toast.success("Integration deleted");
+												navigate({ to: ".", search: { group } });
+											},
+											onError: (e) => showErrorNotification(e as Error),
+										});
+									}}
 									onSaved={() => navigate({ to: ".", search: { group } })}
 								/>
 							</div>
@@ -269,56 +258,87 @@ function IntegrationsList({ projectId, group }: { projectId: string; group: stri
 					</div>
 				);
 			})}
-
-			<ConfirmDialog
-				open={!!pendingDeleteId}
-				onOpenChange={(o) => !o && setPendingDeleteId(null)}
-				title="Delete integration?"
-				danger
-				confirmText="Delete"
-				pending={remove.isPending}
-				onConfirm={() => {
-					if (!pendingDeleteId) return;
-					const id = pendingDeleteId;
-					setPendingDeleteId(null);
-					navigate({ to: ".", search: { group } });
-					remove.mutate(id, {
-						onSuccess: () => toast.success("Integration deleted"),
-						onError: (e) => showErrorNotification(e as Error),
-					});
-				}}
-			>
-				You are about to delete this integration. This action is irreversible.
-			</ConfirmDialog>
 		</div>
 	);
 }
 
-function RightHelpPanel({ projectId, activeGroup }: { projectId: string; activeGroup: string }) {
-	const { data: dbData } = integrationsQuery.getAll.useQuery(projectId, "database");
+const HELP_DATA: Record<
+	string,
+	{
+		title: string;
+		description: string;
+		docsUrl: string;
+		tip: string;
+		tipIcon?: ReactNode;
+	}
+> = {
+	database: {
+		title: "Database Integrations",
+		description:
+			"Learn how to connect and secure your PostgreSQL, MySQL, and MongoDB databases with SSL and connection pooling.",
+		docsUrl: "https://docs.fluxify.rest/integrations/databases.html",
+		tip: "Use a dedicated read-only role or restricted database user for Fluxify to limit blast radius.",
+		tipIcon: <TbLock size={16} className="shrink-0 text-muted mt-0.5" />,
+	},
+	kv: {
+		title: "KV & Cache Stores",
+		description:
+			"Configure Redis and Memcached key-value stores for lightning-fast caching, rate-limiting, and state management.",
+		docsUrl: "https://docs.fluxify.rest/integrations/kv-stores.html",
+		tip: "Prefix cache keys with project namespaces to prevent collisions across environments.",
+		tipIcon: <FaTableList size={14} className="shrink-0 text-muted mt-0.5" />,
+	},
+	ai: {
+		title: "AI & LLM Services",
+		description:
+			"Connect OpenAI, Anthropic, Gemini, Mistral, and local or custom OpenAI-compatible endpoints to your workflow.",
+		docsUrl: "https://docs.fluxify.rest/integrations/ai-models.html",
+		tip: "Store API keys as encrypted variables in App Config and bind them using cfg: keys.",
+		tipIcon: <FaRobot size={14} className="shrink-0 text-muted mt-0.5" />,
+	},
+	observability: {
+		title: "Observability & Telemetry",
+		description:
+			"Stream structured application logs and real-time telemetry metrics directly to Loki or OpenTelemetry endpoints.",
+		docsUrl: "https://docs.fluxify.rest/integrations/observability.html",
+		tip: "Use OpenTelemetry (OTLP) to unify logs, metrics, and trace export across your stack.",
+		tipIcon: <TbHeartRateMonitor size={16} className="shrink-0 text-muted mt-0.5" />,
+	},
+	baas: {
+		title: "Backend Services",
+		description:
+			"Connect managed backend services and APIs to trigger events and sync data with your Fluxify projects.",
+		docsUrl: "https://docs.fluxify.rest/integrations/databases.html",
+		tip: "Ensure all service endpoints and tokens are secured via App Config secrets.",
+		tipIcon: <LuServerCrash size={15} className="shrink-0 text-muted mt-0.5" />,
+	},
+};
+
+function RightHelpPanel({ activeGroup }: { projectId: string; activeGroup: string }) {
+	const info = HELP_DATA[activeGroup] ?? HELP_DATA.database;
 
 	return (
-		<div className="flex w-64 shrink-0 flex-col gap-4">
-			{/* Card 1: Need Help */}
-			<div className="flex flex-col gap-3 rounded-2xl border border-[#1C202B] bg-[#0E1015] p-4">
-				<div className="flex items-center gap-2 font-semibold text-white text-sm">
-					<TbBook size={16} className="text-zinc-400" />
+		<div className="flex w-64 shrink-0 flex-col gap-4 overflow-y-auto pr-1">
+			{/* Need Help Card */}
+			<div className="flex flex-col gap-3 rounded-2xl border border-border bg-surface p-4">
+				<div className="flex items-center gap-2 font-semibold text-foreground text-sm">
+					<TbBook size={16} className="text-muted" />
 					<span>Need help?</span>
 				</div>
-				<p className="text-xs text-zinc-400 leading-relaxed">
-					Learn how to secure your Postgres integration with IP allowlists and read replicas.
+				<p className="text-xs text-muted leading-relaxed">
+					{info.description}
 				</p>
 				<a
-					href="https://docs.fluxify.rest/integrations/databases.html"
+					href={info.docsUrl}
 					target="_blank"
 					rel="noreferrer"
-					className="flex items-center gap-1 text-xs font-semibold text-[#D0F237] hover:underline"
+					className="flex items-center gap-1 text-xs font-semibold text-accent hover:underline"
 				>
 					View docs <TbExternalLink size={12} />
 				</a>
-				<div className="flex items-start gap-2.5 rounded-xl border border-[#202533] bg-[#12141C] p-3 text-xs text-zinc-400 leading-relaxed">
-					<TbLock size={16} className="shrink-0 text-zinc-400 mt-0.5" />
-					<span>Use a dedicated read-only role for Fluxify to limit blast radius.</span>
+				<div className="flex items-start gap-2.5 rounded-xl border border-border bg-surface-secondary p-3 text-xs text-muted leading-relaxed">
+					{info.tipIcon}
+					<span>{info.tip}</span>
 				</div>
 			</div>
 		</div>

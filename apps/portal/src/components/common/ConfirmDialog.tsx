@@ -9,6 +9,7 @@ type ConfirmDialogProps = {
 	confirmText?: string;
 	cancelText?: string;
 	danger?: boolean;
+	variant?: "primary" | "secondary" | "danger" | "danger-soft" | "ghost" | "outline";
 	pending?: boolean;
 	onConfirm: () => void;
 };
@@ -21,9 +22,11 @@ export function ConfirmDialog({
 	confirmText = "Confirm",
 	cancelText = "Cancel",
 	danger,
+	variant,
 	pending,
 	onConfirm,
 }: ConfirmDialogProps) {
+	const confirmVariant = variant ?? (danger ? "danger-soft" : "primary");
 	return (
 		<Modal isOpen={open} onOpenChange={onOpenChange}>
 			<Modal.Backdrop>
@@ -40,7 +43,7 @@ export function ConfirmDialog({
 								{cancelText}
 							</Button>
 							<Button
-								variant={danger ? "danger" : "primary"}
+								variant={confirmVariant}
 								isPending={pending}
 								onPress={onConfirm}
 							>

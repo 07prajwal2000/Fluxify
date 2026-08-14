@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Button, Modal, Input, TextField, Label } from "@fluxify/components";
+import { Button, Modal, CloseButton, Input, TextField, Label } from "@fluxify/components";
 import { harnessConversationsQuery } from "@/query/harnessConversationsQuery";
 import { showErrorNotification } from "@/lib/errorNotifier";
 
@@ -49,8 +49,9 @@ export function RenameConversationModal({
 			<Modal.Backdrop>
 				<Modal.Container placement="center" size="sm">
 					<Modal.Dialog>
-						<Modal.Header>
+						<Modal.Header className="flex flex-row items-center justify-between">
 							<Modal.Heading>Rename conversation</Modal.Heading>
+							<CloseButton />
 						</Modal.Header>
 						<Modal.Body>
 							<div className="py-2">

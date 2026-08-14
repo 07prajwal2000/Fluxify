@@ -64,7 +64,6 @@ export function MembersSettings({ projectId }: { projectId: string }) {
 				</div>
 				<Button
 					variant="primary"
-					className="bg-[#ccff00] text-black hover:bg-[#b3e600] font-medium flex items-center gap-2"
 					onPress={() => setAddMemberOpen(true)}
 				>
 					<TbUserPlus size={18} />
@@ -95,7 +94,7 @@ export function MembersSettings({ projectId }: { projectId: string }) {
 								<Table.Row id={m.userId}>
 									<Table.Cell>
 										<div className="flex items-center gap-4 py-2">
-											<div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#1A1C23] text-sm font-semibold text-zinc-300 ring-1 ring-white/10">
+											<div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-surface-secondary text-sm font-semibold text-foreground ring-1 ring-border">
 												{getInitials(m.name, m.email)}
 											</div>
 											<div className="flex flex-col">
@@ -139,9 +138,10 @@ export function MembersSettings({ projectId }: { projectId: string }) {
 															onAction={() => setPendingRemove(m)} 
 															variant="danger" 
 															textValue="Remove member"
+															className="text-danger hover:bg-danger/10 focus:bg-danger/10 focus:text-danger"
 														>
-															<TbTrash size={16} />
-															<Label>Remove member</Label>
+															<TbTrash size={16} className="text-danger" />
+															<Label className="text-danger">Remove member</Label>
 														</Dropdown.Item>
 													</Dropdown.Menu>
 												</Dropdown.Popover>

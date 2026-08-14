@@ -20,8 +20,8 @@ export function UserRoleSelector({
 
 	return (
 		<div className="flex flex-col gap-6">
-			<div className="flex items-center gap-3 rounded-xl border border-[#1e2029] bg-black/40 p-3">
-				<div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#1A1C23] text-xs font-semibold text-zinc-300 ring-1 ring-white/10">
+			<div className="flex items-center gap-3 rounded-xl border border-border bg-surface-secondary p-3">
+				<div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-surface text-xs font-semibold text-foreground ring-1 ring-border">
 					{getInitials(user.name, user.email)}
 				</div>
 				<div className="flex flex-col">

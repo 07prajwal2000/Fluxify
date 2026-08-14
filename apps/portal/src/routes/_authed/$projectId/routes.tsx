@@ -1,13 +1,14 @@
-﻿import { useState } from "react";
+import { useState } from "react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import {
 	Button,
 	Chip,
+	DeleteIconButton,
 	Spinner,
 	Table,
 	toast,
 } from "@fluxify/components";
-import { TbPlus, TbTrash } from "react-icons/tb";
+import { TbPlus } from "react-icons/tb";
 import { routesQuery } from "@/query/routesQuery";
 import { showErrorNotification } from "@/lib/errorNotifier";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
@@ -105,14 +106,10 @@ function RoutesPage() {
 										>
 											{route.active ? "Disable" : "Enable"}
 										</Button>
-										<Button
-											isIconOnly
-											variant="ghost"
+										<DeleteIconButton
 											aria-label="Delete route"
 											onPress={() => setPendingDelete(route)}
-										>
-											<TbTrash size={16} />
-										</Button>
+										/>
 									</div>
 								</Table.Cell>
 							</Table.Row>

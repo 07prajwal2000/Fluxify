@@ -1,4 +1,4 @@
-import { Button, Description, JsTextField, Label } from "@fluxify/components";
+import { Button, DeleteIconButton, Description, JsTextField, Label } from "@fluxify/components";
 import { useReactFlow } from "@xyflow/react";
 import { TbMinus, TbPlus } from "react-icons/tb";
 import { useCanvasChanges } from "../../changes/ChangesContext";
@@ -70,16 +70,13 @@ export function ForeachLoopDataSettings({ block }: { block: BlockNode }) {
 								onChange={(next) => handleValueChange(index, next)}
 							/>
 						</div>
-						<Button
-							isIconOnly
-							variant="ghost"
+						<DeleteIconButton
+							icon={<TbMinus className="size-4" />}
 							size="sm"
 							isDisabled={!editable}
 							onPress={() => handleRemove(index)}
 							aria-label="Remove item"
-						>
-							<TbMinus className="size-4 text-danger" />
-						</Button>
+						/>
 					</div>
 				))}
 				{values.length === 0 && (

@@ -40,3 +40,10 @@ export {
 	Switch,
 	type SwitchProps,
 } from "./src/Switch";
+export * from "./src/DeleteButton";
+export {
+	CloseButton,
+	ModalCloseButton,
+	type CloseButtonProps,
+	type ModalCloseButtonProps,
+} from "./src/CloseButton";

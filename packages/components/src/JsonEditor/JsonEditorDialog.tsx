@@ -1,6 +1,6 @@
-import { Button, Modal } from "@heroui/react";
+import { Modal } from "@heroui/react";
 import type { CSSProperties, ReactNode } from "react";
-import { FiX } from "react-icons/fi";
+import { CloseButton } from "../CloseButton";
 import type { JsonEditorModalSize } from "./types";
 
 interface JsonEditorDialogProps {
@@ -51,16 +51,10 @@ export function JsonEditorDialog({
 						<span className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">
 							{title}
 						</span>
-						<Button
+						<CloseButton
 							aria-label="Close JSON editor"
-							className="h-7 w-7 min-w-7 p-0"
-							isIconOnly
 							onPress={() => onOpenChange(false)}
-							size="sm"
-							variant="ghost"
-						>
-							<FiX aria-hidden="true" className="size-4" />
-						</Button>
+						/>
 					</div>
 
 					{description && (

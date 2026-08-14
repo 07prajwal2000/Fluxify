@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
 	type CreateAppConfigBody,
 	type DeleteBulkAppConfigBody,
@@ -15,6 +15,21 @@ export const appConfigQuery = {
 			return useQuery({
 				queryKey: [...key(projectId), query],
 				queryFn: () => appConfigService.getAll(projectId, query),
+				refetchOnWindowFocus: false,
+			});
+		},
+		useInfiniteQuery(projectId: string, query: Omit<ListAppConfigQuery, "page">) {
+			return useInfiniteQuery({
+				queryKey: [...key(projectId), "infinite", query],
+				queryFn: ({ pageParam = 1 }) =>
+					appConfigService.getAll(projectId, { ...query, page: pageParam }),
+				getNextPageParam: (lastPage) => {
+					if (lastPage.pagination && lastPage.pagination.page < lastPage.pagination.totalPages) {
+						return lastPage.pagination.page + 1;
+					}
+					return undefined;
+				},
+				initialPageParam: 1,
 				refetchOnWindowFocus: false,
 			});
 		},

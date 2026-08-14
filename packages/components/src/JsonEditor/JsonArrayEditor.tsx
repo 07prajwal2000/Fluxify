@@ -1,6 +1,7 @@
 import { Button } from "@heroui/react";
 import { useState } from "react";
-import { TbArrowDown, TbArrowUp, TbPlus, TbTrash } from "react-icons/tb";
+import { TbArrowDown, TbArrowUp, TbPlus } from "react-icons/tb";
+import { DeleteIconButton } from "../DeleteButton";
 import type { JsonArray, JsonValue, JsonValueType } from "./types";
 import { JsonCollectionShell } from "./JsonCollectionShell";
 import { JsonTypeSelect } from "./JsonTypeSelect";
@@ -64,17 +65,14 @@ export function JsonArrayEditor({
 						>
 							<TbArrowDown aria-hidden="true" className="size-4" />
 						</Button>
-						<Button
-							aria-label={`Delete item ${index + 1}`}
-							isIconOnly
+						<DeleteIconButton
+							aria-label="Remove item"
+							isDisabled={isReadOnly}
 							onPress={() =>
 								onChange(value.filter((_, itemIndex) => itemIndex !== index))
 							}
 							size="sm"
-							variant="ghost"
-						>
-							<TbTrash aria-hidden="true" className="size-4 text-danger" />
-						</Button>
+						/>
 					</div>
 				) : null;
 

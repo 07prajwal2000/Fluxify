@@ -69,26 +69,26 @@ function ProjectLayout() {
 	}
 
 	return (
-		<div className="flex h-screen w-screen bg-[#07080A] text-foreground font-sans antialiased">
+		<div className="flex h-screen w-screen bg-background text-foreground font-sans antialiased">
 			{/* Sidebar spacer */}
-			<div className="w-[60px] shrink-0 border-r border-[#161820]" />
+			<div className="w-[60px] shrink-0 border-r border-border" />
 
 			{/* Actual Sidebar */}
-			<aside className="group absolute left-0 top-0 z-50 flex h-full w-[60px] flex-col justify-between overflow-hidden border-r border-[#161820] bg-[#07080A] transition-[width] duration-300 hover:w-[220px]">
+			<aside className="group absolute left-0 top-0 z-50 flex h-full w-[60px] flex-col justify-between overflow-hidden border-r border-border bg-background-secondary transition-[width] duration-300 hover:w-[220px]">
 				<div className="flex flex-col">
 					{/* Logo */}
 					<div className="flex h-[56px] shrink-0 items-center px-4">
-						<div className="flex size-7 shrink-0 items-center justify-center rounded-lg text-black shadow-sm">
+						<div className="flex size-7 shrink-0 items-center justify-center rounded-lg shadow-sm">
 							<img src="/_/admin/ui/public/icons/logo.svg" alt="logo" />
 						</div>
-						<span className="ml-3 flex-1 whitespace-nowrap text-sm font-bold tracking-wider text-white opacity-0 transition-opacity duration-300 group-hover:opacity-100">
+						<span className="ml-3 flex-1 whitespace-nowrap text-sm font-bold tracking-wider text-foreground opacity-0 transition-opacity duration-300 group-hover:opacity-100">
 							FLUXIFY
 						</span>
 						<Tooltip>
 							<button
 								type="button"
 								onClick={() => navigate({ to: "/" })}
-								className="flex size-7 shrink-0 items-center justify-center rounded-lg text-zinc-400 opacity-0 transition-all duration-300 hover:bg-white/[0.04] hover:text-zinc-200 group-hover:opacity-100"
+								className="flex size-7 shrink-0 items-center justify-center rounded-lg text-muted opacity-0 transition-all duration-300 hover:bg-surface-secondary hover:text-foreground group-hover:opacity-100"
 							>
 								<TbArrowLeft size={18} />
 							</button>
@@ -97,7 +97,7 @@ function ProjectLayout() {
 					</div>
 
 					{/* Separator */}
-					<div className="mx-3 mb-3 h-px bg-[#161820]" />
+					<div className="mx-3 mb-3 h-px bg-border" />
 
 					{/* Navigation */}
 					<nav className="flex flex-col gap-1 px-2">
@@ -111,22 +111,22 @@ function ProjectLayout() {
 									className={cn(
 										"group/btn relative flex h-10 items-center rounded-lg px-2.5 text-sm font-medium transition-colors",
 										isActive
-											? "bg-[#141720] text-white"
-											: "text-zinc-400 hover:bg-white/[0.04] hover:text-zinc-200",
+											? "bg-surface-secondary text-foreground"
+											: "text-muted hover:bg-surface-secondary hover:text-foreground",
 									)}
 								>
 									<item.icon
 										size={18}
 										className={cn(
 											"shrink-0",
-											isActive ? "text-[#D0F237]" : "text-zinc-400 group-hover/btn:text-zinc-200"
+											isActive ? "text-accent" : "text-muted group-hover/btn:text-foreground"
 										)}
 									/>
 									<span className="ml-3 whitespace-nowrap opacity-0 transition-opacity duration-300 group-hover:opacity-100">
 										{item.label}
 									</span>
 									{isActive && (
-										<span className="absolute -left-2 h-4 w-[3px] rounded-r-full bg-[#D0F237]" />
+										<span className="absolute -left-2 h-4 w-[3px] rounded-r-full bg-accent" />
 									)}
 								</button>
 							);
@@ -135,42 +135,42 @@ function ProjectLayout() {
 				</div>
 
 				{/* Sidebar Footer (User Account Menu) */}
-				<div className="flex flex-col gap-1 border-t border-[#161820] p-2">
+				<div className="flex flex-col gap-1 border-t border-border p-2">
 					<button
 						type="button"
 						onClick={() => navigate({ to: "/$projectId/settings", params: { projectId } })}
 						className={cn(
 							"group/btn relative flex h-10 items-center rounded-lg px-2.5 text-sm font-medium transition-colors",
 							active === "settings"
-								? "bg-[#141720] text-white"
-								: "text-zinc-400 hover:bg-white/[0.04] hover:text-zinc-200",
+								? "bg-surface-secondary text-foreground"
+								: "text-muted hover:bg-surface-secondary hover:text-foreground",
 						)}
 					>
 						<TbSettings
 							size={18}
 							className={cn(
 								"shrink-0",
-								active === "settings" ? "text-[#D0F237]" : "text-zinc-400 group-hover/btn:text-zinc-200"
+								active === "settings" ? "text-accent" : "text-muted group-hover/btn:text-foreground"
 							)}
 						/>
 						<span className="ml-3 whitespace-nowrap opacity-0 transition-opacity duration-300 group-hover:opacity-100">
 							Project Settings
 						</span>
 						{active === "settings" && (
-							<span className="absolute -left-2 h-4 w-[3px] rounded-r-full bg-[#D0F237]" />
+							<span className="absolute -left-2 h-4 w-[3px] rounded-r-full bg-accent" />
 						)}
 					</button>
 					<Dropdown>
 						<Dropdown.Trigger
 							aria-label="Account menu"
-							className="flex w-full items-center overflow-hidden rounded-lg p-1 outline-none transition-colors hover:bg-white/[0.04] focus-visible:ring-2 focus-visible:ring-[var(--focus)]"
+							className="flex w-full items-center overflow-hidden rounded-lg p-1 outline-none transition-colors hover:bg-surface-secondary focus-visible:ring-2 focus-visible:ring-focus"
 						>
-							<div className="flex size-[34px] shrink-0 items-center justify-center rounded-full bg-[#202533] text-xs font-bold text-zinc-200">
+							<div className="flex size-[34px] shrink-0 items-center justify-center rounded-full bg-surface-secondary text-xs font-bold text-foreground ring-1 ring-border">
 								{initials}
 							</div>
 							<div className="ml-3 flex flex-col items-start whitespace-nowrap opacity-0 transition-opacity duration-300 group-hover:opacity-100">
-								<span className="text-sm font-medium text-white">{userData?.name || "User"}</span>
-								<span className="text-[11px] text-zinc-500">{userData?.email || ""}</span>
+								<span className="text-sm font-medium text-foreground">{userData?.name || "User"}</span>
+								<span className="text-[11px] text-muted">{userData?.email || ""}</span>
 							</div>
 						</Dropdown.Trigger>
 						<Dropdown.Popover>
@@ -188,7 +188,7 @@ function ProjectLayout() {
 			</aside>
 
 			{/* Page Content */}
-			<main className="min-w-0 flex-1 overflow-y-auto bg-[#07080A] p-6">
+			<main className="min-w-0 flex-1 overflow-y-auto bg-background p-6">
 				<Outlet />
 			</main>
 		</div>

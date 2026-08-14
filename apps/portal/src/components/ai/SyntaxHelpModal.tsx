@@ -1,4 +1,4 @@
-import { Modal } from "@fluxify/components";
+import { Modal, CloseButton } from "@fluxify/components";
 
 type Props = {
 	isOpen: boolean;
@@ -13,11 +13,14 @@ export function SyntaxHelpModal({ isOpen, onOpenChange }: Props) {
 			<Modal.Backdrop>
 				<Modal.Container placement="center" size="md">
 					<Modal.Dialog>
-						<Modal.Header>
-							<Modal.Heading>Prompt syntax</Modal.Heading>
-							<p className="mt-1 text-sm text-muted">
-								Special syntax you can use in your message.
-							</p>
+						<Modal.Header className="flex flex-row items-start justify-between">
+							<div>
+								<Modal.Heading>Prompt syntax</Modal.Heading>
+								<p className="mt-1 text-sm text-muted">
+									Special syntax you can use in your message.
+								</p>
+							</div>
+							<CloseButton />
 						</Modal.Header>
 						<Modal.Body>
 							<div className="py-8 text-center text-sm text-muted">

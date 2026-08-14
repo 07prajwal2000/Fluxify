@@ -77,14 +77,14 @@ function ProjectSettingsPage() {
 	return (
 		<div className="flex h-full w-full flex-col">
 			<div className="mb-6">
-				<h1 className="text-2xl font-semibold tracking-tight text-white">Project settings</h1>
+				<h1 className="text-2xl font-semibold tracking-tight text-foreground">Project settings</h1>
 				<p className="text-sm text-muted">Manage your project configurations and settings.</p>
 			</div>
 
-			<div className="flex min-h-0 flex-1 rounded-xl border border-[#161820] bg-[#0A0C10]">
+			<div className="flex min-h-0 flex-1 rounded-xl border border-border bg-surface">
 				{/* Left Sidebar */}
-				<div className="w-[240px] shrink-0 border-r border-[#161820] py-6 pl-4 pr-3 flex flex-col gap-1">
-					<div className="mb-2 px-3 text-xs font-semibold tracking-wider text-zinc-500 uppercase">
+				<div className="w-[240px] shrink-0 border-r border-border py-6 pl-4 pr-3 flex flex-col gap-1">
+					<div className="mb-2 px-3 text-xs font-semibold tracking-wider text-muted uppercase">
 						Project
 					</div>
 					{SETTINGS_TABS.map((tab) => (
@@ -95,26 +95,26 @@ function ProjectSettingsPage() {
 							className={cn(
 								"flex items-center justify-between rounded-lg px-3 py-2 text-sm font-medium transition-colors",
 								activeTab === tab.id
-									? "bg-[#161820] text-white"
-									: "text-zinc-400 hover:bg-white/[0.04] hover:text-zinc-200"
+									? "bg-surface-secondary text-foreground"
+									: "text-muted hover:bg-surface-secondary hover:text-foreground"
 							)}
 						>
 							<div className="flex items-center gap-3">
-								<tab.icon size={18} className={activeTab === tab.id ? "text-zinc-300" : "text-zinc-500"} />
+								<tab.icon size={18} className={activeTab === tab.id ? "text-foreground" : "text-muted"} />
 								{tab.label}
 							</div>
 							{tab.id === "telemetry" && configuredTelemetry > 0 && (
-								<div className="flex h-5 min-w-5 items-center justify-center rounded bg-[#202533] px-1 text-[11px] font-medium text-zinc-300">
+								<div className="flex h-5 min-w-5 items-center justify-center rounded bg-surface-secondary px-1 text-[11px] font-medium text-foreground">
 									{configuredTelemetry}
 								</div>
 							)}
 							{tab.id === "ai-connections" && (
-								<div className="flex h-5 min-w-5 items-center justify-center rounded bg-[#202533] px-1 text-[11px] font-medium text-zinc-300">
+								<div className="flex h-5 min-w-5 items-center justify-center rounded bg-surface-secondary px-1 text-[11px] font-medium text-foreground">
 									1
 								</div>
 							)}
 							{tab.id === "members" && membersCount !== undefined && (
-								<div className="flex h-5 min-w-5 items-center justify-center rounded bg-[#202533] px-1 text-[11px] font-medium text-zinc-300">
+								<div className="flex h-5 min-w-5 items-center justify-center rounded bg-surface-secondary px-1 text-[11px] font-medium text-foreground">
 									{membersCount}
 								</div>
 							)}

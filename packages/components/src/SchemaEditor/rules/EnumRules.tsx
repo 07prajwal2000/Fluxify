@@ -1,6 +1,7 @@
 import { Button, InputGroup, ListBox, Select, TextField } from "@heroui/react";
 import { useState } from "react";
-import { TbPlus, TbTrash } from "react-icons/tb";
+import { TbPlus } from "react-icons/tb";
+import { DeleteIconButton } from "../../DeleteButton";
 import type { RuleEditorProps } from "../types";
 import { getRuleValue, updateRule } from "../utils";
 import { RuleSectionTitle } from "./fields";
@@ -108,15 +109,11 @@ export function EnumRules({ node, onUpdate, isReadOnly }: RuleEditorProps) {
 							</InputGroup>
 						</TextField>
 						{!isReadOnly && (
-							<Button
+							<DeleteIconButton
 								aria-label={`Remove value ${index + 1}`}
-								isIconOnly
 								onPress={() => commit(values.filter((_, i) => i !== index))}
 								size="sm"
-								variant="ghost"
-							>
-								<TbTrash className="size-4 text-danger" />
-							</Button>
+							/>
 						)}
 					</div>
 				))}

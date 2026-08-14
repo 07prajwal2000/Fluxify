@@ -3,6 +3,7 @@ import {
 	Button,
 	Chip,
 	Checkbox,
+	CloseButton,
 	Dropdown,
 	Input,
 	Label,
@@ -153,9 +154,14 @@ export function UsersList() {
 																	<Label>Change password</Label>
 																</Dropdown.Item>
 															)}
-															<Dropdown.Item onAction={() => setPending({ action: "delete", user })} variant="danger" textValue="Delete user">
-																<TbTrash size={16} />
-																<Label>Delete user</Label>
+															<Dropdown.Item
+																onAction={() => setPending({ action: "delete", user })}
+																variant="danger"
+																textValue="Delete user"
+																className="text-danger hover:bg-danger/10 focus:bg-danger/10 focus:text-danger"
+															>
+																<TbTrash size={16} className="text-danger" />
+																<Label className="text-danger">Delete user</Label>
 															</Dropdown.Item>
 														</Dropdown.Menu>
 													</Dropdown.Popover>
@@ -278,8 +284,9 @@ function ChangePasswordModal({
 			<Modal.Backdrop>
 				<Modal.Container placement="center" size="sm">
 					<Modal.Dialog>
-						<Modal.Header>
+						<Modal.Header className="flex flex-row items-center justify-between">
 							<Modal.Heading>Change password</Modal.Heading>
+							<CloseButton onPress={close} />
 						</Modal.Header>
 						<form
 							onSubmit={(event) => {
@@ -364,8 +371,9 @@ function AddUserButton() {
 			<Modal.Backdrop>
 				<Modal.Container placement="center" size="sm">
 					<Modal.Dialog>
-						<Modal.Header>
+						<Modal.Header className="flex flex-row items-center justify-between">
 							<Modal.Heading>Add a user</Modal.Heading>
+							<CloseButton />
 						</Modal.Header>
 						<form onSubmit={submit}>
 							<Modal.Body>
@@ -379,7 +387,7 @@ function AddUserButton() {
 										<Input placeholder="ada@company.com" />
 									</TextField>
 									{authConfig?.mode === "sso_only" ? (
-										<div className="rounded-md bg-violet-50 p-3 text-sm text-violet-900 border border-violet-200">
+										<div className="rounded-md bg-surface-secondary p-3 text-sm text-muted border border-border">
 											SSO is configured and traditional login is disabled. This user will sign in through your identity provider — no password needed.
 										</div>
 									) : (

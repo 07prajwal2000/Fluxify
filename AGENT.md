@@ -119,6 +119,19 @@ When creating branches or Pull Requests via the `gh` CLI:
 2. **Table Selection:** Pass `slot="selection"` on any `<Checkbox>` rendered inside `<Table.Header>` or `<Table.Cell>` (e.g. `<Checkbox slot="selection" ... />`).
 3. Replace nested `<button>` elements inside `<Table.Column>` with clickable `<div>` or `<span>` elements (e.g. `<div role="button" tabIndex={0} onClick={...}>`).
 
+### Unified Delete & Delete Icon Buttons (`DeleteIconButton` & `DeleteButton`)
+**Rule:** ALWAYS use the unified `@fluxify/components` delete button components for delete and remove actions across the portal UI instead of ad-hoc `<Button variant="ghost">` or solid `<Button variant="danger">`:
+1. **Icon-only delete actions (table rows, card actions, form removals):** Use `<DeleteIconButton aria-label="Delete ..." onPress={...} />` (or pass custom `icon`, `size`, `isDisabled`, `iconSize`). It uses `variant="danger-soft"` (translucent danger styling) by default.
+2. **Text delete actions (bulk delete buttons, danger zone action buttons):** Use `<DeleteButton onPress={...}>Delete ...</DeleteButton>` (uses `variant="danger-soft"` with leading `TbTrash` icon by default).
+3. **Confirmation dialogs:** Use `<ConfirmDialog danger ...>` which defaults destructive action buttons to `variant="danger-soft"` (translucent danger) unless explicitly given `variant="danger"`.
+4. **Dropdown menu delete items:** Style with `variant="danger" className="text-danger hover:bg-danger/10 focus:bg-danger/10 focus:text-danger"` and `<TbTrash size={16} className="text-danger" />`.
+
+### Unified Modal Close Button (`CloseButton` / `ModalCloseButton`)
+**Rule:** ALWAYS use the unified `@fluxify/components` close button component for modals, dialogs, and clearable surfaces across the portal and components UI instead of default HeroUI `<Modal.CloseTrigger>` (which renders an unthemed solid background and custom SVG) or ad-hoc custom icon buttons:
+1. **Modal headers:** Use `<CloseButton />` (or `<ModalCloseButton />`) in `<Modal.Header>` (with flex layout, e.g. `<Modal.Header className="flex flex-row items-center justify-between">`). It uses `TbX` from `react-icons/tb` (default 18px), applies theme tokens (`text-muted hover:text-foreground hover:bg-surface-secondary active:bg-surface-secondary/80 rounded-md transition-colors`), and sets `slot="close"` for automatic modal dismissal with React Aria.
+2. **Explicit close triggers:** When a manual dismissal callback is needed (e.g. outside dialog context or controlled state resets), pass `onPress={onClose}` (e.g. `<CloseButton onPress={handleClose} />`).
+3. **Clearable input controls:** Use `<CloseButton aria-label="Clear ..." onPress={handleClear} />` for consistent clear actions in search/selector bars.
+
 ### Harness Structured Output — "Unrecognized token '\'" / "Unexpected EOF" / silent parse failures
 **File:** `apps/ai-gateway/src/harness/models/base.ts` (`fallbackStructuredOutput`, `cleanJsonOutput`, `sliceBalancedJson`, `parseJsonLoose`).
 

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import { Button, Spinner, toast } from "@fluxify/components";
-import { TbBolt, TbTrash } from "react-icons/tb";
+import { Button, DeleteIconButton, Spinner, toast } from "@fluxify/components";
+import { TbBolt } from "react-icons/tb";
 import {
 	getIntegrationsGroups,
 	getIntegrationsVariants,
@@ -197,25 +197,24 @@ export function IntegrationForm({
 
 			{/* Actions */}
 			{!hideActions && group && variant && (
-				<div className="flex items-center justify-end pt-2 border-t border-[#1C202B]">
-					<div className="flex items-center gap-2">
+				<div className="flex items-center justify-between pt-2 border-t border-border">
+					<div>
 						{showDelete && id && (
-							<button
-								type="button"
-								onClick={() => setConfirmDelete(true)}
-								className="flex items-center justify-center rounded-xl border border-red-900/30 bg-[#1C181B] p-2 text-red-400 transition-colors hover:bg-red-950/40"
+							<DeleteIconButton
+								onPress={() => setConfirmDelete(true)}
 								aria-label="Delete integration"
-							>
-								<TbTrash size={15} />
-							</button>
+								iconSize={15}
+							/>
 						)}
+					</div>
+					<div className="flex items-center gap-2">
 						<Button
 							variant="outline"
 							isPending={test.isPending}
 							onPress={onTest}
 							className="whitespace-nowrap"
 						>
-							<TbBolt size={14} className="text-[#D0F237]" />
+							<TbBolt size={14} className="text-accent" />
 							<span>Test connection</span>
 						</Button>
 						<Button variant="primary" isPending={create.isPending || update.isPending} onPress={onSave}>
