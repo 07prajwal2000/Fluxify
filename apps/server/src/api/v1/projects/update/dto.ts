@@ -5,7 +5,9 @@ export const requestRouteSchema = z.object({
 });
 
 export const requestBodySchema = z.object({
-  name: z.string().min(1).max(255).optional(),
+  // 50, not 255: `projects.name` is varchar(50), so a longer name passed
+  // validation and then died on the update.
+  name: z.string().min(1).max(50).optional(),
   description: z.string().max(1000).optional(),
   hidden: z.boolean().optional(),
 });
