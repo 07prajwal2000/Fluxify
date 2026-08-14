@@ -34,7 +34,10 @@ export default defineConfig({
 		},
 	},
 	server: {
-		port: 3001,
+		port: 3000,
+		// bind 0.0.0.0 so Caddy in Docker can reach us via host.docker.internal
+		host: true,
+		allowedHosts: ["localhost"],
 		proxy: {
 			// ws: the harness socket.io transport lives at /_/admin/api/ai/socket.io/
 			// and upgrades to a websocket; without this it never leaves long-polling.
