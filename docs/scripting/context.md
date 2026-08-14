@@ -9,7 +9,7 @@ Every time your JavaScript code runs — whether inside a **JS Runner** block, a
 
 This page is the complete reference for everything available in that environment.
 
-> **How it works**: When the execution engine prepares to run a script, it takes the `vars` object from the [Execution Context](../concepts/context.md), injects all its properties as top-level globals into the V8 sandbox, and runs your code. This means every function listed below is callable directly by name, with no prefix.
+> **How it works**: The DAG compiler emits script code into the route handler and wires in the [Execution Context](../concepts/context.md). The helpers below are available directly in the generated handler, with no prefix and no VM layer.
 ## The `input` Variable
 
 The single most important variable in any script:
@@ -110,7 +110,7 @@ setCookie("session_token", {
 ```
 ## Logger
 
-The `logger` object writes structured log entries to the configured output. The destination depends on project settings: **console** (default / local dev) or a **cloud observability provider** (Loki, OpenTelemetry Logs, etc.). See [Logging](../concepts/logging.md).
+The `logger` object writes structured log entries to the configured output. The destination depends on project settings: **console** (default / local dev) or a configured observability destination. See [Telemetry Configuration](../concepts/telemetry-configuration.md).
 
 | Method | Description |
 | :--- | :--- |
@@ -187,7 +187,7 @@ return payload.userId;
 ```
 ## Built-in Libraries (`libs`)
 
-Three third-party libraries are bundled and reachable through the `libs` object. No import statement is needed. See [Imports & Libraries](./imports.md) if you would rather import them by name, or import something else.
+Three third-party libraries are bundled and reachable through the `libs` object. The `jwt` helper is also available globally and is backed by `jsonwebtoken`. No import statement is needed. See [Imports & Libraries](./imports.md) for details.
 
 ### `libs.dayjs` — Date & Time
 
@@ -227,7 +227,7 @@ return result.data;
 ```
 ## Database Helper (DB Native Block Only)
 
-`dbQuery` is **exclusively available** inside the **DB Native** block. It is injected into the VM context only when that specific block executes.
+`dbQuery` is **exclusively available** inside the **DB Native** block. The compiler only emits this helper for that block.
 
 ```typescript
 dbQuery(query: string): Promise<unknown>
@@ -240,9 +240,9 @@ return users;
 ```
 
 Attempting to call `dbQuery` in a regular JS Runner block will result in a `ReferenceError`.
-## Sandbox Constraints
+## Runtime Constraints
 
-The scripting environment is a secure **V8 sandbox** (via Node.js `vm` module). The following constraints apply:
+Scripts execute as part of the compiled route handler in Bun. The following constraints apply:
 
 | Constraint | Detail |
 | :--- | :--- |
@@ -250,7 +250,7 @@ The scripting environment is a secure **V8 sandbox** (via Node.js `vm` module). 
 | **Imports** | ES `import` statements are supported for built-in and bundled modules — see [Imports & Libraries](./imports.md). `require()` is not supported. |
 | **Execution timeout** | Scripts are killed after **4 seconds**. Design scripts to be fast. |
 | **No cross-request state** | Variables exist only for the duration of a single workflow run. |
-| **Async supported** | `async/await` is fully supported. The VM waits for promise resolution. |
+| **Async supported** | `async/await` is fully supported by the generated Bun handler. |
 | **ES6+ syntax** | Modern JavaScript (arrow functions, destructuring, spread, etc.) is supported. |
 ## Quick Reference
 
@@ -295,9 +295,9 @@ dbQuery("SELECT ...")
 ```
 ## Technical Notes for LLMs and Developers
 
-- **Injection mechanism**: All properties of the `ContextVarsType` object are spread as globals into the V8 `vm.createContext()` sandbox via `JsVM`. This is why helpers are available without a prefix.
+- **Compilation mechanism**: The compiler emits the script alongside the route handler and provides context helpers directly to that generated code.
 - **`vars` is the canonical source**: Both built-in helpers and user-defined runtime variables live on the same `vars` object (`ContextVarsType & Record<string, any>`). User variables are simply additional keys added at runtime.
-- **`input` is a separate injection**: The `input` variable is passed as a parameter to the VM `runAsync` call, not from `vars`. It changes with each block execution.
-- **`dbQuery` is conditionally injected**: The DB Native block patches `vars.dbQuery` before running the VM, then removes it after — it is never a permanent global.
+- **`input` is per block**: The compiler carries each block's result forward as `input`; it changes with each block execution.
+- **`dbQuery` is block-scoped**: The compiler emits it only for DB Native blocks.
 - **Libraries are server-side bundles**: `libs.dayjs`, `libs._`, and `libs.zod` are actual npm packages bundled in the server, not CDN links. They run server-side, not in the browser.
 - **Imports are hoisted**: `import` statements are lifted out of your script and loaded once when the workflow is saved, not on each request.

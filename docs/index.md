@@ -31,7 +31,7 @@ features:
 
   - icon: 📜
     title: Scripting Capability
-    details: When you need extra power, use JavaScript in a secure sandboxed VM — full access to request context, JWT, and utility libraries.
+    details: Add custom JavaScript where needed. Fluxify compiles workflow graphs to native JavaScript that runs directly in Bun, with request context, JWT, and utility libraries available in scripts.
 
   - icon: 📡
     title: Observability

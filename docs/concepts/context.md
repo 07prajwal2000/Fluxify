@@ -1,56 +1,95 @@
 ---
 title: Execution Context
-description: Understanding the shared environment that carries request data and helpers to every block in a workflow.
+description: The request-scoped data and helpers available while a compiled Fluxify route runs.
 ---
 
 # Execution Context
 
-The **Execution Context** is a per-request object created when an HTTP request triggers a workflow. It is passed to every block that runs and holds all the data and tools needed to process that request — from the incoming URL and headers to the scripting VM, logger, and global variables.
+The **Execution Context** is everything a route needs while handling one HTTP request: its request data, the output flowing between blocks, response controls, configuration, and the helpers available to JavaScript.
 
-Think of it as the workflow's environment for a single request run.
-## What the Context Contains
+It is created for the request and discarded when that request finishes. Nothing in an execution context is shared with another request.
 
-Every block in a workflow has access to:
+## How it fits into a compiled route
 
-- **Request data** — the incoming HTTP method, route, headers, cookies, query params, and body.
-- **Global variable store** — a shared key-value space where blocks can read and write variables across the entire workflow run.
-- **Scripting sandbox** — an isolated JavaScript VM where script blocks execute safely.
-- **HTTP Client** — for making outbound HTTP requests.
-- **Database access** — connections to configured database integrations.
-- **Logger** — structured logging routed to console or a cloud observability provider.
-- **App Config** — access to project-level secrets and settings.
-- **JWT utilities** — helpers for signing, verifying, and decoding JSON Web Tokens.
-- **Timeout control** — the context enforces a maximum execution time for the entire workflow.
+Fluxify compiles a route's blocks and edges into a native JavaScript handler when the route is saved. When a matching request arrives, Bun runs that handler directly. The execution context supplies the request-specific values and helpers used by the handler.
 
-For the complete scripting API (all available globals, functions, and examples), see the [Scripting Context](../scripting/context.md) reference.
-## Global Variables
+```mermaid
+flowchart LR
+  request["Incoming HTTP request"] --> context["Fresh execution context"]
+  context --> handler["Compiled route handler"]
+  handler --> response["HTTP response"]
+```
 
-A key feature of the context is its **global variable store**. Any variable set in one block is immediately readable by all subsequent blocks in the same workflow run.
+This is not a visual workflow interpreter or a VM that traverses the canvas at request time. The canvas describes the route; the compiled handler performs the work.
 
-- **Set** in a script: `myVariable = "hello";`
-- **Read** in any later block or `js:` expression: `myVariable`
+## What is available
 
-Variables live only for the duration of a single request. They are not shared between different users or different requests.
-## The `input` Variable
+The context makes these categories of data available to blocks and scripts:
 
-Every block receives the output of the **previous block** as `input`. This is separate from the global variable store — `input` only holds what the immediately preceding block returned.
+| Category | What it provides |
+| --- | --- |
+| **Request data** | Method, route parameters, query parameters, headers, cookies, and parsed request body. |
+| **Flowing data** | `input`, the output of the block immediately before the current block. |
+| **Runtime variables** | Values you set during this request and reuse in later blocks. |
+| **Response controls** | Helpers to set response headers and cookies before returning a result. |
+| **App Config** | Read-only project settings and secrets through `getConfig()`. |
+| **Service helpers** | Logging, outbound HTTP, JWT utilities, built-in libraries, and block-specific database access. |
+
+For signatures, parameter types, return types, and examples, use the [JavaScript API Reference](../scripting/javascript-api.md).
+
+## Data flowing through a route
+
+Each block has one input and one output. The output from a completed block becomes `input` for the next block on the active path.
 
 ```javascript
-// Previous block returned { "user": { "name": "Alice" } }
-return input.user.name; // → "Alice"
+// If the previous block returned { user: { name: "Avery" } }
+return input.user.name;
 ```
-## Lifetime & Isolation
+
+`input` is deliberately local to the current step. Use it for data moving between adjacent blocks.
+
+### Runtime variables
+
+When several later steps need the same value, store it as a runtime variable in a script or with a **Set Variable** block:
+
+```javascript
+currentUser = { id: input.id, name: input.name };
+```
+
+The value is available to subsequent blocks in that same request:
+
+```javascript
+return currentUser.name;
+```
+
+Runtime variables are useful for request-local state, not storage. They disappear after the response is produced and are never visible to another user's request.
+
+> **Tip:** Choose clear, specific variable names. Do not reuse the names of built-in helpers such as `input`, `logger`, `jwt`, or `getConfig`.
+
+## Request and response boundaries
+
+The context begins with the HTTP request and ends with the response. Scripts can read request values with helpers such as `getRouteParam("id")` and `getRequestBody()`, then shape the outgoing response with `setHeader()` or `setCookie()`.
+
+App Config is read-only at runtime. It is the right place for stable configuration and secrets; runtime variables are the right place for temporary values produced while processing a request. See [App Config](./app-config.md) for managing configuration safely.
+
+## Isolation and limits
 
 | Property | Behavior |
-| :--- | :--- |
-| **Scope** | One context per incoming HTTP request — never shared between requests. |
-| **Isolation** | Concurrent requests each get their own context with no shared state. |
-| **Timeout** | Workflows have a maximum execution time of **4 seconds**. Exceeding it returns a timeout error. |
-| **Cleanup** | The context is discarded after the response is sent. |
-## Related Pages
+| --- | --- |
+| **Scope** | One execution context per HTTP request. |
+| **Isolation** | Concurrent requests have separate data and variables. |
+| **Lifetime** | Created when the route begins and discarded after its response or failure. |
+| **Runtime** | The compiled handler runs in Bun's JavaScript runtime, powered by Apple's JavaScriptCore engine. |
+| **Timeouts** | Optional experimental worker timeouts can enforce a 30-second route limit, or a route-specific limit, when enabled in project settings. |
 
-- [Scripting Context](../scripting/context.md) — Full API reference for all globals available in scripts.
-- [Execution Engine](./execution-engine.md) — How blocks are run sequentially using the context.
-- [JavaScript VM](./vm.md) — The sandboxed environment where scripts execute.
-- [Logging](./logging.md) — How the logger routes to console or cloud providers.
-- [App Config](./app-config.md) — Managing secrets and environment settings.
+Bun APIs are available in scripts where appropriate. This is a Bun runtime, not Node.js; [Bun's runtime API documentation](https://bun.com/docs/runtime/bun-apis) is a useful companion reference.
+
+The worker supervisor is designed to protect the service from badly behaved workloads. Its CPU and network protections are still being completed, so treat them as evolving safeguards and keep your own database and external-service calls bounded.
+
+## Related pages
+
+- [JavaScript API Reference](../scripting/javascript-api.md) — Complete script globals, helpers, types, and examples.
+- [Scripting overview](../scripting/index.md) — How JavaScript is compiled into a route.
+- [Blocks](./blocks.md) — The work units that make up a route.
+- [Edges](./edges.md) — How data moves between blocks.
+- [App Config](./app-config.md) — Project-level configuration and secrets.

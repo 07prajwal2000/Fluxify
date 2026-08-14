@@ -66,9 +66,9 @@ flowchart TB
     end
     K --> BS["PostgreSQL · Valkey · NATS"]
 
-    style C fill:#ffe8e8,stroke:#d9534f,color:#1a1a2e
-    style K fill:#f4f2ff,stroke:#5f67ee,color:#1a1a2e
-    style BS fill:#fff8e6,stroke:#d9a441,color:#1a1a2e
+    style C fill:#111113,stroke:#EF4444,color:#FAFAFA
+    style K fill:#111113,stroke:#D2FF4D,color:#FAFAFA
+    style BS fill:#111113,stroke:#F59E0B,color:#FAFAFA
 ```
 
 **Admin + Workers — control plane split from a worker pool:**
@@ -84,11 +84,11 @@ flowchart TB
     A --> R["Valkey"]
     W1 & W2 & W3 --> R
 
-    style C fill:#ffe8e8,stroke:#d9534f,color:#1a1a2e
-    style A fill:#f4f2ff,stroke:#5f67ee,color:#1a1a2e
-    style W1 fill:#eefaf2,stroke:#2b9d5b,color:#1a1a2e
-    style W2 fill:#eefaf2,stroke:#2b9d5b,color:#1a1a2e
-    style W3 fill:#eefaf2,stroke:#2b9d5b,color:#1a1a2e
+    style C fill:#111113,stroke:#EF4444,color:#FAFAFA
+    style A fill:#111113,stroke:#D2FF4D,color:#FAFAFA
+    style W1 fill:#111113,stroke:#10B981,color:#FAFAFA
+    style W2 fill:#111113,stroke:#10B981,color:#FAFAFA
+    style W3 fill:#111113,stroke:#10B981,color:#FAFAFA
 ```
 
 Notice that only the admin container reaches PostgreSQL. Workers receive your

@@ -45,12 +45,12 @@ All user scripts are implicitly wrapped in an Immediately Invoked Function Expre
   ```
 ## 3. Unresolved Async Promises (Resource Leaks)
 
-Fluxify supports `async/await` and races asynchronous promises against a 4-second timeout.
+Fluxify supports `async/await`.
 
 > [!IMPORTANT]
-> If an asynchronous promise runs past 4 seconds, the execution engine times out, aborts the request, and returns a `500` error (or routes to your error handler). However, **the underlying promise continues to execute in the background** on the server's event loop.
+> Route timeouts are optional and controlled by the experimental `experimental.workerTimeouts.enabled` project setting. When enabled, the entire route has a 30-second timeout by default (or its configured per-route timeout). A stalled worker that exceeds that limit can be terminated by the supervisor.
 > 
-> If a script leaks unresolved database connections, infinite fetch loops, or un-ending timeouts, these background jobs accumulate. Over time, they will exhaust server resources (socket handles, database pool connections, memory), eventually crashing the entire application server.
+> Even with that guard enabled, unresolved database connections, infinite fetch loops, or un-ending timers can consume server resources. Ensure asynchronous work has a clear completion path.
 
 ### Best Practice
 - Always specify timeouts on external fetches or operations (e.g., using Axios timeouts in `httpClient`).

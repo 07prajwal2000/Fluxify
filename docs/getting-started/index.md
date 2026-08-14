@@ -30,18 +30,18 @@ All of this is configured visually in the browser — no server framework knowle
 | 🧩 **Visual Workflow Builder** | Drag-and-drop blocks onto a canvas to design backend logic — loops, conditions, and error handling included |
 | 🗄️ **Database Integration** | Purpose-built PostgreSQL blocks for querying, inserting, updating, and deleting records — with raw SQL support |
 | 🤖 **AI / LLM Integration** | First-class blocks for calling OpenAI, Anthropic, and other AI providers directly from your workflows |
-| 📜 **Custom Scripting** | Write JavaScript in a secure sandboxed VM for advanced transformations, custom routing, or JWT handling |
+| 📜 **Custom Scripting** | Write JavaScript that is compiled into the native Bun route handler for advanced transformations, custom routing, or JWT handling |
 | 🔗 **HTTP Networking** | Call external APIs, inspect headers, manage cookies, and shape responses — all with dedicated HTTP blocks |
 | 📡 **Observability** | Structured logging with support for Loki and OpenTelemetry Logs; built-in console logging for local development |
-| 🔒 **Security** | Per-project App Config for secrets management, encrypted credentials, and sandbox isolation for scripts |
+| 🔒 **Security** | Per-project App Config for secrets management and encrypted credentials |
 | 🚀 **Flexible Deployment** | Ship as a standalone Docker container (via `fluxify-kit`), or scale with Kubernetes for high availability |
 ## How It Works
 
 Every API endpoint in Fluxify is powered by a **workflow**. The platform runs a lightweight execution engine that:
 
 1. **Matches** an incoming HTTP request to the correct workflow via its Entrypoint block.
-2. **Creates** a per-request [Execution Context](../concepts/context.md) — an isolated environment holding request data, global variables, the scripting VM, DB connections, and the logger.
-3. **Runs** blocks sequentially, passing each block's output as `input` to the next.
+2. **Creates** a per-request [Execution Context](../concepts/context.md) — an isolated environment holding request data, global variables, DB connections, and the logger.
+3. **Runs** the native JavaScript emitted by the DAG compiler, passing each block's output as `input` to the next.
 4. **Handles errors** by routing to a configured Error Handler block if any block fails.
 5. **Enforces** a 4-second execution timeout to prevent runaway workflows.
 6. **Returns** the final block's output as the HTTP response.

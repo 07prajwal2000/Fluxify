@@ -47,13 +47,13 @@ flowchart TB
     A --> V["Valkey"]
     WA1 & WA2 & WB1 & WB2 --> V
 
-    style C fill:#ffe8e8,stroke:#d9534f,color:#1a1a2e
-    style A fill:#f4f2ff,stroke:#5f67ee,color:#1a1a2e
-    style WA1 fill:#eefaf2,stroke:#2b9d5b,color:#1a1a2e
-    style WA2 fill:#eefaf2,stroke:#2b9d5b,color:#1a1a2e
-    style WB1 fill:#e6f2ff,stroke:#3a7bd5,color:#1a1a2e
-    style WB2 fill:#e6f2ff,stroke:#3a7bd5,color:#1a1a2e
-    style PG fill:#fff8e6,stroke:#d9a441,color:#1a1a2e
+    style C fill:#111113,stroke:#EF4444,color:#FAFAFA
+    style A fill:#111113,stroke:#D2FF4D,color:#FAFAFA
+    style WA1 fill:#111113,stroke:#10B981,color:#FAFAFA
+    style WA2 fill:#111113,stroke:#10B981,color:#FAFAFA
+    style WB1 fill:#111113,stroke:#D2FF4D,color:#FAFAFA
+    style WB2 fill:#111113,stroke:#D2FF4D,color:#FAFAFA
+    style PG fill:#111113,stroke:#F59E0B,color:#FAFAFA
 ```
 
 Only the admin container connects to PostgreSQL. Workers receive your routes
