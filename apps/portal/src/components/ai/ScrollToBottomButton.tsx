@@ -13,7 +13,8 @@ export function ScrollToBottomButton({ isVisible, onClick }: Props) {
 		<div className="absolute left-1/2 -top-12 -translate-x-1/2 z-50">
 			<Button
 				isIconOnly
-				className="h-8 w-8 rounded-full shadow-md text-foreground bg-white border border-neutral-200 dark:bg-[var(--surface-secondary)] dark:border-[var(--border)] hover:bg-neutral-100 dark:hover:bg-[var(--border)]"
+				variant="outline"
+				className="h-8 w-8 rounded-full shadow-md text-foreground bg-surface border-border hover:bg-surface-secondary"
 				onPress={onClick}
 				aria-label="Scroll to bottom"
 			>

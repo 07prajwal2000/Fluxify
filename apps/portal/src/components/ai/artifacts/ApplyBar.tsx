@@ -181,7 +181,7 @@ export function RouteApplyBar({
 						variant="primary"
 						isDisabled={isPending}
 						aria-label="Other apply options"
-						className="cursor-pointer rounded-l-none border-l border-black/20 px-2"
+						className="cursor-pointer rounded-l-none border-l border-border px-2"
 					>
 						<TbChevronDown size={16} />
 					</Button>
@@ -189,7 +189,7 @@ export function RouteApplyBar({
 				<PopoverContent className="p-1">
 					<button
 						type="button"
-						className="w-full text-left text-sm px-3 py-2 rounded-md hover:bg-white/10 cursor-pointer"
+						className="w-full text-left text-sm px-3 py-2 rounded-md hover:bg-surface-secondary cursor-pointer"
 						onClick={() => {
 							setOpen(false);
 							void run([subArtifactId]);

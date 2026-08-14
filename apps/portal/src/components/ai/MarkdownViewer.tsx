@@ -32,12 +32,12 @@ export function MarkdownViewer({ content }: MarkdownViewerProps) {
 					ol: ({ children }: any) => <ol className="list-decimal ml-6 mb-3 text-sm text-foreground/80">{children}</ol>,
 					li: ({ children }: any) => <li className="mb-1 text-sm">{children}</li>,
 					blockquote: ({ children }: any) => (
-						<blockquote className="border-l-4 border-white/20 pl-4 italic mb-3">
+						<blockquote className="border-l-4 border-border pl-4 italic mb-3 text-muted">
 							{children}
 						</blockquote>
 					),
 					pre: ({ children }: any) => (
-						<pre className="bg-black/20 p-4 rounded-xl mb-3 overflow-x-auto text-sm">
+						<pre className="bg-surface-secondary border border-border p-4 rounded-xl mb-3 overflow-x-auto text-sm">
 							{children}
 						</pre>
 					),

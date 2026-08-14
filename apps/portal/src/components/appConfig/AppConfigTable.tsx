@@ -2,6 +2,7 @@ import {
 	Button,
 	Checkbox,
 	Chip,
+	DeleteIconButton,
 	Table,
 } from "@fluxify/components";
 import {
@@ -10,7 +11,6 @@ import {
 	TbEdit,
 	TbLock,
 	TbLockOpen,
-	TbTrash,
 } from "react-icons/tb";
 import type { ConfigRow, SortBy } from "./types";
 
@@ -165,14 +165,10 @@ export function AppConfigTable({
 									>
 										<TbEdit size={16} />
 									</Button>
-									<Button
-										isIconOnly
-										variant="ghost"
+									<DeleteIconButton
 										aria-label="Delete config"
 										onPress={() => onDelete(row)}
-									>
-										<TbTrash size={16} />
-									</Button>
+									/>
 								</div>
 							</Table.Cell>
 						</Table.Row>

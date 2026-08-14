@@ -4,10 +4,10 @@ import { TbChevronLeft, TbChevronRight, TbArrowLeft } from "react-icons/tb";
 import { routesQuery } from "@/query/routesQuery";
 
 const METHOD_COLOR: Record<string, string> = {
-	GET: "text-sky-400",
-	POST: "text-emerald-400",
-	PUT: "text-amber-400",
-	DELETE: "text-rose-400",
+	GET: "text-accent",
+	POST: "text-success",
+	PUT: "text-warning",
+	DELETE: "text-danger",
 };
 
 function MethodTag({ method }: { method: string }) {

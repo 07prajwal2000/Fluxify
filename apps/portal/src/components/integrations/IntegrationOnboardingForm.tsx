@@ -145,7 +145,7 @@ export function IntegrationOnboardingForm({ projectId, onSaved }: { projectId: s
 
 	return (
 		<div className="flex flex-col">
-			<nav aria-label="Integration setup steps" className="border-b border-[#1E232F] pb-3">
+			<nav aria-label="Integration setup steps" className="border-b border-border pb-3">
 				<ol className="grid grid-cols-3 gap-2">
 					{([
 						[1, "Category"],
@@ -165,17 +165,17 @@ export function IntegrationOnboardingForm({ projectId, onSaved }: { projectId: s
 										"flex w-full items-center gap-2 rounded-lg px-2 py-1 text-left text-xs font-medium transition-colors",
 										available
 											? current
-												? "text-white"
-												: "text-zinc-400 hover:bg-white/[0.04] hover:text-zinc-200"
-											: "cursor-not-allowed text-zinc-600",
+												? "text-foreground"
+												: "text-muted hover:bg-surface-secondary hover:text-foreground"
+											: "cursor-not-allowed text-muted/50",
 									)}
 								>
 									<span
 										className={cn(
 											"flex size-5 shrink-0 items-center justify-center rounded-full border text-[10px] font-semibold transition-all",
 											complete || current
-												? "border-[#D0F237] bg-[#D0F237] text-black"
-												: "border-[#2B313E] bg-[#141720] text-zinc-500",
+												? "border-accent bg-accent text-accent-foreground"
+												: "border-border bg-surface-secondary text-muted",
 										)}
 									>
 										{complete ? <TbCheck size={12} strokeWidth={3} /> : number}
@@ -192,11 +192,11 @@ export function IntegrationOnboardingForm({ projectId, onSaved }: { projectId: s
 				{step === 1 && (
 					<section aria-labelledby="integration-category-heading">
 						<div>
-							<p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#D0F237]">Step 1 of 3</p>
-							<h2 id="integration-category-heading" className="mt-1 text-lg font-semibold tracking-tight text-white">
+							<p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-accent">Step 1 of 3</p>
+							<h2 id="integration-category-heading" className="mt-1 text-lg font-semibold tracking-tight text-foreground">
 								What would you like to connect?
 							</h2>
-							<p className="mt-0.5 text-xs text-zinc-400">
+							<p className="mt-0.5 text-xs text-muted">
 								Choose a category to see the services available to your project.
 							</p>
 						</div>
@@ -213,25 +213,25 @@ export function IntegrationOnboardingForm({ projectId, onSaved }: { projectId: s
 										className={cn(
 											"group flex items-center gap-3.5 rounded-xl border p-3 text-left transition-all duration-150",
 											isAvailable
-												? "border-[#232836] bg-[#12151D] hover:border-[#D0F237]/60 hover:bg-[#161B26] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D0F237]"
-												: "cursor-not-allowed border-[#1A1D26] bg-[#0E1015]/60 opacity-45",
+												? "border-border bg-surface hover:border-accent hover:bg-surface-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
+												: "cursor-not-allowed border-border/50 bg-surface/50 opacity-45",
 										)}
 									>
 										<span
 											className={cn(
 												"flex size-10 shrink-0 items-center justify-center rounded-lg transition-colors",
 												isAvailable
-													? "bg-[#D0F237]/10 text-[#D0F237] group-hover:bg-[#D0F237] group-hover:text-black"
-													: "bg-white/[0.04] text-zinc-600",
+													? "bg-accent/10 text-accent group-hover:bg-accent group-hover:text-accent-foreground"
+													: "bg-surface-secondary text-muted/50",
 											)}
 										>
 											{detail.icon}
 										</span>
 										<span className="min-w-0 flex-1">
-											<span className="block truncate text-sm font-semibold text-white">
+											<span className="block truncate text-sm font-semibold text-foreground">
 												{humanReadableConnectorNames[item as keyof typeof humanReadableConnectorNames]}
 											</span>
-											<span className="mt-0.5 block truncate text-xs text-zinc-400">
+											<span className="mt-0.5 block truncate text-xs text-muted">
 												{isAvailable ? detail.description : "Coming soon"}
 											</span>
 										</span>
@@ -245,11 +245,11 @@ export function IntegrationOnboardingForm({ projectId, onSaved }: { projectId: s
 				{step === 2 && (
 					<section aria-labelledby="integration-provider-heading">
 						<div>
-							<p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#D0F237]">Step 2 of 3</p>
-							<h2 id="integration-provider-heading" className="mt-1 text-lg font-semibold tracking-tight text-white">
+							<p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-accent">Step 2 of 3</p>
+							<h2 id="integration-provider-heading" className="mt-1 text-lg font-semibold tracking-tight text-foreground">
 								Choose a {groupName.toLowerCase()} provider
 							</h2>
-							<p className="mt-0.5 text-xs text-zinc-400">Select the service you want to configure.</p>
+							<p className="mt-0.5 text-xs text-muted">Select the service you want to configure.</p>
 						</div>
 						<div className="mt-3.5 grid gap-2.5 sm:grid-cols-2">
 							{variants.map((item) => (
@@ -257,12 +257,12 @@ export function IntegrationOnboardingForm({ projectId, onSaved }: { projectId: s
 									key={item}
 									type="button"
 									onClick={() => chooseVariant(item)}
-									className="group flex items-center gap-3.5 rounded-xl border border-[#232836] bg-[#12151D] p-3 text-left transition-all duration-150 hover:border-[#D0F237]/60 hover:bg-[#161B26] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D0F237]"
+									className="group flex items-center gap-3.5 rounded-xl border border-border bg-surface p-3 text-left transition-all duration-150 hover:border-accent hover:bg-surface-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
 								>
-									<span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-white/[0.06] text-zinc-200 transition-colors group-hover:bg-[#D0F237] group-hover:text-black">
+									<span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-surface-secondary text-foreground transition-colors group-hover:bg-accent group-hover:text-accent-foreground">
 										{integrationIcons[item] ?? GROUP_DETAILS[group]?.icon}
 									</span>
-									<span className="truncate text-sm font-semibold text-white">{item}</span>
+									<span className="truncate text-sm font-semibold text-foreground">{item}</span>
 								</button>
 							))}
 						</div>
@@ -273,19 +273,19 @@ export function IntegrationOnboardingForm({ projectId, onSaved }: { projectId: s
 					<section aria-labelledby="integration-configure-heading" className="flex flex-1 flex-col">
 						<div className="flex items-center justify-between">
 							<div>
-								<p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#D0F237]">Step 3 of 3</p>
-								<h2 id="integration-configure-heading" className="mt-1 text-lg font-semibold tracking-tight text-white">
+								<p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-accent">Step 3 of 3</p>
+								<h2 id="integration-configure-heading" className="mt-1 text-lg font-semibold tracking-tight text-foreground">
 									Configure {variant}
 								</h2>
 							</div>
-							<div className="flex items-center gap-2 rounded-lg border border-[#232836] bg-[#141720] px-3 py-1.5 text-xs text-zinc-300">
-								<span className="flex size-4 items-center justify-center text-[#D0F237]">
+							<div className="flex items-center gap-2 rounded-lg border border-border bg-surface-secondary px-3 py-1.5 text-xs text-foreground">
+								<span className="flex size-4 items-center justify-center text-accent">
 									{integrationIcons[variant] ?? GROUP_DETAILS[group]?.icon}
 								</span>
-								<span className="font-medium text-white">{variant}</span>
+								<span className="font-medium text-foreground">{variant}</span>
 							</div>
 						</div>
-						<p className="mt-0.5 text-xs text-zinc-400">Add the connection details and credentials for this service.</p>
+						<p className="mt-0.5 text-xs text-muted">Add the connection details and credentials for this service.</p>
 
 						<div className="mt-4 flex-1">
 							{group === "database" && CRED_PLACEHOLDERS[variant] && (
@@ -325,7 +325,7 @@ export function IntegrationOnboardingForm({ projectId, onSaved }: { projectId: s
 				)}
 			</div>
 
-			<div className="flex items-center justify-between border-t border-[#1E232F] pt-3.5">
+			<div className="flex items-center justify-between border-t border-border pt-3.5">
 				{step > 1 ? (
 					<Button variant="ghost" size="sm" onPress={() => goToStep((step - 1) as Step)}>
 						<TbArrowLeft size={16} /> Back
@@ -342,7 +342,7 @@ export function IntegrationOnboardingForm({ projectId, onSaved }: { projectId: s
 							onPress={testIntegration}
 							className="whitespace-nowrap"
 						>
-							<TbBolt size={14} className="text-[#D0F237]" />
+							<TbBolt size={14} className="text-accent" />
 							<span>Test connection</span>
 						</Button>
 						<Button

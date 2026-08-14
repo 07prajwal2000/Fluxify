@@ -35,7 +35,7 @@ export function HarnessStatusAccordion({ conversationId }: { conversationId: str
 				</div>
 			</button>
 			<div className={`overflow-hidden transition-all duration-300 ease-in-out ${isExpanded ? "max-h-[500px] opacity-100 mt-1" : "max-h-0 opacity-0"}`}>
-				<div className="flex flex-col gap-3 p-4 bg-white/5 rounded-xl border border-white/10 mx-2">
+				<div className="flex flex-col gap-3 p-4 bg-surface-secondary rounded-xl border border-border mx-2">
 					{harnessSteps.map(step => {
 						const isCompleted = step.nodeStatus === "ended";
 						const isRunning = step.nodeStatus === "started" || step.nodeStatus === "running";

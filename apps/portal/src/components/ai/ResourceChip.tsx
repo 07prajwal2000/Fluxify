@@ -83,10 +83,10 @@ export function ResourceChip({ type, identifier, name, data }: ResourceChipProps
                     <span>{name || type.replace("_", " ")}</span>
                 </span>
             </PopoverTrigger>
-            <PopoverContent className="w-64 rounded-xl border border-white/10 bg-[#1e1e20] p-3 shadow-xl">
+            <PopoverContent className="w-64 rounded-xl border border-border bg-overlay p-3 shadow-xl">
                 <div className="flex flex-col gap-2">
                     <div className="flex items-center gap-2">
-                        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[var(--accent)]/10 text-[var(--accent)]">
+                        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent/10 text-accent">
                             {CustomIconNode ? (
                                 <span className="[&>svg]:w-4 [&>svg]:h-4 inline-flex items-center">
                                     {CustomIconNode}
@@ -97,16 +97,16 @@ export function ResourceChip({ type, identifier, name, data }: ResourceChipProps
                         </div>
                         <div className="flex flex-col">
                             <span className="text-sm font-medium text-foreground">{name || type.replace("_", " ")}</span>
-                            <span className="text-[10px] uppercase tracking-wider text-muted-foreground">{type.replace("_", " ")}</span>
+                            <span className="text-[10px] uppercase tracking-wider text-muted">{type.replace("_", " ")}</span>
                         </div>
                     </div>
                     {parsedData?.description && (
-                        <p className="text-xs text-muted-foreground line-clamp-2 mt-1">
+                        <p className="text-xs text-muted line-clamp-2 mt-1">
                             {parsedData.description}
                         </p>
                     )}
                     {targetUrl && (
-                        <div className="mt-2 flex justify-end gap-2 border-t border-white/5 pt-2">
+                        <div className="mt-2 flex justify-end gap-2 border-t border-border pt-2">
                             <Button 
                                 size="sm" 
                                 variant="ghost" 
@@ -118,7 +118,8 @@ export function ResourceChip({ type, identifier, name, data }: ResourceChipProps
                             <Link to={targetUrl} target="_blank">
                                 <Button 
                                     size="sm" 
-                                    className="h-7 bg-[var(--accent)] text-black hover:bg-[var(--accent)]/90 text-xs px-3 font-medium flex items-center gap-1"
+                                    variant="primary"
+                                    className="h-7 text-xs px-3 font-medium flex items-center gap-1"
                                     onPress={() => setIsOpen(false)}
                                 >
                                     <span>Open Resource</span>

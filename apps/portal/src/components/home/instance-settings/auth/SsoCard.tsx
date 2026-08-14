@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Button, Input, Modal, Tabs, toast, cn } from "@fluxify/components";
+import { Button, CloseButton, Input, Modal, Tabs, toast, cn } from "@fluxify/components";
 import { instanceSettingsQuery } from "@/query/instanceSettingsQuery";
 import { showErrorNotification } from "@/lib/errorNotifier";
 import {
@@ -173,8 +173,8 @@ export function SsoCard({ initialType, initial }: { initialType: AuthType; initi
 									className={cn(
 										"flex items-center gap-2 rounded-sm px-3 py-1 text-sm font-medium transition-colors",
 										provider === "oidc"
-											? "bg-accent text-black shadow-sm border border-border/50"
-											: "text-muted-foreground hover:text-foreground"
+											? "bg-accent text-accent-foreground shadow-sm border border-border/50"
+											: "text-muted hover:text-foreground"
 									)}
 								>
 									<FiKey className="h-4 w-4" />
@@ -186,8 +186,8 @@ export function SsoCard({ initialType, initial }: { initialType: AuthType; initi
 									className={cn(
 										"flex items-center gap-2 rounded-sm px-3 py-1 text-sm font-medium transition-colors",
 										provider === "saml"
-											? "bg-accent text-black shadow-sm border border-border/50"
-											: "text-muted-foreground hover:text-foreground"
+											? "bg-accent text-accent-foreground shadow-sm border border-border/50"
+											: "text-muted hover:text-foreground"
 									)}
 								>
 									<FiShield className="h-4 w-4" />
@@ -199,11 +199,11 @@ export function SsoCard({ initialType, initial }: { initialType: AuthType; initi
 						{/* Shared Fields */}
 						<div className="grid grid-cols-2 gap-5">
 							<div className="flex flex-col gap-1.5">
-								<label className="text-[10px] font-bold tracking-widest text-muted-foreground uppercase">
+								<label className="text-[10px] font-bold tracking-widest text-muted uppercase">
 									Issuer URL
 								</label>
 								<div className="relative flex items-center">
-									<FiGlobe className="absolute left-2.5 text-muted-foreground h-3.5 w-3.5" />
+									<FiGlobe className="absolute left-2.5 text-muted h-3.5 w-3.5" />
 									<Input
 										value={issuer}
 										onChange={(e: React.ChangeEvent<HTMLInputElement>) => setIssuer(e.target.value)}
@@ -213,11 +213,11 @@ export function SsoCard({ initialType, initial }: { initialType: AuthType; initi
 								</div>
 							</div>
 							<div className="flex flex-col gap-1.5">
-								<label className="text-[10px] font-bold tracking-widest text-muted-foreground uppercase">
+								<label className="text-[10px] font-bold tracking-widest text-muted uppercase">
 									Email Domain
 								</label>
 								<div className="relative flex items-center">
-									<FiAtSign className="absolute left-2.5 text-muted-foreground h-3.5 w-3.5" />
+									<FiAtSign className="absolute left-2.5 text-muted h-3.5 w-3.5" />
 									<Input
 										value={domain}
 										onChange={(e: React.ChangeEvent<HTMLInputElement>) => setDomain(e.target.value)}
@@ -232,7 +232,7 @@ export function SsoCard({ initialType, initial }: { initialType: AuthType; initi
 						{provider === "oidc" && (
 							<div className="grid grid-cols-2 gap-5">
 								<div className="flex flex-col gap-1.5">
-									<label className="text-[10px] font-bold tracking-widest text-muted-foreground uppercase">
+									<label className="text-[10px] font-bold tracking-widest text-muted uppercase">
 										Client ID
 									</label>
 									<Input
@@ -244,24 +244,24 @@ export function SsoCard({ initialType, initial }: { initialType: AuthType; initi
 								</div>
 								<div className="flex flex-col gap-1.5">
 									<div className="flex items-center gap-2">
-										<label className="text-[10px] font-bold tracking-widest text-muted-foreground uppercase">
+										<label className="text-[10px] font-bold tracking-widest text-muted uppercase">
 											Client Secret
 										</label>
-										<span className="rounded-full border border-[#d4ff00]/30 bg-[#d4ff00]/10 px-1.5 py-0 text-[9px] font-medium text-[#d4ff00]">
+										<span className="rounded-full border border-accent/30 bg-accent/10 px-1.5 py-0 text-[9px] font-medium text-accent">
 											Set • Write-only
 										</span>
 									</div>
 									<div className="relative flex items-center">
-										<FiLock className="absolute left-2.5 text-muted-foreground h-3.5 w-3.5" />
+										<FiLock className="absolute left-2.5 text-muted h-3.5 w-3.5" />
 										<Input
 											type="password"
 											value={clientSecret}
 											onChange={(e: React.ChangeEvent<HTMLInputElement>) => setClientSecret(e.target.value)}
 											placeholder="Re-enter to rotate ••••••"
-											className="pl-8 font-mono text-xs w-full placeholder:text-muted-foreground/50"
+											className="pl-8 font-mono text-xs w-full placeholder:text-muted/50"
 										/>
 									</div>
-									<p className="text-[10px] text-muted-foreground mt-0.5">
+									<p className="text-[10px] text-muted mt-0.5">
 										Leave blank to keep existing secret.
 									</p>
 								</div>
@@ -272,7 +272,7 @@ export function SsoCard({ initialType, initial }: { initialType: AuthType; initi
 						{provider === "saml" && (
 							<div className="flex flex-col gap-5">
 								<div className="flex flex-col gap-1.5">
-									<label className="text-[10px] font-bold tracking-widest text-muted-foreground uppercase">
+									<label className="text-[10px] font-bold tracking-widest text-muted uppercase">
 										Entry Point URL
 									</label>
 									<Input
@@ -284,10 +284,10 @@ export function SsoCard({ initialType, initial }: { initialType: AuthType; initi
 								</div>
 								<div className="flex flex-col gap-1.5">
 									<div className="flex items-center gap-2">
-										<label className="text-[10px] font-bold tracking-widest text-muted-foreground uppercase">
+										<label className="text-[10px] font-bold tracking-widest text-muted uppercase">
 											SAML Certificate
 										</label>
-										<span className="rounded-full border border-[#d4ff00]/30 bg-[#d4ff00]/10 px-1.5 py-0 text-[9px] font-medium text-[#d4ff00]">
+										<span className="rounded-full border border-accent/30 bg-accent/10 px-1.5 py-0 text-[9px] font-medium text-accent">
 											Set • Write-only
 										</span>
 									</div>
@@ -295,7 +295,7 @@ export function SsoCard({ initialType, initial }: { initialType: AuthType; initi
 										value={samlCert}
 										onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setSamlCert(e.target.value)}
 										placeholder="Re-enter to rotate — BEGIN CERTIFICATE"
-										className="flex min-h-[100px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-xs shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 font-mono placeholder:text-muted-foreground/50"
+										className="flex min-h-[100px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-xs shadow-sm placeholder:text-muted focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 font-mono placeholder:text-muted/50"
 									/>
 								</div>
 							</div>
@@ -306,13 +306,14 @@ export function SsoCard({ initialType, initial }: { initialType: AuthType; initi
 						<Modal.Backdrop>
 							<Modal.Container placement="center" scroll="inside" size="lg">
 								<Modal.Dialog className="w-full !max-w-5xl max-h-[85vh]">
-									<Modal.Header>
+									<Modal.Header className="flex flex-row items-start justify-between">
 										<div>
 											<Modal.Heading>Configuration Guide</Modal.Heading>
-											<p className="mt-1 text-sm text-muted-foreground">
+											<p className="mt-1 text-sm text-muted">
 												Use these values when creating an application in your identity provider.
 											</p>
 										</div>
+										<CloseButton />
 									</Modal.Header>
 									<Modal.Body>
 										<Tabs
@@ -334,33 +335,33 @@ export function SsoCard({ initialType, initial }: { initialType: AuthType; initi
 
 											<Tabs.Panel id="oidc" className="pt-5">
 												<div className="flex flex-col gap-5">
-													<div className="rounded-lg border border-border border-l-2 border-l-primary bg-background p-4">
+													<div className="rounded-lg border border-border border-l-2 border-l-accent bg-background p-4">
 														<h4 className="font-semibold text-foreground">1. Create an OIDC application</h4>
-														<p className="mt-1 text-sm text-muted-foreground">Choose a web application in your IdP and enable the <code className="rounded bg-background px-1 py-0.5 text-xs text-foreground">openid</code>, <code className="rounded bg-background px-1 py-0.5 text-xs text-foreground">profile</code>, and <code className="rounded bg-background px-1 py-0.5 text-xs text-foreground">email</code> scopes.</p>
+														<p className="mt-1 text-sm text-muted">Choose a web application in your IdP and enable the <code className="rounded bg-background px-1 py-0.5 text-xs text-foreground">openid</code>, <code className="rounded bg-background px-1 py-0.5 text-xs text-foreground">profile</code>, and <code className="rounded bg-background px-1 py-0.5 text-xs text-foreground">email</code> scopes.</p>
 													</div>
 													<div className="grid gap-3 md:grid-cols-2">
 														<CopyCodeBlock label="Redirect URI" description="Paste into your IdP callback or redirect URI field." value={oidcCallbackUrl} copied={copiedGuideValue === "OIDC redirect URI"} onCopy={() => copyGuideValue("OIDC redirect URI", oidcCallbackUrl)} />
 														<CopyCodeBlock label="Required scopes" description="Enable these so Fluxify receives the user email." value="openid profile email" copied={copiedGuideValue === "OIDC scopes"} onCopy={() => copyGuideValue("OIDC scopes", "openid profile email")} />
 													</div>
 													<div className="grid gap-3 md:grid-cols-2">
-														<div className="rounded-lg border border-border p-4"><h4 className="font-semibold text-foreground">2. Copy IdP credentials</h4><p className="mt-1 text-sm text-muted-foreground">Put the IdP issuer in <span className="font-medium text-foreground">Issuer URL</span>, then enter its client ID and client secret in Fluxify.</p></div>
-														<div className="rounded-lg border border-border p-4"><h4 className="font-semibold text-foreground">3. Limit access</h4><p className="mt-1 text-sm text-muted-foreground">Enter your organisation email domain, save, then test with a pre-provisioned Fluxify user.</p></div>
+														<div className="rounded-lg border border-border p-4"><h4 className="font-semibold text-foreground">2. Copy IdP credentials</h4><p className="mt-1 text-sm text-muted">Put the IdP issuer in <span className="font-medium text-foreground">Issuer URL</span>, then enter its client ID and client secret in Fluxify.</p></div>
+														<div className="rounded-lg border border-border p-4"><h4 className="font-semibold text-foreground">3. Limit access</h4><p className="mt-1 text-sm text-muted">Enter your organisation email domain, save, then test with a pre-provisioned Fluxify user.</p></div>
 													</div>
 												</div>
 											</Tabs.Panel>
 
 											<Tabs.Panel id="saml" className="pt-5">
 												<div className="flex flex-col gap-5">
-													<div className="rounded-lg border border-border border-l-2 border-l-primary bg-background p-4">
+													<div className="rounded-lg border border-border border-l-2 border-l-accent bg-background p-4">
 														<h4 className="font-semibold text-foreground">1. Create a SAML application</h4>
-														<p className="mt-1 text-sm text-muted-foreground">Create the application manually in your IdP, then use the ACS or Reply URL below.</p>
+														<p className="mt-1 text-sm text-muted">Create the application manually in your IdP, then use the ACS or Reply URL below.</p>
 													</div>
 													<div className="max-w-xl">
 														<CopyCodeBlock label="ACS / Reply URL" description="Use this in the ACS or reply URL field for manual setup." value={samlAcsUrl} copied={copiedGuideValue === "SAML ACS URL"} onCopy={() => copyGuideValue("SAML ACS URL", samlAcsUrl)} />
 													</div>
 													<div className="grid gap-3 md:grid-cols-2">
-														<div className="rounded-lg border border-border p-4"><h4 className="font-semibold text-foreground">2. Copy IdP details</h4><p className="mt-1 text-sm text-muted-foreground">Put the IdP entity ID in <span className="font-medium text-foreground">Issuer URL</span>, its SSO login URL in <span className="font-medium text-foreground">Entry Point URL</span>, and its signing certificate in <span className="font-medium text-foreground">SAML Certificate</span>.</p></div>
-														<div className="rounded-lg border border-border p-4"><h4 className="font-semibold text-foreground">3. Send email and test</h4><p className="mt-1 text-sm text-muted-foreground">Map the user email in the SAML assertion, enter your organisation email domain, and test with a pre-provisioned user.</p></div>
+														<div className="rounded-lg border border-border p-4"><h4 className="font-semibold text-foreground">2. Copy IdP details</h4><p className="mt-1 text-sm text-muted">Put the IdP entity ID in <span className="font-medium text-foreground">Issuer URL</span>, its SSO login URL in <span className="font-medium text-foreground">Entry Point URL</span>, and its signing certificate in <span className="font-medium text-foreground">SAML Certificate</span>.</p></div>
+														<div className="rounded-lg border border-border p-4"><h4 className="font-semibold text-foreground">3. Send email and test</h4><p className="mt-1 text-sm text-muted">Map the user email in the SAML assertion, enter your organisation email domain, and test with a pre-provisioned user.</p></div>
 													</div>
 												</div>
 											</Tabs.Panel>
@@ -383,7 +384,7 @@ export function SsoCard({ initialType, initial }: { initialType: AuthType; initi
 					type="submit"
 					variant="primary"
 					isPending={patchAuth.isPending}
-					className="bg-[#d4ff00] text-black text-xs h-8 px-4 font-semibold hover:bg-[#d4ff00]/90"
+					className="text-xs h-8 px-4 font-semibold"
 				>
 					Save changes
 				</Button>

@@ -23,8 +23,8 @@ export function ObservabilityForm({
 	return (
 		<div className="flex flex-col gap-3.5">
 			<div className="flex flex-col gap-1">
-				<label className="text-xs font-medium text-zinc-300">
-					Integration Name <span className="text-[#D0F237]">*</span>
+				<label className="text-xs font-medium text-foreground">
+					Integration Name <span className="text-danger">*</span>
 				</label>
 				<Input value={name} onChange={(e) => onName(e.currentTarget.value)} placeholder={namePlaceholder} />
 			</div>
@@ -38,15 +38,15 @@ export function ObservabilityForm({
 				placeholder={baseUrlPlaceholder}
 			/>
 
-			<div className="flex rounded-lg border border-[#232836] bg-[#141720] p-1">
+			<div className="flex rounded-lg border border-border bg-background-secondary p-1">
 				<button
 					type="button"
 					onClick={() => setField("credentials", "")}
 					className={cn(
 						"flex-1 rounded-md py-1 text-xs font-medium transition-all duration-150",
 						!isCredentials
-							? "bg-[#232938] text-white shadow-sm"
-							: "text-zinc-400 hover:text-zinc-200",
+							? "bg-surface text-foreground shadow-sm"
+							: "text-muted hover:text-foreground",
 					)}
 				>
 					Base64 Encoded
@@ -57,8 +57,8 @@ export function ObservabilityForm({
 					className={cn(
 						"flex-1 rounded-md py-1 text-xs font-medium transition-all duration-150",
 						isCredentials
-							? "bg-[#232938] text-white shadow-sm"
-							: "text-zinc-400 hover:text-zinc-200",
+							? "bg-surface text-foreground shadow-sm"
+							: "text-muted hover:text-foreground",
 					)}
 				>
 					Credentials

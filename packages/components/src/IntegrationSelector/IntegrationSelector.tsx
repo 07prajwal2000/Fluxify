@@ -25,8 +25,8 @@ import {
 	TbPlus,
 	TbRefresh,
 	TbSearch,
-	TbX,
 } from "react-icons/tb";
+import { CloseButton } from "../CloseButton";
 import { integrationIcons } from "./integrationIcons";
 import type {
 	Integration,
@@ -155,15 +155,7 @@ function PickerModal({
 										Choose Integration
 									</Modal.Heading>
 								</div>
-								<Button
-									isIconOnly
-									variant="ghost"
-									size="sm"
-									onPress={onClose}
-									aria-label="Close"
-								>
-									<TbX size={16} />
-								</Button>
+								<CloseButton onPress={onClose} />
 							</div>
 						</Modal.Header>
 
@@ -486,15 +478,11 @@ export function IntegrationSelector({
 
 								{/* Clear */}
 								{selectedIntegration && (
-									<Button
-										variant="ghost"
-										size="sm"
+									<CloseButton
 										aria-label="Clear Integration"
 										onPress={handleClear}
 										className={iconBtnClass}
-									>
-										<TbX size={18} />
-									</Button>
+									/>
 								)}
 
 								{/* Divider — only when action buttons are showing */}

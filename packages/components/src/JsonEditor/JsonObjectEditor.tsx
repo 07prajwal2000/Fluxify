@@ -1,6 +1,7 @@
 import { Button, InputGroup, TextField } from "@heroui/react";
 import { useEffect, useState } from "react";
-import { TbPlus, TbTrash } from "react-icons/tb";
+import { TbPlus } from "react-icons/tb";
+import { DeleteIconButton } from "../DeleteButton";
 import type { JsonObject, JsonValue, JsonValueType } from "./types";
 import { JsonCollectionShell } from "./JsonCollectionShell";
 import { JsonTypeSelect } from "./JsonTypeSelect";
@@ -119,20 +120,16 @@ export function JsonObjectEditor({
 				const valueType = getJsonValueType(entryValue);
 				const isCollection = valueType === "object" || valueType === "array";
 				const deleteButton = !isReadOnly ? (
-					<Button
+					<DeleteIconButton
 						aria-label={`Delete ${key}`}
 						className="self-center"
-						isIconOnly
 						onPress={() => {
 							const next = { ...value };
 							delete next[key];
 							onChange(next);
 						}}
 						size="sm"
-						variant="ghost"
-					>
-						<TbTrash aria-hidden="true" className="size-4 text-danger" />
-					</Button>
+					/>
 				) : (
 					<span aria-hidden="true" className="size-8" />
 				);

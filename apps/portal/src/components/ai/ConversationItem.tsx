@@ -132,9 +132,14 @@ export function ConversationItem({
 								<TbEdit size={16} />
 								<Label>Rename</Label>
 							</Dropdown.Item>
-							<Dropdown.Item id="delete" variant="danger" textValue="Delete">
-								<TbTrash size={16} />
-								<Label>Delete</Label>
+							<Dropdown.Item
+								id="delete"
+								variant="danger"
+								textValue="Delete"
+								className="text-danger hover:bg-danger/10 focus:bg-danger/10 focus:text-danger"
+							>
+								<TbTrash size={16} className="text-danger" />
+								<Label className="text-danger">Delete</Label>
 							</Dropdown.Item>
 						</Dropdown.Menu>
 					</Dropdown.Popover>

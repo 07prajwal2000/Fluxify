@@ -33,10 +33,10 @@ export function ExperimentalSettings({ projectId }: { projectId: string }) {
 				</div>
 			) : (
 				<div className="flex flex-col gap-4">
-					<div className="flex items-center justify-between rounded-lg border border-[#161820] bg-white/[0.02] p-4">
+					<div className="flex items-center justify-between rounded-lg border border-border bg-surface-secondary p-4">
 						<div className="flex flex-col gap-1">
-							<h3 className="font-medium text-white">Worker Timeouts</h3>
-							<p className="text-sm text-zinc-400">Enable experimental execution worker timeouts to prevent long-running tasks from hanging.</p>
+							<h3 className="font-medium text-foreground">Worker Timeouts</h3>
+							<p className="text-sm text-muted">Enable experimental execution worker timeouts to prevent long-running tasks from hanging.</p>
 						</div>
 						<Switch isSelected={timeoutsEnabled} onChange={(e: any) => handleToggle(e.target.checked)} />
 					</div>

@@ -246,9 +246,9 @@ export function PromptEditor({
     };
 
 	return (
-		<div className={`relative rounded-2xl border border-white/10 bg-[#161618] p-4 shadow-2xl transition-colors focus-within:border-[#ccff00]/50 ${isDisabled ? 'opacity-50 pointer-events-none' : ''}`}>
+		<div className={`relative rounded-2xl border border-border bg-surface-secondary p-4 shadow-2xl transition-colors focus-within:border-accent ${isDisabled ? 'opacity-50 pointer-events-none' : ''}`}>
 			{popoverOpen && (
-				<div ref={popoverRef} className="absolute bottom-[calc(100%+8px)] left-0 w-full rounded-xl border border-white/10 bg-[#1e1e20] p-2 shadow-xl z-50">
+				<div ref={popoverRef} className="absolute bottom-[calc(100%+8px)] left-0 w-full rounded-xl border border-border bg-overlay p-2 shadow-xl z-50">
 					<div className="w-full">
 						<div className="flex items-center gap-3">
 							<Input 
@@ -283,7 +283,7 @@ export function PromptEditor({
                                 }}
 								placeholder="Search resources..." 
 								autoFocus
-								className="w-64 bg-black/20 hover:bg-black/30 focus-within:ring-1 focus-within:ring-[var(--accent)] border-none rounded-lg h-9 min-h-9 px-3 text-sm text-foreground placeholder:text-muted"
+								className="w-64 bg-surface hover:bg-surface-secondary focus-within:ring-1 focus-within:ring-focus border-border rounded-lg h-9 min-h-9 px-3 text-sm text-foreground placeholder:text-muted"
 							/>
 							{isSearchLoading && (
 								<Spinner size="sm" color="current" />
@@ -304,9 +304,9 @@ export function PromptEditor({
                                                 closePopover();
                                                 setSearchQuery("");
                                             }}
-											className={`flex items-center gap-3 rounded-lg p-2 text-left hover:bg-white/5 ${i === selectedIndex ? "bg-white/10" : ""}`}
+											className={`flex items-center gap-3 rounded-lg p-2 text-left hover:bg-surface-secondary ${i === selectedIndex ? "bg-surface-secondary" : ""}`}
 										>
-											<div className="flex-shrink-0 text-muted-foreground">
+											<div className="flex-shrink-0 text-muted">
 												{res.type === "route" ? <TbStack2 size={16} /> :
 												 res.type === "app_config" ? <TbSquareKey size={16} /> :
 												 res.type === "integration" ? (
@@ -321,7 +321,7 @@ export function PromptEditor({
 											<div className="flex flex-col">
 												<span className="text-sm font-medium text-foreground">{res.name}</span>
 												{res.description && (
-													<span className="text-xs text-muted-foreground line-clamp-1">{res.description}</span>
+													<span className="text-xs text-muted line-clamp-1">{res.description}</span>
 												)}
 											</div>
 										</button>
@@ -361,13 +361,13 @@ export function PromptEditor({
             </LexicalComposer>
 
 			<div className="mt-2 flex items-end justify-between gap-3">
-				<div className="flex items-center gap-1 text-muted-foreground">
+				<div className="flex items-center gap-1 text-muted">
 					<Button
 						ref={triggerRef}
 						isIconOnly
 						size="sm"
 						variant="ghost"
-						className="rounded-full hover:bg-white/5 hover:text-foreground data-[pressed]:bg-white/10 data-[pressed]:text-foreground"
+						className="rounded-full hover:bg-surface-secondary hover:text-foreground"
 						aria-label="Insert resource"
 						onPress={() => {
 							if (popoverOpen) {
@@ -383,7 +383,7 @@ export function PromptEditor({
 						isIconOnly
 						size="sm"
 						variant="ghost"
-						className="rounded-full hover:bg-white/5 hover:text-foreground"
+						className="rounded-full hover:bg-surface-secondary hover:text-foreground"
 						aria-label="Prompt syntax help"
 						onPress={() => setHelpOpen(true)}
 					>
@@ -403,7 +403,8 @@ export function PromptEditor({
 					{isRunning ? (
 						<Button
 							isIconOnly
-							className="rounded-xl bg-red-500 text-white hover:bg-red-600 h-8 w-8"
+							variant="danger"
+							className="rounded-xl h-8 w-8"
 							aria-label="Stop"
 							onPress={onStop}
 						>
@@ -412,7 +413,8 @@ export function PromptEditor({
 					) : (
 						<Button
 							isIconOnly
-							className="rounded-xl bg-[#ccff00] text-black hover:bg-[#b3e600] disabled:opacity-50 disabled:bg-[#ccff00]/50 h-8 w-8"
+							variant="primary"
+							className="rounded-xl h-8 w-8"
 							aria-label="Send"
 							isDisabled={!canSend}
 							isPending={isPending || connStatus === "testing"}

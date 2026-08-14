@@ -24,21 +24,21 @@ export function RoleSelector({
 					onClick={() => onRoleSelect(role.id)}
 					className={`relative flex flex-col items-start gap-1 rounded-xl border p-3 text-left transition-colors ${
 						selectedRole === role.id
-							? "border-[#ccff00] bg-white/[0.02]"
-							: "border-[#1e2029] bg-transparent hover:bg-white/[0.02]"
+							? "border-accent bg-accent/5"
+							: "border-border bg-transparent hover:bg-surface-secondary"
 					}`}
 				>
 					<div className="flex w-full items-center justify-between">
 						<span
 							className={`text-sm font-medium ${
-								selectedRole === role.id ? "text-foreground" : "text-muted-foreground"
+								selectedRole === role.id ? "text-foreground font-semibold" : "text-muted"
 							}`}
 						>
 							{role.title}
 						</span>
-						{selectedRole === role.id && <TbCheck className="text-[#ccff00]" size={16} />}
+						{selectedRole === role.id && <TbCheck className="text-accent" size={16} />}
 					</div>
-					<span className="text-xs text-muted-foreground">{role.description}</span>
+					<span className="text-xs text-muted">{role.description}</span>
 				</button>
 			))}
 		</div>

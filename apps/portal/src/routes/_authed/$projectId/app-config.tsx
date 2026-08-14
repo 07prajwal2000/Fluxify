@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
-import { Button, Input, ListBox, Select, Spinner, TextField, toast } from "@fluxify/components";
+import { Button, DeleteButton, Input, ListBox, Select, Spinner, TextField, toast } from "@fluxify/components";
 import type { Key } from "@fluxify/components";
-import { TbChevronDown, TbSearch, TbTrash } from "react-icons/tb";
+import { TbChevronDown, TbSearch } from "react-icons/tb";
 import { appConfigQuery } from "@/query/appConfigQuery";
 import { showErrorNotification } from "@/lib/errorNotifier";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
@@ -78,12 +78,11 @@ function AppConfigPage() {
 				</div>
 				<div className="flex items-center gap-2">
 					{selectedIds.size > 0 && (
-						<Button
-							variant="danger"
+						<DeleteButton
 							onPress={() => setPendingBulkDelete(true)}
 						>
-							<TbTrash size={16} /> Delete ({selectedIds.size})
-						</Button>
+							Delete ({selectedIds.size})
+						</DeleteButton>
 					)}
 					<CreateConfigButton projectId={projectId} />
 				</div>

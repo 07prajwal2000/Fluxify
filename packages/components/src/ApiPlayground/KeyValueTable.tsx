@@ -1,5 +1,6 @@
-import { TbPlus, TbTrash } from "react-icons/tb";
+import { TbPlus } from "react-icons/tb";
 import { Button, Input } from "@heroui/react";
+import { DeleteIconButton } from "../DeleteButton";
 import type { ApiKeyValue } from "./types";
 
 type KeyValueTableProps = {
@@ -24,7 +25,7 @@ export function KeyValueTable({ rows, onChange, onAdd, addLabel, readOnlyKeys }:
 				<div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_32px] gap-2" key={row.id}>
 					<Input aria-label={`${row.key || "Parameter"} key`} readOnly={readOnlyKeys} value={row.key} onChange={(event) => update(row.id, "key", event.target.value)} className="h-8 min-w-0 font-mono text-xs" />
 					<Input aria-label={`${row.key || "Parameter"} value`} value={row.value} onChange={(event) => update(row.id, "value", event.target.value)} className="h-8 min-w-0 font-mono text-xs" />
-					{!row.required ? <Button aria-label={`Remove ${row.key || "row"}`} isIconOnly size="sm" variant="ghost" onPress={() => onChange(rows.filter((candidate) => candidate.id !== row.id))}><TbTrash size={15} /></Button> : <span />}
+					{!row.required ? <DeleteIconButton aria-label={`Remove ${row.key || "row"}`} size="sm" iconSize={15} onPress={() => onChange(rows.filter((candidate) => candidate.id !== row.id))} /> : <span />}
 				</div>
 			))}
 			{onAdd && <Button size="sm" variant="secondary" onPress={onAdd}><TbPlus size={14} />{addLabel}</Button>}

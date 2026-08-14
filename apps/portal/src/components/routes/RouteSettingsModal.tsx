@@ -3,6 +3,7 @@ import {
 	Alert,
 	Button,
 	Chip,
+	CloseButton,
 	Modal,
 	Input,
 	Label,
@@ -225,10 +226,9 @@ function RouteSettingsForm({
 						{method} {path}
 					</p>
 				</div>
-				{/* the trigger renders its own X; a child would sit inside its chrome */}
-				<Modal.CloseTrigger
+				<CloseButton
 					aria-label="Close route settings"
-					className="ml-auto rounded-md bg-transparent p-1.5 text-muted transition-colors hover:bg-white/[0.06] hover:text-foreground"
+					className="ml-auto"
 				/>
 			</Modal.Header>
 

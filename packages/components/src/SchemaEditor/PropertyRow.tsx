@@ -6,8 +6,9 @@ import {
 	Tooltip,
 } from "@heroui/react";
 import { IoLogoJavascript } from "react-icons/io5";
-import { TbChevronRight, TbSettings, TbTrash } from "react-icons/tb";
+import { TbChevronRight, TbSettings } from "react-icons/tb";
 import { Checkbox } from "../Checkbox";
+import { DeleteIconButton } from "../DeleteButton";
 import { CONTAINER_TYPES } from "./constants";
 import { useSchemaEditorContext } from "./context";
 import { DataTypeSelect } from "./DataTypeSelect";
@@ -130,15 +131,11 @@ export function PropertyRow({
 				)}
 
 				{!isReadOnly && !lockKeys && (
-					<Button
+					<DeleteIconButton
 						aria-label={`Remove ${property.key || "property"}`}
-						isIconOnly
 						onPress={() => removeProperty(path)}
 						size="sm"
-						variant="ghost"
-					>
-						<TbTrash className="size-4 text-danger" />
-					</Button>
+					/>
 				)}
 			</div>
 		</div>

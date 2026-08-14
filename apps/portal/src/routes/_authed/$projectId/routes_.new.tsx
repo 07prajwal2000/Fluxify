@@ -155,13 +155,13 @@ function CreateRoutePage() {
 				</Button>
 				<div>
 					<h1 className="text-xl font-semibold tracking-tight">Create a route</h1>
-					<p className="text-xs text-zinc-400">
+					<p className="text-xs text-muted">
 						Define the endpoint and how incoming requests are validated.
 					</p>
 				</div>
 			</div>
 
-			<nav aria-label="Route setup steps" className="border-b border-[#1E232F] pb-3">
+			<nav aria-label="Route setup steps" className="border-b border-border pb-3">
 				<ol className="flex flex-wrap gap-2">
 					{steps.map((item, index) => {
 						const reachable = index === 0 || basicsValid;
@@ -177,17 +177,17 @@ function CreateRoutePage() {
 										"flex w-full items-center gap-2 rounded-lg px-2 py-1 text-left text-xs font-medium transition-colors",
 										reachable
 											? index === current
-												? "text-white"
-												: "text-zinc-400 hover:bg-white/[0.04] hover:text-zinc-200"
-											: "cursor-not-allowed text-zinc-600",
+												? "text-foreground"
+												: "text-muted hover:bg-surface-secondary hover:text-foreground"
+											: "cursor-not-allowed text-muted/50",
 									)}
 								>
 									<span
 										className={cn(
 											"flex size-5 shrink-0 items-center justify-center rounded-full border text-[10px] font-semibold transition-all",
 											complete || index === current
-												? "border-[#D0F237] bg-[#D0F237] text-black"
-												: "border-[#2B313E] bg-[#141720] text-zinc-500",
+												? "border-accent bg-accent text-accent-foreground"
+												: "border-border bg-surface-secondary text-muted",
 										)}
 									>
 										{complete ? <TbCheck size={12} strokeWidth={3} /> : index + 1}
@@ -246,7 +246,7 @@ function CreateRoutePage() {
 							>
 								<Label>Path</Label>
 								<Input placeholder="/users/:id" className="font-mono" />
-								<p className="text-xs text-zinc-500">
+								<p className="text-xs text-muted">
 									Letters, digits, <code className="font-mono">-</code>,{" "}
 									<code className="font-mono">/</code> and{" "}
 									<code className="font-mono">:param</code> segments.
@@ -254,12 +254,12 @@ function CreateRoutePage() {
 							</TextField>
 
 							{pathParams.length > 0 && (
-								<div className="flex flex-wrap items-center gap-2 text-xs text-zinc-400">
+								<div className="flex flex-wrap items-center gap-2 text-xs text-muted">
 									Path parameters:
 									{pathParams.map((param) => (
 										<span
 											key={param}
-											className="rounded-full border border-[#232836] bg-[#12151D] px-2 py-0.5 font-mono text-[11px] text-[#D0F237]"
+											className="rounded-full border border-border bg-surface-secondary px-2 py-0.5 font-mono text-[11px] text-accent"
 										>
 											{param}
 										</span>
@@ -315,7 +315,7 @@ function CreateRoutePage() {
 
 					{currentKey === "review" && (
 						<div className="flex flex-col gap-5">
-							<dl className="grid gap-px overflow-hidden rounded-xl border border-[#232836] bg-[#232836] sm:grid-cols-2">
+							<dl className="grid gap-px overflow-hidden rounded-xl border border-border bg-border sm:grid-cols-2">
 								<SummaryItem label="Name" value={name} />
 								<SummaryItem label="Endpoint" value={`${method} ${path}`} mono />
 								<SummaryItem
@@ -357,7 +357,7 @@ function CreateRoutePage() {
 								>
 									<Label>Timeout (seconds)</Label>
 									<Input type="number" min={30} />
-									<p className="text-xs text-zinc-500">
+									<p className="text-xs text-muted">
 										Minimum 30 seconds. Requests running longer are aborted.
 									</p>
 								</TextField>
@@ -371,7 +371,7 @@ function CreateRoutePage() {
 									description="Each request is recorded as an OpenTelemetry trace and exported to the project's traces destination — nothing is stored here. Exporting costs time per request: leave it off when latency is the priority, turn it on when you want visibility into what a request did."
 								/>
 								{!hasTracesDestination && (
-									<p className="text-xs text-amber-400">
+									<p className="text-xs text-warning">
 										This project has no traces destination yet, so traced
 										requests record no spans. Set one under Settings →
 										Telemetry.
@@ -390,7 +390,7 @@ function CreateRoutePage() {
 				</div>
 			</div>
 
-			<div className="flex items-center justify-between border-t border-[#1E232F] pt-3.5">
+			<div className="flex items-center justify-between border-t border-border pt-3.5">
 				<Button
 					variant="ghost"
 					size="sm"
@@ -437,13 +437,13 @@ function StepHeading({
 }) {
 	return (
 		<div>
-			<p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#D0F237]">
+			<p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-accent">
 				Step {current + 1} of {total}
 			</p>
-			<h2 className="mt-1 text-lg font-semibold tracking-tight text-white">
+			<h2 className="mt-1 text-lg font-semibold tracking-tight text-foreground">
 				{title}
 			</h2>
-			<p className="mt-0.5 text-xs text-zinc-400">{description}</p>
+			<p className="mt-0.5 text-xs text-muted">{description}</p>
 		</div>
 	);
 }
@@ -458,11 +458,11 @@ function SummaryItem({
 	mono?: boolean;
 }) {
 	return (
-		<div className="bg-[#12151D] px-3 py-2">
-			<dt className="text-[11px] uppercase tracking-wide text-zinc-500">
+		<div className="bg-surface px-3 py-2">
+			<dt className="text-[11px] uppercase tracking-wide text-muted">
 				{label}
 			</dt>
-			<dd className={cn("mt-0.5 text-sm text-white", mono && "font-mono")}>
+			<dd className={cn("mt-0.5 text-sm text-foreground", mono && "font-mono")}>
 				{value || "—"}
 			</dd>
 		</div>

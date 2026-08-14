@@ -55,7 +55,7 @@ export function AiHome() {
 	if (isBlocked) {
 		return (
 			<div className="mx-auto flex h-full w-full max-w-md flex-col items-center justify-center gap-6 px-4 text-center">
-				<div className="flex size-16 items-center justify-center rounded-full bg-red-500/10 text-red-500">
+				<div className="flex size-16 items-center justify-center rounded-full bg-danger/10 text-danger">
 					<TbAlertTriangle size={32} />
 				</div>
 				<div className="flex flex-col gap-2">
@@ -66,7 +66,7 @@ export function AiHome() {
 				</div>
 				<a
 					href={`/_/admin/ui/${projectId}/integrations?group=ai`}
-					className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
+					className="inline-flex items-center gap-2 rounded-xl bg-accent px-4 py-2 text-sm font-medium text-accent-foreground hover:bg-accent/90 transition-colors"
 				>
 					<TbPlugConnected size={18} />
 					Configure Integrations
@@ -108,7 +108,8 @@ export function AiHome() {
 					<Button
 						key={s.label}
 						size="sm"
-						className="rounded-full border border-white/10 bg-white/5 backdrop-blur-md px-4 py-2 text-white/70 hover:bg-white/10 hover:text-white"
+						variant="outline"
+						className="rounded-full border-border bg-surface px-4 py-2 text-muted hover:bg-surface-secondary hover:text-foreground"
 						onPress={() => setQuery(s.prompt)}
 					>
 						{s.label}

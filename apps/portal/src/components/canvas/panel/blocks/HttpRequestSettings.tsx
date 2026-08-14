@@ -1,4 +1,4 @@
-import { Button, Description, JsTextField, Label } from "@fluxify/components";
+import { Button, DeleteIconButton, Description, JsTextField, Label } from "@fluxify/components";
 import { useReactFlow } from "@xyflow/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { TbMinus, TbPlus } from "react-icons/tb";
@@ -107,16 +107,13 @@ function HeadersEditor({
 							onChange={(nextVal) => handleValueChange(index, nextVal)}
 						/>
 					</div>
-					<Button
+					<DeleteIconButton
 						aria-label="Remove header"
-						isIconOnly
+						icon={<TbMinus className="size-4" />}
 						isDisabled={!editable}
 						size="sm"
-						variant="ghost"
 						onPress={() => handleRemove(index)}
-					>
-						<TbMinus className="text-danger size-4" />
-					</Button>
+					/>
 				</div>
 			))}
 
