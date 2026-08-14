@@ -43,7 +43,6 @@ export function CanvasArtifact({ subArtifactId }: { subArtifactId: string }) {
 					subArtifactId={detail.id}
 					appliedAt={detail.appliedAt}
 					routeId={routeId || undefined}
-					target="canvas"
 				/>
 			) : (
 				<div className="rounded-lg border border-warning/30 bg-warning/10 p-3 flex flex-col gap-2">

@@ -133,7 +133,7 @@ function CreateRoutePage() {
 				onSuccess: (created) => {
 					toast.success("Route created");
 					navigate({
-						to: "/$projectId/editor/$routeId",
+						to: "/$projectId/canvas/$routeId",
 						params: { projectId, routeId: created.id },
 					});
 				},

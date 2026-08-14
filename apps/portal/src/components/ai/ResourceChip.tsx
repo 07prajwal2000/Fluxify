@@ -57,7 +57,7 @@ export function ResourceChip({ type, identifier, name, data }: ResourceChipProps
     let targetUrl = "";
     if (projectId) {
         if (type === "route") {
-            targetUrl = `/${projectId}/editor/${identifier}`;
+            targetUrl = `/${projectId}/canvas/${identifier}`;
         } else if (type === "integration") {
             targetUrl = `/${projectId}/integrations?group=ai&open=${identifier}`;
         } else if (type === "app_config") {
