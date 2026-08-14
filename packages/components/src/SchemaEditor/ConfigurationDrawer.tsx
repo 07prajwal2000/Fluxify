@@ -38,24 +38,28 @@ export function ConfigurationDrawer() {
 					aria-label={title}
 					className="flex w-full max-w-xl flex-col"
 				>
-					<Drawer.Header className="flex items-center gap-2">
-						<Drawer.Heading className="min-w-0 flex-1 truncate text-sm font-medium">
-							{title}
-						</Drawer.Heading>
-						{node && (
-							<span className="shrink-0 rounded-full border border-border bg-surface px-2 py-0.5 font-mono text-[10px] text-muted-foreground">
-								{labelFor(node.dataType)}
-							</span>
-						)}
-						<Button
-							aria-label="Close configuration"
-							isIconOnly
-							onPress={closeDrawer}
-							size="sm"
-							variant="ghost"
-						>
-							<TbX className="size-4" />
-						</Button>
+					{/* .drawer__header is flex-col in HeroUI's CSS; the row lives in a
+					    child so we are not fighting utility order to undo it. */}
+					<Drawer.Header>
+						<div className="flex w-full flex-row items-center gap-2">
+							<Drawer.Heading className="min-w-0 flex-1 truncate text-sm font-medium">
+								{title}
+							</Drawer.Heading>
+							{node && (
+								<span className="shrink-0 rounded-full border border-border bg-surface px-2 py-0.5 font-mono text-[10px] text-muted-foreground">
+									{labelFor(node.dataType)}
+								</span>
+							)}
+							<Button
+								aria-label="Close configuration"
+								isIconOnly
+								onPress={closeDrawer}
+								size="sm"
+								variant="ghost"
+							>
+								<TbX className="size-4" />
+							</Button>
+						</div>
 					</Drawer.Header>
 
 					<Drawer.Body className="flex-1 overflow-auto">

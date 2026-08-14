@@ -22,6 +22,10 @@ export type CanvasWorkbenchProps = {
 	/** Opt-in only: the route owning the playground controls enables its trigger. */
 	enablePlayground?: boolean;
 	playgroundContent?: ReactNode;
+	/** Extra header controls owned by the caller — route settings, for one. */
+	headerActions?: ReactNode;
+	/** Replaces the plain title on the left — the route switcher, for one. */
+	headerLeft?: ReactNode;
 	/** re-read from the server, for diagnosing a rejected save */
 	reload: () => Promise<CanvasItems>;
 	save: (payload: CanvasSavePayload) => Promise<unknown>;
@@ -50,8 +54,9 @@ export function CanvasWorkbench({
 	enableBlockPicker = false,
 	enablePlayground = false,
 	playgroundContent,
+	headerActions,
+	headerLeft,
 }: CanvasWorkbenchProps) {
-	const [readOnly, setReadOnly] = useState(false);
 	const [pendingCount, setPendingCount] = useState(0);
 	const [isSaving, setIsSaving] = useState(false);
 	const [cycleFeedbackToken, setCycleFeedbackToken] = useState(0);
@@ -94,30 +99,17 @@ export function CanvasWorkbench({
 
 	return (
 		<div className="flex h-screen w-full flex-col">
-			<header className="flex items-center gap-4 border-b border-border px-4 py-2 text-sm">
-				<span className="font-medium">{title}</span>
-				<label className="flex items-center gap-2">
-					<input
-						type="checkbox"
-						checked={readOnly}
-						onChange={(e) => setReadOnly(e.target.checked)}
-					/>
-					Read only
-				</label>
-				<span className="text-muted">
-					{graph.blocks.length} blocks · {graph.edges.length} edges ·{" "}
-					{pendingCount} unsaved
-				</span>
-				{!readOnly && (
-					<Button
-						variant="primary"
-						isDisabled={pendingCount === 0 || isSaving}
-						isPending={isSaving}
-						onPress={() => void onSave()}
-					>
-						Save
-					</Button>
-				)}
+			<header className="flex items-center gap-3 border-b border-border px-4 py-2 text-sm">
+				{headerLeft ?? <span className="font-medium">{title}</span>}
+				<div className="ml-auto flex items-center gap-2">{headerActions}</div>
+				<Button
+					variant="primary"
+					isDisabled={pendingCount === 0 || isSaving}
+					isPending={isSaving}
+					onPress={() => void onSave()}
+				>
+					Save
+				</Button>
 			</header>
 
 			<div className="min-h-0 flex-1">
@@ -132,7 +124,7 @@ export function CanvasWorkbench({
 				) : (
 					<BlockCanvas
 						graph={graph}
-						mode={readOnly ? "readonly" : "edit"}
+						mode="edit"
 						nodeTypes={nodeTypes}
 						enableBlockPicker={enableBlockPicker}
 						enablePlayground={enablePlayground}

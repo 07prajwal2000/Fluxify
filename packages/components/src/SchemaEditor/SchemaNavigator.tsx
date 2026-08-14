@@ -7,7 +7,7 @@ import { DataTypeSelect } from "./DataTypeSelect";
 import { InfoNote } from "./InfoNote";
 import { PropertyRow } from "./PropertyRow";
 import type { SchemaNode, SchemaPath, SchemaProperty } from "./types";
-import { buildBreadcrumbs, getAtPath } from "./utils";
+import { buildBreadcrumbs, findDuplicateKeys, getAtPath } from "./utils";
 
 /**
  * The one level of the schema currently in view. Objects list their properties,
@@ -62,7 +62,6 @@ export function SchemaNavigator({
 						Root schema type
 					</span>
 					<DataTypeSelect
-						className="w-48"
 						label="Root schema type"
 						onChange={(dataType) => updateProperty([], { dataType })}
 						options={rootTypeOptions}
@@ -99,8 +98,12 @@ export function SchemaNavigator({
 }
 
 function ObjectLevel({ node, path }: { node: SchemaNode; path: SchemaPath }) {
-	const { addProperty, isReadOnly } = useSchemaEditorContext();
+	const { addProperty, isReadOnly, lockKeys } = useSchemaEditorContext();
 	const properties = node.properties ?? [];
+	const duplicateKeys = useMemo(
+		() => findDuplicateKeys(properties),
+		[properties],
+	);
 
 	return (
 		<div className="flex flex-col gap-3">
@@ -121,6 +124,7 @@ function ObjectLevel({ node, path }: { node: SchemaNode; path: SchemaPath }) {
 				<div className="flex flex-col gap-2">
 					{properties.map((property, index) => (
 						<PropertyRow
+							isDuplicateKey={duplicateKeys.has(property.key.trim())}
 							key={property.id ?? `${index}-${property.key}`}
 							path={[...path, index]}
 							property={property}
@@ -129,7 +133,7 @@ function ObjectLevel({ node, path }: { node: SchemaNode; path: SchemaPath }) {
 				</div>
 			)}
 
-			{!isReadOnly && (
+			{!isReadOnly && !lockKeys && (
 				<div>
 					<Button
 						onPress={() => addProperty(path)}
@@ -182,7 +186,6 @@ function ArrayLevel({ node, path }: { node: SchemaNode; path: SchemaPath }) {
 				</span>
 				<div className="flex items-center gap-2">
 					<DataTypeSelect
-						className="flex-1"
 						isDisabled={isReadOnly}
 						label="Array items data type"
 						onChange={(dataType) => updateProperty(itemsPath, { dataType })}

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Button, Spinner, toast } from "@fluxify/components";
-import { TbTrash } from "react-icons/tb";
+import { TbBolt, TbTrash } from "react-icons/tb";
 import {
 	getIntegrationsGroups,
 	getIntegrationsVariants,
@@ -209,6 +209,15 @@ export function IntegrationForm({
 								<TbTrash size={15} />
 							</button>
 						)}
+						<Button
+							variant="outline"
+							isPending={test.isPending}
+							onPress={onTest}
+							className="whitespace-nowrap"
+						>
+							<TbBolt size={14} className="text-[#D0F237]" />
+							<span>Test connection</span>
+						</Button>
 						<Button variant="primary" isPending={create.isPending || update.isPending} onPress={onSave}>
 							{id ? "Save changes" : "Connect"}
 						</Button>

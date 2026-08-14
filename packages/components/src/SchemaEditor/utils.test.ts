@@ -3,6 +3,7 @@ import type { ValidationSchema } from "./types";
 import {
 	addPropertyAtPath,
 	buildBreadcrumbs,
+	findDuplicateKeys,
 	getAtPath,
 	getRuleValue,
 	mergeAtPath,
@@ -73,6 +74,19 @@ describe("path navigation", () => {
 		]);
 		expect(pathToKeyString(schema(), [1, 0])).toBe("address.zip");
 		expect(pathToKeyString(schema(), [2, "items"])).toBe("tags[]");
+	});
+});
+
+describe("duplicate keys", () => {
+	test("flags repeats among siblings, ignoring blanks and whitespace", () => {
+		const dupes = findDuplicateKeys([
+			{ key: "name", dataType: "str", rules: [] },
+			{ key: " name ", dataType: "int", rules: [] },
+			{ key: "", dataType: "str", rules: [] },
+			{ key: "", dataType: "str", rules: [] },
+			{ key: "age", dataType: "int", rules: [] },
+		]);
+		expect([...dupes]).toEqual(["name"]);
 	});
 });
 

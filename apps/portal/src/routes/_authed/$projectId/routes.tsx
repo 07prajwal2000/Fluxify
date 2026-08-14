@@ -1,37 +1,17 @@
-import { useState } from "react";
+﻿import { useState } from "react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import {
 	Button,
 	Chip,
-	Input,
-	Label,
-	Modal,
-	MultiSelect,
 	Spinner,
 	Table,
-	TextField,
 	toast,
 } from "@fluxify/components";
 import { TbPlus, TbTrash } from "react-icons/tb";
 import { routesQuery } from "@/query/routesQuery";
 import { showErrorNotification } from "@/lib/errorNotifier";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
-import {
-	CONTENT_TYPES,
-	DEFAULT_CONTENT_TYPES,
-	type ContentType,
-} from "@fluxify/server/src/lib/routeConfig";
 import { createRouteHead } from "@/lib/seo";
-
-const METHODS = ["GET", "POST", "PUT", "DELETE"] as const;
-
-// only these carry a body — see the request body reader on the server
-const METHODS_WITH_BODY: readonly string[] = ["POST", "PUT"];
-
-const CONTENT_TYPE_OPTIONS = CONTENT_TYPES.map((value) => ({
-	value,
-	label: value,
-}));
 
 export const Route = createFileRoute("/_authed/$projectId/routes")({
 	head: createRouteHead(
@@ -68,7 +48,14 @@ function RoutesPage() {
 		<div className="flex flex-col gap-4">
 			<div className="flex items-center justify-between">
 				<h1 className="text-xl font-semibold tracking-tight">Routes</h1>
-				<CreateRouteButton projectId={projectId} />
+				<Button
+					variant="primary"
+					onPress={() =>
+						navigate({ to: "/$projectId/routes/new", params: { projectId } })
+					}
+				>
+					<TbPlus size={16} /> New route
+				</Button>
 			</div>
 
 			{isLoading ? (
@@ -168,114 +155,5 @@ function RoutesPage() {
 				This can't be undone.
 			</ConfirmDialog>
 		</div>
-	);
-}
-
-function CreateRouteButton({ projectId }: { projectId: string }) {
-	const create = routesQuery.create.mutation();
-	const [open, setOpen] = useState(false);
-	const [name, setName] = useState("");
-	const [path, setPath] = useState("");
-	const [method, setMethod] = useState<string>("GET");
-	const [contentTypes, setContentTypes] =
-		useState<string[]>(DEFAULT_CONTENT_TYPES);
-
-	function reset() {
-		setName("");
-		setPath("");
-		setMethod("GET");
-		setContentTypes(DEFAULT_CONTENT_TYPES);
-	}
-
-	function submit(e: React.FormEvent) {
-		e.preventDefault();
-		create.mutate(
-			{
-				name,
-				path,
-				method: method as "GET",
-				projectId,
-				active: true,
-				timeoutSeconds: 30,
-				acceptedContentTypes: contentTypes as [ContentType, ...ContentType[]],
-			},
-			{
-				onSuccess: () => {
-					toast.success("Route created");
-					reset();
-					setOpen(false);
-				},
-				onError: (err) => showErrorNotification(err as Error),
-			},
-		);
-	}
-
-	return (
-		<Modal isOpen={open} onOpenChange={setOpen}>
-			<Modal.Trigger>
-				<Button variant="primary">
-					<TbPlus size={16} /> New route
-				</Button>
-			</Modal.Trigger>
-			<Modal.Backdrop>
-				<Modal.Container placement="center" size="sm">
-					<Modal.Dialog>
-						<Modal.Header>
-							<Modal.Heading>Create a route</Modal.Heading>
-						</Modal.Header>
-						<form onSubmit={submit}>
-							<Modal.Body>
-								<div className="flex flex-col gap-4">
-									<TextField isRequired value={name} onChange={setName}>
-										<Label>Name</Label>
-										<Input placeholder="List users" />
-									</TextField>
-									<div className="flex flex-col gap-1.5">
-										<Label>Method</Label>
-										<div className="flex gap-1.5">
-											{METHODS.map((m) => (
-												<Button
-													key={m}
-													type="button"
-													variant={method === m ? "primary" : "outline"}
-													onPress={() => setMethod(m)}
-												>
-													{m}
-												</Button>
-											))}
-										</div>
-									</div>
-									<TextField isRequired value={path} onChange={setPath}>
-										<Label>Path</Label>
-										<Input placeholder="/users" />
-									</TextField>
-									{METHODS_WITH_BODY.includes(method) && (
-										<MultiSelect
-											label="Accepted content types"
-											description="Requests sent with any other content type are rejected."
-											options={CONTENT_TYPE_OPTIONS}
-											value={contentTypes}
-											onChange={(next) =>
-												setContentTypes(
-													next.length > 0 ? next : DEFAULT_CONTENT_TYPES,
-												)
-											}
-										/>
-									)}
-								</div>
-							</Modal.Body>
-							<Modal.Footer>
-								<Button variant="ghost" onPress={() => setOpen(false)}>
-									Cancel
-								</Button>
-								<Button type="submit" variant="primary" isPending={create.isPending}>
-									Create route
-								</Button>
-							</Modal.Footer>
-						</form>
-					</Modal.Dialog>
-				</Modal.Container>
-			</Modal.Backdrop>
-		</Modal>
 	);
 }
