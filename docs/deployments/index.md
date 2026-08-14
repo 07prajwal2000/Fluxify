@@ -25,7 +25,7 @@ steps for each.
 | | **Kit** (all-in-one) | **Admin + Workers** (scale-out) |
 | :--- | :--- | :--- |
 | **Best for** | Trials, demos, single-machine hosting | Real production traffic |
-| **Containers** | One app container | Separate admin + many workers |
+| **Containers** | One — database, cache and event bus included | Separate admin + many workers |
 | **Scaling** | Vertical only (bigger machine) | Horizontal — add workers on demand |
 | **Edge proxy** | Built into the image | Traefik (load-balances the workers) |
 | **Setup effort** | Lowest — one command | Moderate |
@@ -63,8 +63,8 @@ flowchart TB
         ADM["Admin API<br/>+ compiler"]
         WRK["Request worker"]
         AI["AI gateway"]
+        BS["PostgreSQL · Valkey · NATS<br/>(bundled, or bring your own)"]
     end
-    K --> BS["PostgreSQL · Valkey · NATS"]
 
     style C fill:#111113,stroke:#EF4444,color:#FAFAFA
     style K fill:#111113,stroke:#D2FF4D,color:#FAFAFA
@@ -182,7 +182,8 @@ projects can only resolve to one of them, and a slow project slows the rest.
 
 Pick your path and jump straight to the steps:
 
-- **Kit:** [create your `.env`](./kit#env) → [start the stack](./kit#start)
+- **Kit:** [run one command](./kit#bundled) →
+  [turn on the request worker](./kit#worker)
 - **Admin + Workers:** [why Traefik](./production#why-traefik) →
   [create your `.env`](./production#env) → [start the stack](./production#start) →
   [scale the workers](./production#scaling)
