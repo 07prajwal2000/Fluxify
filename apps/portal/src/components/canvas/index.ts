@@ -1,4 +1,6 @@
 export { BlockCanvas } from "./BlockCanvas";
+export { CanvasPlaygroundProvider, useCanvasPlayground } from "./PlaygroundContext";
+export { PlaygroundModal } from "./PlaygroundModal";
 export { CanvasWorkbench } from "./CanvasWorkbench";
 export * from "./aiButton";
 export * from "./blocks";

@@ -12,8 +12,9 @@ import { BLOCK_ICON_MAP } from "./blockIconMap";
 import { blockLabels } from "./blockLabels";
 import { createBlockNodeTypes } from "./BlockNode";
 import { BLOCK_TYPES, BLOCK_TYPE_LIST } from "./blockTypes";
+import { defaultBlockData } from "./defaultBlockData";
 import { StickyNoteBlock } from "./StickyNoteBlock";
-import { NOTE_MIN_SIZE, stickyNoteData } from "./stickyNoteData";
+import { NOTE_MIN_SIZE, newStickyNoteData, stickyNoteData } from "./stickyNoteData";
 import { BlockHandle } from "./handles/BlockHandle";
 import { HANDLE_CONFIG, type HandleKind } from "./handles/handleConfig";
 
@@ -54,6 +55,32 @@ test("route-owned blocks cannot be added from the canvas picker", () => {
 		BLOCK_TYPES.errorHandler,
 	);
 	expect(canPickBlock(BLOCK_TYPES.stickynote)).toBe(false);
+});
+
+test("picker blocks start with their required data", () => {
+	expect(defaultBlockData(BLOCK_TYPES.response)).toEqual({ httpCode: "200" });
+	expect(defaultBlockData(BLOCK_TYPES.httprequest)).toEqual({
+		url: "",
+		method: "GET",
+		headers: {},
+		body: "",
+		useParam: false,
+	});
+	expect(defaultBlockData(BLOCK_TYPES.db_insert)).toEqual({
+		connection: "",
+		tableName: "",
+		data: { source: "raw", value: {} },
+		useParam: false,
+	});
+
+	for (const [type] of pickerBlockCatalogEntries()) {
+		const data = defaultBlockData(type);
+		if (type === BLOCK_TYPES.httpgetrequestbody) {
+			expect(data).toEqual({});
+		} else {
+			expect(Object.keys(data).length).toBeGreaterThan(0);
+		}
+	}
 });
 
 test("a block's own name wins over the catalog, placeholders do not", () => {
@@ -115,6 +142,14 @@ test("note data is normalised into the shape the server validates", () => {
 	expect(stickyNoteData({ size: { width: 1, height: 0 } }).size).toEqual({
 		width: NOTE_MIN_SIZE,
 		height: NOTE_MIN_SIZE,
+	});
+});
+
+test("new notes start square without changing legacy note dimensions", () => {
+	expect(newStickyNoteData().size).toEqual({ width: 180, height: 180 });
+	expect(stickyNoteData({ size: { width: 180, height: 120 } }).size).toEqual({
+		width: 180,
+		height: 120,
 	});
 });
 

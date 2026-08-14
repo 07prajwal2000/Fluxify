@@ -16,6 +16,7 @@ export * from "./src/JoinsEditor";
 export * from "./src/MultiSelect";
 export * from "./src/CustomSelect";
 export * from "./src/Sidebar";
+export * from "./src/ApiPlayground";
 export { LazyLoader } from "./src/LazyLoader/LazyLoader";
 export {
 	Checkbox,

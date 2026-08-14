@@ -65,6 +65,10 @@ export type BlockCanvasProps = {
 	 * Core block picker and canvas quick actions. Default `false`; off in readonly.
 	 */
 	enableBlockPicker?: boolean;
+	/** Canvas playground trigger. Default `false`; enable only from its owning route. */
+	enablePlayground?: boolean;
+	/** Playground content rendered in the canvas-owned modal, outside React Flow. */
+	playgroundContent?: React.ReactNode;
 	/** Copy/paste/duplicate of blocks and the edges between them. Default `true`;
 	 *  always off in `readonly`. Also hides the copy/duplicate block actions. */
 	enableClipboard?: boolean;

@@ -142,7 +142,7 @@ export function ConditionsBuilderRow({
 							value={jsFieldValue}
 						/>
 					</div>
-					<div className="w-52 shrink-0">
+					<div className="grid grid-cols-1 w-20 shrink-0">
 						<Select
 							fullWidth
 							isDisabled={isDisabled}
@@ -210,7 +210,7 @@ export function ConditionsBuilderRow({
 							onToggle={toggleLhsMode}
 						/>
 					)}
-					<div className={hideRhs ? "flex-1 min-w-0" : "w-52 shrink-0"}>
+					<div className={hideRhs ? "flex-1 min-w-0" : "grid grid-cols-1 w-20 shrink-0"}>
 						<Select
 							fullWidth
 							isDisabled={isDisabled}

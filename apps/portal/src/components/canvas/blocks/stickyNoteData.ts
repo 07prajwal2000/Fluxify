@@ -14,6 +14,7 @@ export type StickyNoteData = {
 export const NOTE_MIN_SIZE = 50;
 
 const DEFAULT_SIZE: NoteSize = { width: 180, height: 120 };
+const NEW_NOTE_SIZE: NoteSize = { width: 180, height: 180 };
 
 function dimension(value: unknown, fallback: number) {
 	const size =
@@ -42,4 +43,9 @@ export function stickyNoteData(data: unknown): StickyNoteData {
 			height: dimension(size.height, DEFAULT_SIZE.height),
 		},
 	};
+}
+
+/** New canvas notes start square; existing note dimensions are never rewritten. */
+export function newStickyNoteData(): StickyNoteData {
+	return stickyNoteData({ size: NEW_NOTE_SIZE });
 }

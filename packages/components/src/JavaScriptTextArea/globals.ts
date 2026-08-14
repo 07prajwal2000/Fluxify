@@ -121,8 +121,8 @@ declare namespace libs {
 
   const dayjs: DayjsFactory;
   /** fully supported underscore.js library */
-  const _: unknown;
+  const _: typeof import("underscore");
   /** fully supported zod library */
-  const zod: unknown;
+  const zod: typeof import("zod");
 }
 `;
