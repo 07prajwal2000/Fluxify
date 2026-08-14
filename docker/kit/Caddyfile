@@ -1,7 +1,19 @@
 # Single published port for the whole kit. Everything below is in-container.
 :8080 {
+    # Vite's base only serves the trailing-slash form; redirect the bare path.
+    @admin_ui_bare path /_/admin/ui
+    handle @admin_ui_bare {
+        redir * /_/admin/ui/ 308
+    }
+
+    # Admin UI: a static SPA built by Vite with base /_/admin/ui/. strip_prefix
+    # maps the public path onto the bundle root; the try_files fallback hands
+    # client-routed deep links back to index.html instead of 404ing.
     handle /_/admin/ui* {
-        reverse_proxy localhost:3000
+        uri strip_prefix /_/admin/ui
+        root * /app/portal
+        try_files {path} /index.html
+        file_server
     }
     handle /_/admin/api/ai* {
         reverse_proxy localhost:8001
