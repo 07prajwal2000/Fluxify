@@ -2,6 +2,7 @@ import { useState, type ReactNode } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import {
 	Card,
+	Checkbox,
 	ConditionsBuilder,
 	type Condition,
 	FieldMapEditor,
@@ -12,6 +13,8 @@ import {
 	JsTextField,
 	Label,
 	ListBox,
+	SchemaEditor,
+	type ValidationSchema,
 	Select,
 } from "@fluxify/components";
 
@@ -217,7 +220,96 @@ function IntegrationSelectorDemo() {
 	);
 }
 
+const INITIAL_SCHEMA: ValidationSchema = {
+	dataType: "object",
+	properties: [
+		{
+			id: "p1",
+			key: "email",
+			dataType: "str",
+			required: true,
+			rules: [
+				{ type: "minLength", value: 5 },
+				{ type: "contains", value: "@" },
+			],
+		},
+		{ id: "p2", key: "age", dataType: "int", required: false, rules: [{ type: "min", value: 18 }] },
+		{
+			id: "p3",
+			key: "role",
+			dataType: "enum",
+			required: true,
+			rules: [{ type: "values", value: ["admin", "editor", "viewer"] }],
+		},
+		{
+			id: "p4",
+			key: "address",
+			dataType: "object",
+			required: false,
+			properties: [
+				{ id: "p4a", key: "city", dataType: "str", required: true, rules: [] },
+				{ id: "p4b", key: "zip", dataType: "str", required: false, rules: [{ type: "regex", value: "^\\d{6}$" }] },
+			],
+		},
+		{
+			id: "p5",
+			key: "tags",
+			dataType: "arr",
+			required: false,
+			rules: [{ type: "maxItems", value: 5 }],
+			items: { key: "", dataType: "str", rules: [] },
+		},
+		{ id: "p6", key: "avatar", dataType: "file", required: false, rules: [{ type: "maxSize", value: 2097152 }] },
+	],
+};
+
+/**
+ * Exercises the props that change what the editor allows, not just how it
+ * looks — a locked editor with a per-field type override is the shape the
+ * route settings panel actually needs.
+ */
+function SchemaEditorDemo() {
+	const [schema, setSchema] = useState<ValidationSchema>(INITIAL_SCHEMA);
+	const [isReadOnly, setIsReadOnly] = useState(false);
+	const [disableJs, setDisableJs] = useState(false);
+	const [limitTypes, setLimitTypes] = useState(false);
+	const [limitDepth, setLimitDepth] = useState(false);
+
+	return (
+		<div className="flex flex-col gap-4">
+			<div className="flex flex-wrap gap-5 rounded-[var(--radius)] border border-border bg-surface p-3">
+				<Checkbox isSelected={isReadOnly} label="Read only" onChange={setIsReadOnly} />
+				<Checkbox isSelected={disableJs} label="Disable JS" onChange={setDisableJs} />
+				<Checkbox
+					isSelected={limitTypes}
+					label="Only str / int / bool"
+					onChange={setLimitTypes}
+				/>
+				<Checkbox isSelected={limitDepth} label="Max depth 1" onChange={setLimitDepth} />
+			</div>
+
+			<SchemaEditor
+				allowedDataTypes={limitTypes ? ["str", "int", "bool"] : undefined}
+				description="Builds the validation schema the server compiles to Zod."
+				disableJs={disableJs}
+				isReadOnly={isReadOnly}
+				label="Request body schema"
+				maxDepth={limitDepth ? 1 : undefined}
+				onChange={setSchema}
+				// Locked everywhere else, but this one field still offers a choice.
+				typeOverrides={{ "address.zip": ["str", "int"] }}
+				value={schema}
+			/>
+
+			<pre className="max-h-96 overflow-auto rounded-[var(--radius)] border border-border bg-background p-3 font-mono text-xs text-foreground">
+				{JSON.stringify(schema, null, 2)}
+			</pre>
+		</div>
+	);
+}
+
 const DEMOS: { name: string; render: () => ReactNode }[] = [
+	{ name: "SchemaEditor", render: () => <SchemaEditorDemo /> },
 	{ name: "JsonEditor", render: () => <JsonEditorDemo /> },
 	{ name: "JsTextField", render: () => <JsTextFieldDemo /> },
 	{ name: "ConditionsBuilder", render: () => <ConditionsBuilderDemo /> },
