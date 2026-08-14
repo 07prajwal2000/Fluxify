@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState, type ReactNode } from "react";
 import { Button, Spinner, toast } from "@fluxify/components";
 import { showErrorNotification } from "@/lib/errorNotifier";
 import type { CanvasItems, CanvasSavePayload } from "@/services/canvas";
@@ -19,6 +19,9 @@ export type CanvasWorkbenchProps = {
 	items: { data: CanvasItems | undefined; isLoading: boolean; isError: boolean };
 	/** Opt-in only: this workbench is reused by route, custom-block, and embedded canvases. */
 	enableBlockPicker?: boolean;
+	/** Opt-in only: the route owning the playground controls enables its trigger. */
+	enablePlayground?: boolean;
+	playgroundContent?: ReactNode;
 	/** re-read from the server, for diagnosing a rejected save */
 	reload: () => Promise<CanvasItems>;
 	save: (payload: CanvasSavePayload) => Promise<unknown>;
@@ -45,6 +48,8 @@ export function CanvasWorkbench({
 	reload,
 	save,
 	enableBlockPicker = false,
+	enablePlayground = false,
+	playgroundContent,
 }: CanvasWorkbenchProps) {
 	const [readOnly, setReadOnly] = useState(false);
 	const [pendingCount, setPendingCount] = useState(0);
@@ -130,6 +135,8 @@ export function CanvasWorkbench({
 						mode={readOnly ? "readonly" : "edit"}
 						nodeTypes={nodeTypes}
 						enableBlockPicker={enableBlockPicker}
+						enablePlayground={enablePlayground}
+						playgroundContent={playgroundContent}
 						cycleFeedbackToken={cycleFeedbackToken}
 						onChange={(next, changes) => {
 							edited.current = { graph: next, changes };

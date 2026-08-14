@@ -7,6 +7,10 @@
 @import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap");
 @import "@heroui/styles";
 
+/* This package ships TSX source to the portal. Ask Tailwind to emit utilities
+   used by those components too, including the playground's split-grid classes. */
+@source "./ApiPlayground";
+
 @theme {
 	/* Configurable type. Swap this one line to change the product typeface. */
 	--font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
@@ -121,4 +125,25 @@
 
 .modal__dialog {
 	border-radius: 12px;
+}
+
+/* API playground: retain HeroUI's secondary underline tabs but keep their
+   lists content-sized. HeroUI's default tab list deliberately has min-width:
+   100% for scrollable navigation, which is wrong for this compact inspector. */
+.api-playground-tabs > .tabs__list-container .tabs__list {
+	min-width: 0;
+	width: max-content;
+}
+
+.api-playground-tabs > .tabs__list-container .tabs__list-container__scroller {
+	overflow: visible;
+}
+
+.api-playground-response-tabs__bar {
+	display: flex;
+	height: 100%;
+	width: 100%;
+	align-items: center;
+	justify-content: space-between;
+	gap: 12px;
 }

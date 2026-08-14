@@ -165,6 +165,7 @@ html[data-theme="dark"] .fx-canvas-toolbar,
 	z-index: 5;
 	display: flex;
 	flex-direction: column;
+	align-items: flex-end;
 	gap: 0.5rem;
 }
 
@@ -172,6 +173,54 @@ html[data-theme="dark"] .fx-canvas-toolbar,
 	background: transparent;
 	border: 1px solid var(--border);
 	box-shadow: 0 0.25rem 0.75rem color-mix(in srgb, var(--foreground) 14%, transparent);
+}
+
+.fx-canvas__expandable-action {
+	width: 2.5rem;
+	min-width: 2.5rem;
+	padding-inline: 0.625rem;
+	overflow: hidden;
+	justify-content: flex-start;
+	transition: width 180ms ease;
+}
+
+.fx-canvas__note-action:hover,
+.fx-canvas__note-action:focus-visible {
+	width: 5.75rem;
+	color: var(--accent);
+}
+
+.fx-canvas__add-block-action:hover,
+.fx-canvas__add-block-action:focus-visible {
+	width: 9.25rem;
+	color: var(--accent);
+}
+
+.fx-canvas__playground-action:hover,
+.fx-canvas__playground-action:focus-visible {
+	width: 7.75rem;
+	color: var(--accent);
+}
+
+.fx-canvas__expandable-icon {
+	width: 1.25rem;
+	height: 1.25rem;
+	flex: 0 0 1.25rem;
+}
+
+.fx-canvas__expandable-label {
+	margin-left: 0.5rem;
+	white-space: nowrap;
+	opacity: 0;
+	transform: translateX(-0.25rem);
+	transition: opacity 120ms ease 60ms, transform 180ms ease;
+}
+
+.fx-canvas__expandable-action:hover .fx-canvas__expandable-label,
+.fx-canvas__expandable-action:focus-visible .fx-canvas__expandable-label {
+	opacity: 1;
+	transform: translateX(0);
+	color: var(--accent);
 }
 
 /* The shell wraps the canvas and its settings panel. Without a height of its

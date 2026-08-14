@@ -15,6 +15,9 @@ import {
 import "@xyflow/react/dist/style.css";
 import "./canvas.css";
 import { CanvasLayoutLockProvider } from "./CanvasLayoutLockContext";
+import { CanvasQuickActions } from "./CanvasQuickActions";
+import { CanvasPlaygroundProvider, useCanvasPlayground } from "./PlaygroundContext";
+import { PlaygroundModal } from "./PlaygroundModal";
 import { flowToGraph, graphToFlow } from "./adapters";
 import { AiCanvasButton } from "./aiButton";
 import {
@@ -39,11 +42,11 @@ import {
 import { CanvasFormatProvider, layoutBlocks } from "./layout";
 import { BlockPanel, CanvasPanelProvider, useBlockPanel } from "./panel";
 import { CanvasToolbar } from "./CanvasToolbar";
-import { Button, toast } from "@fluxify/components";
-import { TbNote, TbPlus } from "react-icons/tb";
+import { toast } from "@fluxify/components";
 import { BlockPickerSidebar } from "./BlockPickerSidebar";
 import { BLOCK_TYPES, canAddBlock, type BlockType } from "./blocks";
-import { stickyNoteData } from "./blocks/stickyNoteData";
+import { defaultBlockData } from "./blocks/defaultBlockData";
+import { newStickyNoteData } from "./blocks/stickyNoteData";
 import { useBlockPicker } from "./useBlockPicker";
 import type { BlockCanvasProps, BlockEdge, BlockNode } from "./types";
 
@@ -105,6 +108,8 @@ function CanvasInner({
 	enableClipboard = true,
 	enablePanel = true,
 	enableBlockPicker = false,
+	enablePlayground = false,
+	playgroundContent,
 	fitViewOnInit = true,
 	defaultViewport,
 	className,
@@ -121,6 +126,7 @@ function CanvasInner({
 		initial.edges,
 	);
 	const blockPicker = useBlockPicker();
+	const playground = useCanvasPlayground();
 	const canvasRef = useRef<HTMLDivElement>(null);
 	const latest = useRef({ nodes, edges });
 	latest.current = { nodes, edges };
@@ -394,6 +400,8 @@ function CanvasInner({
 	const addBlock = useCallback(
 		(type: BlockType) => {
 			if (readOnly || !canAddBlock(type)) return;
+			const noteData =
+				type === BLOCK_TYPES.stickynote ? newStickyNoteData() : undefined;
 			const bounds = canvasRef.current?.getBoundingClientRect();
 			const center = bounds
 				? { x: bounds.left + bounds.width / 2, y: bounds.top + bounds.height / 2 }
@@ -402,7 +410,9 @@ function CanvasInner({
 				id: uuidv7(),
 				type,
 				position: screenToFlowPosition(center),
-				data: type === BLOCK_TYPES.stickynote ? stickyNoteData({}) : {},
+				data: noteData ?? defaultBlockData(type),
+				width: noteData?.size.width,
+				height: noteData?.size.height,
 				zIndex: type === BLOCK_TYPES.stickynote ? -1 : 0,
 				selected: true,
 			};
@@ -471,27 +481,14 @@ function CanvasInner({
 				</ReactFlow>
 				{/* the AI edits the graph — nothing to offer on a readonly view */}
 				{!readOnly && <AiCanvasButton />}
-				{!readOnly && !layoutLocked && enableBlockPicker && (
-					<div className="fx-canvas__quick-actions">
-						<Button
-							isIconOnly
-							aria-label="Add block"
-							variant="ghost"
-							className="fx-canvas__quick-action"
-							onPress={blockPicker.open}
-						>
-							<TbPlus />
-						</Button>
-						<Button
-							isIconOnly
-							aria-label="Add note"
-							variant="ghost"
-							className="fx-canvas__quick-action"
-							onPress={() => addBlock(BLOCK_TYPES.stickynote)}
-						>
-							<TbNote />
-						</Button>
-					</div>
+				{!readOnly && !layoutLocked && (enableBlockPicker || enablePlayground) && (
+					<CanvasQuickActions
+						enableBlockPicker={enableBlockPicker}
+						enablePlayground={enablePlayground}
+						onOpenBlockPicker={blockPicker.open}
+						onAddNote={() => addBlock(BLOCK_TYPES.stickynote)}
+						onOpenPlayground={playground.open}
+					/>
 				)}
 				{nodes.length === 0 && (
 					<div className="fx-canvas__empty">
@@ -509,6 +506,7 @@ function CanvasInner({
 				/>
 			)}
 			{panel.enabled && <BlockPanel block={openBlock} onClose={panel.close} />}
+			{enablePlayground && playgroundContent && <PlaygroundModal>{playgroundContent}</PlaygroundModal>}
 			</div>
 			</CanvasPanelProvider>
 			</CanvasLayoutLockProvider>
@@ -526,7 +524,9 @@ function CanvasInner({
 export function BlockCanvas(props: BlockCanvasProps) {
 	return (
 		<ReactFlowProvider>
-			<CanvasInner {...props} />
+			<CanvasPlaygroundProvider>
+				<CanvasInner {...props} />
+			</CanvasPlaygroundProvider>
 		</ReactFlowProvider>
 	);
 }
