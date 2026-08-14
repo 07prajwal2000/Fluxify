@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__codebase-memory__search_code",
+      "mcp__codebase-memory__index_status"
+    ]
+  }
+}

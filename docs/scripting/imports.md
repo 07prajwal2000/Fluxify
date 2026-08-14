@@ -7,6 +7,12 @@ description: Use import statements in your scripts, and the libraries available 
 
 Scripts can load modules with standard `import` syntax, and a few common libraries are always available without importing anything at all.
 
+## Bun runtime
+
+Imports and generated route code run in Bun's JavaScript runtime, not Node.js. Bun uses Apple's JavaScriptCore engine, and scripts can use native APIs on the `Bun` global where they are available to the worker. Refer to the [Bun runtime API reference](https://bun.com/docs/runtime/bun-apis) for the complete API surface.
+
+The worker supervisor is intentionally strict about unhealthy execution. Its watchdog is experimental and only partially implemented today: it can terminate a worker when an enabled route timeout is exceeded and execution has stalled, while broader CPU and network-usage policies remain in progress. Enable `experimental.workerTimeouts.enabled` to enforce the configured timeout for each endpoint; the default is 30 seconds.
+
 ## Import Statements
 
 Write imports at the top of your script, exactly as you would in a normal JavaScript file:
@@ -31,9 +37,11 @@ Every form of the syntax works:
 
 ## Imports Run Once, Not Per Request
 
-Imports are lifted out of your script when the workflow is saved and loaded a single time, before any request arrives. A route that imports ten modules is exactly as fast per request as one that imports none.
+When a workflow is saved, Fluxify's AST parser extracts static imports from its scripts and the DAG compiler hoists them out of the route handler. Bun resolves them once for the compiled route, before any request arrives. A route that imports ten modules does not repeat that import work per request.
 
 They are loaded again only when the workflow is saved again or the project is redeployed.
+
+Repeated imports of the same module across blocks are combined into one route-level import at load time. You can import the same module where it makes the local script clearer without creating a per-request performance bottleneck.
 
 ::: tip
 This is why `import` is preferred over loading a module inside your code at runtime. Both work, but only the `import` form is lifted out of the request path.
@@ -66,14 +74,26 @@ Rename one of them with `as` to resolve it.
 
 An imported name also takes priority over a workflow variable of the same name. If you have a variable called `path` and you also `import path from "path"`, your scripts will see the module.
 
+## Generated Worker Names
+
+Workers run the compiled route as minified JavaScript. The generated handler uses internal globals, so an import that reuses one of those names can collide with generated code and cause unnecessary runtime errors.
+
+Use specific, descriptive aliases for imports and do not import a name that is already supplied by the scripting context (such as `input`, `jwt`, `logger`, or `httpClient`). If a name conflicts, rename the import:
+
+```javascript
+// Avoid a generic name that could collide with generated code:
+import { parse as parsePath } from "path";
+```
+
 ## Libraries Available Without Importing
 
-Three libraries are provided to every script through the `libs` object. No import needed:
+Four libraries are provided to every script without requiring an import:
 
 ```javascript
 libs.dayjs().utc().toISOString();
 libs._.groupBy(input.users, "role");
 libs.zod.object({ name: libs.zod.string() });
+jwt.sign({ userId: input.id }, getConfig("JWT_SECRET"));
 ```
 
 | Name | Library |
@@ -81,8 +101,9 @@ libs.zod.object({ name: libs.zod.string() });
 | `libs.dayjs` | [Day.js](https://day.js.org/) — dates and times, with the `utc` plugin already loaded. |
 | `libs._` | [Underscore.js](https://underscorejs.org/) — utilities for arrays, objects, and collections. |
 | `libs.zod` | [Zod](https://zod.dev/) — schema validation and parsing. |
+| `jwt` | JWT signing, verification, and decoding backed by [`jsonwebtoken`](https://www.npmjs.com/package/jsonwebtoken). |
 
-These are the same libraries you can also import by name, so `libs.dayjs` and `import dayjs from "dayjs"` give you the same thing. Use whichever reads better.
+`libs.dayjs`, `libs._`, and `libs.zod` are the same libraries you can also import by name. `jwt` is already available as a global helper and uses `jsonwebtoken` under the hood. Use whichever reads better for the `libs` packages; no import is needed for `jwt`.
 
 ## Notes
 

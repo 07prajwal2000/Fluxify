@@ -5,15 +5,15 @@ description: The execution model of Fluxify scripts.
 
 # How Scripting Works
 
-Fluxify executes your custom JavaScript code using an isolated, sandboxed Virtual Machine (VM) wrapper defined in `@fluxify/lib` (`JsVM`). This allows scripts to run server-side in a secure runtime sandbox that separates user execution from the host application process.
+Fluxify compiles the workflow DAG into one native JavaScript route handler. JavaScript from script blocks and `js:` expressions is emitted into that handler and runs directly in Bun's JavaScript runtime. There is no separate VM or graph traversal on the request path.
 ## The Execution Flow
 
-When a workflow runs a script (or evaluates a `js:` input), it follows these four steps:
+When you save a workflow, the compiler prepares its script code in four steps:
 
-1. **Extraction**: The execution engine identifies the code segment (e.g. stripping the `js:` prefix if it is an inline expression).
-2. **Context Injection**: The engine prepares the global environment by injecting helpers, third-party libraries, and the current workflow's variables (`vars`) as top-level globals in the sandboxed scope.
-3. **Sandboxed Evaluation**: The script is executed inside a fresh VM context. If the script is written in a block, it is wrapped in an immediately-invoked function expression (IIFE) to isolate variable declarations.
-4. **Result Resolution**: The output value is captured and returned. If the script returns a Promise (e.g., using `async`/`await` or calling async functions like `httpClient`), the VM suspends execution and waits for the Promise to resolve before passing the result to the next block.
+1. **DAG compilation**: The compiler walks the workflow from its entrypoint and emits a native JavaScript function for the route.
+2. **Script integration**: Script blocks and `js:` expressions are transformed into the generated function with their request context and workflow state available at runtime.
+3. **Import analysis**: The AST parser finds static `import` declarations, hoists them from request-time code, and resolves them once during compilation.
+4. **Direct execution**: Workers receive the compiled handler and execute it directly in Bun for every matching request. Async code uses normal JavaScript `await` semantics.
 ## Synchronous vs. Asynchronous Execution
 
 Both synchronous logic and modern asynchronous JavaScript (`async/await`) are fully supported.
@@ -35,11 +35,11 @@ const userId = getQueryParam("userId");
 const response = await httpClient.get(`https://api.example.com/users/${userId}`);
 return response.data;
 ```
-## Sandbox Limits and Timeouts
+## Runtime Limits and Timeouts
 
 To maintain platform stability and protect server resources, script execution is constrained by a strict **4-second (4000ms) execution limit**:
 
-- **Synchronous Timeout**: Synchronous code containing infinite loops (e.g., `while(true)`) is terminated immediately by the VM runtime once the 4-second limit is breached.
-- **Asynchronous Timeout**: For async code returning a Promise, the execution engine races your Promise against a 4-second timer. If your Promise does not resolve or reject within 4 seconds, execution is aborted, and a `JavaScript execution timeout` error is thrown.
+- **Synchronous code**: Keep computations bounded; an infinite loop blocks the route handler.
+- **Asynchronous code**: Awaited operations must resolve within the route execution limit or the request fails.
 
 Any script that exceeds these limits will fail, halting execution of the current path unless custom error routing is defined.

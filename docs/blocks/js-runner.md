@@ -1,6 +1,6 @@
 ---
 title: JS Runner
-description: Execute custom JavaScript code within a sandboxed V8 environment with full access to the scripting context.
+description: Execute custom JavaScript compiled into the native Bun route handler with full access to the scripting context.
 ---
 
 # JS Runner
@@ -14,10 +14,10 @@ The **JS Runner** block lets you write arbitrary JavaScript code inside your wor
 | **Value** | The JavaScript code to execute. Supports full ES6+ syntax and `async/await`. |
 ## How It Works
 
-1. The block receives the output of the previous block as its `params` argument.
-2. It calls `context.vm.runAsync(code, params)` — passing your code string and `params` into the [JsVM](../concepts/vm.md) sandbox.
-3. Inside the sandbox, `params` is exposed as the `input` global.
-4. All [scripting context](../scripting/context.md) globals (`getHeader`, `logger`, `jwt`, `dayjs`, etc.) are also available.
+1. The block receives the output of the previous block as its `input` value.
+2. When the workflow is saved, the DAG compiler emits the block's code into the native JavaScript route handler.
+3. Static imports are discovered by the AST parser and hoisted at compile time, so they are not re-imported per request.
+4. All [scripting context](../scripting/context.md) globals (`getHeader`, `logger`, `jwt`, `dayjs`, etc.) are available in the generated handler.
 5. Whatever your code `return`s becomes the block's `output`, which is passed to the next block as `input`.
 6. If an exception is thrown, the block returns `successful: false` and stops the chain (unless the next block is an Error Handler).
 
@@ -155,14 +155,13 @@ try {
   return { error: "Service temporarily unavailable" };
 }
 ```
-## Sandbox Constraints
+## Runtime Constraints
 
 | Constraint | Detail |
 | :--- | :--- |
-| **Timeout** | 4-second maximum. Long `await` calls count toward this limit. |
-| **No Node.js globals** | `process`, `fs`, `require`, `__dirname` are unavailable. |
-| **No npm imports** | `require()` and `import` statements are not supported. |
+| **Timeout** | Keep computations and long `await` calls within the route execution limit. |
+| **Imports** | Static ES `import` declarations are hoisted by the AST parser at compile time. `require()` is not supported. |
 | **Async support** | `async/await` is fully supported. |
 | **ES6+ syntax** | Arrow functions, destructuring, spread, template literals, etc. all work. |
 
-See [JavaScript VM](../concepts/vm.md) for more detail on the sandbox, and [Imports & Libraries](../scripting/imports.md) for how to import modules and which libraries are available.
+See the [Scripting overview](../scripting/index.md) for the execution model, and [Imports & Libraries](../scripting/imports.md) for how to import modules and which libraries are available.

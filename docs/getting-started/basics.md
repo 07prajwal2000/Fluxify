@@ -55,7 +55,7 @@ Every time a request hits a workflow, the engine creates a fresh **Execution Con
 - **Request data** — the HTTP method, route, headers, cookies, query parameters, and body.
 - **Global variable store** — a key-value space shared across all blocks in the same workflow run.
 - **The `input` variable** — the output of the immediately preceding block, available in every block and expression.
-- **Scripting sandbox** — an isolated JavaScript VM for JS Runner and Transformer blocks.
+- **Compiled scripting** — JavaScript from JS Runner and Transformer blocks is compiled into the native Bun route handler.
 - **DB connections** — access to configured database integrations.
 - **Logger** — structured logging to console or cloud providers.
 - **App Config** — project-level secrets referenced as `cfg:MY_KEY`.

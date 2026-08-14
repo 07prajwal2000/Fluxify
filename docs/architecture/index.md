@@ -21,10 +21,10 @@ flowchart LR
     B --> C["Your API servers<br/>pick it up"]
     C --> D["Requests run the<br/>code directly"]
 
-    style A fill:#e8e3ff,stroke:#5f67ee,color:#1a1a2e
-    style B fill:#e8e3ff,stroke:#5f67ee,color:#1a1a2e
-    style C fill:#e8e3ff,stroke:#5f67ee,color:#1a1a2e
-    style D fill:#d4f5dd,stroke:#2b9d5b,color:#1a1a2e
+    style A fill:#111113,stroke:#D2FF4D,color:#FAFAFA
+    style B fill:#111113,stroke:#D2FF4D,color:#FAFAFA
+    style C fill:#111113,stroke:#D2FF4D,color:#FAFAFA
+    style D fill:#111113,stroke:#10B981,color:#FAFAFA
 ```
 
 ## The two halves
@@ -73,10 +73,10 @@ flowchart TB
     BUS --> W1 & W2 & W3
     USERS(["Your users"]) --> W1 & W2 & W3
 
-    style CP fill:#f4f2ff,stroke:#5f67ee,color:#1a1a2e
-    style RW fill:#eefaf2,stroke:#2b9d5b,color:#1a1a2e
-    style SHARED fill:#fff8e6,stroke:#d9a441,color:#1a1a2e
-    style USERS fill:#ffe8e8,stroke:#d9534f,color:#1a1a2e
+    style CP fill:#111113,stroke:#D2FF4D,color:#FAFAFA
+    style RW fill:#111113,stroke:#10B981,color:#FAFAFA
+    style SHARED fill:#111113,stroke:#F59E0B,color:#FAFAFA
+    style USERS fill:#111113,stroke:#EF4444,color:#FAFAFA
 ```
 
 ## Where to go next

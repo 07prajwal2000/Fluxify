@@ -15,11 +15,11 @@ flowchart TD
     C --> D["4 · Workers pick it up"]
     D --> E["5 · A user calls it"]
 
-    style A fill:#e8e3ff,stroke:#5f67ee,color:#1a1a2e
-    style B fill:#e8e3ff,stroke:#5f67ee,color:#1a1a2e
-    style C fill:#fff2cc,stroke:#d9a441,color:#1a1a2e
-    style D fill:#fff2cc,stroke:#d9a441,color:#1a1a2e
-    style E fill:#d4f5dd,stroke:#2b9d5b,color:#1a1a2e
+    style A fill:#111113,stroke:#D2FF4D,color:#FAFAFA
+    style B fill:#111113,stroke:#D2FF4D,color:#FAFAFA
+    style C fill:#111113,stroke:#F59E0B,color:#FAFAFA
+    style D fill:#111113,stroke:#F59E0B,color:#FAFAFA
+    style E fill:#111113,stroke:#10B981,color:#FAFAFA
 ```
 
 Steps 3 and 4 are automatic and usually finish in well under a second. You
@@ -99,8 +99,8 @@ flowchart LR
 
     FLOW ==>|translated once| CODE["A single JavaScript<br/>function for this route"]
 
-    style FLOW fill:#f4f2ff,stroke:#5f67ee,color:#1a1a2e
-    style CODE fill:#fff2cc,stroke:#d9a441,color:#1a1a2e
+    style FLOW fill:#111113,stroke:#D2FF4D,color:#FAFAFA
+    style CODE fill:#111113,stroke:#F59E0B,color:#FAFAFA
 ```
 
 The result is one self-contained function per route. There is no flowchart left
@@ -233,13 +233,13 @@ flowchart TB
     W1 --> Data[("Your data")]
     W2 --> Data
 
-    style You fill:#e8e3ff,stroke:#5f67ee,color:#1a1a2e
-    style Editor fill:#e8e3ff,stroke:#5f67ee,color:#1a1a2e
-    style Comp fill:#fff2cc,stroke:#d9a441,color:#1a1a2e
-    style Bus fill:#fff2cc,stroke:#d9a441,color:#1a1a2e
-    style W1 fill:#d4f5dd,stroke:#2b9d5b,color:#1a1a2e
-    style W2 fill:#d4f5dd,stroke:#2b9d5b,color:#1a1a2e
-    style Users fill:#ffe8e8,stroke:#d9534f,color:#1a1a2e
+    style You fill:#111113,stroke:#D2FF4D,color:#FAFAFA
+    style Editor fill:#111113,stroke:#D2FF4D,color:#FAFAFA
+    style Comp fill:#111113,stroke:#F59E0B,color:#FAFAFA
+    style Bus fill:#111113,stroke:#F59E0B,color:#FAFAFA
+    style W1 fill:#111113,stroke:#10B981,color:#FAFAFA
+    style W2 fill:#111113,stroke:#10B981,color:#FAFAFA
+    style Users fill:#111113,stroke:#EF4444,color:#FAFAFA
 ```
 
 ## Common questions

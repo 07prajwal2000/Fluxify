@@ -7,7 +7,13 @@ description: Extend Fluxify functionalities with custom JavaScript.
 
 While Fluxify provides a robust set of built-in blocks, there are times when your workflows require custom logic. Fluxify's scripting features allow you to write standard JavaScript code to manipulate data, execute complex calculations, handle advanced routing or request parsing, and implement custom condition flows.
 
-All user scripts are executed on the server in a secure, isolated sandbox environment (Virtual Machine). This ensures safety and stability while running high-performance computations.
+Fluxify's DAG compiler turns each saved workflow into native JavaScript. Script blocks and `js:` expressions become part of that compiled route, which runs directly in Bun's JavaScript runtime—there is no per-request VM layer.
+
+## Runtime and worker safety
+
+Scripts execute in Bun, not Node.js. Bun uses Apple's JavaScriptCore engine, so the generated route handler can use the native `Bun` global and Bun runtime APIs where they are available in the worker. See the [Bun runtime API reference](https://bun.com/docs/runtime/bun-apis) for the supported native APIs.
+
+Fluxify's worker supervisor is designed to terminate workers that stop behaving safely, such as a route that blocks execution and prevents heartbeats. This protection is currently experimental and only partially implemented: CPU and network-resource policies are still being tracked separately. You can enable strict worker timeouts with the `experimental.workerTimeouts.enabled` project setting. When enabled, each endpoint has a 30-second timeout by default (or its configured route timeout); a stalled worker that exceeds it is terminated by the supervisor.
 ## Where Scripting Can Be Used
 
 Scripting in Fluxify is divided into two main categories: **dedicated script blocks** and **dynamic inputs/conditions**.
@@ -50,4 +56,4 @@ To write effective scripts, you should be familiar with the following three conc
 - **[Scripting Context](./context.md)**: A global scope injected with helper functions (`getQueryParam`, `setHeader`, `jwt.sign`), third-party libraries (Zod, Underscore, Day.js), and workflow state variable definitions.
 - **[Imports & Libraries](./imports.md)**: Load modules with standard `import` syntax. Imports are hoisted, so they cost nothing per request.
 - **The `input` Variable**: A special local variable containing the outputs of the block immediately preceding the script block.
-- **[Execution Limits & Safety](./key-considerations.md)**: Strict runtime timeouts (4 seconds) and sandbox isolations designed to prevent resource abuse and guarantee API availability.
+- **[Execution Limits & Safety](./key-considerations.md)**: Runtime timeouts and defensive scripting practices for keeping routes reliable.

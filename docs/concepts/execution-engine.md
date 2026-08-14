@@ -1,6 +1,6 @@
 ---
 title: Execution Engine
-description: The core system that runs your workflows block by block, manages the execution context, handles errors, and enforces timeouts.
+description: The core system that runs your workflows block by block, manages the execution context, and handles errors.
 ---
 
 # Execution Engine
@@ -14,7 +14,7 @@ When a request arrives, the server assembles an [Execution Context](./context.md
 Incoming Request
       │
       ▼
- Context Created (vars, VM, DB, timeout)
+ Context Created (vars, scripting helpers, DB)
       │
       ▼
  Engine.start(entrypointBlockId)
@@ -34,8 +34,7 @@ Incoming Request
 2. **Block execution**: Each block's `executeAsync()` method is called with the previous block's output as `params` (accessible as `input` in scripts).
 3. **Navigation**: If a block returns a `next` field, the engine loads that block and continues. If `next` is absent, execution stops.
 4. **Error handling**: If a block fails and does not set `continueIfFail: true`, the engine routes to the configured **Error Handler** block. If the error handler has no continuation, execution stops.
-5. **Timeout enforcement**: Before each iteration, the engine checks if `performance.now()` has exceeded `stopper.timeoutEnd`. If so, execution stops and a timeout error is returned.
-6. **Final result**: The last `BlockOutput` is returned to the request router, which serializes it into an HTTP response.
+5. **Final result**: The last `BlockOutput` is returned to the request router, which serializes it into an HTTP response.
 ## The Context & The Engine
 
 The `Engine` receives the [Execution Context](./context.md) in its `EngineOptions`. It does not read request data directly — all request awareness comes from the context:
@@ -43,25 +42,17 @@ The `Engine` receives the [Execution Context](./context.md) in its `EngineOption
 ```typescript
 export type EngineOptions = {
   errorHandlerId: string;          // ID of the fallback Error Handler block
-  maxExecutionTimeInMs?: number;   // Optional override for timeout
   context: Context;                // The full execution context
 };
 ```
 
-The engine only directly uses `context.stopper` to track timeouts. Every block receives the full context via its constructor, giving it access to the VM, helpers, logger, DB, and HTTP client.
-## Timeout System
+Every block receives the full context via its constructor, giving it access to scripting helpers, the logger, DB, and HTTP client.
 
-Workflows are subject to a **4-second execution timeout** by default (controlled by `RESPONSE_TIMEOUT = 4000` ms).
+## Route Timeout
 
-| Phase | Behavior |
-| :--- | :--- |
-| **First block starts** | `stopper.timeoutEnd` is set to `performance.now() + stopper.duration`. |
-| **Each iteration** | The engine checks `performance.now() >= stopper.timeoutEnd`. |
-| **Timeout detected** | Execution halts immediately. Returns `{ successful: false, error: "Execution timeout exceeded" }`. |
-| **Post-loop buffer** | After the loop, 20ms is added to `timeoutEnd` to allow the final check to occur without false positives. |
-| **`ExecutionTimeoutError`** | Blocks can also throw this error explicitly; the engine catches it and terminates cleanly. |
+Route timeouts are opt-in through the experimental `experimental.workerTimeouts.enabled` project setting. When enabled, each route has a 30-second timeout by default, or a configured timeout for that route. The worker supervisor can terminate a stalled worker that exceeds the route limit.
 
-> **Tip**: Long-running tasks (like DB queries or external HTTP calls) count toward the timeout. Design workflows to be efficient and avoid unnecessary sequential round-trips.
+> **Tip**: Keep database queries and external HTTP calls bounded and avoid unnecessary sequential round-trips. The worker-timeout protection is experimental and does not replace application-level timeouts for external services.
 ## Error Handling
 
 Every workflow must have an **Error Handler** block configured. The engine uses its ID (`errorHandlerId`) to route failures.
@@ -94,11 +85,11 @@ The engine is intentionally thin — it knows nothing about HTTP, databases, or 
 | :--- | :--- |
 | Request parsing | `handleRequest()` in the request router |
 | Variable state | `vars` in the Context |
-| Script execution | `context.vm` (JsVM sandbox) |
+| Script execution | Native JavaScript emitted by the DAG compiler and executed in Bun |
 | DB access | `context.dbFactory` |
 | Outgoing HTTP | `context.httpClient` |
 | Logging | `context.vars.logger` |
-| Timeout | `context.stopper` (read by Engine) |
+| Route timeout | Experimental worker supervisor (when enabled) |
 
 See [Execution Context](./context.md) for the full context reference.
 ## Performance
