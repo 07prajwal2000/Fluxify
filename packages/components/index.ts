@@ -13,6 +13,7 @@ export * from "./src/IntegrationSelector";
 export * from "./src/JsonEditor";
 export * from "./src/ArrayEditor";
 export * from "./src/JoinsEditor";
+export * from "./src/SchemaEditor";
 export * from "./src/MultiSelect";
 export * from "./src/CustomSelect";
 export * from "./src/Sidebar";
