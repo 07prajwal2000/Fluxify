@@ -6,6 +6,7 @@ import appGetAll from "./get-all/route";
 import appStartRun from "./start-run/route";
 import appGetRuns from "./get-runs/route";
 import appGetRunById from "./get-run-by-id/route";
+import appDeleteRuns from "./delete-runs/route";
 
 import { HonoServer } from "../../../types";
 
@@ -32,5 +33,6 @@ export default {
 		appStartRun(runsRouter);
 		appGetRuns(runsRouter);
 		appGetRunById(runsRouter);
+		appDeleteRuns(runsRouter);
 	},
 };

@@ -8,6 +8,7 @@ import { CanvasWorkbench } from "@/components/canvas";
 import { RouteApiPlayground } from "@/components/RouteApiPlayground";
 import { RouteSettingsModal } from "@/components/routes/RouteSettingsModal";
 import { RouteSwitcher } from "@/components/routes/RouteSwitcher";
+import { RouteWorkbenchTabs } from "@/components/routes/RouteWorkbenchTabs";
 import { createRouteHead } from "@/lib/seo";
 
 export const Route = createFileRoute("/_authed/$projectId_/canvas/$routeId")({
@@ -30,7 +31,12 @@ function RouteCanvasPage() {
 				playgroundContent={<RouteApiPlayground routeId={routeId} baseUrl={import.meta.env.VITE_ROUTE_BASE_URL ?? window.location.origin} isFramed={false} />}
 				reload={() => routesService.getCanvasItems(routeId)}
 				save={(payload) => save.mutateAsync(payload)}
-				headerLeft={<RouteSwitcher projectId={projectId} routeId={routeId} />}
+				headerLeft={
+					<>
+						<RouteSwitcher projectId={projectId} routeId={routeId} />
+						<RouteWorkbenchTabs projectId={projectId} routeId={routeId} />
+					</>
+				}
 				headerActions={
 					<Button variant="outline" onPress={() => setSettingsOpen(true)}>
 						<TbSettings size={16} /> Settings

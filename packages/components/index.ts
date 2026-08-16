@@ -11,6 +11,7 @@ export * from "./src/ConditionsBuilder";
 export * from "./src/FieldMapEditor";
 export * from "./src/IntegrationSelector";
 export * from "./src/JsonEditor";
+export * from "./src/CodeViewer";
 export * from "./src/ArrayEditor";
 export * from "./src/JoinsEditor";
 export * from "./src/SchemaEditor";
