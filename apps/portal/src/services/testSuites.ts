@@ -87,6 +87,11 @@ export const testSuitesService = {
 		);
 		return result.data;
 	},
+	/** Clears every recorded run for the route. */
+	async clearRuns(projectId: string, routeId: string): Promise<{ deleted: number }> {
+		const result = await httpClient.delete(runsUrl(projectId, routeId));
+		return result.data;
+	},
 	async getRun(
 		projectId: string,
 		routeId: string,

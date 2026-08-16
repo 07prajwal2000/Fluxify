@@ -13,8 +13,12 @@ const runKey = (projectId: string, routeId: string) => [
 	routeId,
 ];
 
-/** how often an unfinished run is re-read */
-const RUN_POLL_MS = 1_500;
+/**
+ * How often an unfinished run is re-read. Suite rows land one at a time, so a
+ * short interval is what makes them appear to fill in rather than arrive in
+ * batches; the request is a single indexed read.
+ */
+const RUN_POLL_MS = 500;
 
 export const testSuitesQuery = {
 	getAll: {
@@ -89,6 +93,16 @@ export const testSuitesQuery = {
 				queryFn: () => testSuitesService.getRuns(projectId, routeId, query),
 				enabled: !!projectId && !!routeId,
 				refetchOnWindowFocus: false,
+			});
+		},
+	},
+	clearRuns: {
+		mutation(projectId: string, routeId: string) {
+			const qc = useQueryClient();
+			return useMutation({
+				mutationFn: () => testSuitesService.clearRuns(projectId, routeId),
+				onSuccess: () =>
+					qc.invalidateQueries({ queryKey: runKey(projectId, routeId) }),
 			});
 		},
 	},
