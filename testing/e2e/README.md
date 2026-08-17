@@ -36,6 +36,7 @@ A fixture declares its engine; Postgres is the default.
 |---|---|---|
 | `pg` | `postgres:bullseye` | `users`, `orders`, `auth_users` |
 | `mongo` | `mongo:7.0`, single-node replica set | `todos` |
+| `none` | — | graphs that touch no database |
 
 Graphs are written **per engine**, not run across all of them. The adapters do
 not agree on what a result looks like — Mongo ids are hex strings off `_id`,
@@ -61,6 +62,30 @@ route-level schema the portal stores, and it runs before any block does, so a
 to the tests: a login test posts one, and the storage test hashes one and
 compares it against the column read straight out of Postgres.
 
+## Custom blocks
+
+`blocks/` holds custom blocks in the shape the portal saves them — a graph plus
+the `inputParams` its callers configure. A route fixture names the ones it calls
+in `uses`, and the harness registers them before compiling the route, which is
+the same order the real compiler works in: a caller only emits once the library
+knows the name.
+
+`blocks/jwt-ops.json` is the worked example. One block, two input params
+(`operation`, `failOnInvalid`), and three routes under `graphs/custom-blocks/`
+that configure it differently — signing, lenient verification, and strict
+verification that ends on the block's *own* response block. Worth copying:
+
+- Read config as `params.<name>` inside the block, at any depth. `input` is the
+  previous block's output, exactly as in a route.
+- The callee's spans land in the caller's trace, so `executed` shows the inner
+  block ids inline. Assert on them — that is what distinguishes "the block ran"
+  from "the caller returned something".
+- A response block inside a custom block ends *the block*, handing
+  `{ httpCode, body }` back to the caller. The caller still chooses the status.
+
+The secret is hardcoded in the block. It should come from app config, which
+custom block params cannot reference yet.
+
 ## Adding a graph
 
 1. Drop a JSON file in `graphs/`, or in a subfolder for a multi-endpoint
@@ -72,7 +97,8 @@ compares it against the column read straight out of Postgres.
    the field the compiler reads. An `if` whose two edges both say
    `"toHandle": "source"` fails to compile with a fan-out error.
 2. Point any db block's `connection` at `"primary"` — the harness wires that id
-   to the right container for the fixture's engine.
+   to the right container for the fixture's engine. A graph with no db block
+   should set `"engine": "none"` so no container starts for it.
 3. Add a test file in `tests/` with `beforeEach(() => resetDatabase(engine))`
    and assertions on `runGraph(fixture)`.
 

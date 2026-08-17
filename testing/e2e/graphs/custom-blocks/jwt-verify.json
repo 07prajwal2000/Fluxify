@@ -1,0 +1,73 @@
+{
+	"name": "custom-blocks/jwt-verify",
+	"description": "POST /jwt/verify — the same custom block configured with operation=verify. `failOnInvalid` is off, so a bad token returns { valid: false } and the route decides what to do with it.",
+	"engine": "none",
+	"route": {
+		"method": "POST",
+		"path": "/jwt/verify"
+	},
+	"uses": ["jwt-ops"],
+	"schemas": {
+		"body": {
+			"dataType": "object",
+			"properties": [{ "key": "token", "dataType": "str", "required": true }]
+		}
+	},
+	"blocks": [
+		{
+			"id": "entry",
+			"type": "entrypoint",
+			"position": { "x": 0, "y": 0 },
+			"data": { "blockName": "Request" }
+		},
+		{
+			"id": "carry-token",
+			"type": "jsrunner",
+			"position": { "x": 240, "y": 0 },
+			"data": {
+				"blockName": "Take the token",
+				"value": "return { token: getRequestBody().token };"
+			}
+		},
+		{
+			"id": "verify",
+			"type": "jwt_ops",
+			"position": { "x": 480, "y": 0 },
+			"data": {
+				"blockName": "Verify it",
+				"invoke": "sync",
+				"operation": "verify",
+				"failOnInvalid": false
+			}
+		},
+		{
+			"id": "reply",
+			"type": "response",
+			"position": { "x": 720, "y": 0 },
+			"data": { "blockName": "200 OK", "httpCode": "200" }
+		}
+	],
+	"edges": [
+		{
+			"id": "e-entry-carry",
+			"from": "entry",
+			"to": "carry-token",
+			"fromHandle": "source",
+			"toHandle": "source"
+		},
+		{
+			"id": "e-carry-verify",
+			"from": "carry-token",
+			"to": "verify",
+			"fromHandle": "source",
+			"toHandle": "source"
+		},
+		{
+			"id": "e-verify-reply",
+			"from": "verify",
+			"to": "reply",
+			"fromHandle": "source",
+			"toHandle": "source"
+		}
+	]
+}

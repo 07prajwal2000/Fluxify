@@ -1,0 +1,73 @@
+{
+	"name": "custom-blocks/jwt-sign",
+	"description": "POST /jwt/sign — builds a claims object and hands it to the jwt_ops custom block with operation=sign. The token comes back from the block's own graph.",
+	"engine": "none",
+	"route": {
+		"method": "POST",
+		"path": "/jwt/sign"
+	},
+	"uses": ["jwt-ops"],
+	"schemas": {
+		"body": {
+			"dataType": "object",
+			"properties": [{ "key": "sub", "dataType": "str", "required": true }]
+		}
+	},
+	"blocks": [
+		{
+			"id": "entry",
+			"type": "entrypoint",
+			"position": { "x": 0, "y": 0 },
+			"data": { "blockName": "Request" }
+		},
+		{
+			"id": "claims",
+			"type": "jsrunner",
+			"position": { "x": 240, "y": 0 },
+			"data": {
+				"blockName": "Build the claims",
+				"value": "return { sub: getRequestBody().sub, role: \"admin\" };"
+			}
+		},
+		{
+			"id": "sign",
+			"type": "jwt_ops",
+			"position": { "x": 480, "y": 0 },
+			"data": {
+				"blockName": "Sign it",
+				"invoke": "sync",
+				"operation": "sign",
+				"failOnInvalid": false
+			}
+		},
+		{
+			"id": "reply",
+			"type": "response",
+			"position": { "x": 720, "y": 0 },
+			"data": { "blockName": "200 OK", "httpCode": "200" }
+		}
+	],
+	"edges": [
+		{
+			"id": "e-entry-claims",
+			"from": "entry",
+			"to": "claims",
+			"fromHandle": "source",
+			"toHandle": "source"
+		},
+		{
+			"id": "e-claims-sign",
+			"from": "claims",
+			"to": "sign",
+			"fromHandle": "source",
+			"toHandle": "source"
+		},
+		{
+			"id": "e-sign-reply",
+			"from": "sign",
+			"to": "reply",
+			"fromHandle": "source",
+			"toHandle": "source"
+		}
+	]
+}

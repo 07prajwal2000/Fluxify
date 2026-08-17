@@ -1,0 +1,125 @@
+{
+	"name": "jwt_ops",
+	"description": "Signs or verifies a JWT, chosen by the `operation` input param. With `failOnInvalid` set, a bad token ends the block on a 401 response instead of returning a result. The secret is baked in until custom blocks can read app config.",
+	"inputParams": [
+		{
+			"name": "operation",
+			"label": "Operation",
+			"type": "dropdown",
+			"options": ["sign", "verify"],
+			"description": "Sign a new token from the incoming payload, or verify the one it carries."
+		},
+		{
+			"name": "failOnInvalid",
+			"label": "Reject invalid tokens",
+			"type": "checkbox",
+			"description": "End the block with a 401 instead of returning { valid: false }."
+		}
+	],
+	"blocks": [
+		{
+			"id": "cb-entry",
+			"type": "entrypoint",
+			"position": { "x": 0, "y": 0 },
+			"data": { "blockName": "Called" }
+		},
+		{
+			"id": "cb-is-sign",
+			"type": "if",
+			"position": { "x": 240, "y": 0 },
+			"data": {
+				"blockName": "Signing?",
+				"conditions": [
+					{
+						"lhs": "",
+						"rhs": "",
+						"operator": "js",
+						"chain": "and",
+						"js": "return params.operation === \"sign\";"
+					}
+				]
+			}
+		},
+		{
+			"id": "cb-sign",
+			"type": "jsrunner",
+			"position": { "x": 480, "y": -120 },
+			"data": {
+				"blockName": "Sign a token",
+				"value": "return {\n\ttoken: jwt.sign(input ?? {}, \"e2e-custom-block-secret\", {\n\t\texpiresIn: \"1h\",\n\t\tissuer: \"fluxify-e2e-block\",\n\t}),\n};"
+			}
+		},
+		{
+			"id": "cb-verify",
+			"type": "jsrunner",
+			"position": { "x": 480, "y": 120 },
+			"data": {
+				"blockName": "Verify the token",
+				"value": "const result = jwt.verify(input?.token ?? \"\", \"e2e-custom-block-secret\");\nreturn result.success\n\t? { valid: true, payload: result.payload }\n\t: { valid: false, error: \"invalid_token\" };"
+			}
+		},
+		{
+			"id": "cb-guard",
+			"type": "if",
+			"position": { "x": 720, "y": 120 },
+			"data": {
+				"blockName": "Let it through?",
+				"conditions": [
+					{
+						"lhs": "",
+						"rhs": "",
+						"operator": "js",
+						"chain": "and",
+						"js": "return input.valid || !params.failOnInvalid;"
+					}
+				]
+			}
+		},
+		{
+			"id": "cb-reject",
+			"type": "response",
+			"position": { "x": 960, "y": 240 },
+			"data": {
+				"blockName": "401 Unauthorized",
+				"httpCode": "401"
+			}
+		}
+	],
+	"edges": [
+		{
+			"id": "cb-e-entry-branch",
+			"from": "cb-entry",
+			"to": "cb-is-sign",
+			"fromHandle": "source",
+			"toHandle": "source"
+		},
+		{
+			"id": "cb-e-branch-sign",
+			"from": "cb-is-sign",
+			"to": "cb-sign",
+			"fromHandle": "success",
+			"toHandle": "success"
+		},
+		{
+			"id": "cb-e-branch-verify",
+			"from": "cb-is-sign",
+			"to": "cb-verify",
+			"fromHandle": "failure",
+			"toHandle": "failure"
+		},
+		{
+			"id": "cb-e-verify-guard",
+			"from": "cb-verify",
+			"to": "cb-guard",
+			"fromHandle": "source",
+			"toHandle": "source"
+		},
+		{
+			"id": "cb-e-guard-reject",
+			"from": "cb-guard",
+			"to": "cb-reject",
+			"fromHandle": "failure",
+			"toHandle": "failure"
+		}
+	]
+}
