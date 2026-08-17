@@ -6,6 +6,7 @@ import { withBasePath } from "@/constants/routes";
 import { customBlocksQuery } from "@/query/customBlocksQuery";
 import { BlockSettings } from "../BlockSettings";
 import {
+	BlockAppConfigField,
 	BlockArrayEditorField,
 	BlockCheckboxField,
 	BlockIntegrationField,
@@ -18,7 +19,13 @@ import type { BlockNode } from "../../types";
 export type CustomBlockInputParam = {
 	name: string;
 	label: string;
-	type: "text_input" | "checkbox" | "dropdown" | "array_editor" | "integration_selector";
+	type:
+		| "text_input"
+		| "checkbox"
+		| "dropdown"
+		| "array_editor"
+		| "integration_selector"
+		| "app_config_selector";
 	options?: (string | { label: string; value: string })[];
 	group?: string;
 	tags?: string[];
@@ -150,6 +157,17 @@ export function CustomBlockSettingsPanel({ block }: { block: BlockNode }) {
 									label={param.label}
 									description={param.description}
 									group={param.group}
+								/>
+							);
+						case "app_config_selector":
+							return (
+								<BlockAppConfigField
+									key={param.name}
+									blockId={block.id}
+									data={block.data}
+									name={param.name}
+									label={param.label}
+									description={param.description}
 								/>
 							);
 						default:

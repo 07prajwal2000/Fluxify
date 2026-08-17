@@ -3,6 +3,9 @@ import {
 	hydrateIntegrations,
 	OWNER_KEY,
 } from "@fluxify/server/src/loaders/integrationsLoader";
+// `appconfigLoader`, not `appConfigLoader` — the file is lowercase and CI runs
+// on a case-sensitive filesystem, so the camelCase spelling only resolves locally
+import { hydrateAppConfig } from "@fluxify/server/src/loaders/appconfigLoader";
 import { setBlocksExecutor } from "@fluxify/server/src/modules/requestRouter/executor";
 import { executeRouteInternal } from "@fluxify/server/src/modules/requestRouter/service";
 import { connectionFor } from "./engines";
@@ -26,6 +29,14 @@ import type { GraphFixture } from "./graph";
 export const PROJECT_ID = "e2e-project";
 /** the integration id every fixture points its db blocks at */
 export const DB_CONNECTION = "primary";
+/**
+ * The project's app config, as the worker would receive it over KV — a fixture
+ * reaches it through `getConfig`, and a custom block through an
+ * `app_config_selector` param naming the key.
+ */
+export const APP_CONFIG: Record<string, string | number | boolean> = {
+	JWT_SIGNING_SECRET: "e2e-custom-block-secret",
+};
 
 export type GraphRequest = {
 	method?: string;
@@ -63,6 +74,7 @@ export async function runGraph(
 	fixture: GraphFixture,
 	request: GraphRequest = {},
 ): Promise<GraphRun> {
+	hydrateAppConfig(PROJECT_ID, APP_CONFIG);
 	await hydrateDatabase(fixture);
 	const disposeBlocks = await registerFixtureBlocks(fixture);
 

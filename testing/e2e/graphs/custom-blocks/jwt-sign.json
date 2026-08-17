@@ -37,7 +37,8 @@
 				"blockName": "Sign it",
 				"invoke": "sync",
 				"operation": "sign",
-				"failOnInvalid": false
+				"failOnInvalid": false,
+				"secret_key": "JWT_SIGNING_SECRET"
 			}
 		},
 		{

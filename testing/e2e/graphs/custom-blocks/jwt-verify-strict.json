@@ -37,7 +37,8 @@
 				"blockName": "Verify it",
 				"invoke": "sync",
 				"operation": "verify",
-				"failOnInvalid": true
+				"failOnInvalid": true,
+				"secret_key": "JWT_SIGNING_SECRET"
 			}
 		},
 		{

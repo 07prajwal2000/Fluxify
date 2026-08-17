@@ -1,6 +1,6 @@
 {
 	"name": "jwt_ops",
-	"description": "Signs or verifies a JWT, chosen by the `operation` input param. With `failOnInvalid` set, a bad token ends the block on a 401 response instead of returning a result. The secret is baked in until custom blocks can read app config.",
+	"description": "Signs or verifies a JWT, chosen by the `operation` input param. With `failOnInvalid` set, a bad token ends the block on a 401 response instead of returning a result. The signing secret is an app config key the caller picks, so the block carries no secret of its own.",
 	"inputParams": [
 		{
 			"name": "operation",
@@ -14,6 +14,12 @@
 			"label": "Reject invalid tokens",
 			"type": "checkbox",
 			"description": "End the block with a 401 instead of returning { valid: false }."
+		},
+		{
+			"name": "secret_key",
+			"label": "Signing secret",
+			"type": "app_config_selector",
+			"description": "App config key holding the HMAC secret. The block reads the key, never the value."
 		}
 	],
 	"blocks": [
@@ -46,7 +52,7 @@
 			"position": { "x": 480, "y": -120 },
 			"data": {
 				"blockName": "Sign a token",
-				"value": "return {\n\ttoken: jwt.sign(input ?? {}, \"e2e-custom-block-secret\", {\n\t\texpiresIn: \"1h\",\n\t\tissuer: \"fluxify-e2e-block\",\n\t}),\n};"
+				"value": "return {\n\ttoken: jwt.sign(input ?? {}, getConfig(params.secret_key), {\n\t\texpiresIn: \"1h\",\n\t\tissuer: \"fluxify-e2e-block\",\n\t}),\n};"
 			}
 		},
 		{
@@ -55,7 +61,7 @@
 			"position": { "x": 480, "y": 120 },
 			"data": {
 				"blockName": "Verify the token",
-				"value": "const result = jwt.verify(input?.token ?? \"\", \"e2e-custom-block-secret\");\nreturn result.success\n\t? { valid: true, payload: result.payload }\n\t: { valid: false, error: \"invalid_token\" };"
+				"value": "const result = jwt.verify(input?.token ?? \"\", getConfig(params.secret_key));\nreturn result.success\n\t? { valid: true, payload: result.payload }\n\t: { valid: false, error: \"invalid_token\" };"
 			}
 		},
 		{
