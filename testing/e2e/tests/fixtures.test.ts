@@ -1,6 +1,12 @@
 import { describe, expect, it } from "bun:test";
 import { compileGraph } from "@fluxify/blocks";
-import { graphNames, loadGraph } from "../src/graph";
+import { registerFixtureBlocks } from "../src/customBlocks";
+import {
+	customBlockFiles,
+	graphNames,
+	loadCustomBlock,
+	loadGraph,
+} from "../src/graph";
 
 /**
  * Guards the fixtures themselves. A graph that no longer compiles is a broken
@@ -16,7 +22,25 @@ describe("graph fixtures", () => {
 		it(`${name} compiles`, async () => {
 			const fixture = await loadGraph(name);
 			expect(fixture.route.path.startsWith("/")).toBe(true);
-			expect(compileGraph(fixture.blocks, fixture.edges).source).toBeString();
+			// a caller only emits once its custom blocks are in the library
+			const dispose = await registerFixtureBlocks(fixture);
+			try {
+				expect(compileGraph(fixture.blocks, fixture.edges).source).toBeString();
+			} finally {
+				dispose();
+			}
+		});
+	}
+});
+
+describe("custom block fixtures", () => {
+	for (const file of customBlockFiles()) {
+		it(`${file} compiles as a custom block`, async () => {
+			const block = await loadCustomBlock(file);
+			const { source } = compileGraph(block.blocks, block.edges, {
+				asCustomBlock: true,
+			});
+			expect(source).toBeString();
 		});
 	}
 });

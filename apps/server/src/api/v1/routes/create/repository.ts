@@ -47,7 +47,7 @@ export async function createDependency(
     type: "response",
     position: {
       x: 0,
-      y: 100,
+      y: 160,
     },
     data: {
       httpCode: "200",
@@ -57,8 +57,10 @@ export async function createDependency(
     id: id3,
     routeId,
     type: BlockTypes.errorHandler,
+    // a block is ~168px wide; anything less than that sits on top of the
+    // entrypoint on the current node design
     position: {
-      x: -100,
+      x: -240,
       y: 0,
     },
     data: {

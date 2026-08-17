@@ -230,9 +230,21 @@ function PickerModal({
 														<IntegrationIcon variant={integration.variant} />
 													</Table.Cell>
 													<Table.Cell>
-														<span className="text-sm font-medium text-foreground">
-															{integration.name}
-														</span>
+														<div className="flex flex-col">
+															<span className="flex items-center gap-2 text-sm font-medium text-foreground">
+																{integration.name}
+																{integration.external && (
+																	<span className="rounded-full border border-accent/40 bg-accent/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-accent">
+																		From caller
+																	</span>
+																)}
+															</span>
+															{integration.external && integration.hint && (
+																<span className="text-xs text-muted-foreground">
+																	{integration.hint}
+																</span>
+															)}
+														</div>
 													</Table.Cell>
 													<Table.Cell>
 														<span className="font-mono text-xs text-muted-foreground">
@@ -280,6 +292,7 @@ function PickerModal({
 export function IntegrationSelector({
 	selectedId,
 	loadIntegrations,
+	injectedIntegrations,
 	onSelect,
 	onTestConnection,
 	openInNewTabUrl,
@@ -292,7 +305,12 @@ export function IntegrationSelector({
 	description,
 	className,
 }: IntegrationSelectorProps) {
-	const [integrations, setIntegrations] = useState<Integration[]>([]);
+	const [loaded, setLoaded] = useState<Integration[]>([]);
+	// injected entries need no fetch and always come first
+	const integrations = useMemo(
+		() => [...(injectedIntegrations ?? []), ...loaded],
+		[injectedIntegrations, loaded],
+	);
 	const [loadStatus, setLoadStatus] = useState<LoadStatus>("idle");
 	const [loadError, setLoadError] = useState<string | null>(null);
 
@@ -316,7 +334,7 @@ export function IntegrationSelector({
 		setLoadError(null);
 		try {
 			const data = await loadIntegrations();
-			setIntegrations(data);
+			setLoaded(data);
 			setLoadStatus("success");
 		} catch (err) {
 			const msg =
@@ -443,8 +461,9 @@ export function IntegrationSelector({
 					<div className="flex shrink-0 items-center gap-1.5">
 						{loadStatus === "success" && (
 							<>
-								{/* Test Connection */}
-								{selectedIntegration && onTestConnection && (
+								{/* Test Connection — an external entry has nothing to test
+								    here; the real integration lives on the caller's side */}
+								{selectedIntegration && !selectedIntegration.external && onTestConnection && (
 									<Button
 										aria-label="Test Connection"
 										size="sm"
@@ -462,7 +481,7 @@ export function IntegrationSelector({
 								)}
 
 								{/* Open in new tab */}
-								{selectedIntegration && openInNewTabUrl && (
+								{selectedIntegration && !selectedIntegration.external && openInNewTabUrl && (
 									<Button
 										aria-label="Open Integration Settings"
 										size="sm"
@@ -503,6 +522,12 @@ export function IntegrationSelector({
 						</Button>
 					</div>
 				</div>
+
+				{selectedIntegration?.external && selectedIntegration.hint && (
+					<p className="text-xs leading-normal text-accent">
+						{selectedIntegration.hint}
+					</p>
+				)}
 			</div>
 
 			{/* Picker Modal */}

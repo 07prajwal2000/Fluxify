@@ -61,7 +61,7 @@ export function emitInsertBulkDb(node: EmitNode) {
 
   return `const ${data} = ${payload};
 if (!Array.isArray(${data})) throw new Error("error in insert bulk: data to insert is not an array");
-${node.in} = await lib.dbInsertBulk(ctx, ${JSON.stringify(input.connection)}, ${node.value(input.tableName)}, ${data});
+${node.in} = await lib.dbInsertBulk(ctx, ${node.value(input.connection)}, ${node.value(input.tableName)}, ${data});
 ${node.next()}`;
 }
 

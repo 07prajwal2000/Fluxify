@@ -149,6 +149,28 @@ export const serverEnvSchema = baseEnvSchema.extend({
 		.enum(["true", "false"])
 		.optional()
 		.describe("Enable admin control-plane API endpoints ('true' | 'false')"),
+
+	// Background job queue. One stream serves every kind of job, so these tune
+	// the worker rather than any one feature.
+	JOBS_CONCURRENCY: z
+		.string()
+		.optional()
+		.describe("Background jobs this worker runs at once (default 5)"),
+
+	JOBS_ACK_WAIT_MS: z
+		.string()
+		.optional()
+		.describe("How long a job may run before it is assumed lost (default 300000)"),
+
+	JOBS_MAX_DELIVER: z
+		.string()
+		.optional()
+		.describe("Attempts before a failing job is dropped (default 5)"),
+
+	JOBS_RETRY_DELAY_MS: z
+		.string()
+		.optional()
+		.describe("Delay before a failed job is redelivered (default 10000)"),
 });
 
 // Extract keys using keyof

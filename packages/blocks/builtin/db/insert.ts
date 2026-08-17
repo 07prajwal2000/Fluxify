@@ -70,7 +70,7 @@ export function emitInsertDb(node: EmitNode) {
 
   return `const ${data} = ${payload};
 if (typeof ${data} !== "object") throw new Error("error in insert: data to insert is not an object");
-${node.in} = await lib.dbInsert(ctx, ${JSON.stringify(input.connection)}, ${node.value(input.tableName)}, ${data});
+${node.in} = await lib.dbInsert(ctx, ${node.value(input.connection)}, ${node.value(input.tableName)}, ${data});
 ${node.next()}`;
 }
 

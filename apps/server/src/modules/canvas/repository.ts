@@ -232,9 +232,17 @@ export async function getCustomBlockNames(
 	parent: CanvasParent,
 	tx?: DbTransactionType,
 ): Promise<string[]> {
+	return (await getProjectCustomBlocks(parent, tx)).map((row) => row.name);
+}
+
+/** Same set as `getCustomBlockNames`, with the id needed to read each canvas. */
+export async function getProjectCustomBlocks(
+	parent: CanvasParent,
+	tx?: DbTransactionType,
+): Promise<{ id: string; name: string }[]> {
 	const table = parent.type === "route" ? routesEntity : customBlocksListEntity;
-	const rows = await (tx ?? db)
-		.select({ name: customBlocksListEntity.name })
+	return await (tx ?? db)
+		.select({ id: customBlocksListEntity.id, name: customBlocksListEntity.name })
 		.from(customBlocksListEntity)
 		.where(
 			eq(
@@ -245,7 +253,30 @@ export async function getCustomBlockNames(
 					.where(eq(table.id, parent.id)),
 			),
 		);
-	return rows.map((row) => row.name);
+}
+
+/**
+ * Which custom block each of these canvases holds a block of — the call graph a
+ * recursion check walks. Only the type matters, so this stays one narrow read
+ * however big the canvases are.
+ */
+export async function getCustomBlockCalls(
+	customBlockIds: string[],
+	tx?: DbTransactionType,
+): Promise<{ parentId: string; type: string }[]> {
+	if (!customBlockIds.length) return [];
+	const rows = await (tx ?? db)
+		.selectDistinct({ parentId: blocksEntity.parentId, type: blocksEntity.type })
+		.from(blocksEntity)
+		.where(
+			and(
+				eq(blocksEntity.parentType, "custom_block"),
+				inArray(blocksEntity.parentId, customBlockIds),
+			),
+		);
+	return rows.flatMap((row) =>
+		row.parentId && row.type ? [{ parentId: row.parentId, type: row.type }] : [],
+	);
 }
 
 export async function touchParent(

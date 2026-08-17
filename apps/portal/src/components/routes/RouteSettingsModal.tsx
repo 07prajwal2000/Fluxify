@@ -24,6 +24,9 @@ import type { HttpMethod } from "@fluxify/server/src/db/schema";
 import { DEFAULT_CONTENT_TYPES } from "@fluxify/server/src/lib/routeConfig";
 import { ROUTE_REGEX } from "@fluxify/server/src/api/v1/routes/constants";
 import { TbAlertTriangle } from "react-icons/tb";
+import { useNavigate } from "@tanstack/react-router";
+import { DeleteButton } from "@fluxify/components";
+import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { routesQuery } from "@/query/routesQuery";
 import { projectSettingsKeysQuery } from "@/query/projectSettingsKeysQuery";
 import { showErrorNotification } from "@/lib/errorNotifier";
@@ -141,6 +144,24 @@ function RouteSettingsForm({
 		() => paramConfigFrom(route.paramsSchema),
 	);
 	const [tab, setTab] = useState("general");
+	const [confirmDelete, setConfirmDelete] = useState(false);
+	const remove = routesQuery.remove.mutation();
+	const navigate = useNavigate();
+
+	function deleteRoute() {
+		remove.mutate(route.id, {
+			onSuccess: () => {
+				toast.success("Route deleted");
+				setConfirmDelete(false);
+				onClose();
+				navigate({
+					to: "/$projectId/routes",
+					params: { projectId: route.projectId },
+				});
+			},
+			onError: (error) => showErrorNotification(error as Error),
+		});
+	}
 
 	const pathParams = useMemo(() => extractPathParams(path), [path]);
 	const hasBody = METHODS_WITH_BODY.includes(method);
@@ -198,6 +219,7 @@ function RouteSettingsForm({
 				{ id: "query", label: "Query" },
 				hasBody && { id: "body", label: "Body" },
 				{ id: "advanced", label: "Advanced" },
+				{ id: "danger", label: "Danger zone" },
 			].filter(Boolean) as { id: string; label: string }[],
 		[pathParams.length, hasBody],
 	);
@@ -412,8 +434,45 @@ function RouteSettingsForm({
 							</Section>
 						)}
 					</Tabs.Panel>
+
+					<Tabs.Panel id="danger" className="min-h-0 flex-1 overflow-y-auto p-5">
+						<Section
+							title="Delete this route"
+							description="The route stops answering immediately and its canvas goes with it. This can't be undone."
+						>
+							<div className="flex items-center justify-between rounded-md border border-danger/40 bg-danger/5 px-4 py-3">
+								<div className="min-w-0">
+									<p className="truncate font-mono text-xs">
+										{route.method} {route.path}
+									</p>
+									<p className="text-xs text-muted">
+										Any client calling it will start getting a 404.
+									</p>
+								</div>
+								<DeleteButton onPress={() => setConfirmDelete(true)}>
+									Delete route
+								</DeleteButton>
+							</div>
+						</Section>
+					</Tabs.Panel>
 				</Tabs>
 			</Modal.Body>
+
+			<ConfirmDialog
+				open={confirmDelete}
+				onOpenChange={setConfirmDelete}
+				title="Delete route?"
+				danger
+				confirmText="Delete"
+				pending={remove.isPending}
+				onConfirm={deleteRoute}
+			>
+				Delete{" "}
+				<b className="text-foreground font-mono">
+					{route.method} {route.path}
+				</b>
+				? This can't be undone.
+			</ConfirmDialog>
 
 			<Modal.Footer className="flex shrink-0 flex-row items-center gap-3 border-t border-border px-5 py-3">
 				<span className="text-xs text-muted">

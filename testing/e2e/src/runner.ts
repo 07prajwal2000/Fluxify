@@ -6,6 +6,7 @@ import {
 import { setBlocksExecutor } from "@fluxify/server/src/modules/requestRouter/executor";
 import { executeRouteInternal } from "@fluxify/server/src/modules/requestRouter/service";
 import { connectionFor } from "./engines";
+import { registerFixtureBlocks } from "./customBlocks";
 import type { GraphFixture } from "./graph";
 
 /**
@@ -49,7 +50,10 @@ export type GraphRun = {
 
 /** Points the project's `primary` db integration at the fixture's engine. */
 async function hydrateDatabase(fixture: GraphFixture) {
-	const connection = await connectionFor(fixture.engine ?? "pg");
+	const engine = fixture.engine ?? "pg";
+	// a graph that touches no database should not start a container for it
+	if (engine === "none") return;
+	const connection = await connectionFor(engine);
 	hydrateIntegrations(PROJECT_ID, {
 		db: { [DB_CONNECTION]: { ...connection, [OWNER_KEY]: PROJECT_ID } },
 	});
@@ -60,7 +64,19 @@ export async function runGraph(
 	request: GraphRequest = {},
 ): Promise<GraphRun> {
 	await hydrateDatabase(fixture);
+	const disposeBlocks = await registerFixtureBlocks(fixture);
 
+	try {
+		return await execute(fixture, request);
+	} finally {
+		disposeBlocks();
+	}
+}
+
+async function execute(
+	fixture: GraphFixture,
+	request: GraphRequest,
+): Promise<GraphRun> {
 	const { run, source } = compileGraph(fixture.blocks, fixture.edges);
 	const spans: BlockTraceSpan[] = [];
 

@@ -47,7 +47,7 @@ export async function runDeleteDb(
 
 export function emitDeleteDb(node: EmitNode) {
   const input = deleteDbBlockSchema.parse(node.block.data);
-  return `${node.in} = await lib.dbDelete(ctx, ${JSON.stringify(input.connection)}, ${node.value(input.tableName)}, ${emitWhereConditions(input.conditions, node)});
+  return `${node.in} = await lib.dbDelete(ctx, ${node.value(input.connection)}, ${node.value(input.tableName)}, ${emitWhereConditions(input.conditions, node)});
 ${node.next()}`;
 }
 

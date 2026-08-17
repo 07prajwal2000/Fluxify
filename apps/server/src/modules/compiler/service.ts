@@ -2,6 +2,9 @@ import { logger } from "@fluxify/common";
 import {
 	BlockTypes,
 	compileGraph,
+	hasCustomBlock,
+	registerCompiledCustomBlock,
+	unregisterCustomBlock,
 	type BlockDTOType,
 	type EdgeDTOSchemaType,
 } from "@fluxify/blocks";
@@ -120,6 +123,10 @@ export async function compileRoute(routeId: string) {
 		return;
 	}
 
+	// a route that calls a custom block only emits if that block is in this
+	// process's library — the artifact in KV is for workers, not for us
+	await ensureCustomBlocksRegistered(route.projectId!);
+
 	const { blocks, edges } = await loadGraph({ type: "route", id: routeId });
 	const { source } = compileGraph(blocks, edges);
 
@@ -150,6 +157,66 @@ export async function dropRoute(projectId: string, routeId: string) {
 	await deleteArtifact(routeKey(projectId, routeId));
 }
 
+/** custom blocks being compiled right now — see `ensureCustomBlocksRegistered` */
+const inFlight = new Set<string>();
+/** what each custom block id is registered as, so a rename or delete can undo it */
+const registeredNames = new Map<string, string>();
+
+function registerLocally(id: string, name: string, source: string) {
+	const previous = registeredNames.get(id);
+	// a rename would otherwise leave the old name resolving to this block forever
+	if (previous && previous !== name) unregisterCustomBlock(previous);
+	registerCompiledCustomBlock(name, source);
+	registeredNames.set(id, name);
+}
+
+function unregisterLocally(id: string) {
+	const name = registeredNames.get(id);
+	if (!name) return;
+	unregisterCustomBlock(name);
+	registeredNames.delete(id);
+}
+
+/**
+ * Makes sure every custom block of a project is in this process's library
+ * before something that may call one is compiled.
+ *
+ * Compiling publishes an artifact for the workers; it does not make the block
+ * callable here, and `compileGraph` resolves a non-builtin type by asking the
+ * library. Without this, a route compile that happens before the block's own
+ * compile — a route saved after a restart, a fresh consumer — fails with
+ * "No codegen for block type".
+ *
+ * Order is discovered rather than declared: a block that calls another is
+ * retried once its callee lands. Cycles are impossible (the canvas save
+ * refuses them), so the fixpoint always terminates.
+ */
+async function ensureCustomBlocksRegistered(projectId: string) {
+	const rows = await db
+		.select({ id: customBlocksListEntity.id, name: customBlocksListEntity.name })
+		.from(customBlocksListEntity)
+		.where(eq(customBlocksListEntity.projectId, projectId));
+
+	let pending = rows.filter(
+		(row) => !hasCustomBlock(row.name) && !inFlight.has(row.id),
+	);
+	while (pending.length > 0) {
+		const failed: typeof pending = [];
+		let lastError: unknown;
+		for (const row of pending) {
+			try {
+				await compileCustomBlock(row.id);
+			} catch (error) {
+				lastError = error;
+				failed.push(row);
+			}
+		}
+		// nothing compiled this pass: the failures are real, not ordering
+		if (failed.length === pending.length) throw lastError;
+		pending = failed;
+	}
+}
+
 /** compile one custom block; a deleted one is dropped from the library */
 export async function compileCustomBlock(id: string) {
 	const [block] = await db
@@ -163,12 +230,24 @@ export async function compileCustomBlock(id: string) {
 
 	if (!block) {
 		logger.info(`[compiler] dropping custom block ${id}`, "COMPILER");
+		unregisterLocally(id);
 		return;
 	}
 
-	const { blocks, edges } = await loadGraph({ type: "custom_block", id });
-	// `param:` placeholders resolve from the invocation, not from a caller's data
-	const { source } = compileGraph(blocks, edges, { asCustomBlock: true });
+	// a custom block may call another one; same library requirement as a route
+	inFlight.add(id);
+	let source: string;
+	try {
+		await ensureCustomBlocksRegistered(block.projectId!);
+		const { blocks, edges } = await loadGraph({ type: "custom_block", id });
+		// `param:` placeholders resolve from the invocation, not from a caller's data
+		({ source } = compileGraph(blocks, edges, { asCustomBlock: true }));
+	} finally {
+		inFlight.delete(id);
+	}
+	// the compiler is also a consumer of its own output: the next route to call
+	// this block resolves it from here
+	registerLocally(block.id, block.name, source);
 
 	const artifact: CustomBlockArtifact = {
 		id: block.id,
@@ -182,6 +261,7 @@ export async function compileCustomBlock(id: string) {
 }
 
 export async function dropCustomBlock(projectId: string, id: string) {
+	unregisterLocally(id);
 	await deleteArtifact(customBlockKey(projectId, id));
 }
 

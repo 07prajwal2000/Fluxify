@@ -1,22 +1,21 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import {
 	Button,
-	Card,
-	CloseButton,
 	DeleteIconButton,
 	Input,
 	Label,
-	Modal,
 	Spinner,
 	TextField,
 	toast,
 } from "@fluxify/components";
-import { TbPlus } from "react-icons/tb";
+import { TbBoxMultiple, TbPlus, TbSearch } from "react-icons/tb";
 import { customBlocksQuery } from "@/query/customBlocksQuery";
 import { showErrorNotification } from "@/lib/errorNotifier";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { createRouteHead } from "@/lib/seo";
+import { BaseBlock } from "@/components/canvas/blocks/BaseBlock";
+import { CustomBlockIcon, type IconValue } from "@/components/customBlocks/IconPicker";
 
 export const Route = createFileRoute("/_authed/$projectId/custom-blocks")({
 	head: createRouteHead(
@@ -26,7 +25,9 @@ export const Route = createFileRoute("/_authed/$projectId/custom-blocks")({
 	component: CustomBlocksPage,
 });
 
-type Block = { id: string; label: string; name: string; description?: string | null };
+type Block = NonNullable<
+	ReturnType<typeof customBlocksQuery.getAll.useQuery>["data"]
+>[number];
 
 function CustomBlocksPage() {
 	const { projectId } = Route.useParams();
@@ -34,15 +35,49 @@ function CustomBlocksPage() {
 	const remove = customBlocksQuery.remove.mutation(projectId);
 	const navigate = useNavigate();
 	const [pendingDelete, setPendingDelete] = useState<Block | null>(null);
+	const [search, setSearch] = useState("");
+
+	const blocks = useMemo(() => {
+		const q = search.trim().toLowerCase();
+		if (!data) return [];
+		if (!q) return data;
+		return data.filter((b) =>
+			[b.label, b.name, b.description ?? ""].some((v) => v.toLowerCase().includes(q)),
+		);
+	}, [data, search]);
+
+	function openCanvas(blockId: string) {
+		navigate({
+			to: "/$projectId/custom-block-canvas/$blockId",
+			params: { projectId, blockId },
+		});
+	}
 
 	return (
-		<div className="flex flex-col gap-4">
-			<div className="flex items-center justify-between">
+		<div className="flex flex-col gap-5">
+			<div className="flex flex-wrap items-center justify-between gap-3">
 				<div>
 					<h1 className="text-xl font-semibold tracking-tight">Custom Blocks</h1>
-					<p className="text-sm text-muted">Reusable blocks for your flows.</p>
+					<p className="text-sm text-muted">
+						Reusable blocks for your flows. Click one to open its canvas.
+					</p>
 				</div>
-				<CreateBlockButton projectId={projectId} />
+				<div className="flex items-center gap-2">
+					{data && data.length > 0 && (
+						<TextField value={search} onChange={setSearch} className="w-56">
+							<Label className="sr-only">Search custom blocks</Label>
+							<Input placeholder="Search blocks" />
+						</TextField>
+					)}
+					<Button
+						variant="primary"
+						onPress={() =>
+							navigate({ to: "/$projectId/custom-blocks/new", params: { projectId } })
+						}
+					>
+						<TbPlus size={16} /> New block
+					</Button>
+				</div>
 			</div>
 
 			{isLoading ? (
@@ -52,38 +87,77 @@ function CustomBlocksPage() {
 			) : isError ? (
 				<p className="py-16 text-center text-muted">Couldn't load custom blocks.</p>
 			) : !data || data.length === 0 ? (
-				<p className="py-16 text-center text-muted">No custom blocks yet.</p>
+				<EmptyState
+					icon={<TbBoxMultiple size={28} />}
+					title="No custom blocks yet"
+					description="A custom block wraps a piece of flow you want to reuse across routes."
+				/>
+			) : blocks.length === 0 ? (
+				<EmptyState
+					icon={<TbSearch size={28} />}
+					title={`No block matches “${search}”`}
+					description="Try a different name or description."
+				/>
 			) : (
-				<div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-					{data.map((block) => (
-						<Card key={block.id} className="flex flex-col gap-3">
-							<Card.Header>
-								<Card.Title className="truncate">{block.label}</Card.Title>
-								<Card.Description className="font-mono text-xs">{block.name}</Card.Description>
-							</Card.Header>
-							<Card.Content>
-								<p className="line-clamp-2 text-sm text-muted">
-									{block.description || "No description"}
-								</p>
-							</Card.Content>
-							<Card.Footer className="flex items-center gap-2">
-								<Button
-									variant="ghost"
-									onPress={() =>
-										navigate({
-											to: "/$projectId/custom-block-canvas/$blockId",
-											params: { projectId, blockId: block.id },
-										})
+				<div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+					{blocks.map((block) => (
+						<div
+							key={block.id}
+							role="button"
+							tabIndex={0}
+							onClick={() => openCanvas(block.id)}
+							onKeyDown={(e) => {
+								if (e.key === "Enter" || e.key === " ") {
+									e.preventDefault();
+									openCanvas(block.id);
+								}
+							}}
+							className="group relative flex cursor-pointer flex-col gap-3 rounded-lg border border-border bg-surface p-4 transition-colors hover:border-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-focus"
+						>
+							{/* the block exactly as it renders on a canvas */}
+							<div className="pointer-events-none flex justify-center rounded-md bg-background-secondary px-3 py-5">
+								<BaseBlock
+									blockId={block.id}
+									blockType="custom"
+									name={block.label}
+									description={block.description ?? undefined}
+									icon={
+										<CustomBlockIcon
+											icon={(block.icon as IconValue["icon"]) ?? undefined}
+											iconUrl={block.iconUrl ?? undefined}
+										/>
 									}
-								>
-									Open canvas
-								</Button>
-								<DeleteIconButton
-									aria-label="Delete block"
-									onPress={() => setPendingDelete(block as Block)}
+									showToolbar={false}
 								/>
-							</Card.Footer>
-						</Card>
+							</div>
+
+							<div className="flex items-start gap-2">
+								<div className="min-w-0 flex-1">
+									<p className="truncate font-mono text-xs text-muted">{block.name}</p>
+									<p className="mt-0.5 text-xs text-muted">
+										{Array.isArray(block.inputParams) ? block.inputParams.length : 0} input
+										{(Array.isArray(block.inputParams) ? block.inputParams.length : 0) === 1
+											? ""
+											: "s"}
+										{block.sourceType && block.sourceType !== "user-defined"
+											? ` · ${block.sourceType}`
+											: ""}
+									</p>
+								</div>
+								{block.sourceType !== "plugin" && (
+									<div
+										className="opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100"
+										onClick={(e) => e.stopPropagation()}
+										onKeyDown={(e) => e.stopPropagation()}
+									>
+										<DeleteIconButton
+											aria-label={`Delete ${block.label}`}
+											onPress={() => setPendingDelete(block)}
+										/>
+									</div>
+								)}
+							</div>
+						</div>
 					))}
 				</div>
 			)}
@@ -110,82 +184,21 @@ function CustomBlocksPage() {
 	);
 }
 
-function CreateBlockButton({ projectId }: { projectId: string }) {
-	const create = customBlocksQuery.create.mutation(projectId);
-	const [open, setOpen] = useState(false);
-	const [name, setName] = useState("");
-	const [label, setLabel] = useState("");
-	const [description, setDescription] = useState("");
-
-	function reset() {
-		setName("");
-		setLabel("");
-		setDescription("");
-	}
-
-	function submit(e: React.FormEvent) {
-		e.preventDefault();
-		create.mutate(
-			{ name, label, description, projectId },
-			{
-				onSuccess: () => {
-					toast.success("Custom block created");
-					reset();
-					setOpen(false);
-				},
-				onError: (err) => showErrorNotification(err as Error),
-			},
-		);
-	}
-
+function EmptyState({
+	icon,
+	title,
+	description,
+}: {
+	icon: React.ReactNode;
+	title: string;
+	description: string;
+}) {
 	return (
-		<Modal isOpen={open} onOpenChange={setOpen}>
-			<Modal.Trigger>
-				<Button variant="primary">
-					<TbPlus size={16} /> New block
-				</Button>
-			</Modal.Trigger>
-			<Modal.Backdrop>
-				<Modal.Container placement="center" size="sm">
-					<Modal.Dialog>
-						<Modal.Header className="flex flex-row items-start justify-between">
-							<div>
-								<Modal.Heading>Create a custom block</Modal.Heading>
-								<p className="mt-1 text-sm text-muted">
-									You can build its logic on the canvas afterwards.
-								</p>
-							</div>
-							<CloseButton />
-						</Modal.Header>
-						<form onSubmit={submit}>
-							<Modal.Body>
-								<div className="flex flex-col gap-4">
-									<TextField isRequired value={label} onChange={setLabel}>
-										<Label>Label</Label>
-										<Input placeholder="Send Slack message" />
-									</TextField>
-									<TextField isRequired value={name} onChange={setName}>
-										<Label>Name</Label>
-										<Input placeholder="send_slack_message" />
-									</TextField>
-									<TextField value={description} onChange={setDescription}>
-										<Label>Description</Label>
-										<Input placeholder="What this block does" />
-									</TextField>
-								</div>
-							</Modal.Body>
-							<Modal.Footer>
-								<Button variant="ghost" onPress={() => setOpen(false)}>
-									Cancel
-								</Button>
-								<Button type="submit" variant="primary" isPending={create.isPending}>
-									Create block
-								</Button>
-							</Modal.Footer>
-						</form>
-					</Modal.Dialog>
-				</Modal.Container>
-			</Modal.Backdrop>
-		</Modal>
+		<div className="flex flex-col items-center gap-2 rounded-lg border border-dashed border-border py-16 text-center">
+			<span className="text-muted">{icon}</span>
+			<p className="text-sm font-medium text-foreground">{title}</p>
+			<p className="max-w-sm text-xs text-muted">{description}</p>
+		</div>
 	);
 }
+

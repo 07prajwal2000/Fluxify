@@ -10,6 +10,10 @@ mock.module("../../../../../db/redis", () => ({
   CHAN_ON_CUSTOM_BLOCK_CHANGE: "chan:on-custom-block-change",
 }));
 
+mock.module("../../../../../modules/compiler/service", () => ({
+  dropCustomBlock: mock(),
+}));
+
 import handleRequest from "../service";
 import * as repo from "../repository";
 import { NotFoundError } from "../../../../../errors/notFoundError";

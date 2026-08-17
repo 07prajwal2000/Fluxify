@@ -58,7 +58,7 @@ export function CustomBlockSettingsPanel({ block }: { block: BlockNode }) {
 						onPress={() =>
 							window.open(
 								withBasePath(
-									`/${projectId}/custom-blocks/${customBlock.id}`,
+									`/${projectId}/custom-block-canvas/${customBlock.id}`,
 								),
 								"_blank",
 								"noopener,noreferrer",
@@ -76,11 +76,12 @@ export function CustomBlockSettingsPanel({ block }: { block: BlockNode }) {
 				data={block.data}
 				name="invoke"
 				label="Execution Mode"
-				hint="Sync waits for execution and passes output; Async fires in background."
+				hint="Sync waits for the output. Async fires on this worker and is lost if it restarts. Queued is durable — another worker picks it up, and it may be retried."
 				placeholder="Select execution mode"
 				options={[
 					{ value: "sync", label: "Synchronous (Wait for output)" },
 					{ value: "async", label: "Asynchronous (Fire & forget)" },
+					{ value: "queued", label: "Queued (Durable background job)" },
 				]}
 			/>
 

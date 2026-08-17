@@ -14,10 +14,12 @@ import {
 } from "@fluxify/components";
 import { useParams } from "@tanstack/react-router";
 import { useReactFlow } from "@xyflow/react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import { withBasePath } from "@/constants/routes";
 import { integrationService } from "@/services/integrations";
+import { customBlocksQuery } from "@/query/customBlocksQuery";
+import type { CustomBlockInputParam } from "./blocks/CustomBlockSettings";
 import { useCanvasChanges } from "../changes/ChangesContext";
 import type { BlockData } from "../types";
 
@@ -224,6 +226,43 @@ export function BlockCheckboxField({
 	);
 }
 
+/**
+ * On a custom block's canvas, the block's own `integration_selector` input
+ * parameters are offered alongside the project's integrations. Picking one
+ * writes `param:<name>`, which the engine substitutes with whatever the calling
+ * block was configured with — so the concrete integration is chosen on the
+ * caller's side, not here. `blockId` is only present on the custom block route,
+ * which is what keeps this out of route canvases.
+ */
+function useCustomBlockParamIntegrations(
+	projectId: string,
+	customBlockId: string | undefined,
+	group: string,
+) {
+	const { data: blocks } = customBlocksQuery.getAll.useQuery(projectId);
+
+	return useMemo(() => {
+		if (!customBlockId) return undefined;
+		const block = blocks?.find((b) => b.id === customBlockId);
+		const params = Array.isArray(block?.inputParams)
+			? (block.inputParams as CustomBlockInputParam[])
+			: [];
+		const matching = params.filter(
+			(param) => param.type === "integration_selector" && param.group === group,
+		);
+		if (matching.length === 0) return undefined;
+		return matching.map((param) => ({
+			id: `param:${param.name}`,
+			name: param.label || param.name,
+			group,
+			variant: "Input parameter",
+			config: {},
+			external: true,
+			hint: `Set by whoever places this block — the “${param.label || param.name}” input.`,
+		}));
+	}, [blocks, customBlockId, group]);
+}
+
 export type BlockIntegrationFieldProps = {
 	blockId: string;
 	data: BlockData;
@@ -246,9 +285,17 @@ export function BlockIntegrationField({
 }: BlockIntegrationFieldProps) {
 	const { updateNodeData } = useReactFlow();
 	const { enabled: editable } = useCanvasChanges();
-	const params = useParams({ strict: false }) as { projectId?: string };
+	const params = useParams({ strict: false }) as {
+		projectId?: string;
+		blockId?: string;
+	};
 	const projectId = params?.projectId ?? "";
 	const selectedId = typeof data[name] === "string" ? (data[name] as string) : "";
+	const injectedIntegrations = useCustomBlockParamIntegrations(
+		projectId,
+		params?.blockId,
+		group,
+	);
 
 	const loadIntegrations = useCallback(async () => {
 		if (!projectId) return [];
@@ -283,6 +330,7 @@ export function BlockIntegrationField({
 			group={group}
 			selectedId={selectedId}
 			loadIntegrations={loadIntegrations}
+			injectedIntegrations={injectedIntegrations}
 			onSelect={(id) => {
 				if (!editable) return;
 				updateNodeData(blockId, { [name]: id });

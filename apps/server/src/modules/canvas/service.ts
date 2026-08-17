@@ -14,7 +14,9 @@ import {
 	deleteStructuralBlocks,
 	getBlocks,
 	getBlocksCountByType,
+	getCustomBlockCalls,
 	getCustomBlockNames,
+	getProjectCustomBlocks,
 	getEdges,
 	parentExists,
 	parentKeys,
@@ -144,6 +146,71 @@ async function assertBlockTypesExist(
 }
 
 /**
+ * A custom block that reaches itself — directly or through a chain of other
+ * custom blocks — never terminates: `lib.invoke` would call into the block it is
+ * already inside. The editor hides the block from its own picker, but a cycle
+ * can still be closed from the other end (B gains a call to A while A already
+ * calls B), so the save that closes it is refused here.
+ *
+ * Only runs for a custom block's own canvas; a route can call anything.
+ */
+async function assertNoCustomBlockRecursion(
+	parent: CanvasParent,
+	data: CanvasChanges,
+	deleteBlockIds: string[],
+	tx: DbTransactionType,
+) {
+	if (parent.type !== "custom_block") return;
+
+	const blocks = await getProjectCustomBlocks(parent, tx);
+	const self = blocks.find((b) => b.id === parent.id);
+	if (!self) return;
+	const nameById = new Map(blocks.map((b) => [b.id, b.name]));
+	const names = new Set(blocks.map((b) => b.name));
+
+	// this canvas as it will be once the delta lands; the rest as stored
+	const deleted = new Set(deleteBlockIds);
+	const incoming = new Set(data.changes.blocks.map((b) => b.id));
+	const selfCalls = new Set(
+		[
+			...data.changes.blocks.map((b) => b.type),
+			...(await getBlocks(parent, tx))
+				.filter((b) => !deleted.has(b.id) && !incoming.has(b.id))
+				.map((b) => b.type ?? ""),
+		].filter((type) => names.has(type)),
+	);
+
+	const calls = new Map<string, Set<string>>([[self.name, selfCalls]]);
+	for (const row of await getCustomBlockCalls(
+		blocks.map((b) => b.id),
+		tx,
+	)) {
+		const caller = nameById.get(row.parentId);
+		if (!caller || caller === self.name || !names.has(row.type)) continue;
+		const set = calls.get(caller) ?? new Set<string>();
+		set.add(row.type);
+		calls.set(caller, set);
+	}
+
+	// shortest path back to self, so the message names the actual chain
+	const queue: string[][] = [[self.name]];
+	const seen = new Set<string>();
+	while (queue.length > 0) {
+		const path = queue.shift()!;
+		for (const callee of calls.get(path[path.length - 1]) ?? []) {
+			if (callee === self.name) {
+				throw new ConflictError(
+					`Custom block "${self.name}" cannot call itself — recursion is not allowed (${[...path, callee].join(" → ")}).`,
+				);
+			}
+			if (seen.has(callee)) continue;
+			seen.add(callee);
+			queue.push([...path, callee]);
+		}
+	}
+}
+
+/**
  * A verified agent run's canvas can arrive after the entrypoint/error handler
  * it means to replace already exist under different ids (e.g. the route was
  * created with its own defaults before this canvas landed). The agent's
@@ -217,6 +284,7 @@ export async function saveCanvas(
 	// a tx nests as a savepoint, so the outer transaction still decides the outcome
 	await (outer ?? db).transaction(async (tx) => {
 		await assertBlockTypesExist(parent, data, tx);
+		await assertNoCustomBlockRecursion(parent, data, deleteBlockIds, tx);
 		await assertEdgeTargetsExist(parent, data, deleteBlockIds, tx);
 		await assertCanvasHasNoCycles(
 			parent,

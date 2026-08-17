@@ -38,7 +38,9 @@ export async function createDependencies(
       id: id3,
       customBlockId,
       type: BlockTypes.errorHandler,
-      position: { x: 25, y: 0 },
+      // a block is ~168px wide; anything less than that sits on top of the
+      // entrypoint on the current node design
+      position: { x: -240, y: 0 },
       data: {
         next: "",
         retryAfterFail: false,

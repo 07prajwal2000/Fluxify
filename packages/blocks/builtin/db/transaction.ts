@@ -57,7 +57,7 @@ export async function runTransactionDb(
 export function emitTransactionDb(node: EmitNode) {
   const input = transactionDbBlockSchema.parse(node.block.data);
   const result = node.v("tx");
-  return `const ${result} = await lib.dbTransaction(ctx, ${JSON.stringify(input.connection)}, async () => {
+  return `const ${result} = await lib.dbTransaction(ctx, ${node.value(input.connection)}, async () => {
 ${node.body("executor", "undefined")}
 });
 if (${result} !== undefined) return ${result};

@@ -1,4 +1,8 @@
-import { instantiateCompiled, registerCompiledCustomBlock } from "@fluxify/blocks";
+import {
+	instantiateCompiled,
+	registerCompiledCustomBlock,
+	setJobEnqueuer,
+} from "@fluxify/blocks";
 import { hydrateAppConfig } from "../../loaders/appconfigLoader";
 import { hydrateIntegrations } from "../../loaders/integrationsLoader";
 import { hydrateProjectSettings } from "../../loaders/projectSettingsLoader";
@@ -33,6 +37,9 @@ process.on("message", (message: TestBootstrapMessage) => {
 	void runSuite(message.bootstrap);
 });
 
+/** What the suite would have queued, kept for debugging a run. */
+const queuedJobs: string[] = [];
+
 async function runSuite(boot: TestBootstrap) {
 	const startedAt = Date.now();
 	try {
@@ -51,6 +58,12 @@ async function runSuite(boot: TestBootstrap) {
 		for (const block of boot.customBlocks) {
 			registerCompiledCustomBlock(block.name, block.source);
 		}
+
+		// A test run holds no broker connection, and firing real background work
+		// from an assertion is not something a suite should be able to do.
+		setJobEnqueuer((job) =>
+			queuedJobs.push(`${job.kind}/${job.target}`),
+		);
 
 		const run = instantiateCompiled(boot.source);
 		setBlocksExecutor((_target, context) => run(context, context.requestBody));

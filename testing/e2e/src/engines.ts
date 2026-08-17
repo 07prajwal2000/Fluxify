@@ -12,15 +12,19 @@ import { seedPostgres, seedMongo } from "./seed";
  * weakened until it stopped proving much. Each engine gets graphs that exercise
  * what is actually distinctive about it.
  */
-export type Engine = "pg" | "mongo";
+/** `none` is for graphs that touch no database — no container starts for them. */
+export type Engine = "none" | "pg" | "mongo";
 
-export async function connectionFor(engine: Engine): Promise<Connection> {
+export async function connectionFor(
+	engine: Exclude<Engine, "none">,
+): Promise<Connection> {
 	if (engine === "mongo") return (await mongo()).connection;
 	return (await database()).connection;
 }
 
 /** Drops and re-seeds the engine's fixtures. Call from `beforeEach`. */
 export async function resetDatabase(engine: Engine) {
+	if (engine === "none") return;
 	if (engine === "mongo") return seedMongo((await mongo()).db);
 	return seedPostgres((await database()).sql);
 }

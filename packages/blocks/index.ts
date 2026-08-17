@@ -11,6 +11,7 @@ export * from "./builtin/loops/foreach";
 export * from "./engine";
 export * from "./compiler";
 export * from "./builtin/customBlock";
+export * from "./jobs";
 export * from "./blockTypes";
 export * from "./baseBlock";
 export * from "./categories";

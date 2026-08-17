@@ -20,11 +20,31 @@ export type GraphFixture = {
 	 * validation block on the canvas.
 	 */
 	schemas?: { body?: unknown; query?: unknown; params?: unknown };
+	/**
+	 * Custom blocks this graph calls, by file name in `blocks/`. They are
+	 * compiled and registered into the block library before the route is
+	 * compiled — the same order the real compiler works in, and the reason a
+	 * route calling one resolves at all.
+	 */
+	uses?: string[];
+	blocks: BlockDTOType[];
+	edges: EdgeDTOSchemaType;
+};
+
+/**
+ * A custom block as the portal saves it: a graph plus the input contract its
+ * callers configure. `name` is what a calling block carries as its type.
+ */
+export type CustomBlockFixture = {
+	name: string;
+	description: string;
+	inputParams?: unknown[];
 	blocks: BlockDTOType[];
 	edges: EdgeDTOSchemaType;
 };
 
 const graphsDir = join(import.meta.dir, "..", "graphs");
+const blocksDir = join(import.meta.dir, "..", "blocks");
 
 export async function loadGraph(name: string): Promise<GraphFixture> {
 	const fixture = (await Bun.file(
@@ -44,7 +64,22 @@ export async function loadGraph(name: string): Promise<GraphFixture> {
  * named by path (`auth/login`).
  */
 export function graphNames(): string[] {
-	return readdirSync(graphsDir, { recursive: true })
+	return jsonNames(graphsDir);
+}
+
+/** Loads one custom block by file name — `blocks/jwt-ops.json` is `jwt-ops`. */
+export async function loadCustomBlock(file: string): Promise<CustomBlockFixture> {
+	return (await Bun.file(
+		join(blocksDir, `${file}.json`),
+	).json()) as CustomBlockFixture;
+}
+
+export function customBlockFiles(): string[] {
+	return jsonNames(blocksDir);
+}
+
+function jsonNames(dir: string): string[] {
+	return readdirSync(dir, { recursive: true })
 		.map((file) => String(file).replaceAll("\\", "/"))
 		.filter((file) => file.endsWith(".json"))
 		.map((file) => file.slice(0, -".json".length));

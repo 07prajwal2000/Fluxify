@@ -18,6 +18,7 @@ export {
 	type BlockDefinition,
 } from "./blockCatalog";
 export { blockLabels, type BlockLabels } from "./blockLabels";
+export { useCustomBlockDefs, type CustomBlockDef } from "./useCustomBlockDefs";
 export { BLOCK_TYPES, BLOCK_TYPE_LIST, type BlockType } from "./blockTypes";
 export { StickyNoteBlock } from "./StickyNoteBlock";
 export {

@@ -48,7 +48,7 @@ export function emitCloudLogs(node: EmitNode) {
 	const { connection, level, message } = cloudLogsBlockSchema.parse(
 		node.block.data,
 	);
-	return `await lib.cloudLog(ctx, ${JSON.stringify(connection)}, ${JSON.stringify(level)}, ${emitLogMessage(message, node)}, ${node.in});\n${node.next()}`;
+	return `await lib.cloudLog(ctx, ${node.value(connection)}, ${JSON.stringify(level)}, ${emitLogMessage(message, node)}, ${node.in});\n${node.next()}`;
 }
 
 export class CloudLogsBlock extends BaseBlock {

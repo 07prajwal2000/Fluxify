@@ -436,25 +436,30 @@ html[data-theme="dark"] .fx-block,
 	min-height: 0;
 }
 
-.fx-handle--circle {
+/* Every shape rule carries .react-flow__handle: the library's own
+   `.react-flow__handle { width: 6px; height: 6px; border-radius: 100% }` is a
+   single class too, so on a tie the sheet that loads last wins. Importing this
+   file from a non-canvas module (a block preview, say) is enough to flip that
+   order and turn the inbound bar into an oval. */
+.fx-handle--circle.react-flow__handle {
 	width: 10px;
 	height: 10px;
 	border-radius: 9999px;
 }
 
 /* The inbound socket: a bar on the block's edge. */
-.fx-handle--rect {
+.fx-handle--rect.react-flow__handle {
 	border-radius: 2px;
 }
 
-.fx-handle--rect.fx-handle--left,
-.fx-handle--rect.fx-handle--right {
+.fx-handle--rect.fx-handle--left.react-flow__handle,
+.fx-handle--rect.fx-handle--right.react-flow__handle {
 	width: 6px;
 	height: 16px;
 }
 
-.fx-handle--rect.fx-handle--top,
-.fx-handle--rect.fx-handle--bottom {
+.fx-handle--rect.fx-handle--top.react-flow__handle,
+.fx-handle--rect.fx-handle--bottom.react-flow__handle {
 	width: 16px;
 	height: 6px;
 }

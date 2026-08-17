@@ -1,4 +1,5 @@
 import type { NodeProps, NodeTypes } from "@xyflow/react";
+import { CustomBlockIcon } from "@/components/customBlocks/IconPicker";
 import { BaseBlock } from "./BaseBlock";
 import { blockCatalogEntries } from "./blockCatalog";
 import { blockIcon } from "./blockIconMap";
@@ -6,6 +7,7 @@ import { blockLabels } from "./blockLabels";
 import { BLOCK_TYPES } from "./blockTypes";
 import { BlockHandle } from "./handles/BlockHandle";
 import { StickyNoteBlock } from "./StickyNoteBlock";
+import { useCustomBlockDefs } from "./useCustomBlockDefs";
 
 function status(value: unknown): boolean | null {
 	return typeof value === "boolean" ? value : null;
@@ -23,7 +25,10 @@ export function BlockNode({
 	positionAbsoluteX,
 	positionAbsoluteY,
 }: NodeProps) {
-	const { name, description, definition } = blockLabels(type, data);
+	const { name, description, definition, custom } = blockLabels(type, data);
+	// A custom block has no catalog entry: its name, blurb and icon live in the DB.
+	// Anything the user typed on this node still wins.
+	const customDef = useCustomBlockDefs().find((def) => def.name === type);
 	const isRouteOwned =
 		type === BLOCK_TYPES.entrypoint || type === BLOCK_TYPES.errorHandler;
 
@@ -32,9 +37,19 @@ export function BlockNode({
 			blockId={id}
 			blockType={type}
 			position={{ x: positionAbsoluteX, y: positionAbsoluteY }}
-			name={name}
-			description={description}
-			icon={blockIcon(type)}
+			name={custom ? name : (customDef?.label ?? name)}
+			description={
+				description === definition.description
+					? (customDef?.description ?? description)
+					: description
+			}
+			icon={
+				customDef ? (
+					<CustomBlockIcon icon={customDef.icon} iconUrl={customDef.iconUrl} />
+				) : (
+					blockIcon(type)
+				)
+			}
 			color={definition.tint}
 			selected={selected}
 			status={status(data?.status)}

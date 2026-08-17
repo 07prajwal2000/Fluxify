@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { Button, Input, Label, Sidebar, TextField } from "@fluxify/components";
+import { Button, cn, Input, Label, Sidebar, TextField } from "@fluxify/components";
 import {
 	TbArrowLeft,
+	TbBoxMultiple,
 	TbChevronRight,
 	TbCode,
 	TbDatabase,
@@ -12,15 +13,18 @@ import {
 	TbWorld,
 	TbX,
 } from "react-icons/tb";
+import { CustomBlockIcon } from "@/components/customBlocks/IconPicker";
 import {
 	pickerBlockCatalogEntries,
 	blockIcon,
 	type BlockDefinition,
 	type BlockType,
 } from "./blocks";
+import { useCustomBlockDefs } from "./blocks/useCustomBlockDefs";
 import "./blockPickerSidebar.css";
 
-type BlockCategory = BlockDefinition["category"];
+/** Catalog categories plus the ones only custom blocks land in. */
+type BlockCategory = BlockDefinition["category"] | "Custom" | "Built-in";
 
 type CategoryDetails = {
 	description: string;
@@ -52,9 +56,27 @@ const CATEGORY_DETAILS: Record<BlockCategory, CategoryDetails> = {
 		description: "Transform data and annotate the canvas",
 		icon: <TbPlus />,
 	},
+	Custom: {
+		description: "Blocks built in this project",
+		icon: <TbBoxMultiple />,
+	},
+	"Built-in": {
+		description: "Blocks shipped with plugins",
+		icon: <TbBoxMultiple />,
+	},
 };
 
-const categories = Object.keys(CATEGORY_DETAILS) as BlockCategory[];
+const allCategories = Object.keys(CATEGORY_DETAILS) as BlockCategory[];
+
+type PickerItem = {
+	type: string;
+	name: string;
+	description: string;
+	category: BlockCategory;
+	icon: ReactNode;
+	/** Set when the block cannot be added — the reason is shown in its place. */
+	disabledReason?: string;
+};
 
 export type BlockPickerSidebarProps = {
 	isOpen: boolean;
@@ -62,7 +84,7 @@ export type BlockPickerSidebarProps = {
 	onAdd: (type: BlockType) => void;
 };
 
-/** Core-block picker. Custom blocks join this catalog after their API lands. */
+/** Core blocks from the catalog plus the project's own custom blocks. */
 export function BlockPickerSidebar({
 	isOpen,
 	onOpenChange,
@@ -80,15 +102,42 @@ export function BlockPickerSidebar({
 		}
 	}, [isOpen]);
 
-	const blocks = useMemo(() => pickerBlockCatalogEntries(), []);
+	const customDefs = useCustomBlockDefs();
+	const blocks = useMemo<PickerItem[]>(() => {
+		const core = pickerBlockCatalogEntries().map(([type, definition]) => ({
+			type: type as string,
+			name: definition.name,
+			description: definition.description,
+			category: definition.category as BlockCategory,
+			icon: blockIcon(type),
+		}));
+		const custom = customDefs.map((def) => ({
+			type: def.name,
+			name: def.label,
+			description: def.description ?? "Custom block",
+			category: (def.sourceType === "plugin" ? "Built-in" : "Custom") as BlockCategory,
+			icon: <CustomBlockIcon icon={def.icon} iconUrl={def.iconUrl} />,
+			disabledReason: def.isSelf
+				? "A block can't call itself — that would recurse forever."
+				: undefined,
+		}));
+		return [...custom, ...core];
+	}, [customDefs]);
+
+	// An empty category is a dead end — only offer the ones holding something.
+	const categories = useMemo(
+		() => allCategories.filter((category) => blocks.some((b) => b.category === category)),
+		[blocks],
+	);
+
 	const visibleBlocks = useMemo(() => {
 		const normalizedQuery = query.trim().toLowerCase();
-		return blocks.filter(([type, definition]) => {
-			if (!normalizedQuery && selectedCategory && definition.category !== selectedCategory) {
+		return blocks.filter((block) => {
+			if (!normalizedQuery && selectedCategory && block.category !== selectedCategory) {
 				return false;
 			}
 			if (!normalizedQuery) return true;
-			return [type, definition.name, definition.description, definition.category]
+			return [block.type, block.name, block.description, block.category]
 				.join(" ")
 				.toLowerCase()
 				.includes(normalizedQuery);
@@ -177,26 +226,36 @@ export function BlockPickerSidebar({
 					</div>
 				) : (
 					<div className="fx-block-picker__list">
-						{visibleBlocks.map(([type, definition]) => (
+						{visibleBlocks.map((block) => (
 							<button
-								key={type}
+								key={block.type}
 								type="button"
-								className="fx-block-picker__item"
-								onClick={() => addBlock(type)}
+								disabled={Boolean(block.disabledReason)}
+								title={block.disabledReason}
+								className={cn(
+									"fx-block-picker__item",
+									block.disabledReason && "cursor-not-allowed opacity-60",
+								)}
+								onClick={() => addBlock(block.type as BlockType)}
 							>
 								<span className="fx-block-picker__icon" aria-hidden>
-									{blockIcon(type)}
+									{block.icon}
 								</span>
 								<span className="fx-block-picker__copy">
-									<span className="fx-block-picker__name">{definition.name}</span>
-									<span className="fx-block-picker__description">
-										{definition.description}
+									<span className="fx-block-picker__name">{block.name}</span>
+									<span
+										className={cn(
+											"fx-block-picker__description",
+											block.disabledReason && "text-danger",
+										)}
+									>
+										{block.disabledReason ?? block.description}
 									</span>
 								</span>
 							</button>
 						))}
 						{visibleBlocks.length === 0 && (
-							<p className="fx-block-picker__empty">No core blocks match.</p>
+							<p className="fx-block-picker__empty">No blocks match.</p>
 						)}
 					</div>
 				)}

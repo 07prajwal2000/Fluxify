@@ -1,4 +1,4 @@
-import { BLOCK_TYPES, type BlockType } from "./blockTypes";
+import { BLOCK_TYPES, BLOCK_TYPE_LIST, type BlockType } from "./blockTypes";
 
 /**
  * Complete, schema-valid starting data for every core block created on canvas.
@@ -6,6 +6,9 @@ import { BLOCK_TYPES, type BlockType } from "./blockTypes";
  * insertion affordances always create the same valid block payload.
  */
 export function defaultBlockData(type: BlockType): Record<string, unknown> {
+	// A custom block: its input params are filled in the panel, but the engine
+	// always reads an invocation mode.
+	if (!BLOCK_TYPE_LIST.includes(type)) return { invoke: "sync" };
 	if (type === BLOCK_TYPES.response) return { httpCode: "200" };
 	if (type === BLOCK_TYPES.if) return { conditions: [] };
 	if (type === BLOCK_TYPES.forloop) return { start: 0, end: 1, step: 1 };
