@@ -1,5 +1,9 @@
 import { initializeLogger, logger } from "@fluxify/common";
+import { setJobEnqueuer } from "@fluxify/blocks";
 import { createHttpContext } from "./httpContext";
+import { registerCustomBlockJobHandler } from "../jobs/customBlockJob";
+import { runJob } from "../jobs/registry";
+import type { JobEnvelope } from "../jobs/types";
 import {
 	applyArtifactUpdate,
 	compiledRouteValidators,
@@ -37,8 +41,22 @@ process.on("message", (message: ExecutionMessage) => {
 		applyArtifactUpdate(message.entry.key, message.entry.value);
 		return;
 	}
+	if (message.type === "job") return void executeJob(message.job);
 	setMonitoring(message.enabled);
 });
+
+/**
+ * The supervisor acks the message on the reply, so every path must send one —
+ * a swallowed error here stalls the job until its ack wait elapses.
+ */
+async function executeJob(job: JobEnvelope) {
+	try {
+		await runJob(job);
+		send({ type: "job-finished", id: job.id });
+	} catch (error) {
+		send({ type: "job-finished", id: job.id, error: String(error) });
+	}
+}
 
 function bootstrap(nextBoot: ExecutionBootstrap) {
 	if (boot) throw new Error("execution process was bootstrapped twice");
@@ -55,6 +73,19 @@ function bootstrap(nextBoot: ExecutionBootstrap) {
 		logger.error(`async dispatch failed: ${String(error)}`, "WORKER.execution"),
 	);
 	setMonitoring(boot.workerTimeoutsEnabled);
+	registerCustomBlockJobHandler();
+	// This process holds no broker connection: queueing is a message to the
+	// supervisor, which owns NATS.
+	setJobEnqueuer((request) =>
+		send({
+			type: "enqueue-job",
+			job: {
+				...request,
+				id: crypto.randomUUID(),
+				enqueuedAt: new Date().toISOString(),
+			},
+		}),
+	);
 
 	server = Bun.serve({
 		port: boot.port,

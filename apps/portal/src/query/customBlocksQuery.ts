@@ -54,4 +54,14 @@ export const customBlocksQuery = {
 			});
 		},
 	},
+	update: {
+		mutation(projectId: string, id: string) {
+			const qc = useQueryClient();
+			return useMutation({
+				mutationFn: (body: z.infer<typeof customBlocksService.updateRequestSchema>) =>
+					customBlocksService.update(id, body),
+				onSuccess: () => qc.invalidateQueries({ queryKey: key(projectId) }),
+			});
+		},
+	},
 };

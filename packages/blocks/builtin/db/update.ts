@@ -81,7 +81,7 @@ export function emitUpdateDb(node: EmitNode) {
 
 	return `const ${data} = ${payload};
 if (typeof ${data} !== "object") throw new Error("error in update: data to update is not an object");
-${node.in} = await lib.dbUpdate(ctx, ${JSON.stringify(input.connection)}, ${node.value(input.tableName)}, ${data}, ${emitWhereConditions(input.conditions, node)});
+${node.in} = await lib.dbUpdate(ctx, ${node.value(input.connection)}, ${node.value(input.tableName)}, ${data}, ${emitWhereConditions(input.conditions, node)});
 ${node.next()}`;
 }
 

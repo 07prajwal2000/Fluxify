@@ -9,6 +9,7 @@ import {
 	unregisterCustomBlock,
 } from "../customBlock";
 import { BlockTypes } from "../../blockTypes";
+import { setJobEnqueuer } from "../../jobs";
 import type { BlockDTOType, EdgeDTOSchemaType } from "../../builderTypes";
 
 const block = (id: string, type: string, data: any = {}): BlockDTOType => ({
@@ -49,7 +50,8 @@ function registerDoubler(name = "double_it") {
 		[
 			block("c1", BlockTypes.entrypoint),
 			block("c2", BlockTypes.jsrunner, {
-				value: "calls = (typeof calls === 'number' ? calls : 0) + 1; return input.value * 2;",
+				value:
+					"calls = (typeof calls === 'number' ? calls : 0) + 1; return params.value * 2;",
 			}),
 		],
 		[edge("c1", "c2")],
@@ -58,6 +60,7 @@ function registerDoubler(name = "double_it") {
 
 afterEach(() => {
 	for (const name of customBlockNames()) unregisterCustomBlock(name);
+	setJobEnqueuer();
 });
 
 describe("compiled custom blocks", () => {
@@ -106,7 +109,7 @@ describe("compiled custom blocks", () => {
 				block("c1", BlockTypes.entrypoint),
 				block("c2", BlockTypes.jsrunner, {
 					value:
-						"await new Promise((r) => setTimeout(r, 5)); sideEffect = input.value; return sideEffect;",
+						"await new Promise((r) => setTimeout(r, 5)); sideEffect = params.value; return sideEffect;",
 				}),
 			],
 			[edge("c1", "c2")],
@@ -157,12 +160,12 @@ describe("compiled custom blocks", () => {
 		expect(result.output.body).toBe("unharmed");
 	});
 
-	it("passes evaluated params plus the flowing value as input", async () => {
+	it("separates the configured params from the flowing input", async () => {
 		registerCustomBlock(
 			"echo_params",
 			[
 				block("c1", BlockTypes.entrypoint),
-				block("c2", BlockTypes.jsrunner, { value: "return input;" }),
+				block("c2", BlockTypes.jsrunner, { value: "return { params, input };" }),
 			],
 			[edge("c1", "c2")],
 		);
@@ -181,10 +184,36 @@ describe("compiled custom blocks", () => {
 
 		const result = await run(createContext(), { n: 41 });
 		expect(result.output.body).toEqual({
-			literal: "kept",
-			computed: 42,
+			params: { literal: "kept", computed: 42 },
 			input: { n: 41 },
 		});
+	});
+
+	it("keeps params visible further down the callee's graph", async () => {
+		// `input` becomes the previous block's output; `params` does not move
+		registerCustomBlock(
+			"two_steps",
+			[
+				block("c1", BlockTypes.entrypoint),
+				block("c2", BlockTypes.jsrunner, { value: "return 'step-one';" }),
+				block("c3", BlockTypes.jsrunner, {
+					value: "return { seen: input, still: params.label };",
+				}),
+			],
+			[edge("c1", "c2"), edge("c2", "c3")],
+		);
+
+		const { run } = compileGraph(
+			[
+				block("1", BlockTypes.entrypoint),
+				block("2", "two_steps", { label: "kept" }),
+				block("3", BlockTypes.response, { httpCode: "200" }),
+			],
+			[edge("1", "2"), edge("2", "3")],
+		);
+
+		const result = await run(createContext(), null);
+		expect(result.output.body).toEqual({ seen: "step-one", still: "kept" });
 	});
 
 	it("resolves param: placeholders from the invocation, not the caller", async () => {
@@ -216,6 +245,56 @@ describe("compiled custom blocks", () => {
 		// two callers, one compiled block, no cross-talk
 		expect(first.vars.greeting).toBe("hello");
 		expect(second.vars.greeting).toBe("hola");
+	});
+
+	it("queued invoke hands the work to the job queue and does not run it", async () => {
+		registerDoubler();
+		const queued: any[] = [];
+		setJobEnqueuer((job) => queued.push(job));
+
+		const { run, source } = compileGraph(
+			[
+				block("1", BlockTypes.entrypoint),
+				block("2", "double_it", { value: 21, invoke: "queued" }),
+				block("3", BlockTypes.response, { httpCode: "200" }),
+			],
+			[edge("1", "2"), edge("2", "3")],
+		);
+		expect(source).toContain("lib.enqueue");
+
+		const ctx = createContext();
+		const result = await run(ctx, { keep: "me" });
+
+		// the caller kept its own value and the block never executed here
+		expect(result.output.body).toEqual({ keep: "me" });
+		expect(ctx.vars.calls).toBeUndefined();
+		expect(queued).toEqual([
+			{
+				kind: "custom-block",
+				projectId: "proj-1",
+				target: "double_it",
+				payload: { params: { value: 21 }, input: { keep: "me" } },
+				origin: { blockId: "2", route: "/custom", apiId: "api-1" },
+			},
+		]);
+	});
+
+	it("a queued invoke fails loudly when no queue is wired", async () => {
+		registerDoubler();
+		setJobEnqueuer();
+
+		const { run } = compileGraph(
+			[
+				block("1", BlockTypes.entrypoint),
+				block("2", "double_it", { value: 1, invoke: "queued" }),
+				block("3", BlockTypes.response, { httpCode: "200" }),
+			],
+			[edge("1", "2"), edge("2", "3")],
+		);
+
+		const result = await run(createContext(), null);
+		expect(result.successful).toBe(false);
+		expect(String(result.error)).toContain("No job queue");
 	});
 
 	it("registers already-compiled source without running the compiler", async () => {
@@ -301,5 +380,43 @@ describe("compiled cloud logs", () => {
 		expect(logged).toEqual([{ level: "error", message: { failed: 9 } }]);
 		// the block passes its input through untouched
 		expect(result.output.body).toEqual({ id: 9 });
+	});
+
+	it("takes a custom block's integration from the caller's param", async () => {
+		// the integration selector input param: the block picks `param:obs`, the
+		// caller picks the concrete integration id
+		registerCustomBlock(
+			"audit",
+			[
+				block("c1", BlockTypes.entrypoint),
+				block("c2", BlockTypes.cloudLogs, {
+					connection: "param:obs",
+					level: "info",
+					message: "audited",
+				}),
+			],
+			[edge("c1", "c2")],
+		);
+
+		const { run } = compileGraph(
+			[
+				block("1", BlockTypes.entrypoint),
+				block("2", "audit", { obs: "obs-42" }),
+				block("3", BlockTypes.response, { httpCode: "200" }),
+			],
+			[edge("1", "2"), edge("2", "3")],
+		);
+
+		const asked: any[] = [];
+		const ctx = createContext();
+		ctx.integrationFactory = {
+			create: (options: any) => {
+				asked.push(options);
+				return { logInfo() {}, logWarn() {}, logError() {} };
+			},
+		};
+		await run(ctx, null);
+
+		expect(asked).toEqual([{ integrationId: "obs-42", type: "observability" }]);
 	});
 });

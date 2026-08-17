@@ -60,7 +60,7 @@ export async function runGetSingleDb(
 
 export function emitGetSingleDb(node: EmitNode) {
 	const input = getSingleDbBlockSchema.parse(node.block.data);
-	return `${node.in} = await lib.dbGetSingle(ctx, ${JSON.stringify(input.connection)}, ${node.value(input.tableName)}, ${emitWhereConditions(input.conditions, node)}, { joins: ${JSON.stringify(input.joins ?? [])}, columns: ${JSON.stringify(input.columns ?? ["*"])} });
+	return `${node.in} = await lib.dbGetSingle(ctx, ${node.value(input.connection)}, ${node.value(input.tableName)}, ${emitWhereConditions(input.conditions, node)}, { joins: ${JSON.stringify(input.joins ?? [])}, columns: ${JSON.stringify(input.columns ?? ["*"])} });
 ${node.next()}`;
 }
 

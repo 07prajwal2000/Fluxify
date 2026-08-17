@@ -16,6 +16,7 @@ import { emitConsoleLog, runConsoleLog } from "./builtin/log/console";
 import { emitCloudLogs, runCloudLog } from "./builtin/log/cloudLogs";
 import {
 	emitCustomBlock,
+	enqueueCustomBlock,
 	hasCustomBlock,
 	invokeCustomBlock,
 	invokeCustomBlockAsync,
@@ -124,6 +125,7 @@ export const compilerLib = {
 	cloudLog: runCloudLog,
 	invoke: invokeCustomBlock,
 	invokeAsync: invokeCustomBlockAsync,
+	enqueue: enqueueCustomBlock,
 };
 
 /**
@@ -171,7 +173,11 @@ export function scopeFor(vars: Record<string, any>, skip?: Set<string>) {
 
 function makeScope(vars: Record<string, any>, skip?: Set<string>) {
 	return new Proxy(vars, {
-		has: (target, key: any) => key !== "input" && !skip?.has(key),
+		// `input` and `params` are function parameters of the emitted JS wrapper;
+		// letting `with` resolve them off vars would shadow them with a variable
+		// that merely shares the name.
+		has: (target, key: any) =>
+			key !== "input" && key !== "params" && !skip?.has(key),
 		get: (target, key: any) =>
 			key === Symbol.unscopables
 				? undefined
@@ -351,7 +357,10 @@ export function compileGraph(
 			const method = sync ? "run" : "runAsync";
 			return `(await ctx.vm.${method}(${JSON.stringify(code)}${extras ? `, ${extras}` : ""}))`;
 		}
-		return `(await (async function (input) { with ($scope) {\n${code}\n} })(${extras ?? "undefined"}))`;
+		// `params` is the custom block's invocation arguments — undefined in a
+		// route graph, so `input` keeps meaning exactly one thing everywhere: the
+		// previous block's output.
+		return `(await (async function (input, params) { with ($scope) {\n${code}\n} })(${extras ?? "undefined"}, $state.params))`;
 	}
 
 	/**
@@ -530,10 +539,12 @@ throw $error;
 		"vars,",
 		`scope: lib.scope(vars${imports.scopeSkip}),`,
 		"trace: ctx.trace,",
-		`params: ${asCustomBlock ? "input ?? {}" : "undefined"},`,
+		// a custom block is called with { params, input }: its configuration and
+		// the caller's flowing value, kept apart all the way down the graph
+		`params: ${asCustomBlock ? "input?.params ?? {}" : "undefined"},`,
 		"};",
 		"try {",
-		`return await ${blockFunctionName(entry.id)}($state, input, $endSuccess);`,
+		`return await ${blockFunctionName(entry.id)}($state, ${asCustomBlock ? "input?.input" : "input"}, $endSuccess);`,
 		"} catch ($error) {",
 		errorHandlerBody,
 		"}",

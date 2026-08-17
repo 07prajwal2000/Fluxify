@@ -22,6 +22,9 @@ import { asyncExecutorLimitsFromEnv } from "../src/modules/requestRouter/asyncEx
 import { executionRuntimeEnvironment } from "../src/modules/requestRouter/executionEnvironment";
 import type { ArtifactEntry } from "../src/modules/requestRouter/compiledRuntime";
 import { closeNats } from "../src/db/nats";
+import { startJobWorker } from "../src/modules/jobs/consumer";
+import { enqueueJob } from "../src/modules/jobs/publisher";
+import type { JobEnvelope } from "../src/modules/jobs/types";
 import {
 	OTLP_AUTH_HEADER_NAME,
 	OTLP_AUTH_HEADER_VALUE,
@@ -145,6 +148,7 @@ function spawnExecution() {
 			if (execution !== process) return;
 			execution = undefined;
 			markNotReady();
+			failPendingJobs("execution process exited mid-job");
 			watchdog.setEnabled(timeoutPolicyEnabled());
 			if (shuttingDown) return;
 			logger.error(
@@ -159,12 +163,49 @@ function spawnExecution() {
 	child.send({ type: "bootstrap", bootstrap } satisfies ExecutionMessage);
 }
 
+/**
+ * Jobs handed to the execution process, waiting on its reply. The broker's ack
+ * is driven by that reply, so a child that dies mid-job must reject its pending
+ * work — otherwise the consumer sits on the message until the ack wait elapses.
+ */
+const pendingJobs = new Map<
+	string,
+	{ resolve: () => void; reject: (error: Error) => void }
+>();
+
+function runJobInExecution(job: JobEnvelope) {
+	return new Promise<void>((resolve, reject) => {
+		if (!execution) return reject(new Error("execution process is not running"));
+		pendingJobs.set(job.id, { resolve, reject });
+		execution.send({ type: "job", job } satisfies ExecutionMessage);
+	});
+}
+
+function failPendingJobs(reason: string) {
+	for (const [, pending] of pendingJobs) pending.reject(new Error(reason));
+	pendingJobs.clear();
+}
+
 function onExecutionEvent(event: ExecutionEvent) {
 	switch (event.type) {
 		case "ready":
 			markReady();
 			logger.info("execution process ready", "WORKER.execution");
 			return;
+		case "job-finished": {
+			const pending = pendingJobs.get(event.id);
+			pendingJobs.delete(event.id);
+			if (!pending) return;
+			return event.error ? pending.reject(new Error(event.error)) : pending.resolve();
+		}
+		case "enqueue-job":
+			// user code queued work; failures are logged, the graph moved on already
+			return void enqueueJob(event.job).catch((error) =>
+				logger.error(
+					`failed to queue ${event.job.kind}/${event.job.target}: ${String(error)}`,
+					"WORKER.jobs",
+				),
+			);
 		case "heartbeat":
 			return watchdog.heartbeat();
 		case "execution-started":
@@ -191,6 +232,19 @@ await artifactWatch.initialized;
 
 spawnExecution();
 synchronizeMonitoring();
+
+// Background work for this project. Separate from the request path on purpose:
+// a queued job must not compete with traffic for the same acceptance.
+await startJobWorker({
+	projectId: WORKER_PROJECT_ID,
+	handle: runJobInExecution,
+	concurrency: Number(getEnv("JOBS_CONCURRENCY")) || undefined,
+	ackWaitMs: Number(getEnv("JOBS_ACK_WAIT_MS")) || undefined,
+	maxDeliver: Number(getEnv("JOBS_MAX_DELIVER")) || undefined,
+	retryDelayMs: Number(getEnv("JOBS_RETRY_DELAY_MS")) || undefined,
+}).catch((error) =>
+	logger.error(`job worker failed to start: ${String(error)}`, "WORKER.jobs"),
+);
 
 function evaluateTimeouts() {
 	const timedOut = watchdog.findTimedOut();

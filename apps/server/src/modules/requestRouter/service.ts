@@ -322,6 +322,61 @@ export async function executeRouteInternal(
 	}
 }
 
+/**
+ * A context for work that arrived off the queue rather than off a request.
+ *
+ * Same integrations, app config and logger a route gets — the difference is
+ * that there is no HTTP exchange, so cookies and headers are no-ops and the
+ * request accessors return empty. Nothing from the enqueuing request survives
+ * except the payload it queued.
+ *
+ * ponytail: fixed timeout. Give it a per-job setting when a job legitimately
+ * needs to outlive it.
+ */
+export const DEFAULT_JOB_TIMEOUT_SECONDS = 300;
+
+export function createJobContext(job: {
+	id: string;
+	projectId: string;
+	target: string;
+	timeoutSeconds?: number;
+}): BlockContext {
+	const trigger: TriggerContext = {
+		kind: "job",
+		source: "nats",
+		reply: "async",
+		id: job.id,
+	};
+	const requestData = {
+		method: "",
+		path: job.target,
+		headers: {},
+		query: {},
+		body: undefined,
+		params: {},
+	};
+	const vars = setupContextVars(
+		undefined,
+		requestData,
+		job.target,
+		httpClient,
+		job.projectId,
+		undefined,
+		trigger,
+	);
+	const vm = createJsVM(vars);
+	return createContext(
+		{ id: job.target, projectId: job.projectId },
+		requestData,
+		vm,
+		vars,
+		new DbFactory(vm, dbIntegrationsCache, dbConnectionManager),
+		httpClient,
+		trigger,
+		job.timeoutSeconds ?? DEFAULT_JOB_TIMEOUT_SECONDS,
+	);
+}
+
 function validateSchema(
 	compiled: CompiledRequestSchema | undefined,
 	schema: unknown,

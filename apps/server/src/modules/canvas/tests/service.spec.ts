@@ -42,6 +42,8 @@ const delEdges = spyOn(repository, "deleteEdges");
 const delStructural = spyOn(repository, "deleteStructuralBlocks");
 const getEdges = spyOn(repository, "getEdges");
 const customBlockNames = spyOn(repository, "getCustomBlockNames");
+const projectCustomBlocks = spyOn(repository, "getProjectCustomBlocks");
+const customBlockCalls = spyOn(repository, "getCustomBlockCalls");
 
 /** `changes` with its single block retyped */
 const withBlockType = (type: string) => ({
@@ -66,6 +68,8 @@ describe("canvas saveCanvas", () => {
 		}
 		parentExists.mockResolvedValue(true);
 		customBlockNames.mockResolvedValue([]);
+		projectCustomBlocks.mockResolvedValue([]);
+		customBlockCalls.mockResolvedValue([]);
 	});
 
 	it("rejects a block type that is neither built-in nor a custom block", async () => {
@@ -183,6 +187,63 @@ describe("canvas saveCanvas", () => {
 			),
 		).rejects.toThrow(ConflictError);
 		expect(upsertEdges).not.toHaveBeenCalled();
+	});
+
+	describe("custom block recursion", () => {
+		const project = [
+			{ id: "cb-1", name: "audit" },
+			{ id: "cb-2", name: "logger" },
+		];
+		/** `changes` carrying one instance of the named custom block */
+		const calling = (type: string) => ({
+			...changes,
+			actionsToPerform: { blocks: [], edges: [] },
+			changes: {
+				blocks: [{ id: "b1", type, data: {}, position: { x: 0, y: 0 } }],
+				edges: [],
+			},
+		});
+
+		beforeEach(() => {
+			projectCustomBlocks.mockResolvedValue(project as any);
+			customBlockNames.mockResolvedValue(project.map((b) => b.name));
+		});
+
+		it("rejects a custom block placed on its own canvas", async () => {
+			await expect(
+				saveCanvas({ type: "custom_block", id: "cb-1" }, calling("audit"), ["p1"]),
+			).rejects.toThrow(/cannot call itself/);
+			expect(upsertBlocks).not.toHaveBeenCalled();
+		});
+
+		it("rejects a chain that comes back around — logger already calls audit", async () => {
+			customBlockCalls.mockResolvedValue([
+				{ parentId: "cb-2", type: "audit" },
+			] as any);
+
+			await expect(
+				saveCanvas({ type: "custom_block", id: "cb-1" }, calling("logger"), ["p1"]),
+			).rejects.toThrow(/audit → logger → audit/);
+		});
+
+		it("allows a one-way call between two custom blocks", async () => {
+			await saveCanvas({ type: "custom_block", id: "cb-1" }, calling("logger"), [
+				"p1",
+			]);
+
+			expect(upsertBlocks).toHaveBeenCalled();
+		});
+
+		it("leaves route canvases alone — a route is never re-entered", async () => {
+			customBlockCalls.mockResolvedValue([
+				{ parentId: "cb-2", type: "audit" },
+				{ parentId: "cb-1", type: "logger" },
+			] as any);
+
+			await saveCanvas({ type: "route", id: "r-1" }, calling("audit"), ["p1"]);
+
+			expect(upsertBlocks).toHaveBeenCalled();
+		});
 	});
 
 	it("rejects a duplicate structural block when the caller is not the AI harness", async () => {

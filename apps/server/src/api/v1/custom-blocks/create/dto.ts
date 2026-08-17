@@ -5,16 +5,19 @@ export const inputParamSchema = z.discriminatedUnion("type", [
     type: z.literal("text_input"),
     name: z.string().regex(/^[a-z0-9_]+$/),
     label: z.string(),
+    description: z.string().optional(),
   }),
   z.object({
     type: z.literal("checkbox"),
     name: z.string().regex(/^[a-z0-9_]+$/),
     label: z.string(),
+    description: z.string().optional(),
   }),
   z.object({
     type: z.literal("array_editor"),
     name: z.string().regex(/^[a-z0-9_]+$/),
     label: z.string(),
+    description: z.string().optional(),
   }),
   z.object({
     type: z.literal("integration_selector"),
@@ -23,6 +26,7 @@ export const inputParamSchema = z.discriminatedUnion("type", [
     group: z.string(),
     variant: z.string().optional(),
     tags: z.array(z.string()).default([]),
+    description: z.string().optional(),
   }),
   z.object({
     type: z.literal("dropdown"),
@@ -34,6 +38,7 @@ export const inputParamSchema = z.discriminatedUnion("type", [
         value: z.string(),
       })
     ),
+    description: z.string().optional(),
   }),
 ]);
 

@@ -3,6 +3,7 @@ import { BaseBlock, BlockOptions, BlockOutput, Context } from "../baseBlock";
 import { Engine } from "../engine";
 import { logger } from "@fluxify/common";
 import type { BlockDTOType, EdgeDTOSchemaType } from "../builderTypes";
+import { enqueueJob } from "../jobs";
 import {
 	compileGraph,
 	emitJsObject,
@@ -11,11 +12,14 @@ import {
 } from "../compiler";
 
 export const customBlockInvokeSchema = z
-	.enum(["sync", "async"])
+	.enum(["sync", "async", "queued"])
 	.default("sync")
 	.describe(
-		"sync waits for the custom block and takes its output; async fires it and moves on",
+		"sync waits for the custom block and takes its output; async fires it on this worker and moves on; queued hands it to the job queue for another worker to run",
 	);
+
+/** The job kind a queued custom block travels under. */
+export const CUSTOM_BLOCK_JOB = "custom-block";
 
 export type CompiledCustomBlock = (ctx: Context, input?: any) => Promise<any>;
 
@@ -86,16 +90,23 @@ function traced(
 	return { context: child, close: () => scope.close() };
 }
 
+/**
+ * How a custom block is called: what it was configured with, and the value
+ * flowing into the calling block. They stay apart inside the callee — `params`
+ * is its configuration at any depth, `input` is the previous block's output.
+ */
+export type CustomBlockArgs = { params: Record<string, any>; input?: any };
+
 /** sync: wait for the custom block and hand back its output */
 export async function invokeCustomBlock(
 	context: Context,
 	name: string,
-	params: any,
+	args: CustomBlockArgs,
 	blockId?: string,
 ) {
 	const scope = traced(context, name, blockId, false);
 	try {
-		const result = await lookup(name)(scope.context, params);
+		const result = await lookup(name)(scope.context, args);
 		return result?.output;
 	} finally {
 		scope.close();
@@ -110,11 +121,11 @@ export async function invokeCustomBlock(
 export function invokeCustomBlockAsync(
 	context: Context,
 	name: string,
-	params: any,
+	args: CustomBlockArgs,
 	blockId?: string,
 ) {
 	const scope = traced(context, name, blockId, true);
-	lookup(name)(scope.context, params)
+	lookup(name)(scope.context, args)
 		.catch((error) => {
 			logger.error(`Async custom block '${name}' failed`, "BLOCKS.customBlock", {
 				error,
@@ -123,15 +134,44 @@ export function invokeCustomBlockAsync(
 		.finally(() => scope.close());
 }
 
+/**
+ * queued: hand the work to the job queue and move on. Unlike `async` this
+ * survives the worker — the job is persisted by the broker and picked up by
+ * whichever worker serves this project, so a shutdown mid-flight redelivers
+ * instead of losing the work.
+ *
+ * The job carries the evaluated arguments only: the callee gets a fresh context
+ * on the other side, so nothing request-scoped (cookies, headers, `ctx.vars`)
+ * crosses. They must therefore be JSON-serializable.
+ */
+export function enqueueCustomBlock(
+	context: Context,
+	name: string,
+	args: CustomBlockArgs,
+	blockId?: string,
+) {
+	enqueueJob({
+		kind: CUSTOM_BLOCK_JOB,
+		projectId: context.projectId,
+		target: name,
+		payload: args,
+		origin: { blockId, route: context.route, apiId: context.apiId },
+	});
+}
+
 export function emitCustomBlock(node: EmitNode) {
 	const { blockName, blockDescription, invoke, ...params } = (node.block.data ??
 		{}) as Record<string, unknown>;
 	const mode = customBlockInvokeSchema.parse(invoke);
 	const name = JSON.stringify(node.block.type);
-	// same shape the interpreted block passes: evaluated params plus the input
-	const args = `{ ...${emitJsObject(params, node)}, input: ${node.in} }`;
+	// the callee reads its configuration as `params` and the value flowing into
+	// this block as `input` — one meaning each, at every depth of its graph
+	const args = `{ params: ${emitJsObject(params, node)}, input: ${node.in} }`;
 	const id = JSON.stringify(node.block.id);
 
+	if (mode === "queued") {
+		return `lib.enqueue(ctx, ${name}, ${args}, ${id});\n${node.next()}`;
+	}
 	if (mode === "async") {
 		return `lib.invokeAsync(ctx, ${name}, ${args}, ${id});\n${node.next()}`;
 	}

@@ -4,6 +4,10 @@ import {
 	requestBodySchema as createRequestSchema,
 	responseSchema as createResponseSchema,
 } from "@fluxify/server/src/api/v1/custom-blocks/create/dto";
+import {
+	requestBodySchema as updateRequestSchema,
+	responseSchema as updateResponseSchema,
+} from "@fluxify/server/src/api/v1/custom-blocks/update/dto";
 import { httpClient } from "@/lib/http";
 import { canvasEndpoints } from "./canvas";
 
@@ -23,7 +27,15 @@ export const customBlocksService = {
 	async delete(id: string) {
 		await httpClient.delete(`${baseUrl}/${id}`);
 	},
+	async update(
+		id: string,
+		data: z.infer<typeof updateRequestSchema>,
+	): Promise<z.infer<typeof updateResponseSchema>> {
+		const result = await httpClient.put(`${baseUrl}/${id}`, data);
+		return result.data;
+	},
 	// a custom block's canvas is stored and served exactly like a route's
 	...canvasEndpoints(baseUrl),
 	createRequestSchema,
+	updateRequestSchema,
 };

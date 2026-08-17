@@ -86,7 +86,7 @@ export async function runGetAllDb(
 export function emitGetAllDb(node: EmitNode) {
 	const input = getAllDbBlockSchema.parse(node.block.data);
 	const sort = `{ attribute: ${node.value(input.sort.attribute)}, direction: ${JSON.stringify(input.sort.direction)} }`;
-	return `${node.in} = await lib.dbGetAll(ctx, ${JSON.stringify(input.connection)}, ${node.value(input.tableName)}, ${emitWhereConditions(input.conditions, node)}, lib.num(${node.value(input.limit)}, 1000), lib.num(${node.value(input.offset)}, 0), ${sort}, { joins: ${JSON.stringify(input.joins ?? [])}, columns: ${JSON.stringify(input.columns ?? ["*"])} });
+	return `${node.in} = await lib.dbGetAll(ctx, ${node.value(input.connection)}, ${node.value(input.tableName)}, ${emitWhereConditions(input.conditions, node)}, lib.num(${node.value(input.limit)}, 1000), lib.num(${node.value(input.offset)}, 0), ${sort}, { joins: ${JSON.stringify(input.joins ?? [])}, columns: ${JSON.stringify(input.columns ?? ["*"])} });
 ${node.next()}`;
 }
 

@@ -11,6 +11,15 @@ export interface Integration {
 	variant: string;
 	config: Record<string, unknown>;
 	tags?: string[];
+	/**
+	 * Not a real integration row: a placeholder whose concrete integration is
+	 * chosen elsewhere (a custom block's input parameter, resolved by the caller).
+	 * These sort first, carry a badge, and expose no test/open actions — there is
+	 * nothing on this side to test or open.
+	 */
+	external?: boolean;
+	/** Explains an `external` entry in the picker and under the field. */
+	hint?: string;
 }
 
 /** Internal async-load state. */
@@ -31,6 +40,11 @@ export interface IntegrationSelectorProps {
 	 * identity changes.
 	 */
 	loadIntegrations: () => Promise<Integration[]>;
+	/**
+	 * Entries injected ahead of the loaded ones without a fetch — used for
+	 * `external` placeholders. Listed first in the picker.
+	 */
+	injectedIntegrations?: Integration[];
 	/** Called with the selected integration id, or empty string to clear. */
 	onSelect?: (id: string) => void;
 	/**

@@ -4,8 +4,10 @@ import "./panel.css";
 import { BlockSettings } from "./BlockSettings";
 import { blockSettingsTabs } from "./blockSettingsRegistry";
 import { useBlockPanelResize } from "./useBlockPanelResize";
+import { CustomBlockIcon } from "@/components/customBlocks/IconPicker";
 import { blockIcon } from "../blocks/blockIconMap";
 import { blockLabels } from "../blocks/blockLabels";
+import { useCustomBlockDefs } from "../blocks/useCustomBlockDefs";
 import type { BlockNode } from "../types";
 
 export type BlockPanelProps = {
@@ -47,7 +49,12 @@ export function BlockPanel({
 	const current = block ?? shown.current;
 
 	const type = current?.type ?? "unknown";
-	const { name, description, definition } = blockLabels(type, current?.data);
+	const { name, description, definition, custom } = blockLabels(type, current?.data);
+	// A custom block: the label titles the panel and the identifier sits under it,
+	// since that is what flows and `param:` references are written against.
+	const customDef = useCustomBlockDefs().find((def) => def.name === type);
+	const title = custom ? name : (customDef?.label ?? name);
+	const subtitle = customDef ? customDef.name : description;
 	const tabs = blockSettingsTabs(current?.type);
 
 	const {
@@ -110,16 +117,23 @@ export function BlockPanel({
 							className="fx-panel__icon"
 							style={definition.tint ? { color: definition.tint } : undefined}
 						>
-							{blockIcon(type)}
+							{customDef ? (
+								<CustomBlockIcon icon={customDef.icon} iconUrl={customDef.iconUrl} />
+							) : (
+								blockIcon(type)
+							)}
 						</span>
 						<span className="fx-panel__titles">
 							{/* Renaming lives in the General tab; the header only shows it. */}
-							<span className="fx-panel__name" title={name}>
-								{name}
+							<span className="fx-panel__name" title={title}>
+								{title}
 							</span>
-							{/* What the block does, under whatever it was named. */}
-							<span className="fx-panel__type" title={description}>
-								{description}
+							{/* What the block does — or, for a custom block, what it is called. */}
+							<span
+								className="fx-panel__type"
+								title={customDef ? `Block type: ${subtitle}` : subtitle}
+							>
+								{subtitle}
 							</span>
 						</span>
 						{current.id && (

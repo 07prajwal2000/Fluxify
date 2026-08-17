@@ -52,7 +52,7 @@ export async function runNativeDb(
 export function emitNativeDb(node: EmitNode) {
 	const input = nativeDbBlockSchema.parse(node.block.data);
 	const code = input.js.startsWith("js:") ? input.js.slice(3) : input.js;
-	return `${node.in} = await lib.dbNative(ctx, ${JSON.stringify(input.connection)}, async () => ${node.js(code, node.in)});
+	return `${node.in} = await lib.dbNative(ctx, ${node.value(input.connection)}, async () => ${node.js(code, node.in)});
 ${node.next()}`;
 }
 

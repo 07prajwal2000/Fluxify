@@ -1,5 +1,6 @@
 import type { ArtifactEntry } from "./compiledRuntime";
 import type { AsyncExecutorLimits } from "./asyncExecutor";
+import type { JobEnvelope } from "../jobs/types";
 
 /** handed to the isolated execution process over Bun IPC at spawn */
 export type ExecutionBootstrap = {
@@ -28,12 +29,17 @@ export type ExecutionBootstrap = {
 export type ExecutionMessage =
 	| { type: "bootstrap"; bootstrap: ExecutionBootstrap }
 	| { type: "artifact"; entry: ArtifactEntry }
-	| { type: "monitoring"; enabled: boolean };
+	| { type: "monitoring"; enabled: boolean }
+	// the supervisor owns NATS, the child owns user code: jobs cross here
+	| { type: "job"; job: JobEnvelope };
 
 /** isolated execution process -> supervisor */
 export type ExecutionEvent =
 	| { type: "ready" }
 	| { type: "heartbeat" }
+	| { type: "job-finished"; id: string; error?: string }
+	/** user code asked to queue work; only the supervisor can publish it */
+	| { type: "enqueue-job"; job: JobEnvelope }
 	| {
 			type: "execution-started";
 			requestId: string;
