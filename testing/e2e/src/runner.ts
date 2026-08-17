@@ -3,7 +3,7 @@ import {
 	hydrateIntegrations,
 	OWNER_KEY,
 } from "@fluxify/server/src/loaders/integrationsLoader";
-import { hydrateAppConfig } from "@fluxify/server/src/loaders/appConfigLoader";
+import { hydrateAppConfig } from "@fluxify/server/src/loaders/appconfigLoader";
 import { setBlocksExecutor } from "@fluxify/server/src/modules/requestRouter/executor";
 import { executeRouteInternal } from "@fluxify/server/src/modules/requestRouter/service";
 import { connectionFor } from "./engines";
