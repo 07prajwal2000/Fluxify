@@ -17,6 +17,8 @@ import { useReactFlow } from "@xyflow/react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import { withBasePath } from "@/constants/routes";
+import { AppConfigField } from "@/components/appConfig/AppConfigField";
+import type { AppConfigExtraItem } from "@/components/integrations/AppConfigSelectorModal";
 import { integrationService } from "@/services/integrations";
 import { customBlocksQuery } from "@/query/customBlocksQuery";
 import type { CustomBlockInputParam } from "./blocks/CustomBlockSettings";
@@ -348,6 +350,76 @@ export function BlockIntegrationField({
 						)
 					: undefined
 			}
+		/>
+	);
+}
+
+/**
+ * The app config counterpart of `useCustomBlockParamIntegrations`: on a custom
+ * block's own canvas, that block's `app_config_selector` input params are
+ * offered next to the project's real keys. Picking one writes `param:<name>`,
+ * so the key is chosen by whoever places the block — and it chains, an authz
+ * block can hand its own secret key down to the jwt block it calls.
+ */
+function useCustomBlockParamConfigs(
+	projectId: string,
+	customBlockId: string | undefined,
+): AppConfigExtraItem[] | undefined {
+	const { data: blocks } = customBlocksQuery.getAll.useQuery(projectId);
+
+	return useMemo(() => {
+		if (!customBlockId) return undefined;
+		const block = blocks?.find((b) => b.id === customBlockId);
+		const params = Array.isArray(block?.inputParams)
+			? (block.inputParams as CustomBlockInputParam[])
+			: [];
+		const matching = params.filter((p) => p.type === "app_config_selector");
+		if (matching.length === 0) return undefined;
+		return matching.map((param) => ({
+			value: `param:${param.name}`,
+			label: param.label || param.name,
+			hint: `Set by whoever places this block — the “${param.label || param.name}” input.`,
+		}));
+	}, [blocks, customBlockId]);
+}
+
+export type BlockAppConfigFieldProps = {
+	blockId: string;
+	data: BlockData;
+	name: string;
+	label?: string;
+	description?: string;
+};
+
+/**
+ * An app config key setting field backed by AppConfigField.
+ */
+export function BlockAppConfigField({
+	blockId,
+	data,
+	name,
+	label,
+	description,
+}: BlockAppConfigFieldProps) {
+	const { updateNodeData } = useReactFlow();
+	const { enabled: editable } = useCanvasChanges();
+	const params = useParams({ strict: false }) as {
+		projectId?: string;
+		blockId?: string;
+	};
+	const projectId = params?.projectId ?? "";
+	const value = typeof data[name] === "string" ? (data[name] as string) : "";
+	const extraItems = useCustomBlockParamConfigs(projectId, params?.blockId);
+
+	return (
+		<AppConfigField
+			projectId={projectId}
+			value={value}
+			label={label}
+			description={description}
+			isDisabled={!editable}
+			extraItems={extraItems}
+			onChange={(next) => updateNodeData(blockId, { [name]: next })}
 		/>
 	);
 }

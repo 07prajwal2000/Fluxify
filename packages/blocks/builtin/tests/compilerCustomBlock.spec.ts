@@ -419,4 +419,42 @@ describe("compiled cloud logs", () => {
 
 		expect(asked).toEqual([{ integrationId: "obs-42", type: "observability" }]);
 	});
+
+	it("chains an app config key param down through a nested custom block", async () => {
+		// the app config selector param carries the *key*: `authz` hands its own
+		// key to the `jwt` block it calls, and only the callee resolves it
+		registerCustomBlock(
+			"jwt",
+			[
+				block("c1", BlockTypes.entrypoint),
+				block("c2", BlockTypes.jsrunner, {
+					value: "return { signedWith: getConfig(params.secret_key) };",
+				}),
+			],
+			[edge("c1", "c2")],
+		);
+		registerCustomBlock(
+			"authz",
+			[
+				block("d1", BlockTypes.entrypoint),
+				block("d2", "jwt", { secret_key: "param:signing_key" }),
+			],
+			[edge("d1", "d2")],
+		);
+
+		const { run } = compileGraph(
+			[
+				block("1", BlockTypes.entrypoint),
+				block("2", "authz", { signing_key: "JWT_SECRET" }),
+				block("3", BlockTypes.response, { httpCode: "200" }),
+			],
+			[edge("1", "2"), edge("2", "3")],
+		);
+
+		const ctx = createContext();
+		ctx.vars.getConfig = (key: string) => `resolved:${key}`;
+		const result = await run(ctx, null);
+
+		expect(result.output.body).toEqual({ signedWith: "resolved:JWT_SECRET" });
+	});
 });

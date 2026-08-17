@@ -6,15 +6,28 @@ import {
 	TbLock,
 	TbRefresh,
 	TbSearch,
+	TbVariable,
 	TbX,
 } from "react-icons/tb";
 import { appConfigQuery } from "@/query/appConfigQuery";
+
+/**
+ * An entry offered alongside the project's real keys — used by a custom block's
+ * canvas to offer its own `app_config_selector` input params as `param:<name>`.
+ */
+export type AppConfigExtraItem = {
+	/** What `onSelect` receives, e.g. `param:jwt_secret`. */
+	value: string;
+	label: string;
+	hint?: string;
+};
 
 export type AppConfigSelectorModalProps = {
 	projectId: string;
 	isOpen: boolean;
 	onOpenChange: (isOpen: boolean) => void;
 	selectedValue?: string;
+	extraItems?: AppConfigExtraItem[];
 	onSelect: (keyName: string) => void;
 	onClear?: () => void;
 };
@@ -24,6 +37,7 @@ export function AppConfigSelectorModal({
 	isOpen,
 	onOpenChange,
 	selectedValue = "",
+	extraItems,
 	onSelect,
 	onClear,
 }: AppConfigSelectorModalProps) {
@@ -76,6 +90,16 @@ export function AppConfigSelectorModal({
 		if (!data?.pages) return [];
 		return data.pages.flatMap((page) => page.data);
 	}, [data?.pages]);
+
+	const filteredExtras = useMemo(() => {
+		const q = debouncedSearch.trim().toLowerCase();
+		const all = extraItems ?? [];
+		if (!q) return all;
+		return all.filter(
+			(e) =>
+				e.label.toLowerCase().includes(q) || e.value.toLowerCase().includes(q),
+		);
+	}, [extraItems, debouncedSearch]);
 
 	const activeKey = selectedValue.startsWith("cfg:")
 		? selectedValue.slice(4)
@@ -156,7 +180,7 @@ export function AppConfigSelectorModal({
 									<Spinner />
 									<span className="mt-2 text-xs text-muted">Loading configuration keys…</span>
 								</div>
-							) : items.length === 0 ? (
+							) : items.length === 0 && filteredExtras.length === 0 ? (
 								debouncedSearch ? (
 									<div className="flex flex-col items-center justify-center py-12 text-center">
 										<TbSearch size={26} className="text-muted/60 mb-2" />
@@ -188,6 +212,63 @@ export function AppConfigSelectorModal({
 								)
 							) : (
 								<div className="flex max-h-[440px] min-h-[260px] flex-col gap-2 overflow-y-auto pr-1">
+									{filteredExtras.map((extra) => {
+										const isSelected = activeKey === extra.value;
+										return (
+											<button
+												key={extra.value}
+												type="button"
+												onClick={() => handleSelect(extra.value)}
+												className={cn(
+													"group flex w-full items-center justify-between gap-3 rounded-xl border border-dashed px-3.5 py-2.5 text-left transition-all duration-150",
+													isSelected
+														? "border-accent bg-accent/10 shadow-sm ring-1 ring-accent"
+														: "border-border bg-surface hover:border-accent hover:bg-surface-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus",
+												)}
+											>
+												<div className="flex min-w-0 flex-1 items-center gap-2.5">
+													<span
+														className={cn(
+															"flex size-8 shrink-0 items-center justify-center rounded-lg transition-colors",
+															isSelected
+																? "bg-accent text-accent-foreground"
+																: "bg-surface-secondary text-foreground group-hover:bg-accent group-hover:text-accent-foreground",
+														)}
+													>
+														<TbVariable size={15} />
+													</span>
+													<span className="flex min-w-0 flex-col">
+														<span className="truncate text-xs font-semibold text-foreground">
+															{extra.label}
+														</span>
+														{extra.hint && (
+															<span className="truncate text-[11px] text-muted">
+																{extra.hint}
+															</span>
+														)}
+													</span>
+													<Chip
+														size="sm"
+														color="accent"
+														className="text-[11px] font-medium shrink-0"
+													>
+														Input parameter
+													</Chip>
+												</div>
+												<div className="shrink-0">
+													{isSelected ? (
+														<span className="flex size-6 items-center justify-center rounded-full bg-accent text-accent-foreground">
+															<TbCheck size={13} strokeWidth={3} />
+														</span>
+													) : (
+														<span className="text-xs font-medium text-muted transition-colors group-hover:text-foreground">
+															Select
+														</span>
+													)}
+												</div>
+											</button>
+										);
+									})}
 									{items.map((item) => {
 										const isSelected = activeKey === item.keyName;
 										return (

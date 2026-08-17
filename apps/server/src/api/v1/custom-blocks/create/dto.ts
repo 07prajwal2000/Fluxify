@@ -28,6 +28,15 @@ export const inputParamSchema = z.discriminatedUnion("type", [
     tags: z.array(z.string()).default([]),
     description: z.string().optional(),
   }),
+  // The param carries an app config *key*, not the resolved value: `param:`
+  // placeholders are substituted at compile time, so a resolved value would be
+  // baked into the compiled worker source. The block reads `getConfig(params.x)`.
+  z.object({
+    type: z.literal("app_config_selector"),
+    name: z.string().regex(/^[a-z0-9_]+$/),
+    label: z.string(),
+    description: z.string().optional(),
+  }),
   z.object({
     type: z.literal("dropdown"),
     name: z.string().regex(/^[a-z0-9_]+$/),

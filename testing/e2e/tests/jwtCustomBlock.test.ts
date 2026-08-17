@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import { loadGraph } from "../src/graph";
-import { runGraph } from "../src/runner";
+import { APP_CONFIG, runGraph } from "../src/runner";
 
 /**
  * One custom block, three routes, three configurations. What this covers that a
@@ -90,7 +90,8 @@ describe("jwt_ops custom block", () => {
 	});
 
 	it("rejects a token signed with a different secret", async () => {
-		// the secret lives inside the block; nothing the caller passes can change it
+		// the block signs with whatever app config key the caller picked, and all
+		// three routes pick the same one — a foreign signature cannot verify
 		const foreign = [
 			Buffer.from(JSON.stringify({ alg: "HS256", typ: "JWT" })).toString(
 				"base64url",
@@ -115,6 +116,15 @@ describe("jwt_ops custom block", () => {
 
 		expect(run.source).toContain('lib.invoke(ctx, "jwt_ops"');
 		// the callee's body is compiled once, into the library — not here
-		expect(run.source).not.toContain("e2e-custom-block-secret");
+		expect(run.source).not.toContain("getConfig(params.secret_key)");
+	});
+
+	it("carries the app config key into the block, never the secret itself", async () => {
+		const run = await runGraph(sign, { body: { sub: "user-42" } });
+
+		// the caller passes the key, so the secret is resolved at call time and
+		// never reaches the compiled artifact — the whole point of the param type
+		expect(run.source).toContain("JWT_SIGNING_SECRET");
+		expect(run.source).not.toContain(APP_CONFIG.JWT_SIGNING_SECRET);
 	});
 });

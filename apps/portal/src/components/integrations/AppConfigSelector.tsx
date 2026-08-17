@@ -81,6 +81,10 @@ export function AppConfigSelector({
 				isOpen={modalOpen}
 				onOpenChange={setModalOpen}
 				selectedValue={local}
+				// The modal hands back a bare key and the caller decides how to store
+				// it: this field is a hybrid — a literal or a reference — so it needs
+				// the `cfg:` marker to tell them apart. Fields with no literal mode
+				// (AppConfigField) store the bare key instead.
 				onSelect={(keyName) => set(`cfg:${keyName}`)}
 				onClear={() => set("")}
 			/>

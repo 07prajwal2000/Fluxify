@@ -17,6 +17,7 @@ const PARAM_TYPE_OPTIONS = [
 	{ value: "dropdown", label: "Dropdown" },
 	{ value: "array_editor", label: "Array editor" },
 	{ value: "integration_selector", label: "Integration selector" },
+	{ value: "app_config_selector", label: "App config selector" },
 ];
 
 const NAME_REGEX = /^[a-z0-9_]+$/;
@@ -206,6 +207,13 @@ function ParamRow({
 					isDisabled={isDisabled}
 					onChange={(options) => onChange({ options })}
 				/>
+			)}
+
+			{param.type === "app_config_selector" && (
+				<p className="text-xs text-muted">
+					Holds an app config <em>key</em>, not its value — read it with{" "}
+					<code className="font-mono">getConfig(params.{param.name || "name"})</code>.
+				</p>
 			)}
 
 			{param.type === "integration_selector" && (
