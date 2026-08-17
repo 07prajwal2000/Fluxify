@@ -21,3 +21,16 @@ test("a reloaded graph keeps its identity, so saving does not wipe the undo stac
 	expect(graphTopology([node("a")], [edge("e1")])).not.toBe(before);
 	expect(graphTopology([node("a"), node("b")], [])).not.toBe(before);
 });
+
+test("after adding a block and saving, the refetch matches the screen, not the last load", () => {
+	// What the canvas loaded, what is on screen after adding a block, and what
+	// the server hands back once that block is saved.
+	const loaded = graphTopology([node("a")], []);
+	const onScreen = graphTopology([node("a"), node("added")], []);
+	const refetched = graphTopology([node("added"), node("a")], []);
+
+	// Comparing against the previous load says "different graph" and wipes the
+	// undo stack on every save — comparing against the screen does not.
+	expect(refetched).not.toBe(loaded);
+	expect(refetched).toBe(onScreen);
+});

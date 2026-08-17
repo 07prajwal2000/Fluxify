@@ -4,9 +4,12 @@ import type { CanvasClipboard } from "./useClipboard";
 export const DISABLED_CLIPBOARD: CanvasClipboard = {
 	enabled: false,
 	canPaste: false,
-	copy: () => 0,
-	paste: () => {},
+	copy: () => ({ count: 0, text: null }),
+	paste: async () => {},
+	pasteText: () => false,
 	duplicate: () => {},
+	exportSelection: () => 0,
+	importFromFile: async () => {},
 };
 
 const ClipboardContext = createContext<CanvasClipboard>(DISABLED_CLIPBOARD);

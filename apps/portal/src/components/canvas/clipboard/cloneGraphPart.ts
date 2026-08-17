@@ -9,6 +9,13 @@ export type CloneOptions = {
 	offset?: { x: number; y: number };
 	/** Selects the clones (and lets the caller deselect the originals). */
 	select?: boolean;
+	/**
+	 * Pre-resolved `oldId → existingId` entries. Nodes named here are expected to
+	 * be absent from `part.nodes`: the edge remap resolves them against the given
+	 * id instead of a fresh clone, which is how an import re-attaches to blocks
+	 * that already live on the canvas (entrypoint, error handler).
+	 */
+	idMap?: ReadonlyMap<string, string>;
 };
 
 export const EMPTY_PART: GraphPart = { nodes: [], edges: [] };
@@ -42,7 +49,10 @@ function cloneData(data: BlockNode["data"]): BlockNode["data"] {
  */
 export function cloneGraphPart(part: GraphPart, options: CloneOptions = {}): GraphPart {
 	const { offset = { x: 0, y: 0 }, select = false } = options;
-	const idMap = new Map(part.nodes.map((node) => [node.id, uuidv7()]));
+	// Cloned nodes win over a pre-resolved entry: a block that is actually being
+	// inserted must use its own fresh id.
+	const idMap = new Map(options.idMap);
+	for (const node of part.nodes) idMap.set(node.id, uuidv7());
 
 	const nodes = part.nodes.map<BlockNode>((node) => ({
 		...node,

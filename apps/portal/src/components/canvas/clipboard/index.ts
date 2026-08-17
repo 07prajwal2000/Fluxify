@@ -14,5 +14,6 @@ export {
 	PASTE_OFFSET,
 	useClipboard,
 	type CanvasClipboard,
+	type CopyResult,
 	type UseClipboardOptions,
 } from "./useClipboard";

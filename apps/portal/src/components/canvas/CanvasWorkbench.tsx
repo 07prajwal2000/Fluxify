@@ -130,6 +130,7 @@ export function CanvasWorkbench({
 						enablePlayground={enablePlayground}
 						playgroundContent={playgroundContent}
 						cycleFeedbackToken={cycleFeedbackToken}
+						onSave={() => void onSave()}
 						onChange={(next, changes) => {
 							edited.current = { graph: next, changes };
 							setPendingCount(changes.blocks.size + changes.edges.size);
