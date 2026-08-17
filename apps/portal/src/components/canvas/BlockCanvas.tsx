@@ -7,15 +7,16 @@ import {
 	ReactFlowProvider,
 	useEdgesState,
 	useNodesState,
-	useReactFlow,
 	type Connection,
 	type EdgeChange,
 	type NodeChange,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import "./canvas.css";
+import { CanvasCommands } from "./CanvasCommands";
 import { CanvasLayoutLockProvider } from "./CanvasLayoutLockContext";
 import { CanvasQuickActions } from "./CanvasQuickActions";
+import { useContextMenu } from "./contextMenu";
 import { CanvasPlaygroundProvider, useCanvasPlayground } from "./PlaygroundContext";
 import { PlaygroundModal } from "./PlaygroundModal";
 import { flowToGraph, graphToFlow } from "./adapters";
@@ -32,7 +33,6 @@ import {
 	type GraphPart,
 } from "./clipboard";
 import { DEFAULT_EDGE_TYPES, FLOW_EDGE_TYPE } from "./edges";
-import { findCycleEdgeIds } from "./cycleDetection";
 import { uuidv7 } from "./ids";
 import {
 	CanvasHistoryProvider,
@@ -44,9 +44,9 @@ import { BlockPanel, CanvasPanelProvider, useBlockPanel } from "./panel";
 import { CanvasToolbar } from "./CanvasToolbar";
 import { toast } from "@fluxify/components";
 import { BlockPickerSidebar } from "./BlockPickerSidebar";
-import { BLOCK_TYPES, canAddBlock, type BlockType } from "./blocks";
-import { defaultBlockData } from "./blocks/defaultBlockData";
-import { newStickyNoteData } from "./blocks/stickyNoteData";
+import { BLOCK_TYPES } from "./blocks";
+import { useAddBlock } from "./useAddBlock";
+import { useCycleFlash } from "./useCycleFlash";
 import { useBlockPicker } from "./useBlockPicker";
 import type { BlockCanvasProps, BlockEdge, BlockNode } from "./types";
 
@@ -106,6 +106,9 @@ function CanvasInner({
 	enableHistory = true,
 	enableFormat = true,
 	enableClipboard = true,
+	enableContextMenu = true,
+	enableKeyboard = true,
+	onSave,
 	enablePanel = true,
 	enableBlockPicker = false,
 	enablePlayground = false,
@@ -117,7 +120,6 @@ function CanvasInner({
 	children,
 }: BlockCanvasProps) {
 	const readOnly = mode === "readonly";
-	const { screenToFlowPosition } = useReactFlow();
 	const initial = useMemo(() => graphToFlow(graph), [graph]);
 	const [nodes, setNodes, onNodesChange] = useNodesState<BlockNode>(
 		initial.nodes,
@@ -128,58 +130,15 @@ function CanvasInner({
 	const blockPicker = useBlockPicker();
 	const playground = useCanvasPlayground();
 	const canvasRef = useRef<HTMLDivElement>(null);
+	// The panel sits beside the canvas, not in it — shortcuts must reach both.
+	const shellRef = useRef<HTMLDivElement>(null);
 	const latest = useRef({ nodes, edges });
 	latest.current = { nodes, edges };
-	const [flashingCycleEdgeIds, setFlashingCycleEdgeIds] = useState<Set<string>>(
-		new Set(),
-	);
-	const cycleFlashTimeout = useRef<number | undefined>(undefined);
-
-	useEffect(() => {
-		if (cycleFeedbackToken === 0) return;
-		const cycleEdgeIds = findCycleEdgeIds(
-			flowToGraph(latest.current.nodes, latest.current.edges).edges,
-		);
-		setFlashingCycleEdgeIds(cycleEdgeIds);
-		if (cycleFlashTimeout.current) window.clearTimeout(cycleFlashTimeout.current);
-		cycleFlashTimeout.current = window.setTimeout(
-			() => setFlashingCycleEdgeIds(new Set()),
-			1_500,
-		);
-		return () => {
-			if (cycleFlashTimeout.current) window.clearTimeout(cycleFlashTimeout.current);
-		};
-	}, [cycleFeedbackToken]);
-
-	const renderedEdges = useMemo(() => {
-		const cycleEdgeIds = findCycleEdgeIds(flowToGraph(nodes, edges).edges);
-		return edges.map((edge) => ({
-			...edge,
-			data: {
-				...edge.data,
-				cycle: cycleEdgeIds.has(edge.id),
-				cycleFlash: flashingCycleEdgeIds.has(edge.id),
-			},
-		}));
-	}, [nodes, edges, flashingCycleEdgeIds]);
+	const renderedEdges = useCycleFlash(nodes, edges, cycleFeedbackToken);
 
 	const tracker = useChangeTracker(!readOnly);
 
-	// Re-hydrate when the caller swaps the graph (e.g. AI produced a new one).
-	// Either way the loaded ids become the server-known baseline for tracking.
-	const hydrated = useRef(initial);
 	const { reset: resetChanges } = tracker;
-	useEffect(() => {
-		if (hydrated.current !== initial) {
-			hydrated.current = initial;
-			setNodes(initial.nodes);
-			setEdges(initial.edges);
-		}
-		resetChanges({
-			blocks: initial.nodes.map((node) => node.id),
-			edges: initial.edges.map((edge) => edge.id),
-		});
-	}, [initial, setNodes, setEdges, resetChanges]);
 
 	// Report edits after the state has settled, so onChange always sees the
 	// graph React Flow actually rendered.
@@ -233,12 +192,35 @@ function CanvasInner({
 		applySnapshot,
 	});
 
-	// Only a genuinely different graph invalidates the recorded snapshots. A save
-	// refetches the same blocks and edges, and that must not wipe the undo stack —
-	// the tracked changes are the only thing a save clears.
+	// Re-hydrate when the caller swaps the graph (e.g. AI produced a new one, or
+	// another route was opened) — and only then.
+	//
+	// A save refetches the graph, which hands us a brand new object holding
+	// exactly what is already on screen, blocks we just added included. Reacting
+	// to that would replace live state and wipe the undo stack every time the
+	// user saves, so the incoming graph is compared against what the canvas
+	// currently shows rather than against the previously loaded object.
+	//
+	// Either way the loaded ids become the server-known baseline for tracking.
+	const hydrated = useRef(initial);
 	const { clear } = history;
-	const topology = useMemo(() => graphTopology(initial.nodes, initial.edges), [initial]);
-	useEffect(() => clear(), [topology, clear]);
+	useEffect(() => {
+		if (hydrated.current !== initial) {
+			hydrated.current = initial;
+			const incoming = graphTopology(initial.nodes, initial.edges);
+			const onScreen = graphTopology(latest.current.nodes, latest.current.edges);
+			if (incoming !== onScreen) {
+				setNodes(initial.nodes);
+				setEdges(initial.edges);
+				// Snapshots describe a graph that is no longer on the canvas.
+				clear();
+			}
+		}
+		resetChanges({
+			blocks: initial.nodes.map((node) => node.id),
+			edges: initial.edges.map((edge) => edge.id),
+		});
+	}, [initial, setNodes, setEdges, resetChanges, clear]);
 
 	// Pasted/duplicated blocks come in already selected, so the originals are
 	// deselected to keep a single, draggable selection.
@@ -284,6 +266,21 @@ function CanvasInner({
 	const onNodeDoubleClick = useCallback(
 		(_: React.MouseEvent, node: BlockNode) => panel.open(node.id),
 		[panel],
+	);
+
+	const contextMenu = useContextMenu(enableContextMenu && !readOnly);
+
+	// Right-clicking a block acts on that block: an unselected one becomes the
+	// selection, an already-selected one keeps the whole multi-selection intact.
+	const onNodeContextMenu = useCallback(
+		(_: React.MouseEvent, node: BlockNode) => {
+			setNodes((current) =>
+				current.some((item) => item.id === node.id && item.selected)
+					? current
+					: current.map((item) => ({ ...item, selected: item.id === node.id })),
+			);
+		},
+		[setNodes],
 	);
 
 	const [isFormatting, setIsFormatting] = useState(false);
@@ -397,35 +394,23 @@ function CanvasInner({
 		if (!readOnly) history.commit();
 	}, [readOnly, history]);
 
-	const addBlock = useCallback(
-		(type: BlockType) => {
-			if (readOnly || !canAddBlock(type)) return;
-			const noteData =
-				type === BLOCK_TYPES.stickynote ? newStickyNoteData() : undefined;
-			const bounds = canvasRef.current?.getBoundingClientRect();
-			const center = bounds
-				? { x: bounds.left + bounds.width / 2, y: bounds.top + bounds.height / 2 }
-				: { x: window.innerWidth / 2, y: window.innerHeight / 2 };
-			const node: BlockNode = {
-				id: uuidv7(),
-				type,
-				position: screenToFlowPosition(center),
-				data: noteData ?? defaultBlockData(type),
-				width: noteData?.size.width,
-				height: noteData?.size.height,
-				zIndex: type === BLOCK_TYPES.stickynote ? -1 : 0,
-				selected: true,
-			};
+	// `at` is a viewport point (a right-click), not a graph position — the block
+	// appears under the pointer at whatever zoom and pan is in effect.
+	const { addBlock, openPickerAt, addPickedBlock } = useAddBlock({
+		readOnly,
+		canvasRef,
+		openPicker: blockPicker.open,
+		onBeforeAdd: (blockId) => {
 			history.commit();
-			tracker.markUpserted("blocks", [node.id]);
+			tracker.markUpserted("blocks", [blockId]);
 			pendingEmit.current = true;
+		},
+		addNode: (node) =>
 			setNodes((current) => [
 				...current.map((item) => (item.selected ? { ...item, selected: false } : item)),
 				node,
-			]);
-		},
-		[history, readOnly, screenToFlowPosition, setNodes, tracker],
-	);
+			]),
+	});
 
 	return (
 		<CanvasHistoryProvider history={history}>
@@ -434,9 +419,25 @@ function CanvasInner({
 			<CanvasFormatProvider value={formatValue}>
 			<CanvasLayoutLockProvider locked={layoutLocked}>
 			<CanvasPanelProvider value={panel}>
-			<div className="fx-canvas-shell">
+			<div className="fx-canvas-shell" ref={shellRef}>
+			<CanvasCommands
+				readOnly={readOnly}
+				enableKeyboard={enableKeyboard && !readOnly}
+				menu={contextMenu}
+				rootRef={shellRef}
+				onSave={onSave}
+				onAddBlock={
+					enableBlockPicker && !layoutLocked ? openPickerAt : undefined
+				}
+				onAddNote={
+					enableBlockPicker && !layoutLocked
+						? (at) => addBlock(BLOCK_TYPES.stickynote, at)
+						: undefined
+				}
+			/>
 			<div
 				ref={canvasRef}
+				onContextMenu={contextMenu.openAt}
 				className={[
 					"fx-canvas",
 					readOnly ? "fx-canvas--readonly" : "",
@@ -458,6 +459,7 @@ function CanvasInner({
 					isValidConnection={isValidConnection}
 					onNodeDragStart={onNodeDragStart}
 					onNodeDoubleClick={onNodeDoubleClick}
+					onNodeContextMenu={onNodeContextMenu}
 					nodesDraggable={canEditLayout}
 					nodesConnectable={canEditLayout}
 					elementsSelectable={true}
@@ -485,7 +487,7 @@ function CanvasInner({
 					<CanvasQuickActions
 						enableBlockPicker={enableBlockPicker}
 						enablePlayground={enablePlayground}
-						onOpenBlockPicker={blockPicker.open}
+						onOpenBlockPicker={() => openPickerAt()}
 						onAddNote={() => addBlock(BLOCK_TYPES.stickynote)}
 						onOpenPlayground={playground.open}
 					/>
@@ -502,7 +504,7 @@ function CanvasInner({
 				<BlockPickerSidebar
 					isOpen={blockPicker.isOpen}
 					onOpenChange={blockPicker.onOpenChange}
-					onAdd={addBlock}
+					onAdd={addPickedBlock}
 				/>
 			)}
 			{panel.enabled && <BlockPanel block={openBlock} onClose={panel.close} />}

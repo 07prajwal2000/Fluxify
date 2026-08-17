@@ -89,7 +89,7 @@ export function BlockToolbar({
 
 	// The selection when there is one, this block alone otherwise.
 	const onCopy = useCallback(() => {
-		if (clipboard.copy() === 0) clipboard.copy([blockId]);
+		if (clipboard.copy().count === 0) clipboard.copy([blockId]);
 	}, [blockId, clipboard]);
 
 	if (!visible) return null;

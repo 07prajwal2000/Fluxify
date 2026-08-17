@@ -69,9 +69,19 @@ export type BlockCanvasProps = {
 	enablePlayground?: boolean;
 	/** Playground content rendered in the canvas-owned modal, outside React Flow. */
 	playgroundContent?: React.ReactNode;
-	/** Copy/paste/duplicate of blocks and the edges between them. Default `true`;
-	 *  always off in `readonly`. Also hides the copy/duplicate block actions. */
+	/** Copy/paste/duplicate/export/import of blocks and the edges between them.
+	 *  Default `true`; always off in `readonly`. Also hides the copy/duplicate
+	 *  block actions. */
 	enableClipboard?: boolean;
+	/** Right-click menu over the canvas. Default `true`; off in `readonly`. */
+	enableContextMenu?: boolean;
+	/** Keyboard shortcuts (undo, copy, paste, save, …). Default `true`; off in
+	 *  `readonly`. Shortcuts are scoped to this canvas, so several canvases on a
+	 *  page never answer the same key. */
+	enableKeyboard?: boolean;
+	/** Save handler for `Ctrl/Cmd+S` and the menu's Save entry. Without it the
+	 *  canvas offers no save — an embedded or preview canvas has none. */
+	onSave?: () => void;
 	/** Fit the graph into view on first render. Default `true`. */
 	fitViewOnInit?: boolean;
 	defaultViewport?: Viewport;
