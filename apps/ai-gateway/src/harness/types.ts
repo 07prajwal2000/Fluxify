@@ -120,6 +120,10 @@ export interface SummarizerState {
 	markdown?: string;
 	/** The parent artifact row this summary was persisted to. */
 	artifactId?: string;
+	/** Sub-artifact row id per task id. A resumed run reads this to tell work
+	 *  that was persisted from work that only ever existed in the dead run's
+	 *  memory — without it, re-running a task duplicates its artifact. */
+	subArtifactIds?: Record<string, string>;
 }
 
 export interface RouteConfigAgentResult {

@@ -23,6 +23,7 @@ import {
 import {
 	SUBMIT_RESULT_TOOL,
 	SUBMIT_RESULT_INSTRUCTION,
+	asHistoryMessage,
 	compactToolHistory,
 	debugPrompt,
 	flattenToolMessages,
@@ -696,7 +697,7 @@ ${JSON.stringify(jsonSchema, null, 2)}`;
 
 				modifiedMessages = [
 					...modifiedMessages,
-					this.asHistoryMessage(rawResponse, content),
+					asHistoryMessage(rawResponse, content),
 					new HumanMessage(
 						`Your previous response did not satisfy the required JSON schema.
 
@@ -712,33 +713,6 @@ Respond again with ONLY the corrected JSON object. Use the exact property names 
 		throw new Error(
 			`Failed to parse structured output after ${STRUCTURED_OUTPUT_ATTEMPTS} attempts. Error: ${describeSchemaError(lastError)}`,
 		);
-	}
-
-	/**
-	 * Feeds the model's own message back into the correction turn, rather than a
-	 * fresh AIMessage built from the cleaned text. Reasoning models carry their
-	 * thinking in content blocks or `additional_kwargs.reasoning_content`, and
-	 * dropping it makes attempt 2 re-derive (and re-botch) the same answer.
-	 */
-	private asHistoryMessage(response: unknown, cleaned: string): AIMessage {
-		const raw = response as
-			| { content?: unknown; additional_kwargs?: Record<string, any> }
-			| undefined;
-		if (!raw) return new AIMessage(cleaned || "(empty response)");
-
-		const hasContent =
-			typeof raw.content === "string"
-				? raw.content.trim() !== ""
-				: Array.isArray(raw.content) && raw.content.length > 0;
-
-		if (hasContent && response instanceof AIMessage) return response;
-
-		return new AIMessage({
-			content: hasContent
-				? (raw.content as any)
-				: extractText(raw as any) || "(empty response)",
-			additional_kwargs: raw.additional_kwargs ?? {},
-		});
 	}
 
 }

@@ -153,3 +153,45 @@ describe("harness event contract", () => {
 		expect(events).toHaveLength(0);
 	});
 });
+
+describe("mid-run checkpointing", () => {
+	it("checkpoints after the supervisor, so a build that dies mid-way is resumable", async () => {
+		const { callbacks, liveStateSaves } = harness();
+
+		await callbacks.onAfter(AgentNode.SUPERVISOR, {
+			output: {
+				orchestratorState: {
+					tasks: [
+						{ id: "t-1", title: "A", status: "completed" },
+						{ id: "t-2", title: "B", status: "pending" },
+					],
+					subAgentResults: { "t-1": { action: "create" } },
+				},
+			},
+		});
+		await callbacks.flush();
+
+		expect(liveStateSaves).toHaveLength(1);
+		const tasks = liveStateSaves[0].graphState.orchestratorState.tasks;
+		expect(tasks.map((t: any) => t.status)).toEqual(["completed", "pending"]);
+		// the completed task's output has to survive too, or a resume re-runs it
+		expect(
+			liveStateSaves[0].graphState.orchestratorState.subAgentResults["t-1"],
+		).toBeDefined();
+	});
+
+	it("does not checkpoint after a node nothing reads back", async () => {
+		const { callbacks, liveStateSaves } = harness();
+		await callbacks.onAfter(AgentNode.SUMMARIZER, { output: {} });
+		await callbacks.flush();
+		expect(liveStateSaves).toHaveLength(0);
+	});
+
+	it("exposes the accumulated state for the terminal handlers", async () => {
+		const { callbacks } = harness();
+		await callbacks.onAfter(AgentNode.PLANNER, {
+			output: { plannerState: { markdownPlan: "# plan" } },
+		});
+		expect(callbacks.snapshotState().plannerState?.markdownPlan).toBe("# plan");
+	});
+});
