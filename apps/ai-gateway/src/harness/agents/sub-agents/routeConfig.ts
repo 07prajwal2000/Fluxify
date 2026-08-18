@@ -131,7 +131,7 @@ Fluxify uses a specific JSON format for schemas. DO NOT output standard JSON Sch
 
 ## Instructions
 1. Analyze the assigned task to understand the exact route modifications required.
-2. If you need to search for documentation about Javascript APIs, Scripting, or other Fluxify concepts, use the \`search_docs\` tool provided to you.
+2. If you need to search for documentation about Javascript APIs, Scripting, or other Fluxify concepts, use the \`search_docs\` tool provided to you — pass every topic you need as one array of queries in a SINGLE call, not one call per topic.
 3. If you need to know the details of an existing route configuration to perform an update or deletion, use the \`get_route_details\` tool provided to you — unless the "Current context" block below already describes that exact route.
 4. Determine if the action is \`create\`, \`delete\`, or \`update-partial\`.
 5. If creating or updating a route, define the \`name\`, \`method\`, \`path\`, and relevant schemas in the \`data\` object.

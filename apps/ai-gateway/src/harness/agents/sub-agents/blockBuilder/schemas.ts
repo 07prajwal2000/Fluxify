@@ -27,7 +27,9 @@ export const BlockSchema = z.object({
 	data: z
 		.record(z.string(), z.unknown())
 		.nullish()
-		.describe("Configuration payload specific to the block type."),
+		.describe(
+			"Configuration payload specific to the block type, matching that block's schema exactly. Do NOT repeat blockName, blockDescription or blockType in here — they belong on the block itself.",
+		),
 	position: z
 		.object({
 			x: z.number().describe("Horizontal coordinate on the canvas."),
@@ -38,7 +40,7 @@ export const BlockSchema = z.object({
 		.array(ConnectionSchema)
 		.default([])
 		.describe(
-			"List of downstream connections from this block (empty for terminal blocks).",
+			"Downstream connections from this block, at most ONE per handle. Empty for terminal blocks. Never connect the same handle to two blocks: the runtime follows only the first and drops the rest. Branch with an 'if' block instead.",
 		),
 });
 

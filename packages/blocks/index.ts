@@ -13,6 +13,7 @@ export * from "./compiler";
 export * from "./builtin/customBlock";
 export * from "./jobs";
 export * from "./blockTypes";
+export * from "./blockHandles";
 export * from "./baseBlock";
 export * from "./categories";
 export * from "./builtin/getVar";
