@@ -7,7 +7,7 @@ import {
 	type NodeChange,
 } from "@xyflow/react";
 import { create } from "zustand";
-import ELK from "elkjs/lib/elk.bundled.js";
+import { layoutGraph } from "@fluxify/blocks/layout";
 
 type State = {
 	blocks: BaseBlockType[];
@@ -56,76 +56,27 @@ export const createCanvasStore = (initProps?: Partial<State>) => {
 						(block) => block.type === BlockTypes.stickynote,
 					);
 
-					const elk = new ELK();
-
-					const getPortSide = (handleId: string) => {
-						if (handleId.endsWith("-target")) return "NORTH";
-						if (handleId.endsWith("-source")) return "SOUTH";
-						if (handleId.endsWith("-success")) return "WEST";
-						if (handleId.endsWith("-failure")) return "EAST";
-						if (handleId.endsWith("-executor")) return "EAST";
-						return "SOUTH";
-					};
-
-					const portsMap = new Map<string, Set<string>>();
-					get().edges.forEach((edge) => {
-						if (edge.sourceHandle) {
-							if (!portsMap.has(edge.source))
-								portsMap.set(edge.source, new Set());
-							portsMap.get(edge.source)!.add(edge.sourceHandle);
-						}
-						if (edge.targetHandle) {
-							if (!portsMap.has(edge.target))
-								portsMap.set(edge.target, new Set());
-							portsMap.get(edge.target)!.add(edge.targetHandle);
-						}
-					});
-
-					const graph = {
-						id: "root",
-						layoutOptions: {
-							"elk.algorithm": "layered",
-							"elk.direction": "DOWN",
-							"elk.spacing.nodeNode": "15",
-							"elk.layered.spacing.nodeNodeBetweenLayers": "15",
-							"elk.spacing.edgeNode": "15",
-							"elk.spacing.edgeEdge": "15",
-							"elk.edgeRouting": "POLYLINE",
-						},
-						children: blocksToFormat.map((block) => {
-							const nodePorts = Array.from(portsMap.get(block.id) || []);
-							return {
-								id: block.id,
-								width: 75,
-								height: 75,
-								layoutOptions: {
-									"elk.portConstraints": "FIXED_SIDE",
-								},
-								ports: nodePorts.map((portId) => ({
-									id: portId,
-									properties: { "port.side": getPortSide(portId) },
-								})),
-							};
-						}),
-						edges: get().edges.map((edge) => ({
-							id: edge.id,
-							sources: [edge.sourceHandle || edge.source],
-							targets: [edge.targetHandle || edge.target],
+					// Same layout the harness runs at apply time, so a formatted
+					// canvas looks identical whoever built it.
+					const positions = layoutGraph(
+						blocksToFormat.map((block) => ({
+							id: block.id,
+							type: block.type,
+							position: block.position,
 						})),
-					};
+						get().edges.map((edge) => ({
+							id: edge.id,
+							from: edge.source,
+							to: edge.target,
+							fromHandle: edge.sourceHandle ?? undefined,
+							toHandle: edge.targetHandle ?? undefined,
+						})),
+					);
 
-					const layoutedGraph = await elk.layout(graph as any);
-
-					const blocks = blocksToFormat.map((block) => {
-						const node = layoutedGraph.children?.find((n) => n.id === block.id);
-						return {
-							...block,
-							position: {
-								x: node?.x ?? block.position.x,
-								y: node?.y ?? block.position.y,
-							},
-						};
-					});
+					const blocks = blocksToFormat.map((block) => ({
+						...block,
+						position: positions[block.id] ?? block.position,
+					}));
 
 					const finalBlocks = blocks.concat(stickyNoteBlocks);
 					set({ blocks: finalBlocks });
