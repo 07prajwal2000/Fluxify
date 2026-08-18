@@ -1,4 +1,6 @@
 import { ConflictError, NotFoundError } from "@fluxify/server";
+import { publishArtifactStatus } from "../../../../harness/notifications";
+import type { ArtifactStatus } from "../../../../harness/clientContract";
 import type { RpcCaller } from "@fluxify/server/src/db/natsRpc";
 import {
 	canvasChangesFromPayload,
@@ -45,6 +47,105 @@ const parentRouteIdOf = (row: DependencyRow) =>
 		: undefined;
 
 const EMPTY_CANVAS: CanvasItems = { blocks: [], edges: [] };
+
+/** One output that did not land, and why. */
+export interface ApplyFailure {
+	id: string;
+	kind: string;
+	/** What the user would call the thing, e.g. `route "GET /orders/:id"`. */
+	label: string;
+	reason: string;
+}
+
+type LabelledRow = {
+	id: string;
+	kind: string;
+	action?: string | null;
+	payload: Record<string, any> | null;
+};
+
+const ACTION_VERBS: Record<string, string> = {
+	add: "Created",
+	create: "Created",
+	delete: "Deleted",
+	changes: "Updated",
+	"update-partial": "Updated",
+	modify: "Updated",
+};
+
+/**
+ * What to call an output in something a human reads — a toast, or the reason a
+ * retry is being suggested. Ids are meaningless to the user, and the run
+ * already knows the route's method and path and the custom block's name.
+ */
+export function describeArtifactRow(row: LabelledRow): string {
+	const payload = row.payload ?? {};
+	if (row.kind === "route") {
+		const method = (payload.data?.method ?? "").toString().toUpperCase();
+		const path = payload.data?.path ?? "";
+		const name = payload.data?.name;
+		const target = [method, path].filter(Boolean).join(" ");
+		if (name && target) return `route '${name}' (${target})`;
+		return `route ${target ? `'${target}'` : row.id}`;
+	}
+	if (row.kind === "canvas") {
+		const what = payload.targetType === "custom_block" ? "custom block" : "route";
+		return `logic for the ${what}`;
+	}
+	return `${row.kind} ${row.id}`;
+}
+
+/** `Created route 'Get Order' (GET /orders/:id)` — the whole event, in words. */
+export function describeArtifactEvent(row: LabelledRow): string {
+	const verb = ACTION_VERBS[row.action ?? ""] ?? "Applied";
+	return `${verb} ${describeArtifactRow(row)}`;
+}
+
+const LIFECYCLE: Record<string, ArtifactStatus["event"]> = {
+	add: "created",
+	create: "created",
+	delete: "deleted",
+};
+
+/**
+ * Tells the user what just changed in their project, in their words. Fires for
+ * a manual apply and an auto-apply alike — from the user's side they are the
+ * same thing happening, and the only place that knows the resolved name and
+ * path is right here, where the payload is in hand.
+ */
+function announce(
+	userId: string,
+	conversationId: string,
+	row: LabelledRow,
+	failure?: ApplyFailure,
+) {
+	publishArtifactStatus(userId, {
+		conversationId,
+		subArtifactId: row.id,
+		kind: row.kind,
+		event: LIFECYCLE[row.action ?? ""] ?? "changed",
+		outcome: failure ? "failed" : "applied",
+		message: failure
+			? `Could not apply the ${describeArtifactRow(row)}`
+			: describeArtifactEvent(row),
+		reason: failure?.reason,
+		timestamp: Date.now(),
+	});
+}
+
+function describeFailure(row: LabelledRow, error: unknown): ApplyFailure {
+	return {
+		id: row.id,
+		kind: row.kind,
+		label: describeArtifactRow(row),
+		reason:
+			typeof error === "string"
+				? error
+				: error instanceof Error
+					? error.message
+					: "Unknown error",
+	};
+}
 
 /**
  * A canvas is meaningless without its route — its blocks hang off a route id, so
@@ -265,6 +366,7 @@ export async function applySubArtifact(
 		[subArtifactId],
 		new Date(),
 	);
+	announce(userId, conversationId, row);
 	return applied;
 }
 
@@ -319,9 +421,17 @@ export async function applyArtifact(
 
 	const ordered = [...routes, ...canvases, ...rest];
 	const done: string[] = [];
-	try {
-		for (const route of routes) {
-			const canvasRow = inlineCanvas.get(route.id);
+	// One bad output used to abort the whole batch, so a run that got nine
+	// things right and one wrong left the user with nine unapplied outputs and
+	// no idea which one was the problem. Each output is applied on its own now;
+	// what fails stays unapplied and re-appliable, and is named in the result.
+	const failures: ApplyFailure[] = [];
+	/** Routes that did not land — their canvases have nothing to attach to. */
+	const failedRouteIds = new Set<string>();
+
+	for (const route of routes) {
+		const canvasRow = inlineCanvas.get(route.id);
+		try {
 			await applyRouteRow(
 				ctx,
 				route,
@@ -339,21 +449,44 @@ export async function applyArtifact(
 					await rememberRealRouteId(conversationId, canvasRow, "targetId", real);
 				done.push(canvasRow.id);
 			}
+		} catch (error) {
+			const routeId = routeIdOf(route);
+			if (routeId) failedRouteIds.add(routeId);
+			failures.push(describeFailure(route, error));
+			// The canvas rode along inside the create, so it did not land either.
+			if (canvasRow) {
+				failures.push(
+					describeFailure(canvasRow, "its route could not be created"),
+				);
+			}
 		}
-		for (const canvas of canvases) {
-			if (inlined.has(canvas.id)) continue;
-			await applyCanvasRow(ctx, canvas);
-			done.push(canvas.id);
-		}
-		done.push(...rest.map((r) => r.id));
-	} catch (error) {
-		// Whatever landed is live; stamping it keeps a retry from redoing it.
-		if (done.length > 0) await markSubArtifactsApplied(conversationId, done, new Date());
-		throw error;
 	}
 
+	for (const canvas of canvases) {
+		if (inlined.has(canvas.id)) continue;
+		const parentRouteId = parentRouteIdOf(canvas as DependencyRow);
+		if (parentRouteId && failedRouteIds.has(parentRouteId)) {
+			failures.push(describeFailure(canvas, "its route could not be created"));
+			continue;
+		}
+		try {
+			await applyCanvasRow(ctx, canvas);
+			done.push(canvas.id);
+		} catch (error) {
+			failures.push(describeFailure(canvas, error));
+		}
+	}
+	done.push(...rest.map((r) => r.id));
+
 	const appliedAt = new Date();
-	await markSubArtifactsApplied(conversationId, done, appliedAt);
+	if (done.length > 0) await markSubArtifactsApplied(conversationId, done, appliedAt);
+
+	const failedById = new Map(failures.map((f) => [f.id, f]));
+	for (const row of ordered) {
+		const failure = failedById.get(row.id);
+		if (!failure && !done.includes(row.id)) continue;
+		announce(userId, conversationId, row, failure);
+	}
 
 	return {
 		artifactId,
@@ -361,5 +494,6 @@ export async function applyArtifact(
 		applied: ordered
 			.filter((r) => done.includes(r.id))
 			.map((r) => ({ id: r.id, kind: r.kind, action: r.action })),
+		failed: failures,
 	};
 }

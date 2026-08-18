@@ -192,8 +192,24 @@ export async function initializeHarnessSocket(): Promise<HarnessSocketHandler> {
 
 	// Live fan-out: every NATS conversation event to its owner's room.
 	await subscribeConversations((incoming) => {
-		if (incoming.type !== ConversationMsgType.HARNESS_EVENT) return;
 		const room = conversationRoom(incoming.userId);
+
+		// An artifact landing is not tied to a live run — a manual apply happens
+		// long after its run ended — so it rides the same room as its own kind.
+		if (incoming.type === ConversationMsgType.ARTIFACT_STATUS) {
+			io.to(room).emit(HARNESS_SOCKET_EVENT, {
+				type: "artifact_status",
+				status: incoming.status,
+			});
+			logger.debug("[HarnessSocket] Fanned artifact status", {
+				room,
+				conversationId: incoming.conversationId,
+				outcome: incoming.status.outcome,
+			});
+			return;
+		}
+
+		if (incoming.type !== ConversationMsgType.HARNESS_EVENT) return;
 		const message: HarnessSocketMessage = {
 			type: "update",
 			conversationId: incoming.conversationId,

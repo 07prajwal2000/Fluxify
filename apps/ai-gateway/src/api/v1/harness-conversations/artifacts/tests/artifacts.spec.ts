@@ -6,6 +6,7 @@ import {
 	applySubArtifact,
 	getSubArtifact,
 	listRunSubArtifacts,
+	describeArtifactEvent,
 } from "../service";
 
 mock.module("../repository", () => ({
@@ -300,5 +301,77 @@ describe("Harness Artifacts Service", () => {
 		expect(applyArtifact("user1", "conv1", "proj1", "art1")).rejects.toThrow(
 			serverModule.NotFoundError,
 		);
+	});
+
+	it("keeps applying after one output fails, and reports what did not land", async () => {
+		// Two independent routes; the first cannot be written.
+		const bad = routeRow({ id: "route-bad", payload: { action: "create", routeId: "route-bad-id" } });
+		const good = routeRow({ id: "route-good", payload: { action: "create", routeId: "route-good-id" } });
+		spyOn(repository, "getArtifactSubArtifacts").mockResolvedValue([bad, good] as never);
+
+		const opsClient = await import("../opsClient");
+		const createSpy = spyOn(opsClient, "createRoute").mockImplementation((async (
+			_caller: any,
+			_data: any,
+			_canvas: any,
+			plannedId?: string,
+		) => {
+			if (plannedId === "route-bad-id") throw new Error("path already taken");
+			return { id: "live-route" };
+		}) as never);
+
+		const result = await applyArtifact("user1", "conv1", "proj1", "art1");
+
+		expect(createSpy).toHaveBeenCalledTimes(2);
+		expect(result.applied.map((a) => a.id)).toEqual(["route-good"]);
+		expect(result.failed).toHaveLength(1);
+		expect(result.failed[0].id).toBe("route-bad");
+		expect(result.failed[0].reason).toBe("path already taken");
+		// Only what actually landed may be stamped applied — a failed output has
+		// to stay applyable by hand.
+		expect(repository.markSubArtifactsApplied).toHaveBeenCalledWith(
+			"conv1",
+			["route-good"],
+			expect.any(Date),
+		);
+	});
+
+	it("does not try a canvas whose route could not be created", async () => {
+		spyOn(repository, "getArtifactSubArtifacts").mockResolvedValue([
+			routeRow(),
+			// a second canvas, so it is not inlined into the route create
+			canvasRow(),
+			canvasRow({ id: "canvas-2" }),
+		] as never);
+
+		const opsClient = await import("../opsClient");
+		spyOn(opsClient, "createRoute").mockImplementation((async () => {
+			throw new Error("bus down");
+		}) as never);
+
+		const result = await applyArtifact("user1", "conv1", "proj1", "art1");
+
+		expect(result.applied).toHaveLength(0);
+		// Nothing was pushed for the orphaned canvas.
+		expect(bus.map((b) => b.call)).not.toContain("saveCanvas");
+		expect(result.failed.map((f) => f.id).sort()).toEqual([
+			"canvas-2",
+			"canvas-sub",
+			"route-sub",
+		]);
+		expect(
+			result.failed.find((f) => f.id === "canvas-2")?.reason,
+		).toBe("its route could not be created");
+	});
+
+	it("describes a route the way the user would name it", () => {
+		expect(
+			describeArtifactEvent({
+				id: "route-sub",
+				kind: "route",
+				action: "add",
+				payload: { data: { name: "Get Order", method: "get", path: "/orders/:id" } },
+			}),
+		).toBe("Created route 'Get Order' (GET /orders/:id)");
 	});
 });

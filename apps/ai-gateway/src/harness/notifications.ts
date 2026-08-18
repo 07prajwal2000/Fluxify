@@ -2,6 +2,7 @@ import { z } from "zod";
 import { logger } from "@fluxify/common";
 import { publishMessage, subscribeToChannel } from "@fluxify/server";
 import type { HarnessStreamEvent } from "./streamTypes";
+import type { ArtifactStatus } from "./clientContract";
 
 /* ============================================================================
  * CONVERSATION PUB/SUB CONTRACT (NATS)
@@ -27,6 +28,7 @@ export function conversationSubject(userId: string): string {
 /** Discriminant for the conversation message union. */
 export const ConversationMsgType = {
 	HARNESS_EVENT: "harness_event",
+	ARTIFACT_STATUS: "artifact_status",
 } as const;
 
 /** The harness stream event is produced internally and already TS-typed, so it
@@ -50,12 +52,26 @@ const harnessEventMessageSchema = z.object({
 
 /** All message shapes carried on the conversation subject. Extend the union as
  *  new kinds are added — the `type` discriminant keeps consumers type-safe. */
+const artifactStatusMessageSchema = z.object({
+	type: z.literal(ConversationMsgType.ARTIFACT_STATUS),
+	userId: z.string(),
+	conversationId: z.string(),
+	status: z.custom<ArtifactStatus>(
+		(v) =>
+			typeof v === "object" &&
+			v !== null &&
+			typeof (v as { message?: unknown }).message === "string",
+	),
+});
+
 export const conversationMessageSchema = z.discriminatedUnion("type", [
 	harnessEventMessageSchema,
+	artifactStatusMessageSchema,
 ]);
 
 export type ConversationMessage = z.infer<typeof conversationMessageSchema>;
 export type HarnessEventMessage = z.infer<typeof harnessEventMessageSchema>;
+export type ArtifactStatusMessage = z.infer<typeof artifactStatusMessageSchema>;
 
 /** Publishes a harness stream event to its owner's conversation subject. */
 export function publishHarnessEvent(
@@ -70,15 +86,39 @@ export function publishHarnessEvent(
 		timestamp: event.timestamp,
 		event,
 	};
-	try {
-		publishMessage(conversationSubject(userId), message);
-	} catch (error) {
+	// `publishMessage` is async, so a sync try/catch around it never fires — the
+	// rejection just escapes as an unhandled one. Fire-and-forget needs .catch().
+	void publishMessage(conversationSubject(userId), message).catch((error) => {
 		logger.error("[Conversations] Failed to publish harness event", {
 			userId,
 			runId: event.runId,
 			error,
 		});
-	}
+	});
+}
+
+/**
+ * Publishes one artifact lifecycle event. Fire-and-forget on purpose: the
+ * apply already succeeded (or already failed) by the time this runs, and a
+ * broker hiccup must not turn a good apply into an error the user sees.
+ */
+export function publishArtifactStatus(
+	userId: string,
+	status: ArtifactStatus,
+): void {
+	const message: ArtifactStatusMessage = {
+		type: ConversationMsgType.ARTIFACT_STATUS,
+		userId,
+		conversationId: status.conversationId,
+		status,
+	};
+	void publishMessage(conversationSubject(userId), message).catch((error) => {
+		logger.error("[Conversations] Failed to publish artifact status", {
+			userId,
+			subArtifactId: status.subArtifactId,
+			error,
+		});
+	});
 }
 
 /** Subscribes to every conversation owner's updates (`conversations.*`),

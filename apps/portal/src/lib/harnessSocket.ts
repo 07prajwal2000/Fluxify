@@ -4,6 +4,7 @@ import {
 	SOCKET_PATH,
 	type HarnessSocketMessage,
 } from "@fluxify/ai-gateway/src/harness/clientContract";
+import { toast } from "@fluxify/components";
 import { useAiHarnessStore } from "@/store/aiHarness";
 
 /* ============================================================================
@@ -57,9 +58,17 @@ function createSocket(): Socket {
 	});
 	// One listener, one entry point. No per-render rebinding, no stale closures:
 	// the handler reads the store imperatively.
-	next.on(HARNESS_SOCKET_EVENT, (message: HarnessSocketMessage) =>
-		store().applySocketMessage(message),
-	);
+	next.on(HARNESS_SOCKET_EVENT, (message: HarnessSocketMessage) => {
+		// An artifact landing is a notification, not run state — it can arrive
+		// long after the run that produced it ended, so it never touches `runs`.
+		if (message.type === "artifact_status") {
+			const { outcome, message: text, reason } = message.status;
+			if (outcome === "applied") toast.success(text);
+			else toast.danger(reason ? `${text} — ${reason}` : text);
+			return;
+		}
+		store().applySocketMessage(message);
+	});
 
 	return next;
 }

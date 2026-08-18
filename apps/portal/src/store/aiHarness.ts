@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { immer } from "zustand/middleware/immer";
+import type { ApplyMode } from "@/components/ai/ApplyModeSelect";
 import { useShallow } from "zustand/react/shallow";
 import {
 	RUN_NODE,
@@ -104,6 +105,9 @@ export interface AiHarnessState {
 	list: ConversationMeta[];
 	runs: Record<string, ConversationUIState>;
 	selectedModelId: string | null;
+	/** Which human gates the next run stops at. Sent with every message; the
+	 *  server treats an absent value as "manual", the pre-existing behaviour. */
+	applyMode: ApplyMode;
 	selectedArtifact: SelectedArtifact | null;
 }
 
@@ -119,6 +123,7 @@ export interface AiHarnessActions {
 	clearRun: (conversationId: string) => void;
 	optimisticResume: (conversationId: string) => void;
 	setSelectedModelId: (id: string | null) => void;
+	setApplyMode: (mode: ApplyMode) => void;
 	setSelectedArtifact: (artifact: SelectedArtifact | null) => void;
 	reset: () => void;
 }
@@ -129,6 +134,7 @@ const initialState: AiHarnessState = {
 	list: [],
 	runs: {},
 	selectedModelId: null,
+	applyMode: "manual",
 	selectedArtifact: null,
 };
 
@@ -280,6 +286,9 @@ export function applyMessage(
 		for (const snapshot of message.conversations) applySnapshot(state, snapshot);
 		return;
 	}
+	// Artifact status is a toast, handled at the transport (`harnessSocket.ts`).
+	// It carries no run state and can arrive after its run has ended.
+	if (message.type !== "update") return;
 	applyEvent(state, message.event);
 }
 
@@ -347,6 +356,11 @@ export const useAiHarnessStore = create<AiHarnessState & AiHarnessActions>()(
 		setSelectedModelId: (id) =>
 			set((state) => {
 				state.selectedModelId = id;
+			}),
+
+		setApplyMode: (mode) =>
+			set((state) => {
+				state.applyMode = mode;
 			}),
 
 		setSelectedArtifact: (artifact) =>

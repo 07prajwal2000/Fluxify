@@ -3,6 +3,7 @@ import { TbCommand, TbAt, TbArrowUp, TbPlayerStopFilled, TbStack2, TbCloudCog, T
 import { Button } from "@fluxify/components";
 import { Input, Spinner } from "@fluxify/components";
 import { ModelSelect, type AiModel } from "./ModelSelect";
+import { ApplyModeSelect } from "./ApplyModeSelect";
 import { SyntaxHelpModal } from "./SyntaxHelpModal";
 import { STARTERS } from "./starters";
 import { integrationsQuery } from "@/query/integrationsQuery";
@@ -126,6 +127,8 @@ export function PromptEditor({
 }: Props) {
 	const selectedModelId = useAiHarnessStore((s) => s.selectedModelId);
 	const setSelectedModelId = useAiHarnessStore((s) => s.setSelectedModelId);
+	const applyMode = useAiHarnessStore((s) => s.applyMode);
+	const setApplyMode = useAiHarnessStore((s) => s.setApplyMode);
 
 	const [model, setModel] = useState<string>(selectedModelId || defaultModelId || "");
 	const [helpOpen, setHelpOpen] = useState(false);
@@ -391,7 +394,8 @@ export function PromptEditor({
 					</Button>
 				</div>
 				<div className="flex items-center gap-3">
-					<ModelSelect 
+					<ApplyModeSelect value={applyMode} onChange={setApplyMode} />
+					<ModelSelect
 						projectId={projectId} 
 						value={model} 
 						models={models} 
