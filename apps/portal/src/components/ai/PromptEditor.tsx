@@ -1,10 +1,9 @@
 import { useState, useEffect, useRef } from "react";
-import { TbCommand, TbAt, TbArrowUp, TbPlayerStopFilled, TbStack2, TbCloudCog, TbSquareKey, TbBox } from "react-icons/tb";
+import { TbAt,TbArrowUp, TbPlayerStopFilled, TbStack2, TbCloudCog, TbSquareKey, TbBox } from "react-icons/tb";
 import { Button } from "@fluxify/components";
 import { Input, Spinner } from "@fluxify/components";
 import { ModelSelect, type AiModel } from "./ModelSelect";
 import { ApplyModeSelect } from "./ApplyModeSelect";
-import { SyntaxHelpModal } from "./SyntaxHelpModal";
 import { STARTERS } from "./starters";
 import { integrationsQuery } from "@/query/integrationsQuery";
 import { useAiHarnessStore } from "@/store/aiHarness";
@@ -131,7 +130,6 @@ export function PromptEditor({
 	const setApplyMode = useAiHarnessStore((s) => s.setApplyMode);
 
 	const [model, setModel] = useState<string>(selectedModelId || defaultModelId || "");
-	const [helpOpen, setHelpOpen] = useState(false);
 
 	const testConn = integrationsQuery.testExistingConnection.mutation(projectId);
 	const [connStatus, setConnStatus] = useState<"testing" | "success" | "error" | "idle">("idle");
@@ -228,7 +226,11 @@ export function PromptEditor({
 	}, [model, projectId]);
 
 	const trimmed = value.trim();
-	const canSend = trimmed.length > 0 && !isPending && !isDisabled && connStatus === "success";
+	// `!isRunning` matters for Enter, not the button — the button is swapped for
+	// Stop while a run is live, but the editor's Enter handler calls submit()
+	// directly and was firing a second run over the top of the first.
+	const canSend =
+		trimmed.length > 0 && !isPending && !isDisabled && !isRunning && connStatus === "success";
 
 	const submit = () => {
 		if (!canSend) return;
@@ -363,8 +365,8 @@ export function PromptEditor({
                 </div>
             </LexicalComposer>
 
-			<div className="mt-2 flex items-end justify-between gap-3">
-				<div className="flex items-center gap-1 text-muted">
+			<div className="mt-2 flex items-end justify-between gap-2">
+				<div className="flex shrink-0 items-center gap-1 text-muted">
 					<Button
 						ref={triggerRef}
 						isIconOnly
@@ -382,18 +384,8 @@ export function PromptEditor({
 					>
 						<TbAt size={18} />
 					</Button>
-					<Button
-						isIconOnly
-						size="sm"
-						variant="ghost"
-						className="rounded-full hover:bg-surface-secondary hover:text-foreground"
-						aria-label="Prompt syntax help"
-						onPress={() => setHelpOpen(true)}
-					>
-						<TbCommand size={18} />
-					</Button>
 				</div>
-				<div className="flex items-center gap-3">
+				<div className="flex min-w-0 flex-1 items-center justify-end gap-2">
 					<ApplyModeSelect value={applyMode} onChange={setApplyMode} />
 					<ModelSelect
 						projectId={projectId} 
@@ -408,7 +400,7 @@ export function PromptEditor({
 						<Button
 							isIconOnly
 							variant="danger"
-							className="rounded-xl h-8 w-8"
+							className="rounded-xl h-8 w-8 shrink-0"
 							aria-label="Stop"
 							onPress={onStop}
 						>
@@ -418,7 +410,7 @@ export function PromptEditor({
 						<Button
 							isIconOnly
 							variant="primary"
-							className="rounded-xl h-8 w-8"
+							className="rounded-xl h-8 w-8 shrink-0"
 							aria-label="Send"
 							isDisabled={!canSend}
 							isPending={isPending || connStatus === "testing"}
@@ -429,8 +421,6 @@ export function PromptEditor({
 					)}
 				</div>
 			</div>
-
-			<SyntaxHelpModal isOpen={helpOpen} onOpenChange={setHelpOpen} />
 		</div>
 	);
 }

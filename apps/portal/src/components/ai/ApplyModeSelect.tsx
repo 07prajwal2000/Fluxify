@@ -45,7 +45,7 @@ export function ApplyModeSelect({ value, onChange }: Props) {
 			variant="secondary"
 			value={value}
 			onChange={(v) => v && onChange(String(v as Key) as ApplyMode)}
-			className="w-[120px]"
+			className="w-[120px] min-w-[92px] shrink"
 		>
 			<Select.Trigger className="flex w-full h-9 items-center justify-between gap-2 rounded-2xl border border-border bg-transparent px-3 font-medium text-muted shadow-none hover:bg-surface-secondary data-[open=true]:bg-surface-secondary data-[focus-visible=true]:ring-0 transition-colors">
 				<Select.Value>

@@ -8,7 +8,27 @@ import {
 	TbDatabase
 } from "react-icons/tb";
 import { useAiHarnessStore } from "@/store/aiHarness";
+import { harnessConversationsQuery } from "@/query/harnessConversationsQuery";
+import { useArtifactParams } from "./artifacts/useArtifact";
 import { FiBox, FiMap } from "react-icons/fi";
+import { TbCheck } from "react-icons/tb";
+
+/** Whether this output has already landed in the workspace. Shares the detail
+ *  query cache with the panel, so opening one costs nothing extra. */
+function useIsApplied(subArtifactId: string) {
+	const { projectId, conversationId } = useArtifactParams();
+	const { data } = harnessConversationsQuery.subArtifacts.useDetailQuery(
+		projectId,
+		conversationId,
+		subArtifactId,
+	);
+	return Boolean(data?.appliedAt);
+}
+
+const VIEW_BTN =
+	"flex items-center gap-2 cursor-pointer border text-foreground bg-[var(--surface-secondary)] border-[var(--border)] hover:bg-[var(--border-secondary)]";
+const VIEW_BTN_APPLIED =
+	"flex items-center gap-2 cursor-pointer border text-success bg-success/10 border-success/30 hover:bg-success/20";
 
 // --- Inline Chips ---
 
@@ -41,20 +61,16 @@ interface RouteButtonProps {
 export function RouteButton(props: RouteButtonProps) {
 	const { type, sub_artifact_id } = props;
 	const setSelectedArtifact = useAiHarnessStore((s) => s.setSelectedArtifact);
-	const colors = {
-		add: "success",
-		delete: "danger",
-		changes: "warning",
-	} as const;
+	const applied = useIsApplied(sub_artifact_id);
 
 	return (
 		<div className="mt-2 mb-4">
 			<Button
 				size="sm"
-				className="bg-[var(--surface-secondary)] border border-[var(--border)] hover:bg-[var(--border-secondary)] text-foreground flex items-center gap-2 cursor-pointer"
+				className={applied ? VIEW_BTN_APPLIED : VIEW_BTN}
 				onPress={() => setSelectedArtifact({ id: sub_artifact_id, type: `Route ${type}`, props })}
 			>
-				<FiMap className="h-4 w-4 text-foreground/70" />
+				{applied ? <TbCheck className="h-4 w-4" /> : <FiMap className="h-4 w-4 text-foreground/70" />}
 				<span>View Route {type === "changes" ? "Changes" : type === "add" ? "Creation" : "Deletion"}</span>
 			</Button>
 		</div>
@@ -70,14 +86,16 @@ interface CanvasChangesButtonProps {
 export function CanvasChangesButton(props: CanvasChangesButtonProps) {
 	const { parent_type, parent, artifact_id } = props;
 	const setSelectedArtifact = useAiHarnessStore((s) => s.setSelectedArtifact);
+	const applied = useIsApplied(artifact_id);
+
 	return (
 		<div className="mt-2 mb-4">
 			<Button
 				size="sm"
-				className="bg-[var(--surface-secondary)] border border-[var(--border)] hover:bg-[var(--border-secondary)] text-foreground flex items-center gap-2 cursor-pointer"
+				className={applied ? VIEW_BTN_APPLIED : VIEW_BTN}
 				onPress={() => setSelectedArtifact({ id: artifact_id, type: `Canvas Changes (${parent_type})`, props })}
 			>
-				<FiBox className="h-4 w-4 text-foreground/70" />
+				{applied ? <TbCheck className="h-4 w-4" /> : <FiBox className="h-4 w-4 text-foreground/70" />}
 				<span>View Canvas Changes ({parent_type.replace("_", " ")})</span>
 			</Button>
 		</div>
