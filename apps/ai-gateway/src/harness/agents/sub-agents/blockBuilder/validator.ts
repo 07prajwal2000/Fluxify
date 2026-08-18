@@ -127,7 +127,12 @@ function validateCustomBlockParameterReferences(
 	const errors: string[] = [];
 	for (const block of blocks) {
 		const serialized = JSON.stringify(block.data ?? {});
-		for (const match of serialized.matchAll(/(?:params\.([a-zA-Z0-9_]+)|param:([a-zA-Z0-9_]+))/g)) {
+		// The lookbehind matters: without it `input.params.id` or `data.params.x`
+		// — ordinary property access on a previous block's output — reads as a
+		// caller parameter and bounces a correct canvas back for a retry.
+		for (const match of serialized.matchAll(
+			/(?:(?<![\w.])params\.([a-zA-Z0-9_]+)|(?<![\w.])param:([a-zA-Z0-9_]+))/g,
+		)) {
 			const name = match[1] ?? match[2];
 			if (name && !params.has(name)) errors.push(`Block "${block.id}" references custom-block parameter "${name}", but it is absent from the paired Custom Block Config Agent output.`);
 		}

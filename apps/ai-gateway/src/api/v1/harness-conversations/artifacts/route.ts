@@ -8,11 +8,11 @@ import {
 	subArtifactParamsSchema,
 } from "./dto";
 import {
-	applyArtifact,
 	applySubArtifact,
 	getSubArtifact,
 	listRunSubArtifacts,
 } from "./service";
+import { applyArtifact } from "./applyBatch";
 
 export default function (app: Hono) {
 	app.get(

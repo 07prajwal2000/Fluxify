@@ -33,7 +33,7 @@ import {
 } from "./repository";
 
 /** The subset of a sub-artifact row the dependency check reads. */
-interface DependencyRow {
+export interface DependencyRow {
 	id: string;
 	kind: string;
 	action: string | null;
@@ -42,17 +42,17 @@ interface DependencyRow {
 }
 
 /** The route a `kind: "route"` output creates or edits. */
-const routeIdOf = (row: DependencyRow) => row.payload?.routeId as string | undefined;
-const customBlockIdOf = (row: DependencyRow) => row.payload?.customBlockId as string | undefined;
+export const routeIdOf = (row: DependencyRow) => row.payload?.routeId as string | undefined;
+export const customBlockIdOf = (row: DependencyRow) => row.payload?.customBlockId as string | undefined;
 
 /** The route a `kind: "canvas"` output hangs its blocks off. Canvases targeting a
  *  custom block have no route dependency, so they are not gated. */
-const parentRouteIdOf = (row: DependencyRow) =>
+export const parentRouteIdOf = (row: DependencyRow) =>
 	row.payload?.targetType === "route"
 		? (row.payload?.targetId as string | undefined)
 		: undefined;
 
-const EMPTY_CANVAS: CanvasItems = { blocks: [], edges: [] };
+export const EMPTY_CANVAS: CanvasItems = { blocks: [], edges: [] };
 
 /** One output that did not land, and why. */
 export interface ApplyFailure {
@@ -63,7 +63,7 @@ export interface ApplyFailure {
 	reason: string;
 }
 
-type LabelledRow = {
+export type LabelledRow = {
 	id: string;
 	kind: string;
 	action?: string | null;
@@ -119,7 +119,7 @@ const LIFECYCLE: Record<string, ArtifactStatus["event"]> = {
  * same thing happening, and the only place that knows the resolved name and
  * path is right here, where the payload is in hand.
  */
-function announce(
+export function announce(
 	userId: string,
 	conversationId: string,
 	row: LabelledRow,
@@ -139,7 +139,7 @@ function announce(
 	});
 }
 
-function describeFailure(row: LabelledRow, error: unknown): ApplyFailure {
+export function describeFailure(row: LabelledRow, error: unknown): ApplyFailure {
 	return {
 		id: row.id,
 		kind: row.kind,
@@ -162,7 +162,7 @@ function describeFailure(row: LabelledRow, error: unknown): ApplyFailure {
  * route that still exists in the project. `applyingRouteIds` are the siblings
  * being applied earlier in this same request.
  */
-async function assertParentRoutesReady(
+export async function assertParentRoutesReady(
 	projectId: string,
 	canvases: DependencyRow[],
 	siblings: DependencyRow[],
@@ -206,7 +206,7 @@ async function assertParentRoutesReady(
  * that route is the only thing it can have meant — repair it rather than 404 on
  * an id the user never saw. The repair is persisted so later reads agree.
  */
-async function resolveCanvasTarget<
+export async function resolveCanvasTarget<
 	T extends { id: string; payload: Record<string, any> | null },
 >(conversationId: string, projectId: string, row: T, siblings: DependencyRow[]) {
 	const payload = row.payload ?? {};
@@ -241,7 +241,6 @@ async function resolveCanvasTarget<
 export async function getSubArtifact(conversationId: string, subArtifactId: string) {
 	const row = await getSubArtifactById(conversationId, subArtifactId);
 	if (!row) throw new NotFoundError("Sub-artifact not found");
-	if (row.appliedAt) return row;
 	return row;
 }
 
@@ -254,7 +253,7 @@ export async function listRunSubArtifacts(conversationId: string, runId: string)
  * chose. Rewriting the payload keeps every later read — the artifact chips, the
  * `get_artifact` tool, the canvas dependency check — pointing at the live route.
  */
-async function rememberRealRouteId(
+export async function rememberRealRouteId(
 	conversationId: string,
 	row: { id: string; payload: Record<string, any> | null },
 	field: "routeId" | "customBlockId" | "targetId",
@@ -267,7 +266,7 @@ async function rememberRealRouteId(
 	});
 }
 
-type ApplyContext = {
+export type ApplyContext = {
 	conversationId: string;
 	projectId: string;
 	caller: RpcCaller;
@@ -282,7 +281,7 @@ type ApplyContext = {
  * so the route and its blocks land in one transaction — an approved plan that
  * half-applies leaves the user a route with no logic in it.
  */
-async function applyRouteRow(
+export async function applyRouteRow(
 	ctx: ApplyContext,
 	row: { id: string; payload: Record<string, any> | null },
 	canvas?: CanvasChanges,
@@ -306,7 +305,7 @@ async function applyRouteRow(
 	await rememberRealRouteId(ctx.conversationId, row, "routeId", id);
 }
 
-async function applyCustomBlockRow(
+export async function applyCustomBlockRow(
 	ctx: ApplyContext,
 	row: { id: string; payload: Record<string, any> | null },
 	canvas?: CanvasChanges,
@@ -326,7 +325,7 @@ async function applyCustomBlockRow(
 	await rememberRealRouteId(ctx.conversationId, row, "customBlockId", id);
 }
 
-async function applyCanvasRow(
+export async function applyCanvasRow(
 	ctx: ApplyContext,
 	row: { id: string; payload: Record<string, any> | null },
 ) {
@@ -391,7 +390,6 @@ export async function applySubArtifact(
 		// later read of the link — the apply gate cannot tell the route is live.
 		const realId = agentRouteId ? ctx.routeIds.get(agentRouteId) : undefined;
 		if (realId && agentRouteId !== realId) {
-			const siblings = await getArtifactSubArtifacts(conversationId, row.artifactId);
 			for (const sibling of siblings) {
 				if (sibling.kind !== "canvas") continue;
 				if (sibling.payload?.targetType !== "route") continue;
@@ -399,6 +397,9 @@ export async function applySubArtifact(
 				await rememberRealRouteId(conversationId, sibling, "targetId", realId);
 			}
 		}
+		// The canvas rode inside the create, so it is live. Leaving it unstamped
+		// showed it as pending and let a second apply re-save the same blocks.
+		if (canvasRow) await markSubArtifactsApplied(conversationId, [canvasRow.id], new Date());
 	} else if (row.kind === "custom_block") {
 		const agentCustomBlockId = row.payload?.customBlockId as string | undefined;
 		const siblings = await getArtifactSubArtifacts(conversationId, row.artifactId);
@@ -440,169 +441,3 @@ export async function applySubArtifact(
 }
 
 /** Applies every output of one run's artifact in one shot. */
-export async function applyArtifact(
-	userId: string,
-	conversationId: string,
-	projectId: string,
-	artifactId: string,
-) {
-	const rows = await getArtifactSubArtifacts(conversationId, artifactId);
-	if (rows.length === 0) throw new NotFoundError("Artifact not found");
-
-	const routes = rows.filter((r) => r.kind === "route");
-	const customBlocks = rows.filter((r) => r.kind === "custom_block");
-	const canvases = await Promise.all(
-		rows
-			.filter((r) => r.kind === "canvas")
-			.map((r) => resolveCanvasTarget(conversationId, projectId, r, rows)),
-	);
-	const rest = rows.filter((r) => r.kind !== "route" && r.kind !== "canvas");
-
-	// Routes go first, so a canvas referencing a route this run created is
-	// already satisfied by the time its turn comes.
-	const applyingRouteIds = new Set(
-		routes.map(routeIdOf).filter((id): id is string => !!id),
-	);
-	await assertParentRoutesReady(projectId, canvases, routes, applyingRouteIds);
-
-	const ctx: ApplyContext = {
-		conversationId,
-		projectId,
-		caller: callerFor(userId, projectId),
-		routeIds: new Map(),
-		customBlockIds: new Map(),
-	};
-
-	// A canvas for a route this run is creating rides along with the create, so
-	// the route never exists without its blocks.
-	const inlineCanvas = new Map<string, (typeof canvases)[number]>();
-	const inlined = new Set<string>();
-	for (const route of routes) {
-		if (route.payload?.action !== "create") continue;
-		const paired = canvases.find(
-			(c) =>
-				!inlined.has(c.id) &&
-				c.payload?.targetType === "route" &&
-				c.payload?.targetId === routeIdOf(route),
-		);
-		if (!paired) continue;
-		inlineCanvas.set(route.id, paired);
-		inlined.add(paired.id);
-	}
-	for (const customBlock of customBlocks) {
-		if (customBlock.payload?.action !== "create") continue;
-		const paired = canvases.find(
-			(c) => !inlined.has(c.id) && c.payload?.targetType === "custom_block" && c.payload?.targetId === customBlockIdOf(customBlock),
-		);
-		if (!paired) continue;
-		inlineCanvas.set(customBlock.id, paired);
-		inlined.add(paired.id);
-	}
-
-	const ordered = [...routes, ...customBlocks, ...canvases, ...rest];
-	const done: string[] = [];
-	// One bad output used to abort the whole batch, so a run that got nine
-	// things right and one wrong left the user with nine unapplied outputs and
-	// no idea which one was the problem. Each output is applied on its own now;
-	// what fails stays unapplied and re-appliable, and is named in the result.
-	const failures: ApplyFailure[] = [];
-	/** Routes that did not land — their canvases have nothing to attach to. */
-	const failedRouteIds = new Set<string>();
-
-	for (const route of routes) {
-		const canvasRow = inlineCanvas.get(route.id);
-		try {
-			await applyRouteRow(
-				ctx,
-				route,
-				canvasRow
-					? canvasChangesFromPayload(
-							(canvasRow.payload ?? {}) as BlockBuilderPayload,
-							EMPTY_CANVAS,
-						)
-					: undefined,
-			);
-			done.push(route.id);
-			if (canvasRow) {
-				const real = ctx.routeIds.get(routeIdOf(route) ?? "");
-				if (real)
-					await rememberRealRouteId(conversationId, canvasRow, "targetId", real);
-				done.push(canvasRow.id);
-			}
-		} catch (error) {
-			const routeId = routeIdOf(route);
-			if (routeId) failedRouteIds.add(routeId);
-			failures.push(describeFailure(route, error));
-			// The canvas rode along inside the create, so it did not land either.
-			if (canvasRow) {
-				failures.push(
-					describeFailure(canvasRow, "its route could not be created"),
-				);
-			}
-		}
-	}
-
-	for (const customBlock of customBlocks) {
-			const canvasRow = inlineCanvas.get(customBlock.id);
-			try {
-				await applyCustomBlockRow(
-					ctx,
-					customBlock,
-					canvasRow
-						? canvasChangesFromPayload(
-								(canvasRow.payload ?? {}) as BlockBuilderPayload,
-								EMPTY_CANVAS,
-							)
-						: undefined,
-				);
-				done.push(customBlock.id);
-				if (canvasRow) {
-					const real = ctx.customBlockIds.get(customBlockIdOf(customBlock) ?? "");
-					if (real)
-						await rememberRealRouteId(conversationId, canvasRow, "targetId", real);
-					done.push(canvasRow.id);
-				}
-			} catch (error) {
-				failures.push(describeFailure(customBlock, error));
-				if (canvasRow)
-					failures.push(
-						describeFailure(canvasRow, "its custom block could not be created"),
-					);
-			}
-		}
-
-	for (const canvas of canvases) {
-		if (inlined.has(canvas.id)) continue;
-		const parentRouteId = parentRouteIdOf(canvas as DependencyRow);
-		if (parentRouteId && failedRouteIds.has(parentRouteId)) {
-			failures.push(describeFailure(canvas, "its route could not be created"));
-			continue;
-		}
-		try {
-			await applyCanvasRow(ctx, canvas);
-			done.push(canvas.id);
-		} catch (error) {
-			failures.push(describeFailure(canvas, error));
-		}
-	}
-	done.push(...rest.map((r) => r.id));
-
-	const appliedAt = new Date();
-	if (done.length > 0) await markSubArtifactsApplied(conversationId, done, appliedAt);
-
-	const failedById = new Map(failures.map((f) => [f.id, f]));
-	for (const row of ordered) {
-		const failure = failedById.get(row.id);
-		if (!failure && !done.includes(row.id)) continue;
-		announce(userId, conversationId, row, failure);
-	}
-
-	return {
-		artifactId,
-		appliedAt,
-		applied: ordered
-			.filter((r) => done.includes(r.id))
-			.map((r) => ({ id: r.id, kind: r.kind, action: r.action })),
-		failed: failures,
-	};
-}

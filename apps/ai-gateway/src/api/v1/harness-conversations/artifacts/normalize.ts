@@ -143,10 +143,17 @@ export function customBlockOpFromPayload(
 		if (!payload.customBlockId) throw new Error("Custom block delete output has no customBlockId");
 		return { action: "delete" as const, id: payload.customBlockId };
 	}
+	// `compact` is shallow. The agent schema declares each param's `description`
+	// and `variant` as `.nullish()`, the server DTO as `.optional()` — and
+	// `.optional()` rejects null. An emitted `description: null` therefore rode
+	// through to the bus and came back as "Malformed operation".
+	const inputParams = data.inputParams?.map((param) =>
+		compact((param ?? {}) as Record<string, unknown>),
+	);
 	const common = compact({
 		label: data.label?.trim(),
 		description: data.description?.trim(),
-		inputParams: data.inputParams,
+		inputParams,
 	});
 	if (action === "update-partial") {
 		if (!payload.customBlockId) throw new Error("Custom block update output has no customBlockId");
@@ -157,7 +164,7 @@ export function customBlockOpFromPayload(
 	}
 	return {
 		action: "create" as const,
-		data: { ...common, name: data.name, projectId, inputParams: data.inputParams ?? [] },
+		data: { ...common, name: data.name, projectId, inputParams: inputParams ?? [] },
 	};
 }
 
