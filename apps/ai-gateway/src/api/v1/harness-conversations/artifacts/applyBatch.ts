@@ -1,6 +1,6 @@
 import { NotFoundError } from "@fluxify/server";
 import {
-	canvasChangesFromPayload,
+	formattedCanvasChanges,
 	type BlockBuilderPayload,
 } from "./normalize";
 import { callerFor } from "./opsClient";
@@ -83,7 +83,7 @@ async function applyParentRows<R extends LabelledRow & { payload?: any }, C exte
 				ctx,
 				parent,
 				canvasRow
-					? canvasChangesFromPayload(
+					? await formattedCanvasChanges(
 							(canvasRow.payload ?? {}) as BlockBuilderPayload,
 							EMPTY_CANVAS,
 						)

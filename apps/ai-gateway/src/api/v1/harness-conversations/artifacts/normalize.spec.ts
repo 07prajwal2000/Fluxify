@@ -120,7 +120,8 @@ describe("canvasChangesFromPayload", () => {
 	it("mints real ids, canonicalizes types and expands handles", () => {
 		const result = canvasChangesFromPayload(newCanvas, EMPTY);
 
-		const [first, second] = result.changes.blocks;
+		// index 0 is the entrypoint filled in for this new canvas
+		const [, first, second] = result.changes.blocks;
 		expect(first.id).not.toBe("block_1");
 		expect(second.id).not.toBe("block_2");
 		// `errorHandler` is what the model says; `error_handler` is what storage
@@ -134,10 +135,9 @@ describe("canvasChangesFromPayload", () => {
 		expect(edge.fromHandle).toBe(`${first.id}-source`);
 		expect(edge.toHandle).toBe(`${second.id}-target`);
 
-		expect(result.actionsToPerform.blocks).toEqual([
-			{ id: first.id, action: "upsert" },
-			{ id: second.id, action: "upsert" },
-		]);
+		expect(result.actionsToPerform.blocks).toEqual(
+			result.changes.blocks.map((b) => ({ id: b.id, action: "upsert" })),
+		);
 		expect(result.actionsToPerform.edges).toEqual([
 			{ id: edge.id, action: "upsert" },
 		]);
@@ -305,5 +305,51 @@ describe("canvasChangesFromPayload", () => {
 		expect(result.changes.edges).toEqual([
 			{ id: "edge-1", from: "a", to: "c", fromHandle: "a-source", toHandle: "c-target" },
 		]);
+	});
+
+	it("adds the entrypoint and error handler the agent omitted on a new canvas", () => {
+		const result = canvasChangesFromPayload(
+			{
+				targetType: "custom_block",
+				targetId: "cb-1",
+				blocks: [
+					{
+						id: "block_1",
+						blockType: "consolelog",
+						position: { x: 192, y: 0 },
+						connections: [],
+					},
+				],
+			},
+			{ blocks: [], edges: [] },
+		);
+
+		const entry = result.changes.blocks.find((b) => b.type === "entrypoint");
+		const handler = result.changes.blocks.find((b) => b.type === "error_handler");
+		expect(entry).toBeDefined();
+		expect(handler).toBeDefined();
+		// the entrypoint has to actually reach the graph, not just exist
+		expect(result.changes.edges).toHaveLength(1);
+		expect(result.changes.edges[0].from).toBe(entry!.id);
+		expect(
+			result.actionsToPerform.blocks.map((b) => b.id).sort(),
+		).toEqual(result.changes.blocks.map((b) => b.id).sort());
+	});
+
+	it("leaves an existing canvas's structural blocks alone", () => {
+		const result = canvasChangesFromPayload(
+			{
+				targetType: "route",
+				targetId: "r-1",
+				blocks: [
+					{ id: "block_1", blockType: "consolelog", position: { x: 0, y: 0 }, connections: [] },
+				],
+			},
+			{
+				blocks: [{ id: "stored-entry", type: "entrypoint", data: {}, position: { x: 0, y: 0 } }],
+				edges: [],
+			},
+		);
+		expect(result.changes.blocks.map((b) => b.type)).toEqual(["consolelog"]);
 	});
 });

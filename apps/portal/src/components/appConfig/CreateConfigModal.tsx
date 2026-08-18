@@ -22,10 +22,31 @@ const ENCODING_LABELS: Record<(typeof ENCODINGS)[number], string> = {
 	hex: "Hexadecimal",
 };
 
-export function CreateConfigButton({ projectId }: { projectId: string }) {
+/**
+ * The "New key" button and its dialog. Callers that already have their own
+ * trigger — the AI chips offer to create a key the plan referenced — drive it
+ * with `isOpen`/`onOpenChange` instead, and can seed the key name.
+ */
+export function CreateConfigButton({
+	projectId,
+	isOpen,
+	onOpenChange,
+	initialKeyName = "",
+}: {
+	projectId: string;
+	isOpen?: boolean;
+	onOpenChange?: (open: boolean) => void;
+	initialKeyName?: string;
+}) {
 	const create = appConfigQuery.create.mutation(projectId);
-	const [open, setOpen] = useState(false);
-	const [keyName, setKeyName] = useState("");
+	const [uncontrolledOpen, setUncontrolledOpen] = useState(false);
+	const controlled = isOpen !== undefined;
+	const open = controlled ? isOpen : uncontrolledOpen;
+	const setOpen = (next: boolean) => {
+		if (!controlled) setUncontrolledOpen(next);
+		onOpenChange?.(next);
+	};
+	const [keyName, setKeyName] = useState(initialKeyName);
 	const [description, setDescription] = useState("");
 	const [value, setValue] = useState("");
 	const [booleanValue, setBooleanValue] = useState(false);
@@ -34,7 +55,7 @@ export function CreateConfigButton({ projectId }: { projectId: string }) {
 	const [encoding, setEncoding] = useState<(typeof ENCODINGS)[number]>("plaintext");
 
 	function reset() {
-		setKeyName("");
+		setKeyName(initialKeyName);
 		setDescription("");
 		setValue("");
 		setBooleanValue(false);
@@ -69,11 +90,13 @@ export function CreateConfigButton({ projectId }: { projectId: string }) {
 
 	return (
 		<Modal isOpen={open} onOpenChange={setOpen}>
-			<Modal.Trigger>
-				<Button variant="primary">
-					<TbPlus size={16} /> New key
-				</Button>
-			</Modal.Trigger>
+			{!controlled && (
+				<Modal.Trigger>
+					<Button variant="primary">
+						<TbPlus size={16} /> New key
+					</Button>
+				</Modal.Trigger>
+			)}
 			<Modal.Backdrop>
 				<Modal.Container placement="center" scroll="inside" size="lg">
 					<Modal.Dialog>

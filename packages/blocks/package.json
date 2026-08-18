@@ -7,7 +7,8 @@
 	],
 	"exports": {
 		".": "./index.ts",
-		"./blockTypes": "./blockTypes.ts"
+		"./blockTypes": "./blockTypes.ts",
+		"./layout": "./layout.ts"
 	},
 	"author": "",
 	"license": "Apache-2.0",

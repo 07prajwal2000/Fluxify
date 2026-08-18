@@ -3,7 +3,7 @@ import { publishArtifactStatus } from "../../../../harness/notifications";
 import type { ArtifactStatus } from "../../../../harness/clientContract";
 import type { RpcCaller } from "@fluxify/server/src/db/natsRpc";
 import {
-	canvasChangesFromPayload,
+	formattedCanvasChanges,
 	customBlockOpFromPayload,
 	routeOpFromPayload,
 	type BlockBuilderPayload,
@@ -342,7 +342,7 @@ export async function applyCanvasRow(
 		ctx.caller,
 		source,
 		sourceId,
-		canvasChangesFromPayload(payload, existing),
+		await formattedCanvasChanges(payload, existing),
 	);
 	if (sourceId !== target) {
 		await rememberRealRouteId(ctx.conversationId, row, "targetId", sourceId);
@@ -383,7 +383,7 @@ export async function applySubArtifact(
 		await applyRouteRow(
 			ctx,
 			row,
-			canvasRow ? canvasChangesFromPayload((canvasRow.payload ?? {}) as BlockBuilderPayload, EMPTY_CANVAS) : undefined,
+			canvasRow ? await formattedCanvasChanges((canvasRow.payload ?? {}) as BlockBuilderPayload, EMPTY_CANVAS) : undefined,
 		);
 		// The route now has the id storage chose, but its canvas siblings still
 		// point at the id the agent invented. Leaving them stale breaks every
@@ -416,7 +416,7 @@ export async function applySubArtifact(
 			ctx,
 			row,
 			canvasRow
-				? canvasChangesFromPayload((canvasRow.payload ?? {}) as BlockBuilderPayload, EMPTY_CANVAS)
+				? await formattedCanvasChanges((canvasRow.payload ?? {}) as BlockBuilderPayload, EMPTY_CANVAS)
 				: undefined,
 		);
 		const realId = agentCustomBlockId ? ctx.customBlockIds.get(agentCustomBlockId) : undefined;

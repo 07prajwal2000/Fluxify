@@ -2,6 +2,7 @@
 // output, and both barrels pull in Node built-ins (`vm`, pino) that break the
 // browser build.
 import { BlockTypes } from "@fluxify/blocks/blockTypes";
+import { layoutGraph } from "@fluxify/blocks/layout";
 import { generateID } from "@fluxify/lib/random/id";
 import type { canvasChangesSchema } from "@fluxify/server/src/modules/canvas/types";
 import type { z } from "zod";
@@ -316,6 +317,36 @@ export function canvasChangesFromPayload(
 		addEdge(from, idFor(toEdge), fromHandle ?? "source", previous?.id);
 	}
 
+	// A create carrying blocks makes the server skip seeding the default
+	// entrypoint/error handler (they would duplicate the agent's own), and the
+	// agent does not reliably emit them — `find_resource` even stubs them as
+	// already existing for a new route. Nothing then creates them and the canvas
+	// has no entry point at all. Fill in whichever is missing on a new canvas.
+	// (an empty payload seeds nothing: the server's own defaults still apply)
+	if (existing.blocks.length === 0 && blocks.length > 0) {
+		const present = new Set(blocks.map((b) => b.type));
+		if (!present.has(BlockTypes.entrypoint)) {
+			const id = generateID();
+			const targeted = new Set(edges.map((e) => e.to));
+			const head = blocks.find(
+				(b) =>
+					!targeted.has(b.id) &&
+					b.type !== BlockTypes.errorHandler &&
+					b.type !== BlockTypes.sticky_note,
+			);
+			blocks.unshift({ id, type: BlockTypes.entrypoint, data: {}, position: { x: 0, y: 0 } });
+			if (head) addEdge(id, head.id, "source");
+		}
+		if (!present.has(BlockTypes.errorHandler)) {
+			blocks.push({
+				id: generateID(),
+				type: BlockTypes.errorHandler,
+				data: { next: "", retryAfterFail: false, retryCount: 0 },
+				position: { x: -240, y: 0 },
+			} as (typeof blocks)[number]);
+		}
+	}
+
 	return {
 		actionsToPerform: {
 			blocks: [
@@ -328,4 +359,75 @@ export function canvasChangesFromPayload(
 		},
 		changes: { blocks, edges },
 	};
+}
+
+/**
+ * Lays the canvas out after the agent's changes are merged into it.
+ *
+ * The model writes coordinates for a canvas it cannot see, so inserting a block
+ * into an existing route left the following block sitting on top of another one.
+ * ELK re-flows the merged graph; `changedIds` keeps the blocks the agent did not
+ * touch as the frame of reference, so an edit nudges the graph instead of
+ * teleporting it, and only blocks that actually move are written back.
+ *
+ * An existing block that has to move is added to the change set — with its
+ * stored type and data, since a position-only upsert would blank the rest.
+ */
+export async function formatCanvasChanges(
+	changes: CanvasChanges,
+	existing: CanvasItems,
+): Promise<CanvasChanges> {
+	const removed = new Set(
+		changes.actionsToPerform.blocks
+			.filter((b) => b.action === "delete")
+			.map((b) => b.id),
+	);
+	const changedIds = new Set(changes.changes.blocks.map((b) => b.id));
+
+	const nodes = [
+		...existing.blocks.filter(
+			(b) => !removed.has(b.id) && !changedIds.has(b.id),
+		),
+		...changes.changes.blocks,
+	].map((b) => ({ id: b.id, type: b.type, position: b.position }));
+	if (nodes.length === 0) return changes;
+
+	// Superseded edges are keyed by id, so the agent's version wins.
+	const edgeById = new Map(existing.edges.map((e) => [e.id, e]));
+	for (const edge of changes.changes.edges) edgeById.set(edge.id, edge);
+	const edges = [...edgeById.values()].filter(
+		(e) => !removed.has(e.from) && !removed.has(e.to),
+	);
+
+	const moved = await layoutGraph(nodes, edges, { changedIds });
+	if (Object.keys(moved).length === 0) return changes;
+
+	const blocks = changes.changes.blocks.map((b) =>
+		moved[b.id] ? { ...b, position: moved[b.id]! } : b,
+	);
+	const actions = [...changes.actionsToPerform.blocks];
+	for (const block of existing.blocks) {
+		const position = moved[block.id];
+		if (!position || removed.has(block.id) || changedIds.has(block.id)) continue;
+		blocks.push({
+			id: block.id,
+			type: block.type,
+			data: (block.data ?? {}) as Record<string, unknown>,
+			position,
+		} as (typeof blocks)[number]);
+		actions.push({ id: block.id, action: "upsert" as const });
+	}
+
+	return {
+		actionsToPerform: { ...changes.actionsToPerform, blocks: actions },
+		changes: { ...changes.changes, blocks },
+	};
+}
+
+/** `canvasChangesFromPayload` + the layout pass, which is what applying wants. */
+export async function formattedCanvasChanges(
+	payload: BlockBuilderPayload,
+	existing: CanvasItems,
+): Promise<CanvasChanges> {
+	return formatCanvasChanges(canvasChangesFromPayload(payload, existing), existing);
 }

@@ -10,7 +10,7 @@ export const queryParamsSchema = z.object({
 });
 
 export const resultSchema = z.object({
-	type: z.enum(["route", "integration", "app_config"]),
+	type: z.enum(["route", "integration", "app_config", "custom_block"]),
 	id: z.string(),
 	name: z.string(),
 	description: z.string().optional(),
@@ -18,6 +18,9 @@ export const resultSchema = z.object({
 	method: z.string().optional(),
 	group: z.string().optional(),
 	variant: z.string().optional(),
+	/** custom blocks only */
+	label: z.string().optional(),
+	inputParams: z.array(z.unknown()).optional(),
 });
 
 export const responseSchema = z.object({

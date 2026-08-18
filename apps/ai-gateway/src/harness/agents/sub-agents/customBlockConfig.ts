@@ -69,5 +69,9 @@ export const validateCustomBlockConfigOutput: import("../../types").AgentOutputV
 	}
 	const names = value.data?.inputParams?.map((p) => p.name) ?? [];
 	if (new Set(names).size !== names.length) return "Custom block inputParams cannot contain duplicate names.";
+	// storage takes lowercase snake_case only; a camelCase name gets no further
+	// than the create DTO, and only at apply time, as "Malformed operation"
+	const badName = names.find((name) => !/^[a-z0-9_]+$/.test(name));
+	if (badName) return `Custom block inputParam name "${badName}" must be lowercase snake_case (letters, digits and underscores only).`;
 	return null;
 };

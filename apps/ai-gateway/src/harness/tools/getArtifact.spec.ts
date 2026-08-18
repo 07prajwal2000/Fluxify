@@ -3,7 +3,10 @@ import { createGetArtifactTool } from "./getArtifact";
 import type { DbService, SubArtifactRecord } from "../internal/dbService";
 import type { WorkflowMetadata } from "../types";
 
-const metadata = { conversationId: "conv-1" } as WorkflowMetadata;
+const metadata = {
+	conversationId: "conv-1",
+	projectId: "proj-1",
+} as WorkflowMetadata;
 
 const record = (over: Partial<SubArtifactRecord> = {}): SubArtifactRecord => ({
 	id: "sub-1",
@@ -17,13 +20,22 @@ const record = (over: Partial<SubArtifactRecord> = {}): SubArtifactRecord => ({
 	...over,
 });
 
-const toolWith = (rows: SubArtifactRecord[], spy?: (args: any[]) => void) =>
+const toolWith = (
+	rows: SubArtifactRecord[],
+	spy?: (args: any[]) => void,
+	db: Partial<DbService> = {},
+) =>
 	createGetArtifactTool(
 		{
 			getSubArtifacts: async (...args: any[]) => {
 				spy?.(args);
 				return rows;
 			},
+			getRouteDetails: async () => null,
+			getRouteCanvas: async () => null,
+			getCustomBlockCanvas: async () => null,
+			findCustomBlocks: async () => [],
+			...db,
 		} as unknown as DbService,
 		metadata,
 	);
@@ -45,11 +57,42 @@ describe("get_artifact", () => {
 	it("tells the agent whether the output is already applied", async () => {
 		const notApplied = await toolWith([record()]).invoke({ artifactIds: ["sub-1"] });
 		expect(notApplied).toContain("applied=no");
+		expect(notApplied).toContain("NOT APPLIED");
 
 		const applied = await toolWith([
 			record({ appliedAt: new Date("2026-02-02T00:00:00.000Z") }),
 		]).invoke({ artifactIds: ["sub-1"] });
 		expect(applied).toContain("applied=yes, at 2026-02-02T00:00:00.000Z");
+	});
+
+	// Without this the agent had to follow every applied artifact with a
+	// `find_resource` call just to learn the real id it ended up with.
+	it("returns the live record for an applied artifact, not the stored copy", async () => {
+		const out = await toolWith(
+			[
+				record({
+					appliedAt: new Date(),
+					payload: { routeId: "live-route", data: { path: "/stale" } },
+				}),
+			],
+			undefined,
+			{
+				getRouteDetails: async () => ({ id: "live-route", path: "/users" }),
+				getRouteCanvas: async () => [{ id: "b1", blockType: "response" }],
+			},
+		).invoke({ artifactIds: ["sub-1"] });
+
+		expect(out).toContain("APPLIED");
+		expect(out).toContain('"path":"/users"');
+		expect(out).toContain('"blockType":"response"');
+		expect(out).not.toContain("/stale");
+	});
+
+	it("says so when the applied resource has since been deleted", async () => {
+		const out = await toolWith([
+			record({ appliedAt: new Date(), payload: { routeId: "gone" } }),
+		]).invoke({ artifactIds: ["sub-1"] });
+		expect(out).toContain("gone from the project");
 	});
 
 	it("reports nothing found instead of returning empty output", async () => {

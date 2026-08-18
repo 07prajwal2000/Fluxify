@@ -11,11 +11,18 @@ const key = (projectId: string) => ["app-config", projectId];
 
 export const appConfigQuery = {
 	getAll: {
-		useQuery(projectId: string, query: ListAppConfigQuery) {
+		/** `enabled` lets a caller mount the hook without firing the request —
+		 *  the AI chips look a key up only when the chip is an app config. */
+		useQuery(
+			projectId: string,
+			query: ListAppConfigQuery,
+			options: { enabled?: boolean } = {},
+		) {
 			return useQuery({
 				queryKey: [...key(projectId), query],
 				queryFn: () => appConfigService.getAll(projectId, query),
 				refetchOnWindowFocus: false,
+				enabled: options.enabled ?? true,
 			});
 		},
 		useInfiniteQuery(projectId: string, query: Omit<ListAppConfigQuery, "page">) {

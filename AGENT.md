@@ -3,18 +3,8 @@
 **IMPORTANT:** This file is loaded automatically on every new conversation.
 If you encounter a repeatable issue or bug that might arise in the future, you must log the issue and its solution into this file. **However, always ask the user at the end of the conversation if they want you to log it or not before doing so.**
 
-## Agent Persona & Self-Prompting
-When processing a user request, you must execute the following steps entirely within your internal `<thought>` process:
-1. **Adopt a Persona:** Dynamically assign yourself a Senior/Principal Engineer or Domain Expert role tailored to the user's specific request.
-2. **Context Gathering:** Identify and gather necessary context from the user query, project structure, the `/docs` directory, and the `.agents/workflows` folder.
-3. **Prompt Refinement:** Mentally rewrite the user's prompt into a highly structured, LLM-ready prompt. This refined prompt should explicitly state the goal, constraints, required context, and step-by-step logic.
-4. **Execution:** Proceed to solve the task using this mentally refined prompt as your directive. The user is not required to manually prompt you to adopt a persona or specify best practices—you must initialize this high-level expert state automatically.
-
 ## Runtime & Package Management
-**CRITICAL:** Always use `bun` as the runtime for this project. 
-- Use `bun run`, `bun install`, `bun test`, etc.
-- Do not use `npm`, `yarn`, or `pnpm` unless explicitly instructed otherwise.
-- Use `bun` to execute JavaScript/TypeScript files.
+**CRITICAL:** Always use `bun` — `bun run`, `bun install`, `bun test`, and `bun` to execute JS/TS files. Never `npm`, `yarn`, or `pnpm`.
 
 ## Frontend Location — `apps/portal` ONLY
 **CRITICAL:** The frontend is `apps/portal`. **`apps/web` is LEGACY — never edit it.**
@@ -35,24 +25,12 @@ When processing a user request, you must execute the following steps entirely wi
   building a new component — the equivalent usually already exists.
 
 ## Git & GitHub Workflow Rules
-On each new conversation, you MUST:
-1. Ask the user whether they want to create a new branch or work on the `main` branch.
-2. Check if the GitHub CLI (`gh`) is installed. If it is not installed, hint the user to install it for a better experience.
-3. If `gh` is installed, always use the `gh` CLI for communicating with GitHub, including:
-   - Creating Pull Requests
-   - Viewing/Managing Issues & Discussions
-   - Merging changes & checking CI errors
-   - Syncing branches and repositories
-4. **Remote Repository Target:** ALWAYS use `Fluxify-rest/Fluxify` for Pull Requests, Issues, and anything related to the remote repository (e.g., `gh issue view <id> --repo Fluxify-rest/Fluxify`, `gh pr create --repo Fluxify-rest/Fluxify`).
-5. **Pushing Code:** Only use the local repository and the user account's forked repository for pushing code (`git push origin <branch-name>`).
-6. **Testing Policy:** Before committing, you MUST manually test the application. To save time, test *only* the required changed folders. Specifically, skip the `packages/adapters` tests unless the `git diff` shows modifications inside `packages/adapters/`. A precommit hook handles linting, analysis, and final selective testing before commits.
-
-### Pull Requests & Branch Naming
-When creating branches or Pull Requests via the `gh` CLI:
-- **Upstream Repository:** ALWAYS target `Fluxify-rest/Fluxify` for PRs, Issues, and remote repo interactions, while pushing branches to the user's forked repo.
-- **Branch Names:** Must be concise, descriptive, and follow standard conventions (e.g., `feature/add-auth`, `fix/header-alignment`, `chore/update-deps`).
-- **PR Titles:** Must be clear and descriptive, accurately summarizing the change.
-- **PR Descriptions:** Must clearly articulate the *Why* and *What* of the changes, keeping it concise but informative enough for a seamless review process.
+- **Two remotes, and they are not interchangeable.** Issues, discussions and PRs always target **`Fluxify-rest/Fluxify`** (`--repo Fluxify-rest/Fluxify`). Branches are only ever pushed to the user's fork, `origin` (`git push origin <branch>`). A PR from the fork needs `--head <user>:<branch>`.
+- Use the `gh` CLI for everything GitHub — PRs, issues, CI status, merges.
+- Ask at the start of a conversation whether to branch or work on `main`.
+- **Testing before commit:** test only the folders that changed. Skip `packages/adapters` tests unless `git diff` shows changes inside it. The pre-commit hook runs lint, a secret scan, FTA analysis and tests — **never `--no-verify`**; if it fails, fix the cause (see the FTA section below).
+- Branch names follow convention (`feat/…`, `fix/…`, `chore/…`). PR descriptions say *why* and *what*.
+- **Writing a multi-line commit message:** use `git commit -F -` with a bash heredoc. The PowerShell `@'…'@` form silently becomes a literal `@` subject line when run through the Bash tool.
 
 ---
 
@@ -156,7 +134,13 @@ When creating branches or Pull Requests via the `gh` CLI:
 ### Harness Retries — a blind retry makes the model repeat the same mistake
 `withRetry` re-sends an identical prompt, so schema violations recur every attempt. `fallbackStructuredOutput` retries internally instead: it appends the bad output plus the compact zod issue list as a **`HumanMessage`** correction, then re-asks (3 attempts). The correction must be a human turn — see the `invalid_request_message_order` rules above.
 
-**Echo the model's own message back, not a rebuilt one.** The correction turn uses `asHistoryMessage()`, which returns the original `AIMessage` so provider-specific reasoning (`reasoning_content`, thinking blocks) travels with it. Constructing `new AIMessage(cleanedText)` throws the reasoning away and attempt 2 just re-derives — and re-botches — the same answer. When the response has no textual content, it rebuilds with the extracted reasoning text and preserves `additional_kwargs`.
+**Echo the model's own message back, not a rebuilt one — but strip its tool calls.** The correction turn uses `asHistoryMessage()` (in `models/toolLoop.ts`), which returns the original `AIMessage` so provider-specific reasoning (`reasoning_content`, thinking blocks) travels with it. Constructing `new AIMessage(cleanedText)` throws the reasoning away and attempt 2 just re-derives — and re-botches — the same answer. When the response has no textual content, it rebuilds with the extracted reasoning text and preserves `additional_kwargs`.
+
+**The one thing that must NOT travel with it is `tool_calls`.** Symptom: `Failed to parse structured output after 3 attempts. Error: 400 An assistant message with 'tool_calls' must be followed by tool messages responding to each 'tool_call_id'`. The model answers the structured-output call with a *tool call* instead of JSON (so attempt 1 throws "empty response" — a tool-call-only reply has no text), that message is echoed into the correction turn with its tool calls intact, and a `HumanMessage` is appended after it. An assistant message carrying `tool_calls` that no `ToolMessage` answers is rejected outright, so attempts 2 and 3 both 400 **on the history, not on the answer** — the whole retry budget is spent without the model ever getting a real chance to correct itself (~30-40k tokens on one observed run).
+
+Strip both copies: the `AIMessage.tool_calls` field *and* `additional_kwargs.tool_calls`, where OpenAI-compatible providers keep their own. The model at that point is unbound and has no tools to call anyway. Give the rebuilt message real content saying the tool call was discarded — `"(empty response)"` tells the model nothing about what it did wrong.
+
+**General rule:** any time a message is moved, echoed, replayed, or summarized into a new request, an assistant message's `tool_calls` and the `ToolMessage`s answering them must stay together or both be dropped. Splitting them is always a 400.
 
 Also: native `withStructuredOutput` failures are caught and fall through to the prompt fallback rather than killing the run.
 
@@ -178,6 +162,14 @@ Also: native `withStructuredOutput` failures are caught and fall through to the 
 - `apiKey: this.apiKey || (this.baseUrl ? "not-required" : undefined)` — a placeholder only when a custom `baseUrl` is set; real OpenAI still requires a real key.
 - `supportsStructuredOutput()` returns `false` when `baseUrl` is set. Compatible servers usually reject the `json_schema` response format, so skip the native path and use the prompt fallback instead of burning 3 retries per call. That fallback still constrains output via `json_object` (`jsonModeOptions()`), which every OpenAI-compatible server honours — the two flags are deliberately separate.
 
+### Harness Run State — a dead run must not lose what it built
+A run that dies partway through used to lose everything, so "continue" restarted the whole build from the planner and re-paid for every task that had already succeeded.
+
+- **Never persist an empty state on a terminal path.** `failRun` and `interruptRun` called `saveLiveState` with a hardcoded `workingMemory: {}` — erasing the accumulated state on exactly the event worth recovering from. They take the state from `HarnessCallbacks.snapshotState()` now. The graph never returns a final state on the failure path, so that snapshot is the only surviving record.
+- **`RESUMABLE_NODES` (`harness/callbacks.ts`) decides where checkpoints land.** It held only `PLANNER` and `HUMAN_IN_THE_LOOP`, so nothing was saved after planning. `SUPERVISOR` is in it now because it is the only node that settles task statuses, and task statuses are what a resume reads.
+- **Artifacts are immutable per run.** One user message is one run; an agent that wants to change something creates a new artifact rather than editing an existing one. Do NOT add a status field to a sub-artifact row — the run already has a status, and a second state machine would only have to be kept in sync with the first. `SummarizerState.subArtifactIds` maps task id to row so a later run can tell persisted work from work that only lived in a dead process.
+- **Guard side effects, not rows.** Duplicate artifact rows across runs are expected and harmless; two real routes in the user's project are not. Before re-running a task, check `appliedAt`, never row existence.
+
 ### Harness Orchestrator — skipped/repeated task levels
 **Issue:** Sub-agents appeared to run twice (e.g. block builder inside block builder) and levels got skipped.
 **Cause:** The orchestrator popped `taskQueue` to pick the next level, so any re-entry into that node consumed a level it never verified. Worse, the supervisor only wrote statuses to `dispatchedTasks[i]`, relying on those being the *same object references* as entries in `tasks` — a fragile aliasing contract across graph state.
@@ -191,6 +183,13 @@ Also: native `withStructuredOutput` failures are caught and fall through to the 
 1. **Readonly Settings Panel Inputs:** All settings panel controls (`BlockTextField`, `BlockJsTextField`, `BlockSelectField`, `ConditionsBuilder`, `FieldMapEditor`, `JavaScriptTextArea`, `BlockNameInput`, `BlockDescriptionField`) must check `useCanvasChanges().enabled` (`editable`) and set `isDisabled={!editable}` or `readOnly={!editable}`.
 2. **Hide Save Button in Readonly Mode:** The header Save button must be conditionally rendered (`{!readOnly && <Button ...>Save</Button>}`) so no save trigger is accessible in read-only mode.
 3. **Keep Elements Selectable:** Set `elementsSelectable={true}` on `<ReactFlow>` so users can still select nodes and open side panels to inspect block configurations in read-only mode, while keeping `nodesDraggable={!readOnly}`, `nodesConnectable={!readOnly}`, and `deleteKeyCode={null}` disabled.
+
+### Pre-commit Blocks on FTA Complexity (`score-cap 70`)
+The pre-commit hook runs `fta-cli --score-cap 70`, which **fails the commit** for any file scoring above 70 — including files you only touched, and including test files. FTA weights file length heavily, so a large file sits near the cap and a small addition tips it over.
+
+- **Check before you commit, not after:** `bun x fta-cli --json <dir>` and compare against the same command on a stashed baseline (`git stash push -- <file>`). That tells you whether the debt is yours or pre-existing.
+- **The fix is splitting or deduplicating, not `--no-verify`.** Two near-identical loops parameterized into one helper, or a cohesive group of functions moved to its own module, both drop the score properly. A helper added *inside* the same file barely moves it — the lines are still there.
+- Some files already on `main` are over the cap, so a commit touching them fails on debt you did not create. Fix it in the same commit and say so in the message.
 
 ### Resolving a Merge Conflict in the GitHub Web Editor Ships Broken Code
 **Issue:** `main` broke after two PRs that touched the same function were merged — `find_resource` threw `ReferenceError: searchBy is not defined` on every call, for every agent holding the tool. CI reported only a failing lint job.
@@ -233,21 +232,8 @@ The `/docs` directory contains **user-facing documentation** — not a technical
 
 ---
 
-## Codebase Discovery (Hybrid Approach)
-**CRITICAL:** This project uses `codebase-memory-mcp` alongside native tools. Mix and match to achieve the best results:
-- **Use `codebase-memory-mcp`** (e.g., `search_graph`, `query_graph`, `trace_path`) for semantic search, finding functions/classes/routes by keyword or pattern, and understanding code relationships. It excels at glob searching and deep code structure.
-- **Use Native Tools** (e.g., `list_dir`, `view_file`, `grep_search`) for exploring physical folder structure, reading exact file contents, or simple text lookups.
-
-### When to use which:
-- **`codebase-memory-mcp` tools:** Finding a specific handler, tracing where a function is called, exploring architecture, or searching for keywords across the knowledge graph.
-- **`list_dir`:** Understanding the physical directory structure or finding where a new component should be placed.
-- **`view_file`:** Reading the full contents of a specific file once located.
-- **`grep_search`:** Finding string literals, error messages, or config values in non-code files.
-
-### Examples
-- **Find a handler:** `search_graph(name_pattern=".*OrderHandler.*")`
-- **Find usage:** `trace_path(function_name="OrderHandler", direction="inbound")`
-- **Read source:** `get_code_snippet(qualified_name="pkg/orders.OrderHandler")`
+## Codebase Discovery
+Use `codebase-memory-mcp` (`search_graph`, `query_graph`, `trace_path`, `get_code_snippet`) to locate code, trace callers, or understand architecture — it answers in far fewer tokens than scanning files. Fall back to grep/glob/file reads for exact text, non-code files, or anything the graph does not cover.
 
 ---
 

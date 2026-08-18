@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
+import { z } from "zod";
 import { Button, DeleteButton, Input, ListBox, Select, Spinner, TextField, toast } from "@fluxify/components";
 import type { Key } from "@fluxify/components";
 import { TbChevronDown, TbSearch } from "react-icons/tb";
@@ -17,15 +18,19 @@ export const Route = createFileRoute("/_authed/$projectId/app-config")({
 		"App Configuration & Secrets",
 		"Manage environment variables, configuration keys, and secrets for your project.",
 	),
+	// `?q=` deep-links to one key — the AI chips send the user straight to the
+	// config a plan referenced instead of dropping them on an unfiltered table.
+	validateSearch: z.object({ q: z.string().optional() }),
 	component: AppConfigPage,
 });
 
 function AppConfigPage() {
 	const { projectId } = Route.useParams();
+	const { q } = Route.useSearch();
 	const [page, setPage] = useState(1);
 	const [perPage, setPerPage] = useState(20);
-	const [searchInput, setSearchInput] = useState("");
-	const [debouncedSearch, setDebouncedSearch] = useState("");
+	const [searchInput, setSearchInput] = useState(q ?? "");
+	const [debouncedSearch, setDebouncedSearch] = useState(q ?? "");
 	const [sortBy, setSortBy] = useState<SortBy>("keyName");
 	const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
 	const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());

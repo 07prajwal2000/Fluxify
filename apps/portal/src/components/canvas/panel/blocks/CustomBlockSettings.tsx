@@ -1,10 +1,10 @@
 import { useMemo } from "react";
-import { Button, Link, Spinner } from "@fluxify/components";
+import { Button, Spinner } from "@fluxify/components";
 import { useParams } from "@tanstack/react-router";
 import { TbExternalLink } from "react-icons/tb";
 import { withBasePath } from "@/constants/routes";
 import { customBlocksQuery } from "@/query/customBlocksQuery";
-import { BlockSettings } from "../BlockSettings";
+import { BlockSettings, GENERAL_TAB } from "../BlockSettings";
 import {
 	BlockAppConfigField,
 	BlockArrayEditorField,
@@ -55,43 +55,6 @@ export function CustomBlockSettingsPanel({ block }: { block: BlockNode }) {
 
 	return (
 		<div className="flex flex-col gap-4 w-full">
-			{customBlock?.sourceType === "user-defined" && projectId && (
-				<div className="flex items-center justify-between pb-2 border-b border-border">
-					<span className="text-xs text-muted">Custom Block Source</span>
-					<Button
-						variant="secondary"
-						size="sm"
-						className="h-7 text-xs gap-1.5"
-						onPress={() =>
-							window.open(
-								withBasePath(
-									`/${projectId}/custom-block-canvas/${customBlock.id}`,
-								),
-								"_blank",
-								"noopener,noreferrer",
-							)
-						}
-					>
-						<span>Edit Implementation</span>
-						<TbExternalLink size={13} />
-					</Button>
-				</div>
-			)}
-
-			<BlockSelectField
-				blockId={block.id}
-				data={block.data}
-				name="invoke"
-				label="Execution Mode"
-				hint="Sync waits for the output. Async fires on this worker and is lost if it restarts. Queued is durable — another worker picks it up, and it may be retried."
-				placeholder="Select execution mode"
-				options={[
-					{ value: "sync", label: "Synchronous (Wait for output)" },
-					{ value: "async", label: "Asynchronous (Fire & forget)" },
-					{ value: "queued", label: "Queued (Durable background job)" },
-				]}
-			/>
-
 			{inputParams.length > 0 ? (
 				inputParams.map((param) => {
 					switch (param.type) {
@@ -183,8 +146,67 @@ export function CustomBlockSettingsPanel({ block }: { block: BlockNode }) {
 	);
 }
 
+/** How the call runs — a property of the block, not one of its parameters. */
+export function CustomBlockExecutionMode({ block }: { block: BlockNode }) {
+	return (
+		<BlockSelectField
+			blockId={block.id}
+			data={block.data}
+			name="invoke"
+			label="Execution Mode"
+			hint="Sync waits for the output. Async fires on this worker and is lost if it restarts. Queued is durable — another worker picks it up, and it may be retried."
+			placeholder="Select execution mode"
+			options={[
+				{ value: "sync", label: "Synchronous (Wait for output)" },
+				{ value: "async", label: "Asynchronous (Fire & forget)" },
+				{ value: "queued", label: "Queued (Durable background job)" },
+			]}
+		/>
+	);
+}
+
+/**
+ * Opening the block's own canvas is about the block, not about how this call
+ * is configured, so it belongs with the name and description in General —
+ * where anyone looking at the block first looks.
+ */
+export function CustomBlockSourceLink({ block }: { block: BlockNode }) {
+	const params = useParams({ strict: false }) as { projectId?: string };
+	const projectId = params?.projectId ?? "";
+	const { data: customBlocks } = customBlocksQuery.getAll.useQuery(projectId);
+	const customBlock = customBlocks?.find((cb) => cb.name === block.type);
+
+	// Only a block defined in this project has a canvas the user can open.
+	if (customBlock?.sourceType !== "user-defined" || !projectId) return null;
+
+	return (
+		<div className="flex items-center justify-between">
+			<span className="text-xs text-muted">Custom Block Source</span>
+			<Button
+				variant="secondary"
+				size="sm"
+				className="h-7 text-xs gap-1.5"
+				onPress={() =>
+					window.open(
+						withBasePath(`/${projectId}/custom-block-canvas/${customBlock.id}`),
+						"_blank",
+						"noopener,noreferrer",
+					)
+				}
+			>
+				<span>Edit Implementation</span>
+				<TbExternalLink size={13} />
+			</Button>
+		</div>
+	);
+}
+
 export function customBlockSettings(block: BlockNode) {
 	return [
+		<BlockSettings.TabHead key="source" name={GENERAL_TAB}>
+			<CustomBlockSourceLink block={block} />
+			<CustomBlockExecutionMode block={block} />
+		</BlockSettings.TabHead>,
 		<BlockSettings.TabHead key="parameters" name="Parameters">
 			<CustomBlockSettingsPanel block={block} />
 		</BlockSettings.TabHead>,

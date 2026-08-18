@@ -309,9 +309,15 @@ export function PromptEditor({
                                                 closePopover();
                                                 setSearchQuery("");
                                             }}
-											className={`flex items-center gap-3 rounded-lg p-2 text-left hover:bg-surface-secondary ${i === selectedIndex ? "bg-surface-secondary" : ""}`}
+											// the arrow-key selection used to be the same wash as
+											// hover, so there was no telling where the cursor was
+											className={`flex items-center gap-3 rounded-lg p-2 text-left transition-colors ${
+												i === selectedIndex
+													? "bg-accent/15 text-foreground ring-1 ring-inset ring-accent/50"
+													: "hover:bg-surface-secondary"
+											}`}
 										>
-											<div className="flex-shrink-0 text-muted">
+											<div className={`flex-shrink-0 ${i === selectedIndex ? "text-accent" : "text-muted"}`}>
 												{res.type === "route" ? <TbStack2 size={16} /> :
 												 res.type === "app_config" ? <TbSquareKey size={16} /> :
 												 res.type === "integration" ? (
@@ -324,7 +330,7 @@ export function PromptEditor({
 												 <TbBox size={16} />}
 											</div>
 											<div className="flex flex-col">
-												<span className="text-sm font-medium text-foreground">{res.name}</span>
+												<span className="text-sm font-medium text-foreground">{res.label || res.name}</span>
 												{res.description && (
 													<span className="text-xs text-muted line-clamp-1">{res.description}</span>
 												)}
@@ -438,7 +444,10 @@ function EditorEventsPlugin() {
                 editor.dispatchCommand(INSERT_RESOURCE_COMMAND, {
                     resourceType: res.type,
                     identifier: res.id,
-                    name: res.name,
+                    // a custom block's `name` is its namespaced runtime type
+                    // (`user_defined.project.notify`) — the label is what the
+                    // user called it
+                    name: res.label || res.name,
                     data: data,
                     replaceAt: wasAtTyped
                 });

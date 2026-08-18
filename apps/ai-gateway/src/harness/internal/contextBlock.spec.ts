@@ -7,6 +7,7 @@ const dbWith = (over: Partial<DbService> = {}) =>
 		getRouteDetails: async () => null,
 		getRouteCanvas: async () => null,
 		getCustomBlockCanvas: async () => null,
+		findCustomBlocks: async () => [],
 		...over,
 	}) as unknown as DbService;
 
@@ -65,6 +66,15 @@ describe("buildContextBlock", () => {
 			getCustomBlockCanvas: async () => [
 				{ id: "blk_1", blockType: "entrypoint", connections: [] },
 			],
+			findCustomBlocks: async () => [
+				{
+					type: "custom_block",
+					id: "cb-1",
+					name: "user_defined.project.notify",
+					label: "Notify",
+					inputParams: [{ name: "message", type: "text_input" }],
+				},
+			],
 		});
 
 		const out = await buildContextBlock(db, "proj-1", {
@@ -75,6 +85,9 @@ describe("buildContextBlock", () => {
 		expect(out).toContain("custom block `cb-1`");
 		expect(out).toContain("1 blocks");
 		expect(out).toContain("blk_1(entrypoint)");
+		// the caller contract is what an agent editing this canvas writes against
+		expect(out).toContain("\"name\":\"message\"");
+		expect(out).toContain("Notify");
 	});
 
 	it("returns nothing when the custom block canvas can't be found", async () => {
