@@ -1,6 +1,7 @@
 import { builtinBlockSchemas, BlockTypes } from "@fluxify/blocks";
 import type { AgentOutputValidator } from "../../../types";
 import { detectCycles } from "./cycleDetector";
+import { validateGraphRules } from "./graphRules";
 import type { BlockBuilderResult, ValidatableBlock } from "./schemas";
 
 /** Storage stores these exact strings — anything else is a broken canvas. */
@@ -206,7 +207,7 @@ export const validateBlockBuilderOutput: AgentOutputValidator = async (
 			);
 	}
 
-	const errors: string[] = [];
+	const errors: string[] = validateGraphRules(blocksToValidate);
 	for (const block of blocksToValidate) {
 		errors.push(...validateBlockAgainstSchemas(block, customBlockSchemasMap));
 	}

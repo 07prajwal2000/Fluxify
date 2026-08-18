@@ -15,7 +15,9 @@ import {
 	createBlocksTable,
 	createSystemPrompt,
 	createUserQuery,
+	PREFETCH_DOC_TITLES,
 } from "./promptHelpers";
+import { getDocsByTitle } from "../../../../db/vector";
 
 export class BlockBuilderAgent extends BaseAgent {
 	constructor(state: GlobalGraphState) {
@@ -57,6 +59,25 @@ export class BlockBuilderAgent extends BaseAgent {
 			actual: plannedRouteIds[0],
 		});
 		return { ...result, targetId: plannedRouteIds[0] };
+	}
+
+	/**
+	 * Models like to echo `blockName`/`blockDescription` back inside `data`,
+	 * where they mean nothing to the block schemas and just double the tokens
+	 * on every canvas round-trip. Drop them — the real ones live on the block.
+	 */
+	private stripEchoedMetadata(response: z.infer<typeof blockBuilderSchema>) {
+		const clean = (block: { data?: Record<string, unknown> | null }) => {
+			if (!block?.data) return;
+			delete block.data.blockName;
+			delete block.data.blockDescription;
+			delete block.data.blockType;
+		};
+		response.blocks?.forEach(clean);
+		for (const change of response.canvasChanges ?? []) {
+			if (change.type === "block_change") change.data.blocksInfo.forEach(clean);
+		}
+		return response;
 	}
 
 	private replaceShortIds<T>(value: T, shortIdMap: Map<string, string>): T {
@@ -128,7 +149,10 @@ export class BlockBuilderAgent extends BaseAgent {
 		const projectId = this.state.internal?.metadata?.projectId || "NONE";
 		const customBlocksTable = await this.getCustomBlocksInfo(projectId);
 		const contextBlock = this.state.internal?.metadata?.contextBlock;
-		const systemPrompt = createSystemPrompt(customBlocksTable);
+		const prefetchedDocs = (await getDocsByTitle(PREFETCH_DOC_TITLES))
+			.map((doc) => doc.content)
+			.join("\n\n---\n\n");
+		const systemPrompt = createSystemPrompt(customBlocksTable, prefetchedDocs);
 		const userQuery = createUserQuery(activeTask);
 
 		const tools = [
@@ -164,7 +188,7 @@ export class BlockBuilderAgent extends BaseAgent {
 				.map((block) => [block.id, generateID()]),
 		);
 		const processedResponse = await this.reconcileRouteTarget(
-			this.replaceShortIds(response, shortIdMap),
+			this.replaceShortIds(this.stripEchoedMetadata(response), shortIdMap),
 			projectId,
 		);
 
