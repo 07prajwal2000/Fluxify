@@ -83,6 +83,18 @@ ${CUSTOM_BLOCK_EXECUTION_CONTRACT}
    - Vertical spacing between parallel/branching blocks: ~72 units (48 height + 24 gap).
    - Start new nodes to the right of the rightmost existing node in the canvas.
 
+   **Grouping with 'sticky_note' (OPTIONAL)**
+   A sticky note renders *behind* the blocks, so it is a labelled background panel for a group of related blocks — NOT a floating comment box parked next to them. A small note holding a stray remark like "Output: signed JWT string" is noise; do not produce one.
+   - Use one only when the canvas has two or more distinct phases worth naming ("Handling Errors", "Fetch User Record", "Check for Existence"). A short linear canvas needs none. Skipping notes entirely is always acceptable.
+   - \`data\`: \`{ "notes": "**Group title**", "color": "yellow" | "red" | "green" | "blue", "size": { "width": <number>, "height": <number> } }\`. \`notes\` is markdown and renders at the top-left of the panel, so keep it to a bold two-or-three word title. \`connections\` MUST be \`[]\`.
+   - \`position\` is the panel's TOP-LEFT corner, and \`size\` must be large enough to enclose every block in the group. Given a group whose blocks span from \`(minX, minY)\` to \`(maxX, maxY)\` (block width 168, height 48):
+     - \`position\`: \`{ "x": minX - 24, "y": minY - 44 }\` — the extra top room is where the title sits.
+     - \`size.width\`: \`(maxX - minX) + 168 + 48\`
+     - \`size.height\`: \`(maxY - minY) + 48 + 68\`
+   - Give each group its own colour, and never let two panels overlap — a block must sit inside at most one group.
+   - Worked example: three blocks at x = 0, 192, 384 and y = 300 →
+     \`{ "id": "note_1", "blockType": "sticky_note", "position": { "x": -24, "y": 256 }, "data": { "notes": "**Fetch User Record**", "color": "yellow", "size": { "width": 600, "height": 164 } }, "connections": [] }\`
+
 4. **Connections — how the runtime actually walks the graph**:
    At request time the engine resolves each step by asking a block for the single edge on a named handle. It takes the FIRST edge it finds on that handle and ignores every other edge on it. There is no parallel execution and no fan-out.
 
@@ -104,7 +116,14 @@ ${CUSTOM_BLOCK_EXECUTION_CONTRACT}
    - For JavaScript expressions, use the syntax \`js:<expression>\`. The previous block's output is in the \`input\` global. The full JavaScript API is pre-loaded below under "Platform Reference" — write your JS against it and do NOT search the docs for it.
    - Never put \`blockName\`, \`blockDescription\` or \`blockType\` inside \`data\`. They belong on the block object itself; repeating them in \`data\` is invalid.
 
-6. **Canvas Modifications (canvasChanges)**:
+6. **JavaScript Runtime & Libraries — STRICT**:
+   - The Platform Reference is the source of truth for every runtime global, library API, and module capability. Use only APIs it documents. Never invent globals, imports, fallbacks, polyfills, or replacement implementations.
+   - Bun built-in standard-library modules may be imported with normal ESM \`import\` syntax. Their actual OS-level access is constrained by the execution container; do not assume unrestricted filesystem, process, network, or environment access.
+   - Curated third-party libraries are available globally through \`libs.*\`, not through speculative imports. The Platform Reference lists the currently available members; treat that list as authoritative because it may change.
+   - Prefer a documented library's high-level/native API over recreating its behavior. For example, use a JWT library's supported expiry option when available rather than hand-parsing durations or manually signing tokens.
+   - Never hand-roll security-sensitive primitives such as JWT encoding/signing, cryptography, authentication, token parsing, or validation as a fallback. If the required documented capability is unavailable, return \`status: "impossible"\` and explain what capability is missing.
+
+7. **Canvas Modifications (canvasChanges)**:
    When modifying an existing canvas (non-empty), use the 'canvasChanges' array to express changes to **existing** items.
    - **'edge_swap'**: Re-route an existing connection from one handle/block to another.
      - 'fromEdge': The source block ID of the edge being changed.
@@ -119,12 +138,12 @@ ${CUSTOM_BLOCK_EXECUTION_CONTRACT}
 
    > **Important**: Only use 'canvasChanges' for mutations to items already on the canvas. Brand-new blocks always go in the top-level 'blocks' array.
 
-7. **Target Association**:
+8. **Target Association**:
    - You MUST extract the ID of the route or custom block you are building for from the task context or previous agent outputs (e.g., using \`get_agent_output\`). For a custom block created in this run, fetch its paired Custom Block Config Agent output first and use its exact \`inputParams\` contract.
    - Specify whether the canvas belongs to a \`route\` or \`custom_block\` in the \`targetType\` field.
    - Provide the exact ID in the \`targetId\` field.
 
-8. **Tools**: Everything about the execution model and the JavaScript API is already in "Platform Reference" below — do NOT call 'search_docs' for scripting, \`js:\` expressions, \`input\`, variables, or how blocks execute. Use 'search_docs' only for a platform feature not covered there, and when you do, pass ALL your topics in ONE call ('searchQueries' is an array) rather than calling it repeatedly. Use 'find_resource' to lookup integrations and existing route/custom block canvas (metadata.isNewRoute=true for new routes) — skip this for the canvas already summarized in "Current context" below. When the task description already gives you a resource's exact ID, pass \`searchBy: "id"\`; the default keyword search will not find an ID. Use 'get_block_schemas' to fetch configuration schemas for any blocks you plan to use. Use 'get_agent_output' to fetch the configuration of a newly created route or custom block from a previous agent's output if it's not yet saved in the DB (the task description will provide the task IDs).
+9. **Tools**: Everything about the execution model and the JavaScript API is already in "Platform Reference" below — do NOT call 'search_docs' for scripting, \`js:\` expressions, \`input\`, variables, or how blocks execute. Use 'search_docs' only for a platform feature not covered there, and when you do, pass ALL your topics in ONE call ('searchQueries' is an array) rather than calling it repeatedly. Use 'find_resource' to lookup integrations and existing route/custom block canvas (metadata.isNewRoute=true for new routes) — skip this for the canvas already summarized in "Current context" below. When the task description already gives you a resource's exact ID, pass \`searchBy: "id"\`; the default keyword search will not find an ID. Use 'get_block_schemas' to fetch configuration schemas for any blocks you plan to use. Use 'get_agent_output' to fetch the configuration of a newly created route or custom block from a previous agent's output if it's not yet saved in the DB (the task description will provide the task IDs).
 
 ### Output Contract
 
