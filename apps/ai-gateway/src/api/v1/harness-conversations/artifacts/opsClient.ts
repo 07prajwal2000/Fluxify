@@ -29,6 +29,16 @@ export function callerFor(userId: string, projectId: string): RpcCaller {
  * and `VALIDATION_FAILED` are things the user (or a follow-up run) can act on;
  * `INTERNAL` and `TIMEOUT` are failures, so they stay 500s.
  */
+/** `Malformed operation (data.inputParams.0.name: Invalid string)` */
+function describe(error: RpcError) {
+	const fields = Array.isArray(error.details)
+		? error.details
+				.map((d: any) => [d?.field, d?.message].filter(Boolean).join(": "))
+				.filter(Boolean)
+		: [];
+	return fields.length > 0 ? `${error.message} (${fields.join("; ")})` : error.message;
+}
+
 export function fromRpcError(error: unknown) {
 	if (!(error instanceof RpcError)) return error;
 	switch (error.code) {
@@ -37,7 +47,9 @@ export function fromRpcError(error: unknown) {
 			return new NotFoundError(error.message);
 		case "VALIDATION_FAILED":
 		case "PAYLOAD_TOO_LARGE":
-			return new BadRequestError(error.message);
+			// "Malformed operation" on its own says nothing the user (or a retry)
+			// can act on — the offending field is in `details`.
+			return new BadRequestError(describe(error));
 		case "CONFLICT":
 			return new ConflictError(error.message);
 		case "FORBIDDEN":

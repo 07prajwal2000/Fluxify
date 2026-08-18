@@ -54,17 +54,18 @@ Do NOT call find_resource to look this up — you already have it.`;
 		}
 
 		if (location.where === "custom-block-canvas") {
-			const canvas = await dbService.getCustomBlockCanvas(
-				projectId,
-				location.id,
-			);
+			const [canvas, [block]] = await Promise.all([
+				dbService.getCustomBlockCanvas(projectId, location.id),
+				dbService.findCustomBlocks(projectId, location.id, "id"),
+			]);
 			if (!canvas) return undefined;
 
 			return `## Current context
 ${fenceUntrusted(
 	"current_context",
-	`The user is currently viewing custom block \`${location.id}\`.
-Its canvas has ${summarizeCanvas(canvas)}.`,
+	`The user is currently viewing custom block \`${location.id}\`${block ? ` ("${block.label ?? block.name}", block type \`${block.name}\`)` : ""}.
+Its canvas has ${summarizeCanvas(canvas)}.
+${block ? `Its caller contract (\`params\`) is ${JSON.stringify(block.inputParams ?? [])}.` : ""}`,
 )}
 Treat this as the target unless the request names another resource.
 Do NOT call find_resource to look this up — you already have it.`;

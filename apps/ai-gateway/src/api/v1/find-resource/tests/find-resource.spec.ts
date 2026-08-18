@@ -59,15 +59,31 @@ describe("Find Resource Service", () => {
 		const appConfigs = spyOn(DbService.prototype, "findAppConfigs").mockResolvedValue(
 			[] as never,
 		);
+		const customBlocks = spyOn(DbService.prototype, "findCustomBlocks").mockResolvedValue([
+			{
+				type: "custom_block",
+				id: "cb1",
+				name: "user_defined.project.notify",
+				label: "Notify",
+				inputParams: [{ name: "message", type: "text_input", label: "Message" }],
+			},
+		] as never);
 
 		const result = await handleRequest("proj1", "users");
 
 		// Whole phrase, one term — see the note in the service.
-		for (const spy of [routes, integrations, appConfigs]) {
+		for (const spy of [routes, integrations, appConfigs, customBlocks]) {
 			expect(spy).toHaveBeenCalledWith("proj1", "users");
 		}
 		expect(result.query).toBe("users");
-		expect(result.results.map((r) => r.type)).toEqual(["route", "integration"]);
+		expect(result.results.map((r) => r.type)).toEqual([
+			"route",
+			"integration",
+			"custom_block",
+		]);
+		// the caller contract travels with the block — an id alone says nothing
+		// about how to invoke it
+		expect(result.results.at(-1)?.inputParams).toHaveLength(1);
 	});
 
 	it("rejects a blank query instead of scanning every table", () => {

@@ -2,6 +2,7 @@
 export const CUSTOM_BLOCK_PARAMETER_CONTRACT = `
 ## Custom Block Caller Contract
 Custom-block inputParams are public API supplied by caller blocks, not values produced inside callee graph.
+- Parameter names are lowercase snake_case (\`api_key\`, never \`apiKey\`).
 - Declare every value implementation reads as \`params.<name>\` or substitutes as \`param:<name>\`; names must match exactly.
 - \`text_input\`: string; \`checkbox\`: boolean; \`array_editor\`: array; \`dropdown\`: declared string options.
 - \`integration_selector\`: caller supplies integration id. \`app_config_selector\`: caller supplies app-config KEY, never secret/value; read it only with \`getConfig(params.<name>)\`.

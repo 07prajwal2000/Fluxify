@@ -90,3 +90,12 @@ export function $createResourceNode(resourceType: string, identifier: string, na
 export function $isResourceNode(node: LexicalNode | null | undefined): node is ResourceNode {
     return node instanceof ResourceNode;
 }
+
+// A Lexical node class is registered exactly once, in the editor's
+// `initialConfig.nodes`. Fast Refresh re-evaluates this module whenever it or
+// anything it imports (ResourceChip) changes, minting a *second* class that the
+// mounted editor never registered — every insert then throws "Type resource in
+// node ResourceNode does not match registered node ResourceNode with the same
+// type" and the chip vanishes. A class is not hot-swappable, so take the full
+// reload instead of the broken partial update. Dev only; stripped from builds.
+if (import.meta.hot) import.meta.hot.decline();

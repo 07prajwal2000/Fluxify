@@ -7,7 +7,7 @@ export {
 export { FormatControls } from "./FormatControls";
 export {
 	layoutBlocks,
-	portSide,
+	handleSide,
 	type LayoutOptions,
 	type LayoutPositions,
-} from "./elkLayout";
+} from "./canvasLayout";

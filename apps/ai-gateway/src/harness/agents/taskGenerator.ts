@@ -114,7 +114,72 @@ export function sanitizeTasks(
 		}
 	}
 
-	return { tasks: kept, notes };
+	return { tasks: mergeChains(kept, notes), notes };
+}
+
+/**
+ * Contracts a linear chain of same-agent tasks into one task.
+ *
+ * The planner writes a *user-facing* plan ("add the block", "configure it",
+ * "return it in the response") and the task generator turns each bullet into
+ * its own task, all on the same sub-agent and chained one after the other.
+ * Rule 8 of its prompt says to consolidate those, and it routinely doesn't.
+ *
+ * The result is several `blockBuilder` runs editing one canvas in series: each
+ * regenerates the whole graph from the previous one's output, so every hop is
+ * another chance to drop a field the supervisor then rejects — and the user
+ * watches three agents do one edit. Merging is safe only for a true chain:
+ * B depends on A alone and nothing else depends on A, so no other task's
+ * ordering changes. Independent same-agent tasks (two different routes) are
+ * left alone.
+ */
+function mergeChains(tasks: Task[], notes: string[]): Task[] {
+	const byId = new Map(tasks.map((t) => [t.id, t]));
+	const dependents = new Map<string, string[]>();
+	for (const t of tasks) {
+		for (const dep of t.dependsOnAgentId) {
+			dependents.set(dep, [...(dependents.get(dep) ?? []), t.id]);
+		}
+	}
+
+	const merged = new Set<string>();
+	for (const task of tasks) {
+		if (merged.has(task.id)) continue;
+		// Walk forward while the single dependent is the same agent.
+		for (;;) {
+			const next = dependents.get(task.id) ?? [];
+			if (next.length !== 1) break;
+			const child = byId.get(next[0]!);
+			if (
+				!child ||
+				merged.has(child.id) ||
+				child.assignedAgentNode !== task.assignedAgentNode ||
+				child.dependsOnAgentId.length !== 1
+			)
+				break;
+
+			task.description = `${task.description}
+
+${child.title}: ${child.description}`;
+			// The child's dependents inherit the merged task.
+			for (const id of dependents.get(child.id) ?? []) {
+				const t = byId.get(id);
+				if (t)
+					t.dependsOnAgentId = [
+						...new Set(
+							t.dependsOnAgentId.map((d) => (d === child.id ? task.id : d)),
+						),
+					].filter((d) => d !== t.id);
+			}
+			dependents.set(task.id, dependents.get(child.id) ?? []);
+			merged.add(child.id);
+			notes.push(
+				`Task "${child.title}" was merged into "${task.title}": both run on ${task.assignedAgentNode} one after the other, so they are one edit.`,
+			);
+		}
+	}
+
+	return tasks.filter((t) => !merged.has(t.id));
 }
 
 function topologicalSortByLevel(tasks: Task[]): string[][] {

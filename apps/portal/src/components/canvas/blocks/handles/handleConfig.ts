@@ -1,4 +1,9 @@
 import { Position } from "@xyflow/react";
+import {
+	HANDLE_SIDE,
+	type HandleKind,
+	type HandleSide,
+} from "@fluxify/blocks/layout";
 
 /**
  * Socket kinds. Geometry, colour and connection limits are all derived from the
@@ -9,15 +14,10 @@ import { Position } from "@xyflow/react";
  * Everything else is outbound and capped at one edge. Names match the handle
  * ids already persisted on edges (`<blockId>-<kind>`).
  */
-export type HandleKind =
-	| "source"
-	| "target"
-	| "executor"
-	| "success"
-	| "failure";
-
-/** Which edge of the block the socket rail sits on. */
-export type HandleSide = "left" | "right" | "top" | "bottom";
+// The kinds and the side each one sits on are shared with the layout in
+// @fluxify/blocks, so a socket cannot be drawn on one side and routed to
+// another. Everything below is rendering-only.
+export type { HandleKind, HandleSide };
 
 export type HandleConfig = {
 	/** React Flow direction: `target` = inbound, `source` = outbound. */
@@ -35,7 +35,7 @@ export type HandleConfig = {
 export const HANDLE_CONFIG: Record<HandleKind, HandleConfig> = {
 	target: {
 		flow: "target",
-		side: "left",
+		side: HANDLE_SIDE.target,
 		position: Position.Left,
 		shape: "rect",
 		color: "var(--fx-block-fg, #18181b)",
@@ -44,7 +44,7 @@ export const HANDLE_CONFIG: Record<HandleKind, HandleConfig> = {
 	},
 	source: {
 		flow: "source",
-		side: "right",
+		side: HANDLE_SIDE.source,
 		position: Position.Right,
 		shape: "circle",
 		color: "var(--violet, #7c5cff)",
@@ -53,7 +53,7 @@ export const HANDLE_CONFIG: Record<HandleKind, HandleConfig> = {
 	},
 	success: {
 		flow: "source",
-		side: "right",
+		side: HANDLE_SIDE.success,
 		position: Position.Right,
 		shape: "circle",
 		color: "var(--success, #40c057)",
@@ -62,7 +62,7 @@ export const HANDLE_CONFIG: Record<HandleKind, HandleConfig> = {
 	},
 	failure: {
 		flow: "source",
-		side: "right",
+		side: HANDLE_SIDE.failure,
 		position: Position.Right,
 		shape: "circle",
 		color: "var(--danger, #e5484d)",
@@ -71,7 +71,7 @@ export const HANDLE_CONFIG: Record<HandleKind, HandleConfig> = {
 	},
 	executor: {
 		flow: "source",
-		side: "top",
+		side: HANDLE_SIDE.executor,
 		position: Position.Top,
 		shape: "circle",
 		color: "var(--violet, #7c5cff)",

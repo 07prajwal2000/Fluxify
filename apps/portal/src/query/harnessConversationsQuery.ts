@@ -13,6 +13,18 @@ import {
 
 const key = (projectId: string) => ["harness-conversations", projectId];
 
+/**
+ * Applying an output writes real routes, custom blocks and canvases over the
+ * bus, so every view of the project is stale — not just the conversation.
+ * Both key roots are prefixes (`["routes", …]`, `["custom-blocks", …]`), so
+ * one call each covers the list, the by-id read and the canvas items.
+ */
+function invalidateApplied(qc: ReturnType<typeof useQueryClient>, projectId: string) {
+	qc.invalidateQueries({ queryKey: key(projectId) });
+	qc.invalidateQueries({ queryKey: ["routes"] });
+	qc.invalidateQueries({ queryKey: ["custom-blocks"] });
+}
+
 export const harnessConversationsQuery = {
 	list: {
 		useQuery(projectId: string, query: Partial<ListHarnessConversationsQuery> = {}) {
@@ -161,7 +173,7 @@ export const harnessConversationsQuery = {
 						conversationId,
 						subArtifactId,
 					),
-				onSuccess: () => qc.invalidateQueries({ queryKey: key(projectId) }),
+				onSuccess: () => invalidateApplied(qc, projectId),
 			});
 		},
 	},
@@ -175,7 +187,7 @@ export const harnessConversationsQuery = {
 						conversationId,
 						artifactId,
 					),
-				onSuccess: () => qc.invalidateQueries({ queryKey: key(projectId) }),
+				onSuccess: () => invalidateApplied(qc, projectId),
 			});
 		},
 	},

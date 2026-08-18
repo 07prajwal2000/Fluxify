@@ -35,6 +35,9 @@ export interface FindResourceResult {
 	method?: string;
 	group?: string;
 	variant?: string;
+	/** custom blocks only: display name, and the caller contract a caller fills in */
+	label?: string;
+	inputParams?: unknown[];
 }
 
 export type AgentNodeName = `${AgentNode}`;
@@ -192,7 +195,12 @@ export interface OrchestratorState {
 export const GraphState = Annotation.Root({
 	...MessagesAnnotation.spec,
 	scratchpad: Annotation<string[]>({
-		reducer: (oldState, newState) => [...oldState, ...newState],
+		// De-duplicated: every node that resumes re-emits its note, so a 3-task run
+		// accumulated the same two planner lines ~70 times and shipped all of them
+		// in every downstream prompt.
+		reducer: (oldState, newState) => [
+			...new Set([...oldState, ...newState]),
+		],
 		default: () => [],
 	}),
 	agentWrapper: Annotation<BaseAgentWrapper>({

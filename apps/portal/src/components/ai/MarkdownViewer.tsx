@@ -74,8 +74,16 @@ export function MarkdownViewer({ content }: MarkdownViewerProps) {
 					
 					// AI Directives Mapping
 					"ai-resource": (props: any) => <ResourceChip {...props} />,
-					"ai-createintegration": (props: any) => <CreationInlineBtn kind="Integration" {...props} />,
-					"ai-createappconfig": (props: any) => <CreationInlineBtn kind="App Config" {...props} />,
+					// An integration or config the plan needs is a resource like any
+					// other — it just may not exist yet. The chip looks it up and
+					// offers Create or Go to; the artifact sidebar has nothing to
+					// show for something no sub-artifact ever produced.
+					"ai-createintegration": (props: any) => (
+						<ResourceChip type="integration" identifier="" name={props.label} />
+					),
+					"ai-createappconfig": (props: any) => (
+						<ResourceChip type="app_config" identifier="" name={props.label} />
+					),
 					"ai-createroute": (props: any) => <CreationInlineBtn kind="Route" {...props} />,
 					"ai-createcustomblock": (props: any) => <CreationInlineBtn kind="Custom Block" {...props} />,
 					"ai-route": (props: any) => <RouteButton {...props} />,

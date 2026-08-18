@@ -520,6 +520,9 @@ test("custom and user-defined block types fallback to customBlockSettings with a
 
 	const result = splitTabs(tabsFn!(customBlock));
 	expect(result.blockTabs.map((tab) => tab.props.name)).toEqual(["Parameters"]);
+	// "Edit Implementation" is about the block itself, so it rides in General
+	// alongside the name and description rather than with the call's parameters.
+	expect(result.generalExtras).toHaveLength(1);
 });
 
 

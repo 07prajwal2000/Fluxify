@@ -104,7 +104,12 @@ export const createFindResourceTool = (
 					(row) =>
 						`| ${keys
 							.map((key) =>
-								String(row[key] ?? "")
+								// `inputParams` is an array; String() on it gives the
+								// model nothing it can use
+								(typeof row[key] === "object" && row[key] !== null
+									? JSON.stringify(row[key])
+									: String(row[key] ?? "")
+								)
 									.replace(/\|/g, "\\|")
 									.replace(/\n/g, " "),
 							)

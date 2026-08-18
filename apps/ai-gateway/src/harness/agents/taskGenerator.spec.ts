@@ -97,9 +97,73 @@ describe("sanitizeTasks", () => {
 	it("keeps a real dependency edge", () => {
 		const { tasks, notes } = sanitizeTasks([
 			raw({ id: "aaa11" }),
-			raw({ id: "bbb22", dependsOnAgentId: ["aaa11"] }),
+			// a different agent, so the same-agent chain merge leaves the edge alone
+			raw({
+				id: "bbb22",
+				dependsOnAgentId: ["aaa11"],
+				assignedAgentNode: AgentNode.BLOCK_BUILDER,
+			}),
 		]);
 		expect(tasks[1]!.dependsOnAgentId).toEqual(["aaa11"]);
 		expect(notes).toEqual([]);
+	});
+});
+
+describe("sanitizeTasks — chained same-agent tasks", () => {
+	const chain = (): RawTask[] => [
+		raw({ id: "JWT01", title: "Add block", assignedAgentNode: AgentNode.BLOCK_BUILDER }),
+		raw({
+			id: "JWT02",
+			title: "Configure block",
+			dependsOnAgentId: ["JWT01"],
+			assignedAgentNode: AgentNode.BLOCK_BUILDER,
+		}),
+		raw({
+			id: "JWT03",
+			title: "Return it in the response",
+			dependsOnAgentId: ["JWT02"],
+			assignedAgentNode: AgentNode.BLOCK_BUILDER,
+		}),
+	];
+
+	it("collapses one canvas edit split across three builder runs", () => {
+		const { tasks, notes } = sanitizeTasks(chain());
+		expect(tasks.map((t) => t.id)).toEqual(["JWT01"]);
+		expect(tasks[0]!.description).toContain("Configure block");
+		expect(tasks[0]!.description).toContain("Return it in the response");
+		expect(notes).toHaveLength(2);
+	});
+
+	it("re-points a later task at the merged one", () => {
+		const { tasks } = sanitizeTasks([
+			...chain().slice(0, 2),
+			raw({
+				id: "SUM01",
+				dependsOnAgentId: ["JWT02"],
+				assignedAgentNode: AgentNode.ROUTE_CONFIG_AGENT,
+			}),
+		]);
+		expect(tasks.map((t) => t.id)).toEqual(["JWT01", "SUM01"]);
+		expect(tasks[1]!.dependsOnAgentId).toEqual(["JWT01"]);
+	});
+
+	it("leaves independent same-agent tasks alone", () => {
+		const { tasks } = sanitizeTasks([
+			raw({ id: "aaa11", assignedAgentNode: AgentNode.BLOCK_BUILDER }),
+			raw({ id: "bbb22", assignedAgentNode: AgentNode.BLOCK_BUILDER }),
+		]);
+		expect(tasks).toHaveLength(2);
+	});
+
+	it("does not merge across different agents", () => {
+		const { tasks } = sanitizeTasks([
+			raw({ id: "aaa11", assignedAgentNode: AgentNode.CUSTOM_BLOCK_CONFIG_AGENT }),
+			raw({
+				id: "bbb22",
+				dependsOnAgentId: ["aaa11"],
+				assignedAgentNode: AgentNode.BLOCK_BUILDER,
+			}),
+		]);
+		expect(tasks).toHaveLength(2);
 	});
 });

@@ -301,7 +301,9 @@ export class DbService {
 				.select({
 					id: customBlocksListEntity.id,
 					name: customBlocksListEntity.name,
+					label: customBlocksListEntity.label,
 					description: customBlocksListEntity.description,
+					inputParams: customBlocksListEntity.inputParams,
 				})
 				.from(customBlocksListEntity)
 				.where(
@@ -318,7 +320,12 @@ export class DbService {
 				type: "custom_block",
 				id: c.id,
 				name: c.name,
+				label: c.label || c.name,
 				description: c.description || "",
+				// the caller contract is the thing anyone looking a custom block
+				// up actually needs; without it the id alone says nothing about
+				// how to invoke the block
+				inputParams: Array.isArray(c.inputParams) ? c.inputParams : [],
 			}));
 		} catch (e) {
 			logger.error("[DbService] Error searching custom blocks", { error: e });
