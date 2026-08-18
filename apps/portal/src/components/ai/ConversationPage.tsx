@@ -17,6 +17,7 @@ import { HarnessStatusAccordion } from "./HarnessStatusAccordion";
 import { ArtifactsSidebar } from "./ArtifactsSidebar";
 import type { HarnessConversation } from "./types";
 import { PlanReviewModal } from "./PlanReviewModal";
+import type { ApplyMode } from "./ApplyModeSelect";
 import { Button } from "@fluxify/components";
 import { TbListSearch } from "react-icons/tb";
 
@@ -139,9 +140,11 @@ export function ConversationPage() {
 			query: string;
 			integrationId?: string;
 			conversationId: string;
+			applyMode?: ApplyMode;
 		} = {
 			query: q,
 			conversationId,
+			applyMode: useAiHarnessStore.getState().applyMode,
 		};
 		if (!isFallback && model) {
 			reqPayload.integrationId = model;

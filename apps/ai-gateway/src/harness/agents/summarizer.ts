@@ -3,6 +3,10 @@ import { BaseAgent } from "./base";
 import { type GlobalGraphState, AgentNode } from "../types";
 import { dispatchAgentEvent } from "../callbacks";
 import { enforceTokenAllowlist } from "./summarizerTokens";
+import {
+	applyArtifact,
+	type ApplyFailure,
+} from "../../api/v1/harness-conversations/artifacts/service";
 
 /** A single change the harness made, with its verbatim special-syntax token. */
 interface ChangeRef {
@@ -40,6 +44,55 @@ function isBlockBuilderResult(r: any): boolean {
 export class SummarizerAgent extends BaseAgent {
 	constructor(state: GlobalGraphState) {
 		super(state);
+	}
+
+	/**
+	 * In `auto` mode the user has said they do not want to click apply, so the
+	 * run finishes the job: every output of this artifact is pushed into the
+	 * project through the same path the Apply button uses.
+	 *
+	 * Best-effort by design — one output that cannot land must not strand the
+	 * nine that can. What fails stays unapplied (and therefore still applyable
+	 * by hand), gets a failure toast of its own, and is returned so the summary
+	 * can tell the user it is not live.
+	 */
+	private async autoApply(
+		artifactId: string | undefined,
+	): Promise<ApplyFailure[]> {
+		const meta = this.state.internal?.metadata ?? {};
+		if (meta.applyMode !== "auto" || !artifactId) return [];
+
+		const conversationId = this.state.internal?.harnessService?.getConversationId();
+		const { userId, projectId } = meta;
+		if (!conversationId || !userId || !projectId) return [];
+
+		await dispatchAgentEvent({
+			name: "agent_status",
+			data: { status: "Applying changes...", agent: AgentNode.SUMMARIZER },
+		});
+
+		try {
+			const { failed } = await applyArtifact(
+				userId,
+				conversationId,
+				projectId,
+				artifactId,
+			);
+			return failed;
+		} catch (error) {
+			// Nothing landed at all — a bad artifact id, or the bus is down. The
+			// outputs are all still applyable by hand, which is what manual mode
+			// would have left the user with anyway, so the run still succeeds.
+			logger.error("[Summarizer] Auto-apply failed", { artifactId, error });
+			return [
+				{
+					id: artifactId,
+					kind: "artifact",
+					label: "changes from this run",
+					reason: error instanceof Error ? error.message : "Unknown error",
+				},
+			];
+		}
 	}
 
 	async execute(): Promise<Partial<GlobalGraphState>> {
@@ -147,15 +200,23 @@ export class SummarizerAgent extends BaseAgent {
 					.join("\n\n")
 			: "No structured changes were produced by the build agents.";
 
+		const applyFailures = await this.autoApply(artifactId);
+
 		const failedTasks = tasks.filter((t) => t.status === "failed");
-		const failedText = failedTasks.length
-			? failedTasks
-					.map(
-						(t) =>
-							`- "${t.title}" — ${t.supervisorReviews ?? "the agent produced no usable result"}`,
-					)
-					.join("\n")
-			: "None.";
+		const failedLines = [
+			...failedTasks.map(
+				(t) =>
+					`- "${t.title}" — ${t.supervisorReviews ?? "the agent produced no usable result"}`,
+			),
+			// An auto-apply that half-landed is exactly the "did not get done"
+			// case the user needs told about — the output still exists and is
+			// re-appliable, but it is NOT live in their project.
+			...applyFailures.map(
+				(f) =>
+					`- The ${f.label} was built but could not be applied automatically — ${f.reason}. Tell the user it is not live yet and they can apply it manually.`,
+			),
+		];
+		const failedText = failedLines.length ? failedLines.join("\n") : "None.";
 
 		const hintsText = scratchpad.length
 			? scratchpad.map((s) => `- ${s}`).join("\n")

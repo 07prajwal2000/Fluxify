@@ -15,7 +15,24 @@ export interface HarnessJobMetadata {
 	integrationId?: string;
 	/** Resource the user was viewing when they sent this message, if any. */
 	location?: { where: "route-canvas" | "custom-block-canvas"; id: string };
+	/** Which human gates this run stops at. See `ApplyMode`. */
+	applyMode?: ApplyMode;
 }
+
+/**
+ * How much of the run the user wants to sign off on.
+ *
+ * - `manual` (default, and the behaviour that existed before this was a choice):
+ *   the planner decides whether the plan needs review, and every artifact is
+ *   applied by hand.
+ * - `plan`: the plan ALWAYS halts for human review, however confident the
+ *   planner is. Applying is still manual.
+ * - `auto`: no gates. The plan never halts, and the run's artifacts are applied
+ *   as soon as it finishes.
+ */
+export type ApplyMode = "manual" | "plan" | "auto";
+
+export const DEFAULT_APPLY_MODE: ApplyMode = "manual";
 
 /**
  * Job payload for the harness queue.

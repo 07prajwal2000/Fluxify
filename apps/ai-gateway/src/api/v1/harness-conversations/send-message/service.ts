@@ -5,6 +5,7 @@ import {
 	getProjectSetting,
 } from "@fluxify/server";
 import { enqueueHarnessStart } from "../../../../harness/internal/enqueue";
+import { DEFAULT_APPLY_MODE } from "../../../../harness/queue";
 import { getConversationById, getProjectIntegration } from "../repository";
 import { isConversationLocked } from "../status";
 import { bumpListCacheVersion } from "../cacheVersion";
@@ -79,6 +80,7 @@ export default async function handleRequest(
 			projectId,
 			location: body.location,
 			integrationId: body.integrationId,
+			applyMode: body.applyMode ?? DEFAULT_APPLY_MODE,
 		},
 	});
 

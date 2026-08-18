@@ -38,7 +38,9 @@ export function ModelSelect({ projectId, value, models, onChange }: Props) {
 			variant="secondary"
 			value={value}
 			onChange={(v) => v && onChange(String(v as Key))}
-			className="w-[240px]"
+			// shrinkable: this row sits inside a chat column that narrows when the
+			// artifacts panel opens, and a fixed width overflowed the composer
+			className="w-[240px] min-w-[110px] shrink"
 		>
 			<Select.Trigger className="flex w-full h-9 items-center justify-between gap-2 rounded-2xl border border-border bg-transparent px-3 font-medium text-muted shadow-none hover:bg-surface-secondary data-[open=true]:bg-surface-secondary data-[focus-visible=true]:ring-0 transition-colors relative">
 				{!value && (

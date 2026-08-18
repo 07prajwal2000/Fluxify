@@ -70,7 +70,30 @@ export type HarnessSocketMessage =
 			conversationId: string;
 			runId: string;
 			event: HarnessStreamEvent;
-	  };
+	  }
+	| { type: "artifact_status"; status: ArtifactStatus };
+
+/**
+ * One artifact landing in (or failing to land in) the project.
+ *
+ * Deliberately not a `HarnessStreamEvent`: a manual apply happens long after
+ * its run ended and has no node, no level and no live run to attach to, but the
+ * user still needs to be told what just changed in their project. The same
+ * shape covers auto-applies, so the client has one thing to render.
+ */
+export interface ArtifactStatus {
+	conversationId: string;
+	subArtifactId: string;
+	kind: string;
+	/** created | changed | deleted — the lifecycle event that happened. */
+	event: "created" | "changed" | "deleted";
+	outcome: "applied" | "failed";
+	/** Ready to show: `Created route 'Get Order' (GET /orders/:id)`. */
+	message: string;
+	/** Why it failed. Only set when `outcome === "failed"`. */
+	reason?: string;
+	timestamp: number;
+}
 
 /** Run statuses after which no further events arrive for the current run pass.
  *  `awaiting_hitl` is terminal-but-resumable (resumes as a fresh pass). */

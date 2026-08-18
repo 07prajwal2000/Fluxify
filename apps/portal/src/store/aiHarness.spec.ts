@@ -20,6 +20,7 @@ function blankState(): AiHarnessState {
 		list: [],
 		runs: {},
 		selectedModelId: "gpt-4o-mini",
+		applyMode: "manual",
 		selectedArtifact: null,
 	};
 }

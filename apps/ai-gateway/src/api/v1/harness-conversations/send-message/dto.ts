@@ -17,6 +17,9 @@ export const requestBodySchema = z.object({
 	/** AI integration to drive this run. Must be an `ai` integration in the same
 	 *  project with `useForHarness: true`. Omit to use the project's default. */
 	integrationId: z.string().min(1).optional(),
+	/** Which human gates this run stops at. Omit for `manual` — the behaviour
+	 *  that existed before this was a choice. */
+	applyMode: z.enum(["manual", "plan", "auto"]).optional(),
 });
 
 export const responseSchema = z.object({

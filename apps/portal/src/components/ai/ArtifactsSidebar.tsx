@@ -8,8 +8,11 @@ export function ArtifactsSidebar() {
 	const setSelectedArtifact = useAiHarnessStore((s) => s.setSelectedArtifact);
 
 	return (
-		<div 
-			className={`h-full border-l border-border bg-surface transition-all duration-300 ease-in-out shrink-0 overflow-hidden ${
+		// `relative z-10`: the chat column's composer is `position: sticky`, and a
+		// positioned box paints above a non-positioned sibling however late that
+		// sibling comes in the DOM — the send button showed through this panel.
+		<div
+			className={`relative z-10 h-full border-l border-border bg-surface transition-all duration-300 ease-in-out shrink-0 overflow-hidden ${
 				selectedArtifact ? 'w-[500px] opacity-100' : 'w-0 opacity-0 border-none'
 			}`}
 		>

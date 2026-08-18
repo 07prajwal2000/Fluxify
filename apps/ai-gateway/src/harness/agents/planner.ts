@@ -1,6 +1,7 @@
 import { BaseAgent } from "./base";
 import { type GlobalGraphState, AgentNode } from "../types";
 import { dispatchAgentEvent } from "../callbacks";
+import { DEFAULT_APPLY_MODE, type ApplyMode } from "../queue";
 import { blockAiDescriptions } from "@fluxify/blocks";
 import { z } from "zod";
 import { subAgents } from "./sub-agents";
@@ -56,6 +57,25 @@ const plannerSchema = z.object({
 			"Complexity of the system if AI builds it without human reviews.",
 		),
 });
+
+/**
+ * Whether the run stops for the user to read the plan before anything is built.
+ *
+ * The apply mode is the user's standing answer to "do I want to see the plan
+ * first", so it outranks the planner's own read of the task in both directions:
+ * `plan` always stops however confident the planner is, `auto` never stops, and
+ * `manual` leaves the judgement exactly where it was before modes existed.
+ */
+export function requiresPlanReview(
+	applyMode: ApplyMode | undefined,
+	confidenceScore: number,
+	implementationComplexity: string,
+): boolean {
+	const mode = applyMode ?? DEFAULT_APPLY_MODE;
+	if (mode === "plan") return true;
+	if (mode === "auto") return false;
+	return confidenceScore < 4 || implementationComplexity === "high";
+}
 
 export class PlannerAgent extends BaseAgent {
 	constructor(state: GlobalGraphState) {
@@ -165,9 +185,11 @@ Plan carefully, thoroughly, and output excellent English craft for the user's pl
 			agentNode: AgentNode.PLANNER,
 		})) as z.infer<typeof plannerSchema>;
 
-		const requiresHITL =
-			response.confidenceScore < 4 ||
-			response.implementationComplexity === "high";
+		const requiresHITL = requiresPlanReview(
+			this.state.internal?.metadata?.applyMode,
+			response.confidenceScore,
+			response.implementationComplexity,
+		);
 
 		// Halting the workflow loop to wait for user review (HITL) via nextRoute
 		if (requiresHITL) {

@@ -102,6 +102,8 @@ describe("Send Message Service", () => {
 				projectId: "proj1",
 				location: { where: "route-canvas", id: "r_1" },
 				integrationId: undefined,
+				// omitting applyMode means the pre-existing behaviour: manual
+				applyMode: "manual",
 			},
 		});
 		expect(result).toEqual({ conversationId: "conv-new", runId: "run-new" });

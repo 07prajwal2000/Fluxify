@@ -9,6 +9,8 @@ import { showErrorNotification } from "@/lib/errorNotifier";
 import { PromptEditor } from "./PromptEditor";
 import { STARTERS } from "./starters";
 import { useAiModels } from "./useAiModels";
+import type { ApplyMode } from "./ApplyModeSelect";
+import { useAiHarnessStore } from "@/store/aiHarness";
 
 const logo = `${import.meta.env.BASE_URL}icons/logo.webp`;
 
@@ -22,7 +24,11 @@ export function AiHome() {
 
 	const submit = (q: string, model: string, isFallback: boolean) => {
 		// Only pass model/integration ID if it's NOT the fallback project setting
-		const reqPayload: { query: string; integrationId?: string } = { query: q };
+		const reqPayload: {
+			query: string;
+			integrationId?: string;
+			applyMode?: ApplyMode;
+		} = { query: q, applyMode: useAiHarnessStore.getState().applyMode };
 		if (!isFallback && model) {
 			reqPayload.integrationId = model;
 		}
