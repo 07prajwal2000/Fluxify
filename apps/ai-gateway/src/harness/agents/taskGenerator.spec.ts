@@ -52,6 +52,13 @@ describe("sanitizeTasks", () => {
 		expect(notes).toEqual([]);
 	});
 
+	it("accepts the custom block config agent", () => {
+		const { tasks } = sanitizeTasks([
+			raw({ assignedAgentNode: AgentNode.CUSTOM_BLOCK_CONFIG_AGENT }),
+		]);
+		expect(tasks[0]!.assignedAgentNode).toBe(AgentNode.CUSTOM_BLOCK_CONFIG_AGENT);
+	});
+
 	it("re-keys duplicate ids so every task still runs", () => {
 		const { tasks, notes } = sanitizeTasks([
 			raw({ id: "dup01", title: "first" }),

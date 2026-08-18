@@ -26,6 +26,9 @@ function mapInputParamsToNaturalLanguage(inputParams: any[]): string {
 			case "integration_selector":
 				typeStr = "string // integration id";
 				break;
+			case "app_config_selector":
+				typeStr = "string // app config key; use getConfig(params.<name>), never a literal secret";
+				break;
 			case "dropdown":
 				if (param.options && Array.isArray(param.options)) {
 					const opts = param.options.map((opt: any) => `"${opt.value}"`);

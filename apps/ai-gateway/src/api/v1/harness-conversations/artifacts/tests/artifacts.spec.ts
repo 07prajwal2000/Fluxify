@@ -34,6 +34,9 @@ mock.module("../opsClient", () => ({
 		projectIds: [projectId],
 	}),
 	createRoute: record("createRoute", { id: "live-route" }),
+	createCustomBlock: record("createCustomBlock", { id: "live-custom-block" }),
+	modifyCustomBlock: record("modifyCustomBlock", { id: "live-custom-block" }),
+	deleteCustomBlock: record("deleteCustomBlock", { id: "live-custom-block" }),
 	modifyRoute: record("modifyRoute", { id: "live-route" }),
 	deleteRoute: record("deleteRoute", { id: "live-route" }),
 	readCanvas: record("readCanvas", { blocks: [], edges: [] }),
@@ -57,6 +60,20 @@ const canvasRow = (over: Record<string, any> = {}) => ({
 	action: "changes",
 	appliedAt: null,
 	payload: { targetType: "route", targetId: "route-1", blocks: [] },
+	...over,
+});
+
+const customBlockRow = (over: Record<string, any> = {}) => ({
+	id: "custom-block-sub",
+	artifactId: "art1",
+	kind: "custom_block",
+	action: "add",
+	appliedAt: null,
+	payload: {
+		action: "create",
+		customBlockId: "custom-block-1",
+		data: { name: "send_notice", label: "Send Notice", inputParams: [] },
+	},
 	...over,
 });
 
@@ -105,6 +122,36 @@ describe("Harness Artifacts Service", () => {
 		// names it, so letting storage mint a new one orphans the pair
 		expect(bus[0]?.args[3]).toBe("route-1");
 		expect(result?.appliedAt).toBeInstanceOf(Date);
+	});
+
+	it("creates a route with its paired canvas inline", async () => {
+		spyOn(repository, "getSubArtifactById").mockResolvedValue(routeRow() as never);
+		spyOn(repository, "getArtifactSubArtifacts").mockResolvedValue([
+			routeRow(),
+			canvasRow({ payload: { targetType: "route", targetId: "route-1", blocks: [{ id: "entry", blockType: "entrypoint" }] } }),
+		] as never);
+		await applySubArtifact("user1", "conv1", "proj1", "route-sub");
+
+		expect(bus.map((b) => b.call)).toEqual(["createRoute"]);
+		expect(bus[0]?.args[2]).toEqual(expect.objectContaining({ changes: expect.objectContaining({ blocks: expect.any(Array) }) }));
+	});
+
+	it("creates a custom block with its paired canvas inline", async () => {
+		const customCanvas = canvasRow({
+			payload: { targetType: "custom_block", targetId: "custom-block-1", blocks: [{ id: "entry", blockType: "entrypoint" }] },
+		});
+		spyOn(repository, "getSubArtifactById").mockResolvedValue(customBlockRow() as never);
+		spyOn(repository, "getArtifactSubArtifacts").mockResolvedValue([
+			customBlockRow(),
+			customCanvas,
+		] as never);
+		const marked = spyOn(repository, "markSubArtifactsApplied");
+
+		await applySubArtifact("user1", "conv1", "proj1", "custom-block-sub");
+
+		expect(bus.map((b) => b.call)).toEqual(["createCustomBlock"]);
+		expect(bus[0]?.args[2]).toEqual(expect.objectContaining({ changes: expect.objectContaining({ blocks: expect.any(Array) }) }));
+		expect(marked).toHaveBeenCalledWith("conv1", ["canvas-sub"], expect.any(Date));
 	});
 
 	it("re-points a canvas sibling at the id storage gave the new route", async () => {
@@ -252,6 +299,20 @@ describe("Harness Artifacts Service", () => {
 			actionsToPerform: { blocks: [], edges: [] },
 			changes: { blocks: [], edges: [] },
 		});
+	});
+
+	it("creates a custom block and its canvas in one bus call", async () => {
+		spyOn(repository, "getArtifactSubArtifacts").mockResolvedValue([
+			canvasRow({ payload: { targetType: "custom_block", targetId: "custom-block-1", blocks: [] } }),
+			customBlockRow(),
+		] as never);
+
+		await applyArtifact("user1", "conv1", "proj1", "art1");
+
+		expect(bus.map((b) => b.call)).toEqual(["createCustomBlock"]);
+		expect(bus[0]?.args[1]).toEqual(expect.objectContaining({ name: "send_notice", projectId: "proj1" }));
+		expect(bus[0]?.args[2]).toEqual(expect.objectContaining({ changes: { blocks: [], edges: [] } }));
+		expect(repository.updateSubArtifactPayload).toHaveBeenCalledWith("conv1", "canvas-sub", expect.objectContaining({ targetId: "live-custom-block" }));
 	});
 
 	it("rewrites the agent's invented route id to the one storage chose", async () => {

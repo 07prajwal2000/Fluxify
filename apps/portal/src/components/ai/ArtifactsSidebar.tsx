@@ -2,6 +2,7 @@ import { useAiHarnessStore } from "@/store/aiHarness";
 import { TbChevronsRight } from "react-icons/tb";
 import { RouteArtifact } from "./artifacts/RouteArtifact";
 import { CanvasArtifact } from "./artifacts/CanvasArtifact";
+import { CustomBlockArtifact } from "./artifacts/CustomBlockArtifact";
 
 export function ArtifactsSidebar() {
 	const selectedArtifact = useAiHarnessStore((s) => s.selectedArtifact);
@@ -38,6 +39,8 @@ export function ArtifactsSidebar() {
 							key={selectedArtifact.id}
 							subArtifactId={selectedArtifact.id}
 						/>
+					) : selectedArtifact?.type.startsWith("Custom Block ") ? (
+						<CustomBlockArtifact key={selectedArtifact.id} subArtifactId={selectedArtifact.id} />
 					) : (selectedArtifact && (
 						<div className="flex flex-col gap-5">
 							<div>

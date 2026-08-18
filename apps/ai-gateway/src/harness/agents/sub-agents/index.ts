@@ -1,9 +1,17 @@
 import type { SubAgentMetadata } from "./types";
 import { AgentNode } from "../../types";
 export * from "./routeConfig";
+export * from "./customBlockConfig";
 export * from "./blockBuilder";
 
 export const subAgents: SubAgentMetadata[] = [
+	{
+		name: "Custom Block Config Agent",
+		nodeName: AgentNode.CUSTOM_BLOCK_CONFIG_AGENT,
+		ability: "Create, modify, or delete custom block metadata and input parameters",
+		description:
+			"Responsible for defining a reusable custom block's name, label, description and inputParams. For a new custom block, its task MUST run before the dependent Block Builder task; the builder retrieves this output and builds the matching custom-block canvas. Input params are the caller contract: declare every param the implementation reads, with the exact type and no literal secrets.",
+	},
 	{
 		name: "Route Config Agent",
 		nodeName: AgentNode.ROUTE_CONFIG_AGENT,

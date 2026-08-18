@@ -8,6 +8,7 @@ import {
 	HumanInTheLoopAgent,
 	SupervisorAgent,
 	RouteConfigAgent,
+	CustomBlockConfigAgent,
 	TaskGeneratorAgent,
 	BlockBuilderAgent,
 	SummarizerAgent,
@@ -40,6 +41,10 @@ const workflow = new StateGraph(GraphState)
 	})
 	.addNode(AgentNode.ROUTE_CONFIG_AGENT, async (state: GlobalGraphState) => {
 		const agent = new RouteConfigAgent(state);
+		return await agent.execute();
+	})
+	.addNode(AgentNode.CUSTOM_BLOCK_CONFIG_AGENT, async (state: GlobalGraphState) => {
+		const agent = new CustomBlockConfigAgent(state);
 		return await agent.execute();
 	})
 	.addNode(AgentNode.BLOCK_BUILDER, async (state: GlobalGraphState) => {
@@ -113,6 +118,7 @@ const workflow = new StateGraph(GraphState)
 	.addEdge(AgentNode.HUMAN_IN_THE_LOOP, END)
 	.addEdge(AgentNode.DISCUSSION, END)
 	.addEdge(AgentNode.ROUTE_CONFIG_AGENT, AgentNode.SUPERVISOR)
+	.addEdge(AgentNode.CUSTOM_BLOCK_CONFIG_AGENT, AgentNode.SUPERVISOR)
 	.addEdge(AgentNode.BLOCK_BUILDER, AgentNode.SUPERVISOR)
 	.addEdge(AgentNode.SUPERVISOR, AgentNode.ORCHESTRATOR)
 	.addEdge(AgentNode.SUMMARIZER, END);

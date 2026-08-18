@@ -13,6 +13,7 @@ export enum AgentNode {
 	ORCHESTRATOR = "orchestrator",
 	HUMAN_IN_THE_LOOP = "humanInTheLoop",
 	ROUTE_CONFIG_AGENT = "routeConfig",
+	CUSTOM_BLOCK_CONFIG_AGENT = "customBlockConfig",
 	SUPERVISOR = "supervisor",
 	SUMMARIZER = "summarizer",
 }
@@ -143,8 +144,20 @@ export interface BlockBuilderAgentResult {
 	blocks: Record<string, unknown>[];
 }
 
+export interface CustomBlockConfigAgentResult {
+	action: "create" | "delete" | "update-partial";
+	customBlockId?: string;
+	data?: {
+		name?: string;
+		label?: string;
+		description?: string;
+		inputParams?: Array<Record<string, unknown>>;
+	};
+}
+
 export type SubAgentResult =
 	| RouteConfigAgentResult
+	| CustomBlockConfigAgentResult
 	| BlockBuilderAgentResult
 	| Record<string, any>;
 

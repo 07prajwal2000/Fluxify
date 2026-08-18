@@ -11,9 +11,11 @@ import { useArtifactParams } from "./useArtifact";
 function Applied({
 	appliedAt,
 	routeId,
+	customBlockId,
 }: {
 	appliedAt: string | Date;
 	routeId?: string;
+	customBlockId?: string;
 }) {
 	const { projectId } = useArtifactParams();
 	return (
@@ -26,6 +28,17 @@ function Applied({
 						className="flex items-center gap-2"
 					>
 						Go to route <TbExternalLink size={14} />
+					</Link>
+				</Button>
+			)}
+			{customBlockId && (
+				<Button size="sm" className="cursor-pointer">
+					<Link
+						to="/$projectId/custom-block-canvas/$blockId"
+						params={{ projectId, blockId: customBlockId }}
+						className="flex items-center gap-2"
+					>
+						Go to custom block <TbExternalLink size={14} />
 					</Link>
 				</Button>
 			)}
@@ -59,17 +72,20 @@ export function ApplyBar({
 	subArtifactId,
 	appliedAt,
 	routeId,
+	customBlockId,
 	label = "Apply",
 }: {
 	subArtifactId: string;
 	appliedAt: string | Date | null;
 	/** live route to link to once applied; omit to only show the applied stamp */
 	routeId?: string;
+	/** live custom block to link to once applied */
+	customBlockId?: string;
 	label?: string;
 }) {
 	const { run, isPending } = useApply();
 
-	if (appliedAt) return <Applied appliedAt={appliedAt} routeId={routeId} />;
+	if (appliedAt) return <Applied appliedAt={appliedAt} routeId={routeId} customBlockId={customBlockId} />;
 
 	return (
 		<Button

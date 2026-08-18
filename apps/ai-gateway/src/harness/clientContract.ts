@@ -38,6 +38,7 @@ export type {
 	SummarizerState,
 	SubAgentResult,
 	RouteConfigAgentResult,
+	CustomBlockConfigAgentResult,
 	BlockBuilderAgentResult,
 } from "./types";
 

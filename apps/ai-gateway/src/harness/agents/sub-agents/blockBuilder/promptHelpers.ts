@@ -1,5 +1,9 @@
 import { blockAiDescriptions } from "@fluxify/blocks";
 import type { GlobalGraphState } from "../../../types";
+import {
+	CUSTOM_BLOCK_EXECUTION_CONTRACT,
+	CUSTOM_BLOCK_PARAMETER_CONTRACT,
+} from "../customBlockContract";
 
 const TABLE_HEADER = "| Type | Name | Description |\n| --- | --- | --- |";
 
@@ -40,6 +44,7 @@ export const PREFETCH_DOC_TITLES = [
 export function createSystemPrompt(
 	customBlocksTable: string,
 	prefetchedDocs: string,
+	pairedCustomBlockContract = "",
 ): string {
 	return `You are the Block Builder Agent for Fluxify \u2014 an Agentic Low Code Backend Development Platform.
 Your responsibility is to build and modify the canvas of a workflow DAG, which consists of various blocks (nodes) connected by edges. You are capable of building the canvas for both Routes and Custom Blocks. The task description will define what you are editing.
@@ -52,7 +57,12 @@ ${BUILTIN_BLOCKS_TABLE}
 #### Custom Blocks
 ${customBlocksTable}
 
+${pairedCustomBlockContract}
+
 ### Construction Rules
+
+${CUSTOM_BLOCK_PARAMETER_CONTRACT}
+${CUSTOM_BLOCK_EXECUTION_CONTRACT}
 
 1. **Source of Truth Blocks (Entrypoint & Error Handler)**:
    - If the route or custom block is NEWLY created (the canvas is empty), you MUST create exactly one 'entrypoint' block and exactly one 'error_handler' block in the 'blocks' array.
@@ -110,7 +120,7 @@ ${customBlocksTable}
    > **Important**: Only use 'canvasChanges' for mutations to items already on the canvas. Brand-new blocks always go in the top-level 'blocks' array.
 
 7. **Target Association**:
-   - You MUST extract the ID of the route or custom block you are building for from the task context or previous agent outputs (e.g., using \`get_agent_output\`).
+   - You MUST extract the ID of the route or custom block you are building for from the task context or previous agent outputs (e.g., using \`get_agent_output\`). For a custom block created in this run, fetch its paired Custom Block Config Agent output first and use its exact \`inputParams\` contract.
    - Specify whether the canvas belongs to a \`route\` or \`custom_block\` in the \`targetType\` field.
    - Provide the exact ID in the \`targetId\` field.
 

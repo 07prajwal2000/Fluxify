@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import { useParams } from "@tanstack/react-router";
 import { harnessConversationsQuery } from "@/query/harnessConversationsQuery";
 import { routesQuery } from "@/query/routesQuery";
+import { customBlocksQuery } from "@/query/customBlocksQuery";
 import type { SubArtifactDetail } from "@/services/harnessConversations";
 import { previewGraph, type BlockBuilderPayload } from "./previewGraph";
 
@@ -83,4 +84,17 @@ export function useCanvasArtifact(detail: SubArtifactDetail | undefined) {
 		blockingRoute,
 		isLoading: route.isLoading || canvasItems.isLoading,
 	};
+}
+
+/** Custom-block canvases have the same graph payload as route canvases, but
+ * live behind the custom-block API rather than the route API. */
+export function useCustomBlockCanvasArtifact(detail: SubArtifactDetail | undefined) {
+	const payload = (detail?.payload ?? {}) as BlockBuilderPayload;
+	const targetId = payload.targetId ?? "";
+	const existingCanvas = customBlocksQuery.canvasItems.useQuery(targetId);
+	const graph = useMemo(
+		() => previewGraph(payload, existingCanvas.data ?? EMPTY_CANVAS),
+		[payload, existingCanvas.data],
+	);
+	return { graph, isLoading: existingCanvas.isLoading };
 }

@@ -8,6 +8,7 @@ import {
 	CreationInlineBtn,
 	RouteButton,
 	CanvasChangesButton,
+	CustomBlockButton,
 } from "./AiDirectives";
 import { ResourceChip } from "./ResourceChip";
 
@@ -78,6 +79,7 @@ export function MarkdownViewer({ content }: MarkdownViewerProps) {
 					"ai-createroute": (props: any) => <CreationInlineBtn kind="Route" {...props} />,
 					"ai-createcustomblock": (props: any) => <CreationInlineBtn kind="Custom Block" {...props} />,
 					"ai-route": (props: any) => <RouteButton {...props} />,
+					"ai-customblock": (props: any) => <CustomBlockButton {...props} />,
 					"ai-canvaschanges": (props: any) => <CanvasChangesButton {...props} />,
 				} as any}
 			>

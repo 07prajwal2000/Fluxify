@@ -89,6 +89,34 @@ export function deleteRoute(caller: RpcCaller, id: string) {
 	return call<{ id: string }>(RPC_SUBJECTS.route, caller, { action: "delete", id });
 }
 
+export function createCustomBlock(
+	caller: RpcCaller,
+	data: Record<string, unknown>,
+	canvas?: CanvasChanges,
+) {
+	return call<{ id: string }>(RPC_SUBJECTS.customBlock, caller, {
+		action: "create",
+		data,
+		canvas,
+	});
+}
+
+export function modifyCustomBlock(
+	caller: RpcCaller,
+	id: string,
+	data: Record<string, unknown>,
+) {
+	return call<{ id: string }>(RPC_SUBJECTS.customBlock, caller, {
+		action: "modify",
+		id,
+		data,
+	});
+}
+
+export function deleteCustomBlock(caller: RpcCaller, id: string) {
+	return call<{ id: string }>(RPC_SUBJECTS.customBlock, caller, { action: "delete", id });
+}
+
 /** Omitting both change fields is a read — that is how the subject is defined. */
 export function readCanvas(
 	caller: RpcCaller,

@@ -96,8 +96,12 @@ export type HarnessNodePayload =
 			data: { task: HarnessTaskView; result?: SubAgentResult };
 	  }
 	| {
-			node: `${AgentNode.ROUTE_CONFIG_AGENT}`;
-			data: { task: HarnessTaskView; result?: SubAgentResult };
+		node: `${AgentNode.ROUTE_CONFIG_AGENT}`;
+		data: { task: HarnessTaskView; result?: SubAgentResult };
+	  }
+	| {
+		node: `${AgentNode.CUSTOM_BLOCK_CONFIG_AGENT}`;
+		data: { task: HarnessTaskView; result?: SubAgentResult };
 	  }
 	| {
 			node: `${AgentNode.SUPERVISOR}`;
@@ -173,6 +177,7 @@ export interface HarnessSnapshot {
 const SUB_AGENT_NODES: ReadonlySet<AgentNodeName> = new Set<AgentNodeName>([
 	AgentNode.BLOCK_BUILDER,
 	AgentNode.ROUTE_CONFIG_AGENT,
+	AgentNode.CUSTOM_BLOCK_CONFIG_AGENT,
 ]);
 
 export function levelForNode(node: HarnessEventNode): HarnessLevel {
@@ -195,6 +200,7 @@ const NODE_LABELS: Record<string, string> = {
 	[AgentNode.ORCHESTRATOR]: "orchestrator",
 	[AgentNode.HUMAN_IN_THE_LOOP]: "plan review",
 	[AgentNode.ROUTE_CONFIG_AGENT]: "route configurator",
+	[AgentNode.CUSTOM_BLOCK_CONFIG_AGENT]: "custom block configurator",
 	[AgentNode.SUPERVISOR]: "supervisor",
 	[AgentNode.SUMMARIZER]: "summarizer",
 	[RUN_NODE]: "AI harness",
@@ -244,6 +250,10 @@ const NODE_MESSAGES: Record<string, { started: string; ended: string }> = {
 	[AgentNode.ROUTE_CONFIG_AGENT]: {
 		started: "Configuring the API route",
 		ended: "Route configured",
+	},
+	[AgentNode.CUSTOM_BLOCK_CONFIG_AGENT]: {
+		started: "Defining custom block parameters",
+		ended: "Custom block configured",
 	},
 	[AgentNode.SUPERVISOR]: {
 		started: "Reviewing task results",
@@ -313,6 +323,7 @@ export function runStatusForNode(node: HarnessEventNode): HarnessRunStatus {
 			return "orchestrating";
 		case AgentNode.BLOCK_BUILDER:
 		case AgentNode.ROUTE_CONFIG_AGENT:
+		case AgentNode.CUSTOM_BLOCK_CONFIG_AGENT:
 			return "executing";
 		case AgentNode.HUMAN_IN_THE_LOOP:
 			return "awaiting_hitl";

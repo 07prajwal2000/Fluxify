@@ -4,16 +4,21 @@ import type { ArtifactStatus } from "../../../../harness/clientContract";
 import type { RpcCaller } from "@fluxify/server/src/db/natsRpc";
 import {
 	canvasChangesFromPayload,
+	customBlockOpFromPayload,
 	routeOpFromPayload,
 	type BlockBuilderPayload,
 	type CanvasChanges,
 	type CanvasItems,
+	type CustomBlockConfigPayload,
 	type RouteConfigPayload,
 } from "./normalize";
 import {
 	callerFor,
+	createCustomBlock,
 	createRoute,
+	deleteCustomBlock,
 	deleteRoute,
+	modifyCustomBlock,
 	modifyRoute,
 	readCanvas,
 	saveCanvas,
@@ -38,6 +43,7 @@ interface DependencyRow {
 
 /** The route a `kind: "route"` output creates or edits. */
 const routeIdOf = (row: DependencyRow) => row.payload?.routeId as string | undefined;
+const customBlockIdOf = (row: DependencyRow) => row.payload?.customBlockId as string | undefined;
 
 /** The route a `kind: "canvas"` output hangs its blocks off. Canvases targeting a
  *  custom block have no route dependency, so they are not gated. */
@@ -235,6 +241,7 @@ async function resolveCanvasTarget<
 export async function getSubArtifact(conversationId: string, subArtifactId: string) {
 	const row = await getSubArtifactById(conversationId, subArtifactId);
 	if (!row) throw new NotFoundError("Sub-artifact not found");
+	if (row.appliedAt) return row;
 	return row;
 }
 
@@ -250,7 +257,7 @@ export async function listRunSubArtifacts(conversationId: string, runId: string)
 async function rememberRealRouteId(
 	conversationId: string,
 	row: { id: string; payload: Record<string, any> | null },
-	field: "routeId" | "targetId",
+	field: "routeId" | "customBlockId" | "targetId",
 	realId: string,
 ) {
 	if (row.payload?.[field] === realId) return;
@@ -266,6 +273,8 @@ type ApplyContext = {
 	caller: RpcCaller;
 	/** the id the agent used for a route it created → the id storage gave it */
 	routeIds: Map<string, string>;
+	/** Planned custom-block id to storage id, same reconciliation as routes. */
+	customBlockIds: Map<string, string>;
 };
 
 /**
@@ -297,6 +306,26 @@ async function applyRouteRow(
 	await rememberRealRouteId(ctx.conversationId, row, "routeId", id);
 }
 
+async function applyCustomBlockRow(
+	ctx: ApplyContext,
+	row: { id: string; payload: Record<string, any> | null },
+	canvas?: CanvasChanges,
+) {
+	const payload = (row.payload ?? {}) as CustomBlockConfigPayload;
+	const op = customBlockOpFromPayload(payload, ctx.projectId);
+	if (op.action === "delete") {
+		await deleteCustomBlock(ctx.caller, op.id);
+		return;
+	}
+	if (op.action === "modify") {
+		await modifyCustomBlock(ctx.caller, op.id, op.data);
+		return;
+	}
+	const { id } = await createCustomBlock(ctx.caller, op.data, canvas);
+	if (payload.customBlockId) ctx.customBlockIds.set(payload.customBlockId, id);
+	await rememberRealRouteId(ctx.conversationId, row, "customBlockId", id);
+}
+
 async function applyCanvasRow(
 	ctx: ApplyContext,
 	row: { id: string; payload: Record<string, any> | null },
@@ -306,7 +335,7 @@ async function applyCanvasRow(
 	const target = payload.targetId;
 	if (!target) throw new NotFoundError("Canvas output has no target to apply to");
 
-	const sourceId = ctx.routeIds.get(target) ?? target;
+	const sourceId = ctx.routeIds.get(target) ?? ctx.customBlockIds.get(target) ?? target;
 	// Normalizing needs the canvas as it stands: it decides which block ids are
 	// already real and which edge is being re-routed.
 	const existing = await readCanvas(ctx.caller, source, sourceId);
@@ -336,6 +365,7 @@ export async function applySubArtifact(
 		projectId,
 		caller: callerFor(userId, projectId),
 		routeIds: new Map(),
+		customBlockIds: new Map(),
 	};
 
 	if (row.kind === "canvas") {
@@ -345,7 +375,17 @@ export async function applySubArtifact(
 		await applyCanvasRow(ctx, resolved);
 	} else if (row.kind === "route") {
 		const agentRouteId = row.payload?.routeId as string | undefined;
-		await applyRouteRow(ctx, row);
+		const siblings = await getArtifactSubArtifacts(conversationId, row.artifactId);
+		const canvasRow = row.payload?.action === "create"
+			? siblings.find(
+					(s) => s.kind === "canvas" && !s.appliedAt && s.payload?.targetType === "route" && s.payload?.targetId === agentRouteId,
+				)
+			: undefined;
+		await applyRouteRow(
+			ctx,
+			row,
+			canvasRow ? canvasChangesFromPayload((canvasRow.payload ?? {}) as BlockBuilderPayload, EMPTY_CANVAS) : undefined,
+		);
 		// The route now has the id storage chose, but its canvas siblings still
 		// point at the id the agent invented. Leaving them stale breaks every
 		// later read of the link — the apply gate cannot tell the route is live.
@@ -359,6 +399,35 @@ export async function applySubArtifact(
 				await rememberRealRouteId(conversationId, sibling, "targetId", realId);
 			}
 		}
+	} else if (row.kind === "custom_block") {
+		const agentCustomBlockId = row.payload?.customBlockId as string | undefined;
+		const siblings = await getArtifactSubArtifacts(conversationId, row.artifactId);
+		const canvasRow = row.payload?.action === "create"
+			? siblings.find(
+					(s) =>
+						s.kind === "canvas" &&
+						!s.appliedAt &&
+						s.payload?.targetType === "custom_block" &&
+						s.payload?.targetId === agentCustomBlockId,
+				)
+			: undefined;
+		await applyCustomBlockRow(
+			ctx,
+			row,
+			canvasRow
+				? canvasChangesFromPayload((canvasRow.payload ?? {}) as BlockBuilderPayload, EMPTY_CANVAS)
+				: undefined,
+		);
+		const realId = agentCustomBlockId ? ctx.customBlockIds.get(agentCustomBlockId) : undefined;
+		if (realId && agentCustomBlockId !== realId) {
+			for (const sibling of siblings) {
+				if (sibling.kind !== "canvas") continue;
+				if (sibling.payload?.targetType !== "custom_block") continue;
+				if (sibling.payload?.targetId !== agentCustomBlockId) continue;
+				await rememberRealRouteId(conversationId, sibling, "targetId", realId);
+			}
+		}
+		if (canvasRow) await markSubArtifactsApplied(conversationId, [canvasRow.id], new Date());
 	}
 
 	const [applied] = await markSubArtifactsApplied(
@@ -381,6 +450,7 @@ export async function applyArtifact(
 	if (rows.length === 0) throw new NotFoundError("Artifact not found");
 
 	const routes = rows.filter((r) => r.kind === "route");
+	const customBlocks = rows.filter((r) => r.kind === "custom_block");
 	const canvases = await Promise.all(
 		rows
 			.filter((r) => r.kind === "canvas")
@@ -400,6 +470,7 @@ export async function applyArtifact(
 		projectId,
 		caller: callerFor(userId, projectId),
 		routeIds: new Map(),
+		customBlockIds: new Map(),
 	};
 
 	// A canvas for a route this run is creating rides along with the create, so
@@ -418,8 +489,17 @@ export async function applyArtifact(
 		inlineCanvas.set(route.id, paired);
 		inlined.add(paired.id);
 	}
+	for (const customBlock of customBlocks) {
+		if (customBlock.payload?.action !== "create") continue;
+		const paired = canvases.find(
+			(c) => !inlined.has(c.id) && c.payload?.targetType === "custom_block" && c.payload?.targetId === customBlockIdOf(customBlock),
+		);
+		if (!paired) continue;
+		inlineCanvas.set(customBlock.id, paired);
+		inlined.add(paired.id);
+	}
 
-	const ordered = [...routes, ...canvases, ...rest];
+	const ordered = [...routes, ...customBlocks, ...canvases, ...rest];
 	const done: string[] = [];
 	// One bad output used to abort the whole batch, so a run that got nine
 	// things right and one wrong left the user with nine unapplied outputs and
@@ -461,6 +541,35 @@ export async function applyArtifact(
 			}
 		}
 	}
+
+	for (const customBlock of customBlocks) {
+			const canvasRow = inlineCanvas.get(customBlock.id);
+			try {
+				await applyCustomBlockRow(
+					ctx,
+					customBlock,
+					canvasRow
+						? canvasChangesFromPayload(
+								(canvasRow.payload ?? {}) as BlockBuilderPayload,
+								EMPTY_CANVAS,
+							)
+						: undefined,
+				);
+				done.push(customBlock.id);
+				if (canvasRow) {
+					const real = ctx.customBlockIds.get(customBlockIdOf(customBlock) ?? "");
+					if (real)
+						await rememberRealRouteId(conversationId, canvasRow, "targetId", real);
+					done.push(canvasRow.id);
+				}
+			} catch (error) {
+				failures.push(describeFailure(customBlock, error));
+				if (canvasRow)
+					failures.push(
+						describeFailure(canvasRow, "its custom block could not be created"),
+					);
+			}
+		}
 
 	for (const canvas of canvases) {
 		if (inlined.has(canvas.id)) continue;

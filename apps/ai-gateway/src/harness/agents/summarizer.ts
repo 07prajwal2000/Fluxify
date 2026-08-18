@@ -25,6 +25,10 @@ function isRouteConfigResult(r: any): boolean {
 	);
 }
 
+function isCustomBlockConfigResult(r: any): boolean {
+	return r && typeof r.action === "string" && Object.hasOwn(r, "customBlockId");
+}
+
 function isBlockBuilderResult(r: any): boolean {
 	return (
 		r &&
@@ -128,7 +132,11 @@ export class SummarizerAgent extends BaseAgent {
 					const result = (results as Record<string, any>)[task.id];
 					if (!result) continue;
 
-					if (isRouteConfigResult(result)) {
+					if (isCustomBlockConfigResult(result)) {
+						const type = result.action === "create" ? "add" : result.action === "delete" ? "delete" : "changes";
+						const subId = await harnessService.createSubArtifact({ artifactId, runId, subAgentId: task.id, kind: "custom_block", action: type, payload: result });
+						changes.push({ label: result.data?.label ?? result.data?.name ?? task.title, actionLabel: type, agentRole: "Custom block configuration", token: `:customBlock{type="${type}" sub_artifact_id="${subId}"}` });
+					} else if (isRouteConfigResult(result)) {
 						const type =
 							result.action === "create"
 								? "add"
@@ -236,6 +244,7 @@ The "## Changes" section below lists each change with an EXACT token. You must:
 - These tokens MUST sit at the END of their line (nothing after them) so the chip never breaks the sentence:
   - \`:route{type="add|delete|changes" sub_artifact_id="..."}\` — a route (endpoint) that was added, deleted, or changed.
   - \`:canvasChanges{parent_type="artifact|route|custom_block" parent="..." artifact_id="..."}\` — logic/canvas changes. (parent_type="artifact" means the route is brand new this run; "route"/"custom_block" means it references an existing record.)
+  - \`:customBlock{type="add|delete|changes" sub_artifact_id="..."}\` — custom block configuration.
 
 ## B) Creation chips — YOU author these (only from the Hints section)
 When a hint says the user must create something for the run to work, embed the matching chip INLINE where it reads naturally (these are line-safe and do NOT need to be at line end):

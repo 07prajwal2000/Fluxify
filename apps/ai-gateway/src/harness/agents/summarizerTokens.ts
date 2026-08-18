@@ -1,7 +1,7 @@
 import { logger } from "@fluxify/common";
 
 /** Reference tokens the summarizer may only ever copy, never author. */
-const REFERENCE_TOKEN = /:(?:route|canvasChanges)\{[^}\n]*\}/gi;
+const REFERENCE_TOKEN = /:(?:route|customBlock|canvasChanges)\{[^}\n]*\}/gi;
 
 /**
  * Keeps only the reference tokens the harness actually handed the summarizer.

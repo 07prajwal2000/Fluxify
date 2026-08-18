@@ -113,14 +113,16 @@ export class BlockBuilderAgent extends BaseAgent {
 					name,
 					label,
 					description,
+					inputParams,
 				}: {
 					name: string;
 					label: string;
 					description: string;
+					inputParams?: unknown[];
 				}) => ({
 					type: `custom:${name}`,
 					name: label,
-					description,
+					description: `${description} Caller parameters: ${JSON.stringify(inputParams ?? [])}`,
 				}),
 			),
 		);
@@ -129,6 +131,14 @@ export class BlockBuilderAgent extends BaseAgent {
 		// block — untrusted, and this one lands in the system prompt rather than
 		// in a tool result, so it needs the fence more than most.
 		return fenceUntrusted("custom_blocks", table);
+	}
+
+	private pairedCustomBlockContract() {
+		const configs = Object.values(this.state.orchestratorState?.subAgentResults ?? {})
+			.map((value) => value as { customBlockId?: string; data?: { name?: string; inputParams?: unknown[] } })
+			.filter((value) => value.customBlockId && value.data?.name);
+		if (configs.length === 0) return "";
+		return `#### Paired Custom Block Contracts (authoritative)\n${configs.map((config) => `- ${config.data?.name} (${config.customBlockId}): ${JSON.stringify(config.data?.inputParams ?? [])}`).join("\n")}`;
 	}
 
 	async execute(): Promise<Partial<GlobalGraphState>> {
@@ -152,7 +162,11 @@ export class BlockBuilderAgent extends BaseAgent {
 		const prefetchedDocs = (await getDocsByTitle(PREFETCH_DOC_TITLES))
 			.map((doc) => doc.content)
 			.join("\n\n---\n\n");
-		const systemPrompt = createSystemPrompt(customBlocksTable, prefetchedDocs);
+		const systemPrompt = createSystemPrompt(
+			customBlocksTable,
+			prefetchedDocs,
+			this.pairedCustomBlockContract(),
+		);
 		const userQuery = createUserQuery(activeTask);
 
 		const tools = [
