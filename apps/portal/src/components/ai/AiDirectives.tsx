@@ -77,6 +77,25 @@ export function RouteButton(props: RouteButtonProps) {
 	);
 }
 
+export function CustomBlockButton(props: RouteButtonProps) {
+	const { type, sub_artifact_id } = props;
+	const setSelectedArtifact = useAiHarnessStore((s) => s.setSelectedArtifact);
+	const applied = useIsApplied(sub_artifact_id);
+
+	return (
+		<div className="mt-2 mb-4">
+			<Button
+				size="sm"
+				className={applied ? VIEW_BTN_APPLIED : VIEW_BTN}
+				onPress={() => setSelectedArtifact({ id: sub_artifact_id, type: `Custom Block ${type}`, props })}
+			>
+				{applied ? <TbCheck className="h-4 w-4" /> : <FiBox className="h-4 w-4 text-foreground/70" />}
+				<span>View Custom Block {type === "add" ? "Creation" : type === "delete" ? "Deletion" : "Changes"}</span>
+			</Button>
+		</div>
+	);
+}
+
 interface CanvasChangesButtonProps {
 	parent_type: "artifact" | "route" | "custom_block";
 	parent: string;

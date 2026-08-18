@@ -12,6 +12,7 @@ import { tool, type StructuredTool } from "@langchain/core/tools";
 import { BaseAgentWrapper } from "./base";
 import {
 	SUBMIT_RESULT_TOOL,
+	asHistoryMessage,
 	compactToolHistory,
 	flattenToolMessages,
 } from "./toolLoop";
@@ -704,5 +705,32 @@ describe("compactToolHistory", () => {
 		const once = messages[0]!.content;
 		compactToolHistory(messages);
 		expect(messages[0]!.content).toBe(once);
+	});
+});
+
+describe("asHistoryMessage", () => {
+	it("strips tool_calls before the message is re-sent with a human turn", () => {
+		const response = new AIMessage({
+			content: "here you go",
+			tool_calls: [{ id: "call_1", name: "search_docs", args: {} }],
+		});
+		const out = asHistoryMessage(response, "here you go");
+		expect(out.tool_calls ?? []).toHaveLength(0);
+		expect(out.additional_kwargs?.tool_calls).toBeUndefined();
+	});
+
+	it("strips provider tool_calls carried in additional_kwargs", () => {
+		const response = new AIMessage({
+			content: "",
+			additional_kwargs: {
+				tool_calls: [
+					{ id: "call_1", type: "function", function: { name: "x", arguments: "{}" } },
+				],
+				reasoning_content: "hm",
+			},
+		});
+		const out = asHistoryMessage(response, "");
+		expect(out.additional_kwargs?.tool_calls).toBeUndefined();
+		expect(out.additional_kwargs?.reasoning_content).toBe("hm");
 	});
 });

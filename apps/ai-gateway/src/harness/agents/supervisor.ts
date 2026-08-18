@@ -2,6 +2,7 @@ import { BaseAgent } from "./base";
 import { type GlobalGraphState, AgentNode, type Task } from "../types";
 import { dispatchAgentEvent } from "../callbacks";
 import { validateAgentOutput as validateRouteConfig } from "./sub-agents/routeConfig";
+import { validateCustomBlockConfigOutput } from "./sub-agents/customBlockConfig";
 import { validateBlockBuilderOutput } from "./sub-agents/blockBuilder";
 
 /** Total validation rounds a task gets — the first run plus its retries. */
@@ -75,6 +76,9 @@ export class SupervisorAgent extends BaseAgent {
 			switch (task.assignedAgentNode) {
 				case AgentNode.ROUTE_CONFIG_AGENT:
 					error = await validateRouteConfig(result, task.id, this.state);
+					break;
+				case AgentNode.CUSTOM_BLOCK_CONFIG_AGENT:
+					error = await validateCustomBlockConfigOutput(result, task.id, this.state);
 					break;
 				case AgentNode.BLOCK_BUILDER:
 					error = await validateBlockBuilderOutput(result, task.id, this.state);

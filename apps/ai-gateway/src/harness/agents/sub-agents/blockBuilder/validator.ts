@@ -69,6 +69,7 @@ function validateCustomBlockField(
 	switch (param.type) {
 		case "text_input":
 		case "integration_selector":
+		case "app_config_selector":
 			if (val !== undefined && val !== null && typeof val !== "string") {
 				return `Block "${blockId}" of custom type "${customName}" has invalid field "${param.name}": expected a string value, but received type "${typeof val}".`;
 			}
@@ -96,6 +97,49 @@ function validateCustomBlockField(
 	return null;
 }
 
+function validateCustomBlockInvoke(
+	block: ValidatableBlock,
+	customName: string,
+): string | null {
+	const invoke = (block.data as Record<string, unknown> | undefined)?.invoke;
+	if (invoke === undefined || invoke === "sync" || invoke === "async" || invoke === "queued") return null;
+	return `Block "${block.id}" invokes custom block "${customName}" with "${String(invoke)}". Use only "sync", "async", or "queued"; "scheduled" is not a runtime value.`;
+}
+
+function configuredCustomBlockParamNames(
+	targetId: string | undefined,
+	state: Parameters<AgentOutputValidator>[2],
+): Set<string> | null {
+	if (!targetId) return null;
+	for (const result of Object.values(state.orchestratorState?.subAgentResults ?? {})) {
+		const config = result as { customBlockId?: string; data?: { inputParams?: Array<{ name?: string }> } };
+		if (config.customBlockId !== targetId) continue;
+		return new Set((config.data?.inputParams ?? []).map((param) => param.name).filter((name): name is string => !!name));
+	}
+	return null;
+}
+
+function validateCustomBlockParameterReferences(
+	blocks: ValidatableBlock[],
+	params: Set<string> | null,
+): string[] {
+	if (!params) return [];
+	const errors: string[] = [];
+	for (const block of blocks) {
+		const serialized = JSON.stringify(block.data ?? {});
+		// The lookbehind matters: without it `input.params.id` or `data.params.x`
+		// — ordinary property access on a previous block's output — reads as a
+		// caller parameter and bounces a correct canvas back for a retry.
+		for (const match of serialized.matchAll(
+			/(?:(?<![\w.])params\.([a-zA-Z0-9_]+)|(?<![\w.])param:([a-zA-Z0-9_]+))/g,
+		)) {
+			const name = match[1] ?? match[2];
+			if (name && !params.has(name)) errors.push(`Block "${block.id}" references custom-block parameter "${name}", but it is absent from the paired Custom Block Config Agent output.`);
+		}
+	}
+	return errors;
+}
+
 function validateBlockAgainstSchemas(
 	block: ValidatableBlock,
 	customBlockSchemasMap: Map<string, any[]>,
@@ -111,6 +155,8 @@ function validateBlockAgainstSchemas(
 		: null;
 
 	if (isCustom && customName) {
+		const invokeError = validateCustomBlockInvoke(block, customName);
+		if (invokeError) errors.push(invokeError);
 		const inputParams = customBlockSchemasMap.get(customName);
 		if (!inputParams) {
 			// A near-miss on a built-in name (`get_http_header` for `httpgetheader`)
@@ -208,6 +254,12 @@ export const validateBlockBuilderOutput: AgentOutputValidator = async (
 	}
 
 	const errors: string[] = validateGraphRules(blocksToValidate);
+	if (typedResult.targetType === "custom_block") {
+		errors.push(...validateCustomBlockParameterReferences(
+			blocksToValidate,
+			configuredCustomBlockParamNames(typedResult.targetId, state),
+		));
+	}
 	for (const block of blocksToValidate) {
 		errors.push(...validateBlockAgainstSchemas(block, customBlockSchemasMap));
 	}

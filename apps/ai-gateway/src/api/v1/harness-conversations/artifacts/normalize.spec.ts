@@ -1,11 +1,52 @@
 import { describe, expect, it } from "bun:test";
 import {
 	canvasChangesFromPayload,
+	customBlockOpFromPayload,
 	routeOpFromPayload,
 	type CanvasItems,
 } from "./normalize";
 
 const EMPTY: CanvasItems = { blocks: [], edges: [] };
+
+describe("customBlockOpFromPayload", () => {
+	// The agent schema is `.nullish()`, the server DTO `.optional()`, and
+	// `.optional()` rejects null — a leaked null came back as "Malformed
+	// operation" from the bus.
+	it("drops nulls inside inputParams, not just at the top level", () => {
+		const op = customBlockOpFromPayload(
+			{
+				action: "create",
+				data: {
+					name: "send_notification",
+					label: "Send Notification",
+					description: null,
+					inputParams: [
+						{ type: "text_input", name: "to", label: "To", description: null },
+						{
+							type: "integration_selector",
+							name: "conn",
+							label: "Connection",
+							group: "email",
+							variant: null,
+							tags: [],
+						},
+					],
+				},
+			},
+			"proj-1",
+		);
+
+		expect(op.action).toBe("create");
+		const params = (op as { data: { inputParams: Record<string, unknown>[] } })
+			.data.inputParams;
+		for (const param of params) {
+			for (const [key, value] of Object.entries(param)) {
+				expect(`${key}=${value}`).not.toBe(`${key}=null`);
+				expect(value).not.toBeNull();
+			}
+		}
+	});
+});
 
 describe("routeOpFromPayload", () => {
 	it("turns a create output into the ops create request", () => {

@@ -41,10 +41,16 @@ const GRAPH_NODES: ReadonlySet<string> = new Set<string>(
 );
 
 /** Nodes whose accumulated state a later run pass actually reads back — i.e.
- *  the ones a HITL resume rehydrates from. See `onAfter`. */
+ *  the ones a resume rehydrates from. See `onAfter`.
+ *
+ *  The supervisor is here because it is the only node that settles task
+ *  statuses, and task statuses are what a resume reads: without a checkpoint
+ *  after it, a run that dies at task 4 of 6 has persisted nothing since
+ *  planning and restarts the whole build. */
 const RESUMABLE_NODES: ReadonlySet<string> = new Set<string>([
 	AgentNode.PLANNER,
 	AgentNode.HUMAN_IN_THE_LOOP,
+	AgentNode.SUPERVISOR,
 ]);
 
 export interface HarnessCallbackContext {
@@ -140,6 +146,13 @@ export class HarnessCallbacks {
 	}
 
 	/** Awaits all scheduled emits. Called by the harness before finalizing. */
+	/** The state accumulated so far. The terminal handlers persist this when a
+	 *  run dies mid-build — the graph never returns a final state on that path,
+	 *  so this is the only surviving record of what the sub-agents produced. */
+	public snapshotState(): Partial<GlobalGraphState> {
+		return this.mergedState;
+	}
+
 	public async flush(): Promise<void> {
 		await this.emitChain;
 	}
@@ -178,12 +191,13 @@ export class HarnessCallbacks {
 			case AgentNode.SUMMARIZER:
 				return { node: AgentNode.SUMMARIZER, data: output.summarizerState ?? {} };
 			case AgentNode.BLOCK_BUILDER:
-			case AgentNode.ROUTE_CONFIG_AGENT: {
+			case AgentNode.ROUTE_CONFIG_AGENT:
+			case AgentNode.CUSTOM_BLOCK_CONFIG_AGENT: {
 				const task = output.activeTask ?? input.activeTask;
 				if (!task) return undefined;
 				const result = output.orchestratorState?.subAgentResults?.[task.id];
 				return {
-					node: node as AgentNode.BLOCK_BUILDER | AgentNode.ROUTE_CONFIG_AGENT,
+					node: node as AgentNode.BLOCK_BUILDER | AgentNode.ROUTE_CONFIG_AGENT | AgentNode.CUSTOM_BLOCK_CONFIG_AGENT,
 					data: {
 						task: {
 							id: task.id,

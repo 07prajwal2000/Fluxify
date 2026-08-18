@@ -159,3 +159,45 @@ export function debugPrompt(
 		breakdown: messages.map((m) => `${m.getType()}:${size(m)}`).join(" "),
 	});
 }
+
+/**
+ * Feeds the model's own message back into the correction turn, rather than a
+ * fresh AIMessage built from the cleaned text. Reasoning models carry their
+ * thinking in content blocks or `additional_kwargs.reasoning_content`, and
+ * dropping it makes attempt 2 re-derive (and re-botch) the same answer.
+ */
+export function asHistoryMessage(response: unknown, cleaned: string): AIMessage {
+	const raw = response as
+		| { content?: unknown; additional_kwargs?: Record<string, any> }
+		| undefined;
+	if (!raw) return new AIMessage(cleaned || "(empty response)");
+
+	const hasContent =
+		typeof raw.content === "string"
+			? raw.content.trim() !== ""
+			: Array.isArray(raw.content) && raw.content.length > 0;
+
+	// A tool call must never ride into the correction turn. The next thing we
+	// append is a HumanMessage, and an assistant message carrying `tool_calls`
+	// with no ToolMessage answering it is rejected outright ("insufficient tool
+	// messages following tool_calls message") — so every remaining attempt 400s
+	// on the history instead of on the answer. This model is unbound; it has no
+	// tools to call here anyway.
+	const { tool_calls: _tc, ...kwargs } = raw.additional_kwargs ?? {};
+	const hasToolCalls =
+		(response instanceof AIMessage && response.tool_calls?.length) ||
+		Array.isArray(raw.additional_kwargs?.tool_calls);
+
+	if (hasContent && response instanceof AIMessage && !hasToolCalls)
+		return response;
+
+	return new AIMessage({
+		content: hasContent
+			? (raw.content as any)
+			: extractText(raw as any) ||
+				(hasToolCalls
+					? "(attempted a tool call — no tools are available at this step)"
+					: "(empty response)"),
+		additional_kwargs: kwargs,
+	});
+}

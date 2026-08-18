@@ -63,6 +63,17 @@ export type RouteConfigPayload = {
 	} | null;
 };
 
+export type CustomBlockConfigPayload = {
+	action?: "create" | "delete" | "update-partial";
+	customBlockId?: string | null;
+	data?: {
+		name?: string | null;
+		label?: string | null;
+		description?: string | null;
+		inputParams?: unknown[] | null;
+	} | null;
+};
+
 /* ------------------------------------------------------------------ routes */
 
 function normalizePath(path: string) {
@@ -119,6 +130,41 @@ export function routeOpFromPayload(payload: RouteConfigPayload, projectId: strin
 				paramsSchema: data.paramsSchema,
 			}),
 		},
+	};
+}
+
+export function customBlockOpFromPayload(
+	payload: CustomBlockConfigPayload,
+	projectId: string,
+) {
+	const action = payload.action ?? "create";
+	const data = payload.data ?? {};
+	if (action === "delete") {
+		if (!payload.customBlockId) throw new Error("Custom block delete output has no customBlockId");
+		return { action: "delete" as const, id: payload.customBlockId };
+	}
+	// `compact` is shallow. The agent schema declares each param's `description`
+	// and `variant` as `.nullish()`, the server DTO as `.optional()` — and
+	// `.optional()` rejects null. An emitted `description: null` therefore rode
+	// through to the bus and came back as "Malformed operation".
+	const inputParams = data.inputParams?.map((param) =>
+		compact((param ?? {}) as Record<string, unknown>),
+	);
+	const common = compact({
+		label: data.label?.trim(),
+		description: data.description?.trim(),
+		inputParams,
+	});
+	if (action === "update-partial") {
+		if (!payload.customBlockId) throw new Error("Custom block update output has no customBlockId");
+		return { action: "modify" as const, id: payload.customBlockId, data: common };
+	}
+	if (!data.name?.match(/^[a-z0-9_]+$/)) {
+		throw new Error("Custom block create output requires lowercase snake_case name");
+	}
+	return {
+		action: "create" as const,
+		data: { ...common, name: data.name, projectId, inputParams: inputParams ?? [] },
 	};
 }
 

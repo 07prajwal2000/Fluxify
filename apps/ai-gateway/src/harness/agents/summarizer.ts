@@ -4,9 +4,9 @@ import { type GlobalGraphState, AgentNode } from "../types";
 import { dispatchAgentEvent } from "../callbacks";
 import { enforceTokenAllowlist } from "./summarizerTokens";
 import {
-	applyArtifact,
 	type ApplyFailure,
 } from "../../api/v1/harness-conversations/artifacts/service";
+import { applyArtifact } from "../../api/v1/harness-conversations/artifacts/applyBatch";
 
 /** A single change the harness made, with its verbatim special-syntax token. */
 interface ChangeRef {
@@ -23,6 +23,10 @@ function isRouteConfigResult(r: any): boolean {
 		typeof r.action === "string" &&
 		["create", "delete", "update-partial"].includes(r.action)
 	);
+}
+
+function isCustomBlockConfigResult(r: any): boolean {
+	return r && typeof r.action === "string" && Object.hasOwn(r, "customBlockId");
 }
 
 function isBlockBuilderResult(r: any): boolean {
@@ -111,6 +115,9 @@ export class SummarizerAgent extends BaseAgent {
 		// Persist the artifact + sub-artifacts (regular DB work, no AI involved).
 		const changes: ChangeRef[] = [];
 		let artifactId: string | undefined;
+		// taskId -> sub-artifact row, so a later run can tell "this task's output
+		// is already persisted" from "this task only ran in a process that died".
+		const subArtifactIds: Record<string, string> = {};
 
 		// A DB blip here used to throw out of the last node in the graph and fail
 		// the whole run — losing a build whose results are sitting in state. The
@@ -128,7 +135,12 @@ export class SummarizerAgent extends BaseAgent {
 					const result = (results as Record<string, any>)[task.id];
 					if (!result) continue;
 
-					if (isRouteConfigResult(result)) {
+					if (isCustomBlockConfigResult(result)) {
+						const type = result.action === "create" ? "add" : result.action === "delete" ? "delete" : "changes";
+						const subId = await harnessService.createSubArtifact({ artifactId, runId, subAgentId: task.id, kind: "custom_block", action: type, payload: result });
+						subArtifactIds[task.id] = subId;
+						changes.push({ label: result.data?.label ?? result.data?.name ?? task.title, actionLabel: type, agentRole: "Custom block configuration", token: `:customBlock{type="${type}" sub_artifact_id="${subId}"}` });
+					} else if (isRouteConfigResult(result)) {
 						const type =
 							result.action === "create"
 								? "add"
@@ -143,6 +155,7 @@ export class SummarizerAgent extends BaseAgent {
 							action: type,
 							payload: result,
 						});
+						subArtifactIds[task.id] = subId;
 						if (type === "add") newRouteSubArtifactId = subId;
 						const label =
 							`${result.data?.method ?? ""} ${result.data?.path ?? task.title}`.trim();
@@ -161,6 +174,7 @@ export class SummarizerAgent extends BaseAgent {
 							action: "changes",
 							payload: result,
 						});
+						subArtifactIds[task.id] = subId;
 						let parentType: string;
 						let parentRef: string;
 						if (result.targetType === "route" && result.targetId) {
@@ -236,6 +250,7 @@ The "## Changes" section below lists each change with an EXACT token. You must:
 - These tokens MUST sit at the END of their line (nothing after them) so the chip never breaks the sentence:
   - \`:route{type="add|delete|changes" sub_artifact_id="..."}\` — a route (endpoint) that was added, deleted, or changed.
   - \`:canvasChanges{parent_type="artifact|route|custom_block" parent="..." artifact_id="..."}\` — logic/canvas changes. (parent_type="artifact" means the route is brand new this run; "route"/"custom_block" means it references an existing record.)
+  - \`:customBlock{type="add|delete|changes" sub_artifact_id="..."}\` — custom block configuration.
 
 ## B) Creation chips — YOU author these (only from the Hints section)
 When a hint says the user must create something for the run to work, embed the matching chip INLINE where it reads naturally (these are line-safe and do NOT need to be at line end):
@@ -311,7 +326,7 @@ ${hintsText}`;
 
 		return {
 			currentAgent: AgentNode.SUMMARIZER,
-			summarizerState: { markdown, artifactId },
+			summarizerState: { markdown, artifactId, subArtifactIds },
 		};
 	}
 }

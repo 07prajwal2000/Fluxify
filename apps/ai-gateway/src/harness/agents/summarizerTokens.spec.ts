@@ -2,6 +2,7 @@ import { describe, expect, it } from "bun:test";
 import { enforceTokenAllowlist } from "./summarizerTokens";
 
 const ROUTE = ':route{type="add" sub_artifact_id="sub-1"}';
+const CUSTOM_BLOCK = ':customBlock{type="add" sub_artifact_id="sub-2"}';
 const CANVAS =
 	':canvasChanges{parent_type="artifact" parent="sub-1" artifact_id="sub-2"}';
 
@@ -9,6 +10,12 @@ describe("enforceTokenAllowlist", () => {
 	it("keeps the tokens the harness issued", () => {
 		const md = `Built it.\n- Added a route. ${ROUTE}\n- Wired the logic. ${CANVAS}`;
 		expect(enforceTokenAllowlist(md, [ROUTE, CANVAS])).toBe(md);
+	});
+
+	it("keeps an issued custom block token", () => {
+		expect(enforceTokenAllowlist(`Added reusable block. ${CUSTOM_BLOCK}`, [CUSTOM_BLOCK])).toBe(
+			`Added reusable block. ${CUSTOM_BLOCK}`,
+		);
 	});
 
 	it("drops a token the harness never issued, keeping the sentence", () => {

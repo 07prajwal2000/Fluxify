@@ -357,7 +357,13 @@ export class FluxifyHarness {
 					conversationId: ctx.conversationId,
 					runId: ctx.runId,
 				});
-				await this.interruptRun(ctx, harnessService, userId, budget);
+				await this.interruptRun(
+					ctx,
+					harnessService,
+					userId,
+					budget,
+					callbacks.snapshotState(),
+				);
 				return undefined;
 			}
 
@@ -377,6 +383,7 @@ export class FluxifyHarness {
 				describeFailure(error, lastNode),
 				lastNode,
 				budget,
+				callbacks.snapshotState(),
 			);
 			throw error;
 		} finally {
@@ -553,6 +560,7 @@ export class FluxifyHarness {
 		aiResponse?: string,
 		node?: AgentNodeName,
 		budget?: RunBudget,
+		graphState?: Partial<GlobalGraphState>,
 	) {
 		const message =
 			error instanceof Error ? error.message : error ? String(error) : "failed";
@@ -568,7 +576,11 @@ export class FluxifyHarness {
 				runId: ctx.runId,
 				conversationId: ctx.conversationId,
 				currentState: "failed",
-				workingMemory: {},
+				// Persist what the run got through, not an empty object. Everything
+				// the sub-agents produced up to the failure lives here, and it is
+				// what a resume reads back — erasing it made every failure a full
+				// restart from the planner.
+				graphState,
 			});
 			await harnessService.updateConversationStatus("failed", null);
 			await this.redisService.clearActiveRun(ctx.conversationId);
@@ -605,6 +617,7 @@ export class FluxifyHarness {
 		harnessService: HarnessService,
 		userId: string | null,
 		budget: RunBudget,
+		graphState?: Partial<GlobalGraphState>,
 	) {
 		const message =
 			"Conversation was interrupted by the user before it finished.";
@@ -621,7 +634,9 @@ export class FluxifyHarness {
 				runId: ctx.runId,
 				conversationId: ctx.conversationId,
 				currentState: "interrupted",
-				workingMemory: {},
+				// An interrupt is the case most worth resuming — the user stopped a
+				// run that was working. Keep what it built.
+				graphState,
 			});
 			await harnessService.updateConversationStatus("interrupted", null);
 			await this.redisService.clearActiveRun(ctx.conversationId);

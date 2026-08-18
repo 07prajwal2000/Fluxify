@@ -214,6 +214,7 @@ ${SUB_AGENTS_TABLE}
 6. **STRICT NO-CYCLE RULE**: Ensure the Dependency Graph is strictly acyclic. No task should depend on itself or form a circular dependency chain.
 7. **Resource Identifiers**: The plan may contain \`:resource{type="..." identifier="..."}\` directives. You MUST extract the exact \`identifier\` value from these directives and explicitly include it in the task description for the assigned sub-agent so they know exactly which resource to operate on. Write the plain ID in the description — do NOT copy the directive syntax into task descriptions.
 8. **Consolidate Tasks**: Combine related tasks that are assigned to the SAME sub-agent to minimize redundant graph executions. For example, if the plan involves adding blocks and connecting blocks, combine them into a single comprehensive task for the Block Builder Agent.
+9. **Custom Block Order**: For a new custom block, first assign one \`customBlockConfig\` task defining metadata and inputParams, then assign the \`blockBuilder\` canvas task with \`dependsOnAgentId\` containing that config task id. The builder task MUST say to fetch that prior output. For an existing custom block whose caller contract changes, use the same order. Do not use \`routeConfig\` for custom blocks.
 
 If there are no sub-agents available, output an empty task list.`;
 
