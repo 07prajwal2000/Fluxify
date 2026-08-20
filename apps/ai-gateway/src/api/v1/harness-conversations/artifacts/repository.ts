@@ -34,6 +34,11 @@ export async function listSubArtifactsByRun(conversationId: string, runId: strin
 			action: subArtifacts.action,
 			appliedAt: subArtifacts.appliedAt,
 			createdAt: subArtifacts.createdAt,
+			// The dependency chain drives the apply buttons, so the list has to
+			// carry it — otherwise the UI must fetch every payload to know whether
+			// one output is applyable yet.
+			subAgentId: subArtifacts.subAgentId,
+			dependsOn: subArtifacts.dependsOn,
 		})
 		.from(subArtifacts)
 		.where(
@@ -58,6 +63,8 @@ export async function getArtifactSubArtifacts(
 			action: subArtifacts.action,
 			appliedAt: subArtifacts.appliedAt,
 			payload: subArtifacts.payload,
+			subAgentId: subArtifacts.subAgentId,
+			dependsOn: subArtifacts.dependsOn,
 		})
 		.from(subArtifacts)
 		.where(

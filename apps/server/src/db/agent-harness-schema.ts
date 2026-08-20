@@ -276,6 +276,12 @@ export const agentHarnessSubArtifactsEntity = pgTable(
 			.references(() => agentHarnessRunsEntity.id, { onDelete: "cascade" })
 			.notNull(),
 		subAgentId: varchar("sub_agent_id", { length: 100 }),
+		/** Task ids this output's task declared a dependency on, copied from
+		 *  `Task.dependsOnAgentId`. Resolved back to sibling rows through
+		 *  `subAgentId`, which is the same task id — so the apply path gets the
+		 *  run's DAG without inventing a second link. Null on rows written before
+		 *  this column existed; those simply have no edges. */
+		dependsOn: jsonb("depends_on").$type<string[]>(),
 		// "route" | "canvas"
 		kind: varchar("kind", { length: 50 }).notNull(),
 		// "add" | "delete" | "changes"

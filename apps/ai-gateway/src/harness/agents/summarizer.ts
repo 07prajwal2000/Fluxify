@@ -137,7 +137,7 @@ export class SummarizerAgent extends BaseAgent {
 
 					if (isCustomBlockConfigResult(result)) {
 						const type = result.action === "create" ? "add" : result.action === "delete" ? "delete" : "changes";
-						const subId = await harnessService.createSubArtifact({ artifactId, runId, subAgentId: task.id, kind: "custom_block", action: type, payload: result });
+						const subId = await harnessService.createSubArtifact({ artifactId, runId, subAgentId: task.id, dependsOn: task.dependsOnAgentId, kind: "custom_block", action: type, payload: result });
 						subArtifactIds[task.id] = subId;
 						changes.push({ label: result.data?.label ?? result.data?.name ?? task.title, actionLabel: type, agentRole: "Custom block configuration", token: `:customBlock{type="${type}" sub_artifact_id="${subId}"}` });
 					} else if (isRouteConfigResult(result)) {
@@ -151,6 +151,7 @@ export class SummarizerAgent extends BaseAgent {
 							artifactId,
 							runId,
 							subAgentId: task.id,
+							dependsOn: task.dependsOnAgentId,
 							kind: "route",
 							action: type,
 							payload: result,
@@ -170,6 +171,7 @@ export class SummarizerAgent extends BaseAgent {
 							artifactId,
 							runId,
 							subAgentId: task.id,
+							dependsOn: task.dependsOnAgentId,
 							kind: "canvas",
 							action: "changes",
 							payload: result,

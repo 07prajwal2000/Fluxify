@@ -4,7 +4,12 @@ import { routesQuery } from "@/query/routesQuery";
 import { RouteApplyBar } from "./ApplyBar";
 import { CanvasPreview } from "./CanvasPreview";
 import { Field } from "./Field";
-import { useArtifactParams, useCanvasArtifact, useRunSiblings } from "./useArtifact";
+import {
+	useArtifactParams,
+	useBlockingParent,
+	useCanvasArtifact,
+	useRunSiblings,
+} from "./useArtifact";
 
 /** What the route sub-agent writes (see ai-gateway `RouteConfigPayload`). */
 type RouteConfigPayload = {
@@ -40,6 +45,9 @@ export function RouteArtifact({ subArtifactId }: { subArtifactId: string }) {
 	const canvasSiblings = useRunSiblings(subArtifact?.runId, "canvas");
 	const canvasSibling = canvasSiblings.find((s) => s.payload?.targetId === routeId);
 	const { graph: canvasGraph } = useCanvasArtifact(canvasSibling);
+	// A route that invokes a custom block this run created cannot execute until
+	// that block exists, so the server refuses the apply — say so up front.
+	const blockingParent = useBlockingParent(subArtifact);
 
 	if (isLoading) return <p className="text-sm text-muted">Loading…</p>;
 	if (!subArtifact) return <p className="text-sm text-muted">Not found.</p>;
@@ -120,6 +128,7 @@ export function RouteArtifact({ subArtifactId }: { subArtifactId: string }) {
 				// a deleted route has nothing left to open
 				routeId={isDelete ? undefined : (payload.routeId ?? undefined)}
 				action={action}
+				blockedBy={blockingParent}
 			/>
 		</div>
 	);

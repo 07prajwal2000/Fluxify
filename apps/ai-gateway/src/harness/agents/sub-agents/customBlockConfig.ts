@@ -1,5 +1,9 @@
 import { logger } from "@fluxify/common";
-import { generateID, uniqueCustomBlockName } from "@fluxify/lib";
+import {
+	generateID,
+	uniqueCustomBlockName,
+	withoutCustomBlockPrefix,
+} from "@fluxify/lib";
 import { z } from "zod";
 import { dispatchAgentEvent } from "../../callbacks";
 import { createFindResourceTool } from "../../tools/findResource";
@@ -28,6 +32,18 @@ const customBlockConfigSchema = z.object({
 	}).nullish(),
 });
 
+/**
+ * The bare, unclaimed name to store a new block under.
+ *
+ * Stored project blocks carry the `user_defined.project.` prefix, so that is
+ * the form the model sees in the inventory and in the current-context block —
+ * and it proposes it straight back, dots and all. The create DTO takes the
+ * bare name only (storage adds the prefix itself), so a prefixed name is a
+ * correct intent in the wrong vocabulary, not a mistake to reject: strip it.
+ */
+export const settleName = (name: string, taken: ReadonlySet<string>) =>
+	uniqueCustomBlockName(withoutCustomBlockPrefix(name), taken);
+
 export class CustomBlockConfigAgent extends BaseAgent {
 	/**
 	 * Settles the name here, before Block Builder writes `custom:<name>` into a
@@ -42,9 +58,9 @@ export class CustomBlockConfigAgent extends BaseAgent {
 				await this.state.internal.dbService.getAllCustomBlocks(projectId)
 			).map(({ name }: { name: string }) => name),
 		);
-		const free = uniqueCustomBlockName(name, taken);
+		const free = settleName(name, taken);
 		if (free !== name) {
-			logger.warn("[CustomBlockConfig] Renamed custom block, name taken", {
+			logger.warn("[CustomBlockConfig] Settled custom block name", {
 				requested: name,
 				renamed: free,
 			});
@@ -61,6 +77,7 @@ export class CustomBlockConfigAgent extends BaseAgent {
 ${CUSTOM_BLOCK_PARAMETER_CONTRACT}
 ## Strict Rules
 - \`create\` requires \`data.name\`, \`data.label\`, and \`data.inputParams\`. Name is lowercase snake_case and becomes runtime block type; never invent a UUID.
+- \`data.name\` is the bare name (\`generate_random_ids\`). Existing blocks are listed under a \`user_defined.project.\` storage prefix — never copy that prefix into \`data.name\`; storage adds it.
 - \`update-partial\` and \`delete\` require exact \`customBlockId\` from task context. Existing custom block names are immutable because caller canvases invoke them by name; only label, description, and inputParams may change.
 - For new custom blocks, this output runs before Block Builder. Define full caller contract now so canvas agent can consume it exactly.
 - Search docs only for an uncovered platform feature. Batch every query in one \`searchQueries\` call.
@@ -90,7 +107,7 @@ export const validateCustomBlockConfigOutput: import("../../types").AgentOutputV
 	if (!value?.action) return "Missing custom block action.";
 	if ((value.action === "update-partial" || value.action === "delete") && !value.customBlockId) return `Action '${value.action}' requires customBlockId.`;
 	if (value.action === "create") {
-		if (!value.data?.name?.match(/^[a-z0-9_]+$/)) return "Custom block create requires lowercase snake_case data.name.";
+		if (!value.data?.name?.match(/^[a-z0-9_]+$/)) return `Custom block create requires lowercase snake_case data.name — letters, digits and underscores only, with no dots and no "user_defined.project." prefix. Got "${value.data?.name ?? ""}".`;
 		if (!value.data.label?.trim()) return "Custom block create requires data.label.";
 		if (!value.data.inputParams) return "Custom block create requires data.inputParams (use [] when none).";
 	}

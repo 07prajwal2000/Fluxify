@@ -15,3 +15,4 @@ apps/ai-gateway/src/test-trace.ts
 .claude/worktrees
 .issue-tracker/
 apps/ai-gateway/src/harness/IMPROVEMENTS.md
+graphify-out/

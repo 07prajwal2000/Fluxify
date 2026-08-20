@@ -13,6 +13,7 @@ import { CanvasPreview } from "./CanvasPreview";
 import { Field } from "./Field";
 import {
 	useArtifactParams,
+	useBlockingParent,
 	useCustomBlockCanvasArtifact,
 	useRunSiblings,
 } from "./useArtifact";
@@ -233,6 +234,7 @@ export function CustomBlockArtifact({ subArtifactId }: { subArtifactId: string }
 			s.payload?.targetId === customBlockId,
 	);
 	const { graph: canvasGraph } = useCustomBlockCanvasArtifact(canvasSibling);
+	const blockingParent = useBlockingParent(detail);
 
 	if (isLoading) return <p className="text-sm text-muted">Loading…</p>;
 	if (!detail) return <p className="text-sm text-muted">Not found.</p>;
@@ -345,6 +347,7 @@ export function CustomBlockArtifact({ subArtifactId }: { subArtifactId: string }
 				appliedAt={detail.appliedAt}
 				// a deleted block has nothing left to open
 				customBlockId={isDelete ? undefined : (payload.customBlockId ?? undefined)}
+				blockedBy={blockingParent}
 				label={`${
 					isDelete ? "Delete" : action === "update-partial" ? "Update" : "Create"
 				} custom block${canvasSibling ? " with canvas" : ""}`}

@@ -1,8 +1,11 @@
 import { NotFoundError } from "@fluxify/server";
 import {
-	formattedCanvasChanges,
-	type BlockBuilderPayload,
-} from "./normalize";
+	inlineCanvasFor,
+	kindLabel,
+	parentsOf,
+	topoOrder,
+	type GraphRow,
+} from "./dependencies";
 import { callerFor } from "./opsClient";
 import {
 	getArtifactSubArtifacts,
@@ -10,107 +13,17 @@ import {
 } from "./repository";
 import {
 	announce,
-	applyCanvasRow,
-	applyCustomBlockRow,
-	applyRouteRow,
-	assertParentRoutesReady,
-	customBlockIdOf,
+	APPLY_BY_KIND,
+	assertExternalRoutesExist,
+	canvasFor,
 	describeFailure,
 	EMPTY_CANVAS,
-	parentRouteIdOf,
-	rememberRealRouteId,
+	newApplyContext,
+	rememberRealIdsOnChildren,
 	resolveCanvasTarget,
-	routeIdOf,
-	type ApplyContext,
 	type ApplyFailure,
 	type DependencyRow,
-	type LabelledRow,
 } from "./service";
-
-/**
- * Pairs each newly-created parent row with the canvas built for it in the same
- * run, so the canvas rides inside the create and the parent never exists
- * without its blocks. Routes and custom blocks differ only in how their id is
- * read off the payload.
- */
-function pairInlineCanvases<R extends { id: string; payload?: any }, C extends { id: string; payload?: any }>(
-	parents: R[],
-	canvases: C[],
-	targetType: "route" | "custom_block",
-	idOf: (row: R) => string | undefined,
-	inlineCanvas: Map<string, C>,
-	inlined: Set<string>,
-) {
-	for (const parent of parents) {
-		if (parent.payload?.action !== "create") continue;
-		const paired = canvases.find(
-			(c) =>
-				!inlined.has(c.id) &&
-				c.payload?.targetType === targetType &&
-				c.payload?.targetId === idOf(parent),
-		);
-		if (!paired) continue;
-		inlineCanvas.set(parent.id, paired);
-		inlined.add(paired.id);
-	}
-}
-
-/**
- * Applies every route (or custom block) row, each on its own so one bad output
- * cannot abort the batch. Both kinds follow the identical shape: apply the
- * parent with its inlined canvas, record the real id the DB handed back onto
- * that canvas, and on failure mark the pair unapplied and re-appliable.
- */
-async function applyParentRows<R extends LabelledRow & { payload?: any }, C extends LabelledRow & { payload?: any }>(
-	ctx: ApplyContext,
-	parents: R[],
-	opts: {
-		inlineCanvas: Map<string, C>;
-		apply: (ctx: ApplyContext, row: R, changes?: any) => Promise<unknown>;
-		idOf: (row: R) => string | undefined;
-		realIds: Map<string, string>;
-		pairedFailure: string;
-		onFailure?: (id: string) => void;
-		done: string[];
-		failures: ApplyFailure[];
-		conversationId: string;
-	},
-) {
-	for (const parent of parents) {
-		const canvasRow = opts.inlineCanvas.get(parent.id);
-		try {
-			await opts.apply(
-				ctx,
-				parent,
-				canvasRow
-					? await formattedCanvasChanges(
-							(canvasRow.payload ?? {}) as BlockBuilderPayload,
-							EMPTY_CANVAS,
-						)
-					: undefined,
-			);
-			opts.done.push(parent.id);
-			if (canvasRow) {
-				const real = opts.realIds.get(opts.idOf(parent) ?? "");
-				if (real)
-					await rememberRealRouteId(
-						opts.conversationId,
-						canvasRow,
-						"targetId",
-						real,
-					);
-				opts.done.push(canvasRow.id);
-			}
-		} catch (error) {
-			const id = opts.idOf(parent);
-			if (id) opts.onFailure?.(id);
-			opts.failures.push(describeFailure(parent, error));
-			// The canvas rode along inside the create, so it did not land either.
-			if (canvasRow)
-				opts.failures.push(describeFailure(canvasRow, opts.pairedFailure));
-		}
-	}
-}
 
 export async function applyArtifact(
 	userId: string,
@@ -118,100 +31,93 @@ export async function applyArtifact(
 	projectId: string,
 	artifactId: string,
 ) {
-	const rows = await getArtifactSubArtifacts(conversationId, artifactId);
-	if (rows.length === 0) throw new NotFoundError("Artifact not found");
+	const raw = await getArtifactSubArtifacts(conversationId, artifactId);
+	if (raw.length === 0) throw new NotFoundError("Artifact not found");
 
-	const routes = rows.filter((r) => r.kind === "route");
-	const customBlocks = rows.filter((r) => r.kind === "custom_block");
-	const canvases = await Promise.all(
-		rows
-			.filter((r) => r.kind === "canvas")
-			.map((r) => resolveCanvasTarget(conversationId, projectId, r, rows)),
+	// The target repair has to happen before the graph is read: the id it fixes
+	// is the edge between a canvas and the parent it hangs off.
+	const rows = await Promise.all(
+		raw.map((row) => resolveCanvasTarget(conversationId, projectId, row, raw)),
 	);
-	// `rest` is stamped applied unconditionally at the end, so every kind that
-	// has its own apply path must be excluded — a custom block left in here was
-	// marked applied even when its create had just failed.
-	const rest = rows.filter(
-		(r) => r.kind !== "route" && r.kind !== "canvas" && r.kind !== "custom_block",
-	);
-
-	// Routes go first, so a canvas referencing a route this run created is
-	// already satisfied by the time its turn comes.
-	const applyingRouteIds = new Set(
-		routes.map(routeIdOf).filter((id): id is string => !!id),
-	);
-	await assertParentRoutesReady(projectId, canvases, routes, applyingRouteIds);
-
-	const ctx: ApplyContext = {
-		conversationId,
+	await assertExternalRoutesExist(
 		projectId,
-		caller: callerFor(userId, projectId),
-		routeIds: new Map(),
-		customBlockIds: new Map(),
-	};
-
-	// A canvas for a route this run is creating rides along with the create, so
-	// the route never exists without its blocks.
-	const inlineCanvas = new Map<string, (typeof canvases)[number]>();
-	const inlined = new Set<string>();
-	pairInlineCanvases(routes, canvases, "route", routeIdOf, inlineCanvas, inlined);
-	pairInlineCanvases(
-		customBlocks,
-		canvases,
-		"custom_block",
-		customBlockIdOf,
-		inlineCanvas,
-		inlined,
+		rows.filter((r) => r.kind === "canvas") as DependencyRow[],
+		rows as DependencyRow[],
 	);
 
-	const ordered = [...routes, ...customBlocks, ...canvases, ...rest];
+	// A canvas for a parent this run is creating rides along with the create, so
+	// the parent never exists without its blocks — it is applied there, not in
+	// its own turn.
+	const inlined = new Set<string>();
+	const inlineCanvas = new Map<string, (typeof rows)[number]>();
+	for (const row of rows) {
+		const child = inlineCanvasFor(row as GraphRow, rows as GraphRow[], inlined);
+		if (!child) continue;
+		inlineCanvas.set(row.id, child as (typeof rows)[number]);
+		inlined.add(child.id);
+	}
+
+	// The run's own DAG decides the order. Every relationship — a canvas needing
+	// its route, a route invoking a custom block created alongside it — is the
+	// same edge, so none of them is hardcoded here.
+	const ordered = topoOrder(rows as GraphRow[]) as typeof rows;
+
+	const ctx = newApplyContext(conversationId, projectId, userId);
 	const done: string[] = [];
 	// One bad output used to abort the whole batch, so a run that got nine
 	// things right and one wrong left the user with nine unapplied outputs and
 	// no idea which one was the problem. Each output is applied on its own now;
 	// what fails stays unapplied and re-appliable, and is named in the result.
 	const failures: ApplyFailure[] = [];
-	/** Routes that did not land — their canvases have nothing to attach to. */
-	const failedRouteIds = new Set<string>();
+	/** Rows that did not land, so anything hanging off them cannot either. */
+	const failed = new Map<string, (typeof rows)[number]>();
 
-	await applyParentRows(ctx, routes, {
-		inlineCanvas,
-		apply: applyRouteRow,
-		idOf: routeIdOf,
-		realIds: ctx.routeIds,
-		pairedFailure: "its route could not be created",
-		// A canvas whose route never landed has nothing to attach to.
-		onFailure: (id) => failedRouteIds.add(id),
-		done,
-		failures,
-		conversationId,
-	});
-	await applyParentRows(ctx, customBlocks, {
-		inlineCanvas,
-		apply: applyCustomBlockRow,
-		idOf: customBlockIdOf,
-		realIds: ctx.customBlockIds,
-		pairedFailure: "its custom block could not be created",
-		done,
-		failures,
-		conversationId,
-	});
+	for (const row of ordered) {
+		if (inlined.has(row.id)) continue;
 
-	for (const canvas of canvases) {
-		if (inlined.has(canvas.id)) continue;
-		const parentRouteId = parentRouteIdOf(canvas as DependencyRow);
-		if (parentRouteId && failedRouteIds.has(parentRouteId)) {
-			failures.push(describeFailure(canvas, "its route could not be created"));
+		// Cascade, in dependency order: a parent that failed is already in here by
+		// the time its children come round, and a skipped child is added itself,
+		// so the skip carries down a chain of any length.
+		const brokenParent = parentsOf(row as GraphRow, rows as GraphRow[]).find((p) =>
+			failed.has(p.id),
+		);
+		if (brokenParent) {
+			const reason = `its ${kindLabel(brokenParent.kind)} could not be created`;
+			failures.push(describeFailure(row, reason));
+			failed.set(row.id, row);
+			const child = inlineCanvas.get(row.id);
+			if (child) failures.push(describeFailure(child, reason));
 			continue;
 		}
+
+		const child = inlineCanvas.get(row.id);
+		const apply = APPLY_BY_KIND[row.kind];
+		if (!apply) {
+			done.push(row.id);
+			continue;
+		}
+
 		try {
-			await applyCanvasRow(ctx, canvas);
-			done.push(canvas.id);
+			await apply(
+				ctx,
+				row,
+				child ? await canvasFor(ctx, child, EMPTY_CANVAS) : undefined,
+			);
+			done.push(row.id);
+			if (child) {
+				await rememberRealIdsOnChildren(ctx, [child]);
+				done.push(child.id);
+			}
 		} catch (error) {
-			failures.push(describeFailure(canvas, error));
+			failed.set(row.id, row);
+			failures.push(describeFailure(row, error));
+			// The canvas rode along inside the create, so it did not land either.
+			if (child)
+				failures.push(
+					describeFailure(child, `its ${kindLabel(row.kind)} could not be created`),
+				);
 		}
 	}
-	done.push(...rest.map((r) => r.id));
 
 	const appliedAt = new Date();
 	if (done.length > 0) await markSubArtifactsApplied(conversationId, done, appliedAt);

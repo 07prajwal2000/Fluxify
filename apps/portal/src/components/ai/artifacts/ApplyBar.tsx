@@ -4,7 +4,8 @@ import { Link } from "@tanstack/react-router";
 import { TbCheck, TbChevronDown, TbExternalLink } from "react-icons/tb";
 import { harnessConversationsQuery } from "@/query/harnessConversationsQuery";
 import { showErrorNotification } from "@/lib/errorNotifier";
-import { useArtifactParams } from "./useArtifact";
+import { useAiHarnessStore } from "@/store/aiHarness";
+import { artifactTypeForKind, kindLabel, useArtifactParams } from "./useArtifact";
 
 /** Once an output has landed there is nothing left to apply, so the control
  *  becomes a way into the thing that changed. */
@@ -50,6 +51,42 @@ function Applied({
 	);
 }
 
+/** What this output is waiting on. Enough to name it and to open it. */
+export type BlockingParent = { id: string; kind: string };
+
+/**
+ * An output whose parent is still a proposal. The server refuses this apply, so
+ * offering the button would just produce a 409 — say what has to happen first
+ * and give the user one click to get there.
+ *
+ * Deliberately not an "apply both" shortcut: creating a resource the user never
+ * asked for, because they clicked a different one, is not theirs to undo.
+ */
+function Blocked({ parent }: { parent: BlockingParent }) {
+	const setSelectedArtifact = useAiHarnessStore((s) => s.setSelectedArtifact);
+	const what = kindLabel(parent.kind);
+	return (
+		<div className="flex items-center gap-3 self-start">
+			<Button size="sm" variant="primary" isDisabled className="self-start">
+				Needs the {what} applied first
+			</Button>
+			<button
+				type="button"
+				className="text-xs text-muted hover:text-foreground underline cursor-pointer"
+				onClick={() =>
+					setSelectedArtifact({
+						id: parent.id,
+						type: artifactTypeForKind(parent.kind),
+						props: {},
+					})
+				}
+			>
+				Open the {what}
+			</button>
+		</div>
+	);
+}
+
 /** Applies sub-artifacts in the order given — a canvas is only valid once the
  *  route it hangs off exists, so order is the caller's contract. */
 function useApply() {
@@ -73,6 +110,7 @@ export function ApplyBar({
 	appliedAt,
 	routeId,
 	customBlockId,
+	blockedBy,
 	label = "Apply",
 }: {
 	subArtifactId: string;
@@ -81,11 +119,14 @@ export function ApplyBar({
 	routeId?: string;
 	/** live custom block to link to once applied */
 	customBlockId?: string;
+	/** sibling output that has to land first, if one has not yet */
+	blockedBy?: BlockingParent;
 	label?: string;
 }) {
 	const { run, isPending } = useApply();
 
 	if (appliedAt) return <Applied appliedAt={appliedAt} routeId={routeId} customBlockId={customBlockId} />;
+	if (blockedBy) return <Blocked parent={blockedBy} />;
 
 	return (
 		<Button
@@ -118,6 +159,7 @@ export function RouteApplyBar({
 	appliedAt,
 	routeId,
 	action,
+	blockedBy,
 }: {
 	subArtifactId: string;
 	/** the same run's canvas output for this route, if it produced one */
@@ -125,12 +167,16 @@ export function RouteApplyBar({
 	appliedAt: string | Date | null;
 	routeId?: string;
 	action: string;
+	/** sibling output that has to land first — a route invoking a custom block
+	 *  this run created cannot execute until that block exists */
+	blockedBy?: BlockingParent;
 }) {
 	const { run, isPending } = useApply();
 	const [open, setOpen] = useState(false);
 	const verb = VERB[action] ?? "Apply";
 
 	if (appliedAt) return <Applied appliedAt={appliedAt} routeId={routeId} />;
+	if (blockedBy) return <Blocked parent={blockedBy} />;
 
 	if (!canvasSubArtifactId)
 		return (
