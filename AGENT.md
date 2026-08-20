@@ -140,7 +140,11 @@ If you encounter a repeatable issue or bug that might arise in the future, you m
 
 Strip both copies: the `AIMessage.tool_calls` field *and* `additional_kwargs.tool_calls`, where OpenAI-compatible providers keep their own. The model at that point is unbound and has no tools to call anyway. Give the rebuilt message real content saying the tool call was discarded — `"(empty response)"` tells the model nothing about what it did wrong.
 
+**`instanceof AIMessage` does not find them.** `AIMessageChunk` extends `BaseMessageChunk` and only *implements* `AIMessage`, so the check is **false for every streamed reply** — which is most of them. A strip gated on it silently passes the message through with its tool calls intact, and the 400 above comes back looking exactly like a regression of a fix that is still in place. Gate on the message type instead (`getType() === "ai"`, true for both), and read `tool_calls` and `additional_kwargs.tool_calls` together: an OpenAI-compatible provider may report the call **only** in `additional_kwargs` and leave `tool_calls` empty. `toolCallsOf()` in `models/toolLoop.ts` is the one place that does both; use it rather than re-deriving the check — `flattenToolMessages` and `asHistoryMessage` each got this wrong independently.
+
 **General rule:** any time a message is moved, echoed, replayed, or summarized into a new request, an assistant message's `tool_calls` and the `ToolMessage`s answering them must stay together or both be dropped. Splitting them is always a 400.
+
+This class of bug hides on OpenAI, which accepts the malformed history. It surfaces on Anthropic, Mistral, and DeepSeek. Reproduce message-plumbing fixes on a provider that actually enforces the rule.
 
 Also: native `withStructuredOutput` failures are caught and fall through to the prompt fallback rather than killing the run.
 
@@ -207,6 +211,24 @@ The pre-commit hook runs `fta-cli --score-cap 70`, which **fails the commit** fo
 2. Treat any `sql.raw()` on a request-derived string as an injection finding.
 3. Two things parameterization does **not** cover: values that are *syntax* for another parser (a `to_tsquery` string is bound safely but can still be a malformed tsquery → a runtime error), and `ilike(col, \`%${k}%\`)`, where user `%`/`_` act as LIKE wildcards. Bound ≠ harmless — bound means "cannot escape the value slot".
 4. Postgres also errors outright on a type mismatch against a typed id column (`uuid = 'auth'`, `serial = 'auth'`). Where the caller swallows errors into `[]`, one ordinary keyword blanks the entire search — an availability bug, so guard id comparisons with a shape check before they reach the query.
+
+### elkjs Cannot Run Under Bun — Layout Lives in `packages/blocks/layout.ts`
+**Issue:** `TypeError: undefined is not a constructor (evaluating 'new _Worker(url)')` from any server-side code that constructs `new ELK()`. Tests pass under Node and fail under Bun.
+**Cause:** elkjs only lays out inside a Web Worker. Its in-process fallback (`elkjs/lib/elk-worker.min.js`) ends in `module.exports = {default: j, Worker: j}`, and Bun's ESM/CJS interop resolves that to an **empty namespace** — so the constructor is `undefined`. `createRequire`, dynamic `import()`, and passing an explicit `workerFactory` are all dead ends; the module genuinely has nothing to hand back.
+**Fix & Best Practices:**
+1. **Do not add elkjs (or any worker-dependent layout lib) back.** The layered left-to-right layout in `packages/blocks/layout.ts` is dependency-free, runs identically under Bun and in the browser, and is the single implementation shared by the editor's Format button and the harness apply path (`formattedCanvasChanges`).
+2. Import it from the **subpath** `@fluxify/blocks/layout`, never the root barrel — the barrel drags `jsonwebtoken` and the adapters into the browser bundle (see the package-bleed section above).
+3. `layoutGraph(nodes, edges, { changedIds })` returns positions **only** for blocks that actually move, anchored on the leftmost unchanged block, so an AI edit nudges the graph instead of teleporting it to the origin.
+4. A green local lint does not prove a dependency was fully removed — `node_modules` still holds it. After dropping a dependency, grep the source for the import (`grep -rn "elkjs" apps packages`), because CI installs clean and will fail on what your local tree still resolves.
+
+### Harness Task Generation — One Edit Split Across Three Agents
+**Issue:** A request as simple as "put this custom block into a route" spawned a chain of sub-agent tasks (observed: three chained `blockBuilder` tasks, two rejected by the supervisor). Each hop regenerated the whole canvas from the previous one's output, so every hop was a fresh chance to drop a field.
+**Cause:** The planner writes a **user-facing** plan by design — "add the block", "configure it", "return it in the response" — and that is correct behaviour, not the bug. The task generator turned each bullet into its own task on the same agent, all editing the same canvas in series. Prompt rule 8 says to consolidate; nothing enforced it, and the model ignored it.
+**Fix & Best Practices:**
+1. `sanitizeTasks` (`harness/agents/taskGenerator.ts`) contracts a linear chain of same-agent tasks via `mergeChains`. Merging is only safe for a **true chain** — B depends on A alone and nothing else depends on A — so independent same-agent tasks (two different routes) are left alone and later tasks are re-pointed at the merged id.
+2. **Enforce structural rules in code, not only in the prompt.** A rule the model can ignore silently is not a rule; the deterministic repair belongs in `sanitizeTasks` next to the id/node/edge repairs already there.
+3. Do not "fix" this class of bug in the planner. Check `taskGenerator` output first — the planner's prose plan and the task DAG are different artifacts.
+4. When diagnosing a bad run, read it from the database (`agent_harness_runs`, `agent_harness_steps`, `agent_harness_live_states.working_memory`) rather than inferring from the summary. The reported agent is often not the one that misbehaved.
 
 ---
 

@@ -1,4 +1,5 @@
-import { generateID } from "@fluxify/lib";
+import { logger } from "@fluxify/common";
+import { generateID, uniqueCustomBlockName } from "@fluxify/lib";
 import { z } from "zod";
 import { dispatchAgentEvent } from "../../callbacks";
 import { createFindResourceTool } from "../../tools/findResource";
@@ -28,6 +29,29 @@ const customBlockConfigSchema = z.object({
 });
 
 export class CustomBlockConfigAgent extends BaseAgent {
+	/**
+	 * Settles the name here, before Block Builder writes `custom:<name>` into a
+	 * caller's canvas. A collision resolved any later is not resolvable at all:
+	 * the caller is already bound to the block that held the name first, and the
+	 * create fails with a conflict at apply.
+	 */
+	private async freeName(name: string): Promise<string> {
+		const projectId = this.state.internal?.metadata?.projectId || "";
+		const taken = new Set(
+			(
+				await this.state.internal.dbService.getAllCustomBlocks(projectId)
+			).map(({ name }: { name: string }) => name),
+		);
+		const free = uniqueCustomBlockName(name, taken);
+		if (free !== name) {
+			logger.warn("[CustomBlockConfig] Renamed custom block, name taken", {
+				requested: name,
+				renamed: free,
+			});
+		}
+		return free;
+	}
+
 	async execute(): Promise<Partial<GlobalGraphState>> {
 		const activeTask = this.state.activeTask;
 		if (!activeTask) throw new Error("CustomBlockConfigAgent requires an active task.");
@@ -53,6 +77,9 @@ ${CUSTOM_BLOCK_PARAMETER_CONTRACT}
 			agentId: activeTask.id,
 		}) as z.infer<typeof customBlockConfigSchema>;
 		if (response.action === "create" && !response.customBlockId) response.customBlockId = generateID();
+		if (response.action === "create" && response.data?.name) {
+			response.data.name = await this.freeName(response.data.name);
+		}
 		await dispatchAgentEvent({ name: "agent_status", data: { status: "Custom block contract formulated", agent: AgentNode.CUSTOM_BLOCK_CONFIG_AGENT, agentId: activeTask.id, data: response } });
 		return { currentAgent: AgentNode.CUSTOM_BLOCK_CONFIG_AGENT, orchestratorState: { ...this.state.orchestratorState, subAgentResults: { ...(this.state.orchestratorState?.subAgentResults ?? {}), [activeTask.id]: response } } };
 	}

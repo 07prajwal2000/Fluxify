@@ -8,7 +8,7 @@ import {
 } from "./repository";
 import { ConflictError } from "../../../../errors/conflictError";
 import { db, type DbTransactionType } from "../../../../db";
-import { generateID } from "@fluxify/lib";
+import { generateID, withCustomBlockPrefix } from "@fluxify/lib";
 import { NotFoundError } from "../../../../errors/notFoundError";
 
 /**
@@ -28,7 +28,9 @@ export default async function handleRequest(
 				`project with id ${data.projectId} does not exist`,
 			);
 		}
-		data.name = `user_defined.project.${data.name}`;
+		// Idempotent: callers that already resolved the stored name — the harness
+		// binds a route to a block by it — must not end up double-prefixed.
+		data.name = withCustomBlockPrefix(data.name);
 		const existingBlock = await checkCustomBlockExist(
 			data.projectId,
 			data.name,

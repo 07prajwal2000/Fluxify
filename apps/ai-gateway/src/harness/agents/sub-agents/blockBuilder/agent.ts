@@ -1,5 +1,5 @@
 import { logger } from "@fluxify/common";
-import { generateID } from "@fluxify/lib";
+import { generateID, resolveCustomBlockName } from "@fluxify/lib";
 import type { z } from "zod";
 import { BaseAgent } from "../../base";
 import { type GlobalGraphState, AgentNode } from "../../../types";
@@ -11,6 +11,10 @@ import { createGetBlockSchemasTool } from "../../../tools/getBlockSchemas";
 import { createGetAgentOutputTool } from "../../../tools/getAgentOutput";
 import { fenceUntrusted } from "../../../internal/untrusted";
 import { blockBuilderSchema } from "./schemas";
+import {
+	pendingCustomBlocks,
+	type PendingCustomBlock,
+} from "./pendingCustomBlocks";
 import {
 	createBlocksTable,
 	createSystemPrompt,
@@ -101,11 +105,21 @@ export class BlockBuilderAgent extends BaseAgent {
 		return value;
 	}
 
-	private async getCustomBlocksInfo(projectId: string): Promise<string> {
+	/** Stored blocks, as the prompt table plus the names they are stored under.
+	 *  The names are the inhouse guard: only a name absent from here may be
+	 *  assumed to be a project block and given the `user_defined.project.`
+	 *  prefix — inhouse and plugin blocks never went through the create endpoint
+	 *  that adds it, so they are stored bare. */
+	private async getCustomBlocksInfo(
+		projectId: string,
+	): Promise<{ table: string; names: string[] }> {
 		const customBlocks =
 			await this.state.internal.dbService.getAllCustomBlocks(projectId);
+		const names = customBlocks.map(({ name }: { name: string }) => name);
 
-		if (customBlocks.length === 0) return "No custom blocks available.";
+		if (customBlocks.length === 0) {
+			return { table: "No custom blocks available.", names };
+		}
 
 		const table = createBlocksTable(
 			customBlocks.map(
@@ -130,15 +144,45 @@ export class BlockBuilderAgent extends BaseAgent {
 		// Names, labels and descriptions authored by whoever built the custom
 		// block — untrusted, and this one lands in the system prompt rather than
 		// in a tool result, so it needs the fence more than most.
-		return fenceUntrusted("custom_blocks", table);
+		return { table: fenceUntrusted("custom_blocks", table), names };
 	}
 
-	private pairedCustomBlockContract() {
-		const configs = Object.values(this.state.orchestratorState?.subAgentResults ?? {})
-			.map((value) => value as { customBlockId?: string; data?: { name?: string; inputParams?: unknown[] } })
-			.filter((value) => value.customBlockId && value.data?.name);
+	/**
+	 * Rewrites every custom block reference to the name it is stored under.
+	 *
+	 * The prompt shows stored blocks by their full name and pending ones by the
+	 * name they will get, but a model that types the bare `jwt_validate` anyway
+	 * would persist it verbatim — `custom:` is stripped on the way into storage
+	 * (`artifacts/normalize.ts`) and the compiled worker's library is keyed by
+	 * the stored name, so the canvas would validate here and then fail to
+	 * compile with "No codegen for block type".
+	 */
+	private canonicalizeCustomBlockTypes(
+		response: z.infer<typeof blockBuilderSchema>,
+		known: ReadonlySet<string>,
+	) {
+		const fix = (block: { blockType?: string }) => {
+			const raw = block.blockType ?? "";
+			const bare = raw.startsWith("custom:") ? raw.slice(7) : raw;
+			const resolved = resolveCustomBlockName(bare, known);
+			// A name that matches nothing is a built-in, a typo, or an invented
+			// block. Leave it exactly as written: the validator's message for it
+			// is more useful than one about a name this rewrote.
+			if (!known.has(resolved) || resolved === bare) return;
+			block.blockType = `custom:${resolved}`;
+		};
+		response.blocks?.forEach(fix);
+		for (const change of response.canvasChanges ?? []) {
+			if (change.type === "block_change") change.data.blocksInfo.forEach(fix);
+		}
+		return response;
+	}
+
+	/** Reads the same pending proposals the validator does, so the prompt cannot
+	 *  call a block authoritative that validation then rejects as unknown. */
+	private pairedCustomBlockContract(configs: PendingCustomBlock[]) {
 		if (configs.length === 0) return "";
-		return `#### Paired Custom Block Contracts (authoritative)\n${configs.map((config) => `- ${config.data?.name} (${config.customBlockId}): ${JSON.stringify(config.data?.inputParams ?? [])}`).join("\n")}`;
+		return `#### Paired Custom Block Contracts (authoritative)\n${configs.map((config) => `- ${config.name} (${config.customBlockId}): ${JSON.stringify(config.inputParams)}`).join("\n")}`;
 	}
 
 	async execute(): Promise<Partial<GlobalGraphState>> {
@@ -157,15 +201,22 @@ export class BlockBuilderAgent extends BaseAgent {
 		});
 
 		const projectId = this.state.internal?.metadata?.projectId || "NONE";
-		const customBlocksTable = await this.getCustomBlocksInfo(projectId);
+		const { table: customBlocksTable, names: storedCustomBlockNames } =
+			await this.getCustomBlocksInfo(projectId);
 		const contextBlock = this.state.internal?.metadata?.contextBlock;
 		const prefetchedDocs = (await getDocsByTitle(PREFETCH_DOC_TITLES))
 			.map((doc) => doc.content)
 			.join("\n\n---\n\n");
+		const pending = pendingCustomBlocks(this.state, activeTask.id);
+		// Stored names plus the names this run's proposals will be stored under.
+		const knownCustomBlockNames = new Set([
+			...storedCustomBlockNames,
+			...pending.map((block) => block.name),
+		]);
 		const systemPrompt = createSystemPrompt(
 			customBlocksTable,
 			prefetchedDocs,
-			this.pairedCustomBlockContract(),
+			this.pairedCustomBlockContract(pending),
 		);
 		const userQuery = createUserQuery(activeTask);
 
@@ -179,7 +230,11 @@ export class BlockBuilderAgent extends BaseAgent {
 				this.state.internal.dbService,
 				this.state.internal?.metadata || {},
 			),
-			createGetBlockSchemasTool(this.state.internal.dbService, projectId),
+			createGetBlockSchemasTool(
+				this.state.internal.dbService,
+				projectId,
+				new Map(pending.map((block) => [block.name, block.inputParams])),
+			),
 			createGetAgentOutputTool(
 				this.state.orchestratorState?.subAgentResults || {},
 			),
@@ -202,7 +257,10 @@ export class BlockBuilderAgent extends BaseAgent {
 				.map((block) => [block.id, generateID()]),
 		);
 		const processedResponse = await this.reconcileRouteTarget(
-			this.replaceShortIds(this.stripEchoedMetadata(response), shortIdMap),
+			this.canonicalizeCustomBlockTypes(
+				this.replaceShortIds(this.stripEchoedMetadata(response), shortIdMap),
+				knownCustomBlockNames,
+			),
 			projectId,
 		);
 

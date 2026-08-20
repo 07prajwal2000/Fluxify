@@ -2,6 +2,7 @@ import { fencedTool } from "./fenced";
 import { z } from "zod";
 import { logger } from "@fluxify/common";
 import { blockAiDescriptions } from "@fluxify/blocks";
+import { resolveCustomBlockName, withCustomBlockPrefix } from "@fluxify/lib";
 import type { DbService } from "../internal/dbService";
 
 function mapInputParamsToNaturalLanguage(inputParams: any[]): string {
@@ -54,6 +55,10 @@ const MAX_BLOCK_TYPES_PER_CALL = 8;
 export const createGetBlockSchemasTool = (
 	dbService: DbService,
 	projectId: string,
+	/** Custom blocks this run has proposed but not written yet. Without these the
+	 *  model asks for the schema mid-run, is told the block does not exist, and
+	 *  designs around it long before validation gets a chance to disagree. */
+	pendingCustomBlocks: Map<string, Array<Record<string, unknown>>> = new Map(),
 ) => {
 	return fencedTool(
 		async ({ blockTypes }) => {
@@ -72,7 +77,22 @@ export const createGetBlockSchemasTool = (
 			for (const blockType of requestedTypes) {
 				if (blockType.startsWith("custom:")) {
 					const customName = blockType.replace("custom:", "");
-					const inputParams = await dbService.getCustomBlockInputParams(projectId, customName);
+					// DB first, same precedence as the validator: a stored block under
+					// this name is what the canvas will execute against. Both name
+					// forms are tried — an inhouse block is stored bare, a project one
+					// under the `user_defined.project.` prefix the create endpoint adds.
+					const inputParams =
+						(await dbService.getCustomBlockInputParams(projectId, customName)) ??
+						(await dbService.getCustomBlockInputParams(
+							projectId,
+							withCustomBlockPrefix(customName),
+						)) ??
+						pendingCustomBlocks.get(
+							resolveCustomBlockName(
+								customName,
+								new Set(pendingCustomBlocks.keys()),
+							),
+						);
 					if (inputParams) {
 						const mappedSchema = mapInputParamsToNaturalLanguage(inputParams);
 						results.push(`### Custom Block: ${customName}\n${mappedSchema}`);

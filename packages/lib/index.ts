@@ -1,4 +1,5 @@
 export * from "./objects/deepfreeze";
+export * from "./customBlockName";
 export * from "./evaluators/condition";
 export * from "./random/id";
 export * from "./routing/parser";
