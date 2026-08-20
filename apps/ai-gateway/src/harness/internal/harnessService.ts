@@ -272,6 +272,10 @@ export class HarnessService {
 		artifactId: string;
 		runId: string;
 		subAgentId?: string;
+		/** The producing task's `dependsOnAgentId`. Stored as task ids, not row
+		 *  ids: the rows are written in one pass and a task's dependency may not
+		 *  have a row yet, while `subAgentId` resolves the two at read time. */
+		dependsOn?: string[];
 		kind: string;
 		action?: string;
 		payload: Record<string, any>;
@@ -283,6 +287,7 @@ export class HarnessService {
 				conversationId: this.conversationId,
 				runId: input.runId,
 				subAgentId: input.subAgentId,
+				dependsOn: input.dependsOn,
 				kind: input.kind,
 				action: input.action,
 				payload: input.payload,

@@ -1,0 +1,1 @@
+ALTER TABLE "agent_harness_sub_artifacts" ADD COLUMN "depends_on" jsonb;

@@ -188,6 +188,47 @@ function canonicalType(raw: string) {
 	return CANONICAL_TYPE.get(key(raw)) ?? raw;
 }
 
+/**
+ * Rewrites `custom:<old>` to `custom:<new>` everywhere a canvas payload names a
+ * block type, for every entry in `renames`.
+ *
+ * A custom block's stored name is not always the name the run asked for — the
+ * create endpoint namespaces it, and the config agent renames around a
+ * collision. The caller's canvas invokes the block *by name*, so a canvas built
+ * against the requested name resolves to nothing once the block lands under a
+ * different one. The map is normally empty; this only does work when a name
+ * actually moved between generation and apply.
+ */
+export function remapCustomBlockNames(
+	payload: BlockBuilderPayload,
+	renames: ReadonlyMap<string, string>,
+): BlockBuilderPayload {
+	if (renames.size === 0) return payload;
+
+	const rename = (block: AgentBlock) => {
+		const raw = block.blockType ?? "";
+		if (!raw.startsWith("custom:")) return block;
+		const to = renames.get(raw.slice("custom:".length));
+		return to ? { ...block, blockType: `custom:${to}` } : block;
+	};
+
+	return {
+		...payload,
+		blocks: payload.blocks?.map(rename) ?? payload.blocks,
+		canvasChanges: payload.canvasChanges?.map((change) =>
+			change?.type === "block_change" && Array.isArray(change.data?.blocksInfo)
+				? {
+						...change,
+						data: {
+							...change.data,
+							blocksInfo: (change.data.blocksInfo as AgentBlock[]).map(rename),
+						},
+					}
+				: change,
+		),
+	};
+}
+
 /** Edges persist `<blockId>-<kind>`; the agent emits the bare kind. */
 function fullHandle(blockId: string, handle: string | null | undefined, fallback: string) {
 	const kind = (handle ?? fallback).trim() || fallback;

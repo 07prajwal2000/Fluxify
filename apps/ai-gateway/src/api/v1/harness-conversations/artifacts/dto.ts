@@ -27,6 +27,10 @@ export const subArtifactSummarySchema = z.object({
 	action: z.string().nullable(),
 	appliedAt: z.union([z.string(), z.date()]).nullable(),
 	createdAt: z.union([z.string(), z.date()]),
+	/** The producing task. `dependsOn` names these, which is how the client
+	 *  rebuilds the chain without fetching every payload. */
+	subAgentId: z.string().nullish(),
+	dependsOn: z.array(z.string()).nullish(),
 });
 
 export const listResponseSchema = z.object({
@@ -36,7 +40,6 @@ export const listResponseSchema = z.object({
 export const subArtifactDetailSchema = subArtifactSummarySchema.extend({
 	conversationId: z.string(),
 	runId: z.string(),
-	subAgentId: z.string().nullable(),
 	payload: z.record(z.string(), z.any()),
 });
 
@@ -50,7 +53,7 @@ export const applySubArtifactResponseSchema = z.object({
 export const applyArtifactResponseSchema = z.object({
 	artifactId: z.string(),
 	appliedAt: z.union([z.string(), z.date()]),
-	/** Route outputs first — the order the project mutation must run in. */
+	/** Dependency order — the order the project mutation actually ran in. */
 	applied: z.array(
 		z.object({
 			id: z.string(),

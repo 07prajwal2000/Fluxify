@@ -1,10 +1,12 @@
 import { ConflictError, NotFoundError } from "@fluxify/server";
+import { withCustomBlockPrefix } from "@fluxify/lib";
 import { publishArtifactStatus } from "../../../../harness/notifications";
 import type { ArtifactStatus } from "../../../../harness/clientContract";
 import type { RpcCaller } from "@fluxify/server/src/db/natsRpc";
 import {
 	formattedCanvasChanges,
 	customBlockOpFromPayload,
+	remapCustomBlockNames,
 	routeOpFromPayload,
 	type BlockBuilderPayload,
 	type CanvasChanges,
@@ -12,6 +14,12 @@ import {
 	type CustomBlockConfigPayload,
 	type RouteConfigPayload,
 } from "./normalize";
+import {
+	inlineCanvasFor,
+	kindLabel,
+	parentsOf,
+	referencedIdOf,
+} from "./dependencies";
 import {
 	callerFor,
 	createCustomBlock,
@@ -39,6 +47,8 @@ export interface DependencyRow {
 	action: string | null;
 	appliedAt: Date | null;
 	payload: Record<string, any> | null;
+	subAgentId?: string | null;
+	dependsOn?: string[] | null;
 }
 
 /** The route a `kind: "route"` output creates or edits. */
@@ -98,7 +108,11 @@ export function describeArtifactRow(row: LabelledRow): string {
 		const what = payload.targetType === "custom_block" ? "custom block" : "route";
 		return `logic for the ${what}`;
 	}
-	return `${row.kind} ${row.id}`;
+	if (row.kind === "custom_block") {
+		const name = payload.data?.label ?? payload.data?.name;
+		return name ? `custom block '${name}'` : `custom block ${row.id}`;
+	}
+	return `${kindLabel(row.kind)} ${row.id}`;
 }
 
 /** `Created route 'Get Order' (GET /orders/:id)` — the whole event, in words. */
@@ -154,42 +168,67 @@ export function describeFailure(row: LabelledRow, error: unknown): ApplyFailure 
 }
 
 /**
- * A canvas is meaningless without its route — its blocks hang off a route id, so
- * the route has to be live before the graph can be pushed.
+ * The parent of `row` that is not live yet, if there is one.
  *
- * Two ways the dependency is satisfied: the route is a sibling output of the same
- * artifact (this run created it) and has already been applied, or it is an older
- * route that still exists in the project. `applyingRouteIds` are the siblings
- * being applied earlier in this same request.
+ * Applying a child before its parent produces a resource that cannot execute —
+ * a route invoking a custom block that does not exist, a canvas hanging off a
+ * route that was never created. Nothing here knows which kinds those are; the
+ * edge comes from the run's own task graph.
+ *
+ * `applying` are siblings this same request is about to apply earlier in the
+ * order, which satisfies the dependency just as an already-applied row does.
  */
-export async function assertParentRoutesReady(
+export function unappliedParent(
+	row: DependencyRow,
+	siblings: DependencyRow[],
+	applying: ReadonlySet<string> = new Set(),
+): DependencyRow | undefined {
+	return parentsOf(row, siblings).find(
+		(parent) => !parent.appliedAt && !applying.has(parent.id),
+	);
+}
+
+/**
+ * Refuses a child whose parent has not been applied, naming the parent.
+ *
+ * Deliberately not a cascade-apply: creating a resource in the user's project
+ * because they clicked a different one is a surprise they cannot undo. Block,
+ * say what to apply first, and let them press it.
+ */
+export function assertParentsApplied(
+	row: DependencyRow,
+	siblings: DependencyRow[],
+	applying?: ReadonlySet<string>,
+) {
+	const parent = unappliedParent(row, siblings, applying);
+	if (!parent) return;
+	throw new ConflictError(
+		`This ${kindLabel(row.kind)} output depends on the ${describeArtifactRow(
+			parent,
+		)} this run created, which has not been applied yet. Apply it (sub-artifact ${
+			parent.id
+		}) first.`,
+	);
+}
+
+/**
+ * Referential check, not a dependency one: a canvas may legitimately target a
+ * route from an earlier run, and if that route has since been deleted the save
+ * fails deep in the canvas service with a message about a parent id the user
+ * never saw. Rows created *this* run are handled by the dependency gate above.
+ */
+export async function assertExternalRoutesExist(
 	projectId: string,
 	canvases: DependencyRow[],
 	siblings: DependencyRow[],
-	applyingRouteIds: Set<string>,
 ) {
-	const external: string[] = [];
-
-	for (const routeId of new Set(
-		canvases.map(parentRouteIdOf).filter((id): id is string => !!id),
-	)) {
-		if (applyingRouteIds.has(routeId)) continue;
-
-		const sibling = siblings.find(
-			(s) => s.kind === "route" && routeIdOf(s) === routeId,
-		);
-		if (!sibling) {
-			external.push(routeId);
-			continue;
-		}
-		if (!sibling.appliedAt) {
-			throw new ConflictError(
-				`These canvas changes belong to a route this run created that has not been applied yet. Apply the route (sub-artifact ${sibling.id}) first.`,
-			);
-		}
-	}
-
+	const external = [
+		...new Set(canvases.map(parentRouteIdOf).filter((id): id is string => !!id)),
+	].filter(
+		(routeId) => !siblings.some((s) => s.kind === "route" && routeIdOf(s) === routeId),
+	);
 	if (external.length === 0) return;
+
 	const existing = await findExistingRouteIds(projectId, external);
 	const missing = external.find((id) => !existing.has(id));
 	if (missing) {
@@ -274,7 +313,24 @@ export type ApplyContext = {
 	routeIds: Map<string, string>;
 	/** Planned custom-block id to storage id, same reconciliation as routes. */
 	customBlockIds: Map<string, string>;
+	/** The name a custom block was created under, when storage did not use the
+	 *  one the run asked for. Canvases invoke a block by name, so a canvas built
+	 *  against the requested name has to be rewritten before it is saved. */
+	customBlockNames: Map<string, string>;
 };
+
+export const newApplyContext = (
+	conversationId: string,
+	projectId: string,
+	userId: string,
+): ApplyContext => ({
+	conversationId,
+	projectId,
+	caller: callerFor(userId, projectId),
+	routeIds: new Map(),
+	customBlockIds: new Map(),
+	customBlockNames: new Map(),
+});
 
 /**
  * Writes one route output through the bus. `canvas` is sent inline on a create
@@ -320,9 +376,32 @@ export async function applyCustomBlockRow(
 		await modifyCustomBlock(ctx.caller, op.id, op.data);
 		return;
 	}
+	// Storage namespaces a project block, so the name a caller's canvas has to
+	// invoke is not the bare one this payload asked for. Recorded before the
+	// create so an inlined canvas in the same call is rewritten too.
+	ctx.customBlockNames.set(op.data.name, withCustomBlockPrefix(op.data.name));
 	const { id } = await createCustomBlock(ctx.caller, op.data, canvas);
 	if (payload.customBlockId) ctx.customBlockIds.set(payload.customBlockId, id);
 	await rememberRealRouteId(ctx.conversationId, row, "customBlockId", id);
+}
+
+/**
+ * One canvas payload, ready for the bus. Every path that pushes a graph goes
+ * through here so the name remap cannot be forgotten on one of them — a canvas
+ * saved with a stale `custom:<name>` looks fine and resolves to nothing.
+ */
+export function canvasFor(
+	ctx: ApplyContext,
+	row: { payload: Record<string, any> | null },
+	existing: CanvasItems,
+) {
+	return formattedCanvasChanges(
+		remapCustomBlockNames(
+			(row.payload ?? {}) as BlockBuilderPayload,
+			ctx.customBlockNames,
+		),
+		existing,
+	);
 }
 
 export async function applyCanvasRow(
@@ -338,14 +417,42 @@ export async function applyCanvasRow(
 	// Normalizing needs the canvas as it stands: it decides which block ids are
 	// already real and which edge is being re-routed.
 	const existing = await readCanvas(ctx.caller, source, sourceId);
-	await saveCanvas(
-		ctx.caller,
-		source,
-		sourceId,
-		await formattedCanvasChanges(payload, existing),
-	);
+	await saveCanvas(ctx.caller, source, sourceId, await canvasFor(ctx, row, existing));
 	if (sourceId !== target) {
 		await rememberRealRouteId(ctx.conversationId, row, "targetId", sourceId);
+	}
+}
+
+/** How each kind is written to the project. Ordering, pairing and gating are
+ *  kind-agnostic; only the write itself knows what it is writing. */
+export const APPLY_BY_KIND: Record<
+	string,
+	(
+		ctx: ApplyContext,
+		row: { id: string; payload: Record<string, any> | null },
+		canvas?: CanvasChanges,
+	) => Promise<void>
+> = {
+	route: applyRouteRow,
+	custom_block: applyCustomBlockRow,
+	canvas: applyCanvasRow,
+};
+
+/**
+ * The parent has the id storage chose; its children still name the one the
+ * agent invented. Leaving them stale breaks every later read of the link — the
+ * apply gate cannot tell the parent is live.
+ */
+export async function rememberRealIdsOnChildren(
+	ctx: ApplyContext,
+	rows: { id: string; payload: Record<string, any> | null }[],
+) {
+	for (const row of rows) {
+		const planned = referencedIdOf(row);
+		if (!planned) continue;
+		const real = ctx.routeIds.get(planned) ?? ctx.customBlockIds.get(planned);
+		if (real && real !== planned)
+			await rememberRealRouteId(ctx.conversationId, row, "targetId", real);
 	}
 }
 
@@ -359,76 +466,34 @@ export async function applySubArtifact(
 	const row = await getSubArtifactById(conversationId, subArtifactId);
 	if (!row) throw new NotFoundError("Sub-artifact not found");
 
-	const ctx: ApplyContext = {
-		conversationId,
-		projectId,
-		caller: callerFor(userId, projectId),
-		routeIds: new Map(),
-		customBlockIds: new Map(),
-	};
+	const ctx = newApplyContext(conversationId, projectId, userId);
+	const siblings = await getArtifactSubArtifacts(conversationId, row.artifactId);
+	// A no-op unless this is a canvas whose target was mis-copied, but it has to
+	// run before the graph is read: every edge into this row goes through the id
+	// it repairs.
+	const resolved = await resolveCanvasTarget(conversationId, projectId, row, siblings);
+	const rows = siblings.map((s) => (s.id === resolved.id ? { ...s, ...resolved } : s));
 
-	if (row.kind === "canvas") {
-		const siblings = await getArtifactSubArtifacts(conversationId, row.artifactId);
-		const resolved = await resolveCanvasTarget(conversationId, projectId, row, siblings);
-		await assertParentRoutesReady(projectId, [resolved], siblings, new Set());
-		await applyCanvasRow(ctx, resolved);
-	} else if (row.kind === "route") {
-		const agentRouteId = row.payload?.routeId as string | undefined;
-		const siblings = await getArtifactSubArtifacts(conversationId, row.artifactId);
-		const canvasRow = row.payload?.action === "create"
-			? siblings.find(
-					(s) => s.kind === "canvas" && !s.appliedAt && s.payload?.targetType === "route" && s.payload?.targetId === agentRouteId,
-				)
-			: undefined;
-		await applyRouteRow(
-			ctx,
-			row,
-			canvasRow ? await formattedCanvasChanges((canvasRow.payload ?? {}) as BlockBuilderPayload, EMPTY_CANVAS) : undefined,
+	assertParentsApplied(resolved as DependencyRow, rows);
+	await assertExternalRoutesExist(projectId, [resolved as DependencyRow], rows);
+
+	const apply = APPLY_BY_KIND[resolved.kind];
+	if (apply) {
+		// An already-applied canvas must not ride along a second time.
+		const child = inlineCanvasFor(
+			resolved as DependencyRow,
+			rows,
+			new Set(rows.filter((s) => s.appliedAt).map((s) => s.id)),
 		);
-		// The route now has the id storage chose, but its canvas siblings still
-		// point at the id the agent invented. Leaving them stale breaks every
-		// later read of the link — the apply gate cannot tell the route is live.
-		const realId = agentRouteId ? ctx.routeIds.get(agentRouteId) : undefined;
-		if (realId && agentRouteId !== realId) {
-			for (const sibling of siblings) {
-				if (sibling.kind !== "canvas") continue;
-				if (sibling.payload?.targetType !== "route") continue;
-				if (sibling.payload?.targetId !== agentRouteId) continue;
-				await rememberRealRouteId(conversationId, sibling, "targetId", realId);
-			}
-		}
+		await apply(
+			ctx,
+			resolved,
+			child ? await canvasFor(ctx, child, EMPTY_CANVAS) : undefined,
+		);
+		await rememberRealIdsOnChildren(ctx, rows);
 		// The canvas rode inside the create, so it is live. Leaving it unstamped
 		// showed it as pending and let a second apply re-save the same blocks.
-		if (canvasRow) await markSubArtifactsApplied(conversationId, [canvasRow.id], new Date());
-	} else if (row.kind === "custom_block") {
-		const agentCustomBlockId = row.payload?.customBlockId as string | undefined;
-		const siblings = await getArtifactSubArtifacts(conversationId, row.artifactId);
-		const canvasRow = row.payload?.action === "create"
-			? siblings.find(
-					(s) =>
-						s.kind === "canvas" &&
-						!s.appliedAt &&
-						s.payload?.targetType === "custom_block" &&
-						s.payload?.targetId === agentCustomBlockId,
-				)
-			: undefined;
-		await applyCustomBlockRow(
-			ctx,
-			row,
-			canvasRow
-				? await formattedCanvasChanges((canvasRow.payload ?? {}) as BlockBuilderPayload, EMPTY_CANVAS)
-				: undefined,
-		);
-		const realId = agentCustomBlockId ? ctx.customBlockIds.get(agentCustomBlockId) : undefined;
-		if (realId && agentCustomBlockId !== realId) {
-			for (const sibling of siblings) {
-				if (sibling.kind !== "canvas") continue;
-				if (sibling.payload?.targetType !== "custom_block") continue;
-				if (sibling.payload?.targetId !== agentCustomBlockId) continue;
-				await rememberRealRouteId(conversationId, sibling, "targetId", realId);
-			}
-		}
-		if (canvasRow) await markSubArtifactsApplied(conversationId, [canvasRow.id], new Date());
+		if (child) await markSubArtifactsApplied(conversationId, [child.id], new Date());
 	}
 
 	const [applied] = await markSubArtifactsApplied(
