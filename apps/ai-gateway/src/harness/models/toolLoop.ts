@@ -100,6 +100,39 @@ export function parseAsSchema<T>(
 }
 
 /**
+ * Every tool call on a message, wherever the provider put it.
+ *
+ * Two traps, and a message can spring either:
+ *
+ * 1. `AIMessageChunk` **implements** `AIMessage` but extends `BaseMessageChunk`,
+ *    so `instanceof AIMessage` is false for a streamed reply. Gate on the
+ *    message type instead — both report `"ai"`.
+ * 2. OpenAI-compatible providers (DeepSeek among them) report the call in
+ *    `additional_kwargs.tool_calls` and may leave `tool_calls` empty.
+ *
+ * Miss either and an assistant message reaches the unbound structured-output
+ * call still carrying tool calls that no ToolMessage answers — a 400
+ * ("insufficient tool messages following tool_calls message") on every attempt,
+ * spending the whole retry budget on the history rather than on the answer.
+ */
+export function toolCallsOf(message: unknown): unknown[] {
+	const m = message as
+		| {
+				getType?: () => string;
+				tool_calls?: unknown;
+				additional_kwargs?: Record<string, any>;
+		  }
+		| undefined;
+	if (m?.getType?.() !== "ai") return [];
+	return [
+		...(Array.isArray(m.tool_calls) ? m.tool_calls : []),
+		...(Array.isArray(m.additional_kwargs?.tool_calls)
+			? m.additional_kwargs.tool_calls
+			: []),
+	];
+}
+
+/**
  * Collapses tool traffic into plain turns, ending on a human message.
  *
  * The structured-output fallback invokes the *unbound* model. Anthropic and
@@ -120,8 +153,9 @@ export function flattenToolMessages(messages: BaseMessage[]): BaseMessage[] {
 			);
 			continue;
 		}
-		if (m instanceof AIMessage && m.tool_calls?.length) {
+		if (toolCallsOf(m).length > 0) {
 			// Keep any reasoning it wrote alongside the call, drop the call itself.
+			// A fresh AIMessage carries no `additional_kwargs`, so both copies go.
 			const text = extractText(m);
 			if (text.trim()) out.push(new AIMessage(text));
 			continue;
@@ -184,9 +218,7 @@ export function asHistoryMessage(response: unknown, cleaned: string): AIMessage 
 	// on the history instead of on the answer. This model is unbound; it has no
 	// tools to call here anyway.
 	const { tool_calls: _tc, ...kwargs } = raw.additional_kwargs ?? {};
-	const hasToolCalls =
-		(response instanceof AIMessage && response.tool_calls?.length) ||
-		Array.isArray(raw.additional_kwargs?.tool_calls);
+	const hasToolCalls = toolCallsOf(response).length > 0;
 
 	if (hasContent && response instanceof AIMessage && !hasToolCalls)
 		return response;

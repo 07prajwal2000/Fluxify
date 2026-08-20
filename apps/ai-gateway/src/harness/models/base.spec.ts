@@ -3,6 +3,7 @@ import { z } from "zod";
 import { BaseChatModel } from "@langchain/core/language_models/chat_models";
 import {
 	AIMessage,
+	AIMessageChunk,
 	HumanMessage,
 	SystemMessage,
 	ToolMessage,
@@ -648,6 +649,62 @@ describe("flattenToolMessages", () => {
 		expect(String(flat.at(-1)!.content)).toContain('{"routes":[]}');
 		// Reasoning written alongside the call is kept.
 		expect(flat.some((m) => m.content === "let me look")).toBe(true);
+	});
+
+	it("strips tool calls off an AIMessageChunk", () => {
+		// AIMessageChunk implements AIMessage but extends BaseMessageChunk, so an
+		// `instanceof AIMessage` gate misses a streamed reply entirely and its
+		// tool calls ride into the unbound structured-output call.
+		const flat = flattenToolMessages([
+			new HumanMessage("build it"),
+			new AIMessageChunk({
+				content: "streamed reasoning",
+				tool_calls: [{ id: "1", name: "get_block_schemas", args: {} }],
+			}),
+			new ToolMessage({
+				tool_call_id: "1",
+				name: "get_block_schemas",
+				content: "### Custom Block: user_defined.project.validate_jwt",
+			}),
+		]);
+
+		expect(flat.some((m) => (m as AIMessage).tool_calls?.length)).toBe(false);
+		expect(flat.some((m) => m instanceof ToolMessage)).toBe(false);
+		expect(flat.at(-1)!.getType()).toBe("human");
+		expect(flat.some((m) => m.content === "streamed reasoning")).toBe(true);
+	});
+
+	it("strips tool calls an OpenAI-compatible provider left only in additional_kwargs", () => {
+		// DeepSeek reports the call in `additional_kwargs` with `tool_calls`
+		// empty. Keeping that message sends an assistant turn with tool calls and
+		// no ToolMessage answering it — a 400 on every structured-output attempt.
+		const flat = flattenToolMessages([
+			new HumanMessage("build it"),
+			new AIMessage({
+				content: "checking the block",
+				additional_kwargs: {
+					tool_calls: [
+						{
+							id: "1",
+							type: "function",
+							function: { name: "get_block_schemas", arguments: "{}" },
+						},
+					],
+				},
+			}),
+			new ToolMessage({
+				tool_call_id: "1",
+				name: "get_block_schemas",
+				content: "### Custom Block: user_defined.project.validate_jwt",
+			}),
+		]);
+
+		expect(
+			flat.some((m) => Array.isArray(m.additional_kwargs?.tool_calls)),
+		).toBe(false);
+		expect(flat.some((m) => m instanceof ToolMessage)).toBe(false);
+		expect(flat.at(-1)!.getType()).toBe("human");
+		expect(flat.some((m) => m.content === "checking the block")).toBe(true);
 	});
 });
 

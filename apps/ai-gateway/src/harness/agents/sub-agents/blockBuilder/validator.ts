@@ -1,6 +1,8 @@
 import { builtinBlockSchemas, BlockTypes } from "@fluxify/blocks";
+import { resolveCustomBlockName, withCustomBlockPrefix } from "@fluxify/lib";
 import type { AgentOutputValidator } from "../../../types";
 import { detectCycles } from "./cycleDetector";
+import { pendingCustomBlockSchemas } from "./pendingCustomBlocks";
 import { validateGraphRules } from "./graphRules";
 import type { BlockBuilderResult, ValidatableBlock } from "./schemas";
 
@@ -157,7 +159,11 @@ function validateBlockAgainstSchemas(
 	if (isCustom && customName) {
 		const invokeError = validateCustomBlockInvoke(block, customName);
 		if (invokeError) errors.push(invokeError);
-		const inputParams = customBlockSchemasMap.get(customName);
+		// `agent.ts` already rewrote known references to their stored name; this
+		// resolve covers the paths that skip it — a resumed run, a re-validation.
+		const inputParams = customBlockSchemasMap.get(
+			resolveCustomBlockName(customName, new Set(customBlockSchemasMap.keys())),
+		);
 		if (!inputParams) {
 			// A near-miss on a built-in name (`get_http_header` for `httpgetheader`)
 			// used to sail through and persist a type nothing can execute.
@@ -245,12 +251,25 @@ export const validateBlockBuilderOutput: AgentOutputValidator = async (
 
 	const projectId = state.internal?.metadata?.projectId || "";
 	let customBlockSchemasMap = new Map<string, any[]>();
-	if (customBlockNamesToFetch.size > 0 && state.internal?.dbService) {
-		customBlockSchemasMap =
-			await state.internal.dbService.getCustomBlocksBatch(
-				projectId,
-				Array.from(customBlockNamesToFetch),
-			);
+	if (customBlockNamesToFetch.size > 0) {
+		const dbSchemas = state.internal?.dbService
+			? await state.internal.dbService.getCustomBlocksBatch(
+					projectId,
+					// Both forms: the canvas may hold the bare name while the row is
+					// stored prefixed, and inhouse blocks are stored bare.
+					Array.from(customBlockNamesToFetch).flatMap((name) => [
+						name,
+						withCustomBlockPrefix(name),
+					]),
+				)
+			: new Map<string, any[]>();
+		// Pending first so a real record always wins over a proposal: the block
+		// may exist already under the same name, and the stored schema is the one
+		// the canvas will actually execute against.
+		customBlockSchemasMap = new Map<string, any[]>([
+			...pendingCustomBlockSchemas(state, taskId),
+			...dbSchemas,
+		]);
 	}
 
 	const errors: string[] = validateGraphRules(blocksToValidate);
