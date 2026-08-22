@@ -173,11 +173,16 @@ export class FluxifyHarness {
 		// Resolve the resource the user was viewing (if any) once, here, instead
 		// of letting the planner burn a find_resource tool call rediscovering an
 		// id the request already carried. One cheap DB hit, zero model tokens.
-		const contextBlock = await buildContextBlock(
-			this.dbService,
-			ctx.metadata?.projectId,
-			ctx.metadata?.location,
-		);
+		const [contextBlock, projectInventory] = await Promise.all([
+			buildContextBlock(
+				this.dbService,
+				ctx.metadata?.projectId,
+				ctx.metadata?.location,
+			),
+			// A HITL continuation already has the approved plan. Avoid loading a
+			// generic catalogue unless this pass has a fresh user request to match.
+			this.dbService.getProjectInventory(ctx.metadata?.projectId, query),
+		]);
 
 		return {
 			...workingMemory,
@@ -194,6 +199,7 @@ export class FluxifyHarness {
 					runId: ctx.runId,
 					conversationId: ctx.conversationId,
 					contextBlock,
+					projectInventory,
 				},
 			},
 			agentWrapper: this.agentFactory.createAgent(),

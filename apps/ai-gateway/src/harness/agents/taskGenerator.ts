@@ -3,6 +3,7 @@ import { BaseAgent } from "./base";
 import { subAgents } from "./sub-agents";
 import { z } from "zod";
 import { dispatchAgentEvent } from "../callbacks";
+import { renderProjectInventory } from "../internal/projectInventory";
 
 function buildSubAgentsTable(): string {
 	if (subAgents.length === 0) {
@@ -261,6 +262,9 @@ export class TaskGeneratorAgent extends BaseAgent {
 		const scratchPadText = this.state.scratchpad?.length
 			? `## Context / Scratch Pad from Previous Agents\nHere is information gathered from previous steps:\n${this.state.scratchpad.map((s) => `- ${s}`).join("\n")}`
 			: "";
+		const projectInventory = renderProjectInventory(
+			this.state.internal?.metadata?.projectInventory,
+		);
 
 		const systemPrompt = `You are the Expert Task Generator Agent for Fluxify — an Agentic Low Code Backend Development Platform.
 Your role is to act as the task planner for the Orchestrator. You receive a verified plan (created by the Planner Agent) and must break it down into a list of tasks. 
@@ -291,7 +295,9 @@ If there are no sub-agents available, output an empty task list.`;
 		const response = (await this.state.agentWrapper.invokeAgent({
 			zodSchema: taskSchema,
 			systemPrompt,
-			context: scratchPadText,
+			context: [scratchPadText, projectInventory]
+				.filter(Boolean)
+				.join("\n\n"),
 			messages: [], // We only pass the plan to keep it strictly focused
 			userQuery: planText,
 			agentNode: AgentNode.TASK_GENERATOR,

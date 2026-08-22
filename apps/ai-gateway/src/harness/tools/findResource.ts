@@ -2,7 +2,11 @@ import { fencedTool } from "./fenced";
 import { z } from "zod";
 import { logger } from "@fluxify/common";
 import type { WorkflowMetadata } from "../types";
-import type { DbService, SearchMode } from "../internal/dbService";
+import {
+	decodeResourceCursor,
+	type DbService,
+	type SearchMode,
+} from "../internal/dbService";
 import { ResourceType } from "../types";
 
 /**
@@ -19,17 +23,48 @@ function renderCanvas(canvas: Array<Record<string, any>>): string {
 	);
 }
 
+function isListRequest(keywords: string[], mode: SearchMode): boolean {
+	return (
+		mode === "keyword" &&
+		keywords.length === 1 &&
+		["*", "all"].includes(keywords[0]?.trim().toLowerCase() ?? "")
+	);
+}
+
+function renderResults(results: any[], nextCursor?: string): string {
+	if (results.length === 0) return "No resources found.";
+	const keys = Object.keys(results[0]);
+	const header = `| ${keys.join(" | ")} |\n| ${keys.map(() => "---").join(" | ")} |`;
+	const rows = results
+		.map(
+			(row) =>
+				`| ${keys
+					.map((key) =>
+						(typeof row[key] === "object" && row[key] !== null
+							? JSON.stringify(row[key])
+							: String(row[key] ?? "")
+						)
+							.replace(/\|/g, "\\|")
+							.replace(/\n/g, " "),
+					)
+					.join(" | ")} |`,
+		)
+		.join("\n");
+	return `${header}\n${rows}${nextCursor ? `\n\nMore results exist. Call find_resource again with this exact cursor: \`${nextCursor}\`.` : ""}`;
+}
+
 export const createFindResourceTool = (
 	dbService: DbService,
 	metadata: WorkflowMetadata,
 ) => {
 	return fencedTool(
-		async ({ searchQuery, resourceType, searchBy, metadata: toolMetadata }) => {
+		async ({ searchQuery, resourceType, searchBy, cursor, metadata: toolMetadata }) => {
 			// Normalize to a keyword array; canvas/ID lookups use the first value.
 			const keywords = Array.isArray(searchQuery) ? searchQuery : [searchQuery];
 			const singleId = keywords[0] ?? "";
 			// `.nullish()` per the schema rules, so null has to collapse too.
 			const mode: SearchMode = searchBy === "id" ? "id" : "keyword";
+			const listRequest = isListRequest(keywords, mode);
 
 			logger.info(
 				`[Tools] ${mode === "id" ? "Fetching" : "Searching"} ${resourceType} by ${mode} '${keywords.join(", ")}' in project ${metadata.projectId}`,
@@ -56,6 +91,39 @@ export const createFindResourceTool = (
 					singleId,
 				);
 				return canvas ? renderCanvas(canvas) : "No canvas found.";
+			}
+
+			if (listRequest) {
+				if (
+					resourceType !== "route" &&
+					resourceType !== "app_config" &&
+					resourceType !== "integration" &&
+					resourceType !== "custom_block"
+				) {
+					return "Listing is supported for routes, app configs, integrations, and custom blocks; choose one of those resource types.";
+				}
+
+				let afterId: string | undefined;
+				try {
+					afterId = cursor
+						? decodeResourceCursor(cursor, resourceType)
+						: undefined;
+				} catch (error) {
+					return error instanceof Error ? error.message : "Invalid cursor.";
+				}
+
+				const page =
+					resourceType === "route"
+						? await dbService.listRoutes(metadata.projectId, afterId)
+						: resourceType === "app_config"
+							? await dbService.listAppConfigs(
+									metadata.projectId,
+									afterId === undefined ? undefined : Number(afterId),
+								)
+							: resourceType === "integration"
+								? await dbService.listIntegrations(metadata.projectId, afterId)
+								: await dbService.listCustomBlocks(metadata.projectId, afterId);
+				return renderResults(page.items, page.nextCursor);
 			}
 
 			let results: any[] = [];
@@ -96,28 +164,7 @@ export const createFindResourceTool = (
 					: "No resources found.";
 			}
 
-			// Format as Markdown table
-			const keys = Object.keys(results[0]);
-			const header = `| ${keys.join(" | ")} |\n| ${keys.map(() => "---").join(" | ")} |`;
-			const rows = results
-				.map(
-					(row) =>
-						`| ${keys
-							.map((key) =>
-								// `inputParams` is an array; String() on it gives the
-								// model nothing it can use
-								(typeof row[key] === "object" && row[key] !== null
-									? JSON.stringify(row[key])
-									: String(row[key] ?? "")
-								)
-									.replace(/\|/g, "\\|")
-									.replace(/\n/g, " "),
-							)
-							.join(" | ")} |`,
-				)
-				.join("\n");
-
-			return `${header}\n${rows}`;
+			return renderResults(results);
 		},
 		{
 			name: "find_resource",
@@ -129,12 +176,18 @@ export const createFindResourceTool = (
 					.describe(
 						"What to look up. With searchBy='keyword' (default), one or more keywords matched against name, path and description — pass an array of related terms (e.g. ['user', 'auth', 'login']) to widen matching and avoid multiple retries. With searchBy='id', the exact resource ID. For 'route_canvas' and 'custom_block_canvas', pass a single resource ID.",
 					),
-				searchBy: z
+			searchBy: z
 					.enum(["keyword", "id"])
 					.nullish()
 					.describe(
 						"'keyword' (default) fuzzy-searches names and descriptions. Use 'id' when you already have the resource's exact ID — from the plan, from your task description, or from an earlier tool result — and want that one record. An ID is not a keyword: fuzzy search will not find it.",
 					),
+			cursor: z
+				.string()
+				.nullish()
+				.describe(
+					"Opaque continuation cursor from a previous all/* listing. Omit for the first page; copy it exactly for the next 20 results.",
+				),
 				resourceType: z
 					.enum([
 						"route",

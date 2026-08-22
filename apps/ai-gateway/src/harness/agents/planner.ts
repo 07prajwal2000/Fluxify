@@ -7,6 +7,7 @@ import { z } from "zod";
 import { subAgents } from "./sub-agents";
 import { createFindResourceTool } from "../tools/findResource";
 import { createGetArtifactTool } from "../tools/getArtifact";
+import { renderProjectInventory } from "../internal/projectInventory";
 
 function buildSubAgentsTable(): string {
 	if (subAgents.length === 0) {
@@ -96,11 +97,16 @@ export class PlannerAgent extends BaseAgent {
 			: "";
 
 		const contextBlock = this.state.internal?.metadata?.contextBlock;
+		const projectInventory = renderProjectInventory(
+			this.state.internal?.metadata?.projectInventory,
+		);
 
 		// Both change every run, so they travel with the user's turn — see
 		// `AgentInvokeOptions.context`. The system prompt above is now identical
 		// across runs and can be served from the provider's prompt cache.
-		const context = [scratchPadText, contextBlock].filter(Boolean).join("\n\n");
+		const context = [scratchPadText, contextBlock, projectInventory]
+			.filter(Boolean)
+			.join("\n\n");
 
 		const systemPrompt = `You are the Expert Planner Agent for Fluxify — a No/Low-Code Backend Engine.
 Fluxify allows users to build, deploy, and scale APIs visually without writing boilerplate code. It uses a visual graph where "Blocks" (units of logic like DB fetching, AI generation, or JS VM execution) are connected by "Edges" (defining direct flow, decision paths, and error handling paths).
@@ -127,6 +133,11 @@ Other blocks may require secrets from **app configs**.
 - If an integration/config is missing based on context, DO NOT reject the request. Instead, add a prominent warning in your \`markdownPlan\` stating that the user must create it.
 
 ## Available Tools
+If a "Relevant project inventory" block appears below, it is authoritative for
+matching existing resources. Use its exact IDs rather than looking those rows up
+again. If the user asks what is available, call \`find_resource\` with
+\`searchQuery: "all"\` and a resource type; it returns 20 records and a
+\`nextCursor\` for another page.
 **\`find_resource\`** — Search the database for existing resources (e.g., routes, app configs, integrations, custom blocks) relevant to the user's request. If a "Current context" block below already names the target resource, use that id directly and do NOT call this tool to re-find it — only use it for resources the current context doesn't cover.
 - Always search for the exact resource ID if you are modifying, updating, or deleting an existing resource that isn't already given to you.
 - Store the found resource IDs (e.g., \`routeId\`) and relevant details in the \`scratchpadNote\` so downstream agents have the exact IDs needed to perform their tasks. Do NOT guess IDs.

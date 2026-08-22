@@ -8,10 +8,32 @@ import {
 	edgesEntity,
 	agentHarnessSubArtifactsEntity,
 } from "@fluxify/server";
-import { eq, ilike, or, and, sql, inArray, type SQL } from "drizzle-orm";
+import {
+	eq,
+	ilike,
+	or,
+	and,
+	sql,
+	inArray,
+	type SQL,
+} from "drizzle-orm";
 import type { PgColumn } from "drizzle-orm/pg-core";
 import { logger } from "@fluxify/common";
-import { FindResourceResult } from "../types";
+import type { FindResourceResult } from "../types";
+import {
+	getProjectInventory,
+	listAppConfigs,
+	listCustomBlocks,
+	listIntegrations,
+	listRoutes,
+} from "./resourceInventory";
+
+export {
+	decodeResourceCursor,
+	encodeResourceCursor,
+	RESOURCE_LIST_PAGE_SIZE,
+} from "./resourceInventory";
+export type { ResourceListPage } from "./resourceInventory";
 
 /**
  * Accepts either a single search string or an array of keywords, so the
@@ -331,6 +353,26 @@ export class DbService {
 			logger.error("[DbService] Error searching custom blocks", { error: e });
 			return [];
 		}
+	}
+
+	async getProjectInventory(projectId: string | undefined, query: string | undefined) {
+		return getProjectInventory(projectId, query);
+	}
+
+	async listRoutes(projectId: string, afterId?: string) {
+		return listRoutes(projectId, afterId);
+	}
+
+	async listAppConfigs(projectId: string, afterId?: number) {
+		return listAppConfigs(projectId, afterId);
+	}
+
+	async listIntegrations(projectId: string, afterId?: string) {
+		return listIntegrations(projectId, afterId);
+	}
+
+	async listCustomBlocks(projectId: string, afterId?: string) {
+		return listCustomBlocks(projectId, afterId);
 	}
 
 	async getRouteCanvas(
