@@ -26,6 +26,17 @@ export type ResourceType =
 	| "route_canvas"
 	| "custom_block_canvas";
 
+/** A compact, project-scoped record the planner can use to decide whether to
+ * create or modify a resource without first spending a model/tool round trip. */
+export interface ProjectInventoryEntry {
+	type: "route" | "app_config" | "integration" | "custom_block";
+	id: string;
+	/** Machine-useful identity: route method/path, config key, or stored name. */
+	identifier: string;
+	/** Human-useful display label. Never contains config values or credentials. */
+	label: string;
+}
+
 export interface FindResourceResult {
 	type: ResourceType;
 	id: string;

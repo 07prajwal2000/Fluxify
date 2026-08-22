@@ -1,6 +1,9 @@
 import { describe, expect, it } from "bun:test";
 import { createFindResourceTool } from "./findResource";
-import type { DbService } from "../internal/dbService";
+import {
+	encodeResourceCursor,
+	type DbService,
+} from "../internal/dbService";
 import type { WorkflowMetadata } from "../types";
 
 const metadata = { projectId: "proj-1" } as WorkflowMetadata;
@@ -57,5 +60,58 @@ describe("find_resource", () => {
 		});
 
 		expect(out).toContain("search by keyword");
+	});
+
+	it("lists a resource type for * or all and carries its cursor forward", async () => {
+		const calls: any[][] = [];
+		const tool = createFindResourceTool(
+			{
+				listCustomBlocks: async (...args: any[]) => {
+					calls.push(args);
+					return {
+						items: [
+							{
+								type: "custom_block",
+								id: "block-1",
+								name: "user_defined.project.audit",
+								label: "Audit",
+							},
+						],
+						nextCursor: encodeResourceCursor("custom_block", "block-1"),
+					};
+				},
+			} as unknown as DbService,
+			metadata,
+		);
+
+		const first = await tool.invoke({
+			searchQuery: "*",
+			resourceType: "custom_block",
+		});
+		const cursor = encodeResourceCursor("custom_block", "block-1");
+		const second = await tool.invoke({
+			searchQuery: "ALL",
+			resourceType: "custom_block",
+			cursor,
+		});
+
+		expect(first).toContain("Audit");
+		expect(first).toContain(cursor);
+		expect(second).toContain("More results exist");
+		expect(calls).toEqual([
+			["proj-1", undefined],
+			["proj-1", "block-1"],
+		]);
+	});
+
+	it("rejects a cursor for a different resource type", async () => {
+		const tool = createFindResourceTool({} as DbService, metadata);
+		const out = await tool.invoke({
+			searchQuery: "all",
+			resourceType: "custom_block",
+			cursor: encodeResourceCursor("route", "route-1"),
+		});
+
+		expect(out).toContain("Invalid cursor for this resource type.");
 	});
 });
