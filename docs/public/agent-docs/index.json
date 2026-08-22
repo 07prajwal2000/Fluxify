@@ -1,0 +1,37 @@
+{
+  "schemaVersion": 1,
+  "docs": [
+    {
+      "source": "blocks/custom-block.agent.md",
+      "url": "/agent-docs/blocks/custom-block.agent.md"
+    },
+    {
+      "source": "blocks/error-handler.agent.md",
+      "url": "/agent-docs/blocks/error-handler.agent.md"
+    },
+    {
+      "source": "blocks/index.agent.md",
+      "url": "/agent-docs/blocks/index.agent.md"
+    },
+    {
+      "source": "blocks/list-of-blocks.agent.md",
+      "url": "/agent-docs/blocks/list-of-blocks.agent.md"
+    },
+    {
+      "source": "concepts/context.agent.md",
+      "url": "/agent-docs/concepts/context.agent.md"
+    },
+    {
+      "source": "getting-started/basics.agent.md",
+      "url": "/agent-docs/getting-started/basics.agent.md"
+    },
+    {
+      "source": "index.agent.md",
+      "url": "/agent-docs/index.agent.md"
+    },
+    {
+      "source": "scripting/javascript-api.agent.md",
+      "url": "/agent-docs/scripting/javascript-api.agent.md"
+    }
+  ]
+}

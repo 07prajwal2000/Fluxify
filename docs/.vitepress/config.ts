@@ -15,6 +15,10 @@ export default withMermaid(defineConfig({
 	// Warn on dead links but don't fail the build for pre-existing issues
 	ignoreDeadLinks: true,
 
+	// Agent-oriented Markdown is published as raw files under /agent-docs,
+	// not rendered as user-facing VitePress pages.
+	srcExclude: ["**/*.agent.md"],
+
 	head: [
 		[
 			"link",
