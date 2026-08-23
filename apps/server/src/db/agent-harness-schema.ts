@@ -3,6 +3,7 @@ import { relations } from "drizzle-orm";
 import {
 	boolean,
 	index,
+	integer,
 	uniqueIndex,
 	pgEnum,
 	pgTable,
@@ -144,6 +145,48 @@ export const agentHarnessRunsEntity = pgTable(
 		index("idx_harness_runs_conv_id").on(t.conversationId),
 		index("idx_harness_runs_status").on(t.status),
 		index("idx_harness_runs_integration_id").on(t.integrationId),
+	],
+);
+
+/** Model-written checkpoint for one exact block of completed conversation runs.
+ *  Source ids and I/O totals make the record independently verifiable before it
+ *  is trusted as model context, and let a later token threshold reuse the same
+ *  storage shape without rewriting raw runs. */
+export const agentHarnessCompactionsEntity = pgTable(
+	"agent_harness_compactions",
+	{
+		id: varchar({ length: 50 })
+			.primaryKey()
+			.$defaultFn(() => generateID()),
+		conversationId: varchar("conversation_id", { length: 50 })
+			.references(() => agentHarnessConversationsEntity.id, {
+				onDelete: "cascade",
+			})
+			.notNull(),
+		summary: text("summary").notNull(),
+		sourceRunIds: jsonb("source_run_ids").$type<string[]>().notNull(),
+		sourceStartRunId: varchar("source_start_run_id", { length: 50 })
+			.references(() => agentHarnessRunsEntity.id, { onDelete: "cascade" })
+			.notNull(),
+		sourceEndRunId: varchar("source_end_run_id", { length: 50 })
+			.references(() => agentHarnessRunsEntity.id, { onDelete: "cascade" })
+			.notNull(),
+		sourceDigest: varchar("source_digest", { length: 64 }).notNull(),
+		sourceInputTokens: integer("source_input_tokens").notNull(),
+		sourceOutputTokens: integer("source_output_tokens").notNull(),
+		compactionInputTokens: integer("compaction_input_tokens").notNull(),
+		compactionOutputTokens: integer("compaction_output_tokens").notNull(),
+		createdAt: timestamp("created_at").defaultNow().notNull(),
+	},
+	(t) => [
+		uniqueIndex("uq_harness_compactions_conv_source_end").on(
+			t.conversationId,
+			t.sourceEndRunId,
+		),
+		index("idx_harness_compactions_conv_created").on(
+			t.conversationId,
+			t.createdAt,
+		),
 	],
 );
 
@@ -307,8 +350,27 @@ export const agentHarnessConversationsRelations = relations(
 	agentHarnessConversationsEntity,
 	({ many }) => ({
 		runs: many(agentHarnessRunsEntity),
+		compactions: many(agentHarnessCompactionsEntity),
 		steps: many(agentHarnessStepsEntity),
 		artifacts: many(agentHarnessArtifactsEntity),
+	}),
+);
+
+export const agentHarnessCompactionsRelations = relations(
+	agentHarnessCompactionsEntity,
+	({ one }) => ({
+		conversation: one(agentHarnessConversationsEntity, {
+			fields: [agentHarnessCompactionsEntity.conversationId],
+			references: [agentHarnessConversationsEntity.id],
+		}),
+		sourceStartRun: one(agentHarnessRunsEntity, {
+			fields: [agentHarnessCompactionsEntity.sourceStartRunId],
+			references: [agentHarnessRunsEntity.id],
+		}),
+		sourceEndRun: one(agentHarnessRunsEntity, {
+			fields: [agentHarnessCompactionsEntity.sourceEndRunId],
+			references: [agentHarnessRunsEntity.id],
+		}),
 	}),
 );
 

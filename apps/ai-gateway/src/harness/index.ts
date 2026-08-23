@@ -49,6 +49,7 @@ import {
 } from "./streamTypes";
 import { publishHarnessEvent } from "./notifications";
 import { isUserInterrupt, describeFailure, redactSecrets } from "./errors";
+import { compactCompletedHistory } from "./internal/historyCompactor";
 import {
 	registerRunController,
 	unregisterRunController,
@@ -120,6 +121,7 @@ export class FluxifyHarness {
 			aiResponse,
 			completedAt: new Date(),
 		});
+		await compactCompletedHistory(this.agentFactory, harnessService);
 		await harnessService.saveLiveState({
 			runId: ctx.runId,
 			conversationId: ctx.conversationId,
@@ -136,12 +138,9 @@ export class FluxifyHarness {
 	}
 
 	// Load previous messages from DB using HarnessService
-	public async loadMessages(
-		conversationId: string,
-		limit: number = 5,
-	): Promise<BaseMessage[]> {
+	public async loadMessages(conversationId: string): Promise<BaseMessage[]> {
 		const harnessService = new HarnessService(conversationId);
-		return await harnessService.getConversationMessageHistory(limit);
+		return await harnessService.getConversationMessageHistory();
 	}
 
 	private async buildState(
@@ -522,6 +521,9 @@ export class FluxifyHarness {
 			completedAt: new Date(),
 			usage,
 		});
+		if (status === "completed") {
+			await compactCompletedHistory(this.agentFactory, harnessService);
+		}
 		await harnessService.saveLiveState({
 			runId: ctx.runId,
 			conversationId: ctx.conversationId,
