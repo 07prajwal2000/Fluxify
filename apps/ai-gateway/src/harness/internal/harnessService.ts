@@ -8,11 +8,15 @@ import {
 	agentHarnessArtifactsEntity,
 	agentHarnessSubArtifactsEntity,
 } from "@fluxify/server";
-import { eq, desc, and } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import { logger } from "@fluxify/common";
-import { HumanMessage, AIMessage, type BaseMessage } from "@langchain/core/messages";
+import type { BaseMessage } from "@langchain/core/messages";
 import type { GlobalGraphState } from "../types";
-import { capHistory, truncateMiddle } from "./history";
+import { mergeRunUsage, type HistoryRun } from "./historyCompaction";
+import {
+	HistoryRepository,
+	type SaveHistoryCompactionInput,
+} from "./historyRepository";
 
 export type HitlPlanAction =
 	| { type: "approve" }
@@ -379,50 +383,24 @@ export class HarnessService {
 		}
 	}
 
-	/**
-	 * Fetches the message history for the conversation.
-	 * Fetches up to topN (default 5) most recent runs and returns them in
-	 * chronological order, trimmed to {@link HISTORY_TOTAL_BUDGET} characters —
-	 * see `capHistory`.
-	 */
-	async getConversationMessageHistory(limit: number = 5): Promise<BaseMessage[]> {
+	async getConversationMessageHistory(): Promise<BaseMessage[]> {
 		try {
-			const runs = await db
-				.select({
-					id: agentHarnessRunsEntity.id,
-					userQuery: agentHarnessRunsEntity.userQuery,
-					aiResponse: agentHarnessRunsEntity.aiResponse,
-					status: agentHarnessRunsEntity.status,
-					createdAt: agentHarnessRunsEntity.createdAt,
-				})
-				.from(agentHarnessRunsEntity)
-				.where(eq(agentHarnessRunsEntity.conversationId, this.conversationId))
-				.orderBy(desc(agentHarnessRunsEntity.createdAt))
-				.limit(limit);
-
-			// Reverse so history is ordered chronologically (oldest to newest)
-			runs.reverse();
-
-			const messages: BaseMessage[] = [];
-
-			for (const run of runs) {
-				if (run.userQuery) {
-					messages.push(new HumanMessage(truncateMiddle(run.userQuery)));
-				}
-				if (run.aiResponse) {
-					messages.push(new AIMessage(truncateMiddle(run.aiResponse)));
-				}
-			}
-
-			return capHistory(messages);
+			return await new HistoryRepository(this.conversationId).messages();
 		} catch (error) {
 			logger.error("[HarnessService] Error fetching conversation message history", {
 				conversationId: this.conversationId,
-				limit,
 				error,
 			});
 			return [];
 		}
+	}
+
+	async getEligibleHistoryCompactionBlock(): Promise<HistoryRun[] | undefined> {
+		return await new HistoryRepository(this.conversationId).eligibleBlock();
+	}
+
+	async saveHistoryCompaction(input: SaveHistoryCompactionInput): Promise<void> {
+		await new HistoryRepository(this.conversationId).save(input);
 	}
 
 	/**
@@ -442,7 +420,22 @@ export class HarnessService {
 				if (input.status !== undefined) updateData.status = input.status;
 				if (input.interruptedAt !== undefined) updateData.interruptedAt = input.interruptedAt;
 				if (input.completedAt !== undefined) updateData.completedAt = input.completedAt;
-				if (input.usage !== undefined) updateData.usage = input.usage;
+				if (input.usage !== undefined) {
+					const existing = await db
+						.select({ usage: agentHarnessRunsEntity.usage })
+						.from(agentHarnessRunsEntity)
+						.where(
+							and(
+								eq(agentHarnessRunsEntity.id, input.runId),
+								eq(
+									agentHarnessRunsEntity.conversationId,
+									this.conversationId,
+								),
+							),
+						)
+						.limit(1);
+					updateData.usage = mergeRunUsage(existing[0]?.usage, input.usage);
+				}
 
 				const [updated] = await db
 					.update(agentHarnessRunsEntity)
