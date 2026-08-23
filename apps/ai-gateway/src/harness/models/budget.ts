@@ -47,6 +47,8 @@ export interface AgentUsage {
 }
 
 export interface RunUsage extends AgentUsage {
+	/** Actual tool executions requested by agents during this run. */
+	toolCalls: number;
 	totalTokens: number;
 	/** Wall clock for the whole run, including graph and tool time. */
 	elapsedMs: number;
@@ -131,6 +133,7 @@ export class RunBudget {
 	snapshot(): RunUsage {
 		return {
 			...this.total,
+			toolCalls: 0,
 			totalTokens: this.total.inputTokens + this.total.outputTokens,
 			elapsedMs: Date.now() - this.startedAt,
 			byAgent: Object.fromEntries(this.byAgent),
@@ -144,8 +147,9 @@ export class RunBudget {
 export function logRunUsage(
 	ids: { runId: string; conversationId: string },
 	budget: RunBudget,
+	toolCalls = 0,
 ): RunUsage {
-	const usage = budget.snapshot();
+	const usage = { ...budget.snapshot(), toolCalls };
 	logger.info("[FluxifyHarness] Run usage", { ...ids, ...usage });
 	return usage;
 }

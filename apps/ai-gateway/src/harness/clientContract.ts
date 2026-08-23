@@ -24,6 +24,19 @@ export type {
 	HarnessSnapshot,
 } from "./streamTypes";
 
+/** Live, run-scoped counters sent separately from progress events. Kept out of
+ * the event log because they are snapshots, not durable timeline entries. */
+export interface HarnessRunStats {
+	conversationId: string;
+	runId: string;
+	toolCalls: number;
+	inputTokens: number;
+	outputTokens: number;
+	/** Elapsed wall-clock time at `updatedAt`, in milliseconds. */
+	elapsedMs: number;
+	updatedAt: number;
+}
+
 /** The synthetic node carrying run-level bookends. Declared here as a literal
  *  rather than re-exported: `streamTypes` pulls in the `AgentNode` enum (a
  *  runtime value), and this module must stay import-free for the browser. */
@@ -72,6 +85,7 @@ export type HarnessSocketMessage =
 			runId: string;
 			event: HarnessStreamEvent;
 	  }
+	| { type: "stats"; stats: HarnessRunStats }
 	| { type: "artifact_status"; status: ArtifactStatus };
 
 /**

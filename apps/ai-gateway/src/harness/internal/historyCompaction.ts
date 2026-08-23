@@ -101,6 +101,8 @@ export function mergeRunUsage(
 
 	return {
 		...total,
+		toolCalls:
+			nonNegative(previous?.toolCalls) + nonNegative(current.toolCalls),
 		totalTokens: total.inputTokens + total.outputTokens,
 		elapsedMs:
 			nonNegative(previous?.elapsedMs) + nonNegative(current.elapsedMs),

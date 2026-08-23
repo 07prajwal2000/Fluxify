@@ -1,6 +1,7 @@
 import { MarkdownViewer } from "./MarkdownViewer";
+import { HarnessUsageSummary, type HarnessUsage } from "./HarnessUsageSummary";
 
-export function AiMessage({ response, status }: { response?: string | null; status?: string }) {
+export function AiMessage({ response, status, usage }: { response?: string | null; status?: string; usage?: HarnessUsage | null }) {
 	const isCompleted = !status || status.toLowerCase() === "completed";
 
 	if (!response && !status) return null;
@@ -15,6 +16,7 @@ export function AiMessage({ response, status }: { response?: string | null; stat
 			{response && (
 				<div className="w-full">
 					<MarkdownViewer content={response} />
+					{isCompleted && <HarnessUsageSummary usage={usage} />}
 				</div>
 			)}
 		</div>

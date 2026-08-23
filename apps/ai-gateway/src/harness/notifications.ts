@@ -2,7 +2,7 @@ import { z } from "zod";
 import { logger } from "@fluxify/common";
 import { publishMessage, subscribeToChannel } from "@fluxify/server";
 import type { HarnessStreamEvent } from "./streamTypes";
-import type { ArtifactStatus } from "./clientContract";
+import type { ArtifactStatus, HarnessRunStats } from "./clientContract";
 
 /* ============================================================================
  * CONVERSATION PUB/SUB CONTRACT (NATS)
@@ -28,6 +28,7 @@ export function conversationSubject(userId: string): string {
 /** Discriminant for the conversation message union. */
 export const ConversationMsgType = {
 	HARNESS_EVENT: "harness_event",
+	HARNESS_STATS: "harness_stats",
 	ARTIFACT_STATUS: "artifact_status",
 } as const;
 
@@ -64,13 +65,28 @@ const artifactStatusMessageSchema = z.object({
 	),
 });
 
+const harnessStatsMessageSchema = z.object({
+	type: z.literal(ConversationMsgType.HARNESS_STATS),
+	userId: z.string(),
+	conversationId: z.string(),
+	runId: z.string(),
+	stats: z.custom<HarnessRunStats>(
+		(v) =>
+			typeof v === "object" &&
+			v !== null &&
+			typeof (v as { toolCalls?: unknown }).toolCalls === "number",
+	),
+});
+
 export const conversationMessageSchema = z.discriminatedUnion("type", [
 	harnessEventMessageSchema,
+	harnessStatsMessageSchema,
 	artifactStatusMessageSchema,
 ]);
 
 export type ConversationMessage = z.infer<typeof conversationMessageSchema>;
 export type HarnessEventMessage = z.infer<typeof harnessEventMessageSchema>;
+export type HarnessStatsMessage = z.infer<typeof harnessStatsMessageSchema>;
 export type ArtifactStatusMessage = z.infer<typeof artifactStatusMessageSchema>;
 
 /** Publishes a harness stream event to its owner's conversation subject. */
@@ -92,6 +108,25 @@ export function publishHarnessEvent(
 		logger.error("[Conversations] Failed to publish harness event", {
 			userId,
 			runId: event.runId,
+			error,
+		});
+	});
+}
+
+/** Publishes current in-memory run counters. These are intentionally ephemeral:
+ * the terminal usage record remains the durable accounting source. */
+export function publishHarnessStats(userId: string, stats: HarnessRunStats): void {
+	const message: HarnessStatsMessage = {
+		type: ConversationMsgType.HARNESS_STATS,
+		userId,
+		conversationId: stats.conversationId,
+		runId: stats.runId,
+		stats,
+	};
+	void publishMessage(conversationSubject(userId), message).catch((error) => {
+		logger.error("[Conversations] Failed to publish harness stats", {
+			userId,
+			runId: stats.runId,
 			error,
 		});
 	});

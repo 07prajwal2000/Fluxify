@@ -14,6 +14,7 @@ import { ScrollToBottomButton } from "./ScrollToBottomButton";
 import { ChatTitleEditor } from "./ChatTitleEditor";
 import { AgentTaskStatus } from "./AgentTaskStatus";
 import { HarnessStatusAccordion } from "./HarnessStatusAccordion";
+import { HarnessLiveStats } from "./HarnessLiveStats";
 import { ArtifactsSidebar } from "./ArtifactsSidebar";
 import type { HarnessConversation } from "./types";
 import { PlanReviewModal } from "./PlanReviewModal";
@@ -297,7 +298,7 @@ export function ConversationPage() {
 									) : (
 										<div className="flex w-full flex-col gap-2">
 											{isRunActive && <HarnessStatusAccordion conversationId={conversationId} />}
-											<AiMessage response={msg.aiResponse} status={isRunActive ? undefined : displayStatus} />
+											<AiMessage response={msg.aiResponse} status={isRunActive ? undefined : displayStatus} usage={msg.usage} />
 										</div>
 									)}
 								</div>
@@ -345,6 +346,7 @@ export function ConversationPage() {
 						/>
 					)}
 				</div>
+				<HarnessLiveStats conversationId={conversationId} />
 			</div>
 			{isPlanReviewMode && planText && (
 				<PlanReviewModal

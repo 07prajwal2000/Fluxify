@@ -239,6 +239,10 @@ export class FluxifyHarness {
 			return undefined;
 		}
 
+		// Per-run deadline + token ceiling and usage accounting. The clock starts
+		// before callbacks so every live stats snapshot has the same origin.
+		const budget = new RunBudget();
+
 		const callbacks = new this.callbacksClass({
 			state,
 			conversationId: ctx.conversationId,
@@ -246,15 +250,13 @@ export class FluxifyHarness {
 			harnessService,
 			redisService: this.redisService,
 			userId,
+			budget,
 		});
 
 		// Per-run interrupt: the AbortController's signal cancels every model call;
 		// aborting it raises UserInterruptError out of the graph (caught below).
 		const abortController = new AbortController();
 		state.agentWrapper?.setAbortSignal(abortController.signal);
-		// Per-run deadline + token ceiling, and the run's usage accounting. The
-		// clock starts here, so provider-probe and queue time are excluded.
-		const budget = new RunBudget();
 		state.agentWrapper?.setRunBudget(budget);
 		// Covers the whole run — the tracer's own spans all end mid-stream, so the
 		// run's cost and outcome have nowhere else to live.
@@ -340,7 +342,14 @@ export class FluxifyHarness {
 			// blip inside it must not fall into the catch below and re-brand a
 			// finished run as failed — the user's build landed either way.
 			try {
-				await this.finalizeRun(ctx, harnessService, userId, budget, finalState);
+				await this.finalizeRun(
+					ctx,
+					harnessService,
+					userId,
+					budget,
+					callbacks.toolCallCount(),
+					finalState,
+				);
 			} catch (error) {
 				logger.error("[FluxifyHarness] Failed to finalize a completed run", {
 					conversationId: ctx.conversationId,
@@ -367,6 +376,7 @@ export class FluxifyHarness {
 					harnessService,
 					userId,
 					budget,
+					callbacks.toolCallCount(),
 					callbacks.snapshotState(),
 				);
 				return undefined;
@@ -388,6 +398,7 @@ export class FluxifyHarness {
 				describeFailure(error, lastNode),
 				lastNode,
 				budget,
+				callbacks.toolCallCount(),
 				callbacks.snapshotState(),
 			);
 			throw error;
@@ -454,9 +465,10 @@ export class FluxifyHarness {
 		harnessService: HarnessService,
 		userId: string | null,
 		budget: RunBudget,
+		toolCalls: number,
 		finalState?: Partial<GlobalGraphState>,
 	) {
-		const usage = logRunUsage(ctx, budget);
+		const usage = logRunUsage(ctx, budget, toolCalls);
 		const reachedHITL =
 			finalState?.currentAgent === AgentNode.HUMAN_IN_THE_LOOP;
 
@@ -568,11 +580,12 @@ export class FluxifyHarness {
 		aiResponse?: string,
 		node?: AgentNodeName,
 		budget?: RunBudget,
+		toolCalls = 0,
 		graphState?: Partial<GlobalGraphState>,
 	) {
 		const message =
 			error instanceof Error ? error.message : error ? String(error) : "failed";
-		const usage = budget && logRunUsage(ctx, budget);
+		const usage = budget && logRunUsage(ctx, budget, toolCalls);
 		try {
 			await harnessService.updateRun({
 				runId: ctx.runId,
@@ -625,11 +638,12 @@ export class FluxifyHarness {
 		harnessService: HarnessService,
 		userId: string | null,
 		budget: RunBudget,
+		toolCalls: number,
 		graphState?: Partial<GlobalGraphState>,
 	) {
 		const message =
 			"Conversation was interrupted by the user before it finished.";
-		const usage = logRunUsage(ctx, budget);
+		const usage = logRunUsage(ctx, budget, toolCalls);
 		try {
 			await harnessService.updateRun({
 				runId: ctx.runId,
