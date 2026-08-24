@@ -229,6 +229,12 @@ export const GraphState = Annotation.Root({
 		reducer: (oldState, newState) => newState ?? oldState,
 		default: () => undefined,
 	}),
+	/** Number of leading `messages` entries loaded from earlier conversation
+	 * turns. Kept separate from this run's query for usage accounting. */
+	historyMessageCount: Annotation<number>({
+		reducer: (oldState, newState) => newState ?? oldState,
+		default: () => 0,
+	}),
 	action: Annotation<HitlPlanAction | undefined>({
 		reducer: (oldState, newState) => newState ?? oldState,
 		default: () => undefined,

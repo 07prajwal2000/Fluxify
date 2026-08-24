@@ -122,6 +122,7 @@ CRITICAL INSTRUCTIONS:
 			systemPrompt,
 			context: contextBlock,
 			messages: this.state.messages,
+			historyMessageCount: this.state.historyMessageCount,
 			userQuery: this.state.userQuery,
 			agentNode: AgentNode.ROUTER,
 		})) as z.infer<typeof routerSchema>;

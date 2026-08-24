@@ -79,6 +79,9 @@ export function mergeRunUsage(
 		retries: nonNegative(left?.retries) + nonNegative(right?.retries),
 		inputTokens:
 			nonNegative(left?.inputTokens) + nonNegative(right?.inputTokens),
+		historyInputTokens:
+			nonNegative(left?.historyInputTokens) +
+			nonNegative(right?.historyInputTokens),
 		outputTokens:
 			nonNegative(left?.outputTokens) + nonNegative(right?.outputTokens),
 		cachedInputTokens:

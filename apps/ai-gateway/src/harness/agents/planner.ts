@@ -192,6 +192,7 @@ Plan carefully, thoroughly, and output excellent English craft for the user's pl
 			context,
 			tools,
 			messages: this.state.messages,
+			historyMessageCount: this.state.historyMessageCount,
 			userQuery: this.state.userQuery,
 			agentNode: AgentNode.PLANNER,
 		})) as z.infer<typeof plannerSchema>;

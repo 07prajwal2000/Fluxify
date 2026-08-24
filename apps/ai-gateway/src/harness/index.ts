@@ -149,6 +149,7 @@ export class FluxifyHarness {
 	): Promise<Partial<GlobalGraphState>> {
 		const harnessService = new HarnessService(ctx.conversationId);
 		const messages = await harnessService.getConversationMessageHistory();
+		const historyMessageCount = messages.length;
 		// The composer sends @-mentions as raw `:resource{...}` markup. Nothing
 		// downstream parsed it, so agents saw markup, guessed a keyword, and told
 		// the user their own resource did not exist. Rewriting it here also keeps
@@ -186,6 +187,7 @@ export class FluxifyHarness {
 		return {
 			...workingMemory,
 			messages,
+			historyMessageCount,
 			userQuery: query,
 			action: ctx.action,
 			internal: {

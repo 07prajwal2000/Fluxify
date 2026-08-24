@@ -350,6 +350,21 @@ describe("run budget", () => {
 		expect(usage.byAgent.planner!.calls).toBe(1);
 	});
 
+	it("separates earlier conversation history from current-run input", async () => {
+		const wrapper = new BudgetedWrapper("test-model");
+		const budget = new RunBudget({ deadlineMs: 60_000, tokenBudget: 0 });
+		wrapper.setRunBudget(budget);
+
+		await wrapper.run({
+			messages: [new HumanMessage("12345678")],
+			historyMessageCount: 1,
+			userQuery: "current request",
+			agentNode: "planner",
+		});
+
+		expect(budget.snapshot().historyInputTokens).toBe(2);
+	});
+
 	it("refuses to spend past the ceiling instead of failing mid-call", async () => {
 		const wrapper = new BudgetedWrapper("test-model");
 		const budget = new RunBudget({ deadlineMs: 60_000, tokenBudget: 300 });

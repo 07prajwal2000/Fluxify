@@ -38,6 +38,9 @@ export interface AgentUsage {
 	 *  agent's prompt or the chosen model is a bad fit. */
 	retries: number;
 	inputTokens: number;
+	/** Estimated tokens from prior conversation history, tracked separately so
+	 * the UI can show only work attributable to the current run. */
+	historyInputTokens: number;
 	outputTokens: number;
 	/** Prompt tokens served from the provider's cache — the payoff of #148's
 	 *  cache-friendly prompt ordering, and the only way to see it working. */
@@ -60,6 +63,7 @@ function emptyUsage(): AgentUsage {
 		calls: 0,
 		retries: 0,
 		inputTokens: 0,
+		historyInputTokens: 0,
 		outputTokens: 0,
 		cachedInputTokens: 0,
 		modelMs: 0,
@@ -117,7 +121,12 @@ export class RunBudget {
 	}
 
 	/** Books one model call against the run and the agent that made it. */
-	record(agentNode: string | undefined, response: unknown, modelMs: number): void {
+	record(
+		agentNode: string | undefined,
+		response: unknown,
+		modelMs: number,
+		historyInputTokens = 0,
+	): void {
 		const usage = (response as AIMessage | undefined)?.usage_metadata;
 		const agent = this.bucketFor(agentNode);
 
@@ -125,6 +134,7 @@ export class RunBudget {
 			bucket.calls += 1;
 			bucket.modelMs += modelMs;
 			bucket.inputTokens += usage?.input_tokens ?? 0;
+			bucket.historyInputTokens += usage ? historyInputTokens : 0;
 			bucket.outputTokens += usage?.output_tokens ?? 0;
 			bucket.cachedInputTokens += usage?.input_token_details?.cache_read ?? 0;
 		}

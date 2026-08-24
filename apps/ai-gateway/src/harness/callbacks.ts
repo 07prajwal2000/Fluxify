@@ -160,7 +160,7 @@ export class HarnessCallbacks {
 				conversationId: this.conversationId,
 				runId: this.runId,
 				toolCalls: this.toolCalls,
-				inputTokens: usage.inputTokens,
+				inputTokens: Math.max(0, usage.inputTokens - usage.historyInputTokens),
 				outputTokens: usage.outputTokens,
 				elapsedMs: usage.elapsedMs,
 				updatedAt: Date.now(),

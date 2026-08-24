@@ -66,10 +66,20 @@ describe("RunBudget", () => {
 			calls: 2,
 			retries: 0,
 			inputTokens: 250,
+			historyInputTokens: 0,
 			outputTokens: 25,
 			cachedInputTokens: 150,
 			modelMs: 40,
 		});
+	});
+
+	it("tracks estimated conversation-history tokens separately", () => {
+		const budget = new RunBudget({ deadlineMs: 60_000, tokenBudget: 0 });
+		budget.record("planner", reply(100, 10), 20, 40);
+
+		const usage = budget.snapshot();
+		expect(usage.inputTokens).toBe(100);
+		expect(usage.historyInputTokens).toBe(40);
 	});
 
 	it("counts re-asks separately from calls", () => {

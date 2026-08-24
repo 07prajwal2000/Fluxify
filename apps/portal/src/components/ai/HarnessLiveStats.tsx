@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { TbArrowDown, TbArrowUp } from "react-icons/tb";
 import { useConversationRun } from "@/store/aiHarness";
 
 function formatNumber(value: number): string {
@@ -29,10 +30,12 @@ export function HarnessLiveStats({ conversationId }: { conversationId: string })
 	const elapsedMs = stats.elapsedMs + Math.max(0, now - (run.statsReceivedAt ?? now));
 
 	return (
-		<div className="mx-auto mt-2 w-full max-w-[65%] text-center text-xs font-medium tracking-wide text-muted">
+		<div className="mx-auto mt-2 flex w-full max-w-[65%] items-center justify-center gap-2 text-xs font-medium tracking-wide text-muted">
 			TOOL CALLS: {formatNumber(stats.toolCalls)} <span aria-hidden="true">|</span>{" "}
 			TIME ELAPSED: {formatElapsed(elapsedMs)} <span aria-hidden="true">|</span>{" "}
-			TOKENS I/O: {formatNumber(stats.inputTokens)}/{formatNumber(stats.outputTokens)}
+			<span>TOKENS:</span>
+			<span className="flex items-center gap-0.5"><TbArrowDown size={14} /> {formatNumber(stats.inputTokens)}</span>
+			<span className="flex items-center gap-0.5"><TbArrowUp size={14} /> {formatNumber(stats.outputTokens)}</span>
 		</div>
 	);
 }

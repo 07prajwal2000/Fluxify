@@ -5,7 +5,6 @@ import { Input, Spinner } from "@fluxify/components";
 import { ModelSelect, type AiModel } from "./ModelSelect";
 import { ApplyModeSelect } from "./ApplyModeSelect";
 import { STARTERS } from "./starters";
-import { integrationsQuery } from "@/query/integrationsQuery";
 import { useAiHarnessStore } from "@/store/aiHarness";
 import { useDebounce } from "@/hooks/useDebounce";
 import { findResourceQuery } from "@/query/findResourceQuery";
@@ -22,6 +21,7 @@ import { KEY_ENTER_COMMAND, KEY_DOWN_COMMAND, COMMAND_PRIORITY_EDITOR, COMMAND_P
 import { ResourceNode } from "./lexical/ResourceNode";
 import { ResourcePlugin, INSERT_RESOURCE_COMMAND } from "./lexical/ResourcePlugin";
 import { markdownToLexical, lexicalToMarkdown, insertMarkdownAtSelection } from "./lexical/MarkdownTransformer";
+import { useModelConnectionTest } from "./useModelConnectionTest";
 
 const PLACEHOLDERS = [
 	"Generate a blog API with rate limiting, Redis cache...",
@@ -131,8 +131,7 @@ export function PromptEditor({
 
 	const [model, setModel] = useState<string>(selectedModelId || defaultModelId || "");
 
-	const testConn = integrationsQuery.testExistingConnection.mutation(projectId);
-	const [connStatus, setConnStatus] = useState<"testing" | "success" | "error" | "idle">("idle");
+	const connStatus = useModelConnectionTest(projectId, model);
 
 	// Popover & Search State
 	const [popoverOpen, setPopoverOpen] = useState(false);
@@ -210,20 +209,6 @@ export function PromptEditor({
 			}
 		}
 	}, [defaultModelId, model, models, setSelectedModelId]);
-
-	useEffect(() => {
-		if (!model) return;
-		setConnStatus("testing");
-		testConn.mutate(model, {
-			onSuccess: (res) => {
-				setConnStatus(res.success ? "success" : "error");
-			},
-			onError: () => {
-				setConnStatus("error");
-			}
-		});
-	// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [model, projectId]);
 
 	const trimmed = value.trim();
 	// `!isRunning` matters for Enter, not the button — the button is swapped for
