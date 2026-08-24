@@ -15,6 +15,7 @@ import {
 	BlockOutput,
 	ContextVarsType,
 	TriggerContext,
+	type BlockTrace,
 } from "@fluxify/blocks";
 import { Context } from "hono";
 import { ContentfulStatusCode } from "hono/utils/http-status";
@@ -39,24 +40,24 @@ import {
 } from "../../loaders/integrationsLoader";
 import * as zodLib from "zod";
 import { projectSettingsCache } from "../../loaders/projectSettingsLoader";
-import type { RequestEnvelope, RequestPayload } from "./types";
-import { bodyReader, RequestBodyError } from "./requestBody";
-import { DEFAULT_CONTENT_TYPES } from "../../lib/routeConfig";
-import { MAX_REQUEST_BODY_BYTES } from "../../lib/env";
+import type { RequestEnvelope } from "./types";
+import { RequestBodyError } from "./requestBody";
+import {
+	readRouteBody,
+	runWithRouteObserver,
+	type RouteExecutionObserver,
+} from "./dispatchSupport";
+import {
+	startRouteTrace,
+	traceCompleter,
+	type RouteTraceFactory,
+} from "./traceLifecycle";
 
 dayjs.extend(dayjsUtc);
 
 export type HandleRequestType = {
 	data?: any;
 	status: ContentfulStatusCode;
-};
-
-export type RouteExecutionObserver = {
-	onRouteStart(route: {
-		routeId: string;
-		projectId: string;
-		timeoutSeconds: number;
-	}): (() => void) | void;
 };
 
 export type RouteValidatorResolver = (routeId: string) => {
@@ -68,6 +69,9 @@ export type RouteValidatorResolver = (routeId: string) => {
 // defined in ./types so it has no import cycle with the envelope; re-exported
 // here because the test-suites runner imports it from this module.
 export type { RequestOverrides } from "./types";
+export type { RouteExecutionObserver } from "./dispatchSupport";
+export type { RouteTrace, RouteTraceFactory } from "./traceLifecycle";
+export { envelopeFromHttp } from "./envelope";
 import type { RequestOverrides } from "./types";
 
 export const DEFAULT_ROUTE_TIMEOUT_SECONDS = 30;
@@ -87,35 +91,6 @@ const DEFAULT_TRIGGER: TriggerContext = {
 };
 
 /**
- * HTTP transport adapter: turn an incoming Hono request into a generic
- * envelope. This is the ONLY Hono-aware ingestion path; a NATS/BullMQ consumer
- * would build the same envelope from its message and call dispatch() directly.
- * `reply` is opt-in async via header so schedulers/crons can fire-and-forget.
- */
-export async function envelopeFromHttp(ctx: Context): Promise<RequestEnvelope> {
-	const reader = bodyReader(ctx.req, MAX_REQUEST_BODY_BYTES);
-	const envelope: RequestEnvelope = {
-		trigger: {
-			kind: "route",
-			source: "http",
-			reply: ctx.req.header("x-fluxify-reply") === "async" ? "async" : "sync",
-			id: ctx.req.header("x-fluxify-id"),
-		},
-		payload: {
-			method: ctx.req.method,
-			path: ctx.req.path,
-			headers: ctx.req.header(),
-			query: ctx.req.query(),
-			body: null,
-			bodyReader: reader,
-		},
-	};
-	// an async reply is sent before the route runs; the stream may not survive it
-	if (reader && envelope.trigger.reply === "async") await reader.materialize();
-	return envelope;
-}
-
-/**
  * Transport-agnostic entry point of the worker. Matches the route from the
  * envelope's payload and runs it. `httpCtx` is only for HTTP side-effects
  * (response cookies/headers); non-HTTP sources omit it and those calls no-op.
@@ -126,6 +101,7 @@ export async function dispatch(
 	httpCtx?: Context,
 	observer?: RouteExecutionObserver,
 	resolveValidators?: RouteValidatorResolver,
+	traceFactory?: RouteTraceFactory,
 ): Promise<HandleRequestType> {
 	const { payload, trigger, overrides } = env;
 	const path = parser.getRouteId(
@@ -141,26 +117,15 @@ export async function dispatch(
 		};
 	}
 
-	let body = payload.body;
-	if (payload.bodyReader) {
-		try {
-			body = await payload.bodyReader.parse(
-				path.acceptedContentTypes ?? DEFAULT_CONTENT_TYPES,
-			);
-		} catch (error) {
-			if (!(error instanceof RequestBodyError)) throw error;
-			return { status: error.status, data: { message: error.message } };
-		}
-	}
-
-	const finish = observer?.onRouteStart({
-		routeId: path.id,
-		projectId: path.projectId!,
-		timeoutSeconds: path.timeoutSeconds ?? DEFAULT_ROUTE_TIMEOUT_SECONDS,
-	});
+	// Keep recorder creation after matching so untraced routes preserve the old
+	// zero-work path.
+	const trace = startRouteTrace(path, payload, traceFactory);
+	const completeTrace = traceCompleter(trace);
 	try {
-		return await executeRouteInternal(
-			{
+		const body = await readRouteBody(payload, path.acceptedContentTypes);
+		const response = await runWithRouteObserver(observer, path, DEFAULT_ROUTE_TIMEOUT_SECONDS, () =>
+			executeRouteInternal(
+				{
 				id: path.id,
 				projectId: path.projectId!,
 				projectName: path.projectName!,
@@ -170,6 +135,7 @@ export async function dispatch(
 				paramsSchema: path.paramsSchema,
 				timeoutSeconds: path.timeoutSeconds,
 				validators: resolveValidators?.(path.id),
+				trace,
 			},
 			{
 				method: payload.method,
@@ -180,11 +146,20 @@ export async function dispatch(
 				params: path.routeParams || payload.params || {},
 			},
 			httpCtx,
-			overrides,
-			trigger,
-		);
-	} finally {
-		finish?.();
+					overrides,
+					trigger,
+				),
+			);
+		completeTrace(response.status >= 400 ? "failure" : "success", response.status);
+		return response;
+	} catch (error) {
+		if (error instanceof RequestBodyError) {
+			const response = { status: error.status, data: { message: error.message } };
+			completeTrace("failure", response.status);
+			return response;
+		}
+		completeTrace("failure", 500);
+		throw error;
 	}
 }
 
@@ -198,6 +173,7 @@ export async function executeRouteInternal(
 		querySchema?: any;
 		paramsSchema?: any;
 		timeoutSeconds?: number;
+		trace?: BlockTrace;
 		validators?: {
 			body?: CompiledRequestSchema;
 			query?: CompiledRequestSchema;
@@ -300,6 +276,7 @@ export async function executeRouteInternal(
 		httpClient,
 		trigger,
 		routeInfo.timeoutSeconds ?? DEFAULT_ROUTE_TIMEOUT_SECONDS,
+		routeInfo.trace,
 	);
 
 	try {
@@ -435,6 +412,7 @@ function createContext(
 	httpClient: HttpClient,
 	trigger: TriggerContext,
 	timeoutSeconds: number,
+	trace?: BlockTrace,
 ): BlockContext {
 	return {
 		apiId: routeInfo.id,
@@ -446,6 +424,7 @@ function createContext(
 		dbFactory,
 		httpClient,
 		trigger,
+		trace,
 		// The cloud logs block picks its own integration per block, so it resolves
 		// through here rather than through the project's logs destination. Only the
 		// legacy interpreted path used to supply this, which left the block throwing

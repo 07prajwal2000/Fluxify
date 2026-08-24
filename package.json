@@ -3,10 +3,11 @@
 	"version": "1.0.0",
 	"type": "module",
 	"scripts": {
-		"dev": "bun --parallel 'bun run dev:server' 'bun run dev:worker' 'bun run dev:portal' 'bun run dev:ai' 'bun run dev:docs'",
+		"dev": "bun --parallel 'bun run dev:server' 'bun run dev:worker' 'bun run dev:telemetry' 'bun run dev:portal' 'bun run dev:ai' 'bun run dev:docs'",
 		"dev:server": "bun run --env-file=.env --watch ./apps/server/deployments/standalone.ts",
 		"dev:worker": "bun run --env-file=.env --watch ./apps/server/deployments/compiledWorker.ts",
 		"dev:worker:dag": "bun run --env-file=.env --watch ./apps/server/deployments/worker.ts",
+		"dev:telemetry": "bun run --env-file=.env --watch ./apps/server/deployments/telemetryWorker.ts",
 		"dev:portal": "turbo run dev --filter=@fluxify/portal",
 		"dev:ai": "bun run --env-file=.env --watch ./apps/ai-gateway/src/server.ts",
 		"dev:docs": "vitepress dev docs",

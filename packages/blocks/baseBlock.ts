@@ -44,7 +44,8 @@ export type BlockTraceSpan = {
 export type CustomBlockScope = {
 	/** the trace the nested graph records into */
 	trace: BlockTrace;
-	close(): void;
+	/** detached scopes use the settled invocation outcome for their own run */
+	close(outcome?: "success" | "failure", error?: unknown): void;
 };
 
 /**

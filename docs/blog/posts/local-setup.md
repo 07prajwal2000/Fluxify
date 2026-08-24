@@ -183,9 +183,10 @@ You rarely need the full stack running. Start only what you're touching:
 
 | Focus area | Command | What it starts |
 | :--- | :--- | :--- |
-| **Full stack** | `bun run dev` | Server, worker, web, AI gateway, docs |
+| **Full stack** | `bun run dev` | Server, request worker, telemetry worker, web, AI gateway, docs |
 | **Backend server** | `bun run dev:server` | Admin control plane, watch mode |
 | **Request worker** | `bun run dev:worker` | Compiled worker (needs `WORKER_PROJECT_ID`) |
+| **Telemetry worker** | `bun run dev:telemetry` | Exports traced route runs to project destinations |
 | **Legacy worker** | `bun run dev:worker:dag` | Graph interpreter — for comparison only |
 | **Visual editor** | `bun run dev:web` | The dashboard app |
 | **AI gateway** | `bun run dev:ai` | AI agent harness and providers |

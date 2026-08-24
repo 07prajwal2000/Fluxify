@@ -104,6 +104,59 @@ describe("dispatch", () => {
 		expect(res.data).toEqual({ message: "Route not found" });
 	});
 
+	it("attaches and completes a trace only when the matched route enables tracing", async () => {
+		const started: any[] = [];
+		const completed: any[] = [];
+		const trace = {
+			recordSpan() {},
+			enterCustomBlock() {
+				return { trace, close() {} };
+			},
+			complete(outcome: "success" | "failure", statusCode?: number) {
+				completed.push({ outcome, statusCode });
+			},
+		};
+		const parser = {
+			getRouteId: () => ({
+				id: "route-1",
+				projectId: "project-1",
+				projectName: "Project",
+				routeVersion: "route-version",
+				tracingEnabled: true,
+			}),
+		} as unknown as HttpRouteParser;
+		setBlocksExecutor(async (_target, context) => {
+			expect(context.trace).toBe(trace);
+			return { successful: true, output: { body: "ok" } } as any;
+		});
+
+		const response = await dispatch(
+			await envelopeFromHttp(fakeCtx({ method: "GET", path: "/orders" })),
+			parser,
+			undefined,
+			undefined,
+			undefined,
+			{
+				start(route) {
+					started.push(route);
+					return trace;
+				},
+			},
+		);
+
+		expect(response.status).toBe(200);
+		expect(started).toEqual([
+			{
+				routeId: "route-1",
+				projectId: "project-1",
+				routeVersion: "route-version",
+				method: "GET",
+				path: "/orders",
+			},
+		]);
+		expect(completed).toEqual([{ outcome: "success", statusCode: 200 }]);
+	});
+
 	it("uses a supplied artifact-time validator before creating route resources", async () => {
 		let validations = 0;
 		const parser = {

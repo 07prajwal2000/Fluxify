@@ -21,6 +21,7 @@
 		"build:worker:compiled": "bun run build:worker:compiled:supervisor && bun run build:worker:compiled:thread",
 		"build:worker:compiled:supervisor": "bun build deployments/compiledWorker.ts --outdir=dist --bundle --target bun --minify --sourcemap=linked --conditions=module",
 		"build:worker:compiled:thread": "bun build src/modules/requestRouter/executionProcess.ts --outdir=dist --bundle --target bun --minify --sourcemap=linked --conditions=module",
+		"build:worker:telemetry": "bun build deployments/telemetryWorker.ts --outdir=dist --bundle --target bun --minify --sourcemap=linked --conditions=module",
 		"postbuild": "bun run ./scripts/buildExtras.ts",
 		"db:generate": "bun x drizzle-kit generate",
 		"db:push": "bun x drizzle-kit push"

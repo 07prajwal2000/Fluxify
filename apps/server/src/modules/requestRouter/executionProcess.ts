@@ -20,6 +20,7 @@ import { projectSettingsCache } from "../../loaders/projectSettingsLoader";
 import { workerTimeoutsEnabled } from "./workerTimeouts";
 import { AsyncExecutor } from "./asyncExecutor";
 import { executionRuntimeEnvironment } from "./executionEnvironment";
+import { RouteTraceRecorder } from "../telemetry/routeRecorder";
 
 let boot: ExecutionBootstrap | undefined;
 let monitoringEnabled = false;
@@ -103,12 +104,32 @@ async function handle(request: Request): Promise<Response> {
 	const ctx = createHttpContext(request);
 	const env = await envelopeFromHttp(ctx as any);
 	const observer = createObserver();
+	const traceFactory = {
+		start(route: {
+			routeId: string;
+			projectId: string;
+			routeVersion: string;
+			method: string;
+			path: string;
+		}) {
+			return new RouteTraceRecorder(route, (run) =>
+				send({ type: "trace-finished", run }),
+			);
+		},
+	};
 
 	if (env.trigger.reply === "async") {
 		const accepted = asyncExecutor?.submit(async () => {
 			// The HTTP response is already a 202. Do not retain the HTTP context or
 			// attempt late cookie/header writes while the detached route runs.
-			await dispatch(env, parser!, undefined, observer, compiledRouteValidators);
+			await dispatch(
+				env,
+				parser!,
+				undefined,
+				observer,
+				compiledRouteValidators,
+				traceFactory,
+			);
 		});
 		if (!accepted) {
 			return json(
@@ -125,9 +146,10 @@ async function handle(request: Request): Promise<Response> {
 			env,
 			parser,
 			ctx as any,
-			observer,
-			compiledRouteValidators,
-		);
+		observer,
+		compiledRouteValidators,
+		traceFactory,
+	);
 		return json(response.data, response.status, ctx.responseHeaders);
 	} catch (error) {
 		return json(

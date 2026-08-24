@@ -30,6 +30,7 @@ import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { routesQuery } from "@/query/routesQuery";
 import { projectSettingsKeysQuery } from "@/query/projectSettingsKeysQuery";
 import { showErrorNotification } from "@/lib/errorNotifier";
+import { RouteTelemetryHelp } from "./RouteTelemetryHelp";
 import {
 	CONTENT_TYPE_OPTIONS,
 	EMPTY_SCHEMA,
@@ -112,10 +113,9 @@ function RouteSettingsForm({
 	);
 
 	const settings = (projectSettings ?? {}) as Record<string, string>;
-	// Spans go to the project's traces destination; with none set a traced route
-	// records nothing, so the toggle is worth flagging rather than hiding.
-	const hasTracesDestination = Boolean(
-		settings["settings.telemetry.tracesConnectionId"],
+	const hasTelemetryDestination = Boolean(
+		settings["settings.telemetry.tracesConnectionId"] ||
+			settings["settings.telemetry.metricsConnectionId"],
 	);
 	// The per-route timeout is only enforced when the project opted into the
 	// experimental worker timeouts, so asking for a value otherwise is a lie.
@@ -390,24 +390,26 @@ function RouteSettingsForm({
 
 					<Tabs.Panel id="advanced" className="min-h-0 flex-1 overflow-y-auto p-5">
 						<Section
-							title="Tracing"
-							description="Each request is recorded as an OpenTelemetry trace and exported to the project's traces destination — nothing is stored here. Exporting costs time per request: leave it off when latency is the priority, turn it on when you want visibility into what a request did."
+							title="Telemetry"
+							description="Collect request telemetry for this route. Leave it off when latency is the priority; turn it on when you need visibility into what a request did."
 						>
 							<Switch
 								isSelected={tracingEnabled}
 								onChange={setTracingEnabled}
-								label={tracingEnabled ? "Tracing enabled" : "Tracing disabled"}
+								label={tracingEnabled ? "Telemetry enabled" : "Telemetry disabled"}
 							/>
-							{tracingEnabled && !hasTracesDestination && (
+							<RouteTelemetryHelp projectId={route.projectId} />
+							{tracingEnabled && !hasTelemetryDestination && (
 								<Alert status="warning">
 									<Alert.Indicator>
 										<TbAlertTriangle size={16} />
 									</Alert.Indicator>
 									<Alert.Content>
-										<Alert.Title>No traces destination</Alert.Title>
+										<Alert.Title>No telemetry destination</Alert.Title>
 										<Alert.Description>
-											This project has no traces integration, so traced requests
-											record no spans. Set one under Settings → Telemetry.
+											This project has no traces or metrics destination, so this
+											route's telemetry is not exported. Configure one in Project
+											Settings → Telemetry.
 										</Alert.Description>
 									</Alert.Content>
 								</Alert>

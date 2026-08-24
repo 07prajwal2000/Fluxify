@@ -1,6 +1,7 @@
 import type { ArtifactEntry } from "./compiledRuntime";
 import type { AsyncExecutorLimits } from "./asyncExecutor";
 import type { JobEnvelope } from "../jobs/types";
+import type { TraceRunPayload } from "@fluxify/common/otlp";
 
 /** handed to the isolated execution process over Bun IPC at spawn */
 export type ExecutionBootstrap = {
@@ -40,6 +41,8 @@ export type ExecutionEvent =
 	| { type: "job-finished"; id: string; error?: string }
 	/** user code asked to queue work; only the supervisor can publish it */
 	| { type: "enqueue-job"; job: JobEnvelope }
+	/** completed in untrusted execution; supervisor owns the NATS hand-off */
+	| { type: "trace-finished"; run: TraceRunPayload }
 	| {
 			type: "execution-started";
 			requestId: string;
