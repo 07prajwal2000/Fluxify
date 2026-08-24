@@ -1,4 +1,5 @@
 import { useEffect, useRef, type RefObject } from "react";
+import { useReactFlow } from "@xyflow/react";
 import { matchCombo } from "../actions/combo";
 import type { CanvasAction } from "../actions/useCanvasActions";
 import { useCanvasClipboard } from "../clipboard";
@@ -55,6 +56,7 @@ export function useCanvasKeyboard({
 	rootRef,
 	actions,
 }: UseCanvasKeyboardOptions) {
+	const { setNodes, setEdges } = useReactFlow();
 	// Read through a ref so re-binding isn't needed on every selection change.
 	const latest = useRef({ enabled, actions });
 	latest.current = { enabled, actions };
@@ -64,6 +66,16 @@ export function useCanvasKeyboard({
 			// A held key repeating must not fire an action per frame.
 			if (event.repeat) return;
 			if (!latest.current.enabled || !inCanvas(event, rootRef.current)) return;
+			if (matchCombo(event, "mod+a")) {
+				event.preventDefault();
+				setNodes((nodes) =>
+					nodes.map((node) => (node.selected ? node : { ...node, selected: true })),
+				);
+				setEdges((edges) =>
+					edges.map((edge) => (edge.selected ? edge : { ...edge, selected: true })),
+				);
+				return;
+			}
 			// Enter on a focused control activates that control — a block toolbar
 			// button must not also open the settings panel.
 			if (

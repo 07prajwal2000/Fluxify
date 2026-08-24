@@ -32,6 +32,18 @@ export function inferLanguage(mimeType?: string) {
 	return "plaintext";
 }
 
+/** Pretty-print valid JSON responses while preserving non-JSON and invalid JSON bodies. */
+export function formatResponseBody(body: string, mimeType?: string) {
+	const mime = mimeType?.split(";", 1)[0]?.trim().toLowerCase();
+	if (mime !== "application/json") return body;
+
+	try {
+		return JSON.stringify(JSON.parse(body), null, 2);
+	} catch {
+		return body;
+	}
+}
+
 export function responseHeaders(headers?: Headers | Record<string, string>) {
 	if (!headers) return [] as [string, string][];
 	if (headers instanceof Headers) return Array.from(headers.entries());

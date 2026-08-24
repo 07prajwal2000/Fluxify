@@ -6,6 +6,8 @@ export function FieldMapEditorRow({
 	index,
 	sourceKey,
 	destinationValue,
+	keyPlaceholder = "Source Field",
+	valuePlaceholder = "Destination Field",
 	keyError,
 	valueError,
 	isDisabled,
@@ -24,7 +26,7 @@ export function FieldMapEditorRow({
 				>
 					<InputGroup variant="secondary" className="w-full">
 						<InputGroup.Input
-							placeholder="Source Field"
+							placeholder={keyPlaceholder}
 							value={sourceKey}
 							onChange={(e) => onKeyChange(index, e.target.value)}
 						/>
@@ -50,7 +52,7 @@ export function FieldMapEditorRow({
 				>
 					<InputGroup variant="secondary" className="w-full">
 						<InputGroup.Input
-							placeholder="Destination Field"
+							placeholder={valuePlaceholder}
 							value={destinationValue}
 							onChange={(e) => onValueChange(index, e.target.value)}
 						/>

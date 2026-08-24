@@ -27,7 +27,7 @@ There's nothing to sign. Opening a pull request is your acceptance of the Contri
 
 | Tool | Minimum version | Purpose |
 | :--- | :--- | :--- |
-| **Bun** | `v1.3.0+` | Runtime and workspace package manager ([install](https://bun.sh)) |
+| **Bun** | `v1.4.0+` | Runtime and workspace package manager ([install](https://bun.sh)) |
 | **Docker** | `v20.10+` | PostgreSQL, Valkey, NATS, and the local observability stack |
 | **Git** | `v2.30+` | Version control and pre-commit hooks |
 | **GitHub CLI (`gh`)** | `v2.0+` | Recommended for pull requests, issues, and syncing branches |

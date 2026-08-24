@@ -1,6 +1,6 @@
 import Editor, { type OnMount } from "@monaco-editor/react";
 import clsx from "clsx";
-import { useCallback, useRef } from "react";
+import { useCallback, useEffect, useId, useRef } from "react";
 // Side-effect import: self-hosts Monaco and registers the JS language config.
 import "./setup";
 
@@ -22,6 +22,8 @@ export type JavaScriptTextAreaProps = {
 	showLineNumbers?: boolean;
 	/** Applied to the wrapper, so the usual sizing/spacing classes work. */
 	className?: string;
+	/** Extra ambient declarations for autocomplete in a specific editor context. */
+	typeDefinitions?: string;
 	/** `"vs-dark" | "light"`. Follows the app theme when omitted. */
 	theme?: string;
 	"aria-label"?: string;
@@ -51,6 +53,7 @@ export function JavaScriptTextArea({
 	autoFocus,
 	showLineNumbers = true,
 	className,
+	typeDefinitions,
 	theme,
 	onBlur,
 	onFocus,
@@ -58,6 +61,22 @@ export function JavaScriptTextArea({
 }: JavaScriptTextAreaProps) {
 	const height = rows * LINE_HEIGHT + VERTICAL_PADDING;
 	const mountedRef = useRef(false);
+	const typeDefinitionsId = useId();
+
+	useEffect(() => {
+		if (!typeDefinitions) return;
+		let live = true;
+		const id = `fluxify-js-editor-${typeDefinitionsId}`;
+		const path = `file:///fluxify-js-editor-${typeDefinitionsId}.d.ts`;
+		const registry = import("./typeLibRegistry");
+		void registry.then((module) => {
+			if (live) module.registerTypeLib(id, typeDefinitions, path);
+		});
+		return () => {
+			live = false;
+			void registry.then((module) => module.unregisterTypeLib(id));
+		};
+	}, [typeDefinitions, typeDefinitionsId]);
 
 	const onMount = useCallback<OnMount>(
 		(editor, monaco) => {

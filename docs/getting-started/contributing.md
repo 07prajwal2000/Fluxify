@@ -23,7 +23,7 @@ fix, a new workflow block, a security improvement, or a whole feature.
 
 | Tool | Minimum version |
 | :--- | :--- |
-| [Bun](https://bun.sh) | `v1.3.0+` |
+| [Bun](https://bun.sh) | `v1.4.0+` |
 | Docker | `v20.10+` |
 | Git | `v2.30+` |
 | GitHub CLI (`gh`) | `v2.0+` *(recommended)* |

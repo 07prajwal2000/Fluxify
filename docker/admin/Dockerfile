@@ -58,7 +58,8 @@
 # ------------------------------------------------------------------------------
 # Stage 1: deps — install once, cached until a manifest or the lockfile changes.
 # ------------------------------------------------------------------------------
-FROM oven/bun:1.3.14-alpine AS deps
+ARG BUN_VERSION=1.4.0
+FROM oven/bun:${BUN_VERSION}-alpine AS deps
 WORKDIR /app
 
 COPY package.json bun.lock ./
@@ -103,9 +104,10 @@ RUN bun run gather
 # ------------------------------------------------------------------------------
 # Stage 3: production — runtime only, no sources and no node_modules.
 # ------------------------------------------------------------------------------
-FROM oven/bun:1.3.14-alpine AS production
+FROM oven/bun:${BUN_VERSION}-alpine AS production
 WORKDIR /app
 
+ARG BUN_VERSION
 ARG VERSION=dev
 ARG VCS_REF=unknown
 ARG BUILD_DATE=unknown
@@ -117,7 +119,7 @@ LABEL org.opencontainers.image.title="Fluxify Admin" \
       org.opencontainers.image.source="https://github.com/Fluxify-rest/Fluxify" \
       org.opencontainers.image.url="https://fluxify.rest" \
       org.opencontainers.image.documentation="https://fluxify.rest/deployments/" \
-      org.opencontainers.image.base.name="docker.io/oven/bun:1.3.14-alpine" \
+      org.opencontainers.image.base.name="docker.io/oven/bun:${BUN_VERSION}-alpine" \
       org.opencontainers.image.version="${VERSION}" \
       org.opencontainers.image.revision="${VCS_REF}" \
       org.opencontainers.image.created="${BUILD_DATE}"

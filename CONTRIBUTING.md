@@ -79,7 +79,7 @@ The two-step start is explained in [Step 6](#step-6-create-a-project-and-start-t
 
 | Tool | Minimum version | Purpose |
 | :--- | :--- | :--- |
-| **Bun** | `v1.3.0+` | Runtime and workspace package manager ([install](https://bun.sh)) |
+| **Bun** | `v1.4.0+` | Runtime and workspace package manager ([install](https://bun.sh)) |
 | **Docker** | `v20.10+` | PostgreSQL, Valkey, NATS, Caddy, OpenObserve, Jaeger, Prometheus, Grafana |
 | **Git** | `v2.30+` | Version control and pre-commit hooks |
 | **GitHub CLI (`gh`)** | `v2.0+` | Recommended for PRs, issues, and syncing branches |
