@@ -242,3 +242,39 @@ test("full_state merges without clobbering newer live updates, and never drops a
 	applyMessage(state, { type: "full_state", conversations: [] });
 	expect(state.runs[CONV]).toBeDefined();
 });
+
+test("live stats attach only to their matching run", () => {
+	const state = blankState();
+	feed(state, event({ timestamp: 1 }));
+	applyMessage(state, {
+		type: "stats",
+		stats: {
+			conversationId: CONV,
+			runId: RUN,
+			toolCalls: 3,
+			inputTokens: 1_250,
+			outputTokens: 75,
+			elapsedMs: 9_000,
+			updatedAt: 10_000,
+		},
+	});
+	expect(state.runs[CONV].stats).toMatchObject({
+		toolCalls: 3,
+		inputTokens: 1_250,
+		outputTokens: 75,
+	});
+
+	applyMessage(state, {
+		type: "stats",
+		stats: {
+			conversationId: CONV,
+			runId: "stale-run",
+			toolCalls: 99,
+			inputTokens: 99,
+			outputTokens: 99,
+			elapsedMs: 99,
+			updatedAt: 20_000,
+		},
+	});
+	expect(state.runs[CONV].stats?.toolCalls).toBe(3);
+});

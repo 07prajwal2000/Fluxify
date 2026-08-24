@@ -4,6 +4,7 @@ import { AgentNode } from "./types";
 import type { HarnessStreamEvent } from "./streamTypes";
 import type { HarnessService } from "./internal/harnessService";
 import type { RedisService } from "./internal/redisService";
+import { RunBudget } from "./models/budget";
 
 /** Collects every event the callbacks emit, in order. */
 function harness() {
@@ -14,6 +15,7 @@ function harness() {
 		conversationId: "conv-1",
 		runId: "run-1",
 		userId: null, // skips the NATS publish
+		budget: new RunBudget(),
 		harnessService: {
 			upsertStep: async () => ({ id: "step-1" }),
 			saveLiveState: async (input: any) => {

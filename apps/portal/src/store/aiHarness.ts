@@ -11,6 +11,7 @@ import {
 	type HarnessNodePayload,
 	type HarnessNodeStatus,
 	type HarnessRunResult,
+	type HarnessRunStats,
 	type HarnessRunStatus,
 	type HarnessSnapshot,
 	type HarnessSocketMessage,
@@ -86,6 +87,10 @@ export interface ConversationUIState {
 	hitl?: { reason: string; markdownPlan?: string };
 	/** Set once by the run-level `ended` event — the final outcome + result. */
 	result?: HarnessRunResult;
+	/** Latest live counters for this run. */
+	stats?: HarnessRunStats;
+	/** Browser receipt time for elapsed-time ticking without server-clock skew. */
+	statsReceivedAt?: number;
 }
 
 export interface SelectedArtifact {
@@ -284,6 +289,21 @@ export function applyMessage(
 		// Merge, never replace: a run missing from a later snapshot has simply
 		// aged out of Redis (60s TTL after it finishes), not ceased to exist.
 		for (const snapshot of message.conversations) applySnapshot(state, snapshot);
+		return;
+	}
+	if (message.type === "stats") {
+		const { stats } = message;
+		const run = (state.runs[stats.conversationId] ??= emptyRun(
+			stats.conversationId,
+			stats.runId,
+		));
+		if (
+			run.runId === stats.runId &&
+			(stats.updatedAt >= (run.stats?.updatedAt ?? 0))
+		) {
+			run.stats = stats;
+			run.statsReceivedAt = Date.now();
+		}
 		return;
 	}
 	// Artifact status is a toast, handled at the transport (`harnessSocket.ts`).

@@ -67,6 +67,8 @@ export interface AgentInvokeOptions {
 	 *  ahead of `userQuery`. */
 	context?: string;
 	messages?: BaseMessage[];
+	/** Leading entries in `messages` loaded from earlier conversation turns. */
+	historyMessageCount?: number;
 	tools?: StructuredTool[];
 	config?: RunnableConfig;
 	maxToolIterations?: number;
@@ -187,8 +189,25 @@ export abstract class BaseAgentWrapper {
 		agentNode: string | undefined,
 		response: unknown,
 		startedAt: number,
+		historyInputTokens = 0,
 	): void {
-		this.budget?.record(agentNode, response, Date.now() - startedAt);
+		this.budget?.record(
+			agentNode,
+			response,
+			Date.now() - startedAt,
+			historyInputTokens,
+		);
+	}
+
+	/** Provider usage metadata has no history/current-run split. Estimate only
+	 * conversation-history text; provider-reported output tokens stay exact. */
+	private estimateHistoryTokens(messages: BaseMessage[], count: number): number {
+		return messages.slice(0, Math.max(0, count)).reduce((total, message) => {
+			const content = typeof message.content === "string"
+				? message.content
+				: JSON.stringify(message.content);
+			return total + Math.ceil(content.length / 4);
+		}, 0);
 	}
 
 	constructor(
@@ -287,6 +306,7 @@ export abstract class BaseAgentWrapper {
 			systemPrompt,
 			context,
 			messages = [],
+			historyMessageCount = 0,
 			tools,
 			config,
 			agentNode,
@@ -294,6 +314,10 @@ export abstract class BaseAgentWrapper {
 		} = options;
 
 		let finalMessages: BaseMessage[] = [...messages];
+		const historyInputTokens = this.estimateHistoryTokens(
+			messages,
+			historyMessageCount,
+		);
 
 		// A tool-using agent returns its answer through `submit_result` instead of
 		// writing it out and having it regenerated as JSON afterwards.
@@ -339,6 +363,7 @@ export abstract class BaseAgentWrapper {
 				finalMessages,
 				tools,
 				options,
+				historyInputTokens,
 			);
 			if (result.done) return result.value;
 
@@ -369,7 +394,7 @@ export abstract class BaseAgentWrapper {
 									finalMessages,
 									this.withSignal(config),
 								)) as { raw: AIMessage; parsed: T; parsingError?: Error };
-							this.recordUsage(agentNode, raw, startedAt);
+							this.recordUsage(agentNode, raw, startedAt, historyInputTokens);
 							// Without includeRaw this would have thrown out of `invoke`;
 							// rethrow so the retry and the prompt fallback below still see it.
 							if (parsingError) throw parsingError;
@@ -408,6 +433,7 @@ export abstract class BaseAgentWrapper {
 					zodSchema,
 					this.withSignal(config),
 					agentNode,
+					historyInputTokens,
 				)) as T;
 			}
 
@@ -426,7 +452,7 @@ export abstract class BaseAgentWrapper {
 					finalMessages,
 					this.withSignal(config),
 				);
-				this.recordUsage(agentNode, response, startedAt);
+				this.recordUsage(agentNode, response, startedAt, historyInputTokens);
 				return response;
 			},
 			{
@@ -451,6 +477,7 @@ export abstract class BaseAgentWrapper {
 		finalMessages: BaseMessage[],
 		tools: StructuredTool[],
 		options: AgentInvokeOptions,
+		historyInputTokens: number,
 	): Promise<{ done: true; value: T | AIMessage } | { done: false }> {
 		const { zodSchema, config, agentNode, agentId } = options;
 		const maxIterations =
@@ -469,7 +496,7 @@ export abstract class BaseAgentWrapper {
 						finalMessages,
 						this.withSignal(config),
 					);
-					this.recordUsage(agentNode, message, startedAt);
+					this.recordUsage(agentNode, message, startedAt, historyInputTokens);
 					return message;
 				},
 				{
@@ -603,6 +630,7 @@ export abstract class BaseAgentWrapper {
 		schema: z.ZodType<any>,
 		config?: RunnableConfig,
 		agentNode?: string,
+		historyInputTokens = 0,
 	): Promise<T> {
 		// zod-to-json-schema (v3) reads zod v3 `_def` internals and silently emits
 		// an empty schema against a zod v4 schema — the model then gets "match
@@ -648,7 +676,7 @@ ${JSON.stringify(jsonSchema, null, 2)}`;
 			try {
 				const startedAt = Date.now();
 				const response = await jsonModel.invoke(modifiedMessages, config);
-				this.recordUsage(agentNode, response, startedAt);
+				this.recordUsage(agentNode, response, startedAt, historyInputTokens);
 				rawResponse = response;
 				content = cleanJsonOutput(extractText(response));
 

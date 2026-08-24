@@ -26,9 +26,10 @@ import {
 } from "./streamTypes";
 import type { HarnessService } from "./internal/harnessService";
 import type { RedisService } from "./internal/redisService";
-import { publishHarnessEvent } from "./notifications";
+import { publishHarnessEvent, publishHarnessStats } from "./notifications";
 import { explainErrorReason } from "./errors";
 import type { RetryWarningInfo } from "./models/base";
+import type { RunBudget } from "./models/budget";
 
 export async function dispatchAgentEvent(event: AgentCustomEvent): Promise<void> {
 	await dispatchCustomEvent(event.name, event.data);
@@ -62,6 +63,7 @@ export interface HarnessCallbackContext {
 	/** Conversation owner — the `conversations.<userId>` subject to publish to.
 	 *  Null when the conversation has no owner (e.g. the local demo). */
 	userId: string | null;
+	budget: RunBudget;
 }
 
 /**
@@ -80,6 +82,8 @@ export class HarnessCallbacks {
 	private harnessService: HarnessService;
 	private redisService: RedisService;
 	private userId: string | null;
+	private budget: RunBudget;
+	private toolCalls = 0;
 	/** Shallow-merged accumulation of node outputs for live-state snapshots. */
 	private mergedState: Partial<GlobalGraphState>;
 	/** Serialized, off-hot-path emit chain. Emitting must never block the
@@ -94,6 +98,7 @@ export class HarnessCallbacks {
 		this.harnessService = ctx.harnessService;
 		this.redisService = ctx.redisService;
 		this.userId = ctx.userId;
+		this.budget = ctx.budget;
 		this.mergedState = { ...ctx.state };
 	}
 
@@ -145,12 +150,35 @@ export class HarnessCallbacks {
 		});
 	}
 
+	/** Queue latest counters beside progress. Stats are ephemeral snapshots, so
+	 * they bypass Redis while preserving ordering with the surrounding event. */
+	private emitStats(): void {
+		this.emitChain = this.emitChain.then(async () => {
+			if (!this.userId) return;
+			const usage = this.budget.snapshot();
+			publishHarnessStats(this.userId, {
+				conversationId: this.conversationId,
+				runId: this.runId,
+				toolCalls: this.toolCalls,
+				inputTokens: Math.max(0, usage.inputTokens - usage.historyInputTokens),
+				outputTokens: usage.outputTokens,
+				elapsedMs: usage.elapsedMs,
+				updatedAt: Date.now(),
+			});
+		});
+	}
+
 	/** Awaits all scheduled emits. Called by the harness before finalizing. */
 	/** The state accumulated so far. The terminal handlers persist this when a
 	 *  run dies mid-build — the graph never returns a final state on that path,
 	 *  so this is the only surviving record of what the sub-agents produced. */
 	public snapshotState(): Partial<GlobalGraphState> {
 		return this.mergedState;
+	}
+
+	/** Count actual tool executions across every agent in this run pass. */
+	public toolCallCount(): number {
+		return this.toolCalls;
 	}
 
 	public async flush(): Promise<void> {
@@ -242,6 +270,7 @@ export class HarnessCallbacks {
 				message: nodeMessage(node, "started"),
 			}),
 		);
+		this.emitStats();
 	}
 
 	public async onAfter(node: AgentNodeName, eventData: any): Promise<void> {
@@ -292,6 +321,7 @@ export class HarnessCallbacks {
 				payload,
 			}),
 		);
+		this.emitStats();
 	}
 
 	public async onCustomEvent(
@@ -309,6 +339,7 @@ export class HarnessCallbacks {
 					message: eventData?.status ?? `Working on ${labelForNode(node)}`,
 				}),
 			);
+			this.emitStats();
 			return;
 		}
 
@@ -316,6 +347,7 @@ export class HarnessCallbacks {
 			const data = eventData as ToolCallEventData;
 			const node = data?.agent as AgentNodeName;
 			if (!GRAPH_NODES.has(node) || !data?.tool) return;
+			if (data.status === "started") this.toolCalls += 1;
 			this.emit(
 				this.makeEvent({
 					node,
@@ -328,6 +360,7 @@ export class HarnessCallbacks {
 					message: toolMessage(data.tool, data.status, data.summary, data.error),
 				}),
 			);
+			this.emitStats();
 			return;
 		}
 
@@ -346,6 +379,7 @@ export class HarnessCallbacks {
 					},
 				}),
 			);
+			this.emitStats();
 		}
 	}
 
@@ -364,5 +398,6 @@ export class HarnessCallbacks {
 				message: `The ${labelForNode(node)} hit a hiccup and is retrying (attempt ${info.attempt}/${info.maxAttempts}) — ${reason}`,
 			}),
 		);
+		this.emitStats();
 	}
 }

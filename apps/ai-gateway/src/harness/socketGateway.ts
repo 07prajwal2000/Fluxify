@@ -209,6 +209,11 @@ export async function initializeHarnessSocket(): Promise<HarnessSocketHandler> {
 			return;
 		}
 
+		if (incoming.type === ConversationMsgType.HARNESS_STATS) {
+			io.to(room).emit(HARNESS_SOCKET_EVENT, { type: "stats", stats: incoming.stats });
+			return;
+		}
+
 		if (incoming.type !== ConversationMsgType.HARNESS_EVENT) return;
 		const message: HarnessSocketMessage = {
 			type: "update",

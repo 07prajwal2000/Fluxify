@@ -95,6 +95,7 @@ Q: "What can I access inside the script block?" -> a lead sentence, then a bulle
 			systemPrompt,
 			context: contextBlock,
 			messages: this.state.messages,
+			historyMessageCount: this.state.historyMessageCount,
 			userQuery: this.state.userQuery,
 			tools: tools,
 			agentNode: AgentNode.DISCUSSION,
