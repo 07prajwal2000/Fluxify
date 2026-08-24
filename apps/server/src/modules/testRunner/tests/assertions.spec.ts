@@ -129,12 +129,12 @@ describe("evaluateAssertions", () => {
 			[
 				{
 					target: "customJs",
-					customJs: `return status === 201 && body.user.name === "ada" && fluxify.request.path === "/made-up";`,
+					customJs: `return fluxify.response.status === 201 && fluxify.response.body.user.name === "ada" && fluxify.response.headers["content-type"] === "application/json" && fluxify.request.path === "/made-up" && fluxify.request.query.page === "1" && typeof status === "undefined";`,
 				},
 			] as AssertionType[],
 			context({
 				status: 201,
-				request: { ...context().request, path: "/made-up" },
+				request: { ...context().request, path: "/made-up", query: { page: "1" } },
 			}),
 		);
 		expect(verdict.success).toBe(true);

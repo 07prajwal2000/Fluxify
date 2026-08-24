@@ -108,10 +108,12 @@ async function actualFor(a: AssertionType, ctx: AssertionContext) {
 						headers: ctx.request.headers,
 						params: ctx.request.params,
 					},
+					response: {
+						body: ctx.body,
+						headers: ctx.headers,
+						status: ctx.status,
+					},
 				},
-				body: ctx.body,
-				headers: ctx.headers,
-				status: ctx.status,
 			});
 			return {
 				value: await vm.run(a.customJs || "return true;"),

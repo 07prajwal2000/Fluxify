@@ -10,6 +10,8 @@ export function FieldMapEditor({
 	onKeyValueChange,
 	label,
 	description,
+	keyPlaceholder,
+	valuePlaceholder,
 	isDisabled,
 	className,
 }: FieldMapEditorProps) {
@@ -148,11 +150,13 @@ export function FieldMapEditor({
 						destinationValue={kv[1]}
 						index={i}
 						isDisabled={isDisabled}
+						keyPlaceholder={keyPlaceholder}
 						keyError={containsDuplicate("key", kv[0])}
 						onDelete={handleDeleteFieldMap}
 						onKeyChange={handleKeyChange}
 						onValueChange={handleValueChange}
 						sourceKey={kv[0]}
+						valuePlaceholder={valuePlaceholder}
 						valueError={containsDuplicate("value", kv[1])}
 					/>
 				))}

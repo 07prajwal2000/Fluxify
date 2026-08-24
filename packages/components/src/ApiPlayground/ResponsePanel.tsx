@@ -3,11 +3,12 @@ import { useMemo } from "react";
 import { TbClock, TbCopy, TbDatabase } from "react-icons/tb";
 import { Button, Tabs } from "@heroui/react";
 import type { ApiPlaygroundResponse } from "./types";
-import { inferLanguage, responseHeaders, statusTone } from "./utils";
+import { formatResponseBody, inferLanguage, responseHeaders, statusTone } from "./utils";
 
 export function ResponsePanel({ response }: { response?: ApiPlaygroundResponse }) {
 	const headers = useMemo(() => responseHeaders(response?.headers), [response?.headers]);
 	const mimeType = response?.mimeType ?? headers.find(([key]) => key.toLowerCase() === "content-type")?.[1];
+	const responseBody = useMemo(() => formatResponseBody(response?.body ?? "", mimeType), [mimeType, response?.body]);
 	const bytes = response?.bytes ?? new TextEncoder().encode(response?.body ?? "").byteLength;
 
 	return (
@@ -23,7 +24,7 @@ export function ResponsePanel({ response }: { response?: ApiPlaygroundResponse }
 					</div>
 				</Tabs.ListContainer>
 				<Tabs.Panel id="body" className="relative min-h-0 flex-1 overflow-hidden">
-					{response ? <><Editor height="100%" language={inferLanguage(mimeType)} theme="vs-dark" value={response.body ?? ""} options={{ readOnly: true, minimap: { enabled: false }, scrollBeyondLastLine: false, automaticLayout: true, fontSize: 13, lineHeight: 20, padding: { top: 14, bottom: 14 } }} /><Button aria-label="Copy response" isIconOnly size="sm" variant="secondary" className="absolute right-3 top-3 z-10" onPress={() => navigator.clipboard.writeText(response.body ?? "")}><TbCopy size={14} /></Button></> : <EmptyResponse />}
+					{response ? <><Editor height="100%" language={inferLanguage(mimeType)} theme="vs-dark" value={responseBody} options={{ readOnly: true, minimap: { enabled: false }, scrollBeyondLastLine: false, automaticLayout: true, fontSize: 13, lineHeight: 20, padding: { top: 14, bottom: 14 } }} /><Button aria-label="Copy response" isIconOnly size="sm" variant="secondary" className="absolute right-3 top-3 z-10" onPress={() => navigator.clipboard.writeText(responseBody)}><TbCopy size={14} /></Button></> : <EmptyResponse />}
 				</Tabs.Panel>
 				<Tabs.Panel id="headers" className="min-h-0 flex-1 overflow-hidden p-3">
 					{headers.length ? <div className="overflow-hidden rounded-md border border-border"><div className="grid grid-cols-[minmax(140px,30%)_1fr] border-b border-border bg-surface px-3 py-2 font-mono text-[10px] uppercase tracking-wider text-muted"><span>Name</span><span>Value</span></div>{headers.map(([key, value]) => <div className="grid grid-cols-[minmax(140px,30%)_1fr] border-b border-border px-3 py-2 font-mono text-xs last:border-0" key={key}><span className="text-muted">{key}</span><span className="break-all">{value}</span></div>)}</div> : <EmptyResponse />}

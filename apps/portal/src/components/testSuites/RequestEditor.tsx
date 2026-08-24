@@ -45,9 +45,9 @@ export function RequestEditor({
 								<span className="w-40 shrink-0 truncate font-mono text-xs text-muted">
 									:{param}
 								</span>
-								<input
-									className="flex-1 rounded-md border border-border bg-background-secondary px-2 py-1.5 text-sm text-foreground outline-none placeholder:text-muted focus:border-accent"
-									placeholder="value"
+				<input
+					className="flex-1 rounded-md border border-border bg-background-secondary px-2 py-1.5 text-sm text-foreground outline-none placeholder:text-muted focus:border-accent"
+					placeholder={`${param} value`}
 									value={draft.routeParams[param] ?? ""}
 									onChange={(e) =>
 										onChange({
@@ -64,12 +64,16 @@ export function RequestEditor({
 			<FieldMapEditor
 				label="Query parameters"
 				fieldMap={draft.queryParams}
+				keyPlaceholder="Query parameter name"
+				valuePlaceholder="Query parameter value"
 				onKeyValueChange={(queryParams) => onChange({ queryParams })}
 			/>
 
 			<FieldMapEditor
 				label="Headers"
 				fieldMap={draft.headers}
+				keyPlaceholder="Header name"
+				valuePlaceholder="Header value"
 				onKeyValueChange={(headers) => onChange({ headers })}
 			/>
 

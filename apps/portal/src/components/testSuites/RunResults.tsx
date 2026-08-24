@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Button, DeleteButton, Spinner, cn } from "@fluxify/components";
+import { Button, DeleteButton, Spinner, Tabs, cn } from "@fluxify/components";
 import type { SuiteRunResult } from "@fluxify/server/src/db/schema";
 import {
 	TbAlertTriangle,
@@ -7,7 +7,6 @@ import {
 	TbChevronDown,
 	TbChevronRight,
 	TbClock,
-	TbHistory,
 	TbX,
 } from "react-icons/tb";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
@@ -64,9 +63,13 @@ function SuiteRunRow({
 				className="flex cursor-pointer items-center gap-2 p-3"
 			>
 				<StatusIcon status={status} />
-				<span className="min-w-0 flex-1 truncate text-xs text-foreground">{name}</span>
+				<span className="min-w-0 flex-1 truncate text-xs text-foreground">
+					{name}
+				</span>
 				{result?.statusCode != null && (
-					<span className="font-mono text-xs text-muted">{result.statusCode}</span>
+					<span className="font-mono text-xs text-muted">
+						{result.statusCode}
+					</span>
 				)}
 				<span className="text-xs text-muted">{formatDuration(durationMs)}</span>
 				{open ? (
@@ -82,11 +85,13 @@ function SuiteRunRow({
 					    rendering an empty assertion list */}
 					{status === "timeout" && assertions.length === 0 && (
 						<p className="text-xs text-warning">
-							Timed out after {formatDuration(durationMs)}. A suite killed at its time
-							budget reports no assertion detail.
+							Timed out after {formatDuration(durationMs)}. A suite killed at
+							its time budget reports no assertion detail.
 						</p>
 					)}
-					{result?.error && <p className="text-xs text-danger">{result.error}</p>}
+					{result?.error && (
+						<p className="text-xs text-danger">{result.error}</p>
+					)}
 
 					{assertions.length > 0 && (
 						<ul className="space-y-1">
@@ -97,11 +102,18 @@ function SuiteRunRow({
 									className="flex items-start gap-2 text-xs"
 								>
 									{assertion.success ? (
-										<TbCheck size={14} className="mt-0.5 shrink-0 text-success" />
+										<TbCheck
+											size={14}
+											className="mt-0.5 shrink-0 text-success"
+										/>
 									) : (
 										<TbX size={14} className="mt-0.5 shrink-0 text-danger" />
 									)}
-									<span className={assertion.success ? "text-muted" : "text-foreground"}>
+									<span
+										className={
+											assertion.success ? "text-muted" : "text-foreground"
+										}
+									>
 										{assertion.message}
 									</span>
 								</li>
@@ -145,7 +157,10 @@ function RunHistory({
 	onSelect: (runId: string) => void;
 }) {
 	const [page, setPage] = useState(1);
-	const runs = testSuitesQuery.getRuns.useQuery(projectId, routeId, { page, perPage: 10 });
+	const runs = testSuitesQuery.getRuns.useQuery(projectId, routeId, {
+		page,
+		perPage: 10,
+	});
 	const pagination = runs.data?.pagination;
 
 	if (runs.isLoading) {
@@ -177,14 +192,15 @@ function RunHistory({
 						<span className="flex-1 text-xs text-foreground">
 							{run.passedCount}/{run.totalSuites} passed
 						</span>
-						<span className="text-xs text-muted">{formatDuration(run.durationMs)}</span>
+						<span className="text-xs text-muted">
+							{formatDuration(run.durationMs)}
+						</span>
 					</div>
 					<span className="pl-6 text-xs text-muted">
 						{formatWhen(run.startedAt ?? run.createdAt)}
 					</span>
 				</div>
 			))}
-
 
 			{pagination && (
 				<div className="flex items-center justify-between pt-1">
@@ -228,7 +244,7 @@ export function RunResults({
 	suiteNames: Record<string, string>;
 	onSelectRun: (runId: string) => void;
 }) {
-	const [showHistory, setShowHistory] = useState(false);
+	const [view, setView] = useState<"latest" | "history">("latest");
 	const [confirmClear, setConfirmClear] = useState(false);
 	const run = testSuitesQuery.getRun.useQuery(projectId, routeId, runId);
 	const clear = testSuitesQuery.clearRuns.mutation(projectId, routeId);
@@ -237,41 +253,98 @@ export function RunResults({
 
 	return (
 		<aside className="flex w-96 shrink-0 flex-col border-l border-border">
-			<div className="flex items-center gap-2 border-b border-border px-3 py-2">
-				<span className="text-xs font-medium text-foreground">
-					{showHistory ? "Run history" : "Latest run"}
-				</span>
-				{!showHistory && data && (
-					<>
-						<span className="text-xs text-muted">
-							{data.passedCount} passed · {data.failedCount} failed
-						</span>
-						<span className="ml-auto flex items-center gap-1 text-xs text-muted">
-							<TbClock size={14} /> {formatDuration(data.durationMs)} ·{" "}
-							{formatWhen(data.startedAt ?? data.createdAt)}
-						</span>
-					</>
-				)}
-				<Button
-					variant="ghost"
-					size="sm"
-					className={showHistory ? "" : "ml-2"}
-					aria-label="Toggle run history"
-					onPress={() => setShowHistory((v) => !v)}
-				>
-					<TbHistory size={15} />
-				</Button>
-				{showHistory && (
-					<DeleteButton
-						size="sm"
-						className="ml-auto"
-						isPending={clear.isPending}
-						onPress={() => setConfirmClear(true)}
-					>
-						Clear
-					</DeleteButton>
-				)}
-			</div>
+			<Tabs
+				variant="secondary"
+				selectedKey={view}
+				onSelectionChange={(key) => setView(key as "latest" | "history")}
+				className="fx-panel__tabs p-4"
+			>
+				<div className="flex items-center gap-2">
+					<Tabs.ListContainer className="flex-none">
+						<Tabs.List
+							aria-label="Run results view"
+							className="h-full w-auto min-w-0"
+						>
+							<Tabs.Tab id="latest">
+								Latest run
+								<Tabs.Indicator />
+							</Tabs.Tab>
+							<Tabs.Tab id="history">
+								Run history
+								<Tabs.Indicator />
+							</Tabs.Tab>
+						</Tabs.List>
+					</Tabs.ListContainer>
+					{view === "latest" && data && (
+						<>
+							<span className="ml-auto text-xs text-muted">
+								{data.passedCount} passed · {data.failedCount} failed
+							</span>
+							<span className="flex items-center gap-1 text-xs text-muted">
+								<TbClock size={14} /> {formatDuration(data.durationMs)} ·{" "}
+								{formatWhen(data.startedAt ?? data.createdAt)}
+							</span>
+						</>
+					)}
+					{view === "history" && (
+						<DeleteButton
+							size="sm"
+							className="ml-auto"
+							isPending={clear.isPending}
+							onPress={() => setConfirmClear(true)}
+						>
+							Clear
+						</DeleteButton>
+					)}
+				</div>
+
+				<Tabs.Panel id="history" className="min-h-0 flex-1 overflow-y-auto">
+					<RunHistory
+						projectId={projectId}
+						routeId={routeId}
+						onSelect={(id) => {
+							onSelectRun(id);
+							setView("latest");
+						}}
+					/>
+				</Tabs.Panel>
+				<Tabs.Panel id="latest" className="min-h-0 flex-1 overflow-y-auto">
+					{!runId ? (
+						<p className="p-6 text-center text-xs text-muted">
+							Run a suite to see its result here.
+						</p>
+					) : run.isLoading ? (
+						<div className="flex justify-center p-6">
+							<Spinner size="sm" />
+						</div>
+					) : (
+						<div className="space-y-2 p-3">
+							{/* a run can fail outright — compilation error, or a restart
+						    mid-run — with no suite detail at all */}
+							{data?.status === "error" && (
+								<div className="rounded-lg border border-danger/40 bg-danger/10 p-3 text-xs text-danger">
+									{summary?.error ??
+										"The run failed before any suite reported."}
+								</div>
+							)}
+							{data?.suiteRuns.map((suiteRun) => (
+								<SuiteRunRow
+									key={suiteRun.id}
+									name={suiteNames[suiteRun.testSuiteId] ?? "Suite"}
+									status={suiteRun.status}
+									durationMs={suiteRun.durationMs}
+									result={suiteRun.result as SuiteRunResult | null}
+								/>
+							))}
+							{data?.suiteRuns.length === 0 && data.status !== "error" && (
+								<p className="p-6 text-center text-xs text-muted">
+									Waiting for the first suite to settle…
+								</p>
+							)}
+						</div>
+					)}
+				</Tabs.Panel>
+			</Tabs>
 
 			<ConfirmDialog
 				open={confirmClear}
@@ -287,53 +360,9 @@ export function RunResults({
 					})
 				}
 			>
-				Every recorded run for this route will be deleted. The suites themselves are kept.
+				Every recorded run for this route will be deleted. The suites themselves
+				are kept.
 			</ConfirmDialog>
-
-			<div className="min-h-0 flex-1 overflow-y-auto">
-				{showHistory ? (
-					<RunHistory
-						projectId={projectId}
-						routeId={routeId}
-						onSelect={(id) => {
-							onSelectRun(id);
-							setShowHistory(false);
-						}}
-					/>
-				) : !runId ? (
-					<p className="p-6 text-center text-xs text-muted">
-						Run a suite to see its result here.
-					</p>
-				) : run.isLoading ? (
-					<div className="flex justify-center p-6">
-						<Spinner size="sm" />
-					</div>
-				) : (
-					<div className="space-y-2 p-3">
-						{/* a run can fail outright — compilation error, or a restart
-						    mid-run — with no suite detail at all */}
-						{data?.status === "error" && (
-							<div className="rounded-lg border border-danger/40 bg-danger/10 p-3 text-xs text-danger">
-								{summary?.error ?? "The run failed before any suite reported."}
-							</div>
-						)}
-						{data?.suiteRuns.map((suiteRun) => (
-							<SuiteRunRow
-								key={suiteRun.id}
-								name={suiteNames[suiteRun.testSuiteId] ?? "Suite"}
-								status={suiteRun.status}
-								durationMs={suiteRun.durationMs}
-								result={suiteRun.result as SuiteRunResult | null}
-							/>
-						))}
-						{data?.suiteRuns.length === 0 && data.status !== "error" && (
-							<p className="p-6 text-center text-xs text-muted">
-								Waiting for the first suite to settle…
-							</p>
-						)}
-					</div>
-				)}
-			</div>
 		</aside>
 	);
 }

@@ -7,6 +7,10 @@ export type FieldMapEditorProps = {
 	label?: string;
 	/** Optional helper description text */
 	description?: string;
+	/** Placeholder for each mapping's key input. */
+	keyPlaceholder?: string;
+	/** Placeholder for each mapping's value input. */
+	valuePlaceholder?: string;
 	/** Whether the inputs and action buttons are disabled */
 	isDisabled?: boolean;
 	/** Optional CSS class name for outer container */
@@ -17,6 +21,8 @@ export type FieldMapEditorRowProps = {
 	index: number;
 	sourceKey: string;
 	destinationValue: string;
+	keyPlaceholder?: string;
+	valuePlaceholder?: string;
 	keyError?: string | false;
 	valueError?: string | false;
 	isDisabled?: boolean;
