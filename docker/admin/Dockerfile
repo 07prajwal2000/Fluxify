@@ -78,7 +78,7 @@ COPY scripts/setup-hooks.ts scripts/setup-hooks.ts
 RUN bun install --frozen-lockfile
 
 # ------------------------------------------------------------------------------
-# Stage 2: build — server (standalone), web, ai-gateway. No request worker.
+# Stage 2: build — server (standalone), telemetry worker, web, ai-gateway.
 # ------------------------------------------------------------------------------
 FROM deps AS build
 WORKDIR /app
@@ -91,6 +91,10 @@ RUN bun install --frozen-lockfile
 # Turbo builds workspace packages + server standalone (with schema.sql) + web
 # + ai-gateway.
 RUN bun run build
+
+# Telemetry is control-plane work: it resolves project destinations and exports
+# completed route runs without giving those credentials to execution processes.
+RUN bun run --cwd apps/server build:worker:telemetry
 
 # Next.js standalone output does not include these; copy them in.
 WORKDIR /app/apps/web

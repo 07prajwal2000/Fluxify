@@ -87,7 +87,11 @@ function traced(
 	// context — mutating the caller's would follow the request back out
 	const child =
 		scope.trace === context.trace ? context : { ...context, trace: scope.trace };
-	return { context: child, close: () => scope.close() };
+	return {
+		context: child,
+		close: (outcome?: "success" | "failure", error?: unknown) =>
+			scope.close(outcome, error),
+	};
 }
 
 /**
@@ -126,12 +130,15 @@ export function invokeCustomBlockAsync(
 ) {
 	const scope = traced(context, name, blockId, true);
 	lookup(name)(scope.context, args)
-		.catch((error) => {
-			logger.error(`Async custom block '${name}' failed`, "BLOCKS.customBlock", {
-				error,
-			});
-		})
-		.finally(() => scope.close());
+		.then(
+			() => scope.close("success"),
+			(error) => {
+				scope.close("failure", error);
+				logger.error(`Async custom block '${name}' failed`, "BLOCKS.customBlock", {
+					error,
+				});
+			},
+		)
 }
 
 /**

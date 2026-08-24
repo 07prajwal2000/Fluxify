@@ -1,5 +1,5 @@
 import { initializeLogger, logger } from "@fluxify/common";
-import { drizzleInit } from "../src/db";
+import { db, drizzleInit } from "../src/db";
 import { initializeNats, closeNats, natsConnected } from "../src/db/nats";
 // project settings are read through the redis-backed cache
 import { initializeRedis } from "../src/db/redis";
@@ -8,6 +8,7 @@ import { loadAppConfig } from "../src/loaders/appconfigLoader";
 import { startTelemetryWorker } from "../src/modules/telemetry/consumer";
 import { resetProviders } from "../src/modules/telemetry/destinations";
 import { getEnv } from "../src/lib/env";
+import { integrationsEntity } from "../src/db/schema";
 
 /**
  * Telemetry worker. Drains recorded runs off NATS and exports them to each
@@ -21,9 +22,29 @@ import { getEnv } from "../src/lib/env";
 
 const healthPort = Number(getEnv("TELEMETRY_HEALTH_PORT")) || 5700;
 
+/** The admin server owns migrations; wait on a fresh stack instead of exiting. */
+async function waitForSchema(maxAttempts = 60, delayMs = 2_000): Promise<void> {
+	for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+		try {
+			await db.select({ id: integrationsEntity.id }).from(integrationsEntity).limit(1);
+			return;
+		} catch (error) {
+			const message = String((error as Error)?.message ?? error);
+			if (!message.includes("42P01") && !/does not exist/i.test(message)) throw error;
+			logger.info(
+				`waiting for database schema (attempt ${attempt}/${maxAttempts})`,
+				"TELEMETRY",
+			);
+			await Bun.sleep(delayMs);
+		}
+	}
+	throw new Error("database schema not ready after waiting for migrations");
+}
+
 initializeLogger({ serviceName: "fluxify.worker.telemetry" });
 
 await drizzleInit();
+await waitForSchema();
 initializeRedis();
 await initializeNats();
 await loadAppConfig();

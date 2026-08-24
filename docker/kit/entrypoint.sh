@@ -208,6 +208,10 @@ start server bun --cwd=/app/server standalone.js
 wait_until "admin server" \
 	wget -qO- "http://127.0.0.1:${SERVER_PORT:-5500}/_/admin/api/public-settings"
 
+# Telemetry is admin-plane work: it drains route runs from JetStream and exports
+# them using each project's configured destination.
+start telemetry bun --cwd=/app/server telemetryWorker.js
+
 # Compiled request worker — serves user API traffic from those artifacts.
 #
 # It serves exactly one project, so it cannot start before a project exists.

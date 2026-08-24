@@ -23,6 +23,7 @@ import { routesQuery } from "@/query/routesQuery";
 import { projectSettingsKeysQuery } from "@/query/projectSettingsKeysQuery";
 import { showErrorNotification } from "@/lib/errorNotifier";
 import { createRouteHead } from "@/lib/seo";
+import { RouteTelemetryHelp } from "@/components/routes/RouteTelemetryHelp";
 import {
 	CONTENT_TYPE_OPTIONS,
 	EMPTY_SCHEMA,
@@ -57,10 +58,9 @@ function CreateRoutePage() {
 		projectSettingsKeysQuery.getAll.useQuery(projectId);
 
 	const settings = (projectSettings ?? {}) as Record<string, string>;
-	// Spans go to the project's traces destination; with none set a traced route
-	// records nothing, so the toggle is worth flagging rather than hiding.
-	const hasTracesDestination = Boolean(
-		settings["settings.telemetry.tracesConnectionId"],
+	const hasTelemetryDestination = Boolean(
+		settings["settings.telemetry.tracesConnectionId"] ||
+			settings["settings.telemetry.metricsConnectionId"],
 	);
 	// The per-route timeout is only enforced when the project opted into the
 	// experimental worker timeouts, so asking for a value otherwise is a lie.
@@ -343,7 +343,7 @@ function CreateRoutePage() {
 									</>
 								)}
 								<SummaryItem
-									label="Tracing"
+									label="Telemetry"
 									value={tracingEnabled ? "Enabled" : "Disabled"}
 								/>
 							</dl>
@@ -367,14 +367,15 @@ function CreateRoutePage() {
 								<Checkbox
 									isSelected={tracingEnabled}
 									onChange={setTracingEnabled}
-									label="Enable request tracing"
-									description="Each request is recorded as an OpenTelemetry trace and exported to the project's traces destination — nothing is stored here. Exporting costs time per request: leave it off when latency is the priority, turn it on when you want visibility into what a request did."
+									label="Enable route telemetry"
+									description="Collect request telemetry for this route."
 								/>
-								{!hasTracesDestination && (
+								<RouteTelemetryHelp projectId={projectId} />
+								{tracingEnabled && !hasTelemetryDestination && (
 									<p className="text-xs text-warning">
-										This project has no traces destination yet, so traced
-										requests record no spans. Set one under Settings →
-										Telemetry.
+										This project has no traces or metrics destination, so this
+										route's telemetry is not exported. Configure one in Project
+										Settings → Telemetry.
 									</p>
 								)}
 							</div>

@@ -132,6 +132,7 @@ RUN bun run build --filter=!@fluxify/web
 # it at runtime. compiledWorker.js looks for ./executionProcess.js beside itself,
 # so this flat sibling layout in dist/ is load-bearing — do not nest it.
 RUN bun run --cwd apps/server build:worker:compiled
+RUN bun run --cwd apps/server build:worker:telemetry
 
 # AI Gateway documentation search index.
 WORKDIR /app/apps/ai-gateway

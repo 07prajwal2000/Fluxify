@@ -25,6 +25,7 @@ import { closeNats } from "../src/db/nats";
 import { startJobWorker } from "../src/modules/jobs/consumer";
 import { enqueueJob } from "../src/modules/jobs/publisher";
 import type { JobEnvelope } from "../src/modules/jobs/types";
+import { publishTraceRun } from "../src/modules/telemetry/publisher";
 import {
 	OTLP_AUTH_HEADER_NAME,
 	OTLP_AUTH_HEADER_VALUE,
@@ -206,6 +207,9 @@ function onExecutionEvent(event: ExecutionEvent) {
 					"WORKER.jobs",
 				),
 			);
+		case "trace-finished":
+			// The execution process holds untrusted route code, never NATS credentials.
+			return void publishTraceRun(event.run);
 		case "heartbeat":
 			return watchdog.heartbeat();
 		case "execution-started":
