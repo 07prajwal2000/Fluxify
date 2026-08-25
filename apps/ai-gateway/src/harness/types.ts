@@ -188,7 +188,8 @@ export type SubAgentResult =
  * @returns null if valid, or a string describing the error if invalid.
  */
 export type AgentOutputValidator = (
-	result: SubAgentResult,
+	/** Model output is untrusted until each validator narrows it. */
+	result: unknown,
 	taskId: string,
 	state: GlobalGraphState,
 ) => Promise<string | null> | string | null;
@@ -201,6 +202,43 @@ export interface OrchestratorState {
 	taskQueue?: string[][];
 	dispatchedTasks?: Task[]; // Tasks dispatched in the current tick
 	subAgentResults?: Record<string, SubAgentResult>;
+}
+
+function mergeTasks(
+	current: Task[] | undefined,
+	update: Task[] | undefined,
+): Task[] | undefined {
+	if (!current) return update;
+	if (!update) return current;
+
+	const byId = new Map(current.map((task) => [task.id, task]));
+	for (const task of update) {
+		byId.set(task.id, { ...byId.get(task.id), ...task });
+	}
+	return [
+		...current.map((task) => byId.get(task.id)!),
+		...update.filter(
+			(task) => !current.some((currentTask) => currentTask.id === task.id),
+		),
+	];
+}
+
+/** Dynamic sub-agent sends begin from the same state snapshot. Merge their
+ * independent task results by id instead of allowing the last branch to erase
+ * earlier branches through a shallow object spread. */
+export function mergeOrchestratorState(
+	current: OrchestratorState,
+	update: OrchestratorState,
+): OrchestratorState {
+	return {
+		...current,
+		...update,
+		tasks: mergeTasks(current.tasks, update.tasks),
+		subAgentResults: {
+			...current.subAgentResults,
+			...update.subAgentResults,
+		},
+	};
 }
 
 export const GraphState = Annotation.Root({
@@ -273,7 +311,7 @@ export const GraphState = Annotation.Root({
 		default: () => ({}),
 	}),
 	orchestratorState: Annotation<OrchestratorState>({
-		reducer: (oldState, newState) => ({ ...oldState, ...newState }),
+		reducer: mergeOrchestratorState,
 		default: () => ({}),
 	}),
 	summarizerState: Annotation<SummarizerState>({

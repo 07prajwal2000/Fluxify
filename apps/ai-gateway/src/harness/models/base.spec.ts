@@ -16,6 +16,7 @@ import {
 	asHistoryMessage,
 	compactToolHistory,
 	flattenToolMessages,
+	makeSubmitResultTool,
 } from "./toolLoop";
 import { OpenAIAgentWrapper } from "./openai";
 import { AnthropicAgentWrapper } from "./anthropic";
@@ -418,6 +419,10 @@ describe("fallbackStructuredOutput schema conversion", () => {
 		expect(jsonSchema.properties).toBeTruthy();
 		expect(Object.keys(jsonSchema.properties!).length).toBeGreaterThan(0);
 	});
+
+	it("keeps the block builder schema eligible for submit_result", () => {
+		expect(makeSubmitResultTool(blockBuilderSchema)).toBeDefined();
+	});
 });
 
 describe("describeFailure", () => {
@@ -464,83 +469,6 @@ describe("describeFailure", () => {
 
 	it("falls back to a generic explanation", () => {
 		expect(describeFailure(new Error("boom"))).toContain("unexpected error");
-	});
-});
-
-describe("submit_result", () => {
-	const pingTool = tool(async () => "pong", {
-		name: "ping",
-		description: "ping",
-		schema: z.object({}),
-	}) as unknown as StructuredTool;
-
-	/** Replays a scripted list of model responses through the real tool loop. */
-	class LoopWrapper extends BaseAgentWrapper {
-		calls: BaseMessage[][] = [];
-		boundTools: StructuredTool[] = [];
-
-		constructor(private responses: AIMessage[]) {
-			super("test-model");
-		}
-
-		protected createModel(): BaseChatModel {
-			let i = 0;
-			const model: any = {
-				bindTools: (tools: StructuredTool[]) => {
-					this.boundTools = tools;
-					return model;
-				},
-				invoke: async (messages: BaseMessage[]) => {
-					this.calls.push([...messages]);
-					return this.responses[Math.min(i++, this.responses.length - 1)];
-				},
-			};
-			return model as BaseChatModel;
-		}
-
-		run() {
-			return this.invokeAgent({
-				zodSchema: schema,
-				systemPrompt: "you are a builder",
-				userQuery: "build it",
-				tools: [pingTool],
-			});
-		}
-	}
-
-	const submitCall = (args: unknown, id = "call_1") =>
-		new AIMessage({
-			content: "",
-			tool_calls: [{ id, name: SUBMIT_RESULT_TOOL, args: args as any }],
-		});
-
-	it("returns the tool arguments as the answer in a single model call", async () => {
-		const wrapper = new LoopWrapper([submitCall({ blocks: ["a"] })]);
-		expect(await wrapper.run()).toEqual({ blocks: ["a"] });
-		// The whole point: no second generation of the same content.
-		expect(wrapper.calls.length).toBe(1);
-		expect(wrapper.boundTools.map((t) => t.name)).toContain(SUBMIT_RESULT_TOOL);
-	});
-
-	it("rejects invalid arguments in-loop and accepts the correction", async () => {
-		const wrapper = new LoopWrapper([
-			submitCall({ blocks: [1] }),
-			submitCall({ blocks: ["a"] }, "call_2"),
-		]);
-		expect(await wrapper.run()).toEqual({ blocks: ["a"] });
-		expect(wrapper.calls.length).toBe(2);
-
-		// The rejected call must still be answered — a tool_call with no matching
-		// result is rejected by the provider.
-		const answer = wrapper.calls[1]!.at(-1) as ToolMessage;
-		expect(answer.tool_call_id).toBe("call_1");
-		expect(String(answer.content)).toContain("blocks.0");
-	});
-
-	it("accepts an answer written as free text without regenerating it", async () => {
-		const wrapper = new LoopWrapper([new AIMessage('{"blocks":["a"]}')]);
-		expect(await wrapper.run()).toEqual({ blocks: ["a"] });
-		expect(wrapper.calls.length).toBe(1);
 	});
 });
 

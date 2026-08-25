@@ -127,16 +127,29 @@ function validateCustomBlockParameterReferences(
 ): string[] {
 	if (!params) return [];
 	const errors: string[] = [];
+	const stringValues = (value: unknown): string[] => {
+		if (typeof value === "string") return [value];
+		if (Array.isArray(value)) return value.flatMap(stringValues);
+		if (value && typeof value === "object") {
+			return Object.values(value).flatMap(stringValues);
+		}
+		return [];
+	};
 	for (const block of blocks) {
-		const serialized = JSON.stringify(block.data ?? {});
-		// The lookbehind matters: without it `input.params.id` or `data.params.x`
-		// — ordinary property access on a previous block's output — reads as a
-		// caller parameter and bounces a correct canvas back for a retry.
-		for (const match of serialized.matchAll(
-			/(?:(?<![\w.])params\.([a-zA-Z0-9_]+)|(?<![\w.])param:([a-zA-Z0-9_]+))/g,
-		)) {
-			const name = match[1] ?? match[2];
-			if (name && !params.has(name)) errors.push(`Block "${block.id}" references custom-block parameter "${name}", but it is absent from the paired Custom Block Config Agent output.`);
+		for (const value of stringValues(block.data ?? {})) {
+			// `params.*` is executable only in a `js:` expression. A literal
+			// response body mentioning "params.foo" is not a caller reference.
+			const references = value.startsWith("js:")
+				? value.slice(3).matchAll(/(?<![\w.])params\.([a-zA-Z0-9_]+)/g)
+				: value.startsWith("param:")
+					? value.matchAll(/^param:([a-zA-Z0-9_]+)$/g)
+					: [];
+			for (const match of references) {
+				const name = match[1];
+				if (name && !params.has(name)) {
+					errors.push(`Block "${block.id}" references custom-block parameter "${name}", but it is absent from the paired Custom Block Config Agent output.`);
+				}
+			}
 		}
 	}
 	return errors;
@@ -229,14 +242,20 @@ export const validateBlockBuilderOutput: AgentOutputValidator = async (
 		if (!typedResult.reasoning) {
 			return "Status is marked as 'impossible', but no reasoning provided explaining why construction is impossible.";
 		}
-		return typedResult.reasoning;
+		// Supervisor records an impossible result as terminal. It is not malformed
+		// canvas output, so it must not consume the retry budget.
+		return null;
 	}
 
 	if (!typedResult.targetType || !typedResult.targetId) {
 		return "Missing 'targetType' or 'targetId'. You must associate the canvas configuration with either a route or custom block ID.";
 	}
 
-	if (!typedResult.blocks && !typedResult.canvasChanges) {
+	if (!Array.isArray(typedResult.blocks) || !Array.isArray(typedResult.canvasChanges)) {
+		return "A successful result must provide 'blocks' and 'canvasChanges' as arrays.";
+	}
+
+	if (typedResult.blocks.length === 0 && typedResult.canvasChanges.length === 0) {
 		return "Result must contain either 'blocks' (new blocks to add) or 'canvasChanges' (mutations to existing blocks).";
 	}
 

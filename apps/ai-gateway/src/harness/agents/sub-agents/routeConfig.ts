@@ -180,15 +180,10 @@ Determine the exact route configuration intent. Use your tools if you need more 
 			},
 		});
 
-		// Ensure we initialize subAgentResults if it's undefined
-		const currentResults = this.state.orchestratorState?.subAgentResults || {};
-
 		return {
 			currentAgent: AgentNode.ROUTE_CONFIG_AGENT,
 			orchestratorState: {
-				...this.state.orchestratorState,
 				subAgentResults: {
-					...currentResults,
 					[activeTask.id]: response,
 				},
 			},

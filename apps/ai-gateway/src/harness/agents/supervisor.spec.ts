@@ -60,4 +60,25 @@ describe("SupervisorAgent", () => {
 		expect(a.status).toBe("completed");
 		expect(a.attempts).toBeUndefined();
 	});
+
+	it("records an impossible block-builder result without retrying it", async () => {
+		const a = {
+			...task("a"),
+			assignedAgentNode: AgentNode.BLOCK_BUILDER,
+		};
+		await new SupervisorAgent({
+			orchestratorState: {
+				tasks: [a],
+				dispatchedTasks: [a],
+				subAgentResults: {
+					a: { status: "impossible", reasoning: "Missing required provider." },
+				},
+			},
+			scratchpad: [],
+		} as unknown as GlobalGraphState).execute();
+
+		expect(a.status).toBe("failed");
+		expect(a.attempts).toBe(1);
+		expect(a.supervisorReviews).toContain("Missing required provider");
+	});
 });

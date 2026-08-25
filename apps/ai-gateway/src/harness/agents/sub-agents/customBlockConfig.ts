@@ -98,7 +98,10 @@ ${CUSTOM_BLOCK_PARAMETER_CONTRACT}
 			response.data.name = await this.freeName(response.data.name);
 		}
 		await dispatchAgentEvent({ name: "agent_status", data: { status: "Custom block contract formulated", agent: AgentNode.CUSTOM_BLOCK_CONFIG_AGENT, agentId: activeTask.id, data: response } });
-		return { currentAgent: AgentNode.CUSTOM_BLOCK_CONFIG_AGENT, orchestratorState: { ...this.state.orchestratorState, subAgentResults: { ...(this.state.orchestratorState?.subAgentResults ?? {}), [activeTask.id]: response } } };
+		return {
+			currentAgent: AgentNode.CUSTOM_BLOCK_CONFIG_AGENT,
+			orchestratorState: { subAgentResults: { [activeTask.id]: response } },
+		};
 	}
 }
 

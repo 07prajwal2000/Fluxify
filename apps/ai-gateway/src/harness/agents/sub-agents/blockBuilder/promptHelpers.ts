@@ -130,7 +130,6 @@ ${CUSTOM_BLOCK_EXECUTION_CONTRACT}
      - 'fromEdge': The source block ID of the edge being changed.
      - 'fromHandle': The handle on the source block (e.g., 'source', 'success', 'failure').
      - 'toEdge': The new target block ID.
-     - 'toHandle': The handle on the new target block.
    - **'block_remove'**: Delete one or more blocks (and their associated edges) from the canvas.
      - 'blocks': Array of block IDs to remove.
      - 'reason': A short explanation for why the blocks are being removed.
@@ -148,7 +147,7 @@ ${CUSTOM_BLOCK_EXECUTION_CONTRACT}
 
 ### Output Contract
 
-Use these exact property names — do not rename or omit them:
+For a successful result, use these exact property names — do not rename or omit them:
 
 \`\`\`json
 {
@@ -171,7 +170,8 @@ Use these exact property names — do not rename or omit them:
 
 - The block's type goes in \`blockType\` (NOT \`type\`).
 - \`connections\` and \`canvasChanges\` are always present — use \`[]\` when empty.
-- Set \`status\` to 'impossible' (with a short \`reasoning\`) only when the canvas genuinely cannot be built.
+- For \`status: "success"\`, include targetType, targetId, blocks and canvasChanges; add at least one block or canvas change.
+- For \`status: "impossible"\`, include only a short \`reasoning\` explaining why the canvas cannot be built. It is terminal and will not be retried.
 
 ### Platform Reference (pre-loaded — do not search for any of this)
 

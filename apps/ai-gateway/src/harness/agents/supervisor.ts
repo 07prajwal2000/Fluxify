@@ -43,17 +43,22 @@ export class SupervisorAgent extends BaseAgent {
 		// `pending` — the orchestrator re-dispatches it with the correction in
 		// context. Only once the attempts run out does the task fail terminally,
 		// and a terminal failure must take its dependents with it (orchestrator).
-		const reject = (i: number, task: Task, reason: string) => {
+		const reject = (
+			i: number,
+			task: Task,
+			reason: string,
+			terminal = false,
+		) => {
 			const entry = tasks.find((t) => t.id === task.id) ?? task;
 			entry.attempts = (entry.attempts ?? 0) + 1;
 			entry.supervisorReviews = reason;
 
-			const terminal = entry.attempts >= MAX_TASK_ATTEMPTS;
-			const status = terminal ? "failed" : "pending";
+			const isTerminal = terminal || entry.attempts >= MAX_TASK_ATTEMPTS;
+			const status = isTerminal ? "failed" : "pending";
 			dispatchedTasks[i].status = status;
 			setStatus(task.id, status);
 			scratchpad.push(
-				terminal
+				isTerminal
 					? `[Supervisor Error - Task ${task.id} (${task.assignedAgentNode})]: ${reason}`
 					: `[Supervisor Retry ${entry.attempts}/${MAX_TASK_ATTEMPTS} - Task ${task.id} (${task.assignedAgentNode})]: ${reason}`,
 			);
@@ -69,6 +74,24 @@ export class SupervisorAgent extends BaseAgent {
 
 			if (!result) {
 				reject(i, task, "No result provided by agent.");
+				continue;
+			}
+
+			const blockBuilderResult = result as {
+				status?: string;
+				reasoning?: string;
+			};
+			if (
+				task.assignedAgentNode === AgentNode.BLOCK_BUILDER &&
+				blockBuilderResult.status === "impossible" &&
+				blockBuilderResult.reasoning?.trim()
+			) {
+				reject(
+					i,
+					task,
+					blockBuilderResult.reasoning,
+					true,
+				);
 				continue;
 			}
 
