@@ -192,13 +192,8 @@ export function RouteApplyBar({
 			</Button>
 		);
 
-	// A brand-new route has nothing useful without the canvas that defines it
-	// (it would be entrypoint/response/error-handler defaults, not the plan the
-	// agent produced), so for a create there is no "route only" alternative
-	// worth offering. Applying still lands as two calls (route, then canvas),
-	// but the server now reconciles a stale default entrypoint/error-handler
-	// against the incoming canvas instead of rejecting it as a duplicate — see
-	// `saveCanvas`'s `mergeAiDuplicates` path — so the sequence is safe.
+	// A route create carries its paired canvas in the same transaction. Sending
+	// the canvas again would mint another set of ids for its new blocks.
 	if (action === "create")
 		return (
 			<Button
@@ -207,7 +202,7 @@ export function RouteApplyBar({
 				isPending={isPending}
 				isDisabled={isPending}
 				className="cursor-pointer self-start"
-				onPress={() => void run([subArtifactId, canvasSubArtifactId])}
+				onPress={() => void run([subArtifactId])}
 			>
 				{verb} route with canvas
 			</Button>

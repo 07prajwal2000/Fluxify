@@ -68,4 +68,23 @@ describe("validateBlockBuilderOutput", () => {
 			),
 		).toContain('parameter "missing"');
 	});
+
+	it("checks parameters used in JS Runner bodies", async () => {
+		const output = {
+			...result("note"),
+			blocks: [
+				{
+					id: "runner",
+					blockType: "jsrunner",
+					position: { x: 0, y: 0 },
+					data: { value: "return params.missing;" },
+					connections: [],
+				},
+			],
+		};
+
+		expect(
+			await validateBlockBuilderOutput(output, "canvas", state()),
+		).toContain('parameter "missing"');
+	});
 });

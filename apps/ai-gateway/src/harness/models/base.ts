@@ -378,6 +378,7 @@ export abstract class BaseAgentWrapper {
 
 		if (zodSchema) {
 			let result: any;
+			let nativeResponse: AIMessage | undefined;
 			if (
 				this.supportsStructuredOutput() &&
 				originalModel.withStructuredOutput
@@ -399,6 +400,7 @@ export abstract class BaseAgentWrapper {
 									this.withSignal(config),
 								)) as { raw: AIMessage; parsed: T; parsingError?: Error };
 							this.recordUsage(agentNode, raw, startedAt, historyInputTokens);
+							nativeResponse = raw;
 							// Without includeRaw this would have thrown out of `invoke`;
 							// rethrow so the retry and the prompt fallback below still see it.
 							if (parsingError) throw parsingError;
@@ -425,6 +427,25 @@ export abstract class BaseAgentWrapper {
 						},
 					);
 				}
+			}
+			const validationError =
+				result && options.validateResult
+					? await options.validateResult(result)
+					: null;
+			if (validationError) {
+				// Native schema parsing cannot carry arbitrary domain errors back to the
+				// model. Preserve the attempted result, then use the corrective fallback
+				// so the next answer receives the same feedback as a tool-loop rejection.
+				finalMessages = [
+					...finalMessages,
+					...(nativeResponse
+						? [asHistoryMessage(nativeResponse, extractText(nativeResponse))]
+						: []),
+					new HumanMessage(
+						`Your structured result passed the JSON schema but failed domain validation:\n\n${validationError}\n\nRespond again with ONLY the corrected JSON object.`,
+					),
+				];
+				result = undefined;
 			}
 
 			if (!result) {
