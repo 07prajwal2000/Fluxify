@@ -324,6 +324,7 @@ export function ConversationPage() {
 
 			<div className="sticky bottom-0 px-4 pb-2 pt-4 bg-background relative">
 				<ScrollToBottomButton isVisible={!isAtBottom} onClick={() => scrollToBottom("smooth")} />
+				<HarnessLiveStats conversationId={conversationId} />
 				<div className="mx-auto w-full max-w-[65%]">
 					{isArchived ? (
 						<div className="w-full rounded-2xl border border-border bg-surface p-4 text-center text-sm text-muted">
@@ -346,7 +347,6 @@ export function ConversationPage() {
 						/>
 					)}
 				</div>
-				<HarnessLiveStats conversationId={conversationId} />
 			</div>
 			{isPlanReviewMode && planText && (
 				<PlanReviewModal

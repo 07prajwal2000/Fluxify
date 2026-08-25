@@ -31,8 +31,8 @@ export function HarnessUsageSummary({ usage }: { usage?: HarnessUsage | null }) 
 			<span className="flex items-center gap-1"><TbClock size={14} /> {formatElapsed(usage.elapsedMs ?? 0)}</span>
 			<span className="flex items-center gap-1"><TbTools size={14} /> {formatNumber(usage.toolCalls ?? 0)} tools</span>
 			<span className="flex items-center gap-1">Tokens:</span>
-			<span className="flex items-center gap-1"><TbArrowDown size={14} /> {formatNumber(inputTokens)}</span>
-			<span className="flex items-center gap-1"><TbArrowUp size={14} /> {formatNumber(outputTokens)}</span>
+			<span className="flex items-center gap-1" title="Input tokens"><TbArrowUp size={14} /> {formatNumber(inputTokens)}</span>
+			<span className="flex items-center gap-1" title="Output tokens"><TbArrowDown size={14} /> {formatNumber(outputTokens)}</span>
 		</div>
 	);
 }
