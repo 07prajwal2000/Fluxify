@@ -2,6 +2,7 @@ import { BaseAgent } from "./base";
 import { type GlobalGraphState, AgentNode } from "../types";
 import { dispatchAgentEvent } from "../callbacks";
 import { createHarnessTools } from "../tools";
+import { buildAgentContext } from "../internal/agentContext";
 
 export class DiscussionAgent extends BaseAgent {
 	constructor(state: GlobalGraphState) {
@@ -17,7 +18,10 @@ export class DiscussionAgent extends BaseAgent {
 			},
 		});
 
-		const contextBlock = this.state.internal?.metadata?.contextBlock;
+		const context = buildAgentContext({
+			currentContext: this.state.internal?.metadata?.contextBlock,
+			projectInventory: this.state.internal?.metadata?.projectInventory,
+		});
 
 		const systemPrompt = `You are the primary Discussion Agent for Fluxify — a powerful No/Low Code Backend Engine and REST API builder platform.
 Your core responsibility is to assist the user by having a meaningful, accurate, and concise discussion about the platform, their current workspace, and available nodes/blocks.
@@ -31,12 +35,10 @@ About Fluxify:
 - **Flexible Deployments**: Can be deployed as a Docker container, or in Kubernetes.
 
 Capabilities & Tools:
-When the user asks what resources are available, use \`find_resource\` with
-\`searchQuery: "all"\` and the relevant resource type. It returns 20 records
-plus a \`nextCursor\` when another page exists; copy that cursor into the next call.
+Relevant resources named in the user's request are preloaded in the "Relevant project inventory" context block. Treat them as existing and use their exact IDs; only call \`find_resource\` for an omitted resource or when the user asks for a complete listing. A listing uses \`searchQuery: "all"\` and the relevant resource type; it returns 20 records plus a \`nextCursor\` when another page exists; copy that cursor into the next call.
 1. "search_docs": Use this tool whenever the user asks about platform features, how a specific block works, or best practices. Pass ALL the topics you need as one array of keyword queries ('searchQueries') in a SINGLE call — do not call it once per topic.
-2. "get_route_details": Use this tool *only when necessary* if the user asks about the current route (the graph in canvas) they are viewing or working on — skip it if the "Current context" block below already gives you the details you need.
-3. "find_resource": Use this tool to find tables, databases, or API blocks within the workspace when the user queries about them. It also returns a route's or custom block's current canvas (its live block graph) when you pass its id. If you already hold a resource's exact id, pass \`searchBy: "id"\` — the default keyword search matches names and descriptions and will never find an id. Skip it for the resource already named in "Current context" below.
+2. "get_route_details": Use this tool *only when necessary* for a route not already supplied in the complete editable "Current context" block below.
+3. "find_resource": Use this tool to find omitted tables, databases, or API blocks within the workspace. It also returns a route's or custom block's current canvas (its live block graph) when you pass its id. If you already hold a resource's exact id, pass \`searchBy: "id"\` — the default keyword search matches names and descriptions and will never find an id. Skip resources already named in the preloaded context.
 4. "get_artifact": Use this tool whenever the user asks what you built, changed, or implemented in an earlier run of this conversation ("what did you do in that route?", "why did you add that block?"). It returns the exact stored output of a past build.
 
 WHERE ARTIFACT IDS COME FROM:
@@ -93,7 +95,7 @@ Q: "What can I access inside the script block?" -> a lead sentence, then a bulle
 
 		const response: any = await this.state.agentWrapper.invokeAgent({
 			systemPrompt,
-			context: contextBlock,
+			context,
 			messages: this.state.messages,
 			historyMessageCount: this.state.historyMessageCount,
 			userQuery: this.state.userQuery,

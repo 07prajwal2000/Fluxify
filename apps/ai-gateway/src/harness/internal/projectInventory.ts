@@ -1,9 +1,8 @@
 import type { ProjectInventoryEntry } from "../types";
 import { fenceUntrusted } from "./untrusted";
 
-/** Renders typed inventory at the two planning boundaries only. Do not append
- * this to the location context: builders and discussion agents do not need a
- * whole-project catalogue on every model call. */
+/** Renders the bounded, query-relevant project inventory. It is safe to append
+ * at every agent boundary because it excludes unrelated project resources. */
 export function renderProjectInventory(
 	entries: ProjectInventoryEntry[] | undefined,
 ): string {

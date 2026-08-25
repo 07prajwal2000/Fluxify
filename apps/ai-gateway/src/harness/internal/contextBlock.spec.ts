@@ -25,12 +25,14 @@ describe("buildContextBlock", () => {
 		expect(out).toBeUndefined();
 	});
 
-	it("summarizes a route location with its canvas", async () => {
+	it("preloads editable route configuration and canvas", async () => {
 		const db = dbWith({
 			getRouteDetails: async () => ({
+				id: "route-1",
 				method: "GET",
 				path: "/tasks",
 				name: "List tasks",
+				querySchema: { dataType: "object", properties: [] },
 			}),
 			getRouteCanvas: async () => [
 				{ id: "blk_1", blockType: "http_request", connections: [{ blockId: "blk_2" }] },
@@ -44,12 +46,11 @@ describe("buildContextBlock", () => {
 		});
 
 		expect(out).toContain("## Current context");
-		expect(out).toContain("route `route-1`");
-		expect(out).toContain("GET /tasks");
-		expect(out).toContain("List tasks");
-		expect(out).toContain("2 blocks");
-		expect(out).toContain("blk_1(http_request)->blk_2");
-		expect(out).toContain("blk_2(js_code)");
+		expect(out).toContain('"targetId":"route-1"');
+		expect(out).toContain('"method":"GET"');
+		expect(out).toContain('"querySchema":{"dataType":"object"');
+		expect(out).toContain('"id":"blk_1"');
+		expect(out).toContain('"connections":[{"blockId":"blk_2"}]');
 		expect(out).toContain("Do NOT call find_resource");
 	});
 
@@ -82,9 +83,8 @@ describe("buildContextBlock", () => {
 			id: "cb-1",
 		});
 
-		expect(out).toContain("custom block `cb-1`");
-		expect(out).toContain("1 blocks");
-		expect(out).toContain("blk_1(entrypoint)");
+		expect(out).toContain('"targetId":"cb-1"');
+		expect(out).toContain('"id":"blk_1"');
 		// the caller contract is what an agent editing this canvas writes against
 		expect(out).toContain("\"name\":\"message\"");
 		expect(out).toContain("Notify");

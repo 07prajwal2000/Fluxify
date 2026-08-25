@@ -7,9 +7,10 @@ import { dispatchAgentEvent } from "../../../callbacks";
 import { searchDocsTool } from "../../../tools/searchDocs";
 import { createGetRouteDetailsTool } from "../../../tools/getRouteDetails";
 import { createFindResourceTool } from "../../../tools/findResource";
-import { createGetBlockSchemasTool } from "../../../tools/getBlockSchemas";
+import { createGetCustomBlockSchemasTool } from "../../../tools/getBlockSchemas";
 import { createGetAgentOutputTool } from "../../../tools/getAgentOutput";
 import { fenceUntrusted } from "../../../internal/untrusted";
+import { buildAgentContext } from "../../../internal/agentContext";
 import { blockBuilderSchema } from "./schemas";
 import { validateBlockBuilderOutput } from "./validator";
 import {
@@ -206,7 +207,12 @@ export class BlockBuilderAgent extends BaseAgent {
 		const projectId = this.state.internal?.metadata?.projectId || "NONE";
 		const { table: customBlocksTable, names: storedCustomBlockNames } =
 			await this.getCustomBlocksInfo(projectId);
-		const contextBlock = this.state.internal?.metadata?.contextBlock;
+		const context = buildAgentContext({
+			currentContext: this.state.internal?.metadata?.contextBlock,
+			projectInventory: this.state.internal?.metadata?.projectInventory,
+			activeTask,
+			subAgentResults: this.state.orchestratorState?.subAgentResults,
+		});
 		const prefetchedDocs = (await getDocsByTitle(PREFETCH_DOC_TITLES))
 			.map((doc) => doc.content)
 			.join("\n\n---\n\n");
@@ -233,7 +239,7 @@ export class BlockBuilderAgent extends BaseAgent {
 				this.state.internal.dbService,
 				this.state.internal?.metadata || {},
 			),
-			createGetBlockSchemasTool(
+			createGetCustomBlockSchemasTool(
 				this.state.internal.dbService,
 				projectId,
 				new Map(pending.map((block) => [block.name, block.inputParams])),
@@ -246,7 +252,7 @@ export class BlockBuilderAgent extends BaseAgent {
 		const response = (await this.state.agentWrapper.invokeAgent({
 			zodSchema: blockBuilderSchema,
 			systemPrompt,
-			context: contextBlock,
+			context,
 			tools,
 			messages: [],
 			userQuery,

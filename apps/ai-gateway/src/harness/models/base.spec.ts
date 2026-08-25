@@ -566,6 +566,7 @@ describe("parallel tool calls", () => {
 		// The answer is in hand; running the rest is paid-for work nobody reads.
 		expect(peak).toBe(0);
 	});
+
 });
 
 describe("flattenToolMessages", () => {
@@ -602,11 +603,11 @@ describe("flattenToolMessages", () => {
 			new HumanMessage("build it"),
 			new AIMessageChunk({
 				content: "streamed reasoning",
-				tool_calls: [{ id: "1", name: "get_block_schemas", args: {} }],
+				tool_calls: [{ id: "1", name: "get_custom_block_schemas", args: {} }],
 			}),
 			new ToolMessage({
 				tool_call_id: "1",
-				name: "get_block_schemas",
+				name: "get_custom_block_schemas",
 				content: "### Custom Block: user_defined.project.validate_jwt",
 			}),
 		]);
@@ -630,14 +631,14 @@ describe("flattenToolMessages", () => {
 						{
 							id: "1",
 							type: "function",
-							function: { name: "get_block_schemas", arguments: "{}" },
+							function: { name: "get_custom_block_schemas", arguments: "{}" },
 						},
 					],
 				},
 			}),
 			new ToolMessage({
 				tool_call_id: "1",
-				name: "get_block_schemas",
+				name: "get_custom_block_schemas",
 				content: "### Custom Block: user_defined.project.validate_jwt",
 			}),
 		]);
