@@ -15,6 +15,29 @@ describe("routeConfig validateAgentOutput", () => {
 			},
 		}).success).toBe(false);
 	});
+
+	it("rejects the malformed profile-list query output", () => {
+		expect(routeConfigOutputSchema.safeParse({
+			action: "create",
+			data: {
+				name: "List Profiles",
+				method: "GET",
+				path: "/api/profiles",
+				querySchema: {
+					dataType: "object",
+					properties: {
+						item: [{
+							key: "page",
+							dataType: "int",
+							required: "false",
+							defaultValue: "1",
+							rules: { item: { type: "min", value: "1" } },
+						}],
+					},
+				},
+			},
+		}).success).toBe(false);
+	});
 	it("rejects a create that forgot the route name", () => {
 		expect(
 			check({ action: "create", data: { method: "POST", path: "/orders" } }),
