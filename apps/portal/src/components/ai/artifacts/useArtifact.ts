@@ -129,9 +129,9 @@ export function useCanvasArtifact(detail: SubArtifactDetail | undefined) {
 
 	const existing = canvasItems.data ?? EMPTY_CANVAS;
 	const graph = useMemo(
-		() => previewGraph(payload, existing),
+		() => previewGraph(payload, existing, Boolean(detail?.appliedAt)),
 		// payload identity is stable while the query cache holds it
-		[payload, existing],
+		[payload, existing, detail?.appliedAt],
 	);
 
 	return {
@@ -151,8 +151,13 @@ export function useCustomBlockCanvasArtifact(detail: SubArtifactDetail | undefin
 	const targetId = payload.targetId ?? "";
 	const existingCanvas = customBlocksQuery.canvasItems.useQuery(targetId);
 	const graph = useMemo(
-		() => previewGraph(payload, existingCanvas.data ?? EMPTY_CANVAS),
-		[payload, existingCanvas.data],
+		() =>
+			previewGraph(
+				payload,
+				existingCanvas.data ?? EMPTY_CANVAS,
+				Boolean(detail?.appliedAt),
+			),
+		[payload, existingCanvas.data, detail?.appliedAt],
 	);
 	return { graph, isLoading: existingCanvas.isLoading };
 }

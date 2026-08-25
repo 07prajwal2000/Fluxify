@@ -6,7 +6,61 @@ import { searchDocsTool } from "../../tools/searchDocs";
 import { createGetRouteDetailsTool } from "../../tools/getRouteDetails";
 import { generateID } from "@fluxify/lib";
 
-const routeConfigSchema = z.object({
+const ruleSchema = z.object({
+	type: z.string(),
+	value: z.any().optional(),
+	message: z.string().optional(),
+}).strict();
+
+const paramFieldSchema = z.object({
+	key: z.string().min(1),
+	dataType: z.enum(["str", "int", "float", "bool", "enum"]),
+	required: z.boolean(),
+	rules: z.array(ruleSchema).optional(),
+}).strict();
+
+const queryFieldSchema = z.object({
+	key: z.string().min(1),
+	dataType: z.enum(["str", "int", "float", "bool", "arr", "enum"]),
+	required: z.boolean().optional(),
+	rules: z.array(ruleSchema).optional(),
+	items: z.object({
+		key: z.string(),
+		dataType: z.enum(["str", "int", "float", "bool", "enum"]),
+		rules: z.array(ruleSchema).optional(),
+	}).strict().optional(),
+}).strict();
+
+const paramsSchemaOutput = z.object({
+	dataType: z.literal("object"),
+	properties: z.array(paramFieldSchema),
+}).strict();
+
+const querySchemaOutput = z.object({
+	dataType: z.literal("object"),
+	properties: z.array(queryFieldSchema),
+}).strict();
+
+const BODY_TYPES = ["str", "int", "float", "bool", "object", "arr", "enum", "js", "file", "blob"] as const;
+const FORM_CONTENT_TYPES = new Set(["application/x-www-form-urlencoded", "multipart/form-data"]);
+const bodyFieldSchema: z.ZodType = z.lazy(() => z.object({
+	key: z.string(),
+	dataType: z.enum(BODY_TYPES),
+	required: z.boolean().optional(),
+	rules: z.array(ruleSchema).optional(),
+	js: z.string().optional(),
+	properties: z.array(bodyFieldSchema).optional(),
+	items: bodyFieldSchema.optional(),
+}).strict());
+const bodySchemaOutput = z.object({
+	dataType: z.enum(BODY_TYPES),
+	properties: z.array(bodyFieldSchema).optional(),
+	items: bodyFieldSchema.optional(),
+	rules: z.array(ruleSchema).optional(),
+	js: z.string().optional(),
+}).strict();
+
+export const routeConfigOutputSchema = z.object({
 	action: z
 		.enum(["create", "delete", "update-partial"])
 		.describe("The operation to perform"),
@@ -24,13 +78,52 @@ const routeConfigSchema = z.object({
 				),
 			method: z.string().nullish(),
 			path: z.string().nullish(),
-			bodySchema: z.any().nullish(),
-			paramsSchema: z.any().nullish(),
-			querySchema: z.any().nullish(),
+			bodySchema: bodySchemaOutput.nullish(),
+			acceptedContentTypes: z.array(z.enum(["application/json", "application/x-www-form-urlencoded", "multipart/form-data", "application/octet-stream", "text/plain"])).min(1).nullish(),
+			paramsSchema: paramsSchemaOutput.nullish(),
+			querySchema: querySchemaOutput.nullish(),
 		})
 		.nullish()
 		.describe("The configuration of the route"),
+}).superRefine((value, ctx) => {
+	if (!value.data?.bodySchema || !value.data.acceptedContentTypes?.some((type) => FORM_CONTENT_TYPES.has(type))) return;
+	if ((value.data.bodySchema.properties ?? []).some((field: any) => field.properties || field.items)) {
+		ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["data", "bodySchema"], message: "Form body schemas support top-level fields only." });
+	}
 });
+
+const PARAM_DATA_TYPES = new Set(["str", "int", "float", "bool", "enum"]);
+const QUERY_DATA_TYPES = new Set([...PARAM_DATA_TYPES, "arr"]);
+
+function parameterSchemaError(
+	schema: unknown,
+	label: "paramsSchema" | "querySchema",
+	allowedTypes: ReadonlySet<string>,
+): string | null {
+	if (!schema || typeof schema !== "object") {
+		return `${label} must be an object schema.`;
+	}
+	const value = schema as { dataType?: unknown; properties?: unknown };
+	if (value.dataType !== "object" || !Array.isArray(value.properties)) {
+		return `${label} must use dataType "object" with a properties array.`;
+	}
+	const seen = new Set<string>();
+	for (const property of value.properties) {
+		if (!property || typeof property !== "object") {
+			return `${label} contains an invalid property.`;
+		}
+		const field = property as { key?: unknown; dataType?: unknown };
+		if (typeof field.key !== "string" || !field.key.trim()) {
+			return `${label} properties require non-empty keys.`;
+		}
+		if (seen.has(field.key)) return `${label} cannot contain duplicate key "${field.key}".`;
+		seen.add(field.key);
+		if (typeof field.dataType !== "string" || !allowedTypes.has(field.dataType)) {
+			return `${label} property "${field.key}" must use one of: ${[...allowedTypes].join(", ")}.`;
+		}
+	}
+	return null;
+}
 
 export class RouteConfigAgent extends BaseAgent {
 	constructor(state: GlobalGraphState) {
@@ -75,7 +168,7 @@ Fluxify uses a specific JSON format for schemas. DO NOT output standard JSON Sch
 {
   "dataType": "str",
   "rules": [
-    { "type": "min", "value": 3, "message": "String must be at least 3 characters" }
+    { "type": "minLength", "value": 3, "message": "String must be at least 3 characters" }
   ]
 }
 \`\`\`
@@ -121,13 +214,24 @@ Fluxify uses a specific JSON format for schemas. DO NOT output standard JSON Sch
         "dataType": "object",
         "properties": [
           { "key": "name", "dataType": "str", "required": true },
-          { "key": "role", "dataType": "enum", "rules": [ { "type": "enum", "value": ["admin", "user"] } ] }
+          { "key": "role", "dataType": "enum", "rules": [ { "type": "values", "value": ["admin", "user"] } ] }
         ]
       }
     }
   ]
 }
 \`\`\`
+
+### Supported Types and Rules
+- \`str\`: \`minLength\`, \`maxLength\`, \`regex\`, \`startsWith\`, \`endsWith\`, \`contains\`, \`notContains\`.
+- \`int\` / \`float\`: \`min\`, \`max\`. \`bool\` has no rules.
+- \`arr\`: \`items\` plus \`minItems\`, \`maxItems\`. \`enum\`: a \`values\` rule with an array of permitted values.
+- \`object\`: a \`properties\` array. \`js\`: validator source in \`js\`. \`file\` / \`blob\`: \`minSize\`, \`maxSize\`, \`mimeTypes\`.
+
+### Parameter Schema Rules
+- \`paramsSchema\` is required when \`path\` has \`:parameters\`; otherwise omit it. It is an object with exactly one required property for every path parameter, using only \`str\`, \`int\`, \`float\`, \`bool\`, or \`enum\`. No nested objects, arrays, files, blobs, or JS validators.
+- \`querySchema\`, when present, is an object. Its fields may use only \`str\`, \`int\`, \`float\`, \`bool\`, \`enum\`, or \`arr\`; query fields may be optional.
+- Include \`acceptedContentTypes\` whenever body format matters. For \`application/json\`, body schemas may nest objects and arrays. For form types (\`application/x-www-form-urlencoded\` or \`multipart/form-data\`), body schema properties are top-level only: no nested \`properties\` or \`items\`.
 
 ## Instructions
 1. Analyze the assigned task to understand the exact route modifications required.
@@ -156,7 +260,7 @@ Determine the exact route configuration intent. Use your tools if you need more 
 		];
 
 		const response = (await this.state.agentWrapper.invokeAgent({
-			zodSchema: routeConfigSchema,
+			zodSchema: routeConfigOutputSchema,
 			systemPrompt,
 			context: contextBlock,
 			tools,
@@ -164,7 +268,7 @@ Determine the exact route configuration intent. Use your tools if you need more 
 			userQuery: userQuery,
 			agentNode: AgentNode.ROUTE_CONFIG_AGENT,
 			agentId: activeTask.id,
-		})) as z.infer<typeof routeConfigSchema>;
+		})) as z.infer<typeof routeConfigOutputSchema>;
 
 		if (response.action === "create" && !response.routeId) {
 			response.routeId = generateID();
@@ -180,15 +284,10 @@ Determine the exact route configuration intent. Use your tools if you need more 
 			},
 		});
 
-		// Ensure we initialize subAgentResults if it's undefined
-		const currentResults = this.state.orchestratorState?.subAgentResults || {};
-
 		return {
 			currentAgent: AgentNode.ROUTE_CONFIG_AGENT,
 			orchestratorState: {
-				...this.state.orchestratorState,
 				subAgentResults: {
-					...currentResults,
 					[activeTask.id]: response,
 				},
 			},
@@ -224,6 +323,31 @@ export const validateAgentOutput: import("../../types").AgentOutputValidator = (
 	// rather than let the supervisor pass it.
 	if (typedResult.action === "create" && !typedResult.data?.name?.trim()) {
 		return "Action 'create' requires a non-empty 'data.name' — a short Title Case label for the route, e.g. 'Create Order'.";
+	}
+
+	const path = typedResult.data?.path;
+	if (typeof path === "string") {
+		const pathParams = Array.from(path.matchAll(/:([a-zA-Z0-9_]+)/g)).map((match) => match[1]!);
+		if (pathParams.length > 0) {
+			const error = parameterSchemaError(typedResult.data?.paramsSchema, "paramsSchema", PARAM_DATA_TYPES);
+			if (error) return error;
+			const properties = typedResult.data?.paramsSchema?.properties ?? [];
+			const keys = properties.map((property: { key: string }) => property.key);
+			const missing = pathParams.find((key) => !keys.includes(key));
+			if (missing) return `paramsSchema is missing path parameter "${missing}".`;
+			const extra = keys.find((key: string) => !pathParams.includes(key));
+			if (extra) return `paramsSchema contains "${extra}", which is not declared in the route path.`;
+			if (properties.some((property: { required?: unknown }) => property.required !== true)) {
+				return "Every paramsSchema property must set required: true.";
+			}
+		} else if (typedResult.data?.paramsSchema != null) {
+			return "Do not include paramsSchema when the route path has no :parameters.";
+		}
+	}
+
+	if (typedResult.data?.querySchema != null) {
+		const error = parameterSchemaError(typedResult.data.querySchema, "querySchema", QUERY_DATA_TYPES);
+		if (error) return error;
 	}
 
 	return null; // Valid

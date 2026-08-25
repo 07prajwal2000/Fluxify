@@ -14,7 +14,6 @@ import { logger } from "@fluxify/common";
 import { withRetry } from "../../lib/retry";
 import { UserInterruptError, isCallTimeout } from "../errors";
 import {
-	summarizeToolResult,
 	parseJsonLoose,
 	describeSchemaError,
 	extractText,
@@ -28,8 +27,10 @@ import {
 	debugPrompt,
 	flattenToolMessages,
 	makeSubmitResultTool,
+	normalizedToolCalls,
 	parseAsSchema,
 } from "./toolLoop";
+import { executeToolCall } from "./toolExecution";
 import type { RunBudget } from "./budget";
 import { UNTRUSTED_DATA_RULE } from "../internal/untrusted";
 
@@ -79,6 +80,9 @@ export interface AgentInvokeOptions {
 	/** Task id when a sub-agent is calling — several instances of the same node
 	 *  run concurrently, so events need it to stay attributable. */
 	agentId?: string;
+	/** Optional domain validation after the transport schema parses. Returning an
+	 * error lets a tool-using model correct its result in the same conversation. */
+	validateResult?: (result: unknown) => Promise<string | null> | string | null;
 }
 
 /** A retryable error a caller may want to surface live (e.g. as a socket
@@ -374,6 +378,7 @@ export abstract class BaseAgentWrapper {
 
 		if (zodSchema) {
 			let result: any;
+			let nativeResponse: AIMessage | undefined;
 			if (
 				this.supportsStructuredOutput() &&
 				originalModel.withStructuredOutput
@@ -395,6 +400,7 @@ export abstract class BaseAgentWrapper {
 									this.withSignal(config),
 								)) as { raw: AIMessage; parsed: T; parsingError?: Error };
 							this.recordUsage(agentNode, raw, startedAt, historyInputTokens);
+							nativeResponse = raw;
 							// Without includeRaw this would have thrown out of `invoke`;
 							// rethrow so the retry and the prompt fallback below still see it.
 							if (parsingError) throw parsingError;
@@ -422,6 +428,25 @@ export abstract class BaseAgentWrapper {
 					);
 				}
 			}
+			const validationError =
+				result && options.validateResult
+					? await options.validateResult(result)
+					: null;
+			if (validationError) {
+				// Native schema parsing cannot carry arbitrary domain errors back to the
+				// model. Preserve the attempted result, then use the corrective fallback
+				// so the next answer receives the same feedback as a tool-loop rejection.
+				finalMessages = [
+					...finalMessages,
+					...(nativeResponse
+						? [asHistoryMessage(nativeResponse, extractText(nativeResponse))]
+						: []),
+					new HumanMessage(
+						`Your structured result passed the JSON schema but failed domain validation:\n\n${validationError}\n\nRespond again with ONLY the corrected JSON object.`,
+					),
+				];
+				result = undefined;
+			}
 
 			if (!result) {
 				// Fallback implementation for models that don't support withStructuredOutput natively,
@@ -434,6 +459,7 @@ export abstract class BaseAgentWrapper {
 					this.withSignal(config),
 					agentNode,
 					historyInputTokens,
+					options.validateResult,
 				)) as T;
 			}
 
@@ -479,7 +505,7 @@ export abstract class BaseAgentWrapper {
 		options: AgentInvokeOptions,
 		historyInputTokens: number,
 	): Promise<{ done: true; value: T | AIMessage } | { done: false }> {
-		const { zodSchema, config, agentNode, agentId } = options;
+		const { zodSchema, config, agentNode, agentId, validateResult } = options;
 		const maxIterations =
 			options.maxToolIterations ?? this.maxToolIterations ?? 8;
 
@@ -508,14 +534,19 @@ export abstract class BaseAgentWrapper {
 			)) as AIMessage;
 			finalMessages.push(response);
 
-			if (response.tool_calls && response.tool_calls.length > 0) {
+			const toolCalls = normalizedToolCalls(response);
+			if (toolCalls.length > 0) {
 				// `submit_result` is the answer, not work — if it validates, nothing
 				// else the model asked for in this batch is worth running.
 				const submit = zodSchema
-					? response.tool_calls.find((tc) => tc.name === SUBMIT_RESULT_TOOL)
+					? toolCalls.find((tc) => tc.name === SUBMIT_RESULT_TOOL)
 					: undefined;
 				const submitParsed = submit && zodSchema?.safeParse(submit.args);
-				if (submitParsed?.success)
+				const validationError =
+					submitParsed?.success && validateResult
+						? await validateResult(submitParsed.data)
+						: null;
+				if (submitParsed?.success && !validationError)
 					return { done: true, value: submitParsed.data as T };
 
 				// Models emit parallel tool calls precisely so they can run in
@@ -524,21 +555,27 @@ export abstract class BaseAgentWrapper {
 				// completion order — strict providers reject a batch whose
 				// ToolMessages don't line up with their tool_calls.
 				const results = await Promise.all(
-					response.tool_calls.map((tc) => {
-						if (submitParsed && !submitParsed.success && tc === submit) {
+					toolCalls.map((tc) => {
+						if (tc === submit && submitParsed) {
 							// Answer the call so the history stays valid (a tool_call with
 							// no result is rejected outright) and let the model correct
 							// itself on the next iteration.
 							return new ToolMessage({
-								tool_call_id: tc.id!,
+								tool_call_id: tc.id,
 								name: tc.name,
-								content: `Rejected — the result did not match the required schema.\n\n${describeSchemaError(submitParsed.error)}\n\nCall ${SUBMIT_RESULT_TOOL} again with the corrected values.`,
+								content: `Rejected — the result did not match the required contract.\n\n${
+									submitParsed.success
+										? validationError
+										: describeSchemaError(submitParsed.error)
+								}\n\nCall ${SUBMIT_RESULT_TOOL} again with the corrected values.`,
 							});
 						}
-						return this.executeToolCall(tc, tools, {
+						return executeToolCall(tc, tools, {
 							agent: agentNode,
 							agentId,
 							config,
+							withSignal: (toolConfig) => this.withSignal(toolConfig),
+							emitToolEvent: (event) => this.emitToolEvent(event),
 						});
 					}),
 				);
@@ -553,7 +590,18 @@ export abstract class BaseAgentWrapper {
 				// content; only fall through to the structured-output step if it
 				// really isn't the answer.
 				const parsed = parseAsSchema<T>(zodSchema, extractText(response));
-				if (parsed !== undefined) return { done: true, value: parsed };
+				if (parsed !== undefined) {
+					const validationError = validateResult
+						? await validateResult(parsed)
+						: null;
+					if (!validationError) return { done: true, value: parsed };
+					finalMessages.push(
+						new HumanMessage(
+							`Your JSON passed the transport schema but failed domain validation:\n\n${validationError}\n\nCall ${SUBMIT_RESULT_TOOL} with a corrected result.`,
+						),
+					);
+					continue;
+				}
 
 				finalMessages.pop();
 				return { done: false };
@@ -568,62 +616,6 @@ export abstract class BaseAgentWrapper {
 		return { done: false };
 	}
 
-	/**
-	 * Invokes a single tool call and returns its result (or error) as a
-	 * ToolMessage. It returns rather than appending so a batch can run
-	 * concurrently and still be appended in call order.
-	 */
-	private async executeToolCall(
-		tc: NonNullable<AIMessage["tool_calls"]>[number],
-		tools: StructuredTool[],
-		ctx: { agent?: string; agentId?: string; config?: RunnableConfig },
-	): Promise<ToolMessage> {
-		const tool = tools.find((t) => t.name === tc.name);
-		const toolEvent = { agent: ctx.agent, agentId: ctx.agentId, tool: tc.name };
-		await this.emitToolEvent({ ...toolEvent, status: "started" });
-
-		if (!tool) {
-			await this.emitToolEvent({
-				...toolEvent,
-				status: "ended",
-				error: `tool ${tc.name} not found`,
-			});
-			return new ToolMessage({
-				tool_call_id: tc.id!,
-				content: `Tool ${tc.name} not found.`,
-				name: tc.name,
-			});
-		}
-
-		try {
-			const toolResult = await tool.invoke(tc.args, this.withSignal(ctx.config));
-			await this.emitToolEvent({
-				...toolEvent,
-				status: "ended",
-				summary: summarizeToolResult(toolResult),
-			});
-			return new ToolMessage({
-				tool_call_id: tc.id!,
-				content:
-					typeof toolResult === "string"
-						? toolResult
-						: JSON.stringify(toolResult),
-				name: tc.name,
-			});
-		} catch (e) {
-			await this.emitToolEvent({
-				...toolEvent,
-				status: "ended",
-				error: e instanceof Error ? e.message : String(e),
-			});
-			return new ToolMessage({
-				tool_call_id: tc.id!,
-				content: `Error executing tool ${tc.name}: ${e}`,
-				name: tc.name,
-			});
-		}
-	}
-
 	protected async fallbackStructuredOutput<T>(
 		model: BaseChatModel | Runnable<any, any>,
 		messages: BaseMessage[],
@@ -631,6 +623,7 @@ export abstract class BaseAgentWrapper {
 		config?: RunnableConfig,
 		agentNode?: string,
 		historyInputTokens = 0,
+		validateResult?: (result: unknown) => Promise<string | null> | string | null,
 	): Promise<T> {
 		// zod-to-json-schema (v3) reads zod v3 `_def` internals and silently emits
 		// an empty schema against a zod v4 schema — the model then gets "match
@@ -688,7 +681,12 @@ ${JSON.stringify(jsonSchema, null, 2)}`;
 					);
 				}
 
-				return schema.parse(parseJsonLoose(content));
+				const parsed = schema.parse(parseJsonLoose(content));
+				const validationError = validateResult
+					? await validateResult(parsed)
+					: null;
+				if (validationError) throw new Error(validationError);
+				return parsed;
 			} catch (error) {
 				if (this.signal?.aborted) throw error;
 				// A call that timed out produced no output to correct. Re-asking just

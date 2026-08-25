@@ -35,4 +35,18 @@ describe("previewGraph", () => {
 	it("is a no-op preview when the agent proposed nothing", () => {
 		expect(previewGraph({}, existing).blocks).toHaveLength(2);
 	});
+
+	it("shows the live canvas after the proposal has been applied", () => {
+		const graph = previewGraph(
+			{
+				targetType: "route",
+				targetId: "r1",
+				blocks: [{ id: "block_1", blockType: "response" }],
+			},
+			existing,
+			true,
+		);
+
+		expect(graph.blocks).toHaveLength(2);
+	});
 });

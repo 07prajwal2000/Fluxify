@@ -124,6 +124,19 @@ describe("Harness Artifacts Service", () => {
 		expect(result?.appliedAt).toBeInstanceOf(Date);
 	});
 
+	it("does not reapply an already-landed sub-artifact", async () => {
+		const appliedAt = new Date();
+		spyOn(repository, "getSubArtifactById").mockResolvedValue(
+			routeRow({ appliedAt }) as never,
+		);
+
+		const result = await applySubArtifact("user1", "conv1", "proj1", "route-sub");
+
+		expect(result?.appliedAt).toBe(appliedAt);
+		expect(bus).toHaveLength(0);
+		expect(repository.markSubArtifactsApplied).not.toHaveBeenCalled();
+	});
+
 	it("creates a route with its paired canvas inline", async () => {
 		spyOn(repository, "getSubArtifactById").mockResolvedValue(routeRow() as never);
 		spyOn(repository, "getArtifactSubArtifacts").mockResolvedValue([

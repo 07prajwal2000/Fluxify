@@ -61,6 +61,7 @@ export type RouteConfigPayload = {
 		bodySchema?: unknown;
 		paramsSchema?: unknown;
 		querySchema?: unknown;
+		acceptedContentTypes?: string[] | null;
 	} | null;
 };
 
@@ -129,6 +130,7 @@ export function routeOpFromPayload(payload: RouteConfigPayload, projectId: strin
 				bodySchema: data.bodySchema,
 				querySchema: data.querySchema,
 				paramsSchema: data.paramsSchema,
+				acceptedContentTypes: data.acceptedContentTypes,
 			}),
 		},
 	};

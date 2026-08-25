@@ -78,4 +78,6 @@ export interface IntegrationSelectorProps {
 	description?: string;
 	/** Additional CSS class applied to the root element. */
 	className?: string;
+	/** Disables the select and clear buttons, making it read-only. */
+	readonly?: boolean;
 }

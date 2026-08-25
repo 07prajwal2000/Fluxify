@@ -465,6 +465,9 @@ export async function applySubArtifact(
 ) {
 	const row = await getSubArtifactById(conversationId, subArtifactId);
 	if (!row) throw new NotFoundError("Sub-artifact not found");
+	// A route create may already have landed its paired canvas inline. Retrying
+	// that canvas must not generate a second set of block ids and save it again.
+	if (row.appliedAt) return row;
 
 	const ctx = newApplyContext(conversationId, projectId, userId);
 	const siblings = await getArtifactSubArtifacts(conversationId, row.artifactId);

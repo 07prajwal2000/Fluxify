@@ -11,6 +11,7 @@ import { createGetBlockSchemasTool } from "../../../tools/getBlockSchemas";
 import { createGetAgentOutputTool } from "../../../tools/getAgentOutput";
 import { fenceUntrusted } from "../../../internal/untrusted";
 import { blockBuilderSchema } from "./schemas";
+import { validateBlockBuilderOutput } from "./validator";
 import {
 	pendingCustomBlocks,
 	type PendingCustomBlock,
@@ -35,7 +36,9 @@ export class BlockBuilderAgent extends BaseAgent {
 	 * knows the answer: if the id names no live route and this run configured
 	 * exactly one, that route is the target.
 	 */
-	private async reconcileRouteTarget<T extends { targetType?: string; targetId?: string }>(
+	private async reconcileRouteTarget<
+		T extends { targetType?: string | null; targetId?: string | null },
+	>(
 		result: T,
 		projectId: string,
 	): Promise<T> {
@@ -249,6 +252,8 @@ export class BlockBuilderAgent extends BaseAgent {
 			userQuery,
 			agentNode: AgentNode.BLOCK_BUILDER,
 			agentId: activeTask.id,
+			validateResult: (candidate) =>
+				validateBlockBuilderOutput(candidate, activeTask.id, this.state),
 		})) as z.infer<typeof blockBuilderSchema>;
 
 		const shortIdMap = new Map(
@@ -274,14 +279,10 @@ export class BlockBuilderAgent extends BaseAgent {
 			},
 		});
 
-		const currentResults = this.state.orchestratorState?.subAgentResults || {};
-
 		return {
 			currentAgent: AgentNode.BLOCK_BUILDER,
 			orchestratorState: {
-				...this.state.orchestratorState,
 				subAgentResults: {
-					...currentResults,
 					[activeTask.id]: processedResponse,
 				},
 			},

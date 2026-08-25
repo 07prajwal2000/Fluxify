@@ -59,6 +59,15 @@ export function compactToolHistory(messages: BaseMessage[]): void {
 /** Tool the model calls to deliver its final structured answer. */
 export const SUBMIT_RESULT_TOOL = "submit_result";
 
+/** Provider-neutral shape used by the execution loop. OpenAI-compatible
+ * providers can leave calls in `additional_kwargs` instead of normalising them
+ * into `AIMessage.tool_calls`. */
+export type NormalizedToolCall = {
+	id: string;
+	name: string;
+	args: unknown;
+};
+
 export const SUBMIT_RESULT_INSTRUCTION = `When you have everything you need, deliver your final answer by calling the \`${SUBMIT_RESULT_TOOL}\` tool — its arguments are the answer. Do not write the answer out as text as well; that costs a full extra generation and is discarded.`;
 
 /**
@@ -130,6 +139,45 @@ export function toolCallsOf(message: unknown): unknown[] {
 			? m.additional_kwargs.tool_calls
 			: []),
 	];
+}
+
+/**
+ * Reads tool calls from both LangChain's normalised field and provider-native
+ * OpenAI-compatible metadata. A call can appear in both places, so id is the
+ * stable dedupe key.
+ */
+export function normalizedToolCalls(message: unknown): NormalizedToolCall[] {
+	const calls = new Map<string, NormalizedToolCall>();
+
+	for (const rawCall of toolCallsOf(message)) {
+		const call = rawCall as {
+			id?: unknown;
+			name?: unknown;
+			args?: unknown;
+			function?: { name?: unknown; arguments?: unknown };
+		};
+		const id = typeof call.id === "string" ? call.id : undefined;
+		const name =
+			typeof call.name === "string"
+				? call.name
+				: typeof call.function?.name === "string"
+					? call.function.name
+					: undefined;
+		if (!id || !name || calls.has(id)) continue;
+
+		let args = call.args ?? call.function?.arguments ?? {};
+		if (typeof args === "string") {
+			try {
+				args = JSON.parse(args);
+			} catch {
+				// Leave malformed arguments intact so the invoked tool can return its
+				// normal validation error to the model instead of silently changing it.
+			}
+		}
+		calls.set(id, { id, name, args });
+	}
+
+	return [...calls.values()];
 }
 
 /**
