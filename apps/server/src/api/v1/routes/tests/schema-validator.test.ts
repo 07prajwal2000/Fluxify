@@ -42,6 +42,12 @@ describe("validateRouteSchemas", () => {
     expect(result.errors[0].message).toContain("missing from paramsSchema");
   });
 
+  test("requires paramsSchema when the path declares parameters", () => {
+    const result = validateRouteSchemas({ path: "/api/users/:userId" });
+    expect(result.success).toBe(false);
+    expect(result.errors[0].message).toContain("require a paramsSchema");
+  });
+
   test("fails if paramsSchema has extra params not in path", () => {
     const result = validateRouteSchemas({
       path: "/api/users/:userId",

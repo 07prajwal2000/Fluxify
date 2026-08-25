@@ -31,4 +31,29 @@ describe("routeConfig validateAgentOutput", () => {
 		).toBeNull();
 		expect(check({ action: "delete", routeId: "r-1" })).toBeNull();
 	});
+
+	it("requires a complete, supported path params schema", () => {
+		expect(
+			check({ action: "create", data: { name: "Get User", path: "/users/:id" } }),
+		).toContain("paramsSchema");
+		expect(
+			check({
+				action: "create",
+				data: {
+					name: "Get User",
+					path: "/users/:id",
+					paramsSchema: { dataType: "object", properties: [{ key: "id", dataType: "arr", required: true }] },
+				},
+			}),
+		).toContain("must use one of");
+	});
+
+	it("rejects unsupported query schema shapes", () => {
+		expect(
+			check({
+				action: "create",
+				data: { name: "List Users", path: "/users", querySchema: { dataType: "arr" } },
+			}),
+		).toContain("dataType \"object\"");
+	});
 });

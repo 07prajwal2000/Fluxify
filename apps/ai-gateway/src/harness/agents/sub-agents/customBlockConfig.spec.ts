@@ -45,4 +45,19 @@ describe("validateCustomBlockConfigOutput", () => {
 			}),
 		).toBeNull();
 	});
+
+	it("rejects incomplete type-specific parameters", () => {
+		expect(
+		check({
+			action: "create",
+			data: { name: "choose_mode", label: "Choose Mode", inputParams: [{ type: "dropdown", name: "mode", label: "Mode", options: [] }] },
+		}),
+	).toBeTruthy();
+		expect(
+		check({
+			action: "create",
+			data: { name: "use_db", label: "Use DB", inputParams: [{ type: "integration_selector", name: "database", label: "Database", group: "" }] },
+		}),
+	).toBeTruthy();
+	});
 });

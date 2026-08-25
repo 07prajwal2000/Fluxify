@@ -13,12 +13,12 @@ import { BaseAgent } from "../base";
 import { CUSTOM_BLOCK_PARAMETER_CONTRACT } from "./customBlockContract";
 
 const inputParamSchema = z.discriminatedUnion("type", [
-	z.object({ type: z.literal("text_input"), name: z.string(), label: z.string(), description: z.string().nullish() }),
-	z.object({ type: z.literal("checkbox"), name: z.string(), label: z.string(), description: z.string().nullish() }),
-	z.object({ type: z.literal("array_editor"), name: z.string(), label: z.string(), description: z.string().nullish() }),
-	z.object({ type: z.literal("dropdown"), name: z.string(), label: z.string(), options: z.array(z.object({ label: z.string(), value: z.string() })), description: z.string().nullish() }),
-	z.object({ type: z.literal("integration_selector"), name: z.string(), label: z.string(), group: z.string(), variant: z.string().nullish(), tags: z.array(z.string()).default([]), description: z.string().nullish() }),
-	z.object({ type: z.literal("app_config_selector"), name: z.string(), label: z.string(), description: z.string().nullish() }),
+	z.object({ type: z.literal("text_input"), name: z.string().regex(/^[a-z0-9_]+$/), label: z.string().trim().min(1), description: z.string().nullish() }),
+	z.object({ type: z.literal("checkbox"), name: z.string().regex(/^[a-z0-9_]+$/), label: z.string().trim().min(1), description: z.string().nullish() }),
+	z.object({ type: z.literal("array_editor"), name: z.string().regex(/^[a-z0-9_]+$/), label: z.string().trim().min(1), description: z.string().nullish() }),
+	z.object({ type: z.literal("dropdown"), name: z.string().regex(/^[a-z0-9_]+$/), label: z.string().trim().min(1), options: z.array(z.object({ label: z.string().trim().min(1), value: z.string().trim().min(1) })).min(1), description: z.string().nullish() }),
+	z.object({ type: z.literal("integration_selector"), name: z.string().regex(/^[a-z0-9_]+$/), label: z.string().trim().min(1), group: z.string().trim().min(1), variant: z.string().nullish(), tags: z.array(z.string()).default([]), description: z.string().nullish() }),
+	z.object({ type: z.literal("app_config_selector"), name: z.string().regex(/^[a-z0-9_]+$/), label: z.string().trim().min(1), description: z.string().nullish() }),
 ]);
 
 const customBlockConfigSchema = z.object({
@@ -120,5 +120,17 @@ export const validateCustomBlockConfigOutput: import("../../types").AgentOutputV
 	// than the create DTO, and only at apply time, as "Malformed operation"
 	const badName = names.find((name) => !/^[a-z0-9_]+$/.test(name));
 	if (badName) return `Custom block inputParam name "${badName}" must be lowercase snake_case (letters, digits and underscores only).`;
+	for (const param of value.data?.inputParams ?? []) {
+		if (!param.label?.trim()) return `Custom block inputParam "${param.name}" requires a non-empty label.`;
+		if (param.type === "dropdown") {
+			if (!param.options?.length) return `Dropdown inputParam "${param.name}" requires at least one option.`;
+			if (param.options.some((option) => !option.label?.trim() || !option.value?.trim())) {
+				return `Dropdown inputParam "${param.name}" options require non-empty label and value.`;
+			}
+		}
+		if (param.type === "integration_selector" && !param.group?.trim()) {
+			return `Integration selector inputParam "${param.name}" requires a non-empty group.`;
+		}
+	}
 	return null;
 };

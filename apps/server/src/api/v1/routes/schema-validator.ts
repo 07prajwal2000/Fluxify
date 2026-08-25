@@ -38,6 +38,7 @@ export function validateRouteSchemas(data: {
 }) {
   const { path, bodySchema, querySchema, paramsSchema } = data;
   const errors: { path: string; message: string }[] = [];
+  const pathParams = extractPathParams(path);
 
   // Validate body schema structural correctness
   if (bodySchema) {
@@ -56,13 +57,13 @@ export function validateRouteSchemas(data: {
   }
 
   // Validate params schema structural correctness
-  if (paramsSchema) {
+  if (pathParams.length > 0 && !paramsSchema) {
+    errors.push({ path: "paramsSchema", message: "Route path parameters require a paramsSchema" });
+  } else if (paramsSchema) {
     const parsed = ValidationSchemaZod.safeParse(paramsSchema);
     if (!parsed.success) {
       errors.push({ path: "paramsSchema", message: "Invalid params schema format" });
     } else {
-      const pathParams = extractPathParams(path);
-
       const properties = paramsSchema.properties || [];
       const schemaParamKeys = properties.map((p: any) => p.key);
 
