@@ -16,7 +16,25 @@ export type { BlockBuilderPayload };
 export function previewGraph(
 	payload: BlockBuilderPayload,
 	existing: CanvasItems,
+	isApplied = false,
 ): CanvasGraph {
+	// The proposal remains stored after apply, while `existing` has become the
+	// live result of that same proposal. Replaying it here mints fresh preview
+	// ids and renders a second visual copy, even though apply correctly no-ops.
+	if (isApplied) {
+		return {
+			blocks: existing.blocks.map((block) => ({
+				...block,
+				data: (block.data ?? {}) as BlockData,
+			})),
+			edges: existing.edges.map((edge) => ({
+				...edge,
+				fromHandle: edge.fromHandle ?? `${edge.from}-source`,
+				toHandle: edge.toHandle ?? `${edge.to}-target`,
+			})),
+		};
+	}
+
 	const { actionsToPerform, changes } = canvasChangesFromPayload(payload, existing);
 	const deleted = new Set(
 		actionsToPerform.blocks.filter((a) => a.action === "delete").map((a) => a.id),

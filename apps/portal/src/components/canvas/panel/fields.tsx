@@ -333,6 +333,7 @@ export function BlockIntegrationField({
 			selectedId={selectedId}
 			loadIntegrations={loadIntegrations}
 			injectedIntegrations={injectedIntegrations}
+			readonly={!editable}
 			onSelect={(id) => {
 				if (!editable) return;
 				updateNodeData(blockId, { [name]: id });

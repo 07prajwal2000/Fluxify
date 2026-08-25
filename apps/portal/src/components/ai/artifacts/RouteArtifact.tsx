@@ -4,6 +4,7 @@ import { routesQuery } from "@/query/routesQuery";
 import { RouteApplyBar } from "./ApplyBar";
 import { CanvasPreview } from "./CanvasPreview";
 import { Field } from "./Field";
+import { SchemaField } from "./SchemaField";
 import {
 	useArtifactParams,
 	useBlockingParent,
@@ -101,13 +102,13 @@ export function RouteArtifact({ subArtifactId }: { subArtifactId: string }) {
 						<Field label="Path" current={route?.path} next={proposed.path} />
 					</Tabs.Panel>
 					<Tabs.Panel id="params">
-						<Field label="Path parameters" current={route?.paramsSchema} next={proposed.paramsSchema} />
+						<SchemaField label="Path parameters" current={route?.paramsSchema} next={proposed.paramsSchema} />
 					</Tabs.Panel>
 					<Tabs.Panel id="query">
-						<Field label="Query string" current={route?.querySchema} next={proposed.querySchema} />
+						<SchemaField label="Query string" current={route?.querySchema} next={proposed.querySchema} />
 					</Tabs.Panel>
 					<Tabs.Panel id="body">
-						<Field label="Request body" current={route?.bodySchema} next={proposed.bodySchema} />
+						<SchemaField label="Request body" current={route?.bodySchema} next={proposed.bodySchema} />
 					</Tabs.Panel>
 				</Tabs>
 			)}

@@ -304,6 +304,7 @@ export function IntegrationSelector({
 	label,
 	description,
 	className,
+	readonly = false,
 }: IntegrationSelectorProps) {
 	const [loaded, setLoaded] = useState<Integration[]>([]);
 	// injected entries need no fetch and always come first
@@ -501,6 +502,7 @@ export function IntegrationSelector({
 										aria-label="Clear Integration"
 										onPress={handleClear}
 										className={iconBtnClass}
+										isDisabled={readonly}
 									/>
 								)}
 
@@ -515,7 +517,7 @@ export function IntegrationSelector({
 						<Button
 							variant="primary"
 							size="sm"
-							isDisabled={loadStatus === "loading" || loadStatus === "error"}
+							isDisabled={readonly || loadStatus === "loading" || loadStatus === "error"}
 							onPress={() => setPickerOpen(true)}
 						>
 							{selectBtnLabel}
