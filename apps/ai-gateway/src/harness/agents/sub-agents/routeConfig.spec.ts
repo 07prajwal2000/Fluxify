@@ -1,11 +1,20 @@
 import { describe, expect, it } from "bun:test";
-import { validateAgentOutput } from "./routeConfig";
+import { routeConfigOutputSchema, validateAgentOutput } from "./routeConfig";
 import type { GlobalGraphState, SubAgentResult } from "../../types";
 
 const check = (result: SubAgentResult) =>
 	validateAgentOutput(result, "t-1", {} as GlobalGraphState);
 
 describe("routeConfig validateAgentOutput", () => {
+	it("rejects malformed query-schema wire format before supervision", () => {
+		expect(routeConfigOutputSchema.safeParse({
+			action: "create",
+			data: {
+				name: "List Profiles",
+				querySchema: { dataType: "object", properties: { item: [] } },
+			},
+		}).success).toBe(false);
+	});
 	it("rejects a create that forgot the route name", () => {
 		expect(
 			check({ action: "create", data: { method: "POST", path: "/orders" } }),

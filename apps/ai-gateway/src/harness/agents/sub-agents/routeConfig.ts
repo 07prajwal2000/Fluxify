@@ -6,7 +6,42 @@ import { searchDocsTool } from "../../tools/searchDocs";
 import { createGetRouteDetailsTool } from "../../tools/getRouteDetails";
 import { generateID } from "@fluxify/lib";
 
-const routeConfigSchema = z.object({
+const ruleSchema = z.object({
+	type: z.string(),
+	value: z.any().optional(),
+	message: z.string().optional(),
+}).strict();
+
+const paramFieldSchema = z.object({
+	key: z.string().min(1),
+	dataType: z.enum(["str", "int", "float", "bool", "enum"]),
+	required: z.boolean(),
+	rules: z.array(ruleSchema).optional(),
+}).strict();
+
+const queryFieldSchema = z.object({
+	key: z.string().min(1),
+	dataType: z.enum(["str", "int", "float", "bool", "arr", "enum"]),
+	required: z.boolean().optional(),
+	rules: z.array(ruleSchema).optional(),
+	items: z.object({
+		key: z.string(),
+		dataType: z.enum(["str", "int", "float", "bool", "enum"]),
+		rules: z.array(ruleSchema).optional(),
+	}).strict().optional(),
+}).strict();
+
+const paramsSchemaOutput = z.object({
+	dataType: z.literal("object"),
+	properties: z.array(paramFieldSchema),
+}).strict();
+
+const querySchemaOutput = z.object({
+	dataType: z.literal("object"),
+	properties: z.array(queryFieldSchema),
+}).strict();
+
+export const routeConfigOutputSchema = z.object({
 	action: z
 		.enum(["create", "delete", "update-partial"])
 		.describe("The operation to perform"),
@@ -25,8 +60,8 @@ const routeConfigSchema = z.object({
 			method: z.string().nullish(),
 			path: z.string().nullish(),
 			bodySchema: z.any().nullish(),
-			paramsSchema: z.any().nullish(),
-			querySchema: z.any().nullish(),
+			paramsSchema: paramsSchemaOutput.nullish(),
+			querySchema: querySchemaOutput.nullish(),
 		})
 		.nullish()
 		.describe("The configuration of the route"),
@@ -199,7 +234,7 @@ Determine the exact route configuration intent. Use your tools if you need more 
 		];
 
 		const response = (await this.state.agentWrapper.invokeAgent({
-			zodSchema: routeConfigSchema,
+			zodSchema: routeConfigOutputSchema,
 			systemPrompt,
 			context: contextBlock,
 			tools,
@@ -207,7 +242,7 @@ Determine the exact route configuration intent. Use your tools if you need more 
 			userQuery: userQuery,
 			agentNode: AgentNode.ROUTE_CONFIG_AGENT,
 			agentId: activeTask.id,
-		})) as z.infer<typeof routeConfigSchema>;
+		})) as z.infer<typeof routeConfigOutputSchema>;
 
 		if (response.action === "create" && !response.routeId) {
 			response.routeId = generateID();
