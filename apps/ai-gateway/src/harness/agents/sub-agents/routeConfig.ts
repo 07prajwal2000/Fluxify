@@ -41,6 +41,25 @@ const querySchemaOutput = z.object({
 	properties: z.array(queryFieldSchema),
 }).strict();
 
+const BODY_TYPES = ["str", "int", "float", "bool", "object", "arr", "enum", "js", "file", "blob"] as const;
+const FORM_CONTENT_TYPES = new Set(["application/x-www-form-urlencoded", "multipart/form-data"]);
+const bodyFieldSchema: z.ZodType = z.lazy(() => z.object({
+	key: z.string(),
+	dataType: z.enum(BODY_TYPES),
+	required: z.boolean().optional(),
+	rules: z.array(ruleSchema).optional(),
+	js: z.string().optional(),
+	properties: z.array(bodyFieldSchema).optional(),
+	items: bodyFieldSchema.optional(),
+}).strict());
+const bodySchemaOutput = z.object({
+	dataType: z.enum(BODY_TYPES),
+	properties: z.array(bodyFieldSchema).optional(),
+	items: bodyFieldSchema.optional(),
+	rules: z.array(ruleSchema).optional(),
+	js: z.string().optional(),
+}).strict();
+
 export const routeConfigOutputSchema = z.object({
 	action: z
 		.enum(["create", "delete", "update-partial"])
@@ -59,12 +78,18 @@ export const routeConfigOutputSchema = z.object({
 				),
 			method: z.string().nullish(),
 			path: z.string().nullish(),
-			bodySchema: z.any().nullish(),
+			bodySchema: bodySchemaOutput.nullish(),
+			acceptedContentTypes: z.array(z.enum(["application/json", "application/x-www-form-urlencoded", "multipart/form-data", "application/octet-stream", "text/plain"])).min(1).nullish(),
 			paramsSchema: paramsSchemaOutput.nullish(),
 			querySchema: querySchemaOutput.nullish(),
 		})
 		.nullish()
 		.describe("The configuration of the route"),
+}).superRefine((value, ctx) => {
+	if (!value.data?.bodySchema || !value.data.acceptedContentTypes?.some((type) => FORM_CONTENT_TYPES.has(type))) return;
+	if ((value.data.bodySchema.properties ?? []).some((field: any) => field.properties || field.items)) {
+		ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["data", "bodySchema"], message: "Form body schemas support top-level fields only." });
+	}
 });
 
 const PARAM_DATA_TYPES = new Set(["str", "int", "float", "bool", "enum"]);
@@ -206,6 +231,7 @@ Fluxify uses a specific JSON format for schemas. DO NOT output standard JSON Sch
 ### Parameter Schema Rules
 - \`paramsSchema\` is required when \`path\` has \`:parameters\`; otherwise omit it. It is an object with exactly one required property for every path parameter, using only \`str\`, \`int\`, \`float\`, \`bool\`, or \`enum\`. No nested objects, arrays, files, blobs, or JS validators.
 - \`querySchema\`, when present, is an object. Its fields may use only \`str\`, \`int\`, \`float\`, \`bool\`, \`enum\`, or \`arr\`; query fields may be optional.
+- Include \`acceptedContentTypes\` whenever body format matters. For \`application/json\`, body schemas may nest objects and arrays. For form types (\`application/x-www-form-urlencoded\` or \`multipart/form-data\`), body schema properties are top-level only: no nested \`properties\` or \`items\`.
 
 ## Instructions
 1. Analyze the assigned task to understand the exact route modifications required.

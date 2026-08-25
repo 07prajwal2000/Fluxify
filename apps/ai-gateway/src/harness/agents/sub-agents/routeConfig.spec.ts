@@ -38,6 +38,13 @@ describe("routeConfig validateAgentOutput", () => {
 			},
 		}).success).toBe(false);
 	});
+
+	it("rejects nested form body schemas", () => {
+		expect(routeConfigOutputSchema.safeParse({ action: "create", data: {
+			name: "Upload", acceptedContentTypes: ["multipart/form-data"],
+			bodySchema: { dataType: "object", properties: [{ key: "meta", dataType: "object", properties: [] }] },
+		} }).success).toBe(false);
+	});
 	it("rejects a create that forgot the route name", () => {
 		expect(
 			check({ action: "create", data: { method: "POST", path: "/orders" } }),

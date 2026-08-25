@@ -150,6 +150,7 @@ export interface RouteConfigAgentResult {
 		bodySchema?: any;
 		paramsSchema?: any;
 		querySchema?: any;
+		acceptedContentTypes?: string[];
 	};
 }
 
