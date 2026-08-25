@@ -26,16 +26,16 @@ export function HarnessLiveStats({ conversationId }: { conversationId: string })
 		return () => window.clearInterval(interval);
 	}, [stats, run?.isTerminal]);
 
-	if (!stats || run?.isTerminal) return null;
-	const elapsedMs = stats.elapsedMs + Math.max(0, now - (run.statsReceivedAt ?? now));
+	const isVisible = stats && !run?.isTerminal;
+	const elapsedMs = stats ? stats.elapsedMs + Math.max(0, now - (run.statsReceivedAt ?? now)) : 0;
 
 	return (
-		<div className="mx-auto mt-2 flex w-full max-w-[65%] items-center justify-center gap-2 text-xs font-medium tracking-wide text-muted">
-			TOOL CALLS: {formatNumber(stats.toolCalls)} <span aria-hidden="true">|</span>{" "}
+		<div className={`mx-auto mb-2 flex w-full max-w-[65%] items-center justify-center gap-2 text-xs font-medium tracking-wide transition-opacity duration-300 ${isVisible ? 'opacity-100 text-muted' : 'opacity-0 pointer-events-none'}`}>
+			TOOL CALLS: {formatNumber(stats?.toolCalls ?? 0)} <span aria-hidden="true">|</span>{" "}
 			TIME ELAPSED: {formatElapsed(elapsedMs)} <span aria-hidden="true">|</span>{" "}
 			<span>TOKENS:</span>
-			<span className="flex items-center gap-0.5"><TbArrowDown size={14} /> {formatNumber(stats.inputTokens)}</span>
-			<span className="flex items-center gap-0.5"><TbArrowUp size={14} /> {formatNumber(stats.outputTokens)}</span>
+			<span className="flex items-center gap-0.5" title="Input tokens"><TbArrowUp size={14} /> {formatNumber(stats?.inputTokens ?? 0)}</span>
+			<span className="flex items-center gap-0.5" title="Output tokens"><TbArrowDown size={14} /> {formatNumber(stats?.outputTokens ?? 0)}</span>
 		</div>
 	);
 }

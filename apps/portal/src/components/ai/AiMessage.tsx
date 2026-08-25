@@ -16,7 +16,7 @@ export function AiMessage({ response, status, usage }: { response?: string | nul
 			{response && (
 				<div className="w-full">
 					<MarkdownViewer content={response} />
-					{isCompleted && <HarnessUsageSummary usage={usage} />}
+					<HarnessUsageSummary usage={usage} />
 				</div>
 			)}
 		</div>
