@@ -1,0 +1,219 @@
+// Bun Snapshot v1, https://bun.sh/docs/test/snapshots
+
+exports[`compact block schemas renders a stable reference 1`] = `
+"type DbConditionSide = {
+	kind: "column";
+	value: string;  // column name / json path to compare against
+}
+| {
+	kind: "literal";
+	value: string | number | boolean;  // value to compare against
+}
+
+type DbWhereCondition = {
+	attribute: DbConditionSide;  // Required DB condition-side object: { kind: 'column', value: 'table.column' } or { kind: 'literal', value }. Never a bare string or number.
+	operator: "eq" | "neq" | "gt" | "gte" | "lt" | "lte";  // Database comparison operator, for example eq, neq, gt, gte, lt, lte.
+	value: DbConditionSide;  // Required DB condition-side object: { kind: 'literal', value } or { kind: 'column', value: 'table.column' }. Never a bare string or number.
+	chain: "and" | "or";  // How this condition joins to next WHERE condition.
+}
+
+type Condition = {
+	lhs: string | number | boolean;  // left-hand side operator (can be js expression)
+	rhs: string | number | boolean;  // right-hand side operator (can be js expression)
+	operator: "eq" | "neq" | "gt" | "gte" | "lt" | "lte" | "js" | "is_empty" | "is_not_empty";  // The operator to use for comparison
+	js?: string;  // javascript expression
+	chain: "and" | "or";  // condition chain to use for evaluation; default "and"
+}
+
+arrayops {
+	operation: "push" | "pop" | "shift" | "unshift" | "filter";  // type of operation to perform
+	value?: any;  // the value to insert (if insert operation is made)
+	useParamAsInput?: boolean;  // use the parameter as the datasource (passed from previous block's output)
+	datasource: string;  // global variable to perform the operation on
+	filterConditions?: Condition[];  // list of conditions which are evaluated
+}
+
+entrypoint {} // no configuration
+
+getvar {
+	key: string;
+}
+
+httprequest {
+	url: string;  // Server url (can be js expression)
+	method: "GET" | "POST" | "PUT" | "DELETE" | "PATCH";
+	headers: Record<string, string>;
+	body: any;
+	useParam: boolean;  // default false
+}
+
+if {
+	conditions: Condition[];  // list of conditions which are evaluated
+}
+
+jsrunner {
+	value: string;
+}
+
+response {
+	httpCode: string;
+}
+
+setvar {
+	key: string;  // The name of the variable
+	value: any;  // The value of the variable (can be number,bool,string,object or js expression)
+}
+
+sticky_note {
+	notes: string;
+	color: "red" | "blue" | "green" | "yellow";  // default "yellow"
+	size: {
+		width: number;  // default 100
+		height: number;  // default 100
+	};
+}
+
+transformer {
+	fieldMap: Record<string, string>;  // key value pairs which map the source key to destination object's key
+	js?: string;  // js code executed when useJs is enabled. A global variable 'input' which stores the source object
+	useJs: boolean;  // enable to run the js code; default false
+}
+
+db_delete {
+	connection: string;  // integration id
+	tableName: string;  // table name (supports js expression)
+	conditions: DbWhereCondition[];  // Database WHERE clause. Always emit an array of condition objects; never emit strings, SQL snippets, or if-block conditions. Each attribute and value must be a tagged object. Example: [{ attribute: { kind: 'column', value: 'status' }, operator: 'eq', value: { kind: 'literal', value: 'active' }, chain: 'and' }].
+}
+
+db_getall {
+	connection: string;  // integration id
+	tableName: string;  // table name (supports js expression)
+	conditions: DbWhereCondition[];  // Database WHERE clause. Always emit an array of condition objects; never emit strings, SQL snippets, or if-block conditions. Each attribute and value must be a tagged object. Example: [{ attribute: { kind: 'column', value: 'status' }, operator: 'eq', value: { kind: 'literal', value: 'active' }, chain: 'and' }].
+	joins?: {
+		table: string;  // table to join
+		alias?: string;  // alias for the table
+		attribute: string;  // attribute to join e.g. table1.id = table2.id
+		type: "inner" | "left" | "right" | "outer";  // type of join; default "inner"
+	}[];  // list of joins; default []
+	columns?: string[];  // list of columns to select with aliases if any (e.g. column1 or table.column2 AS column2 or table.*); default ["*"]
+	limit: number | string;  // limit (supports js expressions); default 1000
+	offset: number | string;  // skip count (supports js expressions); default 0
+	sort: {
+		attribute: string;  // sort attribute
+		direction: "asc" | "desc";  // type of sort
+	};  // default {"attribute":"id","direction":"asc"}
+}
+
+db_getsingle {
+	connection: string;  // integration id
+	tableName: string;  // table name (supports js expression)
+	conditions: DbWhereCondition[];  // Database WHERE clause. Always emit an array of condition objects; never emit strings, SQL snippets, or if-block conditions. Each attribute and value must be a tagged object. Example: [{ attribute: { kind: 'column', value: 'status' }, operator: 'eq', value: { kind: 'literal', value: 'active' }, chain: 'and' }].
+	joins?: {
+		table: string;  // table to join
+		alias?: string;  // alias for the table
+		attribute: string;  // attribute to join e.g. table1.id = table2.id
+		type: "inner" | "left" | "right" | "outer";  // type of join; default "inner"
+	}[];  // list of joins; default []
+	columns?: string[];  // list of columns to select with aliases if any (e.g. column1 or table.column2 AS column2 or table.*); default ["*"]
+}
+
+db_insert {
+	connection: string;  // integration id
+	tableName: string;  // table name (supports js expression)
+	data: {
+		source: "raw" | "js";  // source of the value
+		value: object;  // value to insert (object values can be js expression)
+	};
+	useParam: boolean;  // use parameter; default false
+}
+
+db_insertbulk {
+	connection: string;  // integration id
+	tableName: string;  // table name (supports js expression)
+	data: {
+		source: "raw" | "js";  // source of the value
+		value: object[] | string;  // value to insert
+	};
+	useParam: boolean;  // use parameter
+}
+
+db_native {
+	connection: string;  // integration id
+	js: string;  // js code to execute (has dbQuery(query: string) global function)
+}
+
+db_transaction {
+	connection: string;  // integration id
+	executor: string;  // block id to start a transaction (database adapter state changes to transaction)
+}
+
+db_update {
+	connection: string;  // integration id
+	tableName: string;  // table name (supports js expression)
+	conditions: DbWhereCondition[];  // Database WHERE clause. Always emit an array of condition objects; never emit strings, SQL snippets, or if-block conditions. Each attribute and value must be a tagged object. Example: [{ attribute: { kind: 'column', value: 'status' }, operator: 'eq', value: { kind: 'literal', value: 'active' }, chain: 'and' }].
+	data: {
+		source: "raw" | "js";  // source of the value
+		value: object | string;
+	};
+	useParam: boolean;  // use parameter
+}
+
+httpgetcookie {
+	name: string;  // name of the cookie (supports js expressions)
+}
+
+httpgetheader {
+	name: string;  // name of the header
+}
+
+httpgetparam {
+	name: string;  // parameter name (supports js expressions)
+	source: "query" | "path";  // source of the parameter
+}
+
+httpgetrequestbody {} // no configuration
+
+httpsetcookie {
+	name: string;  // cookie name (supports js expression)
+	value: string | number;  // cookie value (supports js expression)
+	domain?: string;  // domain (supports js expression)
+	path?: string;  // http path for the cookie (supports js expression)
+	expiry: string;  // expiry in date (ISO format, supports js expression)
+	httpOnly?: boolean;  // httponly cookie?
+	secure?: boolean;  // only in https?
+	samesite?: "" | "Lax" | "Strict" | "None";  // cookie samesite setting
+}
+
+httpsetheader {
+	name: string;  // header name (supports js expression)
+	value: string;  // header value (supports js expression)
+}
+
+consolelog {
+	message?: string;  // string message to log
+	level: "info" | "warn" | "error";  // log level; default "info"
+}
+
+forloop {
+	block?: string;  // block id for starting the execution
+	start: number | string;  // iteration start count (can be js expression)
+	end: number | string;  // iteration end count (can be js expression)
+	step: number | string;  // iteration step count (can be js expression); default 1
+}
+
+foreachloop {
+	block?: string;  // block id for starting the execution
+	values: any[];  // list of items to iterate on
+	useParam?: boolean;  // use parameter as the datasource to iterate on
+}
+
+cloud_logs {
+	connection: string;  // integration id; default ""
+	message?: string;  // string message to log
+	level: "info" | "warn" | "error";  // log level; default "info"
+}
+
+error_handler {
+	next: string;  // next block to execute; default ""
+}"
+`;
