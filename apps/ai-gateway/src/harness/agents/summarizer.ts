@@ -7,11 +7,11 @@ import {
 	type ApplyFailure,
 } from "../../api/v1/harness-conversations/artifacts/service";
 import { applyArtifact } from "../../api/v1/harness-conversations/artifacts/applyBatch";
-import {
-	prepareCanvasArtifact,
-	type BlockBuilderPayload,
-	type CanvasItems,
+import type {
+	BlockBuilderPayload,
+	CanvasItems,
 } from "../../api/v1/harness-conversations/artifacts/normalize";
+import { prepareCanvasArtifact } from "../../api/v1/harness-conversations/artifacts/canvasLayout";
 import {
 	callerFor,
 	readCanvas,
@@ -22,8 +22,34 @@ interface ChangeRef {
 	label: string;
 	actionLabel: string;
 	agentRole: string;
+	/** The summary line for this change, written where the change is built and
+	 *  the real data is still in hand. What the model would have paraphrased. */
+	line: string;
 	/** Exact token the LLM must place verbatim at the end of its line. */
 	token: string;
+}
+
+const ACTION_VERB: Record<string, string> = {
+	add: "Added",
+	delete: "Removed",
+	changes: "Updated",
+};
+
+/**
+ * The summary a clean run asks the model for is a bullet per change with a
+ * token appended — every part of which is already sitting in `changes`. The
+ * model adds no information there, only a chance to fabricate a token, so
+ * write it directly and skip the call.
+ *
+ * Only what the model is genuinely for — explaining a task that failed,
+ * turning a build hint into a creation chip — falls through to the model path.
+ */
+function deterministicSummary(changes: ChangeRef[]): string {
+	return [
+		"Here's what this run changed in your app:",
+		"",
+		...changes.map((c) => `- ${c.line} ${c.token}`),
+	].join("\n");
 }
 
 function isRouteConfigResult(r: any): boolean {
@@ -191,7 +217,8 @@ export class SummarizerAgent extends BaseAgent {
 						const type = result.action === "create" ? "add" : result.action === "delete" ? "delete" : "changes";
 						const subId = await harnessService.createSubArtifact({ artifactId, runId, subAgentId: task.id, dependsOn: task.dependsOnAgentId, kind: "custom_block", action: type, payload: result });
 						subArtifactIds[task.id] = subId;
-						changes.push({ label: result.data?.label ?? result.data?.name ?? task.title, actionLabel: type, agentRole: "Custom block configuration", token: `:customBlock{type="${type}" sub_artifact_id="${subId}"}` });
+						const blockLabel = result.data?.label ?? result.data?.name ?? task.title;
+						changes.push({ label: blockLabel, actionLabel: type, agentRole: "Custom block configuration", line: `${ACTION_VERB[type]} the "${blockLabel}" custom block.`, token: `:customBlock{type="${type}" sub_artifact_id="${subId}"}` });
 					} else if (isRouteConfigResult(result)) {
 						const type =
 							result.action === "create"
@@ -216,6 +243,7 @@ export class SummarizerAgent extends BaseAgent {
 							label: label || task.title,
 							actionLabel: type,
 							agentRole: "Route configuration",
+							line: `${ACTION_VERB[type]} the \`${label || task.title}\` endpoint.`,
 							token: `:route{type="${type}" sub_artifact_id="${subId}"}`,
 						});
 					} else if (isBlockBuilderResult(result)) {
@@ -251,6 +279,7 @@ export class SummarizerAgent extends BaseAgent {
 							label: task.title,
 							actionLabel: "changes",
 							agentRole: "Canvas builder",
+							line: `Built the logic for ${task.title.replace(/\.$/, "")}.`,
 							token: `:canvasChanges{parent_type="${parentType}" parent="${parentRef}" artifact_id="${subId}"}`,
 						});
 					}
@@ -293,6 +322,37 @@ export class SummarizerAgent extends BaseAgent {
 		const hintsText = scratchpad.length
 			? scratchpad.map((s) => `- ${s}`).join("\n")
 			: "None.";
+
+		// Nothing to explain and nothing to advise: every line of the summary is
+		// already written. `HARNESS_SUMMARY_MODE=llm` forces the model back on for
+		// comparing the two on a real run.
+		if (
+			changes.length > 0 &&
+			failedLines.length === 0 &&
+			scratchpad.length === 0 &&
+			process.env.HARNESS_SUMMARY_MODE !== "llm"
+		) {
+			logger.info("[Summarizer] Wrote summary without a model call", {
+				runId,
+				changes: changes.length,
+			});
+			await dispatchAgentEvent({
+				name: "agent_status",
+				data: {
+					status: "Summary ready",
+					agent: AgentNode.SUMMARIZER,
+					data: { artifactId },
+				},
+			});
+			return {
+				currentAgent: AgentNode.SUMMARIZER,
+				summarizerState: {
+					markdown: deterministicSummary(changes),
+					artifactId,
+					subArtifactIds,
+				},
+			};
+		}
 
 		const systemPrompt = `You are the Summarizer Agent for Fluxify — a No/Low-Code Backend Engine where users build REST APIs visually from "routes" (endpoints) and "canvases" (block graphs of logic).
 
