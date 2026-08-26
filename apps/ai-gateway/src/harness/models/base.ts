@@ -550,7 +550,10 @@ export abstract class BaseAgentWrapper {
 				// ToolMessages don't line up with their tool_calls.
 				const results = await executeToolBatch(
 					toolCalls,
-					finalMessages,
+					// One wrapper is created per run and shared by every sub-agent,
+					// including the ones the orchestrator dispatches in parallel — so
+					// it is the lifetime a database read stays valid over.
+					{ invocation: finalMessages, run: this },
 					(tc) => {
 						if (tc === submit && submitParsed) {
 							// Answer the call so the history stays valid (a tool_call with
