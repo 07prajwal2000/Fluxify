@@ -1,7 +1,6 @@
 import { fencedTool } from "./fenced";
 import { z } from "zod";
 import { logger } from "@fluxify/common";
-import { blockAiDescriptions } from "@fluxify/blocks";
 import { resolveCustomBlockName, withCustomBlockPrefix } from "@fluxify/lib";
 import type { DbService } from "../internal/dbService";
 
@@ -48,11 +47,12 @@ function mapInputParamsToNaturalLanguage(inputParams: any[]): string {
 	return `{\n${props.join("\n")}\n}`;
 }
 
-/** ponytail: flat cap. Raise it if a legitimate build needs more blocks
- *  configured in one turn. */
-const MAX_BLOCK_TYPES_PER_CALL = 8;
+/** A custom-block list is project data, unlike the static built-in catalogue.
+ * Keep the escape hatch bounded so an agent cannot inject an entire project's
+ * contracts into every later tool turn. */
+const MAX_CUSTOM_BLOCKS_PER_CALL = 8;
 
-export const createGetBlockSchemasTool = (
+export const createGetCustomBlockSchemasTool = (
 	dbService: DbService,
 	projectId: string,
 	/** Custom blocks this run has proposed but not written yet. Without these the
@@ -61,71 +61,62 @@ export const createGetBlockSchemasTool = (
 	pendingCustomBlocks: Map<string, Array<Record<string, unknown>>> = new Map(),
 ) => {
 	return fencedTool(
-		async ({ blockTypes }) => {
-			logger.info(`[Tools] Fetching schemas for blocks: ${blockTypes.join(", ")}`);
+		async ({ customBlockNames }) => {
+			logger.info(
+				`[Tools] Fetching custom block schemas: ${customBlockNames.join(", ")}`,
+			);
 			
 			const results: string[] = [];
-			// Uncapped, the model can ask for all 28 built-ins in one call — around
-			// 5,000 tokens, re-sent on every later tool iteration. It only ever
-			// needs the handful it is about to configure.
-			const requestedTypes = [...new Set(blockTypes)].slice(
+			const requestedNames = [...new Set(customBlockNames)].slice(
 				0,
-				MAX_BLOCK_TYPES_PER_CALL,
+				MAX_CUSTOM_BLOCKS_PER_CALL,
 			);
-			const dropped = new Set(blockTypes).size - requestedTypes.length;
+			const dropped = new Set(customBlockNames).size - requestedNames.length;
 
-			for (const blockType of requestedTypes) {
-				if (blockType.startsWith("custom:")) {
-					const customName = blockType.replace("custom:", "");
-					// DB first, same precedence as the validator: a stored block under
-					// this name is what the canvas will execute against. Both name
-					// forms are tried — an inhouse block is stored bare, a project one
-					// under the `user_defined.project.` prefix the create endpoint adds.
-					const inputParams =
-						(await dbService.getCustomBlockInputParams(projectId, customName)) ??
-						(await dbService.getCustomBlockInputParams(
-							projectId,
-							withCustomBlockPrefix(customName),
-						)) ??
-						pendingCustomBlocks.get(
-							resolveCustomBlockName(
-								customName,
-								new Set(pendingCustomBlocks.keys()),
-							),
-						);
-					if (inputParams) {
-						const mappedSchema = mapInputParamsToNaturalLanguage(inputParams);
-						results.push(`### Custom Block: ${customName}\n${mappedSchema}`);
-					} else {
-						results.push(`### Custom Block: ${customName}\n// Not found or no schema available`);
-					}
+			for (const requestedName of requestedNames) {
+				const customName = requestedName.replace(/^custom:/, "");
+				// DB first, same precedence as the validator: a stored block under
+				// this name is what the canvas will execute against. Both name forms
+				// are tried because project blocks are prefixed while inhouse blocks
+				// are stored bare.
+				const inputParams =
+					(await dbService.getCustomBlockInputParams(projectId, customName)) ??
+					(await dbService.getCustomBlockInputParams(
+						projectId,
+						withCustomBlockPrefix(customName),
+					)) ??
+					pendingCustomBlocks.get(
+						resolveCustomBlockName(
+							customName,
+							new Set(pendingCustomBlocks.keys()),
+						),
+					);
+				if (inputParams) {
+					const mappedSchema = mapInputParamsToNaturalLanguage(inputParams);
+					results.push(`### Custom Block: ${customName}\n${mappedSchema}`);
 				} else {
-					// Built-in block
-					const builtin = blockAiDescriptions.find(b => b.name === blockType);
-					if (builtin && builtin.jsonSchema) {
-						results.push(`### Built-in Block: ${blockType}\n${builtin.jsonSchema}`);
-					} else {
-						results.push(`### Built-in Block: ${blockType}\n// Not found`);
-					}
+					results.push(
+						`### Custom Block: ${customName}\n// Not found or no schema available`,
+					);
 				}
 			}
 
 			if (dropped > 0) {
 				results.push(
-					`// ${dropped} more block type(s) were not returned: this tool serves at most ${MAX_BLOCK_TYPES_PER_CALL} per call. Call it again for the rest.`,
+					`// ${dropped} more custom block(s) were not returned: this tool serves at most ${MAX_CUSTOM_BLOCKS_PER_CALL} per call. Call it again for the rest.`,
 				);
 			}
 
 			return results.join("\n\n");
 		},
 		{
-			name: "get_block_schemas",
+			name: "get_custom_block_schemas",
 			description:
-				`Fetches the detailed configuration schemas for the requested block types. For custom blocks, prefix the block name with 'custom:'. Returns at most ${MAX_BLOCK_TYPES_PER_CALL} schemas per call — request only the blocks you are about to configure.`,
+				`Fetches detailed configuration contracts for custom blocks only. Built-in block schemas are already preloaded. Returns at most ${MAX_CUSTOM_BLOCKS_PER_CALL} contracts per call — request only custom blocks you are about to configure.`,
 			schema: z.object({
-				blockTypes: z
+				customBlockNames: z
 					.array(z.string())
-					.describe(`Array of block types to fetch schemas for (e.g. ['http_request', 'custom:stripe_charge']). At most ${MAX_BLOCK_TYPES_PER_CALL} per call.`),
+					.describe(`Array of custom block names to fetch (e.g. ['stripe_charge']). At most ${MAX_CUSTOM_BLOCKS_PER_CALL} per call.`),
 			}),
 		},
 	);

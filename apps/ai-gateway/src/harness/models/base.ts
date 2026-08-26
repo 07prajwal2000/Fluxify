@@ -13,12 +13,7 @@ import { z } from "zod";
 import { logger } from "@fluxify/common";
 import { withRetry } from "../../lib/retry";
 import { UserInterruptError, isCallTimeout } from "../errors";
-import {
-	parseJsonLoose,
-	describeSchemaError,
-	extractText,
-	cleanJsonOutput,
-} from "./jsonUtils";
+import { parseJsonLoose, describeSchemaError, extractText, cleanJsonOutput } from "./jsonUtils";
 import {
 	SUBMIT_RESULT_TOOL,
 	SUBMIT_RESULT_INSTRUCTION,
@@ -30,7 +25,7 @@ import {
 	normalizedToolCalls,
 	parseAsSchema,
 } from "./toolLoop";
-import { executeToolCall } from "./toolExecution";
+import { executeToolBatch, executeToolCall } from "./toolExecution";
 import type { RunBudget } from "./budget";
 import { UNTRUSTED_DATA_RULE } from "../internal/untrusted";
 
@@ -508,7 +503,6 @@ export abstract class BaseAgentWrapper {
 		const { zodSchema, config, agentNode, agentId, validateResult } = options;
 		const maxIterations =
 			options.maxToolIterations ?? this.maxToolIterations ?? 8;
-
 		for (let i = 0; i < maxIterations; i++) {
 			this.checkRunLimits();
 			compactToolHistory(finalMessages);
@@ -554,8 +548,10 @@ export abstract class BaseAgentWrapper {
 				// trips instead of the max. Results are pushed in call order, not
 				// completion order — strict providers reject a batch whose
 				// ToolMessages don't line up with their tool_calls.
-				const results = await Promise.all(
-					toolCalls.map((tc) => {
+				const results = await executeToolBatch(
+					toolCalls,
+					finalMessages,
+					(tc) => {
 						if (tc === submit && submitParsed) {
 							// Answer the call so the history stays valid (a tool_call with
 							// no result is rejected outright) and let the model correct
@@ -570,14 +566,15 @@ export abstract class BaseAgentWrapper {
 								}\n\nCall ${SUBMIT_RESULT_TOOL} again with the corrected values.`,
 							});
 						}
-						return executeToolCall(tc, tools, {
+						return undefined;
+					},
+					(tc) => executeToolCall(tc, tools, {
 							agent: agentNode,
 							agentId,
 							config,
 							withSignal: (toolConfig) => this.withSignal(toolConfig),
 							emitToolEvent: (event) => this.emitToolEvent(event),
-						});
-					}),
+						}),
 				);
 				finalMessages.push(...results);
 				continue;

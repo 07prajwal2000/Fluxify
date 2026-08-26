@@ -3,18 +3,17 @@ import type { DbService } from "./dbService";
 import { fenceUntrusted } from "./untrusted";
 import type { HarnessJobMetadata } from "../queue";
 
-/** One line per block: id, type, and outgoing connections only — never the
- *  block's full `data` payload, which would be a large blob and defeat the
- *  point of resolving this for free. */
-function summarizeCanvas(canvas: Array<Record<string, any>>): string {
-	if (canvas.length === 0) return "0 blocks (empty canvas)";
-	const lines = canvas.map((b) => {
-		const targets = (b.connections ?? [])
-			.map((c: any) => c.blockId)
-			.filter(Boolean);
-		return `${b.id}(${b.blockType})${targets.length ? `->${targets.join(",")}` : ""}`;
-	});
-	return `${canvas.length} blocks: ${lines.join(", ")}`;
+function routeConfig(route: Record<string, unknown>) {
+	return {
+		id: route.id,
+		name: route.name,
+		method: route.method,
+		path: route.path,
+		active: route.active,
+		bodySchema: route.bodySchema,
+		querySchema: route.querySchema,
+		paramsSchema: route.paramsSchema,
+	};
 }
 
 /**
@@ -46,11 +45,15 @@ export async function buildContextBlock(
 			return `## Current context
 ${fenceUntrusted(
 	"current_context",
-	`The user is currently viewing route \`${location.id}\` (${route.method} ${route.path}, "${route.name}").
-Its canvas has ${summarizeCanvas(canvas ?? [])}.`,
+	JSON.stringify({
+		targetType: "route",
+		targetId: location.id,
+		route: routeConfig(route as Record<string, unknown>),
+		canvas: canvas ?? [],
+	}),
 )}
-Treat this as the target unless the request names another resource.
-Do NOT call find_resource to look this up — you already have it.`;
+This is the complete editable route configuration and canvas. Treat it as the target unless the task's direct dependency names another target.
+Do NOT call find_resource or get_route_details to look this up — you already have it.`;
 		}
 
 		if (location.where === "custom-block-canvas") {
@@ -63,11 +66,21 @@ Do NOT call find_resource to look this up — you already have it.`;
 			return `## Current context
 ${fenceUntrusted(
 	"current_context",
-	`The user is currently viewing custom block \`${location.id}\`${block ? ` ("${block.label ?? block.name}", block type \`${block.name}\`)` : ""}.
-Its canvas has ${summarizeCanvas(canvas)}.
-${block ? `Its caller contract (\`params\`) is ${JSON.stringify(block.inputParams ?? [])}.` : ""}`,
+	JSON.stringify({
+		targetType: "custom_block",
+		targetId: location.id,
+		customBlock: block
+			? {
+				id: block.id,
+				name: block.name,
+				label: block.label,
+				inputParams: block.inputParams ?? [],
+			}
+			: undefined,
+		canvas,
+	}),
 )}
-Treat this as the target unless the request names another resource.
+This is the complete editable custom-block configuration and canvas. Treat it as the target unless the task's direct dependency names another target.
 Do NOT call find_resource to look this up — you already have it.`;
 		}
 	} catch (e) {

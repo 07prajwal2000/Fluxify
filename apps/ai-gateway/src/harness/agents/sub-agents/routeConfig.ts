@@ -5,6 +5,7 @@ import { z } from "zod";
 import { searchDocsTool } from "../../tools/searchDocs";
 import { createGetRouteDetailsTool } from "../../tools/getRouteDetails";
 import { generateID } from "@fluxify/lib";
+import { buildAgentContext } from "../../internal/agentContext";
 
 const ruleSchema = z.object({
 	type: z.string(),
@@ -145,7 +146,12 @@ export class RouteConfigAgent extends BaseAgent {
 			},
 		});
 
-		const contextBlock = this.state.internal?.metadata?.contextBlock;
+		const context = buildAgentContext({
+			currentContext: this.state.internal?.metadata?.contextBlock,
+			projectInventory: this.state.internal?.metadata?.projectInventory,
+			activeTask,
+			subAgentResults: this.state.orchestratorState?.subAgentResults,
+		});
 
 		const systemPrompt = `You are the Route Config Agent for Fluxify — an Agentic Low Code Backend Development Platform.
 Your responsibility is to determine the exact Create, Update, or Delete (CUD) intent for a route based on the task description.
@@ -262,7 +268,7 @@ Determine the exact route configuration intent. Use your tools if you need more 
 		const response = (await this.state.agentWrapper.invokeAgent({
 			zodSchema: routeConfigOutputSchema,
 			systemPrompt,
-			context: contextBlock,
+			context,
 			tools,
 			messages: [],
 			userQuery: userQuery,

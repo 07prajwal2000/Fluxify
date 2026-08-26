@@ -29,6 +29,26 @@ export const BUILTIN_BLOCKS_TABLE = createBlocksTable(
 );
 
 /**
+ * The block catalogue tells the model which building blocks exist; it does not
+ * tell it the required data fields. Making those fields an optional tool call
+ * made a valid canvas depend on the model first deciding to ask. Keep this
+ * static reference in the system prompt instead: it is shared by every run,
+ * so providers can prefix-cache it, and it gives the model the contract before
+ * it designs the graph.
+ */
+export const BUILTIN_BLOCK_SCHEMAS_REFERENCE = blockAiDescriptions
+	.filter(
+		(
+			block,
+		): block is (typeof blockAiDescriptions)[number] & { jsonSchema: string } =>
+			typeof block.jsonSchema === "string" && block.jsonSchema.length > 0,
+	)
+	.map(
+		({ name, jsonSchema }) => `### ${name}\n\`\`\`json\n${jsonSchema}\n\`\`\``,
+	)
+	.join("\n\n");
+
+/**
  * Docs the block builder searched for on nearly every run \u2014 the JS API it has
  * to write against, and the execution model that decides what a legal edge is.
  * Pre-loading them costs a fixed ~3k prompt tokens and removes several
@@ -53,6 +73,12 @@ Your responsibility is to build and modify the canvas of a workflow DAG, which c
 
 #### Built-in Blocks
 ${BUILTIN_BLOCKS_TABLE}
+
+#### Built-in Block Data Contracts
+Use these exact schemas when configuring a built-in block. Required fields are
+not optional: do not guess field names or omit them.
+
+${BUILTIN_BLOCK_SCHEMAS_REFERENCE}
 
 #### Custom Blocks
 ${customBlocksTable}
@@ -139,11 +165,11 @@ ${CUSTOM_BLOCK_EXECUTION_CONTRACT}
    > **Important**: Only use 'canvasChanges' for mutations to items already on the canvas. Brand-new blocks always go in the top-level 'blocks' array.
 
 8. **Target Association**:
-   - You MUST extract the ID of the route or custom block you are building for from the task context or previous agent outputs (e.g., using \`get_agent_output\`). For a custom block created in this run, fetch its paired Custom Block Config Agent output first and use its exact \`inputParams\` contract.
+   - Use the exact ID of the route or custom block from the task context. Direct dependency outputs are already preloaded and authoritative; do NOT call \`get_agent_output\` to fetch them again. For a custom block created in this run, use its paired Custom Block Config Agent output and its exact \`inputParams\` contract.
    - Specify whether the canvas belongs to a \`route\` or \`custom_block\` in the \`targetType\` field.
    - Provide the exact ID in the \`targetId\` field.
 
-9. **Tools**: Everything about the execution model and the JavaScript API is already in "Platform Reference" below — do NOT call 'search_docs' for scripting, \`js:\` expressions, \`input\`, variables, or how blocks execute. Use 'search_docs' only for a platform feature not covered there, and when you do, pass ALL your topics in ONE call ('searchQueries' is an array) rather than calling it repeatedly. Use 'find_resource' to lookup integrations and existing route/custom block canvas (metadata.isNewRoute=true for new routes) — skip this for the canvas already summarized in "Current context" below. When the task description already gives you a resource's exact ID, pass \`searchBy: "id"\`; the default keyword search will not find an ID. Use 'get_block_schemas' to fetch configuration schemas for any blocks you plan to use. Use 'get_agent_output' to fetch the configuration of a newly created route or custom block from a previous agent's output if it's not yet saved in the DB (the task description will provide the task IDs).
+9. **Tools**: Everything about the execution model and the JavaScript API is already in "Platform Reference" below — do NOT call 'search_docs' for scripting, \`js:\` expressions, \`input\`, variables, or how blocks execute. Use 'search_docs' only for a platform feature not covered there, and when you do, pass ALL your topics in ONE call ('searchQueries' is an array) rather than calling it repeatedly. Relevant project resources, the current editable canvas, and direct dependency outputs are preloaded in context; do NOT fetch them again. For an omitted integration or resource, use 'find_resource'; when the task gives you an exact ID, pass \`searchBy: "id"\`. Built-in schemas are preloaded above: never fetch them. Use \`get_custom_block_schemas\` only when a custom block contract is absent or needs clarification.
 
 ### Output Contract
 

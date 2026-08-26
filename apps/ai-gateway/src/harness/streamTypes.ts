@@ -287,7 +287,7 @@ const TOOL_MESSAGES: Record<string, string> = {
 	search_docs: "Searching the documentation",
 	find_resource: "Looking up project resources",
 	get_route_details: "Reading route details",
-	get_block_schemas: "Reading block schemas",
+	get_custom_block_schemas: "Reading custom block schemas",
 	get_agent_output: "Reading a previous task's output",
 	get_artifact: "Reading an earlier summary",
 };
