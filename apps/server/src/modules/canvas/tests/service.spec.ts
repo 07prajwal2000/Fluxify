@@ -189,6 +189,34 @@ describe("canvas saveCanvas", () => {
 		expect(upsertEdges).not.toHaveBeenCalled();
 	});
 
+	it("rejects two edges from one output handle after merging the delta", async () => {
+		spyOn(repository, "getBlocks").mockResolvedValue([
+			{ id: "a" },
+			{ id: "b" },
+			{ id: "c" },
+		] as any);
+		getEdges.mockResolvedValue([
+			{ id: "old", from: "a", to: "b", fromHandle: "a-source", toHandle: "b-target" },
+		] as any);
+
+		await expect(
+			saveCanvas(
+				{ type: "route", id: "r-1" },
+				{
+					actionsToPerform: { blocks: [], edges: [] },
+					changes: {
+						blocks: [],
+						edges: [
+							{ id: "new", from: "a", to: "c", fromHandle: "a-source", toHandle: "c-target" },
+						],
+					},
+				},
+				["p1"],
+			),
+		).rejects.toThrow(/multiple outgoing edges/);
+		expect(upsertEdges).not.toHaveBeenCalled();
+	});
+
 	describe("custom block recursion", () => {
 		const project = [
 			{ id: "cb-1", name: "audit" },

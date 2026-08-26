@@ -1,5 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import {
+	canvasAfterChanges,
 	canvasChangesFromPayload,
 	customBlockOpFromPayload,
 	routeOpFromPayload,
@@ -304,6 +305,50 @@ describe("canvasChangesFromPayload", () => {
 
 		expect(result.changes.edges).toEqual([
 			{ id: "edge-1", from: "a", to: "c", fromHandle: "a-source", toHandle: "c-target" },
+		]);
+	});
+
+	it("replaces a changed block's stale edge on the same handle", () => {
+		const existing: CanvasItems = {
+			blocks: [
+				{ id: "a", type: "entrypoint", data: {}, position: { x: 0, y: 0 } },
+				{ id: "b", type: "response", data: {}, position: { x: 0, y: 100 } },
+				{ id: "c", type: "consolelog", data: {}, position: { x: 0, y: 200 } },
+			],
+			edges: [
+				{ id: "edge-old", from: "a", to: "b", fromHandle: "a-source", toHandle: "b-target" },
+			],
+		};
+
+		const result = canvasChangesFromPayload(
+			{
+				targetType: "route",
+				targetId: "r-1",
+				canvasChanges: [
+					{
+						type: "block_change",
+						data: {
+							blocksInfo: [
+								{
+									id: "a",
+									blockType: "entrypoint",
+									position: { x: 0, y: 0 },
+									connections: [{ blockId: "c", handle: "source" }],
+								},
+							],
+						},
+					},
+				],
+			},
+			existing,
+		);
+
+		expect(result.actionsToPerform.edges).toContainEqual({
+			id: "edge-old",
+			action: "delete",
+		});
+		expect(canvasAfterChanges(existing, result).edges).toEqual([
+			expect.objectContaining({ from: "a", to: "c", fromHandle: "a-source" }),
 		]);
 	});
 

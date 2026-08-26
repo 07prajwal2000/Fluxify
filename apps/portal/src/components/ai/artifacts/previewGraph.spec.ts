@@ -49,4 +49,23 @@ describe("previewGraph", () => {
 
 		expect(graph.blocks).toHaveLength(2);
 	});
+
+	it("renders the prepared preview saved with an unapplied artifact", () => {
+		const graph = previewGraph(
+			{
+				targetType: "route",
+				targetId: "r1",
+				preparedCanvas: {
+					changes: { actionsToPerform: { blocks: [], edges: [] }, changes: { blocks: [], edges: [] } },
+					preview: {
+						blocks: [{ id: "planned", type: "response", data: {}, position: { x: 5, y: 5 } }],
+						edges: [],
+					},
+				},
+			},
+			existing,
+		);
+
+		expect(graph.blocks.map((block) => block.id)).toEqual(["planned"]);
+	});
 });

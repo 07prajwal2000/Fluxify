@@ -30,6 +30,10 @@ import {
 } from "./cycleDetection";
 import type { CanvasChanges, CanvasParent } from "./types";
 
+type CanvasEdgeWithHandle = DirectedCanvasEdge & {
+	fromHandle?: string | null;
+};
+
 const CHANGE_CHANNEL = {
 	route: CHAN_ON_ROUTE_CHANGE,
 	custom_block: CHAN_ON_CUSTOM_BLOCK_CHANGE,
@@ -81,10 +85,14 @@ async function canvasEdgesAfterSave(
 	deleteEdgeIds: string[],
 	tx: DbTransactionType,
 ) {
-	const edges = new Map<string, DirectedCanvasEdge>(
-		(await getEdges(parent, tx)).map((edge) => [edge.id, edge]),
+	const edges = new Map<string, CanvasEdgeWithHandle>(
+		(await getEdges(parent, tx)).map((edge) => [
+			edge.id,
+			edge as CanvasEdgeWithHandle,
+		]),
 	);
-	for (const edge of data.changes.edges) edges.set(edge.id, edge);
+	for (const edge of data.changes.edges)
+		edges.set(edge.id, edge as CanvasEdgeWithHandle);
 	for (const edgeId of deleteEdgeIds) edges.delete(edgeId);
 
 	const deletedBlocks = new Set(deleteBlockIds);
@@ -114,6 +122,39 @@ async function assertCanvasHasNoCycles(
 	throw new ConflictError(
 		`Canvas cannot contain cycles. Remove connection(s): ${[...cycleEdgeIds].join(", ")}`,
 	);
+}
+
+/** The runtime takes the first edge it finds for an output handle. Rejecting
+ * fan-out here protects every canvas writer, not only the AI harness. */
+async function assertCanvasHasNoHandleFanOut(
+	parent: CanvasParent,
+	data: CanvasChanges,
+	deleteBlockIds: string[],
+	deleteEdgeIds: string[],
+	tx: DbTransactionType,
+) {
+	const seen = new Map<string, string>();
+	for (const edge of await canvasEdgesAfterSave(
+		parent,
+		data,
+		deleteBlockIds,
+		deleteEdgeIds,
+		tx,
+	)) {
+		if (!edge.from) continue;
+		const rawHandle = edge.fromHandle ?? "source";
+		const handle = rawHandle.startsWith(`${edge.from}-`)
+			? rawHandle.slice(edge.from.length + 1)
+			: rawHandle;
+		const key = `${edge.from}|${handle}`;
+		const first = seen.get(key);
+		if (first) {
+			throw new BadRequestError(
+				`Canvas has multiple outgoing edges on block ${edge.from}'s ${handle} handle (${first}, ${edge.id}).`,
+			);
+		}
+		seen.set(key, edge.id);
+	}
 }
 
 /**
@@ -287,6 +328,13 @@ export async function saveCanvas(
 		await assertNoCustomBlockRecursion(parent, data, deleteBlockIds, tx);
 		await assertEdgeTargetsExist(parent, data, deleteBlockIds, tx);
 		await assertCanvasHasNoCycles(
+			parent,
+			data,
+			deleteBlockIds,
+			deleteEdgeIds,
+			tx,
+		);
+		await assertCanvasHasNoHandleFanOut(
 			parent,
 			data,
 			deleteBlockIds,
