@@ -1,4 +1,7 @@
-import { blockAiDescriptions } from "@fluxify/blocks";
+import {
+	blockAiDescriptions,
+	COMPACT_BLOCK_SCHEMAS_REFERENCE,
+} from "@fluxify/blocks";
 import type { GlobalGraphState } from "../../../types";
 import {
 	CUSTOM_BLOCK_EXECUTION_CONTRACT,
@@ -35,18 +38,14 @@ export const BUILTIN_BLOCKS_TABLE = createBlocksTable(
  * static reference in the system prompt instead: it is shared by every run,
  * so providers can prefix-cache it, and it gives the model the contract before
  * it designs the graph.
+ *
+ * Rendered as TypeScript rather than the JSON Schema the blocks declare: it is
+ * the same 29 contracts derived from the same zod schemas, but JSON Schema
+ * spends most of its characters restating what the shape already shows, and
+ * repeats every shared condition type at each use site. See
+ * `packages/blocks/builtin/compactSchemas.ts`.
  */
-export const BUILTIN_BLOCK_SCHEMAS_REFERENCE = blockAiDescriptions
-	.filter(
-		(
-			block,
-		): block is (typeof blockAiDescriptions)[number] & { jsonSchema: string } =>
-			typeof block.jsonSchema === "string" && block.jsonSchema.length > 0,
-	)
-	.map(
-		({ name, jsonSchema }) => `### ${name}\n\`\`\`json\n${jsonSchema}\n\`\`\``,
-	)
-	.join("\n\n");
+export const BUILTIN_BLOCK_SCHEMAS_REFERENCE = COMPACT_BLOCK_SCHEMAS_REFERENCE;
 
 /**
  * Docs the block builder searched for on nearly every run \u2014 the JS API it has
@@ -75,10 +74,15 @@ Your responsibility is to build and modify the canvas of a workflow DAG, which c
 ${BUILTIN_BLOCKS_TABLE}
 
 #### Built-in Block Data Contracts
-Use these exact schemas when configuring a built-in block. Required fields are
-not optional: do not guess field names or omit them.
+Use these exact contracts when configuring a built-in block. Required fields are
+not optional: do not guess field names or omit them. The notation is TypeScript:
+\`?\` marks a field you may omit, \`|\` lists the only values accepted, and \`//\`
+describes the field. A \`type\` declared at the top is shared by several blocks —
+expand it inline wherever a contract names it.
 
+\`\`\`ts
 ${BUILTIN_BLOCK_SCHEMAS_REFERENCE}
+\`\`\`
 
 #### Custom Blocks
 ${customBlocksTable}

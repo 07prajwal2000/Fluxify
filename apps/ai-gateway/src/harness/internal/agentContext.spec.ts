@@ -31,6 +31,7 @@ describe("buildAgentContext", () => {
 					data: { method: "GET", path: "/profiles" },
 				},
 			},
+			targetCanvas: "## Target canvas\ntargetId: new-route-1",
 		});
 
 		expect(context).toContain("Relevant project inventory");
@@ -38,11 +39,14 @@ describe("buildAgentContext", () => {
 		expect(context).toContain("Direct task dependencies");
 		expect(context).toContain('"taskId":"route-1"');
 		expect(context).toContain("do NOT call get_agent_output");
-		expect(context).toContain("Planned target canvas");
-		expect(context).toContain('"canvas":[]');
+		// The resolved target sits above the inventory, so the agent reads what it
+		// is editing before the catalogue of everything it is not.
+		expect(context!.indexOf("Target canvas")).toBeLessThan(
+			context!.indexOf("Relevant project inventory"),
+		);
 	});
 
-	it("does not create planned-canvas context for an existing route update", () => {
+	it("omits sections the caller could not resolve", () => {
 		const context = buildAgentContext({
 			activeTask: task(["route-1"]),
 			subAgentResults: {
@@ -51,6 +55,7 @@ describe("buildAgentContext", () => {
 		});
 
 		expect(context).toContain("Direct task dependencies");
-		expect(context).not.toContain("Planned target canvas");
+		expect(context).not.toContain("Target canvas");
+		expect(context).not.toContain("Relevant project inventory");
 	});
 });

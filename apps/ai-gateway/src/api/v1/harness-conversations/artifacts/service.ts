@@ -4,7 +4,6 @@ import { publishArtifactStatus } from "../../../../harness/notifications";
 import type { ArtifactStatus } from "../../../../harness/clientContract";
 import type { RpcCaller } from "@fluxify/server/src/db/natsRpc";
 import {
-	formattedCanvasChanges,
 	customBlockOpFromPayload,
 	remapCustomBlockNames,
 	routeOpFromPayload,
@@ -14,6 +13,7 @@ import {
 	type CustomBlockConfigPayload,
 	type RouteConfigPayload,
 } from "./normalize";
+import { formattedCanvasChanges } from "./canvasLayout";
 import {
 	inlineCanvasFor,
 	kindLabel,

@@ -46,11 +46,13 @@ describe("buildContextBlock", () => {
 		});
 
 		expect(out).toContain("## Current context");
-		expect(out).toContain('"targetId":"route-1"');
+		expect(out).toContain("targetId: route-1");
 		expect(out).toContain('"method":"GET"');
 		expect(out).toContain('"querySchema":{"dataType":"object"');
-		expect(out).toContain('"id":"blk_1"');
-		expect(out).toContain('"connections":[{"blockId":"blk_2"}]');
+		// The canvas is a block listing, not JSON — the agent already holds
+		// every block type's contract, so the shape around the values is waste.
+		expect(out).toContain("http_request blk_1");
+		expect(out).toContain("-> blk_2");
 		expect(out).toContain("Do NOT call find_resource");
 	});
 
@@ -83,8 +85,8 @@ describe("buildContextBlock", () => {
 			id: "cb-1",
 		});
 
-		expect(out).toContain('"targetId":"cb-1"');
-		expect(out).toContain('"id":"blk_1"');
+		expect(out).toContain("targetId: cb-1");
+		expect(out).toContain("entrypoint blk_1");
 		// the caller contract is what an agent editing this canvas writes against
 		expect(out).toContain("\"name\":\"message\"");
 		expect(out).toContain("Notify");

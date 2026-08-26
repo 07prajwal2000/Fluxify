@@ -11,6 +11,7 @@ import { createGetCustomBlockSchemasTool } from "../../../tools/getBlockSchemas"
 import { createGetAgentOutputTool } from "../../../tools/getAgentOutput";
 import { fenceUntrusted } from "../../../internal/untrusted";
 import { buildAgentContext } from "../../../internal/agentContext";
+import { buildTargetCanvasContext } from "../../../internal/targetCanvas";
 import { blockBuilderSchema } from "./schemas";
 import { validateBlockBuilderOutput } from "./validator";
 import {
@@ -207,13 +208,25 @@ export class BlockBuilderAgent extends BaseAgent {
 		const projectId = this.state.internal?.metadata?.projectId || "NONE";
 		const { table: customBlocksTable, names: storedCustomBlockNames } =
 			await this.getCustomBlocksInfo(projectId);
+		// One DB read in place of the find_resource -> id -> get-canvas chain the
+		// agent used to walk before it could start. Runs alongside the doc fetch.
+		const [targetCanvas, prefetchedDocsResult] = await Promise.all([
+			buildTargetCanvasContext(
+				this.state.internal?.dbService,
+				this.state.internal?.metadata,
+				activeTask,
+				this.state.orchestratorState?.subAgentResults,
+			),
+			getDocsByTitle(PREFETCH_DOC_TITLES),
+		]);
 		const context = buildAgentContext({
 			currentContext: this.state.internal?.metadata?.contextBlock,
 			projectInventory: this.state.internal?.metadata?.projectInventory,
 			activeTask,
 			subAgentResults: this.state.orchestratorState?.subAgentResults,
+			targetCanvas,
 		});
-		const prefetchedDocs = (await getDocsByTitle(PREFETCH_DOC_TITLES))
+		const prefetchedDocs = prefetchedDocsResult
 			.map((doc) => doc.content)
 			.join("\n\n---\n\n");
 		const pending = pendingCustomBlocks(this.state, activeTask.id);
