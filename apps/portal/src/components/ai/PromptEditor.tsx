@@ -21,7 +21,6 @@ import { KEY_ENTER_COMMAND, KEY_DOWN_COMMAND, COMMAND_PRIORITY_EDITOR, COMMAND_P
 import { ResourceNode } from "./lexical/ResourceNode";
 import { ResourcePlugin, INSERT_RESOURCE_COMMAND } from "./lexical/ResourcePlugin";
 import { markdownToLexical, lexicalToMarkdown, insertMarkdownAtSelection } from "./lexical/MarkdownTransformer";
-import { useModelConnectionTest } from "./useModelConnectionTest";
 
 const PLACEHOLDERS = [
 	"Generate a blog API with rate limiting, Redis cache...",
@@ -131,8 +130,6 @@ export function PromptEditor({
 
 	const [model, setModel] = useState<string>(selectedModelId || defaultModelId || "");
 
-	const connStatus = useModelConnectionTest(projectId, model);
-
 	// Popover & Search State
 	const [popoverOpen, setPopoverOpen] = useState(false);
 	const [searchQuery, setSearchQuery] = useState("");
@@ -215,7 +212,7 @@ export function PromptEditor({
 	// Stop while a run is live, but the editor's Enter handler calls submit()
 	// directly and was firing a second run over the top of the first.
 	const canSend =
-		trimmed.length > 0 && !isPending && !isDisabled && !isRunning && connStatus === "success";
+		trimmed.length > 0 && !isPending && !isDisabled && !isRunning;
 
 	const submit = () => {
 		if (!canSend) return;
@@ -404,7 +401,7 @@ export function PromptEditor({
 							className="rounded-xl h-8 w-8 shrink-0"
 							aria-label="Send"
 							isDisabled={!canSend}
-							isPending={isPending || connStatus === "testing"}
+							isPending={isPending}
 							onPress={submit}
 						>
 							<TbArrowUp size={18} />
