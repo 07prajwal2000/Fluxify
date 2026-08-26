@@ -49,6 +49,18 @@ export type BlockBuilderPayload = {
 	targetId?: string;
 	blocks?: AgentBlock[] | null;
 	canvasChanges?: { type: string; data: any }[] | null;
+	/**
+	 * Materialized before persistence so the artifact preview shows the exact
+	 * graph proposed against the canvas the agent read, rather than replaying a
+	 * partial delta in the browser. Apply still re-materializes against the live
+	 * canvas, because it may have changed while the artifact waited for review.
+	 */
+	preparedCanvas?: PreparedCanvas;
+};
+
+export type PreparedCanvas = {
+	changes: CanvasChanges;
+	preview: CanvasItems;
 };
 
 export type RouteConfigPayload = {
@@ -313,6 +325,7 @@ export function canvasChangesFromPayload(
 		}));
 
 	const edges: CanvasChanges["changes"]["edges"] = [];
+	const deletedEdgeIds = new Set<string>();
 	const seen = new Set<string>();
 	const storedEdgeId = new Map(
 		existing.edges.map((e) => [`${e.from}|${e.fromHandle ?? ""}|${e.to}`, e.id]),
@@ -334,12 +347,30 @@ export function canvasChangesFromPayload(
 		});
 	}
 
+	/** A connection emitted for an existing source/handle replaces the old
+	 * connection on that handle. The save API applies deltas, not whole edge
+	 * lists, so omitting this deletion used to leave the old edge live beside the
+	 * new one. */
+	function replaceStoredHandle(from: string, handle: string, keepTo: string) {
+		const fromHandle = fullHandle(from, handle, "source");
+		for (const edge of existing.edges) {
+			if (edge.from !== from || (edge.fromHandle ?? "") !== fromHandle) continue;
+			if (edge.to !== keepTo) deletedEdgeIds.add(edge.id);
+		}
+	}
+
 	for (const block of declared) {
 		if (removed.has(block.id)) continue;
 		for (const connection of block.connections ?? []) {
 			if (!connection?.blockId || !known.has(connection.blockId)) continue;
 			if (removed.has(connection.blockId)) continue;
-			addEdge(idFor(block.id), idFor(connection.blockId), connection.handle ?? "source");
+			const from = idFor(block.id);
+			const to = idFor(connection.blockId);
+			const handle = connection.handle ?? "source";
+			// New blocks cannot have stale edges. For stored blocks, each declared
+			// connection is an explicit replacement for its output handle.
+			if (storedIds.has(from)) replaceStoredHandle(from, handle, to);
+			addEdge(from, to, handle);
 		}
 	}
 
@@ -354,6 +385,7 @@ export function canvasChangesFromPayload(
 		const previous = existing.edges.find(
 			(e) => e.from === from && (e.fromHandle ?? "") === handle,
 		);
+		replaceStoredHandle(from, fromHandle ?? "source", idFor(toEdge));
 		// `toHandle` is ignored on purpose: every block has exactly one inbound
 		// socket, so the target side is always `<to>-target`.
 		void toHandle;
@@ -396,12 +428,77 @@ export function canvasChangesFromPayload(
 				...blocks.map((b) => ({ id: b.id, action: "upsert" as const })),
 				...[...removed].map((id) => ({ id, action: "delete" as const })),
 			],
-			// edges of a removed block go with it (the FK cascades), so only
-			// upserts are ever listed here
-			edges: edges.map((e) => ({ id: e.id, action: "upsert" as const })),
+			// Edges of a removed block go with it (the FK cascades). Edges replaced
+			// on a stored output handle must be explicitly deleted, however.
+			edges: [
+				...edges.map((e) => ({ id: e.id, action: "upsert" as const })),
+				...[...deletedEdgeIds]
+					.filter((id) => !edges.some((edge) => edge.id === id))
+					.map((id) => ({ id, action: "delete" as const })),
+			],
 		},
 		changes: { blocks, edges },
 	};
+}
+
+/** Apply a canonical canvas delta in memory. Shared by artifact preparation
+ * and the frontend preview so both see the same post-apply graph. */
+export function canvasAfterChanges(
+	existing: CanvasItems,
+	changes: CanvasChanges,
+): CanvasItems {
+	const deletedBlocks = new Set(
+		changes.actionsToPerform.blocks
+			.filter((action) => action.action === "delete")
+			.map((action) => action.id),
+	);
+	const deletedEdges = new Set(
+		changes.actionsToPerform.edges
+			.filter((action) => action.action === "delete")
+			.map((action) => action.id),
+	);
+	const blocks = new Map(
+		existing.blocks
+			.filter((block) => !deletedBlocks.has(block.id))
+			.map((block) => [block.id, block]),
+	);
+	for (const block of changes.changes.blocks) blocks.set(block.id, block);
+
+	const edges = new Map(
+		existing.edges
+			.filter(
+				(edge) =>
+					!deletedEdges.has(edge.id) &&
+					!deletedBlocks.has(edge.from) &&
+					!deletedBlocks.has(edge.to),
+			)
+			.map((edge) => [edge.id, edge]),
+	);
+	for (const edge of changes.changes.edges) edges.set(edge.id, edge);
+
+	return { blocks: [...blocks.values()], edges: [...edges.values()] };
+}
+
+/** The runtime resolves only one edge per source handle. Keep this check close
+ * to artifact materialization so an invalid graph never becomes a preview that
+ * looks safe to approve. The canvas service repeats the invariant for all
+ * writers at apply time. */
+export function assertNoHandleFanOut(canvas: CanvasItems) {
+	const edgeByHandle = new Map<string, string>();
+	for (const edge of canvas.edges) {
+		const rawHandle = edge.fromHandle ?? "source";
+		const handle = rawHandle.startsWith(`${edge.from}-`)
+			? rawHandle.slice(edge.from.length + 1)
+			: rawHandle;
+		const key = `${edge.from}|${handle}`;
+		const first = edgeByHandle.get(key);
+		if (first) {
+			throw new Error(
+				`Canvas has multiple outgoing edges on ${edge.from}'s ${handle} handle (${first}, ${edge.id}).`,
+			);
+		}
+		edgeByHandle.set(key, edge.id);
+	}
 }
 
 /**
@@ -425,6 +522,11 @@ export async function formatCanvasChanges(
 			.filter((b) => b.action === "delete")
 			.map((b) => b.id),
 	);
+	const deletedEdges = new Set(
+		changes.actionsToPerform.edges
+			.filter((edge) => edge.action === "delete")
+			.map((edge) => edge.id),
+	);
 	const changedIds = new Set(changes.changes.blocks.map((b) => b.id));
 
 	const nodes = [
@@ -436,7 +538,11 @@ export async function formatCanvasChanges(
 	if (nodes.length === 0) return changes;
 
 	// Superseded edges are keyed by id, so the agent's version wins.
-	const edgeById = new Map(existing.edges.map((e) => [e.id, e]));
+	const edgeById = new Map(
+		existing.edges
+			.filter((edge) => !deletedEdges.has(edge.id))
+			.map((edge) => [edge.id, edge]),
+	);
 	for (const edge of changes.changes.edges) edgeById.set(edge.id, edge);
 	const edges = [...edgeById.values()].filter(
 		(e) => !removed.has(e.from) && !removed.has(e.to),
@@ -473,4 +579,15 @@ export async function formattedCanvasChanges(
 	existing: CanvasItems,
 ): Promise<CanvasChanges> {
 	return formatCanvasChanges(canvasChangesFromPayload(payload, existing), existing);
+}
+
+/** Build the stable artifact preview before persisting it. */
+export async function prepareCanvasArtifact(
+	payload: BlockBuilderPayload,
+	existing: CanvasItems,
+): Promise<PreparedCanvas> {
+	const changes = await formattedCanvasChanges(payload, existing);
+	const preview = canvasAfterChanges(existing, changes);
+	assertNoHandleFanOut(preview);
+	return { changes, preview };
 }

@@ -7,6 +7,15 @@ import {
 	type ApplyFailure,
 } from "../../api/v1/harness-conversations/artifacts/service";
 import { applyArtifact } from "../../api/v1/harness-conversations/artifacts/applyBatch";
+import {
+	prepareCanvasArtifact,
+	type BlockBuilderPayload,
+	type CanvasItems,
+} from "../../api/v1/harness-conversations/artifacts/normalize";
+import {
+	callerFor,
+	readCanvas,
+} from "../../api/v1/harness-conversations/artifacts/opsClient";
 
 /** A single change the harness made, with its verbatim special-syntax token. */
 interface ChangeRef {
@@ -99,6 +108,36 @@ export class SummarizerAgent extends BaseAgent {
 		}
 	}
 
+	/** Materialize a canvas while the artifact is being created. The stored
+	 * preview is what review renders; applying later still rebuilds from the live
+	 * canvas so a stale artifact cannot overwrite intervening edits. */
+	private async prepareCanvasPayload(
+		result: BlockBuilderPayload,
+		plannedNewTargets: ReadonlySet<string>,
+	): Promise<Record<string, any>> {
+		const meta = this.state.internal?.metadata ?? {};
+		const targetType = result.targetType === "custom_block" ? "custom_block" : "route";
+		const targetId = result.targetId;
+		const targetKey = targetId ? `${targetType}:${targetId}` : "";
+		let existing: CanvasItems = { blocks: [], edges: [] };
+
+		if (targetId && !plannedNewTargets.has(targetKey)) {
+			if (!meta.userId || !meta.projectId) {
+				throw new Error("Canvas artifact has no project or user context for preparation.");
+			}
+			existing = await readCanvas(
+				callerFor(meta.userId, meta.projectId),
+				targetType,
+				targetId,
+			);
+		}
+
+		return {
+			...result,
+			preparedCanvas: await prepareCanvasArtifact(result, existing),
+		};
+	}
+
 	async execute(): Promise<Partial<GlobalGraphState>> {
 		await dispatchAgentEvent({
 			name: "agent_status",
@@ -111,6 +150,19 @@ export class SummarizerAgent extends BaseAgent {
 		const scratchpad = this.state.scratchpad ?? [];
 		const runId: string | undefined = this.state.internal?.metadata?.runId;
 		const harnessService = this.state.internal?.harnessService;
+		const plannedNewTargets = new Set<string>();
+		for (const result of Object.values(results) as any[]) {
+			if (isRouteConfigResult(result) && result.action === "create" && result.routeId) {
+				plannedNewTargets.add(`route:${result.routeId}`);
+			}
+			if (
+				isCustomBlockConfigResult(result) &&
+				result.action === "create" &&
+				result.customBlockId
+			) {
+				plannedNewTargets.add(`custom_block:${result.customBlockId}`);
+			}
+		}
 
 		// Persist the artifact + sub-artifacts (regular DB work, no AI involved).
 		const changes: ChangeRef[] = [];
@@ -167,6 +219,10 @@ export class SummarizerAgent extends BaseAgent {
 							token: `:route{type="${type}" sub_artifact_id="${subId}"}`,
 						});
 					} else if (isBlockBuilderResult(result)) {
+						const payload = await this.prepareCanvasPayload(
+							result as BlockBuilderPayload,
+							plannedNewTargets,
+						);
 						const subId = await harnessService.createSubArtifact({
 							artifactId,
 							runId,
@@ -174,7 +230,7 @@ export class SummarizerAgent extends BaseAgent {
 							dependsOn: task.dependsOnAgentId,
 							kind: "canvas",
 							action: "changes",
-							payload: result,
+							payload,
 						});
 						subArtifactIds[task.id] = subId;
 						let parentType: string;
