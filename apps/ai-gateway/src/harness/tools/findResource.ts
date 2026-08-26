@@ -8,20 +8,7 @@ import {
 	type SearchMode,
 } from "../internal/dbService";
 import { ResourceType } from "../types";
-
-/**
- * Canvases are the fattest thing this tool returns, and the whole result is
- * re-sent on every subsequent tool iteration. Two cuts: no pretty-printing
- * (indentation alone was ~15% of the payload) and no `position`, which is
- * layout the model neither reads nor sets. `data` stays — the block builder
- * edits existing blocks, and making it fetch that separately would add back
- * the round trip this is trying to remove.
- */
-function renderCanvas(canvas: Array<Record<string, any>>): string {
-	return JSON.stringify(
-		canvas.map(({ position, ...block }) => block),
-	);
-}
+import { renderCanvas } from "../internal/renderCanvas";
 
 function isListRequest(keywords: string[], mode: SearchMode): boolean {
 	return (

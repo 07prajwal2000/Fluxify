@@ -2,7 +2,6 @@
 // output, and both barrels pull in Node built-ins (`vm`, pino) that break the
 // browser build.
 import { BlockTypes } from "@fluxify/blocks/blockTypes";
-import { layoutGraph } from "@fluxify/blocks/layout";
 import { generateID } from "@fluxify/lib/random/id";
 import type { canvasChangesSchema } from "@fluxify/server/src/modules/canvas/types";
 import type { z } from "zod";
@@ -499,95 +498,4 @@ export function assertNoHandleFanOut(canvas: CanvasItems) {
 		}
 		edgeByHandle.set(key, edge.id);
 	}
-}
-
-/**
- * Lays the canvas out after the agent's changes are merged into it.
- *
- * The model writes coordinates for a canvas it cannot see, so inserting a block
- * into an existing route left the following block sitting on top of another one.
- * ELK re-flows the merged graph; `changedIds` keeps the blocks the agent did not
- * touch as the frame of reference, so an edit nudges the graph instead of
- * teleporting it, and only blocks that actually move are written back.
- *
- * An existing block that has to move is added to the change set — with its
- * stored type and data, since a position-only upsert would blank the rest.
- */
-export async function formatCanvasChanges(
-	changes: CanvasChanges,
-	existing: CanvasItems,
-): Promise<CanvasChanges> {
-	const removed = new Set(
-		changes.actionsToPerform.blocks
-			.filter((b) => b.action === "delete")
-			.map((b) => b.id),
-	);
-	const deletedEdges = new Set(
-		changes.actionsToPerform.edges
-			.filter((edge) => edge.action === "delete")
-			.map((edge) => edge.id),
-	);
-	const changedIds = new Set(changes.changes.blocks.map((b) => b.id));
-
-	const nodes = [
-		...existing.blocks.filter(
-			(b) => !removed.has(b.id) && !changedIds.has(b.id),
-		),
-		...changes.changes.blocks,
-	].map((b) => ({ id: b.id, type: b.type, position: b.position }));
-	if (nodes.length === 0) return changes;
-
-	// Superseded edges are keyed by id, so the agent's version wins.
-	const edgeById = new Map(
-		existing.edges
-			.filter((edge) => !deletedEdges.has(edge.id))
-			.map((edge) => [edge.id, edge]),
-	);
-	for (const edge of changes.changes.edges) edgeById.set(edge.id, edge);
-	const edges = [...edgeById.values()].filter(
-		(e) => !removed.has(e.from) && !removed.has(e.to),
-	);
-
-	const moved = await layoutGraph(nodes, edges, { changedIds });
-	if (Object.keys(moved).length === 0) return changes;
-
-	const blocks = changes.changes.blocks.map((b) =>
-		moved[b.id] ? { ...b, position: moved[b.id]! } : b,
-	);
-	const actions = [...changes.actionsToPerform.blocks];
-	for (const block of existing.blocks) {
-		const position = moved[block.id];
-		if (!position || removed.has(block.id) || changedIds.has(block.id)) continue;
-		blocks.push({
-			id: block.id,
-			type: block.type,
-			data: (block.data ?? {}) as Record<string, unknown>,
-			position,
-		} as (typeof blocks)[number]);
-		actions.push({ id: block.id, action: "upsert" as const });
-	}
-
-	return {
-		actionsToPerform: { ...changes.actionsToPerform, blocks: actions },
-		changes: { ...changes.changes, blocks },
-	};
-}
-
-/** `canvasChangesFromPayload` + the layout pass, which is what applying wants. */
-export async function formattedCanvasChanges(
-	payload: BlockBuilderPayload,
-	existing: CanvasItems,
-): Promise<CanvasChanges> {
-	return formatCanvasChanges(canvasChangesFromPayload(payload, existing), existing);
-}
-
-/** Build the stable artifact preview before persisting it. */
-export async function prepareCanvasArtifact(
-	payload: BlockBuilderPayload,
-	existing: CanvasItems,
-): Promise<PreparedCanvas> {
-	const changes = await formattedCanvasChanges(payload, existing);
-	const preview = canvasAfterChanges(existing, changes);
-	assertNoHandleFanOut(preview);
-	return { changes, preview };
 }

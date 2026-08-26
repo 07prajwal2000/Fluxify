@@ -1,6 +1,7 @@
 import { logger } from "@fluxify/common";
 import type { DbService } from "./dbService";
 import { fenceUntrusted } from "./untrusted";
+import { renderCanvas } from "./renderCanvas";
 import type { HarnessJobMetadata } from "../queue";
 
 function routeConfig(route: Record<string, unknown>) {
@@ -31,8 +32,18 @@ export async function buildContextBlock(
 	dbService: DbService,
 	projectId: string | undefined,
 	location: HarnessJobMetadata["location"],
+	as: "current" | "target" = "current",
 ): Promise<string | undefined> {
 	if (!location || !projectId) return undefined;
+
+	// The resource the user happened to be viewing is a default the task can
+	// override; a resolved target is not — hedging there is what sends the agent
+	// looking for a better candidate it does not need.
+	const heading = as === "target" ? "## Target canvas" : "## Current context";
+	const claim =
+		as === "target"
+			? "This is the resource this task edits."
+			: "Treat it as the target unless the task's direct dependency names another target.";
 
 	try {
 		if (location.where === "route-canvas") {
@@ -42,17 +53,18 @@ export async function buildContextBlock(
 			]);
 			if (!route) return undefined;
 
-			return `## Current context
+			// targetType/targetId sit outside the fence: the harness resolved them,
+			// they are not project data, and an agent must be able to trust them.
+			return `${heading}
+targetType: route
+targetId: ${location.id}
 ${fenceUntrusted(
 	"current_context",
-	JSON.stringify({
-		targetType: "route",
-		targetId: location.id,
-		route: routeConfig(route as Record<string, unknown>),
-		canvas: canvas ?? [],
-	}),
+	`route: ${JSON.stringify(routeConfig(route as Record<string, unknown>))}
+
+${renderCanvas(canvas)}`,
 )}
-This is the complete editable route configuration and canvas. Treat it as the target unless the task's direct dependency names another target.
+This is the complete editable route configuration and canvas. ${claim}
 Do NOT call find_resource or get_route_details to look this up — you already have it.`;
 		}
 
@@ -63,24 +75,23 @@ Do NOT call find_resource or get_route_details to look this up — you already h
 			]);
 			if (!canvas) return undefined;
 
-			return `## Current context
+			return `${heading}
+targetType: custom_block
+targetId: ${location.id}
 ${fenceUntrusted(
 	"current_context",
-	JSON.stringify({
-		targetType: "custom_block",
-		targetId: location.id,
-		customBlock: block
-			? {
-				id: block.id,
-				name: block.name,
-				label: block.label,
-				inputParams: block.inputParams ?? [],
-			}
-			: undefined,
-		canvas,
-	}),
+	`${
+		block
+			? `customBlock: ${JSON.stringify({
+					id: block.id,
+					name: block.name,
+					label: block.label,
+					inputParams: block.inputParams ?? [],
+				})}\n\n`
+			: ""
+	}${renderCanvas(canvas)}`,
 )}
-This is the complete editable custom-block configuration and canvas. Treat it as the target unless the task's direct dependency names another target.
+This is the complete editable custom-block configuration and canvas. ${claim}
 Do NOT call find_resource to look this up — you already have it.`;
 		}
 	} catch (e) {

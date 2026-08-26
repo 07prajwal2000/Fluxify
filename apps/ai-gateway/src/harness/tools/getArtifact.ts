@@ -3,6 +3,7 @@ import { z } from "zod";
 import { logger } from "@fluxify/common";
 import type { WorkflowMetadata } from "../types";
 import type { DbService } from "../internal/dbService";
+import { renderCanvas } from "../internal/renderCanvas";
 
 // ponytail: flat char cap so one fat canvas payload can't blow the context
 // window. If this starts truncating things users need, page per sub-artifact.
@@ -19,7 +20,7 @@ async function resolveLive(
 	dbService: DbService,
 	projectId: string | undefined,
 	row: { kind: string; payload: any },
-): Promise<Record<string, unknown> | null> {
+): Promise<string | null> {
 	if (!projectId) return null;
 	const p = (row.payload ?? {}) as Record<string, any>;
 	try {
@@ -27,10 +28,9 @@ async function resolveLive(
 			case "route": {
 				const route = await dbService.getRouteDetails(projectId, p.routeId);
 				if (!route) return null;
-				return {
-					route,
-					canvas: await dbService.getRouteCanvas(projectId, p.routeId),
-				};
+				return `route: ${JSON.stringify(route)}\n\n${renderCanvas(
+					await dbService.getRouteCanvas(projectId, p.routeId),
+				)}`;
 			}
 			case "custom_block": {
 				const [block] = await dbService.findCustomBlocks(
@@ -39,10 +39,9 @@ async function resolveLive(
 					"id",
 				);
 				if (!block) return null;
-				return {
-					customBlock: block,
-					canvas: await dbService.getCustomBlockCanvas(projectId, block.id),
-				};
+				return `customBlock: ${JSON.stringify(block)}\n\n${renderCanvas(
+					await dbService.getCustomBlockCanvas(projectId, block.id),
+				)}`;
 			}
 			case "canvas": {
 				const canvas =
@@ -50,7 +49,7 @@ async function resolveLive(
 						? await dbService.getCustomBlockCanvas(projectId, p.targetId)
 						: await dbService.getRouteCanvas(projectId, p.targetId);
 				return canvas
-					? { targetType: p.targetType, targetId: p.targetId, canvas }
+					? `targetType: ${p.targetType}\ntargetId: ${p.targetId}\n\n${renderCanvas(canvas)}`
 					: null;
 			}
 			default:
@@ -93,7 +92,7 @@ export const createGetArtifactTool = (
 					}
 					const live = await resolveLive(dbService, metadata.projectId, r);
 					return live
-						? `${head}\nAPPLIED — live in the project. Current state read from the database (use these ids; do not look it up again):\n${JSON.stringify(live)}`
+						? `${head}\nAPPLIED — live in the project. Current state read from the database (use these ids; do not look it up again):\n${live}`
 						: `${head}\nAPPLIED, but the resource it created is gone from the project (deleted since).\nWhat was applied: ${JSON.stringify(r.payload)}`;
 				}),
 			);

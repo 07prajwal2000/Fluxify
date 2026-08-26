@@ -84,7 +84,7 @@ describe("get_artifact", () => {
 
 		expect(out).toContain("APPLIED");
 		expect(out).toContain('"path":"/users"');
-		expect(out).toContain('"blockType":"response"');
+		expect(out).toContain("response b1");
 		expect(out).not.toContain("/stale");
 	});
 
