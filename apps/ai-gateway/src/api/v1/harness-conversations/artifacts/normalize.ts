@@ -55,6 +55,14 @@ export type BlockBuilderPayload = {
 	 * canvas, because it may have changed while the artifact waited for review.
 	 */
 	preparedCanvas?: PreparedCanvas;
+	/**
+	 * `canvasDigest` of the canvas this delta was computed against, recorded when
+	 * the artifact was persisted. Apply compares it with the live canvas so an
+	 * edit made in the editor while the artifact waited for review is refused
+	 * rather than silently merged over. Absent for a canvas whose target this run
+	 * is creating, and for artifacts built before the check existed.
+	 */
+	baseCanvasDigest?: string;
 };
 
 export type PreparedCanvas = {

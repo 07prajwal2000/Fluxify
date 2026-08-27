@@ -13,7 +13,7 @@ import {
 	type CustomBlockConfigPayload,
 	type RouteConfigPayload,
 } from "./normalize";
-import { formattedCanvasChanges } from "./canvasLayout";
+import { assertCanvasUnchanged, formattedCanvasChanges } from "./canvasLayout";
 import {
 	inlineCanvasFor,
 	kindLabel,
@@ -406,7 +406,7 @@ export function canvasFor(
 
 export async function applyCanvasRow(
 	ctx: ApplyContext,
-	row: { id: string; payload: Record<string, any> | null },
+	row: { id: string; payload: Record<string, any> | null; appliedAt?: Date | null },
 ) {
 	const payload = (row.payload ?? {}) as BlockBuilderPayload;
 	const source = payload.targetType ?? "route";
@@ -417,6 +417,7 @@ export async function applyCanvasRow(
 	// Normalizing needs the canvas as it stands: it decides which block ids are
 	// already real and which edge is being re-routed.
 	const existing = await readCanvas(ctx.caller, source, sourceId);
+	assertCanvasUnchanged(row, payload, existing);
 	await saveCanvas(ctx.caller, source, sourceId, await canvasFor(ctx, row, existing));
 	if (sourceId !== target) {
 		await rememberRealRouteId(ctx.conversationId, row, "targetId", sourceId);
@@ -429,7 +430,7 @@ export const APPLY_BY_KIND: Record<
 	string,
 	(
 		ctx: ApplyContext,
-		row: { id: string; payload: Record<string, any> | null },
+		row: { id: string; payload: Record<string, any> | null; appliedAt?: Date | null },
 		canvas?: CanvasChanges,
 	) => Promise<void>
 > = {
