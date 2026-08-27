@@ -40,10 +40,33 @@ function renderResults(results: any[], nextCursor?: string): string {
 	return `${header}\n${rows}${nextCursor ? `\n\nMore results exist. Call find_resource again with this exact cursor: \`${nextCursor}\`.` : ""}`;
 }
 
+const RESOURCE_TYPES = [
+	"route",
+	"app_config",
+	"integration",
+	"custom_block",
+	"route_canvas",
+	"custom_block_canvas",
+] as const;
+
 export const createFindResourceTool = (
 	dbService: DbService,
 	metadata: WorkflowMetadata,
+	/**
+	 * Drops the two canvas lookups when the run has already put the target
+	 * canvas in the agent's context. Searching for routes, integrations and app
+	 * configs stays — that is a real need this agent still has. Only the
+	 * redundant re-fetch goes, and it goes by being absent: the context block
+	 * already asks the agent not to make this call, and it made it anyway.
+	 */
+	options?: { withoutCanvasLookup?: boolean },
 ) => {
+	const resourceTypes = (
+		options?.withoutCanvasLookup
+			? RESOURCE_TYPES.filter((type) => !type.endsWith("_canvas"))
+			: RESOURCE_TYPES
+	) as unknown as [string, ...string[]];
+
 	return fencedTool(
 		async ({ searchQuery, resourceType, searchBy, cursor, metadata: toolMetadata }) => {
 			// Normalize to a keyword array; canvas/ID lookups use the first value.
@@ -155,8 +178,9 @@ export const createFindResourceTool = (
 		},
 		{
 			name: "find_resource",
-			description:
-				"Search the production database for existing resources (routes, app configs, integrations, custom blocks) in the user's project, or retrieve canvas details.",
+			description: options?.withoutCanvasLookup
+				? "Search the production database for existing resources (routes, app configs, integrations, custom blocks) in the user's project. Canvas lookup is not available here — the canvas you are editing is already in your context."
+				: "Search the production database for existing resources (routes, app configs, integrations, custom blocks) in the user's project, or retrieve canvas details.",
 			schema: z.object({
 				searchQuery: z
 					.union([z.string(), z.array(z.string())])
@@ -176,14 +200,7 @@ export const createFindResourceTool = (
 					"Opaque continuation cursor from a previous all/* listing. Omit for the first page; copy it exactly for the next 20 results.",
 				),
 				resourceType: z
-					.enum([
-						"route",
-						"app_config",
-						"integration",
-						"custom_block",
-						"route_canvas",
-						"custom_block_canvas",
-					])
+					.enum(resourceTypes)
 					.describe("The type of resource to search for."),
 				metadata: z
 					.object({

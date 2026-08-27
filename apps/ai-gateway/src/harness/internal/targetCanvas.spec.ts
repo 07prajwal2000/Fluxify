@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { buildTargetCanvasContext } from "./targetCanvas";
+import { buildTargetCanvasContext, targetCanvasInContext } from "./targetCanvas";
 import type { DbService } from "./dbService";
 import { AgentNode, type Task } from "../types";
 
@@ -153,5 +153,41 @@ describe("buildTargetCanvasContext", () => {
 
 		expect(out).toContain("targetType: custom_block");
 		expect(out).toContain("targetId: cb-3");
+	});
+});
+
+// Decides whether the block builder keeps the tools that would fetch the canvas
+// a second time, so a false positive costs a wrong canvas, not a round trip.
+describe("targetCanvasInContext", () => {
+	const results = { "route-1": { action: "create", routeId: "route-9" } };
+
+	it("is true when a dependency named the target", () => {
+		expect(
+			targetCanvasInContext({ projectId: "p1" }, task(["route-1"]), results),
+		).toBe(true);
+	});
+
+	it("is true when the user has a canvas open", () => {
+		expect(
+			targetCanvasInContext(
+				{ projectId: "p1", contextBlock: "## Current context" },
+				task([]),
+				{},
+			),
+		).toBe(true);
+	});
+
+	// Nothing names a canvas, so the agent has to go and find one — leave it the
+	// tools to do that with.
+	it("is false when nothing resolves the target", () => {
+		expect(targetCanvasInContext({ projectId: "p1" }, task([]), {})).toBe(false);
+	});
+
+	it("is false when the only dependency deleted its resource", () => {
+		expect(
+			targetCanvasInContext({ projectId: "p1" }, task(["route-1"]), {
+				"route-1": { action: "delete", routeId: "route-9" },
+			}),
+		).toBe(false);
 	});
 });

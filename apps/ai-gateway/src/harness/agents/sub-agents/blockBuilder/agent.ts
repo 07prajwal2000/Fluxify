@@ -11,7 +11,10 @@ import { createGetCustomBlockSchemasTool } from "../../../tools/getBlockSchemas"
 import { createGetAgentOutputTool } from "../../../tools/getAgentOutput";
 import { fenceUntrusted } from "../../../internal/untrusted";
 import { buildAgentContext } from "../../../internal/agentContext";
-import { buildTargetCanvasContext } from "../../../internal/targetCanvas";
+import {
+	buildTargetCanvasContext,
+	targetCanvasInContext,
+} from "../../../internal/targetCanvas";
 import { blockBuilderSchema } from "./schemas";
 import { validateBlockBuilderOutput } from "./validator";
 import {
@@ -242,15 +245,30 @@ export class BlockBuilderAgent extends BaseAgent {
 		);
 		const userQuery = createUserQuery(activeTask);
 
+		// The run already resolved this task's canvas and rendered it above. Take
+		// the tools that would fetch it again away rather than asking the agent
+		// not to use them — both context blocks already ask, and the traces show
+		// a second full canvas load anyway, at roughly 20k tokens and a round
+		// trip the build did not need.
+		const canvasInContext = targetCanvasInContext(
+			this.state.internal?.metadata,
+			activeTask,
+			this.state.orchestratorState?.subAgentResults,
+		);
 		const tools = [
 			searchDocsTool,
-			createGetRouteDetailsTool(
-				this.state.internal.dbService,
-				this.state.internal?.metadata || {},
-			),
+			...(canvasInContext
+				? []
+				: [
+						createGetRouteDetailsTool(
+							this.state.internal.dbService,
+							this.state.internal?.metadata || {},
+						),
+					]),
 			createFindResourceTool(
 				this.state.internal.dbService,
 				this.state.internal?.metadata || {},
+				{ withoutCanvasLookup: canvasInContext },
 			),
 			createGetCustomBlockSchemasTool(
 				this.state.internal.dbService,
