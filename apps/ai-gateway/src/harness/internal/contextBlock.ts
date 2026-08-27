@@ -1,8 +1,37 @@
 import { logger } from "@fluxify/common";
 import type { DbService } from "./dbService";
-import { fenceUntrusted } from "./untrusted";
+import { extractResourceChips, fenceUntrusted } from "./untrusted";
 import { renderCanvas } from "./renderCanvas";
 import type { HarnessJobMetadata } from "../queue";
+
+type Location = HarnessJobMetadata["location"];
+
+const CANVAS_OF: Record<string, NonNullable<Location>["where"]> = {
+	route: "route-canvas",
+	custom_block: "custom-block-canvas",
+};
+
+/**
+ * A resource the user @-mentioned names the target as deterministically as the
+ * canvas they had open, and the composer already put its type and id in the
+ * message — so an agent should never have to look one up.
+ *
+ * Only a fallback for when there is no open canvas: a mention while one is open
+ * may be a reference rather than the target, and demoting `location` there
+ * would change what every agent treats as current. Only one mention counts —
+ * two is a genuine choice, and the agents have tools to make it.
+ */
+export function locationFromResourceChips(
+	query: string | undefined,
+	location: Location,
+): Location {
+	if (location || !query) return location;
+	const targets = extractResourceChips(query).flatMap((chip) => {
+		const where = CANVAS_OF[chip.type];
+		return where ? [{ where, id: chip.id }] : [];
+	});
+	return targets.length === 1 ? targets[0] : undefined;
+}
 
 function routeConfig(route: Record<string, unknown>) {
 	return {

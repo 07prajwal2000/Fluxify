@@ -18,6 +18,7 @@ import {
 	type HistoryRun,
 	type TokenIo,
 } from "./historyCompaction";
+import { sanitizeUserQuery } from "./untrusted";
 
 export interface SaveHistoryCompactionInput {
 	summary: string;
@@ -142,8 +143,15 @@ export class HistoryRepository {
 				),
 			);
 		}
+		// The stored row keeps the raw `:resource{...}` markup — that is what
+		// renders the chip back to the user — so replaying it verbatim put the
+		// one thing the live query is sanitized for straight back into model
+		// context on the next turn. Same pass as the live query: mentions become
+		// a plain reference that still carries the id, hand-typed chip syntax
+		// goes. `aiResponse` is left alone: it is the harness's own output, and
+		// its chips are how it refers to what it built.
 		for (const run of runs.slice(-RAW_HISTORY_TURNS)) {
-			messages.push(new HumanMessage(run.userQuery));
+			messages.push(new HumanMessage(sanitizeUserQuery(run.userQuery)));
 			if (run.aiResponse) messages.push(new AIMessage(run.aiResponse));
 		}
 		return messages;

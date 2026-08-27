@@ -26,6 +26,7 @@ import { describeFailure } from "../index";
 import { UNTRUSTED_DATA_RULE } from "../internal/untrusted";
 import { AgentNode } from "../types";
 import { blockBuilderSchema } from "../agents/sub-agents/blockBuilder/schemas";
+import { parseJsonLoose } from "./jsonUtils";
 
 const schema = z.object({ blocks: z.array(z.string()) });
 
@@ -60,6 +61,21 @@ class TestWrapper extends BaseAgentWrapper {
 		};
 	}
 }
+
+describe("parseJsonLoose", () => {
+	it("unescapes a payload the model emitted double-escaped", () => {
+		expect(parseJsonLoose('{\\"blocks\\":[]}')).toEqual({ blocks: [] });
+	});
+
+	// The unescape used to fire on any content containing `\"`, which every block
+	// carrying JS does. A payload truncated mid-write had its escapes stripped and
+	// reported `Unexpected identifier "entrypoint"` — a word from inside a string
+	// value, telling the model nothing about what actually went wrong.
+	it("reports the real failure for JSON that merely contains escaped quotes", () => {
+		const truncated = '{"blocks":["js:return input[\\"entrypoint\\"]"';
+		expect(() => parseJsonLoose(truncated)).toThrow(/end of|EOF|Expected/i);
+	});
+});
 
 describe("fallbackStructuredOutput", () => {
 	const wrapper = new TestWrapper("test-model");

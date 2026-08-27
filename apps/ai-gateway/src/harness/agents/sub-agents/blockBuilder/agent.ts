@@ -2,7 +2,7 @@ import { logger } from "@fluxify/common";
 import { generateID, resolveCustomBlockName } from "@fluxify/lib";
 import type { z } from "zod";
 import { BaseAgent } from "../../base";
-import { type GlobalGraphState, AgentNode } from "../../../types";
+import { type GlobalGraphState, type Task, AgentNode } from "../../../types";
 import { dispatchAgentEvent } from "../../../callbacks";
 import { searchDocsTool } from "../../../tools/searchDocs";
 import { createGetRouteDetailsTool } from "../../../tools/getRouteDetails";
@@ -11,13 +11,17 @@ import { createGetCustomBlockSchemasTool } from "../../../tools/getBlockSchemas"
 import { createGetAgentOutputTool } from "../../../tools/getAgentOutput";
 import { fenceUntrusted } from "../../../internal/untrusted";
 import { buildAgentContext } from "../../../internal/agentContext";
-import { buildTargetCanvasContext } from "../../../internal/targetCanvas";
+import {
+	buildTargetCanvasContext,
+	targetCanvasInContext,
+} from "../../../internal/targetCanvas";
 import { blockBuilderSchema } from "./schemas";
 import { validateBlockBuilderOutput } from "./validator";
 import {
 	pendingCustomBlocks,
 	type PendingCustomBlock,
 } from "./pendingCustomBlocks";
+import { staticResponseTemplate } from "./templates";
 import {
 	createBlocksTable,
 	createSystemPrompt,
@@ -190,21 +194,50 @@ export class BlockBuilderAgent extends BaseAgent {
 		return `#### Paired Custom Block Contracts (authoritative)\n${configs.map((config) => `- ${config.name} (${config.customBlockId}): ${JSON.stringify(config.inputParams)}`).join("\n")}`;
 	}
 
-	async execute(): Promise<Partial<GlobalGraphState>> {
-		const activeTask = this.state.activeTask;
-		if (!activeTask) {
-			throw new Error("BlockBuilderAgent requires an active task.");
+	/**
+	 * The canvas a template can write, when one can.
+	 *
+	 * Held to the same bar as the model: its output goes through the validator
+	 * the model's output goes through, and a failure falls through to the model
+	 * rather than shipping. A template can only ever save a call, never lower
+	 * what the run is allowed to produce.
+	 */
+	private async templatedCanvas(
+		activeTask: Task,
+		pending: PendingCustomBlock[],
+	): Promise<z.infer<typeof blockBuilderSchema> | null> {
+		const templated = staticResponseTemplate(
+			activeTask,
+			this.state.orchestratorState?.subAgentResults,
+			pending,
+		);
+		if (!templated) return null;
+
+		const error = await validateBlockBuilderOutput(
+			templated,
+			activeTask.id,
+			this.state,
+		);
+		if (!error) {
+			logger.info("[BlockBuilder] Built from a template, skipping the model", {
+				taskId: activeTask.id,
+			});
+			return templated;
 		}
 
-		await dispatchAgentEvent({
-			name: "agent_status",
-			data: {
-				status: "Analyzing block builder requirements...",
-				agent: AgentNode.BLOCK_BUILDER,
-				agentId: activeTask.id,
-			},
+		// Not fatal — the model still runs. Worth a line anyway: a template that
+		// starts failing validation is silently costing the call it exists to save.
+		logger.warn("[BlockBuilder] Template output failed validation", {
+			taskId: activeTask.id,
+			error,
 		});
+		return null;
+	}
 
+	private async invokeModel(
+		activeTask: Task,
+		pending: PendingCustomBlock[],
+	): Promise<z.infer<typeof blockBuilderSchema>> {
 		const projectId = this.state.internal?.metadata?.projectId || "NONE";
 		const { table: customBlocksTable, names: storedCustomBlockNames } =
 			await this.getCustomBlocksInfo(projectId);
@@ -229,12 +262,6 @@ export class BlockBuilderAgent extends BaseAgent {
 		const prefetchedDocs = prefetchedDocsResult
 			.map((doc) => doc.content)
 			.join("\n\n---\n\n");
-		const pending = pendingCustomBlocks(this.state, activeTask.id);
-		// Stored names plus the names this run's proposals will be stored under.
-		const knownCustomBlockNames = new Set([
-			...storedCustomBlockNames,
-			...pending.map((block) => block.name),
-		]);
 		const systemPrompt = createSystemPrompt(
 			customBlocksTable,
 			prefetchedDocs,
@@ -242,15 +269,30 @@ export class BlockBuilderAgent extends BaseAgent {
 		);
 		const userQuery = createUserQuery(activeTask);
 
+		// The run already resolved this task's canvas and rendered it above. Take
+		// the tools that would fetch it again away rather than asking the agent
+		// not to use them — both context blocks already ask, and the traces show
+		// a second full canvas load anyway, at roughly 20k tokens and a round
+		// trip the build did not need.
+		const canvasInContext = targetCanvasInContext(
+			this.state.internal?.metadata,
+			activeTask,
+			this.state.orchestratorState?.subAgentResults,
+		);
 		const tools = [
 			searchDocsTool,
-			createGetRouteDetailsTool(
-				this.state.internal.dbService,
-				this.state.internal?.metadata || {},
-			),
+			...(canvasInContext
+				? []
+				: [
+						createGetRouteDetailsTool(
+							this.state.internal.dbService,
+							this.state.internal?.metadata || {},
+						),
+					]),
 			createFindResourceTool(
 				this.state.internal.dbService,
 				this.state.internal?.metadata || {},
+				{ withoutCanvasLookup: canvasInContext },
 			),
 			createGetCustomBlockSchemasTool(
 				this.state.internal.dbService,
@@ -275,17 +317,41 @@ export class BlockBuilderAgent extends BaseAgent {
 				validateBlockBuilderOutput(candidate, activeTask.id, this.state),
 		})) as z.infer<typeof blockBuilderSchema>;
 
+		// Stored names plus the names this run's proposals will be stored under.
+		return this.canonicalizeCustomBlockTypes(
+			response,
+			new Set([...storedCustomBlockNames, ...pending.map((b) => b.name)]),
+		);
+	}
+
+	async execute(): Promise<Partial<GlobalGraphState>> {
+		const activeTask = this.state.activeTask;
+		if (!activeTask) {
+			throw new Error("BlockBuilderAgent requires an active task.");
+		}
+
+		await dispatchAgentEvent({
+			name: "agent_status",
+			data: {
+				status: "Analyzing block builder requirements...",
+				agent: AgentNode.BLOCK_BUILDER,
+				agentId: activeTask.id,
+			},
+		});
+
+		const pending = pendingCustomBlocks(this.state, activeTask.id);
+		const response =
+			(await this.templatedCanvas(activeTask, pending)) ??
+			(await this.invokeModel(activeTask, pending));
+
 		const shortIdMap = new Map(
 			response.blocks
 				.filter((block) => block.id.length <= 15)
 				.map((block) => [block.id, generateID()]),
 		);
 		const processedResponse = await this.reconcileRouteTarget(
-			this.canonicalizeCustomBlockTypes(
-				this.replaceShortIds(this.stripEchoedMetadata(response), shortIdMap),
-				knownCustomBlockNames,
-			),
-			projectId,
+			this.replaceShortIds(this.stripEchoedMetadata(response), shortIdMap),
+			this.state.internal?.metadata?.projectId || "NONE",
 		);
 
 		await dispatchAgentEvent({

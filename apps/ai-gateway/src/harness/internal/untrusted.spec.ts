@@ -94,4 +94,12 @@ describe("sanitizeUserQuery", () => {
 			"add a GET /users endpoint",
 		);
 	});
+
+	// The portal renders `ai-customblock`, but this list did not name it while
+	// `historyCompaction` did — the drift a second copy of the names produces.
+	it("strips the customBlock chip the portal renders", () => {
+		expect(
+			sanitizeUserQuery('reuse :customBlock{sub_artifact_id="x"} here'),
+		).toBe("reuse  here");
+	});
 });

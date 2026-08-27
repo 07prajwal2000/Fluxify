@@ -104,6 +104,35 @@ describe("find_resource", () => {
 		]);
 	});
 
+	// A prompt line saying "you already have the canvas" is advice the model
+	// ignored; an absent enum value is not. Searching still works — that is a
+	// need this agent keeps.
+	describe("withoutCanvasLookup", () => {
+		const restricted = () =>
+			createFindResourceTool({} as DbService, metadata, {
+				withoutCanvasLookup: true,
+			});
+
+		it("drops the canvas resource types", () => {
+			const types = (restricted().schema as any).shape.resourceType.options;
+			expect(types).toEqual([
+				"route",
+				"app_config",
+				"integration",
+				"custom_block",
+			]);
+			expect(restricted().description).toContain("already in your context");
+		});
+
+		it("still offers every non-canvas lookup", () => {
+			const types = (
+				createFindResourceTool({} as DbService, metadata).schema as any
+			).shape.resourceType.options;
+			expect(types).toContain("route_canvas");
+			expect(types).toContain("custom_block_canvas");
+		});
+	});
+
 	it("rejects a cursor for a different resource type", async () => {
 		const tool = createFindResourceTool({} as DbService, metadata);
 		const out = await tool.invoke({

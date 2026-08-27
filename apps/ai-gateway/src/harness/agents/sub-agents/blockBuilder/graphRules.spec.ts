@@ -62,6 +62,26 @@ describe("validateGraphRules", () => {
 		expect(errors.some((e) => e.includes('exactly one "entrypoint"'))).toBe(true);
 	});
 
+	// The compiler has no codegen for an error handler reached as an ordinary
+	// block, so one invented edge stops the whole route compiling. Rejecting it
+	// here gives the model a correction; the apply path drops what slips past.
+	it("rejects a connection into a block with no inbound socket", () => {
+		const errors = validateGraphRules([
+			block("a", "consolelog", [{ blockId: "h" }]),
+			block("h", "error_handler"),
+		]);
+		expect(errors[0]).toContain("Nothing may connect into it");
+	});
+
+	it("still allows the error handler's own recovery flow", () => {
+		expect(
+			validateGraphRules([
+				block("h", "error_handler", [{ blockId: "a" }]),
+				block("a", "consolelog"),
+			]),
+		).toEqual([]);
+	});
+
 	it("treats custom blocks as a single source handle", () => {
 		expect(
 			validateGraphRules([block("a", "custom:send_email", [{ blockId: "b" }])]),

@@ -55,6 +55,14 @@ export type BlockBuilderPayload = {
 	 * canvas, because it may have changed while the artifact waited for review.
 	 */
 	preparedCanvas?: PreparedCanvas;
+	/**
+	 * `canvasDigest` of the canvas this delta was computed against, recorded when
+	 * the artifact was persisted. Apply compares it with the live canvas so an
+	 * edit made in the editor while the artifact waited for review is refused
+	 * rather than silently merged over. Absent for a canvas whose target this run
+	 * is creating, and for artifacts built before the check existed.
+	 */
+	baseCanvasDigest?: string;
 };
 
 export type PreparedCanvas = {
@@ -125,25 +133,28 @@ export function routeOpFromPayload(payload: RouteConfigPayload, projectId: strin
 		method: data.method?.trim().toUpperCase(),
 	});
 
+	// Schemas ride on an update too. They used to be dropped here — the update
+	// subject took name/path/method only — so a run that correctly rewrote a
+	// route's paramsSchema applied cleanly and changed nothing in the database.
+	const schemas = compact({
+		bodySchema: data.bodySchema,
+		querySchema: data.querySchema,
+		paramsSchema: data.paramsSchema,
+		acceptedContentTypes: data.acceptedContentTypes,
+	});
+
 	if (action === "update-partial") {
 		if (!payload.routeId) throw new Error("Route update output has no routeId");
-		// update-partial takes name/path/method only; schemas are not editable
-		// through it, and sending them would fail validation rather than apply.
-		return { action: "modify" as const, id: payload.routeId, data: common };
+		return {
+			action: "modify" as const,
+			id: payload.routeId,
+			data: { ...common, ...schemas },
+		};
 	}
 
 	return {
 		action: "create" as const,
-		data: {
-			...common,
-			projectId,
-			...compact({
-				bodySchema: data.bodySchema,
-				querySchema: data.querySchema,
-				paramsSchema: data.paramsSchema,
-				acceptedContentTypes: data.acceptedContentTypes,
-			}),
-		},
+		data: { ...common, projectId, ...schemas },
 	};
 }
 
@@ -323,6 +334,28 @@ export function canvasChangesFromPayload(
 			},
 		}));
 
+	/**
+	 * Blocks nothing may point at.
+	 *
+	 * A request enters at the entrypoint and the engine jumps to the error
+	 * handler on failure — neither is reached by an edge, and the editor gives
+	 * neither an inbound socket, so a user cannot draw one. An agent restating a
+	 * whole canvas invents one anyway, and the cost is not cosmetic: the compiler
+	 * has no codegen for an error handler reached as an ordinary block, so one
+	 * such edge stops the entire route compiling with "No codegen for block type:
+	 * error_handler".
+	 */
+	const inboundRefused = new Set<string>([
+		BlockTypes.entrypoint,
+		BlockTypes.errorHandler,
+	]);
+	const typeById = new Map<string, string>([
+		...existing.blocks.map((b) => [b.id, b.type] as const),
+		...blocks.map((b) => [b.id, b.type] as const),
+	]);
+	const acceptsInbound = (id: string) =>
+		!inboundRefused.has(typeById.get(id) ?? "");
+
 	const edges: CanvasChanges["changes"]["edges"] = [];
 	const deletedEdgeIds = new Set<string>();
 	const seen = new Set<string>();
@@ -365,6 +398,9 @@ export function canvasChangesFromPayload(
 			if (removed.has(connection.blockId)) continue;
 			const from = idFor(block.id);
 			const to = idFor(connection.blockId);
+			// Dropped before `replaceStoredHandle`: a refused edge must not take the
+			// real connection on that handle down with it.
+			if (!acceptsInbound(to)) continue;
 			const handle = connection.handle ?? "source";
 			// New blocks cannot have stale edges. For stored blocks, each declared
 			// connection is an explicit replacement for its output handle.
@@ -377,6 +413,7 @@ export function canvasChangesFromPayload(
 		if (change?.type !== "edge_swap") continue;
 		const { fromEdge, fromHandle, toEdge, toHandle } = change.data ?? {};
 		if (!fromEdge || !toEdge || !known.has(fromEdge) || !known.has(toEdge)) continue;
+		if (!acceptsInbound(idFor(toEdge))) continue;
 		const from = idFor(fromEdge);
 		const handle = fullHandle(from, fromHandle, "source");
 		// Re-routing means the edge already off that handle now points elsewhere,

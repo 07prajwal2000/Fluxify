@@ -27,8 +27,9 @@ const TAG = "tool_result";
  * Keep in sync with the component map in
  * `apps/portal/src/components/ai/MarkdownViewer.tsx`.
  */
-const CHIP_NAMES = [
+export const CHIP_NAMES = [
 	"route",
+	"customBlock",
 	"canvasChanges",
 	"createIntegration",
 	"createAppConfig",
@@ -37,9 +38,30 @@ const CHIP_NAMES = [
 	"resource",
 ] as const;
 
-/** Case-insensitive: remark lowercases the directive name, so `:Route{}`
- *  renders exactly like `:route{}`. */
-const CHIP_SYNTAX = new RegExp(`:(?:${CHIP_NAMES.join("|")})\\{[^}\\n]*\\}`, "gi");
+/**
+ * The chips that name a thing an earlier run produced, as opposed to the ones
+ * that offer an action. A compacted summary has to carry these through — drop
+ * one and the conversation loses the only handle it had on that artifact.
+ */
+export const ARTIFACT_CHIP_NAMES = [
+	"route",
+	"customBlock",
+	"canvasChanges",
+] as const;
+
+/**
+ * Case-insensitive: remark lowercases the directive name, so `:Route{}`
+ * renders exactly like `:route{}`.
+ *
+ * Exported so the one list above stays the only spelling of these names.
+ * `customBlock` was missing from it while `historyCompaction` had it, which is
+ * exactly the drift a second copy produces.
+ */
+export function chipPattern(names: readonly string[]): RegExp {
+	return new RegExp(`:(?:${names.join("|")})\\{[^}\\n]*\\}`, "gi");
+}
+
+const CHIP_SYNTAX = chipPattern(CHIP_NAMES);
 
 const RESOURCE_CHIP = /:resource\{([^}\n]*)\}/gi;
 
@@ -94,6 +116,25 @@ export function resolveResourceChips(text: string): string {
 		const type = (attribute(attrs, "type") ?? "resource").replace(/_/g, " ");
 		const name = attribute(attrs, "name");
 		return `${type} ${name ? `"${name}" ` : ""}(id: ${identifier})`;
+	});
+}
+
+/**
+ * The chips in a user message, as data rather than prose.
+ *
+ * `resolveResourceChips` renders them for the model; this reads them for the
+ * harness, so a resource the user pointed at can be resolved deterministically
+ * instead of leaving an agent to look up an id the request already carried.
+ */
+export function extractResourceChips(
+	text: string,
+): { type: string; id: string; name?: string }[] {
+	return [...text.matchAll(RESOURCE_CHIP)].flatMap((match) => {
+		const attrs = match[1] ?? "";
+		const id = attribute(attrs, "identifier");
+		const type = attribute(attrs, "type");
+		if (!id || !type) return [];
+		return [{ type, id, name: attribute(attrs, "name") }];
 	});
 }
 

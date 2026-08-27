@@ -69,8 +69,18 @@ export function parseJsonLoose(content: string): unknown {
 	try {
 		return JSON.parse(content, dropNulls);
 	} catch (error) {
-		if (!content.includes('\\"')) throw error;
-		return JSON.parse(content.replace(/\\"/g, '"'), dropNulls);
+		// Only when the *payload itself* is escaped. `includes('\\"')` was too
+		// loose: any block carrying JS (`return obj[\"key\"]`) matches it, so a
+		// parse that failed for an unrelated reason had its escapes stripped and
+		// came back as `JSON Parse error: Unexpected identifier "…"` — naming a
+		// word from inside a string value rather than the actual problem.
+		if (!/^[{[]\s*\\"/.test(content)) throw error;
+		try {
+			return JSON.parse(content.replace(/\\"/g, '"'), dropNulls);
+		} catch {
+			// The repair did not help; the first failure is the one worth reporting.
+			throw error;
+		}
 	}
 }
 

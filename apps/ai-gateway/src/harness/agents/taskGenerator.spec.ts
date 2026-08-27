@@ -1,6 +1,22 @@
 import { describe, expect, it } from "bun:test";
-import { sanitizeTasks } from "./taskGenerator";
+import { sanitizeTasks, shouldEscalateToPlanner } from "./taskGenerator";
 import { AgentNode } from "../types";
+
+describe("shouldEscalateToPlanner", () => {
+	it("hands a planner-less request back when it turns out not to be simple", () => {
+		expect(shouldEscalateToPlanner(undefined, true)).toBe(true);
+	});
+
+	// The planner routes back here, so an escalation that ignored the plan would
+	// bounce between the two nodes until the graph's recursion limit.
+	it("cannot escalate a second time once a plan exists", () => {
+		expect(shouldEscalateToPlanner("## Plan\n- do it", true)).toBe(false);
+	});
+
+	it("does nothing when the agent produced tasks", () => {
+		expect(shouldEscalateToPlanner(undefined, false)).toBe(false);
+	});
+});
 
 type RawTask = Parameters<typeof sanitizeTasks>[0][number];
 

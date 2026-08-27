@@ -3,6 +3,13 @@ import type { ValidatableBlock } from "./schemas";
 
 const SINGLETON_TYPES = [BlockTypes.entrypoint, BlockTypes.errorHandler];
 
+/** A request enters at the entrypoint and the engine jumps to the error handler
+ *  on failure. Neither is reached by an edge, and the editor gives neither an
+ *  inbound socket — but an agent restating a whole canvas invents one, and the
+ *  compiler has no codegen for an error handler reached as an ordinary block,
+ *  so a single such edge stops the whole route compiling. */
+const INBOUND_REFUSED: string[] = [BlockTypes.entrypoint, BlockTypes.errorHandler];
+
 /**
  * The runtime resolves an edge with `findEdge(block, handle)`, which takes the
  * first match and drops the rest — so two edges on one handle is a silently
@@ -15,6 +22,11 @@ export function validateGraphRules(blocks: ValidatableBlock[]): string[] {
 	const errors: string[] = [];
 	const seenIds = new Set<string>();
 	const singletonCounts = new Map<string, string[]>();
+	// Only the declared blocks are visible here, so a connection to a stored
+	// error handler is caught at apply instead (`canvasChangesFromPayload`). The
+	// agent usually restates the block it wires to, which is the case this rule
+	// turns into a correction the model can act on rather than a silent drop.
+	const typeById = new Map(blocks.map((b) => [b.id, b.blockType || ""]));
 
 	for (const block of blocks) {
 		if (!block?.id) continue;
@@ -45,6 +57,14 @@ export function validateGraphRules(blocks: ValidatableBlock[]): string[] {
 		for (const conn of block.connections ?? []) {
 			if (!conn?.blockId) continue;
 			const handle = conn.handle || "source";
+
+			const targetType = typeById.get(conn.blockId);
+			if (targetType && INBOUND_REFUSED.includes(targetType)) {
+				errors.push(
+					`Block "${block.id}" connects to "${conn.blockId}", which is a "${targetType}" block. Nothing may connect into it: the request enters at the entrypoint, and the error handler runs only when a block throws. Remove the connection — an error handler's own "source" handle is what leads to the recovery flow.`,
+				);
+				continue;
+			}
 
 			if (!allowed.includes(handle)) {
 				errors.push(

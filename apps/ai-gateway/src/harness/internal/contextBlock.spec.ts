@@ -1,6 +1,42 @@
 import { describe, expect, it } from "bun:test";
-import { buildContextBlock } from "./contextBlock";
+import { buildContextBlock, locationFromResourceChips } from "./contextBlock";
 import type { DbService } from "./dbService";
+
+const chip = (type: string, id: string) =>
+	`:resource{type="${type}" identifier="${id}" name="Users"}`;
+
+describe("locationFromResourceChips", () => {
+	it("targets the resource the user mentioned", () => {
+		expect(
+			locationFromResourceChips(`add pagination to ${chip("route", "r1")}`, undefined),
+		).toEqual({ where: "route-canvas", id: "r1" });
+		expect(
+			locationFromResourceChips(chip("custom_block", "cb1"), undefined),
+		).toEqual({ where: "custom-block-canvas", id: "cb1" });
+	});
+
+	// The open canvas stays authoritative; a mention alongside it may be a
+	// reference rather than the target.
+	it("never displaces an open canvas", () => {
+		const open = { where: "route-canvas", id: "open" } as const;
+		expect(locationFromResourceChips(chip("route", "r1"), open)).toEqual(open);
+	});
+
+	it("ignores two mentions, which is a real choice", () => {
+		const query = `${chip("route", "r1")} and ${chip("route", "r2")}`;
+		expect(locationFromResourceChips(query, undefined)).toBeUndefined();
+	});
+
+	it("ignores resources that have no canvas", () => {
+		expect(
+			locationFromResourceChips(chip("integration", "i1"), undefined),
+		).toBeUndefined();
+	});
+
+	it("does nothing without a query", () => {
+		expect(locationFromResourceChips(undefined, undefined)).toBeUndefined();
+	});
+});
 
 const dbWith = (over: Partial<DbService> = {}) =>
 	({

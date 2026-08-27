@@ -144,7 +144,9 @@ ${CUSTOM_BLOCK_EXECUTION_CONTRACT}
 5. **Data Filling**:
    - Use available Integrations/Configs for authentication fields.
    - For JavaScript expressions, use the syntax \`js:<expression>\`. The previous block's output is in the \`input\` global. The full JavaScript API is pre-loaded below under "Platform Reference" — write your JS against it and do NOT search the docs for it.
-   - **Every \`js:\` expression and every JS Runner body MUST produce a value.** A multi-statement body needs an explicit \`return\`; without one the field evaluates to \`null\` and every block downstream silently reads null. A single expression (\`js:input.userId\`) is already its own value; the moment you write a statement, add the \`return\`.
+   - **Every \`js:\` expression and every JS Runner body MUST produce a value.** The engine returns nothing implicitly: the value of the last statement is discarded, so a body without an explicit \`return\` evaluates to \`null\` and every block downstream silently reads null. A single expression (\`js:input.userId\`) is already its own value; the moment you write a statement — a \`const\`, an \`if\`, a loop — the body needs a \`return\`. Re-read every body you write and confirm a \`return\` is reachable on every path before you emit it.
+     - WRONG — computes the right answer, produces \`null\`: \`js:const page = input.page ?? 1; const limit = 20; ({ limit, offset: (page - 1) * limit })\`
+     - RIGHT: \`js:const page = input.page ?? 1; const limit = 20; return { limit, offset: (page - 1) * limit };\`
    - Never put \`blockName\`, \`blockDescription\` or \`blockType\` inside \`data\`. They belong on the block object itself; repeating them in \`data\` is invalid.
 
 6. **JavaScript Runtime & Libraries — STRICT**:

@@ -78,20 +78,17 @@ describe("routeOpFromPayload", () => {
 		});
 	});
 
-	it("renames update-partial to the subject's action and drops schemas", () => {
-		const op = routeOpFromPayload(
-			{
-				action: "update-partial",
-				routeId: "r-1",
-				data: { name: "Renamed", bodySchema: { dataType: "object" } },
-			},
-			"proj-1",
-		);
+	// Dropping them here made a correct schema edit apply successfully and change
+	// nothing: the route came back with the schema it already had.
+	it("carries schemas through an update-partial", () => {
+		const paramsSchema = { dataType: "object", properties: [] };
+		const data = { name: "Renamed", paramsSchema, querySchema: null };
+		const op = routeOpFromPayload({ action: "update-partial", routeId: "r-1", data }, "proj-1");
 
 		expect(op as Record<string, unknown>).toEqual({
 			action: "modify",
 			id: "r-1",
-			data: { name: "Renamed" },
+			data: { name: "Renamed", paramsSchema },
 		});
 	});
 });

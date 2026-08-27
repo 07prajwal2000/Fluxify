@@ -9,6 +9,7 @@ type Target = NonNullable<HarnessJobMetadata["location"]>;
 /** `internal.metadata` is the job metadata plus what the run resolved onto it. */
 type RunMetadata = HarnessJobMetadata & {
 	projectInventory?: ProjectInventoryEntry[];
+	contextBlock?: string;
 };
 
 /**
@@ -75,6 +76,25 @@ function resolveTarget(
 		if (target) return target;
 	}
 	return targetFromInventory(task, inventory);
+}
+
+/**
+ * True when the canvas this task edits is already in front of the agent —
+ * either the run resolved the target and prefetched it below, or the user has
+ * it open and `contextBlock` carries it.
+ *
+ * Callers use this to take the lookup tools away rather than to ask the model
+ * not to use them. Both blocks already say "you already have this"; the agent
+ * spent a round trip re-fetching anyway, and an absent tool cannot be called.
+ */
+export function targetCanvasInContext(
+	metadata: RunMetadata | undefined,
+	task: Task | undefined,
+	results: Record<string, SubAgentResult> | undefined,
+): boolean {
+	if (metadata?.contextBlock) return true;
+	if (!task) return false;
+	return !!resolveTarget(task, results, metadata?.projectInventory);
 }
 
 /**

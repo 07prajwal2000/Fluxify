@@ -11,7 +11,10 @@ import type {
 	BlockBuilderPayload,
 	CanvasItems,
 } from "../../api/v1/harness-conversations/artifacts/normalize";
-import { prepareCanvasArtifact } from "../../api/v1/harness-conversations/artifacts/canvasLayout";
+import {
+	canvasDigest,
+	prepareCanvasArtifact,
+} from "../../api/v1/harness-conversations/artifacts/canvasLayout";
 import {
 	callerFor,
 	readCanvas,
@@ -146,6 +149,9 @@ export class SummarizerAgent extends BaseAgent {
 		const targetId = result.targetId;
 		const targetKey = targetId ? `${targetType}:${targetId}` : "";
 		let existing: CanvasItems = { blocks: [], edges: [] };
+		/** What apply compares against; see `assertCanvasUnchanged`. Only a canvas
+		 *  that already exists can be edited out from under this artifact. */
+		let baseCanvasDigest: string | undefined;
 
 		if (targetId && !plannedNewTargets.has(targetKey)) {
 			if (!meta.userId || !meta.projectId) {
@@ -156,10 +162,12 @@ export class SummarizerAgent extends BaseAgent {
 				targetType,
 				targetId,
 			);
+			baseCanvasDigest = canvasDigest(existing);
 		}
 
 		return {
 			...result,
+			baseCanvasDigest,
 			preparedCanvas: await prepareCanvasArtifact(result, existing),
 		};
 	}

@@ -4,6 +4,9 @@ import { subAgents } from "./sub-agents";
 import { z } from "zod";
 import { dispatchAgentEvent } from "../callbacks";
 import { renderProjectInventory } from "../internal/projectInventory";
+import { createFindResourceTool } from "../tools/findResource";
+import { createGetArtifactTool } from "../tools/getArtifact";
+import { logger } from "@fluxify/common";
 
 function buildSubAgentsTable(): string {
 	if (subAgents.length === 0) {
@@ -20,6 +23,16 @@ function buildSubAgentsTable(): string {
 const SUB_AGENTS_TABLE = buildSubAgentsTable();
 
 const taskSchema = z.object({
+	escalate: z
+		.boolean()
+		.default(false)
+		.describe(
+			"Set true ONLY when no plan was written and the request turns out to need more than one target or is too ambiguous to break down. Return no tasks with it.",
+		),
+	escalateReason: z
+		.string()
+		.nullish()
+		.describe("Short reason for escalating. Required when escalate is true."),
 	tasks: z
 		.array(
 			z.object({
@@ -40,8 +53,23 @@ const taskSchema = z.object({
 					.describe("The Node Name of the sub-agent assigned to this task"),
 			}),
 		)
+		.default([])
 		.describe("Directed Acyclic Graph (DAG) of tasks to execute the plan"),
 });
+
+/** Appended to the user turn (never the system prompt — see
+ * `AgentInvokeOptions.context`) when the router sent a single-target build
+ * straight here. Without a planner ahead of it this agent is the only one that
+ * reads the request, so it gets the lookup tools the planner normally carries
+ * and a way to hand the request back when it turns out not to be simple. */
+const NO_PLAN_NOTE = `## No plan was written for this request
+The router judged this request simple enough to skip planning, so break down the user's message directly.
+- Emit at most 2 tasks, and still follow the Route Canvas Order and Custom Block Order rules above.
+- **Resolve the target from what you already have before reaching for a tool.** In order: a "Current context" block above (it names \`targetType\` and \`targetId\` outright), then an \`(id: <value>)\` written into the user's message — the composer puts a real database ID there when the user picks a resource, so use that value as-is — then the project inventory. A tool call is only for what none of those cover.
+- \`find_resource\` finds a resource the above do not name. When you already hold its ID and only need its details, pass \`searchBy: "id"\`; the default keyword search matches names and descriptions and will never match an ID.
+- \`get_artifact\` reads back work an earlier run in this conversation produced, and takes ONLY a \`sub_artifact_id\`/\`artifact_id\` token from an earlier assistant message. Never pass it a route, custom block, or other database ID — that is not what it holds. Use it when the request points at prior work ("the route you just made"); work that was proposed but never applied never appears in the inventory.
+- Put the plain resource ID in every task description. Never guess one.
+- If, after looking things up, the request needs more than 2 tasks, spans several resources, or stays ambiguous, set \`escalate: true\` with a short \`escalateReason\` and return no tasks. A full plan will be written and you will be called again.`;
 
 /**
  * The model writes task ids, agent node names and dependency edges by hand, so
@@ -183,6 +211,17 @@ ${child.title}: ${child.description}`;
 	return tasks.filter((t) => !merged.has(t.id));
 }
 
+/** Whether to hand the request back to the planner. Gated on there being no
+ * plan yet: a planner run always leaves one behind, so escalation can fire at
+ * most once. Without that gate planner → task generator → planner loops until
+ * the graph's recursion limit. */
+export function shouldEscalateToPlanner(
+	markdownPlan: string | undefined,
+	escalate: boolean,
+): boolean {
+	return !markdownPlan && escalate;
+}
+
 function topologicalSortByLevel(tasks: Task[]): string[][] {
 	const inDegree = new Map<string, number>();
 	const children = new Map<string, string[]>();
@@ -288,21 +327,74 @@ ${SUB_AGENTS_TABLE}
 
 If there are no sub-agents available, output an empty task list.`;
 
-		// Provide the plan as the query to focus the LLM on breaking it down
-		const planText = this.state.plannerState?.markdownPlan
-			? `Plan to execute:\n${this.state.plannerState.markdownPlan}`
-			: "No plan provided.";
+		// No plan means the router took the fast path (a planner run always leaves
+		// one behind, HITL resumes included), so this agent stands in for it.
+		const plan = this.state.plannerState?.markdownPlan;
 
 		const response = (await this.state.agentWrapper.invokeAgent({
 			zodSchema: taskSchema,
 			systemPrompt,
-			context: [scratchPadText, projectInventory]
+			// The "Current context" block goes in only without a plan. With one, the
+			// planner already read it and left the ids in the scratchpad, so
+			// re-rendering a whole canvas here would be tokens for nothing.
+			context: [
+				scratchPadText,
+				projectInventory,
+				...(plan
+					? []
+					: [
+							this.state.internal?.metadata?.contextBlock ?? "",
+							NO_PLAN_NOTE,
+						]),
+			]
 				.filter(Boolean)
 				.join("\n\n"),
-			messages: [], // We only pass the plan to keep it strictly focused
-			userQuery: planText,
+			// With a plan, that plan is the whole brief and history only dilutes it.
+			// Without one, the request may lean on earlier turns ("that route").
+			messages: plan ? [] : this.state.messages,
+			historyMessageCount: plan ? undefined : this.state.historyMessageCount,
+			userQuery: plan ? `Plan to execute:\n${plan}` : this.state.userQuery,
+			// The planner normally resolves resources and leaves the ids in the
+			// scratchpad. Skipping it means resolving them here instead — but only
+			// here: on the planned path these calls would just repeat its work, and
+			// the run-scoped memo saves the second execution, not the round trip.
+			tools: plan
+				? []
+				: [
+						createFindResourceTool(
+							this.state.internal.dbService,
+							this.state.internal.metadata || {},
+						),
+						createGetArtifactTool(
+							this.state.internal.dbService,
+							this.state.internal.metadata || {},
+						),
+					],
 			agentNode: AgentNode.TASK_GENERATOR,
 		})) as z.infer<typeof taskSchema>;
+
+		// The router judges simplicity before any lookup, so this agent is the
+		// first to see what the request actually touches. Handing it back costs one
+		// call; a shallow DAG costs the user a half-built project.
+		if (shouldEscalateToPlanner(plan, response.escalate)) {
+			const reason =
+				response.escalateReason?.trim() ||
+				"The request needs more than a single-target build.";
+			logger.info("[TaskGenerator] Escalating to the planner", { reason });
+			await dispatchAgentEvent({
+				name: "agent_status",
+				data: {
+					status: "Request needs a plan first",
+					agent: AgentNode.TASK_GENERATOR,
+					data: { reason },
+				},
+			});
+			return {
+				currentAgent: AgentNode.TASK_GENERATOR,
+				nextRoute: AgentNode.PLANNER,
+				scratchpad: [`Task generation escalated for planning: ${reason}`],
+			};
+		}
 
 		const { tasks: generatedTasks, notes } = sanitizeTasks(response.tasks);
 

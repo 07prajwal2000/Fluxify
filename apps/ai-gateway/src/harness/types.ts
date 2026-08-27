@@ -105,6 +105,9 @@ export interface RouterState {
 	capable?: boolean;
 	/** Why the build request was rejected. Set only when `capable` is false. */
 	rejectReason?: string;
+	/** Single-target build that skipped the planner. The task generator can hand
+	 *  it back with `escalate` once it learns otherwise. */
+	simple?: boolean;
 }
 
 export interface ClassifierState {
