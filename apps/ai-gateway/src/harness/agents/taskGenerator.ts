@@ -65,8 +65,9 @@ const taskSchema = z.object({
 const NO_PLAN_NOTE = `## No plan was written for this request
 The router judged this request simple enough to skip planning, so break down the user's message directly.
 - Emit at most 2 tasks, and still follow the Route Canvas Order and Custom Block Order rules above.
-- The project inventory above is authoritative for the resources it lists — take IDs from it. If the request names a resource that is NOT listed, call \`find_resource\` before writing the task.
-- If the request refers to something built earlier in this conversation ("the route you just made"), call \`get_artifact\`. Work that was proposed but never applied never appears in the inventory.
+- **Resolve the target from what you already have before reaching for a tool.** In order: a "Current context" block above (it names \`targetType\` and \`targetId\` outright), then an \`(id: <value>)\` written into the user's message — the composer puts a real database ID there when the user picks a resource, so use that value as-is — then the project inventory. A tool call is only for what none of those cover.
+- \`find_resource\` finds a resource the above do not name. When you already hold its ID and only need its details, pass \`searchBy: "id"\`; the default keyword search matches names and descriptions and will never match an ID.
+- \`get_artifact\` reads back work an earlier run in this conversation produced, and takes ONLY a \`sub_artifact_id\`/\`artifact_id\` token from an earlier assistant message. Never pass it a route, custom block, or other database ID — that is not what it holds. Use it when the request points at prior work ("the route you just made"); work that was proposed but never applied never appears in the inventory.
 - Put the plain resource ID in every task description. Never guess one.
 - If, after looking things up, the request needs more than 2 tasks, spans several resources, or stays ambiguous, set \`escalate: true\` with a short \`escalateReason\` and return no tasks. A full plan will be written and you will be called again.`;
 
@@ -333,7 +334,19 @@ If there are no sub-agents available, output an empty task list.`;
 		const response = (await this.state.agentWrapper.invokeAgent({
 			zodSchema: taskSchema,
 			systemPrompt,
-			context: [scratchPadText, projectInventory, plan ? "" : NO_PLAN_NOTE]
+			// The "Current context" block goes in only without a plan. With one, the
+			// planner already read it and left the ids in the scratchpad, so
+			// re-rendering a whole canvas here would be tokens for nothing.
+			context: [
+				scratchPadText,
+				projectInventory,
+				...(plan
+					? []
+					: [
+							this.state.internal?.metadata?.contextBlock ?? "",
+							NO_PLAN_NOTE,
+						]),
+			]
 				.filter(Boolean)
 				.join("\n\n"),
 			// With a plan, that plan is the whole brief and history only dilutes it.
