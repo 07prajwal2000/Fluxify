@@ -98,6 +98,25 @@ export function resolveResourceChips(text: string): string {
 }
 
 /**
+ * The chips in a user message, as data rather than prose.
+ *
+ * `resolveResourceChips` renders them for the model; this reads them for the
+ * harness, so a resource the user pointed at can be resolved deterministically
+ * instead of leaving an agent to look up an id the request already carried.
+ */
+export function extractResourceChips(
+	text: string,
+): { type: string; id: string; name?: string }[] {
+	return [...text.matchAll(RESOURCE_CHIP)].flatMap((match) => {
+		const attrs = match[1] ?? "";
+		const id = attribute(attrs, "identifier");
+		const type = attribute(attrs, "type");
+		if (!id || !type) return [];
+		return [{ type, id, name: attribute(attrs, "name") }];
+	});
+}
+
+/**
  * Full inbound pass for a user-authored message: mentions become plain
  * references, and any other chip syntax the user typed by hand is dropped so
  * it can neither reach the model as markup nor be echoed back into a summary.

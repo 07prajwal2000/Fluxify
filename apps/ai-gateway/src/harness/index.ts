@@ -18,7 +18,10 @@ import { BaseAgentWrapper, type AgentInvokeOptions } from "./models/base";
 import { RunBudget, logRunUsage } from "./models/budget";
 import { app as graphApp } from "./graph";
 import { DbService } from "./internal/dbService";
-import { buildContextBlock } from "./internal/contextBlock";
+import {
+	buildContextBlock,
+	locationFromResourceChips,
+} from "./internal/contextBlock";
 import { sanitizeUserQuery } from "./internal/untrusted";
 import {
 	describeHitlAction,
@@ -170,15 +173,14 @@ export class FluxifyHarness {
 				? ((await harnessService.loadWorkingMemory(ctx.runId)) ?? {})
 				: {};
 
-		// Resolve the resource the user was viewing (if any) once, here, instead
-		// of letting the planner burn a find_resource tool call rediscovering an
-		// id the request already carried. One cheap DB hit, zero model tokens.
+		// Resolve the resource the user was viewing — or, failing that, the one
+		// they @-mentioned — once, here, instead of letting an agent burn a
+		// find_resource call rediscovering an id the request already carried.
+		// It goes back onto the metadata so sub-agent target resolution agrees
+		// with it and skips re-rendering the canvas (`buildTargetCanvasContext`).
+		const location = locationFromResourceChips(ctx.query, ctx.metadata?.location);
 		const [contextBlock, projectInventory] = await Promise.all([
-			buildContextBlock(
-				this.dbService,
-				ctx.metadata?.projectId,
-				ctx.metadata?.location,
-			),
+			buildContextBlock(this.dbService, ctx.metadata?.projectId, location),
 			// A HITL continuation already has the approved plan. Avoid loading a
 			// generic catalogue unless this pass has a fresh user request to match.
 			this.dbService.getProjectInventory(ctx.metadata?.projectId, query),
@@ -199,6 +201,7 @@ export class FluxifyHarness {
 					...ctx.metadata,
 					runId: ctx.runId,
 					conversationId: ctx.conversationId,
+					location,
 					contextBlock,
 					projectInventory,
 				},
