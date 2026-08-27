@@ -231,4 +231,58 @@ describe("compileGraph", () => {
 			),
 		).toThrow(/No codegen/);
 	});
+
+	// The editor gives the error handler no inbound socket, so an edge pointing
+	// at it is a stale row or an agent's invention. It used to take the whole
+	// route down with "No codegen for block type: error_handler".
+	describe("edges into the error handler", () => {
+		const handler = (id: string) =>
+			block(id, BlockTypes.errorHandler, {
+				next: "",
+				retryAfterFail: false,
+				retryCount: 0,
+			});
+
+		it("ignores the edge instead of failing the graph", async () => {
+			const { run } = compileGraph(
+				[
+					block("entry", BlockTypes.entrypoint),
+					block("value", BlockTypes.jsrunner, { value: "return 7" }),
+					handler("err"),
+				],
+				[edge("entry", "value"), edge("value", "err")],
+			);
+
+			// the ignored edge must not leave behind a call to a function that was
+			// never emitted — that fails at request time instead of at compile time
+			expect(await run(createContext(), null)).toEqual({
+				successful: true,
+				continueIfFail: true,
+				output: 7,
+			});
+		});
+
+		it("still compiles the handler's own recovery chain", () => {
+			const { source } = compileGraph(
+				[
+					block("entry", BlockTypes.entrypoint),
+					block("boom", BlockTypes.jsrunner, { value: "return 1" }),
+					handler("err"),
+					block("recover", BlockTypes.response, { httpCode: "500" }),
+				],
+				[edge("entry", "boom"), edge("err", "recover"), edge("boom", "err")],
+			);
+
+			expect(source).toContain("// response recover");
+		});
+
+		it("drops a handler that recovers into another handler", () => {
+			const { source } = compileGraph(
+				[block("entry", BlockTypes.entrypoint), handler("err"), handler("err2")],
+				[edge("err", "err2")],
+			);
+
+			expect(source).toContain("return $endFailure($error);");
+		});
+	});
 });

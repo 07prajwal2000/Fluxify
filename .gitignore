@@ -16,3 +16,6 @@ apps/ai-gateway/src/test-trace.ts
 .issue-tracker/
 apps/ai-gateway/src/harness/IMPROVEMENTS.md
 graphify-out/
+
+natscheck/
+OPTIMIZATION.md
