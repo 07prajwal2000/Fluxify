@@ -9,6 +9,61 @@ import { ServerError } from "../../../../errors/serverError";
 import { AuthACL } from "../../../../db/schema";
 import { ForbiddenError } from "../../../../errors/forbidError";
 import { patchRouteConfig } from "../routeConfigRepository";
+import { BadRequestError } from "../../../../errors/badRequestError";
+import { normalizeParamsSchema, validateRouteSchemas } from "../schema-validator";
+
+type RouteSchemas = {
+	path: string | null;
+	bodySchema?: any;
+	querySchema?: any;
+	paramsSchema?: any;
+};
+
+const SCHEMA_FIELDS = ["bodySchema", "querySchema", "paramsSchema"] as const;
+
+/**
+ * Patches the request/response schemas onto the route being updated.
+ *
+ * They cannot be validated in the DTO like every other field: a schema is only
+ * correct relative to the path it validates, and a patch may not carry one. So
+ * the incoming fields are merged over what is stored and the *result* is
+ * checked — which also catches the case where the path is edited down to no
+ * `:params` and the caller leaves the old `paramsSchema` behind.
+ *
+ * Skipped entirely when the patch touches neither the path nor a schema, so
+ * toggling `active` on a route whose schemas predate this check still works.
+ */
+function applySchemas(
+	route: RouteSchemas,
+	data: z.infer<typeof requestBodySchema>,
+) {
+	const touched = SCHEMA_FIELDS.some((field) => field in data);
+	if (!touched && data.path === undefined) return;
+
+	const merged = normalizeParamsSchema({
+		path: route.path ?? "",
+		bodySchema: field(data, "bodySchema", route),
+		querySchema: field(data, "querySchema", route),
+		paramsSchema: field(data, "paramsSchema", route),
+	});
+	const result = validateRouteSchemas(merged);
+	if (!result.success) {
+		throw new BadRequestError(
+			result.errors.map((e) => `${e.path}: ${e.message}`).join("; "),
+		);
+	}
+	for (const name of SCHEMA_FIELDS) route[name] = merged[name] ?? null;
+}
+
+/** The patched value of one schema field, or the stored one when omitted. An
+ *  explicit null clears it, so absence — not falsiness — is what falls back. */
+function field(
+	data: z.infer<typeof requestBodySchema>,
+	name: (typeof SCHEMA_FIELDS)[number],
+	route: RouteSchemas,
+) {
+	return name in data ? data[name] : route[name];
+}
 
 export default async function handleRequest(
   id: string,
@@ -58,6 +113,7 @@ export default async function handleRequest(
 				tx,
 			);
 		}
+		applySchemas(patchedRoute, data);
     return await updateRoute(
       {
         ...patchedRoute,

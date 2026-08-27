@@ -93,6 +93,87 @@ describe("update-partial route", () => {
 		expect(result).toBeDefined();
 	});
 
+	// The AI harness edits a route's validation this way. Dropping the schemas
+	// here made the whole edit a silent no-op: it applied, and nothing changed.
+	describe("schemas", () => {
+		const paramsSchema = {
+			dataType: "object",
+			properties: [{ key: "id", dataType: "str", required: true }],
+		};
+
+		function routeThatExists(overrides: Record<string, unknown> = {}) {
+			(db.transaction as any).mockImplementation(async (callback: any) =>
+				callback({}),
+			);
+			(getRouteByNameOrPath as any).mockResolvedValueOnce({
+				id: "123",
+				name: "Original",
+				path: "/users/:id",
+				method: HttpMethod.GET,
+				projectId: "proj1",
+				active: true,
+				createdAt: new Date(),
+				updatedAt: new Date(),
+				...overrides,
+			});
+			(updateRoute as any).mockImplementationOnce(async (row: any) => row);
+		}
+
+		const acl: AuthACL[] = [{ projectId: "proj1", role: "creator" }];
+
+		it("writes a patched paramsSchema to the route", async () => {
+			routeThatExists({ paramsSchema: null });
+
+			await handleRequest("123", { paramsSchema } as any, acl);
+
+			expect((updateRoute as Mock<any>).mock.calls.at(-1)![0]).toMatchObject({
+				paramsSchema,
+			});
+		});
+
+		it("refuses a paramsSchema that does not match the path", async () => {
+			routeThatExists({ paramsSchema: null });
+
+			await expect(
+				handleRequest(
+					"123",
+					{
+						paramsSchema: {
+							dataType: "object",
+							properties: [{ key: "slug", dataType: "str", required: true }],
+						},
+					} as any,
+					acl,
+				),
+			).rejects.toThrow(/paramsSchema/);
+		});
+
+		// An omitted field is skipped by the update statement, so the dead schema
+		// would otherwise survive the edit and keep validating params that can no
+		// longer be supplied.
+		it("clears a stale paramsSchema when the path loses its parameters", async () => {
+			routeThatExists({ paramsSchema });
+
+			await handleRequest("123", { path: "/users" }, acl);
+
+			expect((updateRoute as Mock<any>).mock.calls.at(-1)![0]).toMatchObject({
+				path: "/users",
+				paramsSchema: null,
+			});
+		});
+
+		it("leaves schemas alone when the patch touches neither them nor the path", async () => {
+			routeThatExists({ paramsSchema, bodySchema: { dataType: "object" } });
+
+			await handleRequest("123", { active: false }, acl);
+
+			expect((updateRoute as Mock<any>).mock.calls.at(-1)![0]).toMatchObject({
+				paramsSchema,
+				active: false,
+			});
+		});
+	});
+
 	it("should throw NotFoundError when route not found", async () => {
 		(db.transaction as any).mockImplementation(async (callback: any) => {
 			const mockTx = {};

@@ -13,6 +13,11 @@ export const requestBodySchema = z.object({
     .enum(["GET", "POST", "PUT", "DELETE"], "Must be a HTTP Method")
     .optional(),
   active: z.boolean().optional(),
+  // Validated in the service, not here: they are only meaningful against the
+  // route's effective path, and a patch may not carry one.
+  bodySchema: z.any().optional(),
+  querySchema: z.any().optional(),
+  paramsSchema: z.any().optional(),
   timeoutSeconds: z.number().int().min(30).optional(),
   tracingEnabled: z.boolean().optional(),
   recordExecution: z.boolean().optional(),

@@ -125,25 +125,28 @@ export function routeOpFromPayload(payload: RouteConfigPayload, projectId: strin
 		method: data.method?.trim().toUpperCase(),
 	});
 
+	// Schemas ride on an update too. They used to be dropped here — the update
+	// subject took name/path/method only — so a run that correctly rewrote a
+	// route's paramsSchema applied cleanly and changed nothing in the database.
+	const schemas = compact({
+		bodySchema: data.bodySchema,
+		querySchema: data.querySchema,
+		paramsSchema: data.paramsSchema,
+		acceptedContentTypes: data.acceptedContentTypes,
+	});
+
 	if (action === "update-partial") {
 		if (!payload.routeId) throw new Error("Route update output has no routeId");
-		// update-partial takes name/path/method only; schemas are not editable
-		// through it, and sending them would fail validation rather than apply.
-		return { action: "modify" as const, id: payload.routeId, data: common };
+		return {
+			action: "modify" as const,
+			id: payload.routeId,
+			data: { ...common, ...schemas },
+		};
 	}
 
 	return {
 		action: "create" as const,
-		data: {
-			...common,
-			projectId,
-			...compact({
-				bodySchema: data.bodySchema,
-				querySchema: data.querySchema,
-				paramsSchema: data.paramsSchema,
-				acceptedContentTypes: data.acceptedContentTypes,
-			}),
-		},
+		data: { ...common, projectId, ...schemas },
 	};
 }
 
