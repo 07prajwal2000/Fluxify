@@ -202,17 +202,31 @@ async function ensureCustomBlocksRegistered(projectId: string) {
 	);
 	while (pending.length > 0) {
 		const failed: typeof pending = [];
-		let lastError: unknown;
+		const errors = new Map<string, unknown>();
 		for (const row of pending) {
 			try {
 				await compileCustomBlock(row.id);
 			} catch (error) {
-				lastError = error;
+				errors.set(row.id, error);
 				failed.push(row);
 			}
 		}
-		// nothing compiled this pass: the failures are real, not ordering
-		if (failed.length === pending.length) throw lastError;
+		// Nothing compiled this pass, so the failures are real rather than
+		// ordering. Report them and stop retrying, but do not fail the caller:
+		// this runs before *every* route compile, so rethrowing here took every
+		// route in the project down over one unrelated custom block. A route that
+		// actually calls a broken block still fails on its own, and does it with
+		// the specific "No codegen for block type: <name>" that names the culprit.
+		if (failed.length === pending.length) {
+			for (const row of failed) {
+				logger.error(
+					`[compiler] custom block ${row.name} did not compile`,
+					"COMPILER",
+					{ error: errors.get(row.id) },
+				);
+			}
+			return;
+		}
 		pending = failed;
 	}
 }

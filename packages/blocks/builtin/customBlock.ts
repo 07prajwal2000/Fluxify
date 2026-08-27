@@ -111,6 +111,16 @@ export async function invokeCustomBlock(
 	const scope = traced(context, name, blockId, false);
 	try {
 		const result = await lookup(name)(scope.context, args);
+		// The callee catches its own failures rather than throwing: its graph ends
+		// in `$endFailure`, which returns `{ successful: false, error }`. Reading
+		// only `output` swallowed that — a throw inside a sync custom block became
+		// an undefined value and the route answered 200. `continueIfFail` is the
+		// callee's own error handler reporting that it recovered.
+		if (result?.successful === false && !result.continueIfFail) {
+			throw result.error instanceof Error
+				? result.error
+				: new Error(String(result.error));
+		}
 		return result?.output;
 	} finally {
 		scope.close();

@@ -136,6 +136,41 @@ describe("compiled custom blocks", () => {
 		expect(ctx.vars.sideEffect).toBe("written");
 	});
 
+	// The compiled callee never throws — it catches internally and returns
+	// { successful: false }. Dropping that made a thrown error inside a sync
+	// custom block vanish, and the route answered 200 with an undefined body.
+	it("propagates a sync invoke's failure to the caller's error handler", async () => {
+		registerCustomBlock(
+			"rejects_token",
+			[
+				block("c1", BlockTypes.entrypoint),
+				block("c2", BlockTypes.jsrunner, { value: "throw new Error('bad token');" }),
+			],
+			[edge("c1", "c2")],
+		);
+
+		const { run } = compileGraph(
+			[
+				block("1", BlockTypes.entrypoint),
+				block("2", "rejects_token", {}),
+				block("3", BlockTypes.response, { httpCode: "200" }),
+				block("h", BlockTypes.errorHandler, {
+					next: "",
+					retryAfterFail: false,
+					retryCount: 0,
+				}),
+				block("401", BlockTypes.response, { httpCode: "401" }),
+			],
+			[edge("1", "2"), edge("2", "3"), edge("h", "401")],
+		);
+
+		const result = await run(createContext(), null);
+		expect(result.output).toEqual({
+			httpCode: "401",
+			body: "Error: bad token",
+		});
+	});
+
 	it("a failing async invoke does not reject into the caller", async () => {
 		registerCustomBlock(
 			"explodes",

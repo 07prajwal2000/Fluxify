@@ -280,6 +280,15 @@ export function compileGraph(
 	const visiting = new Set<string>();
 	const emissionOrder: string[] = [];
 
+	/**
+	 * The error handler is entered by jump, never by an edge: it is compiled from
+	 * its own `source` chain into `errorHandlerBody`, so `emitters` deliberately
+	 * has no entry for it, and the editor gives it no inbound socket. An edge
+	 * pointing at it is a stale row or an agent's invention, so this and
+	 * `collectReachable` both ignore one — that costs a connection which could
+	 * never have run, where throwing costs the whole route and (via
+	 * `ensureCustomBlocksRegistered`) every other route in the project.
+	 */
 	function edgeTo(id: string, handle: string) {
 		const outgoing = edgeMap[id]?.filter((edge) => edge.handle === handle) ?? [];
 		if (outgoing.length > 1) {
@@ -287,7 +296,8 @@ export function compileGraph(
 				`Block ${id} has ${outgoing.length} outgoing edges on handle ${handle}; multi-edge fan-out is not supported yet`,
 			);
 		}
-		return outgoing[0]?.to;
+		const to = outgoing[0]?.to;
+		return byId.get(to ?? "")?.type === BlockTypes.errorHandler ? undefined : to;
 	}
 
 	function validateEdges() {
@@ -320,7 +330,9 @@ export function compileGraph(
 
 		visiting.add(id);
 		emissionOrder.push(id);
-		for (const edge of edgeMap[id] ?? []) collectReachable(edge.to);
+		for (const edge of edgeMap[id] ?? []) {
+			if (byId.get(edge.to)?.type !== BlockTypes.errorHandler) collectReachable(edge.to);
+		}
 		visiting.delete(id);
 		reachable.add(id);
 	}
