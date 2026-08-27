@@ -334,6 +334,28 @@ export function canvasChangesFromPayload(
 			},
 		}));
 
+	/**
+	 * Blocks nothing may point at.
+	 *
+	 * A request enters at the entrypoint and the engine jumps to the error
+	 * handler on failure — neither is reached by an edge, and the editor gives
+	 * neither an inbound socket, so a user cannot draw one. An agent restating a
+	 * whole canvas invents one anyway, and the cost is not cosmetic: the compiler
+	 * has no codegen for an error handler reached as an ordinary block, so one
+	 * such edge stops the entire route compiling with "No codegen for block type:
+	 * error_handler".
+	 */
+	const inboundRefused = new Set<string>([
+		BlockTypes.entrypoint,
+		BlockTypes.errorHandler,
+	]);
+	const typeById = new Map<string, string>([
+		...existing.blocks.map((b) => [b.id, b.type] as const),
+		...blocks.map((b) => [b.id, b.type] as const),
+	]);
+	const acceptsInbound = (id: string) =>
+		!inboundRefused.has(typeById.get(id) ?? "");
+
 	const edges: CanvasChanges["changes"]["edges"] = [];
 	const deletedEdgeIds = new Set<string>();
 	const seen = new Set<string>();
@@ -376,6 +398,9 @@ export function canvasChangesFromPayload(
 			if (removed.has(connection.blockId)) continue;
 			const from = idFor(block.id);
 			const to = idFor(connection.blockId);
+			// Dropped before `replaceStoredHandle`: a refused edge must not take the
+			// real connection on that handle down with it.
+			if (!acceptsInbound(to)) continue;
 			const handle = connection.handle ?? "source";
 			// New blocks cannot have stale edges. For stored blocks, each declared
 			// connection is an explicit replacement for its output handle.
@@ -388,6 +413,7 @@ export function canvasChangesFromPayload(
 		if (change?.type !== "edge_swap") continue;
 		const { fromEdge, fromHandle, toEdge, toHandle } = change.data ?? {};
 		if (!fromEdge || !toEdge || !known.has(fromEdge) || !known.has(toEdge)) continue;
+		if (!acceptsInbound(idFor(toEdge))) continue;
 		const from = idFor(fromEdge);
 		const handle = fullHandle(from, fromHandle, "source");
 		// Re-routing means the edge already off that handle now points elsewhere,
