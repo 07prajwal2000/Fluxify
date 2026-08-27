@@ -2,6 +2,7 @@ import { BaseAgent } from "./base";
 import { type GlobalGraphState, AgentNode } from "../types";
 import { dispatchAgentEvent } from "../callbacks";
 import { blockAiDescriptions } from "@fluxify/blocks";
+import type { ApplyMode } from "../queue";
 import { z } from "zod";
 
 function buildBlockCatalogTable(): string {
@@ -33,6 +34,12 @@ const routerSchema = z.object({
 		.describe(
 			"Human-readable reason if the build request was rejected. Must be provided if capable is false.",
 		),
+	simple: z
+		.boolean()
+		.default(false)
+		.describe(
+			"Only meaningful when intent is 'builder' and capable is true: true when the request targets exactly ONE route or ONE custom block and says clearly enough what to build. False when unsure.",
+		),
 	scratchpad: z
 		.string()
 		.nullish()
@@ -40,6 +47,19 @@ const routerSchema = z.object({
 			"A scratchpad note for descendant AI agents. Use this to pass important context, warnings, or missing integration info. Fill only if required.",
 		),
 });
+
+/** A single-target build needs no written plan, so it goes straight to task
+ * generation and saves the planner's call. "plan" mode is the user asking for a
+ * plan outright, which no complexity judgement may override. */
+export function shouldSkipPlanner(
+	intent: "discussion" | "builder",
+	rejected: boolean,
+	simple: boolean,
+	applyMode: ApplyMode | undefined,
+): boolean {
+	if (intent !== "builder" || rejected || !simple) return false;
+	return applyMode !== "plan";
+}
 
 export class RouterAgent extends BaseAgent {
 	constructor(state: GlobalGraphState) {
@@ -103,6 +123,13 @@ Some blocks (especially Database blocks) require an \`integration ID\` (a connec
 - Do NOT reject the request.
 - Instead, note in the 'scratchpad' that the user will need to configure the required integration and link it to the relevant block.
 
+## Simple Check (only when intent is "builder" and capable is true)
+A simple request skips plan writing and goes straight to task generation, so judge it strictly.
+- **simple: true** only when the request targets exactly ONE route or ONE custom block AND states clearly enough what it should do.
+- **simple: false** when it touches more than one resource, when what to build is vague, or whenever you are unsure.
+When in doubt choose false. A wrong \`true\` produces a half-built result; a wrong \`false\` only costs a little extra time.
+For "discussion" always set \`simple: false\`.
+
 ### Decision Rules
 1. **capable: true** if the request clearly maps to creating/editing routes or custom blocks using the available blocks.
 2. **capable: true** if the request asks to view integrations or app configuration.
@@ -131,6 +158,13 @@ CRITICAL INSTRUCTIONS:
 		// out-of-scope questions safely and needs no capability gate.
 		const rejected = response.intent === "builder" && !response.capable;
 
+		const fastPath = shouldSkipPlanner(
+			response.intent,
+			rejected,
+			response.simple,
+			this.state.internal?.metadata?.applyMode,
+		);
+
 		await dispatchAgentEvent({
 			name: "agent_status",
 			data: {
@@ -147,12 +181,15 @@ CRITICAL INSTRUCTIONS:
 			nextRoute: rejected
 				? undefined
 				: response.intent === "builder"
-					? AgentNode.PLANNER
+					? fastPath
+						? AgentNode.TASK_GENERATOR
+						: AgentNode.PLANNER
 					: AgentNode.DISCUSSION,
 			routerState: {
 				intent: response.intent,
 				reason: response.reason,
 				capable: !rejected,
+				simple: fastPath,
 				rejectReason: rejected
 					? (response.rejectReason ?? response.reason)
 					: undefined,

@@ -74,9 +74,13 @@ const workflow = new StateGraph(GraphState)
 	})
 	// The router is also the capability gate: an unbuildable request leaves
 	// `nextRoute` unset and ends the run with `routerState.rejectReason`.
+	// A single-target build skips the planner and is broken into tasks directly;
+	// the task generator hands it back to the planner if that turns out wrong.
 	.addConditionalEdges(AgentNode.ROUTER, (state: GlobalGraphState) => {
 		if (state.nextRoute === AgentNode.PLANNER) {
 			return AgentNode.PLANNER;
+		} else if (state.nextRoute === AgentNode.TASK_GENERATOR) {
+			return AgentNode.TASK_GENERATOR;
 		} else if (state.nextRoute === AgentNode.DISCUSSION) {
 			return AgentNode.DISCUSSION;
 		}
@@ -94,6 +98,11 @@ const workflow = new StateGraph(GraphState)
 	.addConditionalEdges(AgentNode.TASK_GENERATOR, (state: GlobalGraphState) => {
 		if (state.nextRoute === AgentNode.ORCHESTRATOR) {
 			return AgentNode.ORCHESTRATOR;
+		}
+		// Escalation from the planner-less fast path. Only reachable once: the
+		// planner leaves a plan behind, and a plan disables the escalate branch.
+		if (state.nextRoute === AgentNode.PLANNER) {
+			return AgentNode.PLANNER;
 		}
 		return END;
 	})
