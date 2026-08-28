@@ -1,11 +1,40 @@
-import { Queue } from "bullmq";
 import { logger } from "@fluxify/common";
-import { REDIS_HOST, REDIS_PASS, REDIS_PORT, REDIS_USER } from "../lib/env";
+import { ensureWorkQueue, type WorkQueueSpec } from "@fluxify/server";
 import type { HitlPlanAction } from "./internal/harnessService";
 
-export const HARNESS_QUEUE_NAME = "AGENT_HARNESS_QUEUE";
-export const HARNESS_START_JOB = "HARNESS_START_JOB";
-export const HARNESS_CONTINUE_JOB = "HARNESS_CONTINUE_JOB";
+/**
+ * Harness jobs travel on a JetStream work queue. Requests survive a gateway
+ * restart, several gateway replicas share one durable consumer (that is the
+ * load balancing), and a run is handled exactly once.
+ */
+
+export const HARNESS_STREAM = "FLUXIFY_HARNESS";
+export const HARNESS_CONSUMER = "fluxify_harness";
+
+const SUBJECT_ROOT = "fluxify.harness";
+/** everything the harness worker consumes */
+export const HARNESS_SUBJECTS = [`${SUBJECT_ROOT}.>`];
+
+export const harnessStartSubject = (conversationId: string) =>
+	`${SUBJECT_ROOT}.start.${conversationId}`;
+export const harnessContinueSubject = (conversationId: string) =>
+	`${SUBJECT_ROOT}.continue.${conversationId}`;
+
+export const HARNESS_QUEUE: WorkQueueSpec = {
+	stream: HARNESS_STREAM,
+	subjects: HARNESS_SUBJECTS,
+	consumer: HARNESS_CONSUMER,
+	// A run is expensive and not idempotent: replaying one from the top after a
+	// worker dies would re-spend the tokens and re-emit every step. The user
+	// re-sends instead. Acking on dispatch (see worker.ts) makes this explicit.
+	maxDeliver: 1,
+	// Only covers the window between delivery and the dispatch ack, not the run.
+	ackWaitMs: 30_000,
+	// Guards a *retried publish* of one intent. It is not what stops a second
+	// run on a conversation — the two DB claims do that (see enqueue.ts).
+	dedupeWindowMs: 2 * 60_000,
+	maxAgeMs: 60 * 60_000,
+};
 
 export interface HarnessJobMetadata {
 	projectId?: string;
@@ -49,28 +78,17 @@ export interface HarnessJobData {
 	query?: string;
 	action?: HitlPlanAction;
 	metadata?: HarnessJobMetadata;
+	/** `Nats-Msg-Id` of this publish; carried for log correlation. */
+	idempotencyKey?: string;
 }
-
-function connection() {
-	return {
-		host: REDIS_HOST,
-		port: parseInt(REDIS_PORT),
-		password: REDIS_PASS,
-		username: REDIS_USER,
-	};
-}
-
-export let harnessQueue: Queue<HarnessJobData> = null!;
 
 let initialized = false;
 
-export function initializeHarnessQueue() {
+/** Declares the stream + durable consumer. Idempotent; called from both the
+ *  API thread (publisher) and the worker thread (consumer). */
+export async function initializeHarnessQueue() {
 	if (initialized) return;
-
-	harnessQueue = new Queue<HarnessJobData>(HARNESS_QUEUE_NAME, {
-		connection: connection(),
-	});
-
+	await ensureWorkQueue(HARNESS_QUEUE);
 	initialized = true;
 	logger.info("Initialized", "HarnessQueue");
 }

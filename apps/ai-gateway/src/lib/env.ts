@@ -45,6 +45,15 @@ export const aiGatewayEnvSchema = baseEnvSchema.extend({
 		)
 		.describe("Sampling rate for LLM traces (0.0 to 1.0)"),
 
+	HARNESS_CONCURRENT_JOBS: z
+		.string()
+		.optional()
+		.refine(
+			(val) => !val || (Number.isInteger(Number(val)) && Number(val) >= 1 && Number(val) <= 100),
+			{ message: "HARNESS_CONCURRENT_JOBS must be an integer between 1 and 100" },
+		)
+		.describe("Harness runs one gateway worker executes at once (1-100, default 10)"),
+
 	DOCS_INDEX_FILE_PATH: z
 		.string()
 		.max(500)
@@ -78,6 +87,9 @@ export const REDIS_HOST = getEnv("REDIS_HOST")!;
 export const REDIS_PORT = getEnv("REDIS_PORT")!;
 export const REDIS_USER = getEnv("REDIS_USER")!;
 export const REDIS_PASS = getEnv("REDIS_PASS")!;
+/** How many harness runs one worker executes concurrently. Tune to available
+ *  memory and expected AI workload — every slot holds a full graph run. */
+export const HARNESS_CONCURRENT_JOBS = Number(getEnv("HARNESS_CONCURRENT_JOBS")) || 10;
 export const AI_GATEWAY_PORT = Number(getEnv("AI_GATEWAY_PORT")) || 8001;
 export const DOCS_INDEX_FILE_PATH =
 	getEnv("DOCS_INDEX_FILE_PATH")! || "../dist/docs-index.bin";

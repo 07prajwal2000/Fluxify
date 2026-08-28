@@ -35,7 +35,7 @@ initializeRedis(true);
 await initializePubSub();
 await drizzleInit(false);
 
-initializeHarnessQueue();
+await initializeHarnessQueue();
 
 if (isMainThread) {
 	// Spawn the worker thread targeting index.ts

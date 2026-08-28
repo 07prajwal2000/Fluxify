@@ -5,8 +5,8 @@ import { publishMessage, subscribeToChannel } from "@fluxify/server";
  * RUN INTERRUPT DELIVERY
  * ----------------------------------------------------------------------------
  * A run executes in the worker thread; the interrupt request arrives on the API
- * (main thread). BullMQ can't message a running job, so the request is delivered
- * over NATS: the API publishes `harness.interrupt.<conversationId>`, the worker
+ * (main thread). a work-queue job can't be messaged once it is running, so the request is
+ * delivered over NATS: the API publishes `harness.interrupt.<conversationId>`, the worker
  * subscribes and aborts the matching run's AbortController.
  * ========================================================================== */
 

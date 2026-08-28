@@ -8,7 +8,7 @@ import {
 	agentHarnessArtifactsEntity,
 	agentHarnessSubArtifactsEntity,
 } from "@fluxify/server";
-import { eq, and } from "drizzle-orm";
+import { eq, and, notInArray } from "drizzle-orm";
 import { logger } from "@fluxify/common";
 import type { BaseMessage } from "@langchain/core/messages";
 import type { GlobalGraphState } from "../types";
@@ -171,7 +171,9 @@ export class HarnessService {
 					userId: input.userId,
 					projectId: input.projectId,
 					title: input.title ?? "New Chat",
-					status: "running",
+					// `createRun` is the single place a conversation becomes `running`,
+					// and it does so conditionally — see the claim there.
+					status: "idle",
 					metadata: input.metadata,
 				})
 				.returning({ id: agentHarnessConversationsEntity.id });
@@ -190,13 +192,20 @@ export class HarnessService {
 	}
 
 	/**
-	 * Creates a new run for this conversation and marks it as the active run.
-	 * Returns the new runId. The run starts in `queued`.
+	 * Creates a new run for this conversation and claims the conversation for it.
+	 * Returns the new runId, or **null** when another run already holds the
+	 * conversation — the claim is a conditional UPDATE, so two requests racing
+	 * here (double click, retried POST) cannot both win. The loser's run row is
+	 * removed again, and the caller turns null into a 409.
+	 *
+	 * This claim, plus `claimRun` on the worker side, is what actually keeps one
+	 * run per conversation; the queue's message dedupe only covers a republished
+	 * message, never a second intent.
 	 */
 	async createRun(input: {
 		userQuery: string;
 		integrationId?: string;
-	}): Promise<string> {
+	}): Promise<string | null> {
 		try {
 			const [run] = await db
 				.insert(agentHarnessRunsEntity)
@@ -208,10 +217,29 @@ export class HarnessService {
 				})
 				.returning({ id: agentHarnessRunsEntity.id });
 
-			await db
+			const claimed = await db
 				.update(agentHarnessConversationsEntity)
 				.set({ activeRunId: run.id, status: "running", updatedAt: new Date() })
-				.where(eq(agentHarnessConversationsEntity.id, this.conversationId));
+				.where(
+					and(
+						eq(agentHarnessConversationsEntity.id, this.conversationId),
+						notInArray(agentHarnessConversationsEntity.status, [
+							"running",
+							"paused_hitl",
+						]),
+					),
+				)
+				.returning({ id: agentHarnessConversationsEntity.id });
+
+			if (claimed.length === 0) {
+				await db
+					.delete(agentHarnessRunsEntity)
+					.where(eq(agentHarnessRunsEntity.id, run.id));
+				logger.warn("[HarnessService] Conversation already has a live run", {
+					conversationId: this.conversationId,
+				});
+				return null;
+			}
 
 			logger.info("[HarnessService] Run created", {
 				runId: run.id,
@@ -225,6 +253,52 @@ export class HarnessService {
 			});
 			throw error;
 		}
+	}
+
+	/**
+	 * Claims a parked conversation for a `continue`: `paused_hitl` -> `running`,
+	 * only while `runId` is still the active run. False means the HITL decision
+	 * lost a race (the user double-submitted, or the run moved on), and the
+	 * caller must not queue the job.
+	 */
+	async claimConversationForContinue(runId: string): Promise<boolean> {
+		const claimed = await db
+			.update(agentHarnessConversationsEntity)
+			.set({ status: "running", updatedAt: new Date() })
+			.where(
+				and(
+					eq(agentHarnessConversationsEntity.id, this.conversationId),
+					eq(agentHarnessConversationsEntity.status, "paused_hitl"),
+					eq(agentHarnessConversationsEntity.activeRunId, runId),
+				),
+			)
+			.returning({ id: agentHarnessConversationsEntity.id });
+		return claimed.length > 0;
+	}
+
+	/**
+	 * Worker-side idempotency gate: moves the run out of its pre-execution status
+	 * in one conditional UPDATE. False means this job must not run — the message
+	 * was delivered twice, or the run was already picked up, finished or
+	 * interrupted. Called before any model work, so a duplicate costs a query
+	 * rather than a run's worth of tokens.
+	 */
+	async claimRun(
+		runId: string,
+		from: "queued" | "awaiting_hitl",
+		to: "routing" | "executing",
+	): Promise<boolean> {
+		const claimed = await db
+			.update(agentHarnessRunsEntity)
+			.set({ status: to, updatedAt: new Date() })
+			.where(
+				and(
+					eq(agentHarnessRunsEntity.id, runId),
+					eq(agentHarnessRunsEntity.status, from),
+				),
+			)
+			.returning({ id: agentHarnessRunsEntity.id });
+		return claimed.length > 0;
 	}
 
 	/** Updates the conversation-level status. */
