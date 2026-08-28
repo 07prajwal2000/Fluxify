@@ -10,8 +10,8 @@ did not survive reconnects and scaled poorly (single QueueEvents connection per
 process, no cross-instance fan-out). A user can also run **multiple** harness
 sessions at once, so updates are keyed per **conversation owner**, not per job.
 
-BullMQ still owns **triggering** runs (persistent, retry-safe). Only the
-**progress stream** moved to NATS.
+Triggering runs moved to NATS JetStream too (see `harness/queue.ts`); this
+document covers only the **progress stream**.
 
 ## Subject scheme
 
@@ -64,7 +64,7 @@ Nothing new was added to the server package.
 ## Producer side (worker thread)
 
 ```
-BullMQ job → FluxifyHarness.executeGraph
+JetStream job → FluxifyHarness.executeGraph
   └─ getOwnerUserId() once per run  (conversations.userId, FK → system_users)
   └─ HarnessCallbacks.emit(event)   per node lifecycle event
   └─ emitTerminal(event)            on completed / failed / awaiting_hitl

@@ -72,8 +72,8 @@ export interface HarnessCallbackContext {
  * `graph.streamEvents`. Each node execution:
  *  - upserts a step + saves live working-memory to Postgres (HarnessService)
  *  - caches a structured event to Redis (RedisService)
- *  - pushes the event through the BullMQ job (job.updateProgress) which the
- *    QueueEvents -> EventEmitter bridge fans out to SSE subscribers.
+ *  - publishes the event on NATS (`conversations.<userId>`), which the SSE
+ *    endpoint fans out to subscribers.
  */
 export class HarnessCallbacks {
 	protected state: Partial<GlobalGraphState>;

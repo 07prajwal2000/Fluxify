@@ -1,10 +1,11 @@
 import { generateID } from "@fluxify/lib";
+import { ConflictError, publishJob } from "@fluxify/server";
 import { HarnessService, type HitlPlanAction } from "./harnessService";
 import { RedisService } from "./redisService";
 import {
-	harnessQueue,
-	HARNESS_START_JOB,
-	HARNESS_CONTINUE_JOB,
+	harnessContinueSubject,
+	harnessStartSubject,
+	type HarnessJobData,
 	type HarnessJobMetadata,
 } from "../queue";
 
@@ -28,9 +29,22 @@ export interface EnqueueContinueParams {
 }
 
 /**
- * Bootstraps a conversation + run and enqueues a `start` job. Returns the ids so
- * the caller can subscribe to the harness event emitter by conversationId.
- * (Used by demo.ts now; API endpoints will call this later.)
+ * `Nats-Msg-Id` for one publish. Unique per *intent*, so the stream's dedupe
+ * window swallows a republish of the same message (an ambiguous publish that the
+ * caller retried) without ever swallowing a second, legitimate HITL decision on
+ * the same run.
+ */
+function idempotencyKey(type: HarnessJobData["type"], runId: string): string {
+	return `${type}:${runId}:${generateID()}`;
+}
+
+/**
+ * Bootstraps a conversation + run and queues a `start` job. Returns the ids so
+ * the caller can subscribe to the run's events by conversationId.
+ *
+ * Throws `ConflictError` when the conversation already has a live run — the
+ * claim inside `createRun` is atomic, unlike the status check the API does
+ * first, so this is the one that survives two requests arriving together.
  */
 export async function enqueueHarnessStart(
 	params: EnqueueStartParams,
@@ -47,32 +61,42 @@ export async function enqueueHarnessStart(
 		userQuery: params.query,
 		integrationId: params.integrationId,
 	});
+	if (!runId) {
+		throw new ConflictError("This conversation already has a run in progress");
+	}
 	await new RedisService().setActiveRun(conversationId, runId);
 
-	await harnessQueue.add(
-		HARNESS_START_JOB,
+	const key = idempotencyKey("start", runId);
+	await publishJob<HarnessJobData>(
+		harnessStartSubject(conversationId),
 		{
 			type: "start",
 			conversationId,
 			runId,
 			query: params.query,
 			metadata: params.metadata,
+			idempotencyKey: key,
 		},
-		// jobId = conversationId: one active run per conversation, and the running
-		// job is addressable by conversationId. Removed on finish so the next
-		// message/continue can reuse the id.
-		{ jobId: conversationId, removeOnComplete: true, removeOnFail: true },
+		{ msgId: key },
 	);
 
 	return { conversationId, runId };
 }
 
-/** Enqueues a `continue` job to resume a parked (awaiting_hitl) run. */
+/** Queues a `continue` job to resume a parked (awaiting_hitl) run. Throws
+ *  `ConflictError` when the run is no longer parked or has moved on. */
 export async function enqueueHarnessContinue(
 	params: EnqueueContinueParams,
 ): Promise<{ conversationId: string; runId: string }> {
-	await harnessQueue.add(
-		HARNESS_CONTINUE_JOB,
+	const service = new HarnessService(params.conversationId);
+	const claimed = await service.claimConversationForContinue(params.runId);
+	if (!claimed) {
+		throw new ConflictError("Conversation is not awaiting review");
+	}
+
+	const key = idempotencyKey("continue", params.runId);
+	await publishJob<HarnessJobData>(
+		harnessContinueSubject(params.conversationId),
 		{
 			type: "continue",
 			conversationId: params.conversationId,
@@ -80,8 +104,9 @@ export async function enqueueHarnessContinue(
 			query: params.query,
 			action: params.action,
 			metadata: params.metadata,
+			idempotencyKey: key,
 		},
-		{ jobId: params.conversationId, removeOnComplete: true, removeOnFail: true },
+		{ msgId: key },
 	);
 
 	return { conversationId: params.conversationId, runId: params.runId };

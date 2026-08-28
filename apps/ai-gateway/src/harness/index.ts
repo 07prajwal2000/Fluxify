@@ -319,7 +319,7 @@ export class FluxifyHarness {
 			await callbacks.flush().catch(() => {});
 
 			// User interrupt is a clean terminal, not a failure — finalize as
-			// `interrupted` and don't rethrow (so BullMQ doesn't retry the job).
+			// `interrupted` and don't rethrow (nothing to retry; the job is already acked).
 			// A bare AbortError only means "interrupted" if this run's controller
 			// actually fired — provider-side timeouts abort too, and those are
 			// failures, not user stops.

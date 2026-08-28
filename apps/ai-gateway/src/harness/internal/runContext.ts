@@ -1,5 +1,4 @@
-import type { Job } from "bullmq";
-import type { HarnessJobData, HarnessJobMetadata } from "../queue";
+import type { HarnessJobMetadata } from "../queue";
 import type { HitlPlanAction } from "./harnessService";
 
 /** Everything one harness pass needs to identify and describe itself. Lives
@@ -11,5 +10,4 @@ export interface HarnessRunContext {
 	query?: string;
 	action?: HitlPlanAction;
 	metadata?: HarnessJobMetadata;
-	job?: Job<HarnessJobData>;
 }
