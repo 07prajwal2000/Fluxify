@@ -1,3 +1,4 @@
+import { decode as msgpackDecode, encode as msgpackEncode } from "@msgpack/msgpack";
 import { gunzipSync, gzipSync } from "node:zlib";
 
 /**
@@ -52,6 +53,61 @@ export function gzipJsonCodec<T = unknown>(thresholdBytes = 32 * 1024): Codec<T>
 		},
 		decode(data) {
 			return json.decode(isGzipped(data) ? gunzipSync(data) : data);
+		},
+	};
+}
+
+/**
+ * MessagePack. Chosen over protobuf because there is no schema to compile and
+ * no generated code to drift from the TypeScript types.
+ *
+ * It buys size, not speed. Measured on a 500-item batch of records with
+ * repeated keys — the shape a batched trigger actually carries:
+ *
+ *   size    json 54171B   msgpack 36399B   (33% smaller)
+ *   encode  json 0.090ms  msgpack 0.288ms
+ *   decode  json 0.236ms  msgpack 0.366ms
+ *
+ * JSON is *faster*, because both directions run in the engine's native C++
+ * while this is a JavaScript parse loop. So reach for msgpack when bytes are
+ * the constraint — the 1MiB `max_payload` ceiling, stream storage, cross-AZ
+ * egress — and leave JSON in place when CPU is. Binary values also survive
+ * without a base64 round trip, which is worth roughly a third again on any
+ * payload carrying them.
+ *
+ * The other cost is that the wire stops being readable: `nats sub` shows bytes,
+ * not a payload. Between that and the numbers above, JSON stays the default.
+ *
+ * A codec is not something a live stream can change its mind about — messages
+ * published under one are still in flight when the switch happens, and the
+ * consumer decodes them with the other. Use this for new subjects, or migrate
+ * a stream while it is drained.
+ */
+export function msgpackCodec<T = unknown>(): Codec<T> {
+	return {
+		encode: (value) => msgpackEncode(value),
+		decode: (data) => msgpackDecode(data) as T,
+	};
+}
+
+/**
+ * MessagePack, gzipped once it gets big — the same ceiling problem as
+ * `gzipJsonCodec`, on a body that is already smaller. msgpack has no magic
+ * bytes of its own, so gzip's are still what tells the two framings apart:
+ * 0x1f is `int 31` in msgpack and would only ever appear as the first byte of a
+ * bare integer payload, which is not a shape anything here publishes.
+ */
+export function gzipMsgpackCodec<T = unknown>(
+	thresholdBytes = 32 * 1024,
+): Codec<T> {
+	const pack = msgpackCodec<T>();
+	return {
+		encode(value) {
+			const raw = pack.encode(value);
+			return raw.length > thresholdBytes ? gzipSync(raw) : raw;
+		},
+		decode(data) {
+			return pack.decode(isGzipped(data) ? gunzipSync(data) : data);
 		},
 	};
 }

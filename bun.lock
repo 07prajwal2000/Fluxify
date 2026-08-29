@@ -263,6 +263,7 @@
       "name": "@fluxify/common",
       "version": "1.0.0",
       "dependencies": {
+        "@msgpack/msgpack": "3.1.3",
         "@nats-io/jetstream": "3.4.0",
         "@nats-io/kv": "3.4.0",
         "@nats-io/nats-core": "3.4.0",
