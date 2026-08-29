@@ -42,9 +42,9 @@ export async function watchArtifacts<T>(
 	options: { includeExisting?: boolean } = {},
 ) {
 	const store = await artifactStore();
-	return store.watch(
-		filter,
-		onChange as (key: string, value: unknown) => void | Promise<void>,
-		{ includeExisting: options.includeExisting === true },
-	);
+	// The bucket is JSON, so a decoded value is `unknown` and the caller names
+	// the shape it expects. The cast belongs on the value, not the callback.
+	return store.watch(filter, (key, value) => onChange(key, value as T | null), {
+		includeExisting: options.includeExisting === true,
+	});
 }
