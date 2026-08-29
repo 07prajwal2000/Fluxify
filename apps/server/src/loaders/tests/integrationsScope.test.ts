@@ -22,13 +22,18 @@ describe("integration ownership", () => {
 		expect(ownsIntegration(owned("p1"), "p1")).toBe(true);
 	});
 
+	// The cache is module-level and `bun test` shares one process, so any other
+	// file that hydrates lands in it too. Assert on this test's own keys rather
+	// than the whole cache — a full-cache assertion breaks on whoever ran first.
 	it("merges per project instead of replacing the cache", () => {
 		hydrateIntegrations("p1", { db: { a: owned("p1") } });
 		hydrateIntegrations("p2", { db: { b: owned("p2") } });
-		expect(Object.keys(dbIntegrationsCache).sort()).toEqual(["a", "b"]);
+		expect(dbIntegrationsCache.a).toBeDefined();
+		expect(dbIntegrationsCache.b).toBeDefined();
 
 		// re-publishing p1 without `a` drops it, and leaves p2 alone
 		hydrateIntegrations("p1", { db: {} });
-		expect(Object.keys(dbIntegrationsCache)).toEqual(["b"]);
+		expect(dbIntegrationsCache.a).toBeUndefined();
+		expect(dbIntegrationsCache.b).toBeDefined();
 	});
 });
