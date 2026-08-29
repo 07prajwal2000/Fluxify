@@ -1,11 +1,16 @@
 import { z } from "zod";
 
 /**
- * The one canvas contract. A route canvas and a custom block canvas are the
- * same graph — blocks with positions, edges with handles — so they share this
- * schema, the storage behind it, and the service that mutates it.
+ * The one canvas contract. A route canvas, a custom block canvas and a workflow
+ * canvas are the same graph — blocks with positions, edges with handles — so
+ * they share this schema, the storage behind it, and the service that mutates
+ * it. Adding a parent is a value here plus a row in `parentTables`.
  */
-export const canvasParentTypeSchema = z.enum(["route", "custom_block"]);
+export const canvasParentTypeSchema = z.enum([
+	"route",
+	"custom_block",
+	"workflow",
+]);
 export type CanvasParentType = z.infer<typeof canvasParentTypeSchema>;
 
 export type CanvasParent = { type: CanvasParentType; id: string };

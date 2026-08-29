@@ -266,6 +266,57 @@ export const routesEntity = pgTable(
 	],
 );
 
+/**
+ * A workflow is a background DAG: same canvas, same compiler, no HTTP surface.
+ *
+ * It is deliberately not a row in `routes` with a flag. A route is defined by
+ * how it is addressed — method, path, request schemas — and a workflow has none
+ * of that; it is addressed by a trigger. Sharing the table would mean six
+ * always-null columns and every route query growing a filter it can forget.
+ *
+ * The canvas itself is not duplicated: blocks and edges point here through a
+ * third parent, exactly as custom blocks do.
+ */
+export const workflowsEntity = pgTable(
+	"workflows",
+	{
+		id: varchar({ length: 50 })
+			.primaryKey()
+			.$defaultFn(() => generateID()),
+		name: varchar({ length: 255 }),
+		description: text(),
+		active: boolean().default(false),
+		projectId: varchar("project_id", { length: 50 })
+			.references(() => projectsEntity.id, {
+				onDelete: "cascade",
+			})
+			.default(sql`NULL`),
+		/**
+		 * Input contract for a run. A trigger — or a manual test run — supplies the
+		 * payload, and this validates it the way `bodySchema` validates a request.
+		 */
+		payloadSchema: jsonb("payload_schema"),
+		/** CPU-stall budget. A background job may legitimately want more than a request. */
+		timeoutSeconds: integer("timeout_seconds").default(300).notNull(),
+		/** Same two independent switches as a route — see `routesEntity`. */
+		tracingEnabled: boolean("tracing_enabled").default(false).notNull(),
+		recordExecution: boolean("record_execution").default(false).notNull(),
+		createdAt: timestamp("created_at").defaultNow().notNull(),
+		createdBy: varchar("created_by", { length: 50 }),
+		updatedAt: timestamp("updated_at")
+			.defaultNow()
+			.notNull()
+			.$onUpdate(() => new Date()),
+	},
+	(table) => [
+		index("idx_workflows_project_id").on(table.projectId),
+		index("idx_workflows_name_fts").using(
+			"gin",
+			sql`to_tsvector('english', ${table.name})`,
+		),
+	],
+);
+
 export const blocksEntity = pgTable(
 	"blocks",
 	{
@@ -292,20 +343,27 @@ export const blocksEntity = pgTable(
 				onDelete: "cascade",
 			},
 		),
+		workflowId: varchar("workflow_id", { length: 50 }).references(
+			() => workflowsEntity.id,
+			{
+				onDelete: "cascade",
+			},
+		),
 		// Read surface for the unified canvas: one pair of columns to filter on,
 		// whatever the canvas belongs to. Kept as generated columns so the real
 		// foreign keys (and their ON DELETE CASCADE) still own integrity — a bare
 		// polymorphic parent_id cannot cascade.
 		parentType: varchar("parent_type", { length: 20 }).generatedAlwaysAs(
-			sql`CASE WHEN custom_block_id IS NOT NULL THEN 'custom_block' ELSE 'route' END`,
+			sql`CASE WHEN custom_block_id IS NOT NULL THEN 'custom_block' WHEN workflow_id IS NOT NULL THEN 'workflow' ELSE 'route' END`,
 		),
 		parentId: varchar("parent_id", { length: 50 }).generatedAlwaysAs(
-			sql`COALESCE(route_id, custom_block_id)`,
+			sql`COALESCE(route_id, custom_block_id, workflow_id)`,
 		),
 	},
 	(table) => [
 		index("idx_blocks_route_id").on(table.routeId),
 		index("idx_blocks_custom_block_id").on(table.customBlockId),
+		index("idx_blocks_workflow_id").on(table.workflowId),
 		index("idx_blocks_parent").on(table.parentType, table.parentId),
 	],
 );
@@ -336,11 +394,17 @@ export const edgesEntity = pgTable(
 				onDelete: "cascade",
 			},
 		),
+		workflowId: varchar("workflow_id", { length: 50 }).references(
+			() => workflowsEntity.id,
+			{
+				onDelete: "cascade",
+			},
+		),
 		parentType: varchar("parent_type", { length: 20 }).generatedAlwaysAs(
-			sql`CASE WHEN custom_block_id IS NOT NULL THEN 'custom_block' ELSE 'route' END`,
+			sql`CASE WHEN custom_block_id IS NOT NULL THEN 'custom_block' WHEN workflow_id IS NOT NULL THEN 'workflow' ELSE 'route' END`,
 		),
 		parentId: varchar("parent_id", { length: 50 }).generatedAlwaysAs(
-			sql`COALESCE(route_id, custom_block_id)`,
+			sql`COALESCE(route_id, custom_block_id, workflow_id)`,
 		),
 	},
 	(table) => [
@@ -348,6 +412,7 @@ export const edgesEntity = pgTable(
 		index("idx_edges_to").on(table.to),
 		index("idx_edges_route_id").on(table.routeId),
 		index("idx_edges_custom_block_id").on(table.customBlockId),
+		index("idx_edges_workflow_id").on(table.workflowId),
 		index("idx_edges_parent").on(table.parentType, table.parentId),
 	],
 );

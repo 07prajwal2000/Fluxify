@@ -1,4 +1,5 @@
 import { and, count, eq, inArray, ne, sql } from "drizzle-orm";
+import type { PgTable } from "drizzle-orm/pg-core";
 import { BlockTypes } from "@fluxify/blocks";
 import { db, DbTransactionType } from "../../db";
 import {
@@ -6,6 +7,7 @@ import {
 	customBlocksListEntity,
 	edgesEntity,
 	routesEntity,
+	workflowsEntity,
 } from "../../db/schema";
 import type { CanvasParent } from "./types";
 
@@ -13,14 +15,39 @@ type BlockRow = typeof blocksEntity.$inferInsert;
 type EdgeRow = typeof edgesEntity.$inferInsert;
 
 /**
+ * The one place a canvas parent maps to storage: which table owns it, and which
+ * foreign key on `blocks`/`edges` points at it. A fourth parent is a row here.
+ */
+const parentTables = {
+	route: { table: routesEntity, column: "routeId" },
+	custom_block: { table: customBlocksListEntity, column: "customBlockId" },
+	workflow: { table: workflowsEntity, column: "workflowId" },
+} as const satisfies Record<
+	CanvasParent["type"],
+	{ table: PgTable & { id: any; projectId: any; updatedAt: any }; column: string }
+>;
+
+/** The table a parent of this type lives in. */
+export function parentTable(type: CanvasParent["type"]) {
+	return parentTables[type].table;
+}
+
+/**
  * `parent_type`/`parent_id` are generated columns, so writes still go through
- * the real foreign key — that is what keeps ON DELETE CASCADE working for both
- * parents. Reads filter on the generated pair.
+ * the real foreign key — that is what keeps ON DELETE CASCADE working for every
+ * parent. Reads filter on the generated pair.
  */
 export function parentKeys(parent: CanvasParent) {
-	return parent.type === "route"
-		? { routeId: parent.id, customBlockId: null }
-		: { routeId: null, customBlockId: parent.id };
+	const keys = { routeId: null, customBlockId: null, workflowId: null } as Record<
+		string,
+		string | null
+	>;
+	keys[parentTables[parent.type].column] = parent.id;
+	return keys as {
+		routeId: string | null;
+		customBlockId: string | null;
+		workflowId: string | null;
+	};
 }
 
 function ownedBy(
@@ -47,6 +74,7 @@ export async function upsertBlocks(blocks: BlockRow[], tx?: DbTransactionType) {
 				updatedAt: sql`excluded.updated_at`,
 				routeId: sql`excluded.route_id`,
 				customBlockId: sql`excluded.custom_block_id`,
+				workflowId: sql`excluded.workflow_id`,
 			},
 		});
 }
@@ -65,6 +93,7 @@ export async function upsertEdges(edges: EdgeRow[], tx?: DbTransactionType) {
 				toHandle: sql`excluded.to_handle`,
 				routeId: sql`excluded.route_id`,
 				customBlockId: sql`excluded.custom_block_id`,
+				workflowId: sql`excluded.workflow_id`,
 			},
 		});
 }
@@ -208,8 +237,7 @@ export async function parentExists(
 	tx?: DbTransactionType,
 ) {
 	const isSystemAdmin = projectIds.some((id) => id === "*");
-	const table =
-		parent.type === "route" ? routesEntity : customBlocksListEntity;
+	const table = parentTable(parent.type);
 	const rows = await (tx ?? db)
 		.select({ id: table.id })
 		.from(table)
@@ -240,7 +268,7 @@ export async function getProjectCustomBlocks(
 	parent: CanvasParent,
 	tx?: DbTransactionType,
 ): Promise<{ id: string; name: string }[]> {
-	const table = parent.type === "route" ? routesEntity : customBlocksListEntity;
+	const table = parentTable(parent.type);
 	return await (tx ?? db)
 		.select({ id: customBlocksListEntity.id, name: customBlocksListEntity.name })
 		.from(customBlocksListEntity)
@@ -283,8 +311,7 @@ export async function touchParent(
 	parent: CanvasParent,
 	tx?: DbTransactionType,
 ) {
-	const table =
-		parent.type === "route" ? routesEntity : customBlocksListEntity;
+	const table = parentTable(parent.type);
 	await (tx ?? db)
 		.update(table)
 		.set({ updatedAt: sql`now()` })
