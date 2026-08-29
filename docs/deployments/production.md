@@ -85,6 +85,36 @@ Because your routes own the whole URL path space, projects are told apart by
 
 ---
 
+## What a worker runs {#worker-mode}
+
+By default a worker does everything: it serves your project's HTTP routes and it
+runs that project's background workflows. That is the right setup for most
+deployments, and it needs no configuration.
+
+Set `WORKER_MODE` when you want to separate the two:
+
+| `WORKER_MODE` | Serves routes | Runs workflows |
+| --- | --- | --- |
+| `both` *(default)* | yes | yes |
+| `route` | yes | no |
+| `workflow` | no | yes |
+
+Splitting them is worth doing when background work is heavy enough to compete
+with traffic: give workflows their own worker service and the request workers
+stop sharing a CPU budget with a five-minute report build. It is the same worker
+image either way — only the setting differs.
+
+> [!IMPORTANT]
+> **All workers for one project must use the same mode.** A worker that finds
+> another mode already running for its project refuses to start and says so,
+> rather than joining in and running every workflow twice. To split a project,
+> change every worker of that project at once.
+
+An unrecognised value is rejected at boot instead of being treated as the
+default — a typo should not silently change what a machine runs.
+
+---
+
 ## Experimental CPU-stall protection
 
 Compiled workers normally run with no execution-watchdog overhead. To enable
@@ -358,7 +388,14 @@ cause. You can hit the probe directly from inside the network at
 
 **A worker exits immediately on start**
 It refuses to run without `WORKER_PROJECT_ID` or `MASTER_ENCRYPTION_KEY`, and
-says which one is missing in its logs. Both come from your shared `.env`.
+says which one is missing in its logs. Both come from your shared `.env`. A
+`WORKER_MODE` that is not `route`, `workflow` or `both` stops it the same way.
+
+**A second worker for a project will not start, complaining about a consumer**
+Two workers on one project are set to different modes. See
+[What a worker runs](#worker-mode) — every worker for a project has to agree.
+This is deliberate: the alternative is both of them running the same background
+job.
 
 **Routes save fine but never reach the workers**
 NATS needs JetStream enabled (`-js`). The bundled compose file sets this; if you
@@ -369,7 +406,7 @@ provision by hand, but they are what the `-js` flag is for:
 
 | Bucket | Holds |
 | --- | --- |
-| `fluxify_artifacts` | Compiled route artifacts, so a request worker serves traffic without a database. |
+| `fluxify_artifacts` | Compiled routes and workflows, so a worker runs them without a database. |
 | `fluxify_config` | Instance settings and other cross-node config, so a flag change reaches every process. |
 
 `fluxify_config` is a distribution layer, not storage — Postgres remains the
