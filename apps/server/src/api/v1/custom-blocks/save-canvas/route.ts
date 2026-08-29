@@ -9,7 +9,7 @@ import { requestBodySchema, requestParamSchema } from "./dto";
 import { validationErrorSchema } from "../../../../errors/validationError";
 import { errorSchema } from "../../../../errors/customError";
 import zodErrorCallbackParser from "../../../../middlewares/zodErrorCallbackParser";
-import { requestBodyValidator } from "./middleware";
+import { requestBodyValidator } from "../../../../modules/canvas/blockDataValidator";
 import handleRequest from "./service";
 import { HonoServer } from "../../../../types";
 

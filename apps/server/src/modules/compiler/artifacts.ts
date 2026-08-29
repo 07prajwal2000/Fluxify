@@ -32,6 +32,29 @@ export type RouteArtifact = {
 	compiledAt: string;
 };
 
+/**
+ * a workflow, ready to run: the compiled graph and the budget it runs under.
+ *
+ * Deliberately not a `RouteArtifact` with empty strings for method and path. A
+ * worker decides what to do with an artifact by its kind, and a route-shaped
+ * workflow would end up in the HTTP route table.
+ */
+export type WorkflowArtifact = {
+	workflowId: string;
+	projectId: string;
+	projectName: string;
+	name: string;
+	/** validated against the run payload before the job is queued */
+	payloadSchema?: unknown;
+	timeoutSeconds: number;
+	tracingEnabled: boolean;
+	recordExecution: boolean;
+	/** the compile timestamp, same story as `RouteArtifact.routeVersion` */
+	workflowVersion: string;
+	source: string;
+	compiledAt: string;
+};
+
 /** a custom block, compiled once and shared by every route in the project */
 export type CustomBlockArtifact = {
 	id: string;

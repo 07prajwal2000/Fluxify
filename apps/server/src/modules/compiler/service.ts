@@ -17,6 +17,7 @@ import {
 	httpRouteConfigEntity,
 	projectsEntity,
 	routesEntity,
+	workflowsEntity,
 } from "../../db/schema";
 import { acceptedContentTypes } from "../../lib/routeConfig";
 import { deleteArtifact, putArtifact } from "../../db/natsKv";
@@ -35,9 +36,15 @@ import type {
 	ProjectConfigArtifact,
 	ProjectConfigPayload,
 	RouteArtifact,
+	WorkflowArtifact,
 } from "./artifacts";
 import { EncryptionService } from "../../lib/encryption";
-import { customBlockKey, projectConfigKey, routeKey } from "./subjects";
+import {
+	customBlockKey,
+	projectConfigKey,
+	routeKey,
+	workflowKey,
+} from "./subjects";
 
 /**
  * The compiler is the only process that reads graphs from the database. It
@@ -65,8 +72,9 @@ export async function compileProject(projectId: string) {
 	await publishProjectConfig(projectId);
 	const blocks = await compileProjectCustomBlocks(projectId);
 	const routes = await compileProjectRoutes(projectId);
+	const workflows = await compileProjectWorkflows(projectId);
 	logger.info(
-		`[compiler] project ${projectId}: ${routes} routes, ${blocks} custom blocks`,
+		`[compiler] project ${projectId}: ${routes} routes, ${workflows} workflows, ${blocks} custom blocks`,
 		"COMPILER",
 	);
 }
@@ -80,6 +88,20 @@ export async function compileProjectRoutes(projectId: string) {
 		);
 	for (const route of routes) await compileRoute(route.id);
 	return routes.length;
+}
+
+export async function compileProjectWorkflows(projectId: string) {
+	const workflows = await db
+		.select({ id: workflowsEntity.id })
+		.from(workflowsEntity)
+		.where(
+			and(
+				eq(workflowsEntity.projectId, projectId),
+				eq(workflowsEntity.active, true),
+			),
+		);
+	for (const workflow of workflows) await compileWorkflow(workflow.id);
+	return workflows.length;
 }
 
 export async function compileProjectCustomBlocks(projectId: string) {
@@ -155,6 +177,63 @@ export async function compileRoute(routeId: string) {
 
 export async function dropRoute(projectId: string, routeId: string) {
 	await deleteArtifact(routeKey(projectId, routeId));
+}
+
+/**
+ * Compile one workflow and publish it; an inactive or deleted one is dropped.
+ *
+ * Same compiler, same artifact store, same custom block library as a route —
+ * only the entity it reads and the shape it publishes differ. Nothing about
+ * `compileGraph` knows the difference, and it must not need to.
+ */
+export async function compileWorkflow(workflowId: string) {
+	const [workflow] = await db
+		.select({
+			id: workflowsEntity.id,
+			name: workflowsEntity.name,
+			active: workflowsEntity.active,
+			projectId: workflowsEntity.projectId,
+			projectName: projectsEntity.name,
+			payloadSchema: workflowsEntity.payloadSchema,
+			timeoutSeconds: workflowsEntity.timeoutSeconds,
+			tracingEnabled: workflowsEntity.tracingEnabled,
+			recordExecution: workflowsEntity.recordExecution,
+		})
+		.from(workflowsEntity)
+		.leftJoin(projectsEntity, eq(workflowsEntity.projectId, projectsEntity.id))
+		.where(eq(workflowsEntity.id, workflowId));
+
+	if (!workflow || !workflow.active) {
+		logger.info(`[compiler] dropping workflow ${workflowId}`, "COMPILER");
+		if (workflow?.projectId) await dropWorkflow(workflow.projectId, workflowId);
+		return;
+	}
+
+	await ensureCustomBlocksRegistered(workflow.projectId!);
+
+	const { blocks, edges } = await loadGraph({ type: "workflow", id: workflowId });
+	const { source } = compileGraph(blocks, edges);
+
+	const compiledAt = new Date().toISOString();
+	const artifact: WorkflowArtifact = {
+		workflowId,
+		projectId: workflow.projectId!,
+		projectName: workflow.projectName ?? "",
+		name: workflow.name ?? "",
+		payloadSchema: workflow.payloadSchema,
+		timeoutSeconds: workflow.timeoutSeconds,
+		tracingEnabled: workflow.tracingEnabled,
+		recordExecution: workflow.recordExecution,
+		workflowVersion: compiledAt,
+		source,
+		compiledAt,
+	};
+	await putArtifact(workflowKey(workflow.projectId!, workflowId), artifact);
+	logger.info(`[compiler] compiled workflow ${workflow.name}`, "COMPILER");
+}
+
+export async function dropWorkflow(projectId: string, workflowId: string) {
+	await deleteArtifact(workflowKey(projectId, workflowId));
 }
 
 /** custom blocks being compiled right now — see `ensureCustomBlocksRegistered` */

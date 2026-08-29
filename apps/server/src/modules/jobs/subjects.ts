@@ -19,6 +19,9 @@ export const JOBS_SUBJECTS = `${SUBJECT_ROOT}.>`;
 /** serves every project — the catch-all worker deployment */
 export const ALL_PROJECTS = "*";
 
+/** Job kinds this build knows. `custom-block` lives in @fluxify/blocks. */
+export const WORKFLOW_JOB = "workflow";
+
 export const jobSubject = (projectId: string, kind: string) =>
 	`${SUBJECT_ROOT}.${projectId}.${kind}`;
 

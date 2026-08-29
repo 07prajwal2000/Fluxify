@@ -30,6 +30,7 @@ export type RpcCaller = { userId: string; projectIds: string[] };
 export const RPC_SUBJECTS = {
 	route: "fluxify.ops.route",
 	customBlock: "fluxify.ops.custom_block",
+	workflow: "fluxify.ops.workflow",
 	canvas: "fluxify.ops.canvas",
 } as const;
 

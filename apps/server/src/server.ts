@@ -122,9 +122,11 @@ async function main() {
 		const { registerCustomBlockResponder } = await import(
 			"./modules/ops/customBlock"
 		);
+		const { registerWorkflowResponder } = await import("./modules/ops/workflow");
 		registerCanvasResponder();
 		registerRouteResponder();
 		registerCustomBlockResponder();
+		registerWorkflowResponder();
 	}
 
 	if (builtinWorkerEnabled) {
