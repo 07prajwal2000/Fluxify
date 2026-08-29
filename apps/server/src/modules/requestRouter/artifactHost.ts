@@ -22,7 +22,7 @@ export async function watchProjectArtifacts(
 	projectId: string,
 	onChange: (entry: ArtifactEntry) => void,
 ) {
-	return watchArtifacts<any>(
+	return watchArtifacts<unknown>(
 		projectArtifactFilters(projectId),
 		(key, value) => onChange({ key, value: unseal(key, value) }),
 		{ includeExisting: true },
@@ -34,7 +34,7 @@ export async function watchProjectArtifacts(
  * access to every tenant's database password. It is decrypted here, in the
  * thread that has no user code in it.
  */
-function unseal(key: string, value: any | null) {
+function unseal(key: string, value: unknown) {
 	if (value === null || artifactKind(key) !== "project-config") return value;
 
 	const artifact = value as ProjectConfigArtifact;

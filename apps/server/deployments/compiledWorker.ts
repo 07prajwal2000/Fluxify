@@ -271,7 +271,7 @@ async function shutdown(sig: string) {
 	logger.info(`received ${sig} — shutting down`);
 	try {
 		execution?.kill();
-		artifactWatch.stop();
+		await artifactWatch.stop();
 		healthServer.stop(true);
 		await closeNats();
 	} catch (error) {

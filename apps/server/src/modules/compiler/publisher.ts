@@ -1,5 +1,5 @@
 import { logger } from "@fluxify/common";
-import { StringCodec } from "nats";
+import { publishToStream } from "@fluxify/common/nats";
 import { natsConnection } from "../../db/nats";
 import type { CompileRequest } from "./artifacts";
 import {
@@ -16,12 +16,9 @@ import {
  * restarting, the work is still waiting when it comes back.
  */
 
-const sc = StringCodec();
-
 async function request(subject: string, body: CompileRequest) {
 	try {
-		const js = natsConnection().jetstream();
-		await js.publish(subject, sc.encode(JSON.stringify(body)));
+		await publishToStream(natsConnection(), subject, body);
 	} catch (error) {
 		logger.error(
 			`[compiler] failed to queue ${subject}: ${String(error)}`,

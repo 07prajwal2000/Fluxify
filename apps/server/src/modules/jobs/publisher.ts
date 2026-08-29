@@ -1,10 +1,8 @@
 import { logger } from "@fluxify/common";
-import { StringCodec } from "nats";
+import { publishToStream } from "@fluxify/common/nats";
 import { natsConnection } from "../../db/nats";
 import { jobSubject } from "./subjects";
 import type { JobEnvelope } from "./types";
-
-const sc = StringCodec();
 
 export type JobInput = Omit<JobEnvelope, "id" | "enqueuedAt"> & {
 	/** Supply one to make a retry of the same logical work collapse. */
@@ -28,9 +26,7 @@ export async function enqueueJob(input: JobInput): Promise<JobEnvelope> {
 	};
 	const subject = jobSubject(job.projectId, job.kind);
 
-	await natsConnection()
-		.jetstream()
-		.publish(subject, sc.encode(JSON.stringify(job)), { msgID: job.id });
+	await publishToStream(natsConnection(), subject, job, { msgId: job.id });
 
 	logger.debug(`[jobs] queued ${subject} (${job.target})`, "JOBS.publish");
 	return job;

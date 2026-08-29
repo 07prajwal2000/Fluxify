@@ -1,5 +1,5 @@
 import { logger } from "@fluxify/common";
-import { AckPolicy, RetentionPolicy, StringCodec } from "nats";
+import { consumeQueue, ensureStreamConsumer } from "@fluxify/common/nats";
 import { natsConnection } from "../../db/nats";
 import {
 	CHAN_ON_APPCONFIG_CHANGE,
@@ -40,19 +40,38 @@ import {
  * redelivers rather than silently dropping the route.
  */
 
-const sc = StringCodec();
 let running = false;
 
 export async function startCompileWorker() {
 	if (running) return;
 	const nc = natsConnection();
-	const jsm = await nc.jetstreamManager();
 
-	await ensureStream(jsm);
-	await ensureConsumer(jsm);
+	await ensureStreamConsumer(
+		nc,
+		{
+			name: COMPILE_STREAM,
+			subjects: [COMPILE_SUBJECTS],
+			// work queue: a request is removed once acked, so a restart never
+			// replays every compile ever asked for
+			retention: "workqueue",
+			maxAgeMs: 24 * 60 * 60_000,
+		},
+		{
+			durable: COMPILE_CONSUMER,
+			ackWaitMs: 60_000, // compiling a large graph is not instant
+			maxDeliver: 5,
+		},
+	);
 
-	const consumer = await nc.jetstream().consumers.get(COMPILE_STREAM, COMPILE_CONSUMER);
-	const messages = await consumer.consume();
+	// A transient db blip must not leave a route uncompiled forever, so a throw
+	// is retried rather than dropped.
+	await consumeQueue<CompileRequest>(
+		nc,
+		COMPILE_STREAM,
+		COMPILE_CONSUMER,
+		(message) => handle(message.subject, message.data),
+		{ failure: "retry", maxAttempts: 5, retryDelayMs: 5000 },
+	);
 	running = true;
 	await bridgeChangeSignals();
 	logger.info("[compiler] compile worker listening", "COMPILER");
@@ -65,26 +84,9 @@ export async function startCompileWorker() {
 			logger.error(`[compiler] startup compile failed: ${String(error)}`, "COMPILER"),
 		);
 
-	(async () => {
-		for await (const message of messages) {
-			try {
-				await handle(message.subject, sc.decode(message.data));
-				message.ack();
-			} catch (error) {
-				logger.error(
-					`[compiler] ${message.subject} failed: ${String(error)}`,
-					"COMPILER",
-				);
-				// redelivered after the ack wait — a transient db blip should not
-				// leave a route uncompiled forever
-				message.nak(5000);
-			}
-		}
-	})();
 }
 
-async function handle(subject: string, body: string) {
-	const request = JSON.parse(body || "{}") as CompileRequest;
+async function handle(subject: string, request: CompileRequest) {
 	// fluxify.compile.<kind>.<id>
 	const [, , kind, id] = subject.split(".");
 
@@ -128,34 +130,4 @@ async function bridgeChangeSignals() {
 	await subscribeToChannel(CHAN_ON_PROJECT_SETTING_CHANGE, () =>
 		requestProjectConfigPublish(ALL_PROJECTS, "project settings changed"),
 	);
-}
-
-async function ensureStream(jsm: any) {
-	try {
-		await jsm.streams.add({
-			name: COMPILE_STREAM,
-			subjects: [COMPILE_SUBJECTS],
-			// work queue: a request is removed once acked, so a restart never
-			// replays every compile ever asked for
-			retention: RetentionPolicy.Workqueue,
-			max_age: 24 * 60 * 60 * 1_000_000_000, // 24h in ns
-		});
-	} catch {
-		await jsm.streams.update(COMPILE_STREAM, {
-			subjects: [COMPILE_SUBJECTS],
-		});
-	}
-}
-
-async function ensureConsumer(jsm: any) {
-	try {
-		await jsm.consumers.add(COMPILE_STREAM, {
-			durable_name: COMPILE_CONSUMER,
-			ack_policy: AckPolicy.Explicit,
-			ack_wait: 60 * 1_000_000_000, // compiling a large graph is not instant
-			max_deliver: 5,
-		});
-	} catch {
-		// already exists
-	}
 }

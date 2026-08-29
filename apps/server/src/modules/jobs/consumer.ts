@@ -1,5 +1,5 @@
 import { logger } from "@fluxify/common";
-import { AckPolicy, RetentionPolicy, StringCodec, type JsMsg } from "nats";
+import { consumeQueue, ensureStreamConsumer } from "@fluxify/common/nats";
 import { natsConnection } from "../../db/nats";
 import {
 	JOBS_STREAM,
@@ -37,7 +37,6 @@ export type JobWorkerOptions = {
 	maxAgeMs?: number;
 };
 
-const sc = StringCodec();
 const DEFAULTS = {
 	concurrency: 5,
 	ackWaitMs: 5 * 60_000,
@@ -57,61 +56,49 @@ export async function startJobWorker(options: JobWorkerOptions) {
 		handle: options.handle,
 	};
 	const nc = natsConnection();
-	const jsm = await nc.jetstreamManager();
+	const durable = jobConsumerName(config.projectId);
 
-	await ensureStream(jsm, config.maxAgeMs);
-	await ensureConsumer(jsm, config);
+	await ensureStreamConsumer(
+		nc,
+		{
+			name: JOBS_STREAM,
+			subjects: [JOBS_SUBJECTS],
+			// a job is work, not history: once acked it leaves the stream
+			retention: "workqueue",
+			maxAgeMs: config.maxAgeMs,
+			// publisher dedupe window for `msgID`
+			duplicateWindowMs: 2 * 60_000,
+		},
+		{
+			durable,
+			filterSubjects: [projectJobFilter(config.projectId)],
+			ackWaitMs: config.ackWaitMs,
+			maxDeliver: config.maxDeliver,
+			maxAckPending: config.concurrency,
+		},
+	);
 
-	const consumer = await nc
-		.jetstream()
-		.consumers.get(JOBS_STREAM, jobConsumerName(config.projectId));
-	const messages = await consumer.consume({ max_messages: config.concurrency });
+	await consumeQueue<JobEnvelope>(
+		nc,
+		JOBS_STREAM,
+		durable,
+		async (message) => {
+			message.data.attempt = message.attempt;
+			await config.handle(message.data);
+		},
+		{
+			concurrency: config.concurrency,
+			failure: "retry",
+			maxAttempts: config.maxDeliver,
+			retryDelayMs: config.retryDelayMs,
+			isPermanent,
+		},
+	);
 	running = true;
 	logger.info(
 		`[jobs] worker listening on ${projectJobFilter(config.projectId)}`,
 		"JOBS",
 	);
-
-	void (async () => {
-		const inFlight = new Set<Promise<void>>();
-		for await (const message of messages) {
-			// Bound the concurrency ourselves: `max_messages` limits what the server
-			// pushes, not what we start.
-			if (inFlight.size >= config.concurrency) await Promise.race(inFlight);
-			const task = settle(message, config).finally(() => inFlight.delete(task));
-			inFlight.add(task);
-		}
-		await Promise.allSettled(inFlight);
-	})();
-}
-
-async function settle(message: JsMsg, config: Required<JobWorkerOptions>) {
-	let job: JobEnvelope | undefined;
-	try {
-		job = JSON.parse(sc.decode(message.data)) as JobEnvelope;
-		job.attempt = message.info.redeliveryCount;
-		await config.handle(job);
-		message.ack();
-	} catch (error) {
-		const label = job ? `${job.kind}/${job.target}` : message.subject;
-		// Unparseable, or a kind nobody handles: retrying changes nothing.
-		if (!job || isPermanent(error)) {
-			logger.error(`[jobs] dropping ${label}: ${String(error)}`, "JOBS");
-			return message.term();
-		}
-		if (message.info.redeliveryCount >= config.maxDeliver) {
-			logger.error(
-				`[jobs] ${label} failed ${message.info.redeliveryCount} times, giving up: ${String(error)}`,
-				"JOBS",
-			);
-			return message.term();
-		}
-		logger.warn(
-			`[jobs] ${label} failed (attempt ${message.info.redeliveryCount}), retrying: ${String(error)}`,
-			"JOBS",
-		);
-		message.nak(config.retryDelayMs);
-	}
 }
 
 /** A handler can opt a failure out of retries by naming it. */
@@ -123,45 +110,4 @@ function stripUndefined<T extends object>(value: T): Partial<T> {
 	return Object.fromEntries(
 		Object.entries(value).filter(([, v]) => v !== undefined),
 	) as Partial<T>;
-}
-
-async function ensureStream(jsm: any, maxAgeMs: number) {
-	const spec = {
-		name: JOBS_STREAM,
-		subjects: [JOBS_SUBJECTS],
-		// a job is work, not history: once acked it leaves the stream
-		retention: RetentionPolicy.Workqueue,
-		max_age: maxAgeMs * 1_000_000, // ns
-		// publisher dedupe window for `msgID`
-		duplicate_window: 2 * 60 * 1_000_000_000,
-	};
-	try {
-		await jsm.streams.add(spec);
-	} catch {
-		await jsm.streams.update(JOBS_STREAM, {
-			subjects: spec.subjects,
-			max_age: spec.max_age,
-		});
-	}
-}
-
-async function ensureConsumer(jsm: any, config: Required<JobWorkerOptions>) {
-	const spec = {
-		durable_name: jobConsumerName(config.projectId),
-		ack_policy: AckPolicy.Explicit,
-		ack_wait: config.ackWaitMs * 1_000_000, // ns
-		max_deliver: config.maxDeliver,
-		filter_subject: projectJobFilter(config.projectId),
-		max_ack_pending: config.concurrency,
-	};
-	try {
-		await jsm.consumers.add(JOBS_STREAM, spec);
-	} catch {
-		// already exists — pick up changed limits without losing pending work
-		await jsm.consumers.update(JOBS_STREAM, spec.durable_name, {
-			ack_wait: spec.ack_wait,
-			max_deliver: spec.max_deliver,
-			max_ack_pending: spec.max_ack_pending,
-		});
-	}
 }

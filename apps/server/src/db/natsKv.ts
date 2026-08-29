@@ -1,51 +1,40 @@
-import { logger } from "@fluxify/common";
-import {
-	KvWatchInclude,
-	StringCodec,
-	type KV,
-	type KvEntry,
-} from "nats";
+import { openKvBucket, type KvBucket } from "@fluxify/common/nats";
 import { initializeNats } from "./nats";
 
 /**
  * Compiled artifacts live in a NATS KV bucket rather than the database, so a
- * request worker never needs a Postgres connection to serve traffic. KV is a
- * JetStream stream underneath, which is what makes `watch` possible: workers
- * subscribe to their project's key prefix and get every update pushed to them.
+ * request worker never needs a Postgres connection to serve traffic. The bucket
+ * mechanics are in `@fluxify/common/nats`; this file owns the bucket's name and
+ * the process-wide handle.
  */
 export const ARTIFACT_BUCKET = "fluxify_artifacts";
 
-const sc = StringCodec();
-let bucket: KV | null = null;
+let bucket: Promise<KvBucket<unknown>> | null = null;
 
-export async function artifactStore(): Promise<KV> {
-	if (bucket) return bucket;
-	const js = (await initializeNats()).jetstream();
-	// creates the bucket when missing; history 1 — only the current artifact matters
-	bucket = await js.views.kv(ARTIFACT_BUCKET, { history: 1 });
+export function artifactStore(): Promise<KvBucket<unknown>> {
+	// history 1 — only the current artifact matters
+	bucket ??= initializeNats().then((nc) =>
+		openKvBucket<unknown>(nc, ARTIFACT_BUCKET, { history: 1 }),
+	);
 	return bucket;
 }
 
 export async function putArtifact(key: string, value: unknown) {
-	const store = await artifactStore();
-	await store.put(key, sc.encode(JSON.stringify(value)));
+	await (await artifactStore()).put(key, value);
 }
 
 export async function getArtifact<T>(key: string): Promise<T | null> {
-	const store = await artifactStore();
-	const entry = await store.get(key);
-	if (!entry || entry.operation !== "PUT") return null;
-	return decode<T>(entry);
+	return (await artifactStore()).get(key) as Promise<T | null>;
 }
 
 export async function deleteArtifact(key: string) {
-	const store = await artifactStore();
-	await store.delete(key);
+	await (await artifactStore()).delete(key);
 }
 
 /**
- * Push updates for a key filter. Callers can request the initial replay and
- * await `initialized` before treating the watched state as complete.
+ * Push updates for a key filter. `initialized` resolves once every existing
+ * value has been delivered, so a worker can await a complete picture before
+ * serving traffic.
  */
 export async function watchArtifacts<T>(
 	filter: string | string[],
@@ -53,67 +42,9 @@ export async function watchArtifacts<T>(
 	options: { includeExisting?: boolean } = {},
 ) {
 	const store = await artifactStore();
-	const includeExisting = options.includeExisting === true;
-	let resolveInitialized: (() => void) | undefined;
-	let rejectInitialized: ((error: Error) => void) | undefined;
-	let initialized = !includeExisting;
-	const initialization = new Promise<void>((resolve, reject) => {
-		resolveInitialized = resolve;
-		rejectInitialized = reject;
+	// The bucket is JSON, so a decoded value is `unknown` and the caller names
+	// the shape it expects. The cast belongs on the value, not the callback.
+	return store.watch(filter, (key, value) => onChange(key, value as T | null), {
+		includeExisting: options.includeExisting === true,
 	});
-	const iterator = await store.watch({
-		key: filter,
-		// `initializedFn` signals replay completion; it does not disable replay.
-		include: includeExisting
-			? KvWatchInclude.LastValue
-			: KvWatchInclude.UpdatesOnly,
-		initializedFn: includeExisting
-			? () => {
-				initialized = true;
-				resolveInitialized?.();
-			}
-			: undefined,
-	});
-
-	void (async () => {
-		try {
-			for await (const entry of iterator) {
-				try {
-					await onChange(
-						entry.key,
-						entry.operation === "PUT" ? decode<T>(entry) : null,
-					);
-				} catch (error) {
-					logger.error(
-						`[KV] failed handling ${entry.key}: ${String(error)}`,
-						"KV.watch",
-					);
-				}
-			}
-		} catch (error) {
-			if (!initialized) {
-				rejectInitialized?.(
-					error instanceof Error ? error : new Error(String(error)),
-				);
-			}
-			logger.error(`[KV] artifact watch stopped: ${String(error)}`, "KV.watch");
-		} finally {
-			if (!initialized) {
-				rejectInitialized?.(
-					new Error("artifact watch stopped before initial replay completed"),
-				);
-			}
-		}
-	})();
-
-	return {
-		initialized: includeExisting ? initialization : Promise.resolve(),
-		stop: () => {
-			iterator.stop();
-		},
-	};
-}
-
-function decode<T>(entry: KvEntry): T {
-	return JSON.parse(sc.decode(entry.value)) as T;
 }

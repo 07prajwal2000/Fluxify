@@ -1,5 +1,10 @@
-import { closeNats, initializeNats, natsPublish, natsSubscribe } from "./nats";
+import { publish, subscribe } from "@fluxify/common/nats";
+import { closeNats, initializeNats, natsConnection } from "./nats";
 
+/**
+ * At-most-once change signals over core NATS. Anything that must survive a
+ * restart belongs on a JetStream stream instead — see the module publishers.
+ */
 export const CHAN_ON_ROUTE_CHANGE = "chan:on-route-change";
 export const CHAN_ON_APPCONFIG_CHANGE = "chan:on-appconfig-change";
 export const CHAN_ON_INTEGRATION_CHANGE = "chan:on-integration-change";
@@ -20,12 +25,12 @@ export async function closePubSub() {
 }
 
 export async function publishMessage(chan: string, data: string | object) {
-	natsPublish(chan, typeof data === "object" ? JSON.stringify(data) : data);
+	publish(natsConnection(), chan, typeof data === "object" ? JSON.stringify(data) : data);
 }
 
 export async function subscribeToChannel(
 	chan: string,
 	callback: (data: string) => void,
 ) {
-	return natsSubscribe(chan, callback);
+	return subscribe(natsConnection(), chan, callback).stop;
 }

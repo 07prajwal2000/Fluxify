@@ -1,12 +1,12 @@
 import { describe, it, expect, spyOn, mock, afterEach } from "bun:test";
-import type { QueueJob } from "@fluxify/server";
+import type { QueueMessage } from "@fluxify/common/nats";
 import { FluxifyHarness } from "./index";
 import { HarnessService } from "./internal/harnessService";
 import * as projectConfig from "./models/projectConfig";
 import { __runJob, __releaseRun } from "./worker";
 import type { HarnessJobData } from "./queue";
 
-const job = (data: Partial<HarnessJobData>): QueueJob<HarnessJobData> =>
+const job = (data: Partial<HarnessJobData>): QueueMessage<HarnessJobData> =>
 	({
 		subject: "fluxify.harness.start.conv1",
 		data: {
@@ -17,7 +17,7 @@ const job = (data: Partial<HarnessJobData>): QueueJob<HarnessJobData> =>
 			...data,
 		} as HarnessJobData,
 		msg: {} as any,
-	}) as QueueJob<HarnessJobData>;
+	}) as QueueMessage<HarnessJobData>;
 
 /** Stubs everything past the claim so a claimed job doesn't reach a model. */
 function stubHarness() {

@@ -1,10 +1,11 @@
 import { generateID } from "@fluxify/lib";
-import { ConflictError, publishJob } from "@fluxify/server";
+import { ConflictError } from "@fluxify/server";
 import { HarnessService, type HitlPlanAction } from "./harnessService";
 import { RedisService } from "./redisService";
 import {
 	harnessContinueSubject,
 	harnessStartSubject,
+	publishHarnessJob,
 	type HarnessJobData,
 	type HarnessJobMetadata,
 } from "../queue";
@@ -67,7 +68,7 @@ export async function enqueueHarnessStart(
 	await new RedisService().setActiveRun(conversationId, runId);
 
 	const key = idempotencyKey("start", runId);
-	await publishJob<HarnessJobData>(
+	await publishHarnessJob(
 		harnessStartSubject(conversationId),
 		{
 			type: "start",
@@ -95,7 +96,7 @@ export async function enqueueHarnessContinue(
 	}
 
 	const key = idempotencyKey("continue", params.runId);
-	await publishJob<HarnessJobData>(
+	await publishHarnessJob(
 		harnessContinueSubject(params.conversationId),
 		{
 			type: "continue",
