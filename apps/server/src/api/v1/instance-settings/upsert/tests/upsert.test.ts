@@ -1,7 +1,7 @@
 import { describe, expect, it, mock, beforeEach } from "bun:test";
 import handleRequest from "../service";
 import * as repository from "../repository";
-import * as redis from "../../../../../db/redis";
+import * as loader from "../../../../../loaders/instanceSettingsLoader";
 import { BadRequestError } from "../../../../../errors/badRequestError";
 
 mock.module("../repository", () => ({
@@ -9,16 +9,15 @@ mock.module("../repository", () => ({
 	upsertInstanceSetting: mock(),
 }));
 
-mock.module("../../../../../db/redis", () => ({
-	publishMessage: mock(),
-	CHAN_ON_INSTANCE_SETTING_CHANGE: "chan:on-instance-setting-change",
+mock.module("../../../../../loaders/instanceSettingsLoader", () => ({
+	publishInstanceSetting: mock(),
 }));
 
 describe("upsert instance setting service", () => {
 	beforeEach(() => {
 		(repository.getInstanceSettingByKey as any).mockClear();
 		(repository.upsertInstanceSetting as any).mockClear();
-		(redis.publishMessage as any).mockClear();
+		(loader.publishInstanceSetting as any).mockClear();
 	});
 
 	it("should throw BadRequestError for an unregistered key", async () => {
@@ -148,9 +147,11 @@ describe("upsert instance setting service", () => {
 			value: expect.objectContaining(validOidcVal),
 			isPublic: undefined,
 		});
-		expect(redis.publishMessage).toHaveBeenCalledWith(
-			"chan:on-instance-setting-change",
-			{ key: "sso_config" },
+		// the value itself goes on the bus now, not a "reload everything" nudge
+		expect(loader.publishInstanceSetting).toHaveBeenCalledWith(
+			"sso_config",
+			mockUpdated.value,
+			mockUpdated.isPublic,
 		);
 		expect(result).toEqual({
 			message: "Instance setting saved successfully",

@@ -6,7 +6,7 @@ import {
 	authConfigSchema,
 } from "../../../../lib/instance-settings/schemas";
 import { getInstanceSettingByKey, upsertInstanceSetting } from "./repository";
-import { CHAN_ON_INSTANCE_SETTING_CHANGE, publishMessage } from "../../../../db/redis";
+import { publishInstanceSetting } from "../../../../loaders/instanceSettingsLoader";
 
 export interface UpsertSettingPayload {
 	key: string;
@@ -128,10 +128,10 @@ export default async function handleRequest(payload: UpsertSettingPayload) {
 		isPublic,
 	});
 
-	// Notify all instances (incl. this one) to reload settings + rebuild auth.
-	// The channel subscriber handles the reload; do NOT reload inline (that
-	// re-subscribes and leaks a listener per call).
-	await publishMessage(CHAN_ON_INSTANCE_SETTING_CHANGE, { key });
+	// Publish to KV so every instance (incl. this one) converges. The watcher
+	// handles the reload; do NOT reload inline. Unlike the old fire-and-forget
+	// channel, a process that is restarting right now picks this up on connect.
+	await publishInstanceSetting(key, updated.value, updated.isPublic);
 
 	return {
 		message: "Instance setting saved successfully",

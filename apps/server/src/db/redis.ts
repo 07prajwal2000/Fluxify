@@ -13,7 +13,6 @@ export {
 	CHAN_AI_SSE_PREFIX,
 	CHAN_ON_PROJECT_SETTING_CHANGE,
 	CHAN_ON_CUSTOM_BLOCK_CHANGE,
-	CHAN_ON_INSTANCE_SETTING_CHANGE,
 	publishMessage,
 	subscribeToChannel,
 	initializePubSub,
