@@ -1,8 +1,10 @@
 import { logger } from "@fluxify/common";
-import { consumeJobs, initializePubSub, type QueueJob } from "@fluxify/server";
+import { consumeQueue, natsConnection, type QueueMessage } from "@fluxify/common/nats";
+import { initializePubSub } from "@fluxify/server";
 import { HARNESS_CONCURRENT_JOBS } from "../lib/env";
 import {
-	HARNESS_QUEUE,
+	HARNESS_CONSUMER,
+	HARNESS_STREAM,
 	initializeHarnessQueue,
 	type HarnessJobData,
 } from "./queue";
@@ -33,15 +35,24 @@ export async function initializeHarnessWorker() {
 	// Listen for user interrupt requests targeting runs on this worker.
 	await subscribeInterrupts();
 
-	stop = await consumeJobs<HarnessJobData>(HARNESS_QUEUE, runJob, {
-		concurrency: HARNESS_CONCURRENT_JOBS,
-		// The queue never redelivers (maxDeliver 1), so holding the ack for the
-		// length of a run would buy nothing but an ack_wait heartbeat to maintain.
-		// Acking on dispatch also means a slot is what limits concurrency, not the
-		// consumer's pull window.
-		ack: "on-dispatch",
-		onError: (_error, job) => void releaseRun(job.data),
-	});
+	const consumer = await consumeQueue<HarnessJobData>(
+		natsConnection(),
+		HARNESS_STREAM,
+		HARNESS_CONSUMER,
+		runJob,
+		{
+			concurrency: HARNESS_CONCURRENT_JOBS,
+			// The queue never redelivers (maxDeliver 1), so holding the ack for the
+			// length of a run would buy nothing but an ack_wait heartbeat to
+			// maintain. Acking on dispatch also means a slot is what limits
+			// concurrency, not the consumer's pull window.
+			ack: "on-dispatch",
+			onError: (_error, job) => {
+				if (job) void releaseRun(job.data);
+			},
+		},
+	);
+	stop = consumer.stop;
 
 	logger.info(
 		`Initialized (concurrency ${HARNESS_CONCURRENT_JOBS})`,
@@ -50,7 +61,7 @@ export async function initializeHarnessWorker() {
 	return stop;
 }
 
-async function runJob({ data }: QueueJob<HarnessJobData>) {
+async function runJob({ data }: QueueMessage<HarnessJobData>) {
 	const projectId = data.metadata?.projectId;
 	if (!projectId) {
 		throw new Error("Harness job missing projectId; cannot resolve AI config");

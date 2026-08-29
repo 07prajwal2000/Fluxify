@@ -56,13 +56,13 @@ export interface KvBucket<T> {
 	 */
 	create(key: string, value: T): Promise<number | null>;
 	delete(key: string): Promise<void>;
-	keys(filter?: string): Promise<string[]>;
+	keys(filter?: string | string[]): Promise<string[]>;
 	/**
 	 * Calls `onChange` with the current value of every matching key, then with
 	 * every subsequent change. A delete arrives as a null value.
 	 */
 	watch(
-		filter: string,
+		filter: string | string[],
 		onChange: (key: string, value: T | null) => void | Promise<void>,
 		options?: KvWatchOptions,
 	): Promise<KvWatcher>;
@@ -115,7 +115,7 @@ export async function openKvBucket<T = unknown>(
 			await store.delete(key);
 		},
 
-		async keys(filter = ">") {
+		async keys(filter: string | string[] = ">") {
 			const found: string[] = [];
 			for await (const key of await store.keys(filter)) found.push(key);
 			return found;
@@ -143,7 +143,7 @@ export async function openKvBucket<T = unknown>(
 async function startWatch<T>(
 	store: KV,
 	bucket: string,
-	filter: string,
+	filter: string | string[],
 	onChange: (key: string, value: T | null) => void | Promise<void>,
 	decode: (entry: KvEntry | null) => T | null,
 	{ includeExisting = true }: KvWatchOptions,

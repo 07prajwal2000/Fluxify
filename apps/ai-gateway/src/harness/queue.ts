@@ -1,5 +1,11 @@
 import { logger } from "@fluxify/common";
-import { ensureWorkQueue, type WorkQueueSpec } from "@fluxify/server";
+import {
+	ensureStreamConsumer,
+	natsConnection,
+	publishToStream,
+	type ConsumerSpec,
+	type StreamSpec,
+} from "@fluxify/common/nats";
 import type { HitlPlanAction } from "./internal/harnessService";
 
 /**
@@ -20,20 +26,25 @@ export const harnessStartSubject = (conversationId: string) =>
 export const harnessContinueSubject = (conversationId: string) =>
 	`${SUBJECT_ROOT}.continue.${conversationId}`;
 
-export const HARNESS_QUEUE: WorkQueueSpec = {
-	stream: HARNESS_STREAM,
+export const HARNESS_STREAM_SPEC: StreamSpec = {
+	name: HARNESS_STREAM,
 	subjects: HARNESS_SUBJECTS,
-	consumer: HARNESS_CONSUMER,
+	// work queue: a job is removed once acked, so a restart never replays
+	retention: "workqueue",
+	maxAgeMs: 60 * 60_000,
+	// Guards a *retried publish* of one intent. It is not what stops a second
+	// run on a conversation — the two DB claims do that (see enqueue.ts).
+	duplicateWindowMs: 2 * 60_000,
+};
+
+export const HARNESS_CONSUMER_SPEC: ConsumerSpec = {
+	durable: HARNESS_CONSUMER,
 	// A run is expensive and not idempotent: replaying one from the top after a
 	// worker dies would re-spend the tokens and re-emit every step. The user
 	// re-sends instead. Acking on dispatch (see worker.ts) makes this explicit.
 	maxDeliver: 1,
 	// Only covers the window between delivery and the dispatch ack, not the run.
 	ackWaitMs: 30_000,
-	// Guards a *retried publish* of one intent. It is not what stops a second
-	// run on a conversation — the two DB claims do that (see enqueue.ts).
-	dedupeWindowMs: 2 * 60_000,
-	maxAgeMs: 60 * 60_000,
 };
 
 export interface HarnessJobMetadata {
@@ -88,7 +99,24 @@ let initialized = false;
  *  API thread (publisher) and the worker thread (consumer). */
 export async function initializeHarnessQueue() {
 	if (initialized) return;
-	await ensureWorkQueue(HARNESS_QUEUE);
+	await ensureStreamConsumer(
+		natsConnection(),
+		HARNESS_STREAM_SPEC,
+		HARNESS_CONSUMER_SPEC,
+	);
 	initialized = true;
 	logger.info("Initialized", "HarnessQueue");
+}
+
+/**
+ * Publishes one harness job. `msgId` is the broker's dedupe key inside the
+ * stream's duplicate window: a retried publish of the same intent enqueues the
+ * work once.
+ */
+export async function publishHarnessJob(
+	subject: string,
+	data: HarnessJobData,
+	options: { msgId?: string } = {},
+) {
+	await publishToStream(natsConnection(), subject, data, options);
 }

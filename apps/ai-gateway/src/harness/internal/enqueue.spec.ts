@@ -1,5 +1,6 @@
 import { describe, it, expect, spyOn, mock, afterEach } from "bun:test";
-import * as serverModule from "@fluxify/server";
+import { ConflictError } from "@fluxify/server";
+import * as queueModule from "../queue";
 import { HarnessService } from "./harnessService";
 import { RedisService } from "./redisService";
 import { enqueueHarnessStart, enqueueHarnessContinue } from "./enqueue";
@@ -7,10 +8,9 @@ import { enqueueHarnessStart, enqueueHarnessContinue } from "./enqueue";
 /** every publish this test file made: [subject, data, opts] */
 function stubPublish() {
 	const calls: Array<{ subject: string; data: any; opts: any }> = [];
-	spyOn(serverModule, "publishJob").mockImplementation(
+	spyOn(queueModule, "publishHarnessJob").mockImplementation(
 		async (subject: string, data: any, opts: any = {}) => {
 			calls.push({ subject, data, opts });
-			return true;
 		},
 	);
 	return calls;
@@ -53,7 +53,7 @@ describe("enqueueHarnessStart", () => {
 
 		expect(
 			enqueueHarnessStart({ conversationId: "conv1", query: "hi" }),
-		).rejects.toThrow(serverModule.ConflictError);
+		).rejects.toThrow(ConflictError);
 		expect(published).toHaveLength(0);
 	});
 
@@ -108,7 +108,7 @@ describe("enqueueHarnessContinue", () => {
 				runId: "run1",
 				action: { type: "approve" },
 			}),
-		).rejects.toThrow(serverModule.ConflictError);
+		).rejects.toThrow(ConflictError);
 		expect(published).toHaveLength(0);
 	});
 

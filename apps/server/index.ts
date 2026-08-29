@@ -2,7 +2,6 @@ import zodErrorCallbackParser from "./src/middlewares/zodErrorCallbackParser";
 
 export * from "./src/db";
 export * from "./src/db/redis";
-export * from "./src/db/natsQueue";
 export * from "./src/lib/project-settings";
 export * from "./src/loaders/appconfigLoader";
 export * from "./src/loaders/integrationsLoader";

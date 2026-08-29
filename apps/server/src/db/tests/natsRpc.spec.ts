@@ -1,7 +1,7 @@
 import { describe, it, expect, mock } from "bun:test";
-import { JSONCodec } from "nats";
+import { jsonCodec } from "@fluxify/common/nats";
 
-const codec = JSONCodec<unknown>();
+const codec = jsonCodec<unknown>();
 let lastRequest: { subject: string; data: Uint8Array } | null = null;
 let reply: Uint8Array = codec.encode({ ok: true, data: null });
 
@@ -30,7 +30,7 @@ describe("natsRpc wire format", () => {
 
 		expect(isGzip(lastRequest!.data)).toBe(false);
 		const sent = readWire(lastRequest!.data);
-		expect(sent.caller).toEqual(caller);
+		expect(sent.meta).toEqual(caller);
 		expect(sent.payload).toEqual({ id: "r1" });
 		expect(sent.requestId).toBeTruthy();
 		expect(result).toEqual({ saved: true } as any);
