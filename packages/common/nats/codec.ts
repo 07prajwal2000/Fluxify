@@ -61,19 +61,25 @@ export function gzipJsonCodec<T = unknown>(thresholdBytes = 32 * 1024): Codec<T>
  * MessagePack. Chosen over protobuf because there is no schema to compile and
  * no generated code to drift from the TypeScript types.
  *
- * It buys size, not speed. Measured on a 500-item batch of records with
- * repeated keys — the shape a batched trigger actually carries:
+ * It buys size, not speed. `bench/codec.bench.ts` has the full table across
+ * every payload shape on this bus; the summary, as a fraction of plain JSON:
  *
- *   size    json 54171B   msgpack 36399B   (33% smaller)
- *   encode  json 0.090ms  msgpack 0.288ms
- *   decode  json 0.236ms  msgpack 0.366ms
+ *   payload                     size   encode   decode
+ *   trace run (400 spans)        77%    2.9x     2.5x
+ *   canvas (1000 blocks)         81%    4.6x     4.0x
+ *   batch (500 records)          82%    3.6x     6.7x
+ *   256KiB binary blob           75%    1.7x    ~0.01x
  *
- * JSON is *faster*, because both directions run in the engine's native C++
- * while this is a JavaScript parse loop. So reach for msgpack when bytes are
- * the constraint — the 1MiB `max_payload` ceiling, stream storage, cross-AZ
- * egress — and leave JSON in place when CPU is. Binary values also survive
- * without a base64 round trip, which is worth roughly a third again on any
- * payload carrying them.
+ * JSON is *faster* in every structured case, because both directions run in
+ * the engine's native code while this is a JavaScript loop. So reach for
+ * msgpack when bytes are the constraint — the 1MiB `max_payload` ceiling,
+ * stream storage, cross-AZ egress — and leave JSON in place when CPU is.
+ *
+ * The binary row is the exception worth knowing. JSON cannot carry bytes, so a
+ * caller has to base64 them and pay 33% before it starts; msgpack sends them
+ * raw and decodes them as a *subarray of the message*, which is why its decode
+ * there is essentially free. That view aliases the whole received frame — copy
+ * it if you intend to hold it after the handler returns.
  *
  * The other cost is that the wire stops being readable: `nats sub` shows bytes,
  * not a payload. Between that and the numbers above, JSON stays the default.

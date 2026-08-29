@@ -20,6 +20,7 @@
 	},
 	"scripts": {
 		"test": "bun test --parallel",
+		"bench:codec": "bun nats/bench/codec.bench.ts",
 		"lint": "tsgo --noEmit"
 	},
 	"dependencies": {
