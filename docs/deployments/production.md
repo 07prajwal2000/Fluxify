@@ -364,6 +364,24 @@ says which one is missing in its logs. Both come from your shared `.env`.
 NATS needs JetStream enabled (`-js`). The bundled compose file sets this; if you
 brought your own NATS, add the flag.
 
+JetStream also backs two KV buckets, both created on demand — nothing to
+provision by hand, but they are what the `-js` flag is for:
+
+| Bucket | Holds |
+| --- | --- |
+| `fluxify_artifacts` | Compiled route artifacts, so a request worker serves traffic without a database. |
+| `fluxify_config` | Instance settings and other cross-node config, so a flag change reaches every process. |
+
+`fluxify_config` is a distribution layer, not storage — Postgres remains the
+source of truth, and the admin container rebuilds the bucket from it on every
+start. Losing the NATS volume is therefore recoverable: restart admin and the
+bucket comes back.
+
+**The admin container exits at start complaining about instance settings**
+Config is a hard dependency, not a degradable one, so a process that cannot
+reach NATS KV exits rather than come up half-configured and authenticate people
+against nothing. Check `NATS_URL`, `NATS_TOKEN`, and that JetStream is enabled.
+
 **Traefik can't see the services**
 Traefik reads Docker labels through the mounted Docker socket. Ensure the socket
 volume is present and the services share the same network as Traefik.

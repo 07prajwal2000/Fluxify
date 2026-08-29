@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, mock } from "bun:test";
 
 const store: Record<string, { key: string; category: string; value: any; isPublic: boolean }> = {};
-const published = mock((_channel: string, _payload: unknown) => {});
+const published = mock((_key: string, _payload: unknown) => {});
 
 mock.module("../../upsert/repository", () => ({
 	getInstanceSettingByKey: async (key: string) => store[key] ?? null,
@@ -16,9 +16,9 @@ mock.module("../../upsert/repository", () => ({
 	},
 }));
 
-mock.module("../../../../../db/redis", () => ({
-	CHAN_ON_INSTANCE_SETTING_CHANGE: "instance_setting_change",
-	publishMessage: (channel: string, payload: unknown) => published(channel, payload),
+mock.module("../../../../../loaders/instanceSettingsLoader", () => ({
+	publishInstanceSetting: (key: string, value: unknown, isPublic: boolean) =>
+		published(key, { value, isPublic }),
 }));
 
 const handleRequest = (await import("../service")).default;
@@ -46,7 +46,12 @@ describe("patch-auth-settings service", () => {
 		expect(result.type).toBe("sso");
 		expect(store.sso_config.value.enabled).toBe(true);
 		expect(store.auth_config.value.mode).toBe("sso_only");
-		expect(published).toHaveBeenCalledTimes(1);
+		// KV is per-key, so both writes are published separately now
+		expect(published).toHaveBeenCalledTimes(2);
+		expect(published.mock.calls.map((c) => c[0])).toEqual([
+			"sso_config",
+			"auth_config",
+		]);
 	});
 
 	it("rejects enabling SSO when required provider fields are missing", async () => {

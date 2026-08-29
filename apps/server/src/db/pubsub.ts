@@ -12,7 +12,6 @@ export const CHAN_AI_WORKER = "chan:ai-worker";
 export const CHAN_AI_SSE_PREFIX = "chan:ai-sse:";
 export const CHAN_ON_PROJECT_SETTING_CHANGE = "chan:on-project-setting-change";
 export const CHAN_ON_CUSTOM_BLOCK_CHANGE = "chan:on-custom-block-change";
-export const CHAN_ON_INSTANCE_SETTING_CHANGE = "chan:on-instance-setting-change";
 
 /** Connect the pub/sub backend (NATS). Call once at startup before publishing/subscribing. */
 export async function initializePubSub() {

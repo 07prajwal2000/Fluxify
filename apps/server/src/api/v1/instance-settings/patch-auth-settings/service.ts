@@ -1,7 +1,7 @@
 import { BadRequestError } from "../../../../errors/badRequestError";
 import { ssoConfigSchema, redactSecrets } from "../../../../lib/instance-settings/schemas";
 import { getInstanceSettingByKey, upsertInstanceSetting } from "../upsert/repository";
-import { CHAN_ON_INSTANCE_SETTING_CHANGE, publishMessage } from "../../../../db/redis";
+import { publishInstanceSetting } from "../../../../loaders/instanceSettingsLoader";
 
 export interface AuthSettingsPayload {
 	type: "traditional" | "sso";
@@ -59,17 +59,19 @@ export default async function handleRequest(payload: AuthSettingsPayload) {
 				value: parsed.data,
 			});
 			ssoValue = updated.value as Record<string, unknown>;
+			await publishInstanceSetting("sso_config", updated.value, updated.isPublic);
 		}
 	}
 
-	await upsertInstanceSetting({
+	const authConfig = await upsertInstanceSetting({
 		key: "auth_config",
 		category: "auth",
 		value: { mode: wantsSso ? "sso_only" : "traditional" },
 	});
 
-	// One reload covers both keys — the subscriber re-reads the whole table.
-	await publishMessage(CHAN_ON_INSTANCE_SETTING_CHANGE, { key: "auth_config" });
+	// Each key is published on its own now — KV is per-key, so there is no
+	// "reload everything" signal to piggyback the sso_config change on.
+	await publishInstanceSetting("auth_config", authConfig.value, authConfig.isPublic);
 
 	return {
 		message: "Authentication settings saved successfully",
