@@ -21,9 +21,11 @@ import type { ArtifactEntry } from "./compiledRuntime";
 export async function watchProjectArtifacts(
 	projectId: string,
 	onChange: (entry: ArtifactEntry) => void,
+	/** Artifact kinds this worker's mode runs; defaults to all of them. */
+	kinds?: readonly string[],
 ) {
 	return watchArtifacts<unknown>(
-		projectArtifactFilters(projectId),
+		projectArtifactFilters(projectId, kinds),
 		(key, value) => onChange({ key, value: unseal(key, value) }),
 		{ includeExisting: true },
 	);

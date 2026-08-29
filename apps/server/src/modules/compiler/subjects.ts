@@ -49,13 +49,15 @@ export const workflowKey = (projectId: string, workflowId: string) =>
 export const projectConfigKey = (projectId: string) =>
 	`project-config.${projectId}.current`;
 
-/** the filters a worker watches for its project */
-export const projectArtifactFilters = (projectId: string) => [
-	`route.${projectId}.*`,
-	`custom-block.${projectId}.*`,
-	`workflow.${projectId}.*`,
-	`project-config.${projectId}.*`,
-];
+/**
+ * The filters a worker watches for its project. `kinds` narrows them to what
+ * its mode actually runs — a workflow-only worker holds no HTTP route table,
+ * so there is no reason to ship it every route in the project.
+ */
+export const projectArtifactFilters = (
+	projectId: string,
+	kinds: readonly string[] = ARTIFACT_KINDS,
+) => kinds.map((kind) => `${kind}.${projectId}.*`);
 
 const ARTIFACT_KINDS = [
 	"route",

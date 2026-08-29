@@ -2,6 +2,7 @@ import { initializeLogger, logger } from "@fluxify/common";
 import { setJobEnqueuer } from "@fluxify/blocks";
 import { createHttpContext } from "./httpContext";
 import { registerCustomBlockJobHandler } from "../jobs/customBlockJob";
+import { registerWorkflowJobHandler } from "../jobs/workflowJob";
 import { runJob } from "../jobs/registry";
 import type { JobEnvelope } from "../jobs/types";
 import {
@@ -75,6 +76,7 @@ function bootstrap(nextBoot: ExecutionBootstrap) {
 	);
 	setMonitoring(boot.workerTimeoutsEnabled);
 	registerCustomBlockJobHandler();
+	registerWorkflowJobHandler();
 	// This process holds no broker connection: queueing is a message to the
 	// supervisor, which owns NATS.
 	setJobEnqueuer((request) =>
