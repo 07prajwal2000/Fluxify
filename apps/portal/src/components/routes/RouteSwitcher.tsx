@@ -1,7 +1,6 @@
 import { useNavigate } from "@tanstack/react-router";
-import { Button, ListBox, Select, Spinner } from "@fluxify/components";
-import { TbChevronLeft, TbChevronRight, TbArrowLeft } from "react-icons/tb";
 import { routesQuery } from "@/query/routesQuery";
+import { EntitySwitcher } from "@/components/common/EntitySwitcher";
 
 const METHOD_COLOR: Record<string, string> = {
 	GET: "text-accent",
@@ -18,10 +17,7 @@ function MethodTag({ method }: { method: string }) {
 	);
 }
 
-/**
- * Canvas header nav: back to the project's route list, plus a pagination-style
- * stepper that walks the sibling routes with a dropdown of all of them.
- */
+/** The shared canvas header nav, filled with this project's routes. */
 export function RouteSwitcher({
 	projectId,
 	routeId,
@@ -39,101 +35,29 @@ export function RouteSwitcher({
 	const routes = listed.some((route) => route.id === routeId) || !byId.data
 		? listed
 		: [{ ...byId.data, name: byId.data.name ?? null }, ...listed];
-	const index = routes.findIndex((route) => route.id === routeId);
-	const current = index >= 0 ? routes[index] : undefined;
-	const hasMore = Boolean(data?.pagination?.hasNext);
-
-	function go(to: string) {
-		navigate({ to: "/$projectId/canvas/$routeId", params: { projectId, routeId: to } });
-	}
-
-	function step(delta: number) {
-		const next = routes[index + delta];
-		if (next) go(next.id);
-	}
 
 	return (
-		<div className="flex min-w-0 items-center gap-2">
-			<Button
-				variant="ghost"
-				size="sm"
-				aria-label="Back to routes"
-				onPress={() => navigate({ to: "/$projectId/routes", params: { projectId } })}
-			>
-				<TbArrowLeft size={16} /> Routes
-			</Button>
-
-			<span className="h-5 w-px bg-border" />
-
-			{isLoading ? (
-				<Spinner size="sm" />
-			) : (
-				<div className="flex min-w-0 items-center gap-1">
-					<Button
-						variant="ghost"
-						size="sm"
-						aria-label="Previous route"
-						isDisabled={index <= 0}
-						onPress={() => step(-1)}
-					>
-						<TbChevronLeft size={16} />
-					</Button>
-
-					<Select
-						aria-label="Switch route"
-						selectedKey={current?.id ?? null}
-						onSelectionChange={(key) => key && go(key as string)}
-						className="min-w-0"
-					>
-						<Select.Trigger className="min-w-0 max-w-[22rem]">
-							<span className="flex min-w-0 items-center gap-2">
-								<MethodTag method={current?.method ?? "—"} />
-								<span className="truncate font-mono text-xs">
-									{current?.path ?? "Unknown route"}
-								</span>
-							</span>
-							<Select.Indicator />
-						</Select.Trigger>
-						<Select.Popover className="max-h-80 w-[26rem]">
-							<ListBox>
-								{routes.map((route) => (
-									<ListBox.Item
-										key={route.id}
-										id={route.id}
-										textValue={`${route.method} ${route.path}`}
-									>
-										<span className="flex min-w-0 items-center gap-2">
-											<MethodTag method={route.method ?? "—"} />
-											<span className="truncate font-mono text-xs">{route.path}</span>
-											{route.name && (
-												<span className="truncate text-xs text-muted">{route.name}</span>
-											)}
-										</span>
-										<ListBox.ItemIndicator />
-									</ListBox.Item>
-								))}
-							</ListBox>
-						</Select.Popover>
-					</Select>
-
-					<Button
-						variant="ghost"
-						size="sm"
-						aria-label="Next route"
-						isDisabled={index < 0 || index >= routes.length - 1}
-						onPress={() => step(1)}
-					>
-						<TbChevronRight size={16} />
-					</Button>
-
-					{index >= 0 && (
-						<span className="ml-1 whitespace-nowrap text-xs text-muted">
-							{index + 1} / {routes.length}
-							{hasMore && "+"}
-						</span>
-					)}
-				</div>
-			)}
-		</div>
+		<EntitySwitcher
+			backLabel="Routes"
+			noun="route"
+			currentId={routeId}
+			isLoading={isLoading}
+			hasMore={Boolean(data?.pagination?.hasNext)}
+			onBack={() => navigate({ to: "/$projectId/routes", params: { projectId } })}
+			onSelect={(id) =>
+				navigate({ to: "/$projectId/canvas/$routeId", params: { projectId, routeId: id } })
+			}
+			items={routes.map((route) => ({
+				id: route.id,
+				textValue: `${route.method} ${route.path}`,
+				label: (
+					<span className="flex min-w-0 items-center gap-2">
+						<MethodTag method={route.method ?? "—"} />
+						<span className="truncate font-mono text-xs">{route.path}</span>
+						{route.name && <span className="truncate text-xs text-muted">{route.name}</span>}
+					</span>
+				),
+			}))}
+		/>
 	);
 }

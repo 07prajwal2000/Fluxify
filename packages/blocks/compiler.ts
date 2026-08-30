@@ -1,42 +1,14 @@
-import dayjs from "dayjs";
 import { BlockTypes } from "./blockTypes";
 import type { BlockDTOType, EdgeDTOSchemaType, EdgesType } from "./builderTypes";
 import type { BlockOutput, Context } from "./baseBlock";
-import { emitArrayOps } from "./builtin/arrayOperations";
-import { emitEntrypoint } from "./builtin/entrypoint";
-import { emitGetVar } from "./builtin/getVar";
-import { emitIf } from "./builtin/if";
-import { emitJsRunner } from "./builtin/jsRunner";
-import { emitResponse } from "./builtin/response";
-import { emitSetVar } from "./builtin/setVar";
-import { emitTransformer } from "./builtin/transformer";
-import { emitForLoop } from "./builtin/loops/for";
-import { emitForEachLoop } from "./builtin/loops/foreach";
-import { emitConsoleLog, runConsoleLog } from "./builtin/log/console";
-import { emitCloudLogs, runCloudLog } from "./builtin/log/cloudLogs";
-import {
-	emitCustomBlock,
-	enqueueCustomBlock,
-	hasCustomBlock,
-	invokeCustomBlock,
-	invokeCustomBlockAsync,
-} from "./builtin/customBlock";
-import { emitHttpRequest, runHttpRequest } from "./builtin/httpRequest";
-import { emitGetHttpHeader } from "./builtin/http/getHttpHeader";
-import { emitSetHttpHeader } from "./builtin/http/setHttpHeader";
-import { emitGetHttpParam } from "./builtin/http/getHttpParam";
-import { emitGetHttpCookie } from "./builtin/http/getHttpCookie";
-import { emitSetHttpCookie } from "./builtin/http/setHttpCookie";
-import { emitGetHttpRequestBody } from "./builtin/http/getHttpRequestBody";
-import { emitGetSingleDb, runGetSingleDb } from "./builtin/db/getSingle";
-import { emitGetAllDb, runGetAllDb } from "./builtin/db/getAll";
-import { emitInsertDb, runInsertDb } from "./builtin/db/insert";
-import { emitInsertBulkDb, runInsertBulkDb } from "./builtin/db/insertBulk";
-import { emitUpdateDb, runUpdateDb } from "./builtin/db/update";
-import { emitDeleteDb, runDeleteDb } from "./builtin/db/delete";
-import { emitNativeDb, runNativeDb } from "./builtin/db/native";
-import { emitTransactionDb, runTransactionDb } from "./builtin/db/transaction";
+import { emitCustomBlock, hasCustomBlock } from "./builtin/customBlock";
+import { emitWorkflowEnd } from "./builtin/response";
+import { compilerLib, emitters } from "./registry";
+import { scopeFor } from "./scope";
 import { hoistImports, type HoistedImport } from "./imports";
+
+export { compilerLib, type Emitter } from "./registry";
+export { scopeFor } from "./scope";
 
 /**
  * Everything an emitter needs to turn one block into a JS snippet.
@@ -71,63 +43,6 @@ export type EmitNode = {
 	js(code: string, extras?: string, sync?: boolean): string;
 };
 
-export type Emitter = (node: EmitNode) => string;
-
-const emitters: Partial<Record<BlockTypes, Emitter>> = {
-	[BlockTypes.entrypoint]: emitEntrypoint,
-	[BlockTypes.setvar]: emitSetVar,
-	[BlockTypes.getvar]: emitGetVar,
-	[BlockTypes.jsrunner]: emitJsRunner,
-	[BlockTypes.response]: emitResponse,
-	[BlockTypes.if]: emitIf,
-	[BlockTypes.forloop]: emitForLoop,
-	[BlockTypes.foreachloop]: emitForEachLoop,
-	[BlockTypes.transformer]: emitTransformer,
-	[BlockTypes.arrayops]: emitArrayOps,
-	[BlockTypes.consolelog]: emitConsoleLog,
-	[BlockTypes.httprequest]: emitHttpRequest,
-	[BlockTypes.httpGetHeader]: emitGetHttpHeader,
-	[BlockTypes.httpSetHeader]: emitSetHttpHeader,
-	[BlockTypes.httpGetParam]: emitGetHttpParam,
-	[BlockTypes.httpGetCookie]: emitGetHttpCookie,
-	[BlockTypes.httpSetCookie]: emitSetHttpCookie,
-	[BlockTypes.httpGetRequestBody]: emitGetHttpRequestBody,
-	[BlockTypes.db_getsingle]: emitGetSingleDb,
-	[BlockTypes.db_getall]: emitGetAllDb,
-	[BlockTypes.db_insert]: emitInsertDb,
-	[BlockTypes.db_insertbulk]: emitInsertBulkDb,
-	[BlockTypes.db_update]: emitUpdateDb,
-	[BlockTypes.db_delete]: emitDeleteDb,
-	[BlockTypes.db_native]: emitNativeDb,
-	[BlockTypes.db_transaction]: emitTransactionDb,
-	[BlockTypes.cloudLogs]: emitCloudLogs,
-};
-
-/** helpers the generated code calls as `lib.x` — anything too big to inline */
-export const compilerLib = {
-	log: runConsoleLog,
-	httpRequest: runHttpRequest,
-	isoDate: (value: any) => dayjs(value).toISOString(),
-	scope: scopeFor,
-	/** Number() with the block's documented fallback for NaN */
-	num: (value: any, fallback: number) => {
-		const parsed = Number(value);
-		return Number.isNaN(parsed) ? fallback : parsed;
-	},
-	dbGetSingle: runGetSingleDb,
-	dbGetAll: runGetAllDb,
-	dbInsert: runInsertDb,
-	dbInsertBulk: runInsertBulkDb,
-	dbUpdate: runUpdateDb,
-	dbDelete: runDeleteDb,
-	dbNative: runNativeDb,
-	dbTransaction: runTransactionDb,
-	cloudLog: runCloudLog,
-	invoke: invokeCustomBlock,
-	invokeAsync: invokeCustomBlockAsync,
-	enqueue: enqueueCustomBlock,
-};
-
 /**
  * Emits a literal value as JS, turning any `js:` string it contains into
  * inlined code. Used for payloads known at compile time — db insert/update
@@ -145,50 +60,6 @@ export function emitJsObject(value: unknown, node: EmitNode): string {
 		return `{ ${fields.join(", ")} }`;
 	}
 	return JSON.stringify(value ?? null);
-}
-
-const scopes = new WeakMap<object, any>();
-
-/**
- * What lets inlined user code keep writing bare `abcd` instead of `vars.abcd`:
- * the sandbox handed user code its vars object as the global, so `with (scope)`
- * reproduces that. `has` claims every name so reads resolve here first, falling
- * back to globalThis for Math/JSON/Date; assignments always land in vars, which
- * is how blocks share state. `input` is excluded so it resolves to the wrapper
- * function's parameter instead of leaking into vars, and so are the graph's
- * hoisted import names, which resolve to the module bindings around the block
- * functions.
- */
-export function scopeFor(vars: Record<string, any>, skip?: Set<string>) {
-	// only the plain case is cached: the skip set belongs to one compiled graph,
-	// and a custom block shares the caller's vars with a different set
-	if (skip?.size) return makeScope(vars, skip);
-	let scope = scopes.get(vars);
-	if (!scope) {
-		scope = makeScope(vars);
-		scopes.set(vars, scope);
-	}
-	return scope;
-}
-
-function makeScope(vars: Record<string, any>, skip?: Set<string>) {
-	return new Proxy(vars, {
-		// `input` and `params` are function parameters of the emitted JS wrapper;
-		// letting `with` resolve them off vars would shadow them with a variable
-		// that merely shares the name.
-		has: (target, key: any) =>
-			key !== "input" && key !== "params" && !skip?.has(key),
-		get: (target, key: any) =>
-			key === Symbol.unscopables
-				? undefined
-				: Object.hasOwn(target, key)
-					? target[key]
-					: (globalThis as any)[key],
-		set: (target, key: any, value) => {
-			target[key] = value;
-			return true;
-		},
-	});
 }
 
 /** mirrors JsVM.truthy / the `is_empty` operator, inlined into every program */
@@ -248,6 +119,16 @@ export type CompileOptions = {
 	 * each other the way a shared `vars` entry would.
 	 */
 	asCustomBlock?: boolean;
+	/**
+	 * Compile as a workflow: a response block becomes a plain terminal.
+	 *
+	 * A workflow runs in the background off a queue. There is no connection held
+	 * open and nobody to receive a status code, so emitting the HTTP-shaped
+	 * result a route's response block produces would only put a `httpCode` into
+	 * a value nothing reads. The block still ends the run — that is what a
+	 * terminal does — it just stops dressing the output up as a reply.
+	 */
+	asWorkflow?: boolean;
 };
 
 /** turn compiled source back into a runnable graph (worker side, no compiler) */
@@ -266,7 +147,7 @@ export function instantiateCompiled(source: string) {
 export function compileGraph(
 	blocks: BlockDTOType[],
 	edges: EdgeDTOSchemaType,
-	{ inlineJs = true, asCustomBlock = false }: CompileOptions = {},
+	{ inlineJs = true, asCustomBlock = false, asWorkflow = false }: CompileOptions = {},
 ) {
 	const byId = new Map(blocks.map((b) => [b.id, b]));
 	const edgeMap = buildEdgeMap(edges);
@@ -434,7 +315,9 @@ export function compileGraph(
 		// library it was compiled into rather than being inlined here
 		const emitter = hasCustomBlock(block.type)
 			? emitCustomBlock
-			: emitters[block.type as BlockTypes];
+			: asWorkflow && block.type === BlockTypes.response
+				? emitWorkflowEnd
+				: emitters[block.type as BlockTypes];
 		if (!emitter) throw new Error(`No codegen for block type: ${block.type}`);
 		const blockId = JSON.stringify(block.id);
 		const blockType = JSON.stringify(block.type);

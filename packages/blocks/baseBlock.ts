@@ -4,8 +4,8 @@ import { AbstractLogger, HttpClient } from "@fluxify/lib";
 import { JsVM } from "@fluxify/lib";
 import z from "zod";
 
-/** How work entered the engine — an HTTP route today; jobs/crons later. */
-export type TriggerKind = "route" | "job" | "cron";
+/** How work entered the engine. */
+export type TriggerKind = "route" | "job" | "workflow" | "cron";
 /** Transport the work physically arrived on. Only "http" is wired today. */
 export type TriggerSource = "http" | "nats" | "bullmq";
 /** sync = caller waits for the result (req/res); async = fire-and-forget. */

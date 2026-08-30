@@ -17,6 +17,7 @@ import type { z } from "zod";
 import { customBlocksQuery } from "@/query/customBlocksQuery";
 import { showErrorNotification } from "@/lib/errorNotifier";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
+import { Section } from "@/components/common/Section";
 import type { CustomBlockInputParam } from "@/components/canvas/panel/blocks/CustomBlockSettings";
 import { InputParamsEditor, validateInputParams } from "./InputParamsEditor";
 import { ICON_URL_MAX, IconPicker, type IconValue } from "./IconPicker";
@@ -287,25 +288,5 @@ function CustomBlockSettingsForm({
 				</div>
 			</Modal.Footer>
 		</>
-	);
-}
-
-function Section({
-	title,
-	description,
-	children,
-}: {
-	title: string;
-	description: string;
-	children: React.ReactNode;
-}) {
-	return (
-		<section className="mb-6 flex flex-col gap-4 last:mb-0">
-			<div>
-				<h3 className="text-sm font-semibold text-foreground">{title}</h3>
-				<p className="mt-0.5 text-xs text-muted">{description}</p>
-			</div>
-			{children}
-		</section>
 	);
 }

@@ -317,19 +317,28 @@ export function createJobContext(job: {
 	projectId: string;
 	target: string;
 	timeoutSeconds?: number;
+	/**
+	 * Overrides the default trigger. A queued custom block and a workflow run
+	 * differ only in where they came from, so they share this function rather
+	 * than each getting a near-copy of it.
+	 */
+	trigger?: Partial<TriggerContext>;
+	/** What the job carried. It is the body a graph reads, there being no request. */
+	payload?: unknown;
 }): BlockContext {
 	const trigger: TriggerContext = {
 		kind: "job",
 		source: "nats",
 		reply: "async",
 		id: job.id,
+		...job.trigger,
 	};
 	const requestData = {
 		method: "",
 		path: job.target,
 		headers: {},
 		query: {},
-		body: undefined,
+		body: job.payload,
 		params: {},
 	};
 	const vars = setupContextVars(

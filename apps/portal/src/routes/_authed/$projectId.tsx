@@ -5,11 +5,15 @@ import {
 	useLocation,
 	useNavigate,
 } from "@tanstack/react-router";
+import { useState } from "react";
 import {
 	TbActivity,
+	TbBolt,
 	TbBox,
+	TbChevronDown,
 	TbCloudCog,
 	TbLayoutGridFilled,
+	TbRoute,
 	TbSparkles,
 	TbSquareKey,
 	TbStack2,
@@ -28,14 +32,35 @@ import { createRouteHead } from "@/lib/seo";
 // fallback answered with index.html — an HTML body where an image was expected.
 const logo = `${import.meta.env.BASE_URL}icons/logo.webp`;
 
+/**
+ * The sidebar, as a tree. Anything with `children` renders as a collapsible
+ * group; everything else is a plain link. Routes, workflows and triggers are
+ * the three ways work gets started in a project, and executions is the record
+ * of what that work did — so they live together under one heading rather than
+ * as four siblings of "Integrations".
+ */
 const NAV = [
 	{ key: "ai", label: "Fluxify AI", to: "/$projectId/ai", icon: TbSparkles },
-	{ key: "routes", label: "Routes", to: "/$projectId/routes", icon: TbStack2 },
-	{ key: "executions", label: "Executions", to: "/$projectId/executions", icon: TbActivity },
+	{
+		key: "endpoints",
+		label: "Endpoints & Automation",
+		icon: TbBolt,
+		children: [
+			{ key: "routes", label: "Routes", to: "/$projectId/routes", icon: TbStack2 },
+			{ key: "workflows", label: "Workflows", to: "/$projectId/workflows", icon: TbRoute },
+			{ key: "triggers", label: "Triggers", to: "/$projectId/triggers", icon: TbBolt },
+			{ key: "executions", label: "Executions", to: "/$projectId/executions", icon: TbActivity },
+		],
+	},
 	{ key: "integrations", label: "Integrations", to: "/$projectId/integrations", icon: TbCloudCog },
 	{ key: "app-config", label: "App config", to: "/$projectId/app-config", icon: TbSquareKey },
 	{ key: "custom-blocks", label: "Custom Blocks", to: "/$projectId/custom-blocks", icon: TbBox },
 ] as const;
+
+/** Every page key, group children included — what the URL is matched against. */
+const NAV_KEYS: string[] = NAV.flatMap((item) =>
+	"children" in item ? item.children.map((child) => child.key) : [item.key],
+);
 
 export const Route = createFileRoute("/_authed/$projectId")({
 	head: createRouteHead("Project Workspace", "Manage project API routes, workflows, and configurations."),
@@ -50,6 +75,49 @@ export const Route = createFileRoute("/_authed/$projectId")({
 	component: ProjectLayout,
 });
 
+/** One row of the sidebar — a link, or the header of a collapsible group. */
+function NavButton({
+	icon: Icon,
+	label,
+	isActive,
+	onClick,
+	trailing,
+}: {
+	icon: React.ComponentType<{ size?: number; className?: string }>;
+	label: string;
+	isActive: boolean;
+	onClick: () => void;
+	trailing?: React.ReactNode;
+}) {
+	return (
+		<button
+			type="button"
+			onClick={onClick}
+			className={cn(
+				"group/btn relative flex h-10 items-center rounded-lg px-2.5 text-sm font-medium transition-colors",
+				isActive
+					? "bg-surface-secondary text-foreground"
+					: "text-muted hover:bg-surface-secondary hover:text-foreground",
+			)}
+		>
+			<Icon
+				size={18}
+				className={cn(
+					"shrink-0",
+					isActive ? "text-accent" : "text-muted group-hover/btn:text-foreground",
+				)}
+			/>
+			<span className="ml-3 flex min-w-0 flex-1 items-center whitespace-nowrap opacity-0 transition-opacity duration-300 group-hover:opacity-100">
+				<span className="truncate">{label}</span>
+				{trailing}
+			</span>
+			{isActive && (
+				<span className="absolute -left-2 h-4 w-[3px] rounded-r-full bg-accent" />
+			)}
+		</button>
+	);
+}
+
 function ProjectLayout() {
 	const { projectId } = Route.useParams();
 	const navigate = useNavigate();
@@ -57,7 +125,10 @@ function ProjectLayout() {
 	const { userData } = useAuthStore();
 	const active = location.pathname.includes("/settings")
 		? "settings"
-		: NAV.find((n) => location.pathname.includes(`/${n.key}`))?.key ?? "routes";
+		: (NAV_KEYS.find((key) => location.pathname.includes(`/${key}`)) ?? "routes");
+	// A group opens itself when one of its pages is on screen, and stays open
+	// after that unless the user closes it.
+	const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
 
 	const initials = userData?.name
 		? userData.name
@@ -107,33 +178,56 @@ function ProjectLayout() {
 					{/* Navigation */}
 					<nav className="flex flex-col gap-1 px-2">
 						{NAV.map((item) => {
-							const isActive = active === item.key;
-							return (
-								<button
-									key={item.key}
-									type="button"
-									onClick={() => navigate({ to: item.to, params: { projectId } })}
-									className={cn(
-										"group/btn relative flex h-10 items-center rounded-lg px-2.5 text-sm font-medium transition-colors",
-										isActive
-											? "bg-surface-secondary text-foreground"
-											: "text-muted hover:bg-surface-secondary hover:text-foreground",
-									)}
-								>
-									<item.icon
-										size={18}
-										className={cn(
-											"shrink-0",
-											isActive ? "text-accent" : "text-muted group-hover/btn:text-foreground"
-										)}
+							if (!("children" in item))
+								return (
+									<NavButton
+										key={item.key}
+										icon={item.icon}
+										label={item.label}
+										isActive={active === item.key}
+										onClick={() => navigate({ to: item.to, params: { projectId } })}
 									/>
-									<span className="ml-3 whitespace-nowrap opacity-0 transition-opacity duration-300 group-hover:opacity-100">
-										{item.label}
-									</span>
-									{isActive && (
-										<span className="absolute -left-2 h-4 w-[3px] rounded-r-full bg-accent" />
+								);
+
+							const holdsActive = item.children.some((child) => child.key === active);
+							const isOpen = openGroups[item.key] ?? holdsActive;
+							return (
+								<div key={item.key} className="flex flex-col gap-1">
+									<NavButton
+										icon={item.icon}
+										label={item.label}
+										// stays lit while one of its pages is open — the rail is icons
+										// only until it is hovered, so the child row cannot say it
+										isActive={holdsActive}
+										onClick={() =>
+											setOpenGroups((groups) => ({ ...groups, [item.key]: !isOpen }))
+										}
+										trailing={
+											<TbChevronDown
+												size={14}
+												className={cn(
+													"ml-auto shrink-0 transition-transform duration-200",
+													isOpen && "rotate-180",
+												)}
+											/>
+										}
+									/>
+									{/* the labels are hidden while the rail is collapsed, so the
+									    children only make sense once it has expanded */}
+									{isOpen && (
+										<div className="hidden flex-col gap-1 border-l border-border pl-2 group-hover:flex">
+											{item.children.map((child) => (
+												<NavButton
+													key={child.key}
+													icon={child.icon}
+													label={child.label}
+													isActive={active === child.key}
+													onClick={() => navigate({ to: child.to, params: { projectId } })}
+												/>
+											))}
+										</div>
 									)}
-								</button>
+								</div>
 							);
 						})}
 					</nav>

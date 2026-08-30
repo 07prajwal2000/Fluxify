@@ -5,7 +5,8 @@ import {
 	JOBS_STREAM,
 	JOBS_SUBJECTS,
 	jobConsumerName,
-	projectJobFilter,
+	jobKindsForMode,
+	projectJobFilters,
 } from "./subjects";
 import type { JobEnvelope } from "./types";
 
@@ -23,6 +24,8 @@ import type { JobEnvelope } from "./types";
 export type JobWorkerOptions = {
 	/** Project this deployment serves, or "*" for every project. */
 	projectId: string;
+	/** route | workflow | both — decides which job kinds this worker takes. */
+	mode: string;
 	/** Runs the job. Resolve to ack, reject to retry. */
 	handle: (job: JobEnvelope) => Promise<void>;
 	/** Jobs in flight at once. */
@@ -53,10 +56,15 @@ export async function startJobWorker(options: JobWorkerOptions) {
 		...DEFAULTS,
 		...stripUndefined(options),
 		projectId: options.projectId,
+		mode: options.mode,
 		handle: options.handle,
 	};
 	const nc = natsConnection();
-	const durable = jobConsumerName(config.projectId);
+	const durable = jobConsumerName(config.projectId, config.mode);
+	const filterSubjects = projectJobFilters(
+		config.projectId,
+		jobKindsForMode(config.mode),
+	);
 
 	await ensureStreamConsumer(
 		nc,
@@ -71,7 +79,7 @@ export async function startJobWorker(options: JobWorkerOptions) {
 		},
 		{
 			durable,
-			filterSubjects: [projectJobFilter(config.projectId)],
+			filterSubjects,
 			ackWaitMs: config.ackWaitMs,
 			maxDeliver: config.maxDeliver,
 			maxAckPending: config.concurrency,
@@ -96,7 +104,7 @@ export async function startJobWorker(options: JobWorkerOptions) {
 	);
 	running = true;
 	logger.info(
-		`[jobs] worker listening on ${projectJobFilter(config.projectId)}`,
+		`[jobs] worker (${config.mode}) listening on ${filterSubjects.join(", ")}`,
 		"JOBS",
 	);
 }

@@ -6,6 +6,7 @@ import { NotFoundError } from "../../errors/notFoundError";
 import {
 	CHAN_ON_CUSTOM_BLOCK_CHANGE,
 	CHAN_ON_ROUTE_CHANGE,
+	CHAN_ON_WORKFLOW_CHANGE,
 	publishMessage,
 } from "../../db/redis";
 import {
@@ -28,7 +29,11 @@ import {
 	findCycleEdgeIds,
 	type DirectedCanvasEdge,
 } from "./cycleDetection";
-import type { CanvasChanges, CanvasParent } from "./types";
+import type {
+	CanvasChanges,
+	CanvasParent,
+	CanvasParentType,
+} from "./types";
 
 type CanvasEdgeWithHandle = DirectedCanvasEdge & {
 	fromHandle?: string | null;
@@ -37,12 +42,14 @@ type CanvasEdgeWithHandle = DirectedCanvasEdge & {
 const CHANGE_CHANNEL = {
 	route: CHAN_ON_ROUTE_CHANGE,
 	custom_block: CHAN_ON_CUSTOM_BLOCK_CHANGE,
-} as const;
+	workflow: CHAN_ON_WORKFLOW_CHANGE,
+} as const satisfies Record<CanvasParentType, string>;
 
 const NOT_FOUND = {
 	route: "Route not found",
 	custom_block: "Custom Block not found",
-} as const;
+	workflow: "Workflow not found",
+} as const satisfies Record<CanvasParentType, string>;
 
 /**
  * An edge whose endpoint is neither in this payload nor already stored would

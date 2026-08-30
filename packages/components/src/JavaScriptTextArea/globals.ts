@@ -20,8 +20,20 @@ declare function setCookie(
     samesite: "Lax" | "Strict" | "None";
   }
 ): void;
-/** get http request body */
-declare function getRequestBody(): any;
+/**
+ * The data this run was given: the request body on a route, the payload on a
+ * workflow run.
+ *
+ * Its members come from the schema declared for it, registered separately and
+ * merged into this interface. The index signature is what keeps an undeclared
+ * body readable — with no schema, every property is still there, it just has
+ * no type.
+ */
+declare interface FluxifyInputData {
+  [key: string]: any;
+}
+/** get the data this run was given — an HTTP request body, or a workflow payload */
+declare function getRequestBody(): FluxifyInputData;
 /**
  * get the value of the app config
  * @param key app config key name

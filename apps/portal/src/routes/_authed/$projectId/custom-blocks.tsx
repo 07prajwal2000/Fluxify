@@ -14,6 +14,7 @@ import { customBlocksQuery } from "@/query/customBlocksQuery";
 import { showErrorNotification } from "@/lib/errorNotifier";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { createRouteHead } from "@/lib/seo";
+import { EmptyState } from "@/components/common/EmptyState";
 import { BaseBlock } from "@/components/canvas/blocks/BaseBlock";
 import { CustomBlockIcon, type IconValue } from "@/components/customBlocks/IconPicker";
 
@@ -183,22 +184,3 @@ function CustomBlocksPage() {
 		</div>
 	);
 }
-
-function EmptyState({
-	icon,
-	title,
-	description,
-}: {
-	icon: React.ReactNode;
-	title: string;
-	description: string;
-}) {
-	return (
-		<div className="flex flex-col items-center gap-2 rounded-lg border border-dashed border-border py-16 text-center">
-			<span className="text-muted">{icon}</span>
-			<p className="text-sm font-medium text-foreground">{title}</p>
-			<p className="max-w-sm text-xs text-muted">{description}</p>
-		</div>
-	);
-}
-

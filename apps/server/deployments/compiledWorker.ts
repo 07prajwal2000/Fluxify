@@ -33,9 +33,14 @@ import {
 	OTLP_LOGGER_ENABLED,
 	OTLP_LOGGER_LEVEL,
 	WORKER_PROJECT_ID,
+	WORKER_MODE,
 	MAX_REQUEST_BODY_BYTES,
 	getEnv,
 } from "../src/lib/env";
+import {
+	artifactKindsForMode,
+	assertWorkerMode,
+} from "../src/modules/jobs/subjects";
 
 /**
  * Trusted compiled-worker supervisor. It owns NATS and encrypted artifacts;
@@ -64,6 +69,14 @@ initializeLogger({
 
 if (!WORKER_PROJECT_ID) {
 	logger.error("WORKER_PROJECT_ID is required — set a project id, or * to serve every project");
+	process.exit(1);
+}
+// A typo here must not quietly become `both` and start running work this
+// deployment was never meant to take.
+try {
+	assertWorkerMode(WORKER_MODE);
+} catch (error) {
+	logger.error(String((error as Error).message));
 	process.exit(1);
 }
 if (!getEnv("MASTER_ENCRYPTION_KEY")) {
@@ -231,6 +244,7 @@ function handleArtifactChange(entry: ArtifactEntry) {
 const artifactWatch = await watchProjectArtifacts(
 	WORKER_PROJECT_ID,
 	handleArtifactChange,
+	artifactKindsForMode(WORKER_MODE),
 );
 await artifactWatch.initialized;
 
@@ -241,6 +255,7 @@ synchronizeMonitoring();
 // a queued job must not compete with traffic for the same acceptance.
 await startJobWorker({
 	projectId: WORKER_PROJECT_ID,
+	mode: WORKER_MODE,
 	handle: runJobInExecution,
 	concurrency: Number(getEnv("JOBS_CONCURRENCY")) || undefined,
 	ackWaitMs: Number(getEnv("JOBS_ACK_WAIT_MS")) || undefined,

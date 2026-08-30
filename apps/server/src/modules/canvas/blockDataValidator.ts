@@ -1,6 +1,5 @@
 import z from "zod";
-import { requestBodySchema } from "./dto";
-import { ConflictError } from "../../../../errors/conflictError";
+import { ConflictError } from "../../errors/conflictError";
 import {
 	arrayOperationsBlockSchema,
 	BlockTypes,
@@ -33,18 +32,28 @@ import {
 	errorHandlerBlockSchema,
 	cloudLogsBlockSchema,
 } from "@fluxify/blocks";
-import { customBlockNames } from "../../../../loaders/customBlocksLoader";
+import { customBlockNames } from "../../loaders/customBlocksLoader";
 import { Context, Next } from "hono";
-import { ValidationError } from "../../../../errors/validationError";
-import { BadRequestError } from "../../../../errors/badRequestError";
+import { ValidationError } from "../../errors/validationError";
+import { BadRequestError } from "../../errors/badRequestError";
+import type { CanvasChanges } from "./types";
 
+/**
+ * Validates each block's `data` against the schema for its type, before the
+ * canvas is written.
+ *
+ * One implementation for every canvas — a route, a custom block and a workflow
+ * hold the same blocks, so they get the same check. It used to be two
+ * byte-identical copies under `api/v1`, which is how a third would have arrived
+ * with workflows.
+ */
 export async function requestBodyValidator(ctx: Context, next: Next) {
 	const jsonData = await ctx.req.json();
 	blockDataValidator(jsonData);
 	return next();
 }
 
-function blockDataValidator(data: z.infer<typeof requestBodySchema>) {
+function blockDataValidator(data: CanvasChanges) {
 	const deleteIds = new Set<string>();
 	data.actionsToPerform.blocks.forEach((block) => {
 		if (block.action !== "delete") return;

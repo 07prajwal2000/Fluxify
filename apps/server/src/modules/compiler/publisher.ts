@@ -8,6 +8,7 @@ import {
 	compileProjectConfigSubject,
 	compileProjectSubject,
 	compileRouteSubject,
+	compileWorkflowSubject,
 } from "./subjects";
 
 /**
@@ -33,6 +34,10 @@ export function requestRouteCompile(routeId: string, reason?: string) {
 
 export function requestCustomBlockCompile(id: string, reason?: string) {
 	return request(compileCustomBlockSubject(id), { id, reason });
+}
+
+export function requestWorkflowCompile(workflowId: string, reason?: string) {
+	return request(compileWorkflowSubject(workflowId), { id: workflowId, reason });
 }
 
 export function requestProjectConfigPublish(

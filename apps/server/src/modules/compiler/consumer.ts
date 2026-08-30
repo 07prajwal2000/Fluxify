@@ -4,6 +4,7 @@ import { natsConnection } from "../../db/nats";
 import {
 	CHAN_ON_APPCONFIG_CHANGE,
 	CHAN_ON_CUSTOM_BLOCK_CHANGE,
+	CHAN_ON_WORKFLOW_CHANGE,
 	CHAN_ON_INTEGRATION_CHANGE,
 	CHAN_ON_PROJECT_SETTING_CHANGE,
 	CHAN_ON_ROUTE_CHANGE,
@@ -15,6 +16,7 @@ import {
 	compileCustomBlock,
 	compileProject,
 	compileRoute,
+	compileWorkflow,
 	publishAllProjectConfigs,
 	publishProjectConfig,
 } from "./service";
@@ -22,6 +24,7 @@ import {
 	requestCustomBlockCompile,
 	requestProjectConfigPublish,
 	requestRouteCompile,
+	requestWorkflowCompile,
 } from "./publisher";
 import {
 	ALL_PROJECTS,
@@ -95,6 +98,8 @@ async function handle(subject: string, request: CompileRequest) {
 			return compileRoute(request.id ?? id);
 		case "custom-block":
 			return compileCustomBlock(request.id ?? id);
+		case "workflow":
+			return compileWorkflow(request.id ?? id);
 		case "project-config": {
 			const projectId = request.projectId ?? id;
 			return projectId === ALL_PROJECTS
@@ -119,6 +124,9 @@ async function bridgeChangeSignals() {
 	});
 	await subscribeToChannel(CHAN_ON_CUSTOM_BLOCK_CHANGE, async (id) => {
 		if (id) await requestCustomBlockCompile(id, "custom block changed");
+	});
+	await subscribeToChannel(CHAN_ON_WORKFLOW_CHANGE, async (id) => {
+		if (id) await requestWorkflowCompile(id, "workflow changed");
 	});
 	// config feeds integration connection details, so both republish everything
 	await subscribeToChannel(CHAN_ON_APPCONFIG_CHANGE, () =>

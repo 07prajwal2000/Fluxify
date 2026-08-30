@@ -112,6 +112,9 @@ services:
     environment:
       # Replace with the real project uuid from the admin UI.
       WORKER_PROJECT_ID: "${PROJECT_A_ID:?set PROJECT_A_ID in docker/production/.env}"
+      # route | workflow | both (default). Every worker of a project must agree;
+      # two modes on one project is refused at boot rather than run twice.
+      WORKER_MODE: "${WORKER_MODE:-both}"
       INTEGRATION_TIMEOUT_POLICY_IN_SEC: "${INTEGRATION_TIMEOUT_POLICY_IN_SEC:-450}"
     # No container_name: replicas each need a unique name.
     deploy:
@@ -149,6 +152,7 @@ services:
       - .env
     environment:
       WORKER_PROJECT_ID: "${PROJECT_B_ID:?set PROJECT_B_ID in docker/production/.env}"
+      WORKER_MODE: "${WORKER_MODE:-both}"
       INTEGRATION_TIMEOUT_POLICY_IN_SEC: "${INTEGRATION_TIMEOUT_POLICY_IN_SEC:-450}"
     deploy:
       replicas: 2

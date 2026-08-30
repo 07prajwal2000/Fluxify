@@ -24,6 +24,8 @@ export const compileRouteSubject = (routeId: string) =>
 	`${SUBJECT_ROOT}.route.${routeId}`;
 export const compileCustomBlockSubject = (id: string) =>
 	`${SUBJECT_ROOT}.custom-block.${id}`;
+export const compileWorkflowSubject = (workflowId: string) =>
+	`${SUBJECT_ROOT}.workflow.${workflowId}`;
 /** `all` republishes config for every project */
 export const compileProjectConfigSubject = (projectId: string) =>
 	`${SUBJECT_ROOT}.project-config.${projectId}`;
@@ -42,23 +44,33 @@ export const routeKey = (projectId: string, routeId: string) =>
 	`route.${projectId}.${routeId}`;
 export const customBlockKey = (projectId: string, id: string) =>
 	`custom-block.${projectId}.${id}`;
+export const workflowKey = (projectId: string, workflowId: string) =>
+	`workflow.${projectId}.${workflowId}`;
 export const projectConfigKey = (projectId: string) =>
 	`project-config.${projectId}.current`;
 
-/** the three filters a worker watches for its project */
-export const projectArtifactFilters = (projectId: string) => [
-	`route.${projectId}.*`,
-	`custom-block.${projectId}.*`,
-	`project-config.${projectId}.*`,
-];
+/**
+ * The filters a worker watches for its project. `kinds` narrows them to what
+ * its mode actually runs — a workflow-only worker holds no HTTP route table,
+ * so there is no reason to ship it every route in the project.
+ */
+export const projectArtifactFilters = (
+	projectId: string,
+	kinds: readonly string[] = ARTIFACT_KINDS,
+) => kinds.map((kind) => `${kind}.${projectId}.*`);
 
-export type ArtifactKind = "route" | "custom-block" | "project-config";
+const ARTIFACT_KINDS = [
+	"route",
+	"custom-block",
+	"workflow",
+	"project-config",
+] as const;
+
+export type ArtifactKind = (typeof ARTIFACT_KINDS)[number];
 
 export function artifactKind(key: string): ArtifactKind | null {
-	const kind = key.split(".")[0];
-	return kind === "route" || kind === "custom-block" || kind === "project-config"
-		? kind
-		: null;
+	const kind = key.split(".")[0] as ArtifactKind;
+	return ARTIFACT_KINDS.includes(kind) ? kind : null;
 }
 
 /** the id segment of an artifact key */

@@ -6,3 +6,4 @@ export {
 	useCustomBlockParamsTypes,
 	type CustomBlockParamDef,
 } from "./paramsTypes";
+export { buildInputDataTypeLib, useInputDataTypes } from "./inputDataTypes";

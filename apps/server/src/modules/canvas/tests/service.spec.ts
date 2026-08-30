@@ -106,6 +106,7 @@ describe("canvas saveCanvas", () => {
 				position: { x: 1, y: 2 },
 				routeId: null,
 				customBlockId: "cb-1",
+				workflowId: null,
 			},
 		]);
 		expect(upsertEdges.mock.calls[0][0][0]).toMatchObject({
@@ -126,6 +127,17 @@ describe("canvas saveCanvas", () => {
 			customBlockId: null,
 		});
 		expect(published).toEqual(["chan:on-route-change"]);
+	});
+
+	it("writes a workflow canvas through the workflow foreign key", async () => {
+		await saveCanvas({ type: "workflow", id: "wf-1" }, changes, ["p1"]);
+
+		expect(upsertBlocks.mock.calls[0][0][0]).toMatchObject({
+			routeId: null,
+			customBlockId: null,
+			workflowId: "wf-1",
+		});
+		expect(published).toEqual(["chan:on-workflow-change"]);
 	});
 
 	it("refuses to touch a canvas whose parent is not visible", async () => {

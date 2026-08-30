@@ -1,5 +1,6 @@
 import { openAPIRouteHandler } from "hono-openapi";
 import routes from "./routes/register";
+import workflows from "./workflows/register";
 import projects from "./projects/register";
 import appConfig from "./app-config/register";
 import integrations from "./integrations/register";
@@ -26,6 +27,7 @@ export default {
 			}),
 		);
 		routes.registerHandler(router);
+		workflows.registerHandler(router);
 		projects.registerHandler(router);
 		appConfig.registerHandler(router);
 		integrations.registerHandler(router);

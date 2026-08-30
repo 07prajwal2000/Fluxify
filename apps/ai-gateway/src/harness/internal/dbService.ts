@@ -19,6 +19,7 @@ import {
 } from "drizzle-orm";
 import type { PgColumn } from "drizzle-orm/pg-core";
 import { logger } from "@fluxify/common";
+import { parentColumn } from "@fluxify/server/src/modules/canvas/repository";
 import type { FindResourceResult } from "../types";
 import {
 	getProjectInventory,
@@ -389,10 +390,7 @@ export class DbService {
 	): Promise<any | null> {
 		try {
 			const owns = (table: typeof blocksEntity | typeof edgesEntity) =>
-				and(
-					eq(table.parentType, parentType),
-					eq(table.parentId, parentId),
-				);
+				eq(parentColumn(table, parentType), parentId);
 			const [blocks, edges] = await Promise.all([
 				db.select().from(blocksEntity).where(owns(blocksEntity)),
 				db.select().from(edgesEntity).where(owns(edgesEntity)),

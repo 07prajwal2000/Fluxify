@@ -22,6 +22,7 @@ import type {
 	CustomBlockArtifact,
 	RouteArtifact,
 	UnsealedProjectConfig,
+	WorkflowArtifact,
 } from "../compiler/artifacts";
 import { artifactId, artifactKind } from "../compiler/subjects";
 import { setBlocksExecutor } from "./executor";
@@ -46,6 +47,11 @@ type CompiledRoute = {
 	validators: RouteValidators;
 };
 
+type CompiledWorkflow = {
+	artifact: WorkflowArtifact;
+	run: (ctx: Context, input?: any) => Promise<BlockOutput | null>;
+};
+
 export type RouteValidators = {
 	body?: CompiledRequestSchema;
 	query?: CompiledRequestSchema;
@@ -53,6 +59,12 @@ export type RouteValidators = {
 };
 
 const routes = new Map<string, CompiledRoute>();
+/**
+ * Workflows, kept apart from `routes` on purpose. They are the same compiled
+ * graph, but a route is reachable through the HTTP parser and a workflow must
+ * not be — a background job is not an endpoint somebody can curl.
+ */
+const workflows = new Map<string, CompiledWorkflow>();
 /** custom block artifact id -> registered name, so a delete can unregister it */
 const customBlockNamesById = new Map<string, string>();
 let dbConnectionManager: DbConnectionManager | undefined;
@@ -61,6 +73,11 @@ const parser = new HttpRouteParser();
 
 export function compiledRouteParser() {
 	return parser;
+}
+
+/** The compiled workflow a job handler runs, or undefined if this worker has none. */
+export function compiledWorkflow(workflowId: string): CompiledWorkflow | undefined {
+	return workflows.get(workflowId);
 }
 
 /** Cached alongside the compiled graph; no Zod tree is rebuilt per request. */
@@ -81,12 +98,12 @@ export function initCompiledRuntime(
 	});
 	setDbConnectionManager(dbConnectionManager);
 	// custom blocks first: a route that invokes one needs it in the library
-	for (const { key, value } of entries) {
-		if (artifactKind(key) !== "route") applyArtifact(key, value);
-	}
-	for (const { key, value } of entries) {
-		if (artifactKind(key) === "route") applyArtifact(key, value);
-	}
+	// custom blocks and config first: a graph that invokes one needs it in the
+	// library before it is instantiated
+	const isGraph = (key: string) =>
+		artifactKind(key) === "route" || artifactKind(key) === "workflow";
+	for (const { key, value } of entries) if (!isGraph(key)) applyArtifact(key, value);
+	for (const { key, value } of entries) if (isGraph(key)) applyArtifact(key, value);
 
 	setBlocksExecutor(async (target, context) => {
 		const compiled = routes.get(target.routeId);
@@ -97,7 +114,7 @@ export function initCompiledRuntime(
 	});
 
 	logger.info(
-		`[worker] compiled runtime ready — ${routes.size} routes, ${customBlockNamesById.size} custom blocks`,
+		`[worker] compiled runtime ready — ${routes.size} routes, ${workflows.size} workflows, ${customBlockNamesById.size} custom blocks`,
 		"WORKER.compiled",
 	);
 	return parser;
@@ -125,6 +142,10 @@ function applyArtifact(key: string, value: any | null) {
 			return value
 				? addCustomBlock(value as CustomBlockArtifact)
 				: removeCustomBlock(artifactId(key));
+		case "workflow":
+			return value
+				? addWorkflow(value as WorkflowArtifact)
+				: void workflows.delete(artifactId(key));
 		case "project-config":
 			return value && applyProjectConfig(value as UnsealedProjectConfig);
 	}
@@ -146,6 +167,22 @@ function addRoute(artifact: RouteArtifact) {
 		// a graph that will not instantiate must not take the other routes down
 		logger.error(
 			`[worker] failed to load route ${artifact.routeId}: ${String(error)}`,
+			"WORKER.compiled",
+		);
+	}
+}
+
+function addWorkflow(artifact: WorkflowArtifact) {
+	try {
+		workflows.set(artifact.workflowId, {
+			artifact,
+			run: instantiateCompiled(artifact.source),
+		});
+		logger.info(`[worker] loaded workflow ${artifact.name}`, "WORKER.compiled");
+	} catch (error) {
+		// one bad graph must not take the rest of the worker down
+		logger.error(
+			`[worker] failed to load workflow ${artifact.workflowId}: ${String(error)}`,
 			"WORKER.compiled",
 		);
 	}

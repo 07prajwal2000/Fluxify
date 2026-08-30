@@ -60,6 +60,11 @@ The connections between blocks. Learn how they express sequencing, branching, an
 
 The decision mechanism used to choose a branch from runtime data.
 
+### [Workflows](./workflows.md)
+
+Background work that nobody is waiting for: the same canvas and the same
+blocks, started by a trigger or by hand instead of by an HTTP request.
+
 ## Understand execution
 
 These pages explain what Fluxify provides while a request is being handled.
