@@ -1,10 +1,10 @@
 import { z } from "zod";
-import { AuthACL } from "../../../db/schema";
-import { BadRequestError } from "../../../errors/badRequestError";
-import { enqueueJob } from "../../../modules/jobs/publisher";
-import { WORKFLOW_JOB } from "../../../modules/jobs/subjects";
-import { runAcceptedSchema, runSchema } from "./dto";
-import { mustAccess } from "./service";
+import { AuthACL } from "../../../../db/schema";
+import { BadRequestError } from "../../../../errors/badRequestError";
+import { enqueueJob } from "../../../../modules/jobs/publisher";
+import { WORKFLOW_JOB } from "../../../../modules/jobs/subjects";
+import { mustAccess } from "../access";
+import { requestBodySchema, responseSchema } from "./dto";
 
 /**
  * Queues one run of a workflow. This is the manual path the portal's test-run
@@ -14,12 +14,12 @@ import { mustAccess } from "./service";
  * process that runs it is a worker somewhere else, and it may not even be up
  * yet when this returns.
  */
-export default async function runWorkflow(
+export default async function handleRequest(
 	id: string,
-	body: z.infer<typeof runSchema>,
+	data: z.infer<typeof requestBodySchema>,
 	userId: string,
 	acl: AuthACL[] = [],
-): Promise<z.infer<typeof runAcceptedSchema>> {
+): Promise<z.infer<typeof responseSchema>> {
 	const workflow = await mustAccess(id, acl, "creator");
 
 	// An inactive workflow has no artifact in the store, so the job would sit on
@@ -31,7 +31,7 @@ export default async function runWorkflow(
 		kind: WORKFLOW_JOB,
 		projectId: workflow.projectId!,
 		target: id,
-		payload: body.payload,
+		payload: data.payload,
 		origin: { via: "manual", userId },
 	});
 	return { id: job.id, accepted: true };
