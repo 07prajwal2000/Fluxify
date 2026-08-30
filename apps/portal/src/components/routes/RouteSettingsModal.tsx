@@ -27,6 +27,7 @@ import { TbAlertTriangle } from "react-icons/tb";
 import { useNavigate } from "@tanstack/react-router";
 import { DeleteButton } from "@fluxify/components";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
+import { Section } from "@/components/common/Section";
 import { routesQuery } from "@/query/routesQuery";
 import { projectSettingsKeysQuery } from "@/query/projectSettingsKeysQuery";
 import { showErrorNotification } from "@/lib/errorNotifier";
@@ -495,25 +496,5 @@ function RouteSettingsForm({
 				</div>
 			</Modal.Footer>
 		</>
-	);
-}
-
-function Section({
-	title,
-	description,
-	children,
-}: {
-	title: string;
-	description: string;
-	children: React.ReactNode;
-}) {
-	return (
-		<section className="mb-6 flex flex-col gap-4 last:mb-0">
-			<div>
-				<h3 className="text-sm font-semibold text-foreground">{title}</h3>
-				<p className="mt-0.5 text-xs text-muted">{description}</p>
-			</div>
-			{children}
-		</section>
 	);
 }
