@@ -15,7 +15,7 @@ import { showErrorNotification } from "@/lib/errorNotifier";
 
 /**
  * Name it and go. A workflow has nothing else that must be decided up front —
- * the input shape, the timeout and the switches are all better answered once
+ * the timeout and the switches are all better answered once
  * the canvas exists, so they live in its settings rather than in a wizard.
  */
 export function CreateWorkflowModal({
@@ -90,7 +90,8 @@ export function CreateWorkflowModal({
 							</div>
 
 							<p className="text-xs text-muted">
-								It starts inactive with an empty canvas. Build it, then activate it —
+								It starts inactive with an entrypoint and an error handler. Build it, then
+							activate it —
 								an inactive workflow never runs.
 							</p>
 						</Modal.Body>

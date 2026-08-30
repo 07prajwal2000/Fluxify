@@ -44,8 +44,6 @@ export type WorkflowArtifact = {
 	projectId: string;
 	projectName: string;
 	name: string;
-	/** validated against the run payload before the job is queued */
-	payloadSchema?: unknown;
 	timeoutSeconds: number;
 	tracingEnabled: boolean;
 	recordExecution: boolean;

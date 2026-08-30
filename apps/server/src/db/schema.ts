@@ -291,11 +291,6 @@ export const workflowsEntity = pgTable(
 				onDelete: "cascade",
 			})
 			.default(sql`NULL`),
-		/**
-		 * Input contract for a run. A trigger — or a manual test run — supplies the
-		 * payload, and this validates it the way `bodySchema` validates a request.
-		 */
-		payloadSchema: jsonb("payload_schema"),
 		/** CPU-stall budget. A background job may legitimately want more than a request. */
 		timeoutSeconds: integer("timeout_seconds").default(300).notNull(),
 		/** Same two independent switches as a route — see `routesEntity`. */

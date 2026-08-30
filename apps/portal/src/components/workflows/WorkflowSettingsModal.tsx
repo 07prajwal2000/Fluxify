@@ -8,26 +8,23 @@ import {
 	Label,
 	Modal,
 	NumberField,
-	SchemaEditor,
 	Spinner,
 	Switch,
 	Tabs,
 	TextArea,
 	TextField,
 	toast,
-	type ValidationSchema,
 } from "@fluxify/components";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { Section } from "@/components/common/Section";
 import { workflowsQuery } from "@/query/workflowsQuery";
 import { showErrorNotification } from "@/lib/errorNotifier";
 import type { Workflow } from "@/services/workflows";
-import { EMPTY_SCHEMA, describesSomething } from "@/components/routes/routeForm";
 
 /**
  * Everything editable about a workflow, reachable from its canvas — the same
  * arrangement as the route settings modal, minus the HTTP contract a workflow
- * does not have and plus the payload it is given instead.
+ * does not have.
  */
 export function WorkflowSettingsModal({
 	workflowId,
@@ -85,9 +82,6 @@ function WorkflowSettingsForm({
 	const [name, setName] = useState(workflow.name ?? "");
 	const [description, setDescription] = useState(workflow.description ?? "");
 	const [active, setActive] = useState(Boolean(workflow.active));
-	const [payloadSchema, setPayloadSchema] = useState<ValidationSchema>(
-		(workflow.payloadSchema as ValidationSchema | null) ?? EMPTY_SCHEMA,
-	);
 	const [timeoutSeconds, setTimeoutSeconds] = useState(workflow.timeoutSeconds);
 	const [tracingEnabled, setTracingEnabled] = useState(workflow.tracingEnabled);
 	const [recordExecution, setRecordExecution] = useState(workflow.recordExecution);
@@ -99,8 +93,6 @@ function WorkflowSettingsForm({
 			name: name.trim(),
 			description,
 			active,
-			// an empty schema means "accept anything", which is null on the server
-			payloadSchema: describesSomething(payloadSchema) ? payloadSchema : null,
 			timeoutSeconds,
 			tracingEnabled,
 			recordExecution,
@@ -109,7 +101,6 @@ function WorkflowSettingsForm({
 			name,
 			description,
 			active,
-			payloadSchema,
 			timeoutSeconds,
 			tracingEnabled,
 			recordExecution,
@@ -168,7 +159,6 @@ function WorkflowSettingsForm({
 						className="w-44 shrink-0 border-r border-border p-3"
 					>
 						<Tabs.Tab id="general">General</Tabs.Tab>
-						<Tabs.Tab id="payload">Input</Tabs.Tab>
 						<Tabs.Tab id="advanced">Advanced</Tabs.Tab>
 						<Tabs.Tab id="danger">Danger zone</Tabs.Tab>
 					</Tabs.List>
@@ -213,15 +203,6 @@ function WorkflowSettingsForm({
 						</Section>
 					</Tabs.Panel>
 
-					<Tabs.Panel id="payload" className="min-h-0 flex-1 overflow-y-auto p-5">
-						<Section
-							title="Input shape"
-							description="What a trigger — or a manual run — has to supply. Leave it empty to accept anything; describe it and a run whose payload does not match is refused before any block executes."
-						>
-							<SchemaEditor value={payloadSchema} onChange={setPayloadSchema} />
-						</Section>
-					</Tabs.Panel>
-
 					<Tabs.Panel id="advanced" className="min-h-0 flex-1 overflow-y-auto p-5">
 						<Section
 							title="Time limit"
@@ -234,6 +215,7 @@ function WorkflowSettingsForm({
 								}
 								minValue={30}
 								maxValue={3600}
+								className="w-52"
 							>
 								<Label>Timeout (seconds)</Label>
 								<NumberField.Group>

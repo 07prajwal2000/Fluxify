@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
-import { Button, useInputDataTypes, type ValidationSchema } from "@fluxify/components";
+import { Button } from "@fluxify/components";
 import { TbPlayerPlay, TbSettings } from "react-icons/tb";
 import { workflowsQuery } from "@/query/workflowsQuery";
 import { workflowsService } from "@/services/workflows";
@@ -26,11 +26,6 @@ function WorkflowCanvasPage() {
 	const { data: workflow } = workflowsQuery.byId.useQuery(workflowId);
 	const [settingsOpen, setSettingsOpen] = useState(false);
 	const [runOpen, setRunOpen] = useState(false);
-
-	// `getRequestBody()` returns the payload here, so the payload schema is what
-	// its completions come from — this canvas only, the way custom block params
-	// are scoped to theirs.
-	useInputDataTypes(workflow?.payloadSchema as ValidationSchema | null);
 
 	return (
 		<>

@@ -28,7 +28,6 @@ import { BadRequestError } from "../../../../errors/badRequestError";
 import { ConflictError } from "../../../../errors/conflictError";
 import { ForbiddenError } from "../../../../errors/forbidError";
 import { NotFoundError } from "../../../../errors/notFoundError";
-import { ValidationError } from "../../../../errors/validationError";
 
 const acl = [{ projectId: "p1", role: "creator" as const }];
 const projectId = "0199a000-0000-7000-8000-000000000001";
@@ -38,7 +37,6 @@ const stored = {
 	name: "nightly report",
 	description: null,
 	active: true,
-	payloadSchema: null,
 	timeoutSeconds: 300,
 	tracingEnabled: false,
 	recordExecution: false,
@@ -140,21 +138,6 @@ describe("workflow run", () => {
 		} as any);
 
 		expect(runWorkflow("wf-1", {}, "u1", acl)).rejects.toThrow(BadRequestError);
-		expect(enqueued).toEqual([]);
-	});
-
-	it("validates the payload against the workflow's schema", async () => {
-		spyOn(repo, "findWorkflowById").mockResolvedValue({
-			...stored,
-			payloadSchema: {
-				type: "object",
-				properties: { day: { type: "number", required: true } },
-			},
-		} as any);
-
-		expect(
-			runWorkflow("wf-1", { payload: { day: "monday" } }, "u1", acl),
-		).rejects.toThrow(ValidationError);
 		expect(enqueued).toEqual([]);
 	});
 });

@@ -16,7 +16,7 @@ what starts it and what happens when it finishes.
 | **How it starts** | Someone calls a URL | A trigger fires, or you run it manually |
 | **Who waits for it** | The caller, holding the connection open | Nobody |
 | **Gives back** | An HTTP response | Nothing — it just finishes |
-| **Has** | A path, a method, request validation | An input shape, if you want one |
+| **Has** | A path, a method, request validation | A name and a time limit |
 | **Default time limit** | 30 seconds | 5 minutes |
 | **If it fails** | The caller sees an error | It is retried automatically |
 
@@ -45,9 +45,11 @@ A workflow can accept a payload — the same idea as a route's request body. Who
 starts the run supplies it, and your blocks read it exactly as they would read a
 request body.
 
-You can describe the shape you expect, and Fluxify will reject a run whose
-payload does not match before any of your blocks execute. That check works the
-same way as request validation on a route.
+There is nothing to declare up front and nothing is validated. A route is called
+by the outside world, so it checks what it is given; a workflow is started from
+inside your own project, by a trigger you set up or by you pressing Run, so
+whoever starts it decides what it gets. Check anything you are unsure of in your
+blocks.
 
 ### What a payload can contain
 
@@ -77,11 +79,9 @@ Every workflow has a **Run** action that queues a single run with a payload you
 type in. It is how you test a workflow before attaching a trigger to it.
 
 The run is queued, not executed on the spot — you get a run id back immediately
-and the work happens on a worker. Two things are worth knowing:
-
-- The workflow has to be **active**. An inactive one is refused straight away,
-  rather than accepted and then silently never run.
-- Your payload is checked against the input shape first, if you defined one.
+and the work happens on a worker. One thing to know: the workflow has to be
+**active**. An inactive one is refused straight away, rather than accepted and
+then silently never run.
 
 ## When a run fails
 

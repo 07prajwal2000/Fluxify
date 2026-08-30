@@ -1,10 +1,8 @@
 import { z } from "zod";
 import { AuthACL } from "../../../db/schema";
 import { BadRequestError } from "../../../errors/badRequestError";
-import { ValidationError } from "../../../errors/validationError";
 import { enqueueJob } from "../../../modules/jobs/publisher";
 import { WORKFLOW_JOB } from "../../../modules/jobs/subjects";
-import { parseRequestSchema } from "../../../lib/schemaParser";
 import { runAcceptedSchema, runSchema } from "./dto";
 import { mustAccess } from "./service";
 
@@ -28,21 +26,6 @@ export default async function runWorkflow(
 	// the queue until it aged out. Refuse now, where the caller can see why.
 	if (!workflow.active)
 		throw new BadRequestError("Workflow is not active — activate it to run it");
-
-	if (workflow.payloadSchema) {
-		const result = await parseRequestSchema(
-			workflow.payloadSchema,
-			body.payload ?? {},
-			{ vars: {} },
-		);
-		if (!result.success)
-			throw new ValidationError(
-				(result.errors ?? []).map((e) => ({
-					field: e.path,
-					message: e.errors.join(", "),
-				})),
-			);
-	}
 
 	const job = await enqueueJob({
 		kind: WORKFLOW_JOB,

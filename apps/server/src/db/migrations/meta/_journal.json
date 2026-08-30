@@ -400,6 +400,13 @@
       "when": 1788041131830,
       "tag": "0056_workflows_entity",
       "breakpoints": true
+    },
+    {
+      "idx": 57,
+      "version": "7",
+      "when": 1788123576019,
+      "tag": "0057_drop_workflow_payload_schema",
+      "breakpoints": true
     }
   ]
 }

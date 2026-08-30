@@ -165,7 +165,6 @@ function present(row: Workflow): z.infer<typeof workflowSchema> {
 		name: row.name,
 		description: row.description,
 		active: row.active,
-		payloadSchema: row.payloadSchema ?? null,
 		timeoutSeconds: row.timeoutSeconds,
 		tracingEnabled: row.tracingEnabled,
 		recordExecution: row.recordExecution,
