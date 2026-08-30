@@ -183,8 +183,9 @@ export async function dropRoute(projectId: string, routeId: string) {
  * Compile one workflow and publish it; an inactive or deleted one is dropped.
  *
  * Same compiler, same artifact store, same custom block library as a route —
- * only the entity it reads and the shape it publishes differ. Nothing about
- * `compileGraph` knows the difference, and it must not need to.
+ * only the entity it reads and the shape it publishes differ. The compiler is
+ * told one thing (`asWorkflow`), and it is about a block that has no job here,
+ * not about a second way of compiling a graph.
  */
 export async function compileWorkflow(workflowId: string) {
 	const [workflow] = await db
@@ -212,7 +213,9 @@ export async function compileWorkflow(workflowId: string) {
 	await ensureCustomBlocksRegistered(workflow.projectId!);
 
 	const { blocks, edges } = await loadGraph({ type: "workflow", id: workflowId });
-	const { source } = compileGraph(blocks, edges);
+	// `asWorkflow` is the one thing the compiler is told: a response block has
+	// nothing to respond to here, so it compiles to a plain terminal.
+	const { source } = compileGraph(blocks, edges, { asWorkflow: true });
 
 	const compiledAt = new Date().toISOString();
 	const artifact: WorkflowArtifact = {

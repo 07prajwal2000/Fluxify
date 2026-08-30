@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
-import { Button } from "@fluxify/components";
+import { Button, useInputDataTypes, type ValidationSchema } from "@fluxify/components";
 import { TbSettings } from "react-icons/tb";
 import { routesQuery } from "@/query/routesQuery";
 import { routesService } from "@/services/routes";
@@ -20,6 +20,11 @@ function RouteCanvasPage() {
 	const { projectId, routeId } = Route.useParams();
 	const save = routesQuery.saveCanvas.mutation(routeId);
 	const [settingsOpen, setSettingsOpen] = useState(false);
+
+	// the same gap workflows had: `getRequestBody()` was `any` on a route whose
+	// body schema already says what it holds
+	const { data: route } = routesQuery.byId.useQuery(routeId);
+	useInputDataTypes(route?.bodySchema as ValidationSchema | null);
 
 	return (
 		<>

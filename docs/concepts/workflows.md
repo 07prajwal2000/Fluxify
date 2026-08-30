@@ -35,8 +35,9 @@ external system — make it a workflow.
 4. **Activate it.** An inactive workflow is never published to your workers, so
    nothing can run it — not a trigger, not a manual run.
 
-There is no **response** block on a workflow canvas. There is nothing to respond
-to, so anything the last block produces is simply the end of the run.
+A **response** block does nothing here. There is nobody waiting and no status
+code to send, so it simply ends the run like any other last block — whatever
+reached it is the result. You do not need one.
 
 ## Giving it input
 

@@ -37,6 +37,21 @@ export function emitResponse(node: EmitNode) {
   );
 }
 
+/**
+ * The same block on a workflow canvas: terminal, and nothing else.
+ *
+ * A workflow is queued and runs with nobody attached, so there is no reply to
+ * put a status code on. The configured `httpCode` is deliberately not read —
+ * emitting it would produce a field no caller can ever see, and reading the
+ * block's data would make a workflow fail to compile over a setting that
+ * cannot matter to it.
+ */
+export function emitWorkflowEnd(node: EmitNode) {
+	return node.complete(
+		`{ successful: true, continueIfFail: true, output: ${node.in} ?? null }`,
+	);
+}
+
 export class ResponseBlock extends BaseBlock {
   override async executeAsync(params?: any): Promise<ResponseBlockHTTPResult> {
     const { httpCode } = this.input as z.infer<typeof responseBlockSchema>;
