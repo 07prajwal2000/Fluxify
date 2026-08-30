@@ -22,6 +22,7 @@ import {
 import { acceptedContentTypes } from "../../lib/routeConfig";
 import { deleteArtifact, putArtifact } from "../../db/natsKv";
 import type { CanvasParent } from "../canvas/types";
+import { parentColumn } from "../canvas/repository";
 import { getProjectAppConfig } from "../../loaders/appconfigLoader";
 import {
 	aiIntegrationsCache,
@@ -412,8 +413,7 @@ export async function loadGraph(parent: CanvasParent) {
 		.from(blocksEntity)
 		.where(
 			and(
-				eq(blocksEntity.parentType, parent.type),
-				eq(blocksEntity.parentId, parent.id),
+				eq(parentColumn(blocksEntity, parent.type), parent.id),
 				ne(blocksEntity.type, BlockTypes.sticky_note),
 			),
 		);
@@ -437,10 +437,7 @@ export async function loadGraph(parent: CanvasParent) {
 		})
 		.from(edgesEntity)
 		.where(
-			and(
-				eq(edgesEntity.parentType, parent.type),
-				eq(edgesEntity.parentId, parent.id),
-			),
+			eq(parentColumn(edgesEntity, parent.type), parent.id),
 		);
 
 	// the loader swaps the handles; keep the compiler on the same convention

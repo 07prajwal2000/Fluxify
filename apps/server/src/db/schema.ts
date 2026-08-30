@@ -344,22 +344,11 @@ export const blocksEntity = pgTable(
 				onDelete: "cascade",
 			},
 		),
-		// Read surface for the unified canvas: one pair of columns to filter on,
-		// whatever the canvas belongs to. Kept as generated columns so the real
-		// foreign keys (and their ON DELETE CASCADE) still own integrity — a bare
-		// polymorphic parent_id cannot cascade.
-		parentType: varchar("parent_type", { length: 20 }).generatedAlwaysAs(
-			sql`CASE WHEN custom_block_id IS NOT NULL THEN 'custom_block' WHEN workflow_id IS NOT NULL THEN 'workflow' ELSE 'route' END`,
-		),
-		parentId: varchar("parent_id", { length: 50 }).generatedAlwaysAs(
-			sql`COALESCE(route_id, custom_block_id, workflow_id)`,
-		),
 	},
 	(table) => [
 		index("idx_blocks_route_id").on(table.routeId),
 		index("idx_blocks_custom_block_id").on(table.customBlockId),
 		index("idx_blocks_workflow_id").on(table.workflowId),
-		index("idx_blocks_parent").on(table.parentType, table.parentId),
 	],
 );
 
@@ -395,12 +384,6 @@ export const edgesEntity = pgTable(
 				onDelete: "cascade",
 			},
 		),
-		parentType: varchar("parent_type", { length: 20 }).generatedAlwaysAs(
-			sql`CASE WHEN custom_block_id IS NOT NULL THEN 'custom_block' WHEN workflow_id IS NOT NULL THEN 'workflow' ELSE 'route' END`,
-		),
-		parentId: varchar("parent_id", { length: 50 }).generatedAlwaysAs(
-			sql`COALESCE(route_id, custom_block_id, workflow_id)`,
-		),
 	},
 	(table) => [
 		index("idx_edges_from").on(table.from),
@@ -408,7 +391,6 @@ export const edgesEntity = pgTable(
 		index("idx_edges_route_id").on(table.routeId),
 		index("idx_edges_custom_block_id").on(table.customBlockId),
 		index("idx_edges_workflow_id").on(table.workflowId),
-		index("idx_edges_parent").on(table.parentType, table.parentId),
 	],
 );
 

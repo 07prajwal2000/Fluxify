@@ -33,9 +33,9 @@ export function parentTable(type: CanvasParent["type"]) {
 }
 
 /**
- * `parent_type`/`parent_id` are generated columns, so writes still go through
- * the real foreign key — that is what keeps ON DELETE CASCADE working for every
- * parent. Reads filter on the generated pair.
+ * Reads and writes both go through the real foreign key — one column per parent
+ * kind, each with its own index. Nothing derives the parent a second time, so a
+ * schema that is a column behind cannot quietly hide a canvas.
  */
 export function parentKeys(parent: CanvasParent) {
 	const keys = { routeId: null, customBlockId: null, workflowId: null } as Record<
@@ -50,14 +50,19 @@ export function parentKeys(parent: CanvasParent) {
 	};
 }
 
+/** The foreign key column that rows of this parent kind hang off. */
+export function parentColumn(
+	table: typeof blocksEntity | typeof edgesEntity,
+	type: CanvasParent["type"],
+) {
+	return table[parentTables[type].column];
+}
+
 function ownedBy(
 	table: typeof blocksEntity | typeof edgesEntity,
 	parent: CanvasParent,
 ) {
-	return and(
-		eq(table.parentType, parent.type),
-		eq(table.parentId, parent.id),
-	);
+	return eq(parentColumn(table, parent.type), parent.id);
 }
 
 export async function upsertBlocks(blocks: BlockRow[], tx?: DbTransactionType) {
@@ -177,16 +182,13 @@ export async function getGraphsWithConnections(
 ) {
 	if (!parentIds.length) return [];
 	const where = (table: typeof blocksEntity | typeof edgesEntity) =>
-		and(
-			eq(table.parentType, parentType),
-			inArray(table.parentId, parentIds),
-		);
+		inArray(parentColumn(table, parentType), parentIds);
 
 	const [blocks, edges] = await Promise.all([
 		(tx ?? db)
 			.select({
 				id: blocksEntity.id,
-				parentId: blocksEntity.parentId,
+				parentId: parentColumn(blocksEntity, parentType),
 				type: blocksEntity.type,
 				position: blocksEntity.position,
 				data: blocksEntity.data,
@@ -294,14 +296,12 @@ export async function getCustomBlockCalls(
 ): Promise<{ parentId: string; type: string }[]> {
 	if (!customBlockIds.length) return [];
 	const rows = await (tx ?? db)
-		.selectDistinct({ parentId: blocksEntity.parentId, type: blocksEntity.type })
+		.selectDistinct({
+			parentId: blocksEntity.customBlockId,
+			type: blocksEntity.type,
+		})
 		.from(blocksEntity)
-		.where(
-			and(
-				eq(blocksEntity.parentType, "custom_block"),
-				inArray(blocksEntity.parentId, customBlockIds),
-			),
-		);
+		.where(inArray(blocksEntity.customBlockId, customBlockIds));
 	return rows.flatMap((row) =>
 		row.parentId && row.type ? [{ parentId: row.parentId, type: row.type }] : [],
 	);

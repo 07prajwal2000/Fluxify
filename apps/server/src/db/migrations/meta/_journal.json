@@ -407,6 +407,13 @@
       "when": 1788123576019,
       "tag": "0057_drop_workflow_payload_schema",
       "breakpoints": true
+    },
+    {
+      "idx": 58,
+      "version": "7",
+      "when": 1788125012557,
+      "tag": "0058_drop_canvas_parent_columns",
+      "breakpoints": true
     }
   ]
 }
