@@ -1,11 +1,16 @@
 import { logger } from "@fluxify/common";
-import { consumeQueue, ensureStreamConsumer } from "@fluxify/common/nats";
+import {
+	consumeQueue,
+	deleteConsumer,
+	ensureStreamConsumer,
+} from "@fluxify/common/nats";
 import { natsConnection } from "../../db/nats";
 import {
 	JOBS_STREAM,
 	JOBS_SUBJECTS,
 	jobConsumerName,
 	jobKindsForMode,
+	legacyJobConsumerName,
 	projectJobFilters,
 } from "./subjects";
 import type { JobEnvelope } from "./types";
@@ -65,6 +70,14 @@ export async function startJobWorker(options: JobWorkerOptions) {
 		config.projectId,
 		jobKindsForMode(config.mode),
 	);
+
+	// Retire the pre-mode durable before asking for this one. It filtered on
+	// `fluxify.jobs.<project>.>`, which overlaps every mode-suffixed consumer,
+	// and a work-queue stream allows one consumer per subject — so while it is
+	// there the consumer below cannot be created and every queued job waits for
+	// a subscriber that never arrives. Deleting it loses only delivery state:
+	// unacked messages stay on the stream and this consumer picks them up.
+	await deleteConsumer(nc, JOBS_STREAM, legacyJobConsumerName(config.projectId));
 
 	await ensureStreamConsumer(
 		nc,

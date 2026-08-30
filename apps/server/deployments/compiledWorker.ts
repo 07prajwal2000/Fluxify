@@ -261,9 +261,19 @@ await startJobWorker({
 	ackWaitMs: Number(getEnv("JOBS_ACK_WAIT_MS")) || undefined,
 	maxDeliver: Number(getEnv("JOBS_MAX_DELIVER")) || undefined,
 	retryDelayMs: Number(getEnv("JOBS_RETRY_DELAY_MS")) || undefined,
-}).catch((error) =>
-	logger.error(`job worker failed to start: ${String(error)}`, "WORKER.jobs"),
-);
+}).catch((error) => {
+	// A worker that cannot take jobs is not a degraded worker, it is a silent
+	// one: the queue keeps accepting runs nothing will ever pick up. Deployed,
+	// that is worth dying for — an orchestrator restarts it and the failure is
+	// visible. In development it is not: one bad consumer would take the whole
+	// dev stack down with it, so the error is loud and the process stays up.
+	logger.error(`job worker failed to start: ${String(error)}`, "WORKER.jobs");
+	if (getEnv("NODE_ENV") === "production") process.exit(1);
+	logger.warn(
+		"worker is serving routes but consuming no jobs — fix the error above and restart",
+		"WORKER.jobs",
+	);
+});
 
 function evaluateTimeouts() {
 	const timedOut = watchdog.findTimedOut();

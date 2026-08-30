@@ -5,6 +5,7 @@ import {
 	assertWorkerMode,
 	jobConsumerName,
 	jobKindsForMode,
+	legacyJobConsumerName,
 	projectJobFilters,
 } from "../subjects";
 
@@ -41,6 +42,14 @@ describe("worker modes", () => {
 			jobConsumerName("p1", "workflow"),
 		);
 		expect(jobConsumerName(ALL_PROJECTS, "route")).toBe("fluxify_jobs_all_route");
+	});
+
+	it("still names the pre-mode durable, so an upgrade can retire it", () => {
+		// The exact string an older build wrote. Change it and every existing
+		// install keeps a consumer that blocks the new one on the work queue.
+		expect(legacyJobConsumerName("p1")).toBe("fluxify_jobs_p1");
+		expect(legacyJobConsumerName(ALL_PROJECTS)).toBe("fluxify_jobs_all");
+		expect(legacyJobConsumerName("p1")).not.toBe(jobConsumerName("p1", "both"));
 	});
 
 	it("keeps the HTTP route table out of a workflow-only worker", () => {

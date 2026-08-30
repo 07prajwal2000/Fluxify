@@ -73,33 +73,40 @@ export function newStreamConfig(
 	};
 }
 
-/** Limits a live consumer will accept without being torn down and recreated. */
+/**
+ * What a live consumer will accept without being torn down and recreated.
+ *
+ * Filters are in here on purpose. A durable outlives the code that made it, so
+ * adding a job kind to a mode has to reach the consumer that already exists —
+ * otherwise the new kind is published to a stream nobody is filtered for and
+ * the jobs sit there looking enqueued. Filter subjects are updatable from 2.10;
+ * we pin 2.14.
+ */
 export function updatableConsumerConfig(
 	spec: ConsumerSpec,
 ): Partial<ConsumerUpdateConfig> {
+	const filters = spec.filterSubjects ?? [];
 	return {
 		ack_wait: nanos(spec.ackWaitMs ?? 60_000),
 		max_deliver: spec.maxDeliver ?? 1,
 		...(spec.maxAckPending !== undefined
 			? { max_ack_pending: spec.maxAckPending }
 			: {}),
-	};
-}
-
-export function newConsumerConfig(spec: ConsumerSpec): Partial<ConsumerConfig> {
-	const filters = spec.filterSubjects ?? [];
-	return {
-		...updatableConsumerConfig(spec),
-		durable_name: spec.durable,
-		ack_policy: AckPolicy.Explicit,
-		// A single filter goes in the singular field: multi-filter consumers need
-		// a 2.10+ server, so we only ask for one when there is more than one
-		// subject to ask about.
+		// A single filter goes in the singular field: the two are mutually
+		// exclusive, and a server rejects a config carrying both.
 		...(filters.length === 1
 			? { filter_subject: filters[0] }
 			: filters.length > 1
 				? { filter_subjects: filters }
 				: {}),
+	};
+}
+
+export function newConsumerConfig(spec: ConsumerSpec): Partial<ConsumerConfig> {
+	return {
+		...updatableConsumerConfig(spec),
+		durable_name: spec.durable,
+		ack_policy: AckPolicy.Explicit,
 	};
 }
 
@@ -139,10 +146,67 @@ export async function ensureConsumer(
 	try {
 		await jsm.consumers.info(stream, spec.durable);
 		await jsm.consumers.update(stream, spec.durable, updatableConsumerConfig(spec));
+		return;
 	} catch (error) {
 		if (!isConsumerNotFound(error)) throw error;
+	}
+	try {
 		await jsm.consumers.add(stream, newConsumerConfig(spec));
 		logger.info(`[nats] consumer ${stream}/${spec.durable} created`, "NATS");
+	} catch (error) {
+		throw (await describeConsumerConflict(jsm, stream, spec, error)) ?? error;
+	}
+}
+
+/**
+ * A work-queue stream allows one consumer per subject, so a durable left behind
+ * by an older build — a renamed one, a wider filter — makes every new consumer
+ * unaddable. The broker says only "not unique", which leaves an operator
+ * guessing; this names the durable in the way and what it is holding.
+ */
+async function describeConsumerConflict(
+	jsm: Awaited<ReturnType<typeof jetstreamManager>>,
+	stream: string,
+	spec: ConsumerSpec,
+	error: unknown,
+) {
+	if (!/not unique/i.test(String(error))) return undefined;
+	const existing: string[] = [];
+	for await (const consumer of await jsm.consumers.list(stream).next()) {
+		if (consumer.name === spec.durable) continue;
+		const filters = consumer.config.filter_subjects ?? [
+			consumer.config.filter_subject ?? ">",
+		];
+		existing.push(`${consumer.name} (${filters.join(", ")})`);
+	}
+	return new Error(
+		`consumer ${stream}/${spec.durable} overlaps an existing consumer on a work-queue stream. ` +
+			`Wanted ${(spec.filterSubjects ?? [">"]).join(", ")}; already there: ${existing.join("; ") || "none"}. ` +
+			"Delete the stale consumer, or narrow its filter, then restart.",
+	);
+}
+
+/**
+ * Removes a durable, treating "it was never there" as success.
+ *
+ * For retiring a consumer a newer build replaced. On a work-queue stream that
+ * is not housekeeping: one consumer is allowed per subject, so a durable an old
+ * build left behind blocks its successor from ever being created, and the queue
+ * fills with work nothing is subscribed to.
+ */
+export async function deleteConsumer(
+	nc: NatsConnection,
+	stream: string,
+	durable: string,
+): Promise<boolean> {
+	const jsm = await jetstreamManager(nc);
+	try {
+		await jsm.consumers.delete(stream, durable);
+		logger.info(`[nats] consumer ${stream}/${durable} deleted`, "NATS");
+		return true;
+	} catch (error) {
+		if (isConsumerNotFound(error) || isStreamNotFound(error)) return false;
+		throw error;
 	}
 }
 

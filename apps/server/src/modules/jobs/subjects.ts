@@ -94,9 +94,27 @@ export function projectJobFilters(projectId: string, kinds: readonly string[]) {
  * filters. Consumer names allow no dots or wildcards.
  */
 export function jobConsumerName(projectId: string, mode: string) {
+	return `${jobConsumerPrefix(projectId)}_${assertWorkerMode(mode)}`;
+}
+
+/**
+ * The name this deployment's consumer had before modes existed, when it took
+ * every kind through one `fluxify.jobs.<project>.>` filter.
+ *
+ * A durable outlives the build that made it, and a work-queue stream allows one
+ * consumer per subject — so on an upgrade that leftover overlaps every
+ * mode-suffixed consumer and the broker refuses to create them. The queue then
+ * accepts runs no worker is subscribed to. The worker deletes this on startup;
+ * an install that never had it deletes nothing.
+ */
+export function legacyJobConsumerName(projectId: string) {
+	return jobConsumerPrefix(projectId);
+}
+
+function jobConsumerPrefix(projectId: string) {
 	const project =
 		projectId === ALL_PROJECTS
 			? "all"
 			: projectId.replace(/[^a-zA-Z0-9_-]/g, "_");
-	return `fluxify_jobs_${project}_${assertWorkerMode(mode)}`;
+	return `fluxify_jobs_${project}`;
 }

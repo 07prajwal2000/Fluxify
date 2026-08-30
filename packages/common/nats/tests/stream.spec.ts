@@ -85,4 +85,13 @@ describe("newConsumerConfig", () => {
 		expect(updatableConsumerConfig({ durable: "d" }).max_deliver).toBe(1);
 		expect(updatableConsumerConfig({ durable: "d" }).ack_wait).toBe(60_000 * MS_TO_NS);
 	});
+
+	it("carries filters, so a new job kind reaches a durable that already exists", () => {
+		expect(
+			updatableConsumerConfig({ durable: "d", filterSubjects: ["a.b", "a.c"] }),
+		).toMatchObject({ filter_subjects: ["a.b", "a.c"] });
+		expect(
+			updatableConsumerConfig({ durable: "d", filterSubjects: ["a.b"] }),
+		).toMatchObject({ filter_subject: "a.b" });
+	});
 });
