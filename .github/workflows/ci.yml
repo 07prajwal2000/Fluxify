@@ -17,6 +17,7 @@ jobs:
       lib: ${{ steps.filter.outputs.lib }}
       adapters: ${{ steps.filter.outputs.adapters }}
       blocks: ${{ steps.filter.outputs.blocks }}
+      e2e: ${{ steps.filter.outputs.e2e }}
       server: ${{ steps.filter.outputs.server }}
       portal: ${{ steps.filter.outputs.portal }}
       ai-gateway: ${{ steps.filter.outputs.ai-gateway }}
@@ -35,6 +36,8 @@ jobs:
               - 'packages/blocks/**'
               - 'packages/adapters/**'
               - 'packages/lib/**'
+            e2e:
+              - 'testing/e2e/**'
             server:
               - 'apps/server/**'
               - 'packages/**'
@@ -113,7 +116,7 @@ jobs:
 
   test-e2e-graphs:
     needs: detect-changes
-    if: needs.detect-changes.outputs.blocks == 'true' || needs.detect-changes.outputs.adapters == 'true'
+    if: needs.detect-changes.outputs.blocks == 'true' || needs.detect-changes.outputs.adapters == 'true' || needs.detect-changes.outputs.e2e == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
