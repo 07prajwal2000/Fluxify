@@ -32,6 +32,24 @@ export type GraphFixture = {
 };
 
 /**
+ * A workflow fixture: the same canvas JSON, minus everything HTTP.
+ *
+ * A workflow has no route to be reached on, no request to validate and no
+ * status code to return — it is started by a queued job, and that job's payload
+ * is what the graph sees as `input`. A response block on the canvas still ends
+ * the run; it just stops meaning "reply with this".
+ */
+export type WorkflowFixture = {
+	/** Also the workflow id the harness publishes and queues it under. */
+	name: string;
+	description: string;
+	/** The run's budget. Defaults to 30s, which no fixture should come near. */
+	timeoutSeconds?: number;
+	blocks: BlockDTOType[];
+	edges: EdgeDTOSchemaType;
+};
+
+/**
  * A custom block as the portal saves it: a graph plus the input contract its
  * callers configure. `name` is what a calling block carries as its type.
  */
@@ -45,6 +63,12 @@ export type CustomBlockFixture = {
 
 const graphsDir = join(import.meta.dir, "..", "graphs");
 const blocksDir = join(import.meta.dir, "..", "blocks");
+/**
+ * Workflows sit beside the route graphs rather than in a subfolder of them:
+ * they compile under a different option and are loaded by a different harness,
+ * so a suite that walks `graphs/` must not pick one up and expect a route.
+ */
+const workflowsDir = join(import.meta.dir, "..", "workflows");
 
 export async function loadGraph(name: string): Promise<GraphFixture> {
 	const fixture = (await Bun.file(
@@ -65,6 +89,21 @@ export async function loadGraph(name: string): Promise<GraphFixture> {
  */
 export function graphNames(): string[] {
 	return jsonNames(graphsDir);
+}
+
+/** Loads one workflow by file name — `workflows/notify.json` is `notify`. */
+export async function loadWorkflow(name: string): Promise<WorkflowFixture> {
+	const fixture = (await Bun.file(
+		join(workflowsDir, `${name}.json`),
+	).json()) as WorkflowFixture;
+	if (fixture.name !== name) {
+		throw new Error(`workflow ${name}.json declares name "${fixture.name}"`);
+	}
+	return fixture;
+}
+
+export function workflowNames(): string[] {
+	return jsonNames(workflowsDir);
 }
 
 /** Loads one custom block by file name — `blocks/jwt-ops.json` is `jwt-ops`. */

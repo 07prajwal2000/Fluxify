@@ -6,6 +6,8 @@ import {
 	graphNames,
 	loadCustomBlock,
 	loadGraph,
+	loadWorkflow,
+	workflowNames,
 } from "../src/graph";
 
 /**
@@ -29,6 +31,20 @@ describe("graph fixtures", () => {
 			} finally {
 				dispose();
 			}
+		});
+	}
+});
+
+describe("workflow fixtures", () => {
+	for (const name of workflowNames()) {
+		it(`${name} compiles as a workflow`, async () => {
+			const fixture = await loadWorkflow(name);
+			const { source } = compileGraph(fixture.blocks, fixture.edges, {
+				asWorkflow: true,
+			});
+			// a workflow has nobody to reply to, so a response block on the canvas
+			// must have compiled to a plain terminal rather than an HTTP result
+			expect(source).not.toContain("httpCode");
 		});
 	}
 });

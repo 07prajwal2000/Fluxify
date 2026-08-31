@@ -21,7 +21,8 @@ request then travels the production path: context vars, request schema
 validation, block execution, response shaping.
 
 Bypassed: artifact transport (NATS KV, the supervisor, the isolated execution
-process). Those seams are worth covering, but they are a different suite.
+process). The workflow suite below covers the first two against a real broker;
+the process split is still nobody's.
 
 One container per engine is shared by the entire run and torn down once at the
 end. They start lazily, so an engine no fixture asks for never launches.
@@ -37,6 +38,11 @@ A fixture declares its engine; Postgres is the default.
 | `pg` | `postgres:bullseye` | `users`, `orders`, `auth_users` |
 | `mongo` | `mongo:7.0`, single-node replica set | `todos` |
 | `none` | — | graphs that touch no database |
+
+The workflow suite starts one more container, `nats:2.14-alpine`, on the same
+lazy terms. It is pinned to the minor the deployment runs: the job consumer uses
+multi-subject filters (2.10+), and a work-queue stream's one-consumer-per-subject
+rule is something these tests rely on.
 
 Graphs are written **per engine**, not run across all of them. The adapters do
 not agree on what a result looks like — Mongo ids are hex strings off `_id`,
@@ -61,6 +67,50 @@ route-level schema the portal stores, and it runs before any block does, so a
 (`AUTH_USERS` in `src/seed.ts`), which keeps the plaintext passwords available
 to the tests: a login test posts one, and the storage test hashes one and
 compares it against the column read straight out of Postgres.
+
+## Workflows
+
+`workflows/` holds graphs that are *queued*, not called, and `tests/workflow.test.ts`
+runs them against a real NATS container. This is the transport the route suite
+bypasses, and it is where workflow failures actually happen — a consumer that
+never gets created, an artifact that never lands, a failed run that is acked
+instead of retried:
+
+```
+putArtifact -> KV watch -> compiled runtime
+enqueueJob  -> JetStream work queue -> job worker -> workflow handler
+```
+
+Only the process split is missing. A deployment puts the graph in a child
+process and the broker in the supervisor; here they share one, which is what
+lets a test observe the run at all.
+
+A workflow answers nobody, so there is no response to assert on. What it did to
+the outside world is the only evidence, and `runWorkflow` returns it:
+
+| field | use it for |
+|---|---|
+| `hits` | every request the graph's HTTP blocks made, in order |
+| `ok` | whether the job was acked — a failed graph is retried, then dropped |
+| `attempts` | deliveries it took to settle; more than one means it was retried |
+| `error` | what the last attempt threw |
+
+`failNext(path, times)` makes the sink refuse, which is how a graph gets a
+realistic reason to be redelivered.
+
+Each test runs under a 10s ceiling — pass `WORKFLOW_TIMEOUT_MS` as the test's
+timeout. The container starts once in `beforeAll`, outside that budget. The
+worker is configured for 3 deliveries 250ms apart rather than the production 5
+at 10s, because what is under test is the retry, not its pacing.
+
+Two things about these fixtures are worth copying:
+
+- A response block ends the run but returns nothing. Where it sits decides
+  whether a failure is retried: `rescue.json`'s error handler ends on a
+  terminal, so the run settles as successful and the queue acks it. Drop that
+  terminal and the same graph is redelivered instead.
+- `getConfig` is how a graph reaches the sink, because the port is only known at
+  runtime. It is also how a real workflow would read a base URL.
 
 ## Custom blocks
 
@@ -104,6 +154,11 @@ custom block params cannot reference yet.
 
 Seed data lives in `src/seed.ts`, one function per engine. Extend the one your
 graph needs — adding a graph should not mean adding a migration.
+
+A workflow goes in `workflows/` instead, with no `route` and no `engine`, and is
+run with `runWorkflow(fixture, payload)`. Both directories are walked by
+`tests/fixtures.test.ts`, so a graph that stops compiling fails there rather
+than confusingly inside whichever suite loads it.
 
 ## Asserting
 

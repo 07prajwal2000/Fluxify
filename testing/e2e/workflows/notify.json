@@ -1,0 +1,63 @@
+{
+	"name": "notify",
+	"description": "The smallest useful workflow: the queued payload is shaped and posted to an external service. No route, no status code — the POST is the entire point of the run, and the only thing anyone can observe about it.",
+	"blocks": [
+		{
+			"id": "entry",
+			"type": "entrypoint",
+			"position": { "x": 0, "y": 0 },
+			"data": { "blockName": "Job payload" }
+		},
+		{
+			"id": "message",
+			"type": "jsrunner",
+			"position": { "x": 240, "y": 0 },
+			"data": {
+				"blockName": "Shape the notification",
+				"value": "return { orderId: input.orderId, text: \"order \" + input.orderId + \" is \" + input.status };"
+			}
+		},
+		{
+			"id": "notify",
+			"type": "httprequest",
+			"position": { "x": 480, "y": 0 },
+			"data": {
+				"blockName": "POST /notify",
+				"url": "js:return getConfig(\"E2E_SINK_URL\") + \"/notify\";",
+				"method": "POST",
+				"headers": { "content-type": "application/json" },
+				"body": "",
+				"useParam": true
+			}
+		},
+		{
+			"id": "done",
+			"type": "response",
+			"position": { "x": 720, "y": 0 },
+			"data": { "blockName": "Done", "httpCode": "200" }
+		}
+	],
+	"edges": [
+		{
+			"id": "e-entry-message",
+			"from": "entry",
+			"to": "message",
+			"fromHandle": "source",
+			"toHandle": "source"
+		},
+		{
+			"id": "e-message-notify",
+			"from": "message",
+			"to": "notify",
+			"fromHandle": "source",
+			"toHandle": "source"
+		},
+		{
+			"id": "e-notify-done",
+			"from": "notify",
+			"to": "done",
+			"fromHandle": "source",
+			"toHandle": "source"
+		}
+	]
+}
