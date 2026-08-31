@@ -1,0 +1,80 @@
+{
+	"name": "fanout",
+	"description": "One queued job, one POST per recipient. The loop reads its array from the flowing value (`useParam`) and its body hangs off the `executor` handle, so the number of requests the sink receives is decided by the payload, not by the canvas.",
+	"blocks": [
+		{
+			"id": "entry",
+			"type": "entrypoint",
+			"position": { "x": 0, "y": 0 },
+			"data": { "blockName": "Job payload" }
+		},
+		{
+			"id": "recipients",
+			"type": "jsrunner",
+			"position": { "x": 240, "y": 0 },
+			"data": {
+				"blockName": "Pick the recipients",
+				"value": "return input.recipients;"
+			}
+		},
+		{
+			"id": "each",
+			"type": "foreachloop",
+			"position": { "x": 480, "y": 0 },
+			"data": {
+				"blockName": "For each recipient",
+				"values": [],
+				"useParam": true
+			}
+		},
+		{
+			"id": "send",
+			"type": "httprequest",
+			"position": { "x": 720, "y": 120 },
+			"data": {
+				"blockName": "POST /notify",
+				"url": "js:return getConfig(\"E2E_SINK_URL\") + \"/notify\";",
+				"method": "POST",
+				"headers": { "content-type": "application/json" },
+				"body": "",
+				"useParam": true
+			}
+		},
+		{
+			"id": "done",
+			"type": "response",
+			"position": { "x": 720, "y": -120 },
+			"data": { "blockName": "Done", "httpCode": "200" }
+		}
+	],
+	"edges": [
+		{
+			"id": "e-entry-recipients",
+			"from": "entry",
+			"to": "recipients",
+			"fromHandle": "source",
+			"toHandle": "source"
+		},
+		{
+			"id": "e-recipients-each",
+			"from": "recipients",
+			"to": "each",
+			"fromHandle": "source",
+			"toHandle": "source"
+		},
+		{
+			"id": "e-each-send",
+			"from": "each",
+			"to": "send",
+			"fromHandle": "source",
+			"toHandle": "executor"
+		},
+		{
+			"id": "e-each-done",
+			"from": "each",
+			"to": "done",
+			"fromHandle": "source",
+			"toHandle": "source"
+		}
+	]
+}

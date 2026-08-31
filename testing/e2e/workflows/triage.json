@@ -1,0 +1,103 @@
+{
+	"name": "triage",
+	"description": "Branches on the payload: a critical incident pages someone, anything else is only logged. Same `if` shape as graphs/auth/session, without the HTTP around it — which is what makes the branch worth a test here. A background run answers nobody, so the endpoint that got called is the only way to tell the two sides apart.",
+	"blocks": [
+		{
+			"id": "entry",
+			"type": "entrypoint",
+			"position": { "x": 0, "y": 0 },
+			"data": { "blockName": "Job payload" }
+		},
+		{
+			"id": "critical",
+			"type": "if",
+			"position": { "x": 240, "y": 0 },
+			"data": {
+				"blockName": "Critical?",
+				"conditions": [
+					{
+						"lhs": "js:return input.severity;",
+						"rhs": "critical",
+						"operator": "eq",
+						"chain": "and"
+					}
+				]
+			}
+		},
+		{
+			"id": "page",
+			"type": "httprequest",
+			"position": { "x": 480, "y": -120 },
+			"data": {
+				"blockName": "POST /page",
+				"url": "js:return getConfig(\"E2E_SINK_URL\") + \"/page\";",
+				"method": "POST",
+				"headers": { "content-type": "application/json" },
+				"body": "",
+				"useParam": true
+			}
+		},
+		{
+			"id": "paged",
+			"type": "response",
+			"position": { "x": 720, "y": -120 },
+			"data": { "blockName": "Paged", "httpCode": "200" }
+		},
+		{
+			"id": "log",
+			"type": "httprequest",
+			"position": { "x": 480, "y": 120 },
+			"data": {
+				"blockName": "POST /log",
+				"url": "js:return getConfig(\"E2E_SINK_URL\") + \"/log\";",
+				"method": "POST",
+				"headers": { "content-type": "application/json" },
+				"body": "",
+				"useParam": true
+			}
+		},
+		{
+			"id": "logged",
+			"type": "response",
+			"position": { "x": 720, "y": 120 },
+			"data": { "blockName": "Logged", "httpCode": "200" }
+		}
+	],
+	"edges": [
+		{
+			"id": "e-entry-critical",
+			"from": "entry",
+			"to": "critical",
+			"fromHandle": "source",
+			"toHandle": "source"
+		},
+		{
+			"id": "e-critical-page",
+			"from": "critical",
+			"to": "page",
+			"fromHandle": "success",
+			"toHandle": "success"
+		},
+		{
+			"id": "e-page-paged",
+			"from": "page",
+			"to": "paged",
+			"fromHandle": "source",
+			"toHandle": "source"
+		},
+		{
+			"id": "e-critical-log",
+			"from": "critical",
+			"to": "log",
+			"fromHandle": "failure",
+			"toHandle": "failure"
+		},
+		{
+			"id": "e-log-logged",
+			"from": "log",
+			"to": "logged",
+			"fromHandle": "source",
+			"toHandle": "source"
+		}
+	]
+}

@@ -335,6 +335,7 @@
       "dependencies": {
         "@fluxify/adapters": "workspace:*",
         "@fluxify/blocks": "workspace:*",
+        "@fluxify/common": "workspace:*",
         "@fluxify/lib": "workspace:*",
         "@fluxify/server": "workspace:*",
       },

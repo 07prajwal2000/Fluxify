@@ -1,0 +1,98 @@
+{
+	"name": "rescue",
+	"description": "A workflow that fails and handles it. The charge block throws, the error handler posts an alert and ends on a terminal — which settles the run as successful, so the queue acks it and never retries. The same graph without that terminal would be redelivered instead; that difference is the point of the fixture.",
+	"blocks": [
+		{
+			"id": "entry",
+			"type": "entrypoint",
+			"position": { "x": 0, "y": 0 },
+			"data": { "blockName": "Job payload" }
+		},
+		{
+			"id": "charge",
+			"type": "jsrunner",
+			"position": { "x": 240, "y": 0 },
+			"data": {
+				"blockName": "Charge the card",
+				"value": "throw new Error(\"payment gateway refused \" + input.orderId);"
+			}
+		},
+		{
+			"id": "charged",
+			"type": "response",
+			"position": { "x": 480, "y": 0 },
+			"data": { "blockName": "Charged", "httpCode": "200" }
+		},
+		{
+			"id": "handler",
+			"type": "error_handler",
+			"position": { "x": 0, "y": 240 },
+			"data": { "blockName": "On failure" }
+		},
+		{
+			"id": "reason",
+			"type": "jsrunner",
+			"position": { "x": 240, "y": 240 },
+			"data": {
+				"blockName": "Describe the failure",
+				"value": "return { reason: String(input) };"
+			}
+		},
+		{
+			"id": "alert",
+			"type": "httprequest",
+			"position": { "x": 480, "y": 240 },
+			"data": {
+				"blockName": "POST /alert",
+				"url": "js:return getConfig(\"E2E_SINK_URL\") + \"/alert\";",
+				"method": "POST",
+				"headers": { "content-type": "application/json" },
+				"body": "",
+				"useParam": true
+			}
+		},
+		{
+			"id": "rescued",
+			"type": "response",
+			"position": { "x": 720, "y": 240 },
+			"data": { "blockName": "Rescued", "httpCode": "200" }
+		}
+	],
+	"edges": [
+		{
+			"id": "e-entry-charge",
+			"from": "entry",
+			"to": "charge",
+			"fromHandle": "source",
+			"toHandle": "source"
+		},
+		{
+			"id": "e-charge-charged",
+			"from": "charge",
+			"to": "charged",
+			"fromHandle": "source",
+			"toHandle": "source"
+		},
+		{
+			"id": "e-handler-reason",
+			"from": "handler",
+			"to": "reason",
+			"fromHandle": "source",
+			"toHandle": "source"
+		},
+		{
+			"id": "e-reason-alert",
+			"from": "reason",
+			"to": "alert",
+			"fromHandle": "source",
+			"toHandle": "source"
+		},
+		{
+			"id": "e-alert-rescued",
+			"from": "alert",
+			"to": "rescued",
+			"fromHandle": "source",
+			"toHandle": "source"
+		}
+	]
+}
