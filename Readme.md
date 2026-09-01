@@ -4,7 +4,7 @@
 
   <p align="center">
     <b>The Production-Grade, Low-Code Agentic Backend Platform</b><br />
-    <i>Build, orchestrate, and scale AI agents & APIs for real production workloads.</i>
+    <i>Build, orchestrate, and scale APIs & Workflows for real production workloads.</i>
   </p>
 
   <p align="center">
@@ -31,7 +31,7 @@
   <br /><br />
 
   <p align="center">
-    <b>Empower your team to visually build AI-agentic workflows and high-throughput backend microservices — engineered to scale seamlessly from 1 to 50+ worker nodes for real-world production traffic.</b>
+    <b>Empower your team to visually build AI-agentic workflows and high-throughput backend microservices & background services — engineered to scale seamlessly from 1 to 50+ worker nodes for real-world production traffic.</b>
   </p>
 
   <p align="center">
