@@ -204,6 +204,9 @@ export async function consumeQueue<T>(
 
 /* ----------------------------------------------------------------- batches */
 
+/** The client refuses a fetch that would expire sooner than this. */
+const MIN_EXPIRES_MS = 1_000;
+
 export interface BatchOptions<T> {
 	/** Upper bound on messages in one batch. 1 is queue mode, same code path. */
 	maxMessages: number;
@@ -253,7 +256,13 @@ export async function consumeBatches<T>(
 	options: BatchOptions<T>,
 ): Promise<QueueConsumer> {
 	const maxMessages = Math.max(1, options.maxMessages);
-	const maxWaitMs = options.maxWaitMs && options.maxWaitMs > 0 ? options.maxWaitMs : 5_000;
+	// The broker will not accept a shorter poll, and a wait under a second is
+	// not a promise it can keep. A batch that fills early still returns early,
+	// so this is only the ceiling on waiting for a partial one.
+	const maxWaitMs = Math.max(
+		MIN_EXPIRES_MS,
+		options.maxWaitMs && options.maxWaitMs > 0 ? options.maxWaitMs : 5_000,
+	);
 	const concurrency = Math.max(1, options.concurrency ?? 1);
 	const retryDelayMs = options.retryDelayMs ?? 5_000;
 	const codec = options.codec ?? jsonCodec<T>();
@@ -283,6 +292,16 @@ export async function consumeBatches<T>(
 				// A broker that is down comes back; spinning on it does not help.
 				await new Promise((resolve) => setTimeout(resolve, retryDelayMs));
 				continue;
+			}
+			if (!running && batch.length > 0) {
+				// A fetch already in flight when stop() was called still resolves,
+				// and a withdrawn trigger must not deliver one last batch after
+				// it is gone. Nak so the events stay on the stream for whoever
+				// picks the trigger up next, rather than being consumed by a
+				// consumer that no longer exists.
+				for (const message of batch) message.msg.nak();
+				slots.release();
+				break;
 			}
 			if (batch.length === 0) {
 				slots.release();

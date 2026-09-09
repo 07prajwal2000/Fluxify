@@ -2,7 +2,10 @@ import { compileGraph } from "@fluxify/blocks";
 import { deleteArtifact, putArtifact } from "@fluxify/server/src/db/natsKv";
 import { hydrateAppConfig } from "@fluxify/server/src/loaders/appconfigLoader";
 import type { WorkflowArtifact } from "@fluxify/server/src/modules/compiler/artifacts";
-import { workflowKey } from "@fluxify/server/src/modules/compiler/subjects";
+import {
+	artifactKind,
+	workflowKey,
+} from "@fluxify/server/src/modules/compiler/subjects";
 import { startJobWorker } from "@fluxify/server/src/modules/jobs/consumer";
 import { enqueueJob } from "@fluxify/server/src/modules/jobs/publisher";
 import { runJob } from "@fluxify/server/src/modules/jobs/registry";
@@ -77,6 +80,17 @@ export type WorkflowRun = {
 
 let sink: ReturnType<typeof Bun.serve> | undefined;
 let watcher: Awaited<ReturnType<typeof watchProjectArtifacts>> | undefined;
+/**
+ * Where trigger artifacts go. Set by the trigger harness, which owns the
+ * `TriggerWorker` — this file knows only that they are not the runtime's.
+ */
+let triggerArtifacts: ((key: string, value: unknown) => void) | undefined;
+
+export function setTriggerArtifactHandler(
+	handler: ((key: string, value: unknown) => void) | undefined,
+) {
+	triggerArtifacts = handler;
+}
 let hits: SinkHit[] = [];
 /** path -> how many more requests to answer with a 500 */
 const failures = new Map<string, number>();
@@ -154,7 +168,17 @@ async function start() {
 	initCompiledRuntime([]);
 	watcher = await watchProjectArtifacts(
 		WORKFLOW_PROJECT_ID,
-		(entry) => applyArtifactUpdate(entry.key, entry.value),
+		(entry) => {
+			// The same fork the supervisor makes: a trigger holds no user code, so
+			// it stops on this side rather than being handed to the runtime. Only
+			// the trigger harness installs a handler, so a suite that never touches
+			// triggers simply drops them.
+			if (artifactKind(entry.key) === "trigger") {
+				triggerArtifacts?.(entry.key, entry.value);
+				return;
+			}
+			applyArtifactUpdate(entry.key, entry.value);
+		},
 		artifactKindsForMode("workflow"),
 	);
 	await watcher.initialized;

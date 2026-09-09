@@ -24,7 +24,12 @@ export const triggerTypeSchema = z.enum(TRIGGER_TYPES);
 const batchSchema = {
 	/** Events coalesced into one run. 1 is queue mode. */
 	batchSize: z.number().int().min(1).max(10_000).default(1),
-	/** How long a partial batch waits for the rest. 0 means do not wait. */
+	/**
+	 * How long a partial batch waits for the rest. 0 means do not wait.
+	 * A full batch always returns straight away; this is only the ceiling on
+	 * waiting for a part-filled one, and the broker's own floor is one second,
+	 * so anything between 1 and 999 behaves as 1000.
+	 */
 	maxWaitMs: z.number().int().min(0).max(300_000).default(0),
 	/** Memory bound on one batch, capped at 64MB. */
 	maxBytes: z

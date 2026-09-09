@@ -78,7 +78,7 @@ Three settings shape a batch:
 | Setting | What it does |
 |---|---|
 | **Batch size** | The most events one run may receive. |
-| **Max wait** | How long a part-filled batch waits for the rest. `0` never waits — whatever is ready goes now. |
+| **Max wait** | How long a part-filled batch waits for the rest. A full batch never waits. Under a second is rounded up to a second, which is the shortest wait the system can promise. |
 | **Max bytes** | A size ceiling on one batch. Whichever limit is reached first ends the batch, so a batch of 500 large events may arrive with far fewer. |
 
 ::: tip Start at 1

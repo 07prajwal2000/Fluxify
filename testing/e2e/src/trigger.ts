@@ -1,6 +1,9 @@
 import { deleteArtifact, putArtifact } from "@fluxify/server/src/db/natsKv";
 import type { TriggerArtifact } from "@fluxify/server/src/modules/compiler/artifacts";
-import { triggerKey } from "@fluxify/server/src/modules/compiler/subjects";
+import {
+	artifactId,
+	triggerKey,
+} from "@fluxify/server/src/modules/compiler/subjects";
 import { runJob } from "@fluxify/server/src/modules/jobs/registry";
 import type { JobEnvelope } from "@fluxify/server/src/modules/jobs/types";
 import { TriggerWorker } from "@fluxify/server/src/modules/triggers/consumers";
@@ -13,6 +16,7 @@ import type { WorkflowFixture } from "./graph";
 import {
 	WORKFLOW_PROJECT_ID,
 	publishWorkflow,
+	setTriggerArtifactHandler,
 	sinkHits,
 	workflowHarness,
 } from "./workflow";
@@ -65,6 +69,14 @@ async function start() {
 		maxDeliver: MAX_DELIVER,
 		retryDelayMs: RETRY_DELAY_MS,
 		defaultAckWaitMs: 5_000,
+	});
+	// The supervisor's other half: trigger artifacts arriving over the KV watch
+	// start and stop consumers. Without this the artifact is written and nothing
+	// ever reads it, which is precisely the "no restart needed" claim under test.
+	setTriggerArtifactHandler((key, value) => {
+		void worker
+			?.apply(artifactId(key), value as TriggerArtifact | null)
+			.catch((error) => console.error(`applying trigger ${key}:`, error));
 	});
 	await worker.start();
 }
@@ -196,6 +208,7 @@ export async function stopTriggers() {
 		await deleteArtifact(triggerKey(WORKFLOW_PROJECT_ID, triggerId)).catch(() => {});
 	}
 	publishedTriggers.clear();
+	setTriggerArtifactHandler(undefined);
 	await worker?.stop().catch(() => {});
 	worker = undefined;
 	started = undefined;
