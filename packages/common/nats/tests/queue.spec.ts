@@ -241,17 +241,51 @@ describe("consumeBatches", () => {
 		expect(msgs.map((m) => m.acks)).toEqual([["ack"], ["ack"]]);
 	});
 
-	it("passes the batch limits straight through to fetch", async () => {
+	it("fetches on the count and the wait, never both limits at once", async () => {
 		batches = [[]];
 		const consumer = await consumeBatches(nc, "S", "d", async () => {}, batchOptions);
 		await settled();
 		await consumer.stop();
 
-		expect(fetches[0]).toEqual({
-			max_messages: 500,
-			max_bytes: 1_000_000,
-			expires: 50,
-		});
+		// The client rejects a fetch carrying max_messages and max_bytes
+		// together: "'max_messages','max_bytes' are mutually exclusive". Sending
+		// both took down every trigger consumer at startup.
+		expect(fetches[0]).toEqual({ max_messages: 500, expires: 50 });
+		expect(fetches[0]).not.toHaveProperty("max_bytes");
+	});
+
+	it("stops filling a batch at the byte ceiling and naks the rest", async () => {
+		const big = () => fakeMsg("t.1", { blob: "x".repeat(400) });
+		const msgs = [big(), big(), big()];
+		batches = [msgs];
+		const seen: number[] = [];
+		const consumer = await consumeBatches(nc, "S", "d", async (batch) => {
+			seen.push(batch.length);
+		}, { ...batchOptions, maxBytes: 900 });
+		await settled();
+		await consumer.stop();
+
+		// Two fit under 900 bytes, the third does not — and it is naked rather
+		// than dropped, so the next batch gets it.
+		expect(seen).toEqual([2]);
+		expect(msgs[0]!.acks).toEqual(["ack"]);
+		expect(msgs[1]!.acks).toEqual(["ack"]);
+		expect(msgs[2]!.acks).toEqual(["nak:undefined"]);
+	});
+
+	it("still delivers a single message that is over the ceiling on its own", async () => {
+		const huge = fakeMsg("t.1", { blob: "x".repeat(5_000) });
+		batches = [[huge]];
+		const seen: number[] = [];
+		const consumer = await consumeBatches(nc, "S", "d", async (batch) => {
+			seen.push(batch.length);
+		}, { ...batchOptions, maxBytes: 100 });
+		await settled();
+		await consumer.stop();
+
+		// Refusing it would nak the same message forever.
+		expect(seen).toEqual([1]);
+		expect(huge.acks).toEqual(["ack"]);
 	});
 
 	it("runs a size-1 trigger down the same path", async () => {

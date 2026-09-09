@@ -209,7 +209,8 @@ export interface BatchOptions<T> {
 	maxMessages: number;
 	/**
 	 * Memory bound on one batch, and NOT optional. A count cap alone is not a
-	 * bound: 500 messages of 10MB is an OOM whatever the count says.
+	 * bound: 500 messages of 10MB is an OOM whatever the count says. Applied
+	 * while the batch is built; whatever crosses the line is naked back.
 	 */
 	maxBytes: number;
 	/** How long a partial batch waits for the rest. Default 5s. */
@@ -230,9 +231,11 @@ export interface BatchOptions<T> {
 /**
  * Pulls messages in batches and hands each batch to the handler as one unit.
  *
- * `fetch` is the batch primitive: it returns as soon as `max_messages` or
- * `max_bytes` is reached, or when `expires` elapses, whichever comes first —
- * which is exactly "coalesce up to N events, but never wait longer than T".
+ * `fetch` is the batch primitive: it returns as soon as `max_messages` is
+ * reached or `expires` elapses, whichever comes first — which is exactly
+ * "coalesce up to N events, but never wait longer than T". The byte ceiling is
+ * applied as the batch is assembled, because the client refuses a fetch that
+ * carries a count limit and a byte limit together.
  *
  * **A batch is one unit of work.** It succeeds and every message is acked, or
  * it fails and every message is naked. There is deliberately no bisect-and-retry
@@ -306,13 +309,29 @@ export async function consumeBatches<T>(
 	 * beside it from running.
 	 */
 	async function pull(): Promise<QueueMessage<T>[]> {
+		// Only one of the two limits may be given: the client rejects a fetch
+		// carrying both. The count is the one that goes on the wire, because it
+		// is the number the trigger's author actually chose; the byte ceiling is
+		// applied here as the batch is assembled, and anything past it is naked
+		// so it comes straight back for the next batch rather than waiting out
+		// the ack timer.
+		// ponytail: the bytes still cross the wire before we drop them, so this
+		// bounds the batch we build rather than what the fetch pulls in. It is
+		// the batch that gets held in memory alongside the running graph.
 		const messages = await consumer.fetch({
 			max_messages: maxMessages,
-			max_bytes: options.maxBytes,
 			expires: maxWaitMs,
 		});
 		const batch: QueueMessage<T>[] = [];
+		let bytes = 0;
 		for await (const msg of messages) {
+			// A batch has to make progress: a single message over the ceiling
+			// still goes, or it would nak forever and never be delivered.
+			if (batch.length > 0 && bytes + msg.data.length > options.maxBytes) {
+				msg.nak();
+				continue;
+			}
+			bytes += msg.data.length;
 			try {
 				batch.push({
 					subject: msg.subject,

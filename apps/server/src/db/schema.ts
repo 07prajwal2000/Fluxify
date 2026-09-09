@@ -361,9 +361,11 @@ export const triggerGroupsEntity = pgTable(
  * a source read once cannot be handed to two graphs without deciding what a
  * half-failed batch means — so fan-out is two triggers, not one.
  *
- * Batch settings map straight onto the broker's fetch: `batchSize` to
- * `max_messages`, `maxWaitMs` to `expires`, `maxBytes` to `max_bytes`. A count
- * cap alone is not a memory bound, which is why `maxBytes` is not nullable.
+ * `batchSize` and `maxWaitMs` map onto the broker's fetch as `max_messages` and
+ * `expires`. `maxBytes` is applied as the batch is assembled instead — the
+ * client refuses a fetch carrying a count limit and a byte limit together. A
+ * count cap alone is not a memory bound, which is why `maxBytes` is not
+ * nullable.
  */
 export const triggersEntity = pgTable(
 	"triggers",
