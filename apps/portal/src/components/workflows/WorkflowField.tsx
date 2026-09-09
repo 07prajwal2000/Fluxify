@@ -14,6 +14,9 @@ import { TbRefresh, TbRoute, TbSearch, TbSitemap } from "react-icons/tb";
 import { withBasePath } from "@/constants/routes";
 import { workflowsQuery } from "@/query/workflowsQuery";
 
+/** The list endpoint refuses anything larger. */
+const PER_PAGE = 50;
+
 /**
  * Picks a workflow by id, in the shape of the integration selector: a
  * fixed-height summary row with a button, and a table picker behind it. Ids are
@@ -131,26 +134,30 @@ export function WorkflowSelectorModal({
 	onSelect: (id: string) => void;
 }) {
 	const [search, setSearch] = useState("");
+	const [debouncedSearch, setDebouncedSearch] = useState("");
 
 	useEffect(() => {
-		if (isOpen) setSearch("");
+		const timer = setTimeout(() => setDebouncedSearch(search), 250);
+		return () => clearTimeout(timer);
+	}, [search]);
+
+	useEffect(() => {
+		if (!isOpen) return;
+		setSearch("");
+		setDebouncedSearch("");
 	}, [isOpen]);
 
-	// The list is small enough to filter here, which keeps typing instant and
-	// costs no round trip per keystroke.
-	const { data, isLoading, isFetching, refetch } =
-		workflowsQuery.getAll.useQuery({ projectId, perPage: 100 });
+	// Searching on the server rather than filtering a page here: a project with
+	// more workflows than fit on one page would otherwise have the rest be
+	// unfindable. PER_PAGE is the server's own ceiling.
+	const { data, isLoading, isFetching, isError, error, refetch } =
+		workflowsQuery.getAll.useQuery({
+			projectId,
+			perPage: PER_PAGE,
+			search: debouncedSearch || undefined,
+		});
 	const workflows = useMemo(() => data?.data ?? [], [data?.data]);
-
-	const filtered = useMemo(() => {
-		const query = search.trim().toLowerCase();
-		if (!query) return workflows;
-		return workflows.filter(
-			(workflow) =>
-				(workflow.name ?? "").toLowerCase().includes(query) ||
-				(workflow.description ?? "").toLowerCase().includes(query),
-		);
-	}, [workflows, search]);
+	const hasMore = (data?.pagination?.totalPages ?? 1) > 1;
 
 	return (
 		<Modal isOpen={isOpen} onOpenChange={onOpenChange}>
@@ -197,7 +204,19 @@ export function WorkflowSelectorModal({
 								<div className="flex h-full items-center justify-center">
 									<Spinner />
 								</div>
-							) : workflows.length === 0 ? (
+							) : isError ? (
+								<div className="flex h-full flex-col items-center justify-center gap-3 px-8 text-center">
+									<p className="text-sm font-semibold text-foreground">
+										Could not load workflows
+									</p>
+									<p className="max-w-[320px] text-xs text-muted-foreground">
+										{(error as Error)?.message ?? "Something went wrong."}
+									</p>
+									<Button variant="outline" size="sm" onPress={() => void refetch()}>
+										<TbRefresh size={14} /> Try again
+									</Button>
+								</div>
+							) : workflows.length === 0 && !debouncedSearch ? (
 								<div className="flex h-full flex-col items-center justify-center gap-5 px-8 text-center">
 									<span className="flex size-16 items-center justify-center rounded-full border border-border bg-surface-secondary text-muted-foreground">
 										<TbRoute size={32} />
@@ -225,12 +244,12 @@ export function WorkflowSelectorModal({
 										Go to Workflows
 									</Button>
 								</div>
-							) : filtered.length === 0 ? (
+							) : workflows.length === 0 ? (
 								<div className="flex h-full flex-col items-center justify-center gap-2 px-8 text-center">
 									<TbSearch size={28} className="text-muted-foreground" />
 									<p className="text-sm text-muted-foreground">
 										No workflows match{" "}
-										<strong className="text-foreground">"{search}"</strong>
+										<strong className="text-foreground">"{debouncedSearch}"</strong>
 									</p>
 								</div>
 							) : (
@@ -249,8 +268,8 @@ export function WorkflowSelectorModal({
 												{""}
 											</Table.Column>
 										</Table.Header>
-										<Table.Body items={filtered}>
-											{(workflow: (typeof filtered)[number]) => (
+										<Table.Body items={workflows}>
+											{(workflow: (typeof workflows)[number]) => (
 												<Table.Row
 													id={workflow.id}
 													className={cn(
@@ -310,6 +329,14 @@ export function WorkflowSelectorModal({
 								</Table>
 							)}
 						</Modal.Body>
+
+						{hasMore && (
+							<div className="shrink-0 border-t border-border/50 px-5 py-2">
+								<p className="text-xs text-muted-foreground">
+									Showing the first {PER_PAGE}. Search to narrow it down.
+								</p>
+							</div>
+						)}
 					</Modal.Dialog>
 				</Modal.Container>
 			</Modal.Backdrop>
