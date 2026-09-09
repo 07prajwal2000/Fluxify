@@ -23,12 +23,15 @@ import {
 	previewQuerySchema,
 	previewSchema,
 	triggerSchema,
+	workflowIdParamSchema,
 } from "./dto";
 import {
+	attachWorkflow,
 	createTrigger,
 	createTriggerGroup,
 	deleteTrigger,
 	deleteTriggerGroup,
+	detachWorkflow,
 	getTrigger,
 	listAllTriggers,
 	listTriggerGroups,
@@ -176,6 +179,35 @@ export default {
 						ctx.get("acl") || [],
 					),
 				),
+		);
+
+		// Attaching is its own endpoint rather than a PATCH of the whole link set:
+		// a workflow's settings page knows about one link, and making it send back
+		// the entire list would let it undo an attach made in another tab.
+		router.put(
+			"/:id/workflows/:workflowId",
+			describeRoute(
+				describe("attach-workflow", "Links a workflow to a trigger", json(triggerSchema)),
+			),
+			requireLoggedIn(),
+			validator("param", workflowIdParamSchema, zodErrorCallbackParser),
+			async (ctx) => {
+				const { id, workflowId } = ctx.req.valid("param");
+				return ctx.json(await attachWorkflow(id, workflowId, ctx.get("acl") || []));
+			},
+		);
+
+		router.delete(
+			"/:id/workflows/:workflowId",
+			describeRoute(
+				describe("detach-workflow", "Unlinks a workflow from a trigger", json(triggerSchema)),
+			),
+			requireLoggedIn(),
+			validator("param", workflowIdParamSchema, zodErrorCallbackParser),
+			async (ctx) => {
+				const { id, workflowId } = ctx.req.valid("param");
+				return ctx.json(await detachWorkflow(id, workflowId, ctx.get("acl") || []));
+			},
 		);
 
 		router.delete(

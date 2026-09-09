@@ -23,7 +23,7 @@ export async function loadSchedules() {
 			triggers.map((row) => ({
 				id: row.id,
 				projectId: row.projectId,
-				workflowId: row.workflowId,
+				workflowIds: row.workflowIds,
 				schedule: row.schedule!,
 				timezone: row.timezone,
 				payload: row.payload ?? undefined,

@@ -16,7 +16,6 @@ import { workflowsQuery } from "@/query/workflowsQuery";
 import { showErrorNotification } from "@/lib/errorNotifier";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { EmptyState } from "@/components/common/EmptyState";
-import { CreateWorkflowModal } from "@/components/workflows/CreateWorkflowModal";
 import { WorkflowRunModal } from "@/components/workflows/WorkflowRunModal";
 import type { Workflow } from "@/services/workflows";
 import { createRouteHead } from "@/lib/seo";
@@ -34,7 +33,6 @@ function WorkflowsPage() {
 	const navigate = useNavigate();
 	const [page, setPage] = useState(1);
 	const [search, setSearch] = useState("");
-	const [creating, setCreating] = useState(false);
 	const [pendingDelete, setPendingDelete] = useState<Workflow | null>(null);
 	const [pendingRun, setPendingRun] = useState<Workflow | null>(null);
 
@@ -50,6 +48,9 @@ function WorkflowsPage() {
 
 	const rows = data?.data ?? [];
 	const totalPages = data?.pagination?.totalPages ?? 1;
+
+	const openNew = () =>
+		navigate({ to: "/$projectId/workflows/new", params: { projectId } });
 
 	function openCanvas(workflowId: string) {
 		navigate({
@@ -79,7 +80,7 @@ function WorkflowsPage() {
 						<Label className="sr-only">Search workflows</Label>
 						<Input placeholder="Search workflows" />
 					</TextField>
-					<Button variant="primary" onPress={() => setCreating(true)}>
+					<Button variant="primary" onPress={openNew}>
 						<TbPlus size={16} /> New workflow
 					</Button>
 				</div>
@@ -102,7 +103,7 @@ function WorkflowsPage() {
 					}
 					action={
 						!search && (
-							<Button variant="primary" onPress={() => setCreating(true)}>
+							<Button variant="primary" onPress={openNew}>
 								<TbPlus size={16} /> New workflow
 							</Button>
 						)
@@ -187,14 +188,6 @@ function WorkflowsPage() {
 						Next
 					</Button>
 				</div>
-			)}
-
-			{creating && (
-				<CreateWorkflowModal
-					projectId={projectId}
-					isOpen={creating}
-					onOpenChange={setCreating}
-				/>
 			)}
 
 			{/* mounted per workflow so the payload box starts empty every time */}

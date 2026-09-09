@@ -1,30 +1,29 @@
 import { useState } from "react";
 import {
 	Button,
-	DeleteButton,
 	Description,
-	Input,
 	Label,
 	ListBox,
-	NumberField,
 	Select,
 	Spinner,
 	Switch,
-	TextArea,
-	TextField,
 	toast,
 } from "@fluxify/components";
-import { TbBolt, TbPlus } from "react-icons/tb";
-import { ScheduleFields } from "./ScheduleFields";
+import { TbBolt, TbExternalLink, TbPlus } from "react-icons/tb";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { Section } from "@/components/common/Section";
+import { withBasePath } from "@/constants/routes";
 import { triggersQuery } from "@/query/triggersQuery";
 import { showErrorNotification } from "@/lib/errorNotifier";
-import type { CreateTriggerBody, Trigger } from "@/services/triggers";
+import type { TriggerListItem } from "@/services/triggers";
 
 /**
- * The triggers pointed at one workflow. Fan-out is two triggers, not one
- * trigger with two targets, so this list is always "what starts this workflow".
+ * The triggers attached to one workflow.
+ *
+ * This tab attaches and detaches; it does not create. A trigger belongs to the
+ * project rather than to a workflow — the same schedule may start three of them
+ * — so creating one from inside a single workflow's settings would make it look
+ * like that workflow owned it.
  */
 export function WorkflowTriggersTab({
 	workflowId,
@@ -33,26 +32,47 @@ export function WorkflowTriggersTab({
 	workflowId: string;
 	projectId: string;
 }) {
-	const { data, isLoading } = triggersQuery.getAll.useQuery({
-		projectId,
-		workflowId,
-	});
-	const [adding, setAdding] = useState(false);
-	const triggers = data?.data ?? [];
+	const attached = triggersQuery.getAll.useQuery({ projectId, workflowId });
+	// Everything in the project, to offer what is not attached yet.
+	const all = triggersQuery.getAll.useQuery({ projectId, perPage: 50 });
+	const attach = triggersQuery.attach.mutation();
+
+	const triggers = attached.data?.data ?? [];
+	const attachedIds = new Set(triggers.map((trigger) => trigger.id));
+	const available = (all.data?.data ?? []).filter(
+		(trigger) => !attachedIds.has(trigger.id),
+	);
+	const [picked, setPicked] = useState("");
+
+	function attachPicked() {
+		if (!picked) return;
+		attach.mutate(
+			{ id: picked, workflowId },
+			{
+				onSuccess: () => {
+					toast.success("Trigger attached");
+					setPicked("");
+				},
+				onError: (error) => showErrorNotification(error as Error),
+			},
+		);
+	}
 
 	return (
 		<Section
 			title="Triggers"
-			description="What starts this workflow. Each trigger pulls its own events and hands the workflow one batch per run."
+			description="What starts this workflow. A trigger can start several workflows — attaching it here does not take it away from the others."
 		>
-			{isLoading ? (
+			{attached.isLoading ? (
 				<div className="flex justify-center py-8">
 					<Spinner />
 				</div>
 			) : triggers.length === 0 ? (
 				<div className="flex flex-col items-center rounded-lg border border-dashed border-border px-4 py-10 text-center">
 					<TbBolt size={26} className="mb-2 text-muted" />
-					<p className="text-sm font-medium text-foreground">No triggers yet</p>
+					<p className="text-sm font-medium text-foreground">
+						No triggers attached
+					</p>
 					<p className="mt-1 text-xs text-muted">
 						Nothing starts this workflow except a manual run or the Trigger
 						Workflow block.
@@ -61,35 +81,91 @@ export function WorkflowTriggersTab({
 			) : (
 				<div className="flex flex-col gap-2">
 					{triggers.map((trigger) => (
-						<TriggerRow key={trigger.id} trigger={trigger} />
+						<TriggerRow
+							key={trigger.id}
+							trigger={trigger}
+							workflowId={workflowId}
+						/>
 					))}
 				</div>
 			)}
 
-			{adding ? (
-				<NewTriggerForm
-					workflowId={workflowId}
-					projectId={projectId}
-					onDone={() => setAdding(false)}
-				/>
-			) : (
+			<div className="flex flex-wrap items-end gap-2">
+				<Select
+					fullWidth
+					variant="secondary"
+					className="min-w-56 flex-1"
+					value={picked || null}
+					isDisabled={available.length === 0}
+					onChange={(next) => setPicked(String(next))}
+				>
+					<Label>Attach an existing trigger</Label>
+					<Select.Trigger>
+						<Select.Value />
+						<Select.Indicator />
+					</Select.Trigger>
+					<Description>
+						{available.length === 0
+							? "Every trigger in this project is already attached."
+							: "Triggers are made on the Triggers page and shared across workflows."}
+					</Description>
+					<Select.Popover>
+						<ListBox>
+							{available.map((trigger) => (
+								<ListBox.Item
+									key={trigger.id}
+									id={trigger.id}
+									textValue={trigger.name}
+								>
+									{trigger.name}
+									<ListBox.ItemIndicator />
+								</ListBox.Item>
+							))}
+						</ListBox>
+					</Select.Popover>
+				</Select>
+
+				<Button
+					variant="primary"
+					size="sm"
+					isDisabled={!picked}
+					isPending={attach.isPending}
+					onPress={attachPicked}
+				>
+					<TbPlus size={14} /> Attach
+				</Button>
+
+				{/* A new tab, not a navigation: this panel is a modal over an unsaved
+				    canvas, and leaving it would throw that away. */}
 				<Button
 					variant="outline"
 					size="sm"
-					className="self-start"
-					onPress={() => setAdding(true)}
+					onPress={() =>
+						window.open(
+							withBasePath(`/${projectId}/triggers/new`),
+							"_blank",
+							"noopener,noreferrer",
+						)
+					}
 				>
-					<TbPlus size={14} /> Add trigger
+					<TbExternalLink size={14} /> New trigger
 				</Button>
-			)}
+			</div>
 		</Section>
 	);
 }
 
-function TriggerRow({ trigger }: { trigger: Trigger }) {
+function TriggerRow({
+	trigger,
+	workflowId,
+}: {
+	trigger: TriggerListItem;
+	workflowId: string;
+}) {
 	const update = triggersQuery.update.mutation();
-	const remove = triggersQuery.remove.mutation();
+	const detach = triggersQuery.detach.mutation();
 	const [confirming, setConfirming] = useState(false);
+	const others = trigger.workflows.filter((w) => w.id !== workflowId);
 
 	return (
 		<div className="flex items-center gap-4 rounded-lg border border-border bg-surface px-4 py-3">
@@ -99,20 +175,14 @@ function TriggerRow({ trigger }: { trigger: Trigger }) {
 				</p>
 				<p className="text-xs text-muted">
 					{trigger.type === "schedule" ? (
-						// A schedule is a single event and never batches, so the batch
-						// settings would be four numbers that mean nothing here.
 						<>
-							schedule ·{" "}
-							<span className="font-mono">{trigger.schedule}</span>
+							schedule · <span className="font-mono">{trigger.schedule}</span>
 							{trigger.timezone !== "UTC" && ` · ${trigger.timezone}`}
 						</>
 					) : (
-						<>
-							{trigger.type} · batch {trigger.batchSize}
-							{trigger.batchSize > 1 && ` · waits ${trigger.maxWaitMs}ms`} ·{" "}
-							{trigger.concurrency} at a time
-						</>
+						trigger.type
 					)}
+					{others.length > 0 && ` · also starts ${others.length} other`}
 				</p>
 			</div>
 			<Switch
@@ -129,268 +199,35 @@ function TriggerRow({ trigger }: { trigger: Trigger }) {
 				}
 				label={trigger.active ? "Active" : "Inactive"}
 			/>
-			<DeleteButton onPress={() => setConfirming(true)}>Delete</DeleteButton>
+			<Button variant="outline" size="sm" onPress={() => setConfirming(true)}>
+				Detach
+			</Button>
 
 			<ConfirmDialog
 				open={confirming}
 				onOpenChange={setConfirming}
-				title="Delete trigger?"
-				danger
-				confirmText="Delete"
-				pending={remove.isPending}
+				title="Detach trigger?"
+				confirmText="Detach"
+				pending={detach.isPending}
 				onConfirm={() =>
-					remove.mutate(trigger.id, {
-						onSuccess: () => {
-							toast.success("Trigger deleted");
-							setConfirming(false);
+					detach.mutate(
+						{ id: trigger.id, workflowId },
+						{
+							onSuccess: () => {
+								toast.success("Trigger detached");
+								setConfirming(false);
+							},
+							onError: (error) => showErrorNotification(error as Error),
 						},
-						onError: (error) => showErrorNotification(error as Error),
-					})
+					)
 				}
 			>
-				Delete <b className="text-foreground">{trigger.name}</b>? Events already
-				waiting for it stay on the queue unread.
+				Stop <b className="text-foreground">{trigger.name}</b> starting this
+				workflow?{" "}
+				{others.length > 0
+					? `It keeps starting ${others.length} other workflow${others.length > 1 ? "s" : ""}.`
+					: "The trigger itself stays on the Triggers page."}
 			</ConfirmDialog>
-		</div>
-	);
-}
-
-const DEFAULTS = {
-	name: "",
-	description: "",
-	batchSize: 1,
-	maxWaitMs: 0,
-	maxBytes: 1024 * 1024,
-	concurrency: 1,
-};
-
-const TYPES = [
-	{
-		id: "internal",
-		label: "Internal",
-		hint: "Fired by the Trigger Workflow block or a manual run.",
-	},
-	{
-		id: "schedule",
-		label: "Schedule",
-		hint: "Fired by the clock — a cron expression, an interval, or once.",
-	},
-] as const;
-
-function NewTriggerForm({
-	workflowId,
-	projectId,
-	onDone,
-}: {
-	workflowId: string;
-	projectId: string;
-	onDone: () => void;
-}) {
-	const create = triggersQuery.create.mutation();
-	const { data: groups } = triggersQuery.groups.useQuery(projectId);
-	const [form, setForm] = useState(DEFAULTS);
-	const [groupId, setGroupId] = useState("");
-	const [type, setType] = useState<"internal" | "schedule">("internal");
-	// New schedules default to UTC. A cron in a zone that observes daylight
-	// saving can be skipped or run twice a year, so that is a choice to make on
-	// purpose rather than inherit.
-	const [schedule, setSchedule] = useState({ schedule: "", timezone: "UTC" });
-
-	const set = <K extends keyof typeof DEFAULTS>(
-		key: K,
-		value: (typeof DEFAULTS)[K],
-	) => setForm((previous) => ({ ...previous, [key]: value }));
-
-	const nameIsValid = form.name.trim().length >= 2;
-	const scheduled = type === "schedule";
-	const canSave = nameIsValid && (!scheduled || schedule.schedule.trim().length > 0);
-
-	function save() {
-		create.mutate(
-			{
-				...form,
-				name: form.name.trim(),
-				description: form.description || undefined,
-				type,
-				projectId,
-				workflowId,
-				groupId: groupId || undefined,
-				...(scheduled
-					? { schedule: schedule.schedule.trim(), timezone: schedule.timezone || "UTC" }
-					: {}),
-			} as CreateTriggerBody,
-			{
-				onSuccess: () => {
-					toast.success("Trigger created");
-					onDone();
-				},
-				onError: (error) => showErrorNotification(error as Error),
-			},
-		);
-	}
-
-	return (
-		<div className="flex flex-col gap-4 rounded-lg border border-border bg-surface-secondary p-4">
-			<TextField
-				isRequired
-				value={form.name}
-				onChange={(value) => set("name", value)}
-				isInvalid={form.name.length > 0 && !nameIsValid}
-			>
-				<Label>Name</Label>
-				<Input placeholder="Orders received" />
-			</TextField>
-
-			<div className="flex flex-col gap-1.5">
-				<Label>Description</Label>
-				<TextArea
-					rows={2}
-					placeholder="What this trigger listens for"
-					value={form.description}
-					onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) =>
-						set("description", e.target.value)
-					}
-				/>
-			</div>
-
-			<div className="flex flex-col gap-1.5">
-				<Label>Type</Label>
-				<div className="grid grid-cols-2 gap-2">
-					{TYPES.map((option) => (
-						<button
-							key={option.id}
-							type="button"
-							onClick={() => setType(option.id)}
-							className={`rounded-lg border px-3 py-2 text-left transition-colors ${
-								type === option.id
-									? "border-accent bg-accent/10"
-									: "border-border bg-surface hover:bg-surface-secondary"
-							}`}
-						>
-							<p className="text-sm font-medium text-foreground">{option.label}</p>
-							<p className="text-xs text-muted">{option.hint}</p>
-						</button>
-					))}
-				</div>
-				<p className="text-xs text-muted">
-					Queue sources like Kafka and SQS are on the way.
-				</p>
-			</div>
-
-			{scheduled && <ScheduleFields value={schedule} onChange={setSchedule} />}
-
-			{groups && groups.length > 0 && (
-				<Select
-					fullWidth
-					variant="secondary"
-					value={groupId || (groups.find((group) => group.isDefault)?.id ?? null)}
-					onChange={(next) => setGroupId(String(next))}
-				>
-					<Label>Group</Label>
-					<Select.Trigger>
-						<Select.Value />
-						<Select.Indicator />
-					</Select.Trigger>
-					<Description>Triggers in a group run on the same workers.</Description>
-					<Select.Popover>
-						<ListBox>
-							{groups.map((group) => (
-								<ListBox.Item key={group.id} id={group.id} textValue={group.name}>
-									{group.name}
-									<ListBox.ItemIndicator />
-								</ListBox.Item>
-							))}
-						</ListBox>
-					</Select.Popover>
-				</Select>
-			)}
-
-			{!scheduled && (
-			<div className="grid grid-cols-2 gap-4">
-				<Counter
-					label="Batch size"
-					hint="Events per run. 1 runs the workflow once per event."
-					value={form.batchSize}
-					min={1}
-					max={10_000}
-					onChange={(value) => set("batchSize", value)}
-				/>
-				<Counter
-					label="Max wait (ms)"
-					hint="How long a part-filled batch waits. 0 never waits."
-					value={form.maxWaitMs}
-					min={0}
-					max={300_000}
-					onChange={(value) => set("maxWaitMs", value)}
-				/>
-				<Counter
-					label="Max bytes"
-					hint="Size limit on one batch, whatever the count says."
-					value={form.maxBytes}
-					min={1024}
-					max={64 * 1024 * 1024}
-					onChange={(value) => set("maxBytes", value)}
-				/>
-				<Counter
-					label="Concurrency"
-					hint="Batches in flight. Above 1 gives up ordering."
-					value={form.concurrency}
-					min={1}
-					max={64}
-					onChange={(value) => set("concurrency", value)}
-				/>
-			</div>
-			)}
-
-			<div className="flex items-center gap-2">
-				<Button
-					variant="primary"
-					size="sm"
-					isDisabled={!canSave}
-					isPending={create.isPending}
-					onPress={save}
-				>
-					Create trigger
-				</Button>
-				<Button variant="ghost" size="sm" onPress={onDone}>
-					Cancel
-				</Button>
-			</div>
-		</div>
-	);
-}
-
-function Counter({
-	label,
-	hint,
-	value,
-	min,
-	max,
-	onChange,
-}: {
-	label: string;
-	hint: string;
-	value: number;
-	min: number;
-	max: number;
-	onChange: (value: number) => void;
-}) {
-	return (
-		<div className="flex flex-col gap-1">
-			<NumberField
-				value={value}
-				minValue={min}
-				maxValue={max}
-				onChange={(next) => onChange(Math.min(max, Math.max(min, next || min)))}
-			>
-				<Label>{label}</Label>
-				<NumberField.Group>
-					<NumberField.DecrementButton />
-					<NumberField.Input />
-					<NumberField.IncrementButton />
-				</NumberField.Group>
-			</NumberField>
-			<p className="text-xs text-muted">{hint}</p>
 		</div>
 	);
 }

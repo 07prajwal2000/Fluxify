@@ -61,6 +61,11 @@ export async function ensureSchedulesStream() {
  * on it, which is not something the person writing one trigger can see.
  */
 export async function upsertSchedule(trigger: ScheduledTrigger) {
+	// A schedule linked to nothing would fire into an empty loop forever. The
+	// row stays active; there is simply nothing to publish until a workflow is
+	// attached, and attaching one republishes.
+	if (trigger.workflowIds.length === 0)
+		return removeSchedule(trigger.projectId, trigger.id);
 	const parsed = assertSchedule(trigger.schedule, trigger.timezone);
 	await ensureSchedulesStream();
 
@@ -68,7 +73,7 @@ export async function upsertSchedule(trigger: ScheduledTrigger) {
 	const body: ScheduleFireBody = {
 		triggerId: trigger.id,
 		projectId: trigger.projectId,
-		workflowId: trigger.workflowId,
+		workflowIds: trigger.workflowIds,
 		payload: trigger.payload ?? null,
 	};
 

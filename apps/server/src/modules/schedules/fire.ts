@@ -79,12 +79,13 @@ export async function startFireConsumer(
 }
 
 /**
- * One fire, one job.
+ * One fire, one job per linked workflow.
  *
- * The job id is `<triggerId>:<firedAt>`, so a redelivered fire — and a fire
- * seen by both a project worker and a catch-all worker, which this stream's
- * retention permits — enqueues the work exactly once inside the jobs stream's
- * dedupe window.
+ * A job id is `<triggerId>:<firedAt>:<workflowId>`, so a redelivered fire — and
+ * a fire seen by both a project worker and a catch-all worker, which this
+ * stream's retention permits — enqueues each workflow exactly once inside the
+ * jobs stream's dedupe window. The workflow id has to be in there: without it
+ * the second workflow's job would be deduped away as a copy of the first.
  *
  * A cron is a single event and never batches. There is no stream to accumulate
  * from, so a workflow that has 500 rows to process queries 500 rows itself.
@@ -105,17 +106,24 @@ export async function enqueueFire(body: ScheduleFireBody, firedAt: string) {
 		],
 	};
 
-	const job = await enqueueJob({
-		id: `${body.triggerId}:${firedAt}`,
-		kind: WORKFLOW_JOB,
-		projectId: body.projectId,
-		target: body.workflowId,
-		payload: batch,
-		origin: { triggerId: body.triggerId, source: "schedule", firedAt },
-	});
+	// Sequential rather than Promise.all: a throw here fails the fire and the
+	// broker redelivers it, and the ids above make the jobs already enqueued
+	// no-ops on the retry. Racing them would only obscure which one failed.
+	const jobs = [];
+	for (const workflowId of body.workflowIds) {
+		const job = await enqueueJob({
+			id: `${body.triggerId}:${firedAt}:${workflowId}`,
+			kind: WORKFLOW_JOB,
+			projectId: body.projectId,
+			target: workflowId,
+			payload: batch,
+			origin: { triggerId: body.triggerId, source: "schedule", firedAt },
+		});
+		jobs.push(job);
+	}
 	logger.debug(
-		`[schedules] fire ${body.triggerId} -> workflow ${body.workflowId} (job ${job.id})`,
+		`[schedules] fire ${body.triggerId} -> ${jobs.length} workflow(s)`,
 		"SCHEDULES",
 	);
-	return job;
+	return jobs;
 }

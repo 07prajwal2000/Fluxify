@@ -4,8 +4,9 @@ A **schedule** is a [trigger](/concepts/triggers) that runs a
 [workflow](/concepts/workflows) on the clock instead of in response to an event.
 Every weekday at 9am, every five minutes, or once at a moment you pick.
 
-Set one up in a workflow's **Settings → Triggers**: choose **Schedule** as the
-type, write when it should run, and turn it on.
+Set one up on the project's **Triggers** page: choose **Schedule** as the type,
+write when it should run, pick the workflows it starts, and turn it on. One
+schedule can start several workflows — each gets its own run.
 
 ## Writing the schedule
 
@@ -126,8 +127,8 @@ may actually run at `00:00:37`, and it will use that same second every day. Writ
 `0 0 0 * * *` if you need midnight exactly.
 
 **A schedule is one run, never a batch.** The batch settings other triggers have
-do not apply: each firing starts the workflow once, with no incoming payload to
-collect. A workflow that has five hundred rows to work through fetches them
+do not apply: each firing starts every attached workflow once, with no incoming
+payload to collect. A workflow that has five hundred rows to work through fetches them
 itself.
 
 If you set a **payload** on the trigger, every run receives that same value as
@@ -169,4 +170,4 @@ Deleting the trigger removes the schedule outright.
 | The preview says "This never fires" | An `@at` time that has already passed. |
 | It runs an hour early or late twice a year | The timezone observes daylight saving. Use UTC if the run must be at a fixed interval. |
 | It runs a few seconds after the time you set | Expected — runs are spread across the minute. Name the seconds field to pin it. |
-| Nothing runs at all | The trigger is off, or the workflow it points at is inactive. Both have to be on. |
+| Nothing runs at all | The trigger is off, no workflow is attached to it, or the workflow it starts is inactive. All three have to be right. |

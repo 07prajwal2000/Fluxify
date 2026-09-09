@@ -24,6 +24,8 @@ export type ListTriggersQuery = {
 export type CreateTriggerBody = z.infer<typeof createSchema>;
 export type UpdateTriggerBody = z.infer<typeof patchSchema>;
 export type Trigger = z.infer<typeof triggerSchema>;
+/** A trigger as the list returns it — the linked workflows come with names. */
+export type TriggerListItem = z.infer<typeof listSchema>["data"][number];
 export type TriggerGroup = z.infer<typeof groupListSchema>["data"][number];
 export type SchedulePreview = z.infer<typeof previewSchema>;
 
@@ -50,6 +52,19 @@ export const triggersService = {
 	},
 	async delete(id: string) {
 		await httpClient.delete(`${baseUrl}/${id}`);
+	},
+	/**
+	 * One link at a time, rather than PATCHing the whole `workflowIds` set: a
+	 * workflow's settings page only knows about its own link, and sending back a
+	 * list it read earlier would quietly undo anything attached elsewhere.
+	 */
+	async attachWorkflow(id: string, workflowId: string): Promise<Trigger> {
+		const result = await httpClient.put(`${baseUrl}/${id}/workflows/${workflowId}`);
+		return result.data;
+	},
+	async detachWorkflow(id: string, workflowId: string): Promise<Trigger> {
+		const result = await httpClient.delete(`${baseUrl}/${id}/workflows/${workflowId}`);
+		return result.data;
 	},
 	async getGroups(projectId: string): Promise<TriggerGroup[]> {
 		const result = await httpClient.get(

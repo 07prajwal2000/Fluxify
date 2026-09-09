@@ -62,6 +62,26 @@ export const triggersQuery = {
 			});
 		},
 	},
+	attach: {
+		mutation() {
+			const qc = useQueryClient();
+			return useMutation({
+				mutationFn: (data: { id: string; workflowId: string }) =>
+					triggersService.attachWorkflow(data.id, data.workflowId),
+				onSuccess: () => qc.invalidateQueries({ queryKey: LIST_KEY }),
+			});
+		},
+	},
+	detach: {
+		mutation() {
+			const qc = useQueryClient();
+			return useMutation({
+				mutationFn: (data: { id: string; workflowId: string }) =>
+					triggersService.detachWorkflow(data.id, data.workflowId),
+				onSuccess: () => qc.invalidateQueries({ queryKey: LIST_KEY }),
+			});
+		},
+	},
 	remove: {
 		mutation() {
 			const qc = useQueryClient();

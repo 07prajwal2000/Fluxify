@@ -64,8 +64,12 @@ export const createSchema = z.object({
 	description: z.string().max(2000).optional(),
 	type: triggerTypeSchema,
 	projectId: z.uuidv7(),
-	/** One trigger, one workflow — fan-out is two triggers. */
-	workflowId: z.uuidv7(),
+	/**
+	 * The workflows this trigger starts. May be empty: a trigger is a reusable
+	 * source, and one created from the Triggers page before any workflow is
+	 * attached is a normal intermediate state, not a broken row.
+	 */
+	workflowIds: z.array(z.uuidv7()).default([]),
 	/** Omitted means the project's default group, which always exists. */
 	groupId: z.uuidv7().optional(),
 	/** The connector's credentials. Never set for `internal`. */
@@ -88,6 +92,8 @@ export const patchSchema = z
 		description: z.string().max(2000),
 		groupId: z.uuidv7(),
 		integrationId: z.uuidv7(),
+		/** Replaces the link set wholesale. Omit to leave the links alone. */
+		workflowIds: z.array(z.uuidv7()),
 		payload: z.unknown(),
 		active: z.boolean(),
 		...batchSchema,
@@ -117,6 +123,11 @@ export const previewSchema = z.object({
 	nextFires: z.array(z.string()),
 });
 
+export const workflowIdParamSchema = z.object({
+	id: z.uuidv7(),
+	workflowId: z.uuidv7(),
+});
+
 export const createdSchema = z.object({ id: z.uuidv7() });
 
 export const triggerSchema = z.object({
@@ -125,7 +136,7 @@ export const triggerSchema = z.object({
 	description: z.string().nullable(),
 	type: z.string(),
 	projectId: z.string(),
-	workflowId: z.string(),
+	workflowIds: z.array(z.string()),
 	groupId: z.string(),
 	integrationId: z.string().nullable(),
 	batchSize: z.number().int(),
@@ -159,8 +170,11 @@ export const listQuerySchema = z
 		active: q.active === undefined ? undefined : q.active === "true",
 	}));
 
+/** A trigger as a list shows it: the linked workflows come with their names. */
+export const workflowLinkSchema = z.object({ id: z.string(), name: z.string() });
+
 export const listSchema = z.object({
-	data: z.array(triggerSchema.extend({ workflowName: z.string() })),
+	data: z.array(triggerSchema.extend({ workflows: z.array(workflowLinkSchema) })),
 	pagination: paginationResponseSchema,
 });
 
