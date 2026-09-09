@@ -198,14 +198,14 @@ export class TriggerWorker {
 			},
 		);
 		logger.info(
-			`[triggers] consumer for ${artifact.triggerId} -> workflow ${artifact.workflowId} (batch ${artifact.batchSize})`,
+			`[triggers] consumer for ${artifact.triggerId} -> ${artifact.workflowIds.length} workflow(s) (batch ${artifact.batchSize})`,
 			"TRIGGERS",
 		);
 		return consumer;
 	}
 
 	private runInternal(message: InternalTriggerMessage) {
-		return this.dispatch(message.workflowId, {
+		return this.dispatch([message.workflowId], {
 			triggerId: INTERNAL_SOURCE,
 			source: "internal",
 			events: [
@@ -222,24 +222,35 @@ export class TriggerWorker {
 	}
 
 	private runBatch(artifact: TriggerArtifact, events: TriggerEvent[]) {
-		return this.dispatch(artifact.workflowId, {
+		return this.dispatch(artifact.workflowIds, {
 			triggerId: artifact.triggerId,
 			source: artifact.type as TriggerBatch["source"],
 			events,
 		});
 	}
 
-	private dispatch(workflowId: string, batch: TriggerBatch) {
-		const job: JobEnvelope = {
-			id: crypto.randomUUID(),
-			kind: WORKFLOW_JOB,
-			projectId: this.options.projectId,
-			target: workflowId,
-			payload: batch,
-			origin: { triggerId: batch.triggerId, source: batch.source },
-			enqueuedAt: new Date().toISOString(),
-		};
-		return this.options.run(job);
+	/**
+	 * One batch, one job per linked workflow.
+	 *
+	 * The jobs are independent on purpose: a workflow that throws is retried on
+	 * its own rather than dragging its siblings through the same batch again.
+	 * The whole set has to be handed over before the message is acked, though,
+	 * so a failure here redelivers the batch and every workflow sees it again —
+	 * which is the same at-least-once contract a single workflow already had.
+	 */
+	private async dispatch(workflowIds: string[], batch: TriggerBatch) {
+		for (const workflowId of workflowIds) {
+			const job: JobEnvelope = {
+				id: crypto.randomUUID(),
+				kind: WORKFLOW_JOB,
+				projectId: this.options.projectId,
+				target: workflowId,
+				payload: batch,
+				origin: { triggerId: batch.triggerId, source: batch.source },
+				enqueuedAt: new Date().toISOString(),
+			};
+			await this.options.run(job);
+		}
 	}
 
 	/**
@@ -253,7 +264,14 @@ export class TriggerWorker {
 	 * part of the workflow's own budget.
 	 */
 	private ackWaitFor(artifact: TriggerArtifact) {
-		const seconds = this.options.workflowTimeoutSeconds?.(artifact.workflowId);
+		// The slowest linked workflow sets the wait: the batch is not done until
+		// every job derived from it has been handed over.
+		const seconds = Math.max(
+			0,
+			...artifact.workflowIds.map(
+				(id) => this.options.workflowTimeoutSeconds?.(id) ?? 0,
+			),
+		);
 		if (!seconds) return this.options.defaultAckWaitMs;
 		return seconds * 1000 + ACK_WAIT_MARGIN_MS;
 	}
@@ -266,7 +284,7 @@ const ACK_WAIT_MARGIN_MS = 30_000;
 
 function unchanged(a: TriggerArtifact, b: TriggerArtifact) {
 	return (
-		a.workflowId === b.workflowId &&
+		a.workflowIds.join() === b.workflowIds.join() &&
 		a.batchSize === b.batchSize &&
 		a.maxWaitMs === b.maxWaitMs &&
 		a.maxBytes === b.maxBytes &&

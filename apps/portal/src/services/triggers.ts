@@ -5,6 +5,7 @@ import {
 	groupListSchema,
 	listSchema,
 	patchSchema,
+	previewSchema,
 	triggerSchema,
 } from "@fluxify/server/src/api/v1/triggers/dto";
 import { httpClient } from "@/lib/http";
@@ -23,7 +24,10 @@ export type ListTriggersQuery = {
 export type CreateTriggerBody = z.infer<typeof createSchema>;
 export type UpdateTriggerBody = z.infer<typeof patchSchema>;
 export type Trigger = z.infer<typeof triggerSchema>;
+/** A trigger as the list returns it — the linked workflows come with names. */
+export type TriggerListItem = z.infer<typeof listSchema>["data"][number];
 export type TriggerGroup = z.infer<typeof groupListSchema>["data"][number];
+export type SchedulePreview = z.infer<typeof previewSchema>;
 
 export const triggersService = {
 	async getAll(query: ListTriggersQuery): Promise<z.infer<typeof listSchema>> {
@@ -49,6 +53,19 @@ export const triggersService = {
 	async delete(id: string) {
 		await httpClient.delete(`${baseUrl}/${id}`);
 	},
+	/**
+	 * One link at a time, rather than PATCHing the whole `workflowIds` set: a
+	 * workflow's settings page only knows about its own link, and sending back a
+	 * list it read earlier would quietly undo anything attached elsewhere.
+	 */
+	async attachWorkflow(id: string, workflowId: string): Promise<Trigger> {
+		const result = await httpClient.put(`${baseUrl}/${id}/workflows/${workflowId}`);
+		return result.data;
+	},
+	async detachWorkflow(id: string, workflowId: string): Promise<Trigger> {
+		const result = await httpClient.delete(`${baseUrl}/${id}/workflows/${workflowId}`);
+		return result.data;
+	},
 	async getGroups(projectId: string): Promise<TriggerGroup[]> {
 		const result = await httpClient.get(
 			`${baseUrl}/groups?projectId=${encodeURIComponent(projectId)}`,
@@ -57,6 +74,18 @@ export const triggersService = {
 	},
 	async createGroup(data: z.infer<typeof createGroupSchema>): Promise<TriggerGroup> {
 		const result = await httpClient.post(`${baseUrl}/groups`, data);
+		return result.data;
+	},
+	/**
+	 * The server reads the schedule, not the browser. Same parser and same
+	 * timezone database as the thing that will actually run it, so a preview the
+	 * user confirms cannot disagree with what fires.
+	 */
+	async previewSchedule(schedule: string, timezone: string): Promise<SchedulePreview> {
+		const params = new URLSearchParams({ schedule, timezone });
+		const result = await httpClient.get(
+			`${baseUrl}/schedule/preview?${params.toString()}`,
+		);
 		return result.data;
 	},
 	createSchema,

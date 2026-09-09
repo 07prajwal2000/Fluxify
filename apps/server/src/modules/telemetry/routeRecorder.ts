@@ -13,10 +13,21 @@ export type RecordedRoute = {
 	path: string;
 };
 
+export type RecordedWorkflow = {
+	projectId: string;
+	workflowId: string;
+	workflowVersion: string;
+	workflowName?: string;
+};
+
 export type TraceOutcome = "success" | "failure";
 
 export type RequestTrace = BlockTrace & {
 	complete(outcome: TraceOutcome, statusCode?: number): void;
+};
+
+export type WorkflowTrace = BlockTrace & {
+	complete(outcome: TraceOutcome): void;
 };
 
 type TraceScope = {
@@ -34,10 +45,10 @@ type TraceState = {
 };
 
 /**
- * A request-local span buffer. It has no broker connection and no credentials:
+ * A local span buffer. It has no broker connection and no credentials:
  * its only side effect is handing a completed, bounded payload to its owner.
  */
-export class RouteTraceRecorder implements RequestTrace {
+export abstract class BaseTraceRecorder implements BlockTrace {
 	readonly runId = crypto.randomUUID();
 	private readonly startedAtWallMs = Date.now();
 	private readonly perfOrigin = performance.now();
@@ -52,9 +63,8 @@ export class RouteTraceRecorder implements RequestTrace {
 	private completed = false;
 
 	constructor(
-		private readonly route: RecordedRoute,
-		private readonly onComplete: (run: TraceRunPayload) => void,
-		private readonly parent?: { runId: string; seq: number },
+		protected readonly onComplete: (run: TraceRunPayload) => void,
+		protected readonly parent?: { runId: string; seq: number },
 	) {}
 
 	recordSpan(span: BlockTraceSpan): void {
@@ -69,17 +79,19 @@ export class RouteTraceRecorder implements RequestTrace {
 		return this.enter(invocation, {});
 	}
 
-	complete(outcome: TraceOutcome, statusCode?: number): void {
+	protected abstract createDetached(parent: {
+		runId: string;
+		seq: number;
+	}): BlockTrace & { complete(outcome: TraceOutcome, statusCode?: number): void };
+
+	protected abstract targetAttributes(): Partial<TraceRunPayload>;
+
+	protected finishRun(outcome: TraceOutcome, statusCode?: number): void {
 		if (this.completed) return;
 		this.completed = true;
 
 		const run: TraceRunPayload = {
 			runId: this.runId,
-			projectId: this.route.projectId,
-			routeId: this.route.routeId,
-			routeVersion: this.route.routeVersion,
-			method: this.route.method,
-			path: this.route.path,
 			startedAtWallMs: this.startedAtWallMs,
 			perfOrigin: this.perfOrigin,
 			endedAt: performance.now(),
@@ -93,12 +105,13 @@ export class RouteTraceRecorder implements RequestTrace {
 				? { parentRunId: this.parent.runId, parentSeq: this.parent.seq }
 				: {}),
 			spans: this.state.spans,
-		};
+			...this.targetAttributes(),
+		} as TraceRunPayload;
 
 		try {
 			this.onComplete(run);
 		} catch {
-			// Sending telemetry must never affect a route response.
+			// Sending telemetry must never affect execution.
 		}
 	}
 
@@ -112,11 +125,7 @@ export class RouteTraceRecorder implements RequestTrace {
 		this.state.pendingInvocations.set(invocation.blockId, pending);
 
 		if (invocation.detached) {
-			const detached = new RouteTraceRecorder(
-				this.route,
-				this.onComplete,
-				{ runId: this.runId, seq },
-			);
+			const detached = this.createDetached({ runId: this.runId, seq });
 			return {
 				trace: detached,
 				close: (outcome: TraceOutcome = "success", error?: unknown) => {
@@ -188,9 +197,72 @@ export class RouteTraceRecorder implements RequestTrace {
 	}
 }
 
+/**
+ * A request-local span buffer for HTTP routes.
+ */
+export class RouteTraceRecorder extends BaseTraceRecorder implements RequestTrace {
+	constructor(
+		private readonly route: RecordedRoute,
+		onComplete: (run: TraceRunPayload) => void,
+		parent?: { runId: string; seq: number },
+	) {
+		super(onComplete, parent);
+	}
+
+	complete(outcome: TraceOutcome, statusCode?: number): void {
+		this.finishRun(outcome, statusCode);
+	}
+
+	protected createDetached(parent: { runId: string; seq: number }) {
+		return new RouteTraceRecorder(this.route, this.onComplete, parent);
+	}
+
+	protected targetAttributes(): Partial<TraceRunPayload> {
+		return {
+			projectId: this.route.projectId,
+			routeId: this.route.routeId,
+			routeVersion: this.route.routeVersion,
+			method: this.route.method,
+			path: this.route.path,
+		};
+	}
+}
+
+/**
+ * A background-job span buffer for workflows.
+ */
+export class WorkflowTraceRecorder extends BaseTraceRecorder implements WorkflowTrace {
+	constructor(
+		private readonly workflow: RecordedWorkflow,
+		onComplete: (run: TraceRunPayload) => void,
+		parent?: { runId: string; seq: number },
+	) {
+		super(onComplete, parent);
+	}
+
+	complete(outcome: TraceOutcome): void {
+		this.finishRun(outcome);
+	}
+
+	protected createDetached(parent: { runId: string; seq: number }) {
+		return new WorkflowTraceRecorder(this.workflow, this.onComplete, parent);
+	}
+
+	protected targetAttributes(): Partial<TraceRunPayload> {
+		return {
+			projectId: this.workflow.projectId,
+			workflowId: this.workflow.workflowId,
+			workflowVersion: this.workflow.workflowVersion,
+			...(this.workflow.workflowName
+				? { workflowName: this.workflow.workflowName }
+				: {}),
+		};
+	}
+}
+
 class NestedTrace implements BlockTrace {
 	constructor(
-		private readonly owner: RouteTraceRecorder,
+		private readonly owner: BaseTraceRecorder,
 		private readonly scope: TraceScope,
 	) {}
 

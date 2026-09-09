@@ -73,7 +73,8 @@ export type CustomBlockArtifact = {
 export type TriggerArtifact = {
 	triggerId: string;
 	projectId: string;
-	workflowId: string;
+	/** Every workflow this trigger starts. One batch becomes one job each. */
+	workflowIds: string[];
 	groupId: string;
 	/** `internal` today; the connector types name their source. */
 	type: string;

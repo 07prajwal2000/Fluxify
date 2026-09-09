@@ -149,7 +149,8 @@ export function exportRun(
 	provider: BasicTracerProvider,
 	run: TraceRunPayload,
 ): void {
-	const tracer = provider.getTracer("fluxify-route");
+	const isWorkflow = Boolean(run.workflowId);
+	const tracer = provider.getTracer(isWorkflow ? "fluxify-workflow" : "fluxify-route");
 
 	staged.traceId = traceIdFor(run.runId);
 	staged.spanId = spanIdFor(run.runId, "run");
@@ -171,20 +172,32 @@ export function exportRun(
 	const rootAttributes: Record<string, string | number | boolean> = {
 		"fluxify.run.id": run.runId,
 		"fluxify.project.id": run.projectId,
-		"fluxify.route.id": run.routeId,
-		"fluxify.route.version": run.routeVersion,
-		"http.request.method": run.method,
-		"http.route": run.path,
 	};
+	if (run.routeId) {
+		rootAttributes["fluxify.route.id"] = run.routeId;
+		if (run.routeVersion) rootAttributes["fluxify.route.version"] = run.routeVersion;
+		if (run.method) rootAttributes["http.request.method"] = run.method;
+		if (run.path) rootAttributes["http.route"] = run.path;
+	}
+	if (run.workflowId) {
+		rootAttributes["fluxify.workflow.id"] = run.workflowId;
+		if (run.workflowVersion) rootAttributes["fluxify.workflow.version"] = run.workflowVersion;
+		if (run.workflowName) rootAttributes["fluxify.workflow.name"] = run.workflowName;
+	}
 	if (run.statusCode) rootAttributes["http.response.status_code"] = run.statusCode;
 	if (run.truncated) rootAttributes["fluxify.truncated"] = true;
 	if (run.droppedSpans) rootAttributes["fluxify.dropped_spans"] = run.droppedSpans;
 	if (run.parentRunId) rootAttributes["fluxify.parent_run.id"] = run.parentRunId;
 
+	const rootSpanName = isWorkflow
+		? `workflow: ${run.workflowName || "unnamed"}`
+		: `${run.method} ${run.path}`;
+	const rootSpanKind = isWorkflow ? SpanKind.CONSUMER : SpanKind.SERVER;
+
 	const root = tracer.startSpan(
-		`${run.method} ${run.path}`,
+		rootSpanName,
 		{
-			kind: SpanKind.SERVER,
+			kind: rootSpanKind,
 			startTime: wallClock(run, run.perfOrigin),
 			attributes: rootAttributes,
 			links,

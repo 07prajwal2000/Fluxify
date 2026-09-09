@@ -127,6 +127,12 @@ async function main() {
 		registerRouteResponder();
 		registerCustomBlockResponder();
 		registerWorkflowResponder();
+
+		// Postgres is authoritative for schedules; the broker is what fires them.
+		// Bringing the two back in line is this node's job because it is the one
+		// holding the database connection.
+		const { loadSchedules } = await import("./loaders/schedulesLoader");
+		await loadSchedules();
 	}
 
 	if (builtinWorkerEnabled) {

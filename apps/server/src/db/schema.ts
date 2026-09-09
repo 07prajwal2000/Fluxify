@@ -6,6 +6,7 @@ import {
 	index,
 	pgEnum,
 	pgTable,
+	primaryKey,
 	serial,
 	text,
 	timestamp,
@@ -357,9 +358,11 @@ export const triggerGroupsEntity = pgTable(
  * connectors are the same row with a different type and their own
  * `integrationId`.
  *
- * One trigger, one workflow. A trigger is a consumer group on its source, and
- * a source read once cannot be handed to two graphs without deciding what a
- * half-failed batch means — so fan-out is two triggers, not one.
+ * A trigger is not tied to one workflow. It reads its source once and hands the
+ * batch to every workflow linked to it through `trigger_workflows`, as one
+ * independent job each — so a failure in one workflow neither blocks nor
+ * retries the others. Which workflows those are lives in the join table, never
+ * on this row.
  *
  * `batchSize` and `maxWaitMs` map onto the broker's fetch as `max_messages` and
  * `expires`. `maxBytes` is applied as the batch is assembled instead — the
@@ -379,9 +382,6 @@ export const triggersEntity = pgTable(
 		type: varchar({ length: 50 }).notNull(),
 		projectId: varchar("project_id", { length: 50 })
 			.references(() => projectsEntity.id, { onDelete: "cascade" })
-			.notNull(),
-		workflowId: varchar("workflow_id", { length: 50 })
-			.references(() => workflowsEntity.id, { onDelete: "cascade" })
 			.notNull(),
 		/** Which node runs it. Restricted on delete — a group holding triggers
 		 *  cannot vanish and leave them unrunnable. */
@@ -404,6 +404,13 @@ export const triggersEntity = pgTable(
 		concurrency: integer().default(1).notNull(),
 		/** Static data handed to the workflow, for sources that carry none. */
 		payload: jsonb(),
+		/** The schedule spec for a `schedule` trigger, exactly as NATS reads it:
+		 *  `@at <rfc3339>`, `@every 5m`, `@daily`, or six-field cron. Null for
+		 *  every other type. */
+		schedule: varchar({ length: 255 }),
+		/** IANA name the schedule is read in. Cron only — an interval has no
+		 *  wall clock to be shifted by. */
+		timezone: varchar({ length: 64 }).default("UTC").notNull(),
 		active: boolean().default(false).notNull(),
 		createdAt: timestamp("created_at").defaultNow().notNull(),
 		createdBy: varchar("created_by", { length: 50 }),
@@ -414,9 +421,35 @@ export const triggersEntity = pgTable(
 	},
 	(table) => [
 		index("idx_triggers_project_id").on(table.projectId),
-		index("idx_triggers_workflow_id").on(table.workflowId),
 		index("idx_triggers_group_id").on(table.groupId),
 		index("idx_triggers_integration_id").on(table.integrationId),
+	],
+);
+
+/**
+ * Which workflows a trigger starts.
+ *
+ * A trigger is a source, and a source is worth reusing — the same webhook or
+ * schedule feeding three workflows is the ordinary case, not an exotic one.
+ * One fire becomes one job per row here, each with its own retries, so the
+ * workflows never share a failure.
+ *
+ * Both sides cascade: the link is meaningless once either end is gone.
+ */
+export const triggerWorkflowsEntity = pgTable(
+	"trigger_workflows",
+	{
+		triggerId: varchar("trigger_id", { length: 50 })
+			.references(() => triggersEntity.id, { onDelete: "cascade" })
+			.notNull(),
+		workflowId: varchar("workflow_id", { length: 50 })
+			.references(() => workflowsEntity.id, { onDelete: "cascade" })
+			.notNull(),
+		createdAt: timestamp("created_at").defaultNow().notNull(),
+	},
+	(table) => [
+		primaryKey({ columns: [table.triggerId, table.workflowId] }),
+		index("idx_trigger_workflows_workflow_id").on(table.workflowId),
 	],
 );
 

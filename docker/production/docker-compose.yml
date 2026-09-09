@@ -201,7 +201,10 @@ services:
       - fluxify_net
 
   nats:
-    image: nats:latest
+    # Pinned: schedules (ADR-51) need 2.14+ for cron, @every, predefined
+    # aliases and timezones. On an older server a scheduled trigger is accepted
+    # and simply never fires.
+    image: nats:2.14
     container_name: nats
     # -js enables JetStream, which the compile pipeline REQUIRES: the compile
     # work queue is a JetStream stream and compiled routes live in a KV bucket

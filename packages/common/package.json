@@ -9,7 +9,8 @@
 		".": "./index.ts",
 		"./tracing": "./tracing/index.ts",
 		"./otlp": "./otlp/index.ts",
-		"./nats": "./nats/index.ts"
+		"./nats": "./nats/index.ts",
+		"./schedule": "./schedule/index.ts"
 	},
 	"author": "",
 	"license": "Apache-2.0",
@@ -43,6 +44,7 @@
 		"@opentelemetry/sdk-trace-node": "^1.30.0",
 		"@opentelemetry/semantic-conventions": "^1.28.0",
 		"@opentelemetry/winston-transport": "^0.30.0",
+		"croner": "9",
 		"winston": "^3.19.0",
 		"winston-loki": "^6.1.4",
 		"zod": "^4.4.3"

@@ -22,6 +22,7 @@ import {
  * whatever the consumer did.
  */
 const collect = await loadWorkflow("collect");
+const notify = await loadWorkflow("notify");
 
 beforeAll(triggerHarness, 180_000);
 beforeEach(() => {
@@ -200,6 +201,29 @@ describe("a trigger's lifecycle", () => {
 			// nothing is pulling it any more, so it sits on the stream
 			await Bun.sleep(1_000);
 			expect(await waitForBatches(0)).toEqual([]);
+		},
+		TRIGGER_TIMEOUT_MS,
+	);
+});
+
+describe("a trigger linked to several workflows", () => {
+	it(
+		"starts each of them from one event",
+		async () => {
+			// One source read once, two graphs run. The jobs are independent, so
+			// this is the difference between a link table and a second trigger.
+			await publishTrigger({
+				triggerId: "t-fanout",
+				workflow: collect,
+				alsoStarts: [notify],
+			});
+
+			await emit("t-fanout", [{ id: "fan", orderId: "A-9", status: "shipped" }]);
+
+			const [collected] = await waitForHits("/collected", 1);
+			expect(collected!.body).toMatchObject({ size: 1, ids: ["fan"] });
+			const [notified] = await waitForHits("/notify", 1);
+			expect(notified!.body).toMatchObject({ orderId: "A-9" });
 		},
 		TRIGGER_TIMEOUT_MS,
 	);

@@ -4,7 +4,7 @@ import {
 	SimpleSpanProcessor,
 	type ReadableSpan,
 } from "@opentelemetry/sdk-trace-base";
-import { SpanStatusCode } from "@opentelemetry/api";
+import { SpanKind, SpanStatusCode } from "@opentelemetry/api";
 import { createOtlpTracerProvider, exportRun, spanIdFor, traceIdFor } from "../traces";
 import type { TraceRunPayload, TraceSpanRecord } from "../types";
 
@@ -185,5 +185,34 @@ describe("exportRun", () => {
 		expect(root.attributes["fluxify.dropped_spans"]).toBe(7);
 		expect(root.attributes["fluxify.truncated"]).toBe(true);
 		expect(root.attributes["http.response.status_code"]).toBe(500);
+	});
+
+	it("exports a workflow run with workflow attributes and consumer span kind", () => {
+		const { provider, spans } = collector();
+
+		exportRun(
+			provider,
+			run({
+				routeId: undefined,
+				routeVersion: undefined,
+				method: undefined,
+				path: undefined,
+				workflowId: "wf-1",
+				workflowVersion: "2026-01-01T12:00:00.000Z",
+				workflowName: "Process Orders",
+				spans: [span(0, "entry", 0, 10)],
+			}),
+		);
+
+		const allSpans = spans();
+		expect(allSpans).toHaveLength(2);
+		const root = allSpans.find((s) => s.name === "workflow: Process Orders")!;
+		expect(root).toBeDefined();
+		expect(root.kind).toBe(SpanKind.CONSUMER);
+		expect(root.attributes["fluxify.workflow.id"]).toBe("wf-1");
+		expect(root.attributes["fluxify.workflow.version"]).toBe("2026-01-01T12:00:00.000Z");
+		expect(root.attributes["fluxify.workflow.name"]).toBe("Process Orders");
+		expect(root.attributes["fluxify.project.id"]).toBe("proj-1");
+		expect(root.attributes["http.route"]).toBeUndefined();
 	});
 });

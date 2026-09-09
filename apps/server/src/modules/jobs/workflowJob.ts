@@ -3,9 +3,19 @@ import type { TriggerBatchMeta, TriggerEvent } from "@fluxify/blocks";
 import { compiledWorkflow } from "../requestRouter/compiledRuntime";
 import { createJobContext } from "../requestRouter/service";
 import { isTriggerBatch } from "../triggers/types";
+import type { WorkflowTrace } from "../telemetry/routeRecorder";
 import { registerJobHandler } from "./registry";
 import { WORKFLOW_JOB } from "./subjects";
 import type { JobEnvelope } from "./types";
+
+export type WorkflowTraceFactory = {
+	start(workflow: {
+		workflowId: string;
+		projectId: string;
+		workflowVersion: string;
+		workflowName: string;
+	}): WorkflowTrace;
+};
 
 /**
  * Runs one workflow off the queue.
@@ -15,7 +25,7 @@ import type { JobEnvelope } from "./types";
  * failure so the consumer redelivers; nobody is waiting on the result, so the
  * queue is the only thing that can retry.
  */
-export function registerWorkflowJobHandler() {
+export function registerWorkflowJobHandler(traceFactory?: WorkflowTraceFactory) {
 	registerJobHandler(WORKFLOW_JOB, async (job) => {
 		const workflow = compiledWorkflow(job.target);
 		// Not an error worth retrying on this worker: either the workflow was
@@ -29,6 +39,20 @@ export function registerWorkflowJobHandler() {
 			return;
 		}
 
+		let trace: WorkflowTrace | undefined;
+		if (workflow.artifact.tracingEnabled && traceFactory) {
+			try {
+				trace = traceFactory.start({
+					workflowId: workflow.artifact.workflowId,
+					projectId: workflow.artifact.projectId,
+					workflowVersion: workflow.artifact.workflowVersion,
+					workflowName: workflow.artifact.name,
+				});
+			} catch {
+				// Tracing is diagnostic data; a recorder bug must not fail job execution.
+			}
+		}
+
 		const { events, input, meta, source } = readInput(job);
 		const context = createJobContext({
 			id: job.id,
@@ -37,6 +61,7 @@ export function registerWorkflowJobHandler() {
 			timeoutSeconds: workflow.artifact.timeoutSeconds,
 			trigger: { kind: "trigger", source, data: events, meta },
 			payload: input,
+			trace,
 		});
 		try {
 			const result = await workflow.run(context, input);
@@ -48,10 +73,22 @@ export function registerWorkflowJobHandler() {
 					`workflow ${workflow.artifact.name} failed: ${String(result.error ?? "unknown error")}`,
 				);
 			}
+			try {
+				trace?.complete("success");
+			} catch {
+				// Telemetry must never affect job outcome.
+			}
 			logger.info(
 				`[jobs] ran workflow ${workflow.artifact.name} over ${events.length} event(s)`,
 				"JOBS.workflow",
 			);
+		} catch (error) {
+			try {
+				trace?.complete("failure");
+			} catch {
+				// Telemetry must never affect job outcome.
+			}
+			throw error;
 		} finally {
 			context.dbFactory?.dispose();
 		}

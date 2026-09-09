@@ -16,6 +16,7 @@ import type {
 } from "../src/modules/compiler/artifacts";
 import { artifactId, artifactKind } from "../src/modules/compiler/subjects";
 import { TriggerWorker } from "../src/modules/triggers/consumers";
+import { startFireConsumer } from "../src/modules/schedules/fire";
 import { fireInternalTrigger } from "../src/modules/triggers/publisher";
 import { TRIGGER_WORKFLOW_JOB } from "@fluxify/blocks";
 import type {
@@ -45,8 +46,10 @@ import {
 	getEnv,
 } from "../src/lib/env";
 import {
+	WORKFLOW_JOB,
 	artifactKindsForMode,
 	assertWorkerMode,
+	jobKindsForMode,
 } from "../src/modules/jobs/subjects";
 
 /**
@@ -244,7 +247,7 @@ function onExecutionEvent(event: ExecutionEvent) {
 				),
 			);
 		case "trace-finished":
-			// The execution process holds untrusted route code, never NATS credentials.
+			// The execution process holds untrusted user code (routes and workflows), never NATS credentials.
 			return void publishTraceRun(event.run);
 		case "heartbeat":
 			return watchdog.heartbeat();
@@ -313,6 +316,22 @@ await artifactWatch.initialized;
 spawnExecution();
 synchronizeMonitoring();
 
+/**
+ * A consumer that will not start is not a degraded worker, it is a worker that
+ * cannot do its job while reporting ready and passing health checks. The most
+ * common cause is a leftover durable from an earlier run with a different
+ * WORKER_PROJECT_ID: `FLUXIFY_JOBS` is work-queue, so overlapping filters are
+ * refused, and this process would otherwise sit there while jobs pile up on a
+ * subject nothing reads.
+ */
+function fatal(what: string, error: unknown): never {
+	logger.error(
+		`${what} failed to start, refusing to run without it: ${String(error)}`,
+		"WORKER",
+	);
+	process.exit(1);
+}
+
 // Background work for this project. Separate from the request path on purpose:
 // a queued job must not compete with traffic for the same acceptance.
 await startJobWorker({
@@ -323,17 +342,24 @@ await startJobWorker({
 	ackWaitMs: Number(getEnv("JOBS_ACK_WAIT_MS")) || undefined,
 	maxDeliver: Number(getEnv("JOBS_MAX_DELIVER")) || undefined,
 	retryDelayMs: Number(getEnv("JOBS_RETRY_DELAY_MS")) || undefined,
-}).catch((error) =>
-	logger.error(`job worker failed to start: ${String(error)}`, "WORKER.jobs"),
-);
+}).catch((error) => fatal("job worker", error));
 
 // Triggers are the other half of the same story: the job worker takes work that
 // was queued, this takes work that arrived.
-await triggerWorker
-	.start()
-	.catch((error) =>
-		logger.error(`trigger worker failed to start: ${String(error)}`, "WORKER.triggers"),
-	);
+await triggerWorker.start().catch((error) => fatal("trigger worker", error));
+
+// Scheduled fires, on the workers that run workflows. The broker keeps the
+// time; this turns each fire into a job. It belongs here rather than beside the
+// reconciler on the control plane so that a control-plane node going down
+// delays schedule *edits* and not the schedules themselves.
+let fireConsumer: { stop(): Promise<void> } | undefined;
+if (jobKindsForMode(WORKER_MODE).includes(WORKFLOW_JOB)) {
+	fireConsumer = await startFireConsumer({
+		projectId: WORKER_PROJECT_ID,
+		maxDeliver: Number(getEnv("JOBS_MAX_DELIVER")) || undefined,
+		retryDelayMs: Number(getEnv("JOBS_RETRY_DELAY_MS")) || undefined,
+	}).catch((error) => fatal("fire consumer", error));
+}
 
 function evaluateTimeouts() {
 	const timedOut = watchdog.findTimedOut();
@@ -356,6 +382,7 @@ async function shutdown(sig: string) {
 	logger.info(`received ${sig} — shutting down`);
 	try {
 		execution?.kill();
+		await fireConsumer?.stop();
 		await triggerWorker.stop();
 		await artifactWatch.stop();
 		healthServer.stop(true);

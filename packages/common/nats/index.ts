@@ -19,3 +19,4 @@ export * from "./queue";
 export * from "./stream";
 export * from "./types";
 export * from "./rpc";
+export * from "./schedules";

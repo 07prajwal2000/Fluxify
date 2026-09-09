@@ -124,18 +124,21 @@ export function observedBatches() {
 export async function publishTrigger(trigger: {
 	triggerId: string;
 	workflow: WorkflowFixture;
+	/** Extra workflows the same trigger starts. Each one gets its own job. */
+	alsoStarts?: WorkflowFixture[];
 	batchSize?: number;
 	maxWaitMs?: number;
 	maxBytes?: number;
 	concurrency?: number;
 }) {
 	await triggerHarness();
-	await publishWorkflow(trigger.workflow);
+	const workflows = [trigger.workflow, ...(trigger.alsoStarts ?? [])];
+	for (const workflow of workflows) await publishWorkflow(workflow);
 
 	const artifact: TriggerArtifact = {
 		triggerId: trigger.triggerId,
 		projectId: WORKFLOW_PROJECT_ID,
-		workflowId: trigger.workflow.name,
+		workflowIds: workflows.map((workflow) => workflow.name),
 		groupId: "default",
 		type: "internal",
 		integrationId: null,

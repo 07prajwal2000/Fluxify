@@ -34,7 +34,7 @@ A dedicated layer for request pre-processing and security.
 Offloading heavy tasks and integrating with event-driven architectures.
 - **Async Workflows (Mandatory):** Ability to trigger another Fluxify workflow asynchronously (fire-and-forget) and immediately return a `202 Accepted` to the client.
 - **Message Queues Integrations (Very Important):** First-class integrations with RabbitMQ, Kafka, or AWS SQS.
-- **Background Jobs:** Cron scheduling and execution (Currently WIP).
+- **Background Jobs:** Cron and one-shot schedules, running workflows on the clock.
 
 ## 7. Server-Sent Events (SSE) & WebSockets
 Real-time streaming capabilities.

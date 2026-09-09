@@ -4,8 +4,13 @@ A **trigger** is what starts a [workflow](/concepts/workflows). Something
 happens — a message arrives, another workflow says so — and the trigger hands
 that event to a workflow and lets it run.
 
-One trigger starts exactly one workflow. If two workflows should react to the
-same events, make two triggers.
+One trigger can start **several workflows**. Attach as many as you like: each
+one gets its own run of the same event, so a workflow that fails neither blocks
+nor retries the others.
+
+A trigger that runs on the clock rather than on an event is a
+[schedule](/concepts/schedules) — cron expressions, intervals, and one-off
+times are covered there.
 
 ## What a workflow receives
 
@@ -143,10 +148,29 @@ with an integration built to carry them.
 The **Run** action on a workflow takes the same path a trigger does, so a test
 run behaves like the real thing — one event, with the payload you typed in.
 
+## Running on a schedule
+
+A trigger can also be started by the clock: every weekday at 9am, every five
+minutes, or once at a time you pick. See [Schedules](/concepts/schedules).
+
+Schedules do not batch. Each firing starts the workflow once, because there is
+no queue of incoming events to collect from — a scheduled workflow fetches
+whatever it needs to work on itself.
+
 ## Where to set them up
 
-Open a workflow and go to **Settings → Triggers**. You can add a trigger, turn
-one on or off, and delete one from there.
+Triggers live on the project's **Triggers** page. Create one there — name it,
+say what fires it, and choose the workflows it starts. A trigger is not owned by
+a workflow, so the same one can be reused anywhere in the project.
+
+A workflow's own **Settings → Triggers** tab shows what currently starts it. You
+can attach an existing trigger, detach one, or turn one on and off from there;
+detaching only removes the link, and the trigger keeps starting whatever else it
+is attached to. **New trigger** opens the create form in a new tab so an unsaved
+canvas is not lost.
+
+A trigger with no workflows attached is saved and idle — it collects nothing and
+starts nothing until you attach one.
 
 Turning a trigger off stops it collecting events. Events already waiting stay
 where they are; nothing is lost, and nothing is read until you turn it back on.

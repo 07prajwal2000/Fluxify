@@ -12,6 +12,8 @@ import { NotFoundError } from "../../../errors/notFoundError";
 import { deleteArtifact, putArtifact } from "../../../db/natsKv";
 import type { TriggerArtifact } from "../../../modules/compiler/artifacts";
 import { triggerKey } from "../../../modules/compiler/subjects";
+import { removeSchedule, upsertSchedule } from "../../../modules/schedules/reconciler";
+import { describeSchedule, nextFires, ScheduleError } from "@fluxify/common/schedule";
 import {
 	createGroupSchema,
 	createSchema,
@@ -19,6 +21,8 @@ import {
 	listQuerySchema,
 	listSchema,
 	patchSchema,
+	previewQuerySchema,
+	previewSchema,
 	triggerSchema,
 } from "./dto";
 import {
@@ -31,10 +35,16 @@ import {
 	findWorkflow,
 	insertGroup,
 	insertTrigger,
+	linkWorkflow,
 	listGroups,
 	listTriggers,
 	projectExists,
+	setWorkflowLinks,
+	triggerIdsForWorkflow,
+	unlinkWorkflow,
 	updateTriggerRow,
+	workflowIdsFor,
+	workflowsForTriggers,
 } from "./repository";
 
 /**
@@ -47,7 +57,9 @@ import {
  * never saw the row cannot be left consuming a trigger that no longer exists.
  */
 
-type Trigger = Omit<typeof triggersEntity.$inferSelect, "createdBy">;
+type TriggerRow = Omit<typeof triggersEntity.$inferSelect, "createdBy">;
+/** A row plus the links it needs to be published or presented. */
+type Trigger = TriggerRow & { workflowIds: string[] };
 
 export async function createTrigger(
 	userId: string,
@@ -61,12 +73,7 @@ export async function createTrigger(
 		if (!(await projectExists(data.projectId, tx)))
 			throw new NotFoundError(`project with id ${data.projectId} does not exist`);
 
-		const workflow = await findWorkflow(data.workflowId, tx);
-		if (!workflow) throw new NotFoundError("Workflow not found");
-		// A trigger firing another project's workflow would be a tenant boundary
-		// crossed by a dropdown, so it is refused here rather than at run time.
-		if (workflow.projectId !== data.projectId)
-			throw new BadRequestError("Workflow belongs to a different project");
+		await assertWorkflowsInProject(data.workflowIds, data.projectId, tx);
 
 		if (await findTriggerByName(data.projectId, data.name, tx))
 			throw new ConflictError("trigger with that name already exists");
@@ -82,7 +89,6 @@ export async function createTrigger(
 				description: data.description,
 				type: data.type,
 				projectId: data.projectId,
-				workflowId: data.workflowId,
 				groupId,
 				integrationId: data.integrationId ?? null,
 				batchSize: data.batchSize,
@@ -90,12 +96,15 @@ export async function createTrigger(
 				maxBytes: data.maxBytes,
 				concurrency: data.concurrency,
 				payload: data.payload ?? null,
+				schedule: data.schedule ?? null,
+				timezone: data.timezone,
 				active: data.active ?? false,
 				createdBy: userId,
 			},
 			tx,
 		);
-		return (await findTriggerById(id, tx))!;
+		await setWorkflowLinks(id, data.workflowIds, tx);
+		return { ...(await findTriggerById(id, tx))!, workflowIds: data.workflowIds };
 	});
 
 	await republish(created);
@@ -124,15 +133,23 @@ export async function updateTrigger(
 			? await assertGroupInProject(data.groupId, existing.projectId, tx)
 			: undefined;
 
-		return (await updateTriggerRow(
+		if (data.workflowIds) {
+			await assertWorkflowsInProject(data.workflowIds, existing.projectId, tx);
+			await setWorkflowLinks(id, data.workflowIds, tx);
+		}
+
+		// `workflowIds` is not a column; it went to the join table above.
+		const { workflowIds: _links, ...columns } = data;
+		const row = (await updateTriggerRow(
 			id,
 			{
-				...data,
+				...columns,
 				...(groupId ? { groupId } : {}),
 				...(data.payload === undefined ? {} : { payload: data.payload }),
 			},
 			tx,
 		))!;
+		return { ...row, workflowIds: await workflowIdsFor(id, tx) };
 	});
 
 	await republish(updated);
@@ -148,7 +165,9 @@ export async function deleteTrigger(id: string, acl: AuthACL[] = []) {
 
 	// Withdraw before returning: while the artifact is still there, a worker is
 	// still holding a consumer for a trigger the database no longer knows about.
-	await withdraw(existing.projectId, id);
+	// A schedule outliving its row is worse still — nothing would ever stop it.
+	if (existing.type === "schedule") await removeSchedule(existing.projectId, id);
+	else await withdraw(existing.projectId, id);
 	return { id };
 }
 
@@ -156,7 +175,45 @@ export async function getTrigger(
 	id: string,
 	acl: AuthACL[] = [],
 ): Promise<z.infer<typeof triggerSchema>> {
-	return present(await mustAccess(id, acl, "viewer"));
+	const trigger = await mustAccess(id, acl, "viewer");
+	return present({ ...trigger, workflowIds: await workflowIdsFor(id) });
+}
+
+/**
+ * Attaching and detaching one workflow, which is what a workflow's own settings
+ * page does.
+ *
+ * Deliberately not a PATCH of the whole `workflowIds` set: that page knows about
+ * one link and would have to send back a list it read some time ago, silently
+ * dropping whatever another tab attached in between.
+ */
+export async function attachWorkflow(
+	triggerId: string,
+	workflowId: string,
+	acl: AuthACL[] = [],
+) {
+	const trigger = await db.transaction(async (tx) => {
+		const existing = await mustAccess(triggerId, acl, "creator", tx);
+		await assertWorkflowsInProject([workflowId], existing.projectId, tx);
+		await linkWorkflow(triggerId, workflowId, tx);
+		return { ...existing, workflowIds: await workflowIdsFor(triggerId, tx) };
+	});
+	await republish(trigger);
+	return present(trigger);
+}
+
+export async function detachWorkflow(
+	triggerId: string,
+	workflowId: string,
+	acl: AuthACL[] = [],
+) {
+	const trigger = await db.transaction(async (tx) => {
+		const existing = await mustAccess(triggerId, acl, "creator", tx);
+		await unlinkWorkflow(triggerId, workflowId, tx);
+		return { ...existing, workflowIds: await workflowIdsFor(triggerId, tx) };
+	});
+	await republish(trigger);
+	return present(trigger);
 }
 
 export async function listAllTriggers(
@@ -173,7 +230,9 @@ export async function listAllTriggers(
 					acl.map((a) => a.projectId),
 				),
 		query.projectId ? eq(triggersEntity.projectId, query.projectId) : undefined,
-		query.workflowId ? eq(triggersEntity.workflowId, query.workflowId) : undefined,
+		query.workflowId
+			? inArray(triggersEntity.id, triggerIdsForWorkflow(query.workflowId))
+			: undefined,
 		query.groupId ? eq(triggersEntity.groupId, query.groupId) : undefined,
 		query.active === undefined ? undefined : eq(triggersEntity.active, query.active),
 		query.search ? ilike(triggersEntity.name, `%${query.search}%`) : undefined,
@@ -181,17 +240,49 @@ export async function listAllTriggers(
 	const filter = and(...filters.filter(Boolean)) ?? sql`1=1`;
 
 	const { result, totalCount } = await listTriggers(offset, query.perPage, filter);
+	const links = await workflowsForTriggers(result.map((row) => row.id));
 	return {
 		pagination: {
 			page: query.page,
 			totalPages: Math.ceil(totalCount / query.perPage),
 			hasNext: offset + result.length < totalCount,
 		},
-		data: result.map((row) => ({
-			...present(row as Trigger),
-			workflowName: row.workflowName ?? "",
-		})),
+		data: result.map((row) => {
+			const workflows = links.get(row.id) ?? [];
+			return {
+				...present({
+					...(row as TriggerRow),
+					workflowIds: workflows.map((workflow) => workflow.id),
+				}),
+				workflows,
+			};
+		}),
 	};
+}
+
+/**
+ * What a schedule spec means, and when it fires next.
+ *
+ * Needs no project and touches no row: it is a pure reading of the string the
+ * user is typing, which is why the form can call it on every keystroke.
+ */
+export function previewSchedule(
+	query: z.infer<typeof previewQuerySchema>,
+): z.infer<typeof previewSchema> {
+	try {
+		return {
+			description: describeSchedule(query.schedule, query.timezone),
+			nextFires: nextFires(query.schedule, query.timezone, 5).map((at) =>
+				at.toISOString(),
+			),
+		};
+	} catch (error) {
+		// A half-typed cron is the normal state of this endpoint, not an
+		// exception worth a 500.
+		throw new BadRequestError(
+			error instanceof ScheduleError ? error.message : String(error),
+		);
+	}
 }
 
 /* ------------------------------------------------------------------ groups */
@@ -268,6 +359,24 @@ export async function mustAccess(
 	return trigger;
 }
 
+/**
+ * Every workflow a trigger points at must live in the same project. A trigger
+ * firing another tenant's workflow would be a boundary crossed by a dropdown,
+ * so it is refused here rather than at run time.
+ */
+async function assertWorkflowsInProject(
+	workflowIds: string[],
+	projectId: string,
+	tx?: Parameters<typeof findWorkflow>[1],
+) {
+	for (const workflowId of new Set(workflowIds)) {
+		const workflow = await findWorkflow(workflowId, tx);
+		if (!workflow) throw new NotFoundError(`Workflow ${workflowId} not found`);
+		if (workflow.projectId !== projectId)
+			throw new BadRequestError("Workflow belongs to a different project");
+	}
+}
+
 async function assertGroupInProject(
 	groupId: string,
 	projectId: string,
@@ -285,23 +394,32 @@ async function assertGroupInProject(
  * misconfiguration that would silently do nothing.
  */
 function assertSourceMatchesType(type: string, integrationId?: string | null) {
-	if (type === "internal" && integrationId)
-		throw new BadRequestError("An internal trigger has no source to authenticate");
+	if ((type === "internal" || type === "schedule") && integrationId)
+		throw new BadRequestError(`A ${type} trigger has no source to authenticate`);
 }
 
 /**
  * An inactive trigger has no artifact at all, rather than an artifact with
  * `active: false`. A worker then has nothing to decide: what it holds is what
  * it runs.
+ *
+ * A scheduled trigger takes the other path entirely. It has no events to pull,
+ * so it gets no consumer and no artifact — the broker holds its schedule and
+ * the fire consumer turns each fire straight into a job.
  */
 async function republish(trigger: Trigger) {
+	if (trigger.type === "schedule") return republishSchedule(trigger);
 	const key = triggerKey(trigger.projectId, trigger.id);
-	if (!trigger.active) return withdraw(trigger.projectId, trigger.id);
+	// No workflows is the same as inactive as far as a worker is concerned: a
+	// consumer that read events and had nowhere to send them would drain the
+	// source into nothing.
+	if (!trigger.active || trigger.workflowIds.length === 0)
+		return withdraw(trigger.projectId, trigger.id);
 
 	const artifact: TriggerArtifact = {
 		triggerId: trigger.id,
 		projectId: trigger.projectId,
-		workflowId: trigger.workflowId,
+		workflowIds: trigger.workflowIds,
 		groupId: trigger.groupId,
 		type: trigger.type,
 		integrationId: trigger.integrationId,
@@ -320,6 +438,24 @@ async function withdraw(projectId: string, triggerId: string) {
 	await deleteArtifact(triggerKey(projectId, triggerId));
 }
 
+/**
+ * Pause is a purge with the row left inactive, and resume is an upsert. There
+ * is no third state: a schedule either exists on the broker or it does not, and
+ * the row is what says which it should be.
+ */
+async function republishSchedule(trigger: Trigger) {
+	if (!trigger.active || !trigger.schedule)
+		return removeSchedule(trigger.projectId, trigger.id);
+	await upsertSchedule({
+		id: trigger.id,
+		projectId: trigger.projectId,
+		workflowIds: trigger.workflowIds,
+		schedule: trigger.schedule,
+		timezone: trigger.timezone,
+		payload: trigger.payload ?? undefined,
+	});
+}
+
 function present(row: Trigger): z.infer<typeof triggerSchema> {
 	return {
 		id: row.id,
@@ -327,7 +463,7 @@ function present(row: Trigger): z.infer<typeof triggerSchema> {
 		description: row.description,
 		type: row.type,
 		projectId: row.projectId,
-		workflowId: row.workflowId,
+		workflowIds: row.workflowIds,
 		groupId: row.groupId,
 		integrationId: row.integrationId,
 		batchSize: row.batchSize,
@@ -335,6 +471,8 @@ function present(row: Trigger): z.infer<typeof triggerSchema> {
 		maxBytes: row.maxBytes,
 		concurrency: row.concurrency,
 		payload: row.payload ?? null,
+		schedule: row.schedule,
+		timezone: row.timezone,
 		active: row.active,
 		createdAt: row.createdAt.toISOString(),
 		updatedAt: row.updatedAt.toISOString(),

@@ -20,16 +20,22 @@ import {
 	listQuerySchema,
 	listSchema,
 	patchSchema,
+	previewQuerySchema,
+	previewSchema,
 	triggerSchema,
+	workflowIdParamSchema,
 } from "./dto";
 import {
+	attachWorkflow,
 	createTrigger,
 	createTriggerGroup,
 	deleteTrigger,
 	deleteTriggerGroup,
+	detachWorkflow,
 	getTrigger,
 	listAllTriggers,
 	listTriggerGroups,
+	previewSchedule,
 	updateTrigger,
 } from "./service";
 
@@ -119,6 +125,20 @@ export default {
 		);
 
 		router.get(
+			"/schedule/preview",
+			describeRoute(
+				describe(
+					"preview-schedule",
+					"Explains a schedule and lists its next fires",
+					json(previewSchema),
+				),
+			),
+			requireLoggedIn(),
+			validator("query", previewQuerySchema, zodErrorCallbackParser),
+			(ctx) => ctx.json(previewSchedule(ctx.req.valid("query"))),
+		);
+
+		router.get(
 			"/:id",
 			describeRoute(describe("get-trigger", "Returns one trigger", json(triggerSchema))),
 			validator("param", idParamSchema, zodErrorCallbackParser),
@@ -159,6 +179,35 @@ export default {
 						ctx.get("acl") || [],
 					),
 				),
+		);
+
+		// Attaching is its own endpoint rather than a PATCH of the whole link set:
+		// a workflow's settings page knows about one link, and making it send back
+		// the entire list would let it undo an attach made in another tab.
+		router.put(
+			"/:id/workflows/:workflowId",
+			describeRoute(
+				describe("attach-workflow", "Links a workflow to a trigger", json(triggerSchema)),
+			),
+			requireLoggedIn(),
+			validator("param", workflowIdParamSchema, zodErrorCallbackParser),
+			async (ctx) => {
+				const { id, workflowId } = ctx.req.valid("param");
+				return ctx.json(await attachWorkflow(id, workflowId, ctx.get("acl") || []));
+			},
+		);
+
+		router.delete(
+			"/:id/workflows/:workflowId",
+			describeRoute(
+				describe("detach-workflow", "Unlinks a workflow from a trigger", json(triggerSchema)),
+			),
+			requireLoggedIn(),
+			validator("param", workflowIdParamSchema, zodErrorCallbackParser),
+			async (ctx) => {
+				const { id, workflowId } = ctx.req.valid("param");
+				return ctx.json(await detachWorkflow(id, workflowId, ctx.get("acl") || []));
+			},
 		);
 
 		router.delete(

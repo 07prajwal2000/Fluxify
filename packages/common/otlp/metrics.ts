@@ -52,12 +52,14 @@ export function createOtlpMeterProvider({
 }
 
 type RouteInstruments = { requests: Counter; duration: Histogram };
+type WorkflowInstruments = { executions: Counter; duration: Histogram };
 
 /**
  * Instruments are per provider, not per run — creating them per call would
  * allocate a fresh instrument for every request and lose the aggregation.
  */
 const instruments = new WeakMap<MeterProvider, RouteInstruments>();
+const workflowInstrumentsMap = new WeakMap<MeterProvider, WorkflowInstruments>();
 
 function routeInstruments(provider: MeterProvider): RouteInstruments {
 	const existing = instruments.get(provider);
@@ -77,23 +79,54 @@ function routeInstruments(provider: MeterProvider): RouteInstruments {
 	return created;
 }
 
+function workflowInstruments(provider: MeterProvider): WorkflowInstruments {
+	const existing = workflowInstrumentsMap.get(provider);
+	if (existing) return existing;
+
+	const meter = provider.getMeter("fluxify-workflow");
+	const created: WorkflowInstruments = {
+		executions: meter.createCounter("fluxify.workflow.executions", {
+			description: "Workflow executions, by outcome",
+		}),
+		duration: meter.createHistogram("fluxify.workflow.duration", {
+			description: "Workflow execution wall time",
+			unit: "ms",
+		}),
+	};
+	workflowInstrumentsMap.set(provider, created);
+	return created;
+}
+
 /**
- * Derive route metrics from a run that was already recorded for tracing.
+ * Derive route or workflow metrics from a run that was already recorded for tracing.
  *
  * Nothing new crosses the wire for this: the run carries every field the
- * instruments need. Note the consequence — metrics exist only for routes that
+ * instruments need. Note the consequence — metrics exist only for routes and workflows that
  * are traced, so the sample is biased towards whatever the user chose to trace.
  * ponytail: always-on request metrics would mean publishing on every request,
  * which inverts the "untraced route is byte-identical" guarantee; do that as its
  * own change, with its own benchmark.
  */
 export function recordRun(provider: MeterProvider, run: TraceRunPayload): void {
+	if (run.workflowId) {
+		const { executions, duration } = workflowInstruments(provider);
+		const attributes: Record<string, string | number | boolean> = {
+			"fluxify.project.id": run.projectId,
+			"fluxify.workflow.id": run.workflowId,
+			"fluxify.outcome": run.outcome,
+		};
+		if (run.workflowName) attributes["fluxify.workflow.name"] = run.workflowName;
+		executions.add(1, attributes);
+		duration.record(run.endedAt - run.perfOrigin, attributes);
+		return;
+	}
+
 	const { requests, duration } = routeInstruments(provider);
-	const attributes = {
+	const attributes: Record<string, string | number | boolean> = {
 		"fluxify.project.id": run.projectId,
-		"fluxify.route.id": run.routeId,
-		"http.request.method": run.method,
-		"http.route": run.path,
+		"fluxify.route.id": run.routeId ?? "",
+		"http.request.method": run.method ?? "",
+		"http.route": run.path ?? "",
 		"fluxify.outcome": run.outcome,
 		...(run.statusCode ? { "http.response.status_code": run.statusCode } : {}),
 	};

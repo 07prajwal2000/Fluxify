@@ -325,6 +325,7 @@ export function createJobContext(job: {
 	trigger?: Partial<TriggerContext>;
 	/** What the job carried. It is the body a graph reads, there being no request. */
 	payload?: unknown;
+	trace?: BlockTrace;
 }): BlockContext {
 	const trigger: TriggerContext = {
 		kind: "job",
@@ -360,6 +361,7 @@ export function createJobContext(job: {
 		httpClient,
 		trigger,
 		job.timeoutSeconds ?? DEFAULT_JOB_TIMEOUT_SECONDS,
+		job.trace,
 	);
 }
 

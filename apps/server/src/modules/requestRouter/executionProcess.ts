@@ -22,7 +22,7 @@ import { triggerPayloadLimit } from "../triggers/payloadLimit";
 import { workerTimeoutsEnabled } from "./workerTimeouts";
 import { AsyncExecutor } from "./asyncExecutor";
 import { executionRuntimeEnvironment } from "./executionEnvironment";
-import { RouteTraceRecorder } from "../telemetry/routeRecorder";
+import { RouteTraceRecorder, WorkflowTraceRecorder } from "../telemetry/routeRecorder";
 
 let boot: ExecutionBootstrap | undefined;
 let monitoringEnabled = false;
@@ -77,7 +77,13 @@ function bootstrap(nextBoot: ExecutionBootstrap) {
 	);
 	setMonitoring(boot.workerTimeoutsEnabled);
 	registerCustomBlockJobHandler();
-	registerWorkflowJobHandler();
+	registerWorkflowJobHandler({
+		start(workflow) {
+			return new WorkflowTraceRecorder(workflow, (run) =>
+				send({ type: "trace-finished", run }),
+			);
+		},
+	});
 	// The cap is read per publish rather than captured once: project settings
 	// arrive over the artifact watch and change while the process is running.
 	setTriggerPayloadLimit(triggerPayloadLimit);
