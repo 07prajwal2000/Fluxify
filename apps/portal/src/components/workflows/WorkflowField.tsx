@@ -10,7 +10,7 @@ import {
 	TextField,
 	cn,
 } from "@fluxify/components";
-import { TbRoute, TbSearch, TbSitemap } from "react-icons/tb";
+import { TbRefresh, TbRoute, TbSearch, TbSitemap } from "react-icons/tb";
 import { withBasePath } from "@/constants/routes";
 import { workflowsQuery } from "@/query/workflowsQuery";
 
@@ -138,10 +138,8 @@ export function WorkflowSelectorModal({
 
 	// The list is small enough to filter here, which keeps typing instant and
 	// costs no round trip per keystroke.
-	const { data, isLoading } = workflowsQuery.getAll.useQuery({
-		projectId,
-		perPage: 100,
-	});
+	const { data, isLoading, isFetching, refetch } =
+		workflowsQuery.getAll.useQuery({ projectId, perPage: 100 });
 	const workflows = useMemo(() => data?.data ?? [], [data?.data]);
 
 	const filtered = useMemo(() => {
@@ -176,11 +174,22 @@ export function WorkflowSelectorModal({
 							</div>
 						</Modal.Header>
 
-						<div className="shrink-0 px-5 py-3">
-							<TextField value={search} onChange={setSearch} className="w-full">
+						<div className="flex shrink-0 items-center gap-2 px-5 py-3">
+							<TextField value={search} onChange={setSearch} className="flex-1">
 								<Label className="sr-only">Search workflows</Label>
 								<Input placeholder="Search by name or description…" />
 							</TextField>
+							{/* A workflow created in the other tab is not here until asked
+							    for again, and reopening the picker is not obvious. */}
+							<Button
+								aria-label="Refresh workflows"
+								variant="outline"
+								size="sm"
+								isDisabled={isFetching}
+								onPress={() => void refetch()}
+							>
+								{isFetching ? <Spinner size="sm" /> : <TbRefresh size={14} />}
+							</Button>
 						</div>
 
 						<Modal.Body className="min-h-0 flex-1 overflow-y-auto p-0">
