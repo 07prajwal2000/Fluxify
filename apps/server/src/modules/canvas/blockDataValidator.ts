@@ -31,6 +31,7 @@ import {
 	updateDbBlockSchema,
 	errorHandlerBlockSchema,
 	cloudLogsBlockSchema,
+	triggerWorkflowSchema,
 } from "@fluxify/blocks";
 import { customBlockNames } from "../../loaders/customBlocksLoader";
 import { Context, Next } from "hono";
@@ -53,7 +54,8 @@ export async function requestBodyValidator(ctx: Context, next: Next) {
 	return next();
 }
 
-function blockDataValidator(data: CanvasChanges) {
+/** Exported for the test that holds every block type to having a schema. */
+export function blockDataValidator(data: CanvasChanges) {
 	const deleteIds = new Set<string>();
 	data.actionsToPerform.blocks.forEach((block) => {
 		if (block.action !== "delete") return;
@@ -163,6 +165,9 @@ function blockDataValidator(data: CanvasChanges) {
 				break;
 			case BlockTypes.cloudLogs:
 				schema = cloudLogsBlockSchema;
+				break;
+			case BlockTypes.triggerWorkflow:
+				schema = triggerWorkflowSchema;
 				break;
 		}
 		if (!schema) {

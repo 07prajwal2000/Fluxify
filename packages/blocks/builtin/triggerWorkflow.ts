@@ -1,5 +1,5 @@
 import z from "zod";
-import type { Context } from "../baseBlock";
+import { baseBlockDataSchema, type Context } from "../baseBlock";
 import { assertTriggerPayloadSize, enqueueJob, TRIGGER_WORKFLOW_JOB } from "../jobs";
 import { emitJsObject, type EmitNode } from "../compiler";
 
@@ -12,20 +12,29 @@ import { emitJsObject, type EmitNode } from "../compiler";
  * do. The caller moves on as soon as the broker has the message.
  */
 
-export const triggerWorkflowSchema = z.object({
-	/** The workflow to start. Ids, not names — a rename must not break a graph. */
-	workflowId: z.string().min(1),
-	/**
-	 * When true the block forwards the previous block's output and ignores
-	 * `data`. The common case is "pass what I already have", and making that a
-	 * toggle beats making every user write `js: input`.
-	 */
-	useInput: z.boolean().default(false),
-	/** What the workflow receives. A `js:` expression is evaluated first. */
-	data: z.unknown().optional(),
-});
+export const triggerWorkflowSchema = z
+	.object({
+		/**
+		 * The workflow to start. Ids, not names — a rename must not break a graph.
+		 * Empty until one is picked: an unconfigured block still has to save, the
+		 * same way a database block saves before its connection is chosen.
+		 */
+		workflowId: z.string().default(""),
+		/**
+		 * When true the block forwards the previous block's output and ignores
+		 * `data`. The common case is "pass what I already have", and making that a
+		 * toggle beats making every user write `js: input`.
+		 */
+		useInput: z.boolean().default(false),
+		/** What the workflow receives. A `js:` expression is evaluated first. */
+		data: z.unknown().optional(),
+	})
+	.extend(baseBlockDataSchema.shape);
 
 export function fireWorkflow(context: Context, workflowId: string, data: unknown) {
+	// The block saves without a workflow so a canvas can be a work in progress;
+	// running without one is the point at which that stops being acceptable.
+	if (!workflowId) throw new Error("Trigger Workflow block has no workflow selected");
 	assertTriggerPayloadSize(context.projectId, data);
 	enqueueJob({
 		kind: TRIGGER_WORKFLOW_JOB,

@@ -6,7 +6,7 @@ import {
 	TRIGGER_WORKFLOW_JOB,
 	type JobRequest,
 } from "./jobs";
-import { fireWorkflow } from "./builtin/triggerWorkflow";
+import { fireWorkflow, triggerWorkflowSchema } from "./builtin/triggerWorkflow";
 import type { Context } from "./baseBlock";
 
 /**
@@ -75,5 +75,21 @@ describe("the payload cap", () => {
 
 	it("does nothing when the host wired no limit", () => {
 		expect(() => assertTriggerPayloadSize("p1", { a: "x".repeat(10_000) })).not.toThrow();
+	});
+});
+
+describe("an unconfigured block", () => {
+	it("saves with no workflow chosen, defaulting the rest", () => {
+		const parsed = triggerWorkflowSchema.parse({ blockName: "Kick off billing" });
+		expect(parsed).toMatchObject({
+			workflowId: "",
+			useInput: false,
+			blockName: "Kick off billing",
+		});
+	});
+
+	it("refuses to run without one, rather than queueing a job to nowhere", () => {
+		setJobEnqueuer(() => {});
+		expect(() => fireWorkflow(context, "", {})).toThrow(/no workflow selected/i);
 	});
 });

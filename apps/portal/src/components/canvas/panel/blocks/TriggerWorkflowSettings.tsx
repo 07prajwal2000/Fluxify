@@ -6,9 +6,7 @@ import {
 } from "../fields";
 import type { BlockNode } from "../../types";
 
-export function TriggerWorkflowSettings({ block }: { block: BlockNode }) {
-	const useInput = Boolean(block.data.useInput);
-
+function TriggerWorkflowGeneralSettings({ block }: { block: BlockNode }) {
 	return (
 		<div className="flex w-full flex-col gap-4">
 			<BlockWorkflowField
@@ -24,27 +22,42 @@ export function TriggerWorkflowSettings({ block }: { block: BlockNode }) {
 				data={block.data}
 				name="useInput"
 				label="Use incoming value"
-				hint="Send the previous block's output instead of the data below."
+				hint="Send the previous block's output. Turn this off to write the data yourself in the Data tab."
 			/>
-
-			{!useInput && (
-				<BlockJsTextField
-					blockId={block.id}
-					data={block.data}
-					name="data"
-					label="Data"
-					placeholder={'js: return { orderId: input.id };'}
-					hint="What the workflow receives. Keep it small — large payloads are rejected; pass a reference instead."
-				/>
-			)}
 		</div>
 	);
 }
 
-export function triggerWorkflowSettings(block: BlockNode) {
+function TriggerWorkflowDataSettings({ block }: { block: BlockNode }) {
+	if (block.data.useInput) {
+		return (
+			<p className="text-sm text-muted">
+				This block is sending the previous block's output. Turn off{" "}
+				<b className="text-foreground">Use incoming value</b> in General to write
+				the data here instead.
+			</p>
+		);
+	}
+
 	return (
-		<BlockSettings.TabHead name="General">
-			<TriggerWorkflowSettings block={block} />
-		</BlockSettings.TabHead>
+		<BlockJsTextField
+			blockId={block.id}
+			data={block.data}
+			name="data"
+			label="Data"
+			placeholder={"js: return { orderId: input.id };"}
+			hint="What the workflow receives. Keep it small — oversized payloads are rejected, so send a reference and let the workflow load the rest."
+		/>
 	);
+}
+
+export function triggerWorkflowSettings(block: BlockNode) {
+	return [
+		<BlockSettings.TabHead key="general" name="General">
+			<TriggerWorkflowGeneralSettings block={block} />
+		</BlockSettings.TabHead>,
+		<BlockSettings.TabHead key="data" name="Data">
+			<TriggerWorkflowDataSettings block={block} />
+		</BlockSettings.TabHead>,
+	];
 }
