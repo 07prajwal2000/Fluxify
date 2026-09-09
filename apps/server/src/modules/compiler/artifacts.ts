@@ -63,6 +63,32 @@ export type CustomBlockArtifact = {
 };
 
 /**
+ * A trigger, as a worker needs it: which workflow to start, and the batch shape
+ * to pull it with.
+ *
+ * There is nothing compiled here — a trigger has no graph. It travels with the
+ * artifacts because a worker already watches them, and because a trigger that
+ * reached only some nodes would be a trigger that fires sometimes.
+ */
+export type TriggerArtifact = {
+	triggerId: string;
+	projectId: string;
+	workflowId: string;
+	groupId: string;
+	/** `internal` today; the connector types name their source. */
+	type: string;
+	/** Credentials for the source, resolved by the connector. Null for internal. */
+	integrationId: string | null;
+	batchSize: number;
+	maxWaitMs: number;
+	maxBytes: number;
+	concurrency: number;
+	/** Static data handed to the workflow, for sources that carry none. */
+	payload?: unknown;
+	publishedAt: string;
+};
+
+/**
  * Everything the execution context needs that used to come from a database
  * query at worker boot: app config, resolved integration connection details and
  * project settings.

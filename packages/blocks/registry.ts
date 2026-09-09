@@ -12,6 +12,7 @@ import { emitJsRunner } from "./builtin/jsRunner";
 import { emitResponse } from "./builtin/response";
 import { emitSetVar } from "./builtin/setVar";
 import { emitTransformer } from "./builtin/transformer";
+import { emitTriggerWorkflow, fireWorkflow } from "./builtin/triggerWorkflow";
 import { emitForLoop } from "./builtin/loops/for";
 import { emitForEachLoop } from "./builtin/loops/foreach";
 import { emitConsoleLog, runConsoleLog } from "./builtin/log/console";
@@ -74,6 +75,7 @@ export const emitters: Partial<Record<BlockTypes, Emitter>> = {
 	[BlockTypes.db_native]: emitNativeDb,
 	[BlockTypes.db_transaction]: emitTransactionDb,
 	[BlockTypes.cloudLogs]: emitCloudLogs,
+	[BlockTypes.triggerWorkflow]: emitTriggerWorkflow,
 };
 
 /** helpers the generated code calls as `lib.x` — anything too big to inline */
@@ -99,4 +101,5 @@ export const compilerLib = {
 	invoke: invokeCustomBlock,
 	invokeAsync: invokeCustomBlockAsync,
 	enqueue: enqueueCustomBlock,
+	fireWorkflow,
 };

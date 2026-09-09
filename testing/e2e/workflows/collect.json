@@ -1,0 +1,63 @@
+{
+	"name": "collect",
+	"description": "Reports the batch it was handed. `vars.trigger.data` is always an array, so this graph reads its size and its ids the same way whether one event arrived or five hundred — which is the property the batching tests exist to pin down.",
+	"blocks": [
+		{
+			"id": "entry",
+			"type": "entrypoint",
+			"position": { "x": 0, "y": 0 },
+			"data": { "blockName": "Trigger events" }
+		},
+		{
+			"id": "summarize",
+			"type": "jsrunner",
+			"position": { "x": 240, "y": 0 },
+			"data": {
+				"blockName": "Summarize the batch",
+				"value": "return { size: trigger.meta.size, source: trigger.source, ids: trigger.data.map(function (e) { return e.data && e.data.id; }), input: input };"
+			}
+		},
+		{
+			"id": "report",
+			"type": "httprequest",
+			"position": { "x": 480, "y": 0 },
+			"data": {
+				"blockName": "POST /collected",
+				"url": "js:return getConfig(\"E2E_SINK_URL\") + \"/collected\";",
+				"method": "POST",
+				"headers": { "content-type": "application/json" },
+				"body": "",
+				"useParam": true
+			}
+		},
+		{
+			"id": "done",
+			"type": "response",
+			"position": { "x": 720, "y": 0 },
+			"data": { "blockName": "Done", "httpCode": "200" }
+		}
+	],
+	"edges": [
+		{
+			"id": "e-entry-summarize",
+			"from": "entry",
+			"to": "summarize",
+			"fromHandle": "source",
+			"toHandle": "source"
+		},
+		{
+			"id": "e-summarize-report",
+			"from": "summarize",
+			"to": "report",
+			"fromHandle": "source",
+			"toHandle": "source"
+		},
+		{
+			"id": "e-report-done",
+			"from": "report",
+			"to": "done",
+			"fromHandle": "source",
+			"toHandle": "source"
+		}
+	]
+}

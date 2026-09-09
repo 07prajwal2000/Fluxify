@@ -33,6 +33,7 @@ export const BLOCK_TYPES = {
 	db_transaction: "db_transaction",
 	consolelog: "consolelog",
 	cloudLogs: "cloud_logs",
+	triggerWorkflow: "trigger_workflow",
 } as const;
 
 export type BlockType = (typeof BLOCK_TYPES)[keyof typeof BLOCK_TYPES];

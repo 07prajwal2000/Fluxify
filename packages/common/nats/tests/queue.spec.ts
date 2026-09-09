@@ -13,6 +13,10 @@ const published: Publish[] = [];
 let duplicate = false;
 /** what the fake consumer will deliver on the next `consumeQueue` */
 let inbox: JsMsg[] = [];
+/** what each successive `fetch` returns, for `consumeBatches` */
+let batches: JsMsg[][] = [];
+/** the options every `fetch` was called with */
+let fetches: Record<string, unknown>[] = [];
 let closed = false;
 
 /** A `JsMsg` stub that records what the queue decided to do with it. */
@@ -60,6 +64,15 @@ const fakeJs = {
 					},
 				};
 			},
+			fetch: async (opts: Record<string, unknown>) => {
+				fetches.push(opts);
+				const messages = batches.shift() ?? [];
+				return {
+					async *[Symbol.asyncIterator]() {
+						for (const msg of messages) yield msg;
+					},
+				};
+			},
 		}),
 	},
 };
@@ -69,7 +82,7 @@ mock.module("@nats-io/jetstream", () => ({
 	jetstream: () => fakeJs,
 }));
 
-const { consumeQueue, publishToStream } = await import("../queue");
+const { consumeBatches, consumeQueue, publishToStream } = await import("../queue");
 
 const nc = {} as NatsConnection;
 
@@ -80,6 +93,8 @@ beforeEach(() => {
 	published.length = 0;
 	duplicate = false;
 	inbox = [];
+	batches = [];
+	fetches = [];
 	closed = false;
 });
 

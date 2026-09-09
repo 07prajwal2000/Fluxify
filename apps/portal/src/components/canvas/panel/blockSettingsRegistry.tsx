@@ -25,6 +25,7 @@ import { setCookieSettings } from "./blocks/SetCookieSettings";
 import { setHeaderSettings } from "./blocks/SetHeaderSettings";
 import { setVarSettings } from "./blocks/SetVarSettings";
 import { transformerSettings } from "./blocks/TransformerSettings";
+import { triggerWorkflowSettings } from "./blocks/TriggerWorkflowSettings";
 import { customBlockSettings } from "./blocks/CustomBlockSettings";
 import type { BlockNode } from "../types";
 
@@ -53,6 +54,7 @@ export const BLOCK_SETTINGS_TABS: Record<string, BlockTabs> = {
 	[BLOCK_TYPES.httprequest]: httpRequestSettings,
 	[BLOCK_TYPES.consolelog]: consoleLogSettings,
 	[BLOCK_TYPES.cloudLogs]: cloudLogSettings,
+	[BLOCK_TYPES.triggerWorkflow]: triggerWorkflowSettings,
 	[BLOCK_TYPES.db_getsingle]: getSingleDbSettings,
 	[BLOCK_TYPES.db_getall]: getAllDbSettings,
 	[BLOCK_TYPES.db_delete]: deleteDbSettings,

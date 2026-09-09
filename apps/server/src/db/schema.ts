@@ -9,6 +9,7 @@ import {
 	serial,
 	text,
 	timestamp,
+	uniqueIndex,
 	uuid,
 	varchar,
 } from "drizzle-orm/pg-core";
@@ -309,6 +310,113 @@ export const workflowsEntity = pgTable(
 			"gin",
 			sql`to_tsvector('english', ${table.name})`,
 		),
+	],
+);
+
+/**
+ * Where a trigger runs. A worker node serves exactly one group and loads only
+ * the artifacts that group's triggers need, so memory is something the operator
+ * provisions rather than something that grows with every workflow anyone adds.
+ *
+ * Every project gets a `default` group it never has to think about. Groups
+ * become a concept the user manages only when a noisy source deserves its own
+ * node.
+ */
+export const triggerGroupsEntity = pgTable(
+	"trigger_groups",
+	{
+		id: varchar({ length: 50 })
+			.primaryKey()
+			.$defaultFn(() => generateID()),
+		name: varchar({ length: 255 }).notNull(),
+		description: text(),
+		projectId: varchar("project_id", { length: 50 })
+			.references(() => projectsEntity.id, { onDelete: "cascade" })
+			.notNull(),
+		/** The group a trigger lands in when nobody chose one. One per project,
+		 *  and it cannot be deleted — something has to catch a new trigger. */
+		isDefault: boolean("is_default").default(false).notNull(),
+		createdAt: timestamp("created_at").defaultNow().notNull(),
+		createdBy: varchar("created_by", { length: 50 }),
+		updatedAt: timestamp("updated_at")
+			.defaultNow()
+			.notNull()
+			.$onUpdate(() => new Date()),
+	},
+	(table) => [
+		index("idx_trigger_groups_project_id").on(table.projectId),
+		uniqueIndex("uq_trigger_groups_project_name").on(table.projectId, table.name),
+	],
+);
+
+/**
+ * When a workflow runs, and what it receives.
+ *
+ * A trigger is a row, not a block and not a route. `type` names the source it
+ * listens to: `internal` is the one this build ships, and cron and the external
+ * connectors are the same row with a different type and their own
+ * `integrationId`.
+ *
+ * One trigger, one workflow. A trigger is a consumer group on its source, and
+ * a source read once cannot be handed to two graphs without deciding what a
+ * half-failed batch means — so fan-out is two triggers, not one.
+ *
+ * `batchSize` and `maxWaitMs` map onto the broker's fetch as `max_messages` and
+ * `expires`. `maxBytes` is applied as the batch is assembled instead — the
+ * client refuses a fetch carrying a count limit and a byte limit together. A
+ * count cap alone is not a memory bound, which is why `maxBytes` is not
+ * nullable.
+ */
+export const triggersEntity = pgTable(
+	"triggers",
+	{
+		id: varchar({ length: 50 })
+			.primaryKey()
+			.$defaultFn(() => generateID()),
+		name: varchar({ length: 255 }).notNull(),
+		description: text(),
+		/** `internal` today. `cron`, `kafka`, `sqs` … are the same row. */
+		type: varchar({ length: 50 }).notNull(),
+		projectId: varchar("project_id", { length: 50 })
+			.references(() => projectsEntity.id, { onDelete: "cascade" })
+			.notNull(),
+		workflowId: varchar("workflow_id", { length: 50 })
+			.references(() => workflowsEntity.id, { onDelete: "cascade" })
+			.notNull(),
+		/** Which node runs it. Restricted on delete — a group holding triggers
+		 *  cannot vanish and leave them unrunnable. */
+		groupId: varchar("group_id", { length: 50 })
+			.references(() => triggerGroupsEntity.id, { onDelete: "restrict" })
+			.notNull(),
+		/** The connector's credentials. Null for `internal` and `cron`, which
+		 *  have no external source to authenticate against. */
+		integrationId: uuid("integration_id").references(() => integrationsEntity.id, {
+			onDelete: "cascade",
+		}),
+		/** Events coalesced into one run. 1 is queue mode, same code path. */
+		batchSize: integer("batch_size").default(1).notNull(),
+		/** How long a partial batch waits for the rest before running anyway. */
+		maxWaitMs: integer("max_wait_ms").default(0).notNull(),
+		/** Memory bound on one batch. Caps the batch before `batchSize` does. */
+		maxBytes: integer("max_bytes").default(1048576).notNull(),
+		/** Batches in flight. Above 1 forfeits ordering — fine for bulk loads,
+		 *  wrong for ordered change data. */
+		concurrency: integer().default(1).notNull(),
+		/** Static data handed to the workflow, for sources that carry none. */
+		payload: jsonb(),
+		active: boolean().default(false).notNull(),
+		createdAt: timestamp("created_at").defaultNow().notNull(),
+		createdBy: varchar("created_by", { length: 50 }),
+		updatedAt: timestamp("updated_at")
+			.defaultNow()
+			.notNull()
+			.$onUpdate(() => new Date()),
+	},
+	(table) => [
+		index("idx_triggers_project_id").on(table.projectId),
+		index("idx_triggers_workflow_id").on(table.workflowId),
+		index("idx_triggers_group_id").on(table.groupId),
+		index("idx_triggers_integration_id").on(table.integrationId),
 	],
 );
 

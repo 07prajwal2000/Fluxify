@@ -13,6 +13,7 @@ import {
 	TbDatabaseImport,
 	TbTerminal2,
 	TbCloud,
+	TbRocket,
 	TbNote,
 	TbBox,
 } from "react-icons/tb";
@@ -56,6 +57,7 @@ export const BLOCK_ICON_MAP: Record<BlockType, ReactNode> = {
 	[BLOCK_TYPES.db_transaction]: <LuDatabaseZap size={SIZE} />,
 	[BLOCK_TYPES.consolelog]: <TbTerminal2 size={SIZE} />,
 	[BLOCK_TYPES.cloudLogs]: <TbCloud size={SIZE} />,
+	[BLOCK_TYPES.triggerWorkflow]: <TbRocket size={SIZE} />,
 };
 
 /** Shown for unknown / custom block types. */

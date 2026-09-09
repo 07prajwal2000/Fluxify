@@ -18,6 +18,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import { withBasePath } from "@/constants/routes";
 import { AppConfigField } from "@/components/appConfig/AppConfigField";
+import { WorkflowField } from "@/components/workflows/WorkflowField";
 import type { AppConfigExtraItem } from "@/components/integrations/AppConfigSelectorModal";
 import { integrationService } from "@/services/integrations";
 import { customBlocksQuery } from "@/query/customBlocksQuery";
@@ -420,6 +421,39 @@ export function BlockAppConfigField({
 			description={description}
 			isDisabled={!editable}
 			extraItems={extraItems}
+			onChange={(next) => updateNodeData(blockId, { [name]: next })}
+		/>
+	);
+}
+
+export type BlockWorkflowFieldProps = {
+	blockId: string;
+	data: BlockData;
+	name: string;
+	label?: string;
+	description?: string;
+};
+
+/** A workflow reference block setting, backed by `WorkflowField`. */
+export function BlockWorkflowField({
+	blockId,
+	data,
+	name,
+	label,
+	description,
+}: BlockWorkflowFieldProps) {
+	const { updateNodeData } = useReactFlow();
+	const { enabled: editable } = useCanvasChanges();
+	const params = useParams({ strict: false }) as { projectId?: string };
+	const value = typeof data[name] === "string" ? (data[name] as string) : "";
+
+	return (
+		<WorkflowField
+			projectId={params?.projectId ?? ""}
+			value={value}
+			label={label}
+			description={description}
+			isDisabled={!editable}
 			onChange={(next) => updateNodeData(blockId, { [name]: next })}
 		/>
 	);

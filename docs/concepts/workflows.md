@@ -13,7 +13,7 @@ what starts it and what happens when it finishes.
 
 | | Route | Workflow |
 |---|---|---|
-| **How it starts** | Someone calls a URL | A trigger fires, or you run it manually |
+| **How it starts** | Someone calls a URL | A [trigger](./triggers.md) fires, or you run it manually |
 | **Who waits for it** | The caller, holding the connection open | Nobody |
 | **Gives back** | An HTTP response | Nothing — it just finishes |
 | **Has** | A path, a method, request validation | A name and a time limit |

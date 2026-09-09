@@ -50,6 +50,7 @@ export default withMermaid(defineConfig({
 					{ text: "HTTP Client", link: "/concepts/http-client" },
 					{ text: "Evaluators", link: "/concepts/evaluators" },
 					{ text: "Workflows", link: "/concepts/workflows" },
+					{ text: "Triggers", link: "/concepts/triggers" },
 					{ text: "Telemetry Configuration", link: "/concepts/telemetry-configuration" },
 				],
 			},
@@ -115,6 +116,7 @@ export default withMermaid(defineConfig({
 						{ text: "HTTP Client", link: "/concepts/http-client" },
 						{ text: "Evaluators", link: "/concepts/evaluators" },
 						{ text: "Workflows", link: "/concepts/workflows" },
+						{ text: "Triggers", link: "/concepts/triggers" },
 						{ text: "Telemetry Configuration", link: "/concepts/telemetry-configuration" },
 					],
 				},
@@ -183,7 +185,10 @@ export default withMermaid(defineConfig({
 				},
 				{
 					text: "Misc",
-					items: [{ text: "Sticky Note", link: "/blocks/sticky-note" }],
+					items: [
+						{ text: "Trigger Workflow", link: "/blocks/trigger-workflow" },
+						{ text: "Sticky Note", link: "/blocks/sticky-note" },
+					],
 				},
 			],
 

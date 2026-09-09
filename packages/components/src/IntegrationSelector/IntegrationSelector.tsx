@@ -91,6 +91,10 @@ interface PickerModalProps {
 	createIntegrationUrl?: string;
 	modalSize?: ModalSize;
 	modalHeight?: string;
+	/** Re-reads the list. A picker open beside the integrations page goes stale
+	 *  the moment one is added there, and reopening it is not obvious. */
+	onRefresh?: () => void | Promise<void>;
+	isRefreshing?: boolean;
 }
 
 function PickerModal({
@@ -102,6 +106,8 @@ function PickerModal({
 	createIntegrationUrl,
 	modalSize = "lg",
 	modalHeight,
+	onRefresh,
+	isRefreshing,
 }: PickerModalProps) {
 	const [search, setSearch] = useState("");
 
@@ -160,11 +166,26 @@ function PickerModal({
 						</Modal.Header>
 
 						{/* ── Search — full-width HeroUI Input ─────────────────── */}
-						<div className="px-5 py-3 shrink-0">
-							<TextField value={search} onChange={setSearch} className="w-full">
+						<div className="flex shrink-0 items-center gap-2 px-5 py-3">
+							<TextField value={search} onChange={setSearch} className="flex-1">
 								<Label className="sr-only">Search integrations</Label>
 								<Input placeholder="Search by name, variant or group…" />
 							</TextField>
+							{onRefresh && (
+								<Button
+									aria-label="Refresh integrations"
+									variant="outline"
+									size="sm"
+									isDisabled={isRefreshing}
+									onPress={() => void onRefresh()}
+								>
+									{isRefreshing ? (
+										<Spinner size="sm" />
+									) : (
+										<TbRefresh size={14} />
+									)}
+								</Button>
+							)}
 						</div>
 
 						{/* ── Body: table or empty states (exact height container) ── */}
@@ -545,6 +566,8 @@ export function IntegrationSelector({
 				createIntegrationUrl={resolvedCreateUrl}
 				modalSize={modalSize}
 				modalHeight={modalHeight}
+				onRefresh={fetchIntegrations}
+				isRefreshing={loadStatus === "loading"}
 			/>
 		</>
 	);

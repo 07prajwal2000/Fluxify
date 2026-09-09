@@ -9,8 +9,15 @@ import {
 import {
 	watchProjectArtifacts,
 } from "../src/modules/requestRouter/artifactHost";
-import type { UnsealedProjectConfig } from "../src/modules/compiler/artifacts";
-import { artifactKind } from "../src/modules/compiler/subjects";
+import type {
+	TriggerArtifact,
+	UnsealedProjectConfig,
+	WorkflowArtifact,
+} from "../src/modules/compiler/artifacts";
+import { artifactId, artifactKind } from "../src/modules/compiler/subjects";
+import { TriggerWorker } from "../src/modules/triggers/consumers";
+import { fireInternalTrigger } from "../src/modules/triggers/publisher";
+import { TRIGGER_WORKFLOW_JOB } from "@fluxify/blocks";
 import type {
 	ExecutionBootstrap,
 	ExecutionEvent,
@@ -195,6 +202,22 @@ function runJobInExecution(job: JobEnvelope) {
 	});
 }
 
+/**
+ * Where a queued job goes. A Trigger Workflow block is not queued work on the
+ * jobs stream — it is an event on the triggers stream, and the only thing that
+ * knows the difference is the kind the block used.
+ */
+function dispatchQueued(job: JobEnvelope) {
+	if (job.kind !== TRIGGER_WORKFLOW_JOB) return enqueueJob(job);
+	return fireInternalTrigger({
+		id: job.id,
+		projectId: job.projectId,
+		workflowId: job.target,
+		data: job.payload,
+		origin: job.origin,
+	});
+}
+
 function failPendingJobs(reason: string) {
 	for (const [, pending] of pendingJobs) pending.reject(new Error(reason));
 	pendingJobs.clear();
@@ -214,7 +237,7 @@ function onExecutionEvent(event: ExecutionEvent) {
 		}
 		case "enqueue-job":
 			// user code queued work; failures are logged, the graph moved on already
-			return void enqueueJob(event.job).catch((error) =>
+			return void dispatchQueued(event.job).catch((error) =>
 				logger.error(
 					`failed to queue ${event.job.kind}/${event.job.target}: ${String(error)}`,
 					"WORKER.jobs",
@@ -233,13 +256,52 @@ function onExecutionEvent(event: ExecutionEvent) {
 }
 
 function handleArtifactChange(entry: ArtifactEntry) {
-	const policyChanged = artifactKind(entry.key) === "project-config";
+	const kind = artifactKind(entry.key);
+	const policyChanged = kind === "project-config";
 	if (entry.value === null) artifacts.delete(entry.key);
 	else artifacts.set(entry.key, entry);
+
+	// A trigger is not compiled and holds no user code, so it stops here rather
+	// than being forwarded to the execution process: this half owns the broker.
+	if (kind === "trigger") {
+		void triggerWorker
+			.apply(artifactId(entry.key), entry.value as TriggerArtifact | null)
+			.catch((error) =>
+				logger.error(
+					`failed to apply trigger ${entry.key}: ${String(error)}`,
+					"WORKER.triggers",
+				),
+			);
+		return;
+	}
+
 	if (policyChanged) updateTimeoutPolicy(entry.key, entry.value);
 	execution?.send({ type: "artifact", entry } satisfies ExecutionMessage);
 	if (policyChanged && execution) synchronizeMonitoring();
 }
+
+/**
+ * The ack wait for a trigger's consumer comes from the workflow it starts, and
+ * the workflow artifact is already here.
+ */
+function workflowTimeoutSeconds(workflowId: string) {
+	// Scanned rather than keyed: a catch-all worker (`WORKER_PROJECT_ID=*`) does
+	// not know which project's key to build, and a worker holds few workflows.
+	for (const [key, entry] of artifacts) {
+		if (artifactKind(key) !== "workflow") continue;
+		const artifact = entry.value as WorkflowArtifact | undefined;
+		if (artifact?.workflowId === workflowId) return artifact.timeoutSeconds;
+	}
+	return undefined;
+}
+
+const triggerWorker = new TriggerWorker({
+	projectId: WORKER_PROJECT_ID,
+	run: runJobInExecution,
+	workflowTimeoutSeconds,
+	maxDeliver: Number(getEnv("JOBS_MAX_DELIVER")) || undefined,
+	retryDelayMs: Number(getEnv("JOBS_RETRY_DELAY_MS")) || undefined,
+});
 
 const artifactWatch = await watchProjectArtifacts(
 	WORKER_PROJECT_ID,
@@ -265,6 +327,14 @@ await startJobWorker({
 	logger.error(`job worker failed to start: ${String(error)}`, "WORKER.jobs"),
 );
 
+// Triggers are the other half of the same story: the job worker takes work that
+// was queued, this takes work that arrived.
+await triggerWorker
+	.start()
+	.catch((error) =>
+		logger.error(`trigger worker failed to start: ${String(error)}`, "WORKER.triggers"),
+	);
+
 function evaluateTimeouts() {
 	const timedOut = watchdog.findTimedOut();
 	if (!timedOut || !execution || terminatingForTimeout) return;
@@ -286,6 +356,7 @@ async function shutdown(sig: string) {
 	logger.info(`received ${sig} — shutting down`);
 	try {
 		execution?.kill();
+		await triggerWorker.stop();
 		await artifactWatch.stop();
 		healthServer.stop(true);
 		await closeNats();

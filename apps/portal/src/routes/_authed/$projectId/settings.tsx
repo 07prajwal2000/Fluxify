@@ -18,6 +18,7 @@ import { TelemetryDestinations, TELEMETRY_SIGNALS } from "@/components/settings/
 import { DangerZoneSettings } from "@/components/settings/DangerZoneSettings";
 import { AiConnectionsSettings } from "@/components/settings/AiConnectionsSettings";
 import { ExperimentalSettings } from "@/components/settings/ExperimentalSettings";
+import { TriggerSettings } from "@/components/settings/TriggerSettings";
 import { createRouteHead } from "@/lib/seo";
 
 type SettingsSearch = {
@@ -125,7 +126,12 @@ function ProjectSettingsPage() {
 				{/* Right Content */}
 				<div className="flex-1 overflow-y-auto p-8">
 					<div className="max-w-4xl">
-						{activeTab === "general" && <GeneralSettings projectId={projectId} />}
+						{activeTab === "general" && (
+							<div className="flex flex-col gap-6">
+								<GeneralSettings projectId={projectId} />
+								<TriggerSettings projectId={projectId} />
+							</div>
+						)}
 						{activeTab === "telemetry" && (
 							<div className="flex flex-col gap-4">
 								<div>

@@ -1,5 +1,6 @@
 import { afterAll } from "bun:test";
 import { stopEngines } from "./engines";
+import { stopTriggers } from "./trigger";
 import { stopWorkflows } from "./workflow";
 
 /**
@@ -8,7 +9,9 @@ import { stopWorkflows } from "./workflow";
  * database or a broker no fixture asks for is never launched.
  */
 afterAll(async () => {
-	// the broker first: its connection has to drain before the socket goes away
+	// consumers first, then the broker: its connection has to drain before the
+	// socket goes away, and a trigger consumer still pulling would keep it open
+	await stopTriggers();
 	await stopWorkflows();
 	await stopEngines();
 });

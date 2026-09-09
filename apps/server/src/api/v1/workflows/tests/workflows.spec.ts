@@ -20,6 +20,14 @@ mock.module("../../../../modules/jobs/publisher", () => ({
 		return { ...job, id: "job-1" };
 	},
 }));
+// A test run takes the same internal subject a Trigger Workflow block does, so
+// what it publishes is a trigger message rather than a job envelope.
+mock.module("../../../../modules/triggers/publisher", () => ({
+	fireInternalTrigger: async (input: any) => {
+		enqueued.push(input);
+		return { id: "job-1" };
+	},
+}));
 
 import * as repo from "../repository";
 import { createWorkflow, deleteWorkflow, updateWorkflow } from "../service";
@@ -124,10 +132,10 @@ describe("workflow run", () => {
 
 		expect(result).toEqual({ id: "job-1", accepted: true });
 		expect(enqueued[0]).toMatchObject({
-			kind: "workflow",
 			projectId: "p1",
-			target: "wf-1",
-			payload: { day: 1 },
+			workflowId: "wf-1",
+			data: { day: 1 },
+			origin: { via: "manual", userId: "u1" },
 		});
 	});
 

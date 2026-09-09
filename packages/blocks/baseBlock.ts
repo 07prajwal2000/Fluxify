@@ -5,11 +5,47 @@ import { JsVM } from "@fluxify/lib";
 import z from "zod";
 
 /** How work entered the engine. */
-export type TriggerKind = "route" | "job" | "workflow" | "cron";
+export type TriggerKind = "route" | "job" | "workflow" | "cron" | "trigger";
 /** Transport the work physically arrived on. Only "http" is wired today. */
-export type TriggerSource = "http" | "nats" | "bullmq";
+export type TriggerSource =
+	| "http"
+	| "nats"
+	| "bullmq"
+	/** the Trigger Workflow block, or the portal's Run button */
+	| "internal"
+	| "kafka"
+	| "sqs"
+	| "pubsub"
+	| "servicebus";
 /** sync = caller waits for the result (req/res); async = fire-and-forget. */
 export type ReplyMode = "sync" | "async";
+
+/**
+ * One event in a run's input, with whatever the source knows about it.
+ *
+ * `meta` is deliberately open past its three common fields: a Kafka event has a
+ * partition and offset, an SQS message has a receipt handle, and flattening
+ * those into named columns here would mean editing this type for every
+ * connector that ever ships.
+ */
+export interface TriggerEvent {
+	data: unknown;
+	meta: {
+		/** The source's own id for this event. The tool for deduplicating. */
+		id?: string;
+		receivedAt?: string;
+		source?: TriggerSource;
+		[key: string]: unknown;
+	};
+}
+
+/** What the run knows about the batch it was handed. */
+export interface TriggerBatchMeta {
+	batchId: string;
+	size: number;
+	firstReceivedAt?: string;
+	lastReceivedAt?: string;
+}
 
 /** Where this execution came from, so blocks/logging can branch on origin. */
 export interface TriggerContext {
@@ -18,6 +54,13 @@ export interface TriggerContext {
 	reply: ReplyMode;
 	/** correlation id for async replies / tracing */
 	id?: string;
+	/**
+	 * The events this run was given. **Always an array**, even for a single
+	 * event — a graph written against a size-1 trigger then keeps working
+	 * unchanged when someone raises the batch size, which is the whole point.
+	 */
+	data?: TriggerEvent[];
+	meta?: TriggerBatchMeta;
 }
 
 /** One completed block execution within a request-level trace. */
@@ -172,6 +215,16 @@ export const contextVarsAiDescription = `<js_runtime_context>
 const httpRequestMethod: string; // e.g., "GET", "POST"
 const httpRequestRoute: string;  // e.g., "/api/users/:id"
 const input: any;                // The output data from the previous connected block
+
+// 1b. Trigger Context (workflow runs)
+const trigger: {
+  kind: "route" | "job" | "workflow" | "cron" | "trigger";
+  source: string;
+  id?: string;
+  // ALWAYS an array, even for a single event
+  data: Array<{ data: any; meta: { id?: string; receivedAt?: string; source?: string } }>;
+  meta: { batchId: string; size: number; firstReceivedAt?: string; lastReceivedAt?: string };
+};
 
 // 2. Request Helpers
 function getQueryParam(key: string): string;
