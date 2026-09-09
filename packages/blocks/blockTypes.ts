@@ -28,4 +28,5 @@ export enum BlockTypes {
   sticky_note = "sticky_note",
   errorHandler = "error_handler",
   cloudLogs = "cloud_logs",
+  triggerWorkflow = "trigger_workflow",
 }

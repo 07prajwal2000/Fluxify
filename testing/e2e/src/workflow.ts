@@ -92,6 +92,11 @@ export function workflowHarness(): Promise<void> {
 	return (harness ??= start());
 }
 
+/** Every request the sink has seen so far, in order. */
+export function sinkHits() {
+	return [...hits];
+}
+
 /** Drops the recorded requests and any injected failures. Call in `beforeEach`. */
 export function resetSink() {
 	hits = [];
@@ -277,7 +282,9 @@ async function queueJob(target: string, payload: unknown): Promise<WorkflowRun> 
 
 /* -------------------------------------------------------------- artifacts */
 
-async function publishWorkflow(fixture: WorkflowFixture) {
+/** Publishes a fixture and waits for the worker to load it. Also used by the
+ *  trigger harness, which needs the workflow present before a trigger fires. */
+export async function publishWorkflow(fixture: WorkflowFixture) {
 	if (published.has(fixture.name)) return;
 	const compiledAt = new Date().toISOString();
 	// `asWorkflow` is the only thing the compiler is told: a response block has

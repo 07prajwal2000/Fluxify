@@ -24,6 +24,7 @@ import { nativeDbBlockSchema } from "./db/native";
 import { transactionDbBlockSchema } from "./db/transaction";
 import { errorHandlerBlockSchema } from "./errorHandler";
 import { cloudLogsBlockSchema } from "./log/cloudLogs";
+import { triggerWorkflowSchema } from "./triggerWorkflow";
 
 export const builtinBlockSchemas: Record<string, z.ZodTypeAny> = {
 	if: ifBlockSchema,
@@ -51,4 +52,5 @@ export const builtinBlockSchemas: Record<string, z.ZodTypeAny> = {
 	dbtransaction: transactionDbBlockSchema,
 	errorhandler: errorHandlerBlockSchema,
 	cloudlogs: cloudLogsBlockSchema,
+	triggerworkflow: triggerWorkflowSchema,
 };

@@ -13,6 +13,10 @@ const published: Publish[] = [];
 let duplicate = false;
 /** what the fake consumer will deliver on the next `consumeQueue` */
 let inbox: JsMsg[] = [];
+/** what each successive `fetch` returns, for `consumeBatches` */
+let batches: JsMsg[][] = [];
+/** the options every `fetch` was called with */
+let fetches: Record<string, unknown>[] = [];
 let closed = false;
 
 /** A `JsMsg` stub that records what the queue decided to do with it. */
@@ -60,6 +64,15 @@ const fakeJs = {
 					},
 				};
 			},
+			fetch: async (opts: Record<string, unknown>) => {
+				fetches.push(opts);
+				const messages = batches.shift() ?? [];
+				return {
+					async *[Symbol.asyncIterator]() {
+						for (const msg of messages) yield msg;
+					},
+				};
+			},
 		}),
 	},
 };
@@ -69,7 +82,7 @@ mock.module("@nats-io/jetstream", () => ({
 	jetstream: () => fakeJs,
 }));
 
-const { consumeQueue, publishToStream } = await import("../queue");
+const { consumeBatches, consumeQueue, publishToStream } = await import("../queue");
 
 const nc = {} as NatsConnection;
 
@@ -80,6 +93,8 @@ beforeEach(() => {
 	published.length = 0;
 	duplicate = false;
 	inbox = [];
+	batches = [];
+	fetches = [];
 	closed = false;
 });
 
@@ -204,5 +219,96 @@ describe("consumeQueue", () => {
 		const consumer = await consumeQueue(nc, "S", "d", async () => {});
 		await consumer.stop();
 		expect(closed).toBe(true);
+	});
+});
+
+/* ---------------------------------------------------------------- batching */
+
+describe("consumeBatches", () => {
+	const batchOptions = { maxMessages: 500, maxBytes: 1_000_000, maxWaitMs: 50 };
+
+	it("hands the whole batch to the handler as one call and acks all of it", async () => {
+		const msgs = [fakeMsg("t.1", { n: 1 }), fakeMsg("t.1", { n: 2 })];
+		batches = [msgs];
+		const seen: unknown[][] = [];
+		const consumer = await consumeBatches(nc, "S", "d", async (batch) => {
+			seen.push(batch.map((m) => m.data));
+		}, batchOptions);
+		await settled();
+		await consumer.stop();
+
+		expect(seen).toEqual([[{ n: 1 }, { n: 2 }]]);
+		expect(msgs.map((m) => m.acks)).toEqual([["ack"], ["ack"]]);
+	});
+
+	it("passes the batch limits straight through to fetch", async () => {
+		batches = [[]];
+		const consumer = await consumeBatches(nc, "S", "d", async () => {}, batchOptions);
+		await settled();
+		await consumer.stop();
+
+		expect(fetches[0]).toEqual({
+			max_messages: 500,
+			max_bytes: 1_000_000,
+			expires: 50,
+		});
+	});
+
+	it("runs a size-1 trigger down the same path", async () => {
+		const msg = fakeMsg("t.1", { only: true });
+		batches = [[msg]];
+		let sizes: number[] = [];
+		const consumer = await consumeBatches(nc, "S", "d", async (batch) => {
+			sizes.push(batch.length);
+		}, { ...batchOptions, maxMessages: 1 });
+		await settled();
+		await consumer.stop();
+
+		expect(sizes).toEqual([1]);
+		expect(msg.acks).toEqual(["ack"]);
+	});
+
+	it("naks the whole batch when the handler throws — no partial success", async () => {
+		const msgs = [fakeMsg("t.1", {}), fakeMsg("t.1", {})];
+		batches = [msgs];
+		const consumer = await consumeBatches(nc, "S", "d", async () => {
+			throw new Error("sink down");
+		}, { ...batchOptions, maxAttempts: 5, retryDelayMs: 1_000 });
+		await settled();
+		await consumer.stop();
+
+		expect(msgs.map((m) => m.acks)).toEqual([["nak:1000"], ["nak:1000"]]);
+	});
+
+	it("terminates the whole batch once its deliveries are spent", async () => {
+		const msgs = [fakeMsg("t.1", {}, 1), fakeMsg("t.1", {}, 5)];
+		batches = [msgs];
+		const errors: unknown[] = [];
+		const consumer = await consumeBatches(nc, "S", "d", async () => {
+			throw new Error("poison");
+		}, { ...batchOptions, maxAttempts: 5, onError: (error) => errors.push(error) });
+		await settled();
+		await consumer.stop();
+
+		// the highest attempt in the batch retires it, so the first message goes
+		// with the one that ran out of budget rather than being redelivered alone
+		expect(msgs.map((m) => m.acks)).toEqual([["term"], ["term"]]);
+		expect(errors).toHaveLength(1);
+	});
+
+	it("terminates an undecodable message without failing the batch around it", async () => {
+		const good = fakeMsg("t.1", { n: 1 });
+		const bad = corruptMsg("t.1");
+		batches = [[bad, good]];
+		const seen: unknown[][] = [];
+		const consumer = await consumeBatches(nc, "S", "d", async (batch) => {
+			seen.push(batch.map((m) => m.data));
+		}, batchOptions);
+		await settled();
+		await consumer.stop();
+
+		expect(seen).toEqual([[{ n: 1 }]]);
+		expect(bad.acks).toEqual(["term"]);
+		expect(good.acks).toEqual(["ack"]);
 	});
 });

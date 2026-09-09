@@ -51,6 +51,10 @@ describe("worker modes", () => {
 			"workflow",
 			"custom-block",
 			"project-config",
+			"trigger",
 		]);
+		// a route-only worker runs no workflows, so a trigger it could not act on
+		// is just memory
+		expect(artifactKindsForMode("route")).not.toContain("trigger");
 	});
 });

@@ -48,6 +48,13 @@ export const workflowKey = (projectId: string, workflowId: string) =>
 	`workflow.${projectId}.${workflowId}`;
 export const projectConfigKey = (projectId: string) =>
 	`project-config.${projectId}.current`;
+/**
+ * A trigger is not compiled — it has no graph of its own. It rides this bucket
+ * anyway because the worker already watches it, so a trigger reaches every node
+ * that could run it without inventing a second distribution path.
+ */
+export const triggerKey = (projectId: string, triggerId: string) =>
+	`trigger.${projectId}.${triggerId}`;
 
 /**
  * The filters a worker watches for its project. `kinds` narrows them to what
@@ -64,6 +71,7 @@ const ARTIFACT_KINDS = [
 	"custom-block",
 	"workflow",
 	"project-config",
+	"trigger",
 ] as const;
 
 export type ArtifactKind = (typeof ARTIFACT_KINDS)[number];

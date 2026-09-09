@@ -1,8 +1,7 @@
 import { z } from "zod";
 import { AuthACL } from "../../../db/schema";
 import { BadRequestError } from "../../../errors/badRequestError";
-import { enqueueJob } from "../../../modules/jobs/publisher";
-import { WORKFLOW_JOB } from "../../../modules/jobs/subjects";
+import { fireInternalTrigger } from "../../../modules/triggers/publisher";
 import { runAcceptedSchema, runSchema } from "./dto";
 import { mustAccess } from "./service";
 
@@ -27,12 +26,14 @@ export default async function runWorkflow(
 	if (!workflow.active)
 		throw new BadRequestError("Workflow is not active — activate it to run it");
 
-	const job = await enqueueJob({
-		kind: WORKFLOW_JOB,
+	// The same subject the Trigger Workflow block uses. A test run and a fired
+	// trigger must take one path, or the thing the user tests is not the thing
+	// that later runs.
+	const fired = await fireInternalTrigger({
 		projectId: workflow.projectId!,
-		target: id,
-		payload: body.payload,
+		workflowId: id,
+		data: body.payload,
 		origin: { via: "manual", userId },
 	});
-	return { id: job.id, accepted: true };
+	return { id: fired.id, accepted: true };
 }

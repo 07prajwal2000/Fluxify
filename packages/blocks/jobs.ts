@@ -26,7 +26,45 @@ export type JobRequest = {
 
 export type JobEnqueuer = (job: JobRequest) => void;
 
+/** The job kind a Trigger Workflow block travels under. */
+export const TRIGGER_WORKFLOW_JOB = "trigger-workflow";
+
 let enqueuer: JobEnqueuer | undefined;
+
+/**
+ * The largest payload one trigger may carry, per project.
+ *
+ * Enforced here rather than at the broker because here is the only place the
+ * failure is visible: the graph's error handler catches it and the calling
+ * route answers with something. A check on the supervisor would fire after the
+ * block has already moved on, so the run would look successful and the workflow
+ * would simply never start.
+ */
+let payloadLimit: ((projectId: string) => number) | undefined;
+
+/** Called once by the host process. Pass nothing to detach (tests, shutdown). */
+export function setTriggerPayloadLimit(next?: (projectId: string) => number) {
+	payloadLimit = next;
+}
+
+/**
+ * Throws when the payload is over the project's cap.
+ *
+ * The size is measured on the JSON the broker would actually carry, not on the
+ * object — a 40-character string of emoji is not 40 bytes, and the limit exists
+ * to protect the broker.
+ */
+export function assertTriggerPayloadSize(projectId: string, payload: unknown) {
+	const limit = payloadLimit?.(projectId);
+	if (!limit) return;
+	const bytes =
+		payload === undefined ? 0 : new TextEncoder().encode(JSON.stringify(payload) ?? "").length;
+	if (bytes <= limit) return;
+	throw new Error(
+		`Trigger payload is ${bytes} bytes, over this project's ${limit} byte limit. ` +
+			`Pass a reference instead of the data, or use a dedicated trigger with an integration for payloads this size.`,
+	);
+}
 
 /** Called once by the host process. Pass nothing to detach (tests, shutdown). */
 export function setJobEnqueuer(next?: JobEnqueuer) {

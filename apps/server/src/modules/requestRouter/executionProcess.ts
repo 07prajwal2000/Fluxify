@@ -1,5 +1,5 @@
 import { initializeLogger, logger } from "@fluxify/common";
-import { setJobEnqueuer } from "@fluxify/blocks";
+import { setJobEnqueuer, setTriggerPayloadLimit } from "@fluxify/blocks";
 import { createHttpContext } from "./httpContext";
 import { registerCustomBlockJobHandler } from "../jobs/customBlockJob";
 import { registerWorkflowJobHandler } from "../jobs/workflowJob";
@@ -18,6 +18,7 @@ import type {
 	ExecutionMessage,
 } from "./threadTypes";
 import { projectSettingsCache } from "../../loaders/projectSettingsLoader";
+import { triggerPayloadLimit } from "../triggers/payloadLimit";
 import { workerTimeoutsEnabled } from "./workerTimeouts";
 import { AsyncExecutor } from "./asyncExecutor";
 import { executionRuntimeEnvironment } from "./executionEnvironment";
@@ -77,6 +78,9 @@ function bootstrap(nextBoot: ExecutionBootstrap) {
 	setMonitoring(boot.workerTimeoutsEnabled);
 	registerCustomBlockJobHandler();
 	registerWorkflowJobHandler();
+	// The cap is read per publish rather than captured once: project settings
+	// arrive over the artifact watch and change while the process is running.
+	setTriggerPayloadLimit(triggerPayloadLimit);
 	// This process holds no broker connection: queueing is a message to the
 	// supervisor, which owns NATS.
 	setJobEnqueuer((request) =>
