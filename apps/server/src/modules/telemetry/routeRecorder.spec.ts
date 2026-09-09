@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { RouteTraceRecorder } from "./routeRecorder";
+import { RouteTraceRecorder, WorkflowTraceRecorder } from "./routeRecorder";
 
 const route = {
 	projectId: "project-1",
@@ -107,5 +107,44 @@ describe("RouteTraceRecorder", () => {
 			outcome: "failure",
 		});
 		expect(runs[1]).toMatchObject({ runId: recorder.runId, statusCode: 202 });
+	});
+});
+
+describe("WorkflowTraceRecorder", () => {
+	it("emits one bounded completed workflow run", () => {
+		const workflow = {
+			projectId: "project-1",
+			workflowId: "workflow-1",
+			workflowVersion: "2026-08-24T00:00:00.000Z",
+			workflowName: "Process Batch",
+		};
+		const runs: any[] = [];
+		const recorder = new WorkflowTraceRecorder(workflow, (run) => runs.push(run));
+
+		recorder.recordSpan({
+			blockId: "entry",
+			blockType: "entrypoint",
+			input: { count: 10 },
+			output: { processed: true },
+			startedAt: 10,
+			endedAt: 25,
+			outcome: "success",
+		});
+		recorder.complete("success");
+
+		expect(runs).toHaveLength(1);
+		expect(runs[0]).toMatchObject({
+			...workflow,
+			outcome: "success",
+			spans: [
+				{
+					seq: 0,
+					blockId: "entry",
+					input: { count: 10 },
+					output: { processed: true },
+				},
+			],
+		});
+		expect(runs[0].statusCode).toBeUndefined();
 	});
 });

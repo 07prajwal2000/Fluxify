@@ -2,16 +2,16 @@ import { useState } from "react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import {
 	Button,
-	Chip,
 	DeleteIconButton,
 	Input,
 	Label,
 	Spinner,
+	Switch,
 	Table,
 	TextField,
 	toast,
 } from "@fluxify/components";
-import { TbPlayerPlay, TbPlus, TbRoute } from "react-icons/tb";
+import { TbEdit, TbPlayerPlay, TbPlus, TbRoute } from "react-icons/tb";
 import { workflowsQuery } from "@/query/workflowsQuery";
 import { showErrorNotification } from "@/lib/errorNotifier";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
@@ -132,12 +132,30 @@ function WorkflowsPage() {
 										</span>
 									</Table.Cell>
 									<Table.Cell>
-										<Chip>{workflow.active ? "Active" : "Inactive"}</Chip>
+										<Switch
+											isSelected={Boolean(workflow.active)}
+											onChange={(active) =>
+												toggle.mutate(
+													{ id: workflow.id, active },
+													{
+														onSuccess: () =>
+															toast.success(active ? "Workflow enabled" : "Workflow disabled"),
+														onError: (e) => showErrorNotification(e as Error),
+													},
+												)
+											}
+											label={workflow.active ? "Active" : "Inactive"}
+										/>
 									</Table.Cell>
 									<Table.Cell>
-										<div className="flex items-center justify-end gap-2">
-											<Button variant="primary" onPress={() => openCanvas(workflow.id)}>
-												Open
+										<div className="flex items-center justify-end gap-1">
+											<Button
+												isIconOnly
+												variant="ghost"
+												aria-label={`Edit ${workflow.name}`}
+												onPress={() => openCanvas(workflow.id)}
+											>
+												<TbEdit size={16} />
 											</Button>
 											<Button
 												variant="outline"
@@ -147,17 +165,6 @@ function WorkflowsPage() {
 												onPress={() => setPendingRun(workflow)}
 											>
 												<TbPlayerPlay size={16} /> Run
-											</Button>
-											<Button
-												variant="outline"
-												onPress={() =>
-													toggle.mutate(
-														{ id: workflow.id, active: !workflow.active },
-														{ onError: (e) => showErrorNotification(e as Error) },
-													)
-												}
-											>
-												{workflow.active ? "Disable" : "Enable"}
 											</Button>
 											<DeleteIconButton
 												aria-label="Delete workflow"

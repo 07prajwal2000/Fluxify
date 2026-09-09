@@ -247,7 +247,7 @@ function onExecutionEvent(event: ExecutionEvent) {
 				),
 			);
 		case "trace-finished":
-			// The execution process holds untrusted route code, never NATS credentials.
+			// The execution process holds untrusted user code (routes and workflows), never NATS credentials.
 			return void publishTraceRun(event.run);
 		case "heartbeat":
 			return watchdog.heartbeat();

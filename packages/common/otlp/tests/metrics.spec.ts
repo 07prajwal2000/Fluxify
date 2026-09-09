@@ -93,4 +93,34 @@ describe("recordRun", () => {
 		);
 		expect(failed?.attributes["http.response.status_code"]).toBe(500);
 	});
+
+	it("records workflow executions and duration metrics", async () => {
+		const { provider, collect } = collector();
+
+		recordRun(
+			provider,
+			run({
+				routeId: undefined,
+				routeVersion: undefined,
+				method: undefined,
+				path: undefined,
+				workflowId: "wf-1",
+				workflowVersion: "2026-01-01T12:00:00.000Z",
+				workflowName: "Process Orders",
+				outcome: "success",
+			}),
+		);
+
+		const metrics = await collect();
+		const executions = find(metrics, "fluxify.workflow.executions");
+		expect(executions.dataPoints[0]?.value).toBe(1);
+		expect(executions.dataPoints[0]?.attributes).toMatchObject({
+			"fluxify.project.id": "proj-1",
+			"fluxify.workflow.id": "wf-1",
+			"fluxify.workflow.name": "Process Orders",
+			"fluxify.outcome": "success",
+		});
+		const duration = find(metrics, "fluxify.workflow.duration");
+		expect((duration.dataPoints[0]?.value as { sum: number }).sum).toBe(40);
+	});
 });

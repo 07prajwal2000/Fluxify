@@ -36,11 +36,16 @@ export type TraceSpanRecord = {
 export type TraceRunPayload = {
 	runId: string;
 	projectId: string;
-	routeId: string;
+	/** Route fields; present on runs originating from an HTTP route. */
+	routeId?: string;
 	/** identifies the graph this run belongs to; resolved by the portal viewer */
-	routeVersion: string;
-	method: string;
-	path: string;
+	routeVersion?: string;
+	method?: string;
+	path?: string;
+	/** Workflow fields; present on runs originating from a background workflow. */
+	workflowId?: string;
+	workflowVersion?: string;
+	workflowName?: string;
 	/**
 	 * `Date.now()` and `performance.now()` sampled at the same instant.
 	 *

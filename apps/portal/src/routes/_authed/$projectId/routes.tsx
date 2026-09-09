@@ -1,17 +1,25 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import {
 	Button,
 	Chip,
+	CloseButton,
 	DeleteIconButton,
+	Input,
+	Label,
+	Modal,
 	Spinner,
+	Switch,
 	Table,
+	TextField,
 	toast,
 } from "@fluxify/components";
-import { TbPlus } from "react-icons/tb";
+import { TbEdit, TbPlayerPlay, TbPlus, TbRoute } from "react-icons/tb";
 import { routesQuery } from "@/query/routesQuery";
 import { showErrorNotification } from "@/lib/errorNotifier";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
+import { EmptyState } from "@/components/common/EmptyState";
+import { RouteApiPlayground } from "@/components/RouteApiPlayground";
 import { createRouteHead } from "@/lib/seo";
 
 export const Route = createFileRoute("/_authed/$projectId/routes")({
@@ -34,6 +42,7 @@ function RoutesPage() {
 	const { projectId } = Route.useParams();
 	const navigate = useNavigate();
 	const [page, setPage] = useState(1);
+	const [search, setSearch] = useState("");
 	const { data, isLoading, isError } = routesQuery.getAll.useQuery({
 		projectId,
 		page,
@@ -42,21 +51,50 @@ function RoutesPage() {
 	const toggle = routesQuery.toggleActive.mutation();
 	const remove = routesQuery.remove.mutation();
 	const [pendingDelete, setPendingDelete] = useState<RouteRow | null>(null);
+	const [pendingPlayground, setPendingPlayground] = useState<RouteRow | null>(null);
+
+	const rows = useMemo(() => {
+		const list = (data?.data ?? []) as RouteRow[];
+		const query = search.trim().toLowerCase();
+		if (!query) return list;
+		return list.filter(
+			(r) =>
+				(r.name && r.name.toLowerCase().includes(query)) ||
+				(r.path && r.path.toLowerCase().includes(query)) ||
+				(r.method && r.method.toLowerCase().includes(query)),
+		);
+	}, [data?.data, search]);
 
 	const totalPages = data?.pagination?.totalPages ?? 1;
 
+	const openNew = () =>
+		navigate({ to: "/$projectId/routes/new", params: { projectId } });
+
 	return (
 		<div className="flex flex-col gap-4">
-			<div className="flex items-center justify-between">
-				<h1 className="text-xl font-semibold tracking-tight">Routes</h1>
-				<Button
-					variant="primary"
-					onPress={() =>
-						navigate({ to: "/$projectId/routes/new", params: { projectId } })
-					}
-				>
-					<TbPlus size={16} /> New route
-				</Button>
+			<div className="flex flex-wrap items-center justify-between gap-3">
+				<div>
+					<h1 className="text-xl font-semibold tracking-tight">Routes</h1>
+					<p className="text-sm text-muted">
+						Configure, inspect, and manage API routes and endpoints for your project.
+					</p>
+				</div>
+				<div className="flex items-center gap-2">
+					<TextField
+						value={search}
+						onChange={(next) => {
+							setSearch(next);
+							setPage(1);
+						}}
+						className="w-56"
+					>
+						<Label className="sr-only">Search routes</Label>
+						<Input placeholder="Search routes" />
+					</TextField>
+					<Button variant="primary" onPress={openNew}>
+						<TbPlus size={16} /> New route
+					</Button>
+				</div>
 			</div>
 
 			{isLoading ? (
@@ -65,10 +103,23 @@ function RoutesPage() {
 				</div>
 			) : isError ? (
 				<p className="py-16 text-center text-muted">Couldn't load routes.</p>
-			) : data && data.data.length === 0 ? (
-				<p className="py-16 text-center text-muted">
-					No routes yet. Create your first one.
-				</p>
+			) : rows.length === 0 ? (
+				<EmptyState
+					icon={<TbRoute size={28} />}
+					title={search ? `No route matches “${search}”` : "No routes yet"}
+					description={
+						search
+							? "Try a different name or path."
+							: "API routes handle HTTP requests for your project. Create your first endpoint to get started."
+					}
+					action={
+						!search && (
+							<Button variant="primary" onPress={openNew}>
+								<TbPlus size={16} /> New route
+							</Button>
+						)
+					}
+				/>
 			) : (
 				<Table>
 					<Table.Content aria-label="Routes">
@@ -79,7 +130,7 @@ function RoutesPage() {
 						<Table.Column id="status">Status</Table.Column>
 						<Table.Column id="actions" aria-label="Actions">{""}</Table.Column>
 					</Table.Header>
-					<Table.Body items={(data?.data ?? []) as RouteRow[]}>
+					<Table.Body items={rows}>
 						{(route: RouteRow) => (
 							<Table.Row id={route.id}>
 								<Table.Cell>
@@ -90,21 +141,42 @@ function RoutesPage() {
 								</Table.Cell>
 								<Table.Cell>{route.name}</Table.Cell>
 								<Table.Cell>
-									<Chip>{route.active ? "Active" : "Inactive"}</Chip>
+									<Switch
+										isSelected={Boolean(route.active)}
+										onChange={(active) =>
+											toggle.mutate(
+												{ id: route.id, active },
+												{
+													onSuccess: () =>
+														toast.success(active ? "Route enabled" : "Route disabled"),
+													onError: (e) => showErrorNotification(e as Error),
+												},
+											)
+										}
+										label={route.active ? "Active" : "Inactive"}
+									/>
 								</Table.Cell>
 								<Table.Cell>
-									<div className="flex items-center justify-end gap-2">
-										<Button variant="primary" onPress={() => navigate({ to: "/$projectId/canvas/$routeId", params: { projectId, routeId: route.id } })}>Open</Button>
+									<div className="flex items-center justify-end gap-1">
 										<Button
-											variant="outline"
+											isIconOnly
+											variant="ghost"
+											aria-label={`Edit ${route.name || route.path}`}
 											onPress={() =>
-												toggle.mutate(
-													{ id: route.id, active: !route.active },
-													{ onError: (e) => showErrorNotification(e as Error) },
-												)
+												navigate({
+													to: "/$projectId/canvas/$routeId",
+													params: { projectId, routeId: route.id },
+												})
 											}
 										>
-											{route.active ? "Disable" : "Enable"}
+											<TbEdit size={16} />
+										</Button>
+										<Button
+											variant="outline"
+											isDisabled={!route.active}
+											onPress={() => setPendingPlayground(route)}
+										>
+											<TbPlayerPlay size={16} /> Playground
 										</Button>
 										<DeleteIconButton
 											aria-label="Delete route"
@@ -129,6 +201,34 @@ function RoutesPage() {
 						Next
 					</Button>
 				</div>
+			)}
+
+			{pendingPlayground && (
+				<Modal
+					isOpen={!!pendingPlayground}
+					onOpenChange={(open) => !open && setPendingPlayground(null)}
+				>
+					<Modal.Backdrop>
+						<Modal.Container placement="center" size="cover" className="p-0">
+							<Modal.Dialog className="flex h-[min(820px,86vh)] w-[min(1600px,96vw)] !max-w-none flex-col overflow-hidden border border-border bg-background p-0 shadow-2xl shadow-black/50">
+								<Modal.Header className="flex h-11 shrink-0 flex-row items-center border-b border-border px-4 py-0">
+									<Modal.Heading className="text-sm font-semibold">
+										API Playground — {pendingPlayground.name || pendingPlayground.path}
+									</Modal.Heading>
+									<CloseButton aria-label="Close API Playground" className="ml-auto" />
+								</Modal.Header>
+								<Modal.Body className="min-h-0 flex-1 p-0">
+									<RouteApiPlayground
+										key={pendingPlayground.id}
+										routeId={pendingPlayground.id}
+										baseUrl={import.meta.env.VITE_ROUTE_BASE_URL ?? window.location.origin}
+										isFramed={false}
+									/>
+								</Modal.Body>
+							</Modal.Dialog>
+						</Modal.Container>
+					</Modal.Backdrop>
+				</Modal>
 			)}
 
 			<ConfirmDialog
