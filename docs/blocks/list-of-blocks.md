@@ -57,4 +57,5 @@ Monitor your application.
 ## Utility
 Helper blocks.
 
+- [**Trigger Workflow**](./trigger-workflow.md): Start a workflow and carry on.
 - [**Sticky Note**](./sticky-note.md): Add comments to your canvas.

@@ -216,6 +216,16 @@ const httpRequestMethod: string; // e.g., "GET", "POST"
 const httpRequestRoute: string;  // e.g., "/api/users/:id"
 const input: any;                // The output data from the previous connected block
 
+// 1b. Trigger Context (workflow runs)
+const trigger: {
+  kind: "route" | "job" | "workflow" | "cron" | "trigger";
+  source: string;
+  id?: string;
+  // ALWAYS an array, even for a single event
+  data: Array<{ data: any; meta: { id?: string; receivedAt?: string; source?: string } }>;
+  meta: { batchId: string; size: number; firstReceivedAt?: string; lastReceivedAt?: string };
+};
+
 // 2. Request Helpers
 function getQueryParam(key: string): string;
 function getRouteParam(key: string): string;

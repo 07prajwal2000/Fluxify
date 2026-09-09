@@ -48,6 +48,40 @@ declare const httpRequestRoute: string;
 declare function dbQuery(query: string): Promise<unknown>;
 /** The output of the previous block */
 declare const input: any;
+/** One event a trigger collected, with what the source said about it. */
+declare interface FluxifyTriggerEvent {
+  /** The event's payload. */
+  data: any;
+  meta: {
+    /** The source's own id for this event — use it to skip a duplicate. */
+    id?: string;
+    receivedAt?: string;
+    source?: string;
+    [key: string]: any;
+  };
+}
+/**
+ * What started this run.
+ *
+ * trigger.data is ALWAYS an array, even when a single event arrived, so a
+ * graph reads a batch of one and a batch of five hundred the same way. Use
+ * "input" when you only ever expect one event — at size 1 it is that event's
+ * payload, unwrapped.
+ */
+declare const trigger: {
+  kind: "route" | "job" | "workflow" | "cron" | "trigger";
+  source: string;
+  reply: string;
+  id?: string;
+  data: FluxifyTriggerEvent[];
+  meta: {
+    batchId: string;
+    /** How many events are in trigger.data. */
+    size: number;
+    firstReceivedAt?: string;
+    lastReceivedAt?: string;
+  };
+};
 declare const logger: {
   logInfo(value: any): void;
   logWarn(value: any): void;

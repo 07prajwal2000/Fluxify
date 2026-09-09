@@ -20,6 +20,7 @@ import { Section } from "@/components/common/Section";
 import { workflowsQuery } from "@/query/workflowsQuery";
 import { showErrorNotification } from "@/lib/errorNotifier";
 import type { Workflow } from "@/services/workflows";
+import { WorkflowTriggersTab } from "./WorkflowTriggersTab";
 
 /**
  * Everything editable about a workflow, reachable from its canvas — the same
@@ -159,6 +160,7 @@ function WorkflowSettingsForm({
 						className="w-44 shrink-0 border-r border-border p-3"
 					>
 						<Tabs.Tab id="general">General</Tabs.Tab>
+						<Tabs.Tab id="triggers">Triggers</Tabs.Tab>
 						<Tabs.Tab id="advanced">Advanced</Tabs.Tab>
 						<Tabs.Tab id="danger">Danger zone</Tabs.Tab>
 					</Tabs.List>
@@ -201,6 +203,13 @@ function WorkflowSettingsForm({
 								label={active ? "Workflow is active" : "Workflow is inactive"}
 							/>
 						</Section>
+					</Tabs.Panel>
+
+					<Tabs.Panel id="triggers" className="min-h-0 flex-1 overflow-y-auto p-5">
+						<WorkflowTriggersTab
+							workflowId={workflow.id}
+							projectId={workflow.projectId}
+						/>
 					</Tabs.Panel>
 
 					<Tabs.Panel id="advanced" className="min-h-0 flex-1 overflow-y-auto p-5">

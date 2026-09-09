@@ -209,6 +209,13 @@ export const BLOCK_CATALOG: Record<BlockType, BlockDefinition> = {
 		handles: STD,
 		category: "Logging",
 	},
+	[BLOCK_TYPES.triggerWorkflow]: {
+		name: "Trigger Workflow",
+		description: "Queue a workflow run and carry on",
+		handles: STD,
+		tint: VIOLET,
+		category: "Flow",
+	},
 };
 
 export function blockCatalogEntries(): [BlockType, BlockDefinition][] {
