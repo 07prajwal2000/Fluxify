@@ -5,6 +5,7 @@ import {
 	groupListSchema,
 	listSchema,
 	patchSchema,
+	previewSchema,
 	triggerSchema,
 } from "@fluxify/server/src/api/v1/triggers/dto";
 import { httpClient } from "@/lib/http";
@@ -24,6 +25,7 @@ export type CreateTriggerBody = z.infer<typeof createSchema>;
 export type UpdateTriggerBody = z.infer<typeof patchSchema>;
 export type Trigger = z.infer<typeof triggerSchema>;
 export type TriggerGroup = z.infer<typeof groupListSchema>["data"][number];
+export type SchedulePreview = z.infer<typeof previewSchema>;
 
 export const triggersService = {
 	async getAll(query: ListTriggersQuery): Promise<z.infer<typeof listSchema>> {
@@ -57,6 +59,18 @@ export const triggersService = {
 	},
 	async createGroup(data: z.infer<typeof createGroupSchema>): Promise<TriggerGroup> {
 		const result = await httpClient.post(`${baseUrl}/groups`, data);
+		return result.data;
+	},
+	/**
+	 * The server reads the schedule, not the browser. Same parser and same
+	 * timezone database as the thing that will actually run it, so a preview the
+	 * user confirms cannot disagree with what fires.
+	 */
+	async previewSchedule(schedule: string, timezone: string): Promise<SchedulePreview> {
+		const params = new URLSearchParams({ schedule, timezone });
+		const result = await httpClient.get(
+			`${baseUrl}/schedule/preview?${params.toString()}`,
+		);
 		return result.data;
 	},
 	createSchema,

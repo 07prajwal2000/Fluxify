@@ -7,6 +7,10 @@ that event to a workflow and lets it run.
 One trigger starts exactly one workflow. If two workflows should react to the
 same events, make two triggers.
 
+A trigger that runs on the clock rather than on an event is a
+[schedule](/concepts/schedules) — cron expressions, intervals, and one-off
+times are covered there.
+
 ## What a workflow receives
 
 A trigger passes the events it collected to the workflow. Inside the canvas you
@@ -142,6 +146,15 @@ with an integration built to carry them.
 
 The **Run** action on a workflow takes the same path a trigger does, so a test
 run behaves like the real thing — one event, with the payload you typed in.
+
+## Running on a schedule
+
+A trigger can also be started by the clock: every weekday at 9am, every five
+minutes, or once at a time you pick. See [Schedules](/concepts/schedules).
+
+Schedules do not batch. Each firing starts the workflow once, because there is
+no queue of incoming events to collect from — a scheduled workflow fetches
+whatever it needs to work on itself.
 
 ## Where to set them up
 

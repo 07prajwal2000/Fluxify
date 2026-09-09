@@ -16,6 +16,7 @@ import type {
 } from "../src/modules/compiler/artifacts";
 import { artifactId, artifactKind } from "../src/modules/compiler/subjects";
 import { TriggerWorker } from "../src/modules/triggers/consumers";
+import { startFireConsumer } from "../src/modules/schedules/fire";
 import { fireInternalTrigger } from "../src/modules/triggers/publisher";
 import { TRIGGER_WORKFLOW_JOB } from "@fluxify/blocks";
 import type {
@@ -45,8 +46,10 @@ import {
 	getEnv,
 } from "../src/lib/env";
 import {
+	WORKFLOW_JOB,
 	artifactKindsForMode,
 	assertWorkerMode,
+	jobKindsForMode,
 } from "../src/modules/jobs/subjects";
 
 /**
@@ -335,6 +338,22 @@ await triggerWorker
 		logger.error(`trigger worker failed to start: ${String(error)}`, "WORKER.triggers"),
 	);
 
+// Scheduled fires, on the workers that run workflows. The broker keeps the
+// time; this turns each fire into a job. It belongs here rather than beside the
+// reconciler on the control plane so that a control-plane node going down
+// delays schedule *edits* and not the schedules themselves.
+let fireConsumer: { stop(): Promise<void> } | undefined;
+if (jobKindsForMode(WORKER_MODE).includes(WORKFLOW_JOB)) {
+	fireConsumer = await startFireConsumer({
+		projectId: WORKER_PROJECT_ID,
+		maxDeliver: Number(getEnv("JOBS_MAX_DELIVER")) || undefined,
+		retryDelayMs: Number(getEnv("JOBS_RETRY_DELAY_MS")) || undefined,
+	}).catch((error) => {
+		logger.error(`fire consumer failed to start: ${String(error)}`, "WORKER.schedules");
+		return undefined;
+	});
+}
+
 function evaluateTimeouts() {
 	const timedOut = watchdog.findTimedOut();
 	if (!timedOut || !execution || terminatingForTimeout) return;
@@ -356,6 +375,7 @@ async function shutdown(sig: string) {
 	logger.info(`received ${sig} — shutting down`);
 	try {
 		execution?.kill();
+		await fireConsumer?.stop();
 		await triggerWorker.stop();
 		await artifactWatch.stop();
 		healthServer.stop(true);

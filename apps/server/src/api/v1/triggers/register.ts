@@ -20,6 +20,8 @@ import {
 	listQuerySchema,
 	listSchema,
 	patchSchema,
+	previewQuerySchema,
+	previewSchema,
 	triggerSchema,
 } from "./dto";
 import {
@@ -30,6 +32,7 @@ import {
 	getTrigger,
 	listAllTriggers,
 	listTriggerGroups,
+	previewSchedule,
 	updateTrigger,
 } from "./service";
 
@@ -116,6 +119,20 @@ export default {
 			validator("param", idParamSchema, zodErrorCallbackParser),
 			async (ctx) =>
 				ctx.json(await deleteTriggerGroup(ctx.req.valid("param").id, ctx.get("acl") || [])),
+		);
+
+		router.get(
+			"/schedule/preview",
+			describeRoute(
+				describe(
+					"preview-schedule",
+					"Explains a schedule and lists its next fires",
+					json(previewSchema),
+				),
+			),
+			requireLoggedIn(),
+			validator("query", previewQuerySchema, zodErrorCallbackParser),
+			(ctx) => ctx.json(previewSchedule(ctx.req.valid("query"))),
 		);
 
 		router.get(

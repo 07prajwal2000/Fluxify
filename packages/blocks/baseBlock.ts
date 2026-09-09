@@ -13,6 +13,8 @@ export type TriggerSource =
 	| "bullmq"
 	/** the Trigger Workflow block, or the portal's Run button */
 	| "internal"
+	/** a cron or one-shot schedule, fired by the broker */
+	| "schedule"
 	| "kafka"
 	| "sqs"
 	| "pubsub"

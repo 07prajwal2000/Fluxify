@@ -1,4 +1,4 @@
-import { and, count, desc, eq, ilike, SQL } from "drizzle-orm";
+import { and, count, desc, eq, ilike, isNotNull, SQL } from "drizzle-orm";
 import { generateID } from "@fluxify/lib";
 import { db, DbTransactionType } from "../../../db";
 import {
@@ -175,6 +175,8 @@ export async function listTriggers(
 			maxBytes: triggersEntity.maxBytes,
 			concurrency: triggersEntity.concurrency,
 			payload: triggersEntity.payload,
+			schedule: triggersEntity.schedule,
+			timezone: triggersEntity.timezone,
 			active: triggersEntity.active,
 			createdAt: triggersEntity.createdAt,
 			updatedAt: triggersEntity.updatedAt,
@@ -201,5 +203,32 @@ export async function listActiveTriggers(projectId: string, tx?: DbTransactionTy
 		.from(triggersEntity)
 		.where(
 			and(eq(triggersEntity.projectId, projectId), eq(triggersEntity.active, true)),
+		);
+}
+
+/**
+ * Every scheduled trigger that should be firing, across every project.
+ *
+ * Not project-scoped like the query above it: the reconciler's job is to decide
+ * what the broker should hold in total, and a per-project view cannot tell an
+ * orphan from a schedule belonging to a project it was not asked about.
+ */
+export async function listActiveScheduledTriggers(tx?: DbTransactionType) {
+	return (tx ?? db)
+		.select({
+			id: triggersEntity.id,
+			projectId: triggersEntity.projectId,
+			workflowId: triggersEntity.workflowId,
+			schedule: triggersEntity.schedule,
+			timezone: triggersEntity.timezone,
+			payload: triggersEntity.payload,
+		})
+		.from(triggersEntity)
+		.where(
+			and(
+				eq(triggersEntity.type, "schedule"),
+				eq(triggersEntity.active, true),
+				isNotNull(triggersEntity.schedule),
+			),
 		);
 }

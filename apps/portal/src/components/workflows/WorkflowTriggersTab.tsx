@@ -15,6 +15,7 @@ import {
 	toast,
 } from "@fluxify/components";
 import { TbBolt, TbPlus } from "react-icons/tb";
+import { ScheduleFields } from "./ScheduleFields";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { Section } from "@/components/common/Section";
 import { triggersQuery } from "@/query/triggersQuery";
@@ -97,9 +98,21 @@ function TriggerRow({ trigger }: { trigger: Trigger }) {
 					{trigger.name}
 				</p>
 				<p className="text-xs text-muted">
-					{trigger.type} · batch {trigger.batchSize}
-					{trigger.batchSize > 1 && ` · waits ${trigger.maxWaitMs}ms`} ·{" "}
-					{trigger.concurrency} at a time
+					{trigger.type === "schedule" ? (
+						// A schedule is a single event and never batches, so the batch
+						// settings would be four numbers that mean nothing here.
+						<>
+							schedule ·{" "}
+							<span className="font-mono">{trigger.schedule}</span>
+							{trigger.timezone !== "UTC" && ` · ${trigger.timezone}`}
+						</>
+					) : (
+						<>
+							{trigger.type} · batch {trigger.batchSize}
+							{trigger.batchSize > 1 && ` · waits ${trigger.maxWaitMs}ms`} ·{" "}
+							{trigger.concurrency} at a time
+						</>
+					)}
 				</p>
 			</div>
 			<Switch
@@ -151,6 +164,19 @@ const DEFAULTS = {
 	concurrency: 1,
 };
 
+const TYPES = [
+	{
+		id: "internal",
+		label: "Internal",
+		hint: "Fired by the Trigger Workflow block or a manual run.",
+	},
+	{
+		id: "schedule",
+		label: "Schedule",
+		hint: "Fired by the clock — a cron expression, an interval, or once.",
+	},
+] as const;
+
 function NewTriggerForm({
 	workflowId,
 	projectId,
@@ -164,6 +190,11 @@ function NewTriggerForm({
 	const { data: groups } = triggersQuery.groups.useQuery(projectId);
 	const [form, setForm] = useState(DEFAULTS);
 	const [groupId, setGroupId] = useState("");
+	const [type, setType] = useState<"internal" | "schedule">("internal");
+	// New schedules default to UTC. A cron in a zone that observes daylight
+	// saving can be skipped or run twice a year, so that is a choice to make on
+	// purpose rather than inherit.
+	const [schedule, setSchedule] = useState({ schedule: "", timezone: "UTC" });
 
 	const set = <K extends keyof typeof DEFAULTS>(
 		key: K,
@@ -171,6 +202,8 @@ function NewTriggerForm({
 	) => setForm((previous) => ({ ...previous, [key]: value }));
 
 	const nameIsValid = form.name.trim().length >= 2;
+	const scheduled = type === "schedule";
+	const canSave = nameIsValid && (!scheduled || schedule.schedule.trim().length > 0);
 
 	function save() {
 		create.mutate(
@@ -178,10 +211,13 @@ function NewTriggerForm({
 				...form,
 				name: form.name.trim(),
 				description: form.description || undefined,
-				type: "internal",
+				type,
 				projectId,
 				workflowId,
 				groupId: groupId || undefined,
+				...(scheduled
+					? { schedule: schedule.schedule.trim(), timezone: schedule.timezone || "UTC" }
+					: {}),
 			} as CreateTriggerBody,
 			{
 				onSuccess: () => {
@@ -217,10 +253,31 @@ function NewTriggerForm({
 				/>
 			</div>
 
-			<p className="text-xs text-muted">
-				Type: <span className="text-foreground">Internal</span> — other sources,
-				like cron and queues, are on the way.
-			</p>
+			<div className="flex flex-col gap-1.5">
+				<Label>Type</Label>
+				<div className="grid grid-cols-2 gap-2">
+					{TYPES.map((option) => (
+						<button
+							key={option.id}
+							type="button"
+							onClick={() => setType(option.id)}
+							className={`rounded-lg border px-3 py-2 text-left transition-colors ${
+								type === option.id
+									? "border-accent bg-accent/10"
+									: "border-border bg-surface hover:bg-surface-secondary"
+							}`}
+						>
+							<p className="text-sm font-medium text-foreground">{option.label}</p>
+							<p className="text-xs text-muted">{option.hint}</p>
+						</button>
+					))}
+				</div>
+				<p className="text-xs text-muted">
+					Queue sources like Kafka and SQS are on the way.
+				</p>
+			</div>
+
+			{scheduled && <ScheduleFields value={schedule} onChange={setSchedule} />}
 
 			{groups && groups.length > 0 && (
 				<Select
@@ -248,6 +305,7 @@ function NewTriggerForm({
 				</Select>
 			)}
 
+			{!scheduled && (
 			<div className="grid grid-cols-2 gap-4">
 				<Counter
 					label="Batch size"
@@ -282,12 +340,13 @@ function NewTriggerForm({
 					onChange={(value) => set("concurrency", value)}
 				/>
 			</div>
+			)}
 
 			<div className="flex items-center gap-2">
 				<Button
 					variant="primary"
 					size="sm"
-					isDisabled={!nameIsValid}
+					isDisabled={!canSave}
 					isPending={create.isPending}
 					onPress={save}
 				>

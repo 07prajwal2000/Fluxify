@@ -12,6 +12,8 @@ import { NotFoundError } from "../../../errors/notFoundError";
 import { deleteArtifact, putArtifact } from "../../../db/natsKv";
 import type { TriggerArtifact } from "../../../modules/compiler/artifacts";
 import { triggerKey } from "../../../modules/compiler/subjects";
+import { removeSchedule, upsertSchedule } from "../../../modules/schedules/reconciler";
+import { describeSchedule, nextFires, ScheduleError } from "@fluxify/common/schedule";
 import {
 	createGroupSchema,
 	createSchema,
@@ -19,6 +21,8 @@ import {
 	listQuerySchema,
 	listSchema,
 	patchSchema,
+	previewQuerySchema,
+	previewSchema,
 	triggerSchema,
 } from "./dto";
 import {
@@ -90,6 +94,8 @@ export async function createTrigger(
 				maxBytes: data.maxBytes,
 				concurrency: data.concurrency,
 				payload: data.payload ?? null,
+				schedule: data.schedule ?? null,
+				timezone: data.timezone,
 				active: data.active ?? false,
 				createdBy: userId,
 			},
@@ -148,7 +154,9 @@ export async function deleteTrigger(id: string, acl: AuthACL[] = []) {
 
 	// Withdraw before returning: while the artifact is still there, a worker is
 	// still holding a consumer for a trigger the database no longer knows about.
-	await withdraw(existing.projectId, id);
+	// A schedule outliving its row is worse still — nothing would ever stop it.
+	if (existing.type === "schedule") await removeSchedule(existing.projectId, id);
+	else await withdraw(existing.projectId, id);
 	return { id };
 }
 
@@ -192,6 +200,31 @@ export async function listAllTriggers(
 			workflowName: row.workflowName ?? "",
 		})),
 	};
+}
+
+/**
+ * What a schedule spec means, and when it fires next.
+ *
+ * Needs no project and touches no row: it is a pure reading of the string the
+ * user is typing, which is why the form can call it on every keystroke.
+ */
+export function previewSchedule(
+	query: z.infer<typeof previewQuerySchema>,
+): z.infer<typeof previewSchema> {
+	try {
+		return {
+			description: describeSchedule(query.schedule, query.timezone),
+			nextFires: nextFires(query.schedule, query.timezone, 5).map((at) =>
+				at.toISOString(),
+			),
+		};
+	} catch (error) {
+		// A half-typed cron is the normal state of this endpoint, not an
+		// exception worth a 500.
+		throw new BadRequestError(
+			error instanceof ScheduleError ? error.message : String(error),
+		);
+	}
 }
 
 /* ------------------------------------------------------------------ groups */
@@ -285,16 +318,21 @@ async function assertGroupInProject(
  * misconfiguration that would silently do nothing.
  */
 function assertSourceMatchesType(type: string, integrationId?: string | null) {
-	if (type === "internal" && integrationId)
-		throw new BadRequestError("An internal trigger has no source to authenticate");
+	if ((type === "internal" || type === "schedule") && integrationId)
+		throw new BadRequestError(`A ${type} trigger has no source to authenticate`);
 }
 
 /**
  * An inactive trigger has no artifact at all, rather than an artifact with
  * `active: false`. A worker then has nothing to decide: what it holds is what
  * it runs.
+ *
+ * A scheduled trigger takes the other path entirely. It has no events to pull,
+ * so it gets no consumer and no artifact — the broker holds its schedule and
+ * the fire consumer turns each fire straight into a job.
  */
 async function republish(trigger: Trigger) {
+	if (trigger.type === "schedule") return republishSchedule(trigger);
 	const key = triggerKey(trigger.projectId, trigger.id);
 	if (!trigger.active) return withdraw(trigger.projectId, trigger.id);
 
@@ -320,6 +358,24 @@ async function withdraw(projectId: string, triggerId: string) {
 	await deleteArtifact(triggerKey(projectId, triggerId));
 }
 
+/**
+ * Pause is a purge with the row left inactive, and resume is an upsert. There
+ * is no third state: a schedule either exists on the broker or it does not, and
+ * the row is what says which it should be.
+ */
+async function republishSchedule(trigger: Trigger) {
+	if (!trigger.active || !trigger.schedule)
+		return removeSchedule(trigger.projectId, trigger.id);
+	await upsertSchedule({
+		id: trigger.id,
+		projectId: trigger.projectId,
+		workflowId: trigger.workflowId,
+		schedule: trigger.schedule,
+		timezone: trigger.timezone,
+		payload: trigger.payload ?? undefined,
+	});
+}
+
 function present(row: Trigger): z.infer<typeof triggerSchema> {
 	return {
 		id: row.id,
@@ -335,6 +391,8 @@ function present(row: Trigger): z.infer<typeof triggerSchema> {
 		maxBytes: row.maxBytes,
 		concurrency: row.concurrency,
 		payload: row.payload ?? null,
+		schedule: row.schedule,
+		timezone: row.timezone,
 		active: row.active,
 		createdAt: row.createdAt.toISOString(),
 		updatedAt: row.updatedAt.toISOString(),

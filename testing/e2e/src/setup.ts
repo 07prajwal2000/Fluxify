@@ -1,5 +1,6 @@
 import { afterAll } from "bun:test";
 import { stopEngines } from "./engines";
+import { stopSchedules } from "./schedule";
 import { stopTriggers } from "./trigger";
 import { stopWorkflows } from "./workflow";
 
@@ -11,6 +12,7 @@ import { stopWorkflows } from "./workflow";
 afterAll(async () => {
 	// consumers first, then the broker: its connection has to drain before the
 	// socket goes away, and a trigger consumer still pulling would keep it open
+	await stopSchedules();
 	await stopTriggers();
 	await stopWorkflows();
 	await stopEngines();

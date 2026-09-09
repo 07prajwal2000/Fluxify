@@ -404,6 +404,13 @@ export const triggersEntity = pgTable(
 		concurrency: integer().default(1).notNull(),
 		/** Static data handed to the workflow, for sources that carry none. */
 		payload: jsonb(),
+		/** The schedule spec for a `schedule` trigger, exactly as NATS reads it:
+		 *  `@at <rfc3339>`, `@every 5m`, `@daily`, or six-field cron. Null for
+		 *  every other type. */
+		schedule: varchar({ length: 255 }),
+		/** IANA name the schedule is read in. Cron only — an interval has no
+		 *  wall clock to be shifted by. */
+		timezone: varchar({ length: 64 }).default("UTC").notNull(),
 		active: boolean().default(false).notNull(),
 		createdAt: timestamp("created_at").defaultNow().notNull(),
 		createdBy: varchar("created_by", { length: 50 }),

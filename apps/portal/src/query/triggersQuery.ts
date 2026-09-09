@@ -30,6 +30,19 @@ export const triggersQuery = {
 			});
 		},
 	},
+	schedulePreview: {
+		/** Runs while the user types, so a rejected expression is expected — not
+		 *  an error worth retrying or surfacing as a failed request. */
+		useQuery(schedule: string, timezone: string) {
+			return useQuery({
+				queryKey: ["triggers", "schedule-preview", schedule, timezone],
+				queryFn: () => triggersService.previewSchedule(schedule, timezone),
+				enabled: schedule.trim().length > 0,
+				retry: false,
+				refetchOnWindowFocus: false,
+			});
+		},
+	},
 	create: {
 		mutation() {
 			const qc = useQueryClient();
