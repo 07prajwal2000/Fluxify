@@ -5,12 +5,10 @@ import { WorkflowSelectorModal } from "@/components/workflows/WorkflowField";
 import { workflowsQuery } from "@/query/workflowsQuery";
 
 /**
- * The workflows a trigger starts.
- *
- * A trigger is a source, and a source is worth pointing at more than one
- * workflow — each linked workflow gets its own run, so one failing does not
- * hold up the others. Picking is delegated to the same selector the canvas
- * uses, so a project with 400 workflows is still searchable.
+ * The workflow a trigger starts. One, not several: a trigger is a consumer, and
+ * two workflows on one source are two triggers. Picking is delegated to the
+ * same selector the canvas uses, so a project with 400 workflows is still
+ * searchable.
  */
 export function TriggerWorkflowsField({
 	projectId,
@@ -18,26 +16,20 @@ export function TriggerWorkflowsField({
 	onChange,
 }: {
 	projectId: string;
-	value: string[];
-	onChange: (value: string[]) => void;
+	value: string | null;
+	onChange: (value: string | null) => void;
 }) {
 	const [picking, setPicking] = useState(false);
 
 	return (
 		<div className="flex flex-col gap-2">
-			{value.length === 0 ? (
+			{value ? (
+				<WorkflowRow workflowId={value} onRemove={() => onChange(null)} />
+			) : (
 				<p className="rounded-lg border border-dashed border-border px-4 py-6 text-center text-xs text-muted">
-					No workflows yet. A trigger with nothing attached is saved and idle —
+					No workflow yet. A trigger with nothing attached is saved and idle —
 					it starts firing as soon as you attach one.
 				</p>
-			) : (
-				value.map((workflowId) => (
-					<WorkflowRow
-						key={workflowId}
-						workflowId={workflowId}
-						onRemove={() => onChange(value.filter((id) => id !== workflowId))}
-					/>
-				))
 			)}
 
 			<Button
@@ -46,7 +38,7 @@ export function TriggerWorkflowsField({
 				className="self-start"
 				onPress={() => setPicking(true)}
 			>
-				<TbPlus size={14} /> Add workflow
+				<TbPlus size={14} /> {value ? "Change workflow" : "Choose workflow"}
 			</Button>
 
 			<WorkflowSelectorModal
@@ -54,9 +46,7 @@ export function TriggerWorkflowsField({
 				isOpen={picking}
 				onOpenChange={setPicking}
 				onSelect={(id) => {
-					// Selecting one already in the list is a no-op rather than a
-					// duplicate row: the link is a set, and the server stores it as one.
-					if (!value.includes(id)) onChange([...value, id]);
+					onChange(id);
 					setPicking(false);
 				}}
 			/>

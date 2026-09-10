@@ -1,5 +1,5 @@
 import { logger } from "@fluxify/common";
-import type { TriggerBatchMeta, TriggerEvent } from "@fluxify/blocks";
+import type { TriggerBatchMeta, TriggerConnection, TriggerEvent } from "@fluxify/blocks";
 import { compiledWorkflow } from "../requestRouter/compiledRuntime";
 import { createJobContext } from "../requestRouter/service";
 import { isTriggerBatch } from "../triggers/types";
@@ -17,6 +17,14 @@ export type WorkflowTraceFactory = {
 	}): WorkflowTrace;
 };
 
+/** What an external queue adds to a run: its connection and batch metadata. */
+export type QueueRunExtras = {
+	connection: TriggerConnection;
+	meta: Partial<TriggerBatchMeta>;
+};
+
+let traceFactory: WorkflowTraceFactory | undefined;
+
 /**
  * Runs one workflow off the queue.
  *
@@ -25,74 +33,88 @@ export type WorkflowTraceFactory = {
  * failure so the consumer redelivers; nobody is waiting on the result, so the
  * queue is the only thing that can retry.
  */
-export function registerWorkflowJobHandler(traceFactory?: WorkflowTraceFactory) {
-	registerJobHandler(WORKFLOW_JOB, async (job) => {
-		const workflow = compiledWorkflow(job.target);
-		// Not an error worth retrying on this worker: either the workflow was
-		// deactivated while the job was queued, or this worker serves a different
-		// project. Redelivering cannot change either.
-		if (!workflow) {
-			logger.warn(
-				`[jobs] no compiled workflow ${job.target}, skipping`,
-				"JOBS.workflow",
-			);
-			return;
-		}
+export function registerWorkflowJobHandler(factory?: WorkflowTraceFactory) {
+	traceFactory = factory;
+	registerJobHandler(WORKFLOW_JOB, (job) => runWorkflowJob(job));
+}
 
-		let trace: WorkflowTrace | undefined;
-		if (workflow.artifact.tracingEnabled && traceFactory) {
-			try {
-				trace = traceFactory.start({
-					workflowId: workflow.artifact.workflowId,
-					projectId: workflow.artifact.projectId,
-					workflowVersion: workflow.artifact.workflowVersion,
-					workflowName: workflow.artifact.name,
-				});
-			} catch {
-				// Tracing is diagnostic data; a recorder bug must not fail job execution.
-			}
-		}
+/**
+ * One workflow run, shared by queued jobs and external queue batches. Resolves
+ * on success, throws on failure, and resolves without running when this
+ * process holds no such workflow.
+ */
+export async function runWorkflowJob(job: JobEnvelope, extras?: QueueRunExtras) {
+	const workflow = compiledWorkflow(job.target);
+	// Not an error worth retrying on this worker: either the workflow was
+	// deactivated while the job was queued, or this worker serves a different
+	// project. Redelivering cannot change either.
+	if (!workflow) {
+		logger.warn(
+			`[jobs] no compiled workflow ${job.target}, skipping`,
+			"JOBS.workflow",
+		);
+		return;
+	}
 
-		const { events, input, meta, source } = readInput(job);
-		const context = createJobContext({
-			id: job.id,
-			projectId: job.projectId,
-			target: job.target,
-			timeoutSeconds: workflow.artifact.timeoutSeconds,
-			trigger: { kind: "trigger", source, data: events, meta },
-			payload: input,
-			trace,
-		});
+	let trace: WorkflowTrace | undefined;
+	if (workflow.artifact.tracingEnabled && traceFactory) {
 		try {
-			const result = await workflow.run(context, input);
-			// The graph's error handler settles a failed run into a normal result, so
-			// an unsuccessful outcome has to be turned back into a throw for the
-			// queue to see it.
-			if (result && result.successful === false) {
-				throw new Error(
-					`workflow ${workflow.artifact.name} failed: ${String(result.error ?? "unknown error")}`,
-				);
-			}
-			try {
-				trace?.complete("success");
-			} catch {
-				// Telemetry must never affect job outcome.
-			}
-			logger.info(
-				`[jobs] ran workflow ${workflow.artifact.name} over ${events.length} event(s)`,
-				"JOBS.workflow",
-			);
-		} catch (error) {
-			try {
-				trace?.complete("failure");
-			} catch {
-				// Telemetry must never affect job outcome.
-			}
-			throw error;
-		} finally {
-			context.dbFactory?.dispose();
+			trace = traceFactory.start({
+				workflowId: workflow.artifact.workflowId,
+				projectId: workflow.artifact.projectId,
+				workflowVersion: workflow.artifact.workflowVersion,
+				workflowName: workflow.artifact.name,
+			});
+		} catch {
+			// Tracing is diagnostic data; a recorder bug must not fail job execution.
 		}
+	}
+
+	const { events, input, meta, source } = readInput(job);
+	const context = createJobContext({
+		id: job.id,
+		projectId: job.projectId,
+		target: job.target,
+		timeoutSeconds: workflow.artifact.timeoutSeconds,
+		trigger: {
+			kind: "trigger",
+			source,
+			data: events,
+			meta: { ...meta, ...extras?.meta },
+			connection: extras?.connection,
+		},
+		payload: input,
+		trace,
 	});
+	try {
+		const result = await workflow.run(context, input);
+		// The graph's error handler settles a failed run into a normal result, so
+		// an unsuccessful outcome has to be turned back into a throw for the
+		// queue to see it.
+		if (result && result.successful === false) {
+			throw new Error(
+				`workflow ${workflow.artifact.name} failed: ${String(result.error ?? "unknown error")}`,
+			);
+		}
+		try {
+			trace?.complete("success");
+		} catch {
+			// Telemetry must never affect job outcome.
+		}
+		logger.info(
+			`[jobs] ran workflow ${workflow.artifact.name} over ${events.length} event(s)`,
+			"JOBS.workflow",
+		);
+	} catch (error) {
+		try {
+			trace?.complete("failure");
+		} catch {
+			// Telemetry must never affect job outcome.
+		}
+		throw error;
+	} finally {
+		context.dbFactory?.dispose();
+	}
 }
 
 /**

@@ -5,7 +5,7 @@ import { createRouteHead } from "@/lib/seo";
 export const Route = createFileRoute("/_authed/$projectId/triggers_/new")({
 	head: createRouteHead(
 		"New Trigger",
-		"Create a trigger and choose which workflows it starts.",
+		"Create a trigger and choose the workflow it starts.",
 	),
 	component: CreateTriggerPage,
 });

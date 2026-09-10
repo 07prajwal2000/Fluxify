@@ -13,6 +13,7 @@ import {
 	TbHeartRateMonitor,
 	TbLock,
 	TbPlugConnected,
+	TbArrowsExchange,
 } from "react-icons/tb";
 import { integrationsQuery } from "@/query/integrationsQuery";
 import { showErrorNotification } from "@/lib/errorNotifier";
@@ -38,6 +39,7 @@ export const Route = createFileRoute("/_authed/$projectId/integrations")({
 			ai: "AI Models",
 			baas: "BaaS",
 			observability: "Observability",
+			queue: "Message Queues",
 		};
 		const category = search.group ? groupLabels[search.group] || search.group : "All";
 		return {
@@ -54,6 +56,7 @@ const CONNECTORS: { name: string; type: IntegrationGroup; icon: ReactNode }[] = 
 	{ name: "AI", type: "ai", icon: <FaRobot size={16} /> },
 	{ name: "BaaS", type: "baas", icon: <LuServerCrash size={16} /> },
 	{ name: "Observability", type: "observability", icon: <TbHeartRateMonitor size={18} /> },
+	{ name: "Queues", type: "queue", icon: <TbArrowsExchange size={18} /> },
 ];
 
 function IntegrationsPage() {
@@ -70,6 +73,7 @@ function IntegrationsPage() {
 	const { data: aiData } = integrationsQuery.getAll.useQuery(projectId, "ai");
 	const { data: baasData } = integrationsQuery.getAll.useQuery(projectId, "baas");
 	const { data: obsData } = integrationsQuery.getAll.useQuery(projectId, "observability");
+	const { data: queueData } = integrationsQuery.getAll.useQuery(projectId, "queue");
 
 	const counts: Record<IntegrationGroup, number> = {
 		database: dbData?.length ?? 0,
@@ -77,6 +81,7 @@ function IntegrationsPage() {
 		ai: aiData?.length ?? 0,
 		baas: baasData?.length ?? 0,
 		observability: obsData?.length ?? 0,
+		queue: queueData?.length ?? 0,
 	};
 
 	// sync selected group from URL (deep-link support)
@@ -303,6 +308,14 @@ const HELP_DATA: Record<
 		docsUrl: "https://docs.fluxify.rest/integrations/observability.html",
 		tip: "Use OpenTelemetry (OTLP) to unify logs, metrics, and trace export across your stack.",
 		tipIcon: <TbHeartRateMonitor size={16} className="shrink-0 text-muted mt-0.5" />,
+	},
+	queue: {
+		title: "Message Queues",
+		description:
+			"Connect Kafka so a trigger can start a workflow for every message, or every batch of messages, on a topic.",
+		docsUrl: "https://docs.fluxify.rest/integrations/message-queues.html",
+		tip: "Set a dead-letter topic under Advanced, or one bad message holds up its partition until it succeeds.",
+		tipIcon: <TbArrowsExchange size={16} className="shrink-0 text-muted mt-0.5" />,
 	},
 	baas: {
 		title: "Backend Services",

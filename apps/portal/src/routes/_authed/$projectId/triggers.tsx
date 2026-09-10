@@ -31,9 +31,9 @@ export const Route = createFileRoute("/_authed/$projectId/triggers")({
 /**
  * Every trigger in the project, wherever it is used.
  *
- * Triggers live here rather than inside one workflow because a trigger is a
- * source and a source is reusable — the same schedule can start three
- * workflows. A workflow's own settings page attaches the ones it wants.
+ * Triggers live here rather than inside one workflow so a trigger can be made
+ * before its workflow exists. A workflow's own settings page attaches the
+ * ones it wants.
  */
 function TriggersPage() {
 	const { projectId } = Route.useParams();
@@ -102,7 +102,7 @@ function TriggersPage() {
 					description={
 						search
 							? "Try a different name."
-							: "A trigger starts workflows on a schedule or an event. Create one here, then attach it to as many workflows as you need."
+							: "A trigger starts workflows on a schedule or an event. Create one here and choose the workflow it starts."
 					}
 					action={
 						!search && (
@@ -120,7 +120,7 @@ function TriggersPage() {
 								Name
 							</Table.Column>
 							<Table.Column id="fires">Fires</Table.Column>
-							<Table.Column id="workflows">Workflows</Table.Column>
+							<Table.Column id="workflow">Workflow</Table.Column>
 							<Table.Column id="status">Status</Table.Column>
 							<Table.Column id="actions" aria-label="Actions">
 								{""}
@@ -136,20 +136,25 @@ function TriggersPage() {
 												<span className="font-mono text-xs">
 													{trigger.schedule}
 												</span>
+											) : trigger.type === "kafka" ? (
+												<span className="font-mono text-xs">
+													kafka ·{" "}
+													{((trigger.source as { topics?: string[] } | null)?.topics ?? []).join(", ")}
+												</span>
 											) : (
 												trigger.type
 											)}
 										</span>
 									</Table.Cell>
 									<Table.Cell>
-										{trigger.workflows.length === 0 ? (
+										{trigger.workflow ? (
+											<span className="line-clamp-1 text-muted">
+												{trigger.workflow.name}
+											</span>
+										) : (
 											// An active trigger attached to nothing is the one state
 											// that looks fine and does nothing at all.
 											<span className="text-xs text-warning">None attached</span>
-										) : (
-											<span className="line-clamp-1 text-muted">
-												{trigger.workflows.map((w) => w.name).join(", ")}
-											</span>
 										)}
 									</Table.Cell>
 									<Table.Cell>

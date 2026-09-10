@@ -14,6 +14,7 @@ import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { CredentialsUrlForm } from "./connectors/CredentialsUrlForm";
 import { AiForm } from "./connectors/AiForm";
 import { ObservabilityForm } from "./connectors/ObservabilityForm";
+import { KafkaForm } from "./connectors/KafkaForm";
 
 type IntegrationData = { name: string; group: string; variant: string; config: Record<string, unknown> };
 
@@ -136,7 +137,7 @@ export function IntegrationForm({
 	const formProps = { projectId, name, onName: setName, config, setField };
 
 	return (
-		<div className="flex flex-col gap-4">
+		<div className="flex w-full flex-col gap-4">
 			{/* Show Connector & Variant selectors ONLY when creating a new integration (not configured yet) */}
 			{!lockGroupVariant && !id && (
 				<>
@@ -194,6 +195,8 @@ export function IntegrationForm({
 			{group === "observability" && variant === "Open Telemetry" && (
 				<ObservabilityForm {...formProps} namePlaceholder="OpenTelemetry | Production" baseUrlPlaceholder="https://http-intake.logs.datadoghq.com/api/v2/logs" baseUrlDescription="Base url of the OTLP endpoint, without the /v1/... path (OpenObserve, Datadog, Grafana, BetterStack)" />
 			)}
+
+			{group === "queue" && variant === "Kafka" && <KafkaForm {...formProps} />}
 
 			{/* Actions */}
 			{!hideActions && group && variant && (

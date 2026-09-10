@@ -4,9 +4,9 @@ A **trigger** is what starts a [workflow](/concepts/workflows). Something
 happens — a message arrives, another workflow says so — and the trigger hands
 that event to a workflow and lets it run.
 
-One trigger can start **several workflows**. Attach as many as you like: each
-one gets its own run of the same event, so a workflow that fails neither blocks
-nor retries the others.
+A trigger starts **one workflow**. To run more than one workflow from the same
+source, either create another trigger with the same settings, or have the first
+workflow start the others with the [Trigger Workflow](/concepts/blocks) block.
 
 A trigger that runs on the clock rather than on an event is a
 [schedule](/concepts/schedules) — cron expressions, intervals, and one-off
@@ -124,6 +124,65 @@ Every project has a default group, and a trigger lands there unless you choose
 another. If groups are not something you need, ignore them — the default one
 already works.
 
+To give a group its own workers, start those workers with `WORKER_GROUP_ID` set
+to the group's id. They run only that group's triggers, and every other worker
+keeps running the rest. See [Running triggers on their own workers](/deployments/production#trigger-groups).
+
+## When an integration changes
+
+A trigger that reads from an external source uses one of your
+[integrations](/integrations/) for its credentials.
+
+- **Edit the integration** and its triggers reconnect with the new details
+  within a few seconds. Nothing has to be restarted.
+- **Delete the integration** and every trigger using it is deleted too. They
+  stop reading straight away.
+
+## Reading from Kafka
+
+A Kafka trigger runs its workflow for messages arriving on one or more topics.
+It needs a [Kafka integration](/integrations/message-queues) for the brokers
+and credentials, and an enterprise license.
+
+| Setting | What it does |
+|---|---|
+| **Topics** | The topics to read, separated by commas. They are checked when you save: a topic that does not exist is refused with its name. |
+| **Create missing topics** | Instead of refusing, create any missing topic when you save, with your cluster's default number of partitions and replicas. The Kafka user needs permission to create topics. |
+| **Read messages already in the topic** | Off: the trigger starts with messages sent after it is created. On: it starts from the oldest message still kept. Only matters the first time; after that it always carries on from where it stopped. |
+| **Max attempts** | How many times a failing batch is run before it is sent to the dead-letter topic. Defaults to 3. |
+| **Retry delay** | The pause between attempts. |
+| **Commit from the workflow** | See below. |
+
+Each event carries where it came from: `meta.topic`, `meta.partition`,
+`meta.offset`, `meta.key`, `meta.headers` and `meta.timestamp`. A message body
+that is valid JSON arrives parsed; anything else arrives as text.
+
+Batch size, max wait, max bytes and concurrency work as described above.
+Concurrency here counts **partitions**: each partition always runs in order, and
+up to that many partitions run side by side.
+
+`trigger.meta.attempt` is `1` on the first run of a batch and counts up on each
+retry.
+
+### Committing from the workflow
+
+By default a batch is marked done as soon as its run succeeds. Turn on **Commit
+from the workflow** when you want to decide that yourself — for example, only
+after a slow downstream write is confirmed:
+
+```js
+// in a JS Runner block, once the batch is safely handled
+await trigger.connection.commit();
+```
+
+A batch that is never committed is read again after a restart. In this mode a
+batch that keeps failing is **not** sent to the dead-letter topic; your workflow
+can do that itself with `await trigger.connection.moveToDLQ(error)`.
+`await trigger.connection.lag()` tells you how many messages are still waiting.
+
+See [Message Queue Integrations](/integrations/message-queues) for what happens
+to failing messages and how the dead-letter topic works.
+
 ## Starting a workflow from a canvas
 
 Not everything that starts a workflow comes from outside. The
@@ -160,16 +219,15 @@ whatever it needs to work on itself.
 ## Where to set them up
 
 Triggers live on the project's **Triggers** page. Create one there — name it,
-say what fires it, and choose the workflows it starts. A trigger is not owned by
-a workflow, so the same one can be reused anywhere in the project.
+say what fires it, and choose the workflow it starts.
 
 A workflow's own **Settings → Triggers** tab shows what currently starts it. You
-can attach an existing trigger, detach one, or turn one on and off from there;
-detaching only removes the link, and the trigger keeps starting whatever else it
-is attached to. **New trigger** opens the create form in a new tab so an unsaved
-canvas is not lost.
+can attach a trigger that is not yet attached to anything, detach one, or turn
+one on and off from there. A trigger that already starts another workflow has
+to be detached from that workflow first. **New trigger** opens the create form
+in a new tab so an unsaved canvas is not lost.
 
-A trigger with no workflows attached is saved and idle — it collects nothing and
+A trigger with no workflow attached is saved and idle — it collects nothing and
 starts nothing until you attach one.
 
 Turning a trigger off stops it collecting events. Events already waiting stay

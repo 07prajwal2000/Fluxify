@@ -27,3 +27,4 @@ This means the core system doesn't care if you are using PostgreSQL, MySQL, or S
 - [**KV Stores**](./kv-stores.md): Connect to Redis, Memcached, Valkey, DragonflyDB, and more.
 - [**Observability**](./observability.md): Send logs to Loki or OpenTelemetry Logs.
 - [**AI Models**](./ai-models.md): Use LLMs like OpenAI, Claude, and Gemini.
+- [**Message Queues**](./message-queues.md): Start workflows from messages on a Kafka topic.

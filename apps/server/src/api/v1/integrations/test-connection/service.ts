@@ -76,6 +76,8 @@ export async function testIntegrationConnection(
 			break;
 		case "observability":
 			return testObservibilityConnection(variant, config, appConfigs, signal);
+		case "queue":
+			return testQueueConnection(integrationData, appConfigs);
 		default:
 			return {
 				success: false,
@@ -308,6 +310,29 @@ export async function testAiConnection(
 		default:
 			return { success: false, error: "Invalid variant" };
 	}
+}
+
+/** Kafka is the only queue variant; its client is loaded only when probed. */
+async function testQueueConnection(config: any, appConfigs: Map<string, string>) {
+	const { testKafkaConnection } = await import("@fluxify/adapters/queue/kafka");
+	return testKafkaConnection(expandCfg(config, appConfigs) as any);
+}
+
+/** A stored queue integration's config with its `cfg:` references resolved. */
+export async function resolveQueueConfig(projectId: string, config: Record<string, unknown>) {
+	const appConfigs = await decodeAppConfig(getAppConfigKeysFromData(config), projectId);
+	return expandCfg(config, appConfigs);
+}
+
+function expandCfg(config: Record<string, unknown>, appConfigs: Map<string, string>) {
+	return Object.fromEntries(
+		Object.entries(config).map(([key, value]) => [
+			key,
+			typeof value === "string" && value.startsWith("cfg:")
+				? appConfigs.get(value.slice(4))
+				: value,
+		]),
+	);
 }
 
 export async function decodeAppConfig(keys: string[], projectId: string) {

@@ -233,6 +233,7 @@ export default withMermaid(defineConfig({
 						{ text: "KV Stores", link: "/integrations/kv-stores" },
 						{ text: "Observability", link: "/integrations/observability" },
 						{ text: "AI Models", link: "/integrations/ai-models" },
+						{ text: "Message Queues", link: "/integrations/message-queues" },
 					],
 				},
 			],

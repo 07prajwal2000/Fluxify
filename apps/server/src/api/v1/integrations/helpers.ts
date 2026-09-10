@@ -19,10 +19,13 @@ import {
 	mistralVariantConfigSchema,
 	redisVariantConfigSchema,
 	memcachedVariantConfigSchema,
+	queueVariantSchema,
+	kafkaVariantConfigSchema,
 } from "./schemas";
 
 type Variants =
 	| keyof typeof databaseVariantSchema.enum
+	| keyof typeof queueVariantSchema.enum
 	| keyof typeof kvVariantSchema.enum
 	| keyof typeof observabilityVariantSchema.enum
 	| keyof typeof aiVariantSchema.enum
@@ -34,6 +37,7 @@ export const humanReadableConnectorNames = {
 	ai: "AI",
 	baas: "Backend as a Service",
 	observability: "Observability",
+	queue: "Message queues",
 };
 
 export function getIntegrationsGroups() {
@@ -54,6 +58,9 @@ export function getIntegrationsVariants(
 	}
 	if (group === "kv") {
 		return Object.values(kvVariantSchema.options);
+	}
+	if (group === "queue") {
+		return Object.values(queueVariantSchema.options);
 	}
 	return [];
 }
@@ -132,6 +139,17 @@ export function getDefaultVariantValue(variant: Variants) {
 			| z.infer<typeof redisVariantConfigSchema>
 			| z.infer<typeof memcachedVariantConfigSchema>;
 	}
+	if (variant === "Kafka") {
+		return {
+			brokers: "",
+			clientId: "",
+			ssl: false,
+			saslMechanism: "none",
+			username: "",
+			password: "",
+			dlqTopic: "",
+		} as z.infer<typeof kafkaVariantConfigSchema>;
+	}
 	return null;
 }
 
@@ -209,6 +227,9 @@ export function getSchema(
 				schema = openAiCompatibleVariantConfigSchema;
 				break;
 		}
+	} else if (group === "queue") {
+		if (!queueVariantSchema.safeParse(variant).success) return null;
+		schema = kafkaVariantConfigSchema;
 	}
 	return schema;
 }

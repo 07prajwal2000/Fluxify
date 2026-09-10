@@ -6,8 +6,8 @@
 export type ScheduledTrigger = {
 	id: string;
 	projectId: string;
-	/** Every workflow the fire starts. Empty means the schedule is not published. */
-	workflowIds: string[];
+	/** The workflow the fire starts. Null means the schedule is not published. */
+	workflowId: string | null;
 	/** The `Nats-Schedule` spec, as the user wrote it. Jitter is applied later. */
 	schedule: string;
 	/** IANA name. `UTC` unless the user chose otherwise. */
@@ -21,13 +21,13 @@ export type ScheduledTrigger = {
  *
  * This is the whole reason the fire consumer needs no database: everything it
  * has to know to enqueue the jobs was written here when the schedule was
- * published. The cost is that linking or unlinking a workflow means
- * republishing the schedule, which the reconciler does on every write anyway.
+ * published. The cost is that changing the workflow means republishing the
+ * schedule, which the reconciler does on every write anyway.
  */
 export type ScheduleFireBody = {
 	triggerId: string;
 	projectId: string;
-	workflowIds: string[];
+	workflowId: string;
 	payload?: unknown;
 };
 
@@ -37,6 +37,6 @@ export function isScheduleFireBody(value: unknown): value is ScheduleFireBody {
 		!!body &&
 		typeof body.triggerId === "string" &&
 		typeof body.projectId === "string" &&
-		Array.isArray(body.workflowIds)
+		typeof body.workflowId === "string"
 	);
 }

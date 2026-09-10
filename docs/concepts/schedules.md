@@ -5,8 +5,9 @@ A **schedule** is a [trigger](/concepts/triggers) that runs a
 Every weekday at 9am, every five minutes, or once at a moment you pick.
 
 Set one up on the project's **Triggers** page: choose **Schedule** as the type,
-write when it should run, pick the workflows it starts, and turn it on. One
-schedule can start several workflows — each gets its own run.
+write when it should run, pick the workflow it starts, and turn it on. A
+schedule starts one workflow; for two workflows on the same clock, create two
+schedules.
 
 ## Writing the schedule
 
@@ -127,7 +128,7 @@ may actually run at `00:00:37`, and it will use that same second every day. Writ
 `0 0 0 * * *` if you need midnight exactly.
 
 **A schedule is one run, never a batch.** The batch settings other triggers have
-do not apply: each firing starts every attached workflow once, with no incoming
+do not apply: each firing starts its workflow once, with no incoming
 payload to collect. A workflow that has five hundred rows to work through fetches them
 itself.
 

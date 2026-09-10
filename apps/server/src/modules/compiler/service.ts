@@ -29,6 +29,7 @@ import {
 	dbIntegrationsCache,
 	kvIntegrationsCache,
 	observabilityIntegrationsCache,
+	queueIntegrationsCache,
 	scopeToProject,
 } from "../../loaders/integrationsLoader";
 import { projectSettingsCache } from "../../loaders/projectSettingsLoader";
@@ -387,6 +388,7 @@ export async function publishProjectConfig(projectId: string) {
 			projectId,
 		),
 		aiIntegrations: scopeToProject(aiIntegrationsCache, projectId),
+		queueIntegrations: scopeToProject(queueIntegrationsCache, projectId),
 		projectSettings: (projectSettingsCache[projectId] ?? {}) as Record<
 			string,
 			string

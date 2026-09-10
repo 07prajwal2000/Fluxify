@@ -12,18 +12,10 @@ import {
  * connectors are the same row with a different type, so they arrive as entries
  * here rather than as a second entity.
  */
-export const TRIGGER_TYPES = ["internal", "schedule"] as const;
+export const TRIGGER_TYPES = ["internal", "schedule", "kafka"] as const;
 export const triggerTypeSchema = z.enum(TRIGGER_TYPES);
 
-/**
- * External connectors, which need an enterprise license to create. Empty until
- * the first connector lands; adding one here is what puts it behind the gate.
- */
-const ENTERPRISE_TRIGGER_TYPES: readonly string[] = [];
-
-export function isEnterpriseTriggerType(type: string) {
-	return ENTERPRISE_TRIGGER_TYPES.includes(type);
-}
+export { isEnterpriseTriggerType } from "../../../modules/triggers/types";
 
 /**
  * Batch settings, shared by create and patch.
@@ -53,6 +45,25 @@ const batchSchema = {
 	concurrency: z.number().int().min(1).max(64).default(1),
 };
 
+/** External queues only; ignored by `internal` and `schedule`. */
+const connectorSchema = {
+	/** What to read, in the connector's terms. Kafka: `{ topics, fromBeginning? }`. */
+	source: z.record(z.string(), z.unknown()).optional(),
+	/** `auto` commits after a successful run; `manual` leaves it to the workflow. */
+	commitMode: z.enum(["auto", "manual"]).default("auto"),
+	/** Runs of one batch before it is dead-lettered (auto) or handed back (manual). */
+	maxAttempts: z.number().int().min(1).max(20).default(3),
+	retryDelayMs: z.number().int().min(0).max(300_000).default(1000),
+};
+
+/** Kafka's own caps: 249 characters a topic name; 100 topics is plenty for one workflow. */
+export const kafkaSourceSchema = z.object({
+	topics: z.array(z.string().min(1).max(249)).min(1).max(100),
+	fromBeginning: z.boolean().optional(),
+	/** Create missing topics on save; off, a missing topic is a 400. */
+	createTopics: z.boolean().optional(),
+});
+
 /**
  * A cron that fails silently at 3am is the worst failure this feature has, so
  * the expression is parsed at the API boundary and a bad one is a 400 the user
@@ -75,11 +86,10 @@ export const createSchema = z.object({
 	type: triggerTypeSchema,
 	projectId: z.uuidv7(),
 	/**
-	 * The workflows this trigger starts. May be empty: a trigger is a reusable
-	 * source, and one created from the Triggers page before any workflow is
-	 * attached is a normal intermediate state, not a broken row.
+	 * The workflow this trigger starts. May be omitted: a trigger created from
+	 * the Triggers page before its workflow exists is saved and idle, not broken.
 	 */
-	workflowIds: z.array(z.uuidv7()).default([]),
+	workflowId: z.uuidv7().optional(),
 	/** Omitted means the project's default group, which always exists. */
 	groupId: z.uuidv7().optional(),
 	/** The connector's credentials. Never set for `internal`. */
@@ -89,6 +99,7 @@ export const createSchema = z.object({
 	active: z.boolean().optional(),
 	...batchSchema,
 	...scheduleSchema,
+	...connectorSchema,
 }).superRefine(assertScheduleShape);
 
 /**
@@ -102,12 +113,13 @@ export const patchSchema = z
 		description: z.string().max(2000),
 		groupId: z.uuidv7(),
 		integrationId: z.uuidv7(),
-		/** Replaces the link set wholesale. Omit to leave the links alone. */
-		workflowIds: z.array(z.uuidv7()),
+		/** Null detaches the workflow and idles the trigger. */
+		workflowId: z.uuidv7().nullable(),
 		payload: z.unknown(),
 		active: z.boolean(),
 		...batchSchema,
 		...scheduleSchema,
+		...connectorSchema,
 	})
 	.partial()
 	.superRefine((data, ctx) => {
@@ -146,7 +158,7 @@ export const triggerSchema = z.object({
 	description: z.string().nullable(),
 	type: z.string(),
 	projectId: z.string(),
-	workflowIds: z.array(z.string()),
+	workflowId: z.string().nullable(),
 	groupId: z.string(),
 	integrationId: z.string().nullable(),
 	batchSize: z.number().int(),
@@ -154,6 +166,10 @@ export const triggerSchema = z.object({
 	maxBytes: z.number().int(),
 	concurrency: z.number().int(),
 	payload: z.unknown().nullable(),
+	source: z.unknown().nullable(),
+	commitMode: z.string(),
+	maxAttempts: z.number().int(),
+	retryDelayMs: z.number().int(),
 	schedule: z.string().nullable(),
 	timezone: z.string(),
 	active: z.boolean(),
@@ -180,11 +196,11 @@ export const listQuerySchema = z
 		active: q.active === undefined ? undefined : q.active === "true",
 	}));
 
-/** A trigger as a list shows it: the linked workflows come with their names. */
+/** A trigger as a list shows it: the workflow comes with its name. */
 export const workflowLinkSchema = z.object({ id: z.string(), name: z.string() });
 
 export const listSchema = z.object({
-	data: z.array(triggerSchema.extend({ workflows: z.array(workflowLinkSchema) })),
+	data: z.array(triggerSchema.extend({ workflow: workflowLinkSchema.nullable() })),
 	pagination: paginationResponseSchema,
 });
 

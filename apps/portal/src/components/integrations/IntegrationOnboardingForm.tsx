@@ -6,6 +6,7 @@ import {
 } from "react-icons/fa6";
 import {
 	TbArrowLeft,
+	TbArrowsExchange,
 	TbBolt,
 	TbCheck,
 	TbCloudCog,
@@ -24,6 +25,7 @@ import { integrationsQuery } from "@/query/integrationsQuery";
 import { AiForm } from "./connectors/AiForm";
 import { CredentialsUrlForm } from "./connectors/CredentialsUrlForm";
 import { ObservabilityForm } from "./connectors/ObservabilityForm";
+import { KafkaForm } from "./connectors/KafkaForm";
 
 type Step = 1 | 2 | 3;
 
@@ -41,6 +43,7 @@ const GROUP_DETAILS: Record<string, { description: string; icon: ReactNode }> = 
 	ai: { description: "Connect an AI provider or compatible endpoint", icon: <FaRobot size={18} /> },
 	baas: { description: "Connect a managed backend service", icon: <TbCloudCog size={20} /> },
 	observability: { description: "Send logs and telemetry to your stack", icon: <TbHeartRateMonitor size={20} /> },
+	queue: { description: "Start workflows from a message queue", icon: <TbArrowsExchange size={20} /> },
 };
 
 function setPath(obj: Record<string, unknown>, path: string, value: unknown) {
@@ -144,8 +147,8 @@ export function IntegrationOnboardingForm({ projectId, onSaved }: { projectId: s
 	const groupName = group ? humanReadableConnectorNames[group as keyof typeof humanReadableConnectorNames] : "";
 
 	return (
-		<div className="flex flex-col">
-			<nav aria-label="Integration setup steps" className="border-b border-border pb-3">
+		<div className="flex flex-1 flex-col min-h-0">
+			<nav aria-label="Integration setup steps" className="shrink-0 border-b border-border pb-3">
 				<ol className="grid grid-cols-3 gap-2">
 					{([
 						[1, "Category"],
@@ -188,7 +191,7 @@ export function IntegrationOnboardingForm({ projectId, onSaved }: { projectId: s
 				</ol>
 			</nav>
 
-			<div className="flex min-h-[300px] flex-col justify-start py-4">
+			<div className="flex flex-1 min-h-0 flex-col justify-start overflow-y-auto overscroll-contain py-4 pr-1">
 				{step === 1 && (
 					<section aria-labelledby="integration-category-heading">
 						<div>
@@ -320,12 +323,13 @@ export function IntegrationOnboardingForm({ projectId, onSaved }: { projectId: s
 									baseUrlDescription="Base URL of the OTLP endpoint, without the /v1/... path (OpenObserve, Datadog, Grafana, BetterStack)"
 								/>
 							)}
+							{group === "queue" && variant === "Kafka" && <KafkaForm {...formProps} />}
 						</div>
 					</section>
 				)}
 			</div>
 
-			<div className="flex items-center justify-between border-t border-border pt-3.5">
+			<div className="shrink-0 flex items-center justify-between border-t border-border pt-3.5">
 				{step > 1 ? (
 					<Button variant="ghost" size="sm" onPress={() => goToStep((step - 1) as Step)}>
 						<TbArrowLeft size={16} /> Back

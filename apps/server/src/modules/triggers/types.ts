@@ -27,6 +27,38 @@ export type InternalTriggerMessage = {
 	origin?: Record<string, unknown>;
 };
 
+/**
+ * Whether a trigger is consumed by the execution process itself. External
+ * queues are read right beside the workflow, with no copy onto the internal
+ * broker; only `internal` travels over NATS. (Schedules publish no artifact.)
+ */
+export function consumedInExecution(type: string) {
+	return type !== "internal";
+}
+
+/**
+ * External connectors, which need an enterprise license. Creating one is
+ * refused without it; running one stops once the license is past its grace.
+ */
+const ENTERPRISE_TRIGGER_TYPES: readonly string[] = ["kafka"];
+
+export function isEnterpriseTriggerType(type: string) {
+	return ENTERPRISE_TRIGGER_TYPES.includes(type);
+}
+
+/**
+ * Whether this worker runs a trigger. A worker pinned to a group runs only that
+ * group's triggers; a connector whose license can no longer run is not started.
+ */
+export function runsHere(
+	trigger: { groupId: string; type: string },
+	workerGroupId: string | undefined,
+	canRunEnterprise: boolean,
+) {
+	if (workerGroupId && trigger.groupId !== workerGroupId) return false;
+	return canRunEnterprise || !isEnterpriseTriggerType(trigger.type);
+}
+
 export function isTriggerBatch(value: unknown): value is TriggerBatch {
 	const batch = value as TriggerBatch | undefined;
 	return !!batch && typeof batch.triggerId === "string" && Array.isArray(batch.events);

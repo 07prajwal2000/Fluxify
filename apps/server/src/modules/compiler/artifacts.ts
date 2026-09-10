@@ -73,8 +73,8 @@ export type CustomBlockArtifact = {
 export type TriggerArtifact = {
 	triggerId: string;
 	projectId: string;
-	/** Every workflow this trigger starts. One batch becomes one job each. */
-	workflowIds: string[];
+	/** The one workflow this trigger starts. */
+	workflowId: string;
 	groupId: string;
 	/** `internal` today; the connector types name their source. */
 	type: string;
@@ -86,6 +86,14 @@ export type TriggerArtifact = {
 	concurrency: number;
 	/** Static data handed to the workflow, for sources that carry none. */
 	payload?: unknown;
+	/** External queues: what to read, in the connector's terms (Kafka topics, …). */
+	source?: Record<string, unknown>;
+	/** External queues: `auto` commits after a successful run; `manual` leaves it to the workflow. */
+	commitMode?: "auto" | "manual";
+	/** External queues: runs of one batch before it is given up on. */
+	maxAttempts?: number;
+	/** External queues: wait between those runs. */
+	retryDelayMs?: number;
 	publishedAt: string;
 };
 
@@ -103,6 +111,8 @@ export type ProjectConfigPayload = {
 	kvIntegrations: Record<string, any>;
 	observabilityIntegrations: Record<string, any>;
 	aiIntegrations: Record<string, any>;
+	/** absent on configs published before queue integrations existed */
+	queueIntegrations?: Record<string, any>;
 	projectSettings: Record<string, string>;
 };
 

@@ -11,6 +11,7 @@ import { ConflictError } from "../../../errors/conflictError";
 import { ForbiddenError } from "../../../errors/forbidError";
 import { NotFoundError } from "../../../errors/notFoundError";
 import { deleteArtifact, putArtifact } from "../../../db/natsKv";
+import { resolveQueueConfig } from "../integrations/test-connection/service";
 import type { TriggerArtifact } from "../../../modules/compiler/artifacts";
 import { triggerKey } from "../../../modules/compiler/subjects";
 import { removeSchedule, upsertSchedule } from "../../../modules/schedules/reconciler";
@@ -20,6 +21,7 @@ import {
 	createSchema,
 	groupSchema,
 	isEnterpriseTriggerType,
+	kafkaSourceSchema,
 	listQuerySchema,
 	listSchema,
 	patchSchema,
@@ -32,21 +34,17 @@ import {
 	deleteTriggerRow,
 	ensureDefaultGroup,
 	findGroupById,
+	findIntegration,
 	findTriggerById,
 	findTriggerByName,
 	findWorkflow,
 	insertGroup,
 	insertTrigger,
-	linkWorkflow,
 	listGroups,
 	listTriggers,
 	projectExists,
-	setWorkflowLinks,
-	triggerIdsForWorkflow,
-	unlinkWorkflow,
 	updateTriggerRow,
-	workflowIdsFor,
-	workflowsForTriggers,
+	workflowNames,
 } from "./repository";
 
 /**
@@ -59,9 +57,7 @@ import {
  * never saw the row cannot be left consuming a trigger that no longer exists.
  */
 
-type TriggerRow = Omit<typeof triggersEntity.$inferSelect, "createdBy">;
-/** A row plus the links it needs to be published or presented. */
-type Trigger = TriggerRow & { workflowIds: string[] };
+type Trigger = Omit<typeof triggersEntity.$inferSelect, "createdBy">;
 
 export async function createTrigger(
 	userId: string,
@@ -76,7 +72,9 @@ export async function createTrigger(
 		if (!(await projectExists(data.projectId, tx)))
 			throw new NotFoundError(`project with id ${data.projectId} does not exist`);
 
-		await assertWorkflowsInProject(data.workflowIds, data.projectId, tx);
+		if (data.workflowId)
+			await assertWorkflowInProject(data.workflowId, data.projectId, tx);
+		await assertConnector(data.type, data.projectId, data.integrationId, data.source, true, tx);
 
 		if (await findTriggerByName(data.projectId, data.name, tx))
 			throw new ConflictError("trigger with that name already exists");
@@ -92,6 +90,7 @@ export async function createTrigger(
 				description: data.description,
 				type: data.type,
 				projectId: data.projectId,
+				workflowId: data.workflowId ?? null,
 				groupId,
 				integrationId: data.integrationId ?? null,
 				batchSize: data.batchSize,
@@ -99,6 +98,10 @@ export async function createTrigger(
 				maxBytes: data.maxBytes,
 				concurrency: data.concurrency,
 				payload: data.payload ?? null,
+				source: data.source ?? null,
+				commitMode: data.commitMode,
+				maxAttempts: data.maxAttempts,
+				retryDelayMs: data.retryDelayMs,
 				schedule: data.schedule ?? null,
 				timezone: data.timezone,
 				active: data.active ?? false,
@@ -106,8 +109,7 @@ export async function createTrigger(
 			},
 			tx,
 		);
-		await setWorkflowLinks(id, data.workflowIds, tx);
-		return { ...(await findTriggerById(id, tx))!, workflowIds: data.workflowIds };
+		return (await findTriggerById(id, tx))!;
 	});
 
 	await republish(created);
@@ -136,23 +138,26 @@ export async function updateTrigger(
 			? await assertGroupInProject(data.groupId, existing.projectId, tx)
 			: undefined;
 
-		if (data.workflowIds) {
-			await assertWorkflowsInProject(data.workflowIds, existing.projectId, tx);
-			await setWorkflowLinks(id, data.workflowIds, tx);
-		}
+		if (data.workflowId)
+			await assertWorkflowInProject(data.workflowId, existing.projectId, tx);
+		await assertConnector(
+			existing.type,
+			existing.projectId,
+			data.integrationId ?? existing.integrationId,
+			data.source ?? existing.source,
+			data.source !== undefined || data.integrationId !== undefined,
+			tx,
+		);
 
-		// `workflowIds` is not a column; it went to the join table above.
-		const { workflowIds: _links, ...columns } = data;
-		const row = (await updateTriggerRow(
+		return (await updateTriggerRow(
 			id,
 			{
-				...columns,
+				...data,
 				...(groupId ? { groupId } : {}),
 				...(data.payload === undefined ? {} : { payload: data.payload }),
 			},
 			tx,
 		))!;
-		return { ...row, workflowIds: await workflowIdsFor(id, tx) };
 	});
 
 	await republish(updated);
@@ -178,17 +183,15 @@ export async function getTrigger(
 	id: string,
 	acl: AuthACL[] = [],
 ): Promise<z.infer<typeof triggerSchema>> {
-	const trigger = await mustAccess(id, acl, "viewer");
-	return present({ ...trigger, workflowIds: await workflowIdsFor(id) });
+	return present(await mustAccess(id, acl, "viewer"));
 }
 
 /**
- * Attaching and detaching one workflow, which is what a workflow's own settings
- * page does.
+ * Attaching and detaching, which is what a workflow's own settings page does.
  *
- * Deliberately not a PATCH of the whole `workflowIds` set: that page knows about
- * one link and would have to send back a list it read some time ago, silently
- * dropping whatever another tab attached in between.
+ * Attaching a trigger that already starts a different workflow is refused, not
+ * silently moved: taking a live source away from one workflow is not something
+ * another workflow's settings page should do as a side effect.
  */
 export async function attachWorkflow(
 	triggerId: string,
@@ -197,14 +200,19 @@ export async function attachWorkflow(
 ) {
 	const trigger = await db.transaction(async (tx) => {
 		const existing = await mustAccess(triggerId, acl, "creator", tx);
-		await assertWorkflowsInProject([workflowId], existing.projectId, tx);
-		await linkWorkflow(triggerId, workflowId, tx);
-		return { ...existing, workflowIds: await workflowIdsFor(triggerId, tx) };
+		if (existing.workflowId === workflowId) return existing;
+		if (existing.workflowId)
+			throw new ConflictError(
+				"This trigger already starts another workflow. Detach it there first, or create a new trigger",
+			);
+		await assertWorkflowInProject(workflowId, existing.projectId, tx);
+		return (await updateTriggerRow(triggerId, { workflowId }, tx))!;
 	});
 	await republish(trigger);
 	return present(trigger);
 }
 
+/** Detaching a workflow the trigger does not start is a no-op, not an error. */
 export async function detachWorkflow(
 	triggerId: string,
 	workflowId: string,
@@ -212,8 +220,8 @@ export async function detachWorkflow(
 ) {
 	const trigger = await db.transaction(async (tx) => {
 		const existing = await mustAccess(triggerId, acl, "creator", tx);
-		await unlinkWorkflow(triggerId, workflowId, tx);
-		return { ...existing, workflowIds: await workflowIdsFor(triggerId, tx) };
+		if (existing.workflowId !== workflowId) return existing;
+		return (await updateTriggerRow(triggerId, { workflowId: null }, tx))!;
 	});
 	await republish(trigger);
 	return present(trigger);
@@ -233,9 +241,7 @@ export async function listAllTriggers(
 					acl.map((a) => a.projectId),
 				),
 		query.projectId ? eq(triggersEntity.projectId, query.projectId) : undefined,
-		query.workflowId
-			? inArray(triggersEntity.id, triggerIdsForWorkflow(query.workflowId))
-			: undefined,
+		query.workflowId ? eq(triggersEntity.workflowId, query.workflowId) : undefined,
 		query.groupId ? eq(triggersEntity.groupId, query.groupId) : undefined,
 		query.active === undefined ? undefined : eq(triggersEntity.active, query.active),
 		query.search ? ilike(triggersEntity.name, `%${query.search}%`) : undefined,
@@ -243,23 +249,21 @@ export async function listAllTriggers(
 	const filter = and(...filters.filter(Boolean)) ?? sql`1=1`;
 
 	const { result, totalCount } = await listTriggers(offset, query.perPage, filter);
-	const links = await workflowsForTriggers(result.map((row) => row.id));
+	const names = await workflowNames(
+		result.flatMap((row) => (row.workflowId ? [row.workflowId] : [])),
+	);
 	return {
 		pagination: {
 			page: query.page,
 			totalPages: Math.ceil(totalCount / query.perPage),
 			hasNext: offset + result.length < totalCount,
 		},
-		data: result.map((row) => {
-			const workflows = links.get(row.id) ?? [];
-			return {
-				...present({
-					...(row as TriggerRow),
-					workflowIds: workflows.map((workflow) => workflow.id),
-				}),
-				workflows,
-			};
-		}),
+		data: result.map((row) => ({
+			...present(row),
+			workflow: row.workflowId
+				? { id: row.workflowId, name: names.get(row.workflowId) ?? "" }
+				: null,
+		})),
 	};
 }
 
@@ -363,21 +367,19 @@ export async function mustAccess(
 }
 
 /**
- * Every workflow a trigger points at must live in the same project. A trigger
+ * The workflow a trigger points at must live in the same project. A trigger
  * firing another tenant's workflow would be a boundary crossed by a dropdown,
  * so it is refused here rather than at run time.
  */
-async function assertWorkflowsInProject(
-	workflowIds: string[],
+async function assertWorkflowInProject(
+	workflowId: string,
 	projectId: string,
 	tx?: Parameters<typeof findWorkflow>[1],
 ) {
-	for (const workflowId of new Set(workflowIds)) {
-		const workflow = await findWorkflow(workflowId, tx);
-		if (!workflow) throw new NotFoundError(`Workflow ${workflowId} not found`);
-		if (workflow.projectId !== projectId)
-			throw new BadRequestError("Workflow belongs to a different project");
-	}
+	const workflow = await findWorkflow(workflowId, tx);
+	if (!workflow) throw new NotFoundError(`Workflow ${workflowId} not found`);
+	if (workflow.projectId !== projectId)
+		throw new BadRequestError("Workflow belongs to a different project");
 }
 
 async function assertGroupInProject(
@@ -402,6 +404,43 @@ function assertSourceMatchesType(type: string, integrationId?: string | null) {
 }
 
 /**
+ * A connector reads through an integration of its own kind, from this project,
+ * and from something named. Caught here, it is a 400; left to the worker, it is
+ * a trigger that is "on" and silently reads nothing.
+ */
+async function assertConnector(
+	type: string,
+	projectId: string,
+	integrationId: string | null | undefined,
+	source: unknown,
+	/** Ask the brokers about the topics. Skipped on edits that leave the source alone. */
+	checkTopics: boolean,
+	tx?: Parameters<typeof findIntegration>[1],
+) {
+	if (type !== "kafka") return;
+	if (!kafkaSourceSchema.safeParse(source).success)
+		throw new BadRequestError("A Kafka trigger needs at least one topic");
+	const integration = integrationId ? await findIntegration(integrationId, tx) : undefined;
+	if (
+		!integration ||
+		(integration.projectId ?? projectId) !== projectId ||
+		integration.variant !== "Kafka"
+	)
+		throw new BadRequestError("A Kafka trigger needs a Kafka integration from this project");
+	if (!checkTopics) return;
+
+	// A trigger on a topic that does not exist would save fine and read nothing.
+	const { topics, createTopics } = kafkaSourceSchema.parse(source);
+	const config = await resolveQueueConfig(projectId, integration.config as Record<string, unknown>);
+	const { ensureKafkaTopics } = await import("@fluxify/adapters/queue/kafka");
+	try {
+		await ensureKafkaTopics(config as any, topics, Boolean(createTopics));
+	} catch (error) {
+		throw new BadRequestError(error instanceof Error ? error.message : String(error));
+	}
+}
+
+/**
  * An inactive trigger has no artifact at all, rather than an artifact with
  * `active: false`. A worker then has nothing to decide: what it holds is what
  * it runs.
@@ -413,16 +452,16 @@ function assertSourceMatchesType(type: string, integrationId?: string | null) {
 async function republish(trigger: Trigger) {
 	if (trigger.type === "schedule") return republishSchedule(trigger);
 	const key = triggerKey(trigger.projectId, trigger.id);
-	// No workflows is the same as inactive as far as a worker is concerned: a
+	// No workflow is the same as inactive as far as a worker is concerned: a
 	// consumer that read events and had nowhere to send them would drain the
 	// source into nothing.
-	if (!trigger.active || trigger.workflowIds.length === 0)
+	if (!trigger.active || !trigger.workflowId)
 		return withdraw(trigger.projectId, trigger.id);
 
 	const artifact: TriggerArtifact = {
 		triggerId: trigger.id,
 		projectId: trigger.projectId,
-		workflowIds: trigger.workflowIds,
+		workflowId: trigger.workflowId,
 		groupId: trigger.groupId,
 		type: trigger.type,
 		integrationId: trigger.integrationId,
@@ -431,13 +470,17 @@ async function republish(trigger: Trigger) {
 		maxBytes: trigger.maxBytes,
 		concurrency: trigger.concurrency,
 		payload: trigger.payload ?? undefined,
+		source: (trigger.source as Record<string, unknown> | null) ?? undefined,
+		commitMode: trigger.commitMode === "manual" ? "manual" : "auto",
+		maxAttempts: trigger.maxAttempts,
+		retryDelayMs: trigger.retryDelayMs,
 		publishedAt: new Date().toISOString(),
 	};
 	await putArtifact(key, artifact);
 	logger.debug(`[triggers] published ${key}`, "TRIGGERS");
 }
 
-async function withdraw(projectId: string, triggerId: string) {
+export async function withdraw(projectId: string, triggerId: string) {
 	await deleteArtifact(triggerKey(projectId, triggerId));
 }
 
@@ -452,7 +495,7 @@ async function republishSchedule(trigger: Trigger) {
 	await upsertSchedule({
 		id: trigger.id,
 		projectId: trigger.projectId,
-		workflowIds: trigger.workflowIds,
+		workflowId: trigger.workflowId,
 		schedule: trigger.schedule,
 		timezone: trigger.timezone,
 		payload: trigger.payload ?? undefined,
@@ -466,7 +509,7 @@ function present(row: Trigger): z.infer<typeof triggerSchema> {
 		description: row.description,
 		type: row.type,
 		projectId: row.projectId,
-		workflowIds: row.workflowIds,
+		workflowId: row.workflowId,
 		groupId: row.groupId,
 		integrationId: row.integrationId,
 		batchSize: row.batchSize,
@@ -474,6 +517,10 @@ function present(row: Trigger): z.infer<typeof triggerSchema> {
 		maxBytes: row.maxBytes,
 		concurrency: row.concurrency,
 		payload: row.payload ?? null,
+		source: row.source ?? null,
+		commitMode: row.commitMode,
+		maxAttempts: row.maxAttempts,
+		retryDelayMs: row.retryDelayMs,
 		schedule: row.schedule,
 		timezone: row.timezone,
 		active: row.active,

@@ -6,8 +6,10 @@ import {
 	Select,
 	cn,
 } from "@fluxify/components";
-import { TbClock, TbPlugConnected } from "react-icons/tb";
+import { TbClock } from "react-icons/tb";
+import { SiApachekafka } from "react-icons/si";
 import type { TriggerGroup } from "@/services/triggers";
+import { EnterpriseGate } from "@/components/common/Enterprise";
 
 /**
  * The parts of a trigger form that are the same wherever it is shown.
@@ -16,8 +18,7 @@ import type { TriggerGroup } from "@/services/triggers";
  * than four hundred lines of fields.
  */
 
-/** Only a schedule can be created today. `integration` joins it when a connector source lands. */
-export type TriggerType = "schedule";
+export type TriggerType = "schedule" | "kafka";
 
 export const TRIGGER_DEFAULTS = {
 	name: "",
@@ -33,11 +34,12 @@ const TRIGGER_TYPE_OPTIONS = [
 		available: true,
 	},
 	{
-		id: "integration",
-		label: "Integration",
-		hint: "A connected source — Kafka, SQS, a webhook — starts it as events arrive.",
-		icon: <TbPlugConnected size={20} />,
-		available: false,
+		id: "kafka",
+		label: "Kafka",
+		hint: "Messages on a Kafka topic start it as they arrive.",
+		icon: <SiApachekafka size={20} />,
+		available: true,
+		enterprise: true,
 	},
 ] as const;
 
@@ -56,7 +58,7 @@ export function TypeSelector({
 			{TRIGGER_TYPE_OPTIONS.map((option) => {
 				const selected = option.available && value === option.id;
 				const isOptionDisabled = !option.available || disabled;
-				return (
+				const card = (
 					<button
 						key={option.id}
 						type="button"
@@ -99,6 +101,13 @@ export function TypeSelector({
 							<span className="mt-0.5 block text-xs text-muted">{option.hint}</span>
 						</span>
 					</button>
+				);
+				return "enterprise" in option ? (
+					<EnterpriseGate key={option.id} compact>
+						{card}
+					</EnterpriseGate>
+				) : (
+					card
 				);
 			})}
 		</div>
@@ -151,13 +160,7 @@ export const BATCH_DEFAULTS = {
 
 export type BatchValues = typeof BATCH_DEFAULTS;
 
-/**
- * How events are coalesced into a run.
- *
- * Unused until a connector source exists: a schedule is always a single event,
- * so these four numbers would mean nothing on it. The server already accepts
- * and defaults them.
- */
+/** How events are coalesced into a run. Not shown for a schedule, which is always one event. */
 export function BatchFields({
 	value,
 	onChange,
@@ -203,7 +206,7 @@ export function BatchFields({
 	);
 }
 
-function Counter({
+export function Counter({
 	label,
 	hint,
 	value,

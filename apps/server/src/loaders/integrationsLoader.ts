@@ -35,6 +35,7 @@ export let dbIntegrationsCache: Record<string, any> = {};
 export let kvIntegrationsCache: Record<string, any> = {};
 export let observabilityIntegrationsCache: Record<string, any> = {};
 export let aiIntegrationsCache: Record<string, any> = {};
+export let queueIntegrationsCache: Record<string, any> = {};
 
 /**
  * Every cached config carries the id of the project that owns it. Nothing else
@@ -61,7 +62,8 @@ export function findIntegrationConfig(id: string) {
 		dbIntegrationsCache[id] ??
 		kvIntegrationsCache[id] ??
 		observabilityIntegrationsCache[id] ??
-		aiIntegrationsCache[id]
+		aiIntegrationsCache[id] ??
+		queueIntegrationsCache[id]
 	);
 }
 
@@ -93,6 +95,7 @@ export function hydrateIntegrations(
 		kv?: Record<string, any>;
 		observability?: Record<string, any>;
 		ai?: Record<string, any>;
+		queue?: Record<string, any>;
 	},
 ) {
 	if (caches.db) dbIntegrationsCache = merge(dbIntegrationsCache, caches.db, projectId);
@@ -104,6 +107,8 @@ export function hydrateIntegrations(
 			projectId,
 		);
 	if (caches.ai) aiIntegrationsCache = merge(aiIntegrationsCache, caches.ai, projectId);
+	if (caches.queue)
+		queueIntegrationsCache = merge(queueIntegrationsCache, caches.queue, projectId);
 }
 
 /** drop what this project used to own, then take what it owns now */
@@ -152,6 +157,8 @@ export function cacheForGroup(group: string | null) {
 			return kvIntegrationsCache;
 		case integrationsGroupSchema.enum.ai:
 			return aiIntegrationsCache;
+		case integrationsGroupSchema.enum.queue:
+			return queueIntegrationsCache;
 		default:
 			return undefined;
 	}
@@ -215,6 +222,9 @@ export function resolveIntegrationConfig(
 				appConfigMap,
 			);
 		}
+	} else if (group === integrationsGroupSchema.enum.queue) {
+		// flat fields, each possibly a `cfg:` reference; there is no url form
+		config = mapIntegrationToConnectionData(appConfig, raw, () => null);
 	}
 
 	if (config) {
