@@ -9,6 +9,7 @@ import {
 import { TbClock } from "react-icons/tb";
 import { SiApachekafka } from "react-icons/si";
 import type { TriggerGroup } from "@/services/triggers";
+import { EnterpriseGate } from "@/components/common/Enterprise";
 
 /**
  * The parts of a trigger form that are the same wherever it is shown.
@@ -35,9 +36,10 @@ const TRIGGER_TYPE_OPTIONS = [
 	{
 		id: "kafka",
 		label: "Kafka",
-		hint: "Messages on a Kafka topic start it as they arrive. Enterprise.",
+		hint: "Messages on a Kafka topic start it as they arrive.",
 		icon: <SiApachekafka size={20} />,
 		available: true,
+		enterprise: true,
 	},
 ] as const;
 
@@ -56,7 +58,7 @@ export function TypeSelector({
 			{TRIGGER_TYPE_OPTIONS.map((option) => {
 				const selected = option.available && value === option.id;
 				const isOptionDisabled = !option.available || disabled;
-				return (
+				const card = (
 					<button
 						key={option.id}
 						type="button"
@@ -99,6 +101,13 @@ export function TypeSelector({
 							<span className="mt-0.5 block text-xs text-muted">{option.hint}</span>
 						</span>
 					</button>
+				);
+				return "enterprise" in option ? (
+					<EnterpriseGate key={option.id} compact>
+						{card}
+					</EnterpriseGate>
+				) : (
+					card
 				);
 			})}
 		</div>

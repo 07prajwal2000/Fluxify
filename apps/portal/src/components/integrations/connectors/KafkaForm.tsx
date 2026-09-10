@@ -1,4 +1,4 @@
-import { Checkbox, Input } from "@fluxify/components";
+import { Checkbox, Input, Label, ListBox, Select } from "@fluxify/components";
 import { AppConfigSelector } from "../AppConfigSelector";
 import type { ConnectorFormProps } from "./types";
 
@@ -34,20 +34,32 @@ export function KafkaForm({ projectId, name, onName, config, setField }: Connect
 					label="Client ID"
 					placeholder="fluxify"
 				/>
-				<div className="flex flex-col gap-1">
-					<label className="text-xs font-medium text-foreground">Authentication</label>
-					<select
-						value={mechanism}
-						onChange={(e) => setField("saslMechanism", e.target.value)}
-						className="rounded-md border border-border bg-background-secondary px-3 py-2 text-sm text-foreground outline-none"
-					>
-						{SASL_MECHANISMS.map((m) => (
-							<option key={m} value={m}>
-								{m === "none" ? "None" : `SASL ${m}`}
-							</option>
-						))}
-					</select>
-				</div>
+				<Select
+					fullWidth
+					variant="secondary"
+					selectedKey={mechanism}
+					onSelectionChange={(key) => {
+						if (key != null) {
+							setField("saslMechanism", String(key));
+						}
+					}}
+				>
+					<Label>Authentication</Label>
+					<Select.Trigger>
+						<Select.Value />
+						<Select.Indicator />
+					</Select.Trigger>
+					<Select.Popover>
+						<ListBox>
+							{SASL_MECHANISMS.map((m) => (
+								<ListBox.Item key={m} id={m} textValue={m === "none" ? "None" : `SASL ${m}`}>
+									{m === "none" ? "None" : `SASL ${m}`}
+									<ListBox.ItemIndicator />
+								</ListBox.Item>
+							))}
+						</ListBox>
+					</Select.Popover>
+				</Select>
 				{mechanism !== "none" && (
 					<>
 						<AppConfigSelector

@@ -137,7 +137,7 @@ export function IntegrationForm({
 	const formProps = { projectId, name, onName: setName, config, setField };
 
 	return (
-		<div className="flex flex-col gap-4">
+		<div className="flex w-full flex-col gap-4">
 			{/* Show Connector & Variant selectors ONLY when creating a new integration (not configured yet) */}
 			{!lockGroupVariant && !id && (
 				<>

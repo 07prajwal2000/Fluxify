@@ -147,8 +147,8 @@ export function IntegrationOnboardingForm({ projectId, onSaved }: { projectId: s
 	const groupName = group ? humanReadableConnectorNames[group as keyof typeof humanReadableConnectorNames] : "";
 
 	return (
-		<div className="flex flex-col">
-			<nav aria-label="Integration setup steps" className="border-b border-border pb-3">
+		<div className="flex flex-1 flex-col min-h-0">
+			<nav aria-label="Integration setup steps" className="shrink-0 border-b border-border pb-3">
 				<ol className="grid grid-cols-3 gap-2">
 					{([
 						[1, "Category"],
@@ -191,7 +191,7 @@ export function IntegrationOnboardingForm({ projectId, onSaved }: { projectId: s
 				</ol>
 			</nav>
 
-			<div className="flex min-h-[300px] flex-col justify-start py-4">
+			<div className="flex flex-1 min-h-0 flex-col justify-start overflow-y-auto overscroll-contain py-4 pr-1">
 				{step === 1 && (
 					<section aria-labelledby="integration-category-heading">
 						<div>
@@ -329,7 +329,7 @@ export function IntegrationOnboardingForm({ projectId, onSaved }: { projectId: s
 				)}
 			</div>
 
-			<div className="flex items-center justify-between border-t border-border pt-3.5">
+			<div className="shrink-0 flex items-center justify-between border-t border-border pt-3.5">
 				{step > 1 ? (
 					<Button variant="ghost" size="sm" onPress={() => goToStep((step - 1) as Step)}>
 						<TbArrowLeft size={16} /> Back
