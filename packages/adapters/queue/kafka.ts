@@ -323,8 +323,25 @@ export async function testKafkaConnection(config: KafkaConfig) {
 		await admin.listTopics();
 		return { success: true, error: "" };
 	} catch (error) {
-		return { success: false, error: error instanceof Error ? error.message : String(error) };
+		return { success: false, error: rootCause(error) };
 	} finally {
 		await admin.close().catch(() => undefined);
 	}
+}
+
+/**
+ * The client wraps a failure in layers of "Listing topics failed" /
+ * "Cannot connect to any broker"; the innermost message is the one a user can
+ * act on, so it is kept alongside the outer one.
+ */
+function rootCause(error: unknown): string {
+	const outer = error instanceof Error ? error.message : String(error);
+	let inner: unknown = error;
+	while (inner instanceof Error) {
+		const next = (inner as AggregateError).errors?.[0] ?? inner.cause;
+		if (!next) break;
+		inner = next;
+	}
+	const detail = inner instanceof Error ? inner.message : String(inner);
+	return detail === outer ? outer : `${outer} ${detail}`;
 }

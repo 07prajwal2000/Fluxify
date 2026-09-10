@@ -136,6 +136,11 @@ function TriggersPage() {
 												<span className="font-mono text-xs">
 													{trigger.schedule}
 												</span>
+											) : trigger.type === "kafka" ? (
+												<span className="font-mono text-xs">
+													kafka ·{" "}
+													{((trigger.source as { topics?: string[] } | null)?.topics ?? []).join(", ")}
+												</span>
 											) : (
 												trigger.type
 											)}

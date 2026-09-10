@@ -247,7 +247,9 @@ const trigger: {
   id?: string;
   // ALWAYS an array, even for a single event
   data: Array<{ data: any; meta: { id?: string; receivedAt?: string; source?: string } }>;
-  meta: { batchId: string; size: number; firstReceivedAt?: string; lastReceivedAt?: string };
+  meta: { batchId: string; size: number; firstReceivedAt?: string; lastReceivedAt?: string; attempt?: number };
+  // Kafka only; commit() is needed when the trigger commits from the workflow
+  connection?: { commit(): Promise<void>; moveToDLQ(error?: any): Promise<void>; lag(): Promise<number | null> };
 };
 
 // 2. Request Helpers

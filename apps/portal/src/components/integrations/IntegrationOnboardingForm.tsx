@@ -6,6 +6,7 @@ import {
 } from "react-icons/fa6";
 import {
 	TbArrowLeft,
+	TbArrowsExchange,
 	TbBolt,
 	TbCheck,
 	TbCloudCog,
@@ -24,6 +25,7 @@ import { integrationsQuery } from "@/query/integrationsQuery";
 import { AiForm } from "./connectors/AiForm";
 import { CredentialsUrlForm } from "./connectors/CredentialsUrlForm";
 import { ObservabilityForm } from "./connectors/ObservabilityForm";
+import { KafkaForm } from "./connectors/KafkaForm";
 
 type Step = 1 | 2 | 3;
 
@@ -41,6 +43,7 @@ const GROUP_DETAILS: Record<string, { description: string; icon: ReactNode }> = 
 	ai: { description: "Connect an AI provider or compatible endpoint", icon: <FaRobot size={18} /> },
 	baas: { description: "Connect a managed backend service", icon: <TbCloudCog size={20} /> },
 	observability: { description: "Send logs and telemetry to your stack", icon: <TbHeartRateMonitor size={20} /> },
+	queue: { description: "Start workflows from a message queue", icon: <TbArrowsExchange size={20} /> },
 };
 
 function setPath(obj: Record<string, unknown>, path: string, value: unknown) {
@@ -320,6 +323,7 @@ export function IntegrationOnboardingForm({ projectId, onSaved }: { projectId: s
 									baseUrlDescription="Base URL of the OTLP endpoint, without the /v1/... path (OpenObserve, Datadog, Grafana, BetterStack)"
 								/>
 							)}
+							{group === "queue" && variant === "Kafka" && <KafkaForm {...formProps} />}
 						</div>
 					</section>
 				)}

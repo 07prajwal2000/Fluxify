@@ -138,6 +138,50 @@ A trigger that reads from an external source uses one of your
 - **Delete the integration** and every trigger using it is deleted too. They
   stop reading straight away.
 
+## Reading from Kafka
+
+A Kafka trigger runs its workflow for messages arriving on one or more topics.
+It needs a [Kafka integration](/integrations/message-queues) for the brokers
+and credentials, and an enterprise license.
+
+| Setting | What it does |
+|---|---|
+| **Topics** | The topics to read, separated by commas. |
+| **Read messages already in the topic** | Off: the trigger starts with messages sent after it is created. On: it starts from the oldest message still kept. Only matters the first time; after that it always carries on from where it stopped. |
+| **Max attempts** | How many times a failing batch is run before it is sent to the dead-letter topic. Defaults to 3. |
+| **Retry delay** | The pause between attempts. |
+| **Commit from the workflow** | See below. |
+
+Each event carries where it came from: `meta.topic`, `meta.partition`,
+`meta.offset`, `meta.key`, `meta.headers` and `meta.timestamp`. A message body
+that is valid JSON arrives parsed; anything else arrives as text.
+
+Batch size, max wait, max bytes and concurrency work as described above.
+Concurrency here counts **partitions**: each partition always runs in order, and
+up to that many partitions run side by side.
+
+`trigger.meta.attempt` is `1` on the first run of a batch and counts up on each
+retry.
+
+### Committing from the workflow
+
+By default a batch is marked done as soon as its run succeeds. Turn on **Commit
+from the workflow** when you want to decide that yourself — for example, only
+after a slow downstream write is confirmed:
+
+```js
+// in a JS Runner block, once the batch is safely handled
+await trigger.connection.commit();
+```
+
+A batch that is never committed is read again after a restart. In this mode a
+batch that keeps failing is **not** sent to the dead-letter topic; your workflow
+can do that itself with `await trigger.connection.moveToDLQ(error)`.
+`await trigger.connection.lag()` tells you how many messages are still waiting.
+
+See [Message Queue Integrations](/integrations/message-queues) for what happens
+to failing messages and how the dead-letter topic works.
+
 ## Starting a workflow from a canvas
 
 Not everything that starts a workflow comes from outside. The

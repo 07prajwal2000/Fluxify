@@ -11,11 +11,19 @@ import { FormWizard, SummaryItem, type WizardStep } from "@/components/common/Fo
 import { ScheduleFields } from "@/components/workflows/ScheduleFields";
 import { TriggerWorkflowsField } from "@/components/triggers/TriggerWorkflowsField";
 import {
+	BATCH_DEFAULTS,
+	BatchFields,
 	GroupSelect,
 	TRIGGER_DEFAULTS,
 	TypeSelector,
 	type TriggerType,
 } from "@/components/triggers/triggerForm";
+import {
+	DELIVERY_DEFAULTS,
+	DeliveryFields,
+	KafkaSourceFields,
+	topicList,
+} from "@/components/triggers/KafkaTriggerFields";
 import { triggersQuery } from "@/query/triggersQuery";
 import { showErrorNotification } from "@/lib/errorNotifier";
 import type {
@@ -58,57 +66,117 @@ export function TriggerWizard({
 		schedule: initialTrigger?.schedule ?? "",
 		timezone: initialTrigger?.timezone || "UTC",
 	});
+	const source = (initialTrigger?.source ?? {}) as { topics?: string[]; fromBeginning?: boolean };
+	const [kafka, setKafka] = useState({
+		integrationId: initialTrigger?.integrationId ?? "",
+		topics: (source.topics ?? []).join(", "),
+		fromBeginning: Boolean(source.fromBeginning),
+	});
+	const [batch, setBatch] = useState({
+		batchSize: initialTrigger?.batchSize ?? BATCH_DEFAULTS.batchSize,
+		maxWaitMs: initialTrigger?.maxWaitMs ?? BATCH_DEFAULTS.maxWaitMs,
+		maxBytes: initialTrigger?.maxBytes ?? BATCH_DEFAULTS.maxBytes,
+		concurrency: initialTrigger?.concurrency ?? BATCH_DEFAULTS.concurrency,
+	});
+	const [delivery, setDelivery] = useState({
+		commitMode: (initialTrigger?.commitMode as "auto" | "manual") ?? DELIVERY_DEFAULTS.commitMode,
+		maxAttempts: initialTrigger?.maxAttempts ?? DELIVERY_DEFAULTS.maxAttempts,
+		retryDelayMs: initialTrigger?.retryDelayMs ?? DELIVERY_DEFAULTS.retryDelayMs,
+	});
 
 	const set = (key: keyof typeof TRIGGER_DEFAULTS, value: string) =>
 		setForm((previous) => ({ ...previous, [key]: value }));
 
 	const nameIsValid = form.name.trim().length >= 2;
+	const isKafka = type === "kafka";
+	const topics = topicList(kafka.topics);
+
+	/** The fields that differ by type; the rest of the body is shared. */
+	const typeFields = isKafka
+		? {
+				integrationId: kafka.integrationId,
+				source: { topics, fromBeginning: kafka.fromBeginning },
+				...batch,
+				...delivery,
+			}
+		: { schedule: schedule.schedule.trim(), timezone: schedule.timezone || "UTC" };
+
+	const done = (message: string) => ({
+		onSuccess: () => {
+			toast.success(message);
+			onSuccess();
+		},
+		onError: (error: unknown) => showErrorNotification(error as Error),
+	});
 
 	function submit() {
+		const shared = {
+			name: form.name.trim(),
+			description: form.description.trim() || undefined,
+			groupId: groupId || undefined,
+			active,
+			...typeFields,
+		};
 		if (initialTrigger) {
-			const body: UpdateTriggerBody = {
-				name: form.name.trim(),
-				description: form.description.trim() || undefined,
-				groupId: groupId || undefined,
-				workflowId,
-				active,
-				schedule: schedule.schedule.trim(),
-				timezone: schedule.timezone || "UTC",
-			};
-			update.mutate(
-				{ id: initialTrigger.id, body },
-				{
-					onSuccess: () => {
-						toast.success("Trigger updated");
-						onSuccess();
-					},
-					onError: (error) => showErrorNotification(error as Error),
-				},
-			);
+			const body: UpdateTriggerBody = { ...shared, workflowId };
+			update.mutate({ id: initialTrigger.id, body }, done("Trigger updated"));
 		} else {
 			create.mutate(
 				{
-					...form,
-					name: form.name.trim(),
-					description: form.description.trim() || undefined,
+					...shared,
 					type,
 					projectId,
 					workflowId: workflowId ?? undefined,
-					groupId: groupId || undefined,
-					active,
-					schedule: schedule.schedule.trim(),
-					timezone: schedule.timezone || "UTC",
 				} as CreateTriggerBody,
-				{
-					onSuccess: () => {
-						toast.success("Trigger created");
-						onSuccess();
-					},
-					onError: (error) => showErrorNotification(error as Error),
-				},
+				done("Trigger created"),
 			);
 		}
 	}
+
+	const sourceSteps: WizardStep[] = isKafka
+		? [
+				{
+					key: "source",
+					label: "Topics",
+					title: "Say what it reads",
+					description: "The Kafka integration to connect with, and the topics to read.",
+					isValid: Boolean(kafka.integrationId) && topics.length > 0,
+					content: (
+						<KafkaSourceFields
+							projectId={projectId}
+							value={kafka}
+							onChange={setKafka}
+							isEdit={isEdit}
+						/>
+					),
+				},
+				{
+					key: "delivery",
+					label: "Delivery",
+					title: "Shape each run",
+					description: "How many messages one run gets, and what happens when a run fails.",
+					content: (
+						<div className="flex flex-col gap-6">
+							<BatchFields
+								value={batch}
+								onChange={(key, next) => setBatch((previous) => ({ ...previous, [key]: next }))}
+							/>
+							<DeliveryFields value={delivery} onChange={setDelivery} />
+						</div>
+					),
+				},
+			]
+		: [
+				{
+					key: "schedule",
+					label: "Schedule",
+					title: "Say when it runs",
+					description:
+						"The preview below is the schedule that will actually run — check it before moving on.",
+					isValid: schedule.schedule.trim().length > 0,
+					content: <ScheduleFields value={schedule} onChange={setSchedule} />,
+				},
+			];
 
 	const steps: WizardStep[] = [
 		{
@@ -136,7 +204,7 @@ export function TriggerWizard({
 						isInvalid={form.name.length > 0 && !nameIsValid}
 					>
 						<Label>Name</Label>
-						<Input placeholder="Nightly report" />
+						<Input placeholder={isKafka ? "New orders" : "Nightly report"} />
 					</TextField>
 
 					<div className="flex flex-col gap-1.5">
@@ -159,15 +227,7 @@ export function TriggerWizard({
 				</div>
 			),
 		},
-		{
-			key: "schedule",
-			label: "Schedule",
-			title: "Say when it runs",
-			description:
-				"The preview below is the schedule that will actually run — check it before moving on.",
-			isValid: schedule.schedule.trim().length > 0,
-			content: <ScheduleFields value={schedule} onChange={setSchedule} />,
-		},
+		...sourceSteps,
 		{
 			key: "workflow",
 			label: "Workflow",
@@ -193,8 +253,21 @@ export function TriggerWizard({
 				<div className="flex flex-col gap-5">
 					<dl className="grid grid-cols-2 gap-px overflow-hidden rounded-lg border border-border bg-border">
 						<SummaryItem label="Name" value={form.name.trim()} />
-						<SummaryItem label="Schedule" value={schedule.schedule} mono />
-						<SummaryItem label="Timezone" value={schedule.timezone} />
+						{isKafka ? (
+							<>
+								<SummaryItem label="Topics" value={topics.join(", ")} mono />
+								<SummaryItem label="Batch size" value={String(batch.batchSize)} />
+								<SummaryItem
+									label="Commit"
+									value={delivery.commitMode === "manual" ? "From the workflow" : "After each run"}
+								/>
+							</>
+						) : (
+							<>
+								<SummaryItem label="Schedule" value={schedule.schedule} mono />
+								<SummaryItem label="Timezone" value={schedule.timezone} />
+							</>
+						)}
 						<SummaryItem
 							label="Workflow"
 							value={workflowId ? "Attached" : "None yet"}

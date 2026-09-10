@@ -80,6 +80,17 @@ declare const trigger: {
     size: number;
     firstReceivedAt?: string;
     lastReceivedAt?: string;
+    /** Kafka only: 1 on the first run of this batch, counting up on each retry. */
+    attempt?: number;
+  };
+  /** Kafka only: the source this batch was read from. */
+  connection?: {
+    /** Mark the batch done. Needed only when the trigger commits from the workflow. */
+    commit(): Promise<void>;
+    /** Copy the batch to the integration's dead-letter topic. */
+    moveToDLQ(error?: any): Promise<void>;
+    /** Messages still waiting to be read, or null when unknown. */
+    lag(): Promise<number | null>;
   };
 };
 declare const logger: {

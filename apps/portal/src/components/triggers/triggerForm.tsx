@@ -6,7 +6,8 @@ import {
 	Select,
 	cn,
 } from "@fluxify/components";
-import { TbClock, TbPlugConnected } from "react-icons/tb";
+import { TbClock } from "react-icons/tb";
+import { SiApachekafka } from "react-icons/si";
 import type { TriggerGroup } from "@/services/triggers";
 
 /**
@@ -16,8 +17,7 @@ import type { TriggerGroup } from "@/services/triggers";
  * than four hundred lines of fields.
  */
 
-/** Only a schedule can be created today. `integration` joins it when a connector source lands. */
-export type TriggerType = "schedule";
+export type TriggerType = "schedule" | "kafka";
 
 export const TRIGGER_DEFAULTS = {
 	name: "",
@@ -33,11 +33,11 @@ const TRIGGER_TYPE_OPTIONS = [
 		available: true,
 	},
 	{
-		id: "integration",
-		label: "Integration",
-		hint: "A connected source — Kafka, SQS, a webhook — starts it as events arrive.",
-		icon: <TbPlugConnected size={20} />,
-		available: false,
+		id: "kafka",
+		label: "Kafka",
+		hint: "Messages on a Kafka topic start it as they arrive. Enterprise.",
+		icon: <SiApachekafka size={20} />,
+		available: true,
 	},
 ] as const;
 
@@ -151,13 +151,7 @@ export const BATCH_DEFAULTS = {
 
 export type BatchValues = typeof BATCH_DEFAULTS;
 
-/**
- * How events are coalesced into a run.
- *
- * Unused until a connector source exists: a schedule is always a single event,
- * so these four numbers would mean nothing on it. The server already accepts
- * and defaults them.
- */
+/** How events are coalesced into a run. Not shown for a schedule, which is always one event. */
 export function BatchFields({
 	value,
 	onChange,
@@ -203,7 +197,7 @@ export function BatchFields({
 	);
 }
 
-function Counter({
+export function Counter({
 	label,
 	hint,
 	value,
