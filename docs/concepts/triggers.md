@@ -124,6 +124,20 @@ Every project has a default group, and a trigger lands there unless you choose
 another. If groups are not something you need, ignore them — the default one
 already works.
 
+To give a group its own workers, start those workers with `WORKER_GROUP_ID` set
+to the group's id. They run only that group's triggers, and every other worker
+keeps running the rest. See [Running triggers on their own workers](/deployments/production#trigger-groups).
+
+## When an integration changes
+
+A trigger that reads from an external source uses one of your
+[integrations](/integrations/) for its credentials.
+
+- **Edit the integration** and its triggers reconnect with the new details
+  within a few seconds. Nothing has to be restarted.
+- **Delete the integration** and every trigger using it is deleted too. They
+  stop reading straight away.
+
 ## Starting a workflow from a canvas
 
 Not everything that starts a workflow comes from outside. The

@@ -423,7 +423,7 @@ async function republish(trigger: Trigger) {
 	logger.debug(`[triggers] published ${key}`, "TRIGGERS");
 }
 
-async function withdraw(projectId: string, triggerId: string) {
+export async function withdraw(projectId: string, triggerId: string) {
 	await deleteArtifact(triggerKey(projectId, triggerId));
 }
 

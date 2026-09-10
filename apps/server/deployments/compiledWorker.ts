@@ -16,7 +16,7 @@ import type {
 } from "../src/modules/compiler/artifacts";
 import { artifactId, artifactKind } from "../src/modules/compiler/subjects";
 import { TriggerWorker } from "../src/modules/triggers/consumers";
-import { consumedInExecution } from "../src/modules/triggers/types";
+import { consumedInExecution, runsHere } from "../src/modules/triggers/types";
 import { startFireConsumer } from "../src/modules/schedules/fire";
 import { fireInternalTrigger } from "../src/modules/triggers/publisher";
 import { TRIGGER_WORKFLOW_JOB } from "@fluxify/blocks";
@@ -32,7 +32,7 @@ import { executionRuntimeEnvironment } from "../src/modules/requestRouter/execut
 import type { ArtifactEntry } from "../src/modules/requestRouter/compiledRuntime";
 import { closeNats } from "../src/db/nats";
 import { watchInstanceSettings } from "../src/loaders/instanceSettingsLoader";
-import { watchLicense } from "../src/lib/edition";
+import { currentEntitlement, watchLicense } from "../src/lib/edition";
 import { startJobWorker } from "../src/modules/jobs/consumer";
 import { enqueueJob } from "../src/modules/jobs/publisher";
 import type { JobEnvelope } from "../src/modules/jobs/types";
@@ -45,6 +45,7 @@ import {
 	OTLP_LOGGER_LEVEL,
 	WORKER_PROJECT_ID,
 	WORKER_MODE,
+	WORKER_GROUP_ID,
 	MAX_REQUEST_BODY_BYTES,
 	getEnv,
 } from "../src/lib/env";
@@ -156,7 +157,7 @@ function spawnExecution() {
 		port,
 		databaseIdleTimeoutMs,
 		asyncExecutor,
-		artifacts: [...artifacts.values()],
+		artifacts: [...artifacts.values()].map(placed).filter((entry) => entry.value !== null),
 		workerTimeoutsEnabled: timeoutPolicyEnabled(),
 		maxRequestBodyBytes: MAX_REQUEST_BODY_BYTES,
 		logging: {
@@ -267,33 +268,48 @@ function handleArtifactChange(entry: ArtifactEntry) {
 	if (entry.value === null) artifacts.delete(entry.key);
 	else artifacts.set(entry.key, entry);
 
-	// An internal trigger is consumed here, where the broker connection lives.
-	// An external queue is consumed by the execution process beside its
-	// workflow; forwarding its artifact is how this half starts and stops it.
-	// A withdrawal names no type, so it goes to both — each ignores what it
-	// does not hold.
-	if (kind === "trigger") {
-		const trigger = entry.value as TriggerArtifact | null;
-		const external = trigger ? consumedInExecution(trigger.type) : null;
-		if (external !== false) {
-			execution?.send({ type: "artifact", entry } satisfies ExecutionMessage);
-		}
-		if (external !== true) {
-			void triggerWorker
-				.apply(artifactId(entry.key), trigger)
-				.catch((error) =>
-					logger.error(
-						`failed to apply trigger ${entry.key}: ${String(error)}`,
-						"WORKER.triggers",
-					),
-				);
-		}
-		return;
-	}
+	if (kind === "trigger") return applyTrigger(placed(entry));
 
 	if (policyChanged) updateTimeoutPolicy(entry.key, entry.value);
 	execution?.send({ type: "artifact", entry } satisfies ExecutionMessage);
 	if (policyChanged && execution) synchronizeMonitoring();
+}
+
+/**
+ * A trigger as this worker sees it: withdrawn when it belongs to another group
+ * or its connector's license can no longer run. The raw artifact stays in
+ * `artifacts`, so a license renewed later starts it again.
+ */
+function placed(entry: ArtifactEntry): ArtifactEntry {
+	const trigger = entry.value as TriggerArtifact | null;
+	if (artifactKind(entry.key) !== "trigger" || !trigger) return entry;
+	return runsHere(trigger, WORKER_GROUP_ID, currentEntitlement().canRun)
+		? entry
+		: { key: entry.key, value: null };
+}
+
+/**
+ * An internal trigger is consumed here, where the broker connection lives. An
+ * external queue is consumed by the execution process beside its workflow;
+ * forwarding its artifact is how this half starts and stops it. A withdrawal
+ * names no type, so it goes to both — each ignores what it does not hold.
+ */
+function applyTrigger(entry: ArtifactEntry) {
+	const trigger = entry.value as TriggerArtifact | null;
+	const external = trigger ? consumedInExecution(trigger.type) : null;
+	if (external !== false) {
+		execution?.send({ type: "artifact", entry } satisfies ExecutionMessage);
+	}
+	if (external !== true) {
+		void triggerWorker
+			.apply(artifactId(entry.key), trigger)
+			.catch((error) =>
+				logger.error(
+					`failed to apply trigger ${entry.key}: ${String(error)}`,
+					"WORKER.triggers",
+				),
+			);
+	}
 }
 
 /**
@@ -323,6 +339,25 @@ const triggerWorker = new TriggerWorker({
 // a worker that cannot learn its edition would be guessing.
 await watchInstanceSettings();
 await watchLicense();
+
+/**
+ * A license lapsing past its grace, or being renewed, changes nothing in the
+ * artifact store, so it is noticed here instead: the connectors are re-placed
+ * whenever the answer flips.
+ */
+let canRunEnterprise = currentEntitlement().canRun;
+const entitlementTimer = setInterval(() => {
+	const canRun = currentEntitlement().canRun;
+	if (canRun === canRunEnterprise) return;
+	canRunEnterprise = canRun;
+	logger.warn(
+		`enterprise connectors ${canRun ? "resumed" : "stopped"} — license can${canRun ? "" : " no longer"} run them`,
+		"WORKER.triggers",
+	);
+	for (const entry of artifacts.values()) {
+		if (artifactKind(entry.key) === "trigger") applyTrigger(placed(entry));
+	}
+}, 60_000);
 
 const artifactWatch = await watchProjectArtifacts(
 	WORKER_PROJECT_ID,
@@ -397,6 +432,7 @@ async function shutdown(sig: string) {
 	if (shuttingDown) return;
 	shuttingDown = true;
 	if (watchdogTimer) clearInterval(watchdogTimer);
+	clearInterval(entitlementTimer);
 	logger.info(`received ${sig} — shutting down`);
 	try {
 		execution?.kill();

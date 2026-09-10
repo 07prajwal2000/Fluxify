@@ -81,6 +81,13 @@ export const serverEnvSchema = baseEnvSchema.extend({
 			"What this worker runs: route serves HTTP routes, workflow runs background workflows, both does either. Defaults to both. One mode per project — two workers on the same project in different modes is refused at boot",
 		),
 
+	WORKER_GROUP_ID: z
+		.string()
+		.optional()
+		.describe(
+			"Trigger group this worker runs. Unset runs every group. Routes and queued jobs are unaffected — only triggers are placed by group",
+		),
+
 	AI_API_KEY: z
 		.string()
 		.max(255)
@@ -209,6 +216,8 @@ export const ENABLE_BUILTIN_WORKER = getEnv("ENABLE_BUILTIN_WORKER")!;
 export const WORKER_PROJECT_ID = getEnv("WORKER_PROJECT_ID")!;
 /** what kind of work this worker takes on — see `jobs/subjects.ts` */
 export const WORKER_MODE = getEnv("WORKER_MODE") || "both";
+/** the trigger group this worker runs; unset runs every group */
+export const WORKER_GROUP_ID = getEnv("WORKER_GROUP_ID") || undefined;
 
 /** hard body-size ceiling for user-facing routes, in bytes (env is in KB) */
 export const MAX_REQUEST_BODY_BYTES =

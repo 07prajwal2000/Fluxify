@@ -135,6 +135,17 @@ export async function deleteTriggerRow(id: string, tx?: DbTransactionType) {
 	await (tx ?? db).delete(triggersEntity).where(eq(triggersEntity.id, id));
 }
 
+/** Triggers reading through one integration — withdrawn when it is deleted. */
+export async function findTriggersByIntegration(
+	integrationId: string,
+	tx?: DbTransactionType,
+) {
+	return (tx ?? db)
+		.select({ id: triggersEntity.id, projectId: triggersEntity.projectId })
+		.from(triggersEntity)
+		.where(eq(triggersEntity.integrationId, integrationId));
+}
+
 export async function findWorkflow(id: string, tx?: DbTransactionType) {
 	const [row] = await (tx ?? db)
 		.select({ id: workflowsEntity.id, projectId: workflowsEntity.projectId })

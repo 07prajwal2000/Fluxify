@@ -15,15 +15,7 @@ import {
 export const TRIGGER_TYPES = ["internal", "schedule"] as const;
 export const triggerTypeSchema = z.enum(TRIGGER_TYPES);
 
-/**
- * External connectors, which need an enterprise license to create. Empty until
- * the first connector lands; adding one here is what puts it behind the gate.
- */
-const ENTERPRISE_TRIGGER_TYPES: readonly string[] = [];
-
-export function isEnterpriseTriggerType(type: string) {
-	return ENTERPRISE_TRIGGER_TYPES.includes(type);
-}
+export { isEnterpriseTriggerType } from "../../../modules/triggers/types";
 
 /**
  * Batch settings, shared by create and patch.

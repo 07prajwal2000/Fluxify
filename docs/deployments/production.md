@@ -113,6 +113,20 @@ image either way — only the setting differs.
 An unrecognised value is rejected at boot instead of being treated as the
 default — a typo should not silently change what a machine runs.
 
+### Running triggers on their own workers {#trigger-groups}
+
+Triggers belong to [groups](/concepts/triggers#groups). Set `WORKER_GROUP_ID`
+to a group's id and that worker runs only the triggers in that group. Leave it
+unset and the worker runs every group — the default.
+
+This is how a busy trigger gets machines of its own: put it in a group, and
+point a separate worker service at that group. Routes and queued jobs are not
+affected by this setting; it only decides which triggers a worker listens to.
+
+> [!NOTE]
+> Moving a trigger to another group moves it between workers: the old worker
+> stops reading it and the new one starts.
+
 ---
 
 ## Experimental CPU-stall protection
