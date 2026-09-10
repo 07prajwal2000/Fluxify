@@ -30,6 +30,8 @@ import { asyncExecutorLimitsFromEnv } from "../src/modules/requestRouter/asyncEx
 import { executionRuntimeEnvironment } from "../src/modules/requestRouter/executionEnvironment";
 import type { ArtifactEntry } from "../src/modules/requestRouter/compiledRuntime";
 import { closeNats } from "../src/db/nats";
+import { watchInstanceSettings } from "../src/loaders/instanceSettingsLoader";
+import { watchLicense } from "../src/lib/edition";
 import { startJobWorker } from "../src/modules/jobs/consumer";
 import { enqueueJob } from "../src/modules/jobs/publisher";
 import type { JobEnvelope } from "../src/modules/jobs/types";
@@ -305,6 +307,11 @@ const triggerWorker = new TriggerWorker({
 	maxDeliver: Number(getEnv("JOBS_MAX_DELIVER")) || undefined,
 	retryDelayMs: Number(getEnv("JOBS_RETRY_DELAY_MS")) || undefined,
 });
+
+// Feature flags and license state, pushed from the admin. Both exit on failure:
+// a worker that cannot learn its edition would be guessing.
+await watchInstanceSettings();
+await watchLicense();
 
 const artifactWatch = await watchProjectArtifacts(
 	WORKER_PROJECT_ID,

@@ -36,7 +36,10 @@ export const authConfigSchema = z.object({
 	mode: z.enum(["traditional", "sso_only"]),
 });
 
-export const instanceSettingCategorySchema = z.enum(["auth"]); // mirrors the pgEnum
+/** An operator switch. Absent means on — the license, not the switch, is the gate. */
+export const featureToggleSchema = z.object({ enabled: z.boolean() });
+
+export const instanceSettingCategorySchema = z.enum(["auth", "featureflags"]); // mirrors the pgEnum
 
 export const INSTANCE_SETTINGS_REGISTRY = {
 	sso_config: {
@@ -51,6 +54,17 @@ export const INSTANCE_SETTINGS_REGISTRY = {
 		category: "auth",
 		schema: authConfigSchema,
 		publicSchema: authConfigSchema,
+		alwaysPublic: true,
+	},
+	// Enterprise flags are named `featureflags.ee.*`, community ones
+	// `featureflags.community.*`. Whether the license allows enterprise
+	// features at all is not a row here: it comes from LICENSE_KEY and no
+	// operator can write it (see `lib/edition.ts`).
+	"featureflags.ee.connectors": {
+		category: "featureflags",
+		schema: featureToggleSchema,
+		publicSchema: featureToggleSchema,
+		// the portal hides connector types when this is off
 		alwaysPublic: true,
 	},
 } as const;

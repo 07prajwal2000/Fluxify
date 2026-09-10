@@ -5,6 +5,7 @@ import { generateID } from "@fluxify/lib";
 import { db } from "../../../db";
 import { AuthACL, triggersEntity } from "../../../db/schema";
 import { canAccessProject } from "../../../lib/acl";
+import { assertCanCreateConnector } from "../../../lib/edition";
 import { BadRequestError } from "../../../errors/badRequestError";
 import { ConflictError } from "../../../errors/conflictError";
 import { ForbiddenError } from "../../../errors/forbidError";
@@ -18,6 +19,7 @@ import {
 	createGroupSchema,
 	createSchema,
 	groupSchema,
+	isEnterpriseTriggerType,
 	listQuerySchema,
 	listSchema,
 	patchSchema,
@@ -68,6 +70,7 @@ export async function createTrigger(
 ) {
 	if (!canAccessProject(acl, data.projectId, "creator")) throw new ForbiddenError();
 	assertSourceMatchesType(data.type, data.integrationId);
+	if (isEnterpriseTriggerType(data.type)) assertCanCreateConnector();
 
 	const created = await db.transaction(async (tx) => {
 		if (!(await projectExists(data.projectId, tx)))

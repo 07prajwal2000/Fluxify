@@ -2,7 +2,8 @@ Fluxify
 Copyright 2026 Prajwal Aradhya and the Fluxify contributors
 
 Licensed under the Apache License, Version 2.0. See the LICENSE file for the
-full terms.
+full terms. Files in `ee` directories and files named `*.ee.*` are instead
+licensed under the Fluxify Enterprise Edition License in LICENSE_EE.
 
 -------------------------------------------------------------------------------
 Prior MIT License notice

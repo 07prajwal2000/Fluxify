@@ -10,7 +10,8 @@
 		"./tracing": "./tracing/index.ts",
 		"./otlp": "./otlp/index.ts",
 		"./nats": "./nats/index.ts",
-		"./schedule": "./schedule/index.ts"
+		"./schedule": "./schedule/index.ts",
+		"./license": "./license/index.ts"
 	},
 	"author": "",
 	"license": "Apache-2.0",

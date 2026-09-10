@@ -1,0 +1,92 @@
+Fluxify Enterprise Edition License
+
+Copyright (c) 2026 Prajwal Aradhya and the Fluxify contributors
+
+This license applies to the Enterprise Edition code of Fluxify: every file in a
+directory named `ee` (at any depth) and every file whose name contains `.ee.`
+(for example `connector.ee.ts`), in any repository or distribution of Fluxify.
+All other code is licensed under the Apache License 2.0 (see LICENSE).
+
+1. Definitions
+
+"Licensor" means Prajwal Aradhya, together with any legal entity that later
+controls the Fluxify project or succeeds to its rights, and their successors
+and assigns.
+
+"Software" means the Enterprise Edition code described above, in source or
+compiled form, and any modification or derivative of it.
+
+"License Key" means a license key issued by the Licensor that is valid and not
+expired, or the value `NON_COMMERCIAL` where section 3 permits it.
+
+"Non-Commercial Use" means use by an individual for personal projects; use by
+an accredited school, college, university, or other educational institution
+for teaching, learning, or academic research; or use by a registered non-profit
+organization for its non-profit activities. It does not include use by or for a
+business, use to provide a product or service for a fee, or any use from which
+revenue is derived, directly or indirectly.
+
+"Production Use" means any use other than developing, testing, or evaluating
+the Software.
+
+2. Permitted without a License Key
+
+Subject to section 5, you may copy, modify, and run the Software to develop,
+test, and evaluate it, and to contribute changes to the Licensor.
+
+3. Non-Commercial Use
+
+Subject to section 5, you may make Production Use of the Software for
+Non-Commercial Use only, by setting the License Key to `NON_COMMERCIAL`. The
+Licensor may withdraw or change this permission for future versions of the
+Software; versions already released keep it.
+
+4. Commercial Use
+
+Any Production Use of the Software that is not Non-Commercial Use requires a
+License Key issued to you by the Licensor, and is permitted only while that
+License Key is valid, including any grace period the Software allows after it
+expires.
+
+This license does not restrict your use of the Fluxify code licensed under the
+Apache License 2.0. Running Fluxify with the Enterprise Edition features
+disabled is governed only by the Apache License 2.0.
+
+5. Restrictions
+
+You may not:
+
+  a. remove, disable, circumvent, or modify the License Key check or any
+     feature gating in the Software, or distribute code that does so;
+  b. sell, resell, sublicense, or distribute the Software, or offer it to third
+     parties as a hosted or managed service, except as the Licensor permits in
+     writing;
+  c. remove or alter any copyright, license, or other notice in the Software.
+
+6. Contributions
+
+Contributions to the Software are governed by the Fluxify Contributor License
+Agreement (CLA.md). Under it, the Licensor may use, modify, sublicense, and
+commercialize any contribution you submit, without further permission or
+payment.
+
+7. Ownership
+
+As between you and the Licensor, the Licensor owns all rights in the Software,
+subject to the rights of contributors under the Contributor License Agreement.
+All rights not expressly granted in this license are reserved.
+
+8. Termination
+
+This license ends automatically if you breach it. If the Licensor notifies you
+of a breach and you fix it within 30 days of that notice, your license is
+restored. When this license ends, you must stop using the Software.
+
+9. No Warranty and Limitation of Liability
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+LICENSOR OR CONTRIBUTORS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
+WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.

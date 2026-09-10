@@ -800,6 +800,7 @@ export const customBlocksListEntity = pgTable(
 
 export const instanceSettingCategoryEnum = pgEnum("instance_setting_category", [
 	"auth",
+	"featureflags",
 ]); // add values as new categories appear
 
 export const instanceSettingsEntity = pgTable("instance_settings", {

@@ -218,6 +218,8 @@ export default withMermaid(defineConfig({
 						{ text: "Self-Hosting", link: "/deployments/" },
 						{ text: "Quick Run (Kit)", link: "/deployments/kit" },
 						{ text: "Production (Admin + Workers)", link: "/deployments/production" },
+						{ text: "Editions", link: "/deployments/editions" },
+						{ text: "Licenses & Contributions", link: "/deployments/licensing" },
 					],
 				},
 			],
@@ -249,7 +251,7 @@ export default withMermaid(defineConfig({
 
 		// Footer
 		footer: {
-			message: "Released under the Apache License 2.0.",
+			message: "Released under the Apache License 2.0. Enterprise features are under the Fluxify Enterprise Edition License.",
 			copyright: "Copyright © 2026 Fluxify",
 		},
 

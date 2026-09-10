@@ -45,6 +45,15 @@ modifications or additions to an existing work, that is intentionally submitted
 by You to the Project for inclusion in, or documentation of, any of the products
 owned or managed by the Project.
 
+**"Project owner"** means Prajwal Aradhya, together with any legal entity that
+later controls the Project or succeeds to its rights, and their successors and
+assigns. Every grant in this Agreement passes to them without further consent
+from You.
+
+**"Enterprise Edition"** means every file in a directory named `ee` and every
+file whose name contains `.ee.`, licensed under the Fluxify Enterprise Edition
+License (LICENSE_EE).
+
 **"Submitted"** means any form of electronic, verbal, or written communication
 sent to the Project or its representatives, including but not limited to
 communication on electronic mailing lists, source code control systems, and
@@ -72,6 +81,12 @@ without any obligation to account or pay royalties to You.
 >
 > Your contribution remains available under the Apache License 2.0 in every
 > version already released. A licence change is never retroactive.
+
+**Enterprise Edition contributions.** A Contribution to the Enterprise Edition
+is distributed under the Fluxify Enterprise Edition License, not the Apache
+License 2.0. The Project owner may use, modify, sublicense, relicense, and
+commercialize it — including selling licence keys for it — without asking You
+and without paying You.
 
 ### 3. Grant of Patent Licence
 

@@ -11,6 +11,7 @@ import { loadIntegrations } from "./loaders/integrationsLoader";
 import { loadProjectSettings } from "./loaders/projectSettingsLoader";
 import { loadCustomBlocks, initializeCustomBlocksSubscription } from "./loaders/customBlocksLoader";
 import { loadInstanceSettings } from "./loaders/instanceSettingsLoader";
+import { publishLicense } from "./lib/edition";
 import { mapVersionedAdminRoutes } from "./api/register";
 import { errorHandler } from "./middlewares/errorHandler";
 import { auth, initializeAuth } from "./lib/auth";
@@ -93,6 +94,7 @@ async function main() {
 	if (adminRoutesEnabled) {
 		app.use("*", setSession);
 		await loadInstanceSettings(); // must precede initializeAuth so sso_config is available
+		await publishLicense();
 		initializeAuth(db);
 		authenticationRouter.registerHandler(app);
 		mapVersionedAdminRoutes(app);
