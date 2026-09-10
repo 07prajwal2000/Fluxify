@@ -1,5 +1,6 @@
 import { Sidebar } from "./instance-settings/Sidebar";
 import { AuthSettings } from "./instance-settings/auth/AuthSettings";
+import { LicenseSettings } from "./instance-settings/license/LicenseSettings";
 
 interface InstanceSettingsProps {
 	activeTab?: string;
@@ -13,10 +14,7 @@ export function InstanceSettings({ activeTab = "auth" }: InstanceSettingsProps) 
 			</aside>
 			<main className="flex-1 overflow-y-auto min-h-[500px]">
 				{activeTab === "auth" && <AuthSettings />}
-				{/*
-					Placeholder for future tabs:
-					{activeTab === "general" && <GeneralSettings />}
-				*/}
+				{activeTab === "license" && <LicenseSettings />}
 			</main>
 		</div>
 	);

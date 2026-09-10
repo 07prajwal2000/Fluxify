@@ -4,17 +4,22 @@ import { logger } from "../logging";
 /**
  * Edition and license resolution. Offline only — nothing here phones home.
  *
- * `resolveLicense` turns `LICENSE_KEY` into a `License`: what the key proved,
+ * `resolveLicense` turns a license key into a `License`: what the key proved,
  * and nothing about the current time. `entitlement` reads that against a clock.
  * The split is what lets expiry and the grace period take effect on a running
- * process: the license is published once at boot, the clock keeps moving.
+ * process: the license is published once, the clock keeps moving.
  *
  * Every failure resolves to community and logs. A bad key must never crash a
  * boot, and must never be mistaken for a paid one.
  */
 
-/** Grants enterprise features without a signed key. The default until a stable release. */
+/** Grants every enterprise feature without a signed key. */
 export const NON_COMMERCIAL = "NON_COMMERCIAL";
+
+/** A feature a license can unlock. `*` in a key's `features` claim unlocks all of them. */
+export const FEATURES = { connectors: "connectors" } as const;
+export type Feature = (typeof FEATURES)[keyof typeof FEATURES];
+const ALL = "*";
 
 /**
  * How long enterprise features keep running after a license expires.
@@ -36,7 +41,7 @@ const LICENSE_PUBLIC_KEY: string | null = null;
 export type License =
 	| { kind: "community" }
 	| { kind: "non_commercial" }
-	| { kind: "signed"; licensee: string; expiresAt: string | null };
+	| { kind: "signed"; licensee: string; expiresAt: string | null; features: string[] };
 
 export type LicenseStatus = "community" | "non_commercial" | "active" | "expired";
 
@@ -50,29 +55,39 @@ export interface Entitlement {
 	graceEndsAt: string | null;
 	/** Only while expired: whole days until `graceEndsAt`, 0 once passed. */
 	daysRemaining: number | null;
+	/** What the license unlocks; `*` is everything. Empty for community. */
+	features: string[];
 }
 
 const COMMUNITY: License = { kind: "community" };
 
 /**
+ * Verifies a key and says why it was refused. For the one caller that shows the
+ * reason to a person; everything else wants `resolveLicense`.
+ *
  * `publicKey` exists for tests, which sign with a throwaway keypair. Production
  * callers never pass it.
  */
-export function resolveLicense(
+export function verifyLicenseKey(
 	key: string | undefined,
 	publicKey: string | null = LICENSE_PUBLIC_KEY,
 ): License {
 	const value = key?.trim();
 	if (!value) return COMMUNITY;
 	if (value === NON_COMMERCIAL) return { kind: "non_commercial" };
-	if (!publicKey) {
-		logger.error("LICENSE_KEY is set, but this build carries no license public key — running as community", "LICENSE");
-		return COMMUNITY;
-	}
+	if (!publicKey) throw new Error("this build cannot verify license keys yet");
+	return verifySigned(value, publicKey);
+}
+
+/** Never throws: a key that does not verify is community, with the reason logged. */
+export function resolveLicense(
+	key: string | undefined,
+	publicKey: string | null = LICENSE_PUBLIC_KEY,
+): License {
 	try {
-		return verifySigned(value, publicKey);
+		return verifyLicenseKey(key, publicKey);
 	} catch (error) {
-		logger.error(`LICENSE_KEY rejected, running as community: ${(error as Error).message}`, "LICENSE");
+		logger.error(`License key rejected, running as community: ${(error as Error).message}`, "LICENSE");
 		return COMMUNITY;
 	}
 }
@@ -91,26 +106,36 @@ function verifySigned(token: string, publicKey: string): License {
 	if (typeof claims.sub !== "string" || !claims.sub) throw new Error("missing licensee (sub)");
 	if (claims.exp !== undefined && typeof claims.exp !== "number")
 		throw new Error("exp must be a number");
+	const { features } = claims;
+	if (!Array.isArray(features) || !features.every((f) => typeof f === "string"))
+		throw new Error("features must be a list of feature names");
 	return {
 		kind: "signed",
 		licensee: claims.sub,
 		expiresAt: claims.exp === undefined ? null : new Date(claims.exp * 1000).toISOString(),
+		features,
 	};
 }
 
 function decode(segment: string): Record<string, unknown> {
-	return JSON.parse(Buffer.from(segment, "base64url").toString("utf8"));
+	try {
+		return JSON.parse(Buffer.from(segment, "base64url").toString("utf8"));
+	} catch {
+		throw new Error("not a signed token");
+	}
 }
 
 export function entitlement(license: License, now = Date.now()): Entitlement {
 	const none = { graceEndsAt: null, daysRemaining: null };
 	if (license.kind === "community")
-		return { status: "community", canRun: false, canCreate: false, ...none };
+		return { status: "community", canRun: false, canCreate: false, ...none, features: [] };
 	if (license.kind === "non_commercial")
-		return { status: "non_commercial", canRun: true, canCreate: true, ...none };
+		return { status: "non_commercial", canRun: true, canCreate: true, ...none, features: [ALL] };
 
+	const { features } = license;
 	const expiresAt = license.expiresAt ? Date.parse(license.expiresAt) : Infinity;
-	if (now < expiresAt) return { status: "active", canRun: true, canCreate: true, ...none };
+	if (now < expiresAt)
+		return { status: "active", canRun: true, canCreate: true, ...none, features };
 
 	// Expired: running work is left alone until the grace period ends, but
 	// nothing new is created — a lapsed license must never take production down.
@@ -121,5 +146,13 @@ export function entitlement(license: License, now = Date.now()): Entitlement {
 		canCreate: false,
 		graceEndsAt: new Date(graceEndsAt).toISOString(),
 		daysRemaining: Math.max(0, Math.ceil((graceEndsAt - now) / DAY_MS)),
+		features,
 	};
 }
+
+/** Whether the license unlocks `feature`, regardless of expiry — pair it with `canRun`/`canCreate`. */
+export function includes(e: Pick<Entitlement, "features">, feature: Feature) {
+	return e.features.includes(ALL) || e.features.includes(feature);
+}
+
+export { licenseBanner } from "./banner";

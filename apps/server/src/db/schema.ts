@@ -805,5 +805,25 @@ export const instanceSettingsEntity = pgTable("instance_settings", {
 		.$onUpdate(() => new Date()),
 });
 
+/**
+ * The edition picked in the admin UI. One row, id `current`; no row means the
+ * default edition. Not an `instance_settings` row: that category is writable
+ * through the settings API and rebuilt on every boot.
+ */
+export const instanceLicenseEntity = pgTable("instance_license", {
+	id: varchar({ length: 20 }).primaryKey().default("current"),
+	/** The key, encrypted with MASTER_ENCRYPTION_KEY. Null is community. */
+	key: text("key"),
+	/** Who confirmed non-commercial use, and when. Null for any other edition. */
+	confirmedBy: varchar("confirmed_by", { length: 50 }).references(() => systemUsers.id, {
+		onDelete: "set null",
+	}),
+	confirmedAt: timestamp("confirmed_at"),
+	updatedAt: timestamp("updated_at")
+		.defaultNow()
+		.notNull()
+		.$onUpdate(() => new Date()),
+});
+
 export * from "./agent-harness-schema";
 
