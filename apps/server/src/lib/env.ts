@@ -67,6 +67,13 @@ export const serverEnvSchema = baseEnvSchema.extend({
 			"Project this worker serves. The compiled worker watches only this project's artifacts and never connects to the database. Set to * to serve every project in the artifact bucket (single-tenant and dev deployments — route paths are shared across projects)",
 		),
 
+	LICENSE_KEY: z
+		.string()
+		.optional()
+		.describe(
+			"Enterprise license. Unset runs the community edition. NON_COMMERCIAL grants enterprise features for non-commercial use. Any other value must be a signed license key. Read by the admin process only; workers learn the result from it",
+		),
+
 	WORKER_MODE: z
 		.enum(["route", "workflow", "both"])
 		.optional()

@@ -2,7 +2,6 @@ import { logger } from "@fluxify/common";
 import { db } from "../db";
 import { createConfigStore, type ConfigRow } from "../db/configStore";
 import { instanceSettingsEntity } from "../db/schema";
-import { initializeAuth } from "../lib/auth";
 import {
 	INSTANCE_SETTINGS_REGISTRY,
 	InstanceSettingKey,
@@ -36,10 +35,12 @@ export async function loadInstanceSettings() {
 	await start({
 		reconcile: readFromDB,
 		// sso_config feeds the global `auth` client, which has to be rebuilt from
-		// the new value rather than pick it up on the next call.
-		onChange: (key) => {
+		// the new value rather than pick it up on the next call. Imported lazily
+		// so a worker that only watches settings never loads the auth stack.
+		onChange: async (key) => {
 			logger.info(`instance setting '${key}' changed, reloading`);
-			if (key === "sso_config" || key === "auth_config") initializeAuth(db);
+			if (key === "sso_config" || key === "auth_config")
+				(await import("../lib/auth")).initializeAuth(db);
 		},
 	});
 }

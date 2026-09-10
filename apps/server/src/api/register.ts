@@ -3,12 +3,16 @@ import { existsSync, readFileSync } from "fs";
 import { join } from "path";
 import { HonoServer } from "../types";
 import { getPublicSettings } from "../loaders/instanceSettingsLoader";
+import { currentEntitlement } from "../lib/edition";
 
 export function mapVersionedAdminRoutes(app: HonoServer) {
   const router = app.basePath("/_/admin/api");
   // Public, unauthenticated feature flags. Secrets are stripped by each key's
-  // publicSchema, so is_public rows never leak IdP credentials.
-  router.get("/public-settings", (c) => c.json(getPublicSettings()));
+  // publicSchema, so is_public rows never leak IdP credentials. `license` is
+  // status only — never the licensee or the key.
+  router.get("/public-settings", (c) =>
+    c.json({ ...getPublicSettings(), license: currentEntitlement() }),
+  );
   router.get("/openapi/ui", (c) => {
     try {
       const htmlContent = loadHtmlContent();

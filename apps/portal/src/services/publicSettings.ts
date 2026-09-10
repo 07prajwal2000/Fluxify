@@ -1,5 +1,14 @@
 import { httpClient } from "@/lib/http";
 
+/** Mirrors `Entitlement` in `@fluxify/common/license`. */
+type Entitlement = {
+	status: "community" | "non_commercial" | "active" | "expired";
+	canRun: boolean;
+	canCreate: boolean;
+	graceEndsAt: string | null;
+	daysRemaining: number | null;
+};
+
 const baseUrl = "/public-settings";
 
 export type PublicSettingsResponse = {
@@ -13,6 +22,8 @@ export type PublicSettingsResponse = {
 	auth_config?: {
 		mode: "sso_only" | "email_and_sso" | "email_only";
 	};
+	"featureflags.ee.connectors"?: { enabled: boolean };
+	license: Entitlement;
 };
 
 export const publicSettingsService = {
