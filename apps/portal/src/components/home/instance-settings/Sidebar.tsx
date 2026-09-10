@@ -1,6 +1,6 @@
 import { cn } from "@fluxify/components";
 import { Link } from "@tanstack/react-router";
-import { FiShield } from "react-icons/fi";
+import { FiAward, FiShield } from "react-icons/fi";
 
 interface SidebarProps {
 	activeTab: string;
@@ -8,6 +8,7 @@ interface SidebarProps {
 
 const SETTINGS_CATEGORIES = [
 	{ id: "auth", label: "Authentication", icon: FiShield },
+	{ id: "license", label: "License", icon: FiAward },
 	// Placeholders for future:
 	// { id: "general", label: "General", icon: Settings },
 ];

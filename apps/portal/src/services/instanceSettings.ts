@@ -6,7 +6,14 @@ import {
 	requestBodySchema as patchAuthRequestBodySchema,
 	responseSchema as patchAuthResponseSchema,
 } from "@fluxify/server/src/api/v1/instance-settings/patch-auth-settings/dto";
+import type {
+	LicenseView,
+	setLicenseBodySchema,
+} from "@fluxify/server/src/api/v1/instance-settings/license/dto";
 import { httpClient } from "@/lib/http";
+
+export type { LicenseView };
+export type SetLicenseBody = z.infer<typeof setLicenseBodySchema>;
 
 const baseUrl = "/v1/instance-settings";
 
@@ -27,6 +34,14 @@ export const instanceSettingsService = {
 		body: z.infer<typeof patchAuthRequestBodySchema>,
 	): Promise<z.infer<typeof patchAuthResponseSchema>> {
 		const result = await httpClient.patch(`${baseUrl}/auth`, body);
+		return result.data;
+	},
+	async getLicense(): Promise<LicenseView> {
+		const result = await httpClient.get(`${baseUrl}/license`);
+		return result.data;
+	},
+	async setLicense(body: SetLicenseBody): Promise<LicenseView> {
+		const result = await httpClient.put(`${baseUrl}/license`, body);
 		return result.data;
 	},
 };

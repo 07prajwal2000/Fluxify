@@ -7,6 +7,8 @@ type Entitlement = {
 	canCreate: boolean;
 	graceEndsAt: string | null;
 	daysRemaining: number | null;
+	/** What the license unlocks; "*" is everything. */
+	features: string[];
 };
 
 const baseUrl = "/public-settings";

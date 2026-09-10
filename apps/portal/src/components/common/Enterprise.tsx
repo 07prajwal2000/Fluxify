@@ -9,10 +9,12 @@ import { publicSettingsQuery } from "@/query/publicSettingsQuery";
  * anywhere without a check at the call site.
  */
 
-/** True when enterprise features can be created. Assumed true until the settings load, so nothing flashes. */
+/** True when new connectors can be created. Assumed true until the settings load, so nothing flashes. */
 export function useEnterprise() {
 	const { data } = publicSettingsQuery.get.useQuery();
-	return data?.license.canCreate ?? true;
+	if (!data) return true;
+	const { canCreate, features } = data.license;
+	return canCreate && (features.includes("*") || features.includes("connectors"));
 }
 
 const REASON = "Needs an Enterprise license.";
