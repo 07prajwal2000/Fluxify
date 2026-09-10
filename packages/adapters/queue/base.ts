@@ -30,7 +30,8 @@ export type QueueBatch = {
 };
 
 export type QueueSubscription = {
-	topics: string[];
+	/** what to read, in the connector's own terms, e.g. Kafka's `topics` */
+	source: Record<string, unknown>;
 	consumerGroup: string;
 	batchSize: number;
 	maxWaitMs: number;
@@ -39,8 +40,12 @@ export type QueueSubscription = {
 	concurrency: number;
 };
 
-/** Settles when the batch is done with; a throw means it failed. */
-export type QueueHandler = (batch: QueueBatch) => Promise<void>;
+/**
+ * Settles when the batch is done with. A throw means it was not: nothing is
+ * committed and the connector must deliver it again. The connection is the one
+ * that read the batch, so a commit never lands on a consumer that replaced it.
+ */
+export type QueueHandler = (batch: QueueBatch, connection: QueueConnection) => Promise<void>;
 
 export abstract class QueueConnection {
 	/** Starts delivering batches to `handler`. Resolves once consuming has begun. */

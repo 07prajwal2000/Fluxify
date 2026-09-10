@@ -86,6 +86,14 @@ export type TriggerArtifact = {
 	concurrency: number;
 	/** Static data handed to the workflow, for sources that carry none. */
 	payload?: unknown;
+	/** External queues: what to read, in the connector's terms (Kafka topics, …). */
+	source?: Record<string, unknown>;
+	/** External queues: `auto` commits after a successful run; `manual` leaves it to the workflow. */
+	commitMode?: "auto" | "manual";
+	/** External queues: runs of one batch before it is given up on. */
+	maxAttempts?: number;
+	/** External queues: wait between those runs. */
+	retryDelayMs?: number;
 	publishedAt: string;
 };
 

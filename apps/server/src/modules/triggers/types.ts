@@ -27,6 +27,15 @@ export type InternalTriggerMessage = {
 	origin?: Record<string, unknown>;
 };
 
+/**
+ * Whether a trigger is consumed by the execution process itself. External
+ * queues are read right beside the workflow, with no copy onto the internal
+ * broker; only `internal` travels over NATS. (Schedules publish no artifact.)
+ */
+export function consumedInExecution(type: string) {
+	return type !== "internal";
+}
+
 export function isTriggerBatch(value: unknown): value is TriggerBatch {
 	const batch = value as TriggerBatch | undefined;
 	return !!batch && typeof batch.triggerId === "string" && Array.isArray(batch.events);

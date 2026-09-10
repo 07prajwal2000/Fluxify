@@ -21,10 +21,16 @@ import { hydrateProjectSettings } from "../../loaders/projectSettingsLoader";
 import type {
 	CustomBlockArtifact,
 	RouteArtifact,
+	TriggerArtifact,
 	UnsealedProjectConfig,
 	WorkflowArtifact,
 } from "../compiler/artifacts";
 import { artifactId, artifactKind } from "../compiler/subjects";
+import {
+	applyQueueTrigger,
+	refreshQueueTriggers,
+	shutdownQueueTriggers,
+} from "../triggers/queueRuntime";
 import { setBlocksExecutor } from "./executor";
 import { setDbConnectionManager } from "./service";
 
@@ -32,10 +38,12 @@ import { setDbConnectionManager } from "./service";
  * Execution-side half of the compile pipeline: turns artifacts into a live
  * route table, custom block library and hydrated config.
  *
- * Deliberately imports nothing that opens a connection — no NATS, no Redis, no
- * database. This module runs inside the isolated execution process, and anything it
- * initialises becomes reachable from user JS running in that same thread. The
- * supervisor owns the connections and feeds artifacts in.
+ * Deliberately imports nothing that opens a connection to Fluxify's own
+ * infrastructure — no NATS, no Redis, no platform database. This module runs
+ * inside the isolated execution process, and anything it initialises becomes
+ * reachable from user JS running in that same thread. The supervisor owns those
+ * connections and feeds artifacts in. The user's own integrations (databases,
+ * external queues) are the exception: their credentials already reach user code.
  */
 
 /** what the supervisor hands over, on spawn and on every later update */
@@ -97,13 +105,19 @@ export function initCompiledRuntime(
 		idleTimeoutMs: databaseIdleTimeoutMs,
 	});
 	setDbConnectionManager(dbConnectionManager);
-	// custom blocks first: a route that invokes one needs it in the library
 	// custom blocks and config first: a graph that invokes one needs it in the
-	// library before it is instantiated
-	const isGraph = (key: string) =>
-		artifactKind(key) === "route" || artifactKind(key) === "workflow";
-	for (const { key, value } of entries) if (!isGraph(key)) applyArtifact(key, value);
-	for (const { key, value } of entries) if (isGraph(key)) applyArtifact(key, value);
+	// library before it is instantiated. Triggers last: a consumer must not
+	// start pulling before the workflow it feeds exists.
+	const phase = (key: string) => {
+		const kind = artifactKind(key);
+		if (kind === "trigger") return 2;
+		return kind === "route" || kind === "workflow" ? 1 : 0;
+	};
+	for (const current of [0, 1, 2]) {
+		for (const { key, value } of entries) {
+			if (phase(key) === current) applyArtifact(key, value);
+		}
+	}
 
 	setBlocksExecutor(async (target, context) => {
 		const compiled = routes.get(target.routeId);
@@ -127,6 +141,8 @@ export function applyArtifactUpdate(key: string, value: any | null) {
 
 /** Releases all long-lived database clients before the execution process exits. */
 export async function shutdownCompiledRuntime() {
+	// consumers first: their in-flight batches still hold database leases
+	await shutdownQueueTriggers();
 	await dbConnectionManager?.close();
 	dbConnectionManager = undefined;
 	setDbConnectionManager();
@@ -148,6 +164,16 @@ function applyArtifact(key: string, value: any | null) {
 				: void workflows.delete(artifactId(key));
 		case "project-config":
 			return value && applyProjectConfig(value as UnsealedProjectConfig);
+		case "trigger":
+			return void applyQueueTrigger(
+				artifactId(key),
+				value as TriggerArtifact | null,
+			).catch((error) =>
+				logger.error(
+					`[worker] failed to apply trigger ${key}: ${String(error)}`,
+					"WORKER.compiled",
+				),
+			);
 	}
 }
 
@@ -264,6 +290,8 @@ function applyProjectConfig(artifact: UnsealedProjectConfig) {
 	// The hydrated cache is the runtime's complete view. Swapping here makes
 	// changed credentials available to new requests before old clients drain.
 	dbConnectionManager?.synchronize(dbIntegrationsCache);
+	// same for queue consumers: rotated credentials restart, deleted ones stop
+	void refreshQueueTriggers();
 	hydrateProjectSettings(artifact.projectId, payload.projectSettings);
 	logger.info(
 		`[worker] project config applied (${artifact.compiledAt})`,

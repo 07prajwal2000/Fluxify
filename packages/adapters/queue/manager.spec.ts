@@ -9,7 +9,7 @@ import {
 } from "..";
 
 const subscription: QueueSubscription = {
-	topics: ["orders"],
+	source: { topics: ["orders"] },
 	consumerGroup: "fluxify-t1",
 	batchSize: 10,
 	maxWaitMs: 500,

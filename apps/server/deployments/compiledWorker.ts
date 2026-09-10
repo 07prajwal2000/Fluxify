@@ -16,6 +16,7 @@ import type {
 } from "../src/modules/compiler/artifacts";
 import { artifactId, artifactKind } from "../src/modules/compiler/subjects";
 import { TriggerWorker } from "../src/modules/triggers/consumers";
+import { consumedInExecution } from "../src/modules/triggers/types";
 import { startFireConsumer } from "../src/modules/schedules/fire";
 import { fireInternalTrigger } from "../src/modules/triggers/publisher";
 import { TRIGGER_WORKFLOW_JOB } from "@fluxify/blocks";
@@ -266,17 +267,27 @@ function handleArtifactChange(entry: ArtifactEntry) {
 	if (entry.value === null) artifacts.delete(entry.key);
 	else artifacts.set(entry.key, entry);
 
-	// A trigger is not compiled and holds no user code, so it stops here rather
-	// than being forwarded to the execution process: this half owns the broker.
+	// An internal trigger is consumed here, where the broker connection lives.
+	// An external queue is consumed by the execution process beside its
+	// workflow; forwarding its artifact is how this half starts and stops it.
+	// A withdrawal names no type, so it goes to both — each ignores what it
+	// does not hold.
 	if (kind === "trigger") {
-		void triggerWorker
-			.apply(artifactId(entry.key), entry.value as TriggerArtifact | null)
-			.catch((error) =>
-				logger.error(
-					`failed to apply trigger ${entry.key}: ${String(error)}`,
-					"WORKER.triggers",
-				),
-			);
+		const trigger = entry.value as TriggerArtifact | null;
+		const external = trigger ? consumedInExecution(trigger.type) : null;
+		if (external !== false) {
+			execution?.send({ type: "artifact", entry } satisfies ExecutionMessage);
+		}
+		if (external !== true) {
+			void triggerWorker
+				.apply(artifactId(entry.key), trigger)
+				.catch((error) =>
+					logger.error(
+						`failed to apply trigger ${entry.key}: ${String(error)}`,
+						"WORKER.triggers",
+					),
+				);
+		}
 		return;
 	}
 
