@@ -128,7 +128,7 @@ may actually run at `00:00:37`, and it will use that same second every day. Writ
 `0 0 0 * * *` if you need midnight exactly.
 
 **A schedule is one run, never a batch.** The batch settings other triggers have
-do not apply: each firing starts every attached workflow once, with no incoming
+do not apply: each firing starts its workflow once, with no incoming
 payload to collect. A workflow that has five hundred rows to work through fetches them
 itself.
 
