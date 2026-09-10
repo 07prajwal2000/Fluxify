@@ -154,6 +154,7 @@ export async function findIntegration(id: string, tx?: DbTransactionType) {
 			projectId: integrationsEntity.projectId,
 			group: integrationsEntity.group,
 			variant: integrationsEntity.variant,
+			config: integrationsEntity.config,
 		})
 		.from(integrationsEntity)
 		.where(eq(integrationsEntity.id, id))

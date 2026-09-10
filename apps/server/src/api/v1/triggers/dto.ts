@@ -60,6 +60,8 @@ const connectorSchema = {
 export const kafkaSourceSchema = z.object({
 	topics: z.array(z.string().min(1).max(249)).min(1).max(100),
 	fromBeginning: z.boolean().optional(),
+	/** Create missing topics on save; off, a missing topic is a 400. */
+	createTopics: z.boolean().optional(),
 });
 
 /**

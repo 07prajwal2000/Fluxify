@@ -11,6 +11,7 @@ import { ConflictError } from "../../../errors/conflictError";
 import { ForbiddenError } from "../../../errors/forbidError";
 import { NotFoundError } from "../../../errors/notFoundError";
 import { deleteArtifact, putArtifact } from "../../../db/natsKv";
+import { resolveQueueConfig } from "../integrations/test-connection/service";
 import type { TriggerArtifact } from "../../../modules/compiler/artifacts";
 import { triggerKey } from "../../../modules/compiler/subjects";
 import { removeSchedule, upsertSchedule } from "../../../modules/schedules/reconciler";
@@ -73,7 +74,7 @@ export async function createTrigger(
 
 		if (data.workflowId)
 			await assertWorkflowInProject(data.workflowId, data.projectId, tx);
-		await assertConnector(data.type, data.projectId, data.integrationId, data.source, tx);
+		await assertConnector(data.type, data.projectId, data.integrationId, data.source, true, tx);
 
 		if (await findTriggerByName(data.projectId, data.name, tx))
 			throw new ConflictError("trigger with that name already exists");
@@ -144,6 +145,7 @@ export async function updateTrigger(
 			existing.projectId,
 			data.integrationId ?? existing.integrationId,
 			data.source ?? existing.source,
+			data.source !== undefined || data.integrationId !== undefined,
 			tx,
 		);
 
@@ -411,6 +413,8 @@ async function assertConnector(
 	projectId: string,
 	integrationId: string | null | undefined,
 	source: unknown,
+	/** Ask the brokers about the topics. Skipped on edits that leave the source alone. */
+	checkTopics: boolean,
 	tx?: Parameters<typeof findIntegration>[1],
 ) {
 	if (type !== "kafka") return;
@@ -423,6 +427,17 @@ async function assertConnector(
 		integration.variant !== "Kafka"
 	)
 		throw new BadRequestError("A Kafka trigger needs a Kafka integration from this project");
+	if (!checkTopics) return;
+
+	// A trigger on a topic that does not exist would save fine and read nothing.
+	const { topics, createTopics } = kafkaSourceSchema.parse(source);
+	const config = await resolveQueueConfig(projectId, integration.config as Record<string, unknown>);
+	const { ensureKafkaTopics } = await import("@fluxify/adapters/queue/kafka");
+	try {
+		await ensureKafkaTopics(config as any, topics, Boolean(createTopics));
+	} catch (error) {
+		throw new BadRequestError(error instanceof Error ? error.message : String(error));
+	}
 }
 
 /**

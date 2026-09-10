@@ -3,7 +3,7 @@ import type Docker from "dockerode";
 import { Admin, Consumer, MessagesStreamModes, Producer } from "@platformatic/kafka";
 import { docker, pullImage, startContainerWithRandomPort } from "../containerTestHelpers";
 import type { QueueBatch, QueueConnection, QueueHandler, QueueSubscription } from "./base";
-import { createConnection, testKafkaConnection, type KafkaConfig } from "./kafka";
+import { createConnection, ensureKafkaTopics, testKafkaConnection, type KafkaConfig } from "./kafka";
 import { QueueConnectionManager } from "./manager";
 
 /**
@@ -196,6 +196,42 @@ describe("testing a Kafka integration", () => {
 	it("is refused by a SASL listener when no mechanism is set", async () => {
 		const result = await testKafkaConnection({ brokers: `localhost:${saslPort}` });
 		expect(result.success).toBe(false);
+	}, T);
+});
+
+describe("checking a trigger's topics", () => {
+	const fresh = () => `created-${Date.now()}-${++seq}`;
+
+	it("passes when every topic exists", async () => {
+		const orders = await topic();
+		expect(await ensureKafkaTopics(config, [orders, orders], false)).toEqual([]);
+	}, T);
+
+	it("names the missing topics and creates nothing when creating is off", async () => {
+		const orders = await topic();
+		const [a, b] = [fresh(), fresh()];
+		await expect(ensureKafkaTopics(config, [orders, a, b], false)).rejects.toThrow(
+			`Topics not found: ${a}, ${b}`,
+		);
+		expect(await admin.listTopics()).not.toContain(a);
+	}, T);
+
+	it("creates only the missing topics, which can then be consumed", async () => {
+		const orders = await topic();
+		const created = fresh();
+		expect(await ensureKafkaTopics(config, [orders, created], true)).toEqual([created]);
+		expect(await admin.listTopics()).toContain(created);
+
+		const { handler, values } = recorder();
+		await start(subscription([created]), handler);
+		await send(created, numbered(0, 1));
+		await until(() => values().length === 1);
+	}, T);
+
+	it("says the brokers could not be reached", async () => {
+		await expect(ensureKafkaTopics({ brokers: "localhost:1" }, ["x"], true)).rejects.toThrow(
+			/Could not reach the Kafka brokers/,
+		);
 	}, T);
 });
 

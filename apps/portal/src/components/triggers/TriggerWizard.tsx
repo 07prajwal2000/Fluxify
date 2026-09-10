@@ -66,11 +66,16 @@ export function TriggerWizard({
 		schedule: initialTrigger?.schedule ?? "",
 		timezone: initialTrigger?.timezone || "UTC",
 	});
-	const source = (initialTrigger?.source ?? {}) as { topics?: string[]; fromBeginning?: boolean };
+	const source = (initialTrigger?.source ?? {}) as {
+		topics?: string[];
+		fromBeginning?: boolean;
+		createTopics?: boolean;
+	};
 	const [kafka, setKafka] = useState({
 		integrationId: initialTrigger?.integrationId ?? "",
 		topics: (source.topics ?? []).join(", "),
 		fromBeginning: Boolean(source.fromBeginning),
+		createTopics: Boolean(source.createTopics),
 	});
 	const [batch, setBatch] = useState({
 		batchSize: initialTrigger?.batchSize ?? BATCH_DEFAULTS.batchSize,
@@ -95,7 +100,7 @@ export function TriggerWizard({
 	const typeFields = isKafka
 		? {
 				integrationId: kafka.integrationId,
-				source: { topics, fromBeginning: kafka.fromBeginning },
+				source: { topics, fromBeginning: kafka.fromBeginning, createTopics: kafka.createTopics },
 				...batch,
 				...delivery,
 			}

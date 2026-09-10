@@ -43,6 +43,18 @@ broker that is not answering.
 - **Username / Password**: your cluster API key and secret
 - **Use TLS**: on
 
+## Topics that do not exist yet
+
+When you save a Kafka trigger, Fluxify checks that its topics exist. A missing
+topic is refused with its name, so a trigger never sits quietly waiting on a
+typo. Tick **Create missing topics** on the trigger to have them created
+instead, with your cluster's default partitions and replicas. The login on the
+integration needs permission to create topics for that to work.
+
+The brokers have to be reachable when you save a Kafka trigger's topics or
+integration. Other edits — renaming it, turning it on or off — do not contact
+them.
+
 ## What happens to each message
 
 A message is marked done — **committed** — once the workflow run that received

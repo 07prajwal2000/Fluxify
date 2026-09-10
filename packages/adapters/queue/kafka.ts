@@ -40,7 +40,7 @@ export type KafkaConfig = {
 };
 
 /** What a Kafka trigger reads. */
-export type KafkaSource = { topics: string[]; fromBeginning?: boolean };
+export type KafkaSource = { topics: string[]; fromBeginning?: boolean; createTopics?: boolean };
 
 type Lane = {
 	pending: Message[];
@@ -324,6 +324,38 @@ export async function testKafkaConnection(config: KafkaConfig) {
 		return { success: true, error: "" };
 	} catch (error) {
 		return { success: false, error: rootCause(error) };
+	} finally {
+		await admin.close().catch(() => undefined);
+	}
+}
+
+/**
+ * Makes sure every topic exists before a trigger is saved. Missing ones are
+ * created with the broker's default partitions and replication when `create`
+ * is set; otherwise they are named in the error.
+ */
+export async function ensureKafkaTopics(config: KafkaConfig, topics: string[], create: boolean) {
+	const admin = new Admin({ ...clientOptions(config), connectTimeout: 4_000, retries: 0 });
+	try {
+		let existing: string[];
+		try {
+			existing = await admin.listTopics();
+		} catch (error) {
+			throw new Error(`Could not reach the Kafka brokers to check the topics: ${rootCause(error)}`);
+		}
+		const missing = [...new Set(topics)].filter((topic) => !existing.includes(topic));
+		if (missing.length === 0) return [];
+		if (!create)
+			throw new Error(
+				`Topic${missing.length > 1 ? "s" : ""} not found: ${missing.join(", ")}. Create ${missing.length > 1 ? "them" : "it"} first, or turn on "Create missing topics".`,
+			);
+		try {
+			// -1 is the broker's own default for both
+			await admin.createTopics({ topics: missing, partitions: -1, replicas: -1 });
+		} catch (error) {
+			throw new Error(`Could not create ${missing.join(", ")}: ${rootCause(error)}`);
+		}
+		return missing;
 	} finally {
 		await admin.close().catch(() => undefined);
 	}

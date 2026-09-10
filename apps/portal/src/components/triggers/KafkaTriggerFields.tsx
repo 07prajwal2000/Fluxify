@@ -16,6 +16,7 @@ export type KafkaValues = {
 	/** comma-separated, as typed */
 	topics: string;
 	fromBeginning: boolean;
+	createTopics: boolean;
 };
 
 export type DeliveryValues = {
@@ -88,6 +89,13 @@ export function KafkaSourceFields({
 				<Input placeholder="orders, payments" />
 				<Description>One or more topics, separated by commas.</Description>
 			</TextField>
+
+			<Checkbox
+				isSelected={value.createTopics}
+				onChange={(next) => set("createTopics", next)}
+				label="Create missing topics"
+				description="Off: saving fails if a topic does not exist. On: missing topics are created with the cluster's default settings."
+			/>
 
 			<Checkbox
 				isSelected={value.fromBeginning}
