@@ -147,6 +147,11 @@ We welcome contributions from the community! Please read our [CONTRIBUTING.md](C
 Fluxify is open source under the **[Apache License 2.0](LICENSE)** — free to use,
 modify, self-host, and deploy commercially, with an explicit patent grant.
 
+Enterprise Edition features (code in `ee/` directories and `*.ee.*` files) are
+under the **[Fluxify Enterprise Edition License](LICENSE_EE)**: free for
+personal, educational, and non-profit use, and a license key for commercial
+use. See [Editions & Licensing](https://docs.fluxify.rest/deployments/licensing).
+
 Submitting a contribution accepts our [CLA](CLA.md). There is nothing to sign.
 
 > Versions released before v0.x carried the MIT License and remain available

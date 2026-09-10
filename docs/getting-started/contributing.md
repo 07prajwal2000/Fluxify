@@ -71,6 +71,13 @@ for the detailed walkthrough.
 > [discussion](https://github.com/fluxify-rest/Fluxify/discussions) first, so
 > your work doesn't collide with something already in flight.
 
+::: warning Enterprise code is licensed differently
+Code in an `ee` folder, or in a file with `.ee.` in its name, is under the
+Enterprise Edition License, not Apache 2.0. Contributing to it gives Fluxify
+full rights to use and sell your change. See
+[Licenses and Contributions](/deployments/licensing).
+:::
+
 ---
 
 ## Writing documentation

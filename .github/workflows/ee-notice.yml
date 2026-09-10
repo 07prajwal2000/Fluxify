@@ -1,0 +1,24 @@
+# Flags PRs that touch Enterprise Edition code. pull_request_target so it can
+# comment on fork PRs; it never checks out PR code, keep it that way.
+name: EE notice
+on:
+  pull_request_target:
+    paths: ["**/ee/**", "**/*.ee.*"]
+permissions:
+  pull-requests: write
+jobs:
+  notice:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          header: ee-notice
+          message: |
+            ⚠️ **This PR changes Enterprise Edition code** (`ee/` or `*.ee.*`).
+
+            That code is not open source: it is licensed under the
+            [Fluxify Enterprise Edition License](https://github.com/Fluxify-rest/Fluxify/blob/main/LICENSE_EE),
+            not Apache 2.0. By contributing it, you grant the project owner full rights
+            to use, relicense, and sell your change without asking or paying you
+            (see the [CLA](https://github.com/Fluxify-rest/Fluxify/blob/main/CLA.md)).
+            If you'd rather your work stay open source, keep it outside EE code.

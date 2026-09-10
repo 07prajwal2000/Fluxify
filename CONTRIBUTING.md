@@ -385,8 +385,12 @@ Opening a PR also accepts our CLA — see below. There's nothing to do in advanc
 
 ## Contributor License Agreement
 
-Fluxify is licensed under the [Apache License 2.0](LICENSE). Contributions are
-covered by our [Contributor License Agreement](CLA.md).
+Fluxify is licensed under the [Apache License 2.0](LICENSE), except its
+Enterprise Edition code, which is under the
+[Fluxify Enterprise Edition License](LICENSE_EE). Enterprise Edition code is
+every file in a directory named `ee` and every file whose name contains `.ee.`
+(for example `connector.ee.ts`). Contributions to either are covered by our
+[Contributor License Agreement](CLA.md).
 
 **There is nothing to sign.** Submitting a contribution — opening a pull
 request, pushing a commit, or otherwise offering work for inclusion — is your
@@ -401,6 +405,13 @@ it.
 | ✅ Your code stays Apache 2.0 | In every version already released — forever |
 | ✅ You can use your own contribution anywhere | It's still yours |
 | ⚠️ The project may sublicense it | So a future licensing decision doesn't require tracking down every past contributor |
+| ⚠️ Enterprise Edition contributions are not Apache 2.0 | They ship under the Enterprise Edition License. The project owner — and any company later formed to run Fluxify — can use, relicense, and sell them without asking you or paying you |
+
+> [!IMPORTANT]
+> **Touching an `ee/` directory or a `*.ee.*` file?** That code is
+> source-available, not open source. By contributing to it you grant the
+> project owner full rights to use and commercialize your change. If you don't
+> want that, keep your change outside Enterprise Edition code.
 
 > [!NOTE]
 > **Why a CLA and not just a DCO?** A DCO certifies you had the right to submit
