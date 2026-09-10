@@ -20,10 +20,8 @@ import type { TriggerListItem } from "@/services/triggers";
 /**
  * The triggers attached to one workflow.
  *
- * This tab attaches and detaches; it does not create. A trigger belongs to the
- * project rather than to a workflow — the same schedule may start three of them
- * — so creating one from inside a single workflow's settings would make it look
- * like that workflow owned it.
+ * This tab attaches and detaches; it does not create. A trigger starts one
+ * workflow, so only triggers attached to nothing are offered here.
  */
 export function WorkflowTriggersTab({
 	workflowId,
@@ -33,15 +31,12 @@ export function WorkflowTriggersTab({
 	projectId: string;
 }) {
 	const attached = triggersQuery.getAll.useQuery({ projectId, workflowId });
-	// Everything in the project, to offer what is not attached yet.
+	// Everything in the project, to offer the triggers attached to nothing.
 	const all = triggersQuery.getAll.useQuery({ projectId, perPage: 50 });
 	const attach = triggersQuery.attach.mutation();
 
 	const triggers = attached.data?.data ?? [];
-	const attachedIds = new Set(triggers.map((trigger) => trigger.id));
-	const available = (all.data?.data ?? []).filter(
-		(trigger) => !attachedIds.has(trigger.id),
-	);
+	const available = (all.data?.data ?? []).filter((trigger) => !trigger.workflowId);
 	const [picked, setPicked] = useState("");
 
 	function attachPicked() {
@@ -61,7 +56,7 @@ export function WorkflowTriggersTab({
 	return (
 		<Section
 			title="Triggers"
-			description="What starts this workflow. A trigger can start several workflows — attaching it here does not take it away from the others."
+			description="What starts this workflow. Each trigger starts one workflow, so only unattached triggers can be added here."
 		>
 			{attached.isLoading ? (
 				<div className="flex justify-center py-8">
@@ -106,8 +101,8 @@ export function WorkflowTriggersTab({
 					</Select.Trigger>
 					<Description>
 						{available.length === 0
-							? "Every trigger in this project is already attached."
-							: "Triggers are made on the Triggers page and shared across workflows."}
+							? "Every trigger in this project already starts a workflow."
+							: "Triggers are made on the Triggers page."}
 					</Description>
 					<Select.Popover>
 						<ListBox>
@@ -165,7 +160,6 @@ function TriggerRow({
 	const update = triggersQuery.update.mutation();
 	const detach = triggersQuery.detach.mutation();
 	const [confirming, setConfirming] = useState(false);
-	const others = trigger.workflows.filter((w) => w.id !== workflowId);
 
 	return (
 		<div className="flex items-center gap-4 rounded-lg border border-border bg-surface px-4 py-3">
@@ -182,7 +176,6 @@ function TriggerRow({
 					) : (
 						trigger.type
 					)}
-					{others.length > 0 && ` · also starts ${others.length} other`}
 				</p>
 			</div>
 			<Switch
@@ -223,10 +216,8 @@ function TriggerRow({
 				}
 			>
 				Stop <b className="text-foreground">{trigger.name}</b> starting this
-				workflow?{" "}
-				{others.length > 0
-					? `It keeps starting ${others.length} other workflow${others.length > 1 ? "s" : ""}.`
-					: "The trigger itself stays on the Triggers page."}
+				workflow? The trigger itself stays on the Triggers page, idle until
+				it is attached again.
 			</ConfirmDialog>
 		</div>
 	);

@@ -5,8 +5,9 @@ A **schedule** is a [trigger](/concepts/triggers) that runs a
 Every weekday at 9am, every five minutes, or once at a moment you pick.
 
 Set one up on the project's **Triggers** page: choose **Schedule** as the type,
-write when it should run, pick the workflows it starts, and turn it on. One
-schedule can start several workflows — each gets its own run.
+write when it should run, pick the workflow it starts, and turn it on. A
+schedule starts one workflow; for two workflows on the same clock, create two
+schedules.
 
 ## Writing the schedule
 

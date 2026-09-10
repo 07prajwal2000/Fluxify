@@ -75,11 +75,10 @@ export const createSchema = z.object({
 	type: triggerTypeSchema,
 	projectId: z.uuidv7(),
 	/**
-	 * The workflows this trigger starts. May be empty: a trigger is a reusable
-	 * source, and one created from the Triggers page before any workflow is
-	 * attached is a normal intermediate state, not a broken row.
+	 * The workflow this trigger starts. May be omitted: a trigger created from
+	 * the Triggers page before its workflow exists is saved and idle, not broken.
 	 */
-	workflowIds: z.array(z.uuidv7()).default([]),
+	workflowId: z.uuidv7().optional(),
 	/** Omitted means the project's default group, which always exists. */
 	groupId: z.uuidv7().optional(),
 	/** The connector's credentials. Never set for `internal`. */
@@ -102,8 +101,8 @@ export const patchSchema = z
 		description: z.string().max(2000),
 		groupId: z.uuidv7(),
 		integrationId: z.uuidv7(),
-		/** Replaces the link set wholesale. Omit to leave the links alone. */
-		workflowIds: z.array(z.uuidv7()),
+		/** Null detaches the workflow and idles the trigger. */
+		workflowId: z.uuidv7().nullable(),
 		payload: z.unknown(),
 		active: z.boolean(),
 		...batchSchema,
@@ -146,7 +145,7 @@ export const triggerSchema = z.object({
 	description: z.string().nullable(),
 	type: z.string(),
 	projectId: z.string(),
-	workflowIds: z.array(z.string()),
+	workflowId: z.string().nullable(),
 	groupId: z.string(),
 	integrationId: z.string().nullable(),
 	batchSize: z.number().int(),
@@ -180,11 +179,11 @@ export const listQuerySchema = z
 		active: q.active === undefined ? undefined : q.active === "true",
 	}));
 
-/** A trigger as a list shows it: the linked workflows come with their names. */
+/** A trigger as a list shows it: the workflow comes with its name. */
 export const workflowLinkSchema = z.object({ id: z.string(), name: z.string() });
 
 export const listSchema = z.object({
-	data: z.array(triggerSchema.extend({ workflows: z.array(workflowLinkSchema) })),
+	data: z.array(triggerSchema.extend({ workflow: workflowLinkSchema.nullable() })),
 	pagination: paginationResponseSchema,
 });
 

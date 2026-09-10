@@ -4,7 +4,6 @@ import { db, DbTransactionType } from "../../../db";
 import {
 	projectsEntity,
 	triggerGroupsEntity,
-	triggerWorkflowsEntity,
 	triggersEntity,
 	workflowsEntity,
 } from "../../../db/schema";
@@ -167,6 +166,7 @@ export async function listTriggers(
 			description: triggersEntity.description,
 			type: triggersEntity.type,
 			projectId: triggersEntity.projectId,
+			workflowId: triggersEntity.workflowId,
 			groupId: triggersEntity.groupId,
 			integrationId: triggersEntity.integrationId,
 			batchSize: triggersEntity.batchSize,
@@ -202,10 +202,11 @@ export async function listTriggers(
  * orphan from a schedule belonging to a project it was not asked about.
  */
 export async function listActiveScheduledTriggers(tx?: DbTransactionType) {
-	const rows = await (tx ?? db)
+	return (tx ?? db)
 		.select({
 			id: triggersEntity.id,
 			projectId: triggersEntity.projectId,
+			workflowId: triggersEntity.workflowId,
 			schedule: triggersEntity.schedule,
 			timezone: triggersEntity.timezone,
 			payload: triggersEntity.payload,
@@ -218,111 +219,21 @@ export async function listActiveScheduledTriggers(tx?: DbTransactionType) {
 				isNotNull(triggersEntity.schedule),
 			),
 		);
-
-	const links = await workflowsForTriggers(
-		rows.map((row) => row.id),
-		tx,
-	);
-	return rows.map((row) => ({
-		...row,
-		workflowIds: (links.get(row.id) ?? []).map((workflow) => workflow.id),
-	}));
-}
-
-/* ----------------------------------------------------------------- links */
-
-/** The workflows one trigger starts, ordered so a comparison of two reads is stable. */
-export async function workflowIdsFor(triggerId: string, tx?: DbTransactionType) {
-	const rows = await (tx ?? db)
-		.select({ workflowId: triggerWorkflowsEntity.workflowId })
-		.from(triggerWorkflowsEntity)
-		.where(eq(triggerWorkflowsEntity.triggerId, triggerId))
-		.orderBy(triggerWorkflowsEntity.workflowId);
-	return rows.map((row) => row.workflowId);
 }
 
 /**
- * The linked workflows for a page of triggers, in one query.
+ * Workflow names for a page of triggers, in one query.
  *
- * Names come along because every list that shows a trigger shows what it
- * starts, and asking for them per row is how a 50-row page becomes 51 queries.
+ * Every list that shows a trigger shows what it starts, and asking per row is
+ * how a 50-row page becomes 51 queries.
  */
-export async function workflowsForTriggers(
-	triggerIds: string[],
-	tx?: DbTransactionType,
-) {
-	const byTrigger = new Map<string, { id: string; name: string }[]>();
-	if (triggerIds.length === 0) return byTrigger;
-
+export async function workflowNames(workflowIds: string[], tx?: DbTransactionType) {
+	const names = new Map<string, string>();
+	if (workflowIds.length === 0) return names;
 	const rows = await (tx ?? db)
-		.select({
-			triggerId: triggerWorkflowsEntity.triggerId,
-			id: workflowsEntity.id,
-			name: workflowsEntity.name,
-		})
-		.from(triggerWorkflowsEntity)
-		.innerJoin(
-			workflowsEntity,
-			eq(triggerWorkflowsEntity.workflowId, workflowsEntity.id),
-		)
-		.where(inArray(triggerWorkflowsEntity.triggerId, triggerIds))
-		.orderBy(workflowsEntity.name);
-
-	for (const row of rows) {
-		const list = byTrigger.get(row.triggerId) ?? [];
-		list.push({ id: row.id, name: row.name ?? "" });
-		byTrigger.set(row.triggerId, list);
-	}
-	return byTrigger;
-}
-
-/** Replaces a trigger's links wholesale. Delete-then-insert, inside the caller's transaction. */
-export async function setWorkflowLinks(
-	triggerId: string,
-	workflowIds: string[],
-	tx?: DbTransactionType,
-) {
-	const runner = tx ?? db;
-	await runner
-		.delete(triggerWorkflowsEntity)
-		.where(eq(triggerWorkflowsEntity.triggerId, triggerId));
-	if (workflowIds.length === 0) return;
-	await runner
-		.insert(triggerWorkflowsEntity)
-		.values(workflowIds.map((workflowId) => ({ triggerId, workflowId })));
-}
-
-/** Links one workflow. Already linked is success, not a conflict — the end state is what was asked for. */
-export async function linkWorkflow(
-	triggerId: string,
-	workflowId: string,
-	tx?: DbTransactionType,
-) {
-	await (tx ?? db)
-		.insert(triggerWorkflowsEntity)
-		.values({ triggerId, workflowId })
-		.onConflictDoNothing();
-}
-
-export async function unlinkWorkflow(
-	triggerId: string,
-	workflowId: string,
-	tx?: DbTransactionType,
-) {
-	await (tx ?? db)
-		.delete(triggerWorkflowsEntity)
-		.where(
-			and(
-				eq(triggerWorkflowsEntity.triggerId, triggerId),
-				eq(triggerWorkflowsEntity.workflowId, workflowId),
-			),
-		);
-}
-
-/** Trigger ids linked to a workflow, for filtering a list by it. */
-export function triggerIdsForWorkflow(workflowId: string) {
-	return db
-		.select({ id: triggerWorkflowsEntity.triggerId })
-		.from(triggerWorkflowsEntity)
-		.where(eq(triggerWorkflowsEntity.workflowId, workflowId));
+		.select({ id: workflowsEntity.id, name: workflowsEntity.name })
+		.from(workflowsEntity)
+		.where(inArray(workflowsEntity.id, workflowIds));
+	for (const row of rows) names.set(row.id, row.name ?? "");
+	return names;
 }

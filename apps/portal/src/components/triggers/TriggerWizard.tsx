@@ -50,10 +50,8 @@ export function TriggerWizard({
 		(initialTrigger?.type as TriggerType) || "schedule",
 	);
 	const [groupId, setGroupId] = useState(initialTrigger?.groupId ?? "");
-	const [workflowIds, setWorkflowIds] = useState<string[]>(
-		initialTrigger?.workflowIds ??
-			initialTrigger?.workflows?.map((w) => w.id) ??
-			[],
+	const [workflowId, setWorkflowId] = useState<string | null>(
+		initialTrigger?.workflowId ?? null,
 	);
 	const [active, setActive] = useState(initialTrigger ? initialTrigger.active : true);
 	const [schedule, setSchedule] = useState({
@@ -72,7 +70,7 @@ export function TriggerWizard({
 				name: form.name.trim(),
 				description: form.description.trim() || undefined,
 				groupId: groupId || undefined,
-				workflowIds,
+				workflowId,
 				active,
 				schedule: schedule.schedule.trim(),
 				timezone: schedule.timezone || "UTC",
@@ -95,7 +93,7 @@ export function TriggerWizard({
 					description: form.description.trim() || undefined,
 					type,
 					projectId,
-					workflowIds,
+					workflowId: workflowId ?? undefined,
 					groupId: groupId || undefined,
 					active,
 					schedule: schedule.schedule.trim(),
@@ -171,16 +169,16 @@ export function TriggerWizard({
 			content: <ScheduleFields value={schedule} onChange={setSchedule} />,
 		},
 		{
-			key: "workflows",
-			label: "Workflows",
+			key: "workflow",
+			label: "Workflow",
 			title: "Choose what it starts",
 			description:
-				"Every workflow here gets its own run each time the trigger fires, so one failing never holds up the rest.",
+				"A trigger starts one workflow. To run another workflow from the same source, create a second trigger or use the Trigger Workflow block.",
 			content: (
 				<TriggerWorkflowsField
 					projectId={projectId}
-					value={workflowIds}
-					onChange={setWorkflowIds}
+					value={workflowId}
+					onChange={setWorkflowId}
 				/>
 			),
 		},
@@ -198,12 +196,8 @@ export function TriggerWizard({
 						<SummaryItem label="Schedule" value={schedule.schedule} mono />
 						<SummaryItem label="Timezone" value={schedule.timezone} />
 						<SummaryItem
-							label="Workflows"
-							value={
-								workflowIds.length === 0
-									? "None yet"
-									: `${workflowIds.length} attached`
-							}
+							label="Workflow"
+							value={workflowId ? "Attached" : "None yet"}
 						/>
 					</dl>
 
@@ -211,7 +205,7 @@ export function TriggerWizard({
 						isSelected={active}
 						onChange={setActive}
 						label={isEdit ? "Trigger is active" : "Turn this trigger on now"}
-						description="An inactive trigger never fires, and neither does an active one with no workflows attached."
+						description="An inactive trigger never fires, and neither does an active one with no workflow attached."
 					/>
 				</div>
 			),
@@ -223,8 +217,8 @@ export function TriggerWizard({
 			title={isEdit ? "Edit trigger" : "Create a trigger"}
 			description={
 				isEdit
-					? "Update trigger settings and attached workflows."
-					: "A trigger is a source. Point it at as many workflows as you like."
+					? "Update trigger settings and the workflow it starts."
+					: "A trigger is a source that starts one workflow."
 			}
 			onBack={onBack}
 			steps={steps}

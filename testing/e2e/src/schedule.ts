@@ -76,7 +76,7 @@ export async function schedule(
 	await upsertSchedule({
 		id: triggerId,
 		projectId: WORKFLOW_PROJECT_ID,
-		workflowIds: [workflow.name],
+		workflowId: workflow.name,
 		schedule: spec,
 		timezone: options.timezone ?? "UTC",
 		payload: options.payload,

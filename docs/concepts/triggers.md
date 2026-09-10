@@ -4,9 +4,9 @@ A **trigger** is what starts a [workflow](/concepts/workflows). Something
 happens — a message arrives, another workflow says so — and the trigger hands
 that event to a workflow and lets it run.
 
-One trigger can start **several workflows**. Attach as many as you like: each
-one gets its own run of the same event, so a workflow that fails neither blocks
-nor retries the others.
+A trigger starts **one workflow**. To run more than one workflow from the same
+source, either create another trigger with the same settings, or have the first
+workflow start the others with the [Trigger Workflow](/concepts/blocks) block.
 
 A trigger that runs on the clock rather than on an event is a
 [schedule](/concepts/schedules) — cron expressions, intervals, and one-off
@@ -160,16 +160,15 @@ whatever it needs to work on itself.
 ## Where to set them up
 
 Triggers live on the project's **Triggers** page. Create one there — name it,
-say what fires it, and choose the workflows it starts. A trigger is not owned by
-a workflow, so the same one can be reused anywhere in the project.
+say what fires it, and choose the workflow it starts.
 
 A workflow's own **Settings → Triggers** tab shows what currently starts it. You
-can attach an existing trigger, detach one, or turn one on and off from there;
-detaching only removes the link, and the trigger keeps starting whatever else it
-is attached to. **New trigger** opens the create form in a new tab so an unsaved
-canvas is not lost.
+can attach a trigger that is not yet attached to anything, detach one, or turn
+one on and off from there. A trigger that already starts another workflow has
+to be detached from that workflow first. **New trigger** opens the create form
+in a new tab so an unsaved canvas is not lost.
 
-A trigger with no workflows attached is saved and idle — it collects nothing and
+A trigger with no workflow attached is saved and idle — it collects nothing and
 starts nothing until you attach one.
 
 Turning a trigger off stops it collecting events. Events already waiting stay
