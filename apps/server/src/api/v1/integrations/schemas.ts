@@ -10,8 +10,10 @@ export const integrationsGroupSchema = z.enum([
 	"ai",
 	"baas",
 	"observability",
+	"queue",
 ]);
 
+export const queueVariantSchema = z.enum(["Kafka"]);
 export const databaseVariantSchema = z.enum(["PostgreSQL", "MongoDB", "MySQL"]);
 export const kvVariantSchema = z.enum(["Redis", "Memcached"]);
 export const aiVariantSchema = z.enum([
@@ -261,6 +263,21 @@ export const lokiVariantConfigSchema = z.object({
 		.optional()
 		.or(z.string().optional()),
 	headers: customHeadersSchema,
+});
+
+// Queue
+export const kafkaVariantConfigSchema = z.object({
+	/** comma-separated `host:port` list, or a `cfg:` reference */
+	brokers: z.string().min(1),
+	clientId: z.string().optional(),
+	ssl: z.boolean().default(false),
+	saslMechanism: z
+		.enum(["none", "PLAIN", "SCRAM-SHA-256", "SCRAM-SHA-512"])
+		.default("none"),
+	username: z.string().optional(),
+	password: z.string().optional(),
+	/** Advanced: where a batch that keeps failing is parked. */
+	dlqTopic: z.string().optional(),
 });
 
 export const databaseTagsSchema = z.enum(["sql", "nosql"]);

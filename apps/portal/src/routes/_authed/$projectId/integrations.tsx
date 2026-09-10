@@ -70,6 +70,7 @@ function IntegrationsPage() {
 	const { data: aiData } = integrationsQuery.getAll.useQuery(projectId, "ai");
 	const { data: baasData } = integrationsQuery.getAll.useQuery(projectId, "baas");
 	const { data: obsData } = integrationsQuery.getAll.useQuery(projectId, "observability");
+	const { data: queueData } = integrationsQuery.getAll.useQuery(projectId, "queue");
 
 	const counts: Record<IntegrationGroup, number> = {
 		database: dbData?.length ?? 0,
@@ -77,6 +78,7 @@ function IntegrationsPage() {
 		ai: aiData?.length ?? 0,
 		baas: baasData?.length ?? 0,
 		observability: obsData?.length ?? 0,
+		queue: queueData?.length ?? 0,
 	};
 
 	// sync selected group from URL (deep-link support)

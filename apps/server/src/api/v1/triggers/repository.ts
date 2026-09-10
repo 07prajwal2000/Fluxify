@@ -2,6 +2,7 @@ import { and, count, desc, eq, ilike, inArray, isNotNull, SQL } from "drizzle-or
 import { generateID } from "@fluxify/lib";
 import { db, DbTransactionType } from "../../../db";
 import {
+	integrationsEntity,
 	projectsEntity,
 	triggerGroupsEntity,
 	triggersEntity,
@@ -146,6 +147,20 @@ export async function findTriggersByIntegration(
 		.where(eq(triggersEntity.integrationId, integrationId));
 }
 
+/** Enough of an integration to tell whether a trigger may read through it. */
+export async function findIntegration(id: string, tx?: DbTransactionType) {
+	const [row] = await (tx ?? db)
+		.select({
+			projectId: integrationsEntity.projectId,
+			group: integrationsEntity.group,
+			variant: integrationsEntity.variant,
+		})
+		.from(integrationsEntity)
+		.where(eq(integrationsEntity.id, id))
+		.limit(1);
+	return row;
+}
+
 export async function findWorkflow(id: string, tx?: DbTransactionType) {
 	const [row] = await (tx ?? db)
 		.select({ id: workflowsEntity.id, projectId: workflowsEntity.projectId })
@@ -185,6 +200,10 @@ export async function listTriggers(
 			maxBytes: triggersEntity.maxBytes,
 			concurrency: triggersEntity.concurrency,
 			payload: triggersEntity.payload,
+			source: triggersEntity.source,
+			commitMode: triggersEntity.commitMode,
+			maxAttempts: triggersEntity.maxAttempts,
+			retryDelayMs: triggersEntity.retryDelayMs,
 			schedule: triggersEntity.schedule,
 			timezone: triggersEntity.timezone,
 			active: triggersEntity.active,

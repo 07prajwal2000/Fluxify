@@ -20,6 +20,7 @@ import {
 	createSchema,
 	groupSchema,
 	isEnterpriseTriggerType,
+	kafkaSourceSchema,
 	listQuerySchema,
 	listSchema,
 	patchSchema,
@@ -32,6 +33,7 @@ import {
 	deleteTriggerRow,
 	ensureDefaultGroup,
 	findGroupById,
+	findIntegration,
 	findTriggerById,
 	findTriggerByName,
 	findWorkflow,
@@ -71,6 +73,7 @@ export async function createTrigger(
 
 		if (data.workflowId)
 			await assertWorkflowInProject(data.workflowId, data.projectId, tx);
+		await assertConnector(data.type, data.projectId, data.integrationId, data.source, tx);
 
 		if (await findTriggerByName(data.projectId, data.name, tx))
 			throw new ConflictError("trigger with that name already exists");
@@ -94,6 +97,10 @@ export async function createTrigger(
 				maxBytes: data.maxBytes,
 				concurrency: data.concurrency,
 				payload: data.payload ?? null,
+				source: data.source ?? null,
+				commitMode: data.commitMode,
+				maxAttempts: data.maxAttempts,
+				retryDelayMs: data.retryDelayMs,
 				schedule: data.schedule ?? null,
 				timezone: data.timezone,
 				active: data.active ?? false,
@@ -132,6 +139,13 @@ export async function updateTrigger(
 
 		if (data.workflowId)
 			await assertWorkflowInProject(data.workflowId, existing.projectId, tx);
+		await assertConnector(
+			existing.type,
+			existing.projectId,
+			data.integrationId ?? existing.integrationId,
+			data.source ?? existing.source,
+			tx,
+		);
 
 		return (await updateTriggerRow(
 			id,
@@ -388,6 +402,30 @@ function assertSourceMatchesType(type: string, integrationId?: string | null) {
 }
 
 /**
+ * A connector reads through an integration of its own kind, from this project,
+ * and from something named. Caught here, it is a 400; left to the worker, it is
+ * a trigger that is "on" and silently reads nothing.
+ */
+async function assertConnector(
+	type: string,
+	projectId: string,
+	integrationId: string | null | undefined,
+	source: unknown,
+	tx?: Parameters<typeof findIntegration>[1],
+) {
+	if (type !== "kafka") return;
+	if (!kafkaSourceSchema.safeParse(source).success)
+		throw new BadRequestError("A Kafka trigger needs at least one topic");
+	const integration = integrationId ? await findIntegration(integrationId, tx) : undefined;
+	if (
+		!integration ||
+		(integration.projectId ?? projectId) !== projectId ||
+		integration.variant !== "Kafka"
+	)
+		throw new BadRequestError("A Kafka trigger needs a Kafka integration from this project");
+}
+
+/**
  * An inactive trigger has no artifact at all, rather than an artifact with
  * `active: false`. A worker then has nothing to decide: what it holds is what
  * it runs.
@@ -417,6 +455,10 @@ async function republish(trigger: Trigger) {
 		maxBytes: trigger.maxBytes,
 		concurrency: trigger.concurrency,
 		payload: trigger.payload ?? undefined,
+		source: (trigger.source as Record<string, unknown> | null) ?? undefined,
+		commitMode: trigger.commitMode === "manual" ? "manual" : "auto",
+		maxAttempts: trigger.maxAttempts,
+		retryDelayMs: trigger.retryDelayMs,
 		publishedAt: new Date().toISOString(),
 	};
 	await putArtifact(key, artifact);
@@ -460,6 +502,10 @@ function present(row: Trigger): z.infer<typeof triggerSchema> {
 		maxBytes: row.maxBytes,
 		concurrency: row.concurrency,
 		payload: row.payload ?? null,
+		source: row.source ?? null,
+		commitMode: row.commitMode,
+		maxAttempts: row.maxAttempts,
+		retryDelayMs: row.retryDelayMs,
 		schedule: row.schedule,
 		timezone: row.timezone,
 		active: row.active,

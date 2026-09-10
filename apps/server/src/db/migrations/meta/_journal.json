@@ -449,6 +449,13 @@
       "when": 1789069001433,
       "tag": "0063_trigger_single_workflow",
       "breakpoints": true
+    },
+    {
+      "idx": 64,
+      "version": "7",
+      "when": 1789076418380,
+      "tag": "0064_trigger_connector_settings",
+      "breakpoints": true
     }
   ]
 }

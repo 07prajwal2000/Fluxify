@@ -410,6 +410,13 @@ export const triggersEntity = pgTable(
 		concurrency: integer().default(1).notNull(),
 		/** Static data handed to the workflow, for sources that carry none. */
 		payload: jsonb(),
+		/** External queues: what to read, in the connector's terms (Kafka: `{ topics }`). */
+		source: jsonb(),
+		/** `auto` commits after a successful run; `manual` leaves it to the workflow. */
+		commitMode: varchar("commit_mode", { length: 10 }).default("auto").notNull(),
+		/** Runs of one batch before it is dead-lettered (auto) or handed back (manual). */
+		maxAttempts: integer("max_attempts").default(3).notNull(),
+		retryDelayMs: integer("retry_delay_ms").default(1000).notNull(),
 		/** The schedule spec for a `schedule` trigger, exactly as NATS reads it:
 		 *  `@at <rfc3339>`, `@every 5m`, `@daily`, or six-field cron. Null for
 		 *  every other type. */

@@ -9,7 +9,8 @@
 		"dist"
 	],
 	"exports": {
-		".": "./index.ts"
+		".": "./index.ts",
+		"./queue/kafka": "./queue/kafka.ts"
 	},
 	"scripts": {
 		"test": "bun test --parallel --timeout 600000",
@@ -23,6 +24,7 @@
 		"@langchain/google-genai": "^2.1.17",
 		"@langchain/mistralai": "^1.0.4",
 		"@langchain/openai": "^1.2.7",
+		"@platformatic/kafka": "^2.11.0",
 		"ioredis": "^5.11.1",
 		"kysely": "^0.28.11",
 		"langchain": "^1.2.23",

@@ -111,6 +111,8 @@ export type ProjectConfigPayload = {
 	kvIntegrations: Record<string, any>;
 	observabilityIntegrations: Record<string, any>;
 	aiIntegrations: Record<string, any>;
+	/** absent on configs published before queue integrations existed */
+	queueIntegrations?: Record<string, any>;
 	projectSettings: Record<string, string>;
 };
 

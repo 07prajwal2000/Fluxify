@@ -12,7 +12,7 @@ import {
  * connectors are the same row with a different type, so they arrive as entries
  * here rather than as a second entity.
  */
-export const TRIGGER_TYPES = ["internal", "schedule"] as const;
+export const TRIGGER_TYPES = ["internal", "schedule", "kafka"] as const;
 export const triggerTypeSchema = z.enum(TRIGGER_TYPES);
 
 export { isEnterpriseTriggerType } from "../../../modules/triggers/types";
@@ -44,6 +44,23 @@ const batchSchema = {
 	/** Batches in flight. Above 1 forfeits ordering. */
 	concurrency: z.number().int().min(1).max(64).default(1),
 };
+
+/** External queues only; ignored by `internal` and `schedule`. */
+const connectorSchema = {
+	/** What to read, in the connector's terms. Kafka: `{ topics, fromBeginning? }`. */
+	source: z.record(z.string(), z.unknown()).optional(),
+	/** `auto` commits after a successful run; `manual` leaves it to the workflow. */
+	commitMode: z.enum(["auto", "manual"]).default("auto"),
+	/** Runs of one batch before it is dead-lettered (auto) or handed back (manual). */
+	maxAttempts: z.number().int().min(1).max(20).default(3),
+	retryDelayMs: z.number().int().min(0).max(300_000).default(1000),
+};
+
+/** Kafka's own caps: 249 characters a topic name; 100 topics is plenty for one workflow. */
+export const kafkaSourceSchema = z.object({
+	topics: z.array(z.string().min(1).max(249)).min(1).max(100),
+	fromBeginning: z.boolean().optional(),
+});
 
 /**
  * A cron that fails silently at 3am is the worst failure this feature has, so
@@ -80,6 +97,7 @@ export const createSchema = z.object({
 	active: z.boolean().optional(),
 	...batchSchema,
 	...scheduleSchema,
+	...connectorSchema,
 }).superRefine(assertScheduleShape);
 
 /**
@@ -99,6 +117,7 @@ export const patchSchema = z
 		active: z.boolean(),
 		...batchSchema,
 		...scheduleSchema,
+		...connectorSchema,
 	})
 	.partial()
 	.superRefine((data, ctx) => {
@@ -145,6 +164,10 @@ export const triggerSchema = z.object({
 	maxBytes: z.number().int(),
 	concurrency: z.number().int(),
 	payload: z.unknown().nullable(),
+	source: z.unknown().nullable(),
+	commitMode: z.string(),
+	maxAttempts: z.number().int(),
+	retryDelayMs: z.number().int(),
 	schedule: z.string().nullable(),
 	timezone: z.string(),
 	active: z.boolean(),

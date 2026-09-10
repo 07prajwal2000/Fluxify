@@ -286,6 +286,7 @@ function applyProjectConfig(artifact: UnsealedProjectConfig) {
 		kv: payload.kvIntegrations,
 		observability: payload.observabilityIntegrations,
 		ai: payload.aiIntegrations,
+		queue: payload.queueIntegrations,
 	});
 	// The hydrated cache is the runtime's complete view. Swapping here makes
 	// changed credentials available to new requests before old clients drain.

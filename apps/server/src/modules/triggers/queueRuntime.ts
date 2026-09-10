@@ -1,5 +1,6 @@
 import {
 	QueueConnectionManager,
+	registerQueueConnector,
 	type QueueBatch,
 	type QueueConnection,
 } from "@fluxify/adapters";
@@ -31,6 +32,8 @@ import { consumedInExecution, type TriggerBatch } from "./types";
 
 const DEFAULT_MAX_ATTEMPTS = 3;
 const DEFAULT_RETRY_DELAY_MS = 1_000;
+
+registerQueueConnector("kafka", () => import("@fluxify/adapters/queue/kafka"));
 
 const manager = new QueueConnectionManager();
 /** The artifact each running trigger was started from, read per batch. */
