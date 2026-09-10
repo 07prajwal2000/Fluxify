@@ -456,6 +456,13 @@
       "when": 1789076418380,
       "tag": "0064_trigger_connector_settings",
       "breakpoints": true
+    },
+    {
+      "idx": 65,
+      "version": "7",
+      "when": 1789082177424,
+      "tag": "0065_instance_license",
+      "breakpoints": true
     }
   ]
 }

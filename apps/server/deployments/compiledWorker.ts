@@ -32,7 +32,7 @@ import { executionRuntimeEnvironment } from "../src/modules/requestRouter/execut
 import type { ArtifactEntry } from "../src/modules/requestRouter/compiledRuntime";
 import { closeNats } from "../src/db/nats";
 import { watchInstanceSettings } from "../src/loaders/instanceSettingsLoader";
-import { currentEntitlement, watchLicense } from "../src/lib/edition";
+import { canRunConnectors, watchLicense } from "../src/lib/edition";
 import { startJobWorker } from "../src/modules/jobs/consumer";
 import { enqueueJob } from "../src/modules/jobs/publisher";
 import type { JobEnvelope } from "../src/modules/jobs/types";
@@ -283,7 +283,7 @@ function handleArtifactChange(entry: ArtifactEntry) {
 function placed(entry: ArtifactEntry): ArtifactEntry {
 	const trigger = entry.value as TriggerArtifact | null;
 	if (artifactKind(entry.key) !== "trigger" || !trigger) return entry;
-	return runsHere(trigger, WORKER_GROUP_ID, currentEntitlement().canRun)
+	return runsHere(trigger, WORKER_GROUP_ID, canRunConnectors())
 		? entry
 		: { key: entry.key, value: null };
 }
@@ -345,9 +345,9 @@ await watchLicense();
  * artifact store, so it is noticed here instead: the connectors are re-placed
  * whenever the answer flips.
  */
-let canRunEnterprise = currentEntitlement().canRun;
+let canRunEnterprise = canRunConnectors();
 const entitlementTimer = setInterval(() => {
-	const canRun = currentEntitlement().canRun;
+	const canRun = canRunConnectors();
 	if (canRun === canRunEnterprise) return;
 	canRunEnterprise = canRun;
 	logger.warn(

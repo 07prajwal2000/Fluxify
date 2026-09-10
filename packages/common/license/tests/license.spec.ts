@@ -1,6 +1,16 @@
 import { describe, expect, it } from "bun:test";
 import { generateKeyPairSync, sign, type KeyObject } from "node:crypto";
-import { entitlement, GRACE_PERIOD_DAYS, NON_COMMERCIAL, resolveLicense } from "../index";
+import {
+	entitlement,
+	FEATURES,
+	GRACE_PERIOD_DAYS,
+	includes,
+	licenseBanner,
+	NON_COMMERCIAL,
+	resolveLicense,
+	verifyLicenseKey,
+	type License,
+} from "../index";
 
 // Throwaway issuer. The build's real public key never appears in a test.
 const issuer = generateKeyPairSync("ed25519");
@@ -31,31 +41,73 @@ describe("resolveLicense", () => {
 
 	it("verifies a signed key", () => {
 		const exp = Math.floor(Date.now() / 1000) + 3600;
-		expect(resolveLicense(token({ sub: "acme", exp }), publicKey)).toEqual({
+		expect(resolveLicense(token({ sub: "acme", exp, features: ["*"] }), publicKey)).toEqual({
 			kind: "signed",
 			licensee: "acme",
 			expiresAt: new Date(exp * 1000).toISOString(),
+			features: ["*"],
 		});
 	});
 
 	it("resolves every bad key to community without throwing", () => {
-		const good = token({ sub: "acme" });
+		const good = token({ sub: "acme", features: ["*"] });
 		const [h, , s] = good.split(".");
 		const bad = [
 			"garbage",
 			"a.b.c",
 			`${good}.extra`,
-			`${h}.${b64({ sub: "evil-corp" })}.${s}`, // tampered payload
-			token({ sub: "acme" }, { key: generateKeyPairSync("ed25519").privateKey }), // wrong issuer
-			token({ sub: "acme" }, { alg: "none" }),
-			token({ exp: 9_999_999_999 }), // no licensee
-			token({ sub: "acme", exp: "never" }),
+			`${h}.${b64({ sub: "evil-corp", features: ["*"] })}.${s}`, // tampered payload
+			token({ sub: "acme", features: ["*"] }, { key: generateKeyPairSync("ed25519").privateKey }), // wrong issuer
+			token({ sub: "acme", features: ["*"] }, { alg: "none" }),
+			token({ exp: 9_999_999_999, features: ["*"] }), // no licensee
+			token({ sub: "acme", exp: "never", features: ["*"] }),
+			token({ sub: "acme" }), // no features
+			token({ sub: "acme", features: "*" }),
 		];
 		for (const key of bad) expect(resolveLicense(key, publicKey)).toEqual({ kind: "community" });
 	});
 
 	it("a build with no public key treats every signed key as community", () => {
-		expect(resolveLicense(token({ sub: "acme" }), null)).toEqual({ kind: "community" });
+		expect(resolveLicense(token({ sub: "acme", features: ["*"] }), null)).toEqual({ kind: "community" });
+	});
+
+	it("verifyLicenseKey says why a key was refused", () => {
+		expect(() => verifyLicenseKey("garbage", publicKey)).toThrow("not a signed token");
+		expect(() => verifyLicenseKey(token({ sub: "acme" }), publicKey)).toThrow("features");
+		expect(() => verifyLicenseKey(token({ sub: "acme", features: [] }), null)).toThrow(
+			"cannot verify license keys",
+		);
+	});
+});
+
+describe("licenseBanner", () => {
+	it("is ok for a valid license and lists its details", () => {
+		const { ok, text } = licenseBanner({
+			kind: "signed",
+			licensee: "acme",
+			expiresAt: null,
+			features: ["connectors"],
+		});
+		expect(ok).toBe(true);
+		expect(text).toContain("acme");
+		expect(text).toContain("never");
+		expect(text).toContain("connectors");
+	});
+
+	it("is not ok for a rejected key, and says why", () => {
+		const { ok, text } = licenseBanner({ kind: "community" }, "signature does not match");
+		expect(ok).toBe(false);
+		expect(text).toContain("signature does not match");
+	});
+});
+
+describe("includes", () => {
+	it("* unlocks everything, a list unlocks only what it names", () => {
+		expect(includes({ features: ["*"] }, FEATURES.connectors)).toBe(true);
+		expect(includes({ features: ["connectors"] }, FEATURES.connectors)).toBe(true);
+		expect(includes({ features: ["sso"] }, FEATURES.connectors)).toBe(false);
+		expect(entitlement({ kind: "non_commercial" }).features).toEqual(["*"]);
+		expect(entitlement({ kind: "community" }).features).toEqual([]);
 	});
 });
 
@@ -65,7 +117,8 @@ describe("entitlement", () => {
 			kind: "signed",
 			licensee: "acme",
 			expiresAt: expiresAt === null ? null : new Date(expiresAt).toISOString(),
-		}) as const;
+			features: ["*"],
+		}) satisfies License;
 	const now = Date.parse("2026-09-10T00:00:00Z");
 
 	it("community gets nothing", () => {
@@ -88,6 +141,7 @@ describe("entitlement", () => {
 			canCreate: false,
 			graceEndsAt: new Date(now + (GRACE_PERIOD_DAYS - 2) * DAY).toISOString(),
 			daysRemaining: GRACE_PERIOD_DAYS - 2,
+			features: ["*"],
 		});
 	});
 

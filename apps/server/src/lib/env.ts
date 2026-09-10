@@ -71,7 +71,7 @@ export const serverEnvSchema = baseEnvSchema.extend({
 		.string()
 		.optional()
 		.describe(
-			"Enterprise license. Unset runs the community edition. NON_COMMERCIAL grants enterprise features for non-commercial use. Any other value must be a signed license key. Read by the admin process only; workers learn the result from it",
+			"Enterprise license. Overrides the edition set in the admin UI and makes it read-only; unset lets the UI decide (non-commercial by default). NON_COMMERCIAL grants enterprise features for non-commercial use. Any other value must be a signed license key. Read by the admin process only; workers learn the result from it",
 		),
 
 	WORKER_MODE: z
