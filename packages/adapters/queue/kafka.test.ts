@@ -95,6 +95,9 @@ async function until(done: () => boolean | Promise<boolean>, ms = 30_000) {
 async function topic(partitions = 1) {
 	const name = `orders-${Date.now()}-${++seq}`;
 	await admin.createTopics({ topics: [name], partitions, replicas: 1 });
+	// creation acks before the topic is visible on a fresh connection's metadata,
+	// which is exactly what ensureKafkaTopics opens to check it
+	await until(async () => (await admin.listTopics()).includes(name), 10_000);
 	return name;
 }
 
