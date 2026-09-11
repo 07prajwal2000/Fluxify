@@ -15,9 +15,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       lib: ${{ steps.filter.outputs.lib }}
-      adapters: ${{ steps.filter.outputs.adapters }}
       blocks: ${{ steps.filter.outputs.blocks }}
-      e2e: ${{ steps.filter.outputs.e2e }}
       server: ${{ steps.filter.outputs.server }}
       portal: ${{ steps.filter.outputs.portal }}
       ai-gateway: ${{ steps.filter.outputs.ai-gateway }}
@@ -29,15 +27,10 @@ jobs:
           filters: |
             lib:
               - 'packages/lib/**'
-            adapters:
-              - 'packages/adapters/**'
-              - 'packages/lib/**'
             blocks:
               - 'packages/blocks/**'
               - 'packages/adapters/**'
               - 'packages/lib/**'
-            e2e:
-              - 'testing/e2e/**'
             server:
               - 'apps/server/**'
               - 'packages/**'
@@ -97,9 +90,9 @@ jobs:
       - name: Run Blocks Tests
         run: bun run test:blocks
 
+  # Integration and e2e jobs run on every PR and push: the pre-commit hook no
+  # longer runs them, so CI is the only place they are checked.
   test-packages-adapters:
-    needs: detect-changes
-    if: needs.detect-changes.outputs.adapters == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -115,8 +108,6 @@ jobs:
         run: bun run test:adapters
 
   test-e2e-graphs:
-    needs: detect-changes
-    if: needs.detect-changes.outputs.blocks == 'true' || needs.detect-changes.outputs.adapters == 'true' || needs.detect-changes.outputs.e2e == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -149,8 +140,6 @@ jobs:
         run: bun run test:server:unit
 
   test-apps-server-integration:
-    needs: detect-changes
-    if: needs.detect-changes.outputs.server == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -197,7 +186,7 @@ jobs:
   # Kit is the exception: every push to main publishes a rolling `nightly` build.
   # Versioned/`latest` kit images come from the tagged release job below.
   build-and-push:
-    needs: [lint, test-packages-lib, test-packages-blocks, test-packages-adapters, test-apps-server-unit, test-apps-server-integration, test-apps-portal, test-apps-ai-gateway]
+    needs: [lint, test-packages-lib, test-packages-blocks, test-packages-adapters, test-e2e-graphs, test-apps-server-unit, test-apps-server-integration, test-apps-portal, test-apps-ai-gateway]
     if: |
       always() &&
       !contains(needs.*.result, 'failure') &&
@@ -247,7 +236,7 @@ jobs:
 
   # Kit, admin and worker versioned images build ONLY on version tags (e.g. v1.2.3).
   build-and-push-release:
-    needs: [lint, test-packages-lib, test-packages-blocks, test-packages-adapters, test-apps-server-unit, test-apps-server-integration, test-apps-portal, test-apps-ai-gateway]
+    needs: [lint, test-packages-lib, test-packages-blocks, test-packages-adapters, test-e2e-graphs, test-apps-server-unit, test-apps-server-integration, test-apps-portal, test-apps-ai-gateway]
     if: |
       always() &&
       !contains(needs.*.result, 'failure') &&

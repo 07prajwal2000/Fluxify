@@ -43,7 +43,7 @@ import {
 	updateTriggerRow,
 	workflowNames,
 } from "./repository";
-import { assertConnector } from "./connectors";
+import { assertConnector } from "./connectors.ee";
 
 /**
  * Trigger CRUD.

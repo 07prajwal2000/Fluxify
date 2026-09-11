@@ -24,19 +24,10 @@ async function main() {
     console.log("3. Running code analysis...");
     await $`bun run analyze`;
 
-    // 5. Run unit tests
-    console.log("5. Running unit tests...");
+    // 4. Run unit tests. Integration and e2e tests need live services and run
+    // in CI on every PR and push instead.
+    console.log("4. Running unit tests...");
     await $`bun run test:unit`;
-
-    // 6. Conditionally run adapters integration tests
-    const adaptersChanged = changedFiles.some(file => file.startsWith("packages/adapters/"));
-    if (adaptersChanged) {
-      console.log("6. Changes in adapters detected. Running adapter integration tests...");
-      await $`bun run test:adapters`;
-      await $`bun run test:integration`;
-    } else {
-      console.log("6. No changes in adapters detected. Skipping adapter integration tests to save time.");
-    }
 
     console.log("Pre-commit checks passed successfully!");
   } catch (error) {

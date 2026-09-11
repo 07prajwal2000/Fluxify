@@ -5,7 +5,7 @@ import { headers as natsHeaders, type NatsConnection } from "@nats-io/nats-core"
 import { connect } from "@nats-io/transport-node";
 import { docker, pullImage, startContainerWithRandomPort } from "../containerTestHelpers";
 import type { QueueBatch, QueueConnection, QueueHandler, QueueSubscription } from "./base";
-import { assertNatsStream, connectOptions, createConnection, testNatsConnection, type NatsConfig, type NatsSource } from "./nats";
+import { assertNatsStream, connectOptions, createConnection, testNatsConnection, type NatsConfig, type NatsSource } from "./nats.ee";
 import { QueueConnectionManager } from "./manager";
 
 /**

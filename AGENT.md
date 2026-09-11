@@ -28,7 +28,7 @@ If you encounter a repeatable issue or bug that might arise in the future, you m
 - **Two remotes, and they are not interchangeable.** Issues, discussions and PRs always target **`Fluxify-rest/Fluxify`** (`--repo Fluxify-rest/Fluxify`). Branches are only ever pushed to the user's fork, `origin` (`git push origin <branch>`). A PR from the fork needs `--head <user>:<branch>`.
 - Use the `gh` CLI for everything GitHub — PRs, issues, CI status, merges.
 - Ask at the start of a conversation whether to branch or work on `main`.
-- **Testing before commit:** test only the folders that changed. Skip `packages/adapters` tests unless `git diff` shows changes inside it. The pre-commit hook runs lint, a secret scan, FTA analysis and tests — **never `--no-verify`**; if it fails, fix the cause (see the FTA section below).
+- **Testing before commit:** test only the folders that changed. The pre-commit hook runs lint, a secret scan, FTA analysis and unit tests — **never `--no-verify`**; if it fails, fix the cause (see the FTA section below). Integration and e2e tests (`*.test.ts`, `testing/e2e`) run only in CI, on every PR and push.
 - Branch names follow convention (`feat/…`, `fix/…`, `chore/…`). PR descriptions say *why* and *what*.
 - **Writing a multi-line commit message:** use `git commit -F -` with a bash heredoc. The PowerShell `@'…'@` form silently becomes a literal `@` subject line when run through the Bash tool.
 
