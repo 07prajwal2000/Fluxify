@@ -21,6 +21,7 @@ import {
 	memcachedVariantConfigSchema,
 	queueVariantSchema,
 	kafkaVariantConfigSchema,
+	natsVariantConfigSchema,
 } from "./schemas";
 
 type Variants =
@@ -150,6 +151,18 @@ export function getDefaultVariantValue(variant: Variants) {
 			dlqTopic: "",
 		} as z.infer<typeof kafkaVariantConfigSchema>;
 	}
+	if (variant === "NATS") {
+		return {
+			servers: "",
+			tls: false,
+			token: "",
+			user: "",
+			pass: "",
+			creds: "",
+			nkeySeed: "",
+			dlqSubject: "",
+		} as z.infer<typeof natsVariantConfigSchema>;
+	}
 	return null;
 }
 
@@ -229,7 +242,7 @@ export function getSchema(
 		}
 	} else if (group === "queue") {
 		if (!queueVariantSchema.safeParse(variant).success) return null;
-		schema = kafkaVariantConfigSchema;
+		schema = variant === "NATS" ? natsVariantConfigSchema : kafkaVariantConfigSchema;
 	}
 	return schema;
 }

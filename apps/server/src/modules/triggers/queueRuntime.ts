@@ -34,6 +34,7 @@ const DEFAULT_MAX_ATTEMPTS = 3;
 const DEFAULT_RETRY_DELAY_MS = 1_000;
 
 registerQueueConnector("kafka", () => import("@fluxify/adapters/queue/kafka"));
+registerQueueConnector("nats", () => import("@fluxify/adapters/queue/nats"));
 
 const manager = new QueueConnectionManager();
 /** The artifact each running trigger was started from, read per batch. */
@@ -183,10 +184,11 @@ function jobFor(artifact: TriggerArtifact, batch: QueueBatch): JobEnvelope {
 }
 
 function bindConnection(connection: QueueConnection, batch: QueueBatch): TriggerConnection {
-	return {
-		raw: connection.raw(),
+	const bound = {
 		commit: () => connection.commit(batch),
-		moveToDLQ: (error) => connection.moveToDLQ(batch, error),
+		moveToDLQ: (error: unknown) => connection.moveToDLQ(batch, error),
 		lag: () => connection.lag(),
-	};
+	} as TriggerConnection;
+	// the client is cyclic: hidden from JSON.stringify so logging `trigger` works
+	return Object.defineProperty(bound, "raw", { value: connection.raw(), enumerable: false });
 }

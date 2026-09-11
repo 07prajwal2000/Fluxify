@@ -26,8 +26,21 @@ import { AiForm } from "./connectors/AiForm";
 import { CredentialsUrlForm } from "./connectors/CredentialsUrlForm";
 import { ObservabilityForm } from "./connectors/ObservabilityForm";
 import { KafkaForm } from "./connectors/KafkaForm";
+import { NatsForm } from "./connectors/NatsForm";
+import { EnterpriseGate } from "@/components/common/Enterprise";
 
 type Step = 1 | 2 | 3;
+
+/** Queue connectors only feed triggers, which need an enterprise license. */
+function gateQueue(group: string, card: ReactNode, key: string) {
+	return group === "queue" ? (
+		<EnterpriseGate key={key} compact>
+			{card}
+		</EnterpriseGate>
+	) : (
+		card
+	);
+}
 
 const CRED_PLACEHOLDERS: Record<string, { ph: Record<string, string>; ssl?: boolean; db?: boolean }> = {
 	PostgreSQL: { ph: { name: "My Postgres Database", host: "postgres.company.com", port: "5432", username: "postgres", password: "secret", database: "ecommerce", url: "postgres://user:pass@host:port/dbname?ssl=disable" }, ssl: true, db: true },
@@ -255,7 +268,7 @@ export function IntegrationOnboardingForm({ projectId, onSaved }: { projectId: s
 							<p className="mt-0.5 text-xs text-muted">Select the service you want to configure.</p>
 						</div>
 						<div className="mt-3.5 grid gap-2.5 sm:grid-cols-2">
-							{variants.map((item) => (
+							{variants.map((item) => gateQueue(group, (
 								<button
 									key={item}
 									type="button"
@@ -267,7 +280,7 @@ export function IntegrationOnboardingForm({ projectId, onSaved }: { projectId: s
 									</span>
 									<span className="truncate text-sm font-semibold text-foreground">{item}</span>
 								</button>
-							))}
+							), item))}
 						</div>
 					</section>
 				)}
@@ -324,6 +337,7 @@ export function IntegrationOnboardingForm({ projectId, onSaved }: { projectId: s
 								/>
 							)}
 							{group === "queue" && variant === "Kafka" && <KafkaForm {...formProps} />}
+							{group === "queue" && variant === "NATS" && <NatsForm {...formProps} />}
 						</div>
 					</section>
 				)}

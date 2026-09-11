@@ -22,6 +22,7 @@ import {
 	DELIVERY_DEFAULTS,
 	DeliveryFields,
 	KafkaSourceFields,
+	NatsSourceFields,
 	topicList,
 } from "@/components/triggers/KafkaTriggerFields";
 import { triggersQuery } from "@/query/triggersQuery";
@@ -70,12 +71,20 @@ export function TriggerWizard({
 		topics?: string[];
 		fromBeginning?: boolean;
 		createTopics?: boolean;
+		stream?: string;
+		filterSubjects?: string[];
 	};
 	const [kafka, setKafka] = useState({
 		integrationId: initialTrigger?.integrationId ?? "",
 		topics: (source.topics ?? []).join(", "),
 		fromBeginning: Boolean(source.fromBeginning),
 		createTopics: Boolean(source.createTopics),
+	});
+	const [nats, setNats] = useState({
+		integrationId: initialTrigger?.integrationId ?? "",
+		stream: source.stream ?? "",
+		subjects: (source.filterSubjects ?? []).join(", "),
+		fromBeginning: Boolean(source.fromBeginning),
 	});
 	const [batch, setBatch] = useState({
 		batchSize: initialTrigger?.batchSize ?? BATCH_DEFAULTS.batchSize,
@@ -94,7 +103,9 @@ export function TriggerWizard({
 
 	const nameIsValid = form.name.trim().length >= 2;
 	const isKafka = type === "kafka";
+	const isNats = type === "nats";
 	const topics = topicList(kafka.topics);
+	const subjects = topicList(nats.subjects);
 
 	/** The fields that differ by type; the rest of the body is shared. */
 	const typeFields = isKafka
@@ -104,6 +115,17 @@ export function TriggerWizard({
 				...batch,
 				...delivery,
 			}
+		: isNats
+			? {
+					integrationId: nats.integrationId,
+					source: {
+						stream: nats.stream.trim(),
+						...(subjects.length ? { filterSubjects: subjects } : {}),
+						fromBeginning: nats.fromBeginning,
+					},
+					...batch,
+					...delivery,
+				}
 		: { schedule: schedule.schedule.trim(), timezone: schedule.timezone || "UTC" };
 
 	const done = (message: string) => ({
@@ -138,23 +160,36 @@ export function TriggerWizard({
 		}
 	}
 
-	const sourceSteps: WizardStep[] = isKafka
+	const connectorStep: WizardStep = isNats
+		? {
+				key: "source",
+				label: "Stream",
+				title: "Say what it reads",
+				description: "The NATS integration to connect with, and the stream to read.",
+				isValid: Boolean(nats.integrationId) && nats.stream.trim().length > 0,
+				content: (
+					<NatsSourceFields projectId={projectId} value={nats} onChange={setNats} isEdit={isEdit} />
+				),
+			}
+		: {
+				key: "source",
+				label: "Topics",
+				title: "Say what it reads",
+				description: "The Kafka integration to connect with, and the topics to read.",
+				isValid: Boolean(kafka.integrationId) && topics.length > 0,
+				content: (
+					<KafkaSourceFields
+						projectId={projectId}
+						value={kafka}
+						onChange={setKafka}
+						isEdit={isEdit}
+					/>
+				),
+			};
+
+	const sourceSteps: WizardStep[] = isKafka || isNats
 		? [
-				{
-					key: "source",
-					label: "Topics",
-					title: "Say what it reads",
-					description: "The Kafka integration to connect with, and the topics to read.",
-					isValid: Boolean(kafka.integrationId) && topics.length > 0,
-					content: (
-						<KafkaSourceFields
-							projectId={projectId}
-							value={kafka}
-							onChange={setKafka}
-							isEdit={isEdit}
-						/>
-					),
-				},
+				connectorStep,
 				{
 					key: "delivery",
 					label: "Delivery",
@@ -209,7 +244,7 @@ export function TriggerWizard({
 						isInvalid={form.name.length > 0 && !nameIsValid}
 					>
 						<Label>Name</Label>
-						<Input placeholder={isKafka ? "New orders" : "Nightly report"} />
+						<Input placeholder={isKafka || isNats ? "New orders" : "Nightly report"} />
 					</TextField>
 
 					<div className="flex flex-col gap-1.5">
@@ -258,9 +293,13 @@ export function TriggerWizard({
 				<div className="flex flex-col gap-5">
 					<dl className="grid grid-cols-2 gap-px overflow-hidden rounded-lg border border-border bg-border">
 						<SummaryItem label="Name" value={form.name.trim()} />
-						{isKafka ? (
+						{isKafka || isNats ? (
 							<>
-								<SummaryItem label="Topics" value={topics.join(", ")} mono />
+								{isNats ? (
+									<SummaryItem label="Stream" value={nats.stream.trim()} mono />
+								) : (
+									<SummaryItem label="Topics" value={topics.join(", ")} mono />
+								)}
 								<SummaryItem label="Batch size" value={String(batch.batchSize)} />
 								<SummaryItem
 									label="Commit"

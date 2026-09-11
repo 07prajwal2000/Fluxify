@@ -13,7 +13,7 @@ export const integrationsGroupSchema = z.enum([
 	"queue",
 ]);
 
-export const queueVariantSchema = z.enum(["Kafka"]);
+export const queueVariantSchema = z.enum(["Kafka", "NATS"]);
 export const databaseVariantSchema = z.enum(["PostgreSQL", "MongoDB", "MySQL"]);
 export const kvVariantSchema = z.enum(["Redis", "Memcached"]);
 export const aiVariantSchema = z.enum([
@@ -278,6 +278,21 @@ export const kafkaVariantConfigSchema = z.object({
 	password: z.string().optional(),
 	/** Advanced: where a batch that keeps failing is parked. */
 	dlqTopic: z.string().optional(),
+});
+
+/** A foreign NATS JetStream cluster — not Fluxify's own transport. */
+export const natsVariantConfigSchema = z.object({
+	/** comma-separated `nats://host:port` list, or a `cfg:` reference */
+	servers: z.string().min(1),
+	tls: z.boolean().default(false),
+	token: z.string().optional(),
+	user: z.string().optional(),
+	pass: z.string().optional(),
+	/** contents of a `.creds` file (JWT + NKey) */
+	creds: z.string().optional(),
+	nkeySeed: z.string().optional(),
+	/** Advanced: a subject a stream captures, where failing batches are parked. */
+	dlqSubject: z.string().optional(),
 });
 
 export const databaseTagsSchema = z.enum(["sql", "nosql"]);

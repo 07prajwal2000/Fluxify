@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { BiLogoPostgresql, BiLogoMongodb } from "react-icons/bi";
 import { DiRedis, DiMysql } from "react-icons/di";
-import { SiAnthropic, SiApachekafka } from "react-icons/si";
+import { SiAnthropic, SiApachekafka, SiNatsdotio } from "react-icons/si";
 import { TbBrandFirebase, TbBrandSupabase, TbServer } from "react-icons/tb";
 import { RiGeminiFill, RiOpenaiLine, RiRobot2Fill, RiOpenaiFill } from "react-icons/ri";
 import { PiNotebookLight } from "react-icons/pi";
@@ -26,4 +26,5 @@ export const integrationIcons: Record<string, ReactNode> = {
 	"Open Telemetry": <IoTelescope size={size} />,
 	Loki: <PiNotebookLight size={size} />,
 	Kafka: <SiApachekafka size={size} />,
+	NATS: <SiNatsdotio size={size} />,
 };

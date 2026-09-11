@@ -12,7 +12,7 @@ import {
  * connectors are the same row with a different type, so they arrive as entries
  * here rather than as a second entity.
  */
-export const TRIGGER_TYPES = ["internal", "schedule", "kafka"] as const;
+export const TRIGGER_TYPES = ["internal", "schedule", "kafka", "nats"] as const;
 export const triggerTypeSchema = z.enum(TRIGGER_TYPES);
 
 export { isEnterpriseTriggerType } from "../../../modules/triggers/types";
@@ -62,6 +62,13 @@ export const kafkaSourceSchema = z.object({
 	fromBeginning: z.boolean().optional(),
 	/** Create missing topics on save; off, a missing topic is a 400. */
 	createTopics: z.boolean().optional(),
+});
+
+/** NATS stream names cannot hold whitespace, `.`, `*`, `>`, or path separators. */
+export const natsSourceSchema = z.object({
+	stream: z.string().regex(/^[^\s.*>/\\]{1,255}$/, "Not a valid stream name"),
+	filterSubjects: z.array(z.string().min(1)).max(100).optional(),
+	fromBeginning: z.boolean().optional(),
 });
 
 /**

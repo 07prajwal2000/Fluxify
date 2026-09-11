@@ -15,6 +15,7 @@ import { CredentialsUrlForm } from "./connectors/CredentialsUrlForm";
 import { AiForm } from "./connectors/AiForm";
 import { ObservabilityForm } from "./connectors/ObservabilityForm";
 import { KafkaForm } from "./connectors/KafkaForm";
+import { NatsForm } from "./connectors/NatsForm";
 
 type IntegrationData = { name: string; group: string; variant: string; config: Record<string, unknown> };
 
@@ -197,6 +198,7 @@ export function IntegrationForm({
 			)}
 
 			{group === "queue" && variant === "Kafka" && <KafkaForm {...formProps} />}
+			{group === "queue" && variant === "NATS" && <NatsForm {...formProps} />}
 
 			{/* Actions */}
 			{!hideActions && group && variant && (

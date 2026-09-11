@@ -161,6 +161,8 @@ describe("an external queue batch", () => {
 			attempt: 1,
 		});
 		expect(seenTrigger.connection.raw).toEqual({ client: "fake" });
+		// a real client is cyclic; logging the trigger must not walk into it
+		expect(JSON.parse(JSON.stringify(seenTrigger)).connection?.raw).toBeUndefined();
 		expect(await seenTrigger.connection.lag()).toBe(7);
 	});
 

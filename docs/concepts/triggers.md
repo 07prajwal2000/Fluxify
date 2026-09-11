@@ -183,6 +183,64 @@ can do that itself with `await trigger.connection.moveToDLQ(error)`.
 See [Message Queue Integrations](/integrations/message-queues) for what happens
 to failing messages and how the dead-letter topic works.
 
+## Reading from NATS
+
+A NATS trigger runs its workflow for messages stored in a **JetStream stream**
+on your own NATS cluster. It needs a [NATS integration](/integrations/message-queues#nats)
+and an enterprise license.
+
+| Setting | What it does |
+|---|---|
+| **Stream** | The stream to read. It is checked when you save, and must already exist — Fluxify never creates streams. |
+| **Subjects** | Optional. Only read these subjects of the stream, separated by commas (`orders.eu, orders.us.*`). Empty reads every subject the stream holds. |
+| **Read messages already in the stream** | Off: only messages sent after the trigger starts. On: start from the oldest message the stream still keeps. Only matters the first time. |
+| **Max attempts**, **Retry delay**, **Commit from the workflow** | Work exactly as for Kafka, above. |
+
+Each event carries where it came from:
+
+| Field | What it is |
+|---|---|
+| `meta.topic` | The subject the message was published on |
+| `meta.offset` | Its position in the stream |
+| `meta.key` | The message's `Nats-Msg-Id` header, or `null` |
+| `meta.headers` | Its headers |
+| `meta.timestamp` | When the stream stored it |
+
+A message body that is valid JSON arrives parsed; anything else arrives as text.
+
+A stream has no partitions, so **Concurrency** is simply how many batches run at
+once. Messages run in order only at a concurrency of 1.
+
+::: tip A part-filled batch waits at least a second
+NATS triggers wait at least one second for a batch to fill, even when **Max
+wait** is shorter.
+:::
+
+## Using the client directly
+
+For Kafka and NATS triggers, `trigger.connection.raw` is the client Fluxify
+reads the batch with. Use it for what `commit`, `moveToDLQ` and `lag` do not
+cover — for example, publishing a reply on NATS:
+
+```js
+// NATS: send a message on another subject
+trigger.connection.raw.publish("orders.processed", JSON.stringify({ id: input.orderId }));
+```
+
+| Trigger | What `raw` is | Where to read about it |
+|---|---|---|
+| Kafka | A `Consumer` from `@platformatic/kafka` | [github.com/platformatic/kafka](https://github.com/platformatic/kafka) |
+| NATS | A `NatsConnection` from `@nats-io/nats-core` | [github.com/nats-io/nats.js](https://github.com/nats-io/nats.js) and [docs.nats.io](https://docs.nats.io) |
+
+::: danger Handle with care
+This is the live connection the trigger itself depends on, shared by every run of
+that trigger on the worker. Closing it, draining it, pausing it, changing its
+subscriptions or committing past a batch can stop the trigger from reading,
+skip or repeat messages, or leave it in a broken state **until the worker
+restarts**. Only use it if you know what the call does to a running consumer,
+and prefer the built-in helpers whenever they are enough.
+:::
+
 ## Starting a workflow from a canvas
 
 Not everything that starts a workflow comes from outside. The
