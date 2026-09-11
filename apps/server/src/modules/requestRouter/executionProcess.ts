@@ -19,7 +19,7 @@ import type {
 } from "./threadTypes";
 import { projectSettingsCache } from "../../loaders/projectSettingsLoader";
 import { triggerPayloadLimit } from "../triggers/payloadLimit";
-import { setTriggerFaultReporter } from "../triggers/queueRuntime";
+import { setTriggerFaultReporter } from "../triggers/queueRuntime.ee";
 import { workerTimeoutsEnabled } from "./workerTimeouts";
 import { AsyncExecutor } from "./asyncExecutor";
 import { executionRuntimeEnvironment } from "./executionEnvironment";

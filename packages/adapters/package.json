@@ -10,9 +10,9 @@
 	],
 	"exports": {
 		".": "./index.ts",
-		"./queue/kafka": "./queue/kafka.ts",
-		"./queue/nats": "./queue/nats.ts",
-		"./queue/sqs": "./queue/sqs.ts"
+		"./queue/kafka": "./queue/kafka.ee.ts",
+		"./queue/nats": "./queue/nats.ee.ts",
+		"./queue/sqs": "./queue/sqs.ee.ts"
 	},
 	"scripts": {
 		"test": "bun test --parallel --timeout 600000",

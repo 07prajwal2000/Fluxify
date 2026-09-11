@@ -30,7 +30,7 @@ import {
 	applyQueueTrigger,
 	refreshQueueTriggers,
 	shutdownQueueTriggers,
-} from "../triggers/queueRuntime";
+} from "../triggers/queueRuntime.ee";
 import { setBlocksExecutor } from "./executor";
 import { setDbConnectionManager } from "./service";
 

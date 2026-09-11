@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import type { QueueBatch, QueueHandler, QueueSubscription } from "./base";
-import { KafkaConnection } from "./kafka";
+import { KafkaConnection } from "./kafka.ee";
 
 /**
  * The batching and redelivery the connector does itself, driven with fake
