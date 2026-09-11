@@ -134,6 +134,38 @@ describe("consumeBatches", () => {
 		expect(msgs.map((m) => m.acks)).toEqual([["nak:1000"], ["nak:1000"]]);
 	});
 
+	it("doubles the redelivery delay with each attempt", async () => {
+		const msgs = [fakeMsg("t.1", {}, 3)];
+		state.setBatches([msgs]);
+		const consumer = await consumeBatches(nc, "S", "d", async () => {
+			throw new Error("sink down");
+		}, { ...batchOptions, maxAttempts: 5, retryDelayMs: 1_000 });
+		await settled();
+		await consumer.stop();
+
+		expect(msgs[0]!.acks).toEqual(["nak:4000"]);
+	});
+
+	it("lets the messages set their own attempts and delay", async () => {
+		const retried = [fakeMsg("t.1", { retry: { maxAttempts: 3, retryDelayMs: 500 } }, 1)];
+		const spent = [fakeMsg("t.1", { retry: { maxAttempts: 2 } }, 2)];
+		state.setBatches([retried, spent]);
+		const consumer = await consumeBatches<{ retry: { maxAttempts?: number; retryDelayMs?: number } }>(
+			nc,
+			"S",
+			"d",
+			async () => {
+				throw new Error("boom");
+			},
+			{ ...batchOptions, maxAttempts: 5, retryDelayMs: 10_000, policy: (batch) => batch[0]?.data.retry },
+		);
+		await settled();
+		await consumer.stop();
+
+		expect(retried[0]!.acks).toEqual(["nak:500"]);
+		expect(spent[0]!.acks).toEqual(["term"]);
+	});
+
 	it("terminates the whole batch once its deliveries are spent", async () => {
 		const msgs = [fakeMsg("t.1", {}, 1), fakeMsg("t.1", {}, 5)];
 		state.setBatches([msgs]);

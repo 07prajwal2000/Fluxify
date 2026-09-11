@@ -16,6 +16,11 @@ import type { Millis } from "./types";
  * genuinely differs.
  */
 
+/** Redelivery wait: the base delay, doubling each attempt, capped. */
+export function backoffMs(baseMs: number, attempt: number, capMs = 300_000) {
+	return Math.min(capMs, baseMs * 2 ** (Math.max(1, attempt) - 1));
+}
+
 export interface PublishOptions {
 	/**
 	 * `Nats-Msg-Id`. Publishing the same id twice inside the stream's dedupe
@@ -220,10 +225,15 @@ export interface BatchOptions<T> {
 	maxWaitMs?: Millis;
 	/** Batches in flight. Above 1 forfeits ordering. Default 1. */
 	concurrency?: number;
-	/** Redelivery delay when the batch is naked. Default 5s. */
+	/** Base redelivery delay when the batch is naked; doubles each attempt. Default 5s. */
 	retryDelayMs?: Millis;
 	/** Deliveries before the batch is terminated. Should match `maxDeliver`. */
 	maxAttempts?: number;
+	/**
+	 * Per-batch override of the two above, read from the messages themselves.
+	 * Can only lower attempts: the broker's `maxDeliver` is still the ceiling.
+	 */
+	policy?: (batch: QueueMessage<T>[]) => { maxAttempts?: number; retryDelayMs?: number } | undefined;
 	/** Failures that will fail identically forever. Terminated immediately. */
 	isPermanent?: (error: unknown) => boolean;
 	/** Called after the ack decision, for metrics or a dead-letter record. */
@@ -387,7 +397,9 @@ export async function consumeBatches<T>(
 		// Redelivery is per message, so a batch's attempt count is the highest one
 		// in it — the first message to exhaust its budget retires the batch.
 		const attempt = Math.max(...batch.map((message) => message.attempt));
-		const attempts = options.maxAttempts ?? 1;
+		const policy = options.policy?.(batch);
+		const attempts = policy?.maxAttempts ?? options.maxAttempts ?? 1;
+		const delayMs = backoffMs(policy?.retryDelayMs ?? retryDelayMs, attempt);
 
 		if (options.isPermanent?.(error) || attempt >= attempts) {
 			logger.error(
@@ -403,7 +415,7 @@ export async function consumeBatches<T>(
 			`[nats] ${where} failed (attempt ${attempt}), retrying: ${String(error)}`,
 			"NATS",
 		);
-		for (const message of batch) message.msg.nak(retryDelayMs);
+		for (const message of batch) message.msg.nak(delayMs);
 	}
 
 	logger.info(

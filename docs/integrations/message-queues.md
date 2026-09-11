@@ -62,7 +62,8 @@ it succeeds. After a restart, reading carries on from the last committed
 message, so nothing is skipped.
 
 If the run fails, the same batch is run again, up to the trigger's **Max
-attempts**, with **Retry delay** between tries. What happens after the last
+attempts** (at most 5). The wait starts at **Retry delay** and doubles after
+each failed try. What happens after the last
 attempt depends on the dead-letter topic:
 
 | Dead-letter topic | After the last failed attempt |

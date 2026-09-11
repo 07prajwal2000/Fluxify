@@ -39,6 +39,20 @@ describe("fireWorkflow", () => {
 		]);
 	});
 
+	it("carries the block's retry settings with the job", () => {
+		const queued: JobRequest[] = [];
+		setJobEnqueuer((job) => queued.push(job));
+
+		fireWorkflow(context, "wf-1", {}, { maxAttempts: 2, retryDelayMs: 5000 });
+
+		expect(queued[0]!.retry).toEqual({ maxAttempts: 2, retryDelayMs: 5000 });
+	});
+
+	it("refuses more than 5 attempts", () => {
+		expect(() => triggerWorkflowSchema.parse({ blockName: "x", maxAttempts: "6" })).toThrow();
+		expect(triggerWorkflowSchema.parse({ blockName: "x", maxAttempts: "3" }).maxAttempts).toBe(3);
+	});
+
 	it("throws when no queue is wired instead of dropping the trigger", () => {
 		expect(() => fireWorkflow(context, "wf-1", {})).toThrow(/no job queue/i);
 	});

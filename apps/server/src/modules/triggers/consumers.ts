@@ -108,6 +108,7 @@ export class TriggerWorker {
 				maxBytes: MAX_INTERNAL_BATCH_BYTES,
 				maxAttempts: this.options.maxDeliver,
 				retryDelayMs: this.options.retryDelayMs,
+				policy: (batch) => batch[0]?.data.retry,
 			},
 		);
 		logger.info(
@@ -167,7 +168,7 @@ export class TriggerWorker {
 			durable,
 			filterSubjects: [triggerSubject(artifact.projectId, artifact.triggerId)],
 			ackWaitMs: this.ackWaitFor(artifact),
-			maxDeliver: this.options.maxDeliver,
+			maxDeliver: this.attemptsFor(artifact),
 			maxAckPending: artifact.batchSize * artifact.concurrency,
 		});
 
@@ -193,8 +194,8 @@ export class TriggerWorker {
 				maxBytes: artifact.maxBytes,
 				maxWaitMs: artifact.maxWaitMs,
 				concurrency: artifact.concurrency,
-				maxAttempts: this.options.maxDeliver,
-				retryDelayMs: this.options.retryDelayMs,
+				maxAttempts: this.attemptsFor(artifact),
+				retryDelayMs: artifact.retryDelayMs ?? this.options.retryDelayMs,
 			},
 		);
 		logger.info(
@@ -252,6 +253,11 @@ export class TriggerWorker {
 	 * The margin covers the hop to the execution process and back, which is not
 	 * part of the workflow's own budget.
 	 */
+	/** The trigger's own setting, capped at 5 for rows saved before the cap. */
+	private attemptsFor(artifact: TriggerArtifact) {
+		return Math.min(MAX_ATTEMPTS, artifact.maxAttempts ?? this.options.maxDeliver);
+	}
+
 	private ackWaitFor(artifact: TriggerArtifact) {
 		const seconds = this.options.workflowTimeoutSeconds?.(artifact.workflowId);
 		if (!seconds) return this.options.defaultAckWaitMs;
@@ -263,6 +269,7 @@ export class TriggerWorker {
 const MAX_INTERNAL_BATCH_BYTES = 1024 * 1024;
 /** Room for the trip to the execution process, on top of the workflow's budget. */
 const ACK_WAIT_MARGIN_MS = 30_000;
+const MAX_ATTEMPTS = 5;
 
 function unchanged(a: TriggerArtifact, b: TriggerArtifact) {
 	return (
@@ -271,6 +278,8 @@ function unchanged(a: TriggerArtifact, b: TriggerArtifact) {
 		a.maxWaitMs === b.maxWaitMs &&
 		a.maxBytes === b.maxBytes &&
 		a.concurrency === b.concurrency &&
+		a.maxAttempts === b.maxAttempts &&
+		a.retryDelayMs === b.retryDelayMs &&
 		a.type === b.type &&
 		a.integrationId === b.integrationId
 	);

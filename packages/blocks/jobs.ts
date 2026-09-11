@@ -7,6 +7,14 @@
  * `setBlocksExecutor` inverts route execution.
  */
 
+/** Per-job override of the consumer's retry defaults. Unset fields keep them. */
+export type RetryPolicy = {
+	/** Runs before the job is dropped, 1 to 5. */
+	maxAttempts?: number;
+	/** Wait before the first retry; doubles after each failed attempt. */
+	retryDelayMs?: number;
+};
+
 /** One unit of queued work. `kind` decides how a consumer reads `target`. */
 export type JobRequest = {
 	/** "custom-block" today; crons, workflows and schedules share this queue. */
@@ -22,6 +30,7 @@ export type JobRequest = {
 		route?: string;
 		apiId?: string;
 	};
+	retry?: RetryPolicy;
 };
 
 export type JobEnqueuer = (job: JobRequest) => void;

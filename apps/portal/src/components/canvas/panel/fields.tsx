@@ -59,7 +59,9 @@ export function BlockSelectField({
 	const { updateNodeData } = useReactFlow();
 	// Tracking disabled means a readonly canvas: show the value, don't edit it.
 	const { enabled: editable } = useCanvasChanges();
-	const value = typeof data[name] === "string" ? (data[name] as string) : null;
+	// a saved graph may hand a numeric setting back as a number
+	const raw = data[name];
+	const value = raw === undefined || raw === null ? null : String(raw);
 
 	return (
 		<Select

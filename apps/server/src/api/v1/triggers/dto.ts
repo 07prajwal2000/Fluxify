@@ -52,7 +52,8 @@ const connectorSchema = {
 	/** `auto` commits after a successful run; `manual` leaves it to the workflow. */
 	commitMode: z.enum(["auto", "manual"]).default("auto"),
 	/** Runs of one batch before it is dead-lettered (auto) or handed back (manual). */
-	maxAttempts: z.number().int().min(1).max(20).default(3),
+	maxAttempts: z.number().int().min(1).max(5).default(3),
+	/** Base delay; doubles after each failed attempt. */
 	retryDelayMs: z.number().int().min(0).max(300_000).default(1000),
 };
 
