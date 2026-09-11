@@ -318,6 +318,10 @@ async function testQueueConnection(variant: string, config: any, appConfigs: Map
 		const { testNatsConnection } = await import("@fluxify/adapters/queue/nats");
 		return testNatsConnection(expandCfg(config, appConfigs) as any);
 	}
+	if (variant === "SQS") {
+		const { testSqsConnection } = await import("@fluxify/adapters/queue/sqs");
+		return testSqsConnection(expandCfg(config, appConfigs) as any);
+	}
 	const { testKafkaConnection } = await import("@fluxify/adapters/queue/kafka");
 	return testKafkaConnection(expandCfg(config, appConfigs) as any);
 }

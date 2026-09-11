@@ -38,7 +38,16 @@ export type QueueSubscription = {
 	maxBytes: number;
 	/** batches in flight at once, e.g. partitions consumed concurrently */
 	concurrency: number;
+	/** first backoff before the broker redelivers, for connectors that own their retries */
+	retryDelayMs?: number;
+	/** the source was deleted under a running consumer; the connection has already stopped */
+	onSourceGone?: (error: QueueSourceGoneError) => void;
 };
+
+/** The topic, stream or queue no longer exists: retrying cannot help, the trigger must be disabled. */
+export class QueueSourceGoneError extends Error {
+	override readonly name = "QueueSourceGoneError";
+}
 
 /**
  * Settles when the batch is done with. A throw means it was not: nothing is
@@ -48,6 +57,12 @@ export type QueueSubscription = {
 export type QueueHandler = (batch: QueueBatch, connection: QueueConnection) => Promise<void>;
 
 export abstract class QueueConnection {
+	/**
+	 * The broker counts deliveries and dead-letters on its own (SQS redrive).
+	 * Each delivery is then one run: a failure is thrown back for the broker to
+	 * redeliver, never retried in process or moved by us.
+	 */
+	readonly deadLettersNatively: boolean = false;
 	/** Starts delivering batches to `handler`. Resolves once consuming has begun. */
 	abstract consume(subscription: QueueSubscription, handler: QueueHandler): Promise<void>;
 	/** Marks everything up to and including this batch as processed. */
@@ -60,6 +75,17 @@ export abstract class QueueConnection {
 	abstract stop(): Promise<void>;
 	/** The connector's own client, for anything the helpers do not cover. */
 	abstract raw(): unknown;
+}
+
+/** JSON when it parses, the text when it does not, null when empty. */
+export function decode(data: Uint8Array) {
+	if (data.length === 0) return null;
+	const text = new TextDecoder().decode(data);
+	try {
+		return JSON.parse(text);
+	} catch {
+		return text;
+	}
 }
 
 /** What a connector module exports; loaded only when a trigger needs it. */

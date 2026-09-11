@@ -31,6 +31,7 @@ import { asyncExecutorLimitsFromEnv } from "../src/modules/requestRouter/asyncEx
 import { executionRuntimeEnvironment } from "../src/modules/requestRouter/executionEnvironment";
 import type { ArtifactEntry } from "../src/modules/requestRouter/compiledRuntime";
 import { closeNats } from "../src/db/nats";
+import { RPC_SUBJECTS, rpcRequest } from "../src/db/natsRpc";
 import { watchInstanceSettings } from "../src/loaders/instanceSettingsLoader";
 import { canRunConnectors, watchLicense } from "../src/lib/edition";
 import { startJobWorker } from "../src/modules/jobs/consumer";
@@ -253,6 +254,17 @@ function onExecutionEvent(event: ExecutionEvent) {
 		case "trace-finished":
 			// The execution process holds untrusted user code (routes and workflows), never NATS credentials.
 			return void publishTraceRun(event.run);
+		case "trigger-fault": {
+			// lost only if the admin is down; the child reports again on its next start
+			const { type: _, ...fault } = event;
+			return void rpcRequest(
+				RPC_SUBJECTS.triggerFault,
+				{ userId: "system", projectIds: [fault.projectId] },
+				fault,
+			).catch((error) =>
+				logger.error(`could not report trigger ${fault.triggerId} fault: ${String(error)}`, "WORKER.triggers"),
+			);
+		}
 		case "heartbeat":
 			return watchdog.heartbeat();
 		case "execution-started":

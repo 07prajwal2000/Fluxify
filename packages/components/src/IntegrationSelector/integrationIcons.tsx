@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import { BiLogoPostgresql, BiLogoMongodb } from "react-icons/bi";
 import { DiRedis, DiMysql } from "react-icons/di";
 import { SiAnthropic, SiApachekafka, SiNatsdotio } from "react-icons/si";
-import { TbBrandFirebase, TbBrandSupabase, TbServer } from "react-icons/tb";
+import { TbBrandAws, TbBrandFirebase, TbBrandSupabase, TbServer } from "react-icons/tb";
 import { RiGeminiFill, RiOpenaiLine, RiRobot2Fill, RiOpenaiFill } from "react-icons/ri";
 import { PiNotebookLight } from "react-icons/pi";
 import { IoTelescope } from "react-icons/io5";
@@ -27,4 +27,5 @@ export const integrationIcons: Record<string, ReactNode> = {
 	Loki: <PiNotebookLight size={size} />,
 	Kafka: <SiApachekafka size={size} />,
 	NATS: <SiNatsdotio size={size} />,
+	SQS: <TbBrandAws size={size} />,
 };

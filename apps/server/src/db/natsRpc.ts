@@ -32,6 +32,7 @@ export const RPC_SUBJECTS = {
 	customBlock: "fluxify.ops.custom_block",
 	workflow: "fluxify.ops.workflow",
 	canvas: "fluxify.ops.canvas",
+	triggerFault: "fluxify.ops.trigger_fault",
 } as const;
 
 export { MAX_PAYLOAD_BYTES, RPC_TIMEOUT_MS, RpcError };

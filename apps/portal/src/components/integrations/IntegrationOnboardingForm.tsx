@@ -27,6 +27,7 @@ import { CredentialsUrlForm } from "./connectors/CredentialsUrlForm";
 import { ObservabilityForm } from "./connectors/ObservabilityForm";
 import { KafkaForm } from "./connectors/KafkaForm";
 import { NatsForm } from "./connectors/NatsForm";
+import { SqsForm } from "./connectors/SqsForm";
 import { EnterpriseGate } from "@/components/common/Enterprise";
 
 type Step = 1 | 2 | 3;
@@ -338,6 +339,7 @@ export function IntegrationOnboardingForm({ projectId, onSaved }: { projectId: s
 							)}
 							{group === "queue" && variant === "Kafka" && <KafkaForm {...formProps} />}
 							{group === "queue" && variant === "NATS" && <NatsForm {...formProps} />}
+							{group === "queue" && variant === "SQS" && <SqsForm {...formProps} />}
 						</div>
 					</section>
 				)}

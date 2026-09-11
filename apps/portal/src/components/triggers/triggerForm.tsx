@@ -6,7 +6,7 @@ import {
 	Select,
 	cn,
 } from "@fluxify/components";
-import { TbClock } from "react-icons/tb";
+import { TbBrandAws, TbClock } from "react-icons/tb";
 import { SiApachekafka, SiNatsdotio } from "react-icons/si";
 import type { TriggerGroup } from "@/services/triggers";
 import { EnterpriseGate } from "@/components/common/Enterprise";
@@ -18,7 +18,7 @@ import { EnterpriseGate } from "@/components/common/Enterprise";
  * than four hundred lines of fields.
  */
 
-export type TriggerType = "schedule" | "kafka" | "nats";
+export type TriggerType = "schedule" | "kafka" | "nats" | "sqs";
 
 export const TRIGGER_DEFAULTS = {
 	name: "",
@@ -46,6 +46,14 @@ const TRIGGER_TYPE_OPTIONS = [
 		label: "NATS",
 		hint: "Messages on a NATS JetStream stream start it as they arrive.",
 		icon: <SiNatsdotio size={20} />,
+		available: true,
+		enterprise: true,
+	},
+	{
+		id: "sqs",
+		label: "Amazon SQS",
+		hint: "Messages on an SQS queue start it as they arrive.",
+		icon: <TbBrandAws size={20} />,
 		available: true,
 		enterprise: true,
 	},
@@ -172,18 +180,25 @@ export type BatchValues = typeof BATCH_DEFAULTS;
 export function BatchFields({
 	value,
 	onChange,
+	maxBatch = 10_000,
 }: {
 	value: BatchValues;
 	onChange: (key: keyof BatchValues, next: number) => void;
+	/** The source's own cap — SQS hands over at most 10 at a time. */
+	maxBatch?: number;
 }) {
 	return (
 		<div className="grid grid-cols-2 gap-4">
 			<Counter
 				label="Batch size"
-				hint="Events per run. 1 runs the workflow once per event."
-				value={value.batchSize}
+				hint={
+					maxBatch < 10_000
+						? `Events per run, at most ${maxBatch} for this source.`
+						: "Events per run. 1 runs the workflow once per event."
+				}
+				value={Math.min(value.batchSize, maxBatch)}
 				min={1}
-				max={10_000}
+				max={maxBatch}
 				onChange={(next) => onChange("batchSize", next)}
 			/>
 			<Counter

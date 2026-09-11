@@ -19,6 +19,8 @@ import { triggersQuery } from "@/query/triggersQuery";
 import { showErrorNotification } from "@/lib/errorNotifier";
 import { createRouteHead } from "@/lib/seo";
 import type { TriggerListItem } from "@/services/triggers";
+import { DisabledReason, announceWarnings } from "@/components/triggers/TriggerNotices";
+import { queueName } from "@/components/triggers/SqsTriggerFields";
 
 export const Route = createFileRoute("/_authed/$projectId/triggers")({
 	head: createRouteHead(
@@ -145,6 +147,10 @@ function TriggersPage() {
 													kafka ·{" "}
 													{((trigger.source as { topics?: string[] } | null)?.topics ?? []).join(", ")}
 												</span>
+											) : trigger.type === "sqs" ? (
+												<span className="font-mono text-xs">
+													sqs · {queueName((trigger.source as { queueUrl?: string } | null)?.queueUrl ?? "")}
+												</span>
 											) : (
 												trigger.type
 											)}
@@ -162,20 +168,25 @@ function TriggersPage() {
 										)}
 									</Table.Cell>
 									<Table.Cell>
-										<Switch
-											isSelected={trigger.active}
-											onChange={(active) =>
-												update.mutate(
-													{ id: trigger.id, body: { active } },
-													{
-														onSuccess: () =>
-															toast.success(active ? "Trigger on" : "Trigger off"),
-														onError: (e) => showErrorNotification(e as Error),
-													},
-												)
-											}
-											label={trigger.active ? "Active" : "Inactive"}
-										/>
+										<div className="flex max-w-xs flex-col gap-1">
+											<Switch
+												isSelected={trigger.active}
+												onChange={(active) =>
+													update.mutate(
+														{ id: trigger.id, body: { active } },
+														{
+															onSuccess: (result) => {
+																toast.success(active ? "Trigger on" : "Trigger off");
+																announceWarnings(result.warnings);
+															},
+															onError: (e) => showErrorNotification(e as Error),
+														},
+													)
+												}
+												label={trigger.active ? "Active" : "Inactive"}
+											/>
+											<DisabledReason reason={trigger.active ? null : trigger.disabledReason} />
+										</div>
 									</Table.Cell>
 									<Table.Cell>
 										<div className="flex items-center justify-end gap-1">

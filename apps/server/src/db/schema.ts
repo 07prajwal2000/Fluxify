@@ -425,6 +425,8 @@ export const triggersEntity = pgTable(
 		 *  wall clock to be shifted by. */
 		timezone: varchar({ length: 64 }).default("UTC").notNull(),
 		active: boolean().default(false).notNull(),
+		/** Why the system switched it off (e.g. its queue was deleted). Cleared when a user re-enables it. */
+		disabledReason: text("disabled_reason"),
 		createdAt: timestamp("created_at").defaultNow().notNull(),
 		createdBy: varchar("created_by", { length: 50 }),
 		updatedAt: timestamp("updated_at")

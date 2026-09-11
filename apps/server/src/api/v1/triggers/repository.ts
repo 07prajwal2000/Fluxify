@@ -208,6 +208,7 @@ export async function listTriggers(
 			schedule: triggersEntity.schedule,
 			timezone: triggersEntity.timezone,
 			active: triggersEntity.active,
+			disabledReason: triggersEntity.disabledReason,
 			createdAt: triggersEntity.createdAt,
 			updatedAt: triggersEntity.updatedAt,
 		})

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import {
+	Button,
 	Checkbox,
 	Input,
 	Label,
@@ -25,6 +26,13 @@ import {
 	NatsSourceFields,
 	topicList,
 } from "@/components/triggers/KafkaTriggerFields";
+import {
+	SQS_MAX_BATCH,
+	SqsSourceFields,
+	isQueueUrl,
+	queueName,
+} from "@/components/triggers/SqsTriggerFields";
+import { NoticeList, errorMessage } from "@/components/triggers/TriggerNotices";
 import { triggersQuery } from "@/query/triggersQuery";
 import { showErrorNotification } from "@/lib/errorNotifier";
 import type {
@@ -73,18 +81,28 @@ export function TriggerWizard({
 		createTopics?: boolean;
 		stream?: string;
 		filterSubjects?: string[];
+		queueUrl?: string;
+		waitTimeSeconds?: number;
+		visibilityTimeoutSec?: number;
 	};
+	const integrationId = initialTrigger?.integrationId ?? "";
 	const [kafka, setKafka] = useState({
-		integrationId: initialTrigger?.integrationId ?? "",
+		integrationId,
 		topics: (source.topics ?? []).join(", "),
 		fromBeginning: Boolean(source.fromBeginning),
 		createTopics: Boolean(source.createTopics),
 	});
 	const [nats, setNats] = useState({
-		integrationId: initialTrigger?.integrationId ?? "",
+		integrationId,
 		stream: source.stream ?? "",
 		subjects: (source.filterSubjects ?? []).join(", "),
 		fromBeginning: Boolean(source.fromBeginning),
+	});
+	const [sqs, setSqs] = useState({
+		integrationId,
+		queueUrl: source.queueUrl ?? "",
+		waitTimeSeconds: source.waitTimeSeconds ?? 20,
+		visibilityTimeoutSec: source.visibilityTimeoutSec ?? 30,
 	});
 	const [batch, setBatch] = useState({
 		batchSize: initialTrigger?.batchSize ?? BATCH_DEFAULTS.batchSize,
@@ -97,46 +115,69 @@ export function TriggerWizard({
 		maxAttempts: initialTrigger?.maxAttempts ?? DELIVERY_DEFAULTS.maxAttempts,
 		retryDelayMs: initialTrigger?.retryDelayMs ?? DELIVERY_DEFAULTS.retryDelayMs,
 	});
+	// Why the last save was refused, kept on screen: a toast is gone before an
+	// AWS permission list can be read.
+	const [error, setError] = useState<string | null>(null);
+	// Saved, with something the user should read before the wizard closes.
+	const [warnings, setWarnings] = useState<string[]>([]);
 
 	const set = (key: keyof typeof TRIGGER_DEFAULTS, value: string) =>
 		setForm((previous) => ({ ...previous, [key]: value }));
 
 	const nameIsValid = form.name.trim().length >= 2;
-	const isKafka = type === "kafka";
-	const isNats = type === "nats";
+	const isSqs = type === "sqs";
+	const isConnector = type !== "schedule";
 	const topics = topicList(kafka.topics);
 	const subjects = topicList(nats.subjects);
+	const maxBatch = isSqs ? SQS_MAX_BATCH : undefined;
+	const batchSize = Math.min(batch.batchSize, maxBatch ?? batch.batchSize);
 
 	/** The fields that differ by type; the rest of the body is shared. */
-	const typeFields = isKafka
+	const connectorFields = {
+		kafka: {
+			integrationId: kafka.integrationId,
+			source: { topics, fromBeginning: kafka.fromBeginning, createTopics: kafka.createTopics },
+		},
+		nats: {
+			integrationId: nats.integrationId,
+			source: {
+				stream: nats.stream.trim(),
+				...(subjects.length ? { filterSubjects: subjects } : {}),
+				fromBeginning: nats.fromBeginning,
+			},
+		},
+		sqs: {
+			integrationId: sqs.integrationId,
+			source: {
+				queueUrl: sqs.queueUrl.trim(),
+				waitTimeSeconds: sqs.waitTimeSeconds,
+				visibilityTimeoutSec: sqs.visibilityTimeoutSec,
+			},
+		},
+	};
+	const typeFields = isConnector
 		? {
-				integrationId: kafka.integrationId,
-				source: { topics, fromBeginning: kafka.fromBeginning, createTopics: kafka.createTopics },
+				...connectorFields[type as keyof typeof connectorFields],
 				...batch,
+				batchSize,
 				...delivery,
 			}
-		: isNats
-			? {
-					integrationId: nats.integrationId,
-					source: {
-						stream: nats.stream.trim(),
-						...(subjects.length ? { filterSubjects: subjects } : {}),
-						fromBeginning: nats.fromBeginning,
-					},
-					...batch,
-					...delivery,
-				}
 		: { schedule: schedule.schedule.trim(), timezone: schedule.timezone || "UTC" };
 
 	const done = (message: string) => ({
-		onSuccess: () => {
+		onSuccess: (result: { warnings?: string[] }) => {
 			toast.success(message);
-			onSuccess();
+			if (result.warnings?.length) setWarnings(result.warnings);
+			else onSuccess();
 		},
-		onError: (error: unknown) => showErrorNotification(error as Error),
+		onError: (failure: unknown) => {
+			setError(errorMessage(failure));
+			showErrorNotification(failure as Error);
+		},
 	});
 
 	function submit() {
+		setError(null);
 		const shared = {
 			name: form.name.trim(),
 			description: form.description.trim() || undefined,
@@ -160,36 +201,47 @@ export function TriggerWizard({
 		}
 	}
 
-	const connectorStep: WizardStep = isNats
-		? {
-				key: "source",
-				label: "Stream",
-				title: "Say what it reads",
-				description: "The NATS integration to connect with, and the stream to read.",
-				isValid: Boolean(nats.integrationId) && nats.stream.trim().length > 0,
-				content: (
-					<NatsSourceFields projectId={projectId} value={nats} onChange={setNats} isEdit={isEdit} />
-				),
-			}
-		: {
-				key: "source",
-				label: "Topics",
-				title: "Say what it reads",
-				description: "The Kafka integration to connect with, and the topics to read.",
-				isValid: Boolean(kafka.integrationId) && topics.length > 0,
-				content: (
-					<KafkaSourceFields
-						projectId={projectId}
-						value={kafka}
-						onChange={setKafka}
-						isEdit={isEdit}
-					/>
-				),
-			};
+	if (warnings.length > 0) {
+		return (
+			<div className="mx-auto flex w-full max-w-4xl flex-col gap-5">
+				<div>
+					<h1 className="text-xl font-semibold tracking-tight">Trigger saved</h1>
+					<p className="text-xs text-muted">It works as set up, but read these before you rely on it.</p>
+				</div>
+				<NoticeList status="warning" title="Worth knowing" items={warnings} />
+				<Button variant="primary" size="sm" className="self-end" onPress={onSuccess}>
+					Done
+				</Button>
+			</div>
+		);
+	}
 
-	const sourceSteps: WizardStep[] = isKafka || isNats
+	const connectorSteps: Record<Exclude<TriggerType, "schedule">, Omit<WizardStep, "key" | "title">> = {
+		nats: {
+			label: "Stream",
+			description: "The NATS integration to connect with, and the stream to read.",
+			isValid: Boolean(nats.integrationId) && nats.stream.trim().length > 0,
+			content: <NatsSourceFields projectId={projectId} value={nats} onChange={setNats} isEdit={isEdit} />,
+		},
+		kafka: {
+			label: "Topics",
+			description: "The Kafka integration to connect with, and the topics to read.",
+			isValid: Boolean(kafka.integrationId) && topics.length > 0,
+			content: (
+				<KafkaSourceFields projectId={projectId} value={kafka} onChange={setKafka} isEdit={isEdit} />
+			),
+		},
+		sqs: {
+			label: "Queue",
+			description: "The SQS integration to connect with, and the queue to read.",
+			isValid: Boolean(sqs.integrationId) && isQueueUrl(sqs.queueUrl),
+			content: <SqsSourceFields projectId={projectId} value={sqs} onChange={setSqs} />,
+		},
+	};
+
+	const sourceSteps: WizardStep[] = isConnector
 		? [
-				connectorStep,
+				{ key: "source", title: "Say what it reads", ...connectorSteps[type as keyof typeof connectorSteps] },
 				{
 					key: "delivery",
 					label: "Delivery",
@@ -199,9 +251,10 @@ export function TriggerWizard({
 						<div className="flex flex-col gap-6">
 							<BatchFields
 								value={batch}
+								maxBatch={maxBatch}
 								onChange={(key, next) => setBatch((previous) => ({ ...previous, [key]: next }))}
 							/>
-							<DeliveryFields value={delivery} onChange={setDelivery} />
+							<DeliveryFields value={delivery} onChange={setDelivery} nativeRetries={isSqs} />
 						</div>
 					),
 				},
@@ -217,6 +270,12 @@ export function TriggerWizard({
 					content: <ScheduleFields value={schedule} onChange={setSchedule} />,
 				},
 			];
+
+	const readsFrom = {
+		kafka: <SummaryItem label="Topics" value={topics.join(", ")} mono />,
+		nats: <SummaryItem label="Stream" value={nats.stream.trim()} mono />,
+		sqs: <SummaryItem label="Queue" value={queueName(sqs.queueUrl)} mono />,
+	};
 
 	const steps: WizardStep[] = [
 		{
@@ -244,7 +303,7 @@ export function TriggerWizard({
 						isInvalid={form.name.length > 0 && !nameIsValid}
 					>
 						<Label>Name</Label>
-						<Input placeholder={isKafka || isNats ? "New orders" : "Nightly report"} />
+						<Input placeholder={isConnector ? "New orders" : "Nightly report"} />
 					</TextField>
 
 					<div className="flex flex-col gap-1.5">
@@ -291,16 +350,17 @@ export function TriggerWizard({
 				: "Last look before the trigger goes live.",
 			content: (
 				<div className="flex flex-col gap-5">
+					<NoticeList
+						status="danger"
+						title="Fluxify turned this trigger off"
+						items={initialTrigger?.disabledReason && !initialTrigger.active ? [initialTrigger.disabledReason] : []}
+					/>
 					<dl className="grid grid-cols-2 gap-px overflow-hidden rounded-lg border border-border bg-border">
 						<SummaryItem label="Name" value={form.name.trim()} />
-						{isKafka || isNats ? (
+						{isConnector ? (
 							<>
-								{isNats ? (
-									<SummaryItem label="Stream" value={nats.stream.trim()} mono />
-								) : (
-									<SummaryItem label="Topics" value={topics.join(", ")} mono />
-								)}
-								<SummaryItem label="Batch size" value={String(batch.batchSize)} />
+								{readsFrom[type as keyof typeof readsFrom]}
+								<SummaryItem label="Batch size" value={String(batchSize)} />
 								<SummaryItem
 									label="Commit"
 									value={delivery.commitMode === "manual" ? "From the workflow" : "After each run"}
@@ -322,8 +382,14 @@ export function TriggerWizard({
 						isSelected={active}
 						onChange={setActive}
 						label={isEdit ? "Trigger is active" : "Turn this trigger on now"}
-						description="An inactive trigger never fires, and neither does an active one with no workflow attached."
+						description={
+							isConnector
+								? "Turning it on checks the integration's credentials and the source with the broker first."
+								: "An inactive trigger never fires, and neither does an active one with no workflow attached."
+						}
 					/>
+
+					<NoticeList status="danger" title="Not saved" items={error ? [error] : []} />
 				</div>
 			),
 		},

@@ -1,5 +1,6 @@
 import {
 	QueueConnectionManager,
+	QueueSourceGoneError,
 	registerQueueConnector,
 	type QueueBatch,
 	type QueueConnection,
@@ -35,10 +36,18 @@ const DEFAULT_RETRY_DELAY_MS = 1_000;
 
 registerQueueConnector("kafka", () => import("@fluxify/adapters/queue/kafka"));
 registerQueueConnector("nats", () => import("@fluxify/adapters/queue/nats"));
+registerQueueConnector("sqs", () => import("@fluxify/adapters/queue/sqs"));
 
 const manager = new QueueConnectionManager();
 /** The artifact each running trigger was started from, read per batch. */
 const triggers = new Map<string, TriggerArtifact>();
+
+export type TriggerFault = { triggerId: string; projectId: string; reason: string };
+/** This process holds no database: a trigger that must be disabled is reported up. */
+let reportFault: (fault: TriggerFault) => void = () => undefined;
+export function setTriggerFaultReporter(report: (fault: TriggerFault) => void) {
+	reportFault = report;
+}
 
 /** A trigger artifact arriving, changing or being withdrawn. */
 export async function applyQueueTrigger(triggerId: string, artifact: TriggerArtifact | null) {
@@ -93,16 +102,31 @@ async function startTrigger(artifact: TriggerArtifact) {
 					maxWaitMs: artifact.maxWaitMs,
 					maxBytes: artifact.maxBytes,
 					concurrency: artifact.concurrency,
+					retryDelayMs: artifact.retryDelayMs,
+					onSourceGone: (error) => void sourceGone(artifact, error),
 				},
 			},
 			(batch, connection) => runBatch(artifact.triggerId, batch, connection),
 		);
 	} catch (error) {
+		if (error instanceof QueueSourceGoneError) return sourceGone(artifact, error);
 		logger.error(
 			`[triggers] consumer for ${artifact.triggerId} failed to start: ${String(error)}`,
 			"TRIGGERS.queue",
 		);
 	}
+}
+
+/**
+ * Retrying a deleted source only spins, so the trigger stops here at once and is
+ * reported for disabling. Were the report lost, the next start fails the same
+ * way and reports again.
+ */
+async function sourceGone(artifact: TriggerArtifact, error: QueueSourceGoneError) {
+	logger.error(`[triggers] ${artifact.triggerId} source is gone, disabling: ${error.message}`, "TRIGGERS.queue");
+	triggers.delete(artifact.triggerId);
+	reportFault({ triggerId: artifact.triggerId, projectId: artifact.projectId, reason: error.message });
+	await manager.stop(artifact.triggerId);
 }
 
 /** Exported for tests; the connector is the only other caller. */
@@ -121,7 +145,11 @@ export async function runBatch(
 	}
 
 	const manual = artifact.commitMode === "manual";
-	const maxAttempts = Math.max(1, artifact.maxAttempts ?? DEFAULT_MAX_ATTEMPTS);
+	// The broker counts deliveries and dead-letters: one run each, failures go back to it.
+	const native = connection.deadLettersNatively;
+	const maxAttempts = native
+		? batch.attempt
+		: Math.max(1, artifact.maxAttempts ?? DEFAULT_MAX_ATTEMPTS);
 	const retryDelayMs = artifact.retryDelayMs ?? DEFAULT_RETRY_DELAY_MS;
 	let failure: unknown;
 	for (let attempt = batch.attempt; attempt <= maxAttempts; attempt++) {
@@ -147,7 +175,7 @@ export async function runBatch(
 		}
 	}
 
-	if (manual) throw failure;
+	if (manual || native) throw failure;
 	// A dead-letter failure throws past the commit: losing the batch is worse
 	// than running it again.
 	await connection.moveToDLQ(batch, failure);

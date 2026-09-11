@@ -12,7 +12,7 @@ import {
  * connectors are the same row with a different type, so they arrive as entries
  * here rather than as a second entity.
  */
-export const TRIGGER_TYPES = ["internal", "schedule", "kafka", "nats"] as const;
+export const TRIGGER_TYPES = ["internal", "schedule", "kafka", "nats", "sqs"] as const;
 export const triggerTypeSchema = z.enum(TRIGGER_TYPES);
 
 export { isEnterpriseTriggerType } from "../../../modules/triggers/types";
@@ -69,6 +69,13 @@ export const natsSourceSchema = z.object({
 	stream: z.string().regex(/^[^\s.*>/\\]{1,255}$/, "Not a valid stream name"),
 	filterSubjects: z.array(z.string().min(1)).max(100).optional(),
 	fromBeginning: z.boolean().optional(),
+});
+
+/** SQS's own limits: a long poll waits at most 20s, a message hides at most 12h. */
+export const sqsSourceSchema = z.object({
+	queueUrl: z.url(),
+	waitTimeSeconds: z.number().int().min(0).max(20).optional(),
+	visibilityTimeoutSec: z.number().int().min(1).max(43_200).optional(),
 });
 
 /**
@@ -180,9 +187,16 @@ export const triggerSchema = z.object({
 	schedule: z.string().nullable(),
 	timezone: z.string(),
 	active: z.boolean(),
+	/** Set when the system switched it off, e.g. its queue was deleted; null otherwise. */
+	disabledReason: z.string().nullable(),
 	createdAt: z.string(),
 	updatedAt: z.string(),
 });
+
+/** Settings that work but that the user should know about, e.g. no dead-letter queue. */
+const warningsSchema = z.array(z.string());
+export const triggerCreatedSchema = createdSchema.extend({ warnings: warningsSchema });
+export const triggerUpdatedSchema = triggerSchema.extend({ warnings: warningsSchema });
 
 export const listQuerySchema = z
 	.clone(paginationRequestQuerySchema)

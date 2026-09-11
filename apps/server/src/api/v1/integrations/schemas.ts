@@ -13,7 +13,7 @@ export const integrationsGroupSchema = z.enum([
 	"queue",
 ]);
 
-export const queueVariantSchema = z.enum(["Kafka", "NATS"]);
+export const queueVariantSchema = z.enum(["Kafka", "NATS", "SQS"]);
 export const databaseVariantSchema = z.enum(["PostgreSQL", "MongoDB", "MySQL"]);
 export const kvVariantSchema = z.enum(["Redis", "Memcached"]);
 export const aiVariantSchema = z.enum([
@@ -293,6 +293,19 @@ export const natsVariantConfigSchema = z.object({
 	nkeySeed: z.string().optional(),
 	/** Advanced: a subject a stream captures, where failing batches are parked. */
 	dlqSubject: z.string().optional(),
+});
+
+/**
+ * AWS SQS. No dead-letter field: failures go to the queue's own redrive policy.
+ * Blank keys fall back to the server's AWS credential chain (env, instance role).
+ */
+export const sqsVariantConfigSchema = z.object({
+	region: z.string().min(1),
+	accessKeyId: z.string().optional(),
+	secretAccessKey: z.string().optional(),
+	sessionToken: z.string().optional(),
+	/** Advanced: an SQS-compatible endpoint, e.g. a local emulator. */
+	endpoint: z.string().optional(),
 });
 
 export const databaseTagsSchema = z.enum(["sql", "nosql"]);

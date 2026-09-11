@@ -20,6 +20,7 @@ import {
 } from "@nats-io/nats-core";
 import { connect } from "@nats-io/transport-node";
 import {
+	decode,
 	QueueConnection,
 	type QueueBatch,
 	type QueueEvent,
@@ -282,17 +283,6 @@ export class NatsQueueConnection extends QueueConnection {
 		};
 		this.sources.set(event, message);
 		return event;
-	}
-}
-
-/** JSON when it parses, the text when it does not, null when empty. */
-function decode(data: Uint8Array) {
-	if (data.length === 0) return null;
-	const text = new TextDecoder().decode(data);
-	try {
-		return JSON.parse(text);
-	} catch {
-		return text;
 	}
 }
 
