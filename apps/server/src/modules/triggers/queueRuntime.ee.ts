@@ -7,6 +7,7 @@ import {
 } from "@fluxify/adapters";
 import type { TriggerConnection, TriggerEvent, TriggerSource } from "@fluxify/blocks";
 import { logger } from "@fluxify/common";
+import { backoffMs } from "@fluxify/common/nats";
 import { findIntegrationConfig, ownsIntegration } from "../../loaders/integrationsLoader";
 import type { TriggerArtifact } from "../compiler/artifacts";
 import { compiledWorkflow } from "../requestRouter/compiledRuntime";
@@ -32,6 +33,8 @@ import { consumedInExecution, type TriggerBatch } from "./types";
  */
 
 const DEFAULT_MAX_ATTEMPTS = 3;
+/** Rows saved before the cap may still carry up to 20. */
+const MAX_ATTEMPTS = 5;
 const DEFAULT_RETRY_DELAY_MS = 1_000;
 
 registerQueueConnector("kafka", () => import("@fluxify/adapters/queue/kafka"));
@@ -149,7 +152,7 @@ export async function runBatch(
 	const native = connection.deadLettersNatively;
 	const maxAttempts = native
 		? batch.attempt
-		: Math.max(1, artifact.maxAttempts ?? DEFAULT_MAX_ATTEMPTS);
+		: Math.min(MAX_ATTEMPTS, Math.max(1, artifact.maxAttempts ?? DEFAULT_MAX_ATTEMPTS));
 	const retryDelayMs = artifact.retryDelayMs ?? DEFAULT_RETRY_DELAY_MS;
 	let failure: unknown;
 	for (let attempt = batch.attempt; attempt <= maxAttempts; attempt++) {
@@ -171,7 +174,7 @@ export async function runBatch(
 				`[triggers] ${triggerId} batch failed (attempt ${attempt}/${maxAttempts}): ${String(error)}`,
 				"TRIGGERS.queue",
 			);
-			if (attempt < maxAttempts) await Bun.sleep(retryDelayMs);
+			if (attempt < maxAttempts) await Bun.sleep(backoffMs(retryDelayMs, attempt));
 		}
 	}
 

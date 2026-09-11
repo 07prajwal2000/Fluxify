@@ -218,13 +218,13 @@ export function DeliveryFields({
 						hint="Runs of one batch before it is dead-lettered."
 						value={value.maxAttempts}
 						min={1}
-						max={20}
+						max={5}
 						onChange={(next) => onChange({ ...value, maxAttempts: next })}
 					/>
 				)}
 				<Counter
 					label="Retry delay (ms)"
-					hint="Pause between attempts."
+					hint="Pause before the first retry; doubles after each failed attempt."
 					value={value.retryDelayMs}
 					min={0}
 					max={300_000}

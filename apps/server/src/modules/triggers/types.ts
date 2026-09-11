@@ -1,4 +1,4 @@
-import type { TriggerEvent, TriggerSource } from "@fluxify/blocks";
+import type { RetryPolicy, TriggerEvent, TriggerSource } from "@fluxify/blocks";
 
 /**
  * What a trigger hands a workflow: the events it collected, and where they came
@@ -25,6 +25,8 @@ export type InternalTriggerMessage = {
 	data: unknown;
 	/** Who fired it, for the event's `meta`. */
 	origin?: Record<string, unknown>;
+	/** The block's own retry settings; unset falls back to the worker's. */
+	retry?: RetryPolicy;
 };
 
 /**

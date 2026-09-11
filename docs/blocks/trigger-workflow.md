@@ -30,6 +30,25 @@ for that work to happen.
 The workflow starts on a worker some moment later. It gets its own time limit,
 its own retries, and its own logs.
 
+## Retry
+
+If the workflow run fails, it is run again. The **Retry** tab sets how.
+
+| Field | What it does |
+|---|---|
+| **Max attempts** | How many times the workflow runs in total, from 1 to 5. Defaults to 5. |
+| **Retry delay** | The wait before the first retry. It doubles after each failed attempt: with 1 second, the retries wait 1 s, 2 s, 4 s, 8 s. Defaults to 10 seconds. |
+
+A run the workflow's own error handler deals with counts as a success and is not
+retried.
+
+::: info After the last attempt
+The event is dropped and the failure is logged. Fluxify does not keep a copy.
+If you cannot afford to lose an event, send it through a queue built for that —
+Kafka, NATS or SQS — with a [dedicated trigger](/concepts/triggers), and set up
+a dead-letter queue there.
+:::
+
 ## Size limit
 
 The data has to be small. Each project sets the ceiling — **64 KB** by default,

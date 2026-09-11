@@ -1,3 +1,5 @@
+import type { RetryPolicy } from "@fluxify/blocks";
+
 /**
  * One queued unit of work, as it travels on the wire.
  *
@@ -17,6 +19,8 @@ export type JobEnvelope = {
 	enqueuedAt: string;
 	/** Delivery attempt, filled in by the consumer, not the publisher. */
 	attempt?: number;
+	/** Set by a Trigger Workflow block; carried onto the triggers stream. */
+	retry?: RetryPolicy;
 };
 
 export type JobHandler = (job: JobEnvelope) => Promise<void>;

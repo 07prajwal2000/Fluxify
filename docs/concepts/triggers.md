@@ -149,8 +149,8 @@ and credentials, and an enterprise license.
 | **Topics** | The topics to read, separated by commas. They are checked when you save: a topic that does not exist is refused with its name. |
 | **Create missing topics** | Instead of refusing, create any missing topic when you save, with your cluster's default number of partitions and replicas. The Kafka user needs permission to create topics. |
 | **Read messages already in the topic** | Off: the trigger starts with messages sent after it is created. On: it starts from the oldest message still kept. Only matters the first time; after that it always carries on from where it stopped. |
-| **Max attempts** | How many times a failing batch is run before it is sent to the dead-letter topic. Defaults to 3. |
-| **Retry delay** | The pause between attempts. |
+| **Max attempts** | How many times a failing batch is run before it is sent to the dead-letter topic. Defaults to 3, at most 5. |
+| **Retry delay** | The pause before the first retry. It doubles after each failed attempt: with 1000 ms, the retries wait 1 s, 2 s, 4 s, 8 s (never more than 5 minutes). |
 | **Commit from the workflow** | See below. |
 
 Each event carries where it came from: `meta.topic`, `meta.partition`,

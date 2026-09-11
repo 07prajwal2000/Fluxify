@@ -187,6 +187,16 @@ describe("an external queue batch", () => {
 		expect(connection.commits).toHaveLength(1);
 	});
 
+	it("caps attempts at 5 for rows saved before the cap", async () => {
+		credentials("secret");
+		workflow("globalThis.queueRuns = (globalThis.queueRuns ?? 0) + 1; throw new Error('boom');");
+		const connection = await start({ maxAttempts: 20 });
+
+		await connection.deliver();
+
+		expect(seen.queueRuns).toBe(5);
+	});
+
 	it("counts an unsuccessful result as a failure", async () => {
 		credentials("secret");
 		workflow("return { successful: false, error: 'unhandled' };");

@@ -223,6 +223,7 @@ function dispatchQueued(job: JobEnvelope) {
 		workflowId: job.target,
 		data: job.payload,
 		origin: job.origin,
+		retry: job.retry,
 	});
 }
 

@@ -1,6 +1,11 @@
 import z from "zod";
 import { baseBlockDataSchema, type Context } from "../baseBlock";
-import { assertTriggerPayloadSize, enqueueJob, TRIGGER_WORKFLOW_JOB } from "../jobs";
+import {
+	assertTriggerPayloadSize,
+	enqueueJob,
+	TRIGGER_WORKFLOW_JOB,
+	type RetryPolicy,
+} from "../jobs";
 import { emitJsObject, type EmitNode } from "../compiler";
 
 /**
@@ -28,10 +33,19 @@ export const triggerWorkflowSchema = z
 		useInput: z.boolean().default(false),
 		/** What the workflow receives. A `js:` expression is evaluated first. */
 		data: z.unknown().optional(),
+		/** Runs before the event is dropped. Unset keeps the worker's default. */
+		maxAttempts: z.coerce.number().int().min(1).max(5).optional(),
+		/** Wait before the first retry; doubles after each failed attempt. */
+		retryDelayMs: z.coerce.number().int().min(0).max(300_000).optional(),
 	})
 	.extend(baseBlockDataSchema.shape);
 
-export function fireWorkflow(context: Context, workflowId: string, data: unknown) {
+export function fireWorkflow(
+	context: Context,
+	workflowId: string,
+	data: unknown,
+	retry?: RetryPolicy,
+) {
 	// The block saves without a workflow so a canvas can be a work in progress;
 	// running without one is the point at which that stops being acceptable.
 	if (!workflowId) throw new Error("Trigger Workflow block has no workflow selected");
@@ -42,19 +56,28 @@ export function fireWorkflow(context: Context, workflowId: string, data: unknown
 		target: workflowId,
 		payload: data,
 		origin: { route: context.route, apiId: context.apiId },
+		retry,
 	});
 }
 
 export function emitTriggerWorkflow(node: EmitNode) {
-	const { workflowId, useInput, data } = (node.block.data ?? {}) as Record<
-		string,
-		unknown
-	>;
+	const { workflowId, useInput, data, maxAttempts, retryDelayMs } = (node.block.data ??
+		{}) as Record<string, unknown>;
+	const retry = JSON.stringify({
+		maxAttempts: numberOrUndefined(maxAttempts),
+		retryDelayMs: numberOrUndefined(retryDelayMs),
+	});
 	const id = JSON.stringify(String(workflowId ?? ""));
 	const payload = useInput ? node.in : emitJsObject({ data }, node);
 	// `useInput` hands the previous block's value straight through; otherwise the
 	// configured data is emitted, with `js:` expressions already evaluated by
 	// `emitJsObject`.
 	const value = useInput ? payload : `(${payload}).data`;
-	return `lib.fireWorkflow(ctx, ${id}, ${value});\n${node.next()}`;
+	return `lib.fireWorkflow(ctx, ${id}, ${value}, ${retry});\n${node.next()}`;
+}
+
+function numberOrUndefined(value: unknown) {
+	if (value === undefined || value === null || value === "") return undefined;
+	const number = Number(value);
+	return Number.isFinite(number) ? number : undefined;
 }
