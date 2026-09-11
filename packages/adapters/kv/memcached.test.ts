@@ -6,6 +6,14 @@ import { docker, pullImage, startContainerWithRandomPort } from "../containerTes
 
 const MEMCACHED_IMAGE = "memcached:1.6-alpine";
 
+async function until(done: () => boolean | Promise<boolean>, ms = 30_000) {
+	const deadline = Date.now() + ms;
+	while (!(await done())) {
+		if (Date.now() > deadline) throw new Error("timed out waiting");
+		await Bun.sleep(100);
+	}
+}
+
 describe("MemcachedIntegration", () => {
 	const containerName = "fluxify-memcached-test";
 	let port: number;
@@ -27,11 +35,9 @@ describe("MemcachedIntegration", () => {
 		container = started.container;
 		port = started.port;
 
-		integration = new MemcachedIntegration({
-			host: "127.0.0.1",
-			port: port,
-			source: "credentials"
-		});
+		const config = { host: "127.0.0.1", port, source: "credentials" as const };
+		await until(async () => (await MemcachedIntegration.TestConnection(config, new Map())).success, 30_000);
+		integration = new MemcachedIntegration(config);
 	});
 
 	afterAll(async () => {

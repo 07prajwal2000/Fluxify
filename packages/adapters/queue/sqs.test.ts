@@ -7,6 +7,8 @@ import {
 	SendMessageCommand,
 	type SQSClient,
 } from "@aws-sdk/client-sqs";
+import type Docker from "dockerode";
+import { docker, pullImage, startContainerWithRandomPort } from "../containerTestHelpers";
 import { QueueSourceGoneError, type QueueBatch, type QueueConnection, type QueueHandler, type QueueSubscription } from "./base";
 import {
 	assertSqsQueue,
@@ -22,25 +24,42 @@ import {
 import { QueueConnectionManager } from "./manager";
 
 /**
- * The SQS connector against an SQS-compatible emulator (floci by default).
- * Start one first: `docker run -d -p 4566:4566 floci/floci:latest`, or point
- * SQS_TEST_ENDPOINT elsewhere. Each test gets its own queue.
+ * The SQS connector against an SQS-compatible emulator (floci): a fresh
+ * container per run, unless SQS_TEST_ENDPOINT points at one already running.
+ * Each test gets its own queue.
  */
 
-const ENDPOINT = process.env.SQS_TEST_ENDPOINT ?? "http://localhost:4566";
-const config: SqsConfig = { region: "us-east-1", endpoint: ENDPOINT, accessKeyId: "test", secretAccessKey: "test" };
+const IMAGE = "floci/floci:latest";
+const CONTAINER = "fluxify-sqs-test";
 const T = 60_000;
 
+let container: Docker.Container | undefined;
 let sqs: SQSClient;
+let config: SqsConfig;
 const open: QueueConnection[] = [];
 const queues: string[] = [];
 let seq = 0;
 
 beforeAll(async () => {
+	if (process.env.SQS_TEST_ENDPOINT) {
+		config = { region: "us-east-1", endpoint: process.env.SQS_TEST_ENDPOINT, accessKeyId: "test", secretAccessKey: "test" };
+	} else {
+		await docker.getContainer(CONTAINER).remove({ force: true }).catch(() => {});
+		await pullImage(IMAGE);
+		const started = await startContainerWithRandomPort((port) =>
+			docker.createContainer({
+				Image: IMAGE,
+				name: CONTAINER,
+				HostConfig: { PortBindings: { "4566/tcp": [{ HostPort: String(port) }] } },
+			}),
+		);
+		container = started.container;
+		config = { region: "us-east-1", endpoint: `http://localhost:${started.port}`, accessKeyId: "test", secretAccessKey: "test" };
+	}
+
 	sqs = clientFor(config);
-	const probe = await testSqsConnection(config);
-	if (!probe.success) throw new Error(`No SQS emulator at ${ENDPOINT}: ${probe.error}`);
-});
+	await until(async () => (await testSqsConnection(config)).success, 60_000);
+}, 120_000);
 
 afterEach(async () => {
 	await Promise.allSettled(open.splice(0).map((connection) => connection.stop()));
@@ -49,6 +68,7 @@ afterEach(async () => {
 afterAll(async () => {
 	await Promise.allSettled(queues.map((QueueUrl) => sqs.send(new DeleteQueueCommand({ QueueUrl }))));
 	sqs?.destroy();
+	if (container) await container.remove({ force: true }).catch(() => {});
 });
 
 /* ----------------------------------------------------------------- helpers */
@@ -157,7 +177,7 @@ describe("checking a trigger's queue", () => {
 	});
 
 	it("names a missing queue", async () => {
-		await expect(assertSqsQueue(config, `${ENDPOINT}/000000000000/missing-${++seq}`)).rejects.toThrow(
+		await expect(assertSqsQueue(config, `${config.endpoint}/000000000000/missing-${++seq}`)).rejects.toThrow(
 			/Queue "missing-\d+" does not exist/,
 		);
 	});
@@ -247,7 +267,7 @@ describe("consuming a queue", () => {
 		const connection = createConnection(config);
 		open.push(connection);
 		await expect(
-			connection.consume(subscription(`${ENDPOINT}/000000000000/missing-${++seq}`), async () => {}),
+			connection.consume(subscription(`${config.endpoint}/000000000000/missing-${++seq}`), async () => {}),
 		).rejects.toBeInstanceOf(QueueSourceGoneError);
 	}, T);
 
