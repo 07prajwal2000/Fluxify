@@ -125,6 +125,8 @@ async function main() {
 			"./modules/ops/customBlock"
 		);
 		const { registerWorkflowResponder } = await import("./modules/ops/workflow");
+		const { registerTriggerFaultResponder } = await import("./modules/ops/triggerFault");
+		registerTriggerFaultResponder();
 		registerCanvasResponder();
 		registerRouteResponder();
 		registerCustomBlockResponder();

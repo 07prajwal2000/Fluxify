@@ -16,6 +16,7 @@ import { withBasePath } from "@/constants/routes";
 import { triggersQuery } from "@/query/triggersQuery";
 import { showErrorNotification } from "@/lib/errorNotifier";
 import type { TriggerListItem } from "@/services/triggers";
+import { DisabledReason, announceWarnings } from "@/components/triggers/TriggerNotices";
 
 /**
  * The triggers attached to one workflow.
@@ -177,6 +178,7 @@ function TriggerRow({
 						trigger.type
 					)}
 				</p>
+				<DisabledReason reason={trigger.active ? null : trigger.disabledReason} />
 			</div>
 			<Switch
 				isSelected={trigger.active}
@@ -184,8 +186,10 @@ function TriggerRow({
 					update.mutate(
 						{ id: trigger.id, body: { active } },
 						{
-							onSuccess: () =>
-								toast.success(active ? "Trigger on" : "Trigger off"),
+							onSuccess: (result) => {
+								toast.success(active ? "Trigger on" : "Trigger off");
+								announceWarnings(result.warnings);
+							},
 							onError: (error) => showErrorNotification(error as Error),
 						},
 					)

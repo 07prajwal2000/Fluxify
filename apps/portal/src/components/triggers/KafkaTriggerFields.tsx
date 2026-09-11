@@ -86,14 +86,14 @@ export function KafkaSourceFields({
 }
 
 /** The queue integration a connector trigger reads through, of one variant only. */
-function IntegrationField({
+export function IntegrationField({
 	projectId,
 	variant,
 	value,
 	onChange,
 }: {
 	projectId: string;
-	variant: "Kafka" | "NATS";
+	variant: "Kafka" | "NATS" | "SQS";
 	value: string;
 	onChange: (next: string) => void;
 }) {
@@ -189,9 +189,12 @@ export function NatsSourceFields({
 export function DeliveryFields({
 	value,
 	onChange,
+	nativeRetries,
 }: {
 	value: DeliveryValues;
 	onChange: (next: DeliveryValues) => void;
+	/** SQS: the queue's redrive policy counts attempts and dead-letters, not Fluxify. */
+	nativeRetries?: boolean;
 }) {
 	return (
 		<div className="flex flex-col gap-4">
@@ -201,15 +204,24 @@ export function DeliveryFields({
 				label="Commit from the workflow"
 				description="Off: a batch is marked done when its run succeeds. On: the workflow calls trigger.connection.commit() itself."
 			/>
+			{nativeRetries && (
+				<p className="text-xs text-muted">
+					A failed message goes back to the queue and SQS delivers it again. How many times, and which
+					dead-letter queue it ends up in, is set by the queue's redrive policy in AWS. Add one there,
+					or a message that keeps failing is retried until the queue deletes it.
+				</p>
+			)}
 			<div className="grid grid-cols-2 gap-4">
-				<Counter
-					label="Max attempts"
-					hint="Runs of one batch before it is dead-lettered."
-					value={value.maxAttempts}
-					min={1}
-					max={20}
-					onChange={(next) => onChange({ ...value, maxAttempts: next })}
-				/>
+				{!nativeRetries && (
+					<Counter
+						label="Max attempts"
+						hint="Runs of one batch before it is dead-lettered."
+						value={value.maxAttempts}
+						min={1}
+						max={20}
+						onChange={(next) => onChange({ ...value, maxAttempts: next })}
+					/>
+				)}
 				<Counter
 					label="Retry delay (ms)"
 					hint="Pause between attempts."

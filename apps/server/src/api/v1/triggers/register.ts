@@ -12,6 +12,8 @@ import zodErrorCallbackParser from "../../../middlewares/zodErrorCallbackParser"
 import { requireLoggedIn, requireProjectAccess } from "../../auth/middleware";
 import {
 	createdSchema,
+	triggerCreatedSchema,
+	triggerUpdatedSchema,
 	createGroupSchema,
 	createSchema,
 	groupListQuerySchema,
@@ -150,7 +152,7 @@ export default {
 			"/",
 			describeRoute(
 				describe("create-trigger", "Creates a trigger for a workflow", {
-					...json(createdSchema),
+					...json(triggerCreatedSchema),
 					409: {
 						description: "Duplicate name",
 						content: { "application/json": { schema: resolver(errorSchema) } },
@@ -167,7 +169,7 @@ export default {
 
 		router.patch(
 			"/:id",
-			describeRoute(describe("update-trigger", "Patches a trigger", json(triggerSchema))),
+			describeRoute(describe("update-trigger", "Patches a trigger", json(triggerUpdatedSchema))),
 			requireLoggedIn(),
 			validator("param", idParamSchema, zodErrorCallbackParser),
 			validator("json", patchSchema, zodErrorCallbackParser),

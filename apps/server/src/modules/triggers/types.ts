@@ -40,7 +40,7 @@ export function consumedInExecution(type: string) {
  * External connectors, which need an enterprise license. Creating one is
  * refused without it; running one stops once the license is past its grace.
  */
-const ENTERPRISE_TRIGGER_TYPES: readonly string[] = ["kafka", "nats"];
+const ENTERPRISE_TRIGGER_TYPES: readonly string[] = ["kafka", "nats", "sqs"];
 
 export function isEnterpriseTriggerType(type: string) {
 	return ENTERPRISE_TRIGGER_TYPES.includes(type);

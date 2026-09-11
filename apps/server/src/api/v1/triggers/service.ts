@@ -11,7 +11,6 @@ import { ConflictError } from "../../../errors/conflictError";
 import { ForbiddenError } from "../../../errors/forbidError";
 import { NotFoundError } from "../../../errors/notFoundError";
 import { deleteArtifact, putArtifact } from "../../../db/natsKv";
-import { resolveQueueConfig } from "../integrations/test-connection/service";
 import type { TriggerArtifact } from "../../../modules/compiler/artifacts";
 import { triggerKey } from "../../../modules/compiler/subjects";
 import { removeSchedule, upsertSchedule } from "../../../modules/schedules/reconciler";
@@ -21,8 +20,6 @@ import {
 	createSchema,
 	groupSchema,
 	isEnterpriseTriggerType,
-	kafkaSourceSchema,
-	natsSourceSchema,
 	listQuerySchema,
 	listSchema,
 	patchSchema,
@@ -35,7 +32,6 @@ import {
 	deleteTriggerRow,
 	ensureDefaultGroup,
 	findGroupById,
-	findIntegration,
 	findTriggerById,
 	findTriggerByName,
 	findWorkflow,
@@ -47,6 +43,7 @@ import {
 	updateTriggerRow,
 	workflowNames,
 } from "./repository";
+import { assertConnector } from "./connectors";
 
 /**
  * Trigger CRUD.
@@ -69,13 +66,14 @@ export async function createTrigger(
 	assertSourceMatchesType(data.type, data.integrationId);
 	if (isEnterpriseTriggerType(data.type)) assertCanCreateConnector();
 
+	let warnings: string[] = [];
 	const created = await db.transaction(async (tx) => {
 		if (!(await projectExists(data.projectId, tx)))
 			throw new NotFoundError(`project with id ${data.projectId} does not exist`);
 
 		if (data.workflowId)
 			await assertWorkflowInProject(data.workflowId, data.projectId, tx);
-		await assertConnector(data.type, data.projectId, data.integrationId, data.source, true, tx);
+		warnings = await assertConnector({ ...data, probe: true }, tx);
 
 		if (await findTriggerByName(data.projectId, data.name, tx))
 			throw new ConflictError("trigger with that name already exists");
@@ -114,14 +112,15 @@ export async function createTrigger(
 	});
 
 	await republish(created);
-	return { id: created.id };
+	return { id: created.id, warnings };
 }
 
 export async function updateTrigger(
 	id: string,
 	data: z.infer<typeof patchSchema>,
 	acl: AuthACL[] = [],
-): Promise<z.infer<typeof triggerSchema>> {
+): Promise<z.infer<typeof triggerSchema> & { warnings: string[] }> {
+	let warnings: string[] = [];
 	const updated = await db.transaction(async (tx) => {
 		const existing = await mustAccess(id, acl, "creator", tx);
 		assertSourceMatchesType(
@@ -141,12 +140,17 @@ export async function updateTrigger(
 
 		if (data.workflowId)
 			await assertWorkflowInProject(data.workflowId, existing.projectId, tx);
-		await assertConnector(
-			existing.type,
-			existing.projectId,
-			data.integrationId ?? existing.integrationId,
-			data.source ?? existing.source,
-			data.source !== undefined || data.integrationId !== undefined,
+		// enabling proves the credentials and the source still work, however long it sat off
+		const enabling = data.active === true && !existing.active;
+		warnings = await assertConnector(
+			{
+				type: existing.type,
+				projectId: existing.projectId,
+				integrationId: data.integrationId ?? existing.integrationId,
+				source: data.source ?? existing.source,
+				batchSize: data.batchSize ?? existing.batchSize,
+				probe: enabling || data.source !== undefined || data.integrationId !== undefined,
+			},
 			tx,
 		);
 
@@ -156,13 +160,27 @@ export async function updateTrigger(
 				...data,
 				...(groupId ? { groupId } : {}),
 				...(data.payload === undefined ? {} : { payload: data.payload }),
+				...(enabling ? { disabledReason: null } : {}),
 			},
 			tx,
 		))!;
 	});
 
 	await republish(updated);
-	return present(updated);
+	return { ...present(updated), warnings };
+}
+
+/**
+ * The system switching a trigger off, e.g. because its queue was deleted. The
+ * row keeps the reason until a user re-enables it, which checks the source again.
+ */
+export async function disableTrigger(id: string, projectId: string, reason: string) {
+	const existing = await findTriggerById(id);
+	// a trigger the worker does not really own, or one a user already switched off
+	if (!existing || existing.projectId !== projectId || !existing.active) return;
+	const disabled = (await updateTriggerRow(id, { active: false, disabledReason: reason }))!;
+	await republish(disabled);
+	logger.warn(`[triggers] disabled ${id}: ${reason}`, "TRIGGERS");
 }
 
 export async function deleteTrigger(id: string, acl: AuthACL[] = []) {
@@ -207,6 +225,9 @@ export async function attachWorkflow(
 				"This trigger already starts another workflow. Detach it there first, or create a new trigger",
 			);
 		await assertWorkflowInProject(workflowId, existing.projectId, tx);
+		// an enabled trigger with no workflow starts consuming the moment it gets one
+		if (existing.active)
+			await assertConnector({ ...existing, probe: true }, tx);
 		return (await updateTriggerRow(triggerId, { workflowId }, tx))!;
 	});
 	await republish(trigger);
@@ -405,52 +426,6 @@ function assertSourceMatchesType(type: string, integrationId?: string | null) {
 }
 
 /**
- * A connector reads through an integration of its own kind, from this project,
- * and from something named. Caught here, it is a 400; left to the worker, it is
- * a trigger that is "on" and silently reads nothing.
- */
-async function assertConnector(
-	type: string,
-	projectId: string,
-	integrationId: string | null | undefined,
-	source: unknown,
-	/** Ask the brokers about the topics. Skipped on edits that leave the source alone. */
-	checkTopics: boolean,
-	tx?: Parameters<typeof findIntegration>[1],
-) {
-	if (type !== "kafka" && type !== "nats") return;
-	const isNats = type === "nats";
-	const label = isNats ? "NATS" : "Kafka";
-	if (!(isNats ? natsSourceSchema : kafkaSourceSchema).safeParse(source).success)
-		throw new BadRequestError(
-			isNats ? "A NATS trigger needs a valid stream name" : "A Kafka trigger needs at least one topic",
-		);
-	const integration = integrationId ? await findIntegration(integrationId, tx) : undefined;
-	if (
-		!integration ||
-		(integration.projectId ?? projectId) !== projectId ||
-		integration.variant !== label
-	)
-		throw new BadRequestError(`A ${label} trigger needs a ${label} integration from this project`);
-	if (!checkTopics) return;
-
-	// A trigger on a topic or stream that does not exist would save fine and read nothing.
-	const config = await resolveQueueConfig(projectId, integration.config as Record<string, unknown>);
-	try {
-		if (isNats) {
-			const { assertNatsStream } = await import("@fluxify/adapters/queue/nats");
-			await assertNatsStream(config as any, natsSourceSchema.parse(source).stream);
-		} else {
-			const { topics, createTopics } = kafkaSourceSchema.parse(source);
-			const { ensureKafkaTopics } = await import("@fluxify/adapters/queue/kafka");
-			await ensureKafkaTopics(config as any, topics, Boolean(createTopics));
-		}
-	} catch (error) {
-		throw new BadRequestError(error instanceof Error ? error.message : String(error));
-	}
-}
-
-/**
  * An inactive trigger has no artifact at all, rather than an artifact with
  * `active: false`. A worker then has nothing to decide: what it holds is what
  * it runs.
@@ -534,6 +509,7 @@ function present(row: Trigger): z.infer<typeof triggerSchema> {
 		schedule: row.schedule,
 		timezone: row.timezone,
 		active: row.active,
+		disabledReason: row.disabledReason,
 		createdAt: row.createdAt.toISOString(),
 		updatedAt: row.updatedAt.toISOString(),
 	};

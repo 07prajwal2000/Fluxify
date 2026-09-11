@@ -43,6 +43,8 @@ export type ExecutionEvent =
 	| { type: "enqueue-job"; job: JobEnvelope }
 	/** completed in untrusted execution; supervisor owns the NATS hand-off */
 	| { type: "trace-finished"; run: TraceRunPayload }
+	/** a queue trigger's source is gone; only the admin can disable it */
+	| { type: "trigger-fault"; triggerId: string; projectId: string; reason: string }
 	| {
 			type: "execution-started";
 			requestId: string;

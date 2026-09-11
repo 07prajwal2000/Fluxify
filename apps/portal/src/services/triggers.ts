@@ -6,7 +6,9 @@ import {
 	listSchema,
 	patchSchema,
 	previewSchema,
+	triggerCreatedSchema,
 	triggerSchema,
+	triggerUpdatedSchema,
 } from "@fluxify/server/src/api/v1/triggers/dto";
 import { httpClient } from "@/lib/http";
 
@@ -42,11 +44,12 @@ export const triggersService = {
 		const result = await httpClient.get(`${baseUrl}/list?${params.toString()}`);
 		return result.data;
 	},
-	async create(data: CreateTriggerBody): Promise<{ id: string }> {
+	/** `warnings`: settings that work but deserve a look, e.g. an SQS queue with no dead-letter queue. */
+	async create(data: CreateTriggerBody): Promise<z.infer<typeof triggerCreatedSchema>> {
 		const result = await httpClient.post(baseUrl, data);
 		return result.data;
 	},
-	async update(id: string, data: UpdateTriggerBody): Promise<Trigger> {
+	async update(id: string, data: UpdateTriggerBody): Promise<z.infer<typeof triggerUpdatedSchema>> {
 		const result = await httpClient.patch(`${baseUrl}/${id}`, data);
 		return result.data;
 	},

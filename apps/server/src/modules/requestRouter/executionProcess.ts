@@ -19,6 +19,7 @@ import type {
 } from "./threadTypes";
 import { projectSettingsCache } from "../../loaders/projectSettingsLoader";
 import { triggerPayloadLimit } from "../triggers/payloadLimit";
+import { setTriggerFaultReporter } from "../triggers/queueRuntime";
 import { workerTimeoutsEnabled } from "./workerTimeouts";
 import { AsyncExecutor } from "./asyncExecutor";
 import { executionRuntimeEnvironment } from "./executionEnvironment";
@@ -87,6 +88,7 @@ function bootstrap(nextBoot: ExecutionBootstrap) {
 	// The cap is read per publish rather than captured once: project settings
 	// arrive over the artifact watch and change while the process is running.
 	setTriggerPayloadLimit(triggerPayloadLimit);
+	setTriggerFaultReporter((fault) => send({ type: "trigger-fault", ...fault }));
 	// This process holds no broker connection: queueing is a message to the
 	// supervisor, which owns NATS.
 	setJobEnqueuer((request) =>

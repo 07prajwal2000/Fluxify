@@ -312,9 +312,9 @@ const HELP_DATA: Record<
 	queue: {
 		title: "Message Queues",
 		description:
-			"Connect Kafka or a NATS JetStream cluster so a trigger can start a workflow for every message, or every batch of messages.",
+			"Connect Kafka, a NATS JetStream cluster or Amazon SQS so a trigger can start a workflow for every message, or every batch of messages.",
 		docsUrl: "https://docs.fluxify.rest/integrations/message-queues.html",
-		tip: "Set a dead-letter topic under Advanced, or one bad message holds up its partition until it succeeds.",
+		tip: "Set a dead-letter topic under Advanced, or one bad message holds up its partition until it succeeds. For SQS, give the queue a redrive policy in AWS instead.",
 		tipIcon: <TbArrowsExchange size={16} className="shrink-0 text-muted mt-0.5" />,
 	},
 	baas: {

@@ -1,9 +1,11 @@
 import { afterEach, beforeAll, describe, expect, it } from "bun:test";
 import {
 	QueueConnection,
+	QueueSourceGoneError,
 	registerQueueConnector,
 	type QueueBatch,
 	type QueueHandler,
+	type QueueSubscription,
 } from "@fluxify/adapters";
 import { hydrateIntegrations, OWNER_KEY } from "../../../loaders/integrationsLoader";
 import type { TriggerArtifact, WorkflowArtifact } from "../../compiler/artifacts";
@@ -13,7 +15,9 @@ import {
 	hasQueueTrigger,
 	refreshQueueTriggers,
 	runBatch,
+	setTriggerFaultReporter,
 	shutdownQueueTriggers,
+	type TriggerFault,
 } from "../queueRuntime";
 
 const PROJECT = "proj-q";
@@ -26,12 +30,16 @@ class FakeConnection extends QueueConnection {
 	deadLettered: unknown[] = [];
 	stopped = false;
 	failDLQ = false;
+	subscription?: QueueSubscription;
+	static goneOnStart = false;
 
 	constructor(readonly config: { secret: string }) {
 		super();
 		FakeConnection.last = this;
 	}
-	async consume(_subscription: unknown, handler: QueueHandler) {
+	async consume(subscription: QueueSubscription, handler: QueueHandler) {
+		if (FakeConnection.goneOnStart) throw new QueueSourceGoneError("Queue \"orders\" does not exist.");
+		this.subscription = subscription;
 		this.handler = handler;
 	}
 	async commit(batch: QueueBatch) {
@@ -220,6 +228,28 @@ describe("an external queue batch", () => {
 		expect(connection.deadLettered).toEqual([]);
 	});
 
+	it("runs once per delivery and hands failures back when the broker dead-letters", async () => {
+		credentials("secret");
+		workflow("globalThis.queueRuns = (globalThis.queueRuns ?? 0) + 1; throw new Error('boom');");
+		const connection = await start({ maxAttempts: 5 });
+		Object.defineProperty(connection, "deadLettersNatively", { value: true });
+
+		await expect(connection.deliver({ ...sampleBatch(), attempt: 2 })).rejects.toThrow("boom");
+		expect(seen.queueRuns).toBe(1);
+		expect(connection.commits).toEqual([]);
+		expect(connection.deadLettered).toEqual([]);
+	});
+
+	it("commits a broker-dead-lettered batch that succeeds", async () => {
+		credentials("secret");
+		workflow("return { successful: true };");
+		const connection = await start();
+		Object.defineProperty(connection, "deadLettersNatively", { value: true });
+
+		await connection.deliver({ ...sampleBatch(), attempt: 4 });
+		expect(connection.commits).toHaveLength(1);
+	});
+
 	it("does not spend attempts while its workflow is not loaded", async () => {
 		credentials("secret");
 		workflow("return { successful: true };");
@@ -273,6 +303,39 @@ describe("an external queue trigger's lifecycle", () => {
 	it("leaves internal triggers to the supervisor", async () => {
 		credentials("secret");
 		await applyQueueTrigger("t1", trigger({ type: "internal" }));
+		expect(hasQueueTrigger("t1")).toBe(false);
+	});
+});
+
+describe("a queue trigger whose source is gone", () => {
+	const faults: TriggerFault[] = [];
+	beforeAll(() => setTriggerFaultReporter((fault) => faults.push(fault)));
+	afterEach(() => {
+		faults.length = 0;
+		FakeConnection.goneOnStart = false;
+	});
+
+	it("stops and is reported for disabling when the source is deleted under it", async () => {
+		credentials("secret");
+		const connection = await start();
+
+		connection.subscription!.onSourceGone!(new QueueSourceGoneError('Queue "orders" does not exist.'));
+		await Bun.sleep(0);
+
+		expect(faults).toEqual([{ triggerId: "t1", projectId: PROJECT, reason: 'Queue "orders" does not exist.' }]);
+		expect(connection.stopped).toBe(true);
+		expect(hasQueueTrigger("t1")).toBe(false);
+		// a credentials refresh must not bring it back
+		await refreshQueueTriggers();
+		expect(hasQueueTrigger("t1")).toBe(false);
+	});
+
+	it("is reported when the source is already gone at start", async () => {
+		credentials("secret");
+		FakeConnection.goneOnStart = true;
+		await start();
+
+		expect(faults.map((fault) => fault.triggerId)).toEqual(["t1"]);
 		expect(hasQueueTrigger("t1")).toBe(false);
 	});
 });
