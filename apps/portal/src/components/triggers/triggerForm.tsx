@@ -7,7 +7,7 @@ import {
 	cn,
 } from "@fluxify/components";
 import { TbClock } from "react-icons/tb";
-import { SiApachekafka } from "react-icons/si";
+import { SiApachekafka, SiNatsdotio } from "react-icons/si";
 import type { TriggerGroup } from "@/services/triggers";
 import { EnterpriseGate } from "@/components/common/Enterprise";
 
@@ -18,7 +18,7 @@ import { EnterpriseGate } from "@/components/common/Enterprise";
  * than four hundred lines of fields.
  */
 
-export type TriggerType = "schedule" | "kafka";
+export type TriggerType = "schedule" | "kafka" | "nats";
 
 export const TRIGGER_DEFAULTS = {
 	name: "",
@@ -38,6 +38,14 @@ const TRIGGER_TYPE_OPTIONS = [
 		label: "Kafka",
 		hint: "Messages on a Kafka topic start it as they arrive.",
 		icon: <SiApachekafka size={20} />,
+		available: true,
+		enterprise: true,
+	},
+	{
+		id: "nats",
+		label: "NATS",
+		hint: "Messages on a NATS JetStream stream start it as they arrive.",
+		icon: <SiNatsdotio size={20} />,
 		available: true,
 		enterprise: true,
 	},

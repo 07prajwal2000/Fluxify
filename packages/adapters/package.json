@@ -10,7 +10,8 @@
 	],
 	"exports": {
 		".": "./index.ts",
-		"./queue/kafka": "./queue/kafka.ts"
+		"./queue/kafka": "./queue/kafka.ts",
+		"./queue/nats": "./queue/nats.ts"
 	},
 	"scripts": {
 		"test": "bun test --parallel --timeout 600000",
@@ -24,6 +25,9 @@
 		"@langchain/google-genai": "^2.1.17",
 		"@langchain/mistralai": "^1.0.4",
 		"@langchain/openai": "^1.2.7",
+		"@nats-io/jetstream": "3.4.0",
+		"@nats-io/nats-core": "3.4.0",
+		"@nats-io/transport-node": "3.4.0",
 		"@platformatic/kafka": "^2.11.0",
 		"ioredis": "^5.11.1",
 		"kysely": "^0.28.11",

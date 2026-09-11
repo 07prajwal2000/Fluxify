@@ -18,7 +18,7 @@ setting.
 | Schedules (cron, intervals, one-shot) | ✅ | ✅ |
 | Batching | ✅ | ✅ |
 | The Trigger Workflow block | ✅ | ✅ |
-| External connectors — Kafka today; SQS, SNS, Pub/Sub, Service Bus and external NATS on the way | — | ✅ |
+| External connectors — Kafka and NATS JetStream today; SQS, SNS, Pub/Sub and Service Bus on the way | — | ✅ |
 
 A license key says which Enterprise features it includes. Most include all of
 them; the **License** page shows exactly what yours unlocks.

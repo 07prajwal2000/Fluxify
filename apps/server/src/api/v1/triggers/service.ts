@@ -22,6 +22,7 @@ import {
 	groupSchema,
 	isEnterpriseTriggerType,
 	kafkaSourceSchema,
+	natsSourceSchema,
 	listQuerySchema,
 	listSchema,
 	patchSchema,
@@ -417,24 +418,33 @@ async function assertConnector(
 	checkTopics: boolean,
 	tx?: Parameters<typeof findIntegration>[1],
 ) {
-	if (type !== "kafka") return;
-	if (!kafkaSourceSchema.safeParse(source).success)
-		throw new BadRequestError("A Kafka trigger needs at least one topic");
+	if (type !== "kafka" && type !== "nats") return;
+	const isNats = type === "nats";
+	const label = isNats ? "NATS" : "Kafka";
+	if (!(isNats ? natsSourceSchema : kafkaSourceSchema).safeParse(source).success)
+		throw new BadRequestError(
+			isNats ? "A NATS trigger needs a valid stream name" : "A Kafka trigger needs at least one topic",
+		);
 	const integration = integrationId ? await findIntegration(integrationId, tx) : undefined;
 	if (
 		!integration ||
 		(integration.projectId ?? projectId) !== projectId ||
-		integration.variant !== "Kafka"
+		integration.variant !== label
 	)
-		throw new BadRequestError("A Kafka trigger needs a Kafka integration from this project");
+		throw new BadRequestError(`A ${label} trigger needs a ${label} integration from this project`);
 	if (!checkTopics) return;
 
-	// A trigger on a topic that does not exist would save fine and read nothing.
-	const { topics, createTopics } = kafkaSourceSchema.parse(source);
+	// A trigger on a topic or stream that does not exist would save fine and read nothing.
 	const config = await resolveQueueConfig(projectId, integration.config as Record<string, unknown>);
-	const { ensureKafkaTopics } = await import("@fluxify/adapters/queue/kafka");
 	try {
-		await ensureKafkaTopics(config as any, topics, Boolean(createTopics));
+		if (isNats) {
+			const { assertNatsStream } = await import("@fluxify/adapters/queue/nats");
+			await assertNatsStream(config as any, natsSourceSchema.parse(source).stream);
+		} else {
+			const { topics, createTopics } = kafkaSourceSchema.parse(source);
+			const { ensureKafkaTopics } = await import("@fluxify/adapters/queue/kafka");
+			await ensureKafkaTopics(config as any, topics, Boolean(createTopics));
+		}
 	} catch (error) {
 		throw new BadRequestError(error instanceof Error ? error.message : String(error));
 	}

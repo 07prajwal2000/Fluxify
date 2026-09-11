@@ -77,7 +77,7 @@ export async function testIntegrationConnection(
 		case "observability":
 			return testObservibilityConnection(variant, config, appConfigs, signal);
 		case "queue":
-			return testQueueConnection(integrationData, appConfigs);
+			return testQueueConnection(variant, integrationData, appConfigs);
 		default:
 			return {
 				success: false,
@@ -312,8 +312,12 @@ export async function testAiConnection(
 	}
 }
 
-/** Kafka is the only queue variant; its client is loaded only when probed. */
-async function testQueueConnection(config: any, appConfigs: Map<string, string>) {
+/** A queue client is loaded only when probed. */
+async function testQueueConnection(variant: string, config: any, appConfigs: Map<string, string>) {
+	if (variant === "NATS") {
+		const { testNatsConnection } = await import("@fluxify/adapters/queue/nats");
+		return testNatsConnection(expandCfg(config, appConfigs) as any);
+	}
 	const { testKafkaConnection } = await import("@fluxify/adapters/queue/kafka");
 	return testKafkaConnection(expandCfg(config, appConfigs) as any);
 }

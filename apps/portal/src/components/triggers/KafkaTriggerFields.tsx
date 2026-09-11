@@ -49,40 +49,17 @@ export function KafkaSourceFields({
 	onChange: (next: KafkaValues) => void;
 	isEdit: boolean;
 }) {
-	const { data: integrations } = integrationsQuery.getAll.useQuery(projectId, "queue");
 	const set = <K extends keyof KafkaValues>(key: K, next: KafkaValues[K]) =>
 		onChange({ ...value, [key]: next });
 
 	return (
 		<div className="flex flex-col gap-5">
-			<Select
-				fullWidth
-				variant="secondary"
-				value={value.integrationId || null}
-				onChange={(next) => set("integrationId", String(next))}
-				placeholder="Choose a Kafka integration"
-			>
-				<Label>Integration</Label>
-				<Select.Trigger>
-					<Select.Value />
-					<Select.Indicator />
-				</Select.Trigger>
-				<Description>
-					{integrations?.length === 0
-						? "No Kafka integration yet — add one on the Integrations page first."
-						: "The brokers and credentials to read with."}
-				</Description>
-				<Select.Popover>
-					<ListBox>
-						{(integrations ?? []).map((integration) => (
-							<ListBox.Item key={integration.id} id={integration.id} textValue={integration.name}>
-								{integration.name}
-								<ListBox.ItemIndicator />
-							</ListBox.Item>
-						))}
-					</ListBox>
-				</Select.Popover>
-			</Select>
+			<IntegrationField
+				projectId={projectId}
+				variant="Kafka"
+				value={value.integrationId}
+				onChange={(next) => set("integrationId", next)}
+			/>
 
 			<TextField isRequired value={value.topics} onChange={(next) => set("topics", next)}>
 				<Label>Topics</Label>
@@ -102,6 +79,107 @@ export function KafkaSourceFields({
 				onChange={(next) => set("fromBeginning", next)}
 				isDisabled={isEdit}
 				label="Read messages already in the topic"
+				description="Off: only messages sent after the trigger starts. Applies to the first start only."
+			/>
+		</div>
+	);
+}
+
+/** The queue integration a connector trigger reads through, of one variant only. */
+function IntegrationField({
+	projectId,
+	variant,
+	value,
+	onChange,
+}: {
+	projectId: string;
+	variant: "Kafka" | "NATS";
+	value: string;
+	onChange: (next: string) => void;
+}) {
+	const { data } = integrationsQuery.getAll.useQuery(projectId, "queue");
+	const integrations = (data ?? []).filter((integration) => integration.variant === variant);
+	return (
+		<Select
+			fullWidth
+			variant="secondary"
+			value={value || null}
+			onChange={(next) => onChange(String(next))}
+			placeholder={`Choose a ${variant} integration`}
+		>
+			<Label>Integration</Label>
+			<Select.Trigger>
+				<Select.Value />
+				<Select.Indicator />
+			</Select.Trigger>
+			<Description>
+				{data && integrations.length === 0
+					? `No ${variant} integration yet — add one on the Integrations page first.`
+					: "The servers and credentials to read with."}
+			</Description>
+			<Select.Popover>
+				<ListBox>
+					{integrations.map((integration) => (
+						<ListBox.Item key={integration.id} id={integration.id} textValue={integration.name}>
+							{integration.name}
+							<ListBox.ItemIndicator />
+						</ListBox.Item>
+					))}
+				</ListBox>
+			</Select.Popover>
+		</Select>
+	);
+}
+
+/** What a NATS trigger reads, and through which integration. */
+export type NatsValues = {
+	integrationId: string;
+	stream: string;
+	/** comma-separated filter subjects, as typed; empty reads the whole stream */
+	subjects: string;
+	fromBeginning: boolean;
+};
+
+export function NatsSourceFields({
+	projectId,
+	value,
+	onChange,
+	isEdit,
+}: {
+	projectId: string;
+	value: NatsValues;
+	onChange: (next: NatsValues) => void;
+	isEdit: boolean;
+}) {
+	const set = <K extends keyof NatsValues>(key: K, next: NatsValues[K]) =>
+		onChange({ ...value, [key]: next });
+
+	return (
+		<div className="flex flex-col gap-5">
+			<IntegrationField
+				projectId={projectId}
+				variant="NATS"
+				value={value.integrationId}
+				onChange={(next) => set("integrationId", next)}
+			/>
+
+			<TextField isRequired value={value.stream} onChange={(next) => set("stream", next)}>
+				<Label>Stream</Label>
+				<Input placeholder="ORDERS" />
+				<Description>The JetStream stream to read. It must already exist.</Description>
+			</TextField>
+
+			<TextField value={value.subjects} onChange={(next) => set("subjects", next)}>
+				<Label>Subjects</Label>
+				<Input placeholder="orders.eu.>, orders.us.*" />
+				<Description>Optional. Only these subjects of the stream, separated by commas. Empty reads all of them.</Description>
+			</TextField>
+
+			<Checkbox
+				isSelected={value.fromBeginning}
+				onChange={(next) => set("fromBeginning", next)}
+				isDisabled={isEdit}
+				label="Read messages already in the stream"
 				description="Off: only messages sent after the trigger starts. Applies to the first start only."
 			/>
 		</div>

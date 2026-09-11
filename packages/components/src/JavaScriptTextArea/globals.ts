@@ -80,11 +80,18 @@ declare const trigger: {
     size: number;
     firstReceivedAt?: string;
     lastReceivedAt?: string;
-    /** Kafka only: 1 on the first run of this batch, counting up on each retry. */
+    /** Kafka and NATS: 1 on the first run of this batch, counting up on each retry. */
     attempt?: number;
   };
-  /** Kafka only: the source this batch was read from. */
+  /** Kafka and NATS: the source this batch was read from. */
   connection?: {
+    /**
+     * The underlying client, for what the helpers below do not cover.
+     * Kafka: a @platformatic/kafka Consumer. NATS: an @nats-io/nats-core NatsConnection.
+     * Fluxify owns it: closing, pausing or re-subscribing it can stall the
+     * trigger until the worker restarts. Use with care.
+     */
+    raw: any;
     /** Mark the batch done. Needed only when the trigger commits from the workflow. */
     commit(): Promise<void>;
     /** Copy the batch to the integration's dead-letter topic. */
