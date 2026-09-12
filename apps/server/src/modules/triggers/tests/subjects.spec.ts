@@ -41,7 +41,10 @@ describe("trigger subjects", () => {
 		expect(triggerConsumerName("a*b.c")).toBe("fluxify_trigger_a_b_c");
 	});
 
-	it("names the catch-all deployment readably rather than as punctuation", () => {
-		expect(internalConsumerName(ALL_PROJECTS)).toBe("fluxify_triggers_all_internal");
+	it("refuses a catch-all internal consumer, which would overlap every project's", () => {
+		// this stream is work-queue: `fluxify.triggers.*.internal` and
+		// `fluxify.triggers.p1.internal` cannot both exist, so a catch-all worker
+		// serves each project it discovers instead
+		expect(() => internalConsumerName(ALL_PROJECTS)).toThrow(/one project/);
 	});
 });

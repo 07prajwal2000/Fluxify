@@ -26,6 +26,13 @@ export interface ObservedNode {
 	projectId: string | null;
 	image: string;
 	running: boolean;
+	/**
+	 * What the platform calls this container: `running`, `created`,
+	 * `restarting`, `exited`, … Kept as well as `running` because a container
+	 * that keeps crashing and being restarted is not the same condition as one
+	 * that is still starting up, and only the platform can tell them apart.
+	 */
+	platformState: string;
 }
 
 export type RemoveReason =

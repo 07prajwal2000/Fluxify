@@ -4,6 +4,7 @@ import {
 	ORCHESTRATOR_LEASE_BUCKET,
 	ORCHESTRATOR_LEASE_TTL_MS,
 	orchestratorKeys,
+	type OrchestratorLease,
 } from "@fluxify/common/orchestrator";
 import { initializeNats } from "../../db/nats";
 
@@ -23,10 +24,18 @@ import { initializeNats } from "../../db/nats";
  * migration.
  */
 
-interface LeaseRecord {
-	holder: string;
-	at: string;
-}
+/**
+ * The lease value doubles as what admin displays about the running
+ * orchestrator (§14.5): which infrastructure it drives, how often it acts, and
+ * whatever facts that provider has worth showing. The lease is already written
+ * every pass and already expires on its own, so a dead orchestrator stops
+ * answering with no row for anyone to clean up.
+ */
+type LeaseRecord = OrchestratorLease;
+
+/** What this process is, minus the parts the lease fills in on every renewal. */
+export type LeaseIdentity = Pick<OrchestratorLease, "provider" | "reconcileIntervalMs"> &
+	Partial<Pick<OrchestratorLease, "meta">>;
 
 export interface LeaderLease {
 	/**
@@ -48,23 +57,40 @@ export interface LeaderLease {
  */
 type LeaseStore = Pick<KvBucket<LeaseRecord>, "create" | "update" | "delete">;
 
-export async function openLeaderLease(holder: string): Promise<LeaderLease> {
+export async function openLeaderLease(
+	holder: string,
+	identity: LeaseIdentity,
+): Promise<LeaderLease> {
 	const nc = await initializeNats();
 	return createLease(
 		await openKvBucket<LeaseRecord>(nc, ORCHESTRATOR_LEASE_BUCKET, {
 			ttlMs: ORCHESTRATOR_LEASE_TTL_MS,
 		}),
 		holder,
+		identity,
 	);
 }
 
-export function createLease(bucket: LeaseStore, holder: string): LeaderLease {
+export function createLease(
+	bucket: LeaseStore,
+	holder: string,
+	// Defaulted rather than required: the lease's job is mutual exclusion, and
+	// the metadata rides along with it. A test exercising the three store rules
+	// should not have to describe a provider.
+	identity: LeaseIdentity = { provider: "docker", reconcileIntervalMs: 0 },
+): LeaderLease {
 	const key = orchestratorKeys.leader;
 	/** The revision we wrote, which is what makes a renewal safe. Null = not ours. */
 	let held: number | null = null;
 
 	async function tick() {
-		const record: LeaseRecord = { holder, at: new Date().toISOString() };
+		const record: LeaseRecord = {
+			holder,
+			at: new Date().toISOString(),
+			provider: identity.provider,
+			reconcileIntervalMs: identity.reconcileIntervalMs,
+			meta: identity.meta ?? {},
+		};
 		try {
 			if (held !== null) {
 				// Revision-checked, not a blind write: a process paused long enough

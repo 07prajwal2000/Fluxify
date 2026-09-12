@@ -1,6 +1,7 @@
 import { logger } from "@fluxify/common";
 import {
 	consumeBatches,
+	dropWildcardConsumers,
 	ensureStream,
 	ensureConsumer,
 	type QueueConsumer,
@@ -11,6 +12,7 @@ import type { TriggerArtifact } from "../compiler/artifacts";
 import { WORKFLOW_JOB } from "../jobs/subjects";
 import type { JobEnvelope } from "../jobs/types";
 import {
+	ALL_PROJECTS,
 	INTERNAL_SOURCE,
 	TRIGGERS_STREAM,
 	TRIGGERS_SUBJECTS,
@@ -22,8 +24,15 @@ import {
 import type { InternalTriggerMessage, TriggerBatch } from "./types";
 
 /**
- * The trigger half of a worker: one consumer per trigger, plus one for the
- * project's internal subject.
+ * The trigger half of a worker: one consumer per trigger, plus one per project
+ * for its internal subject.
+ *
+ * Per project, because `FLUXIFY_TRIGGERS` is work-queue and one
+ * `fluxify.triggers.*.internal` consumer overlaps every
+ * `fluxify.triggers.<project>.internal` one — a catch-all worker holding the
+ * wildcard would stop any project with a node of its own from booting. A
+ * catch-all deployment is told which projects it serves as their artifacts
+ * arrive.
  *
  * Consumers come and go with the trigger artifacts, so creating or deleting a
  * trigger starts or stops its consumer with no restart. The work itself is
@@ -33,7 +42,11 @@ import type { InternalTriggerMessage, TriggerBatch } from "./types";
  */
 
 export type TriggerWorkerOptions = {
-	/** Project this deployment serves, or "*" for every project. */
+	/**
+	 * Project this deployment serves, or "*" for every project. A concrete id is
+	 * served by `start()`; a catch-all deployment calls `serveInternal` per
+	 * project instead.
+	 */
 	projectId: string;
 	/** Runs one batch. Resolve to ack the batch, reject to retry it. */
 	run: (job: JobEnvelope) => Promise<void>;
@@ -64,14 +77,22 @@ type Running = { consumer: QueueConsumer; artifact: TriggerArtifact };
 export class TriggerWorker {
 	private readonly options: Required<TriggerWorkerOptions>;
 	private readonly running = new Map<string, Running>();
-	private internal: QueueConsumer | undefined;
+	/** Project id → its internal-subject consumer. */
+	private readonly internal = new Map<string, QueueConsumer>();
 	private started = false;
 
 	constructor(options: TriggerWorkerOptions) {
 		this.options = { ...DEFAULTS, ...stripUndefined(options) } as Required<TriggerWorkerOptions>;
 	}
 
-	/** Provisions the stream and the project's internal consumer. */
+	/**
+	 * Provisions the stream, and this deployment's internal consumer when it
+	 * serves one named project.
+	 *
+	 * The wildcard sweep runs here for the same reason it does on the jobs
+	 * stream: one leftover `fluxify.triggers.*.internal` durable from an older
+	 * build refuses every per-project consumer below, permanently.
+	 */
 	async start() {
 		if (this.started) return;
 		this.started = true;
@@ -84,11 +105,23 @@ export class TriggerWorker {
 			maxAgeMs: this.options.maxAgeMs,
 			duplicateWindowMs: 2 * 60_000,
 		});
+		await dropWildcardConsumers(nc, TRIGGERS_STREAM);
 
-		const durable = internalConsumerName(this.options.projectId);
+		if (this.options.projectId !== ALL_PROJECTS)
+			await this.serveInternal(this.options.projectId);
+	}
+
+	/**
+	 * Starts one project's internal subject — what the Trigger Workflow block
+	 * and the portal's Run button publish to. Idempotent.
+	 */
+	async serveInternal(projectId: string) {
+		if (this.internal.has(projectId)) return;
+		const nc = natsConnection();
+		const durable = internalConsumerName(projectId);
 		await ensureConsumer(nc, TRIGGERS_STREAM, {
 			durable,
-			filterSubjects: [internalSubject(this.options.projectId)],
+			filterSubjects: [internalSubject(projectId)],
 			ackWaitMs: this.options.defaultAckWaitMs,
 			maxDeliver: this.options.maxDeliver,
 			maxAckPending: 1,
@@ -96,12 +129,12 @@ export class TriggerWorker {
 
 		// Size 1: the block fires one workflow at a time, and batching events
 		// aimed at different workflows would mean splitting them apart again.
-		this.internal = await consumeBatches<InternalTriggerMessage>(
+		const consumer = await consumeBatches<InternalTriggerMessage>(
 			nc,
 			TRIGGERS_STREAM,
 			durable,
 			async (batch) => {
-				for (const message of batch) await this.runInternal(message.data);
+				for (const message of batch) await this.runInternal(projectId, message.data);
 			},
 			{
 				maxMessages: 1,
@@ -111,10 +144,19 @@ export class TriggerWorker {
 				policy: (batch) => batch[0]?.data.retry,
 			},
 		);
+		this.internal.set(projectId, consumer);
 		logger.info(
-			`[triggers] internal consumer listening on ${internalSubject(this.options.projectId)}`,
+			`[triggers] internal consumer listening on ${internalSubject(projectId)}`,
 			"TRIGGERS",
 		);
+	}
+
+	/** Stops one project's internal subject — it was deleted, or moved away. */
+	async unserveInternal(projectId: string) {
+		const consumer = this.internal.get(projectId);
+		if (!consumer) return;
+		this.internal.delete(projectId);
+		await consumer.stop();
 	}
 
 	/**
@@ -153,11 +195,11 @@ export class TriggerWorker {
 	/** Stops every consumer. In-flight batches are left to finish. */
 	async stop() {
 		await Promise.allSettled([
-			this.internal?.stop(),
+			...[...this.internal.values()].map((consumer) => consumer.stop()),
 			...[...this.running.values()].map((entry) => entry.consumer.stop()),
 		]);
 		this.running.clear();
-		this.internal = undefined;
+		this.internal.clear();
 		this.started = false;
 	}
 
@@ -205,8 +247,8 @@ export class TriggerWorker {
 		return consumer;
 	}
 
-	private runInternal(message: InternalTriggerMessage) {
-		return this.dispatch(message.workflowId, {
+	private runInternal(projectId: string, message: InternalTriggerMessage) {
+		return this.dispatch(projectId, message.workflowId, {
 			triggerId: INTERNAL_SOURCE,
 			source: "internal",
 			events: [
@@ -223,19 +265,25 @@ export class TriggerWorker {
 	}
 
 	private runBatch(artifact: TriggerArtifact, events: TriggerEvent[]) {
-		return this.dispatch(artifact.workflowId, {
+		return this.dispatch(artifact.projectId, artifact.workflowId, {
 			triggerId: artifact.triggerId,
 			source: artifact.type as TriggerBatch["source"],
 			events,
 		});
 	}
 
-	/** One batch, one job. Resolving acks the batch; throwing redelivers it. */
-	private dispatch(workflowId: string, batch: TriggerBatch) {
+	/**
+	 * One batch, one job. Resolving acks the batch; throwing redelivers it.
+	 *
+	 * The project comes from the event's own consumer rather than from this
+	 * deployment's setting: on a catch-all worker the setting is `*`, which is
+	 * not a project any workflow can be looked up in.
+	 */
+	private dispatch(projectId: string, workflowId: string, batch: TriggerBatch) {
 		return this.options.run({
 			id: crypto.randomUUID(),
 			kind: WORKFLOW_JOB,
-			projectId: this.options.projectId,
+			projectId,
 			target: workflowId,
 			payload: batch,
 			origin: { triggerId: batch.triggerId, source: batch.source },

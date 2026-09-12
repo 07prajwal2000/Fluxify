@@ -109,7 +109,20 @@ const passthroughEnv = Object.fromEntries(
 ) as Record<string, string>;
 
 const holder = `${hostname()}:${process.pid}`;
-const lease = await openLeaderLease(holder);
+// Published as the lease value, which is where admin reads it from (§14.5).
+// The provider is fixed per build rather than configurable: this process only
+// knows how to talk to Docker, so an env var claiming otherwise would only be
+// a way to lie to the UI. Kubernetes arrives as its own driver (#338).
+const lease = await openLeaderLease(holder, {
+	provider: "docker",
+	reconcileIntervalMs: intervalMs,
+	meta: {
+		endpoint: endpoint.unix ?? endpoint.base,
+		workerImage: image,
+		network,
+		seedsDefaultClaim: getEnv("ORCHESTRATOR_SEED_DEFAULT_CLAIM") !== "false",
+	},
+});
 const reconciler = await createReconciler({
 	image,
 	network,

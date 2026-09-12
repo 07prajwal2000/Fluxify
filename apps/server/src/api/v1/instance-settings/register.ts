@@ -5,6 +5,7 @@ import registerUpsertRoute from "./upsert/route";
 import registerGetAuthSettingsRoute from "./get-auth-settings/route";
 import registerPatchAuthSettingsRoute from "./patch-auth-settings/route";
 import registerLicenseRoutes from "./license/route";
+import registerOrchestrationRoutes from "../orchestration/instanceRoutes";
 import { HonoServer } from "../../../types";
 
 export default {
@@ -12,6 +13,7 @@ export default {
 	registerHandler(app: HonoServer) {
 		const router = app.basePath("/instance-settings");
 		registerLicenseRoutes(router); // before get-by-key, so "/license" is not read as a key
+		registerOrchestrationRoutes(router); // likewise: "/orchestration" is not a setting key
 		registerGetAllRoute(router);
 		registerGetByCategoryRoute(router);
 		registerGetByKeyRoute(router);

@@ -222,6 +222,7 @@ ENV NODE_ENV=production \
     ENABLE_ADMIN=true \
     ENABLE_BUILTIN_WORKER=false \
     ENABLE_AI=false \
+    ENABLE_ORCHESTRATION=false \
     DOCS_INDEX_FILE_PATH=/app/ai-gateway/docs-index.bin
 
 # Reports healthy once the admin API answers; the worker has its own probe on

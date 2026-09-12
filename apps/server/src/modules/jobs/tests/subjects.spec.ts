@@ -4,8 +4,8 @@ import {
 	artifactKindsForMode,
 	assertWorkerMode,
 	jobConsumerName,
+	jobFilter,
 	jobKindsForMode,
-	projectJobFilters,
 } from "../subjects";
 
 describe("worker modes", () => {
@@ -25,22 +25,25 @@ describe("worker modes", () => {
 		expect(() => assertWorkerMode("workflows")).toThrow(/WORKER_MODE/);
 	});
 
-	it("names one subject per kind, never a wildcard", () => {
-		// `.>` would make two modes on one project overlap silently
-		expect(projectJobFilters("p1", ["custom-block", "workflow"])).toEqual([
-			"fluxify.jobs.p1.custom-block",
-			"fluxify.jobs.p1.workflow",
-		]);
-		expect(projectJobFilters(ALL_PROJECTS, ["workflow"])).toEqual([
-			"fluxify.jobs.*.workflow",
-		]);
+	it("filters on one project and one kind, never a wildcard", () => {
+		expect(jobFilter("p1", "custom-block")).toBe("fluxify.jobs.p1.custom-block");
+		expect(jobFilter("p1", "workflow")).toBe("fluxify.jobs.p1.workflow");
 	});
 
-	it("puts the mode in the durable name so two modes cannot share a consumer", () => {
-		expect(jobConsumerName("p1", "both")).not.toBe(
-			jobConsumerName("p1", "workflow"),
+	it("names a durable by project and kind, so two modes can share it", () => {
+		// a catch-all `both` worker and a project's own `workflow` worker both
+		// take its workflow jobs: same consumer, work split between them
+		expect(jobConsumerName("p1", "workflow")).toBe("fluxify_jobs_p1_workflow");
+		expect(jobConsumerName("p1", "custom-block")).toBe(
+			"fluxify_jobs_p1_custom-block",
 		);
-		expect(jobConsumerName(ALL_PROJECTS, "route")).toBe("fluxify_jobs_all_route");
+	});
+
+	it("refuses a wildcard consumer instead of locking every worker out", () => {
+		// `fluxify.jobs.*.workflow` overlaps every per-project filter, and a
+		// work-queue stream refuses the second consumer of an overlapping pair
+		expect(() => jobFilter(ALL_PROJECTS, "workflow")).toThrow(/one project/);
+		expect(() => jobConsumerName(ALL_PROJECTS, "workflow")).toThrow(/one project/);
 	});
 
 	it("keeps the HTTP route table out of a workflow-only worker", () => {

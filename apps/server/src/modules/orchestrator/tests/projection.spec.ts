@@ -224,6 +224,17 @@ describe("validateClaim", () => {
 		expect(message(result)).toContain("subdomain");
 	});
 
+	it("accepts a catch-all route claim with no subdomain — it is reached on PathPrefix(/)", () => {
+		// The claim a fresh instance is seeded with. Requiring a subdomain here
+		// would make the API refuse the default deployment shape.
+		expect(
+			validateClaim(
+				{ ...base, projectId: null, type: "both", groupIds: [] },
+				{ ...context, hasSubdomain: false },
+			),
+		).toEqual({ ok: true });
+	});
+
 	it("refuses a workflow claim naming no groups", () => {
 		expect(validateClaim({ ...base, groupIds: [] }, context).ok).toBe(false);
 	});

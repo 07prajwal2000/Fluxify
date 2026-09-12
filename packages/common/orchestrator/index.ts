@@ -191,3 +191,40 @@ export interface NodeEntitlement {
 	/** Whether a claim may name a single project, or only the catch-all. */
 	perProject: boolean;
 }
+
+/**
+ * Which infrastructure the running orchestrator drives. The UI branches on it,
+ * because the same claim means different things underneath: a Docker node is a
+ * container on this host, a Kubernetes node is a pod the scheduler may place
+ * anywhere. Anything provider-specific belongs in `meta` below rather than in a
+ * new field here, so a second provider is a renderer rather than a migration.
+ */
+export const INFRA_PROVIDERS = ["docker", "kubernetes"] as const;
+export type InfraProvider = (typeof INFRA_PROVIDERS)[number];
+
+/**
+ * What the active orchestrator publishes about itself, as the value of the
+ * leader lease.
+ *
+ * The lease rather than a table: it is already written every pass and already
+ * expires on its own, so "is an orchestrator alive and what is it driving" is
+ * one read of one key — and an orchestrator that died stops answering without
+ * anyone cleaning a row up. A standby publishes nothing, which is correct: the
+ * question the UI asks is what the *acting* orchestrator is doing.
+ */
+export interface OrchestratorLease {
+	/** `hostname:pid` of the holder. Identifies the process, not the machine. */
+	holder: string;
+	/** ISO timestamp of the last renewal. Staleness is visible without a clock skew argument. */
+	at: string;
+	provider: InfraProvider;
+	/** How often it reconciles, so the UI can say how long a change takes to land. */
+	reconcileIntervalMs: number;
+	/**
+	 * Provider facts worth showing an operator — the Docker endpoint, the worker
+	 * image, the network; a cluster and namespace on Kubernetes. Free-form
+	 * because the useful set differs per provider and none of it is load-bearing:
+	 * the UI renders what it finds and nothing depends on a particular key.
+	 */
+	meta: Record<string, string | number | boolean>;
+}

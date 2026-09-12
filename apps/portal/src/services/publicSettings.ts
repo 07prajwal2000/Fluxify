@@ -25,6 +25,12 @@ export type PublicSettingsResponse = {
 		mode: "sso_only" | "email_and_sso" | "email_only";
 	};
 	"featureflags.ee.connectors"?: { enabled: boolean };
+	/**
+	 * Whether this deployment has an orchestrator at all. A deployment shape,
+	 * not a licence: Kit is one process tree with a builtin worker, so node
+	 * claiming and the Orchestration tab are both absent there.
+	 */
+	orchestration?: { enabled: boolean };
 	license: Entitlement;
 };
 

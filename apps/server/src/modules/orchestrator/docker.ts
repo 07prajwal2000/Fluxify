@@ -101,6 +101,7 @@ export async function listManagedNodes(): Promise<ObservedNode[]> {
 			projectId: !projectId || projectId === CATCH_ALL ? null : projectId,
 			image: container.Image,
 			running: container.State === "running",
+			platformState: container.State,
 		});
 	}
 	return nodes;

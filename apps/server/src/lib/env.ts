@@ -137,6 +137,13 @@ export const serverEnvSchema = baseEnvSchema.extend({
 			"How often the reconciler compares what is running against what should be (default 5000). Also how often the leader renews its lease, so it must stay well under the lease TTL",
 		),
 
+	ENABLE_ORCHESTRATION: z
+		.enum(["true", "false"])
+		.optional()
+		.describe(
+			"Whether this deployment has an orchestrator, which gates the claim API, the Orchestration tab and both surfaces' endpoints. A deployment-shape flag, independent of the license: Kit is one process tree with a builtin worker and no orchestrator, so it ships false (default true)",
+		),
+
 	ORCHESTRATOR_SEED_DEFAULT_CLAIM: z
 		.enum(["true", "false"])
 		.optional()
@@ -268,6 +275,8 @@ export const NATS_TOKEN = getEnv("NATS_TOKEN")!;
 // true = run the API-serving worker inside this admin process (testing);
 // false = admin is control-plane only, a separate worker node serves user APIs.
 export const ENABLE_BUILTIN_WORKER = getEnv("ENABLE_BUILTIN_WORKER")!;
+// whether node claiming exists on this deployment at all — see orchestrator/gate.ts
+export const ENABLE_ORCHESTRATION = getEnv("ENABLE_ORCHESTRATION")!;
 // which project's compiled artifacts this worker pulls and serves
 export const WORKER_PROJECT_ID = getEnv("WORKER_PROJECT_ID")!;
 /** what kind of work this worker takes on — see `jobs/subjects.ts` */
