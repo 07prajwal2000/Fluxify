@@ -72,6 +72,10 @@ Two other things worth knowing:
   children — they are separate containers with Docker's own restart policy. You
   can restart or upgrade the control plane while traffic keeps being served.
 
+For how any of that actually works — the leader lease, the reconcile loop, what
+forces a container to be replaced — see
+[The Orchestrator](/architecture/orchestrator).
+
 ---
 
 ## Architecture

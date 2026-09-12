@@ -98,6 +98,7 @@ export default withMermaid(defineConfig({
 					items: [
 						{ text: "Overview", link: "/architecture/" },
 						{ text: "Request Lifecycle", link: "/architecture/request-lifecycle" },
+						{ text: "The Orchestrator", link: "/architecture/orchestrator" },
 						{ text: "Performance", link: "/architecture/performance" },
 					],
 				},

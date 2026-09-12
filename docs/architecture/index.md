@@ -83,6 +83,8 @@ flowchart TB
 
 - **[Request Lifecycle](/architecture/request-lifecycle)** — the full journey of
   a route, from the moment you hit Save to the moment a user gets a response.
+- **[The Orchestrator](/architecture/orchestrator)** — what decides how many
+  workers exist, and why it is a loop rather than a command.
 - **[Performance](/architecture/performance)** — what the translation step
   actually buys you, with measured numbers.
 - **[Deployments](/deployments/)** — how to run all of this yourself.
