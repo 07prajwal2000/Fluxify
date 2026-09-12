@@ -52,7 +52,7 @@ export function LicenseSettings() {
 		!feature || (running && (view.features.includes("*") || view.features.includes(feature)));
 
 	return (
-		<div className="mx-auto flex w-full max-w-3xl flex-col gap-6">
+		<div className="mx-auto flex w-full max-w-4xl flex-col gap-6">
 			<div>
 				<h2 className="text-xl font-bold tracking-tight">License</h2>
 				<p className="mt-0.5 text-sm text-muted-foreground">

@@ -9,15 +9,22 @@ interface InstanceSettingsProps {
 
 export function InstanceSettings({ activeTab = "auth" }: InstanceSettingsProps) {
 	return (
-		<div className="flex flex-row gap-8 pt-4">
-			<aside className="w-64 flex-shrink-0 sticky top-24 self-start">
+		<div className="flex h-[calc(100vh-7rem)] w-full flex-col">
+			<div className="mb-4 shrink-0">
+				<h1 className="text-2xl font-semibold tracking-tight text-foreground">Instance settings</h1>
+				<p className="text-sm text-muted">Manage your instance configurations, authentication, license, and orchestration.</p>
+			</div>
+
+			<div className="flex min-h-0 flex-1 overflow-hidden rounded-xl border border-border bg-surface">
 				<Sidebar activeTab={activeTab} />
-			</aside>
-			<main className="flex-1 overflow-y-auto min-h-[500px]">
-				{activeTab === "auth" && <AuthSettings />}
-				{activeTab === "license" && <LicenseSettings />}
-				{activeTab === "orchestration" && <OrchestrationSettings />}
-			</main>
+				<div className="flex-1 overflow-y-auto p-8">
+					<div className="max-w-4xl">
+						{activeTab === "auth" && <AuthSettings />}
+						{activeTab === "license" && <LicenseSettings />}
+						{activeTab === "orchestration" && <OrchestrationSettings />}
+					</div>
+				</div>
+			</div>
 		</div>
 	);
 }

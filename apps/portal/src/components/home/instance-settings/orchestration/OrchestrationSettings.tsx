@@ -1,13 +1,14 @@
 import { useState } from "react";
-import { Spinner, toast } from "@fluxify/components";
+import { Button, Spinner, cn, toast } from "@fluxify/components";
+import { TbHistory, TbTopologyStar3 } from "react-icons/tb";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { ClaimCard } from "@/components/orchestration/ClaimCard";
 import { ClaimDialog } from "@/components/orchestration/ClaimDialog";
 import { CONSEQUENCE } from "@/components/orchestration/copy";
-import { EventLog } from "@/components/orchestration/EventLog";
 import { GroupAlarms } from "@/components/orchestration/GroupAlarms";
 import { HostInventory } from "@/components/orchestration/HostInventory";
 import { InfraPanel } from "@/components/orchestration/InfraPanel";
+import { NodeHistoryView } from "@/components/orchestration/NodeHistoryView";
 import { showErrorNotification } from "@/lib/errorNotifier";
 import { orchestrationQuery } from "@/query/orchestrationQuery";
 import { publicSettingsQuery } from "@/query/publicSettingsQuery";
@@ -36,6 +37,7 @@ export function OrchestrationSettings() {
 	const [editing, setEditing] = useState<ClaimView | null>(null);
 	const [releasing, setReleasing] = useState<ClaimView | null>(null);
 	const [error, setError] = useState<string | null>(null);
+	const [activeTab, setActiveTab] = useState<"workloads" | "history">("workloads");
 
 	if (!available) {
 		return (
@@ -58,7 +60,7 @@ export function OrchestrationSettings() {
 	}
 
 	return (
-		<div className="mx-auto flex w-full max-w-3xl flex-col gap-6">
+		<div className="mx-auto flex w-full max-w-4xl flex-col gap-6">
 			<div>
 				<h2 className="text-xl font-bold tracking-tight">Orchestration</h2>
 				<p className="mt-0.5 text-sm text-muted-foreground">
@@ -66,47 +68,110 @@ export function OrchestrationSettings() {
 				</p>
 			</div>
 
-			<GroupAlarms alarms={status.alarms} />
-			<InfraPanel status={status} />
-			<PoolForm pool={status.pool} />
+			<div className="flex items-center gap-6 border-b border-border">
+				<button
+					type="button"
+					onClick={() => setActiveTab("workloads")}
+					className={cn(
+						"-mb-px flex items-center gap-2 border-b-2 pb-3 pt-1 text-sm font-medium transition-colors",
+						activeTab === "workloads"
+							? "border-accent text-foreground"
+							: "border-transparent text-muted hover:border-border hover:text-foreground",
+					)}
+				>
+					<TbTopologyStar3
+						size={16}
+						className={activeTab === "workloads" ? "text-accent" : "text-muted"}
+					/>
+					Workloads & Pool
+				</button>
 
-			<div className="flex flex-col gap-3">
-				<h3 className="text-sm font-bold text-foreground">
-					Claims ({status.claims.length})
-				</h3>
-				{status.claims.length === 0 ? (
-					<p className="rounded-xl border border-border bg-background p-6 text-center text-xs text-muted">
-						Nothing is claimed, so no workers are running and no API answers. A fresh instance is
-						normally seeded with one catch-all claim.
-					</p>
-				) : (
-					status.claims.map((claim) => (
-						<ClaimCard
-							key={claim.id}
-							claim={claim}
-							provider={status.orchestrator.provider}
-							showProject
-							onChange={() => {
-								setError(null);
-								setEditing(claim);
-							}}
-							onRelease={() => setReleasing(claim)}
-						/>
-					))
-				)}
+				<button
+					type="button"
+					onClick={() => setActiveTab("history")}
+					className={cn(
+						"-mb-px flex items-center gap-2 border-b-2 pb-3 pt-1 text-sm font-medium transition-colors",
+						activeTab === "history"
+							? "border-accent text-foreground"
+							: "border-transparent text-muted hover:border-border hover:text-foreground",
+					)}
+				>
+					<TbHistory
+						size={16}
+						className={activeTab === "history" ? "text-accent" : "text-muted"}
+					/>
+					History
+					{events && events.length > 0 && (
+						<span
+							className={cn(
+								"rounded-full px-2 py-0.5 text-xs font-semibold transition-colors",
+								activeTab === "history"
+									? "bg-accent/10 text-accent"
+									: "bg-surface-secondary text-muted",
+							)}
+						>
+							{events.length}
+						</span>
+					)}
+				</button>
 			</div>
 
-			<HostInventory status={status} />
+			{activeTab === "workloads" ? (
+				<div className="flex flex-col gap-6">
+					<GroupAlarms alarms={status.alarms} />
+					<InfraPanel status={status} />
+					<PoolForm pool={status.pool} />
 
-			<section className="overflow-hidden rounded-xl border border-border bg-background">
-				<header className="border-b border-border p-4">
-					<h3 className="text-sm font-bold text-foreground">History</h3>
-					<p className="mt-0.5 text-xs text-muted">
-						Everything the orchestrator has done, newest first.
-					</p>
-				</header>
-				<EventLog events={events} isLoading={eventsLoading} showProject />
-			</section>
+					<div className="flex flex-col gap-3">
+						<h3 className="text-sm font-bold text-foreground">
+							Claims ({status.claims.length})
+						</h3>
+						{status.claims.length === 0 ? (
+							<p className="rounded-xl border border-border bg-background p-6 text-center text-xs text-muted">
+								Nothing is claimed, so no workers are running and no API answers. A fresh instance is
+								normally seeded with one catch-all claim.
+							</p>
+						) : (
+							status.claims.map((claim) => (
+								<ClaimCard
+									key={claim.id}
+									claim={claim}
+									provider={status.orchestrator.provider}
+									showProject
+									onChange={() => {
+										setError(null);
+										setEditing(claim);
+									}}
+									onRelease={() => setReleasing(claim)}
+								/>
+							))
+						)}
+					</div>
+
+					<HostInventory status={status} />
+
+					{events && events.length > 0 && (
+						<div className="flex items-center justify-between rounded-xl border border-border bg-background p-4">
+							<div className="flex items-center gap-3">
+								<div className="flex h-9 w-9 items-center justify-center rounded-lg border border-border bg-surface text-muted">
+									<TbHistory size={18} />
+								</div>
+								<div>
+									<h4 className="text-sm font-semibold text-foreground">Instance Activity & History</h4>
+									<p className="text-xs text-muted">
+										{events.length} lifecycle event{events.length === 1 ? "" : "s"} recorded across this instance.
+									</p>
+								</div>
+							</div>
+							<Button size="sm" variant="secondary" onPress={() => setActiveTab("history")}>
+								View history
+							</Button>
+						</div>
+					)}
+				</div>
+			) : (
+				<NodeHistoryView events={events} isLoading={eventsLoading} showProject />
+			)}
 
 			{editing && (
 				<ClaimDialog

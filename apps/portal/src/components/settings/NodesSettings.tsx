@@ -1,13 +1,13 @@
 import { useState } from "react";
-import { Button, Spinner, toast } from "@fluxify/components";
-import { TbPlus } from "react-icons/tb";
+import { Button, Spinner, cn, toast } from "@fluxify/components";
+import { TbHistory, TbPlus, TbTopologyStar3 } from "react-icons/tb";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { ClaimCard } from "@/components/orchestration/ClaimCard";
 import { ClaimDialog, type ClaimType } from "@/components/orchestration/ClaimDialog";
 import { CONSEQUENCE } from "@/components/orchestration/copy";
-import { EventLog } from "@/components/orchestration/EventLog";
 import { GroupAlarms } from "@/components/orchestration/GroupAlarms";
 import { InfraPanel } from "@/components/orchestration/InfraPanel";
+import { NodeHistoryView } from "@/components/orchestration/NodeHistoryView";
 import { showErrorNotification } from "@/lib/errorNotifier";
 import { orchestrationQuery } from "@/query/orchestrationQuery";
 import { publicSettingsQuery } from "@/query/publicSettingsQuery";
@@ -40,6 +40,7 @@ export function NodesSettings({ projectId }: { projectId: string }) {
 	const [editing, setEditing] = useState<ClaimView | "new" | null>(null);
 	const [releasing, setReleasing] = useState<ClaimView | null>(null);
 	const [error, setError] = useState<string | null>(null);
+	const [activeTab, setActiveTab] = useState<"workloads" | "history">("workloads");
 
 	if (!available) {
 		return (
@@ -109,56 +110,119 @@ export function NodesSettings({ projectId }: { projectId: string }) {
 				</Button>
 			</div>
 
-			<GroupAlarms alarms={status.alarms} />
-			<InfraPanel status={status} />
-
-			{status.claims.length === 0 ? (
-				<Empty
-					title="This project holds no nodes of its own"
-					body="Its work runs on the shared nodes below. Claim a workload to give a trigger group nodes of its own."
-				/>
-			) : (
-				status.claims.map((item) => (
-					<ClaimCard
-						key={item.id}
-						claim={item}
-						provider={status.orchestrator.provider}
-						groupNames={groupNames}
-						onChange={() => {
-							setError(null);
-							setEditing(item);
-						}}
-						onRelease={() => setReleasing(item)}
+			<div className="flex items-center gap-6 border-b border-border">
+				<button
+					type="button"
+					onClick={() => setActiveTab("workloads")}
+					className={cn(
+						"-mb-px flex items-center gap-2 border-b-2 pb-3 pt-1 text-sm font-medium transition-colors",
+						activeTab === "workloads"
+							? "border-accent text-foreground"
+							: "border-transparent text-muted hover:border-border hover:text-foreground",
+					)}
+				>
+					<TbTopologyStar3
+						size={16}
+						className={activeTab === "workloads" ? "text-accent" : "text-muted"}
 					/>
-				))
-			)}
+					Workloads
+				</button>
 
-			{status.sharedClaims.length > 0 && (
-				<div className="flex flex-col gap-3">
-					<div>
-						<h3 className="text-sm font-bold text-foreground">Shared workloads</h3>
-						<p className="mt-0.5 text-xs text-muted">
-							Claimed for every project, including this one — this is what runs this project's
-							work when it holds no nodes of its own. Only an instance operator can change them.
-						</p>
-					</div>
-					{status.sharedClaims.map((item) => (
-						// No onChange or onRelease: the card renders read-only without them,
-						// which is the whole difference between context and a control.
-						<ClaimCard key={item.id} claim={item} provider={status.orchestrator.provider} />
-					))}
+				<button
+					type="button"
+					onClick={() => setActiveTab("history")}
+					className={cn(
+						"-mb-px flex items-center gap-2 border-b-2 pb-3 pt-1 text-sm font-medium transition-colors",
+						activeTab === "history"
+							? "border-accent text-foreground"
+							: "border-transparent text-muted hover:border-border hover:text-foreground",
+					)}
+				>
+					<TbHistory
+						size={16}
+						className={activeTab === "history" ? "text-accent" : "text-muted"}
+					/>
+					History
+					{events && events.length > 0 && (
+						<span
+							className={cn(
+								"rounded-full px-2 py-0.5 text-xs font-semibold transition-colors",
+								activeTab === "history"
+									? "bg-accent/10 text-accent"
+									: "bg-surface-secondary text-muted",
+							)}
+						>
+							{events.length}
+						</span>
+					)}
+				</button>
+			</div>
+
+			{activeTab === "workloads" ? (
+				<div className="flex flex-col gap-6">
+					<GroupAlarms alarms={status.alarms} />
+					<InfraPanel status={status} />
+
+					{status.claims.length === 0 ? (
+						<Empty
+							title="This project holds no nodes of its own"
+							body="Its work runs on the shared nodes below. Claim a workload to give a trigger group nodes of its own."
+						/>
+					) : (
+						status.claims.map((item) => (
+							<ClaimCard
+								key={item.id}
+								claim={item}
+								provider={status.orchestrator.provider}
+								groupNames={groupNames}
+								onChange={() => {
+									setError(null);
+									setEditing(item);
+								}}
+								onRelease={() => setReleasing(item)}
+							/>
+						))
+					)}
+
+					{status.sharedClaims.length > 0 && (
+						<div className="flex flex-col gap-3">
+							<div>
+								<h3 className="text-sm font-bold text-foreground">Shared workloads</h3>
+								<p className="mt-0.5 text-xs text-muted">
+									Claimed for every project, including this one — this is what runs this project's
+									work when it holds no nodes of its own. Only an instance operator can change them.
+								</p>
+							</div>
+							{status.sharedClaims.map((item) => (
+								// No onChange or onRelease: the card renders read-only without them,
+								// which is the whole difference between context and a control.
+								<ClaimCard key={item.id} claim={item} provider={status.orchestrator.provider} />
+							))}
+						</div>
+					)}
+
+					{events && events.length > 0 && (
+						<div className="flex items-center justify-between rounded-xl border border-border bg-background p-4">
+							<div className="flex items-center gap-3">
+								<div className="flex h-9 w-9 items-center justify-center rounded-lg border border-border bg-surface text-muted">
+									<TbHistory size={18} />
+								</div>
+								<div>
+									<h4 className="text-sm font-semibold text-foreground">Node Activity & History</h4>
+									<p className="text-xs text-muted">
+										{events.length} lifecycle event{events.length === 1 ? "" : "s"} recorded for this project's nodes.
+									</p>
+								</div>
+							</div>
+							<Button size="sm" variant="secondary" onPress={() => setActiveTab("history")}>
+								View history
+							</Button>
+						</div>
+					)}
 				</div>
+			) : (
+				<NodeHistoryView events={events} isLoading={eventsLoading} />
 			)}
-
-			<section className="overflow-hidden rounded-xl border border-border bg-background">
-				<header className="border-b border-border p-4">
-					<h3 className="text-sm font-bold text-foreground">History</h3>
-					<p className="mt-0.5 text-xs text-muted">
-						What has happened to this project's nodes. A node that was removed is only visible here.
-					</p>
-				</header>
-				<EventLog events={events} isLoading={eventsLoading} />
-			</section>
 
 			{editing && (
 				<ClaimDialog

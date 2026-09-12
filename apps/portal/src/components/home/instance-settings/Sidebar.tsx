@@ -33,7 +33,10 @@ export function Sidebar({ activeTab }: SidebarProps) {
 	);
 
 	return (
-		<nav className="flex flex-col gap-1">
+		<div className="w-[240px] shrink-0 border-r border-border py-6 pl-4 pr-3 flex flex-col gap-1 overflow-y-auto">
+			<div className="mb-2 px-3 text-xs font-semibold tracking-wider text-muted uppercase">
+				Instance
+			</div>
 			{categories.map((category) => {
 				const Icon = category.icon;
 				const isActive = activeTab === category.id;
@@ -44,17 +47,19 @@ export function Sidebar({ activeTab }: SidebarProps) {
 						to="/"
 						search={{ tab: "instance", settingsTab: category.id }}
 						className={cn(
-							"flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+							"flex items-center justify-between rounded-lg px-3 py-2 text-sm font-medium transition-colors",
 							isActive
-								? "bg-accent text-accent-foreground"
-								: "text-muted-foreground hover:bg-accent/50 hover:text-foreground",
+								? "bg-surface-secondary text-foreground"
+								: "text-muted hover:bg-surface-secondary hover:text-foreground",
 						)}
 					>
-						<Icon className="h-4 w-4" />
-						{category.label}
+						<div className="flex items-center gap-3">
+							<Icon size={18} className={isActive ? "text-foreground" : "text-muted"} />
+							{category.label}
+						</div>
 					</Link>
 				);
 			})}
-		</nav>
+		</div>
 	);
 }
