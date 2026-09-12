@@ -12,10 +12,28 @@ without touching the control plane:
 | :--- | :--- | :--- |
 | **Admin** | `fluxify-admin` | Control plane — dashboard, admin API, AI gateway. Owns the database and prepares your routes for the workers. Run **one**. |
 | **Orchestrator** | `fluxify-orchestrator` | Starts and stops the worker containers for you. Holds the Docker socket; runs none of your code. Run **one** (a second one stands by). |
-| **Worker** | `fluxify-worker-compiled` | Serves your published API. Holds no database connection. **Run many** — the orchestrator creates them. |
+| **Worker** | `fluxify-worker` | Serves your published API. Holds no database connection. **Run many** — the orchestrator creates them. |
+
+All three are published to the GitHub Container Registry under
+`ghcr.io/fluxify-rest/`.
 
 An edge proxy (**Traefik**) sits in front and sends admin traffic to the admin
 container and everything else to the workers.
+
+### Which tag to pull {#image-tags}
+
+Every release tags all three images together, so admin, orchestrator and worker
+always come from the same build. Never mix versions between them.
+
+| Tag | What it is |
+| :--- | :--- |
+| `v0.1.0-alpha.1` | One exact release. **Pin this** for anything you care about. |
+| `alpha` | Moves to the newest pre-release. Convenient while Fluxify is pre-1.0. |
+| `latest` | The newest stable release. **Does not exist yet** — the first 1.0 release creates it. |
+
+> [!WARNING]
+> Fluxify is pre-1.0, so every release is a pre-release and `latest` is not
+> published. Use `alpha`, or a pinned version tag.
 
 > [!TIP]
 > Just evaluating Fluxify or running it on a single machine? The all-in-one

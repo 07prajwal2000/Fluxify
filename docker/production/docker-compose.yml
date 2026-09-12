@@ -73,7 +73,7 @@ services:
       - fluxify_net
 
   admin:
-    # image: ghcr.io/fluxify-rest/fluxify-admin:latest
+    # image: ghcr.io/fluxify-rest/fluxify-admin:alpha
     build:
       context: ../..
       dockerfile: docker/admin/Dockerfile
@@ -131,7 +131,7 @@ services:
   # and never from the database.
   # ---------------------------------------------------------------------------
   orchestrator:
-    # image: ghcr.io/fluxify-rest/fluxify-orchestrator:latest
+    # image: ghcr.io/fluxify-rest/fluxify-orchestrator:alpha
     build:
       context: ../..
       dockerfile: docker/orchestrator/Dockerfile
@@ -141,7 +141,7 @@ services:
       - .env
     environment:
       # The only image it may create a container from.
-      ORCHESTRATOR_WORKER_IMAGE: "${ORCHESTRATOR_WORKER_IMAGE:-ghcr.io/fluxify-rest/fluxify-worker-compiled:latest}"
+      ORCHESTRATOR_WORKER_IMAGE: "${ORCHESTRATOR_WORKER_IMAGE:-ghcr.io/fluxify-rest/fluxify-worker:alpha}"
       # Workers must land on this network, or Traefik and NATS cannot reach them.
       ORCHESTRATOR_NETWORK: fluxify_net
       DOCKER_HOST: unix:///var/run/docker.sock

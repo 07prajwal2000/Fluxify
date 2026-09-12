@@ -42,6 +42,13 @@ A new Fluxify instance runs the **non-commercial** edition until you pick
 another one. See [Licenses and Contributions](/deployments/licensing) for
 exactly who qualifies for non-commercial use.
 
+::: warning Enterprise keys before the 1.0 release
+Fluxify does not issue license keys yet, so no key you can be given will
+verify. Non-commercial unlocks every enterprise feature in the meantime; to
+test a *signed* key — an expiry date, a licensee name, a feature subset — sign
+one yourself, see [Self-signed licenses](/deployments/self-signed-license).
+:::
+
 When you paste a license key, Fluxify checks it before saving it. A key that is
 mistyped, cut off, edited, or already expired is refused with the reason, and
 the edition you had stays as it was.
