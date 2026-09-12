@@ -1,30 +1,34 @@
 # Single published port for the whole kit. Everything below is in-container.
 :8080 {
-    # Vite's base only serves the trailing-slash form; redirect the bare path.
-    @admin_ui_bare path /_/admin/ui
-    handle @admin_ui_bare {
-        redir * /_/admin/ui/ 308
-    }
+	# Vite's base only serves the trailing-slash form; redirect the bare path.
+	@admin_ui_bare path /_/admin/ui
+	handle @admin_ui_bare {
+		redir * /_/admin/ui/ 308
+	}
 
-    # Admin UI: a static SPA built by Vite with base /_/admin/ui/. strip_prefix
-    # maps the public path onto the bundle root; the try_files fallback hands
-    # client-routed deep links back to index.html instead of 404ing.
-    handle /_/admin/ui* {
-        uri strip_prefix /_/admin/ui
-        root * /app/portal
-        try_files {path} /index.html
-        file_server
-    }
-    handle /_/admin/api/ai* {
-        reverse_proxy localhost:8001
-    }
-    handle /_/admin/api* {
-        reverse_proxy localhost:5500
-    }
-    # Everything else is user API traffic, served by the compiled worker.
-    # A 502 here means the worker is not running — most likely
-    # WORKER_PROJECT_ID is unset (see docker/kit/entrypoint.sh).
-    handle * {
-        reverse_proxy localhost:5600
-    }
+	# Admin UI: a static SPA built by Vite with base /_/admin/ui/. strip_prefix
+	# maps the public path onto the bundle root; the try_files fallback hands
+	# client-routed deep links back to index.html instead of 404ing.
+	handle /_/admin/ui* {
+		uri strip_prefix /_/admin/ui
+		root * /app/portal
+		try_files {path} /index.html
+		file_server
+	}
+	# AI gateway: the assistant API and the MCP server both live there.
+	handle /_/admin/api/ai* {
+		reverse_proxy localhost:8001
+	}
+	handle /_/admin/mcp* {
+		reverse_proxy localhost:8001
+	}
+	handle /_/admin/api* {
+		reverse_proxy localhost:5500
+	}
+	# Everything else is user API traffic, served by the compiled worker.
+	# A 502 here means the worker is not running — most likely
+	# WORKER_PROJECT_ID is unset (see docker/kit/entrypoint.sh).
+	handle * {
+		reverse_proxy localhost:5600
+	}
 }

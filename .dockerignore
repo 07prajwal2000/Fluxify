@@ -2,11 +2,13 @@
 # native bindings never leak into the in-image install/bundle)
 **/node_modules
 
-# Build caches
-.turbo
-.next
-dist
-out
+# Build caches. **/ is required: a bare `dist` only matches the context root,
+# which let a host-built apps/server/dist (standalone, telemetry, win32 addons)
+# leak into every image.
+**/.turbo
+**/.next
+**/dist
+**/out
 
 # IDE / Editor
 .vscode

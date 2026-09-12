@@ -1,0 +1,8 @@
+# Shipped next to the server bundles in every image. The images carry no
+# node_modules, so without this Bun treats every unresolved import as a cue to
+# install the package at runtime. That includes optional ones the libraries
+# guard with try/catch, such as @aws-sdk/signature-v4-crt. The install then
+# fails (read-only filesystem, or no registry access) and takes the process
+# down with it, instead of the import throwing the error the library expects.
+[install]
+auto = "disable"
