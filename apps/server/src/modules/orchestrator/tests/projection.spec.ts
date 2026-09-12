@@ -228,6 +228,12 @@ describe("validateClaim", () => {
 		expect(validateClaim({ ...base, groupIds: [] }, context).ok).toBe(false);
 	});
 
+	it("accepts a catch-all claim with no groups, which means every unowned group", () => {
+		expect(validateClaim({ ...base, projectId: null, groupIds: [] }, context)).toEqual({
+			ok: true,
+		});
+	});
+
 	it("refuses a type the license does not allow", () => {
 		const result = validateClaim(
 			{ ...base, type: "route", groupIds: [] },

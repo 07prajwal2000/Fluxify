@@ -11,7 +11,8 @@ without touching the control plane:
 | Role | Image | Responsibility |
 | :--- | :--- | :--- |
 | **Admin** | `fluxify-admin` | Control plane — dashboard, admin API, AI gateway. Owns the database and prepares your routes for the workers. Run **one**. |
-| **Worker** | `fluxify-worker-compiled` | Serves your published API. Holds no database connection. **Run many.** |
+| **Orchestrator** | `fluxify-orchestrator` | Starts and stops the worker containers for you. Holds the Docker socket; runs none of your code. Run **one** (a second one stands by). |
+| **Worker** | `fluxify-worker-compiled` | Serves your published API. Holds no database connection. **Run many** — the orchestrator creates them. |
 
 An edge proxy (**Traefik**) sits in front and sends admin traffic to the admin
 container and everything else to the workers.
@@ -29,6 +30,51 @@ them. Traefik discovers each worker automatically from its Docker labels and
 spreads traffic across every replica with no manual list to maintain — add or
 remove workers and routing updates itself. The Kit image uses a simpler built-in
 proxy because it only ever has one of each service.
+
+---
+
+## Who starts the workers {#orchestrator}
+
+You don't. There is no `worker` service in the compose file — the
+**orchestrator** creates worker containers, and compose runs only the
+infrastructure around them.
+
+The reason is that hand-writing a worker service is easy to get wrong in a way
+nothing tells you about: its settings are a project id, a mode and a list of
+group ids, and a misplaced one produces a worker that starts happily and serves
+the wrong things. So you describe what you want instead — "this project wants a
+workflow node for these groups, two of them" — and the orchestrator creates the
+containers, labels them for Traefik, and removes them when you stop asking for
+them.
+
+That request is called a **claim**. A fresh stack seeds one automatically: a
+single node serving every project and doing both jobs, which is exactly what the
+old `worker` service was. Set `ORCHESTRATOR_SEED_DEFAULT_CLAIM=false` in your
+`.env` to start with no workers at all.
+
+Ownership is split cleanly, because two things managing the same container will
+fight over it:
+
+- **compose owns** nats, postgres, valkey, traefik, admin, orchestrator
+- **the orchestrator owns** every worker
+
+> [!WARNING]
+> `docker compose ... --remove-orphans` deletes the orchestrator's workers.
+> Compose has no idea they were never its containers. They come back on the next
+> reconcile pass (about five seconds) as long as the orchestrator is running.
+
+Two other things worth knowing:
+
+- **A license that lapses does not take your traffic down.** Running workers
+  keep running; only a restart is refused. Fix the licence and nothing had to
+  fail in the meantime.
+- **Killing the orchestrator does not stop your API.** Workers are not its
+  children — they are separate containers with Docker's own restart policy. You
+  can restart or upgrade the control plane while traffic keeps being served.
+
+For how any of that actually works — the leader lease, the reconcile loop, what
+forces a container to be replaced — see
+[The Orchestrator](/architecture/orchestrator).
 
 ---
 
