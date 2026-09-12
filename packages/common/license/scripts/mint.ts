@@ -19,6 +19,9 @@
  * Then point the stack at it (both in `.env`, which is already gitignored):
  *   LICENSE_ISSUER_KEY_PATH=.license/issuer.pub   # lets this build verify
  *   LICENSE_KEY=<the printed token>               # activates it
+ *
+ * Written up for operators at docs/deployments/self-signed-license.md, which
+ * goes away with the 1.0 release along with the whole local-issuer path.
  */
 import { generateKeyPairSync, sign } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";

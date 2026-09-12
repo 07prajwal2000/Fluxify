@@ -4,8 +4,17 @@ on:
   workflow_dispatch:
   push:
     branches: ["main"]
-    tags: ["v*"] # version tags trigger the admin + worker release build
+    # A version tag (v0.1.0-alpha.1, v1.2.3) is the whole release trigger: it
+    # runs the full suite, then builds and pushes admin, orchestrator and worker
+    # and publishes the GitHub release.
+    tags: ["v*"]
   pull_request:
+
+# A superseded PR run is wasted minutes. Releases and main are never cancelled:
+# a half-pushed image set is worse than a slow one.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
   BUN_VERSION: "1.4.2"
@@ -14,11 +23,14 @@ jobs:
   detect-changes:
     runs-on: ubuntu-latest
     outputs:
-      lib: ${{ steps.filter.outputs.lib }}
-      blocks: ${{ steps.filter.outputs.blocks }}
-      server: ${{ steps.filter.outputs.server }}
-      portal: ${{ steps.filter.outputs.portal }}
-      ai-gateway: ${{ steps.filter.outputs.ai-gateway }}
+      # On a tag push there is no "before" commit to diff against, so the
+      # filters would come back false and a release would skip most of its
+      # tests. A release tests everything, always.
+      lib: ${{ steps.filter.outputs.lib == 'true' || startsWith(github.ref, 'refs/tags/v') }}
+      blocks: ${{ steps.filter.outputs.blocks == 'true' || startsWith(github.ref, 'refs/tags/v') }}
+      server: ${{ steps.filter.outputs.server == 'true' || startsWith(github.ref, 'refs/tags/v') }}
+      portal: ${{ steps.filter.outputs.portal == 'true' || startsWith(github.ref, 'refs/tags/v') }}
+      ai-gateway: ${{ steps.filter.outputs.ai-gateway == 'true' || startsWith(github.ref, 'refs/tags/v') }}
     steps:
       - uses: actions/checkout@v4
       - uses: dorny/paths-filter@v3
@@ -183,8 +195,9 @@ jobs:
       - name: Run AI Gateway Tests
         run: bun run test:ai-gateway
 
-  # Kit is the exception: every push to main publishes a rolling `nightly` build.
-  # Versioned/`latest` kit images come from the tagged release job below.
+  # Kit — the single-container evaluation build — is the only image published
+  # from main, as a rolling `nightly`. It carries no version tags: the release
+  # job below ships the three images a real deployment runs.
   build-and-push:
     needs: [lint, test-packages-lib, test-packages-blocks, test-packages-adapters, test-e2e-graphs, test-apps-server-unit, test-apps-server-integration, test-apps-portal, test-apps-ai-gateway]
     if: |
@@ -214,7 +227,9 @@ jobs:
 
       - name: Compute nightly timestamp (UTC, YY-MM-DD-HHMM)
         id: ts
-        run: echo "stamp=$(date -u +'%y-%m-%d-%H%M')" >> $GITHUB_OUTPUT
+        run: |
+          echo "stamp=$(date -u +'%y-%m-%d-%H%M')" >> $GITHUB_OUTPUT
+          echo "iso=$(date -u +'%Y-%m-%dT%H:%M:%SZ')" >> $GITHUB_OUTPUT
 
       - name: Lowercase Repo Owner
         id: owner
@@ -231,10 +246,19 @@ jobs:
             ghcr.io/${{ steps.owner.outputs.owner }}/fluxify-kit:nightly-${{ steps.ts.outputs.stamp }}
           build-args: |
             BUN_VERSION=${{ env.BUN_VERSION }}
+            VERSION=nightly-${{ steps.ts.outputs.stamp }}
+            VCS_REF=${{ github.sha }}
+            BUILD_DATE=${{ steps.ts.outputs.iso }}
           cache-from: type=gha,scope=fluxify-kit
           cache-to: type=gha,scope=fluxify-kit,mode=max
 
-  # Kit, admin and worker versioned images build ONLY on version tags (e.g. v1.2.3).
+  # ============================================================================
+  # RELEASE — version tags only (v0.1.0-alpha.1, v1.2.3).
+  #
+  # Three images, one per process a production deployment runs. Kit is not here
+  # on purpose: it is the single-container evaluation build and ships as a
+  # rolling `nightly` from main, above.
+  # ============================================================================
   build-and-push-release:
     needs: [lint, test-packages-lib, test-packages-blocks, test-packages-adapters, test-e2e-graphs, test-apps-server-unit, test-apps-server-integration, test-apps-portal, test-apps-ai-gateway]
     if: |
@@ -249,13 +273,19 @@ jobs:
       contents: read
       packages: write
     strategy:
+      # One image failing must not leave the other two unpushed and unexplained:
+      # every image is attempted, and the release notes job below waits for all
+      # of them to succeed before anything is announced.
+      fail-fast: false
       matrix:
         include:
-          - image: fluxify-kit
-            dockerfile: docker/kit/Dockerfile
           - image: fluxify-admin
             dockerfile: docker/admin/Dockerfile
-          - image: fluxify-worker-compiled
+          - image: fluxify-orchestrator
+            dockerfile: docker/orchestrator/Dockerfile
+          # The published name drops `-compiled`: there is one worker now, and
+          # the graph interpreter it was named against is gone.
+          - image: fluxify-worker
             dockerfile: docker/worker-compiled/Dockerfile
 
     steps:
@@ -271,9 +301,33 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Lowercase Repo Owner
-        id: owner
-        run: echo "owner=$(echo ${{ github.repository_owner }} | tr '[:upper:]' '[:lower:]')" >> $GITHUB_OUTPUT
+      - name: Resolve image name and tags
+        id: image
+        env:
+          TAG: ${{ github.ref_name }}
+          IMAGE: ${{ matrix.image }}
+        run: |
+          set -euo pipefail
+          repo="ghcr.io/$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')/$IMAGE"
+          tags="$repo:$TAG"
+          # A pre-release tag never moves `latest`: anything with a hyphen after
+          # the version is a pre-release by semver, so an alpha cannot become
+          # what an unpinned `docker pull` gets. It moves its own channel tag
+          # instead — v0.1.0-alpha.2 becomes `:alpha`, v1.0.0-rc.1 `:rc` — which
+          # is what the compose files track until a stable release exists.
+          case "$TAG" in
+            *-*)
+              channel="${TAG#*-}"
+              tags="$tags"$'\n'"$repo:${channel%%.*}"
+              ;;
+            *) tags="$tags"$'\n'"$repo:latest" ;;
+          esac
+          {
+            echo "tags<<EOF"
+            echo "$tags"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+          echo "built_at=$(date -u +'%Y-%m-%dT%H:%M:%SZ')" >> "$GITHUB_OUTPUT"
 
       - name: Build and push ${{ matrix.image }}
         uses: docker/build-push-action@v5
@@ -281,10 +335,75 @@ jobs:
           context: .
           file: ${{ matrix.dockerfile }}
           push: true
-          tags: |
-            ghcr.io/${{ steps.owner.outputs.owner }}/${{ matrix.image }}:${{ github.ref_name }}
-            ghcr.io/${{ steps.owner.outputs.owner }}/${{ matrix.image }}:latest
+          tags: ${{ steps.image.outputs.tags }}
+          # The Dockerfiles own their OCI labels; these three are the only
+          # values they cannot know about themselves.
           build-args: |
             BUN_VERSION=${{ env.BUN_VERSION }}
+            VERSION=${{ github.ref_name }}
+            VCS_REF=${{ github.sha }}
+            BUILD_DATE=${{ steps.image.outputs.built_at }}
           cache-from: type=gha,scope=${{ matrix.image }}
           cache-to: type=gha,scope=${{ matrix.image }},mode=max
+
+  # The GitHub release is published last, and only if all three images pushed:
+  # release notes pointing at tags nobody can pull are worse than no notes.
+  release:
+    needs: build-and-push-release
+    if: success() && startsWith(github.ref, 'refs/tags/v') && github.repository_owner == 'Fluxify-rest'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      # Full history: generated notes are a diff against the previous tag.
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "release $TAG already exists, leaving it alone"
+            exit 0
+          fi
+
+          owner=$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')
+          notes=$(mktemp)
+          {
+            echo '### Images'
+            echo
+            echo '```bash'
+            for image in fluxify-admin fluxify-orchestrator fluxify-worker; do
+              echo "docker pull ghcr.io/$owner/$image:$TAG"
+            done
+            echo '```'
+            echo
+            echo "Deploy them with [docker/production/docker-compose.yml](https://github.com/${{ github.repository }}/blob/$TAG/docker/production/docker-compose.yml)."
+          } > "$notes"
+
+          # A pre-release is marked as one, and does not become the repo's
+          # "Latest release": an alpha must be opt-in.
+          flags=""
+          case "$TAG" in
+            *-*)
+              flags="--prerelease --latest=false"
+              {
+                echo
+                echo '> [!WARNING]'
+                echo "> Pre-release. No Fluxify license issuer exists before v1.0, so enterprise"
+                echo "> features verify against a key you sign yourself —"
+                echo "> see [self-signed licenses](https://docs.fluxify.rest/deployments/self-signed-license)."
+              } >> "$notes"
+              ;;
+          esac
+
+          gh release create "$TAG" \
+            --title "$TAG" \
+            --verify-tag \
+            --generate-notes \
+            --notes-file "$notes" \
+            $flags
