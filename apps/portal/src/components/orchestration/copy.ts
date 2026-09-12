@@ -102,8 +102,12 @@ export const metaLabel = (key: string) =>
 /** How long ago, in words. Used for heartbeats, where "5s ago" is the whole point. */
 export function ago(iso: string | null): string {
 	if (!iso) return "never";
-	const seconds = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 1000));
-	if (seconds < 60) return `${seconds}s ago`;
+	const seconds = Math.round((Date.now() - new Date(iso).getTime()) / 1000);
+	// A timestamp in the future is not "now". Clock skew is worth a second or
+	// two of slack; anything further is a wrong timestamp, and showing it as
+	// "0s ago" is what once hid a whole column of events being an hour out.
+	if (seconds < -5) return new Date(iso).toLocaleString();
+	if (seconds < 60) return `${Math.max(0, seconds)}s ago`;
 	if (seconds < 3600) return `${Math.round(seconds / 60)}m ago`;
 	if (seconds < 86_400) return `${Math.round(seconds / 3600)}h ago`;
 	return new Date(iso).toLocaleDateString();

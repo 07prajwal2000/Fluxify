@@ -1,4 +1,14 @@
 import { logger } from "@fluxify/common";
+import { openKvBucket } from "@fluxify/common/nats";
+import {
+	ORCHESTRATOR_LEASE_BUCKET,
+	ORCHESTRATOR_LEASE_TTL_MS,
+	orchestratorKeys,
+	type InfraProvider,
+	type ObservedInventory,
+	type ObservedNode,
+} from "@fluxify/common/orchestrator";
+import { initializeNats } from "../../db/nats";
 import { openAssignments, type Assignments } from "./assignments";
 import { buildContainerSpec, nodeIdFor, type SpecOptions } from "./containerSpec";
 import { drainNode, listManagedNodes, startNode } from "./docker";
@@ -40,6 +50,33 @@ export interface ReconcileOptions {
 export interface Reconciler {
 	/** Runs one pass. Call it on a timer; it holds no state between passes. */
 	once(): Promise<void>;
+}
+
+/**
+ * Publishes the host's inventory for the app to read (§14.5).
+ *
+ * Desired state cannot answer "what is running": a container no claim asks for
+ * is absent from it by definition, and that is exactly the one an operator
+ * would open the Docker CLI to find. So what the pass observed is written where
+ * admin can read it — in the lease bucket, so it expires with the lease and an
+ * orchestrator that stopped reconciling stops reporting instead of leaving a
+ * stale list behind.
+ */
+async function publishObserved(observed: readonly ObservedNode[], provider: InfraProvider) {
+	try {
+		const nc = await initializeNats();
+		const bucket = await openKvBucket<ObservedInventory>(nc, ORCHESTRATOR_LEASE_BUCKET, {
+			ttlMs: ORCHESTRATOR_LEASE_TTL_MS,
+		});
+		await bucket.put(orchestratorKeys.observed, {
+			at: new Date().toISOString(),
+			provider,
+			nodes: observed.map((container) => ({ ...container })),
+		});
+	} catch (error) {
+		// A pass that reconciled correctly must not be failed by a status write.
+		logger.warn(`could not publish the host inventory: ${String(error)}`, "ORCHESTRATOR");
+	}
 }
 
 export async function createReconciler(options: ReconcileOptions): Promise<Reconciler> {
@@ -129,7 +166,9 @@ export async function createReconciler(options: ReconcileOptions): Promise<Recon
 
 			// Read back rather than assume: the rows then describe what Docker
 			// actually holds, including a container that failed to start.
-			await syncNodeRows(nodes, await listManagedNodes());
+			const settled = await listManagedNodes();
+			await syncNodeRows(nodes, settled);
+			await publishObserved(settled, "docker");
 		},
 	};
 }

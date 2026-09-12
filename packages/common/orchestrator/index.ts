@@ -109,6 +109,13 @@ export const orchestratorKeys = {
 	/** The single leader lease, in `ORCHESTRATOR_LEASE_BUCKET`. */
 	leader: "leader",
 	/**
+	 * What the acting orchestrator saw on the host on its last pass, in
+	 * `ORCHESTRATOR_LEASE_BUCKET` — same bucket as the lease because it wants
+	 * the same lifetime: an orchestrator that stopped reconciling must stop
+	 * reporting containers rather than leave a stale list behind.
+	 */
+	observed: "observed",
+	/**
 	 * Desired state for one project, in the shared config bucket under the
 	 * orchestrator's prefix. Keyed per project rather than one global blob so
 	 * sharding later is "which prefixes does this replica own" — a config
@@ -227,4 +234,35 @@ export interface OrchestratorLease {
 	 * the UI renders what it finds and nothing depends on a particular key.
 	 */
 	meta: Record<string, string | number | boolean>;
+}
+
+/** One container (or pod) the orchestrator found carrying its label. */
+export interface ObservedNode {
+	/** Platform handle — a container id on Docker, a pod name on Kubernetes. */
+	containerId: string;
+	/** From the node label: `<claimId>.<replicaIndex>`. */
+	nodeId: string;
+	claimId: string;
+	replicaIndex: number;
+	/** Null is the catch-all, as everywhere else. */
+	projectId: string | null;
+	image: string;
+	running: boolean;
+	/** The platform's own word: `running`, `created`, `restarting`, `exited`, … */
+	platformState: string;
+}
+
+/**
+ * Every labelled container the acting orchestrator can see, as of its last
+ * pass. Published so the app can show the host's real inventory — including a
+ * container no claim asks for, which is the one case that is invisible in
+ * desired state and the reason an operator would otherwise reach for the Docker
+ * CLI to find out what is running.
+ *
+ * Only the acting orchestrator writes it, and the key expires with the lease.
+ */
+export interface ObservedInventory {
+	at: string;
+	provider: InfraProvider;
+	nodes: ObservedNode[];
 }

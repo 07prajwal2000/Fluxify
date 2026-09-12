@@ -9,9 +9,11 @@ import {
 	type InfraProvider,
 	type NodeEntitlement,
 	type NodeHeartbeat,
+	type ObservedInventory,
+	type ObservedNode,
 	type OrchestratorLease,
 } from "@fluxify/common/orchestrator";
-import { and, desc, eq, sql } from "drizzle-orm";
+import { and, desc, eq, isNull, or, sql } from "drizzle-orm";
 import { db } from "../../db";
 import { initializeNats } from "../../db/nats";
 import {
@@ -32,7 +34,6 @@ import {
 	type ClaimView,
 	type GroupAlarm,
 	type Heartbeat,
-	type NodeView,
 } from "./statusView";
 
 /**
@@ -75,11 +76,37 @@ export interface OrchestrationStatus {
 	canClaimRoutes: boolean;
 	claims: ClaimView[];
 	/**
-	 * Nodes that serve every project. On the project surface they are context a
-	 * project owner cannot change: its workflows may well be running on one.
+	 * Claims that serve every project, on the project surface only. Context a
+	 * project owner cannot change — but not context they can be denied: a
+	 * catch-all node may well be the one running this project's workflows, and
+	 * a container with no claim visible anywhere is a container nobody can
+	 * explain.
 	 */
-	sharedNodes: NodeView[];
+	sharedClaims: ClaimView[];
 	alarms: GroupAlarm[];
+	/**
+	 * Every labelled container the acting orchestrator saw on its last pass,
+	 * instance surface only. This is the one thing desired state cannot answer:
+	 * a container no claim asks for is absent from the projection by
+	 * definition — an orphan mid-removal, or one left by a claim that is already
+	 * gone — and it is exactly what an operator would otherwise open the Docker
+	 * CLI to find.
+	 *
+	 * Empty when no orchestrator holds the lease: nothing is reporting, and
+	 * inventing an inventory nobody published would be worse than saying so.
+	 */
+	host: HostInventory;
+}
+
+export interface HostInventory {
+	/** When the orchestrator last looked. Null when nothing is reporting. */
+	at: string | null;
+	nodes: HostNodeView[];
+}
+
+export interface HostNodeView extends ObservedNode {
+	/** False means no claim asks for this container — the reconciler will remove it. */
+	claimed: boolean;
 }
 
 /**
@@ -137,6 +164,25 @@ async function readOrchestrator(): Promise<OrchestratorInfo> {
 	}
 }
 
+/**
+ * What the acting orchestrator last saw on the host. Absent — no lease, no
+ * pass yet, an unreachable broker — reads as "nothing reported" rather than
+ * "nothing running", which the UI says in those words.
+ */
+async function readObserved(): Promise<{ at: string | null; nodes: ObservedNode[] }> {
+	try {
+		const nc = await initializeNats();
+		const bucket = await openKvBucket<ObservedInventory>(nc, ORCHESTRATOR_LEASE_BUCKET, {
+			ttlMs: ORCHESTRATOR_LEASE_TTL_MS,
+		});
+		const inventory = await bucket.get(orchestratorKeys.observed);
+		return { at: inventory?.at ?? null, nodes: inventory?.nodes ?? [] };
+	} catch (error) {
+		logger.warn(`could not read the host inventory: ${String(error)}`, "ORCHESTRATOR.status");
+		return { at: null, nodes: [] };
+	}
+}
+
 /** Groups with at least one enabled trigger — the only ones that can fall behind. */
 async function readActiveGroups(projectId?: string): Promise<ActiveGroup[]> {
 	const rows = await db
@@ -158,11 +204,15 @@ async function readActiveGroups(projectId?: string): Promise<ActiveGroup[]> {
 }
 
 export async function readOrchestrationStatus(projectId?: string): Promise<OrchestrationStatus> {
-	const [{ nodes: desired, pool }, orchestrator, heartbeats, active] = await Promise.all([
+	const [{ nodes: desired, pool }, orchestrator, heartbeats, active, observed] = await Promise.all([
 		readDesiredState(),
 		readOrchestrator(),
 		readHeartbeats(),
 		readActiveGroups(projectId),
+		// The project surface does not get this: a project owner has no business
+		// with containers belonging to other projects, and nothing they could do
+		// about one either way.
+		projectId ? Promise.resolve({ at: null, nodes: [] }) : readObserved(),
 	]);
 
 	const claims = await db
@@ -209,8 +259,15 @@ export async function readOrchestrationStatus(projectId?: string): Promise<Orche
 		entitlement: nodeEntitlement(),
 		canClaimRoutes: projectId ? await hasSubdomain(projectId) : true,
 		claims: visible,
-		sharedNodes: projectId ? everyNode.filter((node) => node.projectId === null) : [],
+		sharedClaims: projectId ? all.filter((claim) => claim.projectId === null) : [],
 		alarms: groupAlarms(active, everyNode),
+		host: {
+			at: observed.at,
+			nodes: observed.nodes.map((container) => ({
+				...container,
+				claimed: everyNode.some((node) => node.id === container.nodeId),
+			})),
+		},
 	};
 }
 
@@ -229,6 +286,11 @@ export interface EventView {
  * What the orchestrator has done, newest first. Rows outlive the nodes they
  * describe — the interesting events are the removals — so this is the only
  * place a node that no longer exists can still be accounted for.
+ *
+ * A project's history includes the catch-all claims (`project_id is null`) as
+ * well as its own. Those are what run its work when it holds no nodes of its
+ * own, so leaving them out is what makes a container appear on this page with
+ * nothing that explains it.
  */
 export async function readOrchestrationEvents(options: {
 	projectId?: string;
@@ -240,7 +302,10 @@ export async function readOrchestrationEvents(options: {
 		.from(orchestrationEventsEntity)
 		.where(
 			options.projectId
-				? eq(orchestrationEventsEntity.projectId, options.projectId)
+				? or(
+						eq(orchestrationEventsEntity.projectId, options.projectId),
+						isNull(orchestrationEventsEntity.projectId),
+					)
 				: undefined,
 		)
 		.orderBy(desc(orchestrationEventsEntity.createdAt))

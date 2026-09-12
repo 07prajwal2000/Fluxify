@@ -71,6 +71,28 @@ export const groupAlarmSchema = z.object({
 	claimedNodes: z.number().int(),
 });
 
+/** One container the orchestrator found carrying its label. */
+export const hostNodeSchema = z.object({
+	/** Container id on Docker, pod name on Kubernetes. */
+	containerId: z.string(),
+	nodeId: z.string(),
+	claimId: z.string(),
+	replicaIndex: z.number().int(),
+	projectId: z.string().nullable(),
+	image: z.string(),
+	running: z.boolean(),
+	/** The platform's own word: `running`, `restarting`, `exited`, … */
+	platformState: z.string(),
+	/** False means no claim asks for it, so the next pass removes it. */
+	claimed: z.boolean(),
+});
+
+export const hostInventorySchema = z.object({
+	/** Null when no orchestrator is reporting — which is not the same as nothing running. */
+	at: z.string().nullable(),
+	nodes: z.array(hostNodeSchema),
+});
+
 export const orchestrationStatusSchema = z.object({
 	orchestrator: orchestratorInfoSchema,
 	pool: z.object({
@@ -90,8 +112,19 @@ export const orchestrationStatusSchema = z.object({
 	/** False when a route-serving claim would only be refused — see #340. */
 	canClaimRoutes: z.boolean(),
 	claims: z.array(claimViewSchema),
-	sharedNodes: z.array(nodeViewSchema),
+	/**
+	 * Claims serving every project, sent on the project surface only. Read-only
+	 * there: a project owner sees what runs its work without being able to
+	 * change an instance-wide workload.
+	 */
+	sharedClaims: z.array(claimViewSchema),
 	alarms: z.array(groupAlarmSchema),
+	/**
+	 * The host's real inventory, from the orchestrator's last pass. Instance
+	 * surface only, and the only place a container no claim asks for is
+	 * visible — so nobody has to open the Docker CLI to see what is running.
+	 */
+	host: hostInventorySchema,
 });
 
 export const eventViewSchema = z.object({
@@ -151,6 +184,7 @@ export const claimParamSchema = z.object({ claimId: z.string() });
 export const claimAckSchema = z.object({ id: z.string(), message: z.string() });
 
 export type NodeViewDto = z.infer<typeof nodeViewSchema>;
+export type HostNodeDto = z.infer<typeof hostNodeSchema>;
 export type ClaimViewDto = z.infer<typeof claimViewSchema>;
 export type OrchestrationStatusDto = z.infer<typeof orchestrationStatusSchema>;
 export type EventViewDto = z.infer<typeof eventViewSchema>;

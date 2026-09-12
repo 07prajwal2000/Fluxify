@@ -6,6 +6,7 @@ import { ClaimDialog } from "@/components/orchestration/ClaimDialog";
 import { CONSEQUENCE } from "@/components/orchestration/copy";
 import { EventLog } from "@/components/orchestration/EventLog";
 import { GroupAlarms } from "@/components/orchestration/GroupAlarms";
+import { HostInventory } from "@/components/orchestration/HostInventory";
 import { InfraPanel } from "@/components/orchestration/InfraPanel";
 import { showErrorNotification } from "@/lib/errorNotifier";
 import { orchestrationQuery } from "@/query/orchestrationQuery";
@@ -94,6 +95,8 @@ export function OrchestrationSettings() {
 					))
 				)}
 			</div>
+
+			<HostInventory status={status} />
 
 			<section className="overflow-hidden rounded-xl border border-border bg-background">
 				<header className="border-b border-border p-4">

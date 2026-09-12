@@ -8,7 +8,6 @@ import { CONSEQUENCE } from "@/components/orchestration/copy";
 import { EventLog } from "@/components/orchestration/EventLog";
 import { GroupAlarms } from "@/components/orchestration/GroupAlarms";
 import { InfraPanel } from "@/components/orchestration/InfraPanel";
-import { NodeList } from "@/components/orchestration/NodeList";
 import { showErrorNotification } from "@/lib/errorNotifier";
 import { orchestrationQuery } from "@/query/orchestrationQuery";
 import { publicSettingsQuery } from "@/query/publicSettingsQuery";
@@ -115,8 +114,8 @@ export function NodesSettings({ projectId }: { projectId: string }) {
 
 			{status.claims.length === 0 ? (
 				<Empty
-					title="This project holds no nodes"
-					body="Its workflows run on whichever shared node picks them up. Claim a workload to give a trigger group nodes of its own."
+					title="This project holds no nodes of its own"
+					body="Its work runs on the shared nodes below. Claim a workload to give a trigger group nodes of its own."
 				/>
 			) : (
 				status.claims.map((item) => (
@@ -134,17 +133,21 @@ export function NodesSettings({ projectId }: { projectId: string }) {
 				))
 			)}
 
-			{status.sharedNodes.length > 0 && (
-				<section className="overflow-hidden rounded-xl border border-border bg-background">
-					<header className="border-b border-border p-4">
-						<h3 className="text-sm font-bold text-foreground">Shared nodes</h3>
+			{status.sharedClaims.length > 0 && (
+				<div className="flex flex-col gap-3">
+					<div>
+						<h3 className="text-sm font-bold text-foreground">Shared workloads</h3>
 						<p className="mt-0.5 text-xs text-muted">
-							These serve every project, including this one. Only an instance operator can change
-							them.
+							Claimed for every project, including this one — this is what runs this project's
+							work when it holds no nodes of its own. Only an instance operator can change them.
 						</p>
-					</header>
-					<NodeList nodes={status.sharedNodes} provider={status.orchestrator.provider} />
-				</section>
+					</div>
+					{status.sharedClaims.map((item) => (
+						// No onChange or onRelease: the card renders read-only without them,
+						// which is the whole difference between context and a control.
+						<ClaimCard key={item.id} claim={item} provider={status.orchestrator.provider} />
+					))}
+				</div>
 			)}
 
 			<section className="overflow-hidden rounded-xl border border-border bg-background">

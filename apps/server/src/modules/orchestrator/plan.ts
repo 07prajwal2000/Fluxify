@@ -15,25 +15,14 @@ import type { DesiredNode } from "./projection";
  * cannot rebuild anything after a wipe.
  */
 
-/** A container carrying this orchestrator's label, as Docker reports it. */
-export interface ObservedNode {
-	containerId: string;
-	/** From the node label. The identity both sides agree on. */
-	nodeId: string;
-	claimId: string;
-	replicaIndex: number;
-	/** Null for a catch-all node, matching the desired shape. */
-	projectId: string | null;
-	image: string;
-	running: boolean;
-	/**
-	 * What the platform calls this container: `running`, `created`,
-	 * `restarting`, `exited`, … Kept as well as `running` because a container
-	 * that keeps crashing and being restarted is not the same condition as one
-	 * that is still starting up, and only the platform can tell them apart.
-	 */
-	platformState: string;
-}
+/**
+ * A container carrying this orchestrator's label, as the platform reports it.
+ *
+ * Defined in `common` because the same shape is published for admin to read
+ * (§14.5) — two declarations of it would drift the moment a field is added.
+ */
+export type { ObservedNode } from "@fluxify/common/orchestrator";
+import type { ObservedNode } from "@fluxify/common/orchestrator";
 
 export type RemoveReason =
 	/** Carries the label but nothing wants it — the claim or a replica went away. */
