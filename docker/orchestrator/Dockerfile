@@ -17,7 +17,7 @@
 #
 # RUN
 #   docker run --rm -p 5800:5800 --env-file .env \
-#     -e ORCHESTRATOR_WORKER_IMAGE=fluxify-worker-compiled:latest \
+#     -e ORCHESTRATOR_WORKER_IMAGE=fluxify-worker:latest \
 #     -v /var/run/docker.sock:/var/run/docker.sock fluxify-orchestrator
 #
 # ------------------------------------------------------------------------------

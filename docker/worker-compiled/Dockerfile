@@ -14,11 +14,11 @@
 #
 # ------------------------------------------------------------------------------
 # BUILD (from the repo root, the CBE directory)
-#   docker build -f docker/worker-compiled/Dockerfile -t fluxify-worker-compiled .
+#   docker build -f docker/worker-compiled/Dockerfile -t fluxify-worker .
 #
 # RUN
 #   docker run --rm -p 5600:5600 -p 5601:5601 \
-#     -e WORKER_PROJECT_ID=<project-uuid> --env-file .env fluxify-worker-compiled
+#     -e WORKER_PROJECT_ID=<project-uuid> --env-file .env fluxify-worker
 #
 # ------------------------------------------------------------------------------
 # REQUIRED ENVIRONMENT

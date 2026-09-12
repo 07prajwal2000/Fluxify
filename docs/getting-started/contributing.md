@@ -94,6 +94,35 @@ Every page should make sense to someone reading it cold.
 
 ---
 
+## Cutting a release
+
+For maintainers. A release is **a tag and nothing else** — pushing an annotated
+`v*` tag to `main` runs the whole test suite, then builds and pushes the three
+images and publishes the GitHub release.
+
+```bash
+git tag -a v0.1.0-alpha.1 -m "v0.1.0-alpha.1"
+git push origin v0.1.0-alpha.1
+```
+
+| | |
+| :--- | :--- |
+| Images published | `fluxify-admin`, `fluxify-orchestrator`, `fluxify-worker`, all three on every release |
+| Tags they get | The version tag, plus `alpha`/`beta`/`rc` for a pre-release or `latest` for a stable one |
+| Release notes | Generated from the commits since the previous tag, with the pull commands prepended |
+| A pre-release | Any tag with a hyphen (`v0.1.0-alpha.1`). Marked as a pre-release, and never becomes the repo's "Latest release" |
+
+Nothing is published if any test fails, and nothing is announced unless all
+three images pushed. To redo a release, delete the tag **and** the GitHub
+release, then tag again — the workflow leaves an existing release alone.
+
+::: warning Do not tag a pre-release as stable
+`latest` is what an unpinned `docker pull` gets. The first tag without a
+hyphen creates it, so don't tag `v1.0.0` until it really is.
+:::
+
+---
+
 ## Getting help
 
 - 💬 [GitHub Discussions](https://github.com/fluxify-rest/Fluxify/discussions) — questions and ideas
