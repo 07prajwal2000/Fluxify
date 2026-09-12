@@ -11,7 +11,8 @@
 		"./otlp": "./otlp/index.ts",
 		"./nats": "./nats/index.ts",
 		"./schedule": "./schedule/index.ts",
-		"./license": "./license/index.ts"
+		"./license": "./license/index.ts",
+		"./orchestrator": "./orchestrator/index.ts"
 	},
 	"author": "",
 	"license": "Apache-2.0",
@@ -23,6 +24,7 @@
 	"scripts": {
 		"test": "bun test --parallel",
 		"bench:codec": "bun nats/bench/codec.bench.ts",
+		"license:mint": "bun license/scripts/mint.ts",
 		"lint": "tsgo --noEmit"
 	},
 	"dependencies": {

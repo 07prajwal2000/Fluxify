@@ -39,7 +39,31 @@ export const authConfigSchema = z.object({
 /** An operator switch. Absent means on — the license, not the switch, is the gate. */
 export const featureToggleSchema = z.object({ enabled: z.boolean() });
 
-export const instanceSettingCategorySchema = z.enum(["auth", "featureflags"]); // mirrors the pgEnum
+/**
+ * The worker pool's ceiling — the operator's only provisioning knob (§3a).
+ *
+ * A setting rather than a table of its own: this gets Postgres persistence, the
+ * KV fan-out to every process and the boot reconcile for free, and the
+ * orchestrator needs to read it without a Postgres round trip on every loop.
+ *
+ * It is a ceiling, not a target. A claim past it sits `pending` /
+ * `pool_unavailable` until the operator grows the pool — the reconciler never
+ * forces a container onto the host.
+ */
+export const orchestrationPoolSchema = z.object({
+	/** How many worker containers may exist at once. 0 means the operator has not sized the pool yet. */
+	maxNodes: z.number().int().min(0).default(0),
+	/** Per-node CPU budget in cores, passed to the container. Unset leaves it to the platform's default. */
+	cpuPerNode: z.number().positive().optional(),
+	/** Per-node memory budget in MB. Unset leaves it to the platform's default. */
+	memoryPerNodeMb: z.number().int().positive().optional(),
+});
+
+export const instanceSettingCategorySchema = z.enum([
+	"auth",
+	"featureflags",
+	"orchestration",
+]); // mirrors the pgEnum
 
 export const INSTANCE_SETTINGS_REGISTRY = {
 	sso_config: {
@@ -60,6 +84,13 @@ export const INSTANCE_SETTINGS_REGISTRY = {
 	// `featureflags.community.*`. Whether the license allows enterprise
 	// features at all is not a row here: it comes from LICENSE_KEY and no
 	// operator can write it (see `lib/edition.ts`).
+	orchestration_pool: {
+		category: "orchestration",
+		schema: orchestrationPoolSchema,
+		publicSchema: orchestrationPoolSchema,
+		// the pool ceiling is an operator's business, and nothing pre-auth needs it
+		alwaysPublic: false,
+	},
 	"featureflags.ee.connectors": {
 		category: "featureflags",
 		schema: featureToggleSchema,
