@@ -82,9 +82,14 @@ async function start() {
 }
 
 /**
- * Stands in for the supervisor's hop to the execution process: it records what
- * arrived, then runs it. The throw is preserved — that throw is what naks the
- * batch, and swallowing it would delete the retry behaviour under test.
+ * Stands in for the supervisor's hop to the execution process: it runs the job,
+ * then records what happened. The throw is preserved — that throw is what naks
+ * the batch, and swallowing it would delete the retry behaviour under test.
+ *
+ * Recording happens in `finally`, after `ok`/`error` are already settled — never
+ * before the run. Pushing an unsettled record let `waitForBatches` hand a test
+ * a batch whose `ok` was still `false` because `runJob` just hadn't finished
+ * yet, not because anything failed.
  */
 async function observe(job: JobEnvelope) {
 	const batch = job.payload as TriggerBatch;
@@ -95,13 +100,14 @@ async function observe(job: JobEnvelope) {
 		events: batch.events.map((event) => event.data),
 		ok: false,
 	};
-	observed.push(record);
 	try {
 		await runJob(job);
 		record.ok = true;
 	} catch (error) {
 		record.error = String(error);
 		throw error;
+	} finally {
+		observed.push(record);
 	}
 }
 
