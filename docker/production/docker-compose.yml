@@ -1,22 +1,50 @@
 # ==============================================================================
 # Fluxify PRODUCTION — scale-out stack.
-#   admin   : control plane (server API + web UI + AI gateway). Runs DB
-#             migrations, and hosts the compiler that fills the NATS KV bucket.
-#   worker  : compiled request executor, 2 replicas, serving ALL projects
-#             (WORKER_PROJECT_ID=*). No database connection.
-#   traefik : edge reverse proxy. Chosen over Caddy because it discovers the
-#             worker replicas automatically from Docker labels and load-balances
-#             across them with zero static config.
+#   admin        : control plane (server API + web UI + AI gateway). Runs DB
+#                  migrations, and hosts the compiler that fills the NATS KV
+#                  bucket.
+#   orchestrator : creates and removes the worker containers. Holds the Docker
+#                  socket; runs no user code.
+#   traefik      : edge reverse proxy. Chosen over Caddy because it discovers
+#                  worker containers automatically from Docker labels and
+#                  load-balances across them with zero static config.
 #
 #   docker compose -f docker/production/docker-compose.yml up -d
 #
 # Routing (Traefik):
 #   /_/admin*  -> admin (its internal proxy splits ui / api / ai)
-#   everything else -> worker replicas
+#   everything else -> the worker nodes the orchestrator created
 #
+# ------------------------------------------------------------------------------
+# WHERE THE WORKERS WENT
+#
+# There is no `worker` service here any more. Workers are claimed, not
+# declared: an operator says "this project wants a node of this type" and the
+# orchestrator creates the containers for it. Compose and the orchestrator both
+# managing the same containers would mean two controllers fighting over one
+# resource, so ownership is split cleanly:
+#
+#   compose owns infra   — nats, postgres, valkey, traefik, admin, orchestrator
+#   orchestrator owns    — every worker node
+#
+# A fresh stack still serves traffic: admin seeds one catch-all claim (one node,
+# type `both`, every project) when no claim exists, which is exactly what the
+# old `worker` service was. Set ORCHESTRATOR_SEED_DEFAULT_CLAIM=false to start
+# with none.
+#
+#   HAZARD: `docker compose ... down --remove-orphans` deletes the
+#   orchestrator-spawned workers, because compose does not know they were never
+#   its containers. They come back within a reconcile pass (5s) once the
+#   orchestrator is running again.
+#
+# ------------------------------------------------------------------------------
 # Required in docker/production/.env, on top of the usual settings:
 #   MASTER_ENCRYPTION_KEY       — shared by admin and workers; config artifacts
 #                                 are encrypted with it in KV
+#   ORCHESTRATOR_WORKER_IMAGE   — the worker image the orchestrator creates
+#                                 containers from. It is the ONLY image it will
+#                                 ever use, which is what keeps an image name
+#                                 from arriving out of a database row
 # ==============================================================================
 services:
   traefik:
@@ -85,61 +113,49 @@ services:
       - fluxify_net
 
   # ---------------------------------------------------------------------------
-  # Compiled worker — ONE service, 2 replicas, serving every project.
+  # Orchestrator — owns the worker pool.
   #
-  # WORKER_PROJECT_ID=* means this worker pulls artifacts for all projects from
-  # NATS KV, so a single service covers the whole stack. Per-project isolation
-  # is a service per project (replicas of one service share an environment, so
-  # they cannot differ) — see git history for that two-project shape.
+  # Every 5 seconds it reads the claims, works out which worker containers
+  # should exist, and creates or drains containers until the host agrees. It
+  # stamps the Traefik labels the `worker` service used to carry, so nodes are
+  # served automatically as they come and go.
   #
-  # Catch-all path route: user API routes own the whole path space, so the
-  # worker takes everything admin's higher-priority /_/admin rule does not.
+  # It touches only containers labelled `fluxify.managed-by=orchestrator` — the
+  # daemon applies that filter, so nothing else on this host is even visible to
+  # it. Two replicas would fight, so they do not: one holds a lease in NATS KV
+  # and reconciles, any other stands by and takes over within the lease TTL.
   #
-  # These containers never connect to Postgres — no PG_URL, and no dependency on
-  # it. They need NATS (JetStream + KV) and Redis only.
+  # The socket is mounted WRITABLE (unlike Traefik's, which is read-only) —
+  # creating a container is a write. That makes this process root-equivalent on
+  # the host, which is why the image it uses comes from the environment below
+  # and never from the database.
   # ---------------------------------------------------------------------------
-  worker:
-    # image: ghcr.io/fluxify-rest/fluxify-worker-compiled:latest
+  orchestrator:
+    # image: ghcr.io/fluxify-rest/fluxify-orchestrator:latest
     build:
       context: ../..
-      dockerfile: docker/worker-compiled/Dockerfile
+      dockerfile: docker/orchestrator/Dockerfile
+    container_name: fluxify-orchestrator
     restart: unless-stopped
     env_file:
       - .env
     environment:
-      # `*` — every project, rather than one uuid per worker service.
-      WORKER_PROJECT_ID: "*"
-      # route | workflow | both (default). Every worker of a project must agree;
-      # two modes on one project is refused at boot rather than run twice.
-      WORKER_MODE: "${WORKER_MODE:-both}"
-      INTEGRATION_TIMEOUT_POLICY_IN_SEC: "${INTEGRATION_TIMEOUT_POLICY_IN_SEC:-450}"
-    # No container_name: replicas each need a unique name.
-    deploy:
-      replicas: 2
-    # These containers run user-authored route code. A ceiling per replica so one
-    # runaway execution process cannot take the host down.
-    mem_limit: 1g
-    pids_limit: 512
+      # The only image it may create a container from.
+      ORCHESTRATOR_WORKER_IMAGE: "${ORCHESTRATOR_WORKER_IMAGE:-ghcr.io/fluxify-rest/fluxify-worker-compiled:latest}"
+      # Workers must land on this network, or Traefik and NATS cannot reach them.
+      ORCHESTRATOR_NETWORK: fluxify_net
+      DOCKER_HOST: unix:///var/run/docker.sock
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
     depends_on:
-      # admin runs the compiler, which fills KV. Workers idle harmlessly until
-      # artifacts appear, and the readiness probe keeps traffic off them.
-      admin:
-        condition: service_started
-      valkey:
-        condition: service_started
+      # It reads claims, the pool ceiling and trigger groups from Postgres, and
+      # waits for admin's migrations rather than exiting on a fresh stack.
+      postgres:
+        condition: service_healthy
       nats:
         condition: service_started
-    labels:
-      - traefik.enable=true
-      - "traefik.http.routers.worker.rule=PathPrefix(`/`)"
-      - traefik.http.routers.worker.priority=1
-      - traefik.http.routers.worker.entrypoints=web
-      - traefik.http.services.worker.loadbalancer.server.port=5600
-      # Health is on 5601, served by the supervisor. Checking 5600 would hit an
-      # isolated execution process and does not describe supervisor health.
-      - traefik.http.services.worker.loadbalancer.healthcheck.path=/_/admin/api/healthchecks/ready
-      - traefik.http.services.worker.loadbalancer.healthcheck.port=5601
-      - traefik.http.services.worker.loadbalancer.healthcheck.interval=10s
+      admin:
+        condition: service_started
     networks:
       - fluxify_net
 

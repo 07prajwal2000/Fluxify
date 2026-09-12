@@ -96,6 +96,54 @@ export const serverEnvSchema = baseEnvSchema.extend({
 			"Identity of this worker node, used as its liveness and license-slot key. Set by the orchestrator when it provisions the node; a hand-started worker generates a short random one",
 		),
 
+	DOCKER_HOST: z
+		.string()
+		.optional()
+		.describe(
+			"Docker daemon endpoint for the orchestrator and the container integration tests. tcp://host:port, or unix:///var/run/docker.sock in a container. Windows named pipes are not supported — use tcp://localhost:2375 (Docker Desktop: Settings → General → expose daemon on tcp://localhost:2375)",
+		),
+
+	ORCHESTRATOR_WORKER_IMAGE: z
+		.string()
+		.max(255)
+		.optional()
+		.describe(
+			"The ONLY image the orchestrator will ever create a container from. This is the image allowlist: nothing a user can write reaches container create, so an image name can never arrive from a database row",
+		),
+
+	ORCHESTRATOR_NETWORK: z
+		.string()
+		.max(100)
+		.optional()
+		.describe(
+			"Docker network worker containers are attached to, which must be the one Traefik and NATS are on (default fluxify_net)",
+		),
+
+	ORCHESTRATOR_HEALTH_PORT: z
+		.string()
+		.optional()
+		.refine(validatePortString, {
+			message: "ORCHESTRATOR_HEALTH_PORT must be an integer between 1001 and 65535",
+		})
+		.describe("Port the orchestrator serves health/readiness on (defaults to 5800)"),
+
+	ORCHESTRATOR_RECONCILE_INTERVAL_MS: z
+		.string()
+		.optional()
+		.refine((val) => !val || (Number.isInteger(Number(val)) && Number(val) >= 1000), {
+			message: "ORCHESTRATOR_RECONCILE_INTERVAL_MS must be an integer of at least 1000",
+		})
+		.describe(
+			"How often the reconciler compares what is running against what should be (default 5000). Also how often the leader renews its lease, so it must stay well under the lease TTL",
+		),
+
+	ORCHESTRATOR_SEED_DEFAULT_CLAIM: z
+		.enum(["true", "false"])
+		.optional()
+		.describe(
+			"Whether admin sizes the node pool and creates a catch-all `both` claim with one replica when no claim exists, so a fresh deployment serves traffic without anyone opening the UI. Set false on an instance that should only run the claims an operator wrote (default true)",
+		),
+
 	AI_API_KEY: z
 		.string()
 		.max(255)

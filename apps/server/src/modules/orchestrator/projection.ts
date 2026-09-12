@@ -172,8 +172,12 @@ export function validateClaim(
 		return refuse(`This license does not allow a '${claim.type}' node`);
 	if (claim.projectId !== null && !entitlement.perProject)
 		return refuse("This license only allows nodes that serve every project");
-	if (SERVES_WORKFLOWS.includes(claim.type) && claim.groupIds.length === 0)
-		return refuse("A workflow node needs at least one trigger group");
+	// Only a project-pinned claim must name its groups. On a catch-all, no
+	// groups means every group no dedicated node owns — which is the default
+	// deployment shape, and what a worker with no `WORKER_GROUP_ID` has always
+	// done.
+	if (claim.projectId !== null && SERVES_WORKFLOWS.includes(claim.type) && claim.groupIds.length === 0)
+		return refuse("A workflow node for a single project needs at least one trigger group");
 	if (claim.type !== "workflow" && !hasSubdomain)
 		return refuse(
 			"This project needs a subdomain before it can claim a route node — without one there is no way to route traffic to it",
