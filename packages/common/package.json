@@ -23,6 +23,7 @@
 	"scripts": {
 		"test": "bun test --parallel",
 		"bench:codec": "bun nats/bench/codec.bench.ts",
+		"license:mint": "bun license/scripts/mint.ts",
 		"lint": "tsgo --noEmit"
 	},
 	"dependencies": {

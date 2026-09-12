@@ -1,4 +1,5 @@
 import { createPublicKey, verify } from "node:crypto";
+import { readFileSync } from "node:fs";
 import { logger } from "../logging";
 
 /**
@@ -35,7 +36,43 @@ const DAY_MS = 86_400_000;
  * self-sign against.
  */
 // ponytail: no issuer exists yet, so every signed key resolves to community. Paste its public key here when it does.
-const LICENSE_PUBLIC_KEY: string | null = null;
+const BAKED_PUBLIC_KEY: string | null = null;
+
+/**
+ * Until a real issuer key is baked in above, a locally generated one can fill
+ * the hole so the signed-license paths are testable at all
+ * (`bun run --cwd packages/common license:mint`).
+ *
+ * This can only *fill a null constant, never replace a baked one*, which is
+ * what keeps the rule above intact: the day the issuer key lands, this path is
+ * dead and no environment variable can swap the key out. Loud on purpose — a
+ * build verifying against a local key must not look like a licensed one.
+ */
+function localIssuerKey(): string | null {
+	const path = process.env.LICENSE_ISSUER_KEY_PATH?.trim();
+	if (!path) return null;
+	try {
+		const pem = readFileSync(path, "utf8");
+		logger.warn(
+			`Verifying license keys against a local issuer key (${path}) — not a Fluxify-issued key`,
+			"LICENSE",
+		);
+		return pem;
+	} catch (error) {
+		logger.error(
+			`LICENSE_ISSUER_KEY_PATH is set but unreadable, signed keys cannot verify: ${String(error)}`,
+			"LICENSE",
+		);
+		return null;
+	}
+}
+
+/** Resolved once: the file read and its warning happen on first use, not per call. */
+let issuerKeyOnce: string | null | undefined;
+function issuerKey(): string | null {
+	if (issuerKeyOnce === undefined) issuerKeyOnce = BAKED_PUBLIC_KEY ?? localIssuerKey();
+	return issuerKeyOnce;
+}
 
 /** What a key proved. The only license value that crosses processes. */
 export type License =
@@ -70,7 +107,7 @@ const COMMUNITY: License = { kind: "community" };
  */
 export function verifyLicenseKey(
 	key: string | undefined,
-	publicKey: string | null = LICENSE_PUBLIC_KEY,
+	publicKey: string | null = issuerKey(),
 ): License {
 	const value = key?.trim();
 	if (!value) return COMMUNITY;
@@ -82,7 +119,7 @@ export function verifyLicenseKey(
 /** Never throws: a key that does not verify is community, with the reason logged. */
 export function resolveLicense(
 	key: string | undefined,
-	publicKey: string | null = LICENSE_PUBLIC_KEY,
+	publicKey: string | null = issuerKey(),
 ): License {
 	try {
 		return verifyLicenseKey(key, publicKey);

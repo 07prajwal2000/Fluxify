@@ -19,3 +19,6 @@ graphify-out/
 
 natscheck/
 OPTIMIZATION.md
+
+# local license issuer keypair + minted test keys (packages/common/license/scripts/mint.ts)
+.license/
