@@ -152,7 +152,18 @@ function synchronizeMonitoring() {
 	);
 }
 
+/**
+ * A child that dies right after starting would otherwise be respawned in a hot
+ * loop, pinning a CPU. Quick deaths back off exponentially; a child that stayed
+ * up for a while restarts at once.
+ */
+const STABLE_AFTER_MS = 10_000;
+const MAX_RESTART_DELAY_MS = 30_000;
+let restartDelayMs = 0;
+let spawnedAt = 0;
+
 function spawnExecution() {
+	spawnedAt = Date.now();
 	const bootstrap: ExecutionBootstrap = {
 		projectId: WORKER_PROJECT_ID,
 		port,
@@ -180,12 +191,16 @@ function spawnExecution() {
 			failPendingJobs("execution process exited mid-job");
 			watchdog.setEnabled(timeoutPolicyEnabled());
 			if (shuttingDown) return;
+			const quick = Date.now() - spawnedAt < STABLE_AFTER_MS;
+			restartDelayMs = quick ? Math.min(Math.max(restartDelayMs * 2, 500), MAX_RESTART_DELAY_MS) : 0;
 			logger.error(
-				`execution process exited (code=${exitCode}, signal=${signalCode}): ${error?.message ?? "restarting"}`,
+				`execution process exited (code=${exitCode}, signal=${signalCode}): ${error?.message ?? "restarting"} in ${restartDelayMs}ms`,
 				"WORKER.execution",
 			);
 			terminatingForTimeout = false;
-			spawnExecution();
+			setTimeout(() => {
+				if (!shuttingDown && !execution) spawnExecution();
+			}, restartDelayMs);
 		},
 	});
 	execution = child;

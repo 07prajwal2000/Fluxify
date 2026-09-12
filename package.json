@@ -46,7 +46,7 @@
 		"apps/*",
 		"testing/e2e"
 	],
-	"packageManager": "bun@1.4.0",
+	"packageManager": "bun@1.4.2",
 	"author": "07prajwal2000",
 	"license": "Apache-2.0",
 	"description": "",

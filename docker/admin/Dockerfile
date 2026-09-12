@@ -6,8 +6,8 @@
 #   caddy       :8080  reverse proxy — the only port you need to publish
 #   admin server:5500  control plane API, and the compiler that turns saved
 #                      routes into JavaScript and publishes them to NATS KV
-#   web UI      :3000  admin dashboard
-#   ai-gateway  :8001  AI assistant
+#   admin UI           static Vite bundle (apps/portal) served by caddy
+#   ai-gateway  :8001  AI assistant and the MCP server (/_/admin/mcp)
 #
 # User API traffic is NOT served here. Run docker/worker-compiled/Dockerfile for
 # that and point WORKER_UPSTREAM at it, or let an edge proxy route to it
@@ -58,7 +58,7 @@
 # ------------------------------------------------------------------------------
 # Stage 1: deps — install once, cached until a manifest or the lockfile changes.
 # ------------------------------------------------------------------------------
-ARG BUN_VERSION=1.4.0
+ARG BUN_VERSION=1.4.2
 FROM oven/bun:${BUN_VERSION}-alpine AS deps
 WORKDIR /app
 
@@ -78,7 +78,7 @@ COPY scripts/setup-hooks.ts scripts/setup-hooks.ts
 RUN bun install --frozen-lockfile
 
 # ------------------------------------------------------------------------------
-# Stage 2: build — server (standalone), telemetry worker, web, ai-gateway.
+# Stage 2: build — server (standalone), telemetry worker, portal, ai-gateway.
 # ------------------------------------------------------------------------------
 FROM deps AS build
 WORKDIR /app
@@ -88,18 +88,13 @@ COPY . .
 # Re-link workspace binaries — near-instant, packages are cached from deps.
 RUN bun install --frozen-lockfile
 
-# Turbo builds workspace packages + server standalone (with schema.sql) + web
-# + ai-gateway.
-RUN bun run build
+# Workspace packages + server standalone (with schema.sql) + portal + gateway.
+# --filter excludes @fluxify/web: the legacy Next.js app is not shipped.
+RUN bun run build --filter=!@fluxify/web
 
 # Telemetry is control-plane work: it resolves project destinations and exports
 # completed route runs without giving those credentials to execution processes.
 RUN bun run --cwd apps/server build:worker:telemetry
-
-# Next.js standalone output does not include these; copy them in.
-WORKDIR /app/apps/web
-RUN cp -r public .next/standalone/apps/web/public && \
-    cp -r .next/static .next/standalone/apps/web/.next/static
 
 # AI Gateway documentation search index.
 WORKDIR /app/apps/ai-gateway
@@ -128,13 +123,21 @@ LABEL org.opencontainers.image.title="Fluxify Admin" \
       org.opencontainers.image.revision="${VCS_REF}" \
       org.opencontainers.image.created="${BUILD_DATE}"
 
-RUN apk add --no-cache caddy nss-tools
+# tini reaps the child processes (services, test-suite runs); caddy is the proxy.
+RUN apk add --no-cache tini caddy nss-tools
 RUN adduser -D -s /sbin/nologin -h /app appuser
 
 # Admin server bundle + schema.sql.
 COPY --from=build --chown=appuser:appuser /app/apps/server/dist /app/server
-# Next.js standalone build.
-COPY --from=build --chown=appuser:appuser /app/apps/web/.next/standalone /app/web
+# Kafka's compression wasm, loaded from "../dist/native.wasm" relative to the
+# bundle — i.e. /app/dist. Without it, testing a Kafka integration connection
+# and creating topics for a Kafka trigger both fail.
+COPY --from=build --chown=appuser:appuser /app/apps/server/dist/native.wasm /app/dist/native.wasm
+# Services run with --cwd=/app/server, where bun reads this: no runtime
+# auto-install. See the file for why that crashes an image without node_modules.
+COPY --chown=appuser:appuser docker/bunfig.toml /app/server/bunfig.toml
+# Admin UI — a static Vite bundle, served directly by Caddy. No Node process.
+COPY --from=build --chown=appuser:appuser /app/apps/portal/dist /app/portal
 # AI Gateway single-file bundle + docs index.
 COPY --from=build --chown=appuser:appuser /app/apps/ai-gateway/dist /app/ai-gateway
 
@@ -145,12 +148,11 @@ RUN chmod +x /app/entrypoint.sh
 USER appuser
 
 # 8080 is the only port you need to publish; the rest are internal.
-EXPOSE 8080 5500 3000 8001
+EXPOSE 8080 5500 8001
 
 ENV NODE_ENV=production \
     ENVIRONMENT=production \
     HOSTNAME=0.0.0.0 \
-    WEB_PORT=3000 \
     SERVER_PORT=5500 \
     PROXY_PORT=8080 \
     AI_GATEWAY_PORT=8001 \
@@ -161,6 +163,8 @@ ENV NODE_ENV=production \
     DOCS_INDEX_FILE_PATH=/app/ai-gateway/docs-index.bin
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=40s --retries=3 \
-    CMD wget -qO- http://localhost:5500/_/admin/api/healthchecks/startup || exit 1
+    CMD wget -qO- http://localhost:5500/_/admin/api/public-settings || exit 1
 
-ENTRYPOINT ["/app/entrypoint.sh"]
+# tini as PID 1 so signals reach every service and nothing is orphaned.
+ENTRYPOINT ["tini", "--"]
+CMD ["/app/entrypoint.sh"]

@@ -8,7 +8,7 @@ on:
   pull_request:
 
 env:
-  BUN_VERSION: "1.4.0"
+  BUN_VERSION: "1.4.2"
 
 jobs:
   detect-changes:

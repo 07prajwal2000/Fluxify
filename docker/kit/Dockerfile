@@ -91,7 +91,7 @@
 # Stage 1: deps — install once, cached until a manifest or the lockfile changes.
 # All workspace manifests are copied so --frozen-lockfile can validate the graph.
 # ------------------------------------------------------------------------------
-ARG BUN_VERSION=1.4.0
+ARG BUN_VERSION=1.4.2
 FROM oven/bun:${BUN_VERSION}-alpine AS deps
 WORKDIR /app
 
@@ -178,6 +178,12 @@ RUN adduser -D -s /sbin/nologin -h /app appuser
 
 # Admin server bundle + compiled worker bundles + schema.sql, all siblings.
 COPY --from=build --chown=appuser:appuser /app/apps/server/dist /app/server
+# Kafka's compression wasm, loaded from "../dist/native.wasm" relative to the
+# bundle — i.e. /app/dist. Without it, Kafka queue triggers fail to start.
+COPY --from=build --chown=appuser:appuser /app/apps/server/dist/native.wasm /app/dist/native.wasm
+# Services run with --cwd=/app/server, where bun reads this: no runtime
+# auto-install. See the file for why that crashes an image without node_modules.
+COPY --chown=appuser:appuser docker/bunfig.toml /app/server/bunfig.toml
 # Admin UI — a static Vite bundle, served directly by Caddy. No Node process.
 COPY --from=build --chown=appuser:appuser /app/apps/portal/dist /app/portal
 # AI Gateway single-file bundle + docs index.

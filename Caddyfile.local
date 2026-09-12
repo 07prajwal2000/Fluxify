@@ -19,6 +19,11 @@ http://localhost:8080 {
         reverse_proxy host.docker.internal:8001
     }
 
+    # the AI gateway also hosts the MCP server
+    handle /_/admin/mcp* {
+        reverse_proxy host.docker.internal:8001
+    }
+
     handle @admin_api {
         reverse_proxy host.docker.internal:5500
     }

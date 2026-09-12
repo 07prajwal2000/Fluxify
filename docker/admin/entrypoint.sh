@@ -41,8 +41,7 @@ wait_until "admin server" wget -qO- http://127.0.0.1:5500/_/admin/api/public-set
 # access, while compiled request workers only publish completed runs over IPC.
 start bun --cwd=/app/server telemetryWorker.js
 
-# Next.js admin UI
-start bun --cwd=/app/web apps/web/server.js
+# The admin UI is a static Vite bundle in /app/portal, served by Caddy.
 
 # AI Gateway
 start bun --cwd=/app/ai-gateway server.js

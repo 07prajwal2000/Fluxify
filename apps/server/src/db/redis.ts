@@ -32,7 +32,7 @@ export function initializeRedis(_hotReload?: boolean) {
 function createRedisClient() {
 	return new Redis({
 		host: getEnv("REDIS_HOST")!,
-		port: Number(getEnv("REDIS_PORT")!),
+		port: Number(getEnv("REDIS_PORT") || 6379),
 		username: getEnv("REDIS_USER")!,
 		password: getEnv("REDIS_PASS")!,
 		connectionName: crypto.randomUUID().substring(0, 6),

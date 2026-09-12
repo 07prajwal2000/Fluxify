@@ -9,8 +9,8 @@
 #   :5600  user API traffic
 #   :5601  health and readiness — point probes and load balancers HERE
 #
-# One worker serves exactly ONE project (WORKER_PROJECT_ID). More projects means
-# more worker services, not more replicas of one.
+# One worker serves ONE project (WORKER_PROJECT_ID), or every project with `*`.
+# Isolating projects means more worker services, not more replicas of one.
 #
 # ------------------------------------------------------------------------------
 # BUILD (from the repo root, the CBE directory)
@@ -22,7 +22,7 @@
 #
 # ------------------------------------------------------------------------------
 # REQUIRED ENVIRONMENT
-#   WORKER_PROJECT_ID       the project this worker serves. The container exits
+#   WORKER_PROJECT_ID       the project this worker serves, or `*` for all. Exits
 #                           immediately with a clear message if it is missing.
 #   MASTER_ENCRYPTION_KEY   must MATCH the admin service — project config is
 #                           delivered encrypted with it. Exits without it.
@@ -56,7 +56,7 @@
 # Stage 1: deps — install once, cached until a manifest or the lockfile changes.
 # All workspace manifests are needed so --frozen-lockfile can validate the graph.
 # ------------------------------------------------------------------------------
-ARG BUN_VERSION=1.4.0
+ARG BUN_VERSION=1.4.2
 FROM oven/bun:${BUN_VERSION}-alpine AS deps
 WORKDIR /app
 
@@ -100,9 +100,19 @@ COPY apps/server apps/server
 RUN bun run --cwd apps/server build:worker:compiled
 
 # ------------------------------------------------------------------------------
-# Stage 3: production — minimal runtime, no node_modules or source.
+# Stage 3: libs — the three shared libraries distroless leaves out that the
+# Kafka client's snappy addon links against. Same Debian release (trixie,
+# glibc 2.41) as the distroless base, so the glibc stubs match. Without them
+# the execution process dies the moment a Kafka queue trigger starts.
 # ------------------------------------------------------------------------------
-FROM oven/bun:${BUN_VERSION}-alpine AS production
+FROM debian:trixie-slim AS libs
+
+# ------------------------------------------------------------------------------
+# Stage 4: production — distroless: bun and CA certs, no shell, no package
+# manager, no coreutils. This container runs user-authored code, so there is
+# nothing for it to shell out to. It never execs anything but bun itself.
+# ------------------------------------------------------------------------------
+FROM oven/bun:${BUN_VERSION}-distroless AS production
 WORKDIR /app
 
 ARG BUN_VERSION
@@ -117,18 +127,26 @@ LABEL org.opencontainers.image.title="Fluxify Compiled Worker" \
       org.opencontainers.image.source="https://github.com/Fluxify-rest/Fluxify" \
       org.opencontainers.image.url="https://fluxify.rest" \
       org.opencontainers.image.documentation="https://fluxify.rest/deployments/" \
-      org.opencontainers.image.base.name="docker.io/oven/bun:${BUN_VERSION}-alpine" \
+      org.opencontainers.image.base.name="docker.io/oven/bun:${BUN_VERSION}-distroless" \
       org.opencontainers.image.version="${VERSION}" \
       org.opencontainers.image.revision="${VCS_REF}" \
       org.opencontainers.image.created="${BUILD_DATE}"
 
-# Non-root, no login shell.
-RUN adduser -D -s /sbin/nologin -h /app appuser
+# /usr/lib is on the loader's default search path; the wildcard keeps it arch-neutral.
+COPY --from=libs /usr/lib/*-linux-gnu/libgcc_s.so.1 /usr/lib/*-linux-gnu/librt.so.1 /usr/lib/*-linux-gnu/libpthread.so.0 /usr/lib/
 
 # compiledWorker.js + executionProcess.js + native assets, siblings in one dir.
-COPY --from=build --chown=appuser:appuser /app/apps/server/dist /app/worker
+# Owned by root and read-only to the worker: running code cannot rewrite itself.
+COPY --from=build /app/apps/server/dist /app/worker
+# Kafka's compression wasm, loaded from "../dist/native.wasm" relative to the
+# bundle — i.e. /app/dist. Without it, Kafka queue triggers fail to start.
+COPY --from=build /app/apps/server/dist/native.wasm /app/dist/native.wasm
+# Read from the working directory (/app) by both processes: no runtime
+# auto-install. See the file for why that crashes an image without node_modules.
+COPY docker/bunfig.toml /app/bunfig.toml
 
-USER appuser
+# The base image's built-in unprivileged user (65532), no login shell.
+USER nonroot
 
 # 5600 — user API traffic, bound by the isolated execution process.
 # 5601 — health/readiness, served by the supervisor. Point probes and
@@ -146,8 +164,11 @@ ENV NODE_ENV=production \
 
 # Readiness, not liveness: 200 only once compiled routes have been loaded, so a
 # worker that came up before the compiler published anything is not sent traffic.
+# No wget/curl in distroless, so bun does the probe.
 HEALTHCHECK --interval=15s --timeout=5s --start-period=20s --retries=3 \
-    CMD wget -qO- http://localhost:5601/_/admin/api/healthchecks/ready || exit 1
+    CMD ["/usr/local/bin/bun", "-e", "fetch('http://localhost:5601/_/admin/api/healthchecks/ready').then(r => process.exit(r.ok ? 0 : 1), () => process.exit(1))"]
 
-# Scale this deployment with replicas; each container has one execution process.
-ENTRYPOINT ["bun", "run", "/app/worker/compiledWorker.js"]
+# bun is PID 1 (no tini in distroless). It handles SIGTERM/SIGINT itself and
+# reaps its single execution process; add `init: true` in compose if you want
+# a real init anyway. Scale with replicas; one execution process per container.
+ENTRYPOINT ["/usr/local/bin/bun", "run", "/app/worker/compiledWorker.js"]
