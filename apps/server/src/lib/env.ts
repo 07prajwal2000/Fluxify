@@ -85,7 +85,15 @@ export const serverEnvSchema = baseEnvSchema.extend({
 		.string()
 		.optional()
 		.describe(
-			"Trigger group this worker runs. Unset runs every group. Routes and queued jobs are unaffected — only triggers are placed by group",
+			"Trigger groups this worker runs, comma-separated. Unset runs every group. Routes and queued jobs are unaffected — only triggers are placed by group",
+		),
+
+	FLUXIFY_NODE_ID: z
+		.string()
+		.max(50)
+		.optional()
+		.describe(
+			"Identity of this worker node, used as its liveness and license-slot key. Set by the orchestrator when it provisions the node; a hand-started worker generates a short random one",
 		),
 
 	AI_API_KEY: z
@@ -216,8 +224,17 @@ export const ENABLE_BUILTIN_WORKER = getEnv("ENABLE_BUILTIN_WORKER")!;
 export const WORKER_PROJECT_ID = getEnv("WORKER_PROJECT_ID")!;
 /** what kind of work this worker takes on — see `jobs/subjects.ts` */
 export const WORKER_MODE = getEnv("WORKER_MODE") || "both";
-/** the trigger group this worker runs; unset runs every group */
-export const WORKER_GROUP_ID = getEnv("WORKER_GROUP_ID") || undefined;
+/**
+ * The trigger groups this worker runs, empty meaning every group. A claim
+ * enumerates several groups, and several nodes on one group is already fine —
+ * a NATS consumer group shares the work rather than fanning it out.
+ */
+export const WORKER_GROUP_IDS = (getEnv("WORKER_GROUP_ID") || "")
+	.split(",")
+	.map((id) => id.trim())
+	.filter(Boolean);
+/** identity of this node; the orchestrator sets it, a hand-started worker does not */
+export const FLUXIFY_NODE_ID = getEnv("FLUXIFY_NODE_ID") || undefined;
 
 /** hard body-size ceiling for user-facing routes, in bytes (env is in KB) */
 export const MAX_REQUEST_BODY_BYTES =

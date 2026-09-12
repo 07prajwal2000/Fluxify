@@ -213,7 +213,9 @@ async function shutdown() {
 	if (shuttingDown) return;
 	shuttingDown = true;
 	if (heartbeat) clearInterval(heartbeat);
-	server?.stop(true);
+	// Not `stop(true)`: that cuts off requests already being served, which is
+	// exactly what draining exists to avoid. New connections stop either way.
+	await server?.stop();
 	const drained = await asyncExecutor?.drain();
 	if (drained === false) {
 		logger.warn("async executor drain deadline elapsed", "WORKER.execution");

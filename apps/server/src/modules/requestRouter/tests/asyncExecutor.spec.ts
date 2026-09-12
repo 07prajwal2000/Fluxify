@@ -2,6 +2,7 @@ import { describe, expect, it } from "bun:test";
 import {
 	AsyncExecutor,
 	asyncExecutorLimitsFromEnv,
+	drainChild,
 } from "../asyncExecutor";
 
 describe("AsyncExecutor", () => {
@@ -64,5 +65,30 @@ describe("asyncExecutorLimitsFromEnv", () => {
 			ASYNC_EXECUTOR_MAX_QUEUE_DEPTH: "-1",
 			ASYNC_EXECUTOR_DRAIN_TIMEOUT_MS: "invalid",
 		})).toEqual({ maxInFlight: 1, maxQueueDepth: 100, drainTimeoutMs: 30_000 });
+	});
+});
+
+describe("drainChild", () => {
+	const limits = { maxInFlight: 1, maxQueueDepth: 0, drainTimeoutMs: 10 };
+
+	it("waits for a child that finishes its work", async () => {
+		let killed = false;
+		const child = {
+			kill: () => {
+				killed = true;
+			},
+			exited: new Promise((resolve) => setTimeout(resolve, 5)),
+		};
+		expect(await drainChild(child, limits)).toBe(true);
+		expect(killed).toBe(true);
+	});
+
+	it("gives up on a wedged child rather than holding the stop open", async () => {
+		const child = { kill: () => {}, exited: new Promise(() => {}) };
+		expect(await drainChild(child, limits)).toBe(false);
+	});
+
+	it("has nothing to drain when no child is running", async () => {
+		expect(await drainChild(undefined, limits)).toBe(true);
 	});
 });

@@ -3,6 +3,7 @@ import { fileURLToPath } from "node:url";
 import { initializeLogger, logger } from "@fluxify/common";
 import {
 	healthResponse,
+	markDraining,
 	markNotReady,
 	markReady,
 } from "../src/modules/requestRouter/health";
@@ -27,13 +28,15 @@ import type {
 } from "../src/modules/requestRouter/threadTypes";
 import { ExecutionWatchdog } from "../src/modules/requestRouter/executionWatchdog";
 import { workerTimeoutsEnabled } from "../src/modules/requestRouter/workerTimeouts";
-import { asyncExecutorLimitsFromEnv } from "../src/modules/requestRouter/asyncExecutor";
+import { asyncExecutorLimitsFromEnv, drainChild } from "../src/modules/requestRouter/asyncExecutor";
 import { executionRuntimeEnvironment } from "../src/modules/requestRouter/executionEnvironment";
 import type { ArtifactEntry } from "../src/modules/requestRouter/compiledRuntime";
 import { closeNats } from "../src/db/nats";
 import { RPC_SUBJECTS, rpcRequest } from "../src/db/natsRpc";
 import { watchInstanceSettings } from "../src/loaders/instanceSettingsLoader";
-import { canRunConnectors, watchLicense } from "../src/lib/edition";
+import { canRunConnectors, nodeEntitlement, watchLicense } from "../src/lib/edition";
+import { attachNode } from "../src/modules/orchestrator/node";
+import type { NodeType } from "@fluxify/common/orchestrator";
 import { startJobWorker } from "../src/modules/jobs/consumer";
 import { enqueueJob } from "../src/modules/jobs/publisher";
 import type { JobEnvelope } from "../src/modules/jobs/types";
@@ -46,7 +49,8 @@ import {
 	OTLP_LOGGER_LEVEL,
 	WORKER_PROJECT_ID,
 	WORKER_MODE,
-	WORKER_GROUP_ID,
+	WORKER_GROUP_IDS,
+	FLUXIFY_NODE_ID,
 	MAX_REQUEST_BODY_BYTES,
 	getEnv,
 } from "../src/lib/env";
@@ -304,14 +308,15 @@ function handleArtifactChange(entry: ArtifactEntry) {
 }
 
 /**
- * A trigger as this worker sees it: withdrawn when it belongs to another group
- * or its connector's license can no longer run. The raw artifact stays in
- * `artifacts`, so a license renewed later starts it again.
+ * A trigger as this worker sees it: withdrawn when it belongs to another node's
+ * group or its connector's license can no longer run. The raw artifact stays in
+ * `artifacts`, so a license renewed later — or a group handed to this node —
+ * starts it again.
  */
 function placed(entry: ArtifactEntry): ArtifactEntry {
 	const trigger = entry.value as TriggerArtifact | null;
 	if (artifactKind(entry.key) !== "trigger" || !trigger) return entry;
-	return runsHere(trigger, WORKER_GROUP_ID, canRunConnectors())
+	return runsHere(trigger, node.groupIds, canRunConnectors(), node.excludedGroups)
 		? entry
 		: { key: entry.key, value: null };
 }
@@ -369,6 +374,45 @@ await watchInstanceSettings();
 await watchLicense();
 
 /**
+ * Join the control plane before any consumer starts: what this node runs comes
+ * from the orchestrator when something is orchestrating it and from the
+ * environment when nothing is, and a worker the license has no room for must
+ * exit without ever touching a queue.
+ */
+const attached = await attachNode({
+	envNodeId: FLUXIFY_NODE_ID,
+	projectId: WORKER_PROJECT_ID,
+	envType: WORKER_MODE as NodeType,
+	envGroupIds: WORKER_GROUP_IDS,
+	entitlement: () => nodeEntitlement(),
+	onGroupsChanged: () => replaceTriggers(),
+	onStop: (reason, code) => {
+		logger.warn(`${reason} — stopping`, "WORKER.node");
+		void shutdown(reason, code);
+	},
+});
+if (!attached.ok) {
+	logger.error(
+		`refusing to start: ${attached.refusal.message}. Stop a node, or raise the license tier.`,
+		"WORKER.node",
+	);
+	process.exit(1);
+}
+const node = attached.node;
+logger.info(`node ${node.slot.nodeId} holds a license slot — type ${node.type}`, "WORKER.node");
+
+/**
+ * Re-decides every trigger this worker holds. Needed whenever the answer to
+ * "does this one run here" changes without the artifact changing — a license
+ * flipping, or this node's groups being reassigned.
+ */
+function replaceTriggers() {
+	for (const entry of artifacts.values()) {
+		if (artifactKind(entry.key) === "trigger") applyTrigger(placed(entry));
+	}
+}
+
+/**
  * A license lapsing past its grace, or being renewed, changes nothing in the
  * artifact store, so it is noticed here instead: the connectors are re-placed
  * whenever the answer flips.
@@ -382,15 +426,13 @@ const entitlementTimer = setInterval(() => {
 		`enterprise connectors ${canRun ? "resumed" : "stopped"} — license can${canRun ? "" : " no longer"} run them`,
 		"WORKER.triggers",
 	);
-	for (const entry of artifacts.values()) {
-		if (artifactKind(entry.key) === "trigger") applyTrigger(placed(entry));
-	}
+	replaceTriggers();
 }, 60_000);
 
 const artifactWatch = await watchProjectArtifacts(
 	WORKER_PROJECT_ID,
 	handleArtifactChange,
-	artifactKindsForMode(WORKER_MODE),
+	artifactKindsForMode(node.type),
 );
 await artifactWatch.initialized;
 
@@ -417,7 +459,7 @@ function fatal(what: string, error: unknown): never {
 // a queued job must not compete with traffic for the same acceptance.
 await startJobWorker({
 	projectId: WORKER_PROJECT_ID,
-	mode: WORKER_MODE,
+	mode: node.type,
 	handle: runJobInExecution,
 	concurrency: Number(getEnv("JOBS_CONCURRENCY")) || undefined,
 	ackWaitMs: Number(getEnv("JOBS_ACK_WAIT_MS")) || undefined,
@@ -434,7 +476,7 @@ await triggerWorker.start().catch((error) => fatal("trigger worker", error));
 // reconciler on the control plane so that a control-plane node going down
 // delays schedule *edits* and not the schedules themselves.
 let fireConsumer: { stop(): Promise<void> } | undefined;
-if (jobKindsForMode(WORKER_MODE).includes(WORKFLOW_JOB)) {
+if (jobKindsForMode(node.type).includes(WORKFLOW_JOB)) {
 	fireConsumer = await startFireConsumer({
 		projectId: WORKER_PROJECT_ID,
 		maxDeliver: Number(getEnv("JOBS_MAX_DELIVER")) || undefined,
@@ -454,25 +496,38 @@ function evaluateTimeouts() {
 	execution.kill();
 }
 
+node.serving();
 logger.info(`compiled worker ready — isolated execution process on port ${port}`);
 
-async function shutdown(sig: string) {
+/**
+ * Deprovisioning a node means draining it, in this order:
+ *
+ * readiness 503 first, so the load balancer stops sending new requests while
+ * the ones in flight are still being answered; then the child finishes them;
+ * then the license slot is handed back explicitly rather than waiting out its
+ * TTL, or every rolling replace would stall for a lease.
+ */
+async function shutdown(sig: string, code = 0) {
 	if (shuttingDown) return;
 	shuttingDown = true;
+	markDraining();
 	if (watchdogTimer) clearInterval(watchdogTimer);
 	clearInterval(entitlementTimer);
-	logger.info(`received ${sig} — shutting down`);
+	logger.info(`received ${sig} — draining`);
 	try {
-		execution?.kill();
 		await fireConsumer?.stop();
 		await triggerWorker.stop();
+		if (!(await drainChild(execution, asyncExecutor))) {
+			logger.warn("in-flight work did not finish before the drain deadline", "WORKER");
+		}
+		await node.stop();
 		await artifactWatch.stop();
 		healthServer.stop(true);
 		await closeNats();
 	} catch (error) {
 		logger.error(`shutdown error: ${String(error)}`);
 	} finally {
-		process.exit(0);
+		process.exit(code);
 	}
 }
 

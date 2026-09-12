@@ -55,6 +55,13 @@ export interface KvBucket<T> {
 	 * operation, so two racing processes cannot both win.
 	 */
 	create(key: string, value: T): Promise<number | null>;
+	/**
+	 * Writes only if the key is still at `revision`, returning the new one — or
+	 * null when someone else wrote first. For a lease: a holder that renews with
+	 * a plain `put` would take back a lease that already expired and was handed
+	 * to someone else, because a blind write does not care what it overwrites.
+	 */
+	update(key: string, value: T, revision: number): Promise<number | null>;
 	delete(key: string): Promise<void>;
 	keys(filter?: string | string[]): Promise<string[]>;
 	/**
@@ -106,6 +113,18 @@ export async function openKvBucket<T = unknown>(
 			} catch (error) {
 				// the key already holds a value — the loser of the race, which is a
 				// normal outcome here rather than a failure
+				if (isWrongLastSequence(error)) return null;
+				throw error;
+			}
+		},
+
+		async update(key, value, revision) {
+			try {
+				return await store.update(key, codec.encode(value), revision);
+			} catch (error) {
+				// someone else wrote since `revision` — for a lease holder this means
+				// the lease is no longer ours, which is a normal outcome to handle
+				// rather than a failure to throw
 				if (isWrongLastSequence(error)) return null;
 				throw error;
 			}
