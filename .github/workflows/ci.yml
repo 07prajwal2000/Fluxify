@@ -35,6 +35,10 @@ jobs:
       - uses: actions/checkout@v4
       - uses: dorny/paths-filter@v3
         id: filter
+        # Not run on a tag at all: there is nothing to diff against, and a
+        # release does not read the answer. Skipped leaves the outputs empty,
+        # which the tag clause below already resolves to true.
+        if: ${{ !startsWith(github.ref, 'refs/tags/v') }}
         with:
           filters: |
             lib:
@@ -260,11 +264,16 @@ jobs:
   # rolling `nightly` from main, above.
   # ============================================================================
   build-and-push-release:
-    needs: [lint, test-packages-lib, test-packages-blocks, test-packages-adapters, test-e2e-graphs, test-apps-server-unit, test-apps-server-integration, test-apps-portal, test-apps-ai-gateway]
+    # `detect-changes` is a dependency even though a release ignores its answer:
+    # it decides whether the test jobs run at all, so a release that did not
+    # wait for it could publish behind a filter that errored.
+    needs: [detect-changes, lint, test-packages-lib, test-packages-blocks, test-packages-adapters, test-e2e-graphs, test-apps-server-unit, test-apps-server-integration, test-apps-portal, test-apps-ai-gateway]
+    # No `always()`, and deliberately not the `!contains(needs.*.result, 'failure')`
+    # form the nightly job uses: that one counts a SKIPPED job as fine, which is
+    # how a release could publish images no test ever ran against. With the
+    # default rule, every job above must have actually succeeded — a skip stops
+    # the release the same as a failure.
     if: |
-      always() &&
-      !contains(needs.*.result, 'failure') &&
-      !contains(needs.*.result, 'cancelled') &&
       github.event_name == 'push' &&
       startsWith(github.ref, 'refs/tags/v') &&
       github.repository_owner == 'Fluxify-rest'
