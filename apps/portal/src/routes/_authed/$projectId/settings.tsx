@@ -1,13 +1,14 @@
 import { useEffect } from "react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { cn } from "@fluxify/components";
-import { 
+import {
 	TbAdjustments,
 	TbActivityHeartbeat,
 	TbCpu,
 	TbUsers,
 	TbFlask,
-	TbAlertTriangle 
+	TbAlertTriangle,
+	TbTopologyStar3,
 } from "react-icons/tb";
 import { projectMembersQuery } from "@/query/projectMembersQuery";
 import { projectSettingsKeysQuery } from "@/query/projectSettingsKeysQuery";
@@ -19,10 +20,19 @@ import { DangerZoneSettings } from "@/components/settings/DangerZoneSettings";
 import { AiConnectionsSettings } from "@/components/settings/AiConnectionsSettings";
 import { ExperimentalSettings } from "@/components/settings/ExperimentalSettings";
 import { TriggerSettings } from "@/components/settings/TriggerSettings";
+import { NodesSettings } from "@/components/settings/NodesSettings";
+import { publicSettingsQuery } from "@/query/publicSettingsQuery";
 import { createRouteHead } from "@/lib/seo";
 
 type SettingsSearch = {
-	tab?: "general" | "telemetry" | "ai-connections" | "members" | "experimental" | "danger";
+	tab?:
+		| "general"
+		| "telemetry"
+		| "ai-connections"
+		| "nodes"
+		| "members"
+		| "experimental"
+		| "danger";
 };
 
 export const Route = createFileRoute("/_authed/$projectId/settings")({
@@ -42,6 +52,9 @@ const SETTINGS_TABS = [
 	{ id: "general", label: "General", icon: TbAdjustments },
 	{ id: "telemetry", label: "Telemetry", icon: TbActivityHeartbeat },
 	{ id: "ai-connections", label: "AI Connections", icon: TbCpu },
+	// Absent on a deployment with no orchestrator (Kit), where there is one node
+	// by construction and nothing to claim.
+	{ id: "nodes", label: "Nodes", icon: TbTopologyStar3, flag: "orchestration" },
 	{ id: "members", label: "Members", icon: TbUsers },
 	{ id: "experimental", label: "Experimental", icon: TbFlask },
 	{ id: "danger", label: "Danger Zone", icon: TbAlertTriangle },
@@ -54,7 +67,13 @@ function ProjectSettingsPage() {
 	const search = Route.useSearch();
 	const navigate = useNavigate({ from: "/$projectId/settings" });
 	
-	const validTabs = SETTINGS_TABS.map((t) => t.id);
+	const { data: publicSettings } = publicSettingsQuery.get.useQuery();
+	const tabs = SETTINGS_TABS.filter(
+		(tab) =>
+			!("flag" in tab) || publicSettings?.orchestration?.enabled !== false,
+	);
+
+	const validTabs = tabs.map((t) => t.id);
 	const activeTab: TabId = validTabs.includes(search.tab as any) 
 		? (search.tab as TabId) 
 		: "general";
@@ -88,7 +107,7 @@ function ProjectSettingsPage() {
 					<div className="mb-2 px-3 text-xs font-semibold tracking-wider text-muted uppercase">
 						Project
 					</div>
-					{SETTINGS_TABS.map((tab) => (
+					{tabs.map((tab) => (
 						<button
 							key={tab.id}
 							type="button"
@@ -141,6 +160,7 @@ function ProjectSettingsPage() {
 								<TelemetryDestinations projectId={projectId} />
 							</div>
 						)}
+						{activeTab === "nodes" && <NodesSettings projectId={projectId} />}
 						{activeTab === "members" && <MembersSettings projectId={projectId} />}
 						{activeTab === "ai-connections" && <AiConnectionsSettings projectId={projectId} />}
 						{activeTab === "experimental" && <ExperimentalSettings projectId={projectId} />}

@@ -178,7 +178,11 @@ export function validateClaim(
 	// done.
 	if (claim.projectId !== null && SERVES_WORKFLOWS.includes(claim.type) && claim.groupIds.length === 0)
 		return refuse("A workflow node for a single project needs at least one trigger group");
-	if (claim.type !== "workflow" && !hasSubdomain)
+	// Only a project-pinned claim needs one. A catch-all node is reached on
+	// `PathPrefix(/)` — the shape the compose `worker` service had, and the one
+	// the default claim is seeded in — so requiring a subdomain there would
+	// refuse the claim a fresh instance ships with.
+	if (claim.projectId !== null && claim.type !== "workflow" && !hasSubdomain)
 		return refuse(
 			"This project needs a subdomain before it can claim a route node — without one there is no way to route traffic to it",
 		);

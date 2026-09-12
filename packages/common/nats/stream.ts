@@ -146,6 +146,40 @@ export async function ensureConsumer(
 	}
 }
 
+/**
+ * Drops every durable on a stream whose filter still holds a wildcard.
+ *
+ * A work-queue stream refuses a consumer whose filter overlaps another's, and a
+ * wildcard filter overlaps every exact one — so a single leftover
+ * `fluxify.jobs.*.workflow` durable from an older build stops every per-project
+ * worker from booting, forever, with no message saying which consumer is in the
+ * way. Nothing in this codebase subscribes to a wildcard on a work-queue stream
+ * any more (see `jobConsumerName`), which is what makes this safe: a wildcard
+ * durable found here cannot be in legitimate use.
+ *
+ * Unacked messages are not lost. Work-queue retention only drops a message on
+ * ack, so whatever the old consumer had not finished is delivered to the new
+ * one.
+ */
+export async function dropWildcardConsumers(
+	nc: NatsConnection,
+	stream: string,
+): Promise<void> {
+	const jsm = await jetstreamManager(nc);
+	for await (const consumer of jsm.consumers.list(stream)) {
+		const filters = consumer.config.filter_subjects ?? [
+			consumer.config.filter_subject,
+		];
+		if (!filters.some((filter) => filter?.includes("*") || filter?.includes(">")))
+			continue;
+		await jsm.consumers.delete(stream, consumer.name);
+		logger.warn(
+			`[nats] dropped consumer ${stream}/${consumer.name} — wildcard filter ${filters.join(", ")} left over from an older build`,
+			"NATS",
+		);
+	}
+}
+
 /** Both halves at once — what a worker startup actually wants. */
 export async function ensureStreamConsumer(
 	nc: NatsConnection,

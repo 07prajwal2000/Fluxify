@@ -109,6 +109,13 @@ export const orchestratorKeys = {
 	/** The single leader lease, in `ORCHESTRATOR_LEASE_BUCKET`. */
 	leader: "leader",
 	/**
+	 * What the acting orchestrator saw on the host on its last pass, in
+	 * `ORCHESTRATOR_LEASE_BUCKET` — same bucket as the lease because it wants
+	 * the same lifetime: an orchestrator that stopped reconciling must stop
+	 * reporting containers rather than leave a stale list behind.
+	 */
+	observed: "observed",
+	/**
 	 * Desired state for one project, in the shared config bucket under the
 	 * orchestrator's prefix. Keyed per project rather than one global blob so
 	 * sharding later is "which prefixes does this replica own" — a config
@@ -190,4 +197,72 @@ export interface NodeEntitlement {
 	types: readonly NodeType[];
 	/** Whether a claim may name a single project, or only the catch-all. */
 	perProject: boolean;
+}
+
+/**
+ * Which infrastructure the running orchestrator drives. The UI branches on it,
+ * because the same claim means different things underneath: a Docker node is a
+ * container on this host, a Kubernetes node is a pod the scheduler may place
+ * anywhere. Anything provider-specific belongs in `meta` below rather than in a
+ * new field here, so a second provider is a renderer rather than a migration.
+ */
+export const INFRA_PROVIDERS = ["docker", "kubernetes"] as const;
+export type InfraProvider = (typeof INFRA_PROVIDERS)[number];
+
+/**
+ * What the active orchestrator publishes about itself, as the value of the
+ * leader lease.
+ *
+ * The lease rather than a table: it is already written every pass and already
+ * expires on its own, so "is an orchestrator alive and what is it driving" is
+ * one read of one key — and an orchestrator that died stops answering without
+ * anyone cleaning a row up. A standby publishes nothing, which is correct: the
+ * question the UI asks is what the *acting* orchestrator is doing.
+ */
+export interface OrchestratorLease {
+	/** `hostname:pid` of the holder. Identifies the process, not the machine. */
+	holder: string;
+	/** ISO timestamp of the last renewal. Staleness is visible without a clock skew argument. */
+	at: string;
+	provider: InfraProvider;
+	/** How often it reconciles, so the UI can say how long a change takes to land. */
+	reconcileIntervalMs: number;
+	/**
+	 * Provider facts worth showing an operator — the Docker endpoint, the worker
+	 * image, the network; a cluster and namespace on Kubernetes. Free-form
+	 * because the useful set differs per provider and none of it is load-bearing:
+	 * the UI renders what it finds and nothing depends on a particular key.
+	 */
+	meta: Record<string, string | number | boolean>;
+}
+
+/** One container (or pod) the orchestrator found carrying its label. */
+export interface ObservedNode {
+	/** Platform handle — a container id on Docker, a pod name on Kubernetes. */
+	containerId: string;
+	/** From the node label: `<claimId>.<replicaIndex>`. */
+	nodeId: string;
+	claimId: string;
+	replicaIndex: number;
+	/** Null is the catch-all, as everywhere else. */
+	projectId: string | null;
+	image: string;
+	running: boolean;
+	/** The platform's own word: `running`, `created`, `restarting`, `exited`, … */
+	platformState: string;
+}
+
+/**
+ * Every labelled container the acting orchestrator can see, as of its last
+ * pass. Published so the app can show the host's real inventory — including a
+ * container no claim asks for, which is the one case that is invisible in
+ * desired state and the reason an operator would otherwise reach for the Docker
+ * CLI to find out what is running.
+ *
+ * Only the acting orchestrator writes it, and the key expires with the lease.
+ */
+export interface ObservedInventory {
+	at: string;
+	provider: InfraProvider;
+	nodes: ObservedNode[];
 }

@@ -29,6 +29,7 @@ function observed(node: DesiredNode, overrides: Partial<ObservedNode> = {}): Obs
 		projectId: node.projectId,
 		image: IMAGE,
 		running: true,
+		platformState: "running",
 		...overrides,
 	};
 }

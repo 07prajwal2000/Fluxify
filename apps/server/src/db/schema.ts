@@ -878,9 +878,14 @@ export const nodeClaimsEntity = pgTable(
 		groupIds: jsonb("group_ids").$type<string[]>().default([]).notNull(),
 		/** Identical containers to run for this claim. Each one consumes a license slot. */
 		replicas: integer().default(1).notNull(),
-		createdAt: timestamp("created_at").defaultNow().notNull(),
+		// With time zone, like every timestamp on the three orchestration tables.
+		// These are read back and rendered as "3m ago": through Bun's SQL driver a
+		// `timestamp without time zone` comes back shifted by the reader's offset,
+		// which put every event an hour in the future and made the history read
+		// "0s ago" for all of them.
+		createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 		createdBy: varchar("created_by", { length: 50 }),
-		updatedAt: timestamp("updated_at")
+		updatedAt: timestamp("updated_at", { withTimezone: true })
 			.defaultNow()
 			.notNull()
 			.$onUpdate(() => new Date()),
@@ -932,8 +937,9 @@ export const workerNodesEntity = pgTable(
 		image: varchar({ length: 255 }),
 		/** Platform handle: a Docker container id, or a pod name on k8s. Null while pending. */
 		containerId: varchar("container_id", { length: 100 }),
-		createdAt: timestamp("created_at").defaultNow().notNull(),
-		updatedAt: timestamp("updated_at")
+		createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+		/** When the last pass observed this node — shown as "observed 4s ago". */
+		updatedAt: timestamp("updated_at", { withTimezone: true })
 			.defaultNow()
 			.notNull()
 			.$onUpdate(() => new Date()),
@@ -961,7 +967,7 @@ export const orchestrationEventsEntity = pgTable(
 		action: varchar({ length: 50 }).notNull(),
 		reason: nodeReasonEnum("reason"),
 		detail: jsonb().$type<Record<string, unknown>>(),
-		createdAt: timestamp("created_at").defaultNow().notNull(),
+		createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 	},
 	(table) => [
 		index("idx_orchestration_events_node_id").on(table.nodeId),

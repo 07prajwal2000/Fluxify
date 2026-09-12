@@ -17,7 +17,8 @@ import type { DesiredNode } from "./projection";
  */
 
 export interface NodeEvent {
-	nodeId: string;
+	/** Absent on a claim-level event: a claim is written before any node exists. */
+	nodeId?: string | null;
 	claimId: string;
 	projectId: string | null;
 	/** `created`, `removed`, `recreated`, `create_failed`, … */
@@ -28,7 +29,7 @@ export interface NodeEvent {
 
 export async function recordEvent(event: NodeEvent): Promise<void> {
 	await db.insert(orchestrationEventsEntity).values({
-		nodeId: event.nodeId,
+		nodeId: event.nodeId ?? null,
 		claimId: event.claimId,
 		projectId: event.projectId,
 		action: event.action,
@@ -46,7 +47,26 @@ export async function recordEvent(event: NodeEvent): Promise<void> {
 function nodeState(node: DesiredNode, container: ObservedNode | undefined): NodeState {
 	if (!node.placeable) return container ? "ready" : "pending";
 	if (!container) return "failed";
-	return container.running ? "ready" : "starting";
+	if (container.running) return "ready";
+	// Created but not yet started is a node on its way up. Anything else —
+	// restarting, exited, dead — is a container the platform is already
+	// fighting with, and reporting that as `starting` would leave a crash loop
+	// looking like a slow boot forever.
+	return container.platformState === "created" ? "starting" : "failed";
+}
+
+/**
+ * Why a row is in its state. The projection's reason wins when it has one (no
+ * licence slot, no pool room); otherwise a node whose container will not stay
+ * up is `start_failed`, which is the only failure the platform reports here.
+ */
+function nodeReason(
+	node: DesiredNode,
+	container: ObservedNode | undefined,
+	state: NodeState,
+): NodeReason | null {
+	if (node.reason) return node.reason;
+	return state === "failed" ? "start_failed" : null;
 }
 
 /** Mirrors desired state into the node table, so admin can read what exists. */
@@ -61,6 +81,7 @@ export async function syncNodeRows(
 		const id = nodeIdFor(node.claimId, node.replicaIndex);
 		const container = byNode.get(id);
 		keep.add(id);
+		const state = nodeState(node, container);
 		const row = {
 			id,
 			claimId: node.claimId,
@@ -69,8 +90,8 @@ export async function syncNodeRows(
 			type: node.type,
 			groupIds: node.groupIds,
 			excludedGroups: node.excludedGroups,
-			state: nodeState(node, container),
-			reason: node.reason,
+			state,
+			reason: nodeReason(node, container, state),
 			image: container?.image ?? null,
 			containerId: container?.containerId ?? null,
 		};

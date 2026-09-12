@@ -4,14 +4,22 @@ import { join } from "path";
 import { HonoServer } from "../types";
 import { getPublicSettings } from "../loaders/instanceSettingsLoader";
 import { currentEntitlement } from "../lib/edition";
+import { orchestrationEnabled } from "../modules/orchestrator/gate";
 
 export function mapVersionedAdminRoutes(app: HonoServer) {
   const router = app.basePath("/_/admin/api");
   // Public, unauthenticated feature flags. Secrets are stripped by each key's
   // publicSchema, so is_public rows never leak IdP credentials. `license` is
   // status only — never the licensee or the key.
+  // `orchestration` is the deployment shape, not a licence or a DB row: Kit
+  // has no orchestrator whatever key it holds, so the portal hides the claim
+  // control and the Orchestration tab on it (§5a).
   router.get("/public-settings", (c) =>
-    c.json({ ...getPublicSettings(), license: currentEntitlement() }),
+    c.json({
+      ...getPublicSettings(),
+      license: currentEntitlement(),
+      orchestration: { enabled: orchestrationEnabled() },
+    }),
   );
   router.get("/openapi/ui", (c) => {
     try {

@@ -44,11 +44,20 @@ export const triggerSubject = (projectId: string, triggerId: string) =>
  * them compete for the same messages instead of each running every event.
  * Consumer names allow no dots or wildcards.
  */
-const sanitize = (value: string) =>
-	value === ALL_PROJECTS ? "all" : value.replace(/[^a-zA-Z0-9_-]/g, "_");
+const sanitize = (value: string) => value.replace(/[^a-zA-Z0-9_-]/g, "_");
 
-export const internalConsumerName = (projectId: string) =>
-	`fluxify_triggers_${sanitize(projectId)}_internal`;
+/**
+ * One project's internal subject. Never `*`: this stream is work-queue, so a
+ * wildcard consumer overlaps every per-project one and JetStream refuses the
+ * second — a catch-all worker serves each project it discovers instead.
+ */
+export const internalConsumerName = (projectId: string) => {
+	if (projectId === ALL_PROJECTS)
+		throw new Error(
+			"an internal trigger consumer serves one project — a catch-all worker serves each project it discovers",
+		);
+	return `fluxify_triggers_${sanitize(projectId)}_internal`;
+};
 
 export const triggerConsumerName = (triggerId: string) =>
 	`fluxify_trigger_${sanitize(triggerId)}`;

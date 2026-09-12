@@ -6,9 +6,11 @@
  * a pile of mostly-idle streams and consumers to operate, so kinds are a subject
  * token instead: adding one costs a handler registration and nothing else.
  *
- * Subjects are `fluxify.jobs.<projectId>.<kind>`. Project comes first so a
- * worker can filter on its own tenant with a single wildcard, which is also what
- * keeps consumers non-overlapping — a work-queue stream requires that.
+ * Subjects are `fluxify.jobs.<projectId>.<kind>`, and every consumer names both
+ * tokens exactly. A work-queue stream requires the live consumers to partition
+ * the subject space, and a wildcard cannot: `fluxify.jobs.*.workflow` overlaps
+ * `fluxify.jobs.<project>.workflow`, so a catch-all worker holding the wildcard
+ * locks out every project that claims a node of its own.
  */
 
 export const JOBS_STREAM = "FLUXIFY_JOBS";
@@ -68,35 +70,51 @@ export const jobSubject = (projectId: string, kind: string) =>
 	`${SUBJECT_ROOT}.${projectId}.${kind}`;
 
 /**
- * What one worker deployment subscribes to: one explicit subject per kind, not
- * the `.>` wildcard it used to be.
+ * What one consumer subscribes to: exactly one project and one kind.
  *
- * A work-queue stream requires non-overlapping consumer filters. With the
- * wildcard, a `both` worker and a `workflow` worker on the same project overlap
- * and JetStream refuses the second consumer at boot — which is the behaviour we
- * want, but only if the filters are precise enough to say so. Listing kinds
- * explicitly (multi-filter consumers, 2.10+; we pin 2.14) is what makes "one
- * worker mode per project" an error the operator sees rather than two workers
- * quietly running the same job twice.
+ * Never a wildcard. `FLUXIFY_JOBS` is work-queue, so the live consumers must
+ * partition the subject space — and `fluxify.jobs.*.workflow` overlaps
+ * `fluxify.jobs.<project>.workflow`, which JetStream refuses outright
+ * ("filtered consumer not unique on workqueue stream"). A catch-all worker
+ * therefore holds one consumer per project it has artifacts for, rather than
+ * one consumer for every project at once.
  */
-export function projectJobFilters(projectId: string, kinds: readonly string[]) {
-	const project = projectId === ALL_PROJECTS ? "*" : projectId;
-	return kinds.map((kind) => `${SUBJECT_ROOT}.${project}.${kind}`);
+export function jobFilter(projectId: string, kind: string) {
+	assertConcrete(projectId);
+	return jobSubject(projectId, kind);
 }
 
 /**
- * Durable name per deployment and mode, so replicas of the same worker compete
- * for the same messages while different projects never see each other's.
+ * Durable name per project and kind — deliberately *not* per worker mode.
  *
- * Mode is part of the name on purpose: two modes on one project must end up as
- * two consumers with overlapping filters, which the broker rejects. Sharing one
- * durable would instead let the second worker silently rewrite the first's
- * filters. Consumer names allow no dots or wildcards.
+ * Mode does not partition anything: every mode consumes `custom-block`, so a
+ * catch-all `both` worker and a project's own `workflow` worker always overlap
+ * and the second one is refused at boot. Project and kind are the only tokens
+ * the subject has, so one consumer per pair is the one naming that cannot
+ * collide.
+ *
+ * Sharing the durable across workers is also what a work queue wants: every
+ * worker serving a project pulls from the same consumer and the jobs are split
+ * between them, instead of one of them being locked out. It is what makes
+ * replicas of a claim compete for work, and it means a node that drains leaves
+ * behind nothing another worker can trip over.
  */
-export function jobConsumerName(projectId: string, mode: string) {
-	const project =
-		projectId === ALL_PROJECTS
-			? "all"
-			: projectId.replace(/[^a-zA-Z0-9_-]/g, "_");
-	return `fluxify_jobs_${project}_${assertWorkerMode(mode)}`;
+export function jobConsumerName(projectId: string, kind: string) {
+	assertConcrete(projectId);
+	return `fluxify_jobs_${sanitize(projectId)}_${sanitize(kind)}`;
 }
+
+/**
+ * A consumer is per project, so `*` reaching one of the two functions above is
+ * a caller that forgot to resolve its project set — a mistake worth a crash at
+ * boot rather than a wildcard consumer that locks every other worker out.
+ */
+function assertConcrete(projectId: string) {
+	if (projectId === ALL_PROJECTS)
+		throw new Error(
+			"a job consumer serves one project — a catch-all worker serves each project it discovers",
+		);
+}
+
+/** Consumer names allow no dots or wildcards. */
+const sanitize = (value: string) => value.replace(/[^a-zA-Z0-9_-]/g, "_");

@@ -17,7 +17,7 @@ export function AuthSettings() {
 	}
 
 	return (
-		<div className="flex w-full max-w-3xl mx-auto flex-col gap-6">
+		<div className="flex w-full max-w-4xl mx-auto flex-col gap-6">
 			<div>
 				<h2 className="text-xl font-bold tracking-tight">Authentication</h2>
 				<p className="text-sm text-muted-foreground mt-0.5">

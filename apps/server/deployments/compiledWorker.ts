@@ -23,7 +23,7 @@ import { watchInstanceSettings } from "../src/loaders/instanceSettingsLoader";
 import { canRunConnectors, nodeEntitlement, watchLicense } from "../src/lib/edition";
 import { attachNode } from "../src/modules/orchestrator/node";
 import type { NodeType } from "@fluxify/common/orchestrator";
-import { startJobWorker } from "../src/modules/jobs/consumer";
+import { createJobWorker, type JobWorker } from "../src/modules/jobs/consumer";
 import {
 	OTLP_AUTH_HEADER_NAME,
 	OTLP_AUTH_HEADER_VALUE,
@@ -100,6 +100,22 @@ const artifacts = new Map<string, ArtifactEntry>();
 const timeoutProjects = new Map<string, boolean>();
 let shuttingDown = false;
 
+/**
+ * Projects this worker holds artifacts for — one on a pinned deployment, and
+ * every project that exists on a catch-all (`WORKER_PROJECT_ID=*`) one.
+ *
+ * It exists because broker consumers are per project and never per deployment:
+ * `FLUXIFY_JOBS` and `FLUXIFY_TRIGGERS` are work-queue streams, so a wildcard
+ * consumer overlaps every per-project one and JetStream refuses the second
+ * (`filtered consumer not unique on workqueue stream`) — which would mean a
+ * catch-all worker and a project's own claimed node could never run at once.
+ * So the artifact watch, which already knows every project this worker serves,
+ * is what decides which consumers exist.
+ */
+const servedProjects = new Set<string>();
+/** Set once the initial artifact replay is in and consumers are being started. */
+let servingProjects = false;
+
 function timeoutPolicyEnabled() {
 	return [...timeoutProjects.values()].some(Boolean);
 }
@@ -139,6 +155,9 @@ function handleArtifactChange(entry: ArtifactEntry) {
 	const policyChanged = kind === "project-config";
 	if (entry.value === null) artifacts.delete(entry.key);
 	else artifacts.set(entry.key, entry);
+	// Keys are `<kind>.<projectId>.<id>`, so this is also how a catch-all worker
+	// learns that a project exists at all.
+	trackProject(entry);
 
 	if (kind === "trigger") return applyTrigger(placed(entry));
 
@@ -200,6 +219,57 @@ function workflowTimeoutSeconds(workflowId: string) {
 	return undefined;
 }
 
+/**
+ * Notes the project an artifact belongs to, and starts or stops its consumers.
+ *
+ * During the initial replay nothing is started — the set is collected and
+ * served in one pass below, so that a failure there stops the boot instead of
+ * being logged by a worker that then reports ready.
+ */
+function trackProject(entry: ArtifactEntry) {
+	const projectId = entry.key.split(".")[1];
+	if (!projectId) return;
+	if (entry.value === null) return unserveIfGone(projectId);
+	if (servedProjects.has(projectId)) return;
+	servedProjects.add(projectId);
+	if (!servingProjects) return;
+	void serveProject(projectId).catch((error) => {
+		// Dropped from the set so this project's next artifact tries again. One
+		// project's consumer failing must not take down the others' work.
+		servedProjects.delete(projectId);
+		logger.error(
+			`consumers for ${projectId} failed to start: ${String(error)}`,
+			"WORKER",
+		);
+	});
+}
+
+/** Both of this project's broker consumers: queued work, and arriving work. */
+async function serveProject(projectId: string) {
+	await jobWorker.serve(projectId);
+	await triggerWorker.serveInternal(projectId);
+}
+
+/**
+ * The project's last artifact went away — it was deleted, or handed to another
+ * node. Consuming for it would mean holding work nothing here can run.
+ */
+function unserveIfGone(projectId: string) {
+	if (!servedProjects.has(projectId)) return;
+	for (const key of artifacts.keys())
+		if (key.split(".")[1] === projectId) return;
+	servedProjects.delete(projectId);
+	void Promise.all([
+		jobWorker.unserve(projectId),
+		triggerWorker.unserveInternal(projectId),
+	]).catch((error) =>
+		logger.error(
+			`consumers for ${projectId} failed to stop: ${String(error)}`,
+			"WORKER",
+		),
+	);
+}
+
 const triggerWorker = new TriggerWorker({
 	projectId: WORKER_PROJECT_ID,
 	run: supervisor.runJob,
@@ -240,6 +310,20 @@ if (!attached.ok) {
 }
 const node = attached.node;
 logger.info(`node ${node.slot.nodeId} holds a license slot — type ${node.type}`, "WORKER.node");
+
+/**
+ * Built here, before the artifact watch: the watch is what tells it which
+ * projects to serve, and the node's type is what decides which job kinds it
+ * takes. Nothing is consumed until the replay is in.
+ */
+const jobWorker: JobWorker = createJobWorker({
+	mode: node.type,
+	handle: supervisor.runJob,
+	concurrency: Number(getEnv("JOBS_CONCURRENCY")) || undefined,
+	ackWaitMs: Number(getEnv("JOBS_ACK_WAIT_MS")) || undefined,
+	maxDeliver: Number(getEnv("JOBS_MAX_DELIVER")) || undefined,
+	retryDelayMs: Number(getEnv("JOBS_RETRY_DELAY_MS")) || undefined,
+});
 
 /**
  * Re-decides every trigger this worker holds. Needed whenever the answer to
@@ -295,21 +379,23 @@ function fatal(what: string, error: unknown): never {
 	process.exit(1);
 }
 
-// Background work for this project. Separate from the request path on purpose:
-// a queued job must not compete with traffic for the same acceptance.
-await startJobWorker({
-	projectId: WORKER_PROJECT_ID,
-	mode: node.type,
-	handle: supervisor.runJob,
-	concurrency: Number(getEnv("JOBS_CONCURRENCY")) || undefined,
-	ackWaitMs: Number(getEnv("JOBS_ACK_WAIT_MS")) || undefined,
-	maxDeliver: Number(getEnv("JOBS_MAX_DELIVER")) || undefined,
-	retryDelayMs: Number(getEnv("JOBS_RETRY_DELAY_MS")) || undefined,
-}).catch((error) => fatal("job worker", error));
-
-// Triggers are the other half of the same story: the job worker takes work that
-// was queued, this takes work that arrived.
+// Triggers are the other half of the story the job worker starts: that one
+// takes work that was queued, this takes work that arrived. The stream — and
+// the sweep of any wildcard consumer an older build left behind — is provisioned
+// here, so it comes before the first project is served.
 await triggerWorker.start().catch((error) => fatal("trigger worker", error));
+
+// Background work, per project. Separate from the request path on purpose: a
+// queued job must not compete with traffic for the same acceptance.
+for (const projectId of servedProjects)
+	await serveProject(projectId).catch((error) =>
+		fatal(`consumers for project ${projectId}`, error),
+	);
+servingProjects = true;
+logger.info(
+	`serving ${servedProjects.size} project(s) as a ${node.type} node${WORKER_PROJECT_ID === "*" ? " (catch-all)" : ""}`,
+	"WORKER",
+);
 
 // Scheduled fires, on the workers that run workflows. The broker keeps the
 // time; this turns each fire into a job. It belongs here rather than beside the
@@ -343,6 +429,7 @@ async function shutdown(sig: string, code = 0) {
 	clearInterval(entitlementTimer);
 	logger.info(`received ${sig} — draining`);
 	try {
+		await jobWorker.stop();
 		await fireConsumer?.stop();
 		await triggerWorker.stop();
 		if (!(await drainChild(supervisor.child(), asyncExecutor))) {
