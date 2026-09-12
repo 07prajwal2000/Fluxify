@@ -1,12 +1,6 @@
 import { existsSync } from "node:fs";
-import { fileURLToPath } from "node:url";
 import { initializeLogger, logger } from "@fluxify/common";
-import {
-	healthResponse,
-	markDraining,
-	markNotReady,
-	markReady,
-} from "../src/modules/requestRouter/health";
+import { healthResponse, markDraining } from "../src/modules/requestRouter/health";
 import {
 	watchProjectArtifacts,
 } from "../src/modules/requestRouter/artifactHost";
@@ -19,28 +13,17 @@ import { artifactId, artifactKind } from "../src/modules/compiler/subjects";
 import { TriggerWorker } from "../src/modules/triggers/consumers";
 import { consumedInExecution, runsHere } from "../src/modules/triggers/types";
 import { startFireConsumer } from "../src/modules/schedules/fire";
-import { fireInternalTrigger } from "../src/modules/triggers/publisher";
-import { TRIGGER_WORKFLOW_JOB } from "@fluxify/blocks";
-import type {
-	ExecutionBootstrap,
-	ExecutionEvent,
-	ExecutionMessage,
-} from "../src/modules/requestRouter/threadTypes";
-import { ExecutionWatchdog } from "../src/modules/requestRouter/executionWatchdog";
+import type { ExecutionMessage } from "../src/modules/requestRouter/threadTypes";
 import { workerTimeoutsEnabled } from "../src/modules/requestRouter/workerTimeouts";
 import { asyncExecutorLimitsFromEnv, drainChild } from "../src/modules/requestRouter/asyncExecutor";
-import { executionRuntimeEnvironment } from "../src/modules/requestRouter/executionEnvironment";
+import { createExecutionSupervisor } from "../src/modules/requestRouter/executionSupervisor";
 import type { ArtifactEntry } from "../src/modules/requestRouter/compiledRuntime";
 import { closeNats } from "../src/db/nats";
-import { RPC_SUBJECTS, rpcRequest } from "../src/db/natsRpc";
 import { watchInstanceSettings } from "../src/loaders/instanceSettingsLoader";
 import { canRunConnectors, nodeEntitlement, watchLicense } from "../src/lib/edition";
 import { attachNode } from "../src/modules/orchestrator/node";
 import type { NodeType } from "@fluxify/common/orchestrator";
 import { startJobWorker } from "../src/modules/jobs/consumer";
-import { enqueueJob } from "../src/modules/jobs/publisher";
-import type { JobEnvelope } from "../src/modules/jobs/types";
-import { publishTraceRun } from "../src/modules/telemetry/publisher";
 import {
 	OTLP_AUTH_HEADER_NAME,
 	OTLP_AUTH_HEADER_VALUE,
@@ -115,12 +98,7 @@ const processEntry = existsSync(bundledProcess)
 	: new URL("../src/modules/requestRouter/executionProcess.ts", import.meta.url);
 const artifacts = new Map<string, ArtifactEntry>();
 const timeoutProjects = new Map<string, boolean>();
-
-const watchdog = new ExecutionWatchdog();
-let execution: any;
 let shuttingDown = false;
-let terminatingForTimeout = false;
-let watchdogTimer: ReturnType<typeof setInterval> | undefined;
 
 function timeoutPolicyEnabled() {
 	return [...timeoutProjects.values()].some(Boolean);
@@ -134,165 +112,27 @@ function updateTimeoutPolicy(key: string, value: unknown) {
 		return;
 	}
 	const config = value as UnsealedProjectConfig;
-	timeoutProjects.set(
-		config.projectId,
-		workerTimeoutsEnabled(config.payload.projectSettings),
-	);
+	timeoutProjects.set(config.projectId, workerTimeoutsEnabled(config.payload.projectSettings));
 }
 
-function synchronizeMonitoring() {
-	const enabled = timeoutPolicyEnabled();
-	watchdog.setEnabled(enabled);
-	execution?.send({ type: "monitoring", enabled } satisfies ExecutionMessage);
-	if (enabled && !watchdogTimer) {
-		watchdogTimer = setInterval(evaluateTimeouts, HEARTBEAT_CHECK_MS);
-	} else if (!enabled && watchdogTimer) {
-		clearInterval(watchdogTimer);
-		watchdogTimer = undefined;
-	}
-	logger.info(
-		`experimental worker timeouts ${enabled ? "enabled" : "disabled"}`,
-		"WORKER.timeout",
-	);
-}
-
-/**
- * A child that dies right after starting would otherwise be respawned in a hot
- * loop, pinning a CPU. Quick deaths back off exponentially; a child that stayed
- * up for a while restarts at once.
- */
-const STABLE_AFTER_MS = 10_000;
-const MAX_RESTART_DELAY_MS = 30_000;
-let restartDelayMs = 0;
-let spawnedAt = 0;
-
-function spawnExecution() {
-	spawnedAt = Date.now();
-	const bootstrap: ExecutionBootstrap = {
-		projectId: WORKER_PROJECT_ID,
-		port,
-		databaseIdleTimeoutMs,
-		asyncExecutor,
-		artifacts: [...artifacts.values()].map(placed).filter((entry) => entry.value !== null),
-		workerTimeoutsEnabled: timeoutPolicyEnabled(),
-		maxRequestBodyBytes: MAX_REQUEST_BODY_BYTES,
-		logging: {
-			level: OTLP_LOGGER_LEVEL,
-			otlpEndpoint: OTLP_ENDPOINT,
-			otlpHeaders: { [OTLP_AUTH_HEADER_NAME]: OTLP_AUTH_HEADER_VALUE },
-			useOtlp: OTLP_LOGGER_ENABLED === "true",
-		},
-	};
-	const child = Bun.spawn([process.execPath, fileURLToPath(processEntry)], {
-		env: executionRuntimeEnvironment(),
-		stdout: "inherit",
-		stderr: "inherit",
-		ipc: (event) => onExecutionEvent(event as ExecutionEvent),
-		onExit: (process, exitCode, signalCode, error) => {
-			if (execution !== process) return;
-			execution = undefined;
-			markNotReady();
-			failPendingJobs("execution process exited mid-job");
-			watchdog.setEnabled(timeoutPolicyEnabled());
-			if (shuttingDown) return;
-			const quick = Date.now() - spawnedAt < STABLE_AFTER_MS;
-			restartDelayMs = quick ? Math.min(Math.max(restartDelayMs * 2, 500), MAX_RESTART_DELAY_MS) : 0;
-			logger.error(
-				`execution process exited (code=${exitCode}, signal=${signalCode}): ${error?.message ?? "restarting"} in ${restartDelayMs}ms`,
-				"WORKER.execution",
-			);
-			terminatingForTimeout = false;
-			setTimeout(() => {
-				if (!shuttingDown && !execution) spawnExecution();
-			}, restartDelayMs);
-		},
-	});
-	execution = child;
-	child.send({ type: "bootstrap", bootstrap } satisfies ExecutionMessage);
-}
-
-/**
- * Jobs handed to the execution process, waiting on its reply. The broker's ack
- * is driven by that reply, so a child that dies mid-job must reject its pending
- * work — otherwise the consumer sits on the message until the ack wait elapses.
- */
-const pendingJobs = new Map<
-	string,
-	{ resolve: () => void; reject: (error: Error) => void }
->();
-
-function runJobInExecution(job: JobEnvelope) {
-	return new Promise<void>((resolve, reject) => {
-		if (!execution) return reject(new Error("execution process is not running"));
-		pendingJobs.set(job.id, { resolve, reject });
-		execution.send({ type: "job", job } satisfies ExecutionMessage);
-	});
-}
-
-/**
- * Where a queued job goes. A Trigger Workflow block is not queued work on the
- * jobs stream — it is an event on the triggers stream, and the only thing that
- * knows the difference is the kind the block used.
- */
-function dispatchQueued(job: JobEnvelope) {
-	if (job.kind !== TRIGGER_WORKFLOW_JOB) return enqueueJob(job);
-	return fireInternalTrigger({
-		id: job.id,
-		projectId: job.projectId,
-		workflowId: job.target,
-		data: job.payload,
-		origin: job.origin,
-		retry: job.retry,
-	});
-}
-
-function failPendingJobs(reason: string) {
-	for (const [, pending] of pendingJobs) pending.reject(new Error(reason));
-	pendingJobs.clear();
-}
-
-function onExecutionEvent(event: ExecutionEvent) {
-	switch (event.type) {
-		case "ready":
-			markReady();
-			logger.info("execution process ready", "WORKER.execution");
-			return;
-		case "job-finished": {
-			const pending = pendingJobs.get(event.id);
-			pendingJobs.delete(event.id);
-			if (!pending) return;
-			return event.error ? pending.reject(new Error(event.error)) : pending.resolve();
-		}
-		case "enqueue-job":
-			// user code queued work; failures are logged, the graph moved on already
-			return void dispatchQueued(event.job).catch((error) =>
-				logger.error(
-					`failed to queue ${event.job.kind}/${event.job.target}: ${String(error)}`,
-					"WORKER.jobs",
-				),
-			);
-		case "trace-finished":
-			// The execution process holds untrusted user code (routes and workflows), never NATS credentials.
-			return void publishTraceRun(event.run);
-		case "trigger-fault": {
-			// lost only if the admin is down; the child reports again on its next start
-			const { type: _, ...fault } = event;
-			return void rpcRequest(
-				RPC_SUBJECTS.triggerFault,
-				{ userId: "system", projectIds: [fault.projectId] },
-				fault,
-			).catch((error) =>
-				logger.error(`could not report trigger ${fault.triggerId} fault: ${String(error)}`, "WORKER.triggers"),
-			);
-		}
-		case "heartbeat":
-			return watchdog.heartbeat();
-		case "execution-started":
-			return watchdog.start(event);
-		case "execution-finished":
-			return watchdog.finish(event.requestId);
-	}
-}
+/** The child that runs user code. It owns its own crash recovery. */
+const supervisor = createExecutionSupervisor({
+	projectId: WORKER_PROJECT_ID,
+	port,
+	entry: processEntry,
+	databaseIdleTimeoutMs,
+	asyncExecutor,
+	maxRequestBodyBytes: MAX_REQUEST_BODY_BYTES,
+	logging: {
+		level: OTLP_LOGGER_LEVEL,
+		otlpEndpoint: OTLP_ENDPOINT,
+		otlpHeaders: { [OTLP_AUTH_HEADER_NAME]: OTLP_AUTH_HEADER_VALUE },
+		useOtlp: OTLP_LOGGER_ENABLED === "true",
+	},
+	// placed, because a trigger this node does not run must not reach the child
+	artifacts: () => [...artifacts.values()].map(placed).filter((entry) => entry.value !== null),
+	timeoutsEnabled: timeoutPolicyEnabled,
+});
 
 function handleArtifactChange(entry: ArtifactEntry) {
 	const kind = artifactKind(entry.key);
@@ -303,8 +143,8 @@ function handleArtifactChange(entry: ArtifactEntry) {
 	if (kind === "trigger") return applyTrigger(placed(entry));
 
 	if (policyChanged) updateTimeoutPolicy(entry.key, entry.value);
-	execution?.send({ type: "artifact", entry } satisfies ExecutionMessage);
-	if (policyChanged && execution) synchronizeMonitoring();
+	const delivered = supervisor.send({ type: "artifact", entry } satisfies ExecutionMessage);
+	if (policyChanged && delivered) supervisor.synchronizeMonitoring();
 }
 
 /**
@@ -331,7 +171,7 @@ function applyTrigger(entry: ArtifactEntry) {
 	const trigger = entry.value as TriggerArtifact | null;
 	const external = trigger ? consumedInExecution(trigger.type) : null;
 	if (external !== false) {
-		execution?.send({ type: "artifact", entry } satisfies ExecutionMessage);
+		supervisor.send({ type: "artifact", entry } satisfies ExecutionMessage);
 	}
 	if (external !== true) {
 		void triggerWorker
@@ -362,7 +202,7 @@ function workflowTimeoutSeconds(workflowId: string) {
 
 const triggerWorker = new TriggerWorker({
 	projectId: WORKER_PROJECT_ID,
-	run: runJobInExecution,
+	run: supervisor.runJob,
 	workflowTimeoutSeconds,
 	maxDeliver: Number(getEnv("JOBS_MAX_DELIVER")) || undefined,
 	retryDelayMs: Number(getEnv("JOBS_RETRY_DELAY_MS")) || undefined,
@@ -436,8 +276,8 @@ const artifactWatch = await watchProjectArtifacts(
 );
 await artifactWatch.initialized;
 
-spawnExecution();
-synchronizeMonitoring();
+supervisor.start();
+supervisor.synchronizeMonitoring();
 
 /**
  * A consumer that will not start is not a degraded worker, it is a worker that
@@ -460,7 +300,7 @@ function fatal(what: string, error: unknown): never {
 await startJobWorker({
 	projectId: WORKER_PROJECT_ID,
 	mode: node.type,
-	handle: runJobInExecution,
+	handle: supervisor.runJob,
 	concurrency: Number(getEnv("JOBS_CONCURRENCY")) || undefined,
 	ackWaitMs: Number(getEnv("JOBS_ACK_WAIT_MS")) || undefined,
 	maxDeliver: Number(getEnv("JOBS_MAX_DELIVER")) || undefined,
@@ -484,18 +324,6 @@ if (jobKindsForMode(node.type).includes(WORKFLOW_JOB)) {
 	}).catch((error) => fatal("fire consumer", error));
 }
 
-function evaluateTimeouts() {
-	const timedOut = watchdog.findTimedOut();
-	if (!timedOut || !execution || terminatingForTimeout) return;
-	terminatingForTimeout = true;
-	logger.error(
-		`terminating blocked execution process for route ${timedOut.routeId} after ${timedOut.timeoutMs}ms (heartbeat stalled ${Math.round(timedOut.stalledForMs)}ms)`,
-		"WORKER.timeout",
-	);
-	// TODO(#195): emit a killed-execution span from the supervisor telemetry path.
-	execution.kill();
-}
-
 node.serving();
 logger.info(`compiled worker ready — isolated execution process on port ${port}`);
 
@@ -511,13 +339,13 @@ async function shutdown(sig: string, code = 0) {
 	if (shuttingDown) return;
 	shuttingDown = true;
 	markDraining();
-	if (watchdogTimer) clearInterval(watchdogTimer);
+	supervisor.stop();
 	clearInterval(entitlementTimer);
 	logger.info(`received ${sig} — draining`);
 	try {
 		await fireConsumer?.stop();
 		await triggerWorker.stop();
-		if (!(await drainChild(execution, asyncExecutor))) {
+		if (!(await drainChild(supervisor.child(), asyncExecutor))) {
 			logger.warn("in-flight work did not finish before the drain deadline", "WORKER");
 		}
 		await node.stop();
