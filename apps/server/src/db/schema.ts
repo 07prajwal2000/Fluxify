@@ -1,4 +1,5 @@
 import { generateID } from "@fluxify/lib";
+import { NODE_REASONS, NODE_STATES, NODE_TYPES } from "@fluxify/common/orchestrator";
 import { sql, relations } from "drizzle-orm";
 import {
 	boolean,
@@ -790,6 +791,7 @@ export const customBlocksListEntity = pgTable(
 export const instanceSettingCategoryEnum = pgEnum("instance_setting_category", [
 	"auth",
 	"featureflags",
+	"orchestration",
 ]); // add values as new categories appear
 
 export const instanceSettingsEntity = pgTable("instance_settings", {
@@ -826,6 +828,146 @@ export const instanceLicenseEntity = pgTable("instance_license", {
 		.notNull()
 		.$onUpdate(() => new Date()),
 });
+
+/* ============================================================================
+ * ORCHESTRATION (worker node registry — issue #316)
+ * ============================================================================ */
+
+export const nodeTypeEnum = pgEnum("node_type", [...NODE_TYPES]);
+export const nodeStateEnum = pgEnum("node_state", [...NODE_STATES]);
+export const nodeReasonEnum = pgEnum("node_reason", [...NODE_REASONS]);
+
+/**
+ * A request for capacity, and the only thing that ever causes a node to exist.
+ * Creating a project provisions nothing.
+ *
+ * Written by admin, read by the orchestrator — the mirror image of the node
+ * rows below, which the orchestrator writes and admin only reads. Neither side
+ * writes the other's rows.
+ *
+ * The claim is the **scalable unit**: its replicas are identical, so scaling is
+ * a number on this row rather than more rows, and there is nothing for a
+ * scheduler to choose between.
+ */
+export const nodeClaimsEntity = pgTable(
+	"node_claims",
+	{
+		id: varchar({ length: 50 })
+			.primaryKey()
+			.$defaultFn(() => generateID()),
+		/**
+		 * The project whose work this claim's nodes serve. **Null serves every
+		 * project** — the catch-all a worker sees as `WORKER_PROJECT_ID=*`, which
+		 * is the only shape community and non-commercial can claim. A node serves
+		 * one project or all of them, never a subset.
+		 */
+		projectId: varchar("project_id", { length: 50 }).references(() => projectsEntity.id, {
+			onDelete: "cascade",
+		}),
+		type: nodeTypeEnum("type").notNull(),
+		/**
+		 * Trigger groups a `workflow` or `both` claim serves, enumerated — `*` as a
+		 * group selection is not implemented. Empty for a `route` claim, which
+		 * covers all of that project's routes and has nothing further to choose.
+		 *
+		 * ponytail: a jsonb list rather than a join table. It costs referential
+		 * integrity — deleting a group leaves a dead id here, which the projection
+		 * drops — and buys one table instead of two. Promote it if a query ever
+		 * needs "which claims name this group".
+		 */
+		groupIds: jsonb("group_ids").$type<string[]>().default([]).notNull(),
+		/** Identical containers to run for this claim. Each one consumes a license slot. */
+		replicas: integer().default(1).notNull(),
+		createdAt: timestamp("created_at").defaultNow().notNull(),
+		createdBy: varchar("created_by", { length: 50 }),
+		updatedAt: timestamp("updated_at")
+			.defaultNow()
+			.notNull()
+			.$onUpdate(() => new Date()),
+	},
+	(table) => [
+		index("idx_node_claims_project_id").on(table.projectId),
+		// the projection allocates scarce slots oldest-claim-first, so this is the
+		// order it reads in
+		index("idx_node_claims_created_at").on(table.createdAt),
+	],
+);
+
+/**
+ * One container. Written by the orchestrator, read by admin.
+ *
+ * `(claim, replica_index)` is the node's stable identity: it is what lets the
+ * reconciler match a desired node to the container that already serves it
+ * without keeping a placement decision anywhere, because there was never a
+ * placement decision to keep.
+ *
+ * Liveness is deliberately **not** here — a heartbeat per node every few
+ * seconds would be write amplification, and TTL expiry in NATS KV *is* the
+ * liveness mechanism (§8). The status surfaces join the two.
+ */
+export const workerNodesEntity = pgTable(
+	"worker_nodes",
+	{
+		id: varchar({ length: 50 })
+			.primaryKey()
+			.$defaultFn(() => generateID()),
+		claimId: varchar("claim_id", { length: 50 })
+			.references(() => nodeClaimsEntity.id, { onDelete: "cascade" })
+			.notNull(),
+		/** 0-based, stable for the life of the claim. Also what makes container names unique. */
+		replicaIndex: integer("replica_index").notNull(),
+		/** Copied from the claim so a node row reads on its own. Null is the catch-all. */
+		projectId: varchar("project_id", { length: 50 }),
+		type: nodeTypeEnum("type").notNull(),
+		groupIds: jsonb("group_ids").$type<string[]>().default([]).notNull(),
+		/**
+		 * Project:group pairs a dedicated claim already owns, which a catch-all
+		 * node must not also serve. An exclusion list rather than a positive one,
+		 * so a newly created group falls to the catch-all automatically.
+		 */
+		excludedGroups: jsonb("excluded_groups").$type<string[]>().default([]).notNull(),
+		state: nodeStateEnum("state").notNull().default("pending"),
+		reason: nodeReasonEnum("reason"),
+		/** What is actually running, for a version skew that the image tag alone would hide. */
+		image: varchar({ length: 255 }),
+		/** Platform handle: a Docker container id, or a pod name on k8s. Null while pending. */
+		containerId: varchar("container_id", { length: 100 }),
+		createdAt: timestamp("created_at").defaultNow().notNull(),
+		updatedAt: timestamp("updated_at")
+			.defaultNow()
+			.notNull()
+			.$onUpdate(() => new Date()),
+	},
+	(table) => [
+		uniqueIndex("uq_worker_nodes_claim_replica").on(table.claimId, table.replicaIndex),
+		index("idx_worker_nodes_project_id").on(table.projectId),
+		index("idx_worker_nodes_state").on(table.state),
+	],
+);
+
+/**
+ * What the orchestrator did, so a node that flapped at 3am can be explained
+ * after the fact. Append-only; nothing reads it to make a decision.
+ */
+export const orchestrationEventsEntity = pgTable(
+	"orchestration_events",
+	{
+		id: serial().primaryKey(),
+		/** Kept if the node row is deleted — the interesting events are the removals. */
+		nodeId: varchar("node_id", { length: 50 }),
+		claimId: varchar("claim_id", { length: 50 }),
+		projectId: varchar("project_id", { length: 50 }),
+		/** `created`, `removed`, `scaled`, `drained`, `state_changed`, … */
+		action: varchar({ length: 50 }).notNull(),
+		reason: nodeReasonEnum("reason"),
+		detail: jsonb().$type<Record<string, unknown>>(),
+		createdAt: timestamp("created_at").defaultNow().notNull(),
+	},
+	(table) => [
+		index("idx_orchestration_events_node_id").on(table.nodeId),
+		index("idx_orchestration_events_created_at").on(table.createdAt),
+	],
+);
 
 export * from "./agent-harness-schema";
 

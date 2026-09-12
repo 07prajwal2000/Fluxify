@@ -8,6 +8,7 @@ import {
 	type Entitlement,
 	type License,
 } from "@fluxify/common/license";
+import { NODE_TYPES, type NodeEntitlement } from "@fluxify/common/orchestrator";
 import z from "zod";
 import { createConfigStore } from "../db/configStore";
 import { ForbiddenError } from "../errors/forbidError";
@@ -89,6 +90,36 @@ function currentLicense(): License {
 /** Read against the clock on every call, so expiry lands without a restart. */
 export function currentEntitlement(): Entitlement {
 	return entitlement(currentLicense());
+}
+
+/**
+ * What the current license lets a project claim (§5). The pool ceiling is a
+ * separate, host-side limit — this is only what the license permits.
+ *
+ * Community is pinned to `both` because with one node, claiming `route` alone
+ * would leave every workflow unserved. The paid tiers get the type list and are
+ * bounded by replica count instead, which is the resource that actually costs
+ * something.
+ */
+export function nodeEntitlement(e = currentEntitlement()): NodeEntitlement {
+	switch (e.status) {
+		case "community":
+			return { maxReplicas: 1, types: ["both"], perProject: false };
+		case "non_commercial":
+			// 1 route + 1 workflow in the table, expressed as a budget of two
+			// replicas: a single `both` node is the same resource and refusing it
+			// would only hand out less than the tier allows.
+			return { maxReplicas: 2, types: NODE_TYPES, perProject: true };
+		case "active":
+			return { maxReplicas: null, types: NODE_TYPES, perProject: true };
+		case "expired":
+			// Enterprise features keep running through the grace period; after it,
+			// fall back to community rather than to nothing. A lapsed license must
+			// never take production down (§14.2).
+			return e.canRun
+				? { maxReplicas: null, types: NODE_TYPES, perProject: true }
+				: { maxReplicas: 1, types: ["both"], perProject: false };
+	}
 }
 
 /** Whether existing connectors may keep running. */
