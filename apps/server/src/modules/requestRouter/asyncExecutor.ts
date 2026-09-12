@@ -111,6 +111,28 @@ export class AsyncExecutor {
 	}
 }
 
+/**
+ * Waits for the execution child to finish what it is already running, but never
+ * forever — a wedged child must not hold a container stop open until something
+ * SIGKILLs it. The child gets its own drain deadline plus a second of slack,
+ * because it only starts counting once the signal reaches it.
+ */
+export async function drainChild(
+	child: { kill(): void; exited: Promise<unknown> } | undefined,
+	limits: AsyncExecutorLimits,
+): Promise<boolean> {
+	if (!child) return true;
+	child.kill();
+	let finished = false;
+	await Promise.race([
+		child.exited.then(() => {
+			finished = true;
+		}),
+		new Promise((resolve) => setTimeout(resolve, limits.drainTimeoutMs + 1_000)),
+	]);
+	return finished;
+}
+
 function readNonNegativeInt(value: string | undefined, fallback: number) {
 	if (!value) return fallback;
 	const parsed = Number(value);

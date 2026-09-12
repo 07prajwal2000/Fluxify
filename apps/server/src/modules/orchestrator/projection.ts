@@ -1,9 +1,11 @@
 import {
-	CATCH_ALL,
+	groupPair,
 	type NodeEntitlement,
 	type NodeReason,
 	type NodeType,
 } from "@fluxify/common/orchestrator";
+
+export { groupPair };
 
 /**
  * Desired state: the containers that should exist, projected from the claims
@@ -61,11 +63,6 @@ export interface ProjectionInput {
 	 * node — the user asked for one, and a group is created into it later.
 	 */
 	knownGroups?: ReadonlySet<string>;
-}
-
-/** `project:group`, the pair an exclusion list is written in. */
-export function groupPair(projectId: string | null, groupId: string) {
-	return `${projectId ?? CATCH_ALL}:${groupId}`;
 }
 
 const SERVES_WORKFLOWS: readonly NodeType[] = ["workflow", "both"];

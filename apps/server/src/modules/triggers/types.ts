@@ -1,4 +1,5 @@
 import type { RetryPolicy, TriggerEvent, TriggerSource } from "@fluxify/blocks";
+import { groupPair } from "@fluxify/common/orchestrator";
 
 /**
  * What a trigger hands a workflow: the events it collected, and where they came
@@ -49,15 +50,24 @@ export function isEnterpriseTriggerType(type: string) {
 }
 
 /**
- * Whether this worker runs a trigger. A worker pinned to a group runs only that
- * group's triggers; a connector whose license can no longer run is not started.
+ * Whether this worker runs a trigger.
+ *
+ * A worker pinned to groups runs only those groups' triggers; a catch-all
+ * worker runs everything *except* the groups a dedicated node already owns,
+ * which is what `excludedGroups` holds. A connector whose license can no longer
+ * run is not started either way.
+ *
+ * Pinned and excluded are never both set: a node either names its groups or
+ * takes what is left over.
  */
 export function runsHere(
-	trigger: { groupId: string; type: string },
-	workerGroupId: string | undefined,
+	trigger: { projectId: string; groupId: string; type: string },
+	workerGroupIds: readonly string[] | undefined,
 	canRunEnterprise: boolean,
+	excludedGroups?: ReadonlySet<string>,
 ) {
-	if (workerGroupId && trigger.groupId !== workerGroupId) return false;
+	if (workerGroupIds?.length && !workerGroupIds.includes(trigger.groupId)) return false;
+	if (excludedGroups?.has(groupPair(trigger.projectId, trigger.groupId))) return false;
 	return canRunEnterprise || !isEnterpriseTriggerType(trigger.type);
 }
 

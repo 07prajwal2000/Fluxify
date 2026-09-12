@@ -68,7 +68,15 @@ export type NodeReason = (typeof NODE_REASONS)[number];
  * license slot that outlives its node is a slot nobody can ever reclaim.
  */
 export const NODE_LIVENESS_BUCKET = "fluxify_node_liveness";
-export const NODE_LIVENESS_TTL_MS = 30_000;
+export const NODE_LIVENESS_TTL_MS = 10_000;
+
+/**
+ * How often a node renews its key. A third of the TTL, so two renewals can be
+ * lost to a slow write or a blip before the node is declared dead — and a node
+ * that really died frees its license slot within the TTL rather than holding it
+ * for half a minute.
+ */
+export const NODE_HEARTBEAT_INTERVAL_MS = NODE_LIVENESS_TTL_MS / 3;
 
 /**
  * The leader lease, in its own bucket only because TTL is a bucket property
@@ -79,12 +87,25 @@ export const NODE_LIVENESS_TTL_MS = 30_000;
 export const ORCHESTRATOR_LEASE_BUCKET = "fluxify_orchestrator_lease";
 export const ORCHESTRATOR_LEASE_TTL_MS = 10_000;
 
+/**
+ * What a node should be running, written by the orchestrator and read by the
+ * node itself. Its own bucket because it must *not* expire: a node restarting
+ * has to find the same record it read before, and TTL is a property of the
+ * bucket rather than the key.
+ */
+export const NODE_ASSIGNMENT_BUCKET = "fluxify_node_assignment";
+
 /** Every key either side writes. The one place these are spelled. */
 export const orchestratorKeys = {
 	/** Heartbeat and license slot for one node, in `NODE_LIVENESS_BUCKET`. */
 	node: (nodeId: string) => `node.${nodeId}`,
 	/** Filter matching every node key, for a watch or a slot count. */
 	allNodes: "node.>",
+	/**
+	 * What one node should run, in `NODE_ASSIGNMENT_BUCKET`. Addressed per node
+	 * rather than broadcast, so retyping one node leaves its siblings alone (§4).
+	 */
+	assignment: (nodeId: string) => `assign.${nodeId}`,
 	/** The single leader lease, in `ORCHESTRATOR_LEASE_BUCKET`. */
 	leader: "leader",
 	/**
@@ -107,6 +128,14 @@ export const ORCHESTRATOR_CONFIG_PREFIX = "orchestrator";
  */
 export const CATCH_ALL = "*";
 
+/**
+ * `project:group`, the pair an exclusion list is written in. Lives here rather
+ * than beside the projection because the worker compares against it too.
+ */
+export function groupPair(projectId: string | null, groupId: string) {
+	return `${projectId ?? CATCH_ALL}:${groupId}`;
+}
+
 /** What a worker writes to its liveness key. Read by admin for the UI. */
 export interface NodeHeartbeat {
 	nodeId: string;
@@ -119,6 +148,30 @@ export interface NodeHeartbeat {
 	ready: boolean;
 	/** ISO timestamp of this renewal. */
 	at: string;
+}
+
+/**
+ * What a node should be running. The node reads this on boot and keeps watching
+ * it, so a restart picks up the same answer and nothing drifts from what the
+ * reconciler believes (§4). Absent means "use the environment" — which is how a
+ * hand-started worker and Kit's builtin worker still boot with nobody writing
+ * one.
+ *
+ * The project is deliberately not here. It is baked into the container's env and
+ * labels, because Traefik routes a project from a label and labels cannot be
+ * changed on a running container: a project change recreates the node.
+ */
+export interface NodeAssignment {
+	type: NodeType;
+	/** Trigger groups this node runs. Empty on a route node. */
+	groupIds: string[];
+	/**
+	 * `project:group` pairs this node must NOT run, set only on a catch-all
+	 * (`*`) node — the groups a dedicated node already owns. An exclusion list
+	 * rather than a positive one, so a group created tomorrow falls to the
+	 * catch-all with nothing to update.
+	 */
+	excludedGroups: string[];
 }
 
 /**
