@@ -32,6 +32,13 @@ describe("apiDocsData", () => {
 		expect(names).toContain("setCookie");
 		expect(names).toContain("getConfig");
 		expect(names).toContain("[globalVariable]");
+		expect(names).toContain("trigger.data");
+		expect(names).toContain("trigger.kind");
+		expect(names).toContain("trigger.source");
+		expect(names).toContain("trigger.reply");
+		expect(names).toContain("trigger.id");
+		expect(names).toContain("trigger.meta");
+		expect(names).toContain("trigger.connection");
 		expect(names).toContain("jwt.sign");
 		expect(names).toContain("jwt.verify");
 		expect(names).toContain("httpClient.get");
@@ -41,6 +48,18 @@ describe("apiDocsData", () => {
 		expect(names).toContain("libs.dayjs");
 		expect(names).toContain("libs._");
 		expect(names).toContain("libs.zod");
+	});
+
+	it("documents trigger variables under variables category", () => {
+		const triggerDocs = API_DOCS.filter((d) => d.name.startsWith("trigger."));
+		expect(triggerDocs.length).toBe(7);
+		for (const doc of triggerDocs) {
+			expect(doc.category).toBe("variables");
+			expect(doc.example).toBeTruthy();
+			expect(doc.description).toBeTruthy();
+		}
+		const triggerDataDoc = triggerDocs.find((d) => d.name === "trigger.data");
+		expect(triggerDataDoc?.example).toContain("trigger.data");
 	});
 
 	it("groups API docs by categories properly", () => {
