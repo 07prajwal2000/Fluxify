@@ -170,9 +170,20 @@ html[data-theme="dark"] .fx-canvas-toolbar,
 }
 
 .fx-canvas__quick-action {
-	background: transparent;
+	--button-bg: var(--surface);
+	--button-bg-hover: var(--surface-secondary);
+	--button-fg: var(--foreground);
+	background: var(--surface) !important;
+	color: var(--foreground) !important;
 	border: 1px solid var(--border);
 	box-shadow: 0 0.25rem 0.75rem color-mix(in srgb, var(--foreground) 14%, transparent);
+	backdrop-filter: blur(12px);
+}
+
+.fx-canvas__quick-action:hover,
+.fx-canvas__quick-action:focus-visible {
+	--button-bg: var(--surface-secondary);
+	background: var(--surface-secondary) !important;
 }
 
 .fx-canvas__expandable-action {

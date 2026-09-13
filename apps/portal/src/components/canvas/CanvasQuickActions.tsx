@@ -23,8 +23,7 @@ export function CanvasQuickActions({
 				<>
 					<Button
 						aria-label="Add block"
-						variant="ghost"
-						className="fx-canvas__quick-action fx-canvas__expandable-action fx-canvas__add-block-action"
+						className="fx-canvas__quick-action fx-canvas__expandable-action fx-canvas__add-block-action bg-surface text-foreground hover:bg-surface-secondary"
 						onPress={onOpenBlockPicker}
 					>
 						<TbPlus className="fx-canvas__expandable-icon" />
@@ -32,8 +31,7 @@ export function CanvasQuickActions({
 					</Button>
 					<Button
 						aria-label="Add note"
-						variant="ghost"
-						className="fx-canvas__quick-action fx-canvas__expandable-action fx-canvas__note-action"
+						className="fx-canvas__quick-action fx-canvas__expandable-action fx-canvas__note-action bg-surface text-foreground hover:bg-surface-secondary"
 						onPress={onAddNote}
 					>
 						<TbNote className="fx-canvas__expandable-icon" />
@@ -44,8 +42,7 @@ export function CanvasQuickActions({
 			{enablePlayground && (
 				<Button
 					aria-label="Open playground"
-					variant="ghost"
-					className="fx-canvas__quick-action fx-canvas__expandable-action fx-canvas__playground-action"
+					className="fx-canvas__quick-action fx-canvas__expandable-action fx-canvas__playground-action bg-surface text-foreground hover:bg-surface-secondary"
 					onPress={onOpenPlayground}
 				>
 					<TbPlayerPlay className="fx-canvas__expandable-icon" />

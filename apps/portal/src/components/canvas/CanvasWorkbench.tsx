@@ -21,6 +21,8 @@ export type CanvasWorkbenchProps = {
 	enableBlockPicker?: boolean;
 	/** Opt-in only: the route owning the playground controls enables its trigger. */
 	enablePlayground?: boolean;
+	/** Opt-in only: enables the Spotlight command palette (Cmd/Ctrl+K or Cmd/Ctrl+Space). */
+	enableSpotlight?: boolean;
 	playgroundContent?: ReactNode;
 	/** Extra header controls owned by the caller — route settings, for one. */
 	headerActions?: ReactNode;
@@ -53,6 +55,7 @@ export function CanvasWorkbench({
 	save,
 	enableBlockPicker = false,
 	enablePlayground = false,
+	enableSpotlight = false,
 	playgroundContent,
 	headerActions,
 	headerLeft,
@@ -128,6 +131,7 @@ export function CanvasWorkbench({
 						nodeTypes={nodeTypes}
 						enableBlockPicker={enableBlockPicker}
 						enablePlayground={enablePlayground}
+						enableSpotlight={enableSpotlight}
 						playgroundContent={playgroundContent}
 						cycleFeedbackToken={cycleFeedbackToken}
 						onSave={() => void onSave()}

@@ -32,6 +32,7 @@ function WorkflowCanvasPage() {
 			<CanvasWorkbench
 				title="Workflow canvas"
 				enableBlockPicker
+				enableSpotlight
 				items={workflowsQuery.canvasItems.useQuery(workflowId)}
 				reload={() => workflowsService.getCanvasItems(workflowId)}
 				save={(payload) => save.mutateAsync(payload)}

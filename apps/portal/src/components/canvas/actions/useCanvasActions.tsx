@@ -10,6 +10,7 @@ import {
 	TbFileImport,
 	TbNote,
 	TbPlus,
+	TbSearch,
 	TbTrash,
 	TbDeviceFloppy,
 } from "react-icons/tb";
@@ -22,6 +23,7 @@ import type { BlockEdge, BlockNode } from "../types";
 
 export type CanvasActionId =
 	| "open"
+	| "spotlight"
 	| "addBlock"
 	| "addNote"
 	| "undo"
@@ -57,6 +59,7 @@ export type UseCanvasActionsOptions = {
 	onSave?: () => void;
 	onAddBlock?: () => void;
 	onAddNote?: () => void;
+	onOpenSpotlight?: () => void;
 };
 
 export type CanvasActions = {
@@ -76,6 +79,7 @@ export function useCanvasActions({
 	onSave,
 	onAddBlock,
 	onAddNote,
+	onOpenSpotlight,
 }: UseCanvasActionsOptions): CanvasActions {
 	const { deleteElements } = useReactFlow();
 	const clipboard = useCanvasClipboard();
@@ -100,6 +104,15 @@ export function useCanvasActions({
 
 	const list = useMemo<CanvasAction[]>(
 		() => [
+			{
+				id: "spotlight",
+				label: "Command palette…",
+				combo: "mod+k",
+				icon: <TbSearch size={14} />,
+				available: Boolean(onOpenSpotlight),
+				disabled: false,
+				run: () => onOpenSpotlight?.(),
+			},
 			{
 				id: "open",
 				label: "Open settings",
@@ -239,6 +252,7 @@ export function useCanvasActions({
 			deleteElements,
 			onAddBlock,
 			onAddNote,
+			onOpenSpotlight,
 			onSave,
 			selectedBlockIds,
 			selectedEdgeIds,

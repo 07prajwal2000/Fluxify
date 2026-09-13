@@ -8,6 +8,7 @@ export * from "./blocks";
 export { CanvasCommands, type CanvasCommandsProps } from "./CanvasCommands";
 export * from "./contextMenu";
 export * from "./keyboard";
+export * from "./spotlight";
 export * from "./transfer";
 export { DEFAULT_EDGE_TYPES, FLOW_EDGE_TYPE, FlowEdge } from "./edges";
 export * from "./changes";
