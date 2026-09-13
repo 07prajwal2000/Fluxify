@@ -34,6 +34,8 @@ export interface SchemaProperty {
 	dataType: DataType;
 	rules?: Rule[];
 	required?: boolean;
+	/** Used when an optional field is missing from the request. */
+	default?: unknown;
 	/** For `object`. */
 	properties?: SchemaProperty[];
 	/** For `arr`. */

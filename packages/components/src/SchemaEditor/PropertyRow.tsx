@@ -13,6 +13,7 @@ import { CONTAINER_TYPES } from "./constants";
 import { useSchemaEditorContext } from "./context";
 import { DataTypeSelect } from "./DataTypeSelect";
 import type { SchemaPath, SchemaProperty } from "./types";
+import { hasDefaultValue } from "./DefaultValueField";
 
 interface PropertyRowProps {
 	property: SchemaProperty;
@@ -42,8 +43,12 @@ export function PropertyRow({
 
 	const isContainer = CONTAINER_TYPES.includes(property.dataType);
 	const isJs = property.dataType === "js";
-	// A type with no registered editor has nothing to open — `bool` today.
-	const isConfigurable = isContainer || Boolean(ruleEditors[property.dataType]);
+	// A type with no registered editor has nothing to open — a required `bool`
+	// today. An optional one still opens, for its default value.
+	const isConfigurable =
+		isContainer ||
+		Boolean(ruleEditors[property.dataType]) ||
+		hasDefaultValue(property);
 
 	// An override names the choices for this one field, so it stays live even
 	// when the rest of the editor is locked.
@@ -83,7 +88,8 @@ export function PropertyRow({
 			<DataTypeSelect
 				isDisabled={!typeIsEditable}
 				label={`Data type for ${property.key || "property"}`}
-				onChange={(dataType) => update({ dataType })}
+				// a default typed for the old type would be wrong for the new one
+				onChange={(dataType) => update({ dataType, default: undefined })}
 				options={typeOptionsFor(path)}
 				value={property.dataType}
 			/>
@@ -93,7 +99,10 @@ export function PropertyRow({
 					isDisabled={isReadOnly || lockKeys}
 					isSelected={property.required ?? true}
 					label="Required"
-					onChange={(next) => update({ required: next })}
+					// required fields never use a default
+					onChange={(next) =>
+						update(next ? { required: next, default: undefined } : { required: next })
+					}
 				/>
 
 				{isConfigurable ? (

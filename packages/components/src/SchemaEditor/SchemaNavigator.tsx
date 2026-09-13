@@ -6,8 +6,13 @@ import { useSchemaEditorContext } from "./context";
 import { DataTypeSelect } from "./DataTypeSelect";
 import { InfoNote } from "./InfoNote";
 import { PropertyRow } from "./PropertyRow";
-import type { SchemaNode, SchemaPath, SchemaProperty } from "./types";
-import { buildBreadcrumbs, findDuplicateKeys, getAtPath } from "./utils";
+import type { SchemaNode, SchemaPath } from "./types";
+import {
+	buildBreadcrumbs,
+	DEFAULT_ITEMS,
+	findDuplicateKeys,
+	getAtPath,
+} from "./utils";
 
 /**
  * The one level of the schema currently in view. Objects list their properties,
@@ -149,7 +154,6 @@ function ObjectLevel({ node, path }: { node: SchemaNode; path: SchemaPath }) {
 	);
 }
 
-const DEFAULT_ITEMS: SchemaProperty = { key: "", dataType: "str", rules: [] };
 
 function ArrayLevel({ node, path }: { node: SchemaNode; path: SchemaPath }) {
 	const {

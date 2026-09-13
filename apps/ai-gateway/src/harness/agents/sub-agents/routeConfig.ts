@@ -193,6 +193,7 @@ Fluxify uses a specific JSON format for schemas. DO NOT output standard JSON Sch
       "key": "age",
       "dataType": "int",
       "required": false,
+      "default": 18,
       "rules": [
         { "type": "min", "value": 18, "message": "Must be 18 or older" }
       ]

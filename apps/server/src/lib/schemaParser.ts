@@ -26,6 +26,8 @@ export type CompiledRequestSchema = {
 
 type ParseResult = {
   success: boolean;
+  /** coerced input with defaults filled in; only set on success */
+  data?: unknown;
   errors?: Array<{ path: string; property: string; errors: any[] }>;
 };
 
@@ -53,8 +55,10 @@ function getBaseZodType(dataType: string, coerce = false): z.ZodTypeAny {
     case 'str': return coerce ? z.coerce.string() : z.string();
     case 'int': return (coerce ? z.coerce.number() : z.number()).int();
     case 'float': return coerce ? z.coerce.number() : z.number();
-    case 'bool': return coerce ? z.coerce.boolean() : z.boolean();
-    case 'object': return z.object({});
+    // z.coerce.boolean() turns the string "false" into true
+    case 'bool': return coerce ? z.preprocess(fromBoolString, z.boolean()) : z.boolean();
+    // loose: validated data is handed to the workflow, so undeclared keys must survive
+    case 'object': return z.looseObject({});
     case 'arr': return z.array(z.any());
     // multipart fields arrive as File, a raw octet-stream body as Blob
     case 'file': return z.file();
@@ -117,6 +121,12 @@ function applyRules(schema: z.ZodTypeAny, dataType: string, rules: any[] = []): 
   return s;
 }
 
+function fromBoolString(value: unknown) {
+  if (value === 'true') return true;
+  if (value === 'false') return false;
+  return value;
+}
+
 /** authored either as a list or as a comma-separated string — accept both */
 function toMimeList(value: unknown): string[] {
   const raw = Array.isArray(value) ? value : String(value).split(',');
@@ -132,7 +142,7 @@ function baseMime(value: string): string {
 }
 
 export function buildZodSchema(schemaDef: any, coerce = false): z.ZodTypeAny {
-  const { dataType, properties, items, rules, js, required } = schemaDef;
+  const { dataType, properties, items, rules, js, required, default: defaultValue } = schemaDef;
 
   let zSchema: z.ZodTypeAny;
 
@@ -165,6 +175,13 @@ export function buildZodSchema(schemaDef: any, coerce = false): z.ZodTypeAny {
       } else {
         zSchema = z.union(vals.map((v: any) => z.literal(v)) as any);
       }
+      if (coerce) {
+        // query/params arrive as strings: "25" must match the allowed value 25
+        zSchema = z.preprocess(
+          (v) => (typeof v === 'string' ? vals.find((allowed: any) => String(allowed) === v) ?? v : v),
+          zSchema,
+        );
+      }
     } else {
       zSchema = z.any(); // fallback if no enum values defined
     }
@@ -176,7 +193,7 @@ export function buildZodSchema(schemaDef: any, coerce = false): z.ZodTypeAny {
       for (const prop of properties) {
         shape[prop.key] = buildZodSchema(prop, coerce);
       }
-      zSchema = z.object(shape);
+      zSchema = z.looseObject(shape);
     } else if (dataType === 'arr' && items) {
       zSchema = z.array(buildZodSchema(items, coerce));
     }
@@ -185,7 +202,10 @@ export function buildZodSchema(schemaDef: any, coerce = false): z.ZodTypeAny {
   }
 
   if (required === false) {
-    zSchema = zSchema.optional();
+    // cloned per request: a shared array/object default would leak mutations
+    zSchema = defaultValue === undefined
+      ? zSchema.optional()
+      : zSchema.default(() => structuredClone(defaultValue));
   }
 
   return zSchema;
@@ -194,7 +214,7 @@ export function buildZodSchema(schemaDef: any, coerce = false): z.ZodTypeAny {
 const validationContext = new AsyncLocalStorage<ParserContext>();
 
 function formatResult(result: z.ZodSafeParseResult<unknown>): ParseResult {
-  if (result.success) return { success: true };
+  if (result.success) return { success: true, data: result.data };
   const errors = result.error.issues.map(issue => {
     let customErrorObj = null;
     try {

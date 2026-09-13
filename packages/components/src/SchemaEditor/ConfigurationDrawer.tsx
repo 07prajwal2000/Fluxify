@@ -1,6 +1,7 @@
 import { Button, Drawer } from "@heroui/react";
 import { TbX } from "react-icons/tb";
 import { useSchemaEditorContext } from "./context";
+import { DefaultValueField, hasDefaultValue } from "./DefaultValueField";
 import type { SchemaProperty } from "./types";
 import { getAtPath } from "./utils";
 
@@ -22,6 +23,8 @@ export function ConfigurationDrawer() {
 
 	const node = drawerPath ? getAtPath(schema, drawerPath) : undefined;
 	const RuleEditor = node ? ruleEditors[node.dataType] : undefined;
+	const onUpdate = (updates: Partial<SchemaProperty>) =>
+		drawerPath && updateProperty(drawerPath, updates);
 	const title = node
 		? `Configure ${(node as SchemaProperty).key ? `"${(node as SchemaProperty).key}"` : "field"}`
 		: "Configure field";
@@ -63,15 +66,22 @@ export function ConfigurationDrawer() {
 					</Drawer.Header>
 
 					<Drawer.Body className="flex-1 overflow-auto">
-						{RuleEditor && node ? (
-							<RuleEditor
-								isReadOnly={isReadOnly}
-								jsEditorRows={jsEditorRows}
-								node={node}
-								onUpdate={(updates) =>
-									drawerPath && updateProperty(drawerPath, updates)
-								}
-							/>
+						{node && (RuleEditor || hasDefaultValue(node)) ? (
+							<div className="flex flex-col gap-4">
+								{RuleEditor && (
+									<RuleEditor
+										isReadOnly={isReadOnly}
+										jsEditorRows={jsEditorRows}
+										node={node}
+										onUpdate={onUpdate}
+									/>
+								)}
+								<DefaultValueField
+									isReadOnly={isReadOnly}
+									node={node}
+									onUpdate={onUpdate}
+								/>
+							</div>
 						) : (
 							<p className="text-sm text-muted">
 								No configuration is available for this type.

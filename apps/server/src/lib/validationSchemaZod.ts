@@ -21,6 +21,8 @@ const baseSchemaProperty = z.object({
   dataType: DataTypeZod,
   rules: z.array(RuleZod).optional(),
   required: z.boolean().optional(),
+  /** used when an optional field is missing from the request */
+  default: z.any().optional(),
   js: z.string().optional(),
 });
 
