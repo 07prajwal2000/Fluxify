@@ -13,8 +13,9 @@ export function schemaProperties(schema?: ApiSchema | null): ApiSchemaProperty[]
 	const required = "required" in schema && Array.isArray(schema.required) ? schema.required : [];
 	return Object.entries(schema.properties).map(([key, property]) => ({
 		key,
-		dataType: property.type,
+		dataType: ("dataType" in property ? property.dataType : undefined) ?? property.type,
 		required: property.required ?? required.includes(key),
+		rules: "rules" in property ? property.rules : undefined,
 	}));
 }
 

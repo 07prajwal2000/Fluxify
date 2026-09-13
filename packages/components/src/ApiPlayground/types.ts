@@ -1,15 +1,23 @@
+export type ApiSchemaRule = {
+	type: string;
+	value?: unknown;
+	message?: string;
+	[key: string]: unknown;
+};
+
 export type ApiSchemaProperty = {
 	key: string;
 	dataType?: string;
 	required?: boolean;
 	properties?: ApiSchemaProperty[];
 	items?: ApiSchemaProperty;
+	rules?: ApiSchemaRule[];
 };
 
 /** Supports Fluxify validation schemas and standard JSON Schema property maps. */
 export type ApiSchema =
-	| { properties?: ApiSchemaProperty[]; required?: string[]; type?: string }
-	| { properties?: Record<string, { type?: string; required?: boolean }> };
+	| { properties?: ApiSchemaProperty[]; required?: string[]; type?: string; dataType?: string; rules?: ApiSchemaRule[] }
+	| { properties?: Record<string, { type?: string; dataType?: string; required?: boolean; rules?: ApiSchemaRule[] }>; dataType?: string; rules?: ApiSchemaRule[] };
 
 export type ApiPlaygroundRoute = {
 	/** The unexpanded route path, for example `/users/:id`. */
@@ -62,6 +70,7 @@ export type ApiPlaygroundState = {
 	body?: string;
 	formBody?: Record<string, ApiFormValue>;
 	response?: ApiPlaygroundResponse;
+	validateBeforeSend?: boolean;
 };
 
 export type ApiPlaygroundProps = {
@@ -79,6 +88,7 @@ export type ApiPlaygroundProps = {
 	initialBody?: string;
 	/** Preserved snapshot of playground inputs and output. */
 	initialState?: ApiPlaygroundState;
+	defaultValidate?: boolean;
 	/** Called after an editable request field changes. Useful for persisted drafts. */
 	onRequestChange?: (request: Omit<ApiPlaygroundRequest, "url" | "body">) => void;
 	/** Called after playground input or output state changes. */
