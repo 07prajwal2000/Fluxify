@@ -153,12 +153,12 @@ const libs: {
 ## DB Native only
 
 ```typescript
-function dbQuery(query: string): Promise<unknown>;
+function dbQuery(query: string, params?: unknown[]): Promise<Record<string, unknown>[]>;
 ```
 
 | API | Parameters | Returns | Description |
 | --- | --- | --- | --- |
-| `dbQuery` | `query: string` | `Promise<unknown>` | Runs a SQL query. Available only in **DB Native** blocks. |
+| `dbQuery` | `query: string`, `params?: unknown[]` | `Promise<rows[]>` | Runs a SQL query and returns the rows. Put values in `params` and use `$1` (PostgreSQL) or `?` (MySQL) placeholders. Available only in **DB Native** blocks. |
 
 ## Import rules
 

@@ -85,12 +85,13 @@ export class MySqlAdapter implements IDbAdapter {
 			throw new Error("raw() accepts only string queries.");
 
 		const conn = this.getConnection();
-		return conn.executeQuery(CompiledQuery.raw(query, params ?? []));
+		// rows only: the full result carries a BigInt `numAffectedRows` that JSON cannot serialize
+		const result = await conn.executeQuery(CompiledQuery.raw(query, params ?? []));
+		return result.rows;
 	}
 
 	async introspect(): Promise<IntrospectedTable[]> {
-		const result = await this.raw(INTROSPECT_SQL);
-		return groupIntrospectionRows(result.rows ?? result);
+		return groupIntrospectionRows(await this.raw(INTROSPECT_SQL));
 	}
 
 	async getAll(

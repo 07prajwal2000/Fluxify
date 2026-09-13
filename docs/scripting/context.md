@@ -230,12 +230,14 @@ return result.data;
 `dbQuery` is **exclusively available** inside the **DB Native** block. The compiler only emits this helper for that block.
 
 ```typescript
-dbQuery(query: string): Promise<unknown>
+dbQuery(query: string, params?: unknown[]): Promise<Record<string, unknown>[]>
 ```
+
+It returns the result rows as an array. Pass values through `params` with `$1` (PostgreSQL) or `?` (MySQL) placeholders, never by building the query string yourself.
 
 ```javascript
 // Only works inside a DB Native block:
-const users = await dbQuery("SELECT id, name FROM users WHERE active = true");
+const users = await dbQuery("SELECT id, name FROM users WHERE active = $1", [true]);
 return users;
 ```
 

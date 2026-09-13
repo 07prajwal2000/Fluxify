@@ -45,9 +45,11 @@ export function NativeDbCodeSettings({ block }: { block: BlockNode }) {
 				<div>
 					You have access to the async function{" "}
 					<code className="font-mono text-foreground font-semibold px-1 py-0.5 rounded bg-[var(--background-tertiary,#27272a)]">
-						await dbQuery(query)
+						await dbQuery(query, params)
 					</code>{" "}
-					to execute raw queries on the selected database adapter.
+					to execute raw queries on the selected database adapter. It returns
+					the rows. Pass values in params with $1 (PostgreSQL) or ? (MySQL)
+					placeholders.
 				</div>
 			</div>
 

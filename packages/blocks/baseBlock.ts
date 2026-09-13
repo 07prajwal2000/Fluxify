@@ -216,7 +216,7 @@ export interface ContextVarsType {
 	 * @param query SQL supported query
 	 * @returns
 	 */
-	dbQuery?: (query: string) => Promise<unknown>;
+	dbQuery?: (query: string, params?: unknown[]) => Promise<unknown>;
 	logger: AbstractLogger;
 	jwt: {
 		sign(payload: object, secretKey: string, options?: jwt.SignOptions): string;
@@ -272,7 +272,7 @@ function setCookie(name: string, options: {
 
 // 4. System & Utilities
 	function getConfig(key: string): string | number | boolean | undefined;
-	function dbQuery(query: string): Promise<unknown>; // Only available in DB Native block
+	function dbQuery(query: string, params?: unknown[]): Promise<any[]>; // Only available in DB Native block. Returns rows; pass values via params with $1 (Postgres) / ? (MySQL)
 	const logger: { 
 		logInfo(...args: any[]): void; 
 		logError(...args: any[]): void; 
