@@ -26,6 +26,12 @@ export type JavaScriptTextAreaProps = {
 	typeDefinitions?: string;
 	/** `"vs-dark" | "light"`. Follows the app theme when omitted. */
 	theme?: string;
+	/** Explicit height (e.g. "100%" or 400). Overrides rows-based sizing. */
+	height?: string | number;
+	/** Called after the editor is mounted. */
+	onEditorMount?: OnMount;
+	/** Whether to wrap lines. Defaults to false ("off"). */
+	wordWrap?: boolean;
 	"aria-label"?: string;
 	onBlur?: () => void;
 	onFocus?: () => void;
@@ -49,17 +55,20 @@ export function JavaScriptTextArea({
 	defaultValue,
 	onChange,
 	rows = 4,
+	height: heightProp,
 	readOnly,
 	autoFocus,
 	showLineNumbers = true,
 	className,
 	typeDefinitions,
 	theme,
+	wordWrap = false,
 	onBlur,
 	onFocus,
+	onEditorMount,
 	"aria-label": ariaLabel,
 }: JavaScriptTextAreaProps) {
-	const height = rows * LINE_HEIGHT + VERTICAL_PADDING;
+	const height = heightProp ?? rows * LINE_HEIGHT + VERTICAL_PADDING;
 	const mountedRef = useRef(false);
 	const typeDefinitionsId = useId();
 
@@ -88,8 +97,9 @@ export function JavaScriptTextArea({
 				mountedRef.current = true;
 				editor.focus();
 			}
+			onEditorMount?.(editor, monaco);
 		},
-		[autoFocus, onBlur, onFocus],
+		[autoFocus, onBlur, onFocus, onEditorMount],
 	);
 
 	return (
@@ -115,6 +125,7 @@ export function JavaScriptTextArea({
 				options={{
 					fixedOverflowWidgets: true,
 					readOnly,
+					wordWrap: wordWrap ? "on" : "off",
 					fontSize: FONT_SIZE,
 					lineHeight: LINE_HEIGHT,
 					lineNumbers: showLineNumbers ? "on" : "off",
@@ -130,6 +141,13 @@ export function JavaScriptTextArea({
 					renderLineHighlight: "none",
 					tabSize: 2,
 					contextmenu: false,
+					scrollbar: {
+						vertical: "auto",
+						horizontal: "auto",
+						verticalScrollbarSize: 8,
+						horizontalScrollbarSize: 8,
+						alwaysConsumeMouseWheel: false,
+					},
 					suggest: {
 						showInlineDetails: true,
 						preview: true,

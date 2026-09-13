@@ -1,6 +1,13 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
-import { Button, useInputDataTypes, type ValidationSchema } from "@fluxify/components";
+import {
+	Button,
+	useCanvasVariableSnippets,
+	useInputDataTypes,
+	useRouteParamSnippets,
+	useRouteParamTypes,
+	type ValidationSchema,
+} from "@fluxify/components";
 import { TbSettings } from "react-icons/tb";
 import { routesQuery } from "@/query/routesQuery";
 import { routesService } from "@/services/routes";
@@ -9,6 +16,7 @@ import { RouteApiPlayground } from "@/components/RouteApiPlayground";
 import { RouteSettingsModal } from "@/components/routes/RouteSettingsModal";
 import { RouteSwitcher } from "@/components/routes/RouteSwitcher";
 import { RouteWorkbenchTabs } from "@/components/routes/RouteWorkbenchTabs";
+import { extractPathParams } from "@/components/routes/routeForm";
 import { createRouteHead } from "@/lib/seo";
 
 export const Route = createFileRoute("/_authed/$projectId_/canvas/$routeId")({
@@ -26,13 +34,37 @@ function RouteCanvasPage() {
 	const { data: route } = routesQuery.byId.useQuery(routeId);
 	useInputDataTypes(route?.bodySchema as ValidationSchema | null);
 
+	const routeParams = useMemo(() => {
+		const fromPath = route?.path ? extractPathParams(route.path) : [];
+		const fromSchema = (route?.paramsSchema?.properties ?? []).map((p: { key: string }) => p.key);
+		return Array.from(new Set([...fromPath, ...fromSchema]));
+	}, [route?.path, route?.paramsSchema]);
+
+	const queryParams = useMemo(() => {
+		return (route?.querySchema?.properties ?? []).map((p: { key: string }) => p.key);
+	}, [route?.querySchema]);
+
+	useRouteParamTypes(routeParams, queryParams);
+	useRouteParamSnippets(routeParams, queryParams);
+
+	const items = routesQuery.canvasItems.useQuery(routeId);
+	const canvasVariables = useMemo(() => {
+		const blocks = items.data?.blocks ?? [];
+		return blocks
+			.filter((b) => b.type === "setvar" && (b.data as any)?.key)
+			.map((b) => String((b.data as any).key).trim())
+			.filter(Boolean);
+	}, [items.data?.blocks]);
+
+	useCanvasVariableSnippets(canvasVariables);
+
 	return (
 		<>
 			<CanvasWorkbench
 				title="Route canvas"
 				enableBlockPicker
 				enablePlayground
-				items={routesQuery.canvasItems.useQuery(routeId)}
+				items={items}
 				playgroundContent={<RouteApiPlayground routeId={routeId} baseUrl={import.meta.env.VITE_ROUTE_BASE_URL ?? window.location.origin} isFramed={false} />}
 				reload={() => routesService.getCanvasItems(routeId)}
 				save={(payload) => save.mutateAsync(payload)}
