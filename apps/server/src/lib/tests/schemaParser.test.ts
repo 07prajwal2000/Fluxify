@@ -278,6 +278,75 @@ describe('schemaParser Exhaustive Test Suite', () => {
     });
   });
 
+  // #346: defaults and query-string coercion
+  describe('Defaults and coercion', () => {
+    const coerced = { vars: {}, coerce: true };
+    const perPage = {
+      dataType: 'object',
+      properties: [
+        { key: 'per_page', dataType: 'enum', required: false, default: 10, rules: [{ type: 'values', value: [10, 25, 50] }] },
+        { key: 'page', dataType: 'int', required: false, default: 1 },
+      ],
+    };
+
+    test('numeric enum matches a query-string value and returns the number', async () => {
+      const result = await parseRequestSchema(perPage, { per_page: '25' }, coerced);
+      expect(result.success).toBe(true);
+      expect(result.data).toEqual({ per_page: 25, page: 1 });
+    });
+
+    test('numeric enum still rejects a value outside the list', async () => {
+      expect((await parseRequestSchema(perPage, { per_page: '30' }, coerced)).success).toBe(false);
+    });
+
+    test('numeric enum does not coerce without the coerce flag (body stays strict)', async () => {
+      expect((await parseRequestSchema(perPage, { per_page: '25' }, context)).success).toBe(false);
+    });
+
+    test('missing optional fields get their defaults', async () => {
+      const result = await parseRequestSchema(perPage, {}, coerced);
+      expect(result.success).toBe(true);
+      expect(result.data).toEqual({ per_page: 10, page: 1 });
+    });
+
+    test('a supplied value wins over the default', async () => {
+      const result = await parseRequestSchema(perPage, { page: '3' }, coerced);
+      expect(result.data).toEqual({ per_page: 10, page: 3 });
+    });
+
+    test('coerced numbers are returned as numbers', async () => {
+      const schema = { dataType: 'object', properties: [{ key: 'id', dataType: 'int' }] };
+      expect((await parseRequestSchema(schema, { id: '7' }, coerced)).data).toEqual({ id: 7 });
+    });
+
+    test('undeclared keys are kept, not stripped', async () => {
+      const result = await parseRequestSchema(perPage, { sort: 'asc', nested: { a: 1 } }, coerced);
+      expect(result.data).toEqual({ per_page: 10, page: 1, sort: 'asc', nested: { a: 1 } });
+    });
+
+    test('query-string "false" coerces to false, not true', async () => {
+      const schema = { dataType: 'object', properties: [{ key: 'active', dataType: 'bool' }] };
+      expect((await parseRequestSchema(schema, { active: 'false' }, coerced)).data).toEqual({ active: false });
+      expect((await parseRequestSchema(schema, { active: 'true' }, coerced)).data).toEqual({ active: true });
+      expect((await parseRequestSchema(schema, { active: 'nope' }, coerced)).success).toBe(false);
+    });
+
+    test('object/array defaults are not shared between requests', async () => {
+      const schema = compileRequestSchema({
+        dataType: 'object',
+        properties: [{ key: 'tags', dataType: 'arr', required: false, default: ['a'] }],
+      });
+      const first = (await schema.validate({}, context)).data as any;
+      first.tags.push('mutated');
+      const second = (await schema.validate({}, context)).data as any;
+      expect(second.tags).toEqual(['a']);
+    });
+
+    test('failed validation returns no data', async () => {
+      expect((await parseRequestSchema(perPage, { per_page: '30' }, coerced)).data).toBeUndefined();
+    });
+  });
+
   describe('DB Zod Schema Protection', () => {
     test('Rejects malformed JSON definitions entirely before execution', async () => {
       const malformedSchema = {

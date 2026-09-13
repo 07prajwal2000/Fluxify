@@ -220,6 +220,8 @@ export async function executeRouteInternal(
 				data: { message: "Body validation failed", errors: result.errors },
 			};
 		}
+		// defaults and coerced values are what the workflow should see
+		requestData.body = result.data as typeof requestData.body;
 	}
 
 	if (routeInfo.querySchema && Object.keys(routeInfo.querySchema).length > 0) {
@@ -238,6 +240,8 @@ export async function executeRouteInternal(
 				data: { message: "Query validation failed", errors: result.errors },
 			};
 		}
+		// defaults and coerced values are what the workflow should see
+		requestData.query = result.data as typeof requestData.query;
 	}
 
 	if (
@@ -259,6 +263,7 @@ export async function executeRouteInternal(
 				},
 			};
 		}
+		requestData.params = result.data as typeof requestData.params;
 	}
 
 	const vm = createJsVM(vars);

@@ -18,7 +18,7 @@ export const newProperty = (): SchemaProperty => ({
 	required: false,
 });
 
-const DEFAULT_ITEMS: SchemaProperty = { key: "", dataType: "str", rules: [] };
+export const DEFAULT_ITEMS: SchemaProperty = { key: "", dataType: "str", rules: [] };
 
 /**
  * Keys used more than once among siblings. An object key is unique by
@@ -47,8 +47,12 @@ export function getAtPath(
 	let node: SchemaNode | undefined = root;
 	for (const segment of path) {
 		if (!node) return undefined;
+		// An array whose item type was never changed has no `items` yet, but the
+		// navigator shows DEFAULT_ITEMS for it, so the drawer must resolve the same.
 		node =
-			segment === "items" ? node.items : node.properties?.[segment];
+			segment === "items"
+				? (node.items ?? DEFAULT_ITEMS)
+				: node.properties?.[segment];
 	}
 	return node;
 }
@@ -149,6 +153,43 @@ export function updateRule(
 	if (index >= 0) next[index] = { ...next[index], type, value };
 	else next.push({ type, value });
 	return next;
+}
+
+// ── Defaults ─────────────────────────────────────────────────────────────────
+
+/** Types whose default can be typed into a single text input. */
+export const DEFAULTABLE_TYPES: SchemaProperty["dataType"][] = [
+	"str",
+	"int",
+	"float",
+	"bool",
+	"enum",
+];
+
+/**
+ * Typed default from what the user typed, or `undefined` when it is empty or
+ * not a valid value of the type. The server does not re-validate a default, so
+ * a wrong-typed one would reach the workflow as-is.
+ */
+export function parseDefault(property: SchemaProperty, raw: string): unknown {
+	if (raw === "") return undefined;
+	const n = Number(raw);
+	switch (property.dataType) {
+		case "str":
+			return raw;
+		case "int":
+			return Number.isInteger(n) ? n : undefined;
+		case "float":
+			return Number.isFinite(n) ? n : undefined;
+		case "bool":
+			return raw === "true" ? true : raw === "false" ? false : undefined;
+		case "enum":
+			return getRuleValue<unknown[]>(property.rules, "values", []).find(
+				(value) => String(value) === raw,
+			);
+		default:
+			return undefined;
+	}
 }
 
 // ── Paths ────────────────────────────────────────────────────────────────────

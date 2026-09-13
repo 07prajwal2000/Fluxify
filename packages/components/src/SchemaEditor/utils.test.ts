@@ -7,6 +7,7 @@ import {
 	getAtPath,
 	getRuleValue,
 	mergeAtPath,
+	parseDefault,
 	pathToKeyString,
 	removeAtPath,
 	updateRule,
@@ -108,5 +109,38 @@ describe("rules", () => {
 	test("enum values round-trip as a list", () => {
 		const rules = updateRule([], "values", ["a", "b"]);
 		expect(getRuleValue<string[]>(rules, "values", [])).toEqual(["a", "b"]);
+	});
+});
+
+describe("parseDefault", () => {
+	const prop = (dataType: any, rules: any[] = []) => ({ key: "k", dataType, rules });
+
+	test("types the raw input per data type", () => {
+		expect(parseDefault(prop("str"), "abc")).toBe("abc");
+		expect(parseDefault(prop("int"), "10")).toBe(10);
+		expect(parseDefault(prop("float"), "2.5")).toBe(2.5);
+		expect(parseDefault(prop("bool"), "false")).toBe(false);
+	});
+
+	test("rejects values that are not valid for the type", () => {
+		expect(parseDefault(prop("int"), "2.5")).toBeUndefined();
+		expect(parseDefault(prop("int"), "abc")).toBeUndefined();
+		expect(parseDefault(prop("float"), "-")).toBeUndefined();
+		expect(parseDefault(prop("bool"), "yes")).toBeUndefined();
+		expect(parseDefault(prop("str"), "")).toBeUndefined();
+		expect(parseDefault(prop("object"), "{}")).toBeUndefined();
+	});
+
+	test("enum default keeps the allowed value's own type", () => {
+		const perPage = prop("enum", [{ type: "values", value: [10, 25, 50] }]);
+		expect(parseDefault(perPage, "25")).toBe(25);
+		expect(parseDefault(perPage, "30")).toBeUndefined();
+	});
+});
+
+describe("getAtPath on unsaved array items", () => {
+	test("resolves the default item schema the navigator shows", () => {
+		const root: ValidationSchema = { dataType: "arr" };
+		expect(getAtPath(root, ["items"])).toEqual({ key: "", dataType: "str", rules: [] });
 	});
 });
