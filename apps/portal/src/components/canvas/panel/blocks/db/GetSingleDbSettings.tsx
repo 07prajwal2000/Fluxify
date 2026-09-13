@@ -131,7 +131,7 @@ export function GetSingleDbConditionsSettings({ block }: { block: BlockNode }) {
 	const params = useParams({ strict: false }) as { projectId?: string };
 	const projectId = params?.projectId ?? "";
 	const { connectionId, tableName } = readDbBinding(block);
-	const { getColumnsForTable, allColumns, variant } = useDbMetadata(
+	const { getColumnsForTable, allColumns, variant, conditionEditor } = useDbMetadata(
 		projectId,
 		connectionId,
 	);
@@ -152,6 +152,7 @@ export function GetSingleDbConditionsSettings({ block }: { block: BlockNode }) {
 				rhsSuggestions={columnSuggestions}
 				// MongoDB has no field-to-field comparison in this query builder
 				allowColumnRefs={variant !== "MongoDB"}
+				customConditionEditor={conditionEditor}
 				onChange={(nextConditions) => {
 					updateNodeData(block.id, {
 						conditions: serializeDbConditions(nextConditions),

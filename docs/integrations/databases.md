@@ -32,3 +32,22 @@ Once connected, you can use the following blocks to interact with your data:
 - **DB Delete**: Remove data.
 - **DB Transaction**: Run multiple operations safely.
 - **DB Native**: Run raw SQL queries for advanced use cases.
+
+## MySQL
+
+Connect to a MySQL database. It takes the same settings as PostgreSQL (without SSL) and works with the same blocks.
+
+## MongoDB
+
+Connect to a MongoDB database. Collections take the place of tables, and the same blocks read and write documents. Joins are not available.
+
+## Custom conditions
+
+The DB Get All, Get Single, Update and Delete blocks can use a **Custom** condition when the built-in operators are not enough. What you write depends on the database:
+
+| Database | You write | Example |
+| --- | --- | --- |
+| PostgreSQL, MySQL | SQL, with run-time values in `{{ }}` | `name ILIKE {{ '%' + getQueryParam('q') + '%' }}` |
+| MongoDB | JavaScript returning a [query filter object](https://www.mongodb.com/docs/manual/tutorial/query-documents/) | `return { name: { $regex: getQueryParam("q") } }` |
+
+See [Custom conditions](/blocks/db-get-all#custom-conditions) for the details.

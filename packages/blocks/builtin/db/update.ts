@@ -115,19 +115,9 @@ export class UpdateDbBlock extends BaseBlock {
 				};
 			}
 			dataToUpdate = await this.evaluateJsInData(dataToUpdate);
-			const evaluatedConditions = await Promise.all(
-				this.input.conditions.map(async (condition) => {
-					const { lhs, rhs } = await ConditionEvaluator.evaluateScript(
-						condition.attribute,
-						condition.value,
-						this.context.vm,
-					);
-					return {
-						...condition,
-						attribute: lhs,
-						value: rhs,
-					};
-				}),
+			const evaluatedConditions = await ConditionEvaluator.evaluateDbConditions(
+				this.input.conditions,
+				this.context.vm,
 			);
 			this.input.tableName = this.input.tableName.startsWith("js:")
 				? ((await this.context.vm.runAsync(

@@ -11,7 +11,11 @@ The **DB Update** block modifies data in existing rows of your table.
 
 - **Connection**: The database integration.
 - **Table Name**: The table to update.
-- **Conditions**: Rules to find which records to update.
+- **Conditions**: Rules to find which records to update. A condition whose value is `undefined` is skipped, and the **Custom** operator lets you write the condition yourself — see [Optional filters](/blocks/db-get-all#optional-filters) and [Custom conditions](/blocks/db-get-all#custom-conditions).
+
+::: warning
+If every condition is skipped, **every record** in the table is updated.
+:::
 - **Data**: The new values to apply.
 - **Use Param**: If checked, uses the previous block's output as the update data.
 

@@ -56,6 +56,7 @@ describe("getAllIntegrations service", () => {
 			variant: "PostgreSQL",
 			// @ts-ignore
 			config: { url: "postgres://prod" },
+			conditionEditor: "sql",
 		});
 	});
 

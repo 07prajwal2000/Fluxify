@@ -20,7 +20,7 @@ export const literalRefSchema = z.object({
 	value: z.union([z.string(), z.number(), z.boolean()]),
 });
 
-export const whereConditionSchema = z.object({
+export const structuredWhereConditionSchema = z.object({
 	// untagged: a column, which is what an attribute is by position
 	attribute: z.union([z.string(), columnRefSchema, literalRefSchema]),
 	operator: operatorSchema.exclude(["js", "is_empty", "is_not_empty"]),
@@ -29,7 +29,24 @@ export const whereConditionSchema = z.object({
 	chain: z.enum(["and", "or"]),
 });
 
+/**
+ * A hand-written condition, already evaluated by the block: SQL adapters get
+ * `{ strings, values }` (the text around each `{{ }}` and the bound values),
+ * MongoDB gets the filter object the user's JS returned.
+ */
+export const rawWhereConditionSchema = z.object({
+	operator: z.literal("raw"),
+	raw: z.unknown(),
+	chain: z.enum(["and", "or"]),
+});
+
+export const whereConditionSchema = z.union([
+	structuredWhereConditionSchema,
+	rawWhereConditionSchema,
+]);
+
 export type DBConditionType = z.infer<typeof whereConditionSchema>;
+export type RawDbCondition = z.infer<typeof rawWhereConditionSchema>;
 
 export type { DBJoinType, QueryOptions } from "./jsonPath";
 import type { QueryOptions } from "./jsonPath";

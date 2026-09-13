@@ -99,6 +99,8 @@ export function formatConditionsSummary(conditions: Condition[]): string {
 			let condStr = "";
 			if (c.operator === "js") {
 				condStr = "js-condition";
+			} else if (c.operator === "raw") {
+				condStr = isJsExpression(c.raw) ? "custom-filter" : `(${c.raw || "''"})`;
 			} else if (c.operator === "is_empty") {
 				condStr = `${formatVal(c.lhs)} IS EMPTY`;
 			} else if (c.operator === "is_not_empty") {

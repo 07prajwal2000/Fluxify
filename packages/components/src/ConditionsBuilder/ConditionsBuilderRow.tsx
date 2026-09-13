@@ -1,10 +1,18 @@
 import { Button, ListBox, Select, Tooltip } from "@heroui/react";
 import { useCallback, useMemo } from "react";
 import { TbAbc, TbMinus, TbTable } from "react-icons/tb";
+import { JavaScriptTextArea } from "../JavaScriptTextArea/lazy";
 import { isJsExpression, JsTextField, readExpression, writeExpression } from "../JsTextField";
-import { ALL_OPERATORS } from "./constants";
-import type { Condition, ConditionOperator, ConditionValue } from "./types";
+import { ALL_OPERATORS, type OperatorOption } from "./constants";
+import type {
+	Condition,
+	ConditionOperator,
+	ConditionValue,
+	CustomConditionEditor,
+} from "./types";
 import { conditionText, encodeSide, sideIsColumn, toggleSideMode } from "./utils";
+
+const MONGO_FILTER_DOCS = "https://www.mongodb.com/docs/manual/tutorial/query-documents/";
 
 /**
  * Switches one side between naming a column and holding a value. Which of the
@@ -50,6 +58,113 @@ function ModeToggle({
 	);
 }
 
+function OperatorSelect({
+	value,
+	options,
+	isDisabled,
+	onChange,
+}: {
+	value: ConditionOperator;
+	options: OperatorOption[];
+	isDisabled?: boolean;
+	onChange: (value: unknown) => void;
+}) {
+	return (
+		<Select
+			fullWidth
+			isDisabled={isDisabled}
+			onChange={onChange}
+			value={value}
+			variant="secondary"
+		>
+			<Select.Trigger>
+				<Select.Value />
+				<Select.Indicator />
+			</Select.Trigger>
+			<Select.Popover>
+				<ListBox>
+					{options.map((op) => (
+						<ListBox.Item key={op.value} id={op.value} textValue={op.label}>
+							{op.label}
+							<ListBox.ItemIndicator />
+						</ListBox.Item>
+					))}
+				</ListBox>
+			</Select.Popover>
+		</Select>
+	);
+}
+
+/**
+ * A hand-written condition in the connection's own language. SQL is edited
+ * inline; a MongoDB filter is JS, so it gets the regular expression field.
+ */
+function CustomCondition({
+	editor,
+	raw,
+	isDisabled,
+	onChange,
+}: {
+	editor: CustomConditionEditor;
+	raw?: string;
+	isDisabled?: boolean;
+	onChange: (raw: string) => void;
+}) {
+	const isSql = editor === "sql";
+	return (
+		<div className="flex flex-col gap-1 w-full">
+			<span className="self-start px-1.5 py-0.5 rounded bg-surface-secondary text-muted-foreground border border-border text-[10px] font-mono font-semibold uppercase leading-none select-none">
+				{isSql ? "Custom SQL" : "Mongo filter"}
+			</span>
+			{isSql ? (
+				<JavaScriptTextArea
+					aria-label="Custom SQL condition"
+					language="sql"
+					rows={2}
+					showLineNumbers={false}
+					wordWrap
+					readOnly={isDisabled}
+					value={raw ?? ""}
+					onChange={onChange}
+				/>
+			) : (
+				<JsTextField
+					fullWidth
+					isDisabled={isDisabled}
+					placeholder="return { age: { $gte: 18 } }"
+					// always code: a filter object can only come from JS
+					value={isJsExpression(raw) ? raw! : writeExpression(raw ?? "")}
+					onChange={(val) => onChange(writeExpression(readExpression(val)))}
+				/>
+			)}
+			<p className="text-xs text-muted-foreground leading-normal m-0">
+				{isSql ? (
+					<>
+						Written as-is into the WHERE clause. Put run-time values in{" "}
+						<code>{"{{ }}"}</code>, e.g.{" "}
+						<code>{"name ILIKE {{ '%' + getQueryParam('q') + '%' }}"}</code> — they
+						are sent as parameters, and the condition is skipped when one is
+						undefined.
+					</>
+				) : (
+					<>
+						Return a MongoDB query filter object; returning undefined skips it. See{" "}
+						<a
+							className="text-accent underline"
+							href={MONGO_FILTER_DOCS}
+							rel="noreferrer"
+							target="_blank"
+						>
+							MongoDB query filters
+						</a>
+						.
+					</>
+				)}
+			</p>
+		</div>
+	);
+}
+
 export interface ConditionsBuilderRowProps {
 	condition: Condition;
 	index: number;
@@ -59,10 +174,12 @@ export interface ConditionsBuilderRowProps {
 	lhsSuggestions?: string[];
 	rhsSuggestions?: string[];
 	allowColumnRefs?: boolean;
+	customConditionEditor?: CustomConditionEditor;
 	onLHSChange: (index: number, value: ConditionValue) => void;
 	onRHSChange: (index: number, value: ConditionValue) => void;
 	onOperatorChange: (index: number, operator: ConditionOperator) => void;
 	onJsChange: (index: number, value: string) => void;
+	onRawChange: (index: number, raw: string) => void;
 	onRemoveCondition: (index: number) => void;
 }
 
@@ -75,13 +192,18 @@ export function ConditionsBuilderRow({
 	lhsSuggestions,
 	rhsSuggestions,
 	allowColumnRefs,
+	customConditionEditor,
 	onLHSChange,
 	onRHSChange,
 	onOperatorChange,
 	onJsChange,
+	onRawChange,
 	onRemoveCondition,
 }: ConditionsBuilderRowProps) {
 	const isJs = condition.operator === "js";
+	// a stored custom condition whose connection is unknown still shows as SQL
+	const customEditor =
+		condition.operator === "raw" ? (customConditionEditor ?? "sql") : undefined;
 	const rhsIsColumn = sideIsColumn(condition.rhs, "rhs");
 	const rhsText = conditionText(condition.rhs);
 	const lhsIsColumn = sideIsColumn(condition.lhs, "lhs");
@@ -101,10 +223,11 @@ export function ConditionsBuilderRow({
 	const availableOperators = useMemo(() => {
 		return ALL_OPERATORS.filter((op) => {
 			if (disableJsConditions && op.value === "js") return false;
+			if (!customConditionEditor && op.value === "raw") return false;
 			if (ignoreOperators.includes(op.value)) return false;
 			return true;
 		});
-	}, [disableJsConditions, ignoreOperators]);
+	}, [disableJsConditions, ignoreOperators, customConditionEditor]);
 
 	const handleOperatorSelect = useCallback(
 		(value: unknown) => {
@@ -119,6 +242,30 @@ export function ConditionsBuilderRow({
 		return isJsExpression(raw) ? raw : writeExpression(raw);
 	}, [condition.js]);
 
+	const operatorSelect = (
+		<OperatorSelect
+			isDisabled={isDisabled}
+			options={availableOperators}
+			value={condition.operator}
+			onChange={handleOperatorSelect}
+		/>
+	);
+
+	const removeButton = !isDisabled && (
+		<div className="shrink-0 flex items-center justify-center">
+			<Button
+				aria-label="Remove condition"
+				isIconOnly
+				isDisabled={isDisabled}
+				size="sm"
+				variant="ghost"
+				onPress={() => onRemoveCondition(index)}
+			>
+				<TbMinus className="text-danger size-4" />
+			</Button>
+		</div>
+	);
+
 	return (
 		<div className="flex flex-col gap-2 w-full">
 			{condition.chain === "or" && (
@@ -131,7 +278,20 @@ export function ConditionsBuilderRow({
 				</div>
 			)}
 
-			{isJs ? (
+			{customEditor ? (
+				<div className="flex flex-row items-start gap-2 w-full">
+					<div className="flex-1 min-w-0">
+						<CustomCondition
+							editor={customEditor}
+							isDisabled={isDisabled}
+							raw={condition.raw}
+							onChange={(raw) => onRawChange(index, raw)}
+						/>
+					</div>
+					<div className="grid grid-cols-1 w-24 shrink-0">{operatorSelect}</div>
+					{removeButton}
+				</div>
+			) : isJs ? (
 				<div className="flex flex-row items-center gap-2 w-full">
 					<div className="flex-1 min-w-0">
 						<JsTextField
@@ -142,48 +302,8 @@ export function ConditionsBuilderRow({
 							value={jsFieldValue}
 						/>
 					</div>
-					<div className="grid grid-cols-1 w-20 shrink-0">
-						<Select
-							fullWidth
-							isDisabled={isDisabled}
-							onChange={handleOperatorSelect}
-							value={condition.operator}
-							variant="secondary"
-						>
-							<Select.Trigger>
-								<Select.Value />
-								<Select.Indicator />
-							</Select.Trigger>
-							<Select.Popover>
-								<ListBox>
-									{availableOperators.map((op) => (
-										<ListBox.Item
-											key={op.value}
-											id={op.value}
-											textValue={op.label}
-										>
-											{op.label}
-											<ListBox.ItemIndicator />
-										</ListBox.Item>
-									))}
-								</ListBox>
-							</Select.Popover>
-						</Select>
-					</div>
-					{!isDisabled && (
-						<div className="shrink-0 flex items-center justify-center">
-							<Button
-								aria-label="Remove condition"
-								isIconOnly
-								isDisabled={isDisabled}
-								size="sm"
-								variant="ghost"
-								onPress={() => onRemoveCondition(index)}
-							>
-								<TbMinus className="text-danger size-4" />
-							</Button>
-						</div>
-					)}
+					<div className="grid grid-cols-1 w-20 shrink-0">{operatorSelect}</div>
+					{removeButton}
 				</div>
 			) : (
 				<div className="flex flex-row items-center gap-2 w-full">
@@ -211,32 +331,7 @@ export function ConditionsBuilderRow({
 						/>
 					)}
 					<div className={hideRhs ? "flex-1 min-w-0" : "grid grid-cols-1 w-20 shrink-0"}>
-						<Select
-							fullWidth
-							isDisabled={isDisabled}
-							onChange={handleOperatorSelect}
-							value={condition.operator}
-							variant="secondary"
-						>
-							<Select.Trigger>
-								<Select.Value />
-								<Select.Indicator />
-							</Select.Trigger>
-							<Select.Popover>
-								<ListBox>
-									{availableOperators.map((op) => (
-										<ListBox.Item
-											key={op.value}
-											id={op.value}
-											textValue={op.label}
-										>
-											{op.label}
-											<ListBox.ItemIndicator />
-										</ListBox.Item>
-									))}
-								</ListBox>
-							</Select.Popover>
-						</Select>
+						{operatorSelect}
 					</div>
 					{!hideRhs && (
 						<div className="flex-1 min-w-0">
@@ -263,20 +358,7 @@ export function ConditionsBuilderRow({
 							onToggle={toggleRhsMode}
 						/>
 					)}
-					{!isDisabled && (
-						<div className="shrink-0 flex items-center justify-center">
-							<Button
-								aria-label="Remove condition"
-								isIconOnly
-								isDisabled={isDisabled}
-								size="sm"
-								variant="ghost"
-								onPress={() => onRemoveCondition(index)}
-							>
-								<TbMinus className="text-danger size-4" />
-							</Button>
-						</div>
-					)}
+					{removeButton}
 				</div>
 			)}
 		</div>

@@ -7,7 +7,12 @@ export type ConditionOperator =
 	| "lte"
 	| "js"
 	| "is_empty"
-	| "is_not_empty";
+	| "is_not_empty"
+	/** a hand-written condition, see `Condition.raw` */
+	| "raw";
+
+/** SQL text, or JS returning a native filter object (MongoDB). */
+export type CustomConditionEditor = "sql" | "js";
 
 export type ConditionChain = "and" | "or";
 
@@ -39,6 +44,11 @@ export interface Condition {
 	rhs: ConditionValue;
 	operator: ConditionOperator;
 	js?: string;
+	/**
+	 * Custom condition text: SQL with `{{ expr }}` placeholders, or `js:` code
+	 * returning a filter object. Only read when `operator` is "raw".
+	 */
+	raw?: string;
 	chain?: ConditionChain;
 }
 
@@ -76,6 +86,12 @@ export interface ConditionsBuilderProps {
 	 * the user is typing a literal is just misleading.
 	 */
 	allowColumnRefs?: boolean;
+	/**
+	 * Offers the "Custom" operator, editing the condition by hand in this
+	 * language. Hidden when unset — only database blocks know what their
+	 * connection speaks.
+	 */
+	customConditionEditor?: CustomConditionEditor;
 	/** Whether to show outer border. Default is false. */
 	hasBorder?: boolean;
 	/** Additional CSS class names. */

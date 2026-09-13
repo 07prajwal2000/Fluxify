@@ -15,6 +15,21 @@ export const integrationsGroupSchema = z.enum([
 
 export const queueVariantSchema = z.enum(["Kafka", "NATS", "SQS"]);
 export const databaseVariantSchema = z.enum(["PostgreSQL", "MongoDB", "MySQL"]);
+
+/**
+ * Which editor a custom (hand-written) DB condition gets: SQL text, or JS that
+ * returns a native filter object. A `Record` over the variant enum on purpose —
+ * adding a database variant without deciding this is a type error, not a query
+ * builder silently offering the wrong language.
+ */
+export const databaseConditionEditors: Record<
+	z.infer<typeof databaseVariantSchema>,
+	"sql" | "js"
+> = {
+	PostgreSQL: "sql",
+	MySQL: "sql",
+	MongoDB: "js",
+};
 export const kvVariantSchema = z.enum(["Redis", "Memcached"]);
 export const aiVariantSchema = z.enum([
 	"OpenAI",

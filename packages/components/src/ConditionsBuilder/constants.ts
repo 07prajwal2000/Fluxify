@@ -15,4 +15,5 @@ export const ALL_OPERATORS: OperatorOption[] = [
 	{ value: "js", label: "JS" },
 	{ value: "is_empty", label: "Is Empty/Null" },
 	{ value: "is_not_empty", label: "Is Not Empty/Null" },
+	{ value: "raw", label: "Custom" },
 ];

@@ -27,6 +27,7 @@ export function ConditionsBuilder({
 	lhsSuggestions,
 	rhsSuggestions,
 	allowColumnRefs = false,
+	customConditionEditor,
 	hasBorder = false,
 	className,
 }: ConditionsBuilderProps) {
@@ -93,6 +94,20 @@ export function ConditionsBuilder({
 		(index: number, operator: ConditionOperator) => {
 			const next = [...conditions];
 			next[index] = { ...next[index], operator };
+			// a JS filter starts in expression mode, so an untouched one compiles to
+			// `undefined` and is skipped instead of being read as empty SQL
+			if (operator === "raw" && next[index].raw === undefined) {
+				next[index].raw = customConditionEditor === "js" ? "js:" : "";
+			}
+			updateConditions(next);
+		},
+		[conditions, updateConditions, customConditionEditor],
+	);
+
+	const handleRawChange = useCallback(
+		(index: number, raw: string) => {
+			const next = [...conditions];
+			next[index] = { ...next[index], raw };
 			updateConditions(next);
 		},
 		[conditions, updateConditions],
@@ -125,6 +140,8 @@ export function ConditionsBuilder({
 					index={index}
 					isDisabled={isDisabled}
 					allowColumnRefs={allowColumnRefs}
+					customConditionEditor={customConditionEditor}
+					onRawChange={handleRawChange}
 					lhsSuggestions={lhsSuggestions}
 					rhsSuggestions={rhsSuggestions}
 					onJsChange={handleJsChange}

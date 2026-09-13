@@ -22,14 +22,26 @@ export const literalRefSchema = z.object({
 });
 
 export const dbWhereConditionsDescription =
-	"Database WHERE clause. Always emit an array of condition objects; never emit strings, SQL snippets, or if-block conditions. Each attribute and value must be a tagged object. Example: [{ attribute: { kind: 'column', value: 'status' }, operator: 'eq', value: { kind: 'literal', value: 'active' }, chain: 'and' }].";
+	"Database WHERE clause. Always emit an array of condition objects; never emit plain strings or if-block conditions. Structured condition: attribute and value are tagged objects, e.g. { attribute: { kind: 'column', value: 'status' }, operator: 'eq', value: { kind: 'literal', value: 'active' }, chain: 'and' }. When the fixed operators cannot express it (ILIKE, IN, BETWEEN, JSON/array operators, $regex...), use a custom condition: { operator: 'raw', raw, chain } — see the raw field. A condition whose value is undefined at run time is skipped (null is kept), so optional filters need no branching: value { kind: 'literal', value: \"js:getQueryParam('status')\" } filters only when the query param was sent.";
 
 export const dbConditionSideSchema = z.discriminatedUnion("kind", [
 	columnRefSchema,
 	literalRefSchema,
 ]);
 
-export const whereConditionSchema = z
+export const rawWhereConditionSchema = z.object({
+	operator: z
+		.literal("raw")
+		.describe("custom condition written by hand, for what the fixed operators cannot express"),
+	raw: z
+		.string()
+		.describe(
+			"SQL databases (PostgreSQL, MySQL): a boolean SQL expression. Put run-time values in {{ }} — each is a JS expression sent as a bound parameter, never pasted into the SQL, e.g. \"name ILIKE {{ '%' + getQueryParam('q') + '%' }}\" or \"status IN ({{ input.a }}, {{ input.b }})\". The condition is skipped when any {{ }} value is undefined. MongoDB: 'js:' code returning a MongoDB query filter object, e.g. \"js:return { name: { $regex: getQueryParam('q'), $options: 'i' } }\"; returning undefined skips it.",
+		),
+	chain: z.enum(["and", "or"]).describe("How this condition joins to next WHERE condition."),
+});
+
+const structuredWhereConditionSchema = z
 	.object({
 	attribute: dbConditionSideSchema
 		.describe(
@@ -54,6 +66,11 @@ export const whereConditionSchema = z
 			});
 		}
 	});
+
+export const whereConditionSchema = z.union([
+	structuredWhereConditionSchema,
+	rawWhereConditionSchema,
+]);
 
 /** every db block resolves its adapter the same way */
 export function adapterFor(context: Context, connection: string) {
