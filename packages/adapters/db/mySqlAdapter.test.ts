@@ -340,7 +340,8 @@ describe("MySqlAdapter Integration Tests", () => {
 			`SELECT COUNT(*) as total FROM ${tableName} WHERE age = ?`,
 			[100],
 		);
-		expect(Number(result.rows[0].total)).toBeGreaterThan(0);
+		expect(Number(result[0].total)).toBeGreaterThan(0);
+		expect(() => JSON.stringify(result)).not.toThrow();
 	});
 
 	test("Transaction Lifecycle & Rollbacks", async () => {

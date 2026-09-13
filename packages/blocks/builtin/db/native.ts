@@ -17,7 +17,7 @@ export const nativeDbBlockSchema = z
 		js: z
 			.string()
 			.describe(
-				"js code to execute (has dbQuery(query: string) global function)",
+				"js code to execute (has dbQuery(query: string, params?: unknown[]) global function returning rows; use $1 (Postgres) or ? (MySQL) placeholders, never interpolate values)",
 			),
 	})
 	.extend(baseBlockDataSchema.shape);

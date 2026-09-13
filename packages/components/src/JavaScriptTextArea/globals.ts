@@ -43,9 +43,12 @@ declare const httpRequestMethod: string;
 declare const httpRequestRoute: string;
 /**
  * run database query inside DB Native block
- * @param query SQL supported query
+ * @param query SQL query. Use $1 (PostgreSQL) or ? (MySQL) placeholders for values
+ * @param params values for the placeholders, in order. Never build the query string from user input
+ * @returns the result rows (MongoDB: the raw db instance)
+ * @example const users = await dbQuery("SELECT * FROM users WHERE id = $1", [id]);
  */
-declare function dbQuery(query: string): Promise<unknown>;
+declare function dbQuery(query: string, params?: unknown[]): Promise<any[]>;
 /** The output of the previous block */
 declare const input: any;
 /** One event a trigger collected, with what the source said about it. */
