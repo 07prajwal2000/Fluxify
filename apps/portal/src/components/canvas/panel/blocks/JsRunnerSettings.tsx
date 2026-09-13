@@ -12,14 +12,23 @@ import { BlockSettings } from "../BlockSettings";
 import type { BlockNode } from "../../types";
 
 /** JS Runner block settings: JavaScript code editor using JavaScriptTextArea with expandable full modal. */
-export function JsRunnerSettings({ block }: { block: BlockNode }) {
+export function JsRunnerSettings({
+	block,
+	field = "value",
+	label = "JavaScript Code",
+}: {
+	block: BlockNode;
+	/** block data key the code is stored under */
+	field?: string;
+	label?: string;
+}) {
 	const { updateNodeData } = useReactFlow();
 	const { enabled: editable } = useCanvasChanges();
 	const [isModalOpen, setIsModalOpen] = useState(false);
 
 	const code =
-		typeof block.data.value === "string"
-			? block.data.value
+		typeof block.data[field] === "string"
+			? (block.data[field] as string)
 			: typeof block.data.js === "string"
 				? block.data.js
 				: typeof block.data.code === "string"
@@ -34,7 +43,7 @@ export function JsRunnerSettings({ block }: { block: BlockNode }) {
 	return (
 		<div className="flex flex-col gap-1.5">
 			<div className="flex items-center justify-between">
-				<Label className="text-sm font-medium">JavaScript Code</Label>
+				<Label className="text-sm font-medium">{label}</Label>
 				<Button
 					size="sm"
 					variant="ghost"
@@ -52,7 +61,7 @@ export function JsRunnerSettings({ block }: { block: BlockNode }) {
 				showLineNumbers={true}
 				readOnly={!editable}
 				value={code}
-				onChange={(next) => updateNodeData(block.id, { value: next })}
+				onChange={(next) => updateNodeData(block.id, { [field]: next })}
 			/>
 
 			<JsEditorModal
@@ -61,7 +70,7 @@ export function JsRunnerSettings({ block }: { block: BlockNode }) {
 				onSave={() => setIsModalOpen(false)}
 				title={`${title} - Code Editor`}
 				value={code}
-				onChange={(next) => updateNodeData(block.id, { value: next })}
+				onChange={(next) => updateNodeData(block.id, { [field]: next })}
 				readOnly={!editable}
 			/>
 		</div>

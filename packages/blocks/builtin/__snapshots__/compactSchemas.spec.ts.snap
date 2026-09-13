@@ -62,6 +62,8 @@ jsrunner {
 
 response {
 	httpCode: string;
+	transformEnabled?: boolean;
+	transformScript?: string;
 }
 
 setvar {

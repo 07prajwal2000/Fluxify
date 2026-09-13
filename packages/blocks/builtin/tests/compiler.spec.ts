@@ -35,6 +35,25 @@ describe("compileGraph", () => {
 		});
 	});
 
+	it("runs the response transform script on the body, only when enabled", async () => {
+		const graph = (data: Record<string, unknown>) =>
+			compileGraph(
+				[block("1", BlockTypes.entrypoint), block("2", BlockTypes.response, { httpCode: "201", ...data })],
+				[edge("1", "2")],
+			);
+		const script = "return { data: input, meta: { ok: true } };";
+
+		expect(await graph({ transformEnabled: true, transformScript: script }).run(createContext(), 7)).toEqual({
+			successful: true,
+			continueIfFail: true,
+			output: { httpCode: "201", body: { data: 7, meta: { ok: true } } },
+		});
+		expect((await graph({ transformEnabled: false, transformScript: script }).run(createContext(), 7)).output).toEqual({
+			httpCode: "201",
+			body: 7,
+		});
+	});
+
 	it("returns the flowing value when nothing is connected", async () => {
 		const { run } = compileGraph([block("1", BlockTypes.entrypoint)], []);
 		expect(await run(createContext(), { hello: "world" })).toEqual({
