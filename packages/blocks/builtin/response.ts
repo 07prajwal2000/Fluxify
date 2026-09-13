@@ -12,13 +12,16 @@ import type { EmitNode } from "../compiler";
 export const responseBlockSchema = z
   .object({
     httpCode: z.string().refine((x) => httpcodes.some((y) => y.code == x)),
+    /** opt-in: run `transformScript` on the body before it is sent */
+    transformEnabled: z.boolean().optional(),
+    transformScript: z.string().optional(),
   })
   .extend(baseBlockDataSchema.shape);
 
 export const responseAiDescription = {
   name: BlockTypes.response,
   description:
-    "Terminates the request and returns the result to the client. Only sets the status code — the response body is whatever the previous block output, so shape the body in the block feeding this one.",
+    "Terminates the request and returns the result to the client. Sets the status code; the body is whatever the previous block output. Set transformEnabled + transformScript to reshape the body here (the script gets the body as `input` and its return value is sent), instead of adding a separate JS block.",
   jsonSchema: JSON.stringify(z.toJSONSchema(responseBlockSchema)),
 };
 
@@ -31,9 +34,14 @@ export interface ResponseBlockHTTPResult extends BlockOutput {
 
 /** terminal — nothing after a response block runs */
 export function emitResponse(node: EmitNode) {
-  const { httpCode } = responseBlockSchema.parse(node.block.data);
+  const { httpCode, transformEnabled, transformScript } =
+    responseBlockSchema.parse(node.block.data);
+  const body =
+    transformEnabled && transformScript?.trim()
+      ? node.js(transformScript, node.in)
+      : node.in;
   return node.complete(
-    `{ successful: true, continueIfFail: true, output: { httpCode: ${JSON.stringify(httpCode)}, body: ${node.in} ?? null } }`,
+    `{ successful: true, continueIfFail: true, output: { httpCode: ${JSON.stringify(httpCode)}, body: ${body} ?? null } }`,
   );
 }
 
@@ -54,13 +62,26 @@ export function emitWorkflowEnd(node: EmitNode) {
 
 export class ResponseBlock extends BaseBlock {
   override async executeAsync(params?: any): Promise<ResponseBlockHTTPResult> {
-    const { httpCode } = this.input as z.infer<typeof responseBlockSchema>;
+    const { httpCode, transformEnabled, transformScript } = this
+      .input as z.infer<typeof responseBlockSchema>;
+    let body = params;
+    if (transformEnabled && transformScript?.trim()) {
+      try {
+        body = await this.context.vm.runAsync(transformScript, params);
+      } catch (error) {
+        return {
+          continueIfFail: false,
+          successful: false,
+          error: error?.toString(),
+        };
+      }
+    }
     return {
       continueIfFail: true,
       successful: true,
       output: {
         httpCode,
-        body: params ?? null,
+        body: body ?? null,
       },
     };
   }
