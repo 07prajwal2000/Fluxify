@@ -65,7 +65,7 @@ function RouteCanvasPage() {
 				enableBlockPicker
 				enablePlayground
 				items={items}
-				playgroundContent={<RouteApiPlayground routeId={routeId} baseUrl={import.meta.env.VITE_ROUTE_BASE_URL ?? window.location.origin} isFramed={false} />}
+				playgroundContent={<RouteApiPlayground key={routeId} routeId={routeId} baseUrl={import.meta.env.VITE_ROUTE_BASE_URL ?? window.location.origin} isFramed={false} enableCache />}
 				reload={() => routesService.getCanvasItems(routeId)}
 				save={(payload) => save.mutateAsync(payload)}
 				headerLeft={

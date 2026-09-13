@@ -54,6 +54,16 @@ export type ApiPlaygroundResponse = {
 	bytes?: number;
 };
 
+export type ApiPlaygroundState = {
+	pathRows?: ApiKeyValue[];
+	queryRows?: ApiKeyValue[];
+	headerRows?: ApiKeyValue[];
+	contentType?: string;
+	body?: string;
+	formBody?: Record<string, ApiFormValue>;
+	response?: ApiPlaygroundResponse;
+};
+
 export type ApiPlaygroundProps = {
 	route: ApiPlaygroundRoute;
 	/** Origin or base URL, such as `http://localhost:8000`. */
@@ -67,6 +77,10 @@ export type ApiPlaygroundProps = {
 	initialQuery?: Record<string, string>;
 	initialHeaders?: Record<string, string>;
 	initialBody?: string;
+	/** Preserved snapshot of playground inputs and output. */
+	initialState?: ApiPlaygroundState;
 	/** Called after an editable request field changes. Useful for persisted drafts. */
 	onRequestChange?: (request: Omit<ApiPlaygroundRequest, "url" | "body">) => void;
+	/** Called after playground input or output state changes. */
+	onStateChange?: (state: ApiPlaygroundState) => void;
 };
