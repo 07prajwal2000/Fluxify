@@ -1,9 +1,33 @@
+import { useMemo } from "react";
+import { useReactFlow } from "@xyflow/react";
+import { useSetVarSnippets } from "@fluxify/components";
 import { BlockSettings } from "../BlockSettings";
 import { BlockJsTextField, BlockTextField } from "../fields";
 import type { BlockNode } from "../../types";
 
 /** Set Variable block settings. Configures the variable key and value to set. */
 export function SetVarSettings({ block }: { block: BlockNode }) {
+	const { getNodes } = useReactFlow();
+
+	const otherVars = useMemo(() => {
+		try {
+			const nodes = getNodes?.() ?? [];
+			return nodes
+				.filter(
+					(n) => n.type === "setvar" && n.id !== block.id && n.data?.key,
+				)
+				.map((n) => String(n.data?.key).trim())
+				.filter(Boolean);
+		} catch {
+			return [];
+		}
+	}, [getNodes, block.id]);
+
+	const currentKey =
+		typeof block.data?.key === "string" ? block.data.key.trim() : "";
+
+	useSetVarSnippets(currentKey, otherVars);
+
 	return (
 		<div className="flex flex-col gap-4">
 			<BlockTextField

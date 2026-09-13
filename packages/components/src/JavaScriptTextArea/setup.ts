@@ -61,6 +61,30 @@ if (typeof window !== "undefined") {
 	loader.config({ monaco });
 }
 
+/**
+ * Forces a reload of the Monaco JavaScript language service and core runtime types.
+ * Clears and re-registers the Fluxify runtime globals and external package types.
+ */
+export async function restartLanguageServer(): Promise<void> {
+	if (typeof window === "undefined") return;
+
+	monaco.typescript.javascriptDefaults.setCompilerOptions({
+		target: monaco.typescript.ScriptTarget.ES2020,
+		lib: ["es2020"],
+		allowNonTsExtensions: true,
+		moduleResolution: monaco.typescript.ModuleResolutionKind.NodeJs,
+		esModuleInterop: true,
+	});
+
+	registerTypeLib("fluxify-globals", FLUXIFY_JS_GLOBALS, "file:///fluxify-globals.d.ts");
+
+	await Promise.allSettled([
+		ensurePackageTypes("zod"),
+		ensurePackageTypes("underscore"),
+		ensurePackageTypes("bun"),
+	]);
+}
+
 declare global {
 	interface Window {
 		MonacoEnvironment?: monaco.Environment;

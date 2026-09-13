@@ -7,3 +7,8 @@ export {
 	type CustomBlockParamDef,
 } from "./paramsTypes";
 export { buildInputDataTypeLib, useInputDataTypes } from "./inputDataTypes";
+export { buildRouteParamTypeLib, useRouteParamTypes } from "./routeParamTypes";
+export async function restartLanguageServer(): Promise<void> {
+	const setup = await import("./setup");
+	return setup.restartLanguageServer();
+}
