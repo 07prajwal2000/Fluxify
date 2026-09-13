@@ -130,6 +130,10 @@
 /* API playground: retain HeroUI's secondary underline tabs but keep their
    lists content-sized. HeroUI's default tab list deliberately has min-width:
    100% for scrollable navigation, which is wrong for this compact inspector. */
+.api-playground-tabs > .tabs__panel {
+	margin-top: 0;
+}
+
 .api-playground-tabs > .tabs__list-container .tabs__list {
 	min-width: 0;
 	width: max-content;
@@ -147,3 +151,4 @@
 	justify-content: space-between;
 	gap: 12px;
 }
+

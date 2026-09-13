@@ -14,10 +14,10 @@ export function ResponsePanel({ response }: { response?: ApiPlaygroundResponse }
 	return (
 		<section className="flex min-h-0 flex-col overflow-hidden bg-background">
 			<Tabs variant="secondary" defaultSelectedKey="body" className="api-playground-tabs api-playground-tabs--response flex min-h-0 flex-1 flex-col">
-				<Tabs.ListContainer className="h-12 shrink-0 px-3">
+				<Tabs.ListContainer className="shrink-0 px-3">
 					<div className="api-playground-response-tabs__bar">
 						<ResponseMetadata bytes={bytes} response={response} />
-						<Tabs.List aria-label="Response contents" style={{ width: "max-content", minWidth: 0, flex: "0 0 auto" }} className="h-full gap-5">
+						<Tabs.List aria-label="Response contents" style={{ width: "max-content", minWidth: 0, flex: "0 0 auto" }} className="gap-5">
 							<Tabs.Tab id="body">Body<Tabs.Indicator /></Tabs.Tab>
 							<Tabs.Tab id="headers">Headers {response && <span className="ml-1.5 rounded-full border border-border bg-surface px-1.5 py-0.5 text-[10px]">{headers.length}</span>}<Tabs.Indicator /></Tabs.Tab>
 						</Tabs.List>
