@@ -5,6 +5,9 @@ import "@fluxify/components/styles.css";
 import { BASE_PATH } from "./constants/routes";
 import { routeTree } from "./routeTree.gen";
 import { queryClient } from "./lib/query";
+import { initTheme } from "./lib/theme";
+
+initTheme();
 
 const router = createRouter({
 	routeTree,

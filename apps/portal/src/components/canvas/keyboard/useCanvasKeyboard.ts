@@ -92,7 +92,8 @@ export function useCanvasKeyboard({
 					// copy/paste are handled by their native events below.
 					candidate.id !== "copy" &&
 					candidate.id !== "paste" &&
-					matchCombo(event, candidate.combo),
+					(matchCombo(event, candidate.combo) ||
+						(candidate.id === "spotlight" && matchCombo(event, "mod+space"))),
 			);
 			if (!action) return;
 			// Claim the key even when the action can't run, so Ctrl+S never opens

@@ -40,6 +40,7 @@ function CustomBlockCanvasPage() {
 			<CanvasWorkbench
 				title="Custom block canvas"
 				enableBlockPicker
+				enableSpotlight
 				items={customBlocksQuery.canvasItems.useQuery(blockId)}
 				reload={() => customBlocksService.getCanvasItems(blockId)}
 				save={(payload) => save.mutateAsync(payload)}

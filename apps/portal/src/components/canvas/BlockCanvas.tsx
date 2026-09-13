@@ -17,6 +17,7 @@ import { CanvasCommands } from "./CanvasCommands";
 import { CanvasLayoutLockProvider } from "./CanvasLayoutLockContext";
 import { CanvasQuickActions } from "./CanvasQuickActions";
 import { useContextMenu } from "./contextMenu";
+import { KeyboardShortcutsProvider } from "./keyboard";
 import { CanvasPlaygroundProvider, useCanvasPlayground } from "./PlaygroundContext";
 import { PlaygroundModal } from "./PlaygroundModal";
 import { flowToGraph, graphToFlow } from "./adapters";
@@ -49,53 +50,12 @@ import { useAddBlock } from "./useAddBlock";
 import { useCycleFlash } from "./useCycleFlash";
 import { useBlockPicker } from "./useBlockPicker";
 import type { BlockCanvasProps, BlockEdge, BlockNode } from "./types";
+import { graphTopology, isCosmetic, track } from "./topology";
+
+export { graphTopology };
 
 const EMPTY_NODE_TYPES = {};
 const DEFAULT_EDGE_OPTIONS = { type: FLOW_EDGE_TYPE };
-
-/**
- * Changes that only affect presentation — not worth reporting as an edit.
- * `dimensions` covers both measuring a node (cosmetic) and a resize gesture; the
- * gesture's closing change carries `resizing: false`, so a resize is recorded
- * once, on release, instead of on every frame.
- */
-function isCosmetic(change: NodeChange<BlockNode> | EdgeChange<BlockEdge>) {
-	if (change.type === "select") return true;
-	return change.type === "dimensions" && change.resizing !== false;
-}
-
-/**
- * Identity of a graph's shape: which blocks and edges it holds. Two loads with
- * the same signature are the same graph (a refetch after saving), so recorded
- * undo snapshots still apply to it.
- */
-export function graphTopology(nodes: BlockNode[], edges: BlockEdge[]): string {
-	const ids = (values: { id: string }[]) =>
-		values
-			.map((value) => value.id)
-			.sort()
-			.join(",");
-	return `${ids(nodes)}|${ids(edges)}`;
-}
-
-/** Feeds a batch of React Flow changes into the change tracker. */
-function track(
-	tracker: CanvasChanges,
-	kind: "blocks" | "edges",
-	changes: (NodeChange<BlockNode> | EdgeChange<BlockEdge>)[],
-) {
-	const upserted: string[] = [];
-	const deleted: string[] = [];
-	for (const change of changes) {
-		if (isCosmetic(change)) continue;
-		if (change.type === "remove") deleted.push(change.id);
-		else if (change.type === "add" || change.type === "replace")
-			upserted.push(change.item.id);
-		else upserted.push(change.id);
-	}
-	if (upserted.length) tracker.markUpserted(kind, upserted);
-	if (deleted.length) tracker.markDeleted(kind, deleted);
-}
 
 function CanvasInner({
 	graph,
@@ -112,6 +72,7 @@ function CanvasInner({
 	enablePanel = true,
 	enableBlockPicker = false,
 	enablePlayground = false,
+	enableSpotlight = false,
 	playgroundContent,
 	fitViewOnInit = true,
 	defaultViewport,
@@ -434,6 +395,12 @@ function CanvasInner({
 						? (at) => addBlock(BLOCK_TYPES.stickynote, at)
 						: undefined
 				}
+				enableSpotlight={enableSpotlight && !readOnly}
+				onAddBlockType={
+					!readOnly && !layoutLocked ? (type) => addBlock(type) : undefined
+				}
+				enablePlayground={enablePlayground}
+				onOpenPlayground={playground.open}
 			/>
 			<div
 				ref={canvasRef}
@@ -527,7 +494,9 @@ export function BlockCanvas(props: BlockCanvasProps) {
 	return (
 		<ReactFlowProvider>
 			<CanvasPlaygroundProvider>
-				<CanvasInner {...props} />
+				<KeyboardShortcutsProvider>
+					<CanvasInner {...props} />
+				</KeyboardShortcutsProvider>
 			</CanvasPlaygroundProvider>
 		</ReactFlowProvider>
 	);

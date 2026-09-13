@@ -67,6 +67,11 @@ export type BlockCanvasProps = {
 	enableBlockPicker?: boolean;
 	/** Canvas playground trigger. Default `false`; enable only from its owning route. */
 	enablePlayground?: boolean;
+	/**
+	 * Canvas spotlight command palette (Cmd/Ctrl+K or Cmd/Ctrl+Space).
+	 * Default `false`; enable only from its owning route.
+	 */
+	enableSpotlight?: boolean;
 	/** Playground content rendered in the canvas-owned modal, outside React Flow. */
 	playgroundContent?: React.ReactNode;
 	/** Copy/paste/duplicate/export/import of blocks and the edges between them.

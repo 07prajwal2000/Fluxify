@@ -2,6 +2,7 @@ import { Panel, useReactFlow, useViewport } from "@xyflow/react";
 import type { ReactNode } from "react";
 import {
 	TbArrowBackUp,
+	TbKeyboard,
 	TbLock,
 	TbLockOpen,
 } from "react-icons/tb";
@@ -13,6 +14,8 @@ import {
 } from "react-icons/md";
 import { useCanvasHistoryContext } from "./history";
 import { useCanvasFormat } from "./layout";
+import { useKeyboardShortcuts } from "./keyboard";
+
 
 type CanvasToolbarProps = {
 	readOnly: boolean;
@@ -61,6 +64,7 @@ export function CanvasToolbar({
 	const viewport = useViewport();
 	const history = useCanvasHistoryContext();
 	const format = useCanvasFormat();
+	const shortcuts = useKeyboardShortcuts();
 
 	return (
 		<Panel position="bottom-left" className="fx-canvas-toolbar">
@@ -108,6 +112,12 @@ export function CanvasToolbar({
 					onClick={() => void format.format()}
 				>
 					<MdFormatPaint />
+				</ToolbarButton>
+				<ToolbarButton
+					label="Keyboard shortcuts"
+					onClick={shortcuts.open}
+				>
+					<TbKeyboard />
 				</ToolbarButton>
 				<ToolbarButton
 					label={layoutLocked ? "Unlock canvas layout" : "Lock canvas layout"}

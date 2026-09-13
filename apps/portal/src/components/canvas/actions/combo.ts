@@ -16,12 +16,13 @@ type Parsed = { mod: boolean; ctrl: boolean; shift: boolean; alt: boolean; key: 
 
 function parse(combo: string): Parsed {
 	const parts = combo.toLowerCase().split("+");
+	const rawKey = parts[parts.length - 1] ?? "";
 	return {
 		mod: parts.includes("mod"),
 		ctrl: parts.includes("ctrl"),
 		shift: parts.includes("shift"),
 		alt: parts.includes("alt"),
-		key: parts[parts.length - 1] ?? "",
+		key: rawKey === "space" ? " " : rawKey,
 	};
 }
 
@@ -37,7 +38,9 @@ export function matchCombo(event: KeyboardEvent, combo: string): boolean {
 	if (wanted.ctrl !== secondary) return false;
 	if (wanted.shift !== event.shiftKey) return false;
 	if (wanted.alt !== event.altKey) return false;
-	return event.key.toLowerCase() === wanted.key;
+	return wanted.key === " "
+		? event.key === " " || event.code === "Space"
+		: event.key.toLowerCase() === wanted.key;
 }
 
 const KEY_LABELS: Record<string, string> = {
