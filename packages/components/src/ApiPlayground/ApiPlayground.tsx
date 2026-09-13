@@ -4,21 +4,26 @@ import { TbLoader2, TbPlayerPlayFilled } from "react-icons/tb";
 import { Button, Card, Input } from "@heroui/react";
 import { RequestPanel } from "./RequestPanel";
 import { ResponsePanel } from "./ResponsePanel";
-import type { ApiFormValue, ApiKeyValue, ApiPlaygroundProps, ApiPlaygroundRequest, ApiPlaygroundResponse } from "./types";
-import { createRow, pathParameterNames, schemaProperties, serializeFormBody } from "./utils";
+import type { ApiFormValue, ApiKeyValue, ApiPlaygroundProps, ApiPlaygroundRequest, ApiPlaygroundResponse, ApiPlaygroundState } from "./types";
+import { createRow, pathParameterNames, resolvePathRows, resolveQueryRows, serializeFormBody } from "./utils";
 
 const toObject = (rows: ApiKeyValue[]) => Object.fromEntries(rows.filter((row) => row.key).map((row) => [row.key, row.value]));
 
-export function ApiPlayground({ route, baseUrl = "", onSend, className, isFramed = true, initialPathParams, initialQuery, initialHeaders, initialBody, onRequestChange }: ApiPlaygroundProps) {
+export function ApiPlayground({ route, baseUrl = "", onSend, className, isFramed = true, initialPathParams, initialQuery, initialHeaders, initialBody, initialState, onRequestChange, onStateChange }: ApiPlaygroundProps) {
 	const [rawPath, setRawPath] = useState(route.path);
-	const [pathRows, setPathRows] = useState<ApiKeyValue[]>(() => pathParameterNames(route.path).map((key) => createRow(key, initialPathParams?.[key] ?? "", true)));
-	const [queryRows, setQueryRows] = useState<ApiKeyValue[]>(() => schemaProperties(route.querySchema).map((field) => createRow(field.key, initialQuery?.[field.key] ?? "", field.required)));
+	const [pathRows, setPathRows] = useState<ApiKeyValue[]>(() => resolvePathRows(route.path, initialPathParams, initialState?.pathRows));
+	const [queryRows, setQueryRows] = useState<ApiKeyValue[]>(() => resolveQueryRows(route.querySchema, initialQuery, initialState?.queryRows));
 	const defaultContentType = route.acceptedContentTypes?.[0] ?? "application/json";
-	const [contentType, setContentType] = useState(defaultContentType);
-	const [headerRows, setHeaderRows] = useState<ApiKeyValue[]>(() => [createRow("Content-Type", defaultContentType, true), ...Object.entries(initialHeaders ?? {}).filter(([key]) => key.toLowerCase() !== "content-type").map(([key, value]) => createRow(key, value))]);
-	const [body, setBody] = useState(initialBody ?? "{} ");
-	const [formBody, setFormBody] = useState<Record<string, ApiFormValue>>({});
-	const [response, setResponse] = useState<ApiPlaygroundResponse>();
+	const [contentType, setContentType] = useState(initialState?.contentType ?? defaultContentType);
+	const [headerRows, setHeaderRows] = useState<ApiKeyValue[]>(() => {
+		if (initialState?.headerRows && initialState.headerRows.length > 0) {
+			return initialState.headerRows;
+		}
+		return [createRow("Content-Type", defaultContentType, true), ...Object.entries(initialHeaders ?? {}).filter(([key]) => key.toLowerCase() !== "content-type").map(([key, value]) => createRow(key, value))];
+	});
+	const [body, setBody] = useState(initialState?.body ?? initialBody ?? "{} ");
+	const [formBody, setFormBody] = useState<Record<string, ApiFormValue>>(initialState?.formBody ?? {});
+	const [response, setResponse] = useState<ApiPlaygroundResponse | undefined>(initialState?.response);
 	const [isSending, setIsSending] = useState(false);
 
 	// A typed path input is rebuilt from its :name tokens; values survive harmless URL edits.
@@ -27,6 +32,9 @@ export function ApiPlayground({ route, baseUrl = "", onSend, className, isFramed
 
 	const request = useMemo(() => buildRequest({ route, rawPath, baseUrl, pathRows, queryRows, headerRows, body, formBody, contentType }), [route, rawPath, baseUrl, pathRows, queryRows, headerRows, body, formBody, contentType]);
 	useEffect(() => { onRequestChange?.({ method: request.method, path: request.path, pathParams: request.pathParams, query: request.query, headers: request.headers, contentType: request.contentType }); }, [onRequestChange, request]);
+	useEffect(() => {
+		onStateChange?.({ pathRows, queryRows, headerRows, contentType, body, formBody, response });
+	}, [onStateChange, pathRows, queryRows, headerRows, contentType, body, formBody, response]);
 
 	async function send() {
 		setIsSending(true);

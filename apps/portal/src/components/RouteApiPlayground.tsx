@@ -1,5 +1,7 @@
-import { ApiPlayground, Spinner, type ApiPlaygroundRequest, type ApiPlaygroundResponse } from "@fluxify/components";
+import { useCallback, useState } from "react";
+import { ApiPlayground, Spinner, type ApiPlaygroundRequest, type ApiPlaygroundResponse, type ApiPlaygroundState } from "@fluxify/components";
 import { routesQuery } from "@/query/routesQuery";
+import { useCanvasPlaygroundCacheStore } from "@/store/canvasPlaygroundCache";
 
 type RouteApiPlaygroundProps = {
 	routeId: string;
@@ -9,17 +11,41 @@ type RouteApiPlaygroundProps = {
 	onSend?: (request: ApiPlaygroundRequest) => Promise<ApiPlaygroundResponse>;
 	className?: string;
 	isFramed?: boolean;
+	enableCache?: boolean;
 };
 
 /**
  * Fluxify-specific bridge: React Query owns route loading, while the component
  * package stays portable and receives only route data plus a request callback.
  */
-export function RouteApiPlayground({ routeId, baseUrl, onSend = executeRequest, className, isFramed }: RouteApiPlaygroundProps) {
+export function RouteApiPlayground({ routeId, baseUrl, onSend = executeRequest, className, isFramed, enableCache }: RouteApiPlaygroundProps) {
 	const route = routesQuery.byId.useQuery(routeId);
+	const [initialState] = useState(() =>
+		enableCache ? useCanvasPlaygroundCacheStore.getState().getPlaygroundState(routeId) : undefined,
+	);
+
+	const handleStateChange = useCallback(
+		(state: ApiPlaygroundState) => {
+			if (enableCache) {
+				useCanvasPlaygroundCacheStore.getState().setPlaygroundState(routeId, state);
+			}
+		},
+		[enableCache, routeId],
+	);
+
 	if (route.isLoading) return <div className="grid h-full place-items-center"><Spinner /></div>;
 	if (!route.data) return <div className="grid h-full place-items-center text-sm text-muted">Route details are unavailable.</div>;
-	return <ApiPlayground className={className} isFramed={isFramed} baseUrl={baseUrl} onSend={onSend} route={route.data} />;
+	return (
+		<ApiPlayground
+			className={className}
+			isFramed={isFramed}
+			baseUrl={baseUrl}
+			onSend={onSend}
+			route={route.data}
+			initialState={initialState}
+			onStateChange={handleStateChange}
+		/>
+	);
 }
 
 async function executeRequest(request: ApiPlaygroundRequest): Promise<ApiPlaygroundResponse> {
