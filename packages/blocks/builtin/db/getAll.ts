@@ -126,19 +126,9 @@ export class GetAllDbBlock extends BaseBlock {
 			const joins = this.input.joins ?? [];
 			offset = isNaN(offset) ? 0 : offset;
 			limit = isNaN(limit) ? 1000 : limit;
-			const evaluatedConditions = await Promise.all(
-				this.input.conditions.map(async (condition) => {
-					const { lhs, rhs } = await ConditionEvaluator.evaluateScript(
-						condition.attribute,
-						condition.value,
-						this.context.vm,
-					);
-					return {
-						...condition,
-						attribute: lhs,
-						value: rhs,
-					};
-				}),
+			const evaluatedConditions = await ConditionEvaluator.evaluateDbConditions(
+				this.input.conditions,
+				this.context.vm,
 			);
 			const result = await this.dbAdapter.getAll(
 				this.input.tableName,

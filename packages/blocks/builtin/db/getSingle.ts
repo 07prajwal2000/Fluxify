@@ -83,19 +83,9 @@ export class GetSingleDbBlock extends BaseBlock {
 				: this.input.tableName;
 			const columns = this.input.columns ?? ["*"];
 			const joins = this.input.joins ?? [];
-			const evaluatedConditions = await Promise.all(
-				this.input.conditions.map(async (condition) => {
-					const { lhs, rhs } = await ConditionEvaluator.evaluateScript(
-						condition.attribute,
-						condition.value,
-						this.context.vm,
-					);
-					return {
-						...condition,
-						attribute: lhs,
-						value: rhs,
-					};
-				}),
+			const evaluatedConditions = await ConditionEvaluator.evaluateDbConditions(
+				this.input.conditions,
+				this.context.vm,
 			);
 			const result = await this.dbAdapter.getSingle(
 				this.input.tableName,

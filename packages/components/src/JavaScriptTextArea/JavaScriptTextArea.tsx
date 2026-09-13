@@ -35,6 +35,8 @@ export type JavaScriptTextAreaProps = {
 	"aria-label"?: string;
 	onBlur?: () => void;
 	onFocus?: () => void;
+	/** Monaco language id. Defaults to JavaScript; "sql" for custom db conditions. */
+	language?: string;
 };
 
 function resolveTheme(theme?: string) {
@@ -67,6 +69,7 @@ export function JavaScriptTextArea({
 	onFocus,
 	onEditorMount,
 	"aria-label": ariaLabel,
+	language = "javascript",
 }: JavaScriptTextAreaProps) {
 	const height = heightProp ?? rows * LINE_HEIGHT + VERTICAL_PADDING;
 	const mountedRef = useRef(false);
@@ -119,7 +122,7 @@ export function JavaScriptTextArea({
 			<Editor
 				defaultValue={defaultValue}
 				height={height}
-				language="javascript"
+				language={language}
 				onChange={(next) => onChange?.(next ?? "")}
 				onMount={onMount}
 				options={{

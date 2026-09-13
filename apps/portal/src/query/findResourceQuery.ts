@@ -2,6 +2,7 @@ import { useCallback, useMemo } from "react";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { findResourceService } from "@/services/findResource";
 import { integrationService } from "@/services/integrations";
+import { integrationsQuery } from "@/query/integrationsQuery";
 
 export const findResourceQuery = {
 	search: {
@@ -50,6 +51,13 @@ export function useDbMetadata(projectId?: string, connectionId?: string) {
 	const { data, isLoading } = findResourceQuery.getIntegrationMetadata.useQuery(
 		projectId ?? "",
 		connectionId,
+	);
+
+	// the integration list, not the schema read: the editor depends only on the
+	// variant, so "Custom" must not vanish when the database can't be introspected
+	const { data: integrations } = integrationsQuery.getAll.useQuery(
+		projectId ?? "",
+		"database",
 	);
 
 	const tables = data?.metadata?.tables ?? [];
@@ -101,6 +109,13 @@ export function useDbMetadata(projectId?: string, connectionId?: string) {
 		getColumnsForTable,
 		/** e.g. "PostgreSQL" | "MySQL" | "MongoDB" — drives engine-specific UI */
 		variant: data?.variant,
+		/** "sql" | "js" — which editor a custom condition gets */
+		// ponytail: SQL until the connection is known (none picked, list loading,
+		// custom-block param), since most connections speak SQL; a Mongo user sees
+		// the JS editor as soon as the connection resolves.
+		conditionEditor:
+			integrations?.find((item) => item.id === connectionId)?.conditionEditor ??
+			("sql" as const),
 	};
 }
 

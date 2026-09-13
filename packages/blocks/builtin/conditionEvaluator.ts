@@ -5,6 +5,7 @@ import {
   operatorSchema,
 } from "@fluxify/lib";
 import z from "zod";
+import { parseSqlTemplate } from "./db/rawCondition";
 
 export enum OperatorResult {
   TRUE = 1,
@@ -58,6 +59,37 @@ export class ConditionEvaluator {
     }
     return totalTrues == totalOperators - checkpoint;
   }
+  /**
+   * Runs every js piece of a db block's conditions: both sides of a structured
+   * condition, or a custom condition's `js:` filter / `{{ }}` placeholders.
+   * Same shapes the compiled path hands the adapter.
+   */
+  public static async evaluateDbConditions(conditions: any[], vm: JsVM) {
+    return Promise.all(
+      conditions.map(async (condition) => {
+        if (condition.operator === "raw") {
+          return { ...condition, raw: await ConditionEvaluator.evaluateRaw(condition.raw, vm) };
+        }
+        const { lhs, rhs } = await ConditionEvaluator.evaluateScript(
+          condition.attribute,
+          condition.value,
+          vm,
+        );
+        return { ...condition, attribute: lhs, value: rhs };
+      }),
+    );
+  }
+
+  private static async evaluateRaw(raw: string, vm: JsVM) {
+    if (raw.startsWith("js:")) return await vm.run(raw.slice(3));
+    const { strings, expressions } = parseSqlTemplate(raw);
+    const values: unknown[] = [];
+    for (const expression of expressions) {
+      values.push(await vm.run(`return (${expression});`));
+    }
+    return { strings, values };
+  }
+
   public static async evaluateScript(lhs: any, rhs: any, vm: JsVM) {
     return {
       lhs: await ConditionEvaluator.evaluateSide(lhs, vm),

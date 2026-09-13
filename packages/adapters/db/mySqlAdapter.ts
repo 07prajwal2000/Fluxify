@@ -15,9 +15,9 @@ import {
 	applyJoins,
 	buildQualifiers,
 	QueryOptions,
-	resolveCondition,
 	resolveJsonOperand,
 } from "./jsonPath";
+import { applySqlConditions } from "./conditions";
 
 // A generic schema to satisfy Kysely's strict typing without using 'any'
 type FluxifyDatabase = Record<string, Record<string, any>>;
@@ -289,66 +289,12 @@ export class MySqlAdapter implements IDbAdapter {
 			: this.db;
 	}
 
-	// Duck-typing the builder generic to strictly ensure .where exists
 	private buildQuery<B extends { where: Function }>(
 		conditions: DBConditionType[],
 		builder: B,
 		qualifiers?: Set<string>,
 	): B {
-		if (!conditions || conditions.length === 0) return builder;
-
-		return builder.where((eb: CallableFunction) => {
-			// 1. Create the initial expression using the ExpressionBuilder (eb)
-			const c0 = resolveCondition(
-				conditions[0].attribute,
-				conditions[0].value,
-				"mysql",
-				qualifiers,
-			);
-			let expr = eb(
-				c0.lhs as never,
-				this.getNativeOperator(conditions[0].operator) as never,
-				c0.rhs as never,
-			) as { and: Function; or: Function };
-
-			// 2. Chain subsequent expressions just like Kysely Docs Example #2
-			for (let i = 1; i < conditions.length; i++) {
-				const cond = conditions[i];
-				const { lhs, rhs } = resolveCondition(
-					cond.attribute,
-					cond.value,
-					"mysql",
-					qualifiers,
-				);
-				const nextExpr = eb(
-					lhs as never,
-					this.getNativeOperator(cond.operator) as never,
-					rhs as never,
-				);
-
-				if (cond.chain.toLowerCase() === "or") {
-					expr = expr.or(nextExpr) as { and: Function; or: Function };
-				} else {
-					expr = expr.and(nextExpr) as { and: Function; or: Function };
-				}
-			}
-
-			return expr;
-		}) as B;
-	}
-
-	private getNativeOperator(
-		operator: "eq" | "neq" | "gt" | "gte" | "lt" | "lte",
-	): string {
-		const map: Record<string, string> = {
-			eq: "=",
-			neq: "<>",
-			gt: ">",
-			gte: ">=",
-			lt: "<",
-			lte: "<=",
-		};
-		return map[operator] ?? "=";
+		return applySqlConditions(builder, conditions, "mysql", qualifiers);
 	}
 }
 

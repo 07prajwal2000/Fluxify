@@ -16,6 +16,7 @@ type RawWhereCondition = {
 	value?: ConditionValue;
 	rhs?: ConditionValue;
 	operator?: string;
+	raw?: string;
 	chain?: "and" | "or";
 };
 
@@ -56,16 +57,22 @@ export function parseDbConditions(block: BlockNode): Condition[] {
 		lhs: condition.attribute ?? condition.lhs ?? "",
 		rhs: condition.value ?? condition.rhs ?? "",
 		operator: (condition.operator as ConditionOperator) || "eq",
+		raw: condition.raw,
 	}));
 }
 
 export function serializeDbConditions(conditions: Condition[]) {
-	return conditions.map((condition) => ({
-		attribute: asDbConditionSide(condition.lhs, "column"),
-		value: asDbConditionSide(condition.rhs, "literal"),
-		operator: condition.operator,
-		chain: condition.chain,
-	}));
+	return conditions.map((condition) =>
+		// a custom condition is only its text: stray sides would fail the schema
+		condition.operator === "raw"
+			? { operator: "raw", raw: condition.raw ?? "", chain: condition.chain }
+			: {
+					attribute: asDbConditionSide(condition.lhs, "column"),
+					value: asDbConditionSide(condition.rhs, "literal"),
+					operator: condition.operator,
+					chain: condition.chain,
+				},
+	);
 }
 
 function asDbConditionSide(value: ConditionValue, defaultKind: "column" | "literal") {

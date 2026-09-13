@@ -53,4 +53,17 @@ describe("whereConditionSchema", () => {
 			}).success,
 		).toBe(true);
 	});
+
+	it("accepts a custom condition carrying only its text", () => {
+		expect(
+			whereConditionSchema.safeParse({
+				operator: "raw",
+				raw: "name ILIKE {{ getQueryParam('q') }}",
+				chain: "and",
+			}).success,
+		).toBe(true);
+		expect(
+			whereConditionSchema.safeParse({ operator: "raw", chain: "and" }).success,
+		).toBe(false);
+	});
 });

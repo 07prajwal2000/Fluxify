@@ -9,6 +9,7 @@ import {
 } from ".";
 import { JsVM } from "@fluxify/lib";
 import { toMongoField, isNumericLike, isColumnRef, isLiteralRef } from "./jsonPath";
+import { activeConditions, isRawCondition, rawMongoFilter } from "./conditions";
 
 export class MongoAdapter implements IDbAdapter {
 	public static variant = "MongoDB";
@@ -273,12 +274,13 @@ export class MongoAdapter implements IDbAdapter {
 	};
 
 	private buildFilter(conditions: DBConditionType[]): Record<string, unknown> {
-		if (!conditions || conditions.length === 0) return {};
+		const active = activeConditions(conditions);
+		if (active.length === 0) return {};
 
-		let filter: Record<string, unknown> = this.createExpr(conditions[0]);
+		let filter: Record<string, unknown> = this.createExpr(active[0]);
 
-		for (let i = 1; i < conditions.length; i++) {
-			const cond = conditions[i];
+		for (let i = 1; i < active.length; i++) {
+			const cond = active[i];
 			const expr = this.createExpr(cond);
 
 			if (cond.chain.toLowerCase() === "or") {
@@ -292,6 +294,7 @@ export class MongoAdapter implements IDbAdapter {
 	}
 
 	private createExpr(cond: DBConditionType): Record<string, unknown> {
+		if (isRawCondition(cond)) return rawMongoFilter(cond.raw);
 		// ponytail: both of these need $expr on Mongo, which the rest of this
 		// builder isn't shaped for. Rejected loudly rather than silently matching
 		// the literal string "email". Wire $expr here when a graph needs it.

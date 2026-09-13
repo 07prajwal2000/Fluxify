@@ -11,7 +11,7 @@ The **DB Get Single** block fetches exactly one record from a table. This is bes
 
 - **Connection**: The database integration.
 - **Table Name**: The table to query.
-- **Conditions**: Rules to find the specific record.
+- **Conditions**: Rules to find the specific record. A condition whose value is `undefined` is skipped, and the **Custom** operator lets you write the condition yourself — see [Optional filters](/blocks/db-get-all#optional-filters) and [Custom conditions](/blocks/db-get-all#custom-conditions).
 - **Joins**: Other tables to combine with this query (SQL databases only — see [Joins](#joins) below).
 - **Columns**: Which columns to return (see [Columns](#columns) below). Leave empty to return every column.
 

@@ -1,5 +1,6 @@
 import type z from "zod";
 import { emitJsObject, type EmitNode } from "../../compiler";
+import { parseSqlTemplate } from "./rawCondition";
 import type { whereConditionSchema } from "./schema";
 
 /**
@@ -23,9 +24,26 @@ export function emitWhereConditions(
 	conditions: z.infer<typeof whereConditionSchema>[],
 	node: EmitNode,
 ) {
-	const entries = conditions.map(
-		(condition) =>
-			`{ attribute: ${emitJsObject(condition.attribute, node)}, operator: ${JSON.stringify(condition.operator)}, value: ${emitJsObject(condition.value, node)}, chain: ${JSON.stringify(condition.chain)} }`,
-	);
+	const entries = conditions.map((condition) => {
+		const chain = JSON.stringify(condition.chain);
+		if (condition.operator === "raw") {
+			return `{ operator: "raw", raw: ${emitRawCondition(condition.raw, node)}, chain: ${chain} }`;
+		}
+		return `{ attribute: ${emitJsObject(condition.attribute, node)}, operator: ${JSON.stringify(condition.operator)}, value: ${emitJsObject(condition.value, node)}, chain: ${chain} }`;
+	});
 	return `[${entries.join(", ")}]`;
+}
+
+/**
+ * `js:` code (MongoDB) evaluates to the filter object it returns. Anything else
+ * is SQL: the text is baked in, each `{{ }}` becomes a value evaluated in the
+ * block's scope, and the adapter binds those as parameters.
+ */
+function emitRawCondition(raw: string, node: EmitNode) {
+	if (raw.startsWith("js:")) return node.value(raw);
+	const { strings, expressions } = parseSqlTemplate(raw);
+	const values = expressions.map((expression) =>
+		node.js(`return (${expression});`, node.in),
+	);
+	return `{ strings: ${JSON.stringify(strings)}, values: [${values.join(", ")}] }`;
 }

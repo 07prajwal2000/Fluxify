@@ -39,6 +39,62 @@ The value side of a condition can also point at a field instead of a fixed value
 Comparing two fields against each other is only available on SQL databases.
 :::
 
+## Optional filters
+
+A condition is **skipped** when its value is `undefined` when the block runs. This lets one block serve both "filter" and "don't filter" without any branching.
+
+Example: a condition `status` `=` `js:getQueryParam('status')`.
+
+| Request | What runs |
+| --- | --- |
+| `/users?status=active` | only records with `status = active` |
+| `/users` | every record — the condition is left out |
+
+`null` is **not** skipped: it is a real value, so a condition with a `null` value still filters.
+
+::: warning Update and Delete
+The same rule applies to **DB Update** and **DB Delete**. If every condition is skipped, the block updates or deletes **every record** in the table. Make sure at least one condition always has a value.
+:::
+
+## Custom conditions
+
+When the built-in operators are not enough — case-insensitive matching (`ILIKE`), `IN`, `BETWEEN`, JSON or array operators, text search — pick the **Custom** operator and write the condition yourself. The editor follows your connection's database.
+
+### SQL databases (PostgreSQL, MySQL)
+
+Write any expression that could appear after `WHERE`. Put run-time values inside `{{ }}`:
+
+```sql
+name ILIKE {{ '%' + getQueryParam('q') + '%' }}
+```
+
+```sql
+status IN ({{ input.first }}, {{ input.second }}) AND created_at > NOW() - INTERVAL '7 days'
+```
+
+- Whatever is inside `{{ }}` is JavaScript, with the same variables and helpers as any other expression.
+- Each `{{ }}` value is sent to the database **separately from the SQL text**, so a value can never change the query. Do not add quotes around `{{ }}`.
+- If any `{{ }}` value is `undefined`, the whole condition is skipped (see [Optional filters](#optional-filters)).
+- The text is used exactly as written, so it must be valid for your database (for example `ILIKE` exists in PostgreSQL but not MySQL).
+
+### MongoDB
+
+Write JavaScript that **returns a MongoDB query filter object** — the same object you would pass to `find()`:
+
+```js
+return { name: { $regex: getQueryParam("q"), $options: "i" } };
+```
+
+```js
+return { tags: { $in: input.tags }, age: { $gte: 18 } };
+```
+
+- Returning `undefined` skips the condition.
+- The filter is used as-is: field names are the real document fields (`_id`, not `id`), and ids must be real `ObjectId` values.
+- See the MongoDB guides on [query filters](https://www.mongodb.com/docs/manual/tutorial/query-documents/) and [query operators](https://www.mongodb.com/docs/manual/reference/operator/query/) for everything a filter can do.
+
+Custom conditions combine with the other conditions using **And** / **Or**, just like any other row.
+
 ## Joins
 
 Joins let you pull in data from a related table in the same query (available for SQL databases — this section is hidden when your connection is MongoDB).
