@@ -1,9 +1,11 @@
 import { REQUEST_RESPONSE_DOCS } from "./apiDocsRequest";
+import { TRIGGER_DOCS } from "./apiDocsTrigger";
 import type { ApiDocCategoryGroup, ApiDocItem, SnippetCategory } from "./types";
 export type { ApiDocCategoryGroup, ApiDocItem, SnippetCategory };
 
 export const API_DOCS: ApiDocItem[] = [
 	...REQUEST_RESPONSE_DOCS,
+	...TRIGGER_DOCS,
 
 	// JWT
 	{
