@@ -4,7 +4,7 @@ import z from "zod";
 import { Connection, DbType } from "./connection";
 import { PostgresAdapter } from "./postgresAdapter";
 import { MySqlAdapter } from "./mySqlAdapter";
-import { JsVM } from "@fluxify/lib";
+import { createLazyJsVM, type JsVM } from "@fluxify/lib";
 import { MongoAdapter, buildMongoUrl } from "./mongoDbAdapter";
 import { DbConnectionManager, type DbConnectionLease } from "./connectionManager";
 
@@ -188,7 +188,8 @@ export class DbFactory {
 export async function introspectConnection(
 	cfg: Connection,
 ): Promise<IntrospectedTable[]> {
-	const vm = {} as JsVM; // introspection never evaluates js conditions
+	// lazy: introspection never evaluates js conditions, so this never actually constructs one
+	const vm = createLazyJsVM({});
 
 	if (cfg.dbType.toLowerCase() === DbType.POSTGRES.toLowerCase()) {
 		const sql = new SQL({

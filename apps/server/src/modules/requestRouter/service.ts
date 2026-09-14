@@ -19,7 +19,7 @@ import {
 } from "@fluxify/blocks";
 import { Context } from "hono";
 import { ContentfulStatusCode } from "hono/utils/http-status";
-import { JsVM } from "@fluxify/lib";
+import { JsVM, createLazyJsVM } from "@fluxify/lib";
 import { runBlocks } from "./executor";
 import { getAppConfig } from "../../loaders/appconfigLoader";
 import {
@@ -266,7 +266,7 @@ export async function executeRouteInternal(
 		requestData.params = result.data as typeof requestData.params;
 	}
 
-	const vm = createJsVM(vars);
+	const vm = createLazyJsVM(vars);
 	const dbFactory = createDbFactory(
 		vm,
 		routeInfo.projectId,
@@ -356,7 +356,7 @@ export function createJobContext(job: {
 		undefined,
 		trigger,
 	);
-	const vm = createJsVM(vars);
+	const vm = createLazyJsVM(vars);
 	return createContext(
 		{ id: job.target, projectId: job.projectId },
 		requestData,
@@ -634,10 +634,5 @@ function setupContextVars(
 		},
 		httpClient,
 	};
-}
-
-function createJsVM(vars: Record<string, any>) {
-	const vm = new JsVM(vars);
-	return vm;
 }
 

@@ -68,3 +68,22 @@ export class JsVM {
 		return !this.truthy(value);
 	}
 }
+
+/**
+ * A `JsVM` that is not constructed until first used. `new JsVM()` itself is
+ * cheap, but most routes/db blocks never touch `vm` at all — this defers
+ * even that trivial cost, and lets every existing caller keep treating
+ * `Context.vm` as a plain `JsVM`.
+ */
+export function createLazyJsVM(vars: Record<string, any>): JsVM {
+	let vm: JsVM | undefined;
+	const get = () => (vm ??= new JsVM(vars));
+	return new Proxy({} as JsVM, {
+		get(_target, prop) {
+			const real = get();
+			const value = Reflect.get(real, prop, real);
+			return typeof value === "function" ? value.bind(real) : value;
+		},
+		getPrototypeOf: () => JsVM.prototype,
+	});
+}
