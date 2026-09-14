@@ -1,4 +1,4 @@
-import { BlockTypes } from "@fluxify/blocks";
+import { BlockTypes, FAN_OUT_HANDLES } from "@fluxify/blocks";
 import { db, type DbTransactionType } from "../../db";
 import { BadRequestError } from "../../errors/badRequestError";
 import { ConflictError } from "../../errors/conflictError";
@@ -131,7 +131,8 @@ async function assertCanvasHasNoCycles(
 	);
 }
 
-/** The runtime takes the first edge it finds for an output handle. Rejecting
+/** The runtime takes the first edge it finds for an output handle (fan-out
+ * handles, whose edges are parallel branches, excepted). Rejecting
  * fan-out here protects every canvas writer, not only the AI harness. */
 async function assertCanvasHasNoHandleFanOut(
 	parent: CanvasParent,
@@ -153,6 +154,7 @@ async function assertCanvasHasNoHandleFanOut(
 		const handle = rawHandle.startsWith(`${edge.from}-`)
 			? rawHandle.slice(edge.from.length + 1)
 			: rawHandle;
+		if (FAN_OUT_HANDLES.includes(handle)) continue;
 		const key = `${edge.from}|${handle}`;
 		const first = seen.get(key);
 		if (first) {

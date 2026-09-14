@@ -25,6 +25,7 @@ import { setHeaderAiDescription } from "./http/setHttpHeader";
 import { consoleAiDescription } from "./log/console";
 import { forLoopAiDescription } from "./loops/for";
 import { foreachLoopAiDescription } from "./loops/foreach";
+import { orchestratorAiDescription } from "./orchestrator";
 import { cloudLogsAiDescription } from "./log/cloudLogs";
 import { errorHandlerAiDescription } from "./errorHandler";
 
@@ -56,6 +57,7 @@ export const blockAiDescriptions = [
   consoleAiDescription,
   forLoopAiDescription,
   foreachLoopAiDescription,
+  orchestratorAiDescription,
   cloudLogsAiDescription,
   errorHandlerAiDescription,
 ];

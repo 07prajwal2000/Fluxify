@@ -32,6 +32,7 @@ const DATA_BLOCKS = new Set<string>([
 	BLOCK_TYPES.db_delete,
 	BLOCK_TYPES.db_native,
 	BLOCK_TYPES.db_transaction,
+	BLOCK_TYPES.orchestrator,
 ]);
 
 const BUILTIN_TYPES = new Set<string>(Object.values(BLOCK_TYPES));

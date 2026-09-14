@@ -214,6 +214,11 @@ foreachloop {
 	useParam?: boolean;  // use parameter as the datasource to iterate on
 }
 
+orchestrator {
+	order: string[];  // target block ids of the 'orchestrate' connections, in the order their outputs appear in the result array; unlisted connections come after; default []
+	onError: "throw" | "settle";  // 'throw': a failing branch fails the block (error handler runs). 'settle': every branch finishes and a failed branch's slot holds its error message; default "throw"
+}
+
 cloud_logs {
 	connection: string;  // integration id; default ""
 	message?: string;  // string message to log

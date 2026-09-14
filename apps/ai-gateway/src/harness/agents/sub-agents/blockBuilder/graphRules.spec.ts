@@ -27,6 +27,18 @@ describe("validateGraphRules", () => {
 		).toEqual([]);
 	});
 
+	it("allows an orchestrator to fan out on orchestrate", () => {
+		expect(
+			validateGraphRules([
+				block("a", "orchestrator", [
+					{ blockId: "b", handle: "orchestrate" },
+					{ blockId: "c", handle: "orchestrate" },
+					{ blockId: "d", handle: "source" },
+				]),
+			]),
+		).toEqual([]);
+	});
+
 	it("allows a loop's source and executor", () => {
 		expect(
 			validateGraphRules([

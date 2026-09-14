@@ -13,6 +13,7 @@ export function defaultBlockData(type: BlockType): Record<string, unknown> {
 	if (type === BLOCK_TYPES.if) return { conditions: [] };
 	if (type === BLOCK_TYPES.forloop) return { start: 0, end: 1, step: 1 };
 	if (type === BLOCK_TYPES.foreachloop) return { values: [], useParam: false };
+	if (type === BLOCK_TYPES.orchestrator) return { order: [], onError: "throw" };
 	if (type === BLOCK_TYPES.transformer) return { fieldMap: {}, useJs: false };
 	if (type === BLOCK_TYPES.jsrunner) return { value: "" };
 	if (type === BLOCK_TYPES.setvar) return { key: "", value: "" };

@@ -8,6 +8,7 @@ export * from "./builtin/transformer";
 export * from "./builtin/entrypoint";
 export * from "./builtin/loops/for";
 export * from "./builtin/loops/foreach";
+export * from "./builtin/orchestrator";
 export * from "./compiler";
 export * from "./builtin/customBlock";
 export * from "./builtin/triggerWorkflow";

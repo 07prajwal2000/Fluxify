@@ -43,6 +43,12 @@
 	}
 }
 
+/* Lit from the orchestrator panel while that branch's row is hovered. */
+.react-flow__edge.fx-edge--highlight .fx-edge {
+	stroke: var(--accent, oklch(0.9 0.2 122));
+	stroke-width: 3;
+}
+
 /* Wide invisible stroke so the edge is easy to click/select. */
 .fx-edge__hit {
 	stroke: transparent;

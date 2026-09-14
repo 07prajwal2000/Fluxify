@@ -5,6 +5,7 @@ import { emitCustomBlock, hasCustomBlock } from "./builtin/customBlock";
 import { emitWorkflowEnd } from "./builtin/response";
 import { compilerLib, emitters } from "./registry";
 import { scopeFor } from "./scope";
+import { FAN_OUT_HANDLES, sortByOrder } from "./blockHandles";
 import { hoistImports, type HoistedImport } from "./imports";
 
 export { compilerLib, type Emitter } from "./registry";
@@ -29,6 +30,12 @@ export type EmitNode = {
 	next(handle?: string): string;
 	/** nested chain (loop bodies): its own flowing variable, falls through at the end */
 	body(handle: string, initExpr: string): string;
+	/**
+	 * Expression running every chain on a fan-out handle at once, each from this
+	 * block's input, ordered by `order`. Resolves to the outputs array, or to a
+	 * terminal result when a chain ends the route first.
+	 */
+	parallel(handle: string, order: string[], settle: boolean): string;
 	/** record this terminal block's output, then return it from its block function */
 	complete(output: string): string;
 	/** JS expression for a value from block data (`js:` prefixed ones are evaluated) */
@@ -58,7 +65,19 @@ export function emitJsObject(value: unknown, node: EmitNode): string {
 
 /** mirrors JsVM.truthy / the `is_empty` operator, inlined into every program */
 const PRELUDE = `const $truthy = (v) => { const t = typeof v; return t === "bigint" || t === "number" || t === "string" || t === "boolean" ? !!v : (t === "object" && v !== null); };
-const $isEmpty = (v) => v === null || v === undefined || v === "" || (typeof v === "object" && Object.keys(v).length === 0);`;
+const $isEmpty = (v) => v === null || v === undefined || v === "" || (typeof v === "object" && Object.keys(v).length === 0);
+const $branchEnd = Symbol("branch");
+const $endBranch = (output) => ({ [$branchEnd]: output });
+const $parallel = (runs, settle) => new Promise((resolve, reject) => {
+const out = new Array(runs.length);
+let left = runs.length;
+if (!left) return resolve(out);
+const done = (i, value) => { out[i] = value; if (--left === 0) resolve(out); };
+runs.forEach((run, i) => run.then(
+(r) => (r && $branchEnd in r ? done(i, r[$branchEnd]) : resolve(r)),
+(error) => (settle ? done(i, error?.toString()) : reject(error)),
+));
+});`;
 
 /** marker lets a newer worker load older artifacts during a rolling update */
 const COMPILED_ROUTE_FACTORY = "/* fluxify-compiled-route-factory */";
@@ -173,7 +192,7 @@ export function compileGraph(
 				countByHandle.set(edge.handle, (countByHandle.get(edge.handle) ?? 0) + 1);
 			}
 			for (const [handle, count] of countByHandle) {
-				if (count > 1) edgeTo(id, handle);
+				if (count > 1 && !FAN_OUT_HANDLES.includes(handle)) edgeTo(id, handle);
 			}
 		}
 	}
@@ -351,6 +370,18 @@ ${continuation}`;
 				return `$recorded = true;
 const ${result} = await ${blockFunctionName(to)}($state, ${initExpr}, $endBody);
 if (${result} !== undefined) return ${result};`;
+			},
+			parallel(handle, order, settle) {
+				const outgoing = (edgeMap[id] ?? []).filter(
+					(edge) =>
+						edge.handle === handle &&
+						byId.get(edge.to)?.type !== BlockTypes.errorHandler,
+				);
+				const runs = sortByOrder(outgoing, order, (edge) => edge.to).map(
+					(edge) => `${blockFunctionName(edge.to)}($state, $in, $endBranch)`,
+				);
+				// reported before handing off, like body(): a branch's throw is its own
+				return `($recorded = true, await $parallel([${runs.join(", ")}], ${settle}))`;
 			},
 			complete(output) {
 				const result = `$result_${counter++}`;

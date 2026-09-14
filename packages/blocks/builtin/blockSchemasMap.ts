@@ -8,6 +8,7 @@ import { setHttpCookieBlockSchema } from "./http/setHttpCookie";
 import { setHttpHeaderBlockSchema } from "./http/setHttpHeader";
 import { forLoopBlockSchema } from "./loops/for";
 import { forEachLoopBlockSchema } from "./loops/foreach";
+import { orchestratorBlockSchema } from "./orchestrator";
 import { transformerBlockSchema } from "./transformer";
 import { setVarSchema } from "./setVar";
 import { getVarBlockSchema } from "./getVar";
@@ -36,6 +37,7 @@ export const builtinBlockSchemas: Record<string, z.ZodTypeAny> = {
 	httpsetcookie: setHttpCookieBlockSchema,
 	forloop: forLoopBlockSchema,
 	foreachloop: forEachLoopBlockSchema,
+	orchestrator: orchestratorBlockSchema,
 	transformer: transformerBlockSchema,
 	setvar: setVarSchema,
 	getvar: getVarBlockSchema,

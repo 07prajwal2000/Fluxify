@@ -5,6 +5,7 @@ import { cloudLogSettings } from "./blocks/CloudLogSettings";
 import { consoleLogSettings } from "./blocks/ConsoleLogSettings";
 import { forLoopSettings } from "./blocks/ForLoopSettings";
 import { foreachLoopSettings } from "./blocks/ForeachLoopSettings";
+import { orchestratorSettings } from "./blocks/OrchestratorSettings";
 import { deleteDbSettings } from "./blocks/db/DeleteDbSettings";
 import { getAllDbSettings } from "./blocks/db/GetAllDbSettings";
 import { getSingleDbSettings } from "./blocks/db/GetSingleDbSettings";
@@ -46,6 +47,7 @@ export const BLOCK_SETTINGS_TABS: Record<string, BlockTabs> = {
 	[BLOCK_TYPES.arrayops]: arrayOpsSettings,
 	[BLOCK_TYPES.forloop]: forLoopSettings,
 	[BLOCK_TYPES.foreachloop]: foreachLoopSettings,
+	[BLOCK_TYPES.orchestrator]: orchestratorSettings,
 	[BLOCK_TYPES.httpgetcookie]: getCookieSettings,
 	[BLOCK_TYPES.httpgetheader]: getHeaderSettings,
 	[BLOCK_TYPES.httpsetcookie]: setCookieSettings,

@@ -68,6 +68,13 @@ export const BLOCK_CATALOG: Record<BlockType, BlockDefinition> = {
 		tint: VIOLET,
 		category: "Flow",
 	},
+	[BLOCK_TYPES.orchestrator]: {
+		name: "Orchestrator",
+		description: "Run the connected chains at the same time",
+		handles: ["target", "source", "orchestrate"],
+		tint: VIOLET,
+		category: "Flow",
+	},
 	[BLOCK_TYPES.transformer]: {
 		name: "Transformer",
 		description: "Reshape data into a new structure",
