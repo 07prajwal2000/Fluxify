@@ -11,6 +11,7 @@ export const BLOCK_TYPES = {
 	if: "if",
 	forloop: "forloop",
 	foreachloop: "foreachloop",
+	orchestrator: "orchestrator",
 	transformer: "transformer",
 	jsrunner: "jsrunner",
 	setvar: "setvar",

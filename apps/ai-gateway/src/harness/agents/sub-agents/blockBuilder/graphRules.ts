@@ -1,4 +1,4 @@
-import { BlockTypes, getOutputHandles } from "@fluxify/blocks";
+import { BlockTypes, FAN_OUT_HANDLES, getOutputHandles } from "@fluxify/blocks";
 import type { ValidatableBlock } from "./schemas";
 
 const SINGLETON_TYPES = [BlockTypes.entrypoint, BlockTypes.errorHandler];
@@ -82,7 +82,7 @@ export function validateGraphRules(blocks: ValidatableBlock[]): string[] {
 		}
 
 		for (const [handle, targets] of usedHandles) {
-			if (targets.length > 1) {
+			if (targets.length > 1 && !FAN_OUT_HANDLES.includes(handle)) {
 				errors.push(
 					`Block "${block.id}" fans out: its "${handle}" handle connects to ${targets.length} blocks (${targets.map((t) => `"${t}"`).join(", ")}). The runtime follows only the first and silently drops the rest. Each handle must have at most ONE outgoing connection — chain the blocks in sequence instead, or use an "if" block whose "success"/"failure" handles are the branches.`,
 				);

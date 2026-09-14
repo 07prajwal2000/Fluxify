@@ -7,13 +7,15 @@ import { BlockTypes } from "./blockTypes";
  * `findEdge` takes the FIRST edge matching a handle and silently discards the
  * rest, so a handle carrying two edges is not a parallel branch — it is one
  * branch plus a dropped one. Anything building a graph must treat a handle as
- * holding at most one edge, and must not invent handles a block does not have.
+ * holding at most one edge (except `FAN_OUT_HANDLES`), and must not invent
+ * handles a block does not have.
  */
 export const BLOCK_OUTPUT_HANDLES: Record<string, readonly string[]> = {
 	[BlockTypes.if]: ["success", "failure"],
 	[BlockTypes.forloop]: ["source", "executor"],
 	[BlockTypes.foreachloop]: ["source", "executor"],
 	[BlockTypes.db_transaction]: ["source", "executor"],
+	[BlockTypes.orchestrator]: ["source", "orchestrate"],
 	// terminal — the runtime never looks for an outgoing edge
 	[BlockTypes.response]: [],
 	[BlockTypes.sticky_note]: [],
@@ -24,7 +26,32 @@ export const getOutputHandles = (blockType: string): readonly string[] =>
 	BLOCK_OUTPUT_HANDLES[blockType] ?? ["source"];
 
 /** Socket kinds a block can expose. Ids on edges are `<blockId>-<kind>`. */
-export type HandleKind = "source" | "target" | "executor" | "success" | "failure";
+export type HandleKind =
+	| "source"
+	| "target"
+	| "executor"
+	| "success"
+	| "failure"
+	| "orchestrate";
+
+/** The only output handles that may carry more than one edge: each edge is a parallel branch. */
+export const FAN_OUT_HANDLES: readonly string[] = ["orchestrate"];
+
+/**
+ * Sorts fan-out branches by a stored list of target ids. Anything not listed
+ * keeps its original order, after the listed ones — a new connection lands last.
+ */
+export function sortByOrder<T>(
+	items: readonly T[],
+	order: readonly string[],
+	idOf: (item: T) => string,
+): T[] {
+	const rank = (item: T) => {
+		const index = order.indexOf(idOf(item));
+		return index === -1 ? order.length : index;
+	};
+	return [...items].sort((a, b) => rank(a) - rank(b));
+}
 
 /** Which edge of a block a socket rail can sit on. */
 export type HandleSide = "left" | "right" | "top" | "bottom";
@@ -40,4 +67,5 @@ export const HANDLE_SIDE = {
 	success: "right",
 	failure: "right",
 	executor: "top",
+	orchestrate: "top",
 } as const satisfies Record<HandleKind, HandleSide>;

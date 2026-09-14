@@ -1,0 +1,463 @@
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+import { Button } from "@heroui/react";
+import { TbChevronDown, TbChevronUp, TbGripVertical, TbX } from "react-icons/tb";
+import clsx from "clsx";
+import type { ReorderableListItemMeta, ReorderableListProps } from "./types";
+
+interface DragState {
+	index: number;
+	width: number;
+	height: number;
+	offsetX: number;
+	offsetY: number;
+	x: number;
+	y: number;
+}
+
+export function ReorderableList<T>({
+	items,
+	getKey,
+	onReorder,
+	onMove,
+	onRemove,
+	removeButtonAriaLabel,
+	isEditable = true,
+	showIndex = false,
+	showMoveButtons = true,
+	placeholderText = "Drop here",
+	emptyMessage,
+	className,
+	itemClassName,
+	getItemLabel,
+	renderItem,
+	renderItemContent,
+	renderActions,
+	renderPreview,
+	onItemMouseEnter,
+	onItemMouseLeave,
+	onItemFocus,
+	onItemBlur,
+	onDragStart,
+	onDragEnd,
+}: ReorderableListProps<T>) {
+	const itemsRef = useRef(items);
+	itemsRef.current = items;
+
+	const [dragState, setDragState] = useState<DragState | null>(null);
+	const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
+	const dragOverIndexRef = useRef<number | null>(null);
+	const listRef = useRef<HTMLOListElement>(null);
+
+	// Safety cleanup of body styles if unmounted during an active drag
+	useEffect(() => {
+		return () => {
+			document.body.style.userSelect = "";
+			document.body.style.cursor = "";
+		};
+	}, []);
+
+	const handleMove = useCallback(
+		(from: number, to: number) => {
+			const currentItems = itemsRef.current;
+			if (to < 0 || to >= currentItems.length || from === to) return;
+			const next = [...currentItems];
+			const [moved] = next.splice(from, 1);
+			next.splice(to, 0, moved);
+			onMove?.(from, to);
+			onReorder?.(next, from, to);
+		},
+		[onMove, onReorder],
+	);
+
+	const handlePointerDown = (e: React.PointerEvent<HTMLLIElement>, index: number) => {
+		if (!isEditable || e.button !== 0) return;
+		if ((e.target as HTMLElement).closest("button, a, input, select, textarea")) return;
+
+		const targetLi = e.currentTarget;
+		const rect = targetLi.getBoundingClientRect();
+		const startX = e.clientX;
+		const startY = e.clientY;
+		const offsetX = startX - rect.left;
+		const offsetY = startY - rect.top;
+
+		let isDragging = false;
+		dragOverIndexRef.current = index;
+
+		const onPointerMove = (moveEvent: PointerEvent) => {
+			const dx = moveEvent.clientX - startX;
+			const dy = moveEvent.clientY - startY;
+
+			if (!isDragging) {
+				if (Math.hypot(dx, dy) < 4) return;
+				isDragging = true;
+				document.body.style.userSelect = "none";
+				document.body.style.cursor = "grabbing";
+				if (items[index]) {
+					onDragStart?.(items[index], index, targetLi);
+				}
+			}
+
+			setDragState({
+				index,
+				width: rect.width,
+				height: rect.height,
+				offsetX,
+				offsetY,
+				x: moveEvent.clientX,
+				y: moveEvent.clientY,
+			});
+
+			const listEl = listRef.current;
+			if (!listEl) return;
+
+			// Auto-scroll the container if dragging near top/bottom boundaries
+			const scrollContainer =
+				listEl.closest<HTMLElement>("[data-slot='tabs-panel'], .tabs__panel") ?? listEl;
+			if (scrollContainer) {
+				const cRect = scrollContainer.getBoundingClientRect();
+				if (moveEvent.clientY < cRect.top + 32) {
+					scrollContainer.scrollTop -= 8;
+				} else if (moveEvent.clientY > cRect.bottom - 32) {
+					scrollContainer.scrollTop += 8;
+				}
+			}
+
+			// Find closest target slot by midpoint
+			const itemEls = Array.from(listEl.querySelectorAll<HTMLElement>("[data-display-index]"));
+			if (itemEls.length === 0) return;
+
+			let closestIndex = 0;
+			let minDistance = Infinity;
+
+			for (const el of itemEls) {
+				const elRect = el.getBoundingClientRect();
+				const midY = elRect.top + elRect.height / 2;
+				const dist = Math.abs(moveEvent.clientY - midY);
+				if (dist < minDistance) {
+					minDistance = dist;
+					const idx = Number(el.dataset.displayIndex);
+					if (!Number.isNaN(idx)) {
+						closestIndex = idx;
+					}
+				}
+			}
+
+			dragOverIndexRef.current = closestIndex;
+			setDragOverIndex(closestIndex);
+		};
+
+		const cleanup = () => {
+			window.removeEventListener("pointermove", onPointerMove);
+			window.removeEventListener("pointerup", onPointerUp);
+			window.removeEventListener("keydown", onKeyDown);
+			window.removeEventListener("blur", onBlur);
+			document.body.style.userSelect = "";
+			document.body.style.cursor = "";
+		};
+
+		const onPointerUp = () => {
+			cleanup();
+			if (isDragging) {
+				const targetIndex = dragOverIndexRef.current;
+				if (targetIndex !== null && targetIndex !== index) {
+					handleMove(index, targetIndex);
+				}
+				setDragState(null);
+				setDragOverIndex(null);
+				dragOverIndexRef.current = null;
+				onDragEnd?.();
+			}
+		};
+
+		const onKeyDown = (keyEvent: KeyboardEvent) => {
+			if (keyEvent.key === "Escape") {
+				cleanup();
+				setDragState(null);
+				setDragOverIndex(null);
+				dragOverIndexRef.current = null;
+				onDragEnd?.();
+			}
+		};
+
+		const onBlur = () => {
+			cleanup();
+			setDragState(null);
+			setDragOverIndex(null);
+			dragOverIndexRef.current = null;
+			onDragEnd?.();
+		};
+
+		window.addEventListener("pointermove", onPointerMove);
+		window.addEventListener("pointerup", onPointerUp);
+		window.addEventListener("keydown", onKeyDown);
+		window.addEventListener("blur", onBlur);
+	};
+
+	// Compute list items with placeholder at dragOverIndex while dragging
+	const displayItems = useMemo(() => {
+		if (dragState === null || dragOverIndex === null) {
+			return items.map((item, index) => ({
+				type: "item" as const,
+				item,
+				originalIndex: index,
+				displayIndex: index,
+			}));
+		}
+
+		const remaining = items
+			.map((item, index) => ({ item, originalIndex: index }))
+			.filter((_, index) => index !== dragState.index);
+
+		const result: Array<
+			| { type: "item"; item: T; originalIndex: number; displayIndex: number }
+			| { type: "placeholder"; displayIndex: number }
+		> = [];
+
+		let remIdx = 0;
+		for (let i = 0; i < items.length; i++) {
+			if (i === dragOverIndex) {
+				result.push({ type: "placeholder", displayIndex: i });
+			} else {
+				const entry = remaining[remIdx++];
+				if (entry) {
+					result.push({
+						type: "item",
+						item: entry.item,
+						originalIndex: entry.originalIndex,
+						displayIndex: i,
+					});
+				}
+			}
+		}
+		return result;
+	}, [items, dragState, dragOverIndex]);
+
+	const draggedItem = dragState !== null ? items[dragState.index] : null;
+
+	if (items.length === 0 && emptyMessage) {
+		return <>{emptyMessage}</>;
+	}
+
+	return (
+		<div className={clsx("flex flex-col gap-1 w-full", className)}>
+			<ol ref={listRef} className="flex flex-col gap-1 w-full">
+				{displayItems.map((entry) => {
+					if (entry.type === "placeholder") {
+						return (
+							<li
+								key="__reorder_drop_placeholder__"
+								data-display-index={entry.displayIndex}
+								style={{ height: dragState ? `${dragState.height}px` : undefined }}
+								className="flex items-center gap-2 rounded-md border-2 border-dashed border-primary/40 bg-surface-secondary/40 px-2 py-1 text-sm select-none transition-all"
+								aria-hidden="true"
+							>
+								{showIndex && (
+									<span className="w-5 shrink-0 text-xs font-mono text-muted/50">
+										{entry.displayIndex}
+									</span>
+								)}
+								<span className="min-w-0 flex-1 truncate text-xs text-muted/50 italic">
+									{placeholderText}
+								</span>
+							</li>
+						);
+					}
+
+					const { item, originalIndex, displayIndex } = entry;
+					const itemKey = getKey ? getKey(item, originalIndex) : originalIndex;
+
+					const meta: ReorderableListItemMeta = {
+						index: originalIndex,
+						displayIndex,
+						isDragging: dragState?.index === originalIndex,
+						isDisabled: !isEditable || dragState !== null,
+						canMoveUp: displayIndex > 0 && dragState === null,
+						canMoveDown: displayIndex < items.length - 1 && dragState === null,
+						moveUp: () => handleMove(originalIndex, originalIndex - 1),
+						moveDown: () => handleMove(originalIndex, originalIndex + 1),
+						remove: onRemove ? () => onRemove(item, originalIndex) : undefined,
+					};
+
+					if (renderItem) {
+						return (
+							<li
+								key={itemKey}
+								data-display-index={displayIndex}
+								onPointerDown={(e) => handlePointerDown(e, originalIndex)}
+								onMouseEnter={(e) => onItemMouseEnter?.(item, e.currentTarget)}
+								onMouseLeave={() => onItemMouseLeave?.(item)}
+								onFocus={(e) => onItemFocus?.(item, e.currentTarget)}
+								onBlur={() => onItemBlur?.(item)}
+								className={clsx(
+									editableItemClasses(isEditable, dragState !== null),
+									itemClassName,
+								)}
+							>
+								{renderItem(item, meta)}
+							</li>
+						);
+					}
+
+					return (
+						<li
+							key={itemKey}
+							data-display-index={displayIndex}
+							onPointerDown={(e) => handlePointerDown(e, originalIndex)}
+							onMouseEnter={(e) => onItemMouseEnter?.(item, e.currentTarget)}
+							onMouseLeave={() => onItemMouseLeave?.(item)}
+							onFocus={(e) => onItemFocus?.(item, e.currentTarget)}
+							onBlur={() => onItemBlur?.(item)}
+							className={clsx(
+								"group flex items-center gap-2 rounded-md border border-border bg-surface px-2 py-1 text-sm text-foreground transition-colors",
+								editableItemClasses(isEditable, dragState !== null),
+								itemClassName,
+							)}
+						>
+							{isEditable && (
+								<TbGripVertical className="shrink-0 cursor-grab text-muted group-hover:text-foreground transition-colors" />
+							)}
+							{showIndex && (
+								<span className="w-5 shrink-0 text-xs text-muted">{displayIndex}</span>
+							)}
+							<div className="min-w-0 flex-1 truncate">
+								{renderItemContent
+									? renderItemContent(item, meta)
+									: (getItemLabel ? getItemLabel(item, originalIndex) : String(item))}
+							</div>
+							{renderActions?.(item, meta)}
+							{isEditable && (showMoveButtons || onRemove) && (
+								<div className="flex items-center gap-0.5 shrink-0">
+									{showMoveButtons && (
+										<>
+											<Button
+												isIconOnly
+												size="sm"
+												variant="ghost"
+												aria-label="Move item up"
+												isDisabled={!meta.canMoveUp}
+												onPress={meta.moveUp}
+											>
+												<TbChevronUp />
+											</Button>
+											<Button
+												isIconOnly
+												size="sm"
+												variant="ghost"
+												aria-label="Move item down"
+												isDisabled={!meta.canMoveDown}
+												onPress={meta.moveDown}
+											>
+												<TbChevronDown />
+											</Button>
+										</>
+									)}
+									{onRemove && (
+										<Button
+											isIconOnly
+											size="sm"
+											variant="ghost"
+											aria-label={
+												typeof removeButtonAriaLabel === "function"
+													? removeButtonAriaLabel(item, originalIndex)
+													: removeButtonAriaLabel ?? "Remove item"
+											}
+											isDisabled={meta.isDisabled}
+											onPress={() => onRemove(item, originalIndex)}
+											className="text-muted hover:text-danger hover:bg-danger/10 transition-colors"
+										>
+											<TbX />
+										</Button>
+									)}
+								</div>
+							)}
+						</li>
+					);
+				})}
+			</ol>
+
+			{/* Floating Trello-style Drag Preview: 100% Opaque, Elevated Shadow, Zero Tilt */}
+			{dragState &&
+				draggedItem &&
+				createPortal(
+					<div
+						className="fixed pointer-events-none z-[9999] flex items-center gap-2 rounded-md border border-primary/50 bg-surface px-2 py-1 text-sm text-foreground shadow-2xl ring-1 ring-primary/20 select-none"
+						style={{
+							top: 0,
+							left: 0,
+							width: `${dragState.width}px`,
+							height: `${dragState.height}px`,
+							transform: `translate3d(${dragState.x - dragState.offsetX}px, ${dragState.y - dragState.offsetY}px, 0)`,
+							opacity: 1,
+						}}
+					>
+						{renderPreview ? (
+							renderPreview(draggedItem, {
+								index: dragState.index,
+								displayIndex: dragOverIndex ?? dragState.index,
+								isDragging: true,
+								isDisabled: true,
+								canMoveUp: false,
+								canMoveDown: false,
+								moveUp: () => {},
+								moveDown: () => {},
+								remove: () => {},
+							})
+						) : (
+							<>
+								<TbGripVertical className="shrink-0 text-primary cursor-grabbing" />
+								{showIndex && (
+									<span className="w-5 shrink-0 text-xs font-semibold text-primary">
+										{dragOverIndex ?? dragState.index}
+									</span>
+								)}
+								<div className="min-w-0 flex-1 truncate font-medium text-foreground">
+									{renderItemContent
+										? renderItemContent(draggedItem, {
+												index: dragState.index,
+												displayIndex: dragOverIndex ?? dragState.index,
+												isDragging: true,
+												isDisabled: true,
+												canMoveUp: false,
+												canMoveDown: false,
+												moveUp: () => {},
+												moveDown: () => {},
+												remove: () => {},
+											})
+										: (getItemLabel
+												? getItemLabel(draggedItem, dragState.index)
+												: String(draggedItem))}
+								</div>
+								{(showMoveButtons || onRemove) && (
+									<div className="flex items-center gap-0.5 opacity-40 shrink-0">
+										{showMoveButtons && (
+											<>
+												<Button isIconOnly size="sm" variant="ghost" isDisabled>
+													<TbChevronUp />
+												</Button>
+												<Button isIconOnly size="sm" variant="ghost" isDisabled>
+													<TbChevronDown />
+												</Button>
+											</>
+										)}
+										{onRemove && (
+											<Button isIconOnly size="sm" variant="ghost" isDisabled>
+												<TbX />
+											</Button>
+										)}
+									</div>
+								)}
+							</>
+						)}
+					</div>,
+					document.body,
+				)}
+		</div>
+	);
+}
+
+function editableItemClasses(editable: boolean, isAnyDragging: boolean) {
+	if (!editable) return "";
+	if (isAnyDragging) return "select-none pointer-events-none";
+	return "cursor-grab active:cursor-grabbing hover:border-border-secondary hover:bg-surface-secondary select-none touch-none";
+}

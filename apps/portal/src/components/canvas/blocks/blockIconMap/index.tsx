@@ -16,6 +16,7 @@ import {
 	TbRocket,
 	TbNote,
 	TbBox,
+	TbArrowsSplit2,
 } from "react-icons/tb";
 import { MdOutlineReportGmailerrorred, MdHttp, MdDataObject } from "react-icons/md";
 import { FaMapSigns, FaHeading } from "react-icons/fa";
@@ -35,6 +36,7 @@ export const BLOCK_ICON_MAP: Record<BlockType, ReactNode> = {
 	[BLOCK_TYPES.if]: <FaMapSigns size={SIZE} />,
 	[BLOCK_TYPES.forloop]: <TbInfinity size={SIZE} />,
 	[BLOCK_TYPES.foreachloop]: <TbInfinity size={SIZE} />,
+	[BLOCK_TYPES.orchestrator]: <TbArrowsSplit2 size={SIZE} />,
 	[BLOCK_TYPES.transformer]: <TbTransform size={SIZE} />,
 	[BLOCK_TYPES.jsrunner]: <IoLogoJavascript size={SIZE} />,
 	[BLOCK_TYPES.setvar]: <TbCodeVariablePlus size={SIZE} />,

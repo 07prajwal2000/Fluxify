@@ -126,15 +126,16 @@ ${CUSTOM_BLOCK_EXECUTION_CONTRACT}
      \`{ "id": "note_1", "blockType": "sticky_note", "position": { "x": -24, "y": 256 }, "data": { "notes": "**Fetch User Record**", "color": "yellow", "size": { "width": 600, "height": 164 } }, "connections": [] }\`
 
 4. **Connections — how the runtime actually walks the graph**:
-   At request time the engine resolves each step by asking a block for the single edge on a named handle. It takes the FIRST edge it finds on that handle and ignores every other edge on it. There is no parallel execution and no fan-out.
+   At request time the engine resolves each step by asking a block for the single edge on a named handle. It takes the FIRST edge it finds on that handle and ignores every other edge on it. The only parallel execution is an 'orchestrator' block's 'orchestrate' handle (see the table).
 
-   - **ONE outgoing edge per handle. No exceptions.** If you put two connections on a block's 'source' handle, only one branch ever runs and the other is silently discarded — the route will quietly do less than the user asked for. This is the single most common way this agent produces a broken canvas.
+   - **ONE outgoing edge per handle. The only exception is 'orchestrate'.** If you put two connections on a block's 'source' handle, only one branch ever runs and the other is silently discarded — the route will quietly do less than the user asked for. This is the single most common way this agent produces a broken canvas.
    - **Never converge two branches by pointing them at the same block and expecting them to merge.** Each branch runs to its own terminal block.
    - Handles available per block type — using any other handle name means the edge is never traversed:
      | Block type | Output handles |
      | --- | --- |
      | 'if' | 'success', 'failure' (NO 'source') |
      | 'forloop', 'foreachloop', 'db_transaction' | 'source' (continues after the loop) and 'executor' (the inner chain, one edge) |
+     | 'orchestrator' | 'source' (continues with the array of every chain's output) and 'orchestrate' (any number of edges; each chain runs at the same time; set data.order to the target block ids in output order) |
      | 'response', 'sticky_note' | none — terminal, must have \`"connections": []\` |
      | every other built-in block, and all custom blocks | 'source' only |
    - **Branching is only ever expressed with an 'if' block**, whose 'success' and 'failure' handles are the two branches. If you need to do two things, chain them one after the other — blocks pass their output forward, so sequential is almost always what the user meant.

@@ -25,6 +25,7 @@ export enum BlockTypes {
   db_update = "db_update",
   db_native = "db_native",
   db_transaction = "db_transaction",
+  orchestrator = "orchestrator",
   sticky_note = "sticky_note",
   errorHandler = "error_handler",
   cloudLogs = "cloud_logs",

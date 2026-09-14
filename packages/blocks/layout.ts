@@ -1,7 +1,7 @@
 import { BlockTypes } from "./blockTypes";
 import { HANDLE_SIDE, type HandleKind, type HandleSide } from "./blockHandles";
 
-export { HANDLE_SIDE, type HandleKind, type HandleSide } from "./blockHandles";
+export { HANDLE_SIDE, sortByOrder, type HandleKind, type HandleSide } from "./blockHandles";
 
 /**
  * Canvas auto-layout, shared by the editor's Format button and the AI harness.

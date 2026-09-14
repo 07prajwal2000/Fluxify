@@ -187,13 +187,16 @@ test("a resized note saves the box React Flow put on the node", () => {
 	});
 });
 
-test("only the inbound socket accepts multiple connections", () => {
+test("only the inbound and orchestrate sockets accept multiple connections", () => {
 	for (const [kind, config] of Object.entries(HANDLE_CONFIG) as [
 		HandleKind,
 		(typeof HANDLE_CONFIG)[HandleKind],
 	][]) {
 		if (kind === "target") {
 			expect(config.flow).toBe("target");
+			expect(config.maxConnections).toBeNull();
+		} else if (kind === "orchestrate") {
+			expect(config.flow).toBe("source");
 			expect(config.maxConnections).toBeNull();
 		} else {
 			expect(config.flow).toBe("source");

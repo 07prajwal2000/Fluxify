@@ -6,6 +6,7 @@ import {
 	BlockTypes,
 	forEachLoopBlockSchema,
 	forLoopBlockSchema,
+	orchestratorBlockSchema,
 	getHttpCookieBlockSchema,
 	getHttpHeaderBlockSchema,
 	getHttpParamBlockSchema,
@@ -162,6 +163,9 @@ export function blockDataValidator(data: CanvasChanges) {
 				break;
 			case BlockTypes.db_transaction:
 				schema = transactionDbBlockSchema;
+				break;
+			case BlockTypes.orchestrator:
+				schema = orchestratorBlockSchema;
 				break;
 			case BlockTypes.sticky_note:
 				schema = stickyNotesSchema;

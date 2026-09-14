@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 export const HandleTypeSchema = z
-	.enum(["source", "executor", "failure", "success"])
+	.enum(["source", "executor", "failure", "success", "orchestrate"])
 	.describe("Types of output handles available on blocks.");
 
 export const ConnectionSchema = z.object({
