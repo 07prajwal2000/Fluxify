@@ -5,18 +5,13 @@ import { formatMessage, logBlockSchema } from ".";
 import { logger } from "@fluxify/common";
 import type { EmitNode } from "../../compiler";
 
-/**
- * Shared by the interpreted block and the compiled `lib.log(...)` call.
- * `message` is whatever the block resolved to — the compiled path hands over an
- * already-evaluated value, so `formatMessage`'s js branch simply does not fire.
- */
-export async function runConsoleLog(
+/** runtime half of the compiled `lib.log(...)` call; `message` is already evaluated */
+export function runConsoleLog(
   context: Context,
   level: "info" | "warn" | "error",
   message: any,
-  params: any,
 ) {
-  const msg = await formatMessage(message, level, context, params);
+  const msg = formatMessage(message, level, context);
   if (level == "info") {
     logger.info(msg, "BLOCKS.console");
   } else if (level == "error") {
@@ -36,7 +31,7 @@ export function emitLogMessage(
 
 export function emitConsoleLog(node: EmitNode) {
   const { level, message } = logBlockSchema.parse(node.block.data);
-  return `await lib.log(ctx, ${JSON.stringify(level)}, ${emitLogMessage(message, node)}, ${node.in});\n${node.next()}`;
+  return `lib.log(ctx, ${JSON.stringify(level)}, ${emitLogMessage(message, node)});\n${node.next()}`;
 }
 
 export const consoleAiDescription = {

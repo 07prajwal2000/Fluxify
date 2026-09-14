@@ -1,7 +1,7 @@
 import { BlockTypes } from "../blockTypes";
 import z from "zod";
 import { baseBlockDataSchema, BlockOutput, Context } from "../baseBlock";
-import type { EmitNode } from "../compiler";
+import { emitJsObject, type EmitNode } from "../compiler";
 
 export const httpRequestBlockSchema = z
   .object({
@@ -29,11 +29,18 @@ function parseIfJson(body: any) {
   }
 }
 
-/** shared by the interpreted block and the compiled `lib.httpRequest(...)` call */
+/** the request the compiled program built — every `js:` value already evaluated */
+export type HttpRequestInput = {
+  url: string;
+  method: z.infer<typeof httpRequestBlockSchema>["method"];
+  headers: Record<string, string>;
+  body: unknown;
+};
+
+/** runtime half of the compiled `lib.httpRequest(...)` call */
 export async function runHttpRequest(
   context: Context,
-  input: z.infer<typeof httpRequestBlockSchema>,
-  params?: any,
+  input: HttpRequestInput,
 ): Promise<BlockOutput> {
   if (!context.httpClient) {
     return {
@@ -44,42 +51,24 @@ export async function runHttpRequest(
     };
   }
   try {
-    let { url, method, headers, body, useParam } = input;
-    if (useParam) {
-      body = params;
-    }
-    if (url.startsWith("js:")) {
-      url = await context.vm.runAsync(url.slice(3));
-    }
-    if (!useParam && body.startsWith("js:")) {
-      body = await context.vm.runAsync(body.slice(3));
-    }
-    body = parseIfJson(body);
-    const newHeaders: Record<string, string> = {};
-    for (let [key, value] of Object.entries(headers)) {
-      key = key.startsWith("js:") ? await context.vm.runAsync(key.slice(3)) : key;
-      value = value.startsWith("js:")
-        ? await context.vm.runAsync(value.slice(3))
-        : value;
-      newHeaders[key] = value;
-    }
-    headers = newHeaders;
+    const { url, method, headers } = input;
+    const body = parseIfJson(input.body);
     let response;
     switch (method) {
       case "GET":
-        response = await context.httpClient?.get(url, headers);
+        response = await context.httpClient.get(url, headers);
         break;
       case "POST":
-        response = await context.httpClient?.post(url, body, headers);
+        response = await context.httpClient.post(url, body, headers);
         break;
       case "PUT":
-        response = await context.httpClient?.put(url, body, headers);
+        response = await context.httpClient.put(url, body, headers);
         break;
       case "DELETE":
-        response = await context.httpClient?.delete(url, headers);
+        response = await context.httpClient.delete(url, headers);
         break;
       case "PATCH":
-        response = await context.httpClient?.patch(url, body, headers);
+        response = await context.httpClient.patch(url, body, headers);
         break;
     }
     return {
@@ -99,10 +88,17 @@ export async function runHttpRequest(
   }
 }
 
+/** `js:` in url, body, header names and values compiles to inline code */
 export function emitHttpRequest(node: EmitNode) {
-  const data = httpRequestBlockSchema.parse(node.block.data);
+  const { url, method, headers, body, useParam } = httpRequestBlockSchema.parse(
+    node.block.data,
+  );
   const result = node.v("res");
-  return `const ${result} = await lib.httpRequest(ctx, ${JSON.stringify(data)}, ${node.in});
+  const headerFields = Object.entries(headers).map(
+    ([key, value]) => `[${node.value(key)}]: ${node.value(value)}`,
+  );
+  const request = `{ url: ${node.value(url)}, method: ${JSON.stringify(method)}, headers: { ${headerFields.join(", ")} }, body: ${useParam ? node.in : emitJsObject(body, node)} }`;
+  return `const ${result} = await lib.httpRequest(ctx, ${request});
 if (!${result}.successful && !${result}.continueIfFail) throw new Error(${result}.error ?? "http request failed");
 ${node.in} = ${result}.output;
 ${node.next()}`;
