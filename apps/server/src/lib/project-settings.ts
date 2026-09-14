@@ -36,8 +36,8 @@ export async function getProjectSetting(
 	// every *other* key read as "" until the next write invalidated it.
 	//
 	// Only the get-all endpoint used to fill this cache, so a process that never
-	// serves that endpoint (the telemetry worker) hit the database on every
-	// lookup. Filling it here fixes that for every caller.
+	// served that endpoint hit the database on every lookup. Filling it here
+	// fixes that for every caller.
 	const rows = await db
 		.select({
 			key: projectSettingsEntity.key,

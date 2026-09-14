@@ -8,6 +8,12 @@ import { Resource } from "@opentelemetry/resources";
 import type { Counter, Histogram } from "@opentelemetry/api";
 import type { TraceRunPayload } from "./types";
 
+/**
+ * Every execution process pushes its own cumulative counters. Without a
+ * per-process id they share one series and overwrite each other at the backend.
+ */
+const INSTANCE_ID = crypto.randomUUID();
+
 export interface OtlpMeterOptions {
 	/** destination root, e.g. `http://localhost:9090/api/v1/otlp` — `/v1/metrics` is appended */
 	url: string;
@@ -36,7 +42,10 @@ export function createOtlpMeterProvider({
 }: OtlpMeterOptions): MeterProvider {
 	return new MeterProvider({
 		resource: Resource.default().merge(
-			new Resource({ "service.name": serviceName }),
+			new Resource({
+				"service.name": serviceName,
+				"service.instance.id": INSTANCE_ID,
+			}),
 		),
 		readers: [
 			reader ??

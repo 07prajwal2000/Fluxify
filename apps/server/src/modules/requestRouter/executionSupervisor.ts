@@ -4,7 +4,6 @@ import { TRIGGER_WORKFLOW_JOB } from "@fluxify/blocks";
 import { RPC_SUBJECTS, rpcRequest } from "../../db/natsRpc";
 import { enqueueJob } from "../jobs/publisher";
 import type { JobEnvelope } from "../jobs/types";
-import { publishTraceRun } from "../telemetry/publisher";
 import { fireInternalTrigger } from "../triggers/publisher";
 import type { AsyncExecutorLimits } from "./asyncExecutor";
 import type { ArtifactEntry } from "./compiledRuntime";
@@ -22,7 +21,7 @@ import type {
  *
  * The split exists because the child is the untrusted half: it holds routes and
  * workflows and never holds NATS credentials, so everything it cannot be
- * trusted with — queueing work, publishing traces, reporting faults — happens
+ * trusted with — queueing work, reporting faults — happens
  * on this side of the IPC channel. Keeping that here also means the child can
  * be replaced without restarting the container or interrupting artifact hot
  * reload, which is the whole point of spawning it separately.
@@ -133,9 +132,6 @@ export function createExecutionSupervisor(
 						"WORKER.jobs",
 					),
 				);
-			case "trace-finished":
-				// The child holds untrusted user code, never NATS credentials.
-				return void publishTraceRun(event.run);
 			case "trigger-fault": {
 				// lost only if the admin is down; the child reports again on its next start
 				const { type: _, ...fault } = event;
