@@ -1,27 +1,14 @@
-import { useMemo } from "react";
-import { useReactFlow } from "@xyflow/react";
+import { useNodes } from "@xyflow/react";
 import { useSetVarSnippets } from "@fluxify/components";
 import { BlockSettings } from "../BlockSettings";
 import { BlockJsTextField, BlockTextField } from "../fields";
+import { canvasVariables } from "../SaveOutputField";
 import type { BlockNode } from "../../types";
 
 /** Set Variable block settings. Configures the variable key and value to set. */
 export function SetVarSettings({ block }: { block: BlockNode }) {
-	const { getNodes } = useReactFlow();
-
-	const otherVars = useMemo(() => {
-		try {
-			const nodes = getNodes?.() ?? [];
-			return nodes
-				.filter(
-					(n) => n.type === "setvar" && n.id !== block.id && n.data?.key,
-				)
-				.map((n) => String(n.data?.key).trim())
-				.filter(Boolean);
-		} catch {
-			return [];
-		}
-	}, [getNodes, block.id]);
+	// live nodes, so a renamed block shows its new name in the snippets
+	const otherVars = canvasVariables(useNodes().filter((n) => n.id !== block.id));
 
 	const currentKey =
 		typeof block.data?.key === "string" ? block.data.key.trim() : "";

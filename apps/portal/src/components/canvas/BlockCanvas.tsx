@@ -18,6 +18,7 @@ import { CanvasLayoutLockProvider } from "./CanvasLayoutLockContext";
 import { CanvasQuickActions } from "./CanvasQuickActions";
 import { useContextMenu } from "./contextMenu";
 import { KeyboardShortcutsProvider } from "./keyboard";
+import { CanvasVariableSnippets } from "./panel/SaveOutputField";
 import { CanvasPlaygroundProvider, useCanvasPlayground } from "./PlaygroundContext";
 import { PlaygroundModal } from "./PlaygroundModal";
 import { flowToGraph, graphToFlow } from "./adapters";
@@ -493,6 +494,7 @@ function CanvasInner({
 export function BlockCanvas(props: BlockCanvasProps) {
 	return (
 		<ReactFlowProvider>
+			<CanvasVariableSnippets />
 			<CanvasPlaygroundProvider>
 				<KeyboardShortcutsProvider>
 					<CanvasInner {...props} />

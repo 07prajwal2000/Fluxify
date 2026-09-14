@@ -1,4 +1,4 @@
-import { BaseBlock, Context } from "./baseBlock";
+import { BaseBlock, Context, outputVariableName } from "./baseBlock";
 import { BlockTypes } from "./blockTypes";
 import {
 	BlockDTOType,
@@ -83,6 +83,16 @@ export class BlockFactory {
 	) {}
 
 	public createBlock(
+		block: BlockDTOType,
+		builder: any,
+		edgesMap: EdgesType,
+	): BaseBlock | undefined {
+		const created = this.buildBlock(block, builder, edgesMap);
+		if (created) created.saveOutputAs = outputVariableName(block.data);
+		return created;
+	}
+
+	private buildBlock(
 		block: BlockDTOType,
 		builder: any,
 		edgesMap: EdgesType,

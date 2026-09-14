@@ -1,6 +1,6 @@
 import { BlockTypes } from "./blockTypes";
 import type { BlockDTOType, EdgeDTOSchemaType, EdgesType } from "./builderTypes";
-import type { BlockOutput, Context } from "./baseBlock";
+import { outputVariableName, type BlockOutput, type Context } from "./baseBlock";
 import { emitCustomBlock, hasCustomBlock } from "./builtin/customBlock";
 import { emitWorkflowEnd } from "./builtin/response";
 import { compilerLib, emitters } from "./registry";
@@ -355,7 +355,13 @@ $trace.recordSpan(${span});
 				const continuation = to
 					? `return await ${blockFunctionName(to)}($state, $in, $end);`
 					: "return $end($in);";
-				return `${recordSpan("$in", undefined, branch)}
+				const saveAs =
+					handle === "source" ? outputVariableName(block.data) : undefined;
+				// vars is per request, so outputs never leak into the next one
+				const save = saveAs
+					? `(vars.outputs ??= {})[${JSON.stringify(saveAs)}] = $in;\n`
+					: "";
+				return `${save}${recordSpan("$in", undefined, branch)}
 ${continuation}`;
 			},
 			body(handle, initExpr) {

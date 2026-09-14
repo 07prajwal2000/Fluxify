@@ -75,6 +75,19 @@ currentUserId = input.id;
 const secret = getConfig("JWT_SECRET");
 ```
 
+### Saved block outputs
+
+```typescript
+const outputs: Record<string, any>;
+```
+
+When a block has **Save output to variable** turned on, its output is stored in `outputs` under the name you chose. Any later block in the same request can read it. `outputs` starts empty on every request, so values never carry over to the next one.
+
+```javascript
+// "Fetch Users" block saves its output as "users"
+return outputs.users.filter((user) => user.active);
+```
+
 ## JWT
 
 `jwt` is available globally and uses `jsonwebtoken` under the hood.

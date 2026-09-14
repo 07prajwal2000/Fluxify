@@ -1,6 +1,7 @@
 import { describe, expect, it } from "bun:test";
 import { BlockTypes } from "@fluxify/blocks";
 import { blockDataValidator } from "../blockDataValidator";
+import { customBlockNames } from "../../../loaders/customBlocksLoader";
 import type { CanvasChanges } from "../types";
 
 /**
@@ -54,5 +55,53 @@ describe("the trigger workflow block", () => {
 			workflowId: "wf-1",
 			data: "js: return { id: input.id };",
 		});
+	});
+});
+
+describe("save output to variable", () => {
+	const transformer = (name: string, enabled = true) =>
+		changes(BlockTypes.transformer, {
+			blockName: "Shape User",
+			fieldMap: {},
+			saveAsVariable: { enabled, name },
+		});
+	const messages = (run: () => void) => {
+		try {
+			run();
+		} catch (error) {
+			return (error as { errors?: { message: string }[] }).errors?.map((e) => e.message);
+		}
+		return [];
+	};
+
+	it("rejects an invalid name, naming the block", () => {
+		expect(messages(() => blockDataValidator(transformer("a-b")))).toEqual([
+			"Shape User: Variable name must start with a letter, _ or $ and contain only letters, digits, _ and $",
+		]);
+	});
+
+	it("rejects an invalid or empty name", () => {
+		expect(messages(() => blockDataValidator(transformer("1abc")))[0]).toContain("must start with a letter");
+		expect(messages(() => blockDataValidator(transformer("  ")))[0]).toContain("Variable name is required");
+	});
+
+	it("rejects it on a custom block too", () => {
+		// a registered custom block skips schema validation, so this is its only check
+		customBlockNames.add("weather_lookup");
+		try {
+			const data = changes("weather_lookup", { saveAsVariable: { enabled: true, name: "9lives" } });
+			expect(messages(() => blockDataValidator(data))).toEqual([
+				"weather_lookup: Variable name must start with a letter, _ or $ and contain only letters, digits, _ and $",
+			]);
+		} finally {
+			customBlockNames.delete("weather_lookup");
+		}
+	});
+
+	it("accepts a valid name, a padded one, a reserved word, and any name while the toggle is off", () => {
+		expect(() => blockDataValidator(transformer("users"))).not.toThrow();
+		expect(() => blockDataValidator(transformer("  users  "))).not.toThrow();
+		expect(() => blockDataValidator(transformer("class"))).not.toThrow();
+		expect(() => blockDataValidator(transformer("a-b", false))).not.toThrow();
 	});
 });

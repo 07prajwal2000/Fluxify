@@ -123,6 +123,18 @@ export const API_DOCS: ApiDocItem[] = [
 		returns: "void",
 	},
 
+	// Saved outputs
+	{
+		id: "api-outputs",
+		name: "outputs",
+		kind: "object",
+		signature: "outputs: Record<string, any>",
+		description: 'Outputs of blocks with "Save output to variable" on, by name. Reset on every request.',
+		category: "variables",
+		example: "return outputs.users.filter((user) => user.active);",
+		returns: "Record<string, any>",
+	},
+
 	// Database
 	{
 		id: "api-dbQuery",

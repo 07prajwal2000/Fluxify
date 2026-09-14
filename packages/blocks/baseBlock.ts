@@ -3,6 +3,7 @@ import { DbFactory } from "@fluxify/adapters";
 import { AbstractLogger, HttpClient } from "@fluxify/lib";
 import { JsVM } from "@fluxify/lib";
 import z from "zod";
+import { variableNameError } from "./variableName";
 
 /** How work entered the engine. */
 export type TriggerKind = "route" | "job" | "workflow" | "cron" | "trigger";
@@ -333,6 +334,7 @@ const jwt: {
 
 // 6. Execution Rules
 // - State Sharing: Assign values to global variables (e.g., \`myVar = 123\`) to pass them to the next block.
+// - Saved Outputs: blocks with "Save output to variable" on store their output in \`outputs.<name>\` (e.g., \`outputs.users\`), reset on every request.
 // - Constraints: No external libraries (npm/require). Pure ES6+ JavaScript only.
 </js_runtime_context>`;
 
@@ -349,11 +351,27 @@ export const baseBlockDataSchema = z.object({
 	blockDescription: z.string().optional().default("Description"),
 });
 
+/**
+ * The variable a block's "Save output to variable" setting writes to, or
+ * undefined when it is off. The name is trimmed, and an invalid
+ * name is ignored rather than emitted into code — the save validator is what
+ * reports it to the user.
+ */
+export function outputVariableName(data: unknown): string | undefined {
+	const setting = (data as { saveAsVariable?: { enabled?: unknown; name?: unknown } })
+		?.saveAsVariable;
+	if (setting?.enabled !== true || typeof setting.name !== "string") return undefined;
+	const name = setting.name.trim();
+	return variableNameError(name) ? undefined : name;
+}
+
 export type BlockOptions = {
 	timedOut: boolean;
 };
 
 export abstract class BaseBlock {
+	/** set by the block factory; the engine copies the output into `outputs[saveOutputAs]` */
+	public saveOutputAs?: string;
 	constructor(
 		protected readonly context: Context,
 		protected readonly input?: any,
