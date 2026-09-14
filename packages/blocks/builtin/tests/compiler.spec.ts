@@ -126,22 +126,7 @@ describe("compileGraph", () => {
 		});
 	});
 
-	it("still routes through the sandbox when inlineJs is off", async () => {
-		const blocks = [
-			block("1", BlockTypes.entrypoint),
-			block("2", BlockTypes.jsrunner, { value: "shared = input * 2; return shared;" }),
-			block("3", BlockTypes.response, { httpCode: "200" }),
-		];
-		const edges: EdgeDTOSchemaType = [edge("1", "2"), edge("2", "3")];
-		const { run, source } = compileGraph(blocks, edges, { inlineJs: false });
-		expect(source).toContain("ctx.vm.runAsync");
-
-		const ctx = createContext();
-		expect((await run(ctx, 21)).output.body).toBe(42);
-		expect(ctx.vars.shared).toBe(42);
-	});
-
-	it("emits a shared tail once and reuses its block function", async () => {
+it("emits a shared tail once and reuses its block function", async () => {
 		const blocks = [
 			block("entry", BlockTypes.entrypoint),
 			block("branch", BlockTypes.if, {

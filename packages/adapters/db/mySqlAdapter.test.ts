@@ -8,7 +8,6 @@ import {
 } from "bun:test";
 import { MySqlAdapter } from "./mySqlAdapter";
 import { Connection, DbType } from ".";
-import { JsVM } from "@fluxify/lib";
 import type Docker from "dockerode";
 import { createPool, Pool } from "mysql2";
 import { faker } from "@faker-js/faker";
@@ -20,7 +19,6 @@ let exposedPort: number;
 let container: Docker.Container | null = null;
 let db: any;
 let pool: Pool;
-let vm: JsVM = {} as JsVM;
 
 beforeAll(async () => {
 	try {
@@ -112,7 +110,7 @@ describe("MySqlAdapter Integration Tests", () => {
 	});
 
 	test("introspect: tables, column types and foreign key owners", async () => {
-		const adapter = new MySqlAdapter(db, pool, vm);
+		const adapter = new MySqlAdapter(db, pool);
 		const suffix = faker.string.alphanumeric(8).toLowerCase();
 		const parent = `authors_${suffix}`;
 		const child = `books_${suffix}`;
@@ -139,7 +137,7 @@ describe("MySqlAdapter Integration Tests", () => {
 	});
 
 	test("CRUD: Single Record Lifecycle", async () => {
-		const adapter = new MySqlAdapter(db, pool, vm);
+		const adapter = new MySqlAdapter(db, pool);
 		const tableName = "users_" + faker.string.alphanumeric(8).toLowerCase();
 		await adapter.raw(`
 			CREATE TABLE ${tableName} (
@@ -186,7 +184,7 @@ describe("MySqlAdapter Integration Tests", () => {
 	});
 
 	test("Advanced Filtering & Operators", async () => {
-		const adapter = new MySqlAdapter(db, pool, vm);
+		const adapter = new MySqlAdapter(db, pool);
 		const tableName = "users_" + faker.string.alphanumeric(8).toLowerCase();
 		await adapter.raw(`
 			CREATE TABLE ${tableName} (
@@ -241,7 +239,7 @@ describe("MySqlAdapter Integration Tests", () => {
 	});
 
 	test("Pagination & Sorting", async () => {
-		const adapter = new MySqlAdapter(db, pool, vm);
+		const adapter = new MySqlAdapter(db, pool);
 		const tableName = "users_" + faker.string.alphanumeric(8).toLowerCase();
 		await adapter.raw(`
 			CREATE TABLE ${tableName} (
@@ -272,7 +270,7 @@ describe("MySqlAdapter Integration Tests", () => {
 	});
 
 	test("Bulk Edge Cases & Mass Mutations", async () => {
-		const adapter = new MySqlAdapter(db, pool, vm);
+		const adapter = new MySqlAdapter(db, pool);
 		const tableName = "users_" + faker.string.alphanumeric(8).toLowerCase();
 		await adapter.raw(`
 			CREATE TABLE ${tableName} (
@@ -318,7 +316,7 @@ describe("MySqlAdapter Integration Tests", () => {
 	});
 
 	test("Raw Queries", async () => {
-		const adapter = new MySqlAdapter(db, pool, vm);
+		const adapter = new MySqlAdapter(db, pool);
 		const tableName = "users_" + faker.string.alphanumeric(8).toLowerCase();
 		await adapter.raw(`
 			CREATE TABLE ${tableName} (
@@ -345,7 +343,7 @@ describe("MySqlAdapter Integration Tests", () => {
 	});
 
 	test("Transaction Lifecycle & Rollbacks", async () => {
-		const adapter = new MySqlAdapter(db, pool, vm);
+		const adapter = new MySqlAdapter(db, pool);
 		const tableName = "users_" + faker.string.alphanumeric(8).toLowerCase();
 		await adapter.raw(`
 			CREATE TABLE ${tableName} (
@@ -372,7 +370,7 @@ describe("MySqlAdapter Integration Tests", () => {
 	});
 
 	test("JSON Path Filtering (dot / bracket access)", async () => {
-		const adapter = new MySqlAdapter(db, pool, vm);
+		const adapter = new MySqlAdapter(db, pool);
 		const tableName = "docs_" + faker.string.alphanumeric(8).toLowerCase();
 		await adapter.raw(`
 			CREATE TABLE ${tableName} (
@@ -463,7 +461,7 @@ describe("MySqlAdapter Integration Tests", () => {
 	});
 
 	test("Joins & Column Selection", async () => {
-		const adapter = new MySqlAdapter(db, pool, vm);
+		const adapter = new MySqlAdapter(db, pool);
 		const authors = "authors_" + faker.string.alphanumeric(6).toLowerCase();
 		const books = "books_" + faker.string.alphanumeric(6).toLowerCase();
 		await adapter.raw(

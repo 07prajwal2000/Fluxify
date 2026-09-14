@@ -1,12 +1,6 @@
 import { BlockTypes } from "../../blockTypes";
 import z from "zod";
-import {
-	baseBlockDataSchema,
-	BaseBlock,
-	BlockOutput,
-	Context,
-} from "../../baseBlock";
-import type { IDbAdapter } from "@fluxify/adapters";
+import { baseBlockDataSchema, Context } from "../../baseBlock";
 import {
 	adapterFor,
 	dbWhereConditionsDescription,
@@ -15,7 +9,6 @@ import {
 	whereConditionSchema,
 } from "./schema";
 import { emitWhereConditions } from "./emitConditions";
-import { ConditionEvaluator } from "../conditionEvaluator";
 import type { EmitNode } from "../../compiler";
 
 export const getSingleDbBlockSchema = z
@@ -62,48 +55,4 @@ export function emitGetSingleDb(node: EmitNode) {
 	const input = getSingleDbBlockSchema.parse(node.block.data);
 	return `${node.in} = await lib.dbGetSingle(ctx, ${node.value(input.connection)}, ${node.value(input.tableName)}, ${emitWhereConditions(input.conditions, node)}, { joins: ${JSON.stringify(input.joins ?? [])}, columns: ${JSON.stringify(input.columns ?? ["*"])} });
 ${node.next()}`;
-}
-
-export class GetSingleDbBlock extends BaseBlock {
-	constructor(
-		protected readonly context: Context,
-		private readonly dbAdapter: IDbAdapter,
-		protected readonly input: z.infer<typeof getSingleDbBlockSchema>,
-		public readonly next?: string,
-	) {
-		super(context, input, next);
-	}
-
-	public async executeAsync(): Promise<BlockOutput> {
-		try {
-			this.input.tableName = this.input.tableName.startsWith("js:")
-				? ((await this.context.vm.runAsync(
-						this.input.tableName.slice(3),
-					)) as string)
-				: this.input.tableName;
-			const columns = this.input.columns ?? ["*"];
-			const joins = this.input.joins ?? [];
-			const evaluatedConditions = await ConditionEvaluator.evaluateDbConditions(
-				this.input.conditions,
-				this.context.vm,
-			);
-			const result = await this.dbAdapter.getSingle(
-				this.input.tableName,
-				evaluatedConditions,
-				{ joins, columns },
-			);
-			return {
-				continueIfFail: false,
-				successful: true,
-				output: result,
-				next: this.next,
-			};
-		} catch (e) {
-			return {
-				continueIfFail: false,
-				successful: false,
-				error: "failed to execute get single db block",
-			};
-		}
-	}
 }

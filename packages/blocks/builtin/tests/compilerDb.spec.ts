@@ -1,5 +1,4 @@
 import { describe, it, expect } from "bun:test";
-import { JsVM } from "@fluxify/lib";
 import { compileGraph } from "../../compiler";
 import { BlockTypes } from "../../blockTypes";
 import type { BlockDTOType, EdgeDTOSchemaType } from "../../builderTypes";
@@ -33,7 +32,6 @@ function createDbAdapter(results: Record<string, any> = {}) {
 function createContext(adapter: any) {
 	const vars: Record<string, any> = {};
 	return {
-		vm: new JsVM(vars),
 		route: "/db",
 		apiId: "api-1",
 		projectId: "proj-1",

@@ -11,29 +11,14 @@ export const logBlockSchema = z
 	})
 	.extend(baseBlockDataSchema.shape);
 
-export async function formatMessage(
-	originalMsg: any,
-	level: string,
-	context: Context,
-	params?: any,
-	type: "str" | "obj" = "str",
-) {
-	let evaluatedMsg = originalMsg;
-	if (typeof originalMsg === "string" && originalMsg.startsWith("js:")) {
-		evaluatedMsg = await context.vm.runAsync(originalMsg.slice(3), params);
-	}
-
-	if (type === "obj") {
-		return evaluatedMsg;
-	}
-
-	const isObject = typeof evaluatedMsg == "object" && evaluatedMsg !== null;
+/** `message` arrives already evaluated — the compiler inlines any `js:` value */
+export function formatMessage(message: any, level: string, context: Context) {
+	const isObject = typeof message == "object" && message !== null;
 	const datetime = new Date().toISOString().split("T");
 	const date = datetime[0];
 	const time = datetime[1].substring(0, datetime[1].lastIndexOf("."));
 	const path = context.route;
-	const msg = `${level.toUpperCase()}-${path}-${date} ${time}\n${
-		isObject ? JSON.stringify(evaluatedMsg, null, 2) : evaluatedMsg
+	return `${level.toUpperCase()}-${path}-${date} ${time}\n${
+		isObject ? JSON.stringify(message, null, 2) : message
 	}`;
-	return msg;
 }

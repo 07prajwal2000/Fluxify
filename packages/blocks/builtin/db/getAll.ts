@@ -1,12 +1,6 @@
 import { BlockTypes } from "../../blockTypes";
 import z from "zod";
-import {
-	baseBlockDataSchema,
-	BaseBlock,
-	BlockOutput,
-	Context,
-} from "../../baseBlock";
-import type { IDbAdapter } from "@fluxify/adapters";
+import { baseBlockDataSchema, Context } from "../../baseBlock";
 import {
 	adapterFor,
 	dbWhereConditionsDescription,
@@ -15,7 +9,6 @@ import {
 	whereConditionSchema,
 } from "./schema";
 import { emitWhereConditions } from "./emitConditions";
-import { ConditionEvaluator } from "../conditionEvaluator";
 import type { EmitNode } from "../../compiler";
 
 export const getAllDbBlockSchema = z
@@ -88,71 +81,4 @@ export function emitGetAllDb(node: EmitNode) {
 	const sort = `{ attribute: ${node.value(input.sort.attribute)}, direction: ${JSON.stringify(input.sort.direction)} }`;
 	return `${node.in} = await lib.dbGetAll(ctx, ${node.value(input.connection)}, ${node.value(input.tableName)}, ${emitWhereConditions(input.conditions, node)}, lib.num(${node.value(input.limit)}, 1000), lib.num(${node.value(input.offset)}, 0), ${sort}, { joins: ${JSON.stringify(input.joins ?? [])}, columns: ${JSON.stringify(input.columns ?? ["*"])} });
 ${node.next()}`;
-}
-
-export class GetAllDbBlock extends BaseBlock {
-	constructor(
-		protected readonly context: Context,
-		private readonly dbAdapter: IDbAdapter,
-		protected readonly input: z.infer<typeof getAllDbBlockSchema>,
-		public readonly next?: string,
-	) {
-		super(context, input, next);
-	}
-
-	public async executeAsync(): Promise<BlockOutput> {
-		try {
-			this.input.tableName = this.input.tableName.startsWith("js:")
-				? ((await this.context.vm.runAsync(
-						this.input.tableName.slice(3),
-					)) as string)
-				: this.input.tableName;
-			this.input.sort.attribute = this.input.sort.attribute.startsWith("js:")
-				? ((await this.context.vm.runAsync(
-						this.input.sort.attribute.slice(3),
-					)) as string)
-				: this.input.sort.attribute;
-			let limit =
-				typeof this.input.limit === "string" &&
-				this.input.limit.startsWith("js:")
-					? Number(await this.context.vm.runAsync(this.input.limit.slice(3)))
-					: Number(this.input.limit);
-			let offset =
-				typeof this.input.offset === "string" &&
-				this.input.offset.startsWith("js:")
-					? Number(await this.context.vm.runAsync(this.input.offset.slice(3)))
-					: Number(this.input.offset);
-			const columns = this.input.columns ?? ["*"];
-			const joins = this.input.joins ?? [];
-			offset = isNaN(offset) ? 0 : offset;
-			limit = isNaN(limit) ? 1000 : limit;
-			const evaluatedConditions = await ConditionEvaluator.evaluateDbConditions(
-				this.input.conditions,
-				this.context.vm,
-			);
-			const result = await this.dbAdapter.getAll(
-				this.input.tableName,
-				evaluatedConditions,
-				limit,
-				offset,
-				this.input.sort ?? {
-					attribute: "id",
-					direction: "asc",
-				},
-				{ joins, columns },
-			);
-			return {
-				continueIfFail: false,
-				successful: true,
-				output: result,
-				next: this.next,
-			};
-		} catch (e) {
-			return {
-				continueIfFail: false,
-				successful: false,
-				error: "failed to execute get all db block",
-			};
-		}
-	}
 }

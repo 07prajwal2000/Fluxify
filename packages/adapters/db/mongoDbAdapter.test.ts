@@ -8,7 +8,6 @@ import {
 } from "bun:test";
 import { MongoAdapter, buildMongoUrl } from "./mongoDbAdapter";
 import { Connection, DbType } from ".";
-import { JsVM } from "@fluxify/lib";
 import type Docker from "dockerode";
 import { MongoClient } from "mongodb";
 import { fakerEN as faker } from "@faker-js/faker";
@@ -20,7 +19,6 @@ let exposedPort: number;
 let container: Docker.Container | null = null;
 let db: any;
 let client: MongoClient;
-let vm: JsVM = {} as JsVM;
 
 beforeAll(async () => {
 	try {
@@ -127,7 +125,7 @@ describe("MongoAdapter Integration Tests", () => {
 	});
 
 	test("introspect: infers fields from sampled documents", async () => {
-		const adapter = new MongoAdapter(client, db, vm);
+		const adapter = new MongoAdapter(client, db);
 		const collectionName = "docs_" + faker.string.alphanumeric(8).toLowerCase();
 		await adapter.insertBulk(collectionName, [
 			{ name: "a", age: 1, tags: ["x"], joined: new Date() },
@@ -151,7 +149,7 @@ describe("MongoAdapter Integration Tests", () => {
 	});
 
 	test("CRUD: Single Record Lifecycle", async () => {
-		const adapter = new MongoAdapter(client, db, vm);
+		const adapter = new MongoAdapter(client, db);
 		const collectionName = "users_" + faker.string.alphanumeric(8).toLowerCase();
 		const user = {
 			name: faker.person.firstName(),
@@ -196,7 +194,7 @@ describe("MongoAdapter Integration Tests", () => {
 	});
 
 	test("Advanced Filtering & Operators", async () => {
-		const adapter = new MongoAdapter(client, db, vm);
+		const adapter = new MongoAdapter(client, db);
 		const collectionName = "users_" + faker.string.alphanumeric(8).toLowerCase();
 		const users = Array.from({ length: 20 }).map(() => ({
 			name: faker.person.firstName(),
@@ -238,7 +236,7 @@ describe("MongoAdapter Integration Tests", () => {
 	});
 
 	test("Pagination & Sorting", async () => {
-		const adapter = new MongoAdapter(client, db, vm);
+		const adapter = new MongoAdapter(client, db);
 		const collectionName = "users_" + faker.string.alphanumeric(8).toLowerCase();
 		const users = Array.from({ length: 20 }).map((_, i) => ({
 			name: faker.person.firstName(),
@@ -261,7 +259,7 @@ describe("MongoAdapter Integration Tests", () => {
 	});
 
 	test("Bulk Edge Cases & Mass Mutations", async () => {
-		const adapter = new MongoAdapter(client, db, vm);
+		const adapter = new MongoAdapter(client, db);
 		const collectionName = "users_" + faker.string.alphanumeric(8).toLowerCase();
 		const emptyInsert = await adapter.insertBulk(collectionName, []);
 		expect(emptyInsert).toEqual([]);
@@ -289,7 +287,7 @@ describe("MongoAdapter Integration Tests", () => {
 	});
 
 	test("Raw Queries (Command API)", async () => {
-		const adapter = new MongoAdapter(client, db, vm);
+		const adapter = new MongoAdapter(client, db);
 		const collectionName = "users_" + faker.string.alphanumeric(8).toLowerCase();
 		await adapter.insert(collectionName, { name: "Raw", age: 100 });
 
@@ -300,7 +298,7 @@ describe("MongoAdapter Integration Tests", () => {
 	});
 
 	test("Transaction Lifecycle & Rollbacks", async () => {
-		const adapter = new MongoAdapter(client, db, vm);
+		const adapter = new MongoAdapter(client, db);
 		const collectionName = "users_" + faker.string.alphanumeric(8).toLowerCase();
 		await adapter.startTransaction();
 		const tUser = (await adapter.insert(collectionName, {
@@ -316,7 +314,7 @@ describe("MongoAdapter Integration Tests", () => {
 	});
 
 	test("Nested Path Filtering (dot / bracket access)", async () => {
-		const adapter = new MongoAdapter(client, db, vm);
+		const adapter = new MongoAdapter(client, db);
 		const collectionName =
 			"docs_" + faker.string.alphanumeric(8).toLowerCase();
 
@@ -375,7 +373,7 @@ describe("MongoAdapter Integration Tests", () => {
 	});
 
 	test("Column Projection (joins ignored)", async () => {
-		const adapter = new MongoAdapter(client, db, vm);
+		const adapter = new MongoAdapter(client, db);
 		const collectionName =
 			"docs_" + faker.string.alphanumeric(8).toLowerCase();
 		await adapter.insertBulk(collectionName, [

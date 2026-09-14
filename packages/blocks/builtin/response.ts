@@ -1,11 +1,6 @@
 import { BlockTypes } from "../blockTypes";
 import z from "zod";
-import {
-  BaseBlock,
-  baseBlockDataSchema,
-  BlockOutput,
-  Context,
-} from "../baseBlock";
+import { baseBlockDataSchema } from "../baseBlock";
 import { httpcodes } from "@fluxify/lib";
 import type { EmitNode } from "../compiler";
 
@@ -24,13 +19,6 @@ export const responseAiDescription = {
     "Terminates the request and returns the result to the client. Sets the status code; the body is whatever the previous block output. Set transformEnabled + transformScript to reshape the body here (the script gets the body as `input` and its return value is sent), instead of adding a separate JS block.",
   jsonSchema: JSON.stringify(z.toJSONSchema(responseBlockSchema)),
 };
-
-export interface ResponseBlockHTTPResult extends BlockOutput {
-  output?: {
-    httpCode: string;
-    body: unknown;
-  };
-}
 
 /** terminal — nothing after a response block runs */
 export function emitResponse(node: EmitNode) {
@@ -58,31 +46,4 @@ export function emitWorkflowEnd(node: EmitNode) {
 	return node.complete(
 		`{ successful: true, continueIfFail: true, output: ${node.in} ?? null }`,
 	);
-}
-
-export class ResponseBlock extends BaseBlock {
-  override async executeAsync(params?: any): Promise<ResponseBlockHTTPResult> {
-    const { httpCode, transformEnabled, transformScript } = this
-      .input as z.infer<typeof responseBlockSchema>;
-    let body = params;
-    if (transformEnabled && transformScript?.trim()) {
-      try {
-        body = await this.context.vm.runAsync(transformScript, params);
-      } catch (error) {
-        return {
-          continueIfFail: false,
-          successful: false,
-          error: error?.toString(),
-        };
-      }
-    }
-    return {
-      continueIfFail: true,
-      successful: true,
-      output: {
-        httpCode,
-        body: body ?? null,
-      },
-    };
-  }
 }

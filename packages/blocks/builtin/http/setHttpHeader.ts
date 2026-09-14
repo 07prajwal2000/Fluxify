@@ -1,5 +1,5 @@
 import { BlockTypes } from "../../blockTypes";
-import { baseBlockDataSchema, BaseBlock, BlockOutput } from "../../baseBlock";
+import { baseBlockDataSchema } from "../../baseBlock";
 import z from "zod";
 import type { EmitNode } from "../../compiler";
 
@@ -20,23 +20,4 @@ export const setHeaderAiDescription = {
 export function emitSetHttpHeader(node: EmitNode) {
   const { name, value } = setHttpHeaderBlockSchema.parse(node.block.data);
   return `vars.setHeader(${node.value(name)}, ${node.value(value)});\n${node.next()}`;
-}
-
-export class SetHttpHeaderBlock extends BaseBlock {
-  override async executeAsync(params?: any): Promise<BlockOutput> {
-    const input = this.input as z.infer<typeof setHttpHeaderBlockSchema>;
-    input.value = input.value.startsWith("js:")
-      ? ((await this.context.vm.runAsync(input.value.slice(3))) as string)
-      : input.value;
-    input.name = input.name.startsWith("js:")
-      ? ((await this.context.vm.runAsync(input.name.slice(3))) as string)
-      : input.name;
-    this.context.vars.setHeader(input.name, input.value);
-    return {
-      continueIfFail: true,
-      successful: true,
-      next: this.next,
-      output: params,
-    };
-  }
 }

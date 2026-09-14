@@ -1,6 +1,6 @@
 import { BlockTypes } from "../blockTypes";
 import z from "zod";
-import { BaseBlock, BlockOutput, baseBlockDataSchema } from "../baseBlock";
+import { baseBlockDataSchema } from "../baseBlock";
 
 export const stickyNotesSchema = z
   .object({
@@ -19,13 +19,3 @@ export const stickyNoteBlockAiDescription = {
     "Adds an annotation or note to the canvas. Does not affect execution flow.",
   jsonSchema: JSON.stringify(z.toJSONSchema(stickyNotesSchema)),
 };
-
-export class stickyNoteBlock extends BaseBlock {
-  public override async executeAsync(): Promise<BlockOutput> {
-    return {
-      continueIfFail: true,
-      successful: true,
-      next: this.next,
-    };
-  }
-}

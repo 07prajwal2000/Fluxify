@@ -1,11 +1,6 @@
 import { BlockTypes } from "../../blockTypes";
 import z from "zod";
-import {
-	baseBlockDataSchema,
-	BaseBlock,
-	BlockOutput,
-	Context,
-} from "../../baseBlock";
+import { baseBlockDataSchema, Context } from "../../baseBlock";
 import type { IDbAdapter } from "@fluxify/adapters";
 import {
 	adapterFor,
@@ -14,8 +9,6 @@ import {
 	whereConditionSchema,
 } from "./schema";
 import { emitWhereConditions } from "./emitConditions";
-import { ConditionEvaluator } from "../conditionEvaluator";
-import { logger } from "@fluxify/common";
 import { emitJsObject, type EmitNode } from "../../compiler";
 
 export const updateDbBlockSchema = z
@@ -83,96 +76,4 @@ export function emitUpdateDb(node: EmitNode) {
 if (typeof ${data} !== "object") throw new Error("error in update: data to update is not an object");
 ${node.in} = await lib.dbUpdate(ctx, ${node.value(input.connection)}, ${node.value(input.tableName)}, ${data}, ${emitWhereConditions(input.conditions, node)});
 ${node.next()}`;
-}
-
-export class UpdateDbBlock extends BaseBlock {
-	constructor(
-		protected readonly context: Context,
-		private readonly dbAdapter: IDbAdapter,
-		protected readonly input: z.infer<typeof updateDbBlockSchema>,
-		public readonly next?: string,
-	) {
-		super(context, input, next);
-	}
-
-	public async executeAsync(data: object): Promise<BlockOutput> {
-		try {
-			let dataToUpdate = this.input.useParam ? data : this.input.data.value;
-			if (
-				!this.input.useParam &&
-				this.input.data.source === "js" &&
-				typeof this.input.data.value === "string"
-			) {
-				dataToUpdate = (await this.context.vm.runAsync(
-					this.input.data.value,
-				)) as object;
-			}
-			if (!(typeof dataToUpdate === "object")) {
-				return {
-					continueIfFail: false,
-					successful: false,
-					error: "error in update: data to update is not an object",
-				};
-			}
-			dataToUpdate = await this.evaluateJsInData(dataToUpdate);
-			const evaluatedConditions = await ConditionEvaluator.evaluateDbConditions(
-				this.input.conditions,
-				this.context.vm,
-			);
-			this.input.tableName = this.input.tableName.startsWith("js:")
-				? ((await this.context.vm.runAsync(
-						this.input.tableName.slice(3),
-					)) as string)
-				: this.input.tableName;
-			const result = await this.dbAdapter.update(
-				this.input.tableName,
-				dataToUpdate,
-				evaluatedConditions,
-			);
-			return {
-				continueIfFail: false,
-				successful: true,
-				output: result,
-				next: this.next,
-			};
-		} catch (e) {
-			logger.error("Failed to execute update db block", "BLOCKS.update", { error: e });
-			return {
-				continueIfFail: false,
-				successful: false,
-				error: "failed to execute update db block",
-			};
-		}
-	}
-	private async evaluateJsInData(data: any): Promise<any> {
-		const result: any = {};
-		for (const key in data) {
-			const value = data[key];
-			if (typeof value === "string" && value.startsWith("js:")) {
-				result[key] = await this.context.vm.runAsync(value.slice(3));
-			} else if (typeof value === "object") {
-				result[key] = await this.evaluateJsInData(value);
-			} else if (Array.isArray(value)) {
-				result[key] = await this.evaluateJsInArray(value);
-			} else {
-				result[key] = value;
-			}
-		}
-		return result;
-	}
-	private async evaluateJsInArray(data: any[]): Promise<any[]> {
-		const result: any[] = [];
-		for (const item of data) {
-			if (typeof item === "string" && item.startsWith("js:")) {
-				result.push(await this.context.vm.runAsync(item.slice(3)));
-			} else if (typeof item === "object") {
-				result.push(await this.evaluateJsInData(item));
-			} else if (Array.isArray(item)) {
-				result.push(await this.evaluateJsInArray(item));
-			} else {
-				result.push(item);
-			}
-		}
-		return result;
-	}
 }

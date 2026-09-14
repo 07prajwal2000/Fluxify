@@ -255,8 +255,8 @@ export async function parentExists(
 
 /**
  * The custom block names usable on this canvas — a custom block instance stores
- * the block's `name` as its type (see `blocksLoader`'s customBlockGetter), so
- * this is the other half of the valid-type set, next to `BlockTypes`.
+ * the block's `name` as its type, so this is the other half of the valid-type
+ * set, next to `BlockTypes`.
  */
 export async function getCustomBlockNames(
 	parent: CanvasParent,

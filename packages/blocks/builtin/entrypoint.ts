@@ -1,6 +1,6 @@
 import { BlockTypes } from "../blockTypes";
 import z from "zod";
-import { BaseBlock, baseBlockDataSchema, BlockOutput } from "../baseBlock";
+import { baseBlockDataSchema } from "../baseBlock";
 import type { EmitNode } from "../compiler";
 
 export const entrypointBlockSchema = z.object(baseBlockDataSchema.shape);
@@ -14,15 +14,4 @@ export const entrypointAiDescription = {
 /** request body already sits in the flowing variable, so this is pure routing */
 export function emitEntrypoint(node: EmitNode) {
 	return node.next();
-}
-
-export class EntrypointBlock extends BaseBlock {
-	async executeAsync(params?: any): Promise<BlockOutput> {
-		return {
-			continueIfFail: true,
-			successful: true,
-			output: params,
-			next: this.next,
-		};
-	}
 }

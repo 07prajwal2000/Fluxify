@@ -9,7 +9,6 @@ import {
 	IDbAdapter,
 	IntrospectedTable,
 } from ".";
-import { JsVM } from "@fluxify/lib";
 import {
 	applyColumns,
 	applyJoins,
@@ -47,7 +46,6 @@ export class MySqlAdapter implements IDbAdapter {
 	constructor(
 		private readonly db: Kysely<FluxifyDatabase>,
 		private readonly pool: Pool,
-		private readonly vm: JsVM,
 	) {}
 
 	public static createPool(connection: Connection): Pool {

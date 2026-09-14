@@ -1,6 +1,5 @@
 import { BlockTypes } from "../../blockTypes";
 import z from "zod";
-import { BaseBlock, BlockOutput } from "../../baseBlock";
 import type { EmitNode } from "../../compiler";
 
 export const getHttpRequestBodyBlockSchema = z.any();
@@ -14,15 +13,4 @@ export const getHttpRequestBodyAiDescription = {
 
 export function emitGetHttpRequestBody(node: EmitNode) {
   return `${node.in} = ctx.requestBody;\n${node.next()}`;
-}
-
-export class GetHttpRequestBodyBlock extends BaseBlock {
-  override async executeAsync(): Promise<BlockOutput> {
-    return {
-      continueIfFail: true,
-      successful: true,
-      next: this.next,
-      output: this.context.requestBody,
-    };
-  }
 }

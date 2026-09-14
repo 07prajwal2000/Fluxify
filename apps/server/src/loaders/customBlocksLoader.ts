@@ -3,23 +3,10 @@ import { customBlocksListEntity } from "../db/schema";
 import { CHAN_ON_CUSTOM_BLOCK_CHANGE, subscribeToChannel } from "../db/redis";
 import { logger } from "@fluxify/common";
 import { eq } from "drizzle-orm";
-import { getGraphsWithConnections } from "../modules/canvas/repository";
 
-export type CustomBlockGraphCache = {
-  id: string;
-  type: string | null;
-  data: Record<string, unknown>;
-};
-
-export type CustomBlockCache = {
-  id: string;
-  name: string;
-  inputParams: Record<string, unknown>[] | null;
-  graphs: CustomBlockGraphCache[];
-};
-
-export let customBlocksCache: Record<string, CustomBlockCache> = {};
 export let customBlockNames = new Set<string>();
+/** id -> name, so a single-block delete knows which name to drop */
+const blockNameById = new Map<string, string>();
 
 export async function loadCustomBlocks(id?: string) {
   try {
@@ -38,21 +25,10 @@ async function loadAllCustomBlocks() {
     .select({
       id: customBlocksListEntity.id,
       name: customBlocksListEntity.name,
-      inputParams: customBlocksListEntity.inputParams,
     })
     .from(customBlocksListEntity);
-    
-  if (blocks.length === 0) {
-    customBlocksCache = {};
-    return;
-  }
 
-  const graphs = await getGraphsWithConnections(
-    "custom_block",
-    blocks.map((b) => b.id),
-  );
-
-  rebuildCache(blocks, graphs);
+  rebuildCache(blocks);
 }
 
 async function loadSingleCustomBlock(id: string) {
@@ -60,58 +36,34 @@ async function loadSingleCustomBlock(id: string) {
     .select({
       id: customBlocksListEntity.id,
       name: customBlocksListEntity.name,
-      inputParams: customBlocksListEntity.inputParams,
     })
     .from(customBlocksListEntity)
     .where(eq(customBlocksListEntity.id, id));
 
   if (blocks.length === 0) {
     // Block was deleted
-    if (customBlocksCache[id]) {
-      customBlockNames.delete(customBlocksCache[id].name);
-      delete customBlocksCache[id];
+    const name = blockNameById.get(id);
+    if (name) {
+      customBlockNames.delete(name);
+      blockNameById.delete(id);
     }
     return;
   }
 
-  const graphs = await getGraphsWithConnections("custom_block", [id]);
-
-  rebuildCache(blocks, graphs, true);
+  rebuildCache(blocks, true);
 }
 
-type DbBlock = { id: string; name: string; inputParams: Record<string, unknown>[] | null };
-type DbGraph = { id: string; parentId: string | null; type: string | null; data: any };
+type DbBlock = { id: string; name: string };
 
-function rebuildCache(blocks: DbBlock[], graphs: DbGraph[], isSingle: boolean = false) {
+function rebuildCache(blocks: DbBlock[], isSingle: boolean = false) {
   if (!isSingle) {
-    customBlocksCache = {};
     customBlockNames.clear();
-  }
-
-  // Group graphs by customBlockId
-  const graphsByBlockId: Record<string, CustomBlockGraphCache[]> = {};
-  for (const graph of graphs) {
-    if (!graph.parentId) continue;
-    if (!graphsByBlockId[graph.parentId]) {
-      graphsByBlockId[graph.parentId] = [];
-    }
-
-    // Omit UI specific properties (position, image, etc.)
-    const { position, image, iconUrl, ...restData } = graph.data || {};
-
-    graphsByBlockId[graph.parentId].push({
-      id: graph.id,
-      type: graph.type,
-      data: restData,
-    });
+    blockNameById.clear();
   }
 
   for (const block of blocks) {
     customBlockNames.add(block.name);
-    customBlocksCache[block.id] = {
-      ...block,
-      graphs: graphsByBlockId[block.id] || [],
-    };
+    blockNameById.set(block.id, block.name);
   }
 }
 

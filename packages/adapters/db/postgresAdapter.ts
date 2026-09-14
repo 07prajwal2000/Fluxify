@@ -8,7 +8,6 @@ import {
 	IDbAdapter,
 	IntrospectedTable,
 } from ".";
-import { JsVM } from "@fluxify/lib";
 import { BunSqlPostgresDialect } from "./kyselySqlDialect";
 import {
 	applyColumns,
@@ -53,7 +52,6 @@ export class PostgresAdapter implements IDbAdapter {
 	constructor(
 		private readonly db: Kysely<FluxifyDatabase>,
 		private readonly sql: SQL,
-		private readonly vm: JsVM,
 	) {}
 
 	public static createKysely(sql: SQL): Kysely<FluxifyDatabase> {

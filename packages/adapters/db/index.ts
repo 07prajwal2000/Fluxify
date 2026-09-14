@@ -4,7 +4,6 @@ import z from "zod";
 import { Connection, DbType } from "./connection";
 import { PostgresAdapter } from "./postgresAdapter";
 import { MySqlAdapter } from "./mySqlAdapter";
-import { JsVM } from "@fluxify/lib";
 import { MongoAdapter, buildMongoUrl } from "./mongoDbAdapter";
 import { DbConnectionManager, type DbConnectionLease } from "./connectionManager";
 
@@ -127,7 +126,6 @@ export class DbFactory {
 	private static readonly defaultConnectionManager = new DbConnectionManager();
 
 	constructor(
-		private readonly vm: JsVM,
 		private readonly dbConfig: Record<string, Connection>,
 		private readonly connectionManager: DbConnectionManager = DbFactory.defaultConnectionManager,
 	) {}
@@ -146,19 +144,16 @@ export class DbFactory {
 			return (this.connectionMap[connection] = new PostgresAdapter(
 				lease.connection.db,
 				lease.connection.sql!,
-				this.vm,
 			));
 		} else if (cfg.dbType.toLowerCase() === DbType.MYSQL.toLowerCase()) {
 			return (this.connectionMap[connection] = new MySqlAdapter(
 				lease.connection.db,
 				lease.connection.pool!,
-				this.vm,
 			));
 		} else if (cfg.dbType.toLowerCase() === DbType.MONGODB.toLowerCase()) {
 			return (this.connectionMap[connection] = new MongoAdapter(
 				lease.connection.client!,
 				lease.connection.db,
-				this.vm,
 			));
 		}
 
@@ -188,8 +183,6 @@ export class DbFactory {
 export async function introspectConnection(
 	cfg: Connection,
 ): Promise<IntrospectedTable[]> {
-	const vm = {} as JsVM; // introspection never evaluates js conditions
-
 	if (cfg.dbType.toLowerCase() === DbType.POSTGRES.toLowerCase()) {
 		const sql = new SQL({
 			adapter: "postgres",
@@ -203,7 +196,7 @@ export async function introspectConnection(
 		});
 		const db = PostgresAdapter.createKysely(sql);
 		try {
-			return await new PostgresAdapter(db, sql, vm).introspect();
+			return await new PostgresAdapter(db, sql).introspect();
 		} finally {
 			await sql.close();
 		}
@@ -215,7 +208,6 @@ export async function introspectConnection(
 			return await new MySqlAdapter(
 				MySqlAdapter.createKysely(pool),
 				pool,
-				vm,
 			).introspect();
 		} finally {
 			await pool.promise().end();
@@ -229,7 +221,7 @@ export async function introspectConnection(
 		});
 		try {
 			await client.connect();
-			return await new MongoAdapter(client, client.db(cfg.database), vm).introspect();
+			return await new MongoAdapter(client, client.db(cfg.database)).introspect();
 		} finally {
 			await client.close();
 		}

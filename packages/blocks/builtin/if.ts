@@ -1,20 +1,8 @@
 import { BlockTypes } from "../blockTypes";
-import {
-  conditionSchema,
-  evaluateOperator,
-  operatorSchema,
-} from "@fluxify/lib";
-import {
-  BaseBlock,
-  baseBlockDataSchema,
-  BlockOutput,
-  Context,
-} from "../baseBlock";
+import { conditionSchema } from "@fluxify/lib";
+import { baseBlockDataSchema } from "../baseBlock";
 import { z } from "zod";
-import { ConditionEvaluator, OperatorResult } from "./conditionEvaluator";
 import type { EmitNode } from "../compiler";
-
-export { OperatorResult };
 
 export const ifBlockSchema = z
   .object({
@@ -56,12 +44,12 @@ function conditionToJs(
   const { lhs, rhs, operator, js } = condition;
   const operand = (raw: unknown) =>
     typeof raw === "string" && raw.startsWith("js:")
-      ? node.js(raw.slice(3), input, true)
+      ? node.js(raw.slice(3), input)
       : JSON.stringify(raw ?? null);
 
   if (operator === "js") {
     const code = js ?? "";
-    return `$truthy(${node.js(code.startsWith("js:") ? code.slice(3) : code, input, true)})`;
+    return `$truthy(${node.js(code.startsWith("js:") ? code.slice(3) : code, input)})`;
   }
   if (operator === "is_empty") return `$isEmpty(${operand(lhs)})`;
   if (operator === "is_not_empty") return `!$isEmpty(${operand(lhs)})`;
@@ -96,30 +84,4 @@ ${node.next("success")}
 } else {
 ${node.next("failure")}
 }`;
-}
-
-export class IfBlock extends BaseBlock {
-  constructor(
-    private readonly onSuccess: string,
-    private readonly onError: string,
-    context: Context,
-    input: z.infer<typeof ifBlockSchema>,
-  ) {
-    super(context, input, onSuccess);
-  }
-  override async executeAsync(params?: any): Promise<BlockOutput> {
-    const { conditions } = this.input as z.infer<typeof ifBlockSchema>;
-    const result = await ConditionEvaluator.evaluateOperatorsList(
-      conditions,
-      this.context.vm,
-      params,
-    );
-    return {
-      output: params,
-      successful: result,
-      continueIfFail: true,
-      error: undefined,
-      next: result ? this.onSuccess : this.onError,
-    };
-  }
 }

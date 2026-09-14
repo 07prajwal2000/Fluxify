@@ -1,6 +1,4 @@
 import z from "zod";
-import { BlockTypes } from "./blockTypes";
-import { BaseBlock } from "./baseBlock";
 
 export const blockDTOSchema = z.object({
   id: z.uuidv7(),
@@ -35,18 +33,3 @@ export type EdgesType = Record<
     handle: string;
   }[]
 >;
-
-export interface BlockBuilderInterface {
-  getEdges(): EdgesType;
-  buildGraph(entrypoint: string): { [id: string]: BaseBlock };
-  getEntrypoint(): string;
-  getErrorHandlerId(): string;
-}
-
-export interface EngineFactory {
-  create(builder: any, executor: string): any;
-}
-
-export interface IntegrationFactory {
-  create(options: { integrationId: string; type: string }): any;
-}

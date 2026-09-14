@@ -1,4 +1,3 @@
-import { JsVM } from "@fluxify/lib";
 import type { BlockTypes } from "../../blockTypes";
 import type { BlockTrace, BlockTraceSpan } from "../../baseBlock";
 import type { BlockDTOType } from "../../builderTypes";
@@ -23,7 +22,6 @@ export function collectSpans() {
 export function createContext() {
 	const vars: Record<string, any> = {};
 	return {
-		vm: new JsVM(vars),
 		route: "/test",
 		apiId: "api-1",
 		projectId: "proj-1",
