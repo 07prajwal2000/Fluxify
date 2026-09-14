@@ -1,8 +1,7 @@
 import { BlockTypes } from "../blockTypes";
 import z from "zod";
-import { BaseBlock, baseBlockDataSchema, BlockOutput } from "../baseBlock";
+import { baseBlockDataSchema } from "../baseBlock";
 import { conditionSchema } from "@fluxify/lib";
-import { ConditionEvaluator } from "./conditionEvaluator";
 import { conditionsToJs } from "./if";
 import type { EmitNode } from "../compiler";
 
@@ -77,75 +76,4 @@ if (!Array.isArray(${arr})) throw new Error("datasource is not an array");
 ${operation}
 ${node.in} = ${arr};
 ${node.next()}`;
-}
-
-export class ArrayOperationsBlock extends BaseBlock {
-  public async executeAsync(params?: any): Promise<BlockOutput> {
-    const input = this.input as z.infer<typeof arrayOperationsBlockSchema>;
-    let array = this.context.vars[input.datasource];
-    if (!Array.isArray(array)) {
-      return {
-        continueIfFail: false,
-        successful: false,
-        error: "datasource is not an array",
-      };
-    }
-    if (input.useParamAsInput) {
-      input.value = params;
-    }
-    if (
-      input.value === undefined &&
-      input.operation !== "pop" &&
-      input.operation !== "shift" &&
-      input.operation !== "filter"
-    ) {
-      return {
-        continueIfFail: false,
-        successful: false,
-        error: "value is required for array operation block",
-      };
-    }
-    let value = input.value;
-    if (input.operation === "push" || input.operation === "unshift") {
-      value =
-        typeof value == "string"
-          ? value.startsWith("js:")
-            ? await this.context.vm.runAsync(value.slice(3))
-            : value
-          : value;
-    }
-    switch (input.operation) {
-      case "push":
-        array.push(value);
-        break;
-      case "pop":
-        array.pop();
-        break;
-      case "shift":
-        array.shift();
-        break;
-      case "unshift":
-        array.unshift(value);
-        break;
-      case "filter":
-        const results = await Promise.all(
-          array.map((item) =>
-            ConditionEvaluator.evaluateOperatorsList(
-              input.filterConditions || [],
-              this.context.vm,
-              item,
-            ),
-          ),
-        );
-        array = array.filter((_, index) => results[index]);
-        this.context.vars[input.datasource] = array;
-        break;
-    }
-    return {
-      continueIfFail: true,
-      successful: true,
-      output: array,
-      next: this.next,
-    };
-  }
 }

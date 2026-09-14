@@ -1,6 +1,6 @@
 import { BlockTypes } from "../../blockTypes";
 import z from "zod";
-import { BaseBlock, BlockOutput, Context } from "../../baseBlock";
+import { Context } from "../../baseBlock";
 import { formatMessage, logBlockSchema } from ".";
 import { logger } from "@fluxify/common";
 import type { EmitNode } from "../../compiler";
@@ -45,29 +45,3 @@ export const consoleAiDescription = {
     "Logs a message to the system console.",
   jsonSchema: JSON.stringify(z.toJSONSchema(logBlockSchema)),
 };
-
-export class ConsoleLoggerBlock extends BaseBlock {
-  constructor(
-    context: Context,
-    input: z.infer<typeof logBlockSchema>,
-    next?: string,
-  ) {
-    super(context, input, next);
-  }
-
-  override async executeAsync(params: any): Promise<BlockOutput> {
-    const data = this.input as z.infer<typeof logBlockSchema>;
-    await runConsoleLog(
-      this.context,
-      data.level,
-      data.message?.trim() != "" ? data.message : params,
-      params,
-    );
-    return {
-      continueIfFail: true,
-      successful: true,
-      next: this.next,
-      output: params,
-    };
-  }
-}

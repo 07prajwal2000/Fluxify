@@ -14,12 +14,9 @@ export type BlocksExecutor = (
 let executor: BlocksExecutor | null = null;
 
 /**
- * Single seam between "a route matched" and "the graph ran".
- *
- * The default builds and walks the DAG from the database on every request. A
- * compiled worker installs an executor that runs pre-compiled JavaScript
- * instead, and never loads the database module at all — which is why the
- * fallback is imported lazily rather than at the top of this file.
+ * Single seam between "a route matched" and "the graph ran". A compiled
+ * worker (or a test harness) installs the executor that runs pre-compiled
+ * JavaScript for the route before any request reaches `runBlocks`.
  */
 export function setBlocksExecutor(next: BlocksExecutor) {
 	executor = next;
@@ -27,12 +24,7 @@ export function setBlocksExecutor(next: BlocksExecutor) {
 
 export async function runBlocks(target: ExecutionTarget, context: Context) {
 	if (!executor) {
-		const { startBlocksExecution } = await import("../../loaders/blocksLoader");
-		executor = (t, ctx) =>
-			startBlocksExecution(
-				{ routeId: t.routeId, projectId: t.projectId, projectName: t.projectName },
-				ctx,
-			);
+		throw new Error("No blocks executor installed — call setBlocksExecutor first");
 	}
 	return executor(target, context);
 }

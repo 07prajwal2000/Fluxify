@@ -1,13 +1,6 @@
 import { BlockTypes } from "../../blockTypes";
 import z from "zod";
-import {
-	baseBlockDataSchema,
-	BaseBlock,
-	BlockOutput,
-	Context,
-} from "../../baseBlock";
-import { IDbAdapter } from "@fluxify/adapters";
-import { logger } from "@fluxify/common";
+import { baseBlockDataSchema, Context } from "../../baseBlock";
 import { adapterFor, dbFailure } from "./schema";
 import type { EmitNode } from "../../compiler";
 
@@ -54,43 +47,4 @@ export function emitNativeDb(node: EmitNode) {
 	const code = input.js.startsWith("js:") ? input.js.slice(3) : input.js;
 	return `${node.in} = await lib.dbNative(ctx, ${node.value(input.connection)}, async () => ${node.js(code, node.in)});
 ${node.next()}`;
-}
-
-export class NativeDbBlock extends BaseBlock {
-	constructor(
-		protected readonly context: Context,
-		private readonly dbAdapter: IDbAdapter,
-		protected readonly input: z.infer<typeof nativeDbBlockSchema>,
-		public readonly next?: string,
-	) {
-		super(context, input, next);
-	}
-
-	public async executeAsync(params: any): Promise<BlockOutput> {
-		try {
-			const dbQuery = this.dbAdapter.raw.bind(this.dbAdapter);
-			this.input.js = this.input.js.startsWith("js:")
-				? this.input.js.slice(3)
-				: this.input.js;
-			const value = await this.context.vm.runAsync(
-				this.input.js,
-				params,
-				true,
-				{ dbQuery },
-			);
-			return {
-				continueIfFail: false,
-				successful: true,
-				next: this.next,
-				output: value,
-			};
-		} catch (e) {
-			logger.error("Failed to execute native db block", "BLOCKS.native", { error: e });
-			return {
-				continueIfFail: false,
-				successful: false,
-				error: "failed to execute native db block",
-			};
-		}
-	}
 }

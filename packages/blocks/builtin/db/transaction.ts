@@ -1,13 +1,6 @@
 import { BlockTypes } from "../../blockTypes";
 import z from "zod";
-import {
-  baseBlockDataSchema,
-  BaseBlock,
-  BlockOutput,
-  Context,
-} from "../../baseBlock";
-import { IDbAdapter } from "@fluxify/adapters";
-import { Engine } from "../../engine";
+import { baseBlockDataSchema, Context } from "../../baseBlock";
 import { adapterFor, dbFailure } from "./schema";
 import type { EmitNode } from "../../compiler";
 
@@ -63,38 +56,4 @@ ${node.body("executor", "undefined")}
 if (${result} !== undefined) return ${result};
 ${node.in} = undefined;
 ${node.next()}`;
-}
-
-export class TransactionBlock extends BaseBlock {
-  constructor(
-    protected readonly context: Context,
-    private readonly dbAdapter: IDbAdapter,
-    protected readonly input: z.infer<typeof transactionDbBlockSchema>,
-    protected readonly childEngine: Engine,
-    public readonly next?: string,
-  ) {
-    super(context, input, next);
-  }
-
-  public async executeAsync(): Promise<BlockOutput> {
-    try {
-      await this.dbAdapter.startTransaction();
-      const result = await this.childEngine.start(this.input.executor);
-      await this.dbAdapter.commitTransaction();
-      return result
-        ? result
-        : {
-            continueIfFail: false,
-            successful: false,
-            error: "failed to execute transaction block",
-          };
-    } catch (error) {
-      await this.dbAdapter.rollbackTransaction();
-      return {
-        continueIfFail: false,
-        successful: false,
-        error: "failed to execute transaction block",
-      };
-    }
-  }
 }

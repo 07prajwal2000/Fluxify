@@ -1,11 +1,6 @@
 import { BlockTypes } from "../blockTypes";
 import z from "zod";
-import {
-  BaseBlock,
-  baseBlockDataSchema,
-  BlockOutput,
-  Context,
-} from "../baseBlock";
+import { baseBlockDataSchema, BlockOutput, Context } from "../baseBlock";
 import type { EmitNode } from "../compiler";
 
 export const httpRequestBlockSchema = z
@@ -111,22 +106,4 @@ export function emitHttpRequest(node: EmitNode) {
 if (!${result}.successful && !${result}.continueIfFail) throw new Error(${result}.error ?? "http request failed");
 ${node.in} = ${result}.output;
 ${node.next()}`;
-}
-
-export class HttpRequestBlock extends BaseBlock {
-  constructor(
-    context: Context,
-    input: z.infer<typeof httpRequestBlockSchema>,
-    next: string,
-  ) {
-    super(context, input, next);
-  }
-  override async executeAsync(params?: any): Promise<BlockOutput> {
-    const result = await runHttpRequest(
-      this.context,
-      this.input as z.infer<typeof httpRequestBlockSchema>,
-      params,
-    );
-    return { ...result, next: this.next };
-  }
 }

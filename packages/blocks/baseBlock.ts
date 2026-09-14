@@ -365,20 +365,3 @@ export function outputVariableName(data: unknown): string | undefined {
 	return variableNameError(name) ? undefined : name;
 }
 
-export type BlockOptions = {
-	timedOut: boolean;
-};
-
-export abstract class BaseBlock {
-	/** set by the block factory; the engine copies the output into `outputs[saveOutputAs]` */
-	public saveOutputAs?: string;
-	constructor(
-		protected readonly context: Context,
-		protected readonly input?: any,
-		public readonly next?: string,
-	) {}
-	public abstract executeAsync(
-		params?: any,
-		options?: BlockOptions,
-	): Promise<BlockOutput>;
-}

@@ -1,15 +1,7 @@
 import { BlockTypes } from "../../blockTypes";
 import z from "zod";
-import {
-  baseBlockDataSchema,
-  BlockOptions,
-  BlockOutput,
-  Context,
-} from "../../baseBlock";
-import { Engine } from "../../engine";
-import { ForLoopBlock, forLoopBlockSchema } from "./for";
+import { baseBlockDataSchema } from "../../baseBlock";
 import type { EmitNode } from "../../compiler";
-import { ExecutionTimeoutError } from "../../errors/timeout";
 
 const valuesSchema = z.array(z.any());
 
@@ -47,74 +39,4 @@ ${node.body("executor", `${arr}[${i}]`)}
 }
 ${node.in} = undefined;
 ${node.next()}`;
-}
-
-export class ForEachLoopBlock extends ForLoopBlock {
-  private readonly values: any[] | string = null!;
-  private readonly foreachInput: z.infer<typeof forEachLoopBlockSchema> = null!;
-  constructor(
-    context: Context,
-    input: z.infer<typeof forEachLoopBlockSchema>,
-    subEngine: Engine,
-    next?: string,
-  ) {
-    const { success, data: foreachInput } =
-      forEachLoopBlockSchema.safeParse(input);
-    if (!success) {
-      throw new Error("Invalid input for ForEachLoopBlock");
-    }
-    super(
-      context,
-      {
-        start: 0,
-        end: input.values.length,
-        step: 1,
-        block: input.block,
-        blockName: input.blockName,
-        blockDescription: "",
-      },
-      subEngine,
-      next,
-    );
-    this.foreachInput = foreachInput;
-    this.values = input.values;
-  }
-
-  override async executeAsync(
-    params?: any,
-    options?: BlockOptions,
-  ): Promise<BlockOutput> {
-    const paramValues = valuesSchema.safeParse(params);
-    if (this.foreachInput.useParam && (!params || !paramValues.success)) {
-      return {
-        continueIfFail: false,
-        successful: false,
-        next: this.next,
-        error: "Invalid params passed for ForEachLoop Block from parent block",
-      };
-    }
-    const input = this.input as z.infer<typeof forLoopBlockSchema>;
-    if (!input.block) {
-      return {
-        continueIfFail: true,
-        successful: true,
-        next: this.next,
-      };
-    }
-    if (this.foreachInput.useParam && paramValues.success) {
-      input.end = params.length;
-    }
-    const array = this.foreachInput.useParam ? paramValues.data! : this.values;
-    await this.iterate(async (i) => {
-      if (options?.timedOut) {
-        throw new ExecutionTimeoutError("Execution timed out");
-      }
-      await this.childEngine.start(input.block!, array[i]);
-    }, options);
-    return {
-      continueIfFail: true,
-      successful: true,
-      next: this.next,
-    };
-  }
 }

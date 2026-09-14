@@ -1,11 +1,6 @@
 import { BlockTypes } from "../blockTypes";
 import z from "zod";
-import {
-  BaseBlock,
-  baseBlockDataSchema,
-  BlockOutput,
-  Context,
-} from "../baseBlock";
+import { baseBlockDataSchema } from "../baseBlock";
 import type { EmitNode } from "../compiler";
 
 export const setVarSchema = z
@@ -30,36 +25,4 @@ export const setVarBlockAiDescription = {
 export function emitSetVar(node: EmitNode) {
   const { key, value } = setVarSchema.parse(node.block.data);
   return `${node.in} = vars[${JSON.stringify(key)}] = ${node.value(value)};\n${node.next()}`;
-}
-
-export class SetVarBlock extends BaseBlock {
-  constructor(
-    context: Context,
-    input: z.infer<typeof setVarSchema>,
-    next?: string,
-    private readonly useParam?: boolean,
-  ) {
-    super(context, input, next);
-  }
-  public override async executeAsync(params?: any): Promise<BlockOutput> {
-    const input = this.input as z.infer<typeof setVarSchema>;
-    const value = await this.evaluateValue(
-      this.useParam ? params : input.value,
-      params,
-    );
-    this.context.vars[this.input.key] = value;
-    return {
-      continueIfFail: true,
-      successful: true,
-      next: this.next,
-      output: value,
-    };
-  }
-
-  private evaluateValue(value: any, params?: any): Promise<any> {
-    if (typeof value == "string" && value.startsWith("js:")) {
-      return this.context.vm.runAsync(value.slice(3), params);
-    }
-    return Promise.resolve(value);
-  }
 }

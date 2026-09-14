@@ -85,7 +85,7 @@ const CompiledRouteFactory = Function as unknown as new (
 	...args: string[]
 ) => (lib: typeof compilerLib) => CompiledRun;
 
-/** same handle normalisation BlockBuilder.loadEdges does */
+/** normalizes edge handles the same way for every consumer of the graph DTOs */
 function buildEdgeMap(edges: EdgeDTOSchemaType): EdgesType {
 	const map: EdgesType = {};
 	for (const edge of edges) {

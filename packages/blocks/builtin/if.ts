@@ -1,20 +1,8 @@
 import { BlockTypes } from "../blockTypes";
-import {
-  conditionSchema,
-  evaluateOperator,
-  operatorSchema,
-} from "@fluxify/lib";
-import {
-  BaseBlock,
-  baseBlockDataSchema,
-  BlockOutput,
-  Context,
-} from "../baseBlock";
+import { conditionSchema } from "@fluxify/lib";
+import { baseBlockDataSchema } from "../baseBlock";
 import { z } from "zod";
-import { ConditionEvaluator, OperatorResult } from "./conditionEvaluator";
 import type { EmitNode } from "../compiler";
-
-export { OperatorResult };
 
 export const ifBlockSchema = z
   .object({
@@ -96,30 +84,4 @@ ${node.next("success")}
 } else {
 ${node.next("failure")}
 }`;
-}
-
-export class IfBlock extends BaseBlock {
-  constructor(
-    private readonly onSuccess: string,
-    private readonly onError: string,
-    context: Context,
-    input: z.infer<typeof ifBlockSchema>,
-  ) {
-    super(context, input, onSuccess);
-  }
-  override async executeAsync(params?: any): Promise<BlockOutput> {
-    const { conditions } = this.input as z.infer<typeof ifBlockSchema>;
-    const result = await ConditionEvaluator.evaluateOperatorsList(
-      conditions,
-      this.context.vm,
-      params,
-    );
-    return {
-      output: params,
-      successful: result,
-      continueIfFail: true,
-      error: undefined,
-      next: result ? this.onSuccess : this.onError,
-    };
-  }
 }
