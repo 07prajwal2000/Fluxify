@@ -195,7 +195,7 @@ export function IntegrationForm({
 				<ObservabilityForm {...formProps} namePlaceholder="Loki | Production" baseUrlPlaceholder="http://loki:3100" baseUrlDescription="Base url of the loki instance" />
 			)}
 			{group === "observability" && variant === "Open Telemetry" && (
-				<ObservabilityForm {...formProps} namePlaceholder="OpenTelemetry | Production" baseUrlPlaceholder="https://http-intake.logs.datadoghq.com/api/v2/logs" baseUrlDescription="Base url of the OTLP endpoint, without the /v1/... path (OpenObserve, Datadog, Grafana, BetterStack)" />
+				<ObservabilityForm {...formProps} supportsGrpc namePlaceholder="OpenTelemetry | Production" baseUrlPlaceholder="https://http-intake.logs.datadoghq.com/api/v2/logs" baseUrlDescription="Base url of the OTLP endpoint, without the /v1/... path (OpenObserve, Datadog, Grafana, BetterStack)" />
 			)}
 
 			{group === "queue" && variant === "Kafka" && <KafkaForm {...formProps} />}

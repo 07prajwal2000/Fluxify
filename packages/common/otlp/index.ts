@@ -8,3 +8,4 @@ export * from "./types";
 export * from "./traces";
 export * from "./metrics";
 export * from "./flush";
+export * from "./grpc";

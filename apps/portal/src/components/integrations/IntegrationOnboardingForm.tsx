@@ -332,6 +332,7 @@ export function IntegrationOnboardingForm({ projectId, onSaved }: { projectId: s
 							{group === "observability" && variant === "Open Telemetry" && (
 								<ObservabilityForm
 									{...formProps}
+									supportsGrpc
 									namePlaceholder="OpenTelemetry | Production"
 									baseUrlPlaceholder="https://http-intake.logs.datadoghq.com/api/v2/logs"
 									baseUrlDescription="Base URL of the OTLP endpoint, without the /v1/... path (OpenObserve, Datadog, Grafana, BetterStack)"

@@ -37,6 +37,8 @@ describe("resolveDestination", () => {
 				Authorization: `Basic ${btoa("u:p")}`,
 				"stream-name": `traces_${PROJECT}`,
 			},
+			// a row saved before gRPC existed carries no transport fields: http
+			transport: {},
 		});
 		expect(resolveDestination(PROJECT, "metrics")).toBeNull();
 	});

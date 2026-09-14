@@ -5,10 +5,13 @@ import {
 	BatchLogRecordProcessor,
 	LoggerProvider,
 } from "@opentelemetry/sdk-logs";
+import { grpcExporterOptions, type OtlpTransport } from "../../otlp/grpc";
 
 export interface OtlpLoggerOptions {
+	/** full `/v1/logs` url over http; the bare channel target over gRPC */
 	url: string;
 	headers: Record<string, string>;
+	transport?: OtlpTransport;
 	serviceName: string;
 }
 
@@ -16,12 +19,20 @@ export function createOtlpLoggerProvider({
 	url,
 	headers,
 	serviceName,
+	transport = {},
 }: OtlpLoggerOptions): LoggerProvider {
 	// 1. Setup OpenTelemetry OTLP exporter
-	const logExporter = new OTLPLogExporter({
-		url,
-		headers,
-	});
+	// the gRPC exporter is required only when used: this module sits behind the
+	// root barrel, which every `@fluxify/common` importer loads
+	const logExporter =
+		transport.protocol === "grpc"
+			? new (
+					require("@opentelemetry/exporter-logs-otlp-grpc") as typeof import("@opentelemetry/exporter-logs-otlp-grpc")
+				).OTLPLogExporter(grpcExporterOptions(url, headers, transport))
+			: new OTLPLogExporter({
+					url,
+					headers,
+				});
 
 	// 2. Setup the LoggerProvider using SDK 1.x factory methods
 	const loggerProvider = new LoggerProvider({
