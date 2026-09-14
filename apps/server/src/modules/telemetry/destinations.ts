@@ -5,6 +5,7 @@ import {
 	exportRun,
 	recordRun,
 	shutdownTelemetry,
+	type OtlpTransport,
 	type TraceRunPayload,
 } from "@fluxify/common/otlp";
 import {
@@ -54,6 +55,7 @@ export type Destination = {
 	integrationId: string;
 	baseUrl: string;
 	headers: Record<string, string>;
+	transport: OtlpTransport;
 };
 
 /**
@@ -114,6 +116,13 @@ export function resolveDestination(
 		integrationId,
 		baseUrl: String(config.baseUrl).replace(/\/$/, ""),
 		headers,
+		transport: {
+			protocol: config.protocol,
+			tlsMode: config.tlsMode,
+			caCert: config.caCert,
+			clientCert: config.clientCert,
+			clientKey: config.clientKey,
+		},
 	};
 }
 
@@ -136,7 +145,7 @@ const tracers = new Map<string, TracerProvider>();
 const meters = new Map<string, MeterProvider>();
 
 function cacheKey(destination: Destination) {
-	return `${destination.integrationId}|${destination.baseUrl}`;
+	return `${destination.integrationId}|${destination.transport.protocol ?? "http"}|${destination.baseUrl}`;
 }
 
 function evict<T extends { shutdown(): Promise<unknown> }>(cache: Map<string, T>) {
@@ -156,6 +165,7 @@ export function tracerFor(destination: Destination): TracerProvider {
 	const provider = createOtlpTracerProvider({
 		url: destination.baseUrl,
 		headers: destination.headers,
+		transport: destination.transport,
 		serviceName: "fluxify.route",
 	});
 	tracers.set(key, provider);
@@ -171,6 +181,7 @@ export function meterFor(destination: Destination): MeterProvider {
 	const provider = createOtlpMeterProvider({
 		url: destination.baseUrl,
 		headers: destination.headers,
+		transport: destination.transport,
 		serviceName: "fluxify.route",
 	});
 	meters.set(key, provider);

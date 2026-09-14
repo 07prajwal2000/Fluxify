@@ -4,9 +4,11 @@ import {
 	type MetricReader,
 } from "@opentelemetry/sdk-metrics";
 import { OTLPMetricExporter } from "@opentelemetry/exporter-metrics-otlp-http";
+import { OTLPMetricExporter as OTLPMetricGrpcExporter } from "@opentelemetry/exporter-metrics-otlp-grpc";
 import { Resource } from "@opentelemetry/resources";
 import type { Counter, Histogram } from "@opentelemetry/api";
 import type { TraceRunPayload } from "./types";
+import { grpcExporterOptions, type OtlpTransport } from "./grpc";
 
 /**
  * Every execution process pushes its own cumulative counters. Without a
@@ -15,9 +17,10 @@ import type { TraceRunPayload } from "./types";
 const INSTANCE_ID = crypto.randomUUID();
 
 export interface OtlpMeterOptions {
-	/** destination root, e.g. `http://localhost:9090/api/v1/otlp` — `/v1/metrics` is appended */
+	/** destination root, e.g. `http://localhost:9090/api/v1/otlp` — `/v1/metrics` is appended over http, gRPC takes it as is */
 	url: string;
 	headers?: Record<string, string>;
+	transport?: OtlpTransport;
 	serviceName: string;
 	/** push period; the reader is the push mechanism, there is nothing to scrape */
 	exportIntervalMillis?: number;
@@ -37,6 +40,7 @@ export function createOtlpMeterProvider({
 	url,
 	headers,
 	serviceName,
+	transport = {},
 	exportIntervalMillis = 15_000,
 	reader,
 }: OtlpMeterOptions): MeterProvider {
@@ -50,10 +54,13 @@ export function createOtlpMeterProvider({
 		readers: [
 			reader ??
 				new PeriodicExportingMetricReader({
-					exporter: new OTLPMetricExporter({
-						url: `${url.replace(/\/$/, "")}/v1/metrics`,
-						headers: headers ?? {},
-					}),
+					exporter:
+						transport.protocol === "grpc"
+							? new OTLPMetricGrpcExporter(grpcExporterOptions(url, headers, transport))
+							: new OTLPMetricExporter({
+									url: `${url.replace(/\/$/, "")}/v1/metrics`,
+									headers: headers ?? {},
+								}),
 					exportIntervalMillis,
 				}),
 		],

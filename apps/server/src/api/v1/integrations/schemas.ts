@@ -243,21 +243,38 @@ export const openAiCompatibleVariantConfigSchema = z.object({
  */
 const customHeadersSchema = z.record(z.string().min(1), z.string()).optional();
 
-export const openTelemetryVariantConfigSchema = z.object({
-	baseUrl: z
-		.string()
-		.refine((v) =>
-			v.startsWith("cfg:") ? true : z.url().safeParse(v).success,
-		),
-	// can be object or base64 encoded basic auth
-	credentials: z
-		.object({
-			username: z.string(),
-			password: z.string(),
-		})
-		.or(z.string()),
-	headers: customHeadersSchema,
-});
+export const openTelemetryVariantConfigSchema = z
+	.object({
+		baseUrl: z
+			.string()
+			.refine((v) =>
+				v.startsWith("cfg:") ? true : z.url().safeParse(v).success,
+			),
+		// can be object or base64 encoded basic auth
+		credentials: z
+			.object({
+				username: z.string(),
+				password: z.string(),
+			})
+			.or(z.string()),
+		headers: customHeadersSchema,
+		/** over gRPC baseUrl is the bare channel target, with no `/v1/{signal}` path */
+		protocol: z.enum(["http", "grpc"]).default("http"),
+		/** gRPC only. `none` is plaintext, for a collector without TLS */
+		tlsMode: z.enum(["none", "tls", "mtls"]).default("tls"),
+		/** PEM or `cfg:` reference. Only needed for a private CA. */
+		caCert: z.string().optional(),
+		/** PEM or `cfg:` reference, for mTLS */
+		clientCert: z.string().optional(),
+		clientKey: z.string().optional(),
+	})
+	.refine(
+		(v) =>
+			v.protocol !== "grpc" ||
+			v.tlsMode !== "mtls" ||
+			Boolean(v.clientCert && v.clientKey),
+		{ message: "mTLS needs a client certificate and key", path: ["clientCert"] },
+	);
 
 /** @deprecated the variant is now "Open Telemetry" — kept for existing importers */
 export const openTelemetryLogsVariantConfigSchema =

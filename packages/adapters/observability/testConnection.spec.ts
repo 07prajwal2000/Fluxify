@@ -53,6 +53,13 @@ describe("OpenTelemetryLogs.TestConnection", () => {
 		);
 	});
 
+	it("probes over gRPC instead of http when configured for it", async () => {
+		const calls = captureFetch(true);
+		const grpc = { ...config, baseUrl: "http://127.0.0.1:1", protocol: "grpc" as const, tlsMode: "none" as const };
+		expect(await OpenTelemetryLogs.TestConnection(grpc, new Map(), "traces")).toBe(false);
+		expect(calls).toHaveLength(0);
+	});
+
 	it("fails when the endpoint is unreachable", async () => {
 		globalThis.fetch = (() =>
 			Promise.reject(new Error("ECONNREFUSED"))) as unknown as typeof fetch;

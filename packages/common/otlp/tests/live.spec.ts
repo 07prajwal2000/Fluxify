@@ -2,6 +2,7 @@ import { describe, it, expect } from "bun:test";
 import { createOtlpTracerProvider, exportRun, traceIdFor } from "../traces";
 import { createOtlpMeterProvider, recordRun } from "../metrics";
 import { flushTelemetry, shutdownTelemetry } from "../flush";
+import { probeGrpc } from "../grpc";
 import type { TraceRunPayload } from "../types";
 
 /**
@@ -160,6 +161,25 @@ describe.skipIf(!live)("live OTLP export", () => {
 		});
 
 		expect(Number(value)).toBeGreaterThan(0);
+		await shutdownTelemetry(provider);
+	}, 60_000);
+});
+
+/** Phoenix in `docker-compose.yml` takes traces over plaintext gRPC on 4317. */
+const PHOENIX_GRPC = process.env.PHOENIX_GRPC_URL ?? "http://localhost:4317";
+
+describe.skipIf(!live)("live OTLP export over gRPC", () => {
+	it("probes and exports traces to a plaintext gRPC collector", async () => {
+		const transport = { protocol: "grpc", tlsMode: "none" } as const;
+		expect(await probeGrpc("traces", PHOENIX_GRPC, {}, transport)).toBe(true);
+
+		const provider = createOtlpTracerProvider({
+			url: PHOENIX_GRPC,
+			serviceName: "fluxify-live-grpc",
+			transport,
+		});
+		exportRun(provider, payload(`live-grpc-${Date.now()}`));
+		await flushTelemetry(provider);
 		await shutdownTelemetry(provider);
 	}, 60_000);
 });

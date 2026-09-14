@@ -19,6 +19,13 @@ export const openTelemetryLogsSettings = z.object({
 	encodedBasicAuth: z.string().optional(),
 	/** user-supplied extra headers, already `cfg:`-resolved */
 	headers: z.record(z.string(), z.string()).optional(),
+	/** gRPC takes baseUrl as the channel target — no `/v1/logs` path */
+	protocol: z.enum(["http", "grpc"]).optional(),
+	/** gRPC only; PEM values below are already `cfg:`-resolved */
+	tlsMode: z.enum(["none", "tls", "mtls"]).optional(),
+	caCert: z.string().optional(),
+	clientCert: z.string().optional(),
+	clientKey: z.string().optional(),
 	projectId: z.uuidv7(),
 	routeId: z.uuidv7(),
 });
@@ -119,7 +126,7 @@ export class OpenTelemetryLogs implements AbstractLogger {
 		}
 
 		let cleanUrl = settings.baseUrl.replace(/\/$/, "");
-		if (!cleanUrl.endsWith("/v1/logs")) {
+		if (settings.protocol !== "grpc" && !cleanUrl.endsWith("/v1/logs")) {
 			cleanUrl = `${cleanUrl}/v1/logs`;
 		}
 
@@ -135,6 +142,7 @@ export class OpenTelemetryLogs implements AbstractLogger {
 			url: cleanUrl,
 			headers,
 			serviceName: "fluxify.server",
+			transport: settings,
 		});
 
 		// Call getLogger directly on our local provider to avoid global collisions!
@@ -164,6 +172,17 @@ export class OpenTelemetryLogs implements AbstractLogger {
 			appConfig,
 		);
 		if (!extracted) return false;
+		if (extracted.protocol === "grpc") {
+			// imported here: the otlp barrel loads the trace and metric SDKs, which
+			// nothing else in this adapter needs
+			const { probeGrpc } = await import("@fluxify/common/otlp");
+			return probeGrpc(
+				signal,
+				extracted.baseUrl,
+				OpenTelemetryLogs.getHeaders(extracted),
+				extracted,
+			);
+		}
 		const headers = {
 			...OpenTelemetryLogs.getHeaders(extracted),
 			"Content-Type": "application/json",
@@ -187,9 +206,18 @@ export class OpenTelemetryLogs implements AbstractLogger {
 			baseUrl: string;
 			credentials: string | { username: string; password: string };
 			headers?: Record<string, string>;
+			protocol?: "http" | "grpc";
+			tlsMode?: "none" | "tls" | "mtls";
+			caCert?: string;
+			clientCert?: string;
+			clientKey?: string;
 		},
 		appConfig: ConfigType,
 	): z.infer<typeof openTelemetryLogsSettings> | null {
+		const resolve = (value?: string) =>
+			value?.startsWith("cfg:")
+				? OpenTelemetryLogs.getConfig(appConfig, value.slice(4))?.toString()
+				: value || undefined;
 		const baseUrl = config?.baseUrl?.startsWith("cfg:")
 			? OpenTelemetryLogs.getConfig(appConfig, config.baseUrl.slice(4))
 			: config.baseUrl;
@@ -223,6 +251,11 @@ export class OpenTelemetryLogs implements AbstractLogger {
 			baseUrl,
 			credentials: typeof credentials === "object" ? credentials : undefined,
 			headers: resolveCustomHeaders(config.headers, appConfig),
+			protocol: config.protocol,
+			tlsMode: config.tlsMode,
+			caCert: resolve(config.caCert),
+			clientCert: resolve(config.clientCert),
+			clientKey: resolve(config.clientKey),
 			projectId: "",
 			routeId: "",
 			encodedBasicAuth:

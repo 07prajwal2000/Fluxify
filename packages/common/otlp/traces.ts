@@ -19,8 +19,10 @@ import {
 // `tracing/instrumentation.ts` swallows). The JSON transport is the one the
 // metrics exporter uses, and it round-trips against a live collector.
 import { OTLPTraceExporter } from "@opentelemetry/exporter-trace-otlp-http";
+import { OTLPTraceExporter as OTLPTraceGrpcExporter } from "@opentelemetry/exporter-trace-otlp-grpc";
 import { Resource } from "@opentelemetry/resources";
 import type { TraceRunPayload, TraceSpanRecord } from "./types";
+import { grpcExporterOptions, type OtlpTransport } from "./grpc";
 
 /* ------------------------------------------------------------ identifiers */
 
@@ -52,9 +54,10 @@ const idGenerator: IdGenerator = {
 /* -------------------------------------------------------------- provider */
 
 export interface OtlpTracerOptions {
-	/** destination root, e.g. `http://localhost:4318` — `/v1/traces` is appended */
+	/** destination root, e.g. `http://localhost:4318` — `/v1/traces` is appended over http, gRPC takes it as is */
 	url: string;
 	headers?: Record<string, string>;
+	transport?: OtlpTransport;
 	serviceName: string;
 	/** exposed for tests, which swap in an in-memory processor */
 	processor?: SpanProcessor;
@@ -72,6 +75,7 @@ export function createOtlpTracerProvider({
 	url,
 	headers,
 	serviceName,
+	transport = {},
 	processor,
 }: OtlpTracerOptions): BasicTracerProvider {
 	return new BasicTracerProvider({
@@ -84,11 +88,13 @@ export function createOtlpTracerProvider({
 		spanProcessors: [
 			processor ??
 				new BatchSpanProcessor(
-					new OTLPTraceExporter({
-						url: `${url.replace(/\/$/, "")}/v1/traces`,
-						headers: headers ?? {},
-						keepAlive: false,
-					}),
+					transport.protocol === "grpc"
+						? new OTLPTraceGrpcExporter(grpcExporterOptions(url, headers, transport))
+						: new OTLPTraceExporter({
+								url: `${url.replace(/\/$/, "")}/v1/traces`,
+								headers: headers ?? {},
+								keepAlive: false,
+							}),
 				),
 		],
 	});
