@@ -177,7 +177,7 @@ export function enqueueCustomBlock(
 }
 
 export function emitCustomBlock(node: EmitNode) {
-	const { blockName, blockDescription, invoke, ...params } = (node.block.data ??
+	const { blockName, blockDescription, invoke, saveAsVariable, ...params } = (node.block.data ??
 		{}) as Record<string, unknown>;
 	const mode = customBlockInvokeSchema.parse(invoke);
 	const name = JSON.stringify(node.block.type);

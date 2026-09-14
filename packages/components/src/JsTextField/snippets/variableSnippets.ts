@@ -62,6 +62,30 @@ export function buildVariableConditionalSnippet(varName: string): CodeSnippet {
 	};
 }
 
+/** A canvas variable, optionally with the name of the block that writes it. */
+export type CanvasVariable = string | { name: string; source?: string };
+
+/** Trims, drops blanks and `exclude`, and merges duplicates, keeping every block that writes a name. */
+export function collectVariables(variables: CanvasVariable[] | undefined, exclude?: string) {
+	const byName = new Map<string, Set<string>>();
+	for (const variable of variables ?? []) {
+		const name = (typeof variable === "string" ? variable : variable?.name)?.trim();
+		if (!name || name === exclude) continue;
+		const sources = byName.get(name) ?? new Set<string>();
+		const source = typeof variable === "string" ? undefined : variable.source?.trim();
+		if (source) sources.add(source);
+		byName.set(name, sources);
+	}
+	return Array.from(byName, ([name, sources]) => ({ name, sources: [...sources] }));
+}
+
+export function describeVariable(name: string, sources: string[], fallback: string) {
+	const origin = sources.length
+		? `set by ${sources.map((source) => `"${source}"`).join(", ")}`
+		: fallback;
+	return `Read context variable "${name}" ${origin}`;
+}
+
 /**
  * Builds dynamic code snippets for a Set Variable block.
  * When a variable name is configured, provides snippets for reading, defaulting,
@@ -70,7 +94,7 @@ export function buildVariableConditionalSnippet(varName: string): CodeSnippet {
  */
 export function buildSetVarSnippets(
 	variableName?: string,
-	otherVariables?: string[],
+	otherVariables?: CanvasVariable[],
 ): CodeSnippet[] {
 	const snippets: CodeSnippet[] = [];
 	const trimmedName = variableName?.trim();
@@ -105,23 +129,18 @@ export function buildSetVarSnippets(
 		);
 	}
 
-	const validOthers = Array.from(
-		new Set(
-			(otherVariables ?? [])
-				.map((v) => v?.trim())
-				.filter((v): v is string => Boolean(v) && v !== trimmedName),
-		),
-	);
+	const others = collectVariables(otherVariables, trimmedName);
+	const validOthers = others.map((v) => v.name);
 
-	for (const other of validOthers) {
+	for (const { name: other, sources } of others) {
 		const otherIdent = toIdentifier(other);
 		snippets.push({
 			id: `var-context-${other}`,
 			title: `Variable: ${other}`,
-			description: `Read context variable "${other}" set by another block`,
+			description: describeVariable(other, sources, "set by another block"),
 			category: "variables",
 			code: `const ${otherIdent} = ${otherIdent};`,
-			tags: ["variable", "context", other],
+			tags: ["variable", "context", other, ...sources],
 		});
 	}
 
@@ -150,7 +169,7 @@ const SETVAR_SNIPPETS_ID = "fluxify-setvar-snippets";
  */
 export function useSetVarSnippets(
 	variableName?: string,
-	otherVariables?: string[],
+	otherVariables?: CanvasVariable[],
 ): void {
 	const serializedOthers = JSON.stringify(otherVariables);
 	const snippets = useMemo(
@@ -165,19 +184,16 @@ export function useSetVarSnippets(
 /**
  * Builds simple variable access snippets for variables present on canvas.
  */
-export function buildCanvasVariableSnippets(variables?: string[]): CodeSnippet[] {
-	const valid = Array.from(
-		new Set((variables ?? []).map((v) => v?.trim()).filter(Boolean)),
-	);
-	return valid.map((v) => {
-		const ident = toIdentifier(v!);
+export function buildCanvasVariableSnippets(variables?: CanvasVariable[]): CodeSnippet[] {
+	return collectVariables(variables).map(({ name, sources }) => {
+		const ident = toIdentifier(name);
 		return {
-			id: `canvas-var-${v}`,
-			title: `Variable: ${v}`,
-			description: `Read context variable "${v}" from execution state`,
+			id: `canvas-var-${name}`,
+			title: `Variable: ${name}`,
+			description: describeVariable(name, sources, "from execution state"),
 			category: "variables",
 			code: `const ${ident} = ${ident};`,
-			tags: ["variable", "context", v!],
+			tags: ["variable", "context", name, ...sources],
 		};
 	});
 }
@@ -187,7 +203,7 @@ const CANVAS_VARIABLES_ID = "fluxify-canvas-variables";
 /**
  * Hook to automatically register context variable snippets across the active canvas.
  */
-export function useCanvasVariableSnippets(variables?: string[]): void {
+export function useCanvasVariableSnippets(variables?: CanvasVariable[]): void {
 	const serializedVars = JSON.stringify(variables);
 	const snippets = useMemo(
 		() => buildCanvasVariableSnippets(variables),

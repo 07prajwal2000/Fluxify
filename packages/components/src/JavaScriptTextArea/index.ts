@@ -8,6 +8,7 @@ export {
 } from "./paramsTypes";
 export { buildInputDataTypeLib, useInputDataTypes } from "./inputDataTypes";
 export { buildRouteParamTypeLib, useRouteParamTypes } from "./routeParamTypes";
+export { buildCanvasVariableTypeLib, useCanvasVariableTypes } from "./canvasVariableTypes";
 export async function restartLanguageServer(): Promise<void> {
 	const setup = await import("./setup");
 	return setup.restartLanguageServer();

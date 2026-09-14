@@ -2,7 +2,6 @@ import { useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import {
 	Button,
-	useCanvasVariableSnippets,
 	useInputDataTypes,
 	useRouteParamSnippets,
 	useRouteParamTypes,
@@ -48,15 +47,6 @@ function RouteCanvasPage() {
 	useRouteParamSnippets(routeParams, queryParams);
 
 	const items = routesQuery.canvasItems.useQuery(routeId);
-	const canvasVariables = useMemo(() => {
-		const blocks = items.data?.blocks ?? [];
-		return blocks
-			.filter((b) => b.type === "setvar" && (b.data as any)?.key)
-			.map((b) => String((b.data as any).key).trim())
-			.filter(Boolean);
-	}, [items.data?.blocks]);
-
-	useCanvasVariableSnippets(canvasVariables);
 
 	return (
 		<>

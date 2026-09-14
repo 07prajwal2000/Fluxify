@@ -5,6 +5,7 @@ import {
 	BlockNameInput,
 } from "./BlockIdentityFields";
 import { blockLabels } from "../blocks/blockLabels";
+import { SaveOutputField, savesOutput } from "./SaveOutputField";
 import type { BlockNode } from "../types";
 
 /** Every block has this tab; block tabs are appended after it. */
@@ -99,6 +100,12 @@ export function BlockSettings({ block, children }: BlockSettingsProps) {
 				/>
 				{generalExtras.length > 0 && <hr className="fx-panel__divider" />}
 				{generalExtras}
+				{savesOutput(block.type, block.data) && (
+					<>
+						<hr className="fx-panel__divider" />
+						<SaveOutputField block={block} />
+					</>
+				)}
 			</Tabs.Panel>
 			{blockTabs.map((tab) => (
 				<Tabs.Panel

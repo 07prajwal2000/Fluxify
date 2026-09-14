@@ -86,4 +86,24 @@ describe("variableSnippets", () => {
 		expect(snippets[1].id).toBe("canvas-var-role");
 		expect(snippets[1].code).toBe("const role = role;");
 	});
+
+	it("names the block a variable comes from, and every block when several write it", () => {
+		const snippets = buildCanvasVariableSnippets([
+			{ name: "users", source: "Fetch Users" },
+			{ name: "users", source: "Load Cache" },
+			{ name: "total" },
+		]);
+		expect(snippets.map((s) => s.description)).toEqual([
+			'Read context variable "users" set by "Fetch Users", "Load Cache"',
+			'Read context variable "total" from execution state',
+		]);
+	});
+
+	it("follows a block rename into the snippet description", () => {
+		const before = buildSetVarSnippets("x", [{ name: "res", source: "HTTP Request" }]);
+		const after = buildSetVarSnippets("x", [{ name: "res", source: "Get Weather" }]);
+		const find = (list: typeof before) => list.find((s) => s.id === "var-context-res");
+		expect(find(before)?.description).toContain('"HTTP Request"');
+		expect(find(after)?.description).toBe('Read context variable "res" set by "Get Weather"');
+	});
 });

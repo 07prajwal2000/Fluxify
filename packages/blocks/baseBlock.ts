@@ -349,11 +349,28 @@ export const baseBlockDataSchema = z.object({
 	blockDescription: z.string().optional().default("Description"),
 });
 
+export const VARIABLE_NAME_PATTERN = /^[A-Za-z_$][A-Za-z0-9_$]*$/;
+
+/**
+ * The variable a block's "Save output to variable" setting writes to, or
+ * undefined when it is off. The name is trimmed, and anything that is not a
+ * plain identifier is ignored rather than emitted into code.
+ */
+export function outputVariableName(data: unknown): string | undefined {
+	const setting = (data as { saveAsVariable?: { enabled?: unknown; name?: unknown } })
+		?.saveAsVariable;
+	if (setting?.enabled !== true || typeof setting.name !== "string") return undefined;
+	const name = setting.name.trim();
+	return VARIABLE_NAME_PATTERN.test(name) ? name : undefined;
+}
+
 export type BlockOptions = {
 	timedOut: boolean;
 };
 
 export abstract class BaseBlock {
+	/** set by the block factory; the engine copies the output into this var */
+	public saveOutputAs?: string;
 	constructor(
 		protected readonly context: Context,
 		protected readonly input?: any,
