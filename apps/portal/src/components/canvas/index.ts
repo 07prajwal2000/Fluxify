@@ -17,6 +17,7 @@ export * from "./history";
 export { uuidv7 } from "./ids";
 export * from "./layout";
 export * from "./panel";
+export * from "./diagnostics";
 export {
 	blockToNode,
 	canvasEdgeToFlowEdge,

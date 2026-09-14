@@ -89,6 +89,35 @@ html[data-theme="dark"] .fx-block,
 	background: var(--fx-block-fail);
 }
 
+/* Static / compile diagnostics indicators top-right of block card */
+.fx-block__diagnostics {
+	position: absolute;
+	top: 4px;
+	right: 6px;
+	display: flex;
+	align-items: center;
+	gap: 3px;
+	z-index: 1;
+}
+
+.fx-block__diag-indicator {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	padding: 0;
+	margin: 0;
+	background: transparent;
+	border: none;
+	cursor: pointer;
+	border-radius: 4px;
+	transition: opacity 120ms ease, transform 120ms ease;
+}
+
+.fx-block__diag-indicator:hover {
+	opacity: 0.8;
+	transform: scale(1.15);
+}
+
 /* Hover action strip above a block (open/duplicate/copy/delete). Positioned
    inside the node so it scales with the canvas zoom. */
 .fx-block__toolbar {

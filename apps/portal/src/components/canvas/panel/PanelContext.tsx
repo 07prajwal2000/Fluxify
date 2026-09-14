@@ -4,6 +4,7 @@ import type { CanvasPanel } from "./useBlockPanel";
 export const DISABLED_PANEL: CanvasPanel = {
 	enabled: false,
 	openBlockId: null,
+	initialTab: null,
 	open: () => {},
 	close: () => {},
 };

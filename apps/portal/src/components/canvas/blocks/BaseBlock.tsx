@@ -1,9 +1,12 @@
 import { Children, isValidElement, type ReactNode } from "react";
-import { TbCheck, TbX } from "react-icons/tb";
+import { TbAlertCircle, TbAlertTriangle, TbCheck, TbInfoCircle, TbX } from "react-icons/tb";
 import "./blocks.css";
 import { BlockToolbar, useHoverIntent } from "./BlockToolbar";
 import { BlockHandle, type BlockHandleProps } from "./handles/BlockHandle";
 import { HANDLE_CONFIG, type HandleSide } from "./handles/handleConfig";
+import { useBlockDiagnostics } from "../diagnostics";
+import { useCanvasPanel } from "../panel/PanelContext";
+import { DIAGNOSTICS_TAB } from "../panel/BlockSettings";
 
 export type BaseBlockProps = {
 	blockId: string;
@@ -75,6 +78,10 @@ export function BaseBlock({
 	const { hovered, hoverProps } = useHoverIntent();
 	const statusClass =
 		status === true ? "fx-block--ok" : status === false ? "fx-block--fail" : "";
+	const { severitiesForBlock, forBlock } = useBlockDiagnostics();
+	const panel = useCanvasPanel();
+	const { hasError, hasWarning, hasInfo } = severitiesForBlock(blockId);
+	const blockDiagnostics = forBlock(blockId);
 
 	return (
 		<div
@@ -108,6 +115,52 @@ export function BaseBlock({
 				>
 					{status ? <TbCheck size={10} /> : <TbX size={10} />}
 				</span>
+			)}
+			{(hasInfo || hasWarning || hasError) && (
+				<div className="fx-block__diagnostics" aria-label="Block diagnostics">
+					{hasInfo && (
+						<button
+							type="button"
+							className="fx-block__diag-indicator text-sky-500"
+							title={`${blockDiagnostics.filter((d) => d.severity === "info").length} info diagnostic(s)`}
+							aria-label="Info diagnostics"
+							onClick={(e) => {
+								e.stopPropagation();
+								panel.open(blockId, DIAGNOSTICS_TAB);
+							}}
+						>
+							<TbInfoCircle size={13} />
+						</button>
+					)}
+					{hasWarning && (
+						<button
+							type="button"
+							className="fx-block__diag-indicator text-warning"
+							title={`${blockDiagnostics.filter((d) => d.severity === "warning").length} warning diagnostic(s)`}
+							aria-label="Warning diagnostics"
+							onClick={(e) => {
+								e.stopPropagation();
+								panel.open(blockId, DIAGNOSTICS_TAB);
+							}}
+						>
+							<TbAlertTriangle size={13} />
+						</button>
+					)}
+					{hasError && (
+						<button
+							type="button"
+							className="fx-block__diag-indicator text-danger"
+							title={`${blockDiagnostics.filter((d) => d.severity === "error").length} error diagnostic(s)`}
+							aria-label="Error diagnostics"
+							onClick={(e) => {
+								e.stopPropagation();
+								panel.open(blockId, DIAGNOSTICS_TAB);
+							}}
+						>
+							<TbAlertCircle size={13} />
+						</button>
+					)}
+				</div>
 			)}
 			{icon && (
 				<span className="fx-block__icon" style={color ? { color } : undefined}>

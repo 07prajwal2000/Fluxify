@@ -1,15 +1,18 @@
 import { Children, isValidElement, type ReactNode } from "react";
 import { Tabs } from "@fluxify/components";
+import { TbAlertCircle, TbAlertTriangle, TbInfoCircle } from "react-icons/tb";
 import {
 	BlockDescriptionField,
 	BlockNameInput,
 } from "./BlockIdentityFields";
 import { blockLabels } from "../blocks/blockLabels";
+import { useBlockDiagnostics } from "../diagnostics";
 import { SaveOutputField, savesOutput } from "./SaveOutputField";
 import type { BlockNode } from "../types";
 
 /** Every block has this tab; block tabs are appended after it. */
 export const GENERAL_TAB = "General";
+export const DIAGNOSTICS_TAB = "Diagnostics";
 
 export type BlockSettingsTabProps = {
 	/** Tab label, and its id. Use `General` to extend the built-in tab. */
@@ -52,6 +55,7 @@ export function splitTabs(children: ReactNode) {
 
 export type BlockSettingsProps = {
 	block: BlockNode;
+	initialTab?: string | null;
 	/** `BlockSettings.TabHead` elements contributed by the block. */
 	children?: ReactNode;
 };
@@ -61,13 +65,29 @@ export type BlockSettingsProps = {
  * there and always first; a block adds its own tabs, or appends to General by
  * declaring a tab with that name.
  */
-export function BlockSettings({ block, children }: BlockSettingsProps) {
+export function BlockSettings({ block, initialTab, children }: BlockSettingsProps) {
 	const { generalExtras, blockTabs } = splitTabs(children);
 	const { definition } = blockLabels(block.type ?? "unknown", block.data);
+	const { forBlock } = useBlockDiagnostics();
+	const diagnostics = forBlock(block.id);
+	const hasDiagnostics = diagnostics.length > 0;
+
+	const defaultTab =
+		initialTab &&
+		(initialTab === GENERAL_TAB ||
+			(initialTab === DIAGNOSTICS_TAB && hasDiagnostics) ||
+			blockTabs.some((t) => t.props.name === initialTab))
+			? initialTab
+			: GENERAL_TAB;
 
 	return (
-		// Remount per block: a block without the tab that was open must not keep it.
-		<Tabs key={block.id} variant="secondary" className="fx-panel__tabs">
+		// Remount per block or tab target
+		<Tabs
+			key={`${block.id}-${defaultTab}`}
+			defaultSelectedKey={defaultTab}
+			variant="secondary"
+			className="fx-panel__tabs"
+		>
 			{/* ListContainer is what the secondary variant styles hang off, and the
 			    indicator is the underline itself — neither is implicit. The
 			    indicator goes inside a tab: its shared-element scope is the tab
@@ -84,6 +104,17 @@ export function BlockSettings({ block, children }: BlockSettingsProps) {
 							<Tabs.Indicator />
 						</Tabs.Tab>
 					))}
+					{hasDiagnostics && (
+						<Tabs.Tab id={DIAGNOSTICS_TAB}>
+							<span className="flex items-center gap-1.5">
+								{DIAGNOSTICS_TAB}
+								<span className="rounded-full bg-danger/10 px-1.5 py-0.2 text-[10px] font-semibold text-danger">
+									{diagnostics.length}
+								</span>
+							</span>
+							<Tabs.Indicator />
+						</Tabs.Tab>
+					)}
 				</Tabs.List>
 			</Tabs.ListContainer>
 
@@ -116,6 +147,36 @@ export function BlockSettings({ block, children }: BlockSettingsProps) {
 					{tab.props.children}
 				</Tabs.Panel>
 			))}
+			{hasDiagnostics && (
+				<Tabs.Panel id={DIAGNOSTICS_TAB} className="fx-panel__tab-panel">
+					<div className="flex flex-col gap-2 pt-1">
+						{diagnostics.map((diag, index) => (
+							<div
+								key={`${diag.source}-${index}`}
+								className="flex items-start gap-2.5 rounded-md border border-border bg-surface-secondary/40 p-2.5 text-xs"
+							>
+								<span className="mt-0.5 shrink-0">
+									{diag.severity === "error" ? (
+										<TbAlertCircle className="text-danger" size={16} />
+									) : diag.severity === "warning" ? (
+										<TbAlertTriangle className="text-warning" size={16} />
+									) : (
+										<TbInfoCircle className="text-sky-500" size={16} />
+									)}
+								</span>
+								<div className="flex min-w-0 flex-1 flex-col gap-1">
+									<p className="font-normal leading-relaxed text-foreground">
+										{diag.message}
+									</p>
+									<span className="self-start rounded bg-surface px-1.5 py-0.5 font-mono text-[10px] text-muted">
+										{diag.source}
+									</span>
+								</div>
+							</div>
+						))}
+					</div>
+				</Tabs.Panel>
+			)}
 		</Tabs>
 	);
 }

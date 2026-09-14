@@ -7,12 +7,19 @@ import {
 	ReactFlowProvider,
 	useEdgesState,
 	useNodesState,
+	useReactFlow,
 	type Connection,
 	type EdgeChange,
 	type NodeChange,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import "./canvas.css";
+import {
+	CanvasDiagnosticsProvider,
+	DiagnosticsPanel,
+	useCanvasDiagnosticsBridge,
+	useHasDiagnosticsProvider,
+} from "./diagnostics";
 import { CanvasCommands } from "./CanvasCommands";
 import { CanvasLayoutLockProvider } from "./CanvasLayoutLockContext";
 import { CanvasQuickActions } from "./CanvasQuickActions";
@@ -219,6 +226,14 @@ function CanvasInner({
 	});
 
 	const panel = useBlockPanel(enablePanel);
+	const { diagnostics, wrappedPanel, handleSelectBlock } =
+		useCanvasDiagnosticsBridge({
+			nodes,
+			edges,
+			setNodes,
+			panel,
+		});
+
 	// Read from state so the panel follows renames and data edits live.
 	const openBlock = useMemo(
 		() => nodes.find((node) => node.id === panel.openBlockId) ?? null,
@@ -226,8 +241,8 @@ function CanvasInner({
 	);
 
 	const onNodeDoubleClick = useCallback(
-		(_: React.MouseEvent, node: BlockNode) => panel.open(node.id),
-		[panel],
+		(_: React.MouseEvent, node: BlockNode) => wrappedPanel.open(node.id),
+		[wrappedPanel],
 	);
 
 	const contextMenu = useContextMenu(enableContextMenu && !readOnly);
@@ -380,7 +395,7 @@ function CanvasInner({
 			<CanvasClipboardProvider value={clipboard}>
 			<CanvasFormatProvider value={formatValue}>
 			<CanvasLayoutLockProvider locked={layoutLocked}>
-			<CanvasPanelProvider value={panel}>
+			<CanvasPanelProvider value={wrappedPanel}>
 			<div className="fx-canvas-shell" ref={shellRef}>
 			<CanvasCommands
 				readOnly={readOnly}
@@ -475,7 +490,18 @@ function CanvasInner({
 					onAdd={addPickedBlock}
 				/>
 			)}
-			{panel.enabled && <BlockPanel block={openBlock} onClose={panel.close} />}
+			{panel.enabled && (
+				<BlockPanel
+					block={openBlock}
+					initialTab={panel.initialTab}
+					onClose={panel.close}
+				/>
+			)}
+			<DiagnosticsPanel
+				isOpen={diagnostics.isPanelOpen}
+				onClose={diagnostics.closePanel}
+				onSelectBlock={handleSelectBlock}
+			/>
 			{enablePlayground && playgroundContent && <PlaygroundModal>{playgroundContent}</PlaygroundModal>}
 			</div>
 			</CanvasPanelProvider>
@@ -492,7 +518,8 @@ function CanvasInner({
  * dropped anywhere (editor page, AI panel, diff view) without extra setup.
  */
 export function BlockCanvas(props: BlockCanvasProps) {
-	return (
+	const hasProvider = useHasDiagnosticsProvider();
+	const content = (
 		<ReactFlowProvider>
 			<CanvasVariableSnippets />
 			<CanvasPlaygroundProvider>
@@ -502,4 +529,9 @@ export function BlockCanvas(props: BlockCanvasProps) {
 			</CanvasPlaygroundProvider>
 		</ReactFlowProvider>
 	);
+
+	if (hasProvider) {
+		return content;
+	}
+	return <CanvasDiagnosticsProvider>{content}</CanvasDiagnosticsProvider>;
 }
