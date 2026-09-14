@@ -33,14 +33,8 @@ export type EmitNode = {
 	complete(output: string): string;
 	/** JS expression for a value from block data (`js:` prefixed ones are evaluated) */
 	value(raw: unknown): string;
-	/**
-	 * JS expression running user `code` with `extras` as its `input`.
-	 *
-	 * Inlined into the compiled function by default. `sync` only matters in
-	 * `inlineJs: false` mode, where it picks `vm.run` over `vm.runAsync` to skip
-	 * the per-call timeout race — use it wherever the interpreted block used `run`.
-	 */
-	js(code: string, extras?: string, sync?: boolean): string;
+	/** JS expression running user `code` with `extras` as its `input`, inlined into the compiled function */
+	js(code: string, extras?: string): string;
 };
 
 /**
@@ -100,15 +94,6 @@ function buildEdgeMap(edges: EdgeDTOSchemaType): EdgesType {
 
 export type CompileOptions = {
 	/**
-	 * Inline user JS into the compiled function instead of calling the sandbox.
-	 *
-	 * This is the whole point of compiling — the VM realm boundary costs more
-	 * than every block in the graph put together. It also removes the sandbox's
-	 * 4s script timeout, so a user-written `while (true) {}` blocks the thread
-	 * until something outside the process kills it. Set false to keep the VM.
-	 */
-	inlineJs?: boolean;
-	/**
 	 * Compile as a custom block: `param:foo` placeholders in block data resolve
 	 * against the invocation arguments instead of being baked in.
 	 *
@@ -147,7 +132,7 @@ export function instantiateCompiled(source: string) {
 export function compileGraph(
 	blocks: BlockDTOType[],
 	edges: EdgeDTOSchemaType,
-	{ inlineJs = true, asCustomBlock = false, asWorkflow = false }: CompileOptions = {},
+	{ asCustomBlock = false, asWorkflow = false }: CompileOptions = {},
 ) {
 	const byId = new Map(blocks.map((b) => [b.id, b]));
 	const edgeMap = buildEdgeMap(edges);
@@ -240,16 +225,9 @@ export function compileGraph(
 		}
 	}
 
-	function js(rawCode: string, extras?: string, sync = false) {
+	function js(rawCode: string, extras?: string) {
 		const { code, imports } = hoistImports(rawCode);
-		if (imports.length && !inlineJs) {
-			throw new Error("import is only supported when user JS is inlined");
-		}
 		registerImports(imports);
-		if (!inlineJs) {
-			const method = sync ? "run" : "runAsync";
-			return `(await ctx.vm.${method}(${JSON.stringify(code)}${extras ? `, ${extras}` : ""}))`;
-		}
 		// `params` is the custom block's invocation arguments — undefined in a
 		// route graph, so `input` keeps meaning exactly one thing everywhere: the
 		// previous block's output.

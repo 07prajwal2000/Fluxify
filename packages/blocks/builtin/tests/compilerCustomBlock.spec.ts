@@ -1,5 +1,4 @@
 import { describe, it, expect, afterEach } from "bun:test";
-import { JsVM } from "@fluxify/lib";
 import { compileGraph, instantiateCompiled } from "../../compiler";
 import {
 	customBlockNames,
@@ -30,7 +29,6 @@ const edge = (from: string, to: string, toHandle = "source") => ({
 function createContext() {
 	const vars: Record<string, any> = {};
 	return {
-		vm: new JsVM(vars),
 		route: "/custom",
 		apiId: "api-1",
 		projectId: "proj-1",

@@ -7,7 +7,6 @@ import {
 	IntrospectedTable,
 	QueryOptions,
 } from ".";
-import { JsVM } from "@fluxify/lib";
 import { toMongoField, isNumericLike, isColumnRef, isLiteralRef } from "./jsonPath";
 import { activeConditions, isRawCondition, rawMongoFilter } from "./conditions";
 
@@ -21,7 +20,6 @@ export class MongoAdapter implements IDbAdapter {
 	constructor(
 		private readonly client: MongoClient,
 		private readonly db: Db,
-		private readonly vm: JsVM,
 	) {}
 
 	public static async testConnection(

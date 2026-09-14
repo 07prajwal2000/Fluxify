@@ -70,7 +70,7 @@ describe("DbConnectionManager", () => {
 			idleTimeoutMs: 450_000,
 			timer: timers,
 		});
-		const factory = new DbFactory({} as any, { mysql }, fake.manager);
+		const factory = new DbFactory({ mysql }, fake.manager);
 		factory.getDbAdapter("mysql");
 		factory.dispose();
 
@@ -92,12 +92,12 @@ describe("DbConnectionManager", () => {
 	it("resets the idle timer when a pool is borrowed again", async () => {
 		const timers = new FakeTimers();
 		const fake = createFakeManager({ idleTimeoutMs: 450_000, timer: timers });
-		const firstRequest = new DbFactory({} as any, { mysql }, fake.manager);
+		const firstRequest = new DbFactory({ mysql }, fake.manager);
 		firstRequest.getDbAdapter("mysql");
 		firstRequest.dispose();
 
 		timers.advanceBy(449_999);
-		const secondRequest = new DbFactory({} as any, { mysql }, fake.manager);
+		const secondRequest = new DbFactory({ mysql }, fake.manager);
 		secondRequest.getDbAdapter("mysql");
 		timers.advanceBy(1);
 		await Promise.resolve();
@@ -113,7 +113,7 @@ describe("DbConnectionManager", () => {
 	it("shares one MySQL pool across 10,000 request-local factories", () => {
 		const fake = createFakeManager();
 		for (let request = 0; request < 10_000; request++) {
-			const factory = new DbFactory({} as any, { mysql }, fake.manager);
+			const factory = new DbFactory({ mysql }, fake.manager);
 			factory.getDbAdapter("mysql");
 			factory.dispose();
 		}
@@ -128,7 +128,7 @@ describe("DbConnectionManager", () => {
 
 	it("atomically swaps changed credentials and drains the borrowed pool", async () => {
 		const fake = createFakeManager();
-		const inFlight = new DbFactory({} as any, { mysql }, fake.manager);
+		const inFlight = new DbFactory({ mysql }, fake.manager);
 		inFlight.getDbAdapter("mysql");
 
 		fake.manager.synchronize({
@@ -138,7 +138,6 @@ describe("DbConnectionManager", () => {
 		expect(fake.closed).toEqual([]);
 
 		const nextRequest = new DbFactory(
-			{} as any,
 			{ mysql: { ...mysql, password: "rotated-secret" } },
 			fake.manager,
 		);
@@ -160,7 +159,7 @@ describe("DbConnectionManager", () => {
 			mongo: { ...mysql, dbType: DbType.MONGODB },
 		};
 		for (const integrationId of Object.keys(configs)) {
-			const factory = new DbFactory({} as any, configs, fake.manager);
+			const factory = new DbFactory(configs, fake.manager);
 			factory.getDbAdapter(integrationId);
 		}
 

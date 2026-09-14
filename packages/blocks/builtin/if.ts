@@ -44,12 +44,12 @@ function conditionToJs(
   const { lhs, rhs, operator, js } = condition;
   const operand = (raw: unknown) =>
     typeof raw === "string" && raw.startsWith("js:")
-      ? node.js(raw.slice(3), input, true)
+      ? node.js(raw.slice(3), input)
       : JSON.stringify(raw ?? null);
 
   if (operator === "js") {
     const code = js ?? "";
-    return `$truthy(${node.js(code.startsWith("js:") ? code.slice(3) : code, input, true)})`;
+    return `$truthy(${node.js(code.startsWith("js:") ? code.slice(3) : code, input)})`;
   }
   if (operator === "is_empty") return `$isEmpty(${operand(lhs)})`;
   if (operator === "is_not_empty") return `!$isEmpty(${operand(lhs)})`;

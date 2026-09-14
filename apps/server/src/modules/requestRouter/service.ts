@@ -19,7 +19,6 @@ import {
 } from "@fluxify/blocks";
 import { Context } from "hono";
 import { ContentfulStatusCode } from "hono/utils/http-status";
-import { JsVM, createLazyJsVM } from "@fluxify/lib";
 import { runBlocks } from "./executor";
 import { getAppConfig } from "../../loaders/appconfigLoader";
 import {
@@ -266,16 +265,13 @@ export async function executeRouteInternal(
 		requestData.params = result.data as typeof requestData.params;
 	}
 
-	const vm = createLazyJsVM(vars);
 	const dbFactory = createDbFactory(
-		vm,
 		routeInfo.projectId,
 		overrides?.integrations,
 	);
 	const context = createContext(
 		routeInfo,
 		requestData,
-		vm,
 		vars,
 		dbFactory,
 		httpClient,
@@ -356,13 +352,11 @@ export function createJobContext(job: {
 		undefined,
 		trigger,
 	);
-	const vm = createLazyJsVM(vars);
 	return createContext(
 		{ id: job.target, projectId: job.projectId },
 		requestData,
-		vm,
 		vars,
-		new DbFactory(vm, dbIntegrationsCache, dbConnectionManager),
+		new DbFactory(dbIntegrationsCache, dbConnectionManager),
 		httpClient,
 		trigger,
 		job.timeoutSeconds ?? DEFAULT_JOB_TIMEOUT_SECONDS,
@@ -422,7 +416,6 @@ function observabilityLoggerFor(
 function createContext(
 	routeInfo: { id: string; projectId: string },
 	requestData: { path: string; body: any },
-	vm: JsVM,
 	vars: ContextVarsType & Record<string, any>,
 	dbFactory: DbFactory,
 	httpClient: HttpClient,
@@ -435,7 +428,6 @@ function createContext(
 		route: requestData.path,
 		projectId: routeInfo.projectId,
 		requestBody: requestData.body,
-		vm,
 		vars,
 		dbFactory,
 		httpClient,
@@ -497,12 +489,11 @@ export function assertOverridesOwned(
  * integration id and read their database.
  */
 function createDbFactory(
-	vm: JsVM,
 	projectId: string,
 	integrationOverrides?: Array<{ existingId: string; newId: string }>,
 ) {
 	if (!integrationOverrides || integrationOverrides.length === 0) {
-		return new DbFactory(vm, dbIntegrationsCache, dbConnectionManager);
+		return new DbFactory(dbIntegrationsCache, dbConnectionManager);
 	}
 
 	const customDbCache = { ...dbIntegrationsCache };
@@ -513,7 +504,7 @@ function createDbFactory(
 		if (!target || !ownsIntegration(target, projectId)) continue;
 		customDbCache[override.existingId] = target;
 	}
-	return new DbFactory(vm, customDbCache, dbConnectionManager);
+	return new DbFactory(customDbCache, dbConnectionManager);
 }
 
 function setupContextVars(

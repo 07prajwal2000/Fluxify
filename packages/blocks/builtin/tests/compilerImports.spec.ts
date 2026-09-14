@@ -84,13 +84,4 @@ describe("hoisted imports", () => {
 		];
 		expect(() => compileGraph(blocks, edges)).toThrow(/bound to both/);
 	});
-
-	it("refuses imports when user JS stays in the sandbox", () => {
-		const blocks = [
-			block("1", BlockTypes.entrypoint),
-			block("2", BlockTypes.jsrunner, { value: 'import x from "node:os";\nreturn 1;' }),
-			block("3", BlockTypes.response, { httpCode: "200" }),
-		];
-		expect(() => compileGraph(blocks, edges, { inlineJs: false })).toThrow(/inlined/);
-	});
 });

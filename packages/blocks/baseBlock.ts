@@ -1,7 +1,6 @@
 import jwt from "jsonwebtoken";
 import { DbFactory } from "@fluxify/adapters";
 import { AbstractLogger, HttpClient } from "@fluxify/lib";
-import { JsVM } from "@fluxify/lib";
 import z from "zod";
 import { variableNameError } from "./variableName";
 
@@ -140,7 +139,6 @@ export interface BlockTrace {
 }
 
 export interface Context {
-	vm: JsVM;
 	route: string;
 	projectId: string;
 	apiId: string;

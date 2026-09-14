@@ -9,7 +9,6 @@ import {
 } from "bun:test";
 import { PostgresAdapter } from "./postgresAdapter";
 import { Connection, DbType } from ".";
-import { JsVM } from "@fluxify/lib";
 import type Docker from "dockerode";
 import { faker } from "@faker-js/faker";
 import { docker, pullImage, startContainerWithRandomPort } from "./testHelpers";
@@ -20,7 +19,6 @@ let exposedPort: number;
 let container: Docker.Container | null = null;
 let db: any;
 let sql: SQL;
-let vm: JsVM = {} as JsVM;
 
 beforeAll(async () => {
 	try {
@@ -108,7 +106,7 @@ describe("PostgresAdapter Integration Tests", () => {
 	});
 
 	test("introspect: tables, column types and foreign key owners", async () => {
-		const adapter = new PostgresAdapter(db, sql, vm);
+		const adapter = new PostgresAdapter(db, sql);
 		const suffix = faker.string.alphanumeric(8).toLowerCase();
 		const parent = `authors_${suffix}`;
 		const child = `books_${suffix}`;
@@ -135,7 +133,7 @@ describe("PostgresAdapter Integration Tests", () => {
 	});
 
 	test("CRUD: Single Record Lifecycle", async () => {
-		const adapter = new PostgresAdapter(db, sql, vm);
+		const adapter = new PostgresAdapter(db, sql);
 		const tableName = "users_" + faker.string.alphanumeric(8).toLowerCase();
 		await adapter.raw(`
 			CREATE TABLE ${tableName} (
@@ -178,7 +176,7 @@ describe("PostgresAdapter Integration Tests", () => {
 	});
 
 	test("Advanced Filtering & Operators", async () => {
-		const adapter = new PostgresAdapter(db, sql, vm);
+		const adapter = new PostgresAdapter(db, sql);
 		const tableName = "users_" + faker.string.alphanumeric(8).toLowerCase();
 		await adapter.raw(`
 			CREATE TABLE ${tableName} (
@@ -235,7 +233,7 @@ describe("PostgresAdapter Integration Tests", () => {
 	});
 
 	test("Pagination & Sorting", async () => {
-		const adapter = new PostgresAdapter(db, sql, vm);
+		const adapter = new PostgresAdapter(db, sql);
 		const tableName = "users_" + faker.string.alphanumeric(8).toLowerCase();
 		await adapter.raw(`
 			CREATE TABLE ${tableName} (
@@ -268,7 +266,7 @@ describe("PostgresAdapter Integration Tests", () => {
 	});
 
 	test("Bulk Edge Cases & Mass Mutations", async () => {
-		const adapter = new PostgresAdapter(db, sql, vm);
+		const adapter = new PostgresAdapter(db, sql);
 		const tableName = "users_" + faker.string.alphanumeric(8).toLowerCase();
 		await adapter.raw(`
 			CREATE TABLE ${tableName} (
@@ -307,7 +305,7 @@ describe("PostgresAdapter Integration Tests", () => {
 	});
 
 	test("Raw Queries", async () => {
-		const adapter = new PostgresAdapter(db, sql, vm);
+		const adapter = new PostgresAdapter(db, sql);
 		const tableName = "users_" + faker.string.alphanumeric(8).toLowerCase();
 		await adapter.raw(`
 			CREATE TABLE ${tableName} (
@@ -335,7 +333,7 @@ describe("PostgresAdapter Integration Tests", () => {
 	});
 
 	test("Transaction Lifecycle & Rollbacks", async () => {
-		const adapter = new PostgresAdapter(db, sql, vm);
+		const adapter = new PostgresAdapter(db, sql);
 		const tableName = "users_" + faker.string.alphanumeric(8).toLowerCase();
 		await adapter.raw(`
 			CREATE TABLE ${tableName} (
@@ -362,7 +360,7 @@ describe("PostgresAdapter Integration Tests", () => {
 	});
 
 	test("JSONB Path Filtering (dot / bracket access)", async () => {
-		const adapter = new PostgresAdapter(db, sql, vm);
+		const adapter = new PostgresAdapter(db, sql);
 		const tableName = "docs_" + faker.string.alphanumeric(8).toLowerCase();
 		await adapter.raw(`
 			CREATE TABLE ${tableName} (
@@ -452,7 +450,7 @@ describe("PostgresAdapter Integration Tests", () => {
 	});
 
 	test("Joins & Column Selection", async () => {
-		const adapter = new PostgresAdapter(db, sql, vm);
+		const adapter = new PostgresAdapter(db, sql);
 		const authors = "authors_" + faker.string.alphanumeric(6).toLowerCase();
 		const books = "books_" + faker.string.alphanumeric(6).toLowerCase();
 		await adapter.raw(

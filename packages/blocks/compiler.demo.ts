@@ -5,7 +5,6 @@
  * Builds a small graph, prints the JavaScript the compiler produced for it,
  * then runs that JavaScript against a real Context.
  */
-import { JsVM } from "@fluxify/lib";
 import { compileGraph } from "./compiler";
 import { BlockTypes } from "./blockTypes";
 import type { BlockDTOType, EdgeDTOSchemaType } from "./builderTypes";
@@ -58,7 +57,6 @@ console.log("--- unreachable block compiled?", source.includes("never"), "---\n"
 
 const vars: Record<string, any> = {};
 const ctx = {
-	vm: new JsVM(vars),
 	route: "/checkout",
 	apiId: "api-1",
 	projectId: "proj-1",
