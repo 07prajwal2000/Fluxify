@@ -78,7 +78,7 @@ COPY scripts/setup-hooks.ts scripts/setup-hooks.ts
 RUN bun install --frozen-lockfile
 
 # ------------------------------------------------------------------------------
-# Stage 2: build — server (standalone), telemetry worker, portal, ai-gateway.
+# Stage 2: build — server (standalone), portal, ai-gateway.
 # ------------------------------------------------------------------------------
 FROM deps AS build
 WORKDIR /app
@@ -91,10 +91,6 @@ RUN bun install --frozen-lockfile
 # Workspace packages + server standalone (with schema.sql) + portal + gateway.
 # --filter excludes @fluxify/web: the legacy Next.js app is not shipped.
 RUN bun run build --filter=!@fluxify/web
-
-# Telemetry is control-plane work: it resolves project destinations and exports
-# completed route runs without giving those credentials to execution processes.
-RUN bun run --cwd apps/server build:worker:telemetry
 
 # AI Gateway documentation search index.
 WORKDIR /app/apps/ai-gateway

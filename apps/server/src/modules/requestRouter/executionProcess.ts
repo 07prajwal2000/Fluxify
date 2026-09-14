@@ -24,6 +24,8 @@ import { workerTimeoutsEnabled } from "./workerTimeouts";
 import { AsyncExecutor } from "./asyncExecutor";
 import { executionRuntimeEnvironment } from "./executionEnvironment";
 import { RouteTraceRecorder, WorkflowTraceRecorder } from "../telemetry/routeRecorder";
+import { exportTraceRun, resetProviders } from "../telemetry/destinations";
+import { artifactKind } from "../compiler/subjects";
 
 let boot: ExecutionBootstrap | undefined;
 let monitoringEnabled = false;
@@ -43,6 +45,9 @@ process.on("message", (message: ExecutionMessage) => {
 	if (message.type === "bootstrap") return bootstrap(message.bootstrap);
 	if (message.type === "artifact") {
 		applyArtifactUpdate(message.entry.key, message.entry.value);
+		// a rotated credential or moved endpoint must not keep exporting through
+		// providers built from the old config
+		if (artifactKind(message.entry.key) === "project-config") void resetProviders();
 		return;
 	}
 	if (message.type === "job") return void executeJob(message.job);
@@ -80,9 +85,7 @@ function bootstrap(nextBoot: ExecutionBootstrap) {
 	registerCustomBlockJobHandler();
 	registerWorkflowJobHandler({
 		start(workflow) {
-			return new WorkflowTraceRecorder(workflow, (run) =>
-				send({ type: "trace-finished", run }),
-			);
+			return new WorkflowTraceRecorder(workflow, exportTraceRun);
 		},
 	});
 	// The cap is read per publish rather than captured once: project settings
@@ -126,9 +129,7 @@ async function handle(request: Request): Promise<Response> {
 			method: string;
 			path: string;
 		}) {
-			return new RouteTraceRecorder(route, (run) =>
-				send({ type: "trace-finished", run }),
-			);
+			return new RouteTraceRecorder(route, exportTraceRun);
 		},
 	};
 
@@ -221,6 +222,8 @@ async function shutdown() {
 		logger.warn("async executor drain deadline elapsed", "WORKER.execution");
 	}
 	await shutdownCompiledRuntime();
+	// shutdown flushes: queued spans and metrics get one attempt at the wire
+	await resetProviders().catch(() => {});
 	process.exit(0);
 }
 

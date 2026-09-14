@@ -33,13 +33,9 @@ trap term TERM INT
 # Admin API server (control plane; no builtin worker)
 start bun --cwd=/app/server standalone.js
 
-# The admin server owns migrations. Do not let the telemetry worker query a
-# freshly created database before those tables exist.
+# The admin server owns migrations. The AI gateway has no schema-wait of its
+# own and dies outright on a missing app_config.
 wait_until "admin server" wget -qO- http://127.0.0.1:5500/_/admin/api/public-settings
-
-# Route telemetry consumer. It shares the control plane's database and NATS
-# access, while compiled request workers only publish completed runs over IPC.
-start bun --cwd=/app/server telemetryWorker.js
 
 # The admin UI is a static Vite bundle in /app/portal, served by Caddy.
 

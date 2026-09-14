@@ -2,13 +2,51 @@ import { logger } from "@fluxify/common";
 import {
 	createOtlpTracerProvider,
 	createOtlpMeterProvider,
+	exportRun,
+	recordRun,
 	shutdownTelemetry,
+	type TraceRunPayload,
 } from "@fluxify/common/otlp";
-import { getProjectSetting } from "../../lib/project-settings";
 import {
 	observabilityIntegrationsCache,
 	ownsIntegration,
 } from "../../loaders/integrationsLoader";
+import { projectSettingsCache } from "../../loaders/projectSettingsLoader";
+
+/**
+ * Telemetry export, run inside the execution process.
+ *
+ * Runs are exported straight from the process that recorded them, using the
+ * project config it already holds — no IPC, no NATS, no separate worker. The
+ * destination credentials are the same observability integrations log blocks
+ * already use in this process, so this adds no new credential exposure.
+ *
+ * Execution recording (the portal's run history) is a different sink and needs
+ * its own NATS stream when it is built; telemetry no longer has one.
+ */
+
+/**
+ * Hands a completed run to the batch processor; the network export happens
+ * later, off the request path. A crash or watchdog kill loses whatever is still
+ * queued — accepted for telemetry. SIGTERM flushes via `resetProviders`.
+ *
+ * Resolved per run, not at record time: the project's integration can change
+ * while the run is in flight.
+ */
+export function exportTraceRun(run: TraceRunPayload): void {
+	try {
+		const traces = resolveDestination(run.projectId, "traces");
+		const metrics = resolveDestination(run.projectId, "metrics");
+		if (traces) exportRun(tracerFor(traces), run);
+		if (metrics) recordRun(meterFor(metrics), run);
+	} catch (error) {
+		// telemetry loss, never a failed request
+		logger.error(
+			`[telemetry] failed to export run ${run.runId}: ${String(error)}`,
+			"TELEMETRY",
+		);
+	}
+}
 
 export type TelemetrySignal = "logs" | "traces" | "metrics";
 
@@ -30,10 +68,10 @@ const SETTING_KEYS = {
 	metrics: ["settings.telemetry.metricsConnectionId"],
 } as const;
 
-async function connectionIdFor(projectId: string, signal: TelemetrySignal) {
+function connectionIdFor(projectId: string, signal: TelemetrySignal) {
+	const settings = projectSettingsCache[projectId] as Record<string, string> | undefined;
 	for (const key of SETTING_KEYS[signal]) {
-		const value = await getProjectSetting(projectId, key as never);
-		if (value) return value;
+		if (settings?.[key]) return settings[key];
 	}
 	return "";
 }
@@ -46,11 +84,11 @@ async function connectionIdFor(projectId: string, signal: TelemetrySignal) {
  * cache is keyed by integration id alone, so indexing it directly would hand one
  * project another's endpoint and basic auth.
  */
-export async function resolveDestination(
+export function resolveDestination(
 	projectId: string,
 	signal: TelemetrySignal,
-): Promise<Destination | null> {
-	const integrationId = await connectionIdFor(projectId, signal);
+): Destination | null {
+	const integrationId = connectionIdFor(projectId, signal);
 	if (!integrationId) return null;
 
 	const config = observabilityIntegrationsCache[integrationId];

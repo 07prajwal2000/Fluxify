@@ -1,9 +1,9 @@
 /**
  * Wire contract for one recorded route execution.
  *
- * The execution process records it, the supervisor publishes it, and the
- * telemetry worker hands it to `exportRun`. It is defined here, next to the
- * exporter, so producer and consumer cannot drift.
+ * The execution process records it and hands it to `exportRun` in the same
+ * process. It is defined here, next to the exporter, so producer and consumer
+ * cannot drift.
  */
 
 /** One completed block execution. `seq` is assigned in record order. */

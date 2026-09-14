@@ -539,8 +539,8 @@ function setupContextVars(
 		]),
 	);
 	const projectSettings = projectSettingsCache[projectId];
-	// new key first, legacy second — the same order the telemetry worker reads
-	// them in. Projects configured through the current UI only have the new one.
+	// new key first, legacy second — the same order telemetry/destinations.ts
+	// reads them in. Projects configured through the current UI only have the new one.
 	let connectionId =
 		projectSettings?.["settings.telemetry.logsConnectionId"] ||
 		projectSettings?.["settings.ai.loggerConnectionId"] ||
