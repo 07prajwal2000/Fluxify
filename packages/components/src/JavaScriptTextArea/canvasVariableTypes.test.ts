@@ -29,6 +29,19 @@ describe("buildCanvasVariableTypeLib", () => {
 		expect(lib).toContain("declare var ok: any;");
 	});
 
+	it("declares saved outputs as documented members of outputs", () => {
+		expect(
+			buildCanvasVariableTypeLib([
+				{ name: "users", source: "Fetch Users", output: true },
+				{ name: "total" },
+			]),
+		).toBe(
+			'/** Read context variable "total" from execution state */\ndeclare var total: any;\n\n' +
+				"/** Block outputs saved in this request */\ndeclare var outputs: {\n" +
+				'\t/** Read saved output "outputs.users" set by "Fetch Users" */\n\tusers: any;\n};\n',
+		);
+	});
+
 	it("is empty when there are no variables", () => {
 		expect(buildCanvasVariableTypeLib([])).toBe("");
 	});

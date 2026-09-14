@@ -63,27 +63,38 @@ export function buildVariableConditionalSnippet(varName: string): CodeSnippet {
 }
 
 /** A canvas variable, optionally with the name of the block that writes it. */
-export type CanvasVariable = string | { name: string; source?: string };
+/** `output` marks a saved block output, read as `outputs.<name>` rather than a global. */
+export type CanvasVariable = string | { name: string; source?: string; output?: boolean };
 
 /** Trims, drops blanks and `exclude`, and merges duplicates, keeping every block that writes a name. */
 export function collectVariables(variables: CanvasVariable[] | undefined, exclude?: string) {
-	const byName = new Map<string, Set<string>>();
+	const byKey = new Map<string, { name: string; sources: Set<string>; output: boolean }>();
 	for (const variable of variables ?? []) {
 		const name = (typeof variable === "string" ? variable : variable?.name)?.trim();
-		if (!name || name === exclude) continue;
-		const sources = byName.get(name) ?? new Set<string>();
+		const output = typeof variable !== "string" && variable.output === true;
+		// `exclude` is the Set Var key being edited, a global
+		if (!name || (!output && name === exclude)) continue;
+		const key = `${output ? "outputs." : ""}${name}`;
+		const entry = byKey.get(key) ?? { name, sources: new Set<string>(), output };
 		const source = typeof variable === "string" ? undefined : variable.source?.trim();
-		if (source) sources.add(source);
-		byName.set(name, sources);
+		if (source) entry.sources.add(source);
+		byKey.set(key, entry);
 	}
-	return Array.from(byName, ([name, sources]) => ({ name, sources: [...sources] }));
+	return Array.from(byKey.values(), (v) => ({ ...v, sources: [...v.sources] }));
 }
 
-export function describeVariable(name: string, sources: string[], fallback: string) {
+export function describeVariable(name: string, sources: string[], fallback: string, output = false) {
 	const origin = sources.length
 		? `set by ${sources.map((source) => `"${source}"`).join(", ")}`
 		: fallback;
-	return `Read context variable "${name}" ${origin}`;
+	return output
+		? `Read saved output "outputs.${name}" ${origin}`
+		: `Read context variable "${name}" ${origin}`;
+}
+
+/** How a script reads the variable: a global, or a key under `outputs`. */
+function readExpression(name: string, output: boolean) {
+	return output ? `outputs.${name}` : toIdentifier(name);
 }
 
 /**
@@ -130,31 +141,29 @@ export function buildSetVarSnippets(
 	}
 
 	const others = collectVariables(otherVariables, trimmedName);
-	const validOthers = others.map((v) => v.name);
+	const lines: string[] = [];
 
-	for (const { name: other, sources } of others) {
-		const otherIdent = toIdentifier(other);
+	for (const { name: other, sources, output } of others) {
+		const code = `const ${toIdentifier(other)} = ${readExpression(other, output)};`;
+		lines.push(code);
 		snippets.push({
-			id: `var-context-${other}`,
-			title: `Variable: ${other}`,
-			description: describeVariable(other, sources, "set by another block"),
+			id: `${output ? "var-output" : "var-context"}-${other}`,
+			title: `${output ? "Output" : "Variable"}: ${other}`,
+			description: describeVariable(other, sources, "set by another block", output),
 			category: "variables",
-			code: `const ${otherIdent} = ${otherIdent};`,
+			code,
 			tags: ["variable", "context", other, ...sources],
 		});
 	}
 
-	if (validOthers.length > 1) {
-		const lines = validOthers.map(
-			(v) => `const ${toIdentifier(v)} = ${toIdentifier(v)};`,
-		);
+	if (others.length > 1) {
 		snippets.push({
 			id: "var-context-all",
 			title: "All Context Variables",
-			description: `Read all ${validOthers.length} context variables from state`,
+			description: `Read all ${others.length} context variables from state`,
 			category: "variables",
 			code: lines.join("\n"),
-			tags: ["variable", ...validOthers],
+			tags: ["variable", ...others.map((v) => v.name)],
 		});
 	}
 
@@ -185,14 +194,13 @@ export function useSetVarSnippets(
  * Builds simple variable access snippets for variables present on canvas.
  */
 export function buildCanvasVariableSnippets(variables?: CanvasVariable[]): CodeSnippet[] {
-	return collectVariables(variables).map(({ name, sources }) => {
-		const ident = toIdentifier(name);
+	return collectVariables(variables).map(({ name, sources, output }) => {
 		return {
-			id: `canvas-var-${name}`,
-			title: `Variable: ${name}`,
-			description: describeVariable(name, sources, "from execution state"),
+			id: `${output ? "canvas-output" : "canvas-var"}-${name}`,
+			title: `${output ? "Output" : "Variable"}: ${name}`,
+			description: describeVariable(name, sources, "from execution state", output),
 			category: "variables",
-			code: `const ${ident} = ${ident};`,
+			code: `const ${toIdentifier(name)} = ${readExpression(name, output)};`,
 			tags: ["variable", "context", name, ...sources],
 		};
 	});

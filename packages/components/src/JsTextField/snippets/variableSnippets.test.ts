@@ -99,6 +99,19 @@ describe("variableSnippets", () => {
 		]);
 	});
 
+	it("reads saved outputs from outputs.<name>, apart from a global of the same name", () => {
+		const snippets = buildCanvasVariableSnippets([
+			{ name: "users", source: "Fetch Users", output: true },
+			{ name: "users", source: "Set Users" },
+		]);
+		expect(snippets.map((s) => [s.id, s.code, s.description])).toEqual([
+			["canvas-output-users", "const users = outputs.users;", 'Read saved output "outputs.users" set by "Fetch Users"'],
+			["canvas-var-users", "const users = users;", 'Read context variable "users" set by "Set Users"'],
+		]);
+		const setVar = buildSetVarSnippets("users", [{ name: "users", source: "Fetch Users", output: true }]);
+		expect(setVar.find((s) => s.id === "var-output-users")?.code).toBe("const users = outputs.users;");
+	});
+
 	it("follows a block rename into the snippet description", () => {
 		const before = buildSetVarSnippets("x", [{ name: "res", source: "HTTP Request" }]);
 		const after = buildSetVarSnippets("x", [{ name: "res", source: "Get Weather" }]);

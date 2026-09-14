@@ -9,7 +9,7 @@ import {
 	useCanvasVariableTypes,
 	useRegisterSnippets,
 } from "@fluxify/components";
-import { variableNameError } from "@fluxify/blocks/variableName";
+import { RESERVED_WORDS, variableNameError } from "@fluxify/blocks/variableName";
 import { useNodes, useReactFlow } from "@xyflow/react";
 import { useEffect, useMemo, useState } from "react";
 import { blockLabels } from "../blocks/blockLabels";
@@ -60,12 +60,12 @@ function readSetting(data: BlockData | undefined): SaveAsVariable {
 }
 
 /**
- * Variables written on the canvas — Set Var keys plus saved block outputs —
- * each with the label of the block writing it.
+ * Variables written on the canvas — Set Var keys (globals) plus saved block
+ * outputs (under `outputs`) — each with the label of the block writing it.
  */
 export function canvasVariables(
 	blocks: { type?: string; data?: unknown }[],
-): { name: string; source: string }[] {
+): { name: string; source: string; output?: true }[] {
 	return blocks
 		.map((b) => {
 			const data = b.data as BlockData | undefined;
@@ -73,7 +73,7 @@ export function canvasVariables(
 			if (b.type === BLOCK_TYPES.setvar) return { name: String(data?.key ?? "").trim(), source };
 			const setting = readSetting(data);
 			const saved = setting.enabled && savesOutput(b.type, data ?? {});
-			return { name: saved ? setting.name.trim() : "", source };
+			return { name: saved ? setting.name.trim() : "", source, output: true as const };
 		})
 		.filter((variable) => variable.name);
 }
@@ -88,8 +88,11 @@ export function CanvasVariableSnippets() {
 	// eslint-disable-next-line react-hooks/exhaustive-deps
 	const snippets = useMemo(() => buildCanvasVariableSnippets(variables), [key]);
 	useRegisterSnippets(snippets);
-	// a reserved word declared as a var would break every other declaration
-	useCanvasVariableTypes(variables.filter((v) => !variableNameError(v.name)));
+	// a Set Var key that is a reserved word, declared as a global, would break
+	// every other declaration; saved outputs are members of `outputs`, so fine
+	useCanvasVariableTypes(
+		variables.filter((v) => v.output ? !variableNameError(v.name) : !RESERVED_WORDS.has(v.name)),
+	);
 	return null;
 }
 
@@ -104,8 +107,7 @@ export function SaveOutputField({ block }: { block: BlockNode }) {
 
 	const save = (next: Partial<SaveAsVariable>) =>
 		updateNodeData(block.id, { saveAsVariable: { ...setting, ...next } });
-	// reserved words can't be stripped as you type ("class" starts "classes"),
-	// so they are reported instead and never saved
+	// only an empty name is left to report; the rest is stripped as you type
 	const error = variableNameError(name.trim());
 
 	return (
@@ -114,7 +116,7 @@ export function SaveOutputField({ block }: { block: BlockNode }) {
 				checked={setting.enabled}
 				isDisabled={!editable}
 				label="Save output to variable"
-				description="Also store this block's output in a variable for later blocks"
+				description="Also store this block's output in outputs.<name> for later blocks in this request"
 				onChange={(enabled) => save({ enabled })}
 			/>
 			{setting.enabled && (

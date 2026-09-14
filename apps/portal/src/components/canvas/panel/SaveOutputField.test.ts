@@ -15,10 +15,9 @@ test("variable names drop invalid characters and leading digits as typed", () =>
 	expect(sanitizeVariableName("9")).toBe("");
 });
 
-test("reserved words survive typing (they may start a longer name) but are reported", () => {
+test("reserved words are valid output names (read as outputs.class)", () => {
 	expect(sanitizeVariableName("class")).toBe("class");
-	expect(variableNameError("class")).toContain("reserved JavaScript word");
-	expect(variableNameError("classes")).toBeUndefined();
+	expect(variableNameError("class")).toBeUndefined();
 });
 
 test("only data-producing blocks and sync custom blocks offer the toggle", () => {
@@ -42,7 +41,7 @@ test("canvas variables include Set Var keys and enabled saved outputs, with thei
 	]);
 	expect(variables).toEqual([
 		{ name: "total", source: "Sum" },
-		{ name: "res", source: "Get Weather" },
+		{ name: "res", source: "Get Weather", output: true },
 	]);
 });
 

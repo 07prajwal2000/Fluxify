@@ -334,6 +334,7 @@ const jwt: {
 
 // 6. Execution Rules
 // - State Sharing: Assign values to global variables (e.g., \`myVar = 123\`) to pass them to the next block.
+// - Saved Outputs: blocks with "Save output to variable" on store their output in \`outputs.<name>\` (e.g., \`outputs.users\`), reset on every request.
 // - Constraints: No external libraries (npm/require). Pure ES6+ JavaScript only.
 </js_runtime_context>`;
 
@@ -352,7 +353,7 @@ export const baseBlockDataSchema = z.object({
 
 /**
  * The variable a block's "Save output to variable" setting writes to, or
- * undefined when it is off. The name is trimmed, and an invalid or reserved
+ * undefined when it is off. The name is trimmed, and an invalid
  * name is ignored rather than emitted into code — the save validator is what
  * reports it to the user.
  */
@@ -369,7 +370,7 @@ export type BlockOptions = {
 };
 
 export abstract class BaseBlock {
-	/** set by the block factory; the engine copies the output into this var */
+	/** set by the block factory; the engine copies the output into `outputs[saveOutputAs]` */
 	public saveOutputAs?: string;
 	constructor(
 		protected readonly context: Context,

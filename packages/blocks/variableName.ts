@@ -5,7 +5,10 @@
 
 const IDENTIFIER = /^[A-Za-z_$][A-Za-z0-9_$]*$/;
 
-/** Words JS reserves, in any mode, plus the literals and bindings that cannot be assigned. */
+/**
+ * Words JS reserves, plus bindings that cannot be assigned. Fine as a saved
+ * output (`outputs.class` is valid); only a global declaration must avoid them.
+ */
 export const RESERVED_WORDS = new Set([
 	"await", "break", "case", "catch", "class", "const", "continue", "debugger",
 	"default", "delete", "do", "else", "enum", "export", "extends", "false",
@@ -16,14 +19,11 @@ export const RESERVED_WORDS = new Set([
 	"arguments", "eval", "undefined", "NaN", "Infinity",
 ]);
 
-/** Why `name` (already trimmed) can't be a variable, or undefined when it can. */
+/** Why `name` (already trimmed) can't be a saved output name, or undefined when it can. */
 export function variableNameError(name: string): string | undefined {
 	if (!name) return "Variable name is required";
 	if (!IDENTIFIER.test(name)) {
 		return "Variable name must start with a letter, _ or $ and contain only letters, digits, _ and $";
-	}
-	if (RESERVED_WORDS.has(name)) {
-		return `"${name}" is a reserved JavaScript word and cannot be used as a variable name`;
 	}
 	return undefined;
 }

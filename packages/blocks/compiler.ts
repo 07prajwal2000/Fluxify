@@ -357,7 +357,10 @@ $trace.recordSpan(${span});
 					: "return $end($in);";
 				const saveAs =
 					handle === "source" ? outputVariableName(block.data) : undefined;
-				const save = saveAs ? `vars[${JSON.stringify(saveAs)}] = $in;\n` : "";
+				// vars is per request, so outputs never leak into the next one
+				const save = saveAs
+					? `(vars.outputs ??= {})[${JSON.stringify(saveAs)}] = $in;\n`
+					: "";
 				return `${save}${recordSpan("$in", undefined, branch)}
 ${continuation}`;
 			},

@@ -74,9 +74,9 @@ describe("save output to variable", () => {
 		return [];
 	};
 
-	it("rejects a reserved word, naming the block and the word", () => {
-		expect(messages(() => blockDataValidator(transformer("class")))).toEqual([
-			'Shape User: "class" is a reserved JavaScript word and cannot be used as a variable name',
+	it("rejects an invalid name, naming the block", () => {
+		expect(messages(() => blockDataValidator(transformer("a-b")))).toEqual([
+			"Shape User: Variable name must start with a letter, _ or $ and contain only letters, digits, _ and $",
 		]);
 	});
 
@@ -89,18 +89,19 @@ describe("save output to variable", () => {
 		// a registered custom block skips schema validation, so this is its only check
 		customBlockNames.add("weather_lookup");
 		try {
-			const data = changes("weather_lookup", { saveAsVariable: { enabled: true, name: "return" } });
+			const data = changes("weather_lookup", { saveAsVariable: { enabled: true, name: "9lives" } });
 			expect(messages(() => blockDataValidator(data))).toEqual([
-				'weather_lookup: "return" is a reserved JavaScript word and cannot be used as a variable name',
+				"weather_lookup: Variable name must start with a letter, _ or $ and contain only letters, digits, _ and $",
 			]);
 		} finally {
 			customBlockNames.delete("weather_lookup");
 		}
 	});
 
-	it("accepts a valid name, a padded one, and any name while the toggle is off", () => {
+	it("accepts a valid name, a padded one, a reserved word, and any name while the toggle is off", () => {
 		expect(() => blockDataValidator(transformer("users"))).not.toThrow();
 		expect(() => blockDataValidator(transformer("  users  "))).not.toThrow();
-		expect(() => blockDataValidator(transformer("class", false))).not.toThrow();
+		expect(() => blockDataValidator(transformer("class"))).not.toThrow();
+		expect(() => blockDataValidator(transformer("a-b", false))).not.toThrow();
 	});
 });

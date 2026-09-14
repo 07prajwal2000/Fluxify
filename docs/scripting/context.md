@@ -45,6 +45,17 @@ return currentUser.name; // → "Alice"
 
 You can also use **Set Variable** blocks to write globals without writing code.
 
+### Saved Block Outputs
+
+Blocks that produce data (HTTP Request, Transformer, Array Operations, database blocks and custom blocks) have a **Save output to variable** option. Turn it on and give it a name, and the block's output is stored under `outputs`:
+
+```javascript
+// "Fetch Users" saved its output as "users"
+return outputs.users.length;
+```
+
+`outputs` is fresh for every request. A value saved in one request is never seen by another.
+
 > **Caution**: Variable names must not shadow built-in globals. Avoid names like `input`, `logger`, `jwt`, `libs`, `getHeader`, etc.
 ## HTTP Request Helpers
 

@@ -16,14 +16,19 @@ const IDENTIFIER = /^[A-Za-z_$][A-Za-z0-9_$]*$/;
  * editor autocompletes them. The JSDoc matches the snippet description.
  */
 export function buildCanvasVariableTypeLib(variables?: CanvasVariable[]): string {
-	return collectVariables(variables)
-		.filter(({ name }) => IDENTIFIER.test(name))
-		.map(({ name, sources }) => {
-			// a block name holding `*/` must not close the comment early
-			const doc = describeVariable(name, sources, "from execution state").replaceAll("*/", "*\\/");
-			return `/** ${doc} */\ndeclare var ${name}: any;\n`;
-		})
-		.join("\n");
+	const globals: string[] = [];
+	const outputs: string[] = [];
+	for (const { name, sources, output } of collectVariables(variables)) {
+		if (!IDENTIFIER.test(name)) continue;
+		// a block name holding `*/` must not close the comment early
+		const doc = describeVariable(name, sources, "from execution state", output).replaceAll("*/", "*\\/");
+		if (output) outputs.push(`\t/** ${doc} */\n\t${name}: any;\n`);
+		else globals.push(`/** ${doc} */\ndeclare var ${name}: any;\n`);
+	}
+	if (outputs.length) {
+		globals.push(`/** Block outputs saved in this request */\ndeclare var outputs: {\n${outputs.join("")}};\n`);
+	}
+	return globals.join("\n");
 }
 
 /** Registers the canvas variable declarations in Monaco while mounted. */

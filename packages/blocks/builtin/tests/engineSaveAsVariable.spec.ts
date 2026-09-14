@@ -33,8 +33,8 @@ describe("Engine save output to variable", () => {
 
 		const result = await new Engine({ first, second }, { errorHandlerId: "", context: ctx }).start("first");
 
-		expect(ctx.vars.rows).toEqual({ rows: [1, 2] });
-		expect(Object.keys(ctx.vars)).toEqual(["rows"]);
+		expect(ctx.vars.outputs.rows).toEqual({ rows: [1, 2] });
+		expect(Object.keys(ctx.vars)).toEqual(["outputs"]);
 		expect(result!.output).toBe("done");
 	});
 });

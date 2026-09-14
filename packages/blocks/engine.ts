@@ -68,7 +68,7 @@ export class Engine {
 
         nextParams = await result.output;
         if (block.saveOutputAs) {
-          this.options.context.vars[block.saveOutputAs] = nextParams;
+          (this.options.context.vars.outputs ??= {})[block.saveOutputAs] = nextParams;
         }
 
         if (!result.next) break;
