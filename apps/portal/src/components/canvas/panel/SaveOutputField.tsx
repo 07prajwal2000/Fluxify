@@ -2,12 +2,14 @@ import {
 	buildCanvasVariableSnippets,
 	Checkbox,
 	Description,
+	FieldError,
 	Input,
 	Label,
 	TextField,
 	useCanvasVariableTypes,
 	useRegisterSnippets,
 } from "@fluxify/components";
+import { variableNameError } from "@fluxify/blocks/variableName";
 import { useNodes, useReactFlow } from "@xyflow/react";
 import { useEffect, useMemo, useState } from "react";
 import { blockLabels } from "../blocks/blockLabels";
@@ -86,7 +88,8 @@ export function CanvasVariableSnippets() {
 	// eslint-disable-next-line react-hooks/exhaustive-deps
 	const snippets = useMemo(() => buildCanvasVariableSnippets(variables), [key]);
 	useRegisterSnippets(snippets);
-	useCanvasVariableTypes(variables);
+	// a reserved word declared as a var would break every other declaration
+	useCanvasVariableTypes(variables.filter((v) => !variableNameError(v.name)));
 	return null;
 }
 
@@ -101,6 +104,9 @@ export function SaveOutputField({ block }: { block: BlockNode }) {
 
 	const save = (next: Partial<SaveAsVariable>) =>
 		updateNodeData(block.id, { saveAsVariable: { ...setting, ...next } });
+	// reserved words can't be stripped as you type ("class" starts "classes"),
+	// so they are reported instead and never saved
+	const error = variableNameError(name.trim());
 
 	return (
 		<div className="flex flex-col gap-3">
@@ -117,17 +123,22 @@ export function SaveOutputField({ block }: { block: BlockNode }) {
 					variant="secondary"
 					isDisabled={!editable}
 					value={name}
+					isInvalid={Boolean(error)}
 					onChange={(next) => setName(sanitizeVariableName(next))}
 				>
 					<Label>Variable Name</Label>
 					<Input
 						placeholder="e.g. users"
-						onBlur={() => name !== setting.name && save({ name })}
+						onBlur={() => !error && name !== setting.name && save({ name })}
 						onKeyDown={(e) => e.key === "Enter" && e.currentTarget.blur()}
 					/>
-					<Description>
-						Letters, digits, _ and $ only. Cannot start with a digit.
-					</Description>
+					{error ? (
+						<FieldError>{error}</FieldError>
+					) : (
+						<Description>
+							Letters, digits, _ and $ only. Cannot start with a digit.
+						</Description>
+					)}
 				</TextField>
 			)}
 		</div>

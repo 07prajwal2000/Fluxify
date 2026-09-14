@@ -1,4 +1,5 @@
 import z from "zod";
+import { variableNameError } from "@fluxify/blocks/variableName";
 import { ConflictError } from "../../errors/conflictError";
 import {
 	arrayOperationsBlockSchema,
@@ -69,9 +70,19 @@ export function blockDataValidator(data: CanvasChanges) {
 	});
 
 	const errorBlocks: string[] = [];
+	const nameErrors: { field: string; message: string }[] = [];
 
 	for (const block of data.changes.blocks) {
 		if (deleteIds.has(block.id)) continue;
+		// before the type switch: custom blocks skip schema validation below
+		const nameError = saveAsVariableError(block.data);
+		if (nameError) {
+			const label = (block.data as { blockName?: unknown })?.blockName;
+			nameErrors.push({
+				field: block.id,
+				message: `${typeof label === "string" && label ? label : block.type}: ${nameError}`,
+			});
+		}
 		let schema: z.ZodType = null!;
 		switch (block.type as BlockTypes) {
 			case BlockTypes.entrypoint:
@@ -184,12 +195,21 @@ export function blockDataValidator(data: CanvasChanges) {
 		}
 	}
 
-	if (errorBlocks.length > 0) {
-		throw new ValidationError(
-			errorBlocks.map((id) => ({
+	if (errorBlocks.length > 0 || nameErrors.length > 0) {
+		throw new ValidationError([
+			...errorBlocks.map((id) => ({
 				field: id,
 				message: "Invalid block data",
 			})),
-		);
+			...nameErrors,
+		]);
 	}
+}
+
+/** Why an enabled "Save output to variable" name can't be used, if it can't. */
+function saveAsVariableError(data: unknown): string | undefined {
+	const setting = (data as { saveAsVariable?: { enabled?: unknown; name?: unknown } })
+		?.saveAsVariable;
+	if (setting?.enabled !== true) return undefined;
+	return variableNameError(typeof setting.name === "string" ? setting.name.trim() : "");
 }

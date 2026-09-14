@@ -47,7 +47,7 @@ describe("save output to variable", () => {
 	});
 
 	it("ignores a name that is not an identifier", async () => {
-		for (const name of ["1bad", "a-b", "x\"];evil();//", "   "]) {
+		for (const name of ["1bad", "a-b", "x\"];evil();//", "   ", "class", "return"]) {
 			const { ctx, source } = await runWith({ enabled: true, name });
 			expect(Object.keys(ctx.vars)).toHaveLength(0);
 			expect(source).not.toContain("evil");

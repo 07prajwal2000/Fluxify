@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import { variableNameError } from "@fluxify/blocks/variableName";
 import { blockLabels } from "../blocks/blockLabels";
 import { BLOCK_TYPES } from "../blocks/blockTypes";
 import {
@@ -12,6 +13,12 @@ test("variable names drop invalid characters and leading digits as typed", () =>
 	expect(sanitizeVariableName("12abc")).toBe("abc");
 	expect(sanitizeVariableName("$_ok9")).toBe("$_ok9");
 	expect(sanitizeVariableName("9")).toBe("");
+});
+
+test("reserved words survive typing (they may start a longer name) but are reported", () => {
+	expect(sanitizeVariableName("class")).toBe("class");
+	expect(variableNameError("class")).toContain("reserved JavaScript word");
+	expect(variableNameError("classes")).toBeUndefined();
 });
 
 test("only data-producing blocks and sync custom blocks offer the toggle", () => {

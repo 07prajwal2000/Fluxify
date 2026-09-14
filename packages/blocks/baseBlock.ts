@@ -3,6 +3,7 @@ import { DbFactory } from "@fluxify/adapters";
 import { AbstractLogger, HttpClient } from "@fluxify/lib";
 import { JsVM } from "@fluxify/lib";
 import z from "zod";
+import { variableNameError } from "./variableName";
 
 /** How work entered the engine. */
 export type TriggerKind = "route" | "job" | "workflow" | "cron" | "trigger";
@@ -349,19 +350,18 @@ export const baseBlockDataSchema = z.object({
 	blockDescription: z.string().optional().default("Description"),
 });
 
-export const VARIABLE_NAME_PATTERN = /^[A-Za-z_$][A-Za-z0-9_$]*$/;
-
 /**
  * The variable a block's "Save output to variable" setting writes to, or
- * undefined when it is off. The name is trimmed, and anything that is not a
- * plain identifier is ignored rather than emitted into code.
+ * undefined when it is off. The name is trimmed, and an invalid or reserved
+ * name is ignored rather than emitted into code — the save validator is what
+ * reports it to the user.
  */
 export function outputVariableName(data: unknown): string | undefined {
 	const setting = (data as { saveAsVariable?: { enabled?: unknown; name?: unknown } })
 		?.saveAsVariable;
 	if (setting?.enabled !== true || typeof setting.name !== "string") return undefined;
 	const name = setting.name.trim();
-	return VARIABLE_NAME_PATTERN.test(name) ? name : undefined;
+	return variableNameError(name) ? undefined : name;
 }
 
 export type BlockOptions = {

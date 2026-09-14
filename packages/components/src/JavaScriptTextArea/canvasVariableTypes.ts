@@ -8,7 +8,7 @@ import {
 const ID = "fluxify-canvas-variables";
 const VIRTUAL_PATH = "file:///fluxify-canvas-variables.d.ts";
 
-// ponytail: reserved words (`class`, `new`) pass this and would break the lib; filter them if a user hits it
+// reserved words are filtered by the caller (portal), which owns the shared list
 const IDENTIFIER = /^[A-Za-z_$][A-Za-z0-9_$]*$/;
 
 /**
