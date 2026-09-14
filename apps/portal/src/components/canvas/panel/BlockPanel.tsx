@@ -16,6 +16,8 @@ export type BlockPanelProps = {
 	onClose: () => void;
 	/** Rendered under the tabs — the AI prompt and anything else app-level. */
 	children?: React.ReactNode;
+	/** Initial tab to show when opening the panel. */
+	initialTab?: string | null;
 	/** Initial/default width in px when no width is saved in storage. */
 	defaultWidth?: number;
 	/** Minimum width constraint (defaults to 0 for unconstrained/infinite). */
@@ -38,6 +40,7 @@ export function BlockPanel({
 	block,
 	onClose,
 	children,
+	initialTab,
 	defaultWidth,
 	minWidth,
 	maxWidth,
@@ -153,7 +156,9 @@ export function BlockPanel({
 					</header>
 
 					<div className="fx-panel__body">
-						<BlockSettings block={current}>{tabs?.(current)}</BlockSettings>
+						<BlockSettings block={current} initialTab={initialTab}>
+							{tabs?.(current)}
+						</BlockSettings>
 						{children}
 					</div>
 				</>
