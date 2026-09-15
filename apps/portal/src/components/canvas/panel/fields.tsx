@@ -2,6 +2,7 @@ import {
 	ArrayEditor,
 	Checkbox,
 	Description,
+	type FieldInfo,
 	Input,
 	IntegrationSelector,
 	JoinsEditor,
@@ -149,6 +150,8 @@ export type BlockJsTextFieldProps = FieldProps & {
 	placeholder?: string;
 	disableJs?: boolean;
 	suggestions?: string[];
+	/** Help behind an info button beside the label, instead of a long hint. */
+	info?: FieldInfo;
 };
 
 /**
@@ -164,6 +167,7 @@ export function BlockJsTextField({
 	placeholder,
 	disableJs,
 	suggestions,
+	info,
 }: BlockJsTextFieldProps) {
 	const { updateNodeData } = useReactFlow();
 	const { enabled: editable } = useCanvasChanges();
@@ -184,6 +188,7 @@ export function BlockJsTextField({
 			isDisabled={!editable}
 			label={label}
 			description={hint}
+			info={info}
 			placeholder={placeholder}
 			value={value}
 			disableJs={disableJs}

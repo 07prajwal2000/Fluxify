@@ -1,3 +1,5 @@
+import type { InternalTriggerMessage } from "../triggers/types";
+
 /**
  * What the reconciler needs from a trigger row to schedule it. Deliberately not
  * the row itself: the batch settings mean nothing to a schedule, since a cron
@@ -30,6 +32,26 @@ export type ScheduleFireBody = {
 	workflowId: string;
 	payload?: unknown;
 };
+
+/**
+ * A Trigger Workflow block's delayed run, carried on its `@at` schedule and
+ * copied onto the fire. It is exactly the message the block would have
+ * published had it run now, plus the id that dedupes and cancels it.
+ */
+export type DelayedRunBody = InternalTriggerMessage & {
+	runId: string;
+	projectId: string;
+};
+
+export function isDelayedRunBody(value: unknown): value is DelayedRunBody {
+	const body = value as DelayedRunBody | undefined;
+	return (
+		!!body &&
+		typeof body.runId === "string" &&
+		typeof body.projectId === "string" &&
+		typeof body.workflowId === "string"
+	);
+}
 
 export function isScheduleFireBody(value: unknown): value is ScheduleFireBody {
 	const body = value as ScheduleFireBody | undefined;

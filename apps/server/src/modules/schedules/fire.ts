@@ -11,7 +11,13 @@ import {
 	fireConsumerName,
 	projectFireFilter,
 } from "./subjects";
-import { isScheduleFireBody, type ScheduleFireBody } from "./types";
+import { fireDelayedRun } from "./delayed";
+import {
+	isDelayedRunBody,
+	isScheduleFireBody,
+	type DelayedRunBody,
+	type ScheduleFireBody,
+} from "./types";
 
 /**
  * Turning a fire into work.
@@ -51,11 +57,13 @@ export async function startFireConsumer(
 		maxAckPending: 64,
 	});
 
-	const consumer = await consumeQueue<ScheduleFireBody>(
+	const consumer = await consumeQueue<ScheduleFireBody | DelayedRunBody>(
 		nc,
 		SCHEDULES_STREAM,
 		durable,
 		async (message) => {
+			// A Trigger Workflow block's delayed run carries its whole message.
+			if (isDelayedRunBody(message.data)) return void (await fireDelayedRun(message.data));
 			if (!isScheduleFireBody(message.data))
 				throw new Error(`malformed schedule fire on ${message.subject}`);
 			// The stream's own timestamp, not `new Date()`: it is the same value on

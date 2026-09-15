@@ -12,7 +12,12 @@ import { emitJsRunner } from "./builtin/jsRunner";
 import { emitResponse } from "./builtin/response";
 import { emitSetVar } from "./builtin/setVar";
 import { emitTransformer } from "./builtin/transformer";
-import { emitTriggerWorkflow, fireWorkflow } from "./builtin/triggerWorkflow";
+import {
+	cancelSchedule,
+	emitTriggerWorkflow,
+	fireWorkflow,
+	scheduleWorkflow,
+} from "./builtin/triggerWorkflow";
 import { emitForLoop } from "./builtin/loops/for";
 import { emitForEachLoop } from "./builtin/loops/foreach";
 import { emitOrchestrator } from "./builtin/orchestrator";
@@ -104,4 +109,6 @@ export const compilerLib = {
 	invokeAsync: invokeCustomBlockAsync,
 	enqueue: enqueueCustomBlock,
 	fireWorkflow,
+	scheduleWorkflow,
+	cancelSchedule,
 };

@@ -249,6 +249,11 @@ another workflow: pick the workflow, hand it some data, and carry on. The run is
 queued, not waited for — the block finishes immediately and the workflow runs on
 its own.
 
+The block can also hold a run for later: "in 24 hours" or "at 09:00 on 1 March".
+It gives back an id you can keep, and a second Trigger Workflow block can cancel
+the run with that id before it starts. A time that has already passed runs
+straight away. See [Running later](/blocks/trigger-workflow#running-later).
+
 The data you send has to be small. Each project sets a limit — **64 KB** by
 default, **256 KB** at most — in **Project settings → General → Trigger payload
 limit**. A larger payload is refused when the block runs, and the workflow is
