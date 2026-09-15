@@ -21,7 +21,8 @@ import {
 } from "../../db/schema";
 import { acceptedContentTypes } from "../../lib/routeConfig";
 import { deleteArtifact, putArtifact } from "../../db/natsKv";
-import type { CanvasParent } from "../canvas/types";
+import type { CanvasParent, CanvasParentType } from "../canvas/types";
+import { systemLog } from "../../lib/systemLogs";
 import { parentColumn } from "../canvas/repository";
 import { getProjectAppConfig } from "../../loaders/appconfigLoader";
 import {
@@ -56,6 +57,70 @@ import {
  * Custom blocks are compiled first when rebuilding a whole project: a route
  * that calls one only compiles if that block is already in the library.
  */
+
+/** `type` of every system log the compiler writes; the canvas reads the latest */
+export const COMPILE_LOG_TYPE = "compile";
+
+type CompiledResource = {
+	projectId: string;
+	resourceType: CanvasParentType;
+	resourceId: string;
+};
+
+/**
+ * A graph that cannot compile. Retrying will not change the answer, so this is
+ * recorded for the user instead of being thrown back at the queue — a db or
+ * NATS failure still throws and is retried.
+ */
+class StaticCompileError extends Error {
+	constructor(
+		readonly resource: CompiledResource,
+		cause: unknown,
+	) {
+		super(cause instanceof Error ? cause.message : String(cause), { cause });
+	}
+}
+
+function compileOrThrow<T>(resource: CompiledResource, compile: () => T): T {
+	try {
+		return compile();
+	} catch (error) {
+		throw new StaticCompileError(resource, error);
+	}
+}
+
+/** `detail.status` of a compile log — what the canvas keys on, never the message */
+export type CompileStatus = "compiled" | "inactive" | "failed";
+
+const logCompiled = (resource: CompiledResource) =>
+	systemLog.info({
+		...resource,
+		type: COMPILE_LOG_TYPE,
+		message: "Compiled",
+		detail: { status: "compiled" satisfies CompileStatus },
+	});
+
+const logInactive = (resource: CompiledResource) =>
+	systemLog.info({
+		...resource,
+		type: COMPILE_LOG_TYPE,
+		message: `This ${resource.resourceType} is inactive, so it is not deployed`,
+		detail: { status: "inactive" satisfies CompileStatus },
+	});
+
+const logCompileFailed = (error: StaticCompileError) =>
+	systemLog.error({
+		...error.resource,
+		type: COMPILE_LOG_TYPE,
+		message: error.message,
+		detail: { status: "failed" satisfies CompileStatus },
+	});
+
+/** records a static failure; anything else goes back to the queue for a retry */
+async function recordFailure(error: unknown) {
+	if (!(error instanceof StaticCompileError)) throw error;
+	await logCompileFailed(error);
+}
 
 /**
  * Cold start: compile every project once. The KV bucket can legitimately be
@@ -143,16 +208,29 @@ export async function compileRoute(routeId: string) {
 
 	if (!route || !route.active) {
 		logger.info(`[compiler] dropping route ${routeId}`, "COMPILER");
-		if (route?.projectId) await dropRoute(route.projectId, routeId);
+		if (route?.projectId) {
+			await dropRoute(route.projectId, routeId);
+			await logInactive({ projectId: route.projectId, resourceType: "route", resourceId: routeId });
+		}
 		return;
 	}
+	const resource: CompiledResource = {
+		projectId: route.projectId!,
+		resourceType: "route",
+		resourceId: routeId,
+	};
 
 	// a route that calls a custom block only emits if that block is in this
 	// process's library — the artifact in KV is for workers, not for us
 	await ensureCustomBlocksRegistered(route.projectId!);
 
 	const { blocks, edges } = await loadGraph({ type: "route", id: routeId });
-	const { source } = compileGraph(blocks, edges);
+	let source: string;
+	try {
+		({ source } = compileOrThrow(resource, () => compileGraph(blocks, edges)));
+	} catch (error) {
+		return recordFailure(error);
+	}
 
 	const compiledAt = new Date().toISOString();
 	const artifact: RouteArtifact = {
@@ -174,6 +252,7 @@ export async function compileRoute(routeId: string) {
 		compiledAt,
 	};
 	await putArtifact(routeKey(route.projectId!, routeId), artifact);
+	await logCompiled(resource);
 	logger.info(`[compiler] compiled route ${route.method} ${route.path}`, "COMPILER");
 }
 
@@ -207,16 +286,35 @@ export async function compileWorkflow(workflowId: string) {
 
 	if (!workflow || !workflow.active) {
 		logger.info(`[compiler] dropping workflow ${workflowId}`, "COMPILER");
-		if (workflow?.projectId) await dropWorkflow(workflow.projectId, workflowId);
+		if (workflow?.projectId) {
+			await dropWorkflow(workflow.projectId, workflowId);
+			await logInactive({
+				projectId: workflow.projectId,
+				resourceType: "workflow",
+				resourceId: workflowId,
+			});
+		}
 		return;
 	}
+	const resource: CompiledResource = {
+		projectId: workflow.projectId!,
+		resourceType: "workflow",
+		resourceId: workflowId,
+	};
 
 	await ensureCustomBlocksRegistered(workflow.projectId!);
 
 	const { blocks, edges } = await loadGraph({ type: "workflow", id: workflowId });
-	// `asWorkflow` is the one thing the compiler is told: a response block has
-	// nothing to respond to here, so it compiles to a plain terminal.
-	const { source } = compileGraph(blocks, edges, { asWorkflow: true });
+	let source: string;
+	try {
+		// `asWorkflow` is the one thing the compiler is told: a response block has
+		// nothing to respond to here, so it compiles to a plain terminal.
+		({ source } = compileOrThrow(resource, () =>
+			compileGraph(blocks, edges, { asWorkflow: true }),
+		));
+	} catch (error) {
+		return recordFailure(error);
+	}
 
 	const compiledAt = new Date().toISOString();
 	const artifact: WorkflowArtifact = {
@@ -232,6 +330,7 @@ export async function compileWorkflow(workflowId: string) {
 		compiledAt,
 	};
 	await putArtifact(workflowKey(workflow.projectId!, workflowId), artifact);
+	await logCompiled(resource);
 	logger.info(`[compiler] compiled workflow ${workflow.name}`, "COMPILER");
 }
 
@@ -287,7 +386,7 @@ async function ensureCustomBlocksRegistered(projectId: string) {
 		const errors = new Map<string, unknown>();
 		for (const row of pending) {
 			try {
-				await compileCustomBlock(row.id);
+				await compileCustomBlockOrThrow(row.id);
 			} catch (error) {
 				errors.set(row.id, error);
 				failed.push(row);
@@ -301,11 +400,16 @@ async function ensureCustomBlocksRegistered(projectId: string) {
 		// the specific "No codegen for block type: <name>" that names the culprit.
 		if (failed.length === pending.length) {
 			for (const row of failed) {
-				logger.error(
-					`[compiler] custom block ${row.name} did not compile`,
-					"COMPILER",
-					{ error: errors.get(row.id) },
-				);
+				const error = errors.get(row.id);
+				if (!(error instanceof StaticCompileError)) {
+					logger.error(
+						`[compiler] custom block ${row.name} did not compile`,
+						"COMPILER",
+						{ error },
+					);
+					continue;
+				}
+				await logCompileFailed(error);
 			}
 			return;
 		}
@@ -315,6 +419,14 @@ async function ensureCustomBlocksRegistered(projectId: string) {
 
 /** compile one custom block; a deleted one is dropped from the library */
 export async function compileCustomBlock(id: string) {
+	try {
+		await compileCustomBlockOrThrow(id);
+	} catch (error) {
+		await recordFailure(error);
+	}
+}
+
+async function compileCustomBlockOrThrow(id: string) {
 	const [block] = await db
 		.select({
 			id: customBlocksListEntity.id,
@@ -330,6 +442,12 @@ export async function compileCustomBlock(id: string) {
 		return;
 	}
 
+	const resource: CompiledResource = {
+		projectId: block.projectId!,
+		resourceType: "custom_block",
+		resourceId: block.id,
+	};
+
 	// a custom block may call another one; same library requirement as a route
 	inFlight.add(id);
 	let source: string;
@@ -337,7 +455,9 @@ export async function compileCustomBlock(id: string) {
 		await ensureCustomBlocksRegistered(block.projectId!);
 		const { blocks, edges } = await loadGraph({ type: "custom_block", id });
 		// `param:` placeholders resolve from the invocation, not from a caller's data
-		({ source } = compileGraph(blocks, edges, { asCustomBlock: true }));
+		({ source } = compileOrThrow(resource, () =>
+			compileGraph(blocks, edges, { asCustomBlock: true }),
+		));
 	} finally {
 		inFlight.delete(id);
 	}
@@ -353,6 +473,7 @@ export async function compileCustomBlock(id: string) {
 		compiledAt: new Date().toISOString(),
 	};
 	await putArtifact(customBlockKey(block.projectId!, block.id), artifact);
+	await logCompiled(resource);
 	logger.info(`[compiler] compiled custom block ${block.name}`, "COMPILER");
 }
 

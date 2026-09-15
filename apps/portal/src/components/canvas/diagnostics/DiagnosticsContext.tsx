@@ -91,6 +91,7 @@ export function CanvasDiagnosticsProvider({
 	const byBlock = useMemo(() => {
 		const map = new Map<string, BlockDiagnostic[]>();
 		for (const diag of diagnostics) {
+			if (!diag.blockId) continue;
 			const list = map.get(diag.blockId) ?? [];
 			list.push(diag);
 			map.set(diag.blockId, list);

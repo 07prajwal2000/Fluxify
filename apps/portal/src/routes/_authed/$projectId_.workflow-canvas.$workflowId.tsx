@@ -34,6 +34,7 @@ function WorkflowCanvasPage() {
 				enableBlockPicker
 				enableSpotlight
 				items={workflowsQuery.canvasItems.useQuery(workflowId)}
+				compileTarget={{ projectId, resourceType: "workflow", resourceId: workflowId }}
 				reload={() => workflowsService.getCanvasItems(workflowId)}
 				save={(payload) => save.mutateAsync(payload)}
 				headerLeft={<WorkflowSwitcher projectId={projectId} workflowId={workflowId} />}

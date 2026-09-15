@@ -1,10 +1,13 @@
 export type DiagnosticSeverity = "error" | "warning" | "info";
 
 export type BlockDiagnostic = {
-	blockId: string;
+	/** omitted for a canvas-wide diagnostic (e.g. a compile error naming no block) */
+	blockId?: string;
 	severity: DiagnosticSeverity;
 	message: string;
 	source: string;
+	/** still being worked out, e.g. a compile that has not reported yet */
+	pending?: boolean;
 };
 
 export type BlockSeverities = {
