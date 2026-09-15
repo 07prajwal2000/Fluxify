@@ -8,9 +8,8 @@ import { customSession } from "better-auth/plugins";
 import * as authSchemas from "../db/auth-schema";
 import { account, systemUsers } from "../db/auth-schema";
 import { admin } from "better-auth/plugins";
-import { sso } from "@better-auth/sso";
 import { generateID } from "@fluxify/lib";
-import { getSetting } from "../loaders/instanceSettingsLoader";
+import { ssoOrigins, ssoPlugin } from "./auth.sso.ee";
 import { getEnv } from "./env";
 
 export let auth: ReturnType<typeof initializeAuth> = null!;
@@ -22,56 +21,8 @@ function trustedOrigins() {
 	// The configured SSO issuer is inherently trusted (an admin set it); the SSO
 	// plugin validates the OIDC discovery endpoint against trustedOrigins, so add
 	// the issuer/discovery origin here to allow the discovery fetch.
-	const sso = getSetting("sso_config");
-	for (const url of [sso?.issuer, sso?.discoveryEndpoint]) {
-		if (!url) continue;
-		try {
-			origins.push(new URL(url).origin);
-		} catch {
-			/* ignore malformed url */
-		}
-	}
+	origins.push(...ssoOrigins());
 	return [...new Set(origins)];
-}
-
-// Build a single inline SSO provider from instance_settings.sso_config.
-// Precedence over any DB providers; we never create the ssoProvider table.
-function ssoDefaults(): NonNullable<Parameters<typeof sso>[0]>["defaultSSO"] {
-	const cfg = getSetting("sso_config");
-	if (!cfg || !cfg.enabled) return [];
-	if (cfg.provider === "oidc") {
-		return [
-			{
-				domain: cfg.domain,
-				providerId: cfg.providerId,
-				oidcConfig: {
-					issuer: cfg.issuer,
-					clientId: cfg.clientId!,
-					clientSecret: cfg.clientSecret!,
-					discoveryEndpoint:
-						cfg.discoveryEndpoint ??
-						`${cfg.issuer.replace(/\/$/, "")}/.well-known/openid-configuration`,
-					pkce: true,
-					scopes: cfg.scopes ?? ["openid", "email", "profile"],
-				},
-			},
-		];
-	}
-	// ponytail: SAML mapped from minimal fields; spMetadata/signing left default,
-	// wire fully when a real SAML IdP is onboarded.
-	return [
-		{
-			domain: cfg.domain,
-			providerId: cfg.providerId,
-			samlConfig: {
-				issuer: cfg.issuer,
-				entryPoint: cfg.entryPoint!,
-				cert: cfg.samlCert!,
-				callbackUrl: `${getEnv("SERVER_URL")!}/_/admin/api/auth/sso/saml2/callback/${cfg.providerId}`,
-				spMetadata: { metadata: "" },
-			},
-		},
-	];
 }
 
 export function initializeAuth(db: DB) {
@@ -173,21 +124,10 @@ export function initializeAuth(db: DB) {
 				};
 			}),
 			admin(),
-			// Single SSO provider loaded from instance_settings.sso_config.
-			// Better Auth handles sign-up + account creation/linking automatically.
-			sso({
-				defaultSSO: ssoDefaults(),
-				// SSO sign-in is limited to users an administrator has already
-				// provisioned. This stops Better Auth before it attempts to create a
-				// new user/account; the database hook remains a defense in depth.
-				disableImplicitSignUp: true,
-				// defaultSSO is configured by this instance's administrator rather than
-				// end users. Better Auth marks these static providers as domain-verified
-				// when this mode is enabled, allowing a same-email SSO identity to be
-				// linked to the existing credential account (instead of rejecting it as
-				// "account not linked"). No ssoProvider row is used for defaultSSO.
-				domainVerification: { enabled: true },
-			}),
+			// Enterprise Edition, see `auth.sso.ee.ts`. Registered whatever the
+			// license says: only *configuring* SSO is gated, so an instance that
+			// lapses never locks out admins who sign in through it.
+			ssoPlugin(),
 		],
 	});
 	auth = _auth;

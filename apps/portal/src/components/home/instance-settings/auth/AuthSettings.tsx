@@ -1,6 +1,6 @@
 import { Spinner } from "@fluxify/components";
 import { instanceSettingsQuery } from "@/query/instanceSettingsQuery";
-import { SsoCard } from "./SsoCard";
+import { SsoCard } from "./SsoCard.ee";
 
 export function AuthSettings() {
 	const { data, isLoading, isError } = instanceSettingsQuery.auth.useQuery();

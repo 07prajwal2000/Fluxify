@@ -1,4 +1,5 @@
 import { BadRequestError } from "../../../../errors/badRequestError";
+import { assertCanUse } from "../../../../lib/edition";
 import { ssoConfigSchema, redactSecrets } from "../../../../lib/instance-settings/schemas";
 import { getInstanceSettingByKey, upsertInstanceSetting } from "../upsert/repository";
 import { publishInstanceSetting } from "../../../../loaders/instanceSettingsLoader";
@@ -34,6 +35,10 @@ export default async function handleRequest(payload: AuthSettingsPayload) {
 	const { type, sso_config: ssoPatch } = payload;
 	const wantsSso = type === "sso";
 	const hasPatch = !!ssoPatch && Object.keys(ssoPatch).length > 0;
+
+	// SSO is an Enterprise feature. Switching back to email and password is
+	// always allowed — that is the way out of an unlicensed `sso_only`.
+	if (wantsSso || hasPatch) assertCanUse("sso");
 
 	const existingSsoRow = await getInstanceSettingByKey("sso_config");
 	let ssoValue = (existingSsoRow?.value as Record<string, unknown>) ?? {};

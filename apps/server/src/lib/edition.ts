@@ -6,6 +6,7 @@ import {
 	licenseBanner,
 	verifyLicenseKey,
 	type Entitlement,
+	type Feature,
 	type License,
 } from "@fluxify/common/license";
 import { NODE_TYPES, type NodeEntitlement } from "@fluxify/common/orchestrator";
@@ -129,21 +130,44 @@ export function canRunConnectors() {
 }
 
 /**
- * Refuses a new external connector. Licensed for connectors, and not switched
- * off by an operator. Existing connectors are not checked here — see
- * `canRunConnectors`.
+ * What each gated feature is called when it is refused, and the operator kill
+ * switch that can turn it off independently of the license. SSO has no switch:
+ * it is licensed or it is not.
  */
-export function assertCanCreateConnector() {
-	if (getSetting("featureflags.ee.connectors")?.enabled === false)
-		throw new ForbiddenError("External connectors are switched off on this instance");
+const GATES = {
+	connectors: {
+		flag: "featureflags.ee.connectors",
+		off: "External connectors are switched off on this instance",
+		expired:
+			"The enterprise license has expired. Existing connectors keep running, but new ones cannot be created until it is renewed",
+		unlicensed: "Your license does not include external connectors",
+		community: "External connectors need an enterprise license",
+	},
+	sso: {
+		flag: null,
+		off: "",
+		expired:
+			"The enterprise license has expired. SSO sign-in keeps working, but its configuration cannot be changed until the license is renewed",
+		unlicensed: "Your license does not include SSO",
+		community: "SSO needs an enterprise license",
+	},
+} as const satisfies Record<Feature, unknown>;
+
+/**
+ * Refuses a new enterprise thing: a connector, an SSO configuration. Licensed
+ * for that feature, and not switched off by an operator.
+ *
+ * Only *creating* is checked. What already runs is not gated here — an expired
+ * license must never take a live instance down (§14.2), and for SSO that also
+ * means never locking an admin out of the login page.
+ */
+export function assertCanUse(feature: Feature) {
+	const gate = GATES[feature];
+	if (gate.flag && getSetting(gate.flag)?.enabled === false) throw new ForbiddenError(gate.off);
 	const e = currentEntitlement();
-	if (e.canCreate && includes(e, FEATURES.connectors)) return;
+	if (e.canCreate && includes(e, feature)) return;
 	throw new ForbiddenError(
-		e.status === "expired"
-			? "The enterprise license has expired. Existing connectors keep running, but new ones cannot be created until it is renewed"
-			: e.canCreate
-				? "Your license does not include external connectors"
-				: "External connectors need an enterprise license",
+		e.status === "expired" ? gate.expired : e.canCreate ? gate.unlicensed : gate.community,
 	);
 }
 

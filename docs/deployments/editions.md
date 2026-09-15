@@ -19,6 +19,7 @@ setting.
 | Batching | ✅ | ✅ |
 | The Trigger Workflow block | ✅ | ✅ |
 | External connectors — Kafka and NATS JetStream today; SQS, SNS, Pub/Sub and Service Bus on the way | — | ✅ |
+| Single sign-on (OIDC and SAML) | — | ✅ |
 
 A license key says which Enterprise features it includes. Most include all of
 them; the **License** page shows exactly what yours unlocks.
@@ -110,6 +111,8 @@ An expired license does not take anything down straight away. You have a
 | :--- | :---: | :---: | :---: |
 | Existing connectors keep running | ✅ | ✅ | ❌ |
 | You can create new connectors | ✅ | ❌ | ❌ |
+| People can sign in with SSO | ✅ | ✅ | ✅ |
+| You can change the SSO configuration | ✅ | ❌ | ❌ |
 | Community features | ✅ | ✅ | ✅ |
 
 - **The moment the license expires,** you can no longer create new connectors.
@@ -118,6 +121,19 @@ An expired license does not take anything down straight away. You have a
   days left, so you find out before anything stops.
 - **After the grace period,** Enterprise features stop until the license is
   renewed. Everything in the Community edition keeps working.
+
+::: warning SSO sign-in is the one thing that never stops
+On an instance that enforces SSO, most administrators have no password. Taking
+SSO away with the license would lock every one of them out, so it never
+happens: people keep signing in through the identity provider whatever the
+license says. What the license gates is **changing** the configuration — an
+unlicensed instance cannot turn SSO on, edit an existing connection, or rotate
+its secret. The login page says so, with the days of grace left.
+
+**Upgrading?** If your instance already uses SSO and you are on Community,
+set `LICENSE_KEY=NON_COMMERCIAL` (or paste a key) to keep it editable. Sign-in
+is unaffected either way.
+:::
 
 To renew, paste your new key on the License page. If you use `LICENSE_KEY`,
 replace it with the new key and restart the admin container.

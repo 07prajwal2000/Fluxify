@@ -9,12 +9,22 @@ import { publicSettingsQuery } from "@/query/publicSettingsQuery";
  * anywhere without a check at the call site.
  */
 
-/** True when new connectors can be created. Assumed true until the settings load, so nothing flashes. */
-export function useEnterprise() {
+/** Assumed true until the settings load, so nothing flashes. */
+function useFeature(feature: string) {
 	const { data } = publicSettingsQuery.get.useQuery();
 	if (!data) return true;
 	const { canCreate, features } = data.license;
-	return canCreate && (features.includes("*") || features.includes("connectors"));
+	return canCreate && (features.includes("*") || features.includes(feature));
+}
+
+/** True when new connectors can be created. */
+export function useEnterprise() {
+	return useFeature("connectors");
+}
+
+/** True when SSO can be configured. Signing in through it is never gated. */
+export function useEnterpriseSso() {
+	return useFeature("sso");
 }
 
 const REASON = "Needs an Enterprise license.";
@@ -43,15 +53,19 @@ export function EnterpriseGate({
 	description = REASON,
 	compact,
 	className,
+	unlocked,
 }: {
 	children: ReactNode;
 	title?: string;
-	description?: string;
+	description?: ReactNode;
 	/** Chip only, for cards too small to hold a message. */
 	compact?: boolean;
 	className?: string;
+	/** Gate on a feature other than connectors, e.g. `unlocked={useEnterpriseSso()}`. */
+	unlocked?: boolean;
 }) {
-	if (useEnterprise()) return <>{children}</>;
+	const connectors = useEnterprise();
+	if (unlocked ?? connectors) return <>{children}</>;
 	return (
 		<div className={cn("relative", className)}>
 			<div inert className="pointer-events-none select-none opacity-40 blur-[1px]">

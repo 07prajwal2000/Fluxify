@@ -57,11 +57,13 @@ function LoginPage() {
 function LoginForm() {
 	const navigate = useNavigate();
 	const { next, error: errorCode } = Route.useSearch();
-	const { ssoConfig, isLoading } = usePublicSettings();
+	const { ssoConfig, license, isLoading } = usePublicSettings();
 	const [showEmailForm, setShowEmailForm] = useState(false);
 	const [email, setEmail] = useState("");
 	const [password, setPassword] = useState("");
-	const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
+	const [errors, setErrors] = useState<{ email?: string; password?: string }>(
+		{},
+	);
 	const [loading, setLoading] = useState(false);
 	const ssoError = errorCode
 		? (SSO_ERROR_MESSAGES[errorCode] ??
@@ -103,7 +105,9 @@ function LoginForm() {
 		setLoading(true);
 		try {
 			const baseUrl = import.meta.env.BASE_URL.replace(/\/$/, "");
-			const callback = next ? `${baseUrl}${next.startsWith("/") ? next : `/${next}`}` : import.meta.env.BASE_URL;
+			const callback = next
+				? `${baseUrl}${next.startsWith("/") ? next : `/${next}`}`
+				: import.meta.env.BASE_URL;
 			const errorCallbackURL = new URL(
 				`${BASE_PATH}/login`,
 				window.location.origin,
@@ -128,8 +132,14 @@ function LoginForm() {
 		<div className="flex flex-col gap-8">
 			<div className="flex flex-col items-center gap-1 text-center mb-2">
 				<div className="flex items-center justify-center gap-3 mb-2">
-					<img src={logo} alt="Fluxify Logo" className="h-20 w-20 object-contain" />
-					<span className="text-2xl font-bold tracking-widest text-foreground">FLUXIFY</span>
+					<img
+						src={logo}
+						alt="Fluxify Logo"
+						className="h-20 w-20 object-contain"
+					/>
+					<span className="text-2xl font-bold tracking-widest text-foreground">
+						FLUXIFY
+					</span>
 				</div>
 				<h1 className="text-xl font-semibold tracking-tight text-foreground">
 					Welcome back
@@ -138,6 +148,21 @@ function LoginForm() {
 					Sign in to your account to continue
 				</p>
 			</div>
+
+			{isSsoEnabled && license?.status === "expired" ? (
+				<p
+					role="status"
+					className={
+						license.canRun
+							? "rounded-md border border-warning/50 bg-warning/5 px-3 py-2 text-center text-xs text-warning"
+							: "rounded-md border border-danger/50 bg-danger/5 px-3 py-2 text-center text-xs text-danger"
+					}
+				>
+					{license.canRun
+						? `Enterprise license expired — ${license.daysRemaining} day(s) of grace left. SSO sign-in still works; its settings are read-only until the license is renewed.`
+						: "Enterprise license expired. SSO sign-in still works, but its settings are locked until an administrator renews the license."}
+				</p>
+			) : null}
 
 			{ssoError ? (
 				<p role="alert" className="text-center text-sm text-danger">
@@ -199,7 +224,12 @@ function LoginForm() {
 					</div>
 
 					<div className="flex flex-col gap-3">
-						<Button type="submit" variant="primary" fullWidth isPending={loading}>
+						<Button
+							type="submit"
+							variant="primary"
+							fullWidth
+							isPending={loading}
+						>
 							Sign In
 						</Button>
 

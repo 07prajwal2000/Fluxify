@@ -14,6 +14,7 @@ import {
 } from "react-icons/fi";
 import { BiFingerprint } from "react-icons/bi";
 import { AuthModeCard, type AuthType } from "./AuthModeCard";
+import { useEnterpriseSso } from "@/components/common/Enterprise";
 
 type Dict = Record<string, unknown>;
 
@@ -72,6 +73,7 @@ function buildSsoPatch(current: Dict, initial: Dict): Dict {
 
 export function SsoCard({ initialType, initial }: { initialType: AuthType; initial: Dict }) {
 	const patchAuth = instanceSettingsQuery.auth.mutation();
+	const ssoLicensed = useEnterpriseSso();
 	const [isGuideOpen, setIsGuideOpen] = useState(false);
 	const [guideProtocol, setGuideProtocol] = useState<GuideProtocol>("oidc");
 	const [copiedGuideValue, setCopiedGuideValue] = useState<string | null>(null);
@@ -379,10 +381,18 @@ export function SsoCard({ initialType, initial }: { initialType: AuthType; initi
 				</div>
 			)}
 
-			<div className="pt-2 flex justify-end">
+			<div className="pt-2 flex items-center justify-end gap-3">
+				{/* An instance whose license lapsed keeps signing people in through
+				    SSO, but its settings are frozen until the license is renewed. */}
+				{type === "sso" && !ssoLicensed && (
+					<p className="text-xs text-warning">
+						SSO settings are read-only without an Enterprise license.
+					</p>
+				)}
 				<Button
 					type="submit"
 					variant="primary"
+					isDisabled={type === "sso" && !ssoLicensed}
 					isPending={patchAuth.isPending}
 					className="text-xs h-8 px-4 font-semibold"
 				>

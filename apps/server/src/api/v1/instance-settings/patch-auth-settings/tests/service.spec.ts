@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, mock } from "bun:test";
+import { ForbiddenError } from "../../../../../errors/forbidError";
 
 const store: Record<string, { key: string; category: string; value: any; isPublic: boolean }> = {};
 const published = mock((_key: string, _payload: unknown) => {});
@@ -21,6 +22,16 @@ mock.module("../../../../../loaders/instanceSettingsLoader", () => ({
 		published(key, { value, isPublic }),
 }));
 
+// The gate reaches into lib/edition, which talks to NATS KV. Stand in for it so
+// the licensed and unlicensed paths are both reachable from a unit test.
+let ssoLicensed = true;
+mock.module("../../../../../lib/edition", () => ({
+	assertCanUse: (feature: string) => {
+		if (feature === "sso" && !ssoLicensed)
+			throw new ForbiddenError("SSO needs an enterprise license");
+	},
+}));
+
 const handleRequest = (await import("../service")).default;
 
 const validOidc = {
@@ -35,6 +46,39 @@ const validOidc = {
 beforeEach(() => {
 	for (const k of Object.keys(store)) delete store[k];
 	published.mockClear();
+	ssoLicensed = true;
+});
+
+describe("patch-auth-settings license gate", () => {
+	it("refuses to enable SSO without an enterprise license", async () => {
+		store.sso_config = { key: "sso_config", category: "auth", value: { ...validOidc, enabled: false }, isPublic: false };
+		ssoLicensed = false;
+
+		expect(handleRequest({ type: "sso" })).rejects.toThrow(ForbiddenError);
+		expect(published).not.toHaveBeenCalled();
+	});
+
+	it("refuses to edit an existing SSO config without an enterprise license", async () => {
+		store.sso_config = { key: "sso_config", category: "auth", value: { ...validOidc, enabled: true }, isPublic: true };
+		ssoLicensed = false;
+
+		expect(
+			handleRequest({ type: "sso", sso_config: { issuer: "https://new-idp.example.com" } }),
+		).rejects.toThrow(ForbiddenError);
+	});
+
+	// The way out of an unlicensed sso_only instance: nobody should need a
+	// license to go back to email and password.
+	it("allows switching back to traditional without a license", async () => {
+		store.sso_config = { key: "sso_config", category: "auth", value: { ...validOidc, enabled: true }, isPublic: true };
+		ssoLicensed = false;
+
+		const result = await handleRequest({ type: "traditional" });
+
+		expect(result.type).toBe("traditional");
+		expect(store.sso_config.value.enabled).toBe(false);
+		expect(store.auth_config.value.mode).toBe("traditional");
+	});
 });
 
 describe("patch-auth-settings service", () => {
