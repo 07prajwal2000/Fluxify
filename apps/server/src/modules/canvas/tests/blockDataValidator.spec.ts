@@ -33,6 +33,65 @@ describe("every block type the engine knows", () => {
 	}
 });
 
+describe("the switch block", () => {
+	it("saves with no cases connected and fills in an empty order and conditions", () => {
+		const data = changes(BlockTypes.switch, { blockName: "Route by status" });
+		expect(() => blockDataValidator(data)).not.toThrow();
+		expect(data.changes.blocks[0]!.data).toMatchObject({
+			order: [],
+			conditions: {},
+			useValue: false,
+			value: "",
+			matches: {},
+			blockName: "Route by status",
+		});
+	});
+
+	it("keeps a value script and each case's match value", () => {
+		const data = changes(BlockTypes.switch, {
+			useValue: true,
+			value: "return input.status;",
+			matches: { paid: "paid", notFound: "js: return 404;" },
+		});
+		blockDataValidator(data);
+		expect(data.changes.blocks[0]!.data).toMatchObject({
+			useValue: true,
+			value: "return input.status;",
+			matches: { paid: "paid", notFound: "js: return 404;" },
+		});
+	});
+
+	it("rejects a match value that is not text", () => {
+		expect(() =>
+			blockDataValidator(changes(BlockTypes.switch, { useValue: true, matches: { paid: 1 } })),
+		).toThrow();
+	});
+
+	it("keeps each case's condition and the order they are checked in", () => {
+		const data = changes(BlockTypes.switch, {
+			order: ["paid", "refunded"],
+			conditions: { paid: 'return input.status === "paid";', refunded: "return true;" },
+		});
+		blockDataValidator(data);
+		expect(data.changes.blocks[0]!.data).toMatchObject({
+			order: ["paid", "refunded"],
+			conditions: { paid: 'return input.status === "paid";', refunded: "return true;" },
+		});
+	});
+
+	it("rejects a condition that is not text", () => {
+		expect(() =>
+			blockDataValidator(changes(BlockTypes.switch, { conditions: { paid: 42 } })),
+		).toThrow();
+	});
+
+	it("rejects an order that is not a list of block ids", () => {
+		expect(() =>
+			blockDataValidator(changes(BlockTypes.switch, { order: "paid" })),
+		).toThrow();
+	});
+});
+
 describe("the trigger workflow block", () => {
 	it("saves before a workflow has been picked", () => {
 		const data = changes(BlockTypes.triggerWorkflow, { blockName: "Kick off" });

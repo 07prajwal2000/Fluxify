@@ -43,7 +43,7 @@ export const PlannerOutputSchema = z.object({
  * Valid handle types for block connections.
  */
 export const HandleTypeSchema = z
-	.enum(["source", "executor", "failure", "success", "orchestrate"])
+	.enum(["source", "executor", "failure", "success", "orchestrate", "case"])
 	.describe("Types of output handles available on blocks.");
 
 /**

@@ -7,6 +7,7 @@ import {
 } from "./BlockIdentityFields";
 import { blockLabels } from "../blocks/blockLabels";
 import { useBlockDiagnostics } from "../diagnostics";
+import { diagnosticSourceLabel } from "../diagnostics/types";
 import { SaveOutputField, savesOutput } from "./SaveOutputField";
 import type { BlockNode } from "../types";
 
@@ -168,8 +169,8 @@ export function BlockSettings({ block, initialTab, children }: BlockSettingsProp
 									<p className="font-normal leading-relaxed text-foreground">
 										{diag.message}
 									</p>
-									<span className="self-start rounded bg-surface px-1.5 py-0.5 font-mono text-[10px] text-muted">
-										{diag.source}
+									<span className="self-start rounded bg-surface px-1.5 py-0.5 text-[10px] text-muted">
+										{diagnosticSourceLabel(diag.source)}
 									</span>
 								</div>
 							</div>

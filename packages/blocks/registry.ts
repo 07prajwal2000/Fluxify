@@ -21,6 +21,7 @@ import {
 import { emitForLoop } from "./builtin/loops/for";
 import { emitForEachLoop } from "./builtin/loops/foreach";
 import { emitOrchestrator } from "./builtin/orchestrator";
+import { emitSwitch } from "./builtin/switch";
 import { emitConsoleLog, runConsoleLog } from "./builtin/log/console";
 import { emitCloudLogs, runCloudLog } from "./builtin/log/cloudLogs";
 import {
@@ -63,6 +64,7 @@ export const emitters: Partial<Record<BlockTypes, Emitter>> = {
 	[BlockTypes.forloop]: emitForLoop,
 	[BlockTypes.foreachloop]: emitForEachLoop,
 	[BlockTypes.orchestrator]: emitOrchestrator,
+	[BlockTypes.switch]: emitSwitch,
 	[BlockTypes.transformer]: emitTransformer,
 	[BlockTypes.arrayops]: emitArrayOps,
 	[BlockTypes.consolelog]: emitConsoleLog,

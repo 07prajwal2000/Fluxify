@@ -1,5 +1,14 @@
 export type DiagnosticSeverity = "error" | "warning" | "info";
 
+const SOURCE_LABELS: Record<string, string> = {
+	compile: "Canvas compilation",
+	"cycle-detection": "Loop check: blocks must not connect back to themselves",
+	"switch-cases": "Switch check: every case must be able to run",
+};
+
+/** what the panels show for a diagnostic's source; unknown sources show as-is */
+export const diagnosticSourceLabel = (source: string) => SOURCE_LABELS[source] ?? source;
+
 export type BlockDiagnostic = {
 	/** omitted for a canvas-wide diagnostic (e.g. a compile error naming no block) */
 	blockId?: string;

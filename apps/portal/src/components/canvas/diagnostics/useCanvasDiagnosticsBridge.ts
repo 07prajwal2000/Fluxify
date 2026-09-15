@@ -4,7 +4,8 @@ import { flowToGraph } from "../adapters";
 import type { CanvasPanel } from "../panel/useBlockPanel";
 import { DIAGNOSTICS_TAB } from "../panel/BlockSettings";
 import type { BlockEdge, BlockNode } from "../types";
-import { validateCycles } from "./cycleValidator";
+import { CYCLE_DETECTION_SOURCE, validateCycles } from "./cycleValidator";
+import { SWITCH_SOURCE, validateSwitches } from "./switchValidator";
 import { useBlockDiagnostics } from "./DiagnosticsContext";
 
 export type UseCanvasDiagnosticsBridgeOptions = {
@@ -77,19 +78,25 @@ export function useCanvasDiagnosticsBridge({
 		[closeDiagnosticsPanel, nodes, openBlockPanel, setCenter, setNodes],
 	);
 
-	// Register cycle detection validator on the diagnostics engine
+	// Register graph validators on the diagnostics engine
 	useEffect(() => {
-		return registerValidator("cycle-detection", () => {
-			const currentGraph = flowToGraph(nodes, edges);
-			return validateCycles(currentGraph);
-		});
+		const offCycles = registerValidator(CYCLE_DETECTION_SOURCE, () =>
+			validateCycles(flowToGraph(nodes, edges)),
+		);
+		const offSwitches = registerValidator(SWITCH_SOURCE, () =>
+			validateSwitches(flowToGraph(nodes, edges)),
+		);
+		return () => {
+			offCycles();
+			offSwitches();
+		};
 	}, [nodes, edges, registerValidator]);
 
-	// Automatically run cycle detection on graph edits
+	// Automatically run them on graph edits
 	useEffect(() => {
 		const currentGraph = flowToGraph(nodes, edges);
-		const cycleDiagnostics = validateCycles(currentGraph);
-		setFromSource("cycle-detection", cycleDiagnostics);
+		setFromSource(CYCLE_DETECTION_SOURCE, validateCycles(currentGraph));
+		setFromSource(SWITCH_SOURCE, validateSwitches(currentGraph));
 	}, [nodes, edges, setFromSource]);
 
 	return {

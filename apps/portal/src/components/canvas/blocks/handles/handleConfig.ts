@@ -11,8 +11,8 @@ import {
  *
  * `target` is the single inbound socket: the graph is a DAG that may merge but
  * never diverges, so it is the only kind that accepts more than one connection.
- * Everything else is outbound and capped at one edge, except `orchestrate`:
- * each of its edges is a parallel branch. Names match the handle
+ * Everything else is outbound and capped at one edge, except the fan-out kinds
+ * `orchestrate` and `case`: each of their edges is its own branch. Names match the handle
  * ids already persisted on edges (`<blockId>-<kind>`).
  */
 // The kinds and the side each one sits on are shared with the layout in
@@ -87,6 +87,15 @@ export const HANDLE_CONFIG: Record<HandleKind, HandleConfig> = {
 		color: "var(--accent, oklch(0.9 0.2 122))",
 		maxConnections: null,
 		label: "Branches",
+	},
+	case: {
+		flow: "source",
+		side: HANDLE_SIDE.case,
+		position: Position.Right,
+		shape: "circle",
+		color: "var(--accent, oklch(0.9 0.2 122))",
+		maxConnections: null,
+		label: "Cases",
 	},
 };
 

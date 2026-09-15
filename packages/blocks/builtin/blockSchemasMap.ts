@@ -9,6 +9,7 @@ import { setHttpHeaderBlockSchema } from "./http/setHttpHeader";
 import { forLoopBlockSchema } from "./loops/for";
 import { forEachLoopBlockSchema } from "./loops/foreach";
 import { orchestratorBlockSchema } from "./orchestrator";
+import { switchBlockSchema } from "./switch";
 import { transformerBlockSchema } from "./transformer";
 import { setVarSchema } from "./setVar";
 import { getVarBlockSchema } from "./getVar";
@@ -38,6 +39,7 @@ export const builtinBlockSchemas: Record<string, z.ZodTypeAny> = {
 	forloop: forLoopBlockSchema,
 	foreachloop: forEachLoopBlockSchema,
 	orchestrator: orchestratorBlockSchema,
+	switch: switchBlockSchema,
 	transformer: transformerBlockSchema,
 	setvar: setVarSchema,
 	getvar: getVarBlockSchema,
