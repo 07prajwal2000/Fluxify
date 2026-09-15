@@ -39,6 +39,33 @@ describe("validateGraphRules", () => {
 		).toEqual([]);
 	});
 
+	it("allows a switch to fan out on case", () => {
+		expect(
+			validateGraphRules([
+				block("a", "switch", [
+					{ blockId: "b", handle: "case" },
+					{ blockId: "c", handle: "case" },
+					{ blockId: "d", handle: "case" },
+				]),
+			]),
+		).toEqual([]);
+	});
+
+	it("rejects a switch's source handle, which it does not have", () => {
+		const errors = validateGraphRules([
+			block("a", "switch", [{ blockId: "b", handle: "source" }]),
+		]);
+		expect(errors).toHaveLength(1);
+		expect(errors[0]).toContain('has no "source" handle');
+	});
+
+	it("rejects a case handle on a block that is not a switch", () => {
+		const errors = validateGraphRules([
+			block("a", "orchestrator", [{ blockId: "b", handle: "case" }]),
+		]);
+		expect(errors[0]).toContain('has no "case" handle');
+	});
+
 	it("allows a loop's source and executor", () => {
 		expect(
 			validateGraphRules([

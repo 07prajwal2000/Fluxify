@@ -12,6 +12,7 @@ export const BLOCK_TYPES = {
 	forloop: "forloop",
 	foreachloop: "foreachloop",
 	orchestrator: "orchestrator",
+	switch: "switch",
 	transformer: "transformer",
 	jsrunner: "jsrunner",
 	setvar: "setvar",

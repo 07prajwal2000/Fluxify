@@ -187,7 +187,20 @@ test("a resized note saves the box React Flow put on the node", () => {
 	});
 });
 
-test("only the inbound and orchestrate sockets accept multiple connections", () => {
+test("a switch has an inbound socket and one fan-out case socket, and starts with no cases", () => {
+	expect(BLOCK_CATALOG[BLOCK_TYPES.switch].handles).toEqual(["target", "case"]);
+	expect(BLOCK_CATALOG[BLOCK_TYPES.switch].category).toBe("Flow");
+	expect(canPickBlock(BLOCK_TYPES.switch)).toBe(true);
+	expect(HANDLE_CONFIG.case.side).toBe("right");	expect(defaultBlockData(BLOCK_TYPES.switch)).toEqual({
+		order: [],
+		conditions: {},
+		useValue: false,
+		value: "",
+		matches: {},
+	});
+});
+
+test("only the inbound and fan-out sockets accept multiple connections", () => {
 	for (const [kind, config] of Object.entries(HANDLE_CONFIG) as [
 		HandleKind,
 		(typeof HANDLE_CONFIG)[HandleKind],
@@ -195,7 +208,7 @@ test("only the inbound and orchestrate sockets accept multiple connections", () 
 		if (kind === "target") {
 			expect(config.flow).toBe("target");
 			expect(config.maxConnections).toBeNull();
-		} else if (kind === "orchestrate") {
+		} else if (kind === "orchestrate" || kind === "case") {
 			expect(config.flow).toBe("source");
 			expect(config.maxConnections).toBeNull();
 		} else {

@@ -16,7 +16,7 @@ import { blockLabels } from "../blocks/blockLabels";
 import { useCustomBlockDefs } from "../blocks/useCustomBlockDefs";
 import { useBlockPanelResize } from "../panel/useBlockPanelResize";
 import { useBlockDiagnostics } from "./DiagnosticsContext";
-import type { BlockDiagnostic } from "./types";
+import { diagnosticSourceLabel, type BlockDiagnostic } from "./types";
 import "../panel/panel.css";
 
 export const DIAGNOSTICS_PANEL_WIDTH_KEY = "fx-diagnostics-panel-width";
@@ -262,7 +262,9 @@ export function DiagnosticsPanel({
 						<div className="flex min-w-0 flex-1 flex-col">
 							<p className="leading-snug text-foreground">{diag.message}</p>
 							<span className="text-[10px] text-muted">
-								{diag.source === "compile" ? "Canvas compilation" : `${diag.source} · whole canvas`}
+								{diag.source === "compile"
+									? diagnosticSourceLabel(diag.source)
+									: `${diagnosticSourceLabel(diag.source)} · whole canvas`}
 							</span>
 						</div>
 					</div>
@@ -345,7 +347,9 @@ export function DiagnosticsPanel({
 										</span>
 										<div className="flex min-w-0 flex-1 flex-col">
 											<p className="leading-snug text-foreground">{diag.message}</p>
-											<span className="text-[10px] text-muted">{diag.source}</span>
+											<span className="text-[10px] text-muted">
+												{diagnosticSourceLabel(diag.source)}
+											</span>
 										</div>
 									</button>
 								))}

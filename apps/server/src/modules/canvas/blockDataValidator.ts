@@ -7,6 +7,7 @@ import {
 	forEachLoopBlockSchema,
 	forLoopBlockSchema,
 	orchestratorBlockSchema,
+	switchBlockSchema,
 	getHttpCookieBlockSchema,
 	getHttpHeaderBlockSchema,
 	getHttpParamBlockSchema,
@@ -166,6 +167,9 @@ export function blockDataValidator(data: CanvasChanges) {
 				break;
 			case BlockTypes.orchestrator:
 				schema = orchestratorBlockSchema;
+				break;
+			case BlockTypes.switch:
+				schema = switchBlockSchema;
 				break;
 			case BlockTypes.sticky_note:
 				schema = stickyNotesSchema;

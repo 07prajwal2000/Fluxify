@@ -16,6 +16,7 @@ export const BLOCK_OUTPUT_HANDLES: Record<string, readonly string[]> = {
 	[BlockTypes.foreachloop]: ["source", "executor"],
 	[BlockTypes.db_transaction]: ["source", "executor"],
 	[BlockTypes.orchestrator]: ["source", "orchestrate"],
+	[BlockTypes.switch]: ["case"],
 	// terminal — the runtime never looks for an outgoing edge
 	[BlockTypes.response]: [],
 	[BlockTypes.sticky_note]: [],
@@ -32,10 +33,11 @@ export type HandleKind =
 	| "executor"
 	| "success"
 	| "failure"
-	| "orchestrate";
+	| "orchestrate"
+	| "case";
 
-/** The only output handles that may carry more than one edge: each edge is a parallel branch. */
-export const FAN_OUT_HANDLES: readonly string[] = ["orchestrate"];
+/** The only output handles that may carry more than one edge: each edge is its own branch. */
+export const FAN_OUT_HANDLES: readonly string[] = ["orchestrate", "case"];
 
 /**
  * Sorts fan-out branches by a stored list of target ids. Anything not listed
@@ -68,4 +70,5 @@ export const HANDLE_SIDE = {
 	failure: "right",
 	executor: "top",
 	orchestrate: "top",
+	case: "right",
 } as const satisfies Record<HandleKind, HandleSide>;

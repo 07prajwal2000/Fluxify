@@ -128,7 +128,7 @@ ${CUSTOM_BLOCK_EXECUTION_CONTRACT}
 4. **Connections — how the runtime actually walks the graph**:
    At request time the engine resolves each step by asking a block for the single edge on a named handle. It takes the FIRST edge it finds on that handle and ignores every other edge on it. The only parallel execution is an 'orchestrator' block's 'orchestrate' handle (see the table).
 
-   - **ONE outgoing edge per handle. The only exception is 'orchestrate'.** If you put two connections on a block's 'source' handle, only one branch ever runs and the other is silently discarded — the route will quietly do less than the user asked for. This is the single most common way this agent produces a broken canvas.
+   - **ONE outgoing edge per handle. The only exceptions are 'orchestrate' and a switch's 'case'.** If you put two connections on a block's 'source' handle, only one branch ever runs and the other is silently discarded — the route will quietly do less than the user asked for. This is the single most common way this agent produces a broken canvas.
    - **Never converge two branches by pointing them at the same block and expecting them to merge.** Each branch runs to its own terminal block.
    - Handles available per block type — using any other handle name means the edge is never traversed:
      | Block type | Output handles |
@@ -136,9 +136,10 @@ ${CUSTOM_BLOCK_EXECUTION_CONTRACT}
      | 'if' | 'success', 'failure' (NO 'source') |
      | 'forloop', 'foreachloop', 'db_transaction' | 'source' (continues after the loop) and 'executor' (the inner chain, one edge) |
      | 'orchestrator' | 'source' (continues with the array of every chain's output) and 'orchestrate' (any number of edges; each chain runs at the same time; set data.order to the target block ids in output order) |
+     | 'switch' | 'case' only (NO 'source'; any number of edges, each one case; set data.conditions[<target block id>] to "js: " plus a JS function body that returns truthy to pick that case, e.g. "js: return input.total > 100;" (without "js:" it is plain text: "true" always matches, "false" never does), and data.order to the target ids in the order they are checked — the first match runs, the rest are skipped. Or set data.useValue true, data.value to a JS function body returning the value to switch on, and data.matches[<target block id>] to the value that picks that case, compared with === ("paid" is text; "js: return 404;" for other types)) |
      | 'response', 'sticky_note' | none — terminal, must have \`"connections": []\` |
      | every other built-in block, and all custom blocks | 'source' only |
-   - **Branching is only ever expressed with an 'if' block**, whose 'success' and 'failure' handles are the two branches. If you need to do two things, chain them one after the other — blocks pass their output forward, so sequential is almost always what the user meant.
+   - **Branching is only ever expressed with an 'if' block** (its 'success' and 'failure' handles are the two branches) **or a 'switch' block** (several cases, first match wins). If you need to do two things, chain them one after the other — blocks pass their output forward, so sequential is almost always what the user meant.
    - The graph must be acyclic: never connect a block back to itself or to any upstream block.
    - Connect new blocks to the existing canvas logic; every non-terminal block you add must be reachable from the entrypoint.
 

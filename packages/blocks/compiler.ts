@@ -36,6 +36,8 @@ export type EmitNode = {
 	 * terminal result when a chain ends the route first.
 	 */
 	parallel(handle: string, order: string[], settle: boolean): string;
+	/** one continuation per edge on a fan-out handle, ordered by `order`, for the caller to guard (switch) */
+	cases(handle: string, order: string[]): { to: string; run: string }[];
 	/** record this terminal block's output, then return it from its block function */
 	complete(output: string): string;
 	/** JS expression for a value from block data (`js:` prefixed ones are evaluated) */
@@ -183,6 +185,15 @@ export function compileGraph(
 		}
 		const to = outgoing[0]?.to;
 		return byId.get(to ?? "")?.type === BlockTypes.errorHandler ? undefined : to;
+	}
+
+	/** targets of every edge on a fan-out handle, sorted by the block's stored `order` */
+	function fanOutTargets(id: string, handle: string, order: string[]) {
+		const outgoing = (edgeMap[id] ?? []).filter(
+			(edge) =>
+				edge.handle === handle && byId.get(edge.to)?.type !== BlockTypes.errorHandler,
+		);
+		return sortByOrder(outgoing, order, (edge) => edge.to).map((edge) => edge.to);
 	}
 
 	function validateEdges() {
@@ -372,16 +383,17 @@ const ${result} = await ${blockFunctionName(to)}($state, ${initExpr}, $endBody);
 if (${result} !== undefined) return ${result};`;
 			},
 			parallel(handle, order, settle) {
-				const outgoing = (edgeMap[id] ?? []).filter(
-					(edge) =>
-						edge.handle === handle &&
-						byId.get(edge.to)?.type !== BlockTypes.errorHandler,
-				);
-				const runs = sortByOrder(outgoing, order, (edge) => edge.to).map(
-					(edge) => `${blockFunctionName(edge.to)}($state, $in, $endBranch)`,
+				const runs = fanOutTargets(id, handle, order).map(
+					(to) => `${blockFunctionName(to)}($state, $in, $endBranch)`,
 				);
 				// reported before handing off, like body(): a branch's throw is its own
 				return `($recorded = true, await $parallel([${runs.join(", ")}], ${settle}))`;
+			},
+			cases(handle, order) {
+				return fanOutTargets(id, handle, order).map((to) => ({
+					to,
+					run: `${recordSpan("$in")}\nreturn await ${blockFunctionName(to)}($state, $in, $end);`,
+				}));
 			},
 			complete(output) {
 				const result = `$result_${counter++}`;

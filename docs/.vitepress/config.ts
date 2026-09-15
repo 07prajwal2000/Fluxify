@@ -139,6 +139,7 @@ export default withMermaid(defineConfig({
 					items: [
 						{ text: "Entrypoint", link: "/blocks/entrypoint" },
 						{ text: "If Condition", link: "/blocks/if-condition" },
+						{ text: "Switch", link: "/blocks/switch" },
 						{ text: "For Loop", link: "/blocks/for-loop" },
 						{ text: "Orchestrator", link: "/blocks/orchestrator" },
 						{ text: "Error Handler", link: "/blocks/error-handler" },

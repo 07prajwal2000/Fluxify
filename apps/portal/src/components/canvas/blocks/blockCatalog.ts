@@ -75,6 +75,13 @@ export const BLOCK_CATALOG: Record<BlockType, BlockDefinition> = {
 		tint: VIOLET,
 		category: "Flow",
 	},
+	[BLOCK_TYPES.switch]: {
+		name: "Switch",
+		description: "Branch into one of several cases",
+		handles: ["target", "case"],
+		tint: VIOLET,
+		category: "Flow",
+	},
 	[BLOCK_TYPES.transformer]: {
 		name: "Transformer",
 		description: "Reshape data into a new structure",
