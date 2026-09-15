@@ -235,6 +235,11 @@ export const serverEnvSchema = baseEnvSchema.extend({
 		.optional()
 		.describe("Enable admin control-plane API endpoints ('true' | 'false')"),
 
+	ADMIN_RATE_LIMIT_PER_SEC: z
+		.string()
+		.optional()
+		.describe("Admin API requests allowed per second per user (default 10, 0 disables)"),
+
 	// Background job queue. One stream serves every kind of job, so these tune
 	// the worker rather than any one feature.
 	JOBS_CONCURRENCY: z
