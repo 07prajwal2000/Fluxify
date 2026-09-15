@@ -1,5 +1,5 @@
 export { JsTextField } from "./JsTextField";
-export type { JsTextFieldProps } from "./JsTextField";
+export type { FieldInfo, JsTextFieldProps } from "./JsTextField";
 export { ExpressionEditor } from "./ExpressionEditor";
 export type { ExpressionEditorProps } from "./ExpressionEditor";
 export { JsEditorModal } from "./JsEditorModal";

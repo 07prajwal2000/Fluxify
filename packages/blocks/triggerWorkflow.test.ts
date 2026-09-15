@@ -1,13 +1,24 @@
 import { afterEach, describe, expect, it } from "bun:test";
 import {
 	assertTriggerPayloadSize,
+	CANCEL_SCHEDULE_JOB,
+	isScheduleId,
+	resolveRunAt,
 	setJobEnqueuer,
+	setScheduleHorizon,
 	setTriggerPayloadLimit,
 	TRIGGER_WORKFLOW_JOB,
 	type JobRequest,
 } from "./jobs";
-import { fireWorkflow, triggerWorkflowSchema } from "./builtin/triggerWorkflow";
+import {
+	cancelSchedule,
+	emitTriggerWorkflow,
+	fireWorkflow,
+	scheduleWorkflow,
+	triggerWorkflowSchema,
+} from "./builtin/triggerWorkflow";
 import type { Context } from "./baseBlock";
+import type { EmitNode } from "./compiler";
 
 /**
  * The Trigger Workflow block's two jobs: put the right message on the queue,
@@ -89,6 +100,107 @@ describe("the payload cap", () => {
 
 	it("does nothing when the host wired no limit", () => {
 		expect(() => assertTriggerPayloadSize("p1", { a: "x".repeat(10_000) })).not.toThrow();
+	});
+});
+
+describe("scheduleWorkflow", () => {
+	afterEach(() => setScheduleHorizon());
+
+	function capture() {
+		const queued: JobRequest[] = [];
+		setJobEnqueuer((job) => queued.push(job));
+		return queued;
+	}
+
+	it("holds the run until an ISO time and hands back its id", () => {
+		const queued = capture();
+		const handle = scheduleWorkflow(context, "wf-1", { a: 1 }, "2999-01-01T09:00:00Z");
+
+		expect(handle).toEqual({ id: expect.any(String), runAt: "2999-01-01T09:00:00.000Z" });
+		expect(queued[0]).toMatchObject({
+			kind: TRIGGER_WORKFLOW_JOB,
+			target: "wf-1",
+			id: handle.id,
+			runAt: handle.runAt,
+		});
+		expect(isScheduleId(handle.id)).toBe(true);
+	});
+
+	it("reads a delay relative to now", () => {
+		const now = Date.parse("2026-01-01T00:00:00Z");
+		expect(resolveRunAt("1h30m", now).toISOString()).toBe("2026-01-01T01:30:00.000Z");
+		expect(resolveRunAt("2026-01-01T05:30:00+05:30", now).toISOString()).toBe(
+			"2026-01-01T00:00:00.000Z",
+		);
+	});
+
+	it("runs a time already past straight away, still with a handle", () => {
+		const queued = capture();
+		const handle = scheduleWorkflow(context, "wf-1", {}, "2000-01-01T00:00:00Z");
+
+		expect(queued[0]!.runAt).toBeUndefined();
+		expect(queued[0]!.id).toBe(handle.id);
+	});
+
+	it("refuses anything that is not an ISO time or a delay, queueing nothing", () => {
+		const queued = capture();
+		for (const bad of ["tomorrow", "2026-01-01", "10 minutes", "7d", "", 1234, null])
+			expect(() => scheduleWorkflow(context, "wf-1", {}, bad)).toThrow(/Run at must be/);
+		expect(queued).toEqual([]);
+	});
+
+	it("refuses a time past the deployment's horizon", () => {
+		capture();
+		setScheduleHorizon(60 * 60_000);
+		expect(() => scheduleWorkflow(context, "wf-1", {}, "2h")).toThrow(/further ahead/);
+		expect(() => scheduleWorkflow(context, "wf-1", {}, "30m")).not.toThrow();
+	});
+});
+
+describe("cancelSchedule", () => {
+	it("queues a cancel for the run id", () => {
+		const queued: JobRequest[] = [];
+		setJobEnqueuer((job) => queued.push(job));
+		const id = crypto.randomUUID();
+
+		cancelSchedule(context, id);
+
+		expect(queued).toEqual([{ kind: CANCEL_SCHEDULE_JOB, projectId: "p1", target: id }]);
+	});
+
+	it("refuses anything but a run id — a wildcard would cancel every run", () => {
+		setJobEnqueuer(() => {});
+		for (const bad of ["", "*", ">", "abc", undefined])
+			expect(() => cancelSchedule(context, bad)).toThrow(/cancelSchedule needs/);
+	});
+});
+
+describe("emitTriggerWorkflow", () => {
+	const node = (data: Record<string, unknown>) =>
+		({
+			block: { data },
+			in: "$in",
+			next: () => "",
+			value: (raw: unknown) => JSON.stringify(raw),
+		}) as unknown as EmitNode;
+
+	it("outputs the handle for a later run", () => {
+		const code = emitTriggerWorkflow(
+			node({ workflowId: "wf-1", useInput: true, mode: "later", runAt: "24h" }),
+		);
+		expect(code).toStartWith(`$in = lib.scheduleWorkflow(ctx, "wf-1", $in, "24h",`);
+	});
+
+	it("cancels without touching the flowing value", () => {
+		expect(emitTriggerWorkflow(node({ mode: "cancel", scheduleId: "x" }))).toStartWith(
+			`lib.cancelSchedule(ctx, "x");`,
+		);
+	});
+
+	it("keeps blocks saved before modes existed running now", () => {
+		expect(emitTriggerWorkflow(node({ workflowId: "wf-1", useInput: true }))).toStartWith(
+			"lib.fireWorkflow(",
+		);
 	});
 });
 

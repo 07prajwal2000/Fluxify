@@ -16,6 +16,8 @@ export type ExecutionBootstrap = {
 	workerTimeoutsEnabled: boolean;
 	/** hard request body ceiling in bytes; the child cannot read the env itself */
 	maxRequestBodyBytes: number;
+	/** furthest ahead a Trigger Workflow block may schedule a run, in milliseconds */
+	scheduleHorizonMs: number;
 	/** the execution process clears its env, so logging config travels with it */
 	logging: {
 		level: any;

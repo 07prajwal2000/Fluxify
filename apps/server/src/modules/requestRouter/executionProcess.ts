@@ -1,5 +1,5 @@
 import { initializeLogger, logger } from "@fluxify/common";
-import { setJobEnqueuer, setTriggerPayloadLimit } from "@fluxify/blocks";
+import { setJobEnqueuer, setScheduleHorizon, setTriggerPayloadLimit } from "@fluxify/blocks";
 import { createHttpContext } from "./httpContext";
 import { registerCustomBlockJobHandler } from "../jobs/customBlockJob";
 import { registerWorkflowJobHandler } from "../jobs/workflowJob";
@@ -91,6 +91,7 @@ function bootstrap(nextBoot: ExecutionBootstrap) {
 	// The cap is read per publish rather than captured once: project settings
 	// arrive over the artifact watch and change while the process is running.
 	setTriggerPayloadLimit(triggerPayloadLimit);
+	setScheduleHorizon(boot.scheduleHorizonMs);
 	setTriggerFaultReporter((fault) => send({ type: "trigger-fault", ...fault }));
 	// This process holds no broker connection: queueing is a message to the
 	// supervisor, which owns NATS.
@@ -99,7 +100,8 @@ function bootstrap(nextBoot: ExecutionBootstrap) {
 			type: "enqueue-job",
 			job: {
 				...request,
-				id: crypto.randomUUID(),
+				// a scheduled run already handed its id back to the graph
+				id: request.id ?? crypto.randomUUID(),
 				enqueuedAt: new Date().toISOString(),
 			},
 		}),

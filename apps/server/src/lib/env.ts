@@ -1,4 +1,5 @@
 import { baseEnvSchema, createEnvValidator, validatePortString } from "@fluxify/common";
+import { parseDurationMs } from "@fluxify/common/schedule";
 import { z } from "zod";
 
 export const serverEnvSchema = baseEnvSchema.extend({
@@ -37,6 +38,16 @@ export const serverEnvSchema = baseEnvSchema.extend({
 		)
 		.describe(
 			"Idle database integration timeout in seconds for compiled workers (default 450 / 7.5 minutes)",
+		),
+
+	WORKER_SCHEDULE_MAX_HORIZON: z
+		.string()
+		.optional()
+		.refine((val) => !val || /^(\d+(\.\d+)?(ns|us|ms|s|m|h))+$/.test(val), {
+			message: "WORKER_SCHEDULE_MAX_HORIZON must be a duration like 720h or 90m",
+		})
+		.describe(
+			"How far ahead a Trigger Workflow block may schedule a run (default 720h / 30 days)",
 		),
 
 	WORKER_MAX_STREAM_SIZE: z
@@ -286,3 +297,8 @@ export const FLUXIFY_NODE_ID = getEnv("FLUXIFY_NODE_ID") || undefined;
 /** hard body-size ceiling for user-facing routes, in bytes (env is in KB) */
 export const MAX_REQUEST_BODY_BYTES =
 	(Number(getEnv("WORKER_MAX_STREAM_SIZE")) || 8192) * 1024;
+
+/** furthest ahead a Trigger Workflow block may schedule a run; a bad value fails boot */
+export const SCHEDULE_MAX_HORIZON_MS = parseDurationMs(
+	getEnv("WORKER_SCHEDULE_MAX_HORIZON") || "720h",
+);

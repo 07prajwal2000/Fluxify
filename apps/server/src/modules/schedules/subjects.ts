@@ -7,7 +7,7 @@
  * same reason. Schedules need a `limits` stream, and the fire subject has to be
  * captured by that same stream, so both live here.
  *
- * Subjects are `fluxify.schedules.<sched|fire>.<projectId>.<triggerId>`. The
+ * Subjects are `fluxify.schedules.<sched|delay|fire>.<projectId>.<id>`. The
  * kind comes before the project so a worker can watch every project's fires
  * with one wildcard while the reconciler's schedules stay out of its filter —
  * the reverse order would need two wildcards to say the same thing.
@@ -30,6 +30,14 @@ export const ALL_PROJECTS = "*";
 /** Where a trigger's schedule lives. One subject, one schedule, republish to replace. */
 export const scheduleSubject = (projectId: string, triggerId: string) =>
 	`${SUBJECT_ROOT}.sched.${projectId}.${triggerId}`;
+
+/**
+ * Where a Trigger Workflow block holds one delayed run. A kind token of its own
+ * because the reconciler purges every `sched` subject with no trigger row, and
+ * a delayed run never has one. It fires onto `fireSubject(projectId, runId)`.
+ */
+export const delayedSubject = (projectId: string, runId: string) =>
+	`${SUBJECT_ROOT}.delay.${projectId}.${runId}`;
 
 /** Where the server delivers each fire. */
 export const fireSubject = (projectId: string, triggerId: string) =>

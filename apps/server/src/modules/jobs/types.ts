@@ -21,6 +21,8 @@ export type JobEnvelope = {
 	attempt?: number;
 	/** Set by a Trigger Workflow block; carried onto the triggers stream. */
 	retry?: RetryPolicy;
+	/** Set by a Trigger Workflow block running later; the run is held until then. */
+	runAt?: string;
 };
 
 export type JobHandler = (job: JobEnvelope) => Promise<void>;

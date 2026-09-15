@@ -1,8 +1,9 @@
 import { fileURLToPath } from "node:url";
 import { logger } from "@fluxify/common";
-import { TRIGGER_WORKFLOW_JOB } from "@fluxify/blocks";
+import { CANCEL_SCHEDULE_JOB, TRIGGER_WORKFLOW_JOB } from "@fluxify/blocks";
 import { RPC_SUBJECTS, rpcRequest } from "../../db/natsRpc";
 import { enqueueJob } from "../jobs/publisher";
+import { cancelScheduledRun, scheduleWorkflowRun } from "../schedules/delayed";
 import type { JobEnvelope } from "../jobs/types";
 import { fireInternalTrigger } from "../triggers/publisher";
 import type { AsyncExecutorLimits } from "./asyncExecutor";
@@ -47,6 +48,7 @@ export interface ExecutionSupervisorOptions {
 	databaseIdleTimeoutMs: number;
 	asyncExecutor: AsyncExecutorLimits;
 	maxRequestBodyBytes: number;
+	scheduleHorizonMs: number;
 	logging: ExecutionBootstrap["logging"];
 	/** The artifacts a freshly spawned child should start with, as this node sees them. */
 	artifacts: () => ArtifactEntry[];
@@ -101,7 +103,9 @@ export function createExecutionSupervisor(
 	 * knows the difference is the kind the block used.
 	 */
 	function dispatchQueued(job: JobEnvelope) {
+		if (job.kind === CANCEL_SCHEDULE_JOB) return cancelScheduledRun(job.projectId, job.target);
 		if (job.kind !== TRIGGER_WORKFLOW_JOB) return enqueueJob(job);
+		if (job.runAt) return scheduleWorkflowRun(job);
 		return fireInternalTrigger({
 			id: job.id,
 			projectId: job.projectId,
@@ -177,6 +181,7 @@ export function createExecutionSupervisor(
 			artifacts: options.artifacts(),
 			workerTimeoutsEnabled: options.timeoutsEnabled(),
 			maxRequestBodyBytes: options.maxRequestBodyBytes,
+			scheduleHorizonMs: options.scheduleHorizonMs,
 			logging: options.logging,
 		};
 		const child = Bun.spawn([process.execPath, fileURLToPath(options.entry)], {

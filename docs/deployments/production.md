@@ -240,6 +240,29 @@ the resulting object key. Only the key ever passes through Fluxify.
 
 ---
 
+## Scheduled run limit {#schedule-horizon}
+
+A [Trigger Workflow](/blocks/trigger-workflow#running-later) block can hold a
+run for later. Each held run is kept by NATS until its time comes, so how far
+ahead a run may be scheduled is a deployment decision. The default is **30
+days**; a block asking for a later time fails with an error.
+
+```env
+# How far ahead a run may be scheduled. Hours, minutes or seconds: 720h = 30 days (the default).
+WORKER_SCHEDULE_MAX_HORIZON=720h
+```
+
+Write it as `s`, `m` and `h` — there is no day unit, so a year is `8760h`. A
+value that cannot be read stops the worker at startup. Set it on the workers,
+in the same `.env` they read (see [Step 1](#env)).
+
+There is no cap on how many runs may be waiting. Each one is a small message on
+your NATS server, stored for as long as it waits. If you allow a long limit on
+a busy system, size your NATS storage for it: the number of runs you expect to
+be waiting at once, times the size of the data each one carries.
+
+---
+
 ## Local async executor
 
 Compiled workers include a bounded local executor for the future async-trigger

@@ -35,6 +35,7 @@ import {
 	WORKER_GROUP_IDS,
 	FLUXIFY_NODE_ID,
 	MAX_REQUEST_BODY_BYTES,
+	SCHEDULE_MAX_HORIZON_MS,
 	getEnv,
 } from "../src/lib/env";
 import {
@@ -139,6 +140,7 @@ const supervisor = createExecutionSupervisor({
 	databaseIdleTimeoutMs,
 	asyncExecutor,
 	maxRequestBodyBytes: MAX_REQUEST_BODY_BYTES,
+	scheduleHorizonMs: SCHEDULE_MAX_HORIZON_MS,
 	logging: {
 		level: OTLP_LOGGER_LEVEL,
 		otlpEndpoint: OTLP_ENDPOINT,

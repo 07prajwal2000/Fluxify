@@ -7,6 +7,8 @@
  * `setBlocksExecutor` inverts route execution.
  */
 
+import { parseDurationMs } from "@fluxify/common/schedule";
+
 /** Per-job override of the consumer's retry defaults. Unset fields keep them. */
 export type RetryPolicy = {
 	/** Runs before the job is dropped, 1 to 5. */
@@ -31,6 +33,10 @@ export type JobRequest = {
 		apiId?: string;
 	};
 	retry?: RetryPolicy;
+	/** Set when the caller needs the id up front — a scheduled run's handle. */
+	id?: string;
+	/** ISO time a Trigger Workflow run is held until. Unset runs it now. */
+	runAt?: string;
 };
 
 export type JobEnqueuer = (job: JobRequest) => void;
@@ -38,7 +44,64 @@ export type JobEnqueuer = (job: JobRequest) => void;
 /** The job kind a Trigger Workflow block travels under. */
 export const TRIGGER_WORKFLOW_JOB = "trigger-workflow";
 
+/** Drops a run a Trigger Workflow block scheduled for later; `target` is its id. */
+export const CANCEL_SCHEDULE_JOB = "cancel-schedule";
+
+const SCHEDULE_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * Scheduled run ids are UUIDs, and nothing else is accepted: the id becomes a
+ * broker subject, and a `*` or `>` there would cancel every pending run.
+ */
+export function isScheduleId(id: unknown): id is string {
+	return typeof id === "string" && SCHEDULE_ID.test(id);
+}
+
 let enqueuer: JobEnqueuer | undefined;
+
+/**
+ * How far ahead a run may be scheduled. A deployment setting, not a project
+ * one — it bounds how long the broker holds messages on the operator's behalf.
+ */
+let scheduleHorizonMs: number | undefined;
+
+/** Called once by the host process. Pass nothing to detach (tests, shutdown). */
+export function setScheduleHorizon(next?: number) {
+	scheduleHorizonMs = next;
+}
+
+const ISO_TIME = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:\d{2})$/;
+
+/**
+ * Reads a "run at" value: a `Date`, an ISO time with its offset, or a delay
+ * from now in the same `10m` / `24h` / `1h30m` form schedules use. Anything else
+ * throws — `new Date()` alone would accept "tomorrow-ish" strings and guess.
+ */
+export function resolveRunAt(value: unknown, now = Date.now()): Date {
+	const at = toDate(value, now);
+	if (!at || Number.isNaN(at.getTime()))
+		throw new Error(
+			`Run at must be an ISO time like 2026-01-01T09:00:00Z or a delay like 10m or 24h — got ${JSON.stringify(value)}`,
+		);
+	if (scheduleHorizonMs && at.getTime() - now > scheduleHorizonMs)
+		throw new Error(
+			`Run at ${at.toISOString()} is further ahead than this deployment allows (${scheduleHorizonMs / 3_600_000}h). ` +
+				`Schedule something closer, or ask your administrator to raise the limit.`,
+		);
+	return at;
+}
+
+function toDate(value: unknown, now: number) {
+	if (value instanceof Date) return value;
+	if (typeof value !== "string") return undefined;
+	const text = value.trim();
+	if (ISO_TIME.test(text)) return new Date(text);
+	try {
+		return new Date(now + parseDurationMs(text));
+	} catch {
+		return undefined;
+	}
+}
 
 /**
  * The largest payload one trigger may carry, per project.

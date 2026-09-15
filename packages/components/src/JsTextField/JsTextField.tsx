@@ -1,10 +1,19 @@
-import { Button, Description, InputGroup, Label, TextField } from "@heroui/react";
+import {
+	Button,
+	Description,
+	InputGroup,
+	Label,
+	Popover,
+	PopoverContent,
+	PopoverTrigger,
+	TextField,
+} from "@heroui/react";
 import clsx from "clsx";
 import type { ReactNode } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { FiChevronDown } from "react-icons/fi";
 import { SiJavascript } from "react-icons/si";
-import { TbX } from "react-icons/tb";
+import { TbExternalLink, TbInfoCircle, TbX } from "react-icons/tb";
 import { isJsExpression, readExpression, writeExpression } from "./expression";
 import { JsEditorModal } from "./JsEditorModal";
 import { LegacyExpressionModal } from "./LegacyExpressionModal";
@@ -19,6 +28,8 @@ export type JsTextFieldProps = {
 	placeholder?: string;
 	/** Shown under the field. */
 	description?: ReactNode;
+	/** Longer help behind an info button beside the label, so it doesn't clutter the form. */
+	info?: FieldInfo;
 	isDisabled?: boolean;
 	fullWidth?: boolean;
 	variant?: "primary" | "secondary";
@@ -35,6 +46,55 @@ export type JsTextFieldProps = {
 	legacyModal?: boolean;
 };
 
+export type FieldInfo = {
+	content: ReactNode;
+	/** Shown as code under the content, one example per line. */
+	example?: string;
+	/** Opens in a new tab. */
+	docsUrl?: string;
+};
+
+function FieldInfoButton({ label, info }: { label?: string; info: FieldInfo }) {
+	return (
+		<Popover>
+			<PopoverTrigger>
+				<Button
+					isIconOnly
+					size="sm"
+					variant="ghost"
+					aria-label={label ? `About ${label}` : "More info"}
+					className="h-5 w-5 min-w-0 cursor-pointer rounded-full text-muted hover:text-foreground"
+				>
+					<TbInfoCircle size={14} />
+				</Button>
+			</PopoverTrigger>
+			<PopoverContent className="max-w-xs rounded-lg border border-border bg-overlay p-3 text-sm text-foreground shadow-xl">
+				<div className="flex flex-col gap-2">
+					<div>{info.content}</div>
+					{info.example && (
+						<div className="flex flex-col gap-1">
+							<span className="text-xs text-muted">e.g.</span>
+							<pre className="whitespace-pre-wrap rounded-md bg-surface-secondary px-2 py-1 font-mono text-xs">
+								{info.example}
+							</pre>
+						</div>
+					)}
+					{info.docsUrl && (
+						<a
+							href={info.docsUrl}
+							target="_blank"
+							rel="noopener noreferrer"
+							className="inline-flex items-center gap-1 self-start text-xs text-accent hover:underline"
+						>
+							View docs <TbExternalLink size={12} />
+						</a>
+					)}
+				</div>
+			</PopoverContent>
+		</Popover>
+	);
+}
+
 /**
  * A text field that can hold either a literal or a JavaScript expression. Plain
  * mode behaves exactly like a `TextField` — same `value`/`onChange` contract.
@@ -47,6 +107,7 @@ export function JsTextField({
 	label,
 	placeholder,
 	description,
+	info,
 	isDisabled,
 	fullWidth,
 	variant = "secondary",
@@ -173,7 +234,15 @@ export function JsTextField({
 				value={isJs ? readExpression(value) : value}
 				variant={variant}
 			>
-				{label && <Label>{label}</Label>}
+				{label &&
+					(info ? (
+						<div className="flex items-center gap-1">
+							<Label>{label}</Label>
+							<FieldInfoButton label={label} info={info} />
+						</div>
+					) : (
+						<Label>{label}</Label>
+					))}
 				<div ref={triggerRef} className="relative w-full min-w-0">
 					<InputGroup fullWidth={fullWidth} variant={variant} className="w-full min-w-0">
 						<InputGroup.Input

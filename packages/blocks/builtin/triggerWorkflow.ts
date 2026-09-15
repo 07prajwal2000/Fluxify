@@ -2,8 +2,12 @@ import z from "zod";
 import { baseBlockDataSchema, type Context } from "../baseBlock";
 import {
 	assertTriggerPayloadSize,
+	CANCEL_SCHEDULE_JOB,
 	enqueueJob,
+	isScheduleId,
+	resolveRunAt,
 	TRIGGER_WORKFLOW_JOB,
+	type JobRequest,
 	type RetryPolicy,
 } from "../jobs";
 import { emitJsObject, type EmitNode } from "../compiler";
@@ -37,6 +41,12 @@ export const triggerWorkflowSchema = z
 		maxAttempts: z.coerce.number().int().min(1).max(5).optional(),
 		/** Wait before the first retry; doubles after each failed attempt. */
 		retryDelayMs: z.coerce.number().int().min(0).max(300_000).optional(),
+		/** `now` queues at once, `later` holds the run until `runAt`, `cancel` drops a held one. */
+		mode: z.enum(["now", "later", "cancel"]).default("now"),
+		/** ISO time or a delay like `24h`; `js:` allowed. Checked when the block runs. */
+		runAt: z.string().default(""),
+		/** The id a `later` block returned; `js:` allowed. */
+		scheduleId: z.string().default(""),
 	})
 	.extend(baseBlockDataSchema.shape);
 
@@ -45,6 +55,44 @@ export function fireWorkflow(
 	workflowId: string,
 	data: unknown,
 	retry?: RetryPolicy,
+) {
+	queueRun(context, workflowId, data, retry);
+}
+
+/**
+ * Holds a run until `runAt` and returns its handle. A time already past runs
+ * now instead of failing: a computed expiry that slipped by a second must not
+ * break the route that computed it.
+ */
+export function scheduleWorkflow(
+	context: Context,
+	workflowId: string,
+	data: unknown,
+	runAt: unknown,
+	retry?: RetryPolicy,
+) {
+	const at = resolveRunAt(runAt);
+	const id = crypto.randomUUID();
+	const due = at.getTime() > Date.now();
+	queueRun(context, workflowId, data, retry, { id, ...(due ? { runAt: at.toISOString() } : {}) });
+	return { id, runAt: at.toISOString() };
+}
+
+/** Drops a held run. One that already started, or never existed, is a no-op. */
+export function cancelSchedule(context: Context, id: unknown = "") {
+	if (!isScheduleId(id))
+		throw new Error(
+			`cancelSchedule needs the id a scheduled Trigger Workflow block returned — got ${JSON.stringify(id)}`,
+		);
+	enqueueJob({ kind: CANCEL_SCHEDULE_JOB, projectId: context.projectId, target: id });
+}
+
+function queueRun(
+	context: Context,
+	workflowId: string,
+	data: unknown,
+	retry?: RetryPolicy,
+	schedule?: Pick<JobRequest, "id" | "runAt">,
 ) {
 	// The block saves without a workflow so a canvas can be a work in progress;
 	// running without one is the point at which that stops being acceptable.
@@ -57,12 +105,16 @@ export function fireWorkflow(
 		payload: data,
 		origin: { route: context.route, apiId: context.apiId },
 		retry,
+		...schedule,
 	});
 }
 
 export function emitTriggerWorkflow(node: EmitNode) {
-	const { workflowId, useInput, data, maxAttempts, retryDelayMs } = (node.block.data ??
-		{}) as Record<string, unknown>;
+	const { workflowId, useInput, data, maxAttempts, retryDelayMs, mode, runAt, scheduleId } =
+		(node.block.data ?? {}) as Record<string, unknown>;
+	if (mode === "cancel")
+		return `lib.cancelSchedule(ctx, ${node.value(scheduleId ?? "")});\n${node.next()}`;
+
 	const retry = JSON.stringify({
 		maxAttempts: numberOrUndefined(maxAttempts),
 		retryDelayMs: numberOrUndefined(retryDelayMs),
@@ -73,6 +125,9 @@ export function emitTriggerWorkflow(node: EmitNode) {
 	// configured data is emitted, with `js:` expressions already evaluated by
 	// `emitJsObject`.
 	const value = useInput ? payload : `(${payload}).data`;
+	// A later run outputs its handle, so the next block can keep the id to cancel it.
+	if (mode === "later")
+		return `${node.in} = lib.scheduleWorkflow(ctx, ${id}, ${value}, ${node.value(runAt ?? "")}, ${retry});\n${node.next()}`;
 	return `lib.fireWorkflow(ctx, ${id}, ${value}, ${retry});\n${node.next()}`;
 }
 
