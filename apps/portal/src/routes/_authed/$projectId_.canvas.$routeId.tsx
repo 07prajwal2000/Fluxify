@@ -56,6 +56,7 @@ function RouteCanvasPage() {
 				enablePlayground
 				enableSpotlight
 				items={items}
+				compileTarget={{ projectId, resourceType: "route", resourceId: routeId }}
 				playgroundContent={<RouteApiPlayground key={routeId} routeId={routeId} baseUrl={import.meta.env.VITE_ROUTE_BASE_URL ?? window.location.origin} isFramed={false} enableCache />}
 				reload={() => routesService.getCanvasItems(routeId)}
 				save={(payload) => save.mutateAsync(payload)}

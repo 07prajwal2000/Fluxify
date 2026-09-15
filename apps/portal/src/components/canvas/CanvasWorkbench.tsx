@@ -1,11 +1,6 @@
 import { useMemo, useRef, useState, type ReactNode } from "react";
 import { Button, Spinner, toast } from "@fluxify/components";
-import {
-	TbAlertCircle,
-	TbAlertTriangle,
-	TbCheck,
-	TbInfoCircle,
-} from "react-icons/tb";
+
 import { showErrorNotification } from "@/lib/errorNotifier";
 import type { CanvasItems, CanvasSavePayload } from "@/services/canvas";
 import { BlockCanvas } from "./BlockCanvas";
@@ -14,6 +9,10 @@ import { emptyGraph } from "./adapters";
 import { findCycleEdgeIds } from "./cycleDetection";
 import { saveWithDoctor, type ChangeSet } from "./changes";
 import { CanvasDiagnosticsProvider, useBlockDiagnostics } from "./diagnostics";
+import {
+	useCompileDiagnostics,
+	type CompileTarget,
+} from "./diagnostics/useCompileDiagnostics";
 import type { BlockData, CanvasGraph } from "./types";
 
 /**
@@ -38,6 +37,8 @@ export type CanvasWorkbenchProps = {
 	/** re-read from the server, for diagnosing a rejected save */
 	reload: () => Promise<CanvasItems>;
 	save: (payload: CanvasSavePayload) => Promise<unknown>;
+	/** what the compiler reports this canvas as, so its result can be shown */
+	compileTarget: CompileTarget;
 };
 
 function toGraph(data: CanvasItems | undefined): CanvasGraph {
@@ -55,41 +56,6 @@ function toGraph(data: CanvasItems | undefined): CanvasGraph {
 
 const nodeTypes = createBlockNodeTypes();
 
-function CanvasDiagnosticsOpener() {
-	const { all, worstSeverity, togglePanel, isPanelOpen } = useBlockDiagnostics();
-
-	const errorCount = all.filter((d) => d.severity === "error").length;
-	const warningCount = all.filter((d) => d.severity === "warning").length;
-
-	let icon = <TbCheck className="text-success" size={16} />;
-	let titleText = "Diagnostics: Clean (0 issues)";
-
-	if (worstSeverity === "error") {
-		icon = <TbAlertCircle className="text-danger" size={16} />;
-		titleText = `Diagnostics: ${errorCount} error(s)`;
-	} else if (worstSeverity === "warning") {
-		icon = <TbAlertTriangle className="text-warning" size={16} />;
-		titleText = `Diagnostics: ${warningCount} warning(s)`;
-	} else if (worstSeverity === "info") {
-		icon = <TbInfoCircle className="text-sky-500" size={16} />;
-		titleText = "Diagnostics: Info notice(s)";
-	}
-
-	return (
-		<Button
-			variant="secondary"
-			size="sm"
-			aria-label={titleText}
-			onPress={togglePanel}
-			className={`h-8 gap-1.5 px-2.5 ${isPanelOpen ? "bg-surface-secondary" : ""}`}
-		>
-			{icon}
-			<span className="text-xs font-medium">
-				{all.length === 0 ? "Clean" : all.length}
-			</span>
-		</Button>
-	);
-}
 
 export function CanvasWorkbench(props: CanvasWorkbenchProps) {
 	return (
@@ -104,6 +70,7 @@ function CanvasWorkbenchInner({
 	items,
 	reload,
 	save,
+	compileTarget,
 	enableBlockPicker = false,
 	enablePlayground = false,
 	enableSpotlight = false,
@@ -127,6 +94,7 @@ function CanvasWorkbenchInner({
 		}
 		setIsSaving(true);
 		try {
+			const lastCompileId = await compile.baseline();
 			const outcome = await saveWithDoctor({
 				graph: current.graph,
 				changes: current.changes,
@@ -134,13 +102,17 @@ function CanvasWorkbenchInner({
 				// Diagnose against what the server actually holds.
 				loadServerGraph: async () => toGraph(await reload()),
 			});
+			// cleared before waiting, so edits made during the compile stay pending
 			edited.current = null;
 			setPendingCount(0);
-			toast.success(
-				outcome.repaired
-					? `Canvas saved after fixing ${outcome.notes.length} issue(s)`
-					: "Canvas saved",
-			);
+			const saved = outcome.repaired
+				? `Canvas saved after fixing ${outcome.notes.length} issue(s)`
+				: "Canvas saved";
+			const log = await compile.waitForCompile(lastCompileId);
+			if (!log) toast.warning(`${saved}, still compiling`);
+			else if (log.detail?.status === "failed") {
+				toast.danger(`${saved}, but it did not compile. See diagnostics.`);
+			} else toast.success(saved);
 		} catch (error) {
 			// Both the save and the repaired retry failed — this is for the user.
 			showErrorNotification(error as Error);
@@ -150,13 +122,13 @@ function CanvasWorkbenchInner({
 	}
 
 	const graph = useMemo(() => toGraph(items.data), [items.data]);
+	const compile = useCompileDiagnostics(compileTarget, graph.blocks);
 
 	return (
 		<div className="flex h-screen w-full flex-col">
 			<header className="flex items-center gap-3 border-b border-border px-4 py-2 text-sm">
 				{headerLeft ?? <span className="font-medium">{title}</span>}
 				<div className="ml-auto flex items-center gap-2">{headerActions}</div>
-				<CanvasDiagnosticsOpener />
 				<Button
 					variant="primary"
 					isDisabled={pendingCount === 0 || isSaving}

@@ -466,7 +466,7 @@ function CanvasInner({
 				</ReactFlow>
 				{/* the AI edits the graph — nothing to offer on a readonly view */}
 				{!readOnly && <AiCanvasButton />}
-				{!readOnly && !layoutLocked && (enableBlockPicker || enablePlayground) && (
+				{!readOnly && !layoutLocked && (
 					<CanvasQuickActions
 						enableBlockPicker={enableBlockPicker}
 						enablePlayground={enablePlayground}

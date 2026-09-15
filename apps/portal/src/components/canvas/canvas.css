@@ -203,13 +203,19 @@ html[data-theme="dark"] .fx-canvas-toolbar,
 
 .fx-canvas__add-block-action:hover,
 .fx-canvas__add-block-action:focus-visible {
-	width: 9.25rem;
+	width: 10.25rem;
 	color: var(--accent);
 }
 
 .fx-canvas__playground-action:hover,
 .fx-canvas__playground-action:focus-visible {
-	width: 7.75rem;
+	width: 8.5rem;
+	color: var(--accent);
+}
+
+.fx-canvas__diagnostics-action:hover,
+.fx-canvas__diagnostics-action:focus-visible {
+	width: 8.5rem;
 	color: var(--accent);
 }
 

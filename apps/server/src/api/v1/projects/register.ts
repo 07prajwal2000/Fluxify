@@ -5,6 +5,7 @@ import getAllProjectRoute from "./get-all/route";
 import updateProjectRoute from "./update/route";
 import registerProjectSettingsKeys from "./settings/keys/register";
 import registerProjectNodes from "../orchestration/projectRoutes";
+import systemLogsRoute from "./system-logs/route";
 
 export default {
   name: "routes",
@@ -16,5 +17,6 @@ export default {
     registerProjectMembers(router);
     registerProjectSettingsKeys(router);
     registerProjectNodes(router);
+    systemLogsRoute(router);
   },
 };

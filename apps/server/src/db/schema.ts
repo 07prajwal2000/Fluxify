@@ -975,5 +975,38 @@ export const orchestrationEventsEntity = pgTable(
 	],
 );
 
+export const systemLogLevelEnum = pgEnum("system_log_level", ["info", "warn", "error"]);
+
+/**
+ * What the platform did to a user's resources — a compile that failed, a route
+ * that was not deployed — so it can be shown in the UI instead of only stdout.
+ * Not application logs. One row per `type` + resource: a new write replaces the
+ * last, so the table holds current state rather than a history stdout already has.
+ *
+ * `resourceType` + `resourceId` point at the owning row without a foreign key:
+ * a log must outlive the thing it describes, and one table serves every kind.
+ */
+export const systemLogsEntity = pgTable(
+	"system_logs",
+	{
+		id: serial().primaryKey(),
+		/** null for instance-wide entries */
+		projectId: varchar("project_id", { length: 50 }),
+		/** `route`, `workflow`, `custom_block`, `project`, … */
+		resourceType: varchar("resource_type", { length: 50 }).notNull(),
+		resourceId: varchar("resource_id", { length: 50 }).notNull(),
+		/** what produced it: `compile`, … */
+		type: varchar({ length: 50 }).notNull(),
+		level: systemLogLevelEnum().notNull(),
+		message: text().notNull(),
+		detail: jsonb().$type<Record<string, unknown>>(),
+		updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+	},
+	(table) => [
+		uniqueIndex("uq_system_logs_resource").on(table.type, table.resourceId, table.resourceType),
+		index("idx_system_logs_project_id").on(table.projectId, table.updatedAt),
+	],
+);
+
 export * from "./agent-harness-schema";
 

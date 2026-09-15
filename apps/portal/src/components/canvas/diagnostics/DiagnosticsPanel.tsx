@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useState } from "react";
 import { useReactFlow } from "@xyflow/react";
-import { Button, toast } from "@fluxify/components";
+import { Button, Spinner, toast } from "@fluxify/components";
 import {
 	TbAlertCircle,
 	TbAlertTriangle,
@@ -41,6 +41,7 @@ export function DiagnosticsPanel({
 	storageKey = DIAGNOSTICS_PANEL_WIDTH_KEY,
 }: DiagnosticsPanelProps) {
 	const { all, byBlock, revalidate, worstSeverity } = useBlockDiagnostics();
+	const canvasWide = useMemo(() => all.filter((d) => !d.blockId), [all]);
 	const { getNode } = useReactFlow();
 	const customBlockDefs = useCustomBlockDefs();
 
@@ -211,7 +212,7 @@ export function DiagnosticsPanel({
 				<div className="flex flex-col">
 					<span className="fx-panel__name">Diagnostics</span>
 					<span className="text-[11px] text-muted">
-						{all.length === 0
+						{totalErrors + totalWarnings === 0
 							? "All checks passed"
 							: `${totalErrors} error(s), ${totalWarnings} warning(s)`}
 					</span>
@@ -241,8 +242,32 @@ export function DiagnosticsPanel({
 				</div>
 			</header>
 
-			<div className="fx-panel__body flex flex-col gap-3 overflow-y-auto p-3">
-				{blockEntries.length === 0 ? (
+			<div className="fx-panel__body flex flex-col gap-3 overflow-y-auto p-3" style={{ paddingTop: 12 }}>
+				{canvasWide.map((diag, idx) => (
+					<div
+						key={`${diag.source}-${idx}`}
+						className="flex items-start gap-2 rounded-md border border-border bg-surface-secondary/20 p-2.5 text-xs"
+					>
+						<span className="mt-0.5 shrink-0">
+							{diag.pending ? (
+								<Spinner size="sm" />
+							) : diag.severity === "error" ? (
+								<TbAlertCircle className="text-danger" size={14} />
+							) : diag.severity === "warning" ? (
+								<TbAlertTriangle className="text-warning" size={14} />
+							) : (
+								<TbInfoCircle className="text-muted" size={14} />
+							)}
+						</span>
+						<div className="flex min-w-0 flex-1 flex-col">
+							<p className="leading-snug text-foreground">{diag.message}</p>
+							<span className="text-[10px] text-muted">
+								{diag.source === "compile" ? "Canvas compilation" : `${diag.source} · whole canvas`}
+							</span>
+						</div>
+					</div>
+				))}
+				{blockEntries.length === 0 && totalErrors + totalWarnings === 0 ? (
 					<div className="flex flex-col items-center justify-center gap-2 py-12 text-center text-muted">
 						<span className="flex h-10 w-10 items-center justify-center rounded-full bg-surface-secondary text-success">
 							<TbCheck size={20} />
