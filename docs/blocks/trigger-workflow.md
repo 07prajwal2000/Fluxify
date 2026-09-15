@@ -37,16 +37,14 @@ its own retries, and its own logs.
 
 ## Running later {#running-later}
 
-Set **When** to **Later** and say when in **Run at**. It takes one of two things:
+Set **When** to **Later** and say when in **Run at**. The field accepts three
+kinds of value:
 
-- **A delay from now** — numbers with a unit, written together with no spaces:
-  `ms` (milliseconds), `s` (seconds), `m` (minutes), `h` (hours). Combine units
-  in one value (`24h12m2s`) and use decimals (`1.5h`). There is no day unit:
-  write 7 days as `168h`.
-- **An exact time in ISO 8601 format** — `YYYY-MM-DDTHH:MM:SS` followed by the
-  time zone, for example `2026-03-01T09:00:00Z`. Seconds are optional
-  (`2026-03-01T09:00Z`) and may have a fraction (`09:00:00.500Z`). The date and
-  time are joined by a capital `T`.
+| Kind | What you write |
+|---|---|
+| **Delay pattern** | A raw string of numbers with units, no spaces: `ms` (milliseconds), `s` (seconds), `m` (minutes), `h` (hours). Units combine (`24h12m2s`) and take decimals (`1.5h`). There is no day unit — write 7 days as `168h`. The run starts that long after the block runs. |
+| **ISO time** | A raw string in ISO 8601 format: `YYYY-MM-DDTHH:MM:SS` plus a time zone, e.g. `2026-03-01T09:00:00Z`. Date and time are joined by a capital `T`; seconds are optional (`09:00Z`) and may have a fraction (`09:00:00.500Z`). The run starts at that moment. |
+| **`js:` expression** | Code that returns either of the above as text, or a JavaScript `Date`. Use it when the time depends on the request or the data. |
 
 ::: warning Always say which time zone
 The time zone part is required. `Z` means UTC. For a time on a local clock,
@@ -60,38 +58,27 @@ applies on the day of the run.
 
 ### Examples
 
-| Run at | The run starts |
-|---|---|
-| `90s` | 90 seconds after the block runs |
-| `45m` | 45 minutes after |
-| `1h30m` | 1 hour 30 minutes after |
-| `1.5h` | The same, written as a decimal |
-| `24h12m2s` | 24 hours, 12 minutes and 2 seconds after |
-| `168h` | 7 days after |
-| `500ms` | Half a second after — effectively straight away |
-| `2026-03-01T09:00:00Z` | 09:00 UTC on 1 March 2026 |
-| `2026-03-01T09:00Z` | The same, without seconds |
-| `2026-03-01T09:00:00+05:30` | 09:00 India time (03:30 UTC) on 1 March 2026 |
-| `2026-03-01T09:00:00-05:00` | 09:00 at UTC−5 (14:00 UTC) on 1 March 2026 |
+From simplest to most involved:
 
-### Using an expression
-
-Start the value with `js:` to work the time out while the route runs. The
-expression must return a delay or an ISO time as text, following the rules
-above, or a JavaScript `Date`.
-
-| Run at | The run starts | When to use it |
+| Run at | Kind | The run starts |
 |---|---|---|
-| `js: return "24h12m2s";` | 24 hours, 12 minutes and 2 seconds after | Same as typing it — useful as a starting point for logic. |
-| `js: return input.plan === "trial" ? "72h" : "24h";` | 72 hours after for trials, 24 hours for everyone else | The delay depends on the request. |
-| `js: return input.expiresAt;` | At the time stored on the record, e.g. `"2026-03-01T09:00:00Z"` | The moment already exists as an ISO time, such as a reservation's expiry loaded from the database. |
-| `js: return new Date(input.expiresAt);` | At that same moment | The stored value is a date object or a millisecond timestamp rather than ISO text. |
-| `js: return new Date(Date.now() + 15 * 60 * 1000);` | 15 minutes from now | You need arithmetic on the current time. |
-| `js: return new Date(new Date(input.startsAt).getTime() - 60 * 60 * 1000);` | One hour before the event starts | A reminder relative to a time you already have. |
-| `js: return input.date + "T09:00:00+05:30";` | 09:00 India time on the day in `input.date` (e.g. `"2026-03-01"`) | You have only a date and want a fixed local hour — add the time and the offset yourself. |
+| `90s` | Delay pattern | 90 seconds after the block runs |
+| `2026-03-01T09:00:00Z` | ISO time | 09:00 UTC on 1 March 2026 |
+| `js: return "24h";` | `js:` expression | 24 hours after — the same as typing `24h` |
+| `1h30m` | Delay pattern | 1 hour 30 minutes after |
+| `2026-03-01T09:00:00+05:30` | ISO time | 09:00 India time (03:30 UTC) on 1 March 2026 |
+| `js: return input.plan === "trial" ? "72h" : "24h";` | `js:` expression | 72 hours after for trials, 24 hours for everyone else |
+| `24h12m2s` | Delay pattern | 24 hours, 12 minutes and 2 seconds after |
+| `2026-03-01T09:00-05:00` | ISO time | 09:00 at UTC−5 (14:00 UTC) on 1 March 2026, seconds left out |
+| `js: return input.expiresAt;` | `js:` expression | At the ISO time stored on the record, e.g. a reservation's expiry |
+| `1.5h` | Delay pattern | 1 hour 30 minutes after, written as a decimal |
+| `js: return new Date(Date.now() + 15 * 60 * 1000);` | `js:` expression | 15 minutes from now, worked out in code |
+| `168h` | Delay pattern | 7 days after |
+| `js: return input.date + "T09:00:00+05:30";` | `js:` expression | 09:00 India time on the day in `input.date` (e.g. `"2026-03-01"`) |
+| `js: return new Date(new Date(input.startsAt).getTime() - 60 * 60 * 1000);` | `js:` expression | One hour before the event in `input.startsAt` |
 
-A plain number is refused — `js: return Date.now() + 60000;` fails. Wrap it as
-`new Date(...)`.
+A `js:` expression that returns a plain number is refused —
+`js: return Date.now() + 60000;` fails. Wrap it as `new Date(...)`.
 
 Anything else — `tomorrow`, `2026-03-01` with no time, a misspelt unit — makes
 the block fail with an error, and nothing is scheduled.
