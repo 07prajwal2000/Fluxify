@@ -30,7 +30,14 @@ function groupActions(actions: CanvasAction[]): CanvasAction[][] {
  */
 export function CanvasContextMenu({ menu, actions }: CanvasContextMenuProps) {
 	const available = useMemo(
-		() => actions.filter((action) => action.available),
+		() =>
+			actions.filter(
+				(action) =>
+					action.available &&
+					!action.disabled &&
+					action.id !== "undo" &&
+					action.id !== "redo",
+			),
 		[actions],
 	);
 	const groups = useMemo(() => groupActions(available), [available]);
