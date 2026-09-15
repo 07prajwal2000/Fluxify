@@ -5,7 +5,7 @@ import { generateID } from "@fluxify/lib";
 import { db } from "../../../db";
 import { AuthACL, triggersEntity } from "../../../db/schema";
 import { canAccessProject } from "../../../lib/acl";
-import { assertCanCreateConnector } from "../../../lib/edition";
+import { assertCanUse } from "../../../lib/edition";
 import { BadRequestError } from "../../../errors/badRequestError";
 import { ConflictError } from "../../../errors/conflictError";
 import { ForbiddenError } from "../../../errors/forbidError";
@@ -64,7 +64,7 @@ export async function createTrigger(
 ) {
 	if (!canAccessProject(acl, data.projectId, "creator")) throw new ForbiddenError();
 	assertSourceMatchesType(data.type, data.integrationId);
-	if (isEnterpriseTriggerType(data.type)) assertCanCreateConnector();
+	if (isEnterpriseTriggerType(data.type)) assertCanUse("connectors");
 
 	let warnings: string[] = [];
 	const created = await db.transaction(async (tx) => {

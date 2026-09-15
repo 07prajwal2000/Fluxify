@@ -10,5 +10,6 @@ export function usePublicSettings() {
 		...query,
 		ssoConfig,
 		authConfig,
+		license: query.data?.license,
 	};
 }
