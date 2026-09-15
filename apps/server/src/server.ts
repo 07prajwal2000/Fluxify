@@ -18,6 +18,7 @@ import { auth, initializeAuth } from "./lib/auth";
 import authenticationRouter from "./api/auth/register";
 import { AccessControlRole } from "./db/schema";
 import { setSession } from "./middlewares/session";
+import { adminRateLimit } from "./middlewares/rateLimit";
 import { startAiWorker } from "./lib/ai/worker";
 import {
 	ENABLE_BUILTIN_WORKER,
@@ -93,6 +94,10 @@ async function main() {
 
 	if (adminRoutesEnabled) {
 		app.use("*", setSession);
+		// Scoped to the admin prefix, not "*": when the builtin worker runs in
+		// this process the public compiled routes share this app and must not be
+		// capped by a control-plane limit.
+		app.use("/_/admin/api/*", adminRateLimit);
 		await loadInstanceSettings(); // must precede initializeAuth so sso_config is available
 		await publishConfiguredLicense();
 		initializeAuth(db);

@@ -284,6 +284,46 @@ Future route-to-route, webhook, cron and message-bus adapters use this same
 submission boundary. Distributed workflows will use durable JetStream
 scheduling instead of relying on the process-local queue.
 
+## Admin API rate limit {#admin-rate-limit}
+
+The admin API — everything the portal calls, plus login and user management —
+is capped per signed-in user. The default is **10 requests per second**. A user
+over the limit gets a `429` with a `Retry-After: 1` header, and the very next
+second they are served normally again.
+
+```env
+# Admin API requests allowed per second, per user. 0 turns the limit off.
+ADMIN_RATE_LIMIT_PER_SEC=10
+```
+
+Set it on the admin service, in the same `.env` it reads (see
+[Step 1](#env)). Leaving it unset gives you the default, so an existing
+deployment needs no change.
+
+This is a guard rail for the control plane, not a traffic policy for your
+projects:
+
+- **Your API routes are not affected.** Only the admin surface is counted;
+  requests to the routes you build are never capped by this setting.
+- **It is counted per signed-in user**, so one busy account cannot slow the
+  admin API down for your teammates.
+- **Signed-out requests are not counted.** Behind a reverse proxy every
+  signed-out visitor looks like the same caller, so counting them would mean
+  one visitor could lock out the login page for everyone.
+
+::: tip Why the admin API has a cap at all
+The admin service is the one holding your database connection. A client stuck
+in a retry loop can otherwise keep it busy enough to slow the portal down for
+every project on the instance.
+:::
+
+Raise it if a team regularly works in pages that load many panels at once; ten
+per second is comfortable for normal portal use. If your Redis is unreachable
+the limit is skipped rather than enforced, so a Redis outage cannot lock anyone
+out of the portal.
+
+---
+
 ## Step 1 — Create your `.env` {#env}
 
 Copy `docker/production/env.example` to `docker/production/.env` next to the
