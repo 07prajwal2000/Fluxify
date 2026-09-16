@@ -15,10 +15,13 @@
 	"license": "Apache-2.0",
 	"description": "",
 	"devDependencies": {
+		"@faker-js/faker": "^10.6.0",
 		"@types/bun": "^1.4.0",
+		"@types/dockerode": "^4.0.1",
 		"@types/jsonwebtoken": "^9.0.10",
 		"@types/node": "^24.2.1",
 		"@typescript/native-preview": "^7.0.0-dev.20260219.1",
+		"dockerode": "^4.0.9",
 		"typescript": "^5.9.2"
 	},
 	"scripts": {

@@ -30,9 +30,11 @@ import {
 	createObservabilityLogger,
 	DbConnectionManager,
 	DbFactory,
+	KvFactory,
 } from "@fluxify/adapters";
 import {
 	dbIntegrationsCache,
+	kvIntegrationsCache,
 	findIntegrationConfig,
 	observabilityIntegrationsCache,
 	ownsIntegration,
@@ -430,6 +432,10 @@ function createContext(
 		requestBody: requestData.body,
 		vars,
 		dbFactory,
+		// Built here rather than threaded through every caller: unlike DbFactory
+		// there is no per-request state to own — the clients are process-wide and
+		// there are no leases to release — so an instance is just the cache lookup.
+		kvFactory: new KvFactory(kvIntegrationsCache),
 		httpClient,
 		trigger,
 		trace,

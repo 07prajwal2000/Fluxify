@@ -1,5 +1,5 @@
 import jwt from "jsonwebtoken";
-import { DbFactory } from "@fluxify/adapters";
+import { DbFactory, KvFactory } from "@fluxify/adapters";
 import { AbstractLogger, HttpClient } from "@fluxify/lib";
 import z from "zod";
 import { variableNameError } from "./variableName";
@@ -145,6 +145,7 @@ export interface Context {
 	vars: ContextVarsType & Record<string, any>;
 	requestBody?: any;
 	dbFactory?: DbFactory;
+	kvFactory?: KvFactory;
 	httpClient?: HttpClient;
 	/** resolves integrations (observability loggers) for compiled graphs */
 	integrationFactory?: {

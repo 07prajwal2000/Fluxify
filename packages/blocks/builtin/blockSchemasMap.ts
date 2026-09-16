@@ -24,6 +24,8 @@ import { insertBulkDbBlockSchema } from "./db/insertBulk";
 import { updateDbBlockSchema } from "./db/update";
 import { nativeDbBlockSchema } from "./db/native";
 import { transactionDbBlockSchema } from "./db/transaction";
+import { kvRawBlockSchema } from "./kv/rawConnection";
+import { kvOperationsBlockSchema } from "./kv/operations";
 import { errorHandlerBlockSchema } from "./errorHandler";
 import { cloudLogsBlockSchema } from "./log/cloudLogs";
 import { triggerWorkflowSchema } from "./triggerWorkflow";
@@ -54,6 +56,8 @@ export const builtinBlockSchemas: Record<string, z.ZodTypeAny> = {
 	dbupdate: updateDbBlockSchema,
 	dbnative: nativeDbBlockSchema,
 	dbtransaction: transactionDbBlockSchema,
+	kvraw: kvRawBlockSchema,
+	kvoperations: kvOperationsBlockSchema,
 	errorhandler: errorHandlerBlockSchema,
 	cloudlogs: cloudLogsBlockSchema,
 	triggerworkflow: triggerWorkflowSchema,

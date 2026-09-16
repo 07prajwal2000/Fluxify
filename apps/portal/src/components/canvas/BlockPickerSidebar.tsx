@@ -6,6 +6,7 @@ import {
 	TbChevronRight,
 	TbCode,
 	TbDatabase,
+	TbKey,
 	TbLayoutGrid,
 	TbPlus,
 	TbSearch,
@@ -43,6 +44,10 @@ const CATEGORY_DETAILS: Record<BlockCategory, CategoryDetails> = {
 	Database: {
 		description: "Read and write database records",
 		icon: <TbDatabase />,
+	},
+	KV: {
+		description: "Read and write keys in Redis or Memcached",
+		icon: <TbKey />,
 	},
 	HTTP: {
 		description: "Read requests and call external services",

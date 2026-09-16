@@ -35,6 +35,8 @@ import {
 	errorHandlerBlockSchema,
 	cloudLogsBlockSchema,
 	triggerWorkflowSchema,
+	kvRawBlockSchema,
+	kvOperationsBlockSchema,
 } from "@fluxify/blocks";
 import { customBlockNames } from "../../loaders/customBlocksLoader";
 import { Context, Next } from "hono";
@@ -187,6 +189,12 @@ export function blockDataValidator(data: CanvasChanges) {
 				break;
 			case BlockTypes.triggerWorkflow:
 				schema = triggerWorkflowSchema;
+				break;
+			case BlockTypes.kv_raw:
+				schema = kvRawBlockSchema;
+				break;
+			case BlockTypes.kv_operations:
+				schema = kvOperationsBlockSchema;
 				break;
 		}
 		if (!schema) {

@@ -16,6 +16,8 @@ import { insertBulkAiDescription } from "./db/insertBulk";
 import { nativeDbAiDescription } from "./db/native";
 import { transactionDbAiDescription } from "./db/transaction";
 import { updateDbAiDescription } from "./db/update";
+import { kvRawAiDescription } from "./kv/rawConnection";
+import { kvOperationsAiDescription } from "./kv/operations";
 import { getCookieAiDescription } from "./http/getHttpCookie";
 import { getHttpHeaderAiDescription } from "./http/getHttpHeader";
 import { getHttpParamAiDescription } from "./http/getHttpParam";
@@ -49,6 +51,8 @@ export const blockAiDescriptions = [
   nativeDbAiDescription,
   transactionDbAiDescription,
   updateDbAiDescription,
+  kvRawAiDescription,
+  kvOperationsAiDescription,
   getCookieAiDescription,
   getHttpHeaderAiDescription,
   getHttpParamAiDescription,

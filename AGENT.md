@@ -230,6 +230,28 @@ The pre-commit hook runs `fta-cli --score-cap 70`, which **fails the commit** fo
 3. Do not "fix" this class of bug in the planner. Check `taskGenerator` output first — the planner's prose plan and the task DAG are different artifacts.
 4. When diagnosing a bad run, read it from the database (`agent_harness_runs`, `agent_harness_steps`, `agent_harness_live_states.working_memory`) rather than inferring from the summary. The reported agent is often not the one that misbehaved.
 
+### Touching a Real Integration Means Adding Real Integration Tests
+**Rule:** whenever you add or change code that talks to a real external service — a database, a KV store, a queue, an object store — the change is not finished until a `*.test.ts` exercises it against that service in a container. A mock-based `*.spec.ts` is necessary but never sufficient.
+
+**Why this is not optional.** A mock proves what your code *sends*; only the real service proves what happens when it *arrives*. Every one of these is invisible to a mock and has shipped as a bug somewhere:
+- A TTL that never actually expires the key (a wrong unit, or `set` where `setex` was meant).
+- A value that does not survive the round trip — the store returns text, so numbers, booleans, dates and `null` all come back as strings.
+- A missing key that reads as `null` on one provider and `""` or the string `"null"` on another.
+- A client whose methods are **callback-based, not promise-based**, so `await` silently yields the client's return value instead of the result (the Memcached client does exactly this; the Redis one does not).
+- A connection that is opened per request instead of reused, which no assertion about a mock can detect.
+- A provider that rejects a field the mock happily accepted.
+
+**What to write.**
+1. Mirror the existing container tests: `beforeAll` removes a stale container by name, `pullImage`, `startContainerWithRandomPort`, then **poll for readiness** — a container that accepts TCP is not a service that accepts queries (MySQL needs ~90 × 500 ms). `afterAll` must remove the container even when the test failed.
+2. Use the shared helpers in `packages/adapters/containerTestHelpers.ts` (re-exported as `db/testHelpers.ts`), never a hand-rolled Docker call.
+3. Give every test its own randomly-suffixed table and key (`faker.string.alphanumeric(8)`) so tests sharing a container cannot collide.
+4. **Test the feature the way a user wires it**, not just the adapter method: compile a real graph and run it, so the emitted code, the factories and the service are all in the assertion. Adapter-only coverage misses everything the compiler does.
+5. Cover the edge cases the real service owns: expiry, absence, invalidation, malformed stored data, key isolation, and client reuse across requests.
+
+**Where it goes.** Next to the code it tests, in a package that declares the deps. A container test needs `dockerode` and `@faker-js/faker` in that package's `devDependencies` — they are hoisted to the root `node_modules` so an undeclared import resolves locally and then fails in CI, which installs clean. Graph-level examples: `packages/blocks/kvMysqlCache.test.ts` (a read-through cache over real Redis + MySQL).
+
+**Remember `*.test.ts` only runs in CI**, so it will not slow the pre-commit hook — but it also will not catch your mistake before you push. Run the file directly while developing: `bun test packages/blocks/kvMysqlCache.test.ts`.
+
 ---
 
 ## Documentation Writing Rules

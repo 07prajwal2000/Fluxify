@@ -1,4 +1,4 @@
-import { DbConnectionManager } from "@fluxify/adapters";
+import { DbConnectionManager, KvFactory } from "@fluxify/adapters";
 import {
 	instantiateCompiled,
 	registerCompiledCustomBlock,
@@ -15,6 +15,7 @@ import {
 import { hydrateAppConfig } from "../../loaders/appconfigLoader";
 import {
 	dbIntegrationsCache,
+	kvIntegrationsCache,
 	hydrateIntegrations,
 } from "../../loaders/integrationsLoader";
 import { hydrateProjectSettings } from "../../loaders/projectSettingsLoader";
@@ -291,6 +292,9 @@ function applyProjectConfig(artifact: UnsealedProjectConfig) {
 	// The hydrated cache is the runtime's complete view. Swapping here makes
 	// changed credentials available to new requests before old clients drain.
 	dbConnectionManager?.synchronize(dbIntegrationsCache);
+	// same for KV clients: a rotated credential closes the old socket so the next
+	// request builds a client from the new config
+	KvFactory.synchronize(kvIntegrationsCache);
 	// same for queue consumers: rotated credentials restart, deleted ones stop
 	void refreshQueueTriggers();
 	hydrateProjectSettings(artifact.projectId, payload.projectSettings);

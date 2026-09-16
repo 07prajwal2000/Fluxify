@@ -165,6 +165,21 @@ db_update {
 	useParam: boolean;  // use parameter
 }
 
+kv_raw {
+	connection: string;  // integration id
+	js: string;  // js code to execute (has a \`kv\` global holding the raw client: ioredis for Redis, the memcached client for Memcached; use its own command methods, e.g. await kv.incr('hits'))
+}
+
+kv_operations {
+	connection: string;  // integration id
+	operation: "get" | "set" | "delete";  // operation to perform
+	key: string;  // key to operate on (supports js expression)
+	useParam?: boolean | null;  // \`set\` only: store the previous block's output instead of the value field
+	value?: any | null;  // value to store; \`set\` only, and ignored when useParam is set. Non-strings are stored as JSON
+	ttl?: string | number | null;  // \`set\` only: seconds until the key expires. Omit or 0 to store it without expiry
+	parseJson?: boolean | null;  // \`get\` only: parse the stored string as JSON. A missing key stays null; a value that is not valid JSON fails the block
+}
+
 httpgetcookie {
 	name: string;  // name of the cookie (supports js expressions)
 }

@@ -33,6 +33,8 @@ export const BLOCK_TYPES = {
 	db_delete: "db_delete",
 	db_native: "db_native",
 	db_transaction: "db_transaction",
+	kv_raw: "kv_raw",
+	kv_operations: "kv_operations",
 	consolelog: "consolelog",
 	cloudLogs: "cloud_logs",
 	triggerWorkflow: "trigger_workflow",
