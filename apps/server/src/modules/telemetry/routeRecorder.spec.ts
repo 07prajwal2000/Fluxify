@@ -42,6 +42,28 @@ describe("RouteTraceRecorder", () => {
 		});
 	});
 
+	it("keeps the error cause chain on a failed span", () => {
+		const runs: any[] = [];
+		const recorder = new RouteTraceRecorder(route, (run) => runs.push(run));
+		recorder.recordSpan({
+			blockId: "db",
+			blockType: "db_getall",
+			input: null,
+			output: undefined,
+			startedAt: 1,
+			endedAt: 2,
+			outcome: "failure",
+			error: new Error("failed to execute get all db block", {
+				cause: new Error('column "id" does not exist', { cause: { code: "42703" } }),
+			}),
+		});
+		recorder.complete("failure", 500);
+
+		expect(runs[0].spans[0].error).toBe(
+			'Error: failed to execute get all db block <- caused by: Error: column "id" does not exist <- caused by: {"code":"42703"}',
+		);
+	});
+
 	it("links synchronous custom-block spans to their invoking block", () => {
 		const runs: any[] = [];
 		const recorder = new RouteTraceRecorder(route, (run) => runs.push(run));

@@ -1,4 +1,5 @@
 import { logger } from "@fluxify/common";
+import { createObservabilityLogger } from "@fluxify/adapters";
 import {
 	createOtlpTracerProvider,
 	createOtlpMeterProvider,
@@ -38,13 +39,39 @@ export function exportTraceRun(run: TraceRunPayload): void {
 	try {
 		const traces = resolveDestination(run.projectId, "traces");
 		const metrics = resolveDestination(run.projectId, "metrics");
-		if (traces) exportRun(tracerFor(traces), run);
+		if (traces) {
+			exportRun(tracerFor(traces), run);
+			logBlockErrors(run);
+		}
 		if (metrics) recordRun(meterFor(metrics), run);
 	} catch (error) {
 		// telemetry loss, never a failed request
 		logger.error(
 			`[telemetry] failed to export run ${run.runId}: ${String(error)}`,
 			"TELEMETRY",
+		);
+	}
+}
+
+/**
+ * Failed block spans also go to the project's logs destination, with the full
+ * cause chain. No logs destination = nothing logged.
+ */
+function logBlockErrors(run: TraceRunPayload) {
+	const failed = run.spans.filter((span) => span.error !== undefined);
+	if (!failed.length) return;
+	const integrationId = connectionIdFor(run.projectId, "logs");
+	const config = observabilityIntegrationsCache[integrationId];
+	if (!integrationId || !ownsIntegration(config, run.projectId)) return;
+
+	const projectLogger = createObservabilityLogger(config.variant, {
+		...config,
+		projectId: run.projectId,
+		routeId: run.routeId ?? run.workflowId,
+	});
+	for (const span of failed) {
+		projectLogger?.logError(
+			`run ${run.runId} block ${span.blockType} ${span.blockId} failed: ${span.error}`,
 		);
 	}
 }
