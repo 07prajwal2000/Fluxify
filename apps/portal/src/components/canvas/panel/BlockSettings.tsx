@@ -1,4 +1,4 @@
-import { Children, isValidElement, type ReactNode } from "react";
+import { Children, isValidElement, useState, type ReactNode } from "react";
 import { Tabs } from "@fluxify/components";
 import { TbAlertCircle, TbAlertTriangle, TbInfoCircle } from "react-icons/tb";
 import {
@@ -73,19 +73,25 @@ export function BlockSettings({ block, initialTab, children }: BlockSettingsProp
 	const diagnostics = forBlock(block.id);
 	const hasDiagnostics = diagnostics.length > 0;
 
-	const defaultTab =
-		initialTab &&
-		(initialTab === GENERAL_TAB ||
-			(initialTab === DIAGNOSTICS_TAB && hasDiagnostics) ||
-			blockTabs.some((t) => t.props.name === initialTab))
-			? initialTab
-			: GENERAL_TAB;
+	// the picked tab survives edits; only a new block or a new tab request resets it
+	const request = `${block.id}|${initialTab ?? ""}`;
+	const [picked, setPicked] = useState({ request, tab: initialTab ?? GENERAL_TAB });
+	const wanted = picked.request === request ? picked.tab : (initialTab ?? GENERAL_TAB);
+	// a tab can vanish (last issue fixed, method without a body): fall back to
+	// General for good, so the tab coming back later doesn't pull focus to it
+	const exists =
+		wanted === GENERAL_TAB ||
+		(wanted === DIAGNOSTICS_TAB && hasDiagnostics) ||
+		blockTabs.some((t) => t.props.name === wanted);
+	const selectedTab = exists ? wanted : GENERAL_TAB;
+	if (picked.request !== request || picked.tab !== selectedTab) {
+		setPicked({ request, tab: selectedTab });
+	}
 
 	return (
-		// Remount per block or tab target
 		<Tabs
-			key={`${block.id}-${defaultTab}`}
-			defaultSelectedKey={defaultTab}
+			selectedKey={selectedTab}
+			onSelectionChange={(key) => setPicked({ request, tab: String(key) })}
 			variant="secondary"
 			className="fx-panel__tabs"
 		>
