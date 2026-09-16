@@ -44,6 +44,8 @@ import { emitUpdateDb, runUpdateDb } from "./builtin/db/update";
 import { emitDeleteDb, runDeleteDb } from "./builtin/db/delete";
 import { emitNativeDb, runNativeDb } from "./builtin/db/native";
 import { emitTransactionDb, runTransactionDb } from "./builtin/db/transaction";
+import { emitKvRaw, runKvRaw } from "./builtin/kv/rawConnection";
+import { emitKvOperations, runKvOperations } from "./builtin/kv/operations";
 
 /**
  * What the compiler knows how to emit, and what the emitted code may call.
@@ -83,6 +85,8 @@ export const emitters: Partial<Record<BlockTypes, Emitter>> = {
 	[BlockTypes.db_delete]: emitDeleteDb,
 	[BlockTypes.db_native]: emitNativeDb,
 	[BlockTypes.db_transaction]: emitTransactionDb,
+	[BlockTypes.kv_raw]: emitKvRaw,
+	[BlockTypes.kv_operations]: emitKvOperations,
 	[BlockTypes.cloudLogs]: emitCloudLogs,
 	[BlockTypes.triggerWorkflow]: emitTriggerWorkflow,
 };
@@ -106,6 +110,8 @@ export const compilerLib = {
 	dbDelete: runDeleteDb,
 	dbNative: runNativeDb,
 	dbTransaction: runTransactionDb,
+	kvRaw: runKvRaw,
+	kvOperations: runKvOperations,
 	cloudLog: runCloudLog,
 	invoke: invokeCustomBlock,
 	invokeAsync: invokeCustomBlockAsync,

@@ -9,6 +9,7 @@ export * from "./observability";
 export * from "./kv/base";
 export * from "./kv/redis";
 export * from "./kv/memcached";
+export * from "./kv/factory";
 export * from "./queue/base";
 export * from "./queue/manager";
 export * from "./env";

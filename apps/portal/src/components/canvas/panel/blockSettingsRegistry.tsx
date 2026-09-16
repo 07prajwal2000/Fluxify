@@ -15,6 +15,8 @@ import { insertDbSettings } from "./blocks/db/InsertDbSettings";
 import { nativeDbSettings } from "./blocks/db/NativeDbSettings";
 import { transactionDbSettings } from "./blocks/db/TransactionDbSettings";
 import { updateDbSettings } from "./blocks/db/UpdateDbSettings";
+import { kvRawSettings } from "./blocks/kv/KvRawSettings";
+import { kvOperationsSettings } from "./blocks/kv/KvOperationsSettings";
 import { getCookieSettings } from "./blocks/GetCookieSettings";
 import { getHeaderSettings } from "./blocks/GetHeaderSettings";
 import { getParamSettings } from "./blocks/GetParamSettings";
@@ -67,6 +69,8 @@ export const BLOCK_SETTINGS_TABS: Record<string, BlockTabs> = {
 	[BLOCK_TYPES.db_update]: updateDbSettings,
 	[BLOCK_TYPES.db_transaction]: transactionDbSettings,
 	[BLOCK_TYPES.db_native]: nativeDbSettings,
+	[BLOCK_TYPES.kv_raw]: kvRawSettings,
+	[BLOCK_TYPES.kv_operations]: kvOperationsSettings,
 };
 
 const NO_EXTRA_TABS_BUILTIN = new Set<string>([

@@ -47,6 +47,21 @@ When creating a new KV Store integration in the Fluxify UI dashboard, you can co
    - **Username**: Optional username for authentication (often `default` or empty in simple setups).
    - **Password**: Optional password/secret for authentication.
 
+## Using a KV Store in a Workflow
+
+Once the integration is saved, two blocks can use it. Both take the connection as their first setting, so the same store is reachable from any route or workflow in the project.
+
+| Block | Use it for |
+| --- | --- |
+| [**KV Operations**](/blocks/kv-operations) | Getting, setting, and deleting a key, with optional expiry. Works identically on Redis and Memcached. |
+| [**KV Raw Connection**](/blocks/kv-raw) | Anything else the store can do — counters, expiry on an existing key, hashes, lists — written as JavaScript against the store's own client. |
+
+The most common use is a read-through cache: try **KV Operations** `Get` first, and on `null` do the real work and `Set` the result with a TTL. There is a worked example on the [KV Operations](/blocks/kv-operations#example-cache-an-expensive-lookup) page.
+
+::: info Reused connections
+A connection is opened once and reused across requests, so a cache read does not pay for a new connection each time. Updating the integration's credentials swaps the connection over automatically — no redeploy needed.
+:::
+
 ## Security & App Config Variables
 
 Like other external connections in Fluxify, you can securely pass dynamic credentials to your KV Store using **App Configs** instead of hardcoding raw strings. 

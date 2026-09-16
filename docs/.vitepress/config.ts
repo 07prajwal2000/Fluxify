@@ -182,6 +182,13 @@ export default withMermaid(defineConfig({
 					],
 				},
 				{
+					text: "Key-Value",
+					items: [
+						{ text: "KV Operations", link: "/blocks/kv-operations" },
+						{ text: "KV Raw Connection", link: "/blocks/kv-raw" },
+					],
+				},
+				{
 					text: "Logging",
 					items: [
 						{ text: "Console Log", link: "/blocks/console-log" },

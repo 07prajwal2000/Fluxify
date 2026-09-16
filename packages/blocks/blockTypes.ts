@@ -25,6 +25,8 @@ export enum BlockTypes {
   db_update = "db_update",
   db_native = "db_native",
   db_transaction = "db_transaction",
+  kv_raw = "kv_raw",
+  kv_operations = "kv_operations",
   orchestrator = "orchestrator",
   switch = "switch",
   sticky_note = "sticky_note",

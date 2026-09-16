@@ -20,6 +20,7 @@ export type JsEditorModalProps = {
 	onSave: () => void;
 	snippets?: CodeSnippet[];
 	readOnly?: boolean;
+	typeDefinitions?: string;
 };
 
 export function JsEditorModal({
@@ -31,6 +32,7 @@ export function JsEditorModal({
 	onSave,
 	snippets: customSnippets,
 	readOnly = false,
+	typeDefinitions,
 }: JsEditorModalProps) {
 	const editorRef = useRef<monacoEditor.IStandaloneCodeEditor | null>(null);
 	const [theme, setTheme] = useState<EditorTheme>("auto");
@@ -138,6 +140,7 @@ export function JsEditorModal({
 								}}
 								readOnly={readOnly}
 								theme={theme === "auto" ? undefined : theme}
+								typeDefinitions={typeDefinitions}
 								value={value}
 								wordWrap={wordWrap}
 							/>

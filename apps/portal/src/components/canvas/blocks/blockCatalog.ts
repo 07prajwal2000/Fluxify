@@ -10,7 +10,7 @@ export type BlockDefinition = {
 	handles: HandleKind[];
 	/** Optional icon tint. */
 	tint?: string;
-	category: "Core" | "Flow" | "Database" | "HTTP" | "Logging" | "Misc";
+	category: "Core" | "Flow" | "Database" | "KV" | "HTTP" | "Logging" | "Misc";
 };
 
 const GREEN = "var(--success)";
@@ -210,6 +210,18 @@ export const BLOCK_CATALOG: Record<BlockType, BlockDefinition> = {
 		handles: LOOP,
 		tint: GREEN,
 		category: "Database",
+	},
+	[BLOCK_TYPES.kv_operations]: {
+		name: "KV Operations",
+		description: "Get, set or delete a key",
+		handles: STD,
+		category: "KV",
+	},
+	[BLOCK_TYPES.kv_raw]: {
+		name: "KV Raw Connection",
+		description: "Run raw commands against Redis or Memcached",
+		handles: STD,
+		category: "KV",
 	},
 	[BLOCK_TYPES.consolelog]: {
 		name: "Console",

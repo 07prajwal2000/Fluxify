@@ -32,6 +32,8 @@ const DATA_BLOCKS = new Set<string>([
 	BLOCK_TYPES.db_delete,
 	BLOCK_TYPES.db_native,
 	BLOCK_TYPES.db_transaction,
+	BLOCK_TYPES.kv_raw,
+	BLOCK_TYPES.kv_operations,
 	BLOCK_TYPES.orchestrator,
 ]);
 

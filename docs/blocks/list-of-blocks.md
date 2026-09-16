@@ -50,6 +50,12 @@ Interact with your data.
 - [**DB Transaction**](./db-transaction.md): Group operations atomically.
 - [**DB Native**](./db-native.md): Run raw SQL queries.
 
+## Key-Value (KV)
+Cache data and keep short-lived state.
+
+- [**KV Operations**](./kv-operations.md): Get, set, or delete a key.
+- [**KV Raw Connection**](./kv-raw.md): Run any command against the store.
+
 ## Logging & Observability
 Monitor your application.
 
