@@ -54,7 +54,7 @@ export type FieldInfo = {
 	docsUrl?: string;
 };
 
-function FieldInfoButton({ label, info }: { label?: string; info: FieldInfo }) {
+export function FieldInfoButton({ label, info }: { label?: string; info: FieldInfo }) {
 	return (
 		<Popover>
 			<PopoverTrigger>
