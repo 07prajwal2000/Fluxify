@@ -4,6 +4,7 @@ import { BLOCK_TYPES } from "../blocks/blockTypes";
 import { savesOutput } from "../panel/SaveOutputField";
 import type { BlockData, CanvasGraph } from "../types";
 import type { BlockDiagnostic, DiagnosticSeverity } from "./types";
+import { dbConditionIssues, isBlank } from "./dbConditionIssues";
 
 export const BLOCK_CONFIG_SOURCE = "block-config";
 
@@ -34,14 +35,6 @@ const SCRIPTS: Record<string, { key: string; tab: string }> = {
 	[BLOCK_TYPES.kv_raw]: { key: "js", tab: "Code" },
 	[BLOCK_TYPES.db_native]: { key: "js", tab: "Code" },
 };
-
-/** a value, a condition side (`{ kind, value }`) or a `js:` string with nothing in it */
-function isBlank(raw: unknown): boolean {
-	if (raw && typeof raw === "object" && "value" in raw) return isBlank(raw.value);
-	if (typeof raw === "number" || typeof raw === "boolean") return false;
-	const text = typeof raw === "string" ? raw.trim() : "";
-	return !(text.startsWith("js:") ? text.slice(3).trim() : text);
-}
 
 const text = (raw: unknown) => (typeof raw === "string" ? raw.trim() : "");
 const list = (raw: unknown) => (Array.isArray(raw) ? raw : []);
@@ -121,11 +114,7 @@ function checkDb(type: string, data: BlockData, report: Report) {
 			report("warning", `No conditions, so this ${what} every row in the table. Add conditions in the Edit Conditions tab if that is not intended.`, "Edit Conditions");
 		}
 		conditions.forEach((c, i) => {
-			const empty =
-				c.operator === "raw"
-					? isBlank(c.raw)
-					: isBlank(c.attribute ?? c.lhs) || isBlank(c.value ?? c.rhs);
-			if (empty) report("warning", `Condition ${i + 1} has an empty side. Fill both sides or remove it.`, "Edit Conditions");
+			for (const [severity, message] of dbConditionIssues(c, i)) report(severity, message, "Edit Conditions");
 		});
 	}
 
