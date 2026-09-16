@@ -1,6 +1,7 @@
-import { Description, JavaScriptTextArea, Label } from "@fluxify/components";
+import { Button, Description, JavaScriptTextArea, JsEditorModal, Label } from "@fluxify/components";
 import { useReactFlow } from "@xyflow/react";
-import { TbCode } from "react-icons/tb";
+import { useState } from "react";
+import { TbArrowsMaximize, TbCode } from "react-icons/tb";
 import { useCanvasChanges } from "../../../changes/ChangesContext";
 import { BlockSettings } from "../../BlockSettings";
 import { BlockIntegrationField } from "../../fields";
@@ -22,10 +23,36 @@ export function KvRawGeneralSettings({ block }: { block: BlockNode }) {
 	);
 }
 
+const KV_TYPE_DEFINITIONS = `
+declare const kv: {
+	/** Get the value of a key. */
+	get(key: string): Promise<string | null>;
+	/** Set the string value of a key. */
+	set(key: string, value: string | number, ...args: any[]): Promise<any>;
+	/** Delete one or more keys. */
+	del(...keys: string[]): Promise<number>;
+	/** Increment the integer value of a key by one. */
+	incr(key: string): Promise<number>;
+	/** Decrement the integer value of a key by one. */
+	decr(key: string): Promise<number>;
+	/** Set the value and expiration of a key. */
+	setex(key: string, seconds: number, value: string): Promise<string>;
+	/** Get the value of a hash field. */
+	hget(key: string, field: string): Promise<string | null>;
+	/** Set the string value of a hash field. */
+	hset(key: string, field: string, value: string): Promise<number>;
+	/** Get all the fields and values in a hash. */
+	hgetall(key: string): Promise<Record<string, string>>;
+	/** Additional methods available depending on the exact driver. */
+	[method: string]: any;
+};
+`;
+
 /** Code tab: JavaScript with the raw client exposed as `kv`. */
 export function KvRawCodeSettings({ block }: { block: BlockNode }) {
 	const { updateNodeData } = useReactFlow();
 	const { enabled: editable } = useCanvasChanges();
+	const [isModalOpen, setIsModalOpen] = useState(false);
 
 	const jsCode = typeof block.data.js === "string" ? block.data.js : "";
 
@@ -48,16 +75,42 @@ export function KvRawCodeSettings({ block }: { block: BlockNode }) {
 			</div>
 
 			<div className="flex flex-col gap-1.5 w-full">
-				<Label className="text-sm font-medium">JavaScript Code</Label>
-				<Description className="text-xs text-muted">
-					Write JavaScript code to run commands and return output.
-				</Description>
+				<div className="flex items-center justify-between">
+					<div className="flex flex-col gap-0.5">
+						<Label className="text-sm font-medium">JavaScript Code</Label>
+						<Description className="text-xs text-muted">
+							Write JavaScript code to run commands and return output.
+						</Description>
+					</div>
+					<Button
+						size="sm"
+						variant="ghost"
+						className="h-7 px-2 text-xs text-muted hover:text-foreground gap-1.5 rounded-md"
+						onPress={() => setIsModalOpen(true)}
+						aria-label="Expand code editor"
+					>
+						<TbArrowsMaximize className="size-3.5" />
+						<span>Expand</span>
+					</Button>
+				</div>
 				<JavaScriptTextArea
 					rows={14}
 					showLineNumbers={true}
 					readOnly={!editable}
 					value={jsCode}
+					typeDefinitions={KV_TYPE_DEFINITIONS}
 					onChange={(next) => updateNodeData(block.id, { js: next })}
+				/>
+
+				<JsEditorModal
+					isOpen={isModalOpen}
+					onClose={() => setIsModalOpen(false)}
+					onSave={() => setIsModalOpen(false)}
+					title="KV Raw - Code Editor"
+					value={jsCode}
+					onChange={(next) => updateNodeData(block.id, { js: next })}
+					readOnly={!editable}
+					typeDefinitions={KV_TYPE_DEFINITIONS}
 				/>
 			</div>
 		</div>
