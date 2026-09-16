@@ -165,7 +165,7 @@ export abstract class BaseTraceRecorder implements BlockTrace {
 			...(span.branch ? { branch: span.branch } : {}),
 			...(input.value === undefined ? {} : { input: input.value }),
 			...(output.value === undefined ? {} : { output: output.value }),
-			...(span.error === undefined ? {} : { error: String(span.error) }),
+			...(span.error === undefined ? {} : { error: errorText(span.error) }),
 			...(input.truncated || output.truncated ? { truncated: true } : {}),
 		};
 		const bytes = byteLength(record);
@@ -309,6 +309,27 @@ function safeValue(value: unknown): { value: unknown; truncated: boolean } {
 	} catch {
 		return { value: text, truncated: false };
 	}
+}
+
+/**
+ * Blocks wrap driver errors (`dbFailure`), so `String(error)` keeps only the
+ * generic wrapper. Walk the `cause` chain so the real reason reaches the trace.
+ */
+function errorText(error: unknown): string {
+	const parts: string[] = [];
+	const seen = new Set<unknown>();
+	let current = error;
+	while (current !== undefined && !seen.has(current) && parts.length < 5) {
+		seen.add(current);
+		parts.push(
+			current instanceof Error || typeof current !== "object" || current === null
+				? String(current)
+				: JSON.stringify(safeValue(current).value),
+		);
+		current = (current as { cause?: unknown } | null)?.cause;
+	}
+	const text = parts.join(" <- caused by: ");
+	return text.length > MAX_VALUE_BYTES ? `${text.slice(0, MAX_VALUE_BYTES)}…` : text;
 }
 
 function byteLength(value: unknown) {
