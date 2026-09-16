@@ -166,6 +166,8 @@ export function UpdateDbDataSettings({ block }: { block: BlockNode }) {
 						Return a single object of fields to update in the database.
 					</Description>
 					<JavaScriptTextArea
+					expandable
+					expandTitle="Update - Code Editor"
 						rows={12}
 						showLineNumbers={true}
 						readOnly={!editable}

@@ -99,6 +99,8 @@ const SchemaEditorContent = forwardRef<
 							.
 						</InfoNote>
 						<JavaScriptTextArea
+				expandable
+				expandTitle="Custom Validation - Code Editor"
 							aria-label="Root custom JavaScript validation"
 							onChange={(next) => setSchema({ ...schema, js: next })}
 							readOnly={isReadOnly}

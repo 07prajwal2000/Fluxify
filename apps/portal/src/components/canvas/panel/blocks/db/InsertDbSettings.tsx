@@ -167,6 +167,8 @@ export function InsertDbDataSettings({ block }: { block: BlockNode }) {
 						Return a single object to insert into the database table.
 					</Description>
 					<JavaScriptTextArea
+					expandable
+					expandTitle="Insert - Code Editor"
 						rows={12}
 						showLineNumbers={true}
 						readOnly={!editable}

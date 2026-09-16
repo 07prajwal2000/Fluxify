@@ -58,6 +58,8 @@ export function TransformerJsSettings({ block }: { block: BlockNode }) {
 		<div className="flex flex-col gap-1.5">
 			<Label className="text-sm font-medium">JavaScript Code</Label>
 			<JavaScriptTextArea
+					expandable
+					expandTitle="Transformer - Code Editor"
 				rows={10}
 				showLineNumbers={true}
 				readOnly={!editable}
