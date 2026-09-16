@@ -54,6 +54,12 @@ html[data-theme="dark"] .fx-block,
 	outline: none;
 }
 
+/* Hovered in the diagnostics panel. */
+.fx-node--highlight .fx-block {
+	border-color: var(--accent, oklch(0.9 0.2 122));
+	box-shadow: 0 0 0 3px color-mix(in oklab, var(--accent, oklch(0.9 0.2 122)) 45%, transparent);
+}
+
 /* Execution status: outline + badge. Selection still wins over it. */
 .fx-block--ok {
 	border-color: var(--fx-block-ok);

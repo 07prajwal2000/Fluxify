@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useReactFlow } from "@xyflow/react";
 import { Button, Spinner, toast } from "@fluxify/components";
 import {
@@ -147,6 +147,26 @@ export function DiagnosticsPanel({
 		}
 	}, [isValidating, revalidate]);
 
+	// hovering an entry outlines its block; a class on the node, so nothing re-renders
+	const lit = useRef<Element | null>(null);
+	const unlightBlock = useCallback(() => {
+		lit.current?.classList.remove("fx-node--highlight");
+		lit.current = null;
+	}, []);
+	const lightBlock = useCallback(
+		(from: HTMLElement, blockId: string) => {
+			unlightBlock();
+			const root = from.closest(".fx-canvas-shell") ?? document;
+			lit.current = root.querySelector(`.react-flow__node[data-id="${CSS.escape(blockId)}"]`);
+			lit.current?.classList.add("fx-node--highlight");
+		},
+		[unlightBlock],
+	);
+	useEffect(() => {
+		if (!isOpen) unlightBlock();
+	}, [isOpen, unlightBlock]);
+	useEffect(() => unlightBlock, [unlightBlock]);
+
 	const handleItemClick = useCallback(
 		(blockId: string) => {
 			onSelectBlock?.(blockId);
@@ -283,6 +303,8 @@ export function DiagnosticsPanel({
 					blockEntries.map((entry) => (
 						<div
 							key={entry.blockId}
+							onMouseEnter={(e) => lightBlock(e.currentTarget, entry.blockId)}
+							onMouseLeave={unlightBlock}
 							className="flex flex-col rounded-md border border-border bg-surface-secondary/20 p-2.5 transition-colors hover:border-border-hover"
 						>
 							<button
