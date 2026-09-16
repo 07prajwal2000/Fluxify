@@ -31,6 +31,18 @@ describe("validateBlockConfigs", () => {
 		expect(blockConfigIssues(BLOCK_TYPES.db_getall, data)).toHaveLength(2);
 	});
 
+	it("errors when both condition sides are values", () => {
+		const cond = (value: unknown) => ({
+			connection: "c",
+			tableName: "t",
+			conditions: [{ attribute: { kind: "literal", value: "a" }, operator: "eq", value, chain: "and" }],
+			limit: 10,
+			offset: 0,
+		});
+		expect(severities(BLOCK_TYPES.db_getall, cond({ kind: "literal", value: "js:return 1" }))).toEqual(["error"]);
+		expect(severities(BLOCK_TYPES.db_getall, cond({ kind: "column", value: "id" }))).toEqual([]);
+	});
+
 	it("flags invalid save-output names", () => {
 		const data = { url: "https://x.dev", saveAsVariable: { enabled: true, name: "" } };
 		expect(severities(BLOCK_TYPES.httprequest, data)).toEqual(["error"]);
