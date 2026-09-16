@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import { Button } from "@heroui/react";
 import { TbChevronDown, TbChevronUp, TbGripVertical, TbX } from "react-icons/tb";
 import clsx from "clsx";
+import { displayRows } from "./displayRows";
 import type { ReorderableListItemMeta, ReorderableListProps } from "./types";
 
 interface DragState {
@@ -40,6 +41,8 @@ export function ReorderableList<T>({
 	onItemBlur,
 	onDragStart,
 	onDragEnd,
+	isItemLocked,
+	isItemPinned,
 }: ReorderableListProps<T>) {
 	const itemsRef = useRef(items);
 	itemsRef.current = items;
@@ -57,22 +60,30 @@ export function ReorderableList<T>({
 		};
 	}, []);
 
+	const isPinned = useCallback(
+		(index: number) => !!isItemPinned && index in itemsRef.current && isItemPinned(itemsRef.current[index]),
+		[isItemPinned],
+	);
+
 	const handleMove = useCallback(
 		(from: number, to: number) => {
 			const currentItems = itemsRef.current;
-			if (to < 0 || to >= currentItems.length || from === to) return;
+			// a pinned item "moving" to its own index still leaves its pin
+			if (to < 0 || to >= currentItems.length || (from === to && !isPinned(from))) return;
 			const next = [...currentItems];
 			const [moved] = next.splice(from, 1);
 			next.splice(to, 0, moved);
 			onMove?.(from, to);
 			onReorder?.(next, from, to);
 		},
-		[onMove, onReorder],
+		[onMove, onReorder, isPinned],
 	);
 
 	const handlePointerDown = (e: React.PointerEvent<HTMLLIElement>, index: number) => {
-		if (!isEditable || e.button !== 0) return;
-		if ((e.target as HTMLElement).closest("button, a, input, select, textarea")) return;
+		if (!isEditable || e.button !== 0 || isItemLocked?.(itemsRef.current[index])) return;
+		// only the grip starts a drag; events bubbling up from a portal (e.g. a modal) never reach one
+		const handle = (e.target as HTMLElement).closest("[data-drag-handle]");
+		if (!handle || !e.currentTarget.contains(handle)) return;
 
 		const targetLi = e.currentTarget;
 		const rect = targetLi.getBoundingClientRect();
@@ -160,7 +171,7 @@ export function ReorderableList<T>({
 			cleanup();
 			if (isDragging) {
 				const targetIndex = dragOverIndexRef.current;
-				if (targetIndex !== null && targetIndex !== index) {
+				if (targetIndex !== null && (targetIndex !== index || isPinned(index))) {
 					handleMove(index, targetIndex);
 				}
 				setDragState(null);
@@ -194,46 +205,29 @@ export function ReorderableList<T>({
 		window.addEventListener("blur", onBlur);
 	};
 
-	// Compute list items with placeholder at dragOverIndex while dragging
-	const displayItems = useMemo(() => {
-		if (dragState === null || dragOverIndex === null) {
-			return items.map((item, index) => ({
-				type: "item" as const,
-				item,
-				originalIndex: index,
-				displayIndex: index,
-			}));
-		}
-
-		const remaining = items
-			.map((item, index) => ({ item, originalIndex: index }))
-			.filter((_, index) => index !== dragState.index);
-
-		const result: Array<
-			| { type: "item"; item: T; originalIndex: number; displayIndex: number }
-			| { type: "placeholder"; displayIndex: number }
-		> = [];
-
-		let remIdx = 0;
-		for (let i = 0; i < items.length; i++) {
-			if (i === dragOverIndex) {
-				result.push({ type: "placeholder", displayIndex: i });
-			} else {
-				const entry = remaining[remIdx++];
-				if (entry) {
-					result.push({
-						type: "item",
-						item: entry.item,
-						originalIndex: entry.originalIndex,
-						displayIndex: i,
-					});
-				}
-			}
-		}
-		return result;
-	}, [items, dragState, dragOverIndex]);
+	const displayItems = useMemo(
+		() =>
+			displayRows(
+				items,
+				dragState && dragOverIndex !== null ? { from: dragState.index, over: dragOverIndex } : null,
+				isItemPinned,
+			),
+		[items, dragState, dragOverIndex, isItemPinned],
+	);
 
 	const draggedItem = dragState !== null ? items[dragState.index] : null;
+	const noop = () => {};
+	const previewMeta: ReorderableListItemMeta | null = dragState && {
+		index: dragState.index,
+		displayIndex: dragOverIndex ?? dragState.index,
+		isDragging: true,
+		isDisabled: true,
+		canMoveUp: false,
+		canMoveDown: false,
+		moveUp: noop,
+		moveDown: noop,
+		remove: noop,
+	};
 
 	if (items.length === 0 && emptyMessage) {
 		return <>{emptyMessage}</>;
@@ -247,7 +241,7 @@ export function ReorderableList<T>({
 						return (
 							<li
 								key="__reorder_drop_placeholder__"
-								data-display-index={entry.displayIndex}
+								data-display-index={entry.hitIndex}
 								style={{ height: dragState ? `${dragState.height}px` : undefined }}
 								className="flex items-center gap-2 rounded-md border-2 border-dashed border-primary/40 bg-surface-secondary/40 px-2 py-1 text-sm select-none transition-all"
 								aria-hidden="true"
@@ -266,15 +260,22 @@ export function ReorderableList<T>({
 
 					const { item, originalIndex, displayIndex } = entry;
 					const itemKey = getKey ? getKey(item, originalIndex) : originalIndex;
+					const controls = isEditable && !isItemLocked?.(item);
+					const dropClasses = clsx(
+						entry.isDropTarget && "border-primary ring-2 ring-primary/40",
+						entry.isPinnedSource && "opacity-40",
+					);
 
 					const meta: ReorderableListItemMeta = {
 						index: originalIndex,
 						displayIndex,
 						isDragging: dragState?.index === originalIndex,
 						isDisabled: !isEditable || dragState !== null,
-						canMoveUp: displayIndex > 0 && dragState === null,
+						canMoveUp: (displayIndex > 0 || isPinned(originalIndex)) && dragState === null,
 						canMoveDown: displayIndex < items.length - 1 && dragState === null,
-						moveUp: () => handleMove(originalIndex, originalIndex - 1),
+						// a pinned row moving up leaves its pin and lands just above it
+						moveUp: () =>
+							handleMove(originalIndex, isPinned(originalIndex) ? originalIndex : originalIndex - 1),
 						moveDown: () => handleMove(originalIndex, originalIndex + 1),
 						remove: onRemove ? () => onRemove(item, originalIndex) : undefined,
 					};
@@ -283,7 +284,7 @@ export function ReorderableList<T>({
 						return (
 							<li
 								key={itemKey}
-								data-display-index={displayIndex}
+								data-display-index={entry.hitIndex}
 								onPointerDown={(e) => handlePointerDown(e, originalIndex)}
 								onMouseEnter={(e) => onItemMouseEnter?.(item, e.currentTarget)}
 								onMouseLeave={() => onItemMouseLeave?.(item)}
@@ -291,6 +292,7 @@ export function ReorderableList<T>({
 								onBlur={() => onItemBlur?.(item)}
 								className={clsx(
 									editableItemClasses(isEditable, dragState !== null),
+								dropClasses,
 									itemClassName,
 								)}
 							>
@@ -302,7 +304,7 @@ export function ReorderableList<T>({
 					return (
 						<li
 							key={itemKey}
-							data-display-index={displayIndex}
+							data-display-index={entry.hitIndex}
 							onPointerDown={(e) => handlePointerDown(e, originalIndex)}
 							onMouseEnter={(e) => onItemMouseEnter?.(item, e.currentTarget)}
 							onMouseLeave={() => onItemMouseLeave?.(item)}
@@ -311,11 +313,18 @@ export function ReorderableList<T>({
 							className={clsx(
 								"group flex items-center gap-2 rounded-md border border-border bg-surface px-2 py-1 text-sm text-foreground transition-colors",
 								editableItemClasses(isEditable, dragState !== null),
+								dropClasses,
 								itemClassName,
 							)}
 						>
-							{isEditable && (
-								<TbGripVertical className="shrink-0 cursor-grab text-muted group-hover:text-foreground transition-colors" />
+							{controls && (
+								<span
+									data-drag-handle
+									aria-hidden="true"
+									className="-my-1 -ml-1.5 flex shrink-0 cursor-grab touch-none items-center self-stretch rounded-l-md px-1.5 text-muted transition-colors group-hover:text-foreground hover:bg-foreground/10 active:cursor-grabbing active:bg-foreground/15"
+								>
+									<TbGripVertical />
+								</span>
 							)}
 							{showIndex && (
 								<span className="w-5 shrink-0 text-xs text-muted">{displayIndex}</span>
@@ -326,7 +335,7 @@ export function ReorderableList<T>({
 									: (getItemLabel ? getItemLabel(item, originalIndex) : String(item))}
 							</div>
 							{renderActions?.(item, meta)}
-							{isEditable && (showMoveButtons || onRemove) && (
+							{controls && (showMoveButtons || onRemove) && (
 								<div className="flex items-center gap-0.5 shrink-0">
 									{showMoveButtons && (
 										<>
@@ -378,6 +387,7 @@ export function ReorderableList<T>({
 
 			{/* Floating Trello-style Drag Preview: 100% Opaque, Elevated Shadow, Zero Tilt */}
 			{dragState &&
+				previewMeta &&
 				draggedItem &&
 				createPortal(
 					<div
@@ -392,17 +402,7 @@ export function ReorderableList<T>({
 						}}
 					>
 						{renderPreview ? (
-							renderPreview(draggedItem, {
-								index: dragState.index,
-								displayIndex: dragOverIndex ?? dragState.index,
-								isDragging: true,
-								isDisabled: true,
-								canMoveUp: false,
-								canMoveDown: false,
-								moveUp: () => {},
-								moveDown: () => {},
-								remove: () => {},
-							})
+							renderPreview(draggedItem, previewMeta)
 						) : (
 							<>
 								<TbGripVertical className="shrink-0 text-primary cursor-grabbing" />
@@ -413,17 +413,7 @@ export function ReorderableList<T>({
 								)}
 								<div className="min-w-0 flex-1 truncate font-medium text-foreground">
 									{renderItemContent
-										? renderItemContent(draggedItem, {
-												index: dragState.index,
-												displayIndex: dragOverIndex ?? dragState.index,
-												isDragging: true,
-												isDisabled: true,
-												canMoveUp: false,
-												canMoveDown: false,
-												moveUp: () => {},
-												moveDown: () => {},
-												remove: () => {},
-											})
+										? renderItemContent(draggedItem, previewMeta)
 										: (getItemLabel
 												? getItemLabel(draggedItem, dragState.index)
 												: String(draggedItem))}
@@ -459,5 +449,5 @@ export function ReorderableList<T>({
 function editableItemClasses(editable: boolean, isAnyDragging: boolean) {
 	if (!editable) return "";
 	if (isAnyDragging) return "select-none pointer-events-none";
-	return "cursor-grab active:cursor-grabbing hover:border-border-secondary hover:bg-surface-secondary select-none touch-none";
+	return "hover:border-border-secondary hover:bg-surface-secondary";
 }

@@ -179,16 +179,25 @@ describe("switch block: what counts as a match", () => {
 		expect((await run(graph)).output).toBe("hit");
 	});
 
-	it("a `return true;` case placed last acts as the default", async () => {
+	it("defaultCase runs only when no other case matches, wherever it sits and whatever its condition", async () => {
 		const graph = switchGraph(
 			{
-				fallback: { when: "return true;" },
+				fallback: { when: "return false;" },
 				paid: { when: "return input.status === 'paid';" },
 			},
-			{ order: ["paid", "fallback"] },
+			{ order: ["fallback", "paid"], defaultCase: "fallback" },
 		);
 		expect((await run(graph, { status: "paid" })).output).toBe("paid");
 		expect((await run(graph, { status: "pending" })).output).toBe("fallback");
+	});
+
+	it("defaultCase runs in value mode too", async () => {
+		const graph = switchGraph(
+			{ paid: {}, other: {} },
+			{ useValue: true, value: "return input;", matches: { paid: "paid" }, defaultCase: "other" },
+		);
+		expect((await run(graph, "paid")).output).toBe("paid");
+		expect((await run(graph, "nope")).output).toBe("other");
 	});
 });
 
@@ -213,7 +222,7 @@ describe("switch block: when nothing runs", () => {
 
 	it("ignores conditions for blocks that are not connected", async () => {
 		const graph = switchGraph({ a: { when: "return false;" } }, {
-			conditions: { a: "false", ghost: "true" },
+			conditions: { a: "js: return false;", ghost: "js: return true;" },
 		});
 		expect((await run(graph, "in")).output).toBe("in");
 	});
@@ -264,7 +273,7 @@ describe("switch block: inside a larger flow", () => {
 		const graph = compileGraph(
 			[
 				block("entry", BlockTypes.entrypoint),
-				block("sw", BlockTypes.switch, { conditions: { step: "true" } }),
+				block("sw", BlockTypes.switch, { conditions: { step: "js: return true;" } }),
 				block("step", BlockTypes.jsrunner, { value: "return input + 1;" }),
 				block("res", BlockTypes.response, { httpCode: "201" }),
 			],
@@ -304,10 +313,12 @@ describe("switch block: inside a larger flow", () => {
 				block("entry", BlockTypes.entrypoint),
 				block("outer", BlockTypes.switch, {
 					order: ["inner", "other"],
-					conditions: { inner: "js: return input.kind === 'a';", other: "true" },
+					conditions: { inner: "js: return input.kind === 'a';" },
+					defaultCase: "other",
 				}),
 				block("inner", BlockTypes.switch, {
-					conditions: { small: "js: return input.n < 10;", large: "true" },
+					conditions: { small: "js: return input.n < 10;" },
+					defaultCase: "large",
 				}),
 				block("small", BlockTypes.jsrunner, { value: "return 'a-small';" }),
 				block("large", BlockTypes.jsrunner, { value: "return 'a-large';" }),

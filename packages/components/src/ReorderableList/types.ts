@@ -27,6 +27,7 @@ export interface ReorderableListProps<T> {
 	className?: string;
 	itemClassName?: string;
 	getItemLabel?: (item: T, index: number) => ReactNode;
+	/** custom rows drag only from an element marked `data-drag-handle` */
 	renderItem?: (item: T, meta: ReorderableListItemMeta) => ReactNode;
 	renderItemContent?: (item: T, meta: ReorderableListItemMeta) => ReactNode;
 	renderActions?: (item: T, meta: ReorderableListItemMeta) => ReactNode;
@@ -37,4 +38,12 @@ export interface ReorderableListProps<T> {
 	onItemBlur?: (item: T) => void;
 	onDragStart?: (item: T, index: number, targetEl: HTMLElement) => void;
 	onDragEnd?: () => void;
+	/** a locked item can't be dragged and shows no grip or buttons */
+	isItemLocked?: (item: T) => boolean;
+	/**
+	 * A pinned item keeps its place while others are dragged, and dropping onto it
+	 * calls onMove(from, pinnedIndex). Dragging a pinned item out calls
+	 * onMove(pinnedIndex, to), where `to` may equal its own index. Pin only the last item.
+	 */
+	isItemPinned?: (item: T) => boolean;
 }
