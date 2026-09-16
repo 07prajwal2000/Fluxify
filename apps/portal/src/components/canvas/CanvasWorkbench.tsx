@@ -9,6 +9,7 @@ import { emptyGraph } from "./adapters";
 import { findCycleEdgeIds } from "./cycleDetection";
 import { saveWithDoctor, type ChangeSet } from "./changes";
 import { CanvasDiagnosticsProvider, useBlockDiagnostics } from "./diagnostics";
+import { COMPILE_SOURCE } from "./diagnostics/compileDiagnostics";
 import {
 	useCompileDiagnostics,
 	type CompileTarget,
@@ -83,6 +84,7 @@ function CanvasWorkbenchInner({
 	const [cycleFeedbackToken, setCycleFeedbackToken] = useState(0);
 	// Latest graph + delta reported by the canvas; only the delta gets saved.
 	const edited = useRef<{ graph: CanvasGraph; changes: ChangeSet } | null>(null);
+	const diagnostics = useBlockDiagnostics();
 
 	async function onSave() {
 		const current = edited.current;
@@ -90,6 +92,15 @@ function CanvasWorkbenchInner({
 		if (findCycleEdgeIds(current.graph.edges).size > 0) {
 			setCycleFeedbackToken((token) => token + 1);
 			toast.danger("Canvas contains a loop. Remove every red connection before saving.");
+			return;
+		}
+		// compile errors are about the saved version; saving is how they get fixed
+		const errors = diagnostics.all.filter(
+			(d) => d.severity === "error" && d.source !== COMPILE_SOURCE,
+		).length;
+		if (errors > 0) {
+			diagnostics.openPanel();
+			toast.danger(`Fix ${errors} error(s) before saving. See diagnostics.`);
 			return;
 		}
 		setIsSaving(true);

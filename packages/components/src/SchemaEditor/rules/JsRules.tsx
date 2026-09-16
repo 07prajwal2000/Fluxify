@@ -30,6 +30,8 @@ export function JsRules({
 			</InfoNote>
 
 			<JavaScriptTextArea
+				expandable
+				expandTitle="Custom Validation - Code Editor"
 				aria-label="Custom JavaScript validation"
 				onChange={(next) => onUpdate({ js: next })}
 				readOnly={isReadOnly}

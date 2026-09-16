@@ -37,6 +37,10 @@ export type JavaScriptTextAreaProps = {
 	onFocus?: () => void;
 	/** Monaco language id. Defaults to JavaScript; "sql" for custom db conditions. */
 	language?: string;
+	/** Shows an expand button in the corner that opens the full editor modal. */
+	expandable?: boolean;
+	/** Title of that modal. */
+	expandTitle?: string;
 };
 
 function resolveTheme(theme?: string) {

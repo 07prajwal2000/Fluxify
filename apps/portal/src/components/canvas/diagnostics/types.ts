@@ -4,6 +4,7 @@ const SOURCE_LABELS: Record<string, string> = {
 	compile: "Canvas compilation",
 	"cycle-detection": "Loop check: blocks must not connect back to themselves",
 	"switch-cases": "Switch check: every case must be able to run",
+	"block-config": "Settings check: wired blocks must be filled in",
 };
 
 /** what the panels show for a diagnostic's source; unknown sources show as-is */
@@ -15,6 +16,8 @@ export type BlockDiagnostic = {
 	severity: DiagnosticSeverity;
 	message: string;
 	source: string;
+	/** settings tab where the fix goes; entries open it when clicked */
+	tab?: string;
 	/** still being worked out, e.g. a compile that has not reported yet */
 	pending?: boolean;
 };

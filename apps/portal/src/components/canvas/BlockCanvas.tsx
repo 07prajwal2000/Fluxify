@@ -494,6 +494,7 @@ function CanvasInner({
 				<BlockPanel
 					block={openBlock}
 					initialTab={panel.initialTab}
+					openSeq={panel.openSeq}
 					onClose={panel.close}
 				/>
 			)}

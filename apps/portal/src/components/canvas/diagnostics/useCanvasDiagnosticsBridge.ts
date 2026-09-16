@@ -6,6 +6,7 @@ import { DIAGNOSTICS_TAB } from "../panel/BlockSettings";
 import type { BlockEdge, BlockNode } from "../types";
 import { CYCLE_DETECTION_SOURCE, validateCycles } from "./cycleValidator";
 import { SWITCH_SOURCE, validateSwitches } from "./switchValidator";
+import { BLOCK_CONFIG_SOURCE, validateBlockConfigs } from "./blockConfigValidator";
 import { useBlockDiagnostics } from "./DiagnosticsContext";
 
 export type UseCanvasDiagnosticsBridgeOptions = {
@@ -62,7 +63,7 @@ export function useCanvasDiagnosticsBridge({
 	);
 
 	const handleSelectBlock = useCallback(
-		(blockId: string) => {
+		(blockId: string, tab: string = DIAGNOSTICS_TAB) => {
 			const targetNode = nodes.find((n) => n.id === blockId);
 			if (targetNode) {
 				setNodes((current) =>
@@ -73,7 +74,7 @@ export function useCanvasDiagnosticsBridge({
 				});
 			}
 			closeDiagnosticsPanel();
-			openBlockPanel(blockId, DIAGNOSTICS_TAB);
+			openBlockPanel(blockId, tab);
 		},
 		[closeDiagnosticsPanel, nodes, openBlockPanel, setCenter, setNodes],
 	);
@@ -86,9 +87,13 @@ export function useCanvasDiagnosticsBridge({
 		const offSwitches = registerValidator(SWITCH_SOURCE, () =>
 			validateSwitches(flowToGraph(nodes, edges)),
 		);
+		const offConfigs = registerValidator(BLOCK_CONFIG_SOURCE, () =>
+			validateBlockConfigs(flowToGraph(nodes, edges)),
+		);
 		return () => {
 			offCycles();
 			offSwitches();
+			offConfigs();
 		};
 	}, [nodes, edges, registerValidator]);
 
@@ -97,6 +102,7 @@ export function useCanvasDiagnosticsBridge({
 		const currentGraph = flowToGraph(nodes, edges);
 		setFromSource(CYCLE_DETECTION_SOURCE, validateCycles(currentGraph));
 		setFromSource(SWITCH_SOURCE, validateSwitches(currentGraph));
+		setFromSource(BLOCK_CONFIG_SOURCE, validateBlockConfigs(currentGraph));
 	}, [nodes, edges, setFromSource]);
 
 	return {

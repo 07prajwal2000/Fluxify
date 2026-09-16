@@ -59,6 +59,8 @@ export function NativeDbCodeSettings({ block }: { block: BlockNode }) {
 					Write JavaScript code to run queries and return output.
 				</Description>
 				<JavaScriptTextArea
+					expandable
+					expandTitle="Native Query - Code Editor"
 					rows={14}
 					showLineNumbers={true}
 					readOnly={!editable}

@@ -1,7 +1,6 @@
-import { Button, Description, JavaScriptTextArea, JsEditorModal, Label } from "@fluxify/components";
+import { Description, JavaScriptTextArea, Label } from "@fluxify/components";
 import { useReactFlow } from "@xyflow/react";
-import { useState } from "react";
-import { TbArrowsMaximize, TbCode } from "react-icons/tb";
+import { TbCode } from "react-icons/tb";
 import { useCanvasChanges } from "../../../changes/ChangesContext";
 import { BlockSettings } from "../../BlockSettings";
 import { BlockIntegrationField } from "../../fields";
@@ -52,7 +51,6 @@ declare const kv: {
 export function KvRawCodeSettings({ block }: { block: BlockNode }) {
 	const { updateNodeData } = useReactFlow();
 	const { enabled: editable } = useCanvasChanges();
-	const [isModalOpen, setIsModalOpen] = useState(false);
 
 	const jsCode = typeof block.data.js === "string" ? block.data.js : "";
 
@@ -82,35 +80,16 @@ export function KvRawCodeSettings({ block }: { block: BlockNode }) {
 							Write JavaScript code to run commands and return output.
 						</Description>
 					</div>
-					<Button
-						size="sm"
-						variant="ghost"
-						className="h-7 px-2 text-xs text-muted hover:text-foreground gap-1.5 rounded-md"
-						onPress={() => setIsModalOpen(true)}
-						aria-label="Expand code editor"
-					>
-						<TbArrowsMaximize className="size-3.5" />
-						<span>Expand</span>
-					</Button>
 				</div>
 				<JavaScriptTextArea
+					expandable
+					expandTitle="KV Raw - Code Editor"
 					rows={14}
 					showLineNumbers={true}
 					readOnly={!editable}
 					value={jsCode}
 					typeDefinitions={KV_TYPE_DEFINITIONS}
 					onChange={(next) => updateNodeData(block.id, { js: next })}
-				/>
-
-				<JsEditorModal
-					isOpen={isModalOpen}
-					onClose={() => setIsModalOpen(false)}
-					onSave={() => setIsModalOpen(false)}
-					title="KV Raw - Code Editor"
-					value={jsCode}
-					onChange={(next) => updateNodeData(block.id, { js: next })}
-					readOnly={!editable}
-					typeDefinitions={KV_TYPE_DEFINITIONS}
 				/>
 			</div>
 		</div>

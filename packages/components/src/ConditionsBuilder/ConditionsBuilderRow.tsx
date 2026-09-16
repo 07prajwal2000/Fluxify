@@ -2,7 +2,7 @@ import { Button, ListBox, Select, Tooltip } from "@heroui/react";
 import { useCallback, useMemo } from "react";
 import { TbAbc, TbMinus, TbTable } from "react-icons/tb";
 import { JavaScriptTextArea } from "../JavaScriptTextArea/lazy";
-import { isJsExpression, JsTextField, readExpression, writeExpression } from "../JsTextField";
+import { type FieldInfo, FieldInfoButton, isJsExpression, JsTextField, readExpression, writeExpression } from "../JsTextField";
 import { ALL_OPERATORS, type OperatorOption } from "./constants";
 import type {
 	Condition,
@@ -12,7 +12,20 @@ import type {
 } from "./types";
 import { conditionText, encodeSide, sideIsColumn, toggleSideMode } from "./utils";
 
-const MONGO_FILTER_DOCS = "https://www.mongodb.com/docs/manual/tutorial/query-documents/";
+const SQL_INFO: FieldInfo = {
+	content: (
+		<>
+			Written as-is into the WHERE clause. Put run-time values in <code>{"{{ }}"}</code>: they
+			are sent as parameters, and the condition is skipped when one is undefined.
+		</>
+	),
+	example: "name ILIKE {{ '%' + getQueryParam('q') + '%' }}",
+};
+const MONGO_INFO: FieldInfo = {
+	content: "Return a MongoDB query filter object; returning undefined skips it.",
+	example: "return { age: { $gte: 18 } }",
+	docsUrl: "https://www.mongodb.com/docs/manual/tutorial/query-documents/",
+};
 
 /**
  * Switches one side between naming a column and holding a value. Which of the
@@ -113,9 +126,15 @@ function CustomCondition({
 	const isSql = editor === "sql";
 	return (
 		<div className="flex flex-col gap-1 w-full">
-			<span className="self-start px-1.5 py-0.5 rounded bg-surface-secondary text-muted-foreground border border-border text-[10px] font-mono font-semibold uppercase leading-none select-none">
-				{isSql ? "Custom SQL" : "Mongo filter"}
-			</span>
+			<div className="flex items-center gap-1">
+				<span className="px-1.5 py-0.5 rounded bg-surface-secondary text-muted-foreground border border-border text-[10px] font-mono font-semibold uppercase leading-none select-none">
+					{isSql ? "Custom SQL" : "Mongo filter"}
+				</span>
+				<FieldInfoButton
+					label={isSql ? "Custom SQL" : "Mongo filter"}
+					info={isSql ? SQL_INFO : MONGO_INFO}
+				/>
+			</div>
 			{isSql ? (
 				<JavaScriptTextArea
 					aria-label="Custom SQL condition"
@@ -137,30 +156,6 @@ function CustomCondition({
 					onChange={(val) => onChange(writeExpression(readExpression(val)))}
 				/>
 			)}
-			<p className="text-xs text-muted-foreground leading-normal m-0">
-				{isSql ? (
-					<>
-						Written as-is into the WHERE clause. Put run-time values in{" "}
-						<code>{"{{ }}"}</code>, e.g.{" "}
-						<code>{"name ILIKE {{ '%' + getQueryParam('q') + '%' }}"}</code> — they
-						are sent as parameters, and the condition is skipped when one is
-						undefined.
-					</>
-				) : (
-					<>
-						Return a MongoDB query filter object; returning undefined skips it. See{" "}
-						<a
-							className="text-accent underline"
-							href={MONGO_FILTER_DOCS}
-							rel="noreferrer"
-							target="_blank"
-						>
-							MongoDB query filters
-						</a>
-						.
-					</>
-				)}
-			</p>
 		</div>
 	);
 }

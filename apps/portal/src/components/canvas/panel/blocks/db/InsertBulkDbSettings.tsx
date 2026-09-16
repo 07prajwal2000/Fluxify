@@ -165,6 +165,8 @@ export function InsertBulkDbDataSettings({ block }: { block: BlockNode }) {
 						Return an array of objects to insert into the database table.
 					</Description>
 					<JavaScriptTextArea
+					expandable
+					expandTitle="Insert Bulk - Code Editor"
 						rows={12}
 						showLineNumbers={true}
 						readOnly={!editable}

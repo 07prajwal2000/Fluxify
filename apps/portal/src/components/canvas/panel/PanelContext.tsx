@@ -5,6 +5,7 @@ export const DISABLED_PANEL: CanvasPanel = {
 	enabled: false,
 	openBlockId: null,
 	initialTab: null,
+	openSeq: 0,
 	open: () => {},
 	close: () => {},
 };

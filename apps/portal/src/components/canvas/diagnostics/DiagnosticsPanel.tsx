@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useReactFlow } from "@xyflow/react";
 import { Button, Spinner, toast } from "@fluxify/components";
 import {
@@ -24,7 +24,8 @@ export const DIAGNOSTICS_PANEL_WIDTH_KEY = "fx-diagnostics-panel-width";
 export type DiagnosticsPanelProps = {
 	isOpen: boolean;
 	onClose: () => void;
-	onSelectBlock?: (blockId: string) => void;
+	/** `tab` is where the fix goes; the Diagnostics tab when not given */
+	onSelectBlock?: (blockId: string, tab?: string) => void;
 	defaultWidth?: number;
 	minWidth?: number;
 	maxWidth?: number;
@@ -147,9 +148,29 @@ export function DiagnosticsPanel({
 		}
 	}, [isValidating, revalidate]);
 
+	// hovering an entry outlines its block; a class on the node, so nothing re-renders
+	const lit = useRef<Element | null>(null);
+	const unlightBlock = useCallback(() => {
+		lit.current?.classList.remove("fx-node--highlight");
+		lit.current = null;
+	}, []);
+	const lightBlock = useCallback(
+		(from: HTMLElement, blockId: string) => {
+			unlightBlock();
+			const root = from.closest(".fx-canvas-shell") ?? document;
+			lit.current = root.querySelector(`.react-flow__node[data-id="${CSS.escape(blockId)}"]`);
+			lit.current?.classList.add("fx-node--highlight");
+		},
+		[unlightBlock],
+	);
+	useEffect(() => {
+		if (!isOpen) unlightBlock();
+	}, [isOpen, unlightBlock]);
+	useEffect(() => unlightBlock, [unlightBlock]);
+
 	const handleItemClick = useCallback(
-		(blockId: string) => {
-			onSelectBlock?.(blockId);
+		(blockId: string, tab?: string) => {
+			onSelectBlock?.(blockId, tab);
 		},
 		[onSelectBlock],
 	);
@@ -283,6 +304,8 @@ export function DiagnosticsPanel({
 					blockEntries.map((entry) => (
 						<div
 							key={entry.blockId}
+							onMouseEnter={(e) => lightBlock(e.currentTarget, entry.blockId)}
+							onMouseLeave={unlightBlock}
 							className="flex flex-col rounded-md border border-border bg-surface-secondary/20 p-2.5 transition-colors hover:border-border-hover"
 						>
 							<button
@@ -333,7 +356,7 @@ export function DiagnosticsPanel({
 									<button
 										key={`${diag.source}-${idx}`}
 										type="button"
-										onClick={() => handleItemClick(entry.blockId)}
+										onClick={() => handleItemClick(entry.blockId, diag.tab)}
 										className="flex w-full items-start gap-2 rounded p-1.5 text-left text-xs transition-colors hover:bg-surface-secondary"
 									>
 										<span className="mt-0.5 shrink-0">
@@ -349,6 +372,7 @@ export function DiagnosticsPanel({
 											<p className="leading-snug text-foreground">{diag.message}</p>
 											<span className="text-[10px] text-muted">
 												{diagnosticSourceLabel(diag.source)}
+												{diag.tab && ` · opens ${diag.tab}`}
 											</span>
 										</div>
 									</button>

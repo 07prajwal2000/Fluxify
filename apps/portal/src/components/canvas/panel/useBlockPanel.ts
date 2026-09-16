@@ -6,6 +6,8 @@ export type CanvasPanel = {
 	openBlockId: string | null;
 	/** Initial tab to show when opening the panel. */
 	initialTab?: string | null;
+	/** Bumped on every `open`, so opening the same block and tab again still resets the tab. */
+	openSeq: number;
 	open: (blockId: string, initialTab?: string) => void;
 	close: () => void;
 };
@@ -14,12 +16,14 @@ export type CanvasPanel = {
 export function useBlockPanel(enabled: boolean): CanvasPanel {
 	const [openBlockId, setOpenBlockId] = useState<string | null>(null);
 	const [initialTab, setInitialTab] = useState<string | null>(null);
+	const [openSeq, setOpenSeq] = useState(0);
 
 	const open = useCallback(
 		(blockId: string, tab?: string) => {
 			if (enabled) {
 				setOpenBlockId(blockId);
 				setInitialTab(tab ?? null);
+				setOpenSeq((n) => n + 1);
 			}
 		},
 		[enabled],
@@ -31,7 +35,7 @@ export function useBlockPanel(enabled: boolean): CanvasPanel {
 	}, []);
 
 	return useMemo(
-		() => ({ enabled, openBlockId: enabled ? openBlockId : null, initialTab, open, close }),
-		[enabled, openBlockId, initialTab, open, close],
+		() => ({ enabled, openBlockId: enabled ? openBlockId : null, initialTab, openSeq, open, close }),
+		[enabled, openBlockId, initialTab, openSeq, open, close],
 	);
 }
