@@ -36,10 +36,14 @@ describe("switch block: switching on a value", () => {
 		expect((await run(graph, { status: "lost" })).output).toEqual({ status: "lost" });
 	});
 
-	it("compares plain text strictly, so a number needs a js: case value", async () => {
+	it("types plain numbers and booleans, and compares strictly", async () => {
 		const text = valueSwitch("return input.code;", { notFound: "404" });
-		expect((await run(text, { code: 404 })).output).toEqual({ code: 404 });
-		expect((await run(text, { code: "404" })).output).toBe("notFound");
+		expect((await run(text, { code: 404 })).output).toBe("notFound");
+		expect((await run(text, { code: "404" })).output).toEqual({ code: "404" });
+
+		const flag = valueSwitch("return input.v;", { yes: "true" });
+		expect((await run(flag, { v: true })).output).toBe("yes");
+		expect((await run(flag, { v: "true" })).output).toEqual({ v: "true" });
 
 		const number = valueSwitch("return input.code;", { notFound: "js: return 404;" });
 		expect((await run(number, { code: 404 })).output).toBe("notFound");

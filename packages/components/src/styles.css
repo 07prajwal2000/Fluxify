@@ -10,6 +10,7 @@
 /* This package ships TSX source to the portal. Ask Tailwind to emit utilities
    used by those components too, including the playground's split-grid classes. */
 @source "./ApiPlayground";
+@source "./ReorderableList";
 
 @theme {
 	/* Configurable type. Swap this one line to change the product typeface. */

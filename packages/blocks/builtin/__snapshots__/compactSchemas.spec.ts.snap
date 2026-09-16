@@ -236,10 +236,11 @@ orchestrator {
 
 switch {
 	order: string[];  // target block ids of the 'case' connections, in the order they are checked; unlisted connections are checked last; default []
-	conditions: Record<string, string>;  // used when useValue is false: target block id -> condition for that case. "js:" + a JavaScript function body runs as code and matches when it returns a truthy value, e.g. "js: return input.age >= 18;". Plain text is not code: "false" never matches, any other text always matches. An empty or missing condition never matches; default {}
+	conditions: Record<string, string>;  // used when useValue is false: target block id -> condition for that case. "js:" + a JavaScript function body that matches when it returns a truthy value, e.g. "js: return input.age >= 18;". Plain text matches when the input === that literal (numbers and true/false are typed, anything else is a string). Empty or missing conditions never match; default {}
 	useValue: boolean;  // true: run \`value\` once, then pick the first case whose \`matches\` entry equals its result (===); default false
 	value: string;  // used when useValue is true: JavaScript function body returning the value to switch on, e.g. "return input.status;"; default ""
-	matches: Record<string, string>;  // used when useValue is true: target block id -> the value that picks that case. Plain text is compared as a string; use "js:" for any other type, e.g. "js: return 404;". An empty or missing entry never matches; default {}
+	matches: Record<string, string>;  // used when useValue is true: target block id -> the value that picks that case. Plain text is a literal: numbers and true/false are typed, anything else is a string; use "js:" for any other value, e.g. "js: return null;". An empty or missing entry never matches; default {}
+	defaultCase: string;  // target block id of the 'case' connection that runs when no other case matches; its condition/match is ignored; default ""
 }
 
 cloud_logs {

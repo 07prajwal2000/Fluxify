@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import type { CanvasBlock, CanvasEdge } from "../types";
-import { SWITCH_SOURCE, validateSwitches } from "./switchValidator";
+import { NO_DEFAULT, SWITCH_SOURCE, validateSwitches } from "./switchValidator";
 import { diagnosticSourceLabel } from "./types";
 
 const sw = (data: Record<string, unknown> = {}, id = "sw"): CanvasBlock => ({
@@ -30,8 +30,11 @@ const input = (to = "sw"): CanvasEdge => ({
 	toHandle: `${to}-target`,
 });
 
+/** case warnings only; the no-default warning has its own tests */
 const messages = (blocks: CanvasBlock[], edges: CanvasEdge[]) =>
-	validateSwitches({ blocks, edges }).map((d) => d.message);
+	validateSwitches({ blocks, edges })
+		.map((d) => d.message)
+		.filter((m) => m !== NO_DEFAULT);
 
 const NO_CASES = /has no cases connected.*Connect a block to the Cases handle/;
 const noCondition = (n: number) => new RegExp(`^Case ${n} \\(.+\\) has no condition, so it never runs\\.`);
@@ -52,7 +55,7 @@ describe("validateSwitches", () => {
 	});
 
 	it("says nothing when every case has a condition", () => {
-		const blocks = [sw({ conditions: { a: "js: return true;", b: "true" } }), other("a"), other("b")];
+		const blocks = [sw({ conditions: { a: "js: return true;", b: "js: return 1;" } }), other("a"), other("b")];
 		expect(messages(blocks, [caseEdge("a"), caseEdge("b")])).toEqual([]);
 	});
 
@@ -66,11 +69,31 @@ describe("validateSwitches", () => {
 		result.forEach((message, i) => expect(message).toMatch(noCondition(i + 1)));
 	});
 
+	it("does not ask the default case for a condition", () => {
+		const blocks = [sw({ conditions: { a: "js: return true;" }, defaultCase: "b" }), other("a"), other("b")];
+		expect(validateSwitches({ blocks, edges: [caseEdge("a"), caseEdge("b")] })).toEqual([]);
+	});
+
+	it("warns once when a switch with cases has no default, or its default is not connected", () => {
+		const count = (data: Record<string, unknown>) =>
+			validateSwitches({ blocks: [sw(data), other("a")], edges: [caseEdge("a")] }).filter(
+				(d) => d.message === NO_DEFAULT,
+			).length;
+		expect(count({})).toBe(1);
+		expect(count({ defaultCase: "gone" })).toBe(1);
+		expect(count({ defaultCase: "a" })).toBe(0);
+		expect(NO_DEFAULT).toContain("returns the Switch's input");
+	});
+
+	it("does not add the no-default warning when there are no cases", () => {
+		expect(validateSwitches({ blocks: [sw()], edges: [] }).map((d) => d.message)).not.toContain(NO_DEFAULT);
+	});
+
 	it("names the case's block and says how to fix it", () => {
 		const blocks = [sw(), other("a", "jsrunner", { blockName: "Charge card" })];
 		const [message] = messages(blocks, [caseEdge("a")]);
 		expect(message).toContain("Case 1 (Charge card)");
-		expect(message).toContain("In the Cases tab, add a condition");
+		expect(message).toContain("In the Cases tab, turn on JS");
 		expect(message).toContain('return input.status === "paid";');
 	});
 
@@ -133,7 +156,7 @@ describe("validateSwitches", () => {
 	});
 
 	it("checks each switch on the canvas separately", () => {
-		const blocks = [sw({}, "one"), sw({ conditions: { a: "js: return true;" } }, "two"), other("a")];
+		const blocks = [sw({}, "one"), sw({ conditions: { a: "js: return true;" }, defaultCase: "a" }, "two"), other("a")];
 		const diagnostics = validateSwitches({ blocks, edges: [caseEdge("a", "two")] });
 		expect(diagnostics.map((d) => d.blockId)).toEqual(["one"]);
 	});
@@ -143,30 +166,14 @@ describe("validateSwitches", () => {
 		expect(messages([broken, other("a")], [caseEdge("a")])[0]).toMatch(noCondition(1));
 	});
 
-	it("accepts plain true in any case, and js: code, without a warning", () => {
-		const blocks = [sw({ conditions: { a: "True", b: " js: return input.ok; " } }), other("a"), other("b")];
-		expect(messages(blocks, [caseEdge("a"), caseEdge("b")])).toEqual([]);
+	it("accepts js: code without a warning", () => {
+		const blocks = [sw({ conditions: { a: " js: return input.ok; " } }), other("a")];
+		expect(messages(blocks, [caseEdge("a")])).toEqual([]);
 	});
 
-	it("warns that a case set to plain false never runs", () => {
-		const blocks = [sw({ conditions: { a: " FALSE " } }), other("a")];
-		const result = messages(blocks, [caseEdge("a")]);
-		expect(result).toHaveLength(1);
-		expect(result[0]).toMatch(/^Case 1 \(.+\) is set to false, so it never runs\./);
-	});
-
-	it("warns when plain text looks like code, because it always matches", () => {
-		const blocks = [sw({ conditions: { a: 'return input.status === "paid";' } }), other("a")];
-		const [message] = messages(blocks, [caseEdge("a")]);
-		expect(message).toContain('plain text "return input.status === "paid";"');
-		expect(message).toContain("turn on JS in the field");
-	});
-
-	it("shortens long plain text in the warning", () => {
-		const blocks = [sw({ conditions: { a: "x".repeat(60) } }), other("a")];
-		const [message] = messages(blocks, [caseEdge("a")]);
-		expect(message).toContain(`"${"x".repeat(40)}…"`);
-		expect(message).not.toContain("x".repeat(41));
+	it("accepts plain-text literals without a warning", () => {
+		const blocks = [sw({ conditions: { a: "paid", b: "404", c: " FALSE " } }), other("a"), other("b"), other("c")];
+		expect(messages(blocks, [caseEdge("a"), caseEdge("b"), caseEdge("c")])).toEqual([]);
 	});
 
 	it("does not judge plain-text match values in value mode", () => {
