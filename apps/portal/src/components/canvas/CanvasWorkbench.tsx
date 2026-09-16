@@ -10,6 +10,7 @@ import { findCycleEdgeIds } from "./cycleDetection";
 import { saveWithDoctor, type ChangeSet } from "./changes";
 import { CanvasDiagnosticsProvider, useBlockDiagnostics } from "./diagnostics";
 import { COMPILE_SOURCE } from "./diagnostics/compileDiagnostics";
+import { blockDiagnosticsFromSaveError, SAVE_SOURCE } from "./diagnostics/saveErrorDiagnostics";
 import {
 	useCompileDiagnostics,
 	type CompileTarget,
@@ -104,6 +105,7 @@ function CanvasWorkbenchInner({
 			return;
 		}
 		setIsSaving(true);
+		diagnostics.clearSource(SAVE_SOURCE);
 		try {
 			const lastCompileId = await compile.baseline();
 			const outcome = await saveWithDoctor({
@@ -126,7 +128,15 @@ function CanvasWorkbenchInner({
 			} else toast.success(saved);
 		} catch (error) {
 			// Both the save and the repaired retry failed — this is for the user.
-			showErrorNotification(error as Error);
+			const blockErrors = blockDiagnosticsFromSaveError(error, current.graph);
+			if (blockErrors) {
+				diagnostics.setFromSource(SAVE_SOURCE, blockErrors);
+				toast.danger("Failed to save canvas", {
+					actionProps: { children: "View diagnostics", onPress: diagnostics.openPanel },
+				});
+			} else {
+				showErrorNotification(error as Error);
+			}
 		} finally {
 			setIsSaving(false);
 		}
