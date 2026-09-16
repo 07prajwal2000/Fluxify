@@ -1,3 +1,4 @@
+import { hoistImports } from "@fluxify/blocks/imports";
 import { variableNameError } from "@fluxify/blocks/variableName";
 import { BLOCK_TYPES } from "../blocks/blockTypes";
 import { savesOutput } from "../panel/SaveOutputField";
@@ -26,8 +27,13 @@ const DB_WITH_TABLE = new Set<string>([
 ]);
 const DB_WITH_JOINS = new Set<string>([BLOCK_TYPES.db_getsingle, BLOCK_TYPES.db_getall]);
 const BODY_METHODS = new Set(["POST", "PUT", "PATCH"]);
-/** "return" alone is 6 chars; anything shorter can't produce a value */
-const MIN_SCRIPT = 6;
+/** a script block's code field and the tab it is edited in */
+const SCRIPTS: Record<string, { key: string; tab: string }> = {
+	[BLOCK_TYPES.jsrunner]: { key: "value", tab: "General" },
+	[BLOCK_TYPES.transformer]: { key: "js", tab: "Custom JavaScript" },
+	[BLOCK_TYPES.kv_raw]: { key: "js", tab: "Code" },
+	[BLOCK_TYPES.db_native]: { key: "js", tab: "Code" },
+};
 
 /** a value, a condition side (`{ kind, value }`) or a `js:` string with nothing in it */
 function isBlank(raw: unknown): boolean {
@@ -50,17 +56,59 @@ function isUrl(raw: string) {
 	}
 }
 
-type Report = (severity: DiagnosticSeverity, message: string) => void;
+type Report = (severity: DiagnosticSeverity, message: string, tab?: string) => void;
+export type BlockConfigIssue = { severity: DiagnosticSeverity; message: string; tab?: string };
+
+// user code runs as an async function body on the server, so parse it as one
+const AsyncFunction = (async () => {}).constructor as new (...args: string[]) => unknown;
+const parsed = new Map<string, string | null>();
+
+/** the parse error of a script, or null. Cached: this runs on every keystroke */
+function syntaxError(code: string): string | null {
+	const hit = parsed.get(code);
+	if (hit !== undefined) return hit;
+	let error: string | null = null;
+	try {
+		new AsyncFunction("input", "params", hoistImports(code).code);
+	} catch (e) {
+		// EvalError = the page forbids eval; that says nothing about the script
+		if (!(e instanceof EvalError)) error = e instanceof Error ? e.message : String(e);
+	}
+	// ponytail: drops everything when full, an LRU if big canvases thrash it
+	if (parsed.size >= 500) parsed.clear();
+	parsed.set(code, error);
+	return error;
+}
+
+// ponytail: a "return" inside a string or comment counts too; parse if that misleads
+const HAS_RETURN = /(^|[^\w$.])return(?![\w$])/;
+
+function checkScript(raw: unknown, where: string, report: Report, tab?: string) {
+	const code = text(raw).replace(/^js:/, "");
+	if (!code.trim()) return report("warning", `${where} is empty, so it does nothing.`, tab);
+	const error = syntaxError(code);
+	if (error) report("error", `${where} has a syntax error: ${error}`, tab);
+	else if (!HAS_RETURN.test(code)) report("warning", `${where} has no return, so it gives back nothing.`, tab);
+}
+
+/** calls `visit` for every `js:` string, with the top-level field it sits in */
+function eachInlineJs(data: BlockData, skip: Set<string>, visit: (field: string, code: string) => void) {
+	const walk = (value: unknown, field: string) => {
+		if (typeof value === "string") {
+			if (value.startsWith("js:")) visit(field, value);
+		} else if (value && typeof value === "object") {
+			for (const item of Object.values(value)) walk(item, field);
+		}
+	};
+	for (const [field, value] of Object.entries(data)) if (!skip.has(field)) walk(value, field);
+}
 
 function checkDb(type: string, data: BlockData, report: Report) {
 	if (isBlank(data.connection ?? data.integration ?? data.integrationId)) {
-		report("error", "No database connection selected. Pick one in the General tab.");
+		report("error", "No database connection selected. Pick one in the General tab.", "General");
 	}
 	if (DB_WITH_TABLE.has(type) && isBlank(data.tableName ?? data.table)) {
-		report("error", "No table name. Enter the table in the General tab.");
-	}
-	if (type === BLOCK_TYPES.db_native && isBlank(data.js ?? data.value)) {
-		report("warning", "The query script is empty, so this block does nothing.");
+		report("error", "No table name. Enter the table in the General tab.", "General");
 	}
 	if (type === BLOCK_TYPES.db_transaction && isBlank(data.executor)) {
 		report("warning", "The transaction script is empty, so this block does nothing.");
@@ -70,46 +118,64 @@ function checkDb(type: string, data: BlockData, report: Report) {
 		const conditions = list(data.conditions) as Record<string, unknown>[];
 		if (conditions.length === 0 && type !== BLOCK_TYPES.db_getsingle) {
 			const what = type === BLOCK_TYPES.db_getall ? "reads" : type === BLOCK_TYPES.db_update ? "updates" : "deletes";
-			report("warning", `No conditions, so this ${what} every row in the table. Add conditions in the Edit Conditions tab if that is not intended.`);
+			report("warning", `No conditions, so this ${what} every row in the table. Add conditions in the Edit Conditions tab if that is not intended.`, "Edit Conditions");
 		}
 		conditions.forEach((c, i) => {
 			const empty =
 				c.operator === "raw"
 					? isBlank(c.raw)
 					: isBlank(c.attribute ?? c.lhs) || isBlank(c.value ?? c.rhs);
-			if (empty) report("warning", `Condition ${i + 1} has an empty side. Fill both sides or remove it.`);
+			if (empty) report("warning", `Condition ${i + 1} has an empty side. Fill both sides or remove it.`, "Edit Conditions");
 		});
 	}
 
 	if (DB_WITH_JOINS.has(type)) {
 		(list(data.joins) as Record<string, unknown>[]).forEach((j, i) => {
 			if (isBlank(j.table) || isBlank(j.attribute)) {
-				report("warning", `Join ${i + 1} is missing its table or column. Fill it in the Joins tab or remove it.`);
+				report("warning", `Join ${i + 1} is missing its table or column. Fill it in the Joins tab or remove it.`, "Joins");
 			}
 		});
 	}
 	if (type === BLOCK_TYPES.db_getall) {
-		if (isBlank(data.limit)) report("warning", "Limit is empty. Set it in the Pagination tab.");
-		if (isBlank(data.offset)) report("warning", "Offset is empty. Set it in the Pagination tab, e.g. 0.");
+		if (isBlank(data.limit)) report("warning", "Limit is empty. Set it in the Pagination tab.", "Pagination");
+		if (isBlank(data.offset)) report("warning", "Offset is empty. Set it in the Pagination tab, e.g. 0.", "Pagination");
 	}
 
 	const payload = data.data as { source?: string; value?: unknown } | undefined;
 	if (payload && data.useParam !== true) {
 		const empty = payload.source === "js" ? isBlank(payload.value) : isEmptyObject(payload.value);
-		if (empty) report("warning", "No data to write. Fill the Data tab or turn on Use Parameter.");
+		if (empty) {
+			const tab = type === BLOCK_TYPES.db_update ? "Data to Update" : "Data to Insert";
+			report("warning", `No data to write. Fill the ${tab} tab or turn on Use Parameter.`, tab);
+		}
 	}
 }
 
 /** config problems for one block; empty when it looks runnable */
-export function blockConfigIssues(type: string, data: BlockData): { severity: DiagnosticSeverity; message: string }[] {
-	const out: { severity: DiagnosticSeverity; message: string }[] = [];
-	const report: Report = (severity, message) => out.push({ severity, message });
+export function blockConfigIssues(type: string, data: BlockData): BlockConfigIssue[] {
+	const out: BlockConfigIssue[] = [];
+	const report: Report = (severity, message, tab) => {
+		out.push(tab ? { severity, message, tab } : { severity, message });
+	};
 
 	const save = data.saveAsVariable as { enabled?: boolean; name?: unknown } | undefined;
 	if (save?.enabled === true && savesOutput(type, data)) {
 		const error = variableNameError(text(save.name));
-		if (error) report("error", `Save output to variable: ${error}.`);
+		if (error) report("error", `Save output to variable: ${error}.`, "General");
 	}
+
+	// the script field, plus every inline `js:` value the block holds
+	const script = SCRIPTS[type];
+	const skip = new Set<string>();
+	if (script) {
+		skip.add(script.key);
+		if (type !== BLOCK_TYPES.transformer || data.useJs === true) {
+			checkScript(data[script.key], "The script", report, script.tab);
+		}
+	}
+	eachInlineJs(data, skip, (field, code) => {
+		if (code.slice(3).trim()) checkScript(code, `The script in "${field}"`, report);
+	});
 
 	if (DB_TYPES.has(type)) {
 		checkDb(type, data, report);
@@ -119,11 +185,11 @@ export function blockConfigIssues(type: string, data: BlockData): { severity: Di
 	switch (type) {
 		case BLOCK_TYPES.httprequest: {
 			const url = text(data.url);
-			if (!url) report("error", "URL is empty. Enter it in the General tab.");
-			else if (!url.startsWith("js:") && !isUrl(url)) report("error", `"${url}" is not a valid http(s) URL.`);
+			if (!url) report("error", "URL is empty. Enter it in the General tab.", "General");
+			else if (!url.startsWith("js:") && !isUrl(url)) report("error", `"${url}" is not a valid http(s) URL.`, "General");
 			const method = String(data.method || "GET").toUpperCase();
 			if (BODY_METHODS.has(method) && data.useParam !== true && isBlank(data.body)) {
-				report("warning", `${method} request has an empty body. Fill the Body tab or turn on Use Params.`);
+				report("warning", `${method} request has an empty body. Fill the Body tab or turn on Use Params.`, "Body");
 			}
 			break;
 		}
@@ -133,19 +199,18 @@ export function blockConfigIssues(type: string, data: BlockData): { severity: Di
 			break;
 		case BLOCK_TYPES.arrayops:
 			if (data.useParamAsInput !== true && isBlank(data.datasource)) {
-				report("warning", "No datasource. Enter the array variable or turn on Use Param.");
+				report("warning", "No datasource. Enter the array variable or turn on Use Param.", "General");
 			}
 			break;
 		case BLOCK_TYPES.kv_operations:
-			if (isBlank(data.connection)) report("error", "No KV connection selected. Pick one in the General tab.");
-			if (isBlank(data.key)) report("warning", "Key is empty. Enter it in the Operation tab.");
+			if (isBlank(data.connection)) report("error", "No KV connection selected. Pick one in the General tab.", "General");
+			if (isBlank(data.key)) report("warning", "Key is empty. Enter it in the Operation tab.", "Operation");
 			if (data.operation === "set" && data.useParam !== true && isBlank(data.value)) {
-				report("warning", "Nothing to store. Enter a value or turn on Use Param.");
+				report("warning", "Nothing to store. Enter a value or turn on Use Param.", "Operation");
 			}
 			break;
 		case BLOCK_TYPES.kv_raw:
-			if (isBlank(data.connection)) report("error", "No KV connection selected. Pick one in the General tab.");
-			if (text(data.js).length < MIN_SCRIPT) report("warning", "The script is empty, so this block does nothing.");
+			if (isBlank(data.connection)) report("error", "No KV connection selected. Pick one in the General tab.", "General");
 			break;
 		case BLOCK_TYPES.triggerWorkflow:
 			if (data.mode === "cancel") {
@@ -155,11 +220,11 @@ export function blockConfigIssues(type: string, data: BlockData): { severity: Di
 			}
 			break;
 		case BLOCK_TYPES.if:
-			if (list(data.conditions).length === 0) report("warning", "No conditions. Add at least one in the Edit Conditions tab.");
+			if (list(data.conditions).length === 0) report("warning", "No conditions. Add at least one in the Edit Conditions tab.", "Edit Conditions");
 			break;
 		case BLOCK_TYPES.foreachloop:
 			if (data.useParam !== true && list(data.values).length === 0) {
-				report("warning", "Nothing to loop over. Add items in the Data tab or turn on Use Param.");
+				report("warning", "Nothing to loop over. Add items in the Data tab or turn on Use Param.", "Data");
 			}
 			break;
 		case BLOCK_TYPES.forloop: {
@@ -184,15 +249,8 @@ export function blockConfigIssues(type: string, data: BlockData): { severity: Di
 			if (isBlank(data.connection)) report("error", "No observability connection selected.");
 			break;
 		case BLOCK_TYPES.transformer:
-			if (data.useJs === true) {
-				if (text(data.js).length < MIN_SCRIPT) report("warning", "The script is too short to return anything.");
-			} else if (isEmptyObject(data.fieldMap)) {
-				report("warning", "Field map is empty. Add fields or turn on Use JS script.");
-			}
-			break;
-		case BLOCK_TYPES.jsrunner:
-			if (text(data.value ?? data.js ?? data.code).length < MIN_SCRIPT) {
-				report("warning", "The script is too short to do anything.");
+			if (data.useJs !== true && isEmptyObject(data.fieldMap)) {
+				report("warning", "Field map is empty. Add fields or turn on Use JS script.", "Field Map");
 			}
 			break;
 	}

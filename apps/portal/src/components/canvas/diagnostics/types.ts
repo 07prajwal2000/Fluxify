@@ -16,6 +16,8 @@ export type BlockDiagnostic = {
 	severity: DiagnosticSeverity;
 	message: string;
 	source: string;
+	/** settings tab where the fix goes; entries open it when clicked */
+	tab?: string;
 	/** still being worked out, e.g. a compile that has not reported yet */
 	pending?: boolean;
 };

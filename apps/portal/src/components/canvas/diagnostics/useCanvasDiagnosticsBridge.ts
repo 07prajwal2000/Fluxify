@@ -63,7 +63,7 @@ export function useCanvasDiagnosticsBridge({
 	);
 
 	const handleSelectBlock = useCallback(
-		(blockId: string) => {
+		(blockId: string, tab: string = DIAGNOSTICS_TAB) => {
 			const targetNode = nodes.find((n) => n.id === blockId);
 			if (targetNode) {
 				setNodes((current) =>
@@ -74,7 +74,7 @@ export function useCanvasDiagnosticsBridge({
 				});
 			}
 			closeDiagnosticsPanel();
-			openBlockPanel(blockId, DIAGNOSTICS_TAB);
+			openBlockPanel(blockId, tab);
 		},
 		[closeDiagnosticsPanel, nodes, openBlockPanel, setCenter, setNodes],
 	);

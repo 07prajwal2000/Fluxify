@@ -57,6 +57,8 @@ export function splitTabs(children: ReactNode) {
 export type BlockSettingsProps = {
 	block: BlockNode;
 	initialTab?: string | null;
+	/** Changes on every open, so reopening the same tab still selects it. */
+	openSeq?: number;
 	/** `BlockSettings.TabHead` elements contributed by the block. */
 	children?: ReactNode;
 };
@@ -66,15 +68,15 @@ export type BlockSettingsProps = {
  * there and always first; a block adds its own tabs, or appends to General by
  * declaring a tab with that name.
  */
-export function BlockSettings({ block, initialTab, children }: BlockSettingsProps) {
+export function BlockSettings({ block, initialTab, openSeq, children }: BlockSettingsProps) {
 	const { generalExtras, blockTabs } = splitTabs(children);
 	const { definition } = blockLabels(block.type ?? "unknown", block.data);
 	const { forBlock } = useBlockDiagnostics();
 	const diagnostics = forBlock(block.id);
 	const hasDiagnostics = diagnostics.length > 0;
 
-	// the picked tab survives edits; only a new block or a new tab request resets it
-	const request = `${block.id}|${initialTab ?? ""}`;
+	// the picked tab survives edits; only a new open resets it
+	const request = `${block.id}|${initialTab ?? ""}|${openSeq ?? 0}`;
 	const [picked, setPicked] = useState({ request, tab: initialTab ?? GENERAL_TAB });
 	const wanted = picked.request === request ? picked.tab : (initialTab ?? GENERAL_TAB);
 	// a tab can vanish (last issue fixed, method without a body): fall back to
@@ -158,9 +160,12 @@ export function BlockSettings({ block, initialTab, children }: BlockSettingsProp
 				<Tabs.Panel id={DIAGNOSTICS_TAB} className="fx-panel__tab-panel">
 					<div className="flex flex-col gap-2 pt-1">
 						{diagnostics.map((diag, index) => (
-							<div
+							<button
+								type="button"
 								key={`${diag.source}-${index}`}
-								className="flex items-start gap-2.5 rounded-md border border-border bg-surface-secondary/40 p-2.5 text-xs"
+								disabled={!diag.tab}
+								onClick={() => diag.tab && setPicked({ request, tab: diag.tab })}
+								className="flex items-start gap-2.5 rounded-md border border-border bg-surface-secondary/40 p-2.5 text-left text-xs enabled:hover:border-border-hover"
 							>
 								<span className="mt-0.5 shrink-0">
 									{diag.severity === "error" ? (
@@ -177,9 +182,10 @@ export function BlockSettings({ block, initialTab, children }: BlockSettingsProp
 									</p>
 									<span className="self-start rounded bg-surface px-1.5 py-0.5 text-[10px] text-muted">
 										{diagnosticSourceLabel(diag.source)}
+										{diag.tab && ` · opens ${diag.tab}`}
 									</span>
 								</div>
-							</div>
+							</button>
 						))}
 					</div>
 				</Tabs.Panel>

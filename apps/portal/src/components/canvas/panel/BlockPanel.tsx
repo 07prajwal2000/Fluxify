@@ -18,6 +18,8 @@ export type BlockPanelProps = {
 	children?: React.ReactNode;
 	/** Initial tab to show when opening the panel. */
 	initialTab?: string | null;
+	/** Changes on every open; see `CanvasPanel.openSeq`. */
+	openSeq?: number;
 	/** Initial/default width in px when no width is saved in storage. */
 	defaultWidth?: number;
 	/** Minimum width constraint (defaults to 0 for unconstrained/infinite). */
@@ -41,6 +43,7 @@ export function BlockPanel({
 	onClose,
 	children,
 	initialTab,
+	openSeq,
 	defaultWidth,
 	minWidth,
 	maxWidth,
@@ -156,7 +159,7 @@ export function BlockPanel({
 					</header>
 
 					<div className="fx-panel__body">
-						<BlockSettings block={current} initialTab={initialTab}>
+						<BlockSettings block={current} initialTab={initialTab} openSeq={openSeq}>
 							{tabs?.(current)}
 						</BlockSettings>
 						{children}

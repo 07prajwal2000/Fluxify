@@ -24,7 +24,8 @@ export const DIAGNOSTICS_PANEL_WIDTH_KEY = "fx-diagnostics-panel-width";
 export type DiagnosticsPanelProps = {
 	isOpen: boolean;
 	onClose: () => void;
-	onSelectBlock?: (blockId: string) => void;
+	/** `tab` is where the fix goes; the Diagnostics tab when not given */
+	onSelectBlock?: (blockId: string, tab?: string) => void;
 	defaultWidth?: number;
 	minWidth?: number;
 	maxWidth?: number;
@@ -168,8 +169,8 @@ export function DiagnosticsPanel({
 	useEffect(() => unlightBlock, [unlightBlock]);
 
 	const handleItemClick = useCallback(
-		(blockId: string) => {
-			onSelectBlock?.(blockId);
+		(blockId: string, tab?: string) => {
+			onSelectBlock?.(blockId, tab);
 		},
 		[onSelectBlock],
 	);
@@ -355,7 +356,7 @@ export function DiagnosticsPanel({
 									<button
 										key={`${diag.source}-${idx}`}
 										type="button"
-										onClick={() => handleItemClick(entry.blockId)}
+										onClick={() => handleItemClick(entry.blockId, diag.tab)}
 										className="flex w-full items-start gap-2 rounded p-1.5 text-left text-xs transition-colors hover:bg-surface-secondary"
 									>
 										<span className="mt-0.5 shrink-0">
@@ -371,6 +372,7 @@ export function DiagnosticsPanel({
 											<p className="leading-snug text-foreground">{diag.message}</p>
 											<span className="text-[10px] text-muted">
 												{diagnosticSourceLabel(diag.source)}
+												{diag.tab && ` · opens ${diag.tab}`}
 											</span>
 										</div>
 									</button>

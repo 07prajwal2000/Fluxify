@@ -50,9 +50,18 @@ describe("validateBlockConfigs", () => {
 		expect(severities(BLOCK_TYPES.forloop, { start: 0, end: "js: return n", step: -1 })).toEqual([]);
 	});
 
-	it("needs 6+ char scripts", () => {
+	it("checks scripts for syntax and a return", () => {
 		expect(severities(BLOCK_TYPES.jsrunner, { value: "ret" })).toEqual(["warning"]);
+		expect(severities(BLOCK_TYPES.jsrunner, { value: "" })).toEqual(["warning"]);
 		expect(severities(BLOCK_TYPES.jsrunner, { value: "return" })).toEqual([]);
+		expect(severities(BLOCK_TYPES.jsrunner, { value: "const x = await f();\nreturn;" })).toEqual([]);
+		expect(severities(BLOCK_TYPES.jsrunner, { value: "return{a:1}" })).toEqual([]);
+		expect(severities(BLOCK_TYPES.jsrunner, { value: "const returned = 1; x.return" })).toEqual(["warning"]);
+		expect(severities(BLOCK_TYPES.jsrunner, { value: "return {" })).toEqual(["error"]);
+		expect(severities(BLOCK_TYPES.jsrunner, { value: 'import x from "y";\nreturn x' })).toEqual([]);
+		expect(severities(BLOCK_TYPES.kv_raw, { connection: "c", js: "await kv.get('a')" })).toEqual(["warning"]);
+		expect(severities(BLOCK_TYPES.httprequest, { url: "js: u +" })).toEqual(["error"]);
+		expect(severities(BLOCK_TYPES.setvar, { key: "k", value: "js: 1 + 1" })).toEqual(["warning"]);
 		expect(severities(BLOCK_TYPES.transformer, { useJs: false, fieldMap: {} })).toEqual(["warning"]);
 		expect(severities(BLOCK_TYPES.transformer, { useJs: true, js: "return 1" })).toEqual([]);
 	});
@@ -62,6 +71,11 @@ describe("validateBlockConfigs", () => {
 		expect(severities(BLOCK_TYPES.arrayops, { useParamAsInput: false })).toEqual(["warning"]);
 		expect(severities(BLOCK_TYPES.foreachloop, { useParam: false, values: [] })).toEqual(["warning"]);
 		expect(severities(BLOCK_TYPES.foreachloop, { useParam: true, values: [] })).toEqual([]);
+	});
+
+	it("points issues at the tab that fixes them", () => {
+		const tabs = blockConfigIssues(BLOCK_TYPES.db_getall, defaultBlockData(BLOCK_TYPES.db_getall)).map((i) => i.tab);
+		expect(tabs).toEqual(["General", "General", "Edit Conditions"]);
 	});
 
 	it("reports an orchestrator with no branches as info", () => {

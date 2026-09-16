@@ -8,6 +8,7 @@
 	"exports": {
 		".": "./index.ts",
 		"./blockTypes": "./blockTypes.ts",
+		"./imports": "./imports.ts",
 		"./layout": "./layout.ts",
 		"./variableName": "./variableName.ts"
 	},
