@@ -209,7 +209,7 @@ export class NatsQueueConnection extends QueueConnection {
 				messages = await this.fetch();
 			} catch (error) {
 				if (this.stopped) return;
-				if (isSourceGone(error)) return this.gone(error);
+				if (isSourceGone(error) || (await this.missing())) return this.gone(error);
 				logger.warn(`[nats] ${this.subscription.consumerGroup} fetch failed: ${String(error)}`, "QUEUE.nats");
 				await Promise.race([sleep(1_000), this.halted.promise]);
 				continue;
@@ -249,6 +249,25 @@ export class NatsQueueConnection extends QueueConnection {
 					return this.gone(new Error(status.type.replace(/_/g, " ")));
 		} catch {
 			// the fetch ended; nothing to report
+		}
+	}
+
+	/**
+	 * Asks the server whether the stream and consumer are still there. A deleted
+	 * stream does not fail a pull with anything as clear as "stream not found" —
+	 * its JetStream API subject simply stops answering, and "no responders" is
+	 * also what a momentarily unreachable cluster says. Only the API tells the
+	 * two apart, so a failed fetch is checked rather than guessed at; anything
+	 * but a definite "not found" leaves the fetch to be retried.
+	 */
+	private async missing() {
+		const { stream } = this.subscription.source as Partial<NatsSource>;
+		if (!this.nc || this.nc.isClosed() || !stream) return false;
+		try {
+			await (await jetstreamManager(this.nc)).consumers.info(stream, this.subscription.consumerGroup);
+			return false;
+		} catch (error) {
+			return isSourceGone(error);
 		}
 	}
 
