@@ -68,6 +68,34 @@ describe("RedisIntegration", () => {
 		expect(result).toBeNull();
 	});
 
+	it("writes to the configured db index, isolated from db 0", async () => {
+		const key = "db_index_" + faker.string.alphanumeric(10);
+		const value = faker.string.uuid();
+		const db2 = new RedisIntegration({
+			host: "127.0.0.1",
+			port: port,
+			database: "2",
+			source: "credentials",
+		});
+		try {
+			await db2.set(key, value);
+			expect(await db2.get(key)).toBe(value);
+			// the default-db client must not see it
+			expect(await integration.get(key)).toBeNull();
+			await db2.delete(key);
+		} finally {
+			await db2.disconnect();
+		}
+	});
+
+	it("resolves a cfg: db index from app config", () => {
+		const resolved = RedisIntegration.ExtractConnectionInfo(
+			{ host: "127.0.0.1", port: port, database: "cfg:REDIS_DB", source: "credentials" },
+			new Map([["REDIS_DB", "3"]]),
+		);
+		expect(resolved.database).toBe("3");
+	});
+
 	it("should test connection successfully", async () => {
 		const appConfigs = new Map<string, string>();
 		const result = await RedisIntegration.TestConnection({

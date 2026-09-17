@@ -23,10 +23,12 @@ export function CredentialsUrlForm({
 	placeholders,
 	hasDatabase = true,
 	hasSSL = false,
+	databaseLabel = "Database Name",
 }: ConnectorFormProps & {
 	placeholders: Placeholders;
 	hasDatabase?: boolean;
 	hasSSL?: boolean;
+	databaseLabel?: string;
 }) {
 	const [tab, setTab] = useState<"credentials" | "url">(
 		config.source === "url" ? "url" : "credentials",
@@ -102,7 +104,7 @@ export function CredentialsUrlForm({
 							projectId={projectId}
 							value={config.database?.toString() ?? ""}
 							onChange={(v) => setField("database", v)}
-							label="Database Name"
+							label={databaseLabel}
 							placeholder={placeholders.database ?? ""}
 						/>
 					)}

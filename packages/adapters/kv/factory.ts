@@ -10,6 +10,7 @@ export type KvConnectionConfig = {
 	port?: string | number;
 	username?: string;
 	password?: string;
+	database?: string | number;
 	source: "credentials" | "url";
 	url?: string;
 };
@@ -31,6 +32,7 @@ export function kvConnectionFingerprint(config: KvConnectionConfig) {
 		port: String(config.port),
 		username: config.username,
 		password: config.password,
+		database: config.database,
 	});
 	return createHash("sha256").update(material).digest("hex");
 }
