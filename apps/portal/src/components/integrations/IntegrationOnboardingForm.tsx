@@ -43,11 +43,11 @@ function gateQueue(group: string, card: ReactNode, key: string) {
 	);
 }
 
-const CRED_PLACEHOLDERS: Record<string, { ph: Record<string, string>; ssl?: boolean; db?: boolean }> = {
+const CRED_PLACEHOLDERS: Record<string, { ph: Record<string, string>; ssl?: boolean; db?: boolean; dbLabel?: string }> = {
 	PostgreSQL: { ph: { name: "My Postgres Database", host: "postgres.company.com", port: "5432", username: "postgres", password: "secret", database: "ecommerce", url: "postgres://user:pass@host:port/dbname?ssl=disable" }, ssl: true, db: true },
 	MySQL: { ph: { name: "My MySQL Database", host: "mysql.company.com", port: "3306", username: "root", password: "secret", database: "ecommerce", url: "mysql://user:pass@host:port/dbname?ssl=disable" }, db: true },
 	MongoDB: { ph: { name: "My MongoDB Database", host: "localhost", port: "27017", username: "mongo_user", password: "secret", database: "mydatabase", url: "mongodb://user:pass@host:port/dbname" }, db: true },
-	Redis: { ph: { name: "My Redis Cache", host: "redis.company.com", port: "6379", username: "default", password: "secret", url: "redis://user:pass@host:port", database: "" }, db: false },
+	Redis: { ph: { name: "My Redis Cache", host: "redis.company.com", port: "6379", username: "default", password: "secret", url: "redis://user:pass@host:port/0", database: "0" }, db: true, dbLabel: "DB Index" },
 	Memcached: { ph: { name: "My Memcached Instance", host: "memcached.company.com", port: "11211", username: "default", password: "secret", url: "memcached://user:pass@host:port", database: "" }, db: false },
 };
 
@@ -317,7 +317,8 @@ export function IntegrationOnboardingForm({ projectId, onSaved }: { projectId: s
 								<CredentialsUrlForm
 									{...formProps}
 									placeholders={CRED_PLACEHOLDERS[variant].ph as never}
-									hasDatabase={false}
+									hasDatabase={CRED_PLACEHOLDERS[variant].db}
+									databaseLabel={CRED_PLACEHOLDERS[variant].dbLabel}
 								/>
 							)}
 							{group === "ai" && <AiForm {...formProps} showBaseUrl={variant === "OpenAI Compatible"} />}

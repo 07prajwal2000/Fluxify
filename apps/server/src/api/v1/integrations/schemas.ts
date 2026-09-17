@@ -160,6 +160,13 @@ export const redisVariantConfigSchema = z
 		port: z.string().or(z.number()),
 		username: z.string().optional(),
 		password: z.string().optional(),
+		// DB index; empty means the default DB 0. `cfg:` references resolve later.
+		database: z
+			.string()
+			.refine((v) => v === "" || v.startsWith("cfg:") || /^\d+$/.test(v), {
+				message: "DB index must be a non-negative integer",
+			})
+			.optional(),
 		source: z.literal("credentials"),
 	})
 	.or(

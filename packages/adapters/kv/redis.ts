@@ -6,6 +6,8 @@ export type RedisVariantConfig = {
 	port?: string | number;
 	username?: string;
 	password?: string;
+	/** Redis DB index (credentials mode). URL mode carries it as `/2` in the url. */
+	database?: string | number;
 	source: "credentials" | "url";
 	url?: string;
 };
@@ -31,6 +33,8 @@ export class RedisIntegration extends BaseKVIntegration {
 			};
 			if (config.username) options.username = config.username;
 			if (config.password) options.password = config.password;
+			const db = Number(config.database);
+			if (config.database !== undefined && config.database !== "" && Number.isInteger(db) && db >= 0) options.db = db;
 			this.client = new Redis(options);
 		}
 	}
@@ -71,6 +75,7 @@ export class RedisIntegration extends BaseKVIntegration {
 			if (typeof result.port === "string" && result.port.startsWith("cfg:")) result.port = appConfigs.get(result.port.slice(4));
 			if (result.username?.startsWith("cfg:")) result.username = appConfigs.get(result.username.slice(4));
 			if (result.password?.startsWith("cfg:")) result.password = appConfigs.get(result.password.slice(4));
+			if (typeof result.database === "string" && result.database.startsWith("cfg:")) result.database = appConfigs.get(result.database.slice(4));
 		}
 		return result;
 	}
