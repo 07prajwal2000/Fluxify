@@ -5,6 +5,7 @@ import {
 	DeliverPolicy,
 	jetstream,
 	jetstreamManager,
+	JetStreamApiError,
 	type Consumer,
 	type ConsumerMessages,
 	type JetStreamClient,
@@ -22,6 +23,7 @@ import { connect } from "@nats-io/transport-node";
 import {
 	decode,
 	QueueConnection,
+	QueueSourceGoneError,
 	type QueueBatch,
 	type QueueEvent,
 	type QueueHandler,
@@ -99,6 +101,7 @@ export class NatsQueueConnection extends QueueConnection {
 	private readonly unacked = new Set<JsMsg>();
 	private readonly sources = new WeakMap<QueueEvent, JsMsg>();
 	private stopped = false;
+	private reportedGone = false;
 	private readonly halted = Promise.withResolvers<void>();
 
 	constructor(private readonly config: NatsConfig) {
@@ -122,17 +125,27 @@ export class NatsQueueConnection extends QueueConnection {
 			...(source.filterSubjects?.length ? { filter_subjects: source.filterSubjects } : {}),
 		};
 		// add is a no-op for an identical consumer; a changed one is updated in place
-		await jsm.consumers
-			.add(source.stream, {
-				durable_name: group,
-				ack_policy: AckPolicy.Explicit,
-				deliver_policy: source.fromBeginning ? DeliverPolicy.All : DeliverPolicy.New,
-				...settings,
-			})
-			.catch(() => jsm.consumers.update(source.stream!, group, settings));
+		// fails the start on a deleted stream, not silently on the first empty fetch
+		try {
+			await jsm.consumers
+				.add(source.stream, {
+					durable_name: group,
+					ack_policy: AckPolicy.Explicit,
+					deliver_policy: source.fromBeginning ? DeliverPolicy.All : DeliverPolicy.New,
+					...settings,
+				})
+				.catch((error) => {
+					if (isSourceGone(error)) throw error;
+					return jsm.consumers.update(source.stream!, group, settings);
+				});
 
-		this.js = jetstream(this.nc);
-		this.consumer = await this.js.consumers.get(source.stream, group);
+			this.js = jetstream(this.nc);
+			this.consumer = await this.js.consumers.get(source.stream, group);
+		} catch (error) {
+			if (!isSourceGone(error)) throw error;
+			await this.nc.close().catch(() => undefined);
+			throw new QueueSourceGoneError(describeGone(source.stream, group, error));
+		}
 		for (let i = 0; i < subscription.concurrency; i++) this.workers.push(this.work());
 	}
 
@@ -195,6 +208,8 @@ export class NatsQueueConnection extends QueueConnection {
 			try {
 				messages = await this.fetch();
 			} catch (error) {
+				if (this.stopped) return;
+				if (isSourceGone(error)) return this.gone(error);
 				logger.warn(`[nats] ${this.subscription.consumerGroup} fetch failed: ${String(error)}`, "QUEUE.nats");
 				await Promise.race([sleep(1_000), this.halted.promise]);
 				continue;
@@ -211,6 +226,9 @@ export class NatsQueueConnection extends QueueConnection {
 		const { batchSize, maxWaitMs } = this.subscription;
 		const fetch = await this.consumer!.fetch({ max_messages: batchSize, expires: Math.max(maxWaitMs, 1_000) });
 		this.fetches.add(fetch);
+		// a pull against a deleted stream or consumer does not throw: the server
+		// says so out of band and the fetch just comes back empty, forever
+		void this.watch(fetch);
 		const messages: JsMsg[] = [];
 		try {
 			for await (const message of fetch) {
@@ -221,6 +239,33 @@ export class NatsQueueConnection extends QueueConnection {
 			this.fetches.delete(fetch);
 		}
 		return messages;
+	}
+
+	/** The out-of-band word that the stream or the consumer was deleted. */
+	private async watch(fetch: ConsumerMessages) {
+		try {
+			for await (const status of fetch.status())
+				if (status.type === "stream_not_found" || status.type === "consumer_deleted" || status.type === "consumer_not_found")
+					return this.gone(new Error(status.type.replace(/_/g, " ")));
+		} catch {
+			// the fetch ended; nothing to report
+		}
+	}
+
+	/** Deleted under us: every worker stops, and the owner hears it once. */
+	private gone(error: unknown) {
+		if (this.reportedGone) return;
+		this.reportedGone = true;
+		this.stopped = true;
+		this.halted.resolve();
+		for (const fetch of this.fetches) fetch.stop();
+		// nothing to hand back: the messages went with the stream
+		this.unacked.clear();
+		const stream = String((this.subscription.source as Partial<NatsSource>).stream);
+		logger.error(`[nats] ${this.subscription.consumerGroup} stream ${stream} is gone, stopping`, "QUEUE.nats");
+		this.subscription.onSourceGone?.(
+			new QueueSourceGoneError(describeGone(stream, this.subscription.consumerGroup, error)),
+		);
 	}
 
 	/** Cuts a fetch before it goes over `maxBytes` — but never into an empty batch. */
@@ -284,6 +329,18 @@ export class NatsQueueConnection extends QueueConnection {
 		this.sources.set(event, message);
 		return event;
 	}
+}
+
+/** The stream or the durable consumer is gone; retrying cannot bring it back. */
+export function isSourceGone(error: unknown) {
+	if (error instanceof JetStreamApiError)
+		return error.code === 10059 || error.code === 10014;
+	return error instanceof Error && /stream not found|consumer not found|consumer deleted/i.test(error.message);
+}
+
+function describeGone(stream: string, group: string, error: unknown) {
+	const detail = error instanceof Error ? error.message : String(error);
+	return `NATS no longer has the stream this trigger reads: stream "${stream}", consumer "${group}" (${detail}). Recreate it on the cluster, then enable the trigger again.`;
 }
 
 export function createConnection(config: unknown) {

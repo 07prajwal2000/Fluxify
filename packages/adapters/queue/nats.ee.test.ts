@@ -4,7 +4,7 @@ import { jetstream, jetstreamManager, type JetStreamClient, type JetStreamManage
 import { headers as natsHeaders, type NatsConnection } from "@nats-io/nats-core";
 import { connect } from "@nats-io/transport-node";
 import { docker, pullImage, startContainerWithRandomPort } from "../containerTestHelpers";
-import type { QueueBatch, QueueConnection, QueueHandler, QueueSubscription } from "./base";
+import { QueueSourceGoneError, type QueueBatch, type QueueConnection, type QueueHandler, type QueueSubscription } from "./base";
 import { assertNatsStream, connectOptions, createConnection, testNatsConnection, type NatsConfig, type NatsSource } from "./nats.ee";
 import { QueueConnectionManager } from "./manager";
 
@@ -159,6 +159,40 @@ describe("checking a trigger's stream", () => {
 		await expect(assertNatsStream({ servers: "nats://localhost:1" }, "x")).rejects.toThrow(
 			/Could not reach the NATS servers/,
 		);
+	}, T);
+});
+
+describe("a deleted stream", () => {
+	it("fails to start on a stream that does not exist", async () => {
+		const connection = createConnection(config);
+		open.push(connection);
+		await expect(connection.consume(subscription(`missing-${++seq}`), async () => {})).rejects.toBeInstanceOf(
+			QueueSourceGoneError,
+		);
+	}, T);
+
+	it("stops and says so, once, when the stream is deleted under it", async () => {
+		const name = await stream();
+		const gone: QueueSourceGoneError[] = [];
+		await start(subscription(name, { concurrency: 2, onSourceGone: (error) => gone.push(error) }), async () => {});
+		await jsm.streams.delete(name);
+
+		await until(() => gone.length > 0);
+		await Bun.sleep(1_500); // the second worker must not report it again
+		expect(gone).toHaveLength(1);
+		expect(gone[0]).toBeInstanceOf(QueueSourceGoneError);
+		expect(gone[0]!.message).toContain(name);
+	}, T);
+
+	it("stops and says so when only the consumer is deleted under it", async () => {
+		const name = await stream();
+		const gone: QueueSourceGoneError[] = [];
+		const sub = subscription(name, { onSourceGone: (error) => gone.push(error) });
+		await start(sub, async () => {});
+		await jsm.consumers.delete(name, sub.consumerGroup);
+
+		await until(() => gone.length > 0);
+		expect(gone[0]!.message).toContain(sub.consumerGroup);
 	}, T);
 });
 
