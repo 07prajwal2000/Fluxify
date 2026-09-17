@@ -1,6 +1,7 @@
 import { describe, expect, it } from "bun:test";
 import type { QueueBatch, QueueHandler, QueueSubscription } from "./base";
-import { KafkaConnection } from "./kafka.ee";
+import { ProtocolError, ResponseError } from "@platformatic/kafka";
+import { isTopicGone, KafkaConnection } from "./kafka.ee";
 
 /**
  * The batching and redelivery the connector does itself, driven with fake
@@ -163,5 +164,20 @@ describe("kafka connection", () => {
 		expect(Date.now() - started).toBeLessThan(500);
 		await Bun.sleep(50);
 		expect(calls).toBe(1);
+	});
+});
+
+describe("spotting a deleted topic", () => {
+	it("finds the protocol error however deep the client buried it", () => {
+		const gone = new ProtocolError("UNKNOWN_TOPIC_OR_PARTITION");
+		expect(isTopicGone(gone)).toBe(true);
+		expect(isTopicGone(new Error("fetch failed", { cause: gone }))).toBe(true);
+		expect(isTopicGone(new ResponseError("Fetch", 1, { "topics/0": [3, null] }, {} as any))).toBe(true);
+	});
+
+	it("leaves everything else alone", () => {
+		expect(isTopicGone(new ProtocolError("NOT_LEADER_OR_FOLLOWER"))).toBe(false);
+		expect(isTopicGone(new Error("connection refused"))).toBe(false);
+		expect(isTopicGone("unknown topic or partition")).toBe(false);
 	});
 });

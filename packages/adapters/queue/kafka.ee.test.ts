@@ -2,8 +2,8 @@ import { afterAll, afterEach, beforeAll, describe, expect, it } from "bun:test";
 import type Docker from "dockerode";
 import { Admin, Consumer, MessagesStreamModes, Producer } from "@platformatic/kafka";
 import { docker, pullImage, startContainerWithRandomPort } from "../containerTestHelpers";
-import type { QueueBatch, QueueConnection, QueueHandler, QueueSubscription } from "./base";
-import { createConnection, ensureKafkaTopics, testKafkaConnection, type KafkaConfig } from "./kafka.ee";
+import { QueueSourceGoneError, type QueueBatch, type QueueConnection, type QueueHandler, type QueueSubscription } from "./base";
+import { createConnection, ensureKafkaTopics, testKafkaConnection, type KafkaConfig, type KafkaSource } from "./kafka.ee";
 import { QueueConnectionManager } from "./manager";
 
 /**
@@ -128,9 +128,9 @@ async function send(to: string, messages: Outgoing[]) {
 const numbered = (from: number, count: number, partition = 0): Outgoing[] =>
 	Array.from({ length: count }, (_, i) => ({ value: { n: from + i }, partition }));
 
-function subscription(topics: string[], settings: Partial<QueueSubscription> = {}) {
+function subscription(topics: string[], settings: Partial<QueueSubscription> = {}, source: Partial<KafkaSource> = {}) {
 	return {
-		source: { topics, fromBeginning: true },
+		source: { topics, fromBeginning: true, ...source },
 		consumerGroup: `fluxify-${topics[0]}`,
 		batchSize: 10,
 		maxWaitMs: 200,
@@ -235,6 +235,46 @@ describe("checking a trigger's topics", () => {
 		await expect(ensureKafkaTopics({ brokers: "localhost:1" }, ["x"], true)).rejects.toThrow(
 			/Could not reach the Kafka brokers/,
 		);
+	}, T);
+});
+
+describe("a deleted topic", () => {
+	it("fails to start on a topic that does not exist", async () => {
+		const connection = createConnection(config);
+		open.push(connection);
+		await expect(connection.consume(subscription([`missing-${++seq}`]), async () => {})).rejects.toBeInstanceOf(
+			QueueSourceGoneError,
+		);
+	}, T);
+
+	it("puts a missing topic back instead when the trigger creates its topics", async () => {
+		const name = `created-${Date.now()}-${++seq}`;
+		const { handler, values } = recorder();
+		await start(subscription([name], {}, { createTopics: true }), handler);
+		await send(name, numbered(0, 1));
+		await until(() => values().length === 1);
+	}, T);
+
+	it("lets two starts race to create the same topic", async () => {
+		const name = `created-${Date.now()}-${++seq}`;
+		await Promise.all([
+			ensureKafkaTopics(config, [name], true),
+			ensureKafkaTopics(config, [name], true),
+			ensureKafkaTopics(config, [name], true),
+		]);
+		expect(await admin.listTopics()).toContain(name);
+	}, T);
+
+	it("stops and says so, once, when a topic is deleted under it", async () => {
+		const orders = await topic();
+		const gone: QueueSourceGoneError[] = [];
+		await start(subscription([orders], { onSourceGone: (error) => gone.push(error) }), async () => {});
+		await admin.deleteTopics({ topics: [orders] });
+
+		await until(() => gone.length > 0);
+		await Bun.sleep(1_500); // a second metadata refresh must not report it again
+		expect(gone).toHaveLength(1);
+		expect(gone[0]!.message).toContain(orders);
 	}, T);
 });
 

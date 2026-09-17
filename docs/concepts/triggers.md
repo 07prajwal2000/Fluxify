@@ -138,6 +138,30 @@ A trigger that reads from an external source uses one of your
 - **Delete the integration** and every trigger using it is deleted too. They
   stop reading straight away.
 
+## When the queue, topic or stream is deleted
+
+A trigger whose source is deleted while it is running has nothing left to read,
+and retrying cannot bring it back. Fluxify notices, stops the consumer and
+**turns the trigger off**, with the reason shown on the trigger so you know why
+without reading logs:
+
+| Source | What is noticed |
+|---|---|
+| SQS | The queue no longer exists. |
+| Kafka | A topic the trigger reads no longer exists. |
+| NATS | The stream, or the trigger's durable consumer on it, no longer exists. |
+
+Two things to know:
+
+- **Runs already started are left alone.** They finish normally. Only the
+  reading stops.
+- **A Kafka trigger reads all of its topics as one source.** If one of several
+  topics is deleted, the whole trigger is turned off — the message names the
+  topics so you can see which one went. Kafka triggers with **Create missing
+  topics** on are the exception: a missing topic is created again instead.
+
+Recreate the source, then turn the trigger back on.
+
 ## Reading from Kafka
 
 A Kafka trigger runs its workflow for messages arriving on one or more topics.
@@ -147,7 +171,7 @@ and credentials, and an enterprise license.
 | Setting | What it does |
 |---|---|
 | **Topics** | The topics to read, separated by commas. They are checked when you save: a topic that does not exist is refused with its name. |
-| **Create missing topics** | Instead of refusing, create any missing topic when you save, with your cluster's default number of partitions and replicas. The Kafka user needs permission to create topics. |
+| **Create missing topics** | Instead of refusing, create any missing topic — when you save, and again whenever the trigger starts — with your cluster's default number of partitions and replicas. The Kafka user needs permission to create topics. With this off, a topic that has gone missing turns the trigger off instead. |
 | **Read messages already in the topic** | Off: the trigger starts with messages sent after it is created. On: it starts from the oldest message still kept. Only matters the first time; after that it always carries on from where it stopped. |
 | **Max attempts** | How many times a failing batch is run before it is sent to the dead-letter topic. Defaults to 3, at most 5. |
 | **Retry delay** | The pause before the first retry. It doubles after each failed attempt: with 1000 ms, the retries wait 1 s, 2 s, 4 s, 8 s (never more than 5 minutes). |
@@ -191,7 +215,7 @@ and an enterprise license.
 
 | Setting | What it does |
 |---|---|
-| **Stream** | The stream to read. It is checked when you save, and must already exist — Fluxify never creates streams. |
+| **Stream** | The stream to read. It is checked when you save and again whenever the trigger starts, and must already exist — Fluxify never creates streams. A stream deleted under a running trigger turns it off. |
 | **Subjects** | Optional. Only read these subjects of the stream, separated by commas (`orders.eu, orders.us.*`). Empty reads every subject the stream holds. |
 | **Read messages already in the stream** | Off: only messages sent after the trigger starts. On: start from the oldest message the stream still keeps. Only matters the first time. |
 | **Max attempts**, **Retry delay**, **Commit from the workflow** | Work exactly as for Kafka, above. |

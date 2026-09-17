@@ -51,6 +51,13 @@ typo. Tick **Create missing topics** on the trigger to have them created
 instead, with your cluster's default partitions and replicas. The login on the
 integration needs permission to create topics for that to work.
 
+The same check runs whenever the trigger starts, and a topic deleted while it is
+running is noticed too. With **Create missing topics** on, the topic is simply
+created again — several workers starting at once is fine, whoever loses the race
+still gets its topic. With it off, the trigger is
+[turned off with the reason](/concepts/triggers#when-the-queue-topic-or-stream-is-deleted)
+rather than reading nothing.
+
 The brokers have to be reachable when you save a Kafka trigger's topics or
 integration. Other edits — renaming it, turning it on or off — do not contact
 them.
@@ -124,7 +131,10 @@ NATS triggers need an enterprise license, as Kafka triggers do.
 ### Streams and the dead-letter subject
 
 Fluxify never creates streams. Create the stream a trigger reads before saving
-the trigger — saving checks it exists.
+the trigger — saving checks it exists, and so does every start. Deleting the
+stream, or the trigger's durable consumer on it, while the trigger is running
+[turns the trigger off with the reason](/concepts/triggers#when-the-queue-topic-or-stream-is-deleted)
+rather than leaving it reading nothing.
 
 The dead-letter subject works like Kafka's dead-letter topic, with the same
 `x-fluxify-*` headers (`x-fluxify-topic` holds the subject, `x-fluxify-offset`

@@ -11,6 +11,7 @@ import {
 } from "@platformatic/kafka";
 import {
 	QueueConnection,
+	QueueSourceGoneError,
 	type QueueBatch,
 	type QueueEvent,
 	type QueueHandler,
@@ -85,6 +86,7 @@ export class KafkaConnection extends QueueConnection {
 	private inFlight = 0;
 	private buffered = 0;
 	private stopped = false;
+	private reportedGone = false;
 	private readonly halted = Promise.withResolvers<void>();
 
 	constructor(private readonly config: KafkaConfig) {
@@ -97,6 +99,10 @@ export class KafkaConnection extends QueueConnection {
 		if (this.topics.length === 0) throw new Error("A Kafka trigger needs at least one topic");
 		this.subscription = subscription;
 		this.handler = handler;
+
+		// fails the start on a deleted topic, not silently on the first fetch;
+		// with "create missing topics" on, it is put back instead
+		await ensureKafkaTopics(this.config, this.topics, Boolean(source.createTopics));
 
 		this.consumer = new Consumer({
 			...clientOptions(this.config),
@@ -115,8 +121,29 @@ export class KafkaConnection extends QueueConnection {
 			autocommit: false,
 		});
 		this.stream.on("data", (message) => this.receive(message));
-		this.stream.on("error", (error) =>
-			logger.error(`[kafka] ${subscription.consumerGroup}: ${String(error)}`, "QUEUE.kafka"),
+		this.stream.on("error", (error) => {
+			if (isTopicGone(error)) return this.gone(error);
+			logger.error(`[kafka] ${subscription.consumerGroup}: ${String(error)}`, "QUEUE.kafka");
+		});
+	}
+
+	/**
+	 * Deleted under us: consuming stops and the owner hears it once. A trigger
+	 * reads its topics as one source, so one missing topic disables all of it.
+	 */
+	private gone(error: unknown) {
+		if (this.reportedGone) return;
+		this.reportedGone = true;
+		this.stopped = true;
+		this.halted.resolve();
+		for (const lane of this.lanes.values()) clearTimeout(lane.timer);
+		void this.stream?.close().catch(() => undefined);
+		const listed = this.topics.join(", ");
+		logger.error(`[kafka] ${this.subscription.consumerGroup} topic(s) ${listed} are gone, stopping`, "QUEUE.kafka");
+		this.subscription.onSourceGone?.(
+			new QueueSourceGoneError(
+				`Kafka no longer has ${this.topics.length > 1 ? "one of the topics" : "the topic"} this trigger reads (${listed}): ${rootCause(error)}`,
+			),
 		);
 	}
 
@@ -346,19 +373,34 @@ export async function ensureKafkaTopics(config: KafkaConfig, topics: string[], c
 		const missing = [...new Set(topics)].filter((topic) => !existing.includes(topic));
 		if (missing.length === 0) return [];
 		if (!create)
-			throw new Error(
+			throw new QueueSourceGoneError(
 				`Topic${missing.length > 1 ? "s" : ""} not found: ${missing.join(", ")}. Create ${missing.length > 1 ? "them" : "it"} first, or turn on "Create missing topics".`,
 			);
 		try {
 			// -1 is the broker's own default for both
 			await admin.createTopics({ topics: missing, partitions: -1, replicas: -1 });
 		} catch (error) {
-			throw new Error(`Could not create ${missing.join(", ")}: ${rootCause(error)}`);
+			// two workers starting the same trigger race here; whoever loses still has its topic
+			if (!hasProtocolError(error, "TOPIC_ALREADY_EXISTS"))
+				throw new Error(`Could not create ${missing.join(", ")}: ${rootCause(error)}`);
 		}
 		return missing;
 	} finally {
 		await admin.close().catch(() => undefined);
 	}
+}
+
+/** A topic this trigger reads no longer exists; retrying cannot bring it back. */
+export function isTopicGone(error: unknown) {
+	return hasProtocolError(error, "UNKNOWN_TOPIC_OR_PARTITION");
+}
+
+/** Walks the client's nested/aggregated errors for one protocol error id. */
+function hasProtocolError(error: unknown, id: string): boolean {
+	if (!(error instanceof Error)) return false;
+	if ((error as { apiId?: string }).apiId === id) return true;
+	const nested = [...((error as AggregateError).errors ?? []), ...(error.cause ? [error.cause] : [])];
+	return nested.some((inner) => hasProtocolError(inner, id));
 }
 
 /**
