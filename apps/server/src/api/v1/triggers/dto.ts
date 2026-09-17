@@ -60,6 +60,11 @@ const connectorSchema = {
 /** Kafka's own caps: 249 characters a topic name; 100 topics is plenty for one workflow. */
 export const kafkaSourceSchema = z.object({
 	topics: z.array(z.string().min(1).max(249)).min(1).max(100),
+	/** Joins an existing group; empty gets the generated `fluxify-<triggerId>`. */
+	consumerGroup: z
+		.string()
+		.regex(/^[a-zA-Z0-9._-]{1,200}$/, "Not a valid consumer group name")
+		.optional(),
 	fromBeginning: z.boolean().optional(),
 	/** Create missing topics on save; off, a missing topic is a 400. */
 	createTopics: z.boolean().optional(),
@@ -69,6 +74,11 @@ export const kafkaSourceSchema = z.object({
 export const natsSourceSchema = z.object({
 	stream: z.string().regex(/^[^\s.*>/\\]{1,255}$/, "Not a valid stream name"),
 	filterSubjects: z.array(z.string().min(1)).max(100).optional(),
+	/** The durable consumer to join; empty gets the generated `fluxify-<triggerId>`. */
+	consumerGroup: z
+		.string()
+		.regex(/^[a-zA-Z0-9_-]{1,200}$/, "Not a valid durable consumer name")
+		.optional(),
 	fromBeginning: z.boolean().optional(),
 });
 

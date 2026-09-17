@@ -92,6 +92,9 @@ async function startTrigger(artifact: TriggerArtifact) {
 		);
 		return manager.stop(artifact.triggerId);
 	}
+	// A user-set group joins an existing one, offsets and all; the schema is what
+	// vets the name, so an unset one falls back to the generated default.
+	const source = (artifact.source ?? {}) as { consumerGroup?: string };
 	try {
 		await manager.start(
 			artifact.triggerId,
@@ -99,8 +102,8 @@ async function startTrigger(artifact: TriggerArtifact) {
 				type: artifact.type,
 				config,
 				subscription: {
-					source: artifact.source ?? {},
-					consumerGroup: `fluxify-${artifact.triggerId}`,
+					source,
+					consumerGroup: source.consumerGroup || `fluxify-${artifact.triggerId}`,
 					batchSize: artifact.batchSize,
 					maxWaitMs: artifact.maxWaitMs,
 					maxBytes: artifact.maxBytes,
