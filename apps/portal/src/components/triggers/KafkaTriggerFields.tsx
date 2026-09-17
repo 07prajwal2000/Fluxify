@@ -15,6 +15,8 @@ export type KafkaValues = {
 	integrationId: string;
 	/** comma-separated, as typed */
 	topics: string;
+	/** null uses the generated default; a string is the user's own, "" while typing */
+	consumerGroup: string | null;
 	fromBeginning: boolean;
 	createTopics: boolean;
 };
@@ -67,6 +69,13 @@ export function KafkaSourceFields({
 				<Description>One or more topics, separated by commas.</Description>
 			</TextField>
 
+			<ConsumerGroupField
+				variant="Kafka"
+				value={value.consumerGroup}
+				onChange={(next) => set("consumerGroup", next)}
+				isEdit={isEdit}
+			/>
+
 			<Checkbox
 				isSelected={value.createTopics}
 				onChange={(next) => set("createTopics", next)}
@@ -81,6 +90,57 @@ export function KafkaSourceFields({
 				label="Read messages already in the topic"
 				description="Off: only messages sent after the trigger starts. Applies to the first start only."
 			/>
+		</div>
+	);
+}
+
+/** Named their own group, but left it blank: saving would silently use the default. */
+export function hasGroup(consumerGroup: string | null) {
+	return consumerGroup === null || consumerGroup.trim().length > 0;
+}
+
+/**
+ * A group is where the offsets live, so switching one moves the trigger to
+ * another read position. Fluxify generates one per trigger by default; naming
+ * it is for joining a group that already exists.
+ *
+ * Set at creation only: a running consumer cannot be swapped onto another group
+ * without stopping it and rejoining, so an edit would silently move the offsets.
+ */
+export function ConsumerGroupField({
+	variant,
+	value,
+	onChange,
+	isEdit,
+}: {
+	variant: "Kafka" | "NATS";
+	/** null is the generated default; a string is the user's own, empty while typing */
+	value: string | null;
+	onChange: (next: string | null) => void;
+	isEdit: boolean;
+}) {
+	const isKafka = variant === "Kafka";
+	const label = isKafka ? "consumer group" : "durable consumer";
+	return (
+		<div className="flex flex-col gap-3">
+			<Checkbox
+				isSelected={value === null}
+				onChange={(useDefault) => onChange(useDefault ? null : "")}
+				isDisabled={isEdit}
+				label={`Use a generated ${label}`}
+				description={`On: Fluxify names it per trigger. Off: name it yourself to join an existing ${label}. Set when the trigger is created, and not changed after.`}
+			/>
+			{value !== null && (
+				<TextField isRequired isDisabled={isEdit} value={value} onChange={onChange}>
+					<Label>{isKafka ? "Consumer group" : "Durable consumer"}</Label>
+					<Input placeholder={isKafka ? "orders-processor" : "orders_processor"} />
+					<Description>
+						{isKafka
+							? "Letters, digits, dot, dash, underscore."
+							: "Letters, digits, dash, underscore — no dots."}
+					</Description>
+				</TextField>
+			)}
 		</div>
 	);
 }
@@ -137,6 +197,8 @@ export type NatsValues = {
 	stream: string;
 	/** comma-separated filter subjects, as typed; empty reads the whole stream */
 	subjects: string;
+	/** null uses the generated default; a string is the user's own, "" while typing */
+	consumerGroup: string | null;
 	fromBeginning: boolean;
 };
 
@@ -174,6 +236,13 @@ export function NatsSourceFields({
 				<Input placeholder="orders.eu.>, orders.us.*" />
 				<Description>Optional. Only these subjects of the stream, separated by commas. Empty reads all of them.</Description>
 			</TextField>
+
+			<ConsumerGroupField
+				variant="NATS"
+				value={value.consumerGroup}
+				onChange={(next) => set("consumerGroup", next)}
+				isEdit={isEdit}
+			/>
 
 			<Checkbox
 				isSelected={value.fromBeginning}

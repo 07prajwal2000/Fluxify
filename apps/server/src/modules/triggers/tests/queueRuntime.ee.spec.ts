@@ -310,6 +310,25 @@ describe("an external queue trigger's lifecycle", () => {
 		expect(hasQueueTrigger("t1")).toBe(false);
 	});
 
+	it("consumes under the group named on the source, and the generated one otherwise", async () => {
+		credentials("secret");
+		const generated = await start();
+		expect(generated.subscription!.consumerGroup).toBe("fluxify-t1");
+
+		const named = await start({ source: { topics: ["orders"], consumerGroup: "orders-processor" } });
+		expect(named.subscription!.consumerGroup).toBe("orders-processor");
+	});
+
+	it("restarts on a changed source, so a new group is not left to the old consumer", async () => {
+		credentials("secret");
+		const first = await start();
+
+		const second = await start({ source: { topics: ["orders"], consumerGroup: "orders-processor" } });
+
+		expect(first.stopped).toBe(true);
+		expect(second.subscription!.consumerGroup).toBe("orders-processor");
+	});
+
 	it("leaves internal triggers to the supervisor", async () => {
 		credentials("secret");
 		await applyQueueTrigger("t1", trigger({ type: "internal" }));

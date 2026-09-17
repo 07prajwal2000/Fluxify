@@ -319,8 +319,19 @@ const MAX_INTERNAL_BATCH_BYTES = 1024 * 1024;
 const ACK_WAIT_MARGIN_MS = 30_000;
 const MAX_ATTEMPTS = 5;
 
+/** Key order is whatever the row round-tripped as, so compare on sorted keys. */
+function sameSource(a: TriggerArtifact["source"], b: TriggerArtifact["source"]) {
+	const stable = (source: TriggerArtifact["source"]) =>
+		JSON.stringify(Object.entries(source ?? {}).sort(([x], [y]) => x.localeCompare(y)));
+	return stable(a) === stable(b);
+}
+
 function unchanged(a: TriggerArtifact, b: TriggerArtifact) {
 	return (
+		// What it reads decides the consumer group, topics and stream: a changed
+		// source with no restart leaves the old consumer pulling the old thing.
+		sameSource(a.source, b.source) &&
+		a.commitMode === b.commitMode &&
 		a.workflowId === b.workflowId &&
 		a.batchSize === b.batchSize &&
 		a.maxWaitMs === b.maxWaitMs &&

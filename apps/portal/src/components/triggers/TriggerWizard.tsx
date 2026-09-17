@@ -24,6 +24,7 @@ import {
 	DeliveryFields,
 	KafkaSourceFields,
 	NatsSourceFields,
+	hasGroup,
 	topicList,
 } from "@/components/triggers/KafkaTriggerFields";
 import {
@@ -77,6 +78,7 @@ export function TriggerWizard({
 	});
 	const source = (initialTrigger?.source ?? {}) as {
 		topics?: string[];
+		consumerGroup?: string;
 		fromBeginning?: boolean;
 		createTopics?: boolean;
 		stream?: string;
@@ -89,6 +91,7 @@ export function TriggerWizard({
 	const [kafka, setKafka] = useState({
 		integrationId,
 		topics: (source.topics ?? []).join(", "),
+		consumerGroup: source.consumerGroup ?? null,
 		fromBeginning: Boolean(source.fromBeginning),
 		createTopics: Boolean(source.createTopics),
 	});
@@ -96,6 +99,7 @@ export function TriggerWizard({
 		integrationId,
 		stream: source.stream ?? "",
 		subjects: (source.filterSubjects ?? []).join(", "),
+		consumerGroup: source.consumerGroup ?? null,
 		fromBeginning: Boolean(source.fromBeginning),
 	});
 	const [sqs, setSqs] = useState({
@@ -136,13 +140,20 @@ export function TriggerWizard({
 	const connectorFields = {
 		kafka: {
 			integrationId: kafka.integrationId,
-			source: { topics, fromBeginning: kafka.fromBeginning, createTopics: kafka.createTopics },
+			source: {
+				topics,
+				// No group of their own means the generated one; the key is left off entirely.
+				...(kafka.consumerGroup ? { consumerGroup: kafka.consumerGroup.trim() } : {}),
+				fromBeginning: kafka.fromBeginning,
+				createTopics: kafka.createTopics,
+			},
 		},
 		nats: {
 			integrationId: nats.integrationId,
 			source: {
 				stream: nats.stream.trim(),
 				...(subjects.length ? { filterSubjects: subjects } : {}),
+				...(nats.consumerGroup ? { consumerGroup: nats.consumerGroup.trim() } : {}),
 				fromBeginning: nats.fromBeginning,
 			},
 		},
@@ -220,13 +231,16 @@ export function TriggerWizard({
 		nats: {
 			label: "Stream",
 			description: "The NATS integration to connect with, and the stream to read.",
-			isValid: Boolean(nats.integrationId) && nats.stream.trim().length > 0,
+			isValid:
+				Boolean(nats.integrationId) &&
+				nats.stream.trim().length > 0 &&
+				hasGroup(nats.consumerGroup),
 			content: <NatsSourceFields projectId={projectId} value={nats} onChange={setNats} isEdit={isEdit} />,
 		},
 		kafka: {
 			label: "Topics",
 			description: "The Kafka integration to connect with, and the topics to read.",
-			isValid: Boolean(kafka.integrationId) && topics.length > 0,
+			isValid: Boolean(kafka.integrationId) && topics.length > 0 && hasGroup(kafka.consumerGroup),
 			content: (
 				<KafkaSourceFields projectId={projectId} value={kafka} onChange={setKafka} isEdit={isEdit} />
 			),
