@@ -2,6 +2,7 @@ import { Sidebar } from "./instance-settings/Sidebar";
 import { AuthSettings } from "./instance-settings/auth/AuthSettings";
 import { LicenseSettings } from "./instance-settings/license/LicenseSettings";
 import { OrchestrationSettings } from "./instance-settings/orchestration/OrchestrationSettings";
+import { HostingSettings } from "./instance-settings/hosting/HostingSettings";
 
 interface InstanceSettingsProps {
 	activeTab?: string;
@@ -12,7 +13,7 @@ export function InstanceSettings({ activeTab = "auth" }: InstanceSettingsProps) 
 		<div className="flex h-[calc(100vh-7rem)] w-full flex-col">
 			<div className="mb-4 shrink-0">
 				<h1 className="text-2xl font-semibold tracking-tight text-foreground">Instance settings</h1>
-				<p className="text-sm text-muted">Manage your instance configurations, authentication, license, and orchestration.</p>
+				<p className="text-sm text-muted">Manage your instance configurations, authentication, license, hosting, and orchestration.</p>
 			</div>
 
 			<div className="flex min-h-0 flex-1 overflow-hidden rounded-xl border border-border bg-surface">
@@ -22,6 +23,7 @@ export function InstanceSettings({ activeTab = "auth" }: InstanceSettingsProps) 
 						{activeTab === "auth" && <AuthSettings />}
 						{activeTab === "license" && <LicenseSettings />}
 						{activeTab === "orchestration" && <OrchestrationSettings />}
+						{activeTab === "hosting" && <HostingSettings />}
 					</div>
 				</div>
 			</div>

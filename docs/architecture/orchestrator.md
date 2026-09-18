@@ -265,9 +265,6 @@ must not stop the other nodes in the same pass from being fixed.
 
 ## What it doesn't do yet
 
-- **Per-project routing.** Project-pinned nodes get no edge labels, because the
-  rule needs a subdomain that doesn't exist yet. Only catch-all nodes take
-  traffic today.
 - **Replacement without a gap.** A node being replaced is briefly gone. Starting
   the new one first needs a spare licence slot the cap doesn't allow.
 - **Rebalancing.** A claim is placed once and stays. Nothing shuffles nodes

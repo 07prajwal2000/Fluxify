@@ -25,7 +25,11 @@ mock.module("../../../../../loaders/instanceSettingsLoader", () => ({
 // The gate reaches into lib/edition, which talks to NATS KV. Stand in for it so
 // the licensed and unlicensed paths are both reachable from a unit test.
 let ssoLicensed = true;
+// Spread the real module: bun's mocks leak across spec files, and a partial one
+// breaks every later importer of the other exports (e.g. nodeEntitlement).
+const edition = { ...(await import("../../../../../lib/edition")) };
 mock.module("../../../../../lib/edition", () => ({
+	...edition,
 	assertCanUse: (feature: string) => {
 		if (feature === "sso" && !ssoLicensed)
 			throw new ForbiddenError("SSO needs an enterprise license");

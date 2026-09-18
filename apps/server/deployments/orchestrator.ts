@@ -49,6 +49,8 @@ const PASSTHROUGH = [
 	"REDIS_USER",
 	"REDIS_PASS",
 	"MASTER_ENCRYPTION_KEY",
+	// the portal's playground calls project subdomains cross-origin
+	"TRUSTED_ORIGINS",
 	"INTEGRATION_TIMEOUT_POLICY_IN_SEC",
 	"WORKER_MAX_STREAM_SIZE",
 	"ASYNC_EXECUTOR_MAX_IN_FLIGHT",

@@ -5,6 +5,7 @@ import {
   projectSettingsEntity,
   projectsEntity,
 } from "../../../../../../db/schema";
+import { ConflictError } from "../../../../../../errors/conflictError";
 
 /** Picking an AI integration as the project's agent connection IS the opt-in, so
  *  flip `config.useForHarness` on it.
@@ -40,6 +41,31 @@ export async function markIntegrationForHarness(
 }
 
 export async function upsertProjectSettingKey(
+  projectId: string,
+  key: string,
+  value: string,
+  tx?: DbTransactionType,
+) {
+  try {
+    return await writeProjectSettingKey(projectId, key, value, tx);
+  } catch (error) {
+    // Uniqueness lives in the index so racing saves cannot both win; this only
+    // turns the loser's error into something a person can act on.
+    if (violates(error, "uq_project_settings_subdomain"))
+      throw new ConflictError(`The subdomain '${value}' is already used by another project`);
+    throw error;
+  }
+}
+
+/** Walks the driver's wrapped errors, since drizzle nests the Postgres one. */
+function violates(error: unknown, constraint: string): boolean {
+  for (let e: any = error; e; e = e.cause) {
+    if (e.constraint === constraint || String(e.message ?? "").includes(constraint)) return true;
+  }
+  return false;
+}
+
+async function writeProjectSettingKey(
   projectId: string,
   key: string,
   value: string,

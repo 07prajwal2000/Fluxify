@@ -27,6 +27,7 @@ import { projectsQuery } from "@/query/projectsQuery";
 import { showErrorNotification } from "@/lib/errorNotifier";
 import { createRouteHead } from "@/lib/seo";
 import { ROLES, type Role } from "@/components/common/RoleSelector";
+import { SubdomainField, subdomainError, useBaseDomain } from "@/components/settings/SubdomainField";
 
 // Same roles the project settings member list offers, shown as a dropdown here
 // because each row already carries a name and a remove action.
@@ -93,10 +94,13 @@ function CreateProjectPage() {
 	const [description, setDescription] = useState("");
 	const [members, setMembers] = useState<Member[]>([]);
 	const [workerTimeouts, setWorkerTimeouts] = useState(false);
+	const [subdomain, setSubdomain] = useState("");
+	const baseDomain = useBaseDomain();
 
 	// `projects.name` is varchar(50) and the API rejects anything longer, so the
 	// field has to stop the user rather than let the request fail.
-	const basicsValid = name.trim().length >= 2 && name.trim().length <= 50;
+	const basicsValid =
+		name.trim().length >= 2 && name.trim().length <= 50 && !subdomainError(subdomain);
 
 	const isLast = step === STEPS.length - 1;
 	const currentKey = STEPS[step].key;
@@ -113,6 +117,8 @@ function CreateProjectPage() {
 					"experimental.workerTimeouts.enabled": workerTimeouts
 						? "true"
 						: "false",
+					// omitted rather than "": no subdomain shares the base domain
+					...(subdomain ? { "settings.routing.subdomain": subdomain } : {}),
 				},
 			},
 			{
@@ -225,6 +231,8 @@ function CreateProjectPage() {
 									maxLength={1000}
 								/>
 							</TextField>
+
+							<SubdomainField value={subdomain} onChange={setSubdomain} />
 						</div>
 					)}
 
@@ -254,6 +262,10 @@ function CreateProjectPage() {
 											? `${members.length} invited`
 											: "None — you can add them later"
 									}
+								/>
+								<SummaryItem
+									label="API address"
+									value={subdomain ? `${subdomain}.${baseDomain}` : `${baseDomain} (shared)`}
 								/>
 								<SummaryItem
 									label="Worker timeouts"

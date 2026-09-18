@@ -10,6 +10,10 @@ export type ExecutionBootstrap = {
 	databaseIdleTimeoutMs: number;
 	/** bounded process-local runner for optional async trigger replies */
 	asyncExecutor: AsyncExecutorLimits;
+	/** the base domain as configured, empty when unset — the child applies the default (#340) */
+	baseDomain: string;
+	/** `TRUSTED_ORIGINS`, parsed; the child clears its env so it cannot read it */
+	trustedOrigins: string[];
 	/** the full artifact set as of spawn, already unsealed */
 	artifacts: ArtifactEntry[];
 	/** hot-reloadable supervisor policy; false means no heartbeat or tracking */
@@ -32,6 +36,7 @@ export type ExecutionMessage =
 	| { type: "bootstrap"; bootstrap: ExecutionBootstrap }
 	| { type: "artifact"; entry: ArtifactEntry }
 	| { type: "monitoring"; enabled: boolean }
+	| { type: "base-domain"; baseDomain: string }
 	// the supervisor owns NATS, the child owns user code: jobs cross here
 	| { type: "job"; job: JobEnvelope };
 

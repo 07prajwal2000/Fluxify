@@ -2,7 +2,9 @@ import { groupPair } from "@fluxify/common/orchestrator";
 import { db } from "../../db";
 import { nodeClaimsEntity, triggerGroupsEntity } from "../../db/schema";
 import { nodeEntitlement } from "../../lib/edition";
-import { getSetting } from "../../loaders/instanceSettingsLoader";
+import { baseDomain, getSetting } from "../../loaders/instanceSettingsLoader";
+import { projectHost } from "../../lib/hosting";
+import { projectSubdomains } from "./claims";
 import { projectDesiredNodes, type Claim, type DesiredNode } from "./projection";
 
 /**
@@ -51,13 +53,19 @@ export async function readDesiredState(): Promise<DesiredState> {
 	// a host nobody has declared capacity for.
 	const pool: PoolLimits = getSetting("orchestration_pool") ?? { maxNodes: 0 };
 
-	return {
-		nodes: projectDesiredNodes({
-			claims: claims as Claim[],
-			maxNodes: pool.maxNodes,
-			entitlement: nodeEntitlement(),
-			knownGroups,
-		}),
-		pool,
-	};
+	const nodes = projectDesiredNodes({
+		claims: claims as Claim[],
+		maxNodes: pool.maxNodes,
+		entitlement: nodeEntitlement(),
+		knownGroups,
+	});
+	// A pinned node serving APIs is reached on its project's own host, so the
+	// host is part of what should be running: changing it replaces the node.
+	const subdomains = await projectSubdomains();
+	const domain = baseDomain();
+	for (const node of nodes) {
+		const subdomain = node.projectId && node.type !== "workflow" && subdomains.get(node.projectId);
+		if (subdomain) node.host = projectHost(subdomain, domain);
+	}
+	return { nodes, pool };
 }

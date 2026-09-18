@@ -1,4 +1,5 @@
 import z from "zod";
+import { hostnameSchema } from "../hosting";
 
 /**
  * Per-key registry for the `instance_settings` table.
@@ -59,10 +60,22 @@ export const orchestrationPoolSchema = z.object({
 	memoryPerNodeMb: z.number().int().positive().optional(),
 });
 
+/**
+ * Where user routes are served (#340). Projects with a subdomain answer on
+ * `<subdomain>.<baseDomain>`; the rest share the bare domain. A setting rather
+ * than an env var so changing it needs no restart: workers and the edge labels
+ * pick it up over the KV fan-out.
+ */
+export const hostingSchema = z.object({
+	/** Empty is a local install: `localhost`, with the portal trusted on localhost and 127.0.0.1. */
+	baseDomain: hostnameSchema.or(z.literal("")),
+});
+
 export const instanceSettingCategorySchema = z.enum([
 	"auth",
 	"featureflags",
 	"orchestration",
+	"hosting",
 ]); // mirrors the pgEnum
 
 export const INSTANCE_SETTINGS_REGISTRY = {
@@ -90,6 +103,13 @@ export const INSTANCE_SETTINGS_REGISTRY = {
 		publicSchema: orchestrationPoolSchema,
 		// the pool ceiling is an operator's business, and nothing pre-auth needs it
 		alwaysPublic: false,
+	},
+	hosting: {
+		category: "hosting",
+		schema: hostingSchema,
+		publicSchema: hostingSchema,
+		// the portal shows each project's URL, and a domain is not a secret
+		alwaysPublic: true,
 	},
 	"featureflags.ee.connectors": {
 		category: "featureflags",

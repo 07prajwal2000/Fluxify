@@ -66,6 +66,12 @@ describe("planReconcile", () => {
 		expect(actions[0]?.kind).toBe("recreate");
 	});
 
+	it("recreates a node whose host changed, because it lives in a Traefik label", () => {
+		const node = desired({ projectId: "0192b1c4-2222-7000-8000-000000000002", host: "new.example.com" });
+		const actions = plan([node], [observed(node, { host: "old.example.com" })]);
+		expect(actions[0]).toMatchObject({ kind: "recreate", why: "host old.example.com → new.example.com" });
+	});
+
 	it("does not recreate for a type or group change — those go through the assignment", () => {
 		// the worker watches its own record and applies a new group list in
 		// place, which is the entire reason the seam exists

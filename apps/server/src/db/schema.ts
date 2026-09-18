@@ -80,6 +80,13 @@ export const projectSettingsEntity = pgTable(
 	(table) => [
 		index("idx_project_settings_project_id").on(table.projectId),
 		index("idx_project_settings_key").on(table.key),
+		// A subdomain is how a request finds its project (#340), so two projects
+		// can never hold the same one. Enforced here, not in the upsert, so two
+		// saves racing each other cannot both win.
+		uniqueIndex("uq_project_settings_subdomain")
+			.on(table.value)
+			// "" is how a cleared subdomain is stored, and many projects have none
+			.where(sql`${table.key} = 'settings.routing.subdomain' and ${table.value} <> ''`),
 	],
 );
 
@@ -792,6 +799,7 @@ export const instanceSettingCategoryEnum = pgEnum("instance_setting_category", [
 	"auth",
 	"featureflags",
 	"orchestration",
+	"hosting",
 ]); // add values as new categories appear
 
 export const instanceSettingsEntity = pgTable("instance_settings", {

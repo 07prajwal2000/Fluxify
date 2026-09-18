@@ -11,6 +11,7 @@ import { projectSettingsKeySchemaMap } from "../settings/keys/keySchemaMap";
  *  adding it to the map and to this list; nothing else changes. */
 export const CREATE_TIME_SETTING_KEYS = [
 	"experimental.workerTimeouts.enabled",
+	"settings.routing.subdomain",
 ] as const;
 
 export type CreateTimeSettingKey = (typeof CREATE_TIME_SETTING_KEYS)[number];

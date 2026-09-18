@@ -8,6 +8,7 @@ import {
 } from "@fluxify/blocks";
 import { logger } from "@fluxify/common";
 import { HttpRouteParser, type HttpRoute } from "@fluxify/lib";
+import { DEFAULT_BASE_DOMAIN, isPortalOrigin, subdomainOf } from "../../lib/hosting";
 import {
 	compileRequestSchema,
 	type CompiledRequestSchema,
@@ -77,11 +78,47 @@ const workflows = new Map<string, CompiledWorkflow>();
 /** custom block artifact id -> registered name, so a delete can unregister it */
 const customBlockNamesById = new Map<string, string>();
 let dbConnectionManager: DbConnectionManager | undefined;
-/** one instance for the process — the router captured it, so update in place */
+/**
+ * Routes of projects with no subdomain, all in one trie on the bare domain —
+ * where two projects sharing a method and path shadow each other (#340).
+ */
 const parser = new HttpRouteParser();
+/** every project's own trie, reached through its subdomain */
+const projectParsers = new Map<string, HttpRouteParser>();
+const subdomainByProject = new Map<string, string>();
+const projectBySubdomain = new Map<string, string>();
+/** answers every request with the usual 404 — a subdomain no project holds */
+const NO_ROUTES = new HttpRouteParser();
+/** as configured: empty means a local install, which also decides who the portal is */
+let configuredBaseDomain = "";
 
-export function compiledRouteParser() {
-	return parser;
+/**
+ * The trie a request's `Host` selects. A subdomain of the base domain reaches
+ * only that project's routes; any other host — the bare domain, an IP, some
+ * other name pointed here — gets the shared trie.
+ */
+export function routeParserFor(host: string | undefined): HttpRouteParser {
+	const subdomain = subdomainOf(host, configuredBaseDomain || DEFAULT_BASE_DOMAIN);
+	if (subdomain === null) return parser;
+	const projectId = projectBySubdomain.get(subdomain);
+	return (projectId && projectParsers.get(projectId)) || NO_ROUTES;
+}
+
+/** Pushed by the supervisor, which is what watches instance settings. */
+export function setBaseDomain(domain: string) {
+	configuredBaseDomain = domain;
+}
+
+let trustedOrigins: string[] = [];
+
+/** From the supervisor's environment at spawn; this process has none of its own. */
+export function setTrustedOrigins(origins: string[]) {
+	trustedOrigins = origins;
+}
+
+/** The playground calls a project's subdomain from the portal, cross-origin. */
+export function fromPortal(origin: string | null) {
+	return isPortalOrigin(origin, configuredBaseDomain, trustedOrigins);
 }
 
 /** The compiled workflow a job handler runs, or undefined if this worker has none. */
@@ -94,14 +131,11 @@ export function compiledRouteValidators(routeId: string): RouteValidators | unde
 	return routes.get(routeId)?.validators;
 }
 
-/**
- * Builds the runtime from the artifact set handed over at spawn. Returns the
- * route parser dispatch() matches against.
- */
+/** Builds the runtime from the artifact set handed over at spawn. */
 export function initCompiledRuntime(
 	entries: ArtifactEntry[],
 	databaseIdleTimeoutMs?: number,
-): HttpRouteParser {
+) {
 	dbConnectionManager = new DbConnectionManager(undefined, {
 		idleTimeoutMs: databaseIdleTimeoutMs,
 	});
@@ -132,7 +166,6 @@ export function initCompiledRuntime(
 		`[worker] compiled runtime ready — ${routes.size} routes, ${workflows.size} workflows, ${customBlockNamesById.size} custom blocks`,
 		"WORKER.compiled",
 	);
-	return parser;
 }
 
 /** a later update pushed down by the supervisor */
@@ -164,7 +197,9 @@ function applyArtifact(key: string, value: any | null) {
 				? addWorkflow(value as WorkflowArtifact)
 				: void workflows.delete(artifactId(key));
 		case "project-config":
-			return value && applyProjectConfig(value as UnsealedProjectConfig);
+			return value
+				? applyProjectConfig(value as UnsealedProjectConfig)
+				: setProjectSubdomain(key.split(".")[1]!, "");
 		case "trigger":
 			return void applyQueueTrigger(
 				artifactId(key),
@@ -185,7 +220,11 @@ function addRoute(artifact: RouteArtifact) {
 			run: instantiateCompiled(artifact.source),
 			validators: compileRouteValidators(artifact),
 		});
-		parser.upsertRoute(routeDefinition(artifact));
+		const definition = routeDefinition(artifact);
+		projectParser(artifact.projectId).upsertRoute(definition);
+		// with a subdomain the project answers there and nowhere else
+		if (subdomainByProject.has(artifact.projectId)) parser.removeRoute(artifact.routeId);
+		else parser.upsertRoute(definition);
 		logger.info(
 			`[worker] loaded ${artifact.method} ${artifact.path}`,
 			"WORKER.compiled",
@@ -230,10 +269,44 @@ function schemaValidator(schema: unknown, coerce = false) {
 }
 
 function removeRoute(routeId: string) {
-	if (routes.delete(routeId)) {
+	const compiled = routes.get(routeId);
+	if (compiled) {
+		routes.delete(routeId);
 		parser.removeRoute(routeId);
+		projectParsers.get(compiled.artifact.projectId)?.removeRoute(routeId);
 		logger.info(`[worker] removed route ${routeId}`, "WORKER.compiled");
 	}
+}
+
+function projectParser(projectId: string) {
+	let trie = projectParsers.get(projectId);
+	if (!trie) projectParsers.set(projectId, (trie = new HttpRouteParser()));
+	return trie;
+}
+
+/**
+ * Moves the project's routes between the shared trie and its subdomain. Set
+ * before routes load (config is applied first), so at boot nothing moves.
+ */
+function setProjectSubdomain(projectId: string, subdomain: string) {
+	const previous = subdomainByProject.get(projectId) ?? "";
+	if (previous === subdomain) return;
+	if (previous && projectBySubdomain.get(previous) === projectId) projectBySubdomain.delete(previous);
+	if (subdomain) {
+		subdomainByProject.set(projectId, subdomain);
+		projectBySubdomain.set(subdomain, projectId);
+	} else {
+		subdomainByProject.delete(projectId);
+	}
+	for (const { artifact } of routes.values()) {
+		if (artifact.projectId !== projectId) continue;
+		if (subdomain) parser.removeRoute(artifact.routeId);
+		else parser.upsertRoute(routeDefinition(artifact));
+	}
+	logger.info(
+		`[worker] project ${projectId} ${subdomain ? `serves on subdomain ${subdomain}` : "shares the base domain"}`,
+		"WORKER.compiled",
+	);
 }
 
 function routeDefinition(artifact: RouteArtifact): HttpRoute {
@@ -298,6 +371,10 @@ function applyProjectConfig(artifact: UnsealedProjectConfig) {
 	// same for queue consumers: rotated credentials restart, deleted ones stop
 	void refreshQueueTriggers();
 	hydrateProjectSettings(artifact.projectId, payload.projectSettings);
+	setProjectSubdomain(
+		artifact.projectId,
+		payload.projectSettings?.["settings.routing.subdomain"] ?? "",
+	);
 	logger.info(
 		`[worker] project config applied (${artifact.compiledAt})`,
 		"WORKER.compiled",

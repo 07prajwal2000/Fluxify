@@ -29,6 +29,11 @@ mock.module("../connection", () => ({
 	testConnectionFn: mock(),
 }));
 
+// the subdomain-removal guard reads node claims from the database
+mock.module("../../../../../../../modules/orchestrator/claims", () => ({
+	hasRouteClaim: mock(async () => false),
+}));
+
 describe("upsert project settings service", () => {
 	beforeEach(() => {
 		(repository.upsertProjectSettingKey as any).mockClear();

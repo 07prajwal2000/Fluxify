@@ -19,7 +19,7 @@ import { asyncExecutorLimitsFromEnv, drainChild } from "../src/modules/requestRo
 import { createExecutionSupervisor } from "../src/modules/requestRouter/executionSupervisor";
 import type { ArtifactEntry } from "../src/modules/requestRouter/compiledRuntime";
 import { closeNats } from "../src/db/nats";
-import { watchInstanceSettings } from "../src/loaders/instanceSettingsLoader";
+import { configuredBaseDomain, watchInstanceSettings } from "../src/loaders/instanceSettingsLoader";
 import { canRunConnectors, nodeEntitlement, watchLicense } from "../src/lib/edition";
 import { attachNode } from "../src/modules/orchestrator/node";
 import type { NodeType } from "@fluxify/common/orchestrator";
@@ -149,6 +149,11 @@ const supervisor = createExecutionSupervisor({
 	},
 	// placed, because a trigger this node does not run must not reach the child
 	artifacts: () => [...artifacts.values()].map(placed).filter((entry) => entry.value !== null),
+	baseDomain: configuredBaseDomain,
+	trustedOrigins: (getEnv("TRUSTED_ORIGINS") ?? "")
+		.split(",")
+		.map((origin) => origin.trim())
+		.filter(Boolean),
 	timeoutsEnabled: timeoutPolicyEnabled,
 });
 
@@ -282,7 +287,10 @@ const triggerWorker = new TriggerWorker({
 
 // Feature flags and license state, pushed from the admin. Both exit on failure:
 // a worker that cannot learn its edition would be guessing.
-await watchInstanceSettings();
+await watchInstanceSettings((key) => {
+	if (key === "hosting")
+		supervisor.send({ type: "base-domain", baseDomain: configuredBaseDomain() } satisfies ExecutionMessage);
+});
 await watchLicense();
 
 /**

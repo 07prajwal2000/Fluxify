@@ -2,7 +2,7 @@ import { logger } from "@fluxify/common";
 import type { NodeType } from "@fluxify/common/orchestrator";
 import { and, eq, inArray, sql } from "drizzle-orm";
 import { db, type DbTransactionType } from "../../db";
-import { nodeClaimsEntity, triggerGroupsEntity } from "../../db/schema";
+import { nodeClaimsEntity, projectSettingsEntity, triggerGroupsEntity } from "../../db/schema";
 import { BadRequestError } from "../../errors/badRequestError";
 import { NotFoundError } from "../../errors/notFoundError";
 import { nodeEntitlement } from "../../lib/edition";
@@ -41,13 +41,54 @@ export interface ClaimScope {
 	projectId?: string;
 }
 
+const SUBDOMAIN_KEY = "settings.routing.subdomain";
+
 /**
- * Subdomains are #340, so no project has one yet and a project-pinned claim
- * that needs routing is refused with that as the reason. Written as a function
- * rather than a literal `false` so #340 has one obvious place to land.
+ * A project-pinned route node is reached by a `Host` rule built from the
+ * project's subdomain, so without one there is nothing to route to it.
  */
-export async function hasSubdomain(_projectId: string | null): Promise<boolean> {
-	return false;
+export async function hasSubdomain(projectId: string | null): Promise<boolean> {
+	if (projectId === null) return false;
+	const [row] = await db
+		.select({ value: projectSettingsEntity.value })
+		.from(projectSettingsEntity)
+		.where(
+			and(
+				eq(projectSettingsEntity.projectId, projectId),
+				eq(projectSettingsEntity.key, SUBDOMAIN_KEY),
+			),
+		)
+		.limit(1);
+	return !!row?.value;
+}
+
+/** Every project's subdomain, for the edge labels the reconciler writes. */
+export async function projectSubdomains(): Promise<Map<string, string>> {
+	const rows = await db
+		.select({ projectId: projectSettingsEntity.projectId, value: projectSettingsEntity.value })
+		.from(projectSettingsEntity)
+		.where(eq(projectSettingsEntity.key, SUBDOMAIN_KEY));
+	return new Map(
+		rows.filter((row) => row.projectId && row.value).map((row) => [row.projectId!, row.value]),
+	);
+}
+
+/**
+ * Whether the project has its own node serving APIs. Clearing its subdomain
+ * would leave that node reachable by nothing, so it is refused while one exists.
+ */
+export async function hasRouteClaim(projectId: string): Promise<boolean> {
+	const [row] = await db
+		.select({ id: nodeClaimsEntity.id })
+		.from(nodeClaimsEntity)
+		.where(
+			and(
+				eq(nodeClaimsEntity.projectId, projectId),
+				inArray(nodeClaimsEntity.type, ["route", "both"]),
+			),
+		)
+		.limit(1);
+	return !!row;
 }
 
 /** Replicas already claimed instance-wide — what the license counts (§7). */

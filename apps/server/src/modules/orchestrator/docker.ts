@@ -99,6 +99,7 @@ export async function listManagedNodes(): Promise<ObservedNode[]> {
 			claimId,
 			replicaIndex,
 			projectId: !projectId || projectId === CATCH_ALL ? null : projectId,
+			host: labels[LABELS.host] ?? null,
 			image: container.Image,
 			running: container.State === "running",
 			platformState: container.State,

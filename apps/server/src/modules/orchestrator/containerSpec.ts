@@ -25,6 +25,7 @@ export const LABELS = {
 	replica: "fluxify.replica-index",
 	project: "fluxify.project-id",
 	node: "fluxify.node-id",
+	host: "fluxify.host",
 } as const;
 
 /**
@@ -33,6 +34,11 @@ export const LABELS = {
  * environment variable and part of a container name.
  */
 const ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+/**
+ * A hostname, rechecked here although settings validate it: it is written into
+ * a Traefik rule, where a backtick would end the string and start a new rule.
+ */
+const HOST_PATTERN = /^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)+$/;
 
 /**
  * This node's identity, derived rather than random: a container that is
@@ -75,31 +81,40 @@ export interface ContainerSpec {
 const SERVES_HTTP = ["route", "both"];
 
 /**
- * The Traefik labels that used to live on the compose `worker` service. Only a
- * catch-all node gets them: a project-pinned route node is reached by a `Host`
- * rule built from the project's subdomain, and subdomains do not exist yet
- * (#340). Until then a route claim cannot even be written — `validateClaim`
- * refuses one without a subdomain — so there is no case here to serve.
+ * The Traefik labels for a node that serves APIs.
  *
- * The router and service names are shared by every catch-all node, which is
- * what makes Traefik load-balance across them instead of routing to one. That
- * is the same grouping compose got from `replicas: 2`.
+ * A catch-all node takes everything, `PathPrefix(/)` at the lowest priority —
+ * the shape the compose `worker` service had. It serves every project, so a
+ * request for a subdomain it does not know is answered by the worker's own 404.
+ *
+ * A project-pinned node is reached on its project's host (#340), at a priority
+ * above the catch-all and below the admin's `/_/admin` rule, which must keep
+ * working on every host. Without a host it gets nothing: `validateClaim`
+ * refuses such a claim, so the only way here is a subdomain removed under it.
+ *
+ * Router and service names are shared by every node of one scope — all
+ * catch-alls, or one project's — which is what makes Traefik load-balance
+ * across them instead of routing to one.
  */
 function edgeLabels(node: DesiredNode, options: SpecOptions): Record<string, string> {
-	if (!SERVES_HTTP.includes(node.type) || node.projectId !== null) return {};
+	if (!SERVES_HTTP.includes(node.type)) return {};
+	if (node.projectId !== null && !node.host) return {};
+	const name = node.projectId === null ? "fluxify-worker" : `fluxify-project-${node.projectId}`;
+	const rule = node.projectId === null ? "PathPrefix(`/`)" : `Host(\`${node.host}\`)`;
 	const ready = "/_/admin/api/healthchecks/ready";
 	return {
 		"traefik.enable": "true",
-		"traefik.http.routers.fluxify-worker.rule": "PathPrefix(`/`)",
-		"traefik.http.routers.fluxify-worker.priority": "1",
-		"traefik.http.routers.fluxify-worker.entrypoints": "web",
-		"traefik.http.services.fluxify-worker.loadbalancer.server.port": String(options.trafficPort),
+		[`traefik.http.routers.${name}.rule`]: rule,
+		[`traefik.http.routers.${name}.priority`]: node.projectId === null ? "1" : "50",
+		[`traefik.http.routers.${name}.entrypoints`]: "web",
+		[`traefik.http.routers.${name}.service`]: name,
+		[`traefik.http.services.${name}.loadbalancer.server.port`]: String(options.trafficPort),
 		// Health is on its own port, served by the supervisor. Checking the
 		// traffic port would hit an isolated execution process, which does not
 		// describe whether the node is serving.
-		"traefik.http.services.fluxify-worker.loadbalancer.healthcheck.path": ready,
-		"traefik.http.services.fluxify-worker.loadbalancer.healthcheck.port": String(options.healthPort),
-		"traefik.http.services.fluxify-worker.loadbalancer.healthcheck.interval": "10s",
+		[`traefik.http.services.${name}.loadbalancer.healthcheck.path`]: ready,
+		[`traefik.http.services.${name}.loadbalancer.healthcheck.port`]: String(options.healthPort),
+		[`traefik.http.services.${name}.loadbalancer.healthcheck.interval`]: "10s",
 	};
 }
 
@@ -112,6 +127,9 @@ export function buildContainerSpec(node: DesiredNode, options: SpecOptions): Con
 	}
 	if (!Number.isInteger(node.replicaIndex) || node.replicaIndex < 0) {
 		throw new Error(`refusing to create a container for replica index ${node.replicaIndex}`);
+	}
+	if (node.host && !HOST_PATTERN.test(node.host)) {
+		throw new Error(`refusing to create a container for a malformed host: ${node.host}`);
 	}
 	const badGroup = node.groupIds.find((id) => !ID_PATTERN.test(id));
 	if (badGroup) {
@@ -140,6 +158,7 @@ export function buildContainerSpec(node: DesiredNode, options: SpecOptions): Con
 				[LABELS.replica]: String(node.replicaIndex),
 				[LABELS.project]: node.projectId ?? CATCH_ALL,
 				[LABELS.node]: nodeId,
+				...(node.host ? { [LABELS.host]: node.host } : {}),
 				...edgeLabels(node, options),
 			},
 			ExposedPorts: {
