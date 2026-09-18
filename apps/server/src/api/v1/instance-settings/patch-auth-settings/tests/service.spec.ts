@@ -17,7 +17,10 @@ mock.module("../../upsert/repository", () => ({
 	},
 }));
 
+// spread the real loader: lib/edition (imported below) needs getSetting from it
+const loader = { ...(await import("../../../../../loaders/instanceSettingsLoader")) };
 mock.module("../../../../../loaders/instanceSettingsLoader", () => ({
+	...loader,
 	publishInstanceSetting: (key: string, value: unknown, isPublic: boolean) =>
 		published(key, { value, isPublic }),
 }));
