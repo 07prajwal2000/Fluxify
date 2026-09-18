@@ -2,6 +2,8 @@ import type z from "zod";
 import {
 	createGroupSchema,
 	createSchema,
+	deleteGroupQuerySchema,
+	groupDeletedSchema,
 	groupListSchema,
 	listSchema,
 	patchSchema,
@@ -9,6 +11,7 @@ import {
 	triggerCreatedSchema,
 	triggerSchema,
 	triggerUpdatedSchema,
+	updateGroupSchema,
 } from "@fluxify/server/src/api/v1/triggers/dto";
 import { httpClient } from "@/lib/http";
 
@@ -29,6 +32,7 @@ export type Trigger = z.infer<typeof triggerSchema>;
 /** A trigger as the list returns it — the workflow comes with its name. */
 export type TriggerListItem = z.infer<typeof listSchema>["data"][number];
 export type TriggerGroup = z.infer<typeof groupListSchema>["data"][number];
+export type DeleteGroupOptions = z.infer<typeof deleteGroupQuerySchema>;
 export type SchedulePreview = z.infer<typeof previewSchema>;
 
 export const triggersService = {
@@ -73,6 +77,18 @@ export const triggersService = {
 	},
 	async createGroup(data: z.infer<typeof createGroupSchema>): Promise<TriggerGroup> {
 		const result = await httpClient.post(`${baseUrl}/groups`, data);
+		return result.data;
+	},
+	async updateGroup(id: string, data: z.infer<typeof updateGroupSchema>) {
+		await httpClient.patch(`${baseUrl}/groups/${id}`, data);
+	},
+	/** Refused with 409 when the group still has triggers and `options` says nothing about them. */
+	async deleteGroup(
+		id: string,
+		options: DeleteGroupOptions = {},
+	): Promise<z.infer<typeof groupDeletedSchema>> {
+		const params = new URLSearchParams(options as Record<string, string>);
+		const result = await httpClient.delete(`${baseUrl}/groups/${id}?${params.toString()}`);
 		return result.data;
 	},
 	/**

@@ -244,6 +244,7 @@ export const groupSchema = z.object({
 	description: z.string().nullable(),
 	projectId: z.string(),
 	isDefault: z.boolean(),
+	triggerCount: z.number().int(),
 	createdAt: z.string(),
 	updatedAt: z.string(),
 });
@@ -252,6 +253,31 @@ export const createGroupSchema = z.object({
 	name: z.string().min(2).max(255),
 	description: z.string().max(2000).optional(),
 	projectId: z.uuidv7(),
+});
+
+export const updateGroupSchema = z.object({
+	name: z.string().min(2).max(255).optional(),
+	description: z.string().max(2000).nullable().optional(),
+});
+
+/**
+ * What happens to a group's triggers when it is deleted. Omitted on a group
+ * that still has triggers is refused, so nothing is lost by default.
+ */
+export const deleteGroupQuerySchema = z
+	.object({
+		triggers: z.enum(["move", "delete"]).optional(),
+		moveTo: z.uuidv7().optional(),
+	})
+	.refine((q) => q.triggers !== "move" || q.moveTo, {
+		message: "moveTo is required when moving triggers",
+		path: ["moveTo"],
+	});
+
+export const groupDeletedSchema = z.object({
+	id: z.string(),
+	/** Node claims that served only this group, now scaled to zero and draining. */
+	drainedClaims: z.number().int(),
 });
 
 export const groupListQuerySchema = z.object({ projectId: z.uuidv7() });

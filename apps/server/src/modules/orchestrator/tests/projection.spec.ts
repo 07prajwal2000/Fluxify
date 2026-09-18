@@ -190,6 +190,16 @@ describe("projectDesiredNodes", () => {
 		expect(nodes[0]).toMatchObject({ groupIds: ["grp-1"], placeable: true });
 	});
 
+	it("drains a project claim whose groups have all been deleted", () => {
+		const nodes = projectDesiredNodes({
+			claims: [claim({ groupIds: ["grp-gone"], replicas: 2 })],
+			maxNodes: 10,
+			entitlement: ENTERPRISE,
+			knownGroups: new Set([groupPair("proj-a", "grp-1")]),
+		});
+		expect(nodes).toEqual([]);
+	});
+
 	it("gives a route node no groups even when the claim carries some", () => {
 		const nodes = projectDesiredNodes({
 			claims: [claim({ type: "route", groupIds: ["grp-1"] })],

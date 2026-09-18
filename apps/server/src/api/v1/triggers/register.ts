@@ -16,6 +16,8 @@ import {
 	triggerUpdatedSchema,
 	createGroupSchema,
 	createSchema,
+	deleteGroupQuerySchema,
+	groupDeletedSchema,
 	groupListQuerySchema,
 	groupListSchema,
 	idParamSchema,
@@ -25,21 +27,25 @@ import {
 	previewQuerySchema,
 	previewSchema,
 	triggerSchema,
+	updateGroupSchema,
 	workflowIdParamSchema,
 } from "./dto";
 import {
 	attachWorkflow,
 	createTrigger,
-	createTriggerGroup,
 	deleteTrigger,
-	deleteTriggerGroup,
 	detachWorkflow,
 	getTrigger,
 	listAllTriggers,
-	listTriggerGroups,
 	previewSchedule,
 	updateTrigger,
 } from "./service";
+import {
+	createTriggerGroup,
+	deleteTriggerGroup,
+	listTriggerGroups,
+	updateTriggerGroup,
+} from "./groups";
 
 /** The response blocks every endpoint here shares, so each one names only its own. */
 const common = {
@@ -115,15 +121,44 @@ export default {
 				),
 		);
 
-		router.delete(
+		router.patch(
 			"/groups/:id",
 			describeRoute(
-				describe("delete-trigger-group", "Deletes an empty trigger group", json(createdSchema)),
+				describe("update-trigger-group", "Renames or re-describes a trigger group", json(createdSchema)),
 			),
 			requireLoggedIn(),
 			validator("param", idParamSchema, zodErrorCallbackParser),
+			validator("json", updateGroupSchema, zodErrorCallbackParser),
 			async (ctx) =>
-				ctx.json(await deleteTriggerGroup(ctx.req.valid("param").id, ctx.get("acl") || [])),
+				ctx.json(
+					await updateTriggerGroup(
+						ctx.req.valid("param").id,
+						ctx.req.valid("json"),
+						ctx.get("acl") || [],
+					),
+				),
+		);
+
+		router.delete(
+			"/groups/:id",
+			describeRoute(
+				describe(
+					"delete-trigger-group",
+					"Deletes a trigger group, moving or deleting its triggers and draining nodes that served only it",
+					json(groupDeletedSchema),
+				),
+			),
+			requireLoggedIn(),
+			validator("param", idParamSchema, zodErrorCallbackParser),
+			validator("query", deleteGroupQuerySchema, zodErrorCallbackParser),
+			async (ctx) =>
+				ctx.json(
+					await deleteTriggerGroup(
+						ctx.req.valid("param").id,
+						ctx.req.valid("query"),
+						ctx.get("acl") || [],
+					),
+				),
 		);
 
 		router.get(

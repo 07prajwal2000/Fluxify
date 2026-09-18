@@ -157,7 +157,19 @@ export function GroupSelect({
 				<ListBox>
 					{groups.map((group) => (
 						<ListBox.Item key={group.id} id={group.id} textValue={group.name}>
-							{group.name}
+							<div className="flex w-full items-center justify-between gap-3">
+								<div className="flex items-center gap-2">
+									<span className="font-medium text-foreground">{group.name}</span>
+									{group.isDefault && (
+										<span className="rounded-full bg-surface-secondary px-1.5 py-0.5 text-[10px] font-medium text-muted">
+											Default
+										</span>
+									)}
+								</div>
+								<span className="text-xs text-muted">
+									{group.triggerCount} {group.triggerCount === 1 ? "trigger" : "triggers"}
+								</span>
+							</div>
 							<ListBox.ItemIndicator />
 						</ListBox.Item>
 					))}

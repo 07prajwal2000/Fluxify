@@ -1,11 +1,12 @@
 import { logger } from "@fluxify/common";
 import type { NodeType } from "@fluxify/common/orchestrator";
 import { and, eq, inArray, sql } from "drizzle-orm";
-import { db } from "../../db";
+import { db, type DbTransactionType } from "../../db";
 import { nodeClaimsEntity, triggerGroupsEntity } from "../../db/schema";
 import { BadRequestError } from "../../errors/badRequestError";
 import { NotFoundError } from "../../errors/notFoundError";
 import { nodeEntitlement } from "../../lib/edition";
+import { systemLog } from "../../lib/systemLogs";
 import { validateClaim } from "./projection";
 import { recordEvent } from "./records";
 
@@ -196,4 +197,77 @@ export async function releaseClaim(claimId: string, scope: ClaimScope = {}) {
 	});
 	logger.info(`claim ${claimId} released — its nodes will drain`, "ORCHESTRATOR.claims");
 	return { id: claimId };
+}
+
+export interface GroupRemoval {
+	claim: typeof nodeClaimsEntity.$inferSelect;
+	/** True when the group was the claim's last one, so it was scaled to zero. */
+	drained: boolean;
+}
+
+/**
+ * A trigger group is being deleted: take its id off every claim naming it, in
+ * the caller's transaction. A claim left with no group has nothing to run, so
+ * its replicas go to zero and the reconciler drains its nodes — including a
+ * catch-all, where no groups would otherwise widen it to every group.
+ */
+export async function removeGroupFromClaims(
+	groupId: string,
+	tx: DbTransactionType,
+): Promise<GroupRemoval[]> {
+	const claims = await tx
+		.select()
+		.from(nodeClaimsEntity)
+		// `?` with a text value, not `@> '[..]'::jsonb`: bun-sql binds a stringified
+		// array as a jsonb *string*, which contains nothing.
+		.where(sql`${nodeClaimsEntity.groupIds} ? ${groupId}`);
+
+	const removals: GroupRemoval[] = [];
+	for (const claim of claims) {
+		const groupIds = claim.groupIds.filter((id) => id !== groupId);
+		const drained = groupIds.length === 0;
+		await tx
+			.update(nodeClaimsEntity)
+			.set({ groupIds, replicas: drained ? 0 : claim.replicas })
+			.where(eq(nodeClaimsEntity.id, claim.id));
+		removals.push({ claim, drained });
+	}
+	return removals;
+}
+
+/** History and system logs for `removeGroupFromClaims`, once its transaction has committed. */
+export async function recordGroupRemoval(
+	removals: GroupRemoval[],
+	group: { id: string; name: string; projectId: string },
+) {
+	for (const { claim, drained } of removals) {
+		await recordEvent({
+			claimId: claim.id,
+			projectId: claim.projectId,
+			action: "claim_updated",
+			reason: drained ? "draining" : null,
+			detail: {
+				cause: "group_deleted",
+				groupId: group.id,
+				from: { groupIds: claim.groupIds, replicas: claim.replicas },
+				to: {
+					groupIds: claim.groupIds.filter((id) => id !== group.id),
+					replicas: drained ? 0 : claim.replicas,
+				},
+			},
+		});
+		if (!drained) continue;
+		logger.info(
+			`claim ${claim.id} drained: its last group ${group.id} was deleted`,
+			"ORCHESTRATOR.claims",
+		);
+		await systemLog.warn({
+			projectId: group.projectId,
+			resourceType: "node_claim",
+			resourceId: claim.id,
+			type: "claim_drained",
+			message: `Trigger group "${group.name}" was deleted and this claim served nothing else, so it was scaled to 0 and its nodes are draining`,
+			detail: { groupId: group.id, replicas: claim.replicas },
+		});
+	}
 }
