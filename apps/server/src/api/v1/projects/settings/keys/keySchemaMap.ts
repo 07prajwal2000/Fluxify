@@ -1,4 +1,5 @@
 import z from "zod";
+import { subdomainSchema } from "../../../../../lib/hosting";
 
 export const projectSettingsKeySchemaMap = {
 	"settings.ai.agentConnectionId": {
@@ -45,6 +46,17 @@ export const projectSettingsKeySchemaMap = {
 		schema: z.coerce.number().int().min(1024).max(262144),
 		defaultValue: "65536",
 		dataType: "number",
+	},
+	/**
+	 * The project's own host, `<subdomain>.<base domain>` (#340). Empty means
+	 * the project shares the bare domain with every other project that has none,
+	 * where two routes on the same method and path shadow each other. Unique
+	 * across projects by index, not by this schema.
+	 */
+	"settings.routing.subdomain": {
+		schema: subdomainSchema,
+		defaultValue: "",
+		dataType: "string",
 	},
 	"experimental.workerTimeouts.enabled": {
 		schema: z.enum(["true", "false"]),

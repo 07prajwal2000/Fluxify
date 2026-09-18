@@ -7,6 +7,7 @@ import { addProjectMember } from "../settings/members/repository";
 import { upsertProjectSettingKey } from "../settings/keys/upsert/repository";
 import { ServerError } from "../../../../errors/serverError";
 import { generateID } from "@fluxify/lib";
+import { CHAN_ON_PROJECT_SETTING_CHANGE, publishMessage } from "../../../../db/redis";
 
 export default async function handleRequest(
 	data: z.infer<typeof requestBodySchema>,
@@ -42,5 +43,9 @@ export default async function handleRequest(
 	});
 
 	if (!id) throw new ServerError("Something went wrong while creating project");
+	// The compiler holds settings in memory; without this a subdomain given at
+	// creation never reaches the workers until the next settings save.
+	if (settings && Object.keys(settings).length)
+		await publishMessage(CHAN_ON_PROJECT_SETTING_CHANGE, id);
 	return { id };
 }

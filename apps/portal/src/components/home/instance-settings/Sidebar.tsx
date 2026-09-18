@@ -1,6 +1,6 @@
 import { cn } from "@fluxify/components";
 import { Link } from "@tanstack/react-router";
-import { FiAward, FiShield } from "react-icons/fi";
+import { FiAward, FiGlobe, FiShield } from "react-icons/fi";
 import { TbTopologyStar3 } from "react-icons/tb";
 import { publicSettingsQuery } from "@/query/publicSettingsQuery";
 
@@ -17,6 +17,7 @@ const SETTINGS_CATEGORIES: {
 }[] = [
 	{ id: "auth", label: "Authentication", icon: FiShield },
 	{ id: "license", label: "License", icon: FiAward },
+	{ id: "hosting", label: "Hosting", icon: FiGlobe },
 	// Only on a deployment that has an orchestrator — see `orchestration` in
 	// public settings. Kit has none, and a tab whose endpoints answer 404 is
 	// worse than no tab.

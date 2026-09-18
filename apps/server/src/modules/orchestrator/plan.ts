@@ -49,6 +49,10 @@ function immutableDrift(node: DesiredNode, container: ObservedNode, image: strin
 	if ((container.projectId ?? CATCH_ALL) !== (node.projectId ?? CATCH_ALL)) {
 		return `project ${container.projectId ?? CATCH_ALL} → ${node.projectId ?? CATCH_ALL}`;
 	}
+	// it is in a Traefik label, which cannot change on a running container
+	if ((container.host ?? null) !== (node.host ?? null)) {
+		return `host ${container.host ?? "none"} → ${node.host ?? "none"}`;
+	}
 	return null;
 }
 

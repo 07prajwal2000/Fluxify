@@ -19,6 +19,7 @@ import { NotFoundError } from "../../../../../../errors/notFoundError";
 
 import { testConnectionFn } from "./connection";
 import { constructProjectSettingCacheKey } from "../../../../../../lib/project-settings";
+import { hasRouteClaim } from "../../../../../../modules/orchestrator/claims";
 
 export default async function handleRequest(
 	projectId: string,
@@ -59,6 +60,12 @@ export default async function handleRequest(
 		if (!connectionTest.success) {
 			throw new BadRequestError(connectionTest.message);
 		}
+	}
+
+	if (key === "settings.routing.subdomain" && !finalValue && (await hasRouteClaim(projectId))) {
+		throw new BadRequestError(
+			"This project has its own API node, which is reached through its subdomain. Release the node before removing the subdomain.",
+		);
 	}
 
 	await upsertProjectSettingKey(projectId, key, finalValue);

@@ -171,9 +171,14 @@ the same worker share their settings, so they always share a project.
 Set `WORKER_PROJECT_ID` to `*` and the worker serves every project you have,
 picking up new ones as you create them — no restart, no id to copy.
 
-Good for a personal install or a staging box. Not recommended when projects
-belong to different people: they share one worker, so a route path used by two
-projects can only resolve to one of them, and a slow project slows the rest.
+Good for a personal install or a staging box. Give each project its own
+subdomain (**Project settings → General**) and two projects can use the same
+route path without clashing: `shop.example.com/orders` and
+`blog.example.com/orders` reach different projects. Projects without a
+subdomain share the bare domain, where a path used by two of them resolves to
+only one. The base domain is set in **Instance settings → Hosting**.
+
+A slow project still slows the rest, since they share one worker.
 :::
 
 ---

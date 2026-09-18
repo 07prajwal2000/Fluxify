@@ -12,6 +12,7 @@ import { routesQuery } from "@/query/routesQuery";
 import { routesService } from "@/services/routes";
 import { CanvasWorkbench } from "@/components/canvas";
 import { RouteApiPlayground } from "@/components/RouteApiPlayground";
+import { useProjectApiBaseUrl } from "@/components/settings/SubdomainField";
 import { RouteSettingsModal } from "@/components/routes/RouteSettingsModal";
 import { RouteSwitcher } from "@/components/routes/RouteSwitcher";
 import { RouteWorkbenchTabs } from "@/components/routes/RouteWorkbenchTabs";
@@ -25,6 +26,7 @@ export const Route = createFileRoute("/_authed/$projectId_/canvas/$routeId")({
 
 function RouteCanvasPage() {
 	const { projectId, routeId } = Route.useParams();
+	const apiBaseUrl = useProjectApiBaseUrl(projectId);
 	const save = routesQuery.saveCanvas.mutation(routeId);
 	const [settingsOpen, setSettingsOpen] = useState(false);
 
@@ -57,7 +59,7 @@ function RouteCanvasPage() {
 				enableSpotlight
 				items={items}
 				compileTarget={{ projectId, resourceType: "route", resourceId: routeId }}
-				playgroundContent={<RouteApiPlayground key={routeId} routeId={routeId} baseUrl={import.meta.env.VITE_ROUTE_BASE_URL ?? window.location.origin} isFramed={false} enableCache />}
+				playgroundContent={<RouteApiPlayground key={routeId} routeId={routeId} baseUrl={apiBaseUrl} isFramed={false} enableCache />}
 				reload={() => routesService.getCanvasItems(routeId)}
 				save={(payload) => save.mutateAsync(payload)}
 				headerLeft={

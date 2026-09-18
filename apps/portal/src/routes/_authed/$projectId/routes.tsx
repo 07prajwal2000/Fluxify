@@ -20,6 +20,7 @@ import { showErrorNotification } from "@/lib/errorNotifier";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { EmptyState } from "@/components/common/EmptyState";
 import { RouteApiPlayground } from "@/components/RouteApiPlayground";
+import { useProjectApiBaseUrl } from "@/components/settings/SubdomainField";
 import { createRouteHead } from "@/lib/seo";
 
 export const Route = createFileRoute("/_authed/$projectId/routes")({
@@ -40,6 +41,7 @@ type RouteRow = {
 
 function RoutesPage() {
 	const { projectId } = Route.useParams();
+	const apiBaseUrl = useProjectApiBaseUrl(projectId);
 	const navigate = useNavigate();
 	const [page, setPage] = useState(1);
 	const [search, setSearch] = useState("");
@@ -221,7 +223,7 @@ function RoutesPage() {
 									<RouteApiPlayground
 										key={pendingPlayground.id}
 										routeId={pendingPlayground.id}
-										baseUrl={import.meta.env.VITE_ROUTE_BASE_URL ?? window.location.origin}
+										baseUrl={apiBaseUrl}
 										isFramed={false}
 									/>
 								</Modal.Body>

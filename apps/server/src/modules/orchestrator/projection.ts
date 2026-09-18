@@ -46,6 +46,12 @@ export interface DesiredNode {
 	groupIds: string[];
 	/** Populated only for a catch-all node: `project:group` pairs a dedicated claim owns. */
 	excludedGroups: string[];
+	/**
+	 * `<subdomain>.<base domain>` for a project-pinned node that serves APIs;
+	 * absent on everything reached by path alone. Set after projection, from
+	 * project settings — the projection itself never reads them.
+	 */
+	host?: string | null;
 	/** False when nothing can be created yet: the node is `pending` with `reason`. */
 	placeable: boolean;
 	reason: NodeReason | null;

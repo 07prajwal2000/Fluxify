@@ -3,6 +3,7 @@ import handleRequest from "../service";
 import * as repository from "../repository";
 import * as membersRepository from "../../settings/members/repository";
 import * as settingsRepository from "../../settings/keys/upsert/repository";
+import * as redis from "../../../../../db/redis";
 import { ConflictError } from "../../../../../errors/conflictError";
 
 mock.module("../repository", () => ({
@@ -18,6 +19,12 @@ mock.module("../../settings/keys/upsert/repository", () => ({
 	upsertProjectSettingKey: mock(),
 }));
 
+const redisModule = { ...(await import("../../../../../db/redis")) };
+mock.module("../../../../../db/redis", () => ({
+	...redisModule,
+	publishMessage: mock(),
+}));
+
 const tx = { __tx: true };
 mock.module("../../../../../db", () => ({
 	db: { transaction: (fn: (t: unknown) => unknown) => fn(tx) },
@@ -29,6 +36,7 @@ describe("create project service", () => {
 		(repository.checkProjectExists as any).mockClear();
 		(membersRepository.addProjectMember as any).mockClear();
 		(settingsRepository.upsertProjectSettingKey as any).mockClear();
+		(redis.publishMessage as any).mockClear();
 		(repository.checkProjectExists as any).mockResolvedValue(false);
 		(repository.createProject as any).mockResolvedValue("proj-1");
 	});
@@ -72,6 +80,11 @@ describe("create project service", () => {
 			"true",
 			tx,
 		);
+		// the compiler reloads settings on this, so a subdomain reaches the workers
+		expect(redis.publishMessage).toHaveBeenCalledWith(
+			redis.CHAN_ON_PROJECT_SETTING_CHANGE,
+			"proj-1",
+		);
 	});
 
 	it("creates a bare project when members and settings are omitted", async () => {
@@ -79,6 +92,7 @@ describe("create project service", () => {
 
 		expect(membersRepository.addProjectMember).not.toHaveBeenCalled();
 		expect(settingsRepository.upsertProjectSettingKey).not.toHaveBeenCalled();
+		expect(redis.publishMessage).not.toHaveBeenCalled();
 		// `members`/`settings` must not reach the insert — they are not columns.
 		const [inserted] = (repository.createProject as any).mock.calls[0];
 		expect(inserted).not.toHaveProperty("members");

@@ -8,7 +8,11 @@ import type { JobEnvelope } from "../jobs/types";
 import {
 	applyArtifactUpdate,
 	compiledRouteValidators,
+	fromPortal,
+	setTrustedOrigins,
 	initCompiledRuntime,
+	routeParserFor,
+	setBaseDomain,
 	shutdownCompiledRuntime,
 } from "./compiledRuntime";
 import { dispatch, envelopeFromHttp, type RouteExecutionObserver } from "./service";
@@ -30,7 +34,7 @@ import { artifactKind } from "../compiler/subjects";
 let boot: ExecutionBootstrap | undefined;
 let monitoringEnabled = false;
 let heartbeat: ReturnType<typeof setInterval> | undefined;
-let parser: ReturnType<typeof initCompiledRuntime> | undefined;
+let ready = false;
 let server: ReturnType<typeof Bun.serve> | undefined;
 let shuttingDown = false;
 let asyncExecutor: AsyncExecutor | undefined;
@@ -51,6 +55,7 @@ process.on("message", (message: ExecutionMessage) => {
 		return;
 	}
 	if (message.type === "job") return void executeJob(message.job);
+	if (message.type === "base-domain") return setBaseDomain(message.baseDomain);
 	setMonitoring(message.enabled);
 });
 
@@ -77,7 +82,10 @@ function bootstrap(nextBoot: ExecutionBootstrap) {
 		otlpHeaders: boot.logging.otlpHeaders,
 		useOtlp: boot.logging.useOtlp,
 	});
-	parser = initCompiledRuntime(boot.artifacts, boot.databaseIdleTimeoutMs);
+	setBaseDomain(boot.baseDomain);
+	setTrustedOrigins(boot.trustedOrigins);
+	initCompiledRuntime(boot.artifacts, boot.databaseIdleTimeoutMs);
+	ready = true;
 	asyncExecutor = new AsyncExecutor(boot.asyncExecutor, (error) =>
 		logger.error(`async dispatch failed: ${String(error)}`, "WORKER.execution"),
 	);
@@ -118,8 +126,40 @@ function bootstrap(nextBoot: ExecutionBootstrap) {
 	logger.info(`[execution] serving port ${server.port}`, "WORKER.execution");
 }
 
+/**
+ * The portal's playground calls a project's subdomain from the base domain, so
+ * it is cross-origin. Only the portal is let through; every other origin sees
+ * the routes exactly as before, with whatever CORS the route itself sets.
+ */
 async function handle(request: Request): Promise<Response> {
-	if (!parser) return new Response("Execution process is not ready", { status: 503 });
+	const origin = request.headers.get("origin");
+	if (!fromPortal(origin)) return serveRoute(request);
+	const cors = {
+		"access-control-allow-origin": origin!,
+		vary: "Origin",
+	};
+	if (request.method === "OPTIONS" && request.headers.has("access-control-request-method")) {
+		return new Response(null, {
+			status: 204,
+			headers: {
+				...cors,
+				"access-control-allow-methods": "GET, POST, PUT, DELETE",
+				"access-control-allow-headers": request.headers.get("access-control-request-headers") ?? "",
+				"access-control-max-age": "600",
+			},
+		});
+	}
+	const response = await serveRoute(request);
+	for (const [name, value] of Object.entries(cors)) response.headers.set(name, value);
+	// the playground shows response headers, which the browser hides otherwise
+	response.headers.set("access-control-expose-headers", "*");
+	return response;
+}
+
+async function serveRoute(request: Request): Promise<Response> {
+	if (!ready) return new Response("Execution process is not ready", { status: 503 });
+	// resolved before anything else: the host decides which project's routes exist
+	const parser = routeParserFor(request.headers.get("host") ?? undefined);
 	const ctx = createHttpContext(request);
 	const env = await envelopeFromHttp(ctx as any);
 	const observer = createObserver();
@@ -141,7 +181,7 @@ async function handle(request: Request): Promise<Response> {
 			// attempt late cookie/header writes while the detached route runs.
 			await dispatch(
 				env,
-				parser!,
+				parser,
 				undefined,
 				observer,
 				compiledRouteValidators,

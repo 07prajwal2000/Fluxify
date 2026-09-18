@@ -17,7 +17,10 @@ mock.module("../../upsert/repository", () => ({
 	},
 }));
 
+// spread the real loader: lib/edition (imported below) needs getSetting from it
+const loader = { ...(await import("../../../../../loaders/instanceSettingsLoader")) };
 mock.module("../../../../../loaders/instanceSettingsLoader", () => ({
+	...loader,
 	publishInstanceSetting: (key: string, value: unknown, isPublic: boolean) =>
 		published(key, { value, isPublic }),
 }));
@@ -25,7 +28,11 @@ mock.module("../../../../../loaders/instanceSettingsLoader", () => ({
 // The gate reaches into lib/edition, which talks to NATS KV. Stand in for it so
 // the licensed and unlicensed paths are both reachable from a unit test.
 let ssoLicensed = true;
+// Spread the real module: bun's mocks leak across spec files, and a partial one
+// breaks every later importer of the other exports (e.g. nodeEntitlement).
+const edition = { ...(await import("../../../../../lib/edition")) };
 mock.module("../../../../../lib/edition", () => ({
+	...edition,
 	assertCanUse: (feature: string) => {
 		if (feature === "sso" && !ssoLicensed)
 			throw new ForbiddenError("SSO needs an enterprise license");

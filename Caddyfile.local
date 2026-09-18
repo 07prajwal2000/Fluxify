@@ -1,4 +1,5 @@
-http://localhost:8080 {
+# any host: project subdomains (billing.localhost) reach the worker, which routes by Host
+:8080 {
 
     # vite's base is /_/admin/ui/ and it won't redirect the bare path itself
     @admin_ui_bare path /_/admin/ui

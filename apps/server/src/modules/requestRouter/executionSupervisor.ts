@@ -52,6 +52,9 @@ export interface ExecutionSupervisorOptions {
 	logging: ExecutionBootstrap["logging"];
 	/** The artifacts a freshly spawned child should start with, as this node sees them. */
 	artifacts: () => ArtifactEntry[];
+	trustedOrigins: string[];
+	/** Read at every spawn; later changes arrive as a `base-domain` message. */
+	baseDomain: () => string;
 	/** Whether any project loaded here asks for execution timeouts. */
 	timeoutsEnabled: () => boolean;
 }
@@ -178,6 +181,8 @@ export function createExecutionSupervisor(
 			port: options.port,
 			databaseIdleTimeoutMs: options.databaseIdleTimeoutMs,
 			asyncExecutor: options.asyncExecutor,
+			baseDomain: options.baseDomain(),
+			trustedOrigins: options.trustedOrigins,
 			artifacts: options.artifacts(),
 			workerTimeoutsEnabled: options.timeoutsEnabled(),
 			maxRequestBodyBytes: options.maxRequestBodyBytes,

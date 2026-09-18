@@ -246,6 +246,8 @@ export interface ObservedNode {
 	replicaIndex: number;
 	/** Null is the catch-all, as everywhere else. */
 	projectId: string | null;
+	/** The `Host` the edge routes to it; absent on nodes reached by path alone. */
+	host?: string | null;
 	image: string;
 	running: boolean;
 	/** The platform's own word: `running`, `created`, `restarting`, `exited`, … */

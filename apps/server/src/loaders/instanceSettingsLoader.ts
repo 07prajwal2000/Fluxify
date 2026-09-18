@@ -8,6 +8,7 @@ import {
 	InstanceSettingValue,
 	isInstanceSettingKey,
 } from "../lib/instance-settings/schemas";
+import { DEFAULT_BASE_DOMAIN } from "../lib/hosting";
 
 /**
  * Instance settings, distributed over NATS KV — the first consumer of
@@ -49,8 +50,18 @@ export async function loadInstanceSettings() {
  * Any process that reads settings but does not own the database. Fed entirely
  * by the watch — no Postgres connection, which is the point.
  */
-export async function watchInstanceSettings() {
-	await start({});
+export async function watchInstanceSettings(onChange?: (key: string) => void) {
+	await start({ onChange });
+}
+
+/** The operator's base domain as written; empty when none is set. */
+export function configuredBaseDomain(): string {
+	return getSetting("hosting")?.baseDomain ?? "";
+}
+
+/** Where projects' subdomains hang off; `localhost` until an operator sets one. */
+export function baseDomain(): string {
+	return configuredBaseDomain() || DEFAULT_BASE_DOMAIN;
 }
 
 async function start(options: Parameters<typeof store.start>[0]) {

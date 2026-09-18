@@ -103,10 +103,27 @@ describe("buildContainerSpec", () => {
 		expect(labels["traefik.enable"]).toBeUndefined();
 	});
 
-	it("leaves a project-pinned node off the edge until subdomains exist (#340)", () => {
+	it("leaves a project-pinned node off the edge while it has no host", () => {
 		const labels = labelsOf(buildContainerSpec(desired({ projectId: PROJECT }), options));
 		expect(labels["traefik.enable"]).toBeUndefined();
 		expect(labels[LABELS.project]).toBe(PROJECT);
+	});
+
+	it("routes a project-pinned node by its host, above the catch-all and below admin", () => {
+		const labels = labelsOf(
+			buildContainerSpec(desired({ projectId: PROJECT, host: "shop.example.com" }), options),
+		);
+		const router = `traefik.http.routers.fluxify-project-${PROJECT}`;
+		expect(labels[`${router}.rule`]).toBe("Host(`shop.example.com`)");
+		expect(labels[`${router}.priority`]).toBe("50");
+		expect(labels[`${router}.service`]).toBe(`fluxify-project-${PROJECT}`);
+		expect(labels[LABELS.host]).toBe("shop.example.com");
+	});
+
+	it("refuses a host that could break out of the Traefik rule", () => {
+		expect(() =>
+			buildContainerSpec(desired({ projectId: PROJECT, host: "a.com`) || PathPrefix(`/" }), options),
+		).toThrow("malformed host");
 	});
 
 	it("lets Docker restart a dead container, rather than doing it from here", () => {
