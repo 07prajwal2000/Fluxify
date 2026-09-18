@@ -59,8 +59,8 @@ export interface ProjectionInput {
 	/**
 	 * Every trigger group that currently exists, as `project:group`. Optional:
 	 * pass it to drop ids left behind by a deleted group, which a jsonb list
-	 * cannot cascade away. A claim whose groups have all been deleted is still a
-	 * node — the user asked for one, and a group is created into it later.
+	 * cannot cascade away. A project claim whose groups have all been deleted
+	 * has nothing left to run, so it projects no nodes and its containers drain.
 	 */
 	knownGroups?: ReadonlySet<string>;
 }
@@ -117,6 +117,9 @@ export function projectDesiredNodes({
 					(id) => !knownGroups || knownGroups.has(groupPair(claim.projectId, id)),
 				)
 			: [];
+		// Only a project claim: on a catch-all, no groups means every group.
+		if (claim.projectId !== null && SERVES_WORKFLOWS.includes(claim.type) && groupIds.length === 0)
+			continue;
 
 		for (let replicaIndex = 0; replicaIndex < claim.replicas; replicaIndex++) {
 			// A claim the license refuses still shows its replicas as pending:

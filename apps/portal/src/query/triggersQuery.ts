@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
 	type CreateTriggerBody,
+	type DeleteGroupOptions,
 	type ListTriggersQuery,
 	type UpdateTriggerBody,
 	triggersService,
@@ -27,6 +28,41 @@ export const triggersQuery = {
 				queryFn: () => triggersService.getGroups(projectId),
 				enabled: Boolean(projectId),
 				refetchOnWindowFocus: false,
+			});
+		},
+	},
+	createGroup: {
+		mutation() {
+			const qc = useQueryClient();
+			return useMutation({
+				mutationFn: (body: { projectId: string; name: string; description?: string }) =>
+					triggersService.createGroup(body),
+				onSuccess: (_, body) => qc.invalidateQueries({ queryKey: groupsKey(body.projectId) }),
+			});
+		},
+	},
+	updateGroup: {
+		mutation(projectId: string) {
+			const qc = useQueryClient();
+			return useMutation({
+				mutationFn: (data: { id: string; name?: string; description?: string | null }) =>
+					triggersService.updateGroup(data.id, { name: data.name, description: data.description }),
+				onSuccess: () => qc.invalidateQueries({ queryKey: groupsKey(projectId) }),
+			});
+		},
+	},
+	deleteGroup: {
+		mutation(projectId: string) {
+			const qc = useQueryClient();
+			return useMutation({
+				mutationFn: (data: { id: string; options?: DeleteGroupOptions }) =>
+					triggersService.deleteGroup(data.id, data.options),
+				// its triggers were moved or deleted with it
+				onSuccess: () =>
+					Promise.all([
+						qc.invalidateQueries({ queryKey: groupsKey(projectId) }),
+						qc.invalidateQueries({ queryKey: LIST_KEY }),
+					]),
 			});
 		},
 	},

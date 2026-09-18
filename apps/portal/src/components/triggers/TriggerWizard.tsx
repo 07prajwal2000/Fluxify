@@ -8,6 +8,8 @@ import {
 	TextField,
 	toast,
 } from "@fluxify/components";
+import { TbBrandAws, TbClock } from "react-icons/tb";
+import { SiApachekafka, SiNatsdotio } from "react-icons/si";
 import { FormWizard, SummaryItem, type WizardStep } from "@/components/common/FormWizard";
 import { ScheduleFields } from "@/components/workflows/ScheduleFields";
 import { TriggerWorkflowsField } from "@/components/triggers/TriggerWorkflowsField";
@@ -309,6 +311,28 @@ export function TriggerWizard({
 			isValid: nameIsValid,
 			content: (
 				<div className="flex flex-col gap-5">
+					<div className="flex items-center gap-3 rounded-xl border border-border/80 bg-surface-secondary/40 p-3">
+						<div className="flex size-9 items-center justify-center rounded-lg bg-accent/10 text-accent">
+							{type === "schedule" ? (
+								<TbClock size={20} />
+							) : type === "kafka" ? (
+								<SiApachekafka size={20} />
+							) : type === "nats" ? (
+								<SiNatsdotio size={20} />
+							) : (
+								<TbBrandAws size={20} />
+							)}
+						</div>
+						<div className="min-w-0 flex-1">
+							<span className="text-[11px] font-medium uppercase tracking-wider text-muted">
+								Trigger Type
+							</span>
+							<p className="text-xs font-semibold text-foreground capitalize">
+								{type === "sqs" ? "Amazon SQS" : type}
+							</p>
+						</div>
+					</div>
+
 					<TextField
 						isRequired
 						autoFocus
@@ -389,6 +413,14 @@ export function TriggerWizard({
 						<SummaryItem
 							label="Workflow"
 							value={workflowId ? "Attached" : "None yet"}
+						/>
+						<SummaryItem
+							label="Worker Group"
+							value={
+								(groups ?? []).find((g) => g.id === groupId)?.name ??
+								(groups ?? []).find((g) => g.isDefault)?.name ??
+								"Default"
+							}
 						/>
 					</dl>
 

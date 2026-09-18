@@ -16,9 +16,7 @@ import { triggerKey } from "../../../modules/compiler/subjects";
 import { removeSchedule, upsertSchedule } from "../../../modules/schedules/reconciler";
 import { describeSchedule, nextFires, ScheduleError } from "@fluxify/common/schedule";
 import {
-	createGroupSchema,
 	createSchema,
-	groupSchema,
 	isEnterpriseTriggerType,
 	listQuerySchema,
 	listSchema,
@@ -28,16 +26,13 @@ import {
 	triggerSchema,
 } from "./dto";
 import {
-	deleteGroupRow,
 	deleteTriggerRow,
 	ensureDefaultGroup,
 	findGroupById,
 	findTriggerById,
 	findTriggerByName,
 	findWorkflow,
-	insertGroup,
 	insertTrigger,
-	listGroups,
 	listTriggers,
 	projectExists,
 	updateTriggerRow,
@@ -314,65 +309,6 @@ export function previewSchedule(
 	}
 }
 
-/* ------------------------------------------------------------------ groups */
-
-export async function listTriggerGroups(
-	projectId: string,
-	acl: AuthACL[] = [],
-): Promise<{ data: z.infer<typeof groupSchema>[] }> {
-	if (!canAccessProject(acl, projectId, "viewer")) throw new ForbiddenError();
-	// Creating it on a read looks odd, but a project with no group has nothing to
-	// offer the trigger form, and the alternative is every caller handling an
-	// empty list that only ever means "not created yet".
-	await ensureDefaultGroup(projectId);
-	const rows = await listGroups(projectId);
-	return {
-		data: rows.map((row) => ({
-			id: row.id,
-			name: row.name,
-			description: row.description,
-			projectId: row.projectId,
-			isDefault: row.isDefault,
-			createdAt: row.createdAt.toISOString(),
-			updatedAt: row.updatedAt.toISOString(),
-		})),
-	};
-}
-
-export async function createTriggerGroup(
-	userId: string,
-	data: z.infer<typeof createGroupSchema>,
-	acl: AuthACL[] = [],
-) {
-	if (!canAccessProject(acl, data.projectId, "creator")) throw new ForbiddenError();
-	const id = await insertGroup({
-		id: generateID(),
-		name: data.name,
-		description: data.description,
-		projectId: data.projectId,
-		isDefault: false,
-		createdBy: userId,
-	});
-	return { id };
-}
-
-export async function deleteTriggerGroup(id: string, acl: AuthACL[] = []) {
-	const group = await findGroupById(id);
-	if (!group) throw new NotFoundError("Trigger group not found");
-	if (!canAccessProject(acl, group.projectId, "creator")) throw new ForbiddenError();
-	// The default is where an ungrouped trigger lands. Without it, creating a
-	// trigger has nowhere to put it.
-	if (group.isDefault)
-		throw new BadRequestError("The default group cannot be deleted");
-
-	// The foreign key restricts this, but the error it raises says nothing a user
-	// could act on.
-	await deleteGroupRow(id).catch(() => {
-		throw new ConflictError("Move or delete this group's triggers first");
-	});
-	return { id };
-}
-
 /* ----------------------------------------------------------------- helpers */
 
 /** Loads a trigger and refuses the caller who may not touch it. */
@@ -404,7 +340,7 @@ async function assertWorkflowInProject(
 		throw new BadRequestError("Workflow belongs to a different project");
 }
 
-async function assertGroupInProject(
+export async function assertGroupInProject(
 	groupId: string,
 	projectId: string,
 	tx?: Parameters<typeof findGroupById>[1],
@@ -434,7 +370,7 @@ function assertSourceMatchesType(type: string, integrationId?: string | null) {
  * so it gets no consumer and no artifact — the broker holds its schedule and
  * the fire consumer turns each fire straight into a job.
  */
-async function republish(trigger: Trigger) {
+export async function republish(trigger: Trigger) {
 	if (trigger.type === "schedule") return republishSchedule(trigger);
 	const key = triggerKey(trigger.projectId, trigger.id);
 	// No workflow is the same as inactive as far as a worker is concerned: a

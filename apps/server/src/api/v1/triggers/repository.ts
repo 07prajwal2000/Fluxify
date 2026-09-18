@@ -1,4 +1,4 @@
-import { and, count, desc, eq, ilike, inArray, isNotNull, SQL } from "drizzle-orm";
+import { and, count, desc, eq, getTableColumns, ilike, inArray, isNotNull, SQL } from "drizzle-orm";
 import { generateID } from "@fluxify/lib";
 import { db, DbTransactionType } from "../../../db";
 import {
@@ -54,9 +54,11 @@ export async function ensureDefaultGroup(
 
 export async function listGroups(projectId: string, tx?: DbTransactionType) {
 	return (tx ?? db)
-		.select()
+		.select({ ...getTableColumns(triggerGroupsEntity), triggerCount: count(triggersEntity.id) })
 		.from(triggerGroupsEntity)
+		.leftJoin(triggersEntity, eq(triggersEntity.groupId, triggerGroupsEntity.id))
 		.where(eq(triggerGroupsEntity.projectId, projectId))
+		.groupBy(triggerGroupsEntity.id)
 		.orderBy(desc(triggerGroupsEntity.isDefault), triggerGroupsEntity.name);
 }
 
@@ -78,6 +80,36 @@ export async function insertGroup(
 		.values(data)
 		.returning({ id: triggerGroupsEntity.id });
 	return row!.id;
+}
+
+export async function updateGroupRow(
+	id: string,
+	data: Partial<typeof triggerGroupsEntity.$inferInsert>,
+	tx?: DbTransactionType,
+) {
+	const [row] = await (tx ?? db)
+		.update(triggerGroupsEntity)
+		.set(data)
+		.where(eq(triggerGroupsEntity.id, id))
+		.returning();
+	return row;
+}
+
+/** Every trigger in a group, moved to another one. Returns the moved rows. */
+export async function moveGroupTriggers(from: string, to: string, tx?: DbTransactionType) {
+	return (tx ?? db)
+		.update(triggersEntity)
+		.set({ groupId: to })
+		.where(eq(triggersEntity.groupId, from))
+		.returning();
+}
+
+/** Every trigger in a group, deleted. Returns the deleted rows. */
+export async function deleteGroupTriggers(groupId: string, tx?: DbTransactionType) {
+	return (tx ?? db)
+		.delete(triggersEntity)
+		.where(eq(triggersEntity.groupId, groupId))
+		.returning();
 }
 
 export async function deleteGroupRow(id: string, tx?: DbTransactionType) {

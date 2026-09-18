@@ -11,10 +11,11 @@ import {
 	TextField,
 	toast,
 } from "@fluxify/components";
-import { TbBolt, TbEdit, TbPlus } from "react-icons/tb";
+import { TbBolt, TbEdit, TbPlus, TbStack2 } from "react-icons/tb";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { EmptyState } from "@/components/common/EmptyState";
 import { EditTriggerModal } from "@/components/triggers/EditTriggerModal";
+import { TriggerGroupsModal } from "@/components/triggers/TriggerGroupsModal";
 import { triggersQuery } from "@/query/triggersQuery";
 import { showErrorNotification } from "@/lib/errorNotifier";
 import { createRouteHead } from "@/lib/seo";
@@ -44,6 +45,7 @@ function TriggersPage() {
 	const [search, setSearch] = useState("");
 	const [editingTrigger, setEditingTrigger] = useState<TriggerListItem | null>(null);
 	const [pendingDelete, setPendingDelete] = useState<TriggerListItem | null>(null);
+	const [groupsOpen, setGroupsOpen] = useState(false);
 
 	const { data, isLoading, isError } = triggersQuery.getAll.useQuery({
 		projectId,
@@ -85,6 +87,9 @@ function TriggersPage() {
 						<Label className="sr-only">Search triggers</Label>
 						<Input placeholder="Search triggers" />
 					</TextField>
+					<Button variant="outline" onPress={() => setGroupsOpen(true)}>
+						<TbStack2 size={16} /> Groups
+					</Button>
 					<Button variant="primary" onPress={openNew}>
 						<TbPlus size={16} /> New trigger
 					</Button>
@@ -252,6 +257,12 @@ function TriggersPage() {
 				Delete <b className="text-foreground">{pendingDelete?.name}</b>? Every
 				workflow it starts keeps working, but nothing will start it.
 			</ConfirmDialog>
+
+			<TriggerGroupsModal
+				projectId={projectId}
+				isOpen={groupsOpen}
+				onClose={() => setGroupsOpen(false)}
+			/>
 
 			<EditTriggerModal
 				projectId={projectId}
