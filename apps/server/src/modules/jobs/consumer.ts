@@ -86,7 +86,7 @@ export function createJobWorker(options: JobWorkerOptions): JobWorker {
 	 * worker on this instance could ever boot again.
 	 */
 	function ensureJobsStream() {
-		return (stream ??= (async () => {
+		stream ??= (async () => {
 			const nc = natsConnection();
 			await ensureStream(nc, {
 				name: JOBS_STREAM,
@@ -98,7 +98,8 @@ export function createJobWorker(options: JobWorkerOptions): JobWorker {
 				duplicateWindowMs: 2 * 60_000,
 			});
 			await dropWildcardConsumers(nc, JOBS_STREAM);
-		})());
+		})();
+		return stream;
 	}
 
 	async function consume(projectId: string, kind: string) {
@@ -138,7 +139,8 @@ export function createJobWorker(options: JobWorkerOptions): JobWorker {
 			try {
 				await ensureJobsStream();
 				const consumers: QueueConsumer[] = [];
-				for (const kind of kinds) consumers.push(await consume(projectId, kind));
+				for (const kind of kinds)
+					consumers.push(await consume(projectId, kind));
 				served.set(projectId, consumers);
 				logger.info(
 					`[jobs] worker (${config.mode}) serving ${projectId}: ${kinds.join(", ")}`,

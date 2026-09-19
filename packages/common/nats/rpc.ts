@@ -42,7 +42,10 @@ export interface RpcRequest<TPayload, TMeta> {
 
 export type RpcResponse<T> =
 	| { ok: true; data: T }
-	| { ok: false; error: { code: RpcErrorCode; message: string; details?: unknown } };
+	| {
+			ok: false;
+			error: { code: RpcErrorCode; message: string; details?: unknown };
+	  };
 
 /** The NATS server default is 1MiB; leave headroom for subject and headers. */
 export const MAX_PAYLOAD_BYTES = 1_000_000;
@@ -91,14 +94,18 @@ export async function rpcRequest<TReq, TRes, TMeta = undefined>(
 		);
 	}
 
-	let message;
+	let message: Awaited<ReturnType<typeof nc.request>>;
 	try {
 		message = await nc.request(subject, body, { timeout: timeoutMs });
 	} catch (error) {
-		throw new RpcError("TIMEOUT", `No response from ${subject} within ${timeoutMs}ms`, {
-			requestId,
-			error: String(error),
-		});
+		throw new RpcError(
+			"TIMEOUT",
+			`No response from ${subject} within ${timeoutMs}ms`,
+			{
+				requestId,
+				error: String(error),
+			},
+		);
 	}
 
 	const response = codec.decode(message.data) as RpcResponse<TRes> | undefined;
@@ -137,7 +144,10 @@ export function rpcRespond<TReq, TRes, TMeta = undefined>(
 ): RpcResponder {
 	const codec = options.codec ?? defaultCodec;
 	const maxBytes = options.maxPayloadBytes ?? MAX_PAYLOAD_BYTES;
-	const sub = nc.subscribe(subject, options.queue ? { queue: options.queue } : {});
+	const sub = nc.subscribe(
+		subject,
+		options.queue ? { queue: options.queue } : {},
+	);
 
 	void (async () => {
 		for await (const message of sub) {
@@ -146,7 +156,10 @@ export function rpcRespond<TReq, TRes, TMeta = undefined>(
 			try {
 				const request = codec.decode(message.data) as RpcRequest<TReq, TMeta>;
 				requestId = request?.requestId ?? "unknown";
-				response = { ok: true, data: await handler(request.payload, request.meta) };
+				response = {
+					ok: true,
+					data: await handler(request.payload, request.meta),
+				};
 			} catch (error) {
 				const rpc =
 					error instanceof RpcError
@@ -156,7 +169,9 @@ export function rpcRespond<TReq, TRes, TMeta = undefined>(
 								error instanceof Error ? error.message : String(error),
 							);
 				if (rpc.code === "INTERNAL") {
-					logger.error(`[nats] rpc ${subject} failed (${requestId})`, "NATS", { error });
+					logger.error(`[nats] rpc ${subject} failed (${requestId})`, "NATS", {
+						error,
+					});
 				}
 				response = {
 					ok: false,

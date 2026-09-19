@@ -1,23 +1,27 @@
 import { DbConnectionManager, KvFactory } from "@fluxify/adapters";
 import {
-	instantiateCompiled,
-	registerCompiledCustomBlock,
 	type BlockOutput,
 	type Context,
+	instantiateCompiled,
+	registerCompiledCustomBlock,
 	unregisterCustomBlock,
 } from "@fluxify/blocks";
 import { logger } from "@fluxify/common";
-import { HttpRouteParser, type HttpRoute } from "@fluxify/lib";
-import { DEFAULT_BASE_DOMAIN, isPortalOrigin, subdomainOf } from "../../lib/hosting";
+import { type HttpRoute, HttpRouteParser } from "@fluxify/lib";
 import {
-	compileRequestSchema,
+	DEFAULT_BASE_DOMAIN,
+	isPortalOrigin,
+	subdomainOf,
+} from "../../lib/hosting";
+import {
 	type CompiledRequestSchema,
+	compileRequestSchema,
 } from "../../lib/schemaParser";
 import { hydrateAppConfig } from "../../loaders/appconfigLoader";
 import {
 	dbIntegrationsCache,
-	kvIntegrationsCache,
 	hydrateIntegrations,
+	kvIntegrationsCache,
 } from "../../loaders/integrationsLoader";
 import { hydrateProjectSettings } from "../../loaders/projectSettingsLoader";
 import type {
@@ -98,7 +102,10 @@ let configuredBaseDomain = "";
  * other name pointed here — gets the shared trie.
  */
 export function routeParserFor(host: string | undefined): HttpRouteParser {
-	const subdomain = subdomainOf(host, configuredBaseDomain || DEFAULT_BASE_DOMAIN);
+	const subdomain = subdomainOf(
+		host,
+		configuredBaseDomain || DEFAULT_BASE_DOMAIN,
+	);
 	if (subdomain === null) return parser;
 	const projectId = projectBySubdomain.get(subdomain);
 	return (projectId && projectParsers.get(projectId)) || NO_ROUTES;
@@ -122,12 +129,16 @@ export function fromPortal(origin: string | null) {
 }
 
 /** The compiled workflow a job handler runs, or undefined if this worker has none. */
-export function compiledWorkflow(workflowId: string): CompiledWorkflow | undefined {
+export function compiledWorkflow(
+	workflowId: string,
+): CompiledWorkflow | undefined {
 	return workflows.get(workflowId);
 }
 
 /** Cached alongside the compiled graph; no Zod tree is rebuilt per request. */
-export function compiledRouteValidators(routeId: string): RouteValidators | undefined {
+export function compiledRouteValidators(
+	routeId: string,
+): RouteValidators | undefined {
 	return routes.get(routeId)?.validators;
 }
 
@@ -223,7 +234,8 @@ function addRoute(artifact: RouteArtifact) {
 		const definition = routeDefinition(artifact);
 		projectParser(artifact.projectId).upsertRoute(definition);
 		// with a subdomain the project answers there and nowhere else
-		if (subdomainByProject.has(artifact.projectId)) parser.removeRoute(artifact.routeId);
+		if (subdomainByProject.has(artifact.projectId))
+			parser.removeRoute(artifact.routeId);
 		else parser.upsertRoute(definition);
 		logger.info(
 			`[worker] loaded ${artifact.method} ${artifact.path}`,
@@ -280,7 +292,10 @@ function removeRoute(routeId: string) {
 
 function projectParser(projectId: string) {
 	let trie = projectParsers.get(projectId);
-	if (!trie) projectParsers.set(projectId, (trie = new HttpRouteParser()));
+	if (!trie) {
+		trie = new HttpRouteParser();
+		projectParsers.set(projectId, trie);
+	}
 	return trie;
 }
 
@@ -291,7 +306,8 @@ function projectParser(projectId: string) {
 function setProjectSubdomain(projectId: string, subdomain: string) {
 	const previous = subdomainByProject.get(projectId) ?? "";
 	if (previous === subdomain) return;
-	if (previous && projectBySubdomain.get(previous) === projectId) projectBySubdomain.delete(previous);
+	if (previous && projectBySubdomain.get(previous) === projectId)
+		projectBySubdomain.delete(previous);
 	if (subdomain) {
 		subdomainByProject.set(projectId, subdomain);
 		projectBySubdomain.set(subdomain, projectId);

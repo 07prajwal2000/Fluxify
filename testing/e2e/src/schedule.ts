@@ -1,5 +1,5 @@
-import { natsConnection } from "@fluxify/server/src/db/nats";
 import { scheduleSubjects } from "@fluxify/common/nats";
+import { natsConnection } from "@fluxify/server/src/db/nats";
 import { startFireConsumer } from "@fluxify/server/src/modules/schedules/fire";
 import {
 	removeSchedule,
@@ -11,9 +11,9 @@ import {
 } from "@fluxify/server/src/modules/schedules/subjects";
 import type { WorkflowFixture } from "./graph";
 import {
-	WORKFLOW_PROJECT_ID,
 	publishWorkflow,
 	sinkHits,
+	WORKFLOW_PROJECT_ID,
 	workflowHarness,
 } from "./workflow";
 
@@ -37,7 +37,8 @@ let started: Promise<void> | undefined;
 const scheduled = new Set<string>();
 
 export function scheduleHarness(): Promise<void> {
-	return (started ??= start());
+	started ??= start();
+	return started;
 }
 
 async function start() {
@@ -97,7 +98,11 @@ export async function unschedule(triggerId: string) {
  */
 export async function scheduleCount(triggerId: string) {
 	const subject = scheduleSubject(WORKFLOW_PROJECT_ID, triggerId);
-	const live = await scheduleSubjects(natsConnection(), SCHEDULES_STREAM, subject);
+	const live = await scheduleSubjects(
+		natsConnection(),
+		SCHEDULES_STREAM,
+		subject,
+	);
 	return live.length;
 }
 
@@ -107,7 +112,11 @@ export function hitsOn(path: string) {
 }
 
 /** Waits until the sink has answered `count` requests on a path. */
-export async function waitForRuns(path: string, count: number, timeoutMs = 10_000) {
+export async function waitForRuns(
+	path: string,
+	count: number,
+	timeoutMs = 10_000,
+) {
 	const deadline = Date.now() + timeoutMs;
 	while (Date.now() < deadline) {
 		if (hitsOn(path).length >= count) return hitsOn(path);

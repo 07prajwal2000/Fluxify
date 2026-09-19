@@ -106,7 +106,8 @@ const byYear = computed(() => {
 	const groups: Record<string, Post[]> = {};
 	for (const post of filtered.value) {
 		const year = new Date(post.date).getFullYear().toString();
-		(groups[year] ??= []).push(post);
+		groups[year] ??= [];
+		groups[year].push(post);
 	}
 	return groups;
 });

@@ -1,23 +1,23 @@
-import { z } from "zod";
-import { requestRouteSchema, responseSchema } from "./dto";
-import { getIntegrationByID } from "../get-by-id/repository";
-import { NotFoundError } from "../../../../errors/notFoundError";
-import { BadRequestError } from "../../../../errors/badRequestError";
-import { databaseVariantSchema } from "../schemas";
-import { getSchema } from "../helpers";
-import { getAppConfigKeysFromData } from "../create/service";
-import { decodeAppConfig } from "../test-connection/service";
-import { parsePostgresUrl } from "../../../../lib/parsers/postgres";
-import { parseMysqlUrl } from "../../../../lib/parsers/mysql";
-import { parseMongoUrl } from "../../../../lib/parsers/mongodb";
 import {
-	Connection,
+	type Connection,
 	DbType,
 	extractMongoConnectionInfo,
 	extractMysqlConnectionInfo,
 	extractPgConnectionInfo,
 	introspectConnection,
 } from "@fluxify/adapters";
+import type { z } from "zod";
+import { BadRequestError } from "../../../../errors/badRequestError";
+import { NotFoundError } from "../../../../errors/notFoundError";
+import { parseMongoUrl } from "../../../../lib/parsers/mongodb";
+import { parseMysqlUrl } from "../../../../lib/parsers/mysql";
+import { parsePostgresUrl } from "../../../../lib/parsers/postgres";
+import { getAppConfigKeysFromData } from "../create/service";
+import { getIntegrationByID } from "../get-by-id/repository";
+import { getSchema } from "../helpers";
+import type { databaseVariantSchema } from "../schemas";
+import { decodeAppConfig } from "../test-connection/service";
+import type { requestRouteSchema, responseSchema } from "./dto";
 
 export default async function handleRequest(
 	params: z.infer<typeof requestRouteSchema>,
@@ -52,14 +52,11 @@ export default async function handleRequest(
 		appConfigs,
 	);
 
-	let tables;
-	try {
-		tables = await introspectConnection(connection);
-	} catch (error) {
+	const tables = await introspectConnection(connection).catch((error) => {
 		throw new BadRequestError(
 			`Failed to read schema: ${error instanceof Error ? error.message : String(error)}`,
 		);
-	}
+	});
 
 	return {
 		id: integration.id,
@@ -88,7 +85,10 @@ function buildConnection(
 		case "MySQL": {
 			const cfg = extractMysqlConnectionInfo(config, appConfigs, parseMysqlUrl);
 			if (!cfg) break;
-			return { ...(cfg as Record<string, any>), dbType: DbType.MYSQL } as Connection;
+			return {
+				...(cfg as Record<string, any>),
+				dbType: DbType.MYSQL,
+			} as Connection;
 		}
 		case "MongoDB": {
 			const cfg = extractMongoConnectionInfo(config, appConfigs, parseMongoUrl);

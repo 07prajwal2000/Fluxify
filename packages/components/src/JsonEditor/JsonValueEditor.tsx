@@ -1,4 +1,5 @@
 import { InputGroup, TextField } from "@heroui/react";
+import type { ReactNode } from "react";
 import { Checkbox } from "../Checkbox";
 import { JsTextField } from "../JsTextField";
 import { JsonArrayEditor } from "./JsonArrayEditor";
@@ -70,7 +71,7 @@ export function JsonValueEditor({
 		);
 	}
 
-	let field;
+	let field: ReactNode;
 	if (valueType === "string" && typeof value === "string") {
 		field = allowExpressions ? (
 			<JsTextField

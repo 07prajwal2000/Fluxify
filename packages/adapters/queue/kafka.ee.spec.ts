@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
-import type { QueueBatch, QueueHandler, QueueSubscription } from "./base";
 import { ProtocolError, ResponseError } from "@platformatic/kafka";
+import type { QueueBatch, QueueHandler, QueueSubscription } from "./base";
 import { isTopicGone, KafkaConnection } from "./kafka.ee";
 
 /**
@@ -10,7 +10,11 @@ import { isTopicGone, KafkaConnection } from "./kafka.ee";
 
 const committed: string[] = [];
 
-function message(partition: number, offset: number, value: string | null = `{"n":${offset}}`) {
+function message(
+	partition: number,
+	offset: number,
+	value: string | null = `{"n":${offset}}`,
+) {
 	return {
 		topic: "orders",
 		partition,
@@ -40,7 +44,9 @@ function harness(settings: Partial<QueueSubscription>, handler: QueueHandler) {
 	return {
 		connection,
 		receive: (...messages: ReturnType<typeof message>[]) =>
-			messages.forEach((m) => (connection as any).receive(m)),
+			messages.forEach((m) => {
+				(connection as any).receive(m);
+			}),
 	};
 }
 
@@ -58,9 +64,12 @@ const offsets = (batch: QueueBatch) =>
 describe("kafka connection", () => {
 	it("sends a full batch at once and a partial one after the wait", async () => {
 		const seen: string[] = [];
-		const { receive } = harness({ batchSize: 2, maxWaitMs: 30 }, async (batch) => {
-			seen.push(offsets(batch));
-		});
+		const { receive } = harness(
+			{ batchSize: 2, maxWaitMs: 30 },
+			async (batch) => {
+				seen.push(offsets(batch));
+			},
+		);
 
 		receive(message(0, 0), message(0, 1), message(0, 2));
 
@@ -98,9 +107,12 @@ describe("kafka connection", () => {
 
 	it("ignores offsets it already took, as a refetch after a rebalance repeats them", async () => {
 		const seen: string[] = [];
-		const { receive } = harness({ batchSize: 5, maxWaitMs: 10 }, async (batch) => {
-			seen.push(offsets(batch));
-		});
+		const { receive } = harness(
+			{ batchSize: 5, maxWaitMs: 10 },
+			async (batch) => {
+				seen.push(offsets(batch));
+			},
+		);
 
 		receive(message(0, 0), message(0, 1), message(0, 0), message(0, 1));
 
@@ -119,7 +131,11 @@ describe("kafka connection", () => {
 
 		await until(() => !!batch);
 		expect(batch!.consumerGroup).toBe("fluxify-t1");
-		expect(batch!.events.map((e) => e.data)).toEqual([{ n: 5 }, "plain text", null]);
+		expect(batch!.events.map((e) => e.data)).toEqual([
+			{ n: 5 },
+			"plain text",
+			null,
+		]);
 		expect(batch!.events[0]).toMatchObject({
 			topic: "orders",
 			partition: 2,
@@ -145,7 +161,10 @@ describe("kafka connection", () => {
 	it("refuses to dead-letter without a dead-letter topic", async () => {
 		const { connection } = harness({}, async () => undefined);
 		await expect(
-			connection.moveToDLQ({ events: [], consumerGroup: "g", highWatermark: null, attempt: 1 }, "x"),
+			connection.moveToDLQ(
+				{ events: [], consumerGroup: "g", highWatermark: null, attempt: 1 },
+				"x",
+			),
 		).rejects.toThrow(/dead-letter topic/);
 	});
 
@@ -172,11 +191,17 @@ describe("spotting a deleted topic", () => {
 		const gone = new ProtocolError("UNKNOWN_TOPIC_OR_PARTITION");
 		expect(isTopicGone(gone)).toBe(true);
 		expect(isTopicGone(new Error("fetch failed", { cause: gone }))).toBe(true);
-		expect(isTopicGone(new ResponseError("Fetch", 1, { "topics/0": [3, null] }, {} as any))).toBe(true);
+		expect(
+			isTopicGone(
+				new ResponseError("Fetch", 1, { "topics/0": [3, null] }, {} as any),
+			),
+		).toBe(true);
 	});
 
 	it("leaves everything else alone", () => {
-		expect(isTopicGone(new ProtocolError("NOT_LEADER_OR_FOLLOWER"))).toBe(false);
+		expect(isTopicGone(new ProtocolError("NOT_LEADER_OR_FOLLOWER"))).toBe(
+			false,
+		);
 		expect(isTopicGone(new Error("connection refused"))).toBe(false);
 		expect(isTopicGone("unknown topic or partition")).toBe(false);
 	});

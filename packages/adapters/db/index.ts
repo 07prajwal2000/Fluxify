@@ -1,11 +1,14 @@
-import { SQL } from "bun";
 import { operatorSchema } from "@fluxify/lib";
+import { SQL } from "bun";
 import z from "zod";
-import { Connection, DbType } from "./connection";
-import { PostgresAdapter } from "./postgresAdapter";
+import { type Connection, DbType } from "./connection";
+import {
+	type DbConnectionLease,
+	DbConnectionManager,
+} from "./connectionManager";
+import { buildMongoUrl, MongoAdapter } from "./mongoDbAdapter";
 import { MySqlAdapter } from "./mySqlAdapter";
-import { MongoAdapter, buildMongoUrl } from "./mongoDbAdapter";
-import { DbConnectionManager, type DbConnectionLease } from "./connectionManager";
+import { PostgresAdapter } from "./postgresAdapter";
 
 /** opt-in tag that makes a side name a column instead of holding a value */
 export const columnRefSchema = z.object({
@@ -48,6 +51,7 @@ export type DBConditionType = z.infer<typeof whereConditionSchema>;
 export type RawDbCondition = z.infer<typeof rawWhereConditionSchema>;
 
 export type { DBJoinType, QueryOptions } from "./jsonPath";
+
 import type { QueryOptions } from "./jsonPath";
 
 export type IntrospectedColumn = {
@@ -74,7 +78,10 @@ export function groupIntrospectionRows(
 	const byTable = new Map<string, IntrospectedTable>();
 	for (const r of rows) {
 		let entry = byTable.get(r.table_name);
-		if (!entry) byTable.set(r.table_name, (entry = { table: r.table_name, columns: [] }));
+		if (!entry) {
+			entry = { table: r.table_name, columns: [] };
+			byTable.set(r.table_name, entry);
+		}
 		entry.columns.push({
 			name: r.column_name,
 			type: r.data_type,
@@ -141,20 +148,23 @@ export class DbFactory {
 		this.connectionLeases[connection] = lease;
 
 		if (cfg.dbType.toLowerCase() === DbType.POSTGRES.toLowerCase()) {
-			return (this.connectionMap[connection] = new PostgresAdapter(
+			this.connectionMap[connection] = new PostgresAdapter(
 				lease.connection.db,
 				lease.connection.sql!,
-			));
+			);
+			return this.connectionMap[connection];
 		} else if (cfg.dbType.toLowerCase() === DbType.MYSQL.toLowerCase()) {
-			return (this.connectionMap[connection] = new MySqlAdapter(
+			this.connectionMap[connection] = new MySqlAdapter(
 				lease.connection.db,
 				lease.connection.pool!,
-			));
+			);
+			return this.connectionMap[connection];
 		} else if (cfg.dbType.toLowerCase() === DbType.MONGODB.toLowerCase()) {
-			return (this.connectionMap[connection] = new MongoAdapter(
+			this.connectionMap[connection] = new MongoAdapter(
 				lease.connection.client!,
 				lease.connection.db,
-			));
+			);
+			return this.connectionMap[connection];
 		}
 
 		lease.release();
@@ -221,7 +231,10 @@ export async function introspectConnection(
 		});
 		try {
 			await client.connect();
-			return await new MongoAdapter(client, client.db(cfg.database)).introspect();
+			return await new MongoAdapter(
+				client,
+				client.db(cfg.database),
+			).introspect();
 		} finally {
 			await client.close();
 		}
@@ -230,8 +243,8 @@ export async function introspectConnection(
 	throw new Error(`${cfg.dbType} introspection not implemented`);
 }
 
-export * from "./postgresAdapter";
-export * from "./mySqlAdapter";
-export * from "./mongoDbAdapter";
 export * from "./connection";
 export * from "./connectionManager";
+export * from "./mongoDbAdapter";
+export * from "./mySqlAdapter";
+export * from "./postgresAdapter";

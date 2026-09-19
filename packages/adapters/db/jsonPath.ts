@@ -1,4 +1,4 @@
-import { sql, RawBuilder } from "kysely";
+import { type RawBuilder, sql } from "kysely";
 
 export type JsonSqlDialect = "postgres" | "mysql";
 
@@ -19,9 +19,8 @@ function parsePath(
 	const rest = head[2];
 	const segments: Segment[] = [];
 	const re = /\.([^.[]+)|\[(\d+)\]/g;
-	let m: RegExpExecArray | null;
 	let consumed = 0;
-	while ((m = re.exec(rest))) {
+	for (let m = re.exec(rest); m; m = re.exec(rest)) {
 		consumed = re.lastIndex;
 		if (m[1] !== undefined) segments.push({ key: m[1], index: false });
 		else segments.push({ key: m[2], index: true });
@@ -169,7 +168,9 @@ export function isLiteralRef(value: unknown): value is LiteralRef {
 
 /** The payload behind either tag; anything untagged is already its own value. */
 function unwrapRef(operand: unknown): unknown {
-	return isColumnRef(operand) || isLiteralRef(operand) ? operand.value : operand;
+	return isColumnRef(operand) || isLiteralRef(operand)
+		? operand.value
+		: operand;
 }
 
 // A tagged column reference in an identifier position. resolveJsonOperand hands
@@ -267,12 +268,7 @@ export function applyJoins<
 					: j.type === "outer"
 						? "fullJoin"
 						: "innerJoin";
-		qb = (qb[method] as (...a: unknown[]) => QB).call(
-			qb,
-			target,
-			left,
-			right,
-		);
+		qb = (qb[method] as (...a: unknown[]) => QB).call(qb, target, left, right);
 	}
 	return qb;
 }

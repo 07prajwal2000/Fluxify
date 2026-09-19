@@ -1,42 +1,42 @@
-import { z } from "zod";
-import { requestBodySchema, responseSchema } from "./dto";
-import {
-	aiVariantSchema,
-	databaseVariantSchema,
-	integrationsGroupSchema,
-	lokiVariantConfigSchema,
-	normalizeObservabilityVariant,
-	observabilityVariantSchema,
-	openTelemetryVariantConfigSchema,
-	postgresVariantConfigSchema,
-	kvVariantSchema,
-} from "../schemas";
-import { getAppConfigKeysFromData } from "../create/service";
-import { getAppConfigs } from "./repository";
-import { parsePostgresUrl } from "../../../../lib/parsers/postgres";
-import { parseMysqlUrl } from "../../../../lib/parsers/mysql";
-import { parseMongoUrl } from "../../../../lib/parsers/mongodb";
 import {
 	AnthropicIntegration,
+	type Connection,
+	extractMongoConnectionInfo,
+	extractMysqlConnectionInfo,
 	extractPgConnectionInfo,
 	GeminiIntegration,
 	LokiLogger,
+	MemcachedIntegration,
 	MistralIntegration,
+	MongoAdapter,
+	MySqlAdapter,
 	OpenAICompatibleIntegration,
 	OpenAIIntegration,
 	OpenTelemetryLogs,
 	type OtlpSignal,
 	PostgresAdapter,
-	MySqlAdapter,
-	MongoAdapter,
-	extractMysqlConnectionInfo,
-	extractMongoConnectionInfo,
-	Connection,
 	RedisIntegration,
-	MemcachedIntegration,
 } from "@fluxify/adapters";
+import type { z } from "zod";
 import { EncryptionService } from "../../../../lib/encryption";
+import { parseMongoUrl } from "../../../../lib/parsers/mongodb";
+import { parseMysqlUrl } from "../../../../lib/parsers/mysql";
+import { parsePostgresUrl } from "../../../../lib/parsers/postgres";
+import { getAppConfigKeysFromData } from "../create/service";
 import { getSchema } from "../helpers";
+import {
+	type aiVariantSchema,
+	type databaseVariantSchema,
+	type integrationsGroupSchema,
+	type kvVariantSchema,
+	lokiVariantConfigSchema,
+	normalizeObservabilityVariant,
+	type observabilityVariantSchema,
+	openTelemetryVariantConfigSchema,
+	postgresVariantConfigSchema,
+} from "../schemas";
+import type { requestBodySchema, responseSchema } from "./dto";
+import { getAppConfigs } from "./repository";
 
 export async function testIntegrationConnection(
 	projectId: string,
@@ -95,12 +95,25 @@ export default async function handleRequest(
 	body: z.infer<typeof requestBodySchema>,
 ): Promise<z.infer<typeof responseSchema>> {
 	const { group, variant, config: data } = body;
-	
-	const timeoutPromise = new Promise<z.infer<typeof responseSchema>>((resolve) =>
-		setTimeout(() => resolve({ success: false, error: "Connection timed out after 5 seconds" }), 5000)
+
+	const timeoutPromise = new Promise<z.infer<typeof responseSchema>>(
+		(resolve) =>
+			setTimeout(
+				() =>
+					resolve({
+						success: false,
+						error: "Connection timed out after 5 seconds",
+					}),
+				5000,
+			),
 	);
 
-	const connectionPromise = testIntegrationConnection(projectId, group, variant, data);
+	const connectionPromise = testIntegrationConnection(
+		projectId,
+		group,
+		variant,
+		data,
+	);
 	return Promise.race([connectionPromise, timeoutPromise]);
 }
 
@@ -110,7 +123,7 @@ async function testDatabasesConnection(
 	appConfigs: Map<string, string>,
 ) {
 	switch (variant as z.infer<typeof databaseVariantSchema>) {
-		case "PostgreSQL":
+		case "PostgreSQL": {
 			const pgConfig = extractPgConnectionInfo(
 				config,
 				appConfigs,
@@ -133,7 +146,8 @@ async function testDatabasesConnection(
 					result.error?.toString() ||
 					(result.success ? "" : "Connection failed"),
 			};
-		case "MySQL":
+		}
+		case "MySQL": {
 			const mysqlConfig = extractMysqlConnectionInfo(
 				config,
 				appConfigs,
@@ -155,7 +169,8 @@ async function testDatabasesConnection(
 					mysqlResult.error?.toString() ||
 					(mysqlResult.success ? "" : "Connection failed"),
 			};
-		case "MongoDB":
+		}
+		case "MongoDB": {
 			const mongoConfig = extractMongoConnectionInfo(
 				config,
 				appConfigs,
@@ -176,6 +191,7 @@ async function testDatabasesConnection(
 					mongoResult.error?.toString() ||
 					(mongoResult.success ? "" : "Connection failed"),
 			};
+		}
 		default:
 			return {
 				success: false,
@@ -190,18 +206,30 @@ async function testKvConnection(
 	appConfigs: Map<string, string>,
 ) {
 	switch (variant as z.infer<typeof kvVariantSchema>) {
-		case "Redis":
-			const redisResult = await RedisIntegration.TestConnection(config, appConfigs);
+		case "Redis": {
+			const redisResult = await RedisIntegration.TestConnection(
+				config,
+				appConfigs,
+			);
 			return {
 				success: redisResult.success,
-				error: redisResult.error || (redisResult.success ? "" : "Failed to connect to Redis"),
+				error:
+					redisResult.error ||
+					(redisResult.success ? "" : "Failed to connect to Redis"),
 			};
-		case "Memcached":
-			const memcachedResult = await MemcachedIntegration.TestConnection(config, appConfigs);
+		}
+		case "Memcached": {
+			const memcachedResult = await MemcachedIntegration.TestConnection(
+				config,
+				appConfigs,
+			);
 			return {
 				success: memcachedResult.success,
-				error: memcachedResult.error || (memcachedResult.success ? "" : "Failed to connect to Memcached"),
+				error:
+					memcachedResult.error ||
+					(memcachedResult.success ? "" : "Failed to connect to Memcached"),
 			};
+		}
 		default:
 			return { success: false, error: "Invalid variant" };
 	}
@@ -236,7 +264,7 @@ async function testObservibilityConnection(
 					: `Failed to send ${signal} to the OpenTelemetry endpoint`,
 			};
 		}
-		case "Loki":
+		case "Loki": {
 			if (!lokiVariantConfigSchema.safeParse(config).success) {
 				return { success: false, error: "Invalid configuration" };
 			}
@@ -250,6 +278,7 @@ async function testObservibilityConnection(
 				success: lokiResult,
 				error: lokiResult ? "" : "Failed to connect to Loki",
 			};
+		}
 		default:
 			return { success: false, error: "Invalid variant" };
 	}
@@ -261,7 +290,7 @@ export async function testAiConnection(
 	appConfigs: Map<string, string>,
 ) {
 	switch (variant as z.infer<typeof aiVariantSchema>) {
-		case "OpenAI":
+		case "OpenAI": {
 			const openAiResult = await OpenAIIntegration.TestConnection(
 				config,
 				appConfigs,
@@ -270,7 +299,8 @@ export async function testAiConnection(
 				return { success: false, error: "Failed to connect to OpenAI" };
 			}
 			return { success: true, error: "" };
-		case "Anthropic":
+		}
+		case "Anthropic": {
 			const anthropicResult = await AnthropicIntegration.TestConnection(
 				config,
 				appConfigs,
@@ -279,7 +309,8 @@ export async function testAiConnection(
 				return { success: false, error: "Failed to connect to Anthropic" };
 			}
 			return { success: true, error: "" };
-		case "Gemini":
+		}
+		case "Gemini": {
 			const geminiResult = await GeminiIntegration.TestConnection(
 				config,
 				appConfigs,
@@ -288,7 +319,8 @@ export async function testAiConnection(
 				return { success: false, error: "Failed to connect to Gemini" };
 			}
 			return { success: true, error: "" };
-		case "Mistral":
+		}
+		case "Mistral": {
 			const mistralResult = await MistralIntegration.TestConnection(
 				config,
 				appConfigs,
@@ -297,7 +329,8 @@ export async function testAiConnection(
 				return { success: false, error: "Failed to connect to Mistral" };
 			}
 			return { success: true, error: "" };
-		case "OpenAI Compatible":
+		}
+		case "OpenAI Compatible": {
 			const openAiCompatibleResult =
 				await OpenAICompatibleIntegration.TestConnection(config, appConfigs);
 			if (!openAiCompatibleResult) {
@@ -307,13 +340,18 @@ export async function testAiConnection(
 				};
 			}
 			return { success: true, error: "" };
+		}
 		default:
 			return { success: false, error: "Invalid variant" };
 	}
 }
 
 /** A queue client is loaded only when probed. */
-async function testQueueConnection(variant: string, config: any, appConfigs: Map<string, string>) {
+async function testQueueConnection(
+	variant: string,
+	config: any,
+	appConfigs: Map<string, string>,
+) {
 	if (variant === "NATS") {
 		const { testNatsConnection } = await import("@fluxify/adapters/queue/nats");
 		return testNatsConnection(expandCfg(config, appConfigs) as any);
@@ -327,12 +365,21 @@ async function testQueueConnection(variant: string, config: any, appConfigs: Map
 }
 
 /** A stored queue integration's config with its `cfg:` references resolved. */
-export async function resolveQueueConfig(projectId: string, config: Record<string, unknown>) {
-	const appConfigs = await decodeAppConfig(getAppConfigKeysFromData(config), projectId);
+export async function resolveQueueConfig(
+	projectId: string,
+	config: Record<string, unknown>,
+) {
+	const appConfigs = await decodeAppConfig(
+		getAppConfigKeysFromData(config),
+		projectId,
+	);
 	return expandCfg(config, appConfigs);
 }
 
-function expandCfg(config: Record<string, unknown>, appConfigs: Map<string, string>) {
+function expandCfg(
+	config: Record<string, unknown>,
+	appConfigs: Map<string, string>,
+) {
 	return Object.fromEntries(
 		Object.entries(config).map(([key, value]) => [
 			key,

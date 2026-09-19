@@ -1,12 +1,20 @@
+import {
+	type BlockOutput,
+	type Context,
+	outputVariableName,
+} from "./baseBlock";
+import { FAN_OUT_HANDLES, sortByOrder } from "./blockHandles";
 import { BlockTypes } from "./blockTypes";
-import type { BlockDTOType, EdgeDTOSchemaType, EdgesType } from "./builderTypes";
-import { outputVariableName, type BlockOutput, type Context } from "./baseBlock";
+import type {
+	BlockDTOType,
+	EdgeDTOSchemaType,
+	EdgesType,
+} from "./builderTypes";
 import { emitCustomBlock, hasCustomBlock } from "./builtin/customBlock";
 import { emitWorkflowEnd } from "./builtin/response";
+import { type HoistedImport, hoistImports } from "./imports";
 import { compilerLib, emitters } from "./registry";
 import { scopeFor } from "./scope";
-import { FAN_OUT_HANDLES, sortByOrder } from "./blockHandles";
-import { hoistImports, type HoistedImport } from "./imports";
 
 export { compilerLib, type Emitter } from "./registry";
 export { scopeFor } from "./scope";
@@ -84,13 +92,11 @@ runs.forEach((run, i) => run.then(
 /** marker lets a newer worker load older artifacts during a rolling update */
 const COMPILED_ROUTE_FACTORY = "/* fluxify-compiled-route-factory */";
 
-type CompiledRun = (
-	ctx: Context,
-	input?: unknown,
-) => Promise<BlockOutput>;
+type CompiledRun = (ctx: Context, input?: unknown) => Promise<BlockOutput>;
 
-const AsyncFunction = Object.getPrototypeOf(async function () {})
-	.constructor as new (...args: string[]) => (
+const AsyncFunction = Object.getPrototypeOf(async () => {}).constructor as new (
+	...args: string[]
+) => (
 	ctx: Context,
 	input: unknown,
 	lib: typeof compilerLib,
@@ -105,7 +111,8 @@ function buildEdgeMap(edges: EdgeDTOSchemaType): EdgesType {
 	const map: EdgesType = {};
 	for (const edge of edges) {
 		let handle = edge.toHandle;
-		if (handle.includes("-")) handle = handle.substring(handle.lastIndexOf("-") + 1);
+		if (handle.includes("-"))
+			handle = handle.substring(handle.lastIndexOf("-") + 1);
 		const outgoing = { to: edge.to, handle };
 		if (edge.from in map) map[edge.from].push(outgoing);
 		else map[edge.from] = [outgoing];
@@ -177,30 +184,39 @@ export function compileGraph(
 	 * `ensureCustomBlocksRegistered`) every other route in the project.
 	 */
 	function edgeTo(id: string, handle: string) {
-		const outgoing = edgeMap[id]?.filter((edge) => edge.handle === handle) ?? [];
+		const outgoing =
+			edgeMap[id]?.filter((edge) => edge.handle === handle) ?? [];
 		if (outgoing.length > 1) {
 			throw new Error(
 				`Block ${id} has ${outgoing.length} outgoing edges on handle ${handle}; multi-edge fan-out is not supported yet`,
 			);
 		}
 		const to = outgoing[0]?.to;
-		return byId.get(to ?? "")?.type === BlockTypes.errorHandler ? undefined : to;
+		return byId.get(to ?? "")?.type === BlockTypes.errorHandler
+			? undefined
+			: to;
 	}
 
 	/** targets of every edge on a fan-out handle, sorted by the block's stored `order` */
 	function fanOutTargets(id: string, handle: string, order: string[]) {
 		const outgoing = (edgeMap[id] ?? []).filter(
 			(edge) =>
-				edge.handle === handle && byId.get(edge.to)?.type !== BlockTypes.errorHandler,
+				edge.handle === handle &&
+				byId.get(edge.to)?.type !== BlockTypes.errorHandler,
 		);
-		return sortByOrder(outgoing, order, (edge) => edge.to).map((edge) => edge.to);
+		return sortByOrder(outgoing, order, (edge) => edge.to).map(
+			(edge) => edge.to,
+		);
 	}
 
 	function validateEdges() {
 		for (const [id, outgoing] of Object.entries(edgeMap)) {
 			const countByHandle = new Map<string, number>();
 			for (const edge of outgoing) {
-				countByHandle.set(edge.handle, (countByHandle.get(edge.handle) ?? 0) + 1);
+				countByHandle.set(
+					edge.handle,
+					(countByHandle.get(edge.handle) ?? 0) + 1,
+				);
 			}
 			for (const [handle, count] of countByHandle) {
 				if (count > 1 && !FAN_OUT_HANDLES.includes(handle)) edgeTo(id, handle);
@@ -227,7 +243,8 @@ export function compileGraph(
 		visiting.add(id);
 		emissionOrder.push(id);
 		for (const edge of edgeMap[id] ?? []) {
-			if (byId.get(edge.to)?.type !== BlockTypes.errorHandler) collectReachable(edge.to);
+			if (byId.get(edge.to)?.type !== BlockTypes.errorHandler)
+				collectReachable(edge.to);
 		}
 		visiting.delete(id);
 		reachable.add(id);
@@ -241,7 +258,10 @@ export function compileGraph(
 	function registerImports(imports: HoistedImport[]) {
 		for (const { spec, bindings } of imports) {
 			let bound = importsBySpec.get(spec);
-			if (!bound) importsBySpec.set(spec, (bound = new Map()));
+			if (!bound) {
+				bound = new Map();
+				importsBySpec.set(spec, bound);
+			}
 			for (const { local, imported } of bindings) {
 				const owner = importOwners.get(local);
 				if (owner && owner !== spec) {
@@ -277,18 +297,24 @@ export function compileGraph(
 	 */
 	function emitImports() {
 		// side-effect-only imports bind nothing but still have to be loaded
-		if (!importsBySpec.size) return { declarations: "", ready: "", scopeSkip: "" };
+		if (!importsBySpec.size)
+			return { declarations: "", ready: "", scopeSkip: "" };
 		const names = [...importOwners.keys()];
 		const loads = [...importsBySpec].map(([spec, bound], index) => {
 			const namespace = `$mod_${index}`;
-			const lines = [`const ${namespace} = await import(${JSON.stringify(spec)});`];
+			const lines = [
+				`const ${namespace} = await import(${JSON.stringify(spec)});`,
+			];
 			const destructured: string[] = [];
 			for (const [local, imported] of bound) {
 				if (imported === null) lines.push(`${local} = ${namespace};`);
 				// default interop: a CJS module has no `default`, it is the export
 				else if (imported === "default")
 					lines.push(`${local} = ${namespace}.default ?? ${namespace};`);
-				else destructured.push(local === imported ? local : `${imported}: ${local}`);
+				else
+					destructured.push(
+						local === imported ? local : `${imported}: ${local}`,
+					);
 			}
 			if (destructured.length) {
 				lines.push(`({ ${destructured.join(", ")} } = ${namespace});`);
@@ -298,7 +324,9 @@ export function compileGraph(
 		return {
 			declarations: [
 				names.length ? `let ${names.join(", ")};` : "",
-				names.length ? `const $importNames = new Set(${JSON.stringify(names)});` : "",
+				names.length
+					? `const $importNames = new Set(${JSON.stringify(names)});`
+					: "",
 				"let $importsReady = false;",
 				`const $imports = (async () => {\n${loads.join(
 					"\n",

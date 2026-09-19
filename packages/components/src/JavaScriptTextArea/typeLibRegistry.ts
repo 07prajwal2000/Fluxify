@@ -10,7 +10,11 @@ import * as monaco from "monaco-editor";
  */
 const registered = new Map<string, monaco.IDisposable>();
 
-export function registerTypeLib(id: string, content: string, virtualPath: string): void {
+export function registerTypeLib(
+	id: string,
+	content: string,
+	virtualPath: string,
+): void {
 	registered.get(id)?.dispose();
 	registered.set(
 		id,
@@ -30,7 +34,15 @@ export function registerTypeLibFiles(
 ): void {
 	unregisterTypeLib(id);
 	const disposables = files.map((file) =>
-		monaco.typescript.javascriptDefaults.addExtraLib(file.content, file.virtualPath),
+		monaco.typescript.javascriptDefaults.addExtraLib(
+			file.content,
+			file.virtualPath,
+		),
 	);
-	registered.set(id, { dispose: () => disposables.forEach((d) => d.dispose()) });
+	registered.set(id, {
+		dispose: () =>
+			disposables.forEach((d) => {
+				d.dispose();
+			}),
+	});
 }

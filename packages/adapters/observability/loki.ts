@@ -1,7 +1,7 @@
-import { AbstractLogger } from "@fluxify/lib";
 import { createLokiLogger } from "@fluxify/common";
-import { resolveCustomHeaders } from "./customHeaders";
+import type { AbstractLogger } from "@fluxify/lib";
 import z from "zod";
+import { resolveCustomHeaders } from "./customHeaders";
 
 export const lokiLoggerSettings = z.object({
 	baseUrl: z.string().url(), // Fixed: Fixed invalid z.url() method call
@@ -71,11 +71,12 @@ export class LokiLogger implements AbstractLogger {
 		const baseUrl = new URL(this.settings.baseUrl);
 		const host = `${baseUrl.protocol}//${baseUrl.host}`;
 
-		const basicAuth = this.settings.credentials?.username && this.settings.credentials?.password 
-			? `${this.settings.credentials.username}:${this.settings.credentials.password}`
-			: undefined;
+		const basicAuth =
+			this.settings.credentials?.username && this.settings.credentials?.password
+				? `${this.settings.credentials.username}:${this.settings.credentials.password}`
+				: undefined;
 
-		return (this.logger = createLokiLogger({
+		this.logger = createLokiLogger({
 			host: host,
 			basicAuth: basicAuth,
 			labels: {
@@ -83,7 +84,8 @@ export class LokiLogger implements AbstractLogger {
 				route_id: this.settings.routeId ?? "unknown",
 				service_name: this.settings.routeId ?? "unknown",
 			},
-		}));
+		});
+		return this.logger;
 	}
 
 	public static async TestConnection(

@@ -1,9 +1,17 @@
-import { describe, it, expect, mock, spyOn, beforeEach, afterAll } from "bun:test";
+import {
+	afterAll,
+	beforeEach,
+	describe,
+	expect,
+	it,
+	mock,
+	spyOn,
+} from "bun:test";
 
 // see route.spec.ts for why the delegated services use spyOn, not mock.module
 import * as createService from "../../../api/v1/custom-blocks/create/service";
-import * as modifyService from "../../../api/v1/custom-blocks/update/service";
 import * as deleteService from "../../../api/v1/custom-blocks/delete/service";
+import * as modifyService from "../../../api/v1/custom-blocks/update/service";
 import * as canvasService from "../../canvas/service";
 
 const TX = { marker: "outer-tx" };
@@ -24,9 +32,8 @@ mock.module("../../../db/redis", () => ({
 
 const calls: any = {};
 
-import { handleCustomBlockOp } from "../customBlock";
-
 import { RpcError } from "../../../db/natsRpc";
+import { handleCustomBlockOp } from "../customBlock";
 
 const projectId = "0199a000-0000-7000-8000-000000000000";
 const owner = { userId: "u1", projectIds: [projectId] };
@@ -62,25 +69,25 @@ describe("fluxify.ops.custom_block", () => {
 		for (const key of Object.keys(calls)) delete calls[key];
 		published.length = 0;
 
-		stub(createService, "default", 
-			async (data: any, tx: any) => {
-				calls.create = { data, tx };
-				return { id: "cb-new" };
-			},
-		);
-		stub(modifyService, "default", 
+		stub(createService, "default", async (data: any, tx: any) => {
+			calls.create = { data, tx };
+			return { id: "cb-new" };
+		});
+		stub(
+			modifyService,
+			"default",
 			async (id: any, data: any, user: any, acl: any) => {
 				calls.modify = { id, data, user, acl };
 				return { id };
 			},
 		);
-		stub(deleteService, "default", 
-			async (id: any, user: any, acl: any) => {
-				calls.remove = { id, user, acl };
-				return { id };
-			},
-		);
-		stub(canvasService, "saveCanvas", 
+		stub(deleteService, "default", async (id: any, user: any, acl: any) => {
+			calls.remove = { id, user, acl };
+			return { id };
+		});
+		stub(
+			canvasService,
+			"saveCanvas",
 			async (parent: any, data: any, projectIds: any, tx: any) => {
 				calls.canvas = { parent, data, projectIds, tx };
 			},
@@ -94,7 +101,7 @@ describe("fluxify.ops.custom_block", () => {
 		);
 
 		expect(result).toEqual({ id: "cb-new" } as any);
-		// one handle shared by both — that is what makes it atomic
+		// one handle shared by both â€” that is what makes it atomic
 		expect(calls.create.tx).toBeDefined();
 		expect(calls.canvas.tx).toBe(calls.create.tx);
 		expect(calls.canvas.parent).toEqual({ type: "custom_block", id: "cb-new" });

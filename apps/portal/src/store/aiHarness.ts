@@ -1,10 +1,5 @@
-import { create } from "zustand";
-import { immer } from "zustand/middleware/immer";
-import type { ApplyMode } from "@/components/ai/ApplyModeSelect";
-import { useShallow } from "zustand/react/shallow";
+import type * as harnessConversationsListDto from "@fluxify/ai-gateway/src/api/v1/harness-conversations/list/dto";
 import {
-	RUN_NODE,
-	TERMINAL_RUN_STATUSES,
 	type HarnessEventNode,
 	type HarnessExecutionType,
 	type HarnessLevel,
@@ -17,9 +12,14 @@ import {
 	type HarnessSocketMessage,
 	type HarnessStreamEvent,
 	type HarnessTaskView,
+	RUN_NODE,
+	TERMINAL_RUN_STATUSES,
 } from "@fluxify/ai-gateway/src/harness/clientContract";
 import type { z } from "zod";
-import type * as harnessConversationsListDto from "@fluxify/ai-gateway/src/api/v1/harness-conversations/list/dto";
+import { create } from "zustand";
+import { immer } from "zustand/middleware/immer";
+import { useShallow } from "zustand/react/shallow";
+import type { ApplyMode } from "@/components/ai/ApplyModeSelect";
 import { applyNodePayload } from "./harnessNodeReducers";
 
 /* ============================================================================
@@ -169,10 +169,8 @@ export function applyEvent(
 	event: HarnessStreamEvent,
 ): void {
 	const { conversationId } = event;
-	const run = (state.runs[conversationId] ??= emptyRun(
-		conversationId,
-		event.runId,
-	));
+	state.runs[conversationId] ??= emptyRun(conversationId, event.runId);
+	const run = state.runs[conversationId];
 
 	const isRunLevel = event.currentNode === RUN_NODE;
 
@@ -202,7 +200,7 @@ export function applyEvent(
 	if (!isRunLevel) {
 		const prev = run.steps[event.nodeId];
 		const isTool = event.executionType === "tool";
-		
+
 		const newLog: StepLog = {
 			label: event.plainTextMessage,
 			timestamp: event.timestamp,
@@ -210,14 +208,14 @@ export function applyEvent(
 			toolName: isTool ? event.toolName : undefined,
 			nodeStatus: event.nodeStatus,
 		};
-		
+
 		const logs = prev?.logs ? [...prev.logs] : [];
 		const isDuplicate = logs.some(
 			(l) =>
 				l.timestamp === newLog.timestamp &&
 				l.label === newLog.label &&
 				l.executionType === newLog.executionType &&
-				l.nodeStatus === newLog.nodeStatus
+				l.nodeStatus === newLog.nodeStatus,
 		);
 		if (!isDuplicate) {
 			logs.push(newLog);
@@ -236,7 +234,8 @@ export function applyEvent(
 						: event.nodeStatus,
 				executionType: event.executionType,
 				label: event.plainTextMessage,
-				toolName: isTool && event.nodeStatus === "started" ? event.toolName : undefined,
+				toolName:
+					isTool && event.nodeStatus === "started" ? event.toolName : undefined,
 				payload: event.payload ?? prev?.payload,
 				timestamp: event.timestamp,
 				logs,
@@ -288,18 +287,20 @@ export function applyMessage(
 	if (message.type === "full_state") {
 		// Merge, never replace: a run missing from a later snapshot has simply
 		// aged out of Redis (60s TTL after it finishes), not ceased to exist.
-		for (const snapshot of message.conversations) applySnapshot(state, snapshot);
+		for (const snapshot of message.conversations)
+			applySnapshot(state, snapshot);
 		return;
 	}
 	if (message.type === "stats") {
 		const { stats } = message;
-		const run = (state.runs[stats.conversationId] ??= emptyRun(
+		state.runs[stats.conversationId] ??= emptyRun(
 			stats.conversationId,
 			stats.runId,
-		));
+		);
+		const run = state.runs[stats.conversationId];
 		if (
 			run.runId === stats.runId &&
-			(stats.updatedAt >= (run.stats?.updatedAt ?? 0))
+			stats.updatedAt >= (run.stats?.updatedAt ?? 0)
 		) {
 			run.stats = stats;
 			run.statsReceivedAt = Date.now();
