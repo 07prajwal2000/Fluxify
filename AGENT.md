@@ -14,9 +14,8 @@ If you encounter a repeatable issue or bug that might arise in the future, you m
 - Both apps contain same-named components for the same features (block settings
   panels, conditions editors, integration selectors). Matching a filename is NOT
   evidence you are in the right app — check the path prefix first.
-- `apps/web` also has `"lint": ""` in its `package.json`, so `bun run lint`
-  reports success without typechecking it. A green lint does not mean work there
-  was validated.
+- `apps/web` has no `typecheck` script and Biome ignores it, so a green
+  `bun run typecheck` / `bun run lint` does not mean work there was validated.
 - Portal specifics worth knowing before searching: shared UI lives in
   `packages/components` (HeroUI, e.g. `ConditionsBuilder`, `JsTextField`),
   block settings panels in `apps/portal/src/components/canvas/panel/blocks/`,
@@ -28,7 +27,8 @@ If you encounter a repeatable issue or bug that might arise in the future, you m
 - **Two remotes, and they are not interchangeable.** Issues, discussions and PRs always target **`Fluxify-rest/Fluxify`** (`--repo Fluxify-rest/Fluxify`). Branches are only ever pushed to the user's fork, `origin` (`git push origin <branch>`). A PR from the fork needs `--head <user>:<branch>`.
 - Use the `gh` CLI for everything GitHub — PRs, issues, CI status, merges.
 - Ask at the start of a conversation whether to branch or work on `main`.
-- **Testing before commit:** test only the folders that changed. The pre-commit hook runs lint, a secret scan, FTA analysis and unit tests — **never `--no-verify`**; if it fails, fix the cause (see the FTA section below). Integration and e2e tests (`*.test.ts`, `testing/e2e`) run only in CI, on every PR and push.
+- **Testing before commit:** test only the folders that changed. The pre-commit hook formats and lints the staged files (Biome, auto-fixed and re-staged), then runs typecheck, FTA analysis and unit tests — **never `--no-verify`**; if it fails, fix the cause (see the FTA section below). Integration and e2e tests (`*.test.ts`, `testing/e2e`) run only in CI, on every PR and push.
+- **Format before you commit:** run `bun run lint --write` (Biome: formatting, import order, lint fixes). The hook does the same on staged files, but it is skipped in the GitHub web editor and by `--no-verify`, so CI runs `bun run lint` as the real gate. Biome is the only formatter — never hand-format or add Prettier/ESLint. Rules that bite: `noSecrets` (a fake credential in a non-test file fails the build — put fixtures in `*.spec.ts`/`tests/`), `noSwitchDeclarations`, `noAssignInExpressions`.
 - Branch names follow convention (`feat/…`, `fix/…`, `chore/…`). PR descriptions say *why* and *what*.
 - **Writing a multi-line commit message:** use `git commit -F -` with a bash heredoc. The PowerShell `@'…'@` form silently becomes a literal `@` subject line when run through the Bash tool.
 
@@ -197,10 +197,10 @@ The pre-commit hook runs `fta-cli --score-cap 70`, which **fails the commit** fo
 
 ### Resolving a Merge Conflict in the GitHub Web Editor Ships Broken Code
 **Issue:** `main` broke after two PRs that touched the same function were merged — `find_resource` threw `ReferenceError: searchBy is not defined` on every call, for every agent holding the tool. CI reported only a failing lint job.
-**Cause:** The conflict was resolved in GitHub's web editor. That path runs **no** local hooks, so the pre-commit chain (lint → FTA analyze → selective tests) never executed. The resolution kept both sides' *bodies* — one PR's wrapper, the other's new logic — but dropped an identifier from the destructuring pattern the second PR had added. Nothing on the server catches a free identifier.
+**Cause:** The conflict was resolved in GitHub's web editor. That path runs **no** local hooks, so the pre-commit chain (Biome → typecheck → FTA analyze → selective tests) never executed. The resolution kept both sides' *bodies* — one PR's wrapper, the other's new logic — but dropped an identifier from the destructuring pattern the second PR had added. Nothing on the server catches a free identifier.
 **Fix & Best Practices:**
 1. **Never resolve a conflict in the GitHub web editor when both sides touched the same function.** Pull the branch, resolve locally, let the pre-commit hook run, then push.
-2. After any merge you resolved by hand, run `bun run --cwd apps/<app> lint` (`tsgo --noEmit`) on `main` before assuming it is green. A failing lint job may be hiding a runtime break, not a style nit.
+2. After any merge you resolved by hand, run `bun run --cwd apps/<app> typecheck` (`tsgo --noEmit`) on `main` before assuming it is green. A failing typecheck job may be hiding a runtime break, not a style nit.
 3. When two PRs edit one function, expect the conflict to land on the *signature*: verify every parameter each side added still exists in the merged destructuring/argument list.
 
 ### Drizzle `sql` Template — Interpolation Is Parameterized, `sql.raw()` Is Not

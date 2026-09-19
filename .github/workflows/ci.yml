@@ -69,10 +69,12 @@ jobs:
           bun-version: ${{ env.BUN_VERSION }}
       - name: Install Dependencies
         run: bun install
-      - name: Build Portal (generates TanStack route tree for lint)
+      - name: Run Biome (format, lint, import order, secrets)
+        run: bun run lint --reporter=github
+      - name: Build Portal (generates TanStack route tree for typecheck)
         run: bun run build --filter=@fluxify/portal
-      - name: Run Lint
-        run: bun run lint
+      - name: Run Typecheck
+        run: bun run typecheck
       - name: Run Analyzer
         run: bun run analyze
 
