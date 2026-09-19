@@ -29,6 +29,20 @@ import {
  * delay and comes back, and after `maxReceiveCount` receives AWS moves it to the
  * dead-letter queue. With no redrive policy a poison message returns until the
  * queue's retention period drops it.
+ *
+ * Batching works like the other connectors: a full batch goes at once, a
+ * part-filled one waits up to `maxWaitMs` for the rest. SQS hands over at most
+ * 10 messages a receive, so a part-filled batch is topped up by more receives:
+ * - the wait starts at the first message, not when the poll began, so an empty
+ *   queue costs nothing extra and `maxWaitMs = 0` behaves as a single receive
+ * - each top-up asks only for what is missing and waits the time left, capped
+ *   by the trigger's long-poll wait
+ * - SQS waits in whole seconds, so the last part-second is slept and then
+ *   checked with one short poll: `maxWaitMs` holds to the millisecond, and
+ *   values under 1000 work too
+ * - the heartbeat starts with the first receive, so messages held while the
+ *   batch fills stay hidden even when `maxWaitMs` outlasts the visibility timeout
+ * - a top-up that fails ends the wait; what was already received still runs
  */
 
 /** An SQS integration's config, `cfg:` references already expanded. */
@@ -159,16 +173,70 @@ export class SqsQueueConnection extends QueueConnection {
 		while (!this.stopped) {
 			let messages: Message[];
 			try {
-				messages = await this.receive();
+				messages = await this.receive(this.batchSize(), this.waitTimeSeconds);
 			} catch (error) {
 				if (this.stopped) return;
 				if (isQueueGone(error)) return this.gone(error);
-				logger.warn(`[sqs] ${this.subscription.consumerGroup} receive failed: ${describeSqsError(error, this.queueUrl)}`, "QUEUE.sqs");
+				this.warnReceive(error);
 				await sleep(1_000, undefined, { signal: this.aborter.signal }).catch(() => undefined);
 				continue;
 			}
-			for (const batch of this.split(messages)) await this.deliver(batch);
+			if (!messages.length) continue;
+			const heartbeat = this.keepHidden(messages);
+			try {
+				await this.fill(messages);
+				for (const batch of this.split(messages)) await this.deliver(batch);
+			} finally {
+				clearInterval(heartbeat);
+			}
 		}
+	}
+
+	/** Tops a part-filled receive up until it is full, over `maxBytes`, or `maxWaitMs` has passed. */
+	private async fill(messages: Message[]) {
+		const deadline = Date.now() + this.subscription.maxWaitMs;
+		let bytes = messages.reduce((sum, m) => sum + Buffer.byteLength(m.Body ?? ""), 0);
+		while (!this.stopped && messages.length < this.batchSize() && bytes < this.subscription.maxBytes) {
+			const leftMs = deadline - Date.now();
+			if (leftMs <= 0) return;
+			// SQS waits in whole seconds: the last part-second is slept, then one short poll
+			const waitSeconds = Math.min(Math.floor(leftMs / 1000), this.waitTimeSeconds);
+			if (waitSeconds === 0) await sleep(leftMs, undefined, { signal: this.aborter.signal }).catch(() => undefined);
+			if (this.stopped) return;
+			let more: Message[];
+			try {
+				more = await this.receive(this.batchSize() - messages.length, waitSeconds);
+			} catch (error) {
+				if (isQueueGone(error)) return this.gone(error);
+				// what is already held still runs; the next receive retries
+				if (!this.stopped) this.warnReceive(error);
+				return;
+			}
+			messages.push(...more);
+			for (const m of more) bytes += Buffer.byteLength(m.Body ?? "");
+		}
+	}
+
+	private batchSize() {
+		return clamp(this.subscription.batchSize, 1, SQS_MAX_BATCH);
+	}
+
+	private warnReceive(error: unknown) {
+		logger.warn(`[sqs] ${this.subscription.consumerGroup} receive failed: ${describeSqsError(error, this.queueUrl)}`, "QUEUE.sqs");
+	}
+
+	/**
+	 * Re-hides held messages before their visibility lapses, from receive to the
+	 * last run: a batch still filling, or a long run, must not go to another worker.
+	 */
+	private keepHidden(messages: Message[]) {
+		return setInterval(() => {
+			const held = messages.filter((m) => this.unacked.has(m));
+			if (held.length)
+				this.release(held, this.visibilitySec).catch((error) =>
+					logger.warn(`[sqs] ${this.subscription.consumerGroup} heartbeat failed: ${String(error)}`, "QUEUE.sqs"),
+				);
+		}, Math.max((this.visibilitySec * 1000) / 3, 500));
 	}
 
 	/** Deleted under us: every worker stops, and the owner hears it once. */
@@ -181,12 +249,12 @@ export class SqsQueueConnection extends QueueConnection {
 		this.subscription.onSourceGone?.(new QueueSourceGoneError(describeSqsError(error, this.queueUrl)));
 	}
 
-	private async receive() {
+	private async receive(max: number, waitSeconds: number) {
 		const { Messages = [] } = await this.client!.send(
 			new ReceiveMessageCommand({
 				QueueUrl: this.queueUrl,
-				MaxNumberOfMessages: clamp(this.subscription.batchSize, 1, SQS_MAX_BATCH),
-				WaitTimeSeconds: this.waitTimeSeconds,
+				MaxNumberOfMessages: max,
+				WaitTimeSeconds: waitSeconds,
 				VisibilityTimeout: this.visibilitySec,
 				MessageSystemAttributeNames: ["All"],
 				MessageAttributeNames: ["All"],
@@ -226,21 +294,11 @@ export class SqsQueueConnection extends QueueConnection {
 			highWatermark: null,
 			attempt,
 		};
-		// a long run must not outlast the visibility timeout, or another worker gets the batch
-		const heartbeat = setInterval(() => {
-			const held = messages.filter((m) => this.unacked.has(m));
-			if (held.length)
-				this.release(held, this.visibilitySec).catch((error) =>
-					logger.warn(`[sqs] ${batch.consumerGroup} heartbeat failed: ${String(error)}`, "QUEUE.sqs"),
-				);
-		}, Math.max((this.visibilitySec * 1000) / 3, 500));
 		let failure: unknown;
 		try {
 			await this.handler(batch, this);
 		} catch (error) {
 			failure = error;
-		} finally {
-			clearInterval(heartbeat);
 		}
 		// failed, or a manual batch the workflow never committed: back after the retry delay
 		const leftover = messages.filter((m) => this.unacked.has(m));
@@ -250,10 +308,11 @@ export class SqsQueueConnection extends QueueConnection {
 			`[sqs] ${batch.consumerGroup} returning ${leftover.length} message(s) in ${delaySec}s (receive ${attempt}): ${failure ? String(failure) : "not committed"}`,
 			"QUEUE.sqs",
 		);
+		// dropped first, so the heartbeat of a batch still filling or running cannot re-hide them
+		for (const message of leftover) this.unacked.delete(message);
 		await this.release(leftover, delaySec).catch((error) =>
 			logger.warn(`[sqs] ${batch.consumerGroup} could not return messages, they reappear when visibility lapses: ${String(error)}`, "QUEUE.sqs"),
 		);
-		for (const message of leftover) this.unacked.delete(message);
 	}
 
 	/** Sets how long until the messages are visible again; 0 hands them back now. */

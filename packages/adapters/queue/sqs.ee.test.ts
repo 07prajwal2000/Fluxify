@@ -257,6 +257,45 @@ describe("consuming a queue", () => {
 		expect(batches.every((b) => b.events.length === 1)).toBe(true);
 	}, T);
 
+	it("fills a batch across receives when messages trickle in", async () => {
+		const url = await queue();
+		const { batches, handler, values } = recorder();
+		await start(subscription(url, { batchSize: 3, maxWaitMs: 10_000 }), handler);
+		for (let n = 0; n < 3; n++) {
+			await send(url, numbered(n, 1));
+			await Bun.sleep(1_200); // slower than one long poll
+		}
+
+		await until(() => values().length === 3);
+		expect(batches).toHaveLength(1);
+	}, T);
+
+	it("sends a part-filled batch once maxWaitMs passes", async () => {
+		const url = await queue();
+		await send(url, numbered(0, 2));
+		const { batches, handler } = recorder();
+		const started = Date.now();
+		await start(subscription(url, { batchSize: 10, maxWaitMs: 2_000 }), handler);
+
+		await until(() => batches.length === 1);
+		expect(batches[0]!.events).toHaveLength(2);
+		expect(Date.now() - started).toBeGreaterThanOrEqual(1_900);
+	}, T);
+
+	it("keeps a filling batch hidden past the visibility timeout", async () => {
+		const url = await queue();
+		await send(url, numbered(0, 1));
+		const { batches, handler } = recorder();
+		await start(
+			subscription(url, { batchSize: 10, maxWaitMs: 5_000, concurrency: 2 }, { visibilityTimeoutSec: 2 }),
+			handler,
+		);
+
+		await until(() => batches.length === 1, 15_000);
+		await Bun.sleep(1_000);
+		expect(batches).toHaveLength(1);
+	}, T);
+
 	it("refuses a subscription with no queue URL", async () => {
 		await expect(createConnection(config).consume({ ...subscription("x"), source: {} }, async () => {})).rejects.toThrow(
 			/needs a queue URL/,
