@@ -51,15 +51,10 @@ export function JsonEditorDialog({
 						<span className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">
 							{title}
 						</span>
-						<CloseButton
-							aria-label="Close JSON editor"
-							onPress={() => onOpenChange(false)}
-						/>
+						<CloseButton aria-label="Close JSON editor" onPress={() => onOpenChange(false)} />
 					</div>
 
-					{description && (
-						<p className="mt-1 shrink-0 text-xs text-muted">{description}</p>
-					)}
+					{description && <p className="mt-1 shrink-0 text-xs text-muted">{description}</p>}
 
 					<div className="my-3 min-h-0 flex-1 overflow-auto border-y border-border py-3">
 						{children}

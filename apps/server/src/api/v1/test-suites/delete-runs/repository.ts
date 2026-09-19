@@ -12,12 +12,7 @@ import { testRunsEntity } from "../../../../db/schema";
 export async function deleteTestRuns(projectId: string, routeId: string) {
 	const deleted = await db
 		.delete(testRunsEntity)
-		.where(
-			and(
-				eq(testRunsEntity.projectId, projectId),
-				eq(testRunsEntity.routeId, routeId),
-			),
-		)
+		.where(and(eq(testRunsEntity.projectId, projectId), eq(testRunsEntity.routeId, routeId)))
 		.returning({ id: testRunsEntity.id });
 
 	return deleted.length;

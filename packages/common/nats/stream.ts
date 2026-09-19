@@ -1,15 +1,15 @@
 import {
 	AckPolicy,
-	DiscardPolicy,
-	RetentionPolicy,
-	StorageType,
-	jetstreamManager,
 	type ConsumerConfig,
 	type ConsumerUpdateConfig,
+	DiscardPolicy,
+	jetstreamManager,
+	RetentionPolicy,
+	StorageType,
 	type StreamConfig,
 	type StreamUpdateConfig,
 } from "@nats-io/jetstream";
-import { nanos, type NatsConnection } from "@nats-io/nats-core";
+import { type NatsConnection, nanos } from "@nats-io/nats-core";
 import { logger } from "../logging";
 import { isConsumerNotFound, isStreamNotFound } from "./errors";
 import type { ConsumerSpec, StreamSpec } from "./types";
@@ -45,9 +45,7 @@ const STORAGE: Record<NonNullable<StreamSpec["storage"]>, StorageType> = {
  * fixed at creation, so sending them on an update is at best noise and at worst
  * a rejection — they are deliberately absent here.
  */
-export function updatableStreamConfig(
-	spec: StreamSpec,
-): Partial<StreamUpdateConfig> {
+export function updatableStreamConfig(spec: StreamSpec): Partial<StreamUpdateConfig> {
 	const config: Partial<StreamUpdateConfig> = { subjects: spec.subjects };
 	if (spec.maxAgeMs !== undefined) config.max_age = nanos(spec.maxAgeMs);
 	if (spec.maxBytes !== undefined) config.max_bytes = spec.maxBytes;
@@ -62,9 +60,7 @@ export function updatableStreamConfig(
 	return config;
 }
 
-export function newStreamConfig(
-	spec: StreamSpec,
-): Partial<StreamConfig> & { name: string } {
+export function newStreamConfig(spec: StreamSpec): Partial<StreamConfig> & { name: string } {
 	return {
 		...updatableStreamConfig(spec),
 		name: spec.name,
@@ -74,15 +70,11 @@ export function newStreamConfig(
 }
 
 /** Limits a live consumer will accept without being torn down and recreated. */
-export function updatableConsumerConfig(
-	spec: ConsumerSpec,
-): Partial<ConsumerUpdateConfig> {
+export function updatableConsumerConfig(spec: ConsumerSpec): Partial<ConsumerUpdateConfig> {
 	return {
 		ack_wait: nanos(spec.ackWaitMs ?? 60_000),
 		max_deliver: spec.maxDeliver ?? 1,
-		...(spec.maxAckPending !== undefined
-			? { max_ack_pending: spec.maxAckPending }
-			: {}),
+		...(spec.maxAckPending !== undefined ? { max_ack_pending: spec.maxAckPending } : {}),
 	};
 }
 
@@ -110,10 +102,7 @@ export function newConsumerConfig(spec: ConsumerSpec): Partial<ConsumerConfig> {
  * cannot tell "already exists" from a permissions failure or JetStream being
  * disabled, and both of those should stop a boot loudly.
  */
-export async function ensureStream(
-	nc: NatsConnection,
-	spec: StreamSpec,
-): Promise<void> {
+export async function ensureStream(nc: NatsConnection, spec: StreamSpec): Promise<void> {
 	const jsm = await jetstreamManager(nc);
 	try {
 		await jsm.streams.info(spec.name);
@@ -161,17 +150,11 @@ export async function ensureConsumer(
  * ack, so whatever the old consumer had not finished is delivered to the new
  * one.
  */
-export async function dropWildcardConsumers(
-	nc: NatsConnection,
-	stream: string,
-): Promise<void> {
+export async function dropWildcardConsumers(nc: NatsConnection, stream: string): Promise<void> {
 	const jsm = await jetstreamManager(nc);
 	for await (const consumer of jsm.consumers.list(stream)) {
-		const filters = consumer.config.filter_subjects ?? [
-			consumer.config.filter_subject,
-		];
-		if (!filters.some((filter) => filter?.includes("*") || filter?.includes(">")))
-			continue;
+		const filters = consumer.config.filter_subjects ?? [consumer.config.filter_subject];
+		if (!filters.some((filter) => filter?.includes("*") || filter?.includes(">"))) continue;
 		await jsm.consumers.delete(stream, consumer.name);
 		logger.warn(
 			`[nats] dropped consumer ${stream}/${consumer.name} — wildcard filter ${filters.join(", ")} left over from an older build`,

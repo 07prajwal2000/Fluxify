@@ -1,10 +1,10 @@
-import { useCallback, useState, type KeyboardEvent, type MouseEvent } from "react";
-import Markdown from "react-markdown";
-import { NodeResizer, useReactFlow, type NodeProps } from "@xyflow/react";
+import { type NodeProps, NodeResizer, useReactFlow } from "@xyflow/react";
+import { type KeyboardEvent, type MouseEvent, useCallback, useState } from "react";
 import { TbTrash } from "react-icons/tb";
+import Markdown from "react-markdown";
 import "./blocks.css";
-import { useCanvasChanges } from "../changes/ChangesContext";
 import { useCanvasLayoutLocked } from "../CanvasLayoutLockContext";
+import { useCanvasChanges } from "../changes/ChangesContext";
 import { NOTE_COLORS, NOTE_MIN_SIZE, stickyNoteData } from "./stickyNoteData";
 
 /**
@@ -119,9 +119,7 @@ export function StickyNoteBlock({ id, data, selected }: NodeProps) {
 					{note.notes.trim() ? (
 						<Markdown>{note.notes}</Markdown>
 					) : (
-						<span className="fx-note__placeholder">
-							Note — double click to edit
-						</span>
+						<span className="fx-note__placeholder">Note — double click to edit</span>
 					)}
 				</div>
 			) : (

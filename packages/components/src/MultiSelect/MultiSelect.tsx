@@ -1,10 +1,4 @@
-import {
-	Chip,
-	Description,
-	Label,
-	ListBox,
-	Select,
-} from "@heroui/react";
+import { Chip, Description, Label, ListBox, Select } from "@heroui/react";
 import type { Key } from "react";
 import type { MultiSelectOption, MultiSelectProps } from "./types";
 
@@ -25,8 +19,7 @@ export function MultiSelect({
 	variant = "secondary",
 }: MultiSelectProps) {
 	const labelFor = (option: string) =>
-		options.find((entry: MultiSelectOption) => entry.value === option)?.label ??
-		option;
+		options.find((entry: MultiSelectOption) => entry.value === option)?.label ?? option;
 
 	return (
 		<Select
@@ -62,11 +55,7 @@ export function MultiSelect({
 			<Select.Popover>
 				<ListBox>
 					{options.map((option) => (
-						<ListBox.Item
-							key={option.value}
-							id={option.value}
-							textValue={option.label}
-						>
+						<ListBox.Item key={option.value} id={option.value} textValue={option.label}>
 							{option.label}
 							<ListBox.ItemIndicator />
 						</ListBox.Item>

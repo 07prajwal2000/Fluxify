@@ -34,9 +34,7 @@ export type RouteConfig = z.infer<typeof routeConfigSchema>;
  */
 export function parseRouteConfig(stored: unknown): RouteConfig {
 	const parsed = routeConfigSchema.safeParse(stored ?? {});
-	return parsed.success
-		? parsed.data
-		: { acceptedContentTypes: [...DEFAULT_CONTENT_TYPES] };
+	return parsed.success ? parsed.data : { acceptedContentTypes: [...DEFAULT_CONTENT_TYPES] };
 }
 
 export function acceptedContentTypes(stored: unknown): ContentType[] {

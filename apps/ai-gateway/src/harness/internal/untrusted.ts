@@ -43,11 +43,7 @@ export const CHIP_NAMES = [
  * that offer an action. A compacted summary has to carry these through — drop
  * one and the conversation loses the only handle it had on that artifact.
  */
-export const ARTIFACT_CHIP_NAMES = [
-	"route",
-	"customBlock",
-	"canvasChanges",
-] as const;
+export const ARTIFACT_CHIP_NAMES = ["route", "customBlock", "canvasChanges"] as const;
 
 /**
  * Case-insensitive: remark lowercases the directive name, so `:Route{}`
@@ -126,9 +122,7 @@ export function resolveResourceChips(text: string): string {
  * harness, so a resource the user pointed at can be resolved deterministically
  * instead of leaving an agent to look up an id the request already carried.
  */
-export function extractResourceChips(
-	text: string,
-): { type: string; id: string; name?: string }[] {
+export function extractResourceChips(text: string): { type: string; id: string; name?: string }[] {
 	return [...text.matchAll(RESOURCE_CHIP)].flatMap((match) => {
 		const attrs = match[1] ?? "";
 		const id = attribute(attrs, "identifier");

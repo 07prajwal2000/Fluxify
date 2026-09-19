@@ -1,11 +1,6 @@
 import type { ReactNode } from "react";
 
-export type SpotlightCategory =
-	| "Actions"
-	| "Navigation"
-	| "Blocks"
-	| "Resources"
-	| "Help";
+export type SpotlightCategory = "Actions" | "Navigation" | "Blocks" | "Resources" | "Help";
 
 export type SpotlightCommand = {
 	id: string;

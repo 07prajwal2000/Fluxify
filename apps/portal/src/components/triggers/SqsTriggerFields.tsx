@@ -76,7 +76,9 @@ export function SqsSourceFields({
 				title="Long polling is off"
 				items={
 					value.waitTimeSeconds === 0
-						? ["With a wait time of 0 the trigger asks SQS for messages non-stop, and AWS bills every request."]
+						? [
+								"With a wait time of 0 the trigger asks SQS for messages non-stop, and AWS bills every request.",
+							]
 						: []
 				}
 			/>

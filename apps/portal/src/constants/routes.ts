@@ -15,4 +15,3 @@ export const APP_ROUTES = {
 	PROJECT_SETTINGS: (projectId: string) => `/${projectId}/settings`,
 	PROJECT_CUSTOM_BLOCKS: (projectId: string) => `/${projectId}/custom-blocks`,
 } as const;
-

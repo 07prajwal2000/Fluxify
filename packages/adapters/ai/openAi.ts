@@ -1,5 +1,5 @@
 import { ChatOpenAI } from "@langchain/openai";
-import { createAgent, DynamicStructuredTool, Tool } from "langchain";
+import { createAgent, type DynamicStructuredTool, Tool } from "langchain";
 import { BaseAiIntegration } from "./baseAiIntegration";
 
 type OpenAIVariantConfig = {
@@ -30,10 +30,7 @@ export class OpenAIIntegration extends BaseAiIntegration {
 		});
 	}
 
-	static ExtractConnectionInfo(
-		config: OpenAIVariantConfig,
-		appConfigs: Map<string, string>,
-	) {
+	static ExtractConnectionInfo(config: OpenAIVariantConfig, appConfigs: Map<string, string>) {
 		if (config.apiKey.startsWith("cfg:")) {
 			const apiKey = appConfigs.get(config.apiKey.slice(4));
 			if (!apiKey) {
@@ -44,10 +41,7 @@ export class OpenAIIntegration extends BaseAiIntegration {
 		return config;
 	}
 
-	static async TestConnection(
-		config: OpenAIVariantConfig,
-		appConfigs: Map<string, string>,
-	) {
+	static async TestConnection(config: OpenAIVariantConfig, appConfigs: Map<string, string>) {
 		const extractedConfig = this.ExtractConnectionInfo(config, appConfigs);
 		const llm = new OpenAIIntegration(extractedConfig).createModel();
 		const result = await llm.invoke("Say OK");

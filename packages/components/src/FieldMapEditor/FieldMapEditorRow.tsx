@@ -31,11 +31,7 @@ export function FieldMapEditorRow({
 							onChange={(e) => onKeyChange(index, e.target.value)}
 						/>
 					</InputGroup>
-					{keyError && (
-						<span className="text-xs text-danger mt-1 block">
-							{keyError}
-						</span>
-					)}
+					{keyError && <span className="text-xs text-danger mt-1 block">{keyError}</span>}
 				</TextField>
 			</div>
 
@@ -57,11 +53,7 @@ export function FieldMapEditorRow({
 							onChange={(e) => onValueChange(index, e.target.value)}
 						/>
 					</InputGroup>
-					{valueError && (
-						<span className="text-xs text-danger mt-1 block">
-							{valueError}
-						</span>
-					)}
+					{valueError && <span className="text-xs text-danger mt-1 block">{valueError}</span>}
 				</TextField>
 			</div>
 

@@ -95,9 +95,7 @@ const allTags = computed(() => {
 });
 
 const filtered = computed(() =>
-	activeTag.value
-		? props.posts.filter((p) => p.tags.includes(activeTag.value!))
-		: props.posts,
+	activeTag.value ? props.posts.filter((p) => p.tags.includes(activeTag.value!)) : props.posts,
 );
 
 const pinned = computed(() => filtered.value.filter((p) => p.pinned));
@@ -112,9 +110,7 @@ const byYear = computed(() => {
 	return groups;
 });
 
-const years = computed(() =>
-	Object.keys(byYear.value).sort((a, b) => Number(b) - Number(a)),
-);
+const years = computed(() => Object.keys(byYear.value).sort((a, b) => Number(b) - Number(a)));
 </script>
 
 <style scoped>

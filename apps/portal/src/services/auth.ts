@@ -1,17 +1,17 @@
-import { z } from "zod";
-import {
-	requestBodySchema as listUsersRequestBodySchema,
-	responseSchema as listUsersResponseSchema,
-} from "@fluxify/server/src/api/auth/list-users/dto";
 import {
 	requestBodySchema as createUserRequestBodySchema,
-	responseSchema as createUserResponseSchema,
+	type responseSchema as createUserResponseSchema,
 } from "@fluxify/server/src/api/auth/create-user/dto";
+import type { responseSchema as deleteUserResponseSchema } from "@fluxify/server/src/api/auth/delete-user/dto";
 import {
+	requestBodySchema as listUsersRequestBodySchema,
+	type responseSchema as listUsersResponseSchema,
+} from "@fluxify/server/src/api/auth/list-users/dto";
+import type {
 	requestBodySchema as updateUserPartialBodySchema,
 	responseSchema as updateUserPartialResponseSchema,
 } from "@fluxify/server/src/api/auth/update-user-partial/dto";
-import { responseSchema as deleteUserResponseSchema } from "@fluxify/server/src/api/auth/delete-user/dto";
+import type { z } from "zod";
 import { httpClient } from "@/lib/http";
 
 export const authService = {
@@ -38,9 +38,7 @@ export const authService = {
 		const result = await httpClient.patch(`/auth/update-user/${userId}`, body);
 		return result.data;
 	},
-	async deleteUser(
-		userId: string,
-	): Promise<z.infer<typeof deleteUserResponseSchema>> {
+	async deleteUser(userId: string): Promise<z.infer<typeof deleteUserResponseSchema>> {
 		const result = await httpClient.delete(`/auth/delete-user/${userId}`);
 		return result.data;
 	},
@@ -48,10 +46,7 @@ export const authService = {
 		userId: string,
 		body: { newPassword: string },
 	): Promise<{ message: string }> {
-		const result = await httpClient.patch(
-			`/auth/change-user-password/${userId}`,
-			body,
-		);
+		const result = await httpClient.patch(`/auth/change-user-password/${userId}`, body);
 		return result.data;
 	},
 	listUsersRequestBodySchema,

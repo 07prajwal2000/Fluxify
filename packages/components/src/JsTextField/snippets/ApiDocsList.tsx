@@ -1,7 +1,7 @@
 import clsx from "clsx";
 import { useMemo } from "react";
 import { TbPlus } from "react-icons/tb";
-import { getGroupedApiDocs, type ApiDocItem } from "./apiDocsData";
+import { type ApiDocItem, getGroupedApiDocs } from "./apiDocsData";
 import type { CodeSnippet } from "./types";
 
 export type ApiDocsListProps = {
@@ -70,9 +70,7 @@ function ApiDocCard({
 				{item.signature}
 			</div>
 
-			<p className="text-[11px] text-muted line-clamp-2 leading-relaxed">
-				{item.description}
-			</p>
+			<p className="text-[11px] text-muted line-clamp-2 leading-relaxed">{item.description}</p>
 		</div>
 	);
 }
@@ -136,9 +134,7 @@ export function ApiDocsList({
 							<span className="text-[10px] font-semibold tracking-wider text-muted uppercase">
 								{group.title}
 							</span>
-							<span className="text-[10px] text-muted/70 font-mono">
-								{group.items.length}
-							</span>
+							<span className="text-[10px] text-muted/70 font-mono">{group.items.length}</span>
 						</div>
 
 						<div className="space-y-1.5">

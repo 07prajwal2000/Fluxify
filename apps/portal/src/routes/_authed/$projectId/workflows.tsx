@@ -1,5 +1,3 @@
-import { useState } from "react";
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import {
 	Button,
 	DeleteIconButton,
@@ -11,14 +9,16 @@ import {
 	TextField,
 	toast,
 } from "@fluxify/components";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useState } from "react";
 import { TbEdit, TbPlayerPlay, TbPlus, TbRoute } from "react-icons/tb";
-import { workflowsQuery } from "@/query/workflowsQuery";
-import { showErrorNotification } from "@/lib/errorNotifier";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { EmptyState } from "@/components/common/EmptyState";
 import { WorkflowRunModal } from "@/components/workflows/WorkflowRunModal";
-import type { Workflow } from "@/services/workflows";
+import { showErrorNotification } from "@/lib/errorNotifier";
 import { createRouteHead } from "@/lib/seo";
+import { workflowsQuery } from "@/query/workflowsQuery";
+import type { Workflow } from "@/services/workflows";
 
 export const Route = createFileRoute("/_authed/$projectId/workflows")({
 	head: createRouteHead(
@@ -49,8 +49,7 @@ function WorkflowsPage() {
 	const rows = data?.data ?? [];
 	const totalPages = data?.pagination?.totalPages ?? 1;
 
-	const openNew = () =>
-		navigate({ to: "/$projectId/workflows/new", params: { projectId } });
+	const openNew = () => navigate({ to: "/$projectId/workflows/new", params: { projectId } });
 
 	function openCanvas(workflowId: string) {
 		navigate({
@@ -127,9 +126,7 @@ function WorkflowsPage() {
 								<Table.Row id={workflow.id}>
 									<Table.Cell>{workflow.name}</Table.Cell>
 									<Table.Cell>
-										<span className="line-clamp-1 text-muted">
-											{workflow.description}
-										</span>
+										<span className="line-clamp-1 text-muted">{workflow.description}</span>
 									</Table.Cell>
 									<Table.Cell>
 										<Switch
@@ -224,8 +221,7 @@ function WorkflowsPage() {
 					setPendingDelete(null);
 				}}
 			>
-				Delete <b className="text-foreground">{pendingDelete?.name}</b>? This cannot be
-				undone.
+				Delete <b className="text-foreground">{pendingDelete?.name}</b>? This cannot be undone.
 			</ConfirmDialog>
 		</div>
 	);

@@ -139,8 +139,7 @@ export function createJobWorker(options: JobWorkerOptions): JobWorker {
 			try {
 				await ensureJobsStream();
 				const consumers: QueueConsumer[] = [];
-				for (const kind of kinds)
-					consumers.push(await consume(projectId, kind));
+				for (const kind of kinds) consumers.push(await consume(projectId, kind));
 				served.set(projectId, consumers);
 				logger.info(
 					`[jobs] worker (${config.mode}) serving ${projectId}: ${kinds.join(", ")}`,
@@ -148,9 +147,7 @@ export function createJobWorker(options: JobWorkerOptions): JobWorker {
 				);
 			} catch (error) {
 				// Left unserved so the next artifact for this project retries.
-				await Promise.allSettled(
-					(served.get(projectId) ?? []).map((consumer) => consumer.stop()),
-				);
+				await Promise.allSettled((served.get(projectId) ?? []).map((consumer) => consumer.stop()));
 				served.delete(projectId);
 				throw error;
 			}
@@ -197,7 +194,5 @@ function isPermanent(error: unknown) {
 }
 
 function stripUndefined<T extends object>(value: T): Partial<T> {
-	return Object.fromEntries(
-		Object.entries(value).filter(([, v]) => v !== undefined),
-	) as Partial<T>;
+	return Object.fromEntries(Object.entries(value).filter(([, v]) => v !== undefined)) as Partial<T>;
 }

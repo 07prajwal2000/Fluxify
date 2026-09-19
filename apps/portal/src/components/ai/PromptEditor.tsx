@@ -28,10 +28,7 @@ import { findResourceQuery } from "@/query/findResourceQuery";
 import { useAiHarnessStore } from "@/store/aiHarness";
 import { ApplyModeSelect } from "./ApplyModeSelect";
 import { EditorEventsPlugin } from "./EditorEventsPlugin";
-import {
-	lexicalToMarkdown,
-	markdownToLexical,
-} from "./lexical/MarkdownTransformer";
+import { lexicalToMarkdown, markdownToLexical } from "./lexical/MarkdownTransformer";
 import { ResourceNode } from "./lexical/ResourceNode";
 import { ResourcePlugin } from "./lexical/ResourcePlugin";
 import { type AiModel, ModelSelect } from "./ModelSelect";
@@ -69,12 +66,10 @@ function EditorLogicPlugin({
 	}, [value, editor]);
 
 	useEffect(() => {
-		return editor.registerUpdateListener(
-			({ editorState, dirtyElements, dirtyLeaves }) => {
-				if (dirtyElements.size === 0 && dirtyLeaves.size === 0) return;
-				onChange(lexicalToMarkdown(editor));
-			},
-		);
+		return editor.registerUpdateListener(({ editorState, dirtyElements, dirtyLeaves }) => {
+			if (dirtyElements.size === 0 && dirtyLeaves.size === 0) return;
+			onChange(lexicalToMarkdown(editor));
+		});
 	}, [editor, onChange]);
 
 	useEffect(() => {
@@ -157,9 +152,7 @@ export function PromptEditor({
 	const applyMode = useAiHarnessStore((s) => s.applyMode);
 	const setApplyMode = useAiHarnessStore((s) => s.setApplyMode);
 
-	const [model, setModel] = useState<string>(
-		selectedModelId || defaultModelId || "",
-	);
+	const [model, setModel] = useState<string>(selectedModelId || defaultModelId || "");
 
 	// Popover & Search State
 	const [popoverOpen, setPopoverOpen] = useState(false);
@@ -295,11 +288,7 @@ export function PromptEditor({
 										document.dispatchEvent(new CustomEvent("focus-editor"));
 										return;
 									}
-									if (
-										!searchResults?.results ||
-										searchResults.results.length === 0
-									)
-										return;
+									if (!searchResults?.results || searchResults.results.length === 0) return;
 
 									if (e.key === "ArrowDown") {
 										e.preventDefault();
@@ -381,9 +370,7 @@ export function PromptEditor({
 													{res.label || res.name}
 												</span>
 												{res.description && (
-													<span className="text-xs text-muted line-clamp-1">
-														{res.description}
-													</span>
+													<span className="text-xs text-muted line-clamp-1">{res.description}</span>
 												)}
 											</div>
 										</button>

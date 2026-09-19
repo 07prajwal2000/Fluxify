@@ -1,10 +1,10 @@
 import {
+	type ComponentType,
 	createContext,
 	useCallback,
 	useContext,
 	useMemo,
 	useState,
-	type ComponentType,
 } from "react";
 import {
 	ALL_DATA_TYPES,
@@ -22,12 +22,7 @@ import type {
 	SchemaPath,
 	ValidationSchema,
 } from "./types";
-import {
-	addPropertyAtPath,
-	mergeAtPath,
-	pathToKeyString,
-	removeAtPath,
-} from "./utils";
+import { addPropertyAtPath, mergeAtPath, pathToKeyString, removeAtPath } from "./utils";
 
 interface SchemaEditorContextValue {
 	schema: ValidationSchema;
@@ -45,10 +40,7 @@ interface SchemaEditorContextValue {
 
 	addProperty: (path: SchemaPath) => void;
 	removeProperty: (path: SchemaPath) => void;
-	updateProperty: (
-		path: SchemaPath,
-		updates: Partial<ValidationSchema>,
-	) => void;
+	updateProperty: (path: SchemaPath, updates: Partial<ValidationSchema>) => void;
 
 	isReadOnly: boolean;
 	/** Property keys are fixed — no add, remove or rename. */
@@ -134,10 +126,7 @@ export function SchemaEditorProvider({
 
 	const goToPath = useCallback((next: SchemaPath) => setPath(next), []);
 
-	const goToLevel = useCallback(
-		(level: number) => setPath((prev) => prev.slice(0, level)),
-		[],
-	);
+	const goToLevel = useCallback((level: number) => setPath((prev) => prev.slice(0, level)), []);
 
 	const openDrawer = useCallback((target: SchemaPath) => setDrawerPath(target), []);
 	const closeDrawer = useCallback(() => setDrawerPath(null), []);
@@ -148,17 +137,14 @@ export function SchemaEditorProvider({
 	);
 
 	const hasTypeOverride = useCallback(
-		(target: SchemaPath) =>
-			Boolean(typeOverrides?.[pathToKeyString(schema, target)]),
+		(target: SchemaPath) => Boolean(typeOverrides?.[pathToKeyString(schema, target)]),
 		[schema, typeOverrides],
 	);
 
 	const typeOptionsFor = useCallback(
 		(target: SchemaPath, isRoot = false): DataTypeOption[] => {
 			const override = typeOverrides?.[pathToKeyString(schema, target)];
-			const base =
-				override ??
-				(isRoot ? (allowedRootTypes ?? allowedDataTypes) : allowedDataTypes);
+			const base = override ?? (isRoot ? (allowedRootTypes ?? allowedDataTypes) : allowedDataTypes);
 
 			// The node's own path length is how deep its *children* would sit, so
 			// a container is offered only while there is room for one more level.
@@ -174,15 +160,7 @@ export function SchemaEditorProvider({
 				})
 				.map((type) => ({ value: type, label: labelFor(type) }));
 		},
-		[
-			allowedDataTypes,
-			allowedRootTypes,
-			disableJs,
-			labelFor,
-			maxDepth,
-			schema,
-			typeOverrides,
-		],
+		[allowedDataTypes, allowedRootTypes, disableJs, labelFor, maxDepth, schema, typeOverrides],
 	);
 
 	const resolvedRuleEditors = useMemo(
@@ -236,8 +214,6 @@ export function SchemaEditorProvider({
 	);
 
 	return (
-		<SchemaEditorContext.Provider value={contextValue}>
-			{children}
-		</SchemaEditorContext.Provider>
+		<SchemaEditorContext.Provider value={contextValue}>{children}</SchemaEditorContext.Provider>
 	);
 }

@@ -1,17 +1,5 @@
-import {
-	Button,
-	Checkbox,
-	Chip,
-	DeleteIconButton,
-	Table,
-} from "@fluxify/components";
-import {
-	TbArrowDown,
-	TbArrowUp,
-	TbEdit,
-	TbLock,
-	TbLockOpen,
-} from "react-icons/tb";
+import { Button, Checkbox, Chip, DeleteIconButton, Table } from "@fluxify/components";
+import { TbArrowDown, TbArrowUp, TbEdit, TbLock, TbLockOpen } from "react-icons/tb";
 import type { ConfigRow, SortBy } from "./types";
 
 export function AppConfigTable({
@@ -66,9 +54,8 @@ export function AppConfigTable({
 							className="flex items-center gap-1 font-medium hover:text-foreground cursor-pointer select-none"
 						>
 							Key Name
-							{sortBy === "keyName" && (
-								sortOrder === "asc" ? <TbArrowUp size={14} /> : <TbArrowDown size={14} />
-							)}
+							{sortBy === "keyName" &&
+								(sortOrder === "asc" ? <TbArrowUp size={14} /> : <TbArrowDown size={14} />)}
 						</div>
 					</Table.Column>
 					<Table.Column id="dataType">Type</Table.Column>
@@ -81,9 +68,8 @@ export function AppConfigTable({
 							className="flex items-center gap-1 font-medium hover:text-foreground cursor-pointer select-none"
 						>
 							Encrypted
-							{sortBy === "isEncrypted" && (
-								sortOrder === "asc" ? <TbArrowUp size={14} /> : <TbArrowDown size={14} />
-							)}
+							{sortBy === "isEncrypted" &&
+								(sortOrder === "asc" ? <TbArrowUp size={14} /> : <TbArrowDown size={14} />)}
 						</div>
 					</Table.Column>
 					<Table.Column id="encodingType">
@@ -95,9 +81,8 @@ export function AppConfigTable({
 							className="flex items-center gap-1 font-medium hover:text-foreground cursor-pointer select-none"
 						>
 							Encoding
-							{sortBy === "encodingType" && (
-								sortOrder === "asc" ? <TbArrowUp size={14} /> : <TbArrowDown size={14} />
-							)}
+							{sortBy === "encodingType" &&
+								(sortOrder === "asc" ? <TbArrowUp size={14} /> : <TbArrowDown size={14} />)}
 						</div>
 					</Table.Column>
 					<Table.Column id="updatedAt">
@@ -109,12 +94,13 @@ export function AppConfigTable({
 							className="flex items-center gap-1 font-medium hover:text-foreground cursor-pointer select-none"
 						>
 							Updated At
-							{sortBy === "updatedAt" && (
-								sortOrder === "asc" ? <TbArrowUp size={14} /> : <TbArrowDown size={14} />
-							)}
+							{sortBy === "updatedAt" &&
+								(sortOrder === "asc" ? <TbArrowUp size={14} /> : <TbArrowDown size={14} />)}
 						</div>
 					</Table.Column>
-					<Table.Column id="actions" aria-label="Actions">{""}</Table.Column>
+					<Table.Column id="actions" aria-label="Actions">
+						{""}
+					</Table.Column>
 				</Table.Header>
 				<Table.Body items={items}>
 					{(row: ConfigRow) => (
@@ -152,7 +138,11 @@ export function AppConfigTable({
 							</Table.Cell>
 							<Table.Cell>
 								<span className="text-xs text-muted">
-									{new Date(row.updatedAt).toLocaleDateString()} {new Date(row.updatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+									{new Date(row.updatedAt).toLocaleDateString()}{" "}
+									{new Date(row.updatedAt).toLocaleTimeString([], {
+										hour: "2-digit",
+										minute: "2-digit",
+									})}
 								</span>
 							</Table.Cell>
 							<Table.Cell>
@@ -165,10 +155,7 @@ export function AppConfigTable({
 									>
 										<TbEdit size={16} />
 									</Button>
-									<DeleteIconButton
-										aria-label="Delete config"
-										onPress={() => onDelete(row)}
-									/>
+									<DeleteIconButton aria-label="Delete config" onPress={() => onDelete(row)} />
 								</div>
 							</Table.Cell>
 						</Table.Row>

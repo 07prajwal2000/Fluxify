@@ -63,11 +63,7 @@ export function renameObjectKey(
 	) as JsonObject;
 }
 
-export function moveArrayItem(
-	value: JsonArray,
-	fromIndex: number,
-	toIndex: number,
-): JsonArray {
+export function moveArrayItem(value: JsonArray, fromIndex: number, toIndex: number): JsonArray {
 	if (
 		fromIndex === toIndex ||
 		fromIndex < 0 ||
@@ -84,4 +80,3 @@ export function moveArrayItem(
 	next.splice(toIndex, 0, item);
 	return next;
 }
-

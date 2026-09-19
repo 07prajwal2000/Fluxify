@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, type RefObject } from "react";
+import { type RefObject, useCallback, useEffect, useState } from "react";
 
 export function useScrollToBottom(bottomRef: RefObject<HTMLElement | null>, threshold = 250) {
 	const [isAtBottom, setIsAtBottom] = useState(true);
@@ -12,16 +12,19 @@ export function useScrollToBottom(bottomRef: RefObject<HTMLElement | null>, thre
 			},
 			{
 				rootMargin: `0px 0px ${threshold}px 0px`,
-			}
+			},
 		);
 
 		observer.observe(bottomRef.current);
 		return () => observer.disconnect();
 	}, [bottomRef, threshold]);
 
-	const scrollToBottom = useCallback((behavior: ScrollBehavior = "smooth") => {
-		bottomRef.current?.scrollIntoView({ behavior, block: "center" });
-	}, [bottomRef]);
+	const scrollToBottom = useCallback(
+		(behavior: ScrollBehavior = "smooth") => {
+			bottomRef.current?.scrollIntoView({ behavior, block: "center" });
+		},
+		[bottomRef],
+	);
 
 	return { isAtBottom, scrollToBottom };
 }

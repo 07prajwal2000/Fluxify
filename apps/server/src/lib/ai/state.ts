@@ -14,10 +14,7 @@ import { AiChatTracker } from "./tracker";
 
 export const AgentStateSchema = new StateSchema({
 	messages: z.array(
-		z
-			.instanceof(AIMessage)
-			.or(z.instanceof(HumanMessage))
-			.or(z.instanceof(SystemMessage)),
+		z.instanceof(AIMessage).or(z.instanceof(HumanMessage)).or(z.instanceof(SystemMessage)),
 	),
 	tracker: z.instanceof(AiChatTracker).optional(),
 	clarificationQuestion: z.string().optional(),

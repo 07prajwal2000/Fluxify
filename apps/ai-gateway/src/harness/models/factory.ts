@@ -1,18 +1,12 @@
-import { BaseAgentWrapper } from "./base";
-import { OpenAIAgentWrapper } from "./openai/index";
 import { AnthropicAgentWrapper } from "./anthropic/index";
+import type { BaseAgentWrapper } from "./base";
 import { GoogleAgentWrapper } from "./google/index";
 import { MistralAgentWrapper } from "./mistral/index";
-import { OpenRouterAgentWrapper } from "./openrouter/index";
 import { OllamaAgentWrapper } from "./ollama/index";
+import { OpenAIAgentWrapper } from "./openai/index";
+import { OpenRouterAgentWrapper } from "./openrouter/index";
 
-export type AgentProvider =
-	| "openai"
-	| "anthropic"
-	| "google"
-	| "mistral"
-	| "openrouter"
-	| "ollama";
+export type AgentProvider = "openai" | "anthropic" | "google" | "mistral" | "openrouter" | "ollama";
 
 export interface AgentFactoryOptions {
 	provider: AgentProvider;
@@ -52,11 +46,29 @@ export class AgentFactory {
 					maxToolIterations,
 				);
 			case "google":
-				return new GoogleAgentWrapper(modelName, apiKey, additionalHeaders, baseUrl, maxToolIterations);
+				return new GoogleAgentWrapper(
+					modelName,
+					apiKey,
+					additionalHeaders,
+					baseUrl,
+					maxToolIterations,
+				);
 			case "mistral":
-				return new MistralAgentWrapper(modelName, apiKey, additionalHeaders, baseUrl, maxToolIterations);
+				return new MistralAgentWrapper(
+					modelName,
+					apiKey,
+					additionalHeaders,
+					baseUrl,
+					maxToolIterations,
+				);
 			case "openrouter":
-				return new OpenRouterAgentWrapper(modelName, apiKey, additionalHeaders, baseUrl, maxToolIterations);
+				return new OpenRouterAgentWrapper(
+					modelName,
+					apiKey,
+					additionalHeaders,
+					baseUrl,
+					maxToolIterations,
+				);
 			case "ollama":
 				return new OllamaAgentWrapper(modelName, baseUrl, additionalHeaders, maxToolIterations);
 			default:

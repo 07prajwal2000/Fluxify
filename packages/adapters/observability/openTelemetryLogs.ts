@@ -1,11 +1,11 @@
-import z from "zod";
-import { AbstractLogger } from "@fluxify/lib";
 import {
 	createOtlpLoggerProvider,
-	Logger,
-	LoggerProvider,
+	type Logger,
+	type LoggerProvider,
 	logger,
 } from "@fluxify/common";
+import type { AbstractLogger } from "@fluxify/lib";
+import z from "zod";
 import { resolveCustomHeaders } from "./customHeaders";
 
 export const openTelemetryLogsSettings = z.object({
@@ -46,9 +46,7 @@ export class OpenTelemetryLogs implements AbstractLogger {
 	// and metrics, and the old name only described the first of the three. Rows
 	// still storing it are normalized before they reach here.
 	public static variant = "Open Telemetry";
-	constructor(
-		private readonly settings: z.infer<typeof openTelemetryLogsSettings>,
-	) {}
+	constructor(private readonly settings: z.infer<typeof openTelemetryLogsSettings>) {}
 	private otelLogger: Logger = null!;
 	private loggerProvider: LoggerProvider = null!;
 
@@ -62,15 +60,9 @@ export class OpenTelemetryLogs implements AbstractLogger {
 		this.emitLog(17, "ERROR", value, extra);
 	}
 
-	private emitLog(
-		severityNumber: number,
-		severityText: string,
-		value: any,
-		extra: any[],
-	) {
+	private emitLog(severityNumber: number, severityText: string, value: any, extra: any[]) {
 		const logger = this.createLogger();
-		const extraData =
-			extra.length === 1 ? extra[0] : extra.length > 1 ? extra : undefined;
+		const extraData = extra.length === 1 ? extra[0] : extra.length > 1 ? extra : undefined;
 
 		const attributes: Record<string, string> = {
 			route_id: this.settings.routeId,
@@ -89,8 +81,7 @@ export class OpenTelemetryLogs implements AbstractLogger {
 		attributes.message = messageStr;
 
 		if (extraData !== undefined) {
-			attributes.extra =
-				typeof extraData === "string" ? extraData : JSON.stringify(extraData);
+			attributes.extra = typeof extraData === "string" ? extraData : JSON.stringify(extraData);
 		}
 
 		logger.emit({
@@ -101,10 +92,7 @@ export class OpenTelemetryLogs implements AbstractLogger {
 		});
 
 		// Start flush to ensure logs are not lost in short-lived test processes
-		if (
-			this.loggerProvider &&
-			typeof this.loggerProvider.forceFlush === "function"
-		) {
+		if (this.loggerProvider && typeof this.loggerProvider.forceFlush === "function") {
 			this.loggerProvider.forceFlush().catch(() => {});
 		}
 	}
@@ -116,13 +104,8 @@ export class OpenTelemetryLogs implements AbstractLogger {
 		let credentialsString = "";
 		if (settings.encodedBasicAuth) {
 			credentialsString = settings.encodedBasicAuth;
-		} else if (
-			settings.credentials?.username &&
-			settings.credentials?.password
-		) {
-			credentialsString = btoa(
-				`${settings.credentials.username}:${settings.credentials.password}`,
-			);
+		} else if (settings.credentials?.username && settings.credentials?.password) {
+			credentialsString = btoa(`${settings.credentials.username}:${settings.credentials.password}`);
 		}
 
 		let cleanUrl = settings.baseUrl.replace(/\/$/, "");
@@ -146,9 +129,7 @@ export class OpenTelemetryLogs implements AbstractLogger {
 		});
 
 		// Call getLogger directly on our local provider to avoid global collisions!
-		this.otelLogger = this.loggerProvider.getLogger(
-			"fluxify-opentelemetry-logger",
-		);
+		this.otelLogger = this.loggerProvider.getLogger("fluxify-opentelemetry-logger");
 		return this.otelLogger;
 	}
 
@@ -167,10 +148,7 @@ export class OpenTelemetryLogs implements AbstractLogger {
 		appConfig: ConfigType,
 		signal: OtlpSignal = "logs",
 	) {
-		const extracted = OpenTelemetryLogs.ExtractConnectionInfo(
-			settings,
-			appConfig,
-		);
+		const extracted = OpenTelemetryLogs.ExtractConnectionInfo(settings, appConfig);
 		if (!extracted) return false;
 		if (extracted.protocol === "grpc") {
 			// imported here: the otlp barrel loads the trace and metric SDKs, which
@@ -225,16 +203,10 @@ export class OpenTelemetryLogs implements AbstractLogger {
 		let credentials = config.credentials;
 		if (typeof credentials === "object") {
 			const username = credentials.username.startsWith("cfg:")
-				? OpenTelemetryLogs.getConfig(
-						appConfig,
-						credentials.username.slice(4),
-					)
+				? OpenTelemetryLogs.getConfig(appConfig, credentials.username.slice(4))
 				: credentials.username;
 			const password = credentials.password.startsWith("cfg:")
-				? OpenTelemetryLogs.getConfig(
-						appConfig,
-						credentials.password.slice(4),
-					)
+				? OpenTelemetryLogs.getConfig(appConfig, credentials.password.slice(4))
 				: credentials.password;
 			if (!username || !password) return null;
 			credentials.password = password;
@@ -258,8 +230,7 @@ export class OpenTelemetryLogs implements AbstractLogger {
 			clientKey: resolve(config.clientKey),
 			projectId: "",
 			routeId: "",
-			encodedBasicAuth:
-				typeof credentials === "string" ? credentials : undefined,
+			encodedBasicAuth: typeof credentials === "string" ? credentials : undefined,
 		};
 	}
 	private static getHeaders(
@@ -272,18 +243,12 @@ export class OpenTelemetryLogs implements AbstractLogger {
 				Authorization: `Basic ${settings.encodedBasicAuth}`,
 			};
 		}
-		if (
-			!settings.credentials ||
-			!settings.credentials.username ||
-			!settings.credentials.password
-		) {
+		if (!settings.credentials || !settings.credentials.username || !settings.credentials.password) {
 			logger.error("Credentials not found", "opentelemetry");
 			// no auth is a valid setup when the ingestor keys on a custom header
 			return extra;
 		}
-		const credentials = btoa(
-			`${settings.credentials.username}:${settings.credentials.password}`,
-		);
+		const credentials = btoa(`${settings.credentials.username}:${settings.credentials.password}`);
 		return {
 			...extra,
 			Authorization: `Basic ${credentials}`,

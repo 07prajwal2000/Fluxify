@@ -1,51 +1,50 @@
 // The UI seam. Portal imports everything from here, never from @heroui/react
 // directly, so swapping the underlying library stays a one-package change.
 export * from "@heroui/react";
-export { Providers } from "./src/providers";
-
-// Fluxify components. One folder each, re-exported here so consumers only ever
-// import from "@fluxify/components".
-export * from "./src/JavaScriptTextArea";
-export * from "./src/JsTextField";
-export * from "./src/ConditionsBuilder";
-export * from "./src/FieldMapEditor";
-export * from "./src/IntegrationSelector";
-export * from "./src/JsonEditor";
-export * from "./src/CodeViewer";
-export * from "./src/ArrayEditor";
-export * from "./src/JoinsEditor";
-export * from "./src/SchemaEditor";
-export * from "./src/MultiSelect";
-export * from "./src/CustomSelect";
-export * from "./src/Sidebar";
 export * from "./src/ApiPlayground";
-export { LazyLoader } from "./src/LazyLoader/LazyLoader";
+export * from "./src/ArrayEditor";
 export {
 	Checkbox,
 	CheckboxControl,
-	CheckboxDescription,
-	CheckboxIndicator,
-	CheckboxLabel,
-	CheckboxRoot,
 	type CheckboxControlProps,
+	CheckboxDescription,
 	type CheckboxDescriptionProps,
+	CheckboxIndicator,
 	type CheckboxIndicatorProps,
+	CheckboxLabel,
 	type CheckboxLabelProps,
 	type CheckboxProps,
 	type CheckboxRenderProps,
+	CheckboxRoot,
 	type CheckboxRootProps,
 	type CheckboxSize,
 	type CheckboxVariant,
 } from "./src/Checkbox";
 export {
+	CloseButton,
+	type CloseButtonProps,
+	ModalCloseButton,
+	type ModalCloseButtonProps,
+} from "./src/CloseButton";
+export * from "./src/CodeViewer";
+export * from "./src/ConditionsBuilder";
+export * from "./src/CustomSelect";
+export * from "./src/DeleteButton";
+export * from "./src/FieldMapEditor";
+export * from "./src/IntegrationSelector";
+// Fluxify components. One folder each, re-exported here so consumers only ever
+// import from "@fluxify/components".
+export * from "./src/JavaScriptTextArea";
+export * from "./src/JoinsEditor";
+export * from "./src/JsonEditor";
+export * from "./src/JsTextField";
+export { LazyLoader } from "./src/LazyLoader/LazyLoader";
+export * from "./src/MultiSelect";
+export { Providers } from "./src/providers";
+export * from "./src/ReorderableList";
+export * from "./src/SchemaEditor";
+export * from "./src/Sidebar";
+export {
 	Switch,
 	type SwitchProps,
 } from "./src/Switch";
-export * from "./src/DeleteButton";
-export {
-	CloseButton,
-	ModalCloseButton,
-	type CloseButtonProps,
-	type ModalCloseButtonProps,
-} from "./src/CloseButton";
-export * from "./src/ReorderableList";

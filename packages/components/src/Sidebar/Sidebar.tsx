@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { type ReactNode, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import "./sidebar.css";
 
@@ -54,9 +54,7 @@ export function Sidebar({
 			<aside
 				aria-label={ariaLabel}
 				aria-modal="true"
-				className={["fx-sidebar", `fx-sidebar--${placement}`, className]
-					.filter(Boolean)
-					.join(" ")}
+				className={["fx-sidebar", `fx-sidebar--${placement}`, className].filter(Boolean).join(" ")}
 				role="dialog"
 			>
 				{children}

@@ -1,44 +1,40 @@
-import { ConditionalEdgeRouter, END, GraphNode } from "@langchain/langgraph";
-import { withRetry } from "../../agentRetry";
-import { AgentStateSchema } from "../state";
-import { PlannerOutputSchema } from "../schemas";
 import { blockAiDescriptions } from "@fluxify/blocks";
+import { type ConditionalEdgeRouter, END, type GraphNode } from "@langchain/langgraph";
+import { withRetry } from "../../agentRetry";
+import { PlannerOutputSchema } from "../schemas";
+import type { AgentStateSchema } from "../state";
 import { BUILDER_NODE_ID } from "./builder";
 
 export const PLANNER_NODE_ID = "planner";
 
-const blockListStr = blockAiDescriptions
-  .map((b) => `- ${b.name}: ${b.description}`)
-  .join("\n");
+const blockListStr = blockAiDescriptions.map((b) => `- ${b.name}: ${b.description}`).join("\n");
 
-export const PlannerNode: GraphNode<typeof AgentStateSchema> = async (
-  state,
-) => {
-  const { userPrompt, messages, modelFactory, metadata } = state;
-  const emptyIntegrationListStr = "No integrations available.";
-  const integrationListStr = metadata.integrationsList
-    .map((i) => `- ${i.id} | ${i.name} | ${i.group} | ${i.variant}`)
-    .join("\n");
-  const existingBlockDetailsStr = state.metadata.route.canvasItems
-    .map((b) => `- ${b.id} | ${b.blockType} | ${b.blockName}`)
-    .join("\n");
-  const emptyConfigListStr = "No configs available.";
-  const appConfigListStr = metadata.configsList
-    .map((c) => `- ${c.name} | ${c.description}`)
-    .join("\n");
-  const model = modelFactory.createModel();
-  await state.tracker?.update(2, "started", "Planner");
-  const result = await withRetry(
-    async (history) => {
-      const response = await model.invoke(history);
-      return response.content.toString();
-    },
-    PlannerOutputSchema,
-    [
-      ...messages,
-      [
-        "system",
-        `You are Fluxi, an expert API Architect and Planner for a Low-Code API builder.
+export const PlannerNode: GraphNode<typeof AgentStateSchema> = async (state) => {
+	const { userPrompt, messages, modelFactory, metadata } = state;
+	const emptyIntegrationListStr = "No integrations available.";
+	const integrationListStr = metadata.integrationsList
+		.map((i) => `- ${i.id} | ${i.name} | ${i.group} | ${i.variant}`)
+		.join("\n");
+	const existingBlockDetailsStr = state.metadata.route.canvasItems
+		.map((b) => `- ${b.id} | ${b.blockType} | ${b.blockName}`)
+		.join("\n");
+	const emptyConfigListStr = "No configs available.";
+	const appConfigListStr = metadata.configsList
+		.map((c) => `- ${c.name} | ${c.description}`)
+		.join("\n");
+	const model = modelFactory.createModel();
+	await state.tracker?.update(2, "started", "Planner");
+	const result = await withRetry(
+		async (history) => {
+			const response = await model.invoke(history);
+			return response.content.toString();
+		},
+		PlannerOutputSchema,
+		[
+			...messages,
+			[
+				"system",
+				`You are Fluxi, an expert API Architect and Planner for a Low-Code API builder.
 
 <objective>
 Analyze the user's request to design a feasible node-based flow. You must select the necessary blocks and verify that the required external resources (Integrations/Configs) exist.
@@ -121,23 +117,21 @@ Name | Description
 }
 </output_format>
 `,
-      ],
-      ["human", userPrompt],
-    ],
-  );
-  if (result) {
-    state.buildMode = { plannerOutput: result };
-    await state.tracker?.update(2, "success", "Planner", {
-      plannerOutput: result,
-    });
-  }
-  return state;
+			],
+			["human", userPrompt],
+		],
+	);
+	if (result) {
+		state.buildMode = { plannerOutput: result };
+		await state.tracker?.update(2, "success", "Planner", {
+			plannerOutput: result,
+		});
+	}
+	return state;
 };
 
-export const PlannerConditionalNodeRouter: ConditionalEdgeRouter<
-  typeof AgentStateSchema
-> = (state) => {
-  return state.buildMode?.plannerOutput?.status === "success"
-    ? BUILDER_NODE_ID
-    : END;
+export const PlannerConditionalNodeRouter: ConditionalEdgeRouter<typeof AgentStateSchema> = (
+	state,
+) => {
+	return state.buildMode?.plannerOutput?.status === "success" ? BUILDER_NODE_ID : END;
 };

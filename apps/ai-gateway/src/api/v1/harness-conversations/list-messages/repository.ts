@@ -1,8 +1,4 @@
-import {
-	db,
-	agentHarnessRunsEntity,
-	agentHarnessArtifactsEntity,
-} from "@fluxify/server";
+import { agentHarnessArtifactsEntity, agentHarnessRunsEntity, db } from "@fluxify/server";
 import { and, desc, eq, sql } from "drizzle-orm";
 import type { MessageCursor } from "./cursor";
 

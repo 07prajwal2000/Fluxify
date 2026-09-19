@@ -64,9 +64,7 @@ export function filterSpotlightCommands(
 	if (/^add(\s|>|$)/i.test(trimmed)) {
 		const term = trimmed.replace(/^add(\s*>)?\s*/i, "");
 		const blocks = allCommands.filter(
-			(cmd) =>
-				(cmd.category === "Blocks" || cmd.id === "addNote") &&
-				matchesTerm(cmd, term),
+			(cmd) => (cmd.category === "Blocks" || cmd.id === "addNote") && matchesTerm(cmd, term),
 		);
 		return {
 			commands: blocks,

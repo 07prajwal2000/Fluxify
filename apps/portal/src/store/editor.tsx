@@ -1,19 +1,15 @@
 "use client";
-import type { BaseBlockType, EdgeType } from "@/types/block";
 import { enableMapSet, produce } from "immer";
-import React, { createContext, useContext, useRef } from "react";
-import { createStore } from "zustand/vanilla";
+import type React from "react";
+import { createContext, useContext, useRef } from "react";
 import { useStore } from "zustand";
 import { immer } from "zustand/middleware/immer";
-import {
-	type Actions,
-	type EditorActionStateType,
-	EditorTab,
-	type State,
-} from "./editorTypes";
+import { createStore } from "zustand/vanilla";
+import type { BaseBlockType, EdgeType } from "@/types/block";
+import { type Actions, type EditorActionStateType, EditorTab, type State } from "./editorTypes";
 
-export { EditorTab };
 export type { EditorActionStateType };
+export { EditorTab };
 
 enableMapSet();
 
@@ -65,14 +61,12 @@ export const createEditorStore = () => {
 				incrementIndex(max) {
 					max--;
 					set((state) => {
-						state.searchbar.currentIndex +=
-							state.searchbar.currentIndex < max ? 1 : 0;
+						state.searchbar.currentIndex += state.searchbar.currentIndex < max ? 1 : 0;
 					});
 				},
 				decrementIndex() {
 					set((state) => {
-						state.searchbar.currentIndex +=
-							state.searchbar.currentIndex > 0 ? -1 : 0;
+						state.searchbar.currentIndex += state.searchbar.currentIndex > 0 ? -1 : 0;
 					});
 				},
 				setSearchQuery(query) {
@@ -167,22 +161,16 @@ export const createEditorStore = () => {
 				tracker: new Map(),
 				add(id, type) {
 					set((state) => {
-						state.changeTracker.tracker = produce(
-							state.changeTracker.tracker,
-							(draft) => {
-								draft.set(id, type);
-							},
-						);
+						state.changeTracker.tracker = produce(state.changeTracker.tracker, (draft) => {
+							draft.set(id, type);
+						});
 					});
 				},
 				remove(id) {
 					set((state) => {
-						state.changeTracker.tracker = produce(
-							state.changeTracker.tracker,
-							(draft) => {
-								draft.delete(id);
-							},
-						);
+						state.changeTracker.tracker = produce(state.changeTracker.tracker, (draft) => {
+							draft.delete(id);
+						});
 					});
 				},
 				reset() {
@@ -209,17 +197,13 @@ export const createEditorStore = () => {
 
 export const EditorStoreContext = createContext<EditorStore | null>(null);
 
-export function EditorStoreProvider({
-	children,
-}: React.PropsWithChildren<{}>) {
+export function EditorStoreProvider({ children }: React.PropsWithChildren<{}>) {
 	const storeRef = useRef<EditorStore | null>(null);
 	if (!storeRef.current) {
 		storeRef.current = createEditorStore();
 	}
 	return (
-		<EditorStoreContext.Provider value={storeRef.current}>
-			{children}
-		</EditorStoreContext.Provider>
+		<EditorStoreContext.Provider value={storeRef.current}>{children}</EditorStoreContext.Provider>
 	);
 }
 

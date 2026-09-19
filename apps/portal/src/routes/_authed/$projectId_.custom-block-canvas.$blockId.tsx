@@ -1,17 +1,15 @@
-import { useMemo, useState } from "react";
+import { Button, type CustomBlockParamDef, useCustomBlockParamsTypes } from "@fluxify/components";
 import { createFileRoute } from "@tanstack/react-router";
-import { Button, useCustomBlockParamsTypes, type CustomBlockParamDef } from "@fluxify/components";
+import { useMemo, useState } from "react";
 import { TbSettings } from "react-icons/tb";
-import { customBlocksQuery } from "@/query/customBlocksQuery";
-import { customBlocksService } from "@/services/customBlocks";
 import { CanvasWorkbench } from "@/components/canvas";
 import { CustomBlockSettingsModal } from "@/components/customBlocks/CustomBlockSettingsModal";
 import { CustomBlockSwitcher } from "@/components/customBlocks/CustomBlockSwitcher";
 import { createRouteHead } from "@/lib/seo";
+import { customBlocksQuery } from "@/query/customBlocksQuery";
+import { customBlocksService } from "@/services/customBlocks";
 
-export const Route = createFileRoute(
-	"/_authed/$projectId_/custom-block-canvas/$blockId",
-)({
+export const Route = createFileRoute("/_authed/$projectId_/custom-block-canvas/$blockId")({
 	head: createRouteHead(
 		"Custom Block Canvas",
 		"Design and build reusable custom automation blocks.",
@@ -29,9 +27,7 @@ function CustomBlockCanvasPage() {
 	const { data: blocks } = customBlocksQuery.getAll.useQuery(projectId);
 	const inputParams = useMemo(() => {
 		const self = blocks?.find((block) => block.id === blockId);
-		return Array.isArray(self?.inputParams)
-			? (self.inputParams as CustomBlockParamDef[])
-			: [];
+		return Array.isArray(self?.inputParams) ? (self.inputParams as CustomBlockParamDef[]) : [];
 	}, [blocks, blockId]);
 	useCustomBlockParamsTypes(inputParams);
 

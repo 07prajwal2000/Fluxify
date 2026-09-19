@@ -34,10 +34,7 @@ export function ScheduleFields({
 	// Previewing on every keystroke would ask the server to parse half-typed
 	// expressions constantly, and the answer only matters once typing pauses.
 	const debounced = useDebounce(value, 350);
-	const preview = triggersQuery.schedulePreview.useQuery(
-		debounced.schedule,
-		debounced.timezone,
-	);
+	const preview = triggersQuery.schedulePreview.useQuery(debounced.schedule, debounced.timezone);
 	const nonUtc = value.timezone.trim() !== "" && value.timezone !== "UTC";
 
 	return (
@@ -51,9 +48,9 @@ export function ScheduleFields({
 				<Label>Schedule</Label>
 				<Input placeholder="0 0 9 * * 1-5" className="font-mono" />
 				<Description>
-					Six fields — seconds, minutes, hours, day of month, month, day of week
-					— or <code>@every 30m</code>, <code>@daily</code>, or{" "}
-					<code>@at 2026-01-01T09:00:00Z</code> to run once.
+					Six fields — seconds, minutes, hours, day of month, month, day of week — or{" "}
+					<code>@every 30m</code>, <code>@daily</code>, or <code>@at 2026-01-01T09:00:00Z</code> to
+					run once.
 				</Description>
 			</TextField>
 
@@ -80,8 +77,7 @@ export function ScheduleFields({
 				<Label>Timezone</Label>
 				<Input placeholder="UTC" />
 				<Description>
-					An IANA name like <code>Asia/Kolkata</code>. Applies to cron
-					expressions only.
+					An IANA name like <code>Asia/Kolkata</code>. Applies to cron expressions only.
 				</Description>
 			</TextField>
 
@@ -89,9 +85,8 @@ export function ScheduleFields({
 				<p className="flex items-start gap-2 rounded-md border border-warning/40 bg-warning/10 px-3 py-2 text-xs text-foreground">
 					<TbAlertTriangle size={14} className="mt-0.5 shrink-0 text-warning" />
 					<span>
-						Clocks in {value.timezone} may move for daylight saving. A time that
-						is skipped that day does not run, and a time that repeats runs
-						twice. UTC never does either.
+						Clocks in {value.timezone} may move for daylight saving. A time that is skipped that day
+						does not run, and a time that repeats runs twice. UTC never does either.
 					</span>
 				</p>
 			)}
@@ -129,8 +124,7 @@ function SchedulePreview({
 				{(error as { message?: string })?.message ?? "Not a valid schedule"}
 			</p>
 		);
-	if (!data)
-		return <p className="text-xs text-muted">{pending ? "Checking…" : null}</p>;
+	if (!data) return <p className="text-xs text-muted">{pending ? "Checking…" : null}</p>;
 
 	return (
 		<div className="rounded-md border border-border bg-surface p-3">
@@ -151,9 +145,7 @@ function SchedulePreview({
 					))}
 				</ul>
 			)}
-			<p className="mt-2 text-[11px] text-muted">
-				Shown in your browser's timezone.
-			</p>
+			<p className="mt-2 text-[11px] text-muted">Shown in your browser's timezone.</p>
 		</div>
 	);
 }

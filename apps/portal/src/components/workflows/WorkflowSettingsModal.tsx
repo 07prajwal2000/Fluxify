@@ -1,5 +1,3 @@
-import { useMemo, useState } from "react";
-import { useNavigate } from "@tanstack/react-router";
 import {
 	Button,
 	CloseButton,
@@ -15,10 +13,12 @@ import {
 	TextField,
 	toast,
 } from "@fluxify/components";
+import { useNavigate } from "@tanstack/react-router";
+import { useMemo, useState } from "react";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { Section } from "@/components/common/Section";
-import { workflowsQuery } from "@/query/workflowsQuery";
 import { showErrorNotification } from "@/lib/errorNotifier";
+import { workflowsQuery } from "@/query/workflowsQuery";
 import type { Workflow } from "@/services/workflows";
 import { WorkflowTriggersTab } from "./WorkflowTriggersTab";
 
@@ -98,14 +98,7 @@ function WorkflowSettingsForm({
 			tracingEnabled,
 			recordExecution,
 		}),
-		[
-			name,
-			description,
-			active,
-			timeoutSeconds,
-			tracingEnabled,
-			recordExecution,
-		],
+		[name, description, active, timeoutSeconds, tracingEnabled, recordExecution],
 	);
 	const [baseline] = useState(() => JSON.stringify(payload));
 	const isDirty = JSON.stringify(payload) !== baseline;
@@ -140,9 +133,7 @@ function WorkflowSettingsForm({
 		<>
 			<Modal.Header className="flex shrink-0 flex-row items-center gap-3 border-b border-border px-5 py-3">
 				<div className="min-w-0">
-					<Modal.Heading className="text-sm font-semibold">
-						Workflow settings
-					</Modal.Heading>
+					<Modal.Heading className="text-sm font-semibold">Workflow settings</Modal.Heading>
 					<p className="truncate text-xs text-muted">{workflow.name}</p>
 				</div>
 				<CloseButton aria-label="Close workflow settings" className="ml-auto" />
@@ -166,10 +157,7 @@ function WorkflowSettingsForm({
 					</Tabs.List>
 
 					<Tabs.Panel id="general" className="min-h-0 flex-1 overflow-y-auto p-5">
-						<Section
-							title="Identity"
-							description="How this workflow shows up in lists and logs."
-						>
+						<Section title="Identity" description="How this workflow shows up in lists and logs.">
 							<TextField
 								isRequired
 								value={name}
@@ -206,10 +194,7 @@ function WorkflowSettingsForm({
 					</Tabs.Panel>
 
 					<Tabs.Panel id="triggers" className="min-h-0 flex-1 overflow-y-auto p-5">
-						<WorkflowTriggersTab
-							workflowId={workflow.id}
-							projectId={workflow.projectId}
-						/>
+						<WorkflowTriggersTab workflowId={workflow.id} projectId={workflow.projectId} />
 					</Tabs.Panel>
 
 					<Tabs.Panel id="advanced" className="min-h-0 flex-1 overflow-y-auto p-5">
@@ -219,9 +204,7 @@ function WorkflowSettingsForm({
 						>
 							<NumberField
 								value={timeoutSeconds}
-								onChange={(next) =>
-									setTimeoutSeconds(Math.min(3600, Math.max(30, next || 30)))
-								}
+								onChange={(next) => setTimeoutSeconds(Math.min(3600, Math.max(30, next || 30)))}
 								minValue={30}
 								maxValue={3600}
 								className="w-52"
@@ -268,9 +251,7 @@ function WorkflowSettingsForm({
 									<p className="truncate text-xs">{workflow.name}</p>
 									<p className="text-xs text-muted">Queued runs will be dropped.</p>
 								</div>
-								<DeleteButton onPress={() => setConfirmDelete(true)}>
-									Delete workflow
-								</DeleteButton>
+								<DeleteButton onPress={() => setConfirmDelete(true)}>Delete workflow</DeleteButton>
 							</div>
 						</Section>
 					</Tabs.Panel>
@@ -286,8 +267,7 @@ function WorkflowSettingsForm({
 				pending={remove.isPending}
 				onConfirm={deleteWorkflow}
 			>
-				Delete <b className="text-foreground">{workflow.name}</b>? This cannot be
-				undone.
+				Delete <b className="text-foreground">{workflow.name}</b>? This cannot be undone.
 			</ConfirmDialog>
 
 			<Modal.Footer className="flex shrink-0 flex-row items-center gap-3 border-t border-border px-5 py-3">

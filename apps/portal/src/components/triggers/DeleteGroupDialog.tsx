@@ -1,14 +1,10 @@
+import { Button, Modal, toast } from "@fluxify/components";
 import { useState } from "react";
-import {
-	Button,
-	Modal,
-	toast,
-} from "@fluxify/components";
 import { TbAlertTriangle, TbInfoCircle } from "react-icons/tb";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { GroupSelect } from "@/components/triggers/triggerForm";
-import { triggersQuery } from "@/query/triggersQuery";
 import { showErrorNotification } from "@/lib/errorNotifier";
+import { triggersQuery } from "@/query/triggersQuery";
 import type { DeleteGroupOptions, TriggerGroup } from "@/services/triggers";
 
 export type DeleteGroupDialogProps = {
@@ -22,12 +18,7 @@ export type DeleteGroupDialogProps = {
  * A group with triggers asks where they go — another group, or nowhere. Either
  * way, worker nodes that served only this group are scaled to zero and drain safely.
  */
-export function DeleteGroupDialog({
-	projectId,
-	group,
-	groups,
-	onClose,
-}: DeleteGroupDialogProps) {
+export function DeleteGroupDialog({ projectId, group, groups, onClose }: DeleteGroupDialogProps) {
 	const remove = triggersQuery.deleteGroup.mutation(projectId);
 	const others = groups.filter((other) => other.id !== group?.id);
 	const [moveTo, setMoveTo] = useState("");
@@ -52,8 +43,7 @@ export function DeleteGroupDialog({
 		);
 	};
 
-	const drainNote =
-		"Worker nodes that serve only this group are scaled to 0 and drained safely.";
+	const drainNote = "Worker nodes that serve only this group are scaled to 0 and drained safely.";
 
 	if (!group || group.triggerCount === 0) {
 		return (
@@ -67,7 +57,8 @@ export function DeleteGroupDialog({
 				onConfirm={() => run({})}
 			>
 				<p>
-					Are you sure you want to delete <b className="text-foreground">{group?.name}</b>? {drainNote}
+					Are you sure you want to delete <b className="text-foreground">{group?.name}</b>?{" "}
+					{drainNote}
 				</p>
 			</ConfirmDialog>
 		);
@@ -87,7 +78,8 @@ export function DeleteGroupDialog({
 									Delete group “{group.name}”?
 								</Modal.Heading>
 								<span className="text-xs text-muted">
-									{group.triggerCount} active {group.triggerCount === 1 ? "trigger" : "triggers"} assigned
+									{group.triggerCount} active {group.triggerCount === 1 ? "trigger" : "triggers"}{" "}
+									assigned
 								</span>
 							</div>
 						</Modal.Header>
@@ -95,16 +87,12 @@ export function DeleteGroupDialog({
 						<Modal.Body className="flex flex-col gap-3.5 text-sm text-muted">
 							<p className="leading-relaxed">
 								This group still has <b className="text-foreground">{group.triggerCount}</b>{" "}
-								{group.triggerCount === 1 ? "trigger" : "triggers"}. Choose whether to reassign them to
-								another group or delete them permanently.
+								{group.triggerCount === 1 ? "trigger" : "triggers"}. Choose whether to reassign them
+								to another group or delete them permanently.
 							</p>
 
 							<div className="rounded-lg border border-border/80 bg-surface-secondary/40 p-3">
-								<GroupSelect
-									groups={others}
-									value={target}
-									onChange={setMoveTo}
-								/>
+								<GroupSelect groups={others} value={target} onChange={setMoveTo} />
 							</div>
 
 							<div className="flex items-start gap-2 rounded-lg bg-danger-soft/30 border border-danger/20 p-2.5 text-xs text-danger-foreground">

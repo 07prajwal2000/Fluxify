@@ -1,21 +1,12 @@
-import { Server as SocketServer } from "socket.io";
-import { Server as Engine } from "@socket.io/bun-engine";
 import { logger } from "@fluxify/common";
+import { agentHarnessConversationsEntity, agentHarnessRunsEntity, auth, db } from "@fluxify/server";
+import { Server as Engine } from "@socket.io/bun-engine";
 import { and, eq, isNotNull } from "drizzle-orm";
-import {
-	auth,
-	db,
-	agentHarnessConversationsEntity,
-	agentHarnessRunsEntity,
-} from "@fluxify/server";
+import { Server as SocketServer } from "socket.io";
+import { HARNESS_SOCKET_EVENT, type HarnessSocketMessage, SOCKET_PATH } from "./clientContract";
 import { RedisService } from "./internal/redisService";
-import { subscribeConversations, ConversationMsgType } from "./notifications";
+import { ConversationMsgType, subscribeConversations } from "./notifications";
 import type { HarnessRunStatus, HarnessSnapshot } from "./streamTypes";
-import {
-	SOCKET_PATH,
-	HARNESS_SOCKET_EVENT,
-	type HarnessSocketMessage,
-} from "./clientContract";
 
 /* ============================================================================
  * SOCKET.IO GATEWAY
@@ -41,9 +32,9 @@ import {
  *  — a runtime-import-free module the browser client imports too. Re-exported here
  *  so existing server-side importers (main.ts, demo.ts) are unaffected. */
 export {
-	SOCKET_PATH,
 	HARNESS_SOCKET_EVENT,
 	type HarnessSocketMessage,
+	SOCKET_PATH,
 } from "./clientContract";
 
 /** Per-user room. Colon-delimited (socket.io convention); independent of the
@@ -143,9 +134,7 @@ export async function initializeHarnessSocket(): Promise<HarnessSocketHandler> {
 	// room. Resolve the better-auth session from the handshake cookies.
 	io.use(async (socket, next) => {
 		try {
-			const headers = new Headers(
-				socket.handshake.headers as Record<string, string>,
-			);
+			const headers = new Headers(socket.handshake.headers as Record<string, string>);
 			const session = await auth.api.getSession({ headers });
 			if (!session?.user?.id) return next(new Error("unauthorized"));
 			socket.data.userId = session.user.id;

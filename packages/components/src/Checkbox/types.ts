@@ -1,11 +1,11 @@
-import type { ComponentPropsWithoutRef, ReactNode } from "react";
 import type {
+	Description,
 	CheckboxContentProps as HeroUICheckboxContentProps,
 	CheckboxControlProps as HeroUICheckboxControlProps,
 	CheckboxIndicatorProps as HeroUICheckboxIndicatorProps,
 	CheckboxRootProps as HeroUICheckboxRootProps,
-	Description,
 } from "@heroui/react";
+import type { ComponentPropsWithoutRef, ReactNode } from "react";
 
 export type CheckboxSize = "sm" | "md" | "lg";
 export type CheckboxVariant = "primary" | "secondary";

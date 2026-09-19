@@ -1,31 +1,31 @@
 import type { ReactNode } from "react";
-import { FaArrowRightToBracket, FaArrowRightFromBracket } from "react-icons/fa6";
+import { FaHeading, FaMapSigns } from "react-icons/fa";
+import { FaArrowRightFromBracket, FaArrowRightToBracket } from "react-icons/fa6";
+import { IoLogoJavascript } from "react-icons/io";
+import { LuDatabaseZap } from "react-icons/lu";
+import { MdDataObject, MdHttp, MdOutlineReportGmailerrorred } from "react-icons/md";
 import {
-	TbInfinity,
-	TbTransform,
+	TbArrowsSplit2,
+	TbBox,
+	TbCloud,
 	TbCodeVariablePlus,
-	TbMatrix,
 	TbCookie,
-	TbDatabaseX,
-	TbDatabaseSearch,
-	TbDatabasePlus,
 	TbDatabaseEdit,
 	TbDatabaseImport,
+	TbDatabasePlus,
+	TbDatabaseSearch,
+	TbDatabaseX,
+	TbInfinity,
 	TbKey,
-	TbPlugConnected,
-	TbTerminal2,
-	TbCloud,
-	TbRocket,
+	TbMatrix,
 	TbNote,
-	TbBox,
-	TbArrowsSplit2,
+	TbPlugConnected,
+	TbRocket,
 	TbSwitch3,
+	TbTerminal2,
+	TbTransform,
 } from "react-icons/tb";
-import { MdOutlineReportGmailerrorred, MdHttp, MdDataObject } from "react-icons/md";
-import { FaMapSigns, FaHeading } from "react-icons/fa";
-import { IoLogoJavascript } from "react-icons/io";
 import { VscSymbolParameter } from "react-icons/vsc";
-import { LuDatabaseZap } from "react-icons/lu";
 import { BLOCK_TYPES, type BlockType } from "../blockTypes";
 
 const SIZE = 18;

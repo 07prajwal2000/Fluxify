@@ -12,16 +12,16 @@
  * ========================================================================== */
 
 export type {
-	HarnessLevel,
 	HarnessEventNode,
-	HarnessNodeStatus,
 	HarnessExecutionType,
-	HarnessRunStatus,
-	HarnessRunResult,
-	HarnessTaskView,
+	HarnessLevel,
 	HarnessNodePayload,
-	HarnessStreamEvent,
+	HarnessNodeStatus,
+	HarnessRunResult,
+	HarnessRunStatus,
 	HarnessSnapshot,
+	HarnessStreamEvent,
+	HarnessTaskView,
 } from "./streamTypes";
 
 /** Live, run-scoped counters sent separately from progress events. Kept out of
@@ -44,15 +44,15 @@ export const RUN_NODE = "run";
 
 export type {
 	AgentNodeName,
-	Task,
-	RouterState,
-	PlannerState,
-	DiscussionState,
-	SummarizerState,
-	SubAgentResult,
-	RouteConfigAgentResult,
-	CustomBlockConfigAgentResult,
 	BlockBuilderAgentResult,
+	CustomBlockConfigAgentResult,
+	DiscussionState,
+	PlannerState,
+	RouteConfigAgentResult,
+	RouterState,
+	SubAgentResult,
+	SummarizerState,
+	Task,
 } from "./types";
 
 import type { HarnessSnapshot, HarnessStreamEvent } from "./streamTypes";

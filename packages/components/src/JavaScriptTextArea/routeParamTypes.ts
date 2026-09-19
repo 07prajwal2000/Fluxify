@@ -5,10 +5,7 @@ const VIRTUAL_PATH = "file:///fluxify-route-params.d.ts";
 
 const quote = (val: string) => JSON.stringify(val);
 
-export function buildRouteParamTypeLib(
-	routeParams?: string[],
-	queryParams?: string[],
-): string {
+export function buildRouteParamTypeLib(routeParams?: string[], queryParams?: string[]): string {
 	const validRouteParams = Array.from(new Set(routeParams?.filter(Boolean) ?? []));
 	const validQueryParams = Array.from(new Set(queryParams?.filter(Boolean) ?? []));
 
@@ -39,10 +36,7 @@ export function buildRouteParamTypeLib(
  * Registers ambient route and query parameter declarations in Monaco
  * for autocomplete suggestions inside JS editors.
  */
-export function useRouteParamTypes(
-	routeParams?: string[],
-	queryParams?: string[],
-) {
+export function useRouteParamTypes(routeParams?: string[], queryParams?: string[]) {
 	const lib = useMemo(
 		() => buildRouteParamTypeLib(routeParams, queryParams),
 		// eslint-disable-next-line react-hooks/exhaustive-deps

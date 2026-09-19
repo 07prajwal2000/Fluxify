@@ -1,12 +1,12 @@
+import { logger } from "@fluxify/common";
+import { db, errorHandler, initializeAuth, setSession } from "@fluxify/server";
+import { serve } from "bun";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
-import { serve } from "bun";
-import { mapMcpServer } from "./mcp";
-import { logger } from "@fluxify/common";
 import { registerRoutes } from "./api/register";
-import { db, errorHandler, initializeAuth, setSession } from "@fluxify/server";
-import { AI_GATEWAY_PORT } from "./lib/env";
 import { initializeHarnessSocket, SOCKET_PATH } from "./harness/socketGateway";
+import { AI_GATEWAY_PORT } from "./lib/env";
+import { mapMcpServer } from "./mcp";
 
 export async function runMain() {
 	const app = new Hono<any>();

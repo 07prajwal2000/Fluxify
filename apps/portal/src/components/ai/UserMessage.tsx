@@ -46,9 +46,7 @@ export function UserMessage({ query }: { query: string }) {
 							components={
 								{
 									p: ({ children }: any) => (
-										<p className="m-0 mb-2 last:mb-0 whitespace-pre-wrap">
-											{children}
-										</p>
+										<p className="m-0 mb-2 last:mb-0 whitespace-pre-wrap">{children}</p>
 									),
 									"ai-resource": (props: any) => <ResourceChip {...props} />,
 								} as any
@@ -91,11 +89,7 @@ export function UserMessage({ query }: { query: string }) {
 						onPress={handleCopy}
 						aria-label="Copy message"
 					>
-						{copied ? (
-							<TbCheck size={14} className="text-success" />
-						) : (
-							<TbCopy size={14} />
-						)}
+						{copied ? <TbCheck size={14} className="text-success" /> : <TbCopy size={14} />}
 					</Button>
 				</div>
 			</div>

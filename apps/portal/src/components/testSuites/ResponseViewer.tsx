@@ -6,9 +6,7 @@ type Headers = Record<string, string> | undefined;
 
 function contentTypeOf(headers: Headers) {
 	if (!headers) return "";
-	const entry = Object.entries(headers).find(
-		([key]) => key.toLowerCase() === "content-type",
-	);
+	const entry = Object.entries(headers).find(([key]) => key.toLowerCase() === "content-type");
 	return entry?.[1]?.split(";", 1)[0]?.trim().toLowerCase() ?? "";
 }
 
@@ -63,9 +61,7 @@ function asText(data: unknown) {
 function HeadersTable({ headers }: { headers: Headers }) {
 	const entries = Object.entries(headers ?? {});
 	if (entries.length === 0) {
-		return (
-			<p className="p-4 text-center text-xs text-muted">No headers recorded.</p>
-		);
+		return <p className="p-4 text-center text-xs text-muted">No headers recorded.</p>;
 	}
 	return (
 		<div className="overflow-hidden rounded-md border border-border">
@@ -122,9 +118,7 @@ export function ResponseViewer({
 						)}
 					</button>
 				))}
-				{mime && (
-					<span className="ml-auto font-mono text-xs text-muted">{mime}</span>
-				)}
+				{mime && <span className="ml-auto font-mono text-xs text-muted">{mime}</span>}
 			</div>
 
 			{tab === "headers" ? (
@@ -137,19 +131,14 @@ export function ResponseViewer({
 				/>
 			) : presentation === "video" && src ? (
 				// biome-ignore lint/a11y/useMediaCaption: a response body has no caption track
-				<video
-					src={src}
-					controls
-					className="max-h-64 w-full rounded-md border border-border"
-				/>
+				<video src={src} controls className="max-h-64 w-full rounded-md border border-border" />
 			) : presentation === "audio" && src ? (
 				// biome-ignore lint/a11y/useMediaCaption: a response body has no caption track
 				<audio src={src} controls className="w-full" />
 			) : presentation === "binary" ? (
 				<div className="flex items-center gap-3 rounded-md border border-border bg-background p-3">
 					<span className="flex-1 text-xs text-muted">
-						Binary response ({mime || "unknown type"}) — nothing useful to
-						render.
+						Binary response ({mime || "unknown type"}) — nothing useful to render.
 					</span>
 					{src ? (
 						<a

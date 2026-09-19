@@ -1,25 +1,21 @@
 import {
-	upsertProjectSettingKey,
-	checkProjectExists,
-	markIntegrationForHarness,
-} from "./repository";
-import {
 	CHAN_ON_INTEGRATION_CHANGE,
 	CHAN_ON_PROJECT_SETTING_CHANGE,
 	publishMessage,
 	setCache,
 } from "../../../../../../db/redis";
-import { getProjectSettingsKeys } from "../get-all/repository";
-import {
-	projectSettingsKeySchemaMap,
-	ProjectSettingsKeyType,
-} from "../keySchemaMap";
 import { BadRequestError } from "../../../../../../errors/badRequestError";
 import { NotFoundError } from "../../../../../../errors/notFoundError";
-
-import { testConnectionFn } from "./connection";
 import { constructProjectSettingCacheKey } from "../../../../../../lib/project-settings";
 import { hasRouteClaim } from "../../../../../../modules/orchestrator/claims";
+import { getProjectSettingsKeys } from "../get-all/repository";
+import { type ProjectSettingsKeyType, projectSettingsKeySchemaMap } from "../keySchemaMap";
+import { testConnectionFn } from "./connection";
+import {
+	checkProjectExists,
+	markIntegrationForHarness,
+	upsertProjectSettingKey,
+} from "./repository";
 
 export default async function handleRequest(
 	projectId: string,
@@ -53,10 +49,7 @@ export default async function handleRequest(
 			key === "settings.ai.loggerConnectionId" ||
 			key.startsWith("settings.telemetry."))
 	) {
-		const connectionTest = await testConnectionFn(
-			key as ProjectSettingsKeyType,
-			finalValue,
-		);
+		const connectionTest = await testConnectionFn(key as ProjectSettingsKeyType, finalValue);
 		if (!connectionTest.success) {
 			throw new BadRequestError(connectionTest.message);
 		}

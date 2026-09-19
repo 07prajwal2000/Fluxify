@@ -11,20 +11,11 @@ type SchemaFormProps = {
 	errors?: Record<string, string>;
 };
 
-export function SchemaForm({
-	schema,
-	value,
-	onChange,
-	errors,
-}: SchemaFormProps) {
+export function SchemaForm({ schema, value, onChange, errors }: SchemaFormProps) {
 	const fields = useMemo(() => schemaProperties(schema), [schema]);
 	useEffect(() => {
 		if (!fields.length) return;
-		onChange(
-			Object.fromEntries(
-				fields.map((field) => [field.key, value[field.key] ?? ""]),
-			),
-		);
+		onChange(Object.fromEntries(fields.map((field) => [field.key, value[field.key] ?? ""])));
 		// Initialize newly discovered schema fields once, preserving user values.
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [schema]);
@@ -52,16 +43,12 @@ export function SchemaForm({
 						<span className="flex gap-1 font-mono text-[11px] text-muted">
 							<span className="truncate">{field.key}</span>
 							{field.required && <span className="text-danger">*</span>}
-							<span className="ml-auto text-[10px]">
-								{field.dataType ?? "str"}
-							</span>
+							<span className="ml-auto text-[10px]">{field.dataType ?? "str"}</span>
 						</span>
 						{type === "checkbox" ? (
 							<Checkbox
 								isSelected={value[field.key] === "true"}
-								onChange={(selected) =>
-									onChange({ ...value, [field.key]: String(selected) })
-								}
+								onChange={(selected) => onChange({ ...value, [field.key]: String(selected) })}
 							>
 								Enabled
 							</Checkbox>
@@ -69,16 +56,12 @@ export function SchemaForm({
 							<Input
 								aria-invalid={isInvalid}
 								type={type}
-								value={
-									type !== "file" ? String(value[field.key] ?? "") : undefined
-								}
+								value={type !== "file" ? String(value[field.key] ?? "") : undefined}
 								onChange={(event) =>
 									onChange({
 										...value,
 										[field.key]:
-											type === "file"
-												? (event.target.files?.[0] ?? "")
-												: event.target.value,
+											type === "file" ? (event.target.files?.[0] ?? "") : event.target.value,
 									})
 								}
 								className={clsx(
@@ -88,9 +71,7 @@ export function SchemaForm({
 							/>
 						)}
 						{isInvalid && errors && (
-							<span className="text-[10px] text-danger block">
-								{errors[field.key]}
-							</span>
+							<span className="text-[10px] text-danger block">{errors[field.key]}</span>
 						)}
 					</label>
 				);

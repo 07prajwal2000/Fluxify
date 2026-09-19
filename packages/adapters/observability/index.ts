@@ -1,5 +1,5 @@
-import { OpenTelemetryLogs } from "./openTelemetryLogs";
 import { LokiLogger } from "./loki";
+import { OpenTelemetryLogs } from "./openTelemetryLogs";
 
 export function createObservabilityLogger(variant: string, config: any) {
 	if (variant === LokiLogger.variant) {
@@ -10,5 +10,5 @@ export function createObservabilityLogger(variant: string, config: any) {
 	throw new Error("Invalid generic provider variant: " + variant);
 }
 
-export * from "./openTelemetryLogs";
 export * from "./loki";
+export * from "./openTelemetryLogs";

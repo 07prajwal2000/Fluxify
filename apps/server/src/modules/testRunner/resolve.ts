@@ -1,7 +1,7 @@
 import { eq, isNull, or } from "drizzle-orm";
+import { integrationsGroupSchema } from "../../api/v1/integrations/schemas";
 import { db } from "../../db";
 import { integrationsEntity } from "../../db/schema";
-import { integrationsGroupSchema } from "../../api/v1/integrations/schemas";
 import { getProjectAppConfig } from "../../loaders/appconfigLoader";
 import { resolveIntegrationConfig } from "../../loaders/integrationsLoader";
 import { projectSettingsCache } from "../../loaders/projectSettingsLoader";
@@ -65,8 +65,7 @@ export async function resolveSuiteConfig(
 	const byGroup: Record<string, Record<string, any>> = {
 		[integrationsGroupSchema.enum.database]: payload.dbIntegrations,
 		[integrationsGroupSchema.enum.kv]: payload.kvIntegrations,
-		[integrationsGroupSchema.enum.observability]:
-			payload.observabilityIntegrations,
+		[integrationsGroupSchema.enum.observability]: payload.observabilityIntegrations,
 		[integrationsGroupSchema.enum.ai]: payload.aiIntegrations,
 	};
 
@@ -81,9 +80,7 @@ export async function resolveSuiteConfig(
 	for (const { existingId, newId } of overrides.integrationOverrides ?? []) {
 		const bucket = Object.values(byGroup).find((b) => b[newId]);
 		if (!bucket) {
-			throw new Error(
-				`Integration override target "${newId}" was not found for this project`,
-			);
+			throw new Error(`Integration override target "${newId}" was not found for this project`);
 		}
 		bucket[existingId] = bucket[newId];
 	}

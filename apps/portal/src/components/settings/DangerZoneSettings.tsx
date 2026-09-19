@@ -1,5 +1,5 @@
-import { TbAlertTriangle } from "react-icons/tb";
 import { DeleteButton, toast } from "@fluxify/components";
+import { TbAlertTriangle } from "react-icons/tb";
 
 export function DangerZoneSettings({ projectId }: { projectId: string }) {
 	function handleDelete() {
@@ -17,11 +17,7 @@ export function DangerZoneSettings({ projectId }: { projectId: string }) {
 				Delete project will remove all workflows, logs and members.
 			</p>
 			<div className="mt-6">
-				<DeleteButton
-					onPress={handleDelete}
-				>
-					Delete project
-				</DeleteButton>
+				<DeleteButton onPress={handleDelete}>Delete project</DeleteButton>
 			</div>
 		</div>
 	);

@@ -1,10 +1,10 @@
-import { useState, useMemo } from "react";
-import { Button, Chip, Spinner, Table, toast, Dropdown, Label, Avatar } from "@fluxify/components";
+import { Avatar, Button, Chip, Dropdown, Label, Spinner, Table, toast } from "@fluxify/components";
+import { useMemo, useState } from "react";
 import { TbDots, TbTrash, TbUserEdit, TbUserPlus } from "react-icons/tb";
+import { ConfirmDialog } from "@/components/common/ConfirmDialog";
+import { showErrorNotification } from "@/lib/errorNotifier";
 import { projectMembersQuery } from "@/query/projectMembersQuery";
 import { projectsQuery } from "@/query/projectsQuery";
-import { showErrorNotification } from "@/lib/errorNotifier";
-import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { AddMemberModal } from "./AddMemberModal";
 import { ChangeRoleDialog } from "./ChangeRoleDialog";
 
@@ -19,7 +19,7 @@ export function MembersSettings({ projectId }: { projectId: string }) {
 		page,
 		perPage: 20,
 	});
-	
+
 	// Get total members from projects query
 	const { data: projectsData } = projectsQuery.getAll.useQuery({ page: 1, perPage: 50 });
 	const membersCount = projectsData?.data?.find((p: any) => p.id === projectId)?.totalUsers;
@@ -62,10 +62,7 @@ export function MembersSettings({ projectId }: { projectId: string }) {
 						<span className="text-xl text-muted-foreground">{membersCount}</span>
 					)}
 				</div>
-				<Button
-					variant="primary"
-					onPress={() => setAddMemberOpen(true)}
-				>
+				<Button variant="primary" onPress={() => setAddMemberOpen(true)}>
 					<TbUserPlus size={18} />
 					Add Member
 				</Button>
@@ -108,10 +105,10 @@ export function MembersSettings({ projectId }: { projectId: string }) {
 										</div>
 									</Table.Cell>
 									<Table.Cell>
-										<Chip 
-											color={getRoleColor(m.role) as any} 
-											variant="soft" 
-											size="sm" 
+										<Chip
+											color={getRoleColor(m.role) as any}
+											variant="soft"
+											size="sm"
 											className="uppercase text-[10px] tracking-wider font-bold"
 										>
 											{m.role.replace("_", " ")}
@@ -127,16 +124,13 @@ export function MembersSettings({ projectId }: { projectId: string }) {
 												</Dropdown.Trigger>
 												<Dropdown.Popover>
 													<Dropdown.Menu>
-														<Dropdown.Item
-															onAction={() => setEditing(m)}
-															textValue="Change role"
-														>
+														<Dropdown.Item onAction={() => setEditing(m)} textValue="Change role">
 															<TbUserEdit size={16} />
 															<Label>Change role</Label>
 														</Dropdown.Item>
-														<Dropdown.Item 
-															onAction={() => setPendingRemove(m)} 
-															variant="danger" 
+														<Dropdown.Item
+															onAction={() => setPendingRemove(m)}
+															variant="danger"
 															textValue="Remove member"
 															className="text-danger hover:bg-danger/10 focus:bg-danger/10 focus:text-danger"
 														>
@@ -163,18 +157,18 @@ export function MembersSettings({ projectId }: { projectId: string }) {
 					<span>
 						Page {page} of {totalPages}
 					</span>
-					<Button variant="outline" isDisabled={page >= totalPages} onPress={() => setPage((p) => p + 1)}>
+					<Button
+						variant="outline"
+						isDisabled={page >= totalPages}
+						onPress={() => setPage((p) => p + 1)}
+					>
 						Next
 					</Button>
 				</div>
 			)}
 
 			{editing && (
-				<ChangeRoleDialog
-					projectId={projectId}
-					member={editing}
-					onClose={() => setEditing(null)}
-				/>
+				<ChangeRoleDialog projectId={projectId} member={editing} onClose={() => setEditing(null)} />
 			)}
 
 			<ConfirmDialog
@@ -193,7 +187,8 @@ export function MembersSettings({ projectId }: { projectId: string }) {
 					setPendingRemove(null);
 				}}
 			>
-				Remove <b className="text-foreground">{pendingRemove?.name || pendingRemove?.email}</b> from this project?
+				Remove <b className="text-foreground">{pendingRemove?.name || pendingRemove?.email}</b> from
+				this project?
 			</ConfirmDialog>
 
 			<AddMemberModal

@@ -1,8 +1,8 @@
 import { JavaScriptTextArea, Label } from "@fluxify/components";
 import { useReactFlow } from "@xyflow/react";
 import { useCanvasChanges } from "../../changes/ChangesContext";
-import { BlockSettings } from "../BlockSettings";
 import type { BlockNode } from "../../types";
+import { BlockSettings } from "../BlockSettings";
 
 /** JS Runner block settings: JavaScript code editor using JavaScriptTextArea that expands into the full editor. */
 export function JsRunnerSettings({

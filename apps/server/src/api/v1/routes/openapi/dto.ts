@@ -1,5 +1,5 @@
 import z from "zod";
 
 export const requestParamSchema = z.object({
-  projectId: z.string().min(1),
+	projectId: z.string().min(1),
 });

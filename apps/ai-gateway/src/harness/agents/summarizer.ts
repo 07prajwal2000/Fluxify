@@ -1,24 +1,19 @@
 import { logger } from "@fluxify/common";
-import { BaseAgent } from "./base";
-import { type GlobalGraphState, AgentNode } from "../types";
-import { dispatchAgentEvent } from "../callbacks";
-import { enforceTokenAllowlist } from "./summarizerTokens";
-import {
-	type ApplyFailure,
-} from "../../api/v1/harness-conversations/artifacts/service";
 import { applyArtifact } from "../../api/v1/harness-conversations/artifacts/applyBatch";
-import type {
-	BlockBuilderPayload,
-	CanvasItems,
-} from "../../api/v1/harness-conversations/artifacts/normalize";
 import {
 	canvasDigest,
 	prepareCanvasArtifact,
 } from "../../api/v1/harness-conversations/artifacts/canvasLayout";
-import {
-	callerFor,
-	readCanvas,
-} from "../../api/v1/harness-conversations/artifacts/opsClient";
+import type {
+	BlockBuilderPayload,
+	CanvasItems,
+} from "../../api/v1/harness-conversations/artifacts/normalize";
+import { callerFor, readCanvas } from "../../api/v1/harness-conversations/artifacts/opsClient";
+import type { ApplyFailure } from "../../api/v1/harness-conversations/artifacts/service";
+import { dispatchAgentEvent } from "../callbacks";
+import { AgentNode, type GlobalGraphState } from "../types";
+import { BaseAgent } from "./base";
+import { enforceTokenAllowlist } from "./summarizerTokens";
 
 /** A single change the harness made, with its verbatim special-syntax token. */
 interface ChangeRef {
@@ -57,9 +52,7 @@ function deterministicSummary(changes: ChangeRef[]): string {
 
 function isRouteConfigResult(r: any): boolean {
 	return (
-		r &&
-		typeof r.action === "string" &&
-		["create", "delete", "update-partial"].includes(r.action)
+		r && typeof r.action === "string" && ["create", "delete", "update-partial"].includes(r.action)
 	);
 }
 
@@ -69,10 +62,7 @@ function isCustomBlockConfigResult(r: any): boolean {
 
 function isBlockBuilderResult(r: any): boolean {
 	return (
-		r &&
-		(Array.isArray(r.blocks) ||
-			Array.isArray(r.canvasChanges) ||
-			typeof r.status === "string")
+		r && (Array.isArray(r.blocks) || Array.isArray(r.canvasChanges) || typeof r.status === "string")
 	);
 }
 
@@ -98,9 +88,7 @@ export class SummarizerAgent extends BaseAgent {
 	 * by hand), gets a failure toast of its own, and is returned so the summary
 	 * can tell the user it is not live.
 	 */
-	private async autoApply(
-		artifactId: string | undefined,
-	): Promise<ApplyFailure[]> {
+	private async autoApply(artifactId: string | undefined): Promise<ApplyFailure[]> {
 		const meta = this.state.internal?.metadata ?? {};
 		if (meta.applyMode !== "auto" || !artifactId) return [];
 
@@ -114,12 +102,7 @@ export class SummarizerAgent extends BaseAgent {
 		});
 
 		try {
-			const { failed } = await applyArtifact(
-				userId,
-				conversationId,
-				projectId,
-				artifactId,
-			);
+			const { failed } = await applyArtifact(userId, conversationId, projectId, artifactId);
 			return failed;
 		} catch (error) {
 			// Nothing landed at all — a bad artifact id, or the bus is down. The
@@ -157,11 +140,7 @@ export class SummarizerAgent extends BaseAgent {
 			if (!meta.userId || !meta.projectId) {
 				throw new Error("Canvas artifact has no project or user context for preparation.");
 			}
-			existing = await readCanvas(
-				callerFor(meta.userId, meta.projectId),
-				targetType,
-				targetId,
-			);
+			existing = await readCanvas(callerFor(meta.userId, meta.projectId), targetType, targetId);
 			baseCanvasDigest = canvasDigest(existing);
 		}
 
@@ -189,11 +168,7 @@ export class SummarizerAgent extends BaseAgent {
 			if (isRouteConfigResult(result) && result.action === "create" && result.routeId) {
 				plannedNewTargets.add(`route:${result.routeId}`);
 			}
-			if (
-				isCustomBlockConfigResult(result) &&
-				result.action === "create" &&
-				result.customBlockId
-			) {
+			if (isCustomBlockConfigResult(result) && result.action === "create" && result.customBlockId) {
 				plannedNewTargets.add(`custom_block:${result.customBlockId}`);
 			}
 		}
@@ -222,11 +197,30 @@ export class SummarizerAgent extends BaseAgent {
 					if (!result) continue;
 
 					if (isCustomBlockConfigResult(result)) {
-						const type = result.action === "create" ? "add" : result.action === "delete" ? "delete" : "changes";
-						const subId = await harnessService.createSubArtifact({ artifactId, runId, subAgentId: task.id, dependsOn: task.dependsOnAgentId, kind: "custom_block", action: type, payload: result });
+						const type =
+							result.action === "create"
+								? "add"
+								: result.action === "delete"
+									? "delete"
+									: "changes";
+						const subId = await harnessService.createSubArtifact({
+							artifactId,
+							runId,
+							subAgentId: task.id,
+							dependsOn: task.dependsOnAgentId,
+							kind: "custom_block",
+							action: type,
+							payload: result,
+						});
 						subArtifactIds[task.id] = subId;
 						const blockLabel = result.data?.label ?? result.data?.name ?? task.title;
-						changes.push({ label: blockLabel, actionLabel: type, agentRole: "Custom block configuration", line: `${ACTION_VERB[type]} the "${blockLabel}" custom block.`, token: `:customBlock{type="${type}" sub_artifact_id="${subId}"}` });
+						changes.push({
+							label: blockLabel,
+							actionLabel: type,
+							agentRole: "Custom block configuration",
+							line: `${ACTION_VERB[type]} the "${blockLabel}" custom block.`,
+							token: `:customBlock{type="${type}" sub_artifact_id="${subId}"}`,
+						});
 					} else if (isRouteConfigResult(result)) {
 						const type =
 							result.action === "create"
@@ -245,8 +239,7 @@ export class SummarizerAgent extends BaseAgent {
 						});
 						subArtifactIds[task.id] = subId;
 						if (type === "add") newRouteSubArtifactId = subId;
-						const label =
-							`${result.data?.method ?? ""} ${result.data?.path ?? task.title}`.trim();
+						const label = `${result.data?.method ?? ""} ${result.data?.path ?? task.title}`.trim();
 						changes.push({
 							label: label || task.title,
 							actionLabel: type,
@@ -314,8 +307,7 @@ export class SummarizerAgent extends BaseAgent {
 		const failedTasks = tasks.filter((t) => t.status === "failed");
 		const failedLines = [
 			...failedTasks.map(
-				(t) =>
-					`- "${t.title}" — ${t.supervisorReviews ?? "the agent produced no usable result"}`,
+				(t) => `- "${t.title}" — ${t.supervisorReviews ?? "the agent produced no usable result"}`,
 			),
 			// An auto-apply that half-landed is exactly the "did not get done"
 			// case the user needs told about — the output still exists and is
@@ -327,9 +319,7 @@ export class SummarizerAgent extends BaseAgent {
 		];
 		const failedText = failedLines.length ? failedLines.join("\n") : "None.";
 
-		const hintsText = scratchpad.length
-			? scratchpad.map((s) => `- ${s}`).join("\n")
-			: "None.";
+		const hintsText = scratchpad.length ? scratchpad.map((s) => `- ${s}`).join("\n") : "None.";
 
 		// Nothing to explain and nothing to advise: every line of the summary is
 		// already written. `HARNESS_SUMMARY_MODE=llm` forces the model back on for
@@ -429,8 +419,7 @@ ${hintsText}`;
 			agentNode: AgentNode.SUMMARIZER,
 		});
 
-		let markdown =
-			typeof response === "string" ? response : response?.content || "";
+		let markdown = typeof response === "string" ? response : response?.content || "";
 		if (typeof markdown === "string") {
 			markdown = enforceTokenAllowlist(
 				markdown

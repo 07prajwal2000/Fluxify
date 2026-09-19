@@ -1,10 +1,10 @@
 import { logger } from "@fluxify/common";
-import { openKvBucket, type KvBucket } from "@fluxify/common/nats";
+import { type KvBucket, openKvBucket } from "@fluxify/common/nats";
 import {
 	ORCHESTRATOR_LEASE_BUCKET,
 	ORCHESTRATOR_LEASE_TTL_MS,
-	orchestratorKeys,
 	type OrchestratorLease,
+	orchestratorKeys,
 } from "@fluxify/common/orchestrator";
 import { initializeNats } from "../../db/nats";
 

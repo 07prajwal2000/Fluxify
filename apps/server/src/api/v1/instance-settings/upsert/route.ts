@@ -1,16 +1,11 @@
-import {
-	describeRoute,
-	DescribeRouteOptions,
-	resolver,
-	validator,
-} from "hono-openapi";
-import { requestBodySchema, responseSchema } from "./dto";
-import handleRequest from "./service";
-import zodErrorCallbackParser from "../../../../middlewares/zodErrorCallbackParser";
+import { type DescribeRouteOptions, describeRoute, resolver, validator } from "hono-openapi";
 import { errorSchema } from "../../../../errors/customError";
 import { validationErrorSchema } from "../../../../errors/validationError";
-import { HonoServer } from "../../../../types";
+import zodErrorCallbackParser from "../../../../middlewares/zodErrorCallbackParser";
+import type { HonoServer } from "../../../../types";
 import { requireSystemAdmin } from "../../../auth/middleware";
+import { requestBodySchema, responseSchema } from "./dto";
+import handleRequest from "./service";
 
 const openapiRouteOptions: DescribeRouteOptions = {
 	description: "Upsert instance setting",

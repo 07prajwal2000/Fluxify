@@ -1,23 +1,19 @@
 import { logger } from "@fluxify/common";
-import { and, eq, inArray, type InferSelectModel } from "drizzle-orm";
+import { and, eq, type InferSelectModel, inArray } from "drizzle-orm";
 import { db } from "../../db";
 import {
 	routesEntity,
-	testRunsEntity,
-	testSuiteRunsEntity,
-	testSuitesEntity,
 	type SuiteRunResult,
 	type TestRunStatus,
 	type TestRunSummary,
+	testRunsEntity,
+	testSuiteRunsEntity,
+	testSuitesEntity,
 } from "../../db/schema";
 import { assertOverridesOwned } from "../requestRouter/service";
-import {
-	buildSuiteRequest,
-	evaluateAssertions,
-	type AssertionType,
-} from "./assertions";
+import { type AssertionType, buildSuiteRequest, evaluateAssertions } from "./assertions";
 import { compileSuiteRoute } from "./compile";
-import { testWorkerPool, type Pool } from "./pool";
+import { type Pool, testWorkerPool } from "./pool";
 import { resolveSuiteConfig } from "./resolve";
 import { runSuiteInChild } from "./spawn";
 import type { TestBootstrap, TestResult } from "./types";
@@ -83,10 +79,7 @@ export async function startTestRun(
 		.from(testSuitesEntity)
 		.where(
 			suiteIds?.length
-				? and(
-						eq(testSuitesEntity.routeId, routeId),
-						inArray(testSuitesEntity.id, suiteIds),
-					)
+				? and(eq(testSuitesEntity.routeId, routeId), inArray(testSuitesEntity.id, suiteIds))
 				: eq(testSuitesEntity.routeId, routeId),
 		);
 	if (suites.length === 0) {
@@ -170,13 +163,7 @@ async function executeRun(
 		const statuses = await Promise.all(
 			work.map(({ suite, suiteRunId }) =>
 				deps.pool.run(async () => {
-					const status = await runOneSuite(
-						suiteRunId,
-						suite,
-						projectId,
-						compiled,
-						deps,
-					);
+					const status = await runOneSuite(suiteRunId, suite, projectId, compiled, deps);
 					return [suite.id, status] as const;
 				}),
 			),
@@ -290,16 +277,13 @@ async function runOneSuite(
 		durationMs = response.durationMs;
 
 		if (response.ok) {
-			const verdict = await evaluateAssertions(
-				(suite.assertions as AssertionType[]) || [],
-				{
-					status: response.status,
-					body: response.data,
-					headers: response.headers,
-					durationMs,
-					request,
-				},
-			);
+			const verdict = await evaluateAssertions((suite.assertions as AssertionType[]) || [], {
+				status: response.status,
+				body: response.data,
+				headers: response.headers,
+				durationMs,
+				request,
+			});
 			status = verdict.success ? "passed" : "failed";
 			result = {
 				...verdict,

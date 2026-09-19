@@ -1,58 +1,54 @@
-import underscore from "underscore";
-import jwt from "jsonwebtoken";
-import { getCookie, setCookie } from "hono/cookie";
-import dayjs from "dayjs";
-import dayjsUtc from "dayjs/plugin/utc";
-import {
-	AbstractLogger,
-	ConsoleLoggerProvider,
-	HttpClient,
-	HttpRoute,
-	HttpRouteParser,
-} from "@fluxify/lib";
-import {
-	Context as BlockContext,
-	BlockOutput,
-	ContextVarsType,
-	TriggerContext,
-	type BlockTrace,
-} from "@fluxify/blocks";
-import { Context } from "hono";
-import { ContentfulStatusCode } from "hono/utils/http-status";
-import { runBlocks } from "./executor";
-import { getAppConfig } from "../../loaders/appconfigLoader";
-import {
-	parseRequestSchema,
-	ValidationError,
-	type CompiledRequestSchema,
-} from "../../lib/schemaParser";
 import {
 	createObservabilityLogger,
-	DbConnectionManager,
+	type DbConnectionManager,
 	DbFactory,
 	KvFactory,
 } from "@fluxify/adapters";
+import type {
+	Context as BlockContext,
+	BlockOutput,
+	BlockTrace,
+	ContextVarsType,
+	TriggerContext,
+} from "@fluxify/blocks";
+import {
+	type AbstractLogger,
+	ConsoleLoggerProvider,
+	HttpClient,
+	type HttpRoute,
+	type HttpRouteParser,
+} from "@fluxify/lib";
+import dayjs from "dayjs";
+import dayjsUtc from "dayjs/plugin/utc";
+import type { Context } from "hono";
+import { getCookie, setCookie } from "hono/cookie";
+import type { ContentfulStatusCode } from "hono/utils/http-status";
+import jwt from "jsonwebtoken";
+import underscore from "underscore";
+import * as zodLib from "zod";
+import {
+	type CompiledRequestSchema,
+	parseRequestSchema,
+	ValidationError,
+} from "../../lib/schemaParser";
+import { getAppConfig } from "../../loaders/appconfigLoader";
 import {
 	dbIntegrationsCache,
-	kvIntegrationsCache,
 	findIntegrationConfig,
+	kvIntegrationsCache,
 	observabilityIntegrationsCache,
 	ownsIntegration,
 } from "../../loaders/integrationsLoader";
-import * as zodLib from "zod";
 import { projectSettingsCache } from "../../loaders/projectSettingsLoader";
-import type { RequestEnvelope } from "./types";
-import { RequestBodyError } from "./requestBody";
 import {
+	type RouteExecutionObserver,
 	readRouteBody,
 	runWithRouteObserver,
-	type RouteExecutionObserver,
 } from "./dispatchSupport";
-import {
-	startRouteTrace,
-	traceCompleter,
-	type RouteTraceFactory,
-} from "./traceLifecycle";
+import { runBlocks } from "./executor";
+import { RequestBodyError } from "./requestBody";
+import { type RouteTraceFactory, startRouteTrace, traceCompleter } from "./traceLifecycle";
+import type { RequestEnvelope } from "./types";
 
 dayjs.extend(dayjsUtc);
 
@@ -61,18 +57,21 @@ export type HandleRequestType = {
 	status: ContentfulStatusCode;
 };
 
-export type RouteValidatorResolver = (routeId: string) => {
-	body?: CompiledRequestSchema;
-	query?: CompiledRequestSchema;
-	params?: CompiledRequestSchema;
-} | undefined;
+export type RouteValidatorResolver = (routeId: string) =>
+	| {
+			body?: CompiledRequestSchema;
+			query?: CompiledRequestSchema;
+			params?: CompiledRequestSchema;
+	  }
+	| undefined;
 
+export type { RouteExecutionObserver } from "./dispatchSupport";
+export { envelopeFromHttp } from "./envelope";
+export type { RouteTrace, RouteTraceFactory } from "./traceLifecycle";
 // defined in ./types so it has no import cycle with the envelope; re-exported
 // here because the test-suites runner imports it from this module.
 export type { RequestOverrides } from "./types";
-export type { RouteExecutionObserver } from "./dispatchSupport";
-export type { RouteTrace, RouteTraceFactory } from "./traceLifecycle";
-export { envelopeFromHttp } from "./envelope";
+
 import type { RequestOverrides } from "./types";
 
 export const DEFAULT_ROUTE_TIMEOUT_SECONDS = 30;
@@ -105,10 +104,7 @@ export async function dispatch(
 	traceFactory?: RouteTraceFactory,
 ): Promise<HandleRequestType> {
 	const { payload, trigger, overrides } = env;
-	const path = parser.getRouteId(
-		payload.path,
-		payload.method as HttpRoute["method"],
-	);
+	const path = parser.getRouteId(payload.path, payload.method as HttpRoute["method"]);
 	if (!path) {
 		return {
 			status: 404,
@@ -127,30 +123,30 @@ export async function dispatch(
 		const response = await runWithRouteObserver(observer, path, DEFAULT_ROUTE_TIMEOUT_SECONDS, () =>
 			executeRouteInternal(
 				{
-				id: path.id,
-				projectId: path.projectId!,
-				projectName: path.projectName!,
-				routeParams: path.routeParams,
-				bodySchema: path.bodySchema,
-				querySchema: path.querySchema,
-				paramsSchema: path.paramsSchema,
-				timeoutSeconds: path.timeoutSeconds,
-				validators: resolveValidators?.(path.id),
-				trace,
-			},
-			{
-				method: payload.method,
-				path: payload.path,
-				headers: payload.headers,
-				query: payload.query,
-				body,
-				params: path.routeParams || payload.params || {},
-			},
-			httpCtx,
-					overrides,
-					trigger,
-				),
-			);
+					id: path.id,
+					projectId: path.projectId!,
+					projectName: path.projectName!,
+					routeParams: path.routeParams,
+					bodySchema: path.bodySchema,
+					querySchema: path.querySchema,
+					paramsSchema: path.paramsSchema,
+					timeoutSeconds: path.timeoutSeconds,
+					validators: resolveValidators?.(path.id),
+					trace,
+				},
+				{
+					method: payload.method,
+					path: payload.path,
+					headers: payload.headers,
+					query: payload.query,
+					body,
+					params: path.routeParams || payload.params || {},
+				},
+				httpCtx,
+				overrides,
+				trigger,
+			),
+		);
 		completeTrace(response.status >= 400 ? "failure" : "success", response.status);
 		return response;
 	} catch (error) {
@@ -245,10 +241,7 @@ export async function executeRouteInternal(
 		requestData.query = result.data as typeof requestData.query;
 	}
 
-	if (
-		routeInfo.paramsSchema &&
-		Object.keys(routeInfo.paramsSchema).length > 0
-	) {
+	if (routeInfo.paramsSchema && Object.keys(routeInfo.paramsSchema).length > 0) {
 		const result = await validateSchema(
 			routeInfo.validators?.params,
 			routeInfo.paramsSchema,
@@ -267,10 +260,7 @@ export async function executeRouteInternal(
 		requestData.params = result.data as typeof requestData.params;
 	}
 
-	const dbFactory = createDbFactory(
-		routeInfo.projectId,
-		overrides?.integrations,
-	);
+	const dbFactory = createDbFactory(routeInfo.projectId, overrides?.integrations);
 	const context = createContext(
 		routeInfo,
 		requestData,
@@ -372,15 +362,12 @@ function validateSchema(
 	value: unknown,
 	context: Parameters<CompiledRequestSchema["validate"]>[1],
 ) {
-	return compiled
-		? compiled.validate(value, context)
-		: parseRequestSchema(schema, value, context);
+	return compiled ? compiled.validate(value, context) : parseRequestSchema(schema, value, context);
 }
 
 function parseResult(executionResult: BlockOutput) {
 	return {
-		status:
-			executionResult.output?.httpCode || (executionResult.error ? 500 : 200),
+		status: executionResult.output?.httpCode || (executionResult.error ? 500 : 200),
 		data:
 			executionResult.output?.body || // has output from previous blocks which passed to response block
 			executionResult?.output || // has output from previous blocks which didn't pass (or no response block) to response block
@@ -446,11 +433,7 @@ function createContext(
 		integrationFactory: {
 			create({ integrationId, type }) {
 				if (type !== "observability") return undefined;
-				return observabilityLoggerFor(
-					integrationId,
-					routeInfo.projectId,
-					routeInfo.id,
-				);
+				return observabilityLoggerFor(integrationId, routeInfo.projectId, routeInfo.id);
 			},
 		},
 		stopper: {
@@ -530,10 +513,7 @@ function setupContextVars(
 	trigger: TriggerContext = DEFAULT_TRIGGER,
 ): BlockContext["vars"] {
 	const headers = new Map(
-		Object.entries(requestData.headers).map(([key, value]) => [
-			key.toLowerCase(),
-			value,
-		]),
+		Object.entries(requestData.headers).map(([key, value]) => [key.toLowerCase(), value]),
 	);
 	const projectSettings = projectSettingsCache[projectId];
 	// new key first, legacy second — the same order telemetry/destinations.ts
@@ -545,13 +525,8 @@ function setupContextVars(
 
 	// Apply integration override for logger if present
 	if (connectionId && overrides?.integrations) {
-		const override = overrides.integrations.find(
-			(o) => o.existingId === connectionId,
-		);
-		if (
-			override &&
-			ownsIntegration(observabilityIntegrationsCache[override.newId], projectId)
-		) {
+		const override = overrides.integrations.find((o) => o.existingId === connectionId);
+		if (override && ownsIntegration(observabilityIntegrationsCache[override.newId], projectId)) {
 			connectionId = override.newId;
 		}
 	}
@@ -572,10 +547,7 @@ function setupContextVars(
 			},
 			verify(token, secretKey, options) {
 				try {
-					const payload = jwt.verify(token, secretKey, options) as Record<
-						string,
-						string
-					>;
+					const payload = jwt.verify(token, secretKey, options) as Record<string, string>;
 					return { payload, success: true };
 				} catch (error) {
 					return { payload: null, success: false };
@@ -632,4 +604,3 @@ function setupContextVars(
 		httpClient,
 	};
 }
-

@@ -4,13 +4,19 @@ import { natsConnection } from "../../db/nats";
 import {
 	CHAN_ON_APPCONFIG_CHANGE,
 	CHAN_ON_CUSTOM_BLOCK_CHANGE,
-	CHAN_ON_WORKFLOW_CHANGE,
 	CHAN_ON_INTEGRATION_CHANGE,
 	CHAN_ON_PROJECT_SETTING_CHANGE,
 	CHAN_ON_ROUTE_CHANGE,
+	CHAN_ON_WORKFLOW_CHANGE,
 	subscribeToChannel,
 } from "../../db/pubsub";
 import type { CompileRequest } from "./artifacts";
+import {
+	requestCustomBlockCompile,
+	requestProjectConfigPublish,
+	requestRouteCompile,
+	requestWorkflowCompile,
+} from "./publisher";
 import {
 	compileAllProjects,
 	compileCustomBlock,
@@ -20,18 +26,7 @@ import {
 	publishAllProjectConfigs,
 	publishProjectConfig,
 } from "./service";
-import {
-	requestCustomBlockCompile,
-	requestProjectConfigPublish,
-	requestRouteCompile,
-	requestWorkflowCompile,
-} from "./publisher";
-import {
-	ALL_PROJECTS,
-	COMPILE_CONSUMER,
-	COMPILE_STREAM,
-	COMPILE_SUBJECTS,
-} from "./subjects";
+import { ALL_PROJECTS, COMPILE_CONSUMER, COMPILE_STREAM, COMPILE_SUBJECTS } from "./subjects";
 
 /**
  * The compile worker. Runs inside the admin server because that is the process
@@ -86,7 +81,6 @@ export async function startCompileWorker() {
 		.catch((error) =>
 			logger.error(`[compiler] startup compile failed: ${String(error)}`, "COMPILER"),
 		);
-
 }
 
 async function handle(subject: string, request: CompileRequest) {

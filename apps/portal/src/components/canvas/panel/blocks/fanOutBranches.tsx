@@ -1,8 +1,8 @@
-import { useCallback, useEffect, useMemo, useRef, type ReactNode } from "react";
-import { useNodeConnections, useNodesData, useReactFlow } from "@xyflow/react";
 import { sortByOrder } from "@fluxify/blocks/layout";
+import { useNodeConnections, useNodesData, useReactFlow } from "@xyflow/react";
+import { type ReactNode, useCallback, useEffect, useMemo, useRef } from "react";
 import { blockLabels } from "../../blocks/blockLabels";
-import { handleId, type HandleKind } from "../../blocks/handles/handleConfig";
+import { type HandleKind, handleId } from "../../blocks/handles/handleConfig";
 import type { BlockNode } from "../../types";
 
 /**

@@ -1,10 +1,10 @@
-import { generateID } from "@fluxify/lib";
 import { NODE_REASONS, NODE_STATES, NODE_TYPES } from "@fluxify/common/orchestrator";
-import { sql, relations } from "drizzle-orm";
+import { generateID } from "@fluxify/lib";
+import { relations, sql } from "drizzle-orm";
 import {
 	boolean,
-	integer,
 	index,
+	integer,
 	pgEnum,
 	pgTable,
 	primaryKey,
@@ -15,10 +15,10 @@ import {
 	uuid,
 	varchar,
 } from "drizzle-orm/pg-core";
-import { jsonb } from "./jsonbColumn";
+import { createSelectSchema } from "drizzle-zod";
 import z from "zod";
 import { systemUsers } from "./auth-schema";
-import { createSelectSchema } from "drizzle-zod";
+import { jsonb } from "./jsonbColumn";
 
 /* ============================================================================
  * 1. GENERAL ENUMS & TYPES
@@ -63,12 +63,9 @@ export const projectSettingsEntity = pgTable(
 		id: varchar({ length: 50 })
 			.primaryKey()
 			.$defaultFn(() => generateID()),
-		projectId: varchar("project_id", { length: 50 }).references(
-			() => projectsEntity.id,
-			{
-				onDelete: "cascade",
-			},
-		),
+		projectId: varchar("project_id", { length: 50 }).references(() => projectsEntity.id, {
+			onDelete: "cascade",
+		}),
 		key: varchar({ length: 50 }).notNull(),
 		value: text().notNull(),
 		createdAt: timestamp("created_at").defaultNow().notNull(),
@@ -115,12 +112,9 @@ export const accessControlEntity = pgTable(
 		userId: varchar("user_id", { length: 50 }).references(() => systemUsers.id, {
 			onDelete: "cascade",
 		}),
-		projectId: varchar("project_id", { length: 50 }).references(
-			() => projectsEntity.id,
-			{
-				onDelete: "cascade",
-			},
-		),
+		projectId: varchar("project_id", { length: 50 }).references(() => projectsEntity.id, {
+			onDelete: "cascade",
+		}),
 		role: accessControlRoleEnum("role"),
 		createdAt: timestamp("created_at").defaultNow(),
 		updatedAt: timestamp("updated_at")
@@ -137,11 +131,7 @@ export const accessControlEntity = pgTable(
  * 4. APP CONFIGURATIONS & INTEGRATIONS
  * ============================================================================ */
 
-export const encodingTypeEnum = pgEnum("encoding_types", [
-	"plaintext",
-	"base64",
-	"hex",
-]);
+export const encodingTypeEnum = pgEnum("encoding_types", ["plaintext", "base64", "hex"]);
 
 export const appConfigDataTypeEnum = pgEnum("app_config_data_types", [
 	"string",
@@ -162,12 +152,9 @@ export const appConfigEntity = pgTable(
 		keyName: varchar("key_name", { length: 100 }),
 		description: text(),
 		value: text(),
-		projectId: varchar("project_id", { length: 50 }).references(
-			() => projectsEntity.id,
-			{
-				onDelete: "cascade",
-			},
-		),
+		projectId: varchar("project_id", { length: 50 }).references(() => projectsEntity.id, {
+			onDelete: "cascade",
+		}),
 		isEncrypted: boolean("is_encrypted").default(false),
 		encodingType: encodingTypeEnum("encoding_type"),
 		dataType: appConfigDataTypeEnum("data_type").default("string"),
@@ -181,8 +168,14 @@ export const appConfigEntity = pgTable(
 		index("idx_app_config_project_id").on(table.projectId),
 		index("idx_app_config_is_encrypted").on(table.isEncrypted),
 		index("idx_app_config_encoding_type").on(table.encodingType),
-		index("idx_app_config_key_name_fts").using("gin", sql`to_tsvector('english', ${table.keyName})`),
-		index("idx_app_config_desc_fts").using("gin", sql`to_tsvector('english', coalesce(${table.description}, ''))`),
+		index("idx_app_config_key_name_fts").using(
+			"gin",
+			sql`to_tsvector('english', ${table.keyName})`,
+		),
+		index("idx_app_config_desc_fts").using(
+			"gin",
+			sql`to_tsvector('english', coalesce(${table.description}, ''))`,
+		),
 	],
 );
 
@@ -197,12 +190,9 @@ export const integrationsEntity = pgTable(
 		variant: varchar({ length: 255 }),
 		config: jsonb(),
 		tags: varchar({ length: 255 }).default(""),
-		projectId: varchar("project_id", { length: 50 }).references(
-			() => projectsEntity.id,
-			{
-				onDelete: "cascade",
-			},
-		),
+		projectId: varchar("project_id", { length: 50 }).references(() => projectsEntity.id, {
+			onDelete: "cascade",
+		}),
 		createdAt: timestamp("created_at").defaultNow(),
 		updatedAt: timestamp("updated_at")
 			.defaultNow()
@@ -315,10 +305,7 @@ export const workflowsEntity = pgTable(
 	},
 	(table) => [
 		index("idx_workflows_project_id").on(table.projectId),
-		index("idx_workflows_name_fts").using(
-			"gin",
-			sql`to_tsvector('english', ${table.name})`,
-		),
+		index("idx_workflows_name_fts").using("gin", sql`to_tsvector('english', ${table.name})`),
 	],
 );
 
@@ -393,10 +380,9 @@ export const triggersEntity = pgTable(
 			.notNull(),
 		/** The workflow it starts. Null is a saved, idle trigger: it has no
 		 *  artifact and consumes nothing until one is attached. */
-		workflowId: varchar("workflow_id", { length: 50 }).references(
-			() => workflowsEntity.id,
-			{ onDelete: "set null" },
-		),
+		workflowId: varchar("workflow_id", { length: 50 }).references(() => workflowsEntity.id, {
+			onDelete: "set null",
+		}),
 		/** Which node runs it. Restricted on delete — a group holding triggers
 		 *  cannot vanish and leave them unrunnable. */
 		groupId: varchar("group_id", { length: 50 })
@@ -464,24 +450,18 @@ export const blocksEntity = pgTable(
 		data: jsonb("data").$type<any>(),
 		createdAt: timestamp("created_at").defaultNow().notNull(),
 		updatedAt: timestamp("updated_at").$onUpdate(() => new Date()),
-		routeId: varchar("route_id", { length: 50 }).references(
-			() => routesEntity.id,
-			{
-				onDelete: "cascade",
-			},
-		),
+		routeId: varchar("route_id", { length: 50 }).references(() => routesEntity.id, {
+			onDelete: "cascade",
+		}),
 		customBlockId: varchar("custom_block_id", { length: 50 }).references(
 			() => customBlocksListEntity.id,
 			{
 				onDelete: "cascade",
 			},
 		),
-		workflowId: varchar("workflow_id", { length: 50 }).references(
-			() => workflowsEntity.id,
-			{
-				onDelete: "cascade",
-			},
-		),
+		workflowId: varchar("workflow_id", { length: 50 }).references(() => workflowsEntity.id, {
+			onDelete: "cascade",
+		}),
 	},
 	(table) => [
 		index("idx_blocks_route_id").on(table.routeId),
@@ -504,24 +484,18 @@ export const edgesEntity = pgTable(
 		}),
 		fromHandle: varchar("from_handle", { length: 50 }),
 		toHandle: varchar("to_handle", { length: 50 }),
-		routeId: varchar("route_id", { length: 50 }).references(
-			() => routesEntity.id,
-			{
-				onDelete: "cascade",
-			},
-		),
+		routeId: varchar("route_id", { length: 50 }).references(() => routesEntity.id, {
+			onDelete: "cascade",
+		}),
 		customBlockId: varchar("custom_block_id", { length: 50 }).references(
 			() => customBlocksListEntity.id,
 			{
 				onDelete: "cascade",
 			},
 		),
-		workflowId: varchar("workflow_id", { length: 50 }).references(
-			() => workflowsEntity.id,
-			{
-				onDelete: "cascade",
-			},
-		),
+		workflowId: varchar("workflow_id", { length: 50 }).references(() => workflowsEntity.id, {
+			onDelete: "cascade",
+		}),
 	},
 	(table) => [
 		index("idx_edges_from").on(table.from),
@@ -549,12 +523,8 @@ export const testSuitesEntity = pgTable("test_suites", {
 	// Mock request data
 	headers: jsonb("headers").$type<Record<string, string>>().default({}),
 	params: jsonb("params").$type<Record<string, string>>().default({}),
-	queryParams: jsonb("query_params")
-		.$type<Record<string, string>>()
-		.default({}),
-	routeParams: jsonb("route_params")
-		.$type<Record<string, string>>()
-		.default({}),
+	queryParams: jsonb("query_params").$type<Record<string, string>>().default({}),
+	routeParams: jsonb("route_params").$type<Record<string, string>>().default({}),
 	body: jsonb("body").$type<Record<string, unknown>>(),
 
 	// Assertions
@@ -643,11 +613,7 @@ export const testRunsEntity = pgTable(
 		createdAt: timestamp("created_at").defaultNow().notNull(),
 	},
 	(table) => [
-		index("idx_test_runs_project_route").on(
-			table.projectId,
-			table.routeId,
-			table.createdAt,
-		),
+		index("idx_test_runs_project_route").on(table.projectId, table.routeId, table.createdAt),
 	],
 );
 
@@ -691,15 +657,12 @@ export const testRunsRelations = relations(testRunsEntity, ({ many, one }) => ({
 	}),
 }));
 
-export const testSuiteRunsRelations = relations(
-	testSuiteRunsEntity,
-	({ one }) => ({
-		testRun: one(testRunsEntity, {
-			fields: [testSuiteRunsEntity.testRunId],
-			references: [testRunsEntity.id],
-		}),
+export const testSuiteRunsRelations = relations(testSuiteRunsEntity, ({ one }) => ({
+	testRun: one(testRunsEntity, {
+		fields: [testSuiteRunsEntity.testRunId],
+		references: [testRunsEntity.id],
 	}),
-);
+}));
 
 export const testSuitesRelations = relations(testSuitesEntity, ({ one }) => ({
 	route: one(routesEntity, {
@@ -723,14 +686,10 @@ export const httpRouteConfigEntity = pgTable(
 		routeId: varchar("route_id", { length: 50 })
 			.primaryKey()
 			.references(() => routesEntity.id, { onDelete: "cascade" }),
-		projectId: varchar("project_id", { length: 50 }).references(
-			() => projectsEntity.id,
-			{ onDelete: "cascade" },
-		),
-		routeConfig: jsonb("route_config")
-			.$type<Record<string, unknown>>()
-			.default({})
-			.notNull(),
+		projectId: varchar("project_id", { length: 50 }).references(() => projectsEntity.id, {
+			onDelete: "cascade",
+		}),
+		routeConfig: jsonb("route_config").$type<Record<string, unknown>>().default({}).notNull(),
 		createdAt: timestamp("created_at").defaultNow().notNull(),
 		updatedAt: timestamp("updated_at")
 			.defaultNow()
@@ -744,10 +703,7 @@ export const httpRouteConfigEntity = pgTable(
  * 7. CUSTOM BLOCKS EXTENSIONS
  * ============================================================================ */
 
-export const customBlockIconTypeEnum = pgEnum("custom_block_icon_type", [
-	"premade-list",
-	"custom",
-]);
+export const customBlockIconTypeEnum = pgEnum("custom_block_icon_type", ["premade-list", "custom"]);
 
 export const customBlockSourceTypeEnum = pgEnum("custom_block_source_type", [
 	"plugin", // from third party sources
@@ -766,15 +722,11 @@ export const customBlocksListEntity = pgTable(
 		description: text(),
 		icon: customBlockIconTypeEnum("icon"),
 		iconUrl: text("icon_url"), // if custom, then it is either url or base64 encoded. if premade-list, then it is the name of the icon in the list
-		projectId: varchar("project_id", { length: 50 }).references(
-			() => projectsEntity.id,
-			{
-				onDelete: "cascade",
-			},
-		),
+		projectId: varchar("project_id", { length: 50 }).references(() => projectsEntity.id, {
+			onDelete: "cascade",
+		}),
 		inputParams: jsonb("input_params").$type<Record<string, any>[]>(),
-		sourceType:
-			customBlockSourceTypeEnum("source_type").default("user-defined"),
+		sourceType: customBlockSourceTypeEnum("source_type").default("user-defined"),
 		source: text().default(""), // if plugin, then the name of plugin, if inhouse, then repository url, if user-defined, then empty
 		createdAt: timestamp("created_at").defaultNow().notNull(),
 		updatedAt: timestamp("updated_at")
@@ -1017,4 +969,3 @@ export const systemLogsEntity = pgTable(
 );
 
 export * from "./agent-harness-schema";
-

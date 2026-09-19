@@ -1,8 +1,8 @@
-import { z } from "zod";
 import {
 	paginationRequestQuerySchema,
 	paginationResponseSchema,
 } from "@fluxify/server/src/lib/pagination";
+import { z } from "zod";
 
 export const routeParamsSchema = z.object({
 	projectId: z.string().min(1),

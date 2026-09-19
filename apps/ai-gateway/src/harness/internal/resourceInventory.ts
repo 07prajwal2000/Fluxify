@@ -1,3 +1,4 @@
+import { logger } from "@fluxify/common";
 import {
 	appConfigEntity,
 	customBlocksListEntity,
@@ -5,9 +6,8 @@ import {
 	integrationsEntity,
 	routesEntity,
 } from "@fluxify/server";
-import { logger } from "@fluxify/common";
-import { asc, and, eq, gt, ilike, or, sql, type SQL } from "drizzle-orm";
-import { unionAll, type PgColumn } from "drizzle-orm/pg-core";
+import { and, asc, eq, gt, ilike, or, type SQL, sql } from "drizzle-orm";
+import { type PgColumn, unionAll } from "drizzle-orm/pg-core";
 import type { FindResourceResult, ProjectInventoryEntry } from "../types";
 
 export const RESOURCE_LIST_PAGE_SIZE = 20;
@@ -21,17 +21,11 @@ export interface ResourceListPage {
 	nextCursor?: string;
 }
 
-export function encodeResourceCursor(
-	type: ListableResourceType,
-	id: string,
-): string {
+export function encodeResourceCursor(type: ListableResourceType, id: string): string {
 	return Buffer.from(JSON.stringify({ type, id })).toString("base64url");
 }
 
-export function decodeResourceCursor(
-	raw: string,
-	expectedType: ListableResourceType,
-): string {
+export function decodeResourceCursor(raw: string, expectedType: ListableResourceType): string {
 	try {
 		const value = JSON.parse(Buffer.from(raw, "base64url").toString()) as {
 			type?: string;
@@ -101,16 +95,11 @@ export async function getProjectInventory(
 					sql<string>`coalesce(${routesEntity.method}, '') || ' ' || coalesce(${routesEntity.path}, '')`.as(
 						"identifier",
 					),
-				label: sql<string>`coalesce(${routesEntity.name}, ${routesEntity.path}, '')`.as(
-					"label",
-				),
+				label: sql<string>`coalesce(${routesEntity.name}, ${routesEntity.path}, '')`.as("label"),
 			})
 			.from(routesEntity)
 			.where(
-				and(
-					eq(routesEntity.projectId, projectId),
-					matches(routesEntity.name, routesEntity.path),
-				),
+				and(eq(routesEntity.projectId, projectId), matches(routesEntity.name, routesEntity.path)),
 			);
 		const configs = db
 			.select({
@@ -155,9 +144,10 @@ export async function getProjectInventory(
 				type: sql<ProjectInventoryEntry["type"]>`'custom_block'`.as("type"),
 				id: sql<string>`${customBlocksListEntity.id}::text`.as("id"),
 				identifier: sql<string>`${customBlocksListEntity.name}`.as("identifier"),
-				label: sql<string>`coalesce(${customBlocksListEntity.label}, ${customBlocksListEntity.name})`.as(
-					"label",
-				),
+				label:
+					sql<string>`coalesce(${customBlocksListEntity.label}, ${customBlocksListEntity.name})`.as(
+						"label",
+					),
 			})
 			.from(customBlocksListEntity)
 			.where(
@@ -180,10 +170,7 @@ export async function getProjectInventory(
 	}
 }
 
-export async function listRoutes(
-	projectId: string,
-	afterId?: string,
-): Promise<ResourceListPage> {
+export async function listRoutes(projectId: string, afterId?: string): Promise<ResourceListPage> {
 	const rows = await db
 		.select({
 			id: routesEntity.id,

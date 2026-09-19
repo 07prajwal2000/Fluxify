@@ -16,9 +16,7 @@ export const columnRefSchema = z.object({
 
 export const literalRefSchema = z.object({
 	kind: z.literal("literal"),
-	value: z
-		.union([z.string(), z.number(), z.boolean()])
-		.describe("value to compare against"),
+	value: z.union([z.string(), z.number(), z.boolean()]).describe("value to compare against"),
 });
 
 export const dbWhereConditionsDescription =
@@ -43,22 +41,19 @@ export const rawWhereConditionSchema = z.object({
 
 const structuredWhereConditionSchema = z
 	.object({
-	attribute: dbConditionSideSchema
-		.describe(
+		attribute: dbConditionSideSchema.describe(
 			"Required DB condition-side object: { kind: 'column', value: 'table.column' } or { kind: 'literal', value }. Never a bare string or number.",
 		),
-	operator: operatorSchema
-		.exclude(["js", "is_empty", "is_not_empty"])
-		.describe("Database comparison operator, for example eq, neq, gt, gte, lt, lte."),
-	value: dbConditionSideSchema
-		.describe("Required DB condition-side object: { kind: 'literal', value } or { kind: 'column', value: 'table.column' }. Never a bare string or number."),
-	chain: z.enum(["and", "or"]).describe("How this condition joins to next WHERE condition."),
+		operator: operatorSchema
+			.exclude(["js", "is_empty", "is_not_empty"])
+			.describe("Database comparison operator, for example eq, neq, gt, gte, lt, lte."),
+		value: dbConditionSideSchema.describe(
+			"Required DB condition-side object: { kind: 'literal', value } or { kind: 'column', value: 'table.column' }. Never a bare string or number.",
+		),
+		chain: z.enum(["and", "or"]).describe("How this condition joins to next WHERE condition."),
 	})
 	.superRefine((condition, context) => {
-		if (
-			condition.attribute.kind === "literal" &&
-			condition.value.kind === "literal"
-		) {
+		if (condition.attribute.kind === "literal" && condition.value.kind === "literal") {
 			context.addIssue({
 				code: "custom",
 				message: "A database WHERE condition must reference at least one column.",
@@ -92,8 +87,5 @@ export const joinSchema = z.object({
 			const parts = val.split("=");
 			return parts.length === 2;
 		}, "attribute must be in the format of table1.id = table2.id"),
-	type: z
-		.enum(["inner", "left", "right", "outer"])
-		.default("inner")
-		.describe("type of join"),
+	type: z.enum(["inner", "left", "right", "outer"]).default("inner").describe("type of join"),
 });

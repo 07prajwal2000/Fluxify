@@ -1,5 +1,5 @@
 import { logger } from "@fluxify/common";
-import { openKvBucket, type KvBucket, type KvWatcher } from "@fluxify/common/nats";
+import { type KvBucket, type KvWatcher, openKvBucket } from "@fluxify/common/nats";
 import type { ZodType, z } from "zod";
 import { initializeNats } from "./nats";
 
@@ -34,9 +34,7 @@ export interface ConfigRegistryEntry {
 export type ConfigRegistry = Record<string, ConfigRegistryEntry>;
 
 export type ConfigKey<R extends ConfigRegistry> = keyof R & string;
-export type ConfigValue<R extends ConfigRegistry, K extends ConfigKey<R>> = z.infer<
-	R[K]["schema"]
->;
+export type ConfigValue<R extends ConfigRegistry, K extends ConfigKey<R>> = z.infer<R[K]["schema"]>;
 
 /** What a value looks like on the wire: the value plus its visibility. */
 interface ConfigEnvelope {

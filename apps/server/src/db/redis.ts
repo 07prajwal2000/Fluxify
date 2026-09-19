@@ -6,17 +6,17 @@ import { getEnv } from "../lib/env";
 // killing hot reload). Re-exported here so existing `db/redis` importers keep
 // working; the real implementation lives in ./pubsub + ./nats.
 export {
-	CHAN_ON_ROUTE_CHANGE,
-	CHAN_ON_APPCONFIG_CHANGE,
-	CHAN_ON_INTEGRATION_CHANGE,
-	CHAN_AI_WORKER,
 	CHAN_AI_SSE_PREFIX,
-	CHAN_ON_PROJECT_SETTING_CHANGE,
+	CHAN_AI_WORKER,
+	CHAN_ON_APPCONFIG_CHANGE,
 	CHAN_ON_CUSTOM_BLOCK_CHANGE,
+	CHAN_ON_INTEGRATION_CHANGE,
+	CHAN_ON_PROJECT_SETTING_CHANGE,
+	CHAN_ON_ROUTE_CHANGE,
 	CHAN_ON_WORKFLOW_CHANGE,
+	initializePubSub,
 	publishMessage,
 	subscribeToChannel,
-	initializePubSub,
 } from "./pubsub";
 
 let redisClient: Redis = null!;
@@ -44,11 +44,7 @@ export async function getCache(key: string): Promise<string> {
 	return value || "";
 }
 
-export async function setCacheEx(
-	key: string,
-	value: string,
-	ttl: number = 120,
-) {
+export async function setCacheEx(key: string, value: string, ttl: number = 120) {
 	await redisClient.setex(key, ttl, value);
 }
 export async function hasCacheKey(key: string) {

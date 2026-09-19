@@ -135,9 +135,7 @@ export function IntegrationForm({
 	const [name, setName] = useState(initialData?.name ?? "");
 	const [group, setGroup] = useState(initialData?.group ?? "");
 	const [variant, setVariant] = useState(initialData?.variant ?? "");
-	const [config, setConfig] = useState<Record<string, unknown>>(
-		initialData?.config ?? {},
-	);
+	const [config, setConfig] = useState<Record<string, unknown>>(initialData?.config ?? {});
 	const [confirmDelete, setConfirmDelete] = useState(false);
 	const hydrated = useMemo(() => ({ id }), [id]);
 
@@ -158,9 +156,7 @@ export function IntegrationForm({
 	}
 	function onVariant(v: string) {
 		setVariant(v);
-		setConfig(
-			(getDefaultVariantValue(v as never) as Record<string, unknown>) ?? {},
-		);
+		setConfig((getDefaultVariantValue(v as never) as Record<string, unknown>) ?? {});
 	}
 	function setField(path: string, value: unknown) {
 		setConfig((c) => setPath(c, path, value));
@@ -247,11 +243,7 @@ export function IntegrationForm({
 							<option value="">Select…</option>
 							{getIntegrationsGroups().map((g) => (
 								<option key={g} value={g}>
-									{
-										humanReadableConnectorNames[
-											g as keyof typeof humanReadableConnectorNames
-										]
-									}
+									{humanReadableConnectorNames[g as keyof typeof humanReadableConnectorNames]}
 								</option>
 							))}
 						</select>

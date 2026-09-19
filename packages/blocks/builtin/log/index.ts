@@ -1,13 +1,10 @@
 import z from "zod";
-import { baseBlockDataSchema, Context } from "../../baseBlock";
+import { baseBlockDataSchema, type Context } from "../../baseBlock";
 
 export const logBlockSchema = z
 	.object({
 		message: z.string().optional().describe("string message to log"),
-		level: z
-			.enum(["info", "warn", "error"])
-			.default("info")
-			.describe("log level"),
+		level: z.enum(["info", "warn", "error"]).default("info").describe("log level"),
 	})
 	.extend(baseBlockDataSchema.shape);
 

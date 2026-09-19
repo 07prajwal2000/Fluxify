@@ -27,11 +27,7 @@ export function useCycleFlash(
 
 	useEffect(() => {
 		if (token === 0) return;
-		setFlashing(
-			findCycleEdgeIds(
-				flowToGraph(latest.current.nodes, latest.current.edges).edges,
-			),
-		);
+		setFlashing(findCycleEdgeIds(flowToGraph(latest.current.nodes, latest.current.edges).edges));
 		if (timeout.current) window.clearTimeout(timeout.current);
 		timeout.current = window.setTimeout(() => setFlashing(new Set()), FLASH_MS);
 		return () => {

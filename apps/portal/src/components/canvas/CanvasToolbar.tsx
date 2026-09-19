@@ -1,21 +1,10 @@
 import { Panel, useReactFlow, useViewport } from "@xyflow/react";
 import type { ReactNode } from "react";
-import {
-	TbArrowBackUp,
-	TbKeyboard,
-	TbLock,
-	TbLockOpen,
-} from "react-icons/tb";
-import {
-	MdFormatPaint,
-	MdOutlineFitScreen,
-	MdZoomIn,
-	MdZoomOut,
-} from "react-icons/md";
+import { MdFormatPaint, MdOutlineFitScreen, MdZoomIn, MdZoomOut } from "react-icons/md";
+import { TbArrowBackUp, TbKeyboard, TbLock, TbLockOpen } from "react-icons/tb";
 import { useCanvasHistoryContext } from "./history";
-import { useCanvasFormat } from "./layout";
 import { useKeyboardShortcuts } from "./keyboard";
-
+import { useCanvasFormat } from "./layout";
 
 type CanvasToolbarProps = {
 	readOnly: boolean;
@@ -55,11 +44,7 @@ function ToolbarButton({
 
 /** Portal-native canvas controls. Kept separate from React Flow's stock toolbar
  * so the product owns both its actions and visual language. */
-export function CanvasToolbar({
-	readOnly,
-	layoutLocked,
-	onToggleLayoutLock,
-}: CanvasToolbarProps) {
+export function CanvasToolbar({ readOnly, layoutLocked, onToggleLayoutLock }: CanvasToolbarProps) {
 	const { fitView, setViewport, zoomIn, zoomOut } = useReactFlow();
 	const viewport = useViewport();
 	const history = useCanvasHistoryContext();
@@ -84,7 +69,10 @@ export function CanvasToolbar({
 				<ToolbarButton label="Zoom in" onClick={() => void zoomIn({ duration: 150 })}>
 					<MdZoomIn />
 				</ToolbarButton>
-				<ToolbarButton label="Fit canvas to view" onClick={() => void fitView({ padding: 0.2, duration: 200 })}>
+				<ToolbarButton
+					label="Fit canvas to view"
+					onClick={() => void fitView({ padding: 0.2, duration: 200 })}
+				>
 					<MdOutlineFitScreen />
 				</ToolbarButton>
 			</div>
@@ -113,10 +101,7 @@ export function CanvasToolbar({
 				>
 					<MdFormatPaint />
 				</ToolbarButton>
-				<ToolbarButton
-					label="Keyboard shortcuts"
-					onClick={shortcuts.open}
-				>
+				<ToolbarButton label="Keyboard shortcuts" onClick={shortcuts.open}>
 					<TbKeyboard />
 				</ToolbarButton>
 				<ToolbarButton
@@ -128,7 +113,6 @@ export function CanvasToolbar({
 					{layoutLocked ? <TbLock /> : <TbLockOpen />}
 				</ToolbarButton>
 			</div>
-
 		</Panel>
 	);
 }

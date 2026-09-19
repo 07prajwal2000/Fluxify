@@ -3,18 +3,18 @@ import { logger } from "@fluxify/common";
 import {
 	Admin,
 	Consumer,
+	type Message,
+	type MessagesStream,
 	MessagesStreamFallbackModes,
 	MessagesStreamModes,
 	Producer,
-	type Message,
-	type MessagesStream,
 } from "@platformatic/kafka";
 import {
-	QueueConnection,
-	QueueSourceGoneError,
 	type QueueBatch,
+	QueueConnection,
 	type QueueEvent,
 	type QueueHandler,
+	QueueSourceGoneError,
 	type QueueSubscription,
 } from "./base";
 
@@ -139,7 +139,10 @@ export class KafkaConnection extends QueueConnection {
 		for (const lane of this.lanes.values()) clearTimeout(lane.timer);
 		void this.stream?.close().catch(() => undefined);
 		const listed = this.topics.join(", ");
-		logger.error(`[kafka] ${this.subscription.consumerGroup} topic(s) ${listed} are gone, stopping`, "QUEUE.kafka");
+		logger.error(
+			`[kafka] ${this.subscription.consumerGroup} topic(s) ${listed} are gone, stopping`,
+			"QUEUE.kafka",
+		);
 		this.subscription.onSourceGone?.(
 			new QueueSourceGoneError(
 				`Kafka no longer has ${this.topics.length > 1 ? "one of the topics" : "the topic"} this trigger reads (${listed}): ${rootCause(error)}`,
@@ -399,7 +402,10 @@ export function isTopicGone(error: unknown) {
 function hasProtocolError(error: unknown, id: string): boolean {
 	if (!(error instanceof Error)) return false;
 	if ((error as { apiId?: string }).apiId === id) return true;
-	const nested = [...((error as AggregateError).errors ?? []), ...(error.cause ? [error.cause] : [])];
+	const nested = [
+		...((error as AggregateError).errors ?? []),
+		...(error.cause ? [error.cause] : []),
+	];
 	return nested.some((inner) => hasProtocolError(inner, id));
 }
 

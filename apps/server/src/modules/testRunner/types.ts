@@ -49,6 +49,4 @@ export type TestResult =
 	| { ok: false; error: string; timedOut?: boolean; durationMs: number };
 
 export type TestBootstrapMessage = { type: "bootstrap"; bootstrap: TestBootstrap };
-export type TestChildMessage =
-	| { type: "ready" }
-	| { type: "result"; result: TestResult };
+export type TestChildMessage = { type: "ready" } | { type: "result"; result: TestResult };

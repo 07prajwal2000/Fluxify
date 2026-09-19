@@ -1,8 +1,8 @@
-import { restoreFromFile } from "@orama/plugin-data-persistence/server";
-import { search } from "@orama/orama";
-import { DOCS_INDEX_PATH } from "../constants";
-import type { AnyOrama } from "@orama/orama";
 import { logger } from "@fluxify/common";
+import type { AnyOrama } from "@orama/orama";
+import { search } from "@orama/orama";
+import { restoreFromFile } from "@orama/plugin-data-persistence/server";
+import { DOCS_INDEX_PATH } from "../constants";
 
 type Document = {
 	id: string;

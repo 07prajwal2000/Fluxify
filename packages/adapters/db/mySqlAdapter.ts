@@ -1,22 +1,22 @@
 import { CompiledQuery, Kysely, MysqlDialect } from "kysely";
-import { createPool, Pool } from "mysql2";
+import { createPool, type Pool } from "mysql2";
 import type { PoolConnection } from "mysql2/promise";
 import {
-	Connection,
+	type Connection,
+	type DBConditionType,
 	DbAdapterMode,
-	DBConditionType,
 	groupIntrospectionRows,
-	IDbAdapter,
-	IntrospectedTable,
+	type IDbAdapter,
+	type IntrospectedTable,
 } from ".";
+import { applySqlConditions } from "./conditions";
 import {
 	applyColumns,
 	applyJoins,
 	buildQualifiers,
-	QueryOptions,
+	type QueryOptions,
 	resolveJsonOperand,
 } from "./jsonPath";
-import { applySqlConditions } from "./conditions";
 
 // A generic schema to satisfy Kysely's strict typing without using 'any'
 type FluxifyDatabase = Record<string, Record<string, any>>;
@@ -79,8 +79,7 @@ export class MySqlAdapter implements IDbAdapter {
 	}
 
 	async raw(query: string | any, params?: any[]): Promise<any> {
-		if (typeof query !== "string")
-			throw new Error("raw() accepts only string queries.");
+		if (typeof query !== "string") throw new Error("raw() accepts only string queries.");
 
 		const conn = this.getConnection();
 		// rows only: the full result carries a BigInt `numAffectedRows` that JSON cannot serialize
@@ -106,12 +105,7 @@ export class MySqlAdapter implements IDbAdapter {
 		qb = this.buildQuery(conditions, qb, qualifiers);
 
 		const l = limit < 0 || limit > this.HARD_LIMIT ? this.HARD_LIMIT : limit;
-		const sortExpr = resolveJsonOperand(
-			sort.attribute,
-			false,
-			"mysql",
-			qualifiers,
-		);
+		const sortExpr = resolveJsonOperand(sort.attribute, false, "mysql", qualifiers);
 
 		return applyColumns(qb, options?.columns)
 			.limit(l)
@@ -129,9 +123,7 @@ export class MySqlAdapter implements IDbAdapter {
 		const qualifiers = buildQualifiers(table, options?.joins);
 		let qb = applyJoins(conn.selectFrom(table as never), options?.joins);
 		qb = this.buildQuery(conditions, qb, qualifiers);
-		return (
-			(await applyColumns(qb, options?.columns).executeTakeFirst()) ?? null
-		);
+		return (await applyColumns(qb, options?.columns).executeTakeFirst()) ?? null;
 	}
 
 	async delete(table: string, conditions: DBConditionType[]): Promise<boolean> {
@@ -142,11 +134,7 @@ export class MySqlAdapter implements IDbAdapter {
 		return Number(result.numDeletedRows ?? 0) > 0;
 	}
 
-	async insert(
-		table: string,
-		data: any,
-		pkColumn: string = "id",
-	): Promise<any> {
+	async insert(table: string, data: any, pkColumn: string = "id"): Promise<any> {
 		const conn = this.getConnection();
 		const result = await conn
 			.insertInto(table as never)
@@ -227,8 +215,7 @@ export class MySqlAdapter implements IDbAdapter {
 		await this.reservedConn.beginTransaction();
 
 		// Safely extract the raw callback connection without using 'any'
-		const rawConn = (this.reservedConn as any as { connection: PoolConnection })
-			.connection;
+		const rawConn = (this.reservedConn as any as { connection: PoolConnection }).connection;
 
 		this.originalRelease = rawConn.release.bind(rawConn);
 		rawConn.release = () => {};
@@ -236,8 +223,7 @@ export class MySqlAdapter implements IDbAdapter {
 		this.transactionDb = new Kysely<FluxifyDatabase>({
 			dialect: new MysqlDialect({
 				pool: {
-					getConnection: (cb: (err: any, conn: any) => void) =>
-						cb(null, rawConn),
+					getConnection: (cb: (err: any, conn: any) => void) => cb(null, rawConn),
 				} as any as Pool,
 			}),
 		});
@@ -269,9 +255,7 @@ export class MySqlAdapter implements IDbAdapter {
 
 	private async cleanupTransaction() {
 		if (this.reservedConn && this.originalRelease) {
-			const rawConn = (
-				this.reservedConn as any as { connection: PoolConnection }
-			).connection;
+			const rawConn = (this.reservedConn as any as { connection: PoolConnection }).connection;
 			rawConn.release = this.originalRelease;
 			this.reservedConn.release();
 		}
@@ -308,9 +292,7 @@ export function extractMysqlConnectionInfo(
 ) {
 	if (config.source === "url") {
 		let urlStr = String(config.url);
-		urlStr = urlStr.startsWith("cfg:")
-			? (appConfigs.get(urlStr.slice(4)) ?? "")
-			: urlStr;
+		urlStr = urlStr.startsWith("cfg:") ? (appConfigs.get(urlStr.slice(4)) ?? "") : urlStr;
 
 		const result = mysqlUrlParser(urlStr);
 		if (result === null) return null;
@@ -326,9 +308,7 @@ export function extractMysqlConnectionInfo(
 
 	for (const key in config) {
 		const value = String(config[key]);
-		config[key] = value.startsWith("cfg:")
-			? (appConfigs.get(value.slice(4)) ?? "")
-			: value;
+		config[key] = value.startsWith("cfg:") ? (appConfigs.get(value.slice(4)) ?? "") : value;
 	}
 	return config;
 }

@@ -1,21 +1,21 @@
 import { setTimeout as sleep } from "node:timers/promises";
-import { logger } from "@fluxify/common";
 import {
 	ChangeMessageVisibilityBatchCommand,
 	DeleteMessageBatchCommand,
 	GetQueueAttributesCommand,
 	ListQueuesCommand,
+	type Message,
 	ReceiveMessageCommand,
 	SQSClient,
-	type Message,
 } from "@aws-sdk/client-sqs";
+import { logger } from "@fluxify/common";
 import {
 	decode,
-	QueueConnection,
-	QueueSourceGoneError,
 	type QueueBatch,
+	QueueConnection,
 	type QueueEvent,
 	type QueueHandler,
+	QueueSourceGoneError,
 	type QueueSubscription,
 } from "./base";
 
@@ -116,9 +116,13 @@ export class SqsQueueConnection extends QueueConnection {
 		this.client = clientFor(this.config);
 		// fails the start on a missing queue or bad credentials, not the first poll
 		try {
-			await this.client.send(new GetQueueAttributesCommand({ QueueUrl: this.queueUrl, AttributeNames: ["QueueArn"] }));
+			await this.client.send(
+				new GetQueueAttributesCommand({ QueueUrl: this.queueUrl, AttributeNames: ["QueueArn"] }),
+			);
 		} catch (error) {
-			throw isQueueGone(error) ? new QueueSourceGoneError(describeSqsError(error, this.queueUrl)) : new Error(describeSqsError(error, this.queueUrl));
+			throw isQueueGone(error)
+				? new QueueSourceGoneError(describeSqsError(error, this.queueUrl))
+				: new Error(describeSqsError(error, this.queueUrl));
 		}
 		for (let i = 0; i < subscription.concurrency; i++) this.workers.push(this.work());
 	}
@@ -128,14 +132,19 @@ export class SqsQueueConnection extends QueueConnection {
 		const result = await this.client!.send(
 			new DeleteMessageBatchCommand({
 				QueueUrl: this.queueUrl,
-				Entries: messages.map((message, i) => ({ Id: String(i), ReceiptHandle: message.ReceiptHandle! })),
+				Entries: messages.map((message, i) => ({
+					Id: String(i),
+					ReceiptHandle: message.ReceiptHandle!,
+				})),
 			}),
 		);
 		for (const [i, message] of messages.entries())
 			if (!result.Failed?.some((failed) => failed.Id === String(i))) this.unacked.delete(message);
 		// usually a lapsed visibility timeout: the message was handed to someone else
 		if (result.Failed?.length)
-			throw new Error(`SQS refused to delete ${result.Failed.length} message(s): ${result.Failed[0]!.Message ?? result.Failed[0]!.Code}`);
+			throw new Error(
+				`SQS refused to delete ${result.Failed.length} message(s): ${result.Failed[0]!.Message ?? result.Failed[0]!.Code}`,
+			);
 	}
 
 	async moveToDLQ() {
@@ -152,7 +161,10 @@ export class SqsQueueConnection extends QueueConnection {
 				AttributeNames: ["ApproximateNumberOfMessages", "ApproximateNumberOfMessagesNotVisible"],
 			}),
 		);
-		return Number(Attributes?.ApproximateNumberOfMessages ?? 0) + Number(Attributes?.ApproximateNumberOfMessagesNotVisible ?? 0);
+		return (
+			Number(Attributes?.ApproximateNumberOfMessages ?? 0) +
+			Number(Attributes?.ApproximateNumberOfMessagesNotVisible ?? 0)
+		);
 	}
 
 	/** Takes up to the wait time: an in-flight long poll is finished, not abandoned. */
@@ -196,12 +208,17 @@ export class SqsQueueConnection extends QueueConnection {
 	private async fill(messages: Message[]) {
 		const deadline = Date.now() + this.subscription.maxWaitMs;
 		let bytes = messages.reduce((sum, m) => sum + Buffer.byteLength(m.Body ?? ""), 0);
-		while (!this.stopped && messages.length < this.batchSize() && bytes < this.subscription.maxBytes) {
+		while (
+			!this.stopped &&
+			messages.length < this.batchSize() &&
+			bytes < this.subscription.maxBytes
+		) {
 			const leftMs = deadline - Date.now();
 			if (leftMs <= 0) return;
 			// SQS waits in whole seconds: the last part-second is slept, then one short poll
 			const waitSeconds = Math.min(Math.floor(leftMs / 1000), this.waitTimeSeconds);
-			if (waitSeconds === 0) await sleep(leftMs, undefined, { signal: this.aborter.signal }).catch(() => undefined);
+			if (waitSeconds === 0)
+				await sleep(leftMs, undefined, { signal: this.aborter.signal }).catch(() => undefined);
 			if (this.stopped) return;
 			let more: Message[];
 			try {
@@ -222,7 +239,10 @@ export class SqsQueueConnection extends QueueConnection {
 	}
 
 	private warnReceive(error: unknown) {
-		logger.warn(`[sqs] ${this.subscription.consumerGroup} receive failed: ${describeSqsError(error, this.queueUrl)}`, "QUEUE.sqs");
+		logger.warn(
+			`[sqs] ${this.subscription.consumerGroup} receive failed: ${describeSqsError(error, this.queueUrl)}`,
+			"QUEUE.sqs",
+		);
 	}
 
 	/**
@@ -230,13 +250,19 @@ export class SqsQueueConnection extends QueueConnection {
 	 * last run: a batch still filling, or a long run, must not go to another worker.
 	 */
 	private keepHidden(messages: Message[]) {
-		return setInterval(() => {
-			const held = messages.filter((m) => this.unacked.has(m));
-			if (held.length)
-				this.release(held, this.visibilitySec).catch((error) =>
-					logger.warn(`[sqs] ${this.subscription.consumerGroup} heartbeat failed: ${String(error)}`, "QUEUE.sqs"),
-				);
-		}, Math.max((this.visibilitySec * 1000) / 3, 500));
+		return setInterval(
+			() => {
+				const held = messages.filter((m) => this.unacked.has(m));
+				if (held.length)
+					this.release(held, this.visibilitySec).catch((error) =>
+						logger.warn(
+							`[sqs] ${this.subscription.consumerGroup} heartbeat failed: ${String(error)}`,
+							"QUEUE.sqs",
+						),
+					);
+			},
+			Math.max((this.visibilitySec * 1000) / 3, 500),
+		);
 	}
 
 	/** Deleted under us: every worker stops, and the owner hears it once. */
@@ -245,8 +271,13 @@ export class SqsQueueConnection extends QueueConnection {
 		this.aborter.abort();
 		// nothing to hand back: the messages went with the queue
 		this.unacked.clear();
-		logger.error(`[sqs] ${this.subscription.consumerGroup} queue ${this.queueUrl} is gone, stopping`, "QUEUE.sqs");
-		this.subscription.onSourceGone?.(new QueueSourceGoneError(describeSqsError(error, this.queueUrl)));
+		logger.error(
+			`[sqs] ${this.subscription.consumerGroup} queue ${this.queueUrl} is gone, stopping`,
+			"QUEUE.sqs",
+		);
+		this.subscription.onSourceGone?.(
+			new QueueSourceGoneError(describeSqsError(error, this.queueUrl)),
+		);
 	}
 
 	private async receive(max: number, waitSeconds: number) {
@@ -287,7 +318,9 @@ export class SqsQueueConnection extends QueueConnection {
 
 	private async deliver(messages: Message[]) {
 		if (this.stopped) return this.release(messages, 0).catch(() => undefined);
-		const attempt = Math.max(...messages.map((m) => Number(m.Attributes?.ApproximateReceiveCount ?? 1)));
+		const attempt = Math.max(
+			...messages.map((m) => Number(m.Attributes?.ApproximateReceiveCount ?? 1)),
+		);
 		const batch: QueueBatch = {
 			events: messages.map((message) => this.toEvent(message)),
 			consumerGroup: this.subscription.consumerGroup,
@@ -311,7 +344,10 @@ export class SqsQueueConnection extends QueueConnection {
 		// dropped first, so the heartbeat of a batch still filling or running cannot re-hide them
 		for (const message of leftover) this.unacked.delete(message);
 		await this.release(leftover, delaySec).catch((error) =>
-			logger.warn(`[sqs] ${batch.consumerGroup} could not return messages, they reappear when visibility lapses: ${String(error)}`, "QUEUE.sqs"),
+			logger.warn(
+				`[sqs] ${batch.consumerGroup} could not return messages, they reappear when visibility lapses: ${String(error)}`,
+				"QUEUE.sqs",
+			),
 		);
 	}
 
@@ -332,7 +368,8 @@ export class SqsQueueConnection extends QueueConnection {
 
 	private messagesOf(batch: QueueBatch) {
 		const messages = batch.events.map((event) => this.sources.get(event));
-		if (messages.some((message) => !message)) throw new Error("This batch was not read by this connection");
+		if (messages.some((message) => !message))
+			throw new Error("This batch was not read by this connection");
 		return messages as Message[];
 	}
 
@@ -377,7 +414,10 @@ export async function assertSqsQueue(config: SqsConfig, queueUrl: string) {
 	const client = clientFor(config);
 	try {
 		const { Attributes } = await client.send(
-			new GetQueueAttributesCommand({ QueueUrl: queueUrl, AttributeNames: ["RedrivePolicy", "VisibilityTimeout"] }),
+			new GetQueueAttributesCommand({
+				QueueUrl: queueUrl,
+				AttributeNames: ["RedrivePolicy", "VisibilityTimeout"],
+			}),
 		);
 		const redrive = Attributes?.RedrivePolicy ? JSON.parse(Attributes.RedrivePolicy) : null;
 		return {
@@ -401,9 +441,13 @@ export function sqsWarnings(
 ) {
 	const warnings: string[] = [];
 	if ((settings.batchSize ?? 1) > SQS_MAX_BATCH)
-		warnings.push(`Batch size ${settings.batchSize} is above the SQS limit of ${SQS_MAX_BATCH}; each run gets at most ${SQS_MAX_BATCH} messages.`);
+		warnings.push(
+			`Batch size ${settings.batchSize} is above the SQS limit of ${SQS_MAX_BATCH}; each run gets at most ${SQS_MAX_BATCH} messages.`,
+		);
 	if (settings.waitTimeSeconds === 0)
-		warnings.push("A wait time of 0 turns long polling off: the trigger asks SQS for messages non-stop, and AWS bills every request. 20 seconds is recommended.");
+		warnings.push(
+			"A wait time of 0 turns long polling off: the trigger asks SQS for messages non-stop, and AWS bills every request. 20 seconds is recommended.",
+		);
 	if (!queue) return warnings;
 	const redrive = queue.redrivePolicy;
 	warnings.push(
@@ -442,13 +486,18 @@ export function isQueueGone(error: unknown) {
 export function describeSqsError(error: unknown, queueUrl?: string) {
 	const { name = "", message, code } = error as { name?: string; message?: string; code?: string };
 	const queue = queueUrl ? `"${queueUrl.split("/").pop()}"` : "the queue";
-	if (isQueueGone(error)) return `Queue ${queue} does not exist. Create it in SQS first, and check the region and queue URL.`;
-	if (name === "InvalidClientTokenId" || name === "UnrecognizedClientException") return "AWS does not recognise the access key ID.";
-	if (name === "SignatureDoesNotMatch" || name === "IncompleteSignature") return "AWS rejected the secret access key.";
-	if (name === "ExpiredToken" || name === "ExpiredTokenException") return "The session token has expired.";
+	if (isQueueGone(error))
+		return `Queue ${queue} does not exist. Create it in SQS first, and check the region and queue URL.`;
+	if (name === "InvalidClientTokenId" || name === "UnrecognizedClientException")
+		return "AWS does not recognise the access key ID.";
+	if (name === "SignatureDoesNotMatch" || name === "IncompleteSignature")
+		return "AWS rejected the secret access key.";
+	if (name === "ExpiredToken" || name === "ExpiredTokenException")
+		return "The session token has expired.";
 	if (name === "AccessDenied" || name === "AccessDeniedException")
 		return `These credentials may not use ${queue}. They need sqs:GetQueueAttributes, ReceiveMessage, DeleteMessage and ChangeMessageVisibility on it.`;
-	if (name === "CredentialsProviderError") return "No AWS credentials: enter an access key, or run the server with an IAM role.";
+	if (name === "CredentialsProviderError")
+		return "No AWS credentials: enter an access key, or run the server with an IAM role.";
 	if (code === "ECONNREFUSED" || code === "ENOTFOUND" || code === "ConnectionRefused")
 		return `Could not reach SQS (${code}). Check the region and endpoint.`;
 	// a refused connection can come back with an empty message and only a code

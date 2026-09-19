@@ -1,8 +1,4 @@
-import {
-	instantiateCompiled,
-	registerCompiledCustomBlock,
-	setJobEnqueuer,
-} from "@fluxify/blocks";
+import { instantiateCompiled, registerCompiledCustomBlock, setJobEnqueuer } from "@fluxify/blocks";
 import { hydrateAppConfig } from "../../loaders/appconfigLoader";
 import { hydrateIntegrations } from "../../loaders/integrationsLoader";
 import { hydrateProjectSettings } from "../../loaders/projectSettingsLoader";
@@ -10,12 +6,7 @@ import { executionRuntimeEnvironment } from "../requestRouter/executionEnvironme
 import { setBlocksExecutor } from "../requestRouter/executor";
 import { createHttpContext } from "../requestRouter/httpContext";
 import { executeRouteInternal } from "../requestRouter/service";
-import type {
-	TestBootstrap,
-	TestBootstrapMessage,
-	TestChildMessage,
-	TestResult,
-} from "./types";
+import type { TestBootstrap, TestBootstrapMessage, TestChildMessage, TestResult } from "./types";
 
 /**
  * Ephemeral child that runs exactly one test suite and exits.
@@ -61,9 +52,7 @@ async function runSuite(boot: TestBootstrap) {
 
 		// A test run holds no broker connection, and firing real background work
 		// from an assertion is not something a suite should be able to do.
-		setJobEnqueuer((job) =>
-			queuedJobs.push(`${job.kind}/${job.target}`),
-		);
+		setJobEnqueuer((job) => queuedJobs.push(`${job.kind}/${job.target}`));
 
 		const run = instantiateCompiled(boot.source);
 		setBlocksExecutor((_target, context) => run(context, context.requestBody));

@@ -1,20 +1,20 @@
 import { logger } from "@fluxify/common";
-import { AgentNode, type AgentNodeName, type GlobalGraphState } from "../types";
+import { logRunUsage, type RunBudget } from "../models/budget";
 import type { AgentFactory } from "../models/factory";
-import { RunBudget, logRunUsage } from "../models/budget";
-import { compactCompletedHistory } from "./historyCompactor";
-import type { HarnessService, HitlPlanAction } from "./harnessService";
-import type { RedisService } from "./redisService";
-import type { HarnessRunContext } from "./runContext";
 import { publishHarnessEvent } from "../notifications";
 import {
-	RUN_NODE,
-	labelForNode,
 	type HarnessNodeStatus,
 	type HarnessRunResult,
 	type HarnessRunStatus,
 	type HarnessStreamEvent,
+	labelForNode,
+	RUN_NODE,
 } from "../streamTypes";
+import { AgentNode, type AgentNodeName, type GlobalGraphState } from "../types";
+import type { HarnessService, HitlPlanAction } from "./harnessService";
+import { compactCompletedHistory } from "./historyCompactor";
+import type { RedisService } from "./redisService";
+import type { HarnessRunContext } from "./runContext";
 
 /**
  * Writes how a run ended — to the database, to the live-state snapshot, and to
@@ -62,9 +62,7 @@ export class RunOutcomeWriter {
 			runStatus,
 			level: "harness",
 			payload:
-				nodeStatus === "ended"
-					? { node: RUN_NODE, data: { runStatus, ...result } }
-					: undefined,
+				nodeStatus === "ended" ? { node: RUN_NODE, data: { runStatus, ...result } } : undefined,
 			timestamp: Date.now(),
 		};
 		try {
@@ -120,9 +118,7 @@ export class RunOutcomeWriter {
 			result: aiResponse ?? undefined,
 			usage,
 			artifactId: finalState?.summarizerState?.artifactId,
-			error: failedTasks.length
-				? failedTasks.map((task) => task.title).join("; ")
-				: undefined,
+			error: failedTasks.length ? failedTasks.map((task) => task.title).join("; ") : undefined,
 		});
 		await this.redisService.finalizeSnapshot(this.ctx.runId);
 	}
@@ -136,8 +132,7 @@ export class RunOutcomeWriter {
 		toolCalls = 0,
 		graphState?: Partial<GlobalGraphState>,
 	): Promise<void> {
-		const message =
-			error instanceof Error ? error.message : error ? String(error) : "failed";
+		const message = error instanceof Error ? error.message : error ? String(error) : "failed";
 		const usage = budget && logRunUsage(this.ctx, budget, toolCalls);
 		try {
 			await this.harnessService.updateRun({
@@ -167,8 +162,7 @@ export class RunOutcomeWriter {
 		toolCalls: number,
 		graphState?: Partial<GlobalGraphState>,
 	): Promise<void> {
-		const message =
-			"Conversation was interrupted by the user before it finished.";
+		const message = "Conversation was interrupted by the user before it finished.";
 		const usage = logRunUsage(this.ctx, budget, toolCalls);
 		try {
 			await this.harnessService.updateRun({
@@ -196,9 +190,7 @@ export class RunOutcomeWriter {
 
 	/** Persists a rejected HITL plan as a completed (non-implemented) run. The
 	 *  graph is never invoked, so there is no graph state to keep. */
-	async reject(
-		action: Extract<HitlPlanAction, { type: "reject" }>,
-	): Promise<void> {
+	async reject(action: Extract<HitlPlanAction, { type: "reject" }>): Promise<void> {
 		await this.emit("queued", "started", "Discarding the plan");
 		const aiResponse = `**Plan rejected.** ${
 			action.message ? `Reason: ${action.message}` : "No reason was provided."
@@ -243,16 +235,11 @@ export class RunOutcomeWriter {
 			currentState: "paused_hitl",
 			graphState: finalState,
 		});
-		await this.harnessService.updateConversationStatus(
-			"paused_hitl",
-			this.ctx.runId,
-		);
-		await this.emit(
-			"awaiting_hitl",
-			"ended",
-			"Paused — the plan is waiting for your review",
-			{ result: markdownPlan, usage },
-		);
+		await this.harnessService.updateConversationStatus("paused_hitl", this.ctx.runId);
+		await this.emit("awaiting_hitl", "ended", "Paused — the plan is waiting for your review", {
+			result: markdownPlan,
+			usage,
+		});
 		// HITL is terminal for this run pass — evict its live-state snapshot soon.
 		await this.redisService.finalizeSnapshot(this.ctx.runId);
 		logger.info("[FluxifyHarness] Run parked for HITL", {
@@ -292,9 +279,7 @@ export class RunOutcomeWriter {
  * unbuildable request completes with no message at all and the user never
  * learns why.
  */
-function resolveAiResponse(
-	finalState?: Partial<GlobalGraphState>,
-): string | null {
+function resolveAiResponse(finalState?: Partial<GlobalGraphState>): string | null {
 	return (
 		finalState?.summarizerState?.markdown ??
 		finalState?.discussionState?.markdown ??

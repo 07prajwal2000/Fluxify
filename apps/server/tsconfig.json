@@ -1,19 +1,19 @@
 {
-  "compilerOptions": {
-    "module": "esnext",
-    "target": "esnext",
-    "moduleResolution": "bundler",
-    "outDir": "dist",
-    "sourceRoot": "deployments/standalone.ts",
-    "sourceMap": true,
-    "strict": true,
-    "noEmitOnError": true,
-    "skipLibCheck": true,
-    "isolatedModules": true,
-    "esModuleInterop": true,
-    "types": ["node", "bun"],
-    "jsx": "react",
-    "noEmit": false
-  },
-  "exclude": ["dist", "build", "**/*.spec.ts", "**/*.test.ts", "node_modules"]
+	"compilerOptions": {
+		"module": "esnext",
+		"target": "esnext",
+		"moduleResolution": "bundler",
+		"outDir": "dist",
+		"sourceRoot": "deployments/standalone.ts",
+		"sourceMap": true,
+		"strict": true,
+		"noEmitOnError": true,
+		"skipLibCheck": true,
+		"isolatedModules": true,
+		"esModuleInterop": true,
+		"types": ["node", "bun"],
+		"jsx": "react",
+		"noEmit": false
+	},
+	"exclude": ["dist", "build", "**/*.spec.ts", "**/*.test.ts", "node_modules"]
 }

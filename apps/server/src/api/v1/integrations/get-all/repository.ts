@@ -1,6 +1,6 @@
-import { db, DbTransactionType } from "../../../../db";
+import { and, desc, eq, like, or, type SQL, sql } from "drizzle-orm";
+import { type DbTransactionType, db } from "../../../../db";
 import { integrationsEntity } from "../../../../db/schema";
-import { eq, sql, and, or, SQL, desc, like } from "drizzle-orm";
 
 export async function getAllIntegrationsByGroup(
 	projectId: string,
@@ -14,9 +14,7 @@ export async function getAllIntegrationsByGroup(
 	)!;
 
 	if (tags && tags.length > 0) {
-		const tagConditions = tags.map((t) =>
-			like(integrationsEntity.tags, `%${t}%`),
-		);
+		const tagConditions = tags.map((t) => like(integrationsEntity.tags, `%${t}%`));
 		condition = and(condition, or(...tagConditions))!;
 	}
 

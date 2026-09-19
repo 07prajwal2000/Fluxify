@@ -12,14 +12,12 @@ const IN_PROGRESS = new Set([
 	"running",
 ]);
 
-const humanize = (s: string) =>
-	s.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+const humanize = (s: string) => s.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 
 export function statusMeta(status: string): { label: string; color: StatusColor } {
 	const s = status.toLowerCase();
 	if (s === "completed") return { label: "Completed", color: "success" };
-	if (s === "failed" || s === "interrupted")
-		return { label: humanize(s), color: "danger" };
+	if (s === "failed" || s === "interrupted") return { label: humanize(s), color: "danger" };
 	if (s === "awaiting_hitl" || s === "paused_hitl")
 		return { label: "Awaiting input", color: "warning" };
 	if (IN_PROGRESS.has(s)) return { label: humanize(s), color: "accent" };

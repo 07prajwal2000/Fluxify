@@ -4,40 +4,40 @@ import { onBeforeUnmount, onMounted, ref, watch } from "vue";
 const image = ref<{ src: string; alt: string } | null>(null);
 
 function close() {
-  image.value = null;
+	image.value = null;
 }
 
 function onDocumentClick(event: MouseEvent) {
-  const target = event.target;
+	const target = event.target;
 
-  if (!(target instanceof HTMLImageElement)) return;
-  if (!target.closest(".vp-doc") || target.closest(".image-lightbox")) return;
-  if (target.dataset.zoom === "false") return;
+	if (!(target instanceof HTMLImageElement)) return;
+	if (!target.closest(".vp-doc") || target.closest(".image-lightbox")) return;
+	if (target.dataset.zoom === "false") return;
 
-  event.preventDefault();
-  image.value = {
-    src: target.currentSrc || target.src,
-    alt: target.alt || "Expanded documentation image",
-  };
+	event.preventDefault();
+	image.value = {
+		src: target.currentSrc || target.src,
+		alt: target.alt || "Expanded documentation image",
+	};
 }
 
 function onKeydown(event: KeyboardEvent) {
-  if (event.key === "Escape") close();
+	if (event.key === "Escape") close();
 }
 
 watch(image, (value) => {
-  document.documentElement.classList.toggle("image-lightbox-open", Boolean(value));
+	document.documentElement.classList.toggle("image-lightbox-open", Boolean(value));
 });
 
 onMounted(() => {
-  document.addEventListener("click", onDocumentClick);
-  document.addEventListener("keydown", onKeydown);
+	document.addEventListener("click", onDocumentClick);
+	document.addEventListener("keydown", onKeydown);
 });
 
 onBeforeUnmount(() => {
-  document.documentElement.classList.remove("image-lightbox-open");
-  document.removeEventListener("click", onDocumentClick);
-  document.removeEventListener("keydown", onKeydown);
+	document.documentElement.classList.remove("image-lightbox-open");
+	document.removeEventListener("click", onDocumentClick);
+	document.removeEventListener("keydown", onKeydown);
 });
 </script>
 

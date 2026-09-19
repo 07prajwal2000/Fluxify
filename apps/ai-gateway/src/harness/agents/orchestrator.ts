@@ -1,11 +1,6 @@
-import { BaseAgent } from "./base";
-import {
-	type GlobalGraphState,
-	AgentNode,
-	type Task,
-	type AgentNodeName,
-} from "../types";
 import { dispatchAgentEvent } from "../callbacks";
+import { AgentNode, type AgentNodeName, type GlobalGraphState, type Task } from "../types";
+import { BaseAgent } from "./base";
 
 export class OrchestratorAgent extends BaseAgent {
 	constructor(state: GlobalGraphState) {
@@ -55,15 +50,12 @@ export class OrchestratorAgent extends BaseAgent {
 			}
 		}
 
-		const isSatisfied = (task?: Task) =>
-			task ? task.status === "completed" : true;
+		const isSatisfied = (task?: Task) => (task ? task.status === "completed" : true);
 
 		const readyTasks = tasks.filter(
 			(task) =>
 				task.status === "pending" &&
-				(task.dependsOnAgentId ?? []).every((depId) =>
-					isSatisfied(byId.get(depId)),
-				),
+				(task.dependsOnAgentId ?? []).every((depId) => isSatisfied(byId.get(depId))),
 		);
 
 		if (readyTasks.length === 0) {
@@ -96,7 +88,7 @@ export class OrchestratorAgent extends BaseAgent {
 			dispatchedTasks.push(task);
 		}
 
-		let nextRoute: AgentNodeName | AgentNodeName[] | undefined = undefined;
+		let nextRoute: AgentNodeName | AgentNodeName[] | undefined;
 		if (nextRoutes.length === 1) {
 			nextRoute = nextRoutes[0];
 		} else if (nextRoutes.length > 1) {

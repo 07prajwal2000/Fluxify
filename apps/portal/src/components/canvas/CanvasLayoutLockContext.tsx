@@ -1,4 +1,4 @@
-import { createContext, useContext, type ReactNode } from "react";
+import { createContext, type ReactNode, useContext } from "react";
 
 const CanvasLayoutLockContext = createContext(false);
 
@@ -10,9 +10,7 @@ export function CanvasLayoutLockProvider({
 	children: ReactNode;
 }) {
 	return (
-		<CanvasLayoutLockContext.Provider value={locked}>
-			{children}
-		</CanvasLayoutLockContext.Provider>
+		<CanvasLayoutLockContext.Provider value={locked}>{children}</CanvasLayoutLockContext.Provider>
 	);
 }
 

@@ -41,15 +41,11 @@ export function validateGraphRules(blocks: ValidatableBlock[]): string[] {
 
 		const rawType = block.blockType || "";
 		if (SINGLETON_TYPES.includes(rawType as BlockTypes)) {
-			singletonCounts.set(rawType, [
-				...(singletonCounts.get(rawType) ?? []),
-				block.id,
-			]);
+			singletonCounts.set(rawType, [...(singletonCounts.get(rawType) ?? []), block.id]);
 		}
 
 		const isCustom =
-			rawType.startsWith("custom:") ||
-			!Object.values(BlockTypes).includes(rawType as BlockTypes);
+			rawType.startsWith("custom:") || !Object.values(BlockTypes).includes(rawType as BlockTypes);
 		// custom blocks are a plain pass-through: one `source` handle
 		const allowed = isCustom ? ["source"] : getOutputHandles(rawType);
 		const usedHandles = new Map<string, string[]>();
@@ -75,10 +71,7 @@ export function validateGraphRules(blocks: ValidatableBlock[]): string[] {
 				continue;
 			}
 
-			usedHandles.set(handle, [
-				...(usedHandles.get(handle) ?? []),
-				conn.blockId,
-			]);
+			usedHandles.set(handle, [...(usedHandles.get(handle) ?? []), conn.blockId]);
 		}
 
 		for (const [handle, targets] of usedHandles) {

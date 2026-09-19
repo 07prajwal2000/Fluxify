@@ -1,13 +1,7 @@
 import { Checkbox, Tabs } from "@fluxify/components";
-import {
-	TbChevronDown,
-	TbKey,
-	TbList,
-	TbPlug,
-	TbPlus,
-} from "react-icons/tb";
-import { harnessConversationsQuery } from "@/query/harnessConversationsQuery";
+import { TbChevronDown, TbKey, TbList, TbPlug, TbPlus } from "react-icons/tb";
 import { customBlocksQuery } from "@/query/customBlocksQuery";
+import { harnessConversationsQuery } from "@/query/harnessConversationsQuery";
 import { ApplyBar } from "./ApplyBar";
 import { CanvasPreview } from "./CanvasPreview";
 import { Field } from "./Field";
@@ -50,9 +44,7 @@ function ControlPreview({ param }: { param: InputParam }) {
 
 	switch (param.type) {
 		case "checkbox":
-			return (
-				<Checkbox isSelected={false} isDisabled label={param.label ?? param.name} />
-			);
+			return <Checkbox isSelected={false} isDisabled label={param.label ?? param.name} />;
 
 		case "dropdown": {
 			const options = param.options ?? [];
@@ -149,13 +141,7 @@ const TYPE_LABEL: Record<string, string> = {
 	app_config_selector: "App config",
 };
 
-function ParamRow({
-	param,
-	state,
-}: {
-	param: InputParam;
-	state: "added" | "removed" | "kept";
-}) {
+function ParamRow({ param, state }: { param: InputParam; state: "added" | "removed" | "kept" }) {
 	const tone =
 		state === "added"
 			? "border-success/30 bg-success/5"
@@ -195,9 +181,7 @@ function ParamRow({
 				</div>
 			</div>
 
-			{param.description && (
-				<p className="text-xs text-muted break-words">{param.description}</p>
-			)}
+			{param.description && <p className="text-xs text-muted break-words">{param.description}</p>}
 
 			{state !== "removed" && <ControlPreview param={param} />}
 		</div>
@@ -206,12 +190,11 @@ function ParamRow({
 
 export function CustomBlockArtifact({ subArtifactId }: { subArtifactId: string }) {
 	const { projectId, conversationId } = useArtifactParams();
-	const { data: detail, isLoading } =
-		harnessConversationsQuery.subArtifacts.useDetailQuery(
-			projectId,
-			conversationId,
-			subArtifactId,
-		);
+	const { data: detail, isLoading } = harnessConversationsQuery.subArtifacts.useDetailQuery(
+		projectId,
+		conversationId,
+		subArtifactId,
+	);
 
 	const payload = (detail?.payload ?? {}) as CustomBlockConfigPayload;
 	const action = payload.action ?? "create";
@@ -229,9 +212,7 @@ export function CustomBlockArtifact({ subArtifactId }: { subArtifactId: string }
 	// The same run may have built this block's logic. Showing it here is the only
 	// way to tell whether the graph changed before applying the contract.
 	const canvasSibling = useRunSiblings(detail?.runId, "canvas").find(
-		(s) =>
-			s.payload?.targetType === "custom_block" &&
-			s.payload?.targetId === customBlockId,
+		(s) => s.payload?.targetType === "custom_block" && s.payload?.targetId === customBlockId,
 	);
 	const { graph: canvasGraph } = useCustomBlockCanvasArtifact(canvasSibling);
 	const blockingParent = useBlockingParent(detail);
@@ -247,9 +228,7 @@ export function CustomBlockArtifact({ subArtifactId }: { subArtifactId: string }
 	// the change that actually breaks callers — worth more than a JSON blob.
 	const nextParams = proposed.inputParams ?? null;
 	const nextNames = new Set((nextParams ?? []).map((p) => p.name));
-	const removed = nextParams
-		? existingParams.filter((p) => !nextNames.has(p.name))
-		: [];
+	const removed = nextParams ? existingParams.filter((p) => !nextNames.has(p.name)) : [];
 	const existingNames = new Set(existingParams.map((p) => p.name));
 	const shownParams = nextParams ?? existingParams;
 
@@ -266,9 +245,7 @@ export function CustomBlockArtifact({ subArtifactId }: { subArtifactId: string }
 						</span>
 					)}
 				</div>
-				<p className="text-sm font-medium text-foreground break-words">
-					{title || "Custom block"}
-				</p>
+				<p className="text-sm font-medium text-foreground break-words">{title || "Custom block"}</p>
 				{name && <p className="text-xs font-mono text-muted break-all">{name}</p>}
 			</div>
 
@@ -314,9 +291,7 @@ export function CustomBlockArtifact({ subArtifactId }: { subArtifactId: string }
 										key={`${param.name ?? "param"}-${index}`}
 										param={param}
 										state={
-											nextParams && !existingNames.has(param.name) && existing
-												? "added"
-												: "kept"
+											nextParams && !existingNames.has(param.name) && existing ? "added" : "kept"
 										}
 									/>
 								))}

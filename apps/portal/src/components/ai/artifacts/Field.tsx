@@ -22,9 +22,7 @@ export function Field({
 
 	return (
 		<div>
-			<span className="text-[10px] text-muted uppercase font-bold tracking-wider">
-				{label}
-			</span>
+			<span className="text-[10px] text-muted uppercase font-bold tracking-wider">{label}</span>
 			{changed && before !== "" && (
 				<pre className="text-xs whitespace-pre-wrap break-all mt-1 p-2 rounded-md bg-danger/10 border border-danger/30 text-muted line-through">
 					{before}

@@ -1,9 +1,9 @@
 import { and, eq, inArray } from "drizzle-orm";
 import { db } from "../../../../../../db";
 import { integrationsEntity } from "../../../../../../db/schema";
-import { ProjectSettingsKeyType } from "../keySchemaMap";
 import { getIntegrationsVariants } from "../../../../integrations/helpers";
 import { observabilityLegacyVariants } from "../../../../integrations/schemas";
+import type { ProjectSettingsKeyType } from "../keySchemaMap";
 
 export async function testConnectionFn(
 	key: ProjectSettingsKeyType,

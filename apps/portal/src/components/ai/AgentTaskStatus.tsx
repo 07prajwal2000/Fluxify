@@ -17,11 +17,7 @@ function getHumanFriendlyName(name: string) {
 		.trim();
 }
 
-export function AgentTaskStatus({
-	conversationId,
-}: {
-	conversationId: string;
-}) {
+export function AgentTaskStatus({ conversationId }: { conversationId: string }) {
 	const run = useConversationRun(conversationId);
 	const tasksByLevel = run?.tasksByLevel;
 	const [expandedTasks, setExpandedTasks] = useState<Set<string>>(new Set());
@@ -60,9 +56,7 @@ export function AgentTaskStatus({
 	return (
 		<div
 			className={`flex w-full flex-col gap-2 transition-all duration-700 ease-in-out overflow-hidden ${
-				isTerminal
-					? "max-h-0 opacity-0 my-0 py-0"
-					: "max-h-[2000px] opacity-100 py-2"
+				isTerminal ? "max-h-0 opacity-0 my-0 py-0" : "max-h-[2000px] opacity-100 py-2"
 			}`}
 		>
 			<div className="text-[11px] font-semibold uppercase tracking-wider text-muted px-2 mb-1">
@@ -94,8 +88,7 @@ export function AgentTaskStatus({
 					for (const log of rawLogs) {
 						if (log.executionType === "tool" && log.toolName) {
 							const existingIdx = logs.findIndex(
-								(g) =>
-									g.executionType === "tool" && g.toolName === log.toolName,
+								(g) => g.executionType === "tool" && g.toolName === log.toolName,
 							);
 							if (existingIdx >= 0) {
 								logs[existingIdx] = log;
@@ -122,9 +115,7 @@ export function AgentTaskStatus({
 								</div>
 
 								<div className="flex items-center gap-2 shrink-0">
-									<span className="text-[11px] text-muted capitalize">
-										{task.status}
-									</span>
+									<span className="text-[11px] text-muted capitalize">{task.status}</span>
 									<div className="w-4 flex justify-center">
 										{isExpanded ? (
 											<TbChevronDown className="text-muted" size={14} />
@@ -145,9 +136,7 @@ export function AgentTaskStatus({
 							>
 								<div className="flex flex-col gap-1.5 pl-3 pr-2 border-l border-border/50 ml-3.5 relative py-1">
 									{logs.map((log, idx) => {
-										let icon = (
-											<span className="w-[5px] h-[5px] rounded-full bg-border" />
-										);
+										let icon = <span className="w-[5px] h-[5px] rounded-full bg-border" />;
 										const label = log.label;
 
 										if (log.executionType === "tool") {
@@ -159,9 +148,7 @@ export function AgentTaskStatus({
 												key={`${log.timestamp}-${idx}`}
 												className="flex items-start gap-2 w-full min-w-0"
 											>
-												<div className="w-4 flex justify-center shrink-0 mt-[5px]">
-													{icon}
-												</div>
+												<div className="w-4 flex justify-center shrink-0 mt-[5px]">{icon}</div>
 												<span className="text-[12px] text-muted leading-tight flex-1 min-w-0 break-words whitespace-pre-wrap">
 													{label}
 												</span>
@@ -169,9 +156,7 @@ export function AgentTaskStatus({
 										);
 									})}
 									{logs.length === 0 && (
-										<div className="text-[12px] text-muted/50 italic">
-											No events recorded yet.
-										</div>
+										<div className="text-[12px] text-muted/50 italic">No events recorded yet.</div>
 									)}
 								</div>
 							</div>

@@ -1,12 +1,12 @@
-import type z from "zod";
 import {
-	createdSchema,
+	type createdSchema,
 	createSchema,
-	listSchema,
-	patchSchema,
-	runAcceptedSchema,
-	workflowSchema,
+	type listSchema,
+	type patchSchema,
+	type runAcceptedSchema,
+	type workflowSchema,
 } from "@fluxify/server/src/api/v1/workflows/dto";
+import type z from "zod";
 import { httpClient } from "@/lib/http";
 import { canvasEndpoints } from "./canvas";
 

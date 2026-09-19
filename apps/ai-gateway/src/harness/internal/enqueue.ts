@@ -1,14 +1,14 @@
 import { generateID } from "@fluxify/lib";
 import { ConflictError } from "@fluxify/server";
-import { HarnessService, type HitlPlanAction } from "./harnessService";
-import { RedisService } from "./redisService";
 import {
+	type HarnessJobData,
+	type HarnessJobMetadata,
 	harnessContinueSubject,
 	harnessStartSubject,
 	publishHarnessJob,
-	type HarnessJobData,
-	type HarnessJobMetadata,
 } from "../queue";
+import { HarnessService, type HitlPlanAction } from "./harnessService";
+import { RedisService } from "./redisService";
 
 export interface EnqueueStartParams {
 	/** Reuse an existing conversation, or omit to create a fresh one. */

@@ -1,14 +1,14 @@
 import { logger } from "@fluxify/common";
 import { db } from "../db";
-import { createConfigStore, type ConfigRow } from "../db/configStore";
+import { type ConfigRow, createConfigStore } from "../db/configStore";
 import { instanceSettingsEntity } from "../db/schema";
+import { DEFAULT_BASE_DOMAIN } from "../lib/hosting";
 import {
 	INSTANCE_SETTINGS_REGISTRY,
-	InstanceSettingKey,
-	InstanceSettingValue,
+	type InstanceSettingKey,
+	type InstanceSettingValue,
 	isInstanceSettingKey,
 } from "../lib/instance-settings/schemas";
-import { DEFAULT_BASE_DOMAIN } from "../lib/hosting";
 
 /**
  * Instance settings, distributed over NATS KV — the first consumer of
@@ -89,9 +89,7 @@ export async function publishInstanceSetting(
 }
 
 /** Typed, nullable getter keyed by the discriminated union. */
-export function getSetting<K extends InstanceSettingKey>(
-	key: K,
-): InstanceSettingValue<K> | null {
+export function getSetting<K extends InstanceSettingKey>(key: K): InstanceSettingValue<K> | null {
 	return store.get(key) as InstanceSettingValue<K> | null;
 }
 

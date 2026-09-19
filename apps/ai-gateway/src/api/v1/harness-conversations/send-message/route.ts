@@ -1,9 +1,9 @@
+import { type User, zodErrorCallbackParser } from "@fluxify/server";
 import { zValidator } from "@hono/zod-validator";
-import { requestBodySchema, routeParamsSchema } from "./dto";
-import handleRequest from "./service";
-import { zodErrorCallbackParser, type User } from "@fluxify/server";
 import type { Hono } from "hono";
 import { verifyProjectAccess } from "../middleware";
+import { requestBodySchema, routeParamsSchema } from "./dto";
+import handleRequest from "./service";
 
 export default function (app: Hono) {
 	app.post(

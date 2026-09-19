@@ -1,8 +1,8 @@
-import { BaseAgent } from "./base";
-import { type GlobalGraphState, AgentNode } from "../types";
 import { dispatchAgentEvent } from "../callbacks";
-import { createHarnessTools } from "../tools";
 import { buildAgentContext } from "../internal/agentContext";
+import { createHarnessTools } from "../tools";
+import { AgentNode, type GlobalGraphState } from "../types";
+import { BaseAgent } from "./base";
 
 export class DiscussionAgent extends BaseAgent {
 	constructor(state: GlobalGraphState) {
@@ -103,8 +103,7 @@ Q: "What can I access inside the script block?" -> a lead sentence, then a bulle
 			agentNode: AgentNode.DISCUSSION,
 		});
 
-		let markdownContent =
-			typeof response === "string" ? response : response?.content || "";
+		let markdownContent = typeof response === "string" ? response : response?.content || "";
 
 		if (typeof markdownContent === "string") {
 			markdownContent = markdownContent

@@ -1,19 +1,19 @@
 import { logger } from "@fluxify/common";
 import { openKvBucket } from "@fluxify/common/nats";
 import {
-	ORCHESTRATOR_LEASE_BUCKET,
-	ORCHESTRATOR_LEASE_TTL_MS,
-	orchestratorKeys,
 	type InfraProvider,
 	type ObservedInventory,
 	type ObservedNode,
+	ORCHESTRATOR_LEASE_BUCKET,
+	ORCHESTRATOR_LEASE_TTL_MS,
+	orchestratorKeys,
 } from "@fluxify/common/orchestrator";
 import { initializeNats } from "../../db/nats";
-import { openAssignments, type Assignments } from "./assignments";
+import { type Assignments, openAssignments } from "./assignments";
 import { buildContainerSpec, nodeIdFor, type SpecOptions } from "./containerSpec";
+import { type PoolLimits, readDesiredState } from "./desired";
 import { drainNode, listManagedNodes, startNode } from "./docker";
-import { readDesiredState, type PoolLimits } from "./desired";
-import { planReconcile, type PlanAction } from "./plan";
+import { type PlanAction, planReconcile } from "./plan";
 import type { DesiredNode } from "./projection";
 import { recordEvent, syncNodeRows } from "./records";
 

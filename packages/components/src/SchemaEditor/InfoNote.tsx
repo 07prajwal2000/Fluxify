@@ -3,13 +3,7 @@ import type { ReactNode } from "react";
 import { TbInfoCircle } from "react-icons/tb";
 
 /** The one callout style used across the editor's tabs, drawer and panels. */
-export function InfoNote({
-	children,
-	className,
-}: {
-	children: ReactNode;
-	className?: string;
-}) {
+export function InfoNote({ children, className }: { children: ReactNode; className?: string }) {
 	return (
 		<div
 			className={clsx(
@@ -18,9 +12,7 @@ export function InfoNote({
 			)}
 		>
 			<TbInfoCircle aria-hidden className="mt-0.5 size-4 shrink-0 text-accent" />
-			<div className="text-xs leading-relaxed text-muted-foreground">
-				{children}
-			</div>
+			<div className="text-xs leading-relaxed text-muted-foreground">{children}</div>
 		</div>
 	);
 }

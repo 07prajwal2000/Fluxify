@@ -41,11 +41,7 @@ export function DataTypeSelect({
 			<Select.Popover>
 				<ListBox>
 					{options.map((option) => (
-						<ListBox.Item
-							id={option.value}
-							key={option.value}
-							textValue={option.label}
-						>
+						<ListBox.Item id={option.value} key={option.value} textValue={option.label}>
 							{option.label}
 							<ListBox.ItemIndicator />
 						</ListBox.Item>

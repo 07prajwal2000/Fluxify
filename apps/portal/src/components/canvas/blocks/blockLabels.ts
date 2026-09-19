@@ -1,5 +1,5 @@
-import { blockDefinition, type BlockDefinition } from "./blockCatalog";
 import type { BlockData } from "../types";
+import { type BlockDefinition, blockDefinition } from "./blockCatalog";
 
 /**
  * The server fills these in for every block when nothing was typed, so they are

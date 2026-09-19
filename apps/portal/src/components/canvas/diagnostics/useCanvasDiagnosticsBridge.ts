@@ -1,13 +1,13 @@
-import { useCallback, useEffect, useMemo, useRef } from "react";
 import { useReactFlow } from "@xyflow/react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import { flowToGraph } from "../adapters";
-import type { CanvasPanel } from "../panel/useBlockPanel";
 import { DIAGNOSTICS_TAB } from "../panel/BlockSettings";
+import type { CanvasPanel } from "../panel/useBlockPanel";
 import type { BlockEdge, BlockNode } from "../types";
-import { CYCLE_DETECTION_SOURCE, validateCycles } from "./cycleValidator";
-import { SWITCH_SOURCE, validateSwitches } from "./switchValidator";
 import { BLOCK_CONFIG_SOURCE, validateBlockConfigs } from "./blockConfigValidator";
+import { CYCLE_DETECTION_SOURCE, validateCycles } from "./cycleValidator";
 import { useBlockDiagnostics } from "./DiagnosticsContext";
+import { SWITCH_SOURCE, validateSwitches } from "./switchValidator";
 
 export type UseCanvasDiagnosticsBridgeOptions = {
 	nodes: BlockNode[];
@@ -66,9 +66,7 @@ export function useCanvasDiagnosticsBridge({
 		(blockId: string, tab: string = DIAGNOSTICS_TAB) => {
 			const targetNode = nodes.find((n) => n.id === blockId);
 			if (targetNode) {
-				setNodes((current) =>
-					current.map((n) => ({ ...n, selected: n.id === blockId })),
-				);
+				setNodes((current) => current.map((n) => ({ ...n, selected: n.id === blockId })));
 				setCenter(targetNode.position.x + 80, targetNode.position.y + 40, {
 					duration: 300,
 				});

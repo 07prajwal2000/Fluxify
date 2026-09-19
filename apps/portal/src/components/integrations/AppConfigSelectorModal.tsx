@@ -1,14 +1,6 @@
+import { Button, Chip, CloseButton, cn, Input, Modal, Spinner } from "@fluxify/components";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Button, Chip, CloseButton, Input, Modal, Spinner, cn } from "@fluxify/components";
-import {
-	TbCheck,
-	TbKey,
-	TbLock,
-	TbRefresh,
-	TbSearch,
-	TbVariable,
-	TbX,
-} from "react-icons/tb";
+import { TbCheck, TbKey, TbLock, TbRefresh, TbSearch, TbVariable, TbX } from "react-icons/tb";
 import { appConfigQuery } from "@/query/appConfigQuery";
 
 /**
@@ -60,19 +52,13 @@ export function AppConfigSelectorModal({
 		}
 	}, [isOpen]);
 
-	const {
-		data,
-		isLoading,
-		isFetchingNextPage,
-		hasNextPage,
-		fetchNextPage,
-		refetch,
-	} = appConfigQuery.getAll.useInfiniteQuery(projectId, {
-		perPage: 50,
-		search: debouncedSearch,
-		sortBy: "keyName",
-		sort: "asc",
-	});
+	const { data, isLoading, isFetchingNextPage, hasNextPage, fetchNextPage, refetch } =
+		appConfigQuery.getAll.useInfiniteQuery(projectId, {
+			perPage: 50,
+			search: debouncedSearch,
+			sortBy: "keyName",
+			sort: "asc",
+		});
 
 	// Infinite scroll observer
 	useEffect(() => {
@@ -96,14 +82,11 @@ export function AppConfigSelectorModal({
 		const all = extraItems ?? [];
 		if (!q) return all;
 		return all.filter(
-			(e) =>
-				e.label.toLowerCase().includes(q) || e.value.toLowerCase().includes(q),
+			(e) => e.label.toLowerCase().includes(q) || e.value.toLowerCase().includes(q),
 		);
 	}, [extraItems, debouncedSearch]);
 
-	const activeKey = selectedValue.startsWith("cfg:")
-		? selectedValue.slice(4)
-		: selectedValue;
+	const activeKey = selectedValue.startsWith("cfg:") ? selectedValue.slice(4) : selectedValue;
 
 	function handleSelect(keyName: string) {
 		onSelect(keyName);
@@ -187,9 +170,7 @@ export function AppConfigSelectorModal({
 										<p className="text-sm font-medium text-foreground">
 											No keys matching &ldquo;{debouncedSearch}&rdquo;
 										</p>
-										<p className="mt-1 text-xs text-muted">
-											Try adjusting your search terms.
-										</p>
+										<p className="mt-1 text-xs text-muted">Try adjusting your search terms.</p>
 										<Button
 											variant="outline"
 											size="sm"
@@ -206,7 +187,8 @@ export function AppConfigSelectorModal({
 											No configuration keys found
 										</p>
 										<p className="mt-1 max-w-xs text-xs text-muted">
-											You can create configuration keys and secrets in Project Settings &rarr; App Config.
+											You can create configuration keys and secrets in Project Settings &rarr; App
+											Config.
 										</p>
 									</div>
 								)
@@ -242,9 +224,7 @@ export function AppConfigSelectorModal({
 															{extra.label}
 														</span>
 														{extra.hint && (
-															<span className="truncate text-[11px] text-muted">
-																{extra.hint}
-															</span>
+															<span className="truncate text-[11px] text-muted">{extra.hint}</span>
 														)}
 													</span>
 													<Chip
@@ -295,9 +275,13 @@ export function AppConfigSelectorModal({
 														{item.isEncrypted ? <TbLock size={15} /> : <TbKey size={15} />}
 													</span>
 													<span className="truncate font-mono text-xs font-semibold text-foreground">
-															{item.keyName}
+														{item.keyName}
 													</span>
-													<Chip size="sm" color="accent" className="text-[11px] font-medium shrink-0">
+													<Chip
+														size="sm"
+														color="accent"
+														className="text-[11px] font-medium shrink-0"
+													>
 														{item.dataType || "string"}
 													</Chip>
 													{item.isEncrypted && (
@@ -338,12 +322,7 @@ export function AppConfigSelectorModal({
 						<Modal.Footer className="flex items-center justify-between border-t border-border px-6 pb-5 pt-3">
 							<div>
 								{activeKey ? (
-									<Button
-										variant="outline"
-										size="sm"
-										onPress={handleClear}
-										className="text-xs"
-									>
+									<Button variant="outline" size="sm" onPress={handleClear} className="text-xs">
 										<TbX size={13} /> Clear selection
 									</Button>
 								) : null}

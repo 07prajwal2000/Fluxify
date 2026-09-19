@@ -1,18 +1,8 @@
-import {
-	AIMessage,
-	BaseMessage,
-	HumanMessage,
-	ToolMessage,
-} from "@langchain/core/messages";
-import { StructuredTool, tool } from "@langchain/core/tools";
 import { logger } from "@fluxify/common";
+import { AIMessage, type BaseMessage, HumanMessage, ToolMessage } from "@langchain/core/messages";
+import { type StructuredTool, tool } from "@langchain/core/tools";
 import { z } from "zod";
-import {
-	summarizeToolResult,
-	parseJsonLoose,
-	extractText,
-	cleanJsonOutput,
-} from "./jsonUtils";
+import { cleanJsonOutput, extractText, parseJsonLoose, summarizeToolResult } from "./jsonUtils";
 
 /** Message plumbing for the tool-execution loop in `base.ts`. */
 
@@ -48,8 +38,7 @@ export function compactToolHistory(messages: BaseMessage[]): void {
 			// summarizeToolResult only understands JSON; markdown tables and prose
 			// fall back to a head slice.
 			content: `[earlier result from ${msg.name ?? "tool"}, condensed] ${
-				summarizeToolResult(text) ??
-				(text.length > 300 ? `${text.slice(0, 300)}…` : text)
+				summarizeToolResult(text) ?? (text.length > 300 ? `${text.slice(0, 300)}…` : text)
 			}`,
 			additional_kwargs: { ...msg.additional_kwargs, compacted: true },
 		});
@@ -81,9 +70,7 @@ export const SUBMIT_RESULT_INSTRUCTION = `When you have everything you need, del
  * Returns undefined for non-object schemas (tool arguments are always an object
  * shape); the caller then keeps the old two-call path.
  */
-export function makeSubmitResultTool(
-	schema: z.ZodType<any>,
-): StructuredTool | undefined {
+export function makeSubmitResultTool(schema: z.ZodType<any>): StructuredTool | undefined {
 	if (!(schema instanceof z.ZodObject)) return undefined;
 	// The implementation is never reached — the tool loop intercepts the call by
 	// name and returns its arguments as the result.
@@ -96,10 +83,7 @@ export function makeSubmitResultTool(
 }
 
 /** Parses free text against the schema, or undefined if it isn't a match. */
-export function parseAsSchema<T>(
-	schema: z.ZodType<any>,
-	text: string,
-): T | undefined {
+export function parseAsSchema<T>(schema: z.ZodType<any>, text: string): T | undefined {
 	if (!text.trim()) return undefined;
 	try {
 		return schema.parse(parseJsonLoose(cleanJsonOutput(text))) as T;
@@ -135,9 +119,7 @@ export function toolCallsOf(message: unknown): unknown[] {
 	if (m?.getType?.() !== "ai") return [];
 	return [
 		...(Array.isArray(m.tool_calls) ? m.tool_calls : []),
-		...(Array.isArray(m.additional_kwargs?.tool_calls)
-			? m.additional_kwargs.tool_calls
-			: []),
+		...(Array.isArray(m.additional_kwargs?.tool_calls) ? m.additional_kwargs.tool_calls : []),
 	];
 }
 
@@ -212,11 +194,7 @@ export function flattenToolMessages(messages: BaseMessage[]): BaseMessage[] {
 	}
 
 	if (findings.length > 0) {
-		out.push(
-			new HumanMessage(
-				`Results of the tools you called:\n\n${findings.join("\n\n")}`,
-			),
-		);
+		out.push(new HumanMessage(`Results of the tools you called:\n\n${findings.join("\n\n")}`));
 	}
 	return out;
 }
@@ -226,14 +204,10 @@ export function flattenToolMessages(messages: BaseMessage[]): BaseMessage[] {
  * HARNESS_DEBUG_PROMPT=1 — a run's prompt growth is invisible otherwise, and
  * "the block builder is slow" is usually "its history grew to six figures".
  */
-export function debugPrompt(
-	agentNode: string | undefined,
-	messages: BaseMessage[],
-): void {
+export function debugPrompt(agentNode: string | undefined, messages: BaseMessage[]): void {
 	if (process.env.HARNESS_DEBUG_PROMPT !== "1") return;
 	const size = (m: BaseMessage) =>
-		JSON.stringify(m.content).length +
-		JSON.stringify(m.additional_kwargs ?? {}).length;
+		JSON.stringify(m.content).length + JSON.stringify(m.additional_kwargs ?? {}).length;
 	logger.info("[Harness] prompt", {
 		agent: agentNode,
 		messages: messages.length,
@@ -268,8 +242,7 @@ export function asHistoryMessage(response: unknown, cleaned: string): AIMessage 
 	const { tool_calls: _tc, ...kwargs } = raw.additional_kwargs ?? {};
 	const hasToolCalls = toolCallsOf(response).length > 0;
 
-	if (hasContent && response instanceof AIMessage && !hasToolCalls)
-		return response;
+	if (hasContent && response instanceof AIMessage && !hasToolCalls) return response;
 
 	return new AIMessage({
 		content: hasContent

@@ -1,5 +1,5 @@
-import { testSuiteCoreSchema } from "../schema";
 import { z } from "zod";
+import { testSuiteCoreSchema } from "../schema";
 
 export const requestBodySchema = z.object({
 	name: z.string().describe("Name of the test suite"),

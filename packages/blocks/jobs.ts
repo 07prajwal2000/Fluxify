@@ -153,9 +153,7 @@ export function jobQueueAvailable() {
  */
 export function enqueueJob(job: JobRequest) {
 	if (!enqueuer) {
-		throw new Error(
-			`No job queue is configured — cannot queue ${job.kind} "${job.target}"`,
-		);
+		throw new Error(`No job queue is configured — cannot queue ${job.kind} "${job.target}"`);
 	}
 	enqueuer(job);
 }

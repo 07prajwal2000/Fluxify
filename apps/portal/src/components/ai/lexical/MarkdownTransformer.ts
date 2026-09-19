@@ -77,11 +77,7 @@ export function insertMarkdownAtSelection(text: string) {
 
 		RESOURCE_REGEX.lastIndex = 0;
 
-		for (
-			let match = RESOURCE_REGEX.exec(line);
-			match !== null;
-			match = RESOURCE_REGEX.exec(line)
-		) {
+		for (let match = RESOURCE_REGEX.exec(line); match !== null; match = RESOURCE_REGEX.exec(line)) {
 			const matchIndex = match.index;
 			const fullMatch = match[0];
 			const type = match[1];

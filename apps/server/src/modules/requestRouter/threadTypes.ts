@@ -1,6 +1,6 @@
-import type { ArtifactEntry } from "./compiledRuntime";
-import type { AsyncExecutorLimits } from "./asyncExecutor";
 import type { JobEnvelope } from "../jobs/types";
+import type { AsyncExecutorLimits } from "./asyncExecutor";
+import type { ArtifactEntry } from "./compiledRuntime";
 
 /** handed to the isolated execution process over Bun IPC at spawn */
 export type ExecutionBootstrap = {
@@ -54,5 +54,5 @@ export type ExecutionEvent =
 			requestId: string;
 			routeId: string;
 			timeoutMs: number;
-		}
+	  }
 	| { type: "execution-finished"; requestId: string };

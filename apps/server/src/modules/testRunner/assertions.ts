@@ -34,16 +34,13 @@ export function buildSuiteRequest(
 	// an unfilled param stays as ":id" rather than becoming "undefined", so the
 	// route simply does not match and the failure names the missing param
 	const path = Object.entries(params).reduce(
-		(acc, [key, value]) =>
-			acc.replace(`:${key}`, encodeURIComponent(value || `:${key}`)),
+		(acc, [key, value]) => acc.replace(`:${key}`, encodeURIComponent(value || `:${key}`)),
 		route.path || "",
 	);
 
 	const headers = { ...((suite.headers as Record<string, string>) || {}) };
 	const method = (route.method || "GET").toUpperCase();
-	const hasContentType = Object.keys(headers).some(
-		(k) => k.toLowerCase() === "content-type",
-	);
+	const hasContentType = Object.keys(headers).some((k) => k.toLowerCase() === "content-type");
 	if (!hasContentType && ["POST", "PUT"].includes(method)) {
 		headers["Content-Type"] = "application/json";
 	}
@@ -132,13 +129,9 @@ function compare(a: AssertionType, actualValue: unknown) {
 
 	switch (a.operator) {
 		case "eq":
-			return numeric
-				? Number(actualValue) === Number(expected)
-				: actualStr === expected;
+			return numeric ? Number(actualValue) === Number(expected) : actualStr === expected;
 		case "neq":
-			return numeric
-				? Number(actualValue) !== Number(expected)
-				: actualStr !== expected;
+			return numeric ? Number(actualValue) !== Number(expected) : actualStr !== expected;
 		case "lt":
 			return Number(actualValue) < Number(expected);
 		case "gt":
@@ -170,18 +163,13 @@ function compare(a: AssertionType, actualValue: unknown) {
  * The return shape is the one the frontend already renders — do not change it
  * without changing `SuiteRunResult` and the UI together.
  */
-export async function evaluateAssertions(
-	assertions: AssertionType[],
-	ctx: AssertionContext,
-) {
+export async function evaluateAssertions(assertions: AssertionType[], ctx: AssertionContext) {
 	const result = await Promise.all(
 		assertions.map(async (a) => {
 			try {
 				const { value: actualValue, desc: targetDesc } = await actualFor(a, ctx);
 				const passed =
-					a.target === "customJs"
-						? new JsVM({}).truthy(actualValue)
-						: compare(a, actualValue);
+					a.target === "customJs" ? new JsVM({}).truthy(actualValue) : compare(a, actualValue);
 
 				const actualStr = actualValue == null ? "" : String(actualValue);
 				const opStr = a.operator ? a.operator.replace("_", " ") : "";

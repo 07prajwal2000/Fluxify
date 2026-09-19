@@ -1,24 +1,24 @@
 import {
 	Button,
+	cn,
 	DeleteIconButton,
 	JavaScriptTextArea,
 	Label,
 	ListBox,
 	Select,
-	cn,
 } from "@fluxify/components";
 import { TbPlus } from "react-icons/tb";
 import {
 	ASSERTION_TARGETS,
-	OPERATOR_LABELS,
-	TARGET_LABELS,
 	type Assertion,
 	type AssertionOperator,
 	type AssertionTarget,
 	allowsPropertyPath,
 	needsExpectedValue,
 	normalizeAssertion,
+	OPERATOR_LABELS,
 	operatorsFor,
+	TARGET_LABELS,
 	validateAssertions,
 } from "./assertions";
 
@@ -75,12 +75,7 @@ function AssertionRow({
 		<div className="rounded-lg border border-border bg-background-secondary p-3">
 			{/* items-start only for customJs, whose editor is several rows tall;
 			    every other row is a single line and should sit on one baseline */}
-			<div
-				className={cn(
-					"flex gap-2",
-					target === "customJs" ? "items-start" : "items-center",
-				)}
-			>
+			<div className={cn("flex gap-2", target === "customJs" ? "items-start" : "items-center")}>
 				<Select
 					aria-label="Assertion target"
 					selectedKey={target}
@@ -94,11 +89,7 @@ function AssertionRow({
 					<Select.Popover>
 						<ListBox>
 							{ASSERTION_TARGETS.map((item) => (
-								<ListBox.Item
-									key={item}
-									id={item}
-									textValue={TARGET_LABELS[item]}
-								>
+								<ListBox.Item key={item} id={item} textValue={TARGET_LABELS[item]}>
 									<span className="text-xs">{TARGET_LABELS[item]}</span>
 									<ListBox.ItemIndicator />
 								</ListBox.Item>
@@ -118,8 +109,8 @@ function AssertionRow({
 						<span className="mt-1 block text-xs text-muted">
 							Receives <code>fluxify.response.</code>(<code>status</code>, <code>body</code>,{" "}
 							<code>headers</code>) and <code>fluxify.request.</code>(<code>path</code>,{" "}
-							<code>headers</code>, <code>query</code>,{" "}
-							<code>params</code>, <code>body</code>). A truthy result passes.
+							<code>headers</code>, <code>query</code>, <code>params</code>, <code>body</code>). A
+							truthy result passes.
 						</span>
 					</div>
 				) : (
@@ -129,24 +120,16 @@ function AssertionRow({
 						{(target === "header" || allowsPropertyPath(target)) && (
 							<input
 								className={cn(inputClass, "min-w-[8rem] flex-1")}
-								placeholder={
-									target === "header"
-										? "Header name"
-										: "Property path (optional)"
-								}
+								placeholder={target === "header" ? "Header name" : "Property path (optional)"}
 								value={assertion.propertyPath ?? ""}
-								onChange={(e) =>
-									onChange({ ...assertion, propertyPath: e.target.value })
-								}
+								onChange={(e) => onChange({ ...assertion, propertyPath: e.target.value })}
 							/>
 						)}
 
 						<Select
 							aria-label="Operator"
 							selectedKey={operator ?? null}
-							onSelectionChange={(key) =>
-								key && setOperator(key as AssertionOperator)
-							}
+							onSelectionChange={(key) => key && setOperator(key as AssertionOperator)}
 							className="w-36 shrink-0"
 						>
 							<Select.Trigger>
@@ -160,11 +143,7 @@ function AssertionRow({
 									{/* only the operators this target accepts — the invalid pairs
 									    the server rejects are never offered */}
 									{operatorsFor(target).map((item) => (
-										<ListBox.Item
-											key={item}
-											id={item}
-											textValue={OPERATOR_LABELS[item]}
-										>
+										<ListBox.Item key={item} id={item} textValue={OPERATOR_LABELS[item]}>
 											<span className="text-xs">{OPERATOR_LABELS[item]}</span>
 											<ListBox.ItemIndicator />
 										</ListBox.Item>
@@ -176,24 +155,16 @@ function AssertionRow({
 						{needsExpectedValue(target, operator) && (
 							<input
 								className={cn(inputClass, "min-w-[6rem] flex-1")}
-								inputMode={
-									target === "status" || target === "time" ? "numeric" : "text"
-								}
+								inputMode={target === "status" || target === "time" ? "numeric" : "text"}
 								placeholder="Expected value"
 								value={assertion.expectedValue ?? ""}
-								onChange={(e) =>
-									onChange({ ...assertion, expectedValue: e.target.value })
-								}
+								onChange={(e) => onChange({ ...assertion, expectedValue: e.target.value })}
 							/>
 						)}
 					</div>
 				)}
 
-				<DeleteIconButton
-					aria-label="Remove assertion"
-					size="sm"
-					onPress={onRemove}
-				/>
+				<DeleteIconButton aria-label="Remove assertion" size="sm" onPress={onRemove} />
 			</div>
 
 			{error && <p className="mt-2 text-xs text-danger">{error}</p>}
@@ -222,10 +193,7 @@ export function AssertionsEditor({
 					variant="outline"
 					size="sm"
 					onPress={() =>
-						onChange([
-							...assertions,
-							{ target: "status", operator: "eq", expectedValue: "200" },
-						])
+						onChange([...assertions, { target: "status", operator: "eq", expectedValue: "200" }])
 					}
 				>
 					<TbPlus size={15} /> Add assertion
@@ -234,8 +202,7 @@ export function AssertionsEditor({
 
 			{assertions.length === 0 ? (
 				<div className="rounded-lg border border-dashed border-border p-6 text-center text-xs text-muted">
-					No assertions yet. A suite without one only checks that the route
-					runs.
+					No assertions yet. A suite without one only checks that the route runs.
 				</div>
 			) : (
 				assertions.map((assertion, index) => (

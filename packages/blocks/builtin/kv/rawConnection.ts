@@ -1,5 +1,5 @@
 import z from "zod";
-import { baseBlockDataSchema, Context } from "../../baseBlock";
+import { baseBlockDataSchema, type Context } from "../../baseBlock";
 import { BlockTypes } from "../../blockTypes";
 import type { EmitNode } from "../../compiler";
 import { kvAdapterFor, kvFailure } from "./schema";
@@ -27,11 +27,7 @@ export const kvRawAiDescription = {
  * exactly as the native db block does it with `dbQuery`. Inlined user code
  * reaches it through the scope proxy.
  */
-export async function runKvRaw(
-	context: Context,
-	connection: string,
-	body: () => Promise<unknown>,
-) {
+export async function runKvRaw(context: Context, connection: string, body: () => Promise<unknown>) {
 	const adapter = kvAdapterFor(context, connection);
 	const vars = context.vars as Record<string, any>;
 	vars.kv = adapter.getConnection();

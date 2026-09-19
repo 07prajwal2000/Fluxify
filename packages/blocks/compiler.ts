@@ -1,15 +1,7 @@
-import {
-	type BlockOutput,
-	type Context,
-	outputVariableName,
-} from "./baseBlock";
+import { type BlockOutput, type Context, outputVariableName } from "./baseBlock";
 import { FAN_OUT_HANDLES, sortByOrder } from "./blockHandles";
 import { BlockTypes } from "./blockTypes";
-import type {
-	BlockDTOType,
-	EdgeDTOSchemaType,
-	EdgesType,
-} from "./builderTypes";
+import type { BlockDTOType, EdgeDTOSchemaType, EdgesType } from "./builderTypes";
 import { emitCustomBlock, hasCustomBlock } from "./builtin/customBlock";
 import { emitWorkflowEnd } from "./builtin/response";
 import { type HoistedImport, hoistImports } from "./imports";
@@ -96,11 +88,7 @@ type CompiledRun = (ctx: Context, input?: unknown) => Promise<BlockOutput>;
 
 const AsyncFunction = Object.getPrototypeOf(async () => {}).constructor as new (
 	...args: string[]
-) => (
-	ctx: Context,
-	input: unknown,
-	lib: typeof compilerLib,
-) => Promise<BlockOutput>;
+) => (ctx: Context, input: unknown, lib: typeof compilerLib) => Promise<BlockOutput>;
 
 const CompiledRouteFactory = Function as unknown as new (
 	...args: string[]
@@ -111,8 +99,7 @@ function buildEdgeMap(edges: EdgeDTOSchemaType): EdgesType {
 	const map: EdgesType = {};
 	for (const edge of edges) {
 		let handle = edge.toHandle;
-		if (handle.includes("-"))
-			handle = handle.substring(handle.lastIndexOf("-") + 1);
+		if (handle.includes("-")) handle = handle.substring(handle.lastIndexOf("-") + 1);
 		const outgoing = { to: edge.to, handle };
 		if (edge.from in map) map[edge.from].push(outgoing);
 		else map[edge.from] = [outgoing];
@@ -184,39 +171,29 @@ export function compileGraph(
 	 * `ensureCustomBlocksRegistered`) every other route in the project.
 	 */
 	function edgeTo(id: string, handle: string) {
-		const outgoing =
-			edgeMap[id]?.filter((edge) => edge.handle === handle) ?? [];
+		const outgoing = edgeMap[id]?.filter((edge) => edge.handle === handle) ?? [];
 		if (outgoing.length > 1) {
 			throw new Error(
 				`Block ${id} has ${outgoing.length} outgoing edges on handle ${handle}; multi-edge fan-out is not supported yet`,
 			);
 		}
 		const to = outgoing[0]?.to;
-		return byId.get(to ?? "")?.type === BlockTypes.errorHandler
-			? undefined
-			: to;
+		return byId.get(to ?? "")?.type === BlockTypes.errorHandler ? undefined : to;
 	}
 
 	/** targets of every edge on a fan-out handle, sorted by the block's stored `order` */
 	function fanOutTargets(id: string, handle: string, order: string[]) {
 		const outgoing = (edgeMap[id] ?? []).filter(
-			(edge) =>
-				edge.handle === handle &&
-				byId.get(edge.to)?.type !== BlockTypes.errorHandler,
+			(edge) => edge.handle === handle && byId.get(edge.to)?.type !== BlockTypes.errorHandler,
 		);
-		return sortByOrder(outgoing, order, (edge) => edge.to).map(
-			(edge) => edge.to,
-		);
+		return sortByOrder(outgoing, order, (edge) => edge.to).map((edge) => edge.to);
 	}
 
 	function validateEdges() {
 		for (const [id, outgoing] of Object.entries(edgeMap)) {
 			const countByHandle = new Map<string, number>();
 			for (const edge of outgoing) {
-				countByHandle.set(
-					edge.handle,
-					(countByHandle.get(edge.handle) ?? 0) + 1,
-				);
+				countByHandle.set(edge.handle, (countByHandle.get(edge.handle) ?? 0) + 1);
 			}
 			for (const [handle, count] of countByHandle) {
 				if (count > 1 && !FAN_OUT_HANDLES.includes(handle)) edgeTo(id, handle);
@@ -243,8 +220,7 @@ export function compileGraph(
 		visiting.add(id);
 		emissionOrder.push(id);
 		for (const edge of edgeMap[id] ?? []) {
-			if (byId.get(edge.to)?.type !== BlockTypes.errorHandler)
-				collectReachable(edge.to);
+			if (byId.get(edge.to)?.type !== BlockTypes.errorHandler) collectReachable(edge.to);
 		}
 		visiting.delete(id);
 		reachable.add(id);
@@ -297,24 +273,18 @@ export function compileGraph(
 	 */
 	function emitImports() {
 		// side-effect-only imports bind nothing but still have to be loaded
-		if (!importsBySpec.size)
-			return { declarations: "", ready: "", scopeSkip: "" };
+		if (!importsBySpec.size) return { declarations: "", ready: "", scopeSkip: "" };
 		const names = [...importOwners.keys()];
 		const loads = [...importsBySpec].map(([spec, bound], index) => {
 			const namespace = `$mod_${index}`;
-			const lines = [
-				`const ${namespace} = await import(${JSON.stringify(spec)});`,
-			];
+			const lines = [`const ${namespace} = await import(${JSON.stringify(spec)});`];
 			const destructured: string[] = [];
 			for (const [local, imported] of bound) {
 				if (imported === null) lines.push(`${local} = ${namespace};`);
 				// default interop: a CJS module has no `default`, it is the export
 				else if (imported === "default")
 					lines.push(`${local} = ${namespace}.default ?? ${namespace};`);
-				else
-					destructured.push(
-						local === imported ? local : `${imported}: ${local}`,
-					);
+				else destructured.push(local === imported ? local : `${imported}: ${local}`);
 			}
 			if (destructured.length) {
 				lines.push(`({ ${destructured.join(", ")} } = ${namespace});`);
@@ -324,9 +294,7 @@ export function compileGraph(
 		return {
 			declarations: [
 				names.length ? `let ${names.join(", ")};` : "",
-				names.length
-					? `const $importNames = new Set(${JSON.stringify(names)});`
-					: "",
+				names.length ? `const $importNames = new Set(${JSON.stringify(names)});` : "",
 				"let $importsReady = false;",
 				`const $imports = (async () => {\n${loads.join(
 					"\n",
@@ -358,11 +326,7 @@ export function compileGraph(
 		const blockId = JSON.stringify(block.id);
 		const blockType = JSON.stringify(block.type);
 
-		function recordSpan(
-			output: string,
-			error?: string,
-			branch?: "success" | "failure",
-		) {
+		function recordSpan(output: string, error?: string, branch?: "success" | "failure") {
 			const outcome = error === undefined ? "success" : "failure";
 			const branchField = branch ? `, branch: ${JSON.stringify(branch)}` : "";
 			const errorField = error === undefined ? "" : `, error: ${error}`;
@@ -384,19 +348,15 @@ $trace.recordSpan(${span});
 			next(handle = "source") {
 				const to = edgeTo(id, handle);
 				const branch =
-					block.type === BlockTypes.if &&
-					(handle === "success" || handle === "failure")
+					block.type === BlockTypes.if && (handle === "success" || handle === "failure")
 						? handle
 						: undefined;
 				const continuation = to
 					? `return await ${blockFunctionName(to)}($state, $in, $end);`
 					: "return $end($in);";
-				const saveAs =
-					handle === "source" ? outputVariableName(block.data) : undefined;
+				const saveAs = handle === "source" ? outputVariableName(block.data) : undefined;
 				// vars is per request, so outputs never leak into the next one
-				const save = saveAs
-					? `(vars.outputs ??= {})[${JSON.stringify(saveAs)}] = $in;\n`
-					: "";
+				const save = saveAs ? `(vars.outputs ??= {})[${JSON.stringify(saveAs)}] = $in;\n` : "";
 				return `${save}${recordSpan("$in", undefined, branch)}
 ${continuation}`;
 			},

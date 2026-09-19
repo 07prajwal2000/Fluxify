@@ -1,15 +1,15 @@
-import { BlockTypes } from "../../blockTypes";
 import z from "zod";
-import { baseBlockDataSchema, Context } from "../../baseBlock";
+import { baseBlockDataSchema, type Context } from "../../baseBlock";
+import { BlockTypes } from "../../blockTypes";
+import type { EmitNode } from "../../compiler";
+import { emitWhereConditions } from "./emitConditions";
 import {
 	adapterFor,
-	dbWhereConditionsDescription,
 	dbFailure,
+	dbWhereConditionsDescription,
 	joinSchema,
 	whereConditionSchema,
 } from "./schema";
-import { emitWhereConditions } from "./emitConditions";
-import type { EmitNode } from "../../compiler";
 
 export const getAllDbBlockSchema = z
 	.object({
@@ -24,16 +24,8 @@ export const getAllDbBlockSchema = z
 			.describe(
 				"list of columns to select with aliases if any (e.g. column1 or table.column2 AS column2 or table.*)",
 			),
-		limit: z
-			.int()
-			.or(z.string())
-			.default(1000)
-			.describe("limit (supports js expressions)"),
-		offset: z
-			.int()
-			.or(z.string())
-			.default(0)
-			.describe("skip count (supports js expressions)"),
+		limit: z.int().or(z.string()).default(1000).describe("limit (supports js expressions)"),
+		offset: z.int().or(z.string()).default(0).describe("skip count (supports js expressions)"),
 		sort: z
 			.object({
 				attribute: z.string().describe("sort attribute"),

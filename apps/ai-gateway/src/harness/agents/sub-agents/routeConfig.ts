@@ -1,97 +1,145 @@
-import { BaseAgent } from "../base";
-import { type GlobalGraphState, AgentNode } from "../../types";
-import { dispatchAgentEvent } from "../../callbacks";
-import { z } from "zod";
-import { searchDocsTool } from "../../tools/searchDocs";
-import { createGetRouteDetailsTool } from "../../tools/getRouteDetails";
 import { generateID } from "@fluxify/lib";
+import { z } from "zod";
+import { dispatchAgentEvent } from "../../callbacks";
 import { buildAgentContext } from "../../internal/agentContext";
+import { createGetRouteDetailsTool } from "../../tools/getRouteDetails";
+import { searchDocsTool } from "../../tools/searchDocs";
+import { AgentNode, type GlobalGraphState } from "../../types";
+import { BaseAgent } from "../base";
 
-const ruleSchema = z.object({
-	type: z.string(),
-	value: z.any().optional(),
-	message: z.string().optional(),
-}).strict();
+const ruleSchema = z
+	.object({
+		type: z.string(),
+		value: z.any().optional(),
+		message: z.string().optional(),
+	})
+	.strict();
 
-const paramFieldSchema = z.object({
-	key: z.string().min(1),
-	dataType: z.enum(["str", "int", "float", "bool", "enum"]),
-	required: z.boolean(),
-	rules: z.array(ruleSchema).optional(),
-}).strict();
-
-const queryFieldSchema = z.object({
-	key: z.string().min(1),
-	dataType: z.enum(["str", "int", "float", "bool", "arr", "enum"]),
-	required: z.boolean().optional(),
-	rules: z.array(ruleSchema).optional(),
-	items: z.object({
-		key: z.string(),
+const paramFieldSchema = z
+	.object({
+		key: z.string().min(1),
 		dataType: z.enum(["str", "int", "float", "bool", "enum"]),
+		required: z.boolean(),
 		rules: z.array(ruleSchema).optional(),
-	}).strict().optional(),
-}).strict();
+	})
+	.strict();
 
-const paramsSchemaOutput = z.object({
-	dataType: z.literal("object"),
-	properties: z.array(paramFieldSchema),
-}).strict();
+const queryFieldSchema = z
+	.object({
+		key: z.string().min(1),
+		dataType: z.enum(["str", "int", "float", "bool", "arr", "enum"]),
+		required: z.boolean().optional(),
+		rules: z.array(ruleSchema).optional(),
+		items: z
+			.object({
+				key: z.string(),
+				dataType: z.enum(["str", "int", "float", "bool", "enum"]),
+				rules: z.array(ruleSchema).optional(),
+			})
+			.strict()
+			.optional(),
+	})
+	.strict();
 
-const querySchemaOutput = z.object({
-	dataType: z.literal("object"),
-	properties: z.array(queryFieldSchema),
-}).strict();
+const paramsSchemaOutput = z
+	.object({
+		dataType: z.literal("object"),
+		properties: z.array(paramFieldSchema),
+	})
+	.strict();
 
-const BODY_TYPES = ["str", "int", "float", "bool", "object", "arr", "enum", "js", "file", "blob"] as const;
+const querySchemaOutput = z
+	.object({
+		dataType: z.literal("object"),
+		properties: z.array(queryFieldSchema),
+	})
+	.strict();
+
+const BODY_TYPES = [
+	"str",
+	"int",
+	"float",
+	"bool",
+	"object",
+	"arr",
+	"enum",
+	"js",
+	"file",
+	"blob",
+] as const;
 const FORM_CONTENT_TYPES = new Set(["application/x-www-form-urlencoded", "multipart/form-data"]);
-const bodyFieldSchema: z.ZodType = z.lazy(() => z.object({
-	key: z.string(),
-	dataType: z.enum(BODY_TYPES),
-	required: z.boolean().optional(),
-	rules: z.array(ruleSchema).optional(),
-	js: z.string().optional(),
-	properties: z.array(bodyFieldSchema).optional(),
-	items: bodyFieldSchema.optional(),
-}).strict());
-const bodySchemaOutput = z.object({
-	dataType: z.enum(BODY_TYPES),
-	properties: z.array(bodyFieldSchema).optional(),
-	items: bodyFieldSchema.optional(),
-	rules: z.array(ruleSchema).optional(),
-	js: z.string().optional(),
-}).strict();
-
-export const routeConfigOutputSchema = z.object({
-	action: z
-		.enum(["create", "delete", "update-partial"])
-		.describe("The operation to perform"),
-	routeId: z
-		.string()
-		.nullish()
-		.describe("The UUID of the route. Leave empty for create action."),
-	data: z
+const bodyFieldSchema: z.ZodType = z.lazy(() =>
+	z
 		.object({
-			name: z
-				.string()
-				.nullish()
-				.describe(
-					"Short human-readable name for the route, e.g. 'Create Order'. Required when creating.",
-				),
-			method: z.string().nullish(),
-			path: z.string().nullish(),
-			bodySchema: bodySchemaOutput.nullish(),
-			acceptedContentTypes: z.array(z.enum(["application/json", "application/x-www-form-urlencoded", "multipart/form-data", "application/octet-stream", "text/plain"])).min(1).nullish(),
-			paramsSchema: paramsSchemaOutput.nullish(),
-			querySchema: querySchemaOutput.nullish(),
+			key: z.string(),
+			dataType: z.enum(BODY_TYPES),
+			required: z.boolean().optional(),
+			rules: z.array(ruleSchema).optional(),
+			js: z.string().optional(),
+			properties: z.array(bodyFieldSchema).optional(),
+			items: bodyFieldSchema.optional(),
 		})
-		.nullish()
-		.describe("The configuration of the route"),
-}).superRefine((value, ctx) => {
-	if (!value.data?.bodySchema || !value.data.acceptedContentTypes?.some((type) => FORM_CONTENT_TYPES.has(type))) return;
-	if ((value.data.bodySchema.properties ?? []).some((field: any) => field.properties || field.items)) {
-		ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["data", "bodySchema"], message: "Form body schemas support top-level fields only." });
-	}
-});
+		.strict(),
+);
+const bodySchemaOutput = z
+	.object({
+		dataType: z.enum(BODY_TYPES),
+		properties: z.array(bodyFieldSchema).optional(),
+		items: bodyFieldSchema.optional(),
+		rules: z.array(ruleSchema).optional(),
+		js: z.string().optional(),
+	})
+	.strict();
+
+export const routeConfigOutputSchema = z
+	.object({
+		action: z.enum(["create", "delete", "update-partial"]).describe("The operation to perform"),
+		routeId: z.string().nullish().describe("The UUID of the route. Leave empty for create action."),
+		data: z
+			.object({
+				name: z
+					.string()
+					.nullish()
+					.describe(
+						"Short human-readable name for the route, e.g. 'Create Order'. Required when creating.",
+					),
+				method: z.string().nullish(),
+				path: z.string().nullish(),
+				bodySchema: bodySchemaOutput.nullish(),
+				acceptedContentTypes: z
+					.array(
+						z.enum([
+							"application/json",
+							"application/x-www-form-urlencoded",
+							"multipart/form-data",
+							"application/octet-stream",
+							"text/plain",
+						]),
+					)
+					.min(1)
+					.nullish(),
+				paramsSchema: paramsSchemaOutput.nullish(),
+				querySchema: querySchemaOutput.nullish(),
+			})
+			.nullish()
+			.describe("The configuration of the route"),
+	})
+	.superRefine((value, ctx) => {
+		if (
+			!value.data?.bodySchema ||
+			!value.data.acceptedContentTypes?.some((type) => FORM_CONTENT_TYPES.has(type))
+		)
+			return;
+		if (
+			(value.data.bodySchema.properties ?? []).some((field: any) => field.properties || field.items)
+		) {
+			ctx.addIssue({
+				code: z.ZodIssueCode.custom,
+				path: ["data", "bodySchema"],
+				message: "Form body schemas support top-level fields only.",
+			});
+		}
+	});
 
 const PARAM_DATA_TYPES = new Set(["str", "int", "float", "bool", "enum"]);
 const QUERY_DATA_TYPES = new Set([...PARAM_DATA_TYPES, "arr"]);
@@ -260,10 +308,7 @@ Determine the exact route configuration intent. Use your tools if you need more 
 
 		const tools = [
 			searchDocsTool,
-			createGetRouteDetailsTool(
-				this.state.internal.dbService,
-				this.state.internal?.metadata || {},
-			),
+			createGetRouteDetailsTool(this.state.internal.dbService, this.state.internal?.metadata || {}),
 		];
 
 		const response = (await this.state.agentWrapper.invokeAgent({
@@ -314,8 +359,7 @@ export const validateAgentOutput: import("../../types").AgentOutputValidator = (
 	}
 
 	if (
-		(typedResult.action === "update-partial" ||
-			typedResult.action === "delete") &&
+		(typedResult.action === "update-partial" || typedResult.action === "delete") &&
 		!typedResult.routeId
 	) {
 		return `Action '${typedResult.action}' requires a valid 'routeId'.`;
@@ -336,14 +380,19 @@ export const validateAgentOutput: import("../../types").AgentOutputValidator = (
 	if (typeof path === "string") {
 		const pathParams = Array.from(path.matchAll(/:([a-zA-Z0-9_]+)/g)).map((match) => match[1]!);
 		if (pathParams.length > 0) {
-			const error = parameterSchemaError(typedResult.data?.paramsSchema, "paramsSchema", PARAM_DATA_TYPES);
+			const error = parameterSchemaError(
+				typedResult.data?.paramsSchema,
+				"paramsSchema",
+				PARAM_DATA_TYPES,
+			);
 			if (error) return error;
 			const properties = typedResult.data?.paramsSchema?.properties ?? [];
 			const keys = properties.map((property: { key: string }) => property.key);
 			const missing = pathParams.find((key) => !keys.includes(key));
 			if (missing) return `paramsSchema is missing path parameter "${missing}".`;
 			const extra = keys.find((key: string) => !pathParams.includes(key));
-			if (extra) return `paramsSchema contains "${extra}", which is not declared in the route path.`;
+			if (extra)
+				return `paramsSchema contains "${extra}", which is not declared in the route path.`;
 			if (properties.some((property: { required?: unknown }) => property.required !== true)) {
 				return "Every paramsSchema property must set required: true.";
 			}
@@ -353,7 +402,11 @@ export const validateAgentOutput: import("../../types").AgentOutputValidator = (
 	}
 
 	if (typedResult.data?.querySchema != null) {
-		const error = parameterSchemaError(typedResult.data.querySchema, "querySchema", QUERY_DATA_TYPES);
+		const error = parameterSchemaError(
+			typedResult.data.querySchema,
+			"querySchema",
+			QUERY_DATA_TYPES,
+		);
 		if (error) return error;
 	}
 

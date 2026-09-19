@@ -1,28 +1,23 @@
 import "./tracing";
-import { isMainThread, Worker } from "worker_threads";
-import { runMain } from "./main";
-import { runWorker } from "./worker";
 import { initializeLogger } from "@fluxify/common";
+import { isMainThread, Worker } from "worker_threads";
 import {
-	OTLP_ENDPOINT,
-	OTLP_LOGGER_LEVEL,
-	OTLP_AUTH_HEADER_VALUE,
 	OTLP_AUTH_HEADER_NAME,
+	OTLP_AUTH_HEADER_VALUE,
+	OTLP_ENDPOINT,
 	OTLP_LOGGER_ENABLED,
+	OTLP_LOGGER_LEVEL,
 	validateEnv,
 } from "./lib/env";
+import { runMain } from "./main";
+import { runWorker } from "./worker";
 
 validateEnv();
-import {
-	drizzleInit,
-	initializeRedis,
-	initializePubSub,
-} from "@fluxify/server";
+
+import { drizzleInit, initializePubSub, initializeRedis } from "@fluxify/server";
 import { initializeHarnessQueue } from "./harness/queue";
 
-const serviceName = isMainThread
-	? "fluxify.api-gateway-main"
-	: "fluxify.api-gateway-worker";
+const serviceName = isMainThread ? "fluxify.api-gateway-main" : "fluxify.api-gateway-worker";
 
 initializeLogger({
 	serviceName,

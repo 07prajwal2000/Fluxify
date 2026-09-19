@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Button, cn, Input, Label, Sidebar, TextField } from "@fluxify/components";
+import { type ReactNode, useEffect, useMemo, useState } from "react";
 import {
 	TbArrowLeft,
 	TbBoxMultiple,
@@ -16,10 +16,10 @@ import {
 } from "react-icons/tb";
 import { CustomBlockIcon } from "@/components/customBlocks/IconPicker";
 import {
-	pickerBlockCatalogEntries,
-	blockIcon,
 	type BlockDefinition,
 	type BlockType,
+	blockIcon,
+	pickerBlockCatalogEntries,
 } from "./blocks";
 import { useCustomBlockDefs } from "./blocks/useCustomBlockDefs";
 import "./blockPickerSidebar.css";
@@ -90,15 +90,9 @@ export type BlockPickerSidebarProps = {
 };
 
 /** Core blocks from the catalog plus the project's own custom blocks. */
-export function BlockPickerSidebar({
-	isOpen,
-	onOpenChange,
-	onAdd,
-}: BlockPickerSidebarProps) {
+export function BlockPickerSidebar({ isOpen, onOpenChange, onAdd }: BlockPickerSidebarProps) {
 	const [query, setQuery] = useState("");
-	const [selectedCategory, setSelectedCategory] = useState<BlockCategory | null>(
-		null,
-	);
+	const [selectedCategory, setSelectedCategory] = useState<BlockCategory | null>(null);
 
 	useEffect(() => {
 		if (!isOpen) {
@@ -220,9 +214,7 @@ export function BlockPickerSidebar({
 									</span>
 									<span className="fx-block-picker__copy">
 										<span className="fx-block-picker__name">{category}</span>
-										<span className="fx-block-picker__description">
-											{details.description}
-										</span>
+										<span className="fx-block-picker__description">{details.description}</span>
 									</span>
 									<TbChevronRight className="fx-block-picker__chevron" aria-hidden />
 								</button>

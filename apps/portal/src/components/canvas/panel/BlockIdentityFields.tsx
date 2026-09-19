@@ -1,6 +1,6 @@
-import { useCallback, useState, type KeyboardEvent } from "react";
 import { Input, Label, TextArea, TextField } from "@fluxify/components";
 import { useReactFlow } from "@xyflow/react";
+import { type KeyboardEvent, useCallback, useState } from "react";
 import { useCanvasChanges } from "../changes/ChangesContext";
 import type { BlockData } from "../types";
 
@@ -27,11 +27,7 @@ type FieldBinding = {
  * change tracker sees one edit per field rather than one per keystroke. Empty
  * means "use the catalog text", which is what the placeholder shows.
  */
-function useBlockField(
-	blockId: string,
-	field: BlockField,
-	data: BlockData,
-): FieldBinding {
+function useBlockField(blockId: string, field: BlockField, data: BlockData): FieldBinding {
 	const { updateNodeData } = useReactFlow();
 	// Tracking disabled means a readonly canvas: show the value, don't edit it.
 	const { enabled: editable } = useCanvasChanges();
@@ -55,11 +51,7 @@ export type BlockFieldProps = {
 
 /** The block's name. */
 export function BlockNameInput({ blockId, data, placeholder }: BlockFieldProps) {
-	const { value, editable, onChange, commit } = useBlockField(
-		blockId,
-		"blockName",
-		data,
-	);
+	const { value, editable, onChange, commit } = useBlockField(blockId, "blockName", data);
 
 	const onKeyDown = useCallback((event: KeyboardEvent<HTMLInputElement>) => {
 		if (event.key === "Enter") event.currentTarget.blur();
@@ -70,7 +62,7 @@ export function BlockNameInput({ blockId, data, placeholder }: BlockFieldProps) 
 			fullWidth
 			variant="secondary"
 			isDisabled={!editable}
-      value={value}
+			value={value}
 			onChange={onChange}
 		>
 			<Label>Name</Label>
@@ -80,16 +72,8 @@ export function BlockNameInput({ blockId, data, placeholder }: BlockFieldProps) 
 }
 
 /** The block's description — two lines, growable. */
-export function BlockDescriptionField({
-	blockId,
-	data,
-	placeholder,
-}: BlockFieldProps) {
-	const { value, editable, onChange, commit } = useBlockField(
-		blockId,
-		"blockDescription",
-		data,
-	);
+export function BlockDescriptionField({ blockId, data, placeholder }: BlockFieldProps) {
+	const { value, editable, onChange, commit } = useBlockField(blockId, "blockDescription", data);
 
 	return (
 		<TextField

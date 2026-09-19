@@ -113,16 +113,8 @@ export function CredentialsUrlForm({
 						/>
 					)}
 					{hasSSL && (
-						<div
-							className={cn(
-								"flex items-end pb-1.5",
-								hasDatabase ? "" : "col-span-2",
-							)}
-						>
-							<Checkbox
-								isSelected={Boolean(config.useSSL)}
-								onChange={(v) => setField("useSSL", v)}
-							>
+						<div className={cn("flex items-end pb-1.5", hasDatabase ? "" : "col-span-2")}>
+							<Checkbox isSelected={Boolean(config.useSSL)} onChange={(v) => setField("useSSL", v)}>
 								Use SSL?
 							</Checkbox>
 						</div>

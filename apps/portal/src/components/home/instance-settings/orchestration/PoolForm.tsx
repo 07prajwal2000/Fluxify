@@ -1,7 +1,7 @@
-import { useEffect, useState } from "react";
 import { Button, Label, NumberField, toast } from "@fluxify/components";
-import { instanceSettingsQuery } from "@/query/instanceSettingsQuery";
+import { useEffect, useState } from "react";
 import { showErrorNotification } from "@/lib/errorNotifier";
+import { instanceSettingsQuery } from "@/query/instanceSettingsQuery";
 import type { OrchestrationStatus } from "@/services/orchestration";
 
 /**
@@ -62,7 +62,13 @@ export function PoolForm({ pool }: { pool: OrchestrationStatus["pool"] }) {
 			</div>
 
 			<div className="flex flex-wrap gap-5">
-				<NumberField value={maxNodes} minValue={0} maxValue={100} onChange={setMaxNodes} className="w-40">
+				<NumberField
+					value={maxNodes}
+					minValue={0}
+					maxValue={100}
+					onChange={setMaxNodes}
+					className="w-40"
+				>
 					<Label>Node ceiling</Label>
 					<NumberField.Group>
 						<NumberField.DecrementButton />
@@ -71,7 +77,14 @@ export function PoolForm({ pool }: { pool: OrchestrationStatus["pool"] }) {
 					</NumberField.Group>
 				</NumberField>
 
-				<NumberField value={cpu} minValue={0} maxValue={64} step={0.5} onChange={setCpu} className="w-40">
+				<NumberField
+					value={cpu}
+					minValue={0}
+					maxValue={64}
+					step={0.5}
+					onChange={setCpu}
+					className="w-40"
+				>
 					<Label>CPU cores per node</Label>
 					<NumberField.Group>
 						<NumberField.DecrementButton />

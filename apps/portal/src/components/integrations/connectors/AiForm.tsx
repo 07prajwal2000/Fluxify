@@ -14,10 +14,7 @@ export function AiForm({
 	return (
 		<div className="flex flex-col gap-3.5">
 			<div className="flex flex-col gap-1">
-				<label
-					htmlFor="ai-integration-name"
-					className="text-xs font-medium text-foreground"
-				>
+				<label htmlFor="ai-integration-name" className="text-xs font-medium text-foreground">
 					Integration Name <span className="text-danger">*</span>
 				</label>
 				<Input
@@ -45,10 +42,7 @@ export function AiForm({
 				placeholder="sk-..."
 			/>
 			<div className="flex flex-col gap-1">
-				<label
-					htmlFor="ai-model"
-					className="text-xs font-medium text-foreground"
-				>
+				<label htmlFor="ai-model" className="text-xs font-medium text-foreground">
 					Model <span className="text-danger">*</span>
 				</label>
 				<Input
@@ -67,8 +61,8 @@ export function AiForm({
 					Use for AI Harness
 				</Checkbox>
 				<span className="pl-6 text-xs text-muted">
-					Enable this model provider to be used as an engine for the AI coding
-					agent and builder harness.
+					Enable this model provider to be used as an engine for the AI coding agent and builder
+					harness.
 				</span>
 			</div>
 		</div>

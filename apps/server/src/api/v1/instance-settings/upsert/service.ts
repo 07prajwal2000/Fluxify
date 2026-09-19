@@ -1,12 +1,12 @@
 import { BadRequestError } from "../../../../errors/badRequestError";
 import {
+	type authConfigSchema,
 	INSTANCE_SETTINGS_REGISTRY,
 	isInstanceSettingKey,
 	ssoConfigSchema,
-	authConfigSchema,
 } from "../../../../lib/instance-settings/schemas";
-import { getInstanceSettingByKey, upsertInstanceSetting } from "./repository";
 import { publishInstanceSetting } from "../../../../loaders/instanceSettingsLoader";
+import { getInstanceSettingByKey, upsertInstanceSetting } from "./repository";
 
 export interface UpsertSettingPayload {
 	key: string;

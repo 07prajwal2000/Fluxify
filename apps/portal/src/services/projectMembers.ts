@@ -1,6 +1,6 @@
-import z from "zod";
-import { responseSchema as listResponseSchema } from "@fluxify/server/src/api/v1/projects/settings/members/list/dto";
+import type { responseSchema as listResponseSchema } from "@fluxify/server/src/api/v1/projects/settings/members/list/dto";
 import { requestBodySchema as updateRequestBodySchema } from "@fluxify/server/src/api/v1/projects/settings/members/update/dto";
+import type z from "zod";
 import { httpClient } from "@/lib/http";
 
 const base = (projectId: string) => `/v1/projects/${projectId}/settings/members`;
@@ -23,11 +23,7 @@ export const projectMembersService = {
 		const res = await httpClient.post(`${base(projectId)}/add`, body);
 		return res.data;
 	},
-	async update(
-		projectId: string,
-		userId: string,
-		body: z.infer<typeof updateRequestBodySchema>,
-	) {
+	async update(projectId: string, userId: string, body: z.infer<typeof updateRequestBodySchema>) {
 		const res = await httpClient.put(`${base(projectId)}/update/${userId}`, body);
 		return res.data;
 	},

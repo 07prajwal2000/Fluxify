@@ -1,5 +1,5 @@
-import type { ComponentProps, ReactNode } from "react";
 import { Button } from "@heroui/react";
+import type { ComponentProps, ReactNode } from "react";
 import { TbTrash } from "react-icons/tb";
 
 export type DeleteButtonProps = ComponentProps<typeof Button> & {
@@ -17,10 +17,7 @@ export function DeleteButton({
 	...props
 }: DeleteButtonProps) {
 	return (
-		<Button
-			variant={variant}
-			{...props}
-		>
+		<Button variant={variant} {...props}>
 			{(renderProps) => (
 				<>
 					{showIcon && (icon ?? <TbTrash size={iconSize} />)}

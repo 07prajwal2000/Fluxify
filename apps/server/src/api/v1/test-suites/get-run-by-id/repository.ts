@@ -9,11 +9,7 @@ import { testRunsEntity, testSuiteRunsEntity } from "../../../../db/schema";
  * belonging to another project is indistinguishable from one that does not
  * exist — which is the answer we want to give anyway.
  */
-export async function getTestRunById(
-	projectId: string,
-	routeId: string,
-	runId: string,
-) {
+export async function getTestRunById(projectId: string, routeId: string, runId: string) {
 	const [run] = await db
 		.select()
 		.from(testRunsEntity)

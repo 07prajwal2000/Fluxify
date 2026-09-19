@@ -1,14 +1,9 @@
-import { db } from "../../db";
-import {
-	blocksEntity,
-	edgesEntity,
-	integrationsEntity,
-	appConfigEntity,
-} from "../../db/schema";
 import { eq } from "drizzle-orm";
 import type z from "zod";
-import type { BlockSchema } from "./schemas";
 import type { integrationsGroupSchema } from "../../api/v1/integrations/schemas";
+import { db } from "../../db";
+import { appConfigEntity, blocksEntity, edgesEntity, integrationsEntity } from "../../db/schema";
+import type { BlockSchema } from "./schemas";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -70,9 +65,7 @@ export async function loadCanvasItems(routeId: string): Promise<CanvasItem[]> {
  * Loads all non-AI integrations for the project of the given route.
  * Returned shape matches the `integrationsList` field in AgentStateSchema.
  */
-export async function loadIntegrationsList(
-	projectId: string,
-): Promise<IntegrationListItem[]> {
+export async function loadIntegrationsList(projectId: string): Promise<IntegrationListItem[]> {
 	const rows = await db.select().from(integrationsEntity);
 
 	return rows

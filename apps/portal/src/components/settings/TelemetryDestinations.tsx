@@ -1,10 +1,10 @@
-import { useCallback } from "react";
 import { IntegrationSelector, Spinner, toast } from "@fluxify/components";
 import type { RequestBodySchema } from "@fluxify/server/src/api/v1/projects/settings/keys/upsert/dto";
-import { projectSettingsKeysQuery } from "@/query/projectSettingsKeysQuery";
-import { integrationService } from "@/services/integrations";
+import { useCallback } from "react";
 import { withBasePath } from "@/constants/routes";
 import { showErrorNotification } from "@/lib/errorNotifier";
+import { projectSettingsKeysQuery } from "@/query/projectSettingsKeysQuery";
+import { integrationService } from "@/services/integrations";
 
 export const TELEMETRY_SIGNALS = [
 	{
@@ -53,18 +53,13 @@ export function TelemetryDestinations({ projectId }: { projectId: string }) {
 						// an existing project shows its destination without a migration
 						selectedId={
 							settings[signal.key] ||
-							(signal.tag === "logs"
-								? settings["settings.ai.loggerConnectionId"] || ""
-								: "")
+							(signal.tag === "logs" ? settings["settings.ai.loggerConnectionId"] || "" : "")
 						}
 						onSelect={(value) =>
-							upsert.mutate(
-								{ key: signal.key, value } as RequestBodySchema,
-								{
-									onSuccess: () => toast.success("Destination saved"),
-									onError: (e) => showErrorNotification(e as Error),
-								},
-							)
+							upsert.mutate({ key: signal.key, value } as RequestBodySchema, {
+								onSuccess: () => toast.success("Destination saved"),
+								onError: (e) => showErrorNotification(e as Error),
+							})
 						}
 					/>
 				))
@@ -89,8 +84,7 @@ function TelemetrySelector({
 	onSelect: (value: string) => void;
 }) {
 	const loadIntegrations = useCallback(
-		async () =>
-			(await integrationService.getAll(projectId, "observability", [tag])) ?? [],
+		async () => (await integrationService.getAll(projectId, "observability", [tag])) ?? [],
 		[projectId, tag],
 	);
 
@@ -103,16 +97,12 @@ function TelemetrySelector({
 			loadIntegrations={loadIntegrations}
 			onSelect={onSelect}
 			onTestConnection={(id) =>
-				integrationService
-					.testExistingConnection(projectId, id, tag)
-					.then(() => {})
+				integrationService.testExistingConnection(projectId, id, tag).then(() => {})
 			}
 			openInNewTabUrl={withBasePath(
 				`/${projectId}/integrations?group=observability${selectedId ? `&open=${encodeURIComponent(selectedId)}` : ""}`,
 			)}
-			createIntegrationUrl={withBasePath(
-				`/${projectId}/integrations?group=observability`,
-			)}
+			createIntegrationUrl={withBasePath(`/${projectId}/integrations?group=observability`)}
 		/>
 	);
 }

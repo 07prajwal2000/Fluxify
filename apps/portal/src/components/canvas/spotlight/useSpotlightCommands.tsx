@@ -1,5 +1,5 @@
-import { useMemo } from "react";
 import { useNavigate } from "@tanstack/react-router";
+import { useMemo } from "react";
 import {
 	TbAdjustments,
 	TbBook,
@@ -15,17 +15,13 @@ import {
 	TbSparkles,
 	TbSun,
 } from "react-icons/tb";
-import type { CanvasAction } from "../actions/useCanvasActions";
-import {
-	blockIcon,
-	pickerBlockCatalogEntries,
-	type BlockType,
-} from "../blocks";
-import { useCustomBlockDefs } from "../blocks/useCustomBlockDefs";
 import { CustomBlockIcon } from "@/components/customBlocks/IconPicker";
 import { getTheme, toggleTheme } from "@/lib/theme";
-import { useSpotlightResources } from "./useSpotlightResources";
+import type { CanvasAction } from "../actions/useCanvasActions";
+import { type BlockType, blockIcon, pickerBlockCatalogEntries } from "../blocks";
+import { useCustomBlockDefs } from "../blocks/useCustomBlockDefs";
 import type { SpotlightCommand } from "./types";
+import { useSpotlightResources } from "./useSpotlightResources";
 
 export type UseSpotlightCommandsOptions = {
 	actions: CanvasAction[];

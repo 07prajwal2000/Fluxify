@@ -1,11 +1,11 @@
 import { describeRoute, resolver, validator } from "hono-openapi";
-import { licenseViewSchema, setLicenseBodySchema } from "./dto";
-import { getLicenseView, setLicense } from "./service";
-import zodErrorCallbackParser from "../../../../middlewares/zodErrorCallbackParser";
 import { errorSchema } from "../../../../errors/customError";
 import { validationErrorSchema } from "../../../../errors/validationError";
-import { HonoServer } from "../../../../types";
+import zodErrorCallbackParser from "../../../../middlewares/zodErrorCallbackParser";
+import type { HonoServer } from "../../../../types";
 import { requireSystemAdmin } from "../../../auth/middleware";
+import { licenseViewSchema, setLicenseBodySchema } from "./dto";
+import { getLicenseView, setLicense } from "./service";
 
 const json = (schema: Parameters<typeof resolver>[0]) => ({
 	content: { "application/json": { schema: resolver(schema) } },
@@ -21,7 +21,8 @@ export default function (app: HonoServer) {
 	app.get(
 		"/license",
 		describeRoute({
-			description: "The edition this instance runs, where it is set, and what it unlocks. Never includes the key.",
+			description:
+				"The edition this instance runs, where it is set, and what it unlocks. Never includes the key.",
 			operationId: "get-license",
 			tags: ["Instance Settings"],
 			responses: { 200: { description: "Successful", ...json(licenseViewSchema) }, ...errors },
@@ -39,7 +40,10 @@ export default function (app: HonoServer) {
 			tags: ["Instance Settings"],
 			responses: {
 				200: { description: "Successful", ...json(licenseViewSchema) },
-				400: { description: "Rejected key, or managed by the environment", ...json(validationErrorSchema) },
+				400: {
+					description: "Rejected key, or managed by the environment",
+					...json(validationErrorSchema),
+				},
 				...errors,
 			},
 		}),

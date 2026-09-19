@@ -2,10 +2,7 @@ import { and, eq, sql } from "drizzle-orm";
 import { db } from "../../../../db";
 import { integrationsEntity } from "../../../../db/schema";
 
-export const getBasicListRepository = async (
-	projectId: string,
-	useForHarness?: boolean,
-) => {
+export const getBasicListRepository = async (projectId: string, useForHarness?: boolean) => {
 	return await db
 		.select({
 			id: integrationsEntity.id,

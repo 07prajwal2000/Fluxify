@@ -20,7 +20,8 @@ export function CanvasQuickActions({
 }: CanvasQuickActionsProps) {
 	const { all, worstSeverity, togglePanel, isPanelOpen } = useBlockDiagnostics();
 	const pending = all.some((d) => d.pending);
-	const dot = worstSeverity === "error" ? "bg-danger" : worstSeverity === "warning" ? "bg-warning" : null;
+	const dot =
+		worstSeverity === "error" ? "bg-danger" : worstSeverity === "warning" ? "bg-warning" : null;
 
 	return (
 		<div className="fx-canvas__quick-actions">
@@ -64,7 +65,9 @@ export function CanvasQuickActions({
 				) : (
 					<div className="relative flex items-center justify-center fx-canvas__expandable-icon">
 						<TbStethoscope className="w-full h-full" />
-						{dot && <span aria-hidden className={`absolute -right-1 -top-1 size-2 rounded-full ${dot}`} />}
+						{dot && (
+							<span aria-hidden className={`absolute -right-1 -top-1 size-2 rounded-full ${dot}`} />
+						)}
 					</div>
 				)}
 				<span className="fx-canvas__expandable-label">Diagnostics</span>

@@ -2,9 +2,9 @@ import { describeRoute, resolver, validator } from "hono-openapi";
 import z from "zod";
 import { errorSchema } from "../../../../errors/customError";
 import { validationErrorSchema } from "../../../../errors/validationError";
-import zodErrorCallbackParser from "../../../../middlewares/zodErrorCallbackParser";
 import { listSystemLogs } from "../../../../lib/systemLogs";
-import { HonoServer } from "../../../../types";
+import zodErrorCallbackParser from "../../../../middlewares/zodErrorCallbackParser";
+import type { HonoServer } from "../../../../types";
 import { requireProjectAccess } from "../../../auth/middleware";
 
 export const systemLogsQuerySchema = z.object({
@@ -33,7 +33,8 @@ export default function (app: HonoServer) {
 	app.get(
 		"/:id/system-logs",
 		describeRoute({
-			description: "Platform logs for a project (compile results, …), one per resource, most recently written first",
+			description:
+				"Platform logs for a project (compile results, …), one per resource, most recently written first",
 			operationId: "get-project-system-logs",
 			tags: ["Projects"],
 			responses: {

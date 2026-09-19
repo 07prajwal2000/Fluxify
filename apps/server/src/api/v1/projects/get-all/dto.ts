@@ -1,22 +1,19 @@
 import { z } from "zod";
-import {
-  paginationRequestQuerySchema,
-  paginationResponseSchema,
-} from "../../../../lib/pagination";
+import { paginationRequestQuerySchema, paginationResponseSchema } from "../../../../lib/pagination";
 
 export const requestQuerySchema = z.clone(paginationRequestQuerySchema);
 
 export const responseSchema = z.object({
-  data: z.array(
-    z.object({
-      createdAt: z.string(),
-      updatedAt: z.string(),
-      id: z.string(),
-      name: z.string(),
-      description: z.string().nullable(),
-      totalUsers: z.number(),
-      totalRoutes: z.number(),
-    }),
-  ),
-  pagination: paginationResponseSchema,
+	data: z.array(
+		z.object({
+			createdAt: z.string(),
+			updatedAt: z.string(),
+			id: z.string(),
+			name: z.string(),
+			description: z.string().nullable(),
+			totalUsers: z.number(),
+			totalRoutes: z.number(),
+		}),
+	),
+	pagination: paginationResponseSchema,
 });

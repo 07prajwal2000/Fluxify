@@ -1,4 +1,4 @@
-import { openKvBucket, type KvBucket } from "@fluxify/common/nats";
+import { type KvBucket, openKvBucket } from "@fluxify/common/nats";
 import { initializeNats } from "./nats";
 
 /**

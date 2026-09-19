@@ -82,7 +82,10 @@ async function waitForSchema(maxAttempts = 60, delayMs = 2_000): Promise<void> {
 		} catch (error) {
 			const message = String((error as Error)?.message ?? error);
 			if (!message.includes("42P01") && !/does not exist/i.test(message)) throw error;
-			logger.info(`waiting for database schema (attempt ${attempt}/${maxAttempts})`, "ORCHESTRATOR");
+			logger.info(
+				`waiting for database schema (attempt ${attempt}/${maxAttempts})`,
+				"ORCHESTRATOR",
+			);
 			await Bun.sleep(delayMs);
 		}
 	}

@@ -1,4 +1,4 @@
-import { jetstream, type JsMsg } from "@nats-io/jetstream";
+import { type JsMsg, jetstream } from "@nats-io/jetstream";
 import type { MsgHdrs, NatsConnection } from "@nats-io/nats-core";
 import { logger } from "../logging";
 import { type Codec, jsonCodec } from "./codec";
@@ -233,7 +233,9 @@ export interface BatchOptions<T> {
 	 * Per-batch override of the two above, read from the messages themselves.
 	 * Can only lower attempts: the broker's `maxDeliver` is still the ceiling.
 	 */
-	policy?: (batch: QueueMessage<T>[]) => { maxAttempts?: number; retryDelayMs?: number } | undefined;
+	policy?: (
+		batch: QueueMessage<T>[],
+	) => { maxAttempts?: number; retryDelayMs?: number } | undefined;
 	/** Failures that will fail identically forever. Terminated immediately. */
 	isPermanent?: (error: unknown) => boolean;
 	/** Called after the ack decision, for metrics or a dead-letter record. */
@@ -411,10 +413,7 @@ export async function consumeBatches<T>(
 			for (const message of batch) message.msg.term();
 			return;
 		}
-		logger.warn(
-			`[nats] ${where} failed (attempt ${attempt}), retrying: ${String(error)}`,
-			"NATS",
-		);
+		logger.warn(`[nats] ${where} failed (attempt ${attempt}), retrying: ${String(error)}`, "NATS");
 		for (const message of batch) message.msg.nak(delayMs);
 	}
 

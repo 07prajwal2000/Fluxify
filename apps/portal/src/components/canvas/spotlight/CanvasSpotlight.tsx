@@ -1,5 +1,5 @@
+import { cn, Kbd, Modal } from "@fluxify/components";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Kbd, Modal, cn } from "@fluxify/components";
 import { TbSearch } from "react-icons/tb";
 import { comboLabel } from "../actions/combo";
 import { filterSpotlightCommands } from "./spotlightFilter";
@@ -11,11 +11,7 @@ export type CanvasSpotlightProps = {
 	commands: SpotlightCommand[];
 };
 
-export function CanvasSpotlight({
-	isOpen,
-	onOpenChange,
-	commands,
-}: CanvasSpotlightProps) {
+export function CanvasSpotlight({ isOpen, onOpenChange, commands }: CanvasSpotlightProps) {
 	const [query, setQuery] = useState("");
 	const [activeIndex, setActiveIndex] = useState(0);
 	const inputRef = useRef<HTMLInputElement>(null);
@@ -166,9 +162,7 @@ export function CanvasSpotlight({
 															{command.icon ?? <TbSearch size={14} />}
 														</span>
 														<div className="flex min-w-0 flex-1 flex-col">
-															<span className="truncate text-sm font-medium">
-																{command.title}
-															</span>
+															<span className="truncate text-sm font-medium">{command.title}</span>
 															{(command.description || command.subtitle) && (
 																<span className="truncate text-xs text-muted">
 																	{command.disabledReason ||

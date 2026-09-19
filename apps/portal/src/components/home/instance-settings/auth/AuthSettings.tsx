@@ -13,7 +13,11 @@ export function AuthSettings() {
 		);
 	}
 	if (isError || !data) {
-		return <p className="py-16 text-center text-muted-foreground">Couldn't load authentication settings.</p>;
+		return (
+			<p className="py-16 text-center text-muted-foreground">
+				Couldn't load authentication settings.
+			</p>
+		);
 	}
 
 	return (

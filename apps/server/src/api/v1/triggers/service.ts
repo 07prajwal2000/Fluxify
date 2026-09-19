@@ -1,29 +1,30 @@
-import { z } from "zod";
-import { and, eq, ilike, inArray, SQL, sql } from "drizzle-orm";
 import { logger } from "@fluxify/common";
+import { describeSchedule, nextFires, ScheduleError } from "@fluxify/common/schedule";
 import { generateID } from "@fluxify/lib";
+import { and, eq, ilike, inArray, type SQL, sql } from "drizzle-orm";
+import type { z } from "zod";
 import { db } from "../../../db";
-import { AuthACL, triggersEntity } from "../../../db/schema";
-import { canAccessProject } from "../../../lib/acl";
-import { assertCanUse } from "../../../lib/edition";
+import { deleteArtifact, putArtifact } from "../../../db/natsKv";
+import { type AuthACL, triggersEntity } from "../../../db/schema";
 import { BadRequestError } from "../../../errors/badRequestError";
 import { ConflictError } from "../../../errors/conflictError";
 import { ForbiddenError } from "../../../errors/forbidError";
 import { NotFoundError } from "../../../errors/notFoundError";
-import { deleteArtifact, putArtifact } from "../../../db/natsKv";
+import { canAccessProject } from "../../../lib/acl";
+import { assertCanUse } from "../../../lib/edition";
 import type { TriggerArtifact } from "../../../modules/compiler/artifacts";
 import { triggerKey } from "../../../modules/compiler/subjects";
 import { removeSchedule, upsertSchedule } from "../../../modules/schedules/reconciler";
-import { describeSchedule, nextFires, ScheduleError } from "@fluxify/common/schedule";
+import { assertConnector } from "./connectors.ee";
 import {
-	createSchema,
+	type createSchema,
 	isEnterpriseTriggerType,
-	listQuerySchema,
-	listSchema,
-	patchSchema,
-	previewQuerySchema,
-	previewSchema,
-	triggerSchema,
+	type listQuerySchema,
+	type listSchema,
+	type patchSchema,
+	type previewQuerySchema,
+	type previewSchema,
+	type triggerSchema,
 } from "./dto";
 import {
 	deleteTriggerRow,
@@ -38,7 +39,6 @@ import {
 	updateTriggerRow,
 	workflowNames,
 } from "./repository";
-import { assertConnector } from "./connectors.ee";
 
 /**
  * Trigger CRUD.
@@ -66,8 +66,7 @@ export async function createTrigger(
 		if (!(await projectExists(data.projectId, tx)))
 			throw new NotFoundError(`project with id ${data.projectId} does not exist`);
 
-		if (data.workflowId)
-			await assertWorkflowInProject(data.workflowId, data.projectId, tx);
+		if (data.workflowId) await assertWorkflowInProject(data.workflowId, data.projectId, tx);
 		warnings = await assertConnector({ ...data, probe: true }, tx);
 
 		if (await findTriggerByName(data.projectId, data.name, tx))
@@ -133,8 +132,7 @@ export async function updateTrigger(
 			? await assertGroupInProject(data.groupId, existing.projectId, tx)
 			: undefined;
 
-		if (data.workflowId)
-			await assertWorkflowInProject(data.workflowId, existing.projectId, tx);
+		if (data.workflowId) await assertWorkflowInProject(data.workflowId, existing.projectId, tx);
 		// enabling proves the credentials and the source still work, however long it sat off
 		const enabling = data.active === true && !existing.active;
 		warnings = await assertConnector(
@@ -207,11 +205,7 @@ export async function getTrigger(
  * silently moved: taking a live source away from one workflow is not something
  * another workflow's settings page should do as a side effect.
  */
-export async function attachWorkflow(
-	triggerId: string,
-	workflowId: string,
-	acl: AuthACL[] = [],
-) {
+export async function attachWorkflow(triggerId: string, workflowId: string, acl: AuthACL[] = []) {
 	const trigger = await db.transaction(async (tx) => {
 		const existing = await mustAccess(triggerId, acl, "creator", tx);
 		if (existing.workflowId === workflowId) return existing;
@@ -221,8 +215,7 @@ export async function attachWorkflow(
 			);
 		await assertWorkflowInProject(workflowId, existing.projectId, tx);
 		// an enabled trigger with no workflow starts consuming the moment it gets one
-		if (existing.active)
-			await assertConnector({ ...existing, probe: true }, tx);
+		if (existing.active) await assertConnector({ ...existing, probe: true }, tx);
 		return (await updateTriggerRow(triggerId, { workflowId }, tx))!;
 	});
 	await republish(trigger);
@@ -230,11 +223,7 @@ export async function attachWorkflow(
 }
 
 /** Detaching a workflow the trigger does not start is a no-op, not an error. */
-export async function detachWorkflow(
-	triggerId: string,
-	workflowId: string,
-	acl: AuthACL[] = [],
-) {
+export async function detachWorkflow(triggerId: string, workflowId: string, acl: AuthACL[] = []) {
 	const trigger = await db.transaction(async (tx) => {
 		const existing = await mustAccess(triggerId, acl, "creator", tx);
 		if (existing.workflowId !== workflowId) return existing;
@@ -296,16 +285,12 @@ export function previewSchedule(
 	try {
 		return {
 			description: describeSchedule(query.schedule, query.timezone),
-			nextFires: nextFires(query.schedule, query.timezone, 5).map((at) =>
-				at.toISOString(),
-			),
+			nextFires: nextFires(query.schedule, query.timezone, 5).map((at) => at.toISOString()),
 		};
 	} catch (error) {
 		// A half-typed cron is the normal state of this endpoint, not an
 		// exception worth a 500.
-		throw new BadRequestError(
-			error instanceof ScheduleError ? error.message : String(error),
-		);
+		throw new BadRequestError(error instanceof ScheduleError ? error.message : String(error));
 	}
 }
 
@@ -376,8 +361,7 @@ export async function republish(trigger: Trigger) {
 	// No workflow is the same as inactive as far as a worker is concerned: a
 	// consumer that read events and had nowhere to send them would drain the
 	// source into nothing.
-	if (!trigger.active || !trigger.workflowId)
-		return withdraw(trigger.projectId, trigger.id);
+	if (!trigger.active || !trigger.workflowId) return withdraw(trigger.projectId, trigger.id);
 
 	const artifact: TriggerArtifact = {
 		triggerId: trigger.id,
@@ -411,8 +395,7 @@ export async function withdraw(projectId: string, triggerId: string) {
  * the row is what says which it should be.
  */
 async function republishSchedule(trigger: Trigger) {
-	if (!trigger.active || !trigger.schedule)
-		return removeSchedule(trigger.projectId, trigger.id);
+	if (!trigger.active || !trigger.schedule) return removeSchedule(trigger.projectId, trigger.id);
 	await upsertSchedule({
 		id: trigger.id,
 		projectId: trigger.projectId,

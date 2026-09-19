@@ -9,7 +9,10 @@
  */
 
 export function isMac(): boolean {
-	return typeof navigator !== "undefined" && /Mac|iP(hone|ad|od)/.test(navigator.platform || navigator.userAgent);
+	return (
+		typeof navigator !== "undefined" &&
+		/Mac|iP(hone|ad|od)/.test(navigator.platform || navigator.userAgent)
+	);
 }
 
 type Parsed = { mod: boolean; ctrl: boolean; shift: boolean; alt: boolean; key: string };

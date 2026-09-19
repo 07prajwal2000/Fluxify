@@ -1,8 +1,8 @@
 import { BadRequestError } from "../../../../errors/badRequestError";
 import { assertCanUse } from "../../../../lib/edition";
-import { ssoConfigSchema, redactSecrets } from "../../../../lib/instance-settings/schemas";
-import { getInstanceSettingByKey, upsertInstanceSetting } from "../upsert/repository";
+import { redactSecrets, ssoConfigSchema } from "../../../../lib/instance-settings/schemas";
 import { publishInstanceSetting } from "../../../../loaders/instanceSettingsLoader";
+import { getInstanceSettingByKey, upsertInstanceSetting } from "../upsert/repository";
 
 export interface AuthSettingsPayload {
 	type: "traditional" | "sso";
@@ -10,9 +10,7 @@ export interface AuthSettingsPayload {
 }
 
 function formatIssues(error: import("zod").ZodError) {
-	return error.issues
-		.map((e) => `${e.path.join(".") || "value"}: ${e.message}`)
-		.join("; ");
+	return error.issues.map((e) => `${e.path.join(".") || "value"}: ${e.message}`).join("; ");
 }
 
 function requireProviderFields(sso: ReturnType<typeof ssoConfigSchema.parse>) {

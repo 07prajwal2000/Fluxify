@@ -63,10 +63,7 @@ function formatCombo(key: string): string {
 	return key;
 }
 
-export function KeyboardShortcutsModal({
-	isOpen,
-	onOpenChange,
-}: KeyboardShortcutsModalProps) {
+export function KeyboardShortcutsModal({ isOpen, onOpenChange }: KeyboardShortcutsModalProps) {
 	return (
 		<Modal isOpen={isOpen} onOpenChange={onOpenChange}>
 			<Modal.Backdrop variant="blur" className="backdrop-blur-xs bg-black/50">
@@ -105,12 +102,8 @@ export function KeyboardShortcutsModal({
 												<div className="flex items-center gap-1.5">
 													{shortcut.combo.map((c, i) => (
 														<span key={c} className="flex items-center gap-1.5">
-															{i > 0 && (
-																<span className="text-xs text-muted">or</span>
-															)}
-															<Kbd className="px-2 py-0.5 text-xs">
-																{formatCombo(c)}
-															</Kbd>
+															{i > 0 && <span className="text-xs text-muted">or</span>}
+															<Kbd className="px-2 py-0.5 text-xs">{formatCombo(c)}</Kbd>
 														</span>
 													))}
 												</div>

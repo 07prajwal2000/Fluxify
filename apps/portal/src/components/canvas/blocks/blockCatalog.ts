@@ -255,9 +255,7 @@ const ROUTE_OWNED_BLOCK_TYPES = new Set<BlockType>([
 ]);
 
 /** Notes have their own quick action beside the picker trigger. */
-const CANVAS_QUICK_ACTION_BLOCK_TYPES = new Set<BlockType>([
-	BLOCK_TYPES.stickynote,
-]);
+const CANVAS_QUICK_ACTION_BLOCK_TYPES = new Set<BlockType>([BLOCK_TYPES.stickynote]);
 
 export function canAddBlock(type: BlockType): boolean {
 	return !ROUTE_OWNED_BLOCK_TYPES.has(type);

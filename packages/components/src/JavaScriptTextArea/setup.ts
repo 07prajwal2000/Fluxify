@@ -21,9 +21,7 @@ if (typeof window !== "undefined") {
 		getWorker(_workerId, label) {
 			// JavaScript is served by the TypeScript worker — that's what provides
 			// the autocomplete and hover docs for the runtime globals.
-			return label === "typescript" || label === "javascript"
-				? new tsWorker()
-				: new editorWorker();
+			return label === "typescript" || label === "javascript" ? new tsWorker() : new editorWorker();
 		},
 	};
 

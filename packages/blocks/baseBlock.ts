@@ -1,6 +1,6 @@
-import jwt from "jsonwebtoken";
-import { DbFactory, KvFactory } from "@fluxify/adapters";
-import { AbstractLogger, HttpClient } from "@fluxify/lib";
+import type { DbFactory, KvFactory } from "@fluxify/adapters";
+import type { AbstractLogger, HttpClient } from "@fluxify/lib";
+import type jwt from "jsonwebtoken";
 import z from "zod";
 import { variableNameError } from "./variableName";
 
@@ -225,10 +225,7 @@ export interface ContextVarsType {
 			secretKey: string,
 			options?: jwt.VerifyOptions,
 		): { success: boolean; payload: Record<string, string> | null };
-		decode(
-			token: string,
-			options?: jwt.DecodeOptions,
-		): Record<string, string> | null;
+		decode(token: string, options?: jwt.DecodeOptions): Record<string, string> | null;
 	};
 }
 
@@ -363,4 +360,3 @@ export function outputVariableName(data: unknown): string | undefined {
 	const name = setting.name.trim();
 	return variableNameError(name) ? undefined : name;
 }
-

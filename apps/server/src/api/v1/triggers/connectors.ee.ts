@@ -5,9 +5,24 @@ import { findIntegration } from "./repository";
 
 /** Each connector type's integration variant and source shape. */
 const CONNECTORS = {
-	kafka: { label: "Kafka", article: "A", schema: kafkaSourceSchema, invalid: "A Kafka trigger needs at least one topic" },
-	nats: { label: "NATS", article: "A", schema: natsSourceSchema, invalid: "A NATS trigger needs a valid stream name" },
-	sqs: { label: "SQS", article: "An", schema: sqsSourceSchema, invalid: "An SQS trigger needs a valid queue URL" },
+	kafka: {
+		label: "Kafka",
+		article: "A",
+		schema: kafkaSourceSchema,
+		invalid: "A Kafka trigger needs at least one topic",
+	},
+	nats: {
+		label: "NATS",
+		article: "A",
+		schema: natsSourceSchema,
+		invalid: "A NATS trigger needs a valid stream name",
+	},
+	sqs: {
+		label: "SQS",
+		article: "An",
+		schema: sqsSourceSchema,
+		invalid: "An SQS trigger needs a valid queue URL",
+	},
 } as const;
 
 export type ConnectorCheck = {
@@ -38,16 +53,23 @@ export async function assertConnector(
 	if (!connector) return [];
 	const { label, schema } = connector;
 	if (!schema.safeParse(check.source).success) throw new BadRequestError(connector.invalid);
-	const integration = check.integrationId ? await findIntegration(check.integrationId, tx) : undefined;
+	const integration = check.integrationId
+		? await findIntegration(check.integrationId, tx)
+		: undefined;
 	if (
 		!integration ||
 		(integration.projectId ?? check.projectId) !== check.projectId ||
 		integration.variant !== label
 	)
-		throw new BadRequestError(`${connector.article} ${label} trigger needs a ${label} integration from this project`);
+		throw new BadRequestError(
+			`${connector.article} ${label} trigger needs a ${label} integration from this project`,
+		);
 	if (!check.probe) return settingsWarnings(check);
 
-	const config = await resolveQueueConfig(check.projectId, integration.config as Record<string, unknown>);
+	const config = await resolveQueueConfig(
+		check.projectId,
+		integration.config as Record<string, unknown>,
+	);
 	try {
 		return await probe(check, config);
 	} catch (error) {
@@ -64,7 +86,10 @@ async function probe(check: ConnectorCheck, config: any): Promise<string[]> {
 	if (check.type === "sqs") {
 		const { assertSqsQueue, sqsWarnings } = await import("@fluxify/adapters/queue/sqs");
 		const source = sqsSourceSchema.parse(check.source);
-		return sqsWarnings({ ...source, batchSize: check.batchSize }, await assertSqsQueue(config, source.queueUrl));
+		return sqsWarnings(
+			{ ...source, batchSize: check.batchSize },
+			await assertSqsQueue(config, source.queueUrl),
+		);
 	}
 	const { topics, createTopics } = kafkaSourceSchema.parse(check.source);
 	const { ensureKafkaTopics } = await import("@fluxify/adapters/queue/kafka");

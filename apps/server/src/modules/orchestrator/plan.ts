@@ -22,6 +22,7 @@ import type { DesiredNode } from "./projection";
  * (§14.5) — two declarations of it would drift the moment a field is added.
  */
 export type { ObservedNode } from "@fluxify/common/orchestrator";
+
 import type { ObservedNode } from "@fluxify/common/orchestrator";
 
 export type RemoveReason =

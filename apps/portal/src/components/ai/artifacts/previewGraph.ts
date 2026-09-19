@@ -1,7 +1,7 @@
 import {
-	canvasChangesFromPayload,
 	type BlockBuilderPayload,
 	type CanvasItems,
+	canvasChangesFromPayload,
 } from "@fluxify/ai-gateway/src/api/v1/harness-conversations/artifacts/normalize";
 import type { BlockData, CanvasGraph } from "@/components/canvas/types";
 
@@ -63,18 +63,13 @@ export function previewGraph(
 			.map((action) => action.id),
 	);
 
-	const blocks = new Map(
-		existing.blocks.filter((b) => !deleted.has(b.id)).map((b) => [b.id, b]),
-	);
+	const blocks = new Map(existing.blocks.filter((b) => !deleted.has(b.id)).map((b) => [b.id, b]));
 	for (const block of changes.blocks) blocks.set(block.id, block);
 
 	// an edge of a deleted block goes with it (the FK cascades)
 	const edges = new Map(
 		existing.edges
-			.filter(
-				(e) =>
-					!deletedEdges.has(e.id) && !deleted.has(e.from) && !deleted.has(e.to),
-			)
+			.filter((e) => !deletedEdges.has(e.id) && !deleted.has(e.from) && !deleted.has(e.to))
 			.map((e) => [e.id, e]),
 	);
 	for (const edge of changes.edges) edges.set(edge.id, edge);

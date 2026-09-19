@@ -1,6 +1,6 @@
-import { Context, type Next } from "hono";
 import { logger } from "@fluxify/common";
-import { incrCache, expireCache } from "../db/redis";
+import type { Context, Next } from "hono";
+import { expireCache, incrCache } from "../db/redis";
 import { getEnv } from "../lib/env";
 
 const WINDOW_SECONDS = 1;

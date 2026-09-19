@@ -22,13 +22,10 @@ const SchemaEditorContent = forwardRef<
 		showRootTypeSelector: boolean;
 	}
 >(({ onSave, showPreview, showRootTypeSelector }, ref) => {
-	const { schema, setSchema, isReadOnly, disableJs, jsEditorRows } =
-		useSchemaEditorContext();
+	const { schema, setSchema, isReadOnly, disableJs, jsEditorRows } = useSchemaEditorContext();
 
 	const isRootJs = schema.dataType === "js";
-	const [selectedTab, setSelectedTab] = useState<TabKey>(
-		isRootJs ? "js" : "editor",
-	);
+	const [selectedTab, setSelectedTab] = useState<TabKey>(isRootJs ? "js" : "editor");
 
 	useImperativeHandle(ref, () => ({
 		save: () => onSave?.(schema),
@@ -91,16 +88,13 @@ const SchemaEditorContent = forwardRef<
 				<Tabs.Panel className="pt-4" id="js">
 					<div className="flex flex-col gap-3 rounded-[var(--radius)] border border-border p-4">
 						<InfoNote>
-							Validate the entire request in JavaScript. Return a boolean to
-							pass or fail. To return a custom error body, throw:{" "}
-							<code className="font-mono">
-								{'throw new ValidationError({ your: "error" })'}
-							</code>
-							.
+							Validate the entire request in JavaScript. Return a boolean to pass or fail. To return
+							a custom error body, throw:{" "}
+							<code className="font-mono">{'throw new ValidationError({ your: "error" })'}</code>.
 						</InfoNote>
 						<JavaScriptTextArea
-				expandable
-				expandTitle="Custom Validation - Code Editor"
+							expandable
+							expandTitle="Custom Validation - Code Editor"
 							aria-label="Root custom JavaScript validation"
 							onChange={(next) => setSchema({ ...schema, js: next })}
 							readOnly={isReadOnly}
@@ -141,9 +135,7 @@ export const SchemaEditor = forwardRef<SchemaEditorRef, SchemaEditorProps>(
 
 		return (
 			<div className={clsx("flex w-full flex-col gap-3", className)}>
-				{label && (
-					<span className="text-sm font-medium text-foreground">{label}</span>
-				)}
+				{label && <span className="text-sm font-medium text-foreground">{label}</span>}
 				{description && <p className="text-xs text-muted">{description}</p>}
 				<SchemaEditorProvider {...props}>
 					<SchemaEditorContent

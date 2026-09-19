@@ -1,48 +1,36 @@
+import { Button, Checkbox, Input, Label, TextArea, TextField, toast } from "@fluxify/components";
 import { useState } from "react";
-import {
-	Button,
-	Checkbox,
-	Input,
-	Label,
-	TextArea,
-	TextField,
-	toast,
-} from "@fluxify/components";
-import { TbBrandAws, TbClock } from "react-icons/tb";
 import { SiApachekafka, SiNatsdotio } from "react-icons/si";
+import { TbBrandAws, TbClock } from "react-icons/tb";
 import { FormWizard, SummaryItem, type WizardStep } from "@/components/common/FormWizard";
-import { ScheduleFields } from "@/components/workflows/ScheduleFields";
+import {
+	DELIVERY_DEFAULTS,
+	DeliveryFields,
+	hasGroup,
+	KafkaSourceFields,
+	NatsSourceFields,
+	topicList,
+} from "@/components/triggers/KafkaTriggerFields";
+import {
+	isQueueUrl,
+	queueName,
+	SQS_MAX_BATCH,
+	SqsSourceFields,
+} from "@/components/triggers/SqsTriggerFields";
+import { errorMessage, NoticeList } from "@/components/triggers/TriggerNotices";
 import { TriggerWorkflowsField } from "@/components/triggers/TriggerWorkflowsField";
 import {
 	BATCH_DEFAULTS,
 	BatchFields,
 	GroupSelect,
 	TRIGGER_DEFAULTS,
-	TypeSelector,
 	type TriggerType,
+	TypeSelector,
 } from "@/components/triggers/triggerForm";
-import {
-	DELIVERY_DEFAULTS,
-	DeliveryFields,
-	KafkaSourceFields,
-	NatsSourceFields,
-	hasGroup,
-	topicList,
-} from "@/components/triggers/KafkaTriggerFields";
-import {
-	SQS_MAX_BATCH,
-	SqsSourceFields,
-	isQueueUrl,
-	queueName,
-} from "@/components/triggers/SqsTriggerFields";
-import { NoticeList, errorMessage } from "@/components/triggers/TriggerNotices";
-import { triggersQuery } from "@/query/triggersQuery";
+import { ScheduleFields } from "@/components/workflows/ScheduleFields";
 import { showErrorNotification } from "@/lib/errorNotifier";
-import type {
-	CreateTriggerBody,
-	TriggerListItem,
-	UpdateTriggerBody,
-} from "@/services/triggers";
+import { triggersQuery } from "@/query/triggersQuery";
+import type { CreateTriggerBody, TriggerListItem, UpdateTriggerBody } from "@/services/triggers";
 
 export type TriggerWizardProps = {
 	projectId: string;
@@ -70,9 +58,7 @@ export function TriggerWizard({
 		(initialTrigger?.type as TriggerType) || "schedule",
 	);
 	const [groupId, setGroupId] = useState(initialTrigger?.groupId ?? "");
-	const [workflowId, setWorkflowId] = useState<string | null>(
-		initialTrigger?.workflowId ?? null,
-	);
+	const [workflowId, setWorkflowId] = useState<string | null>(initialTrigger?.workflowId ?? null);
 	const [active, setActive] = useState(initialTrigger ? initialTrigger.active : true);
 	const [schedule, setSchedule] = useState({
 		schedule: initialTrigger?.schedule ?? "",
@@ -219,7 +205,9 @@ export function TriggerWizard({
 			<div className="mx-auto flex w-full max-w-4xl flex-col gap-5">
 				<div>
 					<h1 className="text-xl font-semibold tracking-tight">Trigger saved</h1>
-					<p className="text-xs text-muted">It works as set up, but read these before you rely on it.</p>
+					<p className="text-xs text-muted">
+						It works as set up, but read these before you rely on it.
+					</p>
 				</div>
 				<NoticeList status="warning" title="Worth knowing" items={warnings} />
 				<Button variant="primary" size="sm" className="self-end" onPress={onSuccess}>
@@ -229,7 +217,10 @@ export function TriggerWizard({
 		);
 	}
 
-	const connectorSteps: Record<Exclude<TriggerType, "schedule">, Omit<WizardStep, "key" | "title">> = {
+	const connectorSteps: Record<
+		Exclude<TriggerType, "schedule">,
+		Omit<WizardStep, "key" | "title">
+	> = {
 		nats: {
 			label: "Stream",
 			description: "The NATS integration to connect with, and the stream to read.",
@@ -237,14 +228,21 @@ export function TriggerWizard({
 				Boolean(nats.integrationId) &&
 				nats.stream.trim().length > 0 &&
 				hasGroup(nats.consumerGroup),
-			content: <NatsSourceFields projectId={projectId} value={nats} onChange={setNats} isEdit={isEdit} />,
+			content: (
+				<NatsSourceFields projectId={projectId} value={nats} onChange={setNats} isEdit={isEdit} />
+			),
 		},
 		kafka: {
 			label: "Topics",
 			description: "The Kafka integration to connect with, and the topics to read.",
 			isValid: Boolean(kafka.integrationId) && topics.length > 0 && hasGroup(kafka.consumerGroup),
 			content: (
-				<KafkaSourceFields projectId={projectId} value={kafka} onChange={setKafka} isEdit={isEdit} />
+				<KafkaSourceFields
+					projectId={projectId}
+					value={kafka}
+					onChange={setKafka}
+					isEdit={isEdit}
+				/>
 			),
 		},
 		sqs: {
@@ -257,7 +255,11 @@ export function TriggerWizard({
 
 	const sourceSteps: WizardStep[] = isConnector
 		? [
-				{ key: "source", title: "Say what it reads", ...connectorSteps[type as keyof typeof connectorSteps] },
+				{
+					key: "source",
+					title: "Say what it reads",
+					...connectorSteps[type as keyof typeof connectorSteps],
+				},
 				{
 					key: "delivery",
 					label: "Delivery",
@@ -356,11 +358,7 @@ export function TriggerWizard({
 						/>
 					</div>
 
-					<GroupSelect
-						groups={groups ?? []}
-						value={groupId}
-						onChange={setGroupId}
-					/>
+					<GroupSelect groups={groups ?? []} value={groupId} onChange={setGroupId} />
 				</div>
 			),
 		},
@@ -372,11 +370,7 @@ export function TriggerWizard({
 			description:
 				"A trigger starts one workflow. To run another workflow from the same source, create a second trigger or use the Trigger Workflow block.",
 			content: (
-				<TriggerWorkflowsField
-					projectId={projectId}
-					value={workflowId}
-					onChange={setWorkflowId}
-				/>
+				<TriggerWorkflowsField projectId={projectId} value={workflowId} onChange={setWorkflowId} />
 			),
 		},
 		{
@@ -391,7 +385,11 @@ export function TriggerWizard({
 					<NoticeList
 						status="danger"
 						title="Fluxify turned this trigger off"
-						items={initialTrigger?.disabledReason && !initialTrigger.active ? [initialTrigger.disabledReason] : []}
+						items={
+							initialTrigger?.disabledReason && !initialTrigger.active
+								? [initialTrigger.disabledReason]
+								: []
+						}
 					/>
 					<dl className="grid grid-cols-2 gap-px overflow-hidden rounded-lg border border-border bg-border">
 						<SummaryItem label="Name" value={form.name.trim()} />
@@ -410,10 +408,7 @@ export function TriggerWizard({
 								<SummaryItem label="Timezone" value={schedule.timezone} />
 							</>
 						)}
-						<SummaryItem
-							label="Workflow"
-							value={workflowId ? "Attached" : "None yet"}
-						/>
+						<SummaryItem label="Workflow" value={workflowId ? "Attached" : "None yet"} />
 						<SummaryItem
 							label="Worker Group"
 							value={

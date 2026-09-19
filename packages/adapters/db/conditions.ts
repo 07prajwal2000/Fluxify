@@ -1,18 +1,11 @@
-import { sql, type Expression, type ExpressionBuilder, type SqlBool } from "kysely";
+import { type Expression, type ExpressionBuilder, type SqlBool, sql } from "kysely";
 import type { DBConditionType, RawDbCondition } from ".";
-import {
-	isColumnRef,
-	isLiteralRef,
-	resolveCondition,
-	type JsonSqlDialect,
-} from "./jsonPath";
+import { isColumnRef, isLiteralRef, type JsonSqlDialect, resolveCondition } from "./jsonPath";
 
 /** A custom SQL condition after the block evaluated its `{{ }}` placeholders. */
 export type SqlTemplate = { strings: string[]; values: unknown[] };
 
-export function isRawCondition(
-	condition: DBConditionType,
-): condition is RawDbCondition {
+export function isRawCondition(condition: DBConditionType): condition is RawDbCondition {
 	return condition.operator === "raw";
 }
 
@@ -24,8 +17,7 @@ export function isSqlTemplate(raw: unknown): raw is SqlTemplate {
 	);
 }
 
-const unwrap = (side: unknown) =>
-	isColumnRef(side) || isLiteralRef(side) ? side.value : side;
+const unwrap = (side: unknown) => (isColumnRef(side) || isLiteralRef(side) ? side.value : side);
 
 /**
  * Drops every condition holding an `undefined`, so an optional filter the
@@ -36,10 +28,7 @@ const unwrap = (side: unknown) =>
 export function activeConditions(conditions: DBConditionType[] = []) {
 	return conditions.filter((condition) => {
 		if (!isRawCondition(condition)) {
-			return (
-				unwrap(condition.attribute) !== undefined &&
-				unwrap(condition.value) !== undefined
-			);
+			return unwrap(condition.attribute) !== undefined && unwrap(condition.value) !== undefined;
 		}
 		if (isSqlTemplate(condition.raw)) {
 			return !condition.raw.values.includes(undefined);
@@ -80,17 +69,8 @@ function toSqlExpression(
 			...raw.values,
 		);
 	}
-	const { lhs, rhs } = resolveCondition(
-		condition.attribute,
-		condition.value,
-		dialect,
-		qualifiers,
-	);
-	return eb(
-		lhs as never,
-		(SQL_OPERATORS[condition.operator] ?? "=") as never,
-		rhs as never,
-	);
+	const { lhs, rhs } = resolveCondition(condition.attribute, condition.value, dialect, qualifiers);
+	return eb(lhs as never, (SQL_OPERATORS[condition.operator] ?? "=") as never, rhs as never);
 }
 
 /** Applies the active conditions to a Kysely builder, chained left to right. */
@@ -106,21 +86,14 @@ export function applySqlConditions<B extends { where: Function }>(
 		active
 			.map((condition) => toSqlExpression(eb, condition, dialect, qualifiers))
 			.reduce((expr, next, i) =>
-				active[i].chain.toLowerCase() === "or"
-					? eb.or([expr, next])
-					: eb.and([expr, next]),
+				active[i].chain.toLowerCase() === "or" ? eb.or([expr, next]) : eb.and([expr, next]),
 			),
 	) as B;
 }
 
 /** The filter object a custom MongoDB condition returned, checked for shape. */
 export function rawMongoFilter(raw: unknown): Record<string, unknown> {
-	if (
-		isSqlTemplate(raw) ||
-		typeof raw !== "object" ||
-		raw === null ||
-		Array.isArray(raw)
-	) {
+	if (isSqlTemplate(raw) || typeof raw !== "object" || raw === null || Array.isArray(raw)) {
 		throw new Error(
 			"a custom condition on MongoDB must return a filter object, e.g. { age: { $gte: 18 } }",
 		);

@@ -3,17 +3,10 @@ import { useParams } from "@tanstack/react-router";
 import { useReactFlow } from "@xyflow/react";
 import { useDbMetadata } from "@/query/findResourceQuery";
 import { useCanvasChanges } from "../../../changes/ChangesContext";
-import { BlockSettings } from "../../BlockSettings";
-import {
-	BlockIntegrationField,
-	BlockJsTextField,
-} from "../../fields";
-import {
-	parseDbConditions,
-	readDbBinding,
-	serializeDbConditions,
-} from "./conditions";
 import type { BlockNode } from "../../../types";
+import { BlockSettings } from "../../BlockSettings";
+import { BlockIntegrationField, BlockJsTextField } from "../../fields";
+import { parseDbConditions, readDbBinding, serializeDbConditions } from "./conditions";
 
 /** General tab: Connection selection and Table Name */
 export function DeleteDbGeneralSettings({ block }: { block: BlockNode }) {

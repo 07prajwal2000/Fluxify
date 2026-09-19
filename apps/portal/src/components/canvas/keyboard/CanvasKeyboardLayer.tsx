@@ -12,11 +12,7 @@ export type CanvasKeyboardLayerProps = {
  * Renders nothing — it exists so the shortcut bindings live inside the canvas
  * providers, next to the actions they run.
  */
-export function CanvasKeyboardLayer({
-	enabled,
-	rootRef,
-	actions,
-}: CanvasKeyboardLayerProps) {
+export function CanvasKeyboardLayer({ enabled, rootRef, actions }: CanvasKeyboardLayerProps) {
 	useCanvasKeyboard({ enabled, rootRef, actions });
 	return null;
 }

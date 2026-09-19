@@ -1,5 +1,5 @@
-import type { RunUsage } from "../models/budget";
 import { createHash } from "node:crypto";
+import type { RunUsage } from "../models/budget";
 import { ARTIFACT_CHIP_NAMES, chipPattern } from "./untrusted";
 
 export const COMPACTION_BLOCK_TURNS = 5;
@@ -78,16 +78,11 @@ export function mergeRunUsage(
 	) => ({
 		calls: nonNegative(left?.calls) + nonNegative(right?.calls),
 		retries: nonNegative(left?.retries) + nonNegative(right?.retries),
-		inputTokens:
-			nonNegative(left?.inputTokens) + nonNegative(right?.inputTokens),
+		inputTokens: nonNegative(left?.inputTokens) + nonNegative(right?.inputTokens),
 		historyInputTokens:
-			nonNegative(left?.historyInputTokens) +
-			nonNegative(right?.historyInputTokens),
-		outputTokens:
-			nonNegative(left?.outputTokens) + nonNegative(right?.outputTokens),
-		cachedInputTokens:
-			nonNegative(left?.cachedInputTokens) +
-			nonNegative(right?.cachedInputTokens),
+			nonNegative(left?.historyInputTokens) + nonNegative(right?.historyInputTokens),
+		outputTokens: nonNegative(left?.outputTokens) + nonNegative(right?.outputTokens),
+		cachedInputTokens: nonNegative(left?.cachedInputTokens) + nonNegative(right?.cachedInputTokens),
 		modelMs: nonNegative(left?.modelMs) + nonNegative(right?.modelMs),
 	});
 
@@ -105,11 +100,9 @@ export function mergeRunUsage(
 
 	return {
 		...total,
-		toolCalls:
-			nonNegative(previous?.toolCalls) + nonNegative(current.toolCalls),
+		toolCalls: nonNegative(previous?.toolCalls) + nonNegative(current.toolCalls),
 		totalTokens: total.inputTokens + total.outputTokens,
-		elapsedMs:
-			nonNegative(previous?.elapsedMs) + nonNegative(current.elapsedMs),
+		elapsedMs: nonNegative(previous?.elapsedMs) + nonNegative(current.elapsedMs),
 		byAgent,
 	};
 }
@@ -124,9 +117,7 @@ function blockAtEndOrdinal(
 	const firstOrdinal = totalRuns - recentRuns.length;
 	const start = endOrdinal - COMPACTION_BLOCK_TURNS + 1 - firstOrdinal;
 	const block = recentRuns.slice(start, start + COMPACTION_BLOCK_TURNS);
-	return start >= 0 && block.length === COMPACTION_BLOCK_TURNS
-		? block
-		: undefined;
+	return start >= 0 && block.length === COMPACTION_BLOCK_TURNS ? block : undefined;
 }
 
 /** Latest full block eligible for creation. The incomplete tail is excluded,
@@ -136,10 +127,7 @@ export function latestCompactionBlock(
 	totalRuns: number,
 ): HistoryRun[] | undefined {
 	if (totalRuns < COMPACTION_BLOCK_TURNS) return undefined;
-	const endOrdinal =
-		Math.floor(totalRuns / COMPACTION_BLOCK_TURNS) *
-			COMPACTION_BLOCK_TURNS -
-		1;
+	const endOrdinal = Math.floor(totalRuns / COMPACTION_BLOCK_TURNS) * COMPACTION_BLOCK_TURNS - 1;
 	return blockAtEndOrdinal(recentRuns, totalRuns, endOrdinal);
 }
 
@@ -150,15 +138,12 @@ export function expectedCompactionBlocks(
 ): HistoryRun[][] {
 	const rawStartOrdinal = Math.max(0, totalRuns - RAW_HISTORY_TURNS);
 	const newestEligibleEnd =
-		Math.floor(rawStartOrdinal / COMPACTION_BLOCK_TURNS) *
-			COMPACTION_BLOCK_TURNS -
-		1;
+		Math.floor(rawStartOrdinal / COMPACTION_BLOCK_TURNS) * COMPACTION_BLOCK_TURNS - 1;
 	const blocks: HistoryRun[][] = [];
 
 	for (
 		let end = newestEligibleEnd;
-		end >= COMPACTION_BLOCK_TURNS - 1 &&
-		blocks.length < MAX_HISTORY_COMPACTIONS;
+		end >= COMPACTION_BLOCK_TURNS - 1 && blocks.length < MAX_HISTORY_COMPACTIONS;
 		end -= COMPACTION_BLOCK_TURNS
 	) {
 		const block = blockAtEndOrdinal(recentRuns, totalRuns, end);
@@ -241,9 +226,6 @@ export function referenceTokens(runs: HistoryRun[]): string[] {
 	]);
 }
 
-export function preservesReferenceTokens(
-	summary: string,
-	allowedTokens: string[],
-): boolean {
+export function preservesReferenceTokens(summary: string, allowedTokens: string[]): boolean {
 	return [...new Set(allowedTokens)].every((token) => summary.includes(token));
 }

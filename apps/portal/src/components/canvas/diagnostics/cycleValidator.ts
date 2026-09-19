@@ -8,7 +8,9 @@ export const CYCLE_DETECTION_SOURCE = "cycle-detection";
  * Validates a graph for cyclic loops and emits error diagnostics for every
  * block participating in a cycle.
  */
-export function validateCycles(graph: CanvasGraph | { edges: Iterable<CanvasEdge> }): BlockDiagnostic[] {
+export function validateCycles(
+	graph: CanvasGraph | { edges: Iterable<CanvasEdge> },
+): BlockDiagnostic[] {
 	const cycleEdgeIds = findCycleEdgeIds(graph.edges);
 	if (cycleEdgeIds.size === 0) return [];
 

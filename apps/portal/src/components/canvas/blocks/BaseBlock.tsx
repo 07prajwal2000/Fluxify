@@ -1,11 +1,5 @@
 import { Children, isValidElement, type ReactNode } from "react";
-import {
-	TbAlertCircle,
-	TbAlertTriangle,
-	TbCheck,
-	TbInfoCircle,
-	TbX,
-} from "react-icons/tb";
+import { TbAlertCircle, TbAlertTriangle, TbCheck, TbInfoCircle, TbX } from "react-icons/tb";
 import "./blocks.css";
 import { useBlockDiagnostics } from "../diagnostics";
 import { DIAGNOSTICS_TAB } from "../panel/BlockSettings";
@@ -82,8 +76,7 @@ export function BaseBlock({
 }: BaseBlockProps) {
 	const { rails, body } = splitChildren(children);
 	const { hovered, hoverProps } = useHoverIntent();
-	const statusClass =
-		status === true ? "fx-block--ok" : status === false ? "fx-block--fail" : "";
+	const statusClass = status === true ? "fx-block--ok" : status === false ? "fx-block--fail" : "";
 	const { severitiesForBlock, forBlock } = useBlockDiagnostics();
 	const panel = useCanvasPanel();
 	const { hasError, hasWarning, hasInfo } = severitiesForBlock(blockId);
@@ -96,12 +89,7 @@ export function BaseBlock({
 			data-block-type={blockType}
 			data-x={position?.x}
 			data-y={position?.y}
-			className={[
-				"fx-block",
-				statusClass,
-				selected ? "fx-block--selected" : "",
-				className ?? "",
-			]
+			className={["fx-block", statusClass, selected ? "fx-block--selected" : "", className ?? ""]
 				.filter(Boolean)
 				.join(" ")}
 		>
@@ -124,11 +112,7 @@ export function BaseBlock({
 				</span>
 			)}
 			{(hasInfo || hasWarning || hasError) && (
-				<div
-					className="fx-block__diagnostics"
-					role="group"
-					aria-label="Block diagnostics"
-				>
+				<div className="fx-block__diagnostics" role="group" aria-label="Block diagnostics">
 					{hasInfo && (
 						<button
 							type="button"
@@ -180,9 +164,7 @@ export function BaseBlock({
 			)}
 			<span className="fx-block__text">
 				<span className="fx-block__name">{name}</span>
-				{description && (
-					<span className="fx-block__description">{description}</span>
-				)}
+				{description && <span className="fx-block__description">{description}</span>}
 			</span>
 			{body}
 			{RAIL_SIDES.map((side) =>

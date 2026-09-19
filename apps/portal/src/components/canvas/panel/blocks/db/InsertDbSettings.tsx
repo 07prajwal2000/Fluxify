@@ -3,20 +3,16 @@ import {
 	Description,
 	JavaScriptTextArea,
 	JsonEditor,
-	Label,
 	type JsonObject,
+	Label,
 } from "@fluxify/components";
 import { useParams } from "@tanstack/react-router";
 import { useReactFlow } from "@xyflow/react";
 import { useDbMetadata } from "@/query/findResourceQuery";
 import { useCanvasChanges } from "../../../changes/ChangesContext";
-import { BlockSettings } from "../../BlockSettings";
-import {
-	BlockCheckboxField,
-	BlockIntegrationField,
-	BlockJsTextField,
-} from "../../fields";
 import type { BlockNode } from "../../../types";
+import { BlockSettings } from "../../BlockSettings";
+import { BlockCheckboxField, BlockIntegrationField, BlockJsTextField } from "../../fields";
 
 type InsertDataPayload = {
 	source?: "raw" | "js";
@@ -93,8 +89,7 @@ export function InsertDbDataSettings({ block }: { block: BlockNode }) {
 				data: { source: "raw", value: nextValue },
 			});
 		} else {
-			const nextValue =
-				typeof dataPayload.value === "string" ? dataPayload.value : "";
+			const nextValue = typeof dataPayload.value === "string" ? dataPayload.value : "";
 			updateNodeData(block.id, {
 				data: { source: "js", value: nextValue },
 			});
@@ -118,8 +113,7 @@ export function InsertDbDataSettings({ block }: { block: BlockNode }) {
 			? (dataPayload.value as JsonObject)
 			: {};
 
-	const jsCode: string =
-		typeof dataPayload.value === "string" ? dataPayload.value : "";
+	const jsCode: string = typeof dataPayload.value === "string" ? dataPayload.value : "";
 
 	return (
 		<div className="flex flex-col gap-4 w-full">
@@ -167,8 +161,8 @@ export function InsertDbDataSettings({ block }: { block: BlockNode }) {
 						Return a single object to insert into the database table.
 					</Description>
 					<JavaScriptTextArea
-					expandable
-					expandTitle="Insert - Code Editor"
+						expandable
+						expandTitle="Insert - Code Editor"
 						rows={12}
 						showLineNumbers={true}
 						readOnly={!editable}

@@ -1,22 +1,18 @@
-import { useMemo, useState } from "react";
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { Button, cn, Input, Label, TextField, toast } from "@fluxify/components";
-import { TbArrowLeft, TbArrowRight, TbCheck } from "react-icons/tb";
 import type { inputParamSchema } from "@fluxify/server/src/api/v1/custom-blocks/create/dto";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useMemo, useState } from "react";
+import { TbArrowLeft, TbArrowRight, TbCheck } from "react-icons/tb";
 import type { z } from "zod";
-import { customBlocksQuery } from "@/query/customBlocksQuery";
-import { showErrorNotification } from "@/lib/errorNotifier";
-import { createRouteHead } from "@/lib/seo";
 import type { CustomBlockInputParam } from "@/components/canvas/panel/blocks/CustomBlockSettings";
+import { ICON_URL_MAX, IconPicker, type IconValue } from "@/components/customBlocks/IconPicker";
 import {
 	InputParamsEditor,
 	validateInputParams,
 } from "@/components/customBlocks/InputParamsEditor";
-import {
-	ICON_URL_MAX,
-	IconPicker,
-	type IconValue,
-} from "@/components/customBlocks/IconPicker";
+import { showErrorNotification } from "@/lib/errorNotifier";
+import { createRouteHead } from "@/lib/seo";
+import { customBlocksQuery } from "@/query/customBlocksQuery";
 
 export const Route = createFileRoute("/_authed/$projectId/custom-blocks_/new")({
 	head: createRouteHead(
@@ -109,26 +105,19 @@ function CreateCustomBlockPage() {
 					isIconOnly
 					variant="ghost"
 					aria-label="Back to custom blocks"
-					onPress={() =>
-						navigate({ to: "/$projectId/custom-blocks", params: { projectId } })
-					}
+					onPress={() => navigate({ to: "/$projectId/custom-blocks", params: { projectId } })}
 				>
 					<TbArrowLeft size={18} />
 				</Button>
 				<div>
-					<h1 className="text-xl font-semibold tracking-tight">
-						Create a custom block
-					</h1>
+					<h1 className="text-xl font-semibold tracking-tight">Create a custom block</h1>
 					<p className="text-xs text-muted">
 						A reusable piece of flow you can drop onto any route canvas.
 					</p>
 				</div>
 			</div>
 
-			<nav
-				aria-label="Custom block setup steps"
-				className="shrink-0 border-b border-border pb-3"
-			>
+			<nav aria-label="Custom block setup steps" className="shrink-0 border-b border-border pb-3">
 				<ol className="flex flex-wrap gap-2">
 					{STEPS.map((item, index) => {
 						const reachable = index === 0 || basicsValid;
@@ -181,8 +170,7 @@ function CreateCustomBlockPage() {
 					}
 					description={
 						{
-							basics:
-								"The label is what people see; the identifier is fixed and used in flows.",
+							basics: "The label is what people see; the identifier is fixed and used in flows.",
 							icon: "Pick a premade icon or point at your own image. Optional.",
 							inputs:
 								"Optional. The fields this block asks for when it is placed on a route canvas.",
@@ -218,8 +206,8 @@ function CreateCustomBlockPage() {
 								<Label>Identifier</Label>
 								<Input placeholder="send_slack_message" className="font-mono" />
 								<p className="text-xs text-muted">
-									How flows refer to this block. Lowercase letters, digits and
-									underscores. Can't be changed later.
+									How flows refer to this block. Lowercase letters, digits and underscores. Can't be
+									changed later.
 								</p>
 							</TextField>
 
@@ -255,9 +243,7 @@ function CreateCustomBlockPage() {
 							<SummaryItem
 								label="Icon"
 								value={
-									iconValue.icon === "custom"
-										? "Custom image"
-										: (iconValue.iconUrl ?? "Default")
+									iconValue.icon === "custom" ? "Custom image" : (iconValue.iconUrl ?? "Default")
 								}
 							/>
 							<SummaryItem
@@ -319,29 +305,17 @@ function StepHeading({
 			<p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-accent">
 				Step {current + 1} of {total}
 			</p>
-			<h2 className="mt-1 text-lg font-semibold tracking-tight text-foreground">
-				{title}
-			</h2>
+			<h2 className="mt-1 text-lg font-semibold tracking-tight text-foreground">{title}</h2>
 			<p className="mt-0.5 text-xs text-muted">{description}</p>
 		</div>
 	);
 }
 
-function SummaryItem({
-	label,
-	value,
-	mono,
-}: {
-	label: string;
-	value: string;
-	mono?: boolean;
-}) {
+function SummaryItem({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
 	return (
 		<div className="bg-surface px-3 py-2">
 			<dt className="text-[11px] uppercase tracking-wide text-muted">{label}</dt>
-			<dd className={cn("mt-0.5 text-sm text-foreground", mono && "font-mono")}>
-				{value || "—"}
-			</dd>
+			<dd className={cn("mt-0.5 text-sm text-foreground", mono && "font-mono")}>{value || "—"}</dd>
 		</div>
 	);
 }

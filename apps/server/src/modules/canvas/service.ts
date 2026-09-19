@@ -1,14 +1,15 @@
 import { BlockTypes, FAN_OUT_HANDLES } from "@fluxify/blocks";
-import { db, type DbTransactionType } from "../../db";
-import { BadRequestError } from "../../errors/badRequestError";
-import { ConflictError } from "../../errors/conflictError";
-import { NotFoundError } from "../../errors/notFoundError";
+import { type DbTransactionType, db } from "../../db";
 import {
 	CHAN_ON_CUSTOM_BLOCK_CHANGE,
 	CHAN_ON_ROUTE_CHANGE,
 	CHAN_ON_WORKFLOW_CHANGE,
 	publishMessage,
 } from "../../db/redis";
+import { BadRequestError } from "../../errors/badRequestError";
+import { ConflictError } from "../../errors/conflictError";
+import { NotFoundError } from "../../errors/notFoundError";
+import { type DirectedCanvasEdge, findCycleEdgeIds } from "./cycleDetection";
 import {
 	deleteBlocks,
 	deleteEdges,
@@ -17,23 +18,15 @@ import {
 	getBlocksCountByType,
 	getCustomBlockCalls,
 	getCustomBlockNames,
-	getProjectCustomBlocks,
 	getEdges,
+	getProjectCustomBlocks,
 	parentExists,
 	parentKeys,
 	touchParent,
 	upsertBlocks,
 	upsertEdges,
 } from "./repository";
-import {
-	findCycleEdgeIds,
-	type DirectedCanvasEdge,
-} from "./cycleDetection";
-import type {
-	CanvasChanges,
-	CanvasParent,
-	CanvasParentType,
-} from "./types";
+import type { CanvasChanges, CanvasParent, CanvasParentType } from "./types";
 
 type CanvasEdgeWithHandle = DirectedCanvasEdge & {
 	fromHandle?: string | null;
@@ -65,8 +58,7 @@ async function assertEdgeTargetsExist(
 	const incoming = new Set(data.changes.blocks.map((b) => b.id));
 	const referenced = new Set<string>();
 	for (const edge of data.changes.edges) {
-		for (const id of [edge.from, edge.to])
-			if (!incoming.has(id)) referenced.add(id);
+		for (const id of [edge.from, edge.to]) if (!incoming.has(id)) referenced.add(id);
 	}
 	if (referenced.size === 0) return;
 
@@ -78,9 +70,7 @@ async function assertEdgeTargetsExist(
 
 	const missing = [...referenced].filter((id) => !known.has(id));
 	if (missing.length > 0) {
-		throw new BadRequestError(
-			`Edge references unknown block(s): ${missing.join(", ")}`,
-		);
+		throw new BadRequestError(`Edge references unknown block(s): ${missing.join(", ")}`);
 	}
 }
 
@@ -93,13 +83,9 @@ async function canvasEdgesAfterSave(
 	tx: DbTransactionType,
 ) {
 	const edges = new Map<string, CanvasEdgeWithHandle>(
-		(await getEdges(parent, tx)).map((edge) => [
-			edge.id,
-			edge as CanvasEdgeWithHandle,
-		]),
+		(await getEdges(parent, tx)).map((edge) => [edge.id, edge as CanvasEdgeWithHandle]),
 	);
-	for (const edge of data.changes.edges)
-		edges.set(edge.id, edge as CanvasEdgeWithHandle);
+	for (const edge of data.changes.edges) edges.set(edge.id, edge as CanvasEdgeWithHandle);
 	for (const edgeId of deleteEdgeIds) edges.delete(edgeId);
 
 	const deletedBlocks = new Set(deleteBlockIds);
@@ -116,13 +102,7 @@ async function assertCanvasHasNoCycles(
 	tx: DbTransactionType,
 ) {
 	const cycleEdgeIds = findCycleEdgeIds(
-		await canvasEdgesAfterSave(
-			parent,
-			data,
-			deleteBlockIds,
-			deleteEdgeIds,
-			tx,
-		),
+		await canvasEdgesAfterSave(parent, data, deleteBlockIds, deleteEdgeIds, tx),
 	);
 	if (cycleEdgeIds.size === 0) return;
 
@@ -142,13 +122,7 @@ async function assertCanvasHasNoHandleFanOut(
 	tx: DbTransactionType,
 ) {
 	const seen = new Map<string, string>();
-	for (const edge of await canvasEdgesAfterSave(
-		parent,
-		data,
-		deleteBlockIds,
-		deleteEdgeIds,
-		tx,
-	)) {
+	for (const edge of await canvasEdgesAfterSave(parent, data, deleteBlockIds, deleteEdgeIds, tx)) {
 		if (!edge.from) continue;
 		const rawHandle = edge.fromHandle ?? "source";
 		const handle = rawHandle.startsWith(`${edge.from}-`)
@@ -180,9 +154,7 @@ async function assertBlockTypesExist(
 ) {
 	const builtin = new Set<string>(Object.values(BlockTypes));
 	const unknown = [
-		...new Set(
-			data.changes.blocks.map((b) => b.type).filter((t) => !builtin.has(t)),
-		),
+		...new Set(data.changes.blocks.map((b) => b.type).filter((t) => !builtin.has(t))),
 	];
 	if (unknown.length === 0) return;
 
@@ -276,16 +248,12 @@ async function mergeStaleSingleton(
 	type: string,
 	tx: DbTransactionType,
 ) {
-	const incomingIds = data.changes.blocks
-		.filter((b) => b.type === type)
-		.map((b) => b.id);
+	const incomingIds = data.changes.blocks.filter((b) => b.type === type).map((b) => b.id);
 	if (incomingIds.length !== 1) return false;
 	const [keepId] = incomingIds;
 
 	const stored = await getBlocks(parent, tx);
-	const staleIds = stored
-		.filter((b) => b.type === type && b.id !== keepId)
-		.map((b) => b.id);
+	const staleIds = stored.filter((b) => b.type === type && b.id !== keepId).map((b) => b.id);
 	if (staleIds.length === 0) return false;
 
 	const edges = await getEdges(parent, tx);
@@ -336,20 +304,8 @@ export async function saveCanvas(
 		await assertBlockTypesExist(parent, data, tx);
 		await assertNoCustomBlockRecursion(parent, data, deleteBlockIds, tx);
 		await assertEdgeTargetsExist(parent, data, deleteBlockIds, tx);
-		await assertCanvasHasNoCycles(
-			parent,
-			data,
-			deleteBlockIds,
-			deleteEdgeIds,
-			tx,
-		);
-		await assertCanvasHasNoHandleFanOut(
-			parent,
-			data,
-			deleteBlockIds,
-			deleteEdgeIds,
-			tx,
-		);
+		await assertCanvasHasNoCycles(parent, data, deleteBlockIds, deleteEdgeIds, tx);
+		await assertCanvasHasNoHandleFanOut(parent, data, deleteBlockIds, deleteEdgeIds, tx);
 		await upsertBlocks(
 			data.changes.blocks.map((block) => ({ ...block, ...keys })),
 			tx,
@@ -369,11 +325,7 @@ export async function saveCanvas(
 		await touchParent(parent, tx);
 		for (const block of structural) {
 			if (block.count === 1) continue;
-			if (
-				mergeAiDuplicates &&
-				(await mergeStaleSingleton(parent, data, block.type!, tx))
-			)
-				continue;
+			if (mergeAiDuplicates && (await mergeStaleSingleton(parent, data, block.type!, tx))) continue;
 			throw new BadRequestError(`Duplicate block ${block.type} found`);
 		}
 	});
@@ -381,18 +333,12 @@ export async function saveCanvas(
 	if (!outer) await publishMessage(CHANGE_CHANNEL[parent.type], parent.id);
 }
 
-export async function getCanvas(
-	parent: CanvasParent,
-	projectIds: string[] = [],
-) {
+export async function getCanvas(parent: CanvasParent, projectIds: string[] = []) {
 	return await db.transaction(async (tx) => {
 		if (!(await parentExists(parent, projectIds, tx))) {
 			throw new NotFoundError(NOT_FOUND[parent.type]);
 		}
-		const [blocks, edges] = await Promise.all([
-			getBlocks(parent, tx),
-			getEdges(parent, tx),
-		]);
+		const [blocks, edges] = await Promise.all([getBlocks(parent, tx), getEdges(parent, tx)]);
 		return {
 			blocks: blocks.map((b) => ({
 				id: b.id,

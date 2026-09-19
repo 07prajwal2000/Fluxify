@@ -1,9 +1,5 @@
 import { withCustomBlockPrefix } from "@fluxify/lib";
-import type {
-	CustomBlockConfigAgentResult,
-	GlobalGraphState,
-	Task,
-} from "../../../types";
+import type { CustomBlockConfigAgentResult, GlobalGraphState, Task } from "../../../types";
 
 export interface PendingCustomBlock {
 	/** The name this block will be *stored* under, prefix included. The config
@@ -57,10 +53,7 @@ function dependencyClosure(state: GlobalGraphState, taskId: string): Set<string>
  * block it never declared a dependency on would pass validation here and then
  * apply in the wrong order.
  */
-export function pendingCustomBlocks(
-	state: GlobalGraphState,
-	taskId: string,
-): PendingCustomBlock[] {
+export function pendingCustomBlocks(state: GlobalGraphState, taskId: string): PendingCustomBlock[] {
 	const results = state.orchestratorState?.subAgentResults ?? {};
 	const pending: PendingCustomBlock[] = [];
 
@@ -85,9 +78,6 @@ export function pendingCustomBlockSchemas(
 	taskId: string,
 ): Map<string, Array<Record<string, unknown>>> {
 	return new Map(
-		pendingCustomBlocks(state, taskId).map((block) => [
-			block.name,
-			block.inputParams,
-		]),
+		pendingCustomBlocks(state, taskId).map((block) => [block.name, block.inputParams]),
 	);
 }

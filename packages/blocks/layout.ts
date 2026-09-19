@@ -1,7 +1,7 @@
-import { BlockTypes } from "./blockTypes";
 import { HANDLE_SIDE, type HandleKind, type HandleSide } from "./blockHandles";
+import { BlockTypes } from "./blockTypes";
 
-export { HANDLE_SIDE, sortByOrder, type HandleKind, type HandleSide } from "./blockHandles";
+export { HANDLE_SIDE, type HandleKind, type HandleSide, sortByOrder } from "./blockHandles";
 
 /**
  * Canvas auto-layout, shared by the editor's Format button and the AI harness.
@@ -68,10 +68,7 @@ export function handleSide(handleId: string): HandleSide {
  * of the editor, but a model can emit one, so the walk is depth-capped instead
  * of trusting the input to terminate.
  */
-export function layerOf(
-	nodes: LayoutNode[],
-	edges: LayoutEdge[],
-): Map<string, number> {
+export function layerOf(nodes: LayoutNode[], edges: LayoutEdge[]): Map<string, number> {
 	const incoming = new Map<string, string[]>();
 	for (const node of nodes) incoming.set(node.id, []);
 	for (const edge of edges) incoming.get(edge.to)?.push(edge.from);
@@ -83,9 +80,7 @@ export function layerOf(
 		if (seen.has(id)) return 0;
 		seen.add(id);
 		const parents = incoming.get(id) ?? [];
-		const layer = parents.length
-			? Math.max(...parents.map((p) => walk(p, seen) + 1))
-			: 0;
+		const layer = parents.length ? Math.max(...parents.map((p) => walk(p, seen) + 1)) : 0;
 		seen.delete(id);
 		layers.set(id, layer);
 		return layer;
@@ -105,9 +100,7 @@ function anchorOffset(
 	positions: LayoutPositions,
 	changed: Set<string>,
 ): { x: number; y: number } {
-	const unchanged = nodes.filter(
-		(n) => !changed.has(n.id) && n.position && positions[n.id],
-	);
+	const unchanged = nodes.filter((n) => !changed.has(n.id) && n.position && positions[n.id]);
 	if (unchanged.length === 0) return { x: 0, y: 0 };
 	// The leftmost survivor: anchoring on the head of the flow keeps the reading
 	// order stable, where an average would smear the offset across a reflow.
@@ -155,8 +148,7 @@ export function layoutGraph(
 			(a, b) => (a.position?.y ?? 0) - (b.position?.y ?? 0),
 		);
 		const total =
-			column.reduce((sum, n) => sum + heightOf(n), 0) +
-			nodeSpacing * (column.length - 1);
+			column.reduce((sum, n) => sum + heightOf(n), 0) + nodeSpacing * (column.length - 1);
 		let y = -total / 2;
 		for (const node of column) {
 			positions[node.id] = { x, y };

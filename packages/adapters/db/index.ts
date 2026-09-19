@@ -2,10 +2,7 @@ import { operatorSchema } from "@fluxify/lib";
 import { SQL } from "bun";
 import z from "zod";
 import { type Connection, DbType } from "./connection";
-import {
-	type DbConnectionLease,
-	DbConnectionManager,
-} from "./connectionManager";
+import { type DbConnectionLease, DbConnectionManager } from "./connectionManager";
 import { buildMongoUrl, MongoAdapter } from "./mongoDbAdapter";
 import { MySqlAdapter } from "./mySqlAdapter";
 import { PostgresAdapter } from "./postgresAdapter";
@@ -112,11 +109,7 @@ export interface IDbAdapter {
 	): Promise<unknown | null>;
 	insert(table: string, data: unknown): Promise<any>;
 	insertBulk(table: string, data: unknown[]): Promise<any>;
-	update(
-		table: string,
-		data: unknown,
-		conditions: DBConditionType[],
-	): Promise<any>;
+	update(table: string, data: unknown, conditions: DBConditionType[]): Promise<any>;
 	raw(query?: string | unknown, params?: any[]): Promise<any>;
 	/** optional — adapters that cannot describe their schema simply omit it */
 	introspect?(): Promise<IntrospectedTable[]>;
@@ -190,9 +183,7 @@ export class DbFactory {
  * Opens a short-lived connection, describes the schema and closes it again.
  * Design-time only — runtime queries go through DbFactory's pooled adapters.
  */
-export async function introspectConnection(
-	cfg: Connection,
-): Promise<IntrospectedTable[]> {
+export async function introspectConnection(cfg: Connection): Promise<IntrospectedTable[]> {
 	if (cfg.dbType.toLowerCase() === DbType.POSTGRES.toLowerCase()) {
 		const sql = new SQL({
 			adapter: "postgres",
@@ -215,10 +206,7 @@ export async function introspectConnection(
 	if (cfg.dbType.toLowerCase() === DbType.MYSQL.toLowerCase()) {
 		const pool = MySqlAdapter.createPool(cfg);
 		try {
-			return await new MySqlAdapter(
-				MySqlAdapter.createKysely(pool),
-				pool,
-			).introspect();
+			return await new MySqlAdapter(MySqlAdapter.createKysely(pool), pool).introspect();
 		} finally {
 			await pool.promise().end();
 		}
@@ -231,10 +219,7 @@ export async function introspectConnection(
 		});
 		try {
 			await client.connect();
-			return await new MongoAdapter(
-				client,
-				client.db(cfg.database),
-			).introspect();
+			return await new MongoAdapter(client, client.db(cfg.database)).introspect();
 		} finally {
 			await client.close();
 		}

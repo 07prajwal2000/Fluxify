@@ -1,58 +1,38 @@
 import { logger } from "@fluxify/common";
 import { withFluxifyContext } from "@fluxify/common/tracing";
-import { HumanMessage, type BaseMessage } from "@langchain/core/messages";
-import {
-	AgentFactory,
-	type AgentFactoryOptions,
-	type AgentProvider,
-} from "./models/factory";
-import {
-	GraphState,
-	AgentNode,
-	type GlobalGraphState,
-	type AgentNodeName,
-	type CustomEventName,
-} from "./types";
-import { BaseAgentWrapper, type AgentInvokeOptions } from "./models/base";
-import { RunBudget } from "./models/budget";
+import { type BaseMessage, HumanMessage } from "@langchain/core/messages";
+import { HarnessCallbacks } from "./callbacks";
+import { describeFailure, isUserInterrupt, redactSecrets } from "./errors";
 import { app as graphApp } from "./graph";
+import { buildContextBlock, locationFromResourceChips } from "./internal/contextBlock";
 import { DbService } from "./internal/dbService";
-import {
-	buildContextBlock,
-	locationFromResourceChips,
-} from "./internal/contextBlock";
-import { sanitizeUserQuery } from "./internal/untrusted";
-import type { HarnessRunContext } from "./internal/runContext";
-import { RunOutcomeWriter } from "./internal/runOutcome";
 import {
 	describeHitlAction,
 	extractWorkingMemory,
 	HarnessService,
-	HitlPlanAction,
-	RecordHitlActionInput,
-	SaveLiveStateInput,
-	UpsertStepInput,
+	type HitlPlanAction,
+	type RecordHitlActionInput,
+	type SaveLiveStateInput,
+	type UpsertStepInput,
 } from "./internal/harnessService";
 import { RedisService } from "./internal/redisService";
+import type { HarnessRunContext } from "./internal/runContext";
+import { RunOutcomeWriter } from "./internal/runOutcome";
+import { sanitizeUserQuery } from "./internal/untrusted";
+import { registerRunController, requestInterrupt, unregisterRunController } from "./interrupt";
+import { type AgentInvokeOptions, BaseAgentWrapper } from "./models/base";
+import { RunBudget } from "./models/budget";
+import { AgentFactory, type AgentFactoryOptions, type AgentProvider } from "./models/factory";
+import { type HarnessRunStatus, labelForNode, runStatusForNode } from "./streamTypes";
 import { FluxifyOtelTracer } from "./telemetry/otel-tracer";
+import { endRunSpan, recordRetryOnRunSpan, startRunSpan, withRunSpan } from "./telemetry/runSpan";
 import {
-	startRunSpan,
-	withRunSpan,
-	recordRetryOnRunSpan,
-	endRunSpan,
-} from "./telemetry/runSpan";
-import { HarnessCallbacks } from "./callbacks";
-import {
-	labelForNode,
-	runStatusForNode,
-	type HarnessRunStatus,
-} from "./streamTypes";
-import { isUserInterrupt, describeFailure, redactSecrets } from "./errors";
-import {
-	registerRunController,
-	unregisterRunController,
-	requestInterrupt,
-} from "./interrupt";
+	AgentNode,
+	type AgentNodeName,
+	type CustomEventName,
+	type GlobalGraphState,
+	GraphState,
+} from "./types";
 
 /** Everything a single harness run needs — supplied by the worker from job data. */
 export class FluxifyHarness {
@@ -134,9 +114,7 @@ export class FluxifyHarness {
 		// On resume, rehydrate the serializable working-memory slices persisted
 		// when the run parked at HITL.
 		const workingMemory =
-			mode === "continue"
-				? ((await harnessService.loadWorkingMemory(ctx.runId)) ?? {})
-				: {};
+			mode === "continue" ? ((await harnessService.loadWorkingMemory(ctx.runId)) ?? {}) : {};
 
 		// Resolve the resource the user was viewing — or, failing that, the one
 		// they @-mentioned — once, here, instead of letting an agent burn a
@@ -175,10 +153,7 @@ export class FluxifyHarness {
 		};
 	}
 
-	private async executeGraph(
-		ctx: HarnessRunContext,
-		state: Partial<GlobalGraphState>,
-	) {
+	private async executeGraph(ctx: HarnessRunContext, state: Partial<GlobalGraphState>) {
 		const harnessService = state.internal!.harnessService;
 		const runOutcome = await this.outcomeWriter(ctx, harnessService);
 
@@ -259,10 +234,7 @@ export class FluxifyHarness {
 		};
 
 		try {
-			await harnessService.updateRun(
-				{ runId: ctx.runId, status: "routing" },
-				true,
-			);
+			await harnessService.updateRun({ runId: ctx.runId, status: "routing" }, true);
 			await harnessService.updateConversationStatus("running", ctx.runId);
 
 			// An `approve` resume enters the graph past the router — see graph.ts's
@@ -273,9 +245,7 @@ export class FluxifyHarness {
 			// entry node right away so the UI can't miss the resume.
 			if (state.action?.type === "approve" || state.action?.type === "review") {
 				const entryNode =
-					state.action.type === "approve"
-						? AgentNode.TASK_GENERATOR
-						: AgentNode.ROUTER;
+					state.action.type === "approve" ? AgentNode.TASK_GENERATOR : AgentNode.ROUTER;
 				await runOutcome.emit(
 					runStatusForNode(entryNode),
 					"running",
@@ -303,11 +273,7 @@ export class FluxifyHarness {
 			// blip inside it must not fall into the catch below and re-brand a
 			// finished run as failed — the user's build landed either way.
 			try {
-				await runOutcome.finalize(
-					budget,
-					callbacks.toolCallCount(),
-					finalState,
-				);
+				await runOutcome.finalize(budget, callbacks.toolCallCount(), finalState);
 			} catch (error) {
 				logger.error("[FluxifyHarness] Failed to finalize a completed run", {
 					conversationId: ctx.conversationId,
@@ -329,11 +295,7 @@ export class FluxifyHarness {
 					conversationId: ctx.conversationId,
 					runId: ctx.runId,
 				});
-				await runOutcome.interrupt(
-					budget,
-					callbacks.toolCallCount(),
-					callbacks.snapshotState(),
-				);
+				await runOutcome.interrupt(budget, callbacks.toolCallCount(), callbacks.snapshotState());
 				return undefined;
 			}
 
@@ -384,14 +346,8 @@ export class FluxifyHarness {
 
 		for await (const event of events) {
 			if (event.event === "on_custom_event") {
-				await callbacks.onCustomEvent(
-					event.name as CustomEventName,
-					event.data,
-				);
-			} else if (
-				event.event === "on_chain_start" &&
-				event.name !== "LangGraph"
-			) {
+				await callbacks.onCustomEvent(event.name as CustomEventName, event.data);
+			} else if (event.event === "on_chain_start" && event.name !== "LangGraph") {
 				onNodeEnter(event.name as AgentNodeName);
 				await callbacks.onBefore(event.name as AgentNodeName, event.data);
 			} else if (event.event === "on_chain_end") {
@@ -410,9 +366,7 @@ export class FluxifyHarness {
 	 * Probes the AI provider once before running. Returns an error string if the
 	 * provider is unreachable, or null when it responds.
 	 */
-	private async checkAgentConnection(
-		agent?: BaseAgentWrapper,
-	): Promise<string | null> {
+	private async checkAgentConnection(agent?: BaseAgentWrapper): Promise<string | null> {
 		if (!agent) return "No AI agent configured for this run";
 		try {
 			await agent.checkConnection();
@@ -434,24 +388,24 @@ export class FluxifyHarness {
 }
 
 export {
-	// Re-exported from ./errors, where it lives with the categorization it uses.
-	describeFailure,
-	type HarnessRunContext,
 	AgentFactory,
 	type AgentFactoryOptions,
-	type AgentProvider,
-	GraphState,
-	type GlobalGraphState,
-	BaseAgentWrapper,
 	type AgentInvokeOptions,
+	type AgentNodeName,
+	type AgentProvider,
+	BaseAgentWrapper,
+	type CustomEventName,
+	// Re-exported from ./errors, where it lives with the categorization it uses.
+	describeFailure,
+	extractWorkingMemory,
+	type GlobalGraphState,
+	GraphState,
 	HarnessCallbacks,
+	type HarnessRunContext,
 	HarnessService,
-	RedisService,
-	type UpsertStepInput,
-	type SaveLiveStateInput,
 	type HitlPlanAction,
 	type RecordHitlActionInput,
-	extractWorkingMemory,
-	type AgentNodeName,
-	type CustomEventName,
+	RedisService,
+	type SaveLiveStateInput,
+	type UpsertStepInput,
 };

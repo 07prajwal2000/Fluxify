@@ -72,18 +72,10 @@ export function explainErrorReason(raw: string): string {
 	) {
 		return "the AI model replied in plain prose instead of JSON. Models behind an OpenAI-compatible endpoint often ignore the JSON output format — the harness re-asks and usually recovers, but a model with reliable JSON support will be faster.";
 	}
-	if (
-		lower.includes("structured output") ||
-		lower.includes("json") ||
-		lower.includes("schema")
-	) {
+	if (lower.includes("structured output") || lower.includes("json") || lower.includes("schema")) {
 		return "the AI model did not return a valid, complete response in the required format. This usually means the model ran out of output space or is not reliable at structured output — try a larger or stronger model, or split the request into smaller steps.";
 	}
-	if (
-		lower.includes("rate limit") ||
-		lower.includes("429") ||
-		lower.includes("quota")
-	) {
+	if (lower.includes("rate limit") || lower.includes("429") || lower.includes("quota")) {
 		return "the AI provider rejected the request due to rate limits or exhausted quota. Please wait a moment and try again, or check your provider plan.";
 	}
 	if (
@@ -160,9 +152,5 @@ export function redactSecrets(text: string): string {
  */
 export function isCallTimeout(error: unknown): boolean {
 	const name = (error as { name?: string })?.name;
-	return (
-		name === "ModelAbortError" ||
-		name === "TimeoutError" ||
-		name === "AbortError"
-	);
+	return name === "ModelAbortError" || name === "TimeoutError" || name === "AbortError";
 }

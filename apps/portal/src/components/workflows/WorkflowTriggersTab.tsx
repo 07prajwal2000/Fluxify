@@ -1,4 +1,3 @@
-import { useState } from "react";
 import {
 	Button,
 	Description,
@@ -9,14 +8,15 @@ import {
 	Switch,
 	toast,
 } from "@fluxify/components";
+import { useState } from "react";
 import { TbBolt, TbExternalLink, TbPlus } from "react-icons/tb";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { Section } from "@/components/common/Section";
+import { announceWarnings, DisabledReason } from "@/components/triggers/TriggerNotices";
 import { withBasePath } from "@/constants/routes";
-import { triggersQuery } from "@/query/triggersQuery";
 import { showErrorNotification } from "@/lib/errorNotifier";
+import { triggersQuery } from "@/query/triggersQuery";
 import type { TriggerListItem } from "@/services/triggers";
-import { DisabledReason, announceWarnings } from "@/components/triggers/TriggerNotices";
 
 /**
  * The triggers attached to one workflow.
@@ -66,22 +66,15 @@ export function WorkflowTriggersTab({
 			) : triggers.length === 0 ? (
 				<div className="flex flex-col items-center rounded-lg border border-dashed border-border px-4 py-10 text-center">
 					<TbBolt size={26} className="mb-2 text-muted" />
-					<p className="text-sm font-medium text-foreground">
-						No triggers attached
-					</p>
+					<p className="text-sm font-medium text-foreground">No triggers attached</p>
 					<p className="mt-1 text-xs text-muted">
-						Nothing starts this workflow except a manual run or the Trigger
-						Workflow block.
+						Nothing starts this workflow except a manual run or the Trigger Workflow block.
 					</p>
 				</div>
 			) : (
 				<div className="flex flex-col gap-2">
 					{triggers.map((trigger) => (
-						<TriggerRow
-							key={trigger.id}
-							trigger={trigger}
-							workflowId={workflowId}
-						/>
+						<TriggerRow key={trigger.id} trigger={trigger} workflowId={workflowId} />
 					))}
 				</div>
 			)}
@@ -108,11 +101,7 @@ export function WorkflowTriggersTab({
 					<Select.Popover>
 						<ListBox>
 							{available.map((trigger) => (
-								<ListBox.Item
-									key={trigger.id}
-									id={trigger.id}
-									textValue={trigger.name}
-								>
+								<ListBox.Item key={trigger.id} id={trigger.id} textValue={trigger.name}>
 									{trigger.name}
 									<ListBox.ItemIndicator />
 								</ListBox.Item>
@@ -137,11 +126,7 @@ export function WorkflowTriggersTab({
 					variant="outline"
 					size="sm"
 					onPress={() =>
-						window.open(
-							withBasePath(`/${projectId}/triggers/new`),
-							"_blank",
-							"noopener,noreferrer",
-						)
+						window.open(withBasePath(`/${projectId}/triggers/new`), "_blank", "noopener,noreferrer")
 					}
 				>
 					<TbExternalLink size={14} /> New trigger
@@ -151,13 +136,7 @@ export function WorkflowTriggersTab({
 	);
 }
 
-function TriggerRow({
-	trigger,
-	workflowId,
-}: {
-	trigger: TriggerListItem;
-	workflowId: string;
-}) {
+function TriggerRow({ trigger, workflowId }: { trigger: TriggerListItem; workflowId: string }) {
 	const update = triggersQuery.update.mutation();
 	const detach = triggersQuery.detach.mutation();
 	const [confirming, setConfirming] = useState(false);
@@ -165,9 +144,7 @@ function TriggerRow({
 	return (
 		<div className="flex items-center gap-4 rounded-lg border border-border bg-surface px-4 py-3">
 			<div className="min-w-0 flex-1">
-				<p className="truncate text-sm font-medium text-foreground">
-					{trigger.name}
-				</p>
+				<p className="truncate text-sm font-medium text-foreground">{trigger.name}</p>
 				<p className="text-xs text-muted">
 					{trigger.type === "schedule" ? (
 						<>
@@ -219,9 +196,8 @@ function TriggerRow({
 					)
 				}
 			>
-				Stop <b className="text-foreground">{trigger.name}</b> starting this
-				workflow? The trigger itself stays on the Triggers page, idle until
-				it is attached again.
+				Stop <b className="text-foreground">{trigger.name}</b> starting this workflow? The trigger
+				itself stays on the Triggers page, idle until it is attached again.
 			</ConfirmDialog>
 		</div>
 	);

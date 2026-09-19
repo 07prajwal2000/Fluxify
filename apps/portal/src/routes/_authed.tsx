@@ -30,8 +30,7 @@ function AuthedLayout() {
 			name: session.user.name || "",
 			email: session.user.email || "",
 			image: session.user.image || "",
-			isSystemAdmin: (session.user as { isSystemAdmin?: boolean })
-				.isSystemAdmin,
+			isSystemAdmin: (session.user as { isSystemAdmin?: boolean }).isSystemAdmin,
 		});
 		actions.setACL((session as { acl?: [] }).acl ?? []);
 	}, [session, actions]);
@@ -86,9 +85,7 @@ function LicenseBanner() {
 					// Opaque surface, not a tint: at 20% the page showed straight
 					// through the message. The colour lives in the border and text.
 					"bg-surface",
-					inGrace
-						? "border-warning/60 text-warning"
-						: "border-danger/60 text-danger",
+					inGrace ? "border-warning/60 text-warning" : "border-danger/60 text-danger",
 				)}
 			>
 				{inGrace

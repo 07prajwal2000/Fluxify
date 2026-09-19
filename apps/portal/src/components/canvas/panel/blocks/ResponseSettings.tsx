@@ -1,9 +1,10 @@
 // Deep import: the lib barrel pulls in pino/axios, which has no business in the
 // browser bundle. The code list is plain data.
+
+import { httpcodes } from "@/lib/httpcode";
+import type { BlockNode } from "../../types";
 import { BlockSettings } from "../BlockSettings";
 import { BlockCheckboxField, BlockSelectField } from "../fields";
-import type { BlockNode } from "../../types";
-import { httpcodes } from "@/lib/httpcode";
 import { JsRunnerSettings } from "./JsRunnerSettings";
 
 const HTTP_CODE_OPTIONS = httpcodes.map((code) => ({

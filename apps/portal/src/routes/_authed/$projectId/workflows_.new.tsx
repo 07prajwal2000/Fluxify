@@ -1,5 +1,3 @@
-import { useState } from "react";
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import {
 	Checkbox,
 	Input,
@@ -9,23 +7,18 @@ import {
 	TextField,
 	toast,
 } from "@fluxify/components";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useState } from "react";
 import { TbBolt, TbExternalLink } from "react-icons/tb";
-import {
-	FormWizard,
-	SummaryItem,
-	type WizardStep,
-} from "@/components/common/FormWizard";
+import { FormWizard, SummaryItem, type WizardStep } from "@/components/common/FormWizard";
 import { withBasePath } from "@/constants/routes";
-import { triggersQuery } from "@/query/triggersQuery";
-import { workflowsQuery } from "@/query/workflowsQuery";
 import { showErrorNotification } from "@/lib/errorNotifier";
 import { createRouteHead } from "@/lib/seo";
+import { triggersQuery } from "@/query/triggersQuery";
+import { workflowsQuery } from "@/query/workflowsQuery";
 
 export const Route = createFileRoute("/_authed/$projectId/workflows_/new")({
-	head: createRouteHead(
-		"New Workflow",
-		"Create a background workflow and choose what starts it.",
-	),
+	head: createRouteHead("New Workflow", "Create a background workflow and choose what starts it."),
 	component: CreateWorkflowPage,
 });
 
@@ -120,8 +113,7 @@ function CreateWorkflowPage() {
 			key: "execution",
 			label: "Execution",
 			title: "How long, and what to keep",
-			description:
-				"Background work may be slower than a request, but not endless.",
+			description: "Background work may be slower than a request, but not endless.",
 			content: (
 				<div className="flex flex-col gap-5">
 					<div className="flex flex-col gap-1">
@@ -129,9 +121,7 @@ function CreateWorkflowPage() {
 							value={timeoutSeconds}
 							minValue={30}
 							maxValue={3600}
-							onChange={(next) =>
-								setTimeoutSeconds(Math.min(3600, Math.max(30, next || 30)))
-							}
+							onChange={(next) => setTimeoutSeconds(Math.min(3600, Math.max(30, next || 30)))}
 						>
 							<Label>Timeout (seconds)</Label>
 							<NumberField.Group>
@@ -185,22 +175,16 @@ function CreateWorkflowPage() {
 					<dl className="grid grid-cols-2 gap-px overflow-hidden rounded-lg border border-border bg-border">
 						<SummaryItem label="Name" value={name.trim()} />
 						<SummaryItem label="Timeout" value={`${timeoutSeconds}s`} />
-						<SummaryItem
-							label="Executions"
-							value={recordExecution ? "Recorded" : "Not recorded"}
-						/>
+						<SummaryItem label="Executions" value={recordExecution ? "Recorded" : "Not recorded"} />
 						<SummaryItem
 							label="Triggers"
 							value={
-								triggerIds.length === 0
-									? "None — runs by hand"
-									: `${triggerIds.length} attached`
+								triggerIds.length === 0 ? "None — runs by hand" : `${triggerIds.length} attached`
 							}
 						/>
 					</dl>
 					<p className="text-xs text-muted">
-						It starts inactive. Build it, then activate it — an inactive
-						workflow never runs.
+						It starts inactive. Build it, then activate it — an inactive workflow never runs.
 					</p>
 				</div>
 			),
@@ -236,21 +220,14 @@ function TriggerPicker({
 		return (
 			<div className="flex flex-col items-center rounded-lg border border-dashed border-border px-4 py-10 text-center">
 				<TbBolt size={26} className="mb-2 text-muted" />
-				<p className="text-sm font-medium text-foreground">
-					No triggers in this project yet
-				</p>
+				<p className="text-sm font-medium text-foreground">No triggers in this project yet</p>
 				<p className="mt-1 text-xs text-muted">
-					You can create the workflow now and attach one later from its
-					settings.
+					You can create the workflow now and attach one later from its settings.
 				</p>
 				<button
 					type="button"
 					onClick={() =>
-						window.open(
-							withBasePath(`/${projectId}/triggers/new`),
-							"_blank",
-							"noopener,noreferrer",
-						)
+						window.open(withBasePath(`/${projectId}/triggers/new`), "_blank", "noopener,noreferrer")
 					}
 					className="mt-3 inline-flex items-center gap-1.5 text-xs font-medium text-accent hover:underline"
 				>
@@ -268,11 +245,7 @@ function TriggerPicker({
 						key={trigger.id}
 						type="button"
 						onClick={() =>
-							onChange(
-								selected
-									? value.filter((id) => id !== trigger.id)
-									: [...value, trigger.id],
-							)
+							onChange(selected ? value.filter((id) => id !== trigger.id) : [...value, trigger.id])
 						}
 						className={`rounded-lg border px-3 py-2 text-left transition-colors ${
 							selected
@@ -280,9 +253,7 @@ function TriggerPicker({
 								: "border-border bg-surface hover:bg-surface-secondary"
 						}`}
 					>
-						<p className="truncate text-sm font-medium text-foreground">
-							{trigger.name}
-						</p>
+						<p className="truncate text-sm font-medium text-foreground">{trigger.name}</p>
 						<p className="truncate text-xs text-muted">
 							{trigger.type === "schedule" ? (
 								<span className="font-mono">{trigger.schedule}</span>

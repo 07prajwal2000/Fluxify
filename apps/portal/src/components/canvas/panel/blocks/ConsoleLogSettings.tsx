@@ -1,6 +1,6 @@
+import type { BlockNode } from "../../types";
 import { BlockSettings } from "../BlockSettings";
 import { BlockJsTextField, BlockSelectField } from "../fields";
-import type { BlockNode } from "../../types";
 
 const LOG_LEVEL_OPTIONS = [
 	{ value: "info", label: "Info" },

@@ -1,5 +1,5 @@
 import { ChatMistralAI } from "@langchain/mistralai";
-import { createAgent, DynamicStructuredTool } from "langchain";
+import { createAgent, type DynamicStructuredTool } from "langchain";
 import { BaseAiIntegration } from "./baseAiIntegration";
 
 type MistralVariantConfig = {
@@ -14,10 +14,7 @@ export class MistralIntegration extends BaseAiIntegration {
 		super();
 	}
 
-	static ExtractConnectionInfo(
-		config: MistralVariantConfig,
-		appConfigs: Map<string, string>,
-	) {
+	static ExtractConnectionInfo(config: MistralVariantConfig, appConfigs: Map<string, string>) {
 		if (config.apiKey.startsWith("cfg:")) {
 			const apiKey = appConfigs.get(config.apiKey.slice(4));
 			if (!apiKey) {
@@ -44,10 +41,7 @@ export class MistralIntegration extends BaseAiIntegration {
 		});
 	}
 
-	static async TestConnection(
-		config: MistralVariantConfig,
-		appConfigs: Map<string, string>,
-	) {
+	static async TestConnection(config: MistralVariantConfig, appConfigs: Map<string, string>) {
 		const extractedConfig = this.ExtractConnectionInfo(config, appConfigs);
 		const model = new MistralIntegration(extractedConfig).createModel();
 		const result = await model.invoke("Say OK", {

@@ -1,7 +1,7 @@
-import type { ComponentProps, ReactNode } from "react";
 import { Button } from "@heroui/react";
-import { TbX } from "react-icons/tb";
 import { clsx } from "clsx";
+import type { ComponentProps, ReactNode } from "react";
+import { TbX } from "react-icons/tb";
 
 export type CloseButtonProps = Omit<ComponentProps<typeof Button>, "isIconOnly"> & {
 	icon?: ReactNode;

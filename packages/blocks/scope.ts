@@ -27,8 +27,7 @@ function makeScope(vars: Record<string, any>, skip?: Set<string>) {
 		// `input` and `params` are function parameters of the emitted JS wrapper;
 		// letting `with` resolve them off vars would shadow them with a variable
 		// that merely shares the name.
-		has: (target, key: any) =>
-			key !== "input" && key !== "params" && !skip?.has(key),
+		has: (target, key: any) => key !== "input" && key !== "params" && !skip?.has(key),
 		get: (target, key: any) =>
 			key === Symbol.unscopables
 				? undefined

@@ -1,24 +1,16 @@
-import { subscribeToChannel, CHAN_AI_WORKER } from "../../db/redis";
-import { db } from "../../db";
-import {
-	routesEntity,
-	projectSettingsEntity,
-	integrationsEntity,
-} from "../../db/schema";
-import { eq, and } from "drizzle-orm";
-import { AiChatTracker } from "./tracker";
-import { aiAgentGraph } from "../ai";
-import { ToolsContext } from "./schemas";
-import { estimateTokenCount } from "tokenx";
-import { ProjectSettingsKeyType } from "../../api/v1/projects/settings/keys/keySchemaMap";
-import { AIAdapterFactory } from "./factory";
-import { getAppConfig } from "../../loaders/appconfigLoader";
-import {
-	loadCanvasItems,
-	loadIntegrationsList,
-	loadConfigsList,
-} from "./worker-loaders";
 import { logger } from "@fluxify/common";
+import { and, eq } from "drizzle-orm";
+import { estimateTokenCount } from "tokenx";
+import type { ProjectSettingsKeyType } from "../../api/v1/projects/settings/keys/keySchemaMap";
+import { db } from "../../db";
+import { CHAN_AI_WORKER, subscribeToChannel } from "../../db/redis";
+import { integrationsEntity, projectSettingsEntity, routesEntity } from "../../db/schema";
+import { getAppConfig } from "../../loaders/appconfigLoader";
+import { aiAgentGraph } from "../ai";
+import { AIAdapterFactory } from "./factory";
+import type { ToolsContext } from "./schemas";
+import { AiChatTracker } from "./tracker";
+import { loadCanvasItems, loadConfigsList, loadIntegrationsList } from "./worker-loaders";
 
 export async function startAiWorker() {
 	logger.info("Listening for messages...", "ai-worker");
@@ -58,10 +50,7 @@ async function processAiMessage(
 				projectSettingsEntity,
 				and(
 					eq(projectSettingsEntity.projectId, routesEntity.projectId!),
-					eq(
-						projectSettingsEntity.key,
-						"settings.ai.agentConnectionId" as ProjectSettingsKeyType,
-					),
+					eq(projectSettingsEntity.key, "settings.ai.agentConnectionId" as ProjectSettingsKeyType),
 				),
 			)
 			.where(eq(routesEntity.id, routeId))
@@ -69,13 +58,7 @@ async function processAiMessage(
 		const projectId = routeResult[0].projectId!;
 
 		if (routeResult.length === 0 || !routeResult[0].aiConnector) {
-			await tracker.update(
-				-1,
-				"error",
-				"Init",
-				undefined,
-				"No AI connector or route found",
-			);
+			await tracker.update(-1, "error", "Init", undefined, "No AI connector or route found");
 			return;
 		}
 
@@ -87,13 +70,7 @@ async function processAiMessage(
 			.limit(1);
 
 		if (!connector || !connector.config) {
-			await tracker.update(
-				-1,
-				"error",
-				"Init",
-				undefined,
-				"Invalid AI connector",
-			);
+			await tracker.update(-1, "error", "Init", undefined, "Invalid AI connector");
 			return;
 		}
 
@@ -108,10 +85,7 @@ async function processAiMessage(
 			}
 		}
 
-		const modelFactory = AIAdapterFactory.CreateAdapter(
-			connector.variant as any,
-			aiConfig,
-		);
+		const modelFactory = AIAdapterFactory.CreateAdapter(connector.variant as any, aiConfig);
 
 		// Calculate Input Tokens
 		const inputTokens = estimateTokenCount(content) || 0;
@@ -151,17 +125,13 @@ async function processAiMessage(
 		);
 
 		let aiResponseContent = "";
-		if (
-			result.classifierOutput.intent === "DISCUSSION" &&
-			result.discussionMode?.output
-		) {
+		if (result.classifierOutput.intent === "DISCUSSION" && result.discussionMode?.output) {
 			aiResponseContent = result.discussionMode.output;
 		} else if (result.buildMode?.builderOutput?.reasoning) {
 			aiResponseContent = `Built successful: ${result.buildMode.builderOutput.reasoning}`;
 		} else if (result.buildMode?.plannerOutput?.status === "impossible") {
 			aiResponseContent =
-				result.buildMode.plannerOutput.clarificationQuestion ||
-				"Impossible build plan.";
+				result.buildMode.plannerOutput.clarificationQuestion || "Impossible build plan.";
 		}
 
 		const outputTokens = estimateTokenCount(aiResponseContent) || 0;
@@ -171,12 +141,6 @@ async function processAiMessage(
 		await tracker.update(4, "success", "Completed");
 	} catch (err: any) {
 		logger.error("AI worker error", "ai-worker", { error: err });
-		await tracker.update(
-			-1,
-			"error",
-			"Failed",
-			undefined,
-			err?.message || "Internal Worker Error",
-		);
+		await tracker.update(-1, "error", "Failed", undefined, err?.message || "Internal Worker Error");
 	}
 }

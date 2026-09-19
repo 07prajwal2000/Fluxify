@@ -1,4 +1,4 @@
-import { trace, context, type Span } from "@fluxify/common/tracing";
+import { context, type Span, trace } from "@fluxify/common/tracing";
 import type { RunUsage } from "../models/budget";
 
 /**
@@ -88,16 +88,11 @@ export function endRunSpan(
 
 	if (outcome.error !== undefined) {
 		span.recordException(
-			outcome.error instanceof Error
-				? outcome.error
-				: new Error(String(outcome.error)),
+			outcome.error instanceof Error ? outcome.error : new Error(String(outcome.error)),
 		);
 		span.setStatus({
 			code: 2,
-			message:
-				outcome.error instanceof Error
-					? outcome.error.message
-					: String(outcome.error),
+			message: outcome.error instanceof Error ? outcome.error.message : String(outcome.error),
 		});
 	} else {
 		span.setStatus({ code: 1 });

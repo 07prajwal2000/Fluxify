@@ -82,16 +82,13 @@ export function SnippetsSidebar({
 			const y = e.clientY;
 
 			const inCard =
-				x >= cardRect.left &&
-				x <= cardRect.right &&
-				y >= cardRect.top &&
-				y <= cardRect.bottom;
+				x >= cardRect.left && x <= cardRect.right && y >= cardRect.top && y <= cardRect.bottom;
 
 			const inPanel = panelRect
 				? x >= panelRect.left - 6 &&
-				  x <= panelRect.right + 6 &&
-				  y >= panelRect.top - 6 &&
-				  y <= panelRect.bottom + 6
+					x <= panelRect.right + 6 &&
+					y >= panelRect.top - 6 &&
+					y <= panelRect.bottom + 6
 				: false;
 
 			let inCorridor = false;
@@ -231,9 +228,7 @@ export function SnippetsSidebar({
 								if (e.key === "Escape") handleClearSearch();
 							}}
 							placeholder={
-								activeTab === "snippets"
-									? "Search snippets..."
-									: "Search API reference..."
+								activeTab === "snippets" ? "Search snippets..." : "Search API reference..."
 							}
 							className="bg-transparent text-xs text-foreground placeholder:text-muted outline-none w-full min-w-0"
 						/>
@@ -257,11 +252,7 @@ export function SnippetsSidebar({
 						variant="ghost"
 						className="h-7 px-2 text-xs text-muted hover:text-foreground gap-1.5 rounded-md shrink-0"
 						onPress={handleOpenSearch}
-						aria-label={
-							activeTab === "snippets"
-								? "Search snippets"
-								: "Search API reference"
-						}
+						aria-label={activeTab === "snippets" ? "Search snippets" : "Search API reference"}
 					>
 						<TbSearch className="size-3.5" />
 						<span>Search</span>
@@ -271,10 +262,7 @@ export function SnippetsSidebar({
 
 			{/* Content: Snippets List or API Docs */}
 			{activeTab === "snippets" ? (
-				<div
-					className="flex-1 overflow-y-auto p-2.5 space-y-2"
-					onScroll={closePreview}
-				>
+				<div className="flex-1 overflow-y-auto p-2.5 space-y-2" onScroll={closePreview}>
 					{filteredSnippets.length === 0 ? (
 						<div className="flex flex-col items-center justify-center h-36 text-center text-xs text-muted px-3">
 							<p>No snippets found.</p>

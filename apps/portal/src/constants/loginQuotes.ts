@@ -6,18 +6,15 @@ export const loginQuotes = [
 	},
 	{
 		title: "Unify Your Data Streams",
-		subtitle:
-			"Seamlessly integrate and manage all your external APIs in one centralized hub.",
+		subtitle: "Seamlessly integrate and manage all your external APIs in one centralized hub.",
 	},
 	{
 		title: "Accelerate Development",
-		subtitle:
-			"Focus on writing business logic while we handle the complex API orchestration.",
+		subtitle: "Focus on writing business logic while we handle the complex API orchestration.",
 	},
 	{
 		title: "Enterprise-Grade Reliability",
-		subtitle:
-			"Built for performance, security, and maximum uptime for your critical services.",
+		subtitle: "Built for performance, security, and maximum uptime for your critical services.",
 	},
 	{
 		title: "Ship Faster, Break Less",

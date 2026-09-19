@@ -1,10 +1,5 @@
 import { ChatGoogleGenerativeAI } from "@langchain/google-genai";
-import {
-	createAgent,
-	DynamicStructuredTool,
-	DynamicTool,
-	Tool,
-} from "langchain";
+import { createAgent, type DynamicStructuredTool, DynamicTool, Tool } from "langchain";
 import { BaseAiIntegration } from "./baseAiIntegration";
 
 type GeminiVariantConfig = {
@@ -35,10 +30,7 @@ export class GeminiIntegration extends BaseAiIntegration {
 		});
 	}
 
-	static ExtractConnectionInfo(
-		config: GeminiVariantConfig,
-		appConfigs: Map<string, string>,
-	) {
+	static ExtractConnectionInfo(config: GeminiVariantConfig, appConfigs: Map<string, string>) {
 		if (config.apiKey.startsWith("cfg:")) {
 			const apiKey = appConfigs.get(config.apiKey.slice(4));
 			if (!apiKey) {
@@ -49,10 +41,7 @@ export class GeminiIntegration extends BaseAiIntegration {
 		return config;
 	}
 
-	static async TestConnection(
-		config: GeminiVariantConfig,
-		appConfigs: Map<string, string>,
-	) {
+	static async TestConnection(config: GeminiVariantConfig, appConfigs: Map<string, string>) {
 		const extractedConfig = this.ExtractConnectionInfo(config, appConfigs);
 		const llm = new GeminiIntegration(extractedConfig).createModel();
 		const result = await llm.invoke("Say OK");

@@ -2,30 +2,16 @@ import { Checkbox, Input, Label, ListBox, Select } from "@fluxify/components";
 import { AppConfigSelector } from "../AppConfigSelector";
 import type { ConnectorFormProps } from "./types";
 
-const SASL_MECHANISMS = [
-	"none",
-	"PLAIN",
-	"SCRAM-SHA-256",
-	"SCRAM-SHA-512",
-] as const;
+const SASL_MECHANISMS = ["none", "PLAIN", "SCRAM-SHA-256", "SCRAM-SHA-512"] as const;
 
 // Kafka: broker list, optional TLS and SASL login, and a dead-letter topic.
-export function KafkaForm({
-	projectId,
-	name,
-	onName,
-	config,
-	setField,
-}: ConnectorFormProps) {
+export function KafkaForm({ projectId, name, onName, config, setField }: ConnectorFormProps) {
 	const mechanism = (config.saslMechanism as string) || "none";
 
 	return (
 		<div className="flex flex-col gap-3.5">
 			<div className="flex flex-col gap-1">
-				<label
-					htmlFor="kafka-integration-name"
-					className="text-xs font-medium text-foreground"
-				>
+				<label htmlFor="kafka-integration-name" className="text-xs font-medium text-foreground">
 					Integration Name <span className="text-danger">*</span>
 				</label>
 				<Input
@@ -71,11 +57,7 @@ export function KafkaForm({
 					<Select.Popover>
 						<ListBox>
 							{SASL_MECHANISMS.map((m) => (
-								<ListBox.Item
-									key={m}
-									id={m}
-									textValue={m === "none" ? "None" : `SASL ${m}`}
-								>
+								<ListBox.Item key={m} id={m} textValue={m === "none" ? "None" : `SASL ${m}`}>
 									{m === "none" ? "None" : `SASL ${m}`}
 									<ListBox.ItemIndicator />
 								</ListBox.Item>
@@ -103,17 +85,12 @@ export function KafkaForm({
 				)}
 			</div>
 
-			<Checkbox
-				isSelected={Boolean(config.ssl)}
-				onChange={(v) => setField("ssl", v)}
-			>
+			<Checkbox isSelected={Boolean(config.ssl)} onChange={(v) => setField("ssl", v)}>
 				Use TLS
 			</Checkbox>
 
 			<details className="rounded-lg border border-border px-3 py-2">
-				<summary className="cursor-pointer text-xs font-medium text-foreground">
-					Advanced
-				</summary>
+				<summary className="cursor-pointer text-xs font-medium text-foreground">Advanced</summary>
 				<div className="pt-3">
 					<AppConfigSelector
 						projectId={projectId}

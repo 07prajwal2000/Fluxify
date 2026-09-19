@@ -1,14 +1,14 @@
+import type { Counter, Histogram } from "@opentelemetry/api";
+import { OTLPMetricExporter as OTLPMetricGrpcExporter } from "@opentelemetry/exporter-metrics-otlp-grpc";
+import { OTLPMetricExporter } from "@opentelemetry/exporter-metrics-otlp-http";
+import { Resource } from "@opentelemetry/resources";
 import {
 	MeterProvider,
-	PeriodicExportingMetricReader,
 	type MetricReader,
+	PeriodicExportingMetricReader,
 } from "@opentelemetry/sdk-metrics";
-import { OTLPMetricExporter } from "@opentelemetry/exporter-metrics-otlp-http";
-import { OTLPMetricExporter as OTLPMetricGrpcExporter } from "@opentelemetry/exporter-metrics-otlp-grpc";
-import { Resource } from "@opentelemetry/resources";
-import type { Counter, Histogram } from "@opentelemetry/api";
-import type { TraceRunPayload } from "./types";
 import { grpcExporterOptions, type OtlpTransport } from "./grpc";
+import type { TraceRunPayload } from "./types";
 
 /**
  * Every execution process pushes its own cumulative counters. Without a

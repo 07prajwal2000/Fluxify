@@ -12,8 +12,7 @@ export function summarizeToolResult(result: unknown): string | undefined {
 			return undefined;
 		}
 	}
-	const plural = (n: number, noun: string) =>
-		`${n} ${noun}${n === 1 ? "" : "s"}`;
+	const plural = (n: number, noun: string) => `${n} ${noun}${n === 1 ? "" : "s"}`;
 
 	if (Array.isArray(value)) return plural(value.length, "result");
 	if (value && typeof value === "object") {
@@ -64,8 +63,7 @@ export function sliceBalancedJson(text: string): string | null {
 export function parseJsonLoose(content: string): unknown {
 	// `"field": null` for an omitted optional field is the single most common
 	// drift; drop nulls so optional() accepts them.
-	const dropNulls = (_key: string, value: any) =>
-		value === null ? undefined : value;
+	const dropNulls = (_key: string, value: any) => (value === null ? undefined : value);
 	try {
 		return JSON.parse(content, dropNulls);
 	} catch (error) {
@@ -90,9 +88,7 @@ export function describeSchemaError(error: unknown): string {
 	if (Array.isArray(issues)) {
 		return issues
 			.slice(0, 20)
-			.map(
-				(i: any) => `- ${(i.path ?? []).join(".") || "(root)"}: ${i.message}`,
-			)
+			.map((i: any) => `- ${(i.path ?? []).join(".") || "(root)"}: ${i.message}`)
 			.join("\n");
 	}
 	const message = error instanceof Error ? error.message : String(error);
@@ -115,9 +111,7 @@ export function extractText(response: {
 		text = content;
 	} else if (Array.isArray(content)) {
 		text = content
-			.map((block: any) =>
-				typeof block === "string" ? block : (block?.text ?? ""),
-			)
+			.map((block: any) => (typeof block === "string" ? block : (block?.text ?? "")))
 			.join("");
 	}
 
@@ -131,9 +125,7 @@ export function extractText(response: {
 		);
 		if (typeof parked === "string") text = parked;
 		else if (Array.isArray(content)) {
-			text = content
-				.map((block: any) => block?.thinking ?? block?.reasoning ?? "")
-				.join("");
+			text = content.map((block: any) => block?.thinking ?? block?.reasoning ?? "").join("");
 		}
 	}
 

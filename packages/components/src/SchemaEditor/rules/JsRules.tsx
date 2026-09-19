@@ -9,24 +9,15 @@ import { RuleSectionTitle } from "./fields";
  * `buildZodSchema` reads it. It is deliberately not a rule — a `jsCode` rule
  * would be written but never executed.
  */
-export function JsRules({
-	node,
-	onUpdate,
-	isReadOnly,
-	jsEditorRows = 12,
-}: RuleEditorProps) {
+export function JsRules({ node, onUpdate, isReadOnly, jsEditorRows = 12 }: RuleEditorProps) {
 	return (
 		<div className="flex flex-col gap-4">
 			<RuleSectionTitle>Custom JavaScript validation</RuleSectionTitle>
 
 			<InfoNote>
 				Return a boolean to pass or fail. The value under validation is{" "}
-				<code className="font-mono">input</code>. To return a custom error
-				body, throw:{" "}
-				<code className="font-mono">
-					{'throw new ValidationError({ your: "error" })'}
-				</code>
-				.
+				<code className="font-mono">input</code>. To return a custom error body, throw:{" "}
+				<code className="font-mono">{'throw new ValidationError({ your: "error" })'}</code>.
 			</InfoNote>
 
 			<JavaScriptTextArea

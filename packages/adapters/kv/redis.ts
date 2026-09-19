@@ -1,4 +1,4 @@
-import { Redis, RedisOptions } from "ioredis";
+import { Redis, type RedisOptions } from "ioredis";
 import { BaseKVIntegration } from "./base";
 
 export type RedisVariantConfig = {
@@ -16,11 +16,14 @@ export class RedisIntegration extends BaseKVIntegration {
 	public static variant = "Redis";
 	private client: Redis;
 
-	constructor(private readonly config: RedisVariantConfig, isTestConnection: boolean = false) {
+	constructor(
+		private readonly config: RedisVariantConfig,
+		isTestConnection: boolean = false,
+	) {
 		super();
 		const baseOptions: RedisOptions = {
 			connectTimeout: 5000,
-			...(isTestConnection ? { maxRetriesPerRequest: 0, retryStrategy: () => null } : {})
+			...(isTestConnection ? { maxRetriesPerRequest: 0, retryStrategy: () => null } : {}),
 		};
 
 		if (config.source === "url" && config.url) {
@@ -34,7 +37,13 @@ export class RedisIntegration extends BaseKVIntegration {
 			if (config.username) options.username = config.username;
 			if (config.password) options.password = config.password;
 			const db = Number(config.database);
-			if (config.database !== undefined && config.database !== "" && Number.isInteger(db) && db >= 0) options.db = db;
+			if (
+				config.database !== undefined &&
+				config.database !== "" &&
+				Number.isInteger(db) &&
+				db >= 0
+			)
+				options.db = db;
 			this.client = new Redis(options);
 		}
 	}
@@ -72,10 +81,14 @@ export class RedisIntegration extends BaseKVIntegration {
 			result.url = appConfigs.get(result.url.slice(4));
 		} else {
 			if (result.host?.startsWith("cfg:")) result.host = appConfigs.get(result.host.slice(4));
-			if (typeof result.port === "string" && result.port.startsWith("cfg:")) result.port = appConfigs.get(result.port.slice(4));
-			if (result.username?.startsWith("cfg:")) result.username = appConfigs.get(result.username.slice(4));
-			if (result.password?.startsWith("cfg:")) result.password = appConfigs.get(result.password.slice(4));
-			if (typeof result.database === "string" && result.database.startsWith("cfg:")) result.database = appConfigs.get(result.database.slice(4));
+			if (typeof result.port === "string" && result.port.startsWith("cfg:"))
+				result.port = appConfigs.get(result.port.slice(4));
+			if (result.username?.startsWith("cfg:"))
+				result.username = appConfigs.get(result.username.slice(4));
+			if (result.password?.startsWith("cfg:"))
+				result.password = appConfigs.get(result.password.slice(4));
+			if (typeof result.database === "string" && result.database.startsWith("cfg:"))
+				result.database = appConfigs.get(result.database.slice(4));
 		}
 		return result;
 	}
@@ -89,13 +102,17 @@ export class RedisIntegration extends BaseKVIntegration {
 		try {
 			const extractedConfig = this.ExtractConnectionInfo(config, appConfigs);
 			integration = new RedisIntegration(extractedConfig, true);
-			
+
 			const pingPromise = integration.client.ping();
-			const timeoutPromise = new Promise<never>((_, reject) => 
-				timeout = setTimeout(() => reject(new Error("Connection timed out after 5 seconds")), 5000)
+			const timeoutPromise = new Promise<never>(
+				(_, reject) =>
+					(timeout = setTimeout(
+						() => reject(new Error("Connection timed out after 5 seconds")),
+						5000,
+					)),
 			);
 			await Promise.race([pingPromise, timeoutPromise]);
-			
+
 			return { success: true };
 		} catch (error: any) {
 			return { success: false, error: error.message };

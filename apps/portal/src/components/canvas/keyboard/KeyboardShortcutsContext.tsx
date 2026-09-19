@@ -1,11 +1,4 @@
-import {
-	createContext,
-	useCallback,
-	useContext,
-	useMemo,
-	useState,
-	type ReactNode,
-} from "react";
+import { createContext, type ReactNode, useCallback, useContext, useMemo, useState } from "react";
 
 export type KeyboardShortcuts = {
 	isOpen: boolean;
@@ -21,27 +14,18 @@ const KeyboardShortcutsContext = createContext<KeyboardShortcuts>({
 	onOpenChange: () => {},
 });
 
-export function KeyboardShortcutsProvider({
-	children,
-}: {
-	children: ReactNode;
-}) {
+export function KeyboardShortcutsProvider({ children }: { children: ReactNode }) {
 	const [isOpen, setIsOpen] = useState(false);
 	const open = useCallback(() => setIsOpen(true), []);
 	const close = useCallback(() => setIsOpen(false), []);
-	const onOpenChange = useCallback(
-		(nextOpen: boolean) => setIsOpen(nextOpen),
-		[],
-	);
+	const onOpenChange = useCallback((nextOpen: boolean) => setIsOpen(nextOpen), []);
 	const value = useMemo(
 		() => ({ isOpen, open, close, onOpenChange }),
 		[close, isOpen, onOpenChange, open],
 	);
 
 	return (
-		<KeyboardShortcutsContext.Provider value={value}>
-			{children}
-		</KeyboardShortcutsContext.Provider>
+		<KeyboardShortcutsContext.Provider value={value}>{children}</KeyboardShortcutsContext.Provider>
 	);
 }
 

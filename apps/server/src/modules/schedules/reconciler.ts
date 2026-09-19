@@ -10,10 +10,10 @@ import { applyJitter, assertSchedule, intervalMs } from "@fluxify/common/schedul
 import { natsConnection } from "../../db/nats";
 import {
 	ALL_PROJECTS,
-	SCHEDULES_STREAM,
-	SCHEDULES_SUBJECTS,
 	fireSubject,
 	projectScheduleFilter,
+	SCHEDULES_STREAM,
+	SCHEDULES_SUBJECTS,
 	scheduleSubject,
 	triggerIdFromSubject,
 } from "./subjects";
@@ -76,21 +76,16 @@ export async function upsertSchedule(trigger: ScheduledTrigger) {
 		payload: trigger.payload ?? null,
 	};
 
-	await publishSchedule(
-		natsConnection(),
-		scheduleSubject(trigger.projectId, trigger.id),
-		body,
-		{
-			specification,
-			target: fireSubject(trigger.projectId, trigger.id),
-			// Cron only, and not merely because it would be ignored elsewhere: the
-			// server REJECTS a timezone sent with `@every` or `@at` outright
-			// ("message schedules pattern is invalid"). An interval has no wall
-			// clock to be shifted by, and `@at` carries its own.
-			...(parsed.kind === "cron" ? { timezone: trigger.timezone } : {}),
-			ttlSeconds: fireTtlSeconds(intervalMs(trigger.schedule, trigger.timezone)),
-		},
-	);
+	await publishSchedule(natsConnection(), scheduleSubject(trigger.projectId, trigger.id), body, {
+		specification,
+		target: fireSubject(trigger.projectId, trigger.id),
+		// Cron only, and not merely because it would be ignored elsewhere: the
+		// server REJECTS a timezone sent with `@every` or `@at` outright
+		// ("message schedules pattern is invalid"). An interval has no wall
+		// clock to be shifted by, and `@at` carries its own.
+		...(parsed.kind === "cron" ? { timezone: trigger.timezone } : {}),
+		ttlSeconds: fireTtlSeconds(intervalMs(trigger.schedule, trigger.timezone)),
+	});
 	logger.info(
 		`[schedules] ${trigger.id} scheduled ${specification} (${trigger.timezone})`,
 		"SCHEDULES",
@@ -103,11 +98,7 @@ export async function upsertSchedule(trigger: ScheduledTrigger) {
  * the difference.
  */
 export async function removeSchedule(projectId: string, triggerId: string) {
-	await purgeSchedule(
-		natsConnection(),
-		SCHEDULES_STREAM,
-		scheduleSubject(projectId, triggerId),
-	);
+	await purgeSchedule(natsConnection(), SCHEDULES_STREAM, scheduleSubject(projectId, triggerId));
 }
 
 /**
@@ -130,10 +121,7 @@ export async function reconcileSchedules(triggers: ScheduledTrigger[]) {
 			// One bad row must not stop the rest converging — and a schedule the
 			// server rejects is exactly the kind of thing that would otherwise be
 			// discovered at 3am.
-			logger.error(
-				`[schedules] failed to schedule ${trigger.id}: ${String(error)}`,
-				"SCHEDULES",
-			);
+			logger.error(`[schedules] failed to schedule ${trigger.id}: ${String(error)}`, "SCHEDULES");
 		}
 	}
 

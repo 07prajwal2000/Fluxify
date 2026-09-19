@@ -1,4 +1,4 @@
-import { db, agentHarnessConversationsEntity } from "@fluxify/server";
+import { agentHarnessConversationsEntity, db } from "@fluxify/server";
 import { eq } from "drizzle-orm";
 
 export async function setConversationFlags(

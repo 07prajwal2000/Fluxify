@@ -51,9 +51,7 @@ const ARTIFACTS_BY_MODE: Record<WorkerMode, readonly string[]> = {
 /** Rejects an unknown mode loudly — a typo must not silently become `both`. */
 export function assertWorkerMode(mode: string): WorkerMode {
 	if (!(WORKER_MODES as readonly string[]).includes(mode)) {
-		throw new Error(
-			`WORKER_MODE must be one of ${WORKER_MODES.join(", ")} — got "${mode}"`,
-		);
+		throw new Error(`WORKER_MODE must be one of ${WORKER_MODES.join(", ")} — got "${mode}"`);
 	}
 	return mode as WorkerMode;
 }

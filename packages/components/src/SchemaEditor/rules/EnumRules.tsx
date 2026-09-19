@@ -11,9 +11,7 @@ type ValueKind = "string" | "number";
 
 /** The parser infers the enum's kind from the values, so it is never persisted. */
 function inferKind(values: EnumValue[]): ValueKind {
-	return values.length > 0 && values.every((v) => typeof v === "number")
-		? "number"
-		: "string";
+	return values.length > 0 && values.every((v) => typeof v === "number") ? "number" : "string";
 }
 
 /**
@@ -25,16 +23,11 @@ export function EnumRules({ node, onUpdate, isReadOnly }: RuleEditorProps) {
 	const values = getRuleValue<EnumValue[]>(node.rules, "values", []);
 	const [kind, setKind] = useState<ValueKind>(() => inferKind(values));
 
-	const commit = (next: EnumValue[]) =>
-		onUpdate({ rules: updateRule(node.rules, "values", next) });
+	const commit = (next: EnumValue[]) => onUpdate({ rules: updateRule(node.rules, "values", next) });
 
 	const handleKindChange = (nextKind: ValueKind) => {
 		setKind(nextKind);
-		commit(
-			values.map((value) =>
-				nextKind === "number" ? (Number(value) || 0) : String(value),
-			),
-		);
+		commit(values.map((value) => (nextKind === "number" ? Number(value) || 0 : String(value))));
 	};
 
 	const handleValueChange = (index: number, raw: string) => {
@@ -48,9 +41,7 @@ export function EnumRules({ node, onUpdate, isReadOnly }: RuleEditorProps) {
 			<RuleSectionTitle>Enum configuration</RuleSectionTitle>
 
 			<div className="flex w-full flex-col gap-1.5">
-				<span className="text-xs font-medium text-muted-foreground">
-					Value type
-				</span>
+				<span className="text-xs font-medium text-muted-foreground">Value type</span>
 				<Select
 					fullWidth
 					isDisabled={isReadOnly}
@@ -79,9 +70,7 @@ export function EnumRules({ node, onUpdate, isReadOnly }: RuleEditorProps) {
 
 			<div className="h-px w-full bg-border" />
 
-			<span className="text-xs font-medium text-muted-foreground">
-				Allowed values
-			</span>
+			<span className="text-xs font-medium text-muted-foreground">Allowed values</span>
 
 			{values.length === 0 && (
 				<p className="text-xs text-muted">
@@ -99,9 +88,7 @@ export function EnumRules({ node, onUpdate, isReadOnly }: RuleEditorProps) {
 							<InputGroup fullWidth variant="secondary">
 								<InputGroup.Input
 									aria-label={`Value ${index + 1}`}
-									onChange={(event) =>
-										handleValueChange(index, event.currentTarget.value)
-									}
+									onChange={(event) => handleValueChange(index, event.currentTarget.value)}
 									placeholder={`Value ${index + 1}`}
 									type={kind === "number" ? "number" : "text"}
 									value={String(value)}

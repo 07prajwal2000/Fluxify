@@ -10,14 +10,7 @@ import {
 	toast,
 } from "@fluxify/components";
 import { useEffect, useMemo, useState } from "react";
-import {
-	FiCheckCircle,
-	FiKey,
-	FiLock,
-	FiMail,
-	FiShield,
-	FiUser,
-} from "react-icons/fi";
+import { FiCheckCircle, FiKey, FiLock, FiMail, FiShield, FiUser } from "react-icons/fi";
 import { authClient } from "@/lib/auth";
 import { showErrorNotification } from "@/lib/errorNotifier";
 
@@ -36,16 +29,11 @@ export function AccountDetails() {
 		);
 	}
 	if (!data?.user) {
-		return (
-			<p className="py-16 text-center text-muted">
-				Couldn't load your profile.
-			</p>
-		);
+		return <p className="py-16 text-center text-muted">Couldn't load your profile.</p>;
 	}
 
 	const providerId = (data as SessionWithProvider).providerId;
-	const isEnterpriseSession =
-		providerId?.toLowerCase().includes("enterprise") ?? false;
+	const isEnterpriseSession = providerId?.toLowerCase().includes("enterprise") ?? false;
 
 	return (
 		<div className="mx-auto flex w-full max-w-3xl flex-col gap-5 pt-4">
@@ -55,11 +43,7 @@ export function AccountDetails() {
 				image={data.user.image}
 				isEnterpriseSession={isEnterpriseSession}
 			/>
-			<ProfileSection
-				name={data.user.name ?? ""}
-				email={data.user.email}
-				id={data.user.id}
-			/>
+			<ProfileSection name={data.user.name ?? ""} email={data.user.email} id={data.user.id} />
 			{isEnterpriseSession ? <SsoSecuritySection /> : <PasswordSection />}
 		</div>
 	);
@@ -93,9 +77,7 @@ function AccountSummary({
 			<Card.Content className="flex flex-col gap-5 py-6 sm:flex-row sm:items-center sm:justify-between">
 				<div className="flex min-w-0 items-center gap-4">
 					<Avatar className="h-14 w-14 border border-border text-base">
-						{image ? (
-							<Avatar.Image src={image} alt={name || "Profile picture"} />
-						) : null}
+						{image ? <Avatar.Image src={image} alt={name || "Profile picture"} /> : null}
 						<Avatar.Fallback>{initials}</Avatar.Fallback>
 					</Avatar>
 					<div className="min-w-0">
@@ -111,11 +93,7 @@ function AccountSummary({
 				<div
 					role="group"
 					className="inline-flex w-fit items-center gap-2 rounded-full border border-border bg-background-secondary px-3 py-1.5 text-xs font-medium text-foreground"
-					aria-label={
-						isEnterpriseSession
-							? "Signed in through enterprise SSO"
-							: "Password sign-in"
-					}
+					aria-label={isEnterpriseSession ? "Signed in through enterprise SSO" : "Password sign-in"}
 				>
 					{isEnterpriseSession ? (
 						<FiShield className="h-3.5 w-3.5 text-accent" />
@@ -129,15 +107,7 @@ function AccountSummary({
 	);
 }
 
-function ProfileSection({
-	name,
-	email,
-	id,
-}: {
-	name: string;
-	email: string;
-	id: string;
-}) {
+function ProfileSection({ name, email, id }: { name: string; email: string; id: string }) {
 	const [username, setUsername] = useState(name);
 	const [saving, setSaving] = useState(false);
 	const trimmedUsername = username.trim();
@@ -153,8 +123,7 @@ function ProfileSection({
 		setSaving(true);
 		try {
 			const result = await authClient.updateUser({ name: trimmedUsername });
-			if (result.error)
-				toast.danger(result.error.message ?? "Couldn't save profile");
+			if (result.error) toast.danger(result.error.message ?? "Couldn't save profile");
 			else toast.success("Profile updated");
 		} catch (err) {
 			showErrorNotification(err as Error);
@@ -170,9 +139,7 @@ function ProfileSection({
 					<Card.Title className="flex items-center gap-2">
 						<FiUser className="h-4 w-4 text-accent" /> Personal information
 					</Card.Title>
-					<Card.Description>
-						Update name shown across your workspace.
-					</Card.Description>
+					<Card.Description>Update name shown across your workspace.</Card.Description>
 				</div>
 				<span className="w-fit rounded-md bg-background-secondary px-2 py-1 font-mono text-xs text-muted">
 					ID {id.slice(0, 8)}
@@ -220,8 +187,8 @@ function SsoSecuritySection() {
 						<FiCheckCircle className="h-4 w-4 text-success" />
 					</p>
 					<p className="mt-1 text-sm text-muted">
-						You signed in through your organization. Change your password with
-						your identity provider.
+						You signed in through your organization. Change your password with your identity
+						provider.
 					</p>
 				</div>
 			</Card.Content>
@@ -248,8 +215,7 @@ function PasswordSection() {
 				newPassword: next,
 				revokeOtherSessions: revokeOthers,
 			});
-			if (result.error)
-				toast.danger(result.error.message ?? "Couldn't update password");
+			if (result.error) toast.danger(result.error.message ?? "Couldn't update password");
 			else {
 				toast.success("Password updated");
 				setCurrent("");
@@ -268,18 +234,11 @@ function PasswordSection() {
 				<Card.Title className="flex items-center gap-2">
 					<FiLock className="h-4 w-4 text-accent" /> Password & security
 				</Card.Title>
-				<Card.Description>
-					Use a strong, unique password to protect your account.
-				</Card.Description>
+				<Card.Description>Use a strong, unique password to protect your account.</Card.Description>
 			</Card.Header>
 			<Card.Content>
 				<div className="grid gap-4 sm:grid-cols-2">
-					<TextField
-						type="password"
-						value={current}
-						onChange={setCurrent}
-						isRequired
-					>
+					<TextField type="password" value={current} onChange={setCurrent} isRequired>
 						<Label>Current password</Label>
 						<Input placeholder="Verify your identity" />
 					</TextField>
@@ -298,12 +257,7 @@ function PasswordSection() {
 				</div>
 			</Card.Content>
 			<Card.Footer className="justify-end">
-				<Button
-					variant="primary"
-					isPending={saving}
-					isDisabled={!canSave}
-					onPress={save}
-				>
+				<Button variant="primary" isPending={saving} isDisabled={!canSave} onPress={save}>
 					Update password
 				</Button>
 			</Card.Footer>

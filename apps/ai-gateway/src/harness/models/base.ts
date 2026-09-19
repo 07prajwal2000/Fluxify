@@ -1,22 +1,23 @@
-import { BaseChatModel } from "@langchain/core/language_models/chat_models";
+import { logger } from "@fluxify/common";
+import { dispatchCustomEvent } from "@langchain/core/callbacks/dispatch";
+import type { BaseChatModel } from "@langchain/core/language_models/chat_models";
 import {
-	BaseMessage,
-	SystemMessage,
+	type AIMessage,
+	type BaseMessage,
 	HumanMessage,
-	AIMessage,
+	SystemMessage,
 	ToolMessage,
 } from "@langchain/core/messages";
-import { Runnable, RunnableConfig } from "@langchain/core/runnables";
-import { dispatchCustomEvent } from "@langchain/core/callbacks/dispatch";
-import { StructuredTool } from "@langchain/core/tools";
+import type { Runnable, RunnableConfig } from "@langchain/core/runnables";
+import type { StructuredTool } from "@langchain/core/tools";
 import { z } from "zod";
-import { logger } from "@fluxify/common";
 import { withRetry } from "../../lib/retry";
-import { UserInterruptError, isCallTimeout } from "../errors";
-import { parseJsonLoose, describeSchemaError, extractText, cleanJsonOutput } from "./jsonUtils";
+import { isCallTimeout, UserInterruptError } from "../errors";
+import { UNTRUSTED_DATA_RULE } from "../internal/untrusted";
+import type { RunBudget } from "./budget";
+import { cleanJsonOutput, describeSchemaError, extractText, parseJsonLoose } from "./jsonUtils";
+import { executeToolBatch, executeToolCall } from "./toolExecution";
 import {
-	SUBMIT_RESULT_TOOL,
-	SUBMIT_RESULT_INSTRUCTION,
 	asHistoryMessage,
 	compactToolHistory,
 	debugPrompt,
@@ -24,10 +25,9 @@ import {
 	makeSubmitResultTool,
 	normalizedToolCalls,
 	parseAsSchema,
+	SUBMIT_RESULT_INSTRUCTION,
+	SUBMIT_RESULT_TOOL,
 } from "./toolLoop";
-import { executeToolBatch, executeToolCall } from "./toolExecution";
-import type { RunBudget } from "./budget";
-import { UNTRUSTED_DATA_RULE } from "../internal/untrusted";
 
 /** Upper bound for a single model/tool call. Long enough for big reasoning
  *  responses, short enough that a dead connection doesn't stall a run. */
@@ -43,9 +43,7 @@ export const HARNESS_TEMPERATURE = 0;
 /** Output cap for every harness call. Agents emit JSON graph edits and short
  *  summaries; without a cap, a model that decides to narrate runs to the
  *  provider's own limit and burns the budget before it ever emits the payload. */
-export const HARNESS_MAX_TOKENS = Number(
-	process.env.HARNESS_MAX_TOKENS ?? 8192,
-);
+export const HARNESS_MAX_TOKENS = Number(process.env.HARNESS_MAX_TOKENS ?? 8192);
 
 /** Successful connection probes, keyed per provider+model+credential.
  *  See `checkConnection`. */
@@ -190,21 +188,15 @@ export abstract class BaseAgentWrapper {
 		startedAt: number,
 		historyInputTokens = 0,
 	): void {
-		this.budget?.record(
-			agentNode,
-			response,
-			Date.now() - startedAt,
-			historyInputTokens,
-		);
+		this.budget?.record(agentNode, response, Date.now() - startedAt, historyInputTokens);
 	}
 
 	/** Provider usage metadata has no history/current-run split. Estimate only
 	 * conversation-history text; provider-reported output tokens stay exact. */
 	private estimateHistoryTokens(messages: BaseMessage[], count: number): number {
 		return messages.slice(0, Math.max(0, count)).reduce((total, message) => {
-			const content = typeof message.content === "string"
-				? message.content
-				: JSON.stringify(message.content);
+			const content =
+				typeof message.content === "string" ? message.content : JSON.stringify(message.content);
 			return total + Math.ceil(content.length / 4);
 		}, 0);
 	}
@@ -282,9 +274,7 @@ export abstract class BaseAgentWrapper {
 		return undefined;
 	}
 
-	public async invokeAgent<T = any>(
-		options: AgentInvokeOptions,
-	): Promise<T | AIMessage> {
+	public async invokeAgent<T = any>(options: AgentInvokeOptions): Promise<T | AIMessage> {
 		try {
 			return await this.invokeAgentInner<T>(options);
 		} catch (error) {
@@ -295,9 +285,7 @@ export abstract class BaseAgentWrapper {
 		}
 	}
 
-	private async invokeAgentInner<T = any>(
-		options: AgentInvokeOptions,
-	): Promise<T | AIMessage> {
+	private async invokeAgentInner<T = any>(options: AgentInvokeOptions): Promise<T | AIMessage> {
 		this.checkRunLimits();
 		const {
 			zodSchema,
@@ -313,17 +301,12 @@ export abstract class BaseAgentWrapper {
 		} = options;
 
 		let finalMessages: BaseMessage[] = [...messages];
-		const historyInputTokens = this.estimateHistoryTokens(
-			messages,
-			historyMessageCount,
-		);
+		const historyInputTokens = this.estimateHistoryTokens(messages, historyMessageCount);
 
 		// A tool-using agent returns its answer through `submit_result` instead of
 		// writing it out and having it regenerated as JSON afterwards.
 		const submitTool =
-			zodSchema && tools && tools.length > 0
-				? makeSubmitResultTool(zodSchema)
-				: undefined;
+			zodSchema && tools && tools.length > 0 ? makeSubmitResultTool(zodSchema) : undefined;
 
 		if (systemPrompt && !finalMessages.some((m) => m.type === "system")) {
 			// The untrusted-content rule is appended unconditionally, not only for
@@ -333,9 +316,7 @@ export abstract class BaseAgentWrapper {
 				UNTRUSTED_DATA_RULE,
 				submitTool ? SUBMIT_RESULT_INSTRUCTION : undefined,
 			].filter(Boolean);
-			finalMessages.unshift(
-				this.buildSystemMessage([systemPrompt, ...suffix].join("\n\n")),
-			);
+			finalMessages.unshift(this.buildSystemMessage([systemPrompt, ...suffix].join("\n\n")));
 		}
 
 		// Volatile context rides with the user's turn, not the system prompt, so
@@ -343,9 +324,7 @@ export abstract class BaseAgentWrapper {
 		// served from the provider's cache. Being last is also where a model
 		// reads it most reliably.
 		if (userQuery || context) {
-			finalMessages.push(
-				new HumanMessage([context, userQuery].filter(Boolean).join("\n\n")),
-			);
+			finalMessages.push(new HumanMessage([context, userQuery].filter(Boolean).join("\n\n")));
 		}
 
 		let model = this.getModel();
@@ -374,10 +353,7 @@ export abstract class BaseAgentWrapper {
 		if (zodSchema) {
 			let result: any;
 			let nativeResponse: AIMessage | undefined;
-			if (
-				this.supportsStructuredOutput() &&
-				originalModel.withStructuredOutput
-			) {
+			if (this.supportsStructuredOutput() && originalModel.withStructuredOutput) {
 				// `includeRaw` keeps the underlying AIMessage, which is the only place
 				// this path's token usage exists — without it the natively-structured
 				// calls (a whole provider family) are invisible to the budget.
@@ -389,11 +365,10 @@ export abstract class BaseAgentWrapper {
 					result = await withRetry(
 						async () => {
 							const startedAt = Date.now();
-							const { raw, parsed, parsingError } =
-								(await structuredModel.invoke(
-									finalMessages,
-									this.withSignal(config),
-								)) as { raw: AIMessage; parsed: T; parsingError?: Error };
+							const { raw, parsed, parsingError } = (await structuredModel.invoke(
+								finalMessages,
+								this.withSignal(config),
+							)) as { raw: AIMessage; parsed: T; parsingError?: Error };
 							this.recordUsage(agentNode, raw, startedAt, historyInputTokens);
 							nativeResponse = raw;
 							// Without includeRaw this would have thrown out of `invoke`;
@@ -404,8 +379,7 @@ export abstract class BaseAgentWrapper {
 						{
 							maxRetries: 3,
 							signal: this.signal,
-							onRetry: (attempt, max, err) =>
-								this.emitRetryWarning(agentNode, attempt, max, err),
+							onRetry: (attempt, max, err) => this.emitRetryWarning(agentNode, attempt, max, err),
 						},
 					);
 				} catch (e) {
@@ -414,19 +388,14 @@ export abstract class BaseAgentWrapper {
 					// fallback below rather than killing the run. A budget failure is
 					// not a provider quirk, though — `checkRunLimits` rethrows it.
 					this.checkRunLimits();
-					logger.warn(
-						"[BaseAgentWrapper] Native structured output failed, using prompt fallback",
-						{
-							model: this.modelName,
-							error: e instanceof Error ? e.message : String(e),
-						},
-					);
+					logger.warn("[BaseAgentWrapper] Native structured output failed, using prompt fallback", {
+						model: this.modelName,
+						error: e instanceof Error ? e.message : String(e),
+					});
 				}
 			}
 			const validationError =
-				result && options.validateResult
-					? await options.validateResult(result)
-					: null;
+				result && options.validateResult ? await options.validateResult(result) : null;
 			if (validationError) {
 				// Native schema parsing cannot carry arbitrary domain errors back to the
 				// model. Preserve the attempted result, then use the corrective fallback
@@ -469,18 +438,14 @@ export abstract class BaseAgentWrapper {
 		return await withRetry(
 			async () => {
 				const startedAt = Date.now();
-				const response = await originalModel.invoke(
-					finalMessages,
-					this.withSignal(config),
-				);
+				const response = await originalModel.invoke(finalMessages, this.withSignal(config));
 				this.recordUsage(agentNode, response, startedAt, historyInputTokens);
 				return response;
 			},
 			{
 				maxRetries: 3,
 				signal: this.signal,
-				onRetry: (attempt, max, err) =>
-					this.emitRetryWarning(agentNode, attempt, max, err),
+				onRetry: (attempt, max, err) => this.emitRetryWarning(agentNode, attempt, max, err),
 			},
 		);
 	}
@@ -501,8 +466,7 @@ export abstract class BaseAgentWrapper {
 		historyInputTokens: number,
 	): Promise<{ done: true; value: T | AIMessage } | { done: false }> {
 		const { zodSchema, config, agentNode, agentId, validateResult } = options;
-		const maxIterations =
-			options.maxToolIterations ?? this.maxToolIterations ?? 8;
+		const maxIterations = options.maxToolIterations ?? this.maxToolIterations ?? 8;
 		for (let i = 0; i < maxIterations; i++) {
 			this.checkRunLimits();
 			compactToolHistory(finalMessages);
@@ -512,18 +476,14 @@ export abstract class BaseAgentWrapper {
 				async () => {
 					const startedAt = Date.now();
 					debugPrompt(agentNode, finalMessages);
-					const message = await model.invoke(
-						finalMessages,
-						this.withSignal(config),
-					);
+					const message = await model.invoke(finalMessages, this.withSignal(config));
 					this.recordUsage(agentNode, message, startedAt, historyInputTokens);
 					return message;
 				},
 				{
 					maxRetries: 2,
 					signal: this.signal,
-					onRetry: (attempt, max, err) =>
-						this.emitRetryWarning(agentNode, attempt, max, err),
+					onRetry: (attempt, max, err) => this.emitRetryWarning(agentNode, attempt, max, err),
 				},
 			)) as AIMessage;
 			finalMessages.push(response);
@@ -537,9 +497,7 @@ export abstract class BaseAgentWrapper {
 					: undefined;
 				const submitParsed = submit && zodSchema?.safeParse(submit.args);
 				const validationError =
-					submitParsed?.success && validateResult
-						? await validateResult(submitParsed.data)
-						: null;
+					submitParsed?.success && validateResult ? await validateResult(submitParsed.data) : null;
 				if (submitParsed?.success && !validationError)
 					return { done: true, value: submitParsed.data as T };
 
@@ -563,15 +521,14 @@ export abstract class BaseAgentWrapper {
 								tool_call_id: tc.id,
 								name: tc.name,
 								content: `Rejected — the result did not match the required contract.\n\n${
-									submitParsed.success
-										? validationError
-										: describeSchemaError(submitParsed.error)
+									submitParsed.success ? validationError : describeSchemaError(submitParsed.error)
 								}\n\nCall ${SUBMIT_RESULT_TOOL} again with the corrected values.`,
 							});
 						}
 						return undefined;
 					},
-					(tc) => executeToolCall(tc, tools, {
+					(tc) =>
+						executeToolCall(tc, tools, {
 							agent: agentNode,
 							agentId,
 							config,
@@ -591,9 +548,7 @@ export abstract class BaseAgentWrapper {
 				// really isn't the answer.
 				const parsed = parseAsSchema<T>(zodSchema, extractText(response));
 				if (parsed !== undefined) {
-					const validationError = validateResult
-						? await validateResult(parsed)
-						: null;
+					const validationError = validateResult ? await validateResult(parsed) : null;
 					if (!validationError) return { done: true, value: parsed };
 					finalMessages.push(
 						new HumanMessage(
@@ -657,9 +612,7 @@ ${JSON.stringify(jsonSchema, null, 2)}`;
 		// asking politely for "ONLY JSON" and then repairing the answer.
 		const jsonMode = this.jsonModeOptions();
 		let jsonModel =
-			jsonMode && typeof (model as any).bind === "function"
-				? (model as any).bind(jsonMode)
-				: model;
+			jsonMode && typeof (model as any).bind === "function" ? (model as any).bind(jsonMode) : model;
 
 		for (let attempt = 0; attempt < STRUCTURED_OUTPUT_ATTEMPTS; attempt++) {
 			this.checkRunLimits();
@@ -682,9 +635,7 @@ ${JSON.stringify(jsonSchema, null, 2)}`;
 				}
 
 				const parsed = schema.parse(parseJsonLoose(content));
-				const validationError = validateResult
-					? await validateResult(parsed)
-					: null;
+				const validationError = validateResult ? await validateResult(parsed) : null;
 				if (validationError) throw new Error(validationError);
 				return parsed;
 			} catch (error) {
@@ -714,12 +665,7 @@ ${JSON.stringify(jsonSchema, null, 2)}`;
 					attempt: attempt + 1,
 					error: error instanceof Error ? error.message : String(error),
 				});
-				this.emitRetryWarning(
-					agentNode,
-					attempt + 1,
-					STRUCTURED_OUTPUT_ATTEMPTS,
-					error,
-				);
+				this.emitRetryWarning(agentNode, attempt + 1, STRUCTURED_OUTPUT_ATTEMPTS, error);
 
 				modifiedMessages = [
 					...modifiedMessages,
@@ -740,5 +686,4 @@ Respond again with ONLY the corrected JSON object. Use the exact property names 
 			`Failed to parse structured output after ${STRUCTURED_OUTPUT_ATTEMPTS} attempts. Error: ${describeSchemaError(lastError)}`,
 		);
 	}
-
 }

@@ -1,13 +1,7 @@
 import { BLOCK_TYPES } from "./blocks/blockTypes";
-import { stickyNoteData, type StickyNoteData } from "./blocks/stickyNoteData";
+import { type StickyNoteData, stickyNoteData } from "./blocks/stickyNoteData";
 import { FLOW_EDGE_TYPE } from "./edges";
-import type {
-	BlockEdge,
-	BlockNode,
-	CanvasBlock,
-	CanvasEdge,
-	CanvasGraph,
-} from "./types";
+import type { BlockEdge, BlockNode, CanvasBlock, CanvasEdge, CanvasGraph } from "./types";
 
 /**
  * Notes carry their own box and a strict data shape, so they are normalised on
@@ -86,10 +80,7 @@ export function graphToFlow(graph: CanvasGraph): {
 	};
 }
 
-export function flowToGraph(
-	nodes: BlockNode[],
-	edges: BlockEdge[],
-): CanvasGraph {
+export function flowToGraph(nodes: BlockNode[], edges: BlockEdge[]): CanvasGraph {
 	return {
 		blocks: nodes.map(nodeToBlock),
 		edges: edges.map(flowEdgeToCanvasEdge),

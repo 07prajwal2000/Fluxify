@@ -1,5 +1,5 @@
 import z from "zod";
-import { baseBlockDataSchema, Context } from "../../baseBlock";
+import { baseBlockDataSchema, type Context } from "../../baseBlock";
 import { BlockTypes } from "../../blockTypes";
 import type { EmitNode } from "../../compiler";
 import { kvAdapterFor, kvFailure } from "./schema";
@@ -19,9 +19,7 @@ export const kvOperationsBlockSchema = z
 		useParam: z
 			.boolean()
 			.nullish()
-			.describe(
-				"`set` only: store the previous block's output instead of the value field",
-			),
+			.describe("`set` only: store the previous block's output instead of the value field"),
 		value: z
 			.any()
 			.nullish()
@@ -31,9 +29,7 @@ export const kvOperationsBlockSchema = z
 		ttl: z
 			.union([z.string(), z.number()])
 			.nullish()
-			.describe(
-				"`set` only: seconds until the key expires. Omit or 0 to store it without expiry",
-			),
+			.describe("`set` only: seconds until the key expires. Omit or 0 to store it without expiry"),
 		parseJson: z
 			.boolean()
 			.nullish()

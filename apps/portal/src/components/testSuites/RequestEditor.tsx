@@ -1,5 +1,5 @@
-import { FieldMapEditor, JsonEditor, Label, TextArea } from "@fluxify/components";
 import type { JsonContainer } from "@fluxify/components";
+import { FieldMapEditor, JsonEditor, Label, TextArea } from "@fluxify/components";
 import { methodTakesBody, pathParamsOf } from "./assertions";
 import type { SuiteDraft } from "./types";
 
@@ -45,9 +45,9 @@ export function RequestEditor({
 								<span className="w-40 shrink-0 truncate font-mono text-xs text-muted">
 									:{param}
 								</span>
-				<input
-					className="flex-1 rounded-md border border-border bg-background-secondary px-2 py-1.5 text-sm text-foreground outline-none placeholder:text-muted focus:border-accent"
-					placeholder={`${param} value`}
+								<input
+									className="flex-1 rounded-md border border-border bg-background-secondary px-2 py-1.5 text-sm text-foreground outline-none placeholder:text-muted focus:border-accent"
+									placeholder={`${param} value`}
 									value={draft.routeParams[param] ?? ""}
 									onChange={(e) =>
 										onChange({

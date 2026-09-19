@@ -1,8 +1,8 @@
-import { z } from "zod";
-import { AuthACL } from "../../../db/schema";
+import type { z } from "zod";
+import type { AuthACL } from "../../../db/schema";
 import { BadRequestError } from "../../../errors/badRequestError";
 import { fireInternalTrigger } from "../../../modules/triggers/publisher";
-import { runAcceptedSchema, runSchema } from "./dto";
+import type { runAcceptedSchema, runSchema } from "./dto";
 import { mustAccess } from "./service";
 
 /**
@@ -23,8 +23,7 @@ export default async function runWorkflow(
 
 	// An inactive workflow has no artifact in the store, so the job would sit on
 	// the queue until it aged out. Refuse now, where the caller can see why.
-	if (!workflow.active)
-		throw new BadRequestError("Workflow is not active — activate it to run it");
+	if (!workflow.active) throw new BadRequestError("Workflow is not active — activate it to run it");
 
 	// The same subject the Trigger Workflow block uses. A test run and a fired
 	// trigger must take one path, or the thing the user tests is not the thing

@@ -1,16 +1,11 @@
 import { Hono } from "hono";
-import {
-	describeRoute,
-	DescribeRouteOptions,
-	resolver,
-	validator,
-} from "hono-openapi";
-import { requestRouteSchema, requestQuerySchema, responseSchema } from "./dto";
-import handleRequest from "./service";
+import { type DescribeRouteOptions, describeRoute, resolver, validator } from "hono-openapi";
 import { validationErrorSchema } from "../../../../errors/validationError";
 import zodErrorCallbackParser from "../../../../middlewares/zodErrorCallbackParser";
-import { HonoServer } from "../../../../types";
+import type { HonoServer } from "../../../../types";
 import { requireProjectAccess } from "../../../auth/middleware";
+import { requestQuerySchema, requestRouteSchema, responseSchema } from "./dto";
+import handleRequest from "./service";
 
 const openapiRouteOptions: DescribeRouteOptions = {
 	description: "Get all integrations by group",

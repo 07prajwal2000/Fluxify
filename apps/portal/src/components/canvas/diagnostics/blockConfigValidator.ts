@@ -3,8 +3,8 @@ import { variableNameError } from "@fluxify/blocks/variableName";
 import { BLOCK_TYPES } from "../blocks/blockTypes";
 import { savesOutput } from "../panel/SaveOutputField";
 import type { BlockData, CanvasGraph } from "../types";
-import type { BlockDiagnostic, DiagnosticSeverity } from "./types";
 import { dbConditionIssues, isBlank } from "./dbConditionIssues";
+import type { BlockDiagnostic, DiagnosticSeverity } from "./types";
 
 export const BLOCK_CONFIG_SOURCE = "block-config";
 
@@ -81,11 +81,16 @@ function checkScript(raw: unknown, where: string, report: Report, tab?: string) 
 	if (!code.trim()) return report("warning", `${where} is empty, so it does nothing.`, tab);
 	const error = syntaxError(code);
 	if (error) report("error", `${where} has a syntax error: ${error}`, tab);
-	else if (!HAS_RETURN.test(code)) report("warning", `${where} has no return, so it gives back nothing.`, tab);
+	else if (!HAS_RETURN.test(code))
+		report("warning", `${where} has no return, so it gives back nothing.`, tab);
 }
 
 /** calls `visit` for every `js:` string, with the top-level field it sits in */
-function eachInlineJs(data: BlockData, skip: Set<string>, visit: (field: string, code: string) => void) {
+function eachInlineJs(
+	data: BlockData,
+	skip: Set<string>,
+	visit: (field: string, code: string) => void,
+) {
 	const walk = (value: unknown, field: string) => {
 		if (typeof value === "string") {
 			if (value.startsWith("js:")) visit(field, value);
@@ -107,27 +112,47 @@ function checkDb(type: string, data: BlockData, report: Report) {
 		report("warning", "The transaction script is empty, so this block does nothing.");
 	}
 
-	if (DB_WITH_TABLE.has(type) && type !== BLOCK_TYPES.db_insert && type !== BLOCK_TYPES.db_insertbulk) {
+	if (
+		DB_WITH_TABLE.has(type) &&
+		type !== BLOCK_TYPES.db_insert &&
+		type !== BLOCK_TYPES.db_insertbulk
+	) {
 		const conditions = list(data.conditions) as Record<string, unknown>[];
 		if (conditions.length === 0 && type !== BLOCK_TYPES.db_getsingle) {
-			const what = type === BLOCK_TYPES.db_getall ? "reads" : type === BLOCK_TYPES.db_update ? "updates" : "deletes";
-			report("warning", `No conditions, so this ${what} every row in the table. Add conditions in the Edit Conditions tab if that is not intended.`, "Edit Conditions");
+			const what =
+				type === BLOCK_TYPES.db_getall
+					? "reads"
+					: type === BLOCK_TYPES.db_update
+						? "updates"
+						: "deletes";
+			report(
+				"warning",
+				`No conditions, so this ${what} every row in the table. Add conditions in the Edit Conditions tab if that is not intended.`,
+				"Edit Conditions",
+			);
 		}
 		conditions.forEach((c, i) => {
-			for (const [severity, message] of dbConditionIssues(c, i)) report(severity, message, "Edit Conditions");
+			for (const [severity, message] of dbConditionIssues(c, i))
+				report(severity, message, "Edit Conditions");
 		});
 	}
 
 	if (DB_WITH_JOINS.has(type)) {
 		(list(data.joins) as Record<string, unknown>[]).forEach((j, i) => {
 			if (isBlank(j.table) || isBlank(j.attribute)) {
-				report("warning", `Join ${i + 1} is missing its table or column. Fill it in the Joins tab or remove it.`, "Joins");
+				report(
+					"warning",
+					`Join ${i + 1} is missing its table or column. Fill it in the Joins tab or remove it.`,
+					"Joins",
+				);
 			}
 		});
 	}
 	if (type === BLOCK_TYPES.db_getall) {
-		if (isBlank(data.limit)) report("warning", "Limit is empty. Set it in the Pagination tab.", "Pagination");
-		if (isBlank(data.offset)) report("warning", "Offset is empty. Set it in the Pagination tab, e.g. 0.", "Pagination");
+		if (isBlank(data.limit))
+			report("warning", "Limit is empty. Set it in the Pagination tab.", "Pagination");
+		if (isBlank(data.offset))
+			report("warning", "Offset is empty. Set it in the Pagination tab, e.g. 0.", "Pagination");
 	}
 
 	const payload = data.data as { source?: string; value?: unknown } | undefined;
@@ -175,10 +200,15 @@ export function blockConfigIssues(type: string, data: BlockData): BlockConfigIss
 		case BLOCK_TYPES.httprequest: {
 			const url = text(data.url);
 			if (!url) report("error", "URL is empty. Enter it in the General tab.", "General");
-			else if (!url.startsWith("js:") && !isUrl(url)) report("error", `"${url}" is not a valid http(s) URL.`, "General");
+			else if (!url.startsWith("js:") && !isUrl(url))
+				report("error", `"${url}" is not a valid http(s) URL.`, "General");
 			const method = String(data.method || "GET").toUpperCase();
 			if (BODY_METHODS.has(method) && data.useParam !== true && isBlank(data.body)) {
-				report("warning", `${method} request has an empty body. Fill the Body tab or turn on Use Params.`, "Body");
+				report(
+					"warning",
+					`${method} request has an empty body. Fill the Body tab or turn on Use Params.`,
+					"Body",
+				);
 			}
 			break;
 		}
@@ -188,18 +218,25 @@ export function blockConfigIssues(type: string, data: BlockData): BlockConfigIss
 			break;
 		case BLOCK_TYPES.arrayops:
 			if (data.useParamAsInput !== true && isBlank(data.datasource)) {
-				report("warning", "No datasource. Enter the array variable or turn on Use Param.", "General");
+				report(
+					"warning",
+					"No datasource. Enter the array variable or turn on Use Param.",
+					"General",
+				);
 			}
 			break;
 		case BLOCK_TYPES.kv_operations:
-			if (isBlank(data.connection)) report("error", "No KV connection selected. Pick one in the General tab.", "General");
-			if (isBlank(data.key)) report("warning", "Key is empty. Enter it in the Operation tab.", "Operation");
+			if (isBlank(data.connection))
+				report("error", "No KV connection selected. Pick one in the General tab.", "General");
+			if (isBlank(data.key))
+				report("warning", "Key is empty. Enter it in the Operation tab.", "Operation");
 			if (data.operation === "set" && data.useParam !== true && isBlank(data.value)) {
 				report("warning", "Nothing to store. Enter a value or turn on Use Param.", "Operation");
 			}
 			break;
 		case BLOCK_TYPES.kv_raw:
-			if (isBlank(data.connection)) report("error", "No KV connection selected. Pick one in the General tab.", "General");
+			if (isBlank(data.connection))
+				report("error", "No KV connection selected. Pick one in the General tab.", "General");
 			break;
 		case BLOCK_TYPES.triggerWorkflow:
 			if (data.mode === "cancel") {
@@ -209,11 +246,20 @@ export function blockConfigIssues(type: string, data: BlockData): BlockConfigIss
 			}
 			break;
 		case BLOCK_TYPES.if:
-			if (list(data.conditions).length === 0) report("warning", "No conditions. Add at least one in the Edit Conditions tab.", "Edit Conditions");
+			if (list(data.conditions).length === 0)
+				report(
+					"warning",
+					"No conditions. Add at least one in the Edit Conditions tab.",
+					"Edit Conditions",
+				);
 			break;
 		case BLOCK_TYPES.foreachloop:
 			if (data.useParam !== true && list(data.values).length === 0) {
-				report("warning", "Nothing to loop over. Add items in the Data tab or turn on Use Param.", "Data");
+				report(
+					"warning",
+					"Nothing to loop over. Add items in the Data tab or turn on Use Param.",
+					"Data",
+				);
 			}
 			break;
 		case BLOCK_TYPES.forloop: {
@@ -222,7 +268,10 @@ export function blockConfigIssues(type: string, data: BlockData): BlockConfigIss
 			);
 			if (![start, end, step].some(Number.isNaN)) {
 				if (step === 0 || (start < end && step < 0) || (start > end && step > 0)) {
-					report("warning", `This loop never ends (start ${start}, end ${end}, step ${step}). Check the step direction.`);
+					report(
+						"warning",
+						`This loop never ends (start ${start}, end ${end}, step ${step}). Check the step direction.`,
+					);
 				}
 			}
 			break;

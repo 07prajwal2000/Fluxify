@@ -1,22 +1,19 @@
+import { initializeLogger, logger } from "@fluxify/common";
 import { serve } from "bun";
 import { Hono } from "hono";
-import { initializeLogger, logger } from "@fluxify/common";
-import { initWorker } from "../src/modules/requestRouter/worker";
-import { mapRouter } from "../src/modules/requestRouter/router";
-import {
-	markReady,
-	registerHealthRoutes,
-} from "../src/modules/requestRouter/health";
 import { closePubSub } from "../src/db/pubsub";
 import {
+	getEnv,
+	MAX_REQUEST_BODY_BYTES,
 	OTLP_AUTH_HEADER_NAME,
 	OTLP_AUTH_HEADER_VALUE,
 	OTLP_ENDPOINT,
 	OTLP_LOGGER_ENABLED,
 	OTLP_LOGGER_LEVEL,
-	MAX_REQUEST_BODY_BYTES,
-	getEnv,
 } from "../src/lib/env";
+import { markReady, registerHealthRoutes } from "../src/modules/requestRouter/health";
+import { mapRouter } from "../src/modules/requestRouter/router";
+import { initWorker } from "../src/modules/requestRouter/worker";
 
 // JSON has no BigInt type; DB bigint columns break JSON.stringify (and c.json).
 // Serialize as string — same fix the admin server applies.
@@ -44,9 +41,7 @@ const server = serve({
 	port,
 	maxRequestBodySize: MAX_REQUEST_BODY_BYTES,
 });
-logger.info(
-	`request worker running at http://${server.hostname}:${server.port}`,
-);
+logger.info(`request worker running at http://${server.hostname}:${server.port}`);
 
 // Graceful shutdown — registered BEFORE the (slow) initWorker() so a stop during
 // startup is honored too. As PID 1 the process must install its OWN handlers:

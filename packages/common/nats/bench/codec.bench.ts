@@ -14,19 +14,10 @@
  * the two adversarial cases (raw bytes, incompressible noise) where the
  * defaults are known to behave badly.
  */
-import {
-	gzipJsonCodec,
-	gzipMsgpackCodec,
-	jsonCodec,
-	msgpackCodec,
-	type Codec,
-} from "../codec";
+import { type Codec, gzipJsonCodec, gzipMsgpackCodec, jsonCodec, msgpackCodec } from "../codec";
 
-const argIterations = Number(
-	process.argv[process.argv.indexOf("--iterations") + 1],
-);
-const SCALE =
-	Number.isFinite(argIterations) && argIterations > 0 ? argIterations : 0;
+const argIterations = Number(process.argv[process.argv.indexOf("--iterations") + 1]);
+const SCALE = Number.isFinite(argIterations) && argIterations > 0 ? argIterations : 0;
 
 interface Dataset {
 	name: string;
@@ -213,9 +204,7 @@ const DATASETS: Dataset[] = [
 	},
 	{
 		name: "incompressible strings",
-		value: Array.from({ length: 8_000 }, () =>
-			Math.floor(random() * 0xffff_ffff).toString(36),
-		),
+		value: Array.from({ length: 8_000 }, () => Math.floor(random() * 0xffff_ffff).toString(36)),
 		iterations: 200,
 		note: "high entropy: the case where gzip should be refused",
 	},
@@ -263,8 +252,7 @@ function equal(a: unknown, b: unknown): boolean {
 		const y = view(b as ArrayBufferView);
 		return x.length === y.length && x.every((v, i) => v === y[i]);
 	}
-	if (a === null || b === null || typeof a !== "object" || typeof b !== "object")
-		return false;
+	if (a === null || b === null || typeof a !== "object" || typeof b !== "object") return false;
 	if (Array.isArray(a) !== Array.isArray(b)) return false;
 	const ka = Object.keys(a as object);
 	const kb = Object.keys(b as object);
@@ -283,8 +271,7 @@ function measure(dataset: Dataset): Result[] {
 				: dataset.value;
 
 		// warm the JIT before measuring, or the first codec pays for the rest
-		for (let i = 0; i < Math.min(50, runs); i++)
-			codec.decode(codec.encode(value));
+		for (let i = 0; i < Math.min(50, runs); i++) codec.decode(codec.encode(value));
 
 		const encoded = codec.encode(value);
 		return {
@@ -302,9 +289,7 @@ const ms = (n: number) => (n < 0.01 ? n.toFixed(4) : n.toFixed(3));
 const pad = (s: string, width: number) => s.padEnd(width);
 const padLeft = (s: string, width: number) => s.padStart(width);
 
-console.log(
-	`\nNATS codec benchmark — bun ${process.versions.bun ?? "?"}, in memory, no broker`,
-);
+console.log(`\nNATS codec benchmark — bun ${process.versions.bun ?? "?"}, in memory, no broker`);
 if (SCALE) console.log(`iterations overridden: ${SCALE} per measurement`);
 
 let msgpackSmaller = 0;
@@ -320,8 +305,7 @@ for (const dataset of DATASETS) {
 		`  ${pad("codec", 14)}${padLeft("size", 9)}${padLeft("vs json", 9)}${padLeft("encode", 11)}${padLeft("decode", 11)}   (n=${runs})`,
 	);
 	for (const r of results) {
-		const ratio =
-			r.bytes === baseline ? "—" : `${((r.bytes / baseline) * 100).toFixed(0)}%`;
+		const ratio = r.bytes === baseline ? "—" : `${((r.bytes / baseline) * 100).toFixed(0)}%`;
 		const warn = r.lossless ? "" : "   ** LOSSY **";
 		console.log(
 			`  ${pad(r.codec, 14)}${padLeft(kib(r.bytes), 9)}${padLeft(ratio, 9)}${padLeft(`${ms(r.encodeMs)}ms`, 11)}${padLeft(`${ms(r.decodeMs)}ms`, 11)}${warn}`,
@@ -331,8 +315,7 @@ for (const dataset of DATASETS) {
 	const json = results.find((r) => r.codec === "json")!;
 	const msgpack = results.find((r) => r.codec === "msgpack")!;
 	if (msgpack.bytes < json.bytes) msgpackSmaller++;
-	if (json.encodeMs + json.decodeMs < msgpack.encodeMs + msgpack.decodeMs)
-		jsonFaster++;
+	if (json.encodeMs + json.decodeMs < msgpack.encodeMs + msgpack.decodeMs) jsonFaster++;
 }
 
 console.log(`

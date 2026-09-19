@@ -9,13 +9,7 @@ import {
 } from "@fluxify/components";
 import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
-import {
-	TbCheck,
-	TbEdit,
-	TbMessageCirclePlus,
-	TbPlus,
-	TbX,
-} from "react-icons/tb";
+import { TbCheck, TbEdit, TbMessageCirclePlus, TbPlus, TbX } from "react-icons/tb";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { harnessConversationsQuery } from "@/query/harnessConversationsQuery";
@@ -96,11 +90,7 @@ const HoverableBlock = ({
 								variant={hasReview ? "primary" : "secondary"}
 								className="rounded-full h-7 w-7 shadow-md"
 							>
-								{hasReview ? (
-									<TbEdit size={14} />
-								) : (
-									<TbMessageCirclePlus size={14} />
-								)}
+								{hasReview ? <TbEdit size={14} /> : <TbMessageCirclePlus size={14} />}
 							</Button>
 						</PopoverTrigger>
 						<PopoverContent className="w-[320px] rounded-xl border border-border bg-overlay p-4 shadow-xl">
@@ -174,10 +164,7 @@ export function PlanReviewModal({
 		}
 	}, [customPopoverOpened]);
 
-	const actionMutation = harnessConversationsQuery.action.mutation(
-		projectId,
-		conversationId,
-	);
+	const actionMutation = harnessConversationsQuery.action.mutation(projectId, conversationId);
 
 	useEffect(() => {
 		if (selectedBlockId) {
@@ -249,10 +236,7 @@ export function PlanReviewModal({
 						},
 					}
 				: {
-						action:
-							action === "approve"
-								? ("hitl_approve" as const)
-								: ("hitl_reject" as const),
+						action: action === "approve" ? ("hitl_approve" as const) : ("hitl_reject" as const),
 					};
 
 		actionMutation.mutate(payload, {
@@ -348,8 +332,7 @@ export function PlanReviewModal({
 														variant="primary"
 														className="h-8 text-xs font-semibold px-4 rounded-md"
 														onPress={() => {
-															const id =
-																customReviewId || `custom-${Date.now()}`;
+															const id = customReviewId || `custom-${Date.now()}`;
 															handleSaveReview(id, customReviewText);
 															setCustomPopoverOpened(false);
 														}}
@@ -418,19 +401,13 @@ export function PlanReviewModal({
 										onOpenChange={setRejectPopoverOpened}
 									>
 										<PopoverTrigger>
-											<Button
-												variant="danger-soft"
-												size="sm"
-												isPending={actionMutation.isPending}
-											>
+											<Button variant="danger-soft" size="sm" isPending={actionMutation.isPending}>
 												<TbX size={16} /> Reject
 											</Button>
 										</PopoverTrigger>
 										<PopoverContent className="w-72 rounded-xl border border-border bg-overlay p-4 shadow-xl">
 											<div className="flex flex-col gap-3 w-full">
-												<span className="text-sm font-medium">
-													Rejection Reason (Optional)
-												</span>
+												<span className="text-sm font-medium">Rejection Reason (Optional)</span>
 												<textarea
 													ref={rejectTextareaRef}
 													placeholder="Why are you rejecting this plan?"
@@ -466,9 +443,7 @@ export function PlanReviewModal({
 									<Button
 										variant={hasReviews ? "secondary" : "primary"}
 										size="sm"
-										onPress={() =>
-											handleAction(hasReviews ? "review" : "approve")
-										}
+										onPress={() => handleAction(hasReviews ? "review" : "approve")}
 										isPending={actionMutation.isPending}
 									>
 										{hasReviews ? <TbEdit size={16} /> : <TbCheck size={16} />}

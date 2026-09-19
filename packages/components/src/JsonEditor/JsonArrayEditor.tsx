@@ -2,15 +2,11 @@ import { Button } from "@heroui/react";
 import { useState } from "react";
 import { TbArrowDown, TbArrowUp, TbPlus } from "react-icons/tb";
 import { DeleteIconButton } from "../DeleteButton";
-import type { JsonArray, JsonValue, JsonValueType } from "./types";
 import { JsonCollectionShell } from "./JsonCollectionShell";
 import { JsonTypeSelect } from "./JsonTypeSelect";
 import { JsonValueEditor } from "./JsonValueEditor";
-import {
-	createDefaultJsonValue,
-	getJsonValueType,
-	moveArrayItem,
-} from "./utils";
+import type { JsonArray, JsonValue, JsonValueType } from "./types";
+import { createDefaultJsonValue, getJsonValueType, moveArrayItem } from "./utils";
 
 interface JsonArrayEditorProps {
 	value: JsonArray;
@@ -37,9 +33,7 @@ export function JsonArrayEditor({
 
 	return (
 		<JsonCollectionShell count={value.length} depth={depth} type="array">
-			{value.length === 0 && (
-				<p className="py-2 text-center text-xs text-muted">No items yet.</p>
-			)}
+			{value.length === 0 && <p className="py-2 text-center text-xs text-muted">No items yet.</p>}
 			{value.map((item, index) => {
 				const itemType = getJsonValueType(item);
 				const isCollection = itemType === "object" || itemType === "array";
@@ -68,9 +62,7 @@ export function JsonArrayEditor({
 						<DeleteIconButton
 							aria-label="Remove item"
 							isDisabled={isReadOnly}
-							onPress={() =>
-								onChange(value.filter((_, itemIndex) => itemIndex !== index))
-							}
+							onPress={() => onChange(value.filter((_, itemIndex) => itemIndex !== index))}
 							size="sm"
 						/>
 					</div>
@@ -82,7 +74,11 @@ export function JsonArrayEditor({
 						key={index}
 					>
 						<div
-							className={isCollection ? "grid min-w-[28rem] items-start gap-2" : "grid min-w-[42rem] items-start gap-2"}
+							className={
+								isCollection
+									? "grid min-w-[28rem] items-start gap-2"
+									: "grid min-w-[42rem] items-start gap-2"
+							}
 							style={{
 								gridTemplateColumns: isCollection
 									? "3rem minmax(10rem, 1fr) auto"
@@ -105,9 +101,7 @@ export function JsonArrayEditor({
 							<JsonTypeSelect
 								ariaLabel={`Type for array item ${index + 1}`}
 								isDisabled={isReadOnly}
-								onChange={(nextType) =>
-									updateItem(index, createDefaultJsonValue(nextType))
-								}
+								onChange={(nextType) => updateItem(index, createDefaultJsonValue(nextType))}
 								value={itemType}
 							/>
 							{actions}

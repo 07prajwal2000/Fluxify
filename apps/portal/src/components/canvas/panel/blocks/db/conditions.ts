@@ -1,8 +1,4 @@
-import type {
-	Condition,
-	ConditionOperator,
-	ConditionValue,
-} from "@fluxify/components";
+import type { Condition, ConditionOperator, ConditionValue } from "@fluxify/components";
 import type { BlockNode } from "../../../types";
 
 /**

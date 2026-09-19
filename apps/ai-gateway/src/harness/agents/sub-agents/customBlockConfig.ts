@@ -1,9 +1,5 @@
 import { logger } from "@fluxify/common";
-import {
-	generateID,
-	uniqueCustomBlockName,
-	withoutCustomBlockPrefix,
-} from "@fluxify/lib";
+import { generateID, uniqueCustomBlockName, withoutCustomBlockPrefix } from "@fluxify/lib";
 import { z } from "zod";
 import { dispatchAgentEvent } from "../../callbacks";
 import { createFindResourceTool } from "../../tools/findResource";
@@ -13,23 +9,61 @@ import { BaseAgent } from "../base";
 import { CUSTOM_BLOCK_PARAMETER_CONTRACT } from "./customBlockContract";
 
 const inputParamSchema = z.discriminatedUnion("type", [
-	z.object({ type: z.literal("text_input"), name: z.string().regex(/^[a-z0-9_]+$/), label: z.string().trim().min(1), description: z.string().nullish() }),
-	z.object({ type: z.literal("checkbox"), name: z.string().regex(/^[a-z0-9_]+$/), label: z.string().trim().min(1), description: z.string().nullish() }),
-	z.object({ type: z.literal("array_editor"), name: z.string().regex(/^[a-z0-9_]+$/), label: z.string().trim().min(1), description: z.string().nullish() }),
-	z.object({ type: z.literal("dropdown"), name: z.string().regex(/^[a-z0-9_]+$/), label: z.string().trim().min(1), options: z.array(z.object({ label: z.string().trim().min(1), value: z.string().trim().min(1) })).min(1), description: z.string().nullish() }),
-	z.object({ type: z.literal("integration_selector"), name: z.string().regex(/^[a-z0-9_]+$/), label: z.string().trim().min(1), group: z.string().trim().min(1), variant: z.string().nullish(), tags: z.array(z.string()).default([]), description: z.string().nullish() }),
-	z.object({ type: z.literal("app_config_selector"), name: z.string().regex(/^[a-z0-9_]+$/), label: z.string().trim().min(1), description: z.string().nullish() }),
+	z.object({
+		type: z.literal("text_input"),
+		name: z.string().regex(/^[a-z0-9_]+$/),
+		label: z.string().trim().min(1),
+		description: z.string().nullish(),
+	}),
+	z.object({
+		type: z.literal("checkbox"),
+		name: z.string().regex(/^[a-z0-9_]+$/),
+		label: z.string().trim().min(1),
+		description: z.string().nullish(),
+	}),
+	z.object({
+		type: z.literal("array_editor"),
+		name: z.string().regex(/^[a-z0-9_]+$/),
+		label: z.string().trim().min(1),
+		description: z.string().nullish(),
+	}),
+	z.object({
+		type: z.literal("dropdown"),
+		name: z.string().regex(/^[a-z0-9_]+$/),
+		label: z.string().trim().min(1),
+		options: z
+			.array(z.object({ label: z.string().trim().min(1), value: z.string().trim().min(1) }))
+			.min(1),
+		description: z.string().nullish(),
+	}),
+	z.object({
+		type: z.literal("integration_selector"),
+		name: z.string().regex(/^[a-z0-9_]+$/),
+		label: z.string().trim().min(1),
+		group: z.string().trim().min(1),
+		variant: z.string().nullish(),
+		tags: z.array(z.string()).default([]),
+		description: z.string().nullish(),
+	}),
+	z.object({
+		type: z.literal("app_config_selector"),
+		name: z.string().regex(/^[a-z0-9_]+$/),
+		label: z.string().trim().min(1),
+		description: z.string().nullish(),
+	}),
 ]);
 
 const customBlockConfigSchema = z.object({
 	action: z.enum(["create", "delete", "update-partial"]),
 	customBlockId: z.string().nullish(),
-	data: z.object({
-		name: z.string().nullish(),
-		label: z.string().nullish(),
-		description: z.string().nullish(),
-		inputParams: z.array(inputParamSchema).nullish(),
-	}).nullish(),
+	data: z
+		.object({
+			name: z.string().nullish(),
+			label: z.string().nullish(),
+			description: z.string().nullish(),
+			inputParams: z.array(inputParamSchema).nullish(),
+		})
+		.nullish(),
 });
 
 /**
@@ -54,9 +88,9 @@ export class CustomBlockConfigAgent extends BaseAgent {
 	private async freeName(name: string): Promise<string> {
 		const projectId = this.state.internal?.metadata?.projectId || "";
 		const taken = new Set(
-			(
-				await this.state.internal.dbService.getAllCustomBlocks(projectId)
-			).map(({ name }: { name: string }) => name),
+			(await this.state.internal.dbService.getAllCustomBlocks(projectId)).map(
+				({ name }: { name: string }) => name,
+			),
 		);
 		const free = settleName(name, taken);
 		if (free !== name) {
@@ -72,7 +106,14 @@ export class CustomBlockConfigAgent extends BaseAgent {
 		const activeTask = this.state.activeTask;
 		if (!activeTask) throw new Error("CustomBlockConfigAgent requires an active task.");
 
-		await dispatchAgentEvent({ name: "agent_status", data: { status: "Defining custom block contract...", agent: AgentNode.CUSTOM_BLOCK_CONFIG_AGENT, agentId: activeTask.id } });
+		await dispatchAgentEvent({
+			name: "agent_status",
+			data: {
+				status: "Defining custom block contract...",
+				agent: AgentNode.CUSTOM_BLOCK_CONFIG_AGENT,
+				agentId: activeTask.id,
+			},
+		});
 		const systemPrompt = `You are Fluxify's Custom Block Config Agent. Determine exact create, update, or delete intent for reusable custom-block metadata and caller parameters.
 ${CUSTOM_BLOCK_PARAMETER_CONTRACT}
 ## Strict Rules
@@ -83,21 +124,33 @@ ${CUSTOM_BLOCK_PARAMETER_CONTRACT}
 - Search docs only for an uncovered platform feature. Batch every query in one \`searchQueries\` call.
 ## Output Contract
 \`{ "action": "create", "customBlockId": "<planned id>", "data": { "name": "send_notification", "label": "Send Notification", "description": "Sends a notification", "inputParams": [] } }\``;
-		const response = await this.state.agentWrapper.invokeAgent({
+		const response = (await this.state.agentWrapper.invokeAgent({
 			zodSchema: customBlockConfigSchema,
 			systemPrompt,
 			context: this.state.internal?.metadata?.contextBlock,
-			tools: [searchDocsTool, createFindResourceTool(this.state.internal.dbService, this.state.internal?.metadata ?? {})],
+			tools: [
+				searchDocsTool,
+				createFindResourceTool(this.state.internal.dbService, this.state.internal?.metadata ?? {}),
+			],
 			messages: [],
 			userQuery: `Task Title: ${activeTask.title}\nTask Description: ${activeTask.description}${activeTask.supervisorReviews ? `\nSupervisor Reviews:\n${activeTask.supervisorReviews}` : ""}`,
 			agentNode: AgentNode.CUSTOM_BLOCK_CONFIG_AGENT,
 			agentId: activeTask.id,
-		}) as z.infer<typeof customBlockConfigSchema>;
-		if (response.action === "create" && !response.customBlockId) response.customBlockId = generateID();
+		})) as z.infer<typeof customBlockConfigSchema>;
+		if (response.action === "create" && !response.customBlockId)
+			response.customBlockId = generateID();
 		if (response.action === "create" && response.data?.name) {
 			response.data.name = await this.freeName(response.data.name);
 		}
-		await dispatchAgentEvent({ name: "agent_status", data: { status: "Custom block contract formulated", agent: AgentNode.CUSTOM_BLOCK_CONFIG_AGENT, agentId: activeTask.id, data: response } });
+		await dispatchAgentEvent({
+			name: "agent_status",
+			data: {
+				status: "Custom block contract formulated",
+				agent: AgentNode.CUSTOM_BLOCK_CONFIG_AGENT,
+				agentId: activeTask.id,
+				data: response,
+			},
+		});
 		return {
 			currentAgent: AgentNode.CUSTOM_BLOCK_CONFIG_AGENT,
 			orchestratorState: { subAgentResults: { [activeTask.id]: response } },
@@ -105,25 +158,34 @@ ${CUSTOM_BLOCK_PARAMETER_CONTRACT}
 	}
 }
 
-export const validateCustomBlockConfigOutput: import("../../types").AgentOutputValidator = (result) => {
+export const validateCustomBlockConfigOutput: import("../../types").AgentOutputValidator = (
+	result,
+) => {
 	const value = result as z.infer<typeof customBlockConfigSchema>;
 	if (!value?.action) return "Missing custom block action.";
-	if ((value.action === "update-partial" || value.action === "delete") && !value.customBlockId) return `Action '${value.action}' requires customBlockId.`;
+	if ((value.action === "update-partial" || value.action === "delete") && !value.customBlockId)
+		return `Action '${value.action}' requires customBlockId.`;
 	if (value.action === "create") {
-		if (!value.data?.name?.match(/^[a-z0-9_]+$/)) return `Custom block create requires lowercase snake_case data.name — letters, digits and underscores only, with no dots and no "user_defined.project." prefix. Got "${value.data?.name ?? ""}".`;
+		if (!value.data?.name?.match(/^[a-z0-9_]+$/))
+			return `Custom block create requires lowercase snake_case data.name — letters, digits and underscores only, with no dots and no "user_defined.project." prefix. Got "${value.data?.name ?? ""}".`;
 		if (!value.data.label?.trim()) return "Custom block create requires data.label.";
-		if (!value.data.inputParams) return "Custom block create requires data.inputParams (use [] when none).";
+		if (!value.data.inputParams)
+			return "Custom block create requires data.inputParams (use [] when none).";
 	}
 	const names = value.data?.inputParams?.map((p) => p.name) ?? [];
-	if (new Set(names).size !== names.length) return "Custom block inputParams cannot contain duplicate names.";
+	if (new Set(names).size !== names.length)
+		return "Custom block inputParams cannot contain duplicate names.";
 	// storage takes lowercase snake_case only; a camelCase name gets no further
 	// than the create DTO, and only at apply time, as "Malformed operation"
 	const badName = names.find((name) => !/^[a-z0-9_]+$/.test(name));
-	if (badName) return `Custom block inputParam name "${badName}" must be lowercase snake_case (letters, digits and underscores only).`;
+	if (badName)
+		return `Custom block inputParam name "${badName}" must be lowercase snake_case (letters, digits and underscores only).`;
 	for (const param of value.data?.inputParams ?? []) {
-		if (!param.label?.trim()) return `Custom block inputParam "${param.name}" requires a non-empty label.`;
+		if (!param.label?.trim())
+			return `Custom block inputParam "${param.name}" requires a non-empty label.`;
 		if (param.type === "dropdown") {
-			if (!param.options?.length) return `Dropdown inputParam "${param.name}" requires at least one option.`;
+			if (!param.options?.length)
+				return `Dropdown inputParam "${param.name}" requires at least one option.`;
 			if (param.options.some((option) => !option.label?.trim() || !option.value?.trim())) {
 				return `Dropdown inputParam "${param.name}" options require non-empty label and value.`;
 			}

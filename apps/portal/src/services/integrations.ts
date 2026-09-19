@@ -1,19 +1,19 @@
-import { httpClient } from "@/lib/http";
-import { responseSchema as getByIdResponseSchema } from "@fluxify/server/src/api/v1/integrations/get-by-id/dto";
-import { responseSchema as getAllResponseSchema } from "@fluxify/server/src/api/v1/integrations/get-all/dto";
-import { responseSchema as getBasicListResponseSchema } from "@fluxify/server/src/api/v1/integrations/get-basic-list/dto";
-import { responseSchema as getMetadataResponseSchema } from "@fluxify/server/src/api/v1/integrations/get-metadata/dto";
 import {
 	requestBodySchema as createRequestSchema,
-	responseSchema as createResponseSchema,
+	type responseSchema as createResponseSchema,
 } from "@fluxify/server/src/api/v1/integrations/create/dto";
+import type { responseSchema as getAllResponseSchema } from "@fluxify/server/src/api/v1/integrations/get-all/dto";
+import type { responseSchema as getBasicListResponseSchema } from "@fluxify/server/src/api/v1/integrations/get-basic-list/dto";
+import type { responseSchema as getByIdResponseSchema } from "@fluxify/server/src/api/v1/integrations/get-by-id/dto";
+import type { responseSchema as getMetadataResponseSchema } from "@fluxify/server/src/api/v1/integrations/get-metadata/dto";
+import type { responseSchema as testConnectionResponseSchema } from "@fluxify/server/src/api/v1/integrations/test-connection/dto";
+import type { responseSchema as testExistingConnectionResponseSchema } from "@fluxify/server/src/api/v1/integrations/test-existing-connection/dto";
 import {
 	requestBodySchema as updateRequestSchema,
-	responseSchema as updateResponseSchema,
+	type responseSchema as updateResponseSchema,
 } from "@fluxify/server/src/api/v1/integrations/update/dto";
-import { responseSchema as testConnectionResponseSchema } from "@fluxify/server/src/api/v1/integrations/test-connection/dto";
-import { responseSchema as testExistingConnectionResponseSchema } from "@fluxify/server/src/api/v1/integrations/test-existing-connection/dto";
-import z from "zod";
+import type z from "zod";
+import { httpClient } from "@/lib/http";
 
 const getBaseUrl = (projectId: string) => `/v1/${projectId}/integrations`;
 
@@ -38,10 +38,7 @@ export const integrationService = {
 		const res = await httpClient.get(url);
 		return res.data;
 	},
-	async getById(
-		projectId: string,
-		id: string,
-	): Promise<z.infer<typeof getByIdResponseSchema>> {
+	async getById(projectId: string, id: string): Promise<z.infer<typeof getByIdResponseSchema>> {
 		const res = await httpClient.get(`${getBaseUrl(projectId)}/${id}`);
 		return res.data;
 	},
@@ -91,9 +88,7 @@ export const integrationService = {
 		projectId: string,
 		integrationId: string,
 	): Promise<z.infer<typeof getMetadataResponseSchema>> {
-		const res = await httpClient.get(
-			`${getBaseUrl(projectId)}/${integrationId}/metadata`,
-		);
+		const res = await httpClient.get(`${getBaseUrl(projectId)}/${integrationId}/metadata`);
 		return res.data;
 	},
 	createRequestSchema,

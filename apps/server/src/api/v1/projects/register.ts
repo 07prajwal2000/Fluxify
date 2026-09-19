@@ -1,22 +1,22 @@
-import { HonoServer } from "../../../types";
-import registerProjectMembers from "./settings/members/register";
+import type { HonoServer } from "../../../types";
+import registerProjectNodes from "../orchestration/projectRoutes";
 import createProjectRoute from "./create/route";
 import getAllProjectRoute from "./get-all/route";
-import updateProjectRoute from "./update/route";
 import registerProjectSettingsKeys from "./settings/keys/register";
-import registerProjectNodes from "../orchestration/projectRoutes";
+import registerProjectMembers from "./settings/members/register";
 import systemLogsRoute from "./system-logs/route";
+import updateProjectRoute from "./update/route";
 
 export default {
-  name: "routes",
-  registerHandler(app: HonoServer) {
-    const router = app.basePath("/projects");
-    createProjectRoute(router);
-    getAllProjectRoute(router);
-    updateProjectRoute(router);
-    registerProjectMembers(router);
-    registerProjectSettingsKeys(router);
-    registerProjectNodes(router);
-    systemLogsRoute(router);
-  },
+	name: "routes",
+	registerHandler(app: HonoServer) {
+		const router = app.basePath("/projects");
+		createProjectRoute(router);
+		getAllProjectRoute(router);
+		updateProjectRoute(router);
+		registerProjectMembers(router);
+		registerProjectSettingsKeys(router);
+		registerProjectNodes(router);
+		systemLogsRoute(router);
+	},
 };

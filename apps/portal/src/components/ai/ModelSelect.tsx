@@ -1,10 +1,10 @@
-import { useEffect, useState } from "react";
 import type { Key } from "@fluxify/components";
 import { ListBox, Select } from "@fluxify/components";
-import { integrationsQuery } from "@/query/integrationsQuery";
-import { TbChevronDown, TbSparkles } from "react-icons/tb";
-import { RiGeminiFill, RiOpenaiLine, RiRobot2Fill, RiOpenaiFill } from "react-icons/ri";
+import { useEffect, useState } from "react";
+import { RiGeminiFill, RiOpenaiFill, RiOpenaiLine, RiRobot2Fill } from "react-icons/ri";
 import { SiAnthropic } from "react-icons/si";
+import { TbChevronDown, TbSparkles } from "react-icons/tb";
+import { integrationsQuery } from "@/query/integrationsQuery";
 
 export type AiModel = {
 	id: string;
@@ -25,7 +25,8 @@ function getModelIcon(variant?: string) {
 	if (variant === "OpenAI") return <RiOpenaiFill size={15} className="text-[#10a37f]" />;
 	if (variant === "Gemini") return <RiGeminiFill size={15} className="text-[#4285f4]" />;
 	if (variant === "Mistral") return <RiRobot2Fill size={15} className="text-[#fca03e]" />;
-	if (variant === "OpenAI Compatible") return <RiOpenaiLine size={15} className="text-muted-foreground" />;
+	if (variant === "OpenAI Compatible")
+		return <RiOpenaiLine size={15} className="text-muted-foreground" />;
 	return <TbSparkles size={15} className="text-muted-foreground" />;
 }
 
@@ -51,8 +52,14 @@ export function ModelSelect({ projectId, value, models, onChange }: Props) {
 				)}
 				<Select.Value>
 					<span className="flex items-center gap-2.5 overflow-hidden">
-						{selectedModel && <span className="shrink-0 flex items-center">{getModelIcon(selectedModel.variant)}</span>}
-						<span className="text-foreground tracking-wide text-[13.5px] truncate">{selectedModel?.name ?? "Select Model"}</span>
+						{selectedModel && (
+							<span className="shrink-0 flex items-center">
+								{getModelIcon(selectedModel.variant)}
+							</span>
+						)}
+						<span className="text-foreground tracking-wide text-[13.5px] truncate">
+							{selectedModel?.name ?? "Select Model"}
+						</span>
 					</span>
 				</Select.Value>
 				<Select.Indicator>
@@ -66,7 +73,9 @@ export function ModelSelect({ projectId, value, models, onChange }: Props) {
 							<div className="flex w-full items-center justify-between gap-4 py-0.5">
 								<div className="flex items-center gap-2.5">
 									{getModelIcon(m.variant)}
-									<span className="text-[13.5px] font-medium tracking-wide text-foreground/90">{m.name}</span>
+									<span className="text-[13.5px] font-medium tracking-wide text-foreground/90">
+										{m.name}
+									</span>
 								</div>
 							</div>
 						</ListBox.Item>

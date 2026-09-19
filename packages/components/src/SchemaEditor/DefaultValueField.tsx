@@ -10,8 +10,7 @@ const DESCRIPTION = "Used when the request leaves this field out.";
 
 /** Only an optional field of a simple type can fall back to a default. */
 export const hasDefaultValue = (node: SchemaNode) =>
-	(node as SchemaProperty).required === false &&
-	DEFAULTABLE_TYPES.includes(node.dataType);
+	(node as SchemaProperty).required === false && DEFAULTABLE_TYPES.includes(node.dataType);
 
 interface DefaultValueFieldProps {
 	node: SchemaNode;
@@ -20,16 +19,11 @@ interface DefaultValueFieldProps {
 }
 
 /** The input matches the field's type, so only a valid default can be stored. */
-export function DefaultValueField({
-	node,
-	onUpdate,
-	isReadOnly,
-}: DefaultValueFieldProps) {
+export function DefaultValueField({ node, onUpdate, isReadOnly }: DefaultValueFieldProps) {
 	if (!hasDefaultValue(node)) return null;
 	const property = node as SchemaProperty;
 	const current = property.default;
-	const set = (raw: string) =>
-		onUpdate({ default: parseDefault(property, raw) });
+	const set = (raw: string) => onUpdate({ default: parseDefault(property, raw) });
 
 	let input: ReactNode;
 	switch (property.dataType) {
@@ -62,9 +56,7 @@ export function DefaultValueField({
 				<DefaultSelect
 					isReadOnly={isReadOnly}
 					onChange={set}
-					options={getRuleValue<unknown[]>(property.rules, "values", []).map(
-						String,
-					)}
+					options={getRuleValue<unknown[]>(property.rules, "values", []).map(String)}
 					value={current}
 				/>
 			);
@@ -109,9 +101,7 @@ function DefaultSelect({
 				aria-label={LABEL}
 				fullWidth
 				isDisabled={isReadOnly}
-				onSelectionChange={(key) =>
-					onChange(key === NONE ? "" : String(key))
-				}
+				onSelectionChange={(key) => onChange(key === NONE ? "" : String(key))}
 				selectedKey={value === undefined ? NONE : String(value)}
 				variant="secondary"
 			>

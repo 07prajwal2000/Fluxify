@@ -22,18 +22,13 @@ import type { requestRouteSchema, responseSchema } from "./dto";
 export default async function handleRequest(
 	params: z.infer<typeof requestRouteSchema>,
 ): Promise<z.infer<typeof responseSchema>> {
-	const integration = await getIntegrationByID(
-		params.projectId,
-		params.integrationId,
-	);
+	const integration = await getIntegrationByID(params.projectId, params.integrationId);
 	if (!integration) {
 		throw new NotFoundError("Integration not found");
 	}
 	// ponytail: databases only; other groups get their own metadata shape when they need one.
 	if (integration.group !== "database") {
-		throw new BadRequestError(
-			"Metadata is only available for database integrations",
-		);
+		throw new BadRequestError("Metadata is only available for database integrations");
 	}
 
 	const schema = getSchema("database", integration.variant!);
@@ -42,15 +37,8 @@ export default async function handleRequest(
 		throw new BadRequestError("Invalid configuration");
 	}
 
-	const appConfigs = await decodeAppConfig(
-		getAppConfigKeysFromData(parsed.data),
-		params.projectId,
-	);
-	const connection = buildConnection(
-		integration.variant!,
-		integration.config,
-		appConfigs,
-	);
+	const appConfigs = await decodeAppConfig(getAppConfigKeysFromData(parsed.data), params.projectId);
+	const connection = buildConnection(integration.variant!, integration.config, appConfigs);
 
 	const tables = await introspectConnection(connection).catch((error) => {
 		throw new BadRequestError(

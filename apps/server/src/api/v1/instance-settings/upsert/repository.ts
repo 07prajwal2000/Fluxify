@@ -1,7 +1,7 @@
+import { generateID } from "@fluxify/lib";
 import { eq } from "drizzle-orm";
 import { db } from "../../../../db";
 import { instanceSettingsEntity } from "../../../../db/schema";
-import { generateID } from "@fluxify/lib";
 import { resolveIsPublic } from "../../../../lib/instance-settings/schemas";
 
 export async function getInstanceSettingByKey(key: string) {

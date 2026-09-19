@@ -3,13 +3,9 @@ import { useReactFlow } from "@xyflow/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { TbMinus, TbPlus } from "react-icons/tb";
 import { useCanvasChanges } from "../../changes/ChangesContext";
-import { BlockSettings } from "../BlockSettings";
-import {
-	BlockCheckboxField,
-	BlockJsTextField,
-	BlockSelectField,
-} from "../fields";
 import type { BlockNode } from "../../types";
+import { BlockSettings } from "../BlockSettings";
+import { BlockCheckboxField, BlockJsTextField, BlockSelectField } from "../fields";
 
 const METHOD_OPTIONS = [
 	{ value: "GET", label: "GET" },
@@ -28,9 +24,7 @@ function HeadersEditor({
 	editable: boolean;
 	onChange: (next: Record<string, string>) => void;
 }) {
-	const [entries, setEntries] = useState<[string, string][]>(() =>
-		Object.entries(headers || {}),
-	);
+	const [entries, setEntries] = useState<[string, string][]>(() => Object.entries(headers || {}));
 
 	const lastEmittedRef = useRef<string>("");
 

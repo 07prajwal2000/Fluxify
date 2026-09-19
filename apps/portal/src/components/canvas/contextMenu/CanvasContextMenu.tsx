@@ -1,5 +1,5 @@
+import { Dropdown, Kbd, type Key, Label } from "@fluxify/components";
 import { useMemo } from "react";
-import { Dropdown, Kbd, Label, type Key } from "@fluxify/components";
 import { comboLabel } from "../actions/combo";
 import type { CanvasAction } from "../actions/useCanvasActions";
 import type { CanvasContextMenuState } from "./useContextMenu";
@@ -33,10 +33,7 @@ export function CanvasContextMenu({ menu, actions }: CanvasContextMenuProps) {
 		() =>
 			actions.filter(
 				(action) =>
-					action.available &&
-					!action.disabled &&
-					action.id !== "undo" &&
-					action.id !== "redo",
+					action.available && !action.disabled && action.id !== "undo" && action.id !== "redo",
 			),
 		[actions],
 	);
@@ -80,11 +77,7 @@ export function CanvasContextMenu({ menu, actions }: CanvasContextMenuProps) {
 			{/* Compact by design: this menu is read at a glance, mid-gesture, and a
 			    full-size dropdown covers the blocks the user just right-clicked. */}
 			<Dropdown.Popover placement="bottom start" className="min-w-52 max-w-72 p-1">
-				<Dropdown.Menu
-					onAction={onAction}
-					aria-label="Canvas actions"
-					className="gap-0 p-0"
-				>
+				<Dropdown.Menu onAction={onAction} aria-label="Canvas actions" className="gap-0 p-0">
 					{groups.map((group, index) => (
 						<Dropdown.Section
 							key={group[0].id}
@@ -103,9 +96,7 @@ export function CanvasContextMenu({ menu, actions }: CanvasContextMenuProps) {
 											: ""
 									}`}
 								>
-									<span
-										className={`shrink-0 ${action.danger ? "text-danger" : "text-muted"}`}
-									>
+									<span className={`shrink-0 ${action.danger ? "text-danger" : "text-muted"}`}>
 										{action.icon}
 									</span>
 									<Label

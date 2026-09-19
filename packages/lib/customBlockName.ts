@@ -11,9 +11,7 @@ export const CUSTOM_BLOCK_NAME_PREFIX = "user_defined.project.";
 
 /** Idempotent: a name that already carries the prefix is returned unchanged. */
 export function withCustomBlockPrefix(name: string): string {
-	return name.startsWith(CUSTOM_BLOCK_NAME_PREFIX)
-		? name
-		: `${CUSTOM_BLOCK_NAME_PREFIX}${name}`;
+	return name.startsWith(CUSTOM_BLOCK_NAME_PREFIX) ? name : `${CUSTOM_BLOCK_NAME_PREFIX}${name}`;
 }
 
 export function withoutCustomBlockPrefix(name: string): string {
@@ -45,10 +43,7 @@ export function withoutCustomBlockPrefix(name: string): string {
  * but a reference to `jwt_validate` resolves to the inhouse one and the new
  * block is silently shadowed.
  */
-export function uniqueCustomBlockName(
-	name: string,
-	taken: ReadonlySet<string>,
-): string {
+export function uniqueCustomBlockName(name: string, taken: ReadonlySet<string>): string {
 	const isTaken = (candidate: string) =>
 		taken.has(candidate) || taken.has(withCustomBlockPrefix(candidate));
 	if (!isTaken(name)) return name;
@@ -58,15 +53,8 @@ export function uniqueCustomBlockName(
 	return `${name}_${suffix}`;
 }
 
-export function resolveCustomBlockName(
-	name: string,
-	known: ReadonlySet<string>,
-): string {
-	for (const candidate of [
-		name,
-		withCustomBlockPrefix(name),
-		withoutCustomBlockPrefix(name),
-	]) {
+export function resolveCustomBlockName(name: string, known: ReadonlySet<string>): string {
+	for (const candidate of [name, withCustomBlockPrefix(name), withoutCustomBlockPrefix(name)]) {
 		if (known.has(candidate)) return candidate;
 	}
 	return withCustomBlockPrefix(name);

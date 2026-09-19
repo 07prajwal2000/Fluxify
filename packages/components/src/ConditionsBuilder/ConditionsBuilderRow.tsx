@@ -2,21 +2,23 @@ import { Button, ListBox, Select, Tooltip } from "@heroui/react";
 import { useCallback, useMemo } from "react";
 import { TbAbc, TbMinus, TbTable } from "react-icons/tb";
 import { JavaScriptTextArea } from "../JavaScriptTextArea/lazy";
-import { type FieldInfo, FieldInfoButton, isJsExpression, JsTextField, readExpression, writeExpression } from "../JsTextField";
+import {
+	type FieldInfo,
+	FieldInfoButton,
+	isJsExpression,
+	JsTextField,
+	readExpression,
+	writeExpression,
+} from "../JsTextField";
 import { ALL_OPERATORS, type OperatorOption } from "./constants";
-import type {
-	Condition,
-	ConditionOperator,
-	ConditionValue,
-	CustomConditionEditor,
-} from "./types";
+import type { Condition, ConditionOperator, ConditionValue, CustomConditionEditor } from "./types";
 import { conditionText, encodeSide, sideIsColumn, toggleSideMode } from "./utils";
 
 const SQL_INFO: FieldInfo = {
 	content: (
 		<>
-			Written as-is into the WHERE clause. Put run-time values in <code>{"{{ }}"}</code>: they
-			are sent as parameters, and the condition is skipped when one is undefined.
+			Written as-is into the WHERE clause. Put run-time values in <code>{"{{ }}"}</code>: they are
+			sent as parameters, and the condition is skipped when one is undefined.
 		</>
 	),
 	example: "name ILIKE {{ '%' + getQueryParam('q') + '%' }}",
@@ -83,13 +85,7 @@ function OperatorSelect({
 	onChange: (value: unknown) => void;
 }) {
 	return (
-		<Select
-			fullWidth
-			isDisabled={isDisabled}
-			onChange={onChange}
-			value={value}
-			variant="secondary"
-		>
+		<Select fullWidth isDisabled={isDisabled} onChange={onChange} value={value} variant="secondary">
 			<Select.Trigger>
 				<Select.Value />
 				<Select.Indicator />
@@ -197,8 +193,7 @@ export function ConditionsBuilderRow({
 }: ConditionsBuilderRowProps) {
 	const isJs = condition.operator === "js";
 	// a stored custom condition whose connection is unknown still shows as SQL
-	const customEditor =
-		condition.operator === "raw" ? (customConditionEditor ?? "sql") : undefined;
+	const customEditor = condition.operator === "raw" ? (customConditionEditor ?? "sql") : undefined;
 	const rhsIsColumn = sideIsColumn(condition.rhs, "rhs");
 	const rhsText = conditionText(condition.rhs);
 	const lhsIsColumn = sideIsColumn(condition.lhs, "lhs");
@@ -211,9 +206,7 @@ export function ConditionsBuilderRow({
 	const toggleLhsMode = useCallback(() => {
 		onLHSChange(index, toggleSideMode(condition.lhs, "lhs"));
 	}, [condition.lhs, index, onLHSChange]);
-	const hideRhs =
-		condition.operator === "is_empty" ||
-		condition.operator === "is_not_empty";
+	const hideRhs = condition.operator === "is_empty" || condition.operator === "is_not_empty";
 
 	const availableOperators = useMemo(() => {
 		return ALL_OPERATORS.filter((op) => {
@@ -313,9 +306,7 @@ export function ConditionsBuilderRow({
 							value={lhsText}
 							// suggesting column names while a literal is being typed only
 							// misleads, so they are offered in column mode alone
-							suggestions={
-								allowColumnRefs && !lhsIsColumn ? undefined : lhsSuggestions
-							}
+							suggestions={allowColumnRefs && !lhsIsColumn ? undefined : lhsSuggestions}
 						/>
 					</div>
 					{allowColumnRefs && (
@@ -340,9 +331,7 @@ export function ConditionsBuilderRow({
 								value={rhsText}
 								// suggesting column names while a literal is being typed only
 								// misleads, so they are offered in column mode alone
-								suggestions={
-									allowColumnRefs && !rhsIsColumn ? undefined : rhsSuggestions
-								}
+								suggestions={allowColumnRefs && !rhsIsColumn ? undefined : rhsSuggestions}
 							/>
 						</div>
 					)}

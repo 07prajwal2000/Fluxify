@@ -1,8 +1,8 @@
-import { z } from "zod";
 import { logger } from "@fluxify/common";
 import { publishMessage, subscribeToChannel } from "@fluxify/server";
-import type { HarnessStreamEvent } from "./streamTypes";
+import { z } from "zod";
 import type { ArtifactStatus, HarnessRunStats } from "./clientContract";
+import type { HarnessStreamEvent } from "./streamTypes";
 
 /* ============================================================================
  * CONVERSATION PUB/SUB CONTRACT (NATS)
@@ -90,10 +90,7 @@ export type HarnessStatsMessage = z.infer<typeof harnessStatsMessageSchema>;
 export type ArtifactStatusMessage = z.infer<typeof artifactStatusMessageSchema>;
 
 /** Publishes a harness stream event to its owner's conversation subject. */
-export function publishHarnessEvent(
-	userId: string,
-	event: HarnessStreamEvent,
-): void {
+export function publishHarnessEvent(userId: string, event: HarnessStreamEvent): void {
 	const message: HarnessEventMessage = {
 		type: ConversationMsgType.HARNESS_EVENT,
 		userId,
@@ -137,10 +134,7 @@ export function publishHarnessStats(userId: string, stats: HarnessRunStats): voi
  * apply already succeeded (or already failed) by the time this runs, and a
  * broker hiccup must not turn a good apply into an error the user sees.
  */
-export function publishArtifactStatus(
-	userId: string,
-	status: ArtifactStatus,
-): void {
+export function publishArtifactStatus(userId: string, status: ArtifactStatus): void {
 	const message: ArtifactStatusMessage = {
 		type: ConversationMsgType.ARTIFACT_STATUS,
 		userId,

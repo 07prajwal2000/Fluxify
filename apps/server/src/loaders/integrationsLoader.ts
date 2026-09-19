@@ -1,35 +1,35 @@
-import { db } from "../db";
-import { integrationsEntity } from "../db/schema";
-import {
-	CHAN_ON_APPCONFIG_CHANGE,
-	CHAN_ON_INTEGRATION_CHANGE,
-	subscribeToChannel,
-} from "../db/redis";
-import { getProjectAppConfig } from "./appconfigLoader";
-import { parsePostgresUrl } from "../lib/parsers/postgres";
-import { parseMysqlUrl } from "../lib/parsers/mysql";
-import { parseMongoUrl } from "../lib/parsers/mongodb";
-import {
-	integrationsGroupSchema,
-	databaseVariantSchema,
-	observabilityVariantSchema,
-	normalizeObservabilityVariant,
-	aiVariantSchema,
-	kvVariantSchema,
-} from "../api/v1/integrations/schemas";
 import {
 	AnthropicIntegration,
 	DbFactory,
 	GeminiIntegration,
 	LokiLogger,
+	MemcachedIntegration,
 	MistralIntegration,
 	OpenAICompatibleIntegration,
 	OpenAIIntegration,
 	OpenTelemetryLogs,
 	RedisIntegration,
-	MemcachedIntegration,
 } from "@fluxify/adapters";
 import { logger } from "@fluxify/common";
+import {
+	aiVariantSchema,
+	databaseVariantSchema,
+	integrationsGroupSchema,
+	kvVariantSchema,
+	normalizeObservabilityVariant,
+	observabilityVariantSchema,
+} from "../api/v1/integrations/schemas";
+import { db } from "../db";
+import {
+	CHAN_ON_APPCONFIG_CHANGE,
+	CHAN_ON_INTEGRATION_CHANGE,
+	subscribeToChannel,
+} from "../db/redis";
+import { integrationsEntity } from "../db/schema";
+import { parseMongoUrl } from "../lib/parsers/mongodb";
+import { parseMysqlUrl } from "../lib/parsers/mysql";
+import { parsePostgresUrl } from "../lib/parsers/postgres";
+import { getProjectAppConfig } from "./appconfigLoader";
 
 export let dbIntegrationsCache: Record<string, any> = {};
 export let kvIntegrationsCache: Record<string, any> = {};
@@ -68,10 +68,7 @@ export function findIntegrationConfig(id: string) {
 }
 
 /** only the entries `projectId` is allowed to see */
-export function scopeToProject<T>(
-	cache: Record<string, T>,
-	projectId: string,
-): Record<string, T> {
+export function scopeToProject<T>(cache: Record<string, T>, projectId: string): Record<string, T> {
 	const scoped: Record<string, T> = {};
 	for (const id in cache) {
 		if (ownsIntegration(cache[id], projectId)) scoped[id] = cache[id]!;
@@ -107,16 +104,11 @@ export function hydrateIntegrations(
 			projectId,
 		);
 	if (caches.ai) aiIntegrationsCache = merge(aiIntegrationsCache, caches.ai, projectId);
-	if (caches.queue)
-		queueIntegrationsCache = merge(queueIntegrationsCache, caches.queue, projectId);
+	if (caches.queue) queueIntegrationsCache = merge(queueIntegrationsCache, caches.queue, projectId);
 }
 
 /** drop what this project used to own, then take what it owns now */
-function merge(
-	current: Record<string, any>,
-	incoming: Record<string, any>,
-	projectId: string,
-) {
+function merge(current: Record<string, any>, incoming: Record<string, any>, projectId: string) {
 	const next: Record<string, any> = {};
 	for (const id in current) {
 		if (current[id]?.[OWNER_KEY] !== projectId) next[id] = current[id];
@@ -192,9 +184,7 @@ export function resolveIntegrationConfig(
 		// normalized so rows still carrying the old "Open Telemetry Logs" name
 		// resolve to the same adapter
 		const observabilityVariant = normalizeObservabilityVariant(variant);
-		if (
-			observabilityVariant === observabilityVariantSchema.enum["Open Telemetry"]
-		) {
+		if (observabilityVariant === observabilityVariantSchema.enum["Open Telemetry"]) {
 			config = OpenTelemetryLogs.ExtractConnectionInfo(raw, appConfig!);
 		} else if (observabilityVariant === observabilityVariantSchema.enum["Loki"]) {
 			config = LokiLogger.extractConnectionInfo(raw, appConfig!);
@@ -217,10 +207,7 @@ export function resolveIntegrationConfig(
 		} else if (variant === aiVariantSchema.enum.Mistral) {
 			config = MistralIntegration.ExtractConnectionInfo(raw, appConfigMap);
 		} else if (variant === aiVariantSchema.enum["OpenAI Compatible"]) {
-			config = OpenAICompatibleIntegration.ExtractConnectionInfo(
-				raw,
-				appConfigMap,
-			);
+			config = OpenAICompatibleIntegration.ExtractConnectionInfo(raw, appConfigMap);
 		}
 	} else if (group === integrationsGroupSchema.enum.queue) {
 		// flat fields, each possibly a `cfg:` reference; there is no url form
@@ -262,8 +249,8 @@ async function loadFromDB() {
 }
 
 function convertObjectToMap(config: Record<string, any> | undefined) {
-	let map = new Map<string, string>();
-	for (let key in config) {
+	const map = new Map<string, string>();
+	for (const key in config) {
 		map.set(key, config[key]);
 	}
 	return map;

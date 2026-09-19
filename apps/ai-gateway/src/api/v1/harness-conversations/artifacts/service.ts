@@ -1,25 +1,20 @@
-import { ConflictError, NotFoundError } from "@fluxify/server";
 import { withCustomBlockPrefix } from "@fluxify/lib";
-import { publishArtifactStatus } from "../../../../harness/notifications";
-import type { ArtifactStatus } from "../../../../harness/clientContract";
+import { ConflictError, NotFoundError } from "@fluxify/server";
 import type { RpcCaller } from "@fluxify/server/src/db/natsRpc";
+import type { ArtifactStatus } from "../../../../harness/clientContract";
+import { publishArtifactStatus } from "../../../../harness/notifications";
+import { assertCanvasUnchanged, formattedCanvasChanges } from "./canvasLayout";
+import { inlineCanvasFor, kindLabel, parentsOf, referencedIdOf } from "./dependencies";
 import {
-	customBlockOpFromPayload,
-	remapCustomBlockNames,
-	routeOpFromPayload,
 	type BlockBuilderPayload,
 	type CanvasChanges,
 	type CanvasItems,
 	type CustomBlockConfigPayload,
+	customBlockOpFromPayload,
 	type RouteConfigPayload,
+	remapCustomBlockNames,
+	routeOpFromPayload,
 } from "./normalize";
-import { assertCanvasUnchanged, formattedCanvasChanges } from "./canvasLayout";
-import {
-	inlineCanvasFor,
-	kindLabel,
-	parentsOf,
-	referencedIdOf,
-} from "./dependencies";
 import {
 	callerFor,
 	createCustomBlock,
@@ -53,14 +48,13 @@ export interface DependencyRow {
 
 /** The route a `kind: "route"` output creates or edits. */
 export const routeIdOf = (row: DependencyRow) => row.payload?.routeId as string | undefined;
-export const customBlockIdOf = (row: DependencyRow) => row.payload?.customBlockId as string | undefined;
+export const customBlockIdOf = (row: DependencyRow) =>
+	row.payload?.customBlockId as string | undefined;
 
 /** The route a `kind: "canvas"` output hangs its blocks off. Canvases targeting a
  *  custom block have no route dependency, so they are not gated. */
 export const parentRouteIdOf = (row: DependencyRow) =>
-	row.payload?.targetType === "route"
-		? (row.payload?.targetId as string | undefined)
-		: undefined;
+	row.payload?.targetType === "route" ? (row.payload?.targetId as string | undefined) : undefined;
 
 export const EMPTY_CANVAS: CanvasItems = { blocks: [], edges: [] };
 
@@ -159,11 +153,7 @@ export function describeFailure(row: LabelledRow, error: unknown): ApplyFailure 
 		kind: row.kind,
 		label: describeArtifactRow(row),
 		reason:
-			typeof error === "string"
-				? error
-				: error instanceof Error
-					? error.message
-					: "Unknown error",
+			typeof error === "string" ? error : error instanceof Error ? error.message : "Unknown error",
 	};
 }
 
@@ -183,9 +173,7 @@ export function unappliedParent(
 	siblings: DependencyRow[],
 	applying: ReadonlySet<string> = new Set(),
 ): DependencyRow | undefined {
-	return parentsOf(row, siblings).find(
-		(parent) => !parent.appliedAt && !applying.has(parent.id),
-	);
+	return parentsOf(row, siblings).find((parent) => !parent.appliedAt && !applying.has(parent.id));
 }
 
 /**
@@ -224,9 +212,7 @@ export async function assertExternalRoutesExist(
 ) {
 	const external = [
 		...new Set(canvases.map(parentRouteIdOf).filter((id): id is string => !!id)),
-	].filter(
-		(routeId) => !siblings.some((s) => s.kind === "route" && routeIdOf(s) === routeId),
-	);
+	].filter((routeId) => !siblings.some((s) => s.kind === "route" && routeIdOf(s) === routeId));
 	if (external.length === 0) return;
 
 	const existing = await findExistingRouteIds(projectId, external);
@@ -257,11 +243,7 @@ export async function resolveCanvasTarget<
 	// deleted indistinguishable from a mis-copied id, and silently rebuilding
 	// the graph on the wrong route is worse than refusing.
 	const planned = siblings.filter(
-		(s) =>
-			s.kind === "route" &&
-			s.appliedAt &&
-			routeIdOf(s) &&
-			s.payload?.action !== "delete",
+		(s) => s.kind === "route" && s.appliedAt && routeIdOf(s) && s.payload?.action !== "delete",
 	);
 	if (planned.some((s) => routeIdOf(s) === targetId)) return row;
 	if (planned.length !== 1) return row;
@@ -396,10 +378,7 @@ export function canvasFor(
 	existing: CanvasItems,
 ) {
 	return formattedCanvasChanges(
-		remapCustomBlockNames(
-			(row.payload ?? {}) as BlockBuilderPayload,
-			ctx.customBlockNames,
-		),
+		remapCustomBlockNames((row.payload ?? {}) as BlockBuilderPayload, ctx.customBlockNames),
 		existing,
 	);
 }
@@ -489,22 +468,14 @@ export async function applySubArtifact(
 			rows,
 			new Set(rows.filter((s) => s.appliedAt).map((s) => s.id)),
 		);
-		await apply(
-			ctx,
-			resolved,
-			child ? await canvasFor(ctx, child, EMPTY_CANVAS) : undefined,
-		);
+		await apply(ctx, resolved, child ? await canvasFor(ctx, child, EMPTY_CANVAS) : undefined);
 		await rememberRealIdsOnChildren(ctx, rows);
 		// The canvas rode inside the create, so it is live. Leaving it unstamped
 		// showed it as pending and let a second apply re-save the same blocks.
 		if (child) await markSubArtifactsApplied(conversationId, [child.id], new Date());
 	}
 
-	const [applied] = await markSubArtifactsApplied(
-		conversationId,
-		[subArtifactId],
-		new Date(),
-	);
+	const [applied] = await markSubArtifactsApplied(conversationId, [subArtifactId], new Date());
 	announce(userId, conversationId, row);
 	return applied;
 }

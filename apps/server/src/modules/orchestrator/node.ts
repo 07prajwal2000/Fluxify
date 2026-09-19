@@ -6,12 +6,12 @@ import {
 	NODE_HEARTBEAT_INTERVAL_MS,
 	NODE_LIVENESS_BUCKET,
 	NODE_LIVENESS_TTL_MS,
-	orchestratorKeys,
 	type NodeAssignment,
 	type NodeEntitlement,
 	type NodeHeartbeat,
 	type NodeReason,
 	type NodeType,
+	orchestratorKeys,
 } from "@fluxify/common/orchestrator";
 import { initializeNats } from "../../db/nats";
 
@@ -88,7 +88,9 @@ export function losesClaimRace(
 	cap: number | null,
 ): boolean {
 	if (cap === null) return false;
-	const order = [...all].sort((a, b) => a.at.localeCompare(b.at) || a.nodeId.localeCompare(b.nodeId));
+	const order = [...all].sort(
+		(a, b) => a.at.localeCompare(b.at) || a.nodeId.localeCompare(b.nodeId),
+	);
 	return order.findIndex((node) => node.nodeId === mine.nodeId) >= cap;
 }
 
@@ -187,7 +189,10 @@ export async function claimNodeSlot(
 	if (revision === null) {
 		return {
 			ok: false,
-			refusal: { reason: "no_license_slot", message: "could not write a node id nobody else holds" },
+			refusal: {
+				reason: "no_license_slot",
+				message: "could not write a node id nobody else holds",
+			},
 		};
 	}
 
@@ -259,10 +264,7 @@ export async function claimNodeSlot(
 				clearInterval(timer);
 				await bucket.delete(key).catch((error) =>
 					// Not fatal: the TTL frees the slot anyway, just slower.
-					logger.warn(
-						`could not release node ${nodeId}'s slot: ${String(error)}`,
-						"WORKER.node",
-					),
+					logger.warn(`could not release node ${nodeId}'s slot: ${String(error)}`, "WORKER.node"),
 				);
 			},
 		},

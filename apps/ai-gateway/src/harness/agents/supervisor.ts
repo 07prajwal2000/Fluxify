@@ -1,9 +1,9 @@
-import { BaseAgent } from "./base";
-import { type GlobalGraphState, AgentNode, type Task } from "../types";
 import { dispatchAgentEvent } from "../callbacks";
-import { validateAgentOutput as validateRouteConfig } from "./sub-agents/routeConfig";
-import { validateCustomBlockConfigOutput } from "./sub-agents/customBlockConfig";
+import { AgentNode, type GlobalGraphState, type Task } from "../types";
+import { BaseAgent } from "./base";
 import { validateBlockBuilderOutput } from "./sub-agents/blockBuilder";
+import { validateCustomBlockConfigOutput } from "./sub-agents/customBlockConfig";
+import { validateAgentOutput as validateRouteConfig } from "./sub-agents/routeConfig";
 
 /** Total validation rounds a task gets — the first run plus its retries. */
 export const MAX_TASK_ATTEMPTS = 2;
@@ -43,12 +43,7 @@ export class SupervisorAgent extends BaseAgent {
 		// `pending` — the orchestrator re-dispatches it with the correction in
 		// context. Only once the attempts run out does the task fail terminally,
 		// and a terminal failure must take its dependents with it (orchestrator).
-		const reject = (
-			i: number,
-			task: Task,
-			reason: string,
-			terminal = false,
-		) => {
+		const reject = (i: number, task: Task, reason: string, terminal = false) => {
 			const entry = tasks.find((t) => t.id === task.id) ?? task;
 			entry.attempts = (entry.attempts ?? 0) + 1;
 			entry.supervisorReviews = reason;
@@ -86,12 +81,7 @@ export class SupervisorAgent extends BaseAgent {
 				blockBuilderResult.status === "impossible" &&
 				blockBuilderResult.reasoning?.trim()
 			) {
-				reject(
-					i,
-					task,
-					blockBuilderResult.reasoning,
-					true,
-				);
+				reject(i, task, blockBuilderResult.reasoning, true);
 				continue;
 			}
 

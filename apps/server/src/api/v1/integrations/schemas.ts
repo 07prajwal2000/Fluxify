@@ -1,7 +1,7 @@
 import z from "zod";
-import { parsePostgresUrl } from "../../../lib/parsers/postgres";
-import { parseMysqlUrl } from "../../../lib/parsers/mysql";
 import { parseMongoUrl } from "../../../lib/parsers/mongodb";
+import { parseMysqlUrl } from "../../../lib/parsers/mysql";
+import { parsePostgresUrl } from "../../../lib/parsers/postgres";
 
 // ALWAYS MAKE SURE THE SCHEMA IS FLAT
 export const integrationsGroupSchema = z.enum([
@@ -62,16 +62,12 @@ export function normalizeObservabilityVariant(variant: string): string {
  * `integrations.variant` column against the enum needs these too, or a row
  * created before the rename reads as an unknown integration.
  */
-export const observabilityLegacyVariants = Object.keys(
-	OBSERVABILITY_VARIANT_ALIASES,
-);
+export const observabilityLegacyVariants = Object.keys(OBSERVABILITY_VARIANT_ALIASES);
 
 // Database
 export const postgresVariantConfigSchema = z
 	.object({
-		dbType: z
-			.string()
-			.refine((v: any) => v === databaseVariantSchema.enum.PostgreSQL),
+		dbType: z.string().refine((v: any) => v === databaseVariantSchema.enum.PostgreSQL),
 		username: z.string().min(1),
 		password: z.string().min(1),
 		host: z.string().min(1),
@@ -98,9 +94,7 @@ export const postgresVariantConfigSchema = z
 
 export const mysqlVariantConfigSchema = z
 	.object({
-		dbType: z
-			.string()
-			.refine((v: any) => v === databaseVariantSchema.enum.MySQL),
+		dbType: z.string().refine((v: any) => v === databaseVariantSchema.enum.MySQL),
 		username: z.string().min(1),
 		password: z.string().min(1),
 		host: z.string().min(1),
@@ -126,9 +120,7 @@ export const mysqlVariantConfigSchema = z
 
 export const mongoVariantConfigSchema = z
 	.object({
-		dbType: z
-			.string()
-			.refine((v: any) => v === databaseVariantSchema.enum.MongoDB),
+		dbType: z.string().refine((v: any) => v === databaseVariantSchema.enum.MongoDB),
 		username: z.string().optional(),
 		password: z.string().optional(),
 		host: z.string().min(1),
@@ -197,46 +189,32 @@ export const memcachedVariantConfigSchema = z
 // to false so nothing is harness-eligible until explicitly enabled.
 // TODO(ui): build a toggle in the AI integration form to flip `useForHarness`.
 export const openAIVariantConfigSchema = z.object({
-	apiKey: z
-		.string()
-		.refine((v) => (v.startsWith("cfg:") ? true : v.length > 1)),
+	apiKey: z.string().refine((v) => (v.startsWith("cfg:") ? true : v.length > 1)),
 	model: z.string().min(1),
 	useForHarness: z.boolean().default(false),
 });
 
 export const anthropicVariantConfigSchema = z.object({
-	apiKey: z
-		.string()
-		.refine((v) => (v.startsWith("cfg:") ? true : v.length > 1)),
+	apiKey: z.string().refine((v) => (v.startsWith("cfg:") ? true : v.length > 1)),
 	model: z.string().min(1),
 	useForHarness: z.boolean().default(false),
 });
 
 export const mistralVariantConfigSchema = z.object({
-	apiKey: z
-		.string()
-		.refine((v) => (v.startsWith("cfg:") ? true : v.length > 1)),
+	apiKey: z.string().refine((v) => (v.startsWith("cfg:") ? true : v.length > 1)),
 	model: z.string().min(1),
 	useForHarness: z.boolean().default(false),
 });
 
 export const geminiVariantConfigSchema = z.object({
-	apiKey: z
-		.string()
-		.refine((v) => (v.startsWith("cfg:") ? true : v.length > 1)),
+	apiKey: z.string().refine((v) => (v.startsWith("cfg:") ? true : v.length > 1)),
 	model: z.string().min(1),
 	useForHarness: z.boolean().default(false),
 });
 
 export const openAiCompatibleVariantConfigSchema = z.object({
-	baseUrl: z
-		.string()
-		.refine((v) =>
-			v.startsWith("cfg:") ? true : z.url().safeParse(v).success,
-		),
-	apiKey: z
-		.string()
-		.refine((v) => (v.startsWith("cfg:") ? true : v.length > 1)),
+	baseUrl: z.string().refine((v) => (v.startsWith("cfg:") ? true : z.url().safeParse(v).success)),
+	apiKey: z.string().refine((v) => (v.startsWith("cfg:") ? true : v.length > 1)),
 	model: z.string().min(1),
 	useForHarness: z.boolean().default(false),
 });
@@ -252,11 +230,7 @@ const customHeadersSchema = z.record(z.string().min(1), z.string()).optional();
 
 export const openTelemetryVariantConfigSchema = z
 	.object({
-		baseUrl: z
-			.string()
-			.refine((v) =>
-				v.startsWith("cfg:") ? true : z.url().safeParse(v).success,
-			),
+		baseUrl: z.string().refine((v) => (v.startsWith("cfg:") ? true : z.url().safeParse(v).success)),
 		// can be object or base64 encoded basic auth
 		credentials: z
 			.object({
@@ -276,23 +250,15 @@ export const openTelemetryVariantConfigSchema = z
 		clientKey: z.string().optional(),
 	})
 	.refine(
-		(v) =>
-			v.protocol !== "grpc" ||
-			v.tlsMode !== "mtls" ||
-			Boolean(v.clientCert && v.clientKey),
+		(v) => v.protocol !== "grpc" || v.tlsMode !== "mtls" || Boolean(v.clientCert && v.clientKey),
 		{ message: "mTLS needs a client certificate and key", path: ["clientCert"] },
 	);
 
 /** @deprecated the variant is now "Open Telemetry" — kept for existing importers */
-export const openTelemetryLogsVariantConfigSchema =
-	openTelemetryVariantConfigSchema;
+export const openTelemetryLogsVariantConfigSchema = openTelemetryVariantConfigSchema;
 
 export const lokiVariantConfigSchema = z.object({
-	baseUrl: z
-		.string()
-		.refine((v) =>
-			v.startsWith("cfg:") ? true : z.url().safeParse(v).success,
-		),
+	baseUrl: z.string().refine((v) => (v.startsWith("cfg:") ? true : z.url().safeParse(v).success)),
 	// can be object or base64 encoded basic auth
 	credentials: z
 		.object({
@@ -310,9 +276,7 @@ export const kafkaVariantConfigSchema = z.object({
 	brokers: z.string().min(1),
 	clientId: z.string().optional(),
 	ssl: z.boolean().default(false),
-	saslMechanism: z
-		.enum(["none", "PLAIN", "SCRAM-SHA-256", "SCRAM-SHA-512"])
-		.default("none"),
+	saslMechanism: z.enum(["none", "PLAIN", "SCRAM-SHA-256", "SCRAM-SHA-512"]).default("none"),
 	username: z.string().optional(),
 	password: z.string().optional(),
 	/** Advanced: where a batch that keeps failing is parked. */
@@ -369,9 +333,7 @@ export function getIntegrationTags(
 			return [...observabilityTagsSchema.options];
 		}
 		if (variant === "Loki") {
-			return [
-				...observabilityTagsSchema.exclude(["metrics", "traces"]).options,
-			];
+			return [...observabilityTagsSchema.exclude(["metrics", "traces"]).options];
 		}
 	}
 	if (group === "database") {

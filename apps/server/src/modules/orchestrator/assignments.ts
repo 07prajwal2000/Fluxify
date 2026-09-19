@@ -1,8 +1,8 @@
 import { openKvBucket } from "@fluxify/common/nats";
 import {
 	NODE_ASSIGNMENT_BUCKET,
-	orchestratorKeys,
 	type NodeAssignment,
+	orchestratorKeys,
 } from "@fluxify/common/orchestrator";
 import { initializeNats } from "../../db/nats";
 

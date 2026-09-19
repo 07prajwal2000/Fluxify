@@ -96,24 +96,18 @@ export default async function handleRequest(
 ): Promise<z.infer<typeof responseSchema>> {
 	const { group, variant, config: data } = body;
 
-	const timeoutPromise = new Promise<z.infer<typeof responseSchema>>(
-		(resolve) =>
-			setTimeout(
-				() =>
-					resolve({
-						success: false,
-						error: "Connection timed out after 5 seconds",
-					}),
-				5000,
-			),
+	const timeoutPromise = new Promise<z.infer<typeof responseSchema>>((resolve) =>
+		setTimeout(
+			() =>
+				resolve({
+					success: false,
+					error: "Connection timed out after 5 seconds",
+				}),
+			5000,
+		),
 	);
 
-	const connectionPromise = testIntegrationConnection(
-		projectId,
-		group,
-		variant,
-		data,
-	);
+	const connectionPromise = testIntegrationConnection(projectId, group, variant, data);
 	return Promise.race([connectionPromise, timeoutPromise]);
 }
 
@@ -124,11 +118,7 @@ async function testDatabasesConnection(
 ) {
 	switch (variant as z.infer<typeof databaseVariantSchema>) {
 		case "PostgreSQL": {
-			const pgConfig = extractPgConnectionInfo(
-				config,
-				appConfigs,
-				parsePostgresUrl,
-			);
+			const pgConfig = extractPgConnectionInfo(config, appConfigs, parsePostgresUrl);
 
 			if (!pgConfig) {
 				return {
@@ -137,22 +127,14 @@ async function testDatabasesConnection(
 				};
 			}
 			pgConfig.ssl = pgConfig.ssl == "true";
-			const result = await PostgresAdapter.testConnection(
-				pgConfig as Connection,
-			);
+			const result = await PostgresAdapter.testConnection(pgConfig as Connection);
 			return {
 				success: result.success,
-				error:
-					result.error?.toString() ||
-					(result.success ? "" : "Connection failed"),
+				error: result.error?.toString() || (result.success ? "" : "Connection failed"),
 			};
 		}
 		case "MySQL": {
-			const mysqlConfig = extractMysqlConnectionInfo(
-				config,
-				appConfigs,
-				parseMysqlUrl,
-			);
+			const mysqlConfig = extractMysqlConnectionInfo(config, appConfigs, parseMysqlUrl);
 
 			if (!mysqlConfig) {
 				return {
@@ -160,22 +142,14 @@ async function testDatabasesConnection(
 					error: "Invalid configuration",
 				};
 			}
-			const mysqlResult = await MySqlAdapter.testConnection(
-				mysqlConfig as Connection,
-			);
+			const mysqlResult = await MySqlAdapter.testConnection(mysqlConfig as Connection);
 			return {
 				success: mysqlResult.success,
-				error:
-					mysqlResult.error?.toString() ||
-					(mysqlResult.success ? "" : "Connection failed"),
+				error: mysqlResult.error?.toString() || (mysqlResult.success ? "" : "Connection failed"),
 			};
 		}
 		case "MongoDB": {
-			const mongoConfig = extractMongoConnectionInfo(
-				config,
-				appConfigs,
-				parseMongoUrl,
-			);
+			const mongoConfig = extractMongoConnectionInfo(config, appConfigs, parseMongoUrl);
 
 			if (!mongoConfig) {
 				return {
@@ -187,9 +161,7 @@ async function testDatabasesConnection(
 			const mongoResult = await MongoAdapter.testConnection(mongoConfig as any);
 			return {
 				success: mongoResult.success,
-				error:
-					mongoResult.error?.toString() ||
-					(mongoResult.success ? "" : "Connection failed"),
+				error: mongoResult.error?.toString() || (mongoResult.success ? "" : "Connection failed"),
 			};
 		}
 		default:
@@ -200,29 +172,17 @@ async function testDatabasesConnection(
 	}
 }
 
-async function testKvConnection(
-	variant: string,
-	config: any,
-	appConfigs: Map<string, string>,
-) {
+async function testKvConnection(variant: string, config: any, appConfigs: Map<string, string>) {
 	switch (variant as z.infer<typeof kvVariantSchema>) {
 		case "Redis": {
-			const redisResult = await RedisIntegration.TestConnection(
-				config,
-				appConfigs,
-			);
+			const redisResult = await RedisIntegration.TestConnection(config, appConfigs);
 			return {
 				success: redisResult.success,
-				error:
-					redisResult.error ||
-					(redisResult.success ? "" : "Failed to connect to Redis"),
+				error: redisResult.error || (redisResult.success ? "" : "Failed to connect to Redis"),
 			};
 		}
 		case "Memcached": {
-			const memcachedResult = await MemcachedIntegration.TestConnection(
-				config,
-				appConfigs,
-			);
+			const memcachedResult = await MemcachedIntegration.TestConnection(config, appConfigs);
 			return {
 				success: memcachedResult.success,
 				error:
@@ -244,11 +204,7 @@ async function testObservibilityConnection(
 	// stored rows may still carry the pre-rename variant; `getSchema` already
 	// normalizes, so without this the config validates and then falls through to
 	// "Invalid variant"
-	switch (
-		normalizeObservabilityVariant(variant) as z.infer<
-			typeof observabilityVariantSchema
-		>
-	) {
+	switch (normalizeObservabilityVariant(variant) as z.infer<typeof observabilityVariantSchema>) {
 		case "Open Telemetry": {
 			const parsed = openTelemetryVariantConfigSchema.safeParse(config);
 			if (!parsed.success) return { success: false, error: "Invalid Data" };
@@ -291,48 +247,38 @@ export async function testAiConnection(
 ) {
 	switch (variant as z.infer<typeof aiVariantSchema>) {
 		case "OpenAI": {
-			const openAiResult = await OpenAIIntegration.TestConnection(
-				config,
-				appConfigs,
-			);
+			const openAiResult = await OpenAIIntegration.TestConnection(config, appConfigs);
 			if (!openAiResult) {
 				return { success: false, error: "Failed to connect to OpenAI" };
 			}
 			return { success: true, error: "" };
 		}
 		case "Anthropic": {
-			const anthropicResult = await AnthropicIntegration.TestConnection(
-				config,
-				appConfigs,
-			);
+			const anthropicResult = await AnthropicIntegration.TestConnection(config, appConfigs);
 			if (!anthropicResult) {
 				return { success: false, error: "Failed to connect to Anthropic" };
 			}
 			return { success: true, error: "" };
 		}
 		case "Gemini": {
-			const geminiResult = await GeminiIntegration.TestConnection(
-				config,
-				appConfigs,
-			);
+			const geminiResult = await GeminiIntegration.TestConnection(config, appConfigs);
 			if (!geminiResult) {
 				return { success: false, error: "Failed to connect to Gemini" };
 			}
 			return { success: true, error: "" };
 		}
 		case "Mistral": {
-			const mistralResult = await MistralIntegration.TestConnection(
-				config,
-				appConfigs,
-			);
+			const mistralResult = await MistralIntegration.TestConnection(config, appConfigs);
 			if (!mistralResult) {
 				return { success: false, error: "Failed to connect to Mistral" };
 			}
 			return { success: true, error: "" };
 		}
 		case "OpenAI Compatible": {
-			const openAiCompatibleResult =
-				await OpenAICompatibleIntegration.TestConnection(config, appConfigs);
+			const openAiCompatibleResult = await OpenAICompatibleIntegration.TestConnection(
+				config,
+				appConfigs,
+			);
 			if (!openAiCompatibleResult) {
 				return {
 					success: false,
@@ -347,11 +293,7 @@ export async function testAiConnection(
 }
 
 /** A queue client is loaded only when probed. */
-async function testQueueConnection(
-	variant: string,
-	config: any,
-	appConfigs: Map<string, string>,
-) {
+async function testQueueConnection(variant: string, config: any, appConfigs: Map<string, string>) {
 	if (variant === "NATS") {
 		const { testNatsConnection } = await import("@fluxify/adapters/queue/nats");
 		return testNatsConnection(expandCfg(config, appConfigs) as any);
@@ -365,21 +307,12 @@ async function testQueueConnection(
 }
 
 /** A stored queue integration's config with its `cfg:` references resolved. */
-export async function resolveQueueConfig(
-	projectId: string,
-	config: Record<string, unknown>,
-) {
-	const appConfigs = await decodeAppConfig(
-		getAppConfigKeysFromData(config),
-		projectId,
-	);
+export async function resolveQueueConfig(projectId: string, config: Record<string, unknown>) {
+	const appConfigs = await decodeAppConfig(getAppConfigKeysFromData(config), projectId);
 	return expandCfg(config, appConfigs);
 }
 
-function expandCfg(
-	config: Record<string, unknown>,
-	appConfigs: Map<string, string>,
-) {
+function expandCfg(config: Record<string, unknown>, appConfigs: Map<string, string>) {
 	return Object.fromEntries(
 		Object.entries(config).map(([key, value]) => [
 			key,
@@ -395,16 +328,10 @@ export async function decodeAppConfig(keys: string[], projectId: string) {
 	const configMap = new Map<string, string>();
 	appConfigs.forEach((config) => {
 		if (config.isEncrypted) {
-			config.value = EncryptionService.decodeData(
-				config.value!,
-				config.encodingType!,
-			);
+			config.value = EncryptionService.decodeData(config.value!, config.encodingType!);
 			config.value = EncryptionService.decrypt(config.value);
 		} else {
-			config.value = EncryptionService.decodeData(
-				config.value!,
-				config.encodingType!,
-			);
+			config.value = EncryptionService.decodeData(config.value!, config.encodingType!);
 		}
 		configMap.set(config.key!, config.value!);
 	});

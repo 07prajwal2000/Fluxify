@@ -124,7 +124,10 @@ export function resolveLicense(
 	try {
 		return verifyLicenseKey(key, publicKey);
 	} catch (error) {
-		logger.error(`License key rejected, running as community: ${(error as Error).message}`, "LICENSE");
+		logger.error(
+			`License key rejected, running as community: ${(error as Error).message}`,
+			"LICENSE",
+		);
 		return COMMUNITY;
 	}
 }

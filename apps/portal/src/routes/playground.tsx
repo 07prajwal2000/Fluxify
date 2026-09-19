@@ -1,22 +1,22 @@
-import { useState, type ReactNode } from "react";
-import { createFileRoute } from "@tanstack/react-router";
 import {
 	Card,
 	Checkbox,
-	ConditionsBuilder,
 	type Condition,
+	ConditionsBuilder,
 	FieldMapEditor,
-	IntegrationSelector,
 	type Integration,
-	JsonEditor,
+	IntegrationSelector,
 	type JsonContainer,
+	JsonEditor,
 	JsTextField,
 	Label,
 	ListBox,
 	SchemaEditor,
-	type ValidationSchema,
 	Select,
+	type ValidationSchema,
 } from "@fluxify/components";
+import { createFileRoute } from "@tanstack/react-router";
+import { type ReactNode, useState } from "react";
 
 import { createRouteHead } from "@/lib/seo";
 
@@ -148,7 +148,8 @@ function JsonEditorDemo() {
 			<div className="flex flex-col items-start gap-2 border-t border-border pt-5">
 				<span className="text-sm font-medium text-foreground">Modal JSON editor</span>
 				<p className="text-xs text-muted">
-					Modal edits remain a draft until you press Save. Cancel closes it without changing the committed value below.
+					Modal edits remain a draft until you press Save. Cancel closes it without changing the
+					committed value below.
 				</p>
 				<JsonEditor
 					allowExpressions
@@ -173,10 +174,23 @@ function JsonEditorDemo() {
 
 // ── Mock data for IntegrationSelector playground demo ────────────────────────
 const MOCK_DB_INTEGRATIONS: Integration[] = [
-	{ id: "int-1", name: "Production Postgres", group: "database", variant: "PostgreSQL", config: {} },
+	{
+		id: "int-1",
+		name: "Production Postgres",
+		group: "database",
+		variant: "PostgreSQL",
+		config: {},
+	},
 	{ id: "int-2", name: "Analytics Mongo", group: "database", variant: "MongoDB", config: {} },
 	{ id: "int-3", name: "Session Redis", group: "database", variant: "Redis", config: {} },
-	{ id: "int-4", name: "Legacy MySQL", group: "database", variant: "MySQL", config: {}, tags: ["legacy"] },
+	{
+		id: "int-4",
+		name: "Legacy MySQL",
+		group: "database",
+		variant: "MySQL",
+		config: {},
+		tags: ["legacy"],
+	},
 	{ id: "int-5", name: "Supabase Dev", group: "database", variant: "Supabase", config: {} },
 ];
 
@@ -205,7 +219,9 @@ function IntegrationSelectorDemo() {
 				loadIntegrations={mockLoadIntegrations}
 				onSelect={setSelectedId}
 				onTestConnection={mockTestConnection}
-				openInNewTabUrl={selectedId ? `#/integrations?open=${selectedId}&group=database` : undefined}
+				openInNewTabUrl={
+					selectedId ? `#/integrations?open=${selectedId}&group=database` : undefined
+				}
 				createIntegrationUrl="#/integrations"
 				label="Database Integration"
 				description="Select a database integration for this block. Use 'Test Connection' to verify it's reachable."
@@ -214,7 +230,8 @@ function IntegrationSelectorDemo() {
 				{JSON.stringify({ selectedId }, null, 2)}
 			</pre>
 			<p className="text-xs text-muted-foreground">
-				<strong>Note:</strong> "Session Redis" will intentionally fail the test connection to demo the error state.
+				<strong>Note:</strong> "Session Redis" will intentionally fail the test connection to demo
+				the error state.
 			</p>
 		</div>
 	);
@@ -248,7 +265,13 @@ const INITIAL_SCHEMA: ValidationSchema = {
 			required: false,
 			properties: [
 				{ id: "p4a", key: "city", dataType: "str", required: true, rules: [] },
-				{ id: "p4b", key: "zip", dataType: "str", required: false, rules: [{ type: "regex", value: "^\\d{6}$" }] },
+				{
+					id: "p4b",
+					key: "zip",
+					dataType: "str",
+					required: false,
+					rules: [{ type: "regex", value: "^\\d{6}$" }],
+				},
 			],
 		},
 		{
@@ -259,7 +282,13 @@ const INITIAL_SCHEMA: ValidationSchema = {
 			rules: [{ type: "maxItems", value: 5 }],
 			items: { key: "", dataType: "str", rules: [] },
 		},
-		{ id: "p6", key: "avatar", dataType: "file", required: false, rules: [{ type: "maxSize", value: 2097152 }] },
+		{
+			id: "p6",
+			key: "avatar",
+			dataType: "file",
+			required: false,
+			rules: [{ type: "maxSize", value: 2097152 }],
+		},
 	],
 };
 
@@ -280,11 +309,7 @@ function SchemaEditorDemo() {
 			<div className="flex flex-wrap gap-5 rounded-[var(--radius)] border border-border bg-surface p-3">
 				<Checkbox isSelected={isReadOnly} label="Read only" onChange={setIsReadOnly} />
 				<Checkbox isSelected={disableJs} label="Disable JS" onChange={setDisableJs} />
-				<Checkbox
-					isSelected={limitTypes}
-					label="Only str / int / bool"
-					onChange={setLimitTypes}
-				/>
+				<Checkbox isSelected={limitTypes} label="Only str / int / bool" onChange={setLimitTypes} />
 				<Checkbox isSelected={limitDepth} label="Max depth 1" onChange={setLimitDepth} />
 			</div>
 
@@ -347,11 +372,7 @@ function PlaygroundPage() {
 					<Select.Popover>
 						<ListBox>
 							{DEMOS.map((entry) => (
-								<ListBox.Item
-									key={entry.name}
-									id={entry.name}
-									textValue={entry.name}
-								>
+								<ListBox.Item key={entry.name} id={entry.name} textValue={entry.name}>
 									{entry.name}
 									<ListBox.ItemIndicator />
 								</ListBox.Item>

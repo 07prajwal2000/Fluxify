@@ -1,12 +1,12 @@
+import type { TriggerEvent } from "@fluxify/blocks";
 import { logger } from "@fluxify/common";
 import {
 	consumeBatches,
 	dropWildcardConsumers,
-	ensureStream,
 	ensureConsumer,
+	ensureStream,
 	type QueueConsumer,
 } from "@fluxify/common/nats";
-import type { TriggerEvent } from "@fluxify/blocks";
 import { natsConnection } from "../../db/nats";
 import type { TriggerArtifact } from "../compiler/artifacts";
 import { WORKFLOW_JOB } from "../jobs/subjects";
@@ -14,10 +14,10 @@ import type { JobEnvelope } from "../jobs/types";
 import {
 	ALL_PROJECTS,
 	INTERNAL_SOURCE,
-	TRIGGERS_STREAM,
-	TRIGGERS_SUBJECTS,
 	internalConsumerName,
 	internalSubject,
+	TRIGGERS_STREAM,
+	TRIGGERS_SUBJECTS,
 	triggerConsumerName,
 	triggerSubject,
 } from "./subjects";
@@ -107,8 +107,7 @@ export class TriggerWorker {
 		});
 		await dropWildcardConsumers(nc, TRIGGERS_STREAM);
 
-		if (this.options.projectId !== ALL_PROJECTS)
-			await this.serveInternal(this.options.projectId);
+		if (this.options.projectId !== ALL_PROJECTS) await this.serveInternal(this.options.projectId);
 	}
 
 	/**
@@ -345,7 +344,5 @@ function unchanged(a: TriggerArtifact, b: TriggerArtifact) {
 }
 
 function stripUndefined<T extends object>(value: T): Partial<T> {
-	return Object.fromEntries(
-		Object.entries(value).filter(([, v]) => v !== undefined),
-	) as Partial<T>;
+	return Object.fromEntries(Object.entries(value).filter(([, v]) => v !== undefined)) as Partial<T>;
 }

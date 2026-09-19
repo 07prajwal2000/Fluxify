@@ -185,7 +185,11 @@ export function validateClaim(
 	// groups means every group no dedicated node owns — which is the default
 	// deployment shape, and what a worker with no `WORKER_GROUP_ID` has always
 	// done.
-	if (claim.projectId !== null && SERVES_WORKFLOWS.includes(claim.type) && claim.groupIds.length === 0)
+	if (
+		claim.projectId !== null &&
+		SERVES_WORKFLOWS.includes(claim.type) &&
+		claim.groupIds.length === 0
+	)
 		return refuse("A workflow node for a single project needs at least one trigger group");
 	// Only a project-pinned claim needs one. A catch-all node is reached on
 	// `PathPrefix(/)` — the shape the compose `worker` service had, and the one

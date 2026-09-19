@@ -1,15 +1,16 @@
-import { logger } from "@fluxify/common";
 import {
+	type BlockDTOType,
 	BlockTypes,
 	compileGraph,
+	type EdgeDTOSchemaType,
 	hasCustomBlock,
 	registerCompiledCustomBlock,
 	unregisterCustomBlock,
-	type BlockDTOType,
-	type EdgeDTOSchemaType,
 } from "@fluxify/blocks";
+import { logger } from "@fluxify/common";
 import { and, eq, inArray, ne } from "drizzle-orm";
 import { db } from "../../db";
+import { deleteArtifact, putArtifact } from "../../db/natsKv";
 import {
 	blocksEntity,
 	customBlocksListEntity,
@@ -19,11 +20,9 @@ import {
 	routesEntity,
 	workflowsEntity,
 } from "../../db/schema";
+import { EncryptionService } from "../../lib/encryption";
 import { acceptedContentTypes } from "../../lib/routeConfig";
-import { deleteArtifact, putArtifact } from "../../db/natsKv";
-import type { CanvasParent, CanvasParentType } from "../canvas/types";
 import { systemLog } from "../../lib/systemLogs";
-import { parentColumn } from "../canvas/repository";
 import { getProjectAppConfig } from "../../loaders/appconfigLoader";
 import {
 	aiIntegrationsCache,
@@ -34,6 +33,8 @@ import {
 	scopeToProject,
 } from "../../loaders/integrationsLoader";
 import { projectSettingsCache } from "../../loaders/projectSettingsLoader";
+import { parentColumn } from "../canvas/repository";
+import type { CanvasParent, CanvasParentType } from "../canvas/types";
 import type {
 	CustomBlockArtifact,
 	ProjectConfigArtifact,
@@ -41,13 +42,7 @@ import type {
 	RouteArtifact,
 	WorkflowArtifact,
 } from "./artifacts";
-import { EncryptionService } from "../../lib/encryption";
-import {
-	customBlockKey,
-	projectConfigKey,
-	routeKey,
-	workflowKey,
-} from "./subjects";
+import { customBlockKey, projectConfigKey, routeKey, workflowKey } from "./subjects";
 
 /**
  * The compiler is the only process that reads graphs from the database. It
@@ -150,9 +145,7 @@ export async function compileProjectRoutes(projectId: string) {
 	const routes = await db
 		.select({ id: routesEntity.id })
 		.from(routesEntity)
-		.where(
-			and(eq(routesEntity.projectId, projectId), eq(routesEntity.active, true)),
-		);
+		.where(and(eq(routesEntity.projectId, projectId), eq(routesEntity.active, true)));
 	for (const route of routes) await compileRoute(route.id);
 	return routes.length;
 }
@@ -161,12 +154,7 @@ export async function compileProjectWorkflows(projectId: string) {
 	const workflows = await db
 		.select({ id: workflowsEntity.id })
 		.from(workflowsEntity)
-		.where(
-			and(
-				eq(workflowsEntity.projectId, projectId),
-				eq(workflowsEntity.active, true),
-			),
-		);
+		.where(and(eq(workflowsEntity.projectId, projectId), eq(workflowsEntity.active, true)));
 	for (const workflow of workflows) await compileWorkflow(workflow.id);
 	return workflows.length;
 }
@@ -200,10 +188,7 @@ export async function compileRoute(routeId: string) {
 		})
 		.from(routesEntity)
 		.leftJoin(projectsEntity, eq(routesEntity.projectId, projectsEntity.id))
-		.leftJoin(
-			httpRouteConfigEntity,
-			eq(httpRouteConfigEntity.routeId, routesEntity.id),
-		)
+		.leftJoin(httpRouteConfigEntity, eq(httpRouteConfigEntity.routeId, routesEntity.id))
 		.where(eq(routesEntity.id, routeId));
 
 	if (!route || !route.active) {
@@ -378,9 +363,7 @@ async function ensureCustomBlocksRegistered(projectId: string) {
 		.from(customBlocksListEntity)
 		.where(eq(customBlocksListEntity.projectId, projectId));
 
-	let pending = rows.filter(
-		(row) => !hasCustomBlock(row.name) && !inFlight.has(row.id),
-	);
+	let pending = rows.filter((row) => !hasCustomBlock(row.name) && !inFlight.has(row.id));
 	while (pending.length > 0) {
 		const failed: typeof pending = [];
 		const errors = new Map<string, unknown>();
@@ -402,11 +385,9 @@ async function ensureCustomBlocksRegistered(projectId: string) {
 			for (const row of failed) {
 				const error = errors.get(row.id);
 				if (!(error instanceof StaticCompileError)) {
-					logger.error(
-						`[compiler] custom block ${row.name} did not compile`,
-						"COMPILER",
-						{ error },
-					);
+					logger.error(`[compiler] custom block ${row.name} did not compile`, "COMPILER", {
+						error,
+					});
 					continue;
 				}
 				await logCompileFailed(error);
@@ -495,25 +476,16 @@ export async function publishAllProjectConfigs() {
 
 export async function publishProjectConfig(projectId: string) {
 	const payload: ProjectConfigPayload = {
-		appConfig: (getProjectAppConfig(projectId) ?? {}) as Record<
-			string,
-			string | number | boolean
-		>,
+		appConfig: (getProjectAppConfig(projectId) ?? {}) as Record<string, string | number | boolean>,
 		// scoped, not the whole cache: an artifact is per project, so shipping the
 		// global cache would put every tenant's database password in every other
 		// tenant's worker
 		dbIntegrations: scopeToProject(dbIntegrationsCache, projectId),
 		kvIntegrations: scopeToProject(kvIntegrationsCache, projectId),
-		observabilityIntegrations: scopeToProject(
-			observabilityIntegrationsCache,
-			projectId,
-		),
+		observabilityIntegrations: scopeToProject(observabilityIntegrationsCache, projectId),
 		aiIntegrations: scopeToProject(aiIntegrationsCache, projectId),
 		queueIntegrations: scopeToProject(queueIntegrationsCache, projectId),
-		projectSettings: (projectSettingsCache[projectId] ?? {}) as Record<
-			string,
-			string
-		>,
+		projectSettings: (projectSettingsCache[projectId] ?? {}) as Record<string, string>,
 	};
 	// sealed, not plaintext: KV would otherwise hold every tenant's database
 	// password in the clear for anyone who can read the bucket
@@ -559,9 +531,7 @@ export async function loadGraph(parent: CanvasParent) {
 			toHandle: edgesEntity.toHandle,
 		})
 		.from(edgesEntity)
-		.where(
-			eq(parentColumn(edgesEntity, parent.type), parent.id),
-		);
+		.where(eq(parentColumn(edgesEntity, parent.type), parent.id));
 
 	// the loader swaps the handles; keep the compiler on the same convention
 	const edges = edgeRows.map((edge) => ({
@@ -574,4 +544,3 @@ export async function loadGraph(parent: CanvasParent) {
 
 	return { blocks, edges };
 }
-

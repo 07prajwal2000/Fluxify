@@ -58,19 +58,21 @@ export function validateSwitches(graph: CanvasGraph): BlockDiagnostic[] {
 		}
 		const entries = (data[useValue ? "matches" : "conditions"] ?? {}) as Record<string, unknown>;
 		// the default case has no condition to check
-		cases.filter((edge) => edge.to !== data.defaultCase).forEach((edge, index) => {
-			const target = byId.get(edge.to);
-			const label = `Case ${index + 1} (${target ? blockLabels(target.type, target.data).name : edge.to})`;
-			const raw = entries[edge.to];
-			if (isBlank(raw)) {
-				warn(
-					block.id,
-					useValue
-						? `${label} has no match value, so it never runs. In the Cases tab, enter the value the value script returns for this path, e.g. paid`
-						: `${label} has no condition, so it never runs. In the Cases tab, turn on JS and return true when this path should run, e.g. js: return input.status === "paid";`,
-				);
-			}
-		});
+		cases
+			.filter((edge) => edge.to !== data.defaultCase)
+			.forEach((edge, index) => {
+				const target = byId.get(edge.to);
+				const label = `Case ${index + 1} (${target ? blockLabels(target.type, target.data).name : edge.to})`;
+				const raw = entries[edge.to];
+				if (isBlank(raw)) {
+					warn(
+						block.id,
+						useValue
+							? `${label} has no match value, so it never runs. In the Cases tab, enter the value the value script returns for this path, e.g. paid`
+							: `${label} has no condition, so it never runs. In the Cases tab, turn on JS and return true when this path should run, e.g. js: return input.status === "paid";`,
+					);
+				}
+			});
 	}
 
 	return diagnostics;

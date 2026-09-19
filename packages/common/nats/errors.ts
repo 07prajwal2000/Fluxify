@@ -1,4 +1,4 @@
-import { JetStreamApiError, JetStreamApiCodes } from "@nats-io/jetstream";
+import { JetStreamApiCodes, JetStreamApiError } from "@nats-io/jetstream";
 
 /**
  * The v2 client had one `NatsError` and callers told cases apart by string
@@ -40,4 +40,4 @@ export function isWrongLastSequence(error: unknown): boolean {
 	);
 }
 
-export { JetStreamApiError, JetStreamApiCodes };
+export { JetStreamApiCodes, JetStreamApiError };

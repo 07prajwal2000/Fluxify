@@ -1,4 +1,4 @@
-import { Modal, CloseButton } from "@fluxify/components";
+import { CloseButton, Modal } from "@fluxify/components";
 import type { ReactNode } from "react";
 import { useCanvasPlayground } from "./PlaygroundContext";
 

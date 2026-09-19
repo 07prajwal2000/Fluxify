@@ -1,10 +1,10 @@
-import { useState, useMemo } from "react";
-import { Button, Modal, CloseButton, Input, toast, LazyLoader } from "@fluxify/components";
+import { Button, CloseButton, Input, LazyLoader, Modal, toast } from "@fluxify/components";
+import { useMemo, useState } from "react";
 import { TbSearch } from "react-icons/tb";
+import { showErrorNotification } from "@/lib/errorNotifier";
 import { authQuery } from "@/query/authQuery";
 import { projectMembersQuery } from "@/query/projectMembersQuery";
-import { showErrorNotification } from "@/lib/errorNotifier";
-import { type Role } from "../common/RoleSelector";
+import type { Role } from "../common/RoleSelector";
 import { UserRoleSelector } from "../common/UserRoleSelector";
 
 type UserRow = {
@@ -165,11 +165,7 @@ export function AddMemberModal({
 								<Button variant="outline" onPress={() => setStep(1)}>
 									Back
 								</Button>
-								<Button
-									variant="primary"
-									onPress={handleAdd}
-									isPending={addMutation.isPending}
-								>
+								<Button variant="primary" onPress={handleAdd} isPending={addMutation.isPending}>
 									Add to project
 								</Button>
 							</Modal.Footer>

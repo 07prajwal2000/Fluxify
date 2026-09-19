@@ -8,11 +8,7 @@
 	--fx-block-bg: #ffffff;
 	--fx-block-fg: #18181b;
 	--fx-block-border: color-mix(in oklab, var(--fx-block-fg) 16%, var(--fx-block-bg));
-	--fx-block-border-hover: color-mix(
-		in oklab,
-		var(--fx-block-fg) 34%,
-		var(--fx-block-bg)
-	);
+	--fx-block-border-hover: color-mix(in oklab, var(--fx-block-fg) 34%, var(--fx-block-bg));
 	--fx-block-muted: color-mix(in oklab, var(--fx-block-fg) 60%, var(--fx-block-bg));
 	--fx-block-ok: var(--success, #40c057);
 	--fx-block-fail: var(--danger, #e5484d);
@@ -27,7 +23,9 @@
 	border-radius: var(--radius, 6px);
 	background: var(--fx-block-bg);
 	color: var(--fx-block-fg);
-	transition: border-color 120ms ease, box-shadow 120ms ease;
+	transition:
+		border-color 120ms ease,
+		box-shadow 120ms ease;
 }
 
 /* Dark mode explicitly forced when the HTML tag has the dark class */
@@ -39,8 +37,6 @@ html[data-theme="dark"] .fx-block,
 	--fx-block-fg: #fafafa;
 	--fx-block-border: #232326;
 }
-
-
 
 .fx-block:hover {
 	border-color: var(--fx-block-border-hover);
@@ -116,7 +112,9 @@ html[data-theme="dark"] .fx-block,
 	border: none;
 	cursor: pointer;
 	border-radius: 4px;
-	transition: opacity 120ms ease, transform 120ms ease;
+	transition:
+		opacity 120ms ease,
+		transform 120ms ease;
 }
 
 .fx-block__diag-indicator:hover {
@@ -350,7 +348,10 @@ html[data-theme="dark"] .fx-block,
 	border: 1px solid color-mix(in oklab, var(--fx-block-fg) 25%, transparent);
 	border-radius: 2px;
 	cursor: pointer;
-	transition: border-color 120ms ease, background-color 120ms ease, color 120ms ease;
+	transition:
+		border-color 120ms ease,
+		background-color 120ms ease,
+		color 120ms ease;
 }
 
 .fx-note__swatch--active {

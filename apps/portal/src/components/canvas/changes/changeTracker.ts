@@ -41,8 +41,7 @@ export function createChangeTracker(known: KnownIds): ChangeTracker {
 	let knownEdges = new Set(known.edges);
 	const changes: ChangeSet = { blocks: new Map(), edges: new Map() };
 
-	const knownFor = (kind: "blocks" | "edges") =>
-		kind === "blocks" ? knownBlocks : knownEdges;
+	const knownFor = (kind: "blocks" | "edges") => (kind === "blocks" ? knownBlocks : knownEdges);
 
 	return {
 		markUpserted(kind, ids) {

@@ -16,7 +16,10 @@ export function blockDiagnosticsFromSaveError(
 	graph: CanvasGraph,
 ): BlockDiagnostic[] | null {
 	if (!isAxiosError(error) || error.response?.status !== 400) return null;
-	const data = error.response.data as { type?: string; errors?: { field: string; message: string }[] };
+	const data = error.response.data as {
+		type?: string;
+		errors?: { field: string; message: string }[];
+	};
 	if (data?.type !== "validation" || !data.errors?.length) return null;
 
 	const blockIds = new Set(graph.blocks.map((b) => b.id));

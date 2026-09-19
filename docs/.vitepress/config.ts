@@ -3,108 +3,38 @@ import { withMermaid } from "vitepress-plugin-mermaid";
 
 // withMermaid wraps the config so ```mermaid code fences render as diagrams.
 // https://vitepress.dev/reference/site-config
-export default withMermaid(defineConfig({
-	title: "Fluxify",
-	description: "No/Low Code Backend Engine to Build APIs with ease",
-	lang: "en-US",
+export default withMermaid(
+	defineConfig({
+		title: "Fluxify",
+		description: "No/Low Code Backend Engine to Build APIs with ease",
+		lang: "en-US",
 
-	// The docs live in the repo root /docs directory, so no srcDir needed.
-	// Site is deployed at https://docs.fluxify.rest
-	base: "/",
+		// The docs live in the repo root /docs directory, so no srcDir needed.
+		// Site is deployed at https://docs.fluxify.rest
+		base: "/",
 
-	// Warn on dead links but don't fail the build for pre-existing issues
-	ignoreDeadLinks: true,
+		// Warn on dead links but don't fail the build for pre-existing issues
+		ignoreDeadLinks: true,
 
-	head: [
-		[
-			"link",
-			{ rel: "icon", type: "image/x-icon", href: "/assets/favicon.ico" },
-		],
-		["link", { rel: "icon", type: "image/png", href: "/assets/logo.png" }],
-		["meta", { name: "theme-color", content: "#000000" }],
-	],
-
-	// Source markdown lives in docs/, config is in docs/.vitepress/
-	// VitePress picks this up automatically when run as `vitepress dev docs`
-
-	themeConfig: {
-		// https://vitepress.dev/reference/default-theme-config
-		logo: "/assets/logo.png",
-		siteTitle: "Fluxify",
-
-		nav: [
-			{ text: "Home", link: "/" },
-			{ text: "Getting Started", link: "/getting-started/" },
-			{ text: "Blog", link: "/blog/" },
-			{ text: "Architecture", link: "/architecture/" },
-			{
-				text: "Concepts",
-				items: [
-					{ text: "Overview", link: "/concepts/" },
-					{ text: "App Config", link: "/concepts/app-config" },
-					{ text: "Blocks", link: "/concepts/blocks" },
-					{ text: "Edges", link: "/concepts/edges" },
-					{ text: "Execution Context", link: "/concepts/context" },
-					{ text: "Execution Engine", link: "/concepts/execution-engine" },
-					{ text: "Globals", link: "/concepts/globals" },
-					{ text: "HTTP Client", link: "/concepts/http-client" },
-					{ text: "Evaluators", link: "/concepts/evaluators" },
-					{ text: "Workflows", link: "/concepts/workflows" },
-					{ text: "Triggers", link: "/concepts/triggers" },
-					{ text: "Schedules", link: "/concepts/schedules" },
-					{ text: "Telemetry Configuration", link: "/concepts/telemetry-configuration" },
-				],
-			},
-			{ text: "Integrations", link: "/integrations/" },
-			{
-				text: "Blocks",
-				items: [
-					{ text: "Overview", link: "/blocks/" },
-					{ text: "How They Work", link: "/blocks/how-they-work" },
-					{ text: "List of Blocks", link: "/blocks/list-of-blocks" },
-				],
-			},
-			{
-				text: "Scripting",
-				items: [
-					{ text: "Overview", link: "/scripting/" },
-					{ text: "Context", link: "/scripting/context" },
-					{ text: "How It Works", link: "/scripting/how-it-works" },
-					{ text: "JavaScript API Reference", link: "/scripting/javascript-api" },
-					{ text: "Key Considerations", link: "/scripting/key-considerations" },
-					{ text: "Imports & Libraries", link: "/scripting/imports" },
-				],
-			},
-			{ text: "Deployments", link: "/deployments/" },
+		head: [
+			["link", { rel: "icon", type: "image/x-icon", href: "/assets/favicon.ico" }],
+			["link", { rel: "icon", type: "image/png", href: "/assets/logo.png" }],
+			["meta", { name: "theme-color", content: "#000000" }],
 		],
 
-		sidebar: {
-			"/getting-started/": [
-				{
-					text: "Getting Started",
-					items: [
-						{ text: "Overview", link: "/getting-started/" },
-						{ text: "Guide", link: "/getting-started/basics" },
-						{ text: "Routing & Validation", link: "/getting-started/routing" },
-						{ text: "Contributing", link: "/getting-started/contributing" },
-						{ text: "Local Testing", link: "/getting-started/local-testing" },
-					],
-				},
-			],
+		// Source markdown lives in docs/, config is in docs/.vitepress/
+		// VitePress picks this up automatically when run as `vitepress dev docs`
 
-			"/architecture/": [
-				{
-					text: "Architecture",
-					items: [
-						{ text: "Overview", link: "/architecture/" },
-						{ text: "Request Lifecycle", link: "/architecture/request-lifecycle" },
-						{ text: "The Orchestrator", link: "/architecture/orchestrator" },
-						{ text: "Performance", link: "/architecture/performance" },
-					],
-				},
-			],
+		themeConfig: {
+			// https://vitepress.dev/reference/default-theme-config
+			logo: "/assets/logo.png",
+			siteTitle: "Fluxify",
 
-			"/concepts/": [
+			nav: [
+				{ text: "Home", link: "/" },
+				{ text: "Getting Started", link: "/getting-started/" },
+				{ text: "Blog", link: "/blog/" },
+				{ text: "Architecture", link: "/architecture/" },
 				{
 					text: "Concepts",
 					items: [
@@ -123,9 +53,7 @@ export default withMermaid(defineConfig({
 						{ text: "Telemetry Configuration", link: "/concepts/telemetry-configuration" },
 					],
 				},
-			],
-
-			"/blocks/": [
+				{ text: "Integrations", link: "/integrations/" },
 				{
 					text: "Blocks",
 					items: [
@@ -135,182 +63,252 @@ export default withMermaid(defineConfig({
 					],
 				},
 				{
-					text: "Logic",
-					items: [
-						{ text: "Entrypoint", link: "/blocks/entrypoint" },
-						{ text: "If Condition", link: "/blocks/if-condition" },
-						{ text: "Switch", link: "/blocks/switch" },
-						{ text: "For Loop", link: "/blocks/for-loop" },
-						{ text: "Orchestrator", link: "/blocks/orchestrator" },
-						{ text: "Error Handler", link: "/blocks/error-handler" },
-						{ text: "JS Runner", link: "/blocks/js-runner" },
-						{ text: "Transformer", link: "/blocks/transformer" },
-						{ text: "Array Operations", link: "/blocks/array-operations" },
-					],
-				},
-				{
-					text: "HTTP",
-					items: [
-						{ text: "Response", link: "/blocks/response" },
-						{ text: "HTTP Request", link: "/blocks/http-request" },
-						{ text: "Get Header", link: "/blocks/get-http-header" },
-						{ text: "Get Query Param", link: "/blocks/get-http-param" },
-						{ text: "Get Request Body", link: "/blocks/get-http-request-body" },
-						{ text: "Set HTTP Header", link: "/blocks/set-http-header" },
-						{ text: "Get Cookie", link: "/blocks/get-request-cookie" },
-						{ text: "Set Cookie", link: "/blocks/set-http-cookie" },
-					],
-				},
-				{
-					text: "Variables",
-					items: [
-						{ text: "Get Variable", link: "/blocks/get-var" },
-						{ text: "Set Variable", link: "/blocks/set-var" },
-					],
-				},
-				{
-					text: "Database",
-					items: [
-						{ text: "DB Get All", link: "/blocks/db-get-all" },
-						{ text: "DB Get Single", link: "/blocks/db-get-single" },
-						{ text: "DB Insert", link: "/blocks/db-insert" },
-						{ text: "DB Insert Bulk", link: "/blocks/db-insert-bulk" },
-						{ text: "DB Update", link: "/blocks/db-update" },
-						{ text: "DB Delete", link: "/blocks/db-delete" },
-						{ text: "DB Native", link: "/blocks/db-native" },
-						{ text: "DB Transaction", link: "/blocks/db-transaction" },
-					],
-				},
-				{
-					text: "Key-Value",
-					items: [
-						{ text: "KV Operations", link: "/blocks/kv-operations" },
-						{ text: "KV Raw Connection", link: "/blocks/kv-raw" },
-					],
-				},
-				{
-					text: "Logging",
-					items: [
-						{ text: "Console Log", link: "/blocks/console-log" },
-						{ text: "Cloud Logs", link: "/blocks/cloud-logs" },
-					],
-				},
-				{
-					text: "Misc",
-					items: [
-						{ text: "Trigger Workflow", link: "/blocks/trigger-workflow" },
-						{ text: "Sticky Note", link: "/blocks/sticky-note" },
-					],
-				},
-				{
-					text: "Custom Blocks",
-					items: [
-						{ text: "Overview", link: "/blocks/custom-blocks" },
-						{ text: "Tutorial", link: "/blocks/custom-blocks-tutorial" },
-					],
-				},
-			],
-
-			"/scripting/": [
-				{
 					text: "Scripting",
 					items: [
 						{ text: "Overview", link: "/scripting/" },
 						{ text: "Context", link: "/scripting/context" },
 						{ text: "How It Works", link: "/scripting/how-it-works" },
 						{ text: "JavaScript API Reference", link: "/scripting/javascript-api" },
-						{
-							text: "Key Considerations",
-							link: "/scripting/key-considerations",
-						},
+						{ text: "Key Considerations", link: "/scripting/key-considerations" },
 						{ text: "Imports & Libraries", link: "/scripting/imports" },
 					],
 				},
+				{ text: "Deployments", link: "/deployments/" },
 			],
 
-			"/deployments/": [
-				{
-					text: "Deployments",
-					items: [
-						{ text: "Self-Hosting", link: "/deployments/" },
-						{ text: "Quick Run (Kit)", link: "/deployments/kit" },
-						{ text: "Production (Admin + Workers)", link: "/deployments/production" },
-						{ text: "Editions", link: "/deployments/editions" },
-						{ text: "Licenses & Contributions", link: "/deployments/licensing" },
-						{ text: "Self-Signed Licenses (pre-1.0)", link: "/deployments/self-signed-license" },
-					],
-				},
-			],
+			sidebar: {
+				"/getting-started/": [
+					{
+						text: "Getting Started",
+						items: [
+							{ text: "Overview", link: "/getting-started/" },
+							{ text: "Guide", link: "/getting-started/basics" },
+							{ text: "Routing & Validation", link: "/getting-started/routing" },
+							{ text: "Contributing", link: "/getting-started/contributing" },
+							{ text: "Local Testing", link: "/getting-started/local-testing" },
+						],
+					},
+				],
 
-			"/integrations/": [
-				{
-					text: "Integrations",
-					items: [
-						{ text: "Overview", link: "/integrations/" },
-						{ text: "Databases", link: "/integrations/databases" },
-						{ text: "KV Stores", link: "/integrations/kv-stores" },
-						{ text: "Observability", link: "/integrations/observability" },
-						{ text: "AI Models", link: "/integrations/ai-models" },
-						{ text: "Message Queues", link: "/integrations/message-queues" },
-					],
-				},
-			],
+				"/architecture/": [
+					{
+						text: "Architecture",
+						items: [
+							{ text: "Overview", link: "/architecture/" },
+							{ text: "Request Lifecycle", link: "/architecture/request-lifecycle" },
+							{ text: "The Orchestrator", link: "/architecture/orchestrator" },
+							{ text: "Performance", link: "/architecture/performance" },
+						],
+					},
+				],
+
+				"/concepts/": [
+					{
+						text: "Concepts",
+						items: [
+							{ text: "Overview", link: "/concepts/" },
+							{ text: "App Config", link: "/concepts/app-config" },
+							{ text: "Blocks", link: "/concepts/blocks" },
+							{ text: "Edges", link: "/concepts/edges" },
+							{ text: "Execution Context", link: "/concepts/context" },
+							{ text: "Execution Engine", link: "/concepts/execution-engine" },
+							{ text: "Globals", link: "/concepts/globals" },
+							{ text: "HTTP Client", link: "/concepts/http-client" },
+							{ text: "Evaluators", link: "/concepts/evaluators" },
+							{ text: "Workflows", link: "/concepts/workflows" },
+							{ text: "Triggers", link: "/concepts/triggers" },
+							{ text: "Schedules", link: "/concepts/schedules" },
+							{ text: "Telemetry Configuration", link: "/concepts/telemetry-configuration" },
+						],
+					},
+				],
+
+				"/blocks/": [
+					{
+						text: "Blocks",
+						items: [
+							{ text: "Overview", link: "/blocks/" },
+							{ text: "How They Work", link: "/blocks/how-they-work" },
+							{ text: "List of Blocks", link: "/blocks/list-of-blocks" },
+						],
+					},
+					{
+						text: "Logic",
+						items: [
+							{ text: "Entrypoint", link: "/blocks/entrypoint" },
+							{ text: "If Condition", link: "/blocks/if-condition" },
+							{ text: "Switch", link: "/blocks/switch" },
+							{ text: "For Loop", link: "/blocks/for-loop" },
+							{ text: "Orchestrator", link: "/blocks/orchestrator" },
+							{ text: "Error Handler", link: "/blocks/error-handler" },
+							{ text: "JS Runner", link: "/blocks/js-runner" },
+							{ text: "Transformer", link: "/blocks/transformer" },
+							{ text: "Array Operations", link: "/blocks/array-operations" },
+						],
+					},
+					{
+						text: "HTTP",
+						items: [
+							{ text: "Response", link: "/blocks/response" },
+							{ text: "HTTP Request", link: "/blocks/http-request" },
+							{ text: "Get Header", link: "/blocks/get-http-header" },
+							{ text: "Get Query Param", link: "/blocks/get-http-param" },
+							{ text: "Get Request Body", link: "/blocks/get-http-request-body" },
+							{ text: "Set HTTP Header", link: "/blocks/set-http-header" },
+							{ text: "Get Cookie", link: "/blocks/get-request-cookie" },
+							{ text: "Set Cookie", link: "/blocks/set-http-cookie" },
+						],
+					},
+					{
+						text: "Variables",
+						items: [
+							{ text: "Get Variable", link: "/blocks/get-var" },
+							{ text: "Set Variable", link: "/blocks/set-var" },
+						],
+					},
+					{
+						text: "Database",
+						items: [
+							{ text: "DB Get All", link: "/blocks/db-get-all" },
+							{ text: "DB Get Single", link: "/blocks/db-get-single" },
+							{ text: "DB Insert", link: "/blocks/db-insert" },
+							{ text: "DB Insert Bulk", link: "/blocks/db-insert-bulk" },
+							{ text: "DB Update", link: "/blocks/db-update" },
+							{ text: "DB Delete", link: "/blocks/db-delete" },
+							{ text: "DB Native", link: "/blocks/db-native" },
+							{ text: "DB Transaction", link: "/blocks/db-transaction" },
+						],
+					},
+					{
+						text: "Key-Value",
+						items: [
+							{ text: "KV Operations", link: "/blocks/kv-operations" },
+							{ text: "KV Raw Connection", link: "/blocks/kv-raw" },
+						],
+					},
+					{
+						text: "Logging",
+						items: [
+							{ text: "Console Log", link: "/blocks/console-log" },
+							{ text: "Cloud Logs", link: "/blocks/cloud-logs" },
+						],
+					},
+					{
+						text: "Misc",
+						items: [
+							{ text: "Trigger Workflow", link: "/blocks/trigger-workflow" },
+							{ text: "Sticky Note", link: "/blocks/sticky-note" },
+						],
+					},
+					{
+						text: "Custom Blocks",
+						items: [
+							{ text: "Overview", link: "/blocks/custom-blocks" },
+							{ text: "Tutorial", link: "/blocks/custom-blocks-tutorial" },
+						],
+					},
+				],
+
+				"/scripting/": [
+					{
+						text: "Scripting",
+						items: [
+							{ text: "Overview", link: "/scripting/" },
+							{ text: "Context", link: "/scripting/context" },
+							{ text: "How It Works", link: "/scripting/how-it-works" },
+							{ text: "JavaScript API Reference", link: "/scripting/javascript-api" },
+							{
+								text: "Key Considerations",
+								link: "/scripting/key-considerations",
+							},
+							{ text: "Imports & Libraries", link: "/scripting/imports" },
+						],
+					},
+				],
+
+				"/deployments/": [
+					{
+						text: "Deployments",
+						items: [
+							{ text: "Self-Hosting", link: "/deployments/" },
+							{ text: "Quick Run (Kit)", link: "/deployments/kit" },
+							{ text: "Production (Admin + Workers)", link: "/deployments/production" },
+							{ text: "Editions", link: "/deployments/editions" },
+							{ text: "Licenses & Contributions", link: "/deployments/licensing" },
+							{ text: "Self-Signed Licenses (pre-1.0)", link: "/deployments/self-signed-license" },
+						],
+					},
+				],
+
+				"/integrations/": [
+					{
+						text: "Integrations",
+						items: [
+							{ text: "Overview", link: "/integrations/" },
+							{ text: "Databases", link: "/integrations/databases" },
+							{ text: "KV Stores", link: "/integrations/kv-stores" },
+							{ text: "Observability", link: "/integrations/observability" },
+							{ text: "AI Models", link: "/integrations/ai-models" },
+							{ text: "Message Queues", link: "/integrations/message-queues" },
+						],
+					},
+				],
+			},
+
+			// Edit link pointing to the GitHub source
+			editLink: {
+				pattern: "https://github.com/fluxify-rest/Fluxify/edit/main/docs/:path",
+				text: "Edit this page on GitHub",
+			},
+
+			// Social links in the top-right nav
+			socialLinks: [{ icon: "github", link: "https://github.com/fluxify-rest/Fluxify" }],
+
+			// Footer
+			footer: {
+				message:
+					"Released under the Apache License 2.0. Enterprise features are under the Fluxify Enterprise Edition License.",
+				copyright: "Copyright © 2026 Fluxify",
+			},
+
+			// Built-in local search (replaces mkdocs `search` plugin — no extra config needed)
+			search: {
+				provider: "local",
+			},
+
+			// Outline (table of contents) — mirrors mkdocs toc_depth: 3
+			outline: {
+				level: [2, 3],
+				label: "On This Page",
+			},
+
+			// Previous / next page links at the bottom
+			docFooter: {
+				prev: "Previous",
+				next: "Next",
+			},
+
+			lastUpdated: {
+				text: "Last updated",
+			},
 		},
 
-		// Edit link pointing to the GitHub source
-		editLink: {
-			pattern: "https://github.com/fluxify-rest/Fluxify/edit/main/docs/:path",
-			text: "Edit this page on GitHub",
+		markdown: {
+			// Line numbers in code blocks
+			lineNumbers: false,
+			// Container aliases that map mkdocs admonition-style blocks:
+			// Use ::: tip / ::: warning / ::: danger / ::: info in markdown files.
 		},
 
-		// Social links in the top-right nav
-		socialLinks: [
-			{ icon: "github", link: "https://github.com/fluxify-rest/Fluxify" },
-		],
-
-		// Footer
-		footer: {
-			message: "Released under the Apache License 2.0. Enterprise features are under the Fluxify Enterprise Edition License.",
-			copyright: "Copyright © 2026 Fluxify",
+		vite: {
+			optimizeDeps: {
+				// vitepress-plugin-mermaid injects the Mermaid component into every
+				// page's client entry via a post-transform, which Vite's cold-start
+				// dependency scanner doesn't see. Without this, mermaid (and its
+				// CJS `dayjs` dependency) gets served unbundled on a fresh cache,
+				// throwing "does not provide an export named 'default'".
+				include: ["mermaid"],
+			},
 		},
-
-		// Built-in local search (replaces mkdocs `search` plugin — no extra config needed)
-		search: {
-			provider: "local",
-		},
-
-		// Outline (table of contents) — mirrors mkdocs toc_depth: 3
-		outline: {
-			level: [2, 3],
-			label: "On This Page",
-		},
-
-		// Previous / next page links at the bottom
-		docFooter: {
-			prev: "Previous",
-			next: "Next",
-		},
-
-		lastUpdated: {
-			text: "Last updated",
-		},
-	},
-
-	markdown: {
-		// Line numbers in code blocks
-		lineNumbers: false,
-		// Container aliases that map mkdocs admonition-style blocks:
-		// Use ::: tip / ::: warning / ::: danger / ::: info in markdown files.
-	},
-
-	vite: {
-		optimizeDeps: {
-			// vitepress-plugin-mermaid injects the Mermaid component into every
-			// page's client entry via a post-transform, which Vite's cold-start
-			// dependency scanner doesn't see. Without this, mermaid (and its
-			// CJS `dayjs` dependency) gets served unbundled on a fresh cache,
-			// throwing "does not provide an export named 'default'".
-			include: ["mermaid"],
-		},
-	},
-}));
+	}),
+);

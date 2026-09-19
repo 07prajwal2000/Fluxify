@@ -1,9 +1,5 @@
 import z from "zod";
-import {
-	type BlockOutput,
-	baseBlockDataSchema,
-	type Context,
-} from "../baseBlock";
+import { type BlockOutput, baseBlockDataSchema, type Context } from "../baseBlock";
 import { BlockTypes } from "../blockTypes";
 import { type EmitNode, emitJsObject } from "../compiler";
 
@@ -56,9 +52,7 @@ export async function runHttpRequest(
 	try {
 		const { url, method, headers } = input;
 		const body = parseIfJson(input.body);
-		let response:
-			| Awaited<ReturnType<typeof context.httpClient.get>>
-			| undefined;
+		let response: Awaited<ReturnType<typeof context.httpClient.get>> | undefined;
 		switch (method) {
 			case "GET":
 				response = await context.httpClient.get(url, headers);
@@ -95,9 +89,7 @@ export async function runHttpRequest(
 
 /** `js:` in url, body, header names and values compiles to inline code */
 export function emitHttpRequest(node: EmitNode) {
-	const { url, method, headers, body, useParam } = httpRequestBlockSchema.parse(
-		node.block.data,
-	);
+	const { url, method, headers, body, useParam } = httpRequestBlockSchema.parse(node.block.data);
 	const result = node.v("res");
 	const headerFields = Object.entries(headers).map(
 		([key, value]) => `[${node.value(key)}]: ${node.value(value)}`,

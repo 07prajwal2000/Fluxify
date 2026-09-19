@@ -1,18 +1,18 @@
-import type z from "zod";
-import type { responseSchema as getAllResponseSchema } from "@fluxify/server/src/api/v1/app-config/get-all/dto";
 import type {
 	requestBodySchema as createRequestBodySchema,
 	responseSchema as createResponseSchema,
 } from "@fluxify/server/src/api/v1/app-config/create/dto";
 import type {
-	requestBodySchema as updateRequestBodySchema,
-	responseSchema as updateResponseSchema,
-} from "@fluxify/server/src/api/v1/app-config/update/dto";
-import type { responseSchema as getOneResponseSchema } from "@fluxify/server/src/api/v1/app-config/get-by-id/dto";
-import type {
 	requestBodySchema as deleteBulkRequestBodySchema,
 	responseSchema as deleteBulkResponseSchema,
 } from "@fluxify/server/src/api/v1/app-config/delete-bulk/dto";
+import type { responseSchema as getAllResponseSchema } from "@fluxify/server/src/api/v1/app-config/get-all/dto";
+import type { responseSchema as getOneResponseSchema } from "@fluxify/server/src/api/v1/app-config/get-by-id/dto";
+import type {
+	requestBodySchema as updateRequestBodySchema,
+	responseSchema as updateResponseSchema,
+} from "@fluxify/server/src/api/v1/app-config/update/dto";
+import type z from "zod";
 import { httpClient } from "@/lib/http";
 
 const baseUrl = (projectId: string) => `/v1/${projectId}/app-config`;
@@ -80,4 +80,3 @@ export const appConfigService = {
 		return result.data;
 	},
 };
-

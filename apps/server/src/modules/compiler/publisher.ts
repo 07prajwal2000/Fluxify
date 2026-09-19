@@ -21,10 +21,7 @@ async function request(subject: string, body: CompileRequest) {
 	try {
 		await publishToStream(natsConnection(), subject, body);
 	} catch (error) {
-		logger.error(
-			`[compiler] failed to queue ${subject}: ${String(error)}`,
-			"COMPILER.publish",
-		);
+		logger.error(`[compiler] failed to queue ${subject}: ${String(error)}`, "COMPILER.publish");
 	}
 }
 
@@ -40,10 +37,7 @@ export function requestWorkflowCompile(workflowId: string, reason?: string) {
 	return request(compileWorkflowSubject(workflowId), { id: workflowId, reason });
 }
 
-export function requestProjectConfigPublish(
-	projectId = ALL_PROJECTS,
-	reason?: string,
-) {
+export function requestProjectConfigPublish(projectId = ALL_PROJECTS, reason?: string) {
 	return request(compileProjectConfigSubject(projectId), {
 		projectId,
 		reason,

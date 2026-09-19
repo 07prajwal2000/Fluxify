@@ -7,12 +7,7 @@ import { DataTypeSelect } from "./DataTypeSelect";
 import { InfoNote } from "./InfoNote";
 import { PropertyRow } from "./PropertyRow";
 import type { SchemaNode, SchemaPath } from "./types";
-import {
-	buildBreadcrumbs,
-	DEFAULT_ITEMS,
-	findDuplicateKeys,
-	getAtPath,
-} from "./utils";
+import { buildBreadcrumbs, DEFAULT_ITEMS, findDuplicateKeys, getAtPath } from "./utils";
 
 /**
  * The one level of the schema currently in view. Objects list their properties,
@@ -43,19 +38,13 @@ export function SchemaNavigator({
 
 	const rootTypeOptions = typeOptionsFor([], true);
 	const showRootTypes =
-		showRootTypeSelector &&
-		!isReadOnly &&
-		path.length === 0 &&
-		rootTypeOptions.length > 1;
+		showRootTypeSelector && !isReadOnly && path.length === 0 && rootTypeOptions.length > 1;
 
 	return (
 		<div className="flex flex-col gap-4">
 			<Breadcrumbs>
 				{crumbs.map((crumb) => (
-					<Breadcrumbs.Item
-						key={crumb.level}
-						onPress={() => goToLevel(crumb.level)}
-					>
+					<Breadcrumbs.Item key={crumb.level} onPress={() => goToLevel(crumb.level)}>
 						{crumb.title}
 					</Breadcrumbs.Item>
 				))}
@@ -63,9 +52,7 @@ export function SchemaNavigator({
 
 			{showRootTypes && (
 				<div className="flex items-center gap-3">
-					<span className="shrink-0 text-sm font-medium text-foreground">
-						Root schema type
-					</span>
+					<span className="shrink-0 text-sm font-medium text-foreground">Root schema type</span>
 					<DataTypeSelect
 						label="Root schema type"
 						onChange={(dataType) => updateProperty([], { dataType })}
@@ -87,11 +74,7 @@ export function SchemaNavigator({
 							: "This level is a primitive with no rules to configure."}
 					</p>
 					{ruleEditors[node.dataType] && (
-						<Button
-							onPress={() => openDrawer(path)}
-							size="sm"
-							variant="secondary"
-						>
+						<Button onPress={() => openDrawer(path)} size="sm" variant="secondary">
 							<TbSettings className="mr-1 size-4" />
 							Configure rules
 						</Button>
@@ -105,26 +88,19 @@ export function SchemaNavigator({
 function ObjectLevel({ node, path }: { node: SchemaNode; path: SchemaPath }) {
 	const { addProperty, isReadOnly, lockKeys } = useSchemaEditorContext();
 	const properties = node.properties ?? [];
-	const duplicateKeys = useMemo(
-		() => findDuplicateKeys(properties),
-		[properties],
-	);
+	const duplicateKeys = useMemo(() => findDuplicateKeys(properties), [properties]);
 
 	return (
 		<div className="flex flex-col gap-3">
 			{!isReadOnly && (
 				<InfoNote>
-					Recursive schemas are not expressible in this UI. For a cyclic shape,
-					set the field's type to{" "}
-					<span className="font-medium">Write JavaScript</span> and validate it
-					in code.
+					Recursive schemas are not expressible in this UI. For a cyclic shape, set the field's type
+					to <span className="font-medium">Write JavaScript</span> and validate it in code.
 				</InfoNote>
 			)}
 
 			{properties.length === 0 ? (
-				<p className="py-1 text-sm italic text-muted">
-					No properties added yet.
-				</p>
+				<p className="py-1 text-sm italic text-muted">No properties added yet.</p>
 			) : (
 				<div className="flex flex-col gap-2">
 					{properties.map((property, index) => (
@@ -140,11 +116,7 @@ function ObjectLevel({ node, path }: { node: SchemaNode; path: SchemaPath }) {
 
 			{!isReadOnly && !lockKeys && (
 				<div>
-					<Button
-						onPress={() => addProperty(path)}
-						size="sm"
-						variant="secondary"
-					>
+					<Button onPress={() => addProperty(path)} size="sm" variant="secondary">
 						<TbPlus className="mr-1 size-4" />
 						Add property
 					</Button>
@@ -154,23 +126,15 @@ function ObjectLevel({ node, path }: { node: SchemaNode; path: SchemaPath }) {
 	);
 }
 
-
 function ArrayLevel({ node, path }: { node: SchemaNode; path: SchemaPath }) {
-	const {
-		goToPath,
-		openDrawer,
-		updateProperty,
-		isReadOnly,
-		typeOptionsFor,
-		ruleEditors,
-	} = useSchemaEditorContext();
+	const { goToPath, openDrawer, updateProperty, isReadOnly, typeOptionsFor, ruleEditors } =
+		useSchemaEditorContext();
 
 	const items = node.items ?? DEFAULT_ITEMS;
 	const itemsPath: SchemaPath = [...path, "items"];
 	const ArrayRuleEditor = ruleEditors.arr;
 	const itemsAreContainer = CONTAINER_TYPES.includes(items.dataType);
-	const itemsAreConfigurable =
-		itemsAreContainer || Boolean(ruleEditors[items.dataType]);
+	const itemsAreConfigurable = itemsAreContainer || Boolean(ruleEditors[items.dataType]);
 
 	return (
 		<div className="flex flex-col gap-4">
@@ -185,9 +149,7 @@ function ArrayLevel({ node, path }: { node: SchemaNode; path: SchemaPath }) {
 			<div className="h-px w-full bg-border" />
 
 			<div className="flex flex-col gap-2">
-				<span className="text-sm font-medium text-foreground">
-					Array items data type
-				</span>
+				<span className="text-sm font-medium text-foreground">Array items data type</span>
 				<div className="flex items-center gap-2">
 					<DataTypeSelect
 						isDisabled={isReadOnly}
@@ -200,9 +162,7 @@ function ArrayLevel({ node, path }: { node: SchemaNode; path: SchemaPath }) {
 						<Button
 							aria-label="Configure array items"
 							isIconOnly
-							onPress={() =>
-								itemsAreContainer ? goToPath(itemsPath) : openDrawer(itemsPath)
-							}
+							onPress={() => (itemsAreContainer ? goToPath(itemsPath) : openDrawer(itemsPath))}
 							size="sm"
 							variant="ghost"
 						>

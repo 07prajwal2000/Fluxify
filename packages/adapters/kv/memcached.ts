@@ -14,7 +14,10 @@ export class MemcachedIntegration extends BaseKVIntegration {
 	public static variant = "Memcached";
 	private client: Memcached;
 
-	constructor(private readonly config: MemcachedVariantConfig, isTestConnection: boolean = false) {
+	constructor(
+		private readonly config: MemcachedVariantConfig,
+		isTestConnection: boolean = false,
+	) {
 		super();
 		const options = isTestConnection ? { timeout: 5000, retries: 0 } : {};
 		if (config.source === "url" && config.url) {
@@ -78,9 +81,12 @@ export class MemcachedIntegration extends BaseKVIntegration {
 			result.url = appConfigs.get(result.url.slice(4));
 		} else {
 			if (result.host?.startsWith("cfg:")) result.host = appConfigs.get(result.host.slice(4));
-			if (typeof result.port === "string" && result.port.startsWith("cfg:")) result.port = appConfigs.get(result.port.slice(4));
-			if (result.username?.startsWith("cfg:")) result.username = appConfigs.get(result.username.slice(4));
-			if (result.password?.startsWith("cfg:")) result.password = appConfigs.get(result.password.slice(4));
+			if (typeof result.port === "string" && result.port.startsWith("cfg:"))
+				result.port = appConfigs.get(result.port.slice(4));
+			if (result.username?.startsWith("cfg:"))
+				result.username = appConfigs.get(result.username.slice(4));
+			if (result.password?.startsWith("cfg:"))
+				result.password = appConfigs.get(result.password.slice(4));
 		}
 		return result;
 	}
@@ -94,13 +100,17 @@ export class MemcachedIntegration extends BaseKVIntegration {
 		try {
 			const extractedConfig = this.ExtractConnectionInfo(config, appConfigs);
 			integration = new MemcachedIntegration(extractedConfig, true);
-			
+
 			const pingPromise = integration.set("test_ping", "1");
-			const timeoutPromise = new Promise<never>((_, reject) => 
-				timeout = setTimeout(() => reject(new Error("Connection timed out after 5 seconds")), 5000)
+			const timeoutPromise = new Promise<never>(
+				(_, reject) =>
+					(timeout = setTimeout(
+						() => reject(new Error("Connection timed out after 5 seconds")),
+						5000,
+					)),
 			);
 			await Promise.race([pingPromise, timeoutPromise]);
-			
+
 			return { success: true };
 		} catch (error: any) {
 			return { success: false, error: error.message };

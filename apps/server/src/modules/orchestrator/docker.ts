@@ -1,7 +1,7 @@
 import { logger } from "@fluxify/common";
 import { CATCH_ALL } from "@fluxify/common/orchestrator";
 import { getEnv } from "../../lib/env";
-import { LABELS, MANAGED_BY, MANAGED_LABEL, type ContainerSpec } from "./containerSpec";
+import { type ContainerSpec, LABELS, MANAGED_BY, MANAGED_LABEL } from "./containerSpec";
 import type { ObservedNode } from "./plan";
 
 /**
@@ -70,9 +70,7 @@ interface DockerContainer {
  * developer's machine cannot become an orphan to delete.
  */
 export async function listManagedNodes(): Promise<ObservedNode[]> {
-	const filters = encodeURIComponent(
-		JSON.stringify({ label: [`${MANAGED_LABEL}=${MANAGED_BY}`] }),
-	);
+	const filters = encodeURIComponent(JSON.stringify({ label: [`${MANAGED_LABEL}=${MANAGED_BY}`] }));
 	const response = await dockerFetch(`/containers/json?all=true&filters=${filters}`);
 	const containers = (await response.json()) as DockerContainer[];
 

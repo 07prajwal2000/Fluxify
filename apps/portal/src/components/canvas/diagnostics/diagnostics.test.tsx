@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
-import { validateCycles } from "./cycleValidator";
 import { DIAGNOSTICS_TAB, GENERAL_TAB, splitTabs } from "../panel/BlockSettings";
 import type { CanvasEdge } from "../types";
+import { validateCycles } from "./cycleValidator";
 import type { BlockDiagnostic } from "./types";
 
 test("validateCycles returns empty list for acyclic graph", () => {

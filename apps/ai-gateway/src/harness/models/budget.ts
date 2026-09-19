@@ -1,5 +1,5 @@
-import type { AIMessage } from "@langchain/core/messages";
 import { logger } from "@fluxify/common";
+import type { AIMessage } from "@langchain/core/messages";
 
 /**
  * Wall-clock ceiling for one run. Retry budgets multiply: `withRetry` (3) x the
@@ -7,9 +7,7 @@ import { logger } from "@fluxify/common";
  * *single* agent call can legitimately burn 27 minutes, and a build runs dozens
  * of them. This is the backstop that a stuck run eventually hits.
  */
-export const RUN_DEADLINE_MS = Number(
-	process.env.HARNESS_RUN_DEADLINE_MS ?? 10 * 60_000,
-);
+export const RUN_DEADLINE_MS = Number(process.env.HARNESS_RUN_DEADLINE_MS ?? 10 * 60_000);
 
 /**
  * Token ceiling for one run. Sized well above a heavy multi-task build (~40
@@ -17,9 +15,7 @@ export const RUN_DEADLINE_MS = Number(
  * legitimate work. Providers that report no usage leave this unenforceable —
  * the deadline above still applies.
  */
-export const RUN_TOKEN_BUDGET = Number(
-	process.env.HARNESS_RUN_TOKEN_BUDGET ?? 2_000_000,
-);
+export const RUN_TOKEN_BUDGET = Number(process.env.HARNESS_RUN_TOKEN_BUDGET ?? 2_000_000);
 
 /** Thrown when a run passes its deadline or token ceiling. Not an interrupt:
  *  the run is finalized as `failed` with an explanation. */

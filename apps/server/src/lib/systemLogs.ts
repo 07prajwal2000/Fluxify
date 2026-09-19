@@ -1,5 +1,5 @@
 import { logger } from "@fluxify/common";
-import { and, desc, eq, sql, type SQL } from "drizzle-orm";
+import { and, desc, eq, type SQL, sql } from "drizzle-orm";
 import { db } from "../db";
 import { systemLogsEntity } from "../db/schema";
 

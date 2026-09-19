@@ -2,11 +2,7 @@ import { compileGraph } from "@fluxify/blocks";
 import { logger } from "@fluxify/common";
 import { eq } from "drizzle-orm";
 import { db } from "../../db";
-import {
-	customBlocksListEntity,
-	projectsEntity,
-	routesEntity,
-} from "../../db/schema";
+import { customBlocksListEntity, projectsEntity, routesEntity } from "../../db/schema";
 import { loadGraph } from "../compiler/service";
 
 /**

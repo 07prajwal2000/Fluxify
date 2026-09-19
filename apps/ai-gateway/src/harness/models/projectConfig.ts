@@ -11,9 +11,7 @@ const VARIANT_TO_PROVIDER: Record<string, AgentProvider> = {
 };
 
 /** Maps a cached AI integration to harness agent options. Throws if missing/unsupported. */
-export function resolveAgentOptionsFromIntegrationId(
-	integrationId: string,
-): AgentFactoryOptions {
+export function resolveAgentOptionsFromIntegrationId(integrationId: string): AgentFactoryOptions {
 	const integration = aiIntegrationsCache[integrationId];
 
 	if (!integration) {
@@ -41,9 +39,6 @@ export function resolveAgentOptionsFromIntegrationId(
 export async function resolveAgentOptionsFromProjectId(
 	projectId: string,
 ): Promise<AgentFactoryOptions> {
-	const integrationId = await getProjectSetting(
-		projectId,
-		"settings.ai.agentConnectionId",
-	);
+	const integrationId = await getProjectSetting(projectId, "settings.ai.agentConnectionId");
 	return resolveAgentOptionsFromIntegrationId(integrationId);
 }

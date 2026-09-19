@@ -1,22 +1,7 @@
-import {
-	Button,
-	Input,
-	Label,
-	Modal,
-	Spinner,
-	Table,
-	TextField,
-	toast,
-} from "@heroui/react";
+import { Button, Input, Label, Modal, Spinner, Table, TextField, toast } from "@heroui/react";
 import clsx from "clsx";
-import {
-	useCallback,
-	useEffect,
-	useMemo,
-	useRef,
-	useState,
-} from "react";
 import type { ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
 	TbCloudCog,
 	TbDatabase,
@@ -73,9 +58,7 @@ function IntegrationIcon({ variant }: { variant: string }) {
 
 function FieldLabel({ label }: { label: string | ReactNode }) {
 	if (typeof label === "string") {
-		return (
-			<span className="text-sm font-semibold text-foreground">{label}</span>
-		);
+		return <span className="text-sm font-semibold text-foreground">{label}</span>;
 	}
 	return <>{label}</>;
 }
@@ -141,10 +124,7 @@ function PickerModal({
 			<Modal.Backdrop>
 				<Modal.Container placement="center" size={sizeConfig.container}>
 					<Modal.Dialog
-						className={clsx(
-							"w-full flex flex-col max-h-[90vh]",
-							sizeConfig.dialog,
-						)}
+						className={clsx("w-full flex flex-col max-h-[90vh]", sizeConfig.dialog)}
 						style={{
 							minHeight: modalHeight ? undefined : sizeConfig.minHeight,
 							height: modalHeight || sizeConfig.height,
@@ -179,11 +159,7 @@ function PickerModal({
 									isDisabled={isRefreshing}
 									onPress={() => void onRefresh()}
 								>
-									{isRefreshing ? (
-										<Spinner size="sm" />
-									) : (
-										<TbRefresh size={14} />
-									)}
+									{isRefreshing ? <Spinner size="sm" /> : <TbRefresh size={14} />}
 								</Button>
 							)}
 						</div>
@@ -197,12 +173,9 @@ function PickerModal({
 										<TbDatabase size={32} />
 									</span>
 									<div className="flex flex-col gap-1.5">
-										<p className="text-sm font-semibold text-foreground">
-											No integrations found
-										</p>
+										<p className="text-sm font-semibold text-foreground">No integrations found</p>
 										<p className="max-w-[280px] text-xs leading-relaxed text-muted-foreground">
-											You haven't connected any integrations yet. Create one to
-											get started.
+											You haven't connected any integrations yet. Create one to get started.
 										</p>
 									</div>
 									{createIntegrationUrl && (
@@ -223,8 +196,7 @@ function PickerModal({
 								<div className="flex flex-col items-center justify-center gap-2 px-8 h-full text-center">
 									<TbSearch size={28} className="text-muted-foreground" />
 									<p className="text-sm text-muted-foreground">
-										No integrations match{" "}
-										<strong className="text-foreground">"{search}"</strong>
+										No integrations match <strong className="text-foreground">"{search}"</strong>
 									</p>
 								</div>
 							) : (
@@ -232,11 +204,17 @@ function PickerModal({
 								<Table>
 									<Table.Content aria-label="Integrations">
 										<Table.Header className="bg-surface-secondary">
-											<Table.Column id="icon" aria-label="Icon">{""}</Table.Column>
-											<Table.Column id="name" isRowHeader>Name</Table.Column>
+											<Table.Column id="icon" aria-label="Icon">
+												{""}
+											</Table.Column>
+											<Table.Column id="name" isRowHeader>
+												Name
+											</Table.Column>
 											<Table.Column id="variant">Variant</Table.Column>
 											<Table.Column id="group">Group</Table.Column>
-											<Table.Column id="action" aria-label="Action">{""}</Table.Column>
+											<Table.Column id="action" aria-label="Action">
+												{""}
+											</Table.Column>
 										</Table.Header>
 										<Table.Body items={filtered}>
 											{(integration: Integration) => (
@@ -281,16 +259,10 @@ function PickerModal({
 														<div className="flex justify-end">
 															<Button
 																size="sm"
-																variant={
-																	integration.id === selectedId
-																		? "primary"
-																		: "outline"
-																}
+																variant={integration.id === selectedId ? "primary" : "outline"}
 																onPress={() => handleSelect(integration.id)}
 															>
-																{integration.id === selectedId
-																	? "Selected"
-																	: "Select"}
+																{integration.id === selectedId ? "Selected" : "Select"}
 															</Button>
 														</div>
 													</Table.Cell>
@@ -359,8 +331,7 @@ export function IntegrationSelector({
 			setLoaded(data);
 			setLoadStatus("success");
 		} catch (err) {
-			const msg =
-				err instanceof Error ? err.message : "Failed to load integrations";
+			const msg = err instanceof Error ? err.message : "Failed to load integrations";
 			setLoadError(msg);
 			setLoadStatus("error");
 		}
@@ -396,8 +367,7 @@ export function IntegrationSelector({
 			toast.success("Connection successful");
 		} catch (err) {
 			setTestStatus("error");
-			const msg =
-				err instanceof Error ? err.message : "Connection test failed";
+			const msg = err instanceof Error ? err.message : "Connection test failed";
 			toast.danger(msg);
 		} finally {
 			if (testResetTimer.current) clearTimeout(testResetTimer.current);
@@ -431,9 +401,7 @@ export function IntegrationSelector({
 				{/* Label + Description */}
 				{label && <FieldLabel label={label} />}
 				{description && (
-					<p className="text-xs leading-normal text-muted-foreground">
-						{description}
-					</p>
+					<p className="text-xs leading-normal text-muted-foreground">{description}</p>
 				)}
 
 				{/* Selector row — fixed height regardless of load state */}
@@ -443,9 +411,7 @@ export function IntegrationSelector({
 						{loadStatus === "loading" ? (
 							<>
 								<Spinner size="sm" />
-								<span className="text-xs text-muted-foreground">
-									Loading integrations…
-								</span>
+								<span className="text-xs text-muted-foreground">Loading integrations…</span>
 							</>
 						) : loadStatus === "error" ? (
 							<>
@@ -473,9 +439,7 @@ export function IntegrationSelector({
 								</span>
 							</>
 						) : (
-							<span className="text-sm text-muted-foreground">
-								None selected
-							</span>
+							<span className="text-sm text-muted-foreground">None selected</span>
 						)}
 					</div>
 
@@ -528,9 +492,7 @@ export function IntegrationSelector({
 								)}
 
 								{/* Divider — only when action buttons are showing */}
-								{selectedIntegration && (
-									<span className="mx-1 h-5 w-px shrink-0 bg-border" />
-								)}
+								{selectedIntegration && <span className="mx-1 h-5 w-px shrink-0 bg-border" />}
 							</>
 						)}
 
@@ -547,9 +509,7 @@ export function IntegrationSelector({
 				</div>
 
 				{selectedIntegration?.external && selectedIntegration.hint && (
-					<p className="text-xs leading-normal text-accent">
-						{selectedIntegration.hint}
-					</p>
+					<p className="text-xs leading-normal text-accent">{selectedIntegration.hint}</p>
 				)}
 			</div>
 

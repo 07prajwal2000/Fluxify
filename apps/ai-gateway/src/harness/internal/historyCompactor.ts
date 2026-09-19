@@ -1,8 +1,9 @@
 import { logger } from "@fluxify/common";
-import type { AgentFactory } from "../models/factory";
-import { RunBudget } from "../models/budget";
-import { extractText } from "../models/jsonUtils";
 import { enforceTokenAllowlist } from "../agents/summarizerTokens";
+import { RunBudget } from "../models/budget";
+import type { AgentFactory } from "../models/factory";
+import { extractText } from "../models/jsonUtils";
+import type { HarnessService } from "./harnessService";
 import {
 	COMPACTION_SYSTEM_PROMPT,
 	compactionPrompt,
@@ -10,7 +11,6 @@ import {
 	referenceTokens,
 	tokenIo,
 } from "./historyCompaction";
-import type { HarnessService } from "./harnessService";
 
 /** Best-effort checkpoint creation. Raw runs remain authoritative on every
  * model, validation, timeout, or storage failure. */
@@ -23,9 +23,7 @@ export async function compactCompletedHistory(
 		if (!sourceRuns) return;
 
 		const budget = new RunBudget({
-			deadlineMs: Number(
-				process.env.HARNESS_COMPACTION_DEADLINE_MS ?? 60_000,
-			),
+			deadlineMs: Number(process.env.HARNESS_COMPACTION_DEADLINE_MS ?? 60_000),
 			tokenBudget: 0,
 		});
 		const agent = agentFactory.createAgent();
@@ -37,10 +35,7 @@ export async function compactCompletedHistory(
 			userQuery: "Write the compacted conversation context now.",
 		});
 		const allowedTokens = referenceTokens(sourceRuns);
-		const summary = enforceTokenAllowlist(
-			extractText(response).trim(),
-			allowedTokens,
-		);
+		const summary = enforceTokenAllowlist(extractText(response).trim(), allowedTokens);
 		if (!summary) throw new Error("Compaction model returned an empty summary");
 		if (!preservesReferenceTokens(summary, allowedTokens)) {
 			throw new Error("Compaction model dropped an artifact reference");

@@ -1,35 +1,31 @@
-import { initializeLogger, logger } from "@fluxify/common";
 import { setJobEnqueuer, setScheduleHorizon, setTriggerPayloadLimit } from "@fluxify/blocks";
-import { createHttpContext } from "./httpContext";
+import { initializeLogger, logger } from "@fluxify/common";
+import { projectSettingsCache } from "../../loaders/projectSettingsLoader";
+import { artifactKind } from "../compiler/subjects";
 import { registerCustomBlockJobHandler } from "../jobs/customBlockJob";
-import { registerWorkflowJobHandler } from "../jobs/workflowJob";
 import { runJob } from "../jobs/registry";
 import type { JobEnvelope } from "../jobs/types";
+import { registerWorkflowJobHandler } from "../jobs/workflowJob";
+import { exportTraceRun, resetProviders } from "../telemetry/destinations";
+import { RouteTraceRecorder, WorkflowTraceRecorder } from "../telemetry/routeRecorder";
+import { triggerPayloadLimit } from "../triggers/payloadLimit";
+import { setTriggerFaultReporter } from "../triggers/queueRuntime.ee";
+import { AsyncExecutor } from "./asyncExecutor";
 import {
 	applyArtifactUpdate,
 	compiledRouteValidators,
 	fromPortal,
-	setTrustedOrigins,
 	initCompiledRuntime,
 	routeParserFor,
 	setBaseDomain,
+	setTrustedOrigins,
 	shutdownCompiledRuntime,
 } from "./compiledRuntime";
-import { dispatch, envelopeFromHttp, type RouteExecutionObserver } from "./service";
-import type {
-	ExecutionBootstrap,
-	ExecutionEvent,
-	ExecutionMessage,
-} from "./threadTypes";
-import { projectSettingsCache } from "../../loaders/projectSettingsLoader";
-import { triggerPayloadLimit } from "../triggers/payloadLimit";
-import { setTriggerFaultReporter } from "../triggers/queueRuntime.ee";
-import { workerTimeoutsEnabled } from "./workerTimeouts";
-import { AsyncExecutor } from "./asyncExecutor";
 import { executionRuntimeEnvironment } from "./executionEnvironment";
-import { RouteTraceRecorder, WorkflowTraceRecorder } from "../telemetry/routeRecorder";
-import { exportTraceRun, resetProviders } from "../telemetry/destinations";
-import { artifactKind } from "../compiler/subjects";
+import { createHttpContext } from "./httpContext";
+import { dispatch, envelopeFromHttp, type RouteExecutionObserver } from "./service";
+import type { ExecutionBootstrap, ExecutionEvent, ExecutionMessage } from "./threadTypes";
+import { workerTimeoutsEnabled } from "./workerTimeouts";
 
 let boot: ExecutionBootstrap | undefined;
 let monitoringEnabled = false;
@@ -179,21 +175,10 @@ async function serveRoute(request: Request): Promise<Response> {
 		const accepted = asyncExecutor?.submit(async () => {
 			// The HTTP response is already a 202. Do not retain the HTTP context or
 			// attempt late cookie/header writes while the detached route runs.
-			await dispatch(
-				env,
-				parser,
-				undefined,
-				observer,
-				compiledRouteValidators,
-				traceFactory,
-			);
+			await dispatch(env, parser, undefined, observer, compiledRouteValidators, traceFactory);
 		});
 		if (!accepted) {
-			return json(
-				{ message: "Async execution capacity is full" },
-				429,
-				ctx.responseHeaders,
-			);
+			return json({ message: "Async execution capacity is full" }, 429, ctx.responseHeaders);
 		}
 		return json({ accepted: true, id: env.trigger.id }, 202, ctx.responseHeaders);
 	}
@@ -203,10 +188,10 @@ async function serveRoute(request: Request): Promise<Response> {
 			env,
 			parser,
 			ctx as any,
-		observer,
-		compiledRouteValidators,
-		traceFactory,
-	);
+			observer,
+			compiledRouteValidators,
+			traceFactory,
+		);
 		return json(response.data, response.status, ctx.responseHeaders);
 	} catch (error) {
 		return json(

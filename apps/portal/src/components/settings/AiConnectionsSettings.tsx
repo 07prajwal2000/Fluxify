@@ -1,10 +1,10 @@
-import { useCallback } from "react";
 import { IntegrationSelector, Spinner, toast } from "@fluxify/components";
 import type { RequestBodySchema } from "@fluxify/server/src/api/v1/projects/settings/keys/upsert/dto";
-import { projectSettingsKeysQuery } from "@/query/projectSettingsKeysQuery";
-import { integrationService } from "@/services/integrations";
+import { useCallback } from "react";
 import { withBasePath } from "@/constants/routes";
 import { showErrorNotification } from "@/lib/errorNotifier";
+import { projectSettingsKeysQuery } from "@/query/projectSettingsKeysQuery";
+import { integrationService } from "@/services/integrations";
 
 export function AiConnectionsSettings({ projectId }: { projectId: string }) {
 	const { data, isLoading } = projectSettingsKeysQuery.getAll.useQuery(projectId);
@@ -30,13 +30,10 @@ export function AiConnectionsSettings({ projectId }: { projectId: string }) {
 					description="Select the AI integration used by the built-in agents and workflow AI nodes."
 					selectedId={settings["settings.ai.agentConnectionId"] || ""}
 					onSelect={(value) =>
-						upsert.mutate(
-							{ key: "settings.ai.agentConnectionId", value } as RequestBodySchema,
-							{
-								onSuccess: () => toast.success("AI connection saved"),
-								onError: (e) => showErrorNotification(e as Error),
-							},
-						)
+						upsert.mutate({ key: "settings.ai.agentConnectionId", value } as RequestBodySchema, {
+							onSuccess: () => toast.success("AI connection saved"),
+							onError: (e) => showErrorNotification(e as Error),
+						})
 					}
 				/>
 			)}
@@ -58,8 +55,7 @@ function AiSelector({
 	onSelect: (value: string) => void;
 }) {
 	const loadIntegrations = useCallback(
-		async () =>
-			(await integrationService.getAll(projectId, "ai")) ?? [],
+		async () => (await integrationService.getAll(projectId, "ai")) ?? [],
 		[projectId],
 	);
 
@@ -72,9 +68,7 @@ function AiSelector({
 			loadIntegrations={loadIntegrations}
 			onSelect={onSelect}
 			onTestConnection={(id) =>
-				integrationService
-					.testExistingConnection(projectId, id)
-					.then(() => {})
+				integrationService.testExistingConnection(projectId, id).then(() => {})
 			}
 			openInNewTabUrl={withBasePath(
 				`/${projectId}/integrations?group=ai${selectedId ? `&open=${encodeURIComponent(selectedId)}` : ""}`,

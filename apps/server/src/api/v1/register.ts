@@ -1,14 +1,14 @@
 import { openAPIRouteHandler } from "hono-openapi";
-import routes from "./routes/register";
-import workflows from "./workflows/register";
-import triggers from "./triggers/register";
-import projects from "./projects/register";
+import type { HonoServer } from "../../types";
 import appConfig from "./app-config/register";
-import integrations from "./integrations/register";
-import testSuites from "./test-suites/register";
 import customBlocks from "./custom-blocks/register";
 import instanceSettings from "./instance-settings/register";
-import { HonoServer } from "../../types";
+import integrations from "./integrations/register";
+import projects from "./projects/register";
+import routes from "./routes/register";
+import testSuites from "./test-suites/register";
+import triggers from "./triggers/register";
+import workflows from "./workflows/register";
 
 export default {
 	name: "v1",

@@ -1,5 +1,5 @@
 import type z from "zod";
-import { emitJsObject, type EmitNode } from "../../compiler";
+import { type EmitNode, emitJsObject } from "../../compiler";
 import { parseSqlTemplate } from "./rawCondition";
 import type { whereConditionSchema } from "./schema";
 
@@ -42,8 +42,6 @@ export function emitWhereConditions(
 function emitRawCondition(raw: string, node: EmitNode) {
 	if (raw.startsWith("js:")) return node.value(raw);
 	const { strings, expressions } = parseSqlTemplate(raw);
-	const values = expressions.map((expression) =>
-		node.js(`return (${expression});`, node.in),
-	);
+	const values = expressions.map((expression) => node.js(`return (${expression});`, node.in));
 	return `{ strings: ${JSON.stringify(strings)}, values: [${values.join(", ")}] }`;
 }

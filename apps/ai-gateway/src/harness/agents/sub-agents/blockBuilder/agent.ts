@@ -1,34 +1,28 @@
 import { logger } from "@fluxify/common";
 import { generateID, resolveCustomBlockName } from "@fluxify/lib";
 import type { z } from "zod";
-import { BaseAgent } from "../../base";
-import { type GlobalGraphState, type Task, AgentNode } from "../../../types";
+import { getDocsByTitle } from "../../../../db/vector";
 import { dispatchAgentEvent } from "../../../callbacks";
-import { searchDocsTool } from "../../../tools/searchDocs";
-import { createGetRouteDetailsTool } from "../../../tools/getRouteDetails";
-import { createFindResourceTool } from "../../../tools/findResource";
-import { createGetCustomBlockSchemasTool } from "../../../tools/getBlockSchemas";
-import { createGetAgentOutputTool } from "../../../tools/getAgentOutput";
-import { fenceUntrusted } from "../../../internal/untrusted";
 import { buildAgentContext } from "../../../internal/agentContext";
-import {
-	buildTargetCanvasContext,
-	targetCanvasInContext,
-} from "../../../internal/targetCanvas";
-import { blockBuilderSchema } from "./schemas";
-import { validateBlockBuilderOutput } from "./validator";
-import {
-	pendingCustomBlocks,
-	type PendingCustomBlock,
-} from "./pendingCustomBlocks";
-import { staticResponseTemplate } from "./templates";
+import { buildTargetCanvasContext, targetCanvasInContext } from "../../../internal/targetCanvas";
+import { fenceUntrusted } from "../../../internal/untrusted";
+import { createFindResourceTool } from "../../../tools/findResource";
+import { createGetAgentOutputTool } from "../../../tools/getAgentOutput";
+import { createGetCustomBlockSchemasTool } from "../../../tools/getBlockSchemas";
+import { createGetRouteDetailsTool } from "../../../tools/getRouteDetails";
+import { searchDocsTool } from "../../../tools/searchDocs";
+import { AgentNode, type GlobalGraphState, type Task } from "../../../types";
+import { BaseAgent } from "../../base";
+import { type PendingCustomBlock, pendingCustomBlocks } from "./pendingCustomBlocks";
 import {
 	createBlocksTable,
 	createSystemPrompt,
 	createUserQuery,
 	PREFETCH_DOC_TITLES,
 } from "./promptHelpers";
-import { getDocsByTitle } from "../../../../db/vector";
+import { blockBuilderSchema } from "./schemas";
+import { staticResponseTemplate } from "./templates";
+import { validateBlockBuilderOutput } from "./validator";
 
 export class BlockBuilderAgent extends BaseAgent {
 	constructor(state: GlobalGraphState) {
@@ -44,15 +38,10 @@ export class BlockBuilderAgent extends BaseAgent {
 	 */
 	private async reconcileRouteTarget<
 		T extends { targetType?: string | null; targetId?: string | null },
-	>(
-		result: T,
-		projectId: string,
-	): Promise<T> {
+	>(result: T, projectId: string): Promise<T> {
 		if (result.targetType !== "route" || !result.targetId) return result;
 
-		const plannedRouteIds = Object.values(
-			this.state.orchestratorState?.subAgentResults ?? {},
-		)
+		const plannedRouteIds = Object.values(this.state.orchestratorState?.subAgentResults ?? {})
 			.map((value) => (value as { routeId?: string; action?: string }) ?? {})
 			.filter((value) => value.routeId && value.action !== "delete")
 			.map((value) => value.routeId as string);
@@ -61,10 +50,7 @@ export class BlockBuilderAgent extends BaseAgent {
 		if (plannedRouteIds.length !== 1) return result;
 
 		// an id this run did not plan is still fine if the project really has it
-		const live = await this.state.internal?.dbService?.getRouteDetails(
-			projectId,
-			result.targetId,
-		);
+		const live = await this.state.internal?.dbService?.getRouteDetails(projectId, result.targetId);
 		if (live) return result;
 
 		logger.warn("[BlockBuilder] Re-pointing canvas target at the route this run created", {
@@ -104,10 +90,7 @@ export class BlockBuilderAgent extends BaseAgent {
 
 		if (value && typeof value === "object") {
 			return Object.fromEntries(
-				Object.entries(value).map(([key, item]) => [
-					key,
-					this.replaceShortIds(item, shortIdMap),
-				]),
+				Object.entries(value).map(([key, item]) => [key, this.replaceShortIds(item, shortIdMap)]),
 			) as T;
 		}
 
@@ -122,8 +105,7 @@ export class BlockBuilderAgent extends BaseAgent {
 	private async getCustomBlocksInfo(
 		projectId: string,
 	): Promise<{ table: string; names: string[] }> {
-		const customBlocks =
-			await this.state.internal.dbService.getAllCustomBlocks(projectId);
+		const customBlocks = await this.state.internal.dbService.getAllCustomBlocks(projectId);
 		const names = customBlocks.map(({ name }: { name: string }) => name);
 
 		if (customBlocks.length === 0) {
@@ -213,11 +195,7 @@ export class BlockBuilderAgent extends BaseAgent {
 		);
 		if (!templated) return null;
 
-		const error = await validateBlockBuilderOutput(
-			templated,
-			activeTask.id,
-			this.state,
-		);
+		const error = await validateBlockBuilderOutput(templated, activeTask.id, this.state);
 		if (!error) {
 			logger.info("[BlockBuilder] Built from a template, skipping the model", {
 				taskId: activeTask.id,
@@ -259,9 +237,7 @@ export class BlockBuilderAgent extends BaseAgent {
 			subAgentResults: this.state.orchestratorState?.subAgentResults,
 			targetCanvas,
 		});
-		const prefetchedDocs = prefetchedDocsResult
-			.map((doc) => doc.content)
-			.join("\n\n---\n\n");
+		const prefetchedDocs = prefetchedDocsResult.map((doc) => doc.content).join("\n\n---\n\n");
 		const systemPrompt = createSystemPrompt(
 			customBlocksTable,
 			prefetchedDocs,
@@ -289,19 +265,15 @@ export class BlockBuilderAgent extends BaseAgent {
 							this.state.internal?.metadata || {},
 						),
 					]),
-			createFindResourceTool(
-				this.state.internal.dbService,
-				this.state.internal?.metadata || {},
-				{ withoutCanvasLookup: canvasInContext },
-			),
+			createFindResourceTool(this.state.internal.dbService, this.state.internal?.metadata || {}, {
+				withoutCanvasLookup: canvasInContext,
+			}),
 			createGetCustomBlockSchemasTool(
 				this.state.internal.dbService,
 				projectId,
 				new Map(pending.map((block) => [block.name, block.inputParams])),
 			),
-			createGetAgentOutputTool(
-				this.state.orchestratorState?.subAgentResults || {},
-			),
+			createGetAgentOutputTool(this.state.orchestratorState?.subAgentResults || {}),
 		];
 
 		const response = (await this.state.agentWrapper.invokeAgent({

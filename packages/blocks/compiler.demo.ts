@@ -5,9 +5,10 @@
  * Builds a small graph, prints the JavaScript the compiler produced for it,
  * then runs that JavaScript against a real Context.
  */
-import { compileGraph } from "./compiler";
+
 import { BlockTypes } from "./blockTypes";
 import type { BlockDTOType, EdgeDTOSchemaType } from "./builderTypes";
+import { compileGraph } from "./compiler";
 
 const block = (id: string, type: BlockTypes, data: any = {}): BlockDTOType => ({
 	id,
@@ -76,8 +77,7 @@ run(ctx, requestBody).then((result) => {
 	console.log("result :", JSON.stringify(result));
 
 	// 125 total -> over 100 so 10% off -> 112.5 -> rounded 113
-	if (result.output.body !== 113)
-		throw new Error(`expected 113, got ${result.output.body}`);
+	if (result.output.body !== 113) throw new Error(`expected 113, got ${result.output.body}`);
 	if (vars.never !== undefined) throw new Error("orphan block ran");
 	console.log("\nok");
 });

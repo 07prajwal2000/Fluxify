@@ -8,15 +8,8 @@ import {
 } from "@fluxify/blocks";
 import { logger } from "@fluxify/common";
 import { type HttpRoute, HttpRouteParser } from "@fluxify/lib";
-import {
-	DEFAULT_BASE_DOMAIN,
-	isPortalOrigin,
-	subdomainOf,
-} from "../../lib/hosting";
-import {
-	type CompiledRequestSchema,
-	compileRequestSchema,
-} from "../../lib/schemaParser";
+import { DEFAULT_BASE_DOMAIN, isPortalOrigin, subdomainOf } from "../../lib/hosting";
+import { type CompiledRequestSchema, compileRequestSchema } from "../../lib/schemaParser";
 import { hydrateAppConfig } from "../../loaders/appconfigLoader";
 import {
 	dbIntegrationsCache,
@@ -102,10 +95,7 @@ let configuredBaseDomain = "";
  * other name pointed here — gets the shared trie.
  */
 export function routeParserFor(host: string | undefined): HttpRouteParser {
-	const subdomain = subdomainOf(
-		host,
-		configuredBaseDomain || DEFAULT_BASE_DOMAIN,
-	);
+	const subdomain = subdomainOf(host, configuredBaseDomain || DEFAULT_BASE_DOMAIN);
 	if (subdomain === null) return parser;
 	const projectId = projectBySubdomain.get(subdomain);
 	return (projectId && projectParsers.get(projectId)) || NO_ROUTES;
@@ -129,24 +119,17 @@ export function fromPortal(origin: string | null) {
 }
 
 /** The compiled workflow a job handler runs, or undefined if this worker has none. */
-export function compiledWorkflow(
-	workflowId: string,
-): CompiledWorkflow | undefined {
+export function compiledWorkflow(workflowId: string): CompiledWorkflow | undefined {
 	return workflows.get(workflowId);
 }
 
 /** Cached alongside the compiled graph; no Zod tree is rebuilt per request. */
-export function compiledRouteValidators(
-	routeId: string,
-): RouteValidators | undefined {
+export function compiledRouteValidators(routeId: string): RouteValidators | undefined {
 	return routes.get(routeId)?.validators;
 }
 
 /** Builds the runtime from the artifact set handed over at spawn. */
-export function initCompiledRuntime(
-	entries: ArtifactEntry[],
-	databaseIdleTimeoutMs?: number,
-) {
+export function initCompiledRuntime(entries: ArtifactEntry[], databaseIdleTimeoutMs?: number) {
 	dbConnectionManager = new DbConnectionManager(undefined, {
 		idleTimeoutMs: databaseIdleTimeoutMs,
 	});
@@ -196,9 +179,7 @@ export async function shutdownCompiledRuntime() {
 function applyArtifact(key: string, value: any | null) {
 	switch (artifactKind(key)) {
 		case "route":
-			return value
-				? addRoute(value as RouteArtifact)
-				: removeRoute(artifactId(key));
+			return value ? addRoute(value as RouteArtifact) : removeRoute(artifactId(key));
 		case "custom-block":
 			return value
 				? addCustomBlock(value as CustomBlockArtifact)
@@ -212,14 +193,12 @@ function applyArtifact(key: string, value: any | null) {
 				? applyProjectConfig(value as UnsealedProjectConfig)
 				: setProjectSubdomain(key.split(".")[1]!, "");
 		case "trigger":
-			return void applyQueueTrigger(
-				artifactId(key),
-				value as TriggerArtifact | null,
-			).catch((error) =>
-				logger.error(
-					`[worker] failed to apply trigger ${key}: ${String(error)}`,
-					"WORKER.compiled",
-				),
+			return void applyQueueTrigger(artifactId(key), value as TriggerArtifact | null).catch(
+				(error) =>
+					logger.error(
+						`[worker] failed to apply trigger ${key}: ${String(error)}`,
+						"WORKER.compiled",
+					),
 			);
 	}
 }
@@ -234,13 +213,9 @@ function addRoute(artifact: RouteArtifact) {
 		const definition = routeDefinition(artifact);
 		projectParser(artifact.projectId).upsertRoute(definition);
 		// with a subdomain the project answers there and nowhere else
-		if (subdomainByProject.has(artifact.projectId))
-			parser.removeRoute(artifact.routeId);
+		if (subdomainByProject.has(artifact.projectId)) parser.removeRoute(artifact.routeId);
 		else parser.upsertRoute(definition);
-		logger.info(
-			`[worker] loaded ${artifact.method} ${artifact.path}`,
-			"WORKER.compiled",
-		);
+		logger.info(`[worker] loaded ${artifact.method} ${artifact.path}`, "WORKER.compiled");
 	} catch (error) {
 		// a graph that will not instantiate must not take the other routes down
 		logger.error(
@@ -347,10 +322,7 @@ function addCustomBlock(artifact: CustomBlockArtifact) {
 	try {
 		registerCompiledCustomBlock(artifact.name, artifact.source);
 		customBlockNamesById.set(artifact.id, artifact.name);
-		logger.info(
-			`[worker] loaded custom block ${artifact.name}`,
-			"WORKER.compiled",
-		);
+		logger.info(`[worker] loaded custom block ${artifact.name}`, "WORKER.compiled");
 	} catch (error) {
 		logger.error(
 			`[worker] failed to load custom block ${artifact.id}: ${String(error)}`,
@@ -391,8 +363,5 @@ function applyProjectConfig(artifact: UnsealedProjectConfig) {
 		artifact.projectId,
 		payload.projectSettings?.["settings.routing.subdomain"] ?? "",
 	);
-	logger.info(
-		`[worker] project config applied (${artifact.compiledAt})`,
-		"WORKER.compiled",
-	);
+	logger.info(`[worker] project config applied (${artifact.compiledAt})`, "WORKER.compiled");
 }

@@ -1,6 +1,6 @@
 import { Chip, Spinner } from "@fluxify/components";
 import type { OrchestrationEvent } from "@/services/orchestration";
-import { ACTION_LABEL, REASON_LABEL, ago } from "./copy";
+import { ACTION_LABEL, ago, REASON_LABEL } from "./copy";
 
 /**
  * What the orchestrator has actually done, newest first.
@@ -47,9 +47,7 @@ export function EventLog({
 									</Chip>
 								)}
 								{showProject && (
-									<span className="text-xs text-muted">
-										{event.projectId ?? "every project"}
-									</span>
+									<span className="text-xs text-muted">{event.projectId ?? "every project"}</span>
 								)}
 							</div>
 							{event.nodeId && (

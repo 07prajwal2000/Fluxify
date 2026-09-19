@@ -57,8 +57,7 @@ export function ObservabilityForm({
 		password?: string;
 	};
 	const grpc = supportsGrpc && config.protocol === "grpc";
-	const tlsMode =
-		(config.tlsMode as "none" | "tls" | "mtls" | undefined) ?? "tls";
+	const tlsMode = (config.tlsMode as "none" | "tls" | "mtls" | undefined) ?? "tls";
 	const field = (key: string) => (config[key] as string) ?? "";
 
 	return (
@@ -146,10 +145,7 @@ export function ObservabilityForm({
 				options={{ base64: "Base64 Encoded", credentials: "Credentials" }}
 				value={isCredentials ? "credentials" : "base64"}
 				onChange={(v) =>
-					setField(
-						"credentials",
-						v === "credentials" ? { username: "", password: "" } : "",
-					)
+					setField("credentials", v === "credentials" ? { username: "", password: "" } : "")
 				}
 			/>
 

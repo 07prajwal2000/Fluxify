@@ -1,13 +1,11 @@
-import { getCache, deleteCacheKey } from "../../db/redis";
-import { User } from "better-auth";
-import { AccessControlRole, AuthACL } from "../../db/schema";
+import type { User } from "better-auth";
+import { deleteCacheKey, getCache } from "../../db/redis";
+import type { AccessControlRole, AuthACL } from "../../db/schema";
 import { canAccess, canAccessProject } from "../../lib/acl";
 import { auth } from "../../lib/auth";
 
 export async function revokeSessions(userId: string) {
-	const sessions = JSON.parse(
-		(await getCache(`active-sessions-${userId}`)) || "[]",
-	) as {
+	const sessions = JSON.parse((await getCache(`active-sessions-${userId}`)) || "[]") as {
 		token: string;
 	}[];
 	for (const session of sessions) {

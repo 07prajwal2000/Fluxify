@@ -1,5 +1,5 @@
+import { Chip, cn, Tooltip } from "@fluxify/components";
 import type { ReactNode } from "react";
-import { Chip, Tooltip, cn } from "@fluxify/components";
 import { TbLock } from "react-icons/tb";
 import { publicSettingsQuery } from "@/query/publicSettingsQuery";
 

@@ -1,15 +1,15 @@
-import { BlockTypes } from "../../blockTypes";
-import z from "zod";
-import { baseBlockDataSchema, Context } from "../../baseBlock";
 import type { IDbAdapter } from "@fluxify/adapters";
+import z from "zod";
+import { baseBlockDataSchema, type Context } from "../../baseBlock";
+import { BlockTypes } from "../../blockTypes";
+import { type EmitNode, emitJsObject } from "../../compiler";
+import { emitWhereConditions } from "./emitConditions";
 import {
 	adapterFor,
 	dbFailure,
 	dbWhereConditionsDescription,
 	whereConditionSchema,
 } from "./schema";
-import { emitWhereConditions } from "./emitConditions";
-import { emitJsObject, type EmitNode } from "../../compiler";
 
 export const updateDbBlockSchema = z
 	.object({
@@ -20,13 +20,7 @@ export const updateDbBlockSchema = z
 			source: z.enum(["raw", "js"]).describe("source of the value"),
 			value: z
 				.object()
-				.or(
-					z
-						.string()
-						.describe(
-							"value to insert (object values can be js expression as string)",
-						),
-				),
+				.or(z.string().describe("value to insert (object values can be js expression as string)")),
 		}),
 		useParam: z.boolean().describe("use parameter"),
 	})
@@ -34,8 +28,7 @@ export const updateDbBlockSchema = z
 
 export const updateDbAiDescription = {
 	name: BlockTypes.db_update,
-	description:
-		"Updates records in a database table matching specific conditions.",
+	description: "Updates records in a database table matching specific conditions.",
 	jsonSchema: JSON.stringify(z.toJSONSchema(updateDbBlockSchema)),
 };
 
@@ -47,11 +40,7 @@ export async function runUpdateDb(
 	conditions: z.infer<typeof whereConditionSchema>[],
 ) {
 	try {
-		return await adapterFor(context, connection).update(
-			tableName,
-			data,
-			conditions,
-		);
+		return await adapterFor(context, connection).update(tableName, data, conditions);
 	} catch (error) {
 		dbFailure("update", error);
 	}

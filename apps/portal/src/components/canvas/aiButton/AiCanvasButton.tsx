@@ -1,6 +1,6 @@
 import { Button } from "@fluxify/components";
-import { TbSparkles } from "react-icons/tb";
 import clsx from "clsx";
+import { TbSparkles } from "react-icons/tb";
 import "./aiCanvasButton.css";
 
 export type AiCanvasButtonProps = {

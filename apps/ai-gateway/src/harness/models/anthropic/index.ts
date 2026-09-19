@@ -1,11 +1,7 @@
-import { BaseChatModel } from "@langchain/core/language_models/chat_models";
-import { SystemMessage } from "@langchain/core/messages";
 import { ChatAnthropic } from "@langchain/anthropic";
-import {
-	BaseAgentWrapper,
-	HARNESS_MAX_TOKENS,
-	HARNESS_TEMPERATURE,
-} from "../base";
+import type { BaseChatModel } from "@langchain/core/language_models/chat_models";
+import { SystemMessage } from "@langchain/core/messages";
+import { BaseAgentWrapper, HARNESS_MAX_TOKENS, HARNESS_TEMPERATURE } from "../base";
 
 export class AnthropicAgentWrapper extends BaseAgentWrapper {
 	private baseUrl?: string;
@@ -33,9 +29,7 @@ export class AnthropicAgentWrapper extends BaseAgentWrapper {
 	 */
 	protected buildSystemMessage(text: string): SystemMessage {
 		return new SystemMessage({
-			content: [
-				{ type: "text", text, cache_control: { type: "ephemeral" } },
-			],
+			content: [{ type: "text", text, cache_control: { type: "ephemeral" } }],
 		});
 	}
 

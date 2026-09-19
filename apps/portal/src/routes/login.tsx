@@ -1,21 +1,21 @@
-import { useState } from "react";
-import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
-import { z } from "zod";
 import {
 	Button,
 	Card,
-	TextField,
-	Label,
-	Input,
 	FieldError,
+	Input,
+	Label,
 	Separator,
+	TextField,
 	toast,
 } from "@fluxify/components";
+import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
 import { isAxiosError } from "axios";
-import { authClient } from "@/lib/auth";
-import { showErrorNotification } from "@/lib/errorNotifier";
+import { useState } from "react";
+import { z } from "zod";
 import { BASE_PATH } from "@/constants/routes";
 import { usePublicSettings } from "@/hooks/usePublicSettings";
+import { authClient } from "@/lib/auth";
+import { showErrorNotification } from "@/lib/errorNotifier";
 import { createRouteHead } from "@/lib/seo";
 
 const logo = `${import.meta.env.BASE_URL}icons/logo.svg`;
@@ -61,9 +61,7 @@ function LoginForm() {
 	const [showEmailForm, setShowEmailForm] = useState(false);
 	const [email, setEmail] = useState("");
 	const [password, setPassword] = useState("");
-	const [errors, setErrors] = useState<{ email?: string; password?: string }>(
-		{},
-	);
+	const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
 	const [loading, setLoading] = useState(false);
 	const ssoError = errorCode
 		? (SSO_ERROR_MESSAGES[errorCode] ??
@@ -90,8 +88,7 @@ function LoginForm() {
 		} catch (error) {
 			if (isAxiosError(error) && error.response?.data?.type === "validation") {
 				const fieldErrors: Record<string, string> = {};
-				for (const err of error.response.data.errors)
-					fieldErrors[err.field] = err.message;
+				for (const err of error.response.data.errors) fieldErrors[err.field] = err.message;
 				setErrors(fieldErrors);
 			} else {
 				showErrorNotification(error as Error, false);
@@ -108,10 +105,7 @@ function LoginForm() {
 			const callback = next
 				? `${baseUrl}${next.startsWith("/") ? next : `/${next}`}`
 				: import.meta.env.BASE_URL;
-			const errorCallbackURL = new URL(
-				`${BASE_PATH}/login`,
-				window.location.origin,
-			).toString();
+			const errorCallbackURL = new URL(`${BASE_PATH}/login`, window.location.origin).toString();
 
 			const result = await authClient.signIn.sso({
 				providerId: ssoConfig?.providerId ?? "enterprise",
@@ -132,21 +126,11 @@ function LoginForm() {
 		<div className="flex flex-col gap-8">
 			<div className="flex flex-col items-center gap-1 text-center mb-2">
 				<div className="flex items-center justify-center gap-3 mb-2">
-					<img
-						src={logo}
-						alt="Fluxify Logo"
-						className="h-20 w-20 object-contain"
-					/>
-					<span className="text-2xl font-bold tracking-widest text-foreground">
-						FLUXIFY
-					</span>
+					<img src={logo} alt="Fluxify Logo" className="h-20 w-20 object-contain" />
+					<span className="text-2xl font-bold tracking-widest text-foreground">FLUXIFY</span>
 				</div>
-				<h1 className="text-xl font-semibold tracking-tight text-foreground">
-					Welcome back
-				</h1>
-				<p className="text-sm text-muted">
-					Sign in to your account to continue
-				</p>
+				<h1 className="text-xl font-semibold tracking-tight text-foreground">Welcome back</h1>
+				<p className="text-sm text-muted">Sign in to your account to continue</p>
 			</div>
 
 			{isSsoEnabled && license?.status === "expired" ? (
@@ -224,12 +208,7 @@ function LoginForm() {
 					</div>
 
 					<div className="flex flex-col gap-3">
-						<Button
-							type="submit"
-							variant="primary"
-							fullWidth
-							isPending={loading}
-						>
+						<Button type="submit" variant="primary" fullWidth isPending={loading}>
 							Sign In
 						</Button>
 

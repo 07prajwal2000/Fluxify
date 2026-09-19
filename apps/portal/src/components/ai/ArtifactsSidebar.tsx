@@ -21,12 +21,11 @@ import {
 function DependencyChain({ subArtifactId }: { subArtifactId: string }) {
 	const { projectId, conversationId } = useArtifactParams();
 	const setSelectedArtifact = useAiHarnessStore((s) => s.setSelectedArtifact);
-	const { data: detail } =
-		harnessConversationsQuery.subArtifacts.useDetailQuery(
-			projectId,
-			conversationId,
-			subArtifactId,
-		);
+	const { data: detail } = harnessConversationsQuery.subArtifacts.useDetailQuery(
+		projectId,
+		conversationId,
+		subArtifactId,
+	);
 	const chain = useDependencyChain(detail);
 	if (chain.length === 0) return null;
 
@@ -82,24 +81,13 @@ export function ArtifactsSidebar() {
 				</div>
 
 				<div className="flex-1 overflow-y-auto p-4 custom-scrollbar">
-					{selectedArtifact && (
-						<DependencyChain subArtifactId={selectedArtifact.id} />
-					)}
+					{selectedArtifact && <DependencyChain subArtifactId={selectedArtifact.id} />}
 					{selectedArtifact?.type.startsWith("Route ") ? (
-						<RouteArtifact
-							key={selectedArtifact.id}
-							subArtifactId={selectedArtifact.id}
-						/>
+						<RouteArtifact key={selectedArtifact.id} subArtifactId={selectedArtifact.id} />
 					) : selectedArtifact?.type.startsWith("Canvas Changes") ? (
-						<CanvasArtifact
-							key={selectedArtifact.id}
-							subArtifactId={selectedArtifact.id}
-						/>
+						<CanvasArtifact key={selectedArtifact.id} subArtifactId={selectedArtifact.id} />
 					) : selectedArtifact?.type.startsWith("Custom Block ") ? (
-						<CustomBlockArtifact
-							key={selectedArtifact.id}
-							subArtifactId={selectedArtifact.id}
-						/>
+						<CustomBlockArtifact key={selectedArtifact.id} subArtifactId={selectedArtifact.id} />
 					) : (
 						selectedArtifact && (
 							<div className="flex flex-col gap-5">

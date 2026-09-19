@@ -1,18 +1,15 @@
-import { z } from "zod";
 import { generateID } from "@fluxify/lib";
+import type { z } from "zod";
 import { db } from "../../../db";
-import { AuthACL } from "../../../db/schema";
-import { canAccessProject } from "../../../lib/acl";
+import type { AuthACL } from "../../../db/schema";
 import { BadRequestError } from "../../../errors/badRequestError";
 import { ConflictError } from "../../../errors/conflictError";
 import { ForbiddenError } from "../../../errors/forbidError";
 import { NotFoundError } from "../../../errors/notFoundError";
+import { canAccessProject } from "../../../lib/acl";
+import { recordGroupRemoval, removeGroupFromClaims } from "../../../modules/orchestrator/claims";
 import { removeSchedule } from "../../../modules/schedules/reconciler";
-import {
-	recordGroupRemoval,
-	removeGroupFromClaims,
-} from "../../../modules/orchestrator/claims";
-import {
+import type {
 	createGroupSchema,
 	deleteGroupQuerySchema,
 	groupSchema,
@@ -76,8 +73,7 @@ export async function updateTriggerGroup(
 	if (!group) throw new NotFoundError("Trigger group not found");
 	if (!canAccessProject(acl, group.projectId, "creator")) throw new ForbiddenError();
 	if (group.isDefault) throw new BadRequestError("The default group cannot be edited");
-	if (data.name && data.name !== group.name)
-		await assertGroupNameFree(group.projectId, data.name);
+	if (data.name && data.name !== group.name) await assertGroupNameFree(group.projectId, data.name);
 	await updateGroupRow(id, data);
 	return { id };
 }
@@ -98,8 +94,7 @@ export async function deleteTriggerGroup(
 	if (!canAccessProject(acl, group.projectId, "creator")) throw new ForbiddenError();
 	// The default is where an ungrouped trigger lands. Without it, creating a
 	// trigger has nowhere to put it.
-	if (group.isDefault)
-		throw new BadRequestError("The default group cannot be deleted");
+	if (group.isDefault) throw new BadRequestError("The default group cannot be deleted");
 	if (options.triggers === "move" && options.moveTo === id)
 		throw new BadRequestError("Move the triggers to a different group");
 

@@ -1,14 +1,10 @@
-import {
-	Description,
-	JavaScriptTextArea,
-	Label,
-} from "@fluxify/components";
+import { Description, JavaScriptTextArea, Label } from "@fluxify/components";
 import { useReactFlow } from "@xyflow/react";
 import { TbCode } from "react-icons/tb";
 import { useCanvasChanges } from "../../../changes/ChangesContext";
+import type { BlockNode } from "../../../types";
 import { BlockSettings } from "../../BlockSettings";
 import { BlockIntegrationField } from "../../fields";
-import type { BlockNode } from "../../../types";
 
 /** General tab: Connection selection */
 export function NativeDbGeneralSettings({ block }: { block: BlockNode }) {
@@ -47,9 +43,8 @@ export function NativeDbCodeSettings({ block }: { block: BlockNode }) {
 					<code className="font-mono text-foreground font-semibold px-1 py-0.5 rounded bg-[var(--background-tertiary,#27272a)]">
 						await dbQuery(query, params)
 					</code>{" "}
-					to execute raw queries on the selected database adapter. It returns
-					the rows. Pass values in params with $1 (PostgreSQL) or ? (MySQL)
-					placeholders.
+					to execute raw queries on the selected database adapter. It returns the rows. Pass values
+					in params with $1 (PostgreSQL) or ? (MySQL) placeholders.
 				</div>
 			</div>
 

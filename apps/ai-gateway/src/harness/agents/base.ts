@@ -1,11 +1,11 @@
 import type { GlobalGraphState } from "../types";
 
 export abstract class BaseAgent {
-  protected state: GlobalGraphState;
+	protected state: GlobalGraphState;
 
-  constructor(state: GlobalGraphState) {
-    this.state = state;
-  }
+	constructor(state: GlobalGraphState) {
+		this.state = state;
+	}
 
-  abstract execute(): Promise<Partial<GlobalGraphState>>;
+	abstract execute(): Promise<Partial<GlobalGraphState>>;
 }

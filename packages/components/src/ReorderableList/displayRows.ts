@@ -31,7 +31,9 @@ export function displayRows<T>(
 
 	const { from, over } = drag;
 	const pinned = (index: number) => !!isItemPinned && isItemPinned(items[index]);
-	const others = items.map((item, index) => ({ item, index })).filter(({ index }) => index !== from);
+	const others = items
+		.map((item, index) => ({ item, index }))
+		.filter(({ index }) => index !== from);
 
 	if (pinned(from)) {
 		// the pinned row stays put, dimmed; the placeholder shows where it will land

@@ -4,19 +4,19 @@ export {
 	useCanvasChanges,
 } from "./ChangesContext";
 export {
-	cloneChangeSet,
-	createChangeTracker,
 	type ChangeAction,
 	type ChangeSet,
 	type ChangeTracker,
+	cloneChangeSet,
+	createChangeTracker,
 	type KnownIds,
 } from "./changeTracker";
-export { buildSavePayload, type CanvasSavePayload } from "./savePayload";
 export {
-	repairSavePayload,
-	saveWithDoctor,
 	type RepairReport,
+	repairSavePayload,
 	type SaveOutcome,
 	type SaveWithDoctorOptions,
+	saveWithDoctor,
 } from "./saveDoctor";
-export { useChangeTracker, type CanvasChanges } from "./useChangeTracker";
+export { buildSavePayload, type CanvasSavePayload } from "./savePayload";
+export { type CanvasChanges, useChangeTracker } from "./useChangeTracker";

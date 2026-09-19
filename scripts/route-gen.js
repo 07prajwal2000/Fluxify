@@ -9,23 +9,28 @@ const routeName = process.argv[3];
 let version = Number(process.argv[4]);
 const packageName = process.argv[5] || "server";
 if (moduleName == "help") {
-  console.log("run 'node script.js module-name route-name'");
-  process.exit(0);
+	console.log("run 'node script.js module-name route-name'");
+	process.exit(0);
 }
 
 if (isNaN(version) || version < 1) version = 1;
 
-const newPath = path.join(scriptPath, `../../apps/${packageName}/src/api/v${version}`, moduleName, routeName);
+const newPath = path.join(
+	scriptPath,
+	`../../apps/${packageName}/src/api/v${version}`,
+	moduleName,
+	routeName,
+);
 
 if (!routeName || !moduleName) {
-  console.error("no route name provided");
+	console.error("no route name provided");
 } else {
-  console.log("creating path:", newPath);
-  fs.mkdirSync(newPath, { recursive: true });
-  const files = [
-    {
-      filename: "route.ts",
-      content: `import { Hono } from "hono";
+	console.log("creating path:", newPath);
+	fs.mkdirSync(newPath, { recursive: true });
+	const files = [
+		{
+			filename: "route.ts",
+			content: `import { Hono } from "hono";
 import {
   describeRoute,
   type DescribeRouteOptions,
@@ -60,52 +65,48 @@ export default function (app: Hono) {
   );
 }
 `,
-    },
-    {
-      filename: "service.ts",
-      content: `import { z } from "zod";
+		},
+		{
+			filename: "service.ts",
+			content: `import { z } from "zod";
 import { responseSchema } from "./dto";
 
 export default function handleRequest(): Promise<z.infer<typeof responseSchema>> {
   return {} as any;
 }
       `,
-    },
-    {
-      filename: "dto.ts",
-      content: `import { z } from "zod";
+		},
+		{
+			filename: "dto.ts",
+			content: `import { z } from "zod";
 
 export const responseSchema = z.object({});`,
-    },
-    {
-      filename: "repository.ts",
-      content: `// repository code goes here`,
-    },
-    {
-      filename: `tests/${routeName}.spec.ts`,
-      content: `import { describe, it } from "bun:test";
+		},
+		{
+			filename: "repository.ts",
+			content: `// repository code goes here`,
+		},
+		{
+			filename: `tests/${routeName}.spec.ts`,
+			content: `import { describe, it } from "bun:test";
 
 describe("unit tests for ${routeName}", () => {
   it("test 01", () => {});
-});`
-    },
-    {
-      filename: `tests/${routeName}.test.ts`,
-      content: `import { describe, it } from "bun:test";
+});`,
+		},
+		{
+			filename: `tests/${routeName}.test.ts`,
+			content: `import { describe, it } from "bun:test";
 
 describe("integration tests for ${routeName}", () => {
   it("test 01", () => {});
-});`
-    },
-  ];
-  files.forEach((file) => {
-    if (!fs.existsSync(path.join(newPath, file.filename, "../"))) {
-      fs.mkdirSync(path.join(newPath, file.filename, "../"));
-    }
-    fs.writeFileSync(
-      path.join(newPath, file.filename),
-      file.content,
-      { mode: 0o777 }
-    );
-  });
+});`,
+		},
+	];
+	files.forEach((file) => {
+		if (!fs.existsSync(path.join(newPath, file.filename, "../"))) {
+			fs.mkdirSync(path.join(newPath, file.filename, "../"));
+		}
+		fs.writeFileSync(path.join(newPath, file.filename), file.content, { mode: 0o777 });
+	});
 }

@@ -8,12 +8,7 @@ interface JsonCollectionShellProps {
 	children: ReactNode;
 }
 
-export function JsonCollectionShell({
-	type,
-	count,
-	depth,
-	children,
-}: JsonCollectionShellProps) {
+export function JsonCollectionShell({ type, count, depth, children }: JsonCollectionShellProps) {
 	const isObject = type === "object";
 	const openingToken = isObject ? "{" : "[";
 	const closingToken = isObject ? "}" : "]";
@@ -24,9 +19,7 @@ export function JsonCollectionShell({
 			<span aria-hidden="true" className="font-mono text-xs font-semibold text-muted">
 				{openingToken}
 			</span>
-			<div className="flex flex-col gap-2 border-l border-border pl-3">
-				{children}
-			</div>
+			<div className="flex flex-col gap-2 border-l border-border pl-3">{children}</div>
 			<span aria-hidden="true" className="font-mono text-xs font-semibold text-muted">
 				{closingToken}
 			</span>
@@ -57,9 +50,7 @@ export function JsonCollectionShell({
 				</span>
 			</summary>
 			<div className="overflow-x-auto border-t border-border p-3">
-				<div className="flex flex-col gap-2 border-l border-border pl-3">
-					{children}
-				</div>
+				<div className="flex flex-col gap-2 border-l border-border pl-3">{children}</div>
 			</div>
 		</details>
 	);

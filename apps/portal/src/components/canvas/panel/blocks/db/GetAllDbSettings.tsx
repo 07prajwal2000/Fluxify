@@ -1,4 +1,3 @@
-import { useMemo } from "react";
 import {
 	ConditionsBuilder,
 	Description,
@@ -9,21 +8,18 @@ import {
 } from "@fluxify/components";
 import { useParams } from "@tanstack/react-router";
 import { useReactFlow } from "@xyflow/react";
+import { useMemo } from "react";
 import { useDbMetadata } from "@/query/findResourceQuery";
 import { useCanvasChanges } from "../../../changes/ChangesContext";
+import type { BlockNode } from "../../../types";
 import { BlockSettings } from "../../BlockSettings";
 import {
 	BlockArrayEditorField,
 	BlockIntegrationField,
-	BlockJsTextField,
 	BlockJoinsEditorField,
+	BlockJsTextField,
 } from "../../fields";
-import {
-	parseDbConditions,
-	readDbBinding,
-	serializeDbConditions,
-} from "./conditions";
-import type { BlockNode } from "../../../types";
+import { parseDbConditions, readDbBinding, serializeDbConditions } from "./conditions";
 
 type SortConfig = {
 	attribute?: string;

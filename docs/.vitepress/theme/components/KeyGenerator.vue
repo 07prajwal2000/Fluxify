@@ -46,97 +46,97 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue';
+import { ref } from "vue";
 
-const selectedKeyType = ref<string>('MASTER_ENCRYPTION_KEY');
-const outputCode = ref<string>('');
+const selectedKeyType = ref<string>("MASTER_ENCRYPTION_KEY");
+const outputCode = ref<string>("");
 const copied = ref<boolean>(false);
 
 function getRandomBytes(length: number): Uint8Array {
-  const bytes = new Uint8Array(length);
-  if (typeof window !== 'undefined' && window.crypto) {
-    window.crypto.getRandomValues(bytes);
-  } else {
-    for (let i = 0; i < length; i++) {
-      bytes[i] = Math.floor(Math.random() * 256);
-    }
-  }
-  return bytes;
+	const bytes = new Uint8Array(length);
+	if (typeof window !== "undefined" && window.crypto) {
+		window.crypto.getRandomValues(bytes);
+	} else {
+		for (let i = 0; i < length; i++) {
+			bytes[i] = Math.floor(Math.random() * 256);
+		}
+	}
+	return bytes;
 }
 
 function bytesToBase64(bytes: Uint8Array): string {
-  let binary = '';
-  for (let i = 0; i < bytes.length; i++) {
-    binary += String.fromCharCode(bytes[i]);
-  }
-  return typeof btoa !== 'undefined' ? btoa(binary) : Buffer.from(bytes).toString('base64');
+	let binary = "";
+	for (let i = 0; i < bytes.length; i++) {
+		binary += String.fromCharCode(bytes[i]);
+	}
+	return typeof btoa !== "undefined" ? btoa(binary) : Buffer.from(bytes).toString("base64");
 }
 
 function generateAlphanumeric(length: number): string {
-  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-  const bytes = getRandomBytes(length);
-  let result = '';
-  for (let i = 0; i < length; i++) {
-    result += chars[bytes[i] % chars.length];
-  }
-  return result;
+	const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+	const bytes = getRandomBytes(length);
+	let result = "";
+	for (let i = 0; i < length; i++) {
+		result += chars[bytes[i] % chars.length];
+	}
+	return result;
 }
 
 function generateMasterKey(): string {
-  // 32-byte cryptographically random base64 string
-  return bytesToBase64(getRandomBytes(32));
+	// 32-byte cryptographically random base64 string
+	return bytesToBase64(getRandomBytes(32));
 }
 
 function generateBetterAuthSecret(): string {
-  // High-entropy 32-character secret key for Better Auth
-  return generateAlphanumeric(32);
+	// High-entropy 32-character secret key for Better Auth
+	return generateAlphanumeric(32);
 }
 
 function generateSystemAccessKey(): string {
-  // 32-character alphanumeric key for M2M authentication
-  return generateAlphanumeric(32);
+	// 32-character alphanumeric key for M2M authentication
+	return generateAlphanumeric(32);
 }
 
 function generateNatsToken(): string {
-  // 32-character alphanumeric token shared by the NATS server and every service
-  return generateAlphanumeric(32);
+	// 32-character alphanumeric token shared by the NATS server and every service
+	return generateAlphanumeric(32);
 }
 
 function generateKey() {
-  copied.value = false;
-  if (selectedKeyType.value === 'MASTER_ENCRYPTION_KEY') {
-    outputCode.value = `MASTER_ENCRYPTION_KEY=${generateMasterKey()}`;
-  } else if (selectedKeyType.value === 'BETTER_AUTH_SECRET') {
-    outputCode.value = `BETTER_AUTH_SECRET=${generateBetterAuthSecret()}`;
-  } else if (selectedKeyType.value === 'SYSTEM_ACCESS_KEY') {
-    outputCode.value = `SYSTEM_ACCESS_KEY=${generateSystemAccessKey()}`;
-  } else if (selectedKeyType.value === 'NATS_TOKEN') {
-    outputCode.value = `NATS_TOKEN=${generateNatsToken()}`;
-  } else if (selectedKeyType.value === 'ALL') {
-    outputCode.value = `# Generated Security Keys\nMASTER_ENCRYPTION_KEY=${generateMasterKey()}\nBETTER_AUTH_SECRET=${generateBetterAuthSecret()}\nSYSTEM_ACCESS_KEY=${generateSystemAccessKey()}\nNATS_TOKEN=${generateNatsToken()}`;
-  }
+	copied.value = false;
+	if (selectedKeyType.value === "MASTER_ENCRYPTION_KEY") {
+		outputCode.value = `MASTER_ENCRYPTION_KEY=${generateMasterKey()}`;
+	} else if (selectedKeyType.value === "BETTER_AUTH_SECRET") {
+		outputCode.value = `BETTER_AUTH_SECRET=${generateBetterAuthSecret()}`;
+	} else if (selectedKeyType.value === "SYSTEM_ACCESS_KEY") {
+		outputCode.value = `SYSTEM_ACCESS_KEY=${generateSystemAccessKey()}`;
+	} else if (selectedKeyType.value === "NATS_TOKEN") {
+		outputCode.value = `NATS_TOKEN=${generateNatsToken()}`;
+	} else if (selectedKeyType.value === "ALL") {
+		outputCode.value = `# Generated Security Keys\nMASTER_ENCRYPTION_KEY=${generateMasterKey()}\nBETTER_AUTH_SECRET=${generateBetterAuthSecret()}\nSYSTEM_ACCESS_KEY=${generateSystemAccessKey()}\nNATS_TOKEN=${generateNatsToken()}`;
+	}
 }
 
 async function copyToClipboard() {
-  if (!outputCode.value) return;
-  try {
-    if (navigator.clipboard) {
-      await navigator.clipboard.writeText(outputCode.value);
-    } else {
-      const textarea = document.createElement('textarea');
-      textarea.value = outputCode.value;
-      document.body.appendChild(textarea);
-      textarea.select();
-      document.execCommand('copy');
-      document.body.removeChild(textarea);
-    }
-    copied.value = true;
-    setTimeout(() => {
-      copied.value = false;
-    }, 2000);
-  } catch (err) {
-    console.error('Failed to copy key:', err);
-  }
+	if (!outputCode.value) return;
+	try {
+		if (navigator.clipboard) {
+			await navigator.clipboard.writeText(outputCode.value);
+		} else {
+			const textarea = document.createElement("textarea");
+			textarea.value = outputCode.value;
+			document.body.appendChild(textarea);
+			textarea.select();
+			document.execCommand("copy");
+			document.body.removeChild(textarea);
+		}
+		copied.value = true;
+		setTimeout(() => {
+			copied.value = false;
+		}, 2000);
+	} catch (err) {
+		console.error("Failed to copy key:", err);
+	}
 }
 </script>
 

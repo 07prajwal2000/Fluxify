@@ -1,6 +1,6 @@
 import type { Key } from "@fluxify/components";
 import { ListBox, Select } from "@fluxify/components";
-import { TbChevronDown, TbHandClick, TbBolt, TbClipboardList } from "react-icons/tb";
+import { TbBolt, TbChevronDown, TbClipboardList, TbHandClick } from "react-icons/tb";
 
 /** Which human gates a run stops at. Mirrors `ApplyMode` in the ai-gateway. */
 export type ApplyMode = "manual" | "plan" | "auto";

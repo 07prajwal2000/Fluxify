@@ -17,8 +17,7 @@ const DEFAULT_SIZE: NoteSize = { width: 180, height: 120 };
 const NEW_NOTE_SIZE: NoteSize = { width: 180, height: 180 };
 
 function dimension(value: unknown, fallback: number) {
-	const size =
-		typeof value === "number" && Number.isFinite(value) ? value : fallback;
+	const size = typeof value === "number" && Number.isFinite(value) ? value : fallback;
 	return Math.max(Math.round(size), NOTE_MIN_SIZE);
 }
 
@@ -35,9 +34,7 @@ export function stickyNoteData(data: unknown): StickyNoteData {
 
 	return {
 		notes: typeof record.notes === "string" ? record.notes : "",
-		color: NOTE_COLORS.includes(color as NoteColor)
-			? (color as NoteColor)
-			: "yellow",
+		color: NOTE_COLORS.includes(color as NoteColor) ? (color as NoteColor) : "yellow",
 		size: {
 			width: dimension(size.width, DEFAULT_SIZE.width),
 			height: dimension(size.height, DEFAULT_SIZE.height),

@@ -1,6 +1,6 @@
-import { useState } from "react";
-import { Button, DeleteButton, Spinner, Tabs, cn } from "@fluxify/components";
+import { Button, cn, DeleteButton, Spinner, Tabs } from "@fluxify/components";
 import type { SuiteRunResult } from "@fluxify/server/src/db/schema";
+import { useState } from "react";
 import {
 	TbAlertTriangle,
 	TbCheck,
@@ -27,10 +27,8 @@ const TERMINAL_TONE: Record<string, string> = {
 function StatusIcon({ status }: { status: TestRunStatus }) {
 	const className = cn("shrink-0", TERMINAL_TONE[status]);
 	if (status === "passed") return <TbCheck size={15} className={className} />;
-	if (status === "failed" || status === "error")
-		return <TbX size={15} className={className} />;
-	if (status === "timeout")
-		return <TbAlertTriangle size={15} className={className} />;
+	if (status === "failed" || status === "error") return <TbX size={15} className={className} />;
+	if (status === "timeout") return <TbAlertTriangle size={15} className={className} />;
 	return <TbClock size={15} className={cn(className, "animate-pulse")} />;
 }
 
@@ -63,13 +61,9 @@ function SuiteRunRow({
 				className="flex cursor-pointer items-center gap-2 p-3"
 			>
 				<StatusIcon status={status} />
-				<span className="min-w-0 flex-1 truncate text-xs text-foreground">
-					{name}
-				</span>
+				<span className="min-w-0 flex-1 truncate text-xs text-foreground">{name}</span>
 				{result?.statusCode != null && (
-					<span className="font-mono text-xs text-muted">
-						{result.statusCode}
-					</span>
+					<span className="font-mono text-xs text-muted">{result.statusCode}</span>
 				)}
 				<span className="text-xs text-muted">{formatDuration(durationMs)}</span>
 				{open ? (
@@ -85,13 +79,11 @@ function SuiteRunRow({
 					    rendering an empty assertion list */}
 					{status === "timeout" && assertions.length === 0 && (
 						<p className="text-xs text-warning">
-							Timed out after {formatDuration(durationMs)}. A suite killed at
-							its time budget reports no assertion detail.
+							Timed out after {formatDuration(durationMs)}. A suite killed at its time budget
+							reports no assertion detail.
 						</p>
 					)}
-					{result?.error && (
-						<p className="text-xs text-danger">{result.error}</p>
-					)}
+					{result?.error && <p className="text-xs text-danger">{result.error}</p>}
 
 					{assertions.length > 0 && (
 						<ul className="space-y-1">
@@ -102,18 +94,11 @@ function SuiteRunRow({
 									className="flex items-start gap-2 text-xs"
 								>
 									{assertion.success ? (
-										<TbCheck
-											size={14}
-											className="mt-0.5 shrink-0 text-success"
-										/>
+										<TbCheck size={14} className="mt-0.5 shrink-0 text-success" />
 									) : (
 										<TbX size={14} className="mt-0.5 shrink-0 text-danger" />
 									)}
-									<span
-										className={
-											assertion.success ? "text-muted" : "text-foreground"
-										}
-									>
+									<span className={assertion.success ? "text-muted" : "text-foreground"}>
 										{assertion.message}
 									</span>
 								</li>
@@ -122,11 +107,7 @@ function SuiteRunRow({
 					)}
 
 					{(result?.actualData !== undefined || result?.headers) && (
-						<ResponseViewer
-							data={result?.actualData}
-							headers={result?.headers}
-							suiteName={name}
-						/>
+						<ResponseViewer data={result?.actualData} headers={result?.headers} suiteName={name} />
 					)}
 				</div>
 			)}
@@ -192,9 +173,7 @@ function RunHistory({
 						<span className="flex-1 text-xs text-foreground">
 							{run.passedCount}/{run.totalSuites} passed
 						</span>
-						<span className="text-xs text-muted">
-							{formatDuration(run.durationMs)}
-						</span>
+						<span className="text-xs text-muted">{formatDuration(run.durationMs)}</span>
 					</div>
 					<span className="pl-6 text-xs text-muted">
 						{formatWhen(run.startedAt ?? run.createdAt)}
@@ -261,10 +240,7 @@ export function RunResults({
 			>
 				<div className="flex items-center gap-2">
 					<Tabs.ListContainer className="flex-none">
-						<Tabs.List
-							aria-label="Run results view"
-							className="h-full w-auto min-w-0"
-						>
+						<Tabs.List aria-label="Run results view" className="h-full w-auto min-w-0">
 							<Tabs.Tab id="latest">
 								Latest run
 								<Tabs.Indicator />
@@ -323,8 +299,7 @@ export function RunResults({
 						    mid-run — with no suite detail at all */}
 							{data?.status === "error" && (
 								<div className="rounded-lg border border-danger/40 bg-danger/10 p-3 text-xs text-danger">
-									{summary?.error ??
-										"The run failed before any suite reported."}
+									{summary?.error ?? "The run failed before any suite reported."}
 								</div>
 							)}
 							{data?.suiteRuns.map((suiteRun) => (
@@ -360,8 +335,7 @@ export function RunResults({
 					})
 				}
 			>
-				Every recorded run for this route will be deleted. The suites themselves
-				are kept.
+				Every recorded run for this route will be deleted. The suites themselves are kept.
 			</ConfirmDialog>
 		</aside>
 	);

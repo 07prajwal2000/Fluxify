@@ -1,11 +1,11 @@
-import { SQL } from "bun";
 import { createHash } from "node:crypto";
+import { SQL } from "bun";
 import { Kysely } from "kysely";
-import { createPool, type Pool } from "mysql2";
 import { MongoClient } from "mongodb";
-import { Connection, DbType } from "./connection";
+import { createPool, type Pool } from "mysql2";
+import { type Connection, DbType } from "./connection";
+import { buildMongoUrl, MongoAdapter } from "./mongoDbAdapter";
 import { MySqlAdapter } from "./mySqlAdapter";
-import { MongoAdapter, buildMongoUrl } from "./mongoDbAdapter";
 import { PostgresAdapter } from "./postgresAdapter";
 
 const DEFAULT_DRAIN_TIMEOUT_MS = 30_000;
@@ -226,10 +226,7 @@ export function connectionFingerprint(config: Connection) {
 	return createHash("sha256").update(material).digest("hex");
 }
 
-function createManagedConnection(
-	_integrationId: string,
-	config: Connection,
-): ManagedDbConnection {
+function createManagedConnection(_integrationId: string, config: Connection): ManagedDbConnection {
 	if (config.dbType === DbType.POSTGRES) {
 		const sql = new SQL({
 			adapter: "postgres",

@@ -1,8 +1,8 @@
+import { Button } from "@heroui/react";
+import clsx from "clsx";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Button } from "@heroui/react";
 import { TbChevronDown, TbChevronUp, TbGripVertical, TbX } from "react-icons/tb";
-import clsx from "clsx";
 import { displayRows } from "./displayRows";
 import type { ReorderableListItemMeta, ReorderableListProps } from "./types";
 
@@ -61,7 +61,8 @@ export function ReorderableList<T>({
 	}, []);
 
 	const isPinned = useCallback(
-		(index: number) => !!isItemPinned && index in itemsRef.current && isItemPinned(itemsRef.current[index]),
+		(index: number) =>
+			!!isItemPinned && index in itemsRef.current && isItemPinned(itemsRef.current[index]),
 		[isItemPinned],
 	);
 
@@ -275,7 +276,10 @@ export function ReorderableList<T>({
 						canMoveDown: displayIndex < items.length - 1 && dragState === null,
 						// a pinned row moving up leaves its pin and lands just above it
 						moveUp: () =>
-							handleMove(originalIndex, isPinned(originalIndex) ? originalIndex : originalIndex - 1),
+							handleMove(
+								originalIndex,
+								isPinned(originalIndex) ? originalIndex : originalIndex - 1,
+							),
 						moveDown: () => handleMove(originalIndex, originalIndex + 1),
 						remove: onRemove ? () => onRemove(item, originalIndex) : undefined,
 					};
@@ -292,7 +296,7 @@ export function ReorderableList<T>({
 								onBlur={() => onItemBlur?.(item)}
 								className={clsx(
 									editableItemClasses(isEditable, dragState !== null),
-								dropClasses,
+									dropClasses,
 									itemClassName,
 								)}
 							>
@@ -326,13 +330,13 @@ export function ReorderableList<T>({
 									<TbGripVertical />
 								</span>
 							)}
-							{showIndex && (
-								<span className="w-5 shrink-0 text-xs text-muted">{displayIndex}</span>
-							)}
+							{showIndex && <span className="w-5 shrink-0 text-xs text-muted">{displayIndex}</span>}
 							<div className="min-w-0 flex-1 truncate">
 								{renderItemContent
 									? renderItemContent(item, meta)
-									: (getItemLabel ? getItemLabel(item, originalIndex) : String(item))}
+									: getItemLabel
+										? getItemLabel(item, originalIndex)
+										: String(item)}
 							</div>
 							{renderActions?.(item, meta)}
 							{controls && (showMoveButtons || onRemove) && (
@@ -369,7 +373,7 @@ export function ReorderableList<T>({
 											aria-label={
 												typeof removeButtonAriaLabel === "function"
 													? removeButtonAriaLabel(item, originalIndex)
-													: removeButtonAriaLabel ?? "Remove item"
+													: (removeButtonAriaLabel ?? "Remove item")
 											}
 											isDisabled={meta.isDisabled}
 											onPress={() => onRemove(item, originalIndex)}
@@ -414,9 +418,9 @@ export function ReorderableList<T>({
 								<div className="min-w-0 flex-1 truncate font-medium text-foreground">
 									{renderItemContent
 										? renderItemContent(draggedItem, previewMeta)
-										: (getItemLabel
-												? getItemLabel(draggedItem, dragState.index)
-												: String(draggedItem))}
+										: getItemLabel
+											? getItemLabel(draggedItem, dragState.index)
+											: String(draggedItem)}
 								</div>
 								{(showMoveButtons || onRemove) && (
 									<div className="flex items-center gap-0.5 opacity-40 shrink-0">

@@ -1,19 +1,18 @@
-import { type GlobalGraphState, type Task, AgentNode } from "../types";
-import { BaseAgent } from "./base";
-import { subAgents } from "./sub-agents";
+import { logger } from "@fluxify/common";
 import { z } from "zod";
 import { dispatchAgentEvent } from "../callbacks";
 import { renderProjectInventory } from "../internal/projectInventory";
 import { createFindResourceTool } from "../tools/findResource";
 import { createGetArtifactTool } from "../tools/getArtifact";
-import { logger } from "@fluxify/common";
+import { AgentNode, type GlobalGraphState, type Task } from "../types";
+import { BaseAgent } from "./base";
+import { subAgents } from "./sub-agents";
 
 function buildSubAgentsTable(): string {
 	if (subAgents.length === 0) {
 		return "No sub-agents currently available.";
 	}
-	const header =
-		"| Agent Name | Node Name | Ability | Description |\n| --- | --- | --- | --- |";
+	const header = "| Agent Name | Node Name | Ability | Description |\n| --- | --- | --- | --- |";
 	const rows = subAgents.map(
 		(a) => `| ${a.name} | ${a.nodeName} | ${a.ability} | ${a.description} |`,
 	);
@@ -36,18 +35,12 @@ const taskSchema = z.object({
 	tasks: z
 		.array(
 			z.object({
-				id: z
-					.string()
-					.describe("Short unique ID (3 chars and 2 digits, e.g., a12bc)"),
+				id: z.string().describe("Short unique ID (3 chars and 2 digits, e.g., a12bc)"),
 				title: z.string().describe("Title of the task"),
-				description: z
-					.string()
-					.describe("Detailed description of what needs to be done"),
+				description: z.string().describe("Detailed description of what needs to be done"),
 				dependsOnAgentId: z
 					.array(z.string())
-					.describe(
-						"List of previous task IDs where their output gets injected to this task",
-					),
+					.describe("List of previous task IDs where their output gets injected to this task"),
 				assignedAgentNode: z
 					.string()
 					.describe("The Node Name of the sub-agent assigned to this task"),
@@ -88,12 +81,11 @@ The router judged this request simple enough to skip planning, so break down the
  * Repairs are recorded so the caller can put them in the scratchpad — a
  * dropped task is lost work and shouldn't happen silently.
  */
-export function sanitizeTasks(
-	raw: z.infer<typeof taskSchema>["tasks"],
-): { tasks: Task[]; notes: string[] } {
-	const validNodes = new Map(
-		subAgents.map((a) => [a.nodeName.toLowerCase(), a.nodeName]),
-	);
+export function sanitizeTasks(raw: z.infer<typeof taskSchema>["tasks"]): {
+	tasks: Task[];
+	notes: string[];
+} {
+	const validNodes = new Map(subAgents.map((a) => [a.nodeName.toLowerCase(), a.nodeName]));
 	const notes: string[] = [];
 
 	const kept: Task[] = [];
@@ -129,9 +121,7 @@ export function sanitizeTasks(
 
 	// Second pass: edges can only be checked once every surviving id is known.
 	for (const task of kept) {
-		const resolved = task.dependsOnAgentId.filter(
-			(dep) => dep !== task.id && seenIds.has(dep),
-		);
+		const resolved = task.dependsOnAgentId.filter((dep) => dep !== task.id && seenIds.has(dep));
 		if (resolved.length !== task.dependsOnAgentId.length) {
 			notes.push(
 				`Task "${task.title}" depended on ${task.dependsOnAgentId
@@ -195,9 +185,7 @@ ${child.title}: ${child.description}`;
 				const t = byId.get(id);
 				if (t)
 					t.dependsOnAgentId = [
-						...new Set(
-							t.dependsOnAgentId.map((d) => (d === child.id ? task.id : d)),
-						),
+						...new Set(t.dependsOnAgentId.map((d) => (d === child.id ? task.id : d))),
 					].filter((d) => d !== t.id);
 			}
 			dependents.set(task.id, dependents.get(child.id) ?? []);
@@ -340,12 +328,7 @@ If there are no sub-agents available, output an empty task list.`;
 			context: [
 				scratchPadText,
 				projectInventory,
-				...(plan
-					? []
-					: [
-							this.state.internal?.metadata?.contextBlock ?? "",
-							NO_PLAN_NOTE,
-						]),
+				...(plan ? [] : [this.state.internal?.metadata?.contextBlock ?? "", NO_PLAN_NOTE]),
 			]
 				.filter(Boolean)
 				.join("\n\n"),
@@ -378,8 +361,7 @@ If there are no sub-agents available, output an empty task list.`;
 		// call; a shallow DAG costs the user a half-built project.
 		if (shouldEscalateToPlanner(plan, response.escalate)) {
 			const reason =
-				response.escalateReason?.trim() ||
-				"The request needs more than a single-target build.";
+				response.escalateReason?.trim() || "The request needs more than a single-target build.";
 			logger.info("[TaskGenerator] Escalating to the planner", { reason });
 			await dispatchAgentEvent({
 				name: "agent_status",

@@ -1,25 +1,13 @@
-import {
-	db,
-	routesEntity,
-	agentHarnessSubArtifactsEntity as subArtifacts,
-} from "@fluxify/server";
+import { db, routesEntity, agentHarnessSubArtifactsEntity as subArtifacts } from "@fluxify/server";
 import { and, asc, eq, inArray } from "drizzle-orm";
 
 /** Everything about one output, payload included. Conversation-scoped so a
  *  client can't read another chat's work by guessing an id. */
-export async function getSubArtifactById(
-	conversationId: string,
-	subArtifactId: string,
-) {
+export async function getSubArtifactById(conversationId: string, subArtifactId: string) {
 	const [row] = await db
 		.select()
 		.from(subArtifacts)
-		.where(
-			and(
-				eq(subArtifacts.id, subArtifactId),
-				eq(subArtifacts.conversationId, conversationId),
-			),
-		)
+		.where(and(eq(subArtifacts.id, subArtifactId), eq(subArtifacts.conversationId, conversationId)))
 		.limit(1);
 	return row;
 }
@@ -41,21 +29,13 @@ export async function listSubArtifactsByRun(conversationId: string, runId: strin
 			dependsOn: subArtifacts.dependsOn,
 		})
 		.from(subArtifacts)
-		.where(
-			and(
-				eq(subArtifacts.runId, runId),
-				eq(subArtifacts.conversationId, conversationId),
-			),
-		)
+		.where(and(eq(subArtifacts.runId, runId), eq(subArtifacts.conversationId, conversationId)))
 		.orderBy(asc(subArtifacts.createdAt));
 }
 
 /** Siblings of one artifact. Payload is needed here — the dependency between a
  *  canvas and its route lives inside it. */
-export async function getArtifactSubArtifacts(
-	conversationId: string,
-	artifactId: string,
-) {
+export async function getArtifactSubArtifacts(conversationId: string, artifactId: string) {
 	return db
 		.select({
 			id: subArtifacts.id,
@@ -68,10 +48,7 @@ export async function getArtifactSubArtifacts(
 		})
 		.from(subArtifacts)
 		.where(
-			and(
-				eq(subArtifacts.artifactId, artifactId),
-				eq(subArtifacts.conversationId, conversationId),
-			),
+			and(eq(subArtifacts.artifactId, artifactId), eq(subArtifacts.conversationId, conversationId)),
 		)
 		.orderBy(asc(subArtifacts.createdAt));
 }
@@ -86,12 +63,7 @@ export async function markSubArtifactsApplied(
 	return db
 		.update(subArtifacts)
 		.set({ appliedAt })
-		.where(
-			and(
-				inArray(subArtifacts.id, ids),
-				eq(subArtifacts.conversationId, conversationId),
-			),
-		)
+		.where(and(inArray(subArtifacts.id, ids), eq(subArtifacts.conversationId, conversationId)))
 		.returning({
 			id: subArtifacts.id,
 			kind: subArtifacts.kind,
@@ -111,10 +83,7 @@ export async function updateSubArtifactPayload(
 		.update(subArtifacts)
 		.set({ payload })
 		.where(
-			and(
-				eq(subArtifacts.id, subArtifactId),
-				eq(subArtifacts.conversationId, conversationId),
-			),
+			and(eq(subArtifacts.id, subArtifactId), eq(subArtifacts.conversationId, conversationId)),
 		);
 }
 
@@ -124,8 +93,6 @@ export async function findExistingRouteIds(projectId: string, routeIds: string[]
 	const rows = await db
 		.select({ id: routesEntity.id })
 		.from(routesEntity)
-		.where(
-			and(eq(routesEntity.projectId, projectId), inArray(routesEntity.id, routeIds)),
-		);
+		.where(and(eq(routesEntity.projectId, projectId), inArray(routesEntity.id, routeIds)));
 	return new Set(rows.map((r) => r.id));
 }

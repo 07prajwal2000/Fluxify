@@ -6,17 +6,7 @@ export const assertionSchema = z
 		target: z.enum(["status", "body", "time", "header", "customJs"]),
 		propertyPath: z.string().optional().nullable(),
 		operator: z
-			.enum([
-				"eq",
-				"neq",
-				"lt",
-				"gt",
-				"contains",
-				"true",
-				"false",
-				"exists",
-				"not_exists",
-			])
+			.enum(["eq", "neq", "lt", "gt", "contains", "true", "false", "exists", "not_exists"])
 			.optional()
 			.nullable(),
 		expectedValue: z.string().optional().nullable(),
@@ -24,11 +14,7 @@ export const assertionSchema = z
 	})
 	.superRefine((val, ctx) => {
 		// 1. Property path
-		if (
-			val.target !== "body" &&
-			val.propertyPath != null &&
-			val.propertyPath !== ""
-		) {
+		if (val.target !== "body" && val.propertyPath != null && val.propertyPath !== "") {
 			ctx.addIssue({
 				code: z.ZodIssueCode.custom,
 				path: ["propertyPath"],
@@ -41,15 +27,7 @@ export const assertionSchema = z
 			status: ["eq", "neq", "lt", "gt"],
 			time: ["eq", "neq", "lt", "gt"],
 			body: ["eq", "neq", "contains", "true", "false", "exists", "not_exists"],
-			header: [
-				"eq",
-				"neq",
-				"contains",
-				"true",
-				"false",
-				"exists",
-				"not_exists",
-			],
+			header: ["eq", "neq", "contains", "true", "false", "exists", "not_exists"],
 		};
 
 		if (val.target !== "customJs") {

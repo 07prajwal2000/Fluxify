@@ -1,6 +1,7 @@
 import { ChatOpenAI } from "@langchain/openai";
-import { createAgent, DynamicStructuredTool, Tool } from "langchain";
+import { createAgent, type DynamicStructuredTool, Tool } from "langchain";
 import { BaseAiIntegration } from "./baseAiIntegration";
+
 type OpenAICompatibleVariantConfig = {
 	apiKey: string;
 	model: string;

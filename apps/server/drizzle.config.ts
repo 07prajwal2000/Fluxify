@@ -3,14 +3,10 @@ import { defineConfig } from "drizzle-kit";
 import { getEnv } from "./src/lib/env";
 
 export default defineConfig({
-  schema: [
-    "./src/db/schema.ts",
-    "./src/db/auth-schema.ts",
-    "./src/db/agent-harness-schema.ts",
-  ],
-  out: "./src/db/migrations",
-  dialect: "postgresql",
-  dbCredentials: {
-    url: getEnv("PG_URL")!,
-  },
+	schema: ["./src/db/schema.ts", "./src/db/auth-schema.ts", "./src/db/agent-harness-schema.ts"],
+	out: "./src/db/migrations",
+	dialect: "postgresql",
+	dbCredentials: {
+		url: getEnv("PG_URL")!,
+	},
 });

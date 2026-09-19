@@ -1,3 +1,4 @@
+import { RESERVED_WORDS, variableNameError } from "@fluxify/blocks/variableName";
 import {
 	buildCanvasVariableSnippets,
 	Checkbox,
@@ -9,7 +10,6 @@ import {
 	useCanvasVariableTypes,
 	useRegisterSnippets,
 } from "@fluxify/components";
-import { RESERVED_WORDS, variableNameError } from "@fluxify/blocks/variableName";
 import { useNodes, useReactFlow } from "@xyflow/react";
 import { useEffect, useMemo, useState } from "react";
 import { blockLabels } from "../blocks/blockLabels";
@@ -94,7 +94,7 @@ export function CanvasVariableSnippets() {
 	// a Set Var key that is a reserved word, declared as a global, would break
 	// every other declaration; saved outputs are members of `outputs`, so fine
 	useCanvasVariableTypes(
-		variables.filter((v) => v.output ? !variableNameError(v.name) : !RESERVED_WORDS.has(v.name)),
+		variables.filter((v) => (v.output ? !variableNameError(v.name) : !RESERVED_WORDS.has(v.name))),
 	);
 	return null;
 }
@@ -140,9 +140,7 @@ export function SaveOutputField({ block }: { block: BlockNode }) {
 					{error ? (
 						<FieldError>{error}</FieldError>
 					) : (
-						<Description>
-							Letters, digits, _ and $ only. Cannot start with a digit.
-						</Description>
+						<Description>Letters, digits, _ and $ only. Cannot start with a digit.</Description>
 					)}
 				</TextField>
 			)}

@@ -1,5 +1,5 @@
-import type { ReactNode } from "react";
 import { Button, Modal } from "@fluxify/components";
+import type { ReactNode } from "react";
 
 type ConfirmDialogProps = {
 	open: boolean;
@@ -42,11 +42,7 @@ export function ConfirmDialog({
 							<Button variant="ghost" onPress={() => onOpenChange(false)}>
 								{cancelText}
 							</Button>
-							<Button
-								variant={confirmVariant}
-								isPending={pending}
-								onPress={onConfirm}
-							>
+							<Button variant={confirmVariant} isPending={pending} onPress={onConfirm}>
 								{confirmText}
 							</Button>
 						</Modal.Footer>

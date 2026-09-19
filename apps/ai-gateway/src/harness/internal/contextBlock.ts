@@ -1,8 +1,8 @@
 import { logger } from "@fluxify/common";
-import type { DbService } from "./dbService";
-import { extractResourceChips, fenceUntrusted } from "./untrusted";
-import { renderCanvas } from "./renderCanvas";
 import type { HarnessJobMetadata } from "../queue";
+import type { DbService } from "./dbService";
+import { renderCanvas } from "./renderCanvas";
+import { extractResourceChips, fenceUntrusted } from "./untrusted";
 
 type Location = HarnessJobMetadata["location"];
 
@@ -21,10 +21,7 @@ const CANVAS_OF: Record<string, NonNullable<Location>["where"]> = {
  * would change what every agent treats as current. Only one mention counts —
  * two is a genuine choice, and the agents have tools to make it.
  */
-export function locationFromResourceChips(
-	query: string | undefined,
-	location: Location,
-): Location {
+export function locationFromResourceChips(query: string | undefined, location: Location): Location {
 	if (location || !query) return location;
 	const targets = extractResourceChips(query).flatMap((chip) => {
 		const where = CANVAS_OF[chip.type];

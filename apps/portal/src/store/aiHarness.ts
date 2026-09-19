@@ -99,9 +99,7 @@ export interface SelectedArtifact {
 	props: Record<string, any>;
 }
 
-export type ConversationMeta = z.infer<
-	typeof harnessConversationsListDto.conversationSchema
->;
+export type ConversationMeta = z.infer<typeof harnessConversationsListDto.conversationSchema>;
 
 export interface AiHarnessState {
 	connected: boolean;
@@ -164,10 +162,7 @@ function emptyRun(conversationId: string, runId: string): ConversationUIState {
  * timestamp-guarded — safe to call with the same event any number of times, in
  * any order.
  */
-export function applyEvent(
-	state: AiHarnessState,
-	event: HarnessStreamEvent,
-): void {
+export function applyEvent(state: AiHarnessState, event: HarnessStreamEvent): void {
 	const { conversationId } = event;
 	state.runs[conversationId] ??= emptyRun(conversationId, event.runId);
 	const run = state.runs[conversationId];
@@ -184,11 +179,7 @@ export function applyEvent(
 		// The run-level `ended` bookend is the ONLY terminal signal.
 		run.isTerminal = isRunLevel && event.nodeStatus === "ended";
 		// HITL is a pause, not an end: a fresh node run means the user answered.
-		if (
-			event.nodeStatus === "started" &&
-			!isRunLevel &&
-			event.currentNode !== "humanInTheLoop"
-		) {
+		if (event.nodeStatus === "started" && !isRunLevel && event.currentNode !== "humanInTheLoop") {
 			run.hitl = undefined;
 		}
 	}
@@ -234,8 +225,7 @@ export function applyEvent(
 						: event.nodeStatus,
 				executionType: event.executionType,
 				label: event.plainTextMessage,
-				toolName:
-					isTool && event.nodeStatus === "started" ? event.toolName : undefined,
+				toolName: isTool && event.nodeStatus === "started" ? event.toolName : undefined,
 				payload: event.payload ?? prev?.payload,
 				timestamp: event.timestamp,
 				logs,
@@ -259,14 +249,8 @@ export function applyEvent(
  * floor only when it is newer than everything already applied — a live `update`
  * can legitimately beat `full_state` to the client.
  */
-export function applySnapshot(
-	state: AiHarnessState,
-	snapshot: HarnessSnapshot,
-): void {
-	state.runs[snapshot.conversationId] ??= emptyRun(
-		snapshot.conversationId,
-		snapshot.runId,
-	);
+export function applySnapshot(state: AiHarnessState, snapshot: HarnessSnapshot): void {
+	state.runs[snapshot.conversationId] ??= emptyRun(snapshot.conversationId, snapshot.runId);
 	for (const event of snapshot.events) applyEvent(state, event);
 
 	const run = state.runs[snapshot.conversationId];
@@ -280,28 +264,18 @@ export function applySnapshot(
 	}
 }
 
-export function applyMessage(
-	state: AiHarnessState,
-	message: HarnessSocketMessage,
-): void {
+export function applyMessage(state: AiHarnessState, message: HarnessSocketMessage): void {
 	if (message.type === "full_state") {
 		// Merge, never replace: a run missing from a later snapshot has simply
 		// aged out of Redis (60s TTL after it finishes), not ceased to exist.
-		for (const snapshot of message.conversations)
-			applySnapshot(state, snapshot);
+		for (const snapshot of message.conversations) applySnapshot(state, snapshot);
 		return;
 	}
 	if (message.type === "stats") {
 		const { stats } = message;
-		state.runs[stats.conversationId] ??= emptyRun(
-			stats.conversationId,
-			stats.runId,
-		);
+		state.runs[stats.conversationId] ??= emptyRun(stats.conversationId, stats.runId);
 		const run = state.runs[stats.conversationId];
-		if (
-			run.runId === stats.runId &&
-			stats.updatedAt >= (run.stats?.updatedAt ?? 0)
-		) {
+		if (run.runId === stats.runId && stats.updatedAt >= (run.stats?.updatedAt ?? 0)) {
 			run.stats = stats;
 			run.statsReceivedAt = Date.now();
 		}
@@ -400,19 +374,13 @@ export const useAiHarnessStore = create<AiHarnessState & AiHarnessActions>()(
  * -------------------------------------------------------------------------- */
 
 export const useHarnessConnection = () =>
-	useAiHarnessStore(
-		useShallow((s) => ({ connected: s.connected, error: s.connectionError })),
-	);
+	useAiHarnessStore(useShallow((s) => ({ connected: s.connected, error: s.connectionError })));
 
 export const useConversationRun = (conversationId?: string | null) =>
-	useAiHarnessStore((s) =>
-		conversationId ? s.runs[conversationId] : undefined,
-	);
+	useAiHarnessStore((s) => (conversationId ? s.runs[conversationId] : undefined));
 
 export const useActiveRun = () =>
-	useAiHarnessStore((s) =>
-		s.activeConversationId ? s.runs[s.activeConversationId] : undefined,
-	);
+	useAiHarnessStore((s) => (s.activeConversationId ? s.runs[s.activeConversationId] : undefined));
 
 /** Steps oldest-first — the conversation timeline. */
 export const useConversationSteps = (conversationId?: string | null) =>

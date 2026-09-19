@@ -1,6 +1,6 @@
 import { Avatar, Dropdown } from "@fluxify/components";
-import { TbLogout, TbUser } from "react-icons/tb";
 import { useNavigate } from "@tanstack/react-router";
+import { TbLogout, TbUser } from "react-icons/tb";
 import { authClient } from "@/lib/auth";
 
 export function ProfileNav() {
@@ -31,9 +31,7 @@ export function ProfileNav() {
 			</Dropdown.Trigger>
 			<Dropdown.Popover>
 				<Dropdown.Menu>
-					<Dropdown.Item
-						onAction={() => navigate({ to: "/", search: { tab: "account" } })}
-					>
+					<Dropdown.Item onAction={() => navigate({ to: "/", search: { tab: "account" } })}>
 						<TbUser size={18} /> Profile
 					</Dropdown.Item>
 					<Dropdown.Item onAction={logout}>

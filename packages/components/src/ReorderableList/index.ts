@@ -1,2 +1,2 @@
 export { ReorderableList } from "./ReorderableList";
-export type { ReorderableListProps, ReorderableListItemMeta } from "./types";
+export type { ReorderableListItemMeta, ReorderableListProps } from "./types";

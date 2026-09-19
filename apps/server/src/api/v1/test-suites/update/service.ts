@@ -1,17 +1,12 @@
-import z from "zod";
-import { ServerError } from "../../../../errors/serverError";
-import { updateTestSuite } from "./repository";
-import { requestBodySchema } from "./dto";
 import { InferInsertModel } from "drizzle-orm";
+import type z from "zod";
+import { ServerError } from "../../../../errors/serverError";
+import type { requestBodySchema } from "./dto";
+import { updateTestSuite } from "./repository";
 
-export default async function handleRequest(
-	id: string,
-	data: z.infer<typeof requestBodySchema>,
-) {
+export default async function handleRequest(id: string, data: z.infer<typeof requestBodySchema>) {
 	try {
-		const updateData = Object.fromEntries(
-			Object.entries(data).filter(([_, v]) => v !== undefined),
-		);
+		const updateData = Object.fromEntries(Object.entries(data).filter(([_, v]) => v !== undefined));
 
 		if (Object.keys(updateData).length === 0) {
 			return { id };

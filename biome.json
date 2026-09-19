@@ -6,6 +6,7 @@
 		"includes": [
 			"**",
 			"!apps/web",
+			"!.claude",
 			"!**/routeTree.gen.ts",
 			"!**/public/types",
 			"!**/*.svg",
@@ -17,7 +18,7 @@
 			"!**/*.md"
 		]
 	},
-	"formatter": { "indentStyle": "tab", "lineEnding": "lf" },
+	"formatter": { "indentStyle": "tab", "lineEnding": "lf", "lineWidth": 100 },
 	"css": { "parser": { "tailwindDirectives": true } },
 	"linter": {
 		"rules": {
@@ -39,9 +40,7 @@
 	},
 	"overrides": [
 		{
-			"includes": [
-				"apps/portal/src/components/integrations/Integration*Form.tsx"
-			],
+			"includes": ["apps/portal/src/components/integrations/Integration*Form.tsx"],
 			"linter": { "rules": { "security": { "noSecrets": "off" } } }
 		}
 	]

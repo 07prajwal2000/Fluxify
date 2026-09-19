@@ -17,10 +17,7 @@ export type CanvasSavePayload = {
 };
 
 /** Turns the tracked delta into the request body. O(changes), not O(graph). */
-export function buildSavePayload(
-	graph: CanvasGraph,
-	changes: ChangeSet,
-): CanvasSavePayload {
+export function buildSavePayload(graph: CanvasGraph, changes: ChangeSet): CanvasSavePayload {
 	const blocksById = new Map(graph.blocks.map((block) => [block.id, block]));
 	const edgesById = new Map(graph.edges.map((edge) => [edge.id, edge]));
 

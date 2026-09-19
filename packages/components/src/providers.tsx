@@ -7,10 +7,7 @@ import type { ReactNode } from "react";
 export function Providers({ children }: { children: ReactNode }) {
 	return (
 		<>
-			<ToastProvider
-				placement="bottom end"
-				width="min(24rem, calc(100vw - 2rem))"
-			/>
+			<ToastProvider placement="bottom end" width="min(24rem, calc(100vw - 2rem))" />
 			{children}
 		</>
 	);

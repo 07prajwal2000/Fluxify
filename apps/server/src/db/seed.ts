@@ -1,16 +1,16 @@
-import { auth } from "../lib/auth";
-import { z } from "zod";
-import { PgDatabase } from "drizzle-orm/pg-core";
 import { initializeLogger, logger } from "@fluxify/common";
-import { createSystemUser, getSystemUserByEmail } from "../lib/system-users";
-import { getEnv } from "../lib/env";
-import { nodeClaimsEntity } from "./schema";
-import { recordEvent } from "../modules/orchestrator/records";
+import type { PgDatabase } from "drizzle-orm/pg-core";
+import { z } from "zod";
 import {
 	getInstanceSettingByKey,
 	upsertInstanceSetting,
 } from "../api/v1/instance-settings/upsert/repository";
+import { auth } from "../lib/auth";
+import { getEnv } from "../lib/env";
+import { createSystemUser, getSystemUserByEmail } from "../lib/system-users";
 import { publishInstanceSetting } from "../loaders/instanceSettingsLoader";
+import { recordEvent } from "../modules/orchestrator/records";
+import { nodeClaimsEntity } from "./schema";
 
 const seedUserSchema = z.object({
 	email: z.email(),

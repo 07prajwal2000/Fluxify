@@ -1,10 +1,6 @@
-import { BlockSettings } from "../BlockSettings";
-import {
-	BlockCheckboxField,
-	BlockJsTextField,
-	BlockSelectField,
-} from "../fields";
 import type { BlockNode } from "../../types";
+import { BlockSettings } from "../BlockSettings";
+import { BlockCheckboxField, BlockJsTextField, BlockSelectField } from "../fields";
 
 const SAME_SITE_OPTIONS = [
 	{ value: "Lax", label: "Lax" },
@@ -64,7 +60,8 @@ export function SetCookieScopeSettings({ block }: { block: BlockNode }) {
 				placeholder="2026-12-31T23:59:59Z or js:libs.dayjs().add(7, 'day')"
 				hint={
 					<span>
-						Expiration date in ISO format or js: expression. dayjs is built in and can be accessed with{" "}
+						Expiration date in ISO format or js: expression. dayjs is built in and can be accessed
+						with{" "}
 						<code className="px-1.5 py-0.5 rounded bg-default-100 dark:bg-default-50/20 text-foreground border border-border/50 font-mono text-[11px] font-medium">
 							libs.dayjs()
 						</code>

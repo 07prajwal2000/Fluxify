@@ -1,12 +1,4 @@
-import {
-	Button,
-	CloseButton,
-	cn,
-	Input,
-	Modal,
-	Tabs,
-	toast,
-} from "@fluxify/components";
+import { Button, CloseButton, cn, Input, Modal, Tabs, toast } from "@fluxify/components";
 import { useState } from "react";
 import { BiFingerprint } from "react-icons/bi";
 import {
@@ -79,13 +71,7 @@ function buildSsoPatch(current: Dict, initial: Dict): Dict {
 	return patch;
 }
 
-export function SsoCard({
-	initialType,
-	initial,
-}: {
-	initialType: AuthType;
-	initial: Dict;
-}) {
+export function SsoCard({ initialType, initial }: { initialType: AuthType; initial: Dict }) {
 	const patchAuth = instanceSettingsQuery.auth.mutation();
 	const ssoLicensed = useEnterpriseSso();
 	const [isGuideOpen, setIsGuideOpen] = useState(false);
@@ -99,9 +85,7 @@ export function SsoCard({
 	const [domain, setDomain] = useState((initial.domain as string) ?? "");
 	const [clientId, setClientId] = useState((initial.clientId as string) ?? "");
 	const [clientSecret, setClientSecret] = useState("");
-	const [entryPoint, setEntryPoint] = useState(
-		(initial.entryPoint as string) ?? "",
-	);
+	const [entryPoint, setEntryPoint] = useState((initial.entryPoint as string) ?? "");
 	const [samlCert, setSamlCert] = useState("");
 	const authBaseUrl = `${window.location.origin}/_/admin/api/auth`;
 	const providerId = (initial.providerId as string) ?? "enterprise";
@@ -140,9 +124,7 @@ export function SsoCard({
 		patchAuth.mutate(
 			{
 				type,
-				...(sso_config && Object.keys(sso_config).length > 0
-					? { sso_config }
-					: {}),
+				...(sso_config && Object.keys(sso_config).length > 0 ? { sso_config } : {}),
 			},
 			{
 				onSuccess: () => {
@@ -169,20 +151,11 @@ export function SsoCard({
 									<BiFingerprint className="h-5 w-5" />
 								</div>
 								<div>
-									<h3 className="text-base font-bold text-foreground">
-										Single Sign-On
-									</h3>
-									<p className="text-xs text-muted-foreground">
-										Connect an IdP via OIDC or SAML
-									</p>
+									<h3 className="text-base font-bold text-foreground">Single Sign-On</h3>
+									<p className="text-xs text-muted-foreground">Connect an IdP via OIDC or SAML</p>
 								</div>
 							</div>
-							<Button
-								type="button"
-								variant="outline"
-								size="sm"
-								onPress={openGuide}
-							>
+							<Button type="button" variant="outline" size="sm" onPress={openGuide}>
 								<FiBookOpen className="h-4 w-4" />
 								Configuration Guide
 							</Button>
@@ -244,9 +217,7 @@ export function SsoCard({
 									<Input
 										id="sso-issuer-url"
 										value={issuer}
-										onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-											setIssuer(e.target.value)
-										}
+										onChange={(e: React.ChangeEvent<HTMLInputElement>) => setIssuer(e.target.value)}
 										placeholder="https://idp.company.com"
 										className="pl-8 font-mono text-xs w-full"
 									/>
@@ -264,9 +235,7 @@ export function SsoCard({
 									<Input
 										id="sso-email-domain"
 										value={domain}
-										onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-											setDomain(e.target.value)
-										}
+										onChange={(e: React.ChangeEvent<HTMLInputElement>) => setDomain(e.target.value)}
 										placeholder="company.com"
 										className="pl-8 font-mono text-xs w-full"
 									/>
@@ -380,8 +349,7 @@ export function SsoCard({
 										<div>
 											<Modal.Heading>Configuration Guide</Modal.Heading>
 											<p className="mt-1 text-sm text-muted">
-												Use these values when creating an application in your
-												identity provider.
+												Use these values when creating an application in your identity provider.
 											</p>
 										</div>
 										<CloseButton />
@@ -389,15 +357,10 @@ export function SsoCard({
 									<Modal.Body>
 										<Tabs
 											selectedKey={guideProtocol}
-											onSelectionChange={(key) =>
-												setGuideProtocol(key as GuideProtocol)
-											}
+											onSelectionChange={(key) => setGuideProtocol(key as GuideProtocol)}
 										>
 											<Tabs.ListContainer>
-												<Tabs.List
-													aria-label="SSO configuration protocol"
-													className="w-full"
-												>
+												<Tabs.List aria-label="SSO configuration protocol" className="w-full">
 													<Tabs.Tab id="oidc">
 														<FiKey className="h-4 w-4" /> OIDC / SSO
 														<Tabs.Indicator />
@@ -416,8 +379,7 @@ export function SsoCard({
 															1. Create an OIDC application
 														</h4>
 														<p className="mt-1 text-sm text-muted">
-															Choose a web application in your IdP and enable
-															the{" "}
+															Choose a web application in your IdP and enable the{" "}
 															<code className="rounded bg-background px-1 py-0.5 text-xs text-foreground">
 																openid
 															</code>
@@ -438,24 +400,14 @@ export function SsoCard({
 															description="Paste into your IdP callback or redirect URI field."
 															value={oidcCallbackUrl}
 															copied={copiedGuideValue === "OIDC redirect URI"}
-															onCopy={() =>
-																copyGuideValue(
-																	"OIDC redirect URI",
-																	oidcCallbackUrl,
-																)
-															}
+															onCopy={() => copyGuideValue("OIDC redirect URI", oidcCallbackUrl)}
 														/>
 														<CopyCodeBlock
 															label="Required scopes"
 															description="Enable these so Fluxify receives the user email."
 															value="openid profile email"
 															copied={copiedGuideValue === "OIDC scopes"}
-															onCopy={() =>
-																copyGuideValue(
-																	"OIDC scopes",
-																	"openid profile email",
-																)
-															}
+															onCopy={() => copyGuideValue("OIDC scopes", "openid profile email")}
 														/>
 													</div>
 													<div className="grid gap-3 md:grid-cols-2">
@@ -465,20 +417,15 @@ export function SsoCard({
 															</h4>
 															<p className="mt-1 text-sm text-muted">
 																Put the IdP issuer in{" "}
-																<span className="font-medium text-foreground">
-																	Issuer URL
-																</span>
-																, then enter its client ID and client secret in
-																Fluxify.
+																<span className="font-medium text-foreground">Issuer URL</span>,
+																then enter its client ID and client secret in Fluxify.
 															</p>
 														</div>
 														<div className="rounded-lg border border-border p-4">
-															<h4 className="font-semibold text-foreground">
-																3. Limit access
-															</h4>
+															<h4 className="font-semibold text-foreground">3. Limit access</h4>
 															<p className="mt-1 text-sm text-muted">
-																Enter your organisation email domain, save, then
-																test with a pre-provisioned Fluxify user.
+																Enter your organisation email domain, save, then test with a
+																pre-provisioned Fluxify user.
 															</p>
 														</div>
 													</div>
@@ -492,8 +439,8 @@ export function SsoCard({
 															1. Create a SAML application
 														</h4>
 														<p className="mt-1 text-sm text-muted">
-															Create the application manually in your IdP, then
-															use the ACS or Reply URL below.
+															Create the application manually in your IdP, then use the ACS or Reply
+															URL below.
 														</p>
 													</div>
 													<div className="max-w-xl">
@@ -502,25 +449,17 @@ export function SsoCard({
 															description="Use this in the ACS or reply URL field for manual setup."
 															value={samlAcsUrl}
 															copied={copiedGuideValue === "SAML ACS URL"}
-															onCopy={() =>
-																copyGuideValue("SAML ACS URL", samlAcsUrl)
-															}
+															onCopy={() => copyGuideValue("SAML ACS URL", samlAcsUrl)}
 														/>
 													</div>
 													<div className="grid gap-3 md:grid-cols-2">
 														<div className="rounded-lg border border-border p-4">
-															<h4 className="font-semibold text-foreground">
-																2. Copy IdP details
-															</h4>
+															<h4 className="font-semibold text-foreground">2. Copy IdP details</h4>
 															<p className="mt-1 text-sm text-muted">
 																Put the IdP entity ID in{" "}
-																<span className="font-medium text-foreground">
-																	Issuer URL
-																</span>
-																, its SSO login URL in{" "}
-																<span className="font-medium text-foreground">
-																	Entry Point URL
-																</span>
+																<span className="font-medium text-foreground">Issuer URL</span>, its
+																SSO login URL in{" "}
+																<span className="font-medium text-foreground">Entry Point URL</span>
 																, and its signing certificate in{" "}
 																<span className="font-medium text-foreground">
 																	SAML Certificate
@@ -533,9 +472,8 @@ export function SsoCard({
 																3. Send email and test
 															</h4>
 															<p className="mt-1 text-sm text-muted">
-																Map the user email in the SAML assertion, enter
-																your organisation email domain, and test with a
-																pre-provisioned user.
+																Map the user email in the SAML assertion, enter your organisation
+																email domain, and test with a pre-provisioned user.
 															</p>
 														</div>
 													</div>
@@ -544,10 +482,7 @@ export function SsoCard({
 										</Tabs>
 									</Modal.Body>
 									<Modal.Footer>
-										<Button
-											variant="primary"
-											onPress={() => setIsGuideOpen(false)}
-										>
+										<Button variant="primary" onPress={() => setIsGuideOpen(false)}>
 											Done
 										</Button>
 									</Modal.Footer>

@@ -1,17 +1,15 @@
-import { builtinBlockSchemas, BlockTypes } from "@fluxify/blocks";
+import { BlockTypes, builtinBlockSchemas } from "@fluxify/blocks";
 import { resolveCustomBlockName, withCustomBlockPrefix } from "@fluxify/lib";
 import type { AgentOutputValidator } from "../../../types";
 import { detectCycles } from "./cycleDetector";
-import { pendingCustomBlockSchemas } from "./pendingCustomBlocks";
 import { validateGraphRules } from "./graphRules";
+import { pendingCustomBlockSchemas } from "./pendingCustomBlocks";
 import type { BlockBuilderResult, ValidatableBlock } from "./schemas";
 
 /** Storage stores these exact strings — anything else is a broken canvas. */
 const BUILTIN_TYPES = new Set<string>(Object.values(BlockTypes));
 
-function extractBlocksToValidate(
-	typedResult: BlockBuilderResult,
-): ValidatableBlock[] {
+function extractBlocksToValidate(typedResult: BlockBuilderResult): ValidatableBlock[] {
 	const blocksToValidate: ValidatableBlock[] = [];
 
 	if (typedResult.blocks && Array.isArray(typedResult.blocks)) {
@@ -41,9 +39,7 @@ function extractBlocksToValidate(
 	return blocksToValidate;
 }
 
-function collectCustomBlockNames(
-	blocksToValidate: ValidatableBlock[],
-): Set<string> {
+function collectCustomBlockNames(blocksToValidate: ValidatableBlock[]): Set<string> {
 	const customBlockNames = new Set<string>();
 	for (const block of blocksToValidate) {
 		const bType = block.blockType || "";
@@ -99,12 +95,10 @@ function validateCustomBlockField(
 	return null;
 }
 
-function validateCustomBlockInvoke(
-	block: ValidatableBlock,
-	customName: string,
-): string | null {
+function validateCustomBlockInvoke(block: ValidatableBlock, customName: string): string | null {
 	const invoke = (block.data as Record<string, unknown> | undefined)?.invoke;
-	if (invoke === undefined || invoke === "sync" || invoke === "async" || invoke === "queued") return null;
+	if (invoke === undefined || invoke === "sync" || invoke === "async" || invoke === "queued")
+		return null;
 	return `Block "${block.id}" invokes custom block "${customName}" with "${String(invoke)}". Use only "sync", "async", or "queued"; "scheduled" is not a runtime value.`;
 }
 
@@ -114,9 +108,16 @@ function configuredCustomBlockParamNames(
 ): Set<string> | null {
 	if (!targetId) return null;
 	for (const result of Object.values(state.orchestratorState?.subAgentResults ?? {})) {
-		const config = result as { customBlockId?: string; data?: { inputParams?: Array<{ name?: string }> } };
+		const config = result as {
+			customBlockId?: string;
+			data?: { inputParams?: Array<{ name?: string }> };
+		};
 		if (config.customBlockId !== targetId) continue;
-		return new Set((config.data?.inputParams ?? []).map((param) => param.name).filter((name): name is string => !!name));
+		return new Set(
+			(config.data?.inputParams ?? [])
+				.map((param) => param.name)
+				.filter((name): name is string => !!name),
+		);
 	}
 	return null;
 }
@@ -137,9 +138,7 @@ function validateCustomBlockParameterReferences(
 	};
 	for (const block of blocks) {
 		const data = (block.data ?? {}) as Record<string, unknown>;
-		const executableValues = stringValues(data).filter((value) =>
-			value.startsWith("js:"),
-		);
+		const executableValues = stringValues(data).filter((value) => value.startsWith("js:"));
 		// JS Runner bodies execute directly, unlike other dynamic field values
 		// which require the `js:` prefix.
 		if (block.blockType === BlockTypes.jsrunner && typeof data.value === "string") {
@@ -152,20 +151,22 @@ function validateCustomBlockParameterReferences(
 			for (const match of references) {
 				const name = match[1];
 				if (name && !params.has(name)) {
-					errors.push(`Block "${block.id}" references custom-block parameter "${name}", but it is absent from the paired Custom Block Config Agent output.`);
+					errors.push(
+						`Block "${block.id}" references custom-block parameter "${name}", but it is absent from the paired Custom Block Config Agent output.`,
+					);
 				}
 			}
 		}
 
 		for (const value of new Set(executableValues)) {
 			const expression = value.startsWith("js:") ? value.slice(3) : value;
-			const references = expression.matchAll(
-				/(?<![\w.])params\.([a-zA-Z0-9_]+)/g,
-			);
+			const references = expression.matchAll(/(?<![\w.])params\.([a-zA-Z0-9_]+)/g);
 			for (const match of references) {
 				const name = match[1];
 				if (name && !params.has(name)) {
-					errors.push(`Block "${block.id}" references custom-block parameter "${name}", but it is absent from the paired Custom Block Config Agent output.`);
+					errors.push(
+						`Block "${block.id}" references custom-block parameter "${name}", but it is absent from the paired Custom Block Config Agent output.`,
+					);
 				}
 			}
 		}
@@ -181,11 +182,7 @@ function validateBlockAgainstSchemas(
 	const rawType = block.blockType || "";
 	const normType = rawType.toLowerCase().replace(/_/g, "");
 	const isCustom = rawType.startsWith("custom:") || !BUILTIN_TYPES.has(rawType);
-	const customName = isCustom
-		? rawType.startsWith("custom:")
-			? rawType.slice(7)
-			: rawType
-		: null;
+	const customName = isCustom ? (rawType.startsWith("custom:") ? rawType.slice(7) : rawType) : null;
 
 	if (isCustom && customName) {
 		const invokeError = validateCustomBlockInvoke(block, customName);
@@ -211,12 +208,7 @@ function validateBlockAgainstSchemas(
 
 		const blockData = (block.data || {}) as Record<string, unknown>;
 		for (const param of inputParams) {
-			const err = validateCustomBlockField(
-				block.id,
-				customName,
-				param,
-				blockData[param.name],
-			);
+			const err = validateCustomBlockField(block.id, customName, param, blockData[param.name]);
 			if (err) errors.push(err);
 		}
 	} else {
@@ -227,9 +219,7 @@ function validateBlockAgainstSchemas(
 			if (!parseResult.success) {
 				for (const issue of parseResult.error.issues) {
 					const fieldPath =
-						issue.path.length > 0
-							? `field "${issue.path.join(".")}"`
-							: "block data";
+						issue.path.length > 0 ? `field "${issue.path.join(".")}"` : "block data";
 					errors.push(
 						`Block "${block.id}" of built-in type "${rawType}" has invalid ${fieldPath}: ${issue.message}.`,
 					);
@@ -241,11 +231,7 @@ function validateBlockAgainstSchemas(
 	return errors;
 }
 
-export const validateBlockBuilderOutput: AgentOutputValidator = async (
-	result,
-	taskId,
-	state,
-) => {
+export const validateBlockBuilderOutput: AgentOutputValidator = async (result, taskId, state) => {
 	const typedResult = result as BlockBuilderResult;
 
 	if (!typedResult || typeof typedResult !== "object") {
@@ -311,10 +297,12 @@ export const validateBlockBuilderOutput: AgentOutputValidator = async (
 
 	const errors: string[] = validateGraphRules(blocksToValidate);
 	if (typedResult.targetType === "custom_block") {
-		errors.push(...validateCustomBlockParameterReferences(
-			blocksToValidate,
-			configuredCustomBlockParamNames(typedResult.targetId, state),
-		));
+		errors.push(
+			...validateCustomBlockParameterReferences(
+				blocksToValidate,
+				configuredCustomBlockParamNames(typedResult.targetId, state),
+			),
+		);
 	}
 	for (const block of blocksToValidate) {
 		errors.push(...validateBlockAgainstSchemas(block, customBlockSchemasMap));

@@ -1,14 +1,14 @@
 import { z } from "zod";
-import { db } from "../../db";
-import { RPC_SUBJECTS, rpcRespond, type RpcCaller } from "../../db/natsRpc";
-import { CHAN_ON_ROUTE_CHANGE, publishMessage } from "../../db/redis";
-import { canAccessProject } from "../../lib/acl";
-import { ForbiddenError } from "../../errors/forbidError";
-import createRoute from "../../api/v1/routes/create/service";
-import updateRoute from "../../api/v1/routes/update-partial/service";
-import deleteRoute from "../../api/v1/routes/delete/service";
 import { requestBodySchema as createSchema } from "../../api/v1/routes/create/dto";
+import createRoute from "../../api/v1/routes/create/service";
+import deleteRoute from "../../api/v1/routes/delete/service";
 import { requestBodySchema as modifySchema } from "../../api/v1/routes/update-partial/dto";
+import updateRoute from "../../api/v1/routes/update-partial/service";
+import { db } from "../../db";
+import { RPC_SUBJECTS, type RpcCaller, rpcRespond } from "../../db/natsRpc";
+import { CHAN_ON_ROUTE_CHANGE, publishMessage } from "../../db/redis";
+import { ForbiddenError } from "../../errors/forbidError";
+import { canAccessProject } from "../../lib/acl";
 import { saveCanvas } from "../canvas/service";
 import { canvasChangesSchema } from "../canvas/types";
 import { callerAcl, toRpcError, validationFailed } from "./caller";
@@ -54,8 +54,7 @@ export async function handleRouteOp(payload: unknown, caller: RpcCaller) {
 
 		// create: the HTTP route relies on middleware for this check, so the bus
 		// has to make it itself before anything is written.
-		if (!canAccessProject(acl, op.data.projectId, "creator"))
-			throw new ForbiddenError();
+		if (!canAccessProject(acl, op.data.projectId, "creator")) throw new ForbiddenError();
 
 		const hasCanvasBlocks = (op.canvas?.changes.blocks.length ?? 0) > 0;
 		const result = await db.transaction(async (tx) => {
@@ -67,13 +66,7 @@ export async function handleRouteOp(payload: unknown, caller: RpcCaller) {
 				!hasCanvasBlocks,
 			);
 			if (op.canvas)
-				await saveCanvas(
-					{ type: "route", id: created.id },
-					op.canvas,
-					caller.projectIds,
-					tx,
-					true,
-				);
+				await saveCanvas({ type: "route", id: created.id }, op.canvas, caller.projectIds, tx, true);
 			return created;
 		});
 		// published here, not by the services: they were told to join a

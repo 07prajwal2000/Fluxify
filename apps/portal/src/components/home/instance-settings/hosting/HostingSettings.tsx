@@ -1,9 +1,9 @@
-import { useEffect, useState } from "react";
 import { Button, Input, Label, TextField, toast } from "@fluxify/components";
 import { useQueryClient } from "@tanstack/react-query";
+import { useEffect, useState } from "react";
+import { showErrorNotification } from "@/lib/errorNotifier";
 import { instanceSettingsQuery } from "@/query/instanceSettingsQuery";
 import { publicSettingsQuery } from "@/query/publicSettingsQuery";
-import { showErrorNotification } from "@/lib/errorNotifier";
 
 export const DEFAULT_BASE_DOMAIN = "localhost";
 
@@ -52,8 +52,9 @@ export function HostingSettings() {
 				<p className="text-xs text-muted">
 					A project with the subdomain <code>shop</code> is served on{" "}
 					<code>shop.{domain || DEFAULT_BASE_DOMAIN}</code>. Projects without one share{" "}
-					<code>{domain || DEFAULT_BASE_DOMAIN}</code>, where two projects using the same path clash.
-					Point a wildcard DNS record (<code>*.{domain || DEFAULT_BASE_DOMAIN}</code>) at this server.
+					<code>{domain || DEFAULT_BASE_DOMAIN}</code>, where two projects using the same path
+					clash. Point a wildcard DNS record (<code>*.{domain || DEFAULT_BASE_DOMAIN}</code>) at
+					this server.
 				</p>
 				{domain !== current && (
 					<p className="text-xs text-warning">

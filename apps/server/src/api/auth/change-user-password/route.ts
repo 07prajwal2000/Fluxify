@@ -1,13 +1,9 @@
 import { zValidator } from "@hono/zod-validator";
-import { describeRoute, DescribeRouteOptions, resolver } from "hono-openapi";
+import { type DescribeRouteOptions, describeRoute, resolver } from "hono-openapi";
 import { validationErrorSchema } from "../../../errors/validationError";
-import { HonoServer } from "../../../types";
+import type { HonoServer } from "../../../types";
 import { requireSystemAdmin } from "../middleware";
-import {
-	requestBodySchema,
-	requestParamsSchema,
-	responseSchema,
-} from "./dto";
+import { requestBodySchema, requestParamsSchema, responseSchema } from "./dto";
 import handleRequest from "./service";
 
 const openapiRouteOptions: DescribeRouteOptions = {
@@ -36,10 +32,7 @@ export default function (app: HonoServer) {
 		zValidator("param", requestParamsSchema),
 		zValidator("json", requestBodySchema),
 		async (c) => {
-			const result = await handleRequest(
-				c.req.valid("param"),
-				c.req.valid("json"),
-			);
+			const result = await handleRequest(c.req.valid("param"), c.req.valid("json"));
 
 			return c.json(responseSchema.parse(result));
 		},

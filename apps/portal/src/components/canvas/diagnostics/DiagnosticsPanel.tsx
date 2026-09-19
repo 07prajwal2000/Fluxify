@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useReactFlow } from "@xyflow/react";
 import { Button, Spinner, toast } from "@fluxify/components";
+import { useReactFlow } from "@xyflow/react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
 	TbAlertCircle,
 	TbAlertTriangle,
@@ -16,7 +16,7 @@ import { blockLabels } from "../blocks/blockLabels";
 import { useCustomBlockDefs } from "../blocks/useCustomBlockDefs";
 import { useBlockPanelResize } from "../panel/useBlockPanelResize";
 import { useBlockDiagnostics } from "./DiagnosticsContext";
-import { diagnosticSourceLabel, type BlockDiagnostic } from "./types";
+import { type BlockDiagnostic, diagnosticSourceLabel } from "./types";
 import "../panel/panel.css";
 
 export const DIAGNOSTICS_PANEL_WIDTH_KEY = "fx-diagnostics-panel-width";
@@ -93,7 +93,7 @@ export function DiagnosticsPanel({
 
 			entries.push({
 				blockId,
-				name: customDef ? (name || customDef.label) : name,
+				name: customDef ? name || customDef.label : name,
 				type,
 				customDef,
 				diagnostics,
@@ -113,18 +113,9 @@ export function DiagnosticsPanel({
 		return entries;
 	}, [byBlock, customBlockDefs, getNode]);
 
-	const totalErrors = useMemo(
-		() => all.filter((d) => d.severity === "error").length,
-		[all],
-	);
-	const totalWarnings = useMemo(
-		() => all.filter((d) => d.severity === "warning").length,
-		[all],
-	);
-	const totalInfo = useMemo(
-		() => all.filter((d) => d.severity === "info").length,
-		[all],
-	);
+	const totalErrors = useMemo(() => all.filter((d) => d.severity === "error").length, [all]);
+	const totalWarnings = useMemo(() => all.filter((d) => d.severity === "warning").length, [all]);
+	const totalInfo = useMemo(() => all.filter((d) => d.severity === "info").length, [all]);
 
 	const [isValidating, setIsValidating] = useState(false);
 
@@ -263,7 +254,10 @@ export function DiagnosticsPanel({
 				</div>
 			</header>
 
-			<div className="fx-panel__body flex flex-col gap-3 overflow-y-auto p-3" style={{ paddingTop: 12 }}>
+			<div
+				className="fx-panel__body flex flex-col gap-3 overflow-y-auto p-3"
+				style={{ paddingTop: 12 }}
+			>
 				{canvasWide.map((diag, idx) => (
 					<div
 						key={`${diag.source}-${idx}`}

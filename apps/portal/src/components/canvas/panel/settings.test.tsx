@@ -1,8 +1,8 @@
 import { expect, test } from "bun:test";
 import { BLOCK_TYPES } from "../blocks/blockTypes";
+import type { BlockNode } from "../types";
 import { BlockSettings, GENERAL_TAB, splitTabs } from "./BlockSettings";
 import { blockSettingsTabs } from "./blockSettingsRegistry";
-import type { BlockNode } from "../types";
 import {
 	CLOSE_DELTA_THRESHOLD,
 	CLOSE_WIDTH_THRESHOLD,
@@ -75,7 +75,11 @@ test("getvar, setvar, transformer, arrayops, forloop, and foreachloop blocks hav
 		id: "arrayops-filter",
 		type: BLOCK_TYPES.arrayops,
 		position: { x: 0, y: 0 },
-		data: { datasource: "items", operation: "filter", filterConditions: [{ variable: "input.id", operator: "equal", value: "1" }] },
+		data: {
+			datasource: "items",
+			operation: "filter",
+			filterConditions: [{ variable: "input.id", operator: "equal", value: "1" }],
+		},
 	};
 	const dummyArrayOpsPopBlock: BlockNode = {
 		id: "arrayops-pop",
@@ -124,13 +128,28 @@ test("getvar, setvar, transformer, arrayops, forloop, and foreachloop blocks hav
 		id: "httprequest-1",
 		type: BLOCK_TYPES.httprequest,
 		position: { x: 0, y: 0 },
-		data: { method: "POST", url: "https://api.example.com", headers: { "Content-Type": "application/json" }, body: "{}", useParam: false },
+		data: {
+			method: "POST",
+			url: "https://api.example.com",
+			headers: { "Content-Type": "application/json" },
+			body: "{}",
+			useParam: false,
+		},
 	};
 	const dummyHttpSetCookieBlock: BlockNode = {
 		id: "setcookie-1",
 		type: BLOCK_TYPES.httpsetcookie,
 		position: { x: 0, y: 0 },
-		data: { name: "session", value: "abc", domain: "example.com", path: "/", expiry: "2026-12-31", httpOnly: true, secure: true, samesite: "Lax" },
+		data: {
+			name: "session",
+			value: "abc",
+			domain: "example.com",
+			path: "/",
+			expiry: "2026-12-31",
+			httpOnly: true,
+			secure: true,
+			samesite: "Lax",
+		},
 	};
 	const dummyHttpSetHeaderBlock: BlockNode = {
 		id: "setheader-1",
@@ -331,9 +350,7 @@ test("getvar, setvar, transformer, arrayops, forloop, and foreachloop blocks hav
 
 	const nativeDbResult = splitTabs(nativeDbTabs!(dummyNativeDbBlock));
 	expect(nativeDbResult.generalExtras).toHaveLength(1);
-	expect(nativeDbResult.blockTabs.map((tab) => tab.props.name)).toEqual([
-		"Code",
-	]);
+	expect(nativeDbResult.blockTabs.map((tab) => tab.props.name)).toEqual(["Code"]);
 
 	const updateDbResult = splitTabs(updateDbTabs!(dummyUpdateDbBlock));
 	expect(updateDbResult.generalExtras).toHaveLength(1);
@@ -344,15 +361,11 @@ test("getvar, setvar, transformer, arrayops, forloop, and foreachloop blocks hav
 
 	const updateDbParamResult = splitTabs(updateDbTabs!(dummyUpdateDbParamBlock));
 	expect(updateDbParamResult.generalExtras).toHaveLength(1);
-	expect(updateDbParamResult.blockTabs.map((tab) => tab.props.name)).toEqual([
-		"Edit Conditions",
-	]);
+	expect(updateDbParamResult.blockTabs.map((tab) => tab.props.name)).toEqual(["Edit Conditions"]);
 
 	const insertBulkDbResult = splitTabs(insertBulkDbTabs!(dummyInsertBulkDbBlock));
 	expect(insertBulkDbResult.generalExtras).toHaveLength(1);
-	expect(insertBulkDbResult.blockTabs.map((tab) => tab.props.name)).toEqual([
-		"Data to Insert",
-	]);
+	expect(insertBulkDbResult.blockTabs.map((tab) => tab.props.name)).toEqual(["Data to Insert"]);
 
 	const insertBulkDbParamResult = splitTabs(insertBulkDbTabs!(dummyInsertBulkDbParamBlock));
 	expect(insertBulkDbParamResult.generalExtras).toHaveLength(1);
@@ -360,9 +373,7 @@ test("getvar, setvar, transformer, arrayops, forloop, and foreachloop blocks hav
 
 	const insertDbResult = splitTabs(insertDbTabs!(dummyInsertDbBlock));
 	expect(insertDbResult.generalExtras).toHaveLength(1);
-	expect(insertDbResult.blockTabs.map((tab) => tab.props.name)).toEqual([
-		"Data to Insert",
-	]);
+	expect(insertDbResult.blockTabs.map((tab) => tab.props.name)).toEqual(["Data to Insert"]);
 
 	const insertDbParamResult = splitTabs(insertDbTabs!(dummyInsertDbParamBlock));
 	expect(insertDbParamResult.generalExtras).toHaveLength(1);
@@ -370,9 +381,7 @@ test("getvar, setvar, transformer, arrayops, forloop, and foreachloop blocks hav
 
 	const deleteDbResult = splitTabs(deleteDbTabs!(dummyDeleteDbBlock));
 	expect(deleteDbResult.generalExtras).toHaveLength(1);
-	expect(deleteDbResult.blockTabs.map((tab) => tab.props.name)).toEqual([
-		"Edit Conditions",
-	]);
+	expect(deleteDbResult.blockTabs.map((tab) => tab.props.name)).toEqual(["Edit Conditions"]);
 
 	const getSingleDbResult = splitTabs(getSingleDbTabs!(dummyGetSingleDbBlock));
 	expect(getSingleDbResult.generalExtras).toHaveLength(1);
@@ -464,7 +473,10 @@ test("getvar, setvar, transformer, arrayops, forloop, and foreachloop blocks hav
 
 	const filterResult = splitTabs(arrayOpsTabs!(dummyArrayOpsFilterBlock));
 	expect(filterResult.generalExtras).toHaveLength(1);
-	expect(filterResult.blockTabs.map((tab) => tab.props.name)).toEqual(["Operation", "Edit Conditions"]);
+	expect(filterResult.blockTabs.map((tab) => tab.props.name)).toEqual([
+		"Operation",
+		"Edit Conditions",
+	]);
 
 	const popResult = splitTabs(arrayOpsTabs!(dummyArrayOpsPopBlock));
 	expect(popResult.generalExtras).toHaveLength(1);
@@ -524,11 +536,3 @@ test("custom and user-defined block types fallback to customBlockSettings with a
 	// alongside the name and description rather than with the call's parameters.
 	expect(result.generalExtras).toHaveLength(1);
 });
-
-
-
-
-
-
-
-

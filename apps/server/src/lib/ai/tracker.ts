@@ -1,5 +1,5 @@
-import { publishMessage, CHAN_AI_SSE_PREFIX } from "../../db/redis";
 import type z from "zod";
+import { CHAN_AI_SSE_PREFIX, publishMessage } from "../../db/redis";
 import type {
 	BuilderOutputSchema,
 	ClassifierOutputSchema,

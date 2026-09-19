@@ -1,20 +1,19 @@
-import { BaseAgent } from "./base";
-import { type GlobalGraphState, AgentNode } from "../types";
-import { dispatchAgentEvent } from "../callbacks";
-import { DEFAULT_APPLY_MODE, type ApplyMode } from "../queue";
 import { blockAiDescriptions } from "@fluxify/blocks";
 import { z } from "zod";
-import { subAgents } from "./sub-agents";
+import { dispatchAgentEvent } from "../callbacks";
+import { renderProjectInventory } from "../internal/projectInventory";
+import { type ApplyMode, DEFAULT_APPLY_MODE } from "../queue";
 import { createFindResourceTool } from "../tools/findResource";
 import { createGetArtifactTool } from "../tools/getArtifact";
-import { renderProjectInventory } from "../internal/projectInventory";
+import { AgentNode, type GlobalGraphState } from "../types";
+import { BaseAgent } from "./base";
+import { subAgents } from "./sub-agents";
 
 function buildSubAgentsTable(): string {
 	if (subAgents.length === 0) {
 		return "No sub-agents currently available.";
 	}
-	const header =
-		"| Agent Name | Node Name | Ability | Description |\n| --- | --- | --- | --- |";
+	const header = "| Agent Name | Node Name | Ability | Description |\n| --- | --- | --- | --- |";
 	const rows = subAgents.map(
 		(a) => `| ${a.name} | ${a.nodeName} | ${a.ability} | ${a.description} |`,
 	);
@@ -25,9 +24,7 @@ const SUB_AGENTS_TABLE = buildSubAgentsTable();
 
 function buildBlockCatalogTable(): string {
 	const header = "| Block Name | Description |\n| --- | --- |";
-	const rows = blockAiDescriptions.map(
-		(b) => `| ${b.name} | ${b.description} |`,
-	);
+	const rows = blockAiDescriptions.map((b) => `| ${b.name} | ${b.description} |`);
 	return [header, ...rows].join("\n");
 }
 
@@ -42,9 +39,7 @@ const plannerSchema = z.object({
 	scratchpadNote: z
 		.string()
 		.nullish()
-		.describe(
-			"Contextual notes, resource IDs, or warnings to pass to downstream sub-agents.",
-		),
+		.describe("Contextual notes, resource IDs, or warnings to pass to downstream sub-agents."),
 	confidenceScore: z
 		.number()
 		.min(1)
@@ -54,9 +49,7 @@ const plannerSchema = z.object({
 		),
 	implementationComplexity: z
 		.enum(["high", "mid", "low"])
-		.describe(
-			"Complexity of the system if AI builds it without human reviews.",
-		),
+		.describe("Complexity of the system if AI builds it without human reviews."),
 });
 
 /**
@@ -104,9 +97,7 @@ export class PlannerAgent extends BaseAgent {
 		// Both change every run, so they travel with the user's turn — see
 		// `AgentInvokeOptions.context`. The system prompt above is now identical
 		// across runs and can be served from the provider's prompt cache.
-		const context = [scratchPadText, contextBlock, projectInventory]
-			.filter(Boolean)
-			.join("\n\n");
+		const context = [scratchPadText, contextBlock, projectInventory].filter(Boolean).join("\n\n");
 
 		const systemPrompt = `You are the Expert Planner Agent for Fluxify — a No/Low-Code Backend Engine.
 Fluxify allows users to build, deploy, and scale APIs visually without writing boilerplate code. It uses a visual graph where "Blocks" (units of logic like DB fetching, AI generation, or JS VM execution) are connected by "Edges" (defining direct flow, decision paths, and error handling paths).
@@ -180,14 +171,8 @@ again. If the user asks what is available, call \`find_resource\` with
 Plan carefully, thoroughly, and output excellent English craft for the user's plan.`;
 
 		const tools = [
-			createFindResourceTool(
-				this.state.internal.dbService,
-				this.state.internal.metadata || {},
-			),
-			createGetArtifactTool(
-				this.state.internal.dbService,
-				this.state.internal.metadata || {},
-			),
+			createFindResourceTool(this.state.internal.dbService, this.state.internal.metadata || {}),
+			createGetArtifactTool(this.state.internal.dbService, this.state.internal.metadata || {}),
 		];
 
 		const response = (await this.state.agentWrapper.invokeAgent({
@@ -230,9 +215,7 @@ Plan carefully, thoroughly, and output excellent English craft for the user's pl
 
 		return {
 			currentAgent: AgentNode.PLANNER,
-			nextRoute: requiresHITL
-				? AgentNode.HUMAN_IN_THE_LOOP
-				: AgentNode.TASK_GENERATOR,
+			nextRoute: requiresHITL ? AgentNode.HUMAN_IN_THE_LOOP : AgentNode.TASK_GENERATOR,
 			plannerState: {
 				markdownPlan: response.markdownPlan,
 				confidenceScore: response.confidenceScore,

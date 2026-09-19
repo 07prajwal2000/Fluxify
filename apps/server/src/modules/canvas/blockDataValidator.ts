@@ -1,47 +1,47 @@
-import z from "zod";
-import { variableNameError } from "@fluxify/blocks/variableName";
-import { ConflictError } from "../../errors/conflictError";
 import {
 	arrayOperationsBlockSchema,
 	BlockTypes,
+	cloudLogsBlockSchema,
+	deleteDbBlockSchema,
+	entrypointBlockSchema,
+	errorHandlerBlockSchema,
 	forEachLoopBlockSchema,
 	forLoopBlockSchema,
-	orchestratorBlockSchema,
-	switchBlockSchema,
+	getAllDbBlockSchema,
 	getHttpCookieBlockSchema,
 	getHttpHeaderBlockSchema,
 	getHttpParamBlockSchema,
 	getHttpRequestBodyBlockSchema,
+	getSingleDbBlockSchema,
 	getVarBlockSchema,
+	httpRequestBlockSchema,
 	ifBlockSchema,
+	insertBulkDbBlockSchema,
+	insertDbBlockSchema,
 	jsRunnerBlockSchema,
+	kvOperationsBlockSchema,
+	kvRawBlockSchema,
+	logBlockSchema,
+	nativeDbBlockSchema,
+	orchestratorBlockSchema,
+	responseBlockSchema,
 	setHttpCookieBlockSchema,
 	setHttpHeaderBlockSchema,
 	setVarSchema,
 	stickyNotesSchema,
-	transformerBlockSchema,
-	entrypointBlockSchema,
-	httpRequestBlockSchema,
-	logBlockSchema,
-	responseBlockSchema,
-	getSingleDbBlockSchema,
-	getAllDbBlockSchema,
-	deleteDbBlockSchema,
-	insertDbBlockSchema,
-	insertBulkDbBlockSchema,
-	nativeDbBlockSchema,
+	switchBlockSchema,
 	transactionDbBlockSchema,
-	updateDbBlockSchema,
-	errorHandlerBlockSchema,
-	cloudLogsBlockSchema,
+	transformerBlockSchema,
 	triggerWorkflowSchema,
-	kvRawBlockSchema,
-	kvOperationsBlockSchema,
+	updateDbBlockSchema,
 } from "@fluxify/blocks";
-import { customBlockNames } from "../../loaders/customBlocksLoader";
-import { Context, Next } from "hono";
-import { ValidationError } from "../../errors/validationError";
+import { variableNameError } from "@fluxify/blocks/variableName";
+import type { Context, Next } from "hono";
+import type z from "zod";
 import { BadRequestError } from "../../errors/badRequestError";
+import { ConflictError } from "../../errors/conflictError";
+import { ValidationError } from "../../errors/validationError";
+import { customBlockNames } from "../../loaders/customBlocksLoader";
 import type { CanvasChanges } from "./types";
 
 /**
@@ -67,8 +67,7 @@ export function blockDataValidator(data: CanvasChanges) {
 		deleteIds.add(block.id);
 	});
 	data.actionsToPerform.edges.forEach((edge) => {
-		if (deleteIds.has(edge.id))
-			throw new ConflictError("Edge Id conflicting with block");
+		if (deleteIds.has(edge.id)) throw new ConflictError("Edge Id conflicting with block");
 		if (edge.action !== "delete") return;
 		deleteIds.add(edge.id);
 	});
@@ -179,9 +178,7 @@ export function blockDataValidator(data: CanvasChanges) {
 			case BlockTypes.errorHandler:
 				schema = errorHandlerBlockSchema;
 				if (block.id === block.data.next) {
-					throw new BadRequestError(
-						"Error handler block cannot be connected to itself",
-					);
+					throw new BadRequestError("Error handler block cannot be connected to itself");
 				}
 				break;
 			case BlockTypes.cloudLogs:

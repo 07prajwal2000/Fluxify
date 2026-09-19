@@ -22,9 +22,7 @@ export function compileDiagnostics(
 
 	const message = `Compile failed: ${log.message}`;
 	const type = /block type: (\S+)/.exec(log.message)?.[1];
-	const culprits = blocks.filter(
-		(block) => log.message.includes(block.id) || block.type === type,
-	);
+	const culprits = blocks.filter((block) => log.message.includes(block.id) || block.type === type);
 	if (culprits.length === 0) return [{ severity: "error", message, source: COMPILE_SOURCE }];
 	return culprits.map((block) => ({
 		blockId: block.id,

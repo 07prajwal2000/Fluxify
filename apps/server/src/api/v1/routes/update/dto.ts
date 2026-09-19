@@ -1,8 +1,8 @@
-import { HttpMethod } from "../../../../db/schema";
 import { z } from "zod";
+import { HttpMethod } from "../../../../db/schema";
+import { CONTENT_TYPES } from "../../../../lib/routeConfig";
 import { ROUTE_REGEX } from "../constants";
 import { routeSchemaValidationRefinement } from "../schema-validator";
-import { CONTENT_TYPES } from "../../../../lib/routeConfig";
 
 export const requestBodySchema = z
 	.object({

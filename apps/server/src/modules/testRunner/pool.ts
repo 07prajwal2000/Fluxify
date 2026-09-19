@@ -62,15 +62,12 @@ export type Pool = {
  * what keeps it testable without any of them.
  */
 export function createPool(overrides: PoolOptions = {}): Pool {
-	const max =
-		overrides.max ?? positiveInt(process.env.TEST_RUNNER_MAX_WORKERS, 4);
-	const configuredMin =
-		overrides.min ?? positiveInt(process.env.TEST_RUNNER_MIN_WORKERS, 2);
+	const max = overrides.max ?? positiveInt(process.env.TEST_RUNNER_MAX_WORKERS, 4);
+	const configuredMin = overrides.min ?? positiveInt(process.env.TEST_RUNNER_MIN_WORKERS, 2);
 	// a min above max would raise concurrency exactly when memory is short
 	const min = Math.min(configuredMin, max);
 	const thresholdMb =
-		overrides.thresholdMb ??
-		positiveInt(process.env.TEST_RUNNER_FREEMEM_THRESHOLD_MB, 512);
+		overrides.thresholdMb ?? positiveInt(process.env.TEST_RUNNER_FREEMEM_THRESHOLD_MB, 512);
 	const freeMb = overrides.freeMb ?? headroomMb;
 
 	let active = 0;

@@ -1,5 +1,3 @@
-import { useMemo, useState } from "react";
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import {
 	Button,
 	DeleteIconButton,
@@ -9,14 +7,16 @@ import {
 	TextField,
 	toast,
 } from "@fluxify/components";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useMemo, useState } from "react";
 import { TbBoxMultiple, TbPlus, TbSearch } from "react-icons/tb";
-import { customBlocksQuery } from "@/query/customBlocksQuery";
-import { showErrorNotification } from "@/lib/errorNotifier";
-import { ConfirmDialog } from "@/components/common/ConfirmDialog";
-import { createRouteHead } from "@/lib/seo";
-import { EmptyState } from "@/components/common/EmptyState";
 import { BaseBlock } from "@/components/canvas/blocks/BaseBlock";
+import { ConfirmDialog } from "@/components/common/ConfirmDialog";
+import { EmptyState } from "@/components/common/EmptyState";
 import { CustomBlockIcon, type IconValue } from "@/components/customBlocks/IconPicker";
+import { showErrorNotification } from "@/lib/errorNotifier";
+import { createRouteHead } from "@/lib/seo";
+import { customBlocksQuery } from "@/query/customBlocksQuery";
 
 export const Route = createFileRoute("/_authed/$projectId/custom-blocks")({
 	head: createRouteHead(
@@ -26,9 +26,7 @@ export const Route = createFileRoute("/_authed/$projectId/custom-blocks")({
 	component: CustomBlocksPage,
 });
 
-type Block = NonNullable<
-	ReturnType<typeof customBlocksQuery.getAll.useQuery>["data"]
->[number];
+type Block = NonNullable<ReturnType<typeof customBlocksQuery.getAll.useQuery>["data"]>[number];
 
 function CustomBlocksPage() {
 	const { projectId } = Route.useParams();
@@ -72,9 +70,7 @@ function CustomBlocksPage() {
 					)}
 					<Button
 						variant="primary"
-						onPress={() =>
-							navigate({ to: "/$projectId/custom-blocks/new", params: { projectId } })
-						}
+						onPress={() => navigate({ to: "/$projectId/custom-blocks/new", params: { projectId } })}
 					>
 						<TbPlus size={16} /> New block
 					</Button>

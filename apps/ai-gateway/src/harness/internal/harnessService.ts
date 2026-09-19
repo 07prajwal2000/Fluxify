@@ -1,27 +1,27 @@
+import { logger } from "@fluxify/common";
 import {
-	db,
+	agentHarnessArtifactsEntity,
 	agentHarnessConversationsEntity,
+	agentHarnessHitlActionsEntity,
+	agentHarnessLiveStatesEntity,
 	agentHarnessRunsEntity,
 	agentHarnessStepsEntity,
-	agentHarnessLiveStatesEntity,
-	agentHarnessHitlActionsEntity,
-	agentHarnessArtifactsEntity,
 	agentHarnessSubArtifactsEntity,
+	db,
 } from "@fluxify/server";
-import { eq, and, notInArray } from "drizzle-orm";
-import { logger } from "@fluxify/common";
 import type { BaseMessage } from "@langchain/core/messages";
+import { and, eq, notInArray } from "drizzle-orm";
 import type { GlobalGraphState } from "../types";
-import { mergeRunUsage, type HistoryRun } from "./historyCompaction";
-import {
-	HistoryRepository,
-	type SaveHistoryCompactionInput,
-} from "./historyRepository";
+import { type HistoryRun, mergeRunUsage } from "./historyCompaction";
+import { HistoryRepository, type SaveHistoryCompactionInput } from "./historyRepository";
 
 export type HitlPlanAction =
 	| { type: "approve" }
 	| { type: "reject"; message: string }
-	| { type: "review"; comments: Array<{ text: string; sectionId?: string; [key: string]: any }> | string[] };
+	| {
+			type: "review";
+			comments: Array<{ text: string; sectionId?: string; [key: string]: any }> | string[];
+	  };
 
 /** Turns a HITL decision into the human turn the router/planner actually read
  *  ("check message history" per the planner prompt) — `state.action` itself is
@@ -35,9 +35,7 @@ export function describeHitlAction(action: HitlPlanAction): string | undefined {
 			return `I reject this plan.${action.message ? ` Reason: ${action.message}` : ""}`;
 		case "review": {
 			if (!action.comments?.length) return undefined;
-			const comments = action.comments.map((c) =>
-				typeof c === "string" ? c : c.text,
-			);
+			const comments = action.comments.map((c) => (typeof c === "string" ? c : c.text));
 			return `Please revise the plan based on my feedback:\n${comments.map((c) => `- ${c}`).join("\n")}`;
 		}
 		default:
@@ -101,12 +99,7 @@ export interface UpdateRunInput {
 export function extractWorkingMemory(graphState?: Partial<GlobalGraphState>): Record<string, any> {
 	if (!graphState) return {};
 
-	const {
-		agentWrapper,
-		internal,
-		messages,
-		...serializableState
-	} = graphState as any;
+	const { agentWrapper, internal, messages, ...serializableState } = graphState as any;
 
 	return serializableState;
 }
@@ -202,10 +195,7 @@ export class HarnessService {
 	 * run per conversation; the queue's message dedupe only covers a republished
 	 * message, never a second intent.
 	 */
-	async createRun(input: {
-		userQuery: string;
-		integrationId?: string;
-	}): Promise<string | null> {
+	async createRun(input: { userQuery: string; integrationId?: string }): Promise<string | null> {
 		try {
 			const [run] = await db
 				.insert(agentHarnessRunsEntity)
@@ -223,18 +213,13 @@ export class HarnessService {
 				.where(
 					and(
 						eq(agentHarnessConversationsEntity.id, this.conversationId),
-						notInArray(agentHarnessConversationsEntity.status, [
-							"running",
-							"paused_hitl",
-						]),
+						notInArray(agentHarnessConversationsEntity.status, ["running", "paused_hitl"]),
 					),
 				)
 				.returning({ id: agentHarnessConversationsEntity.id });
 
 			if (claimed.length === 0) {
-				await db
-					.delete(agentHarnessRunsEntity)
-					.where(eq(agentHarnessRunsEntity.id, run.id));
+				await db.delete(agentHarnessRunsEntity).where(eq(agentHarnessRunsEntity.id, run.id));
 				logger.warn("[HarnessService] Conversation already has a live run", {
 					conversationId: this.conversationId,
 				});
@@ -291,12 +276,7 @@ export class HarnessService {
 		const claimed = await db
 			.update(agentHarnessRunsEntity)
 			.set({ status: to, updatedAt: new Date() })
-			.where(
-				and(
-					eq(agentHarnessRunsEntity.id, runId),
-					eq(agentHarnessRunsEntity.status, from),
-				),
-			)
+			.where(and(eq(agentHarnessRunsEntity.id, runId), eq(agentHarnessRunsEntity.status, from)))
 			.returning({ id: agentHarnessRunsEntity.id });
 		return claimed.length > 0;
 	}
@@ -501,10 +481,7 @@ export class HarnessService {
 						.where(
 							and(
 								eq(agentHarnessRunsEntity.id, input.runId),
-								eq(
-									agentHarnessRunsEntity.conversationId,
-									this.conversationId,
-								),
+								eq(agentHarnessRunsEntity.conversationId, this.conversationId),
 							),
 						)
 						.limit(1);
@@ -559,10 +536,7 @@ export class HarnessService {
 					.insert(agentHarnessStepsEntity)
 					.values(values)
 					.onConflictDoUpdate({
-						target: [
-							agentHarnessStepsEntity.runId,
-							agentHarnessStepsEntity.subAgentId,
-						],
+						target: [agentHarnessStepsEntity.runId, agentHarnessStepsEntity.subAgentId],
 						set: {
 							stepType: input.stepType,
 							...(input.subAgentRole !== undefined ? { subAgentRole: input.subAgentRole } : {}),
@@ -596,8 +570,7 @@ export class HarnessService {
 
 		return this.executeWithBackgroundSupport(
 			async () => {
-				const workingMemory =
-					input.workingMemory ?? extractWorkingMemory(input.graphState);
+				const workingMemory = input.workingMemory ?? extractWorkingMemory(input.graphState);
 
 				const [result] = await db
 					.insert(agentHarnessLiveStatesEntity)
@@ -612,9 +585,7 @@ export class HarnessService {
 						target: agentHarnessLiveStatesEntity.runId,
 						set: {
 							currentState: input.currentState,
-							...(input.activeStepId !== undefined
-								? { activeStepId: input.activeStepId }
-								: {}),
+							...(input.activeStepId !== undefined ? { activeStepId: input.activeStepId } : {}),
 							workingMemory,
 							updatedAt: new Date(),
 						},
@@ -672,7 +643,13 @@ export class HarnessService {
 	 * Uses proper discriminated union narrowing instead of `as any` casts.
 	 */
 	private resolveHitlAction(action: RecordHitlActionInput["action"]): {
-		actionType: "plan_approval" | "plan_rejection" | "user_input" | "confirmation" | "cancellation" | "custom";
+		actionType:
+			| "plan_approval"
+			| "plan_rejection"
+			| "user_input"
+			| "confirmation"
+			| "cancellation"
+			| "custom";
 		userResponse: Record<string, any> | null;
 	} {
 		switch (action.type) {
@@ -686,7 +663,9 @@ export class HarnessService {
 			case "review":
 				return {
 					actionType: "user_input",
-					userResponse: { comments: (action as HitlPlanAction & { type: "review" }).comments ?? [] },
+					userResponse: {
+						comments: (action as HitlPlanAction & { type: "review" }).comments ?? [],
+					},
 				};
 			default: {
 				const generic = action as { type: string; payload?: Record<string, any> };

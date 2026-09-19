@@ -1,6 +1,6 @@
+import type { BlockNode } from "../../types";
 import { BlockSettings } from "../BlockSettings";
 import { BlockJsTextField } from "../fields";
-import type { BlockNode } from "../../types";
 
 /** Get Cookie block settings. Configures the cookie name to read from request. */
 export function GetCookieSettings({ block }: { block: BlockNode }) {

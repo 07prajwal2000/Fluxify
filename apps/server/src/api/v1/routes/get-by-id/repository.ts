@@ -1,10 +1,6 @@
 import { eq } from "drizzle-orm";
-import { db, DbTransactionType } from "../../../../db";
-import {
-	httpRouteConfigEntity,
-	projectsEntity,
-	routesEntity,
-} from "../../../../db/schema";
+import { type DbTransactionType, db } from "../../../../db";
+import { httpRouteConfigEntity, projectsEntity, routesEntity } from "../../../../db/schema";
 
 export async function getRouteById(id: string, tx?: DbTransactionType) {
 	const route = await (tx ?? db)
@@ -29,10 +25,7 @@ export async function getRouteById(id: string, tx?: DbTransactionType) {
 		})
 		.from(routesEntity)
 		.leftJoin(projectsEntity, eq(routesEntity.projectId, projectsEntity.id))
-		.leftJoin(
-			httpRouteConfigEntity,
-			eq(httpRouteConfigEntity.routeId, routesEntity.id),
-		)
+		.leftJoin(httpRouteConfigEntity, eq(httpRouteConfigEntity.routeId, routesEntity.id))
 		.where(eq(routesEntity.id, id))
 		.limit(1);
 	return route.length > 0 ? route[0] : null;

@@ -1,15 +1,12 @@
-import { Children, isValidElement, useState, type ReactNode } from "react";
 import { Tabs } from "@fluxify/components";
+import { Children, isValidElement, type ReactNode, useState } from "react";
 import { TbAlertCircle, TbAlertTriangle, TbInfoCircle } from "react-icons/tb";
-import {
-	BlockDescriptionField,
-	BlockNameInput,
-} from "./BlockIdentityFields";
 import { blockLabels } from "../blocks/blockLabels";
 import { useBlockDiagnostics } from "../diagnostics";
 import { diagnosticSourceLabel } from "../diagnostics/types";
-import { SaveOutputField, savesOutput } from "./SaveOutputField";
 import type { BlockNode } from "../types";
+import { BlockDescriptionField, BlockNameInput } from "./BlockIdentityFields";
+import { SaveOutputField, savesOutput } from "./SaveOutputField";
 
 /** Every block has this tab; block tabs are appended after it. */
 export const GENERAL_TAB = "General";
@@ -128,11 +125,7 @@ export function BlockSettings({ block, initialTab, openSeq, children }: BlockSet
 			</Tabs.ListContainer>
 
 			<Tabs.Panel id={GENERAL_TAB} className="fx-panel__tab-panel">
-				<BlockNameInput
-					blockId={block.id}
-					data={block.data}
-					placeholder={definition.name}
-				/>
+				<BlockNameInput blockId={block.id} data={block.data} placeholder={definition.name} />
 				<BlockDescriptionField
 					blockId={block.id}
 					data={block.data}
@@ -148,11 +141,7 @@ export function BlockSettings({ block, initialTab, openSeq, children }: BlockSet
 				)}
 			</Tabs.Panel>
 			{blockTabs.map((tab) => (
-				<Tabs.Panel
-					key={tab.props.name}
-					id={tab.props.name}
-					className="fx-panel__tab-panel"
-				>
+				<Tabs.Panel key={tab.props.name} id={tab.props.name} className="fx-panel__tab-panel">
 					{tab.props.children}
 				</Tabs.Panel>
 			))}
@@ -177,9 +166,7 @@ export function BlockSettings({ block, initialTab, openSeq, children }: BlockSet
 									)}
 								</span>
 								<div className="flex min-w-0 flex-1 flex-col gap-1">
-									<p className="font-normal leading-relaxed text-foreground">
-										{diag.message}
-									</p>
+									<p className="font-normal leading-relaxed text-foreground">{diag.message}</p>
 									<span className="self-start rounded bg-surface px-1.5 py-0.5 text-[10px] text-muted">
 										{diagnosticSourceLabel(diag.source)}
 										{diag.tab && ` · opens ${diag.tab}`}

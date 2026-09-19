@@ -30,10 +30,7 @@ export function getStoredPanelWidth(
 }
 
 /** Saves panel width to localStorage. */
-export function setStoredPanelWidth(
-	width: number,
-	storageKey = PANEL_WIDTH_STORAGE_KEY,
-) {
+export function setStoredPanelWidth(width: number, storageKey = PANEL_WIDTH_STORAGE_KEY) {
 	if (typeof localStorage === "undefined") return;
 	try {
 		localStorage.setItem(storageKey, Math.round(width).toString());

@@ -1,16 +1,40 @@
 import dayjs from "dayjs";
 import { BlockTypes } from "./blockTypes";
-import { scopeFor } from "./scope";
-// type-only: the compiler imports this module for its tables, so a value
-// import back the other way would close the cycle
-import type { EmitNode } from "./compiler";
 import { emitArrayOps } from "./builtin/arrayOperations";
+import {
+	enqueueCustomBlock,
+	invokeCustomBlock,
+	invokeCustomBlockAsync,
+} from "./builtin/customBlock";
+import { emitDeleteDb, runDeleteDb } from "./builtin/db/delete";
+import { emitGetAllDb, runGetAllDb } from "./builtin/db/getAll";
+import { emitGetSingleDb, runGetSingleDb } from "./builtin/db/getSingle";
+import { emitInsertDb, runInsertDb } from "./builtin/db/insert";
+import { emitInsertBulkDb, runInsertBulkDb } from "./builtin/db/insertBulk";
+import { emitNativeDb, runNativeDb } from "./builtin/db/native";
+import { emitTransactionDb, runTransactionDb } from "./builtin/db/transaction";
+import { emitUpdateDb, runUpdateDb } from "./builtin/db/update";
 import { emitEntrypoint } from "./builtin/entrypoint";
 import { emitGetVar } from "./builtin/getVar";
+import { emitGetHttpCookie } from "./builtin/http/getHttpCookie";
+import { emitGetHttpHeader } from "./builtin/http/getHttpHeader";
+import { emitGetHttpParam } from "./builtin/http/getHttpParam";
+import { emitGetHttpRequestBody } from "./builtin/http/getHttpRequestBody";
+import { emitSetHttpCookie } from "./builtin/http/setHttpCookie";
+import { emitSetHttpHeader } from "./builtin/http/setHttpHeader";
+import { emitHttpRequest, runHttpRequest } from "./builtin/httpRequest";
 import { emitIf } from "./builtin/if";
 import { emitJsRunner } from "./builtin/jsRunner";
+import { emitKvOperations, runKvOperations } from "./builtin/kv/operations";
+import { emitKvRaw, runKvRaw } from "./builtin/kv/rawConnection";
+import { emitCloudLogs, runCloudLog } from "./builtin/log/cloudLogs";
+import { emitConsoleLog, runConsoleLog } from "./builtin/log/console";
+import { emitForLoop } from "./builtin/loops/for";
+import { emitForEachLoop } from "./builtin/loops/foreach";
+import { emitOrchestrator } from "./builtin/orchestrator";
 import { emitResponse } from "./builtin/response";
 import { emitSetVar } from "./builtin/setVar";
+import { emitSwitch } from "./builtin/switch";
 import { emitTransformer } from "./builtin/transformer";
 import {
 	cancelSchedule,
@@ -18,34 +42,10 @@ import {
 	fireWorkflow,
 	scheduleWorkflow,
 } from "./builtin/triggerWorkflow";
-import { emitForLoop } from "./builtin/loops/for";
-import { emitForEachLoop } from "./builtin/loops/foreach";
-import { emitOrchestrator } from "./builtin/orchestrator";
-import { emitSwitch } from "./builtin/switch";
-import { emitConsoleLog, runConsoleLog } from "./builtin/log/console";
-import { emitCloudLogs, runCloudLog } from "./builtin/log/cloudLogs";
-import {
-	enqueueCustomBlock,
-	invokeCustomBlock,
-	invokeCustomBlockAsync,
-} from "./builtin/customBlock";
-import { emitHttpRequest, runHttpRequest } from "./builtin/httpRequest";
-import { emitGetHttpHeader } from "./builtin/http/getHttpHeader";
-import { emitSetHttpHeader } from "./builtin/http/setHttpHeader";
-import { emitGetHttpParam } from "./builtin/http/getHttpParam";
-import { emitGetHttpCookie } from "./builtin/http/getHttpCookie";
-import { emitSetHttpCookie } from "./builtin/http/setHttpCookie";
-import { emitGetHttpRequestBody } from "./builtin/http/getHttpRequestBody";
-import { emitGetSingleDb, runGetSingleDb } from "./builtin/db/getSingle";
-import { emitGetAllDb, runGetAllDb } from "./builtin/db/getAll";
-import { emitInsertDb, runInsertDb } from "./builtin/db/insert";
-import { emitInsertBulkDb, runInsertBulkDb } from "./builtin/db/insertBulk";
-import { emitUpdateDb, runUpdateDb } from "./builtin/db/update";
-import { emitDeleteDb, runDeleteDb } from "./builtin/db/delete";
-import { emitNativeDb, runNativeDb } from "./builtin/db/native";
-import { emitTransactionDb, runTransactionDb } from "./builtin/db/transaction";
-import { emitKvRaw, runKvRaw } from "./builtin/kv/rawConnection";
-import { emitKvOperations, runKvOperations } from "./builtin/kv/operations";
+// type-only: the compiler imports this module for its tables, so a value
+// import back the other way would close the cycle
+import type { EmitNode } from "./compiler";
+import { scopeFor } from "./scope";
 
 /**
  * What the compiler knows how to emit, and what the emitted code may call.

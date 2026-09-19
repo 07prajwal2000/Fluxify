@@ -7,14 +7,14 @@ async function main() {
 		// 1. Format and lint the staged files. Biome rewrites them in place, so
 		// they are staged again afterwards and the fixes land in this commit.
 		console.log("1. Formatting and linting staged files...");
-		const staged = (
-			await $`git diff --cached --name-only --diff-filter=ACMR`.text()
-		)
+		const staged = (await $`git diff --cached --name-only --diff-filter=ACMR`.text())
 			.split("\n")
 			.filter(Boolean);
-		if (staged.length > 0) {
-			await $`bun x biome check --write --no-errors-on-unmatched --files-ignore-unknown=true ${staged}`;
-			await $`git add -- ${staged}`;
+		// In batches: a large commit would overflow the Windows command-line limit.
+		for (let i = 0; i < staged.length; i += 200) {
+			const batch = staged.slice(i, i + 200);
+			await $`bun x biome check --write --no-errors-on-unmatched --files-ignore-unknown=true ${batch}`;
+			await $`git add -- ${batch}`;
 		}
 
 		// 2. Typecheck
@@ -32,9 +32,7 @@ async function main() {
 
 		console.log("Pre-commit checks passed successfully!");
 	} catch {
-		console.error(
-			"\nPre-commit checks failed! Please fix the errors before committing.",
-		);
+		console.error("\nPre-commit checks failed! Please fix the errors before committing.");
 		process.exit(1);
 	}
 }

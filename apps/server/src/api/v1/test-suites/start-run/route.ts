@@ -1,9 +1,9 @@
 import { describeRoute, resolver, validator } from "hono-openapi";
-import { requireProjectAccess } from "../../../auth/middleware";
 import { errorSchema } from "../../../../errors/customError";
 import { validationErrorSchema } from "../../../../errors/validationError";
 import zodErrorCallbackParser from "../../../../middlewares/zodErrorCallbackParser";
-import { HonoServer } from "../../../../types";
+import type { HonoServer } from "../../../../types";
+import { requireProjectAccess } from "../../../auth/middleware";
 import { requestBodySchema, requestParamSchema, responseSchema } from "./dto";
 import handleRequest from "./service";
 
@@ -41,9 +41,7 @@ export default function (app: HonoServer) {
 		async (ctx) => {
 			const { projectId, routeId } = ctx.req.valid("param");
 			// "run everything" is a bodyless POST, so a missing body is not an error
-			const parsed = requestBodySchema.safeParse(
-				await ctx.req.json().catch(() => ({})),
-			);
+			const parsed = requestBodySchema.safeParse(await ctx.req.json().catch(() => ({})));
 			if (!parsed.success) {
 				return ctx.json({ type: "validation", errors: parsed.error.issues }, 400);
 			}

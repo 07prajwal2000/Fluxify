@@ -20,9 +20,7 @@ function isBunFlushQuirk(error: unknown): boolean {
 	const errors = Array.isArray(error) ? error : [error];
 	return (
 		errors.length > 0 &&
-		errors.every(
-			(entry) => entry instanceof Error && /request timed out/i.test(entry.message),
-		)
+		errors.every((entry) => entry instanceof Error && /request timed out/i.test(entry.message))
 	);
 }
 

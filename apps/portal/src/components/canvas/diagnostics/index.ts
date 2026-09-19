@@ -1,5 +1,5 @@
-export * from "./types";
+export * from "./cycleValidator";
 export * from "./DiagnosticsContext";
 export * from "./DiagnosticsPanel";
-export * from "./cycleValidator";
+export * from "./types";
 export * from "./useCanvasDiagnosticsBridge";

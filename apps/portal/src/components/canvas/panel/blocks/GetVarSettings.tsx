@@ -1,6 +1,6 @@
+import type { BlockNode } from "../../types";
 import { BlockSettings } from "../BlockSettings";
 import { BlockTextField } from "../fields";
-import type { BlockNode } from "../../types";
 
 /** Get Variable block settings. Configures the variable key to read. */
 export function GetVarSettings({ block }: { block: BlockNode }) {

@@ -1,7 +1,7 @@
-import { useMemo } from "react";
 import { useParams } from "@tanstack/react-router";
-import { customBlocksQuery } from "@/query/customBlocksQuery";
+import { useMemo } from "react";
 import type { IconValue } from "@/components/customBlocks/IconPicker";
+import { customBlocksQuery } from "@/query/customBlocksQuery";
 
 export type CustomBlockDef = {
 	id: string;

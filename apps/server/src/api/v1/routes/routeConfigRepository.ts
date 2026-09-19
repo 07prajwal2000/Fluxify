@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { db, DbTransactionType } from "../../../db";
+import { type DbTransactionType, db } from "../../../db";
 import { httpRouteConfigEntity } from "../../../db/schema";
 
 /**

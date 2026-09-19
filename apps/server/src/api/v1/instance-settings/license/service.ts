@@ -1,15 +1,15 @@
 import { createHash } from "node:crypto";
 import {
 	entitlement,
+	type License,
 	NON_COMMERCIAL,
 	verifyLicenseKey,
-	type License,
 } from "@fluxify/common/license";
 import type z from "zod";
 import { BadRequestError } from "../../../../errors/badRequestError";
+import { publishLicenseKey } from "../../../../lib/edition";
 import { EncryptionService } from "../../../../lib/encryption";
 import { getEnv } from "../../../../lib/env";
-import { publishLicenseKey } from "../../../../lib/edition";
 import { getSetting } from "../../../../loaders/instanceSettingsLoader";
 import type { LicenseView, setLicenseBodySchema } from "./dto";
 import { getStoredLicense, saveStoredLicense } from "./repository";
@@ -53,7 +53,12 @@ export async function setLicense(body: z.infer<typeof setLicenseBodySchema>, use
 		throw new BadRequestError(
 			"The license is set by the LICENSE_KEY environment variable. Remove it from the admin's environment to manage the license here.",
 		);
-	const key = body.edition === "community" ? null : body.edition === "non_commercial" ? NON_COMMERCIAL : checkNewKey(body.key);
+	const key =
+		body.edition === "community"
+			? null
+			: body.edition === "non_commercial"
+				? NON_COMMERCIAL
+				: checkNewKey(body.key);
 	const confirmed = body.edition === "non_commercial";
 	await saveStoredLicense({
 		key: key === null ? null : EncryptionService.encrypt(key),
@@ -91,7 +96,12 @@ function toView({ source, key, error, row }: Configured): LicenseView {
 	return {
 		source,
 		// The edition actually running: a key that does not verify runs as community.
-		edition: invalidReason || !key ? "community" : key === NON_COMMERCIAL ? "non_commercial" : "enterprise",
+		edition:
+			invalidReason || !key
+				? "community"
+				: key === NON_COMMERCIAL
+					? "non_commercial"
+					: "enterprise",
 		status: invalidReason ? "invalid" : e.status,
 		invalidReason,
 		licensee: signed?.licensee ?? null,
@@ -101,7 +111,9 @@ function toView({ source, key, error, row }: Configured): LicenseView {
 		features: e.features,
 		fingerprint: key && key !== NON_COMMERCIAL ? fingerprint(key) : null,
 		connectorsSwitchedOff: getSetting("featureflags.ee.connectors")?.enabled === false,
-		confirmedBy: row?.confirmedByEmail ? { name: row.confirmedByName, email: row.confirmedByEmail } : null,
+		confirmedBy: row?.confirmedByEmail
+			? { name: row.confirmedByName, email: row.confirmedByEmail }
+			: null,
 		confirmedAt: row?.confirmedAt?.toISOString() ?? null,
 	};
 }

@@ -81,9 +81,7 @@ function renderBlock(block: CanvasBlock): string {
 
 	for (const connection of block.connections ?? []) {
 		const handle =
-			connection.handle && connection.handle !== "source"
-				? `[${connection.handle}] `
-				: "";
+			connection.handle && connection.handle !== "source" ? `[${connection.handle}] ` : "";
 		lines.push(`  -> ${handle}${connection.blockId}`);
 	}
 

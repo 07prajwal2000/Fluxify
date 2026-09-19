@@ -1,18 +1,18 @@
-import { StateGraph, END, START, Send } from "@langchain/langgraph";
-import { GraphState, type GlobalGraphState, AgentNode } from "./types";
+import { END, Send, START, StateGraph } from "@langchain/langgraph";
 import {
-	RouterAgent,
-	DiscussionAgent,
-	PlannerAgent,
-	OrchestratorAgent,
-	HumanInTheLoopAgent,
-	SupervisorAgent,
-	RouteConfigAgent,
-	CustomBlockConfigAgent,
-	TaskGeneratorAgent,
 	BlockBuilderAgent,
+	CustomBlockConfigAgent,
+	DiscussionAgent,
+	HumanInTheLoopAgent,
+	OrchestratorAgent,
+	PlannerAgent,
+	RouteConfigAgent,
+	RouterAgent,
 	SummarizerAgent,
+	SupervisorAgent,
+	TaskGeneratorAgent,
 } from "./agents";
+import { AgentNode, type GlobalGraphState, GraphState } from "./types";
 
 const workflow = new StateGraph(GraphState)
 	.addNode(AgentNode.ROUTER, async (state: GlobalGraphState) => {

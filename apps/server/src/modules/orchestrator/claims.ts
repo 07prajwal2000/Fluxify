@@ -1,7 +1,7 @@
 import { logger } from "@fluxify/common";
 import type { NodeType } from "@fluxify/common/orchestrator";
 import { and, eq, inArray, sql } from "drizzle-orm";
-import { db, type DbTransactionType } from "../../db";
+import { type DbTransactionType, db } from "../../db";
 import { nodeClaimsEntity, projectSettingsEntity, triggerGroupsEntity } from "../../db/schema";
 import { BadRequestError } from "../../errors/badRequestError";
 import { NotFoundError } from "../../errors/notFoundError";

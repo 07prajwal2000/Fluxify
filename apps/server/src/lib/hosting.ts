@@ -68,7 +68,5 @@ export function isPortalOrigin(
 	} catch {
 		return false;
 	}
-	return configuredBaseDomain
-		? hostname === configuredBaseDomain
-		: LOCAL_HOSTS.includes(hostname);
+	return configuredBaseDomain ? hostname === configuredBaseDomain : LOCAL_HOSTS.includes(hostname);
 }

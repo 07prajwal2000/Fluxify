@@ -1,15 +1,15 @@
-import { useEffect, useMemo, useState } from "react";
 import {
 	Button,
 	CloseButton,
+	cn,
 	Input,
 	Label,
 	Modal,
 	Spinner,
 	Table,
 	TextField,
-	cn,
 } from "@fluxify/components";
+import { useEffect, useMemo, useState } from "react";
 import { TbRefresh, TbRoute, TbSearch, TbSitemap } from "react-icons/tb";
 import { withBasePath } from "@/constants/routes";
 import { workflowsQuery } from "@/query/workflowsQuery";
@@ -43,14 +43,8 @@ export function WorkflowField({
 
 	return (
 		<div className="flex flex-col gap-1.5 py-2">
-			{label && (
-				<span className="text-sm font-semibold text-foreground">{label}</span>
-			)}
-			{description && (
-				<p className="text-xs leading-normal text-muted-foreground">
-					{description}
-				</p>
-			)}
+			{label && <span className="text-sm font-semibold text-foreground">{label}</span>}
+			{description && <p className="text-xs leading-normal text-muted-foreground">{description}</p>}
 
 			<div className="flex h-10 w-full items-center justify-between gap-3 rounded-[var(--radius)] border border-border bg-surface px-3 shadow-sm">
 				<div className="flex min-w-0 flex-1 items-center gap-2.5">
@@ -101,8 +95,7 @@ export function WorkflowField({
 
 			{selected && !selected.active && (
 				<p className="text-xs leading-normal text-warning">
-					This workflow is inactive, so a run queued for it will not start until
-					you activate it.
+					This workflow is inactive, so a run queued for it will not start until you activate it.
 				</p>
 			)}
 
@@ -150,12 +143,11 @@ export function WorkflowSelectorModal({
 	// Searching on the server rather than filtering a page here: a project with
 	// more workflows than fit on one page would otherwise have the rest be
 	// unfindable. PER_PAGE is the server's own ceiling.
-	const { data, isLoading, isFetching, isError, error, refetch } =
-		workflowsQuery.getAll.useQuery({
-			projectId,
-			perPage: PER_PAGE,
-			search: debouncedSearch || undefined,
-		});
+	const { data, isLoading, isFetching, isError, error, refetch } = workflowsQuery.getAll.useQuery({
+		projectId,
+		perPage: PER_PAGE,
+		search: debouncedSearch || undefined,
+	});
 	const workflows = useMemo(() => data?.data ?? [], [data?.data]);
 	const hasMore = (data?.pagination?.totalPages ?? 1) > 1;
 
@@ -206,9 +198,7 @@ export function WorkflowSelectorModal({
 								</div>
 							) : isError ? (
 								<div className="flex h-full flex-col items-center justify-center gap-3 px-8 text-center">
-									<p className="text-sm font-semibold text-foreground">
-										Could not load workflows
-									</p>
+									<p className="text-sm font-semibold text-foreground">Could not load workflows</p>
 									<p className="max-w-[320px] text-xs text-muted-foreground">
 										{(error as Error)?.message ?? "Something went wrong."}
 									</p>
@@ -222,12 +212,9 @@ export function WorkflowSelectorModal({
 										<TbRoute size={32} />
 									</span>
 									<div className="flex flex-col gap-1.5">
-										<p className="text-sm font-semibold text-foreground">
-											No workflows yet
-										</p>
+										<p className="text-sm font-semibold text-foreground">No workflows yet</p>
 										<p className="max-w-[280px] text-xs leading-relaxed text-muted-foreground">
-											Create a workflow first, then come back and point this
-											block at it.
+											Create a workflow first, then come back and point this block at it.
 										</p>
 									</div>
 									<Button
@@ -278,10 +265,7 @@ export function WorkflowSelectorModal({
 													)}
 												>
 													<Table.Cell>
-														<TbSitemap
-															size={18}
-															className="shrink-0 text-foreground/70"
-														/>
+														<TbSitemap size={18} className="shrink-0 text-foreground/70" />
 													</Table.Cell>
 													<Table.Cell>
 														<span className="text-sm font-medium text-foreground">
@@ -309,16 +293,10 @@ export function WorkflowSelectorModal({
 														<div className="flex justify-end">
 															<Button
 																size="sm"
-																variant={
-																	workflow.id === selectedId
-																		? "primary"
-																		: "outline"
-																}
+																variant={workflow.id === selectedId ? "primary" : "outline"}
 																onPress={() => onSelect(workflow.id)}
 															>
-																{workflow.id === selectedId
-																	? "Selected"
-																	: "Select"}
+																{workflow.id === selectedId ? "Selected" : "Select"}
 															</Button>
 														</div>
 													</Table.Cell>

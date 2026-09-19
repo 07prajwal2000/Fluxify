@@ -1,12 +1,10 @@
 import type { ReactNode } from "react";
 import { BLOCK_TYPES } from "../blocks/blockTypes";
+import type { BlockNode } from "../types";
 import { arrayOpsSettings } from "./blocks/ArrayOpsSettings";
 import { cloudLogSettings } from "./blocks/CloudLogSettings";
 import { consoleLogSettings } from "./blocks/ConsoleLogSettings";
-import { forLoopSettings } from "./blocks/ForLoopSettings";
-import { foreachLoopSettings } from "./blocks/ForeachLoopSettings";
-import { orchestratorSettings } from "./blocks/OrchestratorSettings";
-import { switchSettings } from "./blocks/SwitchSettings";
+import { customBlockSettings } from "./blocks/CustomBlockSettings";
 import { deleteDbSettings } from "./blocks/db/DeleteDbSettings";
 import { getAllDbSettings } from "./blocks/db/GetAllDbSettings";
 import { getSingleDbSettings } from "./blocks/db/GetSingleDbSettings";
@@ -15,8 +13,8 @@ import { insertDbSettings } from "./blocks/db/InsertDbSettings";
 import { nativeDbSettings } from "./blocks/db/NativeDbSettings";
 import { transactionDbSettings } from "./blocks/db/TransactionDbSettings";
 import { updateDbSettings } from "./blocks/db/UpdateDbSettings";
-import { kvRawSettings } from "./blocks/kv/KvRawSettings";
-import { kvOperationsSettings } from "./blocks/kv/KvOperationsSettings";
+import { foreachLoopSettings } from "./blocks/ForeachLoopSettings";
+import { forLoopSettings } from "./blocks/ForLoopSettings";
 import { getCookieSettings } from "./blocks/GetCookieSettings";
 import { getHeaderSettings } from "./blocks/GetHeaderSettings";
 import { getParamSettings } from "./blocks/GetParamSettings";
@@ -24,14 +22,16 @@ import { getVarSettings } from "./blocks/GetVarSettings";
 import { httpRequestSettings } from "./blocks/HttpRequestSettings";
 import { ifSettings } from "./blocks/IfSettings";
 import { jsRunnerSettings } from "./blocks/JsRunnerSettings";
+import { kvOperationsSettings } from "./blocks/kv/KvOperationsSettings";
+import { kvRawSettings } from "./blocks/kv/KvRawSettings";
+import { orchestratorSettings } from "./blocks/OrchestratorSettings";
 import { responseSettings } from "./blocks/ResponseSettings";
 import { setCookieSettings } from "./blocks/SetCookieSettings";
 import { setHeaderSettings } from "./blocks/SetHeaderSettings";
 import { setVarSettings } from "./blocks/SetVarSettings";
+import { switchSettings } from "./blocks/SwitchSettings";
 import { transformerSettings } from "./blocks/TransformerSettings";
 import { triggerWorkflowSettings } from "./blocks/TriggerWorkflowSettings";
-import { customBlockSettings } from "./blocks/CustomBlockSettings";
-import type { BlockNode } from "../types";
 
 /**
  * Extra settings tabs per block type. A block returns
@@ -86,6 +86,3 @@ export function blockSettingsTabs(type: string | undefined): BlockTabs | undefin
 	if (builtinTabs) return builtinTabs;
 	return customBlockSettings;
 }
-
-
-

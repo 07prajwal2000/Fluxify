@@ -1,7 +1,7 @@
+import { logger } from "@fluxify/common";
+import type { SQL } from "bun";
 import { existsSync } from "fs";
 import { join } from "path";
-import { SQL } from "bun";
-import { logger } from "@fluxify/common";
 import { getEnv } from "../lib/env";
 
 export async function migrateDB(db: SQL) {
@@ -33,9 +33,7 @@ export async function migrateDB(db: SQL) {
 		const tableCount = parseInt(result[0]!.count.toString());
 
 		if (tableCount > 0) {
-			logger.info(
-				"Database already contains tables. Skipping schema.sql application.",
-			);
+			logger.info("Database already contains tables. Skipping schema.sql application.");
 			return;
 		}
 

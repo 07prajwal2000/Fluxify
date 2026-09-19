@@ -98,24 +98,16 @@ export async function rpcRequest<TReq, TRes, TMeta = undefined>(
 	try {
 		message = await nc.request(subject, body, { timeout: timeoutMs });
 	} catch (error) {
-		throw new RpcError(
-			"TIMEOUT",
-			`No response from ${subject} within ${timeoutMs}ms`,
-			{
-				requestId,
-				error: String(error),
-			},
-		);
+		throw new RpcError("TIMEOUT", `No response from ${subject} within ${timeoutMs}ms`, {
+			requestId,
+			error: String(error),
+		});
 	}
 
 	const response = codec.decode(message.data) as RpcResponse<TRes> | undefined;
 	if (!response?.ok) {
 		const err = response?.error;
-		throw new RpcError(
-			err?.code ?? "INTERNAL",
-			err?.message ?? "Malformed response",
-			err?.details,
-		);
+		throw new RpcError(err?.code ?? "INTERNAL", err?.message ?? "Malformed response", err?.details);
 	}
 	return response.data;
 }
@@ -144,10 +136,7 @@ export function rpcRespond<TReq, TRes, TMeta = undefined>(
 ): RpcResponder {
 	const codec = options.codec ?? defaultCodec;
 	const maxBytes = options.maxPayloadBytes ?? MAX_PAYLOAD_BYTES;
-	const sub = nc.subscribe(
-		subject,
-		options.queue ? { queue: options.queue } : {},
-	);
+	const sub = nc.subscribe(subject, options.queue ? { queue: options.queue } : {});
 
 	void (async () => {
 		for await (const message of sub) {
@@ -164,10 +153,7 @@ export function rpcRespond<TReq, TRes, TMeta = undefined>(
 				const rpc =
 					error instanceof RpcError
 						? error
-						: new RpcError(
-								"INTERNAL",
-								error instanceof Error ? error.message : String(error),
-							);
+						: new RpcError("INTERNAL", error instanceof Error ? error.message : String(error));
 				if (rpc.code === "INTERNAL") {
 					logger.error(`[nats] rpc ${subject} failed (${requestId})`, "NATS", {
 						error,

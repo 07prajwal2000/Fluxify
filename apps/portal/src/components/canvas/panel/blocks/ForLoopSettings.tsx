@@ -1,6 +1,6 @@
+import type { BlockNode } from "../../types";
 import { BlockSettings } from "../BlockSettings";
 import { BlockJsTextField } from "../fields";
-import type { BlockNode } from "../../types";
 
 /** For Loop block settings: Start, End, Step. */
 export function ForLoopSettings({ block }: { block: BlockNode }) {
@@ -30,9 +30,7 @@ export function ForLoopSettings({ block }: { block: BlockNode }) {
 
 	const isInfiniteLoop =
 		isNumeric &&
-		(stepNum === 0 ||
-			(startNum < endNum && stepNum < 0) ||
-			(startNum > endNum && stepNum > 0));
+		(stepNum === 0 || (startNum < endNum && stepNum < 0) || (startNum > endNum && stepNum > 0));
 
 	return (
 		<div className="flex flex-col gap-4">

@@ -1,6 +1,6 @@
+import * as findResourceDto from "@fluxify/ai-gateway/src/api/v1/find-resource/dto";
 import type { z } from "zod";
 import { httpClient } from "@/lib/http";
-import * as findResourceDto from "@fluxify/ai-gateway/src/api/v1/find-resource/dto";
 
 const baseUrl = (projectId: string) => `ai/v1/${projectId}/find-resource`;
 

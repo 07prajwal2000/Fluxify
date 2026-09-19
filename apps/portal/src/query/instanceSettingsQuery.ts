@@ -1,7 +1,7 @@
+import type { requestBodySchema as patchAuthRequestBodySchema } from "@fluxify/server/src/api/v1/instance-settings/patch-auth-settings/dto";
+import type { requestBodySchema as upsertRequestBodySchema } from "@fluxify/server/src/api/v1/instance-settings/upsert/dto";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { z } from "zod";
-import type { requestBodySchema as upsertRequestBodySchema } from "@fluxify/server/src/api/v1/instance-settings/upsert/dto";
-import type { requestBodySchema as patchAuthRequestBodySchema } from "@fluxify/server/src/api/v1/instance-settings/patch-auth-settings/dto";
 import { instanceSettingsService, type SetLicenseBody } from "@/services/instanceSettings";
 
 const KEY = ["instance-settings"];

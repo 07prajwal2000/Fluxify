@@ -1,24 +1,17 @@
-import { z } from "zod";
-import { requestBodySchema, responseSchema } from "./dto";
-import { db, DbTransactionType } from "../../../../db";
-import {
-	getIntegrationById,
-	updateIntegration,
-	integrationExistByName,
-} from "./repository";
+import type { z } from "zod";
+import { type DbTransactionType, db } from "../../../../db";
+import { CHAN_ON_INTEGRATION_CHANGE, publishMessage } from "../../../../db/redis";
+import { ConflictError } from "../../../../errors/conflictError";
 import { NotFoundError } from "../../../../errors/notFoundError";
-import { getSchema } from "../helpers";
+import { ServerError } from "../../../../errors/serverError";
 import { ValidationError } from "../../../../errors/validationError";
 import { mapZodErrorToFieldErrors } from "../../../../lib/errors";
-import { ServerError } from "../../../../errors/serverError";
-import {
-	CHAN_ON_INTEGRATION_CHANGE,
-	publishMessage,
-} from "../../../../db/redis";
-import { getAppConfigKeysFromData } from "../create/service";
 import { getAppConfigKeys } from "../create/repository";
-import { ConflictError } from "../../../../errors/conflictError";
+import { getAppConfigKeysFromData } from "../create/service";
+import { getSchema } from "../helpers";
 import { getIntegrationTags } from "../schemas";
+import type { requestBodySchema, responseSchema } from "./dto";
+import { getIntegrationById, integrationExistByName, updateIntegration } from "./repository";
 
 export default async function handleRequest(
 	projectId: string,
@@ -34,22 +27,13 @@ export default async function handleRequest(
 		if (integrationExist && integrationExist.id !== id) {
 			throw new ConflictError("Integration name already exists");
 		}
-		await validateAppConfig(
-			projectId,
-			body.config,
-			integration.group!,
-			integration.variant!,
-			tx,
-		);
+		await validateAppConfig(projectId, body.config, integration.group!, integration.variant!, tx);
 		const updatedIntegration = await updateIntegration(
 			projectId,
 			id,
 			{
 				...body,
-				tags: getIntegrationTags(
-					integration.group as any,
-					integration.variant!,
-				),
+				tags: getIntegrationTags(integration.group as any, integration.variant!),
 			},
 			tx,
 		);

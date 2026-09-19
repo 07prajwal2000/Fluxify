@@ -1,8 +1,7 @@
-import { useState } from "react";
 import {
 	Button,
-	Chip,
 	Checkbox,
+	Chip,
 	CloseButton,
 	Dropdown,
 	Input,
@@ -11,23 +10,16 @@ import {
 	Spinner,
 	Table,
 	TextField,
-	toast,
 	Tooltip,
+	toast,
 } from "@fluxify/components";
-import {
-	TbArrowDown,
-	TbArrowUp,
-	TbDots,
-	TbKey,
-	TbPlus,
-	TbReload,
-	TbTrash,
-} from "react-icons/tb";
-import { authQuery } from "@/query/authQuery";
-import { showErrorNotification } from "@/lib/errorNotifier";
-import { useAuthStore } from "@/store/auth";
+import { useState } from "react";
+import { TbArrowDown, TbArrowUp, TbDots, TbKey, TbPlus, TbReload, TbTrash } from "react-icons/tb";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { usePublicSettings } from "@/hooks/usePublicSettings";
+import { showErrorNotification } from "@/lib/errorNotifier";
+import { authQuery } from "@/query/authQuery";
+import { useAuthStore } from "@/store/auth";
 
 type UserRow = {
 	id: string;
@@ -76,8 +68,7 @@ export function UsersList() {
 			updateUser.mutate(
 				{ userId: user.id, isSystemAdmin: action === "promote" },
 				{
-					onSuccess: () =>
-						toast.success(action === "promote" ? "User promoted" : "User demoted"),
+					onSuccess: () => toast.success(action === "promote" ? "User promoted" : "User demoted"),
 					onError: (e) => showErrorNotification(e as Error),
 				},
 			);
@@ -96,38 +87,40 @@ export function UsersList() {
 
 			<Table>
 				<Table.Content aria-label="Users">
-				<Table.Header>
-					<Table.Column id="name" isRowHeader>Name</Table.Column>
-					<Table.Column id="email">Email</Table.Column>
-					<Table.Column id="role">Role</Table.Column>
-					<Table.Column id="admin">Admin</Table.Column>
-					<Table.Column id="actions" aria-label="Actions">{""}</Table.Column>
-				</Table.Header>
-				<Table.Body items={data.data as UserRow[]}>
-					{(user: UserRow) => {
-						const isMe = user.id === userData?.id;
-						const hasCredentialAccount = user.providerIds
-							?.split(",")
-							.includes("credential");
-						const role = user.role
-							? user.role === "instance_admin"
-								? "System admin"
-								: "User"
-							: "No role";
-						return (
-							<Table.Row id={user.id}>
-								<Table.Cell>
-									<span className="flex items-center gap-2">
-										{user.name || "<no name>"}
-										{isMe && <Chip>You</Chip>}
-									</span>
-								</Table.Cell>
-								<Table.Cell>{user.email}</Table.Cell>
-								<Table.Cell>{role}</Table.Cell>
-								<Table.Cell>{user.isSystemAdmin ? "Yes" : "No"}</Table.Cell>
-								<Table.Cell>
-									{isAdmin && !isMe && (
-										<div className="flex justify-end">
+					<Table.Header>
+						<Table.Column id="name" isRowHeader>
+							Name
+						</Table.Column>
+						<Table.Column id="email">Email</Table.Column>
+						<Table.Column id="role">Role</Table.Column>
+						<Table.Column id="admin">Admin</Table.Column>
+						<Table.Column id="actions" aria-label="Actions">
+							{""}
+						</Table.Column>
+					</Table.Header>
+					<Table.Body items={data.data as UserRow[]}>
+						{(user: UserRow) => {
+							const isMe = user.id === userData?.id;
+							const hasCredentialAccount = user.providerIds?.split(",").includes("credential");
+							const role = user.role
+								? user.role === "instance_admin"
+									? "System admin"
+									: "User"
+								: "No role";
+							return (
+								<Table.Row id={user.id}>
+									<Table.Cell>
+										<span className="flex items-center gap-2">
+											{user.name || "<no name>"}
+											{isMe && <Chip>You</Chip>}
+										</span>
+									</Table.Cell>
+									<Table.Cell>{user.email}</Table.Cell>
+									<Table.Cell>{role}</Table.Cell>
+									<Table.Cell>{user.isSystemAdmin ? "Yes" : "No"}</Table.Cell>
+									<Table.Cell>
+										{isAdmin && !isMe && (
+											<div className="flex justify-end">
 												<Dropdown>
 													<Dropdown.Trigger>
 														<Button isIconOnly variant="ghost" aria-label="User options">
@@ -143,13 +136,24 @@ export function UsersList() {
 																		user,
 																	})
 																}
-																textValue={user.isSystemAdmin ? "Demote from admin" : "Promote to admin"}
+																textValue={
+																	user.isSystemAdmin ? "Demote from admin" : "Promote to admin"
+																}
 															>
-																{user.isSystemAdmin ? <TbArrowDown size={16} /> : <TbArrowUp size={16} />}
-																<Label>{user.isSystemAdmin ? "Demote from admin" : "Promote to admin"}</Label>
+																{user.isSystemAdmin ? (
+																	<TbArrowDown size={16} />
+																) : (
+																	<TbArrowUp size={16} />
+																)}
+																<Label>
+																	{user.isSystemAdmin ? "Demote from admin" : "Promote to admin"}
+																</Label>
 															</Dropdown.Item>
 															{hasCredentialAccount && (
-																<Dropdown.Item onAction={() => setPasswordUser(user)} textValue="Change password">
+																<Dropdown.Item
+																	onAction={() => setPasswordUser(user)}
+																	textValue="Change password"
+																>
 																	<TbKey size={16} />
 																	<Label>Change password</Label>
 																</Dropdown.Item>
@@ -166,23 +170,19 @@ export function UsersList() {
 														</Dropdown.Menu>
 													</Dropdown.Popover>
 												</Dropdown>
-										</div>
-									)}
-								</Table.Cell>
-							</Table.Row>
-						);
+											</div>
+										)}
+									</Table.Cell>
+								</Table.Row>
+							);
 						}}
-				</Table.Body>
+					</Table.Body>
 				</Table.Content>
 			</Table>
 
 			{totalPages > 1 && (
 				<div className="flex items-center justify-end gap-3 text-sm text-muted">
-					<Button
-						variant="outline"
-						isDisabled={page <= 1}
-						onPress={() => setPage((p) => p - 1)}
-					>
+					<Button variant="outline" isDisabled={page <= 1} onPress={() => setPage((p) => p - 1)}>
 						Previous
 					</Button>
 					<span>
@@ -214,7 +214,9 @@ export function UsersList() {
 				onConfirm={confirm}
 			>
 				{pending?.action === "delete" ? (
-					<>Delete <b className="text-foreground">{pending.user.name}</b>? This can't be undone.</>
+					<>
+						Delete <b className="text-foreground">{pending.user.name}</b>? This can't be undone.
+					</>
 				) : pending ? (
 					<>
 						{pending.action === "promote" ? "Give" : "Remove"}{" "}
@@ -259,8 +261,7 @@ function ChangePasswordModal({
 	const [password, setPassword] = useState("");
 
 	function generatePassword() {
-		const alphabet =
-			"ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%^&*";
+		const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%^&*";
 		const values = crypto.getRandomValues(new Uint32Array(20));
 		const generated = Array.from(values, (value) => alphabet[value % alphabet.length]).join("");
 		setPassword(generated);
@@ -297,14 +298,22 @@ function ChangePasswordModal({
 							<Modal.Body>
 								<div className="flex flex-col gap-4">
 									<p className="text-sm text-muted">
-										Set a new password for <span className="font-medium text-foreground">{user?.name || user?.email}</span>.
+										Set a new password for{" "}
+										<span className="font-medium text-foreground">{user?.name || user?.email}</span>
+										.
 									</p>
 									<TextField isRequired type="password" value={password} onChange={setPassword}>
 										<Label>New password</Label>
 										<div className="flex gap-2">
 											<Input className="flex-1" placeholder="At least 8 characters" />
 											<Tooltip>
-												<Button type="button" isIconOnly variant="outline" aria-label="Generate and copy password" onPress={generatePassword}>
+												<Button
+													type="button"
+													isIconOnly
+													variant="outline"
+													aria-label="Generate and copy password"
+													onPress={generatePassword}
+												>
 													<TbReload size={16} />
 												</Button>
 												<Tooltip.Content>Generate and copy a random password</Tooltip.Content>
@@ -349,7 +358,13 @@ function AddUserButton() {
 		e.preventDefault();
 		const ssoOnly = authConfig?.mode === "sso_only";
 		create.mutate(
-			{ email, fullname: name, password: ssoOnly ? undefined : password, isSystemAdmin: admin, provider: ssoOnly ? "sso" : "email-password" },
+			{
+				email,
+				fullname: name,
+				password: ssoOnly ? undefined : password,
+				isSystemAdmin: admin,
+				provider: ssoOnly ? "sso" : "email-password",
+			},
 			{
 				onSuccess: () => {
 					toast.success("User created");
@@ -388,7 +403,8 @@ function AddUserButton() {
 									</TextField>
 									{authConfig?.mode === "sso_only" ? (
 										<div className="rounded-md bg-surface-secondary p-3 text-sm text-muted border border-border">
-											SSO is configured and traditional login is disabled. This user will sign in through your identity provider — no password needed.
+											SSO is configured and traditional login is disabled. This user will sign in
+											through your identity provider — no password needed.
 										</div>
 									) : (
 										<TextField isRequired type="password" value={password} onChange={setPassword}>

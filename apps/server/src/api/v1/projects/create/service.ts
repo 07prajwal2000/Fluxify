@@ -1,13 +1,13 @@
-import { z } from "zod";
-import { requestBodySchema, responseSchema } from "./dto";
-import { db } from "../../../../db";
-import { ConflictError } from "../../../../errors/conflictError";
-import { checkProjectExists, createProject } from "./repository";
-import { addProjectMember } from "../settings/members/repository";
-import { upsertProjectSettingKey } from "../settings/keys/upsert/repository";
-import { ServerError } from "../../../../errors/serverError";
 import { generateID } from "@fluxify/lib";
+import type { z } from "zod";
+import { db } from "../../../../db";
 import { CHAN_ON_PROJECT_SETTING_CHANGE, publishMessage } from "../../../../db/redis";
+import { ConflictError } from "../../../../errors/conflictError";
+import { ServerError } from "../../../../errors/serverError";
+import { upsertProjectSettingKey } from "../settings/keys/upsert/repository";
+import { addProjectMember } from "../settings/members/repository";
+import type { requestBodySchema, responseSchema } from "./dto";
+import { checkProjectExists, createProject } from "./repository";
 
 export default async function handleRequest(
 	data: z.infer<typeof requestBodySchema>,
@@ -19,15 +19,9 @@ export default async function handleRequest(
 	// than no project at all, since only a system admin could then repair it.
 	const id = await db.transaction(async (tx) => {
 		const exist = await checkProjectExists(project.name, tx);
-		if (exist)
-			throw new ConflictError(
-				`Project already exists with '${project.name}' name`,
-			);
+		if (exist) throw new ConflictError(`Project already exists with '${project.name}' name`);
 
-		const projectId = await createProject(
-			{ ...project, id: generateID() },
-			tx,
-		);
+		const projectId = await createProject({ ...project, id: generateID() }, tx);
 		if (!projectId) return "";
 
 		for (const member of members ?? []) {

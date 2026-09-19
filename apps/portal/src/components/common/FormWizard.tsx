@@ -1,6 +1,6 @@
+import { Button, cn } from "@fluxify/components";
 import type { ReactNode } from "react";
 import { useState } from "react";
-import { Button, cn } from "@fluxify/components";
 import { TbArrowLeft, TbArrowRight, TbCheck } from "react-icons/tb";
 
 /**
@@ -136,12 +136,7 @@ export function FormWizard({
 				) : (
 					<div className="flex items-center gap-2">
 						{canSubmit && (
-							<Button
-								variant="outline"
-								size="sm"
-								isPending={isPending}
-								onPress={onSubmit}
-							>
+							<Button variant="outline" size="sm" isPending={isPending} onPress={onSubmit}>
 								{submitLabel}
 							</Button>
 						)}
@@ -173,9 +168,7 @@ export function SummaryItem({
 	return (
 		<div className="bg-surface px-3 py-2">
 			<dt className="text-[11px] uppercase tracking-wide text-muted">{label}</dt>
-			<dd className={cn("mt-0.5 text-sm text-foreground", mono && "font-mono")}>
-				{value || "—"}
-			</dd>
+			<dd className={cn("mt-0.5 text-sm text-foreground", mono && "font-mono")}>{value || "—"}</dd>
 		</div>
 	);
 }

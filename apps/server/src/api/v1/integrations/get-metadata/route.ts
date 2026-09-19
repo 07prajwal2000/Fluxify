@@ -1,19 +1,13 @@
-import {
-	describeRoute,
-	DescribeRouteOptions,
-	resolver,
-	validator,
-} from "hono-openapi";
-import { requestRouteSchema, responseSchema } from "./dto";
-import handleRequest from "./service";
+import { type DescribeRouteOptions, describeRoute, resolver, validator } from "hono-openapi";
 import { errorSchema } from "../../../../errors/customError";
 import zodErrorCallbackParser from "../../../../middlewares/zodErrorCallbackParser";
-import { HonoServer } from "../../../../types";
+import type { HonoServer } from "../../../../types";
 import { requireProjectAccess } from "../../../auth/middleware";
+import { requestRouteSchema, responseSchema } from "./dto";
+import handleRequest from "./service";
 
 const openapiRouteOptions: DescribeRouteOptions = {
-	description:
-		"Get the metadata of an integration. Databases return their tables and columns.",
+	description: "Get the metadata of an integration. Databases return their tables and columns.",
 	operationId: "get-integration-metadata",
 	tags: ["Integrations"],
 	responses: {

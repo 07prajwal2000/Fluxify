@@ -94,7 +94,9 @@
 	padding: 0.75rem;
 	text-align: left;
 	color: var(--foreground);
-	transition: background-color 150ms ease, border-color 150ms ease;
+	transition:
+		background-color 150ms ease,
+		border-color 150ms ease;
 }
 
 .fx-block-picker__item:hover,

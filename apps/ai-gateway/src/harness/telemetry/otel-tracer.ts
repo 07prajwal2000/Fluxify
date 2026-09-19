@@ -1,5 +1,5 @@
+import { context, type Span, trace } from "@fluxify/common/tracing";
 import { BaseCallbackHandler } from "@langchain/core/callbacks/base";
-import { trace, context, type Span } from "@fluxify/common/tracing";
 
 export class FluxifyOtelTracer extends BaseCallbackHandler {
 	name = "fluxify_otel_tracer";
@@ -34,12 +34,7 @@ export class FluxifyOtelTracer extends BaseCallbackHandler {
 		}
 	}
 
-	private startSpan(
-		id: string,
-		name: string,
-		parentRunId?: string,
-		kind: string = "CHAIN",
-	) {
+	private startSpan(id: string, name: string, parentRunId?: string, kind: string = "CHAIN") {
 		const tracer = trace.getTracer("fluxify-langchain-tracer");
 		const parentSpan = parentRunId ? this.spans.get(parentRunId) : undefined;
 
@@ -67,8 +62,7 @@ export class FluxifyOtelTracer extends BaseCallbackHandler {
 		if (error) {
 			// Provider SDKs reject with plain objects as happily as with Errors
 			// (`{ code: 23 }`), and `recordException` would keep none of it.
-			const thrown =
-				error instanceof Error ? error : new Error(this.safeStringify(error));
+			const thrown = error instanceof Error ? error : new Error(this.safeStringify(error));
 			span.recordException(thrown);
 			span.setStatus({ code: 2, message: thrown.message }); // 2 = ERROR
 		} else {
@@ -94,8 +88,9 @@ export class FluxifyOtelTracer extends BaseCallbackHandler {
 		name?: string,
 	) {
 		// Attempt to extract the clearest name for the span
-		let spanName = typeof name === "string" ? name : (run.name || run.id?.[run.id.length - 1] || "chain");
-		
+		let spanName =
+			typeof name === "string" ? name : run.name || run.id?.[run.id.length - 1] || "chain";
+
 		if (spanName === "LangGraph") {
 			spanName = "harness.fluxify";
 		} else if (metadata?.langgraph_node) {
@@ -130,7 +125,8 @@ export class FluxifyOtelTracer extends BaseCallbackHandler {
 		metadata?: any,
 		name?: string,
 	) {
-		const llmName = typeof name === "string" ? name : (llm.name || llm.id?.[llm.id.length - 1] || "llm");
+		const llmName =
+			typeof name === "string" ? name : llm.name || llm.id?.[llm.id.length - 1] || "llm";
 		this.startSpan(runId, `LLM: ${llmName}`, parentRunId, "LLM");
 		const span = this.spans.get(runId);
 		if (span) {
@@ -174,8 +170,7 @@ export class FluxifyOtelTracer extends BaseCallbackHandler {
 		}
 
 		if (!found) {
-			const legacy =
-				output?.llmOutput?.tokenUsage || output?.llmOutput?.estimatedTokenUsage;
+			const legacy = output?.llmOutput?.tokenUsage || output?.llmOutput?.estimatedTokenUsage;
 			if (!legacy) return {};
 			totals.prompt = legacy.promptTokens ?? 0;
 			totals.completion = legacy.completionTokens ?? 0;

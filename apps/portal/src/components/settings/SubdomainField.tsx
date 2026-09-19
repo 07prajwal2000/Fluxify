@@ -1,7 +1,7 @@
 import { Input, Label, TextField } from "@fluxify/components";
 import { DEFAULT_BASE_DOMAIN, subdomainSchema } from "@fluxify/server/src/lib/hosting";
-import { publicSettingsQuery } from "@/query/publicSettingsQuery";
 import { projectSettingsKeysQuery } from "@/query/projectSettingsKeysQuery";
+import { publicSettingsQuery } from "@/query/publicSettingsQuery";
 
 export function useBaseDomain() {
 	const { data } = publicSettingsQuery.get.useQuery();
@@ -42,7 +42,11 @@ export function SubdomainField({
 	const error = subdomainError(value);
 
 	return (
-		<TextField value={value} onChange={(next) => onChange(next.trim().toLowerCase())} isInvalid={!!error}>
+		<TextField
+			value={value}
+			onChange={(next) => onChange(next.trim().toLowerCase())}
+			isInvalid={!!error}
+		>
 			<Label>Subdomain</Label>
 			<Input placeholder="billing" maxLength={63} />
 			{error ? (
@@ -51,12 +55,16 @@ export function SubdomainField({
 				<p className="text-xs text-muted">
 					{value ? (
 						<>
-							APIs are served on <code>{value}.{baseDomain}</code> only.
+							APIs are served on{" "}
+							<code>
+								{value}.{baseDomain}
+							</code>{" "}
+							only.
 						</>
 					) : (
 						<>
-							Optional. Leave empty to share <code>{baseDomain}</code> with other projects, where two
-							projects using the same path clash.
+							Optional. Leave empty to share <code>{baseDomain}</code> with other projects, where
+							two projects using the same path clash.
 						</>
 					)}
 				</p>

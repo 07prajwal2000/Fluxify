@@ -1,10 +1,4 @@
-import {
-	Button,
-	FieldError,
-	InputGroup,
-	TextField,
-	Tooltip,
-} from "@heroui/react";
+import { Button, FieldError, InputGroup, TextField, Tooltip } from "@heroui/react";
 import { IoLogoJavascript } from "react-icons/io5";
 import { TbChevronRight, TbSettings } from "react-icons/tb";
 import { Checkbox } from "../Checkbox";
@@ -12,8 +6,8 @@ import { DeleteIconButton } from "../DeleteButton";
 import { CONTAINER_TYPES } from "./constants";
 import { useSchemaEditorContext } from "./context";
 import { DataTypeSelect } from "./DataTypeSelect";
-import type { SchemaPath, SchemaProperty } from "./types";
 import { hasDefaultValue } from "./DefaultValueField";
+import type { SchemaPath, SchemaProperty } from "./types";
 
 interface PropertyRowProps {
 	property: SchemaProperty;
@@ -24,11 +18,7 @@ interface PropertyRowProps {
 }
 
 /** One `key : type` line. Containers navigate; everything else opens the drawer. */
-export function PropertyRow({
-	property,
-	path,
-	isDuplicateKey,
-}: PropertyRowProps) {
+export function PropertyRow({ property, path, isDuplicateKey }: PropertyRowProps) {
 	const {
 		isReadOnly,
 		lockKeys,
@@ -46,16 +36,13 @@ export function PropertyRow({
 	// A type with no registered editor has nothing to open — a required `bool`
 	// today. An optional one still opens, for its default value.
 	const isConfigurable =
-		isContainer ||
-		Boolean(ruleEditors[property.dataType]) ||
-		hasDefaultValue(property);
+		isContainer || Boolean(ruleEditors[property.dataType]) || hasDefaultValue(property);
 
 	// An override names the choices for this one field, so it stays live even
 	// when the rest of the editor is locked.
 	const typeIsEditable = !isReadOnly || hasTypeOverride(path);
 
-	const update = (updates: Partial<SchemaProperty>) =>
-		updateProperty(path, updates);
+	const update = (updates: Partial<SchemaProperty>) => updateProperty(path, updates);
 
 	const handleConfigure = () => {
 		if (isContainer) goToPath(path);
@@ -79,9 +66,7 @@ export function PropertyRow({
 							value={property.key}
 						/>
 					</InputGroup>
-					{isDuplicateKey && (
-						<FieldError>Duplicate key at this level.</FieldError>
-					)}
+					{isDuplicateKey && <FieldError>Duplicate key at this level.</FieldError>}
 				</TextField>
 			</div>
 

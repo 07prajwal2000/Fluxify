@@ -1,8 +1,8 @@
 import { describeRoute, resolver, validator } from "hono-openapi";
-import { requireProjectAccess } from "../../../auth/middleware";
 import { validationErrorSchema } from "../../../../errors/validationError";
 import zodErrorCallbackParser from "../../../../middlewares/zodErrorCallbackParser";
-import { HonoServer } from "../../../../types";
+import type { HonoServer } from "../../../../types";
+import { requireProjectAccess } from "../../../auth/middleware";
 import { requestParamSchema, responseSchema } from "./dto";
 import handleRequest from "./service";
 

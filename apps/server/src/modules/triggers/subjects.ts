@@ -59,5 +59,4 @@ export const internalConsumerName = (projectId: string) => {
 	return `fluxify_triggers_${sanitize(projectId)}_internal`;
 };
 
-export const triggerConsumerName = (triggerId: string) =>
-	`fluxify_trigger_${sanitize(triggerId)}`;
+export const triggerConsumerName = (triggerId: string) => `fluxify_trigger_${sanitize(triggerId)}`;

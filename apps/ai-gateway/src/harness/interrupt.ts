@@ -20,10 +20,7 @@ function interruptSubject(conversationId: string): string {
 /** conversationId -> AbortController for runs executing in THIS worker process. */
 const activeControllers = new Map<string, AbortController>();
 
-export function registerRunController(
-	conversationId: string,
-	controller: AbortController,
-): void {
+export function registerRunController(conversationId: string, controller: AbortController): void {
 	activeControllers.set(conversationId, controller);
 }
 
@@ -47,16 +44,13 @@ export function requestInterrupt(conversationId: string): void {
 /** Worker side: listen for interrupt requests and abort the matching local run.
  *  Call once at worker startup. Returns an async unsubscribe. */
 export async function subscribeInterrupts(): Promise<() => Promise<void>> {
-	const unsubscribe = await subscribeToChannel(
-		INTERRUPT_WILDCARD,
-		(conversationId) => {
-			const aborted = abortLocalRun(conversationId);
-			logger.info("[HarnessInterrupt] Interrupt request received", {
-				conversationId,
-				aborted,
-			});
-		},
-	);
+	const unsubscribe = await subscribeToChannel(INTERRUPT_WILDCARD, (conversationId) => {
+		const aborted = abortLocalRun(conversationId);
+		logger.info("[HarnessInterrupt] Interrupt request received", {
+			conversationId,
+			aborted,
+		});
+	});
 	logger.info("Subscribed to harness.interrupt.*", "HarnessInterrupt");
 	return unsubscribe;
 }

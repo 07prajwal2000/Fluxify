@@ -1,11 +1,11 @@
-import { useCallback } from "react";
 import {
 	BaseEdge,
 	EdgeLabelRenderer,
+	type EdgeProps,
 	getBezierPath,
 	useReactFlow,
-	type EdgeProps,
 } from "@xyflow/react";
+import { useCallback } from "react";
 import { TbX } from "react-icons/tb";
 import type { BlockEdge } from "../types";
 import "./edges.css";
@@ -55,13 +55,7 @@ export function FlowEdge({
 		<>
 			{/* Fat transparent path underneath: makes a thin edge easy to select. */}
 			<path className="fx-edge__hit" d={path} />
-			<BaseEdge
-				id={id}
-				path={path}
-				markerEnd={markerEnd}
-				style={style}
-				className={edgeClassName}
-			/>
+			<BaseEdge id={id} path={path} markerEnd={markerEnd} style={style} className={edgeClassName} />
 			{selected && (
 				<EdgeLabelRenderer>
 					<button

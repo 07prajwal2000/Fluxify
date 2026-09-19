@@ -1,6 +1,6 @@
 import type { Next } from "hono";
-import { getEnv } from "../../lib/env";
 import { NotFoundError } from "../../errors/notFoundError";
+import { getEnv } from "../../lib/env";
 import type { HonoContext } from "../../types";
 
 /**
@@ -24,6 +24,7 @@ export function orchestrationEnabled(): boolean {
  * "forbidden" would imply a permission someone could be granted.
  */
 export async function requireOrchestration(_ctx: HonoContext, next: Next) {
-	if (!orchestrationEnabled()) throw new NotFoundError("Orchestration is not available on this deployment");
+	if (!orchestrationEnabled())
+		throw new NotFoundError("Orchestration is not available on this deployment");
 	return next();
 }

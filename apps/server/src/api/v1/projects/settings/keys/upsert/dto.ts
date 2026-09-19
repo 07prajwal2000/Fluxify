@@ -1,13 +1,13 @@
 import { z } from "zod";
-import { ProjectSettingsKeyType } from "../keySchemaMap";
+import type { ProjectSettingsKeyType } from "../keySchemaMap";
 
 export const requestBodySchema = z.object({
-  key: z.string<ProjectSettingsKeyType>(),
-  value: z.string().optional(),
+	key: z.string<ProjectSettingsKeyType>(),
+	value: z.string().optional(),
 });
 
 export const responseSchema = z.object({
-  message: z.string(),
+	message: z.string(),
 });
 
 export type RequestBodySchema = z.infer<typeof requestBodySchema>;
