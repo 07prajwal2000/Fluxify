@@ -228,7 +228,6 @@ You rarely need the full stack. Run just the part you're changing:
 | :--- | :--- | :--- |
 | `apps/server` | `@fluxify/server` | Admin API, compiler, request workers, database schema |
 | `apps/portal` | `@fluxify/portal` | The admin dashboard, including the AI assistant UI |
-| `apps/web` | `@fluxify/web` | The older Next.js dashboard, being replaced by `apps/portal` |
 | `apps/ai-gateway` | `@fluxify/ai-gateway` | AI agent harness, LLM providers, MCP tooling |
 | `packages/blocks` | `@fluxify/blocks` | Block definitions, schemas, runtime actions, compiler emitters |
 | `packages/lib` | `@fluxify/lib` | Execution engine, VM, state runtime |

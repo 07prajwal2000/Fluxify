@@ -6,8 +6,6 @@ import { getEnv } from "../lib/env";
 // killing hot reload). Re-exported here so existing `db/redis` importers keep
 // working; the real implementation lives in ./pubsub + ./nats.
 export {
-	CHAN_AI_SSE_PREFIX,
-	CHAN_AI_WORKER,
 	CHAN_ON_APPCONFIG_CHANGE,
 	CHAN_ON_CUSTOM_BLOCK_CHANGE,
 	CHAN_ON_INTEGRATION_CHANGE,

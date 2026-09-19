@@ -5,7 +5,6 @@
 		"ignoreUnknown": true,
 		"includes": [
 			"**",
-			"!apps/web",
 			"!.claude",
 			"!**/routeTree.gen.ts",
 			"!**/public/types",

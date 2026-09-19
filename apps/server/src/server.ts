@@ -8,7 +8,6 @@ import { drizzleInit } from "./db";
 import { initializePubSub } from "./db/pubsub";
 import { initializeRedis } from "./db/redis";
 import type { AccessControlRole } from "./db/schema";
-import { startAiWorker } from "./lib/ai/worker";
 import { type auth, initializeAuth } from "./lib/auth";
 import {
 	ENABLE_BUILTIN_WORKER,
@@ -145,7 +144,6 @@ async function main() {
 	}
 
 	if (builtinWorkerEnabled) {
-		startAiWorker();
 		await loadAppConfig();
 		await loadIntegrations();
 		await loadProjectSettings();

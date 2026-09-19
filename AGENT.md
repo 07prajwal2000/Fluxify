@@ -7,15 +7,7 @@ If you encounter a repeatable issue or bug that might arise in the future, you m
 **CRITICAL:** Always use `bun` — `bun run`, `bun install`, `bun test`, and `bun` to execute JS/TS files. Never `npm`, `yarn`, or `pnpm`.
 
 ## Frontend Location — `apps/portal` ONLY
-**CRITICAL:** The frontend is `apps/portal`. **`apps/web` is LEGACY — never edit it.**
-- Do not add, modify, or "fix" anything under `apps/web`, even when a file there
-  looks like exactly the thing the task describes. It is the older Next.js app
-  and is not the shipping UI.
-- Both apps contain same-named components for the same features (block settings
-  panels, conditions editors, integration selectors). Matching a filename is NOT
-  evidence you are in the right app — check the path prefix first.
-- `apps/web` has no `typecheck` script and Biome ignores it, so a green
-  `bun run typecheck` / `bun run lint` does not mean work there was validated.
+**CRITICAL:** The frontend is `apps/portal`.
 - Portal specifics worth knowing before searching: shared UI lives in
   `packages/components` (HeroUI, e.g. `ConditionsBuilder`, `JsTextField`),
   block settings panels in `apps/portal/src/components/canvas/panel/blocks/`,

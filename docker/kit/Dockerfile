@@ -97,7 +97,6 @@ WORKDIR /app
 
 COPY package.json bun.lock ./
 COPY apps/server/package.json apps/server/package.json
-COPY apps/web/package.json apps/web/package.json
 COPY apps/ai-gateway/package.json apps/ai-gateway/package.json
 COPY apps/portal/package.json apps/portal/package.json
 COPY packages/adapters/package.json packages/adapters/package.json
@@ -123,9 +122,7 @@ COPY . .
 RUN bun install --frozen-lockfile
 
 # Workspace packages + admin server (standalone.js + schema.sql) + gateway.
-# --filter excludes @fluxify/web: the admin UI is apps/portal now, and the
-# legacy Next.js app no longer typechecks against the current server schemas.
-RUN bun run build --filter=!@fluxify/web
+RUN bun run build
 
 # The compiled worker is TWO bundles, not one. Bun's bundler does not pull a
 # child-process entry point into its parent's bundle; it leaves the reference and resolves
