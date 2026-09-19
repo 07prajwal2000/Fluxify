@@ -100,6 +100,9 @@ git remote add upstream https://github.com/Fluxify-rest/Fluxify.git
 bun install
 ```
 
+This also registers the pre-commit hook and builds the docs search index the AI
+assistant uses (`bun run prepare`, about 2 seconds).
+
 ### 3. Start the backing services
 
 ```bash

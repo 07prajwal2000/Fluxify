@@ -28,9 +28,12 @@
 		"docs:preview": "vitepress preview docs",
 		"db:generate": "bun --env-file=../../.env --cwd ./apps/server drizzle-kit generate",
 		"db:migrate": "bun --env-file=../../.env --cwd ./apps/server drizzle-kit push",
-		"prepare": "bun run scripts/setup-hooks.ts"
+		"prepare": "bun --parallel 'bun run prepare:hooks' 'bun run prepare:docs-index'",
+		"prepare:hooks": "bun run scripts/setup-hooks.ts",
+		"prepare:docs-index": "[ ! -f apps/ai-gateway/src/scripts/gather.ts ] || bun run --cwd apps/ai-gateway gather"
 	},
 	"//scripts": {
+		"prepare": "Runs on every bun install. prepare:docs-index skips itself when the ai-gateway sources are absent, as in the Docker deps stage that copies manifests only.",
 		"dev:worker": "Compiled worker — runs routes as generated JavaScript. This is the default execution engine.",
 		"dev:worker:dag": "LEGACY graph interpreter. Kept only until the compiled worker clears manual testing, then removed.",
 		"build:ai": "Removed — `bun run build` already builds the AI gateway through turbo."
