@@ -8,8 +8,6 @@ import { closeNats, initializeNats, natsConnection } from "./nats";
 export const CHAN_ON_ROUTE_CHANGE = "chan:on-route-change";
 export const CHAN_ON_APPCONFIG_CHANGE = "chan:on-appconfig-change";
 export const CHAN_ON_INTEGRATION_CHANGE = "chan:on-integration-change";
-export const CHAN_AI_WORKER = "chan:ai-worker";
-export const CHAN_AI_SSE_PREFIX = "chan:ai-sse:";
 export const CHAN_ON_PROJECT_SETTING_CHANGE = "chan:on-project-setting-change";
 export const CHAN_ON_CUSTOM_BLOCK_CHANGE = "chan:on-custom-block-change";
 export const CHAN_ON_WORKFLOW_CHANGE = "chan:on-workflow-change";

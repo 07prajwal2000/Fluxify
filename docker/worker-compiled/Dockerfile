@@ -62,7 +62,6 @@ WORKDIR /app
 
 COPY package.json bun.lock ./
 COPY apps/server/package.json apps/server/package.json
-COPY apps/web/package.json apps/web/package.json
 COPY apps/ai-gateway/package.json apps/ai-gateway/package.json
 COPY apps/portal/package.json apps/portal/package.json
 COPY packages/adapters/package.json packages/adapters/package.json
