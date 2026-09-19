@@ -28,7 +28,6 @@
 # Documentation & metadata (built inside Docker)
 docs_index
 mkdocs.yml
-CHANGELOG.md
 CONTRIBUTING.md
 Readme.md
 LICENSE

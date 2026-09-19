@@ -66,7 +66,7 @@ docker run -d --name fluxify \
   -v fluxify_data:/data \
   -e SEED_USER_EMAIL=admin@example.com \
   -e SEED_USER_PASSWORD=ChangeThisPassword123! \
-  fluxify-kit
+  ghcr.io/fluxify-rest/fluxify-kit:nightly
 ```
 
 Then open `http://localhost:8080/_/admin/ui` and log in with the email and
@@ -107,7 +107,7 @@ docker run -d --name fluxify \
   -e TRUSTED_ORIGINS=http://localhost:9090 \
   -e SEED_USER_EMAIL=admin@example.com \
   -e SEED_USER_PASSWORD=ChangeThisPassword123! \
-  fluxify-kit
+  ghcr.io/fluxify-rest/fluxify-kit:nightly
 ```
 
 ---
@@ -244,7 +244,7 @@ immediately; no restart is required.
 **Option A:**
 
 ```bash
-docker pull fluxify-kit
+docker pull ghcr.io/fluxify-rest/fluxify-kit:nightly
 docker rm -f fluxify
 # then run the same `docker run` command again — your /data volume is reused
 ```

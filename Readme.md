@@ -2,157 +2,55 @@
 
   <img src="img/logo_title.png" width="400" alt="Fluxify Logo">
 
-  <p align="center">
-    <b>The Production-Grade, Low-Code Agentic Backend Platform</b><br />
-    <i>Build, orchestrate, and scale APIs & Workflows for real production workloads.</i>
-  </p>
+  <p><b>The production-grade, low-code agentic backend platform.</b><br />
+  <i>Build, orchestrate and scale APIs and workflows visually.</i></p>
 
-  <p align="center">
-    <a href="LICENSE">
-      <img src="https://img.shields.io/badge/License-Apache%202.0-blue.svg" alt="License: Apache 2.0">
-    </a>
-    <a href="https://github.com/07prajwal2000/Fluxify">
-      <img src="https://img.shields.io/badge/Status-In%20Development%20(Alpha)-orange.svg" alt="Status: In Development">
-    </a>
-    <a href="https://github.com/07prajwal2000/Fluxify">
-      <img src="https://img.shields.io/badge/Docker-Scale--Out%20Ready-blue?logo=docker" alt="Docker">
-    </a>
-    <a href="https://docs.fluxify.rest">
-      <img src="https://img.shields.io/badge/Docs-docs.fluxify.rest-emerald" alt="Documentation">
-    </a>
+  <p>
+    <a href="LICENSE"><img src="https://img.shields.io/badge/License-Apache%202.0-blue.svg" alt="License: Apache 2.0"></a>
+    <img src="https://img.shields.io/badge/Status-Alpha-orange.svg" alt="Status: Alpha">
+    <a href="https://docs.fluxify.rest"><img src="https://img.shields.io/badge/Docs-docs.fluxify.rest-emerald" alt="Documentation"></a>
   </p>
-
-  <br />
 
   <a href="https://www.fluxify.rest">
     <img src="img/banner.png" width="100%" alt="Fluxify Platform Preview" style="border-radius: 10px;">
   </a>
 
-  <br /><br />
-
-  <p align="center">
-    <b>Empower your team to visually build AI-agentic workflows and high-throughput backend microservices & background services — engineered to scale seamlessly from 1 to 50+ worker nodes for real-world production traffic.</b>
-  </p>
-
-  <p align="center">
-    <a href="https://docs.fluxify.rest"><b>📖 Documentation</b></a> •
-    <a href="#-quick-start-docker-kit"><b>🚀 Quick Start</b></a> •
-    <a href="#-core-capabilities"><b>✨ Core Capabilities</b></a> •
-    <a href="https://docs.fluxify.rest/architecture/"><b>🏗️ Architecture</b></a> •
-    <a href="CONTRIBUTING.md"><b>🤝 Contributing</b></a> •
-    <a href="LICENSE"><b>📄 License</b></a>
-  </p>
-
 </div>
 
 ---
 
-## ⚡ Why Fluxify?
+Fluxify turns a visual workflow into a real, compiled API. You draw the flow, and
+it is translated into JavaScript once, when you save. Requests run that code
+directly, with no graph walking. Read more:
 
-- 🤖 **Low-Code Agentic Backend Engine**: Seamlessly blend AI agents, LLM tool-calling, custom logic blocks, and database operations into visual, event-driven workflows.
-- ⚡ **Compiled, Not Interpreted**: Your visual flow is translated into real JavaScript **once, when you save it** — not walked block-by-block on every request. Measured against the interpreter: **+63% throughput, −43% median latency, −43% CPU per request.** See the [benchmark](https://docs.fluxify.rest/architecture/performance.html).
-- 💥 **Built for Real Workloads, Not Just Internal Tools**: Designed for public-facing, low-latency APIs and high-concurrency production applications — beyond simple internal prototypes.
-- 📈 **Elastic Horizontal Scaling (10 to 50+ Worker Nodes)**: Decoupled architecture separates the control plane from stateless request execution workers, allowing you to scale up to 50+ worker replicas with zero downtime.
-- 🔒 **Workers Never Touch Your Database**: Request nodes receive routes pre-compiled over the event bus. They hold no database credentials, so a bug in your API logic cannot reach the platform's own data.
-- 🔧 **Fully Extensible & Open**: Add custom blocks, integrate external databases/services, and manage environment secrets effortlessly with **App Config**.
-- 🛡️ **Enterprise Security & Governance**: SSO & SAML support (beta), granular team role-based access control, project isolation, and complete OpenAPI (Swagger) spec generation.
-
----
-
-## ✨ Core Capabilities
-
-- **Agentic AI & Logic Builder**: Design autonomous AI pipelines, tool calling, conditionals, loops, and data transformers visually.
-- **High-Availability Scale-Out**: Separate Admin control plane and stateless Worker nodes engineered to process millions of requests across 10–50+ instances.
-- **Instant Deployments**: Zero-downtime automatic deployments and live route hot reloading capabilities.
-- **Enterprise-Grade Security**: Built-in SSO & SAML authentication (beta), Email/Password login, and Audit Logs (*coming soon*).
-- **Project Isolation & User Management**: Secure multi-tenant project boundaries, team access controls, and organization management.
-- **Native OpenAPI (Swagger)**: Automatic interactive OpenAPI spec generation for platform Admin APIs and all user-built endpoints.
-- **Full Testing Suite**: Interactive visual test runner playground with complete request/response mocking for integration testing.
+- [What is Fluxify](https://docs.fluxify.rest/getting-started/) and its [core concepts](https://docs.fluxify.rest/concepts/)
+- [Blocks](https://docs.fluxify.rest/blocks/): the building pieces of a workflow, including [custom blocks](https://docs.fluxify.rest/blocks/custom-blocks)
+- [Architecture](https://docs.fluxify.rest/architecture/) and [performance benchmarks](https://docs.fluxify.rest/architecture/performance)
+- [Integrations](https://docs.fluxify.rest/integrations/): databases, key-value stores, message queues, AI models, observability
 
 ---
 
-## 🚀 Quick Start (Docker Kit)
+## Run it
 
-Run the full Fluxify stack — plus PostgreSQL, Valkey and NATS — with one command
-(*nightly build — official release coming soon*):
-
-```bash
-# 1. Copy the environment template
-cp docker/kit/env.example docker/kit/.env
-
-# 2. Start the stack
-docker compose -f docker/kit/docker-compose.yml up -d
-```
-
-Access the platform at:
-- **Admin UI**: [http://localhost:8080/_/admin/ui](http://localhost:8080/_/admin/ui)
-- **Admin API**: [http://localhost:8080/_/admin/api](http://localhost:8080/_/admin/api)
-
-> [!NOTE]
-> On the first start you'll see `WORKER_PROJECT_ID is not set — starting without
-> the request worker`. That's expected: a worker serves exactly one project, and
-> you don't have one yet. Create a project in the dashboard, put its id in
-> `docker/kit/.env` as `WORKER_PROJECT_ID`, and run the `up -d` command again.
-> Full walkthrough: [Quick Run with the Kit Image](https://docs.fluxify.rest/deployments/kit.html).
-
-> 📖 For production deployments with 10–50+ worker nodes, see the [Scale-Out Production Deployment Guide](https://docs.fluxify.rest/deployments/production.html).
+- [**Kit**](https://docs.fluxify.rest/deployments/kit): the whole platform in one container. Best for trying it out.
+- [**Production**](https://docs.fluxify.rest/deployments/production): admin, orchestrator and scaled workers, and [which image tag to pull](https://docs.fluxify.rest/deployments/production#image-tags).
 
 ---
 
-## 💻 Local Monorepo Development
+## Contributing
 
-For contributors and developers customizing the core engine:
+Fluxify is a Bun monorepo. From a fresh clone to a running stack takes five
+commands: see the [contributing guide](https://docs.fluxify.rest/getting-started/contributing) or [CONTRIBUTING.md](CONTRIBUTING.md). Opening a pull request accepts
+the [CLA](CLA.md), and there is nothing to sign.
 
-```bash
-# 1. Clone the repository and install dependencies
-git clone https://github.com/07prajwal2000/Fluxify.git
-cd Fluxify
-bun install
+## License
 
-# 2. Start backing services (PostgreSQL, Redis, NATS)
-docker compose up -d
+Apache License 2.0 for the open-source code ([LICENSE](LICENSE)). Code in `ee/`
+directories and `*.ee.*` files is under the
+[Enterprise Edition License](LICENSE_EE): free for personal, educational and
+non-profit use, and a license key for commercial use. See
+[Editions and licensing](https://docs.fluxify.rest/deployments/licensing).
 
-# 3. Copy environment configuration
-cp env.example .env
+## Links
 
-# 4. Push initial database schema
-bun run db:migrate
-
-# 5. Launch full development stack
-bun run dev
-```
-
-The local services will be available at:
-- **Web Dashboard**: `http://localhost:3000`
-- **Backend Server**: `http://localhost:5500`
-- **Request Worker**: `http://localhost:5600` (health on `5601`)
-- **AI Gateway**: `http://localhost:8001`
-- **Docs Site**: `http://localhost:5173`
-
-> [!TIP]
-> `bun run dev` starts the compiled worker, which needs `WORKER_PROJECT_ID` in
-> your `.env`. Run `bun run dev:server` on its own first, create a project, then
-> set it. See [CONTRIBUTING.md](CONTRIBUTING.md) for the full setup.
-
----
-
-## 🤝 Contributing
-
-We welcome contributions from the community! Please read our [CONTRIBUTING.md](CONTRIBUTING.md) guide for details on setting up your environment, submitting pull requests, and coding standards.
-
----
-
-## 📄 License
-
-Fluxify is open source under the **[Apache License 2.0](LICENSE)** — free to use,
-modify, self-host, and deploy commercially, with an explicit patent grant.
-
-Enterprise Edition features (code in `ee/` directories and `*.ee.*` files) are
-under the **[Fluxify Enterprise Edition License](LICENSE_EE)**: free for
-personal, educational, and non-profit use, and a license key for commercial
-use. See [Editions & Licensing](https://docs.fluxify.rest/deployments/licensing).
-
-Submitting a contribution accepts our [CLA](CLA.md). There is nothing to sign.
-
-> Versions released before v0.x carried the MIT License and remain available
-> under those terms.
+[Documentation](https://docs.fluxify.rest) · [Website](https://www.fluxify.rest) · [Issues](https://github.com/Fluxify-rest/Fluxify/issues) · [Discussions](https://github.com/Fluxify-rest/Fluxify/discussions)
