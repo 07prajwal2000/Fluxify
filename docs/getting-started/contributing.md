@@ -12,7 +12,7 @@ fix, a new workflow block, a security improvement, or a whole feature.
 > **The full contributor guide lives in the repository**, next to the code it
 > describes, so the two can never drift apart:
 >
-> ### 👉 [**CONTRIBUTING.md**](https://github.com/fluxify-rest/Fluxify/blob/main/CONTRIBUTING.md)
+> ### 👉 [**CONTRIBUTING.md**](https://github.com/Fluxify-rest/Fluxify/blob/main/CONTRIBUTING.md)
 >
 > It covers prerequisites, step-by-step local setup, the fast inner-loop
 > commands, where to put your change, testing, and pull request guidelines.
@@ -38,19 +38,14 @@ bun install
 docker compose up -d
 cp env.example .env
 bun run db:migrate
-bun run dev:server
+bun run dev
 ```
 
-Then create a project in the dashboard, put its id in `.env` as
-`WORKER_PROJECT_ID`, and run `bun run dev` to start everything.
-
-::: tip Why the two-step start?
-Each request worker serves exactly one project, so it can't start before a
-project exists. This is a one-time step — see
-[Request Lifecycle](/architecture/request-lifecycle) for why the system is built
-this way, and [CONTRIBUTING.md](https://github.com/fluxify-rest/Fluxify/blob/main/CONTRIBUTING.md)
-for the detailed walkthrough.
-:::
+Then open <http://localhost:8080/_/admin/ui> and log in with `admin@company.com`
+/ `admin@123`. The defaults in `env.example` work as they are — the request
+worker serves every project (`WORKER_PROJECT_ID=*`), so there is nothing to
+create first. [CONTRIBUTING.md](https://github.com/Fluxify-rest/Fluxify/blob/main/CONTRIBUTING.md)
+has the detailed walkthrough.
 
 ---
 
@@ -58,7 +53,7 @@ for the detailed walkthrough.
 
 | Kind | Good first place to look |
 | :--- | :--- |
-| **Bug fixes** | [Open issues](https://github.com/fluxify-rest/Fluxify/issues) labelled `bug` |
+| **Bug fixes** | [Open issues](https://github.com/Fluxify-rest/Fluxify/issues) labelled `bug` |
 | **New workflow blocks** | The [Blocks](/blocks/) reference, to see what already exists |
 | **Documentation** | Anything on this site that confused you |
 | **Integrations** | The [Integrations](/integrations/) section |
@@ -67,8 +62,8 @@ for the detailed walkthrough.
 > [!WARNING]
 > **Alpha software.** Platform architecture and internal APIs still change
 > between releases. For anything large, open an
-> [issue](https://github.com/fluxify-rest/Fluxify/issues) or
-> [discussion](https://github.com/fluxify-rest/Fluxify/discussions) first, so
+> [issue](https://github.com/Fluxify-rest/Fluxify/issues) or
+> [discussion](https://github.com/Fluxify-rest/Fluxify/discussions) first, so
 > your work doesn't collide with something already in flight.
 
 ::: warning Enterprise code is licensed differently
@@ -125,8 +120,8 @@ hyphen creates it, so don't tag `v1.0.0` until it really is.
 
 ## Getting help
 
-- 💬 [GitHub Discussions](https://github.com/fluxify-rest/Fluxify/discussions) — questions and ideas
-- 🐛 [GitHub Issues](https://github.com/fluxify-rest/Fluxify/issues) — bugs and feature requests
+- 💬 [GitHub Discussions](https://github.com/Fluxify-rest/Fluxify/discussions) — questions and ideas
+- 🐛 [GitHub Issues](https://github.com/Fluxify-rest/Fluxify/issues) — bugs and feature requests
 - 📖 [Architecture](/architecture/) — how the platform actually works
 
 Thank you for helping build Fluxify! 🚀

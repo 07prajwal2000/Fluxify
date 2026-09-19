@@ -7,11 +7,12 @@
 
 ## 🧪 How to Test / Verification
 <!-- Describe testing performed to verify these changes -->
-- [ ] Ran unit/integration tests (`bun run test`)
+- [ ] Ran the relevant tests (`bun run test:unit`, or the `test:*` suite for the area you changed)
+- [ ] `bun run lint` passes
 - [ ] Manual testing steps performed:
 
 ## 📋 Checklist
 - [ ] Code follows project style & conventions
 - [ ] Added/updated tests for new or modified logic
 - [ ] Updated documentation (if applicable)
-- [ ] PR title follows conventional format (e.g., `feat(server): ...`, `fix(web): ...`)
+- [ ] PR title follows conventional format (e.g., `feat(server): ...`, `fix(portal): ...`)

@@ -22,3 +22,8 @@ OPTIMIZATION.md
 
 # local license issuer keypair + minted test keys (packages/common/license/scripts/mint.ts)
 .license/
+
+# agent skills are personal tooling, not part of the repo
+.agents/
+.claude/skills/
+skills-lock.json

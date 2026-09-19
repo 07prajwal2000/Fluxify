@@ -24,14 +24,16 @@
 		"test:ai-gateway": "bun test --parallel --cwd apps/ai-gateway",
 		"test:ai": "bun run test:ai-gateway",
 		"analyze": "bun x fta-cli --score-cap 70 .",
-		"security:scan": "bun x secretlint --format compact \"**/*\"",
 		"docs:build": "vitepress build docs",
 		"docs:preview": "vitepress preview docs",
 		"db:generate": "bun --env-file=../../.env --cwd ./apps/server drizzle-kit generate",
 		"db:migrate": "bun --env-file=../../.env --cwd ./apps/server drizzle-kit push",
-		"prepare": "bun run scripts/setup-hooks.ts"
+		"prepare": "bun --parallel 'bun run prepare:hooks' 'bun run prepare:docs-index'",
+		"prepare:hooks": "bun run scripts/setup-hooks.ts",
+		"prepare:docs-index": "[ ! -f apps/ai-gateway/src/scripts/gather.ts ] || bun run --cwd apps/ai-gateway gather"
 	},
 	"//scripts": {
+		"prepare": "Runs on every bun install. prepare:docs-index skips itself when the ai-gateway sources are absent, as in the Docker deps stage that copies manifests only.",
 		"dev:worker": "Compiled worker — runs routes as generated JavaScript. This is the default execution engine.",
 		"dev:worker:dag": "LEGACY graph interpreter. Kept only until the compiled worker clears manual testing, then removed.",
 		"build:ai": "Removed — `bun run build` already builds the AI gateway through turbo."
@@ -57,14 +59,12 @@
 	},
 	"devDependencies": {
 		"@faker-js/faker": "^10.3.0",
-		"@secretlint/secretlint-rule-preset-recommend": "^13.0.4",
 		"@types/bun": "^1.4.0",
 		"@types/dockerode": "^4.0.1",
 		"@typescript/native-preview": "^7.0.0-dev.20260219.1",
 		"dockerode": "^4.0.9",
 		"fta-cli": "^3.0.0",
 		"mermaid": "^11.16.0",
-		"secretlint": "^13.0.4",
 		"turbo": "^2.5.5",
 		"ui-ux-pro-max-cli": "^2.10.2",
 		"vitepress": "^1.6.4",
