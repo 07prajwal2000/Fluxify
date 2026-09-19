@@ -27,7 +27,7 @@
 	},
 	"scripts": {
 		"test": "bun test --parallel",
-		"lint": "tsgo --noEmit"
+		"typecheck": "tsgo --noEmit"
 	},
 	"dependencies": {
 		"@fluxify/adapters": "workspace:*",

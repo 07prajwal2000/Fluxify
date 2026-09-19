@@ -28,9 +28,6 @@ export async function publishMessage(chan: string, data: string | object) {
 	publish(natsConnection(), chan, typeof data === "object" ? JSON.stringify(data) : data);
 }
 
-export async function subscribeToChannel(
-	chan: string,
-	callback: (data: string) => void,
-) {
+export async function subscribeToChannel(chan: string, callback: (data: string) => void) {
 	return subscribe(natsConnection(), chan, callback).stop;
 }

@@ -1,10 +1,6 @@
-import { BaseChatModel } from "@langchain/core/language_models/chat_models";
+import type { BaseChatModel } from "@langchain/core/language_models/chat_models";
 import { ChatOpenAI } from "@langchain/openai";
-import {
-	BaseAgentWrapper,
-	HARNESS_MAX_TOKENS,
-	HARNESS_TEMPERATURE,
-} from "../base";
+import { BaseAgentWrapper, HARNESS_MAX_TOKENS, HARNESS_TEMPERATURE } from "../base";
 
 /** Reasoning models reject any temperature but the default and 400 the request. */
 const FIXED_TEMPERATURE_MODEL = /(^|\/)(o\d|gpt-5)/i;

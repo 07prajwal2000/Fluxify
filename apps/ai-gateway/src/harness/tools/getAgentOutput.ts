@@ -1,10 +1,8 @@
-import { fencedTool } from "./fenced";
 import { z } from "zod";
 import type { SubAgentResult } from "../types";
+import { fencedTool } from "./fenced";
 
-export const createGetAgentOutputTool = (
-	subAgentResults: Record<string, SubAgentResult> = {},
-) => {
+export const createGetAgentOutputTool = (subAgentResults: Record<string, SubAgentResult> = {}) => {
 	return fencedTool(
 		async ({ taskIds }) => {
 			const results: Record<string, SubAgentResult> = {};
@@ -20,9 +18,7 @@ export const createGetAgentOutputTool = (
 			description:
 				"Fetches the output of previous agents by their task ID. Use this to get details about a new route or custom block that hasn't been saved to the database yet, but was configured by a prior agent. The planner passes these task IDs in the task description.",
 			schema: z.object({
-				taskIds: z
-					.array(z.string())
-					.describe("Array of task IDs to fetch outputs for."),
+				taskIds: z.array(z.string()).describe("Array of task IDs to fetch outputs for."),
 			}),
 		},
 	);

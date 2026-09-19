@@ -1,7 +1,7 @@
-import { useState, useEffect } from "react";
-import { Button, Modal, CloseButton, Input, TextField, Label } from "@fluxify/components";
-import { harnessConversationsQuery } from "@/query/harnessConversationsQuery";
+import { Button, CloseButton, Input, Label, Modal, TextField } from "@fluxify/components";
+import { useEffect, useState } from "react";
 import { showErrorNotification } from "@/lib/errorNotifier";
+import { harnessConversationsQuery } from "@/query/harnessConversationsQuery";
 
 type Props = {
 	open: boolean;
@@ -40,7 +40,7 @@ export function RenameConversationModal({
 				onError: (err: any) => {
 					showErrorNotification(err.message || "Failed to rename conversation");
 				},
-			}
+			},
 		);
 	};
 
@@ -55,8 +55,8 @@ export function RenameConversationModal({
 						</Modal.Header>
 						<Modal.Body>
 							<div className="py-2">
-								<TextField 
-									value={title} 
+								<TextField
+									value={title}
 									onChange={setTitle}
 									autoFocus
 									onKeyDown={(e: any) => {

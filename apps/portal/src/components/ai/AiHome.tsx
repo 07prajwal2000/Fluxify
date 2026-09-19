@@ -1,16 +1,16 @@
-import { useState, useMemo } from "react";
-import { useNavigate, useParams } from "@tanstack/react-router";
 import { Button, Spinner } from "@fluxify/components";
-import { TbPlugConnected, TbAlertTriangle, TbFileCode, TbDots } from "react-icons/tb";
+import { useNavigate, useParams } from "@tanstack/react-router";
+import { useMemo, useState } from "react";
+import { TbAlertTriangle, TbDots, TbFileCode, TbPlugConnected } from "react-icons/tb";
+import { showErrorNotification } from "@/lib/errorNotifier";
 import { harnessConversationsQuery } from "@/query/harnessConversationsQuery";
 import { integrationsQuery } from "@/query/integrationsQuery";
 import { projectSettingsKeysQuery } from "@/query/projectSettingsKeysQuery";
-import { showErrorNotification } from "@/lib/errorNotifier";
+import { useAiHarnessStore } from "@/store/aiHarness";
+import type { ApplyMode } from "./ApplyModeSelect";
 import { PromptEditor } from "./PromptEditor";
 import { STARTERS } from "./starters";
 import { useAiModels } from "./useAiModels";
-import type { ApplyMode } from "./ApplyModeSelect";
-import { useAiHarnessStore } from "@/store/aiHarness";
 
 const logo = `${import.meta.env.BASE_URL}icons/logo.webp`;
 
@@ -33,21 +33,18 @@ export function AiHome() {
 			reqPayload.integrationId = model;
 		}
 
-		sendMessage.mutate(
-			reqPayload,
-			{
-				onSuccess: (res) => {
-					setQuery("");
-					// Smooth cross-fade into the conversation the API just created.
-					navigate({
-						to: "/$projectId/ai/$conversationId",
-						params: { projectId, conversationId: res.conversationId },
-						viewTransition: true,
-					});
-				},
-				onError: (err) => showErrorNotification(err),
+		sendMessage.mutate(reqPayload, {
+			onSuccess: (res) => {
+				setQuery("");
+				// Smooth cross-fade into the conversation the API just created.
+				navigate({
+					to: "/$projectId/ai/$conversationId",
+					params: { projectId, conversationId: res.conversationId },
+					viewTransition: true,
+				});
 			},
-		);
+			onError: (err) => showErrorNotification(err),
+		});
 	};
 
 	if (isLoading) {
@@ -67,7 +64,8 @@ export function AiHome() {
 				<div className="flex flex-col gap-2">
 					<h2 className="text-xl font-semibold text-foreground">AI Integration Required</h2>
 					<p className="text-sm text-muted leading-relaxed">
-						You need to configure an AI integration to use the agent. Please set up a model and enable "Use for Harness", or set the project default agent connection.
+						You need to configure an AI integration to use the agent. Please set up a model and
+						enable "Use for Harness", or set the project default agent connection.
 					</p>
 				</div>
 				<a
@@ -84,44 +82,44 @@ export function AiHome() {
 	return (
 		<div className="h-full overflow-y-auto">
 			<div className="mx-auto flex w-full max-w-3xl flex-col gap-8 px-4 pt-8 pb-12">
-			<div className="flex flex-col items-center gap-4 text-center">
-				<div className="relative">
-					<div className="pointer-events-none absolute inset-0 -z-10 scale-150 rounded-full bg-accent/20 blur-3xl" />
-					<img src={logo} alt="Fluxify AI" className="size-32 object-contain" />
+				<div className="flex flex-col items-center gap-4 text-center">
+					<div className="relative">
+						<div className="pointer-events-none absolute inset-0 -z-10 scale-150 rounded-full bg-accent/20 blur-3xl" />
+						<img src={logo} alt="Fluxify AI" className="size-32 object-contain" />
+					</div>
+					<div className="flex flex-col gap-2">
+						<h1 className="text-4xl font-bold tracking-tight text-foreground">
+							What will we ship today?
+						</h1>
+						<p className="text-muted">Agentic backend builder. Just describe it.</p>
+					</div>
 				</div>
-				<div className="flex flex-col gap-2">
-					<h1 className="text-4xl font-bold tracking-tight text-foreground">
-						What will we ship today?
-					</h1>
-					<p className="text-muted">Agentic backend builder. Just describe it.</p>
+
+				<PromptEditor
+					projectId={projectId}
+					value={query}
+					onChange={setQuery}
+					onSubmit={submit}
+					isPending={sendMessage.isPending}
+					models={models}
+					defaultModelId={defaultModelId}
+					minRows={2}
+					maxRows={3}
+				/>
+
+				<div className="flex flex-wrap justify-center gap-2">
+					{STARTERS.map((s) => (
+						<Button
+							key={s.label}
+							size="sm"
+							variant="outline"
+							className="rounded-full border-border bg-surface px-4 py-2 text-muted hover:bg-surface-secondary hover:text-foreground"
+							onPress={() => setQuery(s.prompt)}
+						>
+							{s.label}
+						</Button>
+					))}
 				</div>
-			</div>
-
-			<PromptEditor
-				projectId={projectId}
-				value={query}
-				onChange={setQuery}
-				onSubmit={submit}
-				isPending={sendMessage.isPending}
-				models={models}
-				defaultModelId={defaultModelId}
-				minRows={2}
-				maxRows={3}
-			/>
-
-			<div className="flex flex-wrap justify-center gap-2">
-				{STARTERS.map((s) => (
-					<Button
-						key={s.label}
-						size="sm"
-						variant="outline"
-						className="rounded-full border-border bg-surface px-4 py-2 text-muted hover:bg-surface-secondary hover:text-foreground"
-						onPress={() => setQuery(s.prompt)}
-					>
-						{s.label}
-					</Button>
-				))}
-			</div>
 			</div>
 		</div>
 	);

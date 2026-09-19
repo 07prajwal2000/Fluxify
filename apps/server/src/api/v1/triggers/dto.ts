@@ -1,9 +1,6 @@
-import { z } from "zod";
 import { assertSchedule, ScheduleError } from "@fluxify/common/schedule";
-import {
-	paginationRequestQuerySchema,
-	paginationResponseSchema,
-} from "../../../lib/pagination";
+import { z } from "zod";
+import { paginationRequestQuerySchema, paginationResponseSchema } from "../../../lib/pagination";
 
 /**
  * Trigger types this build knows.
@@ -105,27 +102,29 @@ const scheduleSchema = {
 	timezone: z.string().max(64).default("UTC"),
 };
 
-export const createSchema = z.object({
-	name: z.string().min(2).max(255),
-	description: z.string().max(2000).optional(),
-	type: triggerTypeSchema,
-	projectId: z.uuidv7(),
-	/**
-	 * The workflow this trigger starts. May be omitted: a trigger created from
-	 * the Triggers page before its workflow exists is saved and idle, not broken.
-	 */
-	workflowId: z.uuidv7().optional(),
-	/** Omitted means the project's default group, which always exists. */
-	groupId: z.uuidv7().optional(),
-	/** The connector's credentials. Never set for `internal`. */
-	integrationId: z.uuidv7().optional(),
-	/** Static data handed to the workflow, for sources that carry none. */
-	payload: z.unknown().optional(),
-	active: z.boolean().optional(),
-	...batchSchema,
-	...scheduleSchema,
-	...connectorSchema,
-}).superRefine(assertScheduleShape);
+export const createSchema = z
+	.object({
+		name: z.string().min(2).max(255),
+		description: z.string().max(2000).optional(),
+		type: triggerTypeSchema,
+		projectId: z.uuidv7(),
+		/**
+		 * The workflow this trigger starts. May be omitted: a trigger created from
+		 * the Triggers page before its workflow exists is saved and idle, not broken.
+		 */
+		workflowId: z.uuidv7().optional(),
+		/** Omitted means the project's default group, which always exists. */
+		groupId: z.uuidv7().optional(),
+		/** The connector's credentials. Never set for `internal`. */
+		integrationId: z.uuidv7().optional(),
+		/** Static data handed to the workflow, for sources that carry none. */
+		payload: z.unknown().optional(),
+		active: z.boolean().optional(),
+		...batchSchema,
+		...scheduleSchema,
+		...connectorSchema,
+	})
+	.superRefine(assertScheduleShape);
 
 /**
  * Patch cannot reuse `createSchema.omit(...)` — the refinement above needs the
@@ -295,9 +294,10 @@ function assertValidSchedule(spec: string, timezone: string | undefined, ctx: Ct
 	} catch (error) {
 		ctx.addIssue({
 			code: "custom",
-			path: error instanceof ScheduleError && /timezone|IANA/.test(error.message)
-				? ["timezone"]
-				: ["schedule"],
+			path:
+				error instanceof ScheduleError && /timezone|IANA/.test(error.message)
+					? ["timezone"]
+					: ["schedule"],
 			message: error instanceof ScheduleError ? error.message : String(error),
 		});
 	}

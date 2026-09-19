@@ -124,10 +124,7 @@ export function ConditionsBuilder({
 
 	const summaryText = useMemo(() => formatConditionsSummary(conditions), [conditions]);
 
-	const expandedKeys = useMemo(
-		() => new Set(isExpanded ? ["conditions"] : []),
-		[isExpanded],
-	);
+	const expandedKeys = useMemo(() => new Set(isExpanded ? ["conditions"] : []), [isExpanded]);
 
 	const content = (
 		<div className="flex flex-col gap-3 w-full pt-2">
@@ -238,7 +235,7 @@ export function ConditionsBuilder({
 						<TbChevronDown size={18} />
 					</span>
 				</Accordion.Trigger>
-				
+
 				{/* When closed, we show the summary right below the trigger by injecting it inside the accordion item layout, 
 				    but the Accordion.Panel only renders when expanded. We can put the summary in the Panel or in a custom div. 
 					Actually, Accordion.Item doesn't officially support custom nodes outside Trigger and Panel.
@@ -259,9 +256,7 @@ export function ConditionsBuilder({
 				)}
 
 				<Accordion.Panel>
-					<Accordion.Body className="border-t border-border/50 mt-2">
-						{content}
-					</Accordion.Body>
+					<Accordion.Body className="border-t border-border/50 mt-2">{content}</Accordion.Body>
 				</Accordion.Panel>
 			</Accordion.Item>
 		</Accordion>

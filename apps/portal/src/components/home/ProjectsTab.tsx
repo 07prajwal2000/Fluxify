@@ -1,7 +1,7 @@
 import { Button, Spinner } from "@fluxify/components";
-import { TbPlus } from "react-icons/tb";
-import { useNavigate } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
+import { useNavigate } from "@tanstack/react-router";
+import { TbPlus } from "react-icons/tb";
 import { projectsQuery } from "@/query/projectsQuery";
 import { useAuthStore } from "@/store/auth";
 import { ProjectCard } from "./ProjectCard";
@@ -24,10 +24,7 @@ export function ProjectsTab() {
 		return (
 			<div className="flex flex-col items-center gap-3 py-16 text-muted">
 				<p>Couldn't load projects.</p>
-				<Button
-					variant="outline"
-					onPress={() => projectsQuery.getAll.invalidate(query, client)}
-				>
+				<Button variant="outline" onPress={() => projectsQuery.getAll.invalidate(query, client)}>
 					Retry
 				</Button>
 			</div>
@@ -39,7 +36,9 @@ export function ProjectsTab() {
 			<div className="mb-8 flex items-center justify-between">
 				<div>
 					<h1 className="text-3xl font-bold tracking-tight text-foreground">Projects</h1>
-					<p className="mt-1 text-sm text-muted-foreground">Build and manage your low-code applications</p>
+					<p className="mt-1 text-sm text-muted-foreground">
+						Build and manage your low-code applications
+					</p>
 				</div>
 				{userData?.isSystemAdmin && <NewProjectButton />}
 			</div>

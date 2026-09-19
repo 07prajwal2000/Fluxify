@@ -1,14 +1,14 @@
+import type { RunUsage } from "./models/budget";
 import {
 	AgentNode,
 	type AgentNodeName,
-	type Task,
-	type RouterState,
-	type PlannerState,
 	type DiscussionState,
-	type SummarizerState,
+	type PlannerState,
+	type RouterState,
 	type SubAgentResult,
+	type SummarizerState,
+	type Task,
 } from "./types";
-import type { RunUsage } from "./models/budget";
 
 /* ============================================================================
  * HARNESS STREAM EVENT CONTRACT
@@ -96,12 +96,12 @@ export type HarnessNodePayload =
 			data: { task: HarnessTaskView; result?: SubAgentResult };
 	  }
 	| {
-		node: `${AgentNode.ROUTE_CONFIG_AGENT}`;
-		data: { task: HarnessTaskView; result?: SubAgentResult };
+			node: `${AgentNode.ROUTE_CONFIG_AGENT}`;
+			data: { task: HarnessTaskView; result?: SubAgentResult };
 	  }
 	| {
-		node: `${AgentNode.CUSTOM_BLOCK_CONFIG_AGENT}`;
-		data: { task: HarnessTaskView; result?: SubAgentResult };
+			node: `${AgentNode.CUSTOM_BLOCK_CONFIG_AGENT}`;
+			data: { task: HarnessTaskView; result?: SubAgentResult };
 	  }
 	| {
 			node: `${AgentNode.SUPERVISOR}`;
@@ -271,15 +271,10 @@ const NODE_MESSAGES: Record<string, { started: string; ended: string }> = {
 
 /** Sentence for a node entering/leaving. `running` has no default — the agent
  *  supplies its own progress text. */
-export function nodeMessage(
-	node: HarnessEventNode,
-	status: "started" | "ended",
-): string {
+export function nodeMessage(node: HarnessEventNode, status: "started" | "ended"): string {
 	const entry = NODE_MESSAGES[node];
 	if (entry) return entry[status];
-	return status === "started"
-		? `Starting ${labelForNode(node)}`
-		: `Finished ${labelForNode(node)}`;
+	return status === "started" ? `Starting ${labelForNode(node)}` : `Finished ${labelForNode(node)}`;
 }
 
 /** What each tool is doing, in the user's words rather than the tool's name. */
@@ -417,11 +412,7 @@ export function buildTasksByLevel(tasks: Task[] = []): HarnessTaskView[][] {
 /** Index of the first level that still has a pending/running task. */
 export function activeLevelIndex(tasksByLevel: HarnessTaskView[][]): number {
 	for (let i = 0; i < tasksByLevel.length; i++) {
-		if (
-			tasksByLevel[i].some(
-				(t) => t.status === "pending" || t.status === "running",
-			)
-		) {
+		if (tasksByLevel[i].some((t) => t.status === "pending" || t.status === "running")) {
 			return i;
 		}
 	}

@@ -18,9 +18,7 @@ export function uuidv7(): string {
 	bytes[6] = 0x70 | (bytes[6] & 0x0f); // version 7
 	bytes[8] = 0x80 | (bytes[8] & 0x3f); // variant 10xx
 
-	const hex = Array.from(bytes, (byte) =>
-		byte.toString(16).padStart(2, "0"),
-	).join("");
+	const hex = Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
 
 	return [
 		hex.slice(0, 8),

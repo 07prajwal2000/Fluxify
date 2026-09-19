@@ -1,11 +1,11 @@
-import { SQL } from "bun";
 import { operatorSchema } from "@fluxify/lib";
+import { SQL } from "bun";
 import z from "zod";
-import { Connection, DbType } from "./connection";
-import { PostgresAdapter } from "./postgresAdapter";
+import { type Connection, DbType } from "./connection";
+import { type DbConnectionLease, DbConnectionManager } from "./connectionManager";
+import { buildMongoUrl, MongoAdapter } from "./mongoDbAdapter";
 import { MySqlAdapter } from "./mySqlAdapter";
-import { MongoAdapter, buildMongoUrl } from "./mongoDbAdapter";
-import { DbConnectionManager, type DbConnectionLease } from "./connectionManager";
+import { PostgresAdapter } from "./postgresAdapter";
 
 /** opt-in tag that makes a side name a column instead of holding a value */
 export const columnRefSchema = z.object({
@@ -48,6 +48,7 @@ export type DBConditionType = z.infer<typeof whereConditionSchema>;
 export type RawDbCondition = z.infer<typeof rawWhereConditionSchema>;
 
 export type { DBJoinType, QueryOptions } from "./jsonPath";
+
 import type { QueryOptions } from "./jsonPath";
 
 export type IntrospectedColumn = {
@@ -74,7 +75,10 @@ export function groupIntrospectionRows(
 	const byTable = new Map<string, IntrospectedTable>();
 	for (const r of rows) {
 		let entry = byTable.get(r.table_name);
-		if (!entry) byTable.set(r.table_name, (entry = { table: r.table_name, columns: [] }));
+		if (!entry) {
+			entry = { table: r.table_name, columns: [] };
+			byTable.set(r.table_name, entry);
+		}
 		entry.columns.push({
 			name: r.column_name,
 			type: r.data_type,
@@ -105,11 +109,7 @@ export interface IDbAdapter {
 	): Promise<unknown | null>;
 	insert(table: string, data: unknown): Promise<any>;
 	insertBulk(table: string, data: unknown[]): Promise<any>;
-	update(
-		table: string,
-		data: unknown,
-		conditions: DBConditionType[],
-	): Promise<any>;
+	update(table: string, data: unknown, conditions: DBConditionType[]): Promise<any>;
 	raw(query?: string | unknown, params?: any[]): Promise<any>;
 	/** optional — adapters that cannot describe their schema simply omit it */
 	introspect?(): Promise<IntrospectedTable[]>;
@@ -141,20 +141,23 @@ export class DbFactory {
 		this.connectionLeases[connection] = lease;
 
 		if (cfg.dbType.toLowerCase() === DbType.POSTGRES.toLowerCase()) {
-			return (this.connectionMap[connection] = new PostgresAdapter(
+			this.connectionMap[connection] = new PostgresAdapter(
 				lease.connection.db,
 				lease.connection.sql!,
-			));
+			);
+			return this.connectionMap[connection];
 		} else if (cfg.dbType.toLowerCase() === DbType.MYSQL.toLowerCase()) {
-			return (this.connectionMap[connection] = new MySqlAdapter(
+			this.connectionMap[connection] = new MySqlAdapter(
 				lease.connection.db,
 				lease.connection.pool!,
-			));
+			);
+			return this.connectionMap[connection];
 		} else if (cfg.dbType.toLowerCase() === DbType.MONGODB.toLowerCase()) {
-			return (this.connectionMap[connection] = new MongoAdapter(
+			this.connectionMap[connection] = new MongoAdapter(
 				lease.connection.client!,
 				lease.connection.db,
-			));
+			);
+			return this.connectionMap[connection];
 		}
 
 		lease.release();
@@ -180,9 +183,7 @@ export class DbFactory {
  * Opens a short-lived connection, describes the schema and closes it again.
  * Design-time only — runtime queries go through DbFactory's pooled adapters.
  */
-export async function introspectConnection(
-	cfg: Connection,
-): Promise<IntrospectedTable[]> {
+export async function introspectConnection(cfg: Connection): Promise<IntrospectedTable[]> {
 	if (cfg.dbType.toLowerCase() === DbType.POSTGRES.toLowerCase()) {
 		const sql = new SQL({
 			adapter: "postgres",
@@ -205,10 +206,7 @@ export async function introspectConnection(
 	if (cfg.dbType.toLowerCase() === DbType.MYSQL.toLowerCase()) {
 		const pool = MySqlAdapter.createPool(cfg);
 		try {
-			return await new MySqlAdapter(
-				MySqlAdapter.createKysely(pool),
-				pool,
-			).introspect();
+			return await new MySqlAdapter(MySqlAdapter.createKysely(pool), pool).introspect();
 		} finally {
 			await pool.promise().end();
 		}
@@ -230,8 +228,8 @@ export async function introspectConnection(
 	throw new Error(`${cfg.dbType} introspection not implemented`);
 }
 
-export * from "./postgresAdapter";
-export * from "./mySqlAdapter";
-export * from "./mongoDbAdapter";
 export * from "./connection";
 export * from "./connectionManager";
+export * from "./mongoDbAdapter";
+export * from "./mySqlAdapter";
+export * from "./postgresAdapter";

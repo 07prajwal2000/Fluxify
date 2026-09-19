@@ -1,0 +1,3 @@
+# Repo-wide Biome format (#374). GitHub honours this file automatically; locally run:
+#   git config blame.ignoreRevsFile .git-blame-ignore-revs
+75fdb56d63e7dd487d77b7472bbe723c49cd0b3d

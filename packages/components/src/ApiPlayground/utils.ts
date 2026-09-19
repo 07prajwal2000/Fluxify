@@ -65,25 +65,45 @@ export function serializeFormBody(body: Record<string, ApiFormValue>, contentTyp
 		for (const [key, value] of Object.entries(body)) if (value !== "") form.append(key, value);
 		return form;
 	}
-	return new URLSearchParams(Object.entries(body).filter(([, value]) => typeof value === "string") as [string, string][]).toString();
+	return new URLSearchParams(
+		Object.entries(body).filter(([, value]) => typeof value === "string") as [string, string][],
+	).toString();
 }
 
-export function resolvePathRows(path: string, initialPathParams?: Record<string, string>, cachedRows?: ApiKeyValue[]): ApiKeyValue[] {
+export function resolvePathRows(
+	path: string,
+	initialPathParams?: Record<string, string>,
+	cachedRows?: ApiKeyValue[],
+): ApiKeyValue[] {
 	if (cachedRows && cachedRows.length > 0) {
 		const existingMap = new Map(cachedRows.map((row) => [row.key, row]));
-		return pathParameterNames(path).map((key) => existingMap.get(key) ?? createRow(key, initialPathParams?.[key] ?? "", true));
+		return pathParameterNames(path).map(
+			(key) => existingMap.get(key) ?? createRow(key, initialPathParams?.[key] ?? "", true),
+		);
 	}
-	return pathParameterNames(path).map((key) => createRow(key, initialPathParams?.[key] ?? "", true));
+	return pathParameterNames(path).map((key) =>
+		createRow(key, initialPathParams?.[key] ?? "", true),
+	);
 }
 
-export function resolveQueryRows(querySchema: ApiSchema | null | undefined, initialQuery?: Record<string, string>, cachedRows?: ApiKeyValue[]): ApiKeyValue[] {
+export function resolveQueryRows(
+	querySchema: ApiSchema | null | undefined,
+	initialQuery?: Record<string, string>,
+	cachedRows?: ApiKeyValue[],
+): ApiKeyValue[] {
 	if (cachedRows) {
 		const existingMap = new Map(cachedRows.map((row) => [row.key, row]));
 		const schemaProps = schemaProperties(querySchema);
-		const fromSchema = schemaProps.map((field) => existingMap.get(field.key) ?? createRow(field.key, initialQuery?.[field.key] ?? "", field.required));
+		const fromSchema = schemaProps.map(
+			(field) =>
+				existingMap.get(field.key) ??
+				createRow(field.key, initialQuery?.[field.key] ?? "", field.required),
+		);
 		const schemaKeys = new Set(schemaProps.map((p) => p.key));
 		const customRows = cachedRows.filter((row) => !schemaKeys.has(row.key));
 		return [...fromSchema, ...customRows];
 	}
-	return schemaProperties(querySchema).map((field) => createRow(field.key, initialQuery?.[field.key] ?? "", field.required));
+	return schemaProperties(querySchema).map((field) =>
+		createRow(field.key, initialQuery?.[field.key] ?? "", field.required),
+	);
 }

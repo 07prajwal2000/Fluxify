@@ -3,7 +3,7 @@ export {
 	type CanvasContextMenuProps,
 } from "./CanvasContextMenu";
 export {
-	useContextMenu,
 	type CanvasContextMenuState,
 	type MenuPosition,
+	useContextMenu,
 } from "./useContextMenu";

@@ -1,15 +1,8 @@
-import {
-	Description,
-	Label,
-	ListBox,
-	NumberField,
-	Select,
-	cn,
-} from "@fluxify/components";
-import { TbBrandAws, TbClock } from "react-icons/tb";
+import { cn, Description, Label, ListBox, NumberField, Select } from "@fluxify/components";
 import { SiApachekafka, SiNatsdotio } from "react-icons/si";
-import type { TriggerGroup } from "@/services/triggers";
+import { TbBrandAws, TbClock } from "react-icons/tb";
 import { EnterpriseGate } from "@/components/common/Enterprise";
+import type { TriggerGroup } from "@/services/triggers";
 
 /**
  * The parts of a trigger form that are the same wherever it is shown.
@@ -105,9 +98,7 @@ export function TypeSelector({
 						</span>
 						<span className="min-w-0 flex-1">
 							<span className="flex items-center gap-2">
-								<span className="text-sm font-semibold text-foreground">
-									{option.label}
-								</span>
+								<span className="text-sm font-semibold text-foreground">{option.label}</span>
 								{!option.available && (
 									<span className="rounded-full bg-surface-secondary px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted">
 										Coming soon

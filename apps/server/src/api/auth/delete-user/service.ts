@@ -1,12 +1,12 @@
-import { User } from "better-auth";
-import { z } from "zod";
-import { BadRequestError } from "../../../errors/badRequestError";
-import { requestParamsSchema } from "./dto";
-import { deleteUser, getUserRole } from "./repository";
+import type { User } from "better-auth";
+import type { z } from "zod";
 import { db } from "../../../db";
-import { auth } from "../../../lib/auth";
 import { deleteCacheKey, getCache } from "../../../db/redis";
+import { BadRequestError } from "../../../errors/badRequestError";
+import { auth } from "../../../lib/auth";
 import { revokeSessions } from "../common";
+import type { requestParamsSchema } from "./dto";
+import { deleteUser, getUserRole } from "./repository";
 
 export default async function handleRequest(
 	user: User,

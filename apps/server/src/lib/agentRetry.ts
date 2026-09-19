@@ -1,17 +1,17 @@
-import { z } from "zod";
+import type { AIMessage, HumanMessage, SystemMessage, ToolMessage } from "langchain";
 import yaml from "yaml";
-import { AIMessage, HumanMessage, SystemMessage, ToolMessage } from "langchain";
+import { z } from "zod";
 import { AiError } from "./ai/errors/aiError";
 
 type Message =
-  | ["system" | "human" | "ai", string]
-  | SystemMessage
-  | HumanMessage
-  | AIMessage
-  | ToolMessage;
+	| ["system" | "human" | "ai", string]
+	| SystemMessage
+	| HumanMessage
+	| AIMessage
+	| ToolMessage;
 
 interface RetryConfig {
-  maxRetries: number;
+	maxRetries: number;
 }
 
 /**
@@ -19,55 +19,53 @@ interface RetryConfig {
  * It automatically formats Zod errors and injects them into the prompt for the next attempt.
  */
 export async function withRetry<T>(
-  invokeLogic: (history: Message[]) => Promise<string>,
-  schema: z.ZodSchema<T>,
-  initialMessages: Message[],
-  config: RetryConfig = { maxRetries: 3 },
+	invokeLogic: (history: Message[]) => Promise<string>,
+	schema: z.ZodSchema<T>,
+	initialMessages: Message[],
+	config: RetryConfig = { maxRetries: 3 },
 ): Promise<T | undefined> {
-  let attempts = config.maxRetries;
-  let conversationHistory = [...initialMessages];
+	let attempts = config.maxRetries;
+	const conversationHistory = [...initialMessages];
 
-  while (attempts > 0) {
-    try {
-      // 1. Execute the agent logic
-      const rawResponse = await invokeLogic(conversationHistory);
+	while (attempts > 0) {
+		try {
+			// 1. Execute the agent logic
+			const rawResponse = await invokeLogic(conversationHistory);
 
-      // 2. Parse JSON (handle potential markdown code blocks)
-      const cleanedJson = rawResponse
-        .replace(/```json/g, "")
-        .replace(/```/g, "")
-        .trim();
-      const parsedJson = JSON.parse(cleanedJson);
+			// 2. Parse JSON (handle potential markdown code blocks)
+			const cleanedJson = rawResponse
+				.replace(/```json/g, "")
+				.replace(/```/g, "")
+				.trim();
+			const parsedJson = JSON.parse(cleanedJson);
 
-      // 3. Validate Schema
-      return schema.parse(parsedJson);
-    } catch (error) {
-      attempts--;
+			// 3. Validate Schema
+			return schema.parse(parsedJson);
+		} catch (error) {
+			attempts--;
 
-      // 4. Format Error Message
-      let errorMessage = "Unknown error occurred.";
-      if (error instanceof z.ZodError) {
-        // Use your preferred YAML error formatting
-        errorMessage = `Validation Error:\n${yaml.stringify(z.treeifyError(error))}`;
-      } else if (error instanceof SyntaxError) {
-        errorMessage = `JSON Parsing Error: ${error.message}`;
-      } else if (error instanceof Error) {
-        errorMessage = error.message;
-      }
-      // 5. Inject error into history for the next loop.
-      // Must be a "human" turn, not "system": some providers (e.g. Mistral)
-      // reject a request whose last message role isn't user/tool.
-      conversationHistory.push([
-        "human",
-        `Your previous response was invalid. Please correct it and output ONLY valid JSON.\nError Details: ${errorMessage}`,
-      ]);
-      if (attempts === 0) {
-        throw new AiError(errorMessage);
-      }
-    }
-  }
+			// 4. Format Error Message
+			let errorMessage = "Unknown error occurred.";
+			if (error instanceof z.ZodError) {
+				// Use your preferred YAML error formatting
+				errorMessage = `Validation Error:\n${yaml.stringify(z.treeifyError(error))}`;
+			} else if (error instanceof SyntaxError) {
+				errorMessage = `JSON Parsing Error: ${error.message}`;
+			} else if (error instanceof Error) {
+				errorMessage = error.message;
+			}
+			// 5. Inject error into history for the next loop.
+			// Must be a "human" turn, not "system": some providers (e.g. Mistral)
+			// reject a request whose last message role isn't user/tool.
+			conversationHistory.push([
+				"human",
+				`Your previous response was invalid. Please correct it and output ONLY valid JSON.\nError Details: ${errorMessage}`,
+			]);
+			if (attempts === 0) {
+				throw new AiError(errorMessage);
+			}
+		}
+	}
 
-  throw new Error(
-    `Failed to get a valid response after ${config.maxRetries} attempts.`,
-  );
+	throw new Error(`Failed to get a valid response after ${config.maxRetries} attempts.`);
 }

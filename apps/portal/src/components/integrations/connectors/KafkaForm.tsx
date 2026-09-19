@@ -11,10 +11,15 @@ export function KafkaForm({ projectId, name, onName, config, setField }: Connect
 	return (
 		<div className="flex flex-col gap-3.5">
 			<div className="flex flex-col gap-1">
-				<label className="text-xs font-medium text-foreground">
+				<label htmlFor="kafka-integration-name" className="text-xs font-medium text-foreground">
 					Integration Name <span className="text-danger">*</span>
 				</label>
-				<Input value={name} onChange={(e) => onName(e.currentTarget.value)} placeholder="Kafka | Production" />
+				<Input
+					id="kafka-integration-name"
+					value={name}
+					onChange={(e) => onName(e.currentTarget.value)}
+					placeholder="Kafka | Production"
+				/>
 			</div>
 
 			<AppConfigSelector

@@ -1,16 +1,11 @@
-import {
-	ForbiddenError,
-	ConflictError,
-	NotFoundError,
-	getProjectSetting,
-} from "@fluxify/server";
+import { ConflictError, ForbiddenError, getProjectSetting, NotFoundError } from "@fluxify/server";
 import { enqueueHarnessStart } from "../../../../harness/internal/enqueue";
 import { DEFAULT_APPLY_MODE } from "../../../../harness/queue";
+import { bumpListCacheVersion } from "../cacheVersion";
 import { getConversationById, getProjectIntegration } from "../repository";
 import { isConversationLocked } from "../status";
-import { bumpListCacheVersion } from "../cacheVersion";
-import { assertRunQuota } from "./rateLimit";
 import type { SendMessageBody } from "./dto";
+import { assertRunQuota } from "./rateLimit";
 
 /**
  * Verifies the picked AI integration exists in this project and is harness-eligible:
@@ -28,14 +23,9 @@ async function assertHarnessIntegration(integrationId: string, projectId: string
 		return;
 	}
 
-	const agentConnectionId = await getProjectSetting(
-		projectId,
-		"settings.ai.agentConnectionId",
-	);
+	const agentConnectionId = await getProjectSetting(projectId, "settings.ai.agentConnectionId");
 	if (agentConnectionId !== integrationId) {
-		throw new ForbiddenError(
-			"This integration is not enabled for the agent usage",
-		);
+		throw new ForbiddenError("This integration is not enabled for the agent usage");
 	}
 }
 
@@ -61,9 +51,7 @@ export default async function handleRequest(
 			throw new ConflictError("Cannot send a message to an archived conversation");
 		}
 		if (isConversationLocked(conversation.status)) {
-			throw new ConflictError(
-				"This conversation already has a run in progress",
-			);
+			throw new ConflictError("This conversation already has a run in progress");
 		}
 	}
 

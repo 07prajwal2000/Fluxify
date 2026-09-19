@@ -1,7 +1,7 @@
-import { GraphNode } from "@langchain/langgraph";
-import { AgentStateSchema } from "../state";
-import { DiscussionOutputSchema } from "../schemas";
+import type { GraphNode } from "@langchain/langgraph";
 import { withRetry } from "../../agentRetry";
+import { DiscussionOutputSchema } from "../schemas";
+import type { AgentStateSchema } from "../state";
 
 export const DISCUSSION_NODE_ID = "discussion";
 
@@ -20,25 +20,23 @@ const systemPrompt = `You are Fluxi, a helpful Discussion Agent for Fluxify, if 
 }
 </output_format>`;
 
-export const DiscussionNode: GraphNode<typeof AgentStateSchema> = async (
-  state,
-) => {
-  const { userPrompt, messages, modelFactory } = state;
-  const model = modelFactory.createModel();
-  await state.tracker?.update(2, "started", "Discussion");
-  const result = await withRetry(
-    async (history) => {
-      const response = await model.invoke(history);
-      return response.content.toString();
-    },
-    DiscussionOutputSchema,
-    [...messages, ["system", systemPrompt], ["human", userPrompt]],
-  );
-  if (result) {
-    state.discussionMode = result;
-    await state.tracker?.update(2, "success", "Discussion", {
-      discussionOutput: result,
-    });
-  }
-  return state;
+export const DiscussionNode: GraphNode<typeof AgentStateSchema> = async (state) => {
+	const { userPrompt, messages, modelFactory } = state;
+	const model = modelFactory.createModel();
+	await state.tracker?.update(2, "started", "Discussion");
+	const result = await withRetry(
+		async (history) => {
+			const response = await model.invoke(history);
+			return response.content.toString();
+		},
+		DiscussionOutputSchema,
+		[...messages, ["system", systemPrompt], ["human", userPrompt]],
+	);
+	if (result) {
+		state.discussionMode = result;
+		await state.tracker?.update(2, "success", "Discussion", {
+			discussionOutput: result,
+		});
+	}
+	return state;
 };

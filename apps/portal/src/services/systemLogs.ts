@@ -1,8 +1,8 @@
-import type z from "zod";
 import type {
 	systemLogSchema,
 	systemLogsQuerySchema,
 } from "@fluxify/server/src/api/v1/projects/system-logs/route";
+import type z from "zod";
 import { httpClient } from "@/lib/http";
 
 export type SystemLog = z.infer<typeof systemLogSchema>;

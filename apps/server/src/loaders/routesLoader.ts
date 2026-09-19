@@ -1,19 +1,11 @@
-import { HttpRouteParser } from "@fluxify/lib";
-import { db } from "../db";
-import {
-	httpRouteConfigEntity,
-	projectsEntity,
-	routesEntity,
-} from "../db/schema";
-import { acceptedContentTypes } from "../lib/routeConfig";
-import {
-	CHAN_ON_ROUTE_CHANGE,
-	deleteCacheKey,
-	subscribeToChannel,
-} from "../db/redis";
-import { eq } from "drizzle-orm";
 import { logger } from "@fluxify/common";
+import { HttpRouteParser } from "@fluxify/lib";
+import { eq } from "drizzle-orm";
+import { db } from "../db";
+import { CHAN_ON_ROUTE_CHANGE, deleteCacheKey, subscribeToChannel } from "../db/redis";
+import { httpRouteConfigEntity, projectsEntity, routesEntity } from "../db/schema";
 import { getEnv } from "../lib/env";
+import { acceptedContentTypes } from "../lib/routeConfig";
 
 export async function loadRoutes() {
 	const parser = new HttpRouteParser();
@@ -30,13 +22,13 @@ export async function loadRoutes() {
 			const { invalidateOpenApiCache } = await import("../api/v1/routes/openapi/service");
 			await invalidateOpenApiCache();
 			const fetchedRoutes = await fetchRoutes();
-			// @ts-ignore
+			// @ts-expect-error
 			parser.rebuildRoutes(fetchedRoutes);
 			logger.info("reloaded routes from db");
 		});
 	}
 
-	// @ts-ignore
+	// @ts-expect-error
 	parser.buildRoutes(routes);
 	return parser;
 }
@@ -57,10 +49,7 @@ async function fetchRoutes() {
 		})
 		.from(routesEntity)
 		.leftJoin(projectsEntity, eq(routesEntity.projectId, projectsEntity.id))
-		.leftJoin(
-			httpRouteConfigEntity,
-			eq(httpRouteConfigEntity.routeId, routesEntity.id),
-		)
+		.leftJoin(httpRouteConfigEntity, eq(httpRouteConfigEntity.routeId, routesEntity.id))
 		.where(eq(routesEntity.active, true));
 
 	return routes.map(({ routeConfig, ...route }) => ({

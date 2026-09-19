@@ -1,13 +1,13 @@
 import { logger } from "@fluxify/common";
 import {
+	type Entitlement,
 	entitlement,
 	FEATURES,
+	type Feature,
 	includes,
+	type License,
 	licenseBanner,
 	verifyLicenseKey,
-	type Entitlement,
-	type Feature,
-	type License,
 } from "@fluxify/common/license";
 import { NODE_TYPES, type NodeEntitlement } from "@fluxify/common/orchestrator";
 import z from "zod";
@@ -78,7 +78,10 @@ async function start() {
 	} catch (error) {
 		// Same reasoning as instance settings: a process that cannot learn its
 		// edition would be guessing.
-		logger.error(`FATAL: license state unavailable — NATS KV did not start: ${String(error)}`, "LICENSE");
+		logger.error(
+			`FATAL: license state unavailable — NATS KV did not start: ${String(error)}`,
+			"LICENSE",
+		);
 		process.exit(1);
 	}
 }
@@ -185,5 +188,8 @@ function logEdition(license: License, rejected: string | null = null) {
 	const { ok, text } = licenseBanner(license, rejected);
 	if (ok) console.log(`\n${text}\n`);
 	// Colour each line: runners that prefix output (bun run, compose) reset it at every newline.
-	else console.error(process.env.NO_COLOR ? `\n${text}\n` : `\n${text.replace(/^.*$/gm, "\x1b[31m$&\x1b[0m")}\n`);
+	else
+		console.error(
+			process.env.NO_COLOR ? `\n${text}\n` : `\n${text.replace(/^.*$/gm, "\x1b[31m$&\x1b[0m")}\n`,
+		);
 }

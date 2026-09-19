@@ -1,14 +1,13 @@
+import type { HonoServer } from "../../../types";
 import appCreate from "./create/route";
-import appUpdate from "./update/route";
 import appDelete from "./delete/route";
-import appGetById from "./get-by-id/route";
-import appGetAll from "./get-all/route";
-import appStartRun from "./start-run/route";
-import appGetRuns from "./get-runs/route";
-import appGetRunById from "./get-run-by-id/route";
 import appDeleteRuns from "./delete-runs/route";
-
-import { HonoServer } from "../../../types";
+import appGetAll from "./get-all/route";
+import appGetById from "./get-by-id/route";
+import appGetRunById from "./get-run-by-id/route";
+import appGetRuns from "./get-runs/route";
+import appStartRun from "./start-run/route";
+import appUpdate from "./update/route";
 
 export default {
 	registerHandler(app: HonoServer) {
@@ -16,9 +15,7 @@ export default {
 		const routeRouter = app.basePath("/test-suites/route/:routeId");
 		// Runs carry the project in the path so authorization costs no database
 		// read — see start-run/dto.ts.
-		const runsRouter = app.basePath(
-			"/:projectId/test-suites/route/:routeId/runs",
-		);
+		const runsRouter = app.basePath("/:projectId/test-suites/route/:routeId/runs");
 
 		// Route-specific test suite operations
 		appCreate(routeRouter);

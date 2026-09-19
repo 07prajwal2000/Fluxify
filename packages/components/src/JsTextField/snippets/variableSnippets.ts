@@ -1,6 +1,6 @@
 import { useMemo } from "react";
-import type { CodeSnippet } from "./types";
 import { toIdentifier, useRegisterSnippets } from "./snippetRegistry";
+import type { CodeSnippet } from "./types";
 
 export function buildVariableAccessSnippet(varName: string): CodeSnippet {
 	const ident = toIdentifier(varName);
@@ -83,7 +83,12 @@ export function collectVariables(variables: CanvasVariable[] | undefined, exclud
 	return Array.from(byKey.values(), (v) => ({ ...v, sources: [...v.sources] }));
 }
 
-export function describeVariable(name: string, sources: string[], fallback: string, output = false) {
+export function describeVariable(
+	name: string,
+	sources: string[],
+	fallback: string,
+	output = false,
+) {
 	const origin = sources.length
 		? `set by ${sources.map((source) => `"${source}"`).join(", ")}`
 		: fallback;
@@ -176,10 +181,7 @@ const SETVAR_SNIPPETS_ID = "fluxify-setvar-snippets";
  * Hook to automatically register dynamic snippets in the Set Variable block
  * on mount/name change, and unregister on unmount.
  */
-export function useSetVarSnippets(
-	variableName?: string,
-	otherVariables?: CanvasVariable[],
-): void {
+export function useSetVarSnippets(variableName?: string, otherVariables?: CanvasVariable[]): void {
 	const serializedOthers = JSON.stringify(otherVariables);
 	const snippets = useMemo(
 		() => buildSetVarSnippets(variableName, otherVariables),

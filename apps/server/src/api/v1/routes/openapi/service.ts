@@ -1,15 +1,15 @@
+import { logger } from "@fluxify/common";
+import type z from "zod";
 import {
-	getCache,
-	setCacheEx,
 	deleteCacheKey,
 	deleteCacheKeysByPattern,
+	getCache,
+	setCacheEx,
 } from "../../../../db/redis";
-import { getProject, getActiveRoutes } from "./repository";
-import z from "zod";
-import { requestParamSchema } from "./dto";
 import { NotFoundError } from "../../../../errors/notFoundError";
-import { logger } from "@fluxify/common";
 import { acceptedContentTypes } from "../../../../lib/routeConfig";
+import type { requestParamSchema } from "./dto";
+import { getActiveRoutes, getProject } from "./repository";
 
 export async function invalidateOpenApiCache(projectId?: string) {
 	if (projectId) {
@@ -78,41 +78,39 @@ function schemaDefToOpenApi(def: any): any {
 }
 
 function buildParameter(
-  schemaDef: unknown,
-  inLocation: "query" | "path",
-  operation: Record<string, unknown>
+	schemaDef: unknown,
+	inLocation: "query" | "path",
+	operation: Record<string, unknown>,
 ) {
-  const parsedDef = typeof schemaDef === "string" ? safelyParseJSON(schemaDef) : schemaDef;
-  if (parsedDef && typeof parsedDef === "object") {
-    try {
-      const baseSchema = schemaDefToOpenApi(parsedDef);
-      if (baseSchema.properties) {
-        for (const [key, prop] of Object.entries(baseSchema.properties)) {
-          (operation.parameters as any[]).push({
-            name: key,
-            in: inLocation,
-            required: inLocation === "path" ? true : (baseSchema.required?.includes(key) || false),
-            schema: prop,
-          });
-        }
-      }
-    } catch (e) {
-      logger.error(`Failed to parse ${inLocation} schema`, "openapi", { error: e });
-    }
-  }
+	const parsedDef = typeof schemaDef === "string" ? safelyParseJSON(schemaDef) : schemaDef;
+	if (parsedDef && typeof parsedDef === "object") {
+		try {
+			const baseSchema = schemaDefToOpenApi(parsedDef);
+			if (baseSchema.properties) {
+				for (const [key, prop] of Object.entries(baseSchema.properties)) {
+					(operation.parameters as any[]).push({
+						name: key,
+						in: inLocation,
+						required: inLocation === "path" ? true : baseSchema.required?.includes(key) || false,
+						schema: prop,
+					});
+				}
+			}
+		} catch (e) {
+			logger.error(`Failed to parse ${inLocation} schema`, "openapi", { error: e });
+		}
+	}
 }
 
 function safelyParseJSON(str: string) {
-  try {
-    return JSON.parse(str);
-  } catch (e) {
-    return null;
-  }
+	try {
+		return JSON.parse(str);
+	} catch (e) {
+		return null;
+	}
 }
 
-export async function generateOpenApiSpec(
-	param: z.infer<typeof requestParamSchema>,
-) {
+export async function generateOpenApiSpec(param: z.infer<typeof requestParamSchema>) {
 	const { projectId } = param;
 	const cacheKey = `openapi-spec:${projectId}`;
 	const cached = await getCache(cacheKey);
@@ -144,7 +142,10 @@ export async function generateOpenApiSpec(
 
 		if (["post", "put", "patch"].includes(method) && route.bodySchema) {
 			try {
-				const parsedDef = typeof route.bodySchema === "string" ? safelyParseJSON(route.bodySchema) : route.bodySchema;
+				const parsedDef =
+					typeof route.bodySchema === "string"
+						? safelyParseJSON(route.bodySchema)
+						: route.bodySchema;
 				if (parsedDef && typeof parsedDef === "object") {
 					const jsonSchema = schemaDefToOpenApi(parsedDef);
 					// one entry per content type the route actually accepts

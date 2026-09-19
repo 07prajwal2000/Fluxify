@@ -16,8 +16,8 @@ export function useControllableJsonValue({
 	JsonEditorBaseProps,
 	"value" | "defaultValue" | "rootType" | "onChange"
 >): ControllableJsonValue {
-	const [internalValue, setInternalValue] = useState<JsonContainer>(() =>
-		defaultValue ?? createDefaultJsonRoot(rootType),
+	const [internalValue, setInternalValue] = useState<JsonContainer>(
+		() => defaultValue ?? createDefaultJsonRoot(rootType),
 	);
 	const currentValue = value ?? internalValue;
 
@@ -31,4 +31,3 @@ export function useControllableJsonValue({
 
 	return [currentValue, setValue] as const;
 }
-

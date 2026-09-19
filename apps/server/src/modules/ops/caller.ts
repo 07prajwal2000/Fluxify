@@ -1,11 +1,11 @@
 import type { User } from "better-auth";
-import { RpcError, type RpcCaller } from "../../db/natsRpc";
+import { type RpcCaller, RpcError } from "../../db/natsRpc";
+import type { AuthACL } from "../../db/schema";
 import { BadRequestError } from "../../errors/badRequestError";
 import { ConflictError } from "../../errors/conflictError";
 import { ForbiddenError } from "../../errors/forbidError";
 import { NotFoundError } from "../../errors/notFoundError";
 import { ValidationError } from "../../errors/validationError";
-import type { AuthACL } from "../../db/schema";
 
 /**
  * The bus is internal, so the envelope's `caller` is trusted for identity —
@@ -33,16 +33,12 @@ export function callerUser(caller: RpcCaller) {
  * an unrecognised failure should look like a bug, not a client mistake.
  */
 export function toRpcError(error: unknown): unknown {
-	if (error instanceof NotFoundError)
-		return new RpcError("PARENT_NOT_FOUND", error.message);
-	if (error instanceof ConflictError)
-		return new RpcError("CONFLICT", error.message);
-	if (error instanceof ForbiddenError)
-		return new RpcError("FORBIDDEN", error.message);
+	if (error instanceof NotFoundError) return new RpcError("PARENT_NOT_FOUND", error.message);
+	if (error instanceof ConflictError) return new RpcError("CONFLICT", error.message);
+	if (error instanceof ForbiddenError) return new RpcError("FORBIDDEN", error.message);
 	if (error instanceof ValidationError)
 		return new RpcError("VALIDATION_FAILED", error.message, error.errors);
-	if (error instanceof BadRequestError)
-		return new RpcError("VALIDATION_FAILED", error.message);
+	if (error instanceof BadRequestError) return new RpcError("VALIDATION_FAILED", error.message);
 	return error;
 }
 

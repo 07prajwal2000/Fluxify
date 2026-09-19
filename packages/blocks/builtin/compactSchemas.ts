@@ -1,5 +1,5 @@
-import z from "zod";
 import { conditionSchema } from "@fluxify/lib";
+import z from "zod";
 import { blockAiDescriptions } from "./blockAiDescriptions";
 import { dbConditionSideSchema, whereConditionSchema } from "./db/schema";
 
@@ -99,11 +99,7 @@ function renderUnion(members: JsonSchema[], indent: string): string {
 		: rendered.join(" | ");
 }
 
-function renderObject(
-	schema: JsonSchema,
-	indent: string,
-	dropBaseFields: boolean,
-): string {
+function renderObject(schema: JsonSchema, indent: string, dropBaseFields: boolean): string {
 	const properties: JsonSchema = schema.properties ?? {};
 	const required = new Set<string>(schema.required ?? []);
 	const inner = `${indent}\t`;
@@ -131,24 +127,21 @@ function renderObject(
 /** Renders one block's JSON Schema (the string form stored on its AI
  *  description, or an already-parsed object) as a compact contract body. */
 export function renderCompactSchema(jsonSchema: string | JsonSchema): string {
-	const parsed =
-		typeof jsonSchema === "string" ? JSON.parse(jsonSchema) : jsonSchema;
+	const parsed = typeof jsonSchema === "string" ? JSON.parse(jsonSchema) : jsonSchema;
 	return renderObject(parsed, "", true);
 }
 
 /** `type X = ...` declarations for every shared schema, in dependency order.
  *  Registering each only after it is rendered is what stops a type from
  *  collapsing into a reference to itself. */
-export const COMPACT_SHARED_TYPES: string = SHARED_TYPES.map(
-	([name, schema]) => {
-		const jsonSchema = z.toJSONSchema(schema) as JsonSchema;
-		// Through `typeOf`, not `renderObject`: a shared type is not always an
-		// object — `dbConditionSideSchema` is a union at its top level.
-		const body = typeOf(jsonSchema, "");
-		sharedNames.set(shapeKey(jsonSchema), name);
-		return `type ${name} = ${body}`;
-	},
-).join("\n\n");
+export const COMPACT_SHARED_TYPES: string = SHARED_TYPES.map(([name, schema]) => {
+	const jsonSchema = z.toJSONSchema(schema) as JsonSchema;
+	// Through `typeOf`, not `renderObject`: a shared type is not always an
+	// object — `dbConditionSideSchema` is a union at its top level.
+	const body = typeOf(jsonSchema, "");
+	sharedNames.set(shapeKey(jsonSchema), name);
+	return `type ${name} = ${body}`;
+}).join("\n\n");
 
 /** Drop-in replacement for `BUILTIN_BLOCK_SCHEMAS_REFERENCE`: the same 29
  *  contracts, shared types stated once, in one fence rather than 29. */

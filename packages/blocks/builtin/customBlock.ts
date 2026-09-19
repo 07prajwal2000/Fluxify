@@ -1,14 +1,9 @@
-import z from "zod";
-import { Context } from "../baseBlock";
 import { logger } from "@fluxify/common";
+import z from "zod";
+import type { Context } from "../baseBlock";
 import type { BlockDTOType, EdgeDTOSchemaType } from "../builderTypes";
+import { compileGraph, type EmitNode, emitJsObject, instantiateCompiled } from "../compiler";
 import { enqueueJob } from "../jobs";
-import {
-	compileGraph,
-	emitJsObject,
-	instantiateCompiled,
-	type EmitNode,
-} from "../compiler";
 
 export const customBlockInvokeSchema = z
 	.enum(["sync", "async", "queued"])
@@ -74,22 +69,15 @@ function lookup(name: string): CompiledCustomBlock {
  * land flat in the parent trace with nothing saying which block invoked them or
  * which canvas their block ids belong to. `blockId` is the invoking block.
  */
-function traced(
-	context: Context,
-	name: string,
-	blockId: string | undefined,
-	detached: boolean,
-) {
+function traced(context: Context, name: string, blockId: string | undefined, detached: boolean) {
 	if (!context.trace || !blockId) return { context, close: () => {} };
 	const scope = context.trace.enterCustomBlock({ blockId, name, detached });
 	// a detached invocation records into its own trace, so it needs its own
 	// context — mutating the caller's would follow the request back out
-	const child =
-		scope.trace === context.trace ? context : { ...context, trace: scope.trace };
+	const child = scope.trace === context.trace ? context : { ...context, trace: scope.trace };
 	return {
 		context: child,
-		close: (outcome?: "success" | "failure", error?: unknown) =>
-			scope.close(outcome, error),
+		close: (outcome?: "success" | "failure", error?: unknown) => scope.close(outcome, error),
 	};
 }
 
@@ -116,9 +104,7 @@ export async function invokeCustomBlock(
 		// an undefined value and the route answered 200. `continueIfFail` is the
 		// callee's own error handler reporting that it recovered.
 		if (result?.successful === false && !result.continueIfFail) {
-			throw result.error instanceof Error
-				? result.error
-				: new Error(String(result.error));
+			throw result.error instanceof Error ? result.error : new Error(String(result.error));
 		}
 		return result?.output;
 	} finally {
@@ -138,16 +124,15 @@ export function invokeCustomBlockAsync(
 	blockId?: string,
 ) {
 	const scope = traced(context, name, blockId, true);
-	lookup(name)(scope.context, args)
-		.then(
-			() => scope.close("success"),
-			(error) => {
-				scope.close("failure", error);
-				logger.error(`Async custom block '${name}' failed`, "BLOCKS.customBlock", {
-					error,
-				});
-			},
-		)
+	lookup(name)(scope.context, args).then(
+		() => scope.close("success"),
+		(error) => {
+			scope.close("failure", error);
+			logger.error(`Async custom block '${name}' failed`, "BLOCKS.customBlock", {
+				error,
+			});
+		},
+	);
 }
 
 /**

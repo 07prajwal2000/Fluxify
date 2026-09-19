@@ -19,10 +19,7 @@ export type SnippetPreviewPanelProps = {
 	panelRef?: React.RefObject<HTMLDivElement | null>;
 };
 
-function computeTop(
-	anchorEl: HTMLElement | null,
-	sidebarEl: HTMLElement | null,
-): number {
+function computeTop(anchorEl: HTMLElement | null, sidebarEl: HTMLElement | null): number {
 	if (!anchorEl || !sidebarEl) return 8;
 	const cardRect = anchorEl.getBoundingClientRect();
 	const sidebarRect = sidebarEl.getBoundingClientRect();
@@ -68,9 +65,7 @@ export function SnippetPreviewPanel({
 			{/* Header */}
 			<div className="flex items-center justify-between px-3 py-2 border-b border-border bg-surface/90 shrink-0">
 				<div className="flex items-center gap-2 min-w-0">
-					<span className="text-xs font-semibold text-foreground truncate">
-						{snippet.title}
-					</span>
+					<span className="text-xs font-semibold text-foreground truncate">{snippet.title}</span>
 					<span className="text-[10px] uppercase font-mono px-1.5 py-0.5 rounded bg-surface-secondary text-muted border border-border shrink-0">
 						{snippet.category}
 					</span>

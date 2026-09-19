@@ -1,15 +1,10 @@
+import { isJsExpression, JsTextField, ReorderableList, readExpression } from "@fluxify/components";
 import { useReactFlow } from "@xyflow/react";
 import { TbArrowsSplit2, TbInfoCircle } from "react-icons/tb";
-import {
-	JsTextField,
-	ReorderableList,
-	isJsExpression,
-	readExpression,
-} from "@fluxify/components";
-import { BlockSettings } from "../BlockSettings";
-import { BlockCheckboxField } from "../fields";
 import { useCanvasChanges } from "../../changes/ChangesContext";
 import type { BlockNode } from "../../types";
+import { BlockSettings } from "../BlockSettings";
+import { BlockCheckboxField } from "../fields";
 import { FanOutEmptyState, useFanOutBranches } from "./fanOutBranches";
 import { JsRunnerSettings } from "./JsRunnerSettings";
 
@@ -35,7 +30,10 @@ export function SwitchCases({ block }: { block: BlockNode }) {
 	const defaultTarget = (block.data.defaultCase as string | undefined) ?? "";
 	const fallback = branches.find((b) => b.target === defaultTarget);
 	const cases = branches.filter((b) => b.target !== fallback?.target);
-	const rows: Row[] = [...cases.map((branch) => ({ branch })), { branch: fallback, isDefault: true }];
+	const rows: Row[] = [
+		...cases.map((branch) => ({ branch })),
+		{ branch: fallback, isDefault: true },
+	];
 
 	const setEntry = (target: string, text: string) =>
 		updateNodeData(block.id, { [field]: { ...entries, [target]: text } });
@@ -87,7 +85,11 @@ export function SwitchCases({ block }: { block: BlockNode }) {
 			<div className="flex items-start gap-2.5 rounded-lg border border-border bg-background-secondary p-3 text-xs leading-relaxed text-muted">
 				<TbInfoCircle className="mt-0.5 size-4 shrink-0 text-accent" />
 				<div>
-					Plain text is compared with strict equality (===) to {useValue ? "the value script's result" : "the Switch's input"}, so the type matters. <code>404</code>, <code>true</code> and <code>false</code> become a number or boolean; anything else is text. Only literals are matched: <code>input.status</code> is compared as that text, not read. Turn on JS for anything else.
+					Plain text is compared with strict equality (===) to{" "}
+					{useValue ? "the value script's result" : "the Switch's input"}, so the type matters.{" "}
+					<code>404</code>, <code>true</code> and <code>false</code> become a number or boolean;
+					anything else is text. Only literals are matched: <code>input.status</code> is compared as
+					that text, not read. Turn on JS for anything else.
 				</div>
 			</div>
 			{branches.length === 0 ? (
@@ -95,7 +97,8 @@ export function SwitchCases({ block }: { block: BlockNode }) {
 					title="No cases connected"
 					icon={<TbArrowsSplit2 className="h-4.5 w-4.5" />}
 				>
-					Connect blocks to the <strong className="font-medium text-foreground">Cases</strong> handle on the right of this block. Each connection becomes a case.
+					Connect blocks to the <strong className="font-medium text-foreground">Cases</strong>{" "}
+					handle on the right of this block. Each connection becomes a case.
 				</FanOutEmptyState>
 			) : (
 				<>
@@ -111,7 +114,9 @@ export function SwitchCases({ block }: { block: BlockNode }) {
 						isItemLocked={(row) => !row.branch}
 						isItemPinned={(row) => row.isDefault === true}
 						placeholderText="Drop here (the last slot is the default)"
-						onItemMouseEnter={(row, el) => row.branch && highlightProps.onItemMouseEnter(row.branch, el)}
+						onItemMouseEnter={(row, el) =>
+							row.branch && highlightProps.onItemMouseEnter(row.branch, el)
+						}
 						onItemMouseLeave={highlightProps.onItemMouseLeave}
 						onItemFocus={(row, el) => row.branch && highlightProps.onItemFocus(row.branch, el)}
 						onItemBlur={highlightProps.onItemBlur}
@@ -129,13 +134,13 @@ export function SwitchCases({ block }: { block: BlockNode }) {
 										{row.branch ? (
 											<>
 												{name(row.branch)}
-												<span className="text-xs text-muted">
-													Runs when no case above matches.
-												</span>
+												<span className="text-xs text-muted">Runs when no case above matches.</span>
 											</>
 										) : (
 											<span className="text-xs text-warning">
-												No default case: if no case matches, the flow stops here and returns the Switch's input. Drag a case here, or move the last case down, to make it the default.
+												No default case: if no case matches, the flow stops here and returns the
+												Switch's input. Drag a case here, or move the last case down, to make it the
+												default.
 											</span>
 										)}
 									</div>

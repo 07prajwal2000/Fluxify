@@ -1,17 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-	IN_FLIGHT_STATUSES,
 	type CreateTestSuiteBody,
-	type UpdateTestSuiteBody,
+	IN_FLIGHT_STATUSES,
 	testSuitesService,
+	type UpdateTestSuiteBody,
 } from "@/services/testSuites";
 
 const suiteKey = (routeId: string) => ["test-suites", routeId];
-const runKey = (projectId: string, routeId: string) => [
-	"test-runs",
-	projectId,
-	routeId,
-];
+const runKey = (projectId: string, routeId: string) => ["test-runs", projectId, routeId];
 
 /**
  * How often an unfinished run is re-read. Suite rows land one at a time, so a
@@ -45,8 +41,7 @@ export const testSuitesQuery = {
 		mutation(routeId: string) {
 			const qc = useQueryClient();
 			return useMutation({
-				mutationFn: (body: CreateTestSuiteBody) =>
-					testSuitesService.create(routeId, body),
+				mutationFn: (body: CreateTestSuiteBody) => testSuitesService.create(routeId, body),
 				onSuccess: () => qc.invalidateQueries({ queryKey: suiteKey(routeId) }),
 			});
 		},
@@ -55,8 +50,7 @@ export const testSuitesQuery = {
 		mutation(routeId: string, id: string) {
 			const qc = useQueryClient();
 			return useMutation({
-				mutationFn: (body: UpdateTestSuiteBody) =>
-					testSuitesService.update(id, body),
+				mutationFn: (body: UpdateTestSuiteBody) => testSuitesService.update(id, body),
 				onSuccess: () => qc.invalidateQueries({ queryKey: suiteKey(routeId) }),
 			});
 		},
@@ -77,17 +71,12 @@ export const testSuitesQuery = {
 			return useMutation({
 				mutationFn: (suiteIds?: string[]) =>
 					testSuitesService.startRun(projectId, routeId, suiteIds),
-				onSuccess: () =>
-					qc.invalidateQueries({ queryKey: runKey(projectId, routeId) }),
+				onSuccess: () => qc.invalidateQueries({ queryKey: runKey(projectId, routeId) }),
 			});
 		},
 	},
 	getRuns: {
-		useQuery(
-			projectId: string,
-			routeId: string,
-			query: { page?: number; perPage?: number } = {},
-		) {
+		useQuery(projectId: string, routeId: string, query: { page?: number; perPage?: number } = {}) {
 			return useQuery({
 				queryKey: [...runKey(projectId, routeId), query],
 				queryFn: () => testSuitesService.getRuns(projectId, routeId, query),
@@ -101,17 +90,12 @@ export const testSuitesQuery = {
 			const qc = useQueryClient();
 			return useMutation({
 				mutationFn: () => testSuitesService.clearRuns(projectId, routeId),
-				onSuccess: () =>
-					qc.invalidateQueries({ queryKey: runKey(projectId, routeId) }),
+				onSuccess: () => qc.invalidateQueries({ queryKey: runKey(projectId, routeId) }),
 			});
 		},
 	},
 	getRun: {
-		useQuery(
-			projectId: string,
-			routeId: string,
-			runId: string | null | undefined,
-		) {
+		useQuery(projectId: string, routeId: string, runId: string | null | undefined) {
 			return useQuery({
 				queryKey: [...runKey(projectId, routeId), "detail", runId],
 				queryFn: () => testSuitesService.getRun(projectId, routeId, runId!),
@@ -120,8 +104,7 @@ export const testSuitesQuery = {
 				// a settled run never changes again, so polling stops with it —
 				// otherwise every visited run keeps a timer alive forever
 				refetchInterval: (query) =>
-					query.state.data &&
-					!IN_FLIGHT_STATUSES.includes(query.state.data.status)
+					query.state.data && !IN_FLIGHT_STATUSES.includes(query.state.data.status)
 						? false
 						: RUN_POLL_MS,
 			});

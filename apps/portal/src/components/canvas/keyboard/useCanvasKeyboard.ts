@@ -1,5 +1,5 @@
-import { useEffect, useRef, type RefObject } from "react";
 import { useReactFlow } from "@xyflow/react";
+import { type RefObject, useEffect, useRef } from "react";
 import { matchCombo } from "../actions/combo";
 import type { CanvasAction } from "../actions/useCanvasActions";
 import { useCanvasClipboard } from "../clipboard";
@@ -51,11 +51,7 @@ export type UseCanvasKeyboardOptions = {
  * prompt, and paste works in Firefox, where reading the clipboard from script
  * is not available at all.
  */
-export function useCanvasKeyboard({
-	enabled,
-	rootRef,
-	actions,
-}: UseCanvasKeyboardOptions) {
+export function useCanvasKeyboard({ enabled, rootRef, actions }: UseCanvasKeyboardOptions) {
 	const { setNodes, setEdges } = useReactFlow();
 	// Read through a ref so re-binding isn't needed on every selection change.
 	const latest = useRef({ enabled, actions });
@@ -112,9 +108,7 @@ export function useCanvasKeyboard({
 
 	useEffect(() => {
 		const inScope = (event: Event) =>
-			latest.current.enabled &&
-			clipboardRef.current.enabled &&
-			inCanvas(event, rootRef.current);
+			latest.current.enabled && clipboardRef.current.enabled && inCanvas(event, rootRef.current);
 
 		const onCopy = (event: ClipboardEvent) => {
 			// Real text selected on the page — that is what the user meant to copy.

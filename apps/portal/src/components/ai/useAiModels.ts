@@ -4,20 +4,20 @@ import { projectSettingsKeysQuery } from "@/query/projectSettingsKeysQuery";
 import type { AiModel } from "./ModelSelect";
 
 export function useAiModels(projectId: string) {
-	const { data: integrationsData, isLoading: isLoadingInts } = integrationsQuery.getBasicList.useQuery(projectId, true);
-	const { data: settingsData, isLoading: isLoadingSettings } = projectSettingsKeysQuery.getAll.useQuery(projectId);
+	const { data: integrationsData, isLoading: isLoadingInts } =
+		integrationsQuery.getBasicList.useQuery(projectId, true);
+	const { data: settingsData, isLoading: isLoadingSettings } =
+		projectSettingsKeysQuery.getAll.useQuery(projectId);
 
 	return useMemo(() => {
 		if (isLoadingInts || isLoadingSettings) {
 			return { models: [], defaultModelId: "", isBlocked: false, isLoading: true };
 		}
-		
+
 		const allIntegrations = integrationsData ?? [];
-		
-		const aiIntegrations = allIntegrations.filter((i: any) => 
-			i.group === "ai"
-		);
-		
+
+		const aiIntegrations = allIntegrations.filter((i: any) => i.group === "ai");
+
 		const availableModels: AiModel[] = aiIntegrations.map((i: any) => ({
 			id: i.id,
 			name: i.name,
@@ -25,7 +25,7 @@ export function useAiModels(projectId: string) {
 		}));
 
 		const agentConnectionId = settingsData?.["settings.ai.agentConnectionId"];
-		
+
 		let defId = "";
 		let blocked = false;
 
@@ -41,7 +41,7 @@ export function useAiModels(projectId: string) {
 						id: agentConnectionId,
 						name: fallbackInt.name || "Project Default",
 						variant: fallbackInt.variant,
-						isFallback: true
+						isFallback: true,
 					});
 					defId = agentConnectionId;
 				}

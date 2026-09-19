@@ -46,9 +46,7 @@ export type JavaScriptTextAreaProps = {
 function resolveTheme(theme?: string) {
 	if (theme) return theme;
 	if (typeof document === "undefined") return "vs-dark";
-	return document.documentElement.classList.contains("dark")
-		? "vs-dark"
-		: "light";
+	return document.documentElement.classList.contains("dark") ? "vs-dark" : "light";
 }
 
 /**
@@ -114,6 +112,7 @@ export function JavaScriptTextArea({
 		// enclosing containers (canvas, focus scopes, popovers, modals, hotkey listeners)
 		// intercept keys like Space, Tab, Delete, etc., blocking normal code editing.
 		<div
+			role="group"
 			aria-label={ariaLabel}
 			className={clsx(
 				"overflow-hidden rounded-[var(--radius)] border border-[var(--border)]",

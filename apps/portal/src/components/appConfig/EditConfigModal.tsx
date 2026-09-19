@@ -1,19 +1,19 @@
-import { useEffect, useState } from "react";
 import {
 	Button,
 	Checkbox,
 	CloseButton,
+	CustomSelect,
 	Input,
 	Label,
 	Modal,
 	Spinner,
 	TextField,
 	toast,
-	CustomSelect,
 } from "@fluxify/components";
+import { useEffect, useState } from "react";
 import { TbBraces, TbLock } from "react-icons/tb";
-import { appConfigQuery } from "@/query/appConfigQuery";
 import { showErrorNotification } from "@/lib/errorNotifier";
+import { appConfigQuery } from "@/query/appConfigQuery";
 import type { ConfigRow } from "./types";
 
 const ENCODINGS = ["plaintext", "base64", "hex"] as const;
@@ -102,7 +102,8 @@ export function EditConfigModal({
 												<Input className="font-mono" />
 											</TextField>
 											<p className="text-xs text-muted mt-1">
-												Key names are permanent because they may be referenced throughout your application.
+												Key names are permanent because they may be referenced throughout your
+												application.
 											</p>
 										</div>
 
@@ -113,14 +114,20 @@ export function EditConfigModal({
 														<TbBraces size={16} /> Data type
 													</div>
 												}
-												options={DATA_TYPES.map(dt => ({ value: dt, label: dt[0].toUpperCase() + dt.slice(1) }))}
+												options={DATA_TYPES.map((dt) => ({
+													value: dt,
+													label: dt[0].toUpperCase() + dt.slice(1),
+												}))}
 												value={config.dataType}
 												isDisabled
 											/>
 
 											<CustomSelect
 												label={<span className="text-sm font-medium text-muted">Encoding</span>}
-												options={ENCODINGS.map(enc => ({ value: enc, label: ENCODING_LABELS[enc] }))}
+												options={ENCODINGS.map((enc) => ({
+													value: enc,
+													label: ENCODING_LABELS[enc],
+												}))}
 												value={encoding}
 												onChange={(enc) => setEncoding(enc as any)}
 											/>
@@ -169,7 +176,11 @@ export function EditConfigModal({
 													<Checkbox.Control>
 														<Checkbox.Indicator />
 													</Checkbox.Control>
-													<Label>{config.isEncrypted ? "Encrypted (cannot be decrypted)" : "Encrypt this value in storage"}</Label>
+													<Label>
+														{config.isEncrypted
+															? "Encrypted (cannot be decrypted)"
+															: "Encrypt this value in storage"}
+													</Label>
 												</Checkbox.Content>
 											</Checkbox>
 										</div>

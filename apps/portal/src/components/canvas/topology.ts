@@ -38,8 +38,7 @@ export function track(
 	for (const change of changes) {
 		if (isCosmetic(change)) continue;
 		if (change.type === "remove") deleted.push(change.id);
-		else if (change.type === "add" || change.type === "replace")
-			upserted.push(change.item.id);
+		else if (change.type === "add" || change.type === "replace") upserted.push(change.item.id);
 		else upserted.push(change.id);
 	}
 	if (upserted.length) tracker.markUpserted(kind, upserted);

@@ -1,4 +1,4 @@
-import { BLOCK_TYPES, BLOCK_TYPE_LIST, type BlockType } from "./blockTypes";
+import { BLOCK_TYPE_LIST, BLOCK_TYPES, type BlockType } from "./blockTypes";
 
 /**
  * Complete, schema-valid starting data for every core block created on canvas.

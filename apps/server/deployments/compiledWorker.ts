@@ -1,49 +1,47 @@
 import { existsSync } from "node:fs";
 import { initializeLogger, logger } from "@fluxify/common";
-import { healthResponse, markDraining } from "../src/modules/requestRouter/health";
+import type { NodeType } from "@fluxify/common/orchestrator";
+import { closeNats } from "../src/db/nats";
+import { canRunConnectors, nodeEntitlement, watchLicense } from "../src/lib/edition";
 import {
-	watchProjectArtifacts,
-} from "../src/modules/requestRouter/artifactHost";
+	FLUXIFY_NODE_ID,
+	getEnv,
+	MAX_REQUEST_BODY_BYTES,
+	OTLP_AUTH_HEADER_NAME,
+	OTLP_AUTH_HEADER_VALUE,
+	OTLP_ENDPOINT,
+	OTLP_LOGGER_ENABLED,
+	OTLP_LOGGER_LEVEL,
+	SCHEDULE_MAX_HORIZON_MS,
+	WORKER_GROUP_IDS,
+	WORKER_MODE,
+	WORKER_PROJECT_ID,
+} from "../src/lib/env";
+import { configuredBaseDomain, watchInstanceSettings } from "../src/loaders/instanceSettingsLoader";
 import type {
 	TriggerArtifact,
 	UnsealedProjectConfig,
 	WorkflowArtifact,
 } from "../src/modules/compiler/artifacts";
 import { artifactId, artifactKind } from "../src/modules/compiler/subjects";
-import { TriggerWorker } from "../src/modules/triggers/consumers";
-import { consumedInExecution, runsHere } from "../src/modules/triggers/types";
-import { startFireConsumer } from "../src/modules/schedules/fire";
-import type { ExecutionMessage } from "../src/modules/requestRouter/threadTypes";
-import { workerTimeoutsEnabled } from "../src/modules/requestRouter/workerTimeouts";
-import { asyncExecutorLimitsFromEnv, drainChild } from "../src/modules/requestRouter/asyncExecutor";
-import { createExecutionSupervisor } from "../src/modules/requestRouter/executionSupervisor";
-import type { ArtifactEntry } from "../src/modules/requestRouter/compiledRuntime";
-import { closeNats } from "../src/db/nats";
-import { configuredBaseDomain, watchInstanceSettings } from "../src/loaders/instanceSettingsLoader";
-import { canRunConnectors, nodeEntitlement, watchLicense } from "../src/lib/edition";
-import { attachNode } from "../src/modules/orchestrator/node";
-import type { NodeType } from "@fluxify/common/orchestrator";
 import { createJobWorker, type JobWorker } from "../src/modules/jobs/consumer";
 import {
-	OTLP_AUTH_HEADER_NAME,
-	OTLP_AUTH_HEADER_VALUE,
-	OTLP_ENDPOINT,
-	OTLP_LOGGER_ENABLED,
-	OTLP_LOGGER_LEVEL,
-	WORKER_PROJECT_ID,
-	WORKER_MODE,
-	WORKER_GROUP_IDS,
-	FLUXIFY_NODE_ID,
-	MAX_REQUEST_BODY_BYTES,
-	SCHEDULE_MAX_HORIZON_MS,
-	getEnv,
-} from "../src/lib/env";
-import {
-	WORKFLOW_JOB,
 	artifactKindsForMode,
 	assertWorkerMode,
 	jobKindsForMode,
+	WORKFLOW_JOB,
 } from "../src/modules/jobs/subjects";
+import { attachNode } from "../src/modules/orchestrator/node";
+import { watchProjectArtifacts } from "../src/modules/requestRouter/artifactHost";
+import { asyncExecutorLimitsFromEnv, drainChild } from "../src/modules/requestRouter/asyncExecutor";
+import type { ArtifactEntry } from "../src/modules/requestRouter/compiledRuntime";
+import { createExecutionSupervisor } from "../src/modules/requestRouter/executionSupervisor";
+import { healthResponse, markDraining } from "../src/modules/requestRouter/health";
+import type { ExecutionMessage } from "../src/modules/requestRouter/threadTypes";
+import { workerTimeoutsEnabled } from "../src/modules/requestRouter/workerTimeouts";
+import { startFireConsumer } from "../src/modules/schedules/fire";
+import { TriggerWorker } from "../src/modules/triggers/consumers";
+import { consumedInExecution, runsHere } from "../src/modules/triggers/types";
 
 /**
  * Trusted compiled-worker supervisor. It owns NATS and encrypted artifacts;
@@ -58,8 +56,7 @@ const port = Number(getEnv("WORKER_PORT")) || 5600;
 const healthPort = Number(getEnv("WORKER_HEALTH_PORT")) || port + 1;
 const HEARTBEAT_CHECK_MS = 500;
 /** Idle database integration timeout, supplied to the execution process. */
-const databaseIdleTimeoutMs =
-	Number(getEnv("INTEGRATION_TIMEOUT_POLICY_IN_SEC") || 450) * 1_000;
+const databaseIdleTimeoutMs = Number(getEnv("INTEGRATION_TIMEOUT_POLICY_IN_SEC") || 450) * 1_000;
 const asyncExecutor = asyncExecutorLimitsFromEnv();
 
 initializeLogger({
@@ -203,10 +200,7 @@ function applyTrigger(entry: ArtifactEntry) {
 		void triggerWorker
 			.apply(artifactId(entry.key), trigger)
 			.catch((error) =>
-				logger.error(
-					`failed to apply trigger ${entry.key}: ${String(error)}`,
-					"WORKER.triggers",
-				),
+				logger.error(`failed to apply trigger ${entry.key}: ${String(error)}`, "WORKER.triggers"),
 			);
 	}
 }
@@ -244,10 +238,7 @@ function trackProject(entry: ArtifactEntry) {
 		// Dropped from the set so this project's next artifact tries again. One
 		// project's consumer failing must not take down the others' work.
 		servedProjects.delete(projectId);
-		logger.error(
-			`consumers for ${projectId} failed to start: ${String(error)}`,
-			"WORKER",
-		);
+		logger.error(`consumers for ${projectId} failed to start: ${String(error)}`, "WORKER");
 	});
 }
 
@@ -263,17 +254,11 @@ async function serveProject(projectId: string) {
  */
 function unserveIfGone(projectId: string) {
 	if (!servedProjects.has(projectId)) return;
-	for (const key of artifacts.keys())
-		if (key.split(".")[1] === projectId) return;
+	for (const key of artifacts.keys()) if (key.split(".")[1] === projectId) return;
 	servedProjects.delete(projectId);
-	void Promise.all([
-		jobWorker.unserve(projectId),
-		triggerWorker.unserveInternal(projectId),
-	]).catch((error) =>
-		logger.error(
-			`consumers for ${projectId} failed to stop: ${String(error)}`,
-			"WORKER",
-		),
+	void Promise.all([jobWorker.unserve(projectId), triggerWorker.unserveInternal(projectId)]).catch(
+		(error) =>
+			logger.error(`consumers for ${projectId} failed to stop: ${String(error)}`, "WORKER"),
 	);
 }
 
@@ -289,7 +274,10 @@ const triggerWorker = new TriggerWorker({
 // a worker that cannot learn its edition would be guessing.
 await watchInstanceSettings((key) => {
 	if (key === "hosting")
-		supervisor.send({ type: "base-domain", baseDomain: configuredBaseDomain() } satisfies ExecutionMessage);
+		supervisor.send({
+			type: "base-domain",
+			baseDomain: configuredBaseDomain(),
+		} satisfies ExecutionMessage);
 });
 await watchLicense();
 
@@ -382,10 +370,7 @@ supervisor.synchronizeMonitoring();
  * subject nothing reads.
  */
 function fatal(what: string, error: unknown): never {
-	logger.error(
-		`${what} failed to start, refusing to run without it: ${String(error)}`,
-		"WORKER",
-	);
+	logger.error(`${what} failed to start, refusing to run without it: ${String(error)}`, "WORKER");
 	process.exit(1);
 }
 

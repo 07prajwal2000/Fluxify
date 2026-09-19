@@ -1,10 +1,10 @@
-import { useEffect, useState, type ReactNode } from "react";
-import { TbLayoutSidebarLeftExpand } from "react-icons/tb";
-import { useNavigate, useParams } from "@tanstack/react-router";
 import { Button } from "@fluxify/components";
-import { ConversationSidebar } from "./ConversationSidebar";
+import { useNavigate, useParams } from "@tanstack/react-router";
+import { type ReactNode, useEffect, useState } from "react";
+import { TbLayoutSidebarLeftExpand } from "react-icons/tb";
 import { openHarnessSocket } from "@/lib/harnessSocket";
 import { useAiHarnessStore } from "@/store/aiHarness";
+import { ConversationSidebar } from "./ConversationSidebar";
 
 /**
  * Shell for the AI section: a persistent, slide-in conversation sidebar plus a
@@ -22,9 +22,7 @@ export function AiLayout({ children }: { children: ReactNode }) {
 	};
 	const navigate = useNavigate();
 	const [sidebarOpen, setSidebarOpen] = useState(false);
-	const setActiveConversation = useAiHarnessStore(
-		(s) => s.setActiveConversation,
-	);
+	const setActiveConversation = useAiHarnessStore((s) => s.setActiveConversation);
 
 	useEffect(() => openHarnessSocket(), []);
 
@@ -41,7 +39,11 @@ export function AiLayout({ children }: { children: ReactNode }) {
 
 	const goToNew = () => {
 		setSidebarOpen(false);
-		navigate({ to: "/$projectId/ai", params: { projectId: params.projectId }, viewTransition: true });
+		navigate({
+			to: "/$projectId/ai",
+			params: { projectId: params.projectId },
+			viewTransition: true,
+		});
 	};
 
 	return (

@@ -5,10 +5,10 @@ import { CloseButton } from "../CloseButton";
 import { JavaScriptTextArea } from "../JavaScriptTextArea";
 import type { EditorTheme } from "./EditorSettingsMenu";
 import {
+	type CodeSnippet,
 	DEFAULT_SNIPPETS,
 	SnippetsSidebar,
 	useRegisteredSnippets,
-	type CodeSnippet,
 } from "./snippets";
 
 export type JsEditorModalProps = {
@@ -119,9 +119,7 @@ export function JsEditorModal({
 				>
 					{/* Modal Header */}
 					<div className="flex items-center justify-between px-4 py-2.5 border-b border-border bg-surface/50 shrink-0">
-						<span className="text-sm font-semibold text-foreground truncate">
-							{title}
-						</span>
+						<span className="text-sm font-semibold text-foreground truncate">{title}</span>
 						<CloseButton onPress={onClose} />
 					</div>
 

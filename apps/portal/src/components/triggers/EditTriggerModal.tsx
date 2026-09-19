@@ -1,6 +1,6 @@
 import { CloseButton, Modal } from "@fluxify/components";
-import { TriggerWizard } from "./TriggerWizard";
 import type { TriggerListItem } from "@/services/triggers";
+import { TriggerWizard } from "./TriggerWizard";
 
 export function EditTriggerModal({
 	projectId,

@@ -1,4 +1,4 @@
-import { createContext, useContext, type ReactNode } from "react";
+import { createContext, type ReactNode, useContext } from "react";
 import type { CanvasChanges } from "./useChangeTracker";
 
 const DISABLED_CHANGES: CanvasChanges = {
@@ -20,9 +20,7 @@ export function CanvasChangesProvider({
 	value: CanvasChanges;
 	children: ReactNode;
 }) {
-	return (
-		<ChangesContext.Provider value={value}>{children}</ChangesContext.Provider>
-	);
+	return <ChangesContext.Provider value={value}>{children}</ChangesContext.Provider>;
 }
 
 /**

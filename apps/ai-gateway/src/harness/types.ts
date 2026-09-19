@@ -1,7 +1,7 @@
 import { Annotation, MessagesAnnotation } from "@langchain/langgraph";
-import type { BaseAgentWrapper } from "./models/base";
 import type { DbService } from "./internal/dbService";
 import type { HarnessService, HitlPlanAction } from "./internal/harnessService";
+import type { BaseAgentWrapper } from "./models/base";
 
 export enum AgentNode {
 	ROUTER = "router",
@@ -53,10 +53,7 @@ export interface FindResourceResult {
 
 export type AgentNodeName = `${AgentNode}`;
 
-export type CustomEventName =
-	| "agent_status"
-	| "human_in_the_loop_required"
-	| "tool_call";
+export type CustomEventName = "agent_status" | "human_in_the_loop_required" | "tool_call";
 
 /** Emitted by the tool-execution loop in `models/base.ts` around every tool
  *  invocation, so the client sees tool work as first-class progress instead of
@@ -208,10 +205,7 @@ export interface OrchestratorState {
 	subAgentResults?: Record<string, SubAgentResult>;
 }
 
-function mergeTasks(
-	current: Task[] | undefined,
-	update: Task[] | undefined,
-): Task[] | undefined {
+function mergeTasks(current: Task[] | undefined, update: Task[] | undefined): Task[] | undefined {
 	if (!current) return update;
 	if (!update) return current;
 
@@ -221,9 +215,7 @@ function mergeTasks(
 	}
 	return [
 		...current.map((task) => byId.get(task.id)!),
-		...update.filter(
-			(task) => !current.some((currentTask) => currentTask.id === task.id),
-		),
+		...update.filter((task) => !current.some((currentTask) => currentTask.id === task.id)),
 	];
 }
 
@@ -251,9 +243,7 @@ export const GraphState = Annotation.Root({
 		// De-duplicated: every node that resumes re-emits its note, so a 3-task run
 		// accumulated the same two planner lines ~70 times and shipped all of them
 		// in every downstream prompt.
-		reducer: (oldState, newState) => [
-			...new Set([...oldState, ...newState]),
-		],
+		reducer: (oldState, newState) => [...new Set([...oldState, ...newState])],
 		default: () => [],
 	}),
 	agentWrapper: Annotation<BaseAgentWrapper>({
@@ -282,8 +272,7 @@ export const GraphState = Annotation.Root({
 		default: () => undefined,
 	}),
 	nextRoute: Annotation<AgentNodeName | AgentNodeName[] | undefined>({
-		reducer: (oldState, newState) =>
-			newState !== undefined ? newState : oldState,
+		reducer: (oldState, newState) => (newState !== undefined ? newState : oldState),
 		default: () => undefined,
 	}),
 	activeTask: Annotation<Task | undefined>({

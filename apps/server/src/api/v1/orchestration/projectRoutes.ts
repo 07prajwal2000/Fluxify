@@ -8,7 +8,7 @@ import {
 	readOrchestrationEvents,
 	readOrchestrationStatus,
 } from "../../../modules/orchestrator/status";
-import { HonoServer } from "../../../types";
+import type { HonoServer } from "../../../types";
 import { requireProjectAccess } from "../../auth/middleware";
 import {
 	claimAckSchema,
@@ -54,7 +54,10 @@ export default function registerProjectNodes(app: HonoServer) {
 				"The nodes this project holds, the claims that asked for them, what is driving the infrastructure, and any trigger group with work and no healthy node.",
 			operationId: "get-project-nodes",
 			tags,
-			responses: { 200: { description: "Successful", ...json(orchestrationStatusSchema) }, ...errors },
+			responses: {
+				200: { description: "Successful", ...json(orchestrationStatusSchema) },
+				...errors,
+			},
 		}),
 		requireOrchestration,
 		requireProjectAccess("viewer", project),

@@ -1,13 +1,13 @@
-import z from "zod";
-import { responseSchema as getAllResponseSchema } from "@fluxify/server/src/api/v1/custom-blocks/get-all/dto";
 import {
 	requestBodySchema as createRequestSchema,
-	responseSchema as createResponseSchema,
+	type responseSchema as createResponseSchema,
 } from "@fluxify/server/src/api/v1/custom-blocks/create/dto";
+import type { responseSchema as getAllResponseSchema } from "@fluxify/server/src/api/v1/custom-blocks/get-all/dto";
 import {
 	requestBodySchema as updateRequestSchema,
-	responseSchema as updateResponseSchema,
+	type responseSchema as updateResponseSchema,
 } from "@fluxify/server/src/api/v1/custom-blocks/update/dto";
+import type z from "zod";
 import { httpClient } from "@/lib/http";
 import { canvasEndpoints } from "./canvas";
 

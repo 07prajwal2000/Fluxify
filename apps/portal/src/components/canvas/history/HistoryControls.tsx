@@ -12,20 +12,10 @@ export function HistoryControls() {
 
 	return (
 		<>
-			<ControlButton
-				onClick={undo}
-				disabled={!canUndo}
-				title="Undo (Ctrl+Z)"
-				aria-label="Undo"
-			>
+			<ControlButton onClick={undo} disabled={!canUndo} title="Undo (Ctrl+Z)" aria-label="Undo">
 				<TbArrowBackUp />
 			</ControlButton>
-			<ControlButton
-				onClick={redo}
-				disabled={!canRedo}
-				title="Redo (Ctrl+Y)"
-				aria-label="Redo"
-			>
+			<ControlButton onClick={redo} disabled={!canRedo} title="Redo (Ctrl+Y)" aria-label="Redo">
 				<TbArrowBackUp className="-scale-x-100" />
 			</ControlButton>
 		</>

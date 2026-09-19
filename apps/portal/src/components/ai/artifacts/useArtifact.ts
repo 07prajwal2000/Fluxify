@@ -1,14 +1,14 @@
-import { useMemo } from "react";
-import { useParams } from "@tanstack/react-router";
 import {
 	kindLabel,
 	parentsOf,
 } from "@fluxify/ai-gateway/src/api/v1/harness-conversations/artifacts/dependencies";
+import { useParams } from "@tanstack/react-router";
+import { useMemo } from "react";
+import { customBlocksQuery } from "@/query/customBlocksQuery";
 import { harnessConversationsQuery } from "@/query/harnessConversationsQuery";
 import { routesQuery } from "@/query/routesQuery";
-import { customBlocksQuery } from "@/query/customBlocksQuery";
 import type { SubArtifactDetail } from "@/services/harnessConversations";
-import { previewGraph, type BlockBuilderPayload } from "./previewGraph";
+import { type BlockBuilderPayload, previewGraph } from "./previewGraph";
 
 export { kindLabel };
 
@@ -26,10 +26,7 @@ export function useRunSiblings(runId: string | undefined, kind?: string) {
 		runId ?? "",
 	);
 	const ids = useMemo(
-		() =>
-			(data?.subArtifacts ?? [])
-				.filter((s) => !kind || s.kind === kind)
-				.map((s) => s.id),
+		() => (data?.subArtifacts ?? []).filter((s) => !kind || s.kind === kind).map((s) => s.id),
 		[data, kind],
 	);
 	const results = harnessConversationsQuery.subArtifacts.useDetailsQuery(
@@ -37,9 +34,7 @@ export function useRunSiblings(runId: string | undefined, kind?: string) {
 		conversationId,
 		ids,
 	);
-	return results
-		.map((r) => r.data)
-		.filter((d): d is SubArtifactDetail => Boolean(d));
+	return results.map((r) => r.data).filter((d): d is SubArtifactDetail => Boolean(d));
 }
 
 /** What the sidebar switches on. One map, so opening an output from a
@@ -62,10 +57,7 @@ export const artifactTypeForKind = (kind: string) => SIDEBAR_TYPE[kind] ?? kind;
 export function useBlockingParent(detail: SubArtifactDetail | undefined) {
 	const siblings = useRunSiblings(detail?.runId);
 	return useMemo(
-		() =>
-			detail
-				? parentsOf(detail, siblings).find((parent) => !parent.appliedAt)
-				: undefined,
+		() => (detail ? parentsOf(detail, siblings).find((parent) => !parent.appliedAt) : undefined),
 		[detail, siblings],
 	);
 }
@@ -151,12 +143,7 @@ export function useCustomBlockCanvasArtifact(detail: SubArtifactDetail | undefin
 	const targetId = payload.targetId ?? "";
 	const existingCanvas = customBlocksQuery.canvasItems.useQuery(targetId);
 	const graph = useMemo(
-		() =>
-			previewGraph(
-				payload,
-				existingCanvas.data ?? EMPTY_CANVAS,
-				Boolean(detail?.appliedAt),
-			),
+		() => previewGraph(payload, existingCanvas.data ?? EMPTY_CANVAS, Boolean(detail?.appliedAt)),
 		[payload, existingCanvas.data, detail?.appliedAt],
 	);
 	return { graph, isLoading: existingCanvas.isLoading };

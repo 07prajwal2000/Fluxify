@@ -20,9 +20,7 @@ export function HostInventory({ status }: { status: OrchestrationStatus }) {
 		<section className="overflow-hidden rounded-xl border border-border bg-background">
 			<header className="flex flex-wrap items-start justify-between gap-3 border-b border-border p-4">
 				<div>
-					<h3 className="text-sm font-bold text-foreground">
-						On this host ({nodes.length})
-					</h3>
+					<h3 className="text-sm font-bold text-foreground">On this host ({nodes.length})</h3>
 					<p className="mt-0.5 text-xs text-muted">
 						Every {words.node} tagged as this instance's, as the orchestrator last saw it.
 					</p>
@@ -47,9 +45,7 @@ export function HostInventory({ status }: { status: OrchestrationStatus }) {
 						<div key={node.containerId} className="flex flex-wrap items-center gap-3 px-4 py-3">
 							<div className="min-w-0 flex-1">
 								<div className="flex flex-wrap items-center gap-2">
-									<span className="truncate font-mono text-xs text-foreground">
-										{node.nodeId}
-									</span>
+									<span className="truncate font-mono text-xs text-foreground">{node.nodeId}</span>
 									<Chip size="sm" color={node.running ? "success" : "danger"}>
 										{node.platformState}
 									</Chip>

@@ -8,16 +8,8 @@ import { testRunsEntity } from "../../../../db/schema";
  * Scoped by project AND route, so a route id from another project simply
  * returns nothing — no ownership join, no extra read.
  */
-export async function getTestRuns(
-	projectId: string,
-	routeId: string,
-	skip: number,
-	take: number,
-) {
-	const where = and(
-		eq(testRunsEntity.projectId, projectId),
-		eq(testRunsEntity.routeId, routeId),
-	);
+export async function getTestRuns(projectId: string, routeId: string, skip: number, take: number) {
+	const where = and(eq(testRunsEntity.projectId, projectId), eq(testRunsEntity.routeId, routeId));
 
 	const result = await db
 		.select({

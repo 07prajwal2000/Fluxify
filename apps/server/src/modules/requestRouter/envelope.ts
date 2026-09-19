@@ -1,12 +1,10 @@
-import { Context } from "hono";
+import type { Context } from "hono";
 import { MAX_REQUEST_BODY_BYTES } from "../../lib/env";
 import { bodyReader } from "./requestBody";
 import type { RequestEnvelope } from "./types";
 
 /** Convert an HTTP request into the transport-neutral route envelope. */
-export async function envelopeFromHttp(
-	ctx: Context,
-): Promise<RequestEnvelope> {
+export async function envelopeFromHttp(ctx: Context): Promise<RequestEnvelope> {
 	const reader = bodyReader(ctx.req, MAX_REQUEST_BODY_BYTES);
 	const envelope: RequestEnvelope = {
 		trigger: {

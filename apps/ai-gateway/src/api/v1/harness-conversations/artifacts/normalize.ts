@@ -107,9 +107,7 @@ function normalizePath(path: string) {
 /** Drops keys the model left null — the create DTO treats null and absent
  *  differently, and `.optional()` rejects null. */
 function compact<T extends Record<string, unknown>>(value: T) {
-	return Object.fromEntries(
-		Object.entries(value).filter(([, v]) => v !== null && v !== undefined),
-	);
+	return Object.fromEntries(Object.entries(value).filter(([, v]) => v !== null && v !== undefined));
 }
 
 /**
@@ -158,10 +156,7 @@ export function routeOpFromPayload(payload: RouteConfigPayload, projectId: strin
 	};
 }
 
-export function customBlockOpFromPayload(
-	payload: CustomBlockConfigPayload,
-	projectId: string,
-) {
+export function customBlockOpFromPayload(payload: CustomBlockConfigPayload, projectId: string) {
 	const action = payload.action ?? "create";
 	const data = payload.data ?? {};
 	if (action === "delete") {
@@ -324,9 +319,7 @@ export function canvasChangesFromPayload(
 			data: {
 				...(block.data ?? {}),
 				...(block.blockName ? { blockName: block.blockName } : {}),
-				...(block.blockDescription
-					? { blockDescription: block.blockDescription }
-					: {}),
+				...(block.blockDescription ? { blockDescription: block.blockDescription } : {}),
 			},
 			position: {
 				x: Number(block.position?.x ?? 0),
@@ -345,16 +338,12 @@ export function canvasChangesFromPayload(
 	 * such edge stops the entire route compiling with "No codegen for block type:
 	 * error_handler".
 	 */
-	const inboundRefused = new Set<string>([
-		BlockTypes.entrypoint,
-		BlockTypes.errorHandler,
-	]);
+	const inboundRefused = new Set<string>([BlockTypes.entrypoint, BlockTypes.errorHandler]);
 	const typeById = new Map<string, string>([
 		...existing.blocks.map((b) => [b.id, b.type] as const),
 		...blocks.map((b) => [b.id, b.type] as const),
 	]);
-	const acceptsInbound = (id: string) =>
-		!inboundRefused.has(typeById.get(id) ?? "");
+	const acceptsInbound = (id: string) => !inboundRefused.has(typeById.get(id) ?? "");
 
 	const edges: CanvasChanges["changes"]["edges"] = [];
 	const deletedEdgeIds = new Set<string>();
@@ -418,9 +407,7 @@ export function canvasChangesFromPayload(
 		const handle = fullHandle(from, fromHandle, "source");
 		// Re-routing means the edge already off that handle now points elsewhere,
 		// so keep its id: it is an update, not a second edge off one socket.
-		const previous = existing.edges.find(
-			(e) => e.from === from && (e.fromHandle ?? "") === handle,
-		);
+		const previous = existing.edges.find((e) => e.from === from && (e.fromHandle ?? "") === handle);
 		replaceStoredHandle(from, fromHandle ?? "source", idFor(toEdge));
 		// `toHandle` is ignored on purpose: every block has exactly one inbound
 		// socket, so the target side is always `<to>-target`.
@@ -479,10 +466,7 @@ export function canvasChangesFromPayload(
 
 /** Apply a canonical canvas delta in memory. Shared by artifact preparation
  * and the frontend preview so both see the same post-apply graph. */
-export function canvasAfterChanges(
-	existing: CanvasItems,
-	changes: CanvasChanges,
-): CanvasItems {
+export function canvasAfterChanges(existing: CanvasItems, changes: CanvasChanges): CanvasItems {
 	const deletedBlocks = new Set(
 		changes.actionsToPerform.blocks
 			.filter((action) => action.action === "delete")

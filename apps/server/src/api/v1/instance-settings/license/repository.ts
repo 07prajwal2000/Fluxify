@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm";
 import { db } from "../../../../db";
-import { instanceLicenseEntity } from "../../../../db/schema";
 import { systemUsers } from "../../../../db/auth-schema";
+import { instanceLicenseEntity } from "../../../../db/schema";
 
 const ID = "current";
 

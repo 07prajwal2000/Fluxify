@@ -1,4 +1,3 @@
-import { useState } from "react";
 import {
 	Button,
 	Chip,
@@ -8,16 +7,10 @@ import {
 	TextField,
 	toast,
 } from "@fluxify/components";
-import {
-	TbBolt,
-	TbCheck,
-	TbEdit,
-	TbLock,
-	TbServer,
-	TbX,
-} from "react-icons/tb";
-import { triggersQuery } from "@/query/triggersQuery";
+import { useState } from "react";
+import { TbBolt, TbCheck, TbEdit, TbLock, TbServer, TbX } from "react-icons/tb";
 import { showErrorNotification } from "@/lib/errorNotifier";
+import { triggersQuery } from "@/query/triggersQuery";
 import type { TriggerGroup } from "@/services/triggers";
 
 export type TriggerGroupRowProps = {
@@ -29,11 +22,7 @@ export type TriggerGroupRowProps = {
 /**
  * An individual trigger group card supporting inline editing and worker status visualization.
  */
-export function TriggerGroupRow({
-	projectId,
-	group,
-	onDelete,
-}: TriggerGroupRowProps) {
+export function TriggerGroupRow({ projectId, group, onDelete }: TriggerGroupRowProps) {
 	const update = triggersQuery.updateGroup.mutation(projectId);
 	const [editing, setEditing] = useState(false);
 	const [name, setName] = useState(group.name);
@@ -74,9 +63,7 @@ export function TriggerGroupRow({
 				}}
 			>
 				<div className="flex items-center justify-between">
-					<span className="text-xs font-semibold text-foreground">
-						Editing {group.name}
-					</span>
+					<span className="text-xs font-semibold text-foreground">Editing {group.name}</span>
 					<span className="text-[11px] text-muted">Press Esc to cancel</span>
 				</div>
 
@@ -92,22 +79,13 @@ export function TriggerGroupRow({
 						<Input className="bg-surface-secondary/50" />
 					</TextField>
 
-					<TextField
-						value={description}
-						onChange={setDescription}
-						className="w-full"
-					>
+					<TextField value={description} onChange={setDescription} className="w-full">
 						<Label className="text-xs font-medium mb-1">Description (optional)</Label>
 						<Input placeholder="Description" className="bg-surface-secondary/50" />
 					</TextField>
 
 					<div className="flex items-center justify-end gap-2 pt-1">
-						<Button
-							size="sm"
-							variant="ghost"
-							aria-label="Cancel editing"
-							onPress={cancelEdit}
-						>
+						<Button size="sm" variant="ghost" aria-label="Cancel editing" onPress={cancelEdit}>
 							<TbX size={15} /> Cancel
 						</Button>
 						<Button
@@ -138,9 +116,7 @@ export function TriggerGroupRow({
 						)}
 					</div>
 					<div className="flex items-center gap-2 min-w-0">
-						<span className="truncate font-semibold text-sm text-foreground">
-							{group.name}
-						</span>
+						<span className="truncate font-semibold text-sm text-foreground">{group.name}</span>
 						{group.isDefault && (
 							<Chip
 								size="sm"
@@ -155,10 +131,7 @@ export function TriggerGroupRow({
 
 				<div className="flex items-center gap-2 shrink-0">
 					<div className="inline-flex items-center gap-1 rounded-md bg-surface px-2 py-0.5 text-xs font-medium text-muted border border-border/60">
-						<TbBolt
-							size={12}
-							className={group.triggerCount > 0 ? "text-accent" : "text-muted"}
-						/>
+						<TbBolt size={12} className={group.triggerCount > 0 ? "text-accent" : "text-muted"} />
 						<span>
 							{group.triggerCount} {group.triggerCount === 1 ? "trigger" : "triggers"}
 						</span>
@@ -179,11 +152,7 @@ export function TriggerGroupRow({
 							>
 								<TbEdit size={15} />
 							</Button>
-							<DeleteIconButton
-								size="sm"
-								aria-label={`Delete ${group.name}`}
-								onPress={onDelete}
-							/>
+							<DeleteIconButton size="sm" aria-label={`Delete ${group.name}`} onPress={onDelete} />
 						</div>
 					) : (
 						<span
@@ -198,9 +167,7 @@ export function TriggerGroupRow({
 
 			<div className="pl-9.5">
 				{group.description ? (
-					<p className="text-xs text-muted leading-relaxed line-clamp-2">
-						{group.description}
-					</p>
+					<p className="text-xs text-muted leading-relaxed line-clamp-2">{group.description}</p>
 				) : (
 					<p className="text-xs text-muted/50 italic">
 						{group.isDefault

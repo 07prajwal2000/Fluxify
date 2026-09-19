@@ -1,11 +1,8 @@
 import { logger } from "@fluxify/common";
-import {
-	CHAN_ON_PROJECT_SETTING_CHANGE,
-	subscribeToChannel,
-} from "../db/redis";
-import { getAllProjectSettings } from "../lib/project-settings";
 import z from "zod";
-import { projectSettingsKeySchemaMap } from "../api/v1/projects/settings/keys/keySchemaMap";
+import type { projectSettingsKeySchemaMap } from "../api/v1/projects/settings/keys/keySchemaMap";
+import { CHAN_ON_PROJECT_SETTING_CHANGE, subscribeToChannel } from "../db/redis";
+import { getAllProjectSettings } from "../lib/project-settings";
 
 export let projectSettingsCache: Record<
 	string,
@@ -14,12 +11,8 @@ export let projectSettingsCache: Record<
 let settingsLoaded = false;
 
 /** fill the cache from an artifact instead of the database (compiled worker) */
-export function hydrateProjectSettings(
-	projectId: string,
-	settings: Record<string, string>,
-) {
-	projectSettingsCache[projectId] =
-		settings as (typeof projectSettingsCache)[string];
+export function hydrateProjectSettings(projectId: string, settings: Record<string, string>) {
+	projectSettingsCache[projectId] = settings as (typeof projectSettingsCache)[string];
 	settingsLoaded = true;
 }
 

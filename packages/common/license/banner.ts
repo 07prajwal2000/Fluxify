@@ -28,8 +28,12 @@ export function licenseBanner(
 		rows.push(["Licensee", license.licensee]);
 		rows.push(["Expires", license.expiresAt ? day(license.expiresAt) : "never"]);
 	}
-	if (e.graceEndsAt) rows.push(["Grace ends", `${day(e.graceEndsAt)} (${e.daysRemaining} day(s) left)`]);
-	rows.push(["Features", e.features.length === 0 ? "none" : e.features.includes("*") ? "* (all)" : e.features.join(", ")]);
+	if (e.graceEndsAt)
+		rows.push(["Grace ends", `${day(e.graceEndsAt)} (${e.daysRemaining} day(s) left)`]);
+	rows.push([
+		"Features",
+		e.features.length === 0 ? "none" : e.features.includes("*") ? "* (all)" : e.features.join(", "),
+	]);
 
 	const lines = ["FLUXIFY LICENSE", "", ...rows.map(([k, v]) => `${k.padEnd(10)} : ${v}`)];
 	const width = Math.max(...lines.map((l) => l.length));

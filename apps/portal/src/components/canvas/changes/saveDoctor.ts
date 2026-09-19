@@ -52,8 +52,7 @@ export function repairSavePayload(
 	);
 	/** A block an edge may point at: on the server, or being upserted right now. */
 	const blockWillExist = (id: string) =>
-		(serverBlocks.has(id) || repaired.blocks.get(id) === "upsert") &&
-		!deletedBlocks.has(id);
+		(serverBlocks.has(id) || repaired.blocks.get(id) === "upsert") && !deletedBlocks.has(id);
 
 	for (const [id, action] of changes.edges) {
 		if (action === "delete") {

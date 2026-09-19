@@ -1,6 +1,6 @@
+import type { BlockNode } from "../../types";
 import { BlockSettings } from "../BlockSettings";
 import { BlockJsTextField, BlockSelectField } from "../fields";
-import type { BlockNode } from "../../types";
 
 const SOURCE_OPTIONS = [
 	{ value: "path", label: "Path Param" },
@@ -37,9 +37,7 @@ export function GetParamSettings({ block }: { block: BlockNode }) {
 			<div className="flex flex-col gap-1.5 mt-1">
 				<span className="text-xs text-muted">Example URL reference:</span>
 				<pre className="px-3 py-2 rounded-md bg-[var(--surface-secondary,#18181b)] border border-[var(--border,#27272a)] font-mono text-xs text-[var(--foreground,#fafafa)] whitespace-pre-wrap break-all select-all">
-					{source === "path"
-						? "/:userId (e.g. enter 'userId')"
-						: "?id=123 (e.g. enter 'id')"}
+					{source === "path" ? "/:userId (e.g. enter 'userId')" : "?id=123 (e.g. enter 'id')"}
 				</pre>
 			</div>
 		</div>

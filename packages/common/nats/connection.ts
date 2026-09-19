@@ -1,5 +1,5 @@
-import { connect, type NodeConnectionOptions } from "@nats-io/transport-node";
 import type { NatsConnection } from "@nats-io/nats-core";
+import { connect, type NodeConnectionOptions } from "@nats-io/transport-node";
 import { logger } from "../logging";
 
 /**
@@ -21,9 +21,7 @@ export interface NatsConnectOptions extends NodeConnectionOptions {
 
 const connections = new Map<string, NatsConnection>();
 
-export async function connectNats(
-	options: NatsConnectOptions = {},
-): Promise<NatsConnection> {
+export async function connectNats(options: NatsConnectOptions = {}): Promise<NatsConnection> {
 	const { connectionName = DEFAULT_CONNECTION, ...opts } = options;
 	const existing = connections.get(connectionName);
 	if (existing && !existing.isClosed()) return existing;
@@ -42,9 +40,7 @@ export async function connectNats(
 
 /** The live connection. Throws rather than reconnecting implicitly — a missing
  *  `connectNats()` at startup is a wiring bug, not something to paper over. */
-export function natsConnection(
-	connectionName = DEFAULT_CONNECTION,
-): NatsConnection {
+export function natsConnection(connectionName = DEFAULT_CONNECTION): NatsConnection {
 	const nc = connections.get(connectionName);
 	if (!nc) {
 		throw new Error(
@@ -61,9 +57,7 @@ export function natsConnected(connectionName = DEFAULT_CONNECTION): boolean {
 }
 
 /** Drains in-flight work and closes. Safe to call when never connected. */
-export async function closeNats(
-	connectionName = DEFAULT_CONNECTION,
-): Promise<void> {
+export async function closeNats(connectionName = DEFAULT_CONNECTION): Promise<void> {
 	const nc = connections.get(connectionName);
 	connections.delete(connectionName);
 	if (nc && !nc.isClosed()) await nc.drain();

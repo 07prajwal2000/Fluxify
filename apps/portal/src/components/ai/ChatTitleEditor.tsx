@@ -1,6 +1,6 @@
-import { useState, useEffect } from "react";
-import { harnessConversationsQuery } from "@/query/harnessConversationsQuery";
+import { useEffect, useState } from "react";
 import { showErrorNotification } from "@/lib/errorNotifier";
+import { harnessConversationsQuery } from "@/query/harnessConversationsQuery";
 import type { HarnessConversation } from "./types";
 
 export function ChatTitleEditor({
@@ -45,6 +45,7 @@ export function ChatTitleEditor({
 
 	return isEditing ? (
 		<input
+			// biome-ignore lint/a11y/noAutofocus: the user just chose to rename, so the field should take focus
 			autoFocus
 			className="h-8 w-80 rounded-md border border-border bg-surface px-2 text-sm font-medium text-foreground outline-none"
 			value={title}

@@ -29,12 +29,11 @@ type RouteConfigPayload = {
 export function RouteArtifact({ subArtifactId }: { subArtifactId: string }) {
 	const { projectId, conversationId } = useArtifactParams();
 
-	const { data: subArtifact, isLoading } =
-		harnessConversationsQuery.subArtifacts.useDetailQuery(
-			projectId,
-			conversationId,
-			subArtifactId,
-		);
+	const { data: subArtifact, isLoading } = harnessConversationsQuery.subArtifacts.useDetailQuery(
+		projectId,
+		conversationId,
+		subArtifactId,
+	);
 
 	const payload = (subArtifact?.payload ?? {}) as RouteConfigPayload;
 	const routeId = payload.routeId ?? "";
@@ -102,13 +101,25 @@ export function RouteArtifact({ subArtifactId }: { subArtifactId: string }) {
 						<Field label="Path" current={route?.path} next={proposed.path} />
 					</Tabs.Panel>
 					<Tabs.Panel id="params">
-						<SchemaField label="Path parameters" current={route?.paramsSchema} next={proposed.paramsSchema} />
+						<SchemaField
+							label="Path parameters"
+							current={route?.paramsSchema}
+							next={proposed.paramsSchema}
+						/>
 					</Tabs.Panel>
 					<Tabs.Panel id="query">
-						<SchemaField label="Query string" current={route?.querySchema} next={proposed.querySchema} />
+						<SchemaField
+							label="Query string"
+							current={route?.querySchema}
+							next={proposed.querySchema}
+						/>
 					</Tabs.Panel>
 					<Tabs.Panel id="body">
-						<SchemaField label="Request body" current={route?.bodySchema} next={proposed.bodySchema} />
+						<SchemaField
+							label="Request body"
+							current={route?.bodySchema}
+							next={proposed.bodySchema}
+						/>
 					</Tabs.Panel>
 				</Tabs>
 			)}

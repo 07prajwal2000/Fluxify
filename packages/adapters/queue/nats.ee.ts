@@ -2,31 +2,31 @@ import { setTimeout as sleep } from "node:timers/promises";
 import { logger } from "@fluxify/common";
 import {
 	AckPolicy,
-	DeliverPolicy,
-	jetstream,
-	jetstreamManager,
-	JetStreamApiError,
 	type Consumer,
 	type ConsumerMessages,
+	DeliverPolicy,
+	JetStreamApiError,
 	type JetStreamClient,
 	type JsMsg,
+	jetstream,
+	jetstreamManager,
 } from "@nats-io/jetstream";
 import {
-	credsAuthenticator,
-	headers as natsHeaders,
-	nanos,
-	nkeyAuthenticator,
 	type ConnectionOptions,
+	credsAuthenticator,
 	type NatsConnection,
+	nanos,
+	headers as natsHeaders,
+	nkeyAuthenticator,
 } from "@nats-io/nats-core";
 import { connect } from "@nats-io/transport-node";
 import {
 	decode,
-	QueueConnection,
-	QueueSourceGoneError,
 	type QueueBatch,
+	QueueConnection,
 	type QueueEvent,
 	type QueueHandler,
+	QueueSourceGoneError,
 	type QueueSubscription,
 } from "./base";
 
@@ -151,7 +151,8 @@ export class NatsQueueConnection extends QueueConnection {
 
 	async commit(batch: QueueBatch) {
 		const messages = batch.events.map((event) => this.sources.get(event));
-		if (messages.some((message) => !message)) throw new Error("This batch was not read by this connection");
+		if (messages.some((message) => !message))
+			throw new Error("This batch was not read by this connection");
 		for (const message of messages as JsMsg[]) {
 			message.ack();
 			this.unacked.delete(message);
@@ -175,8 +176,12 @@ export class NatsQueueConnection extends QueueConnection {
 			}))
 				headers.set(name, value);
 			// no stream capturing the subject comes back as "jetstream is not enabled"
-			await this.js!.publish(subject, this.sources.get(event)?.data ?? new Uint8Array(), { headers }).catch((cause) => {
-				throw new Error(`Could not dead-letter to "${subject}": no stream captures it, or JetStream is off (${String(cause)})`);
+			await this.js!.publish(subject, this.sources.get(event)?.data ?? new Uint8Array(), {
+				headers,
+			}).catch((cause) => {
+				throw new Error(
+					`Could not dead-letter to "${subject}": no stream captures it, or JetStream is off (${String(cause)})`,
+				);
 			});
 		}
 	}
@@ -210,7 +215,10 @@ export class NatsQueueConnection extends QueueConnection {
 			} catch (error) {
 				if (this.stopped) return;
 				if (isSourceGone(error) || (await this.missing())) return this.gone(error);
-				logger.warn(`[nats] ${this.subscription.consumerGroup} fetch failed: ${String(error)}`, "QUEUE.nats");
+				logger.warn(
+					`[nats] ${this.subscription.consumerGroup} fetch failed: ${String(error)}`,
+					"QUEUE.nats",
+				);
 				await Promise.race([sleep(1_000), this.halted.promise]);
 				continue;
 			}
@@ -224,7 +232,10 @@ export class NatsQueueConnection extends QueueConnection {
 	 */
 	private async fetch() {
 		const { batchSize, maxWaitMs } = this.subscription;
-		const fetch = await this.consumer!.fetch({ max_messages: batchSize, expires: Math.max(maxWaitMs, 1_000) });
+		const fetch = await this.consumer!.fetch({
+			max_messages: batchSize,
+			expires: Math.max(maxWaitMs, 1_000),
+		});
 		this.fetches.add(fetch);
 		// a pull against a deleted stream or consumer does not throw: the server
 		// says so out of band and the fetch just comes back empty, forever
@@ -245,7 +256,11 @@ export class NatsQueueConnection extends QueueConnection {
 	private async watch(fetch: ConsumerMessages) {
 		try {
 			for await (const status of fetch.status())
-				if (status.type === "stream_not_found" || status.type === "consumer_deleted" || status.type === "consumer_not_found")
+				if (
+					status.type === "stream_not_found" ||
+					status.type === "consumer_deleted" ||
+					status.type === "consumer_not_found"
+				)
 					return this.gone(new Error(status.type.replace(/_/g, " ")));
 		} catch {
 			// the fetch ended; nothing to report
@@ -264,7 +279,10 @@ export class NatsQueueConnection extends QueueConnection {
 		const { stream } = this.subscription.source as Partial<NatsSource>;
 		if (!this.nc || this.nc.isClosed() || !stream) return false;
 		try {
-			await (await jetstreamManager(this.nc)).consumers.info(stream, this.subscription.consumerGroup);
+			await (await jetstreamManager(this.nc)).consumers.info(
+				stream,
+				this.subscription.consumerGroup,
+			);
 			return false;
 		} catch (error) {
 			return isSourceGone(error);
@@ -281,7 +299,10 @@ export class NatsQueueConnection extends QueueConnection {
 		// nothing to hand back: the messages went with the stream
 		this.unacked.clear();
 		const stream = String((this.subscription.source as Partial<NatsSource>).stream);
-		logger.error(`[nats] ${this.subscription.consumerGroup} stream ${stream} is gone, stopping`, "QUEUE.nats");
+		logger.error(
+			`[nats] ${this.subscription.consumerGroup} stream ${stream} is gone, stopping`,
+			"QUEUE.nats",
+		);
 		this.subscription.onSourceGone?.(
 			new QueueSourceGoneError(describeGone(stream, this.subscription.consumerGroup, error)),
 		);
@@ -352,9 +373,11 @@ export class NatsQueueConnection extends QueueConnection {
 
 /** The stream or the durable consumer is gone; retrying cannot bring it back. */
 export function isSourceGone(error: unknown) {
-	if (error instanceof JetStreamApiError)
-		return error.code === 10059 || error.code === 10014;
-	return error instanceof Error && /stream not found|consumer not found|consumer deleted/i.test(error.message);
+	if (error instanceof JetStreamApiError) return error.code === 10059 || error.code === 10014;
+	return (
+		error instanceof Error &&
+		/stream not found|consumer not found|consumer deleted/i.test(error.message)
+	);
 }
 
 function describeGone(stream: string, group: string, error: unknown) {
@@ -377,7 +400,9 @@ export async function assertNatsStream(config: NatsConfig, stream: string) {
 	try {
 		await (await jetstreamManager(nc)).streams.info(stream);
 	} catch (error) {
-		throw new Error(`Could not read stream "${stream}". Create it on the NATS cluster first. (${String(error)})`);
+		throw new Error(
+			`Could not read stream "${stream}". Create it on the NATS cluster first. (${String(error)})`,
+		);
 	} finally {
 		await nc.close().catch(() => undefined);
 	}

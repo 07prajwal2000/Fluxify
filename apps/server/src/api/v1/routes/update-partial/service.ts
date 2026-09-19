@@ -1,16 +1,16 @@
-import { z } from "zod";
-import { requestBodySchema, responseSchema } from "./dto";
+import type { z } from "zod";
 import { db } from "../../../../db";
-import { NotFoundError } from "../../../../errors/notFoundError";
-import { ConflictError } from "../../../../errors/conflictError";
-import { getRouteByNameOrPath, updateRoute } from "../update/repository";
-import { publishMessage, CHAN_ON_ROUTE_CHANGE } from "../../../../db/redis";
-import { ServerError } from "../../../../errors/serverError";
-import { AuthACL } from "../../../../db/schema";
-import { ForbiddenError } from "../../../../errors/forbidError";
-import { patchRouteConfig } from "../routeConfigRepository";
+import { CHAN_ON_ROUTE_CHANGE, publishMessage } from "../../../../db/redis";
+import type { AuthACL } from "../../../../db/schema";
 import { BadRequestError } from "../../../../errors/badRequestError";
+import { ConflictError } from "../../../../errors/conflictError";
+import { ForbiddenError } from "../../../../errors/forbidError";
+import { NotFoundError } from "../../../../errors/notFoundError";
+import { ServerError } from "../../../../errors/serverError";
+import { patchRouteConfig } from "../routeConfigRepository";
 import { normalizeParamsSchema, validateRouteSchemas } from "../schema-validator";
+import { getRouteByNameOrPath, updateRoute } from "../update/repository";
+import type { requestBodySchema, responseSchema } from "./dto";
 
 type RouteSchemas = {
 	path: string | null;
@@ -33,10 +33,7 @@ const SCHEMA_FIELDS = ["bodySchema", "querySchema", "paramsSchema"] as const;
  * Skipped entirely when the patch touches neither the path nor a schema, so
  * toggling `active` on a route whose schemas predate this check still works.
  */
-function applySchemas(
-	route: RouteSchemas,
-	data: z.infer<typeof requestBodySchema>,
-) {
+function applySchemas(route: RouteSchemas, data: z.infer<typeof requestBodySchema>) {
 	const touched = SCHEMA_FIELDS.some((field) => field in data);
 	if (!touched && data.path === undefined) return;
 
@@ -48,9 +45,7 @@ function applySchemas(
 	});
 	const result = validateRouteSchemas(merged);
 	if (!result.success) {
-		throw new BadRequestError(
-			result.errors.map((e) => `${e.path}: ${e.message}`).join("; "),
-		);
+		throw new BadRequestError(result.errors.map((e) => `${e.path}: ${e.message}`).join("; "));
 	}
 	for (const name of SCHEMA_FIELDS) route[name] = merged[name] ?? null;
 }
@@ -66,36 +61,35 @@ function field(
 }
 
 export default async function handleRequest(
-  id: string,
-  data: z.infer<typeof requestBodySchema>,
-  acl: AuthACL[] = []
+	id: string,
+	data: z.infer<typeof requestBodySchema>,
+	acl: AuthACL[] = [],
 ): Promise<z.infer<typeof responseSchema>> {
-  const result = await db.transaction(async (tx) => {
-    const existingRoute = await getRouteByNameOrPath(
-      id,
-      data.name ?? "",
-      data.path ?? "",
-      data.method ?? ("NONE" as any),
-      tx
-    );
-    if (!existingRoute) {
-      throw new NotFoundError("Route not found");
-    }
-    const hasAccess = acl.some(
-      (entry) =>
-        entry.projectId === existingRoute.projectId || entry.projectId === "*"
-    );
-    if (!hasAccess) {
-      throw new ForbiddenError();
-    }
-    if (existingRoute.id !== id) {
-      throw new ConflictError("Route already exists");
-    }
-    const patchedRoute = existingRoute;
-    if (data.name) patchedRoute.name = data.name;
-    if (data.path) patchedRoute.path = data.path;
-    if (data.method) patchedRoute.method = data.method;
-    if (data.active !== undefined) patchedRoute.active = data.active;
+	const result = await db.transaction(async (tx) => {
+		const existingRoute = await getRouteByNameOrPath(
+			id,
+			data.name ?? "",
+			data.path ?? "",
+			data.method ?? ("NONE" as any),
+			tx,
+		);
+		if (!existingRoute) {
+			throw new NotFoundError("Route not found");
+		}
+		const hasAccess = acl.some(
+			(entry) => entry.projectId === existingRoute.projectId || entry.projectId === "*",
+		);
+		if (!hasAccess) {
+			throw new ForbiddenError();
+		}
+		if (existingRoute.id !== id) {
+			throw new ConflictError("Route already exists");
+		}
+		const patchedRoute = existingRoute;
+		if (data.name) patchedRoute.name = data.name;
+		if (data.path) patchedRoute.path = data.path;
+		if (data.method) patchedRoute.method = data.method;
+		if (data.active !== undefined) patchedRoute.active = data.active;
 		if (data.timeoutSeconds !== undefined) {
 			patchedRoute.timeoutSeconds = data.timeoutSeconds;
 		}
@@ -114,26 +108,26 @@ export default async function handleRequest(
 			);
 		}
 		applySchemas(patchedRoute, data);
-    return await updateRoute(
-      {
-        ...patchedRoute,
-        id,
-        updatedAt: new Date(),
-      } as any,
-      tx
-    );
-  });
-  if (!result) {
-    throw new ServerError("Something went wrong while updating the route");
-  }
-  await publishMessage(CHAN_ON_ROUTE_CHANGE, id);
-  return {
-    id: result.id,
-    name: result.name!,
-    path: result.path!,
-    method: result.method!,
+		return await updateRoute(
+			{
+				...patchedRoute,
+				id,
+				updatedAt: new Date(),
+			} as any,
+			tx,
+		);
+	});
+	if (!result) {
+		throw new ServerError("Something went wrong while updating the route");
+	}
+	await publishMessage(CHAN_ON_ROUTE_CHANGE, id);
+	return {
+		id: result.id,
+		name: result.name!,
+		path: result.path!,
+		method: result.method!,
 		timeoutSeconds: result.timeoutSeconds,
-    createdAt: result.createdAt.toISOString(),
-    updatedAt: result.updatedAt.toISOString(),
-  };
+		createdAt: result.createdAt.toISOString(),
+		updatedAt: result.updatedAt.toISOString(),
+	};
 }

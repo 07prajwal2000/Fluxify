@@ -10,4 +10,3 @@ export function JsonEditor(props: JsonEditorProps) {
 	if (props.mode === "modal") return <JsonEditorModal {...props} />;
 	return <JsonEditorInline {...props} />;
 }
-

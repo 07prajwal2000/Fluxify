@@ -1,14 +1,9 @@
-import { ConditionsBuilder, type Condition } from "@fluxify/components";
+import { type Condition, ConditionsBuilder } from "@fluxify/components";
 import { useReactFlow } from "@xyflow/react";
 import { useCanvasChanges } from "../../changes/ChangesContext";
-import { BlockSettings } from "../BlockSettings";
-import {
-	BlockCheckboxField,
-	BlockJsTextField,
-	BlockSelectField,
-	BlockTextField,
-} from "../fields";
 import type { BlockNode } from "../../types";
+import { BlockSettings } from "../BlockSettings";
+import { BlockCheckboxField, BlockJsTextField, BlockSelectField, BlockTextField } from "../fields";
 
 /** Array Operations General tab settings: Datasource and Use Param. */
 export function ArrayOpsGeneralSettings({ block }: { block: BlockNode }) {
@@ -40,8 +35,7 @@ export function ArrayOpsGeneralSettings({ block }: { block: BlockNode }) {
 export function ArrayOpsOperationSettings({ block }: { block: BlockNode }) {
 	const operation = String(block.data.operation ?? "");
 	const useParamAsInput = Boolean(block.data.useParamAsInput);
-	const showValueField =
-		!useParamAsInput && (operation === "push" || operation === "unshift");
+	const showValueField = !useParamAsInput && (operation === "push" || operation === "unshift");
 
 	return (
 		<div className="flex flex-col gap-4">

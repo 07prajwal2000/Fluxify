@@ -10,13 +10,7 @@ export type JsonArray = JsonValue[];
 
 export type JsonContainer = JsonObject | JsonArray;
 
-export type JsonValueType =
-	| "string"
-	| "number"
-	| "boolean"
-	| "object"
-	| "array"
-	| "null";
+export type JsonValueType = "string" | "number" | "boolean" | "object" | "array" | "null";
 
 export type JsonRootType = Extract<JsonValueType, "object" | "array">;
 

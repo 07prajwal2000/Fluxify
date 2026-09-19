@@ -25,10 +25,7 @@ const RUN_SCOPED_READ_TOOLS = new Set([
  * blocks. Sharing those across the run would replay one sub-agent's "not found"
  * to a later one for which the answer exists.
  */
-const INVOCATION_SCOPED_READ_TOOLS = new Set([
-	"get_custom_block_schemas",
-	"get_agent_output",
-]);
+const INVOCATION_SCOPED_READ_TOOLS = new Set(["get_custom_block_schemas", "get_agent_output"]);
 
 type ToolEvent = {
 	agent?: string;
@@ -73,13 +70,8 @@ function canonicalToolArgs(value: unknown): string {
 		.join(",")}}`;
 }
 
-export function memoizedReadToolKey(
-	call: NormalizedToolCall,
-): string | undefined {
-	if (
-		!RUN_SCOPED_READ_TOOLS.has(call.name) &&
-		!INVOCATION_SCOPED_READ_TOOLS.has(call.name)
-	) {
+export function memoizedReadToolKey(call: NormalizedToolCall): string | undefined {
+	if (!RUN_SCOPED_READ_TOOLS.has(call.name) && !INVOCATION_SCOPED_READ_TOOLS.has(call.name)) {
 		return undefined;
 	}
 	return `${call.name}:${canonicalToolArgs(call.args)}`;
@@ -91,19 +83,13 @@ function cacheFor(
 	scope: ToolCacheScope,
 ): Map<string, Promise<ToolMessage>> | undefined {
 	if (!memoizedReadToolKey(call)) return undefined;
-	const owner =
-		RUN_SCOPED_READ_TOOLS.has(call.name) && scope.run
-			? scope.run
-			: scope.invocation;
+	const owner = RUN_SCOPED_READ_TOOLS.has(call.name) && scope.run ? scope.run : scope.invocation;
 	return readToolCacheFor(owner);
 }
 
 /** A provider requires a result for each tool-call id, even when the work was
  * already done for an earlier identical call. */
-export function replayToolResult(
-	call: NormalizedToolCall,
-	result: ToolMessage,
-): ToolMessage {
+export function replayToolResult(call: NormalizedToolCall, result: ToolMessage): ToolMessage {
 	return new ToolMessage({
 		tool_call_id: call.id,
 		name: call.name,
@@ -112,9 +98,11 @@ export function replayToolResult(
 }
 
 export function isFailedToolResult(result: ToolMessage): boolean {
-	return typeof result.content === "string" &&
+	return (
+		typeof result.content === "string" &&
 		(result.content.startsWith("Error executing tool") ||
-			result.content.startsWith("Tool ") && result.content.endsWith(" not found."));
+			(result.content.startsWith("Tool ") && result.content.endsWith(" not found.")))
+	);
 }
 
 /** Executes a read-only tool once per scope and replays its result for
@@ -150,9 +138,9 @@ export function executeToolBatch(
 	execute: (call: NormalizedToolCall) => Promise<ToolMessage>,
 ): Promise<ToolMessage[]> {
 	return Promise.all(
-		calls.map((call) =>
-			reject(call) ??
-			executeMemoizedReadTool(call, cacheFor(call, scope), () => execute(call)),
+		calls.map(
+			(call) =>
+				reject(call) ?? executeMemoizedReadTool(call, cacheFor(call, scope), () => execute(call)),
 		),
 	);
 }

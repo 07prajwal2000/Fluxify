@@ -35,10 +35,7 @@ export function OverridesEditor({
 		});
 	}
 
-	function patchIntegration(
-		index: number,
-		patch: Partial<{ existingId: string; newId: string }>,
-	) {
+	function patchIntegration(index: number, patch: Partial<{ existingId: string; newId: string }>) {
 		onChange({
 			integrationOverrides: integrationOverrides.map((item, i) =>
 				i === index ? { ...item, ...patch } : item,
@@ -81,9 +78,7 @@ export function OverridesEditor({
 							className="w-64 shrink-0"
 						>
 							<Select.Trigger>
-								<span className="truncate font-mono text-xs">
-									{override.key || "Pick a key"}
-								</span>
+								<span className="truncate font-mono text-xs">{override.key || "Pick a key"}</span>
 								<Select.Indicator />
 							</Select.Trigger>
 							<Select.Popover className="max-h-72">
@@ -133,10 +128,7 @@ export function OverridesEditor({
 						size="sm"
 						onPress={() =>
 							onChange({
-								integrationOverrides: [
-									...integrationOverrides,
-									{ existingId: "", newId: "" },
-								],
+								integrationOverrides: [...integrationOverrides, { existingId: "", newId: "" }],
 							})
 						}
 					>
@@ -168,8 +160,7 @@ export function OverridesEditor({
 												// the same integration on both sides is a no-op the server rejects
 												.filter(
 													(item) =>
-														item.id !==
-														override[side === "existingId" ? "newId" : "existingId"],
+														item.id !== override[side === "existingId" ? "newId" : "existingId"],
 												)
 												.map((item) => (
 													<ListBox.Item key={item.id} id={item.id} textValue={item.name}>

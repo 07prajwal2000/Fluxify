@@ -1,10 +1,10 @@
+export { ConfigurationDrawer } from "./ConfigurationDrawer";
 export {
 	ALL_DATA_TYPES,
 	DATA_TYPE_LABELS,
 	DEFAULT_JS,
 	DEFAULT_SCHEMA,
 } from "./constants";
-export { ConfigurationDrawer } from "./ConfigurationDrawer";
 export { useSchemaEditorContext } from "./context";
 export { DataTypeSelect } from "./DataTypeSelect";
 export { DEFAULT_RULE_EDITORS } from "./rules";

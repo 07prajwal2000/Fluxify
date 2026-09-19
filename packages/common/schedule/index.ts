@@ -66,9 +66,7 @@ export function parseDurationMs(input: string): number {
 	const text = input.trim();
 	const parts = text.match(/\d+(?:\.\d+)?(?:ns|us|ms|s|m|h)/g);
 	if (!parts || parts.join("") !== text)
-		throw new ScheduleError(
-			`"${input}" is not a duration — write it like 30s, 5m or 1h30m`,
-		);
+		throw new ScheduleError(`"${input}" is not a duration — write it like 30s, 5m or 1h30m`);
 	return parts.reduce((total, part) => {
 		const [, value, unit] = part.match(/^(\d+(?:\.\d+)?)(\D+)$/)!;
 		return total + Number(value) * DURATION_UNITS_MS[unit!]!;
@@ -157,10 +155,7 @@ export function nextFires(
 	const parsed = assertSchedule(spec, timezone);
 	if (parsed.kind === "at") return parsed.at > from ? [parsed.at] : [];
 	if (parsed.kind === "every")
-		return Array.from(
-			{ length: count },
-			(_, i) => new Date(from.getTime() + parsed.ms * (i + 1)),
-		);
+		return Array.from({ length: count }, (_, i) => new Date(from.getTime() + parsed.ms * (i + 1)));
 	return new Cron(parsed.expression, { timezone }).nextRuns(count, from);
 }
 

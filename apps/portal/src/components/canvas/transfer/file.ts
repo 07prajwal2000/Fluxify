@@ -1,8 +1,8 @@
 import {
+	type CanvasTransferDoc,
 	decodeTransfer,
 	TRANSFER_FILE_EXTENSION,
 	TRANSFER_MIME,
-	type CanvasTransferDoc,
 } from "./format";
 
 /** `fluxify-canvas-3-blocks-2026-08-17.fluxcanvas` */

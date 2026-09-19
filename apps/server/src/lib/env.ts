@@ -32,10 +32,9 @@ export const serverEnvSchema = baseEnvSchema.extend({
 	INTEGRATION_TIMEOUT_POLICY_IN_SEC: z
 		.string()
 		.optional()
-		.refine(
-			(val) => !val || (Number.isInteger(Number(val)) && Number(val) > 0),
-			{ message: "INTEGRATION_TIMEOUT_POLICY_IN_SEC must be a positive integer" },
-		)
+		.refine((val) => !val || (Number.isInteger(Number(val)) && Number(val) > 0), {
+			message: "INTEGRATION_TIMEOUT_POLICY_IN_SEC must be a positive integer",
+		})
 		.describe(
 			"Idle database integration timeout in seconds for compiled workers (default 450 / 7.5 minutes)",
 		),
@@ -46,17 +45,14 @@ export const serverEnvSchema = baseEnvSchema.extend({
 		.refine((val) => !val || /^(\d+(\.\d+)?(ns|us|ms|s|m|h))+$/.test(val), {
 			message: "WORKER_SCHEDULE_MAX_HORIZON must be a duration like 720h or 90m",
 		})
-		.describe(
-			"How far ahead a Trigger Workflow block may schedule a run (default 720h / 30 days)",
-		),
+		.describe("How far ahead a Trigger Workflow block may schedule a run (default 720h / 30 days)"),
 
 	WORKER_MAX_STREAM_SIZE: z
 		.string()
 		.optional()
-		.refine(
-			(val) => !val || (Number.isInteger(Number(val)) && Number(val) > 0),
-			{ message: "WORKER_MAX_STREAM_SIZE must be a positive integer" },
-		)
+		.refine((val) => !val || (Number.isInteger(Number(val)) && Number(val) > 0), {
+			message: "WORKER_MAX_STREAM_SIZE must be a positive integer",
+		})
 		.describe(
 			"Hard cap on incoming request body size in kilobytes (default 8192 / 8 MB). Fluxify is an API server, not an upload gateway — raise it deliberately",
 		),
@@ -204,10 +200,7 @@ export const serverEnvSchema = baseEnvSchema.extend({
 		.optional()
 		.refine(
 			(val) =>
-				!val ||
-				val
-					.split(",")
-					.every((url) => z.string().url().safeParse(url.trim()).success),
+				!val || val.split(",").every((url) => z.string().url().safeParse(url.trim()).success),
 			{ message: "TRUSTED_ORIGINS must be a comma-separated list of valid URLs" },
 		)
 		.describe("Comma-separated list of trusted origin URLs for CORS and Better Auth"),
@@ -300,8 +293,7 @@ export const WORKER_GROUP_IDS = (getEnv("WORKER_GROUP_ID") || "")
 export const FLUXIFY_NODE_ID = getEnv("FLUXIFY_NODE_ID") || undefined;
 
 /** hard body-size ceiling for user-facing routes, in bytes (env is in KB) */
-export const MAX_REQUEST_BODY_BYTES =
-	(Number(getEnv("WORKER_MAX_STREAM_SIZE")) || 8192) * 1024;
+export const MAX_REQUEST_BODY_BYTES = (Number(getEnv("WORKER_MAX_STREAM_SIZE")) || 8192) * 1024;
 
 /** furthest ahead a Trigger Workflow block may schedule a run; a bad value fails boot */
 export const SCHEDULE_MAX_HORIZON_MS = parseDurationMs(

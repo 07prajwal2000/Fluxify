@@ -155,9 +155,7 @@ const SECRET_FIELDS = new Set(["clientSecret", "samlCert", "privateKey"]);
  * visible/editable but the values are never echoed back. A present secret
  * becomes "••••••" so the UI can show "set" without exposing it.
  */
-export function redactSecrets(
-	value: Record<string, unknown>,
-): Record<string, unknown> {
+export function redactSecrets(value: Record<string, unknown>): Record<string, unknown> {
 	const out: Record<string, unknown> = {};
 	for (const [k, v] of Object.entries(value)) {
 		out[k] = SECRET_FIELDS.has(k) && v != null && v !== "" ? "••••••" : v;

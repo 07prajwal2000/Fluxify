@@ -12,11 +12,7 @@ export function isColumnRef(value: unknown): value is ColumnRef {
 }
 
 export function isLiteralRef(value: unknown): value is LiteralRef {
-	return (
-		typeof value === "object" &&
-		value !== null &&
-		(value as LiteralRef).kind === "literal"
-	);
+	return typeof value === "object" && value !== null && (value as LiteralRef).kind === "literal";
 }
 
 /** The text behind a condition side, whichever form it is stored in. */
@@ -36,10 +32,7 @@ export type ConditionSide = "lhs" | "rhs";
  * this builder writes is tagged explicitly, so the stored data never depends on
  * the reader knowing which side it came from.
  */
-export function sideIsColumn(
-	value: ConditionValue | undefined,
-	side: ConditionSide,
-): boolean {
+export function sideIsColumn(value: ConditionValue | undefined, side: ConditionSide): boolean {
 	if (isColumnRef(value)) return true;
 	if (isLiteralRef(value)) return false;
 	return side === "lhs";
@@ -55,9 +48,7 @@ export function toggleSideMode(
 	value: ConditionValue | undefined,
 	side: ConditionSide,
 ): ConditionValue {
-	return sideIsColumn(value, side)
-		? { kind: "literal", value: "" }
-		: { kind: "column", value: "" };
+	return sideIsColumn(value, side) ? { kind: "literal", value: "" } : { kind: "column", value: "" };
 }
 
 /**
@@ -106,8 +97,7 @@ export function formatConditionsSummary(conditions: Condition[]): string {
 			} else if (c.operator === "is_not_empty") {
 				condStr = `${formatVal(c.lhs)} IS NOT EMPTY`;
 			} else {
-				const opSymbol =
-					ALL_OPERATORS.find((op) => op.value === c.operator)?.label || c.operator;
+				const opSymbol = ALL_OPERATORS.find((op) => op.value === c.operator)?.label || c.operator;
 				condStr = `${formatVal(c.lhs)} ${opSymbol} ${formatVal(c.rhs)}`;
 			}
 

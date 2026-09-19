@@ -20,17 +20,14 @@ export const COMPILE_SUBJECTS = `${SUBJECT_ROOT}.>`;
  * project from the database, so a caller reacting to a change signal does not
  * have to know it.
  */
-export const compileRouteSubject = (routeId: string) =>
-	`${SUBJECT_ROOT}.route.${routeId}`;
-export const compileCustomBlockSubject = (id: string) =>
-	`${SUBJECT_ROOT}.custom-block.${id}`;
+export const compileRouteSubject = (routeId: string) => `${SUBJECT_ROOT}.route.${routeId}`;
+export const compileCustomBlockSubject = (id: string) => `${SUBJECT_ROOT}.custom-block.${id}`;
 export const compileWorkflowSubject = (workflowId: string) =>
 	`${SUBJECT_ROOT}.workflow.${workflowId}`;
 /** `all` republishes config for every project */
 export const compileProjectConfigSubject = (projectId: string) =>
 	`${SUBJECT_ROOT}.project-config.${projectId}`;
-export const compileProjectSubject = (projectId: string) =>
-	`${SUBJECT_ROOT}.project.${projectId}`;
+export const compileProjectSubject = (projectId: string) => `${SUBJECT_ROOT}.project.${projectId}`;
 export const ALL_PROJECTS = "all";
 
 /* ---------------------------------------------------------------- KV keys */
@@ -40,14 +37,11 @@ export const ALL_PROJECTS = "all";
  * rather than names — KV keys only allow `-/_=.` plus alphanumerics, and a
  * custom block's display name has no such restriction.
  */
-export const routeKey = (projectId: string, routeId: string) =>
-	`route.${projectId}.${routeId}`;
-export const customBlockKey = (projectId: string, id: string) =>
-	`custom-block.${projectId}.${id}`;
+export const routeKey = (projectId: string, routeId: string) => `route.${projectId}.${routeId}`;
+export const customBlockKey = (projectId: string, id: string) => `custom-block.${projectId}.${id}`;
 export const workflowKey = (projectId: string, workflowId: string) =>
 	`workflow.${projectId}.${workflowId}`;
-export const projectConfigKey = (projectId: string) =>
-	`project-config.${projectId}.current`;
+export const projectConfigKey = (projectId: string) => `project-config.${projectId}.current`;
 /**
  * A trigger is not compiled — it has no graph of its own. It rides this bucket
  * anyway because the worker already watches it, so a trigger reaches every node
@@ -66,13 +60,7 @@ export const projectArtifactFilters = (
 	kinds: readonly string[] = ARTIFACT_KINDS,
 ) => kinds.map((kind) => `${kind}.${projectId}.*`);
 
-const ARTIFACT_KINDS = [
-	"route",
-	"custom-block",
-	"workflow",
-	"project-config",
-	"trigger",
-] as const;
+const ARTIFACT_KINDS = ["route", "custom-block", "workflow", "project-config", "trigger"] as const;
 
 export type ArtifactKind = (typeof ARTIFACT_KINDS)[number];
 

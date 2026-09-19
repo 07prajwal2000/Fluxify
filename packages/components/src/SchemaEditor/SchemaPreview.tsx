@@ -9,9 +9,7 @@ function summariseRules(rules?: Rule[]): string {
 	const parts = rules
 		.filter((rule) => rule.value !== undefined && rule.value !== "")
 		.map((rule) => {
-			const value = Array.isArray(rule.value)
-				? rule.value.join(" | ")
-				: String(rule.value);
+			const value = Array.isArray(rule.value) ? rule.value.join(" | ") : String(rule.value);
 			return `${rule.type}: ${value}`;
 		});
 	return parts.length ? ` (${parts.join(", ")})` : "";
@@ -88,9 +86,7 @@ function PreviewNode({
 export function SchemaPreview({ schema }: { schema: ValidationSchema }) {
 	if (schema.dataType === "js") {
 		return (
-			<p className="text-sm text-muted">
-				This schema is validated entirely by custom JavaScript.
-			</p>
+			<p className="text-sm text-muted">This schema is validated entirely by custom JavaScript.</p>
 		);
 	}
 

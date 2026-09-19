@@ -1,5 +1,5 @@
 "use client";
-import { BlockTypes, type BaseBlockType, type EdgeType } from "@/types/block";
+import { layoutGraph } from "@fluxify/blocks/layout";
 import {
 	applyEdgeChanges,
 	applyNodeChanges,
@@ -7,7 +7,7 @@ import {
 	type NodeChange,
 } from "@xyflow/react";
 import { create } from "zustand";
-import { layoutGraph } from "@fluxify/blocks/layout";
+import { type BaseBlockType, BlockTypes, type EdgeType } from "@/types/block";
 
 type State = {
 	blocks: BaseBlockType[];
@@ -35,9 +35,10 @@ type Actions = {
 	};
 };
 
-import React, { createContext, useContext, useRef } from "react";
-import { createStore } from "zustand/vanilla";
+import type React from "react";
+import { createContext, useContext, useRef } from "react";
 import { useStore } from "zustand";
+import { createStore } from "zustand/vanilla";
 // ... imports
 
 export type CanvasStore = ReturnType<typeof createCanvasStore>;
@@ -115,17 +116,12 @@ export const createCanvasStore = (initProps?: Partial<State>) => {
 							}
 							return !ids.has(b.id);
 						}),
-						edges: get().edges.filter(
-							(e) => !ids.has(e.source) && !ids.has(e.target),
-						),
+						edges: get().edges.filter((e) => !ids.has(e.source) && !ids.has(e.target)),
 					});
 				},
 				onBlockChange(changes) {
 					set({
-						blocks: applyNodeChanges(
-							changes,
-							get().blocks as any,
-						) as BaseBlockType[],
+						blocks: applyNodeChanges(changes, get().blocks as any) as BaseBlockType[],
 					});
 				},
 			},
@@ -178,9 +174,7 @@ export function CanvasStoreProvider({
 		});
 	}
 	return (
-		<CanvasStoreContext.Provider value={storeRef.current}>
-			{children}
-		</CanvasStoreContext.Provider>
+		<CanvasStoreContext.Provider value={storeRef.current}>{children}</CanvasStoreContext.Provider>
 	);
 }
 
@@ -190,8 +184,6 @@ export function useCanvasStore<T>(selector: (state: State & Actions) => T): T {
 	return useStore(store, selector);
 }
 
-export const useCanvasActionsStore = () =>
-	useCanvasStore((state) => state.actions);
-export const useCanvasBlocksStore = () =>
-	useCanvasStore((state) => state.blocks);
+export const useCanvasActionsStore = () => useCanvasStore((state) => state.actions);
+export const useCanvasBlocksStore = () => useCanvasStore((state) => state.blocks);
 export const useCanvasEdgesStore = () => useCanvasStore((state) => state.edges);

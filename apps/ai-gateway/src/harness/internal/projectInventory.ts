@@ -3,9 +3,7 @@ import { fenceUntrusted } from "./untrusted";
 
 /** Renders the bounded, query-relevant project inventory. It is safe to append
  * at every agent boundary because it excludes unrelated project resources. */
-export function renderProjectInventory(
-	entries: ProjectInventoryEntry[] | undefined,
-): string {
+export function renderProjectInventory(entries: ProjectInventoryEntry[] | undefined): string {
 	if (!entries?.length) return "";
 	const rows = entries
 		.map((entry) => `| ${entry.type} | ${entry.identifier} | ${entry.label} | ${entry.id} |`)

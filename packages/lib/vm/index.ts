@@ -7,15 +7,8 @@ export class JsVM {
 		this.context = context;
 	}
 
-	run(
-		code: string,
-		extras?: any,
-		insideIIFE = true,
-		globals?: Record<string, any>,
-	): any {
-		const script = new Script(
-			insideIIFE ? `(async function () {${code}}).bind(this)();` : code,
-		);
+	run(code: string, extras?: any, insideIIFE = true, globals?: Record<string, any>): any {
+		const script = new Script(insideIIFE ? `(async function () {${code}}).bind(this)();` : code);
 		this.context["input"] = extras;
 		if (globals) Object.assign(this.context, globals);
 		return script.runInNewContext(this.context, {
@@ -36,10 +29,7 @@ export class JsVM {
 			// realm has its own Promise, so vm-created promises fail instanceof.
 			if (result != null && typeof result.then === "function") {
 				const timeout = new Promise((_, reject) =>
-					setTimeout(
-						() => reject(new Error("JavaScript execution timeout")),
-						JsVM.DEFAULT_TIMEOUT,
-					),
+					setTimeout(() => reject(new Error("JavaScript execution timeout")), JsVM.DEFAULT_TIMEOUT),
 				);
 				return await Promise.race([result, timeout]);
 			}
@@ -51,12 +41,7 @@ export class JsVM {
 	}
 	truthy(value: any) {
 		const type = typeof value;
-		if (
-			type == "bigint" ||
-			type == "number" ||
-			type == "string" ||
-			type == "boolean"
-		) {
+		if (type == "bigint" || type == "number" || type == "string" || type == "boolean") {
 			return !!value;
 		} else if (type == "object" && value != null) {
 			return true;

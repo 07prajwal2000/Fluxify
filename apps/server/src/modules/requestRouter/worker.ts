@@ -1,16 +1,16 @@
-import { HttpRouteParser } from "@fluxify/lib";
 import { logger } from "@fluxify/common";
-import { drizzleInit, db } from "../../db";
-import { appConfigEntity } from "../../db/schema";
-import { initializeRedis } from "../../db/redis";
+import type { HttpRouteParser } from "@fluxify/lib";
+import { db, drizzleInit } from "../../db";
 import { initializePubSub } from "../../db/pubsub";
+import { initializeRedis } from "../../db/redis";
+import { appConfigEntity } from "../../db/schema";
 import { loadAppConfig } from "../../loaders/appconfigLoader";
-import { loadIntegrations } from "../../loaders/integrationsLoader";
-import { loadProjectSettings } from "../../loaders/projectSettingsLoader";
 import {
 	initializeCustomBlocksSubscription,
 	loadCustomBlocks,
 } from "../../loaders/customBlocksLoader";
+import { loadIntegrations } from "../../loaders/integrationsLoader";
+import { loadProjectSettings } from "../../loaders/projectSettingsLoader";
 import { loadRoutes } from "../../loaders/routesLoader";
 
 /**

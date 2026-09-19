@@ -1,15 +1,13 @@
-import { BaseAgent } from "./base";
-import { type GlobalGraphState, AgentNode } from "../types";
-import { dispatchAgentEvent } from "../callbacks";
 import { blockAiDescriptions } from "@fluxify/blocks";
-import type { ApplyMode } from "../queue";
 import { z } from "zod";
+import { dispatchAgentEvent } from "../callbacks";
+import type { ApplyMode } from "../queue";
+import { AgentNode, type GlobalGraphState } from "../types";
+import { BaseAgent } from "./base";
 
 function buildBlockCatalogTable(): string {
 	const header = "| Block Name | Description |\n| --- | --- |";
-	const rows = blockAiDescriptions.map(
-		(b) => `| ${b.name} | ${b.description} |`,
-	);
+	const rows = blockAiDescriptions.map((b) => `| ${b.name} | ${b.description} |`);
 	return [header, ...rows].join("\n");
 }
 
@@ -168,9 +166,7 @@ CRITICAL INSTRUCTIONS:
 		await dispatchAgentEvent({
 			name: "agent_status",
 			data: {
-				status: rejected
-					? "Capability Rejected"
-					: `Routed to ${response.intent}`,
+				status: rejected ? "Capability Rejected" : `Routed to ${response.intent}`,
 				agent: AgentNode.ROUTER,
 				data: { reason: response.reason },
 			},
@@ -190,9 +186,7 @@ CRITICAL INSTRUCTIONS:
 				reason: response.reason,
 				capable: !rejected,
 				simple: fastPath,
-				rejectReason: rejected
-					? (response.rejectReason ?? response.reason)
-					: undefined,
+				rejectReason: rejected ? (response.rejectReason ?? response.reason) : undefined,
 			},
 			scratchpad: response.scratchpad ? [response.scratchpad] : [],
 		};

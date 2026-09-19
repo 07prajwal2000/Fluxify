@@ -1,10 +1,10 @@
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
+	appConfigService,
 	type CreateAppConfigBody,
 	type DeleteBulkAppConfigBody,
 	type ListAppConfigQuery,
 	type UpdateAppConfigBody,
-	appConfigService,
 } from "@/services/appConfig";
 
 const key = (projectId: string) => ["app-config", projectId];
@@ -13,11 +13,7 @@ export const appConfigQuery = {
 	getAll: {
 		/** `enabled` lets a caller mount the hook without firing the request —
 		 *  the AI chips look a key up only when the chip is an app config. */
-		useQuery(
-			projectId: string,
-			query: ListAppConfigQuery,
-			options: { enabled?: boolean } = {},
-		) {
+		useQuery(projectId: string, query: ListAppConfigQuery, options: { enabled?: boolean } = {}) {
 			return useQuery({
 				queryKey: [...key(projectId), query],
 				queryFn: () => appConfigService.getAll(projectId, query),
@@ -55,8 +51,7 @@ export const appConfigQuery = {
 		mutation(projectId: string) {
 			const qc = useQueryClient();
 			return useMutation({
-				mutationFn: (body: CreateAppConfigBody) =>
-					appConfigService.create(projectId, body),
+				mutationFn: (body: CreateAppConfigBody) => appConfigService.create(projectId, body),
 				onSuccess: () => qc.invalidateQueries({ queryKey: key(projectId) }),
 			});
 		},
@@ -65,8 +60,7 @@ export const appConfigQuery = {
 		mutation(projectId: string, id: number | string) {
 			const qc = useQueryClient();
 			return useMutation({
-				mutationFn: (body: UpdateAppConfigBody) =>
-					appConfigService.update(projectId, id, body),
+				mutationFn: (body: UpdateAppConfigBody) => appConfigService.update(projectId, id, body),
 				onSuccess: () => qc.invalidateQueries({ queryKey: key(projectId) }),
 			});
 		},
@@ -84,8 +78,7 @@ export const appConfigQuery = {
 		mutation(projectId: string) {
 			const qc = useQueryClient();
 			return useMutation({
-				mutationFn: (body: DeleteBulkAppConfigBody) =>
-					appConfigService.deleteBulk(projectId, body),
+				mutationFn: (body: DeleteBulkAppConfigBody) => appConfigService.deleteBulk(projectId, body),
 				onSuccess: () => qc.invalidateQueries({ queryKey: key(projectId) }),
 			});
 		},
@@ -100,4 +93,3 @@ export const appConfigQuery = {
 		},
 	},
 };
-

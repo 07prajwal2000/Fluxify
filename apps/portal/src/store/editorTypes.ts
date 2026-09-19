@@ -56,12 +56,8 @@ export type Actions = {
 	reset: () => void;
 	actions: {
 		record: (action: EditorActionStateType) => void;
-		undo: (
-			currentState: EditorActionStateType,
-		) => EditorActionStateType | undefined;
-		redo: (
-			currentState: EditorActionStateType,
-		) => EditorActionStateType | undefined;
+		undo: (currentState: EditorActionStateType) => EditorActionStateType | undefined;
+		redo: (currentState: EditorActionStateType) => EditorActionStateType | undefined;
 		disable: () => void;
 		enable: () => void;
 		reset: () => void;

@@ -1,10 +1,10 @@
-import fs from "fs";
 import path from "node:path";
-import { DOCS_INDEX_PATH } from "../constants";
+import { initializeLogger, logger } from "@fluxify/common";
 import { create, insert } from "@orama/orama";
 import { persistToFile } from "@orama/plugin-data-persistence/server";
+import fs from "fs";
+import { DOCS_INDEX_PATH } from "../constants";
 import { extractFrontmatter } from "../lib/frontmatter";
-import { logger, initializeLogger } from "@fluxify/common";
 
 // Initialize the logger for this script
 initializeLogger({ serviceName: "fluxify.api-gateway-gather" });
@@ -55,7 +55,5 @@ async function generateDocsIndex() {
 		fs.rmSync(DOCS_INDEX_PATH);
 	}
 	await persistToFile(db, "binary", DOCS_INDEX_PATH);
-	logger.info(
-		`[Gather] Indexed ${indexed} docs → ${DOCS_INDEX_PATH}`,
-	);
+	logger.info(`[Gather] Indexed ${indexed} docs → ${DOCS_INDEX_PATH}`);
 }

@@ -1,14 +1,8 @@
+import { Button, Input, Label, TextField, toast } from "@fluxify/components";
 import { useState } from "react";
-import {
-	Button,
-	Input,
-	Label,
-	TextField,
-	toast,
-} from "@fluxify/components";
 import { TbInfoCircle, TbPlus, TbX } from "react-icons/tb";
-import { triggersQuery } from "@/query/triggersQuery";
 import { showErrorNotification } from "@/lib/errorNotifier";
+import { triggersQuery } from "@/query/triggersQuery";
 
 export type CreateTriggerGroupFormProps = {
 	projectId: string;
@@ -80,28 +74,15 @@ export function CreateTriggerGroupForm({
 					if (e.key === "Escape") onCancel();
 				}}
 			>
-				<TextField
-					value={name}
-					onChange={setName}
-					autoFocus
-					className="w-full"
-					isRequired
-				>
+				<TextField value={name} onChange={setName} autoFocus className="w-full" isRequired>
 					<div className="flex items-center justify-between mb-1">
 						<Label className="text-xs font-medium">Group name</Label>
 						<span className="text-[11px] text-muted">At least 2 characters</span>
 					</div>
-					<Input
-						placeholder="e.g. priority-webhooks"
-						className="bg-surface"
-					/>
+					<Input placeholder="e.g. priority-webhooks" className="bg-surface" />
 				</TextField>
 
-				<TextField
-					value={description}
-					onChange={setDescription}
-					className="w-full"
-				>
+				<TextField value={description} onChange={setDescription} className="w-full">
 					<Label className="text-xs font-medium mb-1">Description (optional)</Label>
 					<Input
 						placeholder="e.g. Dedicated worker nodes for latency-sensitive webhooks"
@@ -115,11 +96,7 @@ export function CreateTriggerGroupForm({
 				</div>
 
 				<div className="flex items-center justify-end gap-2 pt-1">
-					<Button
-						size="sm"
-						variant="ghost"
-						onPress={onCancel}
-					>
+					<Button size="sm" variant="ghost" onPress={onCancel}>
 						Cancel
 					</Button>
 					<Button

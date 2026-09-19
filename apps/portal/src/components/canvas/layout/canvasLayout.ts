@@ -1,8 +1,8 @@
 import {
 	handleSide,
-	layoutGraph,
 	type LayoutOptions,
 	type LayoutPositions,
+	layoutGraph,
 } from "@fluxify/blocks/layout";
 import type { BlockEdge, BlockNode } from "../types";
 

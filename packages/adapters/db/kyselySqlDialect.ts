@@ -1,20 +1,20 @@
-import { SQL } from "bun";
+import type { SQL } from "bun";
 import {
-	CompiledQuery,
-	DatabaseConnection,
-	DatabaseIntrospector,
-	Dialect,
-	DialectAdapter,
-	Driver,
-	Kysely,
+	type CompiledQuery,
+	type DatabaseConnection,
+	type DatabaseIntrospector,
+	type Dialect,
+	type DialectAdapter,
+	type Driver,
+	type Kysely,
 	MysqlAdapter,
 	MysqlIntrospector,
 	MysqlQueryCompiler,
 	PostgresAdapter,
 	PostgresIntrospector,
 	PostgresQueryCompiler,
-	QueryCompiler,
-	QueryResult,
+	type QueryCompiler,
+	type QueryResult,
 } from "kysely";
 
 // ---------------------------------------------------------------------------
@@ -34,19 +34,16 @@ class BunSqlConnection implements DatabaseConnection {
 
 		// Handle Postgres (.count), MySQL (.affectedRows), and SQLite
 		const affected = (rows as any)?.affectedRows ?? (rows as any)?.count;
-		const numAffectedRows =
-			affected !== undefined ? BigInt(affected) : undefined;
+		const numAffectedRows = affected !== undefined ? BigInt(affected) : undefined;
 
 		// Handle SQLite (.lastInsertRowid) and MySQL (.insertId)
-		const rawInsertId =
-			(rows as any)?.lastInsertRowid ?? (rows as any)?.insertId;
+		const rawInsertId = (rows as any)?.lastInsertRowid ?? (rows as any)?.insertId;
 
 		return {
 			rows: Array.isArray(rows) ? (rows as unknown as R[]) : [],
 			numAffectedRows,
 			insertId:
-				rawInsertId != null &&
-				(typeof rawInsertId === "number" || typeof rawInsertId === "bigint")
+				rawInsertId != null && (typeof rawInsertId === "number" || typeof rawInsertId === "bigint")
 					? BigInt(rawInsertId)
 					: undefined,
 		};
@@ -54,9 +51,7 @@ class BunSqlConnection implements DatabaseConnection {
 
 	// Bun.SQL doesn't expose a row-by-row streaming API via `unsafe`, so we
 	// fall back to fetching all rows and yielding them one at a time.
-	async *streamQuery<R>(
-		compiledQuery: CompiledQuery,
-	): AsyncIterableIterator<QueryResult<R>> {
+	async *streamQuery<R>(compiledQuery: CompiledQuery): AsyncIterableIterator<QueryResult<R>> {
 		const result = await this.executeQuery<R>(compiledQuery);
 		for (const row of result.rows) {
 			yield { rows: [row] };

@@ -1,19 +1,12 @@
-import { and, count, desc, eq, ilike, SQL } from "drizzle-orm";
 import { BlockTypes } from "@fluxify/blocks";
 import { generateID } from "@fluxify/lib";
-import { db, DbTransactionType } from "../../../db";
-import {
-	blocksEntity,
-	projectsEntity,
-	workflowsEntity,
-} from "../../../db/schema";
+import { and, count, desc, eq, ilike, type SQL } from "drizzle-orm";
+import { type DbTransactionType, db } from "../../../db";
+import { blocksEntity, projectsEntity, workflowsEntity } from "../../../db/schema";
 
 type WorkflowInsert = typeof workflowsEntity.$inferInsert;
 
-export async function insertWorkflow(
-	data: WorkflowInsert,
-	tx?: DbTransactionType,
-) {
+export async function insertWorkflow(data: WorkflowInsert, tx?: DbTransactionType) {
 	const [row] = await (tx ?? db)
 		.insert(workflowsEntity)
 		.values(data)
@@ -25,10 +18,7 @@ export async function insertWorkflow(
  * The two blocks every canvas must have exactly one of. A workflow gets no
  * `response` block — nothing is waiting on an answer.
  */
-export async function seedDefaultBlocks(
-	workflowId: string,
-	tx?: DbTransactionType,
-) {
+export async function seedDefaultBlocks(workflowId: string, tx?: DbTransactionType) {
 	await (tx ?? db).insert(blocksEntity).values([
 		{
 			id: generateID(),
@@ -58,20 +48,11 @@ export async function findWorkflowById(id: string, tx?: DbTransactionType) {
 }
 
 /** A name is unique within its project — the portal lists workflows by it. */
-export async function findWorkflowByName(
-	projectId: string,
-	name: string,
-	tx?: DbTransactionType,
-) {
+export async function findWorkflowByName(projectId: string, name: string, tx?: DbTransactionType) {
 	const [row] = await (tx ?? db)
 		.select({ id: workflowsEntity.id })
 		.from(workflowsEntity)
-		.where(
-			and(
-				eq(workflowsEntity.projectId, projectId),
-				ilike(workflowsEntity.name, name),
-			),
-		)
+		.where(and(eq(workflowsEntity.projectId, projectId), ilike(workflowsEntity.name, name)))
 		.limit(1);
 	return row;
 }

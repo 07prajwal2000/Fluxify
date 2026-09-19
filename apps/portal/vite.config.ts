@@ -1,8 +1,8 @@
-import { defineConfig } from "vite";
-import react from "@vitejs/plugin-react";
+import path from "node:path";
 import tailwindcss from "@tailwindcss/vite";
 import { tanstackRouter } from "@tanstack/router-plugin/vite";
-import path from "node:path";
+import react from "@vitejs/plugin-react";
+import { defineConfig } from "vite";
 
 // Served behind Caddy at /_/admin/ui in prod; dev proxies the admin API to the
 // standalone server (5500) and the AI gateway (8001), same routing as Caddyfile.
@@ -29,7 +29,7 @@ export default defineConfig({
 	resolve: {
 		alias: {
 			"@": path.resolve(import.meta.dirname, "src"),
-			"snappy": path.resolve(import.meta.dirname, "src/lib/empty.ts"),
+			snappy: path.resolve(import.meta.dirname, "src/lib/empty.ts"),
 			"winston-loki": path.resolve(import.meta.dirname, "src/lib/empty.ts"),
 		},
 	},

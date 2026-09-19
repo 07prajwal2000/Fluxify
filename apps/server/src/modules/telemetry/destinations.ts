@@ -1,18 +1,15 @@
-import { logger } from "@fluxify/common";
 import { createObservabilityLogger } from "@fluxify/adapters";
+import { logger } from "@fluxify/common";
 import {
-	createOtlpTracerProvider,
 	createOtlpMeterProvider,
+	createOtlpTracerProvider,
 	exportRun,
+	type OtlpTransport,
 	recordRun,
 	shutdownTelemetry,
-	type OtlpTransport,
 	type TraceRunPayload,
 } from "@fluxify/common/otlp";
-import {
-	observabilityIntegrationsCache,
-	ownsIntegration,
-} from "../../loaders/integrationsLoader";
+import { observabilityIntegrationsCache, ownsIntegration } from "../../loaders/integrationsLoader";
 import { projectSettingsCache } from "../../loaders/projectSettingsLoader";
 
 /**
@@ -46,10 +43,7 @@ export function exportTraceRun(run: TraceRunPayload): void {
 		if (metrics) recordRun(meterFor(metrics), run);
 	} catch (error) {
 		// telemetry loss, never a failed request
-		logger.error(
-			`[telemetry] failed to export run ${run.runId}: ${String(error)}`,
-			"TELEMETRY",
-		);
+		logger.error(`[telemetry] failed to export run ${run.runId}: ${String(error)}`, "TELEMETRY");
 	}
 }
 
@@ -113,10 +107,7 @@ function connectionIdFor(projectId: string, signal: TelemetrySignal) {
  * cache is keyed by integration id alone, so indexing it directly would hand one
  * project another's endpoint and basic auth.
  */
-export function resolveDestination(
-	projectId: string,
-	signal: TelemetrySignal,
-): Destination | null {
+export function resolveDestination(projectId: string, signal: TelemetrySignal): Destination | null {
 	const integrationId = connectionIdFor(projectId, signal);
 	if (!integrationId) return null;
 

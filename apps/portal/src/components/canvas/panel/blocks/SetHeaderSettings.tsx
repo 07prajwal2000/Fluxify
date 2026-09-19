@@ -1,6 +1,6 @@
+import type { BlockNode } from "../../types";
 import { BlockSettings } from "../BlockSettings";
 import { BlockJsTextField } from "../fields";
-import type { BlockNode } from "../../types";
 
 export function SetHeaderSettings({ block }: { block: BlockNode }) {
 	return (

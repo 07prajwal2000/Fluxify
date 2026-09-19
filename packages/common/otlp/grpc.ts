@@ -31,8 +31,7 @@ export function normalizePem(value: string): string {
 	);
 }
 
-const pem = (value?: string) =>
-	value ? Buffer.from(normalizePem(value)) : undefined;
+const pem = (value?: string) => (value ? Buffer.from(normalizePem(value)) : undefined);
 
 /**
  * Exporter options for the gRPC transport.

@@ -1,115 +1,106 @@
 import { and, count, desc, eq, ilike, SQL } from "drizzle-orm";
-import { db, DbTransactionType } from "../../../../../db";
-import { accessControlEntity } from "../../../../../db/schema";
+import { type DbTransactionType, db } from "../../../../../db";
 import { systemUsers } from "../../../../../db/auth-schema";
+import { accessControlEntity } from "../../../../../db/schema";
 
 export async function listProjectMembers(
-  projectId: string,
-  skip: number,
-  limit: number,
-  filters?: { role?: string; name?: string },
-  tx?: DbTransactionType
+	projectId: string,
+	skip: number,
+	limit: number,
+	filters?: { role?: string; name?: string },
+	tx?: DbTransactionType,
 ) {
-  // Build conditions array dynamically
-  const conditions = [eq(accessControlEntity.projectId, projectId)];
+	// Build conditions array dynamically
+	const conditions = [eq(accessControlEntity.projectId, projectId)];
 
-  if (filters?.role) {
-    conditions.push(eq(accessControlEntity.role, filters.role as any));
-  }
+	if (filters?.role) {
+		conditions.push(eq(accessControlEntity.role, filters.role as any));
+	}
 
-  if (filters?.name) {
-    conditions.push(ilike(systemUsers.name, `%${filters.name}%`));
-  }
+	if (filters?.name) {
+		conditions.push(ilike(systemUsers.name, `%${filters.name}%`));
+	}
 
-  const where = and(...conditions);
+	const where = and(...conditions);
 
-  const result = await (tx ?? db)
-    .select({
-      id: systemUsers.id,
-      name: systemUsers.name,
-      userId: systemUsers.id,
-      role: accessControlEntity.role,
-      createdAt: accessControlEntity.createdAt,
-      updatedAt: accessControlEntity.updatedAt,
-    })
-    .from(accessControlEntity)
-    .leftJoin(systemUsers, eq(accessControlEntity.userId, systemUsers.id))
-    .where(where)
-    .orderBy(desc(accessControlEntity.updatedAt))
-    .offset(skip)
-    .limit(limit);
+	const result = await (tx ?? db)
+		.select({
+			id: systemUsers.id,
+			name: systemUsers.name,
+			userId: systemUsers.id,
+			role: accessControlEntity.role,
+			createdAt: accessControlEntity.createdAt,
+			updatedAt: accessControlEntity.updatedAt,
+		})
+		.from(accessControlEntity)
+		.leftJoin(systemUsers, eq(accessControlEntity.userId, systemUsers.id))
+		.where(where)
+		.orderBy(desc(accessControlEntity.updatedAt))
+		.offset(skip)
+		.limit(limit);
 
-  const [{ count: totalCount }] = await (tx ?? db)
-    .select({ count: count(accessControlEntity.id) })
-    .from(accessControlEntity)
-    .leftJoin(systemUsers, eq(accessControlEntity.userId, systemUsers.id))
-    .where(where);
+	const [{ count: totalCount }] = await (tx ?? db)
+		.select({ count: count(accessControlEntity.id) })
+		.from(accessControlEntity)
+		.leftJoin(systemUsers, eq(accessControlEntity.userId, systemUsers.id))
+		.where(where);
 
-  return { result, totalCount };
+	return { result, totalCount };
 }
 
 export async function addProjectMember(
-  projectId: string,
-  userId: string,
-  role: string,
-  tx?: DbTransactionType
+	projectId: string,
+	userId: string,
+	role: string,
+	tx?: DbTransactionType,
 ) {
-  const res = await (tx ?? db)
-    .insert(accessControlEntity)
-    .values({ projectId, userId, role: role as any })
-    .returning();
-  return res[0];
+	const res = await (tx ?? db)
+		.insert(accessControlEntity)
+		.values({ projectId, userId, role: role as any })
+		.returning();
+	return res[0];
 }
 
 export async function projectMemberExists(
-  projectId: string,
-  userId: string,
-  tx?: DbTransactionType
+	projectId: string,
+	userId: string,
+	tx?: DbTransactionType,
 ) {
-  const res = await (tx ?? db)
-    .select({ count: count(accessControlEntity.id) })
-    .from(accessControlEntity)
-    .where(
-      and(
-        eq(accessControlEntity.projectId, projectId),
-        eq(accessControlEntity.userId, userId)
-      )
-    );
-  return res[0].count > 0;
+	const res = await (tx ?? db)
+		.select({ count: count(accessControlEntity.id) })
+		.from(accessControlEntity)
+		.where(
+			and(eq(accessControlEntity.projectId, projectId), eq(accessControlEntity.userId, userId)),
+		);
+	return res[0].count > 0;
 }
 
 export async function updateProjectMemberRole(
-  projectId: string,
-  userId: string,
-  role: string,
-  tx?: DbTransactionType
+	projectId: string,
+	userId: string,
+	role: string,
+	tx?: DbTransactionType,
 ) {
-  const res = await (tx ?? db)
-    .update(accessControlEntity)
-    .set({ role: role as any })
-    .where(
-      and(
-        eq(accessControlEntity.projectId, projectId),
-        eq(accessControlEntity.userId, userId)
-      )
-    )
-    .returning();
-  return res[0];
+	const res = await (tx ?? db)
+		.update(accessControlEntity)
+		.set({ role: role as any })
+		.where(
+			and(eq(accessControlEntity.projectId, projectId), eq(accessControlEntity.userId, userId)),
+		)
+		.returning();
+	return res[0];
 }
 
 export async function removeProjectMember(
-  projectId: string,
-  userId: string,
-  tx?: DbTransactionType
+	projectId: string,
+	userId: string,
+	tx?: DbTransactionType,
 ) {
-  const res = await (tx ?? db)
-    .delete(accessControlEntity)
-    .where(
-      and(
-        eq(accessControlEntity.projectId, projectId),
-        eq(accessControlEntity.userId, userId)
-      )
-    )
-    .returning();
-  return res[0];
+	const res = await (tx ?? db)
+		.delete(accessControlEntity)
+		.where(
+			and(eq(accessControlEntity.projectId, projectId), eq(accessControlEntity.userId, userId)),
+		)
+		.returning();
+	return res[0];
 }

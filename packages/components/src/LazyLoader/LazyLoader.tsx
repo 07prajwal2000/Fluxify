@@ -1,5 +1,5 @@
-import { useEffect, useRef, type ReactNode } from "react";
 import { Spinner } from "@heroui/react";
+import { type ReactNode, useEffect, useRef } from "react";
 
 export interface LazyLoaderProps<T> {
 	items: T[];

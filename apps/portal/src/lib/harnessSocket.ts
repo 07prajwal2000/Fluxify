@@ -1,10 +1,10 @@
-import { io, type Socket } from "socket.io-client";
 import {
 	HARNESS_SOCKET_EVENT,
-	SOCKET_PATH,
 	type HarnessSocketMessage,
+	SOCKET_PATH,
 } from "@fluxify/ai-gateway/src/harness/clientContract";
 import { toast } from "@fluxify/components";
+import { io, type Socket } from "socket.io-client";
 import { useAiHarnessStore } from "@/store/aiHarness";
 
 /* ============================================================================

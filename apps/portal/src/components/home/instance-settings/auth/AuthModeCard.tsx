@@ -1,14 +1,12 @@
 import { cn } from "@fluxify/components";
 import { FiMail, FiShield } from "react-icons/fi";
-import {
-	EnterpriseGate,
-	useEnterpriseSso,
-} from "@/components/common/Enterprise";
+import { EnterpriseGate, useEnterpriseSso } from "@/components/common/Enterprise";
 
 export type AuthType = "traditional" | "sso";
 
 const CheckIcon = ({ className }: { className?: string }) => (
 	<svg
+		aria-hidden="true"
 		viewBox="0 0 24 24"
 		className={className}
 		fill="none"
@@ -59,15 +57,11 @@ export function AuthModeCard({ type, onChange }: AuthModeCardProps) {
 						<span className="rounded bg-transparent border border-border px-2 py-0.5 text-[10px] font-medium text-muted">
 							Default
 						</span>
-						{type === "traditional" && (
-							<CheckIcon className="h-5 w-5 text-accent" />
-						)}
+						{type === "traditional" && <CheckIcon className="h-5 w-5 text-accent" />}
 					</div>
 				</div>
 				<div>
-					<h4 className="text-sm font-bold text-foreground mb-1">
-						Traditional (Email + Password)
-					</h4>
+					<h4 className="text-sm font-bold text-foreground mb-1">Traditional (Email + Password)</h4>
 					<p className="text-xs text-muted leading-relaxed">
 						Email + Password with optional 2FA. Best for small teams.
 					</p>

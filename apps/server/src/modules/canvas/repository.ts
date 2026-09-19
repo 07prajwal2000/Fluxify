@@ -1,7 +1,7 @@
+import { BlockTypes } from "@fluxify/blocks";
 import { and, count, eq, inArray, ne, sql } from "drizzle-orm";
 import type { PgTable } from "drizzle-orm/pg-core";
-import { BlockTypes } from "@fluxify/blocks";
-import { db, DbTransactionType } from "../../db";
+import { type DbTransactionType, db } from "../../db";
 import {
 	blocksEntity,
 	customBlocksListEntity,
@@ -58,10 +58,7 @@ export function parentColumn(
 	return table[parentTables[type].column];
 }
 
-function ownedBy(
-	table: typeof blocksEntity | typeof edgesEntity,
-	parent: CanvasParent,
-) {
+function ownedBy(table: typeof blocksEntity | typeof edgesEntity, parent: CanvasParent) {
 	return eq(parentColumn(table, parent.type), parent.id);
 }
 
@@ -120,10 +117,7 @@ export async function deleteBlocks(blockIds: string[], tx?: DbTransactionType) {
 /** Bypasses the entrypoint/errorHandler protection in `deleteBlocks` above — only
  *  for the trusted merge path where a verified AI harness output is replacing a
  *  stale structural block. Never call this for a client-initiated delete. */
-export async function deleteStructuralBlocks(
-	blockIds: string[],
-	tx?: DbTransactionType,
-) {
+export async function deleteStructuralBlocks(blockIds: string[], tx?: DbTransactionType) {
 	if (!blockIds.length) return;
 	await (tx ?? db).delete(blocksEntity).where(inArray(blocksEntity.id, blockIds));
 }
@@ -307,13 +301,7 @@ export async function getCustomBlockCalls(
 	);
 }
 
-export async function touchParent(
-	parent: CanvasParent,
-	tx?: DbTransactionType,
-) {
+export async function touchParent(parent: CanvasParent, tx?: DbTransactionType) {
 	const table = parentTable(parent.type);
-	await (tx ?? db)
-		.update(table)
-		.set({ updatedAt: sql`now()` })
-		.where(eq(table.id, parent.id));
+	await (tx ?? db).update(table).set({ updatedAt: sql`now()` }).where(eq(table.id, parent.id));
 }

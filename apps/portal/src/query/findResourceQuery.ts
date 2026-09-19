@@ -1,8 +1,8 @@
-import { useCallback, useMemo } from "react";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import { useCallback, useMemo } from "react";
+import { integrationsQuery } from "@/query/integrationsQuery";
 import { findResourceService } from "@/services/findResource";
 import { integrationService } from "@/services/integrations";
-import { integrationsQuery } from "@/query/integrationsQuery";
 
 export const findResourceQuery = {
 	search: {
@@ -55,10 +55,7 @@ export function useDbMetadata(projectId?: string, connectionId?: string) {
 
 	// the integration list, not the schema read: the editor depends only on the
 	// variant, so "Custom" must not vanish when the database can't be introspected
-	const { data: integrations } = integrationsQuery.getAll.useQuery(
-		projectId ?? "",
-		"database",
-	);
+	const { data: integrations } = integrationsQuery.getAll.useQuery(projectId ?? "", "database");
 
 	const tables = data?.metadata?.tables ?? [];
 	const tableNames = tables.map((t) => t.table);
@@ -88,11 +85,7 @@ export function useDbMetadata(projectId?: string, connectionId?: string) {
 			// Support exact match, schema.table match, or table without schema match
 			const matched = tables.find((item) => {
 				const t = item.table.toLowerCase();
-				return (
-					t === clean ||
-					t.endsWith(`.${clean}`) ||
-					t.split(".").pop() === clean
-				);
+				return t === clean || t.endsWith(`.${clean}`) || t.split(".").pop() === clean;
 			});
 
 			const cols = matched?.columns?.map((c) => c.name).filter(Boolean) ?? [];
@@ -114,8 +107,6 @@ export function useDbMetadata(projectId?: string, connectionId?: string) {
 		// custom-block param), since most connections speak SQL; a Mongo user sees
 		// the JS editor as soon as the connection resolves.
 		conditionEditor:
-			integrations?.find((item) => item.id === connectionId)?.conditionEditor ??
-			("sql" as const),
+			integrations?.find((item) => item.id === connectionId)?.conditionEditor ?? ("sql" as const),
 	};
 }
-

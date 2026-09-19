@@ -1,10 +1,6 @@
-import { BaseChatModel } from "@langchain/core/language_models/chat_models";
+import type { BaseChatModel } from "@langchain/core/language_models/chat_models";
 import { ChatOllama } from "@langchain/ollama";
-import {
-	BaseAgentWrapper,
-	HARNESS_MAX_TOKENS,
-	HARNESS_TEMPERATURE,
-} from "../base";
+import { BaseAgentWrapper, HARNESS_MAX_TOKENS, HARNESS_TEMPERATURE } from "../base";
 
 export class OllamaAgentWrapper extends BaseAgentWrapper {
 	private baseUrl?: string;

@@ -1,8 +1,5 @@
 import { z } from "zod";
-import {
-	paginationRequestQuerySchema,
-	paginationResponseSchema,
-} from "../../../lib/pagination";
+import { paginationRequestQuerySchema, paginationResponseSchema } from "../../../lib/pagination";
 
 /**
  * A workflow has no path, method or request schemas — it is not addressed over

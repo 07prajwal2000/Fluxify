@@ -41,7 +41,9 @@ export function InfraPanel({ status }: { status: OrchestrationStatus }) {
 					</div>
 				</div>
 				<Chip size="sm" color={orchestrator.alive ? "success" : "danger"}>
-					{orchestrator.alive ? `Reconciling · renewed ${ago(orchestrator.at)}` : "Nothing is acting"}
+					{orchestrator.alive
+						? `Reconciling · renewed ${ago(orchestrator.at)}`
+						: "Nothing is acting"}
 				</Chip>
 			</div>
 
@@ -71,7 +73,10 @@ export function InfraPanel({ status }: { status: OrchestrationStatus }) {
 					}
 				/>
 				{orchestrator.reconcileIntervalMs && (
-					<Fact label="Checks every" value={`${Math.round(orchestrator.reconcileIntervalMs / 1000)}s`} />
+					<Fact
+						label="Checks every"
+						value={`${Math.round(orchestrator.reconcileIntervalMs / 1000)}s`}
+					/>
 				)}
 				{orchestrator.holder && <Fact label="Acting process" value={orchestrator.holder} mono />}
 				{meta.map(([key, value]) => (

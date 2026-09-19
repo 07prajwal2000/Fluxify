@@ -1,5 +1,3 @@
-import { useMemo, useState } from "react";
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import {
 	Button,
 	Chip,
@@ -14,14 +12,16 @@ import {
 	TextField,
 	toast,
 } from "@fluxify/components";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useMemo, useState } from "react";
 import { TbEdit, TbPlayerPlay, TbPlus, TbRoute } from "react-icons/tb";
-import { routesQuery } from "@/query/routesQuery";
-import { showErrorNotification } from "@/lib/errorNotifier";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { EmptyState } from "@/components/common/EmptyState";
 import { RouteApiPlayground } from "@/components/RouteApiPlayground";
 import { useProjectApiBaseUrl } from "@/components/settings/SubdomainField";
+import { showErrorNotification } from "@/lib/errorNotifier";
 import { createRouteHead } from "@/lib/seo";
+import { routesQuery } from "@/query/routesQuery";
 
 export const Route = createFileRoute("/_authed/$projectId/routes")({
 	head: createRouteHead(
@@ -69,8 +69,7 @@ function RoutesPage() {
 
 	const totalPages = data?.pagination?.totalPages ?? 1;
 
-	const openNew = () =>
-		navigate({ to: "/$projectId/routes/new", params: { projectId } });
+	const openNew = () => navigate({ to: "/$projectId/routes/new", params: { projectId } });
 
 	return (
 		<div className="flex flex-col gap-4">
@@ -125,70 +124,74 @@ function RoutesPage() {
 			) : (
 				<Table>
 					<Table.Content aria-label="Routes">
-					<Table.Header>
-						<Table.Column id="method">Method</Table.Column>
-						<Table.Column id="path" isRowHeader>Path</Table.Column>
-						<Table.Column id="name">Name</Table.Column>
-						<Table.Column id="status">Status</Table.Column>
-						<Table.Column id="actions" aria-label="Actions">{""}</Table.Column>
-					</Table.Header>
-					<Table.Body items={rows}>
-						{(route: RouteRow) => (
-							<Table.Row id={route.id}>
-								<Table.Cell>
-									<Chip>{route.method}</Chip>
-								</Table.Cell>
-								<Table.Cell>
-									<span className="font-mono text-sm">{route.path}</span>
-								</Table.Cell>
-								<Table.Cell>{route.name}</Table.Cell>
-								<Table.Cell>
-									<Switch
-										isSelected={Boolean(route.active)}
-										onChange={(active) =>
-											toggle.mutate(
-												{ id: route.id, active },
-												{
-													onSuccess: () =>
-														toast.success(active ? "Route enabled" : "Route disabled"),
-													onError: (e) => showErrorNotification(e as Error),
-												},
-											)
-										}
-										label={route.active ? "Active" : "Inactive"}
-									/>
-								</Table.Cell>
-								<Table.Cell>
-									<div className="flex items-center justify-end gap-1">
-										<Button
-											isIconOnly
-											variant="ghost"
-											aria-label={`Edit ${route.name || route.path}`}
-											onPress={() =>
-												navigate({
-													to: "/$projectId/canvas/$routeId",
-													params: { projectId, routeId: route.id },
-												})
+						<Table.Header>
+							<Table.Column id="method">Method</Table.Column>
+							<Table.Column id="path" isRowHeader>
+								Path
+							</Table.Column>
+							<Table.Column id="name">Name</Table.Column>
+							<Table.Column id="status">Status</Table.Column>
+							<Table.Column id="actions" aria-label="Actions">
+								{""}
+							</Table.Column>
+						</Table.Header>
+						<Table.Body items={rows}>
+							{(route: RouteRow) => (
+								<Table.Row id={route.id}>
+									<Table.Cell>
+										<Chip>{route.method}</Chip>
+									</Table.Cell>
+									<Table.Cell>
+										<span className="font-mono text-sm">{route.path}</span>
+									</Table.Cell>
+									<Table.Cell>{route.name}</Table.Cell>
+									<Table.Cell>
+										<Switch
+											isSelected={Boolean(route.active)}
+											onChange={(active) =>
+												toggle.mutate(
+													{ id: route.id, active },
+													{
+														onSuccess: () =>
+															toast.success(active ? "Route enabled" : "Route disabled"),
+														onError: (e) => showErrorNotification(e as Error),
+													},
+												)
 											}
-										>
-											<TbEdit size={16} />
-										</Button>
-										<Button
-											variant="outline"
-											isDisabled={!route.active}
-											onPress={() => setPendingPlayground(route)}
-										>
-											<TbPlayerPlay size={16} /> Playground
-										</Button>
-										<DeleteIconButton
-											aria-label="Delete route"
-											onPress={() => setPendingDelete(route)}
+											label={route.active ? "Active" : "Inactive"}
 										/>
-									</div>
-								</Table.Cell>
-							</Table.Row>
-						)}
-					</Table.Body>
+									</Table.Cell>
+									<Table.Cell>
+										<div className="flex items-center justify-end gap-1">
+											<Button
+												isIconOnly
+												variant="ghost"
+												aria-label={`Edit ${route.name || route.path}`}
+												onPress={() =>
+													navigate({
+														to: "/$projectId/canvas/$routeId",
+														params: { projectId, routeId: route.id },
+													})
+												}
+											>
+												<TbEdit size={16} />
+											</Button>
+											<Button
+												variant="outline"
+												isDisabled={!route.active}
+												onPress={() => setPendingPlayground(route)}
+											>
+												<TbPlayerPlay size={16} /> Playground
+											</Button>
+											<DeleteIconButton
+												aria-label="Delete route"
+												onPress={() => setPendingDelete(route)}
+											/>
+										</div>
+									</Table.Cell>
+								</Table.Row>
+							)}
+						</Table.Body>
 					</Table.Content>
 				</Table>
 			)}
@@ -198,8 +201,14 @@ function RoutesPage() {
 					<Button variant="outline" isDisabled={page <= 1} onPress={() => setPage((p) => p - 1)}>
 						Previous
 					</Button>
-					<span>Page {page} of {totalPages}</span>
-					<Button variant="outline" isDisabled={page >= totalPages} onPress={() => setPage((p) => p + 1)}>
+					<span>
+						Page {page} of {totalPages}
+					</span>
+					<Button
+						variant="outline"
+						isDisabled={page >= totalPages}
+						onPress={() => setPage((p) => p + 1)}
+					>
 						Next
 					</Button>
 				</div>
@@ -249,9 +258,8 @@ function RoutesPage() {
 					setPendingDelete(null);
 				}}
 			>
-				Delete{" "}
-				<b className="text-foreground">{pendingDelete?.name || pendingDelete?.path}</b>?
-				This can't be undone.
+				Delete <b className="text-foreground">{pendingDelete?.name || pendingDelete?.path}</b>? This
+				can't be undone.
 			</ConfirmDialog>
 		</div>
 	);

@@ -29,10 +29,7 @@ export function detectCycles(blocks: ValidatableBlock[]): string | null {
 			const neighborState = stateMap.get(neighbor) || 0;
 			if (neighborState === 1) {
 				const cycleStartIndex = parentPath.indexOf(neighbor);
-				const cyclePath = parentPath
-					.slice(cycleStartIndex)
-					.concat(neighbor)
-					.join(" -> ");
+				const cyclePath = parentPath.slice(cycleStartIndex).concat(neighbor).join(" -> ");
 				return `Detected a cyclic loop dependency in the workflow canvas graph: ${cyclePath}. Workflow DAGs must not contain circular node connections. Please remove circular connections.`;
 			}
 			if (neighborState === 0) {

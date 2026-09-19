@@ -1,5 +1,5 @@
-import { Link } from "@tanstack/react-router";
 import { cn } from "@fluxify/components";
+import { Link } from "@tanstack/react-router";
 import { TbFlask, TbTopologyStar3 } from "react-icons/tb";
 
 const TABS = [
@@ -11,13 +11,7 @@ const TABS = [
  * Segmented switcher between a route's workbench views. Links rather than tab
  * panels: each view is its own route, so the browser keeps the history entry.
  */
-export function RouteWorkbenchTabs({
-	projectId,
-	routeId,
-}: {
-	projectId: string;
-	routeId: string;
-}) {
+export function RouteWorkbenchTabs({ projectId, routeId }: { projectId: string; routeId: string }) {
 	return (
 		<div className="flex items-center gap-0.5 rounded-lg border border-border bg-background-secondary p-0.5">
 			{TABS.map(({ label, icon: Icon, to }) => (
@@ -49,10 +43,7 @@ export function RouteWorkbenchHeader({
 }) {
 	return (
 		<header
-			className={cn(
-				"flex items-center gap-3 border-b border-border px-4 py-2 text-sm",
-				className,
-			)}
+			className={cn("flex items-center gap-3 border-b border-border px-4 py-2 text-sm", className)}
 		>
 			{children}
 		</header>

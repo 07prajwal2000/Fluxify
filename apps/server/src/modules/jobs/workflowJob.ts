@@ -1,9 +1,9 @@
-import { logger } from "@fluxify/common";
 import type { TriggerBatchMeta, TriggerConnection, TriggerEvent } from "@fluxify/blocks";
+import { logger } from "@fluxify/common";
 import { compiledWorkflow } from "../requestRouter/compiledRuntime";
 import { createJobContext } from "../requestRouter/service";
-import { isTriggerBatch } from "../triggers/types";
 import type { WorkflowTrace } from "../telemetry/routeRecorder";
+import { isTriggerBatch } from "../triggers/types";
 import { registerJobHandler } from "./registry";
 import { WORKFLOW_JOB } from "./subjects";
 import type { JobEnvelope } from "./types";
@@ -49,10 +49,7 @@ export async function runWorkflowJob(job: JobEnvelope, extras?: QueueRunExtras) 
 	// deactivated while the job was queued, or this worker serves a different
 	// project. Redelivering cannot change either.
 	if (!workflow) {
-		logger.warn(
-			`[jobs] no compiled workflow ${job.target}, skipping`,
-			"JOBS.workflow",
-		);
+		logger.warn(`[jobs] no compiled workflow ${job.target}, skipping`, "JOBS.workflow");
 		return;
 	}
 
@@ -160,8 +157,6 @@ export function readInput(job: JobEnvelope) {
 		meta,
 		source: batch.source,
 		input:
-			batch.events.length === 1
-				? batch.events[0]!.data
-				: batch.events.map((event) => event.data),
+			batch.events.length === 1 ? batch.events[0]!.data : batch.events.map((event) => event.data),
 	};
 }

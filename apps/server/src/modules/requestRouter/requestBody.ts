@@ -1,7 +1,4 @@
-import {
-	CONTENT_TYPES,
-	type ContentType,
-} from "../../lib/routeConfig";
+import { CONTENT_TYPES, type ContentType } from "../../lib/routeConfig";
 
 /**
  * Reads the body of an incoming HTTP request in the format the route declared.
@@ -75,9 +72,7 @@ async function decode(
 		case "text/plain":
 			return new TextDecoder().decode(bytes);
 		case "application/x-www-form-urlencoded":
-			return entriesToObject(
-				new URLSearchParams(new TextDecoder().decode(bytes)),
-			);
+			return entriesToObject(new URLSearchParams(new TextDecoder().decode(bytes)));
 		case "multipart/form-data":
 			// the raw header carries the boundary, so hand it back verbatim
 			return entriesToObject(
@@ -111,10 +106,7 @@ export type BodyReader = {
  * Returns undefined when the request declares no body — a bodyless POST stays
  * `null`, as it was before content types were enforced.
  */
-export function bodyReader(
-	req: RequestLike,
-	maxBytes: number,
-): BodyReader | undefined {
+export function bodyReader(req: RequestLike, maxBytes: number): BodyReader | undefined {
 	if (!METHODS_WITH_BODY.has(req.method.toUpperCase())) return;
 	const rawHeader = req.header("content-type");
 	const contentType = mediaType(rawHeader);

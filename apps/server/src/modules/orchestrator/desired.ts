@@ -2,10 +2,10 @@ import { groupPair } from "@fluxify/common/orchestrator";
 import { db } from "../../db";
 import { nodeClaimsEntity, triggerGroupsEntity } from "../../db/schema";
 import { nodeEntitlement } from "../../lib/edition";
-import { baseDomain, getSetting } from "../../loaders/instanceSettingsLoader";
 import { projectHost } from "../../lib/hosting";
+import { baseDomain, getSetting } from "../../loaders/instanceSettingsLoader";
 import { projectSubdomains } from "./claims";
-import { projectDesiredNodes, type Claim, type DesiredNode } from "./projection";
+import { type Claim, type DesiredNode, projectDesiredNodes } from "./projection";
 
 /**
  * What should be running, read from Postgres every pass.

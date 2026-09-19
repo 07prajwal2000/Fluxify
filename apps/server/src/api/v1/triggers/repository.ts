@@ -1,6 +1,16 @@
-import { and, count, desc, eq, getTableColumns, ilike, inArray, isNotNull, SQL } from "drizzle-orm";
 import { generateID } from "@fluxify/lib";
-import { db, DbTransactionType } from "../../../db";
+import {
+	and,
+	count,
+	desc,
+	eq,
+	getTableColumns,
+	ilike,
+	inArray,
+	isNotNull,
+	type SQL,
+} from "drizzle-orm";
+import { type DbTransactionType, db } from "../../../db";
 import {
 	integrationsEntity,
 	projectsEntity,
@@ -30,10 +40,7 @@ export async function ensureDefaultGroup(
 		.select({ id: triggerGroupsEntity.id })
 		.from(triggerGroupsEntity)
 		.where(
-			and(
-				eq(triggerGroupsEntity.projectId, projectId),
-				eq(triggerGroupsEntity.isDefault, true),
-			),
+			and(eq(triggerGroupsEntity.projectId, projectId), eq(triggerGroupsEntity.isDefault, true)),
 		)
 		.limit(1);
 	if (existing) return existing.id;
@@ -106,10 +113,7 @@ export async function moveGroupTriggers(from: string, to: string, tx?: DbTransac
 
 /** Every trigger in a group, deleted. Returns the deleted rows. */
 export async function deleteGroupTriggers(groupId: string, tx?: DbTransactionType) {
-	return (tx ?? db)
-		.delete(triggersEntity)
-		.where(eq(triggersEntity.groupId, groupId))
-		.returning();
+	return (tx ?? db).delete(triggersEntity).where(eq(triggersEntity.groupId, groupId)).returning();
 }
 
 export async function deleteGroupRow(id: string, tx?: DbTransactionType) {
@@ -136,17 +140,11 @@ export async function findTriggerById(id: string, tx?: DbTransactionType) {
 }
 
 /** A name is unique within its project — the settings panel lists triggers by it. */
-export async function findTriggerByName(
-	projectId: string,
-	name: string,
-	tx?: DbTransactionType,
-) {
+export async function findTriggerByName(projectId: string, name: string, tx?: DbTransactionType) {
 	const [row] = await (tx ?? db)
 		.select({ id: triggersEntity.id })
 		.from(triggersEntity)
-		.where(
-			and(eq(triggersEntity.projectId, projectId), ilike(triggersEntity.name, name)),
-		)
+		.where(and(eq(triggersEntity.projectId, projectId), ilike(triggersEntity.name, name)))
 		.limit(1);
 	return row;
 }
@@ -169,10 +167,7 @@ export async function deleteTriggerRow(id: string, tx?: DbTransactionType) {
 }
 
 /** Triggers reading through one integration — withdrawn when it is deleted. */
-export async function findTriggersByIntegration(
-	integrationId: string,
-	tx?: DbTransactionType,
-) {
+export async function findTriggersByIntegration(integrationId: string, tx?: DbTransactionType) {
 	return (tx ?? db)
 		.select({ id: triggersEntity.id, projectId: triggersEntity.projectId })
 		.from(triggersEntity)

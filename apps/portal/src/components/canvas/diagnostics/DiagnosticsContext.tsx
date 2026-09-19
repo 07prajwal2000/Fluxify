@@ -1,11 +1,11 @@
 import {
 	createContext,
+	type ReactNode,
 	useCallback,
 	useContext,
 	useMemo,
 	useRef,
 	useState,
-	type ReactNode,
 } from "react";
 import type {
 	BlockDiagnostic,
@@ -189,15 +189,12 @@ export function CanvasDiagnosticsProvider({
 		setDiagnostics((prev) => (prev.length === 0 ? prev : []));
 	}, []);
 
-	const registerValidator = useCallback(
-		(id: string, validator: () => BlockDiagnostic[]) => {
-			validatorsRef.current.set(id, validator);
-			return () => {
-				validatorsRef.current.delete(id);
-			};
-		},
-		[],
-	);
+	const registerValidator = useCallback((id: string, validator: () => BlockDiagnostic[]) => {
+		validatorsRef.current.set(id, validator);
+		return () => {
+			validatorsRef.current.delete(id);
+		};
+	}, []);
 
 	const revalidate = useCallback((): BlockDiagnostic[] => {
 		const next: BlockDiagnostic[] = [];
@@ -263,11 +260,7 @@ export function CanvasDiagnosticsProvider({
 		],
 	);
 
-	return (
-		<DiagnosticsContext.Provider value={value}>
-			{children}
-		</DiagnosticsContext.Provider>
-	);
+	return <DiagnosticsContext.Provider value={value}>{children}</DiagnosticsContext.Provider>;
 }
 
 export function useBlockDiagnostics(): CanvasDiagnosticsContextValue {

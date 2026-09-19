@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { BaseKVIntegration } from "./base";
+import type { BaseKVIntegration } from "./base";
 import { MemcachedIntegration } from "./memcached";
 import { RedisIntegration } from "./redis";
 
@@ -106,9 +106,7 @@ export class KvFactory {
 	/** Closes every client. For shutdown and for tests. */
 	public static async ResetConnections() {
 		await Promise.all(
-			[...KvFactory.clients.keys()].map((connection) =>
-				KvFactory.evict(connection),
-			),
+			[...KvFactory.clients.keys()].map((connection) => KvFactory.evict(connection)),
 		);
 	}
 

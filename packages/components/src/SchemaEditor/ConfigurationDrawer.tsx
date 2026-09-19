@@ -37,10 +37,7 @@ export function ConfigurationDrawer() {
 			}}
 		>
 			<Drawer.Content placement="right">
-				<Drawer.Dialog
-					aria-label={title}
-					className="flex w-full max-w-xl flex-col"
-				>
+				<Drawer.Dialog aria-label={title} className="flex w-full max-w-xl flex-col">
 					{/* .drawer__header is flex-col in HeroUI's CSS; the row lives in a
 					    child so we are not fighting utility order to undo it. */}
 					<Drawer.Header>
@@ -76,16 +73,10 @@ export function ConfigurationDrawer() {
 										onUpdate={onUpdate}
 									/>
 								)}
-								<DefaultValueField
-									isReadOnly={isReadOnly}
-									node={node}
-									onUpdate={onUpdate}
-								/>
+								<DefaultValueField isReadOnly={isReadOnly} node={node} onUpdate={onUpdate} />
 							</div>
 						) : (
-							<p className="text-sm text-muted">
-								No configuration is available for this type.
-							</p>
+							<p className="text-sm text-muted">No configuration is available for this type.</p>
 						)}
 					</Drawer.Body>
 				</Drawer.Dialog>

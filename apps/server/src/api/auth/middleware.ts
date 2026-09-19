@@ -1,11 +1,10 @@
-import { Next } from "hono";
-import { AuthACL } from "../../db/schema";
-import { UnauthorizedError } from "../../errors/unauthorizedError";
-import { HonoContext } from "../../types";
-import { AccessControlRole } from "../../db/schema";
-import { User } from "better-auth";
+import type { User } from "better-auth";
+import type { Next } from "hono";
+import type { AccessControlRole, AuthACL } from "../../db/schema";
 import { ForbiddenError } from "../../errors/forbidError";
-import { hasAdminAccess, hasRoleAccess, hasProjectAccess } from "./common";
+import { UnauthorizedError } from "../../errors/unauthorizedError";
+import type { HonoContext } from "../../types";
+import { hasAdminAccess, hasProjectAccess, hasRoleAccess } from "./common";
 
 export async function requireSystemAdmin(ctx: HonoContext, next: Next) {
 	const user = ctx.get("user") as User & { isSystemAdmin: boolean };
@@ -17,7 +16,7 @@ export async function requireSystemAdmin(ctx: HonoContext, next: Next) {
 }
 
 export function requireRoleAccess(requiredRole: AccessControlRole) {
-	return async function (ctx: HonoContext, next: Next) {
+	return async (ctx: HonoContext, next: Next) => {
 		const user = ctx.get("user") as User & { isSystemAdmin: boolean };
 		const acl = ctx.get("acl") as AuthACL[];
 		if (!hasRoleAccess(user, acl, requiredRole)) {
@@ -28,7 +27,7 @@ export function requireRoleAccess(requiredRole: AccessControlRole) {
 }
 
 export function requireLoggedIn() {
-	return async function (ctx: HonoContext, next: Next) {
+	return async (ctx: HonoContext, next: Next) => {
 		const user = ctx.get("user") as User;
 		if (!user) {
 			throw new ForbiddenError();
@@ -39,11 +38,9 @@ export function requireLoggedIn() {
 
 export function requireProjectAccess(
 	requiredRole: AccessControlRole,
-	projectId:
-		| string
-		| { source: "param" | "query" | "header" | "body"; key: string },
+	projectId: string | { source: "param" | "query" | "header" | "body"; key: string },
 ) {
-	return async function (ctx: HonoContext, next: Next) {
+	return async (ctx: HonoContext, next: Next) => {
 		let projectIdValue: string;
 		if (typeof projectId === "string") {
 			projectIdValue = projectId;

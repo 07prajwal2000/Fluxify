@@ -31,8 +31,7 @@ export const integrationsQuery = {
 		useQuery(projectId: string, id: string) {
 			return useQuery({
 				queryKey: ["integrations", projectId, "getById", id],
-				queryFn: () =>
-					!id || !projectId ? null : integrationService.getById(projectId, id),
+				queryFn: () => (!id || !projectId ? null : integrationService.getById(projectId, id)),
 				refetchOnWindowFocus: false,
 				enabled: !!projectId && !!id,
 			});
@@ -42,10 +41,8 @@ export const integrationsQuery = {
 		mutation(projectId: string) {
 			const qc = useQueryClient();
 			return useMutation({
-				mutationFn: (data: CreateIntegrationType) =>
-					integrationService.create(projectId, data),
-				onSuccess: () =>
-					qc.invalidateQueries({ queryKey: ["integrations", projectId] }),
+				mutationFn: (data: CreateIntegrationType) => integrationService.create(projectId, data),
+				onSuccess: () => qc.invalidateQueries({ queryKey: ["integrations", projectId] }),
 			});
 		},
 	},
@@ -55,8 +52,7 @@ export const integrationsQuery = {
 			return useMutation({
 				mutationFn: (params: { id: string; data: UpdateIntegrationType }) =>
 					integrationService.update(projectId, params.id, params.data),
-				onSuccess: () =>
-					qc.invalidateQueries({ queryKey: ["integrations", projectId] }),
+				onSuccess: () => qc.invalidateQueries({ queryKey: ["integrations", projectId] }),
 			});
 		},
 	},
@@ -82,20 +78,14 @@ export const integrationsQuery = {
 		mutation(projectId: string) {
 			return useMutation({
 				mutationFn: (params: { group: string; variant: string; config: unknown }) =>
-					integrationService.testConnection(
-						projectId,
-						params.group,
-						params.variant,
-						params.config,
-					),
+					integrationService.testConnection(projectId, params.group, params.variant, params.config),
 			});
 		},
 	},
 	testExistingConnection: {
 		mutation(projectId: string) {
 			return useMutation({
-				mutationFn: (id: string) =>
-					integrationService.testExistingConnection(projectId, id),
+				mutationFn: (id: string) => integrationService.testExistingConnection(projectId, id),
 			});
 		},
 	},

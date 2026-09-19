@@ -1,9 +1,9 @@
-import { useState } from "react";
 import { Button, Popover, PopoverContent, PopoverTrigger } from "@fluxify/components";
 import { Link } from "@tanstack/react-router";
+import { useState } from "react";
 import { TbCheck, TbChevronDown, TbExternalLink } from "react-icons/tb";
-import { harnessConversationsQuery } from "@/query/harnessConversationsQuery";
 import { showErrorNotification } from "@/lib/errorNotifier";
+import { harnessConversationsQuery } from "@/query/harnessConversationsQuery";
 import { useAiHarnessStore } from "@/store/aiHarness";
 import { artifactTypeForKind, kindLabel, useArtifactParams } from "./useArtifact";
 
@@ -91,10 +91,7 @@ function Blocked({ parent }: { parent: BlockingParent }) {
  *  route it hangs off exists, so order is the caller's contract. */
 function useApply() {
 	const { projectId, conversationId } = useArtifactParams();
-	const apply = harnessConversationsQuery.applySubArtifact.mutation(
-		projectId,
-		conversationId,
-	);
+	const apply = harnessConversationsQuery.applySubArtifact.mutation(projectId, conversationId);
 	const run = async (ids: string[]) => {
 		try {
 			for (const id of ids) await apply.mutateAsync(id);
@@ -125,7 +122,8 @@ export function ApplyBar({
 }) {
 	const { run, isPending } = useApply();
 
-	if (appliedAt) return <Applied appliedAt={appliedAt} routeId={routeId} customBlockId={customBlockId} />;
+	if (appliedAt)
+		return <Applied appliedAt={appliedAt} routeId={routeId} customBlockId={customBlockId} />;
 	if (blockedBy) return <Blocked parent={blockedBy} />;
 
 	return (

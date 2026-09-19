@@ -1,26 +1,27 @@
-import React, { useState } from "react";
 import {
-	TbStack2,
-	TbCloudCog,
-	TbSquareKey,
+	Button,
+	integrationIcons,
+	Popover,
+	PopoverContent,
+	PopoverTrigger,
+	Spinner,
+} from "@fluxify/components";
+import { Link, useParams } from "@tanstack/react-router";
+import type React from "react";
+import { useState } from "react";
+import {
 	TbBox,
+	TbCloudCog,
 	TbDatabase,
 	TbExternalLink,
 	TbPlus,
+	TbSquareKey,
+	TbStack2,
 } from "react-icons/tb";
-import {
-	Popover,
-	PopoverTrigger,
-	PopoverContent,
-	Button,
-	Spinner,
-} from "@fluxify/components";
-import { useParams, Link } from "@tanstack/react-router";
-import { integrationIcons } from "@fluxify/components";
-import { appConfigQuery } from "@/query/appConfigQuery";
-import { integrationsQuery } from "@/query/integrationsQuery";
 import { CreateConfigButton } from "@/components/appConfig/CreateConfigModal";
 import { IntegrationOnboardingModal } from "@/components/integrations/IntegrationOnboardingModal";
+import { appConfigQuery } from "@/query/appConfigQuery";
+import { integrationsQuery } from "@/query/integrationsQuery";
 
 export interface ResourceChipProps {
 	type: "route" | "app_config" | "integration" | "custom_block";
@@ -67,12 +68,9 @@ function useResourceLookup(
 		if (configs.isLoading) return { status: "loading" as const };
 		const match = (configs.data?.data ?? []).find(
 			(row: { id: number; keyName: string }) =>
-				row.keyName?.toLowerCase() === name.toLowerCase() ||
-				String(row.id) === identifier,
+				row.keyName?.toLowerCase() === name.toLowerCase() || String(row.id) === identifier,
 		);
-		return match
-			? { status: "found" as const, match }
-			: { status: "missing" as const };
+		return match ? { status: "found" as const, match } : { status: "missing" as const };
 	}
 
 	if (type === "integration") {
@@ -80,9 +78,7 @@ function useResourceLookup(
 		const match = (integrations.data ?? []).find(
 			(row) => row.id === identifier || row.name?.toLowerCase() === name.toLowerCase(),
 		);
-		return match
-			? { status: "found" as const, match }
-			: { status: "missing" as const };
+		return match ? { status: "found" as const, match } : { status: "missing" as const };
 	}
 
 	return { status: "unknown" as const };
@@ -177,19 +173,21 @@ export function ResourceChip({ type, identifier, name, data }: ResourceChipProps
 								)}
 							</div>
 							<div className="flex flex-col">
-								<span className="text-sm font-medium text-foreground">{name || type.replace("_", " ")}</span>
-								<span className="text-[10px] uppercase tracking-wider text-muted">{type.replace("_", " ")}</span>
+								<span className="text-sm font-medium text-foreground">
+									{name || type.replace("_", " ")}
+								</span>
+								<span className="text-[10px] uppercase tracking-wider text-muted">
+									{type.replace("_", " ")}
+								</span>
 							</div>
 						</div>
 						{parsedData?.description && (
-							<p className="text-xs text-muted line-clamp-2 mt-1">
-								{parsedData.description}
-							</p>
+							<p className="text-xs text-muted line-clamp-2 mt-1">{parsedData.description}</p>
 						)}
 						{lookup.status === "missing" && (
 							<p className="mt-1 text-xs text-muted">
-								This {type === "app_config" ? "config key" : "integration"} doesn't
-								exist in the project yet.
+								This {type === "app_config" ? "config key" : "integration"} doesn't exist in the
+								project yet.
 							</p>
 						)}
 
@@ -197,7 +195,7 @@ export function ResourceChip({ type, identifier, name, data }: ResourceChipProps
 							<div className="mt-2 flex justify-end border-t border-border pt-2">
 								<Spinner size="sm" />
 							</div>
-						) : (canCreate || targetUrl) ? (
+						) : canCreate || targetUrl ? (
 							<div className="mt-2 flex justify-end gap-2 border-t border-border pt-2">
 								<Button
 									size="sm"

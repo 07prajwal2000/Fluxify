@@ -1,23 +1,17 @@
-import { fencedTool } from "./fenced";
-import { z } from "zod";
 import { logger } from "@fluxify/common";
-import type { WorkflowMetadata } from "../types";
+import { z } from "zod";
 import type { DbService } from "../internal/dbService";
+import type { WorkflowMetadata } from "../types";
+import { fencedTool } from "./fenced";
 
-export const createGetRouteDetailsTool = (
-	dbService: DbService,
-	metadata: WorkflowMetadata,
-) => {
+export const createGetRouteDetailsTool = (dbService: DbService, metadata: WorkflowMetadata) => {
 	return fencedTool(
 		async ({ routeId }) => {
 			logger.info(
 				`[Tools] Getting route details for routeId: ${routeId}, project: ${metadata.projectId}`,
 			);
 
-			const route = await dbService.getRouteDetails(
-				metadata.projectId,
-				routeId,
-			);
+			const route = await dbService.getRouteDetails(metadata.projectId, routeId);
 			if (!route) {
 				return "Route not found.";
 			}
@@ -41,9 +35,7 @@ export const createGetRouteDetailsTool = (
 			description:
 				"Get the exact configuration details (method, path, schemas) of an existing route.",
 			schema: z.object({
-				routeId: z
-					.string()
-					.describe("The UUID of the route to fetch details for."),
+				routeId: z.string().describe("The UUID of the route to fetch details for."),
 			}),
 		},
 	);

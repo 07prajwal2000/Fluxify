@@ -1,15 +1,15 @@
-import z from "zod";
-import { responseSchema as getAllResponseSchema } from "@fluxify/server/src/api/v1/instance-settings/get-all/dto";
-import { requestBodySchema as upsertRequestBodySchema } from "@fluxify/server/src/api/v1/instance-settings/upsert/dto";
-import { responseSchema as getAuthResponseSchema } from "@fluxify/server/src/api/v1/instance-settings/get-auth-settings/dto";
-import {
-	requestBodySchema as patchAuthRequestBodySchema,
-	responseSchema as patchAuthResponseSchema,
-} from "@fluxify/server/src/api/v1/instance-settings/patch-auth-settings/dto";
+import type { responseSchema as getAllResponseSchema } from "@fluxify/server/src/api/v1/instance-settings/get-all/dto";
+import type { responseSchema as getAuthResponseSchema } from "@fluxify/server/src/api/v1/instance-settings/get-auth-settings/dto";
 import type {
 	LicenseView,
 	setLicenseBodySchema,
 } from "@fluxify/server/src/api/v1/instance-settings/license/dto";
+import type {
+	requestBodySchema as patchAuthRequestBodySchema,
+	responseSchema as patchAuthResponseSchema,
+} from "@fluxify/server/src/api/v1/instance-settings/patch-auth-settings/dto";
+import type { requestBodySchema as upsertRequestBodySchema } from "@fluxify/server/src/api/v1/instance-settings/upsert/dto";
+import type z from "zod";
 import { httpClient } from "@/lib/http";
 
 export type { LicenseView };

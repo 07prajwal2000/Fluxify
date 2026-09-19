@@ -23,9 +23,7 @@ const settingsSchema = z.object(
 			projectSettingsKeySchemaMap[key].schema.optional(),
 		]),
 	) as {
-		[K in CreateTimeSettingKey]: z.ZodOptional<
-			(typeof projectSettingsKeySchemaMap)[K]["schema"]
-		>;
+		[K in CreateTimeSettingKey]: z.ZodOptional<(typeof projectSettingsKeySchemaMap)[K]["schema"]>;
 	},
 );
 
@@ -43,8 +41,7 @@ export const requestBodySchema = z.object({
 		.array(memberSchema)
 		.optional()
 		.refine(
-			(members) =>
-				!members || new Set(members.map((m) => m.userId)).size === members.length,
+			(members) => !members || new Set(members.map((m) => m.userId)).size === members.length,
 			{ message: "A user can only be added to the project once" },
 		),
 	settings: settingsSchema.optional(),

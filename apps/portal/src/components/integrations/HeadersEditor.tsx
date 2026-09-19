@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from "react";
 import { Button, DeleteIconButton, Input, Label } from "@fluxify/components";
+import { useEffect, useRef, useState } from "react";
 import { TbPlus } from "react-icons/tb";
 import { AppConfigSelector } from "./AppConfigSelector";
 
@@ -65,7 +65,12 @@ export function HeadersEditor({ projectId, value, onChange, description }: Props
 					/>
 				</div>
 			))}
-			<Button size="sm" variant="secondary" className="self-start" onPress={() => update([...rows, ["", ""]])}>
+			<Button
+				size="sm"
+				variant="secondary"
+				className="self-start"
+				onPress={() => update([...rows, ["", ""]])}
+			>
 				<TbPlus size={14} /> Add header
 			</Button>
 		</div>

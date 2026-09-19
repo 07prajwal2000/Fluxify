@@ -1,10 +1,4 @@
-import type {
-	Rule,
-	SchemaNode,
-	SchemaPath,
-	SchemaProperty,
-	ValidationSchema,
-} from "./types";
+import type { Rule, SchemaNode, SchemaPath, SchemaProperty, ValidationSchema } from "./types";
 
 export const newPropertyId = () => Math.random().toString(36).slice(2, 9);
 
@@ -25,9 +19,7 @@ export const DEFAULT_ITEMS: SchemaProperty = { key: "", dataType: "str", rules: 
  * definition, so a duplicate silently drops a field at compile time. Blanks are
  * ignored — a new row starts empty and is not yet a conflict.
  */
-export function findDuplicateKeys(
-	properties: readonly SchemaProperty[] = [],
-): Set<string> {
+export function findDuplicateKeys(properties: readonly SchemaProperty[] = []): Set<string> {
 	const seen = new Set<string>();
 	const duplicates = new Set<string>();
 	for (const property of properties) {
@@ -40,19 +32,13 @@ export function findDuplicateKeys(
 }
 
 /** The node at `path`, or `undefined` if the path runs off the tree. */
-export function getAtPath(
-	root: SchemaNode,
-	path: SchemaPath,
-): SchemaNode | undefined {
+export function getAtPath(root: SchemaNode, path: SchemaPath): SchemaNode | undefined {
 	let node: SchemaNode | undefined = root;
 	for (const segment of path) {
 		if (!node) return undefined;
 		// An array whose item type was never changed has no `items` yet, but the
 		// navigator shows DEFAULT_ITEMS for it, so the drawer must resolve the same.
-		node =
-			segment === "items"
-				? (node.items ?? DEFAULT_ITEMS)
-				: node.properties?.[segment];
+		node = segment === "items" ? (node.items ?? DEFAULT_ITEMS) : node.properties?.[segment];
 	}
 	return node;
 }
@@ -93,10 +79,7 @@ export function mergeAtPath<T extends SchemaNode>(
 	return updateAtPath(root, path, (node) => ({ ...node, ...updates }));
 }
 
-export function addPropertyAtPath<T extends SchemaNode>(
-	root: T,
-	path: SchemaPath,
-): T {
+export function addPropertyAtPath<T extends SchemaNode>(root: T, path: SchemaPath): T {
 	return updateAtPath(root, path, (node) => ({
 		...node,
 		properties: [...(node.properties ?? []), newProperty()],
@@ -133,11 +116,7 @@ export function getRuleValue<T = unknown>(
  * Upserts a rule. An empty value removes the rule rather than persisting a
  * blank one — `0` and `false` are real values and survive.
  */
-export function updateRule(
-	rules: Rule[] | undefined,
-	type: string,
-	value: unknown,
-): Rule[] {
+export function updateRule(rules: Rule[] | undefined, type: string, value: unknown): Rule[] {
 	const next = rules ? [...rules] : [];
 	const index = next.findIndex((r) => r.type === type);
 	const isEmpty =

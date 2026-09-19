@@ -3,9 +3,7 @@ import { executionRuntimeEnvironment } from "../requestRouter/executionEnvironme
 import type { TestBootstrap, TestChildMessage, TestResult } from "./types";
 
 /** fileURLToPath, not .pathname — the latter yields "/D:/..." on Windows */
-const ENTRY = fileURLToPath(
-	new URL("./testExecutionProcess.ts", import.meta.url),
-);
+const ENTRY = fileURLToPath(new URL("./testExecutionProcess.ts", import.meta.url));
 
 /** how long past the route's own timeout the child gets to report before it is killed */
 const WATCHDOG_GRACE_MS = 2_000;
@@ -44,13 +42,7 @@ export function spawnCommand(
 ) {
 	if (platform === "win32") return [process.execPath, "--smol", entry];
 	const fds = positiveInt(env.TEST_RUNNER_MAX_FDS, 256);
-	return [
-		"/bin/sh",
-		"-c",
-		`ulimit -n ${fds}; exec "$0" --smol "$1"`,
-		process.execPath,
-		entry,
-	];
+	return ["/bin/sh", "-c", `ulimit -n ${fds}; exec "$0" --smol "$1"`, process.execPath, entry];
 }
 
 /**

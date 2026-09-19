@@ -1,8 +1,8 @@
 import { ConditionsBuilder } from "@fluxify/components";
 import { useReactFlow } from "@xyflow/react";
-import { BlockSettings } from "../BlockSettings";
 import { useCanvasChanges } from "../../changes/ChangesContext";
 import type { BlockNode } from "../../types";
+import { BlockSettings } from "../BlockSettings";
 import { parseIfConditions, serializeIfConditions } from "./ifConditions";
 
 /** If block: the conditions deciding which branch the flow takes. */
@@ -18,9 +18,7 @@ export function IfSettings({ block }: { block: BlockNode }) {
 			description="True takes the success branch, false takes the failure branch."
 			isDisabled={!editable}
 			conditions={parseIfConditions(block)}
-			onChange={(next) =>
-				updateNodeData(block.id, { conditions: serializeIfConditions(next) })
-			}
+			onChange={(next) => updateNodeData(block.id, { conditions: serializeIfConditions(next) })}
 		/>
 	);
 }

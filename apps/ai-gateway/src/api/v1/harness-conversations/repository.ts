@@ -1,8 +1,4 @@
-import {
-	db,
-	agentHarnessConversationsEntity,
-	integrationsEntity,
-} from "@fluxify/server";
+import { agentHarnessConversationsEntity, db, integrationsEntity } from "@fluxify/server";
 import { and, eq } from "drizzle-orm";
 
 export async function getConversationById(conversationId: string) {
@@ -15,10 +11,7 @@ export async function getConversationById(conversationId: string) {
 }
 
 /** Fetches an integration by id scoped to a project (group + config only). */
-export async function getProjectIntegration(
-	integrationId: string,
-	projectId: string,
-) {
+export async function getProjectIntegration(integrationId: string, projectId: string) {
 	const result = await db
 		.select({
 			group: integrationsEntity.group,
@@ -26,10 +19,7 @@ export async function getProjectIntegration(
 		})
 		.from(integrationsEntity)
 		.where(
-			and(
-				eq(integrationsEntity.id, integrationId),
-				eq(integrationsEntity.projectId, projectId),
-			),
+			and(eq(integrationsEntity.id, integrationId), eq(integrationsEntity.projectId, projectId)),
 		)
 		.limit(1);
 	return result[0];

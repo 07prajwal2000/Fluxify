@@ -1,14 +1,9 @@
-import { fencedTool } from "./fenced";
-import { z } from "zod";
 import { logger } from "@fluxify/common";
-import type { WorkflowMetadata } from "../types";
-import {
-	decodeResourceCursor,
-	type DbService,
-	type SearchMode,
-} from "../internal/dbService";
-import { ResourceType } from "../types";
+import { z } from "zod";
+import { type DbService, decodeResourceCursor, type SearchMode } from "../internal/dbService";
 import { renderCanvas } from "../internal/renderCanvas";
+import type { ResourceType, WorkflowMetadata } from "../types";
+import { fencedTool } from "./fenced";
 
 function isListRequest(keywords: string[], mode: SearchMode): boolean {
 	return (
@@ -61,11 +56,9 @@ export const createFindResourceTool = (
 	 */
 	options?: { withoutCanvasLookup?: boolean },
 ) => {
-	const resourceTypes = (
-		options?.withoutCanvasLookup
-			? RESOURCE_TYPES.filter((type) => !type.endsWith("_canvas"))
-			: RESOURCE_TYPES
-	) as unknown as [string, ...string[]];
+	const resourceTypes = (options?.withoutCanvasLookup
+		? RESOURCE_TYPES.filter((type) => !type.endsWith("_canvas"))
+		: RESOURCE_TYPES) as unknown as [string, ...string[]];
 
 	return fencedTool(
 		async ({ searchQuery, resourceType, searchBy, cursor, metadata: toolMetadata }) => {
@@ -88,18 +81,12 @@ export const createFindResourceTool = (
 						{ id: "error_handler", blockType: "error_handler" },
 					]);
 				}
-				const canvas = await dbService.getRouteCanvas(
-					metadata.projectId,
-					singleId,
-				);
+				const canvas = await dbService.getRouteCanvas(metadata.projectId, singleId);
 				return canvas ? renderCanvas(canvas) : "No canvas found.";
 			}
 
 			if (resourceType === "custom_block_canvas") {
-				const canvas = await dbService.getCustomBlockCanvas(
-					metadata.projectId,
-					singleId,
-				);
+				const canvas = await dbService.getCustomBlockCanvas(metadata.projectId, singleId);
 				return canvas ? renderCanvas(canvas) : "No canvas found.";
 			}
 
@@ -115,9 +102,7 @@ export const createFindResourceTool = (
 
 				let afterId: string | undefined;
 				try {
-					afterId = cursor
-						? decodeResourceCursor(cursor, resourceType)
-						: undefined;
+					afterId = cursor ? decodeResourceCursor(cursor, resourceType) : undefined;
 				} catch (error) {
 					return error instanceof Error ? error.message : "Invalid cursor.";
 				}
@@ -139,32 +124,16 @@ export const createFindResourceTool = (
 			let results: any[] = [];
 			switch (resourceType as ResourceType) {
 				case "route":
-					results = await dbService.findRoutes(
-						metadata.projectId,
-						keywords,
-						mode,
-					);
+					results = await dbService.findRoutes(metadata.projectId, keywords, mode);
 					break;
 				case "app_config":
-					results = await dbService.findAppConfigs(
-						metadata.projectId,
-						keywords,
-						mode,
-					);
+					results = await dbService.findAppConfigs(metadata.projectId, keywords, mode);
 					break;
 				case "integration":
-					results = await dbService.findIntegrations(
-						metadata.projectId,
-						keywords,
-						mode,
-					);
+					results = await dbService.findIntegrations(metadata.projectId, keywords, mode);
 					break;
 				case "custom_block":
-					results = await dbService.findCustomBlocks(
-						metadata.projectId,
-						keywords,
-						mode,
-					);
+					results = await dbService.findCustomBlocks(metadata.projectId, keywords, mode);
 					break;
 			}
 
@@ -187,21 +156,19 @@ export const createFindResourceTool = (
 					.describe(
 						"What to look up. With searchBy='keyword' (default), one or more keywords matched against name, path and description — pass an array of related terms (e.g. ['user', 'auth', 'login']) to widen matching and avoid multiple retries. With searchBy='id', the exact resource ID. For 'route_canvas' and 'custom_block_canvas', pass a single resource ID.",
 					),
-			searchBy: z
+				searchBy: z
 					.enum(["keyword", "id"])
 					.nullish()
 					.describe(
 						"'keyword' (default) fuzzy-searches names and descriptions. Use 'id' when you already have the resource's exact ID — from the plan, from your task description, or from an earlier tool result — and want that one record. An ID is not a keyword: fuzzy search will not find it.",
 					),
-			cursor: z
-				.string()
-				.nullish()
-				.describe(
-					"Opaque continuation cursor from a previous all/* listing. Omit for the first page; copy it exactly for the next 20 results.",
-				),
-				resourceType: z
-					.enum(resourceTypes)
-					.describe("The type of resource to search for."),
+				cursor: z
+					.string()
+					.nullish()
+					.describe(
+						"Opaque continuation cursor from a previous all/* listing. Omit for the first page; copy it exactly for the next 20 results.",
+					),
+				resourceType: z.enum(resourceTypes).describe("The type of resource to search for."),
 				metadata: z
 					.object({
 						isNewRoute: z.boolean().optional(),

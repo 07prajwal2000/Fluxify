@@ -1,0 +1,14 @@
+# Secret scanning for CI (see the `secret-scan` job). Gitleaks' default rules
+# plus an allowlist for files that hold placeholder credentials on purpose.
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "placeholder credentials in env examples, docs, tests and vendored typings"
+paths = [
+	'''(^|/)\.?env\.example$''',
+	'''^docs/''',
+	'''/public/types/''',
+	'''\.(spec|test)\.ts$''',
+	'''(^|/)(tests?|testing)/''',
+]

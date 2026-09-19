@@ -94,10 +94,8 @@ export const workflowsQuery = {
 		mutation(id: string) {
 			const qc = useQueryClient();
 			return useMutation({
-				mutationFn: (payload: CanvasSavePayload) =>
-					workflowsService.saveCanvasItems(id, payload),
-				onSuccess: () =>
-					qc.invalidateQueries({ queryKey: ["workflows", id, "canvas-items"] }),
+				mutationFn: (payload: CanvasSavePayload) => workflowsService.saveCanvasItems(id, payload),
+				onSuccess: () => qc.invalidateQueries({ queryKey: ["workflows", id, "canvas-items"] }),
 			});
 		},
 	},

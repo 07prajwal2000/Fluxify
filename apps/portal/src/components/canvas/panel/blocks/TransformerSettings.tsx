@@ -1,13 +1,8 @@
-import {
-	Checkbox,
-	FieldMapEditor,
-	JavaScriptTextArea,
-	Label,
-} from "@fluxify/components";
+import { Checkbox, FieldMapEditor, JavaScriptTextArea, Label } from "@fluxify/components";
 import { useReactFlow } from "@xyflow/react";
 import { useCanvasChanges } from "../../changes/ChangesContext";
-import { BlockSettings } from "../BlockSettings";
 import type { BlockNode } from "../../types";
+import { BlockSettings } from "../BlockSettings";
 
 /** Transformer General tab settings: custom Checkbox for useJs toggle. */
 export function TransformerGeneralSettings({ block }: { block: BlockNode }) {
@@ -41,9 +36,7 @@ export function TransformerFieldMapSettings({ block }: { block: BlockNode }) {
 			fieldMap={fieldMap}
 			label="Field Map"
 			description="Map source fields to destination object keys"
-			onKeyValueChange={(next) =>
-				updateNodeData(block.id, { fieldMap: next })
-			}
+			onKeyValueChange={(next) => updateNodeData(block.id, { fieldMap: next })}
 		/>
 	);
 }
@@ -58,8 +51,8 @@ export function TransformerJsSettings({ block }: { block: BlockNode }) {
 		<div className="flex flex-col gap-1.5">
 			<Label className="text-sm font-medium">JavaScript Code</Label>
 			<JavaScriptTextArea
-					expandable
-					expandTitle="Transformer - Code Editor"
+				expandable
+				expandTitle="Transformer - Code Editor"
 				rows={10}
 				showLineNumbers={true}
 				readOnly={!editable}

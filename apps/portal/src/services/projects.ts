@@ -1,17 +1,17 @@
-import { httpClient } from "@/lib/http";
-import {
-	requestQuerySchema as getAllRequestQuerySchema,
-	responseSchema as getAllResponseSchema,
-} from "@fluxify/server/src/api/v1/projects/get-all/dto";
 import {
 	requestBodySchema as createRequestBodySchema,
-	responseSchema as createResponseSchema,
+	type responseSchema as createResponseSchema,
 } from "@fluxify/server/src/api/v1/projects/create/dto";
 import {
+	requestQuerySchema as getAllRequestQuerySchema,
+	type responseSchema as getAllResponseSchema,
+} from "@fluxify/server/src/api/v1/projects/get-all/dto";
+import {
 	requestBodySchema as updateRequestBodySchema,
-	responseSchema as updateResponseSchema,
+	type responseSchema as updateResponseSchema,
 } from "@fluxify/server/src/api/v1/projects/update/dto";
-import z from "zod";
+import type z from "zod";
+import { httpClient } from "@/lib/http";
 
 const baseUrl = "/v1/projects";
 

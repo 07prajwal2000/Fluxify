@@ -1,7 +1,7 @@
-import { AbstractLogger } from "@fluxify/lib";
 import { createLokiLogger } from "@fluxify/common";
-import { resolveCustomHeaders } from "./customHeaders";
+import type { AbstractLogger } from "@fluxify/lib";
 import z from "zod";
+import { resolveCustomHeaders } from "./customHeaders";
 
 export const lokiLoggerSettings = z.object({
 	baseUrl: z.string().url(), // Fixed: Fixed invalid z.url() method call
@@ -36,9 +36,7 @@ export class LokiLogger implements AbstractLogger {
 		this.createLogger().error(value);
 	}
 
-	private static getHeader(
-		settings: z.infer<typeof lokiLoggerSettings>,
-	): Record<string, string> {
+	private static getHeader(settings: z.infer<typeof lokiLoggerSettings>): Record<string, string> {
 		// user headers first so they cannot clobber auth
 		const extra = settings.headers ?? {};
 		if (settings.encodedBasicAuth) {
@@ -47,18 +45,12 @@ export class LokiLogger implements AbstractLogger {
 				Authorization: `Basic ${settings.encodedBasicAuth}`,
 			};
 		}
-		if (
-			!settings.credentials ||
-			!settings.credentials.username ||
-			!settings.credentials.password
-		) {
+		if (!settings.credentials || !settings.credentials.username || !settings.credentials.password) {
 			// Loki is commonly run unauthenticated, and a tenant is often supplied as
 			// a header instead — so no credentials still means send the extras
 			return extra;
 		}
-		const credentials = btoa(
-			`${settings.credentials.username}:${settings.credentials.password}`,
-		);
+		const credentials = btoa(`${settings.credentials.username}:${settings.credentials.password}`);
 		return {
 			...extra,
 			Authorization: `Basic ${credentials}`,
@@ -71,11 +63,12 @@ export class LokiLogger implements AbstractLogger {
 		const baseUrl = new URL(this.settings.baseUrl);
 		const host = `${baseUrl.protocol}//${baseUrl.host}`;
 
-		const basicAuth = this.settings.credentials?.username && this.settings.credentials?.password 
-			? `${this.settings.credentials.username}:${this.settings.credentials.password}`
-			: undefined;
+		const basicAuth =
+			this.settings.credentials?.username && this.settings.credentials?.password
+				? `${this.settings.credentials.username}:${this.settings.credentials.password}`
+				: undefined;
 
-		return (this.logger = createLokiLogger({
+		this.logger = createLokiLogger({
 			host: host,
 			basicAuth: basicAuth,
 			labels: {
@@ -83,13 +76,11 @@ export class LokiLogger implements AbstractLogger {
 				route_id: this.settings.routeId ?? "unknown",
 				service_name: this.settings.routeId ?? "unknown",
 			},
-		}));
+		});
+		return this.logger;
 	}
 
-	public static async TestConnection(
-		settings: any,
-		appConfig: ConfigType,
-	): Promise<boolean> {
+	public static async TestConnection(settings: any, appConfig: ConfigType): Promise<boolean> {
 		try {
 			const extracted = LokiLogger.extractConnectionInfo(settings, appConfig);
 			if (!extracted) return false;
@@ -170,8 +161,7 @@ export class LokiLogger implements AbstractLogger {
 			headers: resolveCustomHeaders(config.headers, appConfig),
 			projectId: undefined, // Safe initialization due to schema change
 			routeId: undefined,
-			encodedBasicAuth:
-				typeof credentials === "string" ? credentials : undefined,
+			encodedBasicAuth: typeof credentials === "string" ? credentials : undefined,
 		};
 	}
 

@@ -1,9 +1,9 @@
 import {
+	Description,
 	CheckboxContent as HeroUICheckboxContent,
 	CheckboxControl as HeroUICheckboxControl,
 	CheckboxIndicator as HeroUICheckboxIndicator,
 	CheckboxRoot as HeroUICheckboxRoot,
-	Description,
 } from "@heroui/react";
 import type { ReactNode } from "react";
 import type {
@@ -23,7 +23,11 @@ export const CheckboxIndicator = HeroUICheckboxIndicator;
 export const CheckboxDescription = Description;
 
 export function CheckboxLabel({ children, className, ...props }: CheckboxLabelProps) {
-	return <span className={className} {...props}>{children}</span>;
+	return (
+		<span className={className} {...props}>
+			{children}
+		</span>
+	);
 }
 
 /**
@@ -105,9 +109,7 @@ export function Checkbox({
 					</HeroUICheckboxContent>
 					{description && <Description>{description}</Description>}
 					{errorMessage && (
-						<span className="text-xs text-[var(--danger,#ef4444)] mt-0.5">
-							{errorMessage}
-						</span>
+						<span className="text-xs text-[var(--danger,#ef4444)] mt-0.5">{errorMessage}</span>
 					)}
 				</>
 			)}

@@ -8,7 +8,7 @@
 ## 🧪 How to Test / Verification
 <!-- Describe testing performed to verify these changes -->
 - [ ] Ran the relevant tests (`bun run test:unit`, or the `test:*` suite for the area you changed)
-- [ ] `bun run lint` passes
+- [ ] `bun run lint` (Biome) and `bun run typecheck` pass
 - [ ] Manual testing steps performed:
 
 ## 📋 Checklist

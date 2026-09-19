@@ -1,4 +1,4 @@
-import { createContext, useContext, type ReactNode } from "react";
+import { createContext, type ReactNode, useContext } from "react";
 import type { CanvasClipboard } from "./useClipboard";
 
 export const DISABLED_CLIPBOARD: CanvasClipboard = {
@@ -21,9 +21,7 @@ export function CanvasClipboardProvider({
 	value: CanvasClipboard;
 	children: ReactNode;
 }) {
-	return (
-		<ClipboardContext.Provider value={value}>{children}</ClipboardContext.Provider>
-	);
+	return <ClipboardContext.Provider value={value}>{children}</ClipboardContext.Provider>;
 }
 
 /**

@@ -1,9 +1,6 @@
-import { getCache, setCacheEx, deleteCacheKey, mgetCache } from "@fluxify/server";
 import { logger } from "@fluxify/common";
-import type {
-	HarnessStreamEvent,
-	HarnessSnapshot,
-} from "../streamTypes";
+import { deleteCacheKey, getCache, mgetCache, setCacheEx } from "@fluxify/server";
+import type { HarnessSnapshot, HarnessStreamEvent } from "../streamTypes";
 
 /**
  * Redis-backed cache for harness live state. Stores a per-run snapshot (run
@@ -35,11 +32,7 @@ export class RedisService {
 
 	async setActiveRun(conversationId: string, runId: string): Promise<void> {
 		try {
-			await setCacheEx(
-				this.activeRunKey(conversationId),
-				runId,
-				RedisService.RUNNING_TTL,
-			);
+			await setCacheEx(this.activeRunKey(conversationId), runId, RedisService.RUNNING_TTL);
 		} catch (e) {
 			logger.error("[RedisService] Error setting active run", { conversationId, error: e });
 		}

@@ -1,10 +1,4 @@
-import type {
-	Edge,
-	EdgeTypes,
-	Node,
-	NodeTypes,
-	Viewport,
-} from "@xyflow/react";
+import type { Edge, EdgeTypes, Node, NodeTypes, Viewport } from "@xyflow/react";
 import type { ChangeSet } from "./changes/changeTracker";
 
 /** Arbitrary per-block configuration. Shape is owned by each block type. */

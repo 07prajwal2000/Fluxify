@@ -1,5 +1,5 @@
-import { decode as msgpackDecode, encode as msgpackEncode } from "@msgpack/msgpack";
 import { gunzipSync, gzipSync } from "node:zlib";
+import { decode as msgpackDecode, encode as msgpackEncode } from "@msgpack/msgpack";
 
 /**
  * v3 removed `StringCodec` and `JSONCodec`. Payloads are now `Uint8Array | string`
@@ -103,9 +103,7 @@ export function msgpackCodec<T = unknown>(): Codec<T> {
  * 0x1f is `int 31` in msgpack and would only ever appear as the first byte of a
  * bare integer payload, which is not a shape anything here publishes.
  */
-export function gzipMsgpackCodec<T = unknown>(
-	thresholdBytes = 32 * 1024,
-): Codec<T> {
+export function gzipMsgpackCodec<T = unknown>(thresholdBytes = 32 * 1024): Codec<T> {
 	const pack = msgpackCodec<T>();
 	return {
 		encode(value) {

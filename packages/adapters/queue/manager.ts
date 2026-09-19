@@ -40,7 +40,9 @@ export class QueueConnectionManager {
 	private readonly queued = new Map<string, Promise<void>>();
 	private readonly loaded = new Map<string, Loaded>();
 
-	constructor(private readonly load: (type: string) => Promise<QueueConnector> = loadQueueConnector) {}
+	constructor(
+		private readonly load: (type: string) => Promise<QueueConnector> = loadQueueConnector,
+	) {}
 
 	start(triggerId: string, spec: QueueTriggerSpec, handler: QueueHandler) {
 		return this.inOrder(triggerId, () => this.apply(triggerId, spec, handler));

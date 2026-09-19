@@ -2,10 +2,10 @@ import { Button, InputGroup, TextField } from "@heroui/react";
 import { useEffect, useState } from "react";
 import { TbPlus } from "react-icons/tb";
 import { DeleteIconButton } from "../DeleteButton";
-import type { JsonObject, JsonValue, JsonValueType } from "./types";
 import { JsonCollectionShell } from "./JsonCollectionShell";
 import { JsonTypeSelect } from "./JsonTypeSelect";
 import { JsonValueEditor } from "./JsonValueEditor";
+import type { JsonObject, JsonValue, JsonValueType } from "./types";
 import {
 	createDefaultJsonValue,
 	getJsonValueType,
@@ -28,12 +28,7 @@ interface ObjectKeyFieldProps {
 	onRename: (name: string) => void;
 }
 
-function ObjectKeyField({
-	name,
-	objectValue,
-	isReadOnly,
-	onRename,
-}: ObjectKeyFieldProps) {
+function ObjectKeyField({ name, objectValue, isReadOnly, onRename }: ObjectKeyFieldProps) {
 	const [draftName, setDraftName] = useState(name);
 	const [error, setError] = useState<string | null>(null);
 
@@ -141,17 +136,14 @@ export function JsonObjectEditor({
 								<div
 									className="grid min-w-[28rem] items-start gap-2"
 									style={{
-										gridTemplateColumns:
-											"minmax(9rem, 0.8fr) 1.25rem minmax(10rem, 1fr) 2.5rem",
+										gridTemplateColumns: "minmax(9rem, 0.8fr) 1.25rem minmax(10rem, 1fr) 2.5rem",
 									}}
 								>
 									<ObjectKeyField
 										isReadOnly={isReadOnly}
 										name={key}
 										objectValue={value}
-										onRename={(nextKey) =>
-											onChange(renameObjectKey(value, key, nextKey))
-										}
+										onRename={(nextKey) => onChange(renameObjectKey(value, key, nextKey))}
 									/>
 									<span className="flex h-10 items-center justify-center font-mono text-sm text-muted">
 										:
@@ -159,9 +151,7 @@ export function JsonObjectEditor({
 									<JsonTypeSelect
 										ariaLabel={`Type for ${key}`}
 										isDisabled={isReadOnly}
-										onChange={(nextType) =>
-											updateEntry(key, createDefaultJsonValue(nextType))
-										}
+										onChange={(nextType) => updateEntry(key, createDefaultJsonValue(nextType))}
 										value={valueType}
 									/>
 									{deleteButton}
@@ -189,9 +179,7 @@ export function JsonObjectEditor({
 									isReadOnly={isReadOnly}
 									name={key}
 									objectValue={value}
-									onRename={(nextKey) =>
-										onChange(renameObjectKey(value, key, nextKey))
-									}
+									onRename={(nextKey) => onChange(renameObjectKey(value, key, nextKey))}
 								/>
 								<span className="flex h-10 items-center justify-center font-mono text-sm text-muted">
 									:
@@ -207,9 +195,7 @@ export function JsonObjectEditor({
 								<JsonTypeSelect
 									ariaLabel={`Type for ${key}`}
 									isDisabled={isReadOnly}
-									onChange={(nextType) =>
-										updateEntry(key, createDefaultJsonValue(nextType))
-									}
+									onChange={(nextType) => updateEntry(key, createDefaultJsonValue(nextType))}
 									value={valueType}
 								/>
 								{deleteButton}
@@ -224,8 +210,7 @@ export function JsonObjectEditor({
 					<div
 						className="grid min-w-[32rem] gap-2"
 						style={{
-							gridTemplateColumns:
-								"minmax(9rem, 1fr) minmax(9rem, 1fr) minmax(8rem, 1fr)",
+							gridTemplateColumns: "minmax(9rem, 1fr) minmax(9rem, 1fr) minmax(8rem, 1fr)",
 						}}
 					>
 						<TextField fullWidth isInvalid={Boolean(addError)} variant="secondary">

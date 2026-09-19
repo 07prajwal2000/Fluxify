@@ -1,6 +1,6 @@
+import { validatePropertyValue } from "./propertyValidation";
 import type { ApiFormValue, ApiKeyValue, ApiPlaygroundRoute } from "./types";
 import { pathParameterNames, schemaProperties } from "./utils";
-import { validatePropertyValue } from "./propertyValidation";
 
 export { validatePropertyValue };
 
@@ -27,7 +27,11 @@ export function getMissingPathParams(rawPath: string, pathRows: ApiKeyValue[]): 
 	});
 }
 
-function validatePathParameters(rawPath: string, pathRows: ApiKeyValue[], route: ApiPlaygroundRoute) {
+function validatePathParameters(
+	rawPath: string,
+	pathRows: ApiKeyValue[],
+	route: ApiPlaygroundRoute,
+) {
 	const pathParamNames = pathParameterNames(rawPath);
 	const pathPropsMap = new Map(schemaProperties(route.paramsSchema).map((p) => [p.key, p]));
 	const pathRowsMap = new Map(pathRows.map((r) => [r.key, r.value]));
@@ -38,7 +42,11 @@ function validatePathParameters(rawPath: string, pathRows: ApiKeyValue[], route:
 	for (const key of pathParamNames) {
 		const val = pathRowsMap.get(key);
 		const prop = pathPropsMap.get(key) ?? { key, required: true, dataType: "str" };
-		const err = validatePropertyValue(val, { ...prop, required: true }, { coerce: true, isPathParam: true });
+		const err = validatePropertyValue(
+			val,
+			{ ...prop, required: true },
+			{ coerce: true, isPathParam: true },
+		);
 		if (err) {
 			errors[key] = err;
 			if (val === undefined || val.trim() === "") missing.push(key);
@@ -83,7 +91,8 @@ function validateFormBody(formBody: Record<string, ApiFormValue>, route: ApiPlay
 		const err = validatePropertyValue(val, field, { coerce: true });
 		if (err) {
 			errors[field.key] = err;
-			if (val === undefined || val === null || (typeof val === "string" && val.trim() === "")) missing.push(field.key);
+			if (val === undefined || val === null || (typeof val === "string" && val.trim() === ""))
+				missing.push(field.key);
 			else invalid.push(`${field.key}: ${err}`);
 		}
 	}
@@ -115,7 +124,10 @@ function validateJsonBody(body: string, route: ApiPlaygroundRoute): string | und
 			(route.bodySchema as { dataType?: string; type?: string })?.type ??
 			""
 		).toLowerCase();
-		if (rootType === "object" && (typeof parsed !== "object" || parsed === null || Array.isArray(parsed))) {
+		if (
+			rootType === "object" &&
+			(typeof parsed !== "object" || parsed === null || Array.isArray(parsed))
+		) {
 			return "Request body must be a JSON object";
 		}
 		if ((rootType === "arr" || rootType === "array") && !Array.isArray(parsed)) {
@@ -129,7 +141,8 @@ function validateJsonBody(body: string, route: ApiPlaygroundRoute): string | und
 
 function validateBinaryBody(body: string, route: ApiPlaygroundRoute): string | undefined {
 	const byteLength = new TextEncoder().encode(body).byteLength;
-	const rules = (route.bodySchema as { rules?: Array<{ type: string; value?: unknown }> })?.rules ?? [];
+	const rules =
+		(route.bodySchema as { rules?: Array<{ type: string; value?: unknown }> })?.rules ?? [];
 	const maxSize = rules.find((r) => r.type === "maxSize" && r.value != null);
 	const minSize = rules.find((r) => r.type === "minSize" && r.value != null);
 
@@ -159,7 +172,8 @@ export function validatePlaygroundRequest({
 	body: string;
 	formBody: Record<string, ApiFormValue>;
 }): PlaygroundValidationResult {
-	const isForm = contentType === "application/x-www-form-urlencoded" || contentType === "multipart/form-data";
+	const isForm =
+		contentType === "application/x-www-form-urlencoded" || contentType === "multipart/form-data";
 	const isJson = contentType.includes("json");
 	const isBinary =
 		contentType === "application/octet-stream" ||
@@ -167,12 +181,16 @@ export function validatePlaygroundRequest({
 
 	const pathResult = validatePathParameters(rawPath, pathRows, route);
 	const queryResult = validateQueryParameters(queryRows, route);
-	const formResult = isForm && route.bodySchema ? validateFormBody(formBody, route) : { errors: {}, missing: [], invalid: [] };
-	const bodyError = isJson && route.bodySchema
-		? validateJsonBody(body, route)
-		: isBinary && route.bodySchema
-			? validateBinaryBody(body, route)
-			: undefined;
+	const formResult =
+		isForm && route.bodySchema
+			? validateFormBody(formBody, route)
+			: { errors: {}, missing: [], invalid: [] };
+	const bodyError =
+		isJson && route.bodySchema
+			? validateJsonBody(body, route)
+			: isBinary && route.bodySchema
+				? validateBinaryBody(body, route)
+				: undefined;
 
 	const errors: PlaygroundValidationErrors = {
 		pathParams: pathResult.errors,
@@ -194,9 +212,10 @@ export function validatePlaygroundRequest({
 		return {
 			isValid: false,
 			firstErrorTab: "params",
-			toastMessage: pathResult.missing.length > 0
-				? `Missing required route parameter${pathResult.missing.length > 1 ? "s" : ""}: ${pathResult.missing.map((k) => `:${k}`).join(", ")}`
-				: `Route parameter error: ${pathResult.invalid.join("; ")}`,
+			toastMessage:
+				pathResult.missing.length > 0
+					? `Missing required route parameter${pathResult.missing.length > 1 ? "s" : ""}: ${pathResult.missing.map((k) => `:${k}`).join(", ")}`
+					: `Route parameter error: ${pathResult.invalid.join("; ")}`,
 			errors,
 		};
 	}
@@ -205,9 +224,10 @@ export function validatePlaygroundRequest({
 		return {
 			isValid: false,
 			firstErrorTab: "params",
-			toastMessage: queryResult.missing.length > 0
-				? `Missing required query parameter${queryResult.missing.length > 1 ? "s" : ""}: ${queryResult.missing.join(", ")}`
-				: `Query parameter error: ${queryResult.invalid.join("; ")}`,
+			toastMessage:
+				queryResult.missing.length > 0
+					? `Missing required query parameter${queryResult.missing.length > 1 ? "s" : ""}: ${queryResult.missing.join(", ")}`
+					: `Query parameter error: ${queryResult.invalid.join("; ")}`,
 			errors,
 		};
 	}
@@ -216,9 +236,10 @@ export function validatePlaygroundRequest({
 		return {
 			isValid: false,
 			firstErrorTab: "body",
-			toastMessage: formResult.missing.length > 0
-				? `Missing required form field${formResult.missing.length > 1 ? "s" : ""}: ${formResult.missing.join(", ")}`
-				: `Form field error: ${formResult.invalid.join("; ")}`,
+			toastMessage:
+				formResult.missing.length > 0
+					? `Missing required form field${formResult.missing.length > 1 ? "s" : ""}: ${formResult.missing.join(", ")}`
+					: `Form field error: ${formResult.invalid.join("; ")}`,
 			errors,
 		};
 	}

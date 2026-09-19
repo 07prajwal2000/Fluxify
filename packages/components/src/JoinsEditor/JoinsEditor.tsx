@@ -52,32 +52,20 @@ export function JoinsEditor({
 
 	return (
 		<div className={clsx("flex flex-col gap-2.5 w-full", className)}>
-			{label && (
-				<Label className="text-sm font-medium text-foreground">{label}</Label>
-			)}
+			{label && <Label className="text-sm font-medium text-foreground">{label}</Label>}
 			{description && (
-				<Description className="text-xs text-muted-foreground -mt-1">
-					{description}
-				</Description>
+				<Description className="text-xs text-muted-foreground -mt-1">{description}</Description>
 			)}
 
 			<div className="flex flex-col gap-2.5 w-full">
 				{joins.length === 0 ? (
-					<p className="text-xs text-muted-foreground py-2 text-center">
-						{emptyMessage}
-					</p>
+					<p className="text-xs text-muted-foreground py-2 text-center">{emptyMessage}</p>
 				) : (
 					joins.map((join, index) => {
 						const rawAttr = join.attribute || "";
 						const equalsIndex = rawAttr.indexOf("=");
-						const leftAttr =
-							equalsIndex !== -1
-								? rawAttr.slice(0, equalsIndex).trim()
-								: rawAttr;
-						const rightAttr =
-							equalsIndex !== -1
-								? rawAttr.slice(equalsIndex + 1).trim()
-								: "";
+						const leftAttr = equalsIndex !== -1 ? rawAttr.slice(0, equalsIndex).trim() : rawAttr;
+						const rightAttr = equalsIndex !== -1 ? rawAttr.slice(equalsIndex + 1).trim() : "";
 
 						const rightColSuggestions =
 							join.table && getColumnSuggestions
@@ -85,10 +73,7 @@ export function JoinsEditor({
 								: columnSuggestions;
 
 						return (
-							<div
-								key={index}
-								className="flex flex-row items-center gap-2 w-full min-w-0"
-							>
+							<div key={index} className="flex flex-row items-center gap-2 w-full min-w-0">
 								{/* Card with 2 rows */}
 								<div className="flex-1 min-w-0 flex flex-col gap-2 p-2.5 rounded-lg border border-border bg-surface-secondary/40">
 									{/* Row 1: Dropdown + Table */}
@@ -112,11 +97,7 @@ export function JoinsEditor({
 												<Select.Popover>
 													<ListBox>
 														{JOIN_TYPE_OPTIONS.map((opt) => (
-															<ListBox.Item
-																key={opt.value}
-																id={opt.value}
-																textValue={opt.label}
-															>
+															<ListBox.Item key={opt.value} id={opt.value} textValue={opt.label}>
 																{opt.label}
 																<ListBox.ItemIndicator />
 															</ListBox.Item>
@@ -151,9 +132,7 @@ export function JoinsEditor({
 												value={leftAttr}
 												suggestions={columnSuggestions}
 												onChange={(val) => {
-													const newAttr = rightAttr
-														? `${val} = ${rightAttr}`
-														: val;
+													const newAttr = rightAttr ? `${val} = ${rightAttr}` : val;
 													handleUpdate(index, { attribute: newAttr });
 												}}
 												variant="secondary"
@@ -205,12 +184,7 @@ export function JoinsEditor({
 
 			{!disabled && (
 				<div className="flex flex-col gap-1.5 items-start mt-1">
-					<Button
-						size="sm"
-						variant="secondary"
-						isDisabled={disabled}
-						onPress={handleAdd}
-					>
+					<Button size="sm" variant="secondary" isDisabled={disabled} onPress={handleAdd}>
 						<TbPlus className="size-4 mr-1" /> Add Another Join
 					</Button>
 				</div>

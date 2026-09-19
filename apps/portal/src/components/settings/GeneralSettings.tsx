@@ -1,19 +1,19 @@
-import { useEffect, useState } from "react";
-import { Button, TextField, Label, Input, toast, Spinner } from "@fluxify/components";
+import { Button, Input, Label, Spinner, TextField, toast } from "@fluxify/components";
+import type { RequestBodySchema } from "@fluxify/server/src/api/v1/projects/settings/keys/upsert/dto";
 import { useQueryClient } from "@tanstack/react-query";
-import { projectsQuery } from "@/query/projectsQuery";
-import { projectsService } from "@/services/projects";
+import { useEffect, useState } from "react";
+import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { showErrorNotification } from "@/lib/errorNotifier";
 import { projectSettingsKeysQuery } from "@/query/projectSettingsKeysQuery";
-import { ConfirmDialog } from "@/components/common/ConfirmDialog";
-import type { RequestBodySchema } from "@fluxify/server/src/api/v1/projects/settings/keys/upsert/dto";
+import { projectsQuery } from "@/query/projectsQuery";
+import { projectsService } from "@/services/projects";
 import { SubdomainField, subdomainError, useBaseDomain } from "./SubdomainField";
 
 export function GeneralSettings({ projectId }: { projectId: string }) {
 	// Match the ProjectsTab query to hit the cache immediately
 	const query = { page: 1, perPage: 50 };
 	const { data, isLoading } = projectsQuery.getAll.useQuery(query);
-	
+
 	if (isLoading) {
 		return (
 			<div className="flex justify-center py-16">
@@ -25,24 +25,20 @@ export function GeneralSettings({ projectId }: { projectId: string }) {
 	const project = data?.data?.find((p: any) => p.id === projectId);
 
 	if (!project) {
-		return (
-			<div className="py-16 text-center text-muted">
-				Project not found.
-			</div>
-		);
+		return <div className="py-16 text-center text-muted">Project not found.</div>;
 	}
 
 	return <GeneralSettingsForm projectId={projectId} project={project} query={query} />;
 }
 
-function GeneralSettingsForm({ 
-	projectId, 
-	project, 
-	query 
-}: { 
-	projectId: string; 
-	project: any; 
-	query: any; 
+function GeneralSettingsForm({
+	projectId,
+	project,
+	query,
+}: {
+	projectId: string;
+	project: any;
+	query: any;
 }) {
 	const client = useQueryClient();
 	const [name, setName] = useState(project.name ?? "");
@@ -156,8 +152,8 @@ function ApiAddressSettings({ projectId }: { projectId: string }) {
 				onConfirm={save}
 			>
 				Every route moves from <code>{address(saved)}</code> to <code>{address(subdomain)}</code>{" "}
-				right away. Anything still calling the old address gets a 404, so update your clients and DNS
-				first.
+				right away. Anything still calling the old address gets a 404, so update your clients and
+				DNS first.
 			</ConfirmDialog>
 		</div>
 	);

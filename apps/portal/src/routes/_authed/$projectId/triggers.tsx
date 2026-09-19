@@ -1,5 +1,3 @@
-import { useMemo, useState } from "react";
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import {
 	Button,
 	DeleteIconButton,
@@ -11,17 +9,19 @@ import {
 	TextField,
 	toast,
 } from "@fluxify/components";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useMemo, useState } from "react";
 import { TbBolt, TbEdit, TbPlus, TbStack2 } from "react-icons/tb";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { EmptyState } from "@/components/common/EmptyState";
 import { EditTriggerModal } from "@/components/triggers/EditTriggerModal";
+import { queueName } from "@/components/triggers/SqsTriggerFields";
 import { TriggerGroupsModal } from "@/components/triggers/TriggerGroupsModal";
-import { triggersQuery } from "@/query/triggersQuery";
+import { announceWarnings, DisabledReason } from "@/components/triggers/TriggerNotices";
 import { showErrorNotification } from "@/lib/errorNotifier";
 import { createRouteHead } from "@/lib/seo";
+import { triggersQuery } from "@/query/triggersQuery";
 import type { TriggerListItem } from "@/services/triggers";
-import { DisabledReason, announceWarnings } from "@/components/triggers/TriggerNotices";
-import { queueName } from "@/components/triggers/SqsTriggerFields";
 
 export const Route = createFileRoute("/_authed/$projectId/triggers")({
 	head: createRouteHead(
@@ -63,17 +63,14 @@ function TriggersPage() {
 		);
 	}, [data?.data]);
 	const totalPages = data?.pagination?.totalPages ?? 1;
-	const openNew = () =>
-		navigate({ to: "/$projectId/triggers/new", params: { projectId } });
+	const openNew = () => navigate({ to: "/$projectId/triggers/new", params: { projectId } });
 
 	return (
 		<div className="flex flex-col gap-4">
 			<div className="flex flex-wrap items-center justify-between gap-3">
 				<div>
 					<h1 className="text-xl font-semibold tracking-tight">Triggers</h1>
-					<p className="text-sm text-muted">
-						What starts a workflow when nobody presses Run.
-					</p>
+					<p className="text-sm text-muted">What starts a workflow when nobody presses Run.</p>
 				</div>
 				<div className="flex items-center gap-2">
 					<TextField
@@ -140,9 +137,7 @@ function TriggersPage() {
 									<Table.Cell>
 										<span className="text-muted">
 											{trigger.type === "schedule" ? (
-												<span className="font-mono text-xs">
-													{trigger.schedule}
-												</span>
+												<span className="font-mono text-xs">{trigger.schedule}</span>
 											) : trigger.type === "nats" ? (
 												<span className="font-mono text-xs">
 													nats · {(trigger.source as { stream?: string } | null)?.stream}
@@ -150,11 +145,16 @@ function TriggersPage() {
 											) : trigger.type === "kafka" ? (
 												<span className="font-mono text-xs">
 													kafka ·{" "}
-													{((trigger.source as { topics?: string[] } | null)?.topics ?? []).join(", ")}
+													{((trigger.source as { topics?: string[] } | null)?.topics ?? []).join(
+														", ",
+													)}
 												</span>
 											) : trigger.type === "sqs" ? (
 												<span className="font-mono text-xs">
-													sqs · {queueName((trigger.source as { queueUrl?: string } | null)?.queueUrl ?? "")}
+													sqs ·{" "}
+													{queueName(
+														(trigger.source as { queueUrl?: string } | null)?.queueUrl ?? "",
+													)}
 												</span>
 											) : (
 												trigger.type
@@ -163,9 +163,7 @@ function TriggersPage() {
 									</Table.Cell>
 									<Table.Cell>
 										{trigger.workflow ? (
-											<span className="line-clamp-1 text-muted">
-												{trigger.workflow.name}
-											</span>
+											<span className="line-clamp-1 text-muted">{trigger.workflow.name}</span>
 										) : (
 											// An active trigger attached to nothing is the one state
 											// that looks fine and does nothing at all.
@@ -218,11 +216,7 @@ function TriggersPage() {
 
 			{totalPages > 1 && (
 				<div className="flex items-center justify-end gap-3 text-sm text-muted">
-					<Button
-						variant="outline"
-						isDisabled={page <= 1}
-						onPress={() => setPage((p) => p - 1)}
-					>
+					<Button variant="outline" isDisabled={page <= 1} onPress={() => setPage((p) => p - 1)}>
 						Previous
 					</Button>
 					<span>
@@ -254,8 +248,8 @@ function TriggersPage() {
 					setPendingDelete(null);
 				}}
 			>
-				Delete <b className="text-foreground">{pendingDelete?.name}</b>? Every
-				workflow it starts keeps working, but nothing will start it.
+				Delete <b className="text-foreground">{pendingDelete?.name}</b>? Every workflow it starts
+				keeps working, but nothing will start it.
 			</ConfirmDialog>
 
 			<TriggerGroupsModal

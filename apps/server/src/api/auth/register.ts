@@ -1,11 +1,11 @@
 import { Hono } from "hono";
 import { auth } from "../../lib/auth";
+import type { HonoServer } from "../../types";
+import mapChangeUserPasswordRoute from "./change-user-password/route";
 import mapCreateAuthUserRoute from "./create-user/route";
+import mapDeleteUserRoute from "./delete-user/route";
 import mapListUsersRoute from "./list-users/route";
 import mapUpdateUserPartialRoute from "./update-user-partial/route";
-import mapDeleteUserRoute from "./delete-user/route";
-import mapChangeUserPasswordRoute from "./change-user-password/route";
-import { HonoServer } from "../../types";
 
 export default {
 	name: "authentication",

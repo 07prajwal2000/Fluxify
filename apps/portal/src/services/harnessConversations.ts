@@ -1,11 +1,11 @@
+import * as harnessConversationsActionDto from "@fluxify/ai-gateway/src/api/v1/harness-conversations/action/dto";
+import * as harnessArtifactsDto from "@fluxify/ai-gateway/src/api/v1/harness-conversations/artifacts/dto";
+import type * as harnessConversationsListDto from "@fluxify/ai-gateway/src/api/v1/harness-conversations/list/dto";
+import type * as harnessConversationsListMessagesDto from "@fluxify/ai-gateway/src/api/v1/harness-conversations/list-messages/dto";
+import * as harnessConversationsSendMessageDto from "@fluxify/ai-gateway/src/api/v1/harness-conversations/send-message/dto";
+import * as harnessConversationsUpdateDto from "@fluxify/ai-gateway/src/api/v1/harness-conversations/update/dto";
 import type { z } from "zod";
 import { httpClient } from "@/lib/http";
-import * as harnessConversationsListDto from "@fluxify/ai-gateway/src/api/v1/harness-conversations/list/dto";
-import * as harnessConversationsUpdateDto from "@fluxify/ai-gateway/src/api/v1/harness-conversations/update/dto";
-import * as harnessConversationsSendMessageDto from "@fluxify/ai-gateway/src/api/v1/harness-conversations/send-message/dto";
-import * as harnessConversationsActionDto from "@fluxify/ai-gateway/src/api/v1/harness-conversations/action/dto";
-import * as harnessConversationsListMessagesDto from "@fluxify/ai-gateway/src/api/v1/harness-conversations/list-messages/dto";
-import * as harnessArtifactsDto from "@fluxify/ai-gateway/src/api/v1/harness-conversations/artifacts/dto";
 
 const baseUrl = (projectId: string) => `ai/v1/${projectId}/harness-conversations`;
 
@@ -14,15 +14,9 @@ export type ListHarnessConversationsQuery = z.infer<
 >;
 
 /** List shape — no `payload`. Fetch one by id when you need the graph. */
-export type SubArtifactSummary = z.infer<
-	typeof harnessArtifactsDto.subArtifactSummarySchema
->;
-export type SubArtifactDetail = z.infer<
-	typeof harnessArtifactsDto.subArtifactDetailSchema
->;
-export type ApplyArtifactResponse = z.infer<
-	typeof harnessArtifactsDto.applyArtifactResponseSchema
->;
+export type SubArtifactSummary = z.infer<typeof harnessArtifactsDto.subArtifactSummarySchema>;
+export type SubArtifactDetail = z.infer<typeof harnessArtifactsDto.subArtifactDetailSchema>;
+export type ApplyArtifactResponse = z.infer<typeof harnessArtifactsDto.applyArtifactResponseSchema>;
 
 export const harnessConversationsService = {
 	async list(
@@ -76,10 +70,7 @@ export const harnessConversationsService = {
 		conversationId: string,
 		body: z.infer<typeof harnessConversationsActionDto.requestBodySchema>,
 	): Promise<z.infer<typeof harnessConversationsActionDto.responseSchema>> {
-		const result = await httpClient.post(
-			`${baseUrl(projectId)}/${conversationId}/action`,
-			body,
-		);
+		const result = await httpClient.post(`${baseUrl(projectId)}/${conversationId}/action`, body);
 		return result.data;
 	},
 	/** Everything one run produced, as chips. */

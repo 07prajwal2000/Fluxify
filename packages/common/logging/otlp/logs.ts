@@ -1,10 +1,7 @@
-import { OTLPLogExporter } from "@opentelemetry/exporter-logs-otlp-http";
 import { logs } from "@opentelemetry/api-logs";
+import { OTLPLogExporter } from "@opentelemetry/exporter-logs-otlp-http";
 import { Resource } from "@opentelemetry/resources";
-import {
-	BatchLogRecordProcessor,
-	LoggerProvider,
-} from "@opentelemetry/sdk-logs";
+import { BatchLogRecordProcessor, LoggerProvider } from "@opentelemetry/sdk-logs";
 import { grpcExporterOptions, type OtlpTransport } from "../../otlp/grpc";
 
 export interface OtlpLoggerOptions {
@@ -40,7 +37,7 @@ export function createOtlpLoggerProvider({
 			new Resource({
 				"service.name": serviceName,
 				"stream-name": serviceName,
-			})
+			}),
 		),
 	});
 
@@ -49,7 +46,7 @@ export function createOtlpLoggerProvider({
 		new BatchLogRecordProcessor(logExporter, {
 			exportTimeoutMillis: 20 * 1000,
 			maxQueueSize: 100,
-		})
+		}),
 	);
 
 	return loggerProvider;
@@ -61,7 +58,7 @@ export function createOtlpLoggerProvider({
  */
 export function initializeOtlpLogger(options: OtlpLoggerOptions): void {
 	const loggerProvider = createOtlpLoggerProvider(options);
-	
+
 	// 3. Register the provider globally
 	logs.setGlobalLoggerProvider(loggerProvider);
 }

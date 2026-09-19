@@ -1,4 +1,4 @@
-import { connectNats, natsConnection, natsConnected, closeNats } from "@fluxify/common/nats";
+import { closeNats, connectNats, natsConnected, natsConnection } from "@fluxify/common/nats";
 import { NATS_TOKEN, NATS_URL } from "../lib/env";
 
 /**
@@ -14,4 +14,4 @@ export async function initializeNats() {
 	});
 }
 
-export { natsConnection, natsConnected, closeNats };
+export { closeNats, natsConnected, natsConnection };

@@ -66,8 +66,6 @@
 	user-select: all;
 }
 
-
-
 .fx-panel--resizing {
 	transition: none !important;
 	user-select: none;
@@ -109,7 +107,11 @@
 	border: 1px solid var(--fx-panel-border);
 	color: var(--fx-panel-muted);
 	box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15);
-	transition: background-color 150ms ease, border-color 150ms ease, color 150ms ease, transform 150ms ease;
+	transition:
+		background-color 150ms ease,
+		border-color 150ms ease,
+		color 150ms ease,
+		transform 150ms ease;
 }
 
 .fx-panel__resize-handle:hover .fx-panel__resize-knob,

@@ -1,9 +1,8 @@
-import { Button, Chip } from "@fluxify/components";
+import { Button, Chip, DeleteButton } from "@fluxify/components";
 import { TbPencil } from "react-icons/tb";
-import { DeleteButton } from "@fluxify/components";
 import type { ClaimView } from "@/services/orchestration";
-import { NodeList } from "./NodeList";
 import { TYPE_LABEL } from "./copy";
+import { NodeList } from "./NodeList";
 
 /**
  * One claim with the nodes it produced.
@@ -44,9 +43,7 @@ export function ClaimCard({
 							{serving} of {claim.replicas} serving
 						</Chip>
 						{showProject && (
-							<span className="text-xs text-muted">
-								{claim.projectId ?? "every project"}
-							</span>
+							<span className="text-xs text-muted">{claim.projectId ?? "every project"}</span>
 						)}
 					</div>
 					<p className="mt-1 text-xs text-muted">

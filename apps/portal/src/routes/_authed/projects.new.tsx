@@ -1,8 +1,7 @@
-import { useMemo, useState } from "react";
-import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
 import {
 	Button,
 	Checkbox,
+	cn,
 	Input,
 	Label,
 	LazyLoader,
@@ -10,9 +9,10 @@ import {
 	Select,
 	TextArea,
 	TextField,
-	cn,
 	toast,
 } from "@fluxify/components";
+import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
+import { useMemo, useState } from "react";
 import {
 	TbArrowLeft,
 	TbArrowRight,
@@ -21,13 +21,17 @@ import {
 	TbChevronRight,
 	TbSearch,
 } from "react-icons/tb";
+import { ROLES, type Role } from "@/components/common/RoleSelector";
+import {
+	SubdomainField,
+	subdomainError,
+	useBaseDomain,
+} from "@/components/settings/SubdomainField";
 import { authClient } from "@/lib/auth";
-import { authQuery } from "@/query/authQuery";
-import { projectsQuery } from "@/query/projectsQuery";
 import { showErrorNotification } from "@/lib/errorNotifier";
 import { createRouteHead } from "@/lib/seo";
-import { ROLES, type Role } from "@/components/common/RoleSelector";
-import { SubdomainField, subdomainError, useBaseDomain } from "@/components/settings/SubdomainField";
+import { authQuery } from "@/query/authQuery";
+import { projectsQuery } from "@/query/projectsQuery";
 
 // Same roles the project settings member list offers, shown as a dropdown here
 // because each row already carries a name and a remove action.
@@ -58,10 +62,7 @@ const STEPS = [
 	{ key: "config", label: "Configuration" },
 ] as const;
 
-const STEP_COPY: Record<
-	(typeof STEPS)[number]["key"],
-	{ title: string; description: string }
-> = {
+const STEP_COPY: Record<(typeof STEPS)[number]["key"], { title: string; description: string }> = {
 	basics: {
 		title: "Name the project",
 		description: "How it appears in the project list. You can rename it later.",
@@ -110,13 +111,9 @@ function CreateProjectPage() {
 			{
 				name: name.trim(),
 				description: description.trim() || undefined,
-				members: members.length
-					? members.map(({ userId, role }) => ({ userId, role }))
-					: undefined,
+				members: members.length ? members.map(({ userId, role }) => ({ userId, role })) : undefined,
 				settings: {
-					"experimental.workerTimeouts.enabled": workerTimeouts
-						? "true"
-						: "false",
+					"experimental.workerTimeouts.enabled": workerTimeouts ? "true" : "false",
 					// omitted rather than "": no subdomain shares the base domain
 					...(subdomain ? { "settings.routing.subdomain": subdomain } : {}),
 				},
@@ -143,19 +140,12 @@ function CreateProjectPage() {
 					<TbArrowLeft size={18} />
 				</Button>
 				<div>
-					<h1 className="text-xl font-semibold tracking-tight">
-						Create a project
-					</h1>
-					<p className="text-xs text-muted">
-						Name it, pick who works on it, and set how it runs.
-					</p>
+					<h1 className="text-xl font-semibold tracking-tight">Create a project</h1>
+					<p className="text-xs text-muted">Name it, pick who works on it, and set how it runs.</p>
 				</div>
 			</div>
 
-			<nav
-				aria-label="Project setup steps"
-				className="border-b border-border pb-3"
-			>
+			<nav aria-label="Project setup steps" className="border-b border-border pb-3">
 				<ol className="flex flex-wrap gap-2">
 					{STEPS.map((item, index) => {
 						const reachable = index === 0 || basicsValid;
@@ -202,20 +192,13 @@ function CreateProjectPage() {
 					<h2 className="mt-1 text-lg font-semibold tracking-tight text-foreground">
 						{STEP_COPY[currentKey].title}
 					</h2>
-					<p className="mt-0.5 text-xs text-muted">
-						{STEP_COPY[currentKey].description}
-					</p>
+					<p className="mt-0.5 text-xs text-muted">{STEP_COPY[currentKey].description}</p>
 				</div>
 
 				<div className="mt-4">
 					{currentKey === "basics" && (
 						<div className="flex flex-col gap-5">
-							<TextField
-								isRequired
-								value={name}
-								onChange={setName}
-								isInvalid={name.length > 50}
-							>
+							<TextField isRequired value={name} onChange={setName} isInvalid={name.length > 50}>
 								<Label>Name</Label>
 								<Input placeholder="Billing API" autoFocus maxLength={50} />
 								<p className="text-xs text-muted">
@@ -225,20 +208,14 @@ function CreateProjectPage() {
 
 							<TextField value={description} onChange={setDescription}>
 								<Label>Description</Label>
-								<TextArea
-									rows={3}
-									placeholder="What this project is for"
-									maxLength={1000}
-								/>
+								<TextArea rows={3} placeholder="What this project is for" maxLength={1000} />
 							</TextField>
 
 							<SubdomainField value={subdomain} onChange={setSubdomain} />
 						</div>
 					)}
 
-					{currentKey === "members" && (
-						<MembersStep members={members} onChange={setMembers} />
-					)}
+					{currentKey === "members" && <MembersStep members={members} onChange={setMembers} />}
 
 					{currentKey === "config" && (
 						<div className="flex flex-col gap-5">
@@ -251,16 +228,11 @@ function CreateProjectPage() {
 
 							<dl className="grid gap-px overflow-hidden rounded-xl border border-border bg-border sm:grid-cols-2">
 								<SummaryItem label="Name" value={name.trim()} />
-								<SummaryItem
-									label="Description"
-									value={description.trim() || "—"}
-								/>
+								<SummaryItem label="Description" value={description.trim() || "—"} />
 								<SummaryItem
 									label="Members"
 									value={
-										members.length
-											? `${members.length} invited`
-											: "None — you can add them later"
+										members.length ? `${members.length} invited` : "None — you can add them later"
 									}
 								/>
 								<SummaryItem
@@ -278,12 +250,7 @@ function CreateProjectPage() {
 			</div>
 
 			<div className="flex items-center justify-between border-t border-border pt-3.5">
-				<Button
-					variant="ghost"
-					size="sm"
-					isDisabled={step === 0}
-					onPress={() => setStep(step - 1)}
-				>
+				<Button variant="ghost" size="sm" isDisabled={step === 0} onPress={() => setStep(step - 1)}>
 					<TbArrowLeft size={16} /> Back
 				</Button>
 				{isLast ? (
@@ -346,9 +313,7 @@ function MembersStep({
 	}
 
 	function addHighlighted() {
-		const moving = available.filter((user) =>
-			availableHighlight.includes(user.id),
-		);
+		const moving = available.filter((user) => availableHighlight.includes(user.id));
 		onChange([
 			...members,
 			...moving.map((user) => ({
@@ -369,9 +334,7 @@ function MembersStep({
 		<div className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_auto_1fr]">
 			<section className="flex min-w-0 flex-col rounded-xl border border-border">
 				<header className="flex items-center justify-between border-b border-border px-3 py-2">
-					<h3 className="text-xs font-semibold uppercase tracking-wide text-muted">
-						Available
-					</h3>
+					<h3 className="text-xs font-semibold uppercase tracking-wide text-muted">Available</h3>
 					<span className="text-[11px] text-muted">
 						{available.length} user{available.length === 1 ? "" : "s"}
 					</span>
@@ -407,9 +370,7 @@ function MembersStep({
 								sublabel={user.email}
 								initials={initialsOf(user.name, user.email)}
 								highlighted={availableHighlight.includes(user.id)}
-								onToggle={() =>
-									setAvailableHighlight(toggle(availableHighlight, user.id))
-								}
+								onToggle={() => setAvailableHighlight(toggle(availableHighlight, user.id))}
 							/>
 						)}
 					/>
@@ -441,19 +402,14 @@ function MembersStep({
 
 			<section className="flex min-w-0 flex-col rounded-xl border border-border">
 				<header className="flex items-center justify-between border-b border-border px-3 py-2">
-					<h3 className="text-xs font-semibold uppercase tracking-wide text-muted">
-						Members
-					</h3>
-					<span className="text-[11px] text-muted">
-						{members.length} added
-					</span>
+					<h3 className="text-xs font-semibold uppercase tracking-wide text-muted">Members</h3>
+					<span className="text-[11px] text-muted">{members.length} added</span>
 				</header>
 
 				<div className="flex h-[336px] flex-col gap-1 overflow-y-auto p-2">
 					{members.length === 0 ? (
 						<p className="m-auto px-4 text-center text-xs text-muted">
-							No members yet. Highlight users on the left and press the arrow to
-							add them.
+							No members yet. Highlight users on the left and press the arrow to add them.
 						</p>
 					) : (
 						members.map((member) => (
@@ -469,9 +425,7 @@ function MembersStep({
 								<button
 									type="button"
 									aria-pressed={memberHighlight.includes(member.userId)}
-									onClick={() =>
-										setMemberHighlight(toggle(memberHighlight, member.userId))
-									}
+									onClick={() => setMemberHighlight(toggle(memberHighlight, member.userId))}
 									className="min-w-0 flex-1 truncate text-left text-sm text-foreground"
 								>
 									{member.label}
@@ -482,9 +436,7 @@ function MembersStep({
 									onSelectionChange={(key) =>
 										onChange(
 											members.map((m) =>
-												m.userId === member.userId
-													? { ...m, role: key as Role }
-													: m,
+												m.userId === member.userId ? { ...m, role: key as Role } : m,
 											),
 										)
 									}
@@ -496,11 +448,7 @@ function MembersStep({
 									<Select.Popover>
 										<ListBox>
 											{ROLE_OPTIONS.map((option) => (
-												<ListBox.Item
-													key={option.id}
-													id={option.id}
-													textValue={option.label}
-												>
+												<ListBox.Item key={option.id} id={option.id} textValue={option.label}>
 													{option.label}
 													<ListBox.ItemIndicator />
 												</ListBox.Item>
@@ -546,12 +494,8 @@ function UserRowButton({
 				{initials}
 			</div>
 			<div className="flex min-w-0 flex-col">
-				<span className="truncate text-sm font-medium text-foreground">
-					{label}
-				</span>
-				<span className="truncate text-xs text-muted-foreground">
-					{sublabel}
-				</span>
+				<span className="truncate text-sm font-medium text-foreground">{label}</span>
+				<span className="truncate text-xs text-muted-foreground">{sublabel}</span>
 			</div>
 		</button>
 	);
@@ -560,9 +504,7 @@ function UserRowButton({
 function SummaryItem({ label, value }: { label: string; value: string }) {
 	return (
 		<div className="bg-surface px-3 py-2">
-			<dt className="text-[11px] uppercase tracking-wide text-muted">
-				{label}
-			</dt>
+			<dt className="text-[11px] uppercase tracking-wide text-muted">{label}</dt>
 			<dd className="mt-0.5 text-sm text-foreground">{value || "—"}</dd>
 		</div>
 	);

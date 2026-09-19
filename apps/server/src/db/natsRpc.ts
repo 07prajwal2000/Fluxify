@@ -2,10 +2,10 @@ import {
 	MAX_PAYLOAD_BYTES,
 	RPC_TIMEOUT_MS,
 	RpcError,
-	rpcRequest as rpcRequestOn,
-	rpcRespond as rpcRespondOn,
 	type RpcErrorCode,
 	type RpcResponse,
+	rpcRequest as rpcRequestOn,
+	rpcRespond as rpcRespondOn,
 } from "@fluxify/common/nats";
 import { natsConnection } from "./nats";
 
@@ -35,8 +35,8 @@ export const RPC_SUBJECTS = {
 	triggerFault: "fluxify.ops.trigger_fault",
 } as const;
 
-export { MAX_PAYLOAD_BYTES, RPC_TIMEOUT_MS, RpcError };
 export type { RpcErrorCode, RpcResponse };
+export { MAX_PAYLOAD_BYTES, RPC_TIMEOUT_MS, RpcError };
 
 /** Call a responder and get its payload back, or throw a typed `RpcError`. */
 export function rpcRequest<TReq, TRes>(
@@ -45,12 +45,10 @@ export function rpcRequest<TReq, TRes>(
 	payload: TReq,
 	timeoutMs = RPC_TIMEOUT_MS,
 ): Promise<TRes> {
-	return rpcRequestOn<TReq, TRes, RpcCaller>(
-		natsConnection(),
-		subject,
-		payload,
-		{ meta: caller, timeoutMs },
-	);
+	return rpcRequestOn<TReq, TRes, RpcCaller>(natsConnection(), subject, payload, {
+		meta: caller,
+		timeoutMs,
+	});
 }
 
 /**
@@ -62,11 +60,8 @@ export function rpcRespond<TReq, TRes>(
 	handler: (payload: TReq, caller: RpcCaller) => Promise<TRes>,
 	queue = "fluxify.ops",
 ) {
-	const responder = rpcRespondOn<TReq, TRes, RpcCaller>(
-		natsConnection(),
-		subject,
-		handler,
-		{ queue },
-	);
+	const responder = rpcRespondOn<TReq, TRes, RpcCaller>(natsConnection(), subject, handler, {
+		queue,
+	});
 	return responder.stop;
 }

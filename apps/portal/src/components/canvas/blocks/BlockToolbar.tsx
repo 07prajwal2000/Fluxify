@@ -1,11 +1,6 @@
 import { useReactFlow } from "@xyflow/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import {
-	TbClipboardCopy,
-	TbCopy,
-	TbExternalLink,
-	TbTrash,
-} from "react-icons/tb";
+import { TbClipboardCopy, TbCopy, TbExternalLink, TbTrash } from "react-icons/tb";
 import { useCanvasChanges } from "../changes/ChangesContext";
 import { useCanvasClipboard } from "../clipboard/ClipboardContext";
 import { useCanvasPanel } from "../panel/PanelContext";

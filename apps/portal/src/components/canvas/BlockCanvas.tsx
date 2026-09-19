@@ -1,64 +1,56 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
 	addEdge,
 	Background,
 	BackgroundVariant,
+	type Connection,
+	type EdgeChange,
+	type NodeChange,
 	ReactFlow,
 	ReactFlowProvider,
 	useEdgesState,
 	useNodesState,
 	useReactFlow,
-	type Connection,
-	type EdgeChange,
-	type NodeChange,
 } from "@xyflow/react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import "@xyflow/react/dist/style.css";
 import "./canvas.css";
+import { toast } from "@fluxify/components";
+import { flowToGraph, graphToFlow } from "./adapters";
+import { AiCanvasButton } from "./aiButton";
+import { BlockPickerSidebar } from "./BlockPickerSidebar";
+import { BLOCK_TYPES } from "./blocks";
+import { CanvasCommands } from "./CanvasCommands";
+import { CanvasLayoutLockProvider } from "./CanvasLayoutLockContext";
+import { CanvasQuickActions } from "./CanvasQuickActions";
+import { CanvasToolbar } from "./CanvasToolbar";
+import {
+	type CanvasChanges,
+	CanvasChangesProvider,
+	cloneChangeSet,
+	useChangeTracker,
+} from "./changes";
+import { CanvasClipboardProvider, type GraphPart, useClipboard } from "./clipboard";
+import { useContextMenu } from "./contextMenu";
 import {
 	CanvasDiagnosticsProvider,
 	DiagnosticsPanel,
 	useCanvasDiagnosticsBridge,
 	useHasDiagnosticsProvider,
 } from "./diagnostics";
-import { CanvasCommands } from "./CanvasCommands";
-import { CanvasLayoutLockProvider } from "./CanvasLayoutLockContext";
-import { CanvasQuickActions } from "./CanvasQuickActions";
-import { useContextMenu } from "./contextMenu";
+import { DEFAULT_EDGE_TYPES, FLOW_EDGE_TYPE } from "./edges";
+import { CanvasHistoryProvider, type CanvasSnapshot, useCanvasHistory } from "./history";
+import { uuidv7 } from "./ids";
 import { KeyboardShortcutsProvider } from "./keyboard";
-import { CanvasVariableSnippets } from "./panel/SaveOutputField";
+import { CanvasFormatProvider, layoutBlocks } from "./layout";
 import { CanvasPlaygroundProvider, useCanvasPlayground } from "./PlaygroundContext";
 import { PlaygroundModal } from "./PlaygroundModal";
-import { flowToGraph, graphToFlow } from "./adapters";
-import { AiCanvasButton } from "./aiButton";
-import {
-	CanvasChangesProvider,
-	cloneChangeSet,
-	useChangeTracker,
-	type CanvasChanges,
-} from "./changes";
-import {
-	CanvasClipboardProvider,
-	useClipboard,
-	type GraphPart,
-} from "./clipboard";
-import { DEFAULT_EDGE_TYPES, FLOW_EDGE_TYPE } from "./edges";
-import { uuidv7 } from "./ids";
-import {
-	CanvasHistoryProvider,
-	useCanvasHistory,
-	type CanvasSnapshot,
-} from "./history";
-import { CanvasFormatProvider, layoutBlocks } from "./layout";
 import { BlockPanel, CanvasPanelProvider, useBlockPanel } from "./panel";
-import { CanvasToolbar } from "./CanvasToolbar";
-import { toast } from "@fluxify/components";
-import { BlockPickerSidebar } from "./BlockPickerSidebar";
-import { BLOCK_TYPES } from "./blocks";
-import { useAddBlock } from "./useAddBlock";
-import { useCycleFlash } from "./useCycleFlash";
-import { useBlockPicker } from "./useBlockPicker";
-import type { BlockCanvasProps, BlockEdge, BlockNode } from "./types";
+import { CanvasVariableSnippets } from "./panel/SaveOutputField";
 import { graphTopology, isCosmetic, track } from "./topology";
+import type { BlockCanvasProps, BlockEdge, BlockNode } from "./types";
+import { useAddBlock } from "./useAddBlock";
+import { useBlockPicker } from "./useBlockPicker";
+import { useCycleFlash } from "./useCycleFlash";
 
 export { graphTopology };
 
@@ -90,12 +82,8 @@ function CanvasInner({
 }: BlockCanvasProps) {
 	const readOnly = mode === "readonly";
 	const initial = useMemo(() => graphToFlow(graph), [graph]);
-	const [nodes, setNodes, onNodesChange] = useNodesState<BlockNode>(
-		initial.nodes,
-	);
-	const [edges, setEdges, onEdgesChange] = useEdgesState<BlockEdge>(
-		initial.edges,
-	);
+	const [nodes, setNodes, onNodesChange] = useNodesState<BlockNode>(initial.nodes);
+	const [edges, setEdges, onEdgesChange] = useEdgesState<BlockEdge>(initial.edges);
 	const blockPicker = useBlockPicker();
 	const playground = useCanvasPlayground();
 	const canvasRef = useRef<HTMLDivElement>(null);
@@ -127,9 +115,7 @@ function CanvasInner({
 		(snapshot: CanvasSnapshot) => {
 			pendingEmit.current = true;
 			const snapshotNodeIds = new Set(snapshot.nodes.map((node) => node.id));
-			const currentNodeIds = new Set(
-				latest.current.nodes.map((node) => node.id),
-			);
+			const currentNodeIds = new Set(latest.current.nodes.map((node) => node.id));
 			const restored = new Set(snapshot.edges.map((edge) => edge.id));
 			tracker.markUpserted("blocks", snapshotNodeIds);
 			tracker.markDeleted(
@@ -139,9 +125,7 @@ function CanvasInner({
 			tracker.markUpserted("edges", restored);
 			tracker.markDeleted(
 				"edges",
-				latest.current.edges
-					.filter((edge) => !restored.has(edge.id))
-					.map((edge) => edge.id),
+				latest.current.edges.filter((edge) => !restored.has(edge.id)).map((edge) => edge.id),
 			);
 			setNodes((current) => {
 				const byId = new Map(current.map((node) => [node.id, node]));
@@ -226,13 +210,12 @@ function CanvasInner({
 	});
 
 	const panel = useBlockPanel(enablePanel);
-	const { diagnostics, wrappedPanel, handleSelectBlock } =
-		useCanvasDiagnosticsBridge({
-			nodes,
-			edges,
-			setNodes,
-			panel,
-		});
+	const { diagnostics, wrappedPanel, handleSelectBlock } = useCanvasDiagnosticsBridge({
+		nodes,
+		edges,
+		setNodes,
+		panel,
+	});
 
 	// Read from state so the panel follows renames and data edits live.
 	const openBlock = useMemo(
@@ -312,13 +295,18 @@ function CanvasInner({
 	);
 
 	const onBeforeDelete = useCallback(
-		async ({ nodes: deletingNodes, edges: deletingEdges }: { nodes: BlockNode[]; edges: BlockEdge[] }) => {
+		async ({
+			nodes: deletingNodes,
+			edges: deletingEdges,
+		}: {
+			nodes: BlockNode[];
+			edges: BlockEdge[];
+		}) => {
 			const protectedNodeIds = new Set(
 				deletingNodes
 					.filter(
 						(node) =>
-							node.type === BLOCK_TYPES.entrypoint ||
-							node.type === BLOCK_TYPES.errorHandler,
+							node.type === BLOCK_TYPES.entrypoint || node.type === BLOCK_TYPES.errorHandler,
 					)
 					.map((node) => node.id),
 			);
@@ -392,123 +380,114 @@ function CanvasInner({
 	return (
 		<CanvasHistoryProvider history={history}>
 			<CanvasChangesProvider value={tracker}>
-			<CanvasClipboardProvider value={clipboard}>
-			<CanvasFormatProvider value={formatValue}>
-			<CanvasLayoutLockProvider locked={layoutLocked}>
-			<CanvasPanelProvider value={wrappedPanel}>
-			<div className="fx-canvas-shell" ref={shellRef}>
-			<CanvasCommands
-				readOnly={readOnly}
-				enableKeyboard={enableKeyboard && !readOnly}
-				menu={contextMenu}
-				rootRef={shellRef}
-				onSave={onSave}
-				onAddBlock={
-					enableBlockPicker && !layoutLocked ? openPickerAt : undefined
-				}
-				onAddNote={
-					enableBlockPicker && !layoutLocked
-						? (at) => addBlock(BLOCK_TYPES.stickynote, at)
-						: undefined
-				}
-				enableSpotlight={enableSpotlight && !readOnly}
-				onAddBlockType={
-					!readOnly && !layoutLocked ? (type) => addBlock(type) : undefined
-				}
-				enablePlayground={enablePlayground}
-				onOpenPlayground={playground.open}
-			/>
-			<div
-				ref={canvasRef}
-				onContextMenu={contextMenu.openAt}
-				className={[
-					"fx-canvas",
-					readOnly ? "fx-canvas--readonly" : "",
-					className ?? "",
-				]
-					.filter(Boolean)
-					.join(" ")}
-			>
-				<ReactFlow<BlockNode, BlockEdge>
-					nodes={nodes}
-					edges={renderedEdges}
-					nodeTypes={nodeTypes ?? EMPTY_NODE_TYPES}
-					edgeTypes={edgeTypes ?? DEFAULT_EDGE_TYPES}
-					defaultEdgeOptions={DEFAULT_EDGE_OPTIONS}
-					onNodesChange={handleNodesChange}
-					onEdgesChange={handleEdgesChange}
-					onConnect={onConnect}
-					onBeforeDelete={onBeforeDelete}
-					isValidConnection={isValidConnection}
-					onNodeDragStart={onNodeDragStart}
-					onNodeDoubleClick={onNodeDoubleClick}
-					onNodeContextMenu={onNodeContextMenu}
-					nodesDraggable={canEditLayout}
-					nodesConnectable={canEditLayout}
-					elementsSelectable={true}
-					deleteKeyCode={readOnly ? null : ["Backspace", "Delete"]}
-					elevateNodesOnSelect={false}
-					zIndexMode="manual"
-					fitView={fitViewOnInit}
-					defaultViewport={defaultViewport}
-					proOptions={{ hideAttribution: true }}
-				>
-					<Background
-						variant={BackgroundVariant.Dots}
-						color="var(--fx-canvas-dot)"
-					/>
-					<CanvasToolbar
-						readOnly={readOnly}
-						layoutLocked={layoutLocked}
-						onToggleLayoutLock={() => setLayoutLocked((locked) => !locked)}
-					/>
-					{children}
-				</ReactFlow>
-				{/* the AI edits the graph — nothing to offer on a readonly view */}
-				{!readOnly && <AiCanvasButton />}
-				{!readOnly && !layoutLocked && (
-					<CanvasQuickActions
-						enableBlockPicker={enableBlockPicker}
-						enablePlayground={enablePlayground}
-						onOpenBlockPicker={() => openPickerAt()}
-						onAddNote={() => addBlock(BLOCK_TYPES.stickynote)}
-						onOpenPlayground={playground.open}
-					/>
-				)}
-				{nodes.length === 0 && (
-					<div className="fx-canvas__empty">
-						{readOnly
-							? "Nothing to show."
-							: "Empty canvas — add a block to start."}
-					</div>
-				)}
-			</div>
-			{!readOnly && !layoutLocked && enableBlockPicker && (
-				<BlockPickerSidebar
-					isOpen={blockPicker.isOpen}
-					onOpenChange={blockPicker.onOpenChange}
-					onAdd={addPickedBlock}
-				/>
-			)}
-			{panel.enabled && (
-				<BlockPanel
-					block={openBlock}
-					initialTab={panel.initialTab}
-					openSeq={panel.openSeq}
-					onClose={panel.close}
-				/>
-			)}
-			<DiagnosticsPanel
-				isOpen={diagnostics.isPanelOpen}
-				onClose={diagnostics.closePanel}
-				onSelectBlock={handleSelectBlock}
-			/>
-			{enablePlayground && playgroundContent && <PlaygroundModal>{playgroundContent}</PlaygroundModal>}
-			</div>
-			</CanvasPanelProvider>
-			</CanvasLayoutLockProvider>
-			</CanvasFormatProvider>
-			</CanvasClipboardProvider>
+				<CanvasClipboardProvider value={clipboard}>
+					<CanvasFormatProvider value={formatValue}>
+						<CanvasLayoutLockProvider locked={layoutLocked}>
+							<CanvasPanelProvider value={wrappedPanel}>
+								<div className="fx-canvas-shell" ref={shellRef}>
+									<CanvasCommands
+										readOnly={readOnly}
+										enableKeyboard={enableKeyboard && !readOnly}
+										menu={contextMenu}
+										rootRef={shellRef}
+										onSave={onSave}
+										onAddBlock={enableBlockPicker && !layoutLocked ? openPickerAt : undefined}
+										onAddNote={
+											enableBlockPicker && !layoutLocked
+												? (at) => addBlock(BLOCK_TYPES.stickynote, at)
+												: undefined
+										}
+										enableSpotlight={enableSpotlight && !readOnly}
+										onAddBlockType={
+											!readOnly && !layoutLocked ? (type) => addBlock(type) : undefined
+										}
+										enablePlayground={enablePlayground}
+										onOpenPlayground={playground.open}
+									/>
+									<div
+										ref={canvasRef}
+										onContextMenu={contextMenu.openAt}
+										className={["fx-canvas", readOnly ? "fx-canvas--readonly" : "", className ?? ""]
+											.filter(Boolean)
+											.join(" ")}
+									>
+										<ReactFlow<BlockNode, BlockEdge>
+											nodes={nodes}
+											edges={renderedEdges}
+											nodeTypes={nodeTypes ?? EMPTY_NODE_TYPES}
+											edgeTypes={edgeTypes ?? DEFAULT_EDGE_TYPES}
+											defaultEdgeOptions={DEFAULT_EDGE_OPTIONS}
+											onNodesChange={handleNodesChange}
+											onEdgesChange={handleEdgesChange}
+											onConnect={onConnect}
+											onBeforeDelete={onBeforeDelete}
+											isValidConnection={isValidConnection}
+											onNodeDragStart={onNodeDragStart}
+											onNodeDoubleClick={onNodeDoubleClick}
+											onNodeContextMenu={onNodeContextMenu}
+											nodesDraggable={canEditLayout}
+											nodesConnectable={canEditLayout}
+											elementsSelectable={true}
+											deleteKeyCode={readOnly ? null : ["Backspace", "Delete"]}
+											elevateNodesOnSelect={false}
+											zIndexMode="manual"
+											fitView={fitViewOnInit}
+											defaultViewport={defaultViewport}
+											proOptions={{ hideAttribution: true }}
+										>
+											<Background variant={BackgroundVariant.Dots} color="var(--fx-canvas-dot)" />
+											<CanvasToolbar
+												readOnly={readOnly}
+												layoutLocked={layoutLocked}
+												onToggleLayoutLock={() => setLayoutLocked((locked) => !locked)}
+											/>
+											{children}
+										</ReactFlow>
+										{/* the AI edits the graph — nothing to offer on a readonly view */}
+										{!readOnly && <AiCanvasButton />}
+										{!readOnly && !layoutLocked && (
+											<CanvasQuickActions
+												enableBlockPicker={enableBlockPicker}
+												enablePlayground={enablePlayground}
+												onOpenBlockPicker={() => openPickerAt()}
+												onAddNote={() => addBlock(BLOCK_TYPES.stickynote)}
+												onOpenPlayground={playground.open}
+											/>
+										)}
+										{nodes.length === 0 && (
+											<div className="fx-canvas__empty">
+												{readOnly ? "Nothing to show." : "Empty canvas — add a block to start."}
+											</div>
+										)}
+									</div>
+									{!readOnly && !layoutLocked && enableBlockPicker && (
+										<BlockPickerSidebar
+											isOpen={blockPicker.isOpen}
+											onOpenChange={blockPicker.onOpenChange}
+											onAdd={addPickedBlock}
+										/>
+									)}
+									{panel.enabled && (
+										<BlockPanel
+											block={openBlock}
+											initialTab={panel.initialTab}
+											openSeq={panel.openSeq}
+											onClose={panel.close}
+										/>
+									)}
+									<DiagnosticsPanel
+										isOpen={diagnostics.isPanelOpen}
+										onClose={diagnostics.closePanel}
+										onSelectBlock={handleSelectBlock}
+									/>
+									{enablePlayground && playgroundContent && (
+										<PlaygroundModal>{playgroundContent}</PlaygroundModal>
+									)}
+								</div>
+							</CanvasPanelProvider>
+						</CanvasLayoutLockProvider>
+					</CanvasFormatProvider>
+				</CanvasClipboardProvider>
 			</CanvasChangesProvider>
 		</CanvasHistoryProvider>
 	);

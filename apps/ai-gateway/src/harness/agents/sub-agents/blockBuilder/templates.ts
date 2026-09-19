@@ -78,9 +78,7 @@ function newRouteTarget(
 	// One dependency, so the canvas has one unambiguous origin. A task depending
 	// on several is coordinating something a template has no view of.
 	if (task.dependsOnAgentId?.length !== 1) return null;
-	const route = results?.[task.dependsOnAgentId[0]] as
-		| RouteConfigAgentResult
-		| undefined;
+	const route = results?.[task.dependsOnAgentId[0]] as RouteConfigAgentResult | undefined;
 	if (route?.action !== "create" || !route.routeId) return null;
 	return route.routeId;
 }

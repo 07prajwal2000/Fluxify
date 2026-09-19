@@ -1,19 +1,19 @@
-import { NodeTracerProvider } from "@opentelemetry/sdk-trace-node";
+import type { Context } from "@opentelemetry/api";
+import { context, createContextKey } from "@opentelemetry/api";
+import { OTLPTraceExporter } from "@opentelemetry/exporter-trace-otlp-proto";
+import type { Instrumentation } from "@opentelemetry/instrumentation";
+import { registerInstrumentations } from "@opentelemetry/instrumentation";
+import { Resource } from "@opentelemetry/resources";
 import type {
 	BatchSpanProcessor,
-	SpanProcessor,
 	ReadableSpan,
+	SpanProcessor,
 } from "@opentelemetry/sdk-trace-base";
 import { BatchSpanProcessor as _BatchSpanProcessor } from "@opentelemetry/sdk-trace-base";
-import { OTLPTraceExporter } from "@opentelemetry/exporter-trace-otlp-proto";
-import { registerInstrumentations } from "@opentelemetry/instrumentation";
-import type { Instrumentation } from "@opentelemetry/instrumentation";
-import { Resource } from "@opentelemetry/resources";
-import { context, createContextKey } from "@opentelemetry/api";
-import type { Context } from "@opentelemetry/api";
+import { NodeTracerProvider } from "@opentelemetry/sdk-trace-node";
 
-export { trace, context } from "@opentelemetry/api";
 export type { Context, Span } from "@opentelemetry/api";
+export { context, trace } from "@opentelemetry/api";
 
 // Import the internal SDK span type directly from trace-base to satisfy SDK type system
 import { logger } from "../logging";
@@ -25,10 +25,7 @@ export interface FluxifyContextData {
 	action?: string;
 }
 
-export function withFluxifyContext<T>(
-	data: FluxifyContextData,
-	fn: () => T
-): T {
+export function withFluxifyContext<T>(data: FluxifyContextData, fn: () => T): T {
 	const activeContext = context.active().setValue(FLUXIFY_CONTEXT_KEY, data);
 	return context.with(activeContext, fn);
 }
@@ -43,9 +40,7 @@ class FluxifyContextSpanProcessor implements SpanProcessor {
 	}
 
 	onStart(span: any, _parentContext: Context): void {
-		const fluxifyContext = context
-			.active()
-			.getValue(FLUXIFY_CONTEXT_KEY) as FluxifyContextData;
+		const fluxifyContext = context.active().getValue(FLUXIFY_CONTEXT_KEY) as FluxifyContextData;
 
 		if (fluxifyContext) {
 			if (fluxifyContext.userQuery) {

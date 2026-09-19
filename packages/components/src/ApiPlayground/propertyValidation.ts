@@ -11,15 +11,20 @@ function checkStringRules(s: string, rules: ApiSchemaRule[]): string | null {
 		}
 		if (rule.type === "regex" && rule.value) {
 			try {
-				if (!new RegExp(String(rule.value)).test(s)) return msg ?? `Must match pattern ${rule.value}`;
+				if (!new RegExp(String(rule.value)).test(s))
+					return msg ?? `Must match pattern ${rule.value}`;
 			} catch {
 				// ignore invalid regex
 			}
 		}
-		if (rule.type === "startsWith" && rule.value && !s.startsWith(String(rule.value))) return msg ?? `Must start with "${rule.value}"`;
-		if (rule.type === "endsWith" && rule.value && !s.endsWith(String(rule.value))) return msg ?? `Must end with "${rule.value}"`;
-		if (rule.type === "contains" && rule.value && !s.includes(String(rule.value))) return msg ?? `Must contain "${rule.value}"`;
-		if (rule.type === "notContains" && rule.value && s.includes(String(rule.value))) return msg ?? `Must not contain "${rule.value}"`;
+		if (rule.type === "startsWith" && rule.value && !s.startsWith(String(rule.value)))
+			return msg ?? `Must start with "${rule.value}"`;
+		if (rule.type === "endsWith" && rule.value && !s.endsWith(String(rule.value)))
+			return msg ?? `Must end with "${rule.value}"`;
+		if (rule.type === "contains" && rule.value && !s.includes(String(rule.value)))
+			return msg ?? `Must contain "${rule.value}"`;
+		if (rule.type === "notContains" && rule.value && s.includes(String(rule.value)))
+			return msg ?? `Must not contain "${rule.value}"`;
 	}
 	return null;
 }
@@ -27,8 +32,10 @@ function checkStringRules(s: string, rules: ApiSchemaRule[]): string | null {
 function checkNumberRules(num: number, rules: ApiSchemaRule[]): string | null {
 	for (const rule of rules) {
 		const msg = rule.message;
-		if (rule.type === "min" && rule.value != null && num < Number(rule.value)) return msg ?? `Must be at least ${rule.value}`;
-		if (rule.type === "max" && rule.value != null && num > Number(rule.value)) return msg ?? `Must be at most ${rule.value}`;
+		if (rule.type === "min" && rule.value != null && num < Number(rule.value))
+			return msg ?? `Must be at least ${rule.value}`;
+		if (rule.type === "max" && rule.value != null && num > Number(rule.value))
+			return msg ?? `Must be at most ${rule.value}`;
 	}
 	return null;
 }
@@ -36,8 +43,10 @@ function checkNumberRules(num: number, rules: ApiSchemaRule[]): string | null {
 function checkArrayRules(arr: unknown[], rules: ApiSchemaRule[]): string | null {
 	for (const rule of rules) {
 		const msg = rule.message;
-		if (rule.type === "minItems" && rule.value != null && arr.length < Number(rule.value)) return msg ?? `Must contain at least ${rule.value} items`;
-		if (rule.type === "maxItems" && rule.value != null && arr.length > Number(rule.value)) return msg ?? `Must contain at most ${rule.value} items`;
+		if (rule.type === "minItems" && rule.value != null && arr.length < Number(rule.value))
+			return msg ?? `Must contain at least ${rule.value} items`;
+		if (rule.type === "maxItems" && rule.value != null && arr.length > Number(rule.value))
+			return msg ?? `Must contain at most ${rule.value} items`;
 	}
 	return null;
 }
@@ -47,8 +56,10 @@ function checkFileRules(val: unknown, rules: ApiSchemaRule[]): string | null {
 	if (typeof fileObj?.size === "number") {
 		for (const rule of rules) {
 			const msg = rule.message;
-			if (rule.type === "maxSize" && rule.value != null && fileObj.size > Number(rule.value)) return msg ?? `Must be at most ${rule.value} bytes`;
-			if (rule.type === "minSize" && rule.value != null && fileObj.size < Number(rule.value)) return msg ?? `Must be at least ${rule.value} bytes`;
+			if (rule.type === "maxSize" && rule.value != null && fileObj.size > Number(rule.value))
+				return msg ?? `Must be at most ${rule.value} bytes`;
+			if (rule.type === "minSize" && rule.value != null && fileObj.size < Number(rule.value))
+				return msg ?? `Must be at least ${rule.value} bytes`;
 		}
 	}
 	return null;
@@ -57,13 +68,18 @@ function checkFileRules(val: unknown, rules: ApiSchemaRule[]): string | null {
 export function validatePropertyValue(
 	val: unknown,
 	prop: ApiSchemaProperty,
-	options: { coerce?: boolean; isPathParam?: boolean } = {}
+	options: { coerce?: boolean; isPathParam?: boolean } = {},
 ): string | null {
 	const { coerce = false, isPathParam = false } = options;
 
-	const isMissing = val === undefined || val === null || (typeof val === "string" && val.trim() === "");
+	const isMissing =
+		val === undefined || val === null || (typeof val === "string" && val.trim() === "");
 	if (isMissing) {
-		return (prop.required || isPathParam) ? (isPathParam ? "Route parameter is required" : "Field is required") : null;
+		return prop.required || isPathParam
+			? isPathParam
+				? "Route parameter is required"
+				: "Field is required"
+			: null;
 	}
 
 	const rawType = (prop.dataType ?? "").toLowerCase();
@@ -76,12 +92,14 @@ export function validatePropertyValue(
 		}
 	} else if (rawType === "float" || rawType === "number") {
 		const s = String(val).trim();
-		if ((coerce || typeof val === "string") && (isNaN(Number(s)) || s === "")) return "Must be a number";
+		if ((coerce || typeof val === "string") && (isNaN(Number(s)) || s === ""))
+			return "Must be a number";
 		if (!coerce && typeof val !== "number" && typeof val !== "string") return "Must be a number";
 	} else if (rawType === "bool" || rawType === "boolean") {
 		if (coerce || typeof val === "string") {
 			const s = String(val).trim().toLowerCase();
-			if (s !== "true" && s !== "false" && s !== "1" && s !== "0") return "Must be a boolean (true or false)";
+			if (s !== "true" && s !== "false" && s !== "1" && s !== "0")
+				return "Must be a boolean (true or false)";
 		} else if (typeof val !== "boolean") {
 			return "Must be a boolean";
 		}
@@ -102,7 +120,13 @@ export function validatePropertyValue(
 			const err = checkStringRules(String(val), prop.rules);
 			if (err) return err;
 		}
-		if (rawType === "int" || rawType === "integer" || rawType === "float" || rawType === "number" || !isNaN(Number(val))) {
+		if (
+			rawType === "int" ||
+			rawType === "integer" ||
+			rawType === "float" ||
+			rawType === "number" ||
+			!isNaN(Number(val))
+		) {
 			const err = checkNumberRules(Number(val), prop.rules);
 			if (err) return err;
 		}

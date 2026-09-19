@@ -1,5 +1,5 @@
-import { Label, ListBox, Select } from "@heroui/react";
 import type { SelectProps } from "@heroui/react";
+import { Label, ListBox, Select } from "@heroui/react";
 import type { ReactNode } from "react";
 
 export interface CustomSelectOption {
@@ -7,7 +7,8 @@ export interface CustomSelectOption {
 	label: string;
 }
 
-export interface CustomSelectProps extends Omit<SelectProps<object>, "children" | "onChange" | "value" | "defaultValue"> {
+export interface CustomSelectProps
+	extends Omit<SelectProps<object>, "children" | "onChange" | "value" | "defaultValue"> {
 	label?: ReactNode;
 	options: CustomSelectOption[];
 	value?: string;

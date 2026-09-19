@@ -1,34 +1,34 @@
-import { z } from 'zod';
-import { AsyncLocalStorage } from 'node:async_hooks';
-import { scopeFor } from '@fluxify/blocks';
-import { ValidationSchemaZod } from './validationSchemaZod';
+import { AsyncLocalStorage } from "node:async_hooks";
+import { scopeFor } from "@fluxify/blocks";
+import { z } from "zod";
+import { ValidationSchemaZod } from "./validationSchemaZod";
 
 export class ValidationError extends Error {
-  payload: any;
-  constructor(payload: any) {
-    super('Validation failed');
-    this.name = 'ValidationError';
-    this.payload = payload;
-  }
+	payload: any;
+	constructor(payload: any) {
+		super("Validation failed");
+		this.name = "ValidationError";
+		this.payload = payload;
+	}
 }
 
 export type ParserContext = {
-  /** Trusted validators run against these request-scoped vars. */
-  vars: Record<string, any>;
-  coerce?: boolean;
+	/** Trusted validators run against these request-scoped vars. */
+	vars: Record<string, any>;
+	coerce?: boolean;
 };
 
 type CompiledValidator = (input: any, scope: any) => Promise<unknown>;
 
 export type CompiledRequestSchema = {
-  validate(requestData: any, context: ParserContext): Promise<ParseResult>;
+	validate(requestData: any, context: ParserContext): Promise<ParseResult>;
 };
 
 type ParseResult = {
-  success: boolean;
-  /** coerced input with defaults filled in; only set on success */
-  data?: unknown;
-  errors?: Array<{ path: string; property: string; errors: any[] }>;
+	success: boolean;
+	/** coerced input with defaults filled in; only set on success */
+	data?: unknown;
+	errors?: Array<{ path: string; property: string; errors: any[] }>;
 };
 
 /**
@@ -37,100 +37,113 @@ type ParseResult = {
  * different routes cannot collide in diagnostics or generated snapshots.
  */
 function compileValidator(code: string): CompiledValidator {
-  const name = `validator_${crypto.randomUUID().replaceAll('-', '')}`;
-  try {
-    return new Function(
-      `return async function ${name}(input, $scope) { with ($scope) {\n${code}\n} }`,
-    )() as CompiledValidator;
-  } catch (error) {
-    // Keep the old behaviour: a malformed stored validator becomes a normal
-    // validation error, rather than making the whole route fail to load.
-    return async () => { throw error; };
-  }
+	const name = `validator_${crypto.randomUUID().replaceAll("-", "")}`;
+	try {
+		return new Function(
+			`return async function ${name}(input, $scope) { with ($scope) {\n${code}\n} }`,
+		)() as CompiledValidator;
+	} catch (error) {
+		// Keep the old behaviour: a malformed stored validator becomes a normal
+		// validation error, rather than making the whole route fail to load.
+		return async () => {
+			throw error;
+		};
+	}
 }
 
 // Map primitive types to base Zod schemas
 function getBaseZodType(dataType: string, coerce = false): z.ZodTypeAny {
-  switch (dataType) {
-    case 'str': return coerce ? z.coerce.string() : z.string();
-    case 'int': return (coerce ? z.coerce.number() : z.number()).int();
-    case 'float': return coerce ? z.coerce.number() : z.number();
-    // z.coerce.boolean() turns the string "false" into true
-    case 'bool': return coerce ? z.preprocess(fromBoolString, z.boolean()) : z.boolean();
-    // loose: validated data is handed to the workflow, so undeclared keys must survive
-    case 'object': return z.looseObject({});
-    case 'arr': return z.array(z.any());
-    // multipart fields arrive as File, a raw octet-stream body as Blob
-    case 'file': return z.file();
-    case 'blob': return z.instanceof(Blob);
-    default: return z.any();
-  }
+	switch (dataType) {
+		case "str":
+			return coerce ? z.coerce.string() : z.string();
+		case "int":
+			return (coerce ? z.coerce.number() : z.number()).int();
+		case "float":
+			return coerce ? z.coerce.number() : z.number();
+		// z.coerce.boolean() turns the string "false" into true
+		case "bool":
+			return coerce ? z.preprocess(fromBoolString, z.boolean()) : z.boolean();
+		// loose: validated data is handed to the workflow, so undeclared keys must survive
+		case "object":
+			return z.looseObject({});
+		case "arr":
+			return z.array(z.any());
+		// multipart fields arrive as File, a raw octet-stream body as Blob
+		case "file":
+			return z.file();
+		case "blob":
+			return z.instanceof(Blob);
+		default:
+			return z.any();
+	}
 }
 
 // Apply validation rules to a Zod schema
 function applyRules(schema: z.ZodTypeAny, dataType: string, rules: any[] = []): z.ZodTypeAny {
-  let s = schema as any;
-  for (const rule of rules) {
-    if (dataType === 'str') {
-      if (rule.type === 'minLength' && rule.value != null) s = s.min(Number(rule.value));
-      if (rule.type === 'maxLength' && rule.value != null) s = s.max(Number(rule.value));
-      if (rule.type === 'regex' && rule.value) s = s.regex(new RegExp(rule.value));
-      if (rule.type === 'startsWith' && rule.value) s = s.startsWith(rule.value);
-      if (rule.type === 'endsWith' && rule.value) s = s.endsWith(rule.value);
-      if (rule.type === 'contains' && rule.value) s = s.includes(rule.value);
-      if (rule.type === 'notContains' && rule.value) {
-         s = s.refine((val: string) => !val.includes(rule.value), { message: `Must not contain ${rule.value}` });
-      }
-    }
-    
-    if (dataType === 'int' || dataType === 'float') {
-      if (rule.type === 'min' && rule.value != null) s = s.min(Number(rule.value));
-      if (rule.type === 'max' && rule.value != null) s = s.max(Number(rule.value));
-    }
-    
-    if (dataType === 'arr') {
-      if (rule.type === 'minItems' && rule.value != null) s = s.min(Number(rule.value));
-      if (rule.type === 'maxItems' && rule.value != null) s = s.max(Number(rule.value));
-    }
+	let s = schema as any;
+	for (const rule of rules) {
+		if (dataType === "str") {
+			if (rule.type === "minLength" && rule.value != null) s = s.min(Number(rule.value));
+			if (rule.type === "maxLength" && rule.value != null) s = s.max(Number(rule.value));
+			if (rule.type === "regex" && rule.value) s = s.regex(new RegExp(rule.value));
+			if (rule.type === "startsWith" && rule.value) s = s.startsWith(rule.value);
+			if (rule.type === "endsWith" && rule.value) s = s.endsWith(rule.value);
+			if (rule.type === "contains" && rule.value) s = s.includes(rule.value);
+			if (rule.type === "notContains" && rule.value) {
+				s = s.refine((val: string) => !val.includes(rule.value), {
+					message: `Must not contain ${rule.value}`,
+				});
+			}
+		}
 
-    // Sizes are bytes. The per-request ceiling (WORKER_MAX_STREAM_SIZE) is a
-    // blunt instrument; this is where "avatar <= 2MB, image/* only" lives.
-    if (dataType === 'file' || dataType === 'blob') {
-      if (rule.type === 'maxSize' && rule.value != null) {
-        const max = Number(rule.value);
-        s = s.refine((val: Blob) => val.size <= max, {
-          message: `Must be at most ${max} bytes`,
-        });
-      }
-      if (rule.type === 'minSize' && rule.value != null) {
-        const min = Number(rule.value);
-        s = s.refine((val: Blob) => val.size >= min, {
-          message: `Must be at least ${min} bytes`,
-        });
-      }
-      if (rule.type === 'mimeTypes' && rule.value) {
-        const allowed = toMimeList(rule.value);
-        if (allowed.length > 0) {
-          s = s.refine((val: Blob) => allowed.includes(baseMime(val.type)), {
-            message: `Must be one of: ${allowed.join(', ')}`,
-          });
-        }
-      }
-    }
-  }
-  return s;
+		if (dataType === "int" || dataType === "float") {
+			if (rule.type === "min" && rule.value != null) s = s.min(Number(rule.value));
+			if (rule.type === "max" && rule.value != null) s = s.max(Number(rule.value));
+		}
+
+		if (dataType === "arr") {
+			if (rule.type === "minItems" && rule.value != null) s = s.min(Number(rule.value));
+			if (rule.type === "maxItems" && rule.value != null) s = s.max(Number(rule.value));
+		}
+
+		// Sizes are bytes. The per-request ceiling (WORKER_MAX_STREAM_SIZE) is a
+		// blunt instrument; this is where "avatar <= 2MB, image/* only" lives.
+		if (dataType === "file" || dataType === "blob") {
+			if (rule.type === "maxSize" && rule.value != null) {
+				const max = Number(rule.value);
+				s = s.refine((val: Blob) => val.size <= max, {
+					message: `Must be at most ${max} bytes`,
+				});
+			}
+			if (rule.type === "minSize" && rule.value != null) {
+				const min = Number(rule.value);
+				s = s.refine((val: Blob) => val.size >= min, {
+					message: `Must be at least ${min} bytes`,
+				});
+			}
+			if (rule.type === "mimeTypes" && rule.value) {
+				const allowed = toMimeList(rule.value);
+				if (allowed.length > 0) {
+					s = s.refine((val: Blob) => allowed.includes(baseMime(val.type)), {
+						message: `Must be one of: ${allowed.join(", ")}`,
+					});
+				}
+			}
+		}
+	}
+	return s;
 }
 
 function fromBoolString(value: unknown) {
-  if (value === 'true') return true;
-  if (value === 'false') return false;
-  return value;
+	if (value === "true") return true;
+	if (value === "false") return false;
+	return value;
 }
 
 /** authored either as a list or as a comma-separated string — accept both */
 function toMimeList(value: unknown): string[] {
-  const raw = Array.isArray(value) ? value : String(value).split(',');
-  return raw.map((entry) => baseMime(String(entry))).filter(Boolean);
+	const raw = Array.isArray(value) ? value : String(value).split(",");
+	return raw.map((entry) => baseMime(String(entry))).filter(Boolean);
 }
 
 /**
@@ -138,133 +151,140 @@ function toMimeList(value: unknown): string[] {
  * parameters, and an exact string compare would reject a file that matches.
  */
 function baseMime(value: string): string {
-  return value.split(';')[0]!.trim().toLowerCase();
+	return value.split(";")[0]!.trim().toLowerCase();
 }
 
 export function buildZodSchema(schemaDef: any, coerce = false): z.ZodTypeAny {
-  const { dataType, properties, items, rules, js, required, default: defaultValue } = schemaDef;
+	const { dataType, properties, items, rules, js, required, default: defaultValue } = schemaDef;
 
-  let zSchema: z.ZodTypeAny;
+	let zSchema: z.ZodTypeAny;
 
-  if (dataType === 'js') {
-    const validator = js ? compileValidator(js) : undefined;
-    zSchema = z.any().superRefine(async (val, ctx) => {
-      if (!js) return;
-      try {
-        const context = validationContext.getStore();
-        if (!context) throw new Error('Validation context unavailable');
-        const result = await validator!(val, scopeFor(context.vars));
-        if (!result) {
-          ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Custom JS validation failed' });
-        }
-      } catch (err: any) {
-        if (err?.name === 'ValidationError' || err?.constructor?.name === 'ValidationError') {
-          const payload = err.payload || err;
-          ctx.addIssue({ code: z.ZodIssueCode.custom, message: JSON.stringify(payload) });
-        } else {
-          ctx.addIssue({ code: z.ZodIssueCode.custom, message: err?.message || 'Error executing JS validation' });
-        }
-      }
-    });
-  } else if (dataType === 'enum') {
-    const enumRule = rules?.find((r: any) => r.type === 'values');
-    const vals = enumRule?.value && Array.isArray(enumRule.value) ? enumRule.value : [];
-    if (vals.length > 0) {
-      if (vals.every((v: any) => typeof v === 'string')) {
-        zSchema = z.enum(vals as [string, ...string[]]);
-      } else {
-        zSchema = z.union(vals.map((v: any) => z.literal(v)) as any);
-      }
-      if (coerce) {
-        // query/params arrive as strings: "25" must match the allowed value 25
-        zSchema = z.preprocess(
-          (v) => (typeof v === 'string' ? vals.find((allowed: any) => String(allowed) === v) ?? v : v),
-          zSchema,
-        );
-      }
-    } else {
-      zSchema = z.any(); // fallback if no enum values defined
-    }
-  } else {
-    zSchema = getBaseZodType(dataType, coerce);
+	if (dataType === "js") {
+		const validator = js ? compileValidator(js) : undefined;
+		zSchema = z.any().superRefine(async (val, ctx) => {
+			if (!js) return;
+			try {
+				const context = validationContext.getStore();
+				if (!context) throw new Error("Validation context unavailable");
+				const result = await validator!(val, scopeFor(context.vars));
+				if (!result) {
+					ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Custom JS validation failed" });
+				}
+			} catch (err: any) {
+				if (err?.name === "ValidationError" || err?.constructor?.name === "ValidationError") {
+					const payload = err.payload || err;
+					ctx.addIssue({ code: z.ZodIssueCode.custom, message: JSON.stringify(payload) });
+				} else {
+					ctx.addIssue({
+						code: z.ZodIssueCode.custom,
+						message: err?.message || "Error executing JS validation",
+					});
+				}
+			}
+		});
+	} else if (dataType === "enum") {
+		const enumRule = rules?.find((r: any) => r.type === "values");
+		const vals = enumRule?.value && Array.isArray(enumRule.value) ? enumRule.value : [];
+		if (vals.length > 0) {
+			if (vals.every((v: any) => typeof v === "string")) {
+				zSchema = z.enum(vals as [string, ...string[]]);
+			} else {
+				zSchema = z.union(vals.map((v: any) => z.literal(v)) as any);
+			}
+			if (coerce) {
+				// query/params arrive as strings: "25" must match the allowed value 25
+				zSchema = z.preprocess(
+					(v) =>
+						typeof v === "string" ? (vals.find((allowed: any) => String(allowed) === v) ?? v) : v,
+					zSchema,
+				);
+			}
+		} else {
+			zSchema = z.any(); // fallback if no enum values defined
+		}
+	} else {
+		zSchema = getBaseZodType(dataType, coerce);
 
-    if (dataType === 'object' && properties) {
-      const shape: Record<string, z.ZodTypeAny> = {};
-      for (const prop of properties) {
-        shape[prop.key] = buildZodSchema(prop, coerce);
-      }
-      zSchema = z.looseObject(shape);
-    } else if (dataType === 'arr' && items) {
-      zSchema = z.array(buildZodSchema(items, coerce));
-    }
-    
-    zSchema = applyRules(zSchema, dataType, rules);
-  }
+		if (dataType === "object" && properties) {
+			const shape: Record<string, z.ZodTypeAny> = {};
+			for (const prop of properties) {
+				shape[prop.key] = buildZodSchema(prop, coerce);
+			}
+			zSchema = z.looseObject(shape);
+		} else if (dataType === "arr" && items) {
+			zSchema = z.array(buildZodSchema(items, coerce));
+		}
 
-  if (required === false) {
-    // cloned per request: a shared array/object default would leak mutations
-    zSchema = defaultValue === undefined
-      ? zSchema.optional()
-      : zSchema.default(() => structuredClone(defaultValue));
-  }
+		zSchema = applyRules(zSchema, dataType, rules);
+	}
 
-  return zSchema;
+	if (required === false) {
+		// cloned per request: a shared array/object default would leak mutations
+		zSchema =
+			defaultValue === undefined
+				? zSchema.optional()
+				: zSchema.default(() => structuredClone(defaultValue));
+	}
+
+	return zSchema;
 }
 
 const validationContext = new AsyncLocalStorage<ParserContext>();
 
 function formatResult(result: z.ZodSafeParseResult<unknown>): ParseResult {
-  if (result.success) return { success: true, data: result.data };
-  const errors = result.error.issues.map(issue => {
-    let customErrorObj = null;
-    try {
-      customErrorObj = JSON.parse(issue.message);
-    } catch {
-      // Not a JSON string (standard zod error message).
-    }
-    return {
-      path: issue.path.join('.'),
-      property: issue.path[issue.path.length - 1]?.toString() || '',
-      errors: customErrorObj ? [customErrorObj] : [issue.message],
-    };
-  });
-  return { success: false, errors };
+	if (result.success) return { success: true, data: result.data };
+	const errors = result.error.issues.map((issue) => {
+		let customErrorObj = null;
+		try {
+			customErrorObj = JSON.parse(issue.message);
+		} catch {
+			// Not a JSON string (standard zod error message).
+		}
+		return {
+			path: issue.path.join("."),
+			property: issue.path[issue.path.length - 1]?.toString() || "",
+			errors: customErrorObj ? [customErrorObj] : [issue.message],
+		};
+	});
+	return { success: false, errors };
 }
 
 /** Compile the definition once at artifact load, then validate many requests. */
 export function compileRequestSchema(
-  schemaJson: any,
-  { coerce = false }: Pick<ParserContext, 'coerce'> = {},
+	schemaJson: any,
+	{ coerce = false }: Pick<ParserContext, "coerce"> = {},
 ): CompiledRequestSchema {
-  // Validate schema JSON itself against DB Zod schema
-  const parsedDef = ValidationSchemaZod.safeParse(schemaJson);
-  if (!parsedDef.success) {
-    return {
-      async validate() {
-        return {
-          success: false,
-          errors: [{ path: 'schema', property: 'schema', errors: ['Invalid schema definition format'] }],
-        };
-      },
-    };
-  }
+	// Validate schema JSON itself against DB Zod schema
+	const parsedDef = ValidationSchemaZod.safeParse(schemaJson);
+	if (!parsedDef.success) {
+		return {
+			async validate() {
+				return {
+					success: false,
+					errors: [
+						{ path: "schema", property: "schema", errors: ["Invalid schema definition format"] },
+					],
+				};
+			},
+		};
+	}
 
-  const executableSchema = buildZodSchema(parsedDef.data, coerce);
-  return {
-    async validate(requestData: any, context: ParserContext): Promise<ParseResult> {
-      // A cached schema is shared by concurrent requests. The JS refinement reads
-      // its own async-local context, so parallel requests cannot leak vars.
-      return validationContext.run(context, async () =>
-        formatResult(await executableSchema.safeParseAsync(requestData)),
-      );
-    },
-  };
+	const executableSchema = buildZodSchema(parsedDef.data, coerce);
+	return {
+		async validate(requestData: any, context: ParserContext): Promise<ParseResult> {
+			// A cached schema is shared by concurrent requests. The JS refinement reads
+			// its own async-local context, so parallel requests cannot leak vars.
+			return validationContext.run(context, async () =>
+				formatResult(await executableSchema.safeParseAsync(requestData)),
+			);
+		},
+	};
 }
 
 export const parseRequestSchema = async (
-  schemaJson: any,
-  requestData: any,
-  context: ParserContext,
+	schemaJson: any,
+	requestData: any,
+	context: ParserContext,
 ) => {
-  return compileRequestSchema(schemaJson, context).validate(requestData, context);
+	return compileRequestSchema(schemaJson, context).validate(requestData, context);
 };

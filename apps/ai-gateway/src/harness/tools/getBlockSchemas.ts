@@ -1,8 +1,8 @@
-import { fencedTool } from "./fenced";
-import { z } from "zod";
 import { logger } from "@fluxify/common";
 import { resolveCustomBlockName, withCustomBlockPrefix } from "@fluxify/lib";
+import { z } from "zod";
 import type { DbService } from "../internal/dbService";
+import { fencedTool } from "./fenced";
 
 function mapInputParamsToNaturalLanguage(inputParams: any[]): string {
 	if (!inputParams || !Array.isArray(inputParams)) return "{}";
@@ -62,15 +62,10 @@ export const createGetCustomBlockSchemasTool = (
 ) => {
 	return fencedTool(
 		async ({ customBlockNames }) => {
-			logger.info(
-				`[Tools] Fetching custom block schemas: ${customBlockNames.join(", ")}`,
-			);
-			
+			logger.info(`[Tools] Fetching custom block schemas: ${customBlockNames.join(", ")}`);
+
 			const results: string[] = [];
-			const requestedNames = [...new Set(customBlockNames)].slice(
-				0,
-				MAX_CUSTOM_BLOCKS_PER_CALL,
-			);
+			const requestedNames = [...new Set(customBlockNames)].slice(0, MAX_CUSTOM_BLOCKS_PER_CALL);
 			const dropped = new Set(customBlockNames).size - requestedNames.length;
 
 			for (const requestedName of requestedNames) {
@@ -86,18 +81,13 @@ export const createGetCustomBlockSchemasTool = (
 						withCustomBlockPrefix(customName),
 					)) ??
 					pendingCustomBlocks.get(
-						resolveCustomBlockName(
-							customName,
-							new Set(pendingCustomBlocks.keys()),
-						),
+						resolveCustomBlockName(customName, new Set(pendingCustomBlocks.keys())),
 					);
 				if (inputParams) {
 					const mappedSchema = mapInputParamsToNaturalLanguage(inputParams);
 					results.push(`### Custom Block: ${customName}\n${mappedSchema}`);
 				} else {
-					results.push(
-						`### Custom Block: ${customName}\n// Not found or no schema available`,
-					);
+					results.push(`### Custom Block: ${customName}\n// Not found or no schema available`);
 				}
 			}
 
@@ -111,12 +101,13 @@ export const createGetCustomBlockSchemasTool = (
 		},
 		{
 			name: "get_custom_block_schemas",
-			description:
-				`Fetches detailed configuration contracts for custom blocks only. Built-in block schemas are already preloaded. Returns at most ${MAX_CUSTOM_BLOCKS_PER_CALL} contracts per call — request only custom blocks you are about to configure.`,
+			description: `Fetches detailed configuration contracts for custom blocks only. Built-in block schemas are already preloaded. Returns at most ${MAX_CUSTOM_BLOCKS_PER_CALL} contracts per call — request only custom blocks you are about to configure.`,
 			schema: z.object({
 				customBlockNames: z
 					.array(z.string())
-					.describe(`Array of custom block names to fetch (e.g. ['stripe_charge']). At most ${MAX_CUSTOM_BLOCKS_PER_CALL} per call.`),
+					.describe(
+						`Array of custom block names to fetch (e.g. ['stripe_charge']). At most ${MAX_CUSTOM_BLOCKS_PER_CALL} per call.`,
+					),
 			}),
 		},
 	);

@@ -20,9 +20,7 @@ export function SuggestionsDropdown({
 			className="absolute left-0 top-full mt-1 w-full max-h-56 overflow-y-auto rounded-lg p-1 shadow-2xl border border-border bg-surface z-50 min-w-full"
 		>
 			{filteredSuggestions.length === 0 ? (
-				<div className="px-3 py-2 text-xs text-muted text-center">
-					No matching suggestions
-				</div>
+				<div className="px-3 py-2 text-xs text-muted text-center">No matching suggestions</div>
 			) : (
 				<div className="flex flex-col gap-0.5" role="listbox">
 					{filteredSuggestions.map((item) => (
@@ -43,9 +41,7 @@ export function SuggestionsDropdown({
 						>
 							<span className="truncate">{item}</span>
 							{item === value && (
-								<span className="text-[12px] shrink-0 ml-1.5 font-bold text-accent">
-									✓
-								</span>
+								<span className="text-[12px] shrink-0 ml-1.5 font-bold text-accent">✓</span>
 							)}
 						</button>
 					))}

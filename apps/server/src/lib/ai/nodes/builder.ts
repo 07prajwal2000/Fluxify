@@ -1,15 +1,13 @@
-import { GraphNode } from "@langchain/langgraph";
-import { withRetry } from "../../agentRetry";
-import { AgentStateSchema } from "../state";
-import { BuilderOutputSchema } from "../schemas";
 import { blockAiDescriptions, contextVarsAiDescription } from "@fluxify/blocks";
+import type { GraphNode } from "@langchain/langgraph";
 import { YAML } from "bun";
+import { withRetry } from "../../agentRetry";
+import { BuilderOutputSchema } from "../schemas";
+import type { AgentStateSchema } from "../state";
 
 export const BUILDER_NODE_ID = "builder";
 
-export const BuilderNode: GraphNode<typeof AgentStateSchema> = async (
-	state,
-) => {
+export const BuilderNode: GraphNode<typeof AgentStateSchema> = async (state) => {
 	const { userPrompt, messages, modelFactory, metadata } = state;
 	const emptyIntegrationListStr = "No integrations available.";
 	const integrationListStr = metadata.integrationsList

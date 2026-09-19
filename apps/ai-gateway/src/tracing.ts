@@ -1,12 +1,8 @@
-import { isMainThread } from "worker_threads";
-import { initializeTracing } from "@fluxify/common/tracing";
 import { LangChainInstrumentation } from "@arizeai/openinference-instrumentation-langchain";
+import { initializeTracing } from "@fluxify/common/tracing";
 import * as CallbackManagerModule from "@langchain/core/callbacks/manager";
-import {
-	LLM_TRACING_ENABLED,
-	LLM_OTLP_TRACES_ENDPOINT,
-	LLM_OTLP_TRACES_HEADERS,
-} from "./lib/env";
+import { isMainThread } from "worker_threads";
+import { LLM_OTLP_TRACES_ENDPOINT, LLM_OTLP_TRACES_HEADERS, LLM_TRACING_ENABLED } from "./lib/env";
 
 function parseHeaders(headersString: string | undefined): Record<string, string> {
 	if (!headersString) return {};
@@ -23,9 +19,7 @@ function parseHeaders(headersString: string | undefined): Record<string, string>
 	return headers;
 }
 
-const serviceName = isMainThread
-	? "fluxify.api-gateway-main"
-	: "fluxify.api-gateway-worker";
+const serviceName = isMainThread ? "fluxify.api-gateway-main" : "fluxify.api-gateway-worker";
 
 if (LLM_TRACING_ENABLED && LLM_OTLP_TRACES_ENDPOINT) {
 	initializeTracing({

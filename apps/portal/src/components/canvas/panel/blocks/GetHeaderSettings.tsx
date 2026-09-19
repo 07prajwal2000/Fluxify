@@ -1,6 +1,6 @@
+import type { BlockNode } from "../../types";
 import { BlockSettings } from "../BlockSettings";
 import { BlockJsTextField } from "../fields";
-import type { BlockNode } from "../../types";
 
 /** Get Header block settings. Configures the header name to read from request. */
 export function GetHeaderSettings({ block }: { block: BlockNode }) {

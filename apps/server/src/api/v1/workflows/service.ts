@@ -1,20 +1,14 @@
-import { z } from "zod";
-import { and, eq, ilike, inArray, SQL, sql } from "drizzle-orm";
-import { db, DbTransactionType } from "../../../db";
-import { AuthACL, workflowsEntity } from "../../../db/schema";
+import { and, eq, ilike, inArray, type SQL, sql } from "drizzle-orm";
+import type { z } from "zod";
+import { type DbTransactionType, db } from "../../../db";
 import { CHAN_ON_WORKFLOW_CHANGE, publishMessage } from "../../../db/redis";
-import { canAccessProject } from "../../../lib/acl";
+import { type AuthACL, workflowsEntity } from "../../../db/schema";
 import { ConflictError } from "../../../errors/conflictError";
 import { ForbiddenError } from "../../../errors/forbidError";
 import { NotFoundError } from "../../../errors/notFoundError";
+import { canAccessProject } from "../../../lib/acl";
 import { dropWorkflow } from "../../../modules/compiler/service";
-import {
-	createSchema,
-	listQuerySchema,
-	listSchema,
-	patchSchema,
-	workflowSchema,
-} from "./dto";
+import type { createSchema, listQuerySchema, listSchema, patchSchema, workflowSchema } from "./dto";
 import {
 	deleteWorkflowRow,
 	findWorkflowById,
@@ -56,10 +50,7 @@ export async function createWorkflow(
 		if (await findWorkflowByName(data.projectId, data.name, tx))
 			throw new ConflictError("workflow with that name already exists");
 
-		const id = await insertWorkflow(
-			{ ...data, id: presetId, createdBy: userId },
-			tx,
-		);
+		const id = await insertWorkflow({ ...data, id: presetId, createdBy: userId }, tx);
 		if (seedBlocks) await seedDefaultBlocks(id, tx);
 		return { id };
 	});
@@ -125,9 +116,7 @@ export async function listAllWorkflows(
 					acl.map((a) => a.projectId),
 				),
 		query.projectId ? eq(workflowsEntity.projectId, query.projectId) : undefined,
-		query.active === undefined
-			? undefined
-			: eq(workflowsEntity.active, query.active),
+		query.active === undefined ? undefined : eq(workflowsEntity.active, query.active),
 		query.search ? ilike(workflowsEntity.name, `%${query.search}%`) : undefined,
 	];
 	const filter = and(...filters.filter(Boolean)) ?? sql`1=1`;

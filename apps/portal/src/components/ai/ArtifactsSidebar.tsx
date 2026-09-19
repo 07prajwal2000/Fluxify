@@ -1,9 +1,9 @@
-import { useAiHarnessStore } from "@/store/aiHarness";
 import { TbCheck, TbChevronRight, TbChevronsRight } from "react-icons/tb";
 import { harnessConversationsQuery } from "@/query/harnessConversationsQuery";
-import { RouteArtifact } from "./artifacts/RouteArtifact";
+import { useAiHarnessStore } from "@/store/aiHarness";
 import { CanvasArtifact } from "./artifacts/CanvasArtifact";
 import { CustomBlockArtifact } from "./artifacts/CustomBlockArtifact";
+import { RouteArtifact } from "./artifacts/RouteArtifact";
 import {
 	artifactTypeForKind,
 	kindLabel,
@@ -65,54 +65,61 @@ export function ArtifactsSidebar() {
 		// sibling comes in the DOM — the send button showed through this panel.
 		<div
 			className={`relative z-10 h-full border-l border-border bg-surface transition-all duration-300 ease-in-out shrink-0 overflow-hidden ${
-				selectedArtifact ? 'w-[500px] opacity-100' : 'w-0 opacity-0 border-none'
+				selectedArtifact ? "w-[500px] opacity-100" : "w-0 opacity-0 border-none"
 			}`}
 		>
 			<div className="w-[500px] h-full flex flex-col relative">
 				<div className="h-14 flex items-center justify-between px-4 border-b border-border shrink-0">
 					<h3 className="font-semibold text-foreground">Artifacts</h3>
-					<button 
-						onClick={() => setSelectedArtifact(null)} 
+					<button
+						type="button"
+						onClick={() => setSelectedArtifact(null)}
 						className="p-1 hover:bg-surface-secondary rounded-md text-muted hover:text-foreground transition-colors"
 					>
 						<TbChevronsRight size={20} />
 					</button>
 				</div>
-				
+
 				<div className="flex-1 overflow-y-auto p-4 custom-scrollbar">
 					{selectedArtifact && <DependencyChain subArtifactId={selectedArtifact.id} />}
 					{selectedArtifact?.type.startsWith("Route ") ? (
-						<RouteArtifact
-							key={selectedArtifact.id}
-							subArtifactId={selectedArtifact.id}
-						/>
+						<RouteArtifact key={selectedArtifact.id} subArtifactId={selectedArtifact.id} />
 					) : selectedArtifact?.type.startsWith("Canvas Changes") ? (
-						<CanvasArtifact
-							key={selectedArtifact.id}
-							subArtifactId={selectedArtifact.id}
-						/>
+						<CanvasArtifact key={selectedArtifact.id} subArtifactId={selectedArtifact.id} />
 					) : selectedArtifact?.type.startsWith("Custom Block ") ? (
 						<CustomBlockArtifact key={selectedArtifact.id} subArtifactId={selectedArtifact.id} />
-					) : (selectedArtifact && (
-						<div className="flex flex-col gap-5">
-							<div>
-								<span className="text-[10px] text-muted uppercase font-bold tracking-wider">ID</span>
-								<p className="text-sm font-medium mt-1 text-foreground">{selectedArtifact.id || "N/A"}</p>
+					) : (
+						selectedArtifact && (
+							<div className="flex flex-col gap-5">
+								<div>
+									<span className="text-[10px] text-muted uppercase font-bold tracking-wider">
+										ID
+									</span>
+									<p className="text-sm font-medium mt-1 text-foreground">
+										{selectedArtifact.id || "N/A"}
+									</p>
+								</div>
+
+								<div>
+									<span className="text-[10px] text-muted uppercase font-bold tracking-wider">
+										Type
+									</span>
+									<p className="text-sm font-medium mt-1 capitalize text-foreground">
+										{selectedArtifact.type}
+									</p>
+								</div>
+
+								<div>
+									<span className="text-[10px] text-muted uppercase font-bold tracking-wider">
+										Props
+									</span>
+									<pre className="text-xs text-muted bg-surface-secondary p-3 rounded-lg overflow-x-auto mt-1 border border-border custom-scrollbar">
+										{JSON.stringify(selectedArtifact.props, null, 2)}
+									</pre>
+								</div>
 							</div>
-							
-							<div>
-								<span className="text-[10px] text-muted uppercase font-bold tracking-wider">Type</span>
-								<p className="text-sm font-medium mt-1 capitalize text-foreground">{selectedArtifact.type}</p>
-							</div>
-							
-							<div>
-								<span className="text-[10px] text-muted uppercase font-bold tracking-wider">Props</span>
-								<pre className="text-xs text-muted bg-surface-secondary p-3 rounded-lg overflow-x-auto mt-1 border border-border custom-scrollbar">
-									{JSON.stringify(selectedArtifact.props, null, 2)}
-								</pre>
-							</div>
-						</div>
-					))}
+						)
+					)}
 				</div>
 			</div>
 		</div>

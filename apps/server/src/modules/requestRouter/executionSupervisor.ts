@@ -1,21 +1,17 @@
 import { fileURLToPath } from "node:url";
-import { logger } from "@fluxify/common";
 import { CANCEL_SCHEDULE_JOB, TRIGGER_WORKFLOW_JOB } from "@fluxify/blocks";
+import { logger } from "@fluxify/common";
 import { RPC_SUBJECTS, rpcRequest } from "../../db/natsRpc";
 import { enqueueJob } from "../jobs/publisher";
-import { cancelScheduledRun, scheduleWorkflowRun } from "../schedules/delayed";
 import type { JobEnvelope } from "../jobs/types";
+import { cancelScheduledRun, scheduleWorkflowRun } from "../schedules/delayed";
 import { fireInternalTrigger } from "../triggers/publisher";
 import type { AsyncExecutorLimits } from "./asyncExecutor";
 import type { ArtifactEntry } from "./compiledRuntime";
 import { executionRuntimeEnvironment } from "./executionEnvironment";
 import { ExecutionWatchdog } from "./executionWatchdog";
 import { markNotReady, markReady } from "./health";
-import type {
-	ExecutionBootstrap,
-	ExecutionEvent,
-	ExecutionMessage,
-} from "./threadTypes";
+import type { ExecutionBootstrap, ExecutionEvent, ExecutionMessage } from "./threadTypes";
 
 /**
  * Owns the child process that runs user code.
@@ -90,10 +86,7 @@ export function createExecutionSupervisor(
 	 * by that reply, so a child that dies mid-job must reject its pending work —
 	 * otherwise the consumer sits on the message until the ack wait elapses.
 	 */
-	const pendingJobs = new Map<
-		string,
-		{ resolve: () => void; reject: (error: Error) => void }
-	>();
+	const pendingJobs = new Map<string, { resolve: () => void; reject: (error: Error) => void }>();
 
 	function failPendingJobs(reason: string) {
 		for (const [, pending] of pendingJobs) pending.reject(new Error(reason));

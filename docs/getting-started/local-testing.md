@@ -127,7 +127,8 @@ The docs site will be available at `http://localhost:5173` (or the next availabl
 | `bun run dev` | Start all services in development mode |
 | `bun run build` | Build all packages for production |
 | `bun run test` | Run the test suite |
-| `bun run lint` | Lint all TypeScript/JavaScript files |
+| `bun run lint` | Check formatting and lint rules with Biome (`bun run lint --write` fixes) |
+| `bun run typecheck` | Typecheck all packages |
 | `bun run docs:dev` | Start the documentation site in dev mode |
 | `docker compose up -d` | Start PostgreSQL and Redis in the background |
 | `docker compose down` | Stop and remove the database containers |

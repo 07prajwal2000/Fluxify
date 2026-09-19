@@ -1,5 +1,11 @@
+import {
+	ApiPlayground,
+	type ApiPlaygroundRequest,
+	type ApiPlaygroundResponse,
+	type ApiPlaygroundState,
+	Spinner,
+} from "@fluxify/components";
 import { useCallback, useState } from "react";
-import { ApiPlayground, Spinner, type ApiPlaygroundRequest, type ApiPlaygroundResponse, type ApiPlaygroundState } from "@fluxify/components";
 import { routesQuery } from "@/query/routesQuery";
 import { useCanvasPlaygroundCacheStore } from "@/store/canvasPlaygroundCache";
 
@@ -18,7 +24,14 @@ type RouteApiPlaygroundProps = {
  * Fluxify-specific bridge: React Query owns route loading, while the component
  * package stays portable and receives only route data plus a request callback.
  */
-export function RouteApiPlayground({ routeId, baseUrl, onSend = executeRequest, className, isFramed, enableCache }: RouteApiPlaygroundProps) {
+export function RouteApiPlayground({
+	routeId,
+	baseUrl,
+	onSend = executeRequest,
+	className,
+	isFramed,
+	enableCache,
+}: RouteApiPlaygroundProps) {
 	const route = routesQuery.byId.useQuery(routeId);
 	const [initialState] = useState(() =>
 		enableCache ? useCanvasPlaygroundCacheStore.getState().getPlaygroundState(routeId) : undefined,
@@ -33,8 +46,18 @@ export function RouteApiPlayground({ routeId, baseUrl, onSend = executeRequest, 
 		[enableCache, routeId],
 	);
 
-	if (route.isLoading) return <div className="grid h-full place-items-center"><Spinner /></div>;
-	if (!route.data) return <div className="grid h-full place-items-center text-sm text-muted">Route details are unavailable.</div>;
+	if (route.isLoading)
+		return (
+			<div className="grid h-full place-items-center">
+				<Spinner />
+			</div>
+		);
+	if (!route.data)
+		return (
+			<div className="grid h-full place-items-center text-sm text-muted">
+				Route details are unavailable.
+			</div>
+		);
 	return (
 		<ApiPlayground
 			className={className}

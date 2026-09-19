@@ -1,10 +1,10 @@
 export { CanvasHistoryProvider, useCanvasHistoryContext } from "./HistoryContext";
-export { createHistoryStack, type HistoryStack } from "./historyStack";
 export { HistoryControls } from "./HistoryControls";
+export { createHistoryStack, type HistoryStack } from "./historyStack";
 export {
-	DISABLED_HISTORY,
-	useCanvasHistory,
 	type CanvasHistory,
 	type CanvasSnapshot,
+	DISABLED_HISTORY,
 	type UseCanvasHistoryOptions,
+	useCanvasHistory,
 } from "./useCanvasHistory";

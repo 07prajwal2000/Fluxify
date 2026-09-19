@@ -18,10 +18,7 @@ const REFERENCE_TOKEN = /:(?:route|customBlock|canvasChanges)\{[^}\n]*\}/gi;
  * Repeats are dropped too: one token per change, or two buttons open the same
  * artifact and one change silently loses its own.
  */
-export function enforceTokenAllowlist(
-	markdown: string,
-	allowed: string[],
-): string {
+export function enforceTokenAllowlist(markdown: string, allowed: string[]): string {
 	const permitted = new Set(allowed);
 	const used = new Set<string>();
 	const rejected: string[] = [];

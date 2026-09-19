@@ -1,14 +1,14 @@
 import { useRef } from "react";
 import { TbChevronsRight } from "react-icons/tb";
 import "./panel.css";
-import { BlockSettings } from "./BlockSettings";
-import { blockSettingsTabs } from "./blockSettingsRegistry";
-import { useBlockPanelResize } from "./useBlockPanelResize";
 import { CustomBlockIcon } from "@/components/customBlocks/IconPicker";
 import { blockIcon } from "../blocks/blockIconMap";
 import { blockLabels } from "../blocks/blockLabels";
 import { useCustomBlockDefs } from "../blocks/useCustomBlockDefs";
 import type { BlockNode } from "../types";
+import { BlockSettings } from "./BlockSettings";
+import { blockSettingsTabs } from "./blockSettingsRegistry";
+import { useBlockPanelResize } from "./useBlockPanelResize";
 
 export type BlockPanelProps = {
 	/** Block to show, or `null` to slide the panel out. */
@@ -169,4 +169,3 @@ export function BlockPanel({
 		</aside>
 	);
 }
-

@@ -1,9 +1,10 @@
-import { useMemo } from "react";
 import { Button, Spinner } from "@fluxify/components";
 import { useParams } from "@tanstack/react-router";
+import { useMemo } from "react";
 import { TbExternalLink } from "react-icons/tb";
 import { withBasePath } from "@/constants/routes";
 import { customBlocksQuery } from "@/query/customBlocksQuery";
+import type { BlockNode } from "../../types";
 import { BlockSettings, GENERAL_TAB } from "../BlockSettings";
 import {
 	BlockAppConfigField,
@@ -14,7 +15,6 @@ import {
 	BlockSelectField,
 	type SelectOption,
 } from "../fields";
-import type { BlockNode } from "../../types";
 
 export type CustomBlockInputParam = {
 	name: string;
@@ -81,11 +81,10 @@ export function CustomBlockSettingsPanel({ block }: { block: BlockNode }) {
 								/>
 							);
 						case "dropdown": {
-							const selectOptions: SelectOption[] = (param.options ?? []).map(
-								(opt) =>
-									typeof opt === "string"
-										? { value: opt, label: opt }
-										: { value: opt.value, label: opt.label },
+							const selectOptions: SelectOption[] = (param.options ?? []).map((opt) =>
+								typeof opt === "string"
+									? { value: opt, label: opt }
+									: { value: opt.value, label: opt.label },
 							);
 							return (
 								<BlockSelectField

@@ -1,19 +1,14 @@
-import {
-	describeRoute,
-	DescribeRouteOptions,
-	resolver,
-	validator,
-} from "hono-openapi";
 import { generateID } from "@fluxify/lib";
-import { HonoServer } from "../../../types";
+import { type DescribeRouteOptions, describeRoute, resolver, validator } from "hono-openapi";
 import { errorSchema } from "../../../errors/customError";
 import { validationErrorSchema } from "../../../errors/validationError";
+import { canAccess } from "../../../lib/acl";
 import zodErrorCallbackParser from "../../../middlewares/zodErrorCallbackParser";
-import { requireLoggedIn, requireProjectAccess } from "../../auth/middleware";
-import { canvasChangesSchema, canvasItemsSchema } from "../../../modules/canvas/types";
 import { requestBodyValidator } from "../../../modules/canvas/blockDataValidator";
 import { getCanvas, saveCanvas } from "../../../modules/canvas/service";
-import { canAccess } from "../../../lib/acl";
+import { canvasChangesSchema, canvasItemsSchema } from "../../../modules/canvas/types";
+import type { HonoServer } from "../../../types";
+import { requireLoggedIn, requireProjectAccess } from "../../auth/middleware";
 import {
 	createdSchema,
 	createSchema,
@@ -25,6 +20,7 @@ import {
 	runSchema,
 	workflowSchema,
 } from "./dto";
+import runWorkflow from "./run";
 import {
 	createWorkflow,
 	deleteWorkflow,
@@ -33,7 +29,6 @@ import {
 	mustAccess,
 	updateWorkflow,
 } from "./service";
-import runWorkflow from "./run";
 
 /** The response blocks every endpoint here shares, so each one names only its own. */
 const common = {
@@ -77,16 +72,14 @@ export default {
 				describe("get-workflows-list", "Lists workflows, newest edit first", json(listSchema)),
 			),
 			validator("query", listQuerySchema, zodErrorCallbackParser),
-			async (ctx) =>
-				ctx.json(await listAllWorkflows(ctx.req.valid("query"), ctx.get("acl") || [])),
+			async (ctx) => ctx.json(await listAllWorkflows(ctx.req.valid("query"), ctx.get("acl") || [])),
 		);
 
 		router.get(
 			"/:id",
 			describeRoute(describe("get-workflow", "Returns one workflow", json(workflowSchema))),
 			validator("param", idParamSchema, zodErrorCallbackParser),
-			async (ctx) =>
-				ctx.json(await getWorkflow(ctx.req.valid("param").id, ctx.get("acl") || [])),
+			async (ctx) => ctx.json(await getWorkflow(ctx.req.valid("param").id, ctx.get("acl") || [])),
 		);
 
 		router.post(
@@ -140,7 +133,11 @@ export default {
 		router.get(
 			"/:id/canvas-items",
 			describeRoute(
-				describe("get-workflow-canvas-items", "The workflow's blocks and edges", json(canvasItemsSchema)),
+				describe(
+					"get-workflow-canvas-items",
+					"The workflow's blocks and edges",
+					json(canvasItemsSchema),
+				),
 			),
 			validator("param", idParamSchema, zodErrorCallbackParser),
 			async (ctx) => {

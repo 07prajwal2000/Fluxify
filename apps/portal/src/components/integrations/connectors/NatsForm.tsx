@@ -1,5 +1,5 @@
-import { useState } from "react";
 import { Checkbox, Input, Label, ListBox, Select } from "@fluxify/components";
+import { useState } from "react";
 import { AppConfigSelector } from "../AppConfigSelector";
 import type { ConnectorFormProps } from "./types";
 
@@ -40,10 +40,15 @@ export function NatsForm({ projectId, name, onName, config, setField }: Connecto
 			</p>
 
 			<div className="flex flex-col gap-1">
-				<label className="text-xs font-medium text-foreground">
+				<label htmlFor="nats-integration-name" className="text-xs font-medium text-foreground">
 					Integration Name <span className="text-danger">*</span>
 				</label>
-				<Input value={name} onChange={(e) => onName(e.currentTarget.value)} placeholder="NATS | Production" />
+				<Input
+					id="nats-integration-name"
+					value={name}
+					onChange={(e) => onName(e.currentTarget.value)}
+					placeholder="NATS | Production"
+				/>
 			</div>
 
 			<AppConfigSelector

@@ -1,17 +1,10 @@
-import React from "react";
 import { Button } from "@fluxify/components";
-import {
-	TbStack2,
-	TbCloudCog,
-	TbSquareKey,
-	TbBox,
-	TbDatabase
-} from "react-icons/tb";
-import { useAiHarnessStore } from "@/store/aiHarness";
-import { harnessConversationsQuery } from "@/query/harnessConversationsQuery";
-import { useArtifactParams } from "./artifacts/useArtifact";
+import React from "react";
 import { FiBox, FiMap } from "react-icons/fi";
-import { TbCheck } from "react-icons/tb";
+import { TbBox, TbCheck, TbCloudCog, TbDatabase, TbSquareKey, TbStack2 } from "react-icons/tb";
+import { harnessConversationsQuery } from "@/query/harnessConversationsQuery";
+import { useAiHarnessStore } from "@/store/aiHarness";
+import { useArtifactParams } from "./artifacts/useArtifact";
 
 /** Whether this output has already landed in the workspace. Shares the detail
  *  query cache with the panel, so opening one costs nothing extra. */
@@ -70,8 +63,14 @@ export function RouteButton(props: RouteButtonProps) {
 				className={applied ? VIEW_BTN_APPLIED : VIEW_BTN}
 				onPress={() => setSelectedArtifact({ id: sub_artifact_id, type: `Route ${type}`, props })}
 			>
-				{applied ? <TbCheck className="h-4 w-4" /> : <FiMap className="h-4 w-4 text-foreground/70" />}
-				<span>View Route {type === "changes" ? "Changes" : type === "add" ? "Creation" : "Deletion"}</span>
+				{applied ? (
+					<TbCheck className="h-4 w-4" />
+				) : (
+					<FiMap className="h-4 w-4 text-foreground/70" />
+				)}
+				<span>
+					View Route {type === "changes" ? "Changes" : type === "add" ? "Creation" : "Deletion"}
+				</span>
 			</Button>
 		</div>
 	);
@@ -87,10 +86,19 @@ export function CustomBlockButton(props: RouteButtonProps) {
 			<Button
 				size="sm"
 				className={applied ? VIEW_BTN_APPLIED : VIEW_BTN}
-				onPress={() => setSelectedArtifact({ id: sub_artifact_id, type: `Custom Block ${type}`, props })}
+				onPress={() =>
+					setSelectedArtifact({ id: sub_artifact_id, type: `Custom Block ${type}`, props })
+				}
 			>
-				{applied ? <TbCheck className="h-4 w-4" /> : <FiBox className="h-4 w-4 text-foreground/70" />}
-				<span>View Custom Block {type === "add" ? "Creation" : type === "delete" ? "Deletion" : "Changes"}</span>
+				{applied ? (
+					<TbCheck className="h-4 w-4" />
+				) : (
+					<FiBox className="h-4 w-4 text-foreground/70" />
+				)}
+				<span>
+					View Custom Block{" "}
+					{type === "add" ? "Creation" : type === "delete" ? "Deletion" : "Changes"}
+				</span>
 			</Button>
 		</div>
 	);
@@ -112,9 +120,15 @@ export function CanvasChangesButton(props: CanvasChangesButtonProps) {
 			<Button
 				size="sm"
 				className={applied ? VIEW_BTN_APPLIED : VIEW_BTN}
-				onPress={() => setSelectedArtifact({ id: artifact_id, type: `Canvas Changes (${parent_type})`, props })}
+				onPress={() =>
+					setSelectedArtifact({ id: artifact_id, type: `Canvas Changes (${parent_type})`, props })
+				}
 			>
-				{applied ? <TbCheck className="h-4 w-4" /> : <FiBox className="h-4 w-4 text-foreground/70" />}
+				{applied ? (
+					<TbCheck className="h-4 w-4" />
+				) : (
+					<FiBox className="h-4 w-4 text-foreground/70" />
+				)}
 				<span>View Canvas Changes ({parent_type.replace("_", " ")})</span>
 			</Button>
 		</div>

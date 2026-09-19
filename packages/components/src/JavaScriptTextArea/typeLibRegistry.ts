@@ -12,10 +12,7 @@ const registered = new Map<string, monaco.IDisposable>();
 
 export function registerTypeLib(id: string, content: string, virtualPath: string): void {
 	registered.get(id)?.dispose();
-	registered.set(
-		id,
-		monaco.typescript.javascriptDefaults.addExtraLib(content, virtualPath),
-	);
+	registered.set(id, monaco.typescript.javascriptDefaults.addExtraLib(content, virtualPath));
 }
 
 export function unregisterTypeLib(id: string): void {
@@ -32,5 +29,10 @@ export function registerTypeLibFiles(
 	const disposables = files.map((file) =>
 		monaco.typescript.javascriptDefaults.addExtraLib(file.content, file.virtualPath),
 	);
-	registered.set(id, { dispose: () => disposables.forEach((d) => d.dispose()) });
+	registered.set(id, {
+		dispose: () =>
+			disposables.forEach((d) => {
+				d.dispose();
+			}),
+	});
 }

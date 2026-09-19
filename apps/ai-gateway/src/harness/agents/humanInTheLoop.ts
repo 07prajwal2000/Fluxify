@@ -1,6 +1,6 @@
-import { BaseAgent } from "./base";
-import { type GlobalGraphState, AgentNode } from "../types";
 import { dispatchAgentEvent } from "../callbacks";
+import { AgentNode, type GlobalGraphState } from "../types";
+import { BaseAgent } from "./base";
 
 export class HumanInTheLoopAgent extends BaseAgent {
 	constructor(state: GlobalGraphState) {

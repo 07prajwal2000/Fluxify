@@ -1,21 +1,17 @@
+import type { TriggerEvent } from "@fluxify/blocks";
 import { logger } from "@fluxify/common";
 import { consumeQueue, ensureConsumer, type QueueConsumer } from "@fluxify/common/nats";
-import type { TriggerEvent } from "@fluxify/blocks";
 import { natsConnection } from "../../db/nats";
 import { enqueueJob } from "../jobs/publisher";
 import { WORKFLOW_JOB } from "../jobs/subjects";
 import type { TriggerBatch } from "../triggers/types";
-import { ensureSchedulesStream } from "./reconciler";
-import {
-	SCHEDULES_STREAM,
-	fireConsumerName,
-	projectFireFilter,
-} from "./subjects";
 import { fireDelayedRun } from "./delayed";
+import { ensureSchedulesStream } from "./reconciler";
+import { fireConsumerName, projectFireFilter, SCHEDULES_STREAM } from "./subjects";
 import {
+	type DelayedRunBody,
 	isDelayedRunBody,
 	isScheduleFireBody,
-	type DelayedRunBody,
 	type ScheduleFireBody,
 } from "./types";
 
@@ -41,9 +37,7 @@ export type FireConsumerOptions = {
 	retryDelayMs?: number;
 };
 
-export async function startFireConsumer(
-	options: FireConsumerOptions,
-): Promise<QueueConsumer> {
+export async function startFireConsumer(options: FireConsumerOptions): Promise<QueueConsumer> {
 	const nc = natsConnection();
 	await ensureSchedulesStream();
 
@@ -121,9 +115,6 @@ export async function enqueueFire(body: ScheduleFireBody, firedAt: string) {
 		payload: batch,
 		origin: { triggerId: body.triggerId, source: "schedule", firedAt },
 	});
-	logger.debug(
-		`[schedules] fire ${body.triggerId} -> ${body.workflowId}`,
-		"SCHEDULES",
-	);
+	logger.debug(`[schedules] fire ${body.triggerId} -> ${body.workflowId}`, "SCHEDULES");
 	return job;
 }

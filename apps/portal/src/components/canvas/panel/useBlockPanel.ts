@@ -35,7 +35,14 @@ export function useBlockPanel(enabled: boolean): CanvasPanel {
 	}, []);
 
 	return useMemo(
-		() => ({ enabled, openBlockId: enabled ? openBlockId : null, initialTab, openSeq, open, close }),
+		() => ({
+			enabled,
+			openBlockId: enabled ? openBlockId : null,
+			initialTab,
+			openSeq,
+			open,
+			close,
+		}),
 		[enabled, openBlockId, initialTab, openSeq, open, close],
 	);
 }

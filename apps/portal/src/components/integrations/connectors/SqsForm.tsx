@@ -14,10 +14,15 @@ export function SqsForm({ projectId, name, onName, config, setField }: Connector
 			</p>
 
 			<div className="flex flex-col gap-1">
-				<label className="text-xs font-medium text-foreground">
+				<label htmlFor="sqs-integration-name" className="text-xs font-medium text-foreground">
 					Integration Name <span className="text-danger">*</span>
 				</label>
-				<Input value={name} onChange={(e) => onName(e.currentTarget.value)} placeholder="SQS | Production" />
+				<Input
+					id="sqs-integration-name"
+					value={name}
+					onChange={(e) => onName(e.currentTarget.value)}
+					placeholder="SQS | Production"
+				/>
 			</div>
 
 			<AppConfigSelector

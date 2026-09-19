@@ -5,8 +5,8 @@ import {
 	type FieldInfo,
 	Input,
 	IntegrationSelector,
-	JoinsEditor,
 	type JoinItem,
+	JoinsEditor,
 	JsTextField,
 	Label,
 	ListBox,
@@ -15,17 +15,17 @@ import {
 } from "@fluxify/components";
 import { useParams } from "@tanstack/react-router";
 import { useReactFlow } from "@xyflow/react";
-import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
-import { withBasePath } from "@/constants/routes";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { AppConfigField } from "@/components/appConfig/AppConfigField";
-import { WorkflowField } from "@/components/workflows/WorkflowField";
 import type { AppConfigExtraItem } from "@/components/integrations/AppConfigSelectorModal";
-import { integrationService } from "@/services/integrations";
+import { WorkflowField } from "@/components/workflows/WorkflowField";
+import { withBasePath } from "@/constants/routes";
 import { customBlocksQuery } from "@/query/customBlocksQuery";
-import type { CustomBlockInputParam } from "./blocks/CustomBlockSettings";
+import { integrationService } from "@/services/integrations";
 import { useCanvasChanges } from "../changes/ChangesContext";
 import type { BlockData } from "../types";
+import type { CustomBlockInputParam } from "./blocks/CustomBlockSettings";
 
 export type FieldProps = {
 	blockId: string;
@@ -82,11 +82,7 @@ export function BlockSelectField({
 			<Select.Popover>
 				<ListBox>
 					{options.map((option) => (
-						<ListBox.Item
-							key={option.value}
-							id={option.value}
-							textValue={option.label}
-						>
+						<ListBox.Item key={option.value} id={option.value} textValue={option.label}>
 							{option.label}
 							<ListBox.ItemIndicator />
 						</ListBox.Item>
@@ -196,10 +192,7 @@ export function BlockJsTextField({
 			onChange={(next) => {
 				const trimmed = next.trim();
 				const num = Number(trimmed);
-				const val =
-					trimmed !== "" && !isNaN(num) && !trimmed.startsWith("js:")
-						? num
-						: next;
+				const val = trimmed !== "" && !isNaN(num) && !trimmed.startsWith("js:") ? num : next;
 				updateNodeData(blockId, { [name]: val });
 			}}
 		/>
@@ -301,11 +294,7 @@ export function BlockIntegrationField({
 	};
 	const projectId = params?.projectId ?? "";
 	const selectedId = typeof data[name] === "string" ? (data[name] as string) : "";
-	const injectedIntegrations = useCustomBlockParamIntegrations(
-		projectId,
-		params?.blockId,
-		group,
-	);
+	const injectedIntegrations = useCustomBlockParamIntegrations(projectId, params?.blockId, group);
 
 	const loadIntegrations = useCallback(async () => {
 		if (!projectId) return [];
@@ -348,9 +337,7 @@ export function BlockIntegrationField({
 			}}
 			onTestConnection={projectId ? handleTestConnection : undefined}
 			openInNewTabUrl={
-				projectId
-					? withBasePath(`/${projectId}/integrations${searchStr}`)
-					: undefined
+				projectId ? withBasePath(`/${projectId}/integrations${searchStr}`) : undefined
 			}
 			createIntegrationUrl={
 				projectId
@@ -558,7 +545,3 @@ export function BlockJoinsEditorField({
 		/>
 	);
 }
-
-
-
-

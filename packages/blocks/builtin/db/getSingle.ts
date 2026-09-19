@@ -1,15 +1,15 @@
-import { BlockTypes } from "../../blockTypes";
 import z from "zod";
-import { baseBlockDataSchema, Context } from "../../baseBlock";
+import { baseBlockDataSchema, type Context } from "../../baseBlock";
+import { BlockTypes } from "../../blockTypes";
+import type { EmitNode } from "../../compiler";
+import { emitWhereConditions } from "./emitConditions";
 import {
 	adapterFor,
-	dbWhereConditionsDescription,
 	dbFailure,
+	dbWhereConditionsDescription,
 	joinSchema,
 	whereConditionSchema,
 } from "./schema";
-import { emitWhereConditions } from "./emitConditions";
-import type { EmitNode } from "../../compiler";
 
 export const getSingleDbBlockSchema = z
 	.object({
@@ -41,11 +41,7 @@ export async function runGetSingleDb(
 	options: { joins: any[]; columns: string[] },
 ) {
 	try {
-		return await adapterFor(context, connection).getSingle(
-			tableName,
-			conditions,
-			options,
-		);
+		return await adapterFor(context, connection).getSingle(tableName, conditions, options);
 	} catch (error) {
 		dbFailure("get single", error);
 	}

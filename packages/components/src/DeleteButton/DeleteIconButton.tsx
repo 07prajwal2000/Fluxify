@@ -1,5 +1,5 @@
-import type { ComponentProps, ReactNode } from "react";
 import { Button } from "@heroui/react";
+import type { ComponentProps, ReactNode } from "react";
 import { TbTrash } from "react-icons/tb";
 
 export type DeleteIconButtonProps = Omit<ComponentProps<typeof Button>, "isIconOnly"> & {
@@ -17,13 +17,7 @@ export function DeleteIconButton({
 	...props
 }: DeleteIconButtonProps) {
 	return (
-		<Button
-			isIconOnly
-			variant={variant}
-			size={size}
-			className={className}
-			{...props}
-		>
+		<Button isIconOnly variant={variant} size={size} className={className} {...props}>
 			{(renderProps) =>
 				children != null
 					? typeof children === "function"

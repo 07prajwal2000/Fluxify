@@ -2,10 +2,7 @@ import { CustomError } from "../../../../errors/customError";
 import { ForbiddenError } from "../../../../errors/forbidError";
 import { NotFoundError } from "../../../../errors/notFoundError";
 import { ServerError } from "../../../../errors/serverError";
-import {
-	startTestRun,
-	TestRunError,
-} from "../../../../modules/testRunner/runner";
+import { startTestRun, TestRunError } from "../../../../modules/testRunner/runner";
 
 export default async function handleRequest(input: {
 	projectId: string;
@@ -21,13 +18,9 @@ export default async function handleRequest(input: {
 		return { runId };
 	} catch (err: unknown) {
 		if (err instanceof TestRunError) {
-			throw err.status === 403
-				? new ForbiddenError(err.message)
-				: new NotFoundError(err.message);
+			throw err.status === 403 ? new ForbiddenError(err.message) : new NotFoundError(err.message);
 		}
 		if (err instanceof CustomError) throw err;
-		throw new ServerError(
-			err instanceof Error ? err.message : "Failed to start test run",
-		);
+		throw new ServerError(err instanceof Error ? err.message : "Failed to start test run");
 	}
 }

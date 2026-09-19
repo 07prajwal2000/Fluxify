@@ -1,10 +1,8 @@
-import z from "zod";
 import { generateID } from "@fluxify/lib";
-import { BuilderOutputSchema, CanvasChangeSchema } from "./schemas";
+import type z from "zod";
+import type { BuilderOutputSchema, CanvasChangeSchema } from "./schemas";
 
-export function mapBuilderOutput(
-	builderOutput: z.infer<typeof BuilderOutputSchema>,
-): {
+export function mapBuilderOutput(builderOutput: z.infer<typeof BuilderOutputSchema>): {
 	blocks: {
 		id: string;
 		type: string;
@@ -25,9 +23,7 @@ export function mapBuilderOutput(
 	const edges: any[] = [];
 
 	const isUUID = (id: string) =>
-		/^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(
-			id,
-		);
+		/^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(id);
 
 	const getId = (id: string) => {
 		if (isUUID(id)) return id;

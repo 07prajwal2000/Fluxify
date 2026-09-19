@@ -1,9 +1,9 @@
-import { TbGitBranch } from "react-icons/tb";
 import { ReorderableList } from "@fluxify/components";
-import { BlockSettings } from "../BlockSettings";
-import { BlockSelectField } from "../fields";
+import { TbGitBranch } from "react-icons/tb";
 import { useCanvasChanges } from "../../changes/ChangesContext";
 import type { BlockNode } from "../../types";
+import { BlockSettings } from "../BlockSettings";
+import { BlockSelectField } from "../fields";
 import { FanOutEmptyState, useFanOutBranches } from "./fanOutBranches";
 
 const ON_ERROR_OPTIONS = [
@@ -14,10 +14,7 @@ const ON_ERROR_OPTIONS = [
 /** The branches wired to the orchestrate handle, in output order. */
 export function OrchestratorBranches({ block }: { block: BlockNode }) {
 	const { enabled: editable } = useCanvasChanges();
-	const { branches, names, move, remove, highlightProps } = useFanOutBranches(
-		block,
-		"orchestrate",
-	);
+	const { branches, names, move, remove, highlightProps } = useFanOutBranches(block, "orchestrate");
 
 	return (
 		<div className="flex flex-col gap-2">
@@ -27,7 +24,8 @@ export function OrchestratorBranches({ block }: { block: BlockNode }) {
 					title="No branches connected"
 					icon={<TbGitBranch className="h-4.5 w-4.5" />}
 				>
-					Connect blocks to the <strong className="font-medium text-foreground">Branches</strong> handle on top of this block. Each connected chain runs at the same time.
+					Connect blocks to the <strong className="font-medium text-foreground">Branches</strong>{" "}
+					handle on top of this block. Each connected chain runs at the same time.
 				</FanOutEmptyState>
 			) : (
 				<>

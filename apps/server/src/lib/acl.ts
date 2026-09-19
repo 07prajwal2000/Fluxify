@@ -12,9 +12,7 @@ export function canAccess(
 	requiredRole: AccessControlRole,
 ) {
 	if (Array.isArray(userRole)) {
-		return userRole.some(
-			(acl) => roleHierarchy[acl.role] >= roleHierarchy[requiredRole],
-		);
+		return userRole.some((acl) => roleHierarchy[acl.role] >= roleHierarchy[requiredRole]);
 	}
 	return roleHierarchy[userRole] >= roleHierarchy[requiredRole];
 }

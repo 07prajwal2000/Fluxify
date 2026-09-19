@@ -61,9 +61,7 @@ function objectType(properties: SchemaProperty[] | undefined, depth: number): st
 	const members = (properties ?? [])
 		.filter((property) => property?.key)
 		.map((property) => {
-			const key = /^[A-Za-z_$][\w$]*$/.test(property.key)
-				? property.key
-				: quote(property.key);
+			const key = /^[A-Za-z_$][\w$]*$/.test(property.key) ? property.key : quote(property.key);
 			// an optional field is genuinely absent, and saying so is the whole
 			// value of typing this at all
 			const optional = property.required ? "" : "?";

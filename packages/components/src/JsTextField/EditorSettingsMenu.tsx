@@ -58,10 +58,7 @@ export function EditorSettingsMenu({
 				<TbSettings className="size-4" />
 			</Button>
 
-			<Popover
-				isOpen={isOpen}
-				onOpenChange={setIsOpen}
-			>
+			<Popover isOpen={isOpen} onOpenChange={setIsOpen}>
 				<Popover.Content
 					triggerRef={triggerRef}
 					placement="top start"
@@ -69,15 +66,19 @@ export function EditorSettingsMenu({
 				>
 					<Popover.Dialog className="p-3.5 flex flex-col gap-3.5 outline-none">
 						<div className="flex items-center justify-between border-b border-border pb-2">
-							<span className="text-xs font-semibold text-foreground">
-								Editor Settings
-							</span>
+							<span className="text-xs font-semibold text-foreground">Editor Settings</span>
 						</div>
 
 						{/* Theme Selection */}
 						<div className="flex flex-col gap-1.5">
-							<label className="text-[11px] font-medium text-muted">Theme</label>
-							<div className="grid grid-cols-3 gap-1 bg-surface-secondary p-1 rounded-lg border border-border">
+							<span id="editor-settings-theme" className="text-[11px] font-medium text-muted">
+								Theme
+							</span>
+							<div
+								role="group"
+								aria-labelledby="editor-settings-theme"
+								className="grid grid-cols-3 gap-1 bg-surface-secondary p-1 rounded-lg border border-border"
+							>
 								{(["auto", "vs-dark", "light"] as const).map((t) => (
 									<button
 										key={t}
@@ -99,26 +100,18 @@ export function EditorSettingsMenu({
 						{/* Wrap Lines Toggle */}
 						<div className="flex items-center justify-between border-t border-border pt-2.5">
 							<div className="flex flex-col">
-								<span className="text-xs font-medium text-foreground">
-									Wrap Lines
-								</span>
+								<span className="text-xs font-medium text-foreground">Wrap Lines</span>
 								<span className="text-[11px] text-muted-foreground leading-tight">
 									Wrap long lines in editor
 								</span>
 							</div>
-							<Checkbox
-								aria-label="Wrap lines"
-								isSelected={wordWrap}
-								onChange={onWordWrapChange}
-							/>
+							<Checkbox aria-label="Wrap lines" isSelected={wordWrap} onChange={onWordWrapChange} />
 						</div>
 
 						{/* Language Server Restart */}
 						<div className="flex flex-col gap-1.5 border-t border-border pt-2.5">
 							<div className="flex items-center justify-between">
-								<span className="text-[11px] font-medium text-muted">
-									Language Server
-								</span>
+								<span className="text-[11px] font-medium text-muted">Language Server</span>
 							</div>
 							<p className="text-[11px] text-muted-foreground leading-tight">
 								Reload TypeScript runtime globals and package completions.
@@ -130,9 +123,7 @@ export function EditorSettingsMenu({
 								className="mt-1 h-7 text-xs font-medium gap-1.5 justify-center w-full"
 								onPress={handleRestart}
 							>
-								<TbRefresh
-									className={clsx("size-3.5", isRestarting && "animate-spin")}
-								/>
+								<TbRefresh className={clsx("size-3.5", isRestarting && "animate-spin")} />
 								<span>{isRestarting ? "Restarting..." : "Restart Server"}</span>
 							</Button>
 

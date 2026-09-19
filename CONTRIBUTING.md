@@ -14,7 +14,8 @@ put your change.
 
 > [!TIP]
 > **Pre-commit hooks are automatic.** `bun install` registers a Git hook via
-> `scripts/setup-hooks.ts`. Every commit runs linting, complexity analysis
+> `scripts/setup-hooks.ts`. Every commit formats and lints the staged files
+> (Biome, fixes are re-staged), then runs the typecheck, complexity analysis
 > (`fta-cli`), and the unit tests.
 
 > [!IMPORTANT]
@@ -290,7 +291,7 @@ File naming decides which suite a test lands in:
 - `*.spec.ts` → unit tests
 
 Before opening a PR, manually exercise the parts you changed. The pre-commit
-hook runs linting, analysis, and the unit tests.
+hook runs Biome, the typecheck, analysis, and the unit tests.
 
 ---
 
@@ -306,7 +307,8 @@ hook runs linting, analysis, and the unit tests.
 | `bun run dev:ai` | AI gateway |
 | `bun run dev:docs` | VitePress docs with live reload |
 | `bun run build` | Production bundles for every package and app |
-| `bun run lint` | Lint everything via Turborepo |
+| `bun run lint` | Check formatting, lint rules, import order and secrets with Biome (`bun run lint --write` fixes) |
+| `bun run typecheck` | Typecheck every package via Turborepo (`tsgo --noEmit`) |
 | `bun run analyze` | Static analysis & complexity scoring (`fta-cli`) |
 | `bun run test:*` | See [Testing](#testing) |
 | `bun run db:generate` | Generate a new Drizzle migration |
@@ -346,7 +348,7 @@ Opening a PR also accepts our CLA — see below. There's nothing to do in advanc
 - **Description** covers the *why* and the *what* — enough for a reviewer to
   understand without reading every line. Link the issue (`Closes #123`).
 - **Scope** is one logical change. Split unrelated work into separate PRs.
-- **Checks pass**: `bun run lint` and the test suites relevant to your change.
+- **Checks pass**: `bun run lint`, `bun run typecheck` and the test suites relevant to your change.
 - **Docs updated** if you changed behaviour a user would notice.
 
 ---

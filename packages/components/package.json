@@ -7,7 +7,7 @@
 		"./styles.css": "./src/styles.css"
 	},
 	"scripts": {
-		"lint": "tsgo --noEmit"
+		"typecheck": "tsgo --noEmit"
 	},
 	"dependencies": {
 		"@heroui/react": "3.2.2",

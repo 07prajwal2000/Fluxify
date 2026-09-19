@@ -1,53 +1,53 @@
-import { useEffect, useMemo, useState } from "react";
 import {
 	Alert,
 	Button,
 	Chip,
 	CloseButton,
-	Modal,
+	DeleteButton,
 	Input,
 	Label,
+	Modal,
 	MultiSelect,
 	NumberField,
 	SchemaEditor,
+	type SchemaProperty,
 	Spinner,
 	Switch,
 	Tabs,
 	TextField,
 	toast,
-	type SchemaProperty,
 	type ValidationSchema,
 } from "@fluxify/components";
-import type { ContentType } from "@fluxify/server/src/lib/routeConfig";
+import { ROUTE_REGEX } from "@fluxify/server/src/api/v1/routes/constants";
 // type-only: the enum's module pulls drizzle in, the type erases at compile
 import type { HttpMethod } from "@fluxify/server/src/db/schema";
+import type { ContentType } from "@fluxify/server/src/lib/routeConfig";
 import { DEFAULT_CONTENT_TYPES } from "@fluxify/server/src/lib/routeConfig";
-import { ROUTE_REGEX } from "@fluxify/server/src/api/v1/routes/constants";
-import { TbAlertTriangle } from "react-icons/tb";
 import { useNavigate } from "@tanstack/react-router";
-import { DeleteButton } from "@fluxify/components";
+import { useEffect, useMemo, useState } from "react";
+import { TbAlertTriangle } from "react-icons/tb";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { Section } from "@/components/common/Section";
-import { routesQuery } from "@/query/routesQuery";
-import { projectSettingsKeysQuery } from "@/query/projectSettingsKeysQuery";
 import { showErrorNotification } from "@/lib/errorNotifier";
+import { projectSettingsKeysQuery } from "@/query/projectSettingsKeysQuery";
+import { routesQuery } from "@/query/routesQuery";
 import { RouteTelemetryHelp } from "./RouteTelemetryHelp";
 import {
-	CONTENT_TYPE_OPTIONS,
-	EMPTY_SCHEMA,
-	METHODS_WITH_BODY,
-	MethodSwitch,
-	PARAM_DATA_TYPES,
-	QUERY_DATA_TYPES,
 	bodyDataTypes,
 	bodySchemaFor,
+	CONTENT_TYPE_OPTIONS,
 	describesSomething,
+	EMPTY_SCHEMA,
 	extractPathParams,
 	isBinaryBody,
+	METHODS_WITH_BODY,
+	type Method,
+	MethodSwitch,
+	PARAM_DATA_TYPES,
 	paramConfigFrom,
 	paramsSchemaFrom,
+	QUERY_DATA_TYPES,
 	sanitizePath,
-	type Method,
 } from "./routeForm";
 
 /**
@@ -95,9 +95,7 @@ export function RouteSettingsModal({
 	);
 }
 
-type RouteData = NonNullable<
-	ReturnType<typeof routesQuery.byId.useQuery>["data"]
->;
+type RouteData = NonNullable<ReturnType<typeof routesQuery.byId.useQuery>["data"]>;
 
 function RouteSettingsForm({
 	route,
@@ -109,9 +107,7 @@ function RouteSettingsForm({
 	onClose: () => void;
 }) {
 	const update = routesQuery.update.mutation(route.id);
-	const { data: projectSettings } = projectSettingsKeysQuery.getAll.useQuery(
-		route.projectId,
-	);
+	const { data: projectSettings } = projectSettingsKeysQuery.getAll.useQuery(route.projectId);
 
 	const settings = (projectSettings ?? {}) as Record<string, string>;
 	const hasTelemetryDestination = Boolean(
@@ -120,8 +116,7 @@ function RouteSettingsForm({
 	);
 	// The per-route timeout is only enforced when the project opted into the
 	// experimental worker timeouts, so asking for a value otherwise is a lie.
-	const workerTimeoutsEnabled =
-		settings["experimental.workerTimeouts.enabled"] === "true";
+	const workerTimeoutsEnabled = settings["experimental.workerTimeouts.enabled"] === "true";
 
 	const [name, setName] = useState(route.name);
 	const [method, setMethod] = useState<Method>(route.method as Method);
@@ -129,20 +124,16 @@ function RouteSettingsForm({
 	const [querySchema, setQuerySchema] = useState<ValidationSchema>(
 		route.querySchema ?? EMPTY_SCHEMA,
 	);
-	const [bodySchema, setBodySchema] = useState<ValidationSchema>(
-		route.bodySchema ?? EMPTY_SCHEMA,
-	);
+	const [bodySchema, setBodySchema] = useState<ValidationSchema>(route.bodySchema ?? EMPTY_SCHEMA);
 	const [contentTypes, setContentTypes] = useState<string[]>(
-		route.acceptedContentTypes.length > 0
-			? route.acceptedContentTypes
-			: DEFAULT_CONTENT_TYPES,
+		route.acceptedContentTypes.length > 0 ? route.acceptedContentTypes : DEFAULT_CONTENT_TYPES,
 	);
 	const [timeoutSeconds, setTimeoutSeconds] = useState(route.timeoutSeconds);
 	const [active, setActive] = useState(route.active);
 	const [tracingEnabled, setTracingEnabled] = useState(route.tracingEnabled);
 	// Configured params survive a path edit: keyed by param name, not position.
-	const [paramConfig, setParamConfig] = useState<Record<string, SchemaProperty>>(
-		() => paramConfigFrom(route.paramsSchema),
+	const [paramConfig, setParamConfig] = useState<Record<string, SchemaProperty>>(() =>
+		paramConfigFrom(route.paramsSchema),
 	);
 	const [tab, setTab] = useState("general");
 	const [confirmDelete, setConfirmDelete] = useState(false);
@@ -182,9 +173,7 @@ function RouteSettingsForm({
 			active,
 			tracingEnabled,
 			timeoutSeconds,
-			acceptedContentTypes: hasBody
-				? (contentTypes as [ContentType, ...ContentType[]])
-				: undefined,
+			acceptedContentTypes: hasBody ? (contentTypes as [ContentType, ...ContentType[]]) : undefined,
 			// null, not undefined: an omitted field is skipped by the update, which
 			// would leave a schema the user just emptied still validating requests.
 			paramsSchema: pathParams.length > 0 ? paramsSchema : null,
@@ -242,17 +231,12 @@ function RouteSettingsForm({
 		<>
 			<Modal.Header className="flex shrink-0 flex-row items-center gap-3 border-b border-border px-5 py-3">
 				<div className="min-w-0">
-					<Modal.Heading className="text-sm font-semibold">
-						Route settings
-					</Modal.Heading>
+					<Modal.Heading className="text-sm font-semibold">Route settings</Modal.Heading>
 					<p className="truncate font-mono text-xs text-muted">
 						{method} {path}
 					</p>
 				</div>
-				<CloseButton
-					aria-label="Close route settings"
-					className="ml-auto"
-				/>
+				<CloseButton aria-label="Close route settings" className="ml-auto" />
 			</Modal.Header>
 
 			<Modal.Body className="min-h-0 flex-1 p-0">
@@ -278,12 +262,7 @@ function RouteSettingsForm({
 							title="Endpoint"
 							description="What clients call. Changing either re-registers the route."
 						>
-							<TextField
-								isRequired
-								value={name}
-								onChange={setName}
-								isInvalid={!nameIsValid}
-							>
+							<TextField isRequired value={name} onChange={setName} isInvalid={!nameIsValid}>
 								<Label>Name</Label>
 								<Input placeholder="List users" />
 							</TextField>
@@ -303,8 +282,8 @@ function RouteSettingsForm({
 								<Input placeholder="/users/:id" className="font-mono" />
 								<p className="text-xs text-muted">
 									Letters, digits, <code className="font-mono">-</code>,{" "}
-									<code className="font-mono">/</code> and{" "}
-									<code className="font-mono">:param</code> segments.
+									<code className="font-mono">/</code> and <code className="font-mono">:param</code>{" "}
+									segments.
 								</p>
 							</TextField>
 
@@ -408,9 +387,8 @@ function RouteSettingsForm({
 									<Alert.Content>
 										<Alert.Title>No telemetry destination</Alert.Title>
 										<Alert.Description>
-											This project has no traces or metrics destination, so this
-											route's telemetry is not exported. Configure one in Project
-											Settings → Telemetry.
+											This project has no traces or metrics destination, so this route's telemetry
+											is not exported. Configure one in Project Settings → Telemetry.
 										</Alert.Description>
 									</Alert.Content>
 								</Alert>
@@ -452,9 +430,7 @@ function RouteSettingsForm({
 										Any client calling it will start getting a 404.
 									</p>
 								</div>
-								<DeleteButton onPress={() => setConfirmDelete(true)}>
-									Delete route
-								</DeleteButton>
+								<DeleteButton onPress={() => setConfirmDelete(true)}>Delete route</DeleteButton>
 							</div>
 						</Section>
 					</Tabs.Panel>

@@ -1,23 +1,20 @@
 import { DbConnectionManager, KvFactory } from "@fluxify/adapters";
 import {
-	instantiateCompiled,
-	registerCompiledCustomBlock,
 	type BlockOutput,
 	type Context,
+	instantiateCompiled,
+	registerCompiledCustomBlock,
 	unregisterCustomBlock,
 } from "@fluxify/blocks";
 import { logger } from "@fluxify/common";
-import { HttpRouteParser, type HttpRoute } from "@fluxify/lib";
+import { type HttpRoute, HttpRouteParser } from "@fluxify/lib";
 import { DEFAULT_BASE_DOMAIN, isPortalOrigin, subdomainOf } from "../../lib/hosting";
-import {
-	compileRequestSchema,
-	type CompiledRequestSchema,
-} from "../../lib/schemaParser";
+import { type CompiledRequestSchema, compileRequestSchema } from "../../lib/schemaParser";
 import { hydrateAppConfig } from "../../loaders/appconfigLoader";
 import {
 	dbIntegrationsCache,
-	kvIntegrationsCache,
 	hydrateIntegrations,
+	kvIntegrationsCache,
 } from "../../loaders/integrationsLoader";
 import { hydrateProjectSettings } from "../../loaders/projectSettingsLoader";
 import type {
@@ -132,10 +129,7 @@ export function compiledRouteValidators(routeId: string): RouteValidators | unde
 }
 
 /** Builds the runtime from the artifact set handed over at spawn. */
-export function initCompiledRuntime(
-	entries: ArtifactEntry[],
-	databaseIdleTimeoutMs?: number,
-) {
+export function initCompiledRuntime(entries: ArtifactEntry[], databaseIdleTimeoutMs?: number) {
 	dbConnectionManager = new DbConnectionManager(undefined, {
 		idleTimeoutMs: databaseIdleTimeoutMs,
 	});
@@ -185,9 +179,7 @@ export async function shutdownCompiledRuntime() {
 function applyArtifact(key: string, value: any | null) {
 	switch (artifactKind(key)) {
 		case "route":
-			return value
-				? addRoute(value as RouteArtifact)
-				: removeRoute(artifactId(key));
+			return value ? addRoute(value as RouteArtifact) : removeRoute(artifactId(key));
 		case "custom-block":
 			return value
 				? addCustomBlock(value as CustomBlockArtifact)
@@ -201,14 +193,12 @@ function applyArtifact(key: string, value: any | null) {
 				? applyProjectConfig(value as UnsealedProjectConfig)
 				: setProjectSubdomain(key.split(".")[1]!, "");
 		case "trigger":
-			return void applyQueueTrigger(
-				artifactId(key),
-				value as TriggerArtifact | null,
-			).catch((error) =>
-				logger.error(
-					`[worker] failed to apply trigger ${key}: ${String(error)}`,
-					"WORKER.compiled",
-				),
+			return void applyQueueTrigger(artifactId(key), value as TriggerArtifact | null).catch(
+				(error) =>
+					logger.error(
+						`[worker] failed to apply trigger ${key}: ${String(error)}`,
+						"WORKER.compiled",
+					),
 			);
 	}
 }
@@ -225,10 +215,7 @@ function addRoute(artifact: RouteArtifact) {
 		// with a subdomain the project answers there and nowhere else
 		if (subdomainByProject.has(artifact.projectId)) parser.removeRoute(artifact.routeId);
 		else parser.upsertRoute(definition);
-		logger.info(
-			`[worker] loaded ${artifact.method} ${artifact.path}`,
-			"WORKER.compiled",
-		);
+		logger.info(`[worker] loaded ${artifact.method} ${artifact.path}`, "WORKER.compiled");
 	} catch (error) {
 		// a graph that will not instantiate must not take the other routes down
 		logger.error(
@@ -280,7 +267,10 @@ function removeRoute(routeId: string) {
 
 function projectParser(projectId: string) {
 	let trie = projectParsers.get(projectId);
-	if (!trie) projectParsers.set(projectId, (trie = new HttpRouteParser()));
+	if (!trie) {
+		trie = new HttpRouteParser();
+		projectParsers.set(projectId, trie);
+	}
 	return trie;
 }
 
@@ -291,7 +281,8 @@ function projectParser(projectId: string) {
 function setProjectSubdomain(projectId: string, subdomain: string) {
 	const previous = subdomainByProject.get(projectId) ?? "";
 	if (previous === subdomain) return;
-	if (previous && projectBySubdomain.get(previous) === projectId) projectBySubdomain.delete(previous);
+	if (previous && projectBySubdomain.get(previous) === projectId)
+		projectBySubdomain.delete(previous);
 	if (subdomain) {
 		subdomainByProject.set(projectId, subdomain);
 		projectBySubdomain.set(subdomain, projectId);
@@ -331,10 +322,7 @@ function addCustomBlock(artifact: CustomBlockArtifact) {
 	try {
 		registerCompiledCustomBlock(artifact.name, artifact.source);
 		customBlockNamesById.set(artifact.id, artifact.name);
-		logger.info(
-			`[worker] loaded custom block ${artifact.name}`,
-			"WORKER.compiled",
-		);
+		logger.info(`[worker] loaded custom block ${artifact.name}`, "WORKER.compiled");
 	} catch (error) {
 		logger.error(
 			`[worker] failed to load custom block ${artifact.id}: ${String(error)}`,
@@ -375,8 +363,5 @@ function applyProjectConfig(artifact: UnsealedProjectConfig) {
 		artifact.projectId,
 		payload.projectSettings?.["settings.routing.subdomain"] ?? "",
 	);
-	logger.info(
-		`[worker] project config applied (${artifact.compiledAt})`,
-		"WORKER.compiled",
-	);
+	logger.info(`[worker] project config applied (${artifact.compiledAt})`, "WORKER.compiled");
 }

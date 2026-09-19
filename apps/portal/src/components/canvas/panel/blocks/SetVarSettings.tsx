@@ -1,17 +1,16 @@
-import { useNodes } from "@xyflow/react";
 import { useSetVarSnippets } from "@fluxify/components";
+import { useNodes } from "@xyflow/react";
+import type { BlockNode } from "../../types";
 import { BlockSettings } from "../BlockSettings";
 import { BlockJsTextField, BlockTextField } from "../fields";
 import { canvasVariables } from "../SaveOutputField";
-import type { BlockNode } from "../../types";
 
 /** Set Variable block settings. Configures the variable key and value to set. */
 export function SetVarSettings({ block }: { block: BlockNode }) {
 	// live nodes, so a renamed block shows its new name in the snippets
 	const otherVars = canvasVariables(useNodes().filter((n) => n.id !== block.id));
 
-	const currentKey =
-		typeof block.data?.key === "string" ? block.data.key.trim() : "";
+	const currentKey = typeof block.data?.key === "string" ? block.data.key.trim() : "";
 
 	useSetVarSnippets(currentKey, otherVars);
 

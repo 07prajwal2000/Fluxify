@@ -1,14 +1,12 @@
-import { useMemo, useState } from "react";
 import { Button, CodeViewer, cn } from "@fluxify/components";
+import { useMemo, useState } from "react";
 import { TbDownload } from "react-icons/tb";
 
 type Headers = Record<string, string> | undefined;
 
 function contentTypeOf(headers: Headers) {
 	if (!headers) return "";
-	const entry = Object.entries(headers).find(
-		([key]) => key.toLowerCase() === "content-type",
-	);
+	const entry = Object.entries(headers).find(([key]) => key.toLowerCase() === "content-type");
 	return entry?.[1]?.split(";", 1)[0]?.trim().toLowerCase() ?? "";
 }
 
@@ -132,10 +130,10 @@ export function ResponseViewer({
 					className="max-h-64 max-w-full rounded-md border border-border object-contain"
 				/>
 			) : presentation === "video" && src ? (
-				// eslint-disable-next-line jsx-a11y/media-has-caption -- a response body has no caption track
+				// biome-ignore lint/a11y/useMediaCaption: a response body has no caption track
 				<video src={src} controls className="max-h-64 w-full rounded-md border border-border" />
 			) : presentation === "audio" && src ? (
-				// eslint-disable-next-line jsx-a11y/media-has-caption -- a response body has no caption track
+				// biome-ignore lint/a11y/useMediaCaption: a response body has no caption track
 				<audio src={src} controls className="w-full" />
 			) : presentation === "binary" ? (
 				<div className="flex items-center gap-3 rounded-md border border-border bg-background p-3">

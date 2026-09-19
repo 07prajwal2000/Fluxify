@@ -1,8 +1,8 @@
-import { useEffect, useState, useRef, useMemo } from "react";
-import { useVirtualizer } from "@tanstack/react-virtual";
-import { TbAlertTriangle, TbChevronsLeft, TbPlus, TbRefresh, TbSearch } from "react-icons/tb";
-import { useQueryClient } from "@tanstack/react-query";
 import { Button, Input, Spinner, Tabs, TextField } from "@fluxify/components";
+import { useQueryClient } from "@tanstack/react-query";
+import { useVirtualizer } from "@tanstack/react-virtual";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { TbAlertTriangle, TbChevronsLeft, TbPlus, TbRefresh, TbSearch } from "react-icons/tb";
 import { harnessConversationsQuery } from "@/query/harnessConversationsQuery";
 import { ConversationItem } from "./ConversationItem";
 import { groupConversations } from "./group";
@@ -68,11 +68,7 @@ export function ConversationSidebar({ projectId, onToggle, onOpen, onNew, active
 		const [lastItem] = [...virtualizer.getVirtualItems()].reverse();
 		if (!lastItem) return;
 
-		if (
-			lastItem.index >= flatRows.length - 1 &&
-			query.hasNextPage &&
-			!query.isFetchingNextPage
-		) {
+		if (lastItem.index >= flatRows.length - 1 && query.hasNextPage && !query.isFetchingNextPage) {
 			query.fetchNextPage();
 		}
 	}, [
@@ -95,7 +91,9 @@ export function ConversationSidebar({ projectId, onToggle, onOpen, onNew, active
 							size="sm"
 							variant="ghost"
 							aria-label="Refresh"
-							onPress={() => qc.invalidateQueries({ queryKey: ["harness-conversations", projectId] })}
+							onPress={() =>
+								qc.invalidateQueries({ queryKey: ["harness-conversations", projectId] })
+							}
 						>
 							<TbRefresh size={17} className={query.isRefetching ? "animate-spin" : ""} />
 						</Button>

@@ -1,8 +1,4 @@
-import {
-	CUSTOM_BLOCK_JOB,
-	invokeCustomBlock,
-	type CustomBlockArgs,
-} from "@fluxify/blocks";
+import { CUSTOM_BLOCK_JOB, type CustomBlockArgs, invokeCustomBlock } from "@fluxify/blocks";
 import { logger } from "@fluxify/common";
 import { createJobContext } from "../requestRouter/service";
 import { registerJobHandler } from "./registry";

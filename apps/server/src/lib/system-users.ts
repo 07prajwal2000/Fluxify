@@ -1,6 +1,6 @@
-import { db, DbTransactionType } from "../db";
-import { account, systemUsers } from "../db/auth-schema";
 import { desc, eq, ilike, or, sql } from "drizzle-orm";
+import { type DbTransactionType, db } from "../db";
+import { account, systemUsers } from "../db/auth-schema";
 
 // Canonical user table. All app code goes through here — never the Better Auth
 // `user` table directly.
@@ -20,10 +20,7 @@ export async function createSystemUser(
 	return row;
 }
 
-export async function getSystemUserByEmail(
-	email: string,
-	tx?: DbTransactionType,
-) {
+export async function getSystemUserByEmail(email: string, tx?: DbTransactionType) {
 	const [row] = await (tx ?? db)
 		.select()
 		.from(systemUsers)
@@ -32,10 +29,7 @@ export async function getSystemUserByEmail(
 }
 
 export async function getSystemUserById(id: string, tx?: DbTransactionType) {
-	const [row] = await (tx ?? db)
-		.select()
-		.from(systemUsers)
-		.where(eq(systemUsers.id, id));
+	const [row] = await (tx ?? db).select().from(systemUsers).where(eq(systemUsers.id, id));
 	return row ?? null;
 }
 
@@ -66,18 +60,11 @@ export async function listSystemUsers(
 		.limit(limit)
 		.offset(skip)
 		.orderBy(desc(systemUsers.createdAt))
-		.groupBy(
-			systemUsers.id,
-			systemUsers.name,
-			systemUsers.email,
-			systemUsers.isSystemAdmin,
-		);
+		.groupBy(systemUsers.id, systemUsers.name, systemUsers.email, systemUsers.isSystemAdmin);
 }
 
 export async function countSystemUsers(tx?: DbTransactionType) {
-	const [row] = await (tx ?? db)
-		.select({ count: sql<number>`count(*)` })
-		.from(systemUsers);
+	const [row] = await (tx ?? db).select({ count: sql<number>`count(*)` }).from(systemUsers);
 	return row.count;
 }
 
@@ -86,10 +73,7 @@ export async function setSystemUserAdmin(
 	isSystemAdmin: boolean,
 	tx?: DbTransactionType,
 ) {
-	await (tx ?? db)
-		.update(systemUsers)
-		.set({ isSystemAdmin })
-		.where(eq(systemUsers.id, id));
+	await (tx ?? db).update(systemUsers).set({ isSystemAdmin }).where(eq(systemUsers.id, id));
 }
 
 // Deleting the system user cascades the Better Auth user + account/session.

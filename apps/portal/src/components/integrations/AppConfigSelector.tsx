@@ -1,5 +1,5 @@
+import { cn, Label } from "@fluxify/components";
 import { useEffect, useState } from "react";
-import { Label, cn } from "@fluxify/components";
 import { TbSquareKey, TbX } from "react-icons/tb";
 import { AppConfigSelectorModal } from "./AppConfigSelectorModal";
 
@@ -91,4 +91,3 @@ export function AppConfigSelector({
 		</div>
 	);
 }
-

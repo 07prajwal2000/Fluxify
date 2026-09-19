@@ -1,6 +1,6 @@
-import { createRootRouteWithContext, Outlet, HeadContent } from "@tanstack/react-router";
-import type { QueryClient } from "@tanstack/react-query";
 import { Providers } from "@fluxify/components";
+import type { QueryClient } from "@tanstack/react-query";
+import { createRootRouteWithContext, HeadContent, Outlet } from "@tanstack/react-router";
 import { createRouteHead } from "@/lib/seo";
 
 export interface RouterContext {

@@ -1,4 +1,3 @@
-import { useCallback, useId } from "react";
 import {
 	ArrayEditor,
 	Button,
@@ -8,6 +7,7 @@ import {
 	Label,
 	TextField,
 } from "@fluxify/components";
+import { useCallback, useId } from "react";
 import { TbPlus } from "react-icons/tb";
 import type { CustomBlockInputParam } from "@/components/canvas/panel/blocks/CustomBlockSettings";
 
@@ -22,18 +22,14 @@ const PARAM_TYPE_OPTIONS = [
 
 const NAME_REGEX = /^[a-z0-9_]+$/;
 
-function emptyParam(
-	type: CustomBlockInputParam["type"],
-): CustomBlockInputParam {
+function emptyParam(type: CustomBlockInputParam["type"]): CustomBlockInputParam {
 	const base = { name: "", label: "", type, description: "" };
 	if (type === "dropdown") return { ...base, options: [] };
 	if (type === "integration_selector") return { ...base, group: "", tags: [] };
 	return base;
 }
 
-export function validateInputParams(
-	params: CustomBlockInputParam[],
-): string | null {
+export function validateInputParams(params: CustomBlockInputParam[]): string | null {
 	const seen = new Set<string>();
 	for (const p of params) {
 		if (!p.name.trim() || !NAME_REGEX.test(p.name)) {
@@ -78,8 +74,7 @@ export function InputParamsEditor({
 		[params, onChange],
 	);
 
-	const sampleName =
-		params.find((p) => p.name.trim())?.name.trim() ?? "channel";
+	const sampleName = params.find((p) => p.name.trim())?.name.trim() ?? "channel";
 
 	const add = useCallback(
 		() => onChange([...params, emptyParam("text_input")]),
@@ -92,16 +87,14 @@ export function InputParamsEditor({
 			    custom block's graph — see compiler.ts `js()` */}
 			<p className="rounded-md border border-accent/30 bg-accent/10 px-3 py-2 text-xs text-muted">
 				In this block's JavaScript, read these as{" "}
-				<code className="font-mono text-accent">params.{sampleName}</code> —
-				available in every block of the canvas, not just the first.{" "}
-				<code className="font-mono text-accent">input</code> stays what it is
-				everywhere else: the previous block's output, or whatever the caller
-				passed in at the entrypoint.
+				<code className="font-mono text-accent">params.{sampleName}</code> — available in every
+				block of the canvas, not just the first.{" "}
+				<code className="font-mono text-accent">input</code> stays what it is everywhere else: the
+				previous block's output, or whatever the caller passed in at the entrypoint.
 			</p>
 			{params.length === 0 ? (
 				<div className="rounded-md border border-dashed border-border p-4 text-center text-xs text-muted">
-					No input parameters yet. Add one so this block can be configured when
-					placed on a route.
+					No input parameters yet. Add one so this block can be configured when placed on a route.
 				</div>
 			) : (
 				params.map((param, index) => (
@@ -116,12 +109,7 @@ export function InputParamsEditor({
 			)}
 
 			{!isDisabled && (
-				<Button
-					size="sm"
-					variant="secondary"
-					className="self-start"
-					onPress={add}
-				>
+				<Button size="sm" variant="secondary" className="self-start" onPress={add}>
 					<TbPlus className="size-4 mr-1" /> Add parameter
 				</Button>
 			)}
@@ -254,14 +242,9 @@ function DropdownOptionsEditor({
 	isDisabled?: boolean;
 	onChange: (next: { label: string; value: string }[]) => void;
 }) {
-	const normalized = options.map((o) =>
-		typeof o === "string" ? { label: o, value: o } : o,
-	);
+	const normalized = options.map((o) => (typeof o === "string" ? { label: o, value: o } : o));
 
-	function update(
-		index: number,
-		patch: Partial<{ label: string; value: string }>,
-	) {
+	function update(index: number, patch: Partial<{ label: string; value: string }>) {
 		onChange(normalized.map((o, i) => (i === index ? { ...o, ...patch } : o)));
 	}
 
@@ -272,9 +255,7 @@ function DropdownOptionsEditor({
 	return (
 		<div className="flex flex-col gap-2">
 			<Label className="text-sm font-medium">Options</Label>
-			{normalized.length === 0 && (
-				<p className="text-xs text-muted">No options added yet.</p>
-			)}
+			{normalized.length === 0 && <p className="text-xs text-muted">No options added yet.</p>}
 			{normalized.map((opt, index) => (
 				<div key={`${id}-${index}`} className="flex items-center gap-2">
 					<TextField

@@ -1,7 +1,7 @@
 export { ConditionsBuilder } from "./ConditionsBuilder";
 export type { ConditionsBuilderRowProps } from "./ConditionsBuilderRow";
-export { ALL_OPERATORS } from "./constants";
 export type { OperatorOption } from "./constants";
+export { ALL_OPERATORS } from "./constants";
 export type {
 	ColumnRef,
 	Condition,

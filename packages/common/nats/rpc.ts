@@ -42,7 +42,10 @@ export interface RpcRequest<TPayload, TMeta> {
 
 export type RpcResponse<T> =
 	| { ok: true; data: T }
-	| { ok: false; error: { code: RpcErrorCode; message: string; details?: unknown } };
+	| {
+			ok: false;
+			error: { code: RpcErrorCode; message: string; details?: unknown };
+	  };
 
 /** The NATS server default is 1MiB; leave headroom for subject and headers. */
 export const MAX_PAYLOAD_BYTES = 1_000_000;
@@ -91,7 +94,7 @@ export async function rpcRequest<TReq, TRes, TMeta = undefined>(
 		);
 	}
 
-	let message;
+	let message: Awaited<ReturnType<typeof nc.request>>;
 	try {
 		message = await nc.request(subject, body, { timeout: timeoutMs });
 	} catch (error) {
@@ -104,11 +107,7 @@ export async function rpcRequest<TReq, TRes, TMeta = undefined>(
 	const response = codec.decode(message.data) as RpcResponse<TRes> | undefined;
 	if (!response?.ok) {
 		const err = response?.error;
-		throw new RpcError(
-			err?.code ?? "INTERNAL",
-			err?.message ?? "Malformed response",
-			err?.details,
-		);
+		throw new RpcError(err?.code ?? "INTERNAL", err?.message ?? "Malformed response", err?.details);
 	}
 	return response.data;
 }
@@ -146,17 +145,19 @@ export function rpcRespond<TReq, TRes, TMeta = undefined>(
 			try {
 				const request = codec.decode(message.data) as RpcRequest<TReq, TMeta>;
 				requestId = request?.requestId ?? "unknown";
-				response = { ok: true, data: await handler(request.payload, request.meta) };
+				response = {
+					ok: true,
+					data: await handler(request.payload, request.meta),
+				};
 			} catch (error) {
 				const rpc =
 					error instanceof RpcError
 						? error
-						: new RpcError(
-								"INTERNAL",
-								error instanceof Error ? error.message : String(error),
-							);
+						: new RpcError("INTERNAL", error instanceof Error ? error.message : String(error));
 				if (rpc.code === "INTERNAL") {
-					logger.error(`[nats] rpc ${subject} failed (${requestId})`, "NATS", { error });
+					logger.error(`[nats] rpc ${subject} failed (${requestId})`, "NATS", {
+						error,
+					});
 				}
 				response = {
 					ok: false,

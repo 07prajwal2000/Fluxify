@@ -98,12 +98,8 @@ export abstract class BaseTraceRecorder implements BlockTrace {
 			outcome,
 			...(statusCode === undefined ? {} : { statusCode }),
 			...(this.state.truncated ? { truncated: true } : {}),
-			...(this.state.droppedSpans > 0
-				? { droppedSpans: this.state.droppedSpans }
-				: {}),
-			...(this.parent
-				? { parentRunId: this.parent.runId, parentSeq: this.parent.seq }
-				: {}),
+			...(this.state.droppedSpans > 0 ? { droppedSpans: this.state.droppedSpans } : {}),
+			...(this.parent ? { parentRunId: this.parent.runId, parentSeq: this.parent.seq } : {}),
 			spans: this.state.spans,
 			...this.targetAttributes(),
 		} as TraceRunPayload;
@@ -253,9 +249,7 @@ export class WorkflowTraceRecorder extends BaseTraceRecorder implements Workflow
 			projectId: this.workflow.projectId,
 			workflowId: this.workflow.workflowId,
 			workflowVersion: this.workflow.workflowVersion,
-			...(this.workflow.workflowName
-				? { workflowName: this.workflow.workflowName }
-				: {}),
+			...(this.workflow.workflowName ? { workflowName: this.workflow.workflowName } : {}),
 		};
 	}
 }

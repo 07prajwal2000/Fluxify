@@ -6,20 +6,13 @@ export const HandleTypeSchema = z
 
 export const ConnectionSchema = z.object({
 	blockId: z.string().describe("Target block ID to connect to."),
-	handle: HandleTypeSchema.describe(
-		"Specific output handle of the source block.",
-	),
+	handle: HandleTypeSchema.describe("Specific output handle of the source block."),
 });
 
 export const BlockSchema = z.object({
 	id: z.string().describe("Unique identifier for the block."),
-	blockType: z
-		.string()
-		.describe("The type/category of the block (e.g., 'http_request')."),
-	blockName: z
-		.string()
-		.nullish()
-		.describe("Human-readable name for the block instance."),
+	blockType: z.string().describe("The type/category of the block (e.g., 'http_request')."),
+	blockName: z.string().nullish().describe("Human-readable name for the block instance."),
 	blockDescription: z
 		.string()
 		.nullish()
@@ -48,34 +41,22 @@ export const CanvasChangeSchema = z.discriminatedUnion("type", [
 	z.object({
 		type: z.literal("edge_swap").describe("Re-route an existing connection."),
 		data: z.object({
-			fromEdge: z
-				.string()
-				.describe("Source block ID of the edge being changed."),
+			fromEdge: z.string().describe("Source block ID of the edge being changed."),
 			fromHandle: z
 				.string()
-				.describe(
-					"Handle on the source block (e.g., 'source', 'success', 'failure').",
-				),
+				.describe("Handle on the source block (e.g., 'source', 'success', 'failure')."),
 			toEdge: z.string().describe("New target block ID."),
 		}),
 	}),
 	z.object({
-		type: z
-			.literal("block_remove")
-			.describe("Delete one or more blocks from the canvas."),
+		type: z.literal("block_remove").describe("Delete one or more blocks from the canvas."),
 		data: z.object({
-			blocks: z
-				.array(z.string())
-				.describe("Array of block IDs to remove from the canvas."),
-			reason: z
-				.string()
-				.describe("Short explanation for why the blocks are being removed."),
+			blocks: z.array(z.string()).describe("Array of block IDs to remove from the canvas."),
+			reason: z.string().describe("Short explanation for why the blocks are being removed."),
 		}),
 	}),
 	z.object({
-		type: z
-			.literal("block_change")
-			.describe("Modify existing blocks in-place."),
+		type: z.literal("block_change").describe("Modify existing blocks in-place."),
 		data: z.object({
 			blocksInfo: z
 				.array(BlockSchema)
@@ -86,71 +67,66 @@ export const CanvasChangeSchema = z.discriminatedUnion("type", [
 	}),
 ]);
 
-export const blockBuilderSchema = z.object({
-	reasoning: z
-		.string()
-		.nullish()
-		.describe(
-			"Provide a short reasoning ONLY when status is 'impossible' to explain why construction is impossible. Do not provide reasoning when status is 'success'.",
-		),
-	status: z
-		.enum(["success", "impossible"])
-		.default("success")
-		.describe(
-			"'success' when the canvas was built, 'impossible' when it cannot be built.",
-		),
-	targetType: z
-		.enum(["route", "custom_block"])
-		.nullish()
-		.describe("Whether this canvas belongs to a route or custom block"),
-	targetId: z
-		.string()
-		.nullish()
-		.describe("The ID of the route or custom block this canvas belongs to"),
-	canvasChanges: z
-		.array(CanvasChangeSchema)
-		.default([])
-		.describe(
-			"List of changes for existing canvas items (empty when nothing existing changes)",
-		),
-	blocks: z
-		.array(BlockSchema)
-		.default([])
-		.describe("New blocks to add to the canvas"),
-}).superRefine((result, ctx) => {
-	if (result.status === "impossible") {
-		if (!result.reasoning?.trim()) {
+export const blockBuilderSchema = z
+	.object({
+		reasoning: z
+			.string()
+			.nullish()
+			.describe(
+				"Provide a short reasoning ONLY when status is 'impossible' to explain why construction is impossible. Do not provide reasoning when status is 'success'.",
+			),
+		status: z
+			.enum(["success", "impossible"])
+			.default("success")
+			.describe("'success' when the canvas was built, 'impossible' when it cannot be built."),
+		targetType: z
+			.enum(["route", "custom_block"])
+			.nullish()
+			.describe("Whether this canvas belongs to a route or custom block"),
+		targetId: z
+			.string()
+			.nullish()
+			.describe("The ID of the route or custom block this canvas belongs to"),
+		canvasChanges: z
+			.array(CanvasChangeSchema)
+			.default([])
+			.describe("List of changes for existing canvas items (empty when nothing existing changes)"),
+		blocks: z.array(BlockSchema).default([]).describe("New blocks to add to the canvas"),
+	})
+	.superRefine((result, ctx) => {
+		if (result.status === "impossible") {
+			if (!result.reasoning?.trim()) {
+				ctx.addIssue({
+					code: "custom",
+					path: ["reasoning"],
+					message: "Explain why construction is impossible.",
+				});
+			}
+			return;
+		}
+
+		if (!result.targetType) {
 			ctx.addIssue({
 				code: "custom",
-				path: ["reasoning"],
-				message: "Explain why construction is impossible.",
+				path: ["targetType"],
+				message: "A successful result must identify its target type.",
 			});
 		}
-		return;
-	}
-
-	if (!result.targetType) {
-		ctx.addIssue({
-			code: "custom",
-			path: ["targetType"],
-			message: "A successful result must identify its target type.",
-		});
-	}
-	if (!result.targetId) {
-		ctx.addIssue({
-			code: "custom",
-			path: ["targetId"],
-			message: "A successful result must identify its target ID.",
-		});
-	}
-	if (result.blocks.length === 0 && result.canvasChanges.length === 0) {
-		ctx.addIssue({
-			code: "custom",
-			path: ["blocks"],
-			message: "A successful result must add a block or change the canvas.",
-		});
-	}
-});
+		if (!result.targetId) {
+			ctx.addIssue({
+				code: "custom",
+				path: ["targetId"],
+				message: "A successful result must identify its target ID.",
+			});
+		}
+		if (result.blocks.length === 0 && result.canvasChanges.length === 0) {
+			ctx.addIssue({
+				code: "custom",
+				path: ["blocks"],
+				message: "A successful result must add a block or change the canvas.",
+			});
+		}
+	});
 
 export type BlockBuilderResult = z.infer<typeof blockBuilderSchema>;
 export type ValidatableBlock = {

@@ -48,11 +48,7 @@ export function JsonTypeSelect({
 			<Select.Popover>
 				<ListBox>
 					{TYPE_OPTIONS.map((option) => (
-						<ListBox.Item
-							id={option.value}
-							key={option.value}
-							textValue={option.label}
-						>
+						<ListBox.Item id={option.value} key={option.value} textValue={option.label}>
 							{option.label}
 							<ListBox.ItemIndicator />
 						</ListBox.Item>
@@ -62,4 +58,3 @@ export function JsonTypeSelect({
 		</Select>
 	);
 }
-

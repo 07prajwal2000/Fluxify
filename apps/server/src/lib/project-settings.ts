@@ -1,7 +1,6 @@
-import { eq, and } from "drizzle-orm";
-import { db } from "../db";
-import { projectSettingsEntity } from "../db/schema";
+import { and, eq } from "drizzle-orm";
 import type { ProjectSettingsKeyType } from "../api/v1/projects/settings/keys/keySchemaMap";
+import { db } from "../db";
 import {
 	CHAN_ON_PROJECT_SETTING_CHANGE,
 	deleteCacheKey,
@@ -9,6 +8,7 @@ import {
 	publishMessage,
 	setCache,
 } from "../db/redis";
+import { projectSettingsEntity } from "../db/schema";
 
 export function constructProjectSettingCacheKey(projectId: string) {
 	return `PROJECT-SETTINGS-${projectId}`;
@@ -62,10 +62,7 @@ export async function setProjectSetting(
 		.select({ id: projectSettingsEntity.id })
 		.from(projectSettingsEntity)
 		.where(
-			and(
-				eq(projectSettingsEntity.projectId, projectId),
-				eq(projectSettingsEntity.key, keyName),
-			),
+			and(eq(projectSettingsEntity.projectId, projectId), eq(projectSettingsEntity.key, keyName)),
 		)
 		.limit(1);
 

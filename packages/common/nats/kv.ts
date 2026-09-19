@@ -1,4 +1,4 @@
-import { Kvm, KvWatchInclude, type KV, type KvEntry } from "@nats-io/kv";
+import { type KV, type KvEntry, Kvm, KvWatchInclude } from "@nats-io/kv";
 import type { NatsConnection } from "@nats-io/nats-core";
 import { logger } from "../logging";
 import { type Codec, jsonCodec } from "./codec";

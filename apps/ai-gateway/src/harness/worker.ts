@@ -2,20 +2,20 @@ import { logger } from "@fluxify/common";
 import { consumeQueue, natsConnection, type QueueMessage } from "@fluxify/common/nats";
 import { initializePubSub } from "@fluxify/server";
 import { HARNESS_CONCURRENT_JOBS } from "../lib/env";
-import {
-	HARNESS_CONSUMER,
-	HARNESS_STREAM,
-	initializeHarnessQueue,
-	type HarnessJobData,
-} from "./queue";
+import { FluxifyHarness, type HarnessRunContext } from "./index";
+import { HarnessService } from "./internal/harnessService";
+import { subscribeInterrupts } from "./interrupt";
 import { AgentFactory } from "./models/factory";
 import {
 	resolveAgentOptionsFromIntegrationId,
 	resolveAgentOptionsFromProjectId,
 } from "./models/projectConfig";
-import { FluxifyHarness, type HarnessRunContext } from "./index";
-import { HarnessService } from "./internal/harnessService";
-import { subscribeInterrupts } from "./interrupt";
+import {
+	HARNESS_CONSUMER,
+	HARNESS_STREAM,
+	type HarnessJobData,
+	initializeHarnessQueue,
+} from "./queue";
 
 let stop: (() => Promise<void>) | null = null;
 
@@ -54,10 +54,7 @@ export async function initializeHarnessWorker() {
 	);
 	stop = consumer.stop;
 
-	logger.info(
-		`Initialized (concurrency ${HARNESS_CONCURRENT_JOBS})`,
-		"HarnessWorker",
-	);
+	logger.info(`Initialized (concurrency ${HARNESS_CONCURRENT_JOBS})`, "HarnessWorker");
 	return stop;
 }
 

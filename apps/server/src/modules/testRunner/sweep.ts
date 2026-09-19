@@ -1,5 +1,5 @@
-import { inArray } from "drizzle-orm";
 import { logger } from "@fluxify/common";
+import { inArray } from "drizzle-orm";
 import { db } from "../../db";
 import { testRunsEntity, testSuiteRunsEntity } from "../../db/schema";
 

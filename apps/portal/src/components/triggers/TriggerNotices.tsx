@@ -1,6 +1,6 @@
-import type { ReactNode } from "react";
 import { Alert, toast } from "@fluxify/components";
 import { isAxiosError } from "axios";
+import type { ReactNode } from "react";
 import { TbAlertTriangle } from "react-icons/tb";
 
 /** Warnings the server returned with a save, or why it refused one. */
@@ -54,7 +54,9 @@ export function announceWarnings(warnings?: string[]) {
 /** The server's own sentence for a refused save, not "Request failed with status 400". */
 export function errorMessage(error: unknown) {
 	if (isAxiosError(error)) {
-		const data = error.response?.data as { message?: string; errors?: { message: string }[] } | undefined;
+		const data = error.response?.data as
+			| { message?: string; errors?: { message: string }[] }
+			| undefined;
 		return data?.errors?.map((item) => item.message).join(" ") || data?.message || error.message;
 	}
 	return error instanceof Error ? error.message : String(error);

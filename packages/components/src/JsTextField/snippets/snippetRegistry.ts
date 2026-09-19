@@ -60,11 +60,7 @@ export function subscribeToSnippets(listener: () => void): () => void {
  * Hook to subscribe to all dynamically registered snippets.
  */
 export function useRegisteredSnippets(): CodeSnippet[] {
-	return useSyncExternalStore(
-		subscribeToSnippets,
-		getRegisteredSnippets,
-		getRegisteredSnippets,
-	);
+	return useSyncExternalStore(subscribeToSnippets, getRegisteredSnippets, getRegisteredSnippets);
 }
 
 /**
@@ -126,9 +122,7 @@ export function buildRouteParamSnippets(
 
 	// Batch query params snippet
 	if (validQueryParams.length > 1) {
-		const lines = validQueryParams.map(
-			(q) => `const ${toIdentifier(q)} = getQueryParam("${q}");`,
-		);
+		const lines = validQueryParams.map((q) => `const ${toIdentifier(q)} = getQueryParam("${q}");`);
 		snippets.push({
 			id: "query-params-all",
 			title: "All Query Params",
@@ -161,10 +155,7 @@ const ROUTE_CONTEXT_SNIPPETS_ID = "fluxify-route-param-snippets";
  * Hook to automatically register intelligent route & query param snippets
  * for the currently active route canvas on mount, and clean them up on unmount.
  */
-export function useRouteParamSnippets(
-	routeParams?: string[],
-	queryParams?: string[],
-): void {
+export function useRouteParamSnippets(routeParams?: string[], queryParams?: string[]): void {
 	const snippets = useMemo(
 		() => buildRouteParamSnippets(routeParams, queryParams),
 		// eslint-disable-next-line react-hooks/exhaustive-deps

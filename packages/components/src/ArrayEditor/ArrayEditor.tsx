@@ -65,13 +65,9 @@ export function ArrayEditor({
 
 	return (
 		<div className={clsx("flex flex-col gap-3 w-full", className)}>
-			{label && (
-				<Label className="text-sm font-medium text-foreground">{label}</Label>
-			)}
+			{label && <Label className="text-sm font-medium text-foreground">{label}</Label>}
 			{description && (
-				<Description className="text-xs text-muted-foreground">
-					{description}
-				</Description>
+				<Description className="text-xs text-muted-foreground">{description}</Description>
 			)}
 
 			<div className="flex flex-col gap-2.5 w-full">
@@ -79,10 +75,7 @@ export function ArrayEditor({
 					<p className="text-xs text-muted-foreground py-1">{emptyMessage}</p>
 				) : (
 					items.map((item, index) => (
-						<div
-							key={index}
-							className="flex flex-row items-center gap-2 w-full"
-						>
+						<div key={index} className="flex flex-row items-center gap-2 w-full">
 							<div className="flex-1 min-w-0">
 								<JsTextField
 									fullWidth
@@ -115,12 +108,7 @@ export function ArrayEditor({
 
 			{showAddButton && !disabled && (
 				<div className="flex flex-col gap-1.5 items-start mt-1">
-					<Button
-						size="sm"
-						variant="secondary"
-						isDisabled={disabled}
-						onPress={handleAdd}
-					>
+					<Button size="sm" variant="secondary" isDisabled={disabled} onPress={handleAdd}>
 						<TbPlus className="size-4 mr-1" />
 						{addButtonLabel}
 					</Button>

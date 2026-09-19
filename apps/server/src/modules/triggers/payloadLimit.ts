@@ -15,7 +15,6 @@ export const MAX_TRIGGER_PAYLOAD_BYTES = 256 * 1024;
 
 export function triggerPayloadLimit(projectId: string) {
 	const configured = Number(projectSettingsCache[projectId]?.[TRIGGER_PAYLOAD_KEY]);
-	if (!Number.isFinite(configured) || configured <= 0)
-		return DEFAULT_TRIGGER_PAYLOAD_BYTES;
+	if (!Number.isFinite(configured) || configured <= 0) return DEFAULT_TRIGGER_PAYLOAD_BYTES;
 	return Math.min(configured, MAX_TRIGGER_PAYLOAD_BYTES);
 }

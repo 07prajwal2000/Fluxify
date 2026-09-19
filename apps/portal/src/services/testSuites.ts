@@ -1,17 +1,17 @@
-import type z from "zod";
-import type { responseSchema as getAllResponseSchema } from "@fluxify/server/src/api/v1/test-suites/get-all/dto";
-import type { responseSchema as getByIdResponseSchema } from "@fluxify/server/src/api/v1/test-suites/get-by-id/dto";
 import type {
 	requestBodySchema as createRequestBodySchema,
 	responseSchema as createResponseSchema,
 } from "@fluxify/server/src/api/v1/test-suites/create/dto";
+import type { responseSchema as getAllResponseSchema } from "@fluxify/server/src/api/v1/test-suites/get-all/dto";
+import type { responseSchema as getByIdResponseSchema } from "@fluxify/server/src/api/v1/test-suites/get-by-id/dto";
+import type { responseSchema as getRunResponseSchema } from "@fluxify/server/src/api/v1/test-suites/get-run-by-id/dto";
+import type { responseSchema as getRunsResponseSchema } from "@fluxify/server/src/api/v1/test-suites/get-runs/dto";
+import type { responseSchema as startRunResponseSchema } from "@fluxify/server/src/api/v1/test-suites/start-run/dto";
 import type {
 	requestBodySchema as updateRequestBodySchema,
 	responseSchema as updateResponseSchema,
 } from "@fluxify/server/src/api/v1/test-suites/update/dto";
-import type { responseSchema as startRunResponseSchema } from "@fluxify/server/src/api/v1/test-suites/start-run/dto";
-import type { responseSchema as getRunsResponseSchema } from "@fluxify/server/src/api/v1/test-suites/get-runs/dto";
-import type { responseSchema as getRunResponseSchema } from "@fluxify/server/src/api/v1/test-suites/get-run-by-id/dto";
+import type z from "zod";
 import { httpClient } from "@/lib/http";
 
 /** Suite CRUD resolves the project from the suite itself, so it has no project segment. */
@@ -82,9 +82,7 @@ export const testSuitesService = {
 		const params = new URLSearchParams();
 		params.set("page", String(query.page ?? 1));
 		params.set("perPage", String(query.perPage ?? 10));
-		const result = await httpClient.get(
-			`${runsUrl(projectId, routeId)}?${params.toString()}`,
-		);
+		const result = await httpClient.get(`${runsUrl(projectId, routeId)}?${params.toString()}`);
 		return result.data;
 	},
 	/** Clears every recorded run for the route. */
@@ -92,14 +90,8 @@ export const testSuitesService = {
 		const result = await httpClient.delete(runsUrl(projectId, routeId));
 		return result.data;
 	},
-	async getRun(
-		projectId: string,
-		routeId: string,
-		runId: string,
-	): Promise<TestRunDetail> {
-		const result = await httpClient.get(
-			`${runsUrl(projectId, routeId)}/${runId}`,
-		);
+	async getRun(projectId: string, routeId: string, runId: string): Promise<TestRunDetail> {
+		const result = await httpClient.get(`${runsUrl(projectId, routeId)}/${runId}`);
 		return result.data;
 	},
 };

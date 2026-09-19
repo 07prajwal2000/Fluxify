@@ -1,16 +1,8 @@
-import { useState, type RefObject } from "react";
+import { type RefObject, useState } from "react";
 import { useCanvasActions } from "./actions";
 import type { BlockType } from "./blocks";
-import {
-	CanvasContextMenu,
-	type CanvasContextMenuState,
-	type MenuPosition,
-} from "./contextMenu";
-import {
-	CanvasKeyboardLayer,
-	KeyboardShortcutsModal,
-	useKeyboardShortcuts,
-} from "./keyboard";
+import { CanvasContextMenu, type CanvasContextMenuState, type MenuPosition } from "./contextMenu";
+import { CanvasKeyboardLayer, KeyboardShortcutsModal, useKeyboardShortcuts } from "./keyboard";
 import { CanvasSpotlight, useSpotlightCommands } from "./spotlight";
 
 export type CanvasCommandsProps = {
@@ -75,11 +67,7 @@ export function CanvasCommands({
 
 	return (
 		<>
-			<CanvasKeyboardLayer
-				enabled={enableKeyboard}
-				rootRef={rootRef}
-				actions={list}
-			/>
+			<CanvasKeyboardLayer enabled={enableKeyboard} rootRef={rootRef} actions={list} />
 			<CanvasContextMenu menu={menu} actions={list} />
 			{enableSpotlight && (
 				<CanvasSpotlight
@@ -88,10 +76,7 @@ export function CanvasCommands({
 					commands={spotlightCommands}
 				/>
 			)}
-			<KeyboardShortcutsModal
-				isOpen={shortcuts.isOpen}
-				onOpenChange={shortcuts.onOpenChange}
-			/>
+			<KeyboardShortcutsModal isOpen={shortcuts.isOpen} onOpenChange={shortcuts.onOpenChange} />
 		</>
 	);
 }

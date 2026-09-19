@@ -1,19 +1,12 @@
-import {
-	describeRoute,
-	DescribeRouteOptions,
-	resolver,
-	validator,
-} from "hono-openapi";
 import { generateID } from "@fluxify/lib";
-import { HonoServer } from "../../../types";
+import { type DescribeRouteOptions, describeRoute, resolver, validator } from "hono-openapi";
 import { errorSchema } from "../../../errors/customError";
 import { validationErrorSchema } from "../../../errors/validationError";
 import zodErrorCallbackParser from "../../../middlewares/zodErrorCallbackParser";
+import type { HonoServer } from "../../../types";
 import { requireLoggedIn, requireProjectAccess } from "../../auth/middleware";
 import {
 	createdSchema,
-	triggerCreatedSchema,
-	triggerUpdatedSchema,
 	createGroupSchema,
 	createSchema,
 	deleteGroupQuerySchema,
@@ -26,10 +19,18 @@ import {
 	patchSchema,
 	previewQuerySchema,
 	previewSchema,
+	triggerCreatedSchema,
 	triggerSchema,
+	triggerUpdatedSchema,
 	updateGroupSchema,
 	workflowIdParamSchema,
 } from "./dto";
+import {
+	createTriggerGroup,
+	deleteTriggerGroup,
+	listTriggerGroups,
+	updateTriggerGroup,
+} from "./groups";
 import {
 	attachWorkflow,
 	createTrigger,
@@ -40,12 +41,6 @@ import {
 	previewSchedule,
 	updateTrigger,
 } from "./service";
-import {
-	createTriggerGroup,
-	deleteTriggerGroup,
-	listTriggerGroups,
-	updateTriggerGroup,
-} from "./groups";
 
 /** The response blocks every endpoint here shares, so each one names only its own. */
 const common = {
@@ -92,8 +87,7 @@ export default {
 				describe("get-triggers-list", "Lists triggers, newest edit first", json(listSchema)),
 			),
 			validator("query", listQuerySchema, zodErrorCallbackParser),
-			async (ctx) =>
-				ctx.json(await listAllTriggers(ctx.req.valid("query"), ctx.get("acl") || [])),
+			async (ctx) => ctx.json(await listAllTriggers(ctx.req.valid("query"), ctx.get("acl") || [])),
 		);
 
 		router.get(
@@ -103,9 +97,7 @@ export default {
 			),
 			validator("query", groupListQuerySchema, zodErrorCallbackParser),
 			async (ctx) =>
-				ctx.json(
-					await listTriggerGroups(ctx.req.valid("query").projectId, ctx.get("acl") || []),
-				),
+				ctx.json(await listTriggerGroups(ctx.req.valid("query").projectId, ctx.get("acl") || [])),
 		);
 
 		router.post(
@@ -124,7 +116,11 @@ export default {
 		router.patch(
 			"/groups/:id",
 			describeRoute(
-				describe("update-trigger-group", "Renames or re-describes a trigger group", json(createdSchema)),
+				describe(
+					"update-trigger-group",
+					"Renames or re-describes a trigger group",
+					json(createdSchema),
+				),
 			),
 			requireLoggedIn(),
 			validator("param", idParamSchema, zodErrorCallbackParser),
@@ -179,8 +175,7 @@ export default {
 			"/:id",
 			describeRoute(describe("get-trigger", "Returns one trigger", json(triggerSchema))),
 			validator("param", idParamSchema, zodErrorCallbackParser),
-			async (ctx) =>
-				ctx.json(await getTrigger(ctx.req.valid("param").id, ctx.get("acl") || [])),
+			async (ctx) => ctx.json(await getTrigger(ctx.req.valid("param").id, ctx.get("acl") || [])),
 		);
 
 		router.post(
@@ -197,9 +192,7 @@ export default {
 			requireProjectAccess("creator", { key: "projectId", source: "body" }),
 			validator("json", createSchema, zodErrorCallbackParser),
 			async (ctx) =>
-				ctx.json(
-					await createTrigger(userId(ctx), ctx.req.valid("json"), ctx.get("acl") || []),
-				),
+				ctx.json(await createTrigger(userId(ctx), ctx.req.valid("json"), ctx.get("acl") || [])),
 		);
 
 		router.patch(
@@ -252,8 +245,7 @@ export default {
 			describeRoute(describe("delete-trigger", "Deletes a trigger", json(createdSchema))),
 			requireLoggedIn(),
 			validator("param", idParamSchema, zodErrorCallbackParser),
-			async (ctx) =>
-				ctx.json(await deleteTrigger(ctx.req.valid("param").id, ctx.get("acl") || [])),
+			async (ctx) => ctx.json(await deleteTrigger(ctx.req.valid("param").id, ctx.get("acl") || [])),
 		);
 	},
 };

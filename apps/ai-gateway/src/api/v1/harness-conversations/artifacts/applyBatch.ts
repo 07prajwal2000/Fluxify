@@ -1,28 +1,19 @@
 import { NotFoundError } from "@fluxify/server";
-import {
-	inlineCanvasFor,
-	kindLabel,
-	parentsOf,
-	topoOrder,
-	type GraphRow,
-} from "./dependencies";
+import { type GraphRow, inlineCanvasFor, kindLabel, parentsOf, topoOrder } from "./dependencies";
 import { callerFor } from "./opsClient";
+import { getArtifactSubArtifacts, markSubArtifactsApplied } from "./repository";
 import {
-	getArtifactSubArtifacts,
-	markSubArtifactsApplied,
-} from "./repository";
-import {
-	announce,
 	APPLY_BY_KIND,
+	type ApplyFailure,
+	announce,
 	assertExternalRoutesExist,
 	canvasFor,
+	type DependencyRow,
 	describeFailure,
 	EMPTY_CANVAS,
 	newApplyContext,
 	rememberRealIdsOnChildren,
 	resolveCanvasTarget,
-	type ApplyFailure,
-	type DependencyRow,
 } from "./service";
 
 export async function applyArtifact(
@@ -98,11 +89,7 @@ export async function applyArtifact(
 		}
 
 		try {
-			await apply(
-				ctx,
-				row,
-				child ? await canvasFor(ctx, child, EMPTY_CANVAS) : undefined,
-			);
+			await apply(ctx, row, child ? await canvasFor(ctx, child, EMPTY_CANVAS) : undefined);
 			done.push(row.id);
 			if (child) {
 				await rememberRealIdsOnChildren(ctx, [child]);
@@ -113,9 +100,7 @@ export async function applyArtifact(
 			failures.push(describeFailure(row, error));
 			// The canvas rode along inside the create, so it did not land either.
 			if (child)
-				failures.push(
-					describeFailure(child, `its ${kindLabel(row.kind)} could not be created`),
-				);
+				failures.push(describeFailure(child, `its ${kindLabel(row.kind)} could not be created`));
 		}
 	}
 

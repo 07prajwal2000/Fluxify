@@ -2,9 +2,9 @@ import { Button, DeleteIconButton, Description, JsTextField, Label } from "@flux
 import { useReactFlow } from "@xyflow/react";
 import { TbMinus, TbPlus } from "react-icons/tb";
 import { useCanvasChanges } from "../../changes/ChangesContext";
+import type { BlockNode } from "../../types";
 import { BlockSettings } from "../BlockSettings";
 import { BlockCheckboxField } from "../fields";
-import type { BlockNode } from "../../types";
 
 /** Foreach Loop General tab settings: Use Param toggle. */
 export function ForeachLoopGeneralSettings({ block }: { block: BlockNode }) {
@@ -25,9 +25,7 @@ export function ForeachLoopGeneralSettings({ block }: { block: BlockNode }) {
 export function ForeachLoopDataSettings({ block }: { block: BlockNode }) {
 	const { updateNodeData } = useReactFlow();
 	const { enabled: editable } = useCanvasChanges();
-	const values = Array.isArray(block.data.values)
-		? (block.data.values as any[])
-		: [];
+	const values = Array.isArray(block.data.values) ? (block.data.values as any[]) : [];
 
 	const handleValueChange = (index: number, val: string) => {
 		const next = values.map((item, i) => (i === index ? val : item));
@@ -60,13 +58,7 @@ export function ForeachLoopDataSettings({ block }: { block: BlockNode }) {
 								variant="secondary"
 								isDisabled={!editable}
 								placeholder="Enter value or js: expression"
-								value={
-									typeof item === "string"
-										? item
-										: item != null
-											? String(item)
-											: ""
-								}
+								value={typeof item === "string" ? item : item != null ? String(item) : ""}
 								onChange={(next) => handleValueChange(index, next)}
 							/>
 						</div>

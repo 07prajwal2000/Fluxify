@@ -1,8 +1,8 @@
 import { logger } from "@fluxify/common";
+import type { HarnessJobMetadata } from "../queue";
+import type { ProjectInventoryEntry, SubAgentResult, Task } from "../types";
 import { buildContextBlock } from "./contextBlock";
 import type { DbService } from "./dbService";
-import type { ProjectInventoryEntry, SubAgentResult, Task } from "../types";
-import type { HarnessJobMetadata } from "../queue";
 
 type Target = NonNullable<HarnessJobMetadata["location"]>;
 
@@ -55,9 +55,7 @@ function targetFromInventory(
 ): Target | undefined {
 	const text = `${task.title} ${task.description}`;
 	const hits = (inventory ?? []).filter(
-		(entry) =>
-			(entry.type === "route" || entry.type === "custom_block") &&
-			text.includes(entry.id),
+		(entry) => (entry.type === "route" || entry.type === "custom_block") && text.includes(entry.id),
 	);
 	if (hits.length !== 1) return undefined;
 	return hits[0].type === "route"

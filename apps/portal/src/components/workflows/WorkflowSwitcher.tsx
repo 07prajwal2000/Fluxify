@@ -1,7 +1,7 @@
-import { useNavigate } from "@tanstack/react-router";
 import { Chip } from "@fluxify/components";
-import { workflowsQuery } from "@/query/workflowsQuery";
+import { useNavigate } from "@tanstack/react-router";
 import { EntitySwitcher } from "@/components/common/EntitySwitcher";
+import { workflowsQuery } from "@/query/workflowsQuery";
 
 /** The shared canvas header nav, filled with this project's workflows. */
 export function WorkflowSwitcher({
@@ -17,9 +17,10 @@ export function WorkflowSwitcher({
 	const byId = workflowsQuery.byId.useQuery(workflowId);
 	const listed = data?.data ?? [];
 	// The open workflow can sit past page 1; keep it selectable either way.
-	const workflows = listed.some((w) => w.id === workflowId) || !byId.data
-		? listed
-		: [{ ...byId.data, projectName: "" }, ...listed];
+	const workflows =
+		listed.some((w) => w.id === workflowId) || !byId.data
+			? listed
+			: [{ ...byId.data, projectName: "" }, ...listed];
 
 	return (
 		<EntitySwitcher
@@ -41,11 +42,7 @@ export function WorkflowSwitcher({
 				label: (
 					<span className="flex min-w-0 items-center gap-2">
 						<span className="truncate text-xs">{workflow.name ?? "Untitled"}</span>
-						{!workflow.active && (
-							<Chip className="shrink-0">
-								Inactive
-							</Chip>
-						)}
+						{!workflow.active && <Chip className="shrink-0">Inactive</Chip>}
 					</span>
 				),
 			}))}

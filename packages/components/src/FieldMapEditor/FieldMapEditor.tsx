@@ -43,9 +43,7 @@ export function FieldMapEditor({
 			return;
 		}
 
-		setTempFieldMap(
-			Object.keys(fieldMap || {}).map((key) => [key, fieldMap[key] ?? ""]),
-		);
+		setTempFieldMap(Object.keys(fieldMap || {}).map((key) => [key, fieldMap[key] ?? ""]));
 	}, [fieldMap]);
 
 	const emitChange = useCallback(
@@ -87,9 +85,7 @@ export function FieldMapEditor({
 
 	const handleAddNewFieldMap = useCallback(() => {
 		// Check if an empty row already exists
-		const hasEmptyRow = tempFieldMap.some(
-			([k, v]) => k.trim() === "" && v.trim() === "",
-		);
+		const hasEmptyRow = tempFieldMap.some(([k, v]) => k.trim() === "" && v.trim() === "");
 
 		if (hasEmptyRow) {
 			setAddError(
@@ -139,9 +135,7 @@ export function FieldMapEditor({
 	return (
 		<div className={clsx("flex flex-col gap-3 w-full", className)}>
 			{label && <Label className="text-sm font-medium">{label}</Label>}
-			{description && (
-				<Description className="text-xs text-muted">{description}</Description>
-			)}
+			{description && <Description className="text-xs text-muted">{description}</Description>}
 
 			<div className="flex flex-col gap-2.5 w-full">
 				{tempFieldMap.map((kv, i) => (

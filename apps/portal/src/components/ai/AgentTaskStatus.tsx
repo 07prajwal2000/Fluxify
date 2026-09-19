@@ -1,6 +1,14 @@
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
+import {
+	TbCheck,
+	TbChevronDown,
+	TbChevronRight,
+	TbClock,
+	TbLoader,
+	TbTool,
+	TbX,
+} from "react-icons/tb";
 import { useConversationRun } from "@/store/aiHarness";
-import { TbCheck, TbLoader, TbX, TbClock, TbChevronRight, TbChevronDown, TbTool } from "react-icons/tb";
 
 function getHumanFriendlyName(name: string) {
 	return name
@@ -17,11 +25,14 @@ export function AgentTaskStatus({ conversationId }: { conversationId: string }) 
 	// Expand tasks that are currently running
 	useEffect(() => {
 		if (tasksByLevel) {
-			const runningTasks = tasksByLevel.flat().filter(t => t.status === "running").map(t => t.id);
+			const runningTasks = tasksByLevel
+				.flat()
+				.filter((t) => t.status === "running")
+				.map((t) => t.id);
 			if (runningTasks.length > 0) {
-				setExpandedTasks(prev => {
+				setExpandedTasks((prev) => {
 					const next = new Set(prev);
-					runningTasks.forEach(id => next.add(id));
+					for (const id of runningTasks) next.add(id);
 					return next;
 				});
 			}
@@ -34,7 +45,7 @@ export function AgentTaskStatus({ conversationId }: { conversationId: string }) 
 	const isTerminal = run?.isTerminal;
 
 	const toggleTask = (taskId: string) => {
-		setExpandedTasks(prev => {
+		setExpandedTasks((prev) => {
 			const next = new Set(prev);
 			if (next.has(taskId)) next.delete(taskId);
 			else next.add(taskId);
@@ -57,7 +68,7 @@ export function AgentTaskStatus({ conversationId }: { conversationId: string }) 
 					const isRunning = task.status === "running";
 					const isFailed = task.status === "failed";
 					const isExpanded = expandedTasks.has(task.id);
-					
+
 					const statusIcon = isCompleted ? (
 						<TbCheck className="text-success shrink-0" size={14} />
 					) : isRunning ? (
@@ -72,11 +83,13 @@ export function AgentTaskStatus({ conversationId }: { conversationId: string }) 
 					const taskNodeId = `${task.assignedAgentNode}:${task.id}`;
 					const stepUIState = run?.steps[taskNodeId];
 					const rawLogs = stepUIState?.logs || [];
-					
+
 					const logs: typeof rawLogs = [];
 					for (const log of rawLogs) {
 						if (log.executionType === "tool" && log.toolName) {
-							const existingIdx = logs.findIndex(g => g.executionType === "tool" && g.toolName === log.toolName);
+							const existingIdx = logs.findIndex(
+								(g) => g.executionType === "tool" && g.toolName === log.toolName,
+							);
 							if (existingIdx >= 0) {
 								logs[existingIdx] = log;
 							} else {
@@ -90,6 +103,7 @@ export function AgentTaskStatus({ conversationId }: { conversationId: string }) 
 					return (
 						<div key={task.id} className="flex flex-col">
 							<button
+								type="button"
 								onClick={() => toggleTask(task.id)}
 								className="flex items-center gap-2 rounded-md hover:bg-surface/50 px-2 py-1.5 text-left transition-colors cursor-pointer group"
 							>
@@ -99,11 +113,9 @@ export function AgentTaskStatus({ conversationId }: { conversationId: string }) 
 										{humanName}
 									</span>
 								</div>
-								
+
 								<div className="flex items-center gap-2 shrink-0">
-									<span className="text-[11px] text-muted capitalize">
-										{task.status}
-									</span>
+									<span className="text-[11px] text-muted capitalize">{task.status}</span>
 									<div className="w-4 flex justify-center">
 										{isExpanded ? (
 											<TbChevronDown className="text-muted" size={14} />
@@ -117,7 +129,9 @@ export function AgentTaskStatus({ conversationId }: { conversationId: string }) 
 							{/* Events Accordion */}
 							<div
 								className={`transition-all duration-300 ease-in-out ${
-									isExpanded ? "max-h-[140px] opacity-100 mt-1 mb-2 overflow-y-auto custom-scrollbar" : "max-h-0 opacity-0 overflow-hidden"
+									isExpanded
+										? "max-h-[140px] opacity-100 mt-1 mb-2 overflow-y-auto custom-scrollbar"
+										: "max-h-0 opacity-0 overflow-hidden"
 								}`}
 							>
 								<div className="flex flex-col gap-1.5 pl-3 pr-2 border-l border-border/50 ml-3.5 relative py-1">
@@ -130,10 +144,11 @@ export function AgentTaskStatus({ conversationId }: { conversationId: string }) 
 										}
 
 										return (
-											<div key={`${log.timestamp}-${idx}`} className="flex items-start gap-2 w-full min-w-0">
-												<div className="w-4 flex justify-center shrink-0 mt-[5px]">
-													{icon}
-												</div>
+											<div
+												key={`${log.timestamp}-${idx}`}
+												className="flex items-start gap-2 w-full min-w-0"
+											>
+												<div className="w-4 flex justify-center shrink-0 mt-[5px]">{icon}</div>
 												<span className="text-[12px] text-muted leading-tight flex-1 min-w-0 break-words whitespace-pre-wrap">
 													{label}
 												</span>

@@ -1,25 +1,17 @@
-import {
-	db,
-	routesEntity,
-	appConfigEntity,
-	integrationsEntity,
-	customBlocksListEntity,
-	blocksEntity,
-	edgesEntity,
-	agentHarnessSubArtifactsEntity,
-} from "@fluxify/server";
-import {
-	eq,
-	ilike,
-	or,
-	and,
-	sql,
-	inArray,
-	type SQL,
-} from "drizzle-orm";
-import type { PgColumn } from "drizzle-orm/pg-core";
 import { logger } from "@fluxify/common";
+import {
+	agentHarnessSubArtifactsEntity,
+	appConfigEntity,
+	blocksEntity,
+	customBlocksListEntity,
+	db,
+	edgesEntity,
+	integrationsEntity,
+	routesEntity,
+} from "@fluxify/server";
 import { parentColumn } from "@fluxify/server/src/modules/canvas/repository";
+import { and, eq, ilike, inArray, or, type SQL, sql } from "drizzle-orm";
+import type { PgColumn } from "drizzle-orm/pg-core";
 import type { FindResourceResult } from "../types";
 import {
 	getProjectInventory,
@@ -29,12 +21,12 @@ import {
 	listRoutes,
 } from "./resourceInventory";
 
+export type { ResourceListPage } from "./resourceInventory";
 export {
 	decodeResourceCursor,
 	encodeResourceCursor,
 	RESOURCE_LIST_PAGE_SIZE,
 } from "./resourceInventory";
-export type { ResourceListPage } from "./resourceInventory";
 
 /**
  * Accepts either a single search string or an array of keywords, so the
@@ -79,8 +71,7 @@ export function toPrefixTsQuery(keyword: string): string | null {
 	return terms?.length ? terms.map((t) => `${t}:*`).join(" & ") : null;
 }
 
-export const UUID =
-	/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+export const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export const INTEGER = /^\d+$/;
 
 /**
@@ -187,20 +178,12 @@ export class DbService {
 		}
 	}
 
-	async getRouteDetails(
-		projectId: string,
-		routeId: string,
-	): Promise<any | null> {
+	async getRouteDetails(projectId: string, routeId: string): Promise<any | null> {
 		try {
 			const route = await db
 				.select()
 				.from(routesEntity)
-				.where(
-					and(
-						eq(routesEntity.projectId, projectId),
-						eq(routesEntity.id, routeId),
-					),
-				)
+				.where(and(eq(routesEntity.projectId, projectId), eq(routesEntity.id, routeId)))
 				.limit(1);
 			return route.length > 0 ? route[0] : null;
 		} catch (e) {
@@ -283,9 +266,7 @@ export class DbService {
 					variant: integrationsEntity.variant,
 				})
 				.from(integrationsEntity)
-				.where(
-					and(eq(integrationsEntity.projectId, projectId), or(...matchers)),
-				)
+				.where(and(eq(integrationsEntity.projectId, projectId), or(...matchers)))
 				.limit(10);
 			return integrations.map((i) => ({
 				type: "integration",
@@ -309,11 +290,7 @@ export class DbService {
 			const keywords = this.normalizeKeywords(searchQuery);
 			if (keywords.length === 0) return [];
 
-			const matchers: SQL[] = this.idMatchers(
-				customBlocksListEntity.id,
-				keywords,
-				mode,
-			);
+			const matchers: SQL[] = this.idMatchers(customBlocksListEntity.id, keywords, mode);
 			for (const k of mode === "id" ? [] : keywords) {
 				matchers.push(ilike(customBlocksListEntity.name, `%${k}%`));
 				matchers.push(ilike(customBlocksListEntity.label, `%${k}%`));
@@ -376,10 +353,7 @@ export class DbService {
 		return listCustomBlocks(projectId, afterId);
 	}
 
-	async getRouteCanvas(
-		projectId: string,
-		routeId: string,
-	): Promise<any | null> {
+	async getRouteCanvas(projectId: string, routeId: string): Promise<any | null> {
 		return this.getCanvas("route", routeId);
 	}
 
@@ -421,10 +395,7 @@ export class DbService {
 		}
 	}
 
-	async getCustomBlockCanvas(
-		projectId: string,
-		blockId: string,
-	): Promise<any | null> {
+	async getCustomBlockCanvas(projectId: string, blockId: string): Promise<any | null> {
 		return this.getCanvas("custom_block", blockId);
 	}
 
@@ -434,10 +405,7 @@ export class DbService {
 	 * parent artifact id, in which case all its children are returned. Always
 	 * scoped to the conversation so one chat can never read another's artifacts.
 	 */
-	async getSubArtifacts(
-		conversationId: string,
-		ids: string[],
-	): Promise<SubArtifactRecord[]> {
+	async getSubArtifacts(conversationId: string, ids: string[]): Promise<SubArtifactRecord[]> {
 		try {
 			const clean = this.normalizeKeywords(ids);
 			// No conversation scope => never widen the query, just return nothing.
@@ -499,10 +467,7 @@ export class DbService {
 		}
 	}
 
-	async getCustomBlockInputParams(
-		projectId: string,
-		name: string,
-	): Promise<any[] | null> {
+	async getCustomBlockInputParams(projectId: string, name: string): Promise<any[] | null> {
 		try {
 			const block = await db
 				.select({ inputParams: customBlocksListEntity.inputParams })
@@ -526,10 +491,7 @@ export class DbService {
 		}
 	}
 
-	async getCustomBlocksBatch(
-		projectId: string,
-		names: string[],
-	): Promise<Map<string, any[]>> {
+	async getCustomBlocksBatch(projectId: string, names: string[]): Promise<Map<string, any[]>> {
 		const resultMap = new Map<string, any[]>();
 		if (!names || names.length === 0) return resultMap;
 		try {

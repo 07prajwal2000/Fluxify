@@ -1,5 +1,5 @@
-import { useState } from "react";
 import { Button, DeleteIconButton, Spinner } from "@fluxify/components";
+import { useState } from "react";
 import { TbPlus, TbSitemap } from "react-icons/tb";
 import { WorkflowSelectorModal } from "@/components/workflows/WorkflowField";
 import { workflowsQuery } from "@/query/workflowsQuery";
@@ -27,17 +27,12 @@ export function TriggerWorkflowsField({
 				<WorkflowRow workflowId={value} onRemove={() => onChange(null)} />
 			) : (
 				<p className="rounded-lg border border-dashed border-border px-4 py-6 text-center text-xs text-muted">
-					No workflow yet. A trigger with nothing attached is saved and idle —
-					it starts firing as soon as you attach one.
+					No workflow yet. A trigger with nothing attached is saved and idle — it starts firing as
+					soon as you attach one.
 				</p>
 			)}
 
-			<Button
-				variant="outline"
-				size="sm"
-				className="self-start"
-				onPress={() => setPicking(true)}
-			>
+			<Button variant="outline" size="sm" className="self-start" onPress={() => setPicking(true)}>
 				<TbPlus size={14} /> {value ? "Change workflow" : "Choose workflow"}
 			</Button>
 
@@ -54,13 +49,7 @@ export function TriggerWorkflowsField({
 	);
 }
 
-function WorkflowRow({
-	workflowId,
-	onRemove,
-}: {
-	workflowId: string;
-	onRemove: () => void;
-}) {
+function WorkflowRow({ workflowId, onRemove }: { workflowId: string; onRemove: () => void }) {
 	const { data, isLoading } = workflowsQuery.byId.useQuery(workflowId);
 
 	return (

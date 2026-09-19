@@ -1,18 +1,18 @@
-import { useState } from "react";
 import {
 	Button,
 	Checkbox,
 	CloseButton,
+	CustomSelect,
 	Input,
 	Label,
 	Modal,
 	TextField,
 	toast,
-	CustomSelect,
 } from "@fluxify/components";
+import { useState } from "react";
 import { TbBraces, TbPlus } from "react-icons/tb";
-import { appConfigQuery } from "@/query/appConfigQuery";
 import { showErrorNotification } from "@/lib/errorNotifier";
+import { appConfigQuery } from "@/query/appConfigQuery";
 
 const ENCODINGS = ["plaintext", "base64", "hex"] as const;
 const DATA_TYPES = ["string", "number", "boolean"] as const;
@@ -112,7 +112,9 @@ export function CreateConfigButton({
 											<Label>Key name</Label>
 											<Input placeholder="API_TIMEOUT" className="font-mono" />
 										</TextField>
-										<p className="text-xs text-muted mt-1">Use a stable, descriptive name because it cannot be changed after creation.</p>
+										<p className="text-xs text-muted mt-1">
+											Use a stable, descriptive name because it cannot be changed after creation.
+										</p>
 									</div>
 
 									<div className="grid grid-cols-2 gap-4 mt-2">
@@ -122,7 +124,10 @@ export function CreateConfigButton({
 													<TbBraces size={16} /> Data type
 												</div>
 											}
-											options={DATA_TYPES.map(dt => ({ value: dt, label: dt[0].toUpperCase() + dt.slice(1) }))}
+											options={DATA_TYPES.map((dt) => ({
+												value: dt,
+												label: dt[0].toUpperCase() + dt.slice(1),
+											}))}
 											value={dataType}
 											onChange={(dt) => {
 												setDataType(dt as any);
@@ -133,7 +138,10 @@ export function CreateConfigButton({
 
 										<CustomSelect
 											label={<span className="text-sm font-medium text-muted">Encoding</span>}
-											options={ENCODINGS.map(enc => ({ value: enc, label: ENCODING_LABELS[enc] }))}
+											options={ENCODINGS.map((enc) => ({
+												value: enc,
+												label: ENCODING_LABELS[enc],
+											}))}
 											value={encoding}
 											onChange={(enc) => setEncoding(enc as any)}
 										/>

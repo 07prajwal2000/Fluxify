@@ -1,16 +1,11 @@
-import {
-	describeRoute,
-	DescribeRouteOptions,
-	resolver,
-	validator,
-} from "hono-openapi";
-import { requestQuerySchema, responseSchema } from "./dto";
-import handleRequest from "./service";
+import { type DescribeRouteOptions, describeRoute, resolver, validator } from "hono-openapi";
+import type { AuthACL } from "../../../../db/schema";
 import { validationErrorSchema } from "../../../../errors/validationError";
 import zodErrorCallbackParser from "../../../../middlewares/zodErrorCallbackParser";
-import { HonoServer } from "../../../../types";
-import { AuthACL } from "../../../../db/schema";
+import type { HonoServer } from "../../../../types";
 import { requireLoggedIn } from "../../../auth/middleware";
+import { requestQuerySchema, responseSchema } from "./dto";
+import handleRequest from "./service";
 
 const openapiRouteOptions: DescribeRouteOptions = {
 	description: "Get all projects with pagination",

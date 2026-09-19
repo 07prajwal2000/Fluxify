@@ -14,11 +14,10 @@ function dependencyContext(
 	task: Task | undefined,
 	results: Record<string, SubAgentResult> | undefined,
 ): string | undefined {
-	const values = [...new Set(task?.dependsOnAgentId ?? [])]
-		.flatMap((taskId) => {
-			const result = results?.[taskId];
-			return result === undefined ? [] : [{ taskId, result }];
-		});
+	const values = [...new Set(task?.dependsOnAgentId ?? [])].flatMap((taskId) => {
+		const result = results?.[taskId];
+		return result === undefined ? [] : [{ taskId, result }];
+	});
 	if (values.length === 0) return undefined;
 
 	return `## Direct task dependencies

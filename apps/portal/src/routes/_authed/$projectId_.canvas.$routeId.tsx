@@ -1,5 +1,3 @@
-import { useMemo, useState } from "react";
-import { createFileRoute } from "@tanstack/react-router";
 import {
 	Button,
 	useInputDataTypes,
@@ -7,17 +5,19 @@ import {
 	useRouteParamTypes,
 	type ValidationSchema,
 } from "@fluxify/components";
+import { createFileRoute } from "@tanstack/react-router";
+import { useMemo, useState } from "react";
 import { TbSettings } from "react-icons/tb";
-import { routesQuery } from "@/query/routesQuery";
-import { routesService } from "@/services/routes";
 import { CanvasWorkbench } from "@/components/canvas";
 import { RouteApiPlayground } from "@/components/RouteApiPlayground";
-import { useProjectApiBaseUrl } from "@/components/settings/SubdomainField";
 import { RouteSettingsModal } from "@/components/routes/RouteSettingsModal";
 import { RouteSwitcher } from "@/components/routes/RouteSwitcher";
 import { RouteWorkbenchTabs } from "@/components/routes/RouteWorkbenchTabs";
 import { extractPathParams } from "@/components/routes/routeForm";
+import { useProjectApiBaseUrl } from "@/components/settings/SubdomainField";
 import { createRouteHead } from "@/lib/seo";
+import { routesQuery } from "@/query/routesQuery";
+import { routesService } from "@/services/routes";
 
 export const Route = createFileRoute("/_authed/$projectId_/canvas/$routeId")({
 	head: createRouteHead("Route Canvas", "Visual canvas workflow editor for API route logic."),
@@ -59,7 +59,15 @@ function RouteCanvasPage() {
 				enableSpotlight
 				items={items}
 				compileTarget={{ projectId, resourceType: "route", resourceId: routeId }}
-				playgroundContent={<RouteApiPlayground key={routeId} routeId={routeId} baseUrl={apiBaseUrl} isFramed={false} enableCache />}
+				playgroundContent={
+					<RouteApiPlayground
+						key={routeId}
+						routeId={routeId}
+						baseUrl={apiBaseUrl}
+						isFramed={false}
+						enableCache
+					/>
+				}
 				reload={() => routesService.getCanvasItems(routeId)}
 				save={(payload) => save.mutateAsync(payload)}
 				headerLeft={

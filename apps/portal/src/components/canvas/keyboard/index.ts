@@ -3,16 +3,15 @@ export {
 	type CanvasKeyboardLayerProps,
 } from "./CanvasKeyboardLayer";
 export {
+	type KeyboardShortcuts,
+	KeyboardShortcutsProvider,
+	useKeyboardShortcuts,
+} from "./KeyboardShortcutsContext";
+export {
 	KeyboardShortcutsModal,
 	type KeyboardShortcutsModalProps,
 } from "./KeyboardShortcutsModal";
 export {
-	KeyboardShortcutsProvider,
-	useKeyboardShortcuts,
-	type KeyboardShortcuts,
-} from "./KeyboardShortcutsContext";
-export {
-	useCanvasKeyboard,
 	type UseCanvasKeyboardOptions,
+	useCanvasKeyboard,
 } from "./useCanvasKeyboard";
-

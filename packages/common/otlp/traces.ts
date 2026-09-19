@@ -1,28 +1,28 @@
 import { createHash } from "node:crypto";
 import {
+	type Context,
 	ROOT_CONTEXT,
+	type Span,
 	SpanKind,
 	SpanStatusCode,
 	TraceFlags,
 	trace,
-	type Context,
-	type Span,
 } from "@opentelemetry/api";
+import { OTLPTraceExporter as OTLPTraceGrpcExporter } from "@opentelemetry/exporter-trace-otlp-grpc";
+// http/JSON, not the proto exporter: under Bun the proto transport's keep-alive
+// handling reports every flush as "Request timed out" (the quirk
+// `tracing/instrumentation.ts` swallows). The JSON transport is the one the
+// metrics exporter uses, and it round-trips against a live collector.
+import { OTLPTraceExporter } from "@opentelemetry/exporter-trace-otlp-http";
+import { Resource } from "@opentelemetry/resources";
 import {
 	BasicTracerProvider,
 	BatchSpanProcessor,
 	type IdGenerator,
 	type SpanProcessor,
 } from "@opentelemetry/sdk-trace-base";
-// http/JSON, not the proto exporter: under Bun the proto transport's keep-alive
-// handling reports every flush as "Request timed out" (the quirk
-// `tracing/instrumentation.ts` swallows). The JSON transport is the one the
-// metrics exporter uses, and it round-trips against a live collector.
-import { OTLPTraceExporter } from "@opentelemetry/exporter-trace-otlp-http";
-import { OTLPTraceExporter as OTLPTraceGrpcExporter } from "@opentelemetry/exporter-trace-otlp-grpc";
-import { Resource } from "@opentelemetry/resources";
-import type { TraceRunPayload, TraceSpanRecord } from "./types";
 import { grpcExporterOptions, type OtlpTransport } from "./grpc";
+import type { TraceRunPayload, TraceSpanRecord } from "./types";
 
 /* ------------------------------------------------------------ identifiers */
 
@@ -31,8 +31,7 @@ const hash = (value: string, length: number) =>
 
 /** A run is addressable from its id alone — the portal viewer wants this. */
 export const traceIdFor = (runId: string) => hash(runId, 32);
-export const spanIdFor = (runId: string, seq: number | "run") =>
-	hash(`${runId}:${seq}`, 16);
+export const spanIdFor = (runId: string, seq: number | "run") => hash(`${runId}:${seq}`, 16);
 
 /**
  * Ids are derived from `runId`/`seq` rather than random so that re-exporting a
@@ -82,9 +81,7 @@ export function createOtlpTracerProvider({
 		idGenerator,
 		// a second net under the recorder's own per-span cap
 		spanLimits: { attributeValueLengthLimit: 8192 },
-		resource: Resource.default().merge(
-			new Resource({ "service.name": serviceName }),
-		),
+		resource: Resource.default().merge(new Resource({ "service.name": serviceName })),
 		spanProcessors: [
 			processor ??
 				new BatchSpanProcessor(
@@ -121,14 +118,11 @@ function spanAttributes(span: TraceSpanRecord) {
 		"fluxify.block.type": span.blockType,
 		"fluxify.seq": span.seq,
 	};
-	if (span.customBlockId)
-		attributes["fluxify.custom_block.id"] = span.customBlockId;
+	if (span.customBlockId) attributes["fluxify.custom_block.id"] = span.customBlockId;
 	if (span.branch) attributes["fluxify.branch"] = span.branch;
 	if (span.truncated) attributes["fluxify.truncated"] = true;
-	if (span.input !== undefined)
-		attributes["fluxify.input"] = safeStringify(span.input);
-	if (span.output !== undefined)
-		attributes["fluxify.output"] = safeStringify(span.output);
+	if (span.input !== undefined) attributes["fluxify.input"] = safeStringify(span.input);
+	if (span.output !== undefined) attributes["fluxify.output"] = safeStringify(span.output);
 	return attributes;
 }
 
@@ -151,10 +145,7 @@ function finish(span: Span, outcome: string, error: string | undefined, at: numb
  * network — the caller acks on that, and waiting for a slow destination would
  * stall the consumer behind it.
  */
-export function exportRun(
-	provider: BasicTracerProvider,
-	run: TraceRunPayload,
-): void {
+export function exportRun(provider: BasicTracerProvider, run: TraceRunPayload): void {
 	const isWorkflow = Boolean(run.workflowId);
 	const tracer = provider.getTracer(isWorkflow ? "fluxify-workflow" : "fluxify-route");
 
@@ -219,15 +210,11 @@ export function exportRun(
 	// custom block's children are recorded before the block that invoked them.
 	// A parent always *starts* first, which makes this the ordering that
 	// guarantees a parent context exists when its children are built.
-	const ordered = [...run.spans].sort(
-		(a, b) => a.startedAt - b.startedAt || a.seq - b.seq,
-	);
+	const ordered = [...run.spans].sort((a, b) => a.startedAt - b.startedAt || a.seq - b.seq);
 
 	for (const record of ordered) {
 		const parent =
-			(record.parentSeq !== undefined
-				? contexts.get(record.parentSeq)
-				: undefined) ?? rootContext;
+			(record.parentSeq !== undefined ? contexts.get(record.parentSeq) : undefined) ?? rootContext;
 
 		staged.traceId = traceIdFor(run.runId);
 		staged.spanId = spanIdFor(run.runId, record.seq);

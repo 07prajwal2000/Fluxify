@@ -29,8 +29,7 @@ export function BlockNode({
 	// A custom block has no catalog entry: its name, blurb and icon live in the DB.
 	// Anything the user typed on this node still wins.
 	const customDef = useCustomBlockDefs().find((def) => def.name === type);
-	const isRouteOwned =
-		type === BLOCK_TYPES.entrypoint || type === BLOCK_TYPES.errorHandler;
+	const isRouteOwned = type === BLOCK_TYPES.entrypoint || type === BLOCK_TYPES.errorHandler;
 
 	return (
 		<BaseBlock

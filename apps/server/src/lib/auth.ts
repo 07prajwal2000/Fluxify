@@ -1,14 +1,13 @@
+import { generateID } from "@fluxify/lib";
 import { betterAuth } from "better-auth";
+import { type DB, drizzleAdapter } from "better-auth/adapters/drizzle";
 import { APIError } from "better-auth/api";
-import { DB, drizzleAdapter } from "better-auth/adapters/drizzle";
-import { deleteCacheKey, getCache, setCache, setCacheEx } from "../db/redis";
-import { accessControlEntity } from "../db/schema";
+import { admin, customSession } from "better-auth/plugins";
 import { eq } from "drizzle-orm";
-import { customSession } from "better-auth/plugins";
 import * as authSchemas from "../db/auth-schema";
 import { account, systemUsers } from "../db/auth-schema";
-import { admin } from "better-auth/plugins";
-import { generateID } from "@fluxify/lib";
+import { deleteCacheKey, getCache, setCache, setCacheEx } from "../db/redis";
+import { accessControlEntity } from "../db/schema";
 import { ssoOrigins, ssoPlugin } from "./auth.sso.ee";
 import { getEnv } from "./env";
 
@@ -134,11 +133,7 @@ export function initializeAuth(db: DB) {
 	return _auth;
 }
 
-async function getUserAccessControls(
-	db: DB,
-	userId: string,
-	isSystemAdmin: boolean,
-) {
+async function getUserAccessControls(db: DB, userId: string, isSystemAdmin: boolean) {
 	if (isSystemAdmin) {
 		return [
 			{

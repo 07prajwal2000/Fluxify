@@ -1,13 +1,9 @@
-import {
-	describeRoute,
-	DescribeRouteOptions,
-	resolver,
-} from "hono-openapi";
+import { type DescribeRouteOptions, describeRoute, resolver } from "hono-openapi";
+import { errorSchema } from "../../../../errors/customError";
+import type { HonoServer } from "../../../../types";
+import { requireSystemAdmin } from "../../../auth/middleware";
 import { responseSchema } from "./dto";
 import handleRequest from "./service";
-import { errorSchema } from "../../../../errors/customError";
-import { HonoServer } from "../../../../types";
-import { requireSystemAdmin } from "../../../auth/middleware";
 
 const openapiRouteOptions: DescribeRouteOptions = {
 	description: "Get all instance settings",
@@ -50,13 +46,8 @@ const openapiRouteOptions: DescribeRouteOptions = {
 };
 
 export default function (app: HonoServer) {
-	app.get(
-		"/",
-		describeRoute(openapiRouteOptions),
-		requireSystemAdmin,
-		async (c) => {
-			const result = await handleRequest();
-			return c.json(result);
-		},
-	);
+	app.get("/", describeRoute(openapiRouteOptions), requireSystemAdmin, async (c) => {
+		const result = await handleRequest();
+		return c.json(result);
+	});
 }

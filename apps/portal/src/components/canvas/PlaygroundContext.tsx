@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from "react";
+import { createContext, type ReactNode, useCallback, useContext, useMemo, useState } from "react";
 
 export type CanvasPlayground = {
 	isOpen: boolean;
@@ -21,9 +21,7 @@ export function CanvasPlaygroundProvider({ children }: { children: ReactNode }) 
 	);
 
 	return (
-		<CanvasPlaygroundContext.Provider value={value}>
-			{children}
-		</CanvasPlaygroundContext.Provider>
+		<CanvasPlaygroundContext.Provider value={value}>{children}</CanvasPlaygroundContext.Provider>
 	);
 }
 

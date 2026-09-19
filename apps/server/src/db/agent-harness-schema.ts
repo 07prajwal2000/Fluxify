@@ -4,17 +4,17 @@ import {
 	boolean,
 	index,
 	integer,
-	uniqueIndex,
 	pgEnum,
 	pgTable,
 	serial,
 	text,
 	timestamp,
+	uniqueIndex,
 	uuid,
 	varchar,
 } from "drizzle-orm/pg-core";
-import { jsonb } from "./jsonbColumn";
 import { systemUsers } from "./auth-schema";
+import { jsonb } from "./jsonbColumn";
 import { integrationsEntity, projectsEntity } from "./schema";
 
 /* ============================================================================
@@ -22,48 +22,52 @@ import { integrationsEntity, projectsEntity } from "./schema";
  * ============================================================================ */
 
 // Enums
-export const agentHarnessConversationStatusEnum = pgEnum(
-	"agent_harness_conversation_status",
-	["idle", "running", "paused_hitl", "interrupted", "completed", "failed"],
-);
+export const agentHarnessConversationStatusEnum = pgEnum("agent_harness_conversation_status", [
+	"idle",
+	"running",
+	"paused_hitl",
+	"interrupted",
+	"completed",
+	"failed",
+]);
 
-export const agentHarnessRunStatusEnum = pgEnum(
-	"agent_harness_run_status",
-	[
-		"queued",
-		"routing",
-		"verifying",
-		"planning",
-		"orchestrating",
-		"executing",
-		"awaiting_hitl",
-		"completed",
-		"interrupted",
-		"failed",
-	],
-);
+export const agentHarnessRunStatusEnum = pgEnum("agent_harness_run_status", [
+	"queued",
+	"routing",
+	"verifying",
+	"planning",
+	"orchestrating",
+	"executing",
+	"awaiting_hitl",
+	"completed",
+	"interrupted",
+	"failed",
+]);
 
-export const agentHarnessStepStatusEnum = pgEnum(
-	"agent_harness_step_status",
-	["pending", "running", "completed", "failed", "interrupted"],
-);
+export const agentHarnessStepStatusEnum = pgEnum("agent_harness_step_status", [
+	"pending",
+	"running",
+	"completed",
+	"failed",
+	"interrupted",
+]);
 
-export const agentHarnessLiveStateStatusEnum = pgEnum(
-	"agent_harness_live_state_status",
-	["running", "paused_hitl", "interrupted", "completed", "failed"],
-);
+export const agentHarnessLiveStateStatusEnum = pgEnum("agent_harness_live_state_status", [
+	"running",
+	"paused_hitl",
+	"interrupted",
+	"completed",
+	"failed",
+]);
 
-export const agentHarnessHitlActionTypeEnum = pgEnum(
-	"agent_harness_hitl_action_type",
-	[
-		"plan_approval",
-		"plan_rejection",
-		"user_input",
-		"confirmation",
-		"cancellation",
-		"custom",
-	],
-);
+export const agentHarnessHitlActionTypeEnum = pgEnum("agent_harness_hitl_action_type", [
+	"plan_approval",
+	"plan_rejection",
+	"user_input",
+	"confirmation",
+	"cancellation",
+	"custom",
+]);
 
 // 1. Conversations Table
 export const agentHarnessConversationsEntity = pgTable(
@@ -75,10 +79,9 @@ export const agentHarnessConversationsEntity = pgTable(
 		userId: varchar("user_id", { length: 50 }).references(() => systemUsers.id, {
 			onDelete: "cascade",
 		}),
-		projectId: varchar("project_id", { length: 50 }).references(
-			() => projectsEntity.id,
-			{ onDelete: "cascade" },
-		),
+		projectId: varchar("project_id", { length: 50 }).references(() => projectsEntity.id, {
+			onDelete: "cascade",
+		}),
 		title: varchar({ length: 255 }).default("New Chat"),
 		status: agentHarnessConversationStatusEnum("status").default("idle").notNull(),
 		activeRunId: varchar("active_run_id", { length: 50 }),
@@ -98,11 +101,7 @@ export const agentHarnessConversationsEntity = pgTable(
 	(t) => [
 		index("idx_harness_conv_user_id").on(t.userId),
 		index("idx_harness_conv_project_id").on(t.projectId),
-		index("idx_harness_conv_user_archived_pinned").on(
-			t.userId,
-			t.archived,
-			t.pinned,
-		),
+		index("idx_harness_conv_user_archived_pinned").on(t.userId, t.archived, t.pinned),
 	],
 );
 
@@ -124,10 +123,9 @@ export const agentHarnessRunsEntity = pgTable(
 		// whole graph with this provider. `set null` keeps run history if the
 		// integration is later deleted. Nullable so legacy runs (resolved from the
 		// project's default integration) remain valid.
-		integrationId: uuid("integration_id").references(
-			() => integrationsEntity.id,
-			{ onDelete: "set null" },
-		),
+		integrationId: uuid("integration_id").references(() => integrationsEntity.id, {
+			onDelete: "set null",
+		}),
 		status: agentHarnessRunStatusEnum("status").default("queued").notNull(),
 		// What the run cost the provider: model calls, prompt/completion/cached
 		// tokens, wall clock, and the same breakdown per agent. Written once when
@@ -179,14 +177,8 @@ export const agentHarnessCompactionsEntity = pgTable(
 		createdAt: timestamp("created_at").defaultNow().notNull(),
 	},
 	(t) => [
-		uniqueIndex("uq_harness_compactions_conv_source_end").on(
-			t.conversationId,
-			t.sourceEndRunId,
-		),
-		index("idx_harness_compactions_conv_created").on(
-			t.conversationId,
-			t.createdAt,
-		),
+		uniqueIndex("uq_harness_compactions_conv_source_end").on(t.conversationId, t.sourceEndRunId),
+		index("idx_harness_compactions_conv_created").on(t.conversationId, t.createdAt),
 	],
 );
 
@@ -231,9 +223,7 @@ export const agentHarnessLiveStatesEntity = pgTable(
 		conversationId: varchar("conversation_id", { length: 50 })
 			.references(() => agentHarnessConversationsEntity.id, { onDelete: "cascade" })
 			.notNull(),
-		currentState: agentHarnessLiveStateStatusEnum("current_state")
-			.default("running")
-			.notNull(),
+		currentState: agentHarnessLiveStateStatusEnum("current_state").default("running").notNull(),
 		activeStepId: varchar("active_step_id", { length: 50 }),
 		workingMemory: jsonb("working_memory")
 			.$type<{
@@ -261,10 +251,9 @@ export const agentHarnessHitlActionsEntity = pgTable(
 		runId: varchar("run_id", { length: 50 })
 			.references(() => agentHarnessRunsEntity.id, { onDelete: "cascade" })
 			.notNull(),
-		stepId: varchar("step_id", { length: 50 }).references(
-			() => agentHarnessStepsEntity.id,
-			{ onDelete: "cascade" },
-		),
+		stepId: varchar("step_id", { length: 50 }).references(() => agentHarnessStepsEntity.id, {
+			onDelete: "cascade",
+		}),
 		actionType: agentHarnessHitlActionTypeEnum("action_type").notNull(),
 		userResponse: jsonb("user_response").$type<Record<string, any> | null>(),
 		performedAt: timestamp("performed_at").defaultNow().notNull(),
@@ -374,37 +363,31 @@ export const agentHarnessCompactionsRelations = relations(
 	}),
 );
 
-export const agentHarnessRunsRelations = relations(
-	agentHarnessRunsEntity,
-	({ one, many }) => ({
-		conversation: one(agentHarnessConversationsEntity, {
-			fields: [agentHarnessRunsEntity.conversationId],
-			references: [agentHarnessConversationsEntity.id],
-		}),
-		steps: many(agentHarnessStepsEntity),
-		hitlActions: many(agentHarnessHitlActionsEntity),
-		artifacts: many(agentHarnessArtifactsEntity),
-		liveState: one(agentHarnessLiveStatesEntity, {
-			fields: [agentHarnessRunsEntity.id],
-			references: [agentHarnessLiveStatesEntity.runId],
-		}),
+export const agentHarnessRunsRelations = relations(agentHarnessRunsEntity, ({ one, many }) => ({
+	conversation: one(agentHarnessConversationsEntity, {
+		fields: [agentHarnessRunsEntity.conversationId],
+		references: [agentHarnessConversationsEntity.id],
 	}),
-);
+	steps: many(agentHarnessStepsEntity),
+	hitlActions: many(agentHarnessHitlActionsEntity),
+	artifacts: many(agentHarnessArtifactsEntity),
+	liveState: one(agentHarnessLiveStatesEntity, {
+		fields: [agentHarnessRunsEntity.id],
+		references: [agentHarnessLiveStatesEntity.runId],
+	}),
+}));
 
-export const agentHarnessStepsRelations = relations(
-	agentHarnessStepsEntity,
-	({ one, many }) => ({
-		run: one(agentHarnessRunsEntity, {
-			fields: [agentHarnessStepsEntity.runId],
-			references: [agentHarnessRunsEntity.id],
-		}),
-		conversation: one(agentHarnessConversationsEntity, {
-			fields: [agentHarnessStepsEntity.conversationId],
-			references: [agentHarnessConversationsEntity.id],
-		}),
-		hitlActions: many(agentHarnessHitlActionsEntity),
+export const agentHarnessStepsRelations = relations(agentHarnessStepsEntity, ({ one, many }) => ({
+	run: one(agentHarnessRunsEntity, {
+		fields: [agentHarnessStepsEntity.runId],
+		references: [agentHarnessRunsEntity.id],
 	}),
-);
+	conversation: one(agentHarnessConversationsEntity, {
+		fields: [agentHarnessStepsEntity.conversationId],
+		references: [agentHarnessConversationsEntity.id],
+	}),
+	hitlActions: many(agentHarnessHitlActionsEntity),
+}));
 
 export const agentHarnessLiveStatesRelations = relations(
 	agentHarnessLiveStatesEntity,

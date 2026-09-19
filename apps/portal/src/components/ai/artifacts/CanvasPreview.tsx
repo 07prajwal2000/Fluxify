@@ -1,5 +1,5 @@
+import { Button, CloseButton, Modal } from "@fluxify/components";
 import { useEffect, useState } from "react";
-import { Button, Modal, CloseButton } from "@fluxify/components";
 import { TbEye } from "react-icons/tb";
 import { BlockCanvas } from "@/components/canvas/BlockCanvas";
 import { createBlockNodeTypes } from "@/components/canvas/blocks";
@@ -64,11 +64,7 @@ export function CanvasPreview({ graph, title }: { graph: CanvasGraph; title: str
 					{/* The container is `width: fit-content`, so a dialog whose content
 					    sizes itself off the dialog (a canvas at 100%) collapses to 0.
 					    Inline width beats the slot class and breaks the loop. */}
-					<Modal.Container
-							placement="center"
-							size="cover"
-							className="fx-canvas-modal"
-						>
+					<Modal.Container placement="center" size="cover" className="fx-canvas-modal">
 						<Modal.Dialog className="min-h-0">
 							<Modal.Header className="border-b border-border px-6 py-3 flex flex-row items-center justify-between">
 								<h3 className="text-lg font-semibold">{title}</h3>

@@ -1,28 +1,31 @@
-import { useEffect } from "react";
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { cn } from "@fluxify/components";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useEffect } from "react";
 import {
-	TbAdjustments,
 	TbActivityHeartbeat,
-	TbCpu,
-	TbUsers,
-	TbFlask,
+	TbAdjustments,
 	TbAlertTriangle,
+	TbCpu,
+	TbFlask,
 	TbTopologyStar3,
+	TbUsers,
 } from "react-icons/tb";
+import { AiConnectionsSettings } from "@/components/settings/AiConnectionsSettings";
+import { DangerZoneSettings } from "@/components/settings/DangerZoneSettings";
+import { ExperimentalSettings } from "@/components/settings/ExperimentalSettings";
+import { GeneralSettings } from "@/components/settings/GeneralSettings";
+import { MembersSettings } from "@/components/settings/MembersSettings";
+import { NodesSettings } from "@/components/settings/NodesSettings";
+import {
+	TELEMETRY_SIGNALS,
+	TelemetryDestinations,
+} from "@/components/settings/TelemetryDestinations";
+import { TriggerSettings } from "@/components/settings/TriggerSettings";
+import { createRouteHead } from "@/lib/seo";
 import { projectMembersQuery } from "@/query/projectMembersQuery";
 import { projectSettingsKeysQuery } from "@/query/projectSettingsKeysQuery";
 import { projectsQuery } from "@/query/projectsQuery";
-import { GeneralSettings } from "@/components/settings/GeneralSettings";
-import { MembersSettings } from "@/components/settings/MembersSettings";
-import { TelemetryDestinations, TELEMETRY_SIGNALS } from "@/components/settings/TelemetryDestinations";
-import { DangerZoneSettings } from "@/components/settings/DangerZoneSettings";
-import { AiConnectionsSettings } from "@/components/settings/AiConnectionsSettings";
-import { ExperimentalSettings } from "@/components/settings/ExperimentalSettings";
-import { TriggerSettings } from "@/components/settings/TriggerSettings";
-import { NodesSettings } from "@/components/settings/NodesSettings";
 import { publicSettingsQuery } from "@/query/publicSettingsQuery";
-import { createRouteHead } from "@/lib/seo";
 
 type SettingsSearch = {
 	tab?:
@@ -60,22 +63,21 @@ const SETTINGS_TABS = [
 	{ id: "danger", label: "Danger Zone", icon: TbAlertTriangle },
 ] as const;
 
-type TabId = typeof SETTINGS_TABS[number]["id"];
+type TabId = (typeof SETTINGS_TABS)[number]["id"];
 
 function ProjectSettingsPage() {
 	const { projectId } = Route.useParams();
 	const search = Route.useSearch();
 	const navigate = useNavigate({ from: "/$projectId/settings" });
-	
+
 	const { data: publicSettings } = publicSettingsQuery.get.useQuery();
 	const tabs = SETTINGS_TABS.filter(
-		(tab) =>
-			!("flag" in tab) || publicSettings?.orchestration?.enabled !== false,
+		(tab) => !("flag" in tab) || publicSettings?.orchestration?.enabled !== false,
 	);
 
 	const validTabs = tabs.map((t) => t.id);
-	const activeTab: TabId = validTabs.includes(search.tab as any) 
-		? (search.tab as TabId) 
+	const activeTab: TabId = validTabs.includes(search.tab as any)
+		? (search.tab as TabId)
 		: "general";
 
 	useEffect(() => {
@@ -91,7 +93,9 @@ function ProjectSettingsPage() {
 	// For Telemetry badge
 	const { data: telemetrySettings } = projectSettingsKeysQuery.getAll.useQuery(projectId);
 	const configuredTelemetry = TELEMETRY_SIGNALS.filter(
-		(s) => (telemetrySettings ?? {})[s.key] || (s.tag === "logs" && (telemetrySettings ?? {})["settings.ai.loggerConnectionId"])
+		(s) =>
+			(telemetrySettings ?? {})[s.key] ||
+			(s.tag === "logs" && (telemetrySettings ?? {})["settings.ai.loggerConnectionId"]),
 	).length;
 
 	return (
@@ -116,11 +120,14 @@ function ProjectSettingsPage() {
 								"flex items-center justify-between rounded-lg px-3 py-2 text-sm font-medium transition-colors",
 								activeTab === tab.id
 									? "bg-surface-secondary text-foreground"
-									: "text-muted hover:bg-surface-secondary hover:text-foreground"
+									: "text-muted hover:bg-surface-secondary hover:text-foreground",
 							)}
 						>
 							<div className="flex items-center gap-3">
-								<tab.icon size={18} className={activeTab === tab.id ? "text-foreground" : "text-muted"} />
+								<tab.icon
+									size={18}
+									className={activeTab === tab.id ? "text-foreground" : "text-muted"}
+								/>
 								{tab.label}
 							</div>
 							{tab.id === "telemetry" && configuredTelemetry > 0 && (
@@ -155,7 +162,9 @@ function ProjectSettingsPage() {
 							<div className="flex flex-col gap-4">
 								<div>
 									<h1 className="text-xl font-semibold tracking-tight">Telemetry</h1>
-									<p className="text-sm text-muted">Pick where this project's telemetry is exported.</p>
+									<p className="text-sm text-muted">
+										Pick where this project's telemetry is exported.
+									</p>
 								</div>
 								<TelemetryDestinations projectId={projectId} />
 							</div>

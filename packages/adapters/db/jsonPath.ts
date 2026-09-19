@@ -1,4 +1,4 @@
-import { sql, RawBuilder } from "kysely";
+import { type RawBuilder, sql } from "kysely";
 
 export type JsonSqlDialect = "postgres" | "mysql";
 
@@ -10,18 +10,15 @@ type Segment = { key: string; index: boolean };
 //   "name"             -> null (plain column, no JSON access)
 // A purely numeric head (e.g. the decimal string "3.14") is rejected so real
 // numeric values aren't mistaken for a "3" -> "14" path.
-function parsePath(
-	raw: string,
-): { column: string; segments: Segment[] } | null {
+function parsePath(raw: string): { column: string; segments: Segment[] } | null {
 	const head = raw.match(/^([^.[]+)(.*)$/);
 	if (!head || head[2] === "" || /^\d+$/.test(head[1])) return null;
 
 	const rest = head[2];
 	const segments: Segment[] = [];
 	const re = /\.([^.[]+)|\[(\d+)\]/g;
-	let m: RegExpExecArray | null;
 	let consumed = 0;
-	while ((m = re.exec(rest))) {
+	for (let m = re.exec(rest); m; m = re.exec(rest)) {
 		consumed = re.lastIndex;
 		if (m[1] !== undefined) segments.push({ key: m[1], index: false });
 		else segments.push({ key: m[2], index: true });
@@ -70,10 +67,7 @@ function assertMatch(re: RegExp, value: string, kind: string): string {
 // Set of valid SQL qualifiers for a query: the base table plus each join's
 // alias (or table name when it has no alias). Used to tell "table.column" apart
 // from a JSON path into a "table" column.
-export function buildQualifiers(
-	table: string,
-	joins?: DBJoinType[],
-): Set<string> {
+export function buildQualifiers(table: string, joins?: DBJoinType[]): Set<string> {
 	const set = new Set<string>([table]);
 	for (const j of joins ?? []) set.add(j.alias ?? j.table);
 	return set;
@@ -101,12 +95,7 @@ export function resolveJsonOperand(
 	// Leading table/alias qualifier: first segment is the real column, the rest
 	// (if any) is the JSON path. Only when the head is a declared qualifier and
 	// the next hop is a key (not an array index).
-	if (
-		qualifiers &&
-		qualifiers.has(column) &&
-		segments.length > 0 &&
-		!segments[0].index
-	) {
+	if (qualifiers && qualifiers.has(column) && segments.length > 0 && !segments[0].index) {
 		column = `${column}.${segments[0].key}`;
 		segments = segments.slice(1);
 	}
@@ -123,10 +112,7 @@ export function resolveJsonOperand(
 	let frag: RawBuilder<unknown> = sql`${sql.ref(column)}`;
 	segments.forEach((s, i) => {
 		const accessor = s.index ? sql.lit(Number(s.key)) : sql.lit(s.key);
-		frag =
-			i === segments.length - 1
-				? sql`${frag} ->> ${accessor}`
-				: sql`${frag} -> ${accessor}`;
+		frag = i === segments.length - 1 ? sql`${frag} ->> ${accessor}` : sql`${frag} -> ${accessor}`;
 	});
 	return castNumeric ? sql`(${frag})::numeric` : frag;
 }
@@ -160,11 +146,7 @@ export function isColumnRef(value: unknown): value is ColumnRef {
 }
 
 export function isLiteralRef(value: unknown): value is LiteralRef {
-	return (
-		typeof value === "object" &&
-		value !== null &&
-		(value as LiteralRef).kind === "literal"
-	);
+	return typeof value === "object" && value !== null && (value as LiteralRef).kind === "literal";
 }
 
 /** The payload behind either tag; anything untagged is already its own value. */
@@ -213,12 +195,7 @@ export function resolveCondition(
 
 	return {
 		lhs: lhsIsColumn
-			? resolveJsonOperand(
-					lhsRaw,
-					!rhsIsColumn && isNumericLike(rhsRaw),
-					dialect,
-					qualifiers,
-				)
+			? resolveJsonOperand(lhsRaw, !rhsIsColumn && isNumericLike(rhsRaw), dialect, qualifiers)
 			: // the query builder reads a bare string in this position as a column
 				// name, so a literal attribute has to be bound explicitly
 				sql`${lhsRaw}`,
@@ -249,13 +226,10 @@ export function applyJoins<
 	let qb = builder;
 	for (const j of joins ?? []) {
 		assertMatch(IDENT, j.table, "join table");
-		const target = j.alias
-			? `${j.table} as ${assertMatch(IDENT, j.alias, "join alias")}`
-			: j.table;
+		const target = j.alias ? `${j.table} as ${assertMatch(IDENT, j.alias, "join alias")}` : j.table;
 
 		const parts = j.attribute.split("=");
-		if (parts.length !== 2)
-			throw new Error(`invalid join condition: ${j.attribute}`);
+		if (parts.length !== 2) throw new Error(`invalid join condition: ${j.attribute}`);
 		const left = assertMatch(COLUMN_REF, parts[0].trim(), "join ref");
 		const right = assertMatch(COLUMN_REF, parts[1].trim(), "join ref");
 
@@ -267,12 +241,7 @@ export function applyJoins<
 					: j.type === "outer"
 						? "fullJoin"
 						: "innerJoin";
-		qb = (qb[method] as (...a: unknown[]) => QB).call(
-			qb,
-			target,
-			left,
-			right,
-		);
+		qb = (qb[method] as (...a: unknown[]) => QB).call(qb, target, left, right);
 	}
 	return qb;
 }
@@ -293,9 +262,10 @@ function parseColumn(raw: string): { expr: string; alias?: string } {
 
 // Applies a select list to a Kysely query builder. Empty / "*" -> selectAll.
 // "table.*" -> selectAll(table); otherwise a validated ref, optionally aliased.
-export function applyColumns<
-	QB extends { selectAll: CallableFunction; select: CallableFunction },
->(builder: QB, columns?: string[]): QB {
+export function applyColumns<QB extends { selectAll: CallableFunction; select: CallableFunction }>(
+	builder: QB,
+	columns?: string[],
+): QB {
 	const cols = columns ?? ["*"];
 	if (cols.length === 0 || cols.includes("*")) return builder.selectAll() as QB;
 

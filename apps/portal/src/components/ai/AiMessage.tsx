@@ -1,7 +1,15 @@
+import { type HarnessUsage, HarnessUsageSummary } from "./HarnessUsageSummary";
 import { MarkdownViewer } from "./MarkdownViewer";
-import { HarnessUsageSummary, type HarnessUsage } from "./HarnessUsageSummary";
 
-export function AiMessage({ response, status, usage }: { response?: string | null; status?: string; usage?: HarnessUsage | null }) {
+export function AiMessage({
+	response,
+	status,
+	usage,
+}: {
+	response?: string | null;
+	status?: string;
+	usage?: HarnessUsage | null;
+}) {
 	const isCompleted = !status || status.toLowerCase() === "completed";
 
 	if (!response && !status) return null;

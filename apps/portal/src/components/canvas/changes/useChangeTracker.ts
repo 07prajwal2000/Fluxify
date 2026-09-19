@@ -1,8 +1,8 @@
 import { useCallback, useMemo, useRef, useState } from "react";
 import {
-	createChangeTracker,
 	type ChangeSet,
 	type ChangeTracker,
+	createChangeTracker,
 	type KnownIds,
 } from "./changeTracker";
 

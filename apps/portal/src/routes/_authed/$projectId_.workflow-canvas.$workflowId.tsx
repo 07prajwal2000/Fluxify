@@ -1,18 +1,16 @@
-import { useState } from "react";
-import { createFileRoute } from "@tanstack/react-router";
 import { Button } from "@fluxify/components";
+import { createFileRoute } from "@tanstack/react-router";
+import { useState } from "react";
 import { TbPlayerPlay, TbSettings } from "react-icons/tb";
-import { workflowsQuery } from "@/query/workflowsQuery";
-import { workflowsService } from "@/services/workflows";
 import { CanvasWorkbench } from "@/components/canvas";
 import { WorkflowRunModal } from "@/components/workflows/WorkflowRunModal";
 import { WorkflowSettingsModal } from "@/components/workflows/WorkflowSettingsModal";
 import { WorkflowSwitcher } from "@/components/workflows/WorkflowSwitcher";
 import { createRouteHead } from "@/lib/seo";
+import { workflowsQuery } from "@/query/workflowsQuery";
+import { workflowsService } from "@/services/workflows";
 
-export const Route = createFileRoute(
-	"/_authed/$projectId_/workflow-canvas/$workflowId",
-)({
+export const Route = createFileRoute("/_authed/$projectId_/workflow-canvas/$workflowId")({
 	head: createRouteHead(
 		"Workflow Canvas",
 		"Design the background workflow that runs on a trigger or by hand.",

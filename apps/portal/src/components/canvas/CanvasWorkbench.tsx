@@ -1,20 +1,17 @@
-import { useMemo, useRef, useState, type ReactNode } from "react";
 import { Button, Spinner, toast } from "@fluxify/components";
+import { type ReactNode, useMemo, useRef, useState } from "react";
 
 import { showErrorNotification } from "@/lib/errorNotifier";
 import type { CanvasItems, CanvasSavePayload } from "@/services/canvas";
+import { emptyGraph } from "./adapters";
 import { BlockCanvas } from "./BlockCanvas";
 import { createBlockNodeTypes } from "./blocks";
-import { emptyGraph } from "./adapters";
+import { type ChangeSet, saveWithDoctor } from "./changes";
 import { findCycleEdgeIds } from "./cycleDetection";
-import { saveWithDoctor, type ChangeSet } from "./changes";
 import { CanvasDiagnosticsProvider, useBlockDiagnostics } from "./diagnostics";
 import { COMPILE_SOURCE } from "./diagnostics/compileDiagnostics";
 import { blockDiagnosticsFromSaveError, SAVE_SOURCE } from "./diagnostics/saveErrorDiagnostics";
-import {
-	useCompileDiagnostics,
-	type CompileTarget,
-} from "./diagnostics/useCompileDiagnostics";
+import { type CompileTarget, useCompileDiagnostics } from "./diagnostics/useCompileDiagnostics";
 import type { BlockData, CanvasGraph } from "./types";
 
 /**
@@ -57,7 +54,6 @@ function toGraph(data: CanvasItems | undefined): CanvasGraph {
 }
 
 const nodeTypes = createBlockNodeTypes();
-
 
 export function CanvasWorkbench(props: CanvasWorkbenchProps) {
 	return (

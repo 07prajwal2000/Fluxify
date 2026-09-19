@@ -1,6 +1,6 @@
-import { db, DbTransactionType } from "../../../../db";
-import { customBlocksListEntity } from "../../../../db/schema";
 import { eq } from "drizzle-orm";
+import { type DbTransactionType, db } from "../../../../db";
+import { customBlocksListEntity } from "../../../../db/schema";
 
 export async function getCustomBlockById(id: string, tx?: DbTransactionType) {
 	const block = await (tx ?? db)
@@ -16,7 +16,5 @@ export async function getCustomBlockById(id: string, tx?: DbTransactionType) {
 }
 
 export async function deleteCustomBlock(id: string, tx?: DbTransactionType) {
-	await (tx ?? db)
-		.delete(customBlocksListEntity)
-		.where(eq(customBlocksListEntity.id, id));
+	await (tx ?? db).delete(customBlocksListEntity).where(eq(customBlocksListEntity.id, id));
 }

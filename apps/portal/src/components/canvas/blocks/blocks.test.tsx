@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import { blockToNode, nodeToBlock } from "../adapters";
 import { splitChildren } from "./BaseBlock";
+import { createBlockNodeTypes } from "./BlockNode";
 import {
 	BLOCK_CATALOG,
 	blockDefinition,
@@ -10,13 +11,12 @@ import {
 } from "./blockCatalog";
 import { BLOCK_ICON_MAP } from "./blockIconMap";
 import { blockLabels } from "./blockLabels";
-import { createBlockNodeTypes } from "./BlockNode";
-import { BLOCK_TYPES, BLOCK_TYPE_LIST } from "./blockTypes";
+import { BLOCK_TYPE_LIST, BLOCK_TYPES } from "./blockTypes";
 import { defaultBlockData } from "./defaultBlockData";
-import { StickyNoteBlock } from "./StickyNoteBlock";
-import { NOTE_MIN_SIZE, newStickyNoteData, stickyNoteData } from "./stickyNoteData";
 import { BlockHandle } from "./handles/BlockHandle";
 import { HANDLE_CONFIG, type HandleKind } from "./handles/handleConfig";
+import { StickyNoteBlock } from "./StickyNoteBlock";
+import { NOTE_MIN_SIZE, newStickyNoteData, stickyNoteData } from "./stickyNoteData";
 
 test("handles land on the rail their kind declares, other children stay in body", () => {
 	const { rails, body } = splitChildren([
@@ -48,12 +48,8 @@ test("route-owned blocks cannot be added from the canvas picker", () => {
 	expect(canAddBlock(BLOCK_TYPES.entrypoint)).toBe(false);
 	expect(canAddBlock(BLOCK_TYPES.errorHandler)).toBe(false);
 	expect(canAddBlock(BLOCK_TYPES.response)).toBe(true);
-	expect(pickerBlockCatalogEntries().map(([type]) => type)).not.toContain(
-		BLOCK_TYPES.entrypoint,
-	);
-	expect(pickerBlockCatalogEntries().map(([type]) => type)).not.toContain(
-		BLOCK_TYPES.errorHandler,
-	);
+	expect(pickerBlockCatalogEntries().map(([type]) => type)).not.toContain(BLOCK_TYPES.entrypoint);
+	expect(pickerBlockCatalogEntries().map(([type]) => type)).not.toContain(BLOCK_TYPES.errorHandler);
 	expect(canPickBlock(BLOCK_TYPES.stickynote)).toBe(false);
 });
 
@@ -125,9 +121,9 @@ test("note data is normalised into the shape the server validates", () => {
 	expect(fresh.color).toBe("yellow");
 	expect(fresh.size).toEqual({ width: 180, height: 120 });
 
-	expect(
-		stickyNoteData({ notes: "# hi", color: "blue", size: { width: 90, height: 80 } }),
-	).toEqual({ notes: "# hi", color: "blue", size: { width: 90, height: 80 } });
+	expect(stickyNoteData({ notes: "# hi", color: "blue", size: { width: 90, height: 80 } })).toEqual(
+		{ notes: "# hi", color: "blue", size: { width: 90, height: 80 } },
+	);
 
 	// Notes can be arbitrarily large grouping layers; only invalid values reset.
 	const fixed = stickyNoteData({
@@ -191,7 +187,8 @@ test("a switch has an inbound socket and one fan-out case socket, and starts wit
 	expect(BLOCK_CATALOG[BLOCK_TYPES.switch].handles).toEqual(["target", "case"]);
 	expect(BLOCK_CATALOG[BLOCK_TYPES.switch].category).toBe("Flow");
 	expect(canPickBlock(BLOCK_TYPES.switch)).toBe(true);
-	expect(HANDLE_CONFIG.case.side).toBe("right");	expect(defaultBlockData(BLOCK_TYPES.switch)).toEqual({
+	expect(HANDLE_CONFIG.case.side).toBe("right");
+	expect(defaultBlockData(BLOCK_TYPES.switch)).toEqual({
 		order: [],
 		conditions: {},
 		useValue: false,

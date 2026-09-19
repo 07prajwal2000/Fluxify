@@ -1,7 +1,7 @@
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { StreamableHTTPTransport } from "@hono/mcp";
-import type { Hono } from "hono";
 import { logger } from "@fluxify/common";
+import { StreamableHTTPTransport } from "@hono/mcp";
+import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import type { Hono } from "hono";
 
 const mcpServer = new McpServer({
 	name: "fluxify-mcp-server",

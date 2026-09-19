@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { RPC_SUBJECTS, rpcRespond, type RpcCaller } from "../../db/natsRpc";
+import { RPC_SUBJECTS, type RpcCaller, rpcRespond } from "../../db/natsRpc";
 import { toRpcError, validationFailed } from "../ops/caller";
 import { getCanvas, saveCanvas } from "./service";
 import { canvasChangesSchema, canvasParentTypeSchema } from "./types";
@@ -26,8 +26,7 @@ export async function handleCanvasOp(payload: unknown, caller: RpcCaller) {
 	const { source, sourceId, actionsToPerform, changes } = parsed.data;
 	const parent = { type: source, id: sourceId };
 	try {
-		if (!actionsToPerform && !changes)
-			return await getCanvas(parent, caller.projectIds);
+		if (!actionsToPerform && !changes) return await getCanvas(parent, caller.projectIds);
 		console.log(actionsToPerform, changes);
 
 		await saveCanvas(

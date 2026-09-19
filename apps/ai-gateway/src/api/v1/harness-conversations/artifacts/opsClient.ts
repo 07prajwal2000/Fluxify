@@ -1,15 +1,5 @@
-import {
-	RPC_SUBJECTS,
-	RpcError,
-	rpcRequest,
-	type RpcCaller,
-} from "@fluxify/server/src/db/natsRpc";
-import {
-	BadRequestError,
-	ConflictError,
-	ForbiddenError,
-	NotFoundError,
-} from "@fluxify/server";
+import { BadRequestError, ConflictError, ForbiddenError, NotFoundError } from "@fluxify/server";
+import { RPC_SUBJECTS, type RpcCaller, RpcError, rpcRequest } from "@fluxify/server/src/db/natsRpc";
 import type { CanvasChanges, CanvasItems } from "./normalize";
 
 /**
@@ -85,11 +75,7 @@ export function createRoute(
 	});
 }
 
-export function modifyRoute(
-	caller: RpcCaller,
-	id: string,
-	data: Record<string, unknown>,
-) {
+export function modifyRoute(caller: RpcCaller, id: string, data: Record<string, unknown>) {
 	return call<{ id: string }>(RPC_SUBJECTS.route, caller, {
 		action: "modify",
 		id,
@@ -113,11 +99,7 @@ export function createCustomBlock(
 	});
 }
 
-export function modifyCustomBlock(
-	caller: RpcCaller,
-	id: string,
-	data: Record<string, unknown>,
-) {
+export function modifyCustomBlock(caller: RpcCaller, id: string, data: Record<string, unknown>) {
 	return call<{ id: string }>(RPC_SUBJECTS.customBlock, caller, {
 		action: "modify",
 		id,
@@ -130,11 +112,7 @@ export function deleteCustomBlock(caller: RpcCaller, id: string) {
 }
 
 /** Omitting both change fields is a read — that is how the subject is defined. */
-export function readCanvas(
-	caller: RpcCaller,
-	source: "route" | "custom_block",
-	sourceId: string,
-) {
+export function readCanvas(caller: RpcCaller, source: "route" | "custom_block", sourceId: string) {
 	return call<CanvasItems>(RPC_SUBJECTS.canvas, caller, { source, sourceId });
 }
 

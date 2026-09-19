@@ -1,19 +1,19 @@
 import {
+	type QueueBatch,
+	type QueueConnection,
 	QueueConnectionManager,
 	QueueSourceGoneError,
 	registerQueueConnector,
-	type QueueBatch,
-	type QueueConnection,
 } from "@fluxify/adapters";
 import type { TriggerConnection, TriggerEvent, TriggerSource } from "@fluxify/blocks";
 import { logger } from "@fluxify/common";
 import { backoffMs } from "@fluxify/common/nats";
 import { findIntegrationConfig, ownsIntegration } from "../../loaders/integrationsLoader";
 import type { TriggerArtifact } from "../compiler/artifacts";
-import { compiledWorkflow } from "../requestRouter/compiledRuntime";
-import { runWorkflowJob } from "../jobs/workflowJob";
 import { WORKFLOW_JOB } from "../jobs/subjects";
 import type { JobEnvelope } from "../jobs/types";
+import { runWorkflowJob } from "../jobs/workflowJob";
+import { compiledWorkflow } from "../requestRouter/compiledRuntime";
 import { consumedInExecution, type TriggerBatch } from "./types";
 
 /**
@@ -81,9 +81,7 @@ export function hasQueueTrigger(triggerId: string) {
 }
 
 async function startTrigger(artifact: TriggerArtifact) {
-	const config = artifact.integrationId
-		? findIntegrationConfig(artifact.integrationId)
-		: undefined;
+	const config = artifact.integrationId ? findIntegrationConfig(artifact.integrationId) : undefined;
 	// An id alone would let one project's trigger borrow another's credentials.
 	if (!ownsIntegration(config, artifact.projectId)) {
 		logger.warn(
@@ -129,18 +127,21 @@ async function startTrigger(artifact: TriggerArtifact) {
  * way and reports again.
  */
 async function sourceGone(artifact: TriggerArtifact, error: QueueSourceGoneError) {
-	logger.error(`[triggers] ${artifact.triggerId} source is gone, disabling: ${error.message}`, "TRIGGERS.queue");
+	logger.error(
+		`[triggers] ${artifact.triggerId} source is gone, disabling: ${error.message}`,
+		"TRIGGERS.queue",
+	);
 	triggers.delete(artifact.triggerId);
-	reportFault({ triggerId: artifact.triggerId, projectId: artifact.projectId, reason: error.message });
+	reportFault({
+		triggerId: artifact.triggerId,
+		projectId: artifact.projectId,
+		reason: error.message,
+	});
 	await manager.stop(artifact.triggerId);
 }
 
 /** Exported for tests; the connector is the only other caller. */
-export async function runBatch(
-	triggerId: string,
-	batch: QueueBatch,
-	connection: QueueConnection,
-) {
+export async function runBatch(triggerId: string, batch: QueueBatch, connection: QueueConnection) {
 	// Read per batch, so a workflow or commit-mode change applies without a restart.
 	const artifact = triggers.get(triggerId);
 	// Neither is a failure of the batch: throwing leaves it uncommitted for the

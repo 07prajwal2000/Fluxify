@@ -1,10 +1,10 @@
-import z from "zod";
-import { NotFoundError } from "../../../../errors/notFoundError";
-import { getRouteById } from "./repository";
-import { responseSchema } from "./dto";
-import { AuthACL } from "../../../../db/schema";
+import type z from "zod";
+import type { AuthACL } from "../../../../db/schema";
 import { ForbiddenError } from "../../../../errors/forbidError";
+import { NotFoundError } from "../../../../errors/notFoundError";
 import { acceptedContentTypes } from "../../../../lib/routeConfig";
+import type { responseSchema } from "./dto";
+import { getRouteById } from "./repository";
 
 export default async function handleRequest(
 	id: string,
@@ -14,9 +14,7 @@ export default async function handleRequest(
 	if (!route) {
 		throw new NotFoundError("no route found with id: " + id);
 	}
-	const hasAccess = acl.some(
-		(a) => a.projectId === route.projectId || a.projectId === "*",
-	);
+	const hasAccess = acl.some((a) => a.projectId === route.projectId || a.projectId === "*");
 	if (!hasAccess) {
 		throw new ForbiddenError();
 	}

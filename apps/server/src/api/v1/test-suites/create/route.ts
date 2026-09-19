@@ -1,12 +1,12 @@
 import { describeRoute, resolver, validator } from "hono-openapi";
-import zodErrorCallbackParser from "../../../../middlewares/zodErrorCallbackParser";
-import { requestBodySchema, responseSchema } from "./dto";
-import { errorSchema } from "../../../../errors/customError";
-import handleRequest from "./service";
-import { validationErrorSchema } from "../../../../errors/validationError";
-import { HonoServer } from "../../../../types";
-import { requireTestSuiteAccess } from "../middleware";
 import { z } from "zod";
+import { errorSchema } from "../../../../errors/customError";
+import { validationErrorSchema } from "../../../../errors/validationError";
+import zodErrorCallbackParser from "../../../../middlewares/zodErrorCallbackParser";
+import type { HonoServer } from "../../../../types";
+import { requireTestSuiteAccess } from "../middleware";
+import { requestBodySchema, responseSchema } from "./dto";
+import handleRequest from "./service";
 
 export default function (app: HonoServer) {
 	app.post(

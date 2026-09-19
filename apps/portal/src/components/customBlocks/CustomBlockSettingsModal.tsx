@@ -1,5 +1,3 @@
-import { useMemo, useState } from "react";
-import { useNavigate } from "@tanstack/react-router";
 import {
 	Button,
 	CloseButton,
@@ -13,14 +11,16 @@ import {
 	toast,
 } from "@fluxify/components";
 import type { inputParamSchema } from "@fluxify/server/src/api/v1/custom-blocks/create/dto";
+import { useNavigate } from "@tanstack/react-router";
+import { useMemo, useState } from "react";
 import type { z } from "zod";
-import { customBlocksQuery } from "@/query/customBlocksQuery";
-import { showErrorNotification } from "@/lib/errorNotifier";
+import type { CustomBlockInputParam } from "@/components/canvas/panel/blocks/CustomBlockSettings";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { Section } from "@/components/common/Section";
-import type { CustomBlockInputParam } from "@/components/canvas/panel/blocks/CustomBlockSettings";
-import { InputParamsEditor, validateInputParams } from "./InputParamsEditor";
+import { showErrorNotification } from "@/lib/errorNotifier";
+import { customBlocksQuery } from "@/query/customBlocksQuery";
 import { ICON_URL_MAX, IconPicker, type IconValue } from "./IconPicker";
+import { InputParamsEditor, validateInputParams } from "./InputParamsEditor";
 
 /**
  * Same shape as the route canvas' settings modal: everything editable about the
@@ -47,7 +47,11 @@ export function CustomBlockSettingsModal({
 					<Modal.Dialog className="flex h-[92vh] w-[94vw] !max-w-none flex-col overflow-hidden border border-border bg-background p-0 shadow-2xl shadow-black/50">
 						{isLoading || !block ? (
 							<div className="flex h-full items-center justify-center">
-								{isLoading ? <Spinner /> : <p className="text-sm text-muted">Custom block not found.</p>}
+								{isLoading ? (
+									<Spinner />
+								) : (
+									<p className="text-sm text-muted">Custom block not found.</p>
+								)}
 							</div>
 						) : (
 							<CustomBlockSettingsForm
@@ -65,9 +69,7 @@ export function CustomBlockSettingsModal({
 	);
 }
 
-type BlockData = NonNullable<
-	ReturnType<typeof customBlocksQuery.getAll.useQuery>["data"]
->[number];
+type BlockData = NonNullable<ReturnType<typeof customBlocksQuery.getAll.useQuery>["data"]>[number];
 
 function CustomBlockSettingsForm({
 	projectId,
@@ -150,9 +152,7 @@ function CustomBlockSettingsForm({
 		<>
 			<Modal.Header className="flex shrink-0 flex-row items-center gap-3 border-b border-border px-5 py-3">
 				<div className="min-w-0">
-					<Modal.Heading className="text-sm font-semibold">
-						Custom block settings
-					</Modal.Heading>
+					<Modal.Heading className="text-sm font-semibold">Custom block settings</Modal.Heading>
 					<p className="truncate font-mono text-xs text-muted">{block.name}</p>
 				</div>
 				<CloseButton aria-label="Close custom block settings" className="ml-auto" />
@@ -175,10 +175,7 @@ function CustomBlockSettingsForm({
 					</Tabs.List>
 
 					{/* the icon grid inside scrolls, the panel itself never does */}
-					<Tabs.Panel
-						id="general"
-						className="flex min-h-0 flex-1 flex-col overflow-hidden p-5"
-					>
+					<Tabs.Panel id="general" className="flex min-h-0 flex-1 flex-col overflow-hidden p-5">
 						<IconPicker
 							value={iconValue}
 							onChange={setIconValue}
@@ -190,8 +187,8 @@ function CustomBlockSettingsForm({
 									<div>
 										<h3 className="text-sm font-semibold text-foreground">Identity</h3>
 										<p className="mt-0.5 text-xs text-muted">
-											How this block shows up in the block picker and on a route canvas.
-											The name is fixed once created.
+											How this block shows up in the block picker and on a route canvas. The name is
+											fixed once created.
 										</p>
 									</div>
 									<TextField
@@ -204,11 +201,7 @@ function CustomBlockSettingsForm({
 										<Label>Label</Label>
 										<Input placeholder="Send Slack message" />
 									</TextField>
-									<TextField
-										isDisabled={readOnly}
-										value={description}
-										onChange={setDescription}
-									>
+									<TextField isDisabled={readOnly} value={description} onChange={setDescription}>
 										<Label>Description</Label>
 										<Input placeholder="What this block does" />
 									</TextField>
@@ -222,11 +215,7 @@ function CustomBlockSettingsForm({
 							title="Input parameters"
 							description="The fields this block asks for when it is placed on a route canvas."
 						>
-							<InputParamsEditor
-								params={params}
-								isDisabled={readOnly}
-								onChange={setParams}
-							/>
+							<InputParamsEditor params={params} isDisabled={readOnly} onChange={setParams} />
 						</Section>
 					</Tabs.Panel>
 
@@ -241,9 +230,7 @@ function CustomBlockSettingsForm({
 										<p className="truncate text-xs">{block.label}</p>
 										<p className="truncate font-mono text-xs text-muted">{block.name}</p>
 									</div>
-									<DeleteButton onPress={() => setConfirmDelete(true)}>
-										Delete block
-									</DeleteButton>
+									<DeleteButton onPress={() => setConfirmDelete(true)}>Delete block</DeleteButton>
 								</div>
 							</Section>
 						</Tabs.Panel>

@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
+import { useEffect, useState } from "react";
 import {
 	CanvasSpotlight,
 	KeyboardShortcutsModal,
@@ -45,10 +45,7 @@ function TestSuitesPage() {
 				onOpenChange={setSpotlightOpen}
 				commands={spotlightCommands}
 			/>
-			<KeyboardShortcutsModal
-				isOpen={shortcutsOpen}
-				onOpenChange={setShortcutsOpen}
-			/>
+			<KeyboardShortcutsModal isOpen={shortcutsOpen} onOpenChange={setShortcutsOpen} />
 		</div>
 	);
 }

@@ -86,7 +86,7 @@ export function createJobWorker(options: JobWorkerOptions): JobWorker {
 	 * worker on this instance could ever boot again.
 	 */
 	function ensureJobsStream() {
-		return (stream ??= (async () => {
+		stream ??= (async () => {
 			const nc = natsConnection();
 			await ensureStream(nc, {
 				name: JOBS_STREAM,
@@ -98,7 +98,8 @@ export function createJobWorker(options: JobWorkerOptions): JobWorker {
 				duplicateWindowMs: 2 * 60_000,
 			});
 			await dropWildcardConsumers(nc, JOBS_STREAM);
-		})());
+		})();
+		return stream;
 	}
 
 	async function consume(projectId: string, kind: string) {
@@ -146,9 +147,7 @@ export function createJobWorker(options: JobWorkerOptions): JobWorker {
 				);
 			} catch (error) {
 				// Left unserved so the next artifact for this project retries.
-				await Promise.allSettled(
-					(served.get(projectId) ?? []).map((consumer) => consumer.stop()),
-				);
+				await Promise.allSettled((served.get(projectId) ?? []).map((consumer) => consumer.stop()));
 				served.delete(projectId);
 				throw error;
 			}
@@ -195,7 +194,5 @@ function isPermanent(error: unknown) {
 }
 
 function stripUndefined<T extends object>(value: T): Partial<T> {
-	return Object.fromEntries(
-		Object.entries(value).filter(([, v]) => v !== undefined),
-	) as Partial<T>;
+	return Object.fromEntries(Object.entries(value).filter(([, v]) => v !== undefined)) as Partial<T>;
 }

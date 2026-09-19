@@ -35,8 +35,7 @@ export function ArrayRules({ node, onUpdate, isReadOnly }: RuleEditorProps) {
 			</div>
 
 			<p className="text-xs text-muted">
-				Open this array from the editor to configure the schema its items must
-				match.
+				Open this array from the editor to configure the schema its items must match.
 			</p>
 		</div>
 	);

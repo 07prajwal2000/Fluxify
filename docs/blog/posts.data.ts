@@ -12,6 +12,7 @@ export interface Post {
 }
 
 declare const data: Post[];
+
 export { data };
 
 export default createContentLoader("blog/posts/*.md", {

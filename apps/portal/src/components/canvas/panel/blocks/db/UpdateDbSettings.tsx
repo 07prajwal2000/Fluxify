@@ -4,25 +4,17 @@ import {
 	Description,
 	JavaScriptTextArea,
 	JsonEditor,
-	Label,
 	type JsonObject,
+	Label,
 } from "@fluxify/components";
 import { useParams } from "@tanstack/react-router";
 import { useReactFlow } from "@xyflow/react";
 import { useDbMetadata } from "@/query/findResourceQuery";
 import { useCanvasChanges } from "../../../changes/ChangesContext";
-import { BlockSettings } from "../../BlockSettings";
-import {
-	BlockCheckboxField,
-	BlockIntegrationField,
-	BlockJsTextField,
-} from "../../fields";
-import {
-	parseDbConditions,
-	readDbBinding,
-	serializeDbConditions,
-} from "./conditions";
 import type { BlockNode } from "../../../types";
+import { BlockSettings } from "../../BlockSettings";
+import { BlockCheckboxField, BlockIntegrationField, BlockJsTextField } from "../../fields";
+import { parseDbConditions, readDbBinding, serializeDbConditions } from "./conditions";
 
 type UpdateDataPayload = {
 	source?: "raw" | "js";
@@ -92,8 +84,7 @@ export function UpdateDbDataSettings({ block }: { block: BlockNode }) {
 				data: { source: "raw", value: nextValue },
 			});
 		} else {
-			const nextValue =
-				typeof dataPayload.value === "string" ? dataPayload.value : "";
+			const nextValue = typeof dataPayload.value === "string" ? dataPayload.value : "";
 			updateNodeData(block.id, {
 				data: { source: "js", value: nextValue },
 			});
@@ -117,8 +108,7 @@ export function UpdateDbDataSettings({ block }: { block: BlockNode }) {
 			? (dataPayload.value as JsonObject)
 			: {};
 
-	const jsCode: string =
-		typeof dataPayload.value === "string" ? dataPayload.value : "";
+	const jsCode: string = typeof dataPayload.value === "string" ? dataPayload.value : "";
 
 	return (
 		<div className="flex flex-col gap-4 w-full">
@@ -166,8 +156,8 @@ export function UpdateDbDataSettings({ block }: { block: BlockNode }) {
 						Return a single object of fields to update in the database.
 					</Description>
 					<JavaScriptTextArea
-					expandable
-					expandTitle="Update - Code Editor"
+						expandable
+						expandTitle="Update - Code Editor"
 						rows={12}
 						showLineNumbers={true}
 						readOnly={!editable}

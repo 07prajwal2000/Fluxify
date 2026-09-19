@@ -74,9 +74,7 @@ export function parentsOf<T extends GraphRow>(row: T, rows: readonly T[]): T[] {
 export function topoOrder<T extends GraphRow>(rows: readonly T[]): T[] {
 	// ponytail: O(n²). A run produces a handful of outputs, not a build graph;
 	// swap in Kahn's with an adjacency map if that ever stops being true.
-	const parentIds = new Map(
-		rows.map((row) => [row.id, parentsOf(row, rows).map((p) => p.id)]),
-	);
+	const parentIds = new Map(rows.map((row) => [row.id, parentsOf(row, rows).map((p) => p.id)]));
 	const emitted = new Set<string>();
 	const out: T[] = [];
 	const remaining = [...rows];

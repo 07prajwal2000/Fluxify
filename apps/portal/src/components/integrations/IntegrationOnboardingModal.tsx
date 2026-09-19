@@ -1,4 +1,4 @@
-import { Modal, CloseButton } from "@fluxify/components";
+import { CloseButton, Modal } from "@fluxify/components";
 import { IntegrationOnboardingForm } from "./IntegrationOnboardingForm";
 
 type IntegrationOnboardingModalProps = {
@@ -8,7 +8,11 @@ type IntegrationOnboardingModalProps = {
 };
 
 // This component only owns the dialog. The onboarding form can also be embedded elsewhere.
-export function IntegrationOnboardingModal({ projectId, isOpen, onOpenChange }: IntegrationOnboardingModalProps) {
+export function IntegrationOnboardingModal({
+	projectId,
+	isOpen,
+	onOpenChange,
+}: IntegrationOnboardingModalProps) {
 	return (
 		<Modal isOpen={isOpen} onOpenChange={onOpenChange}>
 			<Modal.Backdrop>
@@ -19,7 +23,12 @@ export function IntegrationOnboardingModal({ projectId, isOpen, onOpenChange }: 
 							<CloseButton />
 						</Modal.Header>
 						<Modal.Body className="flex flex-col min-h-0 !overflow-hidden px-6 pb-6 pt-1">
-							{isOpen && <IntegrationOnboardingForm projectId={projectId} onSaved={() => onOpenChange(false)} />}
+							{isOpen && (
+								<IntegrationOnboardingForm
+									projectId={projectId}
+									onSaved={() => onOpenChange(false)}
+								/>
+							)}
 						</Modal.Body>
 					</Modal.Dialog>
 				</Modal.Container>

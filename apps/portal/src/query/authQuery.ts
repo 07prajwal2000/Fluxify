@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient, useInfiniteQuery } from "@tanstack/react-query";
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { z } from "zod";
 import { authService } from "@/services/auth";
 
@@ -32,9 +32,8 @@ export const authQuery = {
 		mutation() {
 			const qc = useQueryClient();
 			return useMutation({
-				mutationFn: (
-					body: z.infer<typeof authService.createUserRequestBodySchema>,
-				) => authService.createUser(body),
+				mutationFn: (body: z.infer<typeof authService.createUserRequestBodySchema>) =>
+					authService.createUser(body),
 				onSuccess: () => qc.invalidateQueries({ queryKey: LIST_KEY }),
 			});
 		},

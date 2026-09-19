@@ -1,5 +1,5 @@
-import { useMemo, useState } from "react";
 import { Button, CloseButton, Input, Label, TextField } from "@fluxify/components";
+import { useMemo, useState } from "react";
 import { TbHistory, TbSearch } from "react-icons/tb";
 import type { OrchestrationEvent } from "@/services/orchestration";
 import { EventLog } from "./EventLog";
@@ -39,8 +39,7 @@ export function NodeHistoryView({
 				const matchAction = event.action.toLowerCase().includes(query);
 				const matchNode = event.nodeId?.toLowerCase().includes(query);
 				const matchReason = event.reason?.toLowerCase().includes(query);
-				const matchProject =
-					showProject && Boolean(event.projectId?.toLowerCase().includes(query));
+				const matchProject = showProject && Boolean(event.projectId?.toLowerCase().includes(query));
 				if (!matchAction && !matchNode && !matchReason && !matchProject) return false;
 			}
 
@@ -73,7 +72,8 @@ export function NodeHistoryView({
 							)}
 						</div>
 						<p className="mt-0.5 text-xs text-muted">
-							What has happened to this project's nodes. A node that was removed is only visible here.
+							What has happened to this project's nodes. A node that was removed is only visible
+							here.
 						</p>
 					</div>
 
@@ -91,10 +91,7 @@ export function NodeHistoryView({
 										size={14}
 										className="pointer-events-none absolute left-2.5 text-muted"
 									/>
-									<Input
-										placeholder="Filter by ID, action..."
-										className="h-8 pl-8 pr-8 text-xs"
-									/>
+									<Input placeholder="Filter by ID, action..." className="h-8 pl-8 pr-8 text-xs" />
 									{search && (
 										<div className="absolute right-1">
 											<CloseButton

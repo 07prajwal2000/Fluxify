@@ -1,12 +1,12 @@
+import { type BlockOutput, type Context, outputVariableName } from "./baseBlock";
+import { FAN_OUT_HANDLES, sortByOrder } from "./blockHandles";
 import { BlockTypes } from "./blockTypes";
 import type { BlockDTOType, EdgeDTOSchemaType, EdgesType } from "./builderTypes";
-import { outputVariableName, type BlockOutput, type Context } from "./baseBlock";
 import { emitCustomBlock, hasCustomBlock } from "./builtin/customBlock";
 import { emitWorkflowEnd } from "./builtin/response";
+import { type HoistedImport, hoistImports } from "./imports";
 import { compilerLib, emitters } from "./registry";
 import { scopeFor } from "./scope";
-import { FAN_OUT_HANDLES, sortByOrder } from "./blockHandles";
-import { hoistImports, type HoistedImport } from "./imports";
 
 export { compilerLib, type Emitter } from "./registry";
 export { scopeFor } from "./scope";
@@ -84,17 +84,11 @@ runs.forEach((run, i) => run.then(
 /** marker lets a newer worker load older artifacts during a rolling update */
 const COMPILED_ROUTE_FACTORY = "/* fluxify-compiled-route-factory */";
 
-type CompiledRun = (
-	ctx: Context,
-	input?: unknown,
-) => Promise<BlockOutput>;
+type CompiledRun = (ctx: Context, input?: unknown) => Promise<BlockOutput>;
 
-const AsyncFunction = Object.getPrototypeOf(async function () {})
-	.constructor as new (...args: string[]) => (
-	ctx: Context,
-	input: unknown,
-	lib: typeof compilerLib,
-) => Promise<BlockOutput>;
+const AsyncFunction = Object.getPrototypeOf(async () => {}).constructor as new (
+	...args: string[]
+) => (ctx: Context, input: unknown, lib: typeof compilerLib) => Promise<BlockOutput>;
 
 const CompiledRouteFactory = Function as unknown as new (
 	...args: string[]
@@ -190,8 +184,7 @@ export function compileGraph(
 	/** targets of every edge on a fan-out handle, sorted by the block's stored `order` */
 	function fanOutTargets(id: string, handle: string, order: string[]) {
 		const outgoing = (edgeMap[id] ?? []).filter(
-			(edge) =>
-				edge.handle === handle && byId.get(edge.to)?.type !== BlockTypes.errorHandler,
+			(edge) => edge.handle === handle && byId.get(edge.to)?.type !== BlockTypes.errorHandler,
 		);
 		return sortByOrder(outgoing, order, (edge) => edge.to).map((edge) => edge.to);
 	}
@@ -241,7 +234,10 @@ export function compileGraph(
 	function registerImports(imports: HoistedImport[]) {
 		for (const { spec, bindings } of imports) {
 			let bound = importsBySpec.get(spec);
-			if (!bound) importsBySpec.set(spec, (bound = new Map()));
+			if (!bound) {
+				bound = new Map();
+				importsBySpec.set(spec, bound);
+			}
 			for (const { local, imported } of bindings) {
 				const owner = importOwners.get(local);
 				if (owner && owner !== spec) {
@@ -330,11 +326,7 @@ export function compileGraph(
 		const blockId = JSON.stringify(block.id);
 		const blockType = JSON.stringify(block.type);
 
-		function recordSpan(
-			output: string,
-			error?: string,
-			branch?: "success" | "failure",
-		) {
+		function recordSpan(output: string, error?: string, branch?: "success" | "failure") {
 			const outcome = error === undefined ? "success" : "failure";
 			const branchField = branch ? `, branch: ${JSON.stringify(branch)}` : "";
 			const errorField = error === undefined ? "" : `, error: ${error}`;
@@ -356,19 +348,15 @@ $trace.recordSpan(${span});
 			next(handle = "source") {
 				const to = edgeTo(id, handle);
 				const branch =
-					block.type === BlockTypes.if &&
-					(handle === "success" || handle === "failure")
+					block.type === BlockTypes.if && (handle === "success" || handle === "failure")
 						? handle
 						: undefined;
 				const continuation = to
 					? `return await ${blockFunctionName(to)}($state, $in, $end);`
 					: "return $end($in);";
-				const saveAs =
-					handle === "source" ? outputVariableName(block.data) : undefined;
+				const saveAs = handle === "source" ? outputVariableName(block.data) : undefined;
 				// vars is per request, so outputs never leak into the next one
-				const save = saveAs
-					? `(vars.outputs ??= {})[${JSON.stringify(saveAs)}] = $in;\n`
-					: "";
+				const save = saveAs ? `(vars.outputs ??= {})[${JSON.stringify(saveAs)}] = $in;\n` : "";
 				return `${save}${recordSpan("$in", undefined, branch)}
 ${continuation}`;
 			},

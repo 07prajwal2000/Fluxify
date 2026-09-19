@@ -1,8 +1,8 @@
-import { ServerError } from "../../../../errors/serverError";
-import { createTestSuite } from "./repository";
-import { requestBodySchema } from "./dto";
-import { z } from "zod";
 import { generateID } from "@fluxify/lib";
+import type { z } from "zod";
+import { ServerError } from "../../../../errors/serverError";
+import type { requestBodySchema } from "./dto";
+import { createTestSuite } from "./repository";
 
 export default async function handleRequest(
 	data: z.infer<typeof requestBodySchema> & { routeId: string },

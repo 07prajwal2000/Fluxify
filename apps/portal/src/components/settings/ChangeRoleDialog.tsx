@@ -1,10 +1,10 @@
+import { Button, CloseButton, Modal, toast } from "@fluxify/components";
 import { useState } from "react";
-import { Modal, toast, Button, CloseButton } from "@fluxify/components";
-import { projectMembersQuery } from "@/query/projectMembersQuery";
 import { showErrorNotification } from "@/lib/errorNotifier";
-import type { Member } from "./MembersSettings";
-import { type Role } from "../common/RoleSelector";
+import { projectMembersQuery } from "@/query/projectMembersQuery";
+import type { Role } from "../common/RoleSelector";
 import { UserRoleSelector } from "../common/UserRoleSelector";
+import type { Member } from "./MembersSettings";
 
 export function ChangeRoleDialog({
 	projectId,

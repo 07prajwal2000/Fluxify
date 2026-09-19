@@ -3,8 +3,8 @@ import type { z } from "zod";
 import {
 	type CanvasSavePayload,
 	type ListRoutesQuery,
-	type UpdateRouteBody,
 	routesService,
+	type UpdateRouteBody,
 } from "@/services/routes";
 
 const LIST_KEY = ["routes", "list"];
@@ -53,8 +53,7 @@ export const routesQuery = {
 		mutation(routeId: string) {
 			const qc = useQueryClient();
 			return useMutation({
-				mutationFn: (body: UpdateRouteBody) =>
-					routesService.update(routeId, body),
+				mutationFn: (body: UpdateRouteBody) => routesService.update(routeId, body),
 				onSuccess: () => {
 					qc.invalidateQueries({ queryKey: LIST_KEY });
 					qc.invalidateQueries({ queryKey: ["routes", routeId, "by-id"] });
@@ -85,10 +84,8 @@ export const routesQuery = {
 		mutation(routeId: string) {
 			const qc = useQueryClient();
 			return useMutation({
-				mutationFn: (payload: CanvasSavePayload) =>
-					routesService.saveCanvasItems(routeId, payload),
-				onSuccess: () =>
-					qc.invalidateQueries({ queryKey: ["routes", routeId, "canvas-items"] }),
+				mutationFn: (payload: CanvasSavePayload) => routesService.saveCanvasItems(routeId, payload),
+				onSuccess: () => qc.invalidateQueries({ queryKey: ["routes", routeId, "canvas-items"] }),
 			});
 		},
 	},

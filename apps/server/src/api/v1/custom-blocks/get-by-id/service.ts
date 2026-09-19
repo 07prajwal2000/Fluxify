@@ -1,23 +1,23 @@
-import z from "zod";
-import { responseSchema } from "./dto";
-import { getCustomBlockById } from "./repository";
-import { NotFoundError } from "../../../../errors/notFoundError";
+import type { User } from "better-auth";
+import type z from "zod";
+import type { AuthACL } from "../../../../db/schema";
 import { ForbiddenError } from "../../../../errors/forbidError";
-import { AuthACL } from "../../../../db/schema";
+import { NotFoundError } from "../../../../errors/notFoundError";
 import { hasProjectAccess } from "../../../auth/common";
-import { User } from "better-auth";
+import type { responseSchema } from "./dto";
+import { getCustomBlockById } from "./repository";
 
 export default async function handleRequest(
-  id: string,
-  user: User & { isSystemAdmin: boolean },
-  acl: AuthACL[]
+	id: string,
+	user: User & { isSystemAdmin: boolean },
+	acl: AuthACL[],
 ): Promise<z.infer<typeof responseSchema>> {
-  const block = await getCustomBlockById(id);
-  if (!block) {
-    throw new NotFoundError("Custom block not found");
-  }
-  if (!hasProjectAccess(user, acl, block.projectId!, "viewer")) {
-    throw new ForbiddenError();
-  }
-  return block;
+	const block = await getCustomBlockById(id);
+	if (!block) {
+		throw new NotFoundError("Custom block not found");
+	}
+	if (!hasProjectAccess(user, acl, block.projectId!, "viewer")) {
+		throw new ForbiddenError();
+	}
+	return block;
 }

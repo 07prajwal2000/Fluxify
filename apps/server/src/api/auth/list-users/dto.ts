@@ -1,25 +1,22 @@
 import z from "zod";
-import {
-  paginationRequestQuerySchema,
-  paginationResponseSchema,
-} from "../../../lib/pagination";
+import { paginationRequestQuerySchema, paginationResponseSchema } from "../../../lib/pagination";
 
 export const requestBodySchema = paginationRequestQuerySchema.extend(
-  z.object({
-    fuzzySearch: z.string().optional(),
-  }).shape
+	z.object({
+		fuzzySearch: z.string().optional(),
+	}).shape,
 );
 
 export const responseSchema = z.object({
-  data: z.array(
-    z.object({
-      id: z.string(),
-      email: z.string(),
-      name: z.string().nullable(),
-      isSystemAdmin: z.boolean(),
-      providerIds: z.string(),
-      role: z.enum(["user", "instance_admin"]).nullable(),
-    })
-  ),
-  pagination: paginationResponseSchema,
+	data: z.array(
+		z.object({
+			id: z.string(),
+			email: z.string(),
+			name: z.string().nullable(),
+			isSystemAdmin: z.boolean(),
+			providerIds: z.string(),
+			role: z.enum(["user", "instance_admin"]).nullable(),
+		}),
+	),
+	pagination: paginationResponseSchema,
 });

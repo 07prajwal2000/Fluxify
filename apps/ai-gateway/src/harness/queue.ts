@@ -1,9 +1,9 @@
 import { logger } from "@fluxify/common";
 import {
+	type ConsumerSpec,
 	ensureStreamConsumer,
 	natsConnection,
 	publishToStream,
-	type ConsumerSpec,
 	type StreamSpec,
 } from "@fluxify/common/nats";
 import type { HitlPlanAction } from "./internal/harnessService";
@@ -99,11 +99,7 @@ let initialized = false;
  *  API thread (publisher) and the worker thread (consumer). */
 export async function initializeHarnessQueue() {
 	if (initialized) return;
-	await ensureStreamConsumer(
-		natsConnection(),
-		HARNESS_STREAM_SPEC,
-		HARNESS_CONSUMER_SPEC,
-	);
+	await ensureStreamConsumer(natsConnection(), HARNESS_STREAM_SPEC, HARNESS_CONSUMER_SPEC);
 	initialized = true;
 	logger.info("Initialized", "HarnessQueue");
 }

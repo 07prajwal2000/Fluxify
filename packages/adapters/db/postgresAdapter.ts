@@ -1,22 +1,22 @@
 import { SQL } from "bun";
 import { CompiledQuery, Kysely } from "kysely";
 import {
-	Connection,
+	type Connection,
+	type DBConditionType,
 	DbAdapterMode,
-	DBConditionType,
 	groupIntrospectionRows,
-	IDbAdapter,
-	IntrospectedTable,
+	type IDbAdapter,
+	type IntrospectedTable,
 } from ".";
-import { BunSqlPostgresDialect } from "./kyselySqlDialect";
+import { applySqlConditions } from "./conditions";
 import {
 	applyColumns,
 	applyJoins,
 	buildQualifiers,
-	QueryOptions,
+	type QueryOptions,
 	resolveJsonOperand,
 } from "./jsonPath";
-import { applySqlConditions } from "./conditions";
+import { BunSqlPostgresDialect } from "./kyselySqlDialect";
 
 export type FluxifyDatabase = Record<string, Record<string, any>>;
 
@@ -84,8 +84,7 @@ export class PostgresAdapter implements IDbAdapter {
 	}
 
 	async raw(query: string | any, params?: any[]): Promise<any> {
-		if (typeof query !== "string")
-			throw new Error("raw() accepts only string queries.");
+		if (typeof query !== "string") throw new Error("raw() accepts only string queries.");
 
 		const conn = this.getConnection();
 		// rows only: the full result carries a BigInt `numAffectedRows` that JSON cannot serialize
@@ -111,12 +110,7 @@ export class PostgresAdapter implements IDbAdapter {
 		qb = this.buildQuery(conditions, qb, qualifiers);
 
 		const l = limit < 0 || limit > this.HARD_LIMIT ? this.HARD_LIMIT : limit;
-		const sortExpr = resolveJsonOperand(
-			sort.attribute,
-			false,
-			"postgres",
-			qualifiers,
-		);
+		const sortExpr = resolveJsonOperand(sort.attribute, false, "postgres", qualifiers);
 
 		return applyColumns(qb, options?.columns)
 			.limit(l)
@@ -134,9 +128,7 @@ export class PostgresAdapter implements IDbAdapter {
 		const qualifiers = buildQualifiers(table, options?.joins);
 		let qb = applyJoins(conn.selectFrom(table as never), options?.joins);
 		qb = this.buildQuery(conditions, qb, qualifiers);
-		return (
-			(await applyColumns(qb, options?.columns).executeTakeFirst()) ?? null
-		);
+		return (await applyColumns(qb, options?.columns).executeTakeFirst()) ?? null;
 	}
 
 	async delete(table: string, conditions: DBConditionType[]): Promise<boolean> {
@@ -179,11 +171,7 @@ export class PostgresAdapter implements IDbAdapter {
 		return results;
 	}
 
-	async update(
-		table: string,
-		data: any,
-		conditions: DBConditionType[],
-	): Promise<any> {
+	async update(table: string, data: any, conditions: DBConditionType[]): Promise<any> {
 		const conn = this.getConnection();
 		let qb = conn.updateTable(table as never).set(data as never);
 		qb = this.buildQuery(conditions, qb);
@@ -269,9 +257,7 @@ export function extractPgConnectionInfo(
 ) {
 	if (config.source === "url") {
 		let urlStr = String(config.url);
-		urlStr = urlStr.startsWith("cfg:")
-			? (appConfigs.get(urlStr.slice(4)) ?? "")
-			: urlStr;
+		urlStr = urlStr.startsWith("cfg:") ? (appConfigs.get(urlStr.slice(4)) ?? "") : urlStr;
 		const result = pgUrlParser(urlStr);
 		if (result === null) return null;
 		return {
@@ -287,9 +273,7 @@ export function extractPgConnectionInfo(
 
 	for (const key in config) {
 		const value = String(config[key]);
-		config[key] = value.startsWith("cfg:")
-			? (appConfigs.get(value.slice(4)) ?? "")
-			: value;
+		config[key] = value.startsWith("cfg:") ? (appConfigs.get(value.slice(4)) ?? "") : value;
 	}
 	return config;
 }

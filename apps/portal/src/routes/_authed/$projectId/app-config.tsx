@@ -1,17 +1,26 @@
-import { useEffect, useState } from "react";
-import { createFileRoute } from "@tanstack/react-router";
-import { z } from "zod";
-import { Button, DeleteButton, Input, ListBox, Select, Spinner, TextField, toast } from "@fluxify/components";
 import type { Key } from "@fluxify/components";
+import {
+	Button,
+	DeleteButton,
+	Input,
+	ListBox,
+	Select,
+	Spinner,
+	TextField,
+	toast,
+} from "@fluxify/components";
+import { createFileRoute } from "@tanstack/react-router";
+import { useEffect, useState } from "react";
 import { TbChevronDown, TbSearch } from "react-icons/tb";
-import { appConfigQuery } from "@/query/appConfigQuery";
-import { showErrorNotification } from "@/lib/errorNotifier";
-import { ConfirmDialog } from "@/components/common/ConfirmDialog";
+import { z } from "zod";
+import { AppConfigTable } from "@/components/appConfig/AppConfigTable";
 import { CreateConfigButton } from "@/components/appConfig/CreateConfigModal";
 import { EditConfigModal } from "@/components/appConfig/EditConfigModal";
-import { AppConfigTable } from "@/components/appConfig/AppConfigTable";
 import type { ConfigRow, SortBy } from "@/components/appConfig/types";
+import { ConfirmDialog } from "@/components/common/ConfirmDialog";
+import { showErrorNotification } from "@/lib/errorNotifier";
 import { createRouteHead } from "@/lib/seo";
+import { appConfigQuery } from "@/query/appConfigQuery";
 
 export const Route = createFileRoute("/_authed/$projectId/app-config")({
 	head: createRouteHead(
@@ -83,9 +92,7 @@ function AppConfigPage() {
 				</div>
 				<div className="flex items-center gap-2">
 					{selectedIds.size > 0 && (
-						<DeleteButton
-							onPress={() => setPendingBulkDelete(true)}
-						>
+						<DeleteButton onPress={() => setPendingBulkDelete(true)}>
 							Delete ({selectedIds.size})
 						</DeleteButton>
 					)}
@@ -101,7 +108,10 @@ function AppConfigPage() {
 					onChange={setSearchInput}
 					className="relative w-full max-w-sm"
 				>
-					<TbSearch className="absolute left-3 top-1/2 -translate-y-1/2 z-10 text-muted" size={16} />
+					<TbSearch
+						className="absolute left-3 top-1/2 -translate-y-1/2 z-10 text-muted"
+						size={16}
+					/>
 					<Input placeholder="Search config by key name..." className="pl-9" />
 				</TextField>
 				<div className="flex items-center gap-2 text-sm text-muted">
@@ -144,7 +154,9 @@ function AppConfigPage() {
 				<p className="py-16 text-center text-muted">Couldn't load app config.</p>
 			) : items.length === 0 ? (
 				<p className="py-16 text-center text-muted">
-					{debouncedSearch ? `No configurations found matching "${debouncedSearch}"` : "No config keys yet."}
+					{debouncedSearch
+						? `No configurations found matching "${debouncedSearch}"`
+						: "No config keys yet."}
 				</p>
 			) : (
 				<AppConfigTable
@@ -169,7 +181,11 @@ function AppConfigPage() {
 						<Button variant="outline" isDisabled={page <= 1} onPress={() => setPage((p) => p - 1)}>
 							Previous
 						</Button>
-						<Button variant="outline" isDisabled={page >= totalPages} onPress={() => setPage((p) => p + 1)}>
+						<Button
+							variant="outline"
+							isDisabled={page >= totalPages}
+							onPress={() => setPage((p) => p + 1)}
+						>
 							Next
 						</Button>
 					</div>
@@ -209,7 +225,8 @@ function AppConfigPage() {
 					});
 				}}
 			>
-				Delete key <b className="text-foreground">{pendingDelete?.keyName}</b>? This cannot be undone.
+				Delete key <b className="text-foreground">{pendingDelete?.keyName}</b>? This cannot be
+				undone.
 			</ConfirmDialog>
 
 			{/* Bulk Delete Confirm Dialog */}
@@ -234,7 +251,8 @@ function AppConfigPage() {
 					);
 				}}
 			>
-				Are you sure you want to delete <b className="text-foreground">{selectedIds.size}</b> selected configuration key(s)? This action cannot be undone.
+				Are you sure you want to delete <b className="text-foreground">{selectedIds.size}</b>{" "}
+				selected configuration key(s)? This action cannot be undone.
 			</ConfirmDialog>
 		</div>
 	);

@@ -1,4 +1,5 @@
 import { visit } from "unist-util-visit";
+
 type Node = any;
 
 export function remarkDirectiveRehype() {
@@ -9,7 +10,8 @@ export function remarkDirectiveRehype() {
 				node.type === "leafDirective" ||
 				node.type === "containerDirective"
 			) {
-				const data = node.data || (node.data = {});
+				node.data ??= {};
+				const data = node.data;
 				// Prefix the hName to avoid collisions with standard HTML tags
 				data.hName = `ai-${node.name.toLowerCase()}`;
 				data.hProperties = { ...node.attributes };

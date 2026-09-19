@@ -1,7 +1,7 @@
 import { useParams } from "@tanstack/react-router";
+import { customBlocksQuery } from "@/query/customBlocksQuery";
 import { routesQuery } from "@/query/routesQuery";
 import { workflowsQuery } from "@/query/workflowsQuery";
-import { customBlocksQuery } from "@/query/customBlocksQuery";
 
 export type SpotlightRouteItem = {
 	id: string;

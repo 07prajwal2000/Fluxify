@@ -1,5 +1,5 @@
-import type { ReactNode } from "react";
 import { Chip, Spinner } from "@fluxify/components";
+import type { ReactNode } from "react";
 import { TbCheck, TbInfoCircle, TbMinus } from "react-icons/tb";
 import { instanceSettingsQuery } from "@/query/instanceSettingsQuery";
 import type { LicenseView } from "@/services/instanceSettings";
@@ -17,7 +17,10 @@ function statusChip(view: LicenseView): { label: string; color: ChipColor } {
 	if (view.status === "invalid") return { label: "Invalid key", color: "danger" };
 	if (view.status !== "expired") return { label: "Active", color: "success" };
 	return view.daysRemaining
-		? { label: `Expired · ${view.daysRemaining} day(s) of grace left`, color: "warning" }
+		? {
+				label: `Expired · ${view.daysRemaining} day(s) of grace left`,
+				color: "warning",
+			}
 		: { label: "Expired · grace period over", color: "danger" };
 }
 
@@ -64,7 +67,9 @@ export function LicenseSettings() {
 			<section className="flex flex-col gap-4 rounded-xl border border-border bg-background p-5">
 				<div className="flex flex-wrap items-center justify-between gap-2">
 					<div>
-						<p className="text-[10px] font-bold uppercase tracking-widest text-muted">Current edition</p>
+						<p className="text-[10px] font-bold uppercase tracking-widest text-muted">
+							Current edition
+						</p>
 						<p className="text-base font-bold text-foreground">{EDITION_LABEL[view.edition]}</p>
 					</div>
 					<Chip size="sm" color={chip.color}>
@@ -91,9 +96,15 @@ export function LicenseSettings() {
 				<h3 className="text-sm font-semibold text-foreground">What this edition includes</h3>
 				<ul className="flex flex-col divide-y divide-border rounded-xl border border-border">
 					{FEATURE_ROWS.map((row) => (
-						<li key={row.label} className="flex items-center justify-between gap-3 px-4 py-2.5 text-sm">
+						<li
+							key={row.label}
+							className="flex items-center justify-between gap-3 px-4 py-2.5 text-sm"
+						>
 							<span className="text-foreground">{row.label}</span>
-							<FeatureState on={unlocks(row.feature)} off={row.feature && view.connectorsSwitchedOff} />
+							<FeatureState
+								on={unlocks(row.feature)}
+								off={row.feature && view.connectorsSwitchedOff}
+							/>
 						</li>
 					))}
 				</ul>
@@ -107,7 +118,8 @@ export function LicenseSettings() {
 
 function FeatureState({ on, off }: { on: boolean; off: boolean | string | undefined }) {
 	if (!on) return <TbMinus size={16} className="text-muted" aria-label="Not included" />;
-	if (off) return <span className="text-xs text-warning">Included · switched off on this instance</span>;
+	if (off)
+		return <span className="text-xs text-warning">Included · switched off on this instance</span>;
 	return <TbCheck size={16} className="text-success" aria-label="Included" />;
 }
 
@@ -117,7 +129,13 @@ function Details({ view }: { view: LicenseView }) {
 	if (view.edition === "enterprise" && view.status !== "invalid")
 		rows.push(["Expires", view.expiresAt ? date(view.expiresAt) : "Never"]);
 	if (view.graceEndsAt) rows.push(["Grace period ends", date(view.graceEndsAt)]);
-	if (view.fingerprint) rows.push(["Key fingerprint", <code className="font-mono">{view.fingerprint}</code>]);
+	if (view.fingerprint)
+		rows.push([
+			"Key fingerprint",
+			<code key="fingerprint" className="font-mono">
+				{view.fingerprint}
+			</code>,
+		]);
 	if (view.confirmedBy)
 		rows.push([
 			"Non-commercial use confirmed by",

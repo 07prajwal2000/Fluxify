@@ -1,13 +1,9 @@
 import { z } from "zod";
-import { db } from "../../db";
-import { RPC_SUBJECTS, rpcRespond, type RpcCaller } from "../../db/natsRpc";
-import { CHAN_ON_WORKFLOW_CHANGE, publishMessage } from "../../db/redis";
 import { createSchema, patchSchema } from "../../api/v1/workflows/dto";
-import {
-	createWorkflow,
-	deleteWorkflow,
-	updateWorkflow,
-} from "../../api/v1/workflows/service";
+import { createWorkflow, deleteWorkflow, updateWorkflow } from "../../api/v1/workflows/service";
+import { db } from "../../db";
+import { RPC_SUBJECTS, type RpcCaller, rpcRespond } from "../../db/natsRpc";
+import { CHAN_ON_WORKFLOW_CHANGE, publishMessage } from "../../db/redis";
 import { saveCanvas } from "../canvas/service";
 import { canvasChangesSchema } from "../canvas/types";
 import { callerAcl, toRpcError, validationFailed } from "./caller";

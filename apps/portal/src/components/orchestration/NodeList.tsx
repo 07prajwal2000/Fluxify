@@ -1,6 +1,6 @@
 import { Chip } from "@fluxify/components";
 import type { NodeView } from "@/services/orchestration";
-import { REASON_LABEL, STATE_LABEL, TYPE_LABEL, ago, providerWords } from "./copy";
+import { ago, providerWords, REASON_LABEL, STATE_LABEL, TYPE_LABEL } from "./copy";
 
 /**
  * One node per row, used by both surfaces.
@@ -44,17 +44,19 @@ export function NodeList({
 								{TYPE_LABEL[node.type] ?? node.type}
 								{showProject && ` · ${node.projectId ?? "every project"}`}
 								{node.groupIds.length > 0 && ` · ${node.groupIds.length} group(s)`}
-								{node.projectId === null && node.groupIds.length === 0 && " · every unclaimed group"}
+								{node.projectId === null &&
+									node.groupIds.length === 0 &&
+									" · every unclaimed group"}
 							</p>
 							{node.reason && (
-								<p className="mt-1 text-xs text-warning">{REASON_LABEL[node.reason] ?? node.reason}</p>
+								<p className="mt-1 text-xs text-warning">
+									{REASON_LABEL[node.reason] ?? node.reason}
+								</p>
 							)}
 						</div>
 
 						<div className="flex shrink-0 flex-col items-end gap-0.5 text-xs text-muted">
-							<span>
-								{node.live ? `Heartbeat ${ago(node.lastHeartbeatAt)}` : "No heartbeat"}
-							</span>
+							<span>{node.live ? `Heartbeat ${ago(node.lastHeartbeatAt)}` : "No heartbeat"}</span>
 							{node.containerId && (
 								<span className="font-mono" title={`${words.handle}: ${node.containerId}`}>
 									{words.node} {node.containerId.slice(0, 12)}

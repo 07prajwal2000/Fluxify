@@ -1,9 +1,5 @@
+import { HANDLE_SIDE, type HandleKind, type HandleSide } from "@fluxify/blocks/layout";
 import { Position } from "@xyflow/react";
-import {
-	HANDLE_SIDE,
-	type HandleKind,
-	type HandleSide,
-} from "@fluxify/blocks/layout";
 
 /**
  * Socket kinds. Geometry, colour and connection limits are all derived from the

@@ -1,8 +1,8 @@
 import { z } from "zod";
 
 export const requestRouteSchema = z.object({
-  projectId: z.string(),
-  id: z.uuidv7(),
+	projectId: z.string(),
+	id: z.uuidv7(),
 });
 
 /**
@@ -11,10 +11,10 @@ export const requestRouteSchema = z.object({
  * to hit the same path that signal's exporter will.
  */
 export const requestQuerySchema = z.object({
-  signal: z.enum(["logs", "traces", "metrics"]).default("logs"),
+	signal: z.enum(["logs", "traces", "metrics"]).default("logs"),
 });
 
 export const responseSchema = z.object({
-  success: z.boolean(),
-  error: z.string().optional(),
+	success: z.boolean(),
+	error: z.string().optional(),
 });

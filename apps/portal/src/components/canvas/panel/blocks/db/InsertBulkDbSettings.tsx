@@ -2,21 +2,17 @@ import {
 	Button,
 	Description,
 	JavaScriptTextArea,
+	type JsonArray,
 	JsonEditor,
 	Label,
-	type JsonArray,
 } from "@fluxify/components";
 import { useParams } from "@tanstack/react-router";
 import { useReactFlow } from "@xyflow/react";
 import { useDbMetadata } from "@/query/findResourceQuery";
 import { useCanvasChanges } from "../../../changes/ChangesContext";
-import { BlockSettings } from "../../BlockSettings";
-import {
-	BlockCheckboxField,
-	BlockIntegrationField,
-	BlockJsTextField,
-} from "../../fields";
 import type { BlockNode } from "../../../types";
+import { BlockSettings } from "../../BlockSettings";
+import { BlockCheckboxField, BlockIntegrationField, BlockJsTextField } from "../../fields";
 
 type InsertBulkDataPayload = {
 	source?: "raw" | "js";
@@ -85,15 +81,12 @@ export function InsertBulkDbDataSettings({ block }: { block: BlockNode }) {
 	const setSource = (nextSource: "raw" | "js") => {
 		if (nextSource === source) return;
 		if (nextSource === "raw") {
-			const nextValue = Array.isArray(dataPayload.value)
-				? dataPayload.value
-				: [];
+			const nextValue = Array.isArray(dataPayload.value) ? dataPayload.value : [];
 			updateNodeData(block.id, {
 				data: { source: "raw", value: nextValue },
 			});
 		} else {
-			const nextValue =
-				typeof dataPayload.value === "string" ? dataPayload.value : "";
+			const nextValue = typeof dataPayload.value === "string" ? dataPayload.value : "";
 			updateNodeData(block.id, {
 				data: { source: "js", value: nextValue },
 			});
@@ -116,8 +109,7 @@ export function InsertBulkDbDataSettings({ block }: { block: BlockNode }) {
 		? (dataPayload.value as JsonArray)
 		: [];
 
-	const jsCode: string =
-		typeof dataPayload.value === "string" ? dataPayload.value : "";
+	const jsCode: string = typeof dataPayload.value === "string" ? dataPayload.value : "";
 
 	return (
 		<div className="flex flex-col gap-4 w-full">
@@ -165,8 +157,8 @@ export function InsertBulkDbDataSettings({ block }: { block: BlockNode }) {
 						Return an array of objects to insert into the database table.
 					</Description>
 					<JavaScriptTextArea
-					expandable
-					expandTitle="Insert Bulk - Code Editor"
+						expandable
+						expandTitle="Insert Bulk - Code Editor"
 						rows={12}
 						showLineNumbers={true}
 						readOnly={!editable}

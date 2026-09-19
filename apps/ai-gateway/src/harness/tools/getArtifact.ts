@@ -1,9 +1,9 @@
-import { fencedTool } from "./fenced";
-import { z } from "zod";
 import { logger } from "@fluxify/common";
-import type { WorkflowMetadata } from "../types";
+import { z } from "zod";
 import type { DbService } from "../internal/dbService";
 import { renderCanvas } from "../internal/renderCanvas";
+import type { WorkflowMetadata } from "../types";
+import { fencedTool } from "./fenced";
 
 // ponytail: flat char cap so one fat canvas payload can't blow the context
 // window. If this starts truncating things users need, page per sub-artifact.
@@ -33,11 +33,7 @@ async function resolveLive(
 				)}`;
 			}
 			case "custom_block": {
-				const [block] = await dbService.findCustomBlocks(
-					projectId,
-					p.customBlockId,
-					"id",
-				);
+				const [block] = await dbService.findCustomBlocks(projectId, p.customBlockId, "id");
 				if (!block) return null;
 				return `customBlock: ${JSON.stringify(block)}\n\n${renderCanvas(
 					await dbService.getCustomBlockCanvas(projectId, block.id),
@@ -66,20 +62,14 @@ async function resolveLive(
  * `:canvasChanges{... artifact_id="..."}`), so the discussion agent can pull the
  * exact stored output instead of guessing from the summary prose.
  */
-export const createGetArtifactTool = (
-	dbService: DbService,
-	metadata: WorkflowMetadata,
-) => {
+export const createGetArtifactTool = (dbService: DbService, metadata: WorkflowMetadata) => {
 	return fencedTool(
 		async ({ artifactIds }) => {
 			logger.info(
 				`[Tools] Fetching artifacts ${artifactIds.join(", ")} for conversation ${metadata.conversationId}`,
 			);
 
-			const rows = await dbService.getSubArtifacts(
-				metadata.conversationId,
-				artifactIds,
-			);
+			const rows = await dbService.getSubArtifacts(metadata.conversationId, artifactIds);
 			if (rows.length === 0) {
 				return "No artifacts found for those ids in this conversation.";
 			}

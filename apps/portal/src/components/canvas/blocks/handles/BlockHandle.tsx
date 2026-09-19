@@ -1,5 +1,5 @@
 import { Handle, useNodeConnections } from "@xyflow/react";
-import { HANDLE_CONFIG, handleId, type HandleKind } from "./handleConfig";
+import { HANDLE_CONFIG, type HandleKind, handleId } from "./handleConfig";
 
 export type BlockHandleProps = {
 	blockId: string;
@@ -16,19 +16,12 @@ export type BlockHandleProps = {
  * parent BaseBlock buckets handles onto the correct edge rail, so callers just
  * declare `<BlockHandle kind="success" />` as a child of the block.
  */
-export function BlockHandle({
-	blockId,
-	kind,
-	color,
-	label,
-	className,
-}: BlockHandleProps) {
+export function BlockHandle({ blockId, kind, color, label, className }: BlockHandleProps) {
 	const config = HANDLE_CONFIG[kind];
 	const id = handleId(blockId, kind);
 	const connections = useNodeConnections({ handleType: config.flow, handleId: id });
 	const isConnectable =
-		config.maxConnections === null ||
-		connections.length < config.maxConnections;
+		config.maxConnections === null || connections.length < config.maxConnections;
 
 	return (
 		<Handle

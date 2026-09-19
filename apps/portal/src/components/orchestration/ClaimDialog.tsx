@@ -1,4 +1,3 @@
-import { useState } from "react";
 import {
 	Button,
 	CloseButton,
@@ -8,6 +7,7 @@ import {
 	MultiSelect,
 	NumberField,
 } from "@fluxify/components";
+import { useState } from "react";
 import { TbInfoCircle } from "react-icons/tb";
 import type { ClaimView, OrchestrationStatus } from "@/services/orchestration";
 import { CONSEQUENCE, TYPE_LABEL } from "./copy";
@@ -81,68 +81,66 @@ export function ClaimDialog({
 				<Modal.Container placement="center" size="md">
 					<Modal.Dialog>
 						<Modal.Header className="flex flex-row items-center justify-between">
-							<Modal.Heading>
-								{claim ? "Change this workload" : "Claim a workload"}
-							</Modal.Heading>
+							<Modal.Heading>{claim ? "Change this workload" : "Claim a workload"}</Modal.Heading>
 							<CloseButton onPress={onClose} />
 						</Modal.Header>
 
 						<Modal.Body className="flex flex-col gap-5">
-									{!status.canClaimRoutes && (
-										<Note>
-											This project can only claim workflow nodes for now. A node that serves your APIs is
-											reached on its own subdomain, and this project does not have one yet.
-										</Note>
-									)}
+							{!status.canClaimRoutes && (
+								<Note>
+									This project can only claim workflow nodes for now. A node that serves your APIs
+									is reached on its own subdomain, and this project does not have one yet.
+								</Note>
+							)}
 
-									<div className="flex flex-col gap-1.5">
-										<CustomSelect
-											label="What should it run?"
-											options={typeOptions}
-											value={type}
-											onChange={(next) => setType(next as ClaimType)}
-										/>
-										{claim && <Hint>{CONSEQUENCE.live}</Hint>}
-									</div>
+							<div className="flex flex-col gap-1.5">
+								<CustomSelect
+									label="What should it run?"
+									options={typeOptions}
+									value={type}
+									onChange={(next) => setType(next as ClaimType)}
+								/>
+								{claim && <Hint>{CONSEQUENCE.live}</Hint>}
+							</div>
 
-									{servesWorkflows && (
-										<div className="flex flex-col gap-1.5">
-											<MultiSelect
-												label="Trigger groups it serves"
-												options={groups.map((group) => ({ value: group.id, label: group.name }))}
-												value={groupIds}
-												onChange={setGroupIds}
-												placeholder={groups.length ? "Choose groups" : "This project has no groups yet"}
-												isDisabled={groups.length === 0}
-												fullWidth
-											/>
-											<Hint>
-												{claim
-													? CONSEQUENCE.live
-													: "A node only runs the groups you choose. Raise the copies below when a group falls behind."}
-											</Hint>
-										</div>
-									)}
+							{servesWorkflows && (
+								<div className="flex flex-col gap-1.5">
+									<MultiSelect
+										label="Trigger groups it serves"
+										options={groups.map((group) => ({ value: group.id, label: group.name }))}
+										value={groupIds}
+										onChange={setGroupIds}
+										placeholder={groups.length ? "Choose groups" : "This project has no groups yet"}
+										isDisabled={groups.length === 0}
+										fullWidth
+									/>
+									<Hint>
+										{claim
+											? CONSEQUENCE.live
+											: "A node only runs the groups you choose. Raise the copies below when a group falls behind."}
+									</Hint>
+								</div>
+							)}
 
-									<div className="flex flex-col gap-1.5">
-										<NumberField
-											value={replicas}
-											minValue={1}
-											maxValue={50}
-											onChange={(next) => setReplicas(Math.max(1, Math.min(50, next || 1)))}
-											className="w-40"
-										>
-											<Label>Identical copies</Label>
-											<NumberField.Group>
-												<NumberField.DecrementButton />
-												<NumberField.Input />
-												<NumberField.IncrementButton />
-											</NumberField.Group>
-										</NumberField>
-										<Hint>{scaleWords ?? CONSEQUENCE.scaleUp}</Hint>
-										{willPend && <Note>{CONSEQUENCE.pending}</Note>}
-										{status.entitlement.maxReplicas === 1 && <Note>{CONSEQUENCE.singleNode}</Note>}
-									</div>
+							<div className="flex flex-col gap-1.5">
+								<NumberField
+									value={replicas}
+									minValue={1}
+									maxValue={50}
+									onChange={(next) => setReplicas(Math.max(1, Math.min(50, next || 1)))}
+									className="w-40"
+								>
+									<Label>Identical copies</Label>
+									<NumberField.Group>
+										<NumberField.DecrementButton />
+										<NumberField.Input />
+										<NumberField.IncrementButton />
+									</NumberField.Group>
+								</NumberField>
+								<Hint>{scaleWords ?? CONSEQUENCE.scaleUp}</Hint>
+								{willPend && <Note>{CONSEQUENCE.pending}</Note>}
+								{status.entitlement.maxReplicas === 1 && <Note>{CONSEQUENCE.singleNode}</Note>}
+							</div>
 
 							{error && <p className="text-sm text-danger">{error}</p>}
 						</Modal.Body>

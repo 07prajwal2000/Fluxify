@@ -5,13 +5,7 @@
  * from a 400.
  */
 
-export const ASSERTION_TARGETS = [
-	"status",
-	"body",
-	"time",
-	"header",
-	"customJs",
-] as const;
+export const ASSERTION_TARGETS = ["status", "body", "time", "header", "customJs"] as const;
 
 export type AssertionTarget = (typeof ASSERTION_TARGETS)[number];
 
@@ -47,12 +41,7 @@ const OPERATORS_BY_TARGET: Record<AssertionTarget, AssertionOperator[]> = {
 };
 
 /** Operators that assert on their own — an expected value would mean nothing. */
-const VALUELESS_OPERATORS: AssertionOperator[] = [
-	"true",
-	"false",
-	"exists",
-	"not_exists",
-];
+const VALUELESS_OPERATORS: AssertionOperator[] = ["true", "false", "exists", "not_exists"];
 
 export const OPERATOR_LABELS: Record<AssertionOperator, string> = {
 	eq: "equals",
@@ -92,9 +81,7 @@ export function needsExpectedValue(
 }
 
 /** Returns a message per invalid assertion, keyed by its index. */
-export function validateAssertions(
-	assertions: Assertion[],
-): Map<number, string> {
+export function validateAssertions(assertions: Assertion[]): Map<number, string> {
 	const errors = new Map<number, string>();
 	assertions.forEach((assertion, index) => {
 		const error = validateAssertion(assertion);
@@ -138,17 +125,13 @@ export function normalizeAssertion(assertion: Assertion): Assertion {
 	if (assertion.target === "customJs") {
 		return { target: "customJs", customJs: assertion.customJs ?? "" };
 	}
-	const operator = operatorsFor(assertion.target).includes(
-		assertion.operator as AssertionOperator,
-	)
+	const operator = operatorsFor(assertion.target).includes(assertion.operator as AssertionOperator)
 		? assertion.operator
 		: operatorsFor(assertion.target)[0];
 	return {
 		target: assertion.target,
 		operator,
-		propertyPath: allowsPropertyPath(assertion.target)
-			? (assertion.propertyPath ?? null)
-			: null,
+		propertyPath: allowsPropertyPath(assertion.target) ? (assertion.propertyPath ?? null) : null,
 		expectedValue: needsExpectedValue(assertion.target, operator)
 			? (assertion.expectedValue ?? "")
 			: null,

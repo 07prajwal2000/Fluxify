@@ -1,18 +1,18 @@
-import type z from "zod";
 import {
-	createGroupSchema,
+	type createGroupSchema,
 	createSchema,
-	deleteGroupQuerySchema,
-	groupDeletedSchema,
-	groupListSchema,
-	listSchema,
-	patchSchema,
-	previewSchema,
-	triggerCreatedSchema,
-	triggerSchema,
-	triggerUpdatedSchema,
-	updateGroupSchema,
+	type deleteGroupQuerySchema,
+	type groupDeletedSchema,
+	type groupListSchema,
+	type listSchema,
+	type patchSchema,
+	type previewSchema,
+	type triggerCreatedSchema,
+	type triggerSchema,
+	type triggerUpdatedSchema,
+	type updateGroupSchema,
 } from "@fluxify/server/src/api/v1/triggers/dto";
+import type z from "zod";
 import { httpClient } from "@/lib/http";
 
 const baseUrl = "/v1/triggers";
@@ -98,9 +98,7 @@ export const triggersService = {
 	 */
 	async previewSchedule(schedule: string, timezone: string): Promise<SchedulePreview> {
 		const params = new URLSearchParams({ schedule, timezone });
-		const result = await httpClient.get(
-			`${baseUrl}/schedule/preview?${params.toString()}`,
-		);
+		const result = await httpClient.get(`${baseUrl}/schedule/preview?${params.toString()}`);
 		return result.data;
 	},
 	createSchema,

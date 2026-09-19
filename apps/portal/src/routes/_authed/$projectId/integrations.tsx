@@ -1,10 +1,10 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { Button, cn, integrationIcons, Spinner, toast } from "@fluxify/components";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { z } from "zod";
-import { Button, Spinner, cn, toast } from "@fluxify/components";
+import { type ReactNode, useEffect, useState } from "react";
 import { FaRobot, FaTableList } from "react-icons/fa6";
 import { LuServerCrash } from "react-icons/lu";
 import {
+	TbArrowsExchange,
 	TbBook,
 	TbChevronDown,
 	TbCloudCog,
@@ -13,19 +13,18 @@ import {
 	TbHeartRateMonitor,
 	TbLock,
 	TbPlugConnected,
-	TbArrowsExchange,
 } from "react-icons/tb";
-import { integrationsQuery } from "@/query/integrationsQuery";
-import { showErrorNotification } from "@/lib/errorNotifier";
-import { integrationIcons } from "@fluxify/components";
+import { z } from "zod";
 import { IntegrationForm } from "@/components/integrations/IntegrationForm";
 import { IntegrationOnboardingModal } from "@/components/integrations/IntegrationOnboardingModal";
+import { showErrorNotification } from "@/lib/errorNotifier";
+import { createDynamicRouteHead } from "@/lib/seo";
+import { integrationsQuery } from "@/query/integrationsQuery";
 import {
 	type IntegrationGroup,
 	useIntegrationActions,
 	useIntegrationState,
 } from "@/store/integration";
-import { createDynamicRouteHead } from "@/lib/seo";
 
 export const Route = createFileRoute("/_authed/$projectId/integrations")({
 	validateSearch: z.object({
@@ -55,7 +54,11 @@ const CONNECTORS: { name: string; type: IntegrationGroup; icon: ReactNode }[] = 
 	{ name: "KV", type: "kv", icon: <FaTableList size={16} /> },
 	{ name: "AI", type: "ai", icon: <FaRobot size={16} /> },
 	{ name: "BaaS", type: "baas", icon: <LuServerCrash size={16} /> },
-	{ name: "Observability", type: "observability", icon: <TbHeartRateMonitor size={18} /> },
+	{
+		name: "Observability",
+		type: "observability",
+		icon: <TbHeartRateMonitor size={18} />,
+	},
 	{ name: "Queues", type: "queue", icon: <TbArrowsExchange size={18} /> },
 ];
 
@@ -102,10 +105,7 @@ function IntegrationsPage() {
 					<h1 className="text-2xl font-bold tracking-tight text-foreground">Integrations</h1>
 					<p className="text-sm text-muted">Connect &amp; Configure 3rd Party Services</p>
 				</div>
-				<Button
-					variant="primary"
-					onPress={() => setConnectOpen(true)}
-				>
+				<Button variant="primary" onPress={() => setConnectOpen(true)}>
 					<TbPlugConnected size={16} /> Connect App / Service
 				</Button>
 			</div>
@@ -136,7 +136,9 @@ function IntegrationsPage() {
 								<span
 									className={cn(
 										"ml-auto rounded-full px-2 py-0.5 text-xs font-semibold",
-										active ? "bg-surface-secondary text-foreground" : "bg-surface-secondary text-muted",
+										active
+											? "bg-surface-secondary text-foreground"
+											: "bg-surface-secondary text-muted",
 									)}
 								>
 									{count}
@@ -155,7 +157,11 @@ function IntegrationsPage() {
 				<RightHelpPanel projectId={projectId} activeGroup={selectedMenu} />
 			</div>
 
-			<IntegrationOnboardingModal projectId={projectId} isOpen={connectOpen} onOpenChange={setConnectOpen} />
+			<IntegrationOnboardingModal
+				projectId={projectId}
+				isOpen={connectOpen}
+				onOpenChange={setConnectOpen}
+			/>
 		</div>
 	);
 }
@@ -166,7 +172,12 @@ function IntegrationsList({ projectId, group }: { projectId: string; group: stri
 	const { data, isLoading, isError } = integrationsQuery.getAll.useQuery(projectId, group);
 	const remove = integrationsQuery.remove.mutation(projectId);
 
-	if (isLoading) return <div className="flex justify-center py-16"><Spinner /></div>;
+	if (isLoading)
+		return (
+			<div className="flex justify-center py-16">
+				<Spinner />
+			</div>
+		);
 	if (isError) return <p className="py-16 text-center text-muted">Couldn't load integrations.</p>;
 
 	if (!data || data.length === 0) {
@@ -184,7 +195,10 @@ function IntegrationsList({ projectId, group }: { projectId: string; group: stri
 	}
 
 	function toggle(id: string) {
-		navigate({ to: ".", search: { group, open: open === id ? undefined : id } });
+		navigate({
+			to: ".",
+			search: { group, open: open === id ? undefined : id },
+		});
 	}
 
 	return (
@@ -219,7 +233,11 @@ function IntegrationsList({ projectId, group }: { projectId: string; group: stri
 							</div>
 
 							{/* Right Actions Bar — Available even when accordion is closed */}
-							<div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+							<div
+								className="flex items-center gap-2"
+								onClick={(e) => e.stopPropagation()}
+								onKeyDown={(e) => e.stopPropagation()}
+							>
 								<span className="rounded-full border border-border bg-surface-secondary px-2.5 py-1 text-[11px] font-mono text-muted">
 									ID: {integration.id.slice(0, 8)}
 								</span>
@@ -338,9 +356,7 @@ function RightHelpPanel({ activeGroup }: { projectId: string; activeGroup: strin
 					<TbBook size={16} className="text-muted" />
 					<span>Need help?</span>
 				</div>
-				<p className="text-xs text-muted leading-relaxed">
-					{info.description}
-				</p>
+				<p className="text-xs text-muted leading-relaxed">{info.description}</p>
 				<a
 					href={info.docsUrl}
 					target="_blank"

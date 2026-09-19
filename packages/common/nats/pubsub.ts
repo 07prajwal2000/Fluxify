@@ -24,10 +24,7 @@ export function subscribe(
 	onMessage: (data: string, subject: string) => void | Promise<void>,
 	options: { queue?: string } = {},
 ): Subscriber {
-	const sub: Subscription = nc.subscribe(
-		subject,
-		options.queue ? { queue: options.queue } : {},
-	);
+	const sub: Subscription = nc.subscribe(subject, options.queue ? { queue: options.queue } : {});
 	void (async () => {
 		for await (const message of sub) {
 			await onMessage(decodeText(message.data), message.subject);

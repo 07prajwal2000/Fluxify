@@ -1,6 +1,6 @@
-import { useCallback, useRef, type RefObject } from "react";
 import { useReactFlow } from "@xyflow/react";
-import { BLOCK_TYPES, canAddBlock, type BlockType } from "./blocks";
+import { type RefObject, useCallback, useRef } from "react";
+import { BLOCK_TYPES, type BlockType, canAddBlock } from "./blocks";
 import { defaultBlockData } from "./blocks/defaultBlockData";
 import { newStickyNoteData } from "./blocks/stickyNoteData";
 import { uuidv7 } from "./ids";
@@ -55,8 +55,7 @@ export function useAddBlock({
 	const addBlock = useCallback(
 		(type: BlockType, at?: ScreenPoint) => {
 			if (readOnly || !canAddBlock(type)) return;
-			const noteData =
-				type === BLOCK_TYPES.stickynote ? newStickyNoteData() : undefined;
+			const noteData = type === BLOCK_TYPES.stickynote ? newStickyNoteData() : undefined;
 			const node: BlockNode = {
 				id: uuidv7(),
 				type,

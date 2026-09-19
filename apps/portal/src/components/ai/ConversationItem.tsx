@@ -1,24 +1,24 @@
-import { useState } from "react";
-import { useNavigate } from "@tanstack/react-router";
 import type { Key } from "@fluxify/components";
 import { Button, Dropdown, Label } from "@fluxify/components";
+import { useNavigate } from "@tanstack/react-router";
+import { useState } from "react";
 import {
-	TbDots,
-	TbPin,
-	TbPinnedOff,
 	TbArchive,
 	TbArchiveOff,
-	TbTrash,
+	TbDots,
 	TbEdit,
+	TbPin,
+	TbPinnedOff,
+	TbTrash,
 } from "react-icons/tb";
-import { harnessConversationsQuery } from "@/query/harnessConversationsQuery";
-import { showErrorNotification } from "@/lib/errorNotifier";
-import { getTimeAgo } from "@/lib/datetime";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
-import { StatusDot } from "./StatusDot";
-import { RenameConversationModal } from "./RenameConversationModal";
-import type { HarnessConversation } from "./types";
+import { getTimeAgo } from "@/lib/datetime";
+import { showErrorNotification } from "@/lib/errorNotifier";
+import { harnessConversationsQuery } from "@/query/harnessConversationsQuery";
 import { useConversationRun } from "@/store/aiHarness";
+import { RenameConversationModal } from "./RenameConversationModal";
+import { StatusDot } from "./StatusDot";
+import type { HarnessConversation } from "./types";
 
 type Props = {
 	projectId: string;
@@ -27,12 +27,7 @@ type Props = {
 	onOpen: (id: string) => void;
 };
 
-export function ConversationItem({
-	projectId,
-	conversation: c,
-	active,
-	onOpen,
-}: Props) {
+export function ConversationItem({ projectId, conversation: c, active, onOpen }: Props) {
 	const navigate = useNavigate();
 	const [confirmOpen, setConfirmOpen] = useState(false);
 	const [renameOpen, setRenameOpen] = useState(false);
@@ -51,7 +46,7 @@ export function ConversationItem({
 	const onAction = async (key: Key) => {
 		if (key === "delete") return setConfirmOpen(true);
 		if (key === "rename") return setRenameOpen(true);
-		
+
 		let act: "pin" | "unpin" | "archive" | "unarchive" | undefined;
 		if (key === "pin_toggle") act = c.pinned ? "unpin" : "pin";
 		else if (key === "archive_toggle") act = c.archived ? "unarchive" : "archive";
@@ -86,9 +81,7 @@ export function ConversationItem({
 					<span className="truncate">{c.title ?? "Untitled session"}</span>
 				</span>
 				{c.userQuery && (
-					<span className="truncate font-mono text-xs text-muted">
-						→ {c.userQuery}
-					</span>
+					<span className="truncate font-mono text-xs text-muted">→ {c.userQuery}</span>
 				)}
 				<span className="flex items-center gap-2 text-[11px] text-muted">
 					{getTimeAgo(c.updatedAt)}
@@ -99,33 +92,18 @@ export function ConversationItem({
 			<div className="absolute top-1.5 right-1 opacity-0 transition-opacity group-hover/item:opacity-100 focus-within:opacity-100">
 				<Dropdown>
 					<Dropdown.Trigger>
-						<Button
-							isIconOnly
-							size="sm"
-							variant="ghost"
-							aria-label="Conversation options"
-						>
+						<Button isIconOnly size="sm" variant="ghost" aria-label="Conversation options">
 							<TbDots size={16} />
 						</Button>
 					</Dropdown.Trigger>
 					<Dropdown.Popover>
 						<Dropdown.Menu onAction={onAction}>
-							<Dropdown.Item
-								id="pin_toggle"
-								textValue={c.pinned ? "Unpin" : "Pin"}
-							>
+							<Dropdown.Item id="pin_toggle" textValue={c.pinned ? "Unpin" : "Pin"}>
 								{c.pinned ? <TbPinnedOff size={16} /> : <TbPin size={16} />}
 								<Label>{c.pinned ? "Unpin" : "Pin"}</Label>
 							</Dropdown.Item>
-							<Dropdown.Item
-								id="archive_toggle"
-								textValue={c.archived ? "Unarchive" : "Archive"}
-							>
-								{c.archived ? (
-									<TbArchiveOff size={16} />
-								) : (
-									<TbArchive size={16} />
-								)}
+							<Dropdown.Item id="archive_toggle" textValue={c.archived ? "Unarchive" : "Archive"}>
+								{c.archived ? <TbArchiveOff size={16} /> : <TbArchive size={16} />}
 								<Label>{c.archived ? "Unarchive" : "Archive"}</Label>
 							</Dropdown.Item>
 							<Dropdown.Item id="rename" textValue="Rename">

@@ -1,3 +1,4 @@
+import type { BlockNode } from "../../types";
 import { BlockSettings } from "../BlockSettings";
 import {
 	BlockCheckboxField,
@@ -5,15 +6,14 @@ import {
 	BlockSelectField,
 	BlockWorkflowField,
 } from "../fields";
-import type { BlockNode } from "../../types";
 
 const RUN_AT_INFO = {
 	content: (
 		<>
-			A delay from now (<code>s</code>, <code>m</code>, <code>h</code>) or an exact ISO time
-			with its offset. A time already passed runs straight away. Up to 30 days ahead by
-			default — your administrator sets the limit. Outputs <code>{"{ id, runAt }"}</code>;
-			keep the id to cancel the run.
+			A delay from now (<code>s</code>, <code>m</code>, <code>h</code>) or an exact ISO time with
+			its offset. A time already passed runs straight away. Up to 30 days ahead by default — your
+			administrator sets the limit. Outputs <code>{"{ id, runAt }"}</code>; keep the id to cancel
+			the run.
 		</>
 	),
 	example: "24h\n1h30m\n2026-01-01T09:00:00Z\njs: return new Date(input.expiresAt);",
@@ -88,8 +88,8 @@ function TriggerWorkflowDataSettings({ block }: { block: BlockNode }) {
 		return (
 			<p className="text-sm text-muted">
 				This block is sending the previous block's output. Turn off{" "}
-				<b className="text-foreground">Use incoming value</b> in General to write
-				the data here instead.
+				<b className="text-foreground">Use incoming value</b> in General to write the data here
+				instead.
 			</p>
 		);
 	}

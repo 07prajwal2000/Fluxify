@@ -1,6 +1,6 @@
 import { z } from "zod";
-import { RPC_SUBJECTS, rpcRespond } from "../../db/natsRpc";
 import { disableTrigger } from "../../api/v1/triggers/service";
+import { RPC_SUBJECTS, rpcRespond } from "../../db/natsRpc";
 import { validationFailed } from "./caller";
 
 /**

@@ -1,26 +1,11 @@
+import { Button, Chip, CloseButton, Drawer, Input, Skeleton, TextField } from "@fluxify/components";
 import { useMemo, useState } from "react";
-import {
-	Button,
-	Chip,
-	CloseButton,
-	Drawer,
-	Input,
-	Skeleton,
-	TextField,
-} from "@fluxify/components";
-import {
-	TbBolt,
-	TbPlus,
-	TbSearch,
-	TbServer,
-	TbStack2,
-	TbX,
-} from "react-icons/tb";
+import { TbBolt, TbPlus, TbSearch, TbServer, TbStack2, TbX } from "react-icons/tb";
 import { triggersQuery } from "@/query/triggersQuery";
 import type { TriggerGroup } from "@/services/triggers";
 import { CreateTriggerGroupForm } from "./CreateTriggerGroupForm";
-import { TriggerGroupRow } from "./TriggerGroupRow";
 import { DeleteGroupDialog } from "./DeleteGroupDialog";
+import { TriggerGroupRow } from "./TriggerGroupRow";
 
 export type TriggerGroupsModalProps = {
 	projectId: string;
@@ -32,11 +17,7 @@ export type TriggerGroupsModalProps = {
  * Slide-over drawer for creating, renaming, and deleting a project's trigger groups.
  * Triggers in a group execute on dedicated workers to isolate execution pools.
  */
-export function TriggerGroupsModal({
-	projectId,
-	isOpen,
-	onClose,
-}: TriggerGroupsModalProps) {
+export function TriggerGroupsModal({ projectId, isOpen, onClose }: TriggerGroupsModalProps) {
 	const { data: groups = [], isLoading } = triggersQuery.groups.useQuery(projectId);
 
 	const [isCreating, setIsCreating] = useState(false);
@@ -99,8 +80,8 @@ export function TriggerGroupsModal({
 							</div>
 
 							<p className="text-xs text-muted leading-relaxed">
-								Triggers assigned to a group execute on dedicated workers. Grouping isolates workloads so
-								high-volume queues do not starve latency-sensitive triggers.
+								Triggers assigned to a group execute on dedicated workers. Grouping isolates
+								workloads so high-volume queues do not starve latency-sensitive triggers.
 							</p>
 
 							{/* Summary Stats Strip */}
@@ -108,12 +89,16 @@ export function TriggerGroupsModal({
 								<div className="flex items-center gap-4 rounded-lg border border-border/70 bg-surface-secondary/50 px-3.5 py-2 text-xs text-muted">
 									<div className="flex items-center gap-1.5 font-medium text-foreground">
 										<TbServer size={14} className="text-accent" />
-										<span>{groups.length} worker {groups.length === 1 ? "group" : "groups"}</span>
+										<span>
+											{groups.length} worker {groups.length === 1 ? "group" : "groups"}
+										</span>
 									</div>
 									<div className="h-3 w-px bg-border" />
 									<div className="flex items-center gap-1.5">
 										<TbBolt size={14} className="text-accent" />
-										<span>{totalTriggers} total {totalTriggers === 1 ? "trigger" : "triggers"}</span>
+										<span>
+											{totalTriggers} total {totalTriggers === 1 ? "trigger" : "triggers"}
+										</span>
 									</div>
 								</div>
 							)}
@@ -184,10 +169,10 @@ export function TriggerGroupsModal({
 										{searchQuery ? (
 											<>
 												<TbSearch size={24} className="text-muted mb-2 opacity-60" />
-												<p className="text-sm font-medium text-foreground">No matching groups found</p>
-												<p className="text-xs text-muted mt-1">
-													No groups match “{searchQuery}”.
+												<p className="text-sm font-medium text-foreground">
+													No matching groups found
 												</p>
+												<p className="text-xs text-muted mt-1">No groups match “{searchQuery}”.</p>
 												<Button
 													size="sm"
 													variant="ghost"

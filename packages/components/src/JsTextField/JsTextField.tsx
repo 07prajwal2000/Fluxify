@@ -142,10 +142,7 @@ export function JsTextField({
 	useEffect(() => {
 		if (!isSuggestionsOpen) return;
 		const handleClickOutside = (event: MouseEvent | TouchEvent) => {
-			if (
-				triggerRef.current &&
-				!triggerRef.current.contains(event.target as Node)
-			) {
+			if (triggerRef.current && !triggerRef.current.contains(event.target as Node)) {
 				setIsSuggestionsOpen(false);
 			}
 		};
@@ -246,10 +243,7 @@ export function JsTextField({
 				<div ref={triggerRef} className="relative w-full min-w-0">
 					<InputGroup fullWidth={fullWidth} variant={variant} className="w-full min-w-0">
 						<InputGroup.Input
-							className={clsx(
-								"min-w-0 flex-1",
-								isJs && "font-mono text-xs cursor-pointer",
-							)}
+							className={clsx("min-w-0 flex-1", isJs && "font-mono text-xs cursor-pointer")}
 							onBlur={isJs ? undefined : onBlur}
 							onFocus={handleInputFocus}
 							onClick={handleInputClick}

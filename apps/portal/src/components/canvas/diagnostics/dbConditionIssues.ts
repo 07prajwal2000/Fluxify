@@ -17,7 +17,9 @@ export function dbConditionIssues(
 	i: number,
 ): [DiagnosticSeverity, string][] {
 	if (c.operator === "raw") {
-		return isBlank(c.raw) ? [["warning", `Condition ${i + 1} has an empty side. Fill both sides or remove it.`]] : [];
+		return isBlank(c.raw)
+			? [["warning", `Condition ${i + 1} has an empty side. Fill both sides or remove it.`]]
+			: [];
 	}
 	const lhs = c.attribute ?? c.lhs;
 	const rhs = c.value ?? c.rhs;

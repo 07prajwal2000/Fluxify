@@ -72,10 +72,7 @@ export function fromBase64(encoded: string): string {
 
 /* ------------------------------------------------------------- encode/-de --- */
 
-export function createTransferDoc(
-	blocks: CanvasBlock[],
-	edges: CanvasEdge[],
-): CanvasTransferDoc {
+export function createTransferDoc(blocks: CanvasBlock[], edges: CanvasEdge[]): CanvasTransferDoc {
 	return {
 		kind: TRANSFER_KIND,
 		version: TRANSFER_VERSION,

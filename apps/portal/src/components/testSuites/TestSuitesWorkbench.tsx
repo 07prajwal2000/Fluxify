@@ -1,22 +1,19 @@
+import { Button, cn, DeleteIconButton, Spinner, toast } from "@fluxify/components";
 import { useEffect, useMemo, useState } from "react";
-import { Button, DeleteIconButton, Spinner, cn, toast } from "@fluxify/components";
 import { TbPlayerPlay, TbPlus, TbSearch } from "react-icons/tb";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { RouteSwitcher } from "@/components/routes/RouteSwitcher";
-import {
-	RouteWorkbenchHeader,
-	RouteWorkbenchTabs,
-} from "@/components/routes/RouteWorkbenchTabs";
+import { RouteWorkbenchHeader, RouteWorkbenchTabs } from "@/components/routes/RouteWorkbenchTabs";
 import { showErrorNotification } from "@/lib/errorNotifier";
 import { routesQuery } from "@/query/routesQuery";
 import { testSuitesQuery } from "@/query/testSuitesQuery";
 import { IN_FLIGHT_STATUSES } from "@/services/testSuites";
 import { AssertionsEditor } from "./AssertionsEditor";
+import { validateAssertions } from "./assertions";
 import { OverridesEditor } from "./OverridesEditor";
 import { RequestEditor } from "./RequestEditor";
 import { RunResults } from "./RunResults";
-import { validateAssertions } from "./assertions";
-import { toDraft, type SuiteDraft } from "./types";
+import { type SuiteDraft, toDraft } from "./types";
 
 const EDITOR_TABS = ["Request", "Assertions", "Overrides"] as const;
 
@@ -40,9 +37,7 @@ function SuiteList({
 	isCreating: boolean;
 }) {
 	const [filter, setFilter] = useState("");
-	const shown = suites.filter((suite) =>
-		suite.name.toLowerCase().includes(filter.toLowerCase()),
-	);
+	const shown = suites.filter((suite) => suite.name.toLowerCase().includes(filter.toLowerCase()));
 
 	return (
 		<aside className="flex w-72 shrink-0 flex-col border-r border-border">
@@ -365,8 +360,8 @@ export function TestSuitesWorkbench({
 				pending={remove.isPending}
 				onConfirm={() => void onConfirmDelete()}
 			>
-				{pendingDelete?.name || "This suite"} and its assertions will be removed. Past run
-				results are kept.
+				{pendingDelete?.name || "This suite"} and its assertions will be removed. Past run results
+				are kept.
 			</ConfirmDialog>
 		</>
 	);

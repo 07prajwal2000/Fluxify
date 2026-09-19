@@ -93,7 +93,10 @@ html[data-theme="dark"] .fx-canvas-toolbar,
 	background: transparent;
 	color: var(--fx-toolbar-fg);
 	cursor: pointer;
-	transition: background-color 150ms ease, color 150ms ease, opacity 150ms ease;
+	transition:
+		background-color 150ms ease,
+		color 150ms ease,
+		opacity 150ms ease;
 }
 
 .fx-canvas-toolbar__button:hover:not(:disabled),
@@ -230,7 +233,9 @@ html[data-theme="dark"] .fx-canvas-toolbar,
 	white-space: nowrap;
 	opacity: 0;
 	transform: translateX(-0.25rem);
-	transition: opacity 120ms ease 60ms, transform 180ms ease;
+	transition:
+		opacity 120ms ease 60ms,
+		transform 180ms ease;
 }
 
 .fx-canvas__expandable-action:hover .fx-canvas__expandable-label,

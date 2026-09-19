@@ -8,7 +8,7 @@ import {
 	readOrchestrationEvents,
 	readOrchestrationStatus,
 } from "../../../modules/orchestrator/status";
-import { HonoServer } from "../../../types";
+import type { HonoServer } from "../../../types";
 import { requireSystemAdmin } from "../../auth/middleware";
 import {
 	claimAckSchema,
@@ -56,7 +56,10 @@ export default function registerOrchestrationRoutes(app: HonoServer) {
 				"Every node on this instance with the project it serves, pool usage against the declared ceiling, what the license allows, which infrastructure is being driven, and any trigger group with work and no healthy node.",
 			operationId: "get-orchestration",
 			tags,
-			responses: { 200: { description: "Successful", ...json(orchestrationStatusSchema) }, ...errors },
+			responses: {
+				200: { description: "Successful", ...json(orchestrationStatusSchema) },
+				...errors,
+			},
 		}),
 		requireOrchestration,
 		requireSystemAdmin,

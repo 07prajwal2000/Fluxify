@@ -1,6 +1,6 @@
-import { BlockTypes } from "../blockTypes";
 import z from "zod";
 import { baseBlockDataSchema } from "../baseBlock";
+import { BlockTypes } from "../blockTypes";
 import type { EmitNode } from "../compiler";
 
 export const jsRunnerBlockSchema = z

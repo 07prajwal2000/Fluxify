@@ -1,9 +1,9 @@
-import { BlockTypes } from "../../blockTypes";
+import type { AbstractLogger } from "@fluxify/lib";
 import z from "zod";
-import { Context } from "../../baseBlock";
-import { logBlockSchema } from ".";
-import { AbstractLogger } from "@fluxify/lib";
+import type { Context } from "../../baseBlock";
+import { BlockTypes } from "../../blockTypes";
 import type { EmitNode } from "../../compiler";
+import { logBlockSchema } from ".";
 import { emitLogMessage } from "./console";
 
 export const cloudLogsBlockSchema = z
@@ -43,8 +43,6 @@ export function runCloudLog(
 }
 
 export function emitCloudLogs(node: EmitNode) {
-	const { connection, level, message } = cloudLogsBlockSchema.parse(
-		node.block.data,
-	);
+	const { connection, level, message } = cloudLogsBlockSchema.parse(node.block.data);
 	return `lib.cloudLog(ctx, ${node.value(connection)}, ${JSON.stringify(level)}, ${emitLogMessage(message, node)});\n${node.next()}`;
 }

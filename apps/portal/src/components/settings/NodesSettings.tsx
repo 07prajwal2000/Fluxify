@@ -1,5 +1,5 @@
+import { Button, cn, Spinner, toast } from "@fluxify/components";
 import { useState } from "react";
-import { Button, Spinner, cn, toast } from "@fluxify/components";
 import { TbHistory, TbPlus, TbTopologyStar3 } from "react-icons/tb";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { ClaimCard } from "@/components/orchestration/ClaimCard";
@@ -138,10 +138,7 @@ export function NodesSettings({ projectId }: { projectId: string }) {
 							: "border-transparent text-muted hover:border-border hover:text-foreground",
 					)}
 				>
-					<TbHistory
-						size={16}
-						className={activeTab === "history" ? "text-accent" : "text-muted"}
-					/>
+					<TbHistory size={16} className={activeTab === "history" ? "text-accent" : "text-muted"} />
 					History
 					{events && events.length > 0 && (
 						<span
@@ -210,7 +207,8 @@ export function NodesSettings({ projectId }: { projectId: string }) {
 								<div>
 									<h4 className="text-sm font-semibold text-foreground">Node Activity & History</h4>
 									<p className="text-xs text-muted">
-										{events.length} lifecycle event{events.length === 1 ? "" : "s"} recorded for this project's nodes.
+										{events.length} lifecycle event{events.length === 1 ? "" : "s"} recorded for
+										this project's nodes.
 									</p>
 								</div>
 							</div>

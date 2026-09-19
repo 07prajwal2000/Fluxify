@@ -1,9 +1,5 @@
-import {
-	db,
-	agentHarnessConversationsEntity,
-	agentHarnessRunsEntity,
-} from "@fluxify/server";
-import { eq, desc, sql, inArray, and, ilike } from "drizzle-orm";
+import { agentHarnessConversationsEntity, agentHarnessRunsEntity, db } from "@fluxify/server";
+import { and, desc, eq, ilike, inArray, sql } from "drizzle-orm";
 
 export interface ConversationListFilters {
 	projectId: string;
@@ -32,32 +28,32 @@ export async function getConversationsByUserId(
 	offset: number,
 	filters: ConversationListFilters,
 ) {
-	return db
-		.select({
-			id: agentHarnessConversationsEntity.id,
-			title: agentHarnessConversationsEntity.title,
-			status: agentHarnessConversationsEntity.status,
-			pinned: agentHarnessConversationsEntity.pinned,
-			archived: agentHarnessConversationsEntity.archived,
-			createdAt: agentHarnessConversationsEntity.createdAt,
-			updatedAt: agentHarnessConversationsEntity.updatedAt,
-		})
-		.from(agentHarnessConversationsEntity)
-		.where(listConditions(userId, filters))
-		// Pinned conversations always sort first.
-		.orderBy(
-			desc(agentHarnessConversationsEntity.pinned),
-			desc(agentHarnessConversationsEntity.updatedAt),
-		)
-		.limit(limit)
-		.offset(offset);
+	return (
+		db
+			.select({
+				id: agentHarnessConversationsEntity.id,
+				title: agentHarnessConversationsEntity.title,
+				status: agentHarnessConversationsEntity.status,
+				pinned: agentHarnessConversationsEntity.pinned,
+				archived: agentHarnessConversationsEntity.archived,
+				createdAt: agentHarnessConversationsEntity.createdAt,
+				updatedAt: agentHarnessConversationsEntity.updatedAt,
+			})
+			.from(agentHarnessConversationsEntity)
+			.where(listConditions(userId, filters))
+			// Pinned conversations always sort first.
+			.orderBy(
+				desc(agentHarnessConversationsEntity.pinned),
+				desc(agentHarnessConversationsEntity.updatedAt),
+			)
+			.limit(limit)
+			.offset(offset)
+	);
 }
 
 /** Live status column, keyed by conversationId — bypasses the list cache so a
  *  just-finished run's terminal status is never masked by a stale cache entry. */
-export async function getStatusesByIds(
-	conversationIds: string[],
-): Promise<Map<string, string>> {
+export async function getStatusesByIds(conversationIds: string[]): Promise<Map<string, string>> {
 	if (conversationIds.length === 0) return new Map();
 
 	const rows = await db
@@ -71,10 +67,7 @@ export async function getStatusesByIds(
 	return new Map(rows.map((r) => [r.id, r.status]));
 }
 
-export async function countConversationsByUserId(
-	userId: string,
-	filters: ConversationListFilters,
-) {
+export async function countConversationsByUserId(userId: string, filters: ConversationListFilters) {
 	const result = await db
 		.select({ count: sql<number>`count(*)` })
 		.from(agentHarnessConversationsEntity)
@@ -95,10 +88,7 @@ export async function getLatestUserQueries(
 		})
 		.from(agentHarnessRunsEntity)
 		.where(inArray(agentHarnessRunsEntity.conversationId, conversationIds))
-		.orderBy(
-			agentHarnessRunsEntity.conversationId,
-			desc(agentHarnessRunsEntity.createdAt),
-		);
+		.orderBy(agentHarnessRunsEntity.conversationId, desc(agentHarnessRunsEntity.createdAt));
 
 	return new Map(rows.map((r) => [r.conversationId, r.userQuery]));
 }

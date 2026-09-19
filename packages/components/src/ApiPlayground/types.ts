@@ -16,8 +16,21 @@ export type ApiSchemaProperty = {
 
 /** Supports Fluxify validation schemas and standard JSON Schema property maps. */
 export type ApiSchema =
-	| { properties?: ApiSchemaProperty[]; required?: string[]; type?: string; dataType?: string; rules?: ApiSchemaRule[] }
-	| { properties?: Record<string, { type?: string; dataType?: string; required?: boolean; rules?: ApiSchemaRule[] }>; dataType?: string; rules?: ApiSchemaRule[] };
+	| {
+			properties?: ApiSchemaProperty[];
+			required?: string[];
+			type?: string;
+			dataType?: string;
+			rules?: ApiSchemaRule[];
+	  }
+	| {
+			properties?: Record<
+				string,
+				{ type?: string; dataType?: string; required?: boolean; rules?: ApiSchemaRule[] }
+			>;
+			dataType?: string;
+			rules?: ApiSchemaRule[];
+	  };
 
 export type ApiPlaygroundRoute = {
 	/** The unexpanded route path, for example `/users/:id`. */

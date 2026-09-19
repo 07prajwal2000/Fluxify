@@ -1,647 +1,623 @@
 {
-  "id": "484bcf6a-647d-49ab-b075-0da9086117f4",
-  "prevId": "9b038c8f-915b-41a5-99ed-102ec8832708",
-  "version": "7",
-  "dialect": "postgresql",
-  "tables": {
-    "public.app_config": {
-      "name": "app_config",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "serial",
-          "primaryKey": true,
-          "notNull": true
-        },
-        "key_name": {
-          "name": "key_name",
-          "type": "varchar(100)",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "description": {
-          "name": "description",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "value": {
-          "name": "value",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "is_encrypted": {
-          "name": "is_encrypted",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": false,
-          "default": false
-        },
-        "encoding_type": {
-          "name": "encoding_type",
-          "type": "encoding_types",
-          "typeSchema": "public",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": false,
-          "default": "now()"
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": false,
-          "default": "now()"
-        }
-      },
-      "indexes": {
-        "idx_app_config_key_name": {
-          "name": "idx_app_config_key_name",
-          "columns": [
-            {
-              "expression": "key_name",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "idx_app_config_is_encrypted": {
-          "name": "idx_app_config_is_encrypted",
-          "columns": [
-            {
-              "expression": "is_encrypted",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "idx_app_config_encoding_type": {
-          "name": "idx_app_config_encoding_type",
-          "columns": [
-            {
-              "expression": "encoding_type",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {},
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
-    "public.blocks": {
-      "name": "blocks",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "varchar(50)",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "'019a84a7-7b63-7970-8c1a-2b154bd1346d'"
-        },
-        "type": {
-          "name": "type",
-          "type": "varchar(100)",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "position": {
-          "name": "position",
-          "type": "json",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "data": {
-          "name": "data",
-          "type": "json",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "route_id": {
-          "name": "route_id",
-          "type": "varchar(50)",
-          "primaryKey": false,
-          "notNull": false
-        }
-      },
-      "indexes": {
-        "idx_blocks_route_id": {
-          "name": "idx_blocks_route_id",
-          "columns": [
-            {
-              "expression": "route_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "blocks_route_id_routes_id_fk": {
-          "name": "blocks_route_id_routes_id_fk",
-          "tableFrom": "blocks",
-          "tableTo": "routes",
-          "columnsFrom": [
-            "route_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
-    "public.edges": {
-      "name": "edges",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "varchar(50)",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "'019a84a7-7b64-7467-893e-114a462fb1c9'"
-        },
-        "from": {
-          "name": "from",
-          "type": "varchar(50)",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "to": {
-          "name": "to",
-          "type": "varchar(50)",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "from_handle": {
-          "name": "from_handle",
-          "type": "varchar(50)",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "to_handle": {
-          "name": "to_handle",
-          "type": "varchar(50)",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "route_id": {
-          "name": "route_id",
-          "type": "varchar(50)",
-          "primaryKey": false,
-          "notNull": false
-        }
-      },
-      "indexes": {
-        "idx_edges_from": {
-          "name": "idx_edges_from",
-          "columns": [
-            {
-              "expression": "from",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "idx_edges_to": {
-          "name": "idx_edges_to",
-          "columns": [
-            {
-              "expression": "to",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "idx_edges_route_id": {
-          "name": "idx_edges_route_id",
-          "columns": [
-            {
-              "expression": "route_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "edges_from_blocks_id_fk": {
-          "name": "edges_from_blocks_id_fk",
-          "tableFrom": "edges",
-          "tableTo": "blocks",
-          "columnsFrom": [
-            "from"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "edges_to_blocks_id_fk": {
-          "name": "edges_to_blocks_id_fk",
-          "tableFrom": "edges",
-          "tableTo": "blocks",
-          "columnsFrom": [
-            "to"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "edges_route_id_routes_id_fk": {
-          "name": "edges_route_id_routes_id_fk",
-          "tableFrom": "edges",
-          "tableTo": "routes",
-          "columnsFrom": [
-            "route_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
-    "public.integrations": {
-      "name": "integrations",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true
-        },
-        "name": {
-          "name": "name",
-          "type": "varchar(255)",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "group": {
-          "name": "group",
-          "type": "varchar(255)",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "variant": {
-          "name": "variant",
-          "type": "varchar(255)",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "config": {
-          "name": "config",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": false
-        }
-      },
-      "indexes": {
-        "idx_integrations_name": {
-          "name": "idx_integrations_name",
-          "columns": [
-            {
-              "expression": "name",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "idx_integrations_group": {
-          "name": "idx_integrations_group",
-          "columns": [
-            {
-              "expression": "group",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "idx_integrations_variant": {
-          "name": "idx_integrations_variant",
-          "columns": [
-            {
-              "expression": "variant",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {},
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
-    "public.projects": {
-      "name": "projects",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "varchar(50)",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "'019a84a7-7b61-71dd-9ba9-e2d6efb09dee'"
-        },
-        "name": {
-          "name": "name",
-          "type": "varchar(50)",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "hidden": {
-          "name": "hidden",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": false,
-          "default": false
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {
-        "idx_projects_name": {
-          "name": "idx_projects_name",
-          "columns": [
-            {
-              "expression": "name",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "idx_projects_updated_at": {
-          "name": "idx_projects_updated_at",
-          "columns": [
-            {
-              "expression": "updated_at",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {},
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
-    "public.routes": {
-      "name": "routes",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "varchar(50)",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "'019a84a7-7b63-7970-8c1a-2b147219f89b'"
-        },
-        "name": {
-          "name": "name",
-          "type": "varchar(50)",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "path": {
-          "name": "path",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "active": {
-          "name": "active",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": false,
-          "default": false
-        },
-        "project_id": {
-          "name": "project_id",
-          "type": "varchar(50)",
-          "primaryKey": false,
-          "notNull": false,
-          "default": "NULL"
-        },
-        "method": {
-          "name": "method",
-          "type": "varchar(8)",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "created_by": {
-          "name": "created_by",
-          "type": "varchar(50)",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {
-        "idx_routes_project_id": {
-          "name": "idx_routes_project_id",
-          "columns": [
-            {
-              "expression": "project_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "idx_routes_path": {
-          "name": "idx_routes_path",
-          "columns": [
-            {
-              "expression": "path",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "routes_project_id_projects_id_fk": {
-          "name": "routes_project_id_projects_id_fk",
-          "tableFrom": "routes",
-          "tableTo": "projects",
-          "columnsFrom": [
-            "project_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    }
-  },
-  "enums": {
-    "public.encoding_types": {
-      "name": "encoding_types",
-      "schema": "public",
-      "values": [
-        "plaintext",
-        "base64",
-        "hex"
-      ]
-    }
-  },
-  "schemas": {},
-  "sequences": {},
-  "roles": {},
-  "policies": {},
-  "views": {},
-  "_meta": {
-    "columns": {},
-    "schemas": {},
-    "tables": {}
-  }
+	"id": "484bcf6a-647d-49ab-b075-0da9086117f4",
+	"prevId": "9b038c8f-915b-41a5-99ed-102ec8832708",
+	"version": "7",
+	"dialect": "postgresql",
+	"tables": {
+		"public.app_config": {
+			"name": "app_config",
+			"schema": "",
+			"columns": {
+				"id": {
+					"name": "id",
+					"type": "serial",
+					"primaryKey": true,
+					"notNull": true
+				},
+				"key_name": {
+					"name": "key_name",
+					"type": "varchar(100)",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"description": {
+					"name": "description",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"value": {
+					"name": "value",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"is_encrypted": {
+					"name": "is_encrypted",
+					"type": "boolean",
+					"primaryKey": false,
+					"notNull": false,
+					"default": false
+				},
+				"encoding_type": {
+					"name": "encoding_type",
+					"type": "encoding_types",
+					"typeSchema": "public",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"created_at": {
+					"name": "created_at",
+					"type": "timestamp",
+					"primaryKey": false,
+					"notNull": false,
+					"default": "now()"
+				},
+				"updated_at": {
+					"name": "updated_at",
+					"type": "timestamp",
+					"primaryKey": false,
+					"notNull": false,
+					"default": "now()"
+				}
+			},
+			"indexes": {
+				"idx_app_config_key_name": {
+					"name": "idx_app_config_key_name",
+					"columns": [
+						{
+							"expression": "key_name",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						}
+					],
+					"isUnique": false,
+					"concurrently": false,
+					"method": "btree",
+					"with": {}
+				},
+				"idx_app_config_is_encrypted": {
+					"name": "idx_app_config_is_encrypted",
+					"columns": [
+						{
+							"expression": "is_encrypted",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						}
+					],
+					"isUnique": false,
+					"concurrently": false,
+					"method": "btree",
+					"with": {}
+				},
+				"idx_app_config_encoding_type": {
+					"name": "idx_app_config_encoding_type",
+					"columns": [
+						{
+							"expression": "encoding_type",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						}
+					],
+					"isUnique": false,
+					"concurrently": false,
+					"method": "btree",
+					"with": {}
+				}
+			},
+			"foreignKeys": {},
+			"compositePrimaryKeys": {},
+			"uniqueConstraints": {},
+			"policies": {},
+			"checkConstraints": {},
+			"isRLSEnabled": false
+		},
+		"public.blocks": {
+			"name": "blocks",
+			"schema": "",
+			"columns": {
+				"id": {
+					"name": "id",
+					"type": "varchar(50)",
+					"primaryKey": true,
+					"notNull": true,
+					"default": "'019a84a7-7b63-7970-8c1a-2b154bd1346d'"
+				},
+				"type": {
+					"name": "type",
+					"type": "varchar(100)",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"position": {
+					"name": "position",
+					"type": "json",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"data": {
+					"name": "data",
+					"type": "json",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"created_at": {
+					"name": "created_at",
+					"type": "timestamp",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "now()"
+				},
+				"updated_at": {
+					"name": "updated_at",
+					"type": "timestamp",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"route_id": {
+					"name": "route_id",
+					"type": "varchar(50)",
+					"primaryKey": false,
+					"notNull": false
+				}
+			},
+			"indexes": {
+				"idx_blocks_route_id": {
+					"name": "idx_blocks_route_id",
+					"columns": [
+						{
+							"expression": "route_id",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						}
+					],
+					"isUnique": false,
+					"concurrently": false,
+					"method": "btree",
+					"with": {}
+				}
+			},
+			"foreignKeys": {
+				"blocks_route_id_routes_id_fk": {
+					"name": "blocks_route_id_routes_id_fk",
+					"tableFrom": "blocks",
+					"tableTo": "routes",
+					"columnsFrom": ["route_id"],
+					"columnsTo": ["id"],
+					"onDelete": "cascade",
+					"onUpdate": "no action"
+				}
+			},
+			"compositePrimaryKeys": {},
+			"uniqueConstraints": {},
+			"policies": {},
+			"checkConstraints": {},
+			"isRLSEnabled": false
+		},
+		"public.edges": {
+			"name": "edges",
+			"schema": "",
+			"columns": {
+				"id": {
+					"name": "id",
+					"type": "varchar(50)",
+					"primaryKey": true,
+					"notNull": true,
+					"default": "'019a84a7-7b64-7467-893e-114a462fb1c9'"
+				},
+				"from": {
+					"name": "from",
+					"type": "varchar(50)",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"to": {
+					"name": "to",
+					"type": "varchar(50)",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"from_handle": {
+					"name": "from_handle",
+					"type": "varchar(50)",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"to_handle": {
+					"name": "to_handle",
+					"type": "varchar(50)",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"route_id": {
+					"name": "route_id",
+					"type": "varchar(50)",
+					"primaryKey": false,
+					"notNull": false
+				}
+			},
+			"indexes": {
+				"idx_edges_from": {
+					"name": "idx_edges_from",
+					"columns": [
+						{
+							"expression": "from",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						}
+					],
+					"isUnique": false,
+					"concurrently": false,
+					"method": "btree",
+					"with": {}
+				},
+				"idx_edges_to": {
+					"name": "idx_edges_to",
+					"columns": [
+						{
+							"expression": "to",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						}
+					],
+					"isUnique": false,
+					"concurrently": false,
+					"method": "btree",
+					"with": {}
+				},
+				"idx_edges_route_id": {
+					"name": "idx_edges_route_id",
+					"columns": [
+						{
+							"expression": "route_id",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						}
+					],
+					"isUnique": false,
+					"concurrently": false,
+					"method": "btree",
+					"with": {}
+				}
+			},
+			"foreignKeys": {
+				"edges_from_blocks_id_fk": {
+					"name": "edges_from_blocks_id_fk",
+					"tableFrom": "edges",
+					"tableTo": "blocks",
+					"columnsFrom": ["from"],
+					"columnsTo": ["id"],
+					"onDelete": "cascade",
+					"onUpdate": "no action"
+				},
+				"edges_to_blocks_id_fk": {
+					"name": "edges_to_blocks_id_fk",
+					"tableFrom": "edges",
+					"tableTo": "blocks",
+					"columnsFrom": ["to"],
+					"columnsTo": ["id"],
+					"onDelete": "cascade",
+					"onUpdate": "no action"
+				},
+				"edges_route_id_routes_id_fk": {
+					"name": "edges_route_id_routes_id_fk",
+					"tableFrom": "edges",
+					"tableTo": "routes",
+					"columnsFrom": ["route_id"],
+					"columnsTo": ["id"],
+					"onDelete": "cascade",
+					"onUpdate": "no action"
+				}
+			},
+			"compositePrimaryKeys": {},
+			"uniqueConstraints": {},
+			"policies": {},
+			"checkConstraints": {},
+			"isRLSEnabled": false
+		},
+		"public.integrations": {
+			"name": "integrations",
+			"schema": "",
+			"columns": {
+				"id": {
+					"name": "id",
+					"type": "uuid",
+					"primaryKey": true,
+					"notNull": true
+				},
+				"name": {
+					"name": "name",
+					"type": "varchar(255)",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"group": {
+					"name": "group",
+					"type": "varchar(255)",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"variant": {
+					"name": "variant",
+					"type": "varchar(255)",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"config": {
+					"name": "config",
+					"type": "jsonb",
+					"primaryKey": false,
+					"notNull": false
+				}
+			},
+			"indexes": {
+				"idx_integrations_name": {
+					"name": "idx_integrations_name",
+					"columns": [
+						{
+							"expression": "name",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						}
+					],
+					"isUnique": false,
+					"concurrently": false,
+					"method": "btree",
+					"with": {}
+				},
+				"idx_integrations_group": {
+					"name": "idx_integrations_group",
+					"columns": [
+						{
+							"expression": "group",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						}
+					],
+					"isUnique": false,
+					"concurrently": false,
+					"method": "btree",
+					"with": {}
+				},
+				"idx_integrations_variant": {
+					"name": "idx_integrations_variant",
+					"columns": [
+						{
+							"expression": "variant",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						}
+					],
+					"isUnique": false,
+					"concurrently": false,
+					"method": "btree",
+					"with": {}
+				}
+			},
+			"foreignKeys": {},
+			"compositePrimaryKeys": {},
+			"uniqueConstraints": {},
+			"policies": {},
+			"checkConstraints": {},
+			"isRLSEnabled": false
+		},
+		"public.projects": {
+			"name": "projects",
+			"schema": "",
+			"columns": {
+				"id": {
+					"name": "id",
+					"type": "varchar(50)",
+					"primaryKey": true,
+					"notNull": true,
+					"default": "'019a84a7-7b61-71dd-9ba9-e2d6efb09dee'"
+				},
+				"name": {
+					"name": "name",
+					"type": "varchar(50)",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"created_at": {
+					"name": "created_at",
+					"type": "timestamp",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "now()"
+				},
+				"hidden": {
+					"name": "hidden",
+					"type": "boolean",
+					"primaryKey": false,
+					"notNull": false,
+					"default": false
+				},
+				"updated_at": {
+					"name": "updated_at",
+					"type": "timestamp",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "now()"
+				}
+			},
+			"indexes": {
+				"idx_projects_name": {
+					"name": "idx_projects_name",
+					"columns": [
+						{
+							"expression": "name",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						}
+					],
+					"isUnique": false,
+					"concurrently": false,
+					"method": "btree",
+					"with": {}
+				},
+				"idx_projects_updated_at": {
+					"name": "idx_projects_updated_at",
+					"columns": [
+						{
+							"expression": "updated_at",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						}
+					],
+					"isUnique": false,
+					"concurrently": false,
+					"method": "btree",
+					"with": {}
+				}
+			},
+			"foreignKeys": {},
+			"compositePrimaryKeys": {},
+			"uniqueConstraints": {},
+			"policies": {},
+			"checkConstraints": {},
+			"isRLSEnabled": false
+		},
+		"public.routes": {
+			"name": "routes",
+			"schema": "",
+			"columns": {
+				"id": {
+					"name": "id",
+					"type": "varchar(50)",
+					"primaryKey": true,
+					"notNull": true,
+					"default": "'019a84a7-7b63-7970-8c1a-2b147219f89b'"
+				},
+				"name": {
+					"name": "name",
+					"type": "varchar(50)",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"path": {
+					"name": "path",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"active": {
+					"name": "active",
+					"type": "boolean",
+					"primaryKey": false,
+					"notNull": false,
+					"default": false
+				},
+				"project_id": {
+					"name": "project_id",
+					"type": "varchar(50)",
+					"primaryKey": false,
+					"notNull": false,
+					"default": "NULL"
+				},
+				"method": {
+					"name": "method",
+					"type": "varchar(8)",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"created_at": {
+					"name": "created_at",
+					"type": "timestamp",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "now()"
+				},
+				"created_by": {
+					"name": "created_by",
+					"type": "varchar(50)",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"updated_at": {
+					"name": "updated_at",
+					"type": "timestamp",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "now()"
+				}
+			},
+			"indexes": {
+				"idx_routes_project_id": {
+					"name": "idx_routes_project_id",
+					"columns": [
+						{
+							"expression": "project_id",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						}
+					],
+					"isUnique": false,
+					"concurrently": false,
+					"method": "btree",
+					"with": {}
+				},
+				"idx_routes_path": {
+					"name": "idx_routes_path",
+					"columns": [
+						{
+							"expression": "path",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						}
+					],
+					"isUnique": false,
+					"concurrently": false,
+					"method": "btree",
+					"with": {}
+				}
+			},
+			"foreignKeys": {
+				"routes_project_id_projects_id_fk": {
+					"name": "routes_project_id_projects_id_fk",
+					"tableFrom": "routes",
+					"tableTo": "projects",
+					"columnsFrom": ["project_id"],
+					"columnsTo": ["id"],
+					"onDelete": "cascade",
+					"onUpdate": "no action"
+				}
+			},
+			"compositePrimaryKeys": {},
+			"uniqueConstraints": {},
+			"policies": {},
+			"checkConstraints": {},
+			"isRLSEnabled": false
+		}
+	},
+	"enums": {
+		"public.encoding_types": {
+			"name": "encoding_types",
+			"schema": "public",
+			"values": ["plaintext", "base64", "hex"]
+		}
+	},
+	"schemas": {},
+	"sequences": {},
+	"roles": {},
+	"policies": {},
+	"views": {},
+	"_meta": {
+		"columns": {},
+		"schemas": {},
+		"tables": {}
+	}
 }

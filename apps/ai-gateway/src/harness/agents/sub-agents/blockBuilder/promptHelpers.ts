@@ -1,7 +1,4 @@
-import {
-	blockAiDescriptions,
-	COMPACT_BLOCK_SCHEMAS_REFERENCE,
-} from "@fluxify/blocks";
+import { blockAiDescriptions, COMPACT_BLOCK_SCHEMAS_REFERENCE } from "@fluxify/blocks";
 import type { GlobalGraphState } from "../../../types";
 import {
 	CUSTOM_BLOCK_EXECUTION_CONTRACT,
@@ -17,10 +14,7 @@ export const createBlocksTable = (
 	blocks: Array<{ type: string; name: string; description: string }>,
 ): string =>
 	`${TABLE_HEADER}\n${blocks
-		.map(
-			({ type, name, description }) =>
-				`| ${type} | ${name} | ${escapeTableCell(description)} |`,
-		)
+		.map(({ type, name, description }) => `| ${type} | ${name} | ${escapeTableCell(description)} |`)
 		.join("\n")}`;
 
 export const BUILTIN_BLOCKS_TABLE = createBlocksTable(
@@ -214,9 +208,7 @@ ${prefetchedDocs}
 The orchestrator will apply the configuration after supervisor approval. Keep your reasoning concise.`;
 }
 
-export function createUserQuery(
-	activeTask: NonNullable<GlobalGraphState["activeTask"]>,
-): string {
+export function createUserQuery(activeTask: NonNullable<GlobalGraphState["activeTask"]>): string {
 	return `Task Title: ${activeTask.title}
 Task Description: ${activeTask.description}
 ${activeTask.supervisorReviews ? `\nSupervisor Reviews:\n${activeTask.supervisorReviews}\n` : ""}

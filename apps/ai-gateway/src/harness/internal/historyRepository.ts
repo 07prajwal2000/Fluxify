@@ -1,22 +1,18 @@
-import {
-	db,
-	agentHarnessCompactionsEntity,
-	agentHarnessRunsEntity,
-} from "@fluxify/server";
 import { logger } from "@fluxify/common";
-import { AIMessage, HumanMessage, type BaseMessage } from "@langchain/core/messages";
+import { agentHarnessCompactionsEntity, agentHarnessRunsEntity, db } from "@fluxify/server";
+import { AIMessage, type BaseMessage, HumanMessage } from "@langchain/core/messages";
 import { and, count, desc, eq, inArray, isNotNull } from "drizzle-orm";
 import {
 	expectedCompactionBlocks,
 	HISTORY_VALIDATION_TURNS,
+	type HistoryCompaction,
+	type HistoryRun,
 	isValidCompaction,
 	latestCompactionBlock,
 	RAW_HISTORY_TURNS,
 	sourceDigest,
-	totalTokenIo,
-	type HistoryCompaction,
-	type HistoryRun,
 	type TokenIo,
+	totalTokenIo,
 } from "./historyCompaction";
 import { sanitizeUserQuery } from "./untrusted";
 
@@ -50,10 +46,7 @@ export class HistoryRepository {
 				})
 				.from(agentHarnessRunsEntity)
 				.where(where)
-				.orderBy(
-					desc(agentHarnessRunsEntity.createdAt),
-					desc(agentHarnessRunsEntity.id),
-				)
+				.orderBy(desc(agentHarnessRunsEntity.createdAt), desc(agentHarnessRunsEntity.id))
 				.limit(HISTORY_VALIDATION_TURNS),
 		]);
 		return {
@@ -62,9 +55,7 @@ export class HistoryRepository {
 		};
 	}
 
-	private async storedCompactions(
-		expectedEndIds: string[],
-	): Promise<HistoryCompaction[]> {
+	private async storedCompactions(expectedEndIds: string[]): Promise<HistoryCompaction[]> {
 		if (expectedEndIds.length === 0) return [];
 		try {
 			return (await db
@@ -72,26 +63,17 @@ export class HistoryRepository {
 					id: agentHarnessCompactionsEntity.id,
 					summary: agentHarnessCompactionsEntity.summary,
 					sourceRunIds: agentHarnessCompactionsEntity.sourceRunIds,
-					sourceStartRunId:
-						agentHarnessCompactionsEntity.sourceStartRunId,
+					sourceStartRunId: agentHarnessCompactionsEntity.sourceStartRunId,
 					sourceEndRunId: agentHarnessCompactionsEntity.sourceEndRunId,
 					sourceDigest: agentHarnessCompactionsEntity.sourceDigest,
-					sourceInputTokens:
-						agentHarnessCompactionsEntity.sourceInputTokens,
-					sourceOutputTokens:
-						agentHarnessCompactionsEntity.sourceOutputTokens,
+					sourceInputTokens: agentHarnessCompactionsEntity.sourceInputTokens,
+					sourceOutputTokens: agentHarnessCompactionsEntity.sourceOutputTokens,
 				})
 				.from(agentHarnessCompactionsEntity)
 				.where(
 					and(
-						eq(
-							agentHarnessCompactionsEntity.conversationId,
-							this.conversationId,
-						),
-						inArray(
-							agentHarnessCompactionsEntity.sourceEndRunId,
-							expectedEndIds,
-						),
+						eq(agentHarnessCompactionsEntity.conversationId, this.conversationId),
+						inArray(agentHarnessCompactionsEntity.sourceEndRunId, expectedEndIds),
 					),
 				)) as HistoryCompaction[];
 		} catch (error) {
@@ -107,9 +89,7 @@ export class HistoryRepository {
 	async messages(): Promise<BaseMessage[]> {
 		const { totalRuns, runs } = await this.completedWindow();
 		const expectedBlocks = expectedCompactionBlocks(runs, totalRuns);
-		const stored = await this.storedCompactions(
-			expectedBlocks.map((block) => block.at(-1)!.id),
-		);
+		const stored = await this.storedCompactions(expectedBlocks.map((block) => block.at(-1)!.id));
 		const byEndId = new Map(stored.map((item) => [item.sourceEndRunId, item]));
 		const summaries: string[] = [];
 
@@ -130,15 +110,10 @@ export class HistoryRepository {
 		const messages: BaseMessage[] = [];
 		if (summaries.length > 0) {
 			messages.push(
-				new HumanMessage(
-					"Earlier conversation context was compacted into these verified blocks:",
-				),
+				new HumanMessage("Earlier conversation context was compacted into these verified blocks:"),
 				new AIMessage(
 					summaries
-						.map(
-							(summary, index) =>
-								`## Compacted block ${index + 1}\n${summary}`,
-						)
+						.map((summary, index) => `## Compacted block ${index + 1}\n${summary}`)
 						.join("\n\n"),
 				),
 			);
@@ -166,14 +141,8 @@ export class HistoryRepository {
 			.from(agentHarnessCompactionsEntity)
 			.where(
 				and(
-					eq(
-						agentHarnessCompactionsEntity.conversationId,
-						this.conversationId,
-					),
-					eq(
-						agentHarnessCompactionsEntity.sourceEndRunId,
-						block.at(-1)!.id,
-					),
+					eq(agentHarnessCompactionsEntity.conversationId, this.conversationId),
+					eq(agentHarnessCompactionsEntity.sourceEndRunId, block.at(-1)!.id),
 				),
 			)
 			.limit(1);

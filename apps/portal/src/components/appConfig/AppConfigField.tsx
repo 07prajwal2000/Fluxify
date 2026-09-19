@@ -1,5 +1,5 @@
+import { Button, CloseButton, cn, Label } from "@fluxify/components";
 import { useState } from "react";
-import { Button, CloseButton, Label, cn } from "@fluxify/components";
 import { TbKey, TbVariable } from "react-icons/tb";
 import {
 	type AppConfigExtraItem,
@@ -42,11 +42,7 @@ export function AppConfigField({
 	return (
 		<div className="flex flex-col gap-1.5 py-2">
 			{label && <Label>{label}</Label>}
-			{description && (
-				<p className="text-xs leading-normal text-muted-foreground">
-					{description}
-				</p>
-			)}
+			{description && <p className="text-xs leading-normal text-muted-foreground">{description}</p>}
 
 			<div className="flex h-10 w-full items-center justify-between gap-3 rounded-[var(--radius)] border border-border bg-surface px-3 shadow-sm">
 				<div className="flex min-w-0 flex-1 items-center gap-2.5">
@@ -98,9 +94,7 @@ export function AppConfigField({
 				</div>
 			</div>
 
-			{isParam && extra?.hint && (
-				<p className="text-xs leading-normal text-accent">{extra.hint}</p>
-			)}
+			{isParam && extra?.hint && <p className="text-xs leading-normal text-accent">{extra.hint}</p>}
 
 			<AppConfigSelectorModal
 				projectId={projectId}

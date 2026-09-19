@@ -1,3 +1,4 @@
+import type { BlockNode } from "../../../types";
 import { BlockSettings } from "../../BlockSettings";
 import {
 	BlockCheckboxField,
@@ -5,7 +6,6 @@ import {
 	BlockJsTextField,
 	BlockSelectField,
 } from "../../fields";
-import type { BlockNode } from "../../../types";
 
 /** General tab: which KV store to talk to. */
 export function KvOperationsGeneralSettings({ block }: { block: BlockNode }) {

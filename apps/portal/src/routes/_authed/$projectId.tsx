@@ -1,3 +1,4 @@
+import { cn, Dropdown, Tooltip } from "@fluxify/components";
 import {
 	createFileRoute,
 	Outlet,
@@ -8,24 +9,23 @@ import {
 import { useState } from "react";
 import {
 	TbActivity,
+	TbArrowLeft,
 	TbBolt,
 	TbBox,
 	TbChevronDown,
 	TbCloudCog,
 	TbLayoutGridFilled,
+	TbLogout,
 	TbRoute,
+	TbSettings,
 	TbSparkles,
 	TbSquareKey,
 	TbStack2,
 	TbUser,
-	TbLogout,
-	TbArrowLeft,
-	TbSettings,
 } from "react-icons/tb";
-import { cn, Dropdown, Tooltip } from "@fluxify/components";
 import { authClient } from "@/lib/auth";
-import { useAuthStore } from "@/store/auth";
 import { createRouteHead } from "@/lib/seo";
+import { useAuthStore } from "@/store/auth";
 
 // BASE_URL, not a hardcoded path: files in public/ are served from the bundle
 // root, so the literal "/_/admin/ui/public/..." resolved to nothing and the SPA
@@ -63,7 +63,10 @@ const NAV_KEYS: string[] = NAV.flatMap((item) =>
 );
 
 export const Route = createFileRoute("/_authed/$projectId")({
-	head: createRouteHead("Project Workspace", "Manage project API routes, workflows, and configurations."),
+	head: createRouteHead(
+		"Project Workspace",
+		"Manage project API routes, workflows, and configurations.",
+	),
 	beforeLoad: async ({ params }) => {
 		const session = await authClient.getSession();
 		const acl = (session.data as { acl?: { projectId: string }[] } | null)?.acl ?? [];
@@ -111,9 +114,7 @@ function NavButton({
 				<span className="truncate">{label}</span>
 				{trailing}
 			</span>
-			{isActive && (
-				<span className="absolute -left-2 h-4 w-[3px] rounded-r-full bg-accent" />
-			)}
+			{isActive && <span className="absolute -left-2 h-4 w-[3px] rounded-r-full bg-accent" />}
 		</button>
 	);
 }
@@ -199,9 +200,7 @@ function ProjectLayout() {
 										// stays lit while one of its pages is open — the rail is icons
 										// only until it is hovered, so the child row cannot say it
 										isActive={holdsActive}
-										onClick={() =>
-											setOpenGroups((groups) => ({ ...groups, [item.key]: !isOpen }))
-										}
+										onClick={() => setOpenGroups((groups) => ({ ...groups, [item.key]: !isOpen }))}
 										trailing={
 											<TbChevronDown
 												size={14}
@@ -249,7 +248,9 @@ function ProjectLayout() {
 							size={18}
 							className={cn(
 								"shrink-0",
-								active === "settings" ? "text-accent" : "text-muted group-hover/btn:text-foreground"
+								active === "settings"
+									? "text-accent"
+									: "text-muted group-hover/btn:text-foreground",
 							)}
 						/>
 						<span className="ml-3 whitespace-nowrap opacity-0 transition-opacity duration-300 group-hover:opacity-100">
@@ -268,7 +269,9 @@ function ProjectLayout() {
 								{initials}
 							</div>
 							<div className="ml-3 flex flex-col items-start whitespace-nowrap opacity-0 transition-opacity duration-300 group-hover:opacity-100">
-								<span className="text-sm font-medium text-foreground">{userData?.name || "User"}</span>
+								<span className="text-sm font-medium text-foreground">
+									{userData?.name || "User"}
+								</span>
 								<span className="text-[11px] text-muted">{userData?.email || ""}</span>
 							</div>
 						</Dropdown.Trigger>

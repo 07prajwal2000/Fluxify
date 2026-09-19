@@ -1,4 +1,4 @@
-import { RoleSelector, type Role } from "./RoleSelector";
+import { type Role, RoleSelector } from "./RoleSelector";
 
 export function UserRoleSelector({
 	user,
@@ -25,17 +25,13 @@ export function UserRoleSelector({
 					{getInitials(user.name, user.email)}
 				</div>
 				<div className="flex flex-col">
-					<span className="text-sm font-medium text-foreground">
-						{user.name || user.email}
-					</span>
+					<span className="text-sm font-medium text-foreground">{user.name || user.email}</span>
 					<span className="text-xs text-muted-foreground">{user.email}</span>
 				</div>
 			</div>
 
 			<div className="flex flex-col gap-3">
-				<p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
-					Role
-				</p>
+				<p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">Role</p>
 				<RoleSelector selectedRole={selectedRole} onRoleSelect={onRoleSelect} />
 			</div>
 		</div>

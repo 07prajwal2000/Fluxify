@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
 import { toast } from "@fluxify/components";
+import { useEffect, useState } from "react";
 import { integrationsQuery } from "@/query/integrationsQuery";
 
 export type ConnectionStatus = "testing" | "success" | "error" | "idle";
@@ -36,9 +36,9 @@ export function useModelConnectionTest(projectId: string, model: string): Connec
 		return () => {
 			isCurrent = false;
 		};
-	// The mutation hook is stable for a project; only a project or model change
-	// should start another verification.
-	// eslint-disable-next-line react-hooks/exhaustive-deps
+		// The mutation hook is stable for a project; only a project or model change
+		// should start another verification.
+		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [model, projectId]);
 
 	return status;

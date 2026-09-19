@@ -37,8 +37,7 @@ export function findCycleEdgeIds(edges: Iterable<DirectedCanvasEdge>): Set<strin
 		for (const edge of outgoing.get(node) ?? []) {
 			const targetIndex = activeIndex.get(edge.to!);
 			if (targetIndex !== undefined) {
-				for (let i = targetIndex; i < pathEdges.length; i++)
-					cycleEdgeIds.add(pathEdges[i].id);
+				for (let i = targetIndex; i < pathEdges.length; i++) cycleEdgeIds.add(pathEdges[i].id);
 				cycleEdgeIds.add(edge.id);
 				continue;
 			}

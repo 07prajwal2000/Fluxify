@@ -1,6 +1,6 @@
+import { decodeCursor, encodeCursor } from "./cursor";
 import { PAGE_SIZE } from "./dto";
 import { getMessagesPage } from "./repository";
-import { decodeCursor, encodeCursor } from "./cursor";
 
 /**
  * Reads newest-first (that's the direction pagination walks) but returns
@@ -10,10 +10,7 @@ import { decodeCursor, encodeCursor } from "./cursor";
  * Not cached: the newest page mutates while a run is in flight, and older
  * pages are cheap keyset seeks anyway.
  */
-export default async function handleRequest(
-	conversationId: string,
-	rawCursor?: string,
-) {
+export default async function handleRequest(conversationId: string, rawCursor?: string) {
 	const cursor = rawCursor ? decodeCursor(rawCursor) : undefined;
 
 	// One extra row is the "is there more?" probe — cheaper than a count query.

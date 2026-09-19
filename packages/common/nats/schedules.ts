@@ -71,10 +71,7 @@ export async function publishSchedule<T>(
 			...(spec.ttlSeconds ? { ttl: `${spec.ttlSeconds}s` } : {}),
 		},
 	});
-	logger.debug(
-		`[nats] scheduled ${subject} -> ${spec.target} (${spec.specification})`,
-		"NATS",
-	);
+	logger.debug(`[nats] scheduled ${subject} -> ${spec.target} (${spec.specification})`, "NATS");
 	return { seq: ack.seq };
 }
 

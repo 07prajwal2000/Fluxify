@@ -1,53 +1,57 @@
 "use client";
-import React, { createContext, useContext, useRef } from "react";
-import { createStore } from "zustand/vanilla";
+import type React from "react";
+import { createContext, useContext, useRef } from "react";
 import { useStore } from "zustand";
+import { createStore } from "zustand/vanilla";
 
 type State = {
-  blockData: Record<string, any>;
+	blockData: Record<string, any>;
 };
 
 type Actions = {
-  updateBlockData: (id: string, data: any) => void;
-  deleteBlockData: (id: string) => void;
-  clearBlockData: () => void;
-  bulkInsert: (blocks: { id: string; data: any }[]) => void;
+	updateBlockData: (id: string, data: any) => void;
+	deleteBlockData: (id: string) => void;
+	clearBlockData: () => void;
+	bulkInsert: (blocks: { id: string; data: any }[]) => void;
 };
 
 export type BlockDataStore = ReturnType<typeof createBlockDataStore>;
 
 export const createBlockDataStore = (initProps?: Partial<State>) => {
-  return createStore<State & { actions: Actions }>()((set, get) => ({
-    blockData: initProps?.blockData || {},
-    actions: {
-      updateBlockData(id, data) {
-        set((state) => ({
-          blockData: {
-            ...state.blockData,
-            [id]: { ...state.blockData[id], ...data }
-          }
-        }));
-      },
-      deleteBlockData(id) {
-        set((state) => {
-          const newBlockData = { ...state.blockData };
-          delete newBlockData[id];
-          return { blockData: newBlockData };
-        });
-      },
-      clearBlockData() {
-        set({ blockData: {} });
-      },
-      bulkInsert(blocks) {
-        const newBlockData = blocks.reduce((acc, block) => {
-          acc[block.id] = block.data;
-          return acc;
-        }, {} as Record<string, any>);
-        
-        set({ blockData: newBlockData });
-      },
-    },
-  }));
+	return createStore<State & { actions: Actions }>()((set, get) => ({
+		blockData: initProps?.blockData || {},
+		actions: {
+			updateBlockData(id, data) {
+				set((state) => ({
+					blockData: {
+						...state.blockData,
+						[id]: { ...state.blockData[id], ...data },
+					},
+				}));
+			},
+			deleteBlockData(id) {
+				set((state) => {
+					const newBlockData = { ...state.blockData };
+					delete newBlockData[id];
+					return { blockData: newBlockData };
+				});
+			},
+			clearBlockData() {
+				set({ blockData: {} });
+			},
+			bulkInsert(blocks) {
+				const newBlockData = blocks.reduce(
+					(acc, block) => {
+						acc[block.id] = block.data;
+						return acc;
+					},
+					{} as Record<string, any>,
+				);
+
+				set({ blockData: newBlockData });
+			},
+		},
+	}));
 };
 
 export const BlockDataStoreContext = createContext<BlockDataStore | null>(null);
@@ -77,8 +81,6 @@ export function useBlockDataStoreObj<T>(selector: (state: State & { actions: Act
 	return useStore(store, selector);
 }
 
-export const useBlockDataStore = () =>
-  useBlockDataStoreObj((state) => state.blockData);
+export const useBlockDataStore = () => useBlockDataStoreObj((state) => state.blockData);
 
-export const useBlockDataActionsStore = () =>
-  useBlockDataStoreObj((state) => state.actions);
+export const useBlockDataActionsStore = () => useBlockDataStoreObj((state) => state.actions);

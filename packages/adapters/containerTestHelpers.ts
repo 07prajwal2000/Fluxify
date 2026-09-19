@@ -31,10 +31,9 @@ export async function startContainerWithRandomPort(
 			if (container) await container.remove({ force: true }).catch(() => {});
 		}
 	}
-	throw new Error(
-		`Unable to start test container after ${PORT_START_ATTEMPTS} random ports.`,
-		{ cause: lastError },
-	);
+	throw new Error(`Unable to start test container after ${PORT_START_ATTEMPTS} random ports.`, {
+		cause: lastError,
+	});
 }
 
 export function pullImage(image: string): Promise<void> {

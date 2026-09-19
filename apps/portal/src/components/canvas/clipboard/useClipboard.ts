@@ -1,21 +1,21 @@
-import { useCallback, useMemo, useRef, useState } from "react";
 import { toast } from "@fluxify/components";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { flowToGraph } from "../adapters";
 import {
+	type CanvasTransferDoc,
 	CanvasTransferError,
 	createTransferDoc,
 	downloadTransfer,
 	encodeTransfer,
+	type PreparedImport,
 	pickTransferFile,
 	prepareImport,
 	readTransferFile,
 	transferFilename,
 	tryDecodeTransfer,
-	type CanvasTransferDoc,
-	type PreparedImport,
 } from "../transfer";
 import type { BlockEdge, BlockNode } from "../types";
-import { pickGraphPart, type GraphPart } from "./cloneGraphPart";
+import { type GraphPart, pickGraphPart } from "./cloneGraphPart";
 
 /** How far each paste/duplicate lands from the original, in graph units. */
 export const PASTE_OFFSET = { x: 32, y: 32 };
@@ -59,9 +59,7 @@ export type UseClipboardOptions = {
 function describeImport(outcome: PreparedImport): string | null {
 	const notes: string[] = [];
 	if (outcome.reusedBlocks > 0) {
-		notes.push(
-			`${outcome.reusedBlocks} entry/error block(s) reconnected to this canvas`,
-		);
+		notes.push(`${outcome.reusedBlocks} entry/error block(s) reconnected to this canvas`);
 	}
 	if (outcome.skippedBlocks > 0) notes.push(`${outcome.skippedBlocks} skipped`);
 	if (outcome.droppedEdges > 0) {
@@ -78,11 +76,7 @@ function describeImport(outcome: PreparedImport): string | null {
  * build we don't understand is refused instead of half-applied. The in-memory
  * copy is kept as a fallback for browsers that won't hand us clipboard text.
  */
-export function useClipboard({
-	enabled,
-	getGraph,
-	insert,
-}: UseClipboardOptions): CanvasClipboard {
+export function useClipboard({ enabled, getGraph, insert }: UseClipboardOptions): CanvasClipboard {
 	const held = useRef<CanvasTransferDoc | null>(null);
 	const [canPaste, setCanPaste] = useState(false);
 	// Repeated pastes of the same slice must not stack on top of each other.
@@ -204,9 +198,7 @@ export function useClipboard({
 			insertDoc(await readTransferFile(file), 0);
 		} catch (error) {
 			toast.danger(
-				error instanceof CanvasTransferError
-					? error.message
-					: "Couldn't read that file.",
+				error instanceof CanvasTransferError ? error.message : "Couldn't read that file.",
 			);
 		}
 	}, [enabled, insertDoc]);
@@ -222,15 +214,6 @@ export function useClipboard({
 			exportSelection,
 			importFromFile,
 		}),
-		[
-			enabled,
-			canPaste,
-			copy,
-			paste,
-			pasteText,
-			duplicate,
-			exportSelection,
-			importFromFile,
-		],
+		[enabled, canPaste, copy, paste, pasteText, duplicate, exportSelection, importFromFile],
 	);
 }

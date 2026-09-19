@@ -12,9 +12,7 @@ import { StringRules } from "./StringRules";
  * `ruleEditors` prop; a type absent from this map simply has nothing to
  * configure (`bool`, and `object` whose children are edited inline).
  */
-export const DEFAULT_RULE_EDITORS: Partial<
-	Record<DataType, ComponentType<RuleEditorProps>>
-> = {
+export const DEFAULT_RULE_EDITORS: Partial<Record<DataType, ComponentType<RuleEditorProps>>> = {
 	str: StringRules,
 	int: NumberRules,
 	float: NumberRules,
@@ -25,5 +23,5 @@ export const DEFAULT_RULE_EDITORS: Partial<
 	js: JsRules,
 };
 
-export { ArrayRules, EnumRules, FileRules, JsRules, NumberRules, StringRules };
 export { RuleNumberField, RuleSectionTitle, RuleTextField } from "./fields";
+export { ArrayRules, EnumRules, FileRules, JsRules, NumberRules, StringRules };

@@ -1,6 +1,7 @@
-import type winston from "winston";
 import { OpenTelemetryTransportV3 } from "@opentelemetry/winston-transport";
+import type winston from "winston";
 import { createOtlpLoggerProvider, initializeOtlpLogger } from "./otlp/logs";
+
 export { createLokiLogger } from "./loki";
 
 export interface LoggerConfig {
@@ -34,7 +35,7 @@ function getCallerFileName(): string {
 				!normalized.includes("winston") &&
 				!normalized.includes("bun:")
 			) {
-				const match = normalized.match(/([a-zA-Z0-9_\-\.]+)\.(?:ts|js|cjs|mjs)/);
+				const match = normalized.match(/([a-zA-Z0-9_\-.]+)\.(?:ts|js|cjs|mjs)/);
 				if (match && match[1]) {
 					return match[1];
 				}
@@ -62,9 +63,7 @@ const createConsoleFormat = () => {
 		winstonPkg.format.timestamp({ format: "YYYY-MM-DD HH:mm:ss" }),
 		winstonPkg.format.printf((info) => {
 			const { timestamp, level, message, module: mod, service, appName, ...meta } = info;
-			const metaStr = Object.keys(meta).length
-				? ` ${JSON.stringify(meta)}`
-				: "";
+			const metaStr = Object.keys(meta).length ? ` ${JSON.stringify(meta)}` : "";
 			const app = appName || currentAppName || "fluxify";
 			const moduleName = mod || "unknown";
 			return `${timestamp} [${app}] [${level.toUpperCase()}] [${moduleName}] ${message}${metaStr}`;
@@ -72,16 +71,17 @@ const createConsoleFormat = () => {
 	);
 };
 
-const baseLogger = !isBrowser && winstonPkg
-	? winstonPkg.createLogger({
-			level: "info",
-			transports: [
-				new winstonPkg.transports.Console({
-					format: createConsoleFormat(),
-				}),
-			],
-		})
-	: (console as unknown as winston.Logger);
+const baseLogger =
+	!isBrowser && winstonPkg
+		? winstonPkg.createLogger({
+				level: "info",
+				transports: [
+					new winstonPkg.transports.Console({
+						format: createConsoleFormat(),
+					}),
+				],
+			})
+		: (console as unknown as winston.Logger);
 
 function dispatchLog(level: string, message: any, moduleOrMeta?: any, meta?: any) {
 	if (isBrowser) {
@@ -96,7 +96,7 @@ function dispatchLog(level: string, message: any, moduleOrMeta?: any, meta?: any
 	let cleanMessage = message;
 
 	if (typeof message === "string") {
-		const prefixMatch = message.match(/^\[([A-Za-z0-9_\-\s\.:]+)\]\s*(.*)$/);
+		const prefixMatch = message.match(/^\[([A-Za-z0-9_\-\s.:]+)\]\s*(.*)$/);
 		if (prefixMatch) {
 			const prefixModule = prefixMatch[1];
 			const restMsg = prefixMatch[2];
@@ -132,7 +132,8 @@ function dispatchLog(level: string, message: any, moduleOrMeta?: any, meta?: any
 		moduleName = getCallerFileName();
 	}
 
-	const formattedMessage = typeof cleanMessage === "string" ? cleanMessage : JSON.stringify(cleanMessage);
+	const formattedMessage =
+		typeof cleanMessage === "string" ? cleanMessage : JSON.stringify(cleanMessage);
 
 	baseLogger.log({
 		level,
@@ -142,9 +143,7 @@ function dispatchLog(level: string, message: any, moduleOrMeta?: any, meta?: any
 	});
 }
 
-export interface CustomLogMethod {
-	(message: any, moduleOrMeta?: any, meta?: any): void;
-}
+export type CustomLogMethod = (message: any, moduleOrMeta?: any, meta?: any) => void;
 
 export type StructuredLogger = Omit<winston.Logger, "info" | "warn" | "error" | "debug" | "log"> & {
 	info: CustomLogMethod;
@@ -156,11 +155,16 @@ export type StructuredLogger = Omit<winston.Logger, "info" | "warn" | "error" | 
 
 export const logger = new Proxy(baseLogger, {
 	get(target, prop, receiver) {
-		if (prop === "info") return (msg: any, mod?: any, meta?: any) => dispatchLog("info", msg, mod, meta);
-		if (prop === "warn") return (msg: any, mod?: any, meta?: any) => dispatchLog("warn", msg, mod, meta);
-		if (prop === "error") return (msg: any, mod?: any, meta?: any) => dispatchLog("error", msg, mod, meta);
-		if (prop === "debug") return (msg: any, mod?: any, meta?: any) => dispatchLog("debug", msg, mod, meta);
-		if (prop === "log") return (level: string, msg: any, mod?: any, meta?: any) => dispatchLog(level, msg, mod, meta);
+		if (prop === "info")
+			return (msg: any, mod?: any, meta?: any) => dispatchLog("info", msg, mod, meta);
+		if (prop === "warn")
+			return (msg: any, mod?: any, meta?: any) => dispatchLog("warn", msg, mod, meta);
+		if (prop === "error")
+			return (msg: any, mod?: any, meta?: any) => dispatchLog("error", msg, mod, meta);
+		if (prop === "debug")
+			return (msg: any, mod?: any, meta?: any) => dispatchLog("debug", msg, mod, meta);
+		if (prop === "log")
+			return (level: string, msg: any, mod?: any, meta?: any) => dispatchLog(level, msg, mod, meta);
 
 		const val = Reflect.get(target, prop, receiver);
 		return typeof val === "function" ? val.bind(target) : val;
@@ -215,6 +219,6 @@ export function initializeLogger(config: LoggerConfig = {}): void {
 }
 
 export default logger;
-export { createOtlpLoggerProvider };
+export type { Logger } from "@opentelemetry/api-logs";
 export type { LoggerProvider } from "@opentelemetry/sdk-logs";
-export type { Logger } from "@opentelemetry/api-logs";
+export { createOtlpLoggerProvider };

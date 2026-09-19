@@ -45,8 +45,7 @@ export class AsyncExecutor {
 	submit(task: QueuedTask): boolean {
 		if (
 			!this.accepting ||
-			(this.inFlight >= this.limits.maxInFlight &&
-				this.queue.length >= this.limits.maxQueueDepth)
+			(this.inFlight >= this.limits.maxInFlight && this.queue.length >= this.limits.maxQueueDepth)
 		) {
 			return false;
 		}
@@ -154,10 +153,7 @@ export function asyncExecutorLimitsFromEnv(
 		),
 		drainTimeoutMs: Math.max(
 			1,
-			readNonNegativeInt(
-				env.ASYNC_EXECUTOR_DRAIN_TIMEOUT_MS,
-				DEFAULT_ASYNC_DRAIN_TIMEOUT_MS,
-			),
+			readNonNegativeInt(env.ASYNC_EXECUTOR_DRAIN_TIMEOUT_MS, DEFAULT_ASYNC_DRAIN_TIMEOUT_MS),
 		),
 	};
 }

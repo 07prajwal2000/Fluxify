@@ -98,7 +98,8 @@ export const REQUEST_RESPONSE_DOCS: ApiDocItem[] = [
 		signature: "setCookie(name: string, options: CookieOptions): void",
 		description: "Sets an outgoing cookie with expiry, httpOnly, secure, and samesite.",
 		category: "response",
-		example: 'setCookie("session", {\n  value: "xyz",\n  httpOnly: true,\n  secure: true,\n  samesite: "Strict",\n});',
+		example:
+			'setCookie("session", {\n  value: "xyz",\n  httpOnly: true,\n  secure: true,\n  samesite: "Strict",\n});',
 		returns: "void",
 	},
 	{
@@ -116,7 +117,8 @@ export const REQUEST_RESPONSE_DOCS: ApiDocItem[] = [
 		name: "[globalVariable]",
 		kind: "property",
 		signature: "myVar = value; // read via bare identifier: myVar",
-		description: "Variables set in blocks or scripts are available globally in scope across later blocks in the same request.",
+		description:
+			"Variables set in blocks or scripts are available globally in scope across later blocks in the same request.",
 		category: "variables",
 		example: "currentUserId = input.id;\nconst id = currentUserId;",
 		returns: "any",

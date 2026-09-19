@@ -1,7 +1,7 @@
 import { TbInfoCircle } from "react-icons/tb";
+import type { BlockNode } from "../../../types";
 import { BlockSettings } from "../../BlockSettings";
 import { BlockIntegrationField } from "../../fields";
-import type { BlockNode } from "../../../types";
 
 /** General tab: Connection selection and transaction information */
 export function TransactionDbGeneralSettings({ block }: { block: BlockNode }) {
@@ -18,7 +18,9 @@ export function TransactionDbGeneralSettings({ block }: { block: BlockNode }) {
 			<div className="flex items-start gap-2.5 p-3 rounded-lg bg-[var(--background-secondary,#18181b)] border border-[var(--border,#27272a)] text-xs text-muted leading-relaxed">
 				<TbInfoCircle className="size-4 shrink-0 text-primary mt-0.5" />
 				<div>
-					Connect blocks to the <strong>executor port</strong> (on the right of the block) to execute operations inside this transaction. If all succeed, the transaction commits automatically. If an error occurs, it is rolled back.
+					Connect blocks to the <strong>executor port</strong> (on the right of the block) to
+					execute operations inside this transaction. If all succeed, the transaction commits
+					automatically. If an error occurs, it is rolled back.
 				</div>
 			</div>
 		</div>

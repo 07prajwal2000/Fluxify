@@ -1,6 +1,6 @@
-import { useId } from "react";
 import { cn, type DataType, type SchemaProperty, type ValidationSchema } from "@fluxify/components";
 import { CONTENT_TYPES } from "@fluxify/server/src/lib/routeConfig";
+import { useId } from "react";
 
 /**
  * Everything the create wizard and the settings panel agree on. The two screens
@@ -25,31 +25,13 @@ export const EMPTY_SCHEMA: ValidationSchema = { dataType: "object", properties: 
 export const BINARY_SCHEMA: ValidationSchema = { dataType: "blob" };
 
 /** Types any body format can carry. */
-const BODY_DATA_TYPES: DataType[] = [
-	"str",
-	"int",
-	"float",
-	"bool",
-	"arr",
-	"object",
-	"enum",
-	"js",
-];
+const BODY_DATA_TYPES: DataType[] = ["str", "int", "float", "bool", "arr", "object", "enum", "js"];
 
 export const PARAM_DATA_TYPES: DataType[] = ["str", "int", "float", "bool", "enum"];
-export const QUERY_DATA_TYPES: DataType[] = [
-	"str",
-	"int",
-	"float",
-	"bool",
-	"arr",
-	"enum",
-];
+export const QUERY_DATA_TYPES: DataType[] = ["str", "int", "float", "bool", "arr", "enum"];
 
 export function isBinaryBody(contentTypes: string[]) {
-	return (
-		contentTypes.length === 1 && contentTypes[0] === "application/octet-stream"
-	);
+	return contentTypes.length === 1 && contentTypes[0] === "application/octet-stream";
 }
 
 /**
@@ -63,23 +45,15 @@ export function bodyDataTypes(contentTypes: string[]): DataType[] {
 }
 
 /** Drops types the current content types can no longer carry. */
-export function pruneDataTypes(
-	schema: ValidationSchema,
-	allowed: DataType[],
-): ValidationSchema {
+export function pruneDataTypes(schema: ValidationSchema, allowed: DataType[]): ValidationSchema {
 	const properties = (schema.properties ?? []).map((property) =>
-		allowed.includes(property.dataType)
-			? property
-			: { ...property, dataType: "str" as const },
+		allowed.includes(property.dataType) ? property : { ...property, dataType: "str" as const },
 	);
 	return { ...schema, properties };
 }
 
 /** The body schema a content-type change leaves behind. */
-export function bodySchemaFor(
-	schema: ValidationSchema,
-	contentTypes: string[],
-): ValidationSchema {
+export function bodySchemaFor(schema: ValidationSchema, contentTypes: string[]): ValidationSchema {
 	if (isBinaryBody(contentTypes)) return BINARY_SCHEMA;
 	return pruneDataTypes(
 		schema.dataType === "blob" ? EMPTY_SCHEMA : schema,

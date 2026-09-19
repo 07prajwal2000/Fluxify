@@ -1,14 +1,14 @@
-import { MongoClient, Db, ClientSession, ObjectId } from "mongodb";
+import { type ClientSession, type Db, MongoClient, ObjectId } from "mongodb";
 import {
-	Connection,
+	type Connection,
+	type DBConditionType,
 	DbAdapterMode,
-	DBConditionType,
-	IDbAdapter,
-	IntrospectedTable,
-	QueryOptions,
+	type IDbAdapter,
+	type IntrospectedTable,
+	type QueryOptions,
 } from ".";
-import { toMongoField, isNumericLike, isColumnRef, isLiteralRef } from "./jsonPath";
 import { activeConditions, isRawCondition, rawMongoFilter } from "./conditions";
+import { isColumnRef, isLiteralRef, isNumericLike, toMongoField } from "./jsonPath";
 
 export class MongoAdapter implements IDbAdapter {
 	public static variant = "MongoDB";
@@ -105,32 +105,22 @@ export class MongoAdapter implements IDbAdapter {
 		options?: QueryOptions,
 	): Promise<unknown | null> {
 		const filter = this.buildFilter(conditions);
-		const doc = await this.db
-			.collection(table)
-			.findOne(filter, this.findOptions(options));
+		const doc = await this.db.collection(table).findOne(filter, this.findOptions(options));
 		return this.mapDoc(doc);
 	}
 
 	async delete(table: string, conditions: DBConditionType[]): Promise<boolean> {
 		const filter = this.buildFilter(conditions);
-		const result = await this.db
-			.collection(table)
-			.deleteMany(filter, this.getOptions());
+		const result = await this.db.collection(table).deleteMany(filter, this.getOptions());
 		return result.deletedCount > 0;
 	}
 
-	async insert(
-		table: string,
-		data: unknown,
-		pkColumn: string = "id",
-	): Promise<unknown> {
+	async insert(table: string, data: unknown, pkColumn: string = "id"): Promise<unknown> {
 		const cleanData = { ...(data as Record<string, unknown>) };
 		delete cleanData.id;
 		delete cleanData._id;
 
-		const result = await this.db
-			.collection(table)
-			.insertOne(cleanData, this.getOptions());
+		const result = await this.db.collection(table).insertOne(cleanData, this.getOptions());
 		const doc = await this.db
 			.collection(table)
 			.findOne({ _id: result.insertedId }, this.getOptions());
@@ -150,9 +140,7 @@ export class MongoAdapter implements IDbAdapter {
 			return rest;
 		});
 
-		const result = await this.db
-			.collection(table)
-			.insertMany(cleanData, this.getOptions());
+		const result = await this.db.collection(table).insertMany(cleanData, this.getOptions());
 		const ids = Object.values(result.insertedIds);
 
 		const docs = await this.db
@@ -171,10 +159,7 @@ export class MongoAdapter implements IDbAdapter {
 	): Promise<unknown[]> {
 		const filter = this.buildFilter(conditions);
 
-		const docsToUpdate = await this.db
-			.collection(table)
-			.find(filter, this.getOptions())
-			.toArray();
+		const docsToUpdate = await this.db.collection(table).find(filter, this.getOptions()).toArray();
 		const ids = docsToUpdate.map((d) => d._id);
 
 		if (ids.length > 0) {
@@ -184,11 +169,7 @@ export class MongoAdapter implements IDbAdapter {
 
 			await this.db
 				.collection(table)
-				.updateMany(
-					{ _id: { $in: ids } },
-					{ $set: cleanData },
-					this.getOptions(),
-				);
+				.updateMany({ _id: { $in: ids } }, { $set: cleanData }, this.getOptions());
 		}
 
 		const updatedDocs = await this.db
@@ -242,9 +223,7 @@ export class MongoAdapter implements IDbAdapter {
 	// ------------------------------------------------------------------
 
 	private getOptions() {
-		return this.mode === DbAdapterMode.TRANSACTION && this.session
-			? { session: this.session }
-			: {};
+		return this.mode === DbAdapterMode.TRANSACTION && this.session ? { session: this.session } : {};
 	}
 
 	// Merges the transaction session with a field projection built from
@@ -253,8 +232,7 @@ export class MongoAdapter implements IDbAdapter {
 	private findOptions(options?: QueryOptions) {
 		const base = this.getOptions();
 		const cols = options?.columns;
-		if (!cols || cols.length === 0 || cols.some((c) => c.includes("*")))
-			return base;
+		if (!cols || cols.length === 0 || cols.some((c) => c.includes("*"))) return base;
 
 		const projection: Record<string, 1> = {};
 		for (const raw of cols) {
@@ -297,18 +275,12 @@ export class MongoAdapter implements IDbAdapter {
 		// builder isn't shaped for. Rejected loudly rather than silently matching
 		// the literal string "email". Wire $expr here when a graph needs it.
 		if (isColumnRef(cond.value))
-			throw new Error(
-				"column references in conditions are not supported on MongoDB",
-			);
+			throw new Error("column references in conditions are not supported on MongoDB");
 		if (isLiteralRef(cond.attribute))
-			throw new Error(
-				"literal attributes in conditions are not supported on MongoDB",
-			);
+			throw new Error("literal attributes in conditions are not supported on MongoDB");
 
 		// a tagged column means exactly what the untagged string does here
-		const attribute = isColumnRef(cond.attribute)
-			? cond.attribute.value
-			: cond.attribute;
+		const attribute = isColumnRef(cond.attribute) ? cond.attribute.value : cond.attribute;
 
 		// "items[0].name" -> "items.0.name"; "id" stays the _id alias.
 		const attr = attribute === "id" ? "_id" : toMongoField(attribute);
@@ -348,9 +320,7 @@ export class MongoAdapter implements IDbAdapter {
 		return { [attr]: { [op]: val } };
 	}
 
-	private getMongoOperator(
-		operator: "eq" | "neq" | "gt" | "gte" | "lt" | "lte",
-	): string {
+	private getMongoOperator(operator: "eq" | "neq" | "gt" | "gte" | "lt" | "lte"): string {
 		const map: Record<string, string> = {
 			eq: "$eq",
 			neq: "$ne",
@@ -373,8 +343,7 @@ function mongoTypeOf(value: unknown): string {
 
 export function buildMongoUrl(connection: Connection): string {
 	const { username, password, host, port, database } = connection;
-	if (!username)
-		return `mongodb://${host}:${port}/${database}?directConnection=true`;
+	if (!username) return `mongodb://${host}:${port}/${database}?directConnection=true`;
 	return `mongodb://${username}:${encodeURIComponent(password)}@${host}:${port}/${database}?directConnection=true`;
 }
 
@@ -385,9 +354,7 @@ export function extractMongoConnectionInfo(
 ) {
 	if (config.source === "url") {
 		let urlStr = String(config.url);
-		urlStr = urlStr.startsWith("cfg:")
-			? (appConfigs.get(urlStr.slice(4)) ?? "")
-			: urlStr;
+		urlStr = urlStr.startsWith("cfg:") ? (appConfigs.get(urlStr.slice(4)) ?? "") : urlStr;
 		const result = mongoUrlParser(urlStr);
 		if (result === null) return null;
 		return {
@@ -402,9 +369,7 @@ export function extractMongoConnectionInfo(
 
 	for (const key in config) {
 		const value = String(config[key]);
-		config[key] = value.startsWith("cfg:")
-			? (appConfigs.get(value.slice(4)) ?? "")
-			: value;
+		config[key] = value.startsWith("cfg:") ? (appConfigs.get(value.slice(4)) ?? "") : value;
 	}
 	return config;
 }

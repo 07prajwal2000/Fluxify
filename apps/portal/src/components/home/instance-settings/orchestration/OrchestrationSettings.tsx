@@ -1,5 +1,5 @@
+import { Button, cn, Spinner, toast } from "@fluxify/components";
 import { useState } from "react";
-import { Button, Spinner, cn, toast } from "@fluxify/components";
 import { TbHistory, TbTopologyStar3 } from "react-icons/tb";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { ClaimCard } from "@/components/orchestration/ClaimCard";
@@ -96,10 +96,7 @@ export function OrchestrationSettings() {
 							: "border-transparent text-muted hover:border-border hover:text-foreground",
 					)}
 				>
-					<TbHistory
-						size={16}
-						className={activeTab === "history" ? "text-accent" : "text-muted"}
-					/>
+					<TbHistory size={16} className={activeTab === "history" ? "text-accent" : "text-muted"} />
 					History
 					{events && events.length > 0 && (
 						<span
@@ -123,13 +120,11 @@ export function OrchestrationSettings() {
 					<PoolForm pool={status.pool} />
 
 					<div className="flex flex-col gap-3">
-						<h3 className="text-sm font-bold text-foreground">
-							Claims ({status.claims.length})
-						</h3>
+						<h3 className="text-sm font-bold text-foreground">Claims ({status.claims.length})</h3>
 						{status.claims.length === 0 ? (
 							<p className="rounded-xl border border-border bg-background p-6 text-center text-xs text-muted">
-								Nothing is claimed, so no workers are running and no API answers. A fresh instance is
-								normally seeded with one catch-all claim.
+								Nothing is claimed, so no workers are running and no API answers. A fresh instance
+								is normally seeded with one catch-all claim.
 							</p>
 						) : (
 							status.claims.map((claim) => (
@@ -157,9 +152,12 @@ export function OrchestrationSettings() {
 									<TbHistory size={18} />
 								</div>
 								<div>
-									<h4 className="text-sm font-semibold text-foreground">Instance Activity & History</h4>
+									<h4 className="text-sm font-semibold text-foreground">
+										Instance Activity & History
+									</h4>
 									<p className="text-xs text-muted">
-										{events.length} lifecycle event{events.length === 1 ? "" : "s"} recorded across this instance.
+										{events.length} lifecycle event{events.length === 1 ? "" : "s"} recorded across
+										this instance.
 									</p>
 								</div>
 							</div>

@@ -1,20 +1,13 @@
-import { z } from "zod";
-import { requestBodySchema, responseSchema } from "./dto";
-import {
-	createIntegration,
-	getAppConfigKeys,
-	integrationExistByName,
-} from "./repository";
-import { db } from "../../../../db";
 import { generateID } from "@fluxify/lib";
+import type { z } from "zod";
+import { db } from "../../../../db";
+import { CHAN_ON_INTEGRATION_CHANGE, publishMessage } from "../../../../db/redis";
 import { ConflictError } from "../../../../errors/conflictError";
-import { ServerError } from "../../../../errors/serverError";
 import { NotFoundError } from "../../../../errors/notFoundError";
-import {
-	CHAN_ON_INTEGRATION_CHANGE,
-	publishMessage,
-} from "../../../../db/redis";
+import { ServerError } from "../../../../errors/serverError";
 import { getIntegrationTags } from "../schemas";
+import type { requestBodySchema, responseSchema } from "./dto";
+import { createIntegration, getAppConfigKeys, integrationExistByName } from "./repository";
 
 export default async function handleRequest(
 	projectId: string,
@@ -69,7 +62,7 @@ export function getAppConfigKeysFromData(integrationConfig: any) {
 
 	while (q.length > 0) {
 		const obj = q.shift()!;
-		for (let key in obj) {
+		for (const key in obj) {
 			const value = obj[key];
 			if (typeof value === "object") {
 				q.push(value);

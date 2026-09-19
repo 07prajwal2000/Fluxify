@@ -10,21 +10,22 @@ export const baseEnvSchema = z.object({
 	NODE_ENV: z
 		.enum(["development", "production", "testing", "test", "ci", "staging"])
 		.optional()
-		.describe("Node execution environment mode (development | production | testing | test | ci | staging)"),
+		.describe(
+			"Node execution environment mode (development | production | testing | test | ci | staging)",
+		),
 
 	ENVIRONMENT: z
 		.enum(["development", "production", "testing", "test", "ci", "staging"])
 		.optional()
-		.describe("Application deployment environment (development | production | testing | test | ci | staging)"),
+		.describe(
+			"Application deployment environment (development | production | testing | test | ci | staging)",
+		),
 
 	PG_URL: z
 		.string()
 		.optional()
 		.refine(
-			(val) =>
-				!val ||
-				/^postgres(ql)?:\/\//.test(val) ||
-				z.string().url().safeParse(val).success,
+			(val) => !val || /^postgres(ql)?:\/\//.test(val) || z.string().url().safeParse(val).success,
 			{
 				message: "PG_URL must be a valid PostgreSQL connection string or URL",
 			},
@@ -90,13 +91,9 @@ export const baseEnvSchema = z.object({
 	NATS_URL: z
 		.string()
 		.optional()
-		.refine(
-			(val) =>
-				!val ||
-				/^nats:\/\//.test(val) ||
-				z.string().url().safeParse(val).success,
-			{ message: "NATS_URL must be a valid NATS connection URL (e.g. nats://localhost:4222)" },
-		)
+		.refine((val) => !val || /^nats:\/\//.test(val) || z.string().url().safeParse(val).success, {
+			message: "NATS_URL must be a valid NATS connection URL (e.g. nats://localhost:4222)",
+		})
 		.describe("NATS event bus server connection URL"),
 
 	NATS_TOKEN: z

@@ -1,12 +1,12 @@
 import { Children, isValidElement, type ReactNode } from "react";
 import { TbAlertCircle, TbAlertTriangle, TbCheck, TbInfoCircle, TbX } from "react-icons/tb";
 import "./blocks.css";
+import { useBlockDiagnostics } from "../diagnostics";
+import { DIAGNOSTICS_TAB } from "../panel/BlockSettings";
+import { useCanvasPanel } from "../panel/PanelContext";
 import { BlockToolbar, useHoverIntent } from "./BlockToolbar";
 import { BlockHandle, type BlockHandleProps } from "./handles/BlockHandle";
 import { HANDLE_CONFIG, type HandleSide } from "./handles/handleConfig";
-import { useBlockDiagnostics } from "../diagnostics";
-import { useCanvasPanel } from "../panel/PanelContext";
-import { DIAGNOSTICS_TAB } from "../panel/BlockSettings";
 
 export type BaseBlockProps = {
 	blockId: string;
@@ -76,8 +76,7 @@ export function BaseBlock({
 }: BaseBlockProps) {
 	const { rails, body } = splitChildren(children);
 	const { hovered, hoverProps } = useHoverIntent();
-	const statusClass =
-		status === true ? "fx-block--ok" : status === false ? "fx-block--fail" : "";
+	const statusClass = status === true ? "fx-block--ok" : status === false ? "fx-block--fail" : "";
 	const { severitiesForBlock, forBlock } = useBlockDiagnostics();
 	const panel = useCanvasPanel();
 	const { hasError, hasWarning, hasInfo } = severitiesForBlock(blockId);
@@ -90,12 +89,7 @@ export function BaseBlock({
 			data-block-type={blockType}
 			data-x={position?.x}
 			data-y={position?.y}
-			className={[
-				"fx-block",
-				statusClass,
-				selected ? "fx-block--selected" : "",
-				className ?? "",
-			]
+			className={["fx-block", statusClass, selected ? "fx-block--selected" : "", className ?? ""]
 				.filter(Boolean)
 				.join(" ")}
 		>
@@ -109,6 +103,7 @@ export function BaseBlock({
 			)}
 			{status != null && (
 				<span
+					role="img"
 					className={`fx-block__status fx-block__status--${status ? "ok" : "fail"}`}
 					title={status ? "Succeeded" : "Failed"}
 					aria-label={status ? "Succeeded" : "Failed"}
@@ -117,7 +112,7 @@ export function BaseBlock({
 				</span>
 			)}
 			{(hasInfo || hasWarning || hasError) && (
-				<div className="fx-block__diagnostics" aria-label="Block diagnostics">
+				<div className="fx-block__diagnostics" role="group" aria-label="Block diagnostics">
 					{hasInfo && (
 						<button
 							type="button"
@@ -169,9 +164,7 @@ export function BaseBlock({
 			)}
 			<span className="fx-block__text">
 				<span className="fx-block__name">{name}</span>
-				{description && (
-					<span className="fx-block__description">{description}</span>
-				)}
+				{description && <span className="fx-block__description">{description}</span>}
 			</span>
 			{body}
 			{RAIL_SIDES.map((side) =>

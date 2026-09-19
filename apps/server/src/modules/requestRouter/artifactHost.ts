@@ -1,11 +1,11 @@
 import { watchArtifacts } from "../../db/natsKv";
-import { artifactKind, projectArtifactFilters } from "../compiler/subjects";
+import { EncryptionService } from "../../lib/encryption";
 import type {
 	ProjectConfigArtifact,
 	ProjectConfigPayload,
 	UnsealedProjectConfig,
 } from "../compiler/artifacts";
-import { EncryptionService } from "../../lib/encryption";
+import { artifactKind, projectArtifactFilters } from "../compiler/subjects";
 import type { ArtifactEntry } from "./compiledRuntime";
 
 /**
@@ -40,9 +40,7 @@ function unseal(key: string, value: unknown) {
 	if (value === null || artifactKind(key) !== "project-config") return value;
 
 	const artifact = value as ProjectConfigArtifact;
-	const payload: ProjectConfigPayload = JSON.parse(
-		EncryptionService.decrypt(artifact.sealed),
-	);
+	const payload: ProjectConfigPayload = JSON.parse(EncryptionService.decrypt(artifact.sealed));
 	return {
 		projectId: artifact.projectId,
 		payload,

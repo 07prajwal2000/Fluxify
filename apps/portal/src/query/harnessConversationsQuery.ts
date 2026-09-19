@@ -72,11 +72,7 @@ export const harnessConversationsQuery = {
 			return useInfiniteQuery({
 				queryKey: [...key(projectId), conversationId, "messages"],
 				queryFn: ({ pageParam }) =>
-					harnessConversationsService.listMessages(
-						projectId,
-						conversationId,
-						pageParam,
-					),
+					harnessConversationsService.listMessages(projectId, conversationId, pageParam),
 				initialPageParam: undefined as string | undefined,
 				getNextPageParam: (last) => last.pagination.nextCursor ?? undefined,
 				enabled: Boolean(conversationId),
@@ -88,9 +84,8 @@ export const harnessConversationsQuery = {
 		mutation(projectId: string, conversationId: string) {
 			const qc = useQueryClient();
 			return useMutation({
-				mutationFn: (
-					body: z.infer<typeof harnessConversationsService.updateRequestBodySchema>,
-				) => harnessConversationsService.update(projectId, conversationId, body),
+				mutationFn: (body: z.infer<typeof harnessConversationsService.updateRequestBodySchema>) =>
+					harnessConversationsService.update(projectId, conversationId, body),
 				onSuccess: () => qc.invalidateQueries({ queryKey: key(projectId) }),
 			});
 		},
@@ -122,21 +117,13 @@ export const harnessConversationsQuery = {
 			return useQuery({
 				queryKey: [...key(projectId), conversationId, "sub-artifacts", runId],
 				queryFn: () =>
-					harnessConversationsService.listRunSubArtifacts(
-						projectId,
-						conversationId,
-						runId,
-					),
+					harnessConversationsService.listRunSubArtifacts(projectId, conversationId, runId),
 				enabled: Boolean(conversationId && runId),
 				refetchOnWindowFocus: false,
 			});
 		},
 		/** One output with its `payload` — only fetch when the panel opens. */
-		useDetailQuery(
-			projectId: string,
-			conversationId: string,
-			subArtifactId: string | null,
-		) {
+		useDetailQuery(projectId: string, conversationId: string, subArtifactId: string | null) {
 			return useQuery({
 				queryKey: [...key(projectId), conversationId, "sub-artifact", subArtifactId],
 				queryFn: () =>
@@ -155,8 +142,7 @@ export const harnessConversationsQuery = {
 			return useQueries({
 				queries: ids.map((id) => ({
 					queryKey: [...key(projectId), conversationId, "sub-artifact", id],
-					queryFn: () =>
-						harnessConversationsService.getSubArtifact(projectId, conversationId, id),
+					queryFn: () => harnessConversationsService.getSubArtifact(projectId, conversationId, id),
 					enabled: Boolean(conversationId && id),
 					refetchOnWindowFocus: false,
 				})),
@@ -168,11 +154,7 @@ export const harnessConversationsQuery = {
 			const qc = useQueryClient();
 			return useMutation({
 				mutationFn: (subArtifactId: string) =>
-					harnessConversationsService.applySubArtifact(
-						projectId,
-						conversationId,
-						subArtifactId,
-					),
+					harnessConversationsService.applySubArtifact(projectId, conversationId, subArtifactId),
 				onSuccess: () => invalidateApplied(qc, projectId),
 			});
 		},
@@ -182,11 +164,7 @@ export const harnessConversationsQuery = {
 			const qc = useQueryClient();
 			return useMutation({
 				mutationFn: (artifactId: string) =>
-					harnessConversationsService.applyArtifact(
-						projectId,
-						conversationId,
-						artifactId,
-					),
+					harnessConversationsService.applyArtifact(projectId, conversationId, artifactId),
 				onSuccess: () => invalidateApplied(qc, projectId),
 			});
 		},
@@ -195,9 +173,8 @@ export const harnessConversationsQuery = {
 		mutation(projectId: string, conversationId: string) {
 			const qc = useQueryClient();
 			return useMutation({
-				mutationFn: (
-					body: z.infer<typeof harnessConversationsService.actionRequestBodySchema>,
-				) => harnessConversationsService.action(projectId, conversationId, body),
+				mutationFn: (body: z.infer<typeof harnessConversationsService.actionRequestBodySchema>) =>
+					harnessConversationsService.action(projectId, conversationId, body),
 				onSuccess: () => qc.invalidateQueries({ queryKey: key(projectId) }),
 			});
 		},

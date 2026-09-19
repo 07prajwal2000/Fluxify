@@ -1,11 +1,11 @@
+import { logger } from "@fluxify/common";
 import { SQL } from "bun";
+import type { ExtractTablesWithRelations } from "drizzle-orm";
+import type { BunSQLDatabase, BunSQLQueryResultHKT } from "drizzle-orm/bun-sql";
 import { drizzle } from "drizzle-orm/bun-sql";
 import type { PgTransaction } from "drizzle-orm/pg-core";
-import type { BunSQLQueryResultHKT, BunSQLDatabase } from "drizzle-orm/bun-sql";
-import type { ExtractTablesWithRelations } from "drizzle-orm";
-import { migrateDB } from "./migration";
-import { logger } from "@fluxify/common";
 import { getEnv } from "../lib/env";
+import { migrateDB } from "./migration";
 
 let db: BunSQLDatabase = null!;
 
@@ -24,9 +24,7 @@ async function initializePostgres() {
 	const client = new SQL(pgUrl);
 	db = drizzle({ client });
 
-	const result = await db.execute<{ connected: number }>(
-		`select 1 as connected`,
-	);
+	const result = await db.execute<{ connected: number }>(`select 1 as connected`);
 	if (result[0].connected) {
 		logger.info("postgres database initialized");
 	} else {
@@ -45,4 +43,3 @@ export type DbTransactionType = PgTransaction<
 >;
 
 export * from "./agent-harness-schema";
-

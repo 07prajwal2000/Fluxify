@@ -1,6 +1,6 @@
 import { useNavigate } from "@tanstack/react-router";
-import { routesQuery } from "@/query/routesQuery";
 import { EntitySwitcher } from "@/components/common/EntitySwitcher";
+import { routesQuery } from "@/query/routesQuery";
 
 const METHOD_COLOR: Record<string, string> = {
 	GET: "text-accent",
@@ -18,13 +18,7 @@ function MethodTag({ method }: { method: string }) {
 }
 
 /** The shared canvas header nav, filled with this project's routes. */
-export function RouteSwitcher({
-	projectId,
-	routeId,
-}: {
-	projectId: string;
-	routeId: string;
-}) {
+export function RouteSwitcher({ projectId, routeId }: { projectId: string; routeId: string }) {
 	const navigate = useNavigate();
 	// 50 is the server's max perPage. Past that the switcher only walks the first
 	// page — the list screen is the way to reach the rest.
@@ -32,9 +26,10 @@ export function RouteSwitcher({
 	const byId = routesQuery.byId.useQuery(routeId);
 	const listed = data?.data ?? [];
 	// The open route can sit past page 1; keep it selectable either way.
-	const routes = listed.some((route) => route.id === routeId) || !byId.data
-		? listed
-		: [{ ...byId.data, name: byId.data.name ?? null }, ...listed];
+	const routes =
+		listed.some((route) => route.id === routeId) || !byId.data
+			? listed
+			: [{ ...byId.data, name: byId.data.name ?? null }, ...listed];
 
 	return (
 		<EntitySwitcher

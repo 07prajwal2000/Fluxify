@@ -3,8 +3,8 @@ import {
 	type CreateTriggerBody,
 	type DeleteGroupOptions,
 	type ListTriggersQuery,
-	type UpdateTriggerBody,
 	triggersService,
+	type UpdateTriggerBody,
 } from "@/services/triggers";
 
 const LIST_KEY = ["triggers", "list"];

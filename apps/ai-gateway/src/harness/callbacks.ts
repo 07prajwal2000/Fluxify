@@ -1,35 +1,35 @@
-import { dispatchCustomEvent } from "@langchain/core/callbacks/dispatch";
 import { logger } from "@fluxify/common";
-import {
-	AgentNode,
-	type GlobalGraphState,
-	type AgentNodeName,
-	type CustomEventName,
-	type AgentCustomEvent,
-	type ToolCallEventData,
-} from "./types";
-import {
-	type HarnessStreamEvent,
-	type HarnessNodePayload,
-	type HarnessNodeStatus,
-	type HarnessExecutionType,
-	type HarnessEventNode,
-	type HarnessRunStatus,
-	levelForNode,
-	runStatusForNode,
-	labelForNode,
-	nodeIdFor,
-	nodeMessage,
-	toolMessage,
-	buildTasksByLevel,
-	activeLevelIndex,
-} from "./streamTypes";
+import { dispatchCustomEvent } from "@langchain/core/callbacks/dispatch";
+import { explainErrorReason } from "./errors";
 import type { HarnessService } from "./internal/harnessService";
 import type { RedisService } from "./internal/redisService";
-import { publishHarnessEvent, publishHarnessStats } from "./notifications";
-import { explainErrorReason } from "./errors";
 import type { RetryWarningInfo } from "./models/base";
 import type { RunBudget } from "./models/budget";
+import { publishHarnessEvent, publishHarnessStats } from "./notifications";
+import {
+	activeLevelIndex,
+	buildTasksByLevel,
+	type HarnessEventNode,
+	type HarnessExecutionType,
+	type HarnessNodePayload,
+	type HarnessNodeStatus,
+	type HarnessRunStatus,
+	type HarnessStreamEvent,
+	labelForNode,
+	levelForNode,
+	nodeIdFor,
+	nodeMessage,
+	runStatusForNode,
+	toolMessage,
+} from "./streamTypes";
+import {
+	type AgentCustomEvent,
+	AgentNode,
+	type AgentNodeName,
+	type CustomEventName,
+	type GlobalGraphState,
+	type ToolCallEventData,
+} from "./types";
 
 export async function dispatchAgentEvent(event: AgentCustomEvent): Promise<void> {
 	await dispatchCustomEvent(event.name, event.data);
@@ -37,9 +37,7 @@ export async function dispatchAgentEvent(event: AgentCustomEvent): Promise<void>
 
 /** Valid graph-node names. `streamEvents` also emits chain events for nested
  *  LLM/tool runnables — those are filtered out so we only persist real nodes. */
-const GRAPH_NODES: ReadonlySet<string> = new Set<string>(
-	Object.values(AgentNode),
-);
+const GRAPH_NODES: ReadonlySet<string> = new Set<string>(Object.values(AgentNode));
 
 /** Nodes whose accumulated state a later run pass actually reads back — i.e.
  *  the ones a resume rehydrates from. See `onAfter`.
@@ -225,7 +223,10 @@ export class HarnessCallbacks {
 				if (!task) return undefined;
 				const result = output.orchestratorState?.subAgentResults?.[task.id];
 				return {
-					node: node as AgentNode.BLOCK_BUILDER | AgentNode.ROUTE_CONFIG_AGENT | AgentNode.CUSTOM_BLOCK_CONFIG_AGENT,
+					node: node as
+						| AgentNode.BLOCK_BUILDER
+						| AgentNode.ROUTE_CONFIG_AGENT
+						| AgentNode.CUSTOM_BLOCK_CONFIG_AGENT,
 					data: {
 						task: {
 							id: task.id,
@@ -324,10 +325,7 @@ export class HarnessCallbacks {
 		this.emitStats();
 	}
 
-	public async onCustomEvent(
-		eventName: CustomEventName,
-		eventData: any,
-	): Promise<void> {
+	public async onCustomEvent(eventName: CustomEventName, eventData: any): Promise<void> {
 		if (eventName === "agent_status") {
 			const node = (eventData?.agent ?? AgentNode.ROUTER) as AgentNodeName;
 			if (!GRAPH_NODES.has(node)) return;

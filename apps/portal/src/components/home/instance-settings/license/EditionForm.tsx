@@ -1,8 +1,8 @@
-import { useState } from "react";
 import { Button, Checkbox, cn, toast } from "@fluxify/components";
+import { useState } from "react";
 import { TbHeart, TbKey, TbUsers } from "react-icons/tb";
-import { instanceSettingsQuery } from "@/query/instanceSettingsQuery";
 import { showErrorNotification } from "@/lib/errorNotifier";
+import { instanceSettingsQuery } from "@/query/instanceSettingsQuery";
 import type { LicenseView, SetLicenseBody } from "@/services/instanceSettings";
 
 type Edition = LicenseView["edition"];
@@ -22,7 +22,12 @@ const OPTIONS: { id: Edition; label: string; hint: string; icon: typeof TbKey }[
 		hint: "Every Enterprise feature, free for personal, education and non-profit use.",
 		icon: TbHeart,
 	},
-	{ id: "enterprise", label: "Enterprise", hint: "Activate a license key you were issued.", icon: TbKey },
+	{
+		id: "enterprise",
+		label: "Enterprise",
+		hint: "Activate a license key you were issued.",
+		icon: TbKey,
+	},
 ];
 
 /** Switches the edition. Read-only while LICENSE_KEY is set in the environment. */
@@ -88,7 +93,12 @@ export function EditionForm({ view }: { view: LicenseView }) {
 						onChange={setConfirmed}
 						label="I confirm this instance is used only for personal, education, or non-profit purposes."
 					/>
-					<a href={LICENSING_DOCS} target="_blank" rel="noreferrer" className="pl-7 text-xs text-accent hover:underline">
+					<a
+						href={LICENSING_DOCS}
+						target="_blank"
+						rel="noreferrer"
+						className="pl-7 text-xs text-accent hover:underline"
+					>
 						Who qualifies for non-commercial use
 					</a>
 				</div>
@@ -96,7 +106,10 @@ export function EditionForm({ view }: { view: LicenseView }) {
 
 			{!readOnly && edition === "enterprise" && (
 				<div className="flex flex-col gap-1.5">
-					<label htmlFor="license-key" className="text-[10px] font-bold uppercase tracking-widest text-muted">
+					<label
+						htmlFor="license-key"
+						className="text-[10px] font-bold uppercase tracking-widest text-muted"
+					>
 						License key
 					</label>
 					<textarea
@@ -116,7 +129,13 @@ export function EditionForm({ view }: { view: LicenseView }) {
 
 			{!readOnly && (
 				<div className="flex justify-end">
-					<Button type="submit" variant="primary" isDisabled={!body} isPending={setLicense.isPending} className="h-8 px-4 text-xs font-semibold">
+					<Button
+						type="submit"
+						variant="primary"
+						isDisabled={!body}
+						isPending={setLicense.isPending}
+						className="h-8 px-4 text-xs font-semibold"
+					>
 						Save edition
 					</Button>
 				</div>

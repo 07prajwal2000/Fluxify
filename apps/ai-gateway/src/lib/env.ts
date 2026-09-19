@@ -79,10 +79,8 @@ export const LLM_OTLP_TRACES_ENDPOINT = getEnv("LLM_OTLP_TRACES_ENDPOINT")!;
 export const LLM_OTLP_TRACES_HEADERS = getEnv("LLM_OTLP_TRACES_HEADERS");
 export const LLM_TRACING_SAMPLE_RATE = Number(getEnv("LLM_TRACING_SAMPLE_RATE") ?? "1.0");
 
-export const OTLP_LOGGER_LEVEL: LogLevel =
-	(getEnv("OTLP_LOGGER_LEVEL") as LogLevel) || "info";
-export const NODE_ENV: EnvType =
-	(getEnv("NODE_ENV") as EnvType) || "development";
+export const OTLP_LOGGER_LEVEL: LogLevel = (getEnv("OTLP_LOGGER_LEVEL") as LogLevel) || "info";
+export const NODE_ENV: EnvType = (getEnv("NODE_ENV") as EnvType) || "development";
 export const REDIS_HOST = getEnv("REDIS_HOST")!;
 export const REDIS_PORT = getEnv("REDIS_PORT")!;
 export const REDIS_USER = getEnv("REDIS_USER")!;
@@ -91,5 +89,4 @@ export const REDIS_PASS = getEnv("REDIS_PASS")!;
  *  memory and expected AI workload — every slot holds a full graph run. */
 export const HARNESS_CONCURRENT_JOBS = Number(getEnv("HARNESS_CONCURRENT_JOBS")) || 10;
 export const AI_GATEWAY_PORT = Number(getEnv("AI_GATEWAY_PORT")) || 8001;
-export const DOCS_INDEX_FILE_PATH =
-	getEnv("DOCS_INDEX_FILE_PATH")! || "../dist/docs-index.bin";
+export const DOCS_INDEX_FILE_PATH = getEnv("DOCS_INDEX_FILE_PATH")! || "../dist/docs-index.bin";

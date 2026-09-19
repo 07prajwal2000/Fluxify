@@ -1,9 +1,13 @@
-import { useState, type ReactNode } from "react";
 import { Button, cn, integrationIcons, toast } from "@fluxify/components";
 import {
-	FaRobot,
-	FaTableList,
-} from "react-icons/fa6";
+	getDefaultVariantValue,
+	getIntegrationsGroups,
+	getIntegrationsVariants,
+	getSchema,
+	humanReadableConnectorNames,
+} from "@fluxify/server/src/api/v1/integrations/helpers";
+import { type ReactNode, useState } from "react";
+import { FaRobot, FaTableList } from "react-icons/fa6";
 import {
 	TbArrowLeft,
 	TbArrowsExchange,
@@ -13,22 +17,15 @@ import {
 	TbDatabase,
 	TbHeartRateMonitor,
 } from "react-icons/tb";
-import {
-	getDefaultVariantValue,
-	getIntegrationsGroups,
-	getIntegrationsVariants,
-	getSchema,
-	humanReadableConnectorNames,
-} from "@fluxify/server/src/api/v1/integrations/helpers";
+import { EnterpriseGate } from "@/components/common/Enterprise";
 import { showErrorNotification } from "@/lib/errorNotifier";
 import { integrationsQuery } from "@/query/integrationsQuery";
 import { AiForm } from "./connectors/AiForm";
 import { CredentialsUrlForm } from "./connectors/CredentialsUrlForm";
-import { ObservabilityForm } from "./connectors/ObservabilityForm";
 import { KafkaForm } from "./connectors/KafkaForm";
 import { NatsForm } from "./connectors/NatsForm";
+import { ObservabilityForm } from "./connectors/ObservabilityForm";
 import { SqsForm } from "./connectors/SqsForm";
-import { EnterpriseGate } from "@/components/common/Enterprise";
 
 type Step = 1 | 2 | 3;
 
@@ -43,12 +40,72 @@ function gateQueue(group: string, card: ReactNode, key: string) {
 	);
 }
 
-const CRED_PLACEHOLDERS: Record<string, { ph: Record<string, string>; ssl?: boolean; db?: boolean; dbLabel?: string }> = {
-	PostgreSQL: { ph: { name: "My Postgres Database", host: "postgres.company.com", port: "5432", username: "postgres", password: "secret", database: "ecommerce", url: "postgres://user:pass@host:port/dbname?ssl=disable" }, ssl: true, db: true },
-	MySQL: { ph: { name: "My MySQL Database", host: "mysql.company.com", port: "3306", username: "root", password: "secret", database: "ecommerce", url: "mysql://user:pass@host:port/dbname?ssl=disable" }, db: true },
-	MongoDB: { ph: { name: "My MongoDB Database", host: "localhost", port: "27017", username: "mongo_user", password: "secret", database: "mydatabase", url: "mongodb://user:pass@host:port/dbname" }, db: true },
-	Redis: { ph: { name: "My Redis Cache", host: "redis.company.com", port: "6379", username: "default", password: "secret", url: "redis://user:pass@host:port/0", database: "0" }, db: true, dbLabel: "DB Index" },
-	Memcached: { ph: { name: "My Memcached Instance", host: "memcached.company.com", port: "11211", username: "default", password: "secret", url: "memcached://user:pass@host:port", database: "" }, db: false },
+const CRED_PLACEHOLDERS: Record<
+	string,
+	{ ph: Record<string, string>; ssl?: boolean; db?: boolean; dbLabel?: string }
+> = {
+	PostgreSQL: {
+		ph: {
+			name: "My Postgres Database",
+			host: "postgres.company.com",
+			port: "5432",
+			username: "postgres",
+			password: "secret",
+			database: "ecommerce",
+			url: "postgres://user:pass@host:port/dbname?ssl=disable",
+		},
+		ssl: true,
+		db: true,
+	},
+	MySQL: {
+		ph: {
+			name: "My MySQL Database",
+			host: "mysql.company.com",
+			port: "3306",
+			username: "root",
+			password: "secret",
+			database: "ecommerce",
+			url: "mysql://user:pass@host:port/dbname?ssl=disable",
+		},
+		db: true,
+	},
+	MongoDB: {
+		ph: {
+			name: "My MongoDB Database",
+			host: "localhost",
+			port: "27017",
+			username: "mongo_user",
+			password: "secret",
+			database: "mydatabase",
+			url: "mongodb://user:pass@host:port/dbname",
+		},
+		db: true,
+	},
+	Redis: {
+		ph: {
+			name: "My Redis Cache",
+			host: "redis.company.com",
+			port: "6379",
+			username: "default",
+			password: "secret",
+			url: "redis://user:pass@host:port/0",
+			database: "0",
+		},
+		db: true,
+		dbLabel: "DB Index",
+	},
+	Memcached: {
+		ph: {
+			name: "My Memcached Instance",
+			host: "memcached.company.com",
+			port: "11211",
+			username: "default",
+			password: "secret",
+			url: "memcached://user:pass@host:port",
+			database: "",
+		},
+		db: false,
+	},
 };
 
 const GROUP_DETAILS: Record<string, { description: string; icon: ReactNode }> = {
@@ -56,8 +113,14 @@ const GROUP_DETAILS: Record<string, { description: string; icon: ReactNode }> = 
 	kv: { description: "Connect a cache or key-value store", icon: <FaTableList size={18} /> },
 	ai: { description: "Connect an AI provider or compatible endpoint", icon: <FaRobot size={18} /> },
 	baas: { description: "Connect a managed backend service", icon: <TbCloudCog size={20} /> },
-	observability: { description: "Send logs and telemetry to your stack", icon: <TbHeartRateMonitor size={20} /> },
-	queue: { description: "Start workflows from a message queue", icon: <TbArrowsExchange size={20} /> },
+	observability: {
+		description: "Send logs and telemetry to your stack",
+		icon: <TbHeartRateMonitor size={20} />,
+	},
+	queue: {
+		description: "Start workflows from a message queue",
+		icon: <TbArrowsExchange size={20} />,
+	},
 };
 
 function setPath(obj: Record<string, unknown>, path: string, value: unknown) {
@@ -73,7 +136,13 @@ function setPath(obj: Record<string, unknown>, path: string, value: unknown) {
 	return next;
 }
 
-export function IntegrationOnboardingForm({ projectId, onSaved }: { projectId: string; onSaved?: () => void }) {
+export function IntegrationOnboardingForm({
+	projectId,
+	onSaved,
+}: {
+	projectId: string;
+	onSaved?: () => void;
+}) {
 	const create = integrationsQuery.create.mutation(projectId);
 	const test = integrationsQuery.testConnection.mutation(projectId);
 	const [step, setStep] = useState<Step>(1);
@@ -127,7 +196,9 @@ export function IntegrationOnboardingForm({ projectId, onSaved }: { projectId: s
 			{ group, variant, config: parsed.data },
 			{
 				onSuccess: (res) =>
-					res?.success ? toast.success("Connection successful") : toast.danger(res?.error ?? "Connection failed"),
+					res?.success
+						? toast.success("Connection successful")
+						: toast.danger(res?.error ?? "Connection failed"),
 				onError: (error) => showErrorNotification(error as Error),
 			},
 		);
@@ -145,31 +216,35 @@ export function IntegrationOnboardingForm({ projectId, onSaved }: { projectId: s
 			return;
 		}
 
-		create.mutate(
-			{ name, group, variant, config: parsed.data } as never,
-			{
-				onSuccess: () => {
-					toast.success("Integration connected");
-					onSaved?.();
-				},
-				onError: (error) => showErrorNotification(error as Error),
+		create.mutate({ name, group, variant, config: parsed.data } as never, {
+			onSuccess: () => {
+				toast.success("Integration connected");
+				onSaved?.();
 			},
-		);
+			onError: (error) => showErrorNotification(error as Error),
+		});
 	}
 
 	const formProps = { projectId, name, onName: setName, config, setField };
-	const groupName = group ? humanReadableConnectorNames[group as keyof typeof humanReadableConnectorNames] : "";
+	const groupName = group
+		? humanReadableConnectorNames[group as keyof typeof humanReadableConnectorNames]
+		: "";
 
 	return (
 		<div className="flex flex-1 flex-col min-h-0">
 			<nav aria-label="Integration setup steps" className="shrink-0 border-b border-border pb-3">
 				<ol className="grid grid-cols-3 gap-2">
-					{([
-						[1, "Category"],
-						[2, "Provider"],
-						[3, "Configure"],
-					] as const).map(([number, label]) => {
-						const available = number === 1 || (number === 2 && Boolean(group)) || (number === 3 && Boolean(variant));
+					{(
+						[
+							[1, "Category"],
+							[2, "Provider"],
+							[3, "Configure"],
+						] as const
+					).map(([number, label]) => {
+						const available =
+							number === 1 ||
+							(number === 2 && Boolean(group)) ||
+							(number === 3 && Boolean(variant));
 						const complete = number < step;
 						const current = step === number;
 						return (
@@ -209,8 +284,13 @@ export function IntegrationOnboardingForm({ projectId, onSaved }: { projectId: s
 				{step === 1 && (
 					<section aria-labelledby="integration-category-heading">
 						<div>
-							<p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-accent">Step 1 of 3</p>
-							<h2 id="integration-category-heading" className="mt-1 text-lg font-semibold tracking-tight text-foreground">
+							<p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-accent">
+								Step 1 of 3
+							</p>
+							<h2
+								id="integration-category-heading"
+								className="mt-1 text-lg font-semibold tracking-tight text-foreground"
+							>
 								What would you like to connect?
 							</h2>
 							<p className="mt-0.5 text-xs text-muted">
@@ -219,7 +299,10 @@ export function IntegrationOnboardingForm({ projectId, onSaved }: { projectId: s
 						</div>
 						<div className="mt-3.5 grid gap-2.5 sm:grid-cols-2">
 							{groups.map((item) => {
-								const detail = GROUP_DETAILS[item] ?? { description: "Connect a service", icon: <TbCloudCog size={20} /> };
+								const detail = GROUP_DETAILS[item] ?? {
+									description: "Connect a service",
+									icon: <TbCloudCog size={20} />,
+								};
 								const isAvailable = getIntegrationsVariants(item as never).length > 0;
 								return (
 									<button
@@ -246,7 +329,11 @@ export function IntegrationOnboardingForm({ projectId, onSaved }: { projectId: s
 										</span>
 										<span className="min-w-0 flex-1">
 											<span className="block truncate text-sm font-semibold text-foreground">
-												{humanReadableConnectorNames[item as keyof typeof humanReadableConnectorNames]}
+												{
+													humanReadableConnectorNames[
+														item as keyof typeof humanReadableConnectorNames
+													]
+												}
 											</span>
 											<span className="mt-0.5 block truncate text-xs text-muted">
 												{isAvailable ? detail.description : "Coming soon"}
@@ -262,26 +349,35 @@ export function IntegrationOnboardingForm({ projectId, onSaved }: { projectId: s
 				{step === 2 && (
 					<section aria-labelledby="integration-provider-heading">
 						<div>
-							<p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-accent">Step 2 of 3</p>
-							<h2 id="integration-provider-heading" className="mt-1 text-lg font-semibold tracking-tight text-foreground">
+							<p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-accent">
+								Step 2 of 3
+							</p>
+							<h2
+								id="integration-provider-heading"
+								className="mt-1 text-lg font-semibold tracking-tight text-foreground"
+							>
 								Choose a {groupName.toLowerCase()} provider
 							</h2>
 							<p className="mt-0.5 text-xs text-muted">Select the service you want to configure.</p>
 						</div>
 						<div className="mt-3.5 grid gap-2.5 sm:grid-cols-2">
-							{variants.map((item) => gateQueue(group, (
-								<button
-									key={item}
-									type="button"
-									onClick={() => chooseVariant(item)}
-									className="group flex items-center gap-3.5 rounded-xl border border-border bg-surface p-3 text-left transition-all duration-150 hover:border-accent hover:bg-surface-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
-								>
-									<span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-surface-secondary text-foreground transition-colors group-hover:bg-accent group-hover:text-accent-foreground">
-										{integrationIcons[item] ?? GROUP_DETAILS[group]?.icon}
-									</span>
-									<span className="truncate text-sm font-semibold text-foreground">{item}</span>
-								</button>
-							), item))}
+							{variants.map((item) =>
+								gateQueue(
+									group,
+									<button
+										key={item}
+										type="button"
+										onClick={() => chooseVariant(item)}
+										className="group flex items-center gap-3.5 rounded-xl border border-border bg-surface p-3 text-left transition-all duration-150 hover:border-accent hover:bg-surface-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
+									>
+										<span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-surface-secondary text-foreground transition-colors group-hover:bg-accent group-hover:text-accent-foreground">
+											{integrationIcons[item] ?? GROUP_DETAILS[group]?.icon}
+										</span>
+										<span className="truncate text-sm font-semibold text-foreground">{item}</span>
+									</button>,
+									item,
+								),
+							)}
 						</div>
 					</section>
 				)}
@@ -290,8 +386,13 @@ export function IntegrationOnboardingForm({ projectId, onSaved }: { projectId: s
 					<section aria-labelledby="integration-configure-heading" className="flex flex-1 flex-col">
 						<div className="flex items-center justify-between">
 							<div>
-								<p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-accent">Step 3 of 3</p>
-								<h2 id="integration-configure-heading" className="mt-1 text-lg font-semibold tracking-tight text-foreground">
+								<p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-accent">
+									Step 3 of 3
+								</p>
+								<h2
+									id="integration-configure-heading"
+									className="mt-1 text-lg font-semibold tracking-tight text-foreground"
+								>
 									Configure {variant}
 								</h2>
 							</div>
@@ -302,7 +403,9 @@ export function IntegrationOnboardingForm({ projectId, onSaved }: { projectId: s
 								<span className="font-medium text-foreground">{variant}</span>
 							</div>
 						</div>
-						<p className="mt-0.5 text-xs text-muted">Add the connection details and credentials for this service.</p>
+						<p className="mt-0.5 text-xs text-muted">
+							Add the connection details and credentials for this service.
+						</p>
 
 						<div className="mt-4 flex-1">
 							{group === "database" && CRED_PLACEHOLDERS[variant] && (
@@ -321,7 +424,9 @@ export function IntegrationOnboardingForm({ projectId, onSaved }: { projectId: s
 									databaseLabel={CRED_PLACEHOLDERS[variant].dbLabel}
 								/>
 							)}
-							{group === "ai" && <AiForm {...formProps} showBaseUrl={variant === "OpenAI Compatible"} />}
+							{group === "ai" && (
+								<AiForm {...formProps} showBaseUrl={variant === "OpenAI Compatible"} />
+							)}
 							{group === "observability" && variant === "Loki" && (
 								<ObservabilityForm
 									{...formProps}

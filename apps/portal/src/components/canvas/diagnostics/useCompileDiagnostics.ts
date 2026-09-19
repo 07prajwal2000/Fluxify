@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useMemo, useRef } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { systemLogsService, type SystemLog } from "@/services/systemLogs";
+import { useCallback, useEffect, useMemo, useRef } from "react";
+import { type SystemLog, systemLogsService } from "@/services/systemLogs";
 import { COMPILE_SOURCE, compileDiagnostics } from "./compileDiagnostics";
 import { useBlockDiagnostics } from "./DiagnosticsContext";
 
@@ -77,7 +77,12 @@ export function useCompileDiagnostics(
 		async (after: number): Promise<SystemLog | undefined> => {
 			waiting.current = true;
 			setFromSource(COMPILE_SOURCE, [
-				{ severity: "info", message: "Compiling the saved canvas…", source: COMPILE_SOURCE, pending: true },
+				{
+					severity: "info",
+					message: "Compiling the saved canvas…",
+					source: COMPILE_SOURCE,
+					pending: true,
+				},
 			]);
 			try {
 				await qc.invalidateQueries({ queryKey });

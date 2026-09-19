@@ -1,35 +1,35 @@
 import { initializeLogger, logger } from "@fluxify/common";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
-import { mapRouter } from "./modules/requestRouter/router";
-import { loadRoutes } from "./loaders/routesLoader";
-import { drizzleInit } from "./db";
-import { initializeRedis } from "./db/redis";
-import { initializePubSub } from "./db/pubsub";
-import { loadAppConfig } from "./loaders/appconfigLoader";
-import { loadIntegrations } from "./loaders/integrationsLoader";
-import { loadProjectSettings } from "./loaders/projectSettingsLoader";
-import { loadCustomBlocks, initializeCustomBlocksSubscription } from "./loaders/customBlocksLoader";
-import { loadInstanceSettings } from "./loaders/instanceSettingsLoader";
-import { publishConfiguredLicense } from "./api/v1/instance-settings/license/service";
-import { mapVersionedAdminRoutes } from "./api/register";
-import { errorHandler } from "./middlewares/errorHandler";
-import { auth, initializeAuth } from "./lib/auth";
 import authenticationRouter from "./api/auth/register";
-import { AccessControlRole } from "./db/schema";
-import { setSession } from "./middlewares/session";
-import { adminRateLimit } from "./middlewares/rateLimit";
+import { mapVersionedAdminRoutes } from "./api/register";
+import { publishConfiguredLicense } from "./api/v1/instance-settings/license/service";
+import { drizzleInit } from "./db";
+import { initializePubSub } from "./db/pubsub";
+import { initializeRedis } from "./db/redis";
+import type { AccessControlRole } from "./db/schema";
 import { startAiWorker } from "./lib/ai/worker";
+import { type auth, initializeAuth } from "./lib/auth";
 import {
 	ENABLE_BUILTIN_WORKER,
+	getEnv,
 	OTLP_AUTH_HEADER_NAME,
 	OTLP_AUTH_HEADER_VALUE,
 	OTLP_ENDPOINT,
 	OTLP_LOGGER_ENABLED,
 	OTLP_LOGGER_LEVEL,
-	getEnv,
 	validateEnv,
 } from "./lib/env";
+import { loadAppConfig } from "./loaders/appconfigLoader";
+import { initializeCustomBlocksSubscription, loadCustomBlocks } from "./loaders/customBlocksLoader";
+import { loadInstanceSettings } from "./loaders/instanceSettingsLoader";
+import { loadIntegrations } from "./loaders/integrationsLoader";
+import { loadProjectSettings } from "./loaders/projectSettingsLoader";
+import { loadRoutes } from "./loaders/routesLoader";
+import { errorHandler } from "./middlewares/errorHandler";
+import { adminRateLimit } from "./middlewares/rateLimit";
+import { setSession } from "./middlewares/session";
+import { mapRouter } from "./modules/requestRouter/router";
 
 // JSON has no BigInt type; DB drivers return bigint columns as BigInt, which
 // makes JSON.stringify (and Hono's c.json) throw. Serialize as string to avoid
@@ -56,7 +56,9 @@ app.use(
 			// dev: any localhost port; prod: explicit TRUSTED_ORIGINS (real DNS behind proxy)
 			if (origin.startsWith("http://localhost:")) return origin;
 			const trusted =
-				getEnv("TRUSTED_ORIGINS")?.split(",").map((o) => o.trim()) ?? [];
+				getEnv("TRUSTED_ORIGINS")
+					?.split(",")
+					.map((o) => o.trim()) ?? [];
 			return trusted.includes(origin) ? origin : null;
 		},
 		allowHeaders: ["Content-Type", "Authorization", "Accept"],
@@ -126,9 +128,7 @@ async function main() {
 		// this is the process that owns the database connection.
 		const { registerCanvasResponder } = await import("./modules/canvas/rpc");
 		const { registerRouteResponder } = await import("./modules/ops/route");
-		const { registerCustomBlockResponder } = await import(
-			"./modules/ops/customBlock"
-		);
+		const { registerCustomBlockResponder } = await import("./modules/ops/customBlock");
 		const { registerWorkflowResponder } = await import("./modules/ops/workflow");
 		const { registerTriggerFaultResponder } = await import("./modules/ops/triggerFault");
 		registerTriggerFaultResponder();

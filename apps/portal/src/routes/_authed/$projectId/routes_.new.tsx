@@ -1,5 +1,3 @@
-import { useMemo, useState } from "react";
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import {
 	Button,
 	Checkbox,
@@ -8,39 +6,38 @@ import {
 	Label,
 	MultiSelect,
 	SchemaEditor,
+	type SchemaProperty,
 	TextField,
 	toast,
 	type ValidationSchema,
-	type SchemaProperty,
 } from "@fluxify/components";
-import { TbArrowLeft, TbArrowRight, TbCheck } from "react-icons/tb";
-import {
-	DEFAULT_CONTENT_TYPES,
-	type ContentType,
-} from "@fluxify/server/src/lib/routeConfig";
 import { ROUTE_REGEX } from "@fluxify/server/src/api/v1/routes/constants";
-import { routesQuery } from "@/query/routesQuery";
-import { projectSettingsKeysQuery } from "@/query/projectSettingsKeysQuery";
-import { showErrorNotification } from "@/lib/errorNotifier";
-import { createRouteHead } from "@/lib/seo";
+import { type ContentType, DEFAULT_CONTENT_TYPES } from "@fluxify/server/src/lib/routeConfig";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useMemo, useState } from "react";
+import { TbArrowLeft, TbArrowRight, TbCheck } from "react-icons/tb";
 import { RouteTelemetryHelp } from "@/components/routes/RouteTelemetryHelp";
 import {
-	CONTENT_TYPE_OPTIONS,
-	EMPTY_SCHEMA,
-	METHODS_WITH_BODY,
-	MethodSwitch,
-	PARAM_DATA_TYPES,
-	QUERY_DATA_TYPES,
 	bodyDataTypes,
 	bodySchemaFor,
+	CONTENT_TYPE_OPTIONS,
 	describesSomething,
+	EMPTY_SCHEMA,
 	extractPathParams,
 	isBinaryBody,
+	METHODS_WITH_BODY,
+	type Method,
+	MethodSwitch,
+	PARAM_DATA_TYPES,
 	paramConfigFrom,
 	paramsSchemaFrom,
+	QUERY_DATA_TYPES,
 	sanitizePath,
-	type Method,
 } from "@/components/routes/routeForm";
+import { showErrorNotification } from "@/lib/errorNotifier";
+import { createRouteHead } from "@/lib/seo";
+import { projectSettingsKeysQuery } from "@/query/projectSettingsKeysQuery";
+import { routesQuery } from "@/query/routesQuery";
 
 export const Route = createFileRoute("/_authed/$projectId/routes_/new")({
 	head: createRouteHead(
@@ -54,8 +51,7 @@ function CreateRoutePage() {
 	const { projectId } = Route.useParams();
 	const navigate = useNavigate();
 	const create = routesQuery.create.mutation();
-	const { data: projectSettings } =
-		projectSettingsKeysQuery.getAll.useQuery(projectId);
+	const { data: projectSettings } = projectSettingsKeysQuery.getAll.useQuery(projectId);
 
 	const settings = (projectSettings ?? {}) as Record<string, string>;
 	const hasTelemetryDestination = Boolean(
@@ -64,23 +60,19 @@ function CreateRoutePage() {
 	);
 	// The per-route timeout is only enforced when the project opted into the
 	// experimental worker timeouts, so asking for a value otherwise is a lie.
-	const workerTimeoutsEnabled =
-		settings["experimental.workerTimeouts.enabled"] === "true";
+	const workerTimeoutsEnabled = settings["experimental.workerTimeouts.enabled"] === "true";
 
 	const [name, setName] = useState("");
 	const [method, setMethod] = useState<Method>("GET");
 	const [path, setPath] = useState("");
 	const [querySchema, setQuerySchema] = useState<ValidationSchema>(EMPTY_SCHEMA);
 	const [bodySchema, setBodySchema] = useState<ValidationSchema>(EMPTY_SCHEMA);
-	const [contentTypes, setContentTypes] =
-		useState<string[]>(DEFAULT_CONTENT_TYPES);
+	const [contentTypes, setContentTypes] = useState<string[]>(DEFAULT_CONTENT_TYPES);
 	const [timeoutSeconds, setTimeoutSeconds] = useState(30);
 	const [active, setActive] = useState(true);
 	const [tracingEnabled, setTracingEnabled] = useState(false);
 	// Configured params survive a path edit: keyed by param name, not position.
-	const [paramConfig, setParamConfig] = useState<Record<string, SchemaProperty>>(
-		{},
-	);
+	const [paramConfig, setParamConfig] = useState<Record<string, SchemaProperty>>({});
 	const [step, setStep] = useState(0);
 
 	const pathParams = useMemo(() => extractPathParams(path), [path]);
@@ -91,8 +83,7 @@ function CreateRoutePage() {
 		[pathParams, paramConfig],
 	);
 
-	const basicsValid =
-		name.trim().length >= 2 && path.length > 0 && ROUTE_REGEX.test(path);
+	const basicsValid = name.trim().length >= 2 && path.length > 0 && ROUTE_REGEX.test(path);
 
 	const steps = useMemo(
 		() =>
@@ -126,8 +117,7 @@ function CreateRoutePage() {
 					: undefined,
 				paramsSchema: pathParams.length > 0 ? paramsSchema : undefined,
 				querySchema: describesSomething(querySchema) ? querySchema : undefined,
-				bodySchema:
-					hasBody && describesSomething(bodySchema) ? bodySchema : undefined,
+				bodySchema: hasBody && describesSomething(bodySchema) ? bodySchema : undefined,
 			},
 			{
 				onSuccess: (created) => {
@@ -248,8 +238,8 @@ function CreateRoutePage() {
 								<Input placeholder="/users/:id" className="font-mono" />
 								<p className="text-xs text-muted">
 									Letters, digits, <code className="font-mono">-</code>,{" "}
-									<code className="font-mono">/</code> and{" "}
-									<code className="font-mono">:param</code> segments.
+									<code className="font-mono">/</code> and <code className="font-mono">:param</code>{" "}
+									segments.
 								</p>
 							</TextField>
 
@@ -336,24 +326,16 @@ function CreateRoutePage() {
 													: `${(bodySchema.properties ?? []).length} fields`
 											}
 										/>
-										<SummaryItem
-											label="Content types"
-											value={contentTypes.join(", ")}
-										/>
+										<SummaryItem label="Content types" value={contentTypes.join(", ")} />
 									</>
 								)}
-								<SummaryItem
-									label="Telemetry"
-									value={tracingEnabled ? "Enabled" : "Disabled"}
-								/>
+								<SummaryItem label="Telemetry" value={tracingEnabled ? "Enabled" : "Disabled"} />
 							</dl>
 
 							{workerTimeoutsEnabled && (
 								<TextField
 									value={String(timeoutSeconds)}
-									onChange={(next) =>
-										setTimeoutSeconds(Math.max(30, Number(next) || 30))
-									}
+									onChange={(next) => setTimeoutSeconds(Math.max(30, Number(next) || 30))}
 								>
 									<Label>Timeout (seconds)</Label>
 									<Input type="number" min={30} />
@@ -373,9 +355,8 @@ function CreateRoutePage() {
 								<RouteTelemetryHelp projectId={projectId} />
 								{tracingEnabled && !hasTelemetryDestination && (
 									<p className="text-xs text-warning">
-										This project has no traces or metrics destination, so this
-										route's telemetry is not exported. Configure one in Project
-										Settings → Telemetry.
+										This project has no traces or metrics destination, so this route's telemetry is
+										not exported. Configure one in Project Settings → Telemetry.
 									</p>
 								)}
 							</div>
@@ -441,31 +422,17 @@ function StepHeading({
 			<p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-accent">
 				Step {current + 1} of {total}
 			</p>
-			<h2 className="mt-1 text-lg font-semibold tracking-tight text-foreground">
-				{title}
-			</h2>
+			<h2 className="mt-1 text-lg font-semibold tracking-tight text-foreground">{title}</h2>
 			<p className="mt-0.5 text-xs text-muted">{description}</p>
 		</div>
 	);
 }
 
-function SummaryItem({
-	label,
-	value,
-	mono,
-}: {
-	label: string;
-	value: string;
-	mono?: boolean;
-}) {
+function SummaryItem({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
 	return (
 		<div className="bg-surface px-3 py-2">
-			<dt className="text-[11px] uppercase tracking-wide text-muted">
-				{label}
-			</dt>
-			<dd className={cn("mt-0.5 text-sm text-foreground", mono && "font-mono")}>
-				{value || "—"}
-			</dd>
+			<dt className="text-[11px] uppercase tracking-wide text-muted">{label}</dt>
+			<dd className={cn("mt-0.5 text-sm text-foreground", mono && "font-mono")}>{value || "—"}</dd>
 		</div>
 	);
 }

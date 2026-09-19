@@ -11,7 +11,8 @@
 		"dev:ai": "bun run --env-file=.env --watch ./apps/ai-gateway/src/server.ts",
 		"dev:docs": "vitepress dev docs",
 		"build": "turbo run build",
-		"lint": "turbo run lint",
+		"lint": "biome check .",
+		"typecheck": "turbo run typecheck",
 		"test:unit": "bun test --timeout 300000 --path-ignore-patterns \"**/*.test.ts\"",
 		"test:integration": "bun test --parallel --timeout 300000 --path-ignore-patterns \"**/*.spec.ts\" --path-ignore-patterns \"testing/**\"",
 		"test:lib": "bun run --parallel --cwd packages/lib test",
@@ -58,6 +59,7 @@
 		"http-proxy": "^1.18.1"
 	},
 	"devDependencies": {
+		"@biomejs/biome": "2.5.14",
 		"@faker-js/faker": "^10.3.0",
 		"@types/bun": "^1.4.0",
 		"@types/dockerode": "^4.0.1",

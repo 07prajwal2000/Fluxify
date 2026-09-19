@@ -1,7 +1,7 @@
-import { z } from "zod";
-import { responseSchema } from "./dto";
+import type { z } from "zod";
+import { databaseConditionEditors, type databaseVariantSchema } from "../schemas";
+import type { responseSchema } from "./dto";
 import { getAllIntegrationsByGroup } from "./repository";
-import { databaseConditionEditors, databaseVariantSchema } from "../schemas";
 
 export default async function handleRequest(
 	projectId: string,
@@ -25,9 +25,7 @@ export default async function handleRequest(
 		// static per variant, so it never waits on the database being reachable
 		conditionEditor:
 			item.group === "database"
-				? databaseConditionEditors[
-						item.variant as z.infer<typeof databaseVariantSchema>
-					]
+				? databaseConditionEditors[item.variant as z.infer<typeof databaseVariantSchema>]
 				: undefined,
 	}));
 }

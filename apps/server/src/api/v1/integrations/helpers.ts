@@ -1,27 +1,27 @@
-import z from "zod";
+import type z from "zod";
 import {
-	integrationsGroupSchema,
-	databaseVariantSchema,
-	postgresVariantConfigSchema,
-	mysqlVariantConfigSchema,
-	mongoVariantConfigSchema,
-	kvVariantSchema,
-	observabilityVariantSchema,
-	normalizeObservabilityVariant,
-	openTelemetryVariantConfigSchema,
-	baasVariantSchema,
 	aiVariantSchema,
-	lokiVariantConfigSchema,
-	openAIVariantConfigSchema,
 	anthropicVariantConfigSchema,
-	openAiCompatibleVariantConfigSchema,
+	type baasVariantSchema,
+	databaseVariantSchema,
 	geminiVariantConfigSchema,
-	mistralVariantConfigSchema,
-	redisVariantConfigSchema,
-	memcachedVariantConfigSchema,
-	queueVariantSchema,
+	integrationsGroupSchema,
 	kafkaVariantConfigSchema,
+	kvVariantSchema,
+	lokiVariantConfigSchema,
+	memcachedVariantConfigSchema,
+	mistralVariantConfigSchema,
+	mongoVariantConfigSchema,
+	mysqlVariantConfigSchema,
 	natsVariantConfigSchema,
+	normalizeObservabilityVariant,
+	observabilityVariantSchema,
+	openAIVariantConfigSchema,
+	openAiCompatibleVariantConfigSchema,
+	openTelemetryVariantConfigSchema,
+	postgresVariantConfigSchema,
+	queueVariantSchema,
+	redisVariantConfigSchema,
 	sqsVariantConfigSchema,
 } from "./schemas";
 
@@ -46,9 +46,7 @@ export function getIntegrationsGroups() {
 	return Object.values(integrationsGroupSchema.options);
 }
 
-export function getIntegrationsVariants(
-	group: z.infer<typeof integrationsGroupSchema>,
-) {
+export function getIntegrationsVariants(group: z.infer<typeof integrationsGroupSchema>) {
 	if (group === "database") {
 		return Object.values(databaseVariantSchema.options);
 	}
@@ -82,9 +80,7 @@ export function getDefaultVariantValue(variant: Variants) {
 			url: "",
 			useSSL: false,
 			source: "credentials",
-		} as
-			| z.infer<typeof postgresVariantConfigSchema>
-			| z.infer<typeof mongoVariantConfigSchema>;
+		} as z.infer<typeof postgresVariantConfigSchema> | z.infer<typeof mongoVariantConfigSchema>;
 	}
 	if (variant === "MySQL") {
 		return {
@@ -137,9 +133,7 @@ export function getDefaultVariantValue(variant: Variants) {
 			username: "",
 			password: "",
 			source: "credentials",
-		} as
-			| z.infer<typeof redisVariantConfigSchema>
-			| z.infer<typeof memcachedVariantConfigSchema>;
+		} as z.infer<typeof redisVariantConfigSchema> | z.infer<typeof memcachedVariantConfigSchema>;
 	}
 	if (variant === "Kafka") {
 		return {
@@ -176,10 +170,7 @@ export function getDefaultVariantValue(variant: Variants) {
 	return null;
 }
 
-export function getSchema(
-	group: z.infer<typeof integrationsGroupSchema>,
-	variant: string,
-) {
+export function getSchema(group: z.infer<typeof integrationsGroupSchema>, variant: string) {
 	let schema: z.ZodType = null!;
 	if (group === "database") {
 		const result = databaseVariantSchema.safeParse(variant);

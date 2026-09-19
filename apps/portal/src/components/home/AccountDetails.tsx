@@ -1,4 +1,3 @@
-import { useEffect, useMemo, useState } from "react";
 import {
 	Avatar,
 	Button,
@@ -10,14 +9,8 @@ import {
 	TextField,
 	toast,
 } from "@fluxify/components";
-import {
-	FiCheckCircle,
-	FiKey,
-	FiLock,
-	FiMail,
-	FiShield,
-	FiUser,
-} from "react-icons/fi";
+import { useEffect, useMemo, useState } from "react";
+import { FiCheckCircle, FiKey, FiLock, FiMail, FiShield, FiUser } from "react-icons/fi";
 import { authClient } from "@/lib/auth";
 import { showErrorNotification } from "@/lib/errorNotifier";
 
@@ -98,6 +91,7 @@ function AccountSummary({
 					</div>
 				</div>
 				<div
+					role="group"
 					className="inline-flex w-fit items-center gap-2 rounded-full border border-border bg-background-secondary px-3 py-1.5 text-xs font-medium text-foreground"
 					aria-label={isEnterpriseSession ? "Signed in through enterprise SSO" : "Password sign-in"}
 				>
@@ -162,10 +156,17 @@ function ProfileSection({ name, email, id }: { name: string; email: string; id: 
 						<Input />
 					</TextField>
 				</div>
-				<p className="mt-4 text-xs text-muted">Your email address is managed by an administrator.</p>
+				<p className="mt-4 text-xs text-muted">
+					Your email address is managed by an administrator.
+				</p>
 			</Card.Content>
 			<Card.Footer className="justify-end">
-				<Button variant="primary" isPending={saving} isDisabled={!hasChanges || !trimmedUsername} onPress={save}>
+				<Button
+					variant="primary"
+					isPending={saving}
+					isDisabled={!hasChanges || !trimmedUsername}
+					onPress={save}
+				>
 					Save changes
 				</Button>
 			</Card.Footer>
@@ -186,7 +187,8 @@ function SsoSecuritySection() {
 						<FiCheckCircle className="h-4 w-4 text-success" />
 					</p>
 					<p className="mt-1 text-sm text-muted">
-						You signed in through your organization. Change your password with your identity provider.
+						You signed in through your organization. Change your password with your identity
+						provider.
 					</p>
 				</div>
 			</Card.Content>

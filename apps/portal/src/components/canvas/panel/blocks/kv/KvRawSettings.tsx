@@ -2,9 +2,9 @@ import { Description, JavaScriptTextArea, Label } from "@fluxify/components";
 import { useReactFlow } from "@xyflow/react";
 import { TbCode } from "react-icons/tb";
 import { useCanvasChanges } from "../../../changes/ChangesContext";
+import type { BlockNode } from "../../../types";
 import { BlockSettings } from "../../BlockSettings";
 import { BlockIntegrationField } from "../../fields";
-import type { BlockNode } from "../../../types";
 
 /** General tab: which KV store to talk to. */
 export function KvRawGeneralSettings({ block }: { block: BlockNode }) {
@@ -63,8 +63,8 @@ export function KvRawCodeSettings({ block }: { block: BlockNode }) {
 					<code className="font-mono text-foreground font-semibold px-1 py-0.5 rounded bg-surface-secondary">
 						kv
 					</code>
-					, the raw client for the selected connection — ioredis for Redis, the
-					memcached client for Memcached. Use its own commands, e.g.{" "}
+					, the raw client for the selected connection — ioredis for Redis, the memcached client for
+					Memcached. Use its own commands, e.g.{" "}
 					<code className="font-mono text-foreground font-semibold px-1 py-0.5 rounded bg-surface-secondary">
 						await kv.incr('hits')
 					</code>

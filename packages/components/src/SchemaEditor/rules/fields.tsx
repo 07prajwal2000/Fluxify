@@ -97,7 +97,5 @@ export function RuleNumberField({
 }
 
 export function RuleSectionTitle({ children }: { children: ReactNode }) {
-	return (
-		<p className="text-sm font-semibold text-foreground">{children}</p>
-	);
+	return <p className="text-sm font-semibold text-foreground">{children}</p>;
 }

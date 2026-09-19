@@ -1,10 +1,10 @@
 import { BadRequestError, ConflictError } from "@fluxify/server";
-import { setConversationFlags } from "./repository";
-import { bumpListCacheVersion } from "../cacheVersion";
-import { requestInterrupt } from "../../../../harness/interrupt";
 import { enqueueHarnessContinue } from "../../../../harness/internal/enqueue";
 import type { HitlPlanAction } from "../../../../harness/internal/harnessService";
+import { requestInterrupt } from "../../../../harness/interrupt";
+import { bumpListCacheVersion } from "../cacheVersion";
 import type { ConversationAction, ConversationActionBody } from "./dto";
+import { setConversationFlags } from "./repository";
 
 /** The conversation row the middleware loaded (fields this handler needs). */
 interface ActionConversation {
@@ -16,12 +16,7 @@ interface ActionConversation {
 	activeRunId: string | null;
 }
 
-const FLAG_ACTIONS = new Set<ConversationAction>([
-	"pin",
-	"unpin",
-	"archive",
-	"unarchive",
-]);
+const FLAG_ACTIONS = new Set<ConversationAction>(["pin", "unpin", "archive", "unarchive"]);
 
 /** Archiving always clears pinned (an archived conversation can't be pinned);
  *  pinning an already-archived conversation is rejected instead of silently

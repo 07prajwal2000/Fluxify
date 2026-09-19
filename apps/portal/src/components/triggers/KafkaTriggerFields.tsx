@@ -234,7 +234,9 @@ export function NatsSourceFields({
 			<TextField value={value.subjects} onChange={(next) => set("subjects", next)}>
 				<Label>Subjects</Label>
 				<Input placeholder="orders.eu.>, orders.us.*" />
-				<Description>Optional. Only these subjects of the stream, separated by commas. Empty reads all of them.</Description>
+				<Description>
+					Optional. Only these subjects of the stream, separated by commas. Empty reads all of them.
+				</Description>
 			</TextField>
 
 			<ConsumerGroupField
@@ -275,9 +277,9 @@ export function DeliveryFields({
 			/>
 			{nativeRetries && (
 				<p className="text-xs text-muted">
-					A failed message goes back to the queue and SQS delivers it again. How many times, and which
-					dead-letter queue it ends up in, is set by the queue's redrive policy in AWS. Add one there,
-					or a message that keeps failing is retried until the queue deletes it.
+					A failed message goes back to the queue and SQS delivers it again. How many times, and
+					which dead-letter queue it ends up in, is set by the queue's redrive policy in AWS. Add
+					one there, or a message that keeps failing is retried until the queue deletes it.
 				</p>
 			)}
 			<div className="grid grid-cols-2 gap-4">

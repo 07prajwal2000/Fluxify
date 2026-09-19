@@ -1,16 +1,16 @@
 import z from "zod";
 import { baseBlockDataSchema, type Context } from "../baseBlock";
+import { type EmitNode, emitJsObject } from "../compiler";
 import {
 	assertTriggerPayloadSize,
 	CANCEL_SCHEDULE_JOB,
 	enqueueJob,
 	isScheduleId,
-	resolveRunAt,
-	TRIGGER_WORKFLOW_JOB,
 	type JobRequest,
 	type RetryPolicy,
+	resolveRunAt,
+	TRIGGER_WORKFLOW_JOB,
 } from "../jobs";
-import { emitJsObject, type EmitNode } from "../compiler";
 
 /**
  * Starts a workflow from a route or another workflow.
@@ -110,8 +110,8 @@ function queueRun(
 }
 
 export function emitTriggerWorkflow(node: EmitNode) {
-	const { workflowId, useInput, data, maxAttempts, retryDelayMs, mode, runAt, scheduleId } =
-		(node.block.data ?? {}) as Record<string, unknown>;
+	const { workflowId, useInput, data, maxAttempts, retryDelayMs, mode, runAt, scheduleId } = (node
+		.block.data ?? {}) as Record<string, unknown>;
 	if (mode === "cancel")
 		return `lib.cancelSchedule(ctx, ${node.value(scheduleId ?? "")});\n${node.next()}`;
 

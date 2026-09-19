@@ -1,5 +1,5 @@
-import { createContext, useContext, type ReactNode } from "react";
-import { DISABLED_HISTORY, type CanvasHistory } from "./useCanvasHistory";
+import { createContext, type ReactNode, useContext } from "react";
+import { type CanvasHistory, DISABLED_HISTORY } from "./useCanvasHistory";
 
 const HistoryContext = createContext<CanvasHistory>(DISABLED_HISTORY);
 
@@ -10,9 +10,7 @@ export function CanvasHistoryProvider({
 	history: CanvasHistory;
 	children: ReactNode;
 }) {
-	return (
-		<HistoryContext.Provider value={history}>{children}</HistoryContext.Provider>
-	);
+	return <HistoryContext.Provider value={history}>{children}</HistoryContext.Provider>;
 }
 
 /**

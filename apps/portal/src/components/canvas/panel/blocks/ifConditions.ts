@@ -42,9 +42,7 @@ function plainValue(value: unknown): string | number | boolean {
 }
 
 function operator(value: unknown): ConditionOperator {
-	return IF_OPERATORS.has(value as ConditionOperator)
-		? (value as ConditionOperator)
-		: "eq";
+	return IF_OPERATORS.has(value as ConditionOperator) ? (value as ConditionOperator) : "eq";
 }
 
 /**
@@ -53,9 +51,7 @@ function operator(value: unknown): ConditionOperator {
  * accept the old DB-shaped payload on read, then keep it out of future saves.
  */
 export function parseIfConditions(block: BlockNode): Condition[] {
-	const raw = Array.isArray(block.data.conditions)
-		? (block.data.conditions as RawCondition[])
-		: [];
+	const raw = Array.isArray(block.data.conditions) ? (block.data.conditions as RawCondition[]) : [];
 
 	return raw.map((condition) => ({
 		lhs: plainValue(condition.lhs ?? condition.attribute),

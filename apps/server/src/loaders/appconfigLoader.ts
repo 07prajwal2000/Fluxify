@@ -1,14 +1,11 @@
+import { logger } from "@fluxify/common";
 import z from "zod";
 import { db } from "../db";
 import { CHAN_ON_APPCONFIG_CHANGE, subscribeToChannel } from "../db/redis";
 import { appConfigEntity } from "../db/schema";
 import { EncryptionService } from "../lib/encryption";
-import { logger } from "@fluxify/common";
 
-let appConfigCache: Record<
-	string,
-	Record<string, string | number | boolean>
-> = {};
+let appConfigCache: Record<string, Record<string, string | number | boolean>> = {};
 
 export async function loadAppConfig() {
 	const configData = await loadConfigFromDB();
@@ -31,7 +28,7 @@ async function loadConfigFromDB() {
 		})
 		.from(appConfigEntity);
 	const config: typeof appConfigCache = {};
-	for (let cfg of configData) {
+	for (const cfg of configData) {
 		let value = cfg.value;
 		value = EncryptionService.decodeData(value!, cfg.encodingType!);
 		if (cfg.isEncrypted) {

@@ -1,6 +1,6 @@
 import { useNavigate } from "@tanstack/react-router";
-import { customBlocksQuery } from "@/query/customBlocksQuery";
 import { EntitySwitcher } from "@/components/common/EntitySwitcher";
+import { customBlocksQuery } from "@/query/customBlocksQuery";
 
 /** The shared canvas header nav, filled with this project's custom blocks. */
 export function CustomBlockSwitcher({

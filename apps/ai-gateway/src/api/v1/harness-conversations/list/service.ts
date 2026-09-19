@@ -1,13 +1,13 @@
+import { getCache, setCacheEx } from "@fluxify/server";
+import { getListCacheVersion } from "../cacheVersion";
+import { resolveRealtimeStatuses } from "../status";
 import {
-	getConversationsByUserId,
+	type ConversationListFilters,
 	countConversationsByUserId,
+	getConversationsByUserId,
 	getLatestUserQueries,
 	getStatusesByIds,
-	type ConversationListFilters,
 } from "./repository";
-import { getCache, setCacheEx } from "@fluxify/server";
-import { resolveRealtimeStatuses } from "../status";
-import { getListCacheVersion } from "../cacheVersion";
 
 const USER_QUERY_TRUNCATE_LEN = 50;
 
@@ -31,8 +31,7 @@ async function buildPage(
 		countConversationsByUserId(userId, filters),
 	]);
 
-	let data: Array<(typeof conversations)[number] & { userQuery?: string }> =
-		conversations;
+	let data: Array<(typeof conversations)[number] & { userQuery?: string }> = conversations;
 
 	if (needUserQuery) {
 		const queries = await getLatestUserQueries(conversations.map((c) => c.id));

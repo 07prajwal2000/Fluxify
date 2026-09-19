@@ -1,7 +1,7 @@
 import { Button, Tooltip } from "@fluxify/components";
 import { useNavigate } from "@tanstack/react-router";
+import { TbHierarchy, TbSettings, TbUsers } from "react-icons/tb";
 import { APP_ROUTES } from "@/constants/routes";
-import { TbUsers, TbHierarchy, TbSettings } from "react-icons/tb";
 
 type ProjectCardProps = {
 	id: string;
@@ -15,18 +15,26 @@ type ProjectCardProps = {
 
 function formatQuantity(num: number) {
 	if (num >= 1000) {
-		return (num / 1000).toFixed(num % 1000 === 0 ? 0 : 1) + 'K';
+		return (num / 1000).toFixed(num % 1000 === 0 ? 0 : 1) + "K";
 	}
 	return num.toString();
 }
 
-export function ProjectCard({ id, name, description, totalUsers, totalRoutes, updatedAt, createdAt }: ProjectCardProps) {
+export function ProjectCard({
+	id,
+	name,
+	description,
+	totalUsers,
+	totalRoutes,
+	updatedAt,
+	createdAt,
+}: ProjectCardProps) {
 	const navigate = useNavigate();
 
 	const initials = name
-		.split(' ')
-		.map(word => word[0])
-		.join('')
+		.split(" ")
+		.map((word) => word[0])
+		.join("")
 		.substring(0, 2)
 		.toUpperCase();
 
@@ -56,7 +64,7 @@ export function ProjectCard({ id, name, description, totalUsers, totalRoutes, up
 							<span className="truncate text-base font-semibold text-foreground">{name}</span>
 						</div>
 					</div>
-					
+
 					<Tooltip>
 						<Button
 							type="button"
@@ -80,7 +88,7 @@ export function ProjectCard({ id, name, description, totalUsers, totalRoutes, up
 						<Tooltip.Content>Settings</Tooltip.Content>
 					</Tooltip>
 				</div>
-				
+
 				<div className="mt-4 text-sm text-muted">
 					{description ? (
 						<p className="truncate">{description}</p>
