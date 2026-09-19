@@ -67,3 +67,9 @@ Helper blocks.
 
 - [**Trigger Workflow**](./trigger-workflow.md): Start a workflow and carry on.
 - [**Sticky Note**](./sticky-note.md): Add comments to your canvas.
+
+## Custom Blocks
+Build your own.
+
+- [**Custom Blocks**](./custom-blocks.md): Turn a group of blocks into one reusable block.
+- [**Tutorial**](./custom-blocks-tutorial.md): Build your first custom block step by step.
