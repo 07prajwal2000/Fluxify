@@ -202,6 +202,13 @@ export default withMermaid(defineConfig({
 						{ text: "Sticky Note", link: "/blocks/sticky-note" },
 					],
 				},
+				{
+					text: "Custom Blocks",
+					items: [
+						{ text: "Overview", link: "/blocks/custom-blocks" },
+						{ text: "Tutorial", link: "/blocks/custom-blocks-tutorial" },
+					],
+				},
 			],
 
 			"/scripting/": [

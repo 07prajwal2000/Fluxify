@@ -100,3 +100,4 @@ Until then, keep routes as one intentional chain. This avoids the hidden orderin
 - Learn how conditional routes choose a path in [Condition Evaluator](./evaluators.md).
 - Learn what values and helpers a block can access in [Execution Context](./context.md).
 - Start background work from a canvas with the [Trigger Workflow](/blocks/trigger-workflow) block.
+- Reuse a group of blocks across routes with [Custom Blocks](/blocks/custom-blocks).
