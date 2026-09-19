@@ -1,12 +1,26 @@
-import { useState, useEffect, useRef } from "react";
-import { Modal, Button, CloseButton, DeleteIconButton, Popover, PopoverTrigger, PopoverContent } from "@fluxify/components";
-import { TbMessageCirclePlus, TbCheck, TbX, TbEdit, TbPlus } from "react-icons/tb";
+import {
+	Button,
+	CloseButton,
+	DeleteIconButton,
+	Modal,
+	Popover,
+	PopoverContent,
+	PopoverTrigger,
+} from "@fluxify/components";
+import { useQueryClient } from "@tanstack/react-query";
+import { useEffect, useRef, useState } from "react";
+import {
+	TbCheck,
+	TbEdit,
+	TbMessageCirclePlus,
+	TbPlus,
+	TbX,
+} from "react-icons/tb";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { useQueryClient } from "@tanstack/react-query";
 import { harnessConversationsQuery } from "@/query/harnessConversationsQuery";
-import { MarkdownViewer } from "./MarkdownViewer";
 import { useAiHarnessStore } from "@/store/aiHarness";
+import { MarkdownViewer } from "./MarkdownViewer";
 
 interface PlanReviewModalProps {
 	isOpen: boolean;
@@ -69,8 +83,12 @@ const HoverableBlock = ({
 
 			{(hovered || popoverOpened || hasReview) && (
 				<div className="absolute top-1 right-2 z-10">
-					{/* @ts-expect-error placement is valid */}
-					<Popover placement="left-start" isOpen={popoverOpened} onOpenChange={setPopoverOpened}>
+					<Popover
+						// @ts-expect-error placement is valid
+						placement="left-start"
+						isOpen={popoverOpened}
+						onOpenChange={setPopoverOpened}
+					>
 						<PopoverTrigger>
 							<Button
 								isIconOnly
@@ -78,7 +96,11 @@ const HoverableBlock = ({
 								variant={hasReview ? "primary" : "secondary"}
 								className="rounded-full h-7 w-7 shadow-md"
 							>
-								{hasReview ? <TbEdit size={14} /> : <TbMessageCirclePlus size={14} />}
+								{hasReview ? (
+									<TbEdit size={14} />
+								) : (
+									<TbMessageCirclePlus size={14} />
+								)}
 							</Button>
 						</PopoverTrigger>
 						<PopoverContent className="w-[320px] rounded-xl border border-border bg-overlay p-4 shadow-xl">
@@ -92,6 +114,7 @@ const HoverableBlock = ({
 								/>
 								<div className="flex justify-between items-center pt-1">
 									<button
+										type="button"
 										className="text-sm text-muted cursor-pointer hover:text-foreground transition-colors bg-transparent border-none outline-none"
 										onClick={() => setPopoverOpened(false)}
 									>
@@ -115,7 +138,13 @@ const HoverableBlock = ({
 	);
 };
 
-export function PlanReviewModal({ isOpen, onOpenChange, plan, projectId, conversationId }: PlanReviewModalProps) {
+export function PlanReviewModal({
+	isOpen,
+	onOpenChange,
+	plan,
+	projectId,
+	conversationId,
+}: PlanReviewModalProps) {
 	const [reviews, setReviews] = useState<Record<string, string>>({});
 	const [rejectPopoverOpened, setRejectPopoverOpened] = useState(false);
 	const [rejectReason, setRejectReason] = useState("");
@@ -145,7 +174,10 @@ export function PlanReviewModal({ isOpen, onOpenChange, plan, projectId, convers
 		}
 	}, [customPopoverOpened]);
 
-	const actionMutation = harnessConversationsQuery.action.mutation(projectId, conversationId);
+	const actionMutation = harnessConversationsQuery.action.mutation(
+		projectId,
+		conversationId,
+	);
 
 	useEffect(() => {
 		if (selectedBlockId) {
@@ -180,7 +212,7 @@ export function PlanReviewModal({ isOpen, onOpenChange, plan, projectId, convers
 	const hasReviews = Object.keys(reviews).length > 0;
 
 	const blockData = (() => {
-		const data: { content: string, lineNumber: number, id: string }[] = [];
+		const data: { content: string; lineNumber: number; id: string }[] = [];
 		let currentLineNumber = 1;
 		const rawBlocks = plan.split(/(\n\n+)/);
 		let index = 0;
@@ -216,7 +248,12 @@ export function PlanReviewModal({ isOpen, onOpenChange, plan, projectId, convers
 							}),
 						},
 					}
-				: { action: action === "approve" ? ("hitl_approve" as const) : ("hitl_reject" as const) };
+				: {
+						action:
+							action === "approve"
+								? ("hitl_approve" as const)
+								: ("hitl_reject" as const),
+					};
 
 		actionMutation.mutate(payload, {
 			onSuccess: () => {
@@ -226,10 +263,9 @@ export function PlanReviewModal({ isOpen, onOpenChange, plan, projectId, convers
 			},
 			onError: (err) => {
 				console.error("Action failed:", err);
-			}
+			},
 		});
 	};
-
 
 	return (
 		<Modal isOpen={isOpen} onOpenChange={onOpenChange}>
@@ -240,7 +276,10 @@ export function PlanReviewModal({ isOpen, onOpenChange, plan, projectId, convers
 							<h3 className="text-lg font-semibold">Review Proposed Plan</h3>
 							<CloseButton />
 						</Modal.Header>
-						<Modal.Body className="p-0 flex flex-row overflow-hidden" style={{ height: "calc(90vh - 140px)" }}>
+						<Modal.Body
+							className="p-0 flex flex-row overflow-hidden"
+							style={{ height: "calc(90vh - 140px)" }}
+						>
 							{/* Left Panel: Markdown Content (60%) */}
 							<div className="flex-1 overflow-y-auto p-6 border-r border-border bg-background">
 								<div className="mx-auto max-w-3xl">
@@ -265,10 +304,14 @@ export function PlanReviewModal({ isOpen, onOpenChange, plan, projectId, convers
 							<div className="w-2/5 flex flex-col bg-surface overflow-hidden">
 								<div className="p-6 pb-4 border-b border-border shrink-0 flex items-center justify-between">
 									<h4 className="text-lg font-semibold">Your Reviews</h4>
-									{/* @ts-expect-error placement is valid */}
-									<Popover placement="bottom-end" isOpen={customPopoverOpened} onOpenChange={(open) => {
-										if (!open) setCustomPopoverOpened(false);
-									}}>
+									<Popover
+										// @ts-expect-error placement is valid
+										placement="bottom-end"
+										isOpen={customPopoverOpened}
+										onOpenChange={(open) => {
+											if (!open) setCustomPopoverOpened(false);
+										}}
+									>
 										<PopoverTrigger>
 											<Button
 												size="sm"
@@ -294,6 +337,7 @@ export function PlanReviewModal({ isOpen, onOpenChange, plan, projectId, convers
 												/>
 												<div className="flex justify-between items-center pt-1">
 													<button
+														type="button"
 														className="text-sm text-muted cursor-pointer hover:text-foreground transition-colors bg-transparent border-none outline-none"
 														onClick={() => setCustomPopoverOpened(false)}
 													>
@@ -304,7 +348,8 @@ export function PlanReviewModal({ isOpen, onOpenChange, plan, projectId, convers
 														variant="primary"
 														className="h-8 text-xs font-semibold px-4 rounded-md"
 														onPress={() => {
-															const id = customReviewId || `custom-${Date.now()}`;
+															const id =
+																customReviewId || `custom-${Date.now()}`;
 															handleSaveReview(id, customReviewText);
 															setCustomPopoverOpened(false);
 														}}
@@ -322,7 +367,18 @@ export function PlanReviewModal({ isOpen, onOpenChange, plan, projectId, convers
 											{Object.entries(reviews).map(([id, text]) => (
 												<div
 													key={id}
+													role="button"
+													tabIndex={0}
 													onClick={() => handleReviewClick(id)}
+													onKeyDown={(e) => {
+														if (
+															e.target === e.currentTarget &&
+															(e.key === "Enter" || e.key === " ")
+														) {
+															e.preventDefault();
+															handleReviewClick(id);
+														}
+													}}
 													className={`group relative flex flex-col gap-2 rounded-xl border px-4 pt-5 pb-4 cursor-pointer transition-all duration-200 ${
 														selectedBlockId === id
 															? "border-accent bg-accent/10"
@@ -355,16 +411,26 @@ export function PlanReviewModal({ isOpen, onOpenChange, plan, projectId, convers
 
 								{/* Footer Actions */}
 								<div className="p-4 border-t border-border bg-surface-secondary shrink-0 flex justify-end gap-3 items-center">
-									{/* @ts-expect-error placement is valid */}
-									<Popover placement="top-end" isOpen={rejectPopoverOpened} onOpenChange={setRejectPopoverOpened}>
+									<Popover
+										// @ts-expect-error placement is valid
+										placement="top-end"
+										isOpen={rejectPopoverOpened}
+										onOpenChange={setRejectPopoverOpened}
+									>
 										<PopoverTrigger>
-											<Button variant="danger-soft" size="sm" isPending={actionMutation.isPending}>
+											<Button
+												variant="danger-soft"
+												size="sm"
+												isPending={actionMutation.isPending}
+											>
 												<TbX size={16} /> Reject
 											</Button>
 										</PopoverTrigger>
 										<PopoverContent className="w-72 rounded-xl border border-border bg-overlay p-4 shadow-xl">
 											<div className="flex flex-col gap-3 w-full">
-												<span className="text-sm font-medium">Rejection Reason (Optional)</span>
+												<span className="text-sm font-medium">
+													Rejection Reason (Optional)
+												</span>
 												<textarea
 													ref={rejectTextareaRef}
 													placeholder="Why are you rejecting this plan?"
@@ -373,13 +439,23 @@ export function PlanReviewModal({ isOpen, onOpenChange, plan, projectId, convers
 													className="w-full min-h-[60px] rounded-lg bg-surface p-2 text-sm text-foreground outline-none border border-border focus:border-danger"
 												/>
 												<div className="flex justify-end gap-2 pt-1">
-													<Button size="sm" variant="ghost" className="h-7 text-xs px-3" onPress={() => setRejectPopoverOpened(false)}>
+													<Button
+														size="sm"
+														variant="ghost"
+														className="h-7 text-xs px-3"
+														onPress={() => setRejectPopoverOpened(false)}
+													>
 														Cancel
 													</Button>
-													<Button size="sm" variant="danger-soft" className="h-7 text-xs px-3" onPress={() => {
-														setRejectPopoverOpened(false);
-														handleAction("reject");
-													}}>
+													<Button
+														size="sm"
+														variant="danger-soft"
+														className="h-7 text-xs px-3"
+														onPress={() => {
+															setRejectPopoverOpened(false);
+															handleAction("reject");
+														}}
+													>
 														Confirm Reject
 													</Button>
 												</div>
@@ -390,7 +466,9 @@ export function PlanReviewModal({ isOpen, onOpenChange, plan, projectId, convers
 									<Button
 										variant={hasReviews ? "secondary" : "primary"}
 										size="sm"
-										onPress={() => handleAction(hasReviews ? "review" : "approve")}
+										onPress={() =>
+											handleAction(hasReviews ? "review" : "approve")
+										}
 										isPending={actionMutation.isPending}
 									>
 										{hasReviews ? <TbEdit size={16} /> : <TbCheck size={16} />}

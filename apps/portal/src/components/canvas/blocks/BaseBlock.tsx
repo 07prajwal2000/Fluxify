@@ -1,12 +1,18 @@
 import { Children, isValidElement, type ReactNode } from "react";
-import { TbAlertCircle, TbAlertTriangle, TbCheck, TbInfoCircle, TbX } from "react-icons/tb";
+import {
+	TbAlertCircle,
+	TbAlertTriangle,
+	TbCheck,
+	TbInfoCircle,
+	TbX,
+} from "react-icons/tb";
 import "./blocks.css";
+import { useBlockDiagnostics } from "../diagnostics";
+import { DIAGNOSTICS_TAB } from "../panel/BlockSettings";
+import { useCanvasPanel } from "../panel/PanelContext";
 import { BlockToolbar, useHoverIntent } from "./BlockToolbar";
 import { BlockHandle, type BlockHandleProps } from "./handles/BlockHandle";
 import { HANDLE_CONFIG, type HandleSide } from "./handles/handleConfig";
-import { useBlockDiagnostics } from "../diagnostics";
-import { useCanvasPanel } from "../panel/PanelContext";
-import { DIAGNOSTICS_TAB } from "../panel/BlockSettings";
 
 export type BaseBlockProps = {
 	blockId: string;
@@ -109,6 +115,7 @@ export function BaseBlock({
 			)}
 			{status != null && (
 				<span
+					role="img"
 					className={`fx-block__status fx-block__status--${status ? "ok" : "fail"}`}
 					title={status ? "Succeeded" : "Failed"}
 					aria-label={status ? "Succeeded" : "Failed"}
@@ -117,7 +124,11 @@ export function BaseBlock({
 				</span>
 			)}
 			{(hasInfo || hasWarning || hasError) && (
-				<div className="fx-block__diagnostics" aria-label="Block diagnostics">
+				<div
+					className="fx-block__diagnostics"
+					role="group"
+					aria-label="Block diagnostics"
+				>
 					{hasInfo && (
 						<button
 							type="button"

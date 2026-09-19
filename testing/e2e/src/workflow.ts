@@ -10,8 +10,8 @@ import { startJobWorker } from "@fluxify/server/src/modules/jobs/consumer";
 import { enqueueJob } from "@fluxify/server/src/modules/jobs/publisher";
 import { runJob } from "@fluxify/server/src/modules/jobs/registry";
 import {
-	artifactKindsForMode,
 	WORKFLOW_JOB,
+	artifactKindsForMode,
 } from "@fluxify/server/src/modules/jobs/subjects";
 import type { JobEnvelope } from "@fluxify/server/src/modules/jobs/types";
 import { registerWorkflowJobHandler } from "@fluxify/server/src/modules/jobs/workflowJob";
@@ -103,8 +103,7 @@ let harness: Promise<void> | undefined;
  * business inside a 10s budget.
  */
 export function workflowHarness(): Promise<void> {
-	harness ??= start();
-	return harness;
+	return (harness ??= start());
 }
 
 /** Every request the sink has seen so far, in order. */
@@ -271,10 +270,7 @@ async function settleJob(job: JobEnvelope) {
 	}
 }
 
-async function queueJob(
-	target: string,
-	payload: unknown,
-): Promise<WorkflowRun> {
+async function queueJob(target: string, payload: unknown): Promise<WorkflowRun> {
 	const id = crypto.randomUUID();
 	let finish!: () => void;
 	const settled = new Promise<void>((resolve) => {

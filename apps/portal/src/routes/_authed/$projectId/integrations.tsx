@@ -1,10 +1,16 @@
-import { useEffect, useState, type ReactNode } from "react";
+import {
+	Button,
+	cn,
+	integrationIcons,
+	Spinner,
+	toast,
+} from "@fluxify/components";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { z } from "zod";
-import { Button, Spinner, cn, toast } from "@fluxify/components";
+import { type ReactNode, useEffect, useState } from "react";
 import { FaRobot, FaTableList } from "react-icons/fa6";
 import { LuServerCrash } from "react-icons/lu";
 import {
+	TbArrowsExchange,
 	TbBook,
 	TbChevronDown,
 	TbCloudCog,
@@ -13,19 +19,18 @@ import {
 	TbHeartRateMonitor,
 	TbLock,
 	TbPlugConnected,
-	TbArrowsExchange,
 } from "react-icons/tb";
-import { integrationsQuery } from "@/query/integrationsQuery";
-import { showErrorNotification } from "@/lib/errorNotifier";
-import { integrationIcons } from "@fluxify/components";
+import { z } from "zod";
 import { IntegrationForm } from "@/components/integrations/IntegrationForm";
 import { IntegrationOnboardingModal } from "@/components/integrations/IntegrationOnboardingModal";
+import { showErrorNotification } from "@/lib/errorNotifier";
+import { createDynamicRouteHead } from "@/lib/seo";
+import { integrationsQuery } from "@/query/integrationsQuery";
 import {
 	type IntegrationGroup,
 	useIntegrationActions,
 	useIntegrationState,
 } from "@/store/integration";
-import { createDynamicRouteHead } from "@/lib/seo";
 
 export const Route = createFileRoute("/_authed/$projectId/integrations")({
 	validateSearch: z.object({
@@ -41,23 +46,31 @@ export const Route = createFileRoute("/_authed/$projectId/integrations")({
 			observability: "Observability",
 			queue: "Message Queues",
 		};
-		const category = search.group ? groupLabels[search.group] || search.group : "All";
+		const category = search.group
+			? groupLabels[search.group] || search.group
+			: "All";
 		return {
 			title: `Integrations (${category})`,
-			description: "Connect databases, AI models, KV stores, and third-party services.",
+			description:
+				"Connect databases, AI models, KV stores, and third-party services.",
 		};
 	}),
 	component: IntegrationsPage,
 });
 
-const CONNECTORS: { name: string; type: IntegrationGroup; icon: ReactNode }[] = [
-	{ name: "Databases", type: "database", icon: <TbDatabase size={18} /> },
-	{ name: "KV", type: "kv", icon: <FaTableList size={16} /> },
-	{ name: "AI", type: "ai", icon: <FaRobot size={16} /> },
-	{ name: "BaaS", type: "baas", icon: <LuServerCrash size={16} /> },
-	{ name: "Observability", type: "observability", icon: <TbHeartRateMonitor size={18} /> },
-	{ name: "Queues", type: "queue", icon: <TbArrowsExchange size={18} /> },
-];
+const CONNECTORS: { name: string; type: IntegrationGroup; icon: ReactNode }[] =
+	[
+		{ name: "Databases", type: "database", icon: <TbDatabase size={18} /> },
+		{ name: "KV", type: "kv", icon: <FaTableList size={16} /> },
+		{ name: "AI", type: "ai", icon: <FaRobot size={16} /> },
+		{ name: "BaaS", type: "baas", icon: <LuServerCrash size={16} /> },
+		{
+			name: "Observability",
+			type: "observability",
+			icon: <TbHeartRateMonitor size={18} />,
+		},
+		{ name: "Queues", type: "queue", icon: <TbArrowsExchange size={18} /> },
+	];
 
 function IntegrationsPage() {
 	const { projectId } = Route.useParams();
@@ -68,12 +81,24 @@ function IntegrationsPage() {
 	const [connectOpen, setConnectOpen] = useState(false);
 
 	// Fetch count of integrations per category
-	const { data: dbData } = integrationsQuery.getAll.useQuery(projectId, "database");
+	const { data: dbData } = integrationsQuery.getAll.useQuery(
+		projectId,
+		"database",
+	);
 	const { data: kvData } = integrationsQuery.getAll.useQuery(projectId, "kv");
 	const { data: aiData } = integrationsQuery.getAll.useQuery(projectId, "ai");
-	const { data: baasData } = integrationsQuery.getAll.useQuery(projectId, "baas");
-	const { data: obsData } = integrationsQuery.getAll.useQuery(projectId, "observability");
-	const { data: queueData } = integrationsQuery.getAll.useQuery(projectId, "queue");
+	const { data: baasData } = integrationsQuery.getAll.useQuery(
+		projectId,
+		"baas",
+	);
+	const { data: obsData } = integrationsQuery.getAll.useQuery(
+		projectId,
+		"observability",
+	);
+	const { data: queueData } = integrationsQuery.getAll.useQuery(
+		projectId,
+		"queue",
+	);
 
 	const counts: Record<IntegrationGroup, number> = {
 		database: dbData?.length ?? 0,
@@ -86,7 +111,8 @@ function IntegrationsPage() {
 
 	// sync selected group from URL (deep-link support)
 	useEffect(() => {
-		if (group && group !== selectedMenu) setSelectedMenu(group as IntegrationGroup);
+		if (group && group !== selectedMenu)
+			setSelectedMenu(group as IntegrationGroup);
 	}, [group]);
 
 	function selectGroup(type: IntegrationGroup) {
@@ -99,13 +125,14 @@ function IntegrationsPage() {
 			{/* Header */}
 			<div className="flex shrink-0 items-center justify-between">
 				<div>
-					<h1 className="text-2xl font-bold tracking-tight text-foreground">Integrations</h1>
-					<p className="text-sm text-muted">Connect &amp; Configure 3rd Party Services</p>
+					<h1 className="text-2xl font-bold tracking-tight text-foreground">
+						Integrations
+					</h1>
+					<p className="text-sm text-muted">
+						Connect &amp; Configure 3rd Party Services
+					</p>
 				</div>
-				<Button
-					variant="primary"
-					onPress={() => setConnectOpen(true)}
-				>
+				<Button variant="primary" onPress={() => setConnectOpen(true)}>
 					<TbPlugConnected size={16} /> Connect App / Service
 				</Button>
 			</div>
@@ -131,12 +158,16 @@ function IntegrationsPage() {
 										: "border-transparent text-muted hover:bg-surface-secondary hover:text-foreground",
 								)}
 							>
-								<span className={cn(active ? "text-accent" : "text-muted")}>{c.icon}</span>
+								<span className={cn(active ? "text-accent" : "text-muted")}>
+									{c.icon}
+								</span>
 								<span>{c.name}</span>
 								<span
 									className={cn(
 										"ml-auto rounded-full px-2 py-0.5 text-xs font-semibold",
-										active ? "bg-surface-secondary text-foreground" : "bg-surface-secondary text-muted",
+										active
+											? "bg-surface-secondary text-foreground"
+											: "bg-surface-secondary text-muted",
 									)}
 								>
 									{count}
@@ -155,28 +186,54 @@ function IntegrationsPage() {
 				<RightHelpPanel projectId={projectId} activeGroup={selectedMenu} />
 			</div>
 
-			<IntegrationOnboardingModal projectId={projectId} isOpen={connectOpen} onOpenChange={setConnectOpen} />
+			<IntegrationOnboardingModal
+				projectId={projectId}
+				isOpen={connectOpen}
+				onOpenChange={setConnectOpen}
+			/>
 		</div>
 	);
 }
 
-function IntegrationsList({ projectId, group }: { projectId: string; group: string }) {
+function IntegrationsList({
+	projectId,
+	group,
+}: {
+	projectId: string;
+	group: string;
+}) {
 	const { open } = Route.useSearch();
 	const navigate = useNavigate();
-	const { data, isLoading, isError } = integrationsQuery.getAll.useQuery(projectId, group);
+	const { data, isLoading, isError } = integrationsQuery.getAll.useQuery(
+		projectId,
+		group,
+	);
 	const remove = integrationsQuery.remove.mutation(projectId);
 
-	if (isLoading) return <div className="flex justify-center py-16"><Spinner /></div>;
-	if (isError) return <p className="py-16 text-center text-muted">Couldn't load integrations.</p>;
+	if (isLoading)
+		return (
+			<div className="flex justify-center py-16">
+				<Spinner />
+			</div>
+		);
+	if (isError)
+		return (
+			<p className="py-16 text-center text-muted">
+				Couldn't load integrations.
+			</p>
+		);
 
 	if (!data || data.length === 0) {
 		return (
 			<div className="flex flex-col items-center gap-3 rounded-2xl border border-border bg-surface p-8 text-center">
 				<TbCloudCog size={36} className="text-muted" />
 				<div>
-					<p className="text-base font-semibold text-foreground">No integrations found</p>
+					<p className="text-base font-semibold text-foreground">
+						No integrations found
+					</p>
 					<p className="mt-1 text-xs text-muted">
-						No configured services in this category yet. Click "Connect App / Service" to add one.
+						No configured services in this category yet. Click "Connect App /
+						Service" to add one.
 					</p>
 				</div>
 			</div>
@@ -184,7 +241,10 @@ function IntegrationsList({ projectId, group }: { projectId: string; group: stri
 	}
 
 	function toggle(id: string) {
-		navigate({ to: ".", search: { group, open: open === id ? undefined : id } });
+		navigate({
+			to: ".",
+			search: { group, open: open === id ? undefined : id },
+		});
 	}
 
 	return (
@@ -206,11 +266,15 @@ function IntegrationsList({ projectId, group }: { projectId: string; group: stri
 						>
 							<div className="flex items-center gap-3">
 								<div className="flex size-9 items-center justify-center rounded-xl bg-surface-secondary text-accent">
-									{integrationIcons[integration.variant] ?? <TbDatabase size={18} />}
+									{integrationIcons[integration.variant] ?? (
+										<TbDatabase size={18} />
+									)}
 								</div>
 								<div>
 									<div className="flex items-center gap-2">
-										<span className="font-semibold text-foreground">{integration.name}</span>
+										<span className="font-semibold text-foreground">
+											{integration.name}
+										</span>
 									</div>
 									<div className="text-xs text-muted">
 										{integration.variant} • {group}
@@ -219,7 +283,11 @@ function IntegrationsList({ projectId, group }: { projectId: string; group: stri
 							</div>
 
 							{/* Right Actions Bar — Available even when accordion is closed */}
-							<div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+							<div
+								className="flex items-center gap-2"
+								onClick={(e) => e.stopPropagation()}
+								onKeyDown={(e) => e.stopPropagation()}
+							>
 								<span className="rounded-full border border-border bg-surface-secondary px-2.5 py-1 text-[11px] font-mono text-muted">
 									ID: {integration.id.slice(0, 8)}
 								</span>
@@ -232,7 +300,10 @@ function IntegrationsList({ projectId, group }: { projectId: string; group: stri
 								>
 									<TbChevronDown
 										size={18}
-										className={cn("transition-transform", isOpen && "rotate-180")}
+										className={cn(
+											"transition-transform",
+											isOpen && "rotate-180",
+										)}
 									/>
 								</button>
 							</div>
@@ -307,7 +378,9 @@ const HELP_DATA: Record<
 			"Stream structured application logs and real-time telemetry metrics directly to Loki or OpenTelemetry endpoints.",
 		docsUrl: "https://docs.fluxify.rest/integrations/observability.html",
 		tip: "Use OpenTelemetry (OTLP) to unify logs, metrics, and trace export across your stack.",
-		tipIcon: <TbHeartRateMonitor size={16} className="shrink-0 text-muted mt-0.5" />,
+		tipIcon: (
+			<TbHeartRateMonitor size={16} className="shrink-0 text-muted mt-0.5" />
+		),
 	},
 	queue: {
 		title: "Message Queues",
@@ -315,7 +388,9 @@ const HELP_DATA: Record<
 			"Connect Kafka, a NATS JetStream cluster or Amazon SQS so a trigger can start a workflow for every message, or every batch of messages.",
 		docsUrl: "https://docs.fluxify.rest/integrations/message-queues.html",
 		tip: "Set a dead-letter topic under Advanced, or one bad message holds up its partition until it succeeds. For SQS, give the queue a redrive policy in AWS instead.",
-		tipIcon: <TbArrowsExchange size={16} className="shrink-0 text-muted mt-0.5" />,
+		tipIcon: (
+			<TbArrowsExchange size={16} className="shrink-0 text-muted mt-0.5" />
+		),
 	},
 	baas: {
 		title: "Backend Services",
@@ -327,7 +402,12 @@ const HELP_DATA: Record<
 	},
 };
 
-function RightHelpPanel({ activeGroup }: { projectId: string; activeGroup: string }) {
+function RightHelpPanel({
+	activeGroup,
+}: {
+	projectId: string;
+	activeGroup: string;
+}) {
 	const info = HELP_DATA[activeGroup] ?? HELP_DATA.database;
 
 	return (
@@ -338,9 +418,7 @@ function RightHelpPanel({ activeGroup }: { projectId: string; activeGroup: strin
 					<TbBook size={16} className="text-muted" />
 					<span>Need help?</span>
 				</div>
-				<p className="text-xs text-muted leading-relaxed">
-					{info.description}
-				</p>
+				<p className="text-xs text-muted leading-relaxed">{info.description}</p>
 				<a
 					href={info.docsUrl}
 					target="_blank"

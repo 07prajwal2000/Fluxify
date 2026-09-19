@@ -1,6 +1,6 @@
-import { buildMongoUrl, type Connection, DbType } from "@fluxify/adapters";
-import type Docker from "dockerode";
-import { type Db, MongoClient } from "mongodb";
+import Docker from "dockerode";
+import { MongoClient, type Db } from "mongodb";
+import { buildMongoUrl, DbType, type Connection } from "@fluxify/adapters";
 import {
 	docker,
 	pullImage,
@@ -29,8 +29,7 @@ let starting: Promise<TestMongo> | undefined;
 let running: { container: Docker.Container; client: MongoClient } | undefined;
 
 export function mongo(): Promise<TestMongo> {
-	starting ??= start();
-	return starting;
+	return (starting ??= start());
 }
 
 export async function stopMongo() {

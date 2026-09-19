@@ -1,4 +1,4 @@
-import { Input, Label, cn } from "@fluxify/components";
+import { cn, Input, Label } from "@fluxify/components";
 import { AppConfigSelector } from "../AppConfigSelector";
 import { HeadersEditor } from "../HeadersEditor";
 import type { ConnectorFormProps } from "./types";
@@ -21,7 +21,9 @@ function Segmented<T extends string>({
 					onClick={() => onChange(key)}
 					className={cn(
 						"flex-1 rounded-md py-1 text-xs font-medium transition-all duration-150",
-						value === key ? "bg-surface text-foreground shadow-sm" : "text-muted hover:text-foreground",
+						value === key
+							? "bg-surface text-foreground shadow-sm"
+							: "text-muted hover:text-foreground",
 					)}
 				>
 					{options[key]}
@@ -50,18 +52,30 @@ export function ObservabilityForm({
 	supportsGrpc?: boolean;
 }) {
 	const isCredentials = typeof config.credentials === "object";
-	const creds = (config.credentials ?? {}) as { username?: string; password?: string };
+	const creds = (config.credentials ?? {}) as {
+		username?: string;
+		password?: string;
+	};
 	const grpc = supportsGrpc && config.protocol === "grpc";
-	const tlsMode = (config.tlsMode as "none" | "tls" | "mtls" | undefined) ?? "tls";
+	const tlsMode =
+		(config.tlsMode as "none" | "tls" | "mtls" | undefined) ?? "tls";
 	const field = (key: string) => (config[key] as string) ?? "";
 
 	return (
 		<div className="flex flex-col gap-3.5">
 			<div className="flex flex-col gap-1">
-				<label className="text-xs font-medium text-foreground">
+				<label
+					htmlFor="observability-integration-name"
+					className="text-xs font-medium text-foreground"
+				>
 					Integration Name <span className="text-danger">*</span>
 				</label>
-				<Input value={name} onChange={(e) => onName(e.currentTarget.value)} placeholder={namePlaceholder} />
+				<Input
+					id="observability-integration-name"
+					value={name}
+					onChange={(e) => onName(e.currentTarget.value)}
+					placeholder={namePlaceholder}
+				/>
 			</div>
 
 			{supportsGrpc && (
@@ -80,7 +94,11 @@ export function ObservabilityForm({
 				value={field("baseUrl")}
 				onChange={(v) => setField("baseUrl", v)}
 				label="Base URL"
-				description={grpc ? "gRPC endpoint of the OTLP collector, host and port only (usually 4317)" : baseUrlDescription}
+				description={
+					grpc
+						? "gRPC endpoint of the OTLP collector, host and port only (usually 4317)"
+						: baseUrlDescription
+				}
 				placeholder={grpc ? "http://otel-collector:4317" : baseUrlPlaceholder}
 			/>
 
@@ -127,7 +145,12 @@ export function ObservabilityForm({
 			<Segmented
 				options={{ base64: "Base64 Encoded", credentials: "Credentials" }}
 				value={isCredentials ? "credentials" : "base64"}
-				onChange={(v) => setField("credentials", v === "credentials" ? { username: "", password: "" } : "")}
+				onChange={(v) =>
+					setField(
+						"credentials",
+						v === "credentials" ? { username: "", password: "" } : "",
+					)
+				}
 			/>
 
 			{!isCredentials ? (

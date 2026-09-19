@@ -9,6 +9,7 @@ export type AuthType = "traditional" | "sso";
 
 const CheckIcon = ({ className }: { className?: string }) => (
 	<svg
+		aria-hidden="true"
 		viewBox="0 0 24 24"
 		className={className}
 		fill="none"

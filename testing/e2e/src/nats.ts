@@ -29,8 +29,7 @@ let running: Docker.Container | undefined;
 
 /** The shared broker, started on first use. Resolves once it accepts clients. */
 export function nats(): Promise<void> {
-	starting ??= start();
-	return starting;
+	return (starting ??= start());
 }
 
 /** Stops the container. Called once, from the preloaded suite teardown. */

@@ -1,19 +1,11 @@
-import {
-	afterAll,
-	beforeEach,
-	describe,
-	expect,
-	it,
-	mock,
-	spyOn,
-} from "bun:test";
+import { describe, it, expect, mock, spyOn, beforeEach, afterAll } from "bun:test";
 
 // The delegated services are stubbed with spyOn, not mock.module: module mocks
 // are global for the whole run and would follow these fakes into those
 // services' own specs.
 import * as createService from "../../../api/v1/routes/create/service";
-import * as deleteService from "../../../api/v1/routes/delete/service";
 import * as modifyService from "../../../api/v1/routes/update-partial/service";
+import * as deleteService from "../../../api/v1/routes/delete/service";
 import * as canvasService from "../../canvas/service";
 
 /** the transaction handle the ops handler must hand down to both services */
@@ -36,9 +28,11 @@ mock.module("../../../db/redis", () => ({
 const calls: any = {};
 let canvasFails = false;
 
+
+import { handleRouteOp } from "../route";
+
 import { RpcError } from "../../../db/natsRpc";
 import { NotFoundError } from "../../../errors/notFoundError";
-import { handleRouteOp } from "../route";
 
 const caller = { userId: "u1", projectIds: ["p1"] };
 const routeData = {
@@ -79,21 +73,25 @@ describe("fluxify.ops.route", () => {
 		published.length = 0;
 		canvasFails = false;
 
-		stub(createService, "default", async (userId: any, data: any, tx: any) => {
-			calls.create = { userId, data, tx };
-			return { id: "r-new" };
-		});
-		stub(modifyService, "default", async (id: any, data: any, acl: any) => {
-			calls.modify = { id, data, acl };
-			return { id } as any;
-		});
-		stub(deleteService, "default", async (id: any, acl: any) => {
-			calls.remove = { id, acl };
-			return "";
-		});
-		stub(
-			canvasService,
-			"saveCanvas",
+		stub(createService, "default", 
+			async (userId: any, data: any, tx: any) => {
+				calls.create = { userId, data, tx };
+				return { id: "r-new" };
+			},
+		);
+		stub(modifyService, "default", 
+			async (id: any, data: any, acl: any) => {
+				calls.modify = { id, data, acl };
+				return { id } as any;
+			},
+		);
+		stub(deleteService, "default", 
+			async (id: any, acl: any) => {
+				calls.remove = { id, acl };
+				return "";
+			},
+		);
+		stub(canvasService, "saveCanvas", 
 			async (parent: any, data: any, projectIds: any, tx: any) => {
 				calls.canvas = { parent, data, projectIds, tx };
 				if (canvasFails) throw new Error("canvas boom");
@@ -109,7 +107,7 @@ describe("fluxify.ops.route", () => {
 
 		expect(result).toEqual({ id: "r-new" } as any);
 		// both services get the *same* handle — that is what makes it atomic
-		// one handle shared by both — that is what makes it atomic
+		// one handle shared by both � that is what makes it atomic
 		expect(calls.create.tx).toBeDefined();
 		expect(calls.canvas.tx).toBe(calls.create.tx);
 		expect(calls.canvas.parent).toEqual({ type: "route", id: "r-new" });
@@ -171,9 +169,9 @@ describe("fluxify.ops.route", () => {
 	});
 
 	it("deletes through the existing service", async () => {
-		expect(
-			await handleRouteOp({ action: "delete", id: "r-1" }, caller),
-		).toEqual({ id: "r-1" } as any);
+		expect(await handleRouteOp({ action: "delete", id: "r-1" }, caller)).toEqual(
+			{ id: "r-1" } as any,
+		);
 		expect(calls.remove.id).toBe("r-1");
 	});
 

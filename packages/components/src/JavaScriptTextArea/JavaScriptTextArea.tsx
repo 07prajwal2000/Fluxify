@@ -114,6 +114,7 @@ export function JavaScriptTextArea({
 		// enclosing containers (canvas, focus scopes, popovers, modals, hotkey listeners)
 		// intercept keys like Space, Tab, Delete, etc., blocking normal code editing.
 		<div
+			role="group"
 			aria-label={ariaLabel}
 			className={clsx(
 				"overflow-hidden rounded-[var(--radius)] border border-[var(--border)]",

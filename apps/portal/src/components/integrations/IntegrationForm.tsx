@@ -1,31 +1,96 @@
-import { useEffect, useMemo, useState } from "react";
 import { Button, DeleteIconButton, Spinner, toast } from "@fluxify/components";
-import { TbBolt } from "react-icons/tb";
 import {
+	getDefaultVariantValue,
 	getIntegrationsGroups,
 	getIntegrationsVariants,
-	getDefaultVariantValue,
 	getSchema,
 	humanReadableConnectorNames,
 } from "@fluxify/server/src/api/v1/integrations/helpers";
-import { integrationsQuery } from "@/query/integrationsQuery";
-import { showErrorNotification } from "@/lib/errorNotifier";
+import { useEffect, useMemo, useState } from "react";
+import { TbBolt } from "react-icons/tb";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
-import { CredentialsUrlForm } from "./connectors/CredentialsUrlForm";
+import { showErrorNotification } from "@/lib/errorNotifier";
+import { integrationsQuery } from "@/query/integrationsQuery";
 import { AiForm } from "./connectors/AiForm";
-import { ObservabilityForm } from "./connectors/ObservabilityForm";
+import { CredentialsUrlForm } from "./connectors/CredentialsUrlForm";
 import { KafkaForm } from "./connectors/KafkaForm";
 import { NatsForm } from "./connectors/NatsForm";
+import { ObservabilityForm } from "./connectors/ObservabilityForm";
 import { SqsForm } from "./connectors/SqsForm";
 
-type IntegrationData = { name: string; group: string; variant: string; config: Record<string, unknown> };
+type IntegrationData = {
+	name: string;
+	group: string;
+	variant: string;
+	config: Record<string, unknown>;
+};
 
-const CRED_PLACEHOLDERS: Record<string, { ph: Record<string, string>; ssl?: boolean; db?: boolean; dbLabel?: string }> = {
-	PostgreSQL: { ph: { name: "My Postgres Database", host: "postgres.company.com", port: "5432", username: "postgres", password: "secret", database: "ecommerce", url: "postgres://user:pass@host:port/dbname?ssl=disable" }, ssl: true, db: true },
-	MySQL: { ph: { name: "My MySQL Database", host: "mysql.company.com", port: "3306", username: "root", password: "secret", database: "ecommerce", url: "mysql://user:pass@host:port/dbname?ssl=disable" }, db: true },
-	MongoDB: { ph: { name: "My MongoDB Database", host: "localhost", port: "27017", username: "mongo_user", password: "secret", database: "mydatabase", url: "mongodb://user:pass@host:port/dbname" }, db: true },
-	Redis: { ph: { name: "My Redis Cache", host: "redis.company.com", port: "6379", username: "default", password: "secret", url: "redis://user:pass@host:port/0", database: "0" }, db: true, dbLabel: "DB Index" },
-	Memcached: { ph: { name: "My Memcached Instance", host: "memcached.company.com", port: "11211", username: "default", password: "secret", url: "memcached://user:pass@host:port", database: "" }, db: false },
+const CRED_PLACEHOLDERS: Record<
+	string,
+	{ ph: Record<string, string>; ssl?: boolean; db?: boolean; dbLabel?: string }
+> = {
+	PostgreSQL: {
+		ph: {
+			name: "My Postgres Database",
+			host: "postgres.company.com",
+			port: "5432",
+			username: "postgres",
+			password: "secret",
+			database: "ecommerce",
+			url: "postgres://user:pass@host:port/dbname?ssl=disable",
+		},
+		ssl: true,
+		db: true,
+	},
+	MySQL: {
+		ph: {
+			name: "My MySQL Database",
+			host: "mysql.company.com",
+			port: "3306",
+			username: "root",
+			password: "secret",
+			database: "ecommerce",
+			url: "mysql://user:pass@host:port/dbname?ssl=disable",
+		},
+		db: true,
+	},
+	MongoDB: {
+		ph: {
+			name: "My MongoDB Database",
+			host: "localhost",
+			port: "27017",
+			username: "mongo_user",
+			password: "secret",
+			database: "mydatabase",
+			url: "mongodb://user:pass@host:port/dbname",
+		},
+		db: true,
+	},
+	Redis: {
+		ph: {
+			name: "My Redis Cache",
+			host: "redis.company.com",
+			port: "6379",
+			username: "default",
+			password: "secret",
+			url: "redis://user:pass@host:port/0",
+			database: "0",
+		},
+		db: true,
+		dbLabel: "DB Index",
+	},
+	Memcached: {
+		ph: {
+			name: "My Memcached Instance",
+			host: "memcached.company.com",
+			port: "11211",
+			username: "default",
+			password: "secret",
+			url: "memcached://user:pass@host:port",
+			database: "",
+		},
+		db: false,
+	},
 };
 
 function setPath(obj: Record<string, unknown>, path: string, value: unknown) {
@@ -70,7 +135,9 @@ export function IntegrationForm({
 	const [name, setName] = useState(initialData?.name ?? "");
 	const [group, setGroup] = useState(initialData?.group ?? "");
 	const [variant, setVariant] = useState(initialData?.variant ?? "");
-	const [config, setConfig] = useState<Record<string, unknown>>(initialData?.config ?? {});
+	const [config, setConfig] = useState<Record<string, unknown>>(
+		initialData?.config ?? {},
+	);
 	const [confirmDelete, setConfirmDelete] = useState(false);
 	const hydrated = useMemo(() => ({ id }), [id]);
 
@@ -91,7 +158,9 @@ export function IntegrationForm({
 	}
 	function onVariant(v: string) {
 		setVariant(v);
-		setConfig((getDefaultVariantValue(v as never) as Record<string, unknown>) ?? {});
+		setConfig(
+			(getDefaultVariantValue(v as never) as Record<string, unknown>) ?? {},
+		);
 	}
 	function setField(path: string, value: unknown) {
 		setConfig((c) => setPath(c, path, value));
@@ -111,11 +180,20 @@ export function IntegrationForm({
 		if (id) {
 			update.mutate(
 				{ id, data: { name, config: parsed.data } as never },
-				{ onSuccess: () => { toast.success("Integration updated"); onSaved?.(); }, onError: (e) => showErrorNotification(e as Error) },
+				{
+					onSuccess: () => {
+						toast.success("Integration updated");
+						onSaved?.();
+					},
+					onError: (e) => showErrorNotification(e as Error),
+				},
 			);
 		} else {
 			create.mutate({ name, group, variant, config: parsed.data } as never, {
-				onSuccess: () => { toast.success("Integration connected"); onSaved?.(); },
+				onSuccess: () => {
+					toast.success("Integration connected");
+					onSaved?.();
+				},
 				onError: (e) => showErrorNotification(e as Error),
 			});
 		}
@@ -126,14 +204,20 @@ export function IntegrationForm({
 			{ group, variant, config },
 			{
 				onSuccess: (res) =>
-					res?.success ? toast.success("Connection successful") : toast.danger(res?.error ?? "Connection failed"),
+					res?.success
+						? toast.success("Connection successful")
+						: toast.danger(res?.error ?? "Connection failed"),
 				onError: (e) => showErrorNotification(e as Error),
 			},
 		);
 	}
 
 	if (id && loaded.isLoading) {
-		return <div className="flex justify-center py-8"><Spinner /></div>;
+		return (
+			<div className="flex justify-center py-8">
+				<Spinner />
+			</div>
+		);
 	}
 
 	const formProps = { projectId, name, onName: setName, config, setField };
@@ -145,9 +229,17 @@ export function IntegrationForm({
 				<>
 					{/* Choose a Connector (group) */}
 					<div className="flex flex-col gap-1">
-						<label className="text-sm font-medium text-foreground">Choose a Connector</label>
-						<span className="text-xs text-muted">Choose from a range of connectors to get started</span>
+						<label
+							htmlFor="integration-choose-a-connector"
+							className="text-sm font-medium text-foreground"
+						>
+							Choose a Connector
+						</label>
+						<span className="text-xs text-muted">
+							Choose from a range of connectors to get started
+						</span>
 						<select
+							id="integration-choose-a-connector"
 							value={group}
 							onChange={(e) => onGroup(e.target.value)}
 							className="rounded-md border border-border bg-background-secondary px-3 py-2 text-sm text-foreground outline-none"
@@ -155,7 +247,11 @@ export function IntegrationForm({
 							<option value="">Select…</option>
 							{getIntegrationsGroups().map((g) => (
 								<option key={g} value={g}>
-									{humanReadableConnectorNames[g as keyof typeof humanReadableConnectorNames]}
+									{
+										humanReadableConnectorNames[
+											g as keyof typeof humanReadableConnectorNames
+										]
+									}
 								</option>
 							))}
 						</select>
@@ -164,16 +260,26 @@ export function IntegrationForm({
 					{/* Select Variant */}
 					{group && (
 						<div className="flex flex-col gap-1">
-							<label className="text-sm font-medium text-foreground">Select Variant</label>
-							<span className="text-xs text-muted">Select the service you want to configure &amp; connect to</span>
+							<label
+								htmlFor="integration-select-variant"
+								className="text-sm font-medium text-foreground"
+							>
+								Select Variant
+							</label>
+							<span className="text-xs text-muted">
+								Select the service you want to configure &amp; connect to
+							</span>
 							<select
+								id="integration-select-variant"
 								value={variant}
 								onChange={(e) => onVariant(e.target.value)}
 								className="rounded-md border border-border bg-background-secondary px-3 py-2 text-sm text-foreground outline-none"
 							>
 								<option value="">Select…</option>
 								{getIntegrationsVariants(group as never).map((v) => (
-									<option key={v} value={v}>{v}</option>
+									<option key={v} value={v}>
+										{v}
+									</option>
 								))}
 							</select>
 						</div>
@@ -183,19 +289,40 @@ export function IntegrationForm({
 
 			{/* Connector-specific form */}
 			{group === "database" && CRED_PLACEHOLDERS[variant] && (
-				<CredentialsUrlForm {...formProps} placeholders={CRED_PLACEHOLDERS[variant].ph as never} hasDatabase={CRED_PLACEHOLDERS[variant].db} hasSSL={CRED_PLACEHOLDERS[variant].ssl} />
+				<CredentialsUrlForm
+					{...formProps}
+					placeholders={CRED_PLACEHOLDERS[variant].ph as never}
+					hasDatabase={CRED_PLACEHOLDERS[variant].db}
+					hasSSL={CRED_PLACEHOLDERS[variant].ssl}
+				/>
 			)}
 			{group === "kv" && CRED_PLACEHOLDERS[variant] && (
-				<CredentialsUrlForm {...formProps} placeholders={CRED_PLACEHOLDERS[variant].ph as never} hasDatabase={CRED_PLACEHOLDERS[variant].db} databaseLabel={CRED_PLACEHOLDERS[variant].dbLabel} />
+				<CredentialsUrlForm
+					{...formProps}
+					placeholders={CRED_PLACEHOLDERS[variant].ph as never}
+					hasDatabase={CRED_PLACEHOLDERS[variant].db}
+					databaseLabel={CRED_PLACEHOLDERS[variant].dbLabel}
+				/>
 			)}
 			{group === "ai" && variant && (
 				<AiForm {...formProps} showBaseUrl={variant === "OpenAI Compatible"} />
 			)}
 			{group === "observability" && variant === "Loki" && (
-				<ObservabilityForm {...formProps} namePlaceholder="Loki | Production" baseUrlPlaceholder="http://loki:3100" baseUrlDescription="Base url of the loki instance" />
+				<ObservabilityForm
+					{...formProps}
+					namePlaceholder="Loki | Production"
+					baseUrlPlaceholder="http://loki:3100"
+					baseUrlDescription="Base url of the loki instance"
+				/>
 			)}
 			{group === "observability" && variant === "Open Telemetry" && (
-				<ObservabilityForm {...formProps} supportsGrpc namePlaceholder="OpenTelemetry | Production" baseUrlPlaceholder="https://http-intake.logs.datadoghq.com/api/v2/logs" baseUrlDescription="Base url of the OTLP endpoint, without the /v1/... path (OpenObserve, Datadog, Grafana, BetterStack)" />
+				<ObservabilityForm
+					{...formProps}
+					supportsGrpc
+					namePlaceholder="OpenTelemetry | Production"
+					baseUrlPlaceholder="https://http-intake.logs.datadoghq.com/api/v2/logs"
+					baseUrlDescription="Base url of the OTLP endpoint, without the /v1/... path (OpenObserve, Datadog, Grafana, BetterStack)"
+				/>
 			)}
 
 			{group === "queue" && variant === "Kafka" && <KafkaForm {...formProps} />}
@@ -224,7 +351,11 @@ export function IntegrationForm({
 							<TbBolt size={14} className="text-accent" />
 							<span>Test connection</span>
 						</Button>
-						<Button variant="primary" isPending={create.isPending || update.isPending} onPress={onSave}>
+						<Button
+							variant="primary"
+							isPending={create.isPending || update.isPending}
+							onPress={onSave}
+						>
 							{id ? "Save changes" : "Connect"}
 						</Button>
 					</div>

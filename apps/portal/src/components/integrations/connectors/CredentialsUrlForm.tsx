@@ -1,5 +1,5 @@
+import { Checkbox, cn, Input } from "@fluxify/components";
 import { useState } from "react";
-import { Checkbox, Input, cn } from "@fluxify/components";
 import { AppConfigSelector } from "../AppConfigSelector";
 import type { ConnectorFormProps } from "./types";
 
@@ -38,10 +38,14 @@ export function CredentialsUrlForm({
 	return (
 		<div className="flex flex-col gap-3.5">
 			<div className="flex flex-col gap-1">
-				<label className="text-xs font-medium text-foreground">
+				<label
+					htmlFor="credentials-integration-name"
+					className="text-xs font-medium text-foreground"
+				>
 					Integration Name <span className="text-danger">*</span>
 				</label>
 				<Input
+					id="credentials-integration-name"
 					value={name}
 					onChange={(e) => onName(e.currentTarget.value)}
 					placeholder={placeholders.name}
@@ -109,7 +113,12 @@ export function CredentialsUrlForm({
 						/>
 					)}
 					{hasSSL && (
-						<div className={cn("flex items-end pb-1.5", hasDatabase ? "" : "col-span-2")}>
+						<div
+							className={cn(
+								"flex items-end pb-1.5",
+								hasDatabase ? "" : "col-span-2",
+							)}
+						>
 							<Checkbox
 								isSelected={Boolean(config.useSSL)}
 								onChange={(v) => setField("useSSL", v)}

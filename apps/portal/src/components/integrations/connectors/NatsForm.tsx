@@ -1,5 +1,5 @@
-import { useState } from "react";
 import { Checkbox, Input, Label, ListBox, Select } from "@fluxify/components";
+import { useState } from "react";
 import { AppConfigSelector } from "../AppConfigSelector";
 import type { ConnectorFormProps } from "./types";
 
@@ -22,7 +22,13 @@ function authModeOf(config: Record<string, unknown>): AuthMode {
 }
 
 // NATS: server list, one way to log in, optional TLS, and a dead-letter subject.
-export function NatsForm({ projectId, name, onName, config, setField }: ConnectorFormProps) {
+export function NatsForm({
+	projectId,
+	name,
+	onName,
+	config,
+	setField,
+}: ConnectorFormProps) {
 	const [mode, setMode] = useState<AuthMode>(() => authModeOf(config));
 	const field = (key: string) => (config[key] as string) ?? "";
 
@@ -35,15 +41,23 @@ export function NatsForm({ projectId, name, onName, config, setField }: Connecto
 	return (
 		<div className="flex flex-col gap-3.5">
 			<p className="text-xs text-muted">
-				Connects to your own NATS cluster with JetStream turned on. This is separate from the NATS
-				server Fluxify itself runs on.
+				Connects to your own NATS cluster with JetStream turned on. This is
+				separate from the NATS server Fluxify itself runs on.
 			</p>
 
 			<div className="flex flex-col gap-1">
-				<label className="text-xs font-medium text-foreground">
+				<label
+					htmlFor="nats-integration-name"
+					className="text-xs font-medium text-foreground"
+				>
 					Integration Name <span className="text-danger">*</span>
 				</label>
-				<Input value={name} onChange={(e) => onName(e.currentTarget.value)} placeholder="NATS | Production" />
+				<Input
+					id="nats-integration-name"
+					value={name}
+					onChange={(e) => onName(e.currentTarget.value)}
+					placeholder="NATS | Production"
+				/>
 			</div>
 
 			<AppConfigSelector
@@ -128,12 +142,17 @@ export function NatsForm({ projectId, name, onName, config, setField }: Connecto
 				/>
 			)}
 
-			<Checkbox isSelected={Boolean(config.tls)} onChange={(v) => setField("tls", v)}>
+			<Checkbox
+				isSelected={Boolean(config.tls)}
+				onChange={(v) => setField("tls", v)}
+			>
 				Use TLS
 			</Checkbox>
 
 			<details className="rounded-lg border border-border px-3 py-2">
-				<summary className="cursor-pointer text-xs font-medium text-foreground">Advanced</summary>
+				<summary className="cursor-pointer text-xs font-medium text-foreground">
+					Advanced
+				</summary>
 				<div className="pt-3">
 					<AppConfigSelector
 						projectId={projectId}

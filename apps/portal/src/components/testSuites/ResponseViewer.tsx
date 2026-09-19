@@ -1,5 +1,5 @@
-import { useMemo, useState } from "react";
 import { Button, CodeViewer, cn } from "@fluxify/components";
+import { useMemo, useState } from "react";
 import { TbDownload } from "react-icons/tb";
 
 type Headers = Record<string, string> | undefined;
@@ -63,7 +63,9 @@ function asText(data: unknown) {
 function HeadersTable({ headers }: { headers: Headers }) {
 	const entries = Object.entries(headers ?? {});
 	if (entries.length === 0) {
-		return <p className="p-4 text-center text-xs text-muted">No headers recorded.</p>;
+		return (
+			<p className="p-4 text-center text-xs text-muted">No headers recorded.</p>
+		);
 	}
 	return (
 		<div className="overflow-hidden rounded-md border border-border">
@@ -120,7 +122,9 @@ export function ResponseViewer({
 						)}
 					</button>
 				))}
-				{mime && <span className="ml-auto font-mono text-xs text-muted">{mime}</span>}
+				{mime && (
+					<span className="ml-auto font-mono text-xs text-muted">{mime}</span>
+				)}
 			</div>
 
 			{tab === "headers" ? (
@@ -132,15 +136,20 @@ export function ResponseViewer({
 					className="max-h-64 max-w-full rounded-md border border-border object-contain"
 				/>
 			) : presentation === "video" && src ? (
-				// eslint-disable-next-line jsx-a11y/media-has-caption -- a response body has no caption track
-				<video src={src} controls className="max-h-64 w-full rounded-md border border-border" />
+				// biome-ignore lint/a11y/useMediaCaption: a response body has no caption track
+				<video
+					src={src}
+					controls
+					className="max-h-64 w-full rounded-md border border-border"
+				/>
 			) : presentation === "audio" && src ? (
-				// eslint-disable-next-line jsx-a11y/media-has-caption -- a response body has no caption track
+				// biome-ignore lint/a11y/useMediaCaption: a response body has no caption track
 				<audio src={src} controls className="w-full" />
 			) : presentation === "binary" ? (
 				<div className="flex items-center gap-3 rounded-md border border-border bg-background p-3">
 					<span className="flex-1 text-xs text-muted">
-						Binary response ({mime || "unknown type"}) — nothing useful to render.
+						Binary response ({mime || "unknown type"}) — nothing useful to
+						render.
 					</span>
 					{src ? (
 						<a

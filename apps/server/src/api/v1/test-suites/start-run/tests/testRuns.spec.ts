@@ -39,7 +39,6 @@ mock.module("../../../../../db", () => {
 		orderBy: () => chain,
 		offset: () => chain,
 		limit: () => chain,
-		// biome-ignore lint/suspicious/noThenProperty: the mock must be awaitable, like a drizzle query
 		then: (resolve: any) => {
 			state.selects++;
 			return Promise.resolve(state.rows).then(resolve);
@@ -114,10 +113,7 @@ describe("POST runs", () => {
 
 	it("refuses a viewer", async () => {
 		const res = await app.request(
-			new Request(base, {
-				method: "POST",
-				headers: { "X-Test-Role": "viewer" },
-			}),
+			new Request(base, { method: "POST", headers: { "X-Test-Role": "viewer" } }),
 		);
 		expect(res.status).toBe(403);
 		expect(started).not.toHaveBeenCalled();

@@ -1,10 +1,10 @@
-import { useEffect } from "react";
-import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
 import { cn } from "@fluxify/components";
+import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
+import { useEffect } from "react";
 import { authClient } from "@/lib/auth";
-import { useAuthStoreActions } from "@/store/auth";
 import { createRouteHead } from "@/lib/seo";
 import { publicSettingsQuery } from "@/query/publicSettingsQuery";
+import { useAuthStoreActions } from "@/store/auth";
 
 // Guard for every authenticated route. Bounces to /login (remembering where the
 // user was) when there is no session; child routes render through <Outlet />.
@@ -30,7 +30,8 @@ function AuthedLayout() {
 			name: session.user.name || "",
 			email: session.user.email || "",
 			image: session.user.image || "",
-			isSystemAdmin: (session.user as { isSystemAdmin?: boolean }).isSystemAdmin,
+			isSystemAdmin: (session.user as { isSystemAdmin?: boolean })
+				.isSystemAdmin,
 		});
 		actions.setACL((session as { acl?: [] }).acl ?? []);
 	}, [session, actions]);
@@ -72,6 +73,7 @@ function LicenseBanner() {
 		<div className="pointer-events-none fixed inset-x-0 top-0 z-[10000] flex justify-center">
 			<p
 				role="alert"
+				// biome-ignore lint/a11y/noNoninteractiveTabindex: the banner is parked off-screen and must be reachable by keyboard to slide into view
 				tabIndex={0}
 				className={cn(
 					// Parked above the viewport with only a tab showing, so it covers
@@ -84,7 +86,9 @@ function LicenseBanner() {
 					// Opaque surface, not a tint: at 20% the page showed straight
 					// through the message. The colour lives in the border and text.
 					"bg-surface",
-					inGrace ? "border-warning/60 text-warning" : "border-danger/60 text-danger",
+					inGrace
+						? "border-warning/60 text-warning"
+						: "border-danger/60 text-danger",
 				)}
 			>
 				{inGrace

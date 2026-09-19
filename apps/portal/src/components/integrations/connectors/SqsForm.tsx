@@ -3,21 +3,35 @@ import { AppConfigSelector } from "../AppConfigSelector";
 import type { ConnectorFormProps } from "./types";
 
 // SQS: a region and, optionally, keys. No dead-letter field: AWS handles that.
-export function SqsForm({ projectId, name, onName, config, setField }: ConnectorFormProps) {
+export function SqsForm({
+	projectId,
+	name,
+	onName,
+	config,
+	setField,
+}: ConnectorFormProps) {
 	const field = (key: string) => (config[key] as string) ?? "";
 
 	return (
 		<div className="flex flex-col gap-3.5">
 			<p className="text-xs text-muted">
-				Connects to Amazon SQS. Failed messages are handled by the queue's own dead-letter queue
-				(its redrive policy) in AWS, not by Fluxify.
+				Connects to Amazon SQS. Failed messages are handled by the queue's own
+				dead-letter queue (its redrive policy) in AWS, not by Fluxify.
 			</p>
 
 			<div className="flex flex-col gap-1">
-				<label className="text-xs font-medium text-foreground">
+				<label
+					htmlFor="sqs-integration-name"
+					className="text-xs font-medium text-foreground"
+				>
 					Integration Name <span className="text-danger">*</span>
 				</label>
-				<Input value={name} onChange={(e) => onName(e.currentTarget.value)} placeholder="SQS | Production" />
+				<Input
+					id="sqs-integration-name"
+					value={name}
+					onChange={(e) => onName(e.currentTarget.value)}
+					placeholder="SQS | Production"
+				/>
 			</div>
 
 			<AppConfigSelector
@@ -45,12 +59,15 @@ export function SqsForm({ projectId, name, onName, config, setField }: Connector
 				/>
 			</div>
 			<p className="-mt-2 text-xs text-muted">
-				Leave both empty to use the server's own AWS credentials, such as an IAM role. The keys need
-				sqs:GetQueueAttributes, ReceiveMessage, DeleteMessage and ChangeMessageVisibility.
+				Leave both empty to use the server's own AWS credentials, such as an IAM
+				role. The keys need sqs:GetQueueAttributes, ReceiveMessage,
+				DeleteMessage and ChangeMessageVisibility.
 			</p>
 
 			<details className="rounded-lg border border-border px-3 py-2">
-				<summary className="cursor-pointer text-xs font-medium text-foreground">Advanced</summary>
+				<summary className="cursor-pointer text-xs font-medium text-foreground">
+					Advanced
+				</summary>
 				<div className="flex flex-col gap-3 pt-3">
 					<AppConfigSelector
 						projectId={projectId}

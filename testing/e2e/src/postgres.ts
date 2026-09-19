@@ -1,6 +1,6 @@
-import { type Connection, DbType } from "@fluxify/adapters";
 import { SQL } from "bun";
-import type Docker from "dockerode";
+import Docker from "dockerode";
+import { DbType, type Connection } from "@fluxify/adapters";
 import {
 	docker,
 	pullImage,
@@ -31,8 +31,7 @@ let running: { container: Docker.Container; sql: SQL } | undefined;
 
 /** The shared database, started on first use. */
 export function database(): Promise<TestDatabase> {
-	starting ??= start();
-	return starting;
+	return (starting ??= start());
 }
 
 /** Tears the container down. Called once, from the preloaded suite teardown. */

@@ -14,10 +14,10 @@ import {
 import type { TriggerBatch } from "@fluxify/server/src/modules/triggers/types";
 import type { WorkflowFixture } from "./graph";
 import {
+	WORKFLOW_PROJECT_ID,
 	publishWorkflow,
 	setTriggerArtifactHandler,
 	sinkHits,
-	WORKFLOW_PROJECT_ID,
 	workflowHarness,
 } from "./workflow";
 
@@ -58,8 +58,7 @@ let started: Promise<void> | undefined;
 const publishedTriggers = new Set<string>();
 
 export function triggerHarness(): Promise<void> {
-	started ??= start();
-	return started;
+	return (started ??= start());
 }
 
 async function start() {
@@ -152,10 +151,7 @@ export async function publishTrigger(trigger: {
 		concurrency: trigger.concurrency ?? 1,
 		publishedAt: new Date().toISOString(),
 	};
-	await putArtifact(
-		triggerKey(WORKFLOW_PROJECT_ID, trigger.triggerId),
-		artifact,
-	);
+	await putArtifact(triggerKey(WORKFLOW_PROJECT_ID, trigger.triggerId), artifact);
 	publishedTriggers.add(trigger.triggerId);
 	await waitFor(
 		() => worker?.has(trigger.triggerId) === true,
@@ -204,11 +200,7 @@ export async function waitForBatches(count: number, timeoutMs = 8_000) {
 }
 
 /** Waits until the sink has answered `count` requests on a path. */
-export async function waitForHits(
-	path: string,
-	count: number,
-	timeoutMs = 8_000,
-) {
+export async function waitForHits(path: string, count: number, timeoutMs = 8_000) {
 	await waitFor(
 		() => sinkHits().filter((hit) => hit.path === path).length >= count,
 		`expected ${count} request(s) to ${path}`,
@@ -219,9 +211,7 @@ export async function waitForHits(
 
 export async function stopTriggers() {
 	for (const triggerId of publishedTriggers) {
-		await deleteArtifact(triggerKey(WORKFLOW_PROJECT_ID, triggerId)).catch(
-			() => {},
-		);
+		await deleteArtifact(triggerKey(WORKFLOW_PROJECT_ID, triggerId)).catch(() => {});
 	}
 	publishedTriggers.clear();
 	setTriggerArtifactHandler(undefined);

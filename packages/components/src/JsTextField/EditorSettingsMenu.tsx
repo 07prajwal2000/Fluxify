@@ -58,10 +58,7 @@ export function EditorSettingsMenu({
 				<TbSettings className="size-4" />
 			</Button>
 
-			<Popover
-				isOpen={isOpen}
-				onOpenChange={setIsOpen}
-			>
+			<Popover isOpen={isOpen} onOpenChange={setIsOpen}>
 				<Popover.Content
 					triggerRef={triggerRef}
 					placement="top start"
@@ -76,8 +73,17 @@ export function EditorSettingsMenu({
 
 						{/* Theme Selection */}
 						<div className="flex flex-col gap-1.5">
-							<label className="text-[11px] font-medium text-muted">Theme</label>
-							<div className="grid grid-cols-3 gap-1 bg-surface-secondary p-1 rounded-lg border border-border">
+							<span
+								id="editor-settings-theme"
+								className="text-[11px] font-medium text-muted"
+							>
+								Theme
+							</span>
+							<div
+								role="group"
+								aria-labelledby="editor-settings-theme"
+								className="grid grid-cols-3 gap-1 bg-surface-secondary p-1 rounded-lg border border-border"
+							>
 								{(["auto", "vs-dark", "light"] as const).map((t) => (
 									<button
 										key={t}
