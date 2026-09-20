@@ -102,10 +102,20 @@ export const orchestratorKeys = {
 	/** Filter matching every node key, for a watch or a slot count. */
 	allNodes: "node.>",
 	/**
-	 * What one node should run, in `NODE_ASSIGNMENT_BUCKET`. Addressed per node
-	 * rather than broadcast, so retyping one node leaves its siblings alone (§4).
+	 * What one claim's nodes should run, in `NODE_ASSIGNMENT_BUCKET`.
+	 *
+	 * Keyed by the claim rather than the node because that is what the record
+	 * already is: type, groups and exclusions all come from the claim, so every
+	 * replica of one receives a byte-identical value. It is also the only shape
+	 * Kubernetes can use — a Deployment names its own pods, so the orchestrator
+	 * cannot write a per-node record before the pod that would read it exists.
+	 *
+	 * Still not a broadcast: retyping one claim leaves every other claim's nodes
+	 * alone (§4), which is the property that mattered.
 	 */
-	assignment: (nodeId: string) => `assign.${nodeId}`,
+	assignment: (claimId: string) => `assign.${claimId}`,
+	/** Every assignment key, for pruning the claims that went away. */
+	allAssignments: "assign.>",
 	/** The single leader lease, in `ORCHESTRATOR_LEASE_BUCKET`. */
 	leader: "leader",
 	/**
@@ -158,11 +168,15 @@ export interface NodeHeartbeat {
 }
 
 /**
- * What a node should be running. The node reads this on boot and keeps watching
- * it, so a restart picks up the same answer and nothing drifts from what the
- * reconciler believes (§4). Absent means "use the environment" — which is how a
- * hand-started worker and Kit's builtin worker still boot with nobody writing
- * one.
+ * What a claim's nodes should be running. A node reads this on boot and keeps
+ * watching it, so a restart picks up the same answer and nothing drifts from
+ * what the reconciler believes (§4). Absent means "use the environment" — which
+ * is how a hand-started worker and Kit's builtin worker still boot with nobody
+ * writing one.
+ *
+ * One record per claim, not per replica: every replica of a claim is identical
+ * by construction (§3a), so a per-node copy was the same bytes written `r`
+ * times.
  *
  * The project is deliberately not here. It is baked into the container's env and
  * labels, because Traefik routes a project from a label and labels cannot be

@@ -279,12 +279,12 @@ export async function claimNodeSlot(
  * the caller falls back to its environment.
  */
 export async function watchNodeAssignment(
-	nodeId: string,
+	claimId: string,
 	onChange: (assignment: NodeAssignment | null) => void | Promise<void>,
 ) {
 	const nc = await initializeNats();
 	const bucket = await openKvBucket<NodeAssignment>(nc, NODE_ASSIGNMENT_BUCKET);
-	const key = orchestratorKeys.assignment(nodeId);
+	const key = orchestratorKeys.assignment(claimId);
 	const watcher = await bucket.watch(key, (_key, value) => onChange(value));
 	await watcher.initialized;
 	return watcher;
@@ -313,6 +313,13 @@ export interface AttachedNode {
 export interface AttachOptions {
 	/** Set by the orchestrator when it provisioned this node; absent otherwise. */
 	envNodeId?: string;
+	/**
+	 * The claim this node is a replica of, which is what its assignment record
+	 * is keyed by (#426). Set by the orchestrator alongside the node id; absent
+	 * on a hand-started worker and in Kit, where nothing writes a record and the
+	 * environment is the whole answer.
+	 */
+	envClaimId?: string;
 	projectId: string;
 	envType: NodeType;
 	envGroupIds: string[];
@@ -334,7 +341,7 @@ export interface AttachOptions {
 export async function attachNode(
 	options: AttachOptions,
 ): Promise<{ ok: true; node: AttachedNode } | { ok: false; refusal: SlotRefusal }> {
-	const { envNodeId, envType, envGroupIds } = options;
+	const { envNodeId, envClaimId, envType, envGroupIds } = options;
 	/**
 	 * Also the boot gate: until the slot is taken, a record is simply this
 	 * node's starting point. After that a type change has to restart the
@@ -374,13 +381,15 @@ export async function attachNode(
 	}
 
 	// Read before the slot is taken, because the type decides what this node
-	// claims. A node with no id in its environment was not provisioned, so
-	// nothing is written for it yet and its watch opens once the id exists.
-	let watcher = envNodeId ? await watchNodeAssignment(envNodeId, onChange) : null;
+	// claims. A worker with no claim id in its environment was not provisioned
+	// by an orchestrator, so no record exists for it and there is nothing to
+	// watch — its environment is the whole answer.
+	const watcher = envClaimId ? await watchNodeAssignment(envClaimId, onChange) : null;
 
 	const claim = await claimNodeSlot({
 		nodeId: envNodeId ?? generateNodeId(),
 		reserved: Boolean(envNodeId),
+		claimId: envClaimId,
 		projectId: options.projectId,
 		type: state.type,
 		groupIds: state.groupIds,
@@ -392,7 +401,6 @@ export async function attachNode(
 		return claim;
 	}
 	slot = claim.slot;
-	watcher ??= await watchNodeAssignment(slot.nodeId, onChange);
 
 	return {
 		ok: true,
