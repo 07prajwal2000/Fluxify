@@ -1,5 +1,6 @@
 import { Button, Chip, DeleteButton } from "@fluxify/components";
-import { TbPencil } from "react-icons/tb";
+import { Link } from "@tanstack/react-router";
+import { TbExternalLink, TbPencil } from "react-icons/tb";
 import type { ClaimView } from "@/services/orchestration";
 import { TYPE_LABEL } from "./copy";
 import { NodeList } from "./NodeList";
@@ -15,21 +16,20 @@ import { NodeList } from "./NodeList";
 export function ClaimCard({
 	claim,
 	provider,
-	groupNames,
 	showProject = false,
 	onChange,
 	onRelease,
 }: {
 	claim: ClaimView;
 	provider: string | null;
-	/** Group id → name, so a claim reads in the words the project uses. */
-	groupNames?: Record<string, string>;
 	showProject?: boolean;
 	onChange?: () => void;
 	onRelease?: () => void;
 }) {
 	const serving = claim.nodes.filter((node) => node.serving).length;
-	const groups = claim.groupIds.map((id) => groupNames?.[id] ?? id);
+	// Names come resolved from the status API (#423) — the instance surface
+	// spans every project and has no group vocabulary of its own to guess with.
+	const groups = claim.groups.map((group) => group.name);
 
 	return (
 		<section className="overflow-hidden rounded-xl border border-border bg-background">
@@ -53,6 +53,19 @@ export function ClaimCard({
 								? `Trigger groups: ${groups.join(", ")}`
 								: "Every trigger group no other node claims"}
 					</p>
+					{/* A project's groups belong to that project, so they are read here
+					    and edited there. The link is the whole affordance. */}
+					{showProject && claim.projectId !== null && groups.length > 0 && (
+						<Link
+							to="/$projectId/settings"
+							params={{ projectId: claim.projectId }}
+							search={{ tab: "nodes" }}
+							className="mt-1 inline-flex items-center gap-1 text-xs font-medium text-accent underline underline-offset-2 hover:text-accent/80"
+						>
+							Edit these groups in the project's settings
+							<TbExternalLink className="inline-block" size={12} />
+						</Link>
+					)}
 				</div>
 
 				{(onChange || onRelease) && (

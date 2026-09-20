@@ -13,7 +13,7 @@ import {
 	type OrchestratorLease,
 	orchestratorKeys,
 } from "@fluxify/common/orchestrator";
-import { and, desc, eq, isNull, or, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, or, sql } from "drizzle-orm";
 import { db } from "../../db";
 import { initializeNats } from "../../db/nats";
 import {
@@ -228,6 +228,22 @@ export async function readOrchestrationStatus(projectId?: string): Promise<Orche
 		.from(nodeClaimsEntity)
 		.orderBy(nodeClaimsEntity.createdAt);
 
+	// The instance surface spans every project, so a claim's group ids are not
+	// readable there on their own. Resolved once here rather than per claim:
+	// the page shows the group's name and links to the project that owns it.
+	const groupIds = [...new Set(claims.flatMap((claim) => claim.groupIds))];
+	const groupRows = groupIds.length
+		? await db
+				.select({
+					id: triggerGroupsEntity.id,
+					name: triggerGroupsEntity.name,
+					projectId: triggerGroupsEntity.projectId,
+				})
+				.from(triggerGroupsEntity)
+				.where(inArray(triggerGroupsEntity.id, groupIds))
+		: [];
+	const groups = new Map(groupRows.map((group) => [group.id, group]));
+
 	const rows = await db
 		.select({
 			id: workerNodesEntity.id,
@@ -245,7 +261,7 @@ export async function readOrchestrationStatus(projectId?: string): Promise<Orche
 	// Every claim is viewed, then narrowed: the alarm has to see catch-all nodes
 	// to know whether a project's groups are covered, so scoping the projection
 	// itself would make a project page report alarms it does not have.
-	const all = buildClaimViews({ claims, desired, rows, heartbeats });
+	const all = buildClaimViews({ claims, desired, rows, heartbeats, groups });
 	const everyNode = all.flatMap((claim) => claim.nodes);
 	const visible = projectId ? all.filter((claim) => claim.projectId === projectId) : all;
 

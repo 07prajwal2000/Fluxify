@@ -225,6 +225,18 @@ describe("validateClaim", () => {
 		expect(validateClaim(base, context)).toEqual({ ok: true });
 	});
 
+	it("refuses a claim that serves every project and names groups", () => {
+		const result = validateClaim({ ...base, projectId: null }, context);
+		expect(result.ok).toBe(false);
+		expect(message(result)).toContain("cannot be pinned to trigger groups");
+	});
+
+	it("accepts a claim that serves every project with no groups", () => {
+		expect(validateClaim({ ...base, projectId: null, groupIds: [] }, context)).toEqual({
+			ok: true,
+		});
+	});
+
 	it("refuses a route claim while the project has no subdomain", () => {
 		const result = validateClaim(
 			{ ...base, type: "route", groupIds: [] },

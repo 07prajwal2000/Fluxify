@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
 	type CreateClaimBody,
+	type CreateInstanceClaimBody,
 	orchestrationService,
 	type PatchClaimBody,
 } from "@/services/orchestration";
@@ -89,6 +90,16 @@ export const orchestrationQuery = {
 		},
 	},
 
+	createInstanceClaim: {
+		useMutation() {
+			const client = useQueryClient();
+			return useMutation({
+				mutationFn: (body: CreateInstanceClaimBody) =>
+					orchestrationService.createInstanceClaim(body),
+				onSuccess: () => invalidate(client),
+			});
+		},
+	},
 	updateInstanceClaim: {
 		useMutation() {
 			const client = useQueryClient();

@@ -39,6 +39,13 @@ export type ClaimPatch = Partial<Pick<ClaimInput, "type" | "groupIds" | "replica
 /** A project owner may only touch their own project's claims. */
 export interface ClaimScope {
 	projectId?: string;
+	/**
+	 * The write came from instance settings (#423). An operator there sizes and
+	 * retires a project's claim, but the groups it serves are the project's
+	 * vocabulary and are edited on the project's own settings page — so both
+	 * the group list and the type are refused from this surface.
+	 */
+	instance?: boolean;
 }
 
 const SUBDOMAIN_KEY = "settings.routing.subdomain";
@@ -135,6 +142,25 @@ async function assertValid(claim: ClaimInput, exceptClaimId?: string) {
 	await assertGroupsExist(claim.projectId, claim.groupIds);
 }
 
+/**
+ * Whether the instance surface may write this patch (#423). A project's claim
+ * is sized and released by the operator, but what it runs and which of that
+ * project's trigger groups it serves are the project's own vocabulary and are
+ * edited there — so the rule is a refusal, not a silently dropped field.
+ *
+ * Pure so it can be read and tested without a database; `updateClaim` is the
+ * only caller.
+ */
+export function instancePatchRefusal(
+	projectId: string | null,
+	patch: ClaimPatch,
+	scope: ClaimScope,
+): string | null {
+	if (!scope.instance || projectId === null) return null;
+	if (!patch.groupIds && !patch.type) return null;
+	return "What a project's claim runs and which trigger groups it serves are edited in that project's settings. From here you can change how many copies it runs, or release it.";
+}
+
 async function loadClaim(claimId: string, scope: ClaimScope) {
 	const [claim] = await db
 		.select()
@@ -188,6 +214,8 @@ export async function createClaim(input: ClaimInput, actor?: string) {
  */
 export async function updateClaim(claimId: string, patch: ClaimPatch, scope: ClaimScope = {}) {
 	const current = await loadClaim(claimId, scope);
+	const refusal = instancePatchRefusal(current.projectId, patch, scope);
+	if (refusal) throw new BadRequestError(refusal);
 	const next: ClaimInput = {
 		projectId: current.projectId,
 		type: patch.type ?? current.type,
