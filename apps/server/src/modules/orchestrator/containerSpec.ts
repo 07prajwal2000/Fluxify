@@ -143,6 +143,11 @@ export function buildContainerSpec(node: DesiredNode, options: SpecOptions): Con
 		WORKER_MODE: node.type,
 		WORKER_GROUP_ID: node.groupIds.join(","),
 		FLUXIFY_NODE_ID: nodeId,
+		// Which assignment record this node reads (#426). The claim rather than
+		// the node, because every replica of a claim runs the same thing — and a
+		// Deployment's pods have no name the orchestrator could have written one
+		// under in advance.
+		FLUXIFY_CLAIM_ID: node.claimId,
 		WORKER_PORT: String(options.trafficPort),
 		WORKER_HEALTH_PORT: String(options.healthPort),
 	};

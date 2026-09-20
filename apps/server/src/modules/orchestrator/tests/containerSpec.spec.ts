@@ -61,6 +61,8 @@ describe("buildContainerSpec", () => {
 	it("tells the worker who it is and what it serves", () => {
 		const env = envOf(buildContainerSpec(desired({ groupIds: [GROUP] }), options));
 		expect(env.FLUXIFY_NODE_ID).toBe(`${CLAIM}.0`);
+		// Which assignment record it reads — the claim, not the node (#426)
+		expect(env.FLUXIFY_CLAIM_ID).toBe(CLAIM);
 		expect(env.WORKER_PROJECT_ID).toBe("*");
 		expect(env.WORKER_MODE).toBe("both");
 		expect(env.WORKER_GROUP_ID).toBe(GROUP);

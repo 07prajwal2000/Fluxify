@@ -93,6 +93,14 @@ export const serverEnvSchema = baseEnvSchema.extend({
 			"Identity of this worker node, used as its liveness and license-slot key. Set by the orchestrator when it provisions the node; a hand-started worker generates a short random one",
 		),
 
+	FLUXIFY_CLAIM_ID: z
+		.string()
+		.max(50)
+		.optional()
+		.describe(
+			"The claim this worker is a replica of, which is the key its assignment record lives under. Set by the orchestrator when it provisions the node; a hand-started worker has none and runs from its environment alone",
+		),
+
 	DOCKER_HOST: z
 		.string()
 		.optional()
@@ -291,6 +299,8 @@ export const WORKER_GROUP_IDS = (getEnv("WORKER_GROUP_ID") || "")
 	.filter(Boolean);
 /** identity of this node; the orchestrator sets it, a hand-started worker does not */
 export const FLUXIFY_NODE_ID = getEnv("FLUXIFY_NODE_ID") || undefined;
+/** the claim this node belongs to, which its assignment record is keyed by (#426) */
+export const FLUXIFY_CLAIM_ID = getEnv("FLUXIFY_CLAIM_ID") || undefined;
 
 /** hard body-size ceiling for user-facing routes, in bytes (env is in KB) */
 export const MAX_REQUEST_BODY_BYTES = (Number(getEnv("WORKER_MAX_STREAM_SIZE")) || 8192) * 1024;

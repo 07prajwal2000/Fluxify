@@ -113,9 +113,9 @@ export async function createReconciler(options: ReconcileOptions): Promise<Recon
 		if (action.kind === "remove") {
 			const { container, reason } = action;
 			await drainNode(container.containerId, options.drainTimeoutSec);
-			// The record goes too: a node that no longer exists must not leave an
-			// assignment behind for a future node with the same id to read.
-			await assignments.remove(container.nodeId);
+			// The record is not touched here: it belongs to the claim, and this
+			// node's siblings are still reading it. Records for claims that went
+			// away are pruned once, after the pass.
 			logger.info(`node ${container.nodeId} removed (${reason})`, "ORCHESTRATOR");
 			return recordEvent({
 				nodeId: container.nodeId,
@@ -173,13 +173,28 @@ export async function createReconciler(options: ReconcileOptions): Promise<Recon
 	};
 }
 
-async function publishAssignments(nodes: readonly DesiredNode[], assignments: Assignments) {
+/**
+ * One record per claim, then a prune of everything else.
+ *
+ * Every replica of a claim carries the same type, groups and exclusions, so the
+ * first placeable node of a claim describes all of them — writing per replica
+ * stored the same bytes `r` times under keys no Deployment could ever produce.
+ */
+export async function publishAssignments(nodes: readonly DesiredNode[], assignments: Assignments) {
+	const written = new Set<string>();
 	for (const node of nodes) {
-		if (!node.placeable) continue;
-		await assignments.write(nodeIdFor(node.claimId, node.replicaIndex), {
+		if (!node.placeable || written.has(node.claimId)) continue;
+		written.add(node.claimId);
+		await assignments.write(node.claimId, {
 			type: node.type,
 			groupIds: node.groupIds,
 			excludedGroups: node.excludedGroups,
 		});
 	}
+	// Kept for every claim that still exists, not only the placeable ones: a
+	// claim the license stopped allowing keeps its containers running (§12), and
+	// pulling their record would have them fall back to their environment on the
+	// next restart. Only a claim gone from desired state entirely loses it —
+	// which is also what clears the per-node keys an older build wrote.
+	await assignments.prune(new Set(nodes.map((node) => node.claimId)));
 }

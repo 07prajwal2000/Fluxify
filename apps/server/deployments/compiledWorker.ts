@@ -4,6 +4,7 @@ import type { NodeType } from "@fluxify/common/orchestrator";
 import { closeNats } from "../src/db/nats";
 import { canRunConnectors, nodeEntitlement, watchLicense } from "../src/lib/edition";
 import {
+	FLUXIFY_CLAIM_ID,
 	FLUXIFY_NODE_ID,
 	getEnv,
 	MAX_REQUEST_BODY_BYTES,
@@ -289,6 +290,7 @@ await watchLicense();
  */
 const attached = await attachNode({
 	envNodeId: FLUXIFY_NODE_ID,
+	envClaimId: FLUXIFY_CLAIM_ID,
 	projectId: WORKER_PROJECT_ID,
 	envType: WORKER_MODE as NodeType,
 	envGroupIds: WORKER_GROUP_IDS,
