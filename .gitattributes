@@ -1,3 +1,12 @@
+# Every text file is stored with LF and checked out with LF, on every platform.
+# Without this, Git on Windows checks a file out as CRLF while Biome is set to
+# write LF (`biome.json`, `formatter.lineEnding`), so a repo-wide
+# `bun run lint --write` rewrites every file's line endings and the next
+# checkout puts them back: a thousand-file diff carrying no change, over and
+# over, for Windows contributors only.
+
+* text=auto eol=lf
+
 # Shell scripts must keep LF: a CRLF shebang makes the kernel look for
 # "/bin/sh" and the container dies with "exec ... No such file or directory".
 *.sh text eol=lf
