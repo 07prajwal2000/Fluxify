@@ -195,3 +195,33 @@ describe("the alarm for a group with work and nothing healthy", () => {
 		expect(groupAlarms([group], [node({ projectId: "proj-b" })])[0]!.claimedNodes).toBe(0);
 	});
 });
+
+/**
+ * The instance surface spans every project, so a claim's group ids are not
+ * readable there on their own (#423). Resolution happens once on the read path
+ * rather than being guessed at in the page.
+ */
+describe("the groups a claim names, resolved", () => {
+	it("reads a group by its name and the project that owns it", () => {
+		const [view] = buildClaimViews({
+			claims: [claim({ groupIds: ["grp-1"] })],
+			desired: [],
+			rows: [],
+			heartbeats: new Map(),
+			groups: new Map([["grp-1", { id: "grp-1", name: "slow queue", projectId: "proj-a" }]]),
+		});
+		expect(view!.groups).toEqual([{ id: "grp-1", name: "slow queue", projectId: "proj-a" }]);
+	});
+
+	it("leaves an id with no row standing as its own name", () => {
+		// A group deleted out from under a claim must still render. Showing the
+		// id is honest; dropping the entry would hide that the claim names it.
+		const [view] = buildClaimViews({
+			claims: [claim({ groupIds: ["grp-gone"] })],
+			desired: [],
+			rows: [],
+			heartbeats: new Map(),
+		});
+		expect(view!.groups).toEqual([{ id: "grp-gone", name: "grp-gone", projectId: "proj-a" }]);
+	});
+})

@@ -179,6 +179,11 @@ export function validateClaim(
 	if (claim.replicas < 1) return refuse("A claim needs at least one replica");
 	if (!entitlement.types.includes(claim.type))
 		return refuse(`This license does not allow a '${claim.type}' node`);
+	// A catch-all claim serves every project, and empty groups already means
+	// "every group no dedicated claim owns". Naming groups on one would be a
+	// narrower thing wearing the word "catch-all" (#423).
+	if (claim.projectId === null && claim.groupIds.length > 0)
+		return refuse("A claim that serves every project cannot be pinned to trigger groups");
 	if (claim.projectId !== null && !entitlement.perProject)
 		return refuse("This license only allows nodes that serve every project");
 	// Only a project-pinned claim must name its groups. On a catch-all, no

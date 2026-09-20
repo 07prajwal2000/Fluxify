@@ -58,7 +58,6 @@ export function NodesSettings({ projectId }: { projectId: string }) {
 		);
 	}
 
-	const groupNames = Object.fromEntries((groups ?? []).map((group) => [group.id, group.name]));
 	const groupOptions = (groups ?? []).map((group) => ({ id: group.id, name: group.name }));
 
 	function submit(body: { type: ClaimType; groupIds: string[]; replicas: number }) {
@@ -171,7 +170,6 @@ export function NodesSettings({ projectId }: { projectId: string }) {
 								key={item.id}
 								claim={item}
 								provider={status.orchestrator.provider}
-								groupNames={groupNames}
 								onChange={() => {
 									setError(null);
 									setEditing(item);

@@ -75,8 +75,22 @@ export interface NodeView {
 	observedAt: string | null;
 }
 
+/**
+ * A trigger group a claim names, resolved. The instance surface spans every
+ * project, so an id alone is unreadable there — the name and the project it
+ * belongs to are what make the group, and the link to its editor, mean
+ * something.
+ */
+export interface ClaimGroup {
+	id: string;
+	name: string;
+	projectId: string | null;
+}
+
 export interface ClaimView extends Omit<ClaimRow, "createdAt"> {
 	createdAt: string;
+	/** `groupIds`, resolved. An id with no row left standing as its own name. */
+	groups: ClaimGroup[];
 	nodes: NodeView[];
 }
 
@@ -113,10 +127,18 @@ export interface ViewInput {
 	desired: readonly DesiredNode[];
 	rows: readonly NodeRow[];
 	heartbeats: ReadonlyMap<string, Heartbeat>;
+	/** Group id → its row. Absent ids fall back to reading as themselves. */
+	groups?: ReadonlyMap<string, ClaimGroup>;
 }
 
 /** Claims with their replicas resolved into nodes, in the order they were made. */
-export function buildClaimViews({ claims, desired, rows, heartbeats }: ViewInput): ClaimView[] {
+export function buildClaimViews({
+	claims,
+	desired,
+	rows,
+	heartbeats,
+	groups,
+}: ViewInput): ClaimView[] {
 	const rowById = new Map(rows.map((row) => [row.id, row]));
 	const byClaim = new Map<string, NodeView[]>();
 
@@ -149,6 +171,9 @@ export function buildClaimViews({ claims, desired, rows, heartbeats }: ViewInput
 	return claims.map((claim) => ({
 		...claim,
 		createdAt: claim.createdAt.toISOString(),
+		groups: claim.groupIds.map(
+			(id) => groups?.get(id) ?? { id, name: id, projectId: claim.projectId },
+		),
 		nodes: (byClaim.get(claim.id) ?? []).sort((a, b) => a.replicaIndex - b.replicaIndex),
 	}));
 }

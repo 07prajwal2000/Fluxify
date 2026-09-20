@@ -107,7 +107,7 @@ export default function registerOrchestrationRoutes(app: HonoServer) {
 		"/orchestration/claims/:claimId",
 		describeRoute({
 			description:
-				"Change any claim on the instance. Type and trigger groups apply in place through the record each node watches; the replica count adds or removes containers, draining what it removes.",
+				"Change any claim on the instance: the replica count adds or removes containers, draining what it removes. A project's claim may not have its type or trigger groups changed here — those belong in that project's settings.",
 			operationId: "update-instance-claim",
 			tags,
 			responses: { 200: { description: "Updated", ...json(claimAckSchema) }, ...errors },
@@ -116,7 +116,9 @@ export default function registerOrchestrationRoutes(app: HonoServer) {
 		requireSystemAdmin,
 		validator("json", patchClaimBodySchema, zodErrorCallbackParser),
 		async (c) => {
-			const claim = await updateClaim(c.req.param("claimId")!, c.req.valid("json"));
+			const claim = await updateClaim(c.req.param("claimId")!, c.req.valid("json"), {
+				instance: true,
+			});
 			return c.json({ id: claim.id, message: "Claim updated." });
 		},
 	);

@@ -36,8 +36,9 @@ export interface GroupOption {
 
 export function ClaimDialog({
 	status,
-	groups,
+	groups = [],
 	claim,
+	surface = "project",
 	isOpen,
 	isPending,
 	error,
@@ -45,9 +46,16 @@ export function ClaimDialog({
 	onSubmit,
 }: {
 	status: OrchestrationStatus;
-	groups: GroupOption[];
+	groups?: GroupOption[];
 	/** Present when changing an existing claim; absent when making a new one. */
 	claim?: ClaimView;
+	/**
+	 * Which page this is (#423). On the instance surface a new claim is always
+	 * the catch-all — which takes no groups, since empty already means "every
+	 * group no dedicated claim owns" — and a project's claim is sized or
+	 * released here but its type and groups are edited in that project.
+	 */
+	surface?: "project" | "instance";
 	isOpen: boolean;
 	isPending?: boolean;
 	/** The server's refusal, shown as written — it is the whole answer. */
@@ -55,10 +63,16 @@ export function ClaimDialog({
 	onClose: () => void;
 	onSubmit: (body: { type: ClaimType; groupIds: string[]; replicas: number }) => void;
 }) {
-	const [type, setType] = useState<ClaimType>(claim?.type ?? "workflow");
+	// A licence that only allows `both` must not open on a type it will refuse.
+	const [type, setType] = useState<ClaimType>(
+		claim?.type ?? (status.entitlement.types.includes("workflow") ? "workflow" : "both"),
+	);
 	const [groupIds, setGroupIds] = useState<string[]>(claim?.groupIds ?? []);
 	const [replicas, setReplicas] = useState(claim?.replicas ?? 1);
 
+	const global = surface === "instance" && (claim ? claim.projectId === null : true);
+	const replicasOnly = surface === "instance" && !!claim && claim.projectId !== null;
+	const showGroups = !global && !replicasOnly && (type === "workflow" || type === "both");
 	const servesWorkflows = type === "workflow" || type === "both";
 	const allowed = status.entitlement.types;
 	const typeOptions = (["workflow", "route", "both"] as ClaimType[])
@@ -81,7 +95,13 @@ export function ClaimDialog({
 				<Modal.Container placement="center" size="md">
 					<Modal.Dialog>
 						<Modal.Header className="flex flex-row items-center justify-between">
-							<Modal.Heading>{claim ? "Change this workload" : "Claim a workload"}</Modal.Heading>
+							<Modal.Heading>
+								{claim
+									? "Change this workload"
+									: global
+										? "Claim a workload for every project"
+										: "Claim a workload"}
+							</Modal.Heading>
 							<CloseButton onPress={onClose} />
 						</Modal.Header>
 
@@ -93,17 +113,34 @@ export function ClaimDialog({
 								</Note>
 							)}
 
-							<div className="flex flex-col gap-1.5">
-								<CustomSelect
-									label="What should it run?"
-									options={typeOptions}
-									value={type}
-									onChange={(next) => setType(next as ClaimType)}
-								/>
-								{claim && <Hint>{CONSEQUENCE.live}</Hint>}
-							</div>
+							{global && !claim && (
+								<Hint>
+									A claim made here serves every project. It runs every trigger group no project's
+									own claim has taken, so there is nothing to choose — only what it runs and how
+									many copies of it.
+								</Hint>
+							)}
+							{replicasOnly && (
+								<Note>
+									This workload belongs to a project. What it runs and which trigger groups it
+									serves are edited in that project's settings; from here you can change how many
+									copies it runs, or release it.
+								</Note>
+							)}
 
-							{servesWorkflows && (
+							{!replicasOnly && (
+								<div className="flex flex-col gap-1.5">
+									<CustomSelect
+										label="What should it run?"
+										options={typeOptions}
+										value={type}
+										onChange={(next) => setType(next as ClaimType)}
+									/>
+									{claim && <Hint>{CONSEQUENCE.live}</Hint>}
+								</div>
+							)}
+
+							{showGroups && (
 								<div className="flex flex-col gap-1.5">
 									<MultiSelect
 										label="Trigger groups it serves"
@@ -138,6 +175,12 @@ export function ClaimDialog({
 									</NumberField.Group>
 								</NumberField>
 								<Hint>{scaleWords ?? CONSEQUENCE.scaleUp}</Hint>
+								{status.entitlement.maxReplicas !== null && (
+									<Hint>
+										This licence allows {status.entitlement.maxReplicas} node(s) in total, and{" "}
+										{status.pool.requested} are already claimed.
+									</Hint>
+								)}
 								{willPend && <Note>{CONSEQUENCE.pending}</Note>}
 								{status.entitlement.maxReplicas === 1 && <Note>{CONSEQUENCE.singleNode}</Note>}
 							</div>
@@ -154,7 +197,11 @@ export function ClaimDialog({
 								isPending={isPending}
 								isDisabled={typeOptions.length === 0}
 								onPress={() =>
-									onSubmit({ type, groupIds: servesWorkflows ? groupIds : [], replicas })
+									onSubmit({
+										type,
+										groupIds: showGroups && servesWorkflows ? groupIds : [],
+										replicas,
+									})
 								}
 							>
 								{claim ? "Save changes" : "Claim"}

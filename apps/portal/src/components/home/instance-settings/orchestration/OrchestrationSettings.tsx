@@ -1,6 +1,6 @@
 import { Button, cn, Spinner, toast } from "@fluxify/components";
 import { useState } from "react";
-import { TbHistory, TbTopologyStar3 } from "react-icons/tb";
+import { TbHistory, TbPlus, TbTopologyStar3 } from "react-icons/tb";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { ClaimCard } from "@/components/orchestration/ClaimCard";
 import { ClaimDialog } from "@/components/orchestration/ClaimDialog";
@@ -31,10 +31,11 @@ export function OrchestrationSettings() {
 	const { data: status, isLoading } = orchestrationQuery.instance.useQuery(available);
 	const { data: events, isLoading: eventsLoading } =
 		orchestrationQuery.instanceEvents.useQuery(available);
+	const create = orchestrationQuery.createInstanceClaim.useMutation();
 	const update = orchestrationQuery.updateInstanceClaim.useMutation();
 	const release = orchestrationQuery.releaseInstanceClaim.useMutation();
 
-	const [editing, setEditing] = useState<ClaimView | null>(null);
+	const [editing, setEditing] = useState<ClaimView | "new" | null>(null);
 	const [releasing, setReleasing] = useState<ClaimView | null>(null);
 	const [error, setError] = useState<string | null>(null);
 	const [activeTab, setActiveTab] = useState<"workloads" | "history">("workloads");
@@ -58,6 +59,13 @@ export function OrchestrationSettings() {
 			</div>
 		);
 	}
+
+	// Nothing more can be claimed when every licensed slot is spoken for. The
+	// button stays visible and says why — a control that vanishes teaches the
+	// operator nothing about the licence.
+	const noBudget =
+		status.entitlement.maxReplicas !== null &&
+		status.pool.requested >= status.entitlement.maxReplicas;
 
 	return (
 		<div className="mx-auto flex w-full max-w-4xl flex-col gap-6">
@@ -120,7 +128,28 @@ export function OrchestrationSettings() {
 					<PoolForm pool={status.pool} />
 
 					<div className="flex flex-col gap-3">
-						<h3 className="text-sm font-bold text-foreground">Claims ({status.claims.length})</h3>
+						<div className="flex flex-wrap items-center justify-between gap-2">
+							<h3 className="text-sm font-bold text-foreground">Claims ({status.claims.length})</h3>
+							<Button
+								size="sm"
+								variant="primary"
+								isDisabled={noBudget}
+								onPress={() => {
+									setError(null);
+									setEditing("new");
+								}}
+							>
+								<TbPlus size={15} />
+								Claim for every project
+							</Button>
+						</div>
+						{noBudget && (
+							<p className="text-xs text-muted">
+								This licence allows {status.entitlement.maxReplicas} node(s) in total and{" "}
+								{status.pool.requested} are already claimed, so nothing more can be claimed until
+								one is released or the licence is upgraded.
+							</p>
+						)}
 						{status.claims.length === 0 ? (
 							<p className="rounded-xl border border-border bg-background p-6 text-center text-xs text-muted">
 								Nothing is claimed, so no workers are running and no API answers. A fresh instance
@@ -175,31 +204,40 @@ export function OrchestrationSettings() {
 				<ClaimDialog
 					isOpen
 					status={status}
-					// Group names are a project's vocabulary, and this page spans every
-					// project — so ids are shown as they are rather than guessed at.
-					groups={editing.groupIds.map((id) => ({ id, name: id }))}
-					claim={editing}
-					isPending={update.isPending}
+					surface="instance"
+					claim={editing === "new" ? undefined : editing}
+					isPending={create.isPending || update.isPending}
 					error={error}
 					onClose={() => {
 						setEditing(null);
 						setError(null);
 					}}
-					onSubmit={(body) =>
-						update.mutate(
-							{ claimId: editing.id, body: body },
-							{
-								onSuccess: (result) => {
-									toast.success(result.message);
-									setEditing(null);
-								},
-								onError: (err) => {
-									setError(messageOf(err));
-									showErrorNotification(err as Error);
-								},
-							},
-						)
-					}
+					onSubmit={(body) => {
+						const onSuccess = (result: { message: string }) => {
+							toast.success(result.message);
+							setEditing(null);
+						};
+						const onError = (err: unknown) => {
+							setError(messageOf(err));
+							showErrorNotification(err as Error);
+						};
+						if (editing === "new") {
+							// Always the catch-all from here: a claim for one project is
+							// made in that project's own settings.
+							create.mutate(
+								{ projectId: null, type: body.type, groupIds: [], replicas: body.replicas },
+								{ onSuccess, onError },
+							);
+							return;
+						}
+						// A project's claim is only sized here. Sending its type or groups
+						// would be refused by the API, and rightly.
+						const patch =
+							editing.projectId === null
+								? { type: body.type, groupIds: body.groupIds, replicas: body.replicas }
+								: { replicas: body.replicas };
+						update.mutate({ claimId: editing.id, body: patch }, { onSuccess, onError });
+					}}
 				/>
 			)}
 

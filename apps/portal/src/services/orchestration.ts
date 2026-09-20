@@ -55,6 +55,10 @@ export const orchestrationService = {
 		const res = await httpClient.get(`${instanceBase}/events?limit=${limit}`);
 		return res.data;
 	},
+	async createInstanceClaim(body: CreateInstanceClaimBody) {
+		const res = await httpClient.post(`${instanceBase}/claims`, body);
+		return res.data as { id: string; message: string };
+	},
 	async updateInstanceClaim(claimId: string, body: PatchClaimBody) {
 		const res = await httpClient.patch(`${instanceBase}/claims/${claimId}`, body);
 		return res.data as { id: string; message: string };

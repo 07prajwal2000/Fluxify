@@ -37,11 +37,21 @@ export const nodeViewSchema = z.object({
 	observedAt: z.string().nullable(),
 });
 
+/** A trigger group a claim names, resolved — the instance surface spans every
+ * project, so an id alone is unreadable there. `projectId` is what the page
+ * links to so the groups are edited where they belong. */
+export const claimGroupSchema = z.object({
+	id: z.string(),
+	name: z.string(),
+	projectId: z.string().nullable(),
+});
+
 export const claimViewSchema = z.object({
 	id: z.string(),
 	projectId: z.string().nullable(),
 	type: z.enum(NODE_TYPES),
 	groupIds: z.array(z.string()),
+	groups: z.array(claimGroupSchema),
 	replicas: z.number().int(),
 	createdAt: z.string(),
 	createdBy: z.string().nullable().optional(),
@@ -161,7 +171,11 @@ export const createClaimBodySchema = z.object({
 	replicas: replicas.default(1),
 });
 
-/** On the instance surface a claim may also be written for every project. */
+/**
+ * On the instance surface a claim may also be written for every project. A
+ * catch-all claim takes no groups — it serves every group no dedicated claim
+ * owns — so the operator only says what it runs and how many copies of it.
+ */
 export const createInstanceClaimBodySchema = createClaimBodySchema.extend({
 	projectId: z.string().nullable().default(null),
 });
