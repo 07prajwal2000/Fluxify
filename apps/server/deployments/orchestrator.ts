@@ -6,7 +6,7 @@ import { nodeClaimsEntity } from "../src/db/schema";
 import { watchLicense } from "../src/lib/edition";
 import { getEnv } from "../src/lib/env";
 import { watchInstanceSettings } from "../src/loaders/instanceSettingsLoader";
-import { dockerEndpoint, dockerReachable } from "../src/modules/orchestrator/docker";
+import { createDockerDriver } from "../src/modules/orchestrator/drivers/docker";
 import { openLeaderLease } from "../src/modules/orchestrator/leader";
 import { createReconciler } from "../src/modules/orchestrator/reconciler";
 
@@ -21,7 +21,7 @@ import { createReconciler } from "../src/modules/orchestrator/reconciler";
  * the database — and that is what lets it rebuild the whole picture from the
  * database when it boots against an empty KV.
  *
- * It holds the Docker socket, which is root-equivalent on the host, *and*
+ * On Docker it holds the socket, which is root-equivalent on the host, *and*
  * database credentials. The narrow command vocabulary in `containerSpec.ts` is
  * therefore load-bearing rather than defence in depth (§13).
  */
@@ -100,42 +100,37 @@ await initializeNats();
 await watchLicense();
 await watchInstanceSettings();
 
-const endpoint = dockerEndpoint();
-if (!(await dockerReachable())) {
-	logger.error(
-		`FATAL: the Docker daemon is not reachable at ${endpoint.unix ?? endpoint.base}. Mount the socket, or set DOCKER_HOST.`,
-		"ORCHESTRATOR",
-	);
-	process.exit(1);
-}
-
 const passthroughEnv = Object.fromEntries(
 	PASSTHROUGH.map((key) => [key, process.env[key]]).filter(([, value]) => value !== undefined),
 ) as Record<string, string>;
 
-const holder = `${hostname()}:${process.pid}`;
-// Published as the lease value, which is where admin reads it from (§14.5).
-// The provider is fixed per build rather than configurable: this process only
-// knows how to talk to Docker, so an env var claiming otherwise would only be
-// a way to lie to the UI. Kubernetes arrives as its own driver (#338).
-const lease = await openLeaderLease(holder, {
-	provider: "docker",
-	reconcileIntervalMs: intervalMs,
-	meta: {
-		endpoint: endpoint.unix ?? endpoint.base,
-		workerImage: image,
-		network,
-		seedsDefaultClaim: getEnv("ORCHESTRATOR_SEED_DEFAULT_CLAIM") !== "false",
-	},
-});
-const reconciler = await createReconciler({
+// ponytail: Docker is the only driver until Kubernetes lands (#430), which
+// picks one from ORCHESTRATOR_PROVIDER here and changes nothing else.
+const driver = createDockerDriver({
 	image,
 	network,
 	trafficPort,
 	healthPort: trafficPort + 1,
 	drainTimeoutSec,
 	passthroughEnv,
+	seedsDefaultClaim: getEnv("ORCHESTRATOR_SEED_DEFAULT_CLAIM") !== "false",
 });
+if (!(await driver.reachable())) {
+	logger.error(
+		`FATAL: the ${driver.provider} platform is not reachable at ${driver.meta.endpoint}. On Docker, mount the socket or set DOCKER_HOST.`,
+		"ORCHESTRATOR",
+	);
+	process.exit(1);
+}
+
+const holder = `${hostname()}:${process.pid}`;
+// Published as the lease value, which is where admin reads it from (§14.5).
+const lease = await openLeaderLease(holder, {
+	provider: driver.provider,
+	reconcileIntervalMs: intervalMs,
+	meta: driver.meta,
+});
+const reconciler = await createReconciler(driver);
 
 let stopping = false;
 let leading = false;

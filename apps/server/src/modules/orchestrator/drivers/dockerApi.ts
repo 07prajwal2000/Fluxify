@@ -1,19 +1,18 @@
 import { logger } from "@fluxify/common";
 import { CATCH_ALL } from "@fluxify/common/orchestrator";
-import { getEnv } from "../../lib/env";
-import { type ContainerSpec, LABELS, MANAGED_BY, MANAGED_LABEL } from "./containerSpec";
-import type { ObservedNode } from "./plan";
+import { getEnv } from "../../../lib/env";
+import { type ContainerSpec, LABELS, MANAGED_BY, MANAGED_LABEL } from "../containerSpec";
+import type { ObservedNode } from "../plan";
 
 /**
  * Every Docker API call, in one file.
  *
- * No provider interface: there is one platform today and a second one is what
- * earns the abstraction (#338). Bun speaks the daemon's HTTP API over a socket
- * directly, so this needs no client library — the whole driver is a `fetch`
- * with a few paths.
+ * Bun speaks the daemon's HTTP API over a socket directly, so this needs no
+ * client library — the whole thing is a `fetch` with a few paths.
  *
  * It performs actions and never chooses one. What should happen is decided in
- * `plan.ts`, and the body of a container is built in `containerSpec.ts`, so the
+ * `plan.ts`, the body of a container is built in `containerSpec.ts`, and
+ * `docker.ts` beside this file strings the three together as a driver — so the
  * process holding a root-equivalent socket has exactly one narrow vocabulary.
  */
 
