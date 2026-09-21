@@ -61,6 +61,28 @@ export const orchestrationPoolSchema = z.object({
 });
 
 /**
+ * How claims that may grow decide to (#428). One policy for the instance,
+ * because these are the operator's tolerances rather than a project's choice.
+ * Platform-neutral: Kubernetes passes them to KEDA, and a driver without an
+ * autoscaler applies them itself.
+ *
+ * Absent means these defaults, so a fresh instance needs no row.
+ */
+export const orchestrationScalingSchema = z.object({
+	/** Queued messages per node before another node starts. */
+	queuedPerNode: z.number().int().min(1).default(10),
+	/** How often the queue depth is checked. */
+	pollIntervalSec: z.number().int().min(5).max(3600).default(30),
+	/**
+	 * How long the load has to stay low before a node is removed. Scale-down
+	 * only: growing under load is never delayed.
+	 */
+	scaleDownWindowSec: z.number().int().min(0).max(3600).default(300),
+});
+
+export type ScalingPolicy = z.infer<typeof orchestrationScalingSchema>;
+
+/**
  * Where user routes are served (#340). Projects with a subdomain answer on
  * `<subdomain>.<baseDomain>`; the rest share the bare domain. A setting rather
  * than an env var so changing it needs no restart: workers and the edge labels
@@ -102,6 +124,12 @@ export const INSTANCE_SETTINGS_REGISTRY = {
 		schema: orchestrationPoolSchema,
 		publicSchema: orchestrationPoolSchema,
 		// the pool ceiling is an operator's business, and nothing pre-auth needs it
+		alwaysPublic: false,
+	},
+	orchestration_scaling: {
+		category: "orchestration",
+		schema: orchestrationScalingSchema,
+		publicSchema: orchestrationScalingSchema,
 		alwaysPublic: false,
 	},
 	hosting: {

@@ -838,6 +838,12 @@ export const nodeClaimsEntity = pgTable(
 		groupIds: jsonb("group_ids").$type<string[]>().default([]).notNull(),
 		/** Identical containers to run for this claim. Each one consumes a license slot. */
 		replicas: integer().default(1).notNull(),
+		/**
+		 * How far the claim may autoscale above `replicas`, which is then its
+		 * floor. Null runs exactly `replicas`. The orchestrator clamps it every
+		 * pass to what the pool and license leave room for (#428).
+		 */
+		maxReplicas: integer("max_replicas"),
 		// With time zone, like every timestamp on the three orchestration tables.
 		// These are read back and rendered as "3m ago": through Bun's SQL driver a
 		// `timestamp without time zone` comes back shifted by the reader's offset,

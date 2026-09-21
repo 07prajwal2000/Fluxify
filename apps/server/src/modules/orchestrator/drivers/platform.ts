@@ -2,6 +2,7 @@ import type { InfraProvider, ObservedNode } from "@fluxify/common/orchestrator";
 import type { PoolLimits } from "../desired";
 import type { DesiredNode } from "../projection";
 import type { NodeEvent } from "../records";
+import type { ScalingContext } from "../scaling";
 
 /**
  * What the reconcile loop needs from a platform, and nothing more.
@@ -39,4 +40,6 @@ export interface InfraDriver {
 /** What changes between passes. Fixed settings are given when a driver is built. */
 export interface ApplyContext {
 	pool: PoolLimits;
+	/** Docker runs every claim at its floor and ignores this until it grows an executor. */
+	scaling: ScalingContext;
 }

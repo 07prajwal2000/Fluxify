@@ -1,5 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import type { ObservedNode } from "@fluxify/common/orchestrator";
+import { orchestrationScalingSchema } from "../../../lib/instance-settings/schemas";
 import { containerNameFor } from "../containerSpec";
 import { createDockerDriver, type DockerDriverOptions } from "../drivers/docker";
 import type { DesiredNode } from "../projection";
@@ -72,6 +73,10 @@ describe("createDockerDriver", () => {
 		const driver = createDockerDriver(options, api);
 		const events = await driver.apply([node(0), node(1)], [orphan], {
 			pool: { maxNodes: 10 },
+			scaling: {
+				policy: orchestrationScalingSchema.parse({}),
+				ceilings: new Map(),
+			},
 		});
 
 		expect(drained).toEqual(["stale"]);

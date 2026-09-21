@@ -62,7 +62,7 @@ export async function createReconciler(driver: InfraDriver): Promise<Reconciler>
 
 	return {
 		async once() {
-			const { nodes, pool } = await readDesiredState();
+			const { nodes, pool, scaling } = await readDesiredState();
 			const observed = await driver.observe();
 
 			// Written before anything is created, so a new node finds its record
@@ -70,7 +70,7 @@ export async function createReconciler(driver: InfraDriver): Promise<Reconciler>
 			// the same write without being restarted.
 			await publishAssignments(nodes, assignments);
 
-			for (const event of await driver.apply(nodes, observed, { pool })) {
+			for (const event of await driver.apply(nodes, observed, { pool, scaling })) {
 				await recordEvent(event);
 			}
 

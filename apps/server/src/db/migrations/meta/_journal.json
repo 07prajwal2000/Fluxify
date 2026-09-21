@@ -498,6 +498,13 @@
 			"when": 1789754708961,
 			"tag": "0070_project_subdomains",
 			"breakpoints": true
+		},
+		{
+			"idx": 71,
+			"version": "7",
+			"when": 1790021377934,
+			"tag": "0071_claim_max_replicas",
+			"breakpoints": true
 		}
 	]
 }
