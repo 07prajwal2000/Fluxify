@@ -9,6 +9,7 @@ import { nodeEntitlement } from "../../lib/edition";
 import { systemLog } from "../../lib/systemLogs";
 import { validateClaim } from "./projection";
 import { recordEvent } from "./records";
+import { scalingRefusal } from "./scaling";
 
 /**
  * Writing claims — the only orchestration table admin owns (§2). The
@@ -32,9 +33,13 @@ export interface ClaimInput {
 	type: NodeType;
 	groupIds: string[];
 	replicas: number;
+	/** How far it may autoscale above `replicas`. Null (or absent) runs exactly `replicas`. */
+	maxReplicas?: number | null;
 }
 
-export type ClaimPatch = Partial<Pick<ClaimInput, "type" | "groupIds" | "replicas">>;
+export type ClaimPatch = Partial<
+	Pick<ClaimInput, "type" | "groupIds" | "replicas" | "maxReplicas">
+>;
 
 /** A project owner may only touch their own project's claims. */
 export interface ClaimScope {
@@ -130,8 +135,11 @@ async function assertGroupsExist(projectId: string | null, groupIds: string[]) {
 }
 
 async function assertValid(claim: ClaimInput, exceptClaimId?: string) {
+	const entitlement = nodeEntitlement();
+	const scaling = scalingRefusal(claim, entitlement);
+	if (scaling) throw new BadRequestError(scaling);
 	const result = validateClaim(claim, {
-		entitlement: nodeEntitlement(),
+		entitlement,
 		existingReplicas: await countClaimedReplicas(exceptClaimId),
 		hasSubdomain: await hasSubdomain(claim.projectId),
 	});
@@ -184,6 +192,7 @@ export async function createClaim(input: ClaimInput, actor?: string) {
 			type: input.type,
 			groupIds: input.groupIds,
 			replicas: input.replicas,
+			maxReplicas: input.maxReplicas ?? null,
 			createdBy: actor ?? null,
 		})
 		.returning();
@@ -191,7 +200,13 @@ export async function createClaim(input: ClaimInput, actor?: string) {
 		claimId: claim!.id,
 		projectId: claim!.projectId,
 		action: "claim_created",
-		detail: { type: input.type, groupIds: input.groupIds, replicas: input.replicas, actor },
+		detail: {
+			type: input.type,
+			groupIds: input.groupIds,
+			replicas: input.replicas,
+			maxReplicas: input.maxReplicas ?? null,
+			actor,
+		},
 	});
 	logger.info(
 		`claim ${claim!.id} created: ${input.type}, ${input.replicas} replica(s)`,
@@ -221,12 +236,19 @@ export async function updateClaim(claimId: string, patch: ClaimPatch, scope: Cla
 		type: patch.type ?? current.type,
 		groupIds: patch.groupIds ?? current.groupIds,
 		replicas: patch.replicas ?? current.replicas,
+		// `null` in a patch clears the maximum, so only `undefined` keeps it.
+		maxReplicas: patch.maxReplicas === undefined ? current.maxReplicas : patch.maxReplicas,
 	};
 	await assertValid(next, claimId);
 
 	const [claim] = await db
 		.update(nodeClaimsEntity)
-		.set({ type: next.type, groupIds: next.groupIds, replicas: next.replicas })
+		.set({
+			type: next.type,
+			groupIds: next.groupIds,
+			replicas: next.replicas,
+			maxReplicas: next.maxReplicas,
+		})
 		.where(eq(nodeClaimsEntity.id, claimId))
 		.returning();
 
@@ -238,8 +260,18 @@ export async function updateClaim(claimId: string, patch: ClaimPatch, scope: Cla
 		detail: {
 			appliedLive: next.type !== current.type || patch.groupIds !== undefined,
 			scaledBy,
-			from: { type: current.type, groupIds: current.groupIds, replicas: current.replicas },
-			to: { type: next.type, groupIds: next.groupIds, replicas: next.replicas },
+			from: {
+				type: current.type,
+				groupIds: current.groupIds,
+				replicas: current.replicas,
+				maxReplicas: current.maxReplicas,
+			},
+			to: {
+				type: next.type,
+				groupIds: next.groupIds,
+				replicas: next.replicas,
+				maxReplicas: next.maxReplicas,
+			},
 		},
 	});
 	return claim!;
@@ -297,7 +329,12 @@ export async function removeGroupFromClaims(
 		const drained = groupIds.length === 0;
 		await tx
 			.update(nodeClaimsEntity)
-			.set({ groupIds, replicas: drained ? 0 : claim.replicas })
+			// Its maximum goes too: a claim with nothing to run has no room to grow into.
+			.set({
+				groupIds,
+				replicas: drained ? 0 : claim.replicas,
+				maxReplicas: drained ? null : claim.maxReplicas,
+			})
 			.where(eq(nodeClaimsEntity.id, claim.id));
 		removals.push({ claim, drained });
 	}

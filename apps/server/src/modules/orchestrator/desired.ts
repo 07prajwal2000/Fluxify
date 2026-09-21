@@ -3,9 +3,11 @@ import { db } from "../../db";
 import { nodeClaimsEntity, triggerGroupsEntity } from "../../db/schema";
 import { nodeEntitlement } from "../../lib/edition";
 import { projectHost } from "../../lib/hosting";
+import { orchestrationScalingSchema } from "../../lib/instance-settings/schemas";
 import { baseDomain, getSetting } from "../../loaders/instanceSettingsLoader";
 import { projectSubdomains } from "./claims";
 import { type Claim, type DesiredNode, projectDesiredNodes } from "./projection";
+import { type ScalingContext, scalingCeilings } from "./scaling";
 
 /**
  * What should be running, read from Postgres every pass.
@@ -26,6 +28,7 @@ export interface PoolLimits {
 export interface DesiredState {
 	nodes: DesiredNode[];
 	pool: PoolLimits;
+	scaling: ScalingContext;
 }
 
 export async function readDesiredState(): Promise<DesiredState> {
@@ -36,6 +39,7 @@ export async function readDesiredState(): Promise<DesiredState> {
 			type: nodeClaimsEntity.type,
 			groupIds: nodeClaimsEntity.groupIds,
 			replicas: nodeClaimsEntity.replicas,
+			maxReplicas: nodeClaimsEntity.maxReplicas,
 			createdAt: nodeClaimsEntity.createdAt,
 		})
 		.from(nodeClaimsEntity);
@@ -53,12 +57,19 @@ export async function readDesiredState(): Promise<DesiredState> {
 	// a host nobody has declared capacity for.
 	const pool: PoolLimits = getSetting("orchestration_pool") ?? { maxNodes: 0 };
 
+	const entitlement = nodeEntitlement();
 	const nodes = projectDesiredNodes({
 		claims: claims as Claim[],
 		maxNodes: pool.maxNodes,
-		entitlement: nodeEntitlement(),
+		entitlement,
 		knownGroups,
 	});
+	// Recomputed every pass rather than stored, so a license change or a shrunk
+	// pool reaches every claim's ceiling without anyone editing a claim.
+	const scaling: ScalingContext = {
+		policy: orchestrationScalingSchema.parse(getSetting("orchestration_scaling") ?? {}),
+		ceilings: scalingCeilings(claims, pool.maxNodes, entitlement),
+	};
 	// A pinned node serving APIs is reached on its project's own host, so the
 	// host is part of what should be running: changing it replaces the node.
 	const subdomains = await projectSubdomains();
@@ -67,5 +78,5 @@ export async function readDesiredState(): Promise<DesiredState> {
 		const subdomain = node.projectId && node.type !== "workflow" && subdomains.get(node.projectId);
 		if (subdomain) node.host = projectHost(subdomain, domain);
 	}
-	return { nodes, pool };
+	return { nodes, pool, scaling };
 }

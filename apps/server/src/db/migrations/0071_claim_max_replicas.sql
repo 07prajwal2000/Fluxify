@@ -1,0 +1,1 @@
+ALTER TABLE "node_claims" ADD COLUMN "max_replicas" integer;

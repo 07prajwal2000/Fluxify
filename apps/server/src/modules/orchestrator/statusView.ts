@@ -51,6 +51,7 @@ export interface ClaimRow {
 	type: NodeType;
 	groupIds: string[];
 	replicas: number;
+	maxReplicas?: number | null;
 	createdAt: Date;
 	createdBy?: string | null;
 }

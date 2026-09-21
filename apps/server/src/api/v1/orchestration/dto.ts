@@ -53,6 +53,8 @@ export const claimViewSchema = z.object({
 	groupIds: z.array(z.string()),
 	groups: z.array(claimGroupSchema),
 	replicas: z.number().int(),
+	/** How far the claim may autoscale. Null runs exactly `replicas`. */
+	maxReplicas: z.number().int().nullable().optional(),
 	createdAt: z.string(),
 	createdBy: z.string().nullable().optional(),
 	nodes: z.array(nodeViewSchema),
@@ -169,6 +171,12 @@ export const createClaimBodySchema = z.object({
 	 */
 	groupIds: z.array(z.string()).default([]),
 	replicas: replicas.default(1),
+	/**
+	 * How far the claim may autoscale above `replicas`, which becomes its floor.
+	 * Omitted or null runs exactly `replicas`. Refused below `replicas`, and
+	 * above it on a license that runs a fixed number of nodes.
+	 */
+	maxReplicas: replicas.nullable().optional(),
 });
 
 /**
@@ -185,6 +193,8 @@ export const patchClaimBodySchema = z
 		type: z.enum(NODE_TYPES).optional(),
 		groupIds: z.array(z.string()).optional(),
 		replicas: replicas.optional(),
+		/** Null clears the maximum, so the claim runs exactly `replicas` again. */
+		maxReplicas: replicas.nullable().optional(),
 	})
 	.refine((body) => Object.keys(body).length > 0, { message: "Nothing to change" });
 

@@ -31,6 +31,8 @@ export interface Claim {
 	type: NodeType;
 	groupIds: string[];
 	replicas: number;
+	/** How far the claim may autoscale above `replicas`. Null runs exactly `replicas`. */
+	maxReplicas?: number | null;
 	createdAt: Date;
 }
 
@@ -74,6 +76,14 @@ export interface ProjectionInput {
 const SERVES_WORKFLOWS: readonly NodeType[] = ["workflow", "both"];
 
 /**
+ * Oldest claim first. Whatever is handed out in this order — the last free
+ * slot, the room to grow — stays with the same claim from one pass to the next.
+ */
+export function byAge(a: Pick<Claim, "id" | "createdAt">, b: Pick<Claim, "id" | "createdAt">) {
+	return a.createdAt.getTime() - b.createdAt.getTime() || a.id.localeCompare(b.id);
+}
+
+/**
  * Groups a dedicated claim already owns, which a catch-all node must not also
  * serve — otherwise two nodes consume the same group and the operator has no
  * way to tell which one is doing the work.
@@ -109,9 +119,7 @@ export function projectDesiredNodes({
 	// Oldest claim first, so which replicas get the last free slot does not
 	// change between runs — an unstable order would have the reconciler create
 	// and destroy the same containers forever.
-	const ordered = [...claims].sort(
-		(a, b) => a.createdAt.getTime() - b.createdAt.getTime() || a.id.localeCompare(b.id),
-	);
+	const ordered = [...claims].sort(byAge);
 
 	const nodes: DesiredNode[] = [];
 	let placed = 0;

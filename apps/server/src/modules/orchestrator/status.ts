@@ -222,6 +222,7 @@ export async function readOrchestrationStatus(projectId?: string): Promise<Orche
 			type: nodeClaimsEntity.type,
 			groupIds: nodeClaimsEntity.groupIds,
 			replicas: nodeClaimsEntity.replicas,
+			maxReplicas: nodeClaimsEntity.maxReplicas,
 			createdAt: nodeClaimsEntity.createdAt,
 			createdBy: nodeClaimsEntity.createdBy,
 		})
