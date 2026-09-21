@@ -1,5 +1,5 @@
 import { CATCH_ALL } from "@fluxify/common/orchestrator";
-import { nodeIdFor } from "./containerSpec";
+import { nodeIdFor, resourcesLabel } from "./containerSpec";
 import type { DesiredNode } from "./projection";
 
 /**
@@ -53,6 +53,12 @@ function immutableDrift(node: DesiredNode, container: ObservedNode, image: strin
 	// it is in a Traefik label, which cannot change on a running container
 	if ((container.host ?? null) !== (node.host ?? null)) {
 		return `host ${container.host ?? "none"} → ${node.host ?? "none"}`;
+	}
+	// Docker could resize in place, but a label cannot follow it there, and the
+	// label is the only way the next pass can tell the size changed.
+	const size = resourcesLabel(node.resources);
+	if ((container.resources ?? null) !== size) {
+		return `resources ${container.resources ?? "unset"} → ${size}`;
 	}
 	return null;
 }

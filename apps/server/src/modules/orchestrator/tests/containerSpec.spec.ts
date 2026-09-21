@@ -1,3 +1,4 @@
+import { DEFAULT_RESOURCES } from "../claimMetadata";
 import { describe, expect, it } from "bun:test";
 import {
 	buildContainerSpec,
@@ -29,6 +30,7 @@ function desired(overrides: Partial<DesiredNode> = {}): DesiredNode {
 		type: "both",
 		groupIds: [],
 		excludedGroups: [],
+		resources: DEFAULT_RESOURCES,
 		placeable: true,
 		reason: null,
 		...overrides,
@@ -134,14 +136,12 @@ describe("buildContainerSpec", () => {
 		expect(host.NetworkMode).toBe("fluxify_net");
 	});
 
-	it("applies the pool's per-node budgets when the operator set them", () => {
-		const host = buildContainerSpec(desired(), {
-			...options,
-			cpuPerNode: 1.5,
-			memoryPerNodeMb: 1024,
-		}).body.HostConfig as Record<string, unknown>;
+	it("limits the container to its claim's size, and labels the size so a resize is seen", () => {
+		const spec = buildContainerSpec(desired({ resources: { cpu: 1.5, memoryMb: 1024 } }), options);
+		const host = spec.body.HostConfig as Record<string, unknown>;
 		expect(host.NanoCpus).toBe(1_500_000_000);
 		expect(host.Memory).toBe(1_073_741_824);
+		expect((spec.body.Labels as Record<string, string>)[LABELS.resources]).toBe("1.5/1024");
 	});
 
 	it("refuses an id that is not the shape the database generates", () => {

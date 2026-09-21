@@ -63,8 +63,6 @@ export interface OrchestrationStatus {
 		placed: number;
 		requested: number;
 		ceiling: number;
-		cpuPerNode?: number;
-		memoryPerNodeMb?: number;
 	};
 	entitlement: NodeEntitlement;
 	/**
@@ -223,6 +221,7 @@ export async function readOrchestrationStatus(projectId?: string): Promise<Orche
 			groupIds: nodeClaimsEntity.groupIds,
 			replicas: nodeClaimsEntity.replicas,
 			maxReplicas: nodeClaimsEntity.maxReplicas,
+			metadata: nodeClaimsEntity.metadata,
 			createdAt: nodeClaimsEntity.createdAt,
 			createdBy: nodeClaimsEntity.createdBy,
 		})
@@ -268,11 +267,7 @@ export async function readOrchestrationStatus(projectId?: string): Promise<Orche
 
 	return {
 		orchestrator,
-		pool: {
-			...poolUsage(desired, pool.maxNodes),
-			cpuPerNode: pool.cpuPerNode,
-			memoryPerNodeMb: pool.memoryPerNodeMb,
-		},
+		pool: poolUsage(desired, pool.maxNodes),
 		entitlement: nodeEntitlement(),
 		canClaimRoutes: projectId ? await hasSubdomain(projectId) : true,
 		claims: visible,

@@ -17,6 +17,7 @@ import {
 } from "drizzle-orm/pg-core";
 import { createSelectSchema } from "drizzle-zod";
 import z from "zod";
+import type { ClaimMetadata } from "../modules/orchestrator/claimMetadata";
 import { systemUsers } from "./auth-schema";
 import { jsonb } from "./jsonbColumn";
 
@@ -844,6 +845,11 @@ export const nodeClaimsEntity = pgTable(
 		 * pass to what the pool and license leave room for (#428).
 		 */
 		maxReplicas: integer("max_replicas"),
+		/**
+		 * Optional settings, one key each — today `resources` (cpu / memory per
+		 * node). Platform-neutral on purpose: see `claimMetadata.ts` (#429).
+		 */
+		metadata: jsonb().$type<ClaimMetadata>().default({}).notNull(),
 		// With time zone, like every timestamp on the three orchestration tables.
 		// These are read back and rendered as "3m ago": through Bun's SQL driver a
 		// `timestamp without time zone` comes back shifted by the reader's offset,
@@ -879,7 +885,8 @@ export const nodeClaimsEntity = pgTable(
 export const workerNodesEntity = pgTable(
 	"worker_nodes",
 	{
-		id: varchar({ length: 50 })
+		/** The node id: `<claimId>.<replica>` on Docker, the pod name (up to ~68 characters) on Kubernetes. */
+		id: varchar({ length: 100 })
 			.primaryKey()
 			.$defaultFn(() => generateID()),
 		claimId: varchar("claim_id", { length: 50 })
@@ -926,7 +933,7 @@ export const orchestrationEventsEntity = pgTable(
 	{
 		id: serial().primaryKey(),
 		/** Kept if the node row is deleted — the interesting events are the removals. */
-		nodeId: varchar("node_id", { length: 50 }),
+		nodeId: varchar("node_id", { length: 100 }),
 		claimId: varchar("claim_id", { length: 50 }),
 		projectId: varchar("project_id", { length: 50 }),
 		/** `created`, `removed`, `scaled`, `drained`, `state_changed`, … */

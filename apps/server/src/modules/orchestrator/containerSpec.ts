@@ -1,4 +1,5 @@
 import { CATCH_ALL } from "@fluxify/common/orchestrator";
+import type { ClaimResources } from "./claimMetadata";
 import type { DesiredNode } from "./projection";
 
 /**
@@ -26,6 +27,7 @@ export const LABELS = {
 	project: "fluxify.project-id",
 	node: "fluxify.node-id",
 	host: "fluxify.host",
+	resources: "fluxify.resources",
 } as const;
 
 /**
@@ -44,7 +46,7 @@ const HOST_PATTERN = /^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0
  * This node's identity, derived rather than random: a container that is
  * recreated keeps its id, so the assignment record written for it (§4) is still
  * the right one and there is no mapping to store anywhere. 38 characters, which
- * fits `FLUXIFY_NODE_ID`'s 50.
+ * fits `FLUXIFY_NODE_ID`'s 100.
  */
 export function nodeIdFor(claimId: string, replicaIndex: number) {
 	return `${claimId}.${replicaIndex}`;
@@ -55,6 +57,14 @@ export function containerNameFor(claimId: string, replicaIndex: number) {
 	return `fluxify-worker-${claimId}-${replicaIndex}`;
 }
 
+/**
+ * A node's size as one label value, `<cpu>/<memoryMb>`. Docker cannot report
+ * a container's limits in a listing, so the label is how a resize is noticed.
+ */
+export function resourcesLabel(resources: ClaimResources) {
+	return `${resources.cpu}/${resources.memoryMb}`;
+}
+
 export interface SpecOptions {
 	/** From the orchestrator's environment, never from a row. */
 	image: string;
@@ -62,9 +72,6 @@ export interface SpecOptions {
 	network: string;
 	trafficPort: number;
 	healthPort: number;
-	/** Per-node budgets from the pool config. Unset leaves it to the platform. */
-	cpuPerNode?: number;
-	memoryPerNodeMb?: number;
 	/**
 	 * Settings copied from the orchestrator's own environment (broker address,
 	 * encryption key, log shipping). Resolved by the caller so this stays pure.
@@ -78,7 +85,60 @@ export interface ContainerSpec {
 }
 
 /** Nodes that serve HTTP and therefore need the edge to know about them. */
-const SERVES_HTTP = ["route", "both"];
+export const SERVES_HTTP: readonly string[] = ["route", "both"];
+
+/**
+ * Where the worker's supervisor answers readiness. It fails on purpose while
+ * the worker drains (#336), which is what takes a node off the edge before it stops.
+ */
+export const READY_PATH = "/_/admin/api/healthchecks/ready";
+
+/** The part of a node that reaches a platform as names, labels, rules and env. */
+export type Workload = Pick<DesiredNode, "claimId" | "projectId" | "type" | "groupIds" | "host">;
+
+export const isWellFormedId = (id: string) => ID_PATTERN.test(id);
+
+/**
+ * The trust boundary, shared by every driver: each id is the shape the
+ * database generates and the host is a hostname, or nothing is sent. A host
+ * lands in a Traefik rule on Docker and on Kubernetes alike.
+ */
+export function assertWellFormed(node: Workload) {
+	if (!ID_PATTERN.test(node.claimId)) {
+		throw new Error(`refusing a malformed claim id: ${node.claimId}`);
+	}
+	if (node.projectId !== null && !ID_PATTERN.test(node.projectId)) {
+		throw new Error(`refusing a malformed project id: ${node.projectId}`);
+	}
+	if (node.host && !HOST_PATTERN.test(node.host)) {
+		throw new Error(`refusing a malformed host: ${node.host}`);
+	}
+	const badGroup = node.groupIds.find((id) => !ID_PATTERN.test(id));
+	if (badGroup) throw new Error(`refusing a malformed group id: ${badGroup}`);
+}
+
+/**
+ * What a worker is told about itself, on every platform. The node id and the
+ * settings copied from the orchestrator are added by each driver, because each
+ * platform delivers those differently.
+ */
+export function workerEnv(
+	node: Workload,
+	ports: Pick<SpecOptions, "trafficPort" | "healthPort">,
+): Record<string, string> {
+	return {
+		WORKER_PROJECT_ID: node.projectId ?? CATCH_ALL,
+		WORKER_MODE: node.type,
+		WORKER_GROUP_ID: node.groupIds.join(","),
+		// Which assignment record this node reads (#426). The claim rather than
+		// the node, because every replica of a claim runs the same thing — and a
+		// Deployment's pods have no name the orchestrator could have written one
+		// under in advance.
+		FLUXIFY_CLAIM_ID: node.claimId,
+		WORKER_PORT: String(ports.trafficPort),
+		WORKER_HEALTH_PORT: String(ports.healthPort),
+	};
+}
 
 /**
  * The Traefik labels for a node that serves APIs.
@@ -101,7 +161,6 @@ function edgeLabels(node: DesiredNode, options: SpecOptions): Record<string, str
 	if (node.projectId !== null && !node.host) return {};
 	const name = node.projectId === null ? "fluxify-worker" : `fluxify-project-${node.projectId}`;
 	const rule = node.projectId === null ? "PathPrefix(`/`)" : `Host(\`${node.host}\`)`;
-	const ready = "/_/admin/api/healthchecks/ready";
 	return {
 		"traefik.enable": "true",
 		[`traefik.http.routers.${name}.rule`]: rule,
@@ -112,44 +171,23 @@ function edgeLabels(node: DesiredNode, options: SpecOptions): Record<string, str
 		// Health is on its own port, served by the supervisor. Checking the
 		// traffic port would hit an isolated execution process, which does not
 		// describe whether the node is serving.
-		[`traefik.http.services.${name}.loadbalancer.healthcheck.path`]: ready,
+		[`traefik.http.services.${name}.loadbalancer.healthcheck.path`]: READY_PATH,
 		[`traefik.http.services.${name}.loadbalancer.healthcheck.port`]: String(options.healthPort),
 		[`traefik.http.services.${name}.loadbalancer.healthcheck.interval`]: "10s",
 	};
 }
 
 export function buildContainerSpec(node: DesiredNode, options: SpecOptions): ContainerSpec {
-	if (!ID_PATTERN.test(node.claimId)) {
-		throw new Error(`refusing to create a container for a malformed claim id: ${node.claimId}`);
-	}
-	if (node.projectId !== null && !ID_PATTERN.test(node.projectId)) {
-		throw new Error(`refusing to create a container for a malformed project id: ${node.projectId}`);
-	}
+	assertWellFormed(node);
 	if (!Number.isInteger(node.replicaIndex) || node.replicaIndex < 0) {
 		throw new Error(`refusing to create a container for replica index ${node.replicaIndex}`);
-	}
-	if (node.host && !HOST_PATTERN.test(node.host)) {
-		throw new Error(`refusing to create a container for a malformed host: ${node.host}`);
-	}
-	const badGroup = node.groupIds.find((id) => !ID_PATTERN.test(id));
-	if (badGroup) {
-		throw new Error(`refusing to create a container for a malformed group id: ${badGroup}`);
 	}
 
 	const nodeId = nodeIdFor(node.claimId, node.replicaIndex);
 	const env: Record<string, string> = {
 		...options.passthroughEnv,
-		WORKER_PROJECT_ID: node.projectId ?? CATCH_ALL,
-		WORKER_MODE: node.type,
-		WORKER_GROUP_ID: node.groupIds.join(","),
+		...workerEnv(node, options),
 		FLUXIFY_NODE_ID: nodeId,
-		// Which assignment record this node reads (#426). The claim rather than
-		// the node, because every replica of a claim runs the same thing — and a
-		// Deployment's pods have no name the orchestrator could have written one
-		// under in advance.
-		FLUXIFY_CLAIM_ID: node.claimId,
-		WORKER_PORT: String(options.trafficPort),
-		WORKER_HEALTH_PORT: String(options.healthPort),
 	};
 
 	return {
@@ -163,6 +201,7 @@ export function buildContainerSpec(node: DesiredNode, options: SpecOptions): Con
 				[LABELS.replica]: String(node.replicaIndex),
 				[LABELS.project]: node.projectId ?? CATCH_ALL,
 				[LABELS.node]: nodeId,
+				[LABELS.resources]: resourcesLabel(node.resources),
 				...(node.host ? { [LABELS.host]: node.host } : {}),
 				...edgeLabels(node, options),
 			},
@@ -177,8 +216,8 @@ export function buildContainerSpec(node: DesiredNode, options: SpecOptions): Con
 				// thrash; the reconciler only acts when a container is gone.
 				RestartPolicy: { Name: "unless-stopped" },
 				PidsLimit: 512,
-				...(options.memoryPerNodeMb ? { Memory: options.memoryPerNodeMb * 1024 * 1024 } : {}),
-				...(options.cpuPerNode ? { NanoCpus: Math.round(options.cpuPerNode * 1e9) } : {}),
+				Memory: node.resources.memoryMb * 1024 * 1024,
+				NanoCpus: Math.round(node.resources.cpu * 1e9),
 			},
 		},
 	};

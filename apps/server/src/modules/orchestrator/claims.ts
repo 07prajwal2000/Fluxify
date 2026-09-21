@@ -7,6 +7,7 @@ import { BadRequestError } from "../../errors/badRequestError";
 import { NotFoundError } from "../../errors/notFoundError";
 import { nodeEntitlement } from "../../lib/edition";
 import { systemLog } from "../../lib/systemLogs";
+import type { ClaimMetadata } from "./claimMetadata";
 import { validateClaim } from "./projection";
 import { recordEvent } from "./records";
 import { scalingRefusal } from "./scaling";
@@ -35,10 +36,12 @@ export interface ClaimInput {
 	replicas: number;
 	/** How far it may autoscale above `replicas`. Null (or absent) runs exactly `replicas`. */
 	maxReplicas?: number | null;
+	/** Optional settings (#429). Absent keys mean their defaults. */
+	metadata?: ClaimMetadata;
 }
 
 export type ClaimPatch = Partial<
-	Pick<ClaimInput, "type" | "groupIds" | "replicas" | "maxReplicas">
+	Pick<ClaimInput, "type" | "groupIds" | "replicas" | "maxReplicas" | "metadata">
 >;
 
 /** A project owner may only touch their own project's claims. */
@@ -193,6 +196,7 @@ export async function createClaim(input: ClaimInput, actor?: string) {
 			groupIds: input.groupIds,
 			replicas: input.replicas,
 			maxReplicas: input.maxReplicas ?? null,
+			metadata: input.metadata ?? {},
 			createdBy: actor ?? null,
 		})
 		.returning();
@@ -205,6 +209,7 @@ export async function createClaim(input: ClaimInput, actor?: string) {
 			groupIds: input.groupIds,
 			replicas: input.replicas,
 			maxReplicas: input.maxReplicas ?? null,
+			metadata: input.metadata ?? {},
 			actor,
 		},
 	});
@@ -238,6 +243,8 @@ export async function updateClaim(claimId: string, patch: ClaimPatch, scope: Cla
 		replicas: patch.replicas ?? current.replicas,
 		// `null` in a patch clears the maximum, so only `undefined` keeps it.
 		maxReplicas: patch.maxReplicas === undefined ? current.maxReplicas : patch.maxReplicas,
+		// Per top-level key: a key the patch names is replaced whole, the rest are kept.
+		metadata: { ...current.metadata, ...patch.metadata },
 	};
 	await assertValid(next, claimId);
 
@@ -248,6 +255,7 @@ export async function updateClaim(claimId: string, patch: ClaimPatch, scope: Cla
 			groupIds: next.groupIds,
 			replicas: next.replicas,
 			maxReplicas: next.maxReplicas,
+			metadata: next.metadata,
 		})
 		.where(eq(nodeClaimsEntity.id, claimId))
 		.returning();
@@ -265,12 +273,14 @@ export async function updateClaim(claimId: string, patch: ClaimPatch, scope: Cla
 				groupIds: current.groupIds,
 				replicas: current.replicas,
 				maxReplicas: current.maxReplicas,
+				metadata: current.metadata,
 			},
 			to: {
 				type: next.type,
 				groupIds: next.groupIds,
 				replicas: next.replicas,
 				maxReplicas: next.maxReplicas,
+				metadata: next.metadata,
 			},
 		},
 	});
