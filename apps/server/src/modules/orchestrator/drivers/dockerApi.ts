@@ -97,6 +97,7 @@ export async function listManagedNodes(): Promise<ObservedNode[]> {
 			replicaIndex,
 			projectId: !projectId || projectId === CATCH_ALL ? null : projectId,
 			host: labels[LABELS.host] ?? null,
+			resources: labels[LABELS.resources] ?? null,
 			image: container.Image,
 			running: container.State === "running",
 			platformState: container.State,

@@ -4,6 +4,7 @@ import {
 	type NodeState,
 	type NodeType,
 } from "@fluxify/common/orchestrator";
+import { type ClaimMetadata, claimResources } from "./claimMetadata";
 import { nodeIdFor } from "./containerSpec";
 import type { DesiredNode } from "./projection";
 
@@ -52,6 +53,7 @@ export interface ClaimRow {
 	groupIds: string[];
 	replicas: number;
 	maxReplicas?: number | null;
+	metadata?: ClaimMetadata | null;
 	createdAt: Date;
 	createdBy?: string | null;
 }
@@ -171,6 +173,7 @@ export function buildClaimViews({
 
 	return claims.map((claim) => ({
 		...claim,
+		metadata: { ...claim.metadata, resources: claimResources(claim.metadata) },
 		createdAt: claim.createdAt.toISOString(),
 		groups: claim.groupIds.map(
 			(id) => groups?.get(id) ?? { id, name: id, projectId: claim.projectId },

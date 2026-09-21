@@ -5,6 +5,8 @@ import {
 	type NodeType,
 } from "@fluxify/common/orchestrator";
 
+import { type ClaimMetadata, type ClaimResources, claimResources } from "./claimMetadata";
+
 export { groupPair };
 
 /**
@@ -33,6 +35,8 @@ export interface Claim {
 	replicas: number;
 	/** How far the claim may autoscale above `replicas`. Null runs exactly `replicas`. */
 	maxReplicas?: number | null;
+	/** Optional settings; see `claimMetadata.ts`. */
+	metadata?: ClaimMetadata | null;
 	createdAt: Date;
 }
 
@@ -54,6 +58,8 @@ export interface DesiredNode {
 	 * project settings — the projection itself never reads them.
 	 */
 	host?: string | null;
+	/** What the node may use, from its claim, with the defaults filled in. */
+	resources: ClaimResources;
 	/** False when nothing can be created yet: the node is `pending` with `reason`. */
 	placeable: boolean;
 	reason: NodeReason | null;
@@ -154,6 +160,7 @@ export function projectDesiredNodes({
 				type: claim.type,
 				groupIds,
 				excludedGroups: claim.projectId === null ? catchAllExclusions : [],
+				resources: claimResources(claim.metadata),
 				placeable: reason === null,
 				reason,
 			});

@@ -5,6 +5,10 @@ import {
 	NODE_TYPES,
 } from "@fluxify/common/orchestrator";
 import z from "zod";
+import {
+	claimMetadataSchema,
+	claimResourcesSchema,
+} from "../../../modules/orchestrator/claimMetadata";
 
 /**
  * The wire shape both status surfaces read (#339), in one file because they read
@@ -55,6 +59,8 @@ export const claimViewSchema = z.object({
 	replicas: z.number().int(),
 	/** How far the claim may autoscale. Null runs exactly `replicas`. */
 	maxReplicas: z.number().int().nullable().optional(),
+	/** Optional settings, with every default filled in — `resources` is always present. */
+	metadata: claimMetadataSchema.extend({ resources: claimResourcesSchema }).optional(),
 	createdAt: z.string(),
 	createdBy: z.string().nullable().optional(),
 	nodes: z.array(nodeViewSchema),
@@ -113,8 +119,6 @@ export const orchestrationStatusSchema = z.object({
 		/** Nodes every claim asks for, placed or not. */
 		requested: z.number().int(),
 		ceiling: z.number().int(),
-		cpuPerNode: z.number().optional(),
-		memoryPerNodeMb: z.number().optional(),
 	}),
 	entitlement: z.object({
 		maxReplicas: z.number().nullable(),
@@ -177,6 +181,11 @@ export const createClaimBodySchema = z.object({
 	 * above it on a license that runs a fixed number of nodes.
 	 */
 	maxReplicas: replicas.nullable().optional(),
+	/**
+	 * Optional settings. `resources` is what one node may use: cpu in steps of
+	 * 0.5 (0.5–16), memory in steps of 256 MB (256–65536). Omitted: 1 CPU, 1024 MB.
+	 */
+	metadata: claimMetadataSchema.optional(),
 });
 
 /**
@@ -195,6 +204,8 @@ export const patchClaimBodySchema = z
 		replicas: replicas.optional(),
 		/** Null clears the maximum, so the claim runs exactly `replicas` again. */
 		maxReplicas: replicas.nullable().optional(),
+		/** Per top-level key: one named here is replaced whole, one left out is kept. */
+		metadata: claimMetadataSchema.optional(),
 	})
 	.refine((body) => Object.keys(body).length > 0, { message: "Nothing to change" });
 

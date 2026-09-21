@@ -6,7 +6,7 @@ import type { OrchestrationStatus } from "@/services/orchestration";
 
 /**
  * The operator's only provisioning knob: how many nodes this instance may run
- * at once, and what each one is allowed to use.
+ * at once. What each node may use is its claim's own setting.
  *
  * It is a **ceiling, not a target**. Claims past it are recorded and left
  * pending rather than refused, which is what tells an operator to grow the pool
@@ -19,14 +19,10 @@ import type { OrchestrationStatus } from "@/services/orchestration";
 export function PoolForm({ pool }: { pool: OrchestrationStatus["pool"] }) {
 	const upsert = instanceSettingsQuery.upsert.mutation();
 	const [maxNodes, setMaxNodes] = useState(pool.ceiling);
-	const [cpu, setCpu] = useState(pool.cpuPerNode ?? 0);
-	const [memory, setMemory] = useState(pool.memoryPerNodeMb ?? 0);
 
 	useEffect(() => {
 		setMaxNodes(pool.ceiling);
-		setCpu(pool.cpuPerNode ?? 0);
-		setMemory(pool.memoryPerNodeMb ?? 0);
-	}, [pool.ceiling, pool.cpuPerNode, pool.memoryPerNodeMb]);
+	}, [pool.ceiling]);
 
 	const shrinking = maxNodes < pool.placed;
 	const growing = maxNodes > pool.ceiling && pool.requested > pool.placed;
@@ -36,13 +32,7 @@ export function PoolForm({ pool }: { pool: OrchestrationStatus["pool"] }) {
 			{
 				key: "orchestration_pool",
 				category: "orchestration",
-				value: {
-					maxNodes,
-					// Zero means "no budget of ours" — the platform's own default then
-					// applies, which is not the same as a limit of nothing.
-					...(cpu > 0 ? { cpuPerNode: cpu } : {}),
-					...(memory > 0 ? { memoryPerNodeMb: memory } : {}),
-				},
+				value: { maxNodes },
 			},
 			{
 				onSuccess: () => toast.success("Pool saved"),
@@ -76,44 +66,12 @@ export function PoolForm({ pool }: { pool: OrchestrationStatus["pool"] }) {
 						<NumberField.IncrementButton />
 					</NumberField.Group>
 				</NumberField>
-
-				<NumberField
-					value={cpu}
-					minValue={0}
-					maxValue={64}
-					step={0.5}
-					onChange={setCpu}
-					className="w-40"
-				>
-					<Label>CPU cores per node</Label>
-					<NumberField.Group>
-						<NumberField.DecrementButton />
-						<NumberField.Input />
-						<NumberField.IncrementButton />
-					</NumberField.Group>
-				</NumberField>
-
-				<NumberField
-					value={memory}
-					minValue={0}
-					maxValue={65_536}
-					step={128}
-					onChange={setMemory}
-					className="w-44"
-				>
-					<Label>Memory per node (MB)</Label>
-					<NumberField.Group>
-						<NumberField.DecrementButton />
-						<NumberField.Input />
-						<NumberField.IncrementButton />
-					</NumberField.Group>
-				</NumberField>
 			</div>
 
 			<p className="text-xs text-muted">
 				{maxNodes === 0
 					? "A ceiling of zero runs nothing at all: every claim sits pending."
-					: "Zero for CPU or memory leaves that budget to the platform."}
+					: "Each claim sets how much CPU and memory its nodes may use."}
 			</p>
 
 			{shrinking && (
@@ -127,12 +85,6 @@ export function PoolForm({ pool }: { pool: OrchestrationStatus["pool"] }) {
 					Nodes that are waiting for room will start on the next check.
 				</p>
 			)}
-			{cpu > 0 || memory > 0 ? (
-				<p className="text-xs text-muted">
-					Budgets apply to nodes created after the change. Existing nodes keep theirs until they are
-					replaced.
-				</p>
-			) : null}
 
 			<div>
 				<Button variant="primary" isPending={upsert.isPending} onPress={save}>

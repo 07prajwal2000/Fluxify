@@ -94,14 +94,12 @@ export function createDockerDriver(
 		reachable: api.dockerReachable,
 		observe: api.listManagedNodes,
 
-		async apply(desired, observed, { pool }) {
+		async apply(desired, observed) {
 			const spec: SpecOptions = {
 				image: options.image,
 				network: options.network,
 				trafficPort: options.trafficPort,
 				healthPort: options.healthPort,
-				cpuPerNode: pool.cpuPerNode,
-				memoryPerNodeMb: pool.memoryPerNodeMb,
 				passthroughEnv: options.passthroughEnv,
 			};
 			const events: NodeEvent[] = [];

@@ -21,8 +21,6 @@ import { type ScalingContext, scalingCeilings } from "./scaling";
 
 export interface PoolLimits {
 	maxNodes: number;
-	cpuPerNode?: number;
-	memoryPerNodeMb?: number;
 }
 
 export interface DesiredState {
@@ -40,6 +38,7 @@ export async function readDesiredState(): Promise<DesiredState> {
 			groupIds: nodeClaimsEntity.groupIds,
 			replicas: nodeClaimsEntity.replicas,
 			maxReplicas: nodeClaimsEntity.maxReplicas,
+			metadata: nodeClaimsEntity.metadata,
 			createdAt: nodeClaimsEntity.createdAt,
 		})
 		.from(nodeClaimsEntity);

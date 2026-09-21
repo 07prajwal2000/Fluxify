@@ -1,3 +1,4 @@
+import { DEFAULT_RESOURCES } from "../claimMetadata";
 import { describe, expect, it } from "bun:test";
 import { groupPair } from "@fluxify/common/orchestrator";
 import type { DesiredNode } from "../projection";
@@ -37,6 +38,7 @@ const desired = (over: Partial<DesiredNode> = {}): DesiredNode => ({
 	type: "workflow",
 	groupIds: ["grp-1"],
 	excludedGroups: [],
+	resources: DEFAULT_RESOURCES,
 	placeable: true,
 	reason: null,
 	...over,

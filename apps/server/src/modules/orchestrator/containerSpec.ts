@@ -1,4 +1,5 @@
 import { CATCH_ALL } from "@fluxify/common/orchestrator";
+import type { ClaimResources } from "./claimMetadata";
 import type { DesiredNode } from "./projection";
 
 /**
@@ -26,6 +27,7 @@ export const LABELS = {
 	project: "fluxify.project-id",
 	node: "fluxify.node-id",
 	host: "fluxify.host",
+	resources: "fluxify.resources",
 } as const;
 
 /**
@@ -55,6 +57,14 @@ export function containerNameFor(claimId: string, replicaIndex: number) {
 	return `fluxify-worker-${claimId}-${replicaIndex}`;
 }
 
+/**
+ * A node's size as one label value, `<cpu>/<memoryMb>`. Docker cannot report
+ * a container's limits in a listing, so the label is how a resize is noticed.
+ */
+export function resourcesLabel(resources: ClaimResources) {
+	return `${resources.cpu}/${resources.memoryMb}`;
+}
+
 export interface SpecOptions {
 	/** From the orchestrator's environment, never from a row. */
 	image: string;
@@ -62,9 +72,6 @@ export interface SpecOptions {
 	network: string;
 	trafficPort: number;
 	healthPort: number;
-	/** Per-node budgets from the pool config. Unset leaves it to the platform. */
-	cpuPerNode?: number;
-	memoryPerNodeMb?: number;
 	/**
 	 * Settings copied from the orchestrator's own environment (broker address,
 	 * encryption key, log shipping). Resolved by the caller so this stays pure.
@@ -163,6 +170,7 @@ export function buildContainerSpec(node: DesiredNode, options: SpecOptions): Con
 				[LABELS.replica]: String(node.replicaIndex),
 				[LABELS.project]: node.projectId ?? CATCH_ALL,
 				[LABELS.node]: nodeId,
+				[LABELS.resources]: resourcesLabel(node.resources),
 				...(node.host ? { [LABELS.host]: node.host } : {}),
 				...edgeLabels(node, options),
 			},
@@ -177,8 +185,8 @@ export function buildContainerSpec(node: DesiredNode, options: SpecOptions): Con
 				// thrash; the reconciler only acts when a container is gone.
 				RestartPolicy: { Name: "unless-stopped" },
 				PidsLimit: 512,
-				...(options.memoryPerNodeMb ? { Memory: options.memoryPerNodeMb * 1024 * 1024 } : {}),
-				...(options.cpuPerNode ? { NanoCpus: Math.round(options.cpuPerNode * 1e9) } : {}),
+				Memory: node.resources.memoryMb * 1024 * 1024,
+				NanoCpus: Math.round(node.resources.cpu * 1e9),
 			},
 		},
 	};

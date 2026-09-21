@@ -505,6 +505,13 @@
 			"when": 1790021377934,
 			"tag": "0071_claim_max_replicas",
 			"breakpoints": true
+		},
+		{
+			"idx": 72,
+			"version": "7",
+			"when": 1790030437707,
+			"tag": "0072_claim_metadata",
+			"breakpoints": true
 		}
 	]
 }

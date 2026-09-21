@@ -1,3 +1,4 @@
+import { DEFAULT_RESOURCES } from "../claimMetadata";
 import { describe, expect, it } from "bun:test";
 import type { NodeAssignment } from "@fluxify/common/orchestrator";
 import type { Assignments } from "../assignments";
@@ -24,6 +25,7 @@ function node(claimId: string, replicaIndex: number, placeable = true): DesiredN
 		type: "both",
 		groupIds: [],
 		excludedGroups: [],
+		resources: DEFAULT_RESOURCES,
 		placeable,
 		reason: placeable ? null : "no_license_slot",
 	};

@@ -1,3 +1,4 @@
+import { DEFAULT_RESOURCES } from "../claimMetadata";
 import { describe, expect, it } from "bun:test";
 import type { ObservedNode } from "@fluxify/common/orchestrator";
 import { orchestrationScalingSchema } from "../../../lib/instance-settings/schemas";
@@ -32,6 +33,7 @@ function node(replicaIndex: number): DesiredNode {
 		type: "both",
 		groupIds: [],
 		excludedGroups: [],
+		resources: DEFAULT_RESOURCES,
 		placeable: true,
 		reason: null,
 	};

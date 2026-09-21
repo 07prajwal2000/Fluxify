@@ -54,10 +54,7 @@ export const featureToggleSchema = z.object({ enabled: z.boolean() });
 export const orchestrationPoolSchema = z.object({
 	/** How many worker containers may exist at once. 0 means the operator has not sized the pool yet. */
 	maxNodes: z.number().int().min(0).default(0),
-	/** Per-node CPU budget in cores, passed to the container. Unset leaves it to the platform's default. */
-	cpuPerNode: z.number().positive().optional(),
-	/** Per-node memory budget in MB. Unset leaves it to the platform's default. */
-	memoryPerNodeMb: z.number().int().positive().optional(),
+	// A node's cpu and memory belong to its claim (#429): workloads differ in size.
 });
 
 /**

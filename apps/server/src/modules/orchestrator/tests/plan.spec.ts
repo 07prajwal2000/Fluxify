@@ -1,5 +1,6 @@
+import { DEFAULT_RESOURCES } from "../claimMetadata";
 import { describe, expect, it } from "bun:test";
-import { nodeIdFor } from "../containerSpec";
+import { nodeIdFor, resourcesLabel } from "../containerSpec";
 import { planReconcile, type ObservedNode } from "../plan";
 import type { DesiredNode } from "../projection";
 
@@ -14,6 +15,7 @@ function desired(overrides: Partial<DesiredNode> = {}): DesiredNode {
 		type: "both",
 		groupIds: [],
 		excludedGroups: [],
+		resources: DEFAULT_RESOURCES,
 		placeable: true,
 		reason: null,
 		...overrides,
@@ -27,6 +29,7 @@ function observed(node: DesiredNode, overrides: Partial<ObservedNode> = {}): Obs
 		claimId: node.claimId,
 		replicaIndex: node.replicaIndex,
 		projectId: node.projectId,
+		resources: resourcesLabel(node.resources),
 		image: IMAGE,
 		running: true,
 		platformState: "running",
@@ -70,6 +73,18 @@ describe("planReconcile", () => {
 		const node = desired({ projectId: "0192b1c4-2222-7000-8000-000000000002", host: "new.example.com" });
 		const actions = plan([node], [observed(node, { host: "old.example.com" })]);
 		expect(actions[0]).toMatchObject({ kind: "recreate", why: "host old.example.com → new.example.com" });
+	});
+
+	it("recreates a node whose claim was resized, and one created before sizes were labelled", () => {
+		const node = desired({ resources: { cpu: 2, memoryMb: 2048 } });
+		expect(plan([node], [observed(node, { resources: "1/1024" })])[0]).toMatchObject({
+			kind: "recreate",
+			why: "resources 1/1024 → 2/2048",
+		});
+		expect(plan([node], [observed(node, { resources: null })])[0]).toMatchObject({
+			kind: "recreate",
+			why: "resources unset → 2/2048",
+		});
 	});
 
 	it("does not recreate for a type or group change — those go through the assignment", () => {

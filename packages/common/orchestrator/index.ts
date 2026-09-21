@@ -262,6 +262,8 @@ export interface ObservedNode {
 	projectId: string | null;
 	/** The `Host` the edge routes to it; absent on nodes reached by path alone. */
 	host?: string | null;
+	/** `<cpu>/<memoryMb>` as the node was created with, where the platform cannot report it. */
+	resources?: string | null;
 	image: string;
 	running: boolean;
 	/** The platform's own word: `running`, `created`, `restarting`, `exited`, … */
