@@ -87,7 +87,7 @@ export const serverEnvSchema = baseEnvSchema.extend({
 
 	FLUXIFY_NODE_ID: z
 		.string()
-		.max(50)
+		.max(100)
 		.optional()
 		.describe(
 			"Identity of this worker node, used as its liveness and license-slot key. Set by the orchestrator when it provisions the node; a hand-started worker generates a short random one",
@@ -106,6 +106,71 @@ export const serverEnvSchema = baseEnvSchema.extend({
 		.optional()
 		.describe(
 			"Docker daemon endpoint for the orchestrator and the container integration tests. tcp://host:port, or unix:///var/run/docker.sock in a container. Windows named pipes are not supported — use tcp://localhost:2375 (Docker Desktop: Settings → General → expose daemon on tcp://localhost:2375)",
+		),
+
+	K8S_API_URL: z
+		.string()
+		.refine((val) => !val || z.string().url().safeParse(val).success, {
+			message: "K8S_API_URL must be a URL",
+		})
+		.optional()
+		.describe(
+			"Kubernetes API server the orchestrator drives, e.g. https://127.0.0.1:6443. Unset inside a cluster: the in-cluster address and the mounted service account are used instead",
+		),
+
+	K8S_SA_TOKEN: z
+		.string()
+		.optional()
+		.describe(
+			"Bearer token for K8S_API_URL, normally a service account's. Unset inside a cluster: the mounted, auto-rotated token is read instead",
+		),
+
+	K8S_NAMESPACE: z
+		.string()
+		.regex(/^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$/)
+		.optional()
+		.describe(
+			"Namespace every worker object is created in (default: the orchestrator's own namespace inside a cluster, else `default`)",
+		),
+
+	K8S_CA_CERT: z
+		.string()
+		.optional()
+		.describe(
+			"Path to the PEM certificate that signed the API server's, for a cluster with its own CA such as k3d. Inside a cluster the mounted ca.crt is used. The certificate is always verified",
+		),
+
+	K8S_NATS_MONITORING_ENDPOINT: z
+		.string()
+		.optional()
+		.describe(
+			"host:port of NATS's HTTP monitoring (port 8222 by default), as reachable from inside the cluster. KEDA reads trigger backlogs there; unset, workflow claims scale on cpu and memory only",
+		),
+
+	ORCHESTRATOR_SCALE_CPU_PERCENT: z
+		.string()
+		.optional()
+		.refine(
+			(val) => !val || (Number.isInteger(Number(val)) && Number(val) >= 1 && Number(val) <= 100),
+			{
+				message: "ORCHESTRATOR_SCALE_CPU_PERCENT must be an integer between 1 and 100",
+			},
+		)
+		.describe(
+			"Kubernetes: average CPU use, as a percent of a node's cpu, above which a claim adds nodes (default 65)",
+		),
+
+	ORCHESTRATOR_SCALE_MEMORY_PERCENT: z
+		.string()
+		.optional()
+		.refine(
+			(val) => !val || (Number.isInteger(Number(val)) && Number(val) >= 1 && Number(val) <= 100),
+			{
+				message: "ORCHESTRATOR_SCALE_MEMORY_PERCENT must be an integer between 1 and 100",
+			},
+		)
+		.describe(
+			"Kubernetes: average memory use, as a percent of a node's memory, above which a claim adds nodes (default 65)",
 		),
 
 	ORCHESTRATOR_WORKER_IMAGE: z

@@ -885,7 +885,8 @@ export const nodeClaimsEntity = pgTable(
 export const workerNodesEntity = pgTable(
 	"worker_nodes",
 	{
-		id: varchar({ length: 50 })
+		/** The node id: `<claimId>.<replica>` on Docker, the pod name (up to ~68 characters) on Kubernetes. */
+		id: varchar({ length: 100 })
 			.primaryKey()
 			.$defaultFn(() => generateID()),
 		claimId: varchar("claim_id", { length: 50 })
@@ -932,7 +933,7 @@ export const orchestrationEventsEntity = pgTable(
 	{
 		id: serial().primaryKey(),
 		/** Kept if the node row is deleted — the interesting events are the removals. */
-		nodeId: varchar("node_id", { length: 50 }),
+		nodeId: varchar("node_id", { length: 100 }),
 		claimId: varchar("claim_id", { length: 50 }),
 		projectId: varchar("project_id", { length: 50 }),
 		/** `created`, `removed`, `scaled`, `drained`, `state_changed`, … */
