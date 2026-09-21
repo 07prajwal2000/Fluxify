@@ -238,6 +238,10 @@ export default withMermaid(
 							{ text: "Self-Signed Licenses (pre-1.0)", link: "/deployments/self-signed-license" },
 						],
 					},
+					{
+						text: "Kubernetes",
+						items: [{ text: "Production on Kubernetes", link: "/deployments/kubernetes/" }],
+					},
 				],
 
 				"/integrations/": [

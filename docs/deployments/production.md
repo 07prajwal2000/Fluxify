@@ -20,6 +20,10 @@ All three are published to the GitHub Container Registry under
 An edge proxy (**Traefik**) sits in front and sends admin traffic to the admin
 container and everything else to the workers.
 
+> [!TIP]
+> This guide runs the workers on one Docker host. To run them on a Kubernetes
+> cluster instead, see [Production on Kubernetes](./kubernetes/).
+
 ### Which tag to pull {#image-tags}
 
 Every release tags all three images together, so admin, orchestrator and worker
@@ -440,22 +444,17 @@ The workers start and begin serving as soon as your routes reach them.
 
 ## Scaling the workers {#scaling}
 
-Raise the replica count for the project that needs it, in the compose file:
+Raise the replica count on the claim that needs more workers. A project's
+claims are in its **Orchestration** settings, and the claim that serves every
+project is in the instance's. The orchestrator starts the extra workers on its
+next pass, and Traefik picks them up on its own, with no proxy change needed.
+Workers hold no state, so you can scale up and down freely, up to the node
+pool's ceiling.
 
-```yaml
-  worker-project-a:
-    deploy:
-      replicas: 4   # was 2
-```
-
-Then apply it:
-
-```bash
-docker compose -f docker/production/docker-compose.yml up -d
-```
-
-Traefik picks up the new replicas automatically — no proxy change needed.
-Workers hold no state, so you can scale up and down freely.
+Each claim also sets **how much CPU and memory each of its workers may use**.
+The default is 1 core and 1024 MB, adjustable in steps of 0.5 core and 256 MB.
+On Docker that is the container's limit. Resizing a claim replaces its workers
+one at a time. See [Sizing a worker](./kubernetes/#sizing) for the full ranges.
 
 > [!TIP]
 > **Scale out with replicas.** Each worker container has one isolated execution
