@@ -14,7 +14,7 @@ import { logger } from "@fluxify/common";
 
 const SERVICE_ACCOUNT = "/var/run/secrets/kubernetes.io/serviceaccount";
 /** Who wrote a field, as the API server records it. */
-const FIELD_MANAGER = "fluxify-orchestrator";
+export const FIELD_MANAGER = "fluxify-orchestrator";
 
 /** The kinds the orchestrator writes or reads, and where each one lives. */
 export const KINDS = {
@@ -36,6 +36,9 @@ export interface KubeObject {
 		name: string;
 		labels?: Record<string, string>;
 		annotations?: Record<string, string>;
+		/** Bumped by the API server on every spec change, whoever made it. */
+		generation?: number;
+		deletionTimestamp?: string;
 	};
 	[field: string]: unknown;
 }
@@ -183,20 +186,20 @@ export function createKubeApi(endpoint: KubeEndpoint = kubeEndpoint()) {
 		 * Makes an object look like this, creating it if it is absent — one call,
 		 * server-side apply. A field this orchestrator set before and leaves out now
 		 * is removed; a field another controller owns (KEDA's replica count) is not
-		 * touched. False when the kind is not installed.
+		 * touched. Returns the object as stored, or null when the kind is not installed.
 		 */
-		async apply(object: KubeObject): Promise<boolean> {
+		async apply(object: KubeObject, manager = FIELD_MANAGER): Promise<KubeObject | null> {
 			const path = objectPath(endpoint.namespace, object.kind, object.metadata.name);
 			try {
-				await request(`${path}?fieldManager=${FIELD_MANAGER}&force=true`, {
+				const response = await request(`${path}?fieldManager=${manager}&force=true`, {
 					method: "PATCH",
 					// JSON is YAML, so no YAML library is needed to speak apply.
 					headers: { "content-type": "application/apply-patch+yaml" },
 					body: JSON.stringify(object),
 				});
-				return true;
+				return (await response.json()) as KubeObject;
 			} catch (error) {
-				if (notInstalled(object.kind, error)) return false;
+				if (notInstalled(object.kind, error)) return null;
 				throw error;
 			}
 		},

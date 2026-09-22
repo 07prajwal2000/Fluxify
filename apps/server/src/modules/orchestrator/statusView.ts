@@ -76,6 +76,8 @@ export interface NodeView {
 	serving: boolean;
 	lastHeartbeatAt: string | null;
 	observedAt: string | null;
+	/** Above the claim's floor: started by the autoscaler for load, and gone when it drops. */
+	autoscaled: boolean;
 }
 
 /**
@@ -142,12 +144,14 @@ export function buildClaimViews({
 	heartbeats,
 	groups,
 }: ViewInput): ClaimView[] {
-	const rowById = new Map(rows.map((row) => [row.id, row]));
+	// By position, not id: on Kubernetes the id is a pod name the projection
+	// cannot know, and the row is where it is learned.
+	const rowAt = new Map(rows.map((row) => [`${row.claimId}/${row.replicaIndex}`, row]));
 	const byClaim = new Map<string, NodeView[]>();
+	const firstOfClaim = new Map<string, DesiredNode>();
 
-	for (const node of desired) {
-		const id = nodeIdFor(node.claimId, node.replicaIndex);
-		const row = rowById.get(id);
+	const view = (node: DesiredNode, row: NodeRow | undefined, autoscaled: boolean) => {
+		const id = row?.id ?? nodeIdFor(node.claimId, node.replicaIndex);
 		const beat = heartbeats.get(id);
 		const { state, reason } = display(node, row, beat);
 		const views = byClaim.get(node.claimId) ?? [];
@@ -167,8 +171,23 @@ export function buildClaimViews({
 			serving: beat?.ready ?? false,
 			lastHeartbeatAt: beat?.at ?? null,
 			observedAt: row?.updatedAt.toISOString() ?? null,
+			autoscaled,
 		});
 		byClaim.set(node.claimId, views);
+	};
+
+	const shown = new Set<string>();
+	for (const node of desired) {
+		if (!firstOfClaim.has(node.claimId)) firstOfClaim.set(node.claimId, node);
+		const key = `${node.claimId}/${node.replicaIndex}`;
+		shown.add(key);
+		view(node, rowAt.get(key), false);
+	}
+	// Rows past the floor are pods the autoscaler added (see `syncNodeRows`).
+	for (const [key, row] of rowAt) {
+		const node = firstOfClaim.get(row.claimId);
+		if (!node || shown.has(key)) continue;
+		view({ ...node, replicaIndex: row.replicaIndex, placeable: true, reason: null }, row, true);
 	}
 
 	return claims.map((claim) => ({

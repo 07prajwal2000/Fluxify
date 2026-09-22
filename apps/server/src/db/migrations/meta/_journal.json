@@ -519,6 +519,13 @@
 			"when": 1790030805436,
 			"tag": "0073_node_id_fits_pod_names",
 			"breakpoints": true
+		},
+		{
+			"idx": 74,
+			"version": "7",
+			"when": 1790098596933,
+			"tag": "0074_worker_nodes_replica_not_unique",
+			"breakpoints": true
 		}
 	]
 }

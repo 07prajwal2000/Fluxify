@@ -4,6 +4,7 @@ import { LABELS, MANAGED_LABEL } from "../containerSpec";
 import {
 	buildDeployment,
 	buildIngressRoute,
+	buildReplicas,
 	buildScaledObject,
 	buildService,
 	buildTriggerSecret,
@@ -97,14 +98,14 @@ describe("claimWorkloads", () => {
 
 describe("buildDeployment", () => {
 	const shared = { NATS_URL: "nats://nats:4222", MASTER_ENCRYPTION_KEY: "k" };
-	const deployment = (over: Partial<ClaimWorkload> = {}, withReplicas = true) =>
-		buildDeployment(workload(over), options, shared, { withReplicas });
+	const deployment = (over: Partial<ClaimWorkload> = {}) =>
+		buildDeployment(workload(over), options, shared);
 	const container = (object: ReturnType<typeof deployment>) =>
 		spec(object).template.spec.containers[0];
 
-	it("sets the replica count only when asked — once KEDA owns it, a second writer flaps", () => {
-		expect(spec(deployment({ min: 3 })).replicas).toBe(3);
-		expect(spec(deployment({ min: 3 }, false))).not.toHaveProperty("replicas");
+	it("leaves the replica count to its own apply, so handing it to KEDA never resets it", () => {
+		expect(spec(deployment({ min: 3 }))).not.toHaveProperty("replicas");
+		expect(spec(buildReplicas(workload({ min: 3 })))).toEqual({ replicas: 3 });
 	});
 
 	it("gives each pod its own name as node id, and the claim it belongs to", () => {
@@ -125,7 +126,7 @@ describe("buildDeployment", () => {
 
 	it("restarts the pods when the shared settings change, since a Secret change alone does not", () => {
 		const hash = (env: Record<string, string>) =>
-			spec(buildDeployment(workload(), options, env, { withReplicas: true })).template.metadata
+			spec(buildDeployment(workload(), options, env)).template.metadata
 				.annotations["fluxify.env-hash"];
 		expect(hash(shared)).not.toBe(hash({ ...shared, NATS_URL: "nats://other:4222" }));
 	});
@@ -253,7 +254,7 @@ describe("no string a user can write reaches the API server", () => {
 	it("refuses a host that would end the Traefik rule and start another", () => {
 		const bad = workload({ projectId: PROJECT, host: "a.com`) || PathPrefix(`/" });
 		expect(() => buildIngressRoute(bad, options)).toThrow("malformed host");
-		expect(() => buildDeployment(bad, options, {}, { withReplicas: true })).toThrow("malformed host");
+		expect(() => buildDeployment(bad, options, {})).toThrow("malformed host");
 	});
 
 	it("refuses ids that are not the shape the database generates", () => {

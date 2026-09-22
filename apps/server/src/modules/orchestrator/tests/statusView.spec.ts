@@ -227,3 +227,25 @@ describe("the groups a claim names, resolved", () => {
 		expect(view!.groups).toEqual([{ id: "grp-gone", name: "grp-gone", projectId: "proj-a" }]);
 	});
 })
+
+describe("nodes on Kubernetes", () => {
+	const POD = `fluxify-worker-${CLAIM_ID}-7d9f8-abcde`;
+
+	it("joins a pod-named row to the heartbeat the pod sends", () => {
+		const node = one({ rows: [row({ id: POD, containerId: POD })], heartbeats: beats([POD, live]) });
+		expect(node).toMatchObject({ id: POD, state: "ready", live: true, autoscaled: false });
+	});
+
+	it("shows a pod the autoscaler added above the floor, marked as such", () => {
+		const [view] = buildClaimViews({
+			claims: [claim()],
+			desired: [desired()],
+			rows: [row({ id: "pod-a" }), row({ id: "pod-b", replicaIndex: 1 })],
+			heartbeats: beats(["pod-b", live]),
+		});
+		expect(view!.nodes.map((n) => [n.id, n.autoscaled, n.state])).toEqual([
+			["pod-a", false, "unhealthy"],
+			["pod-b", true, "ready"],
+		]);
+	});
+});

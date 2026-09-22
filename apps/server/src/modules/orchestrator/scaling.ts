@@ -17,6 +17,11 @@ export interface ScalingContext {
 	policy: ScalingPolicy;
 	/** Claim id → the most nodes it may run this pass. Equal to its floor when it does not scale. */
 	ceilings: ReadonlyMap<string, number>;
+	/**
+	 * Group id → its active internal triggers with a workflow attached: the ones
+	 * with a consumer on the trigger stream, whose backlog is a scaling signal.
+	 */
+	triggersByGroup: ReadonlyMap<string, readonly string[]>;
 }
 
 /** How many nodes a queue of `pending` messages asks for, clamped to `[min, max]`. */

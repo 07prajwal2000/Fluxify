@@ -19,7 +19,7 @@ import {
  */
 
 export const nodeViewSchema = z.object({
-	/** `<claimId>.<replicaIndex>` — also the container label and the heartbeat key. */
+	/** The heartbeat key: `<claimId>.<replicaIndex>` on Docker, the pod name on Kubernetes. */
 	id: z.string(),
 	claimId: z.string(),
 	replicaIndex: z.number().int(),
@@ -39,6 +39,8 @@ export const nodeViewSchema = z.object({
 	lastHeartbeatAt: z.string().nullable(),
 	/** When the orchestrator last wrote this node's row. */
 	observedAt: z.string().nullable(),
+	/** Above the claim's floor: added by the autoscaler for load. */
+	autoscaled: z.boolean(),
 });
 
 /** A trigger group a claim names, resolved — the instance surface spans every

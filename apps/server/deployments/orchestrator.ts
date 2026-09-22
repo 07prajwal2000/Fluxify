@@ -7,6 +7,8 @@ import { watchLicense } from "../src/lib/edition";
 import { getEnv } from "../src/lib/env";
 import { watchInstanceSettings } from "../src/loaders/instanceSettingsLoader";
 import { createDockerDriver } from "../src/modules/orchestrator/drivers/docker";
+import { createKubernetesDriver } from "../src/modules/orchestrator/drivers/kubernetes";
+import type { InfraDriver } from "../src/modules/orchestrator/drivers/platform";
 import { openLeaderLease } from "../src/modules/orchestrator/leader";
 import { createReconciler } from "../src/modules/orchestrator/reconciler";
 
@@ -22,12 +24,13 @@ import { createReconciler } from "../src/modules/orchestrator/reconciler";
  * database when it boots against an empty KV.
  *
  * On Docker it holds the socket, which is root-equivalent on the host, *and*
- * database credentials. The narrow command vocabulary in `containerSpec.ts` is
+ * database credentials; on Kubernetes, a service account that may create pods. The narrow command vocabulary in `containerSpec.ts` is
  * therefore load-bearing rather than defence in depth (§13).
  */
 
 const healthPort = Number(getEnv("ORCHESTRATOR_HEALTH_PORT")) || 5800;
 const intervalMs = Number(getEnv("ORCHESTRATOR_RECONCILE_INTERVAL_MS")) || 5_000;
+const provider = getEnv("ORCHESTRATOR_PROVIDER") || "docker";
 const image = getEnv("ORCHESTRATOR_WORKER_IMAGE");
 const network = getEnv("ORCHESTRATOR_NETWORK") || "fluxify_net";
 const trafficPort = Number(getEnv("WORKER_PORT")) || 5600;
@@ -104,20 +107,53 @@ const passthroughEnv = Object.fromEntries(
 	PASSTHROUGH.map((key) => [key, process.env[key]]).filter(([, value]) => value !== undefined),
 ) as Record<string, string>;
 
-// ponytail: Docker is the only driver until Kubernetes lands (#430), which
-// picks one from ORCHESTRATOR_PROVIDER here and changes nothing else.
-const driver = createDockerDriver({
-	image,
-	network,
-	trafficPort,
-	healthPort: trafficPort + 1,
-	drainTimeoutSec,
-	passthroughEnv,
-	seedsDefaultClaim: getEnv("ORCHESTRATOR_SEED_DEFAULT_CLAIM") !== "false",
-});
+/**
+ * The platform, chosen by env rather than detected: an orchestrator running in
+ * a cluster but deliberately driving a Docker host is a real setup, and
+ * detection would get exactly that case wrong, silently.
+ */
+function createDriver(): InfraDriver {
+	if (provider === "kubernetes") {
+		const natsMonitoringEndpoint = getEnv("K8S_NATS_MONITORING_ENDPOINT");
+		return createKubernetesDriver({
+			image: image!,
+			trafficPort,
+			healthPort: trafficPort + 1,
+			drainTimeoutSec,
+			scaleCpuPercent: Number(getEnv("ORCHESTRATOR_SCALE_CPU_PERCENT")) || 65,
+			scaleMemoryPercent: Number(getEnv("ORCHESTRATOR_SCALE_MEMORY_PERCENT")) || 65,
+			...(natsMonitoringEndpoint ? { natsMonitoringEndpoint } : {}),
+			passthroughEnv,
+		});
+	}
+	return createDockerDriver({
+		image: image!,
+		network,
+		trafficPort,
+		healthPort: trafficPort + 1,
+		drainTimeoutSec,
+		passthroughEnv,
+		seedsDefaultClaim: getEnv("ORCHESTRATOR_SEED_DEFAULT_CLAIM") !== "false",
+	});
+}
+
+const MISSING: Record<string, string> = {
+	docker: "mount the Docker socket or set DOCKER_HOST",
+	kubernetes:
+		"run the orchestrator inside the cluster, or set K8S_API_URL and K8S_SA_TOKEN; its service account needs access to the namespace",
+};
+
+let driver: InfraDriver;
+try {
+	driver = createDriver();
+} catch (error) {
+	// No API server configured at all fails here, before any request is made.
+	logger.error(`FATAL: ${provider}: ${String(error)}`, "ORCHESTRATOR");
+	process.exit(1);
+}
 if (!(await driver.reachable())) {
 	logger.error(
-		`FATAL: the ${driver.provider} platform is not reachable at ${driver.meta.endpoint}. On Docker, mount the socket or set DOCKER_HOST.`,
+		`FATAL: the ${driver.provider} platform is not reachable at ${driver.meta.endpoint}. ${MISSING[provider]}.`,
 		"ORCHESTRATOR",
 	);
 	process.exit(1);

@@ -108,6 +108,13 @@ export const serverEnvSchema = baseEnvSchema.extend({
 			"Docker daemon endpoint for the orchestrator and the container integration tests. tcp://host:port, or unix:///var/run/docker.sock in a container. Windows named pipes are not supported — use tcp://localhost:2375 (Docker Desktop: Settings → General → expose daemon on tcp://localhost:2375)",
 		),
 
+	ORCHESTRATOR_PROVIDER: z
+		.enum(["docker", "kubernetes"])
+		.optional()
+		.describe(
+			"Which platform the orchestrator drives (default docker). Chosen, never detected: an orchestrator inside a cluster may deliberately drive a Docker host, and detection would get exactly that case wrong without saying so",
+		),
+
 	K8S_API_URL: z
 		.string()
 		.refine((val) => !val || z.string().url().safeParse(val).success, {
