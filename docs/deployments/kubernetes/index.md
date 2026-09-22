@@ -12,10 +12,9 @@ orchestrator turns each claim into ordinary Kubernetes objects and keeps them
 in line with what you asked for.
 
 > [!WARNING]
-> **Being built in stages.** Kubernetes support arrives over several releases,
-> and this section grows with each one. Until the orchestrator can be switched
-> to Kubernetes, use the [Docker production setup](../production). Everything
-> below describes how it behaves once it is on.
+> **Being built in stages.** The orchestrator can now drive a cluster, but the
+> ready-made manifests and the portal's scaling screens are still on their way.
+> Expect this section to grow.
 
 ## Docker or Kubernetes?
 
@@ -45,6 +44,16 @@ other is a change to the orchestrator's settings, not to your database.
 
 ## Connecting the orchestrator
 
+Tell the orchestrator which platform it drives:
+
+| Setting | What it is |
+| :--- | :--- |
+| `ORCHESTRATOR_PROVIDER` | `kubernetes` to run workers on a cluster, `docker` for one Docker host. Default: `docker`. |
+
+It is never guessed. An orchestrator that runs inside a cluster can still be
+pointed at a Docker host on purpose. If the platform you picked cannot be
+reached when it starts, the orchestrator stops and says what is missing.
+
 Running the orchestrator **inside the cluster**, it finds the cluster on its
 own, using the service account it runs as. Nothing to set.
 
@@ -64,6 +73,13 @@ Two more settings shape how workers scale:
 | `K8S_NATS_MONITORING_ENDPOINT` | NATS's monitoring address as reachable from the cluster, e.g. `nats.fluxify.svc:8222`. Needed for workers to scale on how many workflow runs are waiting. Unset, they scale on CPU and memory only. |
 | `ORCHESTRATOR_SCALE_CPU_PERCENT` | Average CPU use, as a percent of a worker's CPU, above which more workers start. Default: `65`. |
 | `ORCHESTRATOR_SCALE_MEMORY_PERCENT` | The same, for memory. Default: `65`. |
+
+## Changing workers by hand
+
+The orchestrator keeps every object it created matching your claims. If you
+edit one of them directly (with `kubectl edit`, for example), your change is
+put back within a few seconds, and deleting one makes it come back. Change the
+claim instead. A manual `kubectl scale` is undone by the autoscaler.
 
 ## Sizing a worker {#sizing}
 

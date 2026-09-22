@@ -892,7 +892,7 @@ export const workerNodesEntity = pgTable(
 		claimId: varchar("claim_id", { length: 50 })
 			.references(() => nodeClaimsEntity.id, { onDelete: "cascade" })
 			.notNull(),
-		/** 0-based, stable for the life of the claim. Also what makes container names unique. */
+		/** 0-based. Stable on Docker, where it names the container; on Kubernetes a pod's place by name, for display. */
 		replicaIndex: integer("replica_index").notNull(),
 		/** Copied from the claim so a node row reads on its own. Null is the catch-all. */
 		projectId: varchar("project_id", { length: 50 }),
@@ -918,7 +918,9 @@ export const workerNodesEntity = pgTable(
 			.$onUpdate(() => new Date()),
 	},
 	(table) => [
-		uniqueIndex("uq_worker_nodes_claim_replica").on(table.claimId, table.replicaIndex),
+		// Not unique: a pod's number is its place by name, so pods trade numbers
+		// as they come and go. The id is what identifies a node.
+		index("idx_worker_nodes_claim_replica").on(table.claimId, table.replicaIndex),
 		index("idx_worker_nodes_project_id").on(table.projectId),
 		index("idx_worker_nodes_state").on(table.state),
 	],

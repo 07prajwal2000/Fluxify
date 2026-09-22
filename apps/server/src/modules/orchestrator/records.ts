@@ -38,27 +38,38 @@ export async function recordEvent(event: NodeEvent): Promise<void> {
 	});
 }
 
+/** Waiting words that mean "on its way up", from Docker and from a pod. */
+const STARTING = new Set(["created", "ContainerCreating", "PodInitializing", "Pending"]);
+const PULL_FAILED = new Set(["ErrImagePull", "ImagePullBackOff", "InvalidImageName"]);
+/** A pod no machine has room for: capacity, which is what the pool reason already says. */
+const UNSCHEDULABLE = "Unschedulable";
+
 /**
  * The state this node is in, as the platform reports it. `ready` here means the
  * container is running; whether it is actually serving is the `ready` flag in
  * its heartbeat, which the status surfaces join in (§14.5). Two sources for two
  * different questions rather than one guess about both.
+ *
+ * ponytail: on Kubernetes a claim's pods appear a moment after its Deployment,
+ * so a new claim reads `failed` for one pass. Tell "not created yet" apart from
+ * "cannot be created" with the Deployment's conditions if that flash matters.
  */
 function nodeState(node: DesiredNode, container: ObservedNode | undefined): NodeState {
 	if (!node.placeable) return container ? "ready" : "pending";
 	if (!container) return "failed";
 	if (container.running) return "ready";
-	// Created but not yet started is a node on its way up. Anything else —
-	// restarting, exited, dead — is a container the platform is already
-	// fighting with, and reporting that as `starting` would leave a crash loop
-	// looking like a slow boot forever.
-	return container.platformState === "created" ? "starting" : "failed";
+	if (container.platformState === "terminating") return "stopping";
+	if (container.platformState === UNSCHEDULABLE) return "pending";
+	// Anything else — restarting, exited, crash-looping — is a container the
+	// platform is already fighting with, and reporting that as `starting` would
+	// leave a crash loop looking like a slow boot forever.
+	return STARTING.has(container.platformState) ? "starting" : "failed";
 }
 
 /**
  * Why a row is in its state. The projection's reason wins when it has one (no
- * licence slot, no pool room); otherwise a node whose container will not stay
- * up is `start_failed`, which is the only failure the platform reports here.
+ * licence slot, no pool room); otherwise it is what the platform said about
+ * the container.
  */
 function nodeReason(
 	node: DesiredNode,
@@ -66,20 +77,55 @@ function nodeReason(
 	state: NodeState,
 ): NodeReason | null {
 	if (node.reason) return node.reason;
-	return state === "failed" ? "start_failed" : null;
+	if (container?.platformState === UNSCHEDULABLE) return "pool_unavailable";
+	if (state !== "failed") return null;
+	return container && PULL_FAILED.has(container.platformState)
+		? "image_pull_failed"
+		: "start_failed";
 }
 
-/** Mirrors desired state into the node table, so admin can read what exists. */
+const position = (claimId: string, replicaIndex: number) => `${claimId}/${replicaIndex}`;
+
+/**
+ * Mirrors what should run, and what does, into the node table so admin can
+ * read it.
+ *
+ * Rows are matched by position — claim and replica number — and take their id
+ * from the node found there. On Docker that is `<claimId>.<replica>` either
+ * way; on Kubernetes it is the pod name, which is what the pod heartbeats
+ * under, so the row and its heartbeat join.
+ *
+ * A pod past the claim's floor is KEDA's, started for load within the ceiling
+ * the claim set. It gets a row too, so everything that heartbeats is shown.
+ * Docker never has one: anything past the floor there is an orphan and gone
+ * before this runs.
+ */
 export async function syncNodeRows(
 	desired: readonly DesiredNode[],
 	observed: readonly ObservedNode[],
 ): Promise<void> {
-	const byNode = new Map(observed.map((container) => [container.nodeId, container]));
-	const keep = new Set<string>();
+	const byPosition = new Map(
+		observed.map((container) => [position(container.claimId, container.replicaIndex), container]),
+	);
+	const firstOfClaim = new Map<string, DesiredNode>();
+	const wanted = new Set<string>();
+	const pairs: [DesiredNode, ObservedNode | undefined][] = [];
 
 	for (const node of desired) {
-		const id = nodeIdFor(node.claimId, node.replicaIndex);
-		const container = byNode.get(id);
+		if (!firstOfClaim.has(node.claimId)) firstOfClaim.set(node.claimId, node);
+		wanted.add(position(node.claimId, node.replicaIndex));
+		pairs.push([node, byPosition.get(position(node.claimId, node.replicaIndex))]);
+	}
+	for (const container of observed) {
+		const node = firstOfClaim.get(container.claimId);
+		if (!node?.placeable || wanted.has(position(container.claimId, container.replicaIndex)))
+			continue;
+		pairs.push([{ ...node, replicaIndex: container.replicaIndex, reason: null }, container]);
+	}
+
+	const keep = new Set<string>();
+	for (const [node, container] of pairs) {
+		const id = container?.nodeId ?? nodeIdFor(node.claimId, node.replicaIndex);
 		keep.add(id);
 		const state = nodeState(node, container);
 		const row = {
@@ -98,14 +144,11 @@ export async function syncNodeRows(
 		await db
 			.insert(workerNodesEntity)
 			.values(row)
-			.onConflictDoUpdate({
-				target: [workerNodesEntity.claimId, workerNodesEntity.replicaIndex],
-				set: row,
-			});
+			.onConflictDoUpdate({ target: workerNodesEntity.id, set: row });
 	}
 
-	// Rows for replicas nobody asks for any more. A deleted claim cascades its
-	// rows away on its own; this covers a claim that was scaled down.
+	// Rows for nodes nobody asks for any more, and pods that were replaced. A
+	// deleted claim cascades its rows away on its own.
 	const existing = await db.select({ id: workerNodesEntity.id }).from(workerNodesEntity);
 	const stale = existing.map((row) => row.id).filter((id) => !keep.has(id));
 	if (stale.length) {

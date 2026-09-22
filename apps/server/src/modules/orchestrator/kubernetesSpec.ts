@@ -139,17 +139,15 @@ const servesHttp = (workload: ClaimWorkload) =>
 	SERVES_HTTP.includes(workload.type) && (workload.projectId === null || !!workload.host);
 
 /**
- * The claim's Deployment.
- *
- * `withReplicas` is true only when the Deployment does not exist yet or no
- * autoscaler owns it. Once KEDA does, the replica count is its number, and a
- * second writer would make the Deployment flap between the two.
+ * The claim's Deployment, without a replica count: that is `buildReplicas`'s,
+ * written under its own field manager. Leaving a field out of an apply resets
+ * it when nobody else owns it, so if this object ever carried the count,
+ * handing it to KEDA would first drop the claim to one pod.
  */
 export function buildDeployment(
 	workload: ClaimWorkload,
 	options: KubernetesSpecOptions,
 	sharedEnv: Record<string, string>,
-	{ withReplicas }: { withReplicas: boolean },
 ): KubeObject {
 	assertWellFormed(workload);
 	const env = workerEnv(workload, options);
@@ -162,7 +160,6 @@ export function buildDeployment(
 		kind: "Deployment",
 		metadata: { name: workloadName(workload.claimId), labels: labels(workload) },
 		spec: {
-			...(withReplicas ? { replicas: workload.min } : {}),
 			selector: { matchLabels: { [MANAGED_LABEL]: MANAGED_BY, [LABELS.claim]: workload.claimId } },
 			template: {
 				metadata: {
@@ -208,6 +205,24 @@ export function buildDeployment(
 				},
 			},
 		},
+	};
+}
+
+/** Field manager for the replica count alone, so the Deployment's own apply never owns it. */
+export const REPLICAS_MANAGER = "fluxify-orchestrator-replicas";
+
+/**
+ * The claim's replica count, as an apply of its own. Written only while no
+ * ScaledObject owns the Deployment: once KEDA does, the count is its number,
+ * and a second writer would make the Deployment flap between the two.
+ */
+export function buildReplicas(workload: ClaimWorkload): KubeObject {
+	assertWellFormed(workload);
+	return {
+		apiVersion: "apps/v1",
+		kind: "Deployment",
+		metadata: { name: workloadName(workload.claimId) },
+		spec: { replicas: workload.min },
 	};
 }
 

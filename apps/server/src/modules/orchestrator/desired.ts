@@ -1,6 +1,7 @@
 import { groupPair } from "@fluxify/common/orchestrator";
+import { and, eq, isNotNull } from "drizzle-orm";
 import { db } from "../../db";
-import { nodeClaimsEntity, triggerGroupsEntity } from "../../db/schema";
+import { nodeClaimsEntity, triggerGroupsEntity, triggersEntity } from "../../db/schema";
 import { nodeEntitlement } from "../../lib/edition";
 import { projectHost } from "../../lib/hosting";
 import { orchestrationScalingSchema } from "../../lib/instance-settings/schemas";
@@ -68,6 +69,7 @@ export async function readDesiredState(): Promise<DesiredState> {
 	const scaling: ScalingContext = {
 		policy: orchestrationScalingSchema.parse(getSetting("orchestration_scaling") ?? {}),
 		ceilings: scalingCeilings(claims, pool.maxNodes, entitlement),
+		triggersByGroup: await internalTriggersByGroup(),
 	};
 	// A pinned node serving APIs is reached on its project's own host, so the
 	// host is part of what should be running: changing it replaces the node.
@@ -78,4 +80,20 @@ export async function readDesiredState(): Promise<DesiredState> {
 		if (subdomain) node.host = projectHost(subdomain, domain);
 	}
 	return { nodes, pool, scaling };
+}
+
+async function internalTriggersByGroup(): Promise<Map<string, string[]>> {
+	const rows = await db
+		.select({ id: triggersEntity.id, groupId: triggersEntity.groupId })
+		.from(triggersEntity)
+		.where(
+			and(
+				eq(triggersEntity.type, "internal"),
+				eq(triggersEntity.active, true),
+				isNotNull(triggersEntity.workflowId),
+			),
+		);
+	const byGroup = new Map<string, string[]>();
+	for (const row of rows) byGroup.set(row.groupId, [...(byGroup.get(row.groupId) ?? []), row.id]);
+	return byGroup;
 }
