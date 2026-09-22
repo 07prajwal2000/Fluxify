@@ -11,7 +11,10 @@ export const insertDbBlockSchema = z
 		tableName: z.string().describe("table name (supports js expression)"),
 		data: z.object({
 			source: z.enum(["raw", "js"]).describe("source of the value"),
-			value: z.object().describe("value to insert (object values can be js expression)"),
+			value: z
+				.object()
+				.or(z.string())
+				.describe("value to insert (object values can be js expression, string when source is js)"),
 		}),
 		useParam: z.boolean().default(false).describe("use parameter"),
 	})
@@ -41,13 +44,12 @@ export async function runInsertDb(
  * inlined code. A payload that only exists at runtime is data: it is forwarded
  * unchanged and can never introduce a new executable `js:` expression.
  *
- * Read without parsing: the schema types `data.value` as an object, but the
- * block also accepts a string there when `source` is "js".
+ * Read without parsing: `data.value` is `z.object()`, which strips every key.
  */
 export function emitInsertDb(node: EmitNode) {
 	const input = node.block.data as z.infer<typeof insertDbBlockSchema>;
 	const data = node.v("data");
-	const value = input.data.value as unknown;
+	const value = input.data.value;
 
 	let payload: string;
 	if (input.useParam) {

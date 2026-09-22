@@ -129,7 +129,7 @@ db_insert {
 	tableName: string;  // table name (supports js expression)
 	data: {
 		source: "raw" | "js";  // source of the value
-		value: object;  // value to insert (object values can be js expression)
+		value: object | string;  // value to insert (object values can be js expression, string when source is js)
 	};
 	useParam: boolean;  // use parameter; default false
 }
