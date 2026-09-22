@@ -42,7 +42,11 @@ export function defaultBlockData(type: BlockType): Record<string, unknown> {
 	if (type === BLOCK_TYPES.triggerWorkflow) {
 		return { workflowId: "", useInput: false, data: "", mode: "now", runAt: "", scheduleId: "" };
 	}
-	if (type === BLOCK_TYPES.db_getsingle || type === BLOCK_TYPES.db_delete) {
+	if (
+		type === BLOCK_TYPES.db_getsingle ||
+		type === BLOCK_TYPES.db_exists ||
+		type === BLOCK_TYPES.db_delete
+	) {
 		return { connection: "", tableName: "", conditions: [] };
 	}
 	if (type === BLOCK_TYPES.db_getall) {

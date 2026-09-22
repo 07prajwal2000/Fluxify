@@ -347,16 +347,23 @@ $trace.recordSpan(${span});
 			v: (prefix) => `$${prefix}_${counter++}`,
 			next(handle = "source") {
 				const to = edgeTo(id, handle);
+				const branching = block.type === BlockTypes.if || block.type === BlockTypes.db_exists;
 				const branch =
-					block.type === BlockTypes.if && (handle === "success" || handle === "failure")
-						? handle
-						: undefined;
+					branching && (handle === "success" || handle === "failure") ? handle : undefined;
 				const continuation = to
 					? `return await ${blockFunctionName(to)}($state, $in, $end);`
 					: "return $end($in);";
-				const saveAs = handle === "source" ? outputVariableName(block.data) : undefined;
+				// Row Exists saves the row on success and clears it on failure, so a
+				// loop's later miss never leaves an earlier iteration's row behind
+				const saved =
+					handle === "source" || (block.type === BlockTypes.db_exists && branch)
+						? handle === "failure"
+							? "null"
+							: "$in"
+						: undefined;
+				const saveAs = saved && outputVariableName(block.data);
 				// vars is per request, so outputs never leak into the next one
-				const save = saveAs ? `(vars.outputs ??= {})[${JSON.stringify(saveAs)}] = $in;\n` : "";
+				const save = saveAs ? `(vars.outputs ??= {})[${JSON.stringify(saveAs)}] = ${saved};\n` : "";
 				return `${save}${recordSpan("$in", undefined, branch)}
 ${continuation}`;
 			},

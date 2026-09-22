@@ -12,6 +12,7 @@ export * from "./builtin/compactSchemas";
 export * from "./builtin/customBlock";
 export * from "./builtin/db/delete";
 export * from "./builtin/db/emitConditions";
+export * from "./builtin/db/exists";
 export * from "./builtin/db/getAll";
 export * from "./builtin/db/getSingle";
 export * from "./builtin/db/insert";

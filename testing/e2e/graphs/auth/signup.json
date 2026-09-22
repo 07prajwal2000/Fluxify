@@ -1,6 +1,6 @@
 {
 	"name": "auth/signup",
-	"description": "POST /auth/signup — rejects a taken email with 409, otherwise SHA-256 hashes the password in a JS block and inserts the account.",
+	"description": "POST /auth/signup — a Row Exists lookup rejects a taken email with 409, otherwise SHA-256 hashes the password in a JS block and inserts the account.",
 	"engine": "pg",
 	"route": {
 		"method": "POST",
@@ -60,13 +60,13 @@
 		},
 		{
 			"id": "find-existing",
-			"type": "db_getsingle",
+			"type": "db_exists",
 			"position": {
 				"x": 240,
 				"y": 0
 			},
 			"data": {
-				"blockName": "Look up the email",
+				"blockName": "Email taken?",
 				"connection": "primary",
 				"tableName": "auth_users",
 				"conditions": [
@@ -79,25 +79,6 @@
 				],
 				"columns": [
 					"id"
-				]
-			}
-		},
-		{
-			"id": "email-available",
-			"type": "if",
-			"position": {
-				"x": 480,
-				"y": 0
-			},
-			"data": {
-				"blockName": "Email available?",
-				"conditions": [
-					{
-						"lhs": "js:return input === null;",
-						"rhs": true,
-						"operator": "eq",
-						"chain": "and"
-					}
 				]
 			}
 		},
@@ -189,18 +170,11 @@
 			"toHandle": "source"
 		},
 		{
-			"id": "e-find-check",
-			"from": "find-existing",
-			"to": "email-available",
-			"fromHandle": "source",
-			"toHandle": "source"
-		},
-		{
 			"id": "e-check-hash",
-			"from": "email-available",
+			"from": "find-existing",
 			"to": "hash-password",
-			"fromHandle": "success",
-			"toHandle": "success"
+			"fromHandle": "failure",
+			"toHandle": "failure"
 		},
 		{
 			"id": "e-hash-insert",
@@ -225,10 +199,10 @@
 		},
 		{
 			"id": "e-check-conflict",
-			"from": "email-available",
+			"from": "find-existing",
 			"to": "conflict-body",
-			"fromHandle": "failure",
-			"toHandle": "failure"
+			"fromHandle": "success",
+			"toHandle": "success"
 		},
 		{
 			"id": "e-conflict-body-response",

@@ -26,6 +26,7 @@ export const BLOCK_TYPES = {
 	httpsetcookie: "httpsetcookie",
 	httpgetrequestbody: "httpgetrequestbody",
 	db_getsingle: "db_getsingle",
+	db_exists: "db_exists",
 	db_getall: "db_getall",
 	db_insert: "db_insert",
 	db_insertbulk: "db_insertbulk",

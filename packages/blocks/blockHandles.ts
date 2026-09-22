@@ -12,6 +12,7 @@ import { BlockTypes } from "./blockTypes";
  */
 export const BLOCK_OUTPUT_HANDLES: Record<string, readonly string[]> = {
 	[BlockTypes.if]: ["success", "failure"],
+	[BlockTypes.db_exists]: ["success", "failure"],
 	[BlockTypes.forloop]: ["source", "executor"],
 	[BlockTypes.foreachloop]: ["source", "executor"],
 	[BlockTypes.db_transaction]: ["source", "executor"],

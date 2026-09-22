@@ -50,7 +50,6 @@ describe("auth/signup", () => {
 		expect(run.executed).toEqual([
 			"entry",
 			"find-existing",
-			"email-available",
 			"hash-password",
 			"insert-user",
 			"created-body",
@@ -92,7 +91,6 @@ describe("auth/signup", () => {
 		expect(run.executed).toEqual([
 			"entry",
 			"find-existing",
-			"email-available",
 			"conflict-body",
 			"conflict",
 		]);
@@ -182,6 +180,8 @@ describe("auth/login", () => {
 
 		expect(run.status).toBe(401);
 		expect(run.body).toEqual({ error: "invalid_credentials" });
+		// Row Exists' failure branch skips the password check entirely
+		expect(run.executed).toEqual(["entry", "find-user", "rejected-body", "rejected"]);
 	});
 
 	it("puts the account's roles and issuer in the token", async () => {

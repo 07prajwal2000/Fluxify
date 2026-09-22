@@ -1,5 +1,6 @@
 import { arrayOperationsAiDescription } from "./arrayOperations";
 import { deleteDbAiDescription } from "./db/delete";
+import { existsDbAiDescription } from "./db/exists";
 import { getAllDbAiDescription } from "./db/getAll";
 import { getSingleDbAiDescription } from "./db/getSingle";
 import { insertDbAiDescription } from "./db/insert";
@@ -46,6 +47,7 @@ export const blockAiDescriptions = [
 	deleteDbAiDescription,
 	getAllDbAiDescription,
 	getSingleDbAiDescription,
+	existsDbAiDescription,
 	insertDbAiDescription,
 	insertBulkAiDescription,
 	nativeDbAiDescription,

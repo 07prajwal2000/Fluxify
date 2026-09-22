@@ -171,6 +171,7 @@ export default withMermaid(
 						items: [
 							{ text: "DB Get All", link: "/blocks/db-get-all" },
 							{ text: "DB Get Single", link: "/blocks/db-get-single" },
+							{ text: "DB Row Exists", link: "/blocks/db-row-exists" },
 							{ text: "DB Insert", link: "/blocks/db-insert" },
 							{ text: "DB Insert Bulk", link: "/blocks/db-insert-bulk" },
 							{ text: "DB Update", link: "/blocks/db-update" },

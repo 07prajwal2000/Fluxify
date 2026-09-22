@@ -168,6 +168,12 @@ export const BLOCK_CATALOG: Record<BlockType, BlockDefinition> = {
 		handles: STD,
 		category: "Database",
 	},
+	[BLOCK_TYPES.db_exists]: {
+		name: "Row Exists",
+		description: "Branch on whether a row matches a filter",
+		handles: ["target", "success", "failure"],
+		category: "Database",
+	},
 	[BLOCK_TYPES.db_getall]: {
 		name: "Get All Records",
 		description: "Fetch every row matching a filter",

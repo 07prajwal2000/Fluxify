@@ -47,8 +47,13 @@ export async function runGetSingleDb(
 	}
 }
 
-export function emitGetSingleDb(node: EmitNode) {
+/** the `lib.dbGetSingle(...)` call expression, shared with the Row Exists block */
+export function emitGetSingleCall(node: EmitNode) {
 	const input = getSingleDbBlockSchema.parse(node.block.data);
-	return `${node.in} = await lib.dbGetSingle(ctx, ${node.value(input.connection)}, ${node.value(input.tableName)}, ${emitWhereConditions(input.conditions, node)}, { joins: ${JSON.stringify(input.joins ?? [])}, columns: ${JSON.stringify(input.columns ?? ["*"])} });
+	return `await lib.dbGetSingle(ctx, ${node.value(input.connection)}, ${node.value(input.tableName)}, ${emitWhereConditions(input.conditions, node)}, { joins: ${JSON.stringify(input.joins ?? [])}, columns: ${JSON.stringify(input.columns ?? ["*"])} })`;
+}
+
+export function emitGetSingleDb(node: EmitNode) {
+	return `${node.in} = ${emitGetSingleCall(node)};
 ${node.next()}`;
 }
