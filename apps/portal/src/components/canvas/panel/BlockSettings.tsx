@@ -125,8 +125,14 @@ export function BlockSettings({ block, initialTab, openSeq, children }: BlockSet
 			</Tabs.ListContainer>
 
 			<Tabs.Panel id={GENERAL_TAB} className="fx-panel__tab-panel">
-				<BlockNameInput blockId={block.id} data={block.data} placeholder={definition.name} />
+				<BlockNameInput
+					key={`${block.id}-name`}
+					blockId={block.id}
+					data={block.data}
+					placeholder={definition.name}
+				/>
 				<BlockDescriptionField
+					key={`${block.id}-description`}
 					blockId={block.id}
 					data={block.data}
 					placeholder={definition.description}
