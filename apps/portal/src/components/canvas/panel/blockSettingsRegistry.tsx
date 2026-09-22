@@ -62,6 +62,7 @@ export const BLOCK_SETTINGS_TABS: Record<string, BlockTabs> = {
 	[BLOCK_TYPES.cloudLogs]: cloudLogSettings,
 	[BLOCK_TYPES.triggerWorkflow]: triggerWorkflowSettings,
 	[BLOCK_TYPES.db_getsingle]: getSingleDbSettings,
+	[BLOCK_TYPES.db_exists]: getSingleDbSettings,
 	[BLOCK_TYPES.db_getall]: getAllDbSettings,
 	[BLOCK_TYPES.db_delete]: deleteDbSettings,
 	[BLOCK_TYPES.db_insert]: insertDbSettings,

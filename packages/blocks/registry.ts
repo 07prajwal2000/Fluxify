@@ -7,6 +7,7 @@ import {
 	invokeCustomBlockAsync,
 } from "./builtin/customBlock";
 import { emitDeleteDb, runDeleteDb } from "./builtin/db/delete";
+import { emitExistsDb } from "./builtin/db/exists";
 import { emitGetAllDb, runGetAllDb } from "./builtin/db/getAll";
 import { emitGetSingleDb, runGetSingleDb } from "./builtin/db/getSingle";
 import { emitInsertDb, runInsertDb } from "./builtin/db/insert";
@@ -78,6 +79,7 @@ export const emitters: Partial<Record<BlockTypes, Emitter>> = {
 	[BlockTypes.httpSetCookie]: emitSetHttpCookie,
 	[BlockTypes.httpGetRequestBody]: emitGetHttpRequestBody,
 	[BlockTypes.db_getsingle]: emitGetSingleDb,
+	[BlockTypes.db_exists]: emitExistsDb,
 	[BlockTypes.db_getall]: emitGetAllDb,
 	[BlockTypes.db_insert]: emitInsertDb,
 	[BlockTypes.db_insertbulk]: emitInsertBulkDb,

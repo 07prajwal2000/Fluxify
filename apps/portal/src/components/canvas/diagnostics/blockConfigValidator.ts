@@ -10,6 +10,7 @@ export const BLOCK_CONFIG_SOURCE = "block-config";
 
 const DB_TYPES = new Set<string>([
 	BLOCK_TYPES.db_getsingle,
+	BLOCK_TYPES.db_exists,
 	BLOCK_TYPES.db_getall,
 	BLOCK_TYPES.db_insert,
 	BLOCK_TYPES.db_insertbulk,
@@ -20,13 +21,25 @@ const DB_TYPES = new Set<string>([
 ]);
 const DB_WITH_TABLE = new Set<string>([
 	BLOCK_TYPES.db_getsingle,
+	BLOCK_TYPES.db_exists,
 	BLOCK_TYPES.db_getall,
 	BLOCK_TYPES.db_insert,
 	BLOCK_TYPES.db_insertbulk,
 	BLOCK_TYPES.db_update,
 	BLOCK_TYPES.db_delete,
 ]);
-const DB_WITH_JOINS = new Set<string>([BLOCK_TYPES.db_getsingle, BLOCK_TYPES.db_getall]);
+const DB_WITH_JOINS = new Set<string>([
+	BLOCK_TYPES.db_getsingle,
+	BLOCK_TYPES.db_exists,
+	BLOCK_TYPES.db_getall,
+]);
+/** what a condition-less db block does to "every row" — getsingle is exempt */
+const NO_CONDITION_VERB: Record<string, string> = {
+	[BLOCK_TYPES.db_getall]: "reads",
+	[BLOCK_TYPES.db_exists]: "matches",
+	[BLOCK_TYPES.db_update]: "updates",
+	[BLOCK_TYPES.db_delete]: "deletes",
+};
 const BODY_METHODS = new Set(["POST", "PUT", "PATCH"]);
 /** a script block's code field and the tab it is edited in */
 const SCRIPTS: Record<string, { key: string; tab: string }> = {
@@ -118,13 +131,8 @@ function checkDb(type: string, data: BlockData, report: Report) {
 		type !== BLOCK_TYPES.db_insertbulk
 	) {
 		const conditions = list(data.conditions) as Record<string, unknown>[];
-		if (conditions.length === 0 && type !== BLOCK_TYPES.db_getsingle) {
-			const what =
-				type === BLOCK_TYPES.db_getall
-					? "reads"
-					: type === BLOCK_TYPES.db_update
-						? "updates"
-						: "deletes";
+		const what = NO_CONDITION_VERB[type];
+		if (conditions.length === 0 && what) {
 			report(
 				"warning",
 				`No conditions, so this ${what} every row in the table. Add conditions in the Edit Conditions tab if that is not intended.`,

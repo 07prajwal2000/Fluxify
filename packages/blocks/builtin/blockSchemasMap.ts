@@ -49,6 +49,7 @@ export const builtinBlockSchemas: Record<string, z.ZodTypeAny> = {
 	response: responseBlockSchema,
 	arrayops: arrayOperationsBlockSchema,
 	dbgetsingle: getSingleDbBlockSchema,
+	dbexists: getSingleDbBlockSchema,
 	dbgetall: getAllDbBlockSchema,
 	dbdelete: deleteDbBlockSchema,
 	dbinsert: insertDbBlockSchema,

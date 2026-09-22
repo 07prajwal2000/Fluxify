@@ -143,6 +143,7 @@ export function blockDataValidator(data: CanvasChanges) {
 				schema = arrayOperationsBlockSchema;
 				break;
 			case BlockTypes.db_getsingle:
+			case BlockTypes.db_exists:
 				schema = getSingleDbBlockSchema;
 				break;
 			case BlockTypes.db_getall:

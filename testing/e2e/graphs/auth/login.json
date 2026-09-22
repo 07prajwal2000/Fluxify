@@ -1,6 +1,6 @@
 {
 	"name": "auth/login",
-	"description": "POST /auth/login — re-hashes the submitted password and compares it to the stored digest, then signs a JWT. 401 on either a missing account or a bad password.",
+	"description": "POST /auth/login — re-hashes the submitted password and compares it to the stored digest, then signs a JWT. A Row Exists lookup sends a missing account straight to the 401. 401 on either a missing account or a bad password.",
 	"engine": "pg",
 	"route": {
 		"method": "POST",
@@ -43,7 +43,7 @@
 		},
 		{
 			"id": "find-user",
-			"type": "db_getsingle",
+			"type": "db_exists",
 			"position": {
 				"x": 240,
 				"y": 0
@@ -151,8 +151,15 @@
 			"id": "e-find-check",
 			"from": "find-user",
 			"to": "password-matches",
-			"fromHandle": "source",
-			"toHandle": "source"
+			"fromHandle": "success",
+			"toHandle": "success"
+		},
+		{
+			"id": "e-find-rejected",
+			"from": "find-user",
+			"to": "rejected-body",
+			"fromHandle": "failure",
+			"toHandle": "failure"
 		},
 		{
 			"id": "e-check-token",
