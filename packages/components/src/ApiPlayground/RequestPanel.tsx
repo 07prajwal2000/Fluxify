@@ -317,6 +317,9 @@ export function RequestPanel({
 										fontSize: 13,
 										lineHeight: 20,
 										padding: { top: 10, bottom: 10 },
+										// EditContext focuses a plain div, which react-aria's Space handling
+										// doesn't treat as a text field; the textarea fallback keeps Space typing.
+										editContext: false,
 									}}
 								/>
 							</div>
