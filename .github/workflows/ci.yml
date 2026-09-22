@@ -47,9 +47,18 @@ jobs:
               - 'packages/blocks/**'
               - 'packages/adapters/**'
               - 'packages/lib/**'
+            # Every package except packages/components, which is portal-only
+            # UI. Listed, not negated: paths-filter ORs its rules, so a lone
+            # '!packages/components/**' would match nearly every file.
+            server-packages: &server-packages
+              - 'packages/adapters/**'
+              - 'packages/blocks/**'
+              - 'packages/common/**'
+              - 'packages/lib/**'
             server:
               - 'apps/server/**'
-              - 'packages/**'
+              - 'apps/ai-gateway/**'
+              - *server-packages
             portal:
               - 'apps/portal/**'
               - 'apps/ai-gateway/**'
@@ -58,7 +67,7 @@ jobs:
             ai-gateway:
               - 'apps/ai-gateway/**'
               - 'apps/server/**'
-              - 'packages/**'
+              - *server-packages
 
   lint:
     runs-on: ubuntu-latest
@@ -145,9 +154,11 @@ jobs:
       - name: Run Blocks Tests
         run: bun run test:blocks
 
-  # Integration and e2e jobs run on every PR and push: the pre-commit hook no
-  # longer runs them, so CI is the only place they are checked.
+  # Integration and e2e jobs are CI-only (the pre-commit hook no longer runs
+  # them), so they share the server filter rather than a narrower one.
   test-packages-adapters:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.server == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -163,6 +174,8 @@ jobs:
         run: bun run test:adapters
 
   test-e2e-graphs:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.server == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -195,6 +208,8 @@ jobs:
         run: bun run test:server:unit
 
   test-apps-server-integration:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.server == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
