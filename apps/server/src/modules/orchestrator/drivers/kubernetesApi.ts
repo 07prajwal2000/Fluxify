@@ -32,7 +32,7 @@ export const KINDS = {
 	},
 	// Ours, but installed by the operator: a cluster-scoped CRD is not this
 	// process's to create (#448).
-	NodeClaim: { api: "apis/fluxify.io/v1alpha1", plural: "nodeclaims", optional: true },
+	NodeClaim: { api: "apis/fluxify.rest/v1alpha1", plural: "nodeclaims", optional: true },
 } as const;
 
 export type Kind = keyof typeof KINDS;

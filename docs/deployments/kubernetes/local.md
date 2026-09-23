@@ -80,10 +80,10 @@ rules:
   - apiGroups: ["keda.sh"]
     resources: ["scaledobjects", "triggerauthentications"]
     verbs: ["get", "list", "create", "patch", "delete"]
-  - apiGroups: ["fluxify.io"]
+  - apiGroups: ["fluxify.rest"]
     resources: ["nodeclaims"]
     verbs: ["get", "list", "create", "patch", "delete"]
-  - apiGroups: ["fluxify.io"]
+  - apiGroups: ["fluxify.rest"]
     resources: ["nodeclaims/status"]
     verbs: ["patch"]
 ---

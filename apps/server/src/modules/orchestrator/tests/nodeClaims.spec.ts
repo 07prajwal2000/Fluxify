@@ -225,7 +225,7 @@ describe("syncNodeClaims", () => {
 		const { forward } = admin();
 		await syncNodeClaims(cluster.api, [claim()], [node()], [], forward);
 		cluster.store.set("stray", {
-			apiVersion: "fluxify.io/v1alpha1",
+			apiVersion: "fluxify.rest/v1alpha1",
 			kind: "NodeClaim",
 			metadata: { name: "stray", generation: 1 },
 			spec: {},

@@ -99,7 +99,7 @@ NAME                                   TYPE       REPLICAS   MAX   READY   ACCEP
 ```
 
 ```yaml
-apiVersion: fluxify.io/v1alpha1
+apiVersion: fluxify.rest/v1alpha1
 kind: NodeClaim
 metadata:
   name: 0192b1c4-1111-7000-8000-000000000001
@@ -156,7 +156,7 @@ The orchestrator's role also needs access to `nodeclaims` and
 
 > [!TIP]
 > **Running Karpenter?** It has its own `NodeClaim`. Use `fluxclaim` (or
-> `nodeclaims.fluxify.io`) with `kubectl` so you always get Fluxify's.
+> `nodeclaims.fluxify.rest`) with `kubectl` so you always get Fluxify's.
 
 ## Sizing a worker {#sizing}
 

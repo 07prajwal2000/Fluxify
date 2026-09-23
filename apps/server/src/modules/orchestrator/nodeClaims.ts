@@ -27,7 +27,7 @@ import type { Claim, DesiredNode } from "./projection";
  * one per claim is created by the orchestrator, named after the claim id.
  */
 
-export const NODE_CLAIM_API = "fluxify.io/v1alpha1";
+export const NODE_CLAIM_API = "fluxify.rest/v1alpha1";
 
 export interface NodeClaimSpec {
 	/** `*` is the catch-all, serving every project. */
