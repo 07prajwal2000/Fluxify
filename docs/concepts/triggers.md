@@ -128,6 +128,19 @@ To give a group its own workers, start those workers with `WORKER_GROUP_ID` set
 to the group's id. They run only that group's triggers, and every other worker
 keeps running the rest. See [Running triggers on their own workers](/deployments/production#trigger-groups).
 
+### How many triggers a group holds
+
+A group holds at most **5** triggers. Every trigger is a queue the group's
+workers watch, so a small cap keeps a worker from being spread too thin. Once a
+group is full it shows as **Full** in the group picker, and adding a trigger to
+it (creating one, or moving one in) is refused. Put the rest in another group.
+
+If your workers run on fast machines that can handle more, raise the limit with
+`MAX_TRIGGERS_PER_GROUP` (for example `MAX_TRIGGERS_PER_GROUP=10`).
+
+A group that already has more than the limit keeps working and stays editable.
+It just can't take more triggers until it drops below the limit.
+
 ## When an integration changes
 
 A trigger that reads from an external source uses one of your
