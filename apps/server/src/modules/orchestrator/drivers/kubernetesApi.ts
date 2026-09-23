@@ -175,7 +175,11 @@ export function createKubeApi(endpoint: KubeEndpoint = kubeEndpoint()) {
 				const response = await request(
 					`${path}?labelSelector=${encodeURIComponent(labelSelector)}`,
 				);
-				return ((await response.json()) as { items: KubeObject[] }).items;
+				// A list's items carry no `kind` — only the list itself does. Without
+				// it every observed object keys as `undefined/<name>` and is planned
+				// for removal on every pass.
+				const { items } = (await response.json()) as { items: KubeObject[] };
+				return items.map((item) => ({ ...item, kind }));
 			} catch (error) {
 				if (notInstalled(kind, error)) return [];
 				throw error;

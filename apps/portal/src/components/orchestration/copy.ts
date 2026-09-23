@@ -60,14 +60,17 @@ export const TYPE_LABEL: Record<string, string> = {
  */
 export const CONSEQUENCE = {
 	live: "Applied to the running nodes within seconds. No restart, no dropped requests.",
-	scaleUp: "Starts another container. It serves traffic once it reports ready.",
-	scaleDown: "Stops containers. Each one finishes what it is running first, then exits.",
+	scaleUp: (node: string) => `Starts another ${node}. It serves traffic once it reports ready.`,
+	scaleDown: (node: string) =>
+		`Stops ${node}s. Each one finishes what it is running first, then exits.`,
 	release:
 		"Takes this workload offline. Its nodes stop accepting new work, finish what they are running, and stop.",
 	pending:
 		"More nodes than the pool allows are recorded and left pending — the operator has to grow the pool before they start.",
 	singleNode:
 		"This licence allows one node, so an update is stop-then-start: there is a short gap with nothing serving.",
+	catchAllScaling:
+		"A claim for every project grows on CPU and memory, not on its queues — watching every trigger in the instance is not something one claim should do. Treat it as a starting point; give busy projects their own claims.",
 } as const;
 
 /**

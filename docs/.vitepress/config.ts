@@ -241,7 +241,10 @@ export default withMermaid(
 					},
 					{
 						text: "Kubernetes",
-						items: [{ text: "Production on Kubernetes", link: "/deployments/kubernetes/" }],
+						items: [
+							{ text: "Production on Kubernetes", link: "/deployments/kubernetes/" },
+							{ text: "Kubernetes on your machine", link: "/deployments/kubernetes/local" },
+						],
 					},
 				],
 

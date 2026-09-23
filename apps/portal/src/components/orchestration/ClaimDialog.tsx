@@ -1,16 +1,9 @@
-import {
-	Button,
-	CloseButton,
-	CustomSelect,
-	Label,
-	Modal,
-	MultiSelect,
-	NumberField,
-} from "@fluxify/components";
+import { Button, CloseButton, CustomSelect, Modal, MultiSelect } from "@fluxify/components";
 import { useState } from "react";
 import { TbInfoCircle } from "react-icons/tb";
 import type { ClaimView, OrchestrationStatus } from "@/services/orchestration";
-import { CONSEQUENCE, TYPE_LABEL } from "./copy";
+import { type ClaimScale, ClaimScaleFields } from "./ClaimScaleFields";
+import { CONSEQUENCE, providerWords, TYPE_LABEL } from "./copy";
 
 /** What a node runs, taken from the wire type so it cannot drift from the API. */
 export type ClaimType = ClaimView["type"];
@@ -28,6 +21,15 @@ export type ClaimType = ClaimView["type"];
  * running node in seconds and some of them start and stop containers, and
  * nobody should find out which afterwards.
  */
+
+/** What the dialog hands back. `maxReplicas` is left out where nothing autoscales. */
+export interface ClaimSubmit {
+	type: ClaimType;
+	groupIds: string[];
+	replicas: number;
+	maxReplicas?: number | null;
+	metadata: { resources: { cpu: number; memoryMb: number } };
+}
 
 export interface GroupOption {
 	id: string;
@@ -61,14 +63,26 @@ export function ClaimDialog({
 	/** The server's refusal, shown as written — it is the whole answer. */
 	error?: string | null;
 	onClose: () => void;
-	onSubmit: (body: { type: ClaimType; groupIds: string[]; replicas: number }) => void;
+	onSubmit: (body: ClaimSubmit) => void;
 }) {
 	// A licence that only allows `both` must not open on a type it will refuse.
 	const [type, setType] = useState<ClaimType>(
 		claim?.type ?? (status.entitlement.types.includes("workflow") ? "workflow" : "both"),
 	);
 	const [groupIds, setGroupIds] = useState<string[]>(claim?.groupIds ?? []);
-	const [replicas, setReplicas] = useState(claim?.replicas ?? 1);
+	const [scale, setScale] = useState<ClaimScale>(() => {
+		const replicas = claim?.replicas ?? 1;
+		const resources = claim?.metadata?.resources;
+		return {
+			replicas,
+			maxReplicas: claim?.maxReplicas ?? replicas,
+			cpu: resources?.cpu ?? 1,
+			memoryMb: resources?.memoryMb ?? 1024,
+		};
+	});
+	const replicas = scale.replicas;
+	const autoscales = status.orchestrator.provider === "kubernetes";
+	const node = providerWords(status.orchestrator.provider).node;
 
 	const global = surface === "instance" && (claim ? claim.projectId === null : true);
 	const replicasOnly = surface === "instance" && !!claim && claim.projectId !== null;
@@ -83,8 +97,8 @@ export function ClaimDialog({
 	const scaleWords =
 		claim && replicas !== claim.replicas
 			? replicas > claim.replicas
-				? CONSEQUENCE.scaleUp
-				: CONSEQUENCE.scaleDown
+				? CONSEQUENCE.scaleUp(node)
+				: CONSEQUENCE.scaleDown(node)
 			: null;
 	const willPend =
 		status.pool.placed + (claim ? replicas - claim.replicas : replicas) > status.pool.ceiling;
@@ -160,21 +174,15 @@ export function ClaimDialog({
 							)}
 
 							<div className="flex flex-col gap-1.5">
-								<NumberField
-									value={replicas}
-									minValue={1}
-									maxValue={50}
-									onChange={(next) => setReplicas(Math.max(1, Math.min(50, next || 1)))}
-									className="w-40"
-								>
-									<Label>Identical copies</Label>
-									<NumberField.Group>
-										<NumberField.DecrementButton />
-										<NumberField.Input />
-										<NumberField.IncrementButton />
-									</NumberField.Group>
-								</NumberField>
-								<Hint>{scaleWords ?? CONSEQUENCE.scaleUp}</Hint>
+								<ClaimScaleFields
+									value={scale}
+									onChange={setScale}
+									autoscales={autoscales}
+									node={node}
+									poolRoom={status.pool.ceiling - (status.pool.requested - (claim?.replicas ?? 0))}
+								/>
+								{autoscales && global && <Hint>{CONSEQUENCE.catchAllScaling}</Hint>}
+								<Hint>{scaleWords ?? CONSEQUENCE.scaleUp(node)}</Hint>
 								{status.entitlement.maxReplicas !== null && (
 									<Hint>
 										This licence allows {status.entitlement.maxReplicas} node(s) in total, and{" "}
@@ -201,6 +209,11 @@ export function ClaimDialog({
 										type,
 										groupIds: showGroups && servesWorkflows ? groupIds : [],
 										replicas,
+										// Equal to the floor means fixed size, which the API spells null.
+										...(autoscales && {
+											maxReplicas: scale.maxReplicas > replicas ? scale.maxReplicas : null,
+										}),
+										metadata: { resources: { cpu: scale.cpu, memoryMb: scale.memoryMb } },
 									})
 								}
 							>

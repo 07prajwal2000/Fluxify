@@ -14,6 +14,7 @@ import { orchestrationQuery } from "@/query/orchestrationQuery";
 import { publicSettingsQuery } from "@/query/publicSettingsQuery";
 import type { ClaimView } from "@/services/orchestration";
 import { PoolForm } from "./PoolForm";
+import { ScalingForm } from "./ScalingForm";
 
 /**
  * The operator's surface (§14.5): every node on the instance, which project
@@ -126,6 +127,7 @@ export function OrchestrationSettings() {
 					<GroupAlarms alarms={status.alarms} />
 					<InfraPanel status={status} />
 					<PoolForm pool={status.pool} />
+					{status.orchestrator.provider === "kubernetes" && <ScalingForm />}
 
 					<div className="flex flex-col gap-3">
 						<div className="flex flex-wrap items-center justify-between gap-2">
@@ -224,18 +226,13 @@ export function OrchestrationSettings() {
 						if (editing === "new") {
 							// Always the catch-all from here: a claim for one project is
 							// made in that project's own settings.
-							create.mutate(
-								{ projectId: null, type: body.type, groupIds: [], replicas: body.replicas },
-								{ onSuccess, onError },
-							);
+							create.mutate({ ...body, projectId: null, groupIds: [] }, { onSuccess, onError });
 							return;
 						}
 						// A project's claim is only sized here. Sending its type or groups
 						// would be refused by the API, and rightly.
-						const patch =
-							editing.projectId === null
-								? { type: body.type, groupIds: body.groupIds, replicas: body.replicas }
-								: { replicas: body.replicas };
+						const { type, groupIds, ...size } = body;
+						const patch = editing.projectId === null ? body : size;
 						update.mutate({ claimId: editing.id, body: patch }, { onSuccess, onError });
 					}}
 				/>

@@ -11,10 +11,9 @@ project a set of workers serves, what they run, and how many of them. The
 orchestrator turns each claim into ordinary Kubernetes objects and keeps them
 in line with what you asked for.
 
-> [!WARNING]
-> **Being built in stages.** The orchestrator can now drive a cluster, but the
-> ready-made manifests and the portal's scaling screens are still on their way.
-> Expect this section to grow.
+> [!TIP]
+> Trying it out? [Kubernetes on your machine](./local) goes from an empty k3d
+> cluster to a running worker, including the access the orchestrator needs.
 
 ## Docker or Kubernetes?
 
@@ -55,7 +54,9 @@ pointed at a Docker host on purpose. If the platform you picked cannot be
 reached when it starts, the orchestrator stops and says what is missing.
 
 Running the orchestrator **inside the cluster**, it finds the cluster on its
-own, using the service account it runs as. Nothing to set.
+own, using the service account it runs as. Nothing to set. That account needs
+the role shown in [the local setup](./local#_3-give-the-orchestrator-an-account),
+and nothing more — it never needs access outside its namespace.
 
 Running it **outside the cluster**, tell it where the cluster is:
 
@@ -91,6 +92,9 @@ need different amounts — so this is set per claim, not once for everything.
 | :--- | :--- | :--- | :--- |
 | **CPU** | 0.5 core | 0.5 – 16 | 1 core |
 | **Memory** | 256 MB | 256 – 65 536 MB | 1024 MB |
+
+Set it on the claim: **CPU per pod** and **Memory per pod** in the claim form,
+in a project's settings or on the instance's Orchestration page.
 
 On Kubernetes a worker is guaranteed exactly this much and never uses more.
 The autoscaler measures CPU and memory use against these numbers, so they also
@@ -133,8 +137,10 @@ kubectl get deploy,svc,ingressroute,scaledobject,pods -l fluxify.managed-by=orch
 
 ## How a claim scales {#scaling}
 
-A claim has a **minimum** (its replica count) and, optionally, a
-**maximum**. Without a maximum it runs exactly its minimum.
+A claim has a **minimum** and a **maximum** number of workers, both set in
+the claim form. A maximum equal to the minimum means the claim runs exactly
+that many and never grows. On Docker the form shows only one number, since
+Docker does not autoscale.
 
 What makes it grow depends on what it runs:
 
@@ -152,3 +158,25 @@ is removed first stops taking new requests, then finishes what it is running.
 The maximum is a ceiling, never a promise. A claim never grows past what your
 node pool and license leave room for, however high its maximum is set:
 workers beyond the license would only be refused when they start.
+
+### The scaling policy {#scaling-policy}
+
+How quickly claims grow and shrink is one policy for the whole instance, set
+under **Instance settings → Orchestration → Scaling policy** (shown only when
+the orchestrator drives a cluster):
+
+| Setting | What it does | Default |
+| :--- | :--- | :--- |
+| **Queued runs per pod** | A workflow claim adds a worker each time this many runs are waiting on one of its triggers. | 10 |
+| **Check every** | How often waiting runs are counted. | 30 s |
+| **Scale-down wait** | How long the load must stay low before a worker is removed. | 300 s |
+
+### What needs what
+
+- **KEDA** is required for any growth at all. Without it, every claim runs at
+  its minimum.
+- **Scaling on waiting runs** also needs `K8S_NATS_MONITORING_ENDPOINT`.
+  Without it, workflow claims fall back to CPU and memory.
+- A claim that serves **every project** always scales on CPU and memory. To
+  scale on its queues it would have to watch every trigger in the instance.
+  Treat it as a starting point; give a busy project its own claim.

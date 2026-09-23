@@ -3,7 +3,7 @@ import { useState } from "react";
 import { TbHistory, TbPlus, TbTopologyStar3 } from "react-icons/tb";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { ClaimCard } from "@/components/orchestration/ClaimCard";
-import { ClaimDialog, type ClaimType } from "@/components/orchestration/ClaimDialog";
+import { ClaimDialog, type ClaimSubmit } from "@/components/orchestration/ClaimDialog";
 import { CONSEQUENCE } from "@/components/orchestration/copy";
 import { GroupAlarms } from "@/components/orchestration/GroupAlarms";
 import { InfraPanel } from "@/components/orchestration/InfraPanel";
@@ -60,7 +60,7 @@ export function NodesSettings({ projectId }: { projectId: string }) {
 
 	const groupOptions = (groups ?? []).map((group) => ({ id: group.id, name: group.name }));
 
-	function submit(body: { type: ClaimType; groupIds: string[]; replicas: number }) {
+	function submit(body: ClaimSubmit) {
 		setError(null);
 		const onError = (err: unknown) => {
 			// The server's refusal is written for this reader — a licence limit, a
