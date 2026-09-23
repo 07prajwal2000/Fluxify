@@ -53,7 +53,7 @@ generated value is kept across upgrades, and the Secret is kept even after
 | `secret.values.MASTER_ENCRYPTION_KEY` | Locks the passwords and keys stored in Fluxify. Must be `openssl rand -base64 32`. Never change it once set. | generated |
 | `secret.values.BETTER_AUTH_SECRET` | Signs sign-in sessions. | generated |
 | `secret.values.SYSTEM_ACCESS_KEY` | A key that lets scripts and other systems call Fluxify's API without a user. | generated |
-| `secret.values.NATS_TOKEN` | NATS's password. | generated |
+| `secret.values.NATS_TOKEN` | NATS's password. Must start with a letter: NATS reads one like `5e3…` as a number and does not start. | generated |
 | `secret.values.REDIS_PASS` | Valkey's password. | generated |
 | `secret.values.SEED_USER_PASSWORD` | The first account's password, used on an empty database only. | generated |
 | `secret.values.PG_PASSWORD` | The built-in Postgres's password. | generated |
@@ -150,6 +150,9 @@ under `valkey:`.
 
 ### Production with CloudNativePG
 
+[Install on Kubernetes](./install) step 6's production file, with more room for
+the portal and API once many people use it:
+
 ```yaml
 url: https://fluxify.example.com
 
@@ -205,7 +208,7 @@ It must hold these keys:
 | `MASTER_ENCRYPTION_KEY` | `openssl rand -base64 32` |
 | `BETTER_AUTH_SECRET` | `openssl rand -hex 32` |
 | `SYSTEM_ACCESS_KEY` | `openssl rand -hex 32` |
-| `NATS_TOKEN` | `openssl rand -hex 32` |
+| `NATS_TOKEN` | `n$(openssl rand -hex 31)`. It must start with a letter. |
 | `REDIS_PASS` | `openssl rand -hex 32` |
 | `SEED_USER_PASSWORD` | A password you choose |
 | `PG_URL` | Your database address, unless you use `postgres.urlFrom` |
