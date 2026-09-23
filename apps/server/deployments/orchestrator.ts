@@ -5,6 +5,7 @@ import { closeNats, initializeNats, natsConnected } from "../src/db/nats";
 import { nodeClaimsEntity } from "../src/db/schema";
 import { watchLicense } from "../src/lib/edition";
 import { getEnv } from "../src/lib/env";
+import { waitFor } from "../src/lib/waitFor";
 import { watchInstanceSettings } from "../src/loaders/instanceSettingsLoader";
 import { createDockerDriver } from "../src/modules/orchestrator/drivers/docker";
 import { createKubernetesDriver } from "../src/modules/orchestrator/drivers/kubernetes";
@@ -76,30 +77,15 @@ if (!image) {
 	process.exit(1);
 }
 
-/** Admin owns migrations, so a fresh stack is waited out rather than exited. */
-async function waitForSchema(maxAttempts = 60, delayMs = 2_000): Promise<void> {
-	for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-		try {
-			await db.select({ id: nodeClaimsEntity.id }).from(nodeClaimsEntity).limit(1);
-			return;
-		} catch (error) {
-			// Drizzle wraps the driver's error: "does not exist" is on its cause.
-			const cause = (error as Error)?.cause as Error | undefined;
-			const message = `${String((error as Error)?.message ?? error)} ${cause?.message ?? ""}`;
-			if (!message.includes("42P01") && !/does not exist/i.test(message)) throw error;
-			logger.info(
-				`waiting for database schema (attempt ${attempt}/${maxAttempts})`,
-				"ORCHESTRATOR",
-			);
-			await Bun.sleep(delayMs);
-		}
-	}
-	throw new Error("database schema not ready after waiting for migrations");
-}
-
-await drizzleInit();
-await waitForSchema();
-await initializeNats();
+// Postgres and NATS may still be starting (#463); admin owns migrations, so a
+// fresh stack is waited out as well rather than exited.
+await waitFor("Postgres", () => drizzleInit());
+await waitFor(
+	"database schema",
+	() => db.select({ id: nodeClaimsEntity.id }).from(nodeClaimsEntity).limit(1),
+	60,
+);
+await waitFor("NATS", initializeNats);
 // Both arrive over NATS KV: the license decides what may be claimed, the pool
 // ceiling how much of it the host will take. Admin publishes both.
 await watchLicense();

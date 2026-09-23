@@ -27,6 +27,11 @@ export function initializeRedis(_hotReload?: boolean) {
 	});
 }
 
+/** Startup readiness probe (#463): ioredis queues commands until it connects. */
+export function pingRedis() {
+	return redisClient.ping();
+}
+
 function createRedisClient() {
 	return new Redis({
 		host: getEnv("REDIS_HOST")!,

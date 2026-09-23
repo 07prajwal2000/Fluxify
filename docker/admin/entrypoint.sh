@@ -10,7 +10,7 @@ wait_until() {
 	_label="$1"
 	shift
 	_attempt=0
-	while [ "$_attempt" -lt 60 ]; do
+	while [ "$_attempt" -lt 240 ]; do
 		if "$@" >/dev/null 2>&1; then return 0; fi
 		_attempt=$((_attempt + 1))
 		sleep 1
@@ -32,10 +32,18 @@ trap term TERM INT
 
 # Admin API server (control plane; no builtin worker)
 start bun --cwd=/app/server standalone.js
+admin_pid=$!
 
 # The admin server owns migrations. The AI gateway has no schema-wait of its
 # own and dies outright on a missing app_config.
-wait_until "admin server" wget -qO- http://127.0.0.1:5500/_/admin/api/public-settings
+# Up to 240s: the server itself waits up to a minute each for Postgres, Redis
+# and NATS (#463). If it gives up first it exits, having logged what it could not reach,
+# and so does this script.
+admin_up() {
+	kill -0 "$admin_pid" || exit 1
+	wget -qO- http://127.0.0.1:5500/_/admin/api/public-settings
+}
+wait_until "admin server" admin_up
 
 # The admin UI is a static Vite bundle in /app/portal, served by Caddy.
 
