@@ -74,6 +74,7 @@ through it. Without it everything runs, but nothing can be reached from outside.
 
 ```bash
 helm repo add traefik https://traefik.github.io/charts
+helm repo update traefik
 helm install traefik traefik/traefik -n traefik --create-namespace
 ```
 
@@ -88,6 +89,7 @@ it, every claim stays at its minimum number of workers.
 
 ```bash
 helm repo add kedacore https://kedacore.github.io/charts
+helm repo update kedacore
 helm install keda kedacore/keda -n keda --create-namespace
 ```
 
@@ -125,6 +127,7 @@ Install CloudNativePG:
 
 ```bash
 helm repo add cnpg https://cloudnative-pg.github.io/charts
+helm repo update cnpg
 helm install cnpg cnpg/cloudnative-pg -n cnpg-system --create-namespace --wait
 ```
 
@@ -148,8 +151,14 @@ spec:
 EOF
 ```
 
-Backups to object storage are set up on this same resource. See
-[CloudNativePG's backup guide](https://cloudnative-pg.io/documentation/current/backup/).
+Two things this does not do yet, and a production database needs both:
+
+- **Backups.** They go to object storage (S3, GCS, Azure Blob), set up on this
+  same resource. See
+  [CloudNativePG's backup guide](https://cloudnative-pg.io/documentation/current/backup/).
+- **Machines.** The three copies only protect you if they run on different
+  machines. CloudNativePG spreads them when the cluster has three or more nodes;
+  on a one-node cluster (k3d on a laptop) they all share it.
 
 **Check:** `kubectl get cluster -n fluxify` shows `Cluster in healthy state`.
 It takes a minute or two.
@@ -191,7 +200,7 @@ postgres:
   bundled: true
 ```
 
-Then install. Unlike steps 2 to 5 there is no `helm repo add`: Fluxify's chart
+Then install. Unlike steps 2 to 5 there is no `helm repo add` or `helm repo update`: Fluxify's chart
 is published to a container registry, and Helm fetches it straight from the
 `oci://` address. NATS and Valkey come packed inside it. To check Helm can
 reach it, `helm show chart oci://ghcr.io/fluxify-rest/charts/fluxify --version %%CHART_VERSION%%`
@@ -249,7 +258,8 @@ backup. Save it now, somewhere safe:
 kubectl get secret fluxify-env -n fluxify -o yaml > fluxify-env.backup.yaml
 ```
 
-This file holds every key Fluxify uses. Treat it like a password.
+This file holds every key Fluxify uses. Treat it like a password: keep it
+out of git, unlike `fluxify-values.yaml`.
 
 You are done. Next: [create a project](/getting-started/), then give it its own
 workers from its **Orchestration** settings.
@@ -260,6 +270,7 @@ workers from its **Orchestration** settings.
 | :--- | :--- |
 | `helm install` says `no database` | `fluxify-values.yaml` has no database. See step 6. |
 | `fluxify-admin` keeps restarting | It cannot reach Postgres. `kubectl logs -n fluxify deploy/fluxify-admin` says why. With CloudNativePG, check step 5 is healthy. |
+| `fluxify-nats` pods keep restarting, their log says `variable reference for 'NATS_TOKEN' … could not be parsed` | The NATS password starts like a number, which v0.0.2-alpha could generate. Run the [upgrade](#upgrade) command once with `--set-string secret.values.NATS_TOKEN="n$(openssl rand -hex 31)"` added (later upgrades keep it), then `kubectl rollout restart statefulset fluxify-nats -n fluxify`. |
 | Pods stuck in `Pending` | The cluster is out of room or has no storage. `kubectl describe pod -n fluxify <pod>` says which. |
 | The portal does not load | Traefik is missing or not reachable: redo step 1's first check, and step 7. |
 | The portal loads, sign-in fails | You opened it at an address other than `url`. See step 7. |
@@ -310,7 +321,7 @@ kubectl create secret generic fluxify-env -n fluxify \
   --from-literal=MASTER_ENCRYPTION_KEY="$(openssl rand -base64 32)" \
   --from-literal=BETTER_AUTH_SECRET="$(openssl rand -hex 32)" \
   --from-literal=SYSTEM_ACCESS_KEY="$(openssl rand -hex 32)" \
-  --from-literal=NATS_TOKEN="$(openssl rand -hex 32)" \
+  --from-literal=NATS_TOKEN="n$(openssl rand -hex 31)" \
   --from-literal=REDIS_PASS="$(openssl rand -hex 32)" \
   --from-literal=PG_PASSWORD="$(openssl rand -hex 32)" \
   --from-literal=SEED_USER_PASSWORD='choose-a-password'
