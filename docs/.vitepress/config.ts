@@ -1,5 +1,21 @@
+import { execSync } from "node:child_process";
 import { defineConfig } from "vitepress";
 import { withMermaid } from "vitepress-plugin-mermaid";
+
+/**
+ * The newest release, pre-releases included, so install commands can be
+ * copied as they are. CI passes it in; a local build reads the newest tag.
+ */
+function latestRelease(): string {
+	if (process.env.FLUXIFY_RELEASE_TAG) return process.env.FLUXIFY_RELEASE_TAG;
+	try {
+		const tags = execSync("git tag --list v* --sort=-creatordate", { encoding: "utf8" });
+		return tags.split("\n")[0] || "v0.0.0";
+	} catch {
+		return "v0.0.0";
+	}
+}
+const releaseTag = latestRelease();
 
 // withMermaid wraps the config so ```mermaid code fences render as diagrams.
 // https://vitepress.dev/reference/site-config
@@ -242,8 +258,10 @@ export default withMermaid(
 					{
 						text: "Kubernetes",
 						items: [
-							{ text: "Production on Kubernetes", link: "/deployments/kubernetes/" },
-							{ text: "Kubernetes on your machine", link: "/deployments/kubernetes/local" },
+							{ text: "Install on Kubernetes", link: "/deployments/kubernetes/install" },
+							{ text: "Chart settings", link: "/deployments/kubernetes/helm-values" },
+							{ text: "How it works", link: "/deployments/kubernetes/" },
+							{ text: "Develop against a local cluster", link: "/deployments/kubernetes/local" },
 						],
 					},
 				],
@@ -306,6 +324,16 @@ export default withMermaid(
 			lineNumbers: false,
 			// Container aliases that map mkdocs admonition-style blocks:
 			// Use ::: tip / ::: warning / ::: danger / ::: info in markdown files.
+
+			// %%RELEASE_TAG%% (v0.1.0) and %%CHART_VERSION%% (0.1.0) in any page,
+			// code blocks included, become the newest release.
+			config(md) {
+				md.core.ruler.before("normalize", "release-version", (state) => {
+					state.src = state.src
+						.replaceAll("%%RELEASE_TAG%%", releaseTag)
+						.replaceAll("%%CHART_VERSION%%", releaseTag.replace(/^v/, ""));
+				});
+			},
 		},
 
 		vite: {

@@ -9,7 +9,8 @@ on:
       - "docs/**"
       - ".github/workflows/gh-pages.yml"
 
-  # Allow manual trigger from the Actions tab
+  # Allow manual trigger from the Actions tab. CI's release job also starts it
+  # here, so the install commands name a new release as soon as it is out.
   workflow_dispatch:
 
 # Grant write access so the action can push to gh-pages branch
@@ -43,6 +44,12 @@ jobs:
 
       - name: Install dependencies
         run: bun install
+
+      # Pre-releases count: before 1.0 every release is one.
+      - name: Find the newest release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: echo "FLUXIFY_RELEASE_TAG=$(gh release list --exclude-drafts --limit 1 --json tagName --jq '.[0].tagName')" >> "$GITHUB_ENV"
 
       - name: Build VitePress docs
         run: bun run docs:build

@@ -1,0 +1,23 @@
+# What a release's fluxify.yaml is rendered with: one of everything, for
+# trying Fluxify on a single cluster. Not for keeping data — see the chart's
+# values.yaml for a production install.
+#
+#   helm template fluxify deploy/helm/fluxify -n fluxify --include-crds \
+#     --no-hooks -f deploy/helm/demo-values.yaml > fluxify.yaml
+
+# A file everyone downloads cannot carry keys, or everyone would share them:
+# `fluxify-env` is created by hand first (see the docs).
+secret:
+  create: false
+
+postgres:
+  bundled: true
+
+nats:
+  config:
+    cluster:
+      enabled: false
+    jetstream:
+      fileStore:
+        pvc:
+          size: 2Gi

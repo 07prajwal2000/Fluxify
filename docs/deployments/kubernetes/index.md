@@ -1,19 +1,21 @@
 ---
-title: Production on Kubernetes
-description: Run Fluxify's workers on a Kubernetes cluster. What you configure, what the orchestrator creates in your cluster for each claim, and how workers are sized and autoscaled.
+title: How it works on Kubernetes
+description: What Fluxify creates in your Kubernetes cluster for each claim, how workers are sized and autoscaled, and how to change claims with kubectl or GitOps.
 ---
 
-# Production on Kubernetes
+# How it works on Kubernetes
 
-Fluxify can run its workers on a Kubernetes cluster instead of on one Docker
-host. You still describe what you want the same way: a **claim** says which
+On Kubernetes, Fluxify runs its workers as pods spread over your cluster. You
+describe what you want the same way as anywhere else: a **claim** says which
 project a set of workers serves, what they run, and how many of them. The
 orchestrator turns each claim into ordinary Kubernetes objects and keeps them
 in line with what you asked for.
 
+This page explains what happens in your cluster once Fluxify runs.
+
 > [!TIP]
-> Trying it out? [Kubernetes on your machine](./local) goes from an empty k3d
-> cluster to a running worker, including the access the orchestrator needs.
+> **To install Fluxify, follow [Install on Kubernetes](./install)**. It goes
+> step by step from an empty cluster to signing in.
 
 ## Docker or Kubernetes?
 
@@ -22,58 +24,10 @@ in line with what you asked for.
 | **Where workers run** | Containers on one Docker host | Pods spread over your cluster's machines |
 | **Scaling** | Fixed number of workers per claim | Grows and shrinks between a minimum and a maximum, on load |
 | **Credentials** | Passed to each container as settings | Kept in Kubernetes Secrets |
-| **Guide** | [Production Setup →](../production) | This page |
+| **Install guide** | [Production Setup →](../production) | [Install on Kubernetes →](./install) |
 
 Your claims, projects and data are the same on both. Moving from one to the
 other is a change to the orchestrator's settings, not to your database.
-
-## What you need
-
-- **A Kubernetes cluster** you can create objects in, and one namespace for
-  Fluxify's workers.
-- **Traefik** as the cluster's edge, with its own route type installed. Many
-  distributions ship it (k3s and k3d do). Without it, workers still run, but
-  no HTTP traffic reaches them.
-- **KEDA** for autoscaling. Without it, every claim simply runs at its minimum
-  size — nothing else breaks, and the orchestrator says so once in its log.
-- **Metrics Server**, so the cluster can measure CPU and memory use. Most
-  distributions include it.
-- **NATS reachable from the cluster**, at an address the pods can resolve.
-  `localhost` inside a pod is the pod itself, not your machine.
-
-## Connecting the orchestrator
-
-Tell the orchestrator which platform it drives:
-
-| Setting | What it is |
-| :--- | :--- |
-| `ORCHESTRATOR_PROVIDER` | `kubernetes` to run workers on a cluster, `docker` for one Docker host. Default: `docker`. |
-
-It is never guessed. An orchestrator that runs inside a cluster can still be
-pointed at a Docker host on purpose. If the platform you picked cannot be
-reached when it starts, the orchestrator stops and says what is missing.
-
-Running the orchestrator **inside the cluster**, it finds the cluster on its
-own, using the service account it runs as. Nothing to set. That account needs
-the role shown in [the local setup](./local#_3-give-the-orchestrator-an-account),
-and nothing more — it never needs access outside its namespace.
-
-Running it **outside the cluster**, tell it where the cluster is:
-
-| Setting | What it is |
-| :--- | :--- |
-| `K8S_API_URL` | The cluster's API address, e.g. `https://127.0.0.1:6443`. |
-| `K8S_SA_TOKEN` | A service account token the orchestrator signs in with. |
-| `K8S_NAMESPACE` | The namespace workers are created in. Default: `default`. |
-| `K8S_CA_CERT` | Path to the certificate that signed your cluster's, for clusters with their own (k3d, most self-hosted ones). The certificate is always checked; there is no way to turn that off. |
-
-Two more settings shape how workers scale:
-
-| Setting | What it is |
-| :--- | :--- |
-| `K8S_NATS_MONITORING_ENDPOINT` | NATS's monitoring address as reachable from the cluster, e.g. `nats.fluxify.svc:8222`. Needed for workers to scale on how many workflow runs are waiting. Unset, they scale on CPU and memory only. |
-| `ORCHESTRATOR_SCALE_CPU_PERCENT` | Average CPU use, as a percent of a worker's CPU, above which more workers start. Default: `65`. |
-| `ORCHESTRATOR_SCALE_MEMORY_PERCENT` | The same, for memory. Default: `65`. |
 
 ## Changing workers by hand
 
@@ -143,16 +97,17 @@ What to expect:
 > place only, the portal or git. Fluxify does not yet keep a versioned history of
 > claims in git for you.
 
-This needs the `NodeClaim` definition in your cluster. Without it, everything
-else works and claims are changed in the portal only. The orchestration page in
-the portal lists what your cluster is missing. To install it:
+This needs the `NodeClaim` definition in your cluster. The chart and
+`fluxify.yaml` install it. Without it, everything else works and claims are
+changed in the portal only. The orchestration page in the portal lists what
+your cluster is missing. To install it by hand:
 
 ```bash
-kubectl apply -f https://raw.githubusercontent.com/Fluxify-rest/Fluxify/main/docker/kubernetes/nodeclaim.crd.yaml
+kubectl apply -f https://raw.githubusercontent.com/Fluxify-rest/Fluxify/main/deploy/helm/fluxify/crds/nodeclaim.crd.yaml
 ```
 
 The orchestrator's role also needs access to `nodeclaims` and
-`nodeclaims/status` — see [the local setup](./local#_3-give-the-orchestrator-an-account).
+`nodeclaims/status`. The chart's role has both.
 
 > [!TIP]
 > **Running Karpenter?** It has its own `NodeClaim`. Use `fluxclaim` (or
@@ -304,7 +259,8 @@ the orchestrator drives a cluster):
 
 - **KEDA** is required for any growth at all. Without it, every claim runs at
   its minimum.
-- **Scaling on waiting runs** also needs `K8S_NATS_MONITORING_ENDPOINT`.
+- **Scaling on waiting runs** also needs `K8S_NATS_MONITORING_ENDPOINT`, which
+  the chart sets.
   Without it, workflow claims fall back to CPU and memory — unless they run
   [triggers on an outside queue](#external-queues), which scale on their own.
 - **Changing claims with `kubectl` or GitOps** needs the
@@ -312,3 +268,24 @@ the orchestrator drives a cluster):
 - A claim that serves **every project** always scales on CPU and memory. To
   scale on its queues it would have to watch every trigger in the instance.
   Treat it as a starting point; give a busy project its own claim.
+
+## Running the orchestrator yourself {#orchestrator-settings}
+
+[The install guide](./install) sets all of this for you. It matters only if you
+run the orchestrator some other way, for example
+[from a Fluxify checkout](./local).
+
+| Setting | What it is |
+| :--- | :--- |
+| `ORCHESTRATOR_PROVIDER` | `kubernetes` to run workers on a cluster, `docker` for one Docker host. Default: `docker`. It is never guessed. |
+| `K8S_API_URL` | The cluster's API address, when the orchestrator runs outside the cluster. Inside, it finds the cluster on its own. |
+| `K8S_SA_TOKEN` | The token it signs in with, outside the cluster. |
+| `K8S_NAMESPACE` | The namespace workers are created in. Default: its own namespace inside the cluster, else `default`. |
+| `K8S_CA_CERT` | Path to the certificate that signed your cluster's, for clusters with their own (k3d, most self-hosted ones). It is always checked. |
+| `K8S_NATS_MONITORING_ENDPOINT` | NATS's monitoring address as KEDA reaches it, e.g. `nats.fluxify.svc:8222`. Needed to scale on waiting workflow runs. |
+| `ORCHESTRATOR_SCALE_CPU_PERCENT` | Average CPU use, as a percent of a worker's CPU, above which more workers start. Default: `65`. |
+| `ORCHESTRATOR_SCALE_MEMORY_PERCENT` | The same, for memory. Default: `65`. |
+
+Its service account needs only the role the chart creates, in its own
+namespace. If the cluster cannot be reached when it starts, it stops and says
+what is missing.

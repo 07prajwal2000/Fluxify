@@ -1,0 +1,56 @@
+{{- if .Values.postgres.bundled }}
+# One Postgres, no replicas and no backups: for trying Fluxify, not for keeping data.
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: fluxify-postgres
+  namespace: {{ .Release.Namespace }}
+  labels: {{- include "fluxify.labels" . | nindent 4 }}
+spec:
+  serviceName: fluxify-postgres
+  replicas: 1
+  selector:
+    matchLabels: { app: fluxify-postgres }
+  template:
+    metadata:
+      labels: { app: fluxify-postgres }
+    spec:
+      containers:
+        - name: postgres
+          image: {{ .Values.postgres.image }}
+          env:
+            - { name: POSTGRES_USER, value: fluxify }
+            - { name: POSTGRES_DB, value: fluxify }
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef: { name: fluxify-env, key: PG_PASSWORD }
+            # A subfolder: the volume's root may hold lost+found, which initdb refuses.
+            - { name: PGDATA, value: /var/lib/postgresql/data/pgdata }
+          ports:
+            - { name: postgres, containerPort: 5432 }
+          readinessProbe:
+            exec:
+              command: ["pg_isready", "-U", "fluxify", "-d", "fluxify"]
+            periodSeconds: 5
+          volumeMounts:
+            - { name: data, mountPath: /var/lib/postgresql/data }
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: [ReadWriteOnce]
+        resources:
+          requests:
+            storage: {{ .Values.postgres.storage }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: fluxify-postgres
+  namespace: {{ .Release.Namespace }}
+  labels: {{- include "fluxify.labels" . | nindent 4 }}
+spec:
+  selector: { app: fluxify-postgres }
+  ports:
+    - { name: postgres, port: 5432, targetPort: postgres }
+{{- end }}

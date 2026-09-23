@@ -1,13 +1,18 @@
 ---
-title: Kubernetes on your machine
-description: Run Fluxify's workers on a local k3d cluster, step by step, and the four mistakes that look like something else.
+title: Develop against a local cluster
+description: For people changing Fluxify's code. Run Fluxify from a checkout and its workers on a local k3d cluster, step by step, and the four mistakes that look like something else.
 ---
 
-# Kubernetes on your machine
+# Develop against a local cluster
+
+> [!IMPORTANT]
+> **This page is for people changing Fluxify's own code.** To install Fluxify
+> on a cluster, follow [Install on Kubernetes](./install) instead.
 
 This walks you from an empty [k3d](https://k3d.io) cluster to a claim running
-as a pod. Fluxify itself (admin, the orchestrator, NATS, Postgres, Valkey)
-runs on your machine as usual; only the workers run in the cluster.
+as a pod, with Fluxify itself (admin, the orchestrator, NATS, Postgres, Valkey)
+running from your checkout. Only the workers run in the cluster, so a code
+change to admin or the orchestrator needs no image build.
 
 Several steps below are easy to skip, and each one fails in a way that looks
 like a different problem. Each step says what goes wrong without it.
@@ -43,7 +48,7 @@ To change claims with `kubectl` or a GitOps tool as well as the portal, install
 the `NodeClaim` definition once. Skip it and the portal is the only way in.
 
 ```bash
-kubectl apply -f https://raw.githubusercontent.com/Fluxify-rest/Fluxify/main/docker/kubernetes/nodeclaim.crd.yaml
+kubectl apply -f https://raw.githubusercontent.com/Fluxify-rest/Fluxify/main/deploy/helm/fluxify/crds/nodeclaim.crd.yaml
 ```
 
 See [Changing claims from Kubernetes](./#nodeclaim) for how it behaves.
@@ -51,57 +56,14 @@ See [Changing claims from Kubernetes](./#nodeclaim) for how it behaves.
 ## 3. Give the orchestrator an account
 
 k3d's own kubeconfig signs in with a certificate. The orchestrator signs in with
-a token, so create a service account with only the access it needs:
-
-```yaml
-# fluxify-orchestrator.yaml
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: fluxify-orchestrator
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: Role
-metadata:
-  name: fluxify-orchestrator
-rules:
-  - apiGroups: ["apps"]
-    resources: ["deployments"]
-    verbs: ["get", "list", "watch", "create", "patch", "delete"]
-  - apiGroups: [""]
-    resources: ["services", "secrets"]
-    verbs: ["get", "list", "create", "patch", "delete"]
-  - apiGroups: [""]
-    resources: ["pods"]
-    verbs: ["get", "list", "watch"]
-  - apiGroups: ["traefik.io"]
-    resources: ["ingressroutes"]
-    verbs: ["get", "list", "create", "patch", "delete"]
-  - apiGroups: ["keda.sh"]
-    resources: ["scaledobjects", "triggerauthentications"]
-    verbs: ["get", "list", "create", "patch", "delete"]
-  - apiGroups: ["fluxify.rest"]
-    resources: ["nodeclaims"]
-    verbs: ["get", "list", "create", "patch", "delete"]
-  - apiGroups: ["fluxify.rest"]
-    resources: ["nodeclaims/status"]
-    verbs: ["patch"]
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: RoleBinding
-metadata:
-  name: fluxify-orchestrator
-subjects:
-  - kind: ServiceAccount
-    name: fluxify-orchestrator
-roleRef:
-  kind: Role
-  name: fluxify-orchestrator
-  apiGroup: rbac.authorization.k8s.io
-```
+a token, so create a service account with only the access it needs. It comes
+from Fluxify's Helm chart, so it always matches what the chart installs:
 
 ```bash
-kubectl apply -f fluxify-orchestrator.yaml
+helm repo add nats https://nats-io.github.io/k8s/helm/charts/
+helm repo add valkey https://valkey.io/valkey-helm/
+helm dependency build deploy/helm/fluxify
+helm template fluxify deploy/helm/fluxify -n default   --set postgres.bundled=true --show-only templates/rbac.yaml | kubectl apply -f -
 kubectl create token fluxify-orchestrator --duration=24h
 ```
 

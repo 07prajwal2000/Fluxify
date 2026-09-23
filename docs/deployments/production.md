@@ -22,7 +22,7 @@ container and everything else to the workers.
 
 > [!TIP]
 > This guide runs the workers on one Docker host. To run them on a Kubernetes
-> cluster instead, see [Production on Kubernetes](./kubernetes/).
+> cluster instead, see [Install on Kubernetes](./kubernetes/install).
 
 ### Which tag to pull {#image-tags}
 

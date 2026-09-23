@@ -1,0 +1,19 @@
+apiVersion: v2
+name: fluxify
+description: Fluxify's admin and orchestrator, with NATS, Valkey and an optional demo Postgres.
+type: application
+home: https://fluxify.rest
+sources:
+  - https://github.com/Fluxify-rest/Fluxify
+# Both are set from the git tag when a release packages the chart.
+version: 0.0.0-dev
+appVersion: alpha
+dependencies:
+  - name: nats
+    version: 2.15.0
+    repository: https://nats-io.github.io/k8s/helm/charts/
+    condition: nats.enabled
+  - name: valkey
+    version: 0.12.0
+    repository: https://valkey.io/valkey-helm/
+    condition: valkey.enabled

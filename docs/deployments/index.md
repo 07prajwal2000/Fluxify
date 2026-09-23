@@ -43,7 +43,7 @@ steps for each.
   - **Docker**: one host, a fixed number of workers per claim.
     → [Production guide](./production)
   - **Kubernetes**: your cluster, with workers that grow and shrink with load.
-    → [Production on Kubernetes](./kubernetes/)
+    → [Install on Kubernetes](./kubernetes/install)
 
 > [!TIP]
 > Start with the Kit to evaluate, then move to Admin + Workers when you need to
@@ -196,6 +196,6 @@ Pick your path and jump straight to the steps:
 - **Admin + Workers:** [why Traefik](./production#why-traefik) →
   [create your `.env`](./production#env) → [start the stack](./production#start) →
   [scale the workers](./production#scaling)
-- **On Kubernetes:** [what you need](./kubernetes/#what-you-need) →
-  [connect the orchestrator](./kubernetes/#connecting-the-orchestrator) →
+- **On Kubernetes:** [install step by step](./kubernetes/install) →
+  [what it creates](./kubernetes/#objects) →
   [size and scale workers](./kubernetes/#sizing)
