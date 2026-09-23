@@ -6,7 +6,7 @@ import { mapVersionedAdminRoutes } from "./api/register";
 import { publishConfiguredLicense } from "./api/v1/instance-settings/license/service";
 import { drizzleInit } from "./db";
 import { initializePubSub } from "./db/pubsub";
-import { initializeRedis } from "./db/redis";
+import { initializeRedis, pingRedis } from "./db/redis";
 import type { AccessControlRole } from "./db/schema";
 import { type auth, initializeAuth } from "./lib/auth";
 import {
@@ -90,9 +90,10 @@ async function main() {
 	const builtinWorkerEnabled = ENABLE_BUILTIN_WORKER == "true";
 	logger.info(`Builtin worker enabled: ${ENABLE_BUILTIN_WORKER}`);
 	app.onError(errorHandler);
-	// Postgres and NATS may still be starting on a fresh install (#463).
+	// Postgres, Redis and NATS may still be starting on a fresh install (#463).
 	const db = await waitFor("Postgres", () => drizzleInit(adminRoutesEnabled));
 	initializeRedis();
+	await waitFor("Redis", pingRedis);
 	await waitFor("NATS", initializePubSub);
 
 	if (adminRoutesEnabled) {
