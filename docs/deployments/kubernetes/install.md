@@ -216,8 +216,9 @@ helm install fluxify oci://ghcr.io/fluxify-rest/charts/fluxify \
 is `Running` and ready, including one named `fluxify-worker-…`: that is the
 first worker, started from the claim every new install begins with.
 
-Some pods restart once or twice on the first start while the database is being
-prepared. That is expected; they settle on their own.
+While the database and NATS are still starting, `fluxify-admin` and
+`fluxify-orchestrator` wait for them instead of restarting. Their logs show lines
+like `waiting for NATS (3/30)` for up to about a minute. That is expected.
 
 ## 7. Open the portal and sign in
 
@@ -269,7 +270,7 @@ workers from its **Orchestration** settings.
 | What you see | What to do |
 | :--- | :--- |
 | `helm install` says `no database` | `fluxify-values.yaml` has no database. See step 6. |
-| `fluxify-admin` keeps restarting | It cannot reach Postgres. `kubectl logs -n fluxify deploy/fluxify-admin` says why. With CloudNativePG, check step 5 is healthy. |
+| `fluxify-admin` or `fluxify-orchestrator` keeps restarting | It waited about a minute and still could not reach Postgres or NATS. `kubectl logs -n fluxify deploy/fluxify-admin --previous` names which one (`… is not reachable after 30 attempts`). With CloudNativePG, check step 5 is healthy. |
 | `fluxify-nats` pods keep restarting, their log says `variable reference for 'NATS_TOKEN' … could not be parsed` | The NATS password starts like a number, which v0.0.2-alpha could generate. Run the [upgrade](#upgrade) command once with `--set-string secret.values.NATS_TOKEN="n$(openssl rand -hex 31)"` added (later upgrades keep it), then `kubectl rollout restart statefulset fluxify-nats -n fluxify`. |
 | Pods stuck in `Pending` | The cluster is out of room or has no storage. `kubectl describe pod -n fluxify <pod>` says which. |
 | The portal does not load | Traefik is missing or not reachable: redo step 1's first check, and step 7. |

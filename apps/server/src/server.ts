@@ -19,6 +19,7 @@ import {
 	OTLP_LOGGER_LEVEL,
 	validateEnv,
 } from "./lib/env";
+import { waitFor } from "./lib/waitFor";
 import { loadAppConfig } from "./loaders/appconfigLoader";
 import { initializeCustomBlocksSubscription, loadCustomBlocks } from "./loaders/customBlocksLoader";
 import { loadInstanceSettings } from "./loaders/instanceSettingsLoader";
@@ -89,9 +90,10 @@ async function main() {
 	const builtinWorkerEnabled = ENABLE_BUILTIN_WORKER == "true";
 	logger.info(`Builtin worker enabled: ${ENABLE_BUILTIN_WORKER}`);
 	app.onError(errorHandler);
-	const db = await drizzleInit(adminRoutesEnabled);
+	// Postgres and NATS may still be starting on a fresh install (#463).
+	const db = await waitFor("Postgres", () => drizzleInit(adminRoutesEnabled));
 	initializeRedis();
-	await initializePubSub();
+	await waitFor("NATS", initializePubSub);
 
 	if (adminRoutesEnabled) {
 		app.use("*", setSession);
