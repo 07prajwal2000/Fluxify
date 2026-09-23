@@ -526,6 +526,13 @@
 			"when": 1790098596933,
 			"tag": "0074_worker_nodes_replica_not_unique",
 			"breakpoints": true
+		},
+		{
+			"idx": 75,
+			"version": "7",
+			"when": 1790202963346,
+			"tag": "0075_project_slug_group_keys",
+			"breakpoints": true
 		}
 	]
 }

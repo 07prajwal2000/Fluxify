@@ -43,6 +43,8 @@ export const projectsEntity = pgTable(
 			.primaryKey()
 			.$defaultFn(() => generateID()),
 		name: varchar({ length: 50 }),
+		/** Set at creation, never changed: a NodeClaim manifest names the project by it (#456). */
+		slug: varchar({ length: 50 }).notNull(),
 		description: text(),
 		createdAt: timestamp("created_at").defaultNow().notNull(),
 		hidden: boolean().default(false),
@@ -54,6 +56,7 @@ export const projectsEntity = pgTable(
 	(table) => [
 		index("idx_projects_id").on(table.id),
 		index("idx_projects_name").on(table.name),
+		uniqueIndex("uq_projects_slug").on(table.slug),
 		index("idx_projects_updated_at").on(table.updatedAt),
 	],
 );
@@ -325,6 +328,7 @@ export const triggerGroupsEntity = pgTable(
 		id: varchar({ length: 50 })
 			.primaryKey()
 			.$defaultFn(() => generateID()),
+		/** A slug, never renamed: `<project slug>/<name>` is its NodeClaim key (#456). */
 		name: varchar({ length: 255 }).notNull(),
 		description: text(),
 		projectId: varchar("project_id", { length: 50 })

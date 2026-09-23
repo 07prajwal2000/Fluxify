@@ -1,3 +1,4 @@
+import { SLUG_HINT, SLUG_MAX, SLUG_PATTERN } from "@fluxify/lib/slug";
 import { z } from "zod";
 import { projectSettingsKeySchemaMap } from "../settings/keys/keySchemaMap";
 
@@ -36,6 +37,8 @@ export const requestBodySchema = z.object({
 	// 50, not 100: `projects.name` is varchar(50), so a longer name passed
 	// validation and then died on the insert.
 	name: z.string().min(2).max(50),
+	/** Fixed for good once created. Left out, it is made from the name. */
+	slug: z.string().max(SLUG_MAX).regex(SLUG_PATTERN, `Slug must be ${SLUG_HINT}`).optional(),
 	description: z.string().max(1000).optional(),
 	members: z
 		.array(memberSchema)

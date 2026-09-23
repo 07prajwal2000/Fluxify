@@ -65,7 +65,7 @@ export async function createTriggerGroup(
 	return { id };
 }
 
-/** Renaming is safe: everything downstream keys on the group's id, never its name. */
+/** Only the description: the name is fixed, a NodeClaim manifest names the group by it. */
 export async function updateTriggerGroup(
 	id: string,
 	data: z.infer<typeof updateGroupSchema>,
@@ -75,7 +75,6 @@ export async function updateTriggerGroup(
 	if (!group) throw new NotFoundError("Trigger group not found");
 	if (!canAccessProject(acl, group.projectId, "creator")) throw new ForbiddenError();
 	if (group.isDefault) throw new BadRequestError("The default group cannot be edited");
-	if (data.name && data.name !== group.name) await assertGroupNameFree(group.projectId, data.name);
 	await updateGroupRow(id, data);
 	return { id };
 }
@@ -135,6 +134,7 @@ function presentGroup(
 		name: row.name,
 		description: row.description,
 		projectId: row.projectId,
+		key: `${row.projectSlug}/${row.name}`,
 		isDefault: row.isDefault,
 		triggerCount: row.triggerCount,
 		maxTriggers: maxTriggersPerGroup(),

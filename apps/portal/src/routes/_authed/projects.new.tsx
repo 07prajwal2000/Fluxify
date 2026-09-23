@@ -11,6 +11,7 @@ import {
 	TextField,
 	toast,
 } from "@fluxify/components";
+import { SLUG_HINT, SLUG_MAX, SLUG_PATTERN, toSlug } from "@fluxify/lib/slug";
 import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import {
@@ -92,6 +93,10 @@ function CreateProjectPage() {
 
 	const [step, setStep] = useState(0);
 	const [name, setName] = useState("");
+	// Null follows the name; once typed in, the slug is the user's and stays put.
+	const [typedSlug, setTypedSlug] = useState<string | null>(null);
+	const slug = typedSlug ?? toSlug(name);
+	const slugValid = SLUG_PATTERN.test(slug) && slug.length <= SLUG_MAX;
 	const [description, setDescription] = useState("");
 	const [members, setMembers] = useState<Member[]>([]);
 	const [workerTimeouts, setWorkerTimeouts] = useState(false);
@@ -101,7 +106,7 @@ function CreateProjectPage() {
 	// `projects.name` is varchar(50) and the API rejects anything longer, so the
 	// field has to stop the user rather than let the request fail.
 	const basicsValid =
-		name.trim().length >= 2 && name.trim().length <= 50 && !subdomainError(subdomain);
+		name.trim().length >= 2 && name.trim().length <= 50 && slugValid && !subdomainError(subdomain);
 
 	const isLast = step === STEPS.length - 1;
 	const currentKey = STEPS[step].key;
@@ -110,6 +115,7 @@ function CreateProjectPage() {
 		create.mutate(
 			{
 				name: name.trim(),
+				slug,
 				description: description.trim() || undefined,
 				members: members.length ? members.map(({ userId, role }) => ({ userId, role })) : undefined,
 				settings: {
@@ -206,12 +212,27 @@ function CreateProjectPage() {
 								</p>
 							</TextField>
 
+							<div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+								<TextField
+									value={slug}
+									onChange={(value) => setTypedSlug(value === "" ? null : value)}
+									isInvalid={slug !== "" && !slugValid}
+								>
+									<Label>Slug</Label>
+									<Input placeholder="billing-api" maxLength={SLUG_MAX} className="font-mono" />
+									<p className="text-xs text-muted">
+										Filled from the name; type to choose your own. {SLUG_HINT}. Unique, and it
+										cannot be changed later: NodeClaim manifests name the project by it.
+									</p>
+								</TextField>
+
+								<SubdomainField value={subdomain} onChange={setSubdomain} />
+							</div>
+
 							<TextField value={description} onChange={setDescription}>
 								<Label>Description</Label>
 								<TextArea rows={3} placeholder="What this project is for" maxLength={1000} />
 							</TextField>
-
-							<SubdomainField value={subdomain} onChange={setSubdomain} />
 						</div>
 					)}
 
@@ -228,6 +249,7 @@ function CreateProjectPage() {
 
 							<dl className="grid gap-px overflow-hidden rounded-xl border border-border bg-border sm:grid-cols-2">
 								<SummaryItem label="Name" value={name.trim()} />
+								<SummaryItem label="Slug" value={slug} />
 								<SummaryItem label="Description" value={description.trim() || "—"} />
 								<SummaryItem
 									label="Members"

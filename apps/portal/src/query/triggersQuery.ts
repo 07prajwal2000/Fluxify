@@ -45,8 +45,8 @@ export const triggersQuery = {
 		mutation(projectId: string) {
 			const qc = useQueryClient();
 			return useMutation({
-				mutationFn: (data: { id: string; name?: string; description?: string | null }) =>
-					triggersService.updateGroup(data.id, { name: data.name, description: data.description }),
+				mutationFn: (data: { id: string; description?: string | null }) =>
+					triggersService.updateGroup(data.id, { description: data.description }),
 				onSuccess: () => qc.invalidateQueries({ queryKey: groupsKey(projectId) }),
 			});
 		},

@@ -1,22 +1,37 @@
 import { describe, expect, it } from "bun:test";
 import { MANAGED_LABEL } from "../containerSpec";
 import type { Kind, KubeApi, KubeObject } from "../drivers/kubernetesApi";
-import { type ClaimEdit, type NodeClaimStatus, readEdit, syncNodeClaims } from "../nodeClaims";
+import {
+	type ClaimEdit,
+	type KeyedClaim,
+	type NodeClaimStatus,
+	readEdit,
+	syncNodeClaims,
+	withKeys,
+} from "../nodeClaims";
 import type { Claim, DesiredNode } from "../projection";
 
 const ID = "0192b1c4-1111-7000-8000-000000000001";
 
-const claim = (over: Partial<Claim> = {}): Claim => ({
-	id: ID,
-	projectId: "p1",
-	type: "workflow",
-	groupIds: ["g1"],
-	replicas: 2,
-	maxReplicas: null,
-	metadata: {},
-	createdAt: new Date(0),
-	...over,
-});
+const SLUGS = new Map([["p1", "shop"]]);
+const GROUPS = new Map([["g1", "orders"]]);
+
+const claim = (over: Partial<Claim> = {}): KeyedClaim =>
+	withKeys(
+		{
+			id: ID,
+			projectId: "p1",
+			type: "workflow",
+			groupIds: ["g1"],
+			replicas: 2,
+			maxReplicas: null,
+			metadata: {},
+			createdAt: new Date(0),
+			...over,
+		},
+		SLUGS,
+		GROUPS,
+	);
 
 /**
  * NodeClaims in memory, as far as the sync relies on them: the generation moves
@@ -107,9 +122,9 @@ describe("syncNodeClaims", () => {
 		const object = cluster.store.get(ID)!;
 		expect(object.metadata.labels?.[MANAGED_LABEL]).toBe("orchestrator");
 		expect(object.spec).toEqual({
-			project: "p1",
+			project: "shop",
 			type: "workflow",
-			groups: ["g1"],
+			groups: ["shop/orders"],
 			replicas: 2,
 			resources: { cpu: 1, memoryMb: 1024 },
 		});
@@ -249,9 +264,9 @@ describe("readEdit", () => {
 	it("patches only what changed, and a removed maximum clears it", () => {
 		const row = claim({ maxReplicas: 4 });
 		const spec = {
-			project: "p1",
+			project: "shop",
 			type: "workflow",
-			groups: ["g1"],
+			groups: ["shop/orders"],
 			replicas: 2,
 			resources: { cpu: 1, memoryMb: 1024 },
 		};
@@ -261,8 +276,27 @@ describe("readEdit", () => {
 
 	it("reads the catch-all's project as *", () => {
 		const row = claim({ projectId: null, groupIds: [] });
-		expect(readEdit({ project: "p1", type: "workflow", groups: [] }, row)).toEqual({
+		expect(readEdit({ project: "shop", type: "workflow", groups: [] }, row)).toEqual({
 			refusal: "project is changed in the portal, not on the NodeClaim",
+		});
+	});
+});
+
+describe("withKeys", () => {
+	it("names the project by slug and each group as <slug>/<name>", () => {
+		expect(claim().keys).toEqual({ project: "shop", groups: ["shop/orders"] });
+	});
+
+	it("drops a deleted group and keeps the catch-all as *", () => {
+		expect(claim({ groupIds: ["g1", "gone"] }).keys.groups).toEqual(["shop/orders"]);
+		expect(claim({ projectId: null, groupIds: [] }).keys).toEqual({ project: "*", groups: [] });
+	});
+
+	it("refuses a group changed by id instead of key", () => {
+		const row = claim();
+		const spec = { project: "shop", type: "workflow", groups: ["g1"], replicas: 2 };
+		expect(readEdit(spec, row)).toEqual({
+			refusal: "groups is changed in the portal, not on the NodeClaim",
 		});
 	});
 });

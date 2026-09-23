@@ -58,9 +58,9 @@ kind: NodeClaim
 metadata:
   name: 0192b1c4-1111-7000-8000-000000000001
 spec:
-  project: 0192b1c4-2222-7000-8000-000000000002
+  project: shop
   type: workflow
-  groups: [0192b1c4-3333-7000-8000-000000000003]
+  groups: [shop/orders]
   replicas: 2
   maxReplicas: 6
   resources: { cpu: 1, memoryMb: 1024 }
@@ -70,6 +70,17 @@ spec:
 | :--- | :--- |
 | `replicas`, `maxReplicas`, `resources` | Yes. The change is rolled out within a few seconds, exactly as if it was made in the portal. Remove `maxReplicas` to stop autoscaling. |
 | `project`, `type`, `groups` | No. Change these in the project's settings. |
+
+Projects and groups are named by readable keys, not ids:
+
+- `project` is the project's **slug**, chosen when the project is created (it
+  defaults to the project name, lowercased with hyphens). A claim that serves
+  every project shows `*`.
+- Each group is `<project slug>/<group name>`, for example `shop/orders`. The
+  copy button next to each group in the project's trigger groups copies it.
+
+Neither a slug nor a group name can be changed once created, so a manifest you
+write by hand keeps working.
 
 What to expect:
 

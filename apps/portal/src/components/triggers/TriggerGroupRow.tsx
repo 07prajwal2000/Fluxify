@@ -8,7 +8,7 @@ import {
 	toast,
 } from "@fluxify/components";
 import { useState } from "react";
-import { TbBolt, TbCheck, TbEdit, TbLock, TbServer, TbX } from "react-icons/tb";
+import { TbBolt, TbCheck, TbCopy, TbEdit, TbLock, TbServer, TbX } from "react-icons/tb";
 import { showErrorNotification } from "@/lib/errorNotifier";
 import { triggersQuery } from "@/query/triggersQuery";
 import type { TriggerGroup } from "@/services/triggers";
@@ -19,28 +19,33 @@ export type TriggerGroupRowProps = {
 	onDelete: () => void;
 };
 
+/** The group's NodeClaim key, for pasting into a manifest. */
+function copyKey(key: string) {
+	if (!navigator.clipboard?.writeText) {
+		toast.warning("Key could not be copied");
+		return;
+	}
+	void navigator.clipboard
+		.writeText(key)
+		.then(() => toast.success(`Copied ${key}`))
+		.catch(() => toast.warning("Key could not be copied"));
+}
+
 /**
- * An individual trigger group card supporting inline editing and worker status visualization.
+ * An individual trigger group card. The name is fixed once created (a NodeClaim
+ * manifest names the group by it), so only the description is editable.
  */
 export function TriggerGroupRow({ projectId, group, onDelete }: TriggerGroupRowProps) {
 	const update = triggersQuery.updateGroup.mutation(projectId);
 	const [editing, setEditing] = useState(false);
-	const [name, setName] = useState(group.name);
 	const [description, setDescription] = useState(group.description ?? "");
 
 	const save = () => {
-		const trimmedName = name.trim();
-		if (trimmedName.length < 2) return;
-
 		update.mutate(
-			{
-				id: group.id,
-				name: trimmedName,
-				description: description.trim() || null,
-			},
+			{ id: group.id, description: description.trim() || null },
 			{
 				onSuccess: () => {
-					toast.success(`Group "${trimmedName}" updated`);
+					toast.success(`Group "${group.name}" updated`);
 					setEditing(false);
 				},
 				onError: (e) => showErrorNotification(e as Error),
@@ -49,7 +54,6 @@ export function TriggerGroupRow({ projectId, group, onDelete }: TriggerGroupRowP
 	};
 
 	const cancelEdit = () => {
-		setName(group.name);
 		setDescription(group.description ?? "");
 		setEditing(false);
 	};
@@ -74,12 +78,7 @@ export function TriggerGroupRow({ projectId, group, onDelete }: TriggerGroupRowP
 						save();
 					}}
 				>
-					<TextField value={name} onChange={setName} autoFocus className="w-full">
-						<Label className="text-xs font-medium mb-1">Group name</Label>
-						<Input className="bg-surface-secondary/50" />
-					</TextField>
-
-					<TextField value={description} onChange={setDescription} className="w-full">
+					<TextField value={description} onChange={setDescription} autoFocus className="w-full">
 						<Label className="text-xs font-medium mb-1">Description (optional)</Label>
 						<Input placeholder="Description" className="bg-surface-secondary/50" />
 					</TextField>
@@ -94,7 +93,6 @@ export function TriggerGroupRow({ projectId, group, onDelete }: TriggerGroupRowP
 							variant="primary"
 							aria-label="Save group changes"
 							isPending={update.isPending}
-							isDisabled={name.trim().length < 2}
 						>
 							<TbCheck size={15} /> Save changes
 						</Button>
@@ -137,6 +135,16 @@ export function TriggerGroupRow({ projectId, group, onDelete }: TriggerGroupRowP
 						</span>
 					</div>
 
+					<Button
+						isIconOnly
+						size="sm"
+						variant="ghost"
+						aria-label={`Copy key ${group.key}`}
+						onPress={() => copyKey(group.key)}
+					>
+						<TbCopy size={15} />
+					</Button>
+
 					{!group.isDefault ? (
 						<div className="flex items-center gap-1">
 							<Button
@@ -145,7 +153,6 @@ export function TriggerGroupRow({ projectId, group, onDelete }: TriggerGroupRowP
 								variant="ghost"
 								aria-label={`Edit ${group.name}`}
 								onPress={() => {
-									setName(group.name);
 									setDescription(group.description ?? "");
 									setEditing(true);
 								}}
@@ -157,7 +164,7 @@ export function TriggerGroupRow({ projectId, group, onDelete }: TriggerGroupRowP
 					) : (
 						<span
 							className="text-[11px] text-muted italic pr-1"
-							title="The default group is where triggers with no group land and cannot be deleted or renamed."
+							title="The default group is where triggers with no group land and cannot be deleted or edited."
 						>
 							System
 						</span>
@@ -165,7 +172,8 @@ export function TriggerGroupRow({ projectId, group, onDelete }: TriggerGroupRowP
 				</div>
 			</div>
 
-			<div className="pl-9.5">
+			<div className="pl-9.5 flex flex-col gap-1">
+				<code className="text-[11px] text-muted font-mono truncate">{group.key}</code>
 				{group.description ? (
 					<p className="text-xs text-muted leading-relaxed line-clamp-2">{group.description}</p>
 				) : (

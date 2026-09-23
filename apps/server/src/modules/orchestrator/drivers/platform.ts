@@ -1,7 +1,7 @@
 import type { InfraProvider, ObservedNode } from "@fluxify/common/orchestrator";
 import type { PoolLimits } from "../desired";
-import type { ForwardEdit } from "../nodeClaims";
-import type { Claim, DesiredNode } from "../projection";
+import type { ForwardEdit, KeyedClaim } from "../nodeClaims";
+import type { DesiredNode } from "../projection";
 import type { NodeEvent } from "../records";
 import type { ScalingContext } from "../scaling";
 
@@ -43,7 +43,7 @@ export interface InfraDriver {
 	 * wrote — never from the resource.
 	 */
 	syncClaims?(
-		claims: readonly Claim[],
+		claims: readonly KeyedClaim[],
 		desired: readonly DesiredNode[],
 		observed: readonly ObservedNode[],
 		forward: ForwardEdit,

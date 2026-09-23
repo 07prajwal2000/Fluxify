@@ -22,6 +22,10 @@ import type { Claim, DesiredNode } from "./projection";
  * GitOps tool that owns the resource will keep putting its own values back,
  * which is what it is for.
  *
+ * Projects and groups are named by key, not id (#456): `project` is the
+ * project's slug and each group is `<project slug>/<group name>`. Neither can
+ * change once created, so a hand-written manifest keeps matching.
+ *
  * Only `replicas`, `maxReplicas` and `resources` can be edited here. A
  * resource is never created or deleted by hand to create or release a claim:
  * one per claim is created by the orchestrator, named after the claim id.
@@ -30,9 +34,10 @@ import type { Claim, DesiredNode } from "./projection";
 export const NODE_CLAIM_API = "fluxify.rest/v1alpha1";
 
 export interface NodeClaimSpec {
-	/** `*` is the catch-all, serving every project. */
+	/** The project's slug. `*` is the catch-all, serving every project. */
 	project: string;
 	type: NodeType;
+	/** `<project slug>/<group name>` each. */
 	groups: string[];
 	replicas: number;
 	/** Absent runs exactly `replicas`. */
@@ -74,11 +79,32 @@ export type ForwardEdit = (
 	edit: ClaimEdit,
 ) => Promise<{ ok: true } | { ok: false; message: string } | null>;
 
-export function nodeClaimSpec(claim: Claim): NodeClaimSpec {
+/** A claim row with its project and groups named by key. */
+export type KeyedClaim = Claim & { keys: { project: string; groups: string[] } };
+
+/**
+ * The keys a claim's spec names. A group id with no name is a deleted group
+ * the jsonb list still holds; it is left out, as the projection leaves it out.
+ */
+export function withKeys(
+	claim: Claim,
+	projectSlugs: ReadonlyMap<string, string>,
+	groupNames: ReadonlyMap<string, string>,
+): KeyedClaim {
+	const project = claim.projectId === null ? CATCH_ALL : projectSlugs.get(claim.projectId);
+	const groups = claim.groupIds.flatMap((id) => {
+		const name = groupNames.get(id);
+		return project && name ? [`${project}/${name}`] : [];
+	});
+	// A project deleted mid-pass: its claim is cascaded away with it.
+	return { ...claim, keys: { project: project ?? claim.projectId!, groups } };
+}
+
+export function nodeClaimSpec(claim: KeyedClaim): NodeClaimSpec {
 	return {
-		project: claim.projectId ?? CATCH_ALL,
+		project: claim.keys.project,
 		type: claim.type,
-		groups: claim.groupIds,
+		groups: claim.keys.groups,
 		replicas: claim.replicas,
 		...(claim.maxReplicas != null ? { maxReplicas: claim.maxReplicas } : {}),
 		resources: claimResources(claim.metadata),
@@ -92,7 +118,10 @@ const READ_ONLY = "is changed in the portal, not on the NodeClaim";
  * fields, or why it is refused without asking admin. An empty patch means the
  * spec already matches the row.
  */
-export function readEdit(raw: unknown, claim: Claim): { edit: ClaimEdit } | { refusal: string } {
+export function readEdit(
+	raw: unknown,
+	claim: KeyedClaim,
+): { edit: ClaimEdit } | { refusal: string } {
 	const spec = (raw ?? {}) as Partial<NodeClaimSpec>;
 	const row = nodeClaimSpec(claim);
 	if (spec.project !== row.project) return { refusal: `project ${READ_ONLY}` };
@@ -160,7 +189,7 @@ function withoutTime(status: NodeClaimStatus | undefined) {
 }
 
 /** Whether a resource's spec already says what the claim row does. */
-function matches(raw: unknown, claim: Claim): boolean {
+function matches(raw: unknown, claim: KeyedClaim): boolean {
 	return stable(raw) === stable(nodeClaimSpec(claim));
 }
 
@@ -171,7 +200,7 @@ function matches(raw: unknown, claim: Claim): boolean {
  */
 export async function syncNodeClaims(
 	api: KubeApi,
-	claims: readonly Claim[],
+	claims: readonly KeyedClaim[],
 	nodes: readonly DesiredNode[],
 	observed: readonly ObservedNode[],
 	forward: ForwardEdit,
@@ -229,7 +258,7 @@ function statusObject(name: string, status: NodeClaimStatus): KubeObject {
 
 async function syncOne(
 	api: KubeApi,
-	claim: Claim,
+	claim: KeyedClaim,
 	current: KubeObject | undefined,
 	counts: ReturnType<typeof claimCounts>,
 	forward: ForwardEdit,
