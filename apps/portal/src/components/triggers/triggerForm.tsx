@@ -125,10 +125,13 @@ export function GroupSelect({
 	groups,
 	value,
 	onChange,
+	incoming = 1,
 }: {
 	groups: TriggerGroup[];
 	value: string;
 	onChange: (value: string) => void;
+	/** How many triggers would join the picked group; a group they don't fit in can't be picked. */
+	incoming?: number;
 }) {
 	if (groups.length === 0) return null;
 	return (
@@ -146,24 +149,35 @@ export function GroupSelect({
 			<Description>Triggers in a group run on the same workers.</Description>
 			<Select.Popover>
 				<ListBox>
-					{groups.map((group) => (
-						<ListBox.Item key={group.id} id={group.id} textValue={group.name}>
-							<div className="flex w-full items-center justify-between gap-3">
-								<div className="flex items-center gap-2">
-									<span className="font-medium text-foreground">{group.name}</span>
-									{group.isDefault && (
-										<span className="rounded-full bg-surface-secondary px-1.5 py-0.5 text-[10px] font-medium text-muted">
-											Default
-										</span>
-									)}
+					{groups.map((group) => {
+						const full = group.triggerCount + incoming > group.maxTriggers;
+						return (
+							<ListBox.Item key={group.id} id={group.id} textValue={group.name} isDisabled={full}>
+								<div className="flex w-full items-center justify-between gap-3">
+									<div className="flex items-center gap-2">
+										<span className="font-medium text-foreground">{group.name}</span>
+										{group.isDefault && (
+											<span className="rounded-full bg-surface-secondary px-1.5 py-0.5 text-[10px] font-medium text-muted">
+												Default
+											</span>
+										)}
+										{full && (
+											<span
+												className="rounded-full bg-warning-soft px-1.5 py-0.5 text-[10px] font-medium text-warning"
+												title={`A group holds at most ${group.maxTriggers} triggers. Create another group.`}
+											>
+												Full
+											</span>
+										)}
+									</div>
+									<span className="text-xs text-muted">
+										{group.triggerCount}/{group.maxTriggers} triggers
+									</span>
 								</div>
-								<span className="text-xs text-muted">
-									{group.triggerCount} {group.triggerCount === 1 ? "trigger" : "triggers"}
-								</span>
-							</div>
-							<ListBox.ItemIndicator />
-						</ListBox.Item>
-					))}
+								<ListBox.ItemIndicator />
+							</ListBox.Item>
+						);
+					})}
 				</ListBox>
 			</Select.Popover>
 		</Select>

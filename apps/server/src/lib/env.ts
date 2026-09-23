@@ -57,6 +57,16 @@ export const serverEnvSchema = baseEnvSchema.extend({
 			"Hard cap on incoming request body size in kilobytes (default 8192 / 8 MB). Fluxify is an API server, not an upload gateway — raise it deliberately",
 		),
 
+	MAX_TRIGGERS_PER_GROUP: z
+		.string()
+		.optional()
+		.refine((val) => !val || (Number.isInteger(Number(val)) && Number(val) > 0), {
+			message: "MAX_TRIGGERS_PER_GROUP must be a positive integer",
+		})
+		.describe(
+			"How many triggers one trigger group may hold (default 5). Raise it when workers run on machines that can poll more queues",
+		),
+
 	WORKER_PROJECT_ID: z
 		.string()
 		.optional()

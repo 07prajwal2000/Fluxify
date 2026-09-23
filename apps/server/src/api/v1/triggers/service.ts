@@ -3,7 +3,7 @@ import { describeSchedule, nextFires, ScheduleError } from "@fluxify/common/sche
 import { generateID } from "@fluxify/lib";
 import { and, eq, ilike, inArray, type SQL, sql } from "drizzle-orm";
 import type { z } from "zod";
-import { db } from "../../../db";
+import { type DbTransactionType, db } from "../../../db";
 import { deleteArtifact, putArtifact } from "../../../db/natsKv";
 import { type AuthACL, triggersEntity } from "../../../db/schema";
 import { BadRequestError } from "../../../errors/badRequestError";
@@ -26,6 +26,7 @@ import {
 	type previewSchema,
 	type triggerSchema,
 } from "./dto";
+import { groupCapRefusal } from "./groupCap";
 import {
 	deleteTriggerRow,
 	ensureDefaultGroup,
@@ -35,6 +36,7 @@ import {
 	findWorkflow,
 	insertTrigger,
 	listTriggers,
+	lockGroupTriggerCount,
 	projectExists,
 	updateTriggerRow,
 	workflowNames,
@@ -75,6 +77,7 @@ export async function createTrigger(
 		const groupId = data.groupId
 			? await assertGroupInProject(data.groupId, data.projectId, tx)
 			: await ensureDefaultGroup(data.projectId, userId, tx);
+		await assertGroupHasRoom(groupId, 1, tx);
 
 		const id = await insertTrigger(
 			{
@@ -131,6 +134,8 @@ export async function updateTrigger(
 		const groupId = data.groupId
 			? await assertGroupInProject(data.groupId, existing.projectId, tx)
 			: undefined;
+		// staying put is never refused, so a group already over the cap stays editable
+		if (groupId && groupId !== existing.groupId) await assertGroupHasRoom(groupId, 1, tx);
 
 		if (data.workflowId) await assertWorkflowInProject(data.workflowId, existing.projectId, tx);
 		// enabling proves the credentials and the source still work, however long it sat off
@@ -323,6 +328,12 @@ async function assertWorkflowInProject(
 	if (!workflow) throw new NotFoundError(`Workflow ${workflowId} not found`);
 	if (workflow.projectId !== projectId)
 		throw new BadRequestError("Workflow belongs to a different project");
+}
+
+/** Refuses when `incoming` more triggers would take a group past its cap. */
+export async function assertGroupHasRoom(groupId: string, incoming: number, tx: DbTransactionType) {
+	const refusal = groupCapRefusal(await lockGroupTriggerCount(groupId, tx), incoming);
+	if (refusal) throw new BadRequestError(refusal);
 }
 
 export async function assertGroupInProject(

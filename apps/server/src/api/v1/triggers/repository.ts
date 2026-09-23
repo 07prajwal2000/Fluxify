@@ -78,6 +78,23 @@ export async function findGroupById(id: string, tx?: DbTransactionType) {
 	return row;
 }
 
+/**
+ * Locks the group row for the rest of the transaction and counts its triggers,
+ * so two writes racing into the same group cannot both see room for one more.
+ */
+export async function lockGroupTriggerCount(groupId: string, tx: DbTransactionType) {
+	await tx
+		.select({ id: triggerGroupsEntity.id })
+		.from(triggerGroupsEntity)
+		.where(eq(triggerGroupsEntity.id, groupId))
+		.for("update");
+	const [row] = await tx
+		.select({ total: count() })
+		.from(triggersEntity)
+		.where(eq(triggersEntity.groupId, groupId));
+	return row?.total ?? 0;
+}
+
 export async function insertGroup(
 	data: typeof triggerGroupsEntity.$inferInsert,
 	tx?: DbTransactionType,
