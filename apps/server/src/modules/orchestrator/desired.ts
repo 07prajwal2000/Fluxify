@@ -92,6 +92,7 @@ export async function readDesiredState(): Promise<DesiredState> {
 		ceilings: scalingCeilings(claims, pool.maxNodes, entitlement),
 		triggersByGroup: await internalTriggersByGroup(),
 		externalByGroup: await externalTriggersByGroup(),
+		licenseCapped: entitlement.maxReplicas !== null,
 	};
 	// A pinned node serving APIs is reached on its project's own host, so the
 	// host is part of what should be running: changing it replaces the node.

@@ -76,6 +76,7 @@ const ctx = (ceiling = 1) => ({
 		ceilings: new Map([[CLAIM, ceiling]]),
 		triggersByGroup: new Map(),
 		externalByGroup: new Map(),
+		licenseCapped: true,
 	},
 });
 

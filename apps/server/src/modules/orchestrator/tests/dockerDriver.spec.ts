@@ -80,6 +80,7 @@ describe("createDockerDriver", () => {
 				ceilings: new Map(),
 				triggersByGroup: new Map(),
 				externalByGroup: new Map(),
+				licenseCapped: true,
 			},
 		});
 
