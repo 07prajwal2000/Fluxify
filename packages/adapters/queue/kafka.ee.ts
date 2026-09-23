@@ -124,6 +124,12 @@ export class KafkaConnection extends QueueConnection {
 		this.stream.on("error", (error) => {
 			if (isTopicGone(error)) return this.gone(error);
 			logger.error(`[kafka] ${subscription.consumerGroup}: ${String(error)}`, "QUEUE.kafka");
+			// a deleted topic can also fail fetches by its id; that code shows up
+			// briefly for a brand-new topic too, so ask the broker before stopping
+			if (hasProtocolError(error, "UNKNOWN_TOPIC_ID"))
+				void ensureKafkaTopics(this.config, this.topics, false).catch((missing) => {
+					if (missing instanceof QueueSourceGoneError) this.gone(missing);
+				});
 		});
 	}
 
@@ -351,6 +357,7 @@ export async function testKafkaConnection(config: KafkaConfig) {
 	const admin = new Admin({ ...clientOptions(config), connectTimeout: 4_000, retries: 0 });
 	try {
 		await admin.listTopics();
+		await reachAdvertised(admin, config);
 		return { success: true, error: "" };
 	} catch (error) {
 		return { success: false, error: rootCause(error) };
@@ -373,6 +380,7 @@ export async function ensureKafkaTopics(config: KafkaConfig, topics: string[], c
 		} catch (error) {
 			throw new Error(`Could not reach the Kafka brokers to check the topics: ${rootCause(error)}`);
 		}
+		await reachAdvertised(admin, config);
 		const missing = [...new Set(topics)].filter((topic) => !existing.includes(topic));
 		if (missing.length === 0) return [];
 		if (!create)
@@ -390,6 +398,33 @@ export async function ensureKafkaTopics(config: KafkaConfig, topics: string[], c
 		return missing;
 	} finally {
 		await admin.close().catch(() => undefined);
+	}
+}
+
+/**
+ * The brokers hand back their own advertised addresses and every later read
+ * goes there. A broker in Docker often advertises a name only it can resolve,
+ * so the address typed in works and everything after it fails. Try those
+ * addresses once and say that plainly instead of a bare connect error.
+ */
+async function reachAdvertised(admin: Admin, config: KafkaConfig) {
+	const { brokers } = await admin.metadata({ topics: [] });
+	const advertised = [...brokers.values()].map(({ host, port }) => `${host}:${port}`);
+	const probe = new Admin({
+		...clientOptions(config),
+		bootstrapBrokers: advertised,
+		connectTimeout: 4_000,
+		retries: 0,
+	});
+	try {
+		await probe.listTopics();
+	} catch (error) {
+		throw new Error(
+			`Connected to ${config.brokers}, but Kafka tells clients to use ${advertised.join(", ")}, which this server cannot reach. ` +
+				`Fix KAFKA_ADVERTISED_LISTENERS on the broker so it advertises an address this server can reach. (${rootCause(error)})`,
+		);
+	} finally {
+		await probe.close().catch(() => undefined);
 	}
 }
 
