@@ -10,6 +10,7 @@ import {
 } from "@fluxify/common/orchestrator";
 import { initializeNats } from "../../db/nats";
 import { type Assignments, openAssignments } from "./assignments";
+import { forwardClaimEdit } from "./claimEdits";
 import { readDesiredState } from "./desired";
 import type { InfraDriver } from "./drivers/platform";
 import type { DesiredNode } from "./projection";
@@ -40,7 +41,11 @@ export interface Reconciler {
  * orchestrator that stopped reconciling stops reporting instead of leaving a
  * stale list behind.
  */
-async function publishObserved(observed: readonly ObservedNode[], provider: InfraProvider) {
+async function publishObserved(
+	observed: readonly ObservedNode[],
+	provider: InfraProvider,
+	missing: string[],
+) {
 	try {
 		const nc = await initializeNats();
 		const bucket = await openKvBucket<ObservedInventory>(nc, ORCHESTRATOR_LEASE_BUCKET, {
@@ -50,6 +55,7 @@ async function publishObserved(observed: readonly ObservedNode[], provider: Infr
 			at: new Date().toISOString(),
 			provider,
 			nodes: observed.map((container) => ({ ...container })),
+			missing,
 		});
 	} catch (error) {
 		// A pass that reconciled correctly must not be failed by a status write.
@@ -62,7 +68,7 @@ export async function createReconciler(driver: InfraDriver): Promise<Reconciler>
 
 	return {
 		async once() {
-			const { nodes, pool, scaling } = await readDesiredState();
+			const { nodes, pool, scaling, claims } = await readDesiredState();
 			const observed = await driver.observe();
 
 			// Written before anything is created, so a new node finds its record
@@ -78,7 +84,13 @@ export async function createReconciler(driver: InfraDriver): Promise<Reconciler>
 			// platform actually holds, including a node that failed to start.
 			const settled = await driver.observe();
 			await syncNodeRows(nodes, settled);
-			await publishObserved(settled, driver.provider);
+			try {
+				await driver.syncClaims?.(claims, nodes, settled, forwardClaimEdit);
+			} catch (error) {
+				// A second door into claims; the portal still works without it.
+				logger.warn(`could not sync claim resources: ${String(error)}`, "ORCHESTRATOR");
+			}
+			await publishObserved(settled, driver.provider, driver.missing?.() ?? []);
 		},
 	};
 }

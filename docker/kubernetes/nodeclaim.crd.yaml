@@ -1,0 +1,81 @@
+# A Fluxify claim as a Kubernetes resource, so `kubectl edit` and GitOps tools
+# can change it without the portal. The orchestrator creates one per claim,
+# named after the claim id; replicas, maxReplicas and resources can be edited.
+#
+# Optional: without it the orchestrator keeps working through the portal alone.
+# Install once per cluster:  kubectl apply -f nodeclaim.crd.yaml
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: nodeclaims.fluxify.rest
+spec:
+  group: fluxify.rest
+  scope: Namespaced
+  names:
+    kind: NodeClaim
+    plural: nodeclaims
+    singular: nodeclaim
+    # Karpenter has a NodeClaim too; this name is never ambiguous.
+    shortNames: [fluxclaim]
+  versions:
+    - name: v1alpha1
+      served: true
+      storage: true
+      subresources:
+        status: {}
+      additionalPrinterColumns:
+        - name: Type
+          type: string
+          jsonPath: .spec.type
+        - name: Replicas
+          type: integer
+          jsonPath: .spec.replicas
+        - name: Max
+          type: integer
+          jsonPath: .spec.maxReplicas
+        - name: Ready
+          type: integer
+          jsonPath: .status.ready
+        - name: Accepted
+          type: string
+          jsonPath: .status.conditions[?(@.type=="Accepted")].status
+        - name: Age
+          type: date
+          jsonPath: .metadata.creationTimestamp
+      schema:
+        openAPIV3Schema:
+          type: object
+          properties:
+            spec:
+              type: object
+              required: [project, type, groups, replicas, resources]
+              properties:
+                project:
+                  type: string
+                  description: Project id, or * for every project. Read-only.
+                type:
+                  type: string
+                  enum: [route, workflow, both]
+                  description: Read-only.
+                groups:
+                  type: array
+                  items:
+                    type: string
+                  description: Trigger group ids. Read-only.
+                replicas:
+                  type: integer
+                  description: Nodes to run, or the floor when maxReplicas is set.
+                maxReplicas:
+                  type: integer
+                  description: How far it may autoscale. Leave out to run exactly replicas.
+                resources:
+                  type: object
+                  required: [cpu, memoryMb]
+                  properties:
+                    cpu:
+                      type: number
+                    memoryMb:
+                      type: integer
+            status:
+              type: object
+              x-kubernetes-preserve-unknown-fields: true

@@ -41,6 +41,8 @@ export interface DesiredState {
 	nodes: DesiredNode[];
 	pool: PoolLimits;
 	scaling: ScalingContext;
+	/** The rows themselves, for a driver that mirrors them (#448). */
+	claims: Claim[];
 }
 
 export async function readDesiredState(): Promise<DesiredState> {
@@ -93,7 +95,7 @@ export async function readDesiredState(): Promise<DesiredState> {
 		const subdomain = node.projectId && node.type !== "workflow" && subdomains.get(node.projectId);
 		if (subdomain) node.host = projectHost(subdomain, domain);
 	}
-	return { nodes, pool, scaling };
+	return { nodes, pool, scaling, claims: claims as Claim[] };
 }
 
 async function internalTriggersByGroup(): Promise<Map<string, string[]>> {

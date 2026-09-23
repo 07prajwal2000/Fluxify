@@ -2,6 +2,14 @@ import { Chip } from "@fluxify/components";
 import type { OrchestrationStatus } from "@/services/orchestration";
 import { ago, providerWords } from "./copy";
 
+/** What each optional kind is for, and what installs it. */
+const INSTALLS: Record<string, string> = {
+	IngressRoute: "Traefik — routes each project's API traffic to its workers",
+	ScaledObject: "KEDA — scales workers up and down with load",
+	TriggerAuthentication: "KEDA — scales workers up and down with load",
+	NodeClaim: "the Fluxify NodeClaim definition — lets claims be changed with kubectl or GitOps",
+};
+
 /**
  * What is actually on the host, as the orchestrator last saw it.
  *
@@ -15,6 +23,7 @@ export function HostInventory({ status }: { status: OrchestrationStatus }) {
 	const words = providerWords(status.orchestrator.provider);
 	const { at, nodes } = status.host;
 	const unclaimed = nodes.filter((node) => !node.claimed).length;
+	const missing = [...new Set(status.host.missing.map((kind) => INSTALLS[kind] ?? kind))];
 
 	return (
 		<section className="overflow-hidden rounded-xl border border-border bg-background">
@@ -29,6 +38,17 @@ export function HostInventory({ status }: { status: OrchestrationStatus }) {
 					{at ? `Looked ${ago(at)}` : "Nothing reporting"}
 				</span>
 			</header>
+
+			{missing.length > 0 && (
+				<div className="border-b border-border px-4 py-3 text-xs text-warning">
+					<p>Not installed in this cluster, so the features they bring are off:</p>
+					<ul className="mt-1 list-disc pl-5">
+						{missing.map((what) => (
+							<li key={what}>{what}</li>
+						))}
+					</ul>
+				</div>
+			)}
 
 			{!at ? (
 				<p className="px-4 py-6 text-center text-xs text-muted">

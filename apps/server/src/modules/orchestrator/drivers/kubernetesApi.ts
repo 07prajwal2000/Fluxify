@@ -30,6 +30,9 @@ export const KINDS = {
 		plural: "triggerauthentications",
 		optional: true,
 	},
+	// Ours, but installed by the operator: a cluster-scoped CRD is not this
+	// process's to create (#448).
+	NodeClaim: { api: "apis/fluxify.rest/v1alpha1", plural: "nodeclaims", optional: true },
 } as const;
 
 export type Kind = keyof typeof KINDS;
@@ -43,6 +46,8 @@ export interface KubeObject {
 		annotations?: Record<string, string>;
 		/** Bumped by the API server on every spec change, whoever made it. */
 		generation?: number;
+		/** Sent back on an apply, it makes the write fail with 409 if the object changed since it was read. */
+		resourceVersion?: string;
 		deletionTimestamp?: string;
 	};
 	[field: string]: unknown;
@@ -184,6 +189,8 @@ export function createKubeApi(endpoint: KubeEndpoint = kubeEndpoint()) {
 				// it every observed object keys as `undefined/<name>` and is planned
 				// for removal on every pass.
 				const { items } = (await response.json()) as { items: KubeObject[] };
+				// Installed since it was found missing: stop reporting it.
+				missing.delete(kind);
 				return items.map((item) => ({ ...item, kind }));
 			} catch (error) {
 				if (notInstalled(kind, error)) return [];
@@ -211,6 +218,44 @@ export function createKubeApi(endpoint: KubeEndpoint = kubeEndpoint()) {
 				if (notInstalled(object.kind, error)) return null;
 				throw error;
 			}
+		},
+
+		/**
+		 * A JSON merge patch. Unlike an apply it removes a field set to null
+		 * whoever owns it, and a `metadata.resourceVersion` in the body makes it
+		 * fail with 409 if the object changed since it was read.
+		 */
+		async patch(kind: Kind, name: string, body: object): Promise<KubeObject> {
+			const response = await request(objectPath(endpoint.namespace, kind, name), {
+				method: "PATCH",
+				headers: { "content-type": "application/merge-patch+json" },
+				body: JSON.stringify(body),
+			});
+			return { ...((await response.json()) as KubeObject), kind };
+		},
+
+		/**
+		 * Writes an object's `status`, which the main endpoint ignores on a kind
+		 * with a status subresource. Null when the kind is not installed.
+		 */
+		async applyStatus(object: KubeObject): Promise<KubeObject | null> {
+			const path = objectPath(endpoint.namespace, object.kind, object.metadata.name);
+			try {
+				const response = await request(`${path}/status?fieldManager=${FIELD_MANAGER}&force=true`, {
+					method: "PATCH",
+					headers: { "content-type": "application/apply-patch+yaml" },
+					body: JSON.stringify(object),
+				});
+				return (await response.json()) as KubeObject;
+			} catch (error) {
+				if (notInstalled(object.kind, error)) return null;
+				throw error;
+			}
+		},
+
+		/** Kinds this cluster does not have, for the portal to say what to install. */
+		missing(): Kind[] {
+			return [...missing];
 		},
 
 		/** Deletes an object. Already gone is success: gone is what was asked for. */

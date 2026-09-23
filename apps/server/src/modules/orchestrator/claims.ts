@@ -54,6 +54,8 @@ export interface ClaimScope {
 	 * the group list and the type are refused from this surface.
 	 */
 	instance?: boolean;
+	/** Where the write came from when it was not the portal, kept in the history (#448). */
+	via?: "nodeclaim";
 }
 
 const SUBDOMAIN_KEY = "settings.routing.subdomain";
@@ -266,6 +268,7 @@ export async function updateClaim(claimId: string, patch: ClaimPatch, scope: Cla
 		projectId: current.projectId,
 		action: "claim_updated",
 		detail: {
+			...(scope.via ? { via: scope.via } : {}),
 			appliedLive: next.type !== current.type || patch.groupIds !== undefined,
 			scaledBy,
 			from: {

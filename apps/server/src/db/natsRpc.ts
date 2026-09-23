@@ -33,6 +33,7 @@ export const RPC_SUBJECTS = {
 	workflow: "fluxify.ops.workflow",
 	canvas: "fluxify.ops.canvas",
 	triggerFault: "fluxify.ops.trigger_fault",
+	claimEdit: "fluxify.ops.claim_edit",
 } as const;
 
 export type { RpcErrorCode, RpcResponse };

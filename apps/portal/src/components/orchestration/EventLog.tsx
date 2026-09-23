@@ -77,6 +77,8 @@ function EventDetail({ detail }: { detail: Record<string, unknown> | null }) {
 	if (!detail) return null;
 	const lines: string[] = [];
 
+	// A GitOps tool putting its values back shows up here, not in the portal's own edits.
+	if (detail.via === "nodeclaim") lines.push("Changed on the NodeClaim in Kubernetes");
 	if (typeof detail.scaledBy === "number" && detail.scaledBy !== 0)
 		lines.push(
 			detail.scaledBy > 0
