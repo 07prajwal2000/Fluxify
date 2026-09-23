@@ -134,11 +134,8 @@ secret:
     OTLP_AUTH_HEADER_VALUE: "Basic YWRtaW5AZXhhbXBsZS5jb206Q2hvb3NlLWEtU3RyMG5nLXBhc3N3b3Jk"
 ```
 
-The chart stores it in the `fluxify-env` Secret with Fluxify's other keys.
-
-> [!WARNING]
-> Pass this file on **every** `helm upgrade`, not just the first. An upgrade
-> without it removes the value from the Secret, and the logs stop arriving.
+The chart stores it in the `fluxify-env` Secret with Fluxify's other keys, and
+later upgrades keep it: pass this file again only when the password changes.
 
 Using a secret manager and [your own Secret](./helm-values#own-secret)
 instead? Add `OTLP_AUTH_HEADER_VALUE` to that Secret as one more key, and leave
