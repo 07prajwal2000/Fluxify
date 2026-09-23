@@ -75,6 +75,7 @@ const ctx = (ceiling = 1) => ({
 		policy: orchestrationScalingSchema.parse({}),
 		ceilings: new Map([[CLAIM, ceiling]]),
 		triggersByGroup: new Map(),
+		externalByGroup: new Map(),
 	},
 });
 

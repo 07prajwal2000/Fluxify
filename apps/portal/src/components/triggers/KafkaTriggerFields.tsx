@@ -19,6 +19,7 @@ export type KafkaValues = {
 	consumerGroup: string | null;
 	fromBeginning: boolean;
 	createTopics: boolean;
+	allowIdleConsumers: boolean;
 };
 
 export type DeliveryValues = {
@@ -89,6 +90,13 @@ export function KafkaSourceFields({
 				isDisabled={isEdit}
 				label="Read messages already in the topic"
 				description="Off: only messages sent after the trigger starts. Applies to the first start only."
+			/>
+
+			<Checkbox
+				isSelected={value.allowIdleConsumers}
+				onChange={(next) => set("allowIdleConsumers", next)}
+				label="Scale past the partition count"
+				description="Kubernetes only. Off: workers stop growing at the topics' partition count, and so do the other triggers in this group. On: extra workers may sit idle."
 			/>
 		</div>
 	);

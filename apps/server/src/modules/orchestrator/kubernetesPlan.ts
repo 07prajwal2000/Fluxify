@@ -1,7 +1,7 @@
 import type { ObservedNode } from "@fluxify/common/orchestrator";
 import { LABELS } from "./containerSpec";
 import type { KubeObject } from "./drivers/kubernetesApi";
-import { contentHash } from "./kubernetesSpec";
+import { contentHash, TRIGGER_LABEL } from "./kubernetesSpec";
 
 /**
  * What to send to the API server this pass, and what to read back off it.
@@ -24,7 +24,14 @@ export interface Applied {
 export const objectHash = (object: KubeObject) => contentHash({ object: JSON.stringify(object) });
 
 /** Deleted in this order: the autoscaler and the route go before what they point at. */
-const REMOVAL_ORDER = ["ScaledObject", "IngressRoute", "Service", "Deployment"];
+const REMOVAL_ORDER = [
+	"ScaledObject",
+	"TriggerAuthentication",
+	"IngressRoute",
+	"Service",
+	"Deployment",
+	"Secret",
+];
 
 export interface KubePlan {
 	apply: KubeObject[];
@@ -38,9 +45,9 @@ export interface KubePlan {
  * back. An autoscaler resizing the Deployment bumps it too; re-applying then
  * changes nothing, which is how the driver tells the two apart.
  *
- * An object is removed when it carries a claim label and nothing wants it,
- * unless its claim is in `keep`: a claim the license stopped allowing keeps
- * serving (§12), exactly as its containers would on Docker.
+ * An object is removed when it carries a claim or trigger label and nothing
+ * wants it, unless its claim is in `keep`: a claim the license stopped allowing
+ * keeps serving (§12), exactly as its containers would on Docker.
  */
 export function planKubernetes({
 	wanted,
@@ -69,8 +76,9 @@ export function planKubernetes({
 	const remove = observed
 		.filter((object) => {
 			const claimId = object.metadata.labels?.[LABELS.claim];
-			// No claim label: shared (the worker env Secret) or not ours to judge.
-			if (!claimId || keep.has(claimId)) return false;
+			// Neither label: shared (the worker env Secret) or not ours to judge.
+			if (!claimId && !object.metadata.labels?.[TRIGGER_LABEL]) return false;
+			if (claimId && keep.has(claimId)) return false;
 			return !wantedKeys.has(objectKey(object)) && !object.metadata.deletionTimestamp;
 		})
 		.sort((a, b) => REMOVAL_ORDER.indexOf(a.kind) - REMOVAL_ORDER.indexOf(b.kind));

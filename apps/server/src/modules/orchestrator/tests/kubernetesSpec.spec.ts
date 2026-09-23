@@ -7,11 +7,14 @@ import {
 	buildReplicas,
 	buildScaledObject,
 	buildService,
+	buildTriggerAuthentication,
 	buildTriggerSecret,
 	buildWorkerEnvSecret,
 	type ClaimWorkload,
 	claimWorkloads,
 	contentHash,
+	type ExternalTrigger,
+	externalSecretData,
 	type KubernetesSpecOptions,
 	WORKER_ENV_SECRET,
 } from "../kubernetesSpec";
@@ -44,6 +47,7 @@ const workload = (over: Partial<ClaimWorkload> = {}): ClaimWorkload => ({
 	min: 1,
 	max: 1,
 	triggerIds: [],
+	externalTriggers: [],
 	...over,
 });
 
@@ -264,5 +268,83 @@ describe("no string a user can write reaches the API server", () => {
 			buildScaledObject(workload({ triggerIds: ["a/b"] }), options, policy),
 		).toThrow("malformed trigger id");
 		expect(() => buildTriggerSecret("../../etc", {})).toThrow("malformed trigger id");
+	});
+});
+
+describe("triggers on an outside queue", () => {
+	const kafka: ExternalTrigger = {
+		id: TRIGGER_A,
+		type: "kafka",
+		brokers: "kafka:9092",
+		consumerGroup: `fluxify-${TRIGGER_A}`,
+		topics: ["orders"],
+		allowIdleConsumers: true,
+		tls: false,
+		sasl: "SCRAM-SHA-256",
+		username: "user",
+		password: "hunter2",
+	};
+	const sqs: ExternalTrigger = {
+		id: TRIGGER_B,
+		type: "sqs",
+		queueUrl: "https://sqs.eu-west-1.amazonaws.com/1/orders",
+		region: "eu-west-1",
+	};
+	const nats: ExternalTrigger = {
+		id: TRIGGER_B,
+		type: "nats",
+		monitoringEndpoint: "https://nats.example.com:8222/",
+		account: "$G",
+		stream: "ORDERS",
+		consumer: "orders",
+	};
+	const scaled = (externalTriggers: ExternalTrigger[]) =>
+		buildScaledObject(workload({ externalTriggers }), options, policy, "abc") as {
+			metadata: { annotations?: Record<string, string> };
+			spec: { triggers: { type: string; metadata: Record<string, string> }[] };
+		};
+
+	it("adds a block per trigger, next to the internal ones, with no credential in it", () => {
+		const object = scaled([kafka]);
+		const [block] = object.spec.triggers;
+		expect(block).toMatchObject({
+			type: "kafka",
+			metadata: { topic: "orders", lagThreshold: "10", allowIdleConsumers: "true" },
+			authenticationRef: { name: `fluxify-trigger-${TRIGGER_A}` },
+		});
+		expect(JSON.stringify(object)).not.toContain("hunter2");
+		expect(object.metadata.annotations?.["fluxify.trigger-secrets-hash"]).toBe("abc");
+	});
+
+	it("names no topic when a trigger reads several, so KEDA sums them", () => {
+		expect(scaled([{ ...kafka, topics: ["a", "b"] }]).spec.triggers[0]!.metadata.topic).toBeUndefined();
+	});
+
+	it("keeps Kafka credentials in the Secret, under the names KEDA reads", () => {
+		expect(externalSecretData(kafka)).toEqual({
+			sasl: "scram_sha256",
+			tls: "disable",
+			username: "user",
+			password: "hunter2",
+		});
+	});
+
+	it("gives SQS without keys KEDA's own AWS identity, and no Secret", () => {
+		expect(externalSecretData(sqs)).toBeNull();
+		expect(buildTriggerAuthentication(sqs, null)?.spec).toEqual({
+			podIdentity: { provider: "aws", identityOwner: "keda" },
+		});
+	});
+
+	it("reads an outside NATS through its monitoring endpoint, with no authentication", () => {
+		expect(scaled([nats]).spec.triggers[0]).toMatchObject({
+			type: "nats-jetstream",
+			metadata: { natsServerMonitoringEndpoint: "nats.example.com:8222", useHttps: "true" },
+		});
+		expect(buildTriggerAuthentication(nats, null)).toBeNull();
+	});
+
+	it("refuses a malformed trigger id", () => {
+		expect(() => scaled([{ ...kafka, id: "a/b" }])).toThrow();
 	});
 });

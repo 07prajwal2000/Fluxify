@@ -149,6 +149,26 @@ export function NatsForm({ projectId, name, onName, config, setField }: Connecto
 						placeholder="fluxify.dlq"
 					/>
 				</div>
+				<div className="pt-3">
+					<AppConfigSelector
+						projectId={projectId}
+						value={field("monitoringEndpoint")}
+						onChange={(v) => setField("monitoringEndpoint", v)}
+						label="Monitoring endpoint"
+						description="Kubernetes only. The server's HTTP monitoring (host:port), as the cluster reaches it. Leave empty and workers do not scale on this server's backlog."
+						placeholder="nats.example.com:8222"
+					/>
+				</div>
+				<div className="pt-3">
+					<AppConfigSelector
+						projectId={projectId}
+						value={field("account")}
+						onChange={(v) => setField("account", v)}
+						label="Account"
+						description="The NATS account the streams live in, for the monitoring endpoint. Leave empty for the default ($G)."
+						placeholder="$G"
+					/>
+				</div>
 			</details>
 		</div>
 	);

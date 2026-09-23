@@ -1,12 +1,25 @@
+import { logger } from "@fluxify/common";
 import { groupPair } from "@fluxify/common/orchestrator";
-import { and, eq, isNotNull } from "drizzle-orm";
+import { and, eq, inArray, isNotNull } from "drizzle-orm";
+import {
+	kafkaVariantConfigSchema,
+	natsVariantConfigSchema,
+	sqsVariantConfigSchema,
+} from "../../api/v1/integrations/schemas";
+import { kafkaSourceSchema, natsSourceSchema, sqsSourceSchema } from "../../api/v1/triggers/dto";
 import { db } from "../../db";
-import { nodeClaimsEntity, triggerGroupsEntity, triggersEntity } from "../../db/schema";
-import { nodeEntitlement } from "../../lib/edition";
+import {
+	integrationsEntity,
+	nodeClaimsEntity,
+	triggerGroupsEntity,
+	triggersEntity,
+} from "../../db/schema";
+import { canRunConnectors, nodeEntitlement } from "../../lib/edition";
 import { projectHost } from "../../lib/hosting";
 import { orchestrationScalingSchema } from "../../lib/instance-settings/schemas";
 import { baseDomain, getSetting } from "../../loaders/instanceSettingsLoader";
 import { projectSubdomains } from "./claims";
+import type { ExternalTrigger } from "./kubernetesSpec";
 import { type Claim, type DesiredNode, projectDesiredNodes } from "./projection";
 import { type ScalingContext, scalingCeilings } from "./scaling";
 
@@ -70,6 +83,7 @@ export async function readDesiredState(): Promise<DesiredState> {
 		policy: orchestrationScalingSchema.parse(getSetting("orchestration_scaling") ?? {}),
 		ceilings: scalingCeilings(claims, pool.maxNodes, entitlement),
 		triggersByGroup: await internalTriggersByGroup(),
+		externalByGroup: await externalTriggersByGroup(),
 	};
 	// A pinned node serving APIs is reached on its project's own host, so the
 	// host is part of what should be running: changing it replaces the node.
@@ -96,4 +110,115 @@ async function internalTriggersByGroup(): Promise<Map<string, string[]>> {
 	const byGroup = new Map<string, string[]>();
 	for (const row of rows) byGroup.set(row.groupId, [...(byGroup.get(row.groupId) ?? []), row.id]);
 	return byGroup;
+}
+
+/**
+ * Active triggers on an outside queue with a workflow attached, with the
+ * credentials KEDA needs to watch that queue, read and decrypted every pass.
+ *
+ * A trigger whose integration cannot be read gets no scaler, and the pass goes
+ * on: one broken integration must not stop every claim from being reconciled.
+ * An edition that no longer runs connectors gets none at all.
+ */
+async function externalTriggersByGroup(): Promise<Map<string, ExternalTrigger[]>> {
+	const byGroup = new Map<string, ExternalTrigger[]>();
+	if (!canRunConnectors()) return byGroup;
+	const rows = await db
+		.select({
+			id: triggersEntity.id,
+			groupId: triggersEntity.groupId,
+			type: triggersEntity.type,
+			projectId: triggersEntity.projectId,
+			source: triggersEntity.source,
+			config: integrationsEntity.config,
+		})
+		.from(triggersEntity)
+		.innerJoin(integrationsEntity, eq(triggersEntity.integrationId, integrationsEntity.id))
+		.where(
+			and(
+				inArray(triggersEntity.type, ["kafka", "sqs", "nats"]),
+				eq(triggersEntity.active, true),
+				isNotNull(triggersEntity.workflowId),
+			),
+		);
+	if (rows.length === 0) return byGroup;
+
+	// Loaded only when needed: it brings every integration adapter along.
+	const { resolveQueueConfig } = await import("../../api/v1/integrations/test-connection/service");
+	for (const row of rows) {
+		try {
+			const config = await resolveQueueConfig(
+				row.projectId,
+				(row.config ?? {}) as Record<string, unknown>,
+			);
+			const trigger = externalTrigger(row.id, row.type, row.source, config);
+			if (trigger) byGroup.set(row.groupId, [...(byGroup.get(row.groupId) ?? []), trigger]);
+		} catch {
+			// Never the error itself: a parse failure can quote the credentials.
+			logger.warn(
+				`trigger ${row.id}: its integration cannot be read, so it does not scale its claim`,
+				"ORCHESTRATOR",
+			);
+		}
+	}
+	return byGroup;
+}
+
+function externalTrigger(
+	id: string,
+	type: string,
+	rawSource: unknown,
+	config: Record<string, unknown>,
+): ExternalTrigger | null {
+	// The name the worker joins under when the user named none (`queueRuntime.ee.ts`).
+	const generated = `fluxify-${id}`;
+	if (type === "kafka") {
+		const kafka = kafkaVariantConfigSchema.parse(config);
+		const source = kafkaSourceSchema.parse(rawSource);
+		return {
+			id,
+			type,
+			brokers: kafka.brokers,
+			consumerGroup: source.consumerGroup || generated,
+			topics: source.topics,
+			allowIdleConsumers: Boolean(source.allowIdleConsumers),
+			tls: kafka.ssl,
+			sasl: kafka.saslMechanism,
+			username: kafka.username,
+			password: kafka.password,
+		};
+	}
+	if (type === "sqs") {
+		const sqs = sqsVariantConfigSchema.parse(config);
+		const source = sqsSourceSchema.parse(rawSource);
+		const { accessKeyId, secretAccessKey, sessionToken } = sqs;
+		return {
+			id,
+			type,
+			queueUrl: source.queueUrl,
+			region: sqs.region,
+			endpoint: sqs.endpoint || undefined,
+			// Blank keys: the connection test passed with the server's own AWS
+			// identity when the trigger was saved, so KEDA uses its own.
+			keys:
+				accessKeyId && secretAccessKey
+					? { accessKeyId, secretAccessKey, sessionToken: sessionToken || undefined }
+					: undefined,
+		};
+	}
+	if (type === "nats") {
+		const nats = natsVariantConfigSchema.parse(config);
+		// KEDA reads NATS over its HTTP monitoring port; without one, nothing to scale on.
+		if (!nats.monitoringEndpoint) return null;
+		const source = natsSourceSchema.parse(rawSource);
+		return {
+			id,
+			type,
+			monitoringEndpoint: nats.monitoringEndpoint,
+			account: nats.account || "$G",
+			stream: source.stream,
+			consumer: source.consumerGroup || generated,
+		};
+	}
+	return null;
 }

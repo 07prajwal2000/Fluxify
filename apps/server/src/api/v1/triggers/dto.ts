@@ -65,6 +65,11 @@ export const kafkaSourceSchema = z.object({
 	fromBeginning: z.boolean().optional(),
 	/** Create missing topics on save; off, a missing topic is a 400. */
 	createTopics: z.boolean().optional(),
+	/**
+	 * On Kubernetes, let the claim grow past the topics' partition count. Off,
+	 * KEDA stops there, and holds back every other trigger in the group too.
+	 */
+	allowIdleConsumers: z.boolean().optional(),
 });
 
 /** NATS stream names cannot hold whitespace, `.`, `*`, `>`, or path separators. */
