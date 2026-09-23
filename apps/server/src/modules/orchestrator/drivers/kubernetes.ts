@@ -13,9 +13,13 @@ import {
 	buildReplicas,
 	buildScaledObject,
 	buildService,
+	buildTriggerAuthentication,
+	buildTriggerSecret,
 	buildWorkerEnvSecret,
 	type ClaimWorkload,
 	claimWorkloads,
+	contentHash,
+	externalSecretData,
 	type KubernetesSpecOptions,
 	REPLICAS_MANAGER,
 	workloadName,
@@ -45,7 +49,14 @@ export interface KubernetesDriverOptions extends KubernetesSpecOptions {
 }
 
 const SELECTOR = `${MANAGED_LABEL}=${MANAGED_BY}`;
-const OWNED: Kind[] = ["Deployment", "Service", "IngressRoute", "ScaledObject", "Secret"];
+const OWNED: Kind[] = [
+	"Deployment",
+	"Service",
+	"IngressRoute",
+	"ScaledObject",
+	"TriggerAuthentication",
+	"Secret",
+];
 
 /** Worst first, so one event per claim says the most important thing that happened. */
 const ACTIONS = ["created", "updated", "restored", "scaled"] as const;
@@ -65,12 +76,22 @@ export function createKubernetesDriver(
 	// restart. Re-probe it every few minutes if installing one live matters.
 	const absent = new Set<Kind>();
 
-	function objectsFor(workload: ClaimWorkload, scaling: ScalingContext) {
+	function objectsFor(
+		workload: ClaimWorkload,
+		scaling: ScalingContext,
+		credentialHashes: ReadonlyMap<string, string>,
+	) {
+		const external = workload.externalTriggers;
+		const secretsHash = external.length
+			? contentHash(
+					Object.fromEntries(external.map((t) => [t.id, credentialHashes.get(t.id) ?? ""])),
+				)
+			: undefined;
 		return [
 			buildDeployment(workload, options, options.passthroughEnv),
 			buildService(workload, options),
 			buildIngressRoute(workload, options),
-			buildScaledObject(workload, options, scaling.policy),
+			buildScaledObject(workload, options, scaling.policy, secretsHash),
 		].filter((object): object is KubeObject => object !== null);
 	}
 
@@ -100,12 +121,38 @@ export function createKubernetesDriver(
 				});
 			};
 
-			const workloads = claimWorkloads(desired, scaling.ceilings, scaling.triggersByGroup);
+			const workloads = claimWorkloads(
+				desired,
+				scaling.ceilings,
+				scaling.triggersByGroup,
+				scaling.externalByGroup,
+			);
 			const wanted: KubeObject[] = [buildWorkerEnvSecret(options.passthroughEnv)];
+
+			// Every outside-queue trigger's credentials, written each pass from the
+			// database, whichever claim runs it. A trigger that is gone loses them
+			// on the next pass, through its trigger label.
+			const credentialHashes = new Map<string, string>();
+			for (const trigger of [...scaling.externalByGroup.values()].flat()) {
+				try {
+					const data = externalSecretData(trigger);
+					const objects = [
+						data ? buildTriggerSecret(trigger.id, data) : null,
+						buildTriggerAuthentication(trigger, data),
+					];
+					for (const object of objects) {
+						if (object && !absent.has(object.kind)) wanted.push(object);
+					}
+					credentialHashes.set(trigger.id, contentHash(data ?? {}));
+				} catch (error) {
+					logger.error(`trigger ${trigger.id}: ${String(error)}`, "ORCHESTRATOR.kubernetes");
+				}
+			}
+
 			const claimOf = new Map<string, ClaimWorkload>();
 			for (const workload of workloads) {
 				try {
-					for (const object of objectsFor(workload, scaling)) {
+					for (const object of objectsFor(workload, scaling, credentialHashes)) {
 						if (absent.has(object.kind)) continue;
 						wanted.push(object);
 						claimOf.set(objectKey(object), workload);

@@ -41,6 +41,29 @@ services:
       - 8222:8222 # monitoring
     networks:
       - default
+  kafka:
+    # Opt-in (`docker compose --profile kafka up -d kafka`): a single broker for
+    # trying Kafka triggers. Advertised as host.k3d.internal so a local k3d
+    # cluster reaches it too; map that name to 127.0.0.1 in your hosts file.
+    image: apache/kafka-native:4.1.0
+    container_name: kafka
+    profiles: ["kafka"]
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://host.k3d.internal:9092
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@localhost:9093
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_NUM_PARTITIONS: 3
+    ports:
+      - 9092:9092
+    networks:
+      - default
   caddy:
     image: caddy:2.6.4-alpine
     container_name: caddy

@@ -69,6 +69,7 @@ export function TriggerWizard({
 		consumerGroup?: string;
 		fromBeginning?: boolean;
 		createTopics?: boolean;
+		allowIdleConsumers?: boolean;
 		stream?: string;
 		filterSubjects?: string[];
 		queueUrl?: string;
@@ -82,6 +83,7 @@ export function TriggerWizard({
 		consumerGroup: source.consumerGroup ?? null,
 		fromBeginning: Boolean(source.fromBeginning),
 		createTopics: Boolean(source.createTopics),
+		allowIdleConsumers: Boolean(source.allowIdleConsumers),
 	});
 	const [nats, setNats] = useState({
 		integrationId,
@@ -134,6 +136,7 @@ export function TriggerWizard({
 				...(kafka.consumerGroup ? { consumerGroup: kafka.consumerGroup.trim() } : {}),
 				fromBeginning: kafka.fromBeginning,
 				createTopics: kafka.createTopics,
+				allowIdleConsumers: kafka.allowIdleConsumers,
 			},
 		},
 		nats: {

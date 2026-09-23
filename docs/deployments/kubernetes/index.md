@@ -159,6 +159,59 @@ The maximum is a ceiling, never a promise. A claim never grows past what your
 node pool and license leave room for, however high its maximum is set:
 workers beyond the license would only be refused when they start.
 
+### Triggers on an outside queue {#external-queues}
+
+A workflow claim also grows on the triggers that read an outside queue —
+Kafka, Amazon SQS, or a NATS server of your own. KEDA reads each queue itself,
+next to the claim's other triggers, and the busiest one decides. Each worker
+takes on about *queued runs per pod* waiting messages, as with any trigger.
+
+| Trigger | Grows on | Needs |
+| :--- | :--- | :--- |
+| **Kafka** | The trigger's consumer group lag on its topics. | KEDA reaches the brokers. |
+| **SQS** | Messages waiting in the queue. | Keys on the integration, or an AWS identity for KEDA itself (below). |
+| **NATS** (your own server) | The trigger's pending messages on its stream. | The integration's *Monitoring endpoint*. |
+
+The connection details go into one Secret per trigger,
+`fluxify-trigger-<trigger id>`, and a KEDA `TriggerAuthentication` of the same
+name points at it. No credential is ever written into a ScaledObject.
+Changing an integration's credentials reaches KEDA within one orchestrator
+pass, without restarting anything. A trigger whose integration cannot be read
+does not scale its claim, and everything else carries on.
+
+The orchestrator's role needs `triggerauthentications` in the `keda.sh` group
+alongside `scaledobjects`.
+
+#### Kafka: scaling past the partition count {#allow-idle-consumers}
+
+By default KEDA never runs more workers than the topics have partitions,
+because a worker without a partition has nothing to read.
+
+A claim takes the highest number any of its triggers asks for. So a Kafka
+trigger held at its partition count holds back **every other trigger in the
+same group**: they can have a backlog and still get no more workers.
+
+Turn on **Scale past the partition count** on the Kafka trigger to lift that
+limit. The extra workers read nothing from Kafka, but they serve the group's
+other triggers. If you put more triggers in a group that already holds a Kafka
+trigger, turn it on, or scaling stops at the partition count.
+
+#### SQS without keys
+
+An SQS integration with empty keys reads with the server's own AWS identity.
+KEDA cannot borrow that, so it uses **its own**: give KEDA's operator an AWS
+identity that may read the queue (for example with IRSA on EKS). Without one,
+KEDA reports an authentication error for that scaler and the claim does not
+grow on that queue.
+
+#### A NATS server of your own
+
+KEDA reads NATS through its HTTP monitoring port, not the client port. Set the
+integration's **Monitoring endpoint** to that port as KEDA reaches it
+(`host:port`, or an `https://` URL), and **Account** if your streams are not in
+the default account. Left empty, the trigger runs as usual but does not scale
+its claim.
+
 ### The scaling policy {#scaling-policy}
 
 How quickly claims grow and shrink is one policy for the whole instance, set
@@ -176,7 +229,8 @@ the orchestrator drives a cluster):
 - **KEDA** is required for any growth at all. Without it, every claim runs at
   its minimum.
 - **Scaling on waiting runs** also needs `K8S_NATS_MONITORING_ENDPOINT`.
-  Without it, workflow claims fall back to CPU and memory.
+  Without it, workflow claims fall back to CPU and memory — unless they run
+  [triggers on an outside queue](#external-queues), which scale on their own.
 - A claim that serves **every project** always scales on CPU and memory. To
   scale on its queues it would have to watch every trigger in the instance.
   Treat it as a starting point; give a busy project its own claim.

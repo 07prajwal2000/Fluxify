@@ -79,6 +79,7 @@ describe("createDockerDriver", () => {
 				policy: orchestrationScalingSchema.parse({}),
 				ceilings: new Map(),
 				triggersByGroup: new Map(),
+				externalByGroup: new Map(),
 			},
 		});
 

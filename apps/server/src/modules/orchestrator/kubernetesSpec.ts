@@ -56,7 +56,43 @@ export interface ClaimWorkload extends Workload {
 	max: number;
 	/** Internal triggers whose backlog this claim scales on. Empty: it scales on cpu and memory. */
 	triggerIds: string[];
+	/** Triggers reading an outside queue, each scaled on by KEDA's own scaler for it. */
+	externalTriggers: ExternalTrigger[];
 }
+
+/**
+ * A trigger that reads an outside queue, as much as KEDA needs to watch it.
+ * Credentials here go only into the trigger's Secret, never into a block.
+ */
+export type ExternalTrigger = { id: string } & (
+	| {
+			type: "kafka";
+			brokers: string;
+			consumerGroup: string;
+			topics: string[];
+			allowIdleConsumers: boolean;
+			tls: boolean;
+			sasl: "none" | "PLAIN" | "SCRAM-SHA-256" | "SCRAM-SHA-512";
+			username?: string;
+			password?: string;
+	  }
+	| {
+			type: "sqs";
+			queueUrl: string;
+			region: string;
+			endpoint?: string;
+			/** Absent: KEDA reads the queue with its own AWS identity. */
+			keys?: { accessKeyId: string; secretAccessKey: string; sessionToken?: string };
+	  }
+	| {
+			type: "nats";
+			/** The outside server's HTTP monitoring, `host:port` or a URL, as reachable from KEDA. */
+			monitoringEndpoint: string;
+			account: string;
+			stream: string;
+			consumer: string;
+	  }
+);
 
 /** Shared by every pod: settings copied from the orchestrator, credentials among them. */
 export const WORKER_ENV_SECRET = "fluxify-worker-env";
@@ -64,6 +100,8 @@ export const WORKER_ENV_SECRET = "fluxify-worker-env";
 /** 51 characters, so a pod name derived from it stays within a node id's 100. */
 export const workloadName = (claimId: string) => `fluxify-worker-${claimId}`;
 export const triggerSecretName = (triggerId: string) => `fluxify-trigger-${triggerId}`;
+/** Marks the objects that belong to one trigger rather than to a claim. */
+export const TRIGGER_LABEL = "fluxify.trigger-id";
 
 const ANNOTATIONS = {
 	host: "fluxify.host",
@@ -93,6 +131,7 @@ export function claimWorkloads(
 	desired: readonly DesiredNode[],
 	ceilings: ReadonlyMap<string, number>,
 	triggersByGroup: ReadonlyMap<string, readonly string[]>,
+	externalByGroup: ReadonlyMap<string, readonly ExternalTrigger[]> = new Map(),
 ): ClaimWorkload[] {
 	const byClaim = new Map<string, DesiredNode[]>();
 	for (const node of desired) {
@@ -121,6 +160,9 @@ export function claimWorkloads(
 			min: placeable,
 			max,
 			triggerIds: scalesOnBacklog ? groupIds.flatMap((id) => triggersByGroup.get(id) ?? []) : [],
+			externalTriggers: scalesOnBacklog
+				? groupIds.flatMap((id) => externalByGroup.get(id) ?? [])
+				: [],
 		});
 	}
 	return workloads;
@@ -281,8 +323,9 @@ export function buildIngressRoute(
  * triggers' backlog — KEDA takes whichever asks for most, so nothing adds them
  * up first. Everything else scales on cpu and memory.
  *
- * `secretsHash` covers the credentials of the triggers it reads, once scalers
- * for external queues exist: KEDA does not notice a Secret change on its own.
+ * Triggers on an outside queue add KEDA's own scaler for that queue, next to
+ * the internal ones. `secretsHash` covers their credentials: KEDA does not
+ * notice a Secret change on its own, and a new annotation rebuilds the scalers.
  */
 export function buildScaledObject(
 	workload: ClaimWorkload,
@@ -291,10 +334,12 @@ export function buildScaledObject(
 	secretsHash?: string,
 ): KubeObject {
 	assertWellFormed(workload);
-	const badTrigger = workload.triggerIds.find((id) => !isWellFormedId(id));
+	const badTrigger = [...workload.triggerIds, ...workload.externalTriggers.map((t) => t.id)].find(
+		(id) => !isWellFormedId(id),
+	);
 	if (badTrigger) throw new Error(`refusing a malformed trigger id: ${badTrigger}`);
 
-	const backlog = options.natsMonitoringEndpoint
+	const backlog: object[] = options.natsMonitoringEndpoint
 		? workload.triggerIds.map((triggerId) => ({
 				type: "nats-jetstream",
 				metadata: {
@@ -307,6 +352,7 @@ export function buildScaledObject(
 				},
 			}))
 		: [];
+	backlog.push(...workload.externalTriggers.map((trigger) => externalScaler(trigger, policy)));
 	const load = [
 		{
 			type: "cpu",
@@ -376,5 +422,116 @@ export function buildWorkerEnvSecret(env: Record<string, string>): KubeObject {
  */
 export function buildTriggerSecret(triggerId: string, data: Record<string, string>): KubeObject {
 	if (!isWellFormedId(triggerId)) throw new Error(`refusing a malformed trigger id: ${triggerId}`);
-	return secret(triggerSecretName(triggerId), { "fluxify.trigger-id": triggerId }, data);
+	return secret(triggerSecretName(triggerId), { [TRIGGER_LABEL]: triggerId }, data);
+}
+
+/** Where KEDA's HTTP call to a NATS monitoring endpoint goes: `host:port`, and whether over https. */
+function monitoring(endpoint: string) {
+	const https = endpoint.startsWith("https://");
+	return { host: endpoint.replace(/^https?:\/\//, "").replace(/\/$/, ""), https };
+}
+
+/** The ScaledObject block for one outside queue. Nothing secret: that is in its authentication. */
+export function externalScaler(trigger: ExternalTrigger, policy: ScalingPolicy) {
+	const threshold = String(policy.queuedPerNode);
+	const authenticationRef = { name: triggerSecretName(trigger.id) };
+	switch (trigger.type) {
+		case "kafka":
+			return {
+				type: "kafka",
+				metadata: {
+					bootstrapServers: trigger.brokers,
+					consumerGroup: trigger.consumerGroup,
+					// One topic is named; with several, KEDA sums every topic the group reads.
+					...(trigger.topics.length === 1 ? { topic: trigger.topics[0]! } : {}),
+					lagThreshold: threshold,
+					allowIdleConsumers: String(trigger.allowIdleConsumers),
+				},
+				authenticationRef,
+			};
+		case "sqs":
+			return {
+				type: "aws-sqs-queue",
+				metadata: {
+					queueURL: trigger.queueUrl,
+					queueLength: threshold,
+					awsRegion: trigger.region,
+					...(trigger.endpoint ? { awsEndpoint: trigger.endpoint } : {}),
+				},
+				authenticationRef,
+			};
+		case "nats": {
+			const { host, https } = monitoring(trigger.monitoringEndpoint);
+			return {
+				type: "nats-jetstream",
+				metadata: {
+					natsServerMonitoringEndpoint: host,
+					account: trigger.account,
+					stream: trigger.stream,
+					consumer: trigger.consumer,
+					lagThreshold: threshold,
+					...(https ? { useHttps: "true" } : {}),
+				},
+			};
+		}
+	}
+}
+
+/** What an outside queue's credentials become: the Secret's keys, named as KEDA reads them. */
+export function externalSecretData(trigger: ExternalTrigger): Record<string, string> | null {
+	if (trigger.type === "kafka") {
+		const sasl = {
+			none: "none",
+			PLAIN: "plaintext",
+			"SCRAM-SHA-256": "scram_sha256",
+			"SCRAM-SHA-512": "scram_sha512",
+		}[trigger.sasl];
+		return {
+			sasl,
+			tls: trigger.tls ? "enable" : "disable",
+			...(trigger.username ? { username: trigger.username } : {}),
+			...(trigger.password ? { password: trigger.password } : {}),
+		};
+	}
+	if (trigger.type === "sqs" && trigger.keys) {
+		return {
+			awsAccessKeyID: trigger.keys.accessKeyId,
+			awsSecretAccessKey: trigger.keys.secretAccessKey,
+			...(trigger.keys.sessionToken ? { awsSessionToken: trigger.keys.sessionToken } : {}),
+		};
+	}
+	// NATS's scaler reads only the monitoring endpoint; SQS without keys uses KEDA's identity.
+	return null;
+}
+
+/**
+ * How KEDA authenticates one trigger's scaler: every key of its Secret, or,
+ * for SQS without keys, KEDA's own AWS identity. Named like the Secret, so a
+ * block finds it without a lookup. NATS needs none.
+ */
+export function buildTriggerAuthentication(
+	trigger: ExternalTrigger,
+	data: Record<string, string> | null,
+): KubeObject | null {
+	if (!isWellFormedId(trigger.id))
+		throw new Error(`refusing a malformed trigger id: ${trigger.id}`);
+	if (trigger.type === "nats") return null;
+	const spec = data
+		? {
+				secretTargetRef: Object.keys(data).map((key) => ({
+					parameter: key,
+					name: triggerSecretName(trigger.id),
+					key,
+				})),
+			}
+		: { podIdentity: { provider: "aws", identityOwner: "keda" } };
+	return {
+		apiVersion: "keda.sh/v1alpha1",
+		kind: "TriggerAuthentication",
+		metadata: {
+			name: triggerSecretName(trigger.id),
+			labels: { [MANAGED_LABEL]: MANAGED_BY, [TRIGGER_LABEL]: trigger.id },
+		},
+		spec,
+	};
 }

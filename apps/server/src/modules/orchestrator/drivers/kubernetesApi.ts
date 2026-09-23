@@ -25,6 +25,11 @@ export const KINDS = {
 	// Installed by Traefik and KEDA, so possibly absent from a given cluster.
 	IngressRoute: { api: "apis/traefik.io/v1alpha1", plural: "ingressroutes", optional: true },
 	ScaledObject: { api: "apis/keda.sh/v1alpha1", plural: "scaledobjects", optional: true },
+	TriggerAuthentication: {
+		api: "apis/keda.sh/v1alpha1",
+		plural: "triggerauthentications",
+		optional: true,
+	},
 } as const;
 
 export type Kind = keyof typeof KINDS;

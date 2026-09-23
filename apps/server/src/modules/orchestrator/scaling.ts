@@ -1,5 +1,6 @@
 import type { NodeEntitlement } from "@fluxify/common/orchestrator";
 import type { ScalingPolicy } from "../../lib/instance-settings/schemas";
+import type { ExternalTrigger } from "./kubernetesSpec";
 import { byAge, type Claim } from "./projection";
 
 /**
@@ -22,6 +23,8 @@ export interface ScalingContext {
 	 * with a consumer on the trigger stream, whose backlog is a scaling signal.
 	 */
 	triggersByGroup: ReadonlyMap<string, readonly string[]>;
+	/** Group id → its active triggers on an outside queue that KEDA can watch. */
+	externalByGroup: ReadonlyMap<string, readonly ExternalTrigger[]>;
 }
 
 /** How many nodes a queue of `pending` messages asks for, clamped to `[min, max]`. */

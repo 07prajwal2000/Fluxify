@@ -67,7 +67,7 @@ rules:
     resources: ["ingressroutes"]
     verbs: ["get", "list", "create", "patch", "delete"]
   - apiGroups: ["keda.sh"]
-    resources: ["scaledobjects"]
+    resources: ["scaledobjects", "triggerauthentications"]
     verbs: ["get", "list", "create", "patch", "delete"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
@@ -181,6 +181,29 @@ lists them as pods. A claim that serves APIs answers through Traefik:
 curl -H "Host: <your project's domain>" http://localhost:8090/
 ```
 
+## 9. Scale on a Kafka topic (optional)
+
+To see a workflow claim grow on an outside queue, start the single Kafka broker
+from the compose file. It is advertised as `host.k3d.internal:9092`, so admin,
+the workers and KEDA all reach it at the same address:
+
+```bash
+docker compose --profile kafka up -d kafka
+```
+
+1. Add a **Kafka** integration with brokers `host.k3d.internal:9092`.
+2. Add a Kafka trigger on a topic (tick *Create missing topics*) in a group
+   that a workflow claim runs, and attach a workflow.
+3. Check that KEDA got a scaler and its authentication:
+
+```bash
+kubectl get scaledobject,triggerauthentication -l fluxify.managed-by=orchestrator
+```
+
+4. Send more messages than the workflow keeps up with. The claim grows with
+   the consumer group's lag, up to the topic's 3 partitions unless the trigger
+   has *Scale past the partition count* on.
+
 ## When it does not work
 
 | What you see | Usually |
@@ -190,5 +213,6 @@ curl -H "Host: <your project's domain>" http://localhost:8090/
 | Orchestrator stops at startup | Step 4 port, or step 3 token expired. |
 | Claim never grows past its minimum | Step 2: KEDA is not installed. |
 | Workflow claim grows on CPU, not on waiting runs | `K8S_NATS_MONITORING_ENDPOINT` is not set. |
+| Kafka claim stops growing at 3 pods | The topic has 3 partitions; see *Scale past the partition count*. |
 
 To start over: `k3d cluster delete fluxify`.

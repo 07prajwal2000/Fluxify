@@ -38,6 +38,19 @@ describe("planKubernetes", () => {
 		const kept = planKubernetes({ wanted: [], observed, applied: new Map(), keep: new Set([CLAIM]) });
 		expect(kept.remove).toEqual([]);
 	});
+
+	it("removes a deleted trigger's credentials, after the autoscaler that reads them", () => {
+		const trigger = { labels: { [MANAGED_LABEL]: MANAGED_BY, "fluxify.trigger-id": "t1" } };
+		const secret = object("Secret", "fluxify-trigger-t1", trigger);
+		const auth = object("TriggerAuthentication", "fluxify-trigger-t1", trigger);
+		const observed = [secret, auth, object("ScaledObject", "s")];
+
+		const gone = planKubernetes({ wanted: [], observed, applied: new Map(), keep: new Set() });
+		expect(gone.remove.map((o) => o.kind)).toEqual(["ScaledObject", "TriggerAuthentication", "Secret"]);
+
+		const wanted = planKubernetes({ wanted: [secret, auth], observed, applied: new Map(), keep: new Set() });
+		expect(wanted.remove.map((o) => o.kind)).toEqual(["ScaledObject"]);
+	});
 });
 
 describe("podsToNodes", () => {

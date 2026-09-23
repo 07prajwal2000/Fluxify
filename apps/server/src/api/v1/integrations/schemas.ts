@@ -296,6 +296,10 @@ export const natsVariantConfigSchema = z.object({
 	nkeySeed: z.string().optional(),
 	/** Advanced: a subject a stream captures, where failing batches are parked. */
 	dlqSubject: z.string().optional(),
+	/** Advanced: HTTP monitoring, `host:port`, as KEDA reaches it. Unset, Kubernetes cannot scale on this server. */
+	monitoringEndpoint: z.string().optional(),
+	/** Advanced: the account the stream lives in, for that monitoring. Default `$G`. */
+	account: z.string().optional(),
 });
 
 /**
