@@ -94,8 +94,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: azure/setup-helm@v4
+      # Helm fetches a dependency only from a repository it was told about.
       - name: Fetch NATS and Valkey
-        run: helm dependency build deploy/helm/fluxify
+        run: |
+          helm repo add nats https://nats-io.github.io/k8s/helm/charts/
+          helm repo add valkey https://valkey.io/valkey-helm/
+          helm dependency build deploy/helm/fluxify
       - name: Lint
         run: helm lint deploy/helm/fluxify --set postgres.bundled=true
       - name: Render a Helm install and fluxify.yaml
@@ -456,6 +460,8 @@ jobs:
           TAG: ${{ github.ref_name }}
         run: |
           set -euo pipefail
+          helm repo add nats https://nats-io.github.io/k8s/helm/charts/
+          helm repo add valkey https://valkey.io/valkey-helm/
           helm dependency build deploy/helm/fluxify
           helm package deploy/helm/fluxify --version "${TAG#v}" --app-version "$TAG" -d dist
           helm template fluxify "dist/fluxify-${TAG#v}.tgz" -n fluxify --include-crds --no-hooks             -f deploy/helm/demo-values.yaml > dist/fluxify.yaml

@@ -60,6 +60,8 @@ a token, so create a service account with only the access it needs. It comes
 from Fluxify's Helm chart, so it always matches what the chart installs:
 
 ```bash
+helm repo add nats https://nats-io.github.io/k8s/helm/charts/
+helm repo add valkey https://valkey.io/valkey-helm/
 helm dependency build deploy/helm/fluxify
 helm template fluxify deploy/helm/fluxify -n default   --set postgres.bundled=true --show-only templates/rbac.yaml | kubectl apply -f -
 kubectl create token fluxify-orchestrator --duration=24h
