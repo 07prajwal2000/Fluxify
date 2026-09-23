@@ -58,4 +58,17 @@ describe("list", () => {
 		const [item] = await api.list("Deployment", "x=y");
 		expect(item?.kind).toBe("Deployment");
 	});
+
+	it("reports an optional kind missing, and stops once it is installed", async () => {
+		const fetch = spyOn(globalThis, "fetch").mockResolvedValue(
+			new Response("not found", { status: 404 }),
+		);
+		const api = createKubeApi({ base: "https://k", namespace: "ns", token: () => "t" });
+		expect(await api.list("NodeClaim", "")).toEqual([]);
+		expect(api.missing()).toEqual(["NodeClaim"]);
+
+		fetch.mockResolvedValue(Response.json({ items: [] }));
+		await api.list("NodeClaim", "");
+		expect(api.missing()).toEqual([]);
+	});
 });

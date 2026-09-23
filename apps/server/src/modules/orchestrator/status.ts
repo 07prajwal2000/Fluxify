@@ -100,6 +100,8 @@ export interface HostInventory {
 	/** When the orchestrator last looked. Null when nothing is reporting. */
 	at: string | null;
 	nodes: HostNodeView[];
+	/** Optional kinds the platform lacks, from the last pass. */
+	missing: string[];
 }
 
 export interface HostNodeView extends ObservedNode {
@@ -167,17 +169,25 @@ async function readOrchestrator(): Promise<OrchestratorInfo> {
  * pass yet, an unreachable broker — reads as "nothing reported" rather than
  * "nothing running", which the UI says in those words.
  */
-async function readObserved(): Promise<{ at: string | null; nodes: ObservedNode[] }> {
+async function readObserved(): Promise<{
+	at: string | null;
+	nodes: ObservedNode[];
+	missing: string[];
+}> {
 	try {
 		const nc = await initializeNats();
 		const bucket = await openKvBucket<ObservedInventory>(nc, ORCHESTRATOR_LEASE_BUCKET, {
 			ttlMs: ORCHESTRATOR_LEASE_TTL_MS,
 		});
 		const inventory = await bucket.get(orchestratorKeys.observed);
-		return { at: inventory?.at ?? null, nodes: inventory?.nodes ?? [] };
+		return {
+			at: inventory?.at ?? null,
+			nodes: inventory?.nodes ?? [],
+			missing: inventory?.missing ?? [],
+		};
 	} catch (error) {
 		logger.warn(`could not read the host inventory: ${String(error)}`, "ORCHESTRATOR.status");
-		return { at: null, nodes: [] };
+		return { at: null, nodes: [], missing: [] };
 	}
 }
 
@@ -210,7 +220,7 @@ export async function readOrchestrationStatus(projectId?: string): Promise<Orche
 		// The project surface does not get this: a project owner has no business
 		// with containers belonging to other projects, and nothing they could do
 		// about one either way.
-		projectId ? Promise.resolve({ at: null, nodes: [] }) : readObserved(),
+		projectId ? Promise.resolve({ at: null, nodes: [], missing: [] }) : readObserved(),
 	]);
 
 	const claims = await db
@@ -279,6 +289,7 @@ export async function readOrchestrationStatus(projectId?: string): Promise<Orche
 				...container,
 				claimed: everyNode.some((node) => node.id === container.nodeId),
 			})),
+			missing: observed.missing,
 		},
 	};
 }

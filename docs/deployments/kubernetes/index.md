@@ -80,7 +80,83 @@ Two more settings shape how workers scale:
 The orchestrator keeps every object it created matching your claims. If you
 edit one of them directly (with `kubectl edit`, for example), your change is
 put back within a few seconds, and deleting one makes it come back. Change the
-claim instead. A manual `kubectl scale` is undone by the autoscaler.
+claim instead, in the portal or through its `NodeClaim` (below). A manual
+`kubectl scale` is undone by the autoscaler.
+
+## Changing claims from Kubernetes {#nodeclaim}
+
+If you manage your cluster with `kubectl` or a GitOps tool such as Argo CD or
+Flux, you can change a claim there instead of in the portal. Each claim shows up
+as a `NodeClaim` resource, named after the claim's id:
+
+```bash
+kubectl get fluxclaim
+```
+
+```text
+NAME                                   TYPE       REPLICAS   MAX   READY   ACCEPTED   AGE
+0192b1c4-1111-7000-8000-000000000001   workflow   2          6     2       True       3d
+```
+
+```yaml
+apiVersion: fluxify.io/v1alpha1
+kind: NodeClaim
+metadata:
+  name: 0192b1c4-1111-7000-8000-000000000001
+spec:
+  project: 0192b1c4-2222-7000-8000-000000000002
+  type: workflow
+  groups: [0192b1c4-3333-7000-8000-000000000003]
+  replicas: 2
+  maxReplicas: 6
+  resources: { cpu: 1, memoryMb: 1024 }
+```
+
+| Field | Can you change it here? |
+| :--- | :--- |
+| `replicas`, `maxReplicas`, `resources` | Yes. The change is rolled out within a few seconds, exactly as if it was made in the portal. Remove `maxReplicas` to stop autoscaling. |
+| `project`, `type`, `groups` | No. Change these in the project's settings. |
+
+What to expect:
+
+- **The same rules as the portal.** A change your license or pool does not
+  allow is refused. The resource goes back to the claim's current values, and
+  `status.conditions` says why:
+
+  ```bash
+  kubectl get fluxclaim <claim id> -o jsonpath='{.status.conditions[0].message}'
+  ```
+
+- **You cannot create or delete claims here.** The orchestrator creates one
+  `NodeClaim` per claim and removes it when the claim is released in the portal.
+  Deleting a `NodeClaim` by hand releases nothing: it comes back on the next pass.
+- **The last change wins.** A change made in the portal is copied onto the
+  `NodeClaim`, and a change made on the `NodeClaim` is copied into the portal.
+  The claim's history says which side each change came from.
+- **`status` shows what the portal shows:** how many workers are placed, how
+  many are ready, and how many are waiting and why.
+
+> [!WARNING]
+> **GitOps tools put their own values back.** If a GitOps tool manages a
+> `NodeClaim`, your git repository wins: a change made in the portal is undone at
+> the tool's next sync. For now we recommend managing a project's claims in one
+> place only, the portal or git. Fluxify does not yet keep a versioned history of
+> claims in git for you.
+
+This needs the `NodeClaim` definition in your cluster. Without it, everything
+else works and claims are changed in the portal only. The orchestration page in
+the portal lists what your cluster is missing. To install it:
+
+```bash
+kubectl apply -f https://raw.githubusercontent.com/Fluxify-rest/Fluxify/main/docker/kubernetes/nodeclaim.crd.yaml
+```
+
+The orchestrator's role also needs access to `nodeclaims` and
+`nodeclaims/status` — see [the local setup](./local#_3-give-the-orchestrator-an-account).
+
+> [!TIP]
+> **Running Karpenter?** It has its own `NodeClaim`. Use `fluxclaim` (or
+> `nodeclaims.fluxify.io`) with `kubectl` so you always get Fluxify's.
 
 ## Sizing a worker {#sizing}
 
@@ -231,6 +307,8 @@ the orchestrator drives a cluster):
 - **Scaling on waiting runs** also needs `K8S_NATS_MONITORING_ENDPOINT`.
   Without it, workflow claims fall back to CPU and memory — unless they run
   [triggers on an outside queue](#external-queues), which scale on their own.
+- **Changing claims with `kubectl` or GitOps** needs the
+  [`NodeClaim` definition](#nodeclaim). Without it, claims change in the portal only.
 - A claim that serves **every project** always scales on CPU and memory. To
   scale on its queues it would have to watch every trigger in the instance.
   Treat it as a starting point; give a busy project its own claim.

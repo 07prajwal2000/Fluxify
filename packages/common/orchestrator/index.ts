@@ -283,4 +283,6 @@ export interface ObservedInventory {
 	at: string;
 	provider: InfraProvider;
 	nodes: ObservedNode[];
+	/** Optional platform kinds that are not installed — KEDA, Traefik, the NodeClaim CRD. */
+	missing?: string[];
 }

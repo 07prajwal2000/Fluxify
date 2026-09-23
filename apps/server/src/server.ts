@@ -130,7 +130,9 @@ async function main() {
 		const { registerCustomBlockResponder } = await import("./modules/ops/customBlock");
 		const { registerWorkflowResponder } = await import("./modules/ops/workflow");
 		const { registerTriggerFaultResponder } = await import("./modules/ops/triggerFault");
+		const { registerClaimEditResponder } = await import("./modules/ops/claimEdit");
 		registerTriggerFaultResponder();
+		registerClaimEditResponder();
 		registerCanvasResponder();
 		registerRouteResponder();
 		registerCustomBlockResponder();

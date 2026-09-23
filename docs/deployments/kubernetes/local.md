@@ -37,6 +37,17 @@ helm repo add kedacore https://kedacore.github.io/charts
 helm install keda kedacore/keda -n keda --create-namespace
 ```
 
+### Optional: change claims with kubectl
+
+To change claims with `kubectl` or a GitOps tool as well as the portal, install
+the `NodeClaim` definition once. Skip it and the portal is the only way in.
+
+```bash
+kubectl apply -f https://raw.githubusercontent.com/Fluxify-rest/Fluxify/main/docker/kubernetes/nodeclaim.crd.yaml
+```
+
+See [Changing claims from Kubernetes](./#nodeclaim) for how it behaves.
+
 ## 3. Give the orchestrator an account
 
 k3d's own kubeconfig signs in with a certificate. The orchestrator signs in with
@@ -69,6 +80,12 @@ rules:
   - apiGroups: ["keda.sh"]
     resources: ["scaledobjects", "triggerauthentications"]
     verbs: ["get", "list", "create", "patch", "delete"]
+  - apiGroups: ["fluxify.io"]
+    resources: ["nodeclaims"]
+    verbs: ["get", "list", "create", "patch", "delete"]
+  - apiGroups: ["fluxify.io"]
+    resources: ["nodeclaims/status"]
+    verbs: ["patch"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding

@@ -1,6 +1,7 @@
 import type { InfraProvider, ObservedNode } from "@fluxify/common/orchestrator";
 import type { PoolLimits } from "../desired";
-import type { DesiredNode } from "../projection";
+import type { ForwardEdit } from "../nodeClaims";
+import type { Claim, DesiredNode } from "../projection";
 import type { NodeEvent } from "../records";
 import type { ScalingContext } from "../scaling";
 
@@ -35,6 +36,20 @@ export interface InfraDriver {
 		observed: readonly ObservedNode[],
 		ctx: ApplyContext,
 	): Promise<NodeEvent[]>;
+	/**
+	 * Mirrors claims into a resource people can edit on the platform itself, and
+	 * hands edits made there to `forward` (#448). Kubernetes only. Runs after
+	 * `apply`, so an accepted edit is built on the next pass from the row admin
+	 * wrote — never from the resource.
+	 */
+	syncClaims?(
+		claims: readonly Claim[],
+		desired: readonly DesiredNode[],
+		observed: readonly ObservedNode[],
+		forward: ForwardEdit,
+	): Promise<void>;
+	/** Optional kinds the platform does not have installed, for the portal to name. */
+	missing?(): string[];
 }
 
 /** What changes between passes. Fixed settings are given when a driver is built. */

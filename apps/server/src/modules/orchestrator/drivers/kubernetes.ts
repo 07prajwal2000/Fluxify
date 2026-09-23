@@ -24,6 +24,7 @@ import {
 	REPLICAS_MANAGER,
 	workloadName,
 } from "../kubernetesSpec";
+import { syncNodeClaims } from "../nodeClaims";
 import type { NodeEvent } from "../records";
 import type { ScalingContext } from "../scaling";
 import { createKubeApi, type Kind, type KubeApi, type KubeObject } from "./kubernetesApi";
@@ -103,6 +104,10 @@ export function createKubernetesDriver(
 			workerImage: options.image,
 		},
 		reachable: api.reachable,
+		missing: api.missing,
+
+		syncClaims: (claims, desired, observed, forward) =>
+			syncNodeClaims(api, claims, desired, observed, forward),
 
 		async observe() {
 			return podsToNodes(await api.list("Pod", SELECTOR));

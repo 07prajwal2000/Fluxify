@@ -111,6 +111,8 @@ export const hostInventorySchema = z.object({
 	/** Null when no orchestrator is reporting — which is not the same as nothing running. */
 	at: z.string().nullable(),
 	nodes: z.array(hostNodeSchema),
+	/** Optional kinds the cluster lacks (KEDA, Traefik, the NodeClaim CRD), so the portal can say what to install. */
+	missing: z.array(z.string()),
 });
 
 export const orchestrationStatusSchema = z.object({
@@ -163,7 +165,7 @@ export const eventsQuerySchema = z.object({
 	limit: z.coerce.number().int().min(1).max(200).optional(),
 });
 
-const replicas = z
+export const replicas = z
 	.number()
 	.int()
 	.min(1, "A claim needs at least one replica")
