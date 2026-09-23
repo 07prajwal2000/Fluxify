@@ -1,4 +1,5 @@
 import { Button, Input, Label, TextField, toast } from "@fluxify/components";
+import { SLUG_HINT, SLUG_MAX, SLUG_PATTERN } from "@fluxify/lib/slug";
 import { useState } from "react";
 import { TbInfoCircle, TbPlus, TbX } from "react-icons/tb";
 import { showErrorNotification } from "@/lib/errorNotifier";
@@ -22,9 +23,12 @@ export function CreateTriggerGroupForm({
 	const [name, setName] = useState("");
 	const [description, setDescription] = useState("");
 
+	const trimmedName = name.trim();
+	const nameValid =
+		trimmedName.length >= 2 && trimmedName.length <= SLUG_MAX && SLUG_PATTERN.test(trimmedName);
+
 	const submit = () => {
-		const trimmedName = name.trim();
-		if (trimmedName.length < 2) return;
+		if (!nameValid) return;
 
 		create.mutate(
 			{
@@ -74,12 +78,26 @@ export function CreateTriggerGroupForm({
 					if (e.key === "Escape") onCancel();
 				}}
 			>
-				<TextField value={name} onChange={setName} autoFocus className="w-full" isRequired>
+				<TextField
+					value={name}
+					onChange={setName}
+					autoFocus
+					className="w-full"
+					isRequired
+					isInvalid={trimmedName !== "" && !nameValid}
+				>
 					<div className="flex items-center justify-between mb-1">
 						<Label className="text-xs font-medium">Group name</Label>
-						<span className="text-[11px] text-muted">At least 2 characters</span>
+						<span className="text-[11px] text-muted">Cannot be changed later</span>
 					</div>
-					<Input placeholder="e.g. priority-webhooks" className="bg-surface" />
+					<Input
+						placeholder="e.g. priority-webhooks"
+						maxLength={SLUG_MAX}
+						className="bg-surface font-mono"
+					/>
+					<p className="text-[11px] text-muted mt-1">
+						2 to {SLUG_MAX} characters: {SLUG_HINT}.
+					</p>
 				</TextField>
 
 				<TextField value={description} onChange={setDescription} className="w-full">
@@ -104,7 +122,7 @@ export function CreateTriggerGroupForm({
 						size="sm"
 						variant="primary"
 						isPending={create.isPending}
-						isDisabled={name.trim().length < 2}
+						isDisabled={!nameValid}
 					>
 						<TbPlus size={15} /> Create group
 					</Button>

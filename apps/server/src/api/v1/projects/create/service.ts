@@ -1,13 +1,14 @@
-import { generateID } from "@fluxify/lib";
+import { generateID, toSlug } from "@fluxify/lib";
 import type { z } from "zod";
 import { db } from "../../../../db";
 import { CHAN_ON_PROJECT_SETTING_CHANGE, publishMessage } from "../../../../db/redis";
+import { BadRequestError } from "../../../../errors/badRequestError";
 import { ConflictError } from "../../../../errors/conflictError";
 import { ServerError } from "../../../../errors/serverError";
 import { upsertProjectSettingKey } from "../settings/keys/upsert/repository";
 import { addProjectMember } from "../settings/members/repository";
 import type { requestBodySchema, responseSchema } from "./dto";
-import { checkProjectExists, createProject } from "./repository";
+import { checkProjectExists, createProject, isSlugTaken } from "./repository";
 
 export default async function handleRequest(
 	data: z.infer<typeof requestBodySchema>,
@@ -20,8 +21,13 @@ export default async function handleRequest(
 	const id = await db.transaction(async (tx) => {
 		const exist = await checkProjectExists(project.name, tx);
 		if (exist) throw new ConflictError(`Project already exists with '${project.name}' name`);
+		const slug = project.slug || toSlug(project.name);
+		if (!slug)
+			throw new BadRequestError("Give the project a slug; its name has no letters or digits");
+		if (await isSlugTaken(slug, tx))
+			throw new ConflictError(`Project already exists with '${slug}' slug`);
 
-		const projectId = await createProject({ ...project, id: generateID() }, tx);
+		const projectId = await createProject({ ...project, slug, id: generateID() }, tx);
 		if (!projectId) return "";
 
 		for (const member of members ?? []) {

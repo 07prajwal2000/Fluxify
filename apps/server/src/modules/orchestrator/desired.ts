@@ -11,6 +11,7 @@ import { db } from "../../db";
 import {
 	integrationsEntity,
 	nodeClaimsEntity,
+	projectsEntity,
 	triggerGroupsEntity,
 	triggersEntity,
 } from "../../db/schema";
@@ -20,6 +21,7 @@ import { orchestrationScalingSchema } from "../../lib/instance-settings/schemas"
 import { baseDomain, getSetting } from "../../loaders/instanceSettingsLoader";
 import { projectSubdomains } from "./claims";
 import type { ExternalTrigger } from "./kubernetesSpec";
+import { type KeyedClaim, withKeys } from "./nodeClaims";
 import { type Claim, type DesiredNode, projectDesiredNodes } from "./projection";
 import { type ScalingContext, scalingCeilings } from "./scaling";
 
@@ -41,8 +43,8 @@ export interface DesiredState {
 	nodes: DesiredNode[];
 	pool: PoolLimits;
 	scaling: ScalingContext;
-	/** The rows themselves, for a driver that mirrors them (#448). */
-	claims: Claim[];
+	/** The rows themselves, keyed, for a driver that mirrors them (#448, #456). */
+	claims: KeyedClaim[];
 }
 
 export async function readDesiredState(): Promise<DesiredState> {
@@ -60,7 +62,11 @@ export async function readDesiredState(): Promise<DesiredState> {
 		.from(nodeClaimsEntity);
 
 	const groups = await db
-		.select({ id: triggerGroupsEntity.id, projectId: triggerGroupsEntity.projectId })
+		.select({
+			id: triggerGroupsEntity.id,
+			projectId: triggerGroupsEntity.projectId,
+			name: triggerGroupsEntity.name,
+		})
 		.from(triggerGroupsEntity);
 
 	// A claim's group list is jsonb, so deleting a group leaves its id behind
@@ -95,7 +101,13 @@ export async function readDesiredState(): Promise<DesiredState> {
 		const subdomain = node.projectId && node.type !== "workflow" && subdomains.get(node.projectId);
 		if (subdomain) node.host = projectHost(subdomain, domain);
 	}
-	return { nodes, pool, scaling, claims: claims as Claim[] };
+	const projects = await db
+		.select({ id: projectsEntity.id, slug: projectsEntity.slug })
+		.from(projectsEntity);
+	const projectSlugs = new Map(projects.map((project) => [project.id, project.slug]));
+	const groupNames = new Map(groups.map((group) => [group.id, group.name]));
+	const keyed = (claims as Claim[]).map((claim) => withKeys(claim, projectSlugs, groupNames));
+	return { nodes, pool, scaling, claims: keyed };
 }
 
 async function internalTriggersByGroup(): Promise<Map<string, string[]>> {

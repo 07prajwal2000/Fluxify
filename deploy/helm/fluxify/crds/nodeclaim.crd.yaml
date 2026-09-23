@@ -52,7 +52,7 @@ spec:
               properties:
                 project:
                   type: string
-                  description: Project id, or * for every project. Read-only.
+                  description: Project slug, or * for every project. Read-only.
                 type:
                   type: string
                   enum: [route, workflow, both]
@@ -61,7 +61,7 @@ spec:
                   type: array
                   items:
                     type: string
-                  description: Trigger group ids. Read-only.
+                  description: Trigger groups as <project slug>/<group name>. Read-only.
                 replicas:
                   type: integer
                   description: Nodes to run, or the floor when maxReplicas is set.

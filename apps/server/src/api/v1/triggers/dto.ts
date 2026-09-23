@@ -1,4 +1,5 @@
 import { assertSchedule, ScheduleError } from "@fluxify/common/schedule";
+import { SLUG_HINT, SLUG_MAX, SLUG_PATTERN } from "@fluxify/lib/slug";
 import { z } from "zod";
 import { paginationRequestQuerySchema, paginationResponseSchema } from "../../../lib/pagination";
 
@@ -247,6 +248,8 @@ export const groupSchema = z.object({
 	name: z.string(),
 	description: z.string().nullable(),
 	projectId: z.string(),
+	/** `<project slug>/<group name>`: how a NodeClaim manifest names the group. */
+	key: z.string(),
 	isDefault: z.boolean(),
 	triggerCount: z.number().int(),
 	maxTriggers: z.number().int(),
@@ -255,13 +258,14 @@ export const groupSchema = z.object({
 });
 
 export const createGroupSchema = z.object({
-	name: z.string().min(2).max(255),
+	/** Never renamed: it is half of the group's NodeClaim key. */
+	name: z.string().min(2).max(SLUG_MAX).regex(SLUG_PATTERN, `Name must be ${SLUG_HINT}`),
 	description: z.string().max(2000).optional(),
 	projectId: z.uuidv7(),
 });
 
-export const updateGroupSchema = z.object({
-	name: z.string().min(2).max(255).optional(),
+/** Strict: a `name` is refused, not dropped, so a rename never looks like it worked. */
+export const updateGroupSchema = z.strictObject({
 	description: z.string().max(2000).nullable().optional(),
 });
 

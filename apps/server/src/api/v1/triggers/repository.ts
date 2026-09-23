@@ -61,11 +61,16 @@ export async function ensureDefaultGroup(
 
 export async function listGroups(projectId: string, tx?: DbTransactionType) {
 	return (tx ?? db)
-		.select({ ...getTableColumns(triggerGroupsEntity), triggerCount: count(triggersEntity.id) })
+		.select({
+			...getTableColumns(triggerGroupsEntity),
+			projectSlug: projectsEntity.slug,
+			triggerCount: count(triggersEntity.id),
+		})
 		.from(triggerGroupsEntity)
+		.innerJoin(projectsEntity, eq(projectsEntity.id, triggerGroupsEntity.projectId))
 		.leftJoin(triggersEntity, eq(triggersEntity.groupId, triggerGroupsEntity.id))
 		.where(eq(triggerGroupsEntity.projectId, projectId))
-		.groupBy(triggerGroupsEntity.id)
+		.groupBy(triggerGroupsEntity.id, projectsEntity.slug)
 		.orderBy(desc(triggerGroupsEntity.isDefault), triggerGroupsEntity.name);
 }
 

@@ -7,4 +7,5 @@ export * from "./logger";
 export * from "./objects/deepfreeze";
 export * from "./random/id";
 export * from "./routing/parser";
+export * from "./slug";
 export * from "./vm";

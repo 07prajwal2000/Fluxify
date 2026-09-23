@@ -9,6 +9,7 @@ import { ConflictError } from "../../../../../errors/conflictError";
 mock.module("../repository", () => ({
 	createProject: mock(),
 	checkProjectExists: mock(),
+	isSlugTaken: mock(),
 }));
 
 mock.module("../../settings/members/repository", () => ({
@@ -39,6 +40,19 @@ describe("create project service", () => {
 		(redis.publishMessage as any).mockClear();
 		(repository.checkProjectExists as any).mockResolvedValue(false);
 		(repository.createProject as any).mockResolvedValue("proj-1");
+		(repository.isSlugTaken as any).mockResolvedValue(false);
+	});
+
+	it("slugs the name when no slug is given, and keeps a given one", async () => {
+		await handleRequest({ name: "Billing API" } as any);
+		expect((repository.createProject as any).mock.calls[0][0].slug).toBe("billing-api");
+		await handleRequest({ name: "Billing API", slug: "pay" } as any);
+		expect((repository.createProject as any).mock.calls[1][0].slug).toBe("pay");
+	});
+
+	it("rejects a slug that is taken", async () => {
+		(repository.isSlugTaken as any).mockResolvedValue(true);
+		expect(handleRequest({ name: "Billing" } as any)).rejects.toThrow(ConflictError);
 	});
 
 	it("rejects a duplicate name by name, not by id", async () => {

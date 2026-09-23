@@ -14,7 +14,7 @@ export type TriggerGroupsModalProps = {
 };
 
 /**
- * Slide-over drawer for creating, renaming, and deleting a project's trigger groups.
+ * Slide-over drawer for creating, describing, and deleting a project's trigger groups.
  * Triggers in a group execute on dedicated workers to isolate execution pools.
  */
 export function TriggerGroupsModal({ projectId, isOpen, onClose }: TriggerGroupsModalProps) {
