@@ -63,6 +63,10 @@ kubectl top nodes                          # Metrics Server
 A check that prints a result means that part is installed: skip its step. An
 error such as `NotFound` or `Metrics API not available` means do the step.
 
+On a cluster you just created, k3s and k3d are still installing their own
+Traefik and Metrics Server for about a minute. Wait a minute and check again
+before installing a second copy.
+
 ## 2. Install Traefik
 
 Traefik is the front door: every request to the portal and to your APIs goes
