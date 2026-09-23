@@ -14,7 +14,7 @@ import { QueueConnectionManager } from "./manager";
 
 // The JVM image, not kafka-native: the GraalVM build cannot run SASL
 // ("Unable to find suitable Subject#doAs") and drops every SASL connection.
-const IMAGE = "apache/kafka:latest";
+const IMAGE = "apache/kafka:4.1.0";
 const CONTAINER = "fluxify-kafka-test-suite";
 const SASL_USER = "fluxify";
 const SASL_PASSWORD = "s3cret";
@@ -50,6 +50,8 @@ beforeAll(async () => {
 				"KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR=1",
 				"KAFKA_TRANSACTION_STATE_LOG_MIN_ISR=1",
 				"KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS=0",
+				// a fetch on a deleted topic must not bring it back
+				"KAFKA_AUTO_CREATE_TOPICS_ENABLE=false",
 			],
 			HostConfig: {
 				PortBindings: {
