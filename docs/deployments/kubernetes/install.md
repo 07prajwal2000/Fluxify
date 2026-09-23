@@ -187,7 +187,11 @@ postgres:
   bundled: true
 ```
 
-Then install:
+Then install. Unlike steps 2 to 5 there is no `helm repo add`: Fluxify's chart
+is published to a container registry, and Helm fetches it straight from the
+`oci://` address. NATS and Valkey come packed inside it. To check Helm can
+reach it, `helm show chart oci://ghcr.io/fluxify-rest/charts/fluxify --version %%CHART_VERSION%%`
+prints the chart's name and version.
 
 ```bash
 helm install fluxify oci://ghcr.io/fluxify-rest/charts/fluxify \
