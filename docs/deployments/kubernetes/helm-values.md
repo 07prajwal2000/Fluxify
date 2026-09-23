@@ -83,6 +83,9 @@ env:
 
 Values under `env` must be text, so quote numbers and `true`/`false`.
 
+To send Fluxify's logs to a dashboard, with a complete example, see
+[Logs and monitoring](./observability).
+
 ## Resources {#resources}
 
 How much CPU and memory Fluxify's own pods ask for. Workers are sized per claim
