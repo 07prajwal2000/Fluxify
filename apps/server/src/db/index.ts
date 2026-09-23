@@ -24,7 +24,13 @@ async function initializePostgres() {
 	const client = new SQL(pgUrl);
 	db = drizzle({ client });
 
-	const result = await db.execute<{ connected: number }>(`select 1 as connected`);
+	// Retried at startup (#463): a failed attempt must not leave its client behind.
+	const result = await db
+		.execute<{ connected: number }>(`select 1 as connected`)
+		.catch(async (error) => {
+			await client.close().catch(() => {});
+			throw error;
+		});
 	if (result[0].connected) {
 		logger.info("postgres database initialized");
 	} else {
