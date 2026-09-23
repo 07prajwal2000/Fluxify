@@ -260,6 +260,7 @@ export default withMermaid(
 						items: [
 							{ text: "Install on Kubernetes", link: "/deployments/kubernetes/install" },
 							{ text: "Chart settings", link: "/deployments/kubernetes/helm-values" },
+							{ text: "Logs and monitoring", link: "/deployments/kubernetes/observability" },
 							{ text: "How it works", link: "/deployments/kubernetes/" },
 							{ text: "Develop against a local cluster", link: "/deployments/kubernetes/local" },
 						],

@@ -281,7 +281,8 @@ workers from its **Orchestration** settings.
 
 Everything the chart can be set to (your own NATS or Valkey, extra Fluxify
 settings, resources, keys from a secret manager) is on
-[Chart settings](./helm-values), with example files.
+[Chart settings](./helm-values), with example files. To send Fluxify's logs to
+a dashboard, see [Logs and monitoring](./observability).
 
 ## Upgrade
 
