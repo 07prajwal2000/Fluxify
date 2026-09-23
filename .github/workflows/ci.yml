@@ -525,7 +525,7 @@ jobs:
               ;;
           esac
 
-          gh release create "$TAG" \
+          gh release create "$TAG" dist/fluxify-*.tgz dist/fluxify.yaml \
             --title "$TAG" \
             --verify-tag \
             --generate-notes \
