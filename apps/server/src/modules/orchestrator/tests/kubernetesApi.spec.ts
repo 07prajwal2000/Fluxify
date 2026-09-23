@@ -1,5 +1,5 @@
-import { describe, expect, it } from "bun:test";
-import { kubeEndpoint, objectPath } from "../drivers/kubernetesApi";
+import { afterEach, describe, expect, it, spyOn } from "bun:test";
+import { createKubeApi, kubeEndpoint, objectPath } from "../drivers/kubernetesApi";
 
 const env = (values: Record<string, string>) => (key: string) => values[key];
 
@@ -42,5 +42,20 @@ describe("objectPath", () => {
 		expect(() => objectPath("ns", "Secret", "../../secrets/other")).toThrow("malformed");
 		expect(() => objectPath("ns", "Secret", "a/b")).toThrow("malformed");
 		expect(() => objectPath("ns", "Secret", "Upper")).toThrow("malformed");
+	});
+});
+
+describe("list", () => {
+	afterEach(() => {
+		(globalThis.fetch as unknown as { mockRestore?: () => void }).mockRestore?.();
+	});
+
+	it("puts the kind back on every item, which a list response leaves off", async () => {
+		spyOn(globalThis, "fetch").mockResolvedValue(
+			Response.json({ kind: "DeploymentList", items: [{ metadata: { name: "a" } }] }),
+		);
+		const api = createKubeApi({ base: "https://k", namespace: "ns", token: () => "t" });
+		const [item] = await api.list("Deployment", "x=y");
+		expect(item?.kind).toBe("Deployment");
 	});
 });
