@@ -15,6 +15,7 @@ import type {
 	groupSchema,
 	updateGroupSchema,
 } from "./dto";
+import { maxTriggersPerGroup } from "./groupCap";
 import {
 	deleteGroupRow,
 	deleteGroupTriggers,
@@ -22,10 +23,11 @@ import {
 	findGroupById,
 	insertGroup,
 	listGroups,
+	lockGroupTriggerCount,
 	moveGroupTriggers,
 	updateGroupRow,
 } from "./repository";
-import { assertGroupInProject, republish, withdraw } from "./service";
+import { assertGroupHasRoom, assertGroupInProject, republish, withdraw } from "./service";
 
 /**
  * Trigger groups: where a trigger runs. A worker node serves the groups its
@@ -99,14 +101,12 @@ export async function deleteTriggerGroup(
 		throw new BadRequestError("Move the triggers to a different group");
 
 	const { moved, deleted, removals } = await db.transaction(async (tx) => {
-		const moved =
-			options.triggers === "move"
-				? await moveGroupTriggers(
-						id,
-						await assertGroupInProject(options.moveTo!, group.projectId, tx),
-						tx,
-					)
-				: [];
+		let moved: Awaited<ReturnType<typeof moveGroupTriggers>> = [];
+		if (options.triggers === "move") {
+			const target = await assertGroupInProject(options.moveTo!, group.projectId, tx);
+			await assertGroupHasRoom(target, await lockGroupTriggerCount(id, tx), tx);
+			moved = await moveGroupTriggers(id, target, tx);
+		}
 		const deleted = options.triggers === "delete" ? await deleteGroupTriggers(id, tx) : [];
 		const removals = await removeGroupFromClaims(id, tx);
 		// The foreign key restricts this, but the error it raises says nothing a
@@ -137,6 +137,7 @@ function presentGroup(
 		projectId: row.projectId,
 		isDefault: row.isDefault,
 		triggerCount: row.triggerCount,
+		maxTriggers: maxTriggersPerGroup(),
 		createdAt: row.createdAt.toISOString(),
 		updatedAt: row.updatedAt.toISOString(),
 	};

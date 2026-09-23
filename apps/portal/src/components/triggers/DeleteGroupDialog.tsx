@@ -92,7 +92,12 @@ export function DeleteGroupDialog({ projectId, group, groups, onClose }: DeleteG
 							</p>
 
 							<div className="rounded-lg border border-border/80 bg-surface-secondary/40 p-3">
-								<GroupSelect groups={others} value={target} onChange={setMoveTo} />
+								<GroupSelect
+									groups={others}
+									value={target}
+									onChange={setMoveTo}
+									incoming={group.triggerCount}
+								/>
 							</div>
 
 							<div className="flex items-start gap-2 rounded-lg bg-danger-soft/30 border border-danger/20 p-2.5 text-xs text-danger-foreground">

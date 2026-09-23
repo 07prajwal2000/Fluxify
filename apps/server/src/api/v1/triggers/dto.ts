@@ -244,6 +244,7 @@ export const groupSchema = z.object({
 	projectId: z.string(),
 	isDefault: z.boolean(),
 	triggerCount: z.number().int(),
+	maxTriggers: z.number().int(),
 	createdAt: z.string(),
 	updatedAt: z.string(),
 });
