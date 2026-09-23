@@ -87,6 +87,25 @@ jobs:
       - name: Run Analyzer
         run: bun run analyze
 
+  # The chart is the one source of every Kubernetes default, and a release
+  # renders fluxify.yaml from it: both ways of installing must render.
+  helm-chart:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/setup-helm@v4
+      - name: Fetch NATS and Valkey
+        run: helm dependency build deploy/helm/fluxify
+      - name: Lint
+        run: helm lint deploy/helm/fluxify --set postgres.bundled=true
+      - name: Render a Helm install and fluxify.yaml
+        run: |
+          set -euo pipefail
+          helm template fluxify deploy/helm/fluxify -n fluxify \
+            --set secret.values.PG_URL=postgres://u:p@db:5432/fluxify > /dev/null
+          helm template fluxify deploy/helm/fluxify -n fluxify --include-crds --no-hooks \
+            -f deploy/helm/demo-values.yaml > /dev/null
+
   # Secret scanning is its own job: Biome cannot see credentials in history,
   # and a pre-commit hook can be skipped. It scans only the commits this run
   # adds, so a secret already in history does not fail every later PR. A tag is
@@ -321,7 +340,7 @@ jobs:
     # `detect-changes` is a dependency even though a release ignores its answer:
     # it decides whether the test jobs run at all, so a release that did not
     # wait for it could publish behind a filter that errored.
-    needs: [detect-changes, lint, test-packages-lib, test-packages-blocks, test-packages-adapters, test-e2e-graphs, test-apps-server-unit, test-apps-server-integration, test-apps-portal, test-apps-ai-gateway]
+    needs: [detect-changes, lint, helm-chart, test-packages-lib, test-packages-blocks, test-packages-adapters, test-e2e-graphs, test-apps-server-unit, test-apps-server-integration, test-apps-portal, test-apps-ai-gateway]
     # No `always()`, and deliberately not the `!contains(needs.*.result, 'failure')`
     # form the nightly job uses: that one counts a SKIPPED job as fine, which is
     # how a release could publish images no test ever ran against. With the
@@ -417,11 +436,38 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      # The chart is pushed to ghcr next to the images.
+      packages: write
+      # To rebuild the docs, so their install commands name this release.
+      actions: write
     steps:
       # Full history: generated notes are a diff against the previous tag.
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+
+      - uses: azure/setup-helm@v4
+
+      # The chart's version is the tag's, and its images are the ones this
+      # release just pushed. fluxify.yaml is rendered from that same package,
+      # so the two can never disagree about a default.
+      - name: Package the chart and render fluxify.yaml
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          helm dependency build deploy/helm/fluxify
+          helm package deploy/helm/fluxify --version "${TAG#v}" --app-version "$TAG" -d dist
+          helm template fluxify "dist/fluxify-${TAG#v}.tgz" -n fluxify --include-crds --no-hooks             -f deploy/helm/demo-values.yaml > dist/fluxify.yaml
+
+      - name: Push the chart to ghcr
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          owner=$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')
+          echo '${{ secrets.GITHUB_TOKEN }}' | helm registry login ghcr.io -u '${{ github.actor }}' --password-stdin
+          helm push "dist/fluxify-${TAG#v}.tgz" "oci://ghcr.io/$owner/charts"
 
       - name: Publish the release
         env:
@@ -446,6 +492,15 @@ jobs:
             echo '```'
             echo
             echo "Deploy them with [docker/production/docker-compose.yml](https://github.com/${{ github.repository }}/blob/$TAG/docker/production/docker-compose.yml)."
+            echo
+            echo '### Kubernetes'
+            echo
+            echo '```bash'
+            echo "helm install fluxify oci://ghcr.io/$owner/charts/fluxify --version ${TAG#v} -n fluxify --create-namespace"
+            echo '```'
+            echo
+            echo 'To try it without Helm, `fluxify.yaml` below runs one of everything —'
+            echo 'see [Kubernetes](https://docs.fluxify.rest/deployments/kubernetes/install).'
           } > "$notes"
 
           # A pre-release is marked as one, and does not become the repo's
@@ -470,3 +525,10 @@ jobs:
             --generate-notes \
             --notes-file "$notes" \
             $flags
+
+      # A release made with this job's token starts no other workflow on its
+      # own (GitHub's guard against loops), so the docs are started by name.
+      - name: Rebuild the docs for this release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh workflow run gh-pages.yml --ref main

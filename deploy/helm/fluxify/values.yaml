@@ -1,0 +1,127 @@
+# Fluxify on Kubernetes: admin (portal, API, compiler) and the orchestrator,
+# which creates the worker pods from your claims. Workers are never declared
+# here; they come and go with the claims.
+#
+# Names are fixed (fluxify-admin, fluxify-env, ...), so one install per namespace.
+# The orchestrator's own objects are fixed-named too, so a second install in
+# the same namespace would fight the first anyway.
+
+image:
+  registry: ghcr.io/fluxify-rest
+  # Empty: the chart's appVersion, which is the release it came from.
+  tag: ""
+  pullPolicy: IfNotPresent
+
+# The address people open the portal at.
+url: http://localhost:8080
+
+# Everything secret, in one Secret named `fluxify-env`, read by admin, the
+# orchestrator, NATS and Valkey. The orchestrator hands the workers the parts
+# they need.
+secret:
+  # false: create `fluxify-env` yourself before installing, with the keys below.
+  create: true
+  # Empty values are generated on install and kept across upgrades. The Secret
+  # also survives `helm uninstall`: without MASTER_ENCRYPTION_KEY, what is
+  # stored in the database can no longer be read.
+  values:
+    # Base64 of 32 bytes: `openssl rand -base64 32`.
+    MASTER_ENCRYPTION_KEY: ""
+    BETTER_AUTH_SECRET: ""
+    SYSTEM_ACCESS_KEY: ""
+    NATS_TOKEN: ""
+    REDIS_PASS: ""
+    # The first admin account's password, set on an empty database only.
+    SEED_USER_PASSWORD: ""
+    # The demo Postgres's password, when postgres.bundled is on.
+    PG_PASSWORD: ""
+    # Your own Postgres: postgres://user:pass@host:5432/fluxify
+    PG_URL: ""
+
+# Extra settings for admin and the orchestrator, as in env.example,
+# e.g. ENABLE_AI: "true" or ORCHESTRATOR_SCALE_CPU_PERCENT: "70".
+env: {}
+
+admin:
+  seedUserEmail: admin@company.com
+  resources:
+    requests: { cpu: 250m, memory: 512Mi }
+    # Test suites run user code inside admin, so it needs a ceiling.
+    limits: { memory: 2Gi }
+
+orchestrator:
+  resources:
+    requests: { cpu: 100m, memory: 128Mi }
+    limits: { cpu: 500m, memory: 512Mi }
+
+# A Traefik route sending /_/admin to admin. Workers get their own routes from
+# the orchestrator. Needs Traefik; turn it off to expose admin another way.
+ingressRoute:
+  enabled: true
+  entryPoint: web
+
+# A self-signed license's public key, as a Secret holding `issuer.pub`.
+# Only needed before the 1.0 release.
+license:
+  issuerKeySecret: ""
+
+# One Postgres pod, for trying Fluxify. For production run Postgres yourself
+# (CloudNativePG, StackGres, a managed database) and set secret.values.PG_URL.
+postgres:
+  # Read PG_URL from a Secret you already have, such as CloudNativePG's
+  # `<cluster>-app` (key `uri`), instead of secret.values.PG_URL.
+  urlFrom:
+    secret: ""
+    key: uri
+  bundled: false
+  image: postgres:17-alpine
+  storage: 5Gi
+
+# Servers you already run, used when nats.enabled or valkey.enabled is false.
+# Their passwords still come from NATS_TOKEN and REDIS_PASS in the Secret.
+external:
+  natsUrl: ""
+  # host:port of NATS's HTTP monitoring, so workflow claims scale on waiting runs.
+  natsMonitoringEndpoint: ""
+  redisHost: ""
+  redisPort: 6379
+  redisUser: ""
+
+# The official NATS chart. Every one of its settings works here.
+nats:
+  enabled: true
+  fullnameOverride: fluxify-nats
+  natsBox:
+    enabled: false
+  config:
+    # Three servers, so a restart or a lost node keeps the queues up.
+    cluster:
+      enabled: true
+      replicas: 3
+    # Required: the compile queue and the compiled artifacts live in JetStream.
+    jetstream:
+      enabled: true
+      fileStore:
+        pvc:
+          size: 10Gi
+    merge:
+      authorization:
+        token: << $NATS_TOKEN >>
+  container:
+    env:
+      NATS_TOKEN:
+        valueFrom:
+          secretKeyRef: { name: fluxify-env, key: NATS_TOKEN }
+
+# The official Valkey chart. Fluxify keeps only a cache here, so one server is
+# enough; `replica.enabled` adds copies.
+valkey:
+  enabled: true
+  fullnameOverride: fluxify-valkey
+  auth:
+    enabled: true
+    usersExistingSecret: fluxify-env
+    aclUsers:
+      default:
+        permissions: "~* &* +@all"
+        passwordKey: REDIS_PASS

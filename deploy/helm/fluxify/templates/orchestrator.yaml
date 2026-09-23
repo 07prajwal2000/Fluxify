@@ -1,0 +1,45 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: fluxify-orchestrator
+  namespace: {{ .Release.Namespace }}
+  labels: {{- include "fluxify.labels" . | nindent 4 }}
+spec:
+  # A second one would only stand by: one holds the lease and does the work.
+  replicas: 1
+  selector:
+    matchLabels: { app: fluxify-orchestrator }
+  template:
+    metadata:
+      labels: { app: fluxify-orchestrator }
+      annotations: {{- include "fluxify.checksum" . | nindent 8 }}
+    spec:
+      serviceAccountName: fluxify-orchestrator
+      containers:
+        - name: orchestrator
+          image: {{ include "fluxify.image" (dict "root" . "name" "fluxify-orchestrator") }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          envFrom: {{- include "fluxify.envFrom" . | nindent 12 }}
+          env:
+            - { name: ORCHESTRATOR_PROVIDER, value: kubernetes }
+            - name: ORCHESTRATOR_WORKER_IMAGE
+              value: {{ include "fluxify.image" (dict "root" . "name" "fluxify-worker") }}
+            {{- if .Values.nats.enabled }}
+            # Headless: KEDA asks each NATS server in turn, by its pod name.
+            - name: K8S_NATS_MONITORING_ENDPOINT
+              value: fluxify-nats-headless.{{ .Release.Namespace }}.svc.cluster.local:8222
+            {{- else if .Values.external.natsMonitoringEndpoint }}
+            - { name: K8S_NATS_MONITORING_ENDPOINT, value: {{ .Values.external.natsMonitoringEndpoint | quote }} }
+            {{- end }}
+            {{- if .Values.license.issuerKeySecret }}
+            - { name: LICENSE_ISSUER_KEY_PATH, value: /etc/fluxify/license/issuer.pub }
+            {{- end }}
+            {{- include "fluxify.pgEnv" . | nindent 12 }}
+          ports:
+            - { name: health, containerPort: 5800 }
+          readinessProbe:
+            httpGet: { path: /ready, port: health }
+            periodSeconds: 10
+          resources: {{- toYaml .Values.orchestrator.resources | nindent 12 }}
+          {{- include "fluxify.license" . | nindent 10 }}
+      {{- include "fluxify.licenseVolume" . | nindent 6 }}

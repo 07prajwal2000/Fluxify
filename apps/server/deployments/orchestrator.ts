@@ -83,7 +83,9 @@ async function waitForSchema(maxAttempts = 60, delayMs = 2_000): Promise<void> {
 			await db.select({ id: nodeClaimsEntity.id }).from(nodeClaimsEntity).limit(1);
 			return;
 		} catch (error) {
-			const message = String((error as Error)?.message ?? error);
+			// Drizzle wraps the driver's error: "does not exist" is on its cause.
+			const cause = (error as Error)?.cause as Error | undefined;
+			const message = `${String((error as Error)?.message ?? error)} ${cause?.message ?? ""}`;
 			if (!message.includes("42P01") && !/does not exist/i.test(message)) throw error;
 			logger.info(
 				`waiting for database schema (attempt ${attempt}/${maxAttempts})`,

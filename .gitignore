@@ -27,3 +27,6 @@ OPTIMIZATION.md
 .agents/
 .claude/skills/
 skills-lock.json
+
+# Fetched by `helm dependency build`, pinned by Chart.lock
+deploy/helm/fluxify/charts/
