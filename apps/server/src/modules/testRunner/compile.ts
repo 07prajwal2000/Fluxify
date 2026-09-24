@@ -4,6 +4,7 @@ import { eq } from "drizzle-orm";
 import { db } from "../../db";
 import { customBlocksListEntity, projectsEntity, routesEntity } from "../../db/schema";
 import { loadGraph } from "../compiler/service";
+import { compileDependencies } from "../packages/service";
 
 /**
  * The compiled graph a suite runs, built from the database on every run.
@@ -32,11 +33,13 @@ export async function compileSuiteRoute(routeId: string) {
 	if (!route) throw new Error(`Route ${routeId} not found`);
 
 	const { blocks, edges } = await loadGraph({ type: "route", id: routeId });
-	const { source } = compileGraph(blocks, edges);
+	// package imports must resolve from the worker's installed deps, as live
+	const dependencies = await compileDependencies(route.projectId!);
+	const { source } = compileGraph(blocks, edges, { dependencies });
 	return {
 		route,
 		source,
-		customBlocks: await compileProjectCustomBlocks(route.projectId!),
+		customBlocks: await compileProjectCustomBlocks(route.projectId!, dependencies),
 	};
 }
 
@@ -49,7 +52,10 @@ export async function compileSuiteRoute(routeId: string) {
  * ponytail: compiles the whole project rather than just the blocks this route
  * reaches. Walk the graph for invocations if a large project makes a run slow.
  */
-async function compileProjectCustomBlocks(projectId: string) {
+async function compileProjectCustomBlocks(
+	projectId: string,
+	dependencies: Awaited<ReturnType<typeof compileDependencies>>,
+) {
 	const rows = await db
 		.select({ id: customBlocksListEntity.id, name: customBlocksListEntity.name })
 		.from(customBlocksListEntity)
@@ -63,7 +69,7 @@ async function compileProjectCustomBlocks(projectId: string) {
 				id: row.id,
 			});
 			// `param:` placeholders resolve from the invocation, same as the compiler
-			const { source } = compileGraph(blocks, edges, { asCustomBlock: true });
+			const { source } = compileGraph(blocks, edges, { asCustomBlock: true, dependencies });
 			compiled.push({ name: row.name, source });
 		} catch (error) {
 			// one unfinished block must not stop the suite; the route only fails if

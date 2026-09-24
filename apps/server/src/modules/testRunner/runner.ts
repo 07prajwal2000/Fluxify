@@ -11,11 +11,11 @@ import {
 	testSuitesEntity,
 } from "../../db/schema";
 import { assertOverridesOwned } from "../requestRouter/service";
-import { type AssertionType, buildSuiteRequest, evaluateAssertions } from "./assertions";
+import { type AssertionType, buildSuiteRequest } from "./assertions";
 import { compileSuiteRoute } from "./compile";
+import { runSuiteOnWorker } from "./dispatch";
 import { type Pool, testWorkerPool } from "./pool";
 import { resolveSuiteConfig } from "./resolve";
-import { runSuiteInChild } from "./spawn";
 import type { TestBootstrap, TestResult } from "./types";
 
 type Suite = InferSelectModel<typeof testSuitesEntity>;
@@ -32,18 +32,18 @@ export class TestRunError extends Error {
 	}
 }
 
-/** injectable so the orchestration can be tested without a child process */
+/** injectable so the orchestration can be tested without NATS or a worker */
 export type RunnerDeps = {
 	compile: typeof compileSuiteRoute;
 	resolve: typeof resolveSuiteConfig;
-	spawn: typeof runSuiteInChild;
+	spawn: typeof runSuiteOnWorker;
 	pool: Pool;
 };
 
 const defaultDeps: RunnerDeps = {
 	compile: compileSuiteRoute,
 	resolve: resolveSuiteConfig,
-	spawn: runSuiteInChild,
+	spawn: runSuiteOnWorker,
 	pool: testWorkerPool,
 };
 
@@ -226,8 +226,8 @@ async function failRun(runId: string, message: string) {
 }
 
 /**
- * One suite: resolve its own config, run it in a fresh process, judge the
- * response here in the parent, and write the row.
+ * One suite: resolve its own config, send it to a worker (which runs it in a
+ * fresh process and judges it there), and write the row.
  *
  * Config resolution is per suite even though the compile is shared — overrides
  * live on the suite, so two suites of one fleet legitimately talk to different
@@ -271,22 +271,17 @@ async function runOneSuite(
 			config,
 			request,
 			timeoutMs: compiled.route.timeoutSeconds * 1_000,
+			assertions: (suite.assertions as AssertionType[]) || [],
 		};
 
 		const response: TestResult = await deps.spawn(bootstrap);
 		durationMs = response.durationMs;
 
 		if (response.ok) {
-			const verdict = await evaluateAssertions((suite.assertions as AssertionType[]) || [], {
-				status: response.status,
-				body: response.data,
-				headers: response.headers,
-				durationMs,
-				request,
-			});
-			status = verdict.success ? "passed" : "failed";
+			status = response.verdict.success ? "passed" : "failed";
 			result = {
-				...verdict,
+				...response.verdict,
+				actualData: response.data,
 				statusCode: response.status,
 				headers: response.headers,
 			};

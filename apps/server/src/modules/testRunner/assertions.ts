@@ -113,7 +113,7 @@ async function actualFor(a: AssertionType, ctx: AssertionContext) {
 				},
 			});
 			return {
-				value: await vm.run(a.customJs || "return true;"),
+				value: await vm.runAsync(a.customJs || "return true;"),
 				desc: "Custom JS",
 			};
 		}
@@ -124,7 +124,13 @@ async function actualFor(a: AssertionType, ctx: AssertionContext) {
 
 function compare(a: AssertionType, actualValue: unknown) {
 	const expected = a.expectedValue == null ? "" : String(a.expectedValue);
-	const actualStr = actualValue == null ? "" : String(actualValue);
+	// an object stringifies to "[object Object]", which no expected value matches
+	const actualStr =
+		actualValue == null
+			? ""
+			: typeof actualValue === "object"
+				? JSON.stringify(actualValue)
+				: String(actualValue);
 	const numeric = a.target === "status" || a.target === "time";
 
 	switch (a.operator) {
@@ -156,9 +162,10 @@ function compare(a: AssertionType, actualValue: unknown) {
 /**
  * Every assertion's verdict for one response.
  *
- * Evaluated in the PARENT, never in the suite's child process: assertions are
- * the thing the sandbox is not trusted to report honestly, and a killed child
- * has no results to send anyway.
+ * Evaluated in the suite's child, after the route: custom JS assertions are
+ * user code, so they run where the route does and never in a process that holds
+ * system secrets. A route that tampers with globals can skew its own verdict —
+ * that is the user fooling themselves, not a boundary crossed.
  *
  * The return shape is the one the frontend already renders — do not change it
  * without changing `SuiteRunResult` and the UI together.

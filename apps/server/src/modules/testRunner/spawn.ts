@@ -28,8 +28,8 @@ function positiveInt(value: string | undefined, fallback: number) {
  * runtime with SIGABRT before user code runs (`MemoryExhaustion` — every child
  * died this way), and any value above the reservation caps nothing.
  * `BUN_JSC_forceRAMSize` is only a GC heuristic and does not bound the heap
- * either. The memory ceiling is the container's `mem_limit`, which is a real
- * cgroup limit — see the `admin` service in docker/production/docker-compose.yml.
+ * either. The memory ceiling is the worker container's memory limit, which is a
+ * real cgroup limit.
  *
  * The interpreter and entry path are passed as shell *arguments* ("$0"/"$1"),
  * never interpolated into the script: a path with a space or a quote would
@@ -100,7 +100,7 @@ export async function runSuiteInChild(
 	try {
 		return await promise;
 	} finally {
-		// an uncleared timer keeps the admin process alive for the whole timeout
+		// an uncleared timer keeps the worker supervisor alive for the whole timeout
 		clearTimeout(watchdog);
 		child.kill();
 	}

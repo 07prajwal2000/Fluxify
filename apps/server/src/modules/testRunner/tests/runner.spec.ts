@@ -127,6 +127,8 @@ const ok = (status: number): TestResult => ({
 	data: { hello: "world" },
 	headers: { "x-suite": "ok" },
 	durationMs: 5,
+	// the child judges; these suites assert status 200
+	verdict: { success: status === 200, result: [] },
 });
 
 beforeEach(() => {
