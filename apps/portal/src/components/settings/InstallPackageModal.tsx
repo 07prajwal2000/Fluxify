@@ -45,9 +45,12 @@ export function InstallPackageModal({
 			<Modal.Backdrop>
 				<Modal.Container placement="center" scroll="inside" size="lg">
 					<Modal.Dialog
-						className={cn("w-full transition-[max-width]", picked ? "!max-w-5xl" : "!max-w-2xl")}
+						className={cn(
+							"w-full !p-4 transition-[max-width]",
+							picked ? "!max-w-5xl" : "!max-w-2xl",
+						)}
 					>
-						<Modal.Header className="flex flex-col gap-3 px-6 pb-2 pt-5">
+						<Modal.Header className="flex flex-col gap-2 px-0 pb-1 pt-0">
 							<div className="flex items-start justify-between gap-3">
 								<div className="flex min-w-0 flex-1 items-center gap-3">
 									<span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-accent/10 text-accent">
@@ -89,7 +92,7 @@ export function InstallPackageModal({
 							</div>
 						</Modal.Header>
 
-						<Modal.Body className="flex h-[480px] gap-5 px-6 pb-5 pt-2">
+						<Modal.Body className="flex h-[480px] gap-4 px-0 pb-0 pt-1">
 							<div className="min-w-0 flex-1 overflow-y-auto">
 								<ResultsTable
 									hits={search.data}
