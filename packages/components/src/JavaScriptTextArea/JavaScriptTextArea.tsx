@@ -126,6 +126,9 @@ export function JavaScriptTextArea({
 				defaultValue={defaultValue}
 				height={height}
 				language={language}
+				// a `file:///` model: bare imports resolve by walking up to
+				// `file:///node_modules`, which an `inmemory://` model never reaches
+				path={`file:///src/editor-${typeDefinitionsId.replace(/\W/g, "")}.js`}
 				onChange={(next) => onChange?.(next ?? "")}
 				onMount={onMount}
 				options={{
