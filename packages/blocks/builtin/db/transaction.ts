@@ -15,42 +15,75 @@ export const transactionDbBlockSchema = z
 
 export const transactionDbAiDescription = {
 	name: BlockTypes.db_transaction,
-	description: "Executes a sequence of database operations as a single atomic transaction.",
+	description:
+		"Executes a sequence of database operations as a single atomic transaction. On commit the executor chain's last output flows to 'success'; on a rollback block or an error it rolls back and runs 'failure' with { reason: 'rollback' | 'error', message }.",
 	jsonSchema: JSON.stringify(z.toJSONSchema(transactionDbBlockSchema)),
 	handleInfo: `
 Handles:
-- 'executor': Connect the block to be executed inside the transaction.`,
+- 'executor': Connect the block to be executed inside the transaction.
+- 'success': Runs after commit, with the executor chain's last output as input.
+- 'failure': Runs after a rollback, with { reason, message } as input. When not connected, an error fails the route and a rollback ends it.`,
 };
 
+/** thrown by the rollback block; the enclosing transaction turns it into its failure branch */
+export class TransactionRollback extends Error {
+	constructor(readonly reason: string) {
+		super("rollback block ran outside a database transaction");
+	}
+}
+
+export type TransactionOutcome =
+	| { result: unknown }
+	| { failure: { reason: "rollback" | "error"; message: string } };
+
+function errorMessage(error: unknown) {
+	if (!(error instanceof Error)) return String(error);
+	return error.cause instanceof Error ? `${error.message}: ${error.cause.message}` : error.message;
+}
+
+/**
+ * `catchErrors` is off when nothing is wired to 'failure': an error then fails
+ * the route as before, so the error handler still sees it.
+ */
 export async function runTransactionDb(
 	context: Context,
 	connection: string,
 	body: () => Promise<unknown>,
-) {
+	catchErrors = false,
+): Promise<TransactionOutcome> {
 	const adapter = adapterFor(context, connection);
 	await adapter.startTransaction();
 	try {
 		const result = await body();
 		await adapter.commitTransaction();
-		return result;
+		return { result };
 	} catch (error) {
 		await adapter.rollbackTransaction();
-		dbFailure("transaction", error);
+		if (error instanceof TransactionRollback) {
+			return { failure: { reason: "rollback", message: error.reason } };
+		}
+		if (!catchErrors) dbFailure("transaction", error);
+		return { failure: { reason: "error", message: errorMessage(error) } };
 	}
 }
 
 /**
- * The executor chain runs inside the transaction callback. A terminal block in
- * there (a response) emits its own `return`, which lands as the callback's
- * result — so it is propagated out of the graph instead of being swallowed.
+ * The executor chain runs inside the transaction callback and ends in
+ * `$endBranch`, so its last output comes back wrapped. Anything else it
+ * returns is a terminal block in there (a response), propagated out of the
+ * graph instead of being swallowed.
  */
 export function emitTransactionDb(node: EmitNode) {
 	const input = transactionDbBlockSchema.parse(node.block.data);
-	const result = node.v("tx");
-	return `const ${result} = await lib.dbTransaction(ctx, ${node.value(input.connection)}, async () => {
-${node.body("executor", "undefined")}
-});
-if (${result} !== undefined) return ${result};
-${node.in} = undefined;
-${node.next()}`;
+	const tx = node.v("tx");
+	return `const ${tx} = await lib.dbTransaction(ctx, ${node.value(input.connection)}, async () => {
+${node.body("executor", "undefined", "$endBranch")}
+}, ${node.has("failure")});
+if ("failure" in ${tx}) {
+${node.in} = ${tx}.failure;
+${node.next("failure")}
+}
+if (${tx}.result !== undefined && !($branchEnd in ${tx}.result)) return ${tx}.result;
+${node.in} = ${tx}.result?.[$branchEnd];
+${node.next("success")}`;
 }

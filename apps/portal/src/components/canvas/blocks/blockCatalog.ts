@@ -213,8 +213,15 @@ export const BLOCK_CATALOG: Record<BlockType, BlockDefinition> = {
 	[BLOCK_TYPES.db_transaction]: {
 		name: "Database Transaction",
 		description: "Run the body in one transaction",
-		handles: LOOP,
+		handles: ["target", "success", "failure", "executor"],
 		tint: GREEN,
+		category: "Database",
+	},
+	[BLOCK_TYPES.db_rollback]: {
+		name: "Rollback Transaction",
+		description: "Undo the transaction and take its failure path",
+		handles: ["target"],
+		tint: RED,
 		category: "Database",
 	},
 	[BLOCK_TYPES.kv_operations]: {

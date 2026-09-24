@@ -11,6 +11,7 @@ import { getSingleDbSettings } from "./blocks/db/GetSingleDbSettings";
 import { insertBulkDbSettings } from "./blocks/db/InsertBulkDbSettings";
 import { insertDbSettings } from "./blocks/db/InsertDbSettings";
 import { nativeDbSettings } from "./blocks/db/NativeDbSettings";
+import { rollbackDbSettings } from "./blocks/db/RollbackDbSettings";
 import { transactionDbSettings } from "./blocks/db/TransactionDbSettings";
 import { updateDbSettings } from "./blocks/db/UpdateDbSettings";
 import { foreachLoopSettings } from "./blocks/ForeachLoopSettings";
@@ -69,6 +70,7 @@ export const BLOCK_SETTINGS_TABS: Record<string, BlockTabs> = {
 	[BLOCK_TYPES.db_insertbulk]: insertBulkDbSettings,
 	[BLOCK_TYPES.db_update]: updateDbSettings,
 	[BLOCK_TYPES.db_transaction]: transactionDbSettings,
+	[BLOCK_TYPES.db_rollback]: rollbackDbSettings,
 	[BLOCK_TYPES.db_native]: nativeDbSettings,
 	[BLOCK_TYPES.kv_raw]: kvRawSettings,
 	[BLOCK_TYPES.kv_operations]: kvOperationsSettings,

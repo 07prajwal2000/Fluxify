@@ -352,7 +352,7 @@ describe("compiled db blocks", () => {
 		const edges: EdgeDTOSchemaType = [
 			edge("in", "tx"),
 			edge("tx", "child", "executor"),
-			edge("tx", "out"),
+			edge("tx", "out", "success"),
 		];
 
 		const { run } = compileGraph(blocks, edges);
@@ -388,7 +388,7 @@ describe("compiled db blocks", () => {
 		const edges: EdgeDTOSchemaType = [
 			edge("in", "tx"),
 			edge("tx", "child", "executor"),
-			edge("tx", "out"),
+			edge("tx", "out", "success"),
 		];
 
 		const { run } = compileGraph(blocks, edges);
@@ -401,6 +401,92 @@ describe("compiled db blocks", () => {
 		expect(result.successful).toBe(false);
 		expect(result.error.message).toBe("failed to execute transaction db block");
 		expect(result.error.cause.message).toBe("failed to execute insert db block");
+	});
+
+	/** entrypoint -> tx(executor: insert -> ...inner) with success/failure responses */
+	function txGraph(inner: BlockDTOType[], innerEdges: EdgeDTOSchemaType, wireFailure = true) {
+		const blocks = [
+			block("in", BlockTypes.entrypoint),
+			block("tx", BlockTypes.db_transaction, { connection: "conn-1", executor: "child" }),
+			block("child", BlockTypes.db_insert, {
+				connection: "conn-1",
+				tableName: "orders",
+				useParam: false,
+				data: { source: "raw", value: { total: 10 } },
+			}),
+			...inner,
+			block("ok", BlockTypes.response, { httpCode: "200" }),
+			block("fail", BlockTypes.response, { httpCode: "400" }),
+		];
+		const edges: EdgeDTOSchemaType = [
+			edge("in", "tx"),
+			edge("tx", "child", "executor"),
+			edge("tx", "ok", "success"),
+			...(wireFailure ? [edge("tx", "fail", "failure")] : []),
+			...innerEdges,
+		];
+		return compileGraph(blocks, edges);
+	}
+
+	it("passes the executor chain's last output to the success handle", async () => {
+		const mock = createDbAdapter({ insert: { id: 1 } });
+		const { run } = txGraph([], []);
+		const result = await run(createContext(mock.adapter), null);
+
+		expect(mock.calls.map((c) => c.method)).toEqual(["startTransaction", "insert", "commitTransaction"]);
+		expect(result.output).toEqual({ httpCode: "200", body: { id: 1 } });
+	});
+
+	it("rolls back on a rollback block and runs the failure handle", async () => {
+		const mock = createDbAdapter({ insert: { id: 1 } });
+		const { run } = txGraph(
+			[block("rb", BlockTypes.db_rollback, { message: "js:return 'out of stock ' + input.id" })],
+			[edge("child", "rb")],
+		);
+		const result = await run(createContext(mock.adapter), null);
+
+		expect(mock.calls.map((c) => c.method)).toEqual(["startTransaction", "insert", "rollbackTransaction"]);
+		expect(result.output).toEqual({
+			httpCode: "400",
+			body: { reason: "rollback", message: "out of stock 1" },
+		});
+	});
+
+	it("ends the route quietly on a rollback when failure is not wired", async () => {
+		const mock = createDbAdapter({ insert: { id: 1 } });
+		const { run } = txGraph([block("rb", BlockTypes.db_rollback, {})], [edge("child", "rb")], false);
+		const result = await run(createContext(mock.adapter), null);
+
+		expect(result.successful).toBe(true);
+		expect(result.output).toEqual({ reason: "rollback", message: "transaction rolled back" });
+	});
+
+	it("routes an error inside the transaction to the failure handle when wired", async () => {
+		const mock = createDbAdapter();
+		mock.adapter.insert = async () => {
+			throw new Error("constraint violation");
+		};
+		const { run } = txGraph([], []);
+		const result = await run(createContext(mock.adapter), null);
+
+		expect(mock.calls.map((c) => c.method)).toEqual(["startTransaction", "rollbackTransaction"]);
+		expect(result.output.httpCode).toBe("400");
+		expect(result.output.body).toEqual({
+			reason: "error",
+			message: "failed to execute insert db block: constraint violation",
+		});
+	});
+
+	it("fails the route when a rollback block runs outside a transaction", async () => {
+		const mock = createDbAdapter();
+		const { run } = compileGraph(
+			[block("in", BlockTypes.entrypoint), block("rb", BlockTypes.db_rollback, {})],
+			[edge("in", "rb")],
+		);
+		const result = await run(createContext(mock.adapter), null);
+
+		expect(result.successful).toBe(false);
+		expect(result.error.message).toBe("rollback block ran outside a database transaction");
 	});
 
 	it("routes a db failure to the error handler chain", async () => {

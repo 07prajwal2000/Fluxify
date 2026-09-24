@@ -28,8 +28,13 @@ export type EmitNode = {
 	v(prefix: string): string;
 	/** code of the block wired to `handle`; a terminal `return` when nothing is */
 	next(handle?: string): string;
-	/** nested chain (loop bodies): its own flowing variable, falls through at the end */
-	body(handle: string, initExpr: string): string;
+	/**
+	 * nested chain (loop bodies): its own flowing variable, falls through at the
+	 * end. `end` is called with the chain's last output — the default drops it.
+	 */
+	body(handle: string, initExpr: string, end?: string): string;
+	/** whether an edge leaves this block on `handle` */
+	has(handle: string): boolean;
 	/**
 	 * Expression running every chain on a fan-out handle at once, each from this
 	 * block's input, ordered by `order`. Resolves to the outputs array, or to a
@@ -347,7 +352,10 @@ $trace.recordSpan(${span});
 			v: (prefix) => `$${prefix}_${counter++}`,
 			next(handle = "source") {
 				const to = edgeTo(id, handle);
-				const branching = block.type === BlockTypes.if || block.type === BlockTypes.db_exists;
+				const branching =
+					block.type === BlockTypes.if ||
+					block.type === BlockTypes.db_exists ||
+					block.type === BlockTypes.db_transaction;
 				const branch =
 					branching && (handle === "success" || handle === "failure") ? handle : undefined;
 				const continuation = to
@@ -356,7 +364,9 @@ $trace.recordSpan(${span});
 				// Row Exists saves the row on success and clears it on failure, so a
 				// loop's later miss never leaves an earlier iteration's row behind
 				const saved =
-					handle === "source" || (block.type === BlockTypes.db_exists && branch)
+					handle === "source" ||
+					(block.type === BlockTypes.db_transaction && handle === "success") ||
+					(block.type === BlockTypes.db_exists && branch)
 						? handle === "failure"
 							? "null"
 							: "$in"
@@ -367,15 +377,18 @@ $trace.recordSpan(${span});
 				return `${save}${recordSpan("$in", undefined, branch)}
 ${continuation}`;
 			},
-			body(handle, initExpr) {
+			body(handle, initExpr, end = "$endBody") {
 				const to = edgeTo(id, handle);
 				if (!to) return "";
 				const result = `$bodyResult_${counter++}`;
 				// mark this block as reported before handing off — an executor's
 				// throw must not be misattributed to the loop block that called it
 				return `$recorded = true;
-const ${result} = await ${blockFunctionName(to)}($state, ${initExpr}, $endBody);
+const ${result} = await ${blockFunctionName(to)}($state, ${initExpr}, ${end});
 if (${result} !== undefined) return ${result};`;
+			},
+			has(handle) {
+				return edgeTo(id, handle) !== undefined;
 			},
 			parallel(handle, order, settle) {
 				const runs = fanOutTargets(id, handle, order).map(

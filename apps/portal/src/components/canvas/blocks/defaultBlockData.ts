@@ -78,6 +78,7 @@ export function defaultBlockData(type: BlockType): Record<string, unknown> {
 	}
 	if (type === BLOCK_TYPES.db_native) return { connection: "", js: "" };
 	if (type === BLOCK_TYPES.db_transaction) return { connection: "", executor: "" };
+	if (type === BLOCK_TYPES.db_rollback) return { message: "" };
 	if (type === BLOCK_TYPES.kv_raw) return { connection: "", js: "" };
 	if (type === BLOCK_TYPES.kv_operations) {
 		return {

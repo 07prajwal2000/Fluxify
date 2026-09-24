@@ -25,6 +25,7 @@ import {
 	nativeDbBlockSchema,
 	orchestratorBlockSchema,
 	responseBlockSchema,
+	rollbackDbBlockSchema,
 	setHttpCookieBlockSchema,
 	setHttpHeaderBlockSchema,
 	setVarSchema,
@@ -166,6 +167,9 @@ export function blockDataValidator(data: CanvasChanges) {
 				break;
 			case BlockTypes.db_transaction:
 				schema = transactionDbBlockSchema;
+				break;
+			case BlockTypes.db_rollback:
+				schema = rollbackDbBlockSchema;
 				break;
 			case BlockTypes.orchestrator:
 				schema = orchestratorBlockSchema;

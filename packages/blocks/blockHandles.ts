@@ -15,11 +15,12 @@ export const BLOCK_OUTPUT_HANDLES: Record<string, readonly string[]> = {
 	[BlockTypes.db_exists]: ["success", "failure"],
 	[BlockTypes.forloop]: ["source", "executor"],
 	[BlockTypes.foreachloop]: ["source", "executor"],
-	[BlockTypes.db_transaction]: ["source", "executor"],
+	[BlockTypes.db_transaction]: ["success", "failure", "executor"],
 	[BlockTypes.orchestrator]: ["source", "orchestrate"],
 	[BlockTypes.switch]: ["case"],
 	// terminal — the runtime never looks for an outgoing edge
 	[BlockTypes.response]: [],
+	[BlockTypes.db_rollback]: [],
 	[BlockTypes.sticky_note]: [],
 };
 

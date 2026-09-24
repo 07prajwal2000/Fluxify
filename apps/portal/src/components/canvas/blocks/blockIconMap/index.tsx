@@ -5,6 +5,7 @@ import { IoLogoJavascript } from "react-icons/io";
 import { LuDatabaseZap } from "react-icons/lu";
 import { MdDataObject, MdHttp, MdOutlineReportGmailerrorred } from "react-icons/md";
 import {
+	TbArrowBackUp,
 	TbArrowsSplit2,
 	TbBox,
 	TbCloud,
@@ -63,6 +64,7 @@ export const BLOCK_ICON_MAP: Record<BlockType, ReactNode> = {
 	[BLOCK_TYPES.db_delete]: <TbDatabaseX size={SIZE} />,
 	[BLOCK_TYPES.db_native]: <TbDatabaseEdit size={SIZE} />,
 	[BLOCK_TYPES.db_transaction]: <LuDatabaseZap size={SIZE} />,
+	[BLOCK_TYPES.db_rollback]: <TbArrowBackUp size={SIZE} />,
 	[BLOCK_TYPES.kv_operations]: <TbKey size={SIZE} />,
 	[BLOCK_TYPES.kv_raw]: <TbPlugConnected size={SIZE} />,
 	[BLOCK_TYPES.consolelog]: <TbTerminal2 size={SIZE} />,

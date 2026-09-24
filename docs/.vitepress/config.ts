@@ -194,6 +194,7 @@ export default withMermaid(
 							{ text: "DB Delete", link: "/blocks/db-delete" },
 							{ text: "DB Native", link: "/blocks/db-native" },
 							{ text: "DB Transaction", link: "/blocks/db-transaction" },
+							{ text: "Rollback Transaction", link: "/blocks/db-rollback" },
 						],
 					},
 					{

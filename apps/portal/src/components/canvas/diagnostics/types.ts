@@ -4,6 +4,8 @@ const SOURCE_LABELS: Record<string, string> = {
 	compile: "Canvas compilation",
 	"cycle-detection": "Loop check: blocks must not connect back to themselves",
 	"switch-cases": "Switch check: every case must be able to run",
+	"transaction-wiring":
+		"Transaction check: rollbacks stay inside, success/failure paths stay outside",
 	"block-config": "Settings check: wired blocks must be filled in",
 	save: "Save error: the server rejected this block's data",
 };

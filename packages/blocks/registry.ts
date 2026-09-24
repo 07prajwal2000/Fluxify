@@ -13,7 +13,8 @@ import { emitGetSingleDb, runGetSingleDb } from "./builtin/db/getSingle";
 import { emitInsertDb, runInsertDb } from "./builtin/db/insert";
 import { emitInsertBulkDb, runInsertBulkDb } from "./builtin/db/insertBulk";
 import { emitNativeDb, runNativeDb } from "./builtin/db/native";
-import { emitTransactionDb, runTransactionDb } from "./builtin/db/transaction";
+import { emitRollbackDb } from "./builtin/db/rollback";
+import { emitTransactionDb, runTransactionDb, TransactionRollback } from "./builtin/db/transaction";
 import { emitUpdateDb, runUpdateDb } from "./builtin/db/update";
 import { emitEntrypoint } from "./builtin/entrypoint";
 import { emitGetVar } from "./builtin/getVar";
@@ -87,6 +88,7 @@ export const emitters: Partial<Record<BlockTypes, Emitter>> = {
 	[BlockTypes.db_delete]: emitDeleteDb,
 	[BlockTypes.db_native]: emitNativeDb,
 	[BlockTypes.db_transaction]: emitTransactionDb,
+	[BlockTypes.db_rollback]: emitRollbackDb,
 	[BlockTypes.kv_raw]: emitKvRaw,
 	[BlockTypes.kv_operations]: emitKvOperations,
 	[BlockTypes.cloudLogs]: emitCloudLogs,
@@ -112,6 +114,7 @@ export const compilerLib = {
 	dbDelete: runDeleteDb,
 	dbNative: runNativeDb,
 	dbTransaction: runTransactionDb,
+	TransactionRollback,
 	kvRaw: runKvRaw,
 	kvOperations: runKvOperations,
 	cloudLog: runCloudLog,

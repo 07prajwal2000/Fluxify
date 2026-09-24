@@ -6,6 +6,7 @@ import { getSingleDbBlockSchema } from "./db/getSingle";
 import { insertDbBlockSchema } from "./db/insert";
 import { insertBulkDbBlockSchema } from "./db/insertBulk";
 import { nativeDbBlockSchema } from "./db/native";
+import { rollbackDbBlockSchema } from "./db/rollback";
 import { transactionDbBlockSchema } from "./db/transaction";
 import { updateDbBlockSchema } from "./db/update";
 import { errorHandlerBlockSchema } from "./errorHandler";
@@ -57,6 +58,7 @@ export const builtinBlockSchemas: Record<string, z.ZodTypeAny> = {
 	dbupdate: updateDbBlockSchema,
 	dbnative: nativeDbBlockSchema,
 	dbtransaction: transactionDbBlockSchema,
+	dbrollback: rollbackDbBlockSchema,
 	kvraw: kvRawBlockSchema,
 	kvoperations: kvOperationsBlockSchema,
 	errorhandler: errorHandlerBlockSchema,

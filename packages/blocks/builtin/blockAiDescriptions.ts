@@ -6,6 +6,7 @@ import { getSingleDbAiDescription } from "./db/getSingle";
 import { insertDbAiDescription } from "./db/insert";
 import { insertBulkAiDescription } from "./db/insertBulk";
 import { nativeDbAiDescription } from "./db/native";
+import { rollbackDbAiDescription } from "./db/rollback";
 import { transactionDbAiDescription } from "./db/transaction";
 import { updateDbAiDescription } from "./db/update";
 import { entrypointAiDescription } from "./entrypoint";
@@ -52,6 +53,7 @@ export const blockAiDescriptions = [
 	insertBulkAiDescription,
 	nativeDbAiDescription,
 	transactionDbAiDescription,
+	rollbackDbAiDescription,
 	updateDbAiDescription,
 	kvRawAiDescription,
 	kvOperationsAiDescription,
