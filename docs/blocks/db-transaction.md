@@ -38,6 +38,10 @@ If a block inside the executor chain sends a **Response**, the transaction commi
 - An **error** fails the run, as with any other block, so the [Error Handler](./error-handler.md) still receives it.
 - A **rollback** ends the run quietly.
 
+### Nested transactions
+
+A transaction inside another one's executor chain must use a **different connection**. On the same connection the inner transaction is refused with `nested transactions on the same connection are not supported`: the outer one rolls back and takes its **Failure** path, and the canvas shows an error on the inner block. A canvas with this wiring cannot be saved.
+
 ## Example: reject large orders
 
 ```
@@ -52,5 +56,8 @@ The insert runs first; when the total is over the limit the rollback undoes it, 
 
 ## Canvas checks
 
+Errors block saving the canvas; the warning does not, so a half-built canvas still saves.
+
 - **Error**: the Success or Failure path leads into blocks that also run inside the Executor chain. Keep the inside and the after paths separate.
+- **Error**: a transaction sits inside another transaction on the same connection.
 - **Warning**: a Rollback Transaction block can be reached outside the Executor chain. See [Rollback Transaction](./db-rollback.md).

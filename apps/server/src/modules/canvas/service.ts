@@ -26,6 +26,7 @@ import {
 	upsertBlocks,
 	upsertEdges,
 } from "./repository";
+import { assertTransactionWiring } from "./transactionWiring";
 import type { CanvasChanges, CanvasParent, CanvasParentType } from "./types";
 
 type CanvasEdgeWithHandle = DirectedCanvasEdge & {
@@ -109,6 +110,21 @@ async function assertCanvasHasNoCycles(
 	throw new ConflictError(
 		`Canvas cannot contain cycles. Remove connection(s): ${[...cycleEdgeIds].join(", ")}`,
 	);
+}
+
+/** Blocks as they will be after this delta: stored ones, overwritten by changes, minus deletes. */
+async function canvasBlocksAfterSave(
+	parent: CanvasParent,
+	data: CanvasChanges,
+	deleteBlockIds: string[],
+	tx: DbTransactionType,
+) {
+	const blocks = new Map<string, { id: string; type: string | null; data: unknown }>(
+		(await getBlocks(parent, tx)).map((b) => [b.id, b]),
+	);
+	for (const block of data.changes.blocks) blocks.set(block.id, block);
+	for (const id of deleteBlockIds) blocks.delete(id);
+	return [...blocks.values()];
 }
 
 /** The runtime takes the first edge it finds for an output handle (fan-out
@@ -306,6 +322,10 @@ export async function saveCanvas(
 		await assertEdgeTargetsExist(parent, data, deleteBlockIds, tx);
 		await assertCanvasHasNoCycles(parent, data, deleteBlockIds, deleteEdgeIds, tx);
 		await assertCanvasHasNoHandleFanOut(parent, data, deleteBlockIds, deleteEdgeIds, tx);
+		assertTransactionWiring(
+			await canvasBlocksAfterSave(parent, data, deleteBlockIds, tx),
+			await canvasEdgesAfterSave(parent, data, deleteBlockIds, deleteEdgeIds, tx),
+		);
 		await upsertBlocks(
 			data.changes.blocks.map((block) => ({ ...block, ...keys })),
 			tx,

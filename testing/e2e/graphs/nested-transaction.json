@@ -1,0 +1,55 @@
+{
+	"name": "nested-transaction",
+	"description": "POST /orders/nested — an order inserted inside a transaction, then a second transaction on the same connection. The inner one is refused, the outer one rolls back its insert and replies 409.",
+	"engine": "pg",
+	"route": { "method": "POST", "path": "/orders/nested" },
+	"blocks": [
+		{ "id": "entry", "type": "entrypoint", "position": { "x": 0, "y": 0 }, "data": { "blockName": "Request" } },
+		{
+			"id": "outer",
+			"type": "db_transaction",
+			"position": { "x": 240, "y": 0 },
+			"data": { "blockName": "Outer", "connection": "primary", "executor": "insert-order" }
+		},
+		{
+			"id": "insert-order",
+			"type": "db_insert",
+			"position": { "x": 240, "y": -240 },
+			"data": {
+				"blockName": "Insert order",
+				"connection": "primary",
+				"tableName": "orders",
+				"useParam": false,
+				"data": { "source": "raw", "value": { "user_id": 1, "total": 10, "status": "pending" } }
+			}
+		},
+		{
+			"id": "inner",
+			"type": "db_transaction",
+			"position": { "x": 480, "y": -240 },
+			"data": { "blockName": "Inner", "connection": "primary", "executor": "insert-again" }
+		},
+		{
+			"id": "insert-again",
+			"type": "db_insert",
+			"position": { "x": 480, "y": -480 },
+			"data": {
+				"blockName": "Insert another order",
+				"connection": "primary",
+				"tableName": "orders",
+				"useParam": false,
+				"data": { "source": "raw", "value": { "user_id": 1, "total": 20, "status": "pending" } }
+			}
+		},
+		{ "id": "created", "type": "response", "position": { "x": 480, "y": 0 }, "data": { "blockName": "201", "httpCode": "201" } },
+		{ "id": "rejected", "type": "response", "position": { "x": 480, "y": 120 }, "data": { "blockName": "409", "httpCode": "409" } }
+	],
+	"edges": [
+		{ "id": "e-entry-outer", "from": "entry", "to": "outer", "fromHandle": "source", "toHandle": "source" },
+		{ "id": "e-outer-insert", "from": "outer", "to": "insert-order", "fromHandle": "executor", "toHandle": "executor" },
+		{ "id": "e-insert-inner", "from": "insert-order", "to": "inner", "fromHandle": "source", "toHandle": "source" },
+		{ "id": "e-inner-insert", "from": "inner", "to": "insert-again", "fromHandle": "executor", "toHandle": "executor" },
+		{ "id": "e-outer-created", "from": "outer", "to": "created", "fromHandle": "success", "toHandle": "success" },
+		{ "id": "e-outer-rejected", "from": "outer", "to": "rejected", "fromHandle": "failure", "toHandle": "failure" }
+	]
+}
