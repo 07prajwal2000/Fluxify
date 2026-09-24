@@ -1,5 +1,7 @@
 import { existsSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import { initializeLogger, logger } from "@fluxify/common";
+import type { RpcResponder } from "@fluxify/common/nats";
 import type { NodeType } from "@fluxify/common/orchestrator";
 import { closeNats } from "../src/db/nats";
 import { canRunConnectors, nodeEntitlement, watchLicense } from "../src/lib/edition";
@@ -43,6 +45,7 @@ import { healthResponse, markDraining } from "../src/modules/requestRouter/healt
 import type { ExecutionMessage } from "../src/modules/requestRouter/threadTypes";
 import { workerTimeoutsEnabled } from "../src/modules/requestRouter/workerTimeouts";
 import { startFireConsumer } from "../src/modules/schedules/fire";
+import { serveTestRuns } from "../src/modules/testRunner/workerHost";
 import { TriggerWorker } from "../src/modules/triggers/consumers";
 import { consumedInExecution, runsHere } from "../src/modules/triggers/types";
 
@@ -97,6 +100,14 @@ const bundledProcess = new URL("./executionProcess.js", import.meta.url);
 const processEntry = existsSync(bundledProcess)
 	? bundledProcess
 	: new URL("../src/modules/requestRouter/executionProcess.ts", import.meta.url);
+const bundledTestProcess = new URL("./testExecutionProcess.js", import.meta.url);
+const testProcessEntry = fileURLToPath(
+	existsSync(bundledTestProcess)
+		? bundledTestProcess
+		: new URL("../src/modules/testRunner/testExecutionProcess.ts", import.meta.url),
+);
+/** test-suite responders (#478), one per served project */
+const testRuns = new Map<string, RpcResponder>();
 const artifacts = new Map<string, ArtifactEntry>();
 const timeoutProjects = new Map<string, boolean>();
 let shuttingDown = false;
@@ -253,6 +264,10 @@ function trackProject(entry: ArtifactEntry) {
 async function serveProject(projectId: string) {
 	await jobWorker.serve(projectId);
 	await triggerWorker.serveInternal(projectId);
+	// suites run routes, so a workflow-only node never takes them
+	if (node.type !== "workflow" && !testRuns.has(projectId)) {
+		testRuns.set(projectId, serveTestRuns(projectId, testProcessEntry));
+	}
 }
 
 /**
@@ -263,9 +278,14 @@ function unserveIfGone(projectId: string) {
 	if (!servedProjects.has(projectId)) return;
 	for (const key of artifacts.keys()) if (key.split(".")[1] === projectId) return;
 	servedProjects.delete(projectId);
-	void Promise.all([jobWorker.unserve(projectId), triggerWorker.unserveInternal(projectId)]).catch(
-		(error) =>
-			logger.error(`consumers for ${projectId} failed to stop: ${String(error)}`, "WORKER"),
+	const tests = testRuns.get(projectId);
+	testRuns.delete(projectId);
+	void Promise.all([
+		jobWorker.unserve(projectId),
+		triggerWorker.unserveInternal(projectId),
+		tests?.stop(),
+	]).catch((error) =>
+		logger.error(`consumers for ${projectId} failed to stop: ${String(error)}`, "WORKER"),
 	);
 }
 

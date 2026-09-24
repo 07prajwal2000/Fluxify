@@ -79,12 +79,12 @@ COPY scripts/setup-hooks.ts scripts/setup-hooks.ts
 RUN bun install --frozen-lockfile
 
 # ------------------------------------------------------------------------------
-# Stage 2: build — TWO bundles, not one.
+# Stage 2: build — three bundles, not one.
 #
 # Bun's bundler does not pull a child-process entry point into its parent's
 # bundle; it leaves the reference and resolves it at runtime. So the supervisor
-# and execution process are built as separate entry points and land side by side in
-# dist/. compiledWorker.ts looks for ./executionProcess.js next to itself, so
+# execution process and test-suite process are separate entry points and land side by side in
+# dist/. compiledWorker.ts looks for ./executionProcess.js and ./testExecutionProcess.js next to itself, so
 # this flat layout is load-bearing — do not nest the outputs.
 #
 # Only apps/server and the four workspace packages it imports are copied — no
@@ -130,7 +130,7 @@ LABEL org.opencontainers.image.title="Fluxify Compiled Worker" \
       org.opencontainers.image.revision="${VCS_REF}" \
       org.opencontainers.image.created="${BUILD_DATE}"
 
-# compiledWorker.js + executionProcess.js + native assets, siblings in one dir.
+# compiledWorker.js + executionProcess.js + testExecutionProcess.js + native assets, siblings in one dir.
 # Owned by root and read-only to the worker: running code cannot rewrite itself.
 COPY --from=build /app/apps/server/dist /app/worker
 # Kafka's compression wasm, loaded from "../dist/native.wasm" relative to the
