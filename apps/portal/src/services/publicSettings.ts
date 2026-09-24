@@ -34,6 +34,8 @@ export type PublicSettingsResponse = {
 	 */
 	orchestration?: { enabled: boolean };
 	license: Entitlement;
+	/** the server's Bun version; the editor loads matching `@types/bun` */
+	bunVersion?: string;
 };
 
 export const publicSettingsService = {

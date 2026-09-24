@@ -8,8 +8,7 @@
 		"build": "vite build",
 		"preview": "vite preview",
 		"typecheck": "tsgo --noEmit",
-		"test": "bun test --parallel",
-		"sync-types": "bun run scripts/sync-type-libs.ts"
+		"test": "bun test --parallel"
 	},
 	"dependencies": {
 		"@better-auth/sso": "^1.6.26",
@@ -48,7 +47,6 @@
 		"@types/node": "^24.2.1",
 		"@types/react": "^19",
 		"@types/react-dom": "^19",
-		"@types/underscore": "^1.13.0",
 		"@typescript/native-preview": "^7.0.0-dev.20260220.1",
 		"@vitejs/plugin-react": "^6.0.4",
 		"bun-types": "^1.4.0",

@@ -19,6 +19,8 @@ export function mapVersionedAdminRoutes(app: HonoServer) {
 			...getPublicSettings(),
 			license: currentEntitlement(),
 			orchestration: { enabled: orchestrationEnabled() },
+			// the editor loads `@types/bun` at this version
+			bunVersion: Bun.version,
 		}),
 	);
 	router.get("/openapi/ui", (c) => {

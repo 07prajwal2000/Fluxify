@@ -5,7 +5,6 @@ import * as monaco from "monaco-editor";
 import editorWorker from "monaco-editor/editor/editor.worker?worker";
 import tsWorker from "monaco-editor/language/typescript/ts.worker?worker";
 import { FLUXIFY_JS_GLOBALS } from "./globals";
-import { ensurePackageTypes } from "./loadPackageTypes";
 import { importSpecifiers } from "./npmPackageTypes";
 import { registerTypeLib } from "./typeLibRegistry";
 
@@ -38,24 +37,14 @@ if (typeof window !== "undefined") {
 		// `import("zod")` look under a virtual `node_modules/`, which is where
 		// the registered package types live.
 		moduleResolution: monaco.typescript.ModuleResolutionKind.NodeJs,
-		// zod's locale files are re-exported as default imports
-		// (`export { default as ar } from "./ar.cjs"`) — without this they fail
-		// to resolve (verified against real tsc; see sync-type-libs.ts).
+		// packages re-exported as default imports (zod's locales) need this
 		esModuleInterop: true,
 	});
 	// Runs once at module load: `addExtraLib` accumulates, so a per-editor call
 	// would stack a duplicate copy of the globals on every mount.
 	registerTypeLib("fluxify-globals", FLUXIFY_JS_GLOBALS, "file:///fluxify-globals.d.ts");
 
-	// `libs.zod`/`libs._` reference the packages' real types (see globals.ts);
-	// fetch and register them so those references resolve. Fire-and-forget —
-	// completions for `libs.*` populate once the fetch lands.
-	void ensurePackageTypes("zod");
-	void ensurePackageTypes("underscore");
-	// Bun's own runtime types — makes `import { file } from "bun"` and the
-	// ambient `Bun` global resolve. Pulls in `@types/node` too (declared as
-	// its dependency in sync-type-libs.ts).
-	void ensurePackageTypes("bun");
+	// Bun and npm package types load from jsDelivr (see npmPackageTypes.ts).
 
 	// Package names inside `from "…"`, `import("…")` and `require("…")`: the TS
 	// worker can't list the virtual node_modules, so it only completes names it
@@ -91,7 +80,7 @@ if (typeof window !== "undefined") {
 
 /**
  * Forces a reload of the Monaco JavaScript language service and core runtime types.
- * Clears and re-registers the Fluxify runtime globals and external package types.
+ * Re-registers the Fluxify runtime globals.
  */
 export async function restartLanguageServer(): Promise<void> {
 	if (typeof window === "undefined") return;
@@ -105,12 +94,6 @@ export async function restartLanguageServer(): Promise<void> {
 	});
 
 	registerTypeLib("fluxify-globals", FLUXIFY_JS_GLOBALS, "file:///fluxify-globals.d.ts");
-
-	await Promise.allSettled([
-		ensurePackageTypes("zod"),
-		ensurePackageTypes("underscore"),
-		ensurePackageTypes("bun"),
-	]);
 }
 
 declare global {

@@ -1,8 +1,0 @@
-{
-  "entry": "index.d.ts",
-  "files": [
-    "index.d.ts",
-    "package.json"
-  ],
-  "dependencies": []
-}
