@@ -13,12 +13,17 @@ export const assertionSchema = z
 		customJs: z.string().optional().nullable(),
 	})
 	.superRefine((val, ctx) => {
-		// 1. Property path
-		if (val.target !== "body" && val.propertyPath != null && val.propertyPath !== "") {
+		// 1. Property path: a body path, or the header name for `header`
+		if (
+			val.target !== "body" &&
+			val.target !== "header" &&
+			val.propertyPath != null &&
+			val.propertyPath !== ""
+		) {
 			ctx.addIssue({
 				code: z.ZodIssueCode.custom,
 				path: ["propertyPath"],
-				message: "propertyPath must be absent or null unless target is 'body'",
+				message: "propertyPath must be absent or null unless target is 'body' or 'header'",
 			});
 		}
 

@@ -1,4 +1,5 @@
 import { describe, expect, it } from "bun:test";
+import { assertionSchema } from "../../../api/v1/test-suites/schema";
 import {
 	buildSuiteRequest,
 	evaluateAssertions,
@@ -101,6 +102,20 @@ describe("evaluateAssertions", () => {
 			{ target: "body", propertyPath: "user.email", operator: "not_exists" },
 		] as AssertionType[]);
 		expect(verdict.result.map((r) => r.success)).toEqual([true, true, true]);
+	});
+
+	it("compares an object or array body by its JSON", async () => {
+		const verdict = await run([
+			{ target: "body", propertyPath: "user", operator: "eq", expectedValue: '{"name":"ada"}' },
+			{ target: "body", propertyPath: "tags", operator: "neq", expectedValue: '["a","b"]' },
+		] as AssertionType[]);
+		expect(verdict.result.map((r) => r.success)).toEqual([true, false]);
+	});
+
+	it("accepts a header name in propertyPath", () => {
+		const header = { target: "header", propertyPath: "x-id", operator: "exists" };
+		expect(assertionSchema.safeParse(header).success).toBe(true);
+		expect(assertionSchema.safeParse({ ...header, target: "status", operator: "eq", expectedValue: "200" }).success).toBe(false);
 	});
 
 	it("evaluates header assertions against the real response headers", async () => {

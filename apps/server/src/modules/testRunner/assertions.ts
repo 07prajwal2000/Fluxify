@@ -124,7 +124,13 @@ async function actualFor(a: AssertionType, ctx: AssertionContext) {
 
 function compare(a: AssertionType, actualValue: unknown) {
 	const expected = a.expectedValue == null ? "" : String(a.expectedValue);
-	const actualStr = actualValue == null ? "" : String(actualValue);
+	// an object stringifies to "[object Object]", which no expected value matches
+	const actualStr =
+		actualValue == null
+			? ""
+			: typeof actualValue === "object"
+				? JSON.stringify(actualValue)
+				: String(actualValue);
 	const numeric = a.target === "status" || a.target === "time";
 
 	switch (a.operator) {
