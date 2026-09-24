@@ -39,7 +39,7 @@ logger.logWarn("Customer service returned a fallback result");
 logger.logError("Customer lookup failed", error);
 ```
 
-For the full JavaScript logging API, see the [JavaScript API Reference](../scripting/javascript-api.md#logging-and-libraries).
+For the full JavaScript logging API, see the [JavaScript API Reference](../scripting/javascript-api.md#logging).
 
 ## Related pages
 

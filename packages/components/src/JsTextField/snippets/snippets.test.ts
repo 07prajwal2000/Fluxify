@@ -42,7 +42,8 @@ describe("defaultSnippets", () => {
 
 		const zodValidate = DEFAULT_SNIPPETS.find((s) => s.id === "zod-validate");
 		expect(zodValidate).toBeDefined();
-		expect(zodValidate?.code).toContain("libs.zod");
+		expect(zodValidate?.code).toContain('import { z } from "zod"');
+		expect(DEFAULT_SNIPPETS.some((s) => s.code.includes("libs."))).toBe(false);
 
 		const dbQuery = DEFAULT_SNIPPETS.find(
 			(s) => s.id === "db-parameterized-query",

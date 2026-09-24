@@ -34,12 +34,14 @@ if (!id) {
 	{
 		id: "zod-validate",
 		title: "Zod Schema Validation",
-		description: "Validate input or body using bundled Zod library",
+		description: "Validate input or body with Zod (install the zod package first)",
 		category: "validation",
-		code: `const schema = libs.zod.object({
-  email: libs.zod.string().email(),
-  name: libs.zod.string().min(1),
-  role: libs.zod.enum(["admin", "user"]).default("user"),
+		code: `import { z } from "zod";
+
+const schema = z.object({
+  email: z.string().email(),
+  name: z.string().min(1),
+  role: z.enum(["admin", "user"]).default("user"),
 });
 
 const result = schema.safeParse(getRequestBody());
@@ -47,7 +49,7 @@ if (!result.success) {
   throw new Error(\`Validation error: \${result.error.issues.map((i) => i.message).join(", ")}\`);
 }
 return result.data;`,
-		tags: ["zod", "validation", "schema", "libs"],
+		tags: ["zod", "validation", "schema", "import"],
 	},
 	{
 		id: "config-required-guard",
@@ -186,12 +188,14 @@ setHeader("X-Request-Id", input.requestId || crypto.randomUUID());`,
 	{
 		id: "dayjs-date-math",
 		title: "Date Math & Formatting (Day.js)",
-		description: "Manipulate and format dates using bundled Day.js",
+		description: "Manipulate and format dates with Day.js (install the dayjs package first)",
 		category: "utils",
-		code: `const expiresAt = libs.dayjs().add(30, "day").toISOString();
-const formattedDate = libs.dayjs().format("YYYY-MM-DD HH:mm:ss");
+		code: `import dayjs from "dayjs";
+
+const expiresAt = dayjs().add(30, "day").toISOString();
+const formattedDate = dayjs().format("YYYY-MM-DD HH:mm:ss");
 return { formattedDate, expiresAt };`,
-		tags: ["date", "time", "dayjs", "libs"],
+		tags: ["date", "time", "dayjs", "import"],
 	},
 	{
 		id: "json-parse-safe",
@@ -208,13 +212,13 @@ return { formattedDate, expiresAt };`,
 		tags: ["json", "parse", "safe", "utils"],
 	},
 	{
-		id: "underscore-group-by",
-		title: "Group Array by Key (Underscore)",
-		description: "Group collection items by field using bundled Underscore",
+		id: "group-by",
+		title: "Group Array by Key",
+		description: "Group collection items by a field with Object.groupBy",
 		category: "utils",
 		code: `const items = Array.isArray(input) ? input : input?.items || [];
-return libs._.groupBy(items, "category");`,
-		tags: ["underscore", "array", "group", "libs"],
+return Object.groupBy(items, (item) => item.category);`,
+		tags: ["array", "group", "utils"],
 	},
 	{
 		id: "logger-structured-event",

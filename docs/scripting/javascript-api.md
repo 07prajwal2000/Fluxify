@@ -138,19 +138,13 @@ const httpClient: {
 | `delete<T>` | `url: string`, `headers?: HttpHeaders` | `Promise<AxiosResponse<T>>` |
 | `patch<T>` | `url: string`, `data?: any`, `headers?: HttpHeaders` | `Promise<AxiosResponse<T>>` |
 
-## Logging and libraries
+## Logging
 
 ```typescript
 const logger: {
   logInfo(value: any): void;
   logWarn(value: any): void;
   logError(value: any): void;
-};
-
-const libs: {
-  dayjs: typeof import("dayjs");
-  _: typeof import("underscore");
-  zod: typeof import("zod");
 };
 ```
 
@@ -159,9 +153,6 @@ const libs: {
 | `logger.logInfo` | `value: any` | `void` | Writes an informational log entry. |
 | `logger.logWarn` | `value: any` | `void` | Writes a warning log entry. |
 | `logger.logError` | `value: any` | `void` | Writes an error log entry. |
-| `libs.dayjs` | Day.js arguments | `Dayjs` | Bundled Day.js. |
-| `libs._` | Underscore API arguments | varies | Bundled Underscore. |
-| `libs.zod` | Zod API arguments | varies | Bundled Zod. |
 
 ## DB Native only
 

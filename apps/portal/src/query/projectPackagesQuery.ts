@@ -1,5 +1,6 @@
 import { useNpmPackageTypes } from "@fluxify/components";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { publicSettingsQuery } from "@/query/publicSettingsQuery";
 import { projectPackagesService } from "@/services/projectPackages";
 
 const key = (projectId: string) => ["project-packages", projectId];
@@ -66,5 +67,6 @@ export const projectPackagesQuery = {
 /** editor autocomplete for the project's installed packages */
 export function useProjectPackageTypes(projectId: string) {
 	const { data } = projectPackagesQuery.list.useQuery(projectId);
-	useNpmPackageTypes(data?.packages);
+	const { data: settings } = publicSettingsQuery.get.useQuery();
+	useNpmPackageTypes(data?.packages, settings?.bunVersion);
 }

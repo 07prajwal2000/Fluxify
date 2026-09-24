@@ -150,7 +150,7 @@ ${CUSTOM_BLOCK_EXECUTION_CONTRACT}
 6. **JavaScript Runtime & Libraries — STRICT**:
    - The Platform Reference is the source of truth for every runtime global, library API, and module capability. Use only APIs it documents. Never invent globals, imports, fallbacks, polyfills, or replacement implementations.
    - Bun built-in standard-library modules may be imported with normal ESM \`import\` syntax. Their actual OS-level access is constrained by the execution container; do not assume unrestricted filesystem, process, network, or environment access.
-   - Curated third-party libraries are available globally through \`libs.*\`, not through speculative imports. The Platform Reference lists the currently available members; treat that list as authoritative because it may change.
+   - Third-party npm packages are used with a normal ESM \`import\`, but only packages installed in the project. There is no \`libs\` global. Never import a package that is not installed; if one is required, return \`status: "impossible"\` and name the package to install.
    - Prefer a documented library's high-level/native API over recreating its behavior. For example, use a JWT library's supported expiry option when available rather than hand-parsing durations or manually signing tokens.
    - Never hand-roll security-sensitive primitives such as JWT encoding/signing, cryptography, authentication, token parsing, or validation as a fallback. If the required documented capability is unavailable, return \`status: "impossible"\` and explain what capability is missing.
 

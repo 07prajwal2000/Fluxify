@@ -10,12 +10,12 @@ Because Fluxify runs your custom scripts on the server, writing improper code ca
 Pay close attention to the following constraints and pitfalls when scripting.
 ## 1. Global Variable Mutation (Context Corruption)
 
-Every block in a workflow execution shares the **same mutable context object**. Any global helper variables (like `setHeader`, `logger`, `jwt`, `libs`, `getConfig`, etc.) are injected as properties into this context.
+Every block in a workflow execution shares the **same mutable context object**. Any global helper variables (like `setHeader`, `logger`, `jwt`, `getConfig`, etc.) are injected as properties into this context.
 
 > [!CAUTION]
 > Overwriting or deleting these built-in globals will corrupt the environment for the current run.
 > 
-> For example, running `setHeader = null;` or `delete libs;` in a script will make that helper unavailable. Any subsequent block or expression in the workflow attempting to use it will throw a `TypeError: setHeader is not a function`, instantly halting the workflow and returning a `500 Internal Server Error` to the caller.
+> For example, running `setHeader = null;` or `delete jwt;` in a script will make that helper unavailable. Any subsequent block or expression in the workflow attempting to use it will throw a `TypeError: setHeader is not a function`, instantly halting the workflow and returning a `500 Internal Server Error` to the caller.
 
 ### Best Practice
 - Treat all built-in global functions and objects as **read-only**.

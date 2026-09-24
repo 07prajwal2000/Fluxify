@@ -5,8 +5,8 @@ import { useEffect } from "react";
  * package's own `.d.ts` files — or its `@types/*` package when it ships none —
  * from jsDelivr and registers them under `node_modules/<pkg>`, so
  * `import x from "<pkg>"` resolves in the editor as it does on a worker.
- * ponytail: no transitive type deps (a `.d.ts` importing another package goes
- * untyped); follow `dependencies` of the types package if that matters.
+ * A types package's own `dependencies` (e.g. `@types/bun` -> `bun-types`,
+ * `@types/node`) load the same way, once per name.
  */
 const CDN = "https://cdn.jsdelivr.net/npm";
 const LISTING = "https://data.jsdelivr.com/v1/packages/npm";
@@ -16,6 +16,8 @@ const DECLARATION = /\.d\.(ts|mts|cts)$/;
 export type InstalledPackage = { name: string; version: string | null };
 
 const loaded = new Map<string, Promise<void>>();
+/** transitive type dependencies, deduped by name */
+const deps = new Map<string, Promise<void>>();
 
 let installed: string[] = [];
 /** importable subpaths (`nanoid/non-secure`, `dayjs/plugin/utc`) per package, known once its types load */
@@ -72,8 +74,30 @@ async function registerFrom(name: string, source: string, version: string) {
 	);
 	const { registerTypeLibFiles } = await import("./typeLibRegistry");
 	registerTypeLibFiles(`npm:${name}`, files);
-	const manifest = files.find((f) => f.virtualPath.endsWith(`${name}/package.json`));
-	subpaths.set(name, subpathsOf(name, manifest ? JSON.parse(manifest.content) : {}, paths));
+	const file = files.find((f) => f.virtualPath.endsWith(`${name}/package.json`));
+	const manifest = file ? JSON.parse(file.content) : {};
+	subpaths.set(name, subpathsOf(name, manifest, paths));
+	await Promise.all(
+		Object.entries<string>(manifest.dependencies ?? {}).map(([dep, range]) =>
+			loadDependency(dep, minVersion(range)),
+		),
+	);
+}
+
+/** lowest version a range allows (`^1.2.3` -> `1.2.3`), else `latest` */
+export function minVersion(range: string) {
+	return range.match(/\d+\.\d+\.\d+(-[\w.]+)?/)?.[0] ?? "latest";
+}
+
+function loadDependency(name: string, version: string) {
+	if (!deps.has(name))
+		deps.set(
+			name,
+			registerFrom(name, name, version).catch((error) => {
+				console.warn(`[JavaScriptTextArea] no types for "${name}"`, error);
+			}),
+		);
+	return deps.get(name);
 }
 
 async function loadTypes({ name, version }: InstalledPackage) {
@@ -91,7 +115,14 @@ async function loadTypes({ name, version }: InstalledPackage) {
 }
 
 /** keeps the editor's package types in step with what the project has installed */
-export function useNpmPackageTypes(packages: InstalledPackage[] | undefined) {
+export function useNpmPackageTypes(
+	packages: InstalledPackage[] | undefined,
+	/** the server's `Bun.version`: loads the matching `@types/bun` once */
+	bunVersion?: string,
+) {
+	useEffect(() => {
+		if (bunVersion) loadDependency("@types/bun", bunVersion);
+	}, [bunVersion]);
 	const key = JSON.stringify(packages ?? []);
 	useEffect(() => {
 		const list: InstalledPackage[] = JSON.parse(key);

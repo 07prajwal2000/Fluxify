@@ -201,11 +201,6 @@ export interface ContextVarsType {
 	httpRequestRoute: string;
 	getRequestBody: () => any;
 	httpClient: HttpClient;
-	libs: {
-		dayjs: typeof import("dayjs");
-		_: unknown;
-		zod: unknown;
-	};
 	/**
 	 * get the value of the app config
 	 * @param key app config key name
@@ -305,11 +300,6 @@ function setCookie(name: string, options: {
 		): Promise<AxiosResponse<T>>;
 
 		native(): AxiosInstance;
-	}
-	const libs: {
-		dayjs: dayjs() // full dayjs library access with utc extended.
-		_: underscore // supports full underscore.js library. 
-		zod: zod // supports full zod library.
 	}
 // 5. JWT
 const jwt: {

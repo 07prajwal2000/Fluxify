@@ -106,7 +106,6 @@
         "@types/node": "^24.2.1",
         "@types/react": "^19",
         "@types/react-dom": "^19",
-        "@types/underscore": "^1.13.0",
         "@typescript/native-preview": "^7.0.0-dev.20260220.1",
         "@vitejs/plugin-react": "^6.0.4",
         "bun-types": "^1.4.0",
@@ -139,7 +138,6 @@
         "ioredis": "^5.11.1",
         "jsonwebtoken": "^9.0.3",
         "tokenx": "^1.3.0",
-        "underscore": "^1.13.8",
         "yaml": "^2.9.0",
         "zod": "^4.4.3",
       },
@@ -149,7 +147,6 @@
         "@types/jsonwebtoken": "^9.0.10",
         "@types/node": "^26.0.1",
         "@types/pg": "^8.20.0",
-        "@types/underscore": "^1.13.0",
         "@typescript/native-preview": "^7.0.0-dev.20260626.1",
         "drizzle-kit": "^0.31.10",
         "pg": "^8.22.0",
@@ -198,7 +195,6 @@
         "@fluxify/lib": "workspace:*",
         "dayjs": "^1.11.19",
         "jsonwebtoken": "^9.0.3",
-        "underscore": "^1.13.8",
         "zod": "^4.0.17",
       },
       "devDependencies": {
@@ -1378,8 +1374,6 @@
     "@types/triple-beam": ["@types/triple-beam@1.3.5", "", {}, "sha512-6WaYesThRMCl19iryMYP7/x2OVgCtbIVflDGFpWnb9irXI3UjYE4AzmYuiUKY1AJstGijoY+MgUszMgRxIYTYw=="],
 
     "@types/trusted-types": ["@types/trusted-types@2.0.7", "", {}, "sha512-ScaPdn1dQczgbl0QFTeTOmVHFULt394XJgOQNoyVhZ6r2vLnMLJfBPd53SB52T/3G36VI1/g2MZaX0cwDuXsfw=="],
-
-    "@types/underscore": ["@types/underscore@1.13.0", "", {}, "sha512-L6LBgy1f0EFQZ+7uSA57+n2g/s4Qs5r06Vwrwn0/nuK1de+adz00NWaztRQ30aEqw5qOaWbPI8u2cGQ52lj6VA=="],
 
     "@types/unist": ["@types/unist@3.0.3", "", {}, "sha512-ko/gIFJRv177XgZsZcBwnqJN5x/Gien8qNOn0D5bQU/zAzVf9Zt3BlcUiLqhV9y4ARk0GbT3tnUiPNgnTXzc/Q=="],
 
@@ -2758,8 +2752,6 @@
     "typescript": ["typescript@6.0.3", "", { "bin": { "tsc": "bin/tsc", "tsserver": "bin/tsserver" } }, "sha512-y2TvuxSZPDyQakkFRPZHKFm+KKVqIisdg9/CZwm9ftvKXLP8NRWj38/ODjNbr43SsoXqNuAisEf1GdCxqWcdBw=="],
 
     "ui-ux-pro-max-cli": ["ui-ux-pro-max-cli@2.11.0", "", { "dependencies": { "chalk": "^5.3.0", "commander": "^12.1.0", "ora": "^8.1.1", "prompts": "^2.4.2" }, "bin": { "uipro": "dist/index.js" } }, "sha512-iZU68EB66CVIIdGT1wf3ZcPxR9lsjNkNu3ozDO5R/+H9JXxUYA7V6Ujk3KcV8r8Nc8yAjOcqZx8F+u2I8MIUsg=="],
-
-    "underscore": ["underscore@1.13.8", "", {}, "sha512-DXtD3ZtEQzc7M8m4cXotyHR+FAS18C64asBYY5vqZexfYryNNnDc02W4hKg3rdQuqOYas1jkseX0+nZXjTXnvQ=="],
 
     "undici-types": ["undici-types@7.18.2", "", {}, "sha512-AsuCzffGHJybSaRrmr5eHr81mwJU3kjw6M+uprWvCXiNeN9SOGwQ3Jn8jb8m3Z6izVgknn1R0FTCEAP2QrLY/w=="],
 

@@ -4,8 +4,8 @@ import * as monaco from "monaco-editor";
  * Central place to add/remove ambient `.d.ts` content from the JS language
  * service. `addExtraLib` returns a disposable but nothing previously called
  * `.dispose()` on it, so re-registering the same id (e.g. a lib that changed)
- * silently stacked duplicates. Every source — the static Fluxify globals, the
- * `libs.*` real package types, future core APIs, community packages — goes
+ * silently stacked duplicates. Every source — the static Fluxify globals, npm
+ * package types — goes
  * through this so add/remove is uniform and never leaks.
  */
 const registered = new Map<string, monaco.IDisposable>();

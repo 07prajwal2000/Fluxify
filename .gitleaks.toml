@@ -8,7 +8,6 @@ description = "placeholder credentials in env examples, docs, tests and vendored
 paths = [
 	'''(^|/)\.?env\.example$''',
 	'''^docs/''',
-	'''/public/types/''',
 	'''\.(spec|test)\.ts$''',
 	'''(^|/)(tests?|testing)/''',
 ]
