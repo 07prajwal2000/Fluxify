@@ -21,11 +21,14 @@ function typesPackage(name: string) {
 	return `@types/${name.startsWith("@") ? name.slice(1).replace("/", "__") : name}`;
 }
 
-async function json(url: string) {
-	const res = await fetch(url);
+/** a CDN error page must never be registered as a `.d.ts`, and a stalled request must end */
+async function get(url: string) {
+	const res = await fetch(url, { signal: AbortSignal.timeout(15_000) });
 	if (!res.ok) throw new Error(`${url}: ${res.status}`);
-	return res.json();
+	return res;
 }
+
+const json = async (url: string) => (await get(url)).json();
 
 /** registers `source@version`'s declarations as if they were `name`'s */
 async function registerFrom(name: string, source: string, version: string) {
@@ -37,7 +40,7 @@ async function registerFrom(name: string, source: string, version: string) {
 	const files = await Promise.all(
 		paths.map(async (path) => ({
 			virtualPath: `file:///node_modules/${name}${path}`,
-			content: await (await fetch(`${CDN}/${source}@${version}${path}`)).text(),
+			content: await (await get(`${CDN}/${source}@${version}${path}`)).text(),
 		})),
 	);
 	const { registerTypeLibFiles } = await import("./typeLibRegistry");
@@ -51,7 +54,10 @@ async function loadTypes({ name, version }: InstalledPackage) {
 	// no bundled types: the DefinitelyTyped package, matched on the major version
 	const major = v.split(".")[0];
 	const types = typesPackage(name);
-	const ok = await fetch(`${CDN}/${types}@${major}/package.json`).then((r) => r.ok);
+	const ok = await get(`${CDN}/${types}@${major}/package.json`).then(
+		() => true,
+		() => false,
+	);
 	return registerFrom(name, types, ok ? major : "latest");
 }
 
