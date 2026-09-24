@@ -18,14 +18,10 @@ import {
 	type HttpRoute,
 	type HttpRouteParser,
 } from "@fluxify/lib";
-import dayjs from "dayjs";
-import dayjsUtc from "dayjs/plugin/utc";
 import type { Context } from "hono";
 import { getCookie, setCookie } from "hono/cookie";
 import type { ContentfulStatusCode } from "hono/utils/http-status";
 import jwt from "jsonwebtoken";
-import underscore from "underscore";
-import * as zodLib from "zod";
 import {
 	type CompiledRequestSchema,
 	parseRequestSchema,
@@ -49,8 +45,6 @@ import { runBlocks } from "./executor";
 import { RequestBodyError } from "./requestBody";
 import { type RouteTraceFactory, startRouteTrace, traceCompleter } from "./traceLifecycle";
 import type { RequestEnvelope } from "./types";
-
-dayjs.extend(dayjsUtc);
 
 export type HandleRequestType = {
 	data?: any;
@@ -553,11 +547,6 @@ function setupContextVars(
 					return { payload: null, success: false };
 				}
 			},
-		},
-		libs: {
-			dayjs,
-			_: underscore,
-			zod: zodLib,
 		},
 		logger,
 		getCookie(key) {
