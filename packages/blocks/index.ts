@@ -55,4 +55,5 @@ export * from "./categories";
 export * from "./compiler";
 export * from "./jobs";
 export * from "./layout";
+export * from "./testHooks";
 export * from "./transactionRules";

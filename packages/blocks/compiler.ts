@@ -8,6 +8,7 @@ import { type HoistedImport, hoistImports } from "./imports";
 import { assertInstalled, importTarget, type ProjectDependencies } from "./packageImports";
 import { compilerLib, emitters } from "./registry";
 import { scopeFor } from "./scope";
+import { emitAfterHook, emitBeforeHook, hookSupport } from "./testHooks";
 
 export { compilerLib, type Emitter } from "./registry";
 export { scopeFor } from "./scope";
@@ -141,6 +142,15 @@ export type CompileOptions = {
 	 * terminal does — it just stops dressing the output up as a reply.
 	 */
 	asWorkflow?: boolean;
+	/**
+	 * Test compile only (#483): each block checks `ctx.testHooks[blockId]` for a
+	 * suite's `before(input)` / `after(input, output)` hooks. `before` resolves to
+	 * nothing, `{ input }` to replace the input, or `{ skip: true, output, branch? }`
+	 * to not run the block and send `output` down `branch`. `after` resolves to
+	 * the output to pass on. Live compiles never set it, so live code has no hook
+	 * checks at all.
+	 */
+	hooks?: boolean;
 };
 
 /** turn compiled source back into a runnable graph (worker side, no compiler) */
@@ -159,7 +169,7 @@ export function instantiateCompiled(source: string) {
 export function compileGraph(
 	blocks: BlockDTOType[],
 	edges: EdgeDTOSchemaType,
-	{ asCustomBlock = false, asWorkflow = false, dependencies }: CompileOptions = {},
+	{ asCustomBlock = false, asWorkflow = false, dependencies, hooks = false }: CompileOptions = {},
 ) {
 	const byId = new Map(blocks.map((b) => [b.id, b]));
 	const edgeMap = buildEdgeMap(edges);
@@ -354,36 +364,43 @@ $trace.recordSpan(${span});
 }`;
 		}
 
+		const support = hooks ? hookSupport(block.type) : "none";
+		const afterHook = (target: string) => emitAfterHook(support, target);
+
+		const continueTo = (handle: string, runAfter: boolean) => {
+			const to = edgeTo(id, handle);
+			const branching =
+				block.type === BlockTypes.if ||
+				block.type === BlockTypes.db_exists ||
+				block.type === BlockTypes.db_transaction;
+			const branch =
+				branching && (handle === "success" || handle === "failure") ? handle : undefined;
+			const continuation = to
+				? `return await ${blockFunctionName(to)}($state, $in, $end);`
+				: "return $end($in);";
+			// Row Exists saves the row on success and clears it on failure, so a
+			// loop's later miss never leaves an earlier iteration's row behind
+			const saved =
+				handle === "source" ||
+				(block.type === BlockTypes.db_transaction && handle === "success") ||
+				(block.type === BlockTypes.db_exists && branch)
+					? handle === "failure"
+						? "null"
+						: "$in"
+					: undefined;
+			const saveAs = saved && outputVariableName(block.data);
+			// vars is per request, so outputs never leak into the next one
+			const save = saveAs ? `(vars.outputs ??= {})[${JSON.stringify(saveAs)}] = ${saved};\n` : "";
+			return `${runAfter ? afterHook("$in") : ""}${save}${recordSpan("$in", undefined, branch)}
+${continuation}`;
+		};
+
 		const code = emitter({
 			block,
 			in: "$in",
 			v: (prefix) => `$${prefix}_${counter++}`,
 			next(handle = "source") {
-				const to = edgeTo(id, handle);
-				const branching =
-					block.type === BlockTypes.if ||
-					block.type === BlockTypes.db_exists ||
-					block.type === BlockTypes.db_transaction;
-				const branch =
-					branching && (handle === "success" || handle === "failure") ? handle : undefined;
-				const continuation = to
-					? `return await ${blockFunctionName(to)}($state, $in, $end);`
-					: "return $end($in);";
-				// Row Exists saves the row on success and clears it on failure, so a
-				// loop's later miss never leaves an earlier iteration's row behind
-				const saved =
-					handle === "source" ||
-					(block.type === BlockTypes.db_transaction && handle === "success") ||
-					(block.type === BlockTypes.db_exists && branch)
-						? handle === "failure"
-							? "null"
-							: "$in"
-						: undefined;
-				const saveAs = saved && outputVariableName(block.data);
-				// vars is per request, so outputs never leak into the next one
-				const save = saveAs ? `(vars.outputs ??= {})[${JSON.stringify(saveAs)}] = ${saved};\n` : "";
-				return `${save}${recordSpan("$in", undefined, branch)}
-${continuation}`;
+				return continueTo(handle, true);
 			},
 			body(handle, initExpr, end = "$endBody") {
 				const to = edgeTo(id, handle);
@@ -413,8 +430,8 @@ if (${result} !== undefined) return ${result};`;
 			},
 			complete(output) {
 				const result = `$result_${counter++}`;
-				return `const ${result} = ${output};
-${recordSpan(result)}
+				return `let ${result} = ${output};
+${afterHook(result)}${recordSpan(result)}
 return ${result};`;
 			},
 			value(raw) {
@@ -435,7 +452,7 @@ const $t0 = $trace ? performance.now() : 0;
 let $in = $input;
 let $recorded = false;
 try {
-${code}
+${emitBeforeHook(block.type, blockId, support, (h) => continueTo(h, false))}${code}
 } catch ($error) {
 if (!$recorded) {
 ${recordSpan("undefined", "$error")}
@@ -477,6 +494,7 @@ throw $error;
 		"vars,",
 		`scope: lib.scope(vars${imports.scopeSkip}),`,
 		"trace: ctx.trace,",
+		...(hooks ? ["hooks: ctx.testHooks,"] : []),
 		// a custom block is called with { params, input }: its configuration and
 		// the caller's flowing value, kept apart all the way down the graph
 		`params: ${asCustomBlock ? "input?.params ?? {}" : "undefined"},`,
