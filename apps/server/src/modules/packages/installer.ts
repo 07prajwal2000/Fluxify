@@ -65,7 +65,8 @@ export function createDepsInstaller(options: DepsInstallerOptions) {
 		await rm(dir, { recursive: true, force: true });
 		await mkdir(dir, { recursive: true });
 		await Bun.write(join(dir, "package.json"), artifact.packageJson);
-		await Bun.write(join(dir, "bun.lock"), artifact.lockfile);
+		// an empty lockfile is "no packages left"; bun refuses an empty file
+		if (artifact.lockfile) await Bun.write(join(dir, "bun.lock"), artifact.lockfile);
 
 		const installed = await run(
 			["install", "--frozen-lockfile", "--production"],

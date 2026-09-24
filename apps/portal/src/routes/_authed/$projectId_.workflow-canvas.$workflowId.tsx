@@ -7,6 +7,7 @@ import { WorkflowRunModal } from "@/components/workflows/WorkflowRunModal";
 import { WorkflowSettingsModal } from "@/components/workflows/WorkflowSettingsModal";
 import { WorkflowSwitcher } from "@/components/workflows/WorkflowSwitcher";
 import { createRouteHead } from "@/lib/seo";
+import { useProjectPackageTypes } from "@/query/projectPackagesQuery";
 import { workflowsQuery } from "@/query/workflowsQuery";
 import { workflowsService } from "@/services/workflows";
 
@@ -20,6 +21,7 @@ export const Route = createFileRoute("/_authed/$projectId_/workflow-canvas/$work
 
 function WorkflowCanvasPage() {
 	const { projectId, workflowId } = Route.useParams();
+	useProjectPackageTypes(projectId);
 	const save = workflowsQuery.saveCanvas.mutation(workflowId);
 	const { data: workflow } = workflowsQuery.byId.useQuery(workflowId);
 	const [settingsOpen, setSettingsOpen] = useState(false);

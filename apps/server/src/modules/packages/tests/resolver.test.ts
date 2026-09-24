@@ -12,6 +12,11 @@ describe("resolveDependencies", () => {
 		const removed = await resolveDependencies(added, { remove: ["lodash"] }, 7);
 		expect(Object.keys(declaredPackages(removed.packageJson))).toEqual(["ms"]);
 		expect(lockedVersion(removed.lockfile, "lodash")).toBeNull();
+
+		// bun deletes the lockfile once nothing is left
+		const empty = await resolveDependencies(removed, { remove: ["ms"] }, 7);
+		expect(declaredPackages(empty.packageJson)).toEqual({});
+		expect(empty.lockfile).toBe("");
 	}, 60_000);
 
 	it("surfaces bun's error for a version the age rule blocks", async () => {

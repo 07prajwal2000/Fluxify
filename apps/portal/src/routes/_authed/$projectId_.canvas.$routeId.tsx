@@ -16,6 +16,7 @@ import { RouteWorkbenchTabs } from "@/components/routes/RouteWorkbenchTabs";
 import { extractPathParams } from "@/components/routes/routeForm";
 import { useProjectApiBaseUrl } from "@/components/settings/SubdomainField";
 import { createRouteHead } from "@/lib/seo";
+import { useProjectPackageTypes } from "@/query/projectPackagesQuery";
 import { routesQuery } from "@/query/routesQuery";
 import { routesService } from "@/services/routes";
 
@@ -26,6 +27,7 @@ export const Route = createFileRoute("/_authed/$projectId_/canvas/$routeId")({
 
 function RouteCanvasPage() {
 	const { projectId, routeId } = Route.useParams();
+	useProjectPackageTypes(projectId);
 	const apiBaseUrl = useProjectApiBaseUrl(projectId);
 	const save = routesQuery.saveCanvas.mutation(routeId);
 	const [settingsOpen, setSettingsOpen] = useState(false);

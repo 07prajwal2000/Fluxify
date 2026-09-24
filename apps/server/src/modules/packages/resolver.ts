@@ -83,7 +83,10 @@ export async function resolveDependencies(
 
 		return {
 			packageJson: await Bun.file(join(dir, "package.json")).text(),
-			lockfile: await Bun.file(join(dir, "bun.lock")).text(),
+			// bun deletes the lockfile once the last package is removed
+			lockfile: await Bun.file(join(dir, "bun.lock"))
+				.text()
+				.catch(() => ""),
 		};
 	} finally {
 		await rm(dir, { recursive: true, force: true });
