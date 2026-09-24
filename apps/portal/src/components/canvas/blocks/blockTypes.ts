@@ -34,6 +34,7 @@ export const BLOCK_TYPES = {
 	db_delete: "db_delete",
 	db_native: "db_native",
 	db_transaction: "db_transaction",
+	db_rollback: "db_rollback",
 	kv_raw: "kv_raw",
 	kv_operations: "kv_operations",
 	consolelog: "consolelog",

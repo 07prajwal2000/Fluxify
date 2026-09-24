@@ -129,10 +129,11 @@ ${CUSTOM_BLOCK_EXECUTION_CONTRACT}
      | --- | --- |
      | 'if' | 'success', 'failure' (NO 'source') |
      | 'db_exists' | 'success' (a row matched; output is that row) and 'failure' (no row; output is the unchanged input) — NO 'source' |
-     | 'forloop', 'foreachloop', 'db_transaction' | 'source' (continues after the loop) and 'executor' (the inner chain, one edge) |
+     | 'forloop', 'foreachloop' | 'source' (continues after the loop) and 'executor' (the inner chain, one edge) |
+     | 'db_transaction' | 'executor' (the inner chain, one edge), 'success' (after commit; output is the executor chain's last output) and 'failure' (after a rollback or error; output is { reason: 'rollback' | 'error', message }) — NO 'source' |
      | 'orchestrator' | 'source' (continues with the array of every chain's output) and 'orchestrate' (any number of edges; each chain runs at the same time; set data.order to the target block ids in output order) |
      | 'switch' | 'case' only (NO 'source'; any number of edges, each one case; set data.conditions[<target block id>] to either a plain literal that picks the case when input === it (numbers and true/false are typed, e.g. "paid", "404", "true") or "js: " plus a JS function body that returns truthy, e.g. "js: return input.total > 100;", and data.order to the target ids in the order they are checked — the first match runs, the rest are skipped; set data.defaultCase to a target id to run that case only when nothing else matches (no condition needed); without it the route ends at the switch and returns its input. Or set data.useValue true, data.value to a JS function body returning the value to switch on, and data.matches[<target block id>] to the value that picks that case, compared with === (plain "paid" is text, plain "404"/"true" are typed; "js: return null;" for other values)) |
-     | 'response', 'sticky_note' | none — terminal, must have \`"connections": []\` |
+     | 'response', 'sticky_note', 'db_rollback' | none — terminal, must have \`"connections": []\`; 'db_rollback' only inside a 'db_transaction' executor chain |
      | every other built-in block, and all custom blocks | 'source' only |
    - **Branching is only ever expressed with an 'if' block** (its 'success' and 'failure' handles are the two branches), **a 'db_exists' block** (branch on whether a row matches — use it instead of db_getsingle + if) **or a 'switch' block** (several cases, first match wins). If you need to do two things, chain them one after the other — blocks pass their output forward, so sequential is almost always what the user meant.
    - The graph must be acyclic: never connect a block back to itself or to any upstream block.

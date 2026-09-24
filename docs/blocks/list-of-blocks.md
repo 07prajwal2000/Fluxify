@@ -49,6 +49,7 @@ Interact with your data.
 - [**DB Update**](./db-update.md): Modify existing records.
 - [**DB Delete**](./db-delete.md): Remove records.
 - [**DB Transaction**](./db-transaction.md): Group operations atomically.
+- [**Rollback Transaction**](./db-rollback.md): Cancel the enclosing transaction.
 - [**DB Native**](./db-native.md): Run raw SQL queries.
 
 ## Key-Value (KV)

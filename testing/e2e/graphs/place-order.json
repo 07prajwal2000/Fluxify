@@ -1,0 +1,75 @@
+{
+	"name": "place-order",
+	"description": "POST /orders — inserts the order inside a transaction, then a Rollback block undoes it when the total is over 1000. Success replies 201 with the inserted row; failure replies 409 with { reason, message } for both a rollback and a database error.",
+	"engine": "pg",
+	"route": { "method": "POST", "path": "/orders" },
+	"blocks": [
+		{
+			"id": "entry",
+			"type": "entrypoint",
+			"position": { "x": 0, "y": 0 },
+			"data": { "blockName": "Request" }
+		},
+		{
+			"id": "tx",
+			"type": "db_transaction",
+			"position": { "x": 240, "y": 0 },
+			"data": { "blockName": "Place order", "connection": "primary", "executor": "insert-order" }
+		},
+		{
+			"id": "insert-order",
+			"type": "db_insert",
+			"position": { "x": 240, "y": -240 },
+			"data": {
+				"blockName": "Insert order",
+				"connection": "primary",
+				"tableName": "orders",
+				"useParam": false,
+				"data": {
+					"source": "js",
+					"value": "const body = getRequestBody();\nreturn { user_id: body.user_id, total: body.total, status: \"pending\" };"
+				}
+			}
+		},
+		{
+			"id": "within-limit",
+			"type": "if",
+			"position": { "x": 480, "y": -240 },
+			"data": {
+				"blockName": "Total within limit?",
+				"conditions": [
+					{ "lhs": "", "rhs": "", "operator": "js", "chain": "and", "js": "return Number(input.total) <= 1000;" }
+				]
+			}
+		},
+		{
+			"id": "rollback",
+			"type": "db_rollback",
+			"position": { "x": 720, "y": -180 },
+			"data": {
+				"blockName": "Over the limit",
+				"message": "js:return 'order total ' + input.total + ' is over the limit';"
+			}
+		},
+		{
+			"id": "created",
+			"type": "response",
+			"position": { "x": 480, "y": 0 },
+			"data": { "blockName": "201 Created", "httpCode": "201" }
+		},
+		{
+			"id": "rejected",
+			"type": "response",
+			"position": { "x": 480, "y": 120 },
+			"data": { "blockName": "409 Rejected", "httpCode": "409" }
+		}
+	],
+	"edges": [
+		{ "id": "e-entry-tx", "from": "entry", "to": "tx", "fromHandle": "source", "toHandle": "source" },
+		{ "id": "e-tx-insert", "from": "tx", "to": "insert-order", "fromHandle": "executor", "toHandle": "executor" },
+		{ "id": "e-insert-limit", "from": "insert-order", "to": "within-limit", "fromHandle": "source", "toHandle": "source" },
+		{ "id": "e-limit-rollback", "from": "within-limit", "to": "rollback", "fromHandle": "failure", "toHandle": "failure" },
+		{ "id": "e-tx-created", "from": "tx", "to": "created", "fromHandle": "success", "toHandle": "success" },
+		{ "id": "e-tx-rejected", "from": "tx", "to": "rejected", "fromHandle": "failure", "toHandle": "failure" }
+	]
+}

@@ -167,6 +167,10 @@ db_transaction {
 	executor: string;  // block id to start a transaction (database adapter state changes to transaction)
 }
 
+db_rollback {
+	message?: string | number;  // reason handed to the transaction's failure chain (supports js expression)
+}
+
 db_update {
 	connection: string;  // integration id
 	tableName: string;  // table name (supports js expression)

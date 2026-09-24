@@ -8,6 +8,11 @@ import { BLOCK_CONFIG_SOURCE, validateBlockConfigs } from "./blockConfigValidato
 import { CYCLE_DETECTION_SOURCE, validateCycles } from "./cycleValidator";
 import { useBlockDiagnostics } from "./DiagnosticsContext";
 import { SWITCH_SOURCE, validateSwitches } from "./switchValidator";
+import {
+	TRANSACTION_SOURCE,
+	transactionTopologyKey,
+	validateTransactions,
+} from "./transactionValidator";
 
 export type UseCanvasDiagnosticsBridgeOptions = {
 	nodes: BlockNode[];
@@ -88,10 +93,14 @@ export function useCanvasDiagnosticsBridge({
 		const offConfigs = registerValidator(BLOCK_CONFIG_SOURCE, () =>
 			validateBlockConfigs(flowToGraph(nodes, edges)),
 		);
+		const offTransactions = registerValidator(TRANSACTION_SOURCE, () =>
+			validateTransactions(flowToGraph(nodes, edges)),
+		);
 		return () => {
 			offCycles();
 			offSwitches();
 			offConfigs();
+			offTransactions();
 		};
 	}, [nodes, edges, registerValidator]);
 
@@ -102,6 +111,22 @@ export function useCanvasDiagnosticsBridge({
 		setFromSource(SWITCH_SOURCE, validateSwitches(currentGraph));
 		setFromSource(BLOCK_CONFIG_SOURCE, validateBlockConfigs(currentGraph));
 	}, [nodes, edges, setFromSource]);
+
+	// The transaction walks depend only on wiring, so they skip drags and setting edits
+	const transactions = useMemo(() => {
+		const graph = flowToGraph(nodes, edges);
+		return { graph, key: transactionTopologyKey(graph) };
+	}, [nodes, edges]);
+	const latestTransactions = useRef(transactions);
+	latestTransactions.current = transactions;
+	const transactionKey = transactions.key;
+	useEffect(() => {
+		// an empty key means no transaction or rollback block, so nothing to check
+		setFromSource(
+			TRANSACTION_SOURCE,
+			transactionKey ? validateTransactions(latestTransactions.current.graph) : [],
+		);
+	}, [transactionKey, setFromSource]);
 
 	return {
 		diagnostics,

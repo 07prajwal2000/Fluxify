@@ -18,6 +18,7 @@ export * from "./builtin/db/getSingle";
 export * from "./builtin/db/insert";
 export * from "./builtin/db/insertBulk";
 export * from "./builtin/db/native";
+export * from "./builtin/db/rollback";
 export * from "./builtin/db/schema";
 export * from "./builtin/db/transaction";
 export * from "./builtin/db/update";
