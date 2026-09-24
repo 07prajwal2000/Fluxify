@@ -226,8 +226,8 @@ async function failRun(runId: string, message: string) {
 }
 
 /**
- * One suite: resolve its own config, run it in a fresh process, judge the
- * response here in the parent, and write the row.
+ * One suite: resolve its own config, send it to a worker (which runs it in a
+ * fresh process and judges it there), and write the row.
  *
  * Config resolution is per suite even though the compile is shared — overrides
  * live on the suite, so two suites of one fleet legitimately talk to different

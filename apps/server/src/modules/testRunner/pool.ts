@@ -16,7 +16,7 @@ function positiveInt(value: string | undefined, fallback: number) {
  * Measured in `docker run --rm -m 2g oven/bun:1` — cap 2048 MB, `os.freemem()`
  * 10049 MB of 11804 MB "total". A 512 MB threshold against that never trips, so
  * the back-off tier would be dead code in the one place it matters. Suite
- * children are children of the admin process, so they count against the same
+ * children are children of the worker supervisor, so they count against the same
  * cgroup: this is the number that decides whether the container gets OOM-killed.
  *
  * cgroup v1 (`memory.limit_in_bytes`) is not read. v2 has been the Docker
@@ -115,7 +115,8 @@ export function createPool(overrides: PoolOptions = {}): Pool {
 }
 
 /**
- * One pool for the whole admin process, deliberately not one per run: two people
- * each launching a fleet have to share the slots, or the cap is not a cap.
+ * One pool per process, deliberately not one per run: two people each launching
+ * a fleet have to share the slots, or the cap is not a cap. On a worker it caps
+ * the suite children; on admin, the suites in flight to workers.
  */
 export const testWorkerPool = createPool();
