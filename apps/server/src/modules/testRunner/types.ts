@@ -50,3 +50,18 @@ export type TestResult =
 
 export type TestBootstrapMessage = { type: "bootstrap"; bootstrap: TestBootstrap };
 export type TestChildMessage = { type: "ready" } | { type: "result"; result: TestResult };
+
+/**
+ * Admin -> worker: run one suite (#478). Per project, so only a worker that
+ * serves the project (and has its packages installed) answers.
+ */
+export const testRunSubject = (projectId: string) => `fluxify.tests.run.${projectId}`;
+/** every worker of a project shares the suites instead of each running all of them */
+export const TEST_RUN_QUEUE = "fluxify_test_runners";
+
+/**
+ * The `TestBootstrap` sealed with MASTER_ENCRYPTION_KEY, like the project-config
+ * artifact: it carries resolved integration credentials across the bus. The
+ * supervisor unseals it; the key never reaches the child.
+ */
+export type TestRunRequest = { sealed: string };

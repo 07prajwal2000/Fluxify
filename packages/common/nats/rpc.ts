@@ -1,4 +1,4 @@
-import type { NatsConnection } from "@nats-io/nats-core";
+import { type NatsConnection, RequestError } from "@nats-io/nats-core";
 import { logger } from "../logging";
 import { type Codec, gzipJsonCodec } from "./codec";
 
@@ -20,6 +20,8 @@ export type RpcErrorCode =
 	| "CONFLICT"
 	| "FORBIDDEN"
 	| "TIMEOUT"
+	/** nothing is subscribed to the subject: fails at once, no timeout wait */
+	| "NO_RESPONDERS"
 	| "PAYLOAD_TOO_LARGE"
 	| "INTERNAL";
 
@@ -98,6 +100,11 @@ export async function rpcRequest<TReq, TRes, TMeta = undefined>(
 	try {
 		message = await nc.request(subject, body, { timeout: timeoutMs });
 	} catch (error) {
+		if (error instanceof RequestError && error.isNoResponders()) {
+			throw new RpcError("NO_RESPONDERS", `No responder is subscribed to ${subject}`, {
+				requestId,
+			});
+		}
 		throw new RpcError("TIMEOUT", `No response from ${subject} within ${timeoutMs}ms`, {
 			requestId,
 			error: String(error),
