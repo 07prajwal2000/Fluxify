@@ -11,7 +11,7 @@ import {
 	testSuitesEntity,
 } from "../../db/schema";
 import { assertOverridesOwned } from "../requestRouter/service";
-import { type AssertionType, buildSuiteRequest, evaluateAssertions } from "./assertions";
+import { type AssertionType, buildSuiteRequest } from "./assertions";
 import { compileSuiteRoute } from "./compile";
 import { type Pool, testWorkerPool } from "./pool";
 import { resolveSuiteConfig } from "./resolve";
@@ -271,22 +271,17 @@ async function runOneSuite(
 			config,
 			request,
 			timeoutMs: compiled.route.timeoutSeconds * 1_000,
+			assertions: (suite.assertions as AssertionType[]) || [],
 		};
 
 		const response: TestResult = await deps.spawn(bootstrap);
 		durationMs = response.durationMs;
 
 		if (response.ok) {
-			const verdict = await evaluateAssertions((suite.assertions as AssertionType[]) || [], {
-				status: response.status,
-				body: response.data,
-				headers: response.headers,
-				durationMs,
-				request,
-			});
-			status = verdict.success ? "passed" : "failed";
+			status = response.verdict.success ? "passed" : "failed";
 			result = {
-				...verdict,
+				...response.verdict,
+				actualData: response.data,
 				statusCode: response.status,
 				headers: response.headers,
 			};

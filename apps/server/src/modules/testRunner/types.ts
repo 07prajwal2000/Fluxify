@@ -1,4 +1,6 @@
+import type { AssertionResult } from "../../db/schema";
 import type { ProjectConfigPayload } from "../compiler/artifacts";
+import type { AssertionType, SuiteRequest } from "./assertions";
 
 /**
  * Everything the ephemeral suite process is given, in one message.
@@ -22,21 +24,16 @@ export type TestBootstrap = {
 	source: string;
 	customBlocks: Array<{ name: string; source: string }>;
 	config: ProjectConfigPayload;
-	request: {
-		method: string;
-		path: string;
-		headers: Record<string, string>;
-		query: Record<string, string | string[]>;
-		params: Record<string, string>;
-		body: unknown;
-	};
+	request: SuiteRequest;
 	/** route.timeoutSeconds * 1000 — drives both the in-band stopper and the watchdog */
 	timeoutMs: number;
+	/** judged in the child, right after the route answers */
+	assertions: AssertionType[];
 };
 
 /**
- * The raw response, never a verdict. Assertions are evaluated in the parent so
- * there is one implementation of them, not two.
+ * The raw response plus the child's verdict on it. The raw parts are kept
+ * because the results UI shows them beside the verdict.
  */
 export type TestResult =
 	| {
@@ -44,7 +41,9 @@ export type TestResult =
 			status: number;
 			data: unknown;
 			headers: Record<string, string>;
+			/** the route alone, not process start-up */
 			durationMs: number;
+			verdict: { success: boolean; result: AssertionResult[] };
 	  }
 	| { ok: false; error: string; timedOut?: boolean; durationMs: number };
 

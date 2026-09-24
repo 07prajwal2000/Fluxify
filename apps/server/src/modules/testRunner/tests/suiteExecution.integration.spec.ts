@@ -49,6 +49,7 @@ function bootstrap(source: string, overrides: Partial<TestBootstrap> = {}) {
 			body: null,
 		},
 		timeoutMs: 10_000,
+		assertions: [],
 		...overrides,
 	} satisfies TestBootstrap;
 }
@@ -67,7 +68,15 @@ describe("runSuiteInChild", () => {
 			[edge("1", "2"), edge("2", "3")] as any,
 		);
 
-		const result = await runSuiteInChild(bootstrap(source));
+		const result = await runSuiteInChild(
+			bootstrap(source, {
+				assertions: [
+					{ target: "header", propertyPath: "x-suite", operator: "eq", expectedValue: "ok" },
+					{ target: "customJs", customJs: "return fluxify.response.body.who === 'world';" },
+					{ target: "status", operator: "eq", expectedValue: "500" },
+				],
+			}),
+		);
 
 		expect(result.ok).toBe(true);
 		if (!result.ok) return;
@@ -79,8 +88,11 @@ describe("runSuiteInChild", () => {
 			caller: "suite",
 		});
 		// the route's header writes are captured, not dropped — header assertions
-		// in the parent read these back
+		// read these back
 		expect(result.headers["x-suite"]).toBe("ok");
+		// judged in the child, custom JS included
+		expect(result.verdict.success).toBe(false);
+		expect(result.verdict.result.map((r) => r.success)).toEqual([true, true, false]);
 	}, 30_000);
 
 	it("kills a route that never returns and reports it as a timeout", async () => {

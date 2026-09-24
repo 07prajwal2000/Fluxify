@@ -6,6 +6,7 @@ import { executionRuntimeEnvironment } from "../requestRouter/executionEnvironme
 import { setBlocksExecutor } from "../requestRouter/executor";
 import { createHttpContext } from "../requestRouter/httpContext";
 import { executeRouteInternal } from "../requestRouter/service";
+import { evaluateAssertions } from "./assertions";
 import type { TestBootstrap, TestBootstrapMessage, TestChildMessage, TestResult } from "./types";
 
 /**
@@ -66,6 +67,7 @@ async function runSuite(boot: TestBootstrap) {
 			}),
 		);
 
+		const routeStartedAt = Date.now();
 		const response = await executeRouteInternal(
 			{
 				id: boot.route.id,
@@ -82,12 +84,22 @@ async function runSuite(boot: TestBootstrap) {
 			ctx as any,
 		);
 
+		const durationMs = Date.now() - routeStartedAt;
+		const headers = Object.fromEntries(ctx.responseHeaders);
+		const { success, result } = await evaluateAssertions(boot.assertions, {
+			status: response.status,
+			body: response.data,
+			headers,
+			durationMs,
+			request: boot.request,
+		});
 		report({
 			ok: true,
 			status: response.status,
 			data: response.data,
-			headers: Object.fromEntries(ctx.responseHeaders),
-			durationMs: Date.now() - startedAt,
+			headers,
+			durationMs,
+			verdict: { success, result },
 		});
 	} catch (error) {
 		report({
