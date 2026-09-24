@@ -17,6 +17,33 @@ export type InstalledPackage = { name: string; version: string | null };
 
 const loaded = new Map<string, Promise<void>>();
 
+let installed: string[] = [];
+/** importable subpaths (`nanoid/non-secure`, `dayjs/plugin/utc`) per package, known once its types load */
+const subpaths = new Map<string, string[]>();
+
+/** what the import-specifier completion offers (see setup.ts); Monaco's TS worker can't list `node_modules` itself */
+export function importSpecifiers(): string[] {
+	return installed.flatMap((name) => [name, ...(subpaths.get(name) ?? [])]);
+}
+
+function subpathsOf(name: string, manifest: { exports?: unknown }, paths: string[]) {
+	const { exports } = manifest;
+	if (
+		exports &&
+		typeof exports === "object" &&
+		Object.keys(exports).some((k) => k.startsWith("."))
+	) {
+		return Object.keys(exports)
+			.filter((k) => k.startsWith("./") && !k.includes("*") && !k.endsWith(".json"))
+			.map((k) => name + k.slice(1));
+	}
+	const specifiers = paths
+		.filter((p) => DECLARATION.test(p) && !/^\/(esm|cjs)\//.test(p))
+		.map((p) => name + p.replace(DECLARATION, "").replace(/\/index$/, ""))
+		.filter((s) => s !== name);
+	return [...new Set(specifiers)];
+}
+
 function typesPackage(name: string) {
 	return `@types/${name.startsWith("@") ? name.slice(1).replace("/", "__") : name}`;
 }
@@ -45,6 +72,8 @@ async function registerFrom(name: string, source: string, version: string) {
 	);
 	const { registerTypeLibFiles } = await import("./typeLibRegistry");
 	registerTypeLibFiles(`npm:${name}`, files);
+	const manifest = files.find((f) => f.virtualPath.endsWith(`${name}/package.json`));
+	subpaths.set(name, subpathsOf(name, manifest ? JSON.parse(manifest.content) : {}, paths));
 }
 
 async function loadTypes({ name, version }: InstalledPackage) {
@@ -66,6 +95,7 @@ export function useNpmPackageTypes(packages: InstalledPackage[] | undefined) {
 	const key = JSON.stringify(packages ?? []);
 	useEffect(() => {
 		const list: InstalledPackage[] = JSON.parse(key);
+		installed = list.map((p) => p.name);
 		for (const pkg of list) {
 			const id = `${pkg.name}@${pkg.version}`;
 			if (loaded.has(id)) continue;
