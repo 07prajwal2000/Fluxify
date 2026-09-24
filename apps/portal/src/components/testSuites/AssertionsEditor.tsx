@@ -50,6 +50,33 @@ declare const fluxify: {
   /** Response returned by the route. */
   response: TestSuiteResponse;
 };
+
+type Matchers = {
+  toBe(expected: unknown): void;
+  /** deep equality, for objects and arrays */
+  toEqual(expected: unknown): void;
+  toBeTruthy(): void;
+  toBeFalsy(): void;
+  toBeNull(): void;
+  toBeUndefined(): void;
+  toBeDefined(): void;
+  /** a string contains the substring, or an array contains the item */
+  toContain(item: unknown): void;
+  toHaveLength(length: number): void;
+  /** \`a.b[0].c\`; with a value, the property must also equal it */
+  toHaveProperty(path: string, value?: unknown): void;
+  toMatch(pattern: RegExp | string): void;
+  toBeGreaterThan(n: number): void;
+  toBeLessThan(n: number): void;
+};
+
+declare const t: {
+  /**
+   * Check a value. Each check is one line in the results; a failed check fails
+   * the suite but never stops the code. \`label\` names the value in the result.
+   */
+  expect(actual: unknown, label?: string): Matchers & { not: Matchers };
+};
 `;
 
 function AssertionRow({
@@ -107,10 +134,9 @@ function AssertionRow({
 							onChange={(customJs) => onChange({ ...assertion, customJs })}
 						/>
 						<span className="mt-1 block text-xs text-muted">
-							Receives <code>fluxify.response.</code>(<code>status</code>, <code>body</code>,{" "}
-							<code>headers</code>) and <code>fluxify.request.</code>(<code>path</code>,{" "}
-							<code>headers</code>, <code>query</code>, <code>params</code>, <code>body</code>). A
-							truthy result passes.
+							Check <code>fluxify.response</code> (<code>status</code>, <code>body</code>,{" "}
+							<code>headers</code>) and <code>fluxify.request</code> with{" "}
+							<code>t.expect(value).toBe(...)</code>. Each check is one line in the results.
 						</span>
 					</div>
 				) : (

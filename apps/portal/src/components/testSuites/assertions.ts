@@ -31,7 +31,7 @@ export type Assertion = {
 	customJs?: string | null;
 };
 
-/** `customJs` has none: the expression itself is the assertion. */
+/** `customJs` has none: its t.expect checks are the assertion. */
 const OPERATORS_BY_TARGET: Record<AssertionTarget, AssertionOperator[]> = {
 	status: ["eq", "neq", "lt", "gt"],
 	time: ["eq", "neq", "lt", "gt"],
@@ -94,7 +94,7 @@ export function validateAssertion(assertion: Assertion): string | null {
 	const { target, operator, expectedValue, propertyPath, customJs } = assertion;
 
 	if (target === "customJs") {
-		return customJs?.trim() ? null : "Write the expression to evaluate";
+		return customJs?.trim() ? null : "Write at least one t.expect(...) check";
 	}
 
 	if (propertyPath && !allowsPropertyPath(target)) {

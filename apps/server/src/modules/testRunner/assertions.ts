@@ -2,7 +2,8 @@ import { JsVM } from "@fluxify/lib";
 import type { InferSelectModel } from "drizzle-orm";
 import type { z } from "zod";
 import type { assertionSchema } from "../../api/v1/test-suites/schema";
-import type { routesEntity, testSuitesEntity } from "../../db/schema";
+import type { AssertionResult, routesEntity, testSuitesEntity } from "../../db/schema";
+import { createExpect } from "./expect";
 
 export type AssertionType = z.infer<typeof assertionSchema>;
 
@@ -79,7 +80,7 @@ function readPath(body: unknown, propertyPath?: string | null) {
 	return curr;
 }
 
-async function actualFor(a: AssertionType, ctx: AssertionContext) {
+function actualFor(a: AssertionType, ctx: AssertionContext) {
 	switch (a.target) {
 		case "status":
 			return { value: ctx.status as unknown, desc: "Status" };
@@ -95,28 +96,6 @@ async function actualFor(a: AssertionType, ctx: AssertionContext) {
 				value: readPath(ctx.body, a.propertyPath),
 				desc: `Body(${a.propertyPath || ""})`,
 			};
-		case "customJs": {
-			const vm = new JsVM({
-				fluxify: {
-					request: {
-						path: ctx.request.path,
-						query: ctx.request.query,
-						body: ctx.request.body,
-						headers: ctx.request.headers,
-						params: ctx.request.params,
-					},
-					response: {
-						body: ctx.body,
-						headers: ctx.headers,
-						status: ctx.status,
-					},
-				},
-			});
-			return {
-				value: await vm.runAsync(a.customJs || "return true;"),
-				desc: "Custom JS",
-			};
-		}
 		default:
 			return { value: undefined as unknown, desc: "" };
 	}
@@ -171,31 +150,34 @@ function compare(a: AssertionType, actualValue: unknown) {
  * without changing `SuiteRunResult` and the UI together.
  */
 export async function evaluateAssertions(assertions: AssertionType[], ctx: AssertionContext) {
-	const result = await Promise.all(
-		assertions.map(async (a) => {
+	const rows = await Promise.all(
+		assertions.map(async (a): Promise<AssertionResult[]> => {
 			try {
-				const { value: actualValue, desc: targetDesc } = await actualFor(a, ctx);
-				const passed =
-					a.target === "customJs" ? new JsVM({}).truthy(actualValue) : compare(a, actualValue);
+				if (a.target === "customJs") return await runCustomJs(a.customJs ?? "", ctx);
+				const { value: actualValue, desc: targetDesc } = actualFor(a, ctx);
+				const passed = compare(a, actualValue);
 
 				const actualStr = actualValue == null ? "" : String(actualValue);
 				const opStr = a.operator ? a.operator.replace("_", " ") : "";
-				return {
-					success: passed,
-					message: passed
-						? `${targetDesc} ${a.target !== "customJs" ? `${opStr} ${a.expectedValue || ""}` : ""} ✓`
-						: a.target === "customJs"
-							? `Custom JS evaluated to falsy (${actualStr})`
+				return [
+					{
+						success: passed,
+						message: passed
+							? `${targetDesc} ${opStr} ${a.expectedValue || ""} ✓`
 							: `Expected ${targetDesc} to ${opStr} ${a.expectedValue || ""}, got: ${actualStr}`,
-				};
+					},
+				];
 			} catch (err: unknown) {
-				return {
-					success: false,
-					message: `Evaluation error: ${err instanceof Error ? err.message : String(err)}`,
-				};
+				return [
+					{
+						success: false,
+						message: `Evaluation error: ${err instanceof Error ? err.message : String(err)}`,
+					},
+				];
 			}
 		}),
 	);
+	const result = rows.flat();
 
 	return {
 		// a suite with no assertions passes: it asserted nothing and nothing broke
@@ -203,4 +185,37 @@ export async function evaluateAssertions(assertions: AssertionType[], ctx: Asser
 		result,
 		actualData: ctx.body,
 	};
+}
+
+/**
+ * A custom JS assertion checks with `t.expect`; each check is its own result
+ * line, so a failure says what broke. The return value is ignored.
+ *
+ * No check at all fails: an assertion written for the old "truthy return"
+ * style would otherwise pass without testing anything.
+ */
+async function runCustomJs(code: string, ctx: AssertionContext): Promise<AssertionResult[]> {
+	const checks: AssertionResult[] = [];
+	const vm = new JsVM({
+		fluxify: {
+			request: {
+				path: ctx.request.path,
+				query: ctx.request.query,
+				body: ctx.request.body,
+				headers: ctx.request.headers,
+				params: ctx.request.params,
+			},
+			response: {
+				body: ctx.body,
+				headers: ctx.headers,
+				status: ctx.status,
+			},
+		},
+		t: { expect: createExpect((r) => checks.push(r)) },
+	});
+	await vm.runAsync(code);
+	if (checks.length === 0) {
+		return [{ success: false, message: "Custom JS made no t.expect(...) checks" }];
+	}
+	return checks;
 }

@@ -72,7 +72,7 @@ describe("runSuiteInChild", () => {
 			bootstrap(source, {
 				assertions: [
 					{ target: "header", propertyPath: "x-suite", operator: "eq", expectedValue: "ok" },
-					{ target: "customJs", customJs: "return fluxify.response.body.who === 'world';" },
+					{ target: "customJs", customJs: "t.expect(fluxify.response.body.who).toBe('world');" },
 					{ target: "status", operator: "eq", expectedValue: "500" },
 				],
 			}),
