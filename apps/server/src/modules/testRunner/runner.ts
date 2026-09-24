@@ -13,9 +13,9 @@ import {
 import { assertOverridesOwned } from "../requestRouter/service";
 import { type AssertionType, buildSuiteRequest } from "./assertions";
 import { compileSuiteRoute } from "./compile";
+import { runSuiteOnWorker } from "./dispatch";
 import { type Pool, testWorkerPool } from "./pool";
 import { resolveSuiteConfig } from "./resolve";
-import { runSuiteInChild } from "./spawn";
 import type { TestBootstrap, TestResult } from "./types";
 
 type Suite = InferSelectModel<typeof testSuitesEntity>;
@@ -32,18 +32,18 @@ export class TestRunError extends Error {
 	}
 }
 
-/** injectable so the orchestration can be tested without a child process */
+/** injectable so the orchestration can be tested without NATS or a worker */
 export type RunnerDeps = {
 	compile: typeof compileSuiteRoute;
 	resolve: typeof resolveSuiteConfig;
-	spawn: typeof runSuiteInChild;
+	spawn: typeof runSuiteOnWorker;
 	pool: Pool;
 };
 
 const defaultDeps: RunnerDeps = {
 	compile: compileSuiteRoute,
 	resolve: resolveSuiteConfig,
-	spawn: runSuiteInChild,
+	spawn: runSuiteOnWorker,
 	pool: testWorkerPool,
 };
 

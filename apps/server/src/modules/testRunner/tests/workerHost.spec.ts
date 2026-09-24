@@ -13,9 +13,12 @@ mock.module("@fluxify/common/nats", () => ({
 		return { stop: async () => {} };
 	},
 }));
-mock.module("../../../db/nats", () => ({ natsConnection: () => ({}) }));
+const dbNats = { ...(await import("../../../db/nats")) };
+mock.module("../../../db/nats", () => ({ ...dbNats, natsConnection: () => ({}) }));
 const spawned: Array<{ projectId: string; entry: string }> = [];
+const spawn = { ...(await import("../spawn")) };
 mock.module("../spawn", () => ({
+	...spawn,
 	runSuiteInChild: async (bootstrap: { projectId: string }, entry: string) => {
 		spawned.push({ projectId: bootstrap.projectId, entry });
 		return { ok: true, status: 200 };
