@@ -16,6 +16,7 @@ import {
 	type ExternalTrigger,
 	externalSecretData,
 	type KubernetesSpecOptions,
+	PRE_STOP_SECONDS,
 	WORKER_ENV_SECRET,
 } from "../kubernetesSpec";
 import type { DesiredNode } from "../projection";
@@ -160,7 +161,13 @@ describe("buildDeployment", () => {
 			path: "/_/admin/api/healthchecks/ready",
 			port: "health",
 		});
-		expect(spec(object).template.spec.terminationGracePeriodSeconds).toBe(35);
+		expect(spec(object).template.spec.terminationGracePeriodSeconds).toBe(35 + PRE_STOP_SECONDS);
+	});
+
+	it("keeps serving a few seconds before it stops, so the edge stops routing to it first", () => {
+		expect(container(deployment()).lifecycle).toEqual({
+			preStop: { sleep: { seconds: PRE_STOP_SECONDS } },
+		});
 	});
 
 	it("labels everything as the orchestrator's, and selects only this claim's pods", () => {

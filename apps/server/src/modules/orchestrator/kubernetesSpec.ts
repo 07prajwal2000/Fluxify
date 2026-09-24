@@ -222,8 +222,9 @@ export function buildDeployment(
 					},
 				},
 				spec: {
-					// The worker drains on SIGTERM; this is how long it is given.
-					terminationGracePeriodSeconds: options.drainTimeoutSec,
+					// The worker drains on SIGTERM; this is how long it is given, on top
+					// of the pre-stop pause, which the grace period also counts.
+					terminationGracePeriodSeconds: options.drainTimeoutSec + PRE_STOP_SECONDS,
 					// Workers talk to NATS, not to the API server.
 					automountServiceAccountToken: false,
 					containers: [
@@ -249,6 +250,10 @@ export function buildDeployment(
 								httpGet: { path: READY_PATH, port: "health" },
 								periodSeconds: 5,
 							},
+							// A stopping pod leaves the Service at once, but Traefik hears of
+							// it a few seconds later. Keep serving until it has, or requests
+							// still routed here meet a closing worker: 502s and hangs (#472).
+							lifecycle: { preStop: { sleep: { seconds: PRE_STOP_SECONDS } } },
 							// Requests equal to limits: what autoscaling measures against is
 							// then exactly what the node may use.
 							resources: { requests: size, limits: size },
@@ -259,6 +264,9 @@ export function buildDeployment(
 		},
 	};
 }
+
+/** How long a stopping pod keeps serving before SIGTERM, while the edge catches up. */
+export const PRE_STOP_SECONDS = 5;
 
 /** Field manager for the replica count alone, so the Deployment's own apply never owns it. */
 export const REPLICAS_MANAGER = "fluxify-orchestrator-replicas";
