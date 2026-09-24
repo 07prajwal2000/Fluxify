@@ -1,8 +1,8 @@
 export function deepFreeze(obj: any) {
 	Object.freeze(obj);
-	Object.getOwnPropertyNames(obj).forEach(function (prop) {
+	Object.getOwnPropertyNames(obj).forEach((prop) => {
 		if (
-			obj.hasOwnProperty(prop) &&
+			Object.hasOwn(obj, prop) &&
 			obj[prop] !== null &&
 			(typeof obj[prop] === "object" || typeof obj[prop] === "function") &&
 			!Object.isFrozen(obj[prop])

@@ -46,7 +46,7 @@ function typeOf(param: CustomBlockParamDef): string {
 function member(param: CustomBlockParamDef): string {
 	const doc = [param.label, param.description].filter(Boolean).join(" — ");
 	const key = /^[A-Za-z_$][\w$]*$/.test(param.name) ? param.name : quote(param.name);
-	return `${doc ? `  /** ${doc.replace(/\*\//g, "*\/")} */\n` : ""}  ${key}: ${typeOf(param)};`;
+	return `${doc ? `  /** ${doc.replace(/\*\//g, "*/")} */\n` : ""}  ${key}: ${typeOf(param)};`;
 }
 
 export function buildParamsTypeLib(params: CustomBlockParamDef[]): string {

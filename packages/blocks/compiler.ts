@@ -5,6 +5,7 @@ import type { BlockDTOType, EdgeDTOSchemaType, EdgesType } from "./builderTypes"
 import { emitCustomBlock, hasCustomBlock } from "./builtin/customBlock";
 import { emitWorkflowEnd } from "./builtin/response";
 import { type HoistedImport, hoistImports } from "./imports";
+import { assertInstalled, importTarget, type ProjectDependencies } from "./packageImports";
 import { compilerLib, emitters } from "./registry";
 import { scopeFor } from "./scope";
 
@@ -114,6 +115,12 @@ function buildEdgeMap(edges: EdgeDTOSchemaType): EdgesType {
 
 export type CompileOptions = {
 	/**
+	 * The project's npm packages (#477). When set, a package import must be one
+	 * of them, and it resolves from the project's deps directory. Unset keeps the
+	 * old behaviour — plain `import(spec)` — for callers with no project.
+	 */
+	dependencies?: ProjectDependencies;
+	/**
 	 * Compile as a custom block: `param:foo` placeholders in block data resolve
 	 * against the invocation arguments instead of being baked in.
 	 *
@@ -152,7 +159,7 @@ export function instantiateCompiled(source: string) {
 export function compileGraph(
 	blocks: BlockDTOType[],
 	edges: EdgeDTOSchemaType,
-	{ asCustomBlock = false, asWorkflow = false }: CompileOptions = {},
+	{ asCustomBlock = false, asWorkflow = false, dependencies }: CompileOptions = {},
 ) {
 	const byId = new Map(blocks.map((b) => [b.id, b]));
 	const edgeMap = buildEdgeMap(edges);
@@ -238,6 +245,7 @@ export function compileGraph(
 
 	function registerImports(imports: HoistedImport[]) {
 		for (const { spec, bindings } of imports) {
+			assertInstalled(spec, dependencies);
 			let bound = importsBySpec.get(spec);
 			if (!bound) {
 				bound = new Map();
@@ -282,7 +290,7 @@ export function compileGraph(
 		const names = [...importOwners.keys()];
 		const loads = [...importsBySpec].map(([spec, bound], index) => {
 			const namespace = `$mod_${index}`;
-			const lines = [`const ${namespace} = await import(${JSON.stringify(spec)});`];
+			const lines = [`const ${namespace} = await import(${importTarget(spec, dependencies)});`];
 			const destructured: string[] = [];
 			for (const [local, imported] of bound) {
 				if (imported === null) lines.push(`${local} = ${namespace};`);

@@ -117,6 +117,15 @@ export interface HostNodeView extends ObservedNode {
  */
 async function readHeartbeats(): Promise<Map<string, Heartbeat>> {
 	const beats = new Map<string, Heartbeat>();
+	for (const beat of await readLiveNodes()) {
+		beats.set(beat.nodeId, { ready: beat.ready, at: beat.at });
+	}
+	return beats;
+}
+
+/** Every live node's full heartbeat; empty when the broker cannot be reached. */
+export async function readLiveNodes(): Promise<NodeHeartbeat[]> {
+	const beats: NodeHeartbeat[] = [];
 	try {
 		const nc = await initializeNats();
 		const bucket = await openKvBucket<NodeHeartbeat>(nc, NODE_LIVENESS_BUCKET, {
@@ -125,7 +134,7 @@ async function readHeartbeats(): Promise<Map<string, Heartbeat>> {
 		const keys = await bucket.keys(orchestratorKeys.allNodes);
 		for (const key of keys) {
 			const beat = await bucket.get(key);
-			if (beat) beats.set(beat.nodeId, { ready: beat.ready, at: beat.at });
+			if (beat) beats.push(beat);
 		}
 	} catch (error) {
 		logger.warn(`could not read node liveness: ${String(error)}`, "ORCHESTRATOR.status");

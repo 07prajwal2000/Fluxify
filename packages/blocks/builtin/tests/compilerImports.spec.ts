@@ -85,3 +85,47 @@ describe("hoisted imports", () => {
 		expect(() => compileGraph(blocks, edges)).toThrow(/bound to both/);
 	});
 });
+
+describe("project packages (#477)", () => {
+	const graph = (code: string) => [
+		block("1", BlockTypes.entrypoint),
+		block("2", BlockTypes.jsrunner, { value: code }),
+		block("3", BlockTypes.response, { httpCode: "200" }),
+	];
+
+	it("resolves a package from the project's deps dir, leaves builtins alone", async () => {
+		const { mkdtempSync, mkdirSync, writeFileSync } = await import("node:fs");
+		const { tmpdir } = await import("node:os");
+		const { join } = await import("node:path");
+		const root = mkdtempSync(join(tmpdir(), "deps-"));
+		const pkg = join(root, "p1", "current", "node_modules", "fake-pkg");
+		mkdirSync(pkg, { recursive: true });
+		writeFileSync(join(pkg, "package.json"), '{"name":"fake-pkg","main":"index.js"}');
+		writeFileSync(join(pkg, "index.js"), "module.exports = { hello: () => 'from deps' };");
+
+		const before = process.env.FLUXIFY_DEPS_DIR;
+		process.env.FLUXIFY_DEPS_DIR = root;
+		try {
+			const { run, source } = compileGraph(
+				graph('import fake from "fake-pkg";\nimport { createHash } from "crypto";\nreturn fake.hello() + typeof createHash;'),
+				edges,
+				{ dependencies: { projectId: "p1", packages: ["fake-pkg"] } },
+			);
+			expect(source).toContain('Bun.resolveSync("fake-pkg"');
+			expect(source).toContain('await import("crypto")');
+			const result = await run(createContext(), {});
+			expect(result.output.body).toBe("from depsfunction");
+		} finally {
+			if (before === undefined) delete process.env.FLUXIFY_DEPS_DIR;
+			else process.env.FLUXIFY_DEPS_DIR = before;
+		}
+	});
+
+	it("refuses a package the project has not installed", () => {
+		expect(() =>
+			compileGraph(graph('import _ from "lodash/fp";\nreturn 1;'), edges, {
+				dependencies: { projectId: "p1", packages: ["other"] },
+			}),
+		).toThrow('Package "lodash" is not installed');
+	});
+});

@@ -745,6 +745,26 @@ export const customBlocksListEntity = pgTable(
 	],
 );
 
+/**
+ * A project's npm packages (#477): the manifest and the lockfile the admin
+ * resolved it to. Workers install from the lockfile alone, so every node runs
+ * the same versions. Latest only — `version` bumps on every change and a save
+ * only lands if it is still the version the change was based on.
+ */
+export const projectDependenciesEntity = pgTable("project_dependencies", {
+	projectId: varchar("project_id", { length: 50 })
+		.primaryKey()
+		.references(() => projectsEntity.id, { onDelete: "cascade" }),
+	version: integer().notNull(),
+	packageJson: text("package_json").notNull(),
+	lockfile: text().notNull(),
+	updatedBy: varchar("updated_by", { length: 50 }),
+	updatedAt: timestamp("updated_at")
+		.defaultNow()
+		.notNull()
+		.$onUpdate(() => new Date()),
+});
+
 // Custom block canvases live in `blocks`/`edges` alongside route canvases —
 // see `modules/canvas`. The old `custom_block_graphs` table is gone.
 

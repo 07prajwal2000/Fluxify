@@ -1,5 +1,5 @@
-import { z } from "zod";
-import { requestQuerySchema } from "./dto";
+import type { z } from "zod";
+import type { requestQuerySchema } from "./dto";
 import { getTestRuns } from "./repository";
 
 export default async function handleRequest(

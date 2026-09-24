@@ -1,6 +1,6 @@
-import { Context } from "hono";
-import z from "zod";
-import { validationErrorSchema } from "../errors/validationError";
+import type { Context } from "hono";
+import type z from "zod";
+import type { validationErrorSchema } from "../errors/validationError";
 
 export default function (error: any, ctx: Context) {
 	if (!error?.success) {
@@ -8,7 +8,7 @@ export default function (error: any, ctx: Context) {
 			type: "validation",
 			error: [],
 		};
-		for (let err of error?.error?.issues ?? []) {
+		for (const err of error?.error?.issues ?? []) {
 			errorsList.error.push({
 				field: err.path[0],
 				message: err.message,

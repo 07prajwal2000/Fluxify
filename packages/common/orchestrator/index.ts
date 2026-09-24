@@ -165,6 +165,17 @@ export interface NodeHeartbeat {
 	ready: boolean;
 	/** ISO timestamp of this renewal. */
 	at: string;
+	/** Per project, how far this node got installing its npm packages (#477). */
+	deps?: Record<string, DepsInstallStatus>;
+}
+
+export interface DepsInstallStatus {
+	version: number;
+	state: "installing" | "ready" | "failed";
+	/** why the install itself failed */
+	error?: string;
+	/** installed, but these packages would not load (e.g. a native build step) */
+	failedImports?: { name: string; error: string }[];
 }
 
 /**

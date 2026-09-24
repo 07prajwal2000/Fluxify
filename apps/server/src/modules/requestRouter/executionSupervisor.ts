@@ -68,6 +68,14 @@ export interface ExecutionSupervisor {
 	child(): { kill(): void; exited: Promise<unknown> } | undefined;
 	/** Stops respawning. The child itself is drained by the caller. */
 	stop(): void;
+	/**
+	 * Blue/green: starts a fresh child beside the running one (both bind the
+	 * traffic port with `reusePort`), and drains the old one once the new one is
+	 * ready. The fresh child re-resolves every import, which is how an install
+	 * of new npm packages (#477) takes effect — Bun caches resolutions per
+	 * process. If the new child dies before it is ready, the old one keeps serving.
+	 */
+	replace(): Promise<void>;
 }
 
 export function createExecutionSupervisor(
@@ -80,6 +88,10 @@ export function createExecutionSupervisor(
 	let watchdogTimer: ReturnType<typeof setInterval> | undefined;
 	let restartDelayMs = 0;
 	let spawnedAt = 0;
+	/** a child started by `replace()`, not yet ready to take over */
+	let candidate: { child: any; settle: (ready: boolean) => void } | undefined;
+	let replacing: Promise<void> | undefined;
+	let replaceAgain = false;
 
 	/**
 	 * Jobs handed to the child, waiting on its reply. The broker's ack is driven
@@ -112,9 +124,10 @@ export function createExecutionSupervisor(
 		});
 	}
 
-	function onEvent(event: ExecutionEvent) {
+	function onEvent(event: ExecutionEvent, from?: unknown) {
 		switch (event.type) {
 			case "ready":
+				if (candidate && from === candidate.child) candidate.settle(true);
 				markReady();
 				logger.info("execution process ready", "WORKER.execution");
 				return;
@@ -186,8 +199,9 @@ export function createExecutionSupervisor(
 			env: executionRuntimeEnvironment(),
 			stdout: "inherit",
 			stderr: "inherit",
-			ipc: (event) => onEvent(event as ExecutionEvent),
+			ipc: (event, from) => onEvent(event as ExecutionEvent, from),
 			onExit: (process, exitCode, signalCode, error) => {
+				if (candidate?.child === process) return candidate.settle(false);
 				if (execution !== process) return;
 				execution = undefined;
 				markNotReady();
@@ -212,8 +226,64 @@ export function createExecutionSupervisor(
 		child.send({ type: "bootstrap", bootstrap } satisfies ExecutionMessage);
 	}
 
+	/** resolves true once `child` reports ready, false if it exits first */
+	function awaitCandidate(child: any) {
+		return new Promise<boolean>((resolve) => {
+			candidate = { child, settle: resolve };
+		}).finally(() => {
+			candidate = undefined;
+		});
+	}
+
+	async function swap() {
+		const old = execution;
+		if (!old || stopping) return;
+		// Windows has no shared-port reuse, so local dev restarts instead: the
+		// crash-recovery path respawns a stable child at once
+		if (process.platform === "win32") {
+			old.kill();
+			await old.exited;
+			return;
+		}
+		spawn();
+		const fresh = execution;
+		if (!(await awaitCandidate(fresh))) {
+			logger.error(
+				"replacement execution process died before it was ready — keeping the old one",
+				"WORKER.execution",
+			);
+			execution = old;
+			return;
+		}
+		logger.info("replacement execution process ready — draining the old one", "WORKER.execution");
+		// SIGTERM: the child stops accepting, finishes what it holds, then exits
+		old.kill();
+		const exited = await Promise.race([
+			old.exited.then(() => true),
+			Bun.sleep(options.asyncExecutor.drainTimeoutMs + 1_000).then(() => false),
+		]);
+		if (!exited) old.kill(9);
+	}
+
 	return {
 		start: spawn,
+
+		replace() {
+			// one swap at a time; changes landing mid-swap coalesce into one more
+			if (replacing) {
+				replaceAgain = true;
+				return replacing;
+			}
+			replacing = (async () => {
+				do {
+					replaceAgain = false;
+					await swap();
+				} while (replaceAgain);
+			})().finally(() => {
+				replacing = undefined;
+			});
+			return replacing;
+		},
 
 		send(message) {
 			execution?.send(message);

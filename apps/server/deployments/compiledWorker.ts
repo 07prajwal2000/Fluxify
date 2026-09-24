@@ -20,6 +20,7 @@ import {
 } from "../src/lib/env";
 import { configuredBaseDomain, watchInstanceSettings } from "../src/loaders/instanceSettingsLoader";
 import type {
+	DepsArtifact,
 	TriggerArtifact,
 	UnsealedProjectConfig,
 	WorkflowArtifact,
@@ -33,6 +34,7 @@ import {
 	WORKFLOW_JOB,
 } from "../src/modules/jobs/subjects";
 import { attachNode } from "../src/modules/orchestrator/node";
+import { createDepsInstaller } from "../src/modules/packages/installer";
 import { watchProjectArtifacts } from "../src/modules/requestRouter/artifactHost";
 import { asyncExecutorLimitsFromEnv, drainChild } from "../src/modules/requestRouter/asyncExecutor";
 import type { ArtifactEntry } from "../src/modules/requestRouter/compiledRuntime";
@@ -157,6 +159,10 @@ const supervisor = createExecutionSupervisor({
 
 function handleArtifactChange(entry: ArtifactEntry) {
 	const kind = artifactKind(entry.key);
+	// installed here, never forwarded: the child only sees the result (#477)
+	if (kind === "deps") {
+		return deps.apply(entry.key.split(".")[1]!, entry.value as DepsArtifact | null);
+	}
 	const policyChanged = kind === "project-config";
 	if (entry.value === null) artifacts.delete(entry.key);
 	else artifacts.set(entry.key, entry);
@@ -309,6 +315,12 @@ if (!attached.ok) {
 	process.exit(1);
 }
 const node = attached.node;
+
+/** npm packages (#477): installed beside the child, swapped in blue/green */
+const deps = createDepsInstaller({
+	onStatus: (statuses) => node.slot.report({ deps: statuses }),
+	onInstalled: () => (supervisor.child() ? supervisor.replace() : Promise.resolve()),
+});
 logger.info(`node ${node.slot.nodeId} holds a license slot — type ${node.type}`, "WORKER.node");
 
 /**
@@ -359,6 +371,8 @@ const artifactWatch = await watchProjectArtifacts(
 	artifactKindsForMode(node.type),
 );
 await artifactWatch.initialized;
+// a fresh node installs every project's packages before it serves anything
+await deps.idle();
 
 supervisor.start();
 supervisor.synchronizeMonitoring();
