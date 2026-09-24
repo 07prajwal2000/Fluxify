@@ -56,7 +56,7 @@ return outputs.users.length;
 
 `outputs` is fresh for every request. A value saved in one request is never seen by another.
 
-> **Caution**: Variable names must not shadow built-in globals. Avoid names like `input`, `logger`, `jwt`, `libs`, `getHeader`, etc.
+> **Caution**: Variable names must not shadow built-in globals. Avoid names like `input`, `logger`, `jwt`, `getHeader`, etc.
 ## HTTP Request Helpers
 
 Read data from the incoming HTTP request that triggered this workflow. All functions return `""` (empty string) if the requested value is not present.
@@ -196,39 +196,16 @@ if (!success) {
 }
 return payload.userId;
 ```
-## Built-in Libraries (`libs`)
+## Using npm Packages
 
-Three third-party libraries are bundled and reachable through the `libs` object. The `jwt` helper is also available globally and is backed by `jsonwebtoken`. No import statement is needed. See [Imports & Libraries](./imports.md) for details.
-
-### `libs.dayjs` — Date & Time
-
-Full [Day.js](https://day.js.org/) library with the `utc` plugin pre-loaded.
+There is no built-in library object. Install the packages you need in **Project Settings > npm Packages**, then `import` them in any script. The `jwt` helper stays available globally. See [Imports & Libraries](./imports.md) for details.
 
 ```javascript
-const now = libs.dayjs().utc().toISOString();
-const formatted = libs.dayjs("2026-01-15").format("MMMM D, YYYY"); // → "January 15, 2026"
-const future = libs.dayjs().add(7, "day").toDate();
-```
+import { z } from "zod";
 
-### `libs._` — Underscore.js
-
-Full [Underscore.js](https://underscorejs.org/) utility library for functional programming.
-
-```javascript
-const users = input.users;
-const activeUsers = libs._.filter(users, u => u.active);
-const names = libs._.pluck(activeUsers, "name");
-const grouped = libs._.groupBy(users, "role");
-```
-
-### `libs.zod` — Schema Validation
-
-Full [Zod](https://zod.dev/) library for runtime schema validation and parsing.
-
-```javascript
-const schema = libs.zod.object({
-  name: libs.zod.string().min(1),
-  age: libs.zod.number().positive()
+const schema = z.object({
+  name: z.string().min(1),
+  age: z.number().positive()
 });
 const result = schema.safeParse(getRequestBody());
 if (!result.success) {
@@ -297,11 +274,8 @@ jwt.sign(payload, secret, options?)
 jwt.verify(token, secret, options?)
 jwt.decode(token, options?)
 
-// ─── Libraries ────────────────────────────────────────────────
-libs.dayjs()                   // Day.js (UTC extended)
-libs._                         // Underscore.js
-libs.zod                       // Zod schema validation
-import { z } from "zod";       // or import them by name instead
+// ─── npm packages ─────────────────────────────────────────────
+import { z } from "zod";       // any package installed in the project
 
 // ─── DB Native block only ─────────────────────────────────────
 dbQuery("SELECT ...")
@@ -312,5 +286,5 @@ dbQuery("SELECT ...")
 - **`vars` is the canonical source**: Both built-in helpers and user-defined runtime variables live on the same `vars` object (`ContextVarsType & Record<string, any>`). User variables are simply additional keys added at runtime.
 - **`input` is per block**: The compiler carries each block's result forward as `input`; it changes with each block execution.
 - **`dbQuery` is block-scoped**: The compiler emits it only for DB Native blocks.
-- **Libraries are server-side bundles**: `libs.dayjs`, `libs._`, and `libs.zod` are actual npm packages bundled in the server, not CDN links. They run server-side, not in the browser.
+- **Packages run on the server**: packages you install are imported by your scripts on the server, not in the browser.
 - **Imports are hoisted**: `import` statements are lifted out of your script and loaded once when the workflow is saved, not on each request.

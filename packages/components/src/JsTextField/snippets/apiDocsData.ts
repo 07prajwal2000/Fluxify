@@ -163,35 +163,15 @@ export const API_DOCS: ApiDocItem[] = [
 
 	// Libraries
 	{
-		id: "api-libs-dayjs",
-		name: "libs.dayjs",
+		id: "api-import",
+		name: "import",
 		kind: "lib",
-		signature: "libs.dayjs(date?: any): Dayjs",
-		description: "Bundled Day.js date/time library for parsing, formatting, and arithmetic.",
+		signature: 'import x from "<package>"',
+		description:
+			"Import any npm package installed in the project (Project Settings > npm Packages), or a Bun built-in module.",
 		category: "utils",
-		example: 'const formatted = libs.dayjs().format("YYYY-MM-DD HH:mm:ss");',
-		returns: "Dayjs",
-	},
-	{
-		id: "api-libs-underscore",
-		name: "libs._",
-		kind: "lib",
-		signature: "libs._: Underscore",
-		description: "Bundled Underscore utility library for collection, array, and object operations.",
-		category: "utils",
-		example: 'const grouped = libs._.groupBy(input, "status");',
-		returns: "Underscore",
-	},
-	{
-		id: "api-libs-zod",
-		name: "libs.zod",
-		kind: "lib",
-		signature: "libs.zod: Zod",
-		description: "Bundled Zod schema validation library.",
-		category: "validation",
-		example:
-			"const schema = libs.zod.object({ email: libs.zod.string().email() });\nconst result = schema.safeParse(input);",
-		returns: "Zod",
+		example: 'import dayjs from "dayjs";\nreturn dayjs().add(7, "day").toISOString();',
+		returns: "module",
 	},
 ];
 

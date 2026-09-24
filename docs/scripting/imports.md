@@ -52,8 +52,8 @@ This is why `import` is preferred over loading a module inside your code at runt
 | | |
 | :--- | :--- |
 | **Built-in platform modules** | `crypto`, `path`, `fs`, `url`, `zlib`, and the rest of the standard runtime modules. |
-| **Bundled libraries** | `dayjs`, `zod`, `underscore`, `jsonwebtoken` |
-| **Anything else** | Not available. Arbitrary packages cannot be installed per project. |
+| **npm packages** | Any package installed in **Project Settings > npm Packages**, at the version you chose. |
+| **Anything else** | Not available. Install the package first. |
 
 Importing a module that is not available fails the request with a clear error naming the module, rather than failing silently.
 
@@ -85,25 +85,15 @@ Use specific, descriptive aliases for imports and do not import a name that is a
 import { parse as parsePath } from "path";
 ```
 
-## Libraries Available Without Importing
+## Helpers Available Without Importing
 
-Four libraries are provided to every script without requiring an import:
+`jwt` is provided to every script without an import. It signs, verifies, and decodes tokens, backed by [`jsonwebtoken`](https://www.npmjs.com/package/jsonwebtoken):
 
 ```javascript
-libs.dayjs().utc().toISOString();
-libs._.groupBy(input.users, "role");
-libs.zod.object({ name: libs.zod.string() });
 jwt.sign({ userId: input.id }, getConfig("JWT_SECRET"));
 ```
 
-| Name | Library |
-| :--- | :--- |
-| `libs.dayjs` | [Day.js](https://day.js.org/) — dates and times, with the `utc` plugin already loaded. |
-| `libs._` | [Underscore.js](https://underscorejs.org/) — utilities for arrays, objects, and collections. |
-| `libs.zod` | [Zod](https://zod.dev/) — schema validation and parsing. |
-| `jwt` | JWT signing, verification, and decoding backed by [`jsonwebtoken`](https://www.npmjs.com/package/jsonwebtoken). |
-
-`libs.dayjs`, `libs._`, and `libs.zod` are the same libraries you can also import by name. `jwt` is already available as a global helper and uses `jsonwebtoken` under the hood. Use whichever reads better for the `libs` packages; no import is needed for `jwt`.
+Other libraries, such as Day.js or Zod, are not built in. Install them as npm packages and import them by name.
 
 ## Notes
 

@@ -61,7 +61,7 @@ fixtures are named by path — `graphs/auth/login.json` loads as `auth/login`.
 session, profile and logout, sharing one `auth_users` table and one JWT secret.
 
 Two things there are worth copying. Request validation is declared on the
-fixture's `schemas`, not built out of `libs.zod` inside a block — that is the
+fixture's `schemas`, not built out of Zod inside a block — that is the
 route-level schema the portal stores, and it runs before any block does, so a
 400 costs zero blocks. And the accounts come from seeded faker
 (`AUTH_USERS` in `src/seed.ts`), which keeps the plaintext passwords available

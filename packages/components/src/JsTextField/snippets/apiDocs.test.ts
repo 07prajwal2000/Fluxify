@@ -45,9 +45,8 @@ describe("apiDocsData", () => {
 		expect(names).toContain("httpClient.post");
 		expect(names).toContain("logger.logInfo");
 		expect(names).toContain("dbQuery");
-		expect(names).toContain("libs.dayjs");
-		expect(names).toContain("libs._");
-		expect(names).toContain("libs.zod");
+		expect(names).toContain("import");
+		expect(names.some((n) => n.startsWith("libs"))).toBe(false);
 	});
 
 	it("documents trigger variables under variables category", () => {
