@@ -190,6 +190,7 @@ export function buildDeployment(
 	workload: ClaimWorkload,
 	options: KubernetesSpecOptions,
 	sharedEnv: Record<string, string>,
+	licenseCapped: boolean,
 ): KubeObject {
 	assertWellFormed(workload);
 	const env = workerEnv(workload, options);
@@ -203,6 +204,15 @@ export function buildDeployment(
 		metadata: { name: workloadName(workload.claimId), labels: labels(workload) },
 		spec: {
 			selector: { matchLabels: { [MANAGED_LABEL]: MANAGED_BY, [LABELS.claim]: workload.claimId } },
+			// Under a node cap, stop the old pod before starting its replacement
+			// (#466): a surge pod finds no free slot at the cap and crash-loops,
+			// so the default surge-first rollout never finishes. The cost is a
+			// 1-replica claim briefly down, the same as on Docker. Keyed on the
+			// license, not on the live count, so the spec never flaps with
+			// other claims. Uncapped keeps Kubernetes' zero-downtime default.
+			...(licenseCapped
+				? { strategy: { type: "RollingUpdate", rollingUpdate: { maxSurge: 0, maxUnavailable: 1 } } }
+				: {}),
 			template: {
 				metadata: {
 					labels: labels(workload),

@@ -294,6 +294,29 @@ helm upgrade fluxify oci://ghcr.io/fluxify-rest/charts/fluxify \
   --version %%CHART_VERSION%% -n fluxify -f fluxify-values.yaml
 ```
 
+### Do workers go down during an upgrade?
+
+An upgrade can restart your workers, one at a time. Whether a claim stays up
+while that happens depends on your license:
+
+| License | How each worker is replaced | Downtime |
+| :--- | :--- | :--- |
+| Enterprise (including an expired one still in its grace period) | The new worker starts first, and the old one stops once the new one is ready. | None |
+| Community, non-commercial, or expired past the grace period | The old worker stops first, then the new one starts. | A few seconds per worker |
+
+These licenses cap how many workers can run. At the cap, a new worker has no
+room to start until an old one stops, so Fluxify stops the old one first.
+
+::: info What this means for you
+A claim with **2 or more replicas** keeps serving throughout: only one of its
+workers is replaced at a time. A claim with **1 replica** is briefly
+unavailable, usually 5 to 10 seconds. A worker that is busy finishes its
+current requests before it stops, so under load the gap can be longer, up to
+about 35 seconds.
+
+To avoid it, give a claim that must stay up at least 2 replicas.
+:::
+
 ## Uninstall
 
 `helm uninstall fluxify -n fluxify` removes Fluxify, but leaves behind the

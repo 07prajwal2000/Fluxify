@@ -25,6 +25,8 @@ export interface ScalingContext {
 	triggersByGroup: ReadonlyMap<string, readonly string[]>;
 	/** Group id → its active triggers on an outside queue that KEDA can watch. */
 	externalByGroup: ReadonlyMap<string, readonly ExternalTrigger[]>;
+	/** The license caps how many nodes may run, so a rollout must not start a pod over it (#466). */
+	licenseCapped: boolean;
 }
 
 /** How many nodes a queue of `pending` messages asks for, clamped to `[min, max]`. */

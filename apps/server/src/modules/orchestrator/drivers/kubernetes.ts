@@ -89,7 +89,7 @@ export function createKubernetesDriver(
 				)
 			: undefined;
 		return [
-			buildDeployment(workload, options, options.passthroughEnv),
+			buildDeployment(workload, options, options.passthroughEnv, scaling.licenseCapped),
 			buildService(workload, options),
 			buildIngressRoute(workload, options),
 			buildScaledObject(workload, options, scaling.policy, secretsHash),
