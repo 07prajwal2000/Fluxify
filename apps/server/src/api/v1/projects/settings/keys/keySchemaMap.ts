@@ -58,6 +58,16 @@ export const projectSettingsKeySchemaMap = {
 		defaultValue: "",
 		dataType: "string",
 	},
+	/**
+	 * npm packages (#477): only versions published at least this many days ago
+	 * are resolved, across the whole dependency tree. Most supply-chain attacks
+	 * are caught and pulled within days; 0 turns the guard off.
+	 */
+	"settings.packages.minReleaseAgeDays": {
+		schema: z.coerce.number().int().min(0).max(365),
+		defaultValue: "7",
+		dataType: "number",
+	},
 	"experimental.workerTimeouts.enabled": {
 		schema: z.enum(["true", "false"]),
 		defaultValue: "false",

@@ -7,6 +7,7 @@ import {
 	TbAlertTriangle,
 	TbCpu,
 	TbFlask,
+	TbPackage,
 	TbTopologyStar3,
 	TbUsers,
 } from "react-icons/tb";
@@ -16,6 +17,7 @@ import { ExperimentalSettings } from "@/components/settings/ExperimentalSettings
 import { GeneralSettings } from "@/components/settings/GeneralSettings";
 import { MembersSettings } from "@/components/settings/MembersSettings";
 import { NodesSettings } from "@/components/settings/NodesSettings";
+import { PackagesSettings } from "@/components/settings/PackagesSettings";
 import {
 	TELEMETRY_SIGNALS,
 	TelemetryDestinations,
@@ -32,6 +34,7 @@ type SettingsSearch = {
 		| "general"
 		| "telemetry"
 		| "ai-connections"
+		| "packages"
 		| "nodes"
 		| "members"
 		| "experimental"
@@ -58,6 +61,7 @@ const SETTINGS_TABS = [
 	// Absent on a deployment with no orchestrator (Kit), where there is one node
 	// by construction and nothing to claim.
 	{ id: "nodes", label: "Nodes", icon: TbTopologyStar3, flag: "orchestration" },
+	{ id: "packages", label: "npm Packages", icon: TbPackage },
 	{ id: "members", label: "Members", icon: TbUsers },
 	{ id: "experimental", label: "Experimental", icon: TbFlask },
 	{ id: "danger", label: "Danger Zone", icon: TbAlertTriangle },
@@ -170,6 +174,7 @@ function ProjectSettingsPage() {
 							</div>
 						)}
 						{activeTab === "nodes" && <NodesSettings projectId={projectId} />}
+						{activeTab === "packages" && <PackagesSettings projectId={projectId} />}
 						{activeTab === "members" && <MembersSettings projectId={projectId} />}
 						{activeTab === "ai-connections" && <AiConnectionsSettings projectId={projectId} />}
 						{activeTab === "experimental" && <ExperimentalSettings projectId={projectId} />}

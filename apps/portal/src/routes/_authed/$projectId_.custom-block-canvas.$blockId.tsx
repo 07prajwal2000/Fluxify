@@ -7,6 +7,7 @@ import { CustomBlockSettingsModal } from "@/components/customBlocks/CustomBlockS
 import { CustomBlockSwitcher } from "@/components/customBlocks/CustomBlockSwitcher";
 import { createRouteHead } from "@/lib/seo";
 import { customBlocksQuery } from "@/query/customBlocksQuery";
+import { useProjectPackageTypes } from "@/query/projectPackagesQuery";
 import { customBlocksService } from "@/services/customBlocks";
 
 export const Route = createFileRoute("/_authed/$projectId_/custom-block-canvas/$blockId")({
@@ -19,6 +20,7 @@ export const Route = createFileRoute("/_authed/$projectId_/custom-block-canvas/$
 
 function CustomBlockCanvasPage() {
 	const { projectId, blockId } = Route.useParams();
+	useProjectPackageTypes(projectId);
 	const save = customBlocksQuery.saveCanvas.mutation(blockId);
 	const [settingsOpen, setSettingsOpen] = useState(false);
 

@@ -55,7 +55,12 @@ describe("worker modes", () => {
 			"custom-block",
 			"project-config",
 			"trigger",
+			"deps",
 		]);
+		// every mode runs user code, so every mode installs its packages
+		for (const mode of ["route", "workflow", "both"]) {
+			expect(artifactKindsForMode(mode)).toContain("deps");
+		}
 		// a route-only worker runs no workflows, so a trigger it could not act on
 		// is just memory
 		expect(artifactKindsForMode("route")).not.toContain("trigger");

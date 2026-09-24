@@ -49,6 +49,19 @@ export function hoistImports(code: string) {
 }
 
 /**
+ * The npm package a specifier loads from: `lodash/fp` -> `lodash`,
+ * `@scope/pkg/sub` -> `@scope/pkg`. Null for relative, absolute and
+ * protocol-prefixed (`node:`, `bun:`) specifiers, which never come from a
+ * project's packages. Bare runtime builtins (`crypto`) are not known here —
+ * the caller filters those.
+ */
+export function packageName(spec: string): string | null {
+	if (/^[./]/.test(spec) || /^[a-z]+:/.test(spec)) return null;
+	const parts = spec.split("/");
+	return spec.startsWith("@") ? parts.slice(0, 2).join("/") : parts[0];
+}
+
+/**
  * The specifiers a real parser sees as static imports. Bun's transpiler is
  * already in the runtime, tolerates a bare `return` (user code is a function
  * body), and elides type-only imports — so a hit missing from this set is a

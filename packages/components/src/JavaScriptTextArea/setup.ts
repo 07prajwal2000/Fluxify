@@ -6,6 +6,7 @@ import editorWorker from "monaco-editor/editor/editor.worker?worker";
 import tsWorker from "monaco-editor/language/typescript/ts.worker?worker";
 import { FLUXIFY_JS_GLOBALS } from "./globals";
 import { ensurePackageTypes } from "./loadPackageTypes";
+import { importSpecifiers } from "./npmPackageTypes";
 import { registerTypeLib } from "./typeLibRegistry";
 
 /**
@@ -55,6 +56,35 @@ if (typeof window !== "undefined") {
 	// ambient `Bun` global resolve. Pulls in `@types/node` too (declared as
 	// its dependency in sync-type-libs.ts).
 	void ensurePackageTypes("bun");
+
+	// Package names inside `from "…"`, `import("…")` and `require("…")`: the TS
+	// worker can't list the virtual node_modules, so it only completes names it
+	// already resolved.
+	monaco.languages.registerCompletionItemProvider("javascript", {
+		triggerCharacters: ['"', "'", "/", "@"],
+		provideCompletionItems(model, position) {
+			const before = model.getLineContent(position.lineNumber).slice(0, position.column - 1);
+			const typed = before.match(
+				/(?:\bfrom\s*|\bimport\s*\(\s*|\brequire\s*\(\s*|^\s*import\s*)["']([^"']*)$/,
+			)?.[1];
+			if (typed === undefined) return { suggestions: [] };
+			const range = new monaco.Range(
+				position.lineNumber,
+				position.column - typed.length,
+				position.lineNumber,
+				position.column,
+			);
+			return {
+				suggestions: importSpecifiers().map((name) => ({
+					label: name,
+					kind: monaco.languages.CompletionItemKind.Module,
+					insertText: name,
+					detail: "npm package",
+					range,
+				})),
+			};
+		},
+	});
 
 	loader.config({ monaco });
 }

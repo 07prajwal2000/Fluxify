@@ -41,6 +41,10 @@
 #   ASYNC_EXECUTOR_DRAIN_TIMEOUT_MS
 #                           graceful drain deadline (default 30000)
 #   OTLP_*                  log shipping; see docker/kit/env.example
+#   FLUXIFY_DEPS_DIR        where projects' npm packages are installed (default
+#                           /deps). Mount a volume there to keep installs across
+#                           restarts; without one, a fresh container reinstalls
+#                           from the lockfile before it reports ready.
 #
 # DELIBERATELY NOT USED
 #   PG_URL and every other database setting. This container must never reach
@@ -99,19 +103,14 @@ COPY apps/server apps/server
 RUN bun run --cwd apps/server build:worker:compiled
 
 # ------------------------------------------------------------------------------
-# Stage 3: libs — the three shared libraries distroless leaves out that the
-# Kafka client's snappy addon links against. Same Debian release (trixie,
-# glibc 2.41) as the distroless base, so the glibc stubs match. Without them
-# the execution process dies the moment a Kafka queue trigger starts.
+# Stage 3: production — Bun's slim Debian image. Not distroless: projects
+# install npm packages here (#477), and those need what distroless leaves out —
+# a shell for the install scripts of trusted packages (bcrypt, …) and
+# libstdc++ for native addons (sharp, …). It still has no compiler toolchain,
+# so a package that builds from source will not install; the install reports
+# that per package instead of failing the node.
 # ------------------------------------------------------------------------------
-FROM debian:trixie-slim AS libs
-
-# ------------------------------------------------------------------------------
-# Stage 4: production — distroless: bun and CA certs, no shell, no package
-# manager, no coreutils. This container runs user-authored code, so there is
-# nothing for it to shell out to. It never execs anything but bun itself.
-# ------------------------------------------------------------------------------
-FROM oven/bun:${BUN_VERSION}-distroless AS production
+FROM oven/bun:${BUN_VERSION}-slim AS production
 WORKDIR /app
 
 ARG BUN_VERSION
@@ -126,13 +125,10 @@ LABEL org.opencontainers.image.title="Fluxify Compiled Worker" \
       org.opencontainers.image.source="https://github.com/Fluxify-rest/Fluxify" \
       org.opencontainers.image.url="https://fluxify.rest" \
       org.opencontainers.image.documentation="https://fluxify.rest/deployments/" \
-      org.opencontainers.image.base.name="docker.io/oven/bun:${BUN_VERSION}-distroless" \
+      org.opencontainers.image.base.name="docker.io/oven/bun:${BUN_VERSION}-slim" \
       org.opencontainers.image.version="${VERSION}" \
       org.opencontainers.image.revision="${VCS_REF}" \
       org.opencontainers.image.created="${BUILD_DATE}"
-
-# /usr/lib is on the loader's default search path; the wildcard keeps it arch-neutral.
-COPY --from=libs /usr/lib/*-linux-gnu/libgcc_s.so.1 /usr/lib/*-linux-gnu/librt.so.1 /usr/lib/*-linux-gnu/libpthread.so.0 /usr/lib/
 
 # compiledWorker.js + executionProcess.js + native assets, siblings in one dir.
 # Owned by root and read-only to the worker: running code cannot rewrite itself.
@@ -144,8 +140,12 @@ COPY --from=build /app/apps/server/dist/native.wasm /app/dist/native.wasm
 # auto-install. See the file for why that crashes an image without node_modules.
 COPY docker/bunfig.toml /app/bunfig.toml
 
-# The base image's built-in unprivileged user (65532), no login shell.
-USER nonroot
+# Installed packages are the only thing the worker writes. Everything else
+# stays root-owned and read-only to it.
+RUN mkdir -p /deps && chown bun:bun /deps
+
+# The base image's built-in unprivileged user.
+USER bun
 
 # 5600 — user API traffic, bound by the isolated execution process.
 # 5601 — health/readiness, served by the supervisor. Point probes and
@@ -154,6 +154,8 @@ EXPOSE 5600 5601
 
 ENV NODE_ENV=production \
     ENVIRONMENT=production \
+    FLUXIFY_DEPS_DIR=/deps \
+    BUN_INSTALL_CACHE_DIR=/deps/.cache \
     WORKER_PORT=5600 \
     WORKER_HEALTH_PORT=5601 \
     INTEGRATION_TIMEOUT_POLICY_IN_SEC=450 \
@@ -163,11 +165,11 @@ ENV NODE_ENV=production \
 
 # Readiness, not liveness: 200 only once compiled routes have been loaded, so a
 # worker that came up before the compiler published anything is not sent traffic.
-# No wget/curl in distroless, so bun does the probe.
+# No wget/curl in the image, so bun does the probe.
 HEALTHCHECK --interval=15s --timeout=5s --start-period=20s --retries=3 \
     CMD ["/usr/local/bin/bun", "-e", "fetch('http://localhost:5601/_/admin/api/healthchecks/ready').then(r => process.exit(r.ok ? 0 : 1), () => process.exit(1))"]
 
-# bun is PID 1 (no tini in distroless). It handles SIGTERM/SIGINT itself and
+# bun is PID 1 (no tini). It handles SIGTERM/SIGINT itself and
 # reaps its single execution process; add `init: true` in compose if you want
 # a real init anyway. Scale with replicas; one execution process per container.
 ENTRYPOINT ["/usr/local/bin/bun", "run", "/app/worker/compiledWorker.js"]

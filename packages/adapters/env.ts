@@ -1,5 +1,5 @@
 import { baseEnvSchema, createEnvValidator } from "@fluxify/common";
-import { z } from "zod";
+import type { z } from "zod";
 
 export const adaptersEnvSchema = baseEnvSchema.pick({
 	CI: true,

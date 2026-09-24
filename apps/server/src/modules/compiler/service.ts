@@ -35,6 +35,7 @@ import {
 import { projectSettingsCache } from "../../loaders/projectSettingsLoader";
 import { parentColumn } from "../canvas/repository";
 import type { CanvasParent, CanvasParentType } from "../canvas/types";
+import { compileDependencies } from "../packages/service";
 import type {
 	CustomBlockArtifact,
 	ProjectConfigArtifact,
@@ -210,9 +211,10 @@ export async function compileRoute(routeId: string) {
 	await ensureCustomBlocksRegistered(route.projectId!);
 
 	const { blocks, edges } = await loadGraph({ type: "route", id: routeId });
+	const dependencies = await compileDependencies(route.projectId!);
 	let source: string;
 	try {
-		({ source } = compileOrThrow(resource, () => compileGraph(blocks, edges)));
+		({ source } = compileOrThrow(resource, () => compileGraph(blocks, edges, { dependencies })));
 	} catch (error) {
 		return recordFailure(error);
 	}
@@ -290,12 +292,13 @@ export async function compileWorkflow(workflowId: string) {
 	await ensureCustomBlocksRegistered(workflow.projectId!);
 
 	const { blocks, edges } = await loadGraph({ type: "workflow", id: workflowId });
+	const dependencies = await compileDependencies(workflow.projectId!);
 	let source: string;
 	try {
 		// `asWorkflow` is the one thing the compiler is told: a response block has
 		// nothing to respond to here, so it compiles to a plain terminal.
 		({ source } = compileOrThrow(resource, () =>
-			compileGraph(blocks, edges, { asWorkflow: true }),
+			compileGraph(blocks, edges, { asWorkflow: true, dependencies }),
 		));
 	} catch (error) {
 		return recordFailure(error);
@@ -435,9 +438,10 @@ async function compileCustomBlockOrThrow(id: string) {
 	try {
 		await ensureCustomBlocksRegistered(block.projectId!);
 		const { blocks, edges } = await loadGraph({ type: "custom_block", id });
+		const dependencies = await compileDependencies(block.projectId!);
 		// `param:` placeholders resolve from the invocation, not from a caller's data
 		({ source } = compileOrThrow(resource, () =>
-			compileGraph(blocks, edges, { asCustomBlock: true }),
+			compileGraph(blocks, edges, { asCustomBlock: true, dependencies }),
 		));
 	} finally {
 		inFlight.delete(id);

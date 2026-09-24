@@ -533,6 +533,13 @@
 			"when": 1790202963346,
 			"tag": "0075_project_slug_group_keys",
 			"breakpoints": true
+		},
+		{
+			"idx": 76,
+			"version": "7",
+			"when": 1790277010272,
+			"tag": "0076_project_dependencies",
+			"breakpoints": true
 		}
 	]
 }

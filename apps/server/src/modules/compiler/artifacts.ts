@@ -142,6 +142,19 @@ export type UnsealedProjectConfig = {
 	compiledAt: string;
 };
 
+/**
+ * A project's npm packages as the admin resolved them (#477). Workers install
+ * from `lockfile` with `--frozen-lockfile`, so no node resolves a version
+ * itself; `version` names the install directory and orders updates.
+ */
+export type DepsArtifact = {
+	projectId: string;
+	version: number;
+	packageJson: string;
+	lockfile: string;
+	updatedAt: string;
+};
+
 /** the message body on the compile work queue */
 export type CompileRequest = {
 	projectId?: string;

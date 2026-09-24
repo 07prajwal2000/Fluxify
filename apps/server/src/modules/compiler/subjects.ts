@@ -51,6 +51,12 @@ export const triggerKey = (projectId: string, triggerId: string) =>
 	`trigger.${projectId}.${triggerId}`;
 
 /**
+ * A project's npm packages (#477). Not compiled either: the supervisor installs
+ * from it, and it never reaches the execution process, which only sees the result.
+ */
+export const depsKey = (projectId: string) => `deps.${projectId}.current`;
+
+/**
  * The filters a worker watches for its project. `kinds` narrows them to what
  * its mode actually runs — a workflow-only worker holds no HTTP route table,
  * so there is no reason to ship it every route in the project.
@@ -60,7 +66,14 @@ export const projectArtifactFilters = (
 	kinds: readonly string[] = ARTIFACT_KINDS,
 ) => kinds.map((kind) => `${kind}.${projectId}.*`);
 
-const ARTIFACT_KINDS = ["route", "custom-block", "workflow", "project-config", "trigger"] as const;
+const ARTIFACT_KINDS = [
+	"route",
+	"custom-block",
+	"workflow",
+	"project-config",
+	"trigger",
+	"deps",
+] as const;
 
 export type ArtifactKind = (typeof ARTIFACT_KINDS)[number];
 

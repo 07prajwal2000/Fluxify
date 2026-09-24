@@ -1,4 +1,4 @@
-import { Hono } from "hono";
+import type { Hono } from "hono";
 import { natsConnected } from "../../db/nats";
 
 // Flipped true once initWorker() has finished loading every dependency
