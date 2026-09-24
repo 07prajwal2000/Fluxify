@@ -477,6 +477,33 @@ describe("compiled db blocks", () => {
 		});
 	});
 
+	it("refuses a nested transaction on the same connection and fails the outer one", async () => {
+		const mock = createDbAdapter({ insert: { id: 1 } });
+		const { run } = compileGraph(
+			[
+				block("in", BlockTypes.entrypoint),
+				block("outer", BlockTypes.db_transaction, { connection: "conn-1", executor: "inner" }),
+				block("inner", BlockTypes.db_transaction, { connection: "conn-1", executor: "child" }),
+				block("child", BlockTypes.db_insert, {
+					connection: "conn-1",
+					tableName: "orders",
+					useParam: false,
+					data: { source: "raw", value: { total: 10 } },
+				}),
+				block("fail", BlockTypes.response, { httpCode: "500" }),
+			],
+			[edge("in", "outer"), edge("outer", "inner", "executor"), edge("inner", "child", "executor"), edge("outer", "fail", "failure")],
+		);
+		const result = await run(createContext(mock.adapter), null);
+
+		// the inner transaction never started, so nothing ran half inside the outer one
+		expect(mock.calls.map((c) => c.method)).toEqual(["startTransaction", "rollbackTransaction"]);
+		expect(result.output.body).toEqual({
+			reason: "error",
+			message: "nested transactions on the same connection are not supported",
+		});
+	});
+
 	it("fails the route when a rollback block runs outside a transaction", async () => {
 		const mock = createDbAdapter();
 		const { run } = compileGraph(

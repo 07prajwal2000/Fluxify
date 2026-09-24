@@ -42,6 +42,13 @@ function errorMessage(error: unknown) {
 }
 
 /**
+ * Adapters with an open transaction. An adapter is per request and connection,
+ * so a second transaction on it would join the first one and commit or roll
+ * back both — refused instead.
+ */
+const openTransactions = new WeakSet<object>();
+
+/**
  * `catchErrors` is off when nothing is wired to 'failure': an error then fails
  * the route as before, so the error handler still sees it.
  */
@@ -52,7 +59,11 @@ export async function runTransactionDb(
 	catchErrors = false,
 ): Promise<TransactionOutcome> {
 	const adapter = adapterFor(context, connection);
+	if (openTransactions.has(adapter)) {
+		throw new Error("nested transactions on the same connection are not supported");
+	}
 	await adapter.startTransaction();
+	openTransactions.add(adapter);
 	try {
 		const result = await body();
 		await adapter.commitTransaction();
@@ -64,6 +75,8 @@ export async function runTransactionDb(
 		}
 		if (!catchErrors) dbFailure("transaction", error);
 		return { failure: { reason: "error", message: errorMessage(error) } };
+	} finally {
+		openTransactions.delete(adapter);
 	}
 }
 

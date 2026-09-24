@@ -5,6 +5,7 @@ import { database } from "../src/postgres";
 import { runGraph } from "../src/runner";
 
 const fixture = await loadGraph("place-order");
+const nested = await loadGraph("nested-transaction");
 
 beforeEach(() => resetDatabase("pg"));
 
@@ -42,6 +43,21 @@ describe("place-order", () => {
 		expect(run.status).toBe(409);
 		expect(run.body.reason).toBe("error");
 		expect(run.body.message).toContain("foreign key");
+		expect(await orderCount()).toBe(3);
+	});
+});
+
+describe("nested-transaction", () => {
+	it("refuses the inner transaction and rolls back the outer one's insert", async () => {
+		const run = await runGraph(nested);
+
+		expect(run.status).toBe(409);
+		expect(run.body).toEqual({
+			reason: "error",
+			message: "nested transactions on the same connection are not supported",
+		});
+		expect(run.executed).toContain("insert-order");
+		expect(run.executed).not.toContain("insert-again");
 		expect(await orderCount()).toBe(3);
 	});
 });
