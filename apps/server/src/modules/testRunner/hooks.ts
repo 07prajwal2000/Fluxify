@@ -91,7 +91,13 @@ export async function loadSuiteHooks(suiteIds: string[]) {
 		list.push({
 			...hook,
 			blockType: blockType ?? "",
-			blockName: (typeof data?.blockName === "string" && data.blockName) || blockType || "",
+			// "Name" is the server's placeholder for an unnamed block, not a name
+			blockName:
+				(typeof data?.blockName === "string" &&
+					data.blockName.trim() !== "Name" &&
+					data.blockName.trim()) ||
+				blockType ||
+				"",
 		});
 		bySuite.set(suiteId, list);
 	}

@@ -21,6 +21,7 @@ import {
 	TARGET_LABELS,
 	validateAssertions,
 } from "./assertions";
+import { EXPECT_TYPES } from "./expectTypes";
 
 const inputClass =
 	"w-full rounded-md border border-border bg-background-secondary px-2 py-1.5 text-sm text-foreground outline-none placeholder:text-muted focus:border-accent";
@@ -51,31 +52,9 @@ declare const fluxify: {
   response: TestSuiteResponse;
 };
 
-type Matchers = {
-  toBe(expected: unknown): void;
-  /** deep equality, for objects and arrays */
-  toEqual(expected: unknown): void;
-  toBeTruthy(): void;
-  toBeFalsy(): void;
-  toBeNull(): void;
-  toBeUndefined(): void;
-  toBeDefined(): void;
-  /** a string contains the substring, or an array contains the item */
-  toContain(item: unknown): void;
-  toHaveLength(length: number): void;
-  /** \`a.b[0].c\`; with a value, the property must also equal it */
-  toHaveProperty(path: string, value?: unknown): void;
-  toMatch(pattern: RegExp | string): void;
-  toBeGreaterThan(n: number): void;
-  toBeLessThan(n: number): void;
-};
-
+${EXPECT_TYPES}
 declare const t: {
-  /**
-   * Check a value. Each check is one line in the results; a failed check fails
-   * the suite but never stops the code. \`label\` names the value in the result.
-   */
-  expect(actual: unknown, label?: string): Matchers & { not: Matchers };
+  expect: Expect;
 };
 `;
 

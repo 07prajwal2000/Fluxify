@@ -10,12 +10,14 @@ import { testSuitesQuery } from "@/query/testSuitesQuery";
 import { IN_FLIGHT_STATUSES } from "@/services/testSuites";
 import { AssertionsEditor } from "./AssertionsEditor";
 import { validateAssertions } from "./assertions";
+import { HooksEditor } from "./HooksEditor";
+import { hookErrors } from "./hooks";
 import { OverridesEditor } from "./OverridesEditor";
 import { RequestEditor } from "./RequestEditor";
 import { RunResults } from "./RunResults";
 import { type SuiteDraft, toDraft } from "./types";
 
-const EDITOR_TABS = ["Request", "Assertions", "Overrides"] as const;
+const EDITOR_TABS = ["Request", "Assertions", "Hooks", "Overrides"] as const;
 
 type EditorTab = (typeof EDITOR_TABS)[number];
 
@@ -160,7 +162,9 @@ export function TestSuitesWorkbench({
 	}, [selectedId, detail.data?.id]);
 
 	const assertionErrors = validateAssertions(draft.assertions);
-	const canSave = isDirty && assertionErrors.size === 0 && draft.name.trim().length > 0;
+	const hookErrorCount = hookErrors(draft.hooks).size;
+	const canSave =
+		isDirty && assertionErrors.size === 0 && hookErrorCount === 0 && draft.name.trim().length > 0;
 
 	function patch(next: Partial<SuiteDraft>) {
 		setDraft((current) => ({ ...current, ...next }));
@@ -183,6 +187,7 @@ export function TestSuitesWorkbench({
 				assertions: draft.assertions,
 				appConfigOverrides: draft.appConfigOverrides,
 				integrationOverrides: draft.integrationOverrides,
+				hooks: draft.hooks,
 			});
 			setDirty(false);
 			toast.success("Suite saved");
@@ -312,7 +317,8 @@ export function TestSuitesWorkbench({
 										)}
 									>
 										{name}
-										{name === "Assertions" && assertionErrors.size > 0 && (
+										{((name === "Assertions" && assertionErrors.size > 0) ||
+											(name === "Hooks" && hookErrorCount > 0)) && (
 											<span className="ml-1 text-danger">•</span>
 										)}
 									</button>
@@ -332,6 +338,13 @@ export function TestSuitesWorkbench({
 									<AssertionsEditor
 										assertions={draft.assertions}
 										onChange={(assertions) => patch({ assertions })}
+									/>
+								)}
+								{tab === "Hooks" && (
+									<HooksEditor
+										routeId={routeId}
+										hooks={draft.hooks}
+										onChange={(hooks) => patch({ hooks })}
 									/>
 								)}
 								{tab === "Overrides" && (
