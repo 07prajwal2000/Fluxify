@@ -87,10 +87,19 @@ export type BlockPickerSidebarProps = {
 	isOpen: boolean;
 	onOpenChange: (isOpen: boolean) => void;
 	onAdd: (type: BlockType) => void;
+	/** Blocks failing this are shown disabled with `filterReason`. */
+	filter?: (type: string) => boolean;
+	filterReason?: string;
 };
 
 /** Core blocks from the catalog plus the project's own custom blocks. */
-export function BlockPickerSidebar({ isOpen, onOpenChange, onAdd }: BlockPickerSidebarProps) {
+export function BlockPickerSidebar({
+	isOpen,
+	onOpenChange,
+	onAdd,
+	filter,
+	filterReason,
+}: BlockPickerSidebarProps) {
 	const [query, setQuery] = useState("");
 	const [selectedCategory, setSelectedCategory] = useState<BlockCategory | null>(null);
 
@@ -120,8 +129,15 @@ export function BlockPickerSidebar({ isOpen, onOpenChange, onAdd }: BlockPickerS
 				? "A block can't call itself — that would recurse forever."
 				: undefined,
 		}));
-		return [...custom, ...core];
-	}, [customDefs]);
+		const all: PickerItem[] = [...custom, ...core];
+		return filter
+			? all.map((block) =>
+					filter(block.type)
+						? block
+						: { ...block, disabledReason: block.disabledReason ?? filterReason },
+				)
+			: all;
+	}, [customDefs, filter, filterReason]);
 
 	// An empty category is a dead end — only offer the ones holding something.
 	const categories = useMemo(
