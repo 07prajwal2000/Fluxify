@@ -11,6 +11,10 @@ import { useAuthStoreActions } from "@/store/auth";
 export const Route = createFileRoute("/_authed")({
 	head: createRouteHead("Portal", "Fluxify automation portal"),
 	beforeLoad: async ({ location }) => {
+		// Reuse the session useSession() already holds (refetched every 2 min,
+		// cleared on sign-out) so a page switch doesn't block on a network call.
+		const cached = authClient.$store.atoms.session?.get()?.data;
+		if (cached?.user) return;
 		const session = await authClient.getSession();
 		if (!session.data?.user) {
 			throw redirect({ to: "/login", search: { next: location.pathname } });

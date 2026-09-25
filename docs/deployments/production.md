@@ -291,13 +291,14 @@ scheduling instead of relying on the process-local queue.
 ## Admin API rate limit {#admin-rate-limit}
 
 The admin API — everything the portal calls, plus login and user management —
-is capped per signed-in user. The default is **10 requests per second**. A user
+is capped per signed-in user. The default is **15 requests per second**. A user
 over the limit gets a `429` with a `Retry-After: 1` header, and the very next
-second they are served normally again.
+second they are served normally again. The portal waits and retries a `429`
+for you (up to 3 times), so a short burst does not show an error.
 
 ```env
 # Admin API requests allowed per second, per user. 0 turns the limit off.
-ADMIN_RATE_LIMIT_PER_SEC=10
+ADMIN_RATE_LIMIT_PER_SEC=15
 ```
 
 Set it on the admin service, in the same `.env` it reads (see

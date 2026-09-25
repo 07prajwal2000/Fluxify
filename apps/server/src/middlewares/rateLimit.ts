@@ -7,7 +7,7 @@ const WINDOW_SECONDS = 1;
 
 /** Requests one user may send per second to the admin API. 0 disables it. */
 function limit() {
-	return Number(getEnv("ADMIN_RATE_LIMIT_PER_SEC") ?? 10);
+	return Number(getEnv("ADMIN_RATE_LIMIT_PER_SEC") ?? 15);
 }
 
 /**
