@@ -1,5 +1,6 @@
 import {
 	Button,
+	Checkbox,
 	CloseButton,
 	DeleteButton,
 	Input,
@@ -69,6 +70,9 @@ export function CustomBlockSettingsModal({
 	);
 }
 
+/** docs for the "test suites only" checkbox (#483) */
+const TEST_ONLY_DOCS_URL = "https://docs.fluxify.rest/testing/setup-and-teardown.html";
+
 type BlockData = NonNullable<ReturnType<typeof customBlocksQuery.getAll.useQuery>["data"]>[number];
 
 function CustomBlockSettingsForm({
@@ -87,6 +91,7 @@ function CustomBlockSettingsForm({
 
 	const [label, setLabel] = useState(block.label);
 	const [description, setDescription] = useState(block.description ?? "");
+	const [testOnly, setTestOnly] = useState(block.testOnly);
 	const [params, setParams] = useState<CustomBlockInputParam[]>(
 		Array.isArray(block.inputParams) ? (block.inputParams as CustomBlockInputParam[]) : [],
 	);
@@ -120,8 +125,9 @@ function CustomBlockSettingsForm({
 			icon: iconValue.icon,
 			iconUrl: iconValue.iconUrl,
 			inputParams: params as unknown as z.infer<typeof inputParamSchema>[],
+			testOnly,
 		}),
-		[label, description, params, iconValue],
+		[label, description, params, iconValue, testOnly],
 	);
 	const [baseline] = useState(() => JSON.stringify(payload));
 	const isDirty = JSON.stringify(payload) !== baseline;
@@ -205,6 +211,23 @@ function CustomBlockSettingsForm({
 										<Label>Description</Label>
 										<Input placeholder="What this block does" />
 									</TextField>
+									<div className="flex flex-col gap-1">
+										<Checkbox
+											isDisabled={readOnly}
+											isSelected={testOnly}
+											onChange={setTestOnly}
+											label="Use only for test suite setup / teardown"
+											description="Hidden from the block picker. It runs before or after a test suite, never in live routes or workflows."
+										/>
+										<a
+											href={TEST_ONLY_DOCS_URL}
+											target="_blank"
+											rel="noreferrer"
+											className="ml-6 w-fit text-xs text-accent hover:underline"
+										>
+											What does this do?
+										</a>
+									</div>
 								</div>
 							}
 						/>

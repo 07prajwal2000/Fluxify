@@ -184,6 +184,29 @@ async function assertBlockTypesExist(
 }
 
 /**
+ * A test-only custom block (#483) runs only as a test suite's setup or
+ * teardown. The editor hides it from the block picker, but an API call or an
+ * AI edit can still place one, so the save is refused here. Only another
+ * test-only block's canvas may use it.
+ */
+async function assertNoTestOnlyBlocks(
+	parent: CanvasParent,
+	data: CanvasChanges,
+	tx: DbTransactionType,
+) {
+	const builtin = new Set<string>(Object.values(BlockTypes));
+	if (data.changes.blocks.every((b) => builtin.has(b.type))) return;
+	const blocks = await getProjectCustomBlocks(parent, tx);
+	if (parent.type === "custom_block" && blocks.find((b) => b.id === parent.id)?.testOnly) return;
+	const testOnly = new Set(blocks.filter((b) => b.testOnly).map((b) => b.name));
+	const used = [...new Set(data.changes.blocks.map((b) => b.type).filter((t) => testOnly.has(t)))];
+	if (used.length === 0) return;
+	throw new BadRequestError(
+		`${used.join(", ")} ${used.length === 1 ? "is a test-only block" : "are test-only blocks"}: use ${used.length === 1 ? "it" : "them"} only as a test suite's setup or teardown.`,
+	);
+}
+
+/**
  * A custom block that reaches itself — directly or through a chain of other
  * custom blocks — never terminates: `lib.invoke` would call into the block it is
  * already inside. The editor hides the block from its own picker, but a cycle
@@ -318,6 +341,7 @@ export async function saveCanvas(
 	// a tx nests as a savepoint, so the outer transaction still decides the outcome
 	await (outer ?? db).transaction(async (tx) => {
 		await assertBlockTypesExist(parent, data, tx);
+		await assertNoTestOnlyBlocks(parent, data, tx);
 		await assertNoCustomBlockRecursion(parent, data, deleteBlockIds, tx);
 		await assertEdgeTargetsExist(parent, data, deleteBlockIds, tx);
 		await assertCanvasHasNoCycles(parent, data, deleteBlockIds, deleteEdgeIds, tx);

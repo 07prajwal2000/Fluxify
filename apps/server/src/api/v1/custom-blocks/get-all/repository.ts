@@ -14,6 +14,7 @@ export async function getCustomBlocks(projectId: string) {
 			description: customBlocksListEntity.description,
 			sourceType: customBlocksListEntity.sourceType,
 			source: customBlocksListEntity.source,
+			testOnly: customBlocksListEntity.testOnly,
 		})
 		.from(customBlocksListEntity)
 		.where(eq(customBlocksListEntity.projectId, projectId));

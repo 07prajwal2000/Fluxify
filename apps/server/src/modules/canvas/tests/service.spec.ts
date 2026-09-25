@@ -94,6 +94,39 @@ describe("canvas saveCanvas", () => {
 		});
 	});
 
+	describe("test-only custom blocks (#483)", () => {
+		beforeEach(() => {
+			customBlockNames.mockResolvedValue(["seed_users", "stripe_charge"]);
+			projectCustomBlocks.mockResolvedValue([
+				{ id: "cb-seed", name: "seed_users", testOnly: true },
+				{ id: "cb-stripe", name: "stripe_charge", testOnly: false },
+				{ id: "cb-cleanup", name: "cleanup", testOnly: true },
+			]);
+		});
+
+		it("refuses one on a route or workflow, even through the API", async () => {
+			for (const type of ["route", "workflow"] as const) {
+				expect(saveCanvas({ type, id: "x-1" }, withBlockType("seed_users"), ["p1"])).rejects.toThrow(
+					"seed_users is a test-only block",
+				);
+			}
+			expect(upsertBlocks).not.toHaveBeenCalled();
+		});
+
+		it("refuses one on a normal custom block's canvas", async () => {
+			expect(
+				saveCanvas({ type: "custom_block", id: "cb-stripe" }, withBlockType("seed_users"), ["p1"]),
+			).rejects.toThrow("test-only");
+		});
+
+		it("allows one inside another test-only block", async () => {
+			await saveCanvas({ type: "custom_block", id: "cb-cleanup" }, withBlockType("seed_users"), [
+				"p1",
+			]);
+			expect(upsertBlocks).toHaveBeenCalled();
+		});
+	});
+
 	it("writes a custom block canvas through the custom_block foreign key", async () => {
 		await saveCanvas({ type: "custom_block", id: "cb-1" }, changes, ["p1"]);
 

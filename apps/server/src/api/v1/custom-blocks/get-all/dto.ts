@@ -15,5 +15,6 @@ export const responseSchema = z.array(
 		inputParams: z.any().optional().nullable(),
 		sourceType: z.string().optional().nullable(),
 		source: z.string().optional().nullable(),
+		testOnly: z.boolean(),
 	}),
 );

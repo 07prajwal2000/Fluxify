@@ -759,6 +759,8 @@ export const customBlocksListEntity = pgTable(
 		inputParams: jsonb("input_params").$type<Record<string, any>[]>(),
 		sourceType: customBlockSourceTypeEnum("source_type").default("user-defined"),
 		source: text().default(""), // if plugin, then the name of plugin, if inhouse, then repository url, if user-defined, then empty
+		// #483: only for a test suite's setup/teardown — never on a live canvas, never published to workers
+		testOnly: boolean("test_only").default(false).notNull(),
 		createdAt: timestamp("created_at").defaultNow().notNull(),
 		updatedAt: timestamp("updated_at")
 			.defaultNow()
