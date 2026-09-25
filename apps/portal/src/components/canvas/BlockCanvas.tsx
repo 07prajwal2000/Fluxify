@@ -9,7 +9,6 @@ import {
 	ReactFlowProvider,
 	useEdgesState,
 	useNodesState,
-	useReactFlow,
 } from "@xyflow/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import "@xyflow/react/dist/style.css";
@@ -23,12 +22,7 @@ import { CanvasCommands } from "./CanvasCommands";
 import { CanvasLayoutLockProvider } from "./CanvasLayoutLockContext";
 import { CanvasQuickActions } from "./CanvasQuickActions";
 import { CanvasToolbar } from "./CanvasToolbar";
-import {
-	type CanvasChanges,
-	CanvasChangesProvider,
-	cloneChangeSet,
-	useChangeTracker,
-} from "./changes";
+import { CanvasChangesProvider, cloneChangeSet, useChangeTracker } from "./changes";
 import { CanvasClipboardProvider, type GraphPart, useClipboard } from "./clipboard";
 import { useContextMenu } from "./contextMenu";
 import {
@@ -48,7 +42,7 @@ import { PlaygroundModal } from "./PlaygroundModal";
 import { BlockPanel, CanvasPanelProvider, useBlockPanel } from "./panel";
 import { CanvasVariableSnippets } from "./panel/SaveOutputField";
 import { QuickAddProvider } from "./QuickAddContext";
-import { applyQuickAdd, canInsertIntoEdge, type QuickAddContext, quickAdd } from "./quickAdd";
+import { canInsertIntoEdge } from "./quickAdd";
 import { graphTopology, isCosmetic, track } from "./topology";
 import type { BlockCanvasProps, BlockEdge, BlockNode } from "./types";
 import { useAddBlock } from "./useAddBlock";
