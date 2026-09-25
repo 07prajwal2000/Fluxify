@@ -1,10 +1,11 @@
 import {
 	Button,
 	type CustomBlockParamDef,
+	toast,
 	useCustomBlockParamsTypes,
 	useTestSuiteGlobalTypes,
 } from "@fluxify/components";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, isRedirect, redirect } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { TbSettings } from "react-icons/tb";
 import { CanvasWorkbench } from "@/components/canvas";
@@ -20,6 +21,29 @@ export const Route = createFileRoute("/_authed/$projectId_/custom-block-canvas/$
 		"Custom Block Canvas",
 		"Design and build reusable custom automation blocks.",
 	),
+	beforeLoad: async ({ params, context }) => {
+		try {
+			const blocks = await context.queryClient.ensureQueryData({
+				queryKey: ["custom-blocks", params.projectId],
+				queryFn: () => customBlocksService.getAll(params.projectId),
+			});
+			const block = blocks?.find((b: { id: string }) => b.id === params.blockId);
+			if (!block) {
+				toast.danger("Custom block not found");
+				throw redirect({
+					to: "/$projectId/routes",
+					params: { projectId: params.projectId },
+				});
+			}
+		} catch (err) {
+			if (isRedirect(err)) throw err;
+			toast.danger("Custom block not found");
+			throw redirect({
+				to: "/$projectId/routes",
+				params: { projectId: params.projectId },
+			});
+		}
+	},
 	component: CustomBlockCanvasPage,
 });
 

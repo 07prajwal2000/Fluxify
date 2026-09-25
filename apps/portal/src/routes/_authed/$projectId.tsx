@@ -1,11 +1,13 @@
-import { cn, Dropdown, Tooltip } from "@fluxify/components";
+import { cn, Dropdown, Tooltip, toast } from "@fluxify/components";
 import {
 	createFileRoute,
+	isRedirect,
 	Outlet,
 	redirect,
 	useLocation,
 	useNavigate,
 } from "@tanstack/react-router";
+import { isAxiosError } from "axios";
 import { useState } from "react";
 import {
 	TbActivity,
@@ -14,7 +16,6 @@ import {
 	TbBox,
 	TbChevronDown,
 	TbCloudCog,
-	TbLayoutGridFilled,
 	TbLogout,
 	TbRoute,
 	TbSettings,
@@ -25,6 +26,7 @@ import {
 } from "react-icons/tb";
 import { authClient } from "@/lib/auth";
 import { createRouteHead } from "@/lib/seo";
+import { projectsService } from "@/services/projects";
 import { useAuthStore } from "@/store/auth";
 
 // BASE_URL, not a hardcoded path: files in public/ are served from the bundle
@@ -67,13 +69,22 @@ export const Route = createFileRoute("/_authed/$projectId")({
 		"Project Workspace",
 		"Manage project API routes, workflows, and configurations.",
 	),
-	beforeLoad: async ({ params }) => {
-		const session = await authClient.getSession();
-		const acl = (session.data as { acl?: { projectId: string }[] } | null)?.acl ?? [];
-		const isAdmin = (session.data?.user as { isSystemAdmin?: boolean } | undefined)?.isSystemAdmin;
-		const hasAccess =
-			isAdmin || acl.some((a) => a.projectId === params.projectId || a.projectId === "*");
-		if (!hasAccess) throw redirect({ to: "/" });
+	beforeLoad: async ({ params, context }) => {
+		try {
+			await context.queryClient.ensureQueryData({
+				queryKey: ["projects", params.projectId, "by-id"],
+				queryFn: () => projectsService.getById(params.projectId),
+			});
+		} catch (err: unknown) {
+			if (isRedirect(err)) throw err;
+			if (isAxiosError(err) && err.response?.status === 403) {
+				const message = (err.response.data as { message?: string } | undefined)?.message;
+				toast.danger(message || "You do not have access to this project");
+			} else {
+				toast.danger("Project not found");
+			}
+			throw redirect({ to: "/" });
+		}
 	},
 	component: ProjectLayout,
 });

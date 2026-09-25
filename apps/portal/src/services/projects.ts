@@ -6,6 +6,7 @@ import {
 	requestQuerySchema as getAllRequestQuerySchema,
 	type responseSchema as getAllResponseSchema,
 } from "@fluxify/server/src/api/v1/projects/get-all/dto";
+import type { responseSchema as getByIdResponseSchema } from "@fluxify/server/src/api/v1/projects/get-by-id/dto";
 import {
 	requestBodySchema as updateRequestBodySchema,
 	type responseSchema as updateResponseSchema,
@@ -42,6 +43,10 @@ export const projectsService = {
 		const { success } = updateRequestBodySchema.safeParse(data);
 		if (!success) throw new Error("Invalid data for update project");
 		const result = await httpClient.put(`${baseUrl}/${id}`, data);
+		return result.data;
+	},
+	async getById(id: string): Promise<z.infer<typeof getByIdResponseSchema>> {
+		const result = await httpClient.get(`${baseUrl}/${id}`);
 		return result.data;
 	},
 	createRequestBodySchema,

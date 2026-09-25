@@ -1,12 +1,14 @@
 import { Button, Spinner } from "@fluxify/components";
 import { useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
-import { TbPlus } from "react-icons/tb";
+import { TbFolderPlus, TbPlus } from "react-icons/tb";
+import { EmptyState } from "@/components/common/EmptyState";
 import { projectsQuery } from "@/query/projectsQuery";
 import { useAuthStore } from "@/store/auth";
 import { ProjectCard } from "./ProjectCard";
 
 export function ProjectsTab() {
+	const navigate = useNavigate();
 	const client = useQueryClient();
 	const { userData } = useAuthStore();
 	const query = { page: 1, perPage: 50 };
@@ -42,20 +44,37 @@ export function ProjectsTab() {
 				</div>
 				{userData?.isSystemAdmin && <NewProjectButton />}
 			</div>
-			<div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
-				{data?.data?.map((project: any) => (
-					<ProjectCard
-						key={project.id}
-						id={project.id}
-						name={project.name!}
-						description={project.description}
-						totalUsers={project.totalUsers}
-						totalRoutes={project.totalRoutes}
-						updatedAt={project.updatedAt}
-						createdAt={project.createdAt}
+			{!data?.data || data.data.length === 0 ? (
+				userData?.isSystemAdmin ? (
+					<EmptyState
+						icon={<TbFolderPlus size={28} />}
+						title="No projects yet"
+						description="Create your first project to get started."
+						action={
+							<Button variant="primary" onPress={() => navigate({ to: "/projects/new" })}>
+								<TbPlus size={16} /> Create project
+							</Button>
+						}
 					/>
-				))}
-			</div>
+				) : (
+					<p className="py-16 text-center text-muted">No projects found.</p>
+				)
+			) : (
+				<div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+					{data.data.map((project: any) => (
+						<ProjectCard
+							key={project.id}
+							id={project.id}
+							name={project.name!}
+							description={project.description}
+							totalUsers={project.totalUsers}
+							totalRoutes={project.totalRoutes}
+							updatedAt={project.updatedAt}
+							createdAt={project.createdAt}
+						/>
+					))}
+				</div>
+			)}
 		</div>
 	);
 }

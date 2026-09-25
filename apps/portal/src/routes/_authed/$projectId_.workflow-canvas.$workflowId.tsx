@@ -1,5 +1,5 @@
-import { Button } from "@fluxify/components";
-import { createFileRoute } from "@tanstack/react-router";
+import { Button, toast } from "@fluxify/components";
+import { createFileRoute, isRedirect, redirect } from "@tanstack/react-router";
 import { useState } from "react";
 import { TbPlayerPlay, TbSettings } from "react-icons/tb";
 import { CanvasWorkbench } from "@/components/canvas";
@@ -16,6 +16,28 @@ export const Route = createFileRoute("/_authed/$projectId_/workflow-canvas/$work
 		"Workflow Canvas",
 		"Design the background workflow that runs on a trigger or by hand.",
 	),
+	beforeLoad: async ({ params, context }) => {
+		try {
+			const workflow = await context.queryClient.ensureQueryData({
+				queryKey: ["workflows", params.workflowId, "by-id"],
+				queryFn: () => workflowsService.getById(params.workflowId),
+			});
+			if (!workflow || workflow.projectId !== params.projectId) {
+				toast.danger("Workflow not found");
+				throw redirect({
+					to: "/$projectId/routes",
+					params: { projectId: params.projectId },
+				});
+			}
+		} catch (err) {
+			if (isRedirect(err)) throw err;
+			toast.danger("Workflow not found");
+			throw redirect({
+				to: "/$projectId/routes",
+				params: { projectId: params.projectId },
+			});
+		}
+	},
 	component: WorkflowCanvasPage,
 });
 

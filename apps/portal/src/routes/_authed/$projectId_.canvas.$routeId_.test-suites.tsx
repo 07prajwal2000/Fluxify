@@ -1,4 +1,5 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { toast } from "@fluxify/components";
+import { createFileRoute, isRedirect, redirect } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import {
 	CanvasSpotlight,
@@ -8,9 +9,32 @@ import {
 } from "@/components/canvas";
 import { TestSuitesWorkbench } from "@/components/testSuites/TestSuitesWorkbench";
 import { createRouteHead } from "@/lib/seo";
+import { routesService } from "@/services/routes";
 
 export const Route = createFileRoute("/_authed/$projectId_/canvas/$routeId_/test-suites")({
 	head: createRouteHead("Route Tests", "Create, edit and run test suites for an API route."),
+	beforeLoad: async ({ params, context }) => {
+		try {
+			const route = await context.queryClient.ensureQueryData({
+				queryKey: ["routes", params.routeId, "by-id"],
+				queryFn: () => routesService.getById(params.routeId),
+			});
+			if (!route || route.projectId !== params.projectId) {
+				toast.danger("Route not found");
+				throw redirect({
+					to: "/$projectId/routes",
+					params: { projectId: params.projectId },
+				});
+			}
+		} catch (err) {
+			if (isRedirect(err)) throw err;
+			toast.danger("Route not found");
+			throw redirect({
+				to: "/$projectId/routes",
+				params: { projectId: params.projectId },
+			});
+		}
+	},
 	component: TestSuitesPage,
 });
 
