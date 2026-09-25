@@ -1,6 +1,9 @@
 import type { TestSuiteDetail } from "@/services/testSuites";
 import type { Assertion } from "./assertions";
 
+export type BlockHook = NonNullable<TestSuiteDetail["hooks"]>[number];
+export type HookBody = NonNullable<BlockHook["onBefore"]>;
+
 /**
  * What the editor holds while a suite is open. The server DTO is fully partial
  * (every field optional), which is unusable as form state — this is the same
@@ -16,6 +19,12 @@ export type SuiteDraft = {
 	assertions: Assertion[];
 	appConfigOverrides: { key: string; value: string }[];
 	integrationOverrides: { existingId: string; newId: string }[];
+	hooks: BlockHook[];
+	setupBlockId: string | null;
+	teardownBlockId: string | null;
+	setupTimeoutMs: number;
+	teardownTimeoutMs: number;
+	runAlone: boolean;
 };
 
 export function toDraft(suite: TestSuiteDetail | undefined): SuiteDraft {
@@ -29,5 +38,11 @@ export function toDraft(suite: TestSuiteDetail | undefined): SuiteDraft {
 		assertions: (suite?.assertions as Assertion[]) ?? [],
 		appConfigOverrides: suite?.appConfigOverrides ?? [],
 		integrationOverrides: suite?.integrationOverrides ?? [],
+		hooks: suite?.hooks ?? [],
+		setupBlockId: suite?.setupBlockId ?? null,
+		teardownBlockId: suite?.teardownBlockId ?? null,
+		setupTimeoutMs: suite?.setupTimeoutMs ?? 30_000,
+		teardownTimeoutMs: suite?.teardownTimeoutMs ?? 30_000,
+		runAlone: suite?.runAlone ?? false,
 	};
 }

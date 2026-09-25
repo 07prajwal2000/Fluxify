@@ -14,6 +14,8 @@ export type CustomBlockDef = {
 	sourceType?: string | null;
 	/** This is the block whose canvas is open: adding it would be recursion. */
 	isSelf?: boolean;
+	/** Only for test suite setup/teardown (#483). */
+	testOnly?: boolean;
 };
 
 /**
@@ -41,6 +43,20 @@ export function useCustomBlockDefs(): CustomBlockDef[] {
 			iconUrl: block.iconUrl ?? undefined,
 			sourceType: block.sourceType,
 			isSelf: block.id === params?.blockId,
+			testOnly: block.testOnly,
 		}));
 	}, [data, params?.blockId]);
+}
+
+/**
+ * The custom blocks a user may place on the open canvas. A test-only block
+ * (#483) is offered only on another test-only block's canvas — the server
+ * refuses it anywhere else.
+ */
+export function useAddableCustomBlockDefs(): CustomBlockDef[] {
+	const defs = useCustomBlockDefs();
+	return useMemo(() => {
+		const selfIsTestOnly = defs.some((d) => d.isSelf && d.testOnly);
+		return defs.filter((d) => !d.testOnly || selfIsTestOnly);
+	}, [defs]);
 }

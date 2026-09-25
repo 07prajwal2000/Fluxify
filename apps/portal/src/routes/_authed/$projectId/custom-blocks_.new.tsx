@@ -10,6 +10,7 @@ import {
 	InputParamsEditor,
 	validateInputParams,
 } from "@/components/customBlocks/InputParamsEditor";
+import { TestOnlyField } from "@/components/customBlocks/TestOnlyField";
 import { showErrorNotification } from "@/lib/errorNotifier";
 import { createRouteHead } from "@/lib/seo";
 import { customBlocksQuery } from "@/query/customBlocksQuery";
@@ -49,6 +50,7 @@ function CreateCustomBlockPage() {
 	// until the user edits `name` by hand it tracks the label
 	const [nameTouched, setNameTouched] = useState(false);
 	const [description, setDescription] = useState("");
+	const [testOnly, setTestOnly] = useState(false);
 	const [iconValue, setIconValue] = useState<IconValue>({});
 	const [params, setParams] = useState<CustomBlockInputParam[]>([]);
 	const [step, setStep] = useState(0);
@@ -82,6 +84,7 @@ function CreateCustomBlockPage() {
 				icon: iconValue.icon,
 				iconUrl: iconValue.iconUrl,
 				inputParams: params as unknown as z.infer<typeof inputParamSchema>[],
+				testOnly,
 			},
 			{
 				onSuccess: (created) => {
@@ -215,6 +218,8 @@ function CreateCustomBlockPage() {
 								<Label>Description</Label>
 								<Input placeholder="What this block does" />
 							</TextField>
+
+							<TestOnlyField value={testOnly} onChange={setTestOnly} />
 						</div>
 					)}
 
@@ -240,6 +245,10 @@ function CreateCustomBlockPage() {
 							<SummaryItem label="Label" value={label} />
 							<SummaryItem label="Identifier" value={name} mono />
 							<SummaryItem label="Description" value={description || "None"} />
+							<SummaryItem
+								label="Use"
+								value={testOnly ? "Test suite setup / teardown only" : "Routes and workflows"}
+							/>
 							<SummaryItem
 								label="Icon"
 								value={

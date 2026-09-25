@@ -1,4 +1,9 @@
-import { Button, type CustomBlockParamDef, useCustomBlockParamsTypes } from "@fluxify/components";
+import {
+	Button,
+	type CustomBlockParamDef,
+	useCustomBlockParamsTypes,
+	useTestSuiteGlobalTypes,
+} from "@fluxify/components";
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { TbSettings } from "react-icons/tb";
@@ -27,11 +32,14 @@ function CustomBlockCanvasPage() {
 	// `params.<name>` is only in scope inside this block's own canvas, so the
 	// completions for it are registered here rather than with the static globals.
 	const { data: blocks } = customBlocksQuery.getAll.useQuery(projectId);
-	const inputParams = useMemo(() => {
-		const self = blocks?.find((block) => block.id === blockId);
-		return Array.isArray(self?.inputParams) ? (self.inputParams as CustomBlockParamDef[]) : [];
-	}, [blocks, blockId]);
+	const self = blocks?.find((block) => block.id === blockId);
+	const inputParams = useMemo(
+		() => (Array.isArray(self?.inputParams) ? (self.inputParams as CustomBlockParamDef[]) : []),
+		[self],
+	);
 	useCustomBlockParamsTypes(inputParams);
+	// `testsuite` exists only when a test-only block runs as a suite's setup / teardown
+	useTestSuiteGlobalTypes(Boolean(self?.testOnly));
 
 	return (
 		<>

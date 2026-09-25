@@ -116,6 +116,8 @@ function deps(spawn: (b: any) => Promise<TestResult>) {
 	return {
 		compile,
 		resolve: mock(async () => ({}) as any),
+		hooks: async () => new Map(),
+		blockNames: async () => new Map([["cb-seed", "seed_users"]]),
 		spawn: mock(spawn),
 		pool: openPool,
 	};
@@ -171,6 +173,46 @@ describe("startTestRun", () => {
 			passedCount: 2,
 			failedCount: 0,
 			result: { total: 2, passed: 2, failed: 0, suites: { s1: "passed", s2: "passed" } },
+		});
+	});
+
+	it("runs 'run alone' suites one by one after the rest, with their setup and teardown (#483)", async () => {
+		state.suites = [
+			suite("alone-1", { runAlone: true, setupBlockId: "cb-seed", setupTimeoutMs: 5_000 }),
+			suite("p1"),
+			suite("alone-2", { runAlone: true, teardownBlockId: "cb-gone", teardownTimeoutMs: 5_000 }),
+			suite("p2"),
+		];
+		const order: string[] = [];
+		let inFlight = 0;
+		let overlapped = false;
+		const d = deps(async (b) => {
+			order.push(b.suite.id);
+			if (b.suite.id.startsWith("alone") && inFlight > 0) overlapped = true;
+			inFlight++;
+			await Bun.sleep(5);
+			inFlight--;
+			return { ...ok(200), teardownError: b.suite.id === "alone-1" ? "cleanup failed" : undefined };
+		});
+
+		await (await startTestRun({ projectId: PROJECT, routeId: ROUTE }, d)).done;
+
+		expect(order.slice(2)).toEqual(["alone-1", "alone-2"]);
+		expect(overlapped).toBe(false);
+		const boots = d.spawn.mock.calls.map(([b]: any) => b);
+		expect(boots.find((b: any) => b.suite.id === "alone-1").setup).toEqual({
+			block: "seed_users",
+			timeoutMs: 5_000,
+		});
+		// a deleted block has no name: no teardown rather than a broken one
+		expect(boots.find((b: any) => b.suite.id === "alone-2").teardown).toBeUndefined();
+		// a failed teardown keeps the pass and rides along as a warning
+		const alone1 = state.updates.find(
+			(u) => u.table === "suiteRun" && u.values.result?.teardownError,
+		);
+		expect(alone1!.values).toMatchObject({
+			status: "passed",
+			result: { teardownError: "cleanup failed" },
 		});
 	});
 

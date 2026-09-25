@@ -6,6 +6,7 @@ import {
 	Label,
 	ListBox,
 	Select,
+	usePackageTypes,
 } from "@fluxify/components";
 import { TbPlus } from "react-icons/tb";
 import {
@@ -21,6 +22,7 @@ import {
 	TARGET_LABELS,
 	validateAssertions,
 } from "./assertions";
+import { EXPECT_TYPES, T_SHARED, ZOD_VERSION } from "./expectTypes";
 
 const inputClass =
 	"w-full rounded-md border border-border bg-background-secondary px-2 py-1.5 text-sm text-foreground outline-none placeholder:text-muted focus:border-accent";
@@ -50,6 +52,11 @@ declare const fluxify: {
   /** Response returned by the route. */
   response: TestSuiteResponse;
 };
+
+${EXPECT_TYPES}
+declare const t: {
+  expect: Expect;
+${T_SHARED}};
 `;
 
 function AssertionRow({
@@ -107,10 +114,9 @@ function AssertionRow({
 							onChange={(customJs) => onChange({ ...assertion, customJs })}
 						/>
 						<span className="mt-1 block text-xs text-muted">
-							Receives <code>fluxify.response.</code>(<code>status</code>, <code>body</code>,{" "}
-							<code>headers</code>) and <code>fluxify.request.</code>(<code>path</code>,{" "}
-							<code>headers</code>, <code>query</code>, <code>params</code>, <code>body</code>). A
-							truthy result passes.
+							Check <code>fluxify.response</code> (<code>status</code>, <code>body</code>,{" "}
+							<code>headers</code>) and <code>fluxify.request</code> with{" "}
+							<code>t.expect(value).toBe(...)</code>. Each check is one line in the results.
 						</span>
 					</div>
 				) : (
@@ -179,6 +185,7 @@ export function AssertionsEditor({
 	assertions: Assertion[];
 	onChange: (next: Assertion[]) => void;
 }) {
+	usePackageTypes("zod", ZOD_VERSION);
 	const errors = validateAssertions(assertions);
 
 	function replace(index: number, next: Assertion) {

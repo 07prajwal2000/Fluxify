@@ -543,12 +543,53 @@ export const testSuitesEntity = pgTable("test_suites", {
 		.$type<Array<{ key: string; value: string }>>()
 		.default([]),
 
+	// Setup / teardown (#483): test-only custom blocks run before and after the
+	// request. Deleting the block clears the field rather than the suite.
+	setupBlockId: varchar("setup_block_id", { length: 50 }).references(
+		() => customBlocksListEntity.id,
+		{ onDelete: "set null" },
+	),
+	teardownBlockId: varchar("teardown_block_id", { length: 50 }).references(
+		() => customBlocksListEntity.id,
+		{ onDelete: "set null" },
+	),
+	setupTimeoutMs: integer("setup_timeout_ms").default(30_000).notNull(),
+	teardownTimeoutMs: integer("teardown_timeout_ms").default(30_000).notNull(),
+	/** run by itself, after the parallel suites of a run, for a clean slate */
+	runAlone: boolean("run_alone").default(false).notNull(),
+
 	createdAt: timestamp("created_at").defaultNow().notNull(),
 	updatedAt: timestamp("updated_at")
 		.defaultNow()
 		.notNull()
 		.$onUpdate(() => new Date()),
 });
+
+/** a test-suite hook body: a script, or JSON text that is the block's made-up output */
+export type TestHookBody = { kind: "script" | "json"; value: string };
+
+/**
+ * A suite's `onBefore` / `onAfter` hooks on one canvas block (#483). Both
+ * foreign keys cascade: deleting the suite or the block (the canvas keeps block
+ * ids across saves) drops its hooks with no app code.
+ */
+export const testSuiteBlockHooksEntity = pgTable(
+	"test_suite_block_hooks",
+	{
+		id: varchar({ length: 50 })
+			.primaryKey()
+			.$defaultFn(() => generateID()),
+		suiteId: varchar("suite_id", { length: 50 })
+			.notNull()
+			.references(() => testSuitesEntity.id, { onDelete: "cascade" }),
+		blockId: varchar("block_id", { length: 50 })
+			.notNull()
+			.references(() => blocksEntity.id, { onDelete: "cascade" }),
+		onBefore: jsonb("on_before").$type<TestHookBody | null>(),
+		onAfter: jsonb("on_after").$type<TestHookBody | null>(),
+	},
+	(table) => [uniqueIndex("uq_test_suite_block_hooks").on(table.suiteId, table.blockId)],
+);
 
 export const testRunStatusEnum = pgEnum("test_run_status", [
 	"queued",
@@ -573,6 +614,8 @@ export type SuiteRunResult = {
 	statusCode?: number;
 	headers?: Record<string, string>;
 	error?: string;
+	/** teardown failed; the suite keeps its status (#483) */
+	teardownError?: string;
 };
 
 /** jsonb payload on the parent run. */
@@ -733,6 +776,8 @@ export const customBlocksListEntity = pgTable(
 		inputParams: jsonb("input_params").$type<Record<string, any>[]>(),
 		sourceType: customBlockSourceTypeEnum("source_type").default("user-defined"),
 		source: text().default(""), // if plugin, then the name of plugin, if inhouse, then repository url, if user-defined, then empty
+		// #483: only for a test suite's setup/teardown — never on a live canvas, never published to workers
+		testOnly: boolean("test_only").default(false).notNull(),
 		createdAt: timestamp("created_at").defaultNow().notNull(),
 		updatedAt: timestamp("updated_at")
 			.defaultNow()

@@ -7,6 +7,7 @@ const mockDb = {
   set: mock(() => mockDb),
   where: mock(() => mockDb),
   returning: mock(() => [{ id: "suite-1" }]),
+  transaction: (fn: (tx: unknown) => unknown) => fn(mockDb),
 };
 
 mock.module("../../../../../db", () => {

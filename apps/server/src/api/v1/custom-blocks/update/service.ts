@@ -9,7 +9,12 @@ import { NotFoundError } from "../../../../errors/notFoundError";
 import { ServerError } from "../../../../errors/serverError";
 import { hasProjectAccess } from "../../../auth/common";
 import type { requestBodySchema, responseSchema } from "./dto";
-import { getCustomBlockById, updateCustomBlock } from "./repository";
+import {
+	getCustomBlockById,
+	liveCanvasesUsing,
+	suitesUsing,
+	updateCustomBlock,
+} from "./repository";
 
 export default async function handleRequest(
 	id: string,
@@ -28,6 +33,23 @@ export default async function handleRequest(
 		}
 
 		// Name is omitted from update DTO and schema, so we do not check for name conflicts here
+
+		if (data.testOnly && !existingBlock.testOnly) {
+			const users = await liveCanvasesUsing(existingBlock.projectId!, existingBlock.name, tx);
+			if (users.length) {
+				throw new ConflictError(
+					`Remove this block from ${users.join(", ")} first: a test-only block can't run in live flows.`,
+				);
+			}
+		}
+		if (data.testOnly === false && existingBlock.testOnly) {
+			const suites = await suitesUsing(id, tx);
+			if (suites.length) {
+				throw new ConflictError(
+					`Test suites ${suites.join(", ")} use this block for setup or teardown. Pick another block there first.`,
+				);
+			}
+		}
 
 		const updated = await updateCustomBlock(id, data, tx);
 		if (!updated) {

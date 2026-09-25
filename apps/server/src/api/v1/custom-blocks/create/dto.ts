@@ -61,6 +61,8 @@ export const baseRequestBodySchema = z.object({
 	iconUrl: z.string().max(68266).optional(),
 	projectId: z.string(),
 	inputParams: z.array(inputParamSchema).optional(),
+	/** only for a test suite's setup/teardown (#483) */
+	testOnly: z.boolean().optional(),
 });
 
 export const validatePremadeIcon = (data: any, ctx: z.RefinementCtx) => {

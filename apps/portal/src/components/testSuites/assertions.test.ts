@@ -41,8 +41,8 @@ describe("assertion validation", () => {
 		).not.toBeNull();
 	});
 
-	test("customJs needs an expression, not an operator", () => {
-		expect(validateAssertion({ target: "customJs", customJs: "status === 200" })).toBeNull();
+	test("customJs needs code, not an operator", () => {
+		expect(validateAssertion({ target: "customJs", customJs: "t.expect(fluxify.response.status).toBe(200)" })).toBeNull();
 		expect(validateAssertion({ target: "customJs", customJs: "  " })).not.toBeNull();
 	});
 });

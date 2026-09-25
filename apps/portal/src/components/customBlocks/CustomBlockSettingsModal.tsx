@@ -21,6 +21,7 @@ import { showErrorNotification } from "@/lib/errorNotifier";
 import { customBlocksQuery } from "@/query/customBlocksQuery";
 import { ICON_URL_MAX, IconPicker, type IconValue } from "./IconPicker";
 import { InputParamsEditor, validateInputParams } from "./InputParamsEditor";
+import { TestOnlyField } from "./TestOnlyField";
 
 /**
  * Same shape as the route canvas' settings modal: everything editable about the
@@ -87,6 +88,7 @@ function CustomBlockSettingsForm({
 
 	const [label, setLabel] = useState(block.label);
 	const [description, setDescription] = useState(block.description ?? "");
+	const [testOnly, setTestOnly] = useState(block.testOnly);
 	const [params, setParams] = useState<CustomBlockInputParam[]>(
 		Array.isArray(block.inputParams) ? (block.inputParams as CustomBlockInputParam[]) : [],
 	);
@@ -120,8 +122,9 @@ function CustomBlockSettingsForm({
 			icon: iconValue.icon,
 			iconUrl: iconValue.iconUrl,
 			inputParams: params as unknown as z.infer<typeof inputParamSchema>[],
+			testOnly,
 		}),
-		[label, description, params, iconValue],
+		[label, description, params, iconValue, testOnly],
 	);
 	const [baseline] = useState(() => JSON.stringify(payload));
 	const isDirty = JSON.stringify(payload) !== baseline;
@@ -205,6 +208,7 @@ function CustomBlockSettingsForm({
 										<Label>Description</Label>
 										<Input placeholder="What this block does" />
 									</TextField>
+									<TestOnlyField value={testOnly} onChange={setTestOnly} isDisabled={readOnly} />
 								</div>
 							}
 						/>

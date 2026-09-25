@@ -364,7 +364,13 @@ async function ensureCustomBlocksRegistered(projectId: string) {
 	const rows = await db
 		.select({ id: customBlocksListEntity.id, name: customBlocksListEntity.name })
 		.from(customBlocksListEntity)
-		.where(eq(customBlocksListEntity.projectId, projectId));
+		// a test-only block is never in the live library (see compileCustomBlockOrThrow)
+		.where(
+			and(
+				eq(customBlocksListEntity.projectId, projectId),
+				eq(customBlocksListEntity.testOnly, false),
+			),
+		);
 
 	let pending = rows.filter((row) => !hasCustomBlock(row.name) && !inFlight.has(row.id));
 	while (pending.length > 0) {
@@ -416,6 +422,7 @@ async function compileCustomBlockOrThrow(id: string) {
 			id: customBlocksListEntity.id,
 			name: customBlocksListEntity.name,
 			projectId: customBlocksListEntity.projectId,
+			testOnly: customBlocksListEntity.testOnly,
 		})
 		.from(customBlocksListEntity)
 		.where(eq(customBlocksListEntity.id, id));
@@ -423,6 +430,12 @@ async function compileCustomBlockOrThrow(id: string) {
 	if (!block) {
 		logger.info(`[compiler] dropping custom block ${id}`, "COMPILER");
 		unregisterLocally(id);
+		return;
+	}
+	// test-only (#483): the test runner compiles it itself; workers never get it,
+	// and ticking the box on a published block takes it back off them
+	if (block.testOnly) {
+		await dropCustomBlock(block.projectId!, block.id);
 		return;
 	}
 

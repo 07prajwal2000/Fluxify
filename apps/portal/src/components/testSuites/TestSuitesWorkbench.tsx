@@ -1,5 +1,5 @@
 import { Button, cn, DeleteIconButton, Spinner, toast } from "@fluxify/components";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { TbPlayerPlay, TbPlus, TbSearch } from "react-icons/tb";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { RouteSwitcher } from "@/components/routes/RouteSwitcher";
@@ -10,12 +10,15 @@ import { testSuitesQuery } from "@/query/testSuitesQuery";
 import { IN_FLIGHT_STATUSES } from "@/services/testSuites";
 import { AssertionsEditor } from "./AssertionsEditor";
 import { validateAssertions } from "./assertions";
+import { HooksEditor } from "./HooksEditor";
+import { hookErrors } from "./hooks";
 import { OverridesEditor } from "./OverridesEditor";
 import { RequestEditor } from "./RequestEditor";
 import { RunResults } from "./RunResults";
+import { SetupEditor } from "./SetupEditor";
 import { type SuiteDraft, toDraft } from "./types";
 
-const EDITOR_TABS = ["Request", "Assertions", "Overrides"] as const;
+const EDITOR_TABS = ["Request", "Assertions", "Hooks", "Setup & teardown", "Overrides"] as const;
 
 type EditorTab = (typeof EDITOR_TABS)[number];
 
@@ -129,6 +132,24 @@ export function TestSuitesWorkbench({
 		startRun.isPending ||
 		(!!runId && (!activeRun.data || IN_FLIGHT_STATUSES.includes(activeRun.data.status)));
 
+	// A failed teardown leaves the suite's result alone, which makes it easy to
+	// miss — say so once, when the run finishes (#483).
+	const warnedRuns = useRef(new Set<string>());
+	useEffect(() => {
+		const run = activeRun.data;
+		if (!runId || !run || IN_FLIGHT_STATUSES.includes(run.status)) return;
+		if (warnedRuns.current.has(runId)) return;
+		warnedRuns.current.add(runId);
+		const broken = run.suiteRuns.filter(
+			(s) => (s.result as { teardownError?: string } | null)?.teardownError,
+		).length;
+		if (broken > 0) {
+			toast.warning(
+				`Teardown failed in ${broken} suite${broken === 1 ? "" : "s"}. Test data may be left behind; open the results for details.`,
+			);
+		}
+	}, [runId, activeRun.data]);
+
 	const list = useMemo(
 		() =>
 			(suites.data ?? []).map((suite) => ({
@@ -160,7 +181,9 @@ export function TestSuitesWorkbench({
 	}, [selectedId, detail.data?.id]);
 
 	const assertionErrors = validateAssertions(draft.assertions);
-	const canSave = isDirty && assertionErrors.size === 0 && draft.name.trim().length > 0;
+	const hookErrorCount = hookErrors(draft.hooks).size;
+	const canSave =
+		isDirty && assertionErrors.size === 0 && hookErrorCount === 0 && draft.name.trim().length > 0;
 
 	function patch(next: Partial<SuiteDraft>) {
 		setDraft((current) => ({ ...current, ...next }));
@@ -183,6 +206,12 @@ export function TestSuitesWorkbench({
 				assertions: draft.assertions,
 				appConfigOverrides: draft.appConfigOverrides,
 				integrationOverrides: draft.integrationOverrides,
+				hooks: draft.hooks,
+				setupBlockId: draft.setupBlockId,
+				teardownBlockId: draft.teardownBlockId,
+				setupTimeoutMs: draft.setupTimeoutMs,
+				teardownTimeoutMs: draft.teardownTimeoutMs,
+				runAlone: draft.runAlone,
 			});
 			setDirty(false);
 			toast.success("Suite saved");
@@ -312,7 +341,8 @@ export function TestSuitesWorkbench({
 										)}
 									>
 										{name}
-										{name === "Assertions" && assertionErrors.size > 0 && (
+										{((name === "Assertions" && assertionErrors.size > 0) ||
+											(name === "Hooks" && hookErrorCount > 0)) && (
 											<span className="ml-1 text-danger">•</span>
 										)}
 									</button>
@@ -333,6 +363,17 @@ export function TestSuitesWorkbench({
 										assertions={draft.assertions}
 										onChange={(assertions) => patch({ assertions })}
 									/>
+								)}
+								{tab === "Hooks" && (
+									<HooksEditor
+										suiteId={selectedId}
+										routeId={routeId}
+										hooks={draft.hooks}
+										onChange={(hooks) => patch({ hooks })}
+									/>
+								)}
+								{tab === "Setup & teardown" && (
+									<SetupEditor projectId={projectId} draft={draft} onChange={patch} />
 								)}
 								{tab === "Overrides" && (
 									<OverridesEditor projectId={projectId} draft={draft} onChange={patch} />

@@ -89,6 +89,18 @@ export default withMermaid(
 						{ text: "Imports & Libraries", link: "/scripting/imports" },
 					],
 				},
+				{
+					text: "Testing",
+					items: [
+						{ text: "Overview", link: "/testing/" },
+						{ text: "Your First Test Suite", link: "/testing/first-suite" },
+						{ text: "Checking the Response", link: "/testing/checks" },
+						{ text: "Hooks", link: "/testing/hooks" },
+						{ text: "Setup and Teardown", link: "/testing/setup-and-teardown" },
+						{ text: "Overrides", link: "/testing/overrides" },
+						{ text: "Reading Results", link: "/testing/results" },
+					],
+				},
 				{ text: "Deployments", link: "/deployments/" },
 			],
 
@@ -240,6 +252,21 @@ export default withMermaid(
 								link: "/scripting/key-considerations",
 							},
 							{ text: "Imports & Libraries", link: "/scripting/imports" },
+						],
+					},
+				],
+
+				"/testing/": [
+					{
+						text: "Testing",
+						items: [
+							{ text: "Overview", link: "/testing/" },
+							{ text: "Your First Test Suite", link: "/testing/first-suite" },
+							{ text: "Checking the Response", link: "/testing/checks" },
+							{ text: "Hooks", link: "/testing/hooks" },
+							{ text: "Setup and Teardown", link: "/testing/setup-and-teardown" },
+							{ text: "Overrides", link: "/testing/overrides" },
+							{ text: "Reading Results", link: "/testing/results" },
 						],
 					},
 				],

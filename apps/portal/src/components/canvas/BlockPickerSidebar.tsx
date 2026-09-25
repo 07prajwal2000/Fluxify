@@ -21,7 +21,7 @@ import {
 	blockIcon,
 	pickerBlockCatalogEntries,
 } from "./blocks";
-import { useCustomBlockDefs } from "./blocks/useCustomBlockDefs";
+import { useAddableCustomBlockDefs } from "./blocks/useCustomBlockDefs";
 import "./blockPickerSidebar.css";
 
 /** Catalog categories plus the ones only custom blocks land in. */
@@ -101,7 +101,7 @@ export function BlockPickerSidebar({ isOpen, onOpenChange, onAdd }: BlockPickerS
 		}
 	}, [isOpen]);
 
-	const customDefs = useCustomBlockDefs();
+	const customDefs = useAddableCustomBlockDefs();
 	const blocks = useMemo<PickerItem[]>(() => {
 		const core = pickerBlockCatalogEntries().map(([type, definition]) => ({
 			type: type as string,

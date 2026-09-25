@@ -19,7 +19,7 @@ import { CustomBlockIcon } from "@/components/customBlocks/IconPicker";
 import { getTheme, toggleTheme } from "@/lib/theme";
 import type { CanvasAction } from "../actions/useCanvasActions";
 import { type BlockType, blockIcon, pickerBlockCatalogEntries } from "../blocks";
-import { useCustomBlockDefs } from "../blocks/useCustomBlockDefs";
+import { useAddableCustomBlockDefs } from "../blocks/useCustomBlockDefs";
 import type { SpotlightCommand } from "./types";
 import { useSpotlightResources } from "./useSpotlightResources";
 
@@ -60,7 +60,7 @@ export function useSpotlightCommands({
 	onClose,
 }: UseSpotlightCommandsOptions): SpotlightCommand[] {
 	const navigate = useNavigate();
-	const customDefs = useCustomBlockDefs();
+	const customDefs = useAddableCustomBlockDefs();
 	const { projectId, routes, workflows, customBlocks } = useSpotlightResources();
 
 	return useMemo(() => {

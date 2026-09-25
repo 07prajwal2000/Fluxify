@@ -540,6 +540,27 @@
 			"when": 1790277010272,
 			"tag": "0076_project_dependencies",
 			"breakpoints": true
+		},
+		{
+			"idx": 77,
+			"version": "7",
+			"when": 1790294325752,
+			"tag": "0077_test_suite_block_hooks",
+			"breakpoints": true
+		},
+		{
+			"idx": 78,
+			"version": "7",
+			"when": 1790296164181,
+			"tag": "0078_custom_block_test_only",
+			"breakpoints": true
+		},
+		{
+			"idx": 79,
+			"version": "7",
+			"when": 1790296390843,
+			"tag": "0079_test_suite_setup_teardown",
+			"breakpoints": true
 		}
 	]
 }

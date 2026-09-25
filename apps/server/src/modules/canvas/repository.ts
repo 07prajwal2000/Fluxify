@@ -263,10 +263,14 @@ export async function getCustomBlockNames(
 export async function getProjectCustomBlocks(
 	parent: CanvasParent,
 	tx?: DbTransactionType,
-): Promise<{ id: string; name: string }[]> {
+): Promise<{ id: string; name: string; testOnly: boolean }[]> {
 	const table = parentTable(parent.type);
 	return await (tx ?? db)
-		.select({ id: customBlocksListEntity.id, name: customBlocksListEntity.name })
+		.select({
+			id: customBlocksListEntity.id,
+			name: customBlocksListEntity.name,
+			testOnly: customBlocksListEntity.testOnly,
+		})
 		.from(customBlocksListEntity)
 		.where(
 			eq(

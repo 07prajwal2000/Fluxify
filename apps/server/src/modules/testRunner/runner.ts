@@ -2,6 +2,7 @@ import { logger } from "@fluxify/common";
 import { and, eq, type InferSelectModel, inArray } from "drizzle-orm";
 import { db } from "../../db";
 import {
+	customBlocksListEntity,
 	routesEntity,
 	type SuiteRunResult,
 	type TestRunStatus,
@@ -14,6 +15,7 @@ import { assertOverridesOwned } from "../requestRouter/service";
 import { type AssertionType, buildSuiteRequest } from "./assertions";
 import { compileSuiteRoute } from "./compile";
 import { runSuiteOnWorker } from "./dispatch";
+import { loadSuiteHooks, type SuiteHook } from "./hooks";
 import { type Pool, testWorkerPool } from "./pool";
 import { resolveSuiteConfig } from "./resolve";
 import type { TestBootstrap, TestResult } from "./types";
@@ -36,6 +38,8 @@ export class TestRunError extends Error {
 export type RunnerDeps = {
 	compile: typeof compileSuiteRoute;
 	resolve: typeof resolveSuiteConfig;
+	hooks: typeof loadSuiteHooks;
+	blockNames: typeof loadBlockNames;
 	spawn: typeof runSuiteOnWorker;
 	pool: Pool;
 };
@@ -43,6 +47,8 @@ export type RunnerDeps = {
 const defaultDeps: RunnerDeps = {
 	compile: compileSuiteRoute,
 	resolve: resolveSuiteConfig,
+	hooks: loadSuiteHooks,
+	blockNames: loadBlockNames,
 	spawn: runSuiteOnWorker,
 	pool: testWorkerPool,
 };
@@ -153,6 +159,10 @@ async function executeRun(
 		// so compiling per suite would be the same work N times — and could hand
 		// two suites of one run different code if the route were edited mid-run.
 		const compiled = await deps.compile(routeId);
+		const hooks = await deps.hooks(work.map((w) => w.suite.id));
+		const names = await deps.blockNames(
+			work.flatMap(({ suite }) => [suite.setupBlockId, suite.teardownBlockId]),
+		);
 
 		await db
 			.update(testRunsEntity)
@@ -160,14 +170,22 @@ async function executeRun(
 			.where(eq(testRunsEntity.id, runId));
 
 		const startedAt = Date.now();
-		const statuses = await Promise.all(
-			work.map(({ suite, suiteRunId }) =>
-				deps.pool.run(async () => {
-					const status = await runOneSuite(suiteRunId, suite, projectId, compiled, deps);
-					return [suite.id, status] as const;
-				}),
-			),
-		);
+		const runSuite = ({ suite, suiteRunId }: (typeof work)[number]) =>
+			deps.pool.run(async () => {
+				const status = await runOneSuite(
+					suiteRunId,
+					suite,
+					projectId,
+					compiled,
+					{ hooks: hooks.get(suite.id) ?? [], names },
+					deps,
+				);
+				return [suite.id, status] as const;
+			});
+		// suites share the test databases: "run alone" ones go one by one after the
+		// rest, so their setup sees no other suite's rows
+		const statuses = await Promise.all(work.filter((w) => !w.suite.runAlone).map(runSuite));
+		for (const w of work.filter((w) => w.suite.runAlone)) statuses.push(await runSuite(w));
 
 		const passed = statuses.filter(([, s]) => s === "passed").length;
 		const summary: TestRunSummary = {
@@ -238,6 +256,7 @@ async function runOneSuite(
 	suite: Suite,
 	projectId: string,
 	compiled: Awaited<ReturnType<typeof compileSuiteRoute>>,
+	{ hooks, names }: { hooks: SuiteHook[]; names: Map<string, string> },
 	deps: RunnerDeps,
 ): Promise<TestRunStatus> {
 	const startedAt = Date.now();
@@ -272,6 +291,10 @@ async function runOneSuite(
 			request,
 			timeoutMs: compiled.route.timeoutSeconds * 1_000,
 			assertions: (suite.assertions as AssertionType[]) || [],
+			hooks,
+			suite: { id: suite.id, name: suite.name },
+			setup: phase(names, suite.setupBlockId, suite.setupTimeoutMs),
+			teardown: phase(names, suite.teardownBlockId, suite.teardownTimeoutMs),
 		};
 
 		const response: TestResult = await deps.spawn(bootstrap);
@@ -284,12 +307,18 @@ async function runOneSuite(
 				actualData: response.data,
 				statusCode: response.status,
 				headers: response.headers,
+				teardownError: response.teardownError,
 			};
 		} else {
 			// a killed process has no partial verdicts to report — the duration and
 			// the reason are all that honestly exist
 			status = response.timedOut ? "timeout" : "error";
-			result = { success: false, result: [], error: response.error };
+			result = {
+				success: false,
+				result: [],
+				error: response.error,
+				teardownError: response.teardownError,
+			};
 		}
 	} catch (error) {
 		durationMs = Date.now() - startedAt;
@@ -304,4 +333,21 @@ async function runOneSuite(
 		.where(eq(testSuiteRunsEntity.id, suiteRunId));
 
 	return status;
+}
+
+/** a suite's setup or teardown block, when it has one that still exists */
+function phase(names: Map<string, string>, blockId: string | null, timeoutMs: number) {
+	const block = blockId ? names.get(blockId) : undefined;
+	return block ? { block, timeoutMs } : undefined;
+}
+
+/** custom block id -> name, for the setup / teardown blocks of a run */
+async function loadBlockNames(ids: Array<string | null>) {
+	const wanted = [...new Set(ids.filter((id): id is string => !!id))];
+	if (wanted.length === 0) return new Map<string, string>();
+	const rows = await db
+		.select({ id: customBlocksListEntity.id, name: customBlocksListEntity.name })
+		.from(customBlocksListEntity)
+		.where(inArray(customBlocksListEntity.id, wanted));
+	return new Map(rows.map((r) => [r.id, r.name]));
 }

@@ -35,7 +35,8 @@ export async function compileSuiteRoute(routeId: string) {
 	const { blocks, edges } = await loadGraph({ type: "route", id: routeId });
 	// package imports must resolve from the worker's installed deps, as live
 	const dependencies = await compileDependencies(route.projectId!);
-	const { source } = compileGraph(blocks, edges, { dependencies });
+	// hook points in every block: a suite without hooks just finds none
+	const { source } = compileGraph(blocks, edges, { dependencies, hooks: true });
 	return {
 		route,
 		source,
