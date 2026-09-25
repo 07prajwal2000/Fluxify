@@ -508,3 +508,39 @@ html[data-theme="dark"] .fx-block,
 .fx-handle--full {
 	opacity: 0.45;
 }
+
+/* Output that can take another edge: a `+` inside the socket, shown when the
+   block is hovered or selected. The socket grows to fit it. */
+.fx-handle__plus {
+	display: none;
+	pointer-events: none;
+	color: var(--fx-block-bg, #111113);
+}
+
+.react-flow__node:hover .fx-handle--add.react-flow__handle,
+.react-flow__node.selected .fx-handle--add.react-flow__handle,
+.fx-handle--add.react-flow__handle:focus-visible {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 16px;
+	height: 16px;
+	cursor: pointer;
+}
+
+.react-flow__node:hover .fx-handle--add .fx-handle__plus,
+.react-flow__node.selected .fx-handle--add .fx-handle__plus,
+.fx-handle--add:focus-visible .fx-handle__plus {
+	display: block;
+	width: 12px;
+	height: 12px;
+}
+
+/* Invisible ring around the socket, so the pointer doesn't need to hit the
+   dot exactly. Hovering it also counts as hovering the block, which shows the `+`. */
+.fx-handle.react-flow__handle::before {
+	content: "";
+	position: absolute;
+	inset: -14px;
+	border-radius: 9999px;
+}

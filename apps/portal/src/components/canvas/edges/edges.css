@@ -49,18 +49,29 @@
 	stroke-width: 3;
 }
 
-/* Wide invisible stroke so the edge is easy to click/select. */
+/* Wide invisible stroke: the edge is easy to hover and click. `stroke` so a
+   transparent stroke still takes the pointer. */
 .fx-edge__hit {
 	stroke: transparent;
-	stroke-width: 18;
 	fill: none;
+	pointer-events: stroke;
 }
 
-.fx-edge__delete {
+.fx-edge__actions {
 	position: absolute;
 	display: flex;
-	width: 16px;
-	height: 16px;
+	gap: 6px;
+	/* Padding widens the hover zone around the buttons. */
+	padding: 8px;
+	/* EdgeLabelRenderer content is not interactive by default. */
+	pointer-events: all;
+}
+
+.fx-edge__delete,
+.fx-edge__insert {
+	display: flex;
+	width: 22px;
+	height: 22px;
 	align-items: center;
 	justify-content: center;
 	padding: 0;
@@ -70,8 +81,22 @@
 	color: var(--fx-block-fg, #fafafa);
 	cursor: pointer;
 	line-height: 1;
-	/* EdgeLabelRenderer content is not interactive by default. */
-	pointer-events: all;
+	transition:
+		transform 120ms ease,
+		border-color 120ms ease,
+		color 120ms ease;
+}
+
+.fx-edge__delete:hover,
+.fx-edge__insert:hover {
+	transform: scale(1.18);
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.fx-edge__delete,
+	.fx-edge__insert {
+		transition: none;
+	}
 }
 
 .fx-edge__delete:hover {
@@ -79,7 +104,13 @@
 	color: var(--danger, #e5484d);
 }
 
-.fx-edge__delete:focus-visible {
+.fx-edge__insert:hover {
+	border-color: var(--accent, oklch(0.9 0.2 122));
+	color: var(--accent, oklch(0.9 0.2 122));
+}
+
+.fx-edge__delete:focus-visible,
+.fx-edge__insert:focus-visible {
 	outline: 2px solid var(--accent, oklch(0.9 0.2 122));
 	outline-offset: 1px;
 }
