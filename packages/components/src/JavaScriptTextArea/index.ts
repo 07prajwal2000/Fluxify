@@ -10,6 +10,7 @@ export {
 	useCustomBlockParamsTypes,
 } from "./paramsTypes";
 export { buildRouteParamTypeLib, useRouteParamTypes } from "./routeParamTypes";
+export { TESTSUITE_TYPE_LIB, useTestSuiteGlobalTypes } from "./testSuiteTypes";
 export async function restartLanguageServer(): Promise<void> {
 	const setup = await import("./setup");
 	return setup.restartLanguageServer();

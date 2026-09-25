@@ -62,6 +62,11 @@ function SuiteRunRow({
 			>
 				<StatusIcon status={status} />
 				<span className="min-w-0 flex-1 truncate text-xs text-foreground">{name}</span>
+				{result?.teardownError && (
+					<span className="flex items-center gap-1 text-xs text-warning">
+						<TbAlertTriangle size={14} /> Teardown failed
+					</span>
+				)}
 				{result?.statusCode != null && (
 					<span className="font-mono text-xs text-muted">{result.statusCode}</span>
 				)}
@@ -84,6 +89,12 @@ function SuiteRunRow({
 						</p>
 					)}
 					{result?.error && <p className="text-xs text-danger">{result.error}</p>}
+					{result?.teardownError && (
+						<p className="rounded-md border border-warning/40 bg-warning/10 p-2 text-xs text-warning">
+							{status === "passed" ? "Passed, but teardown" : "Teardown"} failed:{" "}
+							{result.teardownError}. Test data may be left behind.
+						</p>
+					)}
 
 					{assertions.length > 0 && (
 						<ul className="space-y-1">

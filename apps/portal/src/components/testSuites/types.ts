@@ -20,6 +20,11 @@ export type SuiteDraft = {
 	appConfigOverrides: { key: string; value: string }[];
 	integrationOverrides: { existingId: string; newId: string }[];
 	hooks: BlockHook[];
+	setupBlockId: string | null;
+	teardownBlockId: string | null;
+	setupTimeoutMs: number;
+	teardownTimeoutMs: number;
+	runAlone: boolean;
 };
 
 export function toDraft(suite: TestSuiteDetail | undefined): SuiteDraft {
@@ -34,5 +39,10 @@ export function toDraft(suite: TestSuiteDetail | undefined): SuiteDraft {
 		appConfigOverrides: suite?.appConfigOverrides ?? [],
 		integrationOverrides: suite?.integrationOverrides ?? [],
 		hooks: suite?.hooks ?? [],
+		setupBlockId: suite?.setupBlockId ?? null,
+		teardownBlockId: suite?.teardownBlockId ?? null,
+		setupTimeoutMs: suite?.setupTimeoutMs ?? 30_000,
+		teardownTimeoutMs: suite?.teardownTimeoutMs ?? 30_000,
+		runAlone: suite?.runAlone ?? false,
 	};
 }

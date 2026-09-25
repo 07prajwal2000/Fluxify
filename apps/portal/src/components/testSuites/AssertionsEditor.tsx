@@ -22,7 +22,7 @@ import {
 	TARGET_LABELS,
 	validateAssertions,
 } from "./assertions";
-import { EXPECT_TYPES, T_ZOD, ZOD_VERSION } from "./expectTypes";
+import { EXPECT_TYPES, T_SHARED, ZOD_VERSION } from "./expectTypes";
 
 const inputClass =
 	"w-full rounded-md border border-border bg-background-secondary px-2 py-1.5 text-sm text-foreground outline-none placeholder:text-muted focus:border-accent";
@@ -56,7 +56,7 @@ declare const fluxify: {
 ${EXPECT_TYPES}
 declare const t: {
   expect: Expect;
-${T_ZOD}};
+${T_SHARED}};
 `;
 
 function AssertionRow({
