@@ -1,6 +1,5 @@
 import {
 	Button,
-	Checkbox,
 	CloseButton,
 	DeleteButton,
 	Input,
@@ -22,6 +21,7 @@ import { showErrorNotification } from "@/lib/errorNotifier";
 import { customBlocksQuery } from "@/query/customBlocksQuery";
 import { ICON_URL_MAX, IconPicker, type IconValue } from "./IconPicker";
 import { InputParamsEditor, validateInputParams } from "./InputParamsEditor";
+import { TestOnlyField } from "./TestOnlyField";
 
 /**
  * Same shape as the route canvas' settings modal: everything editable about the
@@ -69,9 +69,6 @@ export function CustomBlockSettingsModal({
 		</Modal>
 	);
 }
-
-/** docs for the "test suites only" checkbox (#483) */
-const TEST_ONLY_DOCS_URL = "https://docs.fluxify.rest/testing/setup-and-teardown.html";
 
 type BlockData = NonNullable<ReturnType<typeof customBlocksQuery.getAll.useQuery>["data"]>[number];
 
@@ -211,23 +208,7 @@ function CustomBlockSettingsForm({
 										<Label>Description</Label>
 										<Input placeholder="What this block does" />
 									</TextField>
-									<div className="flex flex-col gap-1">
-										<Checkbox
-											isDisabled={readOnly}
-											isSelected={testOnly}
-											onChange={setTestOnly}
-											label="Use only for test suite setup / teardown"
-											description="Hidden from the block picker. It runs before or after a test suite, never in live routes or workflows."
-										/>
-										<a
-											href={TEST_ONLY_DOCS_URL}
-											target="_blank"
-											rel="noreferrer"
-											className="ml-6 w-fit text-xs text-accent hover:underline"
-										>
-											What does this do?
-										</a>
-									</div>
+									<TestOnlyField value={testOnly} onChange={setTestOnly} isDisabled={readOnly} />
 								</div>
 							}
 						/>
