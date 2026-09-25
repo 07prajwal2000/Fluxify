@@ -1,4 +1,5 @@
 import { instantiateCompiled, registerCompiledCustomBlock, setJobEnqueuer } from "@fluxify/blocks";
+import type { AssertionResult } from "../../db/schema";
 import { hydrateAppConfig } from "../../loaders/appconfigLoader";
 import { hydrateIntegrations } from "../../loaders/integrationsLoader";
 import { hydrateProjectSettings } from "../../loaders/projectSettingsLoader";
@@ -7,6 +8,7 @@ import { setBlocksExecutor } from "../requestRouter/executor";
 import { createHttpContext } from "../requestRouter/httpContext";
 import { executeRouteInternal } from "../requestRouter/service";
 import { evaluateAssertions } from "./assertions";
+import { buildHooks } from "./hookRuntime";
 import type { TestBootstrap, TestBootstrapMessage, TestChildMessage, TestResult } from "./types";
 
 /**
@@ -31,6 +33,8 @@ process.on("message", (message: TestBootstrapMessage) => {
 
 /** What the suite would have queued, kept for debugging a run. */
 const queuedJobs: string[] = [];
+/** `t.expect` lines from block hooks, reported beside the assertions */
+const hookChecks: AssertionResult[] = [];
 
 async function runSuite(boot: TestBootstrap) {
 	const startedAt = Date.now();
@@ -56,7 +60,15 @@ async function runSuite(boot: TestBootstrap) {
 		setJobEnqueuer((job) => queuedJobs.push(`${job.kind}/${job.target}`));
 
 		const run = instantiateCompiled(boot.source);
-		setBlocksExecutor((_target, context) => run(context, context.requestBody));
+		setBlocksExecutor((_target, context) => {
+			// hooks read and write this request's vars, so they bind per context
+			(context as { testHooks?: unknown }).testHooks = buildHooks(boot.hooks, {
+				vars: context.vars,
+				runId: boot.suiteRunId,
+				checks: hookChecks,
+			});
+			return run(context, context.requestBody);
+		});
 
 		// a real Hono-shaped context, so header and cookie writes made by the route
 		// are captured instead of dropped — header assertions read them back
@@ -86,7 +98,7 @@ async function runSuite(boot: TestBootstrap) {
 
 		const durationMs = Date.now() - routeStartedAt;
 		const headers = Object.fromEntries(ctx.responseHeaders);
-		const { success, result } = await evaluateAssertions(boot.assertions, {
+		const verdict = await evaluateAssertions(boot.assertions, {
 			status: response.status,
 			body: response.data,
 			headers,
@@ -99,7 +111,11 @@ async function runSuite(boot: TestBootstrap) {
 			data: response.data,
 			headers,
 			durationMs,
-			verdict: { success, result },
+			// hook checks first: they ran first, inside the route
+			verdict: {
+				success: verdict.success && hookChecks.every((c) => c.success),
+				result: [...hookChecks, ...verdict.result],
+			},
 		});
 	} catch (error) {
 		report({

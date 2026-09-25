@@ -550,6 +550,32 @@ export const testSuitesEntity = pgTable("test_suites", {
 		.$onUpdate(() => new Date()),
 });
 
+/** a test-suite hook body: a script, or JSON text that is the block's made-up output */
+export type TestHookBody = { kind: "script" | "json"; value: string };
+
+/**
+ * A suite's `onBefore` / `onAfter` hooks on one canvas block (#483). Both
+ * foreign keys cascade: deleting the suite or the block (the canvas keeps block
+ * ids across saves) drops its hooks with no app code.
+ */
+export const testSuiteBlockHooksEntity = pgTable(
+	"test_suite_block_hooks",
+	{
+		id: varchar({ length: 50 })
+			.primaryKey()
+			.$defaultFn(() => generateID()),
+		suiteId: varchar("suite_id", { length: 50 })
+			.notNull()
+			.references(() => testSuitesEntity.id, { onDelete: "cascade" }),
+		blockId: varchar("block_id", { length: 50 })
+			.notNull()
+			.references(() => blocksEntity.id, { onDelete: "cascade" }),
+		onBefore: jsonb("on_before").$type<TestHookBody | null>(),
+		onAfter: jsonb("on_after").$type<TestHookBody | null>(),
+	},
+	(table) => [uniqueIndex("uq_test_suite_block_hooks").on(table.suiteId, table.blockId)],
+);
+
 export const testRunStatusEnum = pgEnum("test_run_status", [
 	"queued",
 	"running",

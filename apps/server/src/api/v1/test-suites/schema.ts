@@ -66,6 +66,24 @@ export const assertionSchema = z
 		}
 	});
 
+/** a hook body: a script, or JSON text that is the block's made-up output */
+export const hookBodySchema = z
+	.object({ kind: z.enum(["script", "json"]), value: z.string() })
+	.superRefine((val, ctx) => {
+		if (val.kind !== "json") return;
+		try {
+			JSON.parse(val.value);
+		} catch {
+			ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["value"], message: "Invalid JSON" });
+		}
+	});
+
+export const blockHookSchema = z.object({
+	blockId: z.string(),
+	onBefore: hookBodySchema.nullish(),
+	onAfter: hookBodySchema.nullish(),
+});
+
 export const testSuiteCoreSchema = z.object({
 	name: z.string().min(1, "Name is required"),
 	description: z.string().optional().nullable(),
@@ -87,4 +105,6 @@ export const testSuiteCoreSchema = z.object({
 		.default([])
 		.optional()
 		.nullable(),
+	/** replaces all of the suite's block hooks when sent (#483) */
+	hooks: z.array(blockHookSchema).optional(),
 });

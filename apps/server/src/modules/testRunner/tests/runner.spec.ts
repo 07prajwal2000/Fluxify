@@ -116,6 +116,7 @@ function deps(spawn: (b: any) => Promise<TestResult>) {
 	return {
 		compile,
 		resolve: mock(async () => ({}) as any),
+		hooks: async () => new Map(),
 		spawn: mock(spawn),
 		pool: openPool,
 	};

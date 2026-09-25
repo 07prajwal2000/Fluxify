@@ -1,6 +1,7 @@
 import type { AssertionResult } from "../../db/schema";
 import type { ProjectConfigPayload } from "../compiler/artifacts";
 import type { AssertionType, SuiteRequest } from "./assertions";
+import type { SuiteHook } from "./hooks";
 
 /**
  * Everything the ephemeral suite process is given, in one message.
@@ -29,6 +30,8 @@ export type TestBootstrap = {
 	timeoutMs: number;
 	/** judged in the child, right after the route answers */
 	assertions: AssertionType[];
+	/** the suite's block hooks (#483); `source` is compiled with hook points */
+	hooks: SuiteHook[];
 };
 
 /**

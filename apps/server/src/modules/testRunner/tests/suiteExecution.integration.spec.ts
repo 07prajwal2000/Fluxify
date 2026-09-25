@@ -50,6 +50,7 @@ function bootstrap(source: string, overrides: Partial<TestBootstrap> = {}) {
 		},
 		timeoutMs: 10_000,
 		assertions: [],
+		hooks: [],
 		...overrides,
 	} satisfies TestBootstrap;
 }
@@ -93,6 +94,55 @@ describe("runSuiteInChild", () => {
 		// judged in the child, custom JS included
 		expect(result.verdict.success).toBe(false);
 		expect(result.verdict.result.map((r) => r.success)).toEqual([true, true, false]);
+	}, 30_000);
+
+	it("runs block hooks: a skipped block, a changed output and their t.expect lines", async () => {
+		const { source } = compileGraph(
+			[
+				block("1", BlockTypes.entrypoint),
+				// would need a real database: skipped by its hook
+				block("2", BlockTypes.jsrunner, { value: "throw new Error('real DB call')" }),
+				block("3", BlockTypes.jsrunner, { value: "return { ...input, seen: true };" }),
+				block("4", BlockTypes.response, { httpCode: "200" }),
+			],
+			[edge("1", "2"), edge("2", "3"), edge("3", "4")] as any,
+			{ hooks: true },
+		);
+
+		const result = await runSuiteInChild(
+			bootstrap(source, {
+				hooks: [
+					{
+						blockId: "2",
+						blockType: "jsrunner",
+						blockName: "Load user",
+						onBefore: { kind: "json", value: '{"id":7}' },
+						onAfter: null,
+					},
+					{
+						blockId: "3",
+						blockType: "jsrunner",
+						blockName: "Mark",
+						onBefore: null,
+						onAfter: {
+							kind: "script",
+							value: `t.expect(input, "input").toEqual({ id: 7 });
+								t.expect(t.call).toBe(2);
+								return { ...output, patched: true };`,
+						},
+					},
+				],
+			}),
+		);
+
+		expect(result.ok).toBe(true);
+		if (!result.ok) return;
+		expect(result.data).toEqual({ id: 7, seen: true, patched: true });
+		expect(result.verdict.success).toBe(false);
+		expect(result.verdict.result).toEqual([
+			{ success: true, message: 'jsrunner "Mark": input: expected {"id":7} to equal {"id":7} ✓' },
+			{ success: false, message: 'jsrunner "Mark": expected 1 to be 2' },
+		]);
 	}, 30_000);
 
 	it("kills a route that never returns and reports it as a timeout", async () => {

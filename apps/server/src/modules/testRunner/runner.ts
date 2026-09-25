@@ -14,6 +14,7 @@ import { assertOverridesOwned } from "../requestRouter/service";
 import { type AssertionType, buildSuiteRequest } from "./assertions";
 import { compileSuiteRoute } from "./compile";
 import { runSuiteOnWorker } from "./dispatch";
+import { loadSuiteHooks, type SuiteHook } from "./hooks";
 import { type Pool, testWorkerPool } from "./pool";
 import { resolveSuiteConfig } from "./resolve";
 import type { TestBootstrap, TestResult } from "./types";
@@ -36,6 +37,7 @@ export class TestRunError extends Error {
 export type RunnerDeps = {
 	compile: typeof compileSuiteRoute;
 	resolve: typeof resolveSuiteConfig;
+	hooks: typeof loadSuiteHooks;
 	spawn: typeof runSuiteOnWorker;
 	pool: Pool;
 };
@@ -43,6 +45,7 @@ export type RunnerDeps = {
 const defaultDeps: RunnerDeps = {
 	compile: compileSuiteRoute,
 	resolve: resolveSuiteConfig,
+	hooks: loadSuiteHooks,
 	spawn: runSuiteOnWorker,
 	pool: testWorkerPool,
 };
@@ -153,6 +156,7 @@ async function executeRun(
 		// so compiling per suite would be the same work N times — and could hand
 		// two suites of one run different code if the route were edited mid-run.
 		const compiled = await deps.compile(routeId);
+		const hooks = await deps.hooks(work.map((w) => w.suite.id));
 
 		await db
 			.update(testRunsEntity)
@@ -163,7 +167,14 @@ async function executeRun(
 		const statuses = await Promise.all(
 			work.map(({ suite, suiteRunId }) =>
 				deps.pool.run(async () => {
-					const status = await runOneSuite(suiteRunId, suite, projectId, compiled, deps);
+					const status = await runOneSuite(
+						suiteRunId,
+						suite,
+						projectId,
+						compiled,
+						hooks.get(suite.id) ?? [],
+						deps,
+					);
 					return [suite.id, status] as const;
 				}),
 			),
@@ -238,6 +249,7 @@ async function runOneSuite(
 	suite: Suite,
 	projectId: string,
 	compiled: Awaited<ReturnType<typeof compileSuiteRoute>>,
+	hooks: SuiteHook[],
 	deps: RunnerDeps,
 ): Promise<TestRunStatus> {
 	const startedAt = Date.now();
@@ -272,6 +284,7 @@ async function runOneSuite(
 			request,
 			timeoutMs: compiled.route.timeoutSeconds * 1_000,
 			assertions: (suite.assertions as AssertionType[]) || [],
+			hooks,
 		};
 
 		const response: TestResult = await deps.spawn(bootstrap);
