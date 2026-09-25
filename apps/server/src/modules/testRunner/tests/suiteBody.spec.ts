@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { testSuiteCoreSchema } from "../../../api/v1/test-suites/schema";
-import { contentTypeOf, decodeSuiteBody } from "../suiteBody";
+import { contentTypeOf } from "../../requestRouter/requestBody";
+import { decodeSuiteBody } from "../suiteBody";
 
 const b64 = (text: string) => Buffer.from(text).toString("base64");
 

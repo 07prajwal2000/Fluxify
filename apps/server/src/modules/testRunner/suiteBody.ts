@@ -1,5 +1,3 @@
-import { mediaType } from "../requestRouter/requestBody";
-
 /**
  * A suite stores its body as JSON, so files travel as base64. The route must see
  * what a real request gives it (see `requestRouter/requestBody.ts`): a `File` for
@@ -27,13 +25,6 @@ function toFile(value: unknown): unknown {
 	return isStoredFile(value)
 		? new File([bytes(value.base64)], value.name, { type: value.type || "" })
 		: value;
-}
-
-/** the media type a suite's headers declare, whatever the header's casing */
-export function contentTypeOf(headers: Record<string, string>): string {
-	const [, value] =
-		Object.entries(headers).find(([key]) => key.toLowerCase() === "content-type") ?? [];
-	return mediaType(value);
 }
 
 export function decodeSuiteBody(body: unknown, contentType: string): unknown {

@@ -199,6 +199,44 @@ describe("dispatch", () => {
 		});
 	});
 
+	it("coerces a form body's typed fields, but keeps a JSON body strict", async () => {
+		const parser = {
+			getRouteId: () => ({
+				id: "route-1",
+				projectId: "project-1",
+				projectName: "Project",
+				acceptedContentTypes: ["application/json", "application/x-www-form-urlencoded"],
+				bodySchema: {
+					dataType: "object",
+					properties: [
+						{ key: "age", dataType: "int" },
+						{ key: "active", dataType: "bool" },
+					],
+				},
+			}),
+		} as unknown as HttpRouteParser;
+		let seen: any;
+		setBlocksExecutor(async (_target, context) => {
+			seen = context.requestBody;
+			return { successful: true, output: { body: "ok" } } as any;
+		});
+
+		const form = await dispatch(
+			await envelopeFromHttp(
+				postCtx("age=25&active=false", "application/x-www-form-urlencoded"),
+			),
+			parser,
+		);
+		expect(form.status).toBe(200);
+		expect(seen).toEqual({ age: 25, active: false });
+
+		const json = await dispatch(
+			await envelopeFromHttp(postCtx('{"age":"25","active":"false"}', "application/json")),
+			parser,
+		);
+		expect(json.status).toBe(400);
+	});
+
 	it("rejects a body the matched route does not accept", async () => {
 		const parser = {
 			getRouteId: () => ({

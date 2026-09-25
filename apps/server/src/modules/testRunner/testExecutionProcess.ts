@@ -11,10 +11,11 @@ import { hydrateProjectSettings } from "../../loaders/projectSettingsLoader";
 import { executionRuntimeEnvironment } from "../requestRouter/executionEnvironment";
 import { setBlocksExecutor } from "../requestRouter/executor";
 import { createHttpContext } from "../requestRouter/httpContext";
+import { contentTypeOf } from "../requestRouter/requestBody";
 import { createJobContext, executeRouteInternal } from "../requestRouter/service";
 import { evaluateAssertions } from "./assertions";
 import { buildHooks } from "./hookRuntime";
-import { contentTypeOf, decodeSuiteBody } from "./suiteBody";
+import { decodeSuiteBody } from "./suiteBody";
 import type {
 	SuiteOutcome,
 	TestBootstrap,

@@ -61,6 +61,8 @@ type CompiledWorkflow = {
 
 export type RouteValidators = {
 	body?: CompiledRequestSchema;
+	/** the same body schema, coercing: form values arrive as strings */
+	formBody?: CompiledRequestSchema;
 	query?: CompiledRequestSchema;
 	params?: CompiledRequestSchema;
 };
@@ -244,6 +246,7 @@ function addWorkflow(artifact: WorkflowArtifact) {
 function compileRouteValidators(artifact: RouteArtifact): RouteValidators {
 	return {
 		body: schemaValidator(artifact.bodySchema),
+		formBody: schemaValidator(artifact.bodySchema, true),
 		query: schemaValidator(artifact.querySchema, true),
 		params: schemaValidator(artifact.paramsSchema, true),
 	};
