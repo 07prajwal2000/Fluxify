@@ -73,3 +73,7 @@ Like other blocks that produce data, a custom block can **save its output to a v
 - Give the block a clear label and description. Those are what your teammates see in the block picker.
 - Keep a block focused on one job. A block that does one thing is easy to reuse.
 - You can reopen a custom block's canvas from the **Custom Blocks** page, or from a placed block by pressing **Edit Implementation** on its **General** tab.
+
+## Custom blocks for testing
+
+A custom block can also prepare and clean up data for [test suites](/testing/). Tick **Use only for test suite setup / teardown** in its settings to make it a test-only block: it is hidden from the block picker and never runs in live routes. See [Setup and Teardown](/testing/setup-and-teardown).
