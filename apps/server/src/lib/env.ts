@@ -321,7 +321,7 @@ export const serverEnvSchema = baseEnvSchema.extend({
 	ADMIN_RATE_LIMIT_PER_SEC: z
 		.string()
 		.optional()
-		.describe("Admin API requests allowed per second per user (default 10, 0 disables)"),
+		.describe("Admin API requests allowed per second per user (default 15, 0 disables)"),
 
 	// Background job queue. One stream serves every kind of job, so these tune
 	// the worker rather than any one feature.
