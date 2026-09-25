@@ -53,6 +53,30 @@ export type ApiKeyValue = {
 /** A multipart `file[]` field holds several files, sent under one repeated key. */
 export type ApiFormValue = string | File | File[];
 
+/** A form field typed in by hand, for routes that declare no body fields. */
+export type ApiFormRow = {
+	id: string;
+	key: string;
+	value: string | File;
+	/** multipart only: the value is picked as a file */
+	isFile?: boolean;
+};
+
+/**
+ * One request body, in every shape a content type can take. Only the slice for
+ * the current content type is sent; the rest survives switching back.
+ */
+export type ApiRequestBody = {
+	/** JSON or plain text */
+	raw: string;
+	/** form fields the body schema declares */
+	form: Record<string, ApiFormValue>;
+	/** form fields typed in by hand when the schema declares none */
+	formRows: ApiFormRow[];
+	/** octet-stream: a picked file, or base64 text */
+	binary: File | string;
+};
+
 export type ApiPlaygroundRequest = {
 	method: string;
 	/** URL after path-variable and query-string expansion. */
@@ -61,7 +85,7 @@ export type ApiPlaygroundRequest = {
 	pathParams: Record<string, string>;
 	query: Record<string, string>;
 	headers: Record<string, string>;
-	body?: string | FormData;
+	body?: string | FormData | Blob;
 	contentType?: string;
 };
 
@@ -81,8 +105,7 @@ export type ApiPlaygroundState = {
 	queryRows?: ApiKeyValue[];
 	headerRows?: ApiKeyValue[];
 	contentType?: string;
-	body?: string;
-	formBody?: Record<string, ApiFormValue>;
+	requestBody?: ApiRequestBody;
 	response?: ApiPlaygroundResponse;
 	validateBeforeSend?: boolean;
 };

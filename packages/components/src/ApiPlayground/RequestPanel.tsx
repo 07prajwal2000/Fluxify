@@ -1,14 +1,13 @@
 import { Button, Card as HeroCard, Input, ListBox, Select, Tabs } from "@heroui/react";
-import Editor from "@monaco-editor/react";
 import clsx from "clsx";
 import type { ReactNode } from "react";
 import { useMemo } from "react";
 import { TbAlertCircle, TbBraces, TbCode, TbPlus, TbTable } from "react-icons/tb";
 import { Checkbox } from "../Checkbox";
+import { BodyEditor } from "./BodyEditor";
 import { KeyValueTable } from "./KeyValueTable";
-import { SchemaForm } from "./SchemaForm";
-import type { ApiFormValue, ApiKeyValue, ApiPlaygroundRoute } from "./types";
-import { createRow, pathParameterNames, schemaProperties } from "./utils";
+import type { ApiKeyValue, ApiPlaygroundRoute, ApiRequestBody } from "./types";
+import { createRow, methodTakesBody, pathParameterNames, schemaProperties } from "./utils";
 import type { PlaygroundValidationErrors } from "./validation";
 
 type RequestPanelProps = {
@@ -17,8 +16,7 @@ type RequestPanelProps = {
 	pathRows: ApiKeyValue[];
 	queryRows: ApiKeyValue[];
 	headerRows: ApiKeyValue[];
-	body: string;
-	formBody: Record<string, ApiFormValue>;
+	requestBody: ApiRequestBody;
 	contentType: string;
 	selectedTab: string;
 	onTabChange: (tab: string) => void;
@@ -28,8 +26,7 @@ type RequestPanelProps = {
 	onPathRowsChange: (rows: ApiKeyValue[]) => void;
 	onQueryRowsChange: (rows: ApiKeyValue[]) => void;
 	onHeaderRowsChange: (rows: ApiKeyValue[]) => void;
-	onBodyChange: (body: string) => void;
-	onFormBodyChange: (body: Record<string, ApiFormValue>) => void;
+	onRequestBodyChange: (body: ApiRequestBody) => void;
 	onContentTypeChange: (contentType: string) => void;
 };
 
@@ -39,8 +36,7 @@ export function RequestPanel({
 	pathRows,
 	queryRows,
 	headerRows,
-	body,
-	formBody,
+	requestBody,
 	contentType,
 	selectedTab,
 	onTabChange,
@@ -50,13 +46,10 @@ export function RequestPanel({
 	onPathRowsChange,
 	onQueryRowsChange,
 	onHeaderRowsChange,
-	onBodyChange,
-	onFormBodyChange,
+	onRequestBodyChange,
 	onContentTypeChange,
 }: RequestPanelProps) {
-	const isForm =
-		contentType === "application/x-www-form-urlencoded" || contentType === "multipart/form-data";
-	const bodyLanguage = contentType.includes("json") ? "json" : "plaintext";
+	const hasBody = methodTakesBody(route.method);
 	const pathTypes = useMemo(
 		() =>
 			new Map(
@@ -255,7 +248,7 @@ export function RequestPanel({
 						title="Request Body"
 						icon={<TbBraces size={16} />}
 						action={
-							route.bodySchema ? (
+							hasBody ? (
 								<Select
 									selectedKey={contentType}
 									onSelectionChange={(key) => onContentTypeChange(key as string)}
@@ -288,41 +281,16 @@ export function RequestPanel({
 								<span>{errors.bodyError}</span>
 							</div>
 						)}
-						{!route.bodySchema ? (
-							<Empty label="This route has no request body schema." />
-						) : isForm ? (
-							<SchemaForm
+						{hasBody ? (
+							<BodyEditor
+								contentType={contentType}
 								schema={route.bodySchema}
-								value={formBody}
-								onChange={onFormBodyChange}
-								errors={errors?.formFields}
+								value={requestBody}
+								onChange={onRequestBodyChange}
+								errors={errors}
 							/>
 						) : (
-							<div
-								className={clsx(
-									"h-[calc(100%-20px)] min-h-64 overflow-hidden rounded-md border",
-									errors?.bodyError ? "border-danger" : "border-border",
-								)}
-							>
-								<Editor
-									height="100%"
-									language={bodyLanguage}
-									theme="vs-dark"
-									value={body}
-									onChange={(value) => onBodyChange(value ?? "")}
-									options={{
-										minimap: { enabled: false },
-										scrollBeyondLastLine: false,
-										automaticLayout: true,
-										fontSize: 13,
-										lineHeight: 20,
-										padding: { top: 10, bottom: 10 },
-										// EditContext focuses a plain div, which react-aria's Space handling
-										// doesn't treat as a text field; the textarea fallback keeps Space typing.
-										editContext: false,
-									}}
-								/>
-							</div>
+							<Empty label={`${route.method} requests don't carry a body.`} />
 						)}
 					</RequestCard>
 				</Tabs.Panel>

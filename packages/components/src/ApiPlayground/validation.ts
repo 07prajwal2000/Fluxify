@@ -1,6 +1,6 @@
 import { validatePropertyValue } from "./propertyValidation";
 import type { ApiFormValue, ApiKeyValue, ApiPlaygroundRoute } from "./types";
-import { pathParameterNames, schemaProperties } from "./utils";
+import { base64ToBlob, pathParameterNames, schemaProperties } from "./utils";
 
 export { validatePropertyValue };
 
@@ -139,8 +139,14 @@ function validateJsonBody(body: string, route: ApiPlaygroundRoute): string | und
 	return undefined;
 }
 
-function validateBinaryBody(body: string, route: ApiPlaygroundRoute): string | undefined {
-	const byteLength = new TextEncoder().encode(body).byteLength;
+function validateBinaryBody(body: File | string, route: ApiPlaygroundRoute): string | undefined {
+	let byteLength = 0;
+	if (body instanceof File) byteLength = body.size;
+	else if (body.trim()) {
+		const blob = base64ToBlob(body);
+		if (!blob) return "Body is not valid base64";
+		byteLength = blob.size;
+	}
 	const rules =
 		(route.bodySchema as { rules?: Array<{ type: string; value?: unknown }> })?.rules ?? [];
 	const maxSize = rules.find((r) => r.type === "maxSize" && r.value != null);
@@ -163,6 +169,7 @@ export function validatePlaygroundRequest({
 	contentType,
 	body,
 	formBody,
+	binary = "",
 }: {
 	route: ApiPlaygroundRoute;
 	rawPath: string;
@@ -171,6 +178,8 @@ export function validatePlaygroundRequest({
 	contentType: string;
 	body: string;
 	formBody: Record<string, ApiFormValue>;
+	/** octet-stream: a picked file, or base64 text */
+	binary?: File | string;
 }): PlaygroundValidationResult {
 	const isForm =
 		contentType === "application/x-www-form-urlencoded" || contentType === "multipart/form-data";
@@ -188,8 +197,8 @@ export function validatePlaygroundRequest({
 	const bodyError =
 		isJson && route.bodySchema
 			? validateJsonBody(body, route)
-			: isBinary && route.bodySchema
-				? validateBinaryBody(body, route)
+			: isBinary
+				? validateBinaryBody(binary, route)
 				: undefined;
 
 	const errors: PlaygroundValidationErrors = {

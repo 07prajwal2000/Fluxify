@@ -55,6 +55,8 @@ export function FilePicker({
 					<span className="min-w-0 flex-1 truncate">{file.name}</span>
 					<span className="shrink-0 text-[10px] text-muted">{formatBytes(file.size)}</span>
 					<CloseButton
+						// no "close" slot: inside a modal that would dismiss the modal
+						slot={null}
 						aria-label={`Remove ${file.name}`}
 						iconSize={13}
 						className="size-5 min-w-5"

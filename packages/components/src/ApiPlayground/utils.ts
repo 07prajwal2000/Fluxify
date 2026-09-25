@@ -1,4 +1,11 @@
-import type { ApiFormValue, ApiKeyValue, ApiSchema, ApiSchemaProperty } from "./types";
+import type {
+	ApiFormRow,
+	ApiFormValue,
+	ApiKeyValue,
+	ApiRequestBody,
+	ApiSchema,
+	ApiSchemaProperty,
+} from "./types";
 
 export const createRow = (key = "", value = "", required = false): ApiKeyValue => ({
 	id: crypto.randomUUID(),
@@ -59,19 +66,74 @@ export function statusTone(status: number) {
 	return "border-rose-500/30 bg-rose-500/10 text-rose-400";
 }
 
-export function serializeFormBody(body: Record<string, ApiFormValue>, contentType?: string) {
+/** Rows may repeat a key; the server turns a repeated key back into an array. */
+export function serializeFormBody(
+	body: Record<string, ApiFormValue> | ApiFormRow[],
+	contentType?: string,
+) {
+	const entries: [string, string | File][] = (
+		Array.isArray(body)
+			? body.filter((row) => row.key).map((row): [string, string | File] => [row.key, row.value])
+			: Object.entries(body).flatMap(([key, value]) =>
+					(Array.isArray(value) ? value : [value]).map((part): [string, string | File] => [
+						key,
+						part,
+					]),
+				)
+	).filter(([, value]) => value !== "");
 	if (contentType === "multipart/form-data") {
 		const form = new FormData();
-		for (const [key, value] of Object.entries(body)) {
-			// the server turns a repeated key back into an array
-			for (const part of Array.isArray(value) ? value : [value])
-				if (part !== "") form.append(key, part);
-		}
+		for (const [key, value] of entries) form.append(key, value);
 		return form;
 	}
 	return new URLSearchParams(
-		Object.entries(body).filter(([, value]) => typeof value === "string") as [string, string][],
+		entries.filter((entry): entry is [string, string] => typeof entry[1] === "string"),
 	).toString();
+}
+
+/** Methods the server reads a body for. */
+export const methodTakesBody = (method: string) => ["POST", "PUT"].includes(method.toUpperCase());
+
+export const isFormContentType = (contentType: string) =>
+	contentType === "application/x-www-form-urlencoded" || contentType === "multipart/form-data";
+
+/** null when the text is not base64 */
+export function base64ToBlob(text: string): Blob | null {
+	try {
+		const binary = atob(text.replace(/\s/g, ""));
+		return new Blob([Uint8Array.from(binary, (char) => char.charCodeAt(0))], {
+			type: "application/octet-stream",
+		});
+	} catch {
+		return null;
+	}
+}
+
+export const emptyRequestBody = (raw = ""): ApiRequestBody => ({
+	raw,
+	form: {},
+	formRows: [],
+	binary: "",
+});
+
+/** The payload for the current content type, or undefined for an empty one. */
+export function serializeRequestBody(
+	body: ApiRequestBody,
+	contentType: string,
+	schema?: ApiSchema | null,
+): string | FormData | Blob | undefined {
+	if (isFormContentType(contentType)) {
+		return serializeFormBody(
+			schemaProperties(schema).length > 0 ? body.form : body.formRows,
+			contentType,
+		);
+	}
+	if (contentType === "application/octet-stream") {
+		if (body.binary instanceof File) return body.binary;
+		// sent as typed when it isn't base64, so a bad body still reaches the server
+		return body.binary ? (base64ToBlob(body.binary) ?? body.binary) : undefined;
+	}
+	return body.raw;
 }
 
 export function resolvePathRows(

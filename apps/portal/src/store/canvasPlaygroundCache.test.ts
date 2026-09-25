@@ -17,7 +17,7 @@ describe("useCanvasPlaygroundCacheStore", () => {
 			queryRows: [{ id: "2", key: "search", value: "fluxify" }],
 			headerRows: [{ id: "3", key: "Content-Type", value: "application/json" }],
 			contentType: "application/json",
-			body: '{"test":true}',
+			requestBody: { raw: '{"test":true}', form: {}, formRows: [], binary: "" },
 			response: {
 				status: 200,
 				statusText: "OK",
@@ -35,12 +35,12 @@ describe("useCanvasPlaygroundCacheStore", () => {
 	});
 
 	it("clears state for specific routeId", () => {
-		useCanvasPlaygroundCacheStore.getState().setPlaygroundState("route-1", { body: "1" });
-		useCanvasPlaygroundCacheStore.getState().setPlaygroundState("route-2", { body: "2" });
+		useCanvasPlaygroundCacheStore.getState().setPlaygroundState("route-1", { contentType: "1" });
+		useCanvasPlaygroundCacheStore.getState().setPlaygroundState("route-2", { contentType: "2" });
 
 		useCanvasPlaygroundCacheStore.getState().clearPlaygroundState("route-1");
 
 		expect(useCanvasPlaygroundCacheStore.getState().getPlaygroundState("route-1")).toBeUndefined();
-		expect(useCanvasPlaygroundCacheStore.getState().getPlaygroundState("route-2")?.body).toBe("2");
+		expect(useCanvasPlaygroundCacheStore.getState().getPlaygroundState("route-2")?.contentType).toBe("2");
 	});
 });
