@@ -342,6 +342,7 @@ export function TestSuitesWorkbench({
 								)}
 								{tab === "Hooks" && (
 									<HooksEditor
+										suiteId={selectedId}
 										routeId={routeId}
 										hooks={draft.hooks}
 										onChange={(hooks) => patch({ hooks })}

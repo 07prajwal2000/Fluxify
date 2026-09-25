@@ -24,14 +24,22 @@ const tabClass = (active: boolean) =>
 	);
 
 /**
+ * Text typed in each mode, kept for the session so flipping Off / Script / JSON
+ * never loses work. Only what is selected at Save reaches the database.
+ */
+const unsaved = new Map<string, string>();
+
+/**
  * Per-block `onBefore` / `onAfter` hooks for one suite (#483): change what a
  * block gets or returns, or skip it with a made-up output.
  */
 export function HooksEditor({
+	suiteId,
 	routeId,
 	hooks,
 	onChange,
 }: {
+	suiteId: string;
 	routeId: string;
 	hooks: BlockHook[];
 	onChange: (next: BlockHook[]) => void;
@@ -63,6 +71,15 @@ export function HooksEditor({
 		const rest = hooks.filter((h) => h.blockId !== selected.id);
 		const updated = { ...hook, blockId: selected.id, [current.slot]: next };
 		onChange(updated.onBefore || updated.onAfter ? [...rest, updated] : rest);
+	}
+
+	function switchTo(kind: HookBody["kind"] | null) {
+		if ((body?.kind ?? null) === kind) return;
+		const key = (k: HookBody["kind"]) => `${suiteId}:${selected.id}:${current.slot}:${k}`;
+		if (body) unsaved.set(key(body.kind), body.value);
+		if (!kind) return setBody(null);
+		const fallback = kind === "json" ? "{}" : HOOK_TEMPLATES[current.slot];
+		setBody({ kind, value: unsaved.get(key(kind)) ?? fallback });
 	}
 
 	return (
@@ -108,16 +125,13 @@ export function HooksEditor({
 						</button>
 					))}
 					<span className="mx-2 h-4 w-px bg-border" />
-					<button type="button" className={tabClass(!body)} onClick={() => setBody(null)}>
+					<button type="button" className={tabClass(!body)} onClick={() => switchTo(null)}>
 						Off
 					</button>
 					<button
 						type="button"
 						className={tabClass(body?.kind === "script")}
-						onClick={() =>
-							body?.kind !== "script" &&
-							setBody({ kind: "script", value: HOOK_TEMPLATES[current.slot] })
-						}
+						onClick={() => switchTo("script")}
 					>
 						Script
 					</button>
@@ -125,7 +139,7 @@ export function HooksEditor({
 						<button
 							type="button"
 							className={tabClass(body?.kind === "json")}
-							onClick={() => body?.kind !== "json" && setBody({ kind: "json", value: "{}" })}
+							onClick={() => switchTo("json")}
 						>
 							JSON
 						</button>
