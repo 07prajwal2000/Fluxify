@@ -105,6 +105,13 @@ export function validatePropertyValue(
 		}
 	} else if (rawType === "arr" || rawType === "array") {
 		if (!Array.isArray(val)) return "Must be an array";
+		// e.g. each file of a `file[]` field against its own maxSize
+		if (prop.items) {
+			for (const [index, item] of val.entries()) {
+				const err = validatePropertyValue(item, prop.items, options);
+				if (err) return `Item ${index + 1}: ${err}`;
+			}
+		}
 	} else if (rawType === "object") {
 		if (typeof val !== "object" || val === null || Array.isArray(val)) return "Must be an object";
 	} else if (rawType === "enum") {

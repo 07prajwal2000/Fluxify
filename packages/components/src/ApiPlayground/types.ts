@@ -50,7 +50,8 @@ export type ApiKeyValue = {
 	required?: boolean;
 };
 
-export type ApiFormValue = string | File;
+/** A multipart `file[]` field holds several files, sent under one repeated key. */
+export type ApiFormValue = string | File | File[];
 
 export type ApiPlaygroundRequest = {
 	method: string;

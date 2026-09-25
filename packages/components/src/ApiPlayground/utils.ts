@@ -62,7 +62,11 @@ export function statusTone(status: number) {
 export function serializeFormBody(body: Record<string, ApiFormValue>, contentType?: string) {
 	if (contentType === "multipart/form-data") {
 		const form = new FormData();
-		for (const [key, value] of Object.entries(body)) if (value !== "") form.append(key, value);
+		for (const [key, value] of Object.entries(body)) {
+			// the server turns a repeated key back into an array
+			for (const part of Array.isArray(value) ? value : [value])
+				if (part !== "") form.append(key, part);
+		}
 		return form;
 	}
 	return new URLSearchParams(

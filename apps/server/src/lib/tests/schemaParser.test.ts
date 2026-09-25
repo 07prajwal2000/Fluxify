@@ -266,6 +266,26 @@ describe('schemaParser Exhaustive Test Suite', () => {
       expect((await parseRequestSchema(schema, [png(1), png(1), png(1)], context)).success).toBe(false); // too many
     });
 
+    // multipart only makes an array when a key repeats, so one upload arrives bare
+    test('A single upload satisfies an array of files', async () => {
+      const schema = {
+        dataType: 'object',
+        properties: [
+          {
+            key: 'docs',
+            dataType: 'arr',
+            items: { key: 'docs', dataType: 'file' },
+            rules: [{ type: 'minItems', value: 1 }],
+          },
+        ],
+      };
+
+      const result = await parseRequestSchema(schema, { docs: png(2) }, context);
+      expect(result.success).toBe(true);
+      expect((result.data as any).docs).toHaveLength(1);
+      expect((await parseRequestSchema(schema, { docs: 'x' }, context)).success).toBe(false);
+    });
+
     test('Blob accepts a raw octet-stream body, and its size rule holds', async () => {
       const schema = {
         dataType: 'blob',

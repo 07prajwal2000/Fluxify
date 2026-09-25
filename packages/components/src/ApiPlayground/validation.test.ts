@@ -30,6 +30,18 @@ describe("getMissingPathParams", () => {
 });
 
 describe("validatePropertyValue", () => {
+	it("checks each file of a file[] field against the item rules", () => {
+		const docs = {
+			key: "docs",
+			dataType: "arr",
+			items: { key: "docs", dataType: "file", rules: [{ type: "maxSize", value: 2 }] },
+		};
+		expect(validatePropertyValue([new File(["ab"], "a")], docs, { coerce: true })).toBeNull();
+		expect(validatePropertyValue([new File(["ab"], "a"), new File(["abc"], "b")], docs, { coerce: true })).toBe(
+			"Item 2: Must be at most 2 bytes",
+		);
+	});
+
 	it("validates int / integer types", () => {
 		expect(validatePropertyValue("123", { key: "age", dataType: "int" }, { coerce: true })).toBeNull();
 		expect(validatePropertyValue("-5", { key: "age", dataType: "int" }, { coerce: true })).toBeNull();

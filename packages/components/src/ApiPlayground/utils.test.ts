@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { formatResponseBody, resolvePathRows, resolveQueryRows } from "./utils";
+import { formatResponseBody, resolvePathRows, resolveQueryRows, serializeFormBody } from "./utils";
 
 describe("formatResponseBody", () => {
 	it("pretty-prints valid application/json responses", () => {
@@ -68,3 +68,14 @@ describe("resolveQueryRows", () => {
 	});
 });
 
+describe("serializeFormBody", () => {
+	it("sends each file of a multi-file field under the same key", () => {
+		const a = new File(["a"], "a.txt");
+		const b = new File(["b"], "b.txt");
+		const form = serializeFormBody({ docs: [a, b], note: "hi", empty: "" }, "multipart/form-data");
+		expect(form).toBeInstanceOf(FormData);
+		expect((form as FormData).getAll("docs").map((f) => (f as File).name)).toEqual(["a.txt", "b.txt"]);
+		expect((form as FormData).get("note")).toBe("hi");
+		expect((form as FormData).has("empty")).toBe(false);
+	});
+});

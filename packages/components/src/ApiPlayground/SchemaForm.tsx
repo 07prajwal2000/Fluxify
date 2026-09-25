@@ -1,6 +1,7 @@
 import { Checkbox, Input } from "@heroui/react";
 import clsx from "clsx";
 import { useEffect, useMemo } from "react";
+import { FilePicker } from "./FilePicker";
 import type { ApiFormValue, ApiSchema } from "./types";
 import { schemaProperties } from "./utils";
 
@@ -29,21 +30,25 @@ export function SchemaForm({ schema, value, onChange, errors }: SchemaFormProps)
 		<div className="grid grid-cols-2 gap-3">
 			{fields.map((field) => {
 				const isInvalid = Boolean(errors?.[field.key]);
+				const multiple = field.dataType === "arr" && field.items?.dataType === "file";
 				const type =
 					field.dataType === "bool"
 						? "checkbox"
 						: field.dataType === "int" || field.dataType === "float"
 							? "number"
-							: field.dataType === "file"
+							: field.dataType === "file" || multiple
 								? "file"
 								: "text";
+				// a label forwards every click inside it to the hidden file input
+				const Wrapper = type === "file" ? "div" : "label";
 				return (
-					// biome-ignore lint/a11y/noLabelWithoutControl: the label wraps the Input/Checkbox below
-					<label className="min-w-0 space-y-1.5" key={field.key}>
+					<Wrapper className="min-w-0 space-y-1.5" key={field.key}>
 						<span className="flex gap-1 font-mono text-[11px] text-muted">
 							<span className="truncate">{field.key}</span>
 							{field.required && <span className="text-danger">*</span>}
-							<span className="ml-auto text-[10px]">{field.dataType ?? "str"}</span>
+							<span className="ml-auto text-[10px]">
+								{multiple ? "file[]" : (field.dataType ?? "str")}
+							</span>
 						</span>
 						{type === "checkbox" ? (
 							<Checkbox
@@ -52,18 +57,26 @@ export function SchemaForm({ schema, value, onChange, errors }: SchemaFormProps)
 							>
 								Enabled
 							</Checkbox>
+						) : type === "file" ? (
+							<FilePicker
+								aria-label={field.key}
+								multiple={multiple}
+								isInvalid={isInvalid}
+								files={toFiles(value[field.key])}
+								onChange={(files) =>
+									onChange({
+										...value,
+										// "" keeps an emptied field reading as missing
+										[field.key]: files.length === 0 ? "" : multiple ? files : files[0]!,
+									})
+								}
+							/>
 						) : (
 							<Input
 								aria-invalid={isInvalid}
 								type={type}
-								value={type !== "file" ? String(value[field.key] ?? "") : undefined}
-								onChange={(event) =>
-									onChange({
-										...value,
-										[field.key]:
-											type === "file" ? (event.target.files?.[0] ?? "") : event.target.value,
-									})
-								}
+								value={String(value[field.key] ?? "")}
+								onChange={(event) => onChange({ ...value, [field.key]: event.target.value })}
 								className={clsx(
 									"w-full font-mono text-xs",
 									isInvalid && "border-danger text-danger",
@@ -73,9 +86,14 @@ export function SchemaForm({ schema, value, onChange, errors }: SchemaFormProps)
 						{isInvalid && errors && (
 							<span className="text-[10px] text-danger block">{errors[field.key]}</span>
 						)}
-					</label>
+					</Wrapper>
 				);
 			})}
 		</div>
 	);
+}
+
+function toFiles(value: ApiFormValue | undefined): File[] {
+	if (Array.isArray(value)) return value;
+	return value instanceof File ? [value] : [];
 }
