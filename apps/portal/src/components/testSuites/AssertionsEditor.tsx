@@ -6,6 +6,7 @@ import {
 	Label,
 	ListBox,
 	Select,
+	usePackageTypes,
 } from "@fluxify/components";
 import { TbPlus } from "react-icons/tb";
 import {
@@ -21,7 +22,7 @@ import {
 	TARGET_LABELS,
 	validateAssertions,
 } from "./assertions";
-import { EXPECT_TYPES } from "./expectTypes";
+import { EXPECT_TYPES, T_ZOD, ZOD_VERSION } from "./expectTypes";
 
 const inputClass =
 	"w-full rounded-md border border-border bg-background-secondary px-2 py-1.5 text-sm text-foreground outline-none placeholder:text-muted focus:border-accent";
@@ -55,7 +56,7 @@ declare const fluxify: {
 ${EXPECT_TYPES}
 declare const t: {
   expect: Expect;
-};
+${T_ZOD}};
 `;
 
 function AssertionRow({
@@ -184,6 +185,7 @@ export function AssertionsEditor({
 	assertions: Assertion[];
 	onChange: (next: Assertion[]) => void;
 }) {
+	usePackageTypes("zod", ZOD_VERSION);
 	const errors = validateAssertions(assertions);
 
 	function replace(index: number, next: Assertion) {

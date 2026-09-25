@@ -178,6 +178,18 @@ t.expect(fluxify.response.body.user).toEqual({ name: "ada" });`,
 		expect(verdict.result[0]!.message).toBe("status: expected 500 to be 201");
 	});
 
+	it("gives custom JS zod as t.zod to check a response's shape", async () => {
+		const verdict = await run([
+			{
+				target: "customJs",
+				customJs: `const User = t.zod.object({ user: t.zod.object({ name: t.zod.string() }) });
+t.expect(User.safeParse(fluxify.response.body).success, "body shape").toBe(true);
+t.expect(t.zod.number().safeParse("x").success).toBe(false);`,
+			},
+		] as AssertionType[]);
+		expect(verdict.result.map((r) => r.success)).toEqual([true, true]);
+	});
+
 	it("fails custom JS that makes no checks, so an old truthy return cannot pass silently", async () => {
 		const verdict = await run([{ target: "customJs", customJs: "return true;" }] as AssertionType[]);
 		expect(verdict.success).toBe(false);

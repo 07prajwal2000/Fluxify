@@ -1,8 +1,9 @@
-import { cn, JavaScriptTextArea, Label, Spinner } from "@fluxify/components";
+import { cn, JavaScriptTextArea, Label, Spinner, usePackageTypes } from "@fluxify/components";
 import { useMemo, useState } from "react";
 import { blockLabels } from "@/components/canvas/blocks/blockLabels";
 import type { BlockData } from "@/components/canvas/types";
 import { routesQuery } from "@/query/routesQuery";
+import { ZOD_VERSION } from "./expectTypes";
 import {
 	HOOK_TEMPLATES,
 	type HookSlot,
@@ -44,6 +45,7 @@ export function HooksEditor({
 	hooks: BlockHook[];
 	onChange: (next: BlockHook[]) => void;
 }) {
+	usePackageTypes("zod", ZOD_VERSION);
 	const canvas = routesQuery.canvasItems.useQuery(routeId);
 	const blocks = useMemo(
 		() =>

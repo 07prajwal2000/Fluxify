@@ -1,3 +1,4 @@
+import { z } from "zod";
 import type { AssertionResult, TestHookBody } from "../../db/schema";
 import { createExpect } from "./expect";
 import type { SuiteHook } from "./hooks";
@@ -23,7 +24,8 @@ type CompiledHooks = Record<
  * config.
  *
  * `t` per call: `skip(output, branch?)` (no `return` needed), `fail(message)`,
- * `call` (1, 2, 3… per block, for loops), `vars`, `block`, `runId`, `expect`.
+ * `call` (1, 2, 3… per block, for loops), `vars`, `block`, `runId`, `expect`,
+ * `zod` (check a value's shape: `t.zod.object({ id: t.zod.number() }).parse(output)`).
  * `t.expect` lines land in `checks`, labelled with the block.
  */
 export function buildHooks(
@@ -44,6 +46,7 @@ export function buildHooks(
 			block,
 			runId: env.runId,
 			expect,
+			zod: z,
 			skip: skip ?? (() => fail("t.skip only works in onBefore")),
 			fail,
 		});

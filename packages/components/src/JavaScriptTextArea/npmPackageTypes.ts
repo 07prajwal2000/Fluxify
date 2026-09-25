@@ -140,3 +140,14 @@ export function useNpmPackageTypes(
 		}
 	}, [key]);
 }
+
+/**
+ * Types for one package the editor itself hands to user code (e.g. zod as
+ * `t.zod` in test suites), loaded once and without touching the project's
+ * import list.
+ */
+export function usePackageTypes(name: string, version: string) {
+	useEffect(() => {
+		loadDependency(name, version);
+	}, [name, version]);
+}

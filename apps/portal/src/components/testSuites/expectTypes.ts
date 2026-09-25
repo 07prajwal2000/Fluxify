@@ -28,3 +28,11 @@ type Matchers = {
  */
 type Expect = (actual: unknown, label?: string) => Matchers & { not: Matchers };
 `;
+
+/** the server's zod (`t.zod`); its types load from the CDN at this version */
+export const ZOD_VERSION = "4.4.3";
+
+/** the `t.zod` member, for any `t` declaration */
+export const T_ZOD = `  /** zod, to check a value's shape: \`t.zod.object({ id: t.zod.number() }).parse(output)\` */
+  zod: typeof import("zod").z;
+`;

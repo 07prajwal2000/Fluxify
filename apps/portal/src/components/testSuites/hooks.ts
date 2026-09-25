@@ -1,5 +1,5 @@
 import { type HookSupport, hookSupport, skipBranches } from "@fluxify/blocks/testHooks";
-import { EXPECT_TYPES } from "./expectTypes";
+import { EXPECT_TYPES, T_ZOD } from "./expectTypes";
 import type { BlockHook } from "./types";
 
 export type HookSlot = "onBefore" | "onAfter";
@@ -64,6 +64,6 @@ ${skip}  /** fail the block: the route's error handler runs */
   /** unique per suite run: make seed data unique with it */
   runId: string;
   expect: Expect;
-};
+${T_ZOD}};
 `;
 }

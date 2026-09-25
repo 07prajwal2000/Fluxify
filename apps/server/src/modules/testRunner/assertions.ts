@@ -1,6 +1,6 @@
 import { JsVM } from "@fluxify/lib";
 import type { InferSelectModel } from "drizzle-orm";
-import type { z } from "zod";
+import { z } from "zod";
 import type { assertionSchema } from "../../api/v1/test-suites/schema";
 import type { AssertionResult, routesEntity, testSuitesEntity } from "../../db/schema";
 import { createExpect } from "./expect";
@@ -211,7 +211,7 @@ async function runCustomJs(code: string, ctx: AssertionContext): Promise<Asserti
 				status: ctx.status,
 			},
 		},
-		t: { expect: createExpect((r) => checks.push(r)) },
+		t: { expect: createExpect((r) => checks.push(r)), zod: z },
 	});
 	await vm.runAsync(code);
 	if (checks.length === 0) {
