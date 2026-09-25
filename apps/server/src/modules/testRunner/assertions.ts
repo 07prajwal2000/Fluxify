@@ -43,7 +43,7 @@ export function buildSuiteRequest(
 	const method = (route.method || "GET").toUpperCase();
 	const hasContentType = Object.keys(headers).some((k) => k.toLowerCase() === "content-type");
 	if (!hasContentType && ["POST", "PUT"].includes(method)) {
-		headers["Content-Type"] = "application/json";
+		headers["Content-Type"] = suite.contentType ?? "application/json";
 	}
 
 	return {

@@ -15,7 +15,10 @@ export type SuiteDraft = {
 	headers: Record<string, string>;
 	queryParams: Record<string, string>;
 	routeParams: Record<string, string>;
-	body: Record<string, unknown> | null;
+	/** null sends JSON */
+	contentType: string | null;
+	/** stored shape, see bodyCodec */
+	body: unknown;
 	assertions: Assertion[];
 	appConfigOverrides: { key: string; value: string }[];
 	integrationOverrides: { existingId: string; newId: string }[];
@@ -34,7 +37,8 @@ export function toDraft(suite: TestSuiteDetail | undefined): SuiteDraft {
 		headers: (suite?.headers as Record<string, string>) ?? {},
 		queryParams: (suite?.queryParams as Record<string, string>) ?? {},
 		routeParams: (suite?.routeParams as Record<string, string>) ?? {},
-		body: (suite?.body as Record<string, unknown> | undefined) ?? null,
+		contentType: suite?.contentType ?? null,
+		body: suite?.body ?? null,
 		assertions: (suite?.assertions as Assertion[]) ?? [],
 		appConfigOverrides: suite?.appConfigOverrides ?? [],
 		integrationOverrides: suite?.integrationOverrides ?? [],

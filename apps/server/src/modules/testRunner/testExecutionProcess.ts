@@ -14,6 +14,7 @@ import { createHttpContext } from "../requestRouter/httpContext";
 import { createJobContext, executeRouteInternal } from "../requestRouter/service";
 import { evaluateAssertions } from "./assertions";
 import { buildHooks } from "./hookRuntime";
+import { contentTypeOf, decodeSuiteBody } from "./suiteBody";
 import type {
 	SuiteOutcome,
 	TestBootstrap,
@@ -204,7 +205,10 @@ async function runRoute(boot: TestBootstrap, setup: unknown): Promise<TestResult
 				// watchdog uses, so neither can silently outlive the other
 				timeoutSeconds: boot.timeoutMs / 1000,
 			},
-			boot.request,
+			{
+				...boot.request,
+				body: decodeSuiteBody(boot.request.body, contentTypeOf(boot.request.headers)),
+			},
 			ctx as any,
 		);
 

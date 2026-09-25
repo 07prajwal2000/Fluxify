@@ -530,7 +530,9 @@ export const testSuitesEntity = pgTable("test_suites", {
 	params: jsonb("params").$type<Record<string, string>>().default({}),
 	queryParams: jsonb("query_params").$type<Record<string, string>>().default({}),
 	routeParams: jsonb("route_params").$type<Record<string, string>>().default({}),
-	body: jsonb("body").$type<Record<string, unknown>>(),
+	/** null sends JSON; see testSuiteCoreSchema for the body shape per type */
+	contentType: varchar("content_type", { length: 100 }),
+	body: jsonb("body").$type<unknown>(),
 
 	// Assertions
 	assertions: jsonb("assertions").$type<any[]>().notNull().default([]),

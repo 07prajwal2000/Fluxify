@@ -12,6 +12,8 @@ import type z from "zod";
 import { httpClient } from "@/lib/http";
 import { canvasEndpoints } from "./canvas";
 
+export type RouteDetail = z.infer<typeof getByIdResponseSchema>;
+
 const baseUrl = "/v1/routes";
 
 export type ListRoutesQuery = { page?: number; perPage?: number; projectId: string };
