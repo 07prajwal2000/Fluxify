@@ -62,7 +62,7 @@ If any validation step fails, the workflow never runs and the caller immediately
 
 A route declares which body formats it accepts. New routes accept
 **`application/json`** only; choose more under **Accepted content types** when
-you create the route.
+you create the route, or later in the route's **Settings**.
 
 | Content type | What your workflow receives |
 | :--- | :--- |
@@ -87,7 +87,7 @@ Each route optionally has three schemas you can configure in the Schema Editor:
 
 | Schema | What It Validates |
 | :--- | :--- |
-| **Body Schema** | The JSON data in the request body (`POST`, `PUT`) |
+| **Body Schema** | The request body (`POST`, `PUT`): JSON, form fields, uploaded files or raw binary |
 | **Query Schema** | URL query parameters (e.g. `?page=2&limit=10`) |
 | **Params Schema** | URL path values (e.g. the `42` in `/users/42`) |
 
@@ -104,9 +104,42 @@ You only need to configure the ones that matter for your route — unused schema
 | `Array` | A list of items, with optional min/max item count |
 | `Object` | A structured set of named fields (can be nested) |
 | `Enum` | One specific value from a predefined list |
-| `File` | An uploaded file from a `multipart/form-data` request, with optional size and file-type rules |
+| `File` | One uploaded file from a `multipart/form-data` request, with optional size and file-type rules |
 | `Blob` | A raw binary body (`application/octet-stream`), with optional size rules |
 | `Use JavaScript` | Custom validation logic you write yourself |
+
+### Form Fields Are Converted for You
+
+Everything in a form body (`application/x-www-form-urlencoded` or
+`multipart/form-data`) arrives as text, because that is how forms are sent.
+Fluxify converts form fields to the type your schema declares before checking
+them, the same way it does for query and path values:
+
+| Field type | Sent in the form | Your workflow receives |
+| :--- | :--- | :--- |
+| `Integer` | `age=25` | `25` |
+| `Boolean` | `active=false` | `false` |
+
+A JSON body is **not** converted. JSON has real numbers and booleans, so
+`{ "age": "25" }` fails an `Integer` field. Send `{ "age": 25 }` instead.
+
+### Accepting Several Files
+
+A `File` field takes exactly one file. To let callers upload more than one
+under the same name, make the field an `Array` and set its item type to `File`:
+
+| Field set up as | One file sent | Several files sent |
+| :--- | :--- | :--- |
+| `File` | Accepted | Rejected with `400` |
+| `Array` of `File` | Accepted, as a list of one | Accepted, as a list |
+
+Size and file-type rules on the item apply to **each** file. Minimum and
+maximum item counts on the array limit **how many** files can be sent.
+
+::: tip Sending several files
+In a multipart request, repeat the same field name once per file. With curl:
+`curl -F docs=@a.pdf -F docs=@b.pdf ...`
+:::
 
 ### Marking Fields as Required
 
@@ -183,6 +216,25 @@ Here's every possible outcome and what the caller receives:
 ::: info Custom Status Codes
 Your workflow can return any HTTP status code you choose using the **Response** block — the defaults above only apply when no status is explicitly set.
 :::
+## Trying a Route in the Playground
+
+The **Playground** sends a real request to your route and shows the response.
+Open it with the **Playground** button on the Routes page, or the play button
+on the route's canvas.
+
+For `POST` and `PUT` routes, pick a content type on the **Body** tab. The
+editor changes to match it:
+
+| Content type | How you fill in the body |
+| :--- | :--- |
+| `application/json`, `text/plain` | Type it into the editor |
+| Form types | Fill in the fields from your body schema. With no schema, add fields yourself; in `multipart/form-data` each field can hold text or a file |
+| `application/octet-stream` | Choose a file, or paste the data as base64 |
+
+You can send a body even when the route has no body schema. Leave
+**Validate** on to have the playground check your input against the route's
+schemas before sending; turn it off to see how the route itself answers bad input.
+
 ## Next Steps
 
 - 🧩 [Explore the Blocks Reference](../blocks/index.md) — build the workflow logic that runs after validation
