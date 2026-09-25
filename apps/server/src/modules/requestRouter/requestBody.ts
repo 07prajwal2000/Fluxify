@@ -30,6 +30,22 @@ export function mediaType(header?: string | null): string {
 	return (header ?? "").split(";")[0]!.trim().toLowerCase();
 }
 
+/** the media type a header map declares, whatever the header's casing */
+export function contentTypeOf(headers: Record<string, string>): string {
+	const [, value] =
+		Object.entries(headers).find(([key]) => key.toLowerCase() === "content-type") ?? [];
+	return mediaType(value);
+}
+
+/**
+ * Form values are always strings on the wire, so a form body is validated with
+ * coercion, the same as query and params. JSON carries real types and stays strict.
+ */
+export function isFormBody(headers: Record<string, string>): boolean {
+	const type = contentTypeOf(headers);
+	return type === "application/x-www-form-urlencoded" || type === "multipart/form-data";
+}
+
 function isSupported(type: string): type is ContentType {
 	return (CONTENT_TYPES as readonly string[]).includes(type);
 }

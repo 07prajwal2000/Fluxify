@@ -352,9 +352,10 @@ export function TestSuitesWorkbench({
 							<div className="min-h-0 flex-1 overflow-y-auto p-4">
 								{tab === "Request" && (
 									<RequestEditor
+										// the body editor holds local state, seeded per suite
+										key={selectedId}
 										draft={draft}
-										routePath={route.data?.path}
-										method={route.data?.method}
+										route={route.data}
 										onChange={patch}
 									/>
 								)}

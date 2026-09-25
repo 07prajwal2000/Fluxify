@@ -30,6 +30,18 @@ describe("getMissingPathParams", () => {
 });
 
 describe("validatePropertyValue", () => {
+	it("checks each file of a file[] field against the item rules", () => {
+		const docs = {
+			key: "docs",
+			dataType: "arr",
+			items: { key: "docs", dataType: "file", rules: [{ type: "maxSize", value: 2 }] },
+		};
+		expect(validatePropertyValue([new File(["ab"], "a")], docs, { coerce: true })).toBeNull();
+		expect(validatePropertyValue([new File(["ab"], "a"), new File(["abc"], "b")], docs, { coerce: true })).toBe(
+			"Item 2: Must be at most 2 bytes",
+		);
+	});
+
 	it("validates int / integer types", () => {
 		expect(validatePropertyValue("123", { key: "age", dataType: "int" }, { coerce: true })).toBeNull();
 		expect(validatePropertyValue("-5", { key: "age", dataType: "int" }, { coerce: true })).toBeNull();
@@ -321,8 +333,9 @@ describe("validatePlaygroundRequest", () => {
 			pathRows: [],
 			queryRows: [],
 			contentType: "application/octet-stream",
-			body: "hi",
+			body: "",
 			formBody: {},
+			binary: new File(["hi"], "a.bin"),
 		});
 		expect(tooShort.isValid).toBe(false);
 		expect(tooShort.toastMessage).toContain("below minimum of 5 bytes");
@@ -334,8 +347,9 @@ describe("validatePlaygroundRequest", () => {
 			pathRows: [],
 			queryRows: [],
 			contentType: "application/octet-stream",
-			body: "this is much too long",
+			body: "",
 			formBody: {},
+			binary: btoa("this is much too long"),
 		});
 		expect(tooLarge.isValid).toBe(false);
 		expect(tooLarge.toastMessage).toContain("exceeds maximum of 10 bytes");
@@ -347,10 +361,23 @@ describe("validatePlaygroundRequest", () => {
 			pathRows: [],
 			queryRows: [],
 			contentType: "application/octet-stream",
-			body: "1234567",
+			body: "",
 			formBody: {},
+			binary: btoa("1234567"),
 		});
 		expect(valid.isValid).toBe(true);
+
+		const notBase64 = validatePlaygroundRequest({
+			route,
+			rawPath: "/upload",
+			pathRows: [],
+			queryRows: [],
+			contentType: "application/octet-stream",
+			body: "",
+			formBody: {},
+			binary: "not base64!",
+		});
+		expect(notBase64.toastMessage).toBe("Body is not valid base64");
 	});
 
 	it("passes valid requests without errors", () => {

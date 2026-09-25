@@ -11,9 +11,11 @@ import { hydrateProjectSettings } from "../../loaders/projectSettingsLoader";
 import { executionRuntimeEnvironment } from "../requestRouter/executionEnvironment";
 import { setBlocksExecutor } from "../requestRouter/executor";
 import { createHttpContext } from "../requestRouter/httpContext";
+import { contentTypeOf } from "../requestRouter/requestBody";
 import { createJobContext, executeRouteInternal } from "../requestRouter/service";
 import { evaluateAssertions } from "./assertions";
 import { buildHooks } from "./hookRuntime";
+import { decodeSuiteBody } from "./suiteBody";
 import type {
 	SuiteOutcome,
 	TestBootstrap,
@@ -204,7 +206,10 @@ async function runRoute(boot: TestBootstrap, setup: unknown): Promise<TestResult
 				// watchdog uses, so neither can silently outlive the other
 				timeoutSeconds: boot.timeoutMs / 1000,
 			},
-			boot.request,
+			{
+				...boot.request,
+				body: decodeSuiteBody(boot.request.body, contentTypeOf(boot.request.headers)),
+			},
 			ctx as any,
 		);
 

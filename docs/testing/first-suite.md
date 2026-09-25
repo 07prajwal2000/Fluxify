@@ -25,7 +25,21 @@ The **Request** tab is the request the suite sends to the route.
 | Path parameters | A value for each `:name` in the route's path | `id` → `42` |
 | Query parameters | Values after `?` in the address | `include` → `profile` |
 | Headers | Request headers | `Authorization` → `Bearer test-token` |
-| Body | JSON sent with the request (only for methods that take a body, such as POST and PUT) | `{ "name": "Ada" }` |
+| Body | The request body (only for methods that take a body, such as POST and PUT). Pick a content type first; see below | `{ "name": "Ada" }` |
+
+### Sending a form, a file or raw data
+
+The body has a content type picker with the formats the route accepts. The
+suite remembers your choice and sends that format.
+
+| Content type | How you fill in the body |
+| --- | --- |
+| `application/json`, `text/plain` | Type it into the editor |
+| Form types | Fill in the fields. In `multipart/form-data` a field can hold a file |
+| `application/octet-stream` | Choose a file, or paste the data as base64 |
+
+Files are saved with the suite, so each one must be **1 MB or smaller**. The
+route receives them exactly as it would from a real upload.
 
 ::: tip
 If you leave a path parameter empty, the request will not match the route and the suite fails with a clear message. Fill in every one.

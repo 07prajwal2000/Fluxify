@@ -1,5 +1,12 @@
 import { describe, expect, it } from "bun:test";
-import { formatResponseBody, resolvePathRows, resolveQueryRows } from "./utils";
+import {
+	emptyRequestBody,
+	formatResponseBody,
+	resolvePathRows,
+	resolveQueryRows,
+	serializeFormBody,
+	serializeRequestBody,
+} from "./utils";
 
 describe("formatResponseBody", () => {
 	it("pretty-prints valid application/json responses", () => {
@@ -68,3 +75,43 @@ describe("resolveQueryRows", () => {
 	});
 });
 
+describe("serializeFormBody", () => {
+	it("sends each file of a multi-file field under the same key", () => {
+		const a = new File(["a"], "a.txt");
+		const b = new File(["b"], "b.txt");
+		const form = serializeFormBody({ docs: [a, b], note: "hi", empty: "" }, "multipart/form-data");
+		expect(form).toBeInstanceOf(FormData);
+		expect((form as FormData).getAll("docs").map((f) => (f as File).name)).toEqual(["a.txt", "b.txt"]);
+		expect((form as FormData).get("note")).toBe("hi");
+		expect((form as FormData).has("empty")).toBe(false);
+	});
+});
+
+describe("serializeRequestBody", () => {
+	it("sends hand-typed rows when the schema declares no fields, repeating keys", () => {
+		const a = new File(["a"], "a.txt");
+		const body = {
+			...emptyRequestBody(),
+			formRows: [
+				{ id: "1", key: "docs", value: a, isFile: true },
+				{ id: "2", key: "docs", value: "b" },
+				{ id: "3", key: "", value: "dropped" },
+			],
+		};
+		const form = serializeRequestBody(body, "multipart/form-data", null) as FormData;
+		expect(form.getAll("docs")).toHaveLength(2);
+		expect(serializeRequestBody(body, "application/x-www-form-urlencoded", null)).toBe("docs=b");
+	});
+
+	it("decodes base64 for octet-stream, and passes a picked file through", async () => {
+		const blob = serializeRequestBody({ ...emptyRequestBody(), binary: btoa("hi") }, "application/octet-stream");
+		expect(await (blob as Blob).text()).toBe("hi");
+		const file = new File(["x"], "x.bin");
+		expect(serializeRequestBody({ ...emptyRequestBody(), binary: file }, "application/octet-stream")).toBe(file);
+		expect(serializeRequestBody(emptyRequestBody(), "application/octet-stream")).toBeUndefined();
+	});
+
+	it("sends raw text for JSON", () => {
+		expect(serializeRequestBody(emptyRequestBody('{"a":1}'), "application/json")).toBe('{"a":1}');
+	});
+});

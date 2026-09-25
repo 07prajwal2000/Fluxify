@@ -42,7 +42,7 @@ import {
 	runWithRouteObserver,
 } from "./dispatchSupport";
 import { runBlocks } from "./executor";
-import { RequestBodyError } from "./requestBody";
+import { isFormBody, RequestBodyError } from "./requestBody";
 import { type RouteTraceFactory, startRouteTrace, traceCompleter } from "./traceLifecycle";
 import type { RequestEnvelope } from "./types";
 
@@ -167,6 +167,7 @@ export async function executeRouteInternal(
 		trace?: BlockTrace;
 		validators?: {
 			body?: CompiledRequestSchema;
+			formBody?: CompiledRequestSchema;
 			query?: CompiledRequestSchema;
 			params?: CompiledRequestSchema;
 		};
@@ -197,13 +198,12 @@ export async function executeRouteInternal(
 	);
 
 	if (routeInfo.bodySchema && Object.keys(routeInfo.bodySchema).length > 0) {
+		const coerce = isFormBody(requestData.headers);
 		const result = await validateSchema(
-			routeInfo.validators?.body,
+			coerce ? routeInfo.validators?.formBody : routeInfo.validators?.body,
 			routeInfo.bodySchema,
 			requestData.body,
-			{
-				vars,
-			},
+			{ vars, coerce },
 		);
 		if (!result.success) {
 			return {

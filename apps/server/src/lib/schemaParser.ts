@@ -216,6 +216,12 @@ export function buildZodSchema(schemaDef: any, coerce = false): z.ZodTypeAny {
 		}
 
 		zSchema = applyRules(zSchema, dataType, rules);
+
+		// multipart repeats a key for each file, so a lone upload arrives bare.
+		// Only a Blob is wrapped: JSON can't produce one, so JSON bodies stay strict.
+		if (dataType === "arr") {
+			zSchema = z.preprocess((v) => (v instanceof Blob ? [v] : v), zSchema);
+		}
 	}
 
 	if (required === false) {

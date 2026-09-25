@@ -5,19 +5,21 @@ import { TbLoader2, TbPlayerPlayFilled } from "react-icons/tb";
 import { RequestPanel } from "./RequestPanel";
 import { ResponsePanel } from "./ResponsePanel";
 import type {
-	ApiFormValue,
 	ApiKeyValue,
 	ApiPlaygroundProps,
 	ApiPlaygroundRequest,
 	ApiPlaygroundResponse,
 	ApiPlaygroundState,
+	ApiRequestBody,
 } from "./types";
 import {
 	createRow,
+	emptyRequestBody,
+	methodTakesBody,
 	pathParameterNames,
 	resolvePathRows,
 	resolveQueryRows,
-	serializeFormBody,
+	serializeRequestBody,
 } from "./utils";
 import { type PlaygroundValidationErrors, validatePlaygroundRequest } from "./validation";
 
@@ -59,9 +61,8 @@ export function ApiPlayground({
 				.map(([key, value]) => createRow(key, value)),
 		];
 	});
-	const [body, setBody] = useState(initialState?.body ?? initialBody ?? "{} ");
-	const [formBody, setFormBody] = useState<Record<string, ApiFormValue>>(
-		initialState?.formBody ?? {},
+	const [requestBody, setRequestBody] = useState<ApiRequestBody>(
+		() => initialState?.requestBody ?? emptyRequestBody(initialBody ?? "{} "),
 	);
 	const [response, setResponse] = useState<ApiPlaygroundResponse | undefined>(
 		initialState?.response,
@@ -110,11 +111,10 @@ export function ApiPlayground({
 				pathRows,
 				queryRows,
 				headerRows,
-				body,
-				formBody,
+				requestBody,
 				contentType,
 			}),
-		[route, rawPath, baseUrl, pathRows, queryRows, headerRows, body, formBody, contentType],
+		[route, rawPath, baseUrl, pathRows, queryRows, headerRows, requestBody, contentType],
 	);
 	useEffect(() => {
 		onRequestChange?.({
@@ -132,8 +132,7 @@ export function ApiPlayground({
 			queryRows,
 			headerRows,
 			contentType,
-			body,
-			formBody,
+			requestBody,
 			response,
 			validateBeforeSend,
 		});
@@ -143,8 +142,7 @@ export function ApiPlayground({
 		queryRows,
 		headerRows,
 		contentType,
-		body,
-		formBody,
+		requestBody,
 		response,
 		validateBeforeSend,
 	]);
@@ -179,17 +177,10 @@ export function ApiPlayground({
 		}
 	}
 
-	function handleBodyChange(value: string) {
-		setBody(value);
-		if (errors.bodyError) {
-			setErrors((current) => ({ ...current, bodyError: undefined }));
-		}
-	}
-
-	function handleFormBodyChange(value: Record<string, ApiFormValue>) {
-		setFormBody(value);
-		if (Object.keys(errors.formFields).length > 0) {
-			setErrors((current) => ({ ...current, formFields: {} }));
+	function handleRequestBodyChange(value: ApiRequestBody) {
+		setRequestBody(value);
+		if (errors.bodyError || Object.keys(errors.formFields).length > 0) {
+			setErrors((current) => ({ ...current, bodyError: undefined, formFields: {} }));
 		}
 	}
 
@@ -208,8 +199,9 @@ export function ApiPlayground({
 				pathRows,
 				queryRows,
 				contentType,
-				body,
-				formBody,
+				body: requestBody.raw,
+				formBody: requestBody.form,
+				binary: requestBody.binary,
 			});
 
 			if (!validation.isValid) {
@@ -290,8 +282,7 @@ export function ApiPlayground({
 					pathRows={pathRows}
 					queryRows={queryRows}
 					headerRows={headerRows}
-					body={body}
-					formBody={formBody}
+					requestBody={requestBody}
 					contentType={contentType}
 					selectedTab={selectedTab}
 					onTabChange={setSelectedTab}
@@ -301,8 +292,7 @@ export function ApiPlayground({
 					onPathRowsChange={handlePathRowsChange}
 					onQueryRowsChange={handleQueryRowsChange}
 					onHeaderRowsChange={setHeaderRows}
-					onBodyChange={handleBodyChange}
-					onFormBodyChange={handleFormBodyChange}
+					onRequestBodyChange={handleRequestBodyChange}
 					onContentTypeChange={setContentType}
 				/>
 				<ResponsePanel response={response} />
@@ -352,8 +342,7 @@ function buildRequest({
 	pathRows,
 	queryRows,
 	headerRows,
-	body,
-	formBody,
+	requestBody,
 	contentType,
 }: {
 	route: ApiPlaygroundProps["route"];
@@ -362,8 +351,7 @@ function buildRequest({
 	pathRows: ApiKeyValue[];
 	queryRows: ApiKeyValue[];
 	headerRows: ApiKeyValue[];
-	body: string;
-	formBody: Record<string, ApiFormValue>;
+	requestBody: ApiRequestBody;
 	contentType: string;
 }): ApiPlaygroundRequest {
 	const pathParams = toObject(pathRows);
@@ -376,9 +364,6 @@ function buildRequest({
 		Object.entries(query).filter(([, value]) => value !== ""),
 	).toString();
 	const url = `${baseUrl.replace(/\/$/, "")}${expandedPath}${queryString ? `${expandedPath.includes("?") ? "&" : "?"}${queryString}` : ""}`;
-	const isForm =
-		contentType === "application/x-www-form-urlencoded" || contentType === "multipart/form-data";
-	const payload = isForm ? serializeFormBody(formBody, contentType) : body;
 	return {
 		method: route.method,
 		path: rawPath,
@@ -387,6 +372,8 @@ function buildRequest({
 		query,
 		headers,
 		contentType,
-		body: route.bodySchema ? payload : undefined,
+		body: methodTakesBody(route.method)
+			? serializeRequestBody(requestBody, contentType, route.bodySchema)
+			: undefined,
 	};
 }

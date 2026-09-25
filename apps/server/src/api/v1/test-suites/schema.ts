@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { CONTENT_TYPES } from "../../../lib/routeConfig";
 
 // --- Assertions Schema --- //
 export const assertionSchema = z
@@ -84,6 +85,9 @@ export const blockHookSchema = z.object({
 	onAfter: hookBodySchema.nullish(),
 });
 
+/** ~1MB of file once base64 grows it by a third */
+const MAX_BODY_CHARS = 1_400_000;
+
 export const testSuiteCoreSchema = z.object({
 	name: z.string().min(1, "Name is required"),
 	description: z.string().optional().nullable(),
@@ -93,7 +97,19 @@ export const testSuiteCoreSchema = z.object({
 	headers: z.record(z.string(), z.string()).default({}),
 	queryParams: z.record(z.string(), z.string()).default({}),
 	routeParams: z.record(z.string(), z.string()).default({}),
-	body: z.record(z.string(), z.unknown()).optional().nullable(),
+	/** the body's format; null sends JSON */
+	contentType: z.enum(CONTENT_TYPES).nullish(),
+	/**
+	 * JSON: any value. Form: field -> string, or a file as { name, type, base64 }
+	 * (an array for several). Octet-stream: base64 text.
+	 */
+	body: z
+		.unknown()
+		.refine((body) => JSON.stringify(body ?? null).length <= MAX_BODY_CHARS, {
+			message: "Body is too large. Keep files under 1MB.",
+		})
+		.optional()
+		.nullable(),
 	assertions: z.array(assertionSchema).default([]),
 	appConfigOverrides: z
 		.array(z.object({ key: z.string(), value: z.string() }))
