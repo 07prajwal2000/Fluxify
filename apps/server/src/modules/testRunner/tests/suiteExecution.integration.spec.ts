@@ -51,6 +51,7 @@ function bootstrap(source: string, overrides: Partial<TestBootstrap> = {}) {
 		timeoutMs: 10_000,
 		assertions: [],
 		hooks: [],
+		suite: { id: "s1", name: "Suite one" },
 		...overrides,
 	} satisfies TestBootstrap;
 }
@@ -168,4 +169,86 @@ describe("runSuiteInChild", () => {
 		expect(result.error).toContain("boom");
 		expect(result.timedOut).toBeUndefined();
 	}, 30_000);
+
+	describe("setup and teardown (#483)", () => {
+		/** a test-only custom block whose whole graph is one JS runner */
+		const customBlock = (name: string, code: string) => ({
+			name,
+			source: compileGraph(
+				[block("1", BlockTypes.entrypoint), block("2", BlockTypes.jsrunner, { value: code })],
+				[edge("1", "2")] as any,
+				{ asCustomBlock: true },
+			).source,
+		});
+		// teardown reports what it was told by failing with it
+		const reportingTeardown = customBlock(
+			"report",
+			"throw new Error(testsuite.phase + ' ' + testsuite.outcome + ' ' + JSON.stringify(testsuite.setup));",
+		);
+		const route = compileGraph(
+			[
+				block("1", BlockTypes.entrypoint),
+				block("2", BlockTypes.jsrunner, { value: "return { ok: true };" }),
+				block("3", BlockTypes.response, { httpCode: "200" }),
+			],
+			[edge("1", "2"), edge("2", "3")] as any,
+		).source;
+		const phases = (setupCode: string, teardown = reportingTeardown) => ({
+			customBlocks: [customBlock("seed", setupCode), teardown],
+			setup: { block: "seed", timeoutMs: 5_000 },
+			teardown: { block: teardown.name, timeoutMs: 5_000 },
+		});
+
+		it("runs setup, gives its output to assertions, then teardown with the outcome", async () => {
+			const result = await runSuiteInChild(
+				bootstrap(route, {
+					...phases("return { userId: 7, phase: testsuite.phase, runId: testsuite.runId };"),
+					assertions: [
+						{ target: "customJs", customJs: "t.expect(t.setup).toEqual({ userId: 7, phase: 'setup', runId: 'run-1' });" },
+					],
+				}),
+			);
+			expect(result.ok).toBe(true);
+			if (!result.ok) return;
+			// teardown failed, the suite still passed
+			expect(result.verdict.success).toBe(true);
+			expect(result.teardownError).toBe('teardown passed {"userId":7,"phase":"setup","runId":"run-1"}');
+		}, 30_000);
+
+		it("skips the route when setup fails, but still tears down", async () => {
+			const result = await runSuiteInChild(
+				bootstrap(route, phases("throw new Error('no seed');")),
+			);
+			expect(result.ok).toBe(false);
+			if (result.ok) return;
+			expect(result.error).toBe("Setup failed: no seed");
+			expect(result.teardownError).toBe("teardown error undefined");
+		}, 30_000);
+
+		it("kills a hung route, then tears down in a fresh child with the setup output", async () => {
+			const result = await runSuiteInChild(
+				bootstrap("await new Promise(() => {});", {
+					...phases("return { userId: 9 };"),
+					timeoutMs: 1_000,
+				}),
+			);
+			expect(result.ok).toBe(false);
+			if (result.ok) return;
+			expect(result.timedOut).toBe(true);
+			expect(result.teardownError).toBe('teardown timeout {"userId":9}');
+		}, 30_000);
+
+		it("keeps the route's result when teardown hangs", async () => {
+			const result = await runSuiteInChild(
+				bootstrap(route, {
+					...phases("return 1;", customBlock("hang", "await new Promise(() => {});")),
+					teardown: { block: "hang", timeoutMs: 1_000 },
+				}),
+			);
+			expect(result.ok).toBe(true);
+			if (!result.ok) return;
+			expect(Number(result.status)).toBe(200);
+			expect(result.teardownError).toBe("teardown timed out after 1000ms");
+		}, 30_000);
+	});
 });

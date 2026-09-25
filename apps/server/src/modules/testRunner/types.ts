@@ -32,7 +32,19 @@ export type TestBootstrap = {
 	assertions: AssertionType[];
 	/** the suite's block hooks (#483); `source` is compiled with hook points */
 	hooks: SuiteHook[];
+	suite: { id: string; name: string };
+	/**
+	 * Test-only custom blocks (by name, compiled into `customBlocks`) run before
+	 * and after the request, each with its own time budget (#483).
+	 */
+	setup?: SuitePhase;
+	teardown?: SuitePhase;
 };
+
+export type SuitePhase = { block: string; timeoutMs: number };
+
+/** how the suite ended, as teardown sees it in `testsuite.outcome` */
+export type SuiteOutcome = "passed" | "failed" | "error" | "timeout";
 
 /**
  * The raw response plus the child's verdict on it. The raw parts are kept
@@ -47,11 +59,36 @@ export type TestResult =
 			/** the route alone, not process start-up */
 			durationMs: number;
 			verdict: { success: boolean; result: AssertionResult[] };
+			/** the suite keeps its status; this only warns (#483) */
+			teardownError?: string;
 	  }
-	| { ok: false; error: string; timedOut?: boolean; durationMs: number };
+	| {
+			ok: false;
+			error: string;
+			timedOut?: boolean;
+			durationMs: number;
+			teardownError?: string;
+	  };
 
-export type TestBootstrapMessage = { type: "bootstrap"; bootstrap: TestBootstrap };
-export type TestChildMessage = { type: "ready" } | { type: "result"; result: TestResult };
+/**
+ * `teardownOnly`: a fresh child that runs just the teardown, after the suite's
+ * own child was killed mid-setup or mid-route — seed data must not leak.
+ */
+export type TestBootstrapMessage = {
+	type: "bootstrap";
+	bootstrap: TestBootstrap;
+	teardownOnly?: { setup: unknown; outcome: SuiteOutcome };
+};
+
+/**
+ * The child reports each phase as it ends, so the supervisor can time each
+ * phase on its own budget and still has the route's result if teardown hangs.
+ */
+export type TestChildMessage =
+	| { type: "ready" }
+	| { type: "setup-done"; setup: unknown }
+	| { type: "route-done"; result: TestResult }
+	| { type: "teardown-done"; error?: string };
 
 /**
  * Admin -> worker: run one suite (#478). Per project, so only a worker that

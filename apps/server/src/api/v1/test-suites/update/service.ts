@@ -1,12 +1,13 @@
 import type z from "zod";
 import { db } from "../../../../db";
+import { BadRequestError } from "../../../../errors/badRequestError";
 import { CustomError } from "../../../../errors/customError";
 import { NotFoundError } from "../../../../errors/notFoundError";
 import { ServerError } from "../../../../errors/serverError";
 import { replaceSuiteHooks, validateHooks } from "../../../../modules/testRunner/hooks";
 import { getTestSuiteById } from "../get-by-id/repository";
 import type { requestBodySchema } from "./dto";
-import { updateTestSuite } from "./repository";
+import { testOnlyBlocksOfRoute, updateTestSuite } from "./repository";
 
 export default async function handleRequest(id: string, data: z.infer<typeof requestBodySchema>) {
 	try {
@@ -19,10 +20,20 @@ export default async function handleRequest(id: string, data: z.infer<typeof req
 			return { id };
 		}
 
-		if (hooks !== undefined) {
+		const phaseBlocks = [fields.setupBlockId, fields.teardownBlockId].filter(
+			(b): b is string => !!b,
+		);
+		if (hooks !== undefined || phaseBlocks.length) {
 			const suite = await getTestSuiteById(id);
 			if (!suite) throw new NotFoundError("Test suite not found");
-			await validateHooks(suite.routeId, hooks);
+			if (hooks !== undefined) await validateHooks(suite.routeId, hooks);
+			// setup / teardown must be test-only blocks of this project, never a live one
+			const allowed = await testOnlyBlocksOfRoute(suite.routeId, phaseBlocks);
+			if (phaseBlocks.some((b) => !allowed.has(b))) {
+				throw new BadRequestError(
+					"Setup and teardown must be test-only custom blocks of this project",
+				);
+			}
 		}
 
 		return await db.transaction(async (tx) => {

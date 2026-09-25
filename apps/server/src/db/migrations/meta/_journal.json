@@ -554,6 +554,13 @@
 			"when": 1790296164181,
 			"tag": "0078_custom_block_test_only",
 			"breakpoints": true
+		},
+		{
+			"idx": 79,
+			"version": "7",
+			"when": 1790296390843,
+			"tag": "0079_test_suite_setup_teardown",
+			"breakpoints": true
 		}
 	]
 }

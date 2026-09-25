@@ -5,6 +5,7 @@ import {
 	blocksEntity,
 	customBlocksListEntity,
 	routesEntity,
+	testSuitesEntity,
 	workflowsEntity,
 } from "../../../../db/schema";
 
@@ -71,4 +72,15 @@ export async function liveCanvasesUsing(projectId: string, name: string, tx?: Db
 				? `workflow "${r.workflow}"`
 				: `custom block "${r.customBlock}"`,
 	);
+}
+
+/** names of the test suites using the block as their setup or teardown */
+export async function suitesUsing(blockId: string, tx?: DbTransactionType) {
+	const rows = await (tx ?? db)
+		.select({ name: testSuitesEntity.name })
+		.from(testSuitesEntity)
+		.where(
+			or(eq(testSuitesEntity.setupBlockId, blockId), eq(testSuitesEntity.teardownBlockId, blockId)),
+		);
+	return rows.map((r) => `"${r.name}"`);
 }

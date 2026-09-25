@@ -63,6 +63,8 @@ export type AssertionContext = {
 	headers: Record<string, string>;
 	durationMs: number;
 	request: SuiteRequest;
+	/** what the setup block returned, as `t.setup` (#483) */
+	setup?: unknown;
 };
 
 /** an empty path is the whole body; `a.b[0].c` walks into it */
@@ -211,7 +213,7 @@ async function runCustomJs(code: string, ctx: AssertionContext): Promise<Asserti
 				status: ctx.status,
 			},
 		},
-		t: { expect: createExpect((r) => checks.push(r)), zod: z },
+		t: { expect: createExpect((r) => checks.push(r)), zod: z, setup: ctx.setup },
 	});
 	await vm.runAsync(code);
 	if (checks.length === 0) {

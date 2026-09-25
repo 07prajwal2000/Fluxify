@@ -543,6 +543,21 @@ export const testSuitesEntity = pgTable("test_suites", {
 		.$type<Array<{ key: string; value: string }>>()
 		.default([]),
 
+	// Setup / teardown (#483): test-only custom blocks run before and after the
+	// request. Deleting the block clears the field rather than the suite.
+	setupBlockId: varchar("setup_block_id", { length: 50 }).references(
+		() => customBlocksListEntity.id,
+		{ onDelete: "set null" },
+	),
+	teardownBlockId: varchar("teardown_block_id", { length: 50 }).references(
+		() => customBlocksListEntity.id,
+		{ onDelete: "set null" },
+	),
+	setupTimeoutMs: integer("setup_timeout_ms").default(30_000).notNull(),
+	teardownTimeoutMs: integer("teardown_timeout_ms").default(30_000).notNull(),
+	/** run by itself, after the parallel suites of a run, for a clean slate */
+	runAlone: boolean("run_alone").default(false).notNull(),
+
 	createdAt: timestamp("created_at").defaultNow().notNull(),
 	updatedAt: timestamp("updated_at")
 		.defaultNow()
@@ -599,6 +614,8 @@ export type SuiteRunResult = {
 	statusCode?: number;
 	headers?: Record<string, string>;
 	error?: string;
+	/** teardown failed; the suite keeps its status (#483) */
+	teardownError?: string;
 };
 
 /** jsonb payload on the parent run. */

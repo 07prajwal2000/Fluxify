@@ -30,7 +30,13 @@ type CompiledHooks = Record<
  */
 export function buildHooks(
 	hooks: SuiteHook[],
-	env: { vars: Record<string, unknown>; runId: string; checks: AssertionResult[] },
+	env: {
+		vars: Record<string, unknown>;
+		runId: string;
+		/** what the setup block returned (#483) */
+		setup?: unknown;
+		checks: AssertionResult[];
+	},
 ): CompiledHooks {
 	const compiled: CompiledHooks = {};
 	for (const hook of hooks) {
@@ -45,6 +51,7 @@ export function buildHooks(
 			vars: env.vars,
 			block,
 			runId: env.runId,
+			setup: env.setup,
 			expect,
 			zod: z,
 			skip: skip ?? (() => fail("t.skip only works in onBefore")),

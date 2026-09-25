@@ -107,4 +107,10 @@ export const testSuiteCoreSchema = z.object({
 		.nullable(),
 	/** replaces all of the suite's block hooks when sent (#483) */
 	hooks: z.array(blockHookSchema).optional(),
+	/** test-only custom blocks run before / after the request (#483) */
+	setupBlockId: z.string().nullish(),
+	teardownBlockId: z.string().nullish(),
+	setupTimeoutMs: z.number().int().min(1_000).max(600_000).optional(),
+	teardownTimeoutMs: z.number().int().min(1_000).max(600_000).optional(),
+	runAlone: z.boolean().optional(),
 });

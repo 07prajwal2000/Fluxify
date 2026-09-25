@@ -1,6 +1,6 @@
 import { fileURLToPath } from "node:url";
 import { executionRuntimeEnvironment } from "../requestRouter/executionEnvironment";
-import type { TestBootstrap, TestChildMessage, TestResult } from "./types";
+import type { TestBootstrap, TestBootstrapMessage, TestChildMessage, TestResult } from "./types";
 
 /** fileURLToPath, not .pathname — the latter yields "/D:/..." on Windows */
 const ENTRY = fileURLToPath(new URL("./testExecutionProcess.ts", import.meta.url));
@@ -45,63 +45,144 @@ export function spawnCommand(
 	return ["/bin/sh", "-c", `ulimit -n ${fds}; exec "$0" --smol "$1"`, process.execPath, entry];
 }
 
+type Phase = "setup" | "route" | "teardown";
+
+/** what one child got through before it finished, died or was killed */
+type ChildRun = {
+	setup?: unknown;
+	route?: TestResult;
+	teardownError?: string;
+	/** the phase the watchdog killed it in */
+	killedIn?: Phase;
+	/** exited without reporting the phase it was in */
+	crash?: string;
+};
+
 /**
- * Runs one suite in a fresh process and resolves with its raw response.
+ * Runs one suite in a fresh process and resolves with its result (#483: with
+ * setup and teardown around the route).
  *
- * The timeout is unconditional — `experimental.workerTimeouts` governs live
- * traffic, not tests. A killed child reports `timedOut` with a duration and
- * nothing else: partial results are not streamed out of a process that is about
- * to die, they would describe a run that never finished.
+ * Each phase has its own budget: setup and teardown their configured timeouts,
+ * the route its timeout plus a grace. The child reports each phase as it ends,
+ * which is what moves the watchdog on — and what leaves the route's result
+ * here if teardown then hangs.
+ *
+ * A child killed (or crashed) in setup or the route never ran its teardown, so a
+ * fresh child runs just the teardown: a timeout must not leave seed data behind.
+ * A teardown failure never changes the suite's result, it only rides along.
  */
 export async function runSuiteInChild(
 	bootstrap: TestBootstrap,
 	entry = ENTRY,
 ): Promise<TestResult> {
-	const { promise, resolve } = Promise.withResolvers<TestResult>();
 	const startedAt = Date.now();
+	const run = await runChild(bootstrap, entry);
+	if (run.route) {
+		return { ...run.route, teardownError: teardownFailure(bootstrap, run) };
+	}
+
+	// the child never got through the route
+	const durationMs = Date.now() - startedAt;
+	const result: TestResult =
+		run.killedIn === "setup"
+			? {
+					ok: false,
+					timedOut: true,
+					error: `setup timed out after ${bootstrap.setup!.timeoutMs}ms`,
+					durationMs,
+				}
+			: run.killedIn === "route"
+				? {
+						ok: false,
+						timedOut: true,
+						error: `suite timed out after ${bootstrap.timeoutMs}ms`,
+						durationMs,
+					}
+				: { ok: false, error: `test process ${run.crash}`, durationMs };
+	if (!bootstrap.teardown) return result;
+
+	const teardown = await runChild(bootstrap, entry, {
+		setup: run.setup,
+		outcome: result.timedOut ? "timeout" : "error",
+	});
+	return { ...result, teardownError: teardownFailure(bootstrap, teardown) };
+}
+
+function teardownFailure(bootstrap: TestBootstrap, run: ChildRun) {
+	if (!bootstrap.teardown) return undefined;
+	if (run.killedIn === "teardown") {
+		return `teardown timed out after ${bootstrap.teardown.timeoutMs}ms`;
+	}
+	return run.crash ? `teardown ${run.crash}` : run.teardownError;
+}
+
+function runChild(
+	bootstrap: TestBootstrap,
+	entry: string,
+	teardownOnly?: TestBootstrapMessage["teardownOnly"],
+): Promise<ChildRun> {
+	const { promise, resolve } = Promise.withResolvers<ChildRun>();
+	const run: ChildRun = {};
 	let settled = false;
-	const finish = (result: TestResult) => {
+	const finish = () => {
 		if (settled) return;
 		settled = true;
-		resolve(result);
+		clearTimeout(watchdog);
+		child.kill();
+		resolve(run);
 	};
+
+	const budget: Record<Phase, number> = {
+		setup: bootstrap.setup?.timeoutMs ?? 0,
+		route: bootstrap.timeoutMs + WATCHDOG_GRACE_MS,
+		// no teardown: only the time to report that there was none
+		teardown: (bootstrap.teardown?.timeoutMs ?? 0) + WATCHDOG_GRACE_MS,
+	};
+	let watchdog: ReturnType<typeof setTimeout> | undefined;
+	const enter = (phase: Phase) => {
+		clearTimeout(watchdog);
+		watchdog = setTimeout(() => {
+			run.killedIn = phase;
+			finish();
+		}, budget[phase]);
+	};
+	enter(teardownOnly ? "teardown" : bootstrap.setup ? "setup" : "route");
 
 	const child = Bun.spawn(spawnCommand(entry), {
 		env: executionRuntimeEnvironment(),
 		stdout: "inherit",
 		stderr: "inherit",
 		ipc(message: TestChildMessage) {
-			if (message?.type === "ready") {
-				child.send({ type: "bootstrap", bootstrap });
-			} else if (message?.type === "result") {
-				finish(message.result);
+			switch (message?.type) {
+				case "ready":
+					child.send({
+						type: "bootstrap",
+						bootstrap,
+						teardownOnly,
+					} satisfies TestBootstrapMessage);
+					break;
+				case "setup-done":
+					run.setup = message.setup;
+					enter("route");
+					break;
+				case "route-done":
+					run.route = message.result;
+					enter("teardown");
+					break;
+				case "teardown-done":
+					run.teardownError = message.error;
+					finish();
+					break;
 			}
 		},
 		onExit(_child, code, signal) {
-			// a crash, an OOM kill, or a hit rlimit — the happy path already settled
-			finish({
-				ok: false,
-				error: `test process exited before reporting (code=${code}, signal=${signal})`,
-				durationMs: Date.now() - startedAt,
-			});
+			// a crash, an OOM kill, or a hit rlimit. After a settle this is only the
+			// kill (or the clean exit) finish() itself caused — nothing to record.
+			if (settled) return;
+			run.crash = `exited before reporting (code=${code}, signal=${signal})`;
+			finish();
 		},
 	});
 
-	const watchdog = setTimeout(() => {
-		finish({
-			ok: false,
-			timedOut: true,
-			error: `suite timed out after ${bootstrap.timeoutMs}ms`,
-			durationMs: Date.now() - startedAt,
-		});
-		child.kill();
-	}, bootstrap.timeoutMs + WATCHDOG_GRACE_MS);
-
-	try {
-		return await promise;
-	} finally {
-		// an uncleared timer keeps the worker supervisor alive for the whole timeout
-		clearTimeout(watchdog);
-		child.kill();
-	}
+	return promise;
 }

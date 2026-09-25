@@ -44,4 +44,17 @@ describe("custom block update: test-only (#483)", () => {
 		spyOn(repo, "liveCanvasesUsing").mockResolvedValue([]);
 		expect((await handleRequest("cb1", { testOnly: true }, user, acl)).id).toBe("cb1");
 	});
+
+	it("refuses to untick while a suite uses it for setup or teardown", async () => {
+		spyOn(repo, "getCustomBlockById").mockResolvedValue({
+			id: "cb1",
+			projectId: "p1",
+			name: "seed_users",
+			testOnly: true,
+		} as any);
+		spyOn(repo, "suitesUsing").mockResolvedValue(['"Signup works"']);
+		await expect(handleRequest("cb1", { testOnly: false }, user, acl)).rejects.toThrow(
+			'Test suites "Signup works" use this block',
+		);
+	});
 });
