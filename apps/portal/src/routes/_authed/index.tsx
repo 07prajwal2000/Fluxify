@@ -5,7 +5,7 @@ import { InstanceSettings } from "@/components/home/InstanceSettings";
 import { ProfileNav } from "@/components/home/ProfileNav";
 import { ProjectsTab } from "@/components/home/ProjectsTab";
 import { UsersList } from "@/components/home/UsersList";
-import { createDynamicRouteHead } from "@/lib/seo";
+import { createDynamicRouteHead, usePageTitle } from "@/lib/seo";
 import { useAuthStore } from "@/store/auth";
 
 const logo = `${import.meta.env.BASE_URL}icons/logo.svg`;
@@ -17,14 +17,14 @@ export const Route = createFileRoute("/_authed/")({
 	}),
 	head: createDynamicRouteHead(({ search }) => {
 		const tabNames: Record<string, string> = {
-			projects: "Projects Dashboard",
-			users: "User & Access Management",
+			projects: "Projects",
+			users: "Users",
 			instance: "Instance Settings",
-			account: "Account Profile",
+			account: "Account Settings",
 		};
-		const tabKey = search.tab || "projects";
+		const tabKey = search?.tab || "projects";
 		return {
-			title: tabNames[tabKey] ?? "Projects Dashboard",
+			title: tabNames[tabKey] ?? "Projects",
 			description: "Manage projects, users, and instance settings in your Fluxify workspace.",
 		};
 	}),
@@ -36,6 +36,14 @@ function Home() {
 	const navigate = useNavigate();
 	const { userData } = useAuthStore();
 	const selected = tab ?? "projects";
+
+	const tabTitles: Record<string, string> = {
+		projects: "Projects",
+		users: "Users",
+		instance: "Instance Settings",
+		account: "Account Settings",
+	};
+	usePageTitle(tabTitles[selected] ?? "Projects");
 
 	return (
 		<div className="flex min-h-screen flex-col bg-background text-foreground">

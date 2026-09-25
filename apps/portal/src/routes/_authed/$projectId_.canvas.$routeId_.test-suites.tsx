@@ -8,11 +8,15 @@ import {
 	useSpotlightCommands,
 } from "@/components/canvas";
 import { TestSuitesWorkbench } from "@/components/testSuites/TestSuitesWorkbench";
-import { createRouteHead } from "@/lib/seo";
+import { createRouteHead, usePageTitle } from "@/lib/seo";
+import { routesQuery } from "@/query/routesQuery";
 import { routesService } from "@/services/routes";
 
 export const Route = createFileRoute("/_authed/$projectId_/canvas/$routeId_/test-suites")({
-	head: createRouteHead("Route Tests", "Create, edit and run test suites for an API route."),
+	head: createRouteHead(
+		"Route Tests | Routes",
+		"Create, edit and run test suites for an API route.",
+	),
 	beforeLoad: async ({ params, context }) => {
 		try {
 			const route = await context.queryClient.ensureQueryData({
@@ -40,6 +44,11 @@ export const Route = createFileRoute("/_authed/$projectId_/canvas/$routeId_/test
 
 function TestSuitesPage() {
 	const { projectId, routeId } = Route.useParams();
+	const { data: route } = routesQuery.byId.useQuery(routeId);
+	const title = route
+		? `${route.method.toUpperCase()} ${route.path} | Route Tests`
+		: "Route Tests | Routes";
+	usePageTitle(title);
 	const [spotlightOpen, setSpotlightOpen] = useState(false);
 	const [shortcutsOpen, setShortcutsOpen] = useState(false);
 	const spotlightCommands = useSpotlightCommands({

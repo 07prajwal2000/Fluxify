@@ -19,7 +19,8 @@ import { queueName } from "@/components/triggers/SqsTriggerFields";
 import { TriggerGroupsModal } from "@/components/triggers/TriggerGroupsModal";
 import { announceWarnings, DisabledReason } from "@/components/triggers/TriggerNotices";
 import { showErrorNotification } from "@/lib/errorNotifier";
-import { createRouteHead } from "@/lib/seo";
+import { createRouteHead, formatProjectTitle, usePageTitle } from "@/lib/seo";
+import { projectsQuery } from "@/query/projectsQuery";
 import { triggersQuery } from "@/query/triggersQuery";
 import type { TriggerListItem } from "@/services/triggers";
 
@@ -40,6 +41,8 @@ export const Route = createFileRoute("/_authed/$projectId/triggers")({
  */
 function TriggersPage() {
 	const { projectId } = Route.useParams();
+	const { data: project } = projectsQuery.byId.useQuery(projectId);
+	usePageTitle(formatProjectTitle(project?.name, "Triggers"));
 	const navigate = useNavigate();
 	const [page, setPage] = useState(1);
 	const [search, setSearch] = useState("");

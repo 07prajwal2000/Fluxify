@@ -18,8 +18,9 @@ import { z } from "zod";
 import { IntegrationForm } from "@/components/integrations/IntegrationForm";
 import { IntegrationOnboardingModal } from "@/components/integrations/IntegrationOnboardingModal";
 import { showErrorNotification } from "@/lib/errorNotifier";
-import { createDynamicRouteHead } from "@/lib/seo";
+import { createDynamicRouteHead, formatProjectTitle, usePageTitle } from "@/lib/seo";
 import { integrationsQuery } from "@/query/integrationsQuery";
+import { projectsQuery } from "@/query/projectsQuery";
 import {
 	type IntegrationGroup,
 	useIntegrationActions,
@@ -64,6 +65,8 @@ const CONNECTORS: { name: string; type: IntegrationGroup; icon: ReactNode }[] = 
 
 function IntegrationsPage() {
 	const { projectId } = Route.useParams();
+	const { data: project } = projectsQuery.byId.useQuery(projectId);
+	usePageTitle(formatProjectTitle(project?.name, "Integrations"));
 	const { group } = Route.useSearch();
 	const navigate = useNavigate();
 	const { selectedMenu } = useIntegrationState();

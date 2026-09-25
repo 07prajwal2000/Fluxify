@@ -19,12 +19,13 @@ import { EditConfigModal } from "@/components/appConfig/EditConfigModal";
 import type { ConfigRow, SortBy } from "@/components/appConfig/types";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { showErrorNotification } from "@/lib/errorNotifier";
-import { createRouteHead } from "@/lib/seo";
+import { createRouteHead, formatProjectTitle, usePageTitle } from "@/lib/seo";
 import { appConfigQuery } from "@/query/appConfigQuery";
+import { projectsQuery } from "@/query/projectsQuery";
 
 export const Route = createFileRoute("/_authed/$projectId/app-config")({
 	head: createRouteHead(
-		"App Configuration & Secrets",
+		"App Config",
 		"Manage environment variables, configuration keys, and secrets for your project.",
 	),
 	// `?q=` deep-links to one key — the AI chips send the user straight to the
@@ -35,6 +36,8 @@ export const Route = createFileRoute("/_authed/$projectId/app-config")({
 
 function AppConfigPage() {
 	const { projectId } = Route.useParams();
+	const { data: project } = projectsQuery.byId.useQuery(projectId);
+	usePageTitle(formatProjectTitle(project?.name, "App Config"));
 	const { q } = Route.useSearch();
 	const [page, setPage] = useState(1);
 	const [perPage, setPerPage] = useState(20);

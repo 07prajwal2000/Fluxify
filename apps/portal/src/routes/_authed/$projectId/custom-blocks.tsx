@@ -15,8 +15,9 @@ import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { EmptyState } from "@/components/common/EmptyState";
 import { CustomBlockIcon, type IconValue } from "@/components/customBlocks/IconPicker";
 import { showErrorNotification } from "@/lib/errorNotifier";
-import { createRouteHead } from "@/lib/seo";
+import { createRouteHead, formatProjectTitle, usePageTitle } from "@/lib/seo";
 import { customBlocksQuery } from "@/query/customBlocksQuery";
+import { projectsQuery } from "@/query/projectsQuery";
 
 export const Route = createFileRoute("/_authed/$projectId/custom-blocks")({
 	head: createRouteHead(
@@ -30,6 +31,8 @@ type Block = NonNullable<ReturnType<typeof customBlocksQuery.getAll.useQuery>["d
 
 function CustomBlocksPage() {
 	const { projectId } = Route.useParams();
+	const { data: project } = projectsQuery.byId.useQuery(projectId);
+	usePageTitle(formatProjectTitle(project?.name, "Custom Blocks"));
 	const { data, isLoading, isError } = customBlocksQuery.getAll.useQuery(projectId);
 	const remove = customBlocksQuery.remove.mutation(projectId);
 	const navigate = useNavigate();

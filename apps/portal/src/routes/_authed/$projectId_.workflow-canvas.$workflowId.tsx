@@ -6,14 +6,14 @@ import { CanvasWorkbench } from "@/components/canvas";
 import { WorkflowRunModal } from "@/components/workflows/WorkflowRunModal";
 import { WorkflowSettingsModal } from "@/components/workflows/WorkflowSettingsModal";
 import { WorkflowSwitcher } from "@/components/workflows/WorkflowSwitcher";
-import { createRouteHead } from "@/lib/seo";
+import { createRouteHead, usePageTitle } from "@/lib/seo";
 import { useProjectPackageTypes } from "@/query/projectPackagesQuery";
 import { workflowsQuery } from "@/query/workflowsQuery";
 import { workflowsService } from "@/services/workflows";
 
 export const Route = createFileRoute("/_authed/$projectId_/workflow-canvas/$workflowId")({
 	head: createRouteHead(
-		"Workflow Canvas",
+		"Workflow Canvas | Workflows",
 		"Design the background workflow that runs on a trigger or by hand.",
 	),
 	beforeLoad: async ({ params, context }) => {
@@ -46,6 +46,8 @@ function WorkflowCanvasPage() {
 	useProjectPackageTypes(projectId);
 	const save = workflowsQuery.saveCanvas.mutation(workflowId);
 	const { data: workflow } = workflowsQuery.byId.useQuery(workflowId);
+	const title = workflow?.name ? `${workflow.name} | Workflows` : "Workflow Canvas | Workflows";
+	usePageTitle(title);
 	const [settingsOpen, setSettingsOpen] = useState(false);
 	const [runOpen, setRunOpen] = useState(false);
 

@@ -4,6 +4,7 @@ import { useParams } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { TbEdit, TbListSearch } from "react-icons/tb";
 import { showErrorNotification } from "@/lib/errorNotifier";
+import { usePageTitle } from "@/lib/seo";
 import { harnessConversationsQuery } from "@/query/harnessConversationsQuery";
 import { useAiHarnessStore, useConversationRun, useIsRunning } from "@/store/aiHarness";
 import { AgentTaskStatus } from "./AgentTaskStatus";
@@ -42,6 +43,12 @@ export function ConversationPage() {
 	// Check active conversation from sidebar cache reactively
 	const [activeConversation, setActiveConversation] = useState<HarnessConversation | null>(null);
 	const isArchived = activeConversation?.archived ?? false;
+
+	usePageTitle(
+		activeConversation?.title
+			? `${activeConversation.title} | Fluxify AI`
+			: "AI Conversation | Fluxify AI",
+	);
 
 	// Once a live run exists, its socket-driven runStatus is authoritative — the
 	// REST `activeConversation.status` is only a fallback for before any socket

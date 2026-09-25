@@ -13,7 +13,8 @@ import { TbBolt, TbExternalLink } from "react-icons/tb";
 import { FormWizard, SummaryItem, type WizardStep } from "@/components/common/FormWizard";
 import { withBasePath } from "@/constants/routes";
 import { showErrorNotification } from "@/lib/errorNotifier";
-import { createRouteHead } from "@/lib/seo";
+import { createRouteHead, formatProjectTitle, usePageTitle } from "@/lib/seo";
+import { projectsQuery } from "@/query/projectsQuery";
 import { triggersQuery } from "@/query/triggersQuery";
 import { workflowsQuery } from "@/query/workflowsQuery";
 
@@ -24,6 +25,8 @@ export const Route = createFileRoute("/_authed/$projectId/workflows_/new")({
 
 function CreateWorkflowPage() {
 	const { projectId } = Route.useParams();
+	const { data: project } = projectsQuery.byId.useQuery(projectId);
+	usePageTitle(formatProjectTitle(project?.name, "New Workflow"));
 	const navigate = useNavigate();
 	const create = workflowsQuery.create.mutation();
 	const attach = triggersQuery.attach.mutation();

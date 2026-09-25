@@ -16,7 +16,8 @@ import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { EmptyState } from "@/components/common/EmptyState";
 import { WorkflowRunModal } from "@/components/workflows/WorkflowRunModal";
 import { showErrorNotification } from "@/lib/errorNotifier";
-import { createRouteHead } from "@/lib/seo";
+import { createRouteHead, formatProjectTitle, usePageTitle } from "@/lib/seo";
+import { projectsQuery } from "@/query/projectsQuery";
 import { workflowsQuery } from "@/query/workflowsQuery";
 import type { Workflow } from "@/services/workflows";
 
@@ -30,6 +31,8 @@ export const Route = createFileRoute("/_authed/$projectId/workflows")({
 
 function WorkflowsPage() {
 	const { projectId } = Route.useParams();
+	const { data: project } = projectsQuery.byId.useQuery(projectId);
+	usePageTitle(formatProjectTitle(project?.name, "Workflows"));
 	const navigate = useNavigate();
 	const [page, setPage] = useState(1);
 	const [search, setSearch] = useState("");

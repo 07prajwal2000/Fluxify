@@ -25,7 +25,8 @@ import {
 	TbUser,
 } from "react-icons/tb";
 import { authClient } from "@/lib/auth";
-import { createRouteHead } from "@/lib/seo";
+import { createRouteHead, formatProjectTitle, usePageTitle } from "@/lib/seo";
+import { projectsQuery } from "@/query/projectsQuery";
 import { projectsService } from "@/services/projects";
 import { useAuthStore } from "@/store/auth";
 
@@ -65,10 +66,7 @@ const NAV_KEYS: string[] = NAV.flatMap((item) =>
 );
 
 export const Route = createFileRoute("/_authed/$projectId")({
-	head: createRouteHead(
-		"Project Workspace",
-		"Manage project API routes, workflows, and configurations.",
-	),
+	head: createRouteHead("Project", "Manage project API routes, workflows, and configurations."),
 	beforeLoad: async ({ params, context }) => {
 		try {
 			await context.queryClient.ensureQueryData({
@@ -132,6 +130,8 @@ function NavButton({
 
 function ProjectLayout() {
 	const { projectId } = Route.useParams();
+	const { data: project } = projectsQuery.byId.useQuery(projectId);
+	usePageTitle(formatProjectTitle(project?.name, "Project"));
 	const navigate = useNavigate();
 	const location = useLocation();
 	const { userData } = useAuthStore();
