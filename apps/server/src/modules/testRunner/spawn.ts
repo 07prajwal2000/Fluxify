@@ -1,4 +1,5 @@
 import { fileURLToPath } from "node:url";
+import type { CaseResult } from "../../db/schema";
 import { executionRuntimeEnvironment } from "../requestRouter/executionEnvironment";
 import type { TestBootstrap, TestBootstrapMessage, TestChildMessage, TestResult } from "./types";
 
@@ -45,11 +46,14 @@ export function spawnCommand(
 	return ["/bin/sh", "-c", `ulimit -n ${fds}; exec "$0" --smol "$1"`, process.execPath, entry];
 }
 
-type Phase = "setup" | "route" | "teardown";
+/** "route" is the run itself: the route, or each workflow case in turn */
+type Phase = "setup" | "input" | "route" | "teardown";
 
 /** what one child got through before it finished, died or was killed */
 type ChildRun = {
 	setup?: unknown;
+	/** workflow cases that finished, kept if a later one is killed */
+	cases: CaseResult[];
 	route?: TestResult;
 	teardownError?: string;
 	/** the phase the watchdog killed it in */
@@ -91,14 +95,24 @@ export async function runSuiteInChild(
 					error: `setup timed out after ${bootstrap.setup!.timeoutMs}ms`,
 					durationMs,
 				}
-			: run.killedIn === "route"
+			: run.killedIn === "input"
 				? {
 						ok: false,
 						timedOut: true,
-						error: `suite timed out after ${bootstrap.timeoutMs}ms`,
+						error: `input timed out after ${bootstrap.input!.block!.timeoutMs}ms`,
 						durationMs,
 					}
-				: { ok: false, error: `test process ${run.crash}`, durationMs };
+				: run.killedIn === "route"
+					? {
+							ok: false,
+							timedOut: true,
+							error: bootstrap.workflow
+								? `case ${run.cases.length + 1} timed out after ${bootstrap.timeoutMs}ms`
+								: `suite timed out after ${bootstrap.timeoutMs}ms`,
+							durationMs,
+							cases: run.cases,
+						}
+					: { ok: false, error: `test process ${run.crash}`, durationMs, cases: run.cases };
 	if (!bootstrap.teardown) return result;
 
 	const teardown = await runChild(bootstrap, entry, {
@@ -122,7 +136,7 @@ function runChild(
 	teardownOnly?: TestBootstrapMessage["teardownOnly"],
 ): Promise<ChildRun> {
 	const { promise, resolve } = Promise.withResolvers<ChildRun>();
-	const run: ChildRun = {};
+	const run: ChildRun = { cases: [] };
 	let settled = false;
 	const finish = () => {
 		if (settled) return;
@@ -134,6 +148,7 @@ function runChild(
 
 	const budget: Record<Phase, number> = {
 		setup: bootstrap.setup?.timeoutMs ?? 0,
+		input: (bootstrap.input?.block?.timeoutMs ?? 0) + WATCHDOG_GRACE_MS,
 		route: bootstrap.timeoutMs + WATCHDOG_GRACE_MS,
 		// no teardown: only the time to report that there was none
 		teardown: (bootstrap.teardown?.timeoutMs ?? 0) + WATCHDOG_GRACE_MS,
@@ -146,7 +161,9 @@ function runChild(
 			finish();
 		}, budget[phase]);
 	};
-	enter(teardownOnly ? "teardown" : bootstrap.setup ? "setup" : "route");
+	// a workflow input read from a block (script or loader) has its own budget
+	const afterSetup: Phase = bootstrap.input?.block ? "input" : "route";
+	enter(teardownOnly ? "teardown" : bootstrap.setup ? "setup" : afterSetup);
 
 	const child = Bun.spawn(spawnCommand(entry), {
 		env: executionRuntimeEnvironment(),
@@ -163,6 +180,13 @@ function runChild(
 					break;
 				case "setup-done":
 					run.setup = message.setup;
+					enter(afterSetup);
+					break;
+				case "input-done":
+					enter("route");
+					break;
+				case "case-done":
+					run.cases.push(message.result);
 					enter("route");
 					break;
 				case "route-done":

@@ -1,5 +1,7 @@
+import type { SuiteInput } from "@fluxify/server/src/db/schema";
 import type { TestSuiteDetail } from "@/services/testSuites";
 import type { Assertion } from "./assertions";
+import { DEFAULT_INPUT } from "./InputEditor";
 
 export type BlockHook = NonNullable<TestSuiteDetail["hooks"]>[number];
 export type HookBody = NonNullable<BlockHook["onBefore"]>;
@@ -28,6 +30,8 @@ export type SuiteDraft = {
 	setupTimeoutMs: number;
 	teardownTimeoutMs: number;
 	runAlone: boolean;
+	/** workflow suites (#487): where the input comes from */
+	input: SuiteInput;
 };
 
 export function toDraft(suite: TestSuiteDetail | undefined): SuiteDraft {
@@ -48,5 +52,6 @@ export function toDraft(suite: TestSuiteDetail | undefined): SuiteDraft {
 		setupTimeoutMs: suite?.setupTimeoutMs ?? 30_000,
 		teardownTimeoutMs: suite?.teardownTimeoutMs ?? 30_000,
 		runAlone: suite?.runAlone ?? false,
+		input: suite?.input ?? DEFAULT_INPUT,
 	};
 }

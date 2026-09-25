@@ -1,9 +1,9 @@
 import { Button, Input } from "@heroui/react";
-import Editor from "@monaco-editor/react";
 import clsx from "clsx";
 import { useState } from "react";
 import { TbFile, TbLetterCase, TbPlus } from "react-icons/tb";
 import { DeleteIconButton } from "../DeleteButton";
+import { MonacoEditor as Editor } from "../JavaScriptTextArea/monacoEditor";
 import { FilePicker } from "./FilePicker";
 import { SchemaForm } from "./SchemaForm";
 import type { ApiFormRow, ApiRequestBody, ApiSchema } from "./types";

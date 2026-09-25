@@ -4,6 +4,7 @@ import {
 	testRunsEntity,
 	testSuiteRunsEntity,
 	testSuitesEntity,
+	workflowsEntity,
 } from "../../../db/schema";
 import {
 	dbIntegrationsCache,
@@ -23,6 +24,7 @@ const ROUTE = "r1";
  */
 const state = {
 	routes: [{ id: ROUTE, projectId: PROJECT }] as any[],
+	workflows: [{ id: "w1", projectId: PROJECT }] as any[],
 	suites: [] as any[],
 	/** every UPDATE in the order it was issued */
 	updates: [] as Array<{ table: string; values: any }>,
@@ -42,6 +44,8 @@ mock.module("../../../db", () => ({
 				where: async () =>
 					table === routesEntity
 						? state.routes
+						: table === workflowsEntity
+							? state.workflows
 						: table === testSuitesEntity
 							? state.suites
 							: [],
@@ -147,7 +151,7 @@ describe("startTestRun", () => {
 		const d = deps(async (b) => ok(b.request.path === "/demo" ? 200 : 500));
 
 		const { runId, done } = await startTestRun(
-			{ projectId: PROJECT, routeId: ROUTE },
+			{ projectId: PROJECT, target: { type: "route", id: ROUTE } },
 			d,
 		);
 		await done;
@@ -195,7 +199,7 @@ describe("startTestRun", () => {
 			return { ...ok(200), teardownError: b.suite.id === "alone-1" ? "cleanup failed" : undefined };
 		});
 
-		await (await startTestRun({ projectId: PROJECT, routeId: ROUTE }, d)).done;
+		await (await startTestRun({ projectId: PROJECT, target: { type: "route", id: ROUTE } }, d)).done;
 
 		expect(order.slice(2)).toEqual(["alone-1", "alone-2"]);
 		expect(overlapped).toBe(false);
@@ -225,7 +229,7 @@ describe("startTestRun", () => {
 			return ok(status);
 		});
 
-		await (await startTestRun({ projectId: PROJECT, routeId: ROUTE }, d)).done;
+		await (await startTestRun({ projectId: PROJECT, target: { type: "route", id: ROUTE } }, d)).done;
 
 		const parent = state.updates.filter((u) => u.table === "run").at(-1)!;
 		expect(parent.values).toMatchObject({
@@ -239,7 +243,7 @@ describe("startTestRun", () => {
 		state.suites = [suite("s1"), suite("s2"), suite("s3")];
 		const d = deps(async () => ok(200));
 
-		await (await startTestRun({ projectId: PROJECT, routeId: ROUTE }, d)).done;
+		await (await startTestRun({ projectId: PROJECT, target: { type: "route", id: ROUTE } }, d)).done;
 
 		// per-suite compilation would be the same work three times — and could
 		// hand two suites of one run different code if the route were edited
@@ -258,7 +262,7 @@ describe("startTestRun", () => {
 			return ok(200);
 		});
 
-		await (await startTestRun({ projectId: PROJECT, routeId: ROUTE }, d)).done;
+		await (await startTestRun({ projectId: PROJECT, target: { type: "route", id: ROUTE } }, d)).done;
 
 		const timedOut = state.updates.find(
 			(u) => u.table === "suiteRun" && u.values.status === "timeout",
@@ -283,7 +287,7 @@ describe("startTestRun", () => {
 			throw new Error("graph is not connected");
 		});
 
-		await (await startTestRun({ projectId: PROJECT, routeId: ROUTE }, d)).done;
+		await (await startTestRun({ projectId: PROJECT, target: { type: "route", id: ROUTE } }, d)).done;
 
 		expect(d.spawn).not.toHaveBeenCalled();
 		const parent = state.updates.filter((u) => u.table === "run").at(-1)!;
@@ -306,7 +310,7 @@ describe("startTestRun", () => {
 
 		// an ownership check performed inside the sandbox would be worthless
 		await expect(
-			startTestRun({ projectId: PROJECT, routeId: ROUTE }, d),
+			startTestRun({ projectId: PROJECT, target: { type: "route", id: ROUTE } }, d),
 		).rejects.toThrow(TestRunError);
 		expect(d.spawn).not.toHaveBeenCalled();
 		expect(state.updates).toEqual([]);
@@ -316,12 +320,12 @@ describe("startTestRun", () => {
 		const d = deps(async () => ok(200));
 		state.routes = [];
 		await expect(
-			startTestRun({ projectId: PROJECT, routeId: ROUTE }, d),
+			startTestRun({ projectId: PROJECT, target: { type: "route", id: ROUTE } }, d),
 		).rejects.toMatchObject({ status: 404 });
 
 		state.routes = [{ id: ROUTE, projectId: "someone-else" }];
 		await expect(
-			startTestRun({ projectId: PROJECT, routeId: ROUTE }, d),
+			startTestRun({ projectId: PROJECT, target: { type: "route", id: ROUTE } }, d),
 		).rejects.toMatchObject({ status: 403 });
 
 		state.routes = [{ id: ROUTE, projectId: PROJECT }];
@@ -330,7 +334,57 @@ describe("startTestRun", () => {
 	it("404s a route that has no suites", async () => {
 		const d = deps(async () => ok(200));
 		await expect(
-			startTestRun({ projectId: PROJECT, routeId: ROUTE }, d),
+			startTestRun({ projectId: PROJECT, target: { type: "route", id: ROUTE } }, d),
 		).rejects.toMatchObject({ status: 404 });
+	});
+
+	it("sends a workflow suite its input and stores the raw cases (#487)", async () => {
+		state.suites = [
+			suite("w-suite", {
+				routeId: null,
+				workflowId: "w1",
+				input: { source: "script", mode: "cases", script: "return [1, 2];" },
+			}),
+		];
+		const compiledWorkflow = {
+			route: undefined,
+			workflow: { id: "w1", name: "double", projectId: PROJECT, timeoutSeconds: 10 },
+			source: "compiled",
+			customBlocks: [],
+			dependencies: undefined,
+		};
+		const cases = [
+			{ index: 0, name: "Case 1", input: 1, status: "passed", checks: [], durationMs: 1 },
+			{ index: 1, name: "Case 2", input: 2, status: "failed", checks: [], durationMs: 1 },
+		] as const;
+		const d = {
+			...deps(async () => ({
+				ok: true,
+				cases: [...cases],
+				counts: { total: 2, passed: 1, failed: 1, error: 0, timeout: 0 },
+				durationMs: 2,
+				verdict: { success: false, result: [] },
+			})),
+			compile: mock(async () => compiledWorkflow as any),
+		};
+
+		await (await startTestRun({ projectId: PROJECT, target: { type: "workflow", id: "w1" } }, d))
+			.done;
+
+		const boot = (d.spawn.mock.calls[0] as any[])[0];
+		expect(boot.workflow).toEqual({ id: "w1", name: "double" });
+		expect(boot.request).toBeUndefined();
+		expect(boot.timeoutMs).toBe(10_000);
+		// the script travels as a compiled custom block the child runs once
+		expect(boot.input).toEqual({
+			mode: "cases",
+			block: { block: "__suite_input__", timeoutMs: 30_000 },
+		});
+		expect(boot.customBlocks.map((b: any) => b.name)).toEqual(["__suite_input__"]);
+
+		const last = state.updates.filter((u) => u.table === "suiteRun").at(-1)!.values;
+		expect(last.status).toBe("failed");
+		expect(last.result.cases).toHaveLength(2);
+		expect(last.result.counts).toMatchObject({ passed: 1, failed: 1 });
 	});
 });

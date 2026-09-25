@@ -11,7 +11,8 @@ export const responseSchema = z.array(
 			id: z.string().uuid(),
 			createdAt: z.any().optional(),
 			updatedAt: z.any().optional(),
-			routeId: z.string(),
+			routeId: z.string().nullable(),
+			workflowId: z.string().nullable(),
 			routeParams: z.any(),
 			queryParams: z.any(),
 		})

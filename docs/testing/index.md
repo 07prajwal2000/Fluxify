@@ -5,7 +5,7 @@ description: Check that a route does what you expect, every time you change it, 
 
 # Test Suites
 
-A **test suite** checks one route for you. It sends the route a request you describe, then checks the answer against rules you write. You can run it any time, for example after changing the route, to make sure nothing broke.
+A **test suite** checks one route (or [one workflow](./workflows)) for you. It sends the route a request you describe, then checks the answer against rules you write. You can run it any time, for example after changing the route, to make sure nothing broke.
 
 Think of it as a saved "try it out" call that also knows what the right answer looks like.
 
@@ -20,6 +20,7 @@ Think of it as a saved "try it out" call that also knows what the right answer l
 | Change what a block receives or returns, to test an unusual case | [Hooks](./hooks) |
 | Add test data before the suite and remove it after | [Setup and teardown](./setup-and-teardown) |
 | Point the route at a test database or use different settings | [Overrides](./overrides) |
+| Test a workflow with some input, once or once per case | [Testing workflows](./workflows) |
 
 ## What happens when you press Run
 

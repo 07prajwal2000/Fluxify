@@ -5,9 +5,10 @@ import { CustomError } from "../../../../errors/customError";
 import { NotFoundError } from "../../../../errors/notFoundError";
 import { ServerError } from "../../../../errors/serverError";
 import { replaceSuiteHooks, validateHooks } from "../../../../modules/testRunner/hooks";
+import { targetOf, targetProject } from "../../../../modules/testRunner/target";
 import { getTestSuiteById } from "../get-by-id/repository";
 import type { requestBodySchema } from "./dto";
-import { testOnlyBlocksOfRoute, updateTestSuite } from "./repository";
+import { testOnlyBlocksOfProject, updateTestSuite } from "./repository";
 
 export default async function handleRequest(id: string, data: z.infer<typeof requestBodySchema>) {
 	try {
@@ -20,18 +21,24 @@ export default async function handleRequest(id: string, data: z.infer<typeof req
 			return { id };
 		}
 
-		const phaseBlocks = [fields.setupBlockId, fields.teardownBlockId].filter(
-			(b): b is string => !!b,
-		);
-		if (hooks !== undefined || phaseBlocks.length) {
+		// setup, teardown and the input loader (#487) are all test-only blocks
+		const testBlocks = [
+			fields.setupBlockId,
+			fields.teardownBlockId,
+			fields.input?.source === "loader" ? fields.input.loaderBlockId : undefined,
+		].filter((b): b is string => !!b);
+		if (hooks !== undefined || testBlocks.length) {
 			const suite = await getTestSuiteById(id);
 			if (!suite) throw new NotFoundError("Test suite not found");
-			if (hooks !== undefined) await validateHooks(suite.routeId, hooks);
-			// setup / teardown must be test-only blocks of this project, never a live one
-			const allowed = await testOnlyBlocksOfRoute(suite.routeId, phaseBlocks);
-			if (phaseBlocks.some((b) => !allowed.has(b))) {
+			const target = targetOf(suite);
+			if (hooks !== undefined) await validateHooks(target, hooks);
+			// must be test-only blocks of this project, never a live one
+			const allowed = testBlocks.length
+				? await testOnlyBlocksOfProject((await targetProject(target))!, testBlocks)
+				: new Set<string>();
+			if (testBlocks.some((b) => !allowed.has(b))) {
 				throw new BadRequestError(
-					"Setup and teardown must be test-only custom blocks of this project",
+					"Setup, teardown and loader blocks must be test-only custom blocks of this project",
 				);
 			}
 		}

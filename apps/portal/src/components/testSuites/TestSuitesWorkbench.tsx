@@ -1,28 +1,34 @@
 import { Button, cn, DeleteIconButton, Spinner, toast } from "@fluxify/components";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { TbPlayerPlay, TbPlus, TbSearch } from "react-icons/tb";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
-import { RouteSwitcher } from "@/components/routes/RouteSwitcher";
-import { RouteWorkbenchHeader, RouteWorkbenchTabs } from "@/components/routes/RouteWorkbenchTabs";
+import { RouteWorkbenchHeader } from "@/components/routes/RouteWorkbenchTabs";
 import { showErrorNotification } from "@/lib/errorNotifier";
+import { useProjectPackageTypes } from "@/query/projectPackagesQuery";
 import { routesQuery } from "@/query/routesQuery";
 import { testSuitesQuery } from "@/query/testSuitesQuery";
-import { IN_FLIGHT_STATUSES } from "@/services/testSuites";
+import { IN_FLIGHT_STATUSES, type SuiteTarget } from "@/services/testSuites";
 import { AssertionsEditor } from "./AssertionsEditor";
 import { validateAssertions } from "./assertions";
 import { HooksEditor } from "./HooksEditor";
 import { hookErrors } from "./hooks";
+import { InputEditor } from "./InputEditor";
 import { OverridesEditor } from "./OverridesEditor";
 import { RequestEditor } from "./RequestEditor";
 import { RunResults } from "./RunResults";
 import { SetupEditor } from "./SetupEditor";
 import { type SuiteDraft, toDraft } from "./types";
 
-const EDITOR_TABS = ["Request", "Assertions", "Hooks", "Setup & teardown", "Overrides"] as const;
+/** a route suite sends a request; a workflow suite feeds an input (#487) */
+const EDITOR_TABS = {
+	route: ["Request", "Assertions", "Hooks", "Setup & teardown", "Overrides"],
+	workflow: ["Input", "Assertions", "Hooks", "Setup & teardown", "Overrides"],
+} as const;
 
-type EditorTab = (typeof EDITOR_TABS)[number];
+type EditorTab = (typeof EDITOR_TABS)[SuiteTarget["type"]][number];
 
 function SuiteList({
+	kind,
 	suites,
 	isLoading,
 	selectedId,
@@ -31,6 +37,7 @@ function SuiteList({
 	onDelete,
 	isCreating,
 }: {
+	kind: SuiteTarget["type"];
 	suites: { id: string; name: string }[];
 	isLoading: boolean;
 	selectedId: string | null;
@@ -72,7 +79,7 @@ function SuiteList({
 					</div>
 				) : shown.length === 0 ? (
 					<p className="p-6 text-center text-xs text-muted">
-						{suites.length === 0 ? "No suites for this route yet." : "Nothing matches."}
+						{suites.length === 0 ? `No suites for this ${kind} yet.` : "Nothing matches."}
 					</p>
 				) : (
 					shown.map((suite) => (
@@ -104,30 +111,39 @@ function SuiteList({
 	);
 }
 
+/**
+ * Create, edit and run the suites of one route or workflow. `headerLeft` is the
+ * target's own switcher and view tabs.
+ */
 export function TestSuitesWorkbench({
 	projectId,
-	routeId,
+	target,
+	headerLeft,
 }: {
 	projectId: string;
-	routeId: string;
+	target: SuiteTarget;
+	headerLeft: ReactNode;
 }) {
+	// npm package types, so imports in scripts and hooks autocomplete (faker…)
+	useProjectPackageTypes(projectId);
+	const tabs = EDITOR_TABS[target.type];
 	const [selectedId, setSelectedId] = useState<string | null>(null);
-	const [tab, setTab] = useState<EditorTab>("Request");
+	const [tab, setTab] = useState<EditorTab>(tabs[0]);
 	const [draft, setDraft] = useState<SuiteDraft>(() => toDraft(undefined));
 	const [isDirty, setDirty] = useState(false);
 	const [runId, setRunId] = useState<string | null>(null);
 	const [pendingDelete, setPendingDelete] = useState<{ id: string; name: string } | null>(null);
 
-	const route = routesQuery.byId.useQuery(routeId);
-	const suites = testSuitesQuery.getAll.useQuery(routeId);
-	const detail = testSuitesQuery.getById.useQuery(routeId, selectedId);
-	const create = testSuitesQuery.create.mutation(routeId);
-	const update = testSuitesQuery.update.mutation(routeId, selectedId ?? "");
-	const remove = testSuitesQuery.remove.mutation(routeId);
-	const startRun = testSuitesQuery.startRun.mutation(projectId, routeId);
+	const route = routesQuery.byId.useQuery(target.type === "route" ? target.id : "");
+	const suites = testSuitesQuery.getAll.useQuery(target);
+	const detail = testSuitesQuery.getById.useQuery(target, selectedId);
+	const create = testSuitesQuery.create.mutation(target);
+	const update = testSuitesQuery.update.mutation(target, selectedId ?? "");
+	const remove = testSuitesQuery.remove.mutation(target);
+	const startRun = testSuitesQuery.startRun.mutation(projectId, target);
 	// Same query key the results panel polls, so react-query serves both from one
 	// request — this is only here to know when the run is still moving.
-	const activeRun = testSuitesQuery.getRun.useQuery(projectId, routeId, runId);
+	const activeRun = testSuitesQuery.getRun.useQuery(projectId, target, runId);
 	const isRunning =
 		startRun.isPending ||
 		(!!runId && (!activeRun.data || IN_FLIGHT_STATUSES.includes(activeRun.data.status)));
@@ -196,7 +212,6 @@ export function TestSuitesWorkbench({
 			await update.mutateAsync({
 				name: draft.name,
 				description: draft.description,
-				routeId,
 				projectId,
 				headers: draft.headers,
 				queryParams: draft.queryParams,
@@ -212,6 +227,7 @@ export function TestSuitesWorkbench({
 				setupTimeoutMs: draft.setupTimeoutMs,
 				teardownTimeoutMs: draft.teardownTimeoutMs,
 				runAlone: draft.runAlone,
+				...(target.type === "workflow" && { input: draft.input }),
 			});
 			setDirty(false);
 			toast.success("Suite saved");
@@ -257,8 +273,7 @@ export function TestSuitesWorkbench({
 	return (
 		<>
 			<RouteWorkbenchHeader>
-				<RouteSwitcher projectId={projectId} routeId={routeId} />
-				<RouteWorkbenchTabs projectId={projectId} routeId={routeId} />
+				{headerLeft}
 				<div className="ml-auto flex items-center gap-2">
 					<span className="text-xs text-muted">
 						{list.length} suite{list.length === 1 ? "" : "s"}
@@ -279,6 +294,7 @@ export function TestSuitesWorkbench({
 
 			<div className="flex min-h-0 flex-1">
 				<SuiteList
+					kind={target.type}
 					suites={list}
 					isLoading={suites.isLoading}
 					selectedId={selectedId}
@@ -328,7 +344,7 @@ export function TestSuitesWorkbench({
 							</div>
 
 							<div className="flex items-center gap-1 border-b border-border px-3">
-								{EDITOR_TABS.map((name) => (
+								{tabs.map((name) => (
 									<button
 										key={name}
 										type="button"
@@ -359,8 +375,18 @@ export function TestSuitesWorkbench({
 										onChange={patch}
 									/>
 								)}
+								{tab === "Input" && (
+									<InputEditor
+										// the JSON editors hold local text, seeded per suite
+										key={selectedId}
+										projectId={projectId}
+										input={draft.input}
+										onChange={(input) => patch({ input })}
+									/>
+								)}
 								{tab === "Assertions" && (
 									<AssertionsEditor
+										kind={target.type}
 										assertions={draft.assertions}
 										onChange={(assertions) => patch({ assertions })}
 									/>
@@ -368,7 +394,7 @@ export function TestSuitesWorkbench({
 								{tab === "Hooks" && (
 									<HooksEditor
 										suiteId={selectedId}
-										routeId={routeId}
+										target={target}
 										hooks={draft.hooks}
 										onChange={(hooks) => patch({ hooks })}
 									/>
@@ -386,7 +412,7 @@ export function TestSuitesWorkbench({
 
 				<RunResults
 					projectId={projectId}
-					routeId={routeId}
+					target={target}
 					runId={runId}
 					suiteNames={suiteNames}
 					onSelectRun={setRunId}

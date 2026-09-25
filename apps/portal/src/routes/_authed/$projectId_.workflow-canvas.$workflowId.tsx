@@ -3,6 +3,7 @@ import { createFileRoute, isRedirect, redirect } from "@tanstack/react-router";
 import { useState } from "react";
 import { TbPlayerPlay, TbSettings } from "react-icons/tb";
 import { CanvasWorkbench } from "@/components/canvas";
+import { WorkflowWorkbenchTabs } from "@/components/routes/RouteWorkbenchTabs";
 import { WorkflowRunModal } from "@/components/workflows/WorkflowRunModal";
 import { WorkflowSettingsModal } from "@/components/workflows/WorkflowSettingsModal";
 import { WorkflowSwitcher } from "@/components/workflows/WorkflowSwitcher";
@@ -61,7 +62,12 @@ function WorkflowCanvasPage() {
 				compileTarget={{ projectId, resourceType: "workflow", resourceId: workflowId }}
 				reload={() => workflowsService.getCanvasItems(workflowId)}
 				save={(payload) => save.mutateAsync(payload)}
-				headerLeft={<WorkflowSwitcher projectId={projectId} workflowId={workflowId} />}
+				headerLeft={
+					<>
+						<WorkflowSwitcher projectId={projectId} workflowId={workflowId} />
+						<WorkflowWorkbenchTabs projectId={projectId} workflowId={workflowId} />
+					</>
+				}
 				headerActions={
 					<>
 						<Button

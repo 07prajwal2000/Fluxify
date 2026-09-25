@@ -1,8 +1,10 @@
 import { NODE_REASONS, NODE_STATES, NODE_TYPES } from "@fluxify/common/orchestrator";
 import { generateID } from "@fluxify/lib";
 import { relations, sql } from "drizzle-orm";
+import type { AnyPgColumn } from "drizzle-orm/pg-core";
 import {
 	boolean,
+	check,
 	index,
 	integer,
 	pgEnum,
@@ -515,57 +517,91 @@ export const edgesEntity = pgTable(
  * 6. TESTING & TEST SUITES
  * ============================================================================ */
 
-export const testSuitesEntity = pgTable("test_suites", {
-	id: varchar({ length: 50 })
-		.primaryKey()
-		.$defaultFn(() => generateID()),
-	name: varchar({ length: 255 }).notNull(),
-	description: text(),
-	routeId: varchar("route_id", { length: 50 })
-		.notNull()
-		.references(() => routesEntity.id, { onDelete: "cascade" }),
+/**
+ * What a workflow suite feeds the workflow (#487). `source` picks where the
+ * value comes from; the other fields stay so switching tabs loses nothing.
+ * `mode: "cases"` runs the workflow once per case, "single" once with the value.
+ */
+export type SuiteInput = {
+	source: "raw" | "script" | "loader";
+	mode: "single" | "cases";
+	/** raw single: any JSON value. raw cases: `[{ name, input }]` */
+	raw?: unknown;
+	/** a JS block body that returns the value (or the cases) */
+	script?: string;
+	/** a test-only custom block that returns the value (or the cases) */
+	loaderBlockId?: string | null;
+	/** budget for the script or loader */
+	timeoutMs?: number;
+};
 
-	// Mock request data
-	headers: jsonb("headers").$type<Record<string, string>>().default({}),
-	params: jsonb("params").$type<Record<string, string>>().default({}),
-	queryParams: jsonb("query_params").$type<Record<string, string>>().default({}),
-	routeParams: jsonb("route_params").$type<Record<string, string>>().default({}),
-	/** null sends JSON; see testSuiteCoreSchema for the body shape per type */
-	contentType: varchar("content_type", { length: 100 }),
-	body: jsonb("body").$type<unknown>(),
+/** a suite, and each run of it, tests exactly one route or one workflow */
+const oneTarget = (table: { routeId: AnyPgColumn; workflowId: AnyPgColumn }) =>
+	sql`num_nonnulls(${table.routeId}, ${table.workflowId}) = 1`;
 
-	// Assertions
-	assertions: jsonb("assertions").$type<any[]>().notNull().default([]),
+export const testSuitesEntity = pgTable(
+	"test_suites",
+	{
+		id: varchar({ length: 50 })
+			.primaryKey()
+			.$defaultFn(() => generateID()),
+		name: varchar({ length: 255 }).notNull(),
+		description: text(),
+		routeId: varchar("route_id", { length: 50 }).references(() => routesEntity.id, {
+			onDelete: "cascade",
+		}),
+		workflowId: varchar("workflow_id", { length: 50 }).references(() => workflowsEntity.id, {
+			onDelete: "cascade",
+		}),
+		/** workflow suites only (#487) */
+		input: jsonb("input").$type<SuiteInput | null>(),
 
-	// Overrides
-	integrationOverrides: jsonb("integration_overrides")
-		.$type<Array<{ existingId: string; newId: string }>>()
-		.default([]),
-	appConfigOverrides: jsonb("app_config_overrides")
-		.$type<Array<{ key: string; value: string }>>()
-		.default([]),
+		// Mock request data
+		headers: jsonb("headers").$type<Record<string, string>>().default({}),
+		params: jsonb("params").$type<Record<string, string>>().default({}),
+		queryParams: jsonb("query_params").$type<Record<string, string>>().default({}),
+		routeParams: jsonb("route_params").$type<Record<string, string>>().default({}),
+		/** null sends JSON; see testSuiteCoreSchema for the body shape per type */
+		contentType: varchar("content_type", { length: 100 }),
+		body: jsonb("body").$type<unknown>(),
 
-	// Setup / teardown (#483): test-only custom blocks run before and after the
-	// request. Deleting the block clears the field rather than the suite.
-	setupBlockId: varchar("setup_block_id", { length: 50 }).references(
-		() => customBlocksListEntity.id,
-		{ onDelete: "set null" },
-	),
-	teardownBlockId: varchar("teardown_block_id", { length: 50 }).references(
-		() => customBlocksListEntity.id,
-		{ onDelete: "set null" },
-	),
-	setupTimeoutMs: integer("setup_timeout_ms").default(30_000).notNull(),
-	teardownTimeoutMs: integer("teardown_timeout_ms").default(30_000).notNull(),
-	/** run by itself, after the parallel suites of a run, for a clean slate */
-	runAlone: boolean("run_alone").default(false).notNull(),
+		// Assertions
+		assertions: jsonb("assertions").$type<any[]>().notNull().default([]),
 
-	createdAt: timestamp("created_at").defaultNow().notNull(),
-	updatedAt: timestamp("updated_at")
-		.defaultNow()
-		.notNull()
-		.$onUpdate(() => new Date()),
-});
+		// Overrides
+		integrationOverrides: jsonb("integration_overrides")
+			.$type<Array<{ existingId: string; newId: string }>>()
+			.default([]),
+		appConfigOverrides: jsonb("app_config_overrides")
+			.$type<Array<{ key: string; value: string }>>()
+			.default([]),
+
+		// Setup / teardown (#483): test-only custom blocks run before and after the
+		// request. Deleting the block clears the field rather than the suite.
+		setupBlockId: varchar("setup_block_id", { length: 50 }).references(
+			() => customBlocksListEntity.id,
+			{ onDelete: "set null" },
+		),
+		teardownBlockId: varchar("teardown_block_id", { length: 50 }).references(
+			() => customBlocksListEntity.id,
+			{ onDelete: "set null" },
+		),
+		setupTimeoutMs: integer("setup_timeout_ms").default(30_000).notNull(),
+		teardownTimeoutMs: integer("teardown_timeout_ms").default(30_000).notNull(),
+		/** run by itself, after the parallel suites of a run, for a clean slate */
+		runAlone: boolean("run_alone").default(false).notNull(),
+
+		createdAt: timestamp("created_at").defaultNow().notNull(),
+		updatedAt: timestamp("updated_at")
+			.defaultNow()
+			.notNull()
+			.$onUpdate(() => new Date()),
+	},
+	(table) => [
+		check("test_suites_one_target", oneTarget(table)),
+		index("idx_test_suites_workflow").on(table.workflowId),
+	],
+);
 
 /** a test-suite hook body: a script, or JSON text that is the block's made-up output */
 export type TestHookBody = { kind: "script" | "json"; value: string };
@@ -618,6 +654,28 @@ export type SuiteRunResult = {
 	error?: string;
 	/** teardown failed; the suite keeps its status (#483) */
 	teardownError?: string;
+	/**
+	 * Workflow suites (#487): raw per-case results; the view decides pass/fail.
+	 * A route suite has none yet and reads as one case.
+	 */
+	cases?: CaseResult[];
+	counts?: CaseCounts;
+};
+
+export type CaseStatus = "passed" | "failed" | "error" | "timeout";
+export type CaseCounts = Record<CaseStatus, number> & { total: number };
+
+/** one case of a suite run: what went in, what came out, and the checks on it */
+export type CaseResult = {
+	index: number;
+	name: string;
+	status: CaseStatus;
+	checks: AssertionResult[];
+	durationMs: number;
+	input: unknown;
+	/** a workflow's `{ successful, output, error }` */
+	output?: unknown;
+	error?: string;
 };
 
 /** jsonb payload on the parent run. */
@@ -649,9 +707,12 @@ export const testRunsEntity = pgTable(
 		projectId: varchar("project_id", { length: 50 })
 			.notNull()
 			.references(() => projectsEntity.id, { onDelete: "cascade" }),
-		routeId: varchar("route_id", { length: 50 })
-			.notNull()
-			.references(() => routesEntity.id, { onDelete: "cascade" }),
+		routeId: varchar("route_id", { length: 50 }).references(() => routesEntity.id, {
+			onDelete: "cascade",
+		}),
+		workflowId: varchar("workflow_id", { length: 50 }).references(() => workflowsEntity.id, {
+			onDelete: "cascade",
+		}),
 		status: testRunStatusEnum("status").default("queued").notNull(),
 		totalSuites: integer("total_suites").notNull(),
 		passedCount: integer("passed_count").default(0).notNull(),
@@ -664,6 +725,8 @@ export const testRunsEntity = pgTable(
 	},
 	(table) => [
 		index("idx_test_runs_project_route").on(table.projectId, table.routeId, table.createdAt),
+		index("idx_test_runs_project_workflow").on(table.projectId, table.workflowId, table.createdAt),
+		check("test_runs_one_target", oneTarget(table)),
 	],
 );
 
@@ -680,9 +743,12 @@ export const testSuiteRunsEntity = pgTable(
 		projectId: varchar("project_id", { length: 50 })
 			.notNull()
 			.references(() => projectsEntity.id, { onDelete: "cascade" }),
-		routeId: varchar("route_id", { length: 50 })
-			.notNull()
-			.references(() => routesEntity.id, { onDelete: "cascade" }),
+		routeId: varchar("route_id", { length: 50 }).references(() => routesEntity.id, {
+			onDelete: "cascade",
+		}),
+		workflowId: varchar("workflow_id", { length: 50 }).references(() => workflowsEntity.id, {
+			onDelete: "cascade",
+		}),
 		// Deliberately NOT a foreign key: deleting a suite must not erase the
 		// history of the runs that used it.
 		testSuiteId: varchar("test_suite_id", { length: 50 }).notNull(),
@@ -696,6 +762,7 @@ export const testSuiteRunsEntity = pgTable(
 	(table) => [
 		index("idx_test_suite_runs_run").on(table.testRunId),
 		index("idx_test_suite_runs_project").on(table.projectId, table.createdAt),
+		check("test_suite_runs_one_target", oneTarget(table)),
 	],
 );
 
@@ -718,6 +785,10 @@ export const testSuitesRelations = relations(testSuitesEntity, ({ one }) => ({
 	route: one(routesEntity, {
 		fields: [testSuitesEntity.routeId],
 		references: [routesEntity.id],
+	}),
+	workflow: one(workflowsEntity, {
+		fields: [testSuitesEntity.workflowId],
+		references: [workflowsEntity.id],
 	}),
 }));
 

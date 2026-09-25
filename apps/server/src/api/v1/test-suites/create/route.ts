@@ -1,10 +1,10 @@
 import { describeRoute, resolver, validator } from "hono-openapi";
-import { z } from "zod";
 import { errorSchema } from "../../../../errors/customError";
 import { validationErrorSchema } from "../../../../errors/validationError";
 import zodErrorCallbackParser from "../../../../middlewares/zodErrorCallbackParser";
+import { targetFromParams, targetParamSchema } from "../../../../modules/testRunner/target";
 import type { HonoServer } from "../../../../types";
-import { requireTestSuiteAccess } from "../middleware";
+import { requireTestSuiteAccess, targetFromPath } from "../middleware";
 import { requestBodySchema, responseSchema } from "./dto";
 import handleRequest from "./service";
 
@@ -32,13 +32,12 @@ export default function (app: HonoServer) {
 				},
 			},
 		}),
-		requireTestSuiteAccess("creator", (ctx) => ({ routeId: ctx.req.param("routeId") })),
-		validator("param", z.object({ routeId: z.string().uuid() }), zodErrorCallbackParser),
+		requireTestSuiteAccess("creator", targetFromPath),
+		validator("param", targetParamSchema, zodErrorCallbackParser),
 		validator("json", requestBodySchema, zodErrorCallbackParser),
 		async (ctx) => {
-			const { routeId } = ctx.req.valid("param");
-			const data = ctx.req.valid("json");
-			const result = await handleRequest({ ...data, routeId });
+			const target = targetFromParams(ctx.req.valid("param"));
+			const result = await handleRequest(ctx.req.valid("json"), target);
 			return ctx.json(result);
 		},
 	);

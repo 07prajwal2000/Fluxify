@@ -9,17 +9,20 @@ import appGetRuns from "./get-runs/route";
 import appStartRun from "./start-run/route";
 import appUpdate from "./update/route";
 
+const TARGET = ":kind{route|workflow}/:targetId";
+
 export default {
 	registerHandler(app: HonoServer) {
 		const router = app.basePath("/test-suites");
-		const routeRouter = app.basePath("/test-suites/route/:routeId");
+		// a suite tests a route or a workflow (#487); `/route/...` paths are unchanged
+		const targetRouter = app.basePath(`/test-suites/${TARGET}`);
 		// Runs carry the project in the path so authorization costs no database
 		// read — see start-run/dto.ts.
-		const runsRouter = app.basePath("/:projectId/test-suites/route/:routeId/runs");
+		const runsRouter = app.basePath(`/:projectId/test-suites/${TARGET}/runs`);
 
-		// Route-specific test suite operations
-		appCreate(routeRouter);
-		appGetAll(routeRouter);
+		// Target-specific test suite operations
+		appCreate(targetRouter);
+		appGetAll(targetRouter);
 
 		// Test suite specific operations
 		appUpdate(router);

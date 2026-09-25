@@ -1,24 +1,33 @@
 import { cn } from "@fluxify/components";
 import { Link } from "@tanstack/react-router";
+import type { IconType } from "react-icons";
 import { TbFlask, TbTopologyStar3 } from "react-icons/tb";
 
-const TABS = [
+type Tab = { label: string; icon: IconType; to: string };
+
+const ROUTE_TABS: Tab[] = [
 	{ label: "Canvas", icon: TbTopologyStar3, to: "/$projectId/canvas/$routeId" },
 	{ label: "Tests", icon: TbFlask, to: "/$projectId/canvas/$routeId/test-suites" },
-] as const;
+];
+
+const WORKFLOW_TABS: Tab[] = [
+	{ label: "Canvas", icon: TbTopologyStar3, to: "/$projectId/workflow-canvas/$workflowId" },
+	{ label: "Tests", icon: TbFlask, to: "/$projectId/workflow-canvas/$workflowId/test-suites" },
+];
 
 /**
- * Segmented switcher between a route's workbench views. Links rather than tab
+ * Segmented switcher between a workbench's views. Links rather than tab
  * panels: each view is its own route, so the browser keeps the history entry.
  */
-export function RouteWorkbenchTabs({ projectId, routeId }: { projectId: string; routeId: string }) {
+function WorkbenchTabs({ tabs, params }: { tabs: Tab[]; params: Record<string, string> }) {
 	return (
 		<div className="flex items-center gap-0.5 rounded-lg border border-border bg-background-secondary p-0.5">
-			{TABS.map(({ label, icon: Icon, to }) => (
+			{tabs.map(({ label, icon: Icon, to }) => (
 				<Link
 					key={to}
-					to={to}
-					params={{ projectId, routeId }}
+					// the tab lists pair each path with its own params
+					to={to as never}
+					params={params as never}
 					activeOptions={{ exact: true }}
 					className="rounded-md px-2.5 py-1 text-xs font-medium text-muted transition-colors hover:text-foreground"
 					activeProps={{ className: "bg-accent/10 text-accent" }}
@@ -31,6 +40,21 @@ export function RouteWorkbenchTabs({ projectId, routeId }: { projectId: string; 
 			))}
 		</div>
 	);
+}
+
+export function RouteWorkbenchTabs({ projectId, routeId }: { projectId: string; routeId: string }) {
+	return <WorkbenchTabs tabs={ROUTE_TABS} params={{ projectId, routeId }} />;
+}
+
+/** a workflow's canvas and its test suites (#487) */
+export function WorkflowWorkbenchTabs({
+	projectId,
+	workflowId,
+}: {
+	projectId: string;
+	workflowId: string;
+}) {
+	return <WorkbenchTabs tabs={WORKFLOW_TABS} params={{ projectId, workflowId }} />;
 }
 
 /** The shared topbar shell — the canvas grows its own, this is for the sibling views. */

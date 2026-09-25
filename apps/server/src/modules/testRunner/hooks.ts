@@ -3,6 +3,7 @@ import { and, eq, inArray } from "drizzle-orm";
 import { type DbTransactionType, db } from "../../db";
 import { blocksEntity, type TestHookBody, testSuiteBlockHooksEntity } from "../../db/schema";
 import { BadRequestError } from "../../errors/badRequestError";
+import { type SuiteTarget, targetColumn } from "./target";
 
 /** a suite's hooks on one block, as the API reads and writes them */
 export type BlockHook = {
@@ -21,10 +22,10 @@ export type SuiteHook = {
 };
 
 /**
- * Every hook must sit on a block of the suite's own route that allows it. The
+ * Every hook must sit on a block of the suite's own route or workflow that allows it. The
  * portal only offers valid blocks, but the API is the boundary.
  */
-export async function validateHooks(routeId: string, hooks: BlockHook[]) {
+export async function validateHooks(target: SuiteTarget, hooks: BlockHook[]) {
 	const ids = [...new Set(hooks.map((h) => h.blockId))];
 	if (ids.length !== hooks.length)
 		throw new BadRequestError("A block can have only one hook entry");
@@ -33,13 +34,15 @@ export async function validateHooks(routeId: string, hooks: BlockHook[]) {
 	const blocks = await db
 		.select({ id: blocksEntity.id, type: blocksEntity.type })
 		.from(blocksEntity)
-		.where(and(inArray(blocksEntity.id, ids), eq(blocksEntity.routeId, routeId)));
+		.where(
+			and(inArray(blocksEntity.id, ids), eq(targetColumn(blocksEntity, target.type), target.id)),
+		);
 	const typeOf = new Map(blocks.map((b) => [b.id, b.type ?? ""]));
 
 	for (const hook of hooks) {
 		const type = typeOf.get(hook.blockId);
 		if (type === undefined) {
-			throw new BadRequestError(`Block ${hook.blockId} is not on this suite's route`);
+			throw new BadRequestError(`Block ${hook.blockId} is not on this suite's ${target.type}`);
 		}
 		const support = hookSupport(type);
 		if (support === "none") throw new BadRequestError(`A ${type} block cannot have hooks`);

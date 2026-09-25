@@ -1,6 +1,7 @@
 import { RpcError, rpcRequest } from "@fluxify/common/nats";
 import { natsConnection } from "../../db/nats";
 import { EncryptionService } from "../../lib/encryption";
+import { maxRuns } from "./cases";
 import { type TestBootstrap, type TestResult, type TestRunRequest, testRunSubject } from "./types";
 
 /**
@@ -22,7 +23,8 @@ export async function runSuiteOnWorker(bootstrap: TestBootstrap): Promise<TestRe
 	// every phase's own budget (#483): the worker times each, this waits for all
 	const waitMs =
 		(bootstrap.setup?.timeoutMs ?? 0) +
-		bootstrap.timeoutMs +
+		(bootstrap.input?.block?.timeoutMs ?? 0) +
+		bootstrap.timeoutMs * maxRuns(bootstrap.input) +
 		(bootstrap.teardown?.timeoutMs ?? 0) +
 		DISPATCH_GRACE_MS;
 	try {

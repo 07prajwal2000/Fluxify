@@ -17,12 +17,14 @@ import { evaluateAssertions } from "./assertions";
 import { buildHooks } from "./hookRuntime";
 import { decodeSuiteBody } from "./suiteBody";
 import type {
+	RouteTarget,
 	SuiteOutcome,
 	TestBootstrap,
 	TestBootstrapMessage,
 	TestChildMessage,
 	TestResult,
 } from "./types";
+import { runWorkflowSuite } from "./workflowSuite";
 
 /**
  * Ephemeral child that runs exactly one test suite and exits.
@@ -35,7 +37,8 @@ import type {
  * database url. The route's own integration connection details do arrive in the
  * bootstrap, because the route cannot run without them.
  *
- * Order (#483): setup → route + hooks + assertions → teardown, each phase
+ * Order (#483): setup → route + hooks + assertions → teardown (a workflow suite
+ * reads its input, then runs each case with hooks + assertions, #487), each phase
  * reported to the supervisor as it ends so it can time each on its own budget.
  */
 process.env = executionRuntimeEnvironment();
@@ -86,10 +89,11 @@ function prepare(boot: TestBootstrap) {
  */
 async function runPhase(
 	boot: TestBootstrap,
-	phase: "setup" | "teardown",
+	phase: "setup" | "input" | "teardown",
 	extra: { setup?: unknown; outcome?: SuiteOutcome } = {},
 ) {
-	const { block, timeoutMs } = boot[phase]!;
+	// "input": a workflow suite's loader, or its script compiled as a block (#487)
+	const { block, timeoutMs } = phase === "input" ? boot.input!.block! : boot[phase]!;
 	(globalThis as { testsuite?: unknown }).testsuite = {
 		phase,
 		runId: boot.suiteRunId,
@@ -133,7 +137,9 @@ async function runSuite(boot: TestBootstrap) {
 		}
 	}
 
-	result ??= await runRoute(boot, setup);
+	result ??= boot.workflow
+		? await runWorkflowSuite(boot, setup, () => runPhase(boot, "input", { setup }), send)
+		: await runRoute(boot, setup);
 	send({ type: "route-done", result });
 	await finish(boot, () => runPhase(boot, "teardown", { setup, outcome: outcomeOf(result) }));
 }
@@ -169,7 +175,7 @@ function outcomeOf(result: TestResult): SuiteOutcome {
 	return result.verdict.success ? "passed" : "failed";
 }
 
-async function runRoute(boot: TestBootstrap, setup: unknown): Promise<TestResult> {
+async function runRoute(boot: TestBootstrap & RouteTarget, setup: unknown): Promise<TestResult> {
 	const startedAt = Date.now();
 	try {
 		const run = instantiateCompiled(boot.source);

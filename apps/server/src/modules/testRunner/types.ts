@@ -1,4 +1,4 @@
-import type { AssertionResult } from "../../db/schema";
+import type { AssertionResult, CaseCounts, CaseResult } from "../../db/schema";
 import type { ProjectConfigPayload } from "../compiler/artifacts";
 import type { AssertionType, SuiteRequest } from "./assertions";
 import type { SuiteHook } from "./hooks";
@@ -10,25 +10,20 @@ import type { SuiteHook } from "./hooks";
  * credentials. Anything missing here is not reachable from inside it — which is
  * the point. `config` is the payload `resolveSuiteConfig` produced, so the
  * suite's overrides are already applied and no override travels separately.
+ *
+ * A route suite carries `route` + `request`; a workflow suite (#487) carries
+ * `workflow` + `input`. Everything else is shared.
  */
 export type TestBootstrap = {
 	suiteRunId: string;
 	projectId: string;
-	route: {
-		id: string;
-		projectName: string;
-		bodySchema?: unknown;
-		querySchema?: unknown;
-		paramsSchema?: unknown;
-	};
 	/** compiled graph source — the child never sees blocks or edges */
 	source: string;
 	customBlocks: Array<{ name: string; source: string }>;
 	config: ProjectConfigPayload;
-	request: SuiteRequest;
-	/** route.timeoutSeconds * 1000 — drives both the in-band stopper and the watchdog */
+	/** the target's timeoutSeconds * 1000, per case — drives the in-band stopper and the watchdog */
 	timeoutMs: number;
-	/** judged in the child, right after the route answers */
+	/** judged in the child, right after the target answers */
 	assertions: AssertionType[];
 	/** the suite's block hooks (#483); `source` is compiled with hook points */
 	hooks: SuiteHook[];
@@ -39,6 +34,36 @@ export type TestBootstrap = {
 	 */
 	setup?: SuitePhase;
 	teardown?: SuitePhase;
+} & (RouteTarget | WorkflowTarget);
+
+export type RouteTarget = {
+	route: {
+		id: string;
+		projectName: string;
+		bodySchema?: unknown;
+		querySchema?: unknown;
+		paramsSchema?: unknown;
+	};
+	request: SuiteRequest;
+	workflow?: undefined;
+	input?: undefined;
+};
+
+export type WorkflowTarget = {
+	workflow: { id: string; name: string };
+	input: SuiteInputSpec;
+	route?: undefined;
+	request?: undefined;
+};
+
+/**
+ * Where a workflow suite's input comes from: `raw`, or a custom block (the
+ * loader, or the script compiled as one) run once before the cases.
+ */
+export type SuiteInputSpec = {
+	mode: "single" | "cases";
+	raw?: unknown;
+	block?: SuitePhase;
 };
 
 export type SuitePhase = { block: string; timeoutMs: number };
@@ -53,6 +78,7 @@ export type SuiteOutcome = "passed" | "failed" | "error" | "timeout";
 export type TestResult =
 	| {
 			ok: true;
+			cases?: undefined;
 			status: number;
 			data: unknown;
 			headers: Record<string, string>;
@@ -63,11 +89,22 @@ export type TestResult =
 			teardownError?: string;
 	  }
 	| {
+			/** a workflow suite (#487): one result per case; `verdict` is every case passing */
+			ok: true;
+			cases: CaseResult[];
+			counts: CaseCounts;
+			durationMs: number;
+			verdict: { success: boolean; result: AssertionResult[] };
+			teardownError?: string;
+	  }
+	| {
 			ok: false;
 			error: string;
 			timedOut?: boolean;
 			durationMs: number;
 			teardownError?: string;
+			/** the cases that finished before the suite was stopped */
+			cases?: CaseResult[];
 	  };
 
 /**
@@ -87,6 +124,10 @@ export type TestBootstrapMessage = {
 export type TestChildMessage =
 	| { type: "ready" }
 	| { type: "setup-done"; setup: unknown }
+	/** a workflow suite's input is ready: the cases start */
+	| { type: "input-done" }
+	/** one case finished; each case gets the full per-case budget */
+	| { type: "case-done"; result: CaseResult }
 	| { type: "route-done"; result: TestResult }
 	| { type: "teardown-done"; error?: string };
 

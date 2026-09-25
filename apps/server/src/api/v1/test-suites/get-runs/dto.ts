@@ -1,10 +1,10 @@
 import { z } from "zod";
 import { testRunStatusEnum } from "../../../../db/schema";
 import { paginationRequestQuerySchema, paginationResponseSchema } from "../../../../lib/pagination";
+import { targetParamSchema } from "../../../../modules/testRunner/target";
 
-export const requestParamSchema = z.object({
+export const requestParamSchema = targetParamSchema.extend({
 	projectId: z.string(),
-	routeId: z.string(),
 });
 
 export const requestQuerySchema = paginationRequestQuerySchema;
