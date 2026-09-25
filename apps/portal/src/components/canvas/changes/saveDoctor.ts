@@ -131,7 +131,10 @@ export async function saveWithDoctor({
 		await save(buildSavePayload(graph, changes));
 		return { repaired: false, notes: [] };
 	} catch (error) {
-		const server = await loadServerGraph();
+		// a failed reload must not hide why the save failed
+		const server = await loadServerGraph().catch(() => {
+			throw error;
+		});
 		const { payload, notes } = repairSavePayload(graph, changes, server);
 		// Nothing was wrong with the payload, so the failure is elsewhere (network,
 		// auth, server bug) — retrying the same body would only fail again.

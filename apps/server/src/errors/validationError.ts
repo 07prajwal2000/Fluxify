@@ -13,7 +13,7 @@ export class ValidationError extends CustomError {
 
 export const validationErrorSchema = baseErrorSchema.extend({
 	type: z.literal("validation"),
-	error: z.array(
+	errors: z.array(
 		z.object({
 			field: z.string(),
 			message: z.string(),

@@ -1,32 +1,26 @@
-import { isAxiosError } from "axios";
+import { formatFieldError, parseApiError } from "@/lib/errorNotifier";
 import type { CanvasGraph } from "../types";
 import type { BlockDiagnostic } from "./types";
 
 export const SAVE_SOURCE = "save";
 
 /**
- * Turns a failed save's per-block validation errors (server sends `field` as
- * the block id, see `blockDataValidator.ts`) into diagnostics, so the toast
- * can stay generic instead of putting a raw block id in front of the user.
- * Returns null for anything that isn't this specific error shape (network
- * error, 500, unrelated 400), so the caller falls back to the generic notifier.
+ * Turns a failed save into diagnostics. Per-block validation errors (server
+ * sends `field` as the block id, see `blockDataValidator.ts`) pin to their
+ * block; anything else (other fields, network, 500, proxy page) becomes one
+ * canvas-wide entry, so every save failure is visible in the panel.
  */
 export function blockDiagnosticsFromSaveError(
 	error: unknown,
 	graph: CanvasGraph,
-): BlockDiagnostic[] | null {
-	if (!isAxiosError(error) || error.response?.status !== 400) return null;
-	const data = error.response.data as {
-		type?: string;
-		errors?: { field: string; message: string }[];
-	};
-	if (data?.type !== "validation" || !data.errors?.length) return null;
+): BlockDiagnostic[] {
+	const { message, fieldErrors } = parseApiError(error);
+	if (!fieldErrors) return [{ severity: "error", message, source: SAVE_SOURCE }];
 
 	const blockIds = new Set(graph.blocks.map((b) => b.id));
-	return data.errors.map((err) => ({
-		blockId: blockIds.has(err.field) ? err.field : undefined,
-		severity: "error",
-		message: err.message,
-		source: SAVE_SOURCE,
-	}));
+	return fieldErrors.map((err) =>
+		err.field && blockIds.has(err.field)
+			? { blockId: err.field, severity: "error", message: err.message, source: SAVE_SOURCE }
+			: { severity: "error", message: formatFieldError(err), source: SAVE_SOURCE },
+	);
 }

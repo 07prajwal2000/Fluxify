@@ -1,7 +1,6 @@
 import { Button, Spinner, toast } from "@fluxify/components";
 import { type ReactNode, useMemo, useRef, useState } from "react";
 
-import { showErrorNotification } from "@/lib/errorNotifier";
 import type { CanvasItems, CanvasSavePayload } from "@/services/canvas";
 import { emptyGraph } from "./adapters";
 import { BlockCanvas } from "./BlockCanvas";
@@ -91,17 +90,17 @@ function CanvasWorkbenchInner({
 			toast.danger("Canvas contains a loop. Remove every red connection before saving.");
 			return;
 		}
+		// fresh run: drops the last save's errors and anything fixed since
 		// compile errors are about the saved version; saving is how they get fixed
-		const errors = diagnostics.all.filter(
-			(d) => d.severity === "error" && d.source !== COMPILE_SOURCE,
-		).length;
+		const errors = diagnostics
+			.revalidate()
+			.filter((d) => d.severity === "error" && d.source !== COMPILE_SOURCE).length;
 		if (errors > 0) {
 			diagnostics.openPanel();
 			toast.danger(`Fix ${errors} error(s) before saving. See diagnostics.`);
 			return;
 		}
 		setIsSaving(true);
-		diagnostics.clearSource(SAVE_SOURCE);
 		try {
 			const lastCompileId = await compile.baseline();
 			const outcome = await saveWithDoctor({
@@ -124,15 +123,14 @@ function CanvasWorkbenchInner({
 			} else toast.success(saved);
 		} catch (error) {
 			// Both the save and the repaired retry failed — this is for the user.
-			const blockErrors = blockDiagnosticsFromSaveError(error, current.graph);
-			if (blockErrors) {
-				diagnostics.setFromSource(SAVE_SOURCE, blockErrors);
-				toast.danger("Failed to save canvas", {
-					actionProps: { children: "View diagnostics", onPress: diagnostics.openPanel },
-				});
-			} else {
-				showErrorNotification(error as Error);
-			}
+			const saveErrors = blockDiagnosticsFromSaveError(error, current.graph);
+			diagnostics.setFromSource(SAVE_SOURCE, saveErrors);
+			toast.danger(
+				saveErrors.length === 1
+					? saveErrors[0].message
+					: `Failed to save canvas (${saveErrors.length} errors)`,
+				{ actionProps: { children: "View diagnostics", onPress: diagnostics.openPanel } },
+			);
 		} finally {
 			setIsSaving(false);
 		}

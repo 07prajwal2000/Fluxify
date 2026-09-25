@@ -163,6 +163,10 @@ export function IntegrationForm({
 	}
 
 	function onSave() {
+		if (!name.trim()) {
+			toast.danger("Name is required");
+			return;
+		}
 		const schema = getSchema(group as never, variant as never);
 		if (!schema) {
 			toast.danger("Invalid connector selection");
