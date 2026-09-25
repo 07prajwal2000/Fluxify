@@ -25,6 +25,16 @@ export const projectsQuery = {
 			queryClient.invalidateQueries({ queryKey: ["projects", "list", query] });
 		},
 	},
+	byId: {
+		useQuery(id: string) {
+			return useQuery({
+				queryKey: ["projects", id, "by-id"],
+				queryFn: () => projectsService.getById(id),
+				enabled: Boolean(id),
+				refetchOnWindowFocus: false,
+			});
+		},
+	},
 	invalidateAll(queryClient: QueryClient) {
 		queryClient.invalidateQueries({ queryKey: ["projects", "list"] });
 	},

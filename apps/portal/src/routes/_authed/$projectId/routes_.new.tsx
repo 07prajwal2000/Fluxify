@@ -35,8 +35,9 @@ import {
 	sanitizePath,
 } from "@/components/routes/routeForm";
 import { showErrorNotification } from "@/lib/errorNotifier";
-import { createRouteHead } from "@/lib/seo";
+import { createRouteHead, formatProjectTitle, usePageTitle } from "@/lib/seo";
 import { projectSettingsKeysQuery } from "@/query/projectSettingsKeysQuery";
+import { projectsQuery } from "@/query/projectsQuery";
 import { routesQuery } from "@/query/routesQuery";
 
 export const Route = createFileRoute("/_authed/$projectId/routes_/new")({
@@ -49,6 +50,8 @@ export const Route = createFileRoute("/_authed/$projectId/routes_/new")({
 
 function CreateRoutePage() {
 	const { projectId } = Route.useParams();
+	const { data: project } = projectsQuery.byId.useQuery(projectId);
+	usePageTitle(formatProjectTitle(project?.name, "New Route"));
 	const navigate = useNavigate();
 	const create = routesQuery.create.mutation();
 	const { data: projectSettings } = projectSettingsKeysQuery.getAll.useQuery(projectId);

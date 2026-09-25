@@ -1,11 +1,13 @@
-import { cn, Dropdown, Tooltip } from "@fluxify/components";
+import { cn, Dropdown, Tooltip, toast } from "@fluxify/components";
 import {
 	createFileRoute,
+	isRedirect,
 	Outlet,
 	redirect,
 	useLocation,
 	useNavigate,
 } from "@tanstack/react-router";
+import { isAxiosError } from "axios";
 import { useState } from "react";
 import {
 	TbActivity,
@@ -14,7 +16,6 @@ import {
 	TbBox,
 	TbChevronDown,
 	TbCloudCog,
-	TbLayoutGridFilled,
 	TbLogout,
 	TbRoute,
 	TbSettings,
@@ -24,7 +25,9 @@ import {
 	TbUser,
 } from "react-icons/tb";
 import { authClient } from "@/lib/auth";
-import { createRouteHead } from "@/lib/seo";
+import { createRouteHead, formatProjectTitle, usePageTitle } from "@/lib/seo";
+import { projectsQuery } from "@/query/projectsQuery";
+import { projectsService } from "@/services/projects";
 import { useAuthStore } from "@/store/auth";
 
 // BASE_URL, not a hardcoded path: files in public/ are served from the bundle
@@ -63,17 +66,23 @@ const NAV_KEYS: string[] = NAV.flatMap((item) =>
 );
 
 export const Route = createFileRoute("/_authed/$projectId")({
-	head: createRouteHead(
-		"Project Workspace",
-		"Manage project API routes, workflows, and configurations.",
-	),
-	beforeLoad: async ({ params }) => {
-		const session = await authClient.getSession();
-		const acl = (session.data as { acl?: { projectId: string }[] } | null)?.acl ?? [];
-		const isAdmin = (session.data?.user as { isSystemAdmin?: boolean } | undefined)?.isSystemAdmin;
-		const hasAccess =
-			isAdmin || acl.some((a) => a.projectId === params.projectId || a.projectId === "*");
-		if (!hasAccess) throw redirect({ to: "/" });
+	head: createRouteHead("Project", "Manage project API routes, workflows, and configurations."),
+	beforeLoad: async ({ params, context }) => {
+		try {
+			await context.queryClient.ensureQueryData({
+				queryKey: ["projects", params.projectId, "by-id"],
+				queryFn: () => projectsService.getById(params.projectId),
+			});
+		} catch (err: unknown) {
+			if (isRedirect(err)) throw err;
+			if (isAxiosError(err) && err.response?.status === 403) {
+				const message = (err.response.data as { message?: string } | undefined)?.message;
+				toast.danger(message || "You do not have access to this project");
+			} else {
+				toast.danger("Project not found");
+			}
+			throw redirect({ to: "/" });
+		}
 	},
 	component: ProjectLayout,
 });
@@ -121,6 +130,8 @@ function NavButton({
 
 function ProjectLayout() {
 	const { projectId } = Route.useParams();
+	const { data: project } = projectsQuery.byId.useQuery(projectId);
+	usePageTitle(formatProjectTitle(project?.name, "Project"));
 	const navigate = useNavigate();
 	const location = useLocation();
 	const { userData } = useAuthStore();

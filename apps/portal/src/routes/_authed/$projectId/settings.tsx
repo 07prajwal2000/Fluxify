@@ -23,7 +23,7 @@ import {
 	TelemetryDestinations,
 } from "@/components/settings/TelemetryDestinations";
 import { TriggerSettings } from "@/components/settings/TriggerSettings";
-import { createRouteHead } from "@/lib/seo";
+import { createRouteHead, formatProjectTitle, usePageTitle } from "@/lib/seo";
 import { projectMembersQuery } from "@/query/projectMembersQuery";
 import { projectSettingsKeysQuery } from "@/query/projectSettingsKeysQuery";
 import { projectsQuery } from "@/query/projectsQuery";
@@ -73,6 +73,8 @@ function ProjectSettingsPage() {
 	const { projectId } = Route.useParams();
 	const search = Route.useSearch();
 	const navigate = useNavigate({ from: "/$projectId/settings" });
+	const { data: project } = projectsQuery.byId.useQuery(projectId);
+	usePageTitle(formatProjectTitle(project?.name, "Project Settings"));
 
 	const { data: publicSettings } = publicSettingsQuery.get.useQuery();
 	const tabs = SETTINGS_TABS.filter(

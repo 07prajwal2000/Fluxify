@@ -20,12 +20,13 @@ import { EmptyState } from "@/components/common/EmptyState";
 import { RouteApiPlayground } from "@/components/RouteApiPlayground";
 import { useProjectApiBaseUrl } from "@/components/settings/SubdomainField";
 import { showErrorNotification } from "@/lib/errorNotifier";
-import { createRouteHead } from "@/lib/seo";
+import { createRouteHead, formatProjectTitle, usePageTitle } from "@/lib/seo";
+import { projectsQuery } from "@/query/projectsQuery";
 import { routesQuery } from "@/query/routesQuery";
 
 export const Route = createFileRoute("/_authed/$projectId/routes")({
 	head: createRouteHead(
-		"API Routes",
+		"Routes",
 		"Configure, inspect, and manage API routes and endpoints for your project.",
 	),
 	component: RoutesPage,
@@ -41,6 +42,8 @@ type RouteRow = {
 
 function RoutesPage() {
 	const { projectId } = Route.useParams();
+	const { data: project } = projectsQuery.byId.useQuery(projectId);
+	usePageTitle(formatProjectTitle(project?.name, "Routes"));
 	const apiBaseUrl = useProjectApiBaseUrl(projectId);
 	const navigate = useNavigate();
 	const [page, setPage] = useState(1);

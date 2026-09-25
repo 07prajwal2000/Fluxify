@@ -12,8 +12,9 @@ import {
 } from "@/components/customBlocks/InputParamsEditor";
 import { TestOnlyField } from "@/components/customBlocks/TestOnlyField";
 import { showErrorNotification } from "@/lib/errorNotifier";
-import { createRouteHead } from "@/lib/seo";
+import { createRouteHead, formatProjectTitle, usePageTitle } from "@/lib/seo";
 import { customBlocksQuery } from "@/query/customBlocksQuery";
+import { projectsQuery } from "@/query/projectsQuery";
 
 export const Route = createFileRoute("/_authed/$projectId/custom-blocks_/new")({
 	head: createRouteHead(
@@ -42,6 +43,8 @@ const STEPS = [
 
 function CreateCustomBlockPage() {
 	const { projectId } = Route.useParams();
+	const { data: project } = projectsQuery.byId.useQuery(projectId);
+	usePageTitle(formatProjectTitle(project?.name, "New Custom Block"));
 	const navigate = useNavigate();
 	const create = customBlocksQuery.create.mutation(projectId);
 

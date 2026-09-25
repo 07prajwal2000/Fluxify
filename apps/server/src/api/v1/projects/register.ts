@@ -2,6 +2,7 @@ import type { HonoServer } from "../../../types";
 import registerProjectNodes from "../orchestration/projectRoutes";
 import createProjectRoute from "./create/route";
 import getAllProjectRoute from "./get-all/route";
+import getByIdProjectRoute from "./get-by-id/route";
 import registerProjectSettingsKeys from "./settings/keys/register";
 import registerProjectMembers from "./settings/members/register";
 import registerProjectPackages from "./settings/packages/register";
@@ -14,6 +15,7 @@ export default {
 		const router = app.basePath("/projects");
 		createProjectRoute(router);
 		getAllProjectRoute(router);
+		getByIdProjectRoute(router);
 		updateProjectRoute(router);
 		registerProjectMembers(router);
 		registerProjectSettingsKeys(router);

@@ -30,7 +30,7 @@ import {
 } from "@/components/settings/SubdomainField";
 import { authClient } from "@/lib/auth";
 import { showErrorNotification } from "@/lib/errorNotifier";
-import { createRouteHead } from "@/lib/seo";
+import { createRouteHead, usePageTitle } from "@/lib/seo";
 import { authQuery } from "@/query/authQuery";
 import { projectsQuery } from "@/query/projectsQuery";
 
@@ -88,6 +88,7 @@ function initialsOf(name: string | null, email: string) {
 }
 
 function CreateProjectPage() {
+	usePageTitle("New Project");
 	const navigate = useNavigate();
 	const create = projectsQuery.create.mutation();
 

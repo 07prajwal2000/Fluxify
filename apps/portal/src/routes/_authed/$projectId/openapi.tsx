@@ -1,11 +1,12 @@
 import { ApiReferenceReact } from "@scalar/api-reference-react";
 import { createFileRoute } from "@tanstack/react-router";
 import "@scalar/api-reference-react/style.css";
-import { createRouteHead } from "@/lib/seo";
+import { createRouteHead, formatProjectTitle, usePageTitle } from "@/lib/seo";
+import { projectsQuery } from "@/query/projectsQuery";
 
 export const Route = createFileRoute("/_authed/$projectId/openapi")({
 	head: createRouteHead(
-		"API Documentation (OpenAPI)",
+		"OpenAPI Docs",
 		"Interactive OpenAPI specification and API reference documentation.",
 	),
 	component: OpenApiPage,
@@ -13,6 +14,8 @@ export const Route = createFileRoute("/_authed/$projectId/openapi")({
 
 function OpenApiPage() {
 	const { projectId } = Route.useParams();
+	const { data: project } = projectsQuery.byId.useQuery(projectId);
+	usePageTitle(formatProjectTitle(project?.name, "OpenAPI Docs"));
 	const specUrl = `/_/admin/api/v1/routes/${projectId}/openapi.json`;
 
 	return (
