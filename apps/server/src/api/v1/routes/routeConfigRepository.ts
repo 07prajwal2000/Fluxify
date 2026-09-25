@@ -19,7 +19,12 @@ export async function patchRouteConfig(
 		.onConflictDoUpdate({
 			target: httpRouteConfigEntity.routeId,
 			set: {
-				routeConfig: sql`${httpRouteConfigEntity.routeConfig} || ${JSON.stringify(patch)}::jsonb`,
+				// `excluded` is the row above, already encoded by the jsonb column. A
+				// hand-stringified param gets encoded again and lands as a jsonb string.
+				// `||` only merges object into object; a non-object row gets replaced.
+				routeConfig: sql`CASE WHEN jsonb_typeof(${httpRouteConfigEntity.routeConfig}) = 'object'
+					THEN ${httpRouteConfigEntity.routeConfig} || excluded.route_config
+					ELSE excluded.route_config END`,
 				updatedAt: new Date(),
 			},
 		});
