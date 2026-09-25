@@ -73,7 +73,7 @@ export function blockDataValidator(data: CanvasChanges) {
 		deleteIds.add(edge.id);
 	});
 
-	const errorBlocks: string[] = [];
+	const errorBlocks: { id: string; issues: { path: PropertyKey[]; message: string }[] }[] = [];
 	const nameErrors: { field: string; message: string }[] = [];
 
 	for (const block of data.changes.blocks) {
@@ -207,7 +207,7 @@ export function blockDataValidator(data: CanvasChanges) {
 		}
 		const result = schema.safeParse(block.data);
 		if (!result.success) {
-			errorBlocks.push(block.id);
+			errorBlocks.push({ id: block.id, issues: result.error.issues });
 		} else {
 			block.data = result.data;
 		}
@@ -215,10 +215,14 @@ export function blockDataValidator(data: CanvasChanges) {
 
 	if (errorBlocks.length > 0 || nameErrors.length > 0) {
 		throw new ValidationError([
-			...errorBlocks.map((id) => ({
-				field: id,
-				message: "Invalid block data",
-			})),
+			...errorBlocks.flatMap(({ id, issues }) =>
+				issues.map((issue) => ({
+					field: id,
+					message: issue.path.length
+						? `${issue.path.map(String).join(".")}: ${issue.message}`
+						: issue.message,
+				})),
+			),
 			...nameErrors,
 		]);
 	}

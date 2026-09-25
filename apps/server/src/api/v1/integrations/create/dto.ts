@@ -6,7 +6,7 @@ export const requestRouteSchema = z.object({
 });
 
 export const requestBodySchema = z.object({
-	name: z.string(),
+	name: z.string().trim().min(1, "Name is required").max(255),
 	group: integrationsGroupSchema,
 	variant: z.string(),
 	config: z.object({}),

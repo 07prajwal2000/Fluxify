@@ -42,9 +42,7 @@ export default function (app: HonoServer) {
 			const { projectId, routeId } = ctx.req.valid("param");
 			// "run everything" is a bodyless POST, so a missing body is not an error
 			const parsed = requestBodySchema.safeParse(await ctx.req.json().catch(() => ({})));
-			if (!parsed.success) {
-				return ctx.json({ type: "validation", errors: parsed.error.issues }, 400);
-			}
+			if (!parsed.success) return zodErrorCallbackParser(parsed, ctx)!;
 			const { suiteIds } = parsed.data;
 			const result = await handleRequest({ projectId, routeId, suiteIds });
 			return ctx.json(result, 202);

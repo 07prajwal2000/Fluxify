@@ -9,13 +9,12 @@ import {
 	toast,
 } from "@fluxify/components";
 import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
-import { isAxiosError } from "axios";
 import { useState } from "react";
 import { z } from "zod";
 import { BASE_PATH } from "@/constants/routes";
 import { usePublicSettings } from "@/hooks/usePublicSettings";
 import { authClient } from "@/lib/auth";
-import { showErrorNotification } from "@/lib/errorNotifier";
+import { parseApiError, showErrorNotification } from "@/lib/errorNotifier";
 import { createRouteHead } from "@/lib/seo";
 
 const logo = `${import.meta.env.BASE_URL}icons/logo.svg`;
@@ -86,10 +85,11 @@ function LoginForm() {
 				navigate({ to: (next ?? "/") as "/" });
 			}
 		} catch (error) {
-			if (isAxiosError(error) && error.response?.data?.type === "validation") {
-				const fieldErrors: Record<string, string> = {};
-				for (const err of error.response.data.errors) fieldErrors[err.field] = err.message;
-				setErrors(fieldErrors);
+			const { fieldErrors } = parseApiError(error);
+			const byField: Record<string, string> = {};
+			for (const err of fieldErrors ?? []) if (err.field) byField[err.field] = err.message;
+			if (Object.keys(byField).length) {
+				setErrors(byField);
 			} else {
 				showErrorNotification(error as Error, false);
 			}

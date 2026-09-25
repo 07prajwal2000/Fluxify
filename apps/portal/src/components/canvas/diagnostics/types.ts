@@ -7,7 +7,7 @@ const SOURCE_LABELS: Record<string, string> = {
 	"transaction-wiring":
 		"Transaction check: rollbacks stay inside, success/failure paths stay outside",
 	"block-config": "Settings check: wired blocks must be filled in",
-	save: "Save error: the server rejected this block's data",
+	save: "Save error: the server rejected the save",
 };
 
 /** what the panels show for a diagnostic's source; unknown sources show as-is */

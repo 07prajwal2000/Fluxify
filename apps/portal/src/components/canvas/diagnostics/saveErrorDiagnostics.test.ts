@@ -30,7 +30,11 @@ it("drops the raw field into a canvas-wide diagnostic when it isn't a known bloc
 	expect(blockDiagnosticsFromSaveError(error, graph("b1"))?.[0].blockId).toBeUndefined();
 });
 
-it("returns null for a non-validation error so the caller falls back to the generic toast", () => {
-	expect(blockDiagnosticsFromSaveError(axiosError(500, { message: "boom" }), graph("b1"))).toBeNull();
-	expect(blockDiagnosticsFromSaveError(new Error("network down"), graph("b1"))).toBeNull();
+it("turns any other failure into one canvas-wide diagnostic", () => {
+	expect(blockDiagnosticsFromSaveError(axiosError(500, { message: "boom" }), graph("b1"))).toEqual([
+		{ severity: "error", message: "boom", source: SAVE_SOURCE },
+	]);
+	expect(blockDiagnosticsFromSaveError(new Error("network down"), graph("b1"))[0].message).toBe(
+		"network down",
+	);
 });
