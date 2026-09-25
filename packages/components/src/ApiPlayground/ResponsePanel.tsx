@@ -1,7 +1,7 @@
 import { Button, Tabs } from "@heroui/react";
-import Editor from "@monaco-editor/react";
 import { useMemo } from "react";
 import { TbClock, TbCopy, TbDatabase } from "react-icons/tb";
+import { MonacoEditor as Editor } from "../JavaScriptTextArea/monacoEditor";
 import type { ApiPlaygroundResponse } from "./types";
 import { formatResponseBody, inferLanguage, responseHeaders, statusTone } from "./utils";
 

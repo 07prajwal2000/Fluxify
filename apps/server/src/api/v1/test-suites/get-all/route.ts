@@ -3,8 +3,9 @@ import { z } from "zod";
 import { errorSchema } from "../../../../errors/customError";
 import { validationErrorSchema } from "../../../../errors/validationError";
 import zodErrorCallbackParser from "../../../../middlewares/zodErrorCallbackParser";
+import { targetFromParams, targetParamSchema } from "../../../../modules/testRunner/target";
 import type { HonoServer } from "../../../../types";
-import { requireTestSuiteAccess } from "../middleware";
+import { requireTestSuiteAccess, targetFromPath } from "../middleware";
 import { testSuiteCoreSchema } from "../schema";
 import { requestQuerySchema } from "./dto";
 import handleRequest from "./service";
@@ -13,7 +14,7 @@ export default function (app: HonoServer) {
 	app.get(
 		"/",
 		describeRoute({
-			description: "Gets all test suites for a route.",
+			description: "Gets all test suites for a route or workflow.",
 			operationId: "get-all-test-suites",
 			tags: ["Test Suites"],
 			responses: {
@@ -37,11 +38,10 @@ export default function (app: HonoServer) {
 				},
 			},
 		}),
-		requireTestSuiteAccess("viewer", (ctx) => ({ routeId: ctx.req.param("routeId") })),
-		validator("param", z.object({ routeId: z.string().uuid() }), zodErrorCallbackParser),
+		requireTestSuiteAccess("viewer", targetFromPath),
+		validator("param", targetParamSchema, zodErrorCallbackParser),
 		async (ctx) => {
-			const { routeId } = ctx.req.valid("param");
-			const result = await handleRequest(routeId);
+			const result = await handleRequest(targetFromParams(ctx.req.valid("param")));
 			return ctx.json(result);
 		},
 	);

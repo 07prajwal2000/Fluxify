@@ -2,6 +2,7 @@ import { describeRoute, resolver, validator } from "hono-openapi";
 import { errorSchema } from "../../../../errors/customError";
 import { validationErrorSchema } from "../../../../errors/validationError";
 import zodErrorCallbackParser from "../../../../middlewares/zodErrorCallbackParser";
+import { targetFromParams } from "../../../../modules/testRunner/target";
 import type { HonoServer } from "../../../../types";
 import { requireProjectAccess } from "../../../auth/middleware";
 import { requestParamSchema, responseSchema } from "./dto";
@@ -35,8 +36,8 @@ export default function (app: HonoServer) {
 		requireProjectAccess("creator", { key: "projectId", source: "param" }),
 		validator("param", requestParamSchema, zodErrorCallbackParser),
 		async (ctx) => {
-			const { projectId, routeId, runId } = ctx.req.valid("param");
-			return ctx.json(await handleRequest(projectId, routeId, runId));
+			const { projectId, runId, ...target } = ctx.req.valid("param");
+			return ctx.json(await handleRequest(projectId, targetFromParams(target), runId));
 		},
 	);
 }

@@ -1,6 +1,7 @@
 import { describeRoute, resolver, validator } from "hono-openapi";
 import { validationErrorSchema } from "../../../../errors/validationError";
 import zodErrorCallbackParser from "../../../../middlewares/zodErrorCallbackParser";
+import { targetFromParams } from "../../../../modules/testRunner/target";
 import type { HonoServer } from "../../../../types";
 import { requireProjectAccess } from "../../../auth/middleware";
 import { requestParamSchema, requestQuerySchema, responseSchema } from "./dto";
@@ -10,7 +11,7 @@ export default function (app: HonoServer) {
 	app.get(
 		"/",
 		describeRoute({
-			description: "Lists test runs for a route, newest first.",
+			description: "Lists test runs for a route or workflow, newest first.",
 			operationId: "get-test-runs",
 			tags: ["Test Suites"],
 			responses: {
@@ -30,9 +31,9 @@ export default function (app: HonoServer) {
 		validator("param", requestParamSchema, zodErrorCallbackParser),
 		validator("query", requestQuerySchema, zodErrorCallbackParser),
 		async (ctx) => {
-			const { projectId, routeId } = ctx.req.valid("param");
+			const { projectId, ...target } = ctx.req.valid("param");
 			const query = ctx.req.valid("query");
-			return ctx.json(await handleRequest(projectId, routeId, query));
+			return ctx.json(await handleRequest(projectId, targetFromParams(target), query));
 		},
 	);
 }

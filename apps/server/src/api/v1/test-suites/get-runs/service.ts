@@ -1,16 +1,17 @@
 import type { z } from "zod";
+import type { SuiteTarget } from "../../../../modules/testRunner/target";
 import type { requestQuerySchema } from "./dto";
 import { getTestRuns } from "./repository";
 
 export default async function handleRequest(
 	projectId: string,
-	routeId: string,
+	target: SuiteTarget,
 	query: z.infer<typeof requestQuerySchema>,
 ) {
 	const { page, perPage } = query;
 	const { result, totalCount } = await getTestRuns(
 		projectId,
-		routeId,
+		target,
 		(page - 1) * perPage,
 		perPage,
 	);

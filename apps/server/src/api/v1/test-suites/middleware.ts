@@ -2,60 +2,52 @@ import type { User } from "better-auth";
 import { eq } from "drizzle-orm";
 import type { Next } from "hono";
 import { db } from "../../../db";
-import {
-	type AccessControlRole,
-	type AuthACL,
-	routesEntity,
-	testSuitesEntity,
-} from "../../../db/schema";
+import { type AccessControlRole, type AuthACL, testSuitesEntity } from "../../../db/schema";
 import { ForbiddenError } from "../../../errors/forbidError";
 import { NotFoundError } from "../../../errors/notFoundError";
 import { canAccessProject } from "../../../lib/acl";
+import {
+	type SuiteTarget,
+	suiteTargetTypeSchema,
+	targetOf,
+	targetProject,
+} from "../../../modules/testRunner/target";
 import type { HonoContext } from "../../../types";
+
+type AccessParams = { suiteId?: string; target?: SuiteTarget };
+
+/** the route or workflow named by the `:kind/:targetId` path */
+export const targetFromPath = (ctx: HonoContext): AccessParams => {
+	const kind = suiteTargetTypeSchema.safeParse(ctx.req.param("kind"));
+	const id = ctx.req.param("targetId");
+	return kind.success && id ? { target: { type: kind.data, id } } : {};
+};
 
 export function requireTestSuiteAccess(
 	requiredRole: AccessControlRole,
-	getParams: (
-		ctx: HonoContext,
-	) => { suiteId?: string; routeId?: string } | Promise<{ suiteId?: string; routeId?: string }> = (
-		ctx,
-	) => ({ suiteId: ctx.req.param("id") }),
+	getParams: (ctx: HonoContext) => AccessParams | Promise<AccessParams> = (ctx) => ({
+		suiteId: ctx.req.param("id"),
+	}),
 ) {
 	return async (ctx: HonoContext, next: Next) => {
-		// 1. Resolve projectId
-		const { suiteId, routeId } = await getParams(ctx);
-		let projectId: string | null = null;
-
-		if (!suiteId && !routeId) {
-			throw new NotFoundError("Test suite ID or Route ID not provided");
+		// 1. Resolve the target, then its project
+		let { suiteId, target } = await getParams(ctx);
+		if (!suiteId && !target) {
+			throw new NotFoundError("Test suite ID or target not provided");
 		}
 
 		if (suiteId) {
-			const suite = await db
+			const [suite] = await db
 				.select()
 				.from(testSuitesEntity)
-				.leftJoin(routesEntity, eq(routesEntity.id, testSuitesEntity.routeId))
-				.where(eq(testSuitesEntity.id, suiteId))
-				.then((res) => res[0]);
-
-			if (!suite || !suite.test_suites) throw new NotFoundError("Test suite not found");
-			if (!suite.routes) throw new NotFoundError("Associated route not found");
-
-			projectId = suite.routes.projectId as string;
-			ctx.set("testSuite", suite.test_suites);
-			ctx.set("routeId", suite.routes.id);
-		} else if (routeId) {
-			const [route] = await db.select().from(routesEntity).where(eq(routesEntity.id, routeId));
-
-			if (!route) throw new NotFoundError("Route not found");
-			projectId = route.projectId as string;
-			ctx.set("routeId", routeId);
+				.where(eq(testSuitesEntity.id, suiteId));
+			if (!suite) throw new NotFoundError("Test suite not found");
+			ctx.set("testSuite", suite);
+			target = targetOf(suite);
 		}
 
-		if (!projectId) {
-			throw new NotFoundError("Could not resolve project ID");
-		}
-
+		const projectId = await targetProject(target!);
+		if (!projectId) throw new NotFoundError(`Associated ${target!.type} not found`);
 		ctx.set("projectId", projectId);
 
 		// 2. Validate Access

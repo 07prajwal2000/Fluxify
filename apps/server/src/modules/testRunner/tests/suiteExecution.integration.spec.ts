@@ -1,7 +1,7 @@
 import { describe, expect, it } from "bun:test";
 import { BlockTypes, compileGraph } from "@fluxify/blocks";
 import { runSuiteInChild } from "../spawn";
-import type { TestBootstrap } from "../types";
+import type { SuiteInputSpec, TestBootstrap } from "../types";
 
 /**
  * The real thing: a graph compiled the way the compiler compiles it, run in a
@@ -249,6 +249,148 @@ describe("runSuiteInChild", () => {
 			if (!result.ok) return;
 			expect(Number(result.status)).toBe(200);
 			expect(result.teardownError).toBe("teardown timed out after 1000ms");
+		}, 30_000);
+	});
+
+	describe("workflow suites (#487)", () => {
+		// doubles `n`; n = 13 makes the workflow throw
+		const workflow = compileGraph(
+			[
+				block("1", BlockTypes.entrypoint),
+				block("2", BlockTypes.jsrunner, {
+					value: `if (input.n === 13) throw new Error("unlucky");
+						return { doubled: input.n * 2, source: trigger.source, events: trigger.data.length };`,
+				}),
+				block("3", BlockTypes.response, { httpCode: "200" }),
+			],
+			[edge("1", "2"), edge("2", "3")] as any,
+			{ asWorkflow: true, hooks: true },
+		).source;
+
+		const workflowBoot = (input: SuiteInputSpec, extra: Partial<TestBootstrap> = {}) =>
+			({
+				...bootstrap(workflow),
+				route: undefined,
+				request: undefined,
+				workflow: { id: "w1", name: "double" },
+				input,
+				assertions: [
+					{ target: "successful", operator: "true" },
+					{
+						target: "customJs",
+						customJs: "t.expect(fluxify.result.output.doubled).toBe(fluxify.input.n * 2);",
+					},
+				],
+				...extra,
+			}) as TestBootstrap;
+
+		it("runs every case with the same checks and keeps going after a failure", async () => {
+			const result = await runSuiteInChild(
+				workflowBoot({
+					mode: "cases",
+					raw: [{ name: "one", input: { n: 1 } }, { input: { n: 13 } }, { n: 4 }],
+				}),
+			);
+			expect(result.ok).toBe(true);
+			if (!result.ok || !result.cases) throw new Error("expected workflow cases");
+			expect(result.cases.map((c) => [c.name, c.status])).toEqual([
+				["one", "passed"],
+				["Case 2", "failed"],
+				["Case 3", "passed"],
+			]);
+			expect(result.counts).toMatchObject({ total: 3, passed: 2, failed: 1 });
+			expect(result.cases[0]!.output).toEqual({
+				successful: true,
+				output: { doubled: 2, source: "internal", events: 1 },
+			});
+			expect(result.cases[1]!.error).toContain("unlucky");
+			expect(result.verdict.success).toBe(false);
+		}, 30_000);
+
+		it("sends a single input as one run, even when it is a list", async () => {
+			const result = await runSuiteInChild(
+				workflowBoot(
+					{ mode: "single", raw: [1, 2] },
+					{
+						assertions: [
+							{
+								target: "customJs",
+								// a list is a bulk batch: one event per item, `input` the whole list
+								customJs: "t.expect(fluxify.result.output.events).toBe(2);",
+							},
+						],
+					},
+				),
+			);
+			if (!result.ok || !result.cases) throw new Error("expected workflow cases");
+			expect(result.cases).toHaveLength(1);
+			expect(result.cases[0]!.status).toBe("passed");
+		}, 30_000);
+
+		it("reads cases from an input script compiled like a JS block", async () => {
+			const script = compileGraph(
+				[
+					block("entry", BlockTypes.entrypoint),
+					block("script", BlockTypes.jsrunner, {
+						value: "return [1, 2, 3].map((n) => ({ name: `n=${n}`, input: { n } }));",
+					}),
+				],
+				[edge("entry", "script")] as any,
+				{ asCustomBlock: true },
+			).source;
+			const result = await runSuiteInChild(
+				workflowBoot(
+					{ mode: "cases", block: { block: "input_script", timeoutMs: 5_000 } },
+					{ customBlocks: [{ name: "input_script", source: script }] },
+				),
+			);
+			if (!result.ok || !result.cases) throw new Error("expected workflow cases");
+			expect(result.cases.map((c) => c.name)).toEqual(["n=1", "n=2", "n=3"]);
+			expect(result.counts.passed).toBe(3);
+		}, 30_000);
+
+		it("errors the suite when a cases input is not a list", async () => {
+			const result = await runSuiteInChild(workflowBoot({ mode: "cases", raw: { n: 1 } }));
+			expect(result.ok).toBe(false);
+			if (result.ok) return;
+			expect(result.error).toContain("must be a list");
+		}, 30_000);
+
+		it("sends a one-item list as one event with the bare value as input", async () => {
+			const result = await runSuiteInChild(workflowBoot({ mode: "single", raw: [{ n: 3 }] }));
+			if (!result.ok || !result.cases) throw new Error("expected workflow cases");
+			expect(result.cases[0]!.output).toEqual({
+				successful: true,
+				output: { doubled: 6, source: "internal", events: 1 },
+			});
+		}, 30_000);
+
+		it("runs a list of lists as cases, each a bulk run of its items", async () => {
+			const result = await runSuiteInChild(
+				workflowBoot(
+					{
+						mode: "cases",
+						raw: [
+							[{ n: 1 }, { n: 2 }],
+							[{ n: 3 }, { n: 4 }, { n: 5 }],
+						],
+					},
+					{
+						assertions: [
+							{
+								target: "customJs",
+								customJs:
+									"t.expect(fluxify.result.output.events).toBe(fluxify.input.length);",
+							},
+						],
+					},
+				),
+			);
+			if (!result.ok || !result.cases) throw new Error("expected workflow cases");
+			expect(result.cases.map((c) => [c.name, c.status])).toEqual([
+				["Case 1", "passed"],
+				["Case 2", "passed"],
+			]);
 		}, 30_000);
 	});
 });

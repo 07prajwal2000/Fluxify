@@ -12,6 +12,7 @@ const { validateHooks } = await import("../hooks");
 
 const script = { kind: "script" as const, value: "return input" };
 const json = { kind: "json" as const, value: "{}" };
+const R1 = { type: "route" as const, id: "r1" };
 
 describe("validateHooks", () => {
 	routeBlocks = [
@@ -21,36 +22,36 @@ describe("validateHooks", () => {
 	];
 
 	it("accepts any hook on a full block and an input script on a branching one", async () => {
-		await validateHooks("r1", [
+		await validateHooks(R1, [
 			{ blockId: "run", onBefore: json, onAfter: script },
 			{ blockId: "branch", onBefore: script },
 		]);
 	});
 
 	it("refuses a block from another route", async () => {
-		await expect(validateHooks("r1", [{ blockId: "elsewhere", onBefore: script }])).rejects.toThrow(
+		await expect(validateHooks(R1, [{ blockId: "elsewhere", onBefore: script }])).rejects.toThrow(
 			"not on this suite's route",
 		);
 	});
 
 	it("refuses hooks on the graph frame", async () => {
-		await expect(validateHooks("r1", [{ blockId: "reply", onBefore: script }])).rejects.toThrow(
+		await expect(validateHooks(R1, [{ blockId: "reply", onBefore: script }])).rejects.toThrow(
 			"cannot have hooks",
 		);
 	});
 
 	it("refuses a skip or an onAfter on a block that runs other chains", async () => {
-		await expect(validateHooks("r1", [{ blockId: "branch", onBefore: json }])).rejects.toThrow(
+		await expect(validateHooks(R1, [{ blockId: "branch", onBefore: json }])).rejects.toThrow(
 			"only allows an onBefore script",
 		);
-		await expect(validateHooks("r1", [{ blockId: "branch", onAfter: script }])).rejects.toThrow(
+		await expect(validateHooks(R1, [{ blockId: "branch", onAfter: script }])).rejects.toThrow(
 			"only allows an onBefore script",
 		);
 	});
 
 	it("refuses two entries for one block", async () => {
 		await expect(
-			validateHooks("r1", [
+			validateHooks(R1, [
 				{ blockId: "run", onBefore: script },
 				{ blockId: "run", onAfter: script },
 			]),

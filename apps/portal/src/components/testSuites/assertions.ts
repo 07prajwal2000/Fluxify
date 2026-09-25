@@ -5,9 +5,23 @@
  * from a 400.
  */
 
-export const ASSERTION_TARGETS = ["status", "body", "time", "header", "customJs"] as const;
+export const ASSERTION_TARGETS = [
+	"status",
+	"body",
+	"time",
+	"header",
+	"customJs",
+	"output",
+	"successful",
+] as const;
 
 export type AssertionTarget = (typeof ASSERTION_TARGETS)[number];
+
+/** What a suite can check, by what it tests: a route answers, a workflow run ends (#487). */
+export const TARGETS_BY_KIND: Record<"route" | "workflow", AssertionTarget[]> = {
+	route: ["status", "body", "time", "header", "customJs"],
+	workflow: ["successful", "output", "time", "customJs"],
+};
 
 export const ASSERTION_OPERATORS = [
 	"eq",
@@ -37,6 +51,8 @@ const OPERATORS_BY_TARGET: Record<AssertionTarget, AssertionOperator[]> = {
 	time: ["eq", "neq", "lt", "gt"],
 	body: ["eq", "neq", "contains", "true", "false", "exists", "not_exists"],
 	header: ["eq", "neq", "contains", "true", "false", "exists", "not_exists"],
+	output: ["eq", "neq", "contains", "true", "false", "exists", "not_exists"],
+	successful: ["true", "false"],
 	customJs: [],
 };
 
@@ -61,15 +77,17 @@ export const TARGET_LABELS: Record<AssertionTarget, string> = {
 	time: "Duration (ms)",
 	header: "Header",
 	customJs: "Custom JS",
+	output: "Output",
+	successful: "Run succeeded",
 };
 
 export function operatorsFor(target: AssertionTarget): AssertionOperator[] {
 	return OPERATORS_BY_TARGET[target];
 }
 
-/** Only `body` addresses into a structure, so only it may carry a path. */
+/** Only a body or an output addresses into a structure, so only they may carry a path. */
 export function allowsPropertyPath(target: AssertionTarget): boolean {
-	return target === "body";
+	return target === "body" || target === "output";
 }
 
 export function needsExpectedValue(
@@ -98,7 +116,7 @@ export function validateAssertion(assertion: Assertion): string | null {
 	}
 
 	if (propertyPath && !allowsPropertyPath(target)) {
-		return "A property path only applies to the response body";
+		return "A property path only applies to a body or an output";
 	}
 	if (!operator) return "Pick an operator";
 	if (!operatorsFor(target).includes(operator)) {

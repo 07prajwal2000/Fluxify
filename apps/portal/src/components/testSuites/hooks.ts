@@ -49,9 +49,9 @@ export function hookTypes(slot: HookSlot, blockType: string) {
 			? `  /** do not run the block; \`output\` flows on${branches ? ` down \`branch\` (default: the first)` : ""} */
   skip(output: unknown${branches ? `, branch?: ${branches}` : ""}): void;\n`
 			: "";
+	// `input` (the value flowing into the block) is already a Fluxify global:
+	// declaring it again here is a redeclaration error in the editor
 	return `${EXPECT_TYPES}
-/** the value flowing into the block */
-declare const input: any;
 ${slot === "onAfter" ? "/** what the block returned */\ndeclare const output: any;\n" : ""}
 declare const t: {
 ${skip}  /** fail the block: the route's error handler runs */
@@ -63,6 +63,8 @@ ${skip}  /** fail the block: the route's error handler runs */
   block: { id: string; type: string; name: string };
   /** unique per suite run: make seed data unique with it */
   runId: string;
+  /** workflow suites: the case being run */
+  case: { index: number; name: string; input: any };
   expect: Expect;
 ${T_SHARED}};
 `;

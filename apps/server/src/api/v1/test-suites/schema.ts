@@ -1,10 +1,20 @@
 import { z } from "zod";
 import { CONTENT_TYPES } from "../../../lib/routeConfig";
+import { toCases } from "../../../modules/testRunner/cases";
 
 // --- Assertions Schema --- //
 export const assertionSchema = z
 	.object({
-		target: z.enum(["status", "body", "time", "header", "customJs"]),
+		target: z.enum([
+			"status",
+			"body",
+			"time",
+			"header",
+			"customJs",
+			// workflow suites (#487): the run's `{ successful, output, error }`
+			"output",
+			"successful",
+		]),
 		propertyPath: z.string().optional().nullable(),
 		operator: z
 			.enum(["eq", "neq", "lt", "gt", "contains", "true", "false", "exists", "not_exists"])
@@ -14,17 +24,17 @@ export const assertionSchema = z
 		customJs: z.string().optional().nullable(),
 	})
 	.superRefine((val, ctx) => {
-		// 1. Property path: a body path, or the header name for `header`
+		// 1. Property path: a body or output path, or the header name for `header`
 		if (
-			val.target !== "body" &&
-			val.target !== "header" &&
+			!["body", "output", "header"].includes(val.target) &&
 			val.propertyPath != null &&
 			val.propertyPath !== ""
 		) {
 			ctx.addIssue({
 				code: z.ZodIssueCode.custom,
 				path: ["propertyPath"],
-				message: "propertyPath must be absent or null unless target is 'body' or 'header'",
+				message:
+					"propertyPath must be absent or null unless target is 'body', 'output' or 'header'",
 			});
 		}
 
@@ -34,6 +44,8 @@ export const assertionSchema = z
 			time: ["eq", "neq", "lt", "gt"],
 			body: ["eq", "neq", "contains", "true", "false", "exists", "not_exists"],
 			header: ["eq", "neq", "contains", "true", "false", "exists", "not_exists"],
+			output: ["eq", "neq", "contains", "true", "false", "exists", "not_exists"],
+			successful: ["true", "false"],
 		};
 
 		if (val.target !== "customJs") {
@@ -88,10 +100,38 @@ export const blockHookSchema = z.object({
 /** ~1MB of file once base64 grows it by a third */
 const MAX_BODY_CHARS = 1_400_000;
 
+const tooLarge = (value: unknown) => JSON.stringify(value ?? null).length > MAX_BODY_CHARS;
+
+/** what a workflow suite feeds the workflow (#487); see `SuiteInput` */
+export const suiteInputSchema = z
+	.object({
+		source: z.enum(["raw", "script", "loader"]),
+		mode: z.enum(["single", "cases"]),
+		raw: z.unknown().optional(),
+		script: z.string().optional(),
+		loaderBlockId: z.string().nullish(),
+		timeoutMs: z.number().int().min(1_000).max(600_000).optional(),
+	})
+	.superRefine((val, ctx) => {
+		if (tooLarge(val)) {
+			ctx.addIssue({ code: "custom", path: ["raw"], message: "Input is too large (1MB max)." });
+		}
+		// a script or loader list is only known at run time; the runner checks it then
+		if (val.source !== "raw" || val.mode !== "cases") return;
+		try {
+			toCases(val.raw ?? []);
+		} catch (error) {
+			ctx.addIssue({ code: "custom", path: ["raw"], message: (error as Error).message });
+		}
+	});
+
 export const testSuiteCoreSchema = z.object({
 	name: z.string().min(1, "Name is required"),
 	description: z.string().optional().nullable(),
-	routeId: z.uuid("Invalid route ID"),
+	/** one of the two is set: the route or the workflow the suite tests */
+	routeId: z.string().nullish(),
+	workflowId: z.string().nullish(),
+	input: suiteInputSchema.nullish(),
 	projectId: z.uuid("Invalid project ID"),
 	params: z.record(z.string(), z.string()).default({}),
 	headers: z.record(z.string(), z.string()).default({}),
@@ -105,7 +145,7 @@ export const testSuiteCoreSchema = z.object({
 	 */
 	body: z
 		.unknown()
-		.refine((body) => JSON.stringify(body ?? null).length <= MAX_BODY_CHARS, {
+		.refine((body) => !tooLarge(body), {
 			message: "Body is too large. Keep files under 1MB.",
 		})
 		.optional()

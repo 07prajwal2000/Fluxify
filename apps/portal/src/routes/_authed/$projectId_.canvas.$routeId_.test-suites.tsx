@@ -1,13 +1,9 @@
 import { toast } from "@fluxify/components";
 import { createFileRoute, isRedirect, redirect } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
-import {
-	CanvasSpotlight,
-	KeyboardShortcutsModal,
-	matchCombo,
-	useSpotlightCommands,
-} from "@/components/canvas";
+import { RouteSwitcher } from "@/components/routes/RouteSwitcher";
+import { RouteWorkbenchTabs } from "@/components/routes/RouteWorkbenchTabs";
 import { TestSuitesWorkbench } from "@/components/testSuites/TestSuitesWorkbench";
+import { TestsSpotlight } from "@/components/testSuites/TestsSpotlight";
 import { createRouteHead, usePageTitle } from "@/lib/seo";
 import { routesQuery } from "@/query/routesQuery";
 import { routesService } from "@/services/routes";
@@ -49,36 +45,21 @@ function TestSuitesPage() {
 		? `${route.method.toUpperCase()} ${route.path} | Route Tests`
 		: "Route Tests | Routes";
 	usePageTitle(title);
-	const [spotlightOpen, setSpotlightOpen] = useState(false);
-	const [shortcutsOpen, setShortcutsOpen] = useState(false);
-	const spotlightCommands = useSpotlightCommands({
-		actions: [],
-		onOpenShortcuts: () => setShortcutsOpen(true),
-		onClose: () => setSpotlightOpen(false),
-	});
-
-	useEffect(() => {
-		const onKeyDown = (e: KeyboardEvent) => {
-			if (matchCombo(e, "mod+k") || matchCombo(e, "mod+space")) {
-				e.preventDefault();
-				setSpotlightOpen((open) => !open);
-			}
-		};
-		document.addEventListener("keydown", onKeyDown);
-		return () => document.removeEventListener("keydown", onKeyDown);
-	}, []);
-
 	// The workbench owns the topbar: the run controls and the suite count live
 	// there alongside the route switcher and the canvas/tests tabs.
 	return (
 		<div className="flex h-screen w-full flex-col">
-			<TestSuitesWorkbench projectId={projectId} routeId={routeId} />
-			<CanvasSpotlight
-				isOpen={spotlightOpen}
-				onOpenChange={setSpotlightOpen}
-				commands={spotlightCommands}
+			<TestSuitesWorkbench
+				projectId={projectId}
+				target={{ type: "route", id: routeId }}
+				headerLeft={
+					<>
+						<RouteSwitcher projectId={projectId} routeId={routeId} />
+						<RouteWorkbenchTabs projectId={projectId} routeId={routeId} />
+					</>
+				}
 			/>
-			<KeyboardShortcutsModal isOpen={shortcutsOpen} onOpenChange={setShortcutsOpen} />
+			<TestsSpotlight />
 		</div>
 	);
 }

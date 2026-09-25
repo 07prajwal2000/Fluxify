@@ -3,6 +3,8 @@ import { useMemo, useState } from "react";
 import { blockLabels } from "@/components/canvas/blocks/blockLabels";
 import type { BlockData } from "@/components/canvas/types";
 import { routesQuery } from "@/query/routesQuery";
+import { workflowsQuery } from "@/query/workflowsQuery";
+import type { SuiteTarget } from "@/services/testSuites";
 import { ZOD_VERSION } from "./expectTypes";
 import {
 	HOOK_TEMPLATES,
@@ -36,17 +38,22 @@ const unsaved = new Map<string, string>();
  */
 export function HooksEditor({
 	suiteId,
-	routeId,
+	target,
 	hooks,
 	onChange,
 }: {
 	suiteId: string;
-	routeId: string;
+	target: SuiteTarget;
 	hooks: BlockHook[];
 	onChange: (next: BlockHook[]) => void;
 }) {
 	usePackageTypes("zod", ZOD_VERSION);
-	const canvas = routesQuery.canvasItems.useQuery(routeId);
+	// both are called (hooks cannot be conditional); the other kind stays disabled
+	const routeCanvas = routesQuery.canvasItems.useQuery(target.type === "route" ? target.id : "");
+	const workflowCanvas = workflowsQuery.canvasItems.useQuery(
+		target.type === "workflow" ? target.id : "",
+	);
+	const canvas = target.type === "route" ? routeCanvas : workflowCanvas;
 	const blocks = useMemo(
 		() =>
 			(canvas.data?.blocks ?? [])
@@ -61,7 +68,9 @@ export function HooksEditor({
 	const selected = blocks.find((b) => b.id === selectedId) ?? blocks[0];
 	if (canvas.isLoading) return <Spinner size="sm" />;
 	if (!selected) {
-		return <p className="text-xs text-muted">This route has no blocks that can be hooked.</p>;
+		return (
+			<p className="text-xs text-muted">This {target.type} has no blocks that can be hooked.</p>
+		);
 	}
 
 	const slots = slotsFor(hookSupport(selected.type));

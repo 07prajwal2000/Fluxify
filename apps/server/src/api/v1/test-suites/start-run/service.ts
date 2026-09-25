@@ -3,10 +3,11 @@ import { ForbiddenError } from "../../../../errors/forbidError";
 import { NotFoundError } from "../../../../errors/notFoundError";
 import { ServerError } from "../../../../errors/serverError";
 import { startTestRun, TestRunError } from "../../../../modules/testRunner/runner";
+import type { SuiteTarget } from "../../../../modules/testRunner/target";
 
 export default async function handleRequest(input: {
 	projectId: string;
-	routeId: string;
+	target: SuiteTarget;
 	suiteIds?: string[];
 }) {
 	try {

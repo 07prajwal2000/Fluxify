@@ -1,15 +1,16 @@
 import { and, eq } from "drizzle-orm";
 import { db } from "../../../../db";
 import { testRunsEntity, testSuiteRunsEntity } from "../../../../db/schema";
+import { type SuiteTarget, targetColumn } from "../../../../modules/testRunner/target";
 
 /**
  * One run plus every suite it covers.
  *
- * The parent lookup carries the project and route from the path, so a run id
+ * The parent lookup carries the project and target from the path, so a run id
  * belonging to another project is indistinguishable from one that does not
  * exist — which is the answer we want to give anyway.
  */
-export async function getTestRunById(projectId: string, routeId: string, runId: string) {
+export async function getTestRunById(projectId: string, target: SuiteTarget, runId: string) {
 	const [run] = await db
 		.select()
 		.from(testRunsEntity)
@@ -17,7 +18,7 @@ export async function getTestRunById(projectId: string, routeId: string, runId: 
 			and(
 				eq(testRunsEntity.id, runId),
 				eq(testRunsEntity.projectId, projectId),
-				eq(testRunsEntity.routeId, routeId),
+				eq(targetColumn(testRunsEntity, target.type), target.id),
 			),
 		);
 	if (!run) return null;

@@ -12,7 +12,8 @@ import {
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { showErrorNotification } from "@/lib/errorNotifier";
 import { testSuitesQuery } from "@/query/testSuitesQuery";
-import type { TestRunStatus } from "@/services/testSuites";
+import type { SuiteTarget, TestRunStatus } from "@/services/testSuites";
+import { CaseResults, CheckList, formatDuration } from "./CaseResults";
 import { ResponseViewer } from "./ResponseViewer";
 
 const TERMINAL_TONE: Record<string, string> = {
@@ -30,11 +31,6 @@ function StatusIcon({ status }: { status: TestRunStatus }) {
 	if (status === "failed" || status === "error") return <TbX size={15} className={className} />;
 	if (status === "timeout") return <TbAlertTriangle size={15} className={className} />;
 	return <TbClock size={15} className={cn(className, "animate-pulse")} />;
-}
-
-function formatDuration(ms: number | null | undefined) {
-	if (ms == null) return "—";
-	return ms >= 1000 ? `${(ms / 1000).toFixed(2)}s` : `${ms}ms`;
 }
 
 function SuiteRunRow({
@@ -67,6 +63,11 @@ function SuiteRunRow({
 						<TbAlertTriangle size={14} /> Teardown failed
 					</span>
 				)}
+				{result?.counts && (
+					<span className="text-xs text-muted">
+						{result.counts.passed}/{result.counts.total} cases
+					</span>
+				)}
 				{result?.statusCode != null && (
 					<span className="font-mono text-xs text-muted">{result.statusCode}</span>
 				)}
@@ -82,7 +83,7 @@ function SuiteRunRow({
 				<div className="space-y-3 border-t border-border p-3">
 					{/* a killed process has no partial results — say so rather than
 					    rendering an empty assertion list */}
-					{status === "timeout" && assertions.length === 0 && (
+					{status === "timeout" && assertions.length === 0 && !result?.cases?.length && (
 						<p className="text-xs text-warning">
 							Timed out after {formatDuration(durationMs)}. A suite killed at its time budget
 							reports no assertion detail.
@@ -96,26 +97,8 @@ function SuiteRunRow({
 						</p>
 					)}
 
-					{assertions.length > 0 && (
-						<ul className="space-y-1">
-							{assertions.map((assertion, index) => (
-								<li
-									// eslint-disable-next-line react/no-array-index-key -- verdicts are positional
-									key={index}
-									className="flex items-start gap-2 text-xs"
-								>
-									{assertion.success ? (
-										<TbCheck size={14} className="mt-0.5 shrink-0 text-success" />
-									) : (
-										<TbX size={14} className="mt-0.5 shrink-0 text-danger" />
-									)}
-									<span className={assertion.success ? "text-muted" : "text-foreground"}>
-										{assertion.message}
-									</span>
-								</li>
-							))}
-						</ul>
-					)}
+					<CheckList checks={assertions} />
+					{result?.cases && <CaseResults cases={result.cases} />}
 
 					{(result?.actualData !== undefined || result?.headers) && (
 						<ResponseViewer data={result?.actualData} headers={result?.headers} suiteName={name} />
@@ -141,15 +124,15 @@ function formatWhen(value: unknown) {
 
 function RunHistory({
 	projectId,
-	routeId,
+	target,
 	onSelect,
 }: {
 	projectId: string;
-	routeId: string;
+	target: SuiteTarget;
 	onSelect: (runId: string) => void;
 }) {
 	const [page, setPage] = useState(1);
-	const runs = testSuitesQuery.getRuns.useQuery(projectId, routeId, {
+	const runs = testSuitesQuery.getRuns.useQuery(projectId, target, {
 		page,
 		perPage: 10,
 	});
@@ -223,21 +206,21 @@ function RunHistory({
  */
 export function RunResults({
 	projectId,
-	routeId,
+	target,
 	runId,
 	suiteNames,
 	onSelectRun,
 }: {
 	projectId: string;
-	routeId: string;
+	target: SuiteTarget;
 	runId: string | null;
 	suiteNames: Record<string, string>;
 	onSelectRun: (runId: string) => void;
 }) {
 	const [view, setView] = useState<"latest" | "history">("latest");
 	const [confirmClear, setConfirmClear] = useState(false);
-	const run = testSuitesQuery.getRun.useQuery(projectId, routeId, runId);
-	const clear = testSuitesQuery.clearRuns.mutation(projectId, routeId);
+	const run = testSuitesQuery.getRun.useQuery(projectId, target, runId);
+	const clear = testSuitesQuery.clearRuns.mutation(projectId, target);
 	const data = run.data;
 	const summary = data?.result as { error?: string } | null | undefined;
 
@@ -288,7 +271,7 @@ export function RunResults({
 				<Tabs.Panel id="history" className="min-h-0 flex-1 overflow-y-auto">
 					<RunHistory
 						projectId={projectId}
-						routeId={routeId}
+						target={target}
 						onSelect={(id) => {
 							onSelectRun(id);
 							setView("latest");
@@ -346,7 +329,7 @@ export function RunResults({
 					})
 				}
 			>
-				Every recorded run for this route will be deleted. The suites themselves are kept.
+				Every recorded run for this {target.type} will be deleted. The suites themselves are kept.
 			</ConfirmDialog>
 		</aside>
 	);

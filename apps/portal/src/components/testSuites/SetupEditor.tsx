@@ -8,7 +8,7 @@ const inputClass =
 
 const NONE = "__none__";
 
-function PhasePicker({
+export function PhasePicker({
 	label,
 	help,
 	blocks,

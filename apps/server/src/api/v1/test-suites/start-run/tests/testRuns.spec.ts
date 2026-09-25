@@ -79,7 +79,7 @@ describe("POST runs", () => {
 		// project and route come from the path — no lookup happened to find them
 		expect(started).toHaveBeenCalledWith({
 			projectId: PROJECT,
-			routeId: ROUTE,
+			target: { type: "route", id: ROUTE },
 			suiteIds: undefined,
 		});
 	});

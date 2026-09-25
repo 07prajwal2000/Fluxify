@@ -10,7 +10,6 @@ import {
 } from "@fluxify/components";
 import { TbPlus } from "react-icons/tb";
 import {
-	ASSERTION_TARGETS,
 	type Assertion,
 	type AssertionOperator,
 	type AssertionTarget,
@@ -20,6 +19,7 @@ import {
 	OPERATOR_LABELS,
 	operatorsFor,
 	TARGET_LABELS,
+	TARGETS_BY_KIND,
 	validateAssertions,
 } from "./assertions";
 import { EXPECT_TYPES, T_SHARED, ZOD_VERSION } from "./expectTypes";
@@ -27,8 +27,10 @@ import { EXPECT_TYPES, T_SHARED, ZOD_VERSION } from "./expectTypes";
 const inputClass =
 	"w-full rounded-md border border-border bg-background-secondary px-2 py-1.5 text-sm text-foreground outline-none placeholder:text-muted focus:border-accent";
 
+type Kind = keyof typeof TARGETS_BY_KIND;
+
 /** Mirrors the namespaced context injected by the test runner for custom JS. */
-const TEST_SUITE_ASSERTION_TYPES = `
+const ROUTE_ASSERTION_TYPES = `
 type TestSuiteRequest = {
   path: string;
   headers: Record<string, string>;
@@ -59,12 +61,36 @@ declare const t: {
 ${T_SHARED}};
 `;
 
+/** A workflow case (#487): what went in, and how the run ended. */
+const WORKFLOW_ASSERTION_TYPES = `
+declare const fluxify: {
+  /** The input this case sent to the workflow. */
+  input: any;
+  /** How the workflow run ended. */
+  result: { successful: boolean; output: any; error?: string };
+};
+
+${EXPECT_TYPES}
+declare const t: {
+  expect: Expect;
+  /** The case being checked. */
+  case: { index: number; name: string; input: any };
+${T_SHARED}};
+`;
+
+const NEW_ASSERTION: Record<Kind, Assertion> = {
+	route: { target: "status", operator: "eq", expectedValue: "200" },
+	workflow: { target: "successful", operator: "true" },
+};
+
 function AssertionRow({
+	kind,
 	assertion,
 	error,
 	onChange,
 	onRemove,
 }: {
+	kind: Kind;
 	assertion: Assertion;
 	error?: string;
 	onChange: (next: Assertion) => void;
@@ -95,7 +121,7 @@ function AssertionRow({
 					</Select.Trigger>
 					<Select.Popover>
 						<ListBox>
-							{ASSERTION_TARGETS.map((item) => (
+							{TARGETS_BY_KIND[kind].map((item) => (
 								<ListBox.Item key={item} id={item} textValue={TARGET_LABELS[item]}>
 									<span className="text-xs">{TARGET_LABELS[item]}</span>
 									<ListBox.ItemIndicator />
@@ -110,13 +136,23 @@ function AssertionRow({
 						<JavaScriptTextArea
 							rows={4}
 							value={assertion.customJs ?? ""}
-							typeDefinitions={TEST_SUITE_ASSERTION_TYPES}
+							typeDefinitions={kind === "route" ? ROUTE_ASSERTION_TYPES : WORKFLOW_ASSERTION_TYPES}
 							onChange={(customJs) => onChange({ ...assertion, customJs })}
 						/>
 						<span className="mt-1 block text-xs text-muted">
-							Check <code>fluxify.response</code> (<code>status</code>, <code>body</code>,{" "}
-							<code>headers</code>) and <code>fluxify.request</code> with{" "}
-							<code>t.expect(value).toBe(...)</code>. Each check is one line in the results.
+							Check{" "}
+							{kind === "route" ? (
+								<>
+									<code>fluxify.response</code> (<code>status</code>, <code>body</code>,{" "}
+									<code>headers</code>) and <code>fluxify.request</code>
+								</>
+							) : (
+								<>
+									<code>fluxify.result</code> (<code>successful</code>, <code>output</code>,{" "}
+									<code>error</code>) and <code>fluxify.input</code>
+								</>
+							)}{" "}
+							with <code>t.expect(value).toBe(...)</code>. Each check is one line in the results.
 						</span>
 					</div>
 				) : (
@@ -179,9 +215,12 @@ function AssertionRow({
 }
 
 export function AssertionsEditor({
+	kind,
 	assertions,
 	onChange,
 }: {
+	/** what the suite tests; picks the targets on offer */
+	kind: Kind;
 	assertions: Assertion[];
 	onChange: (next: Assertion[]) => void;
 }) {
@@ -199,9 +238,7 @@ export function AssertionsEditor({
 				<Button
 					variant="outline"
 					size="sm"
-					onPress={() =>
-						onChange([...assertions, { target: "status", operator: "eq", expectedValue: "200" }])
-					}
+					onPress={() => onChange([...assertions, NEW_ASSERTION[kind]])}
 				>
 					<TbPlus size={15} /> Add assertion
 				</Button>
@@ -209,13 +246,14 @@ export function AssertionsEditor({
 
 			{assertions.length === 0 ? (
 				<div className="rounded-lg border border-dashed border-border p-6 text-center text-xs text-muted">
-					No assertions yet. A suite without one only checks that the route runs.
+					No assertions yet. A suite without one only checks that the {kind} runs.
 				</div>
 			) : (
 				assertions.map((assertion, index) => (
 					<AssertionRow
 						// eslint-disable-next-line react/no-array-index-key -- assertions are an ordered list with no id
 						key={index}
+						kind={kind}
 						assertion={assertion}
 						error={errors.get(index)}
 						onChange={(next) => replace(index, next)}

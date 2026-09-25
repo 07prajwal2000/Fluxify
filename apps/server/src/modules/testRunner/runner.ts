@@ -13,12 +13,19 @@ import {
 } from "../../db/schema";
 import { assertOverridesOwned } from "../requestRouter/service";
 import { type AssertionType, buildSuiteRequest } from "./assertions";
-import { compileSuiteRoute } from "./compile";
+import { countCases } from "./cases";
+import {
+	type CompiledSuiteTarget,
+	compileInputScript,
+	compileSuiteTarget,
+	INPUT_SCRIPT_BLOCK,
+} from "./compile";
 import { runSuiteOnWorker } from "./dispatch";
 import { loadSuiteHooks, type SuiteHook } from "./hooks";
 import { type Pool, testWorkerPool } from "./pool";
 import { resolveSuiteConfig } from "./resolve";
-import type { TestBootstrap, TestResult } from "./types";
+import { type SuiteTarget, targetColumn, targetKeys, targetProject } from "./target";
+import type { SuiteInputSpec, TestBootstrap, TestResult } from "./types";
 
 type Suite = InferSelectModel<typeof testSuitesEntity>;
 
@@ -36,7 +43,7 @@ export class TestRunError extends Error {
 
 /** injectable so the orchestration can be tested without NATS or a worker */
 export type RunnerDeps = {
-	compile: typeof compileSuiteRoute;
+	compile: typeof compileSuiteTarget;
 	resolve: typeof resolveSuiteConfig;
 	hooks: typeof loadSuiteHooks;
 	blockNames: typeof loadBlockNames;
@@ -45,7 +52,7 @@ export type RunnerDeps = {
 };
 
 const defaultDeps: RunnerDeps = {
-	compile: compileSuiteRoute,
+	compile: compileSuiteTarget,
 	resolve: resolveSuiteConfig,
 	hooks: loadSuiteHooks,
 	blockNames: loadBlockNames,
@@ -66,30 +73,25 @@ const defaultDeps: RunnerDeps = {
  * exists so a test can await a run instead of polling the database.
  */
 export async function startTestRun(
-	input: { projectId: string; routeId: string; suiteIds?: string[] },
+	input: { projectId: string; target: SuiteTarget; suiteIds?: string[] },
 	deps: Partial<RunnerDeps> = {},
 ): Promise<{ runId: string; done: Promise<void> }> {
-	const { projectId, routeId, suiteIds } = input;
+	const { projectId, target, suiteIds } = input;
+	const label = target.type === "route" ? "Route" : "Workflow";
 
-	const [route] = await db
-		.select({ id: routesEntity.id, projectId: routesEntity.projectId })
-		.from(routesEntity)
-		.where(eq(routesEntity.id, routeId));
-	if (!route) throw new TestRunError(404, "Route not found");
-	if (route.projectId !== projectId) {
-		throw new TestRunError(403, "Route belongs to another project");
+	const owner = await targetProject(target);
+	if (owner === undefined) throw new TestRunError(404, `${label} not found`);
+	if (owner !== projectId) {
+		throw new TestRunError(403, `${label} belongs to another project`);
 	}
 
+	const ofTarget = eq(targetColumn(testSuitesEntity, target.type), target.id);
 	const suites = await db
 		.select()
 		.from(testSuitesEntity)
-		.where(
-			suiteIds?.length
-				? and(eq(testSuitesEntity.routeId, routeId), inArray(testSuitesEntity.id, suiteIds))
-				: eq(testSuitesEntity.routeId, routeId),
-		);
+		.where(suiteIds?.length ? and(ofTarget, inArray(testSuitesEntity.id, suiteIds)) : ofTarget);
 	if (suites.length === 0) {
-		throw new TestRunError(404, "No test suites found for this route");
+		throw new TestRunError(404, `No test suites found for this ${target.type}`);
 	}
 
 	for (const suite of suites) {
@@ -110,7 +112,7 @@ export async function startTestRun(
 
 	const [run] = await db
 		.insert(testRunsEntity)
-		.values({ projectId, routeId, totalSuites: suites.length })
+		.values({ projectId, ...targetKeys(target), totalSuites: suites.length })
 		.returning({ id: testRunsEntity.id });
 
 	const suiteRuns = await db
@@ -119,7 +121,7 @@ export async function startTestRun(
 			suites.map((suite) => ({
 				testRunId: run!.id,
 				projectId,
-				routeId,
+				...targetKeys(target),
 				testSuiteId: suite.id,
 			})),
 		)
@@ -133,7 +135,7 @@ export async function startTestRun(
 
 	return {
 		runId: run!.id,
-		done: executeRun(run!.id, routeId, projectId, work, {
+		done: executeRun(run!.id, target, projectId, work, {
 			...defaultDeps,
 			...deps,
 		}),
@@ -149,7 +151,7 @@ export async function startTestRun(
  */
 async function executeRun(
 	runId: string,
-	routeId: string,
+	target: SuiteTarget,
 	projectId: string,
 	work: Array<{ suite: Suite; suiteRunId: string }>,
 	deps: RunnerDeps,
@@ -157,11 +159,15 @@ async function executeRun(
 	try {
 		// ONE compile for the whole fleet: it reads the live blocks/edges tables,
 		// so compiling per suite would be the same work N times — and could hand
-		// two suites of one run different code if the route were edited mid-run.
-		const compiled = await deps.compile(routeId);
+		// two suites of one run different code if the target were edited mid-run.
+		const compiled = await deps.compile(target);
 		const hooks = await deps.hooks(work.map((w) => w.suite.id));
 		const names = await deps.blockNames(
-			work.flatMap(({ suite }) => [suite.setupBlockId, suite.teardownBlockId]),
+			work.flatMap(({ suite }) => [
+				suite.setupBlockId,
+				suite.teardownBlockId,
+				suite.input?.source === "loader" ? (suite.input.loaderBlockId ?? null) : null,
+			]),
 		);
 
 		await db
@@ -255,7 +261,7 @@ async function runOneSuite(
 	suiteRunId: string,
 	suite: Suite,
 	projectId: string,
-	compiled: Awaited<ReturnType<typeof compileSuiteRoute>>,
+	compiled: CompiledSuiteTarget,
 	{ hooks, names }: { hooks: SuiteHook[]; names: Map<string, string> },
 	deps: RunnerDeps,
 ): Promise<TestRunStatus> {
@@ -274,33 +280,56 @@ async function runOneSuite(
 			appConfigOverrides: suite.appConfigOverrides,
 			integrationOverrides: suite.integrationOverrides,
 		});
-		const request = buildSuiteRequest(suite, compiled.route);
-		const bootstrap: TestBootstrap = {
+		const common = {
 			suiteRunId,
 			projectId,
-			route: {
-				id: compiled.route.id,
-				projectName: compiled.route.projectName ?? "",
-				bodySchema: compiled.route.bodySchema,
-				querySchema: compiled.route.querySchema,
-				paramsSchema: compiled.route.paramsSchema,
-			},
 			source: compiled.source,
 			customBlocks: compiled.customBlocks,
 			config,
-			request,
-			timeoutMs: compiled.route.timeoutSeconds * 1_000,
 			assertions: (suite.assertions as AssertionType[]) || [],
 			hooks,
 			suite: { id: suite.id, name: suite.name },
 			setup: phase(names, suite.setupBlockId, suite.setupTimeoutMs),
 			teardown: phase(names, suite.teardownBlockId, suite.teardownTimeoutMs),
 		};
+		let bootstrap: TestBootstrap;
+		if (compiled.route) {
+			bootstrap = {
+				...common,
+				route: {
+					id: compiled.route.id,
+					projectName: compiled.route.projectName ?? "",
+					bodySchema: compiled.route.bodySchema,
+					querySchema: compiled.route.querySchema,
+					paramsSchema: compiled.route.paramsSchema,
+				},
+				request: buildSuiteRequest(suite, compiled.route),
+				timeoutMs: compiled.route.timeoutSeconds * 1_000,
+			};
+		} else {
+			const { input, script } = inputSpec(suite, names, compiled);
+			bootstrap = {
+				...common,
+				customBlocks: script ? [...common.customBlocks, script] : common.customBlocks,
+				workflow: { id: compiled.workflow.id, name: compiled.workflow.name },
+				input,
+				timeoutMs: compiled.workflow.timeoutSeconds * 1_000,
+			};
+		}
 
 		const response: TestResult = await deps.spawn(bootstrap);
 		durationMs = response.durationMs;
 
-		if (response.ok) {
+		if (response.ok && response.cases) {
+			// raw per-case results; the suite passes when every case does (#487)
+			status = response.verdict.success ? "passed" : "failed";
+			result = {
+				...response.verdict,
+				cases: response.cases,
+				counts: response.counts,
+				teardownError: response.teardownError,
+			};
+		} else if (response.ok) {
 			status = response.verdict.success ? "passed" : "failed";
 			result = {
 				...response.verdict,
@@ -310,14 +339,18 @@ async function runOneSuite(
 				teardownError: response.teardownError,
 			};
 		} else {
-			// a killed process has no partial verdicts to report — the duration and
-			// the reason are all that honestly exist
+			// a killed process has no partial verdicts to report — the duration, the
+			// reason and any workflow cases that finished first are all that exist
 			status = response.timedOut ? "timeout" : "error";
 			result = {
 				success: false,
 				result: [],
 				error: response.error,
 				teardownError: response.teardownError,
+				...(response.cases?.length && {
+					cases: response.cases,
+					counts: countCases(response.cases),
+				}),
 			};
 		}
 	} catch (error) {
@@ -350,4 +383,35 @@ async function loadBlockNames(ids: Array<string | null>) {
 		.from(customBlocksListEntity)
 		.where(inArray(customBlocksListEntity.id, wanted));
 	return new Map(rows.map((r) => [r.id, r.name]));
+}
+
+const INPUT_TIMEOUT_MS = 30_000;
+
+/**
+ * Where a workflow suite's input comes from (#487). A script is compiled here,
+ * in the parent, into a custom block the child registers like any other; a
+ * loader is a test-only custom block the child already has.
+ */
+function inputSpec(
+	suite: Suite,
+	names: Map<string, string>,
+	compiled: CompiledSuiteTarget,
+): { input: SuiteInputSpec; script?: { name: string; source: string } } {
+	const input = suite.input ?? { source: "raw", mode: "single", raw: null };
+	const timeoutMs = input.timeoutMs ?? INPUT_TIMEOUT_MS;
+	if (input.source === "script") {
+		return {
+			input: { mode: input.mode, block: { block: INPUT_SCRIPT_BLOCK, timeoutMs } },
+			script: {
+				name: INPUT_SCRIPT_BLOCK,
+				source: compileInputScript(input.script ?? "", compiled.dependencies),
+			},
+		};
+	}
+	if (input.source === "loader") {
+		const block = input.loaderBlockId ? names.get(input.loaderBlockId) : undefined;
+		if (!block) throw new Error("The input loader block is not set or was deleted");
+		return { input: { mode: input.mode, block: { block, timeoutMs } } };
+	}
+	return { input: { mode: input.mode, raw: input.raw } };
 }

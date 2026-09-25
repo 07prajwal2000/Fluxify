@@ -1,5 +1,5 @@
-import Editor from "@monaco-editor/react";
 import clsx from "clsx";
+import { MonacoEditor as Editor } from "../JavaScriptTextArea/monacoEditor";
 
 export type CodeViewerProps = {
 	value: string;

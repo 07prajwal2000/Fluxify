@@ -56,16 +56,31 @@ export function buildSuiteRequest(
 	};
 }
 
-/** the response an assertion set is evaluated against */
+/** what a workflow run produced (#487), the value its checks read */
+export type WorkflowOutcome = { successful: boolean; output: unknown; error?: string };
+
+/** the case being checked, as `t.case` */
+export type CaseInfo = { index: number; name: string; input: unknown };
+
+/**
+ * What an assertion set is evaluated against: a route's response, or one
+ * workflow case (#487). Route targets read nothing on a workflow and vice versa.
+ */
 export type AssertionContext = {
-	status: number;
-	body: unknown;
-	headers: Record<string, string>;
 	durationMs: number;
-	request: SuiteRequest;
 	/** what the setup block returned, as `t.setup` (#483) */
 	setup?: unknown;
-};
+	case?: CaseInfo;
+} & (
+	| {
+			status: number;
+			body: unknown;
+			headers: Record<string, string>;
+			request: SuiteRequest;
+			workflow?: undefined;
+	  }
+	| { workflow: WorkflowOutcome; status?: undefined; body?: undefined; headers?: undefined }
+);
 
 /** an empty path is the whole body; `a.b[0].c` walks into it */
 function readPath(body: unknown, propertyPath?: string | null) {
@@ -90,7 +105,7 @@ function actualFor(a: AssertionType, ctx: AssertionContext) {
 			return { value: ctx.durationMs as unknown, desc: "Time" };
 		case "header":
 			return {
-				value: ctx.headers[(a.propertyPath || "").toLowerCase()] as unknown,
+				value: ctx.headers?.[(a.propertyPath || "").toLowerCase()] as unknown,
 				desc: `Header(${a.propertyPath})`,
 			};
 		case "body":
@@ -98,6 +113,13 @@ function actualFor(a: AssertionType, ctx: AssertionContext) {
 				value: readPath(ctx.body, a.propertyPath),
 				desc: `Body(${a.propertyPath || ""})`,
 			};
+		case "output":
+			return {
+				value: readPath(ctx.workflow?.output, a.propertyPath),
+				desc: `Output(${a.propertyPath || ""})`,
+			};
+		case "successful":
+			return { value: ctx.workflow?.successful as unknown, desc: "Successful" };
 		default:
 			return { value: undefined as unknown, desc: "" };
 	}
@@ -185,7 +207,7 @@ export async function evaluateAssertions(assertions: AssertionType[], ctx: Asser
 		// a suite with no assertions passes: it asserted nothing and nothing broke
 		success: result.length === 0 || result.every((r) => r.success),
 		result,
-		actualData: ctx.body,
+		actualData: ctx.workflow ? ctx.workflow.output : ctx.body,
 	};
 }
 
@@ -198,22 +220,26 @@ export async function evaluateAssertions(assertions: AssertionType[], ctx: Asser
  */
 async function runCustomJs(code: string, ctx: AssertionContext): Promise<AssertionResult[]> {
 	const checks: AssertionResult[] = [];
+	const fluxify = ctx.workflow
+		? { input: ctx.case?.input, result: ctx.workflow }
+		: {
+				request: {
+					path: ctx.request.path,
+					query: ctx.request.query,
+					body: ctx.request.body,
+					headers: ctx.request.headers,
+					params: ctx.request.params,
+				},
+				response: { body: ctx.body, headers: ctx.headers, status: ctx.status },
+			};
 	const vm = new JsVM({
-		fluxify: {
-			request: {
-				path: ctx.request.path,
-				query: ctx.request.query,
-				body: ctx.request.body,
-				headers: ctx.request.headers,
-				params: ctx.request.params,
-			},
-			response: {
-				body: ctx.body,
-				headers: ctx.headers,
-				status: ctx.status,
-			},
+		fluxify,
+		t: {
+			expect: createExpect((r) => checks.push(r)),
+			zod: z,
+			setup: ctx.setup,
+			case: ctx.case,
 		},
-		t: { expect: createExpect((r) => checks.push(r)), zod: z, setup: ctx.setup },
 	});
 	await vm.runAsync(code);
 	if (checks.length === 0) {

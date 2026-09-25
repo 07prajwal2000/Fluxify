@@ -1,5 +1,6 @@
 import { z } from "zod";
 import type { AssertionResult, TestHookBody } from "../../db/schema";
+import type { CaseInfo } from "./assertions";
 import { createExpect } from "./expect";
 import type { SuiteHook } from "./hooks";
 
@@ -24,7 +25,7 @@ type CompiledHooks = Record<
  * config.
  *
  * `t` per call: `skip(output, branch?)` (no `return` needed), `fail(message)`,
- * `call` (1, 2, 3… per block, for loops), `vars`, `block`, `runId`, `expect`,
+ * `call` (1, 2, 3… per block, for loops), `vars`, `block`, `runId`, `case`, `expect`,
  * `zod` (check a value's shape: `t.zod.object({ id: t.zod.number() }).parse(output)`).
  * `t.expect` lines land in `checks`, labelled with the block.
  */
@@ -35,6 +36,8 @@ export function buildHooks(
 		runId: string;
 		/** what the setup block returned (#483) */
 		setup?: unknown;
+		/** the workflow case being run (#487), as `t.case` */
+		case?: CaseInfo;
 		checks: AssertionResult[];
 	},
 ): CompiledHooks {
@@ -52,6 +55,7 @@ export function buildHooks(
 			block,
 			runId: env.runId,
 			setup: env.setup,
+			case: env.case,
 			expect,
 			zod: z,
 			skip: skip ?? (() => fail("t.skip only works in onBefore")),
