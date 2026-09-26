@@ -15,5 +15,6 @@ export {
 	conditionText,
 	formatConditionsSummary,
 	isColumnRef,
+	isGroup,
 	isLiteralRef,
 } from "./utils";

@@ -6,7 +6,11 @@ import { emitWhereConditions } from "./emitConditions";
 import { getSingleDbBlockSchema } from "./getSingle";
 import { adapterFor, dbFailure, type whereConditionSchema } from "./schema";
 
-export const countDbBlockSchema = getSingleDbBlockSchema.omit({ columns: true });
+export const countDbBlockSchema = getSingleDbBlockSchema.omit({
+	columns: true,
+	sort: true,
+	strict: true,
+});
 
 export const countDbAiDescription = {
 	name: BlockTypes.db_count,

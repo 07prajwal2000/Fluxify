@@ -40,17 +40,30 @@ export const rawWhereConditionSchema = z.object({
 	chain: z.enum(["and", "or"]),
 });
 
-export const whereConditionSchema = z.union([
+export type RawDbCondition = z.infer<typeof rawWhereConditionSchema>;
+/** brackets: the group's conditions combine first, then join the list like one condition */
+export type DbConditionGroup = { group: DBConditionType[]; chain: "and" | "or" };
+export type DBConditionType =
+	| z.infer<typeof structuredWhereConditionSchema>
+	| RawDbCondition
+	| DbConditionGroup;
+
+export const whereConditionSchema: z.ZodType<DBConditionType> = z.union([
 	structuredWhereConditionSchema,
 	rawWhereConditionSchema,
+	z.object({
+		get group() {
+			return z.array(whereConditionSchema);
+		},
+		chain: z.enum(["and", "or"]),
+	}),
 ]);
 
-export type DBConditionType = z.infer<typeof whereConditionSchema>;
-export type RawDbCondition = z.infer<typeof rawWhereConditionSchema>;
-
 export type { DBJoinType, QueryOptions } from "./jsonPath";
+export type { DbSort } from "./sort";
 
 import type { QueryOptions } from "./jsonPath";
+import type { DbSort } from "./sort";
 
 export type IntrospectedColumn = {
 	name: string;
@@ -106,7 +119,7 @@ export interface IDbAdapter {
 		conditions: DBConditionType[],
 		limit: number,
 		offset: number,
-		sort: { attribute: string; direction: "asc" | "desc" },
+		sort: DbSort[],
 		options?: QueryOptions,
 	): Promise<unknown[]>;
 	getSingle(

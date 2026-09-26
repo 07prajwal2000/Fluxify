@@ -66,4 +66,26 @@ describe("whereConditionSchema", () => {
 			whereConditionSchema.safeParse({ operator: "raw", chain: "and" }).success,
 		).toBe(false);
 	});
+	it("validates every condition inside nested groups", () => {
+		const ok = {
+			attribute: { kind: "column", value: "status" },
+			operator: "eq",
+			value: { kind: "literal", value: "active" },
+			chain: "and",
+		};
+		const nested = (inner: unknown) => ({
+			group: [ok, { group: [inner], chain: "or" }],
+			chain: "and",
+		});
+		expect(whereConditionSchema.safeParse(nested(ok)).success).toBe(true);
+		expect(whereConditionSchema.safeParse({ group: [], chain: "or" }).success).toBe(true);
+		// a bad condition three levels down still fails the block
+		expect(
+			whereConditionSchema.safeParse(nested({ ...ok, value: undefined })).success,
+		).toBe(false);
+		expect(whereConditionSchema.safeParse(nested({ operator: "raw", chain: "and" })).success).toBe(
+			false,
+		);
+		expect(whereConditionSchema.safeParse({ group: [ok] }).success).toBe(false);
+	});
 });

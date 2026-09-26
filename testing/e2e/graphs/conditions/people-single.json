@@ -1,0 +1,37 @@
+{
+	"name": "conditions/people-single",
+	"description": "POST /people/single — the one person get-single picks. Tests swap in the conditions and sort.",
+	"engine": "pg",
+	"route": { "method": "POST", "path": "/people/single" },
+	"blocks": [
+		{
+			"id": "entry",
+			"type": "entrypoint",
+			"position": { "x": 0, "y": 0 },
+			"data": { "blockName": "Request" }
+		},
+		{
+			"id": "find",
+			"type": "db_getsingle",
+			"position": { "x": 240, "y": 0 },
+			"data": {
+				"blockName": "Find one person",
+				"connection": "primary",
+				"tableName": "people",
+				"conditions": [],
+				"columns": ["name"],
+				"sort": []
+			}
+		},
+		{
+			"id": "reply",
+			"type": "response",
+			"position": { "x": 480, "y": 0 },
+			"data": { "blockName": "200 OK", "httpCode": "200" }
+		}
+	],
+	"edges": [
+		{ "id": "e-entry-find", "from": "entry", "to": "find", "fromHandle": "source", "toHandle": "source" },
+		{ "id": "e-find-reply", "from": "find", "to": "reply", "fromHandle": "source", "toHandle": "source" }
+	]
+}

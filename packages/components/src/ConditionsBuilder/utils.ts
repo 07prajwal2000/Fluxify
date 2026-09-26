@@ -76,9 +76,60 @@ function formatVal(val?: ConditionValue): string {
 	return text;
 }
 
+export function isGroup(condition: Condition): condition is Condition & { group: Condition[] } {
+	return Array.isArray(condition.group);
+}
+
+/** The longest part of `path` that still leads through groups: an open group can be deleted. */
+export function validPath(conditions: Condition[], path: number[]): number[] {
+	const valid: number[] = [];
+	let level = conditions;
+	for (const index of path) {
+		const item = level[index];
+		if (!item || !isGroup(item)) break;
+		valid.push(index);
+		level = item.group;
+	}
+	return valid;
+}
+
+/** The list a (valid) path points at. */
+export function conditionsAt(conditions: Condition[], path: number[]): Condition[] {
+	return path.reduce((level, index) => level[index].group ?? [], conditions);
+}
+
+/** `conditions` with the list at `path` replaced, copying only along the path. */
+export function withConditionsAt(
+	conditions: Condition[],
+	path: number[],
+	level: Condition[],
+): Condition[] {
+	if (path.length === 0) return level;
+	const [index, ...rest] = path;
+	const next = [...conditions];
+	next[index] = { ...next[index], group: withConditionsAt(next[index].group ?? [], rest, level) };
+	return next;
+}
+
+const isBlankText = (value?: ConditionValue) => !conditionText(value).replace(/^js:/, "").trim();
+
+/** How many conditions still have an empty side, counting inside groups; an empty group counts as one. */
+export function countIncomplete(conditions: Condition[]): number {
+	return conditions.reduce((count, c) => {
+		if (isGroup(c)) return count + (c.group.length ? countIncomplete(c.group) : 1);
+		if (c.operator === "raw") return count + (isBlankText(c.raw) ? 1 : 0);
+		if (c.operator === "js") return count;
+		const valueless =
+			VALUELESS_OPERATORS.includes(c.operator) ||
+			c.operator === "is_empty" ||
+			c.operator === "is_not_empty";
+		return count + (isBlankText(c.lhs) || (!valueless && isBlankText(c.rhs)) ? 1 : 0);
+	}, 0);
+}
+
 /**
  * Formats an array of Condition objects into a readable expression summary.
- * e.g., 'status = active OR role = admin AND context.user.score > 80'
+ * e.g., 'status = active OR ( role = admin AND context.user.score > 80 )'
  */
 export function formatConditionsSummary(conditions: Condition[]): string {
 	if (!conditions || conditions.length === 0) {
@@ -88,7 +139,9 @@ export function formatConditionsSummary(conditions: Condition[]): string {
 	return conditions
 		.map((c, idx) => {
 			let condStr = "";
-			if (c.operator === "js") {
+			if (isGroup(c)) {
+				condStr = c.group.length ? `( ${formatConditionsSummary(c.group)} )` : "( )";
+			} else if (c.operator === "js") {
 				condStr = "js-condition";
 			} else if (c.operator === "raw") {
 				condStr = isJsExpression(c.raw) ? "custom-filter" : `(${c.raw || "''"})`;

@@ -3,16 +3,19 @@ import { useParams } from "@tanstack/react-router";
 import { useReactFlow } from "@xyflow/react";
 import { useMemo } from "react";
 import { useDbMetadata } from "@/query/findResourceQuery";
+import { BLOCK_TYPES } from "../../../blocks/blockTypes";
 import { useCanvasChanges } from "../../../changes/ChangesContext";
 import type { BlockNode } from "../../../types";
 import { BlockSettings } from "../../BlockSettings";
 import {
 	BlockArrayEditorField,
+	BlockCheckboxField,
 	BlockIntegrationField,
 	BlockJoinsEditorField,
 	BlockJsTextField,
 } from "../../fields";
 import { parseDbConditions, readDbBinding, serializeDbConditions } from "./conditions";
+import { DbSortList } from "./DbSortList";
 
 function parseColumns(block: BlockNode): string[] {
 	if (Array.isArray(block.data.columns)) {
@@ -54,6 +57,16 @@ export function GetSingleDbGeneralSettings({ block }: { block: BlockNode }) {
 				suggestions={tableNames}
 				hint="Enter or select the table name to query, or a JS expression (js:...)."
 			/>
+			{/* Row Exists and Count share this tab; only a lookup cares how many matched */}
+			{block.type === BLOCK_TYPES.db_getsingle && (
+				<BlockCheckboxField
+					blockId={block.id}
+					data={block.data}
+					name="strict"
+					label="Strict: exactly one match"
+					description="Fail the block when more than one record matches, instead of returning one of them. Use it for lookups that should be unique, like an id or email."
+				/>
+			)}
 		</div>
 	);
 }
@@ -156,6 +169,7 @@ export function GetSingleDbConditionsSettings({ block }: { block: BlockNode }) {
 				// MongoDB has no field-to-field comparison in this query builder
 				allowColumnRefs={variant !== "MongoDB"}
 				customConditionEditor={conditionEditor}
+				allowGroups
 				onChange={(nextConditions) => {
 					updateNodeData(block.id, {
 						conditions: serializeDbConditions(nextConditions),
@@ -163,6 +177,21 @@ export function GetSingleDbConditionsSettings({ block }: { block: BlockNode }) {
 				}}
 			/>
 		</div>
+	);
+}
+
+/** Sort tab: which row to pick when several match */
+export function GetSingleDbSortSettings({ block }: { block: BlockNode }) {
+	const params = useParams({ strict: false }) as { projectId?: string };
+	const { connectionId, tableName } = readDbBinding(block);
+	const { getColumnsForTable, allColumns } = useDbMetadata(params?.projectId ?? "", connectionId);
+	const tableColumns = getColumnsForTable(tableName);
+	return (
+		<DbSortList
+			block={block}
+			columnSuggestions={tableColumns.length > 0 ? tableColumns : allColumns}
+			description="Picks which row comes back when several match, e.g. created_at Desc for the newest. The top entry sorts first; drag to reorder. With no sort, any matching row may come back."
+		/>
 	);
 }
 
@@ -223,10 +252,18 @@ export function getSingleDbSettings(block: BlockNode) {
 		>
 			<GetSingleDbConditionsSettings block={block} />
 		</BlockSettings.TabHead>,
+		<BlockSettings.TabHead key="sort" name="Sort">
+			<GetSingleDbSortSettings block={block} />
+		</BlockSettings.TabHead>,
 	];
 }
 
-/** Count Records: the get-single tabs minus Columns, since only the number comes back */
+/** Row Exists: only asks whether a row matches, so which one (Sort) does not matter */
+export function existsDbSettings(block: BlockNode) {
+	return getSingleDbSettings(block).filter((tab) => tab.key !== "sort");
+}
+
+/** Count Records: the get-single tabs minus Columns and Sort, since only the number comes back */
 export function countDbSettings(block: BlockNode) {
-	return getSingleDbSettings(block).filter((tab) => tab.key !== "columns");
+	return getSingleDbSettings(block).filter((tab) => tab.key !== "columns" && tab.key !== "sort");
 }

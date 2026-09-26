@@ -7,7 +7,11 @@ import { consoleLogSettings } from "./blocks/ConsoleLogSettings";
 import { customBlockSettings } from "./blocks/CustomBlockSettings";
 import { deleteDbSettings } from "./blocks/db/DeleteDbSettings";
 import { getAllDbSettings } from "./blocks/db/GetAllDbSettings";
-import { countDbSettings, getSingleDbSettings } from "./blocks/db/GetSingleDbSettings";
+import {
+	countDbSettings,
+	existsDbSettings,
+	getSingleDbSettings,
+} from "./blocks/db/GetSingleDbSettings";
 import { insertBulkDbSettings } from "./blocks/db/InsertBulkDbSettings";
 import { insertDbSettings } from "./blocks/db/InsertDbSettings";
 import { nativeDbSettings } from "./blocks/db/NativeDbSettings";
@@ -63,7 +67,7 @@ export const BLOCK_SETTINGS_TABS: Record<string, BlockTabs> = {
 	[BLOCK_TYPES.cloudLogs]: cloudLogSettings,
 	[BLOCK_TYPES.triggerWorkflow]: triggerWorkflowSettings,
 	[BLOCK_TYPES.db_getsingle]: getSingleDbSettings,
-	[BLOCK_TYPES.db_exists]: getSingleDbSettings,
+	[BLOCK_TYPES.db_exists]: existsDbSettings,
 	[BLOCK_TYPES.db_count]: countDbSettings,
 	[BLOCK_TYPES.db_getall]: getAllDbSettings,
 	[BLOCK_TYPES.db_delete]: deleteDbSettings,

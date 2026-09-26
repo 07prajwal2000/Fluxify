@@ -1,0 +1,51 @@
+{
+	"name": "conditions/people-delete",
+	"description": "POST /people/delete — deletes the people matching the conditions, then lists the names left. Tests swap in the conditions, so a WHERE on a write path runs through the real compiler and adapter.",
+	"engine": "pg",
+	"route": { "method": "POST", "path": "/people/delete" },
+	"blocks": [
+		{
+			"id": "entry",
+			"type": "entrypoint",
+			"position": { "x": 0, "y": 0 },
+			"data": { "blockName": "Request" }
+		},
+		{
+			"id": "remove",
+			"type": "db_delete",
+			"position": { "x": 240, "y": 0 },
+			"data": {
+				"blockName": "Delete people",
+				"connection": "primary",
+				"tableName": "people",
+				"conditions": []
+			}
+		},
+		{
+			"id": "left",
+			"type": "db_getall",
+			"position": { "x": 480, "y": 0 },
+			"data": {
+				"blockName": "People left",
+				"connection": "primary",
+				"tableName": "people",
+				"conditions": [],
+				"columns": ["name"],
+				"limit": 100,
+				"offset": 0,
+				"sort": { "attribute": "id", "direction": "asc" }
+			}
+		},
+		{
+			"id": "reply",
+			"type": "response",
+			"position": { "x": 720, "y": 0 },
+			"data": { "blockName": "200 OK", "httpCode": "200" }
+		}
+	],
+	"edges": [
+		{ "id": "e-entry-remove", "from": "entry", "to": "remove", "fromHandle": "source", "toHandle": "source" },
+		{ "id": "e-remove-left", "from": "remove", "to": "left", "fromHandle": "source", "toHandle": "source" },
+		{ "id": "e-left-reply", "from": "left", "to": "reply", "fromHandle": "source", "toHandle": "source" }
+	]
+}

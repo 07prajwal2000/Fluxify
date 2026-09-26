@@ -59,7 +59,7 @@ export function defaultBlockData(type: BlockType): Record<string, unknown> {
 			columns: ["*"],
 			limit: 1000,
 			offset: 0,
-			sort: { attribute: "id", direction: "asc" },
+			sort: [],
 		};
 	}
 	if (type === BLOCK_TYPES.db_insert) {

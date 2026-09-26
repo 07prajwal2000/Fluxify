@@ -14,6 +14,7 @@ type RawWhereCondition = {
 	operator?: string;
 	raw?: string;
 	chain?: "and" | "or";
+	group?: RawWhereCondition[];
 };
 
 /** First non-empty string among the spellings a block might use for a field. */
@@ -45,29 +46,37 @@ export function parseDbConditions(block: BlockNode): Condition[] {
 		? (block.data.conditions as RawWhereCondition[])
 		: [];
 
-	// both sides pass through untouched: a tag has to survive the round trip, and
-	// coercing one to a string here stored "[object Object]" the next time the
-	// panel saved
+	return parseList(raw);
+}
+
+// both sides pass through untouched: a tag has to survive the round trip, and
+// coercing one to a string here stored "[object Object]" the next time the
+// panel saved
+function parseList(raw: RawWhereCondition[]): Condition[] {
 	return raw.map((condition) => ({
 		chain: condition.chain || "and",
 		lhs: condition.attribute ?? condition.lhs ?? "",
 		rhs: condition.value ?? condition.rhs ?? "",
 		operator: (condition.operator as ConditionOperator) || "eq",
 		raw: condition.raw,
+		...(Array.isArray(condition.group) ? { group: parseList(condition.group) } : {}),
 	}));
 }
 
-export function serializeDbConditions(conditions: Condition[]) {
+export function serializeDbConditions(conditions: Condition[]): Record<string, unknown>[] {
 	return conditions.map((condition) =>
-		// a custom condition is only its text: stray sides would fail the schema
-		condition.operator === "raw"
-			? { operator: "raw", raw: condition.raw ?? "", chain: condition.chain }
-			: {
-					attribute: asDbConditionSide(condition.lhs, "column"),
-					value: asDbConditionSide(condition.rhs, "literal"),
-					operator: condition.operator,
-					chain: condition.chain,
-				},
+		// a group is only its conditions and chain; a custom condition only its text:
+		// stray sides would fail the schema
+		condition.group
+			? { group: serializeDbConditions(condition.group), chain: condition.chain }
+			: condition.operator === "raw"
+				? { operator: "raw", raw: condition.raw ?? "", chain: condition.chain }
+				: {
+						attribute: asDbConditionSide(condition.lhs, "column"),
+						value: asDbConditionSide(condition.rhs, "literal"),
+						operator: condition.operator,
+						chain: condition.chain,
+					},
 	);
 }
 

@@ -58,11 +58,11 @@ export const AUTH_USERS = Array.from({ length: 5 }, (_, index) => {
  * fields are missing altogether, while Grace's nickname is an explicit null.
  */
 export const PEOPLE = [
-	{ name: "Ada Lovelace", nickname: "ada", age: 36, profile: { city: "London", score: 10 } },
-	{ name: "Grace Hopper", nickname: null, age: 85, profile: { city: "New York", score: 2 } },
-	{ name: "100% Real_Name\\", nickname: "pct", age: 41, profile: { city: "Paris", score: 7 } },
-	{ name: "C++ (dev) [x].*", nickname: "plus", age: 18, profile: { city: "london", score: 7 } },
-	{ name: "Ghost", nickname: null, age: null, profile: null },
+	{ name: "Ada Lovelace", team: "red", nickname: "ada", age: 36, profile: { city: "London", score: 10 } },
+	{ name: "Grace Hopper", team: "blue", nickname: null, age: 85, profile: { city: "New York", score: 2 } },
+	{ name: "100% Real_Name\\", team: "red", nickname: "pct", age: 41, profile: { city: "Paris", score: 7 } },
+	{ name: "C++ (dev) [x].*", team: "blue", nickname: "plus", age: 18, profile: { city: "london", score: 7 } },
+	{ name: "Ghost", team: "red", nickname: null, age: null, profile: null },
 ];
 
 export async function seedPostgres(sql: SQL) {
@@ -76,14 +76,15 @@ export async function seedPostgres(sql: SQL) {
 		CREATE TABLE people (
 			id SERIAL PRIMARY KEY,
 			name VARCHAR(255) NOT NULL,
+			team VARCHAR(20) NOT NULL,
 			nickname VARCHAR(255),
 			age INT,
 			profile JSONB
 		)`;
 	for (const p of PEOPLE) {
 		await sql`
-			INSERT INTO people (name, nickname, age, profile)
-			VALUES (${p.name}, ${p.nickname}, ${p.age}, ${p.profile && JSON.stringify(p.profile)}::text::jsonb)`;
+			INSERT INTO people (name, team, nickname, age, profile)
+			VALUES (${p.name}, ${p.team}, ${p.nickname}, ${p.age}, ${p.profile && JSON.stringify(p.profile)}::text::jsonb)`;
 	}
 
 	// 100 columns: a bulk insert of 1000 rows here would pass Postgres's 65,535 bound-parameter cap
@@ -145,13 +146,15 @@ export async function seedMysql(pool: MysqlPool) {
 		CREATE TABLE people (
 			id INT AUTO_INCREMENT PRIMARY KEY,
 			name VARCHAR(255) NOT NULL,
+			team VARCHAR(20) NOT NULL,
 			nickname VARCHAR(255),
 			age INT,
 			profile JSON
 		)`);
 	for (const p of PEOPLE) {
-		await pool.query("INSERT INTO people (name, nickname, age, profile) VALUES (?, ?, ?, ?)", [
+		await pool.query("INSERT INTO people (name, team, nickname, age, profile) VALUES (?, ?, ?, ?, ?)", [
 			p.name,
+			p.team,
 			p.nickname,
 			p.age,
 			p.profile && JSON.stringify(p.profile),
@@ -208,12 +211,12 @@ export async function seedMongo(db: Db) {
 	// resets do not reuse the ids minted by the previous one
 	await db.collection("todos").insertMany(TODOS.map((todo) => ({ ...todo })));
 
-	// Ghost keeps only its name: a missing field is not the same as a null one
+	// Ghost keeps only its name (and team): a missing field is not the same as a null one
 	await db.collection("people").deleteMany({});
 	await db
 		.collection("people")
 		.insertMany(
-			PEOPLE.map((p) => (p.name === "Ghost" ? { name: p.name } : { ...p })),
+			PEOPLE.map((p) => (p.name === "Ghost" ? { name: p.name, team: p.team } : { ...p })),
 		);
 
 	// unique email, so a bulk insert can collide with the seeded document

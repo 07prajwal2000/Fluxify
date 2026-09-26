@@ -2,10 +2,12 @@ import z from "zod";
 import { baseBlockDataSchema, type Context } from "../../baseBlock";
 import { BlockTypes } from "../../blockTypes";
 import type { EmitNode } from "../../compiler";
-import { emitWhereConditions } from "./emitConditions";
+import { emitSort, emitWhereConditions } from "./emitConditions";
 import {
 	adapterFor,
+	type DbSortEntry,
 	dbFailure,
+	dbSortSchema,
 	dbWhereConditionsDescription,
 	joinSchema,
 	whereConditionSchema,
@@ -26,15 +28,7 @@ export const getAllDbBlockSchema = z
 			),
 		limit: z.int().or(z.string()).default(1000).describe("limit (supports js expressions)"),
 		offset: z.int().or(z.string()).default(0).describe("skip count (supports js expressions)"),
-		sort: z
-			.object({
-				attribute: z.string().describe("sort attribute"),
-				direction: z.enum(["asc", "desc"]).describe("type of sort"),
-			})
-			.default({
-				attribute: "id",
-				direction: "asc",
-			}),
+		sort: dbSortSchema,
 	})
 	.extend(baseBlockDataSchema.shape);
 
@@ -51,7 +45,7 @@ export async function runGetAllDb(
 	conditions: z.infer<typeof whereConditionSchema>[],
 	limit: number,
 	offset: number,
-	sort: { attribute: string; direction: "asc" | "desc" },
+	sort: DbSortEntry[],
 	options: { joins: any[]; columns: string[] },
 ) {
 	try {
@@ -70,7 +64,6 @@ export async function runGetAllDb(
 
 export function emitGetAllDb(node: EmitNode) {
 	const input = getAllDbBlockSchema.parse(node.block.data);
-	const sort = `{ attribute: ${node.value(input.sort.attribute)}, direction: ${JSON.stringify(input.sort.direction)} }`;
-	return `${node.in} = await lib.dbGetAll(ctx, ${node.value(input.connection)}, ${node.value(input.tableName)}, ${emitWhereConditions(input.conditions, node)}, lib.num(${node.value(input.limit)}, 1000), lib.num(${node.value(input.offset)}, 0), ${sort}, { joins: ${JSON.stringify(input.joins ?? [])}, columns: ${JSON.stringify(input.columns ?? ["*"])} });
+	return `${node.in} = await lib.dbGetAll(ctx, ${node.value(input.connection)}, ${node.value(input.tableName)}, ${emitWhereConditions(input.conditions, node)}, lib.num(${node.value(input.limit)}, 1000), lib.num(${node.value(input.offset)}, 0), ${emitSort(input.sort, node)}, { joins: ${JSON.stringify(input.joins ?? [])}, columns: ${JSON.stringify(input.columns ?? ["*"])} });
 ${node.next()}`;
 }

@@ -108,6 +108,29 @@ describe("db condition round trip", () => {
 	test("no conditions is an empty list, not a throw", () => {
 		expect(parseDbConditions(block({}))).toEqual([]);
 	});
+	test("nested groups survive load and save, empty ones included", () => {
+		const eq = (column: string, chain: "and" | "or") => ({
+			attribute: { kind: "column", value: column },
+			operator: "eq",
+			value: { kind: "literal", value: 1 },
+			chain,
+		});
+		const stored = [
+			eq("a", "and"),
+			{
+				group: [
+					eq("b", "and"),
+					{ group: [{ operator: "raw", raw: "c > {{ input.c }}", chain: "and" }, eq("d", "or")], chain: "or" },
+					{ group: [], chain: "and" },
+				],
+				chain: "or",
+			},
+		];
+
+		const parsed = parseDbConditions(block({ conditions: stored }));
+		expect(parsed[1].group?.[1].group?.[1].lhs).toEqual({ kind: "column", value: "d" });
+		expect(serializeDbConditions(parsed)).toEqual(stored as never);
+	});
 });
 
 describe("readDbBinding", () => {

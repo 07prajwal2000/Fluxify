@@ -11,14 +11,16 @@ The **DB Get Single** block fetches exactly one record from a table. This is bes
 
 - **Connection**: The database integration.
 - **Table Name**: The table to query.
-- **Conditions**: Rules to find the specific record. A condition whose value is `undefined` is skipped, and the **Custom** operator lets you write the condition yourself — see [Operators](/blocks/db-get-all#operators), [Optional filters](/blocks/db-get-all#optional-filters) and [Custom conditions](/blocks/db-get-all#custom-conditions).
+- **Conditions**: Rules to find the specific record. A condition whose value is `undefined` is skipped, and the **Custom** operator lets you write the condition yourself — see [Operators](/blocks/db-get-all#operators), [Groups](/blocks/db-get-all#groups-brackets), [Optional filters](/blocks/db-get-all#optional-filters) and [Custom conditions](/blocks/db-get-all#custom-conditions).
 - **Joins**: Other tables to combine with this query (SQL databases only — see [Joins](#joins) below).
 - **Columns**: Which columns to return (see [Columns](#columns) below). Leave empty to return every column.
+- **Sort**: Which record to pick when several match — for example `created_at` Desc for the newest. Same list as [DB Get All's sort](/blocks/db-get-all#sort). With no sort, any matching record may come back.
+- **Strict: exactly one match** (checkbox, off by default): fail the block when more than one record matches, instead of returning one of them. Turn it on for lookups that should be unique, like an id, email or token, so a duplicate shows up as an error rather than a silently wrong record. No match still returns nothing, as usual.
 
 ## Logic
 
 1.  The block searches the **Table Name**, combining in any **Joins**.
-2.  It finds the first record that matches the **Conditions**.
+2.  It sorts the records that match the **Conditions** by **Sort**, if set, and takes the first one.
 3.  It returns that single record, limited to the selected **Columns**.
 
 ## Filtering nested / JSON fields

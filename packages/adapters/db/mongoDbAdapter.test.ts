@@ -212,7 +212,7 @@ describe("MongoAdapter Integration Tests", () => {
 			],
 			10,
 			0,
-			{ attribute: "id", direction: "asc" },
+			[{ attribute: "id", direction: "asc" }],
 		)) as any[];
 
 		const filteredUsers = users.filter((u) => u.age > 10 && u.age <= 25);
@@ -226,7 +226,7 @@ describe("MongoAdapter Integration Tests", () => {
 			],
 			10,
 			0,
-			{ attribute: "id", direction: "asc" },
+			[{ attribute: "id", direction: "asc" }],
 		)) as any[];
 
 		const orFilteredUsers = users.filter((u) => u.age === 5 || u.score >= 40);
@@ -247,10 +247,9 @@ describe("MongoAdapter Integration Tests", () => {
 
 		const skip = 2,
 			limit = 4;
-		const page = (await adapter.getAll(collectionName, [], limit, skip, {
-			attribute: "age",
-			direction: "desc",
-		})) as any[];
+		const page = (await adapter.getAll(collectionName, [], limit, skip, [
+			{ attribute: "age", direction: "desc" },
+		])) as any[];
 
 		const sortedUsers = users.sort((a, b) => b.age - a.age);
 		expect(page).toHaveLength(limit);
@@ -276,7 +275,7 @@ describe("MongoAdapter Integration Tests", () => {
 			[{ attribute: "score", operator: "eq", value: 777, chain: "and" }],
 			10,
 			0,
-			{ attribute: "id", direction: "asc" },
+			[{ attribute: "id", direction: "asc" }],
 		)) as any[];
 		expect(verifyUpdate.length).toBeGreaterThanOrEqual(2);
 
@@ -325,7 +324,7 @@ describe("MongoAdapter Integration Tests", () => {
 		];
 		await adapter.insertBulk(collectionName, docs);
 
-		const sortAsc = { attribute: "id" as const, direction: "asc" as const };
+		const sortAsc = [{ attribute: "id" as const, direction: "asc" as const }];
 
 		// Nested numeric compare.
 		const adults = (await adapter.getAll(
@@ -387,7 +386,7 @@ describe("MongoAdapter Integration Tests", () => {
 			[],
 			100,
 			0,
-			{ attribute: "name", direction: "asc" },
+			[{ attribute: "name", direction: "asc" }],
 			{
 				columns: ["name", "profile.age"],
 				joins: [{ table: "ignored", attribute: "a = b" }],

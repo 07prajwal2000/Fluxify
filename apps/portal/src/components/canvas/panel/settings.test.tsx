@@ -389,6 +389,7 @@ test("getvar, setvar, transformer, arrayops, forloop, and foreachloop blocks hav
 		"Columns",
 		"Joins",
 		"Edit Conditions",
+		"Sort",
 	]);
 
 	const getAllDbResult = splitTabs(getAllDbTabs!(dummyGetAllDbBlock));

@@ -1,7 +1,6 @@
-import type z from "zod";
 import { type EmitNode, emitJsObject } from "../../compiler";
 import { parseSqlTemplate } from "./rawCondition";
-import type { whereConditionSchema } from "./schema";
+import type { DbSortEntry, WhereCondition } from "./schema";
 
 /**
  * Where conditions become a plain JS array literal. `attribute` and `value` may
@@ -20,12 +19,12 @@ import type { whereConditionSchema } from "./schema";
  * fails with a TDZ error. `insert.ts` and `update.ts` import the compiler the
  * same way this file does.
  */
-export function emitWhereConditions(
-	conditions: z.infer<typeof whereConditionSchema>[],
-	node: EmitNode,
-) {
+export function emitWhereConditions(conditions: WhereCondition[], node: EmitNode): string {
 	const entries = conditions.map((condition) => {
 		const chain = JSON.stringify(condition.chain);
+		if ("group" in condition) {
+			return `{ group: ${emitWhereConditions(condition.group, node)}, chain: ${chain} }`;
+		}
 		if (condition.operator === "raw") {
 			return `{ operator: "raw", raw: ${emitRawCondition(condition.raw, node)}, chain: ${chain} }`;
 		}
@@ -44,4 +43,13 @@ function emitRawCondition(raw: string, node: EmitNode) {
 	const { strings, expressions } = parseSqlTemplate(raw);
 	const values = expressions.map((expression) => node.js(`return (${expression});`, node.in));
 	return `{ strings: ${JSON.stringify(strings)}, values: [${values.join(", ")}] }`;
+}
+
+/** the sort list as an array literal; each column may be a js expression */
+export function emitSort(sort: DbSortEntry[], node: EmitNode): string {
+	const entries = sort.map(
+		(entry) =>
+			`{ attribute: ${node.value(entry.attribute)}, direction: ${JSON.stringify(entry.direction)} }`,
+	);
+	return `[${entries.join(", ")}]`;
 }

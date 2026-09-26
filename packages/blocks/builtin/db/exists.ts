@@ -3,7 +3,8 @@ import { BlockTypes } from "../../blockTypes";
 import type { EmitNode } from "../../compiler";
 import { emitGetSingleCall, getSingleDbBlockSchema } from "./getSingle";
 
-export const existsDbBlockSchema = getSingleDbBlockSchema;
+// sort and strict are about which row, and exists only asks whether there is one
+export const existsDbBlockSchema = getSingleDbBlockSchema.omit({ sort: true, strict: true });
 
 export const existsDbAiDescription = {
 	name: BlockTypes.db_exists,

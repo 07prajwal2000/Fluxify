@@ -1,15 +1,21 @@
 import { DB_VALUELESS_OPERATORS, type DbOperator } from "@fluxify/lib";
 import { type Expression, type ExpressionBuilder, type SqlBool, sql } from "kysely";
-import type { DBConditionType, RawDbCondition } from ".";
+import type { DBConditionType, DbConditionGroup, RawDbCondition } from ".";
 import { isColumnRef, isLiteralRef, type JsonSqlDialect, resolveCondition } from "./jsonPath";
 
-type StructuredCondition = Exclude<DBConditionType, RawDbCondition>;
+type StructuredCondition = Exclude<DBConditionType, RawDbCondition | DbConditionGroup>;
+/** one condition that is not a group */
+export type LeafCondition = Exclude<DBConditionType, DbConditionGroup>;
 
 /** A custom SQL condition after the block evaluated its `{{ }}` placeholders. */
 export type SqlTemplate = { strings: string[]; values: unknown[] };
 
-export function isRawCondition(condition: DBConditionType): condition is RawDbCondition {
+export function isRawCondition(condition: LeafCondition): condition is RawDbCondition {
 	return condition.operator === "raw";
+}
+
+export function isConditionGroup(condition: DBConditionType): condition is DbConditionGroup {
+	return "group" in condition;
 }
 
 export function isSqlTemplate(raw: unknown): raw is SqlTemplate {
@@ -107,24 +113,52 @@ export function regexPattern(operator: string, text: string) {
 	return escaped;
 }
 
+function isActive(condition: LeafCondition) {
+	if (!isRawCondition(condition)) {
+		if (unwrap(condition.attribute) === undefined) return false;
+		return isValueless(condition.operator) || unwrap(condition.value) !== undefined;
+	}
+	if (isSqlTemplate(condition.raw)) {
+		return !condition.raw.values.includes(undefined);
+	}
+	return condition.raw !== undefined;
+}
+
 /**
  * Drops every condition holding an `undefined`, so an optional filter the
  * caller never sent is simply not applied. `null` stays — it is a real value in
  * every database. The null/exists checks take no value, so only a missing
- * column skips them. If this skips all conditions of an update/delete, every
- * row is affected; that is documented and left to the graph author.
+ * column skips them. A group left with nothing in it is dropped too. If this
+ * skips all conditions of an update/delete, every row is affected; that is
+ * documented and left to the graph author.
  */
-export function activeConditions(conditions: DBConditionType[] = []) {
-	return conditions.filter((condition) => {
-		if (!isRawCondition(condition)) {
-			if (unwrap(condition.attribute) === undefined) return false;
-			return isValueless(condition.operator) || unwrap(condition.value) !== undefined;
-		}
-		if (isSqlTemplate(condition.raw)) {
-			return !condition.raw.values.includes(undefined);
-		}
-		return condition.raw !== undefined;
+export function activeConditions(conditions: DBConditionType[] = []): DBConditionType[] {
+	return conditions.flatMap<DBConditionType>((condition) => {
+		if (!isConditionGroup(condition)) return isActive(condition) ? [condition] : [];
+		const group = activeConditions(condition.group);
+		return group.length ? [{ ...condition, group }] : [];
 	});
+}
+
+/**
+ * Combines active conditions strictly left to right: each one's chain says how
+ * it joins everything before it. A group folds its own conditions first, which
+ * is what brackets mean. SQL and MongoDB differ only in `leaf` and `join`.
+ */
+export function foldConditions<T>(
+	active: DBConditionType[],
+	leaf: (condition: LeafCondition) => T,
+	join: (chain: "and" | "or", left: T, right: T) => T,
+): T {
+	const build = (condition: DBConditionType) =>
+		isConditionGroup(condition) ? foldConditions(condition.group, leaf, join) : leaf(condition);
+	return active
+		.slice(1)
+		.reduce(
+			(expr, condition) =>
+				join(condition.chain.toLowerCase() === "or" ? "or" : "and", expr, build(condition)),
+			build(active[0]),
+		);
 }
 
 const SQL_OPERATORS: Record<string, string> = {
@@ -138,7 +172,7 @@ const SQL_OPERATORS: Record<string, string> = {
 
 function toSqlExpression(
 	eb: ExpressionBuilder<any, any>,
-	condition: DBConditionType,
+	condition: LeafCondition,
 	dialect: JsonSqlDialect,
 	qualifiers?: Set<string>,
 ): Expression<SqlBool> {
@@ -221,7 +255,7 @@ function listOrTextExpression(
 	}
 }
 
-/** Applies the active conditions to a Kysely builder, chained left to right. */
+/** Applies the active conditions to a Kysely builder; Kysely brackets every nested and/or. */
 export function applySqlConditions<B extends { where: Function }>(
 	builder: B,
 	conditions: DBConditionType[],
@@ -231,11 +265,11 @@ export function applySqlConditions<B extends { where: Function }>(
 	const active = activeConditions(conditions);
 	if (active.length === 0) return builder;
 	return builder.where((eb: ExpressionBuilder<any, any>) =>
-		active
-			.map((condition) => toSqlExpression(eb, condition, dialect, qualifiers))
-			.reduce((expr, next, i) =>
-				active[i].chain.toLowerCase() === "or" ? eb.or([expr, next]) : eb.and([expr, next]),
-			),
+		foldConditions<Expression<SqlBool>>(
+			active,
+			(condition) => toSqlExpression(eb, condition, dialect, qualifiers),
+			(chain, left, right) => (chain === "or" ? eb.or([left, right]) : eb.and([left, right])),
+		),
 	) as B;
 }
 

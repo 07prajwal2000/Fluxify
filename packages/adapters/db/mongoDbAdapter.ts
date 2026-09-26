@@ -12,8 +12,10 @@ import {
 	activeConditions,
 	conditionValue,
 	effectiveOperator,
+	foldConditions,
 	isRawCondition,
 	isValueless,
+	type LeafCondition,
 	listValue,
 	rangeValue,
 	rawMongoFilter,
@@ -21,6 +23,17 @@ import {
 	textValue,
 } from "./conditions";
 import { isColumnRef, isLiteralRef, isNumericLike, toMongoField } from "./jsonPath";
+import { activeSorts, type DbSort, singleRow, withTiebreaker } from "./sort";
+
+/** a Mongo sort spec in entry order: `id` means `_id`, and `_id` goes last as the tiebreaker */
+function sortSpec(sort: DbSort[]): Record<string, 1 | -1> {
+	const sorts = activeSorts(sort).map((s) =>
+		s.attribute === "id" ? { ...s, attribute: "_id" } : s,
+	);
+	return Object.fromEntries(
+		withTiebreaker(sorts, ["_id"], "").map((s) => [s.attribute, s.direction === "asc" ? 1 : -1]),
+	);
+}
 
 export class MongoAdapter implements IDbAdapter {
 	public static variant = "MongoDB";
@@ -91,19 +104,16 @@ export class MongoAdapter implements IDbAdapter {
 		conditions: DBConditionType[],
 		limit: number = this.HARD_LIMIT,
 		offset: number = 0,
-		sort: { attribute: string; direction: "asc" | "desc" },
+		sort: DbSort[] = [],
 		options?: QueryOptions,
 	): Promise<unknown[]> {
 		const filter = this.buildFilter(conditions);
 		const l = limit < 0 || limit > this.HARD_LIMIT ? this.HARD_LIMIT : limit;
 
-		const sortAttr = sort.attribute === "id" ? "_id" : sort.attribute;
-		const sortDef = { [sortAttr]: sort.direction === "asc" ? 1 : -1 };
-
 		const docs = await this.db
 			.collection(table)
 			.find(filter, this.findOptions(options))
-			.sort(sortDef as Record<string, 1 | -1>)
+			.sort(sortSpec(sort))
 			.skip(offset)
 			.limit(l)
 			.toArray();
@@ -117,8 +127,15 @@ export class MongoAdapter implements IDbAdapter {
 		options?: QueryOptions,
 	): Promise<unknown | null> {
 		const filter = this.buildFilter(conditions);
-		const doc = await this.db.collection(table).findOne(filter, this.findOptions(options));
-		return this.mapDoc(doc);
+		// unsorted stays unsorted: a sort nobody asked for only costs time
+		const sort = activeSorts(options?.sort).length ? sortSpec(options?.sort ?? []) : undefined;
+		// strict reads a second document only to tell that there is one
+		const docs = await this.db
+			.collection(table)
+			.find(filter, { ...this.findOptions(options), ...(sort && { sort }) })
+			.limit(options?.strict ? 2 : 1)
+			.toArray();
+		return this.mapDoc(singleRow(docs, options?.strict));
 	}
 
 	async count(table: string, conditions: DBConditionType[]): Promise<number> {
@@ -289,23 +306,14 @@ export class MongoAdapter implements IDbAdapter {
 		const active = activeConditions(conditions);
 		if (active.length === 0) return {};
 
-		let filter: Record<string, unknown> = this.createExpr(active[0]);
-
-		for (let i = 1; i < active.length; i++) {
-			const cond = active[i];
-			const expr = this.createExpr(cond);
-
-			if (cond.chain.toLowerCase() === "or") {
-				filter = { $or: [filter, expr] };
-			} else {
-				filter = { $and: [filter, expr] };
-			}
-		}
-
-		return filter;
+		return foldConditions<Record<string, unknown>>(
+			active,
+			(cond) => this.createExpr(cond),
+			(chain, left, right) => ({ [chain === "or" ? "$or" : "$and"]: [left, right] }),
+		);
 	}
 
-	private createExpr(cond: DBConditionType): Record<string, unknown> {
+	private createExpr(cond: LeafCondition): Record<string, unknown> {
 		if (isRawCondition(cond)) return rawMongoFilter(cond.raw);
 		const operator = effectiveOperator(cond);
 		// ponytail: both of these need $expr on Mongo, which the rest of this
@@ -330,7 +338,7 @@ export class MongoAdapter implements IDbAdapter {
 	private matchFor(
 		attr: string,
 		operator: DbOperator,
-		cond: Exclude<DBConditionType, { operator: "raw" }>,
+		cond: Exclude<LeafCondition, { operator: "raw" }>,
 	): Record<string, unknown> {
 		switch (operator) {
 			// { $eq: null } also matches a missing field, like SQL's NULL; exists is the strict check
