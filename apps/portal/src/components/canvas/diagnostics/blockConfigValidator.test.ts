@@ -43,6 +43,25 @@ describe("validateBlockConfigs", () => {
 		expect(severities(BLOCK_TYPES.db_getall, cond({ kind: "column", value: "id" }))).toEqual([]);
 	});
 
+	it("finds problems inside nested groups by their path", () => {
+		const ok = { attribute: { kind: "column", value: "id" }, operator: "eq", value: { kind: "literal", value: 1 }, chain: "and" };
+		const data = {
+			connection: "c",
+			tableName: "t",
+			conditions: [
+				ok,
+				{ group: [ok, { group: [ok, { ...ok, value: { kind: "literal", value: "" } }], chain: "or" }], chain: "and" },
+				{ group: [], chain: "or" },
+			],
+			limit: 10,
+			offset: 0,
+		};
+		expect(blockConfigIssues(BLOCK_TYPES.db_getall, data).map((i) => i.message)).toEqual([
+			"Condition 2.2.2 has an empty side. Fill both sides or remove it.",
+			"Group 3 is empty. Add conditions to it or remove it.",
+		]);
+	});
+
 	it("flags invalid save-output names", () => {
 		const data = { url: "https://x.dev", saveAsVariable: { enabled: true, name: "" } };
 		expect(severities(BLOCK_TYPES.httprequest, data)).toEqual(["error"]);

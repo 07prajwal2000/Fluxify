@@ -1,7 +1,6 @@
-import type z from "zod";
 import { type EmitNode, emitJsObject } from "../../compiler";
 import { parseSqlTemplate } from "./rawCondition";
-import type { whereConditionSchema } from "./schema";
+import type { WhereCondition } from "./schema";
 
 /**
  * Where conditions become a plain JS array literal. `attribute` and `value` may
@@ -20,12 +19,12 @@ import type { whereConditionSchema } from "./schema";
  * fails with a TDZ error. `insert.ts` and `update.ts` import the compiler the
  * same way this file does.
  */
-export function emitWhereConditions(
-	conditions: z.infer<typeof whereConditionSchema>[],
-	node: EmitNode,
-) {
+export function emitWhereConditions(conditions: WhereCondition[], node: EmitNode): string {
 	const entries = conditions.map((condition) => {
 		const chain = JSON.stringify(condition.chain);
+		if ("group" in condition) {
+			return `{ group: ${emitWhereConditions(condition.group, node)}, chain: ${chain} }`;
+		}
 		if (condition.operator === "raw") {
 			return `{ operator: "raw", raw: ${emitRawCondition(condition.raw, node)}, chain: ${chain} }`;
 		}

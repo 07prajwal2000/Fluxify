@@ -129,10 +129,8 @@ function checkDb(type: string, data: BlockData, report: Report) {
 				"Edit Conditions",
 			);
 		}
-		conditions.forEach((c, i) => {
-			for (const [severity, message] of dbConditionIssues(c, i))
-				report(severity, message, "Edit Conditions");
-		});
+		for (const [severity, message] of dbConditionIssues(conditions))
+			report(severity, message, "Edit Conditions");
 	}
 
 	if (DB_WITH_JOINS.has(type)) {

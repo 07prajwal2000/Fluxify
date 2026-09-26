@@ -61,6 +61,11 @@ export interface Condition {
 	 */
 	raw?: string;
 	chain?: ConditionChain;
+	/**
+	 * Brackets: these conditions combine first, then join the list as one
+	 * condition. Present only on a group, which ignores lhs, rhs and operator.
+	 */
+	group?: Condition[];
 }
 
 export interface ConditionsBuilderProps {
@@ -103,6 +108,8 @@ export interface ConditionsBuilderProps {
 	 * connection speaks.
 	 */
 	customConditionEditor?: CustomConditionEditor;
+	/** Offers "Add group": bracketed conditions, opened one level at a time. */
+	allowGroups?: boolean;
 	/** Whether to show outer border. Default is false. */
 	hasBorder?: boolean;
 	/** Additional CSS class names. */

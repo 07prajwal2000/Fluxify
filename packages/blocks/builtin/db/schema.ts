@@ -22,7 +22,10 @@ export const literalRefSchema = z.object({
 });
 
 export const dbWhereConditionsDescription =
-	"Database WHERE clause. Always emit an array of condition objects; never emit plain strings or if-block conditions. Structured condition: attribute and value are tagged objects, e.g. { attribute: { kind: 'column', value: 'status' }, operator: 'eq', value: { kind: 'literal', value: 'active' }, chain: 'and' }. Lists: { operator: 'in', value: { kind: 'literal', value: \"js:return getRequestBody().ids\" } } (or 'a,b,c' text); between takes [min, max]; is_null / is_not_null take no value. When the fixed operators cannot express it (JSON/array operators, full-text search...), use a custom condition: { operator: 'raw', raw, chain } — see the raw field. A condition whose value is undefined at run time is skipped (null is kept), so optional filters need no branching: value { kind: 'literal', value: \"js:getQueryParam('status')\" } filters only when the query param was sent.";
+	"Database WHERE clause. Always emit an array of condition objects; never emit plain strings or if-block conditions. Structured condition: attribute and value are tagged objects, e.g. { attribute: { kind: 'column', value: 'status' }, operator: 'eq', value: { kind: 'literal', value: 'active' }, chain: 'and' }. Lists: { operator: 'in', value: { kind: 'literal', value: \"js:return getRequestBody().ids\" } } (or 'a,b,c' text); between takes [min, max]; is_null / is_not_null take no value. Conditions combine strictly left to right (no AND-before-OR), so when mixing and/or use a group for brackets: a AND (b OR c) is [a, { group: [b, c with chain 'or'], chain: 'and' }]; groups nest. When the fixed operators cannot express it (JSON/array operators, full-text search...), use a custom condition: { operator: 'raw', raw, chain } — see the raw field. A condition whose value is undefined at run time is skipped (null is kept), so optional filters need no branching: value { kind: 'literal', value: \"js:getQueryParam('status')\" } filters only when the query param was sent. A group whose conditions are all skipped is skipped too.";
+
+const CHAIN_DESCRIPTION =
+	"How this condition joins everything before it in its list (ignored on the first).";
 
 export const dbConditionSideSchema = z.discriminatedUnion("kind", [
 	columnRefSchema,
@@ -38,7 +41,7 @@ export const rawWhereConditionSchema = z.object({
 		.describe(
 			"SQL databases (PostgreSQL, MySQL): a boolean SQL expression. Put run-time values in {{ }} — each is a JS expression sent as a bound parameter, never pasted into the SQL, e.g. \"tags @> {{ input.tags }}\" — for a list of values use the in operator instead. The condition is skipped when any {{ }} value is undefined. MongoDB: 'js:' code returning a MongoDB query filter object, e.g. \"js:return { name: { $regex: getQueryParam('q'), $options: 'i' } }\"; returning undefined skips it.",
 		),
-	chain: z.enum(["and", "or"]).describe("How this condition joins to next WHERE condition."),
+	chain: z.enum(["and", "or"]).describe(CHAIN_DESCRIPTION),
 });
 
 const structuredWhereConditionSchema = z
@@ -52,7 +55,7 @@ const structuredWhereConditionSchema = z
 			.describe(
 				"DB condition-side object: { kind: 'literal', value } or { kind: 'column', value: 'table.column' }. Never a bare string or number. Leave out for is_null / is_not_null / exists / not_exists.",
 			),
-		chain: z.enum(["and", "or"]).describe("How this condition joins to next WHERE condition."),
+		chain: z.enum(["and", "or"]).describe(CHAIN_DESCRIPTION),
 	})
 	.superRefine((condition, context) => {
 		const valueless = (DB_VALUELESS_OPERATORS as readonly string[]).includes(condition.operator);
@@ -75,9 +78,24 @@ const structuredWhereConditionSchema = z
 		}
 	});
 
-export const whereConditionSchema = z.union([
+export type WhereCondition =
+	| z.infer<typeof structuredWhereConditionSchema>
+	| z.infer<typeof rawWhereConditionSchema>
+	| { group: WhereCondition[]; chain: "and" | "or" };
+
+export const whereConditionSchema: z.ZodType<WhereCondition> = z.union([
 	structuredWhereConditionSchema,
 	rawWhereConditionSchema,
+	z.object({
+		get group() {
+			return z
+				.array(whereConditionSchema)
+				.describe(
+					"brackets: these conditions combine first, left to right, then join the outer list as one condition",
+				);
+		},
+		chain: z.enum(["and", "or"]).describe(CHAIN_DESCRIPTION),
+	}),
 ]);
 
 /** every db block resolves its adapter the same way */

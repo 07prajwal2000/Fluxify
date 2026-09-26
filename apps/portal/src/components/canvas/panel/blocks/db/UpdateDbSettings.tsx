@@ -199,6 +199,7 @@ export function UpdateDbConditionsSettings({ block }: { block: BlockNode }) {
 				// MongoDB has no field-to-field comparison in this query builder
 				allowColumnRefs={variant !== "MongoDB"}
 				customConditionEditor={conditionEditor}
+				allowGroups
 				onChange={(nextConditions) => {
 					updateNodeData(block.id, {
 						conditions: serializeDbConditions(nextConditions),

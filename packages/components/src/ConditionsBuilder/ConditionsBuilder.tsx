@@ -1,8 +1,9 @@
-import { Accordion, Button } from "@heroui/react";
+import { Accordion, Breadcrumbs, Button } from "@heroui/react";
 import clsx from "clsx";
 import { useCallback, useMemo, useState } from "react";
 import { TbChevronDown } from "react-icons/tb";
 import { ConditionsBuilderRow } from "./ConditionsBuilderRow";
+import { ConditionsGroupRow } from "./ConditionsGroupRow";
 import type {
 	Condition,
 	ConditionChain,
@@ -10,7 +11,13 @@ import type {
 	ConditionsBuilderProps,
 	ConditionValue,
 } from "./types";
-import { formatConditionsSummary } from "./utils";
+import {
+	conditionsAt,
+	formatConditionsSummary,
+	isGroup,
+	validPath,
+	withConditionsAt,
+} from "./utils";
 
 export function ConditionsBuilder({
 	label,
@@ -28,6 +35,7 @@ export function ConditionsBuilder({
 	rhsSuggestions,
 	allowColumnRefs = false,
 	customConditionEditor,
+	allowGroups = false,
 	hasBorder = false,
 	className,
 }: ConditionsBuilderProps) {
@@ -52,74 +60,93 @@ export function ConditionsBuilder({
 		[onChange],
 	);
 
+	// the open group, as indices from the top list down; [] is the top itself.
+	// Nesting is navigation rather than indentation, so any depth stays readable.
+	const [openPath, setOpenPath] = useState<number[]>([]);
+	const path = useMemo(() => validPath(conditions, openPath), [conditions, openPath]);
+	const level = useMemo(() => conditionsAt(conditions, path), [conditions, path]);
+	const updateLevel = useCallback(
+		(nextLevel: Condition[]) => updateConditions(withConditionsAt(conditions, path, nextLevel)),
+		[conditions, path, updateConditions],
+	);
+
 	const handleAddCondition = useCallback(
 		(chain: ConditionChain = "and") => {
 			const next: Condition[] = [
-				...conditions,
+				...level,
 				{ lhs: "", rhs: "", operator: "eq" as ConditionOperator, chain },
 			];
-			updateConditions(next);
+			updateLevel(next);
 		},
-		[conditions, updateConditions],
+		[level, updateLevel],
+	);
+
+	const handleAddGroup = useCallback(
+		(chain: ConditionChain = "and") => {
+			updateLevel([...level, { lhs: "", rhs: "", operator: "eq", chain, group: [] }]);
+			// an empty group does nothing, so go straight in to fill it
+			setOpenPath([...path, level.length]);
+		},
+		[level, path, updateLevel],
 	);
 
 	const handleRemoveCondition = useCallback(
 		(index: number) => {
-			const next = [...conditions];
+			const next = [...level];
 			next.splice(index, 1);
-			updateConditions(next);
+			updateLevel(next);
 		},
-		[conditions, updateConditions],
+		[level, updateLevel],
 	);
 
 	const handleLHSChange = useCallback(
 		(index: number, value: ConditionValue) => {
-			const next = [...conditions];
+			const next = [...level];
 			next[index] = { ...next[index], lhs: value };
-			updateConditions(next);
+			updateLevel(next);
 		},
-		[conditions, updateConditions],
+		[level, updateLevel],
 	);
 
 	const handleRHSChange = useCallback(
 		(index: number, value: ConditionValue) => {
-			const next = [...conditions];
+			const next = [...level];
 			next[index] = { ...next[index], rhs: value };
-			updateConditions(next);
+			updateLevel(next);
 		},
-		[conditions, updateConditions],
+		[level, updateLevel],
 	);
 
 	const handleOperatorChange = useCallback(
 		(index: number, operator: ConditionOperator) => {
-			const next = [...conditions];
+			const next = [...level];
 			next[index] = { ...next[index], operator };
 			// a JS filter starts in expression mode, so an untouched one compiles to
 			// `undefined` and is skipped instead of being read as empty SQL
 			if (operator === "raw" && next[index].raw === undefined) {
 				next[index].raw = customConditionEditor === "js" ? "js:" : "";
 			}
-			updateConditions(next);
+			updateLevel(next);
 		},
-		[conditions, updateConditions, customConditionEditor],
+		[level, updateLevel, customConditionEditor],
 	);
 
 	const handleRawChange = useCallback(
 		(index: number, raw: string) => {
-			const next = [...conditions];
+			const next = [...level];
 			next[index] = { ...next[index], raw };
-			updateConditions(next);
+			updateLevel(next);
 		},
-		[conditions, updateConditions],
+		[level, updateLevel],
 	);
 
 	const handleJsChange = useCallback(
 		(index: number, value: string) => {
-			const next = [...conditions];
+			const next = [...level];
 			next[index] = { ...next[index], js: value };
-			updateConditions(next);
+			updateLevel(next);
 		},
-		[conditions, updateConditions],
+		[level, updateLevel],
 	);
 
 	const summaryText = useMemo(() => formatConditionsSummary(conditions), [conditions]);
@@ -128,26 +155,46 @@ export function ConditionsBuilder({
 
 	const content = (
 		<div className="flex flex-col gap-3 w-full pt-2">
-			{conditions.map((condition, index) => (
-				<ConditionsBuilderRow
-					key={index}
-					condition={condition}
-					disableJsConditions={disableJsConditions}
-					ignoreOperators={ignoreOperators}
-					index={index}
-					isDisabled={isDisabled}
-					allowColumnRefs={allowColumnRefs}
-					customConditionEditor={customConditionEditor}
-					onRawChange={handleRawChange}
-					lhsSuggestions={lhsSuggestions}
-					rhsSuggestions={rhsSuggestions}
-					onJsChange={handleJsChange}
-					onLHSChange={handleLHSChange}
-					onOperatorChange={handleOperatorChange}
-					onRHSChange={handleRHSChange}
-					onRemoveCondition={handleRemoveCondition}
-				/>
-			))}
+			{path.length > 0 && (
+				<Breadcrumbs>
+					{[[], ...path.map((_, depth) => path.slice(0, depth + 1))].map((crumb) => (
+						<Breadcrumbs.Item key={crumb.join(".")} onPress={() => setOpenPath(crumb)}>
+							{crumb.length ? `Group ${crumb[crumb.length - 1] + 1}` : label || "Conditions"}
+						</Breadcrumbs.Item>
+					))}
+				</Breadcrumbs>
+			)}
+			{level.map((condition, index) =>
+				isGroup(condition) ? (
+					<ConditionsGroupRow
+						key={index}
+						condition={condition}
+						index={index}
+						isDisabled={isDisabled}
+						onOpen={(i) => setOpenPath([...path, i])}
+						onRemove={handleRemoveCondition}
+					/>
+				) : (
+					<ConditionsBuilderRow
+						key={index}
+						condition={condition}
+						disableJsConditions={disableJsConditions}
+						ignoreOperators={ignoreOperators}
+						index={index}
+						isDisabled={isDisabled}
+						allowColumnRefs={allowColumnRefs}
+						customConditionEditor={customConditionEditor}
+						onRawChange={handleRawChange}
+						lhsSuggestions={lhsSuggestions}
+						rhsSuggestions={rhsSuggestions}
+						onJsChange={handleJsChange}
+						onLHSChange={handleLHSChange}
+						onOperatorChange={handleOperatorChange}
+						onRHSChange={handleRHSChange}
+						onRemoveCondition={handleRemoveCondition}
+					/>
+				),
+			)}
 
 			{!isDisabled && (
 				<div className="flex items-center gap-2 w-full pt-1">
@@ -157,9 +204,9 @@ export function ConditionsBuilder({
 						variant="outline"
 						onPress={() => handleAddCondition("and")}
 					>
-						Add {conditions.length > 0 ? "And " : ""}Condition
+						Add {level.length > 0 ? "And " : ""}Condition
 					</Button>
-					{conditions.length > 0 && (
+					{level.length > 0 && (
 						<Button
 							className="flex-1"
 							isDisabled={isDisabled}
@@ -167,6 +214,18 @@ export function ConditionsBuilder({
 							onPress={() => handleAddCondition("or")}
 						>
 							Add Or Condition
+						</Button>
+					)}
+				</div>
+			)}
+			{!isDisabled && allowGroups && (
+				<div className="flex items-center gap-2 w-full">
+					<Button className="flex-1" variant="ghost" onPress={() => handleAddGroup("and")}>
+						Add {level.length > 0 ? "And " : ""}Group
+					</Button>
+					{level.length > 0 && (
+						<Button className="flex-1" variant="ghost" onPress={() => handleAddGroup("or")}>
+							Add Or Group
 						</Button>
 					)}
 				</div>

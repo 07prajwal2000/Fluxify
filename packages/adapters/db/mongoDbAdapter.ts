@@ -12,8 +12,10 @@ import {
 	activeConditions,
 	conditionValue,
 	effectiveOperator,
+	foldConditions,
 	isRawCondition,
 	isValueless,
+	type LeafCondition,
 	listValue,
 	rangeValue,
 	rawMongoFilter,
@@ -289,23 +291,14 @@ export class MongoAdapter implements IDbAdapter {
 		const active = activeConditions(conditions);
 		if (active.length === 0) return {};
 
-		let filter: Record<string, unknown> = this.createExpr(active[0]);
-
-		for (let i = 1; i < active.length; i++) {
-			const cond = active[i];
-			const expr = this.createExpr(cond);
-
-			if (cond.chain.toLowerCase() === "or") {
-				filter = { $or: [filter, expr] };
-			} else {
-				filter = { $and: [filter, expr] };
-			}
-		}
-
-		return filter;
+		return foldConditions<Record<string, unknown>>(
+			active,
+			(cond) => this.createExpr(cond),
+			(chain, left, right) => ({ [chain === "or" ? "$or" : "$and"]: [left, right] }),
+		);
 	}
 
-	private createExpr(cond: DBConditionType): Record<string, unknown> {
+	private createExpr(cond: LeafCondition): Record<string, unknown> {
 		if (isRawCondition(cond)) return rawMongoFilter(cond.raw);
 		const operator = effectiveOperator(cond);
 		// ponytail: both of these need $expr on Mongo, which the rest of this
@@ -330,7 +323,7 @@ export class MongoAdapter implements IDbAdapter {
 	private matchFor(
 		attr: string,
 		operator: DbOperator,
-		cond: Exclude<DBConditionType, { operator: "raw" }>,
+		cond: Exclude<LeafCondition, { operator: "raw" }>,
 	): Record<string, unknown> {
 		switch (operator) {
 			// { $eq: null } also matches a missing field, like SQL's NULL; exists is the strict check

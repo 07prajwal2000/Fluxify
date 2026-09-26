@@ -124,4 +124,22 @@ describe("emitWhereConditions", () => {
 			chain: "and",
 		});
 	});
+
+	it("compiles js inside nested groups and keeps each group's chain", () => {
+		const { node } = createNode();
+		const conditions: WhereCondition[] = [
+			{
+				group: [
+					{ attribute: { kind: "column", value: "a" }, operator: "eq", value: { kind: "literal", value: "js:input.a" }, chain: "and" },
+					{ group: [{ operator: "raw", raw: "b = {{ input.b }}", chain: "and" }], chain: "or" },
+				],
+				chain: "and",
+			},
+			{ group: [], chain: "or" },
+		];
+
+		expect(emitWhereConditions(conditions, node)).toBe(
+			'[{ group: [{ attribute: { "kind": "column", "value": "a" }, operator: "eq", value: { "kind": "literal", "value": (input.a) }, chain: "and" }, { group: [{ operator: "raw", raw: { strings: ["b = ",""], values: [js(return (input.b);, $in)] }, chain: "and" }], chain: "or" }], chain: "and" }, { group: [], chain: "or" }]',
+		);
+	});
 });

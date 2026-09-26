@@ -40,16 +40,28 @@ const SHARED_TYPES: Array<[string, z.ZodType]> = [
  * same condition type carries a different `.describe()` at each use site. */
 const shapeKey = (schema: JsonSchema): string =>
 	JSON.stringify(schema, (key, value) =>
-		key === "$schema" || key === "description" ? undefined : value,
+		key === "$schema" || key === "description" ? undefined : key === "$ref" ? "ref" : value,
 	);
 
 const sharedNames = new Map<string, string>();
+
+/** What a recursive schema's `$ref` points into: `#` is the shared type being
+ * declared, `#/$defs/<id>` a definition hoisted to the block's root. */
+let refContext: { self?: string; defs?: Record<string, JsonSchema> } = {};
+
+function typeOfRef(ref: string): string {
+	if (ref === "#") return refContext.self ?? "any";
+	const def = refContext.defs?.[ref.slice(ref.lastIndexOf("/") + 1)];
+	// only a shared type can be named; rendering an unnamed recursive def inline would never end
+	return (def && sharedNames.get(shapeKey(def))) ?? "any";
+}
 
 function typeOf(schema: JsonSchema, indent: string): string {
 	// An empty schema constrains nothing — that is `z.any()`, not `z.object()`,
 	// which still emits `{ type: "object" }` and lands in the switch below.
 	if (!schema || Object.keys(schema).length === 0) return "any";
 
+	if (typeof schema.$ref === "string") return typeOfRef(schema.$ref);
 	const shared = sharedNames.get(shapeKey(schema));
 	if (shared) return shared;
 
@@ -128,6 +140,7 @@ function renderObject(schema: JsonSchema, indent: string, dropBaseFields: boolea
  *  description, or an already-parsed object) as a compact contract body. */
 export function renderCompactSchema(jsonSchema: string | JsonSchema): string {
 	const parsed = typeof jsonSchema === "string" ? JSON.parse(jsonSchema) : jsonSchema;
+	refContext = { defs: parsed.$defs };
 	return renderObject(parsed, "", true);
 }
 
@@ -138,6 +151,7 @@ export const COMPACT_SHARED_TYPES: string = SHARED_TYPES.map(([name, schema]) =>
 	const jsonSchema = z.toJSONSchema(schema) as JsonSchema;
 	// Through `typeOf`, not `renderObject`: a shared type is not always an
 	// object — `dbConditionSideSchema` is a union at its top level.
+	refContext = { self: name };
 	const body = typeOf(jsonSchema, "");
 	sharedNames.set(shapeKey(jsonSchema), name);
 	return `type ${name} = ${body}`;

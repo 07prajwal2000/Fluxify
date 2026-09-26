@@ -10,6 +10,7 @@ import {
 	readExpression,
 	writeExpression,
 } from "../JsTextField";
+import { OrDivider } from "./ConditionsGroupRow";
 import {
 	ALL_OPERATORS,
 	type OperatorOption,
@@ -264,15 +265,7 @@ export function ConditionsBuilderRow({
 
 	return (
 		<div className="flex flex-col gap-2 w-full">
-			{condition.chain === "or" && (
-				<div className="flex items-center gap-3 my-1">
-					<div className="h-px flex-1 bg-border" />
-					<span className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
-						OR
-					</span>
-					<div className="h-px flex-1 bg-border" />
-				</div>
-			)}
+			{condition.chain === "or" && <OrDivider />}
 
 			{customEditor ? (
 				<div className="flex flex-row items-start gap-2 w-full">
