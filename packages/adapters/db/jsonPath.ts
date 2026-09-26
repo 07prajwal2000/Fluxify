@@ -50,11 +50,15 @@ export type DBJoinType = {
 	type?: "inner" | "left" | "right" | "outer";
 };
 
-/** `sort` is read by getSingle; getAll takes its sort as a parameter */
+/**
+ * `sort` and `strict` are read by getSingle; getAll takes its sort as a
+ * parameter. `strict`: more than one matching row is an error, not a pick.
+ */
 export type QueryOptions = {
 	joins?: DBJoinType[];
 	columns?: string[];
 	sort?: { attribute: string; direction: "asc" | "desc" }[];
+	strict?: boolean;
 };
 
 // The only shape identifiers (table/column/alias) may take. Everything routed

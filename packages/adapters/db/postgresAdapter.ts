@@ -12,7 +12,7 @@ import {
 import { applySqlConditions } from "./conditions";
 import { applyColumns, applyJoins, buildQualifiers, type QueryOptions } from "./jsonPath";
 import { BunSqlPostgresDialect } from "./kyselySqlDialect";
-import { activeSorts, applySqlSort, type DbSort, withTiebreaker } from "./sort";
+import { activeSorts, applySqlSort, type DbSort, singleRow, withTiebreaker } from "./sort";
 
 export type FluxifyDatabase = Record<string, Record<string, any>>;
 
@@ -158,13 +158,14 @@ export class PostgresAdapter implements IDbAdapter {
 		// unsorted stays unsorted: an ORDER BY nobody asked for only costs time
 		const given = activeSorts(options?.sort);
 		const sorts = given.length ? await this.withKeys(given, table, options) : [];
-		const row = await applySqlSort(
-			applyColumns(qb, options?.columns).limit(1),
+		// strict reads a second row only to tell that there is one
+		const rows = await applySqlSort(
+			applyColumns(qb, options?.columns).limit(options?.strict ? 2 : 1),
 			sorts,
 			"postgres",
 			qualifiers,
-		).executeTakeFirst();
-		return row ?? null;
+		).execute();
+		return singleRow(rows, options?.strict);
 	}
 
 	/** the sorts plus the primary key as the last tiebreaker */

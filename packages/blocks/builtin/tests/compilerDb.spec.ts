@@ -99,7 +99,7 @@ describe("compiled db blocks", () => {
 			{ attribute: { kind: "column", value: "id" }, operator: "eq", value: { kind: "literal", value: 7 }, chain: "and" },
 			{ attribute: { kind: "column", value: "status" }, operator: "neq", value: { kind: "literal", value: "deleted" }, chain: "and" },
 		]);
-		expect(mock.calls[0].args[2]).toEqual({ joins: [], columns: ["id", "name"], sort: [] });
+		expect(mock.calls[0].args[2]).toEqual({ joins: [], columns: ["id", "name"], sort: [], strict: false });
 		expect(result.output.body).toEqual({ id: 7, name: "ada" });
 	});
 
@@ -193,6 +193,7 @@ describe("compiled db blocks", () => {
 		});
 		await runAround(sorted, {}, mock);
 		expect(mock.calls[0].args[2].sort).toEqual([{ attribute: "created_at", direction: "desc" }]);
+		expect(mock.calls[0].args[2].strict).toBe(false);
 
 		const unsorted = block("db", BlockTypes.db_getsingle, {
 			connection: "conn-1",
@@ -201,6 +202,15 @@ describe("compiled db blocks", () => {
 		});
 		await runAround(unsorted, {}, mock);
 		expect(mock.calls[1].args[2].sort).toEqual([]);
+
+		const strict = block("db", BlockTypes.db_getsingle, {
+			connection: "conn-1",
+			tableName: "orders",
+			conditions: [],
+			strict: true,
+		});
+		await runAround(strict, {}, mock);
+		expect(mock.calls[2].args[2].strict).toBe(true);
 	});
 
 	it("passes tagged conditions to get all", async () => {

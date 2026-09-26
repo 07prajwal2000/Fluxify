@@ -3,11 +3,13 @@ import { useParams } from "@tanstack/react-router";
 import { useReactFlow } from "@xyflow/react";
 import { useMemo } from "react";
 import { useDbMetadata } from "@/query/findResourceQuery";
+import { BLOCK_TYPES } from "../../../blocks/blockTypes";
 import { useCanvasChanges } from "../../../changes/ChangesContext";
 import type { BlockNode } from "../../../types";
 import { BlockSettings } from "../../BlockSettings";
 import {
 	BlockArrayEditorField,
+	BlockCheckboxField,
 	BlockIntegrationField,
 	BlockJoinsEditorField,
 	BlockJsTextField,
@@ -55,6 +57,16 @@ export function GetSingleDbGeneralSettings({ block }: { block: BlockNode }) {
 				suggestions={tableNames}
 				hint="Enter or select the table name to query, or a JS expression (js:...)."
 			/>
+			{/* Row Exists and Count share this tab; only a lookup cares how many matched */}
+			{block.type === BLOCK_TYPES.db_getsingle && (
+				<BlockCheckboxField
+					blockId={block.id}
+					data={block.data}
+					name="strict"
+					label="Strict: exactly one match"
+					description="Fail the block when more than one record matches, instead of returning one of them. Use it for lookups that should be unique, like an id or email."
+				/>
+			)}
 		</div>
 	);
 }

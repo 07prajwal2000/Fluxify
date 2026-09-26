@@ -15,6 +15,7 @@ The **DB Get Single** block fetches exactly one record from a table. This is bes
 - **Joins**: Other tables to combine with this query (SQL databases only — see [Joins](#joins) below).
 - **Columns**: Which columns to return (see [Columns](#columns) below). Leave empty to return every column.
 - **Sort**: Which record to pick when several match — for example `created_at` Desc for the newest. Same list as [DB Get All's sort](/blocks/db-get-all#sort). With no sort, any matching record may come back.
+- **Strict: exactly one match** (checkbox, off by default): fail the block when more than one record matches, instead of returning one of them. Turn it on for lookups that should be unique, like an id, email or token, so a duplicate shows up as an error rather than a silently wrong record. No match still returns nothing, as usual.
 
 ## Logic
 

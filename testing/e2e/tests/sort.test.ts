@@ -188,6 +188,33 @@ for (const engine of ["pg", "mysql", "mongo"] as const) {
 				expect(name(await single({ sort: [asc("name"), asc("team")] }))).toBe(PCT);
 			});
 
+			it("strict fails when a second row matches, instead of picking one", async () => {
+				const run = await single({ conditions: [team("blue")], strict: true });
+				expect(run.status).toBeGreaterThanOrEqual(400);
+				expect(run.executed).not.toContain("reply");
+			});
+
+			it("strict still fails when a sort would have picked a clear winner", async () => {
+				const run = await single({ conditions: [team("blue")], sort: [desc("age")], strict: true });
+				expect(run.status).toBeGreaterThanOrEqual(400);
+			});
+
+			it("strict returns the row when exactly one matches, and null for none", async () => {
+				const byName = (value: string) => ({ ...team(value), attribute: { kind: "column", value: "name" } });
+				expect(name(await single({ conditions: [byName(ADA)], strict: true }))).toBe(ADA);
+				// "100% Real_Name\\" holds LIKE and escape characters: still one exact match
+				expect(name(await single({ conditions: [byName(PCT)], strict: true }))).toBe(PCT);
+				const none = await single({ conditions: [byName("nobody")], strict: true });
+				expect(none.status).toBe(200);
+				expect(name(none)).toBeUndefined();
+			});
+
+			it("strict off (the default) picks one of several without complaint", async () => {
+				const run = await single({ conditions: [team("blue")] });
+				expect(run.status).toBe(200);
+				expect([GRACE, PLUS]).toContain(name(run));
+			});
+
 			it("skips an unsent sort column; with none left it just finds a match", async () => {
 				const run = await single({ conditions: [team("blue")], sort: [desc(fromBody("sortBy"))] });
 				expect([GRACE, PLUS]).toContain(name(run));

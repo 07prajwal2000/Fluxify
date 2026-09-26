@@ -126,6 +126,7 @@ db_getsingle {
 		type: "inner" | "left" | "right" | "outer";  // type of join; default "inner"
 	}[];  // list of joins; default []
 	columns?: string[];  // list of columns to select with aliases if any (e.g. column1 or table.column2 AS column2 or table.*); default ["*"]
+	strict: boolean;  // fail the block when more than one row matches, instead of returning one of them; for lookups that should be unique (id, email, token); default false
 	sort: {
 		attribute: string;  // column or JSON path to sort by (supports js expression); 'id' on MongoDB is _id
 		direction: "asc" | "desc";

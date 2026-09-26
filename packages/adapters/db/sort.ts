@@ -56,3 +56,13 @@ export function applySqlSort<B extends { orderBy: Function }>(
 		builder,
 	);
 }
+
+/** get-single's answer from up to two rows: `strict` refuses a second match */
+export function singleRow<T>(rows: T[], strict?: boolean): T | null {
+	if (strict && rows.length > 1) {
+		throw new Error(
+			"expected 1 row, got more: add conditions that match only one, or turn off strict",
+		);
+	}
+	return rows[0] ?? null;
+}

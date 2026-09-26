@@ -68,7 +68,7 @@ describe("compiled db_exists block", () => {
 		expect(result.output).toEqual({ httpCode: "200", body: { id: 7, name: "ada" } });
 		expect(calls[0][0]).toBe("users");
 		expect(calls[0][1][0].value).toEqual({ kind: "literal", value: 7 });
-		expect(calls[0][2]).toEqual({ columns: ["id", "name"], joins: data().joins, sort: [] });
+		expect(calls[0][2]).toEqual({ columns: ["id", "name"], joins: data().joins, sort: [], strict: false });
 	});
 
 	it("takes failure with the input unchanged when no row matches", async () => {

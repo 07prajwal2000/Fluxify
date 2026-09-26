@@ -23,7 +23,7 @@ import {
 	textValue,
 } from "./conditions";
 import { isColumnRef, isLiteralRef, isNumericLike, toMongoField } from "./jsonPath";
-import { activeSorts, type DbSort, withTiebreaker } from "./sort";
+import { activeSorts, type DbSort, singleRow, withTiebreaker } from "./sort";
 
 /** a Mongo sort spec in entry order: `id` means `_id`, and `_id` goes last as the tiebreaker */
 function sortSpec(sort: DbSort[]): Record<string, 1 | -1> {
@@ -129,10 +129,13 @@ export class MongoAdapter implements IDbAdapter {
 		const filter = this.buildFilter(conditions);
 		// unsorted stays unsorted: a sort nobody asked for only costs time
 		const sort = activeSorts(options?.sort).length ? sortSpec(options?.sort ?? []) : undefined;
-		const doc = await this.db
+		// strict reads a second document only to tell that there is one
+		const docs = await this.db
 			.collection(table)
-			.findOne(filter, { ...this.findOptions(options), ...(sort && { sort }) });
-		return this.mapDoc(doc);
+			.find(filter, { ...this.findOptions(options), ...(sort && { sort }) })
+			.limit(options?.strict ? 2 : 1)
+			.toArray();
+		return this.mapDoc(singleRow(docs, options?.strict));
 	}
 
 	async count(table: string, conditions: DBConditionType[]): Promise<number> {

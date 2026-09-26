@@ -6,7 +6,7 @@ import {
 	PostgresIntrospector,
 	PostgresQueryCompiler,
 } from "kysely";
-import { activeSorts, applySqlSort, type DbSort, withTiebreaker } from "./sort";
+import { activeSorts, applySqlSort, type DbSort, singleRow, withTiebreaker } from "./sort";
 
 const db = new Kysely<any>({
 	dialect: {
@@ -74,5 +74,18 @@ describe("applySqlSort", () => {
 		expect(() =>
 			applySqlSort(db.selectFrom("users").selectAll(), [by("id; drop table users")], "postgres"),
 		).toThrow();
+	});
+});
+
+describe("singleRow", () => {
+	it("returns the first row, or null for none", () => {
+		expect(singleRow([{ id: 1 }])).toEqual({ id: 1 });
+		expect(singleRow([], true)).toBeNull();
+		expect(singleRow([{ id: 1 }, { id: 2 }])).toEqual({ id: 1 });
+	});
+
+	it("strict refuses a second match instead of picking one", () => {
+		expect(singleRow([{ id: 1 }], true)).toEqual({ id: 1 });
+		expect(() => singleRow([{ id: 1 }, { id: 2 }], true)).toThrow("expected 1 row, got more");
 	});
 });
