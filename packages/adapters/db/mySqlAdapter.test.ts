@@ -531,4 +531,117 @@ describe("MySqlAdapter Integration Tests", () => {
 		expect(pricey.map((r) => r.price)).toEqual([20, 30]);
 		expect(pricey.map((r) => r.author)).toEqual(["Alice", "Bob"]);
 	});
+
+	describe("returned rows (#502)", () => {
+		const eq = (attribute: string, value: unknown) => ({
+			attribute,
+			operator: "eq" as const,
+			value,
+			chain: "and" as const,
+		});
+		const suffix = () => faker.string.alphanumeric(8).toLowerCase();
+
+		test("update returns the changed rows when it changes a column in its own condition", async () => {
+			const adapter = new MySqlAdapter(db, pool);
+			const table = `orders_${suffix()}`;
+			await adapter.raw(
+				`CREATE TABLE ${table} (id INT AUTO_INCREMENT PRIMARY KEY, status VARCHAR(20) NOT NULL)`,
+			);
+			const inserted = await adapter.insertBulk(table, [
+				{ status: "placed" },
+				{ status: "placed" },
+				{ status: "cancelled" },
+			]);
+			expect(inserted.map((r: any) => r.status)).toEqual(["placed", "placed", "cancelled"]);
+
+			const one = await adapter.update(table, { status: "cancelled" }, [
+				eq("id", inserted[0].id),
+				eq("status", "placed"),
+			]);
+			expect(one).toEqual([{ id: inserted[0].id, status: "cancelled" }]);
+
+			// the row that was already cancelled matches the new value, but was not changed
+			const rest = await adapter.update(table, { status: "cancelled" }, [eq("status", "placed")]);
+			expect(rest).toEqual([{ id: inserted[1].id, status: "cancelled" }]);
+
+			expect(await adapter.update(table, { status: "x" }, [eq("status", "placed")])).toEqual([]);
+		});
+
+		test("insert and bulk insert with a client-supplied uuid key return the rows", async () => {
+			const adapter = new MySqlAdapter(db, pool);
+			const table = `items_${suffix()}`;
+			await adapter.raw(
+				`CREATE TABLE ${table} (uid CHAR(36) PRIMARY KEY, name VARCHAR(50) NOT NULL)`,
+			);
+
+			const single = { uid: faker.string.uuid(), name: "one" };
+			expect(await adapter.insert(table, single)).toEqual(single);
+
+			const bulk = [
+				{ uid: faker.string.uuid(), name: "two" },
+				{ uid: faker.string.uuid(), name: "three" },
+			];
+			const rows = await adapter.insertBulk(table, bulk);
+			expect(rows).toHaveLength(2);
+			expect(rows).toEqual(expect.arrayContaining(bulk));
+
+			const updated = await adapter.update(table, { name: "renamed" }, [eq("uid", single.uid)]);
+			expect(updated).toEqual([{ ...single, name: "renamed" }]);
+		});
+
+		test("insert with an explicit id on an auto-increment key returns that row", async () => {
+			const adapter = new MySqlAdapter(db, pool);
+			const table = `explicit_${suffix()}`;
+			await adapter.raw(
+				`CREATE TABLE ${table} (id INT AUTO_INCREMENT PRIMARY KEY, name VARCHAR(50) NOT NULL)`,
+			);
+			expect(await adapter.insert(table, { id: 42, name: "a" })).toEqual({ id: 42, name: "a" });
+			expect(await adapter.insert(table, { name: "b" })).toEqual({ id: 43, name: "b" });
+		});
+
+		test("composite key: update returns the rows, including one whose key column changed", async () => {
+			const adapter = new MySqlAdapter(db, pool);
+			const table = `seats_${suffix()}`;
+			await adapter.raw(
+				`CREATE TABLE ${table} (hall INT, seat INT, taken TINYINT NOT NULL DEFAULT 0, PRIMARY KEY (hall, seat))`,
+			);
+			await adapter.insertBulk(table, [
+				{ hall: 1, seat: 1 },
+				{ hall: 1, seat: 2 },
+				{ hall: 2, seat: 1 },
+			]);
+
+			const taken = await adapter.update(table, { taken: 1 }, [eq("hall", 1), eq("taken", 0)]);
+			expect(taken).toHaveLength(2);
+			expect(taken.every((r: any) => r.hall === 1 && r.taken === 1)).toBe(true);
+
+			const moved = await adapter.update(table, { seat: 9 }, [eq("hall", 2), eq("seat", 1)]);
+			expect(moved).toEqual([{ hall: 2, seat: 9, taken: 0 }]);
+		});
+
+		test("update inside a transaction stays in it and rolls back", async () => {
+			const adapter = new MySqlAdapter(db, pool);
+			const table = `tx_${suffix()}`;
+			await adapter.raw(
+				`CREATE TABLE ${table} (id INT AUTO_INCREMENT PRIMARY KEY, status VARCHAR(20) NOT NULL)`,
+			);
+			const row = await adapter.insert(table, { status: "placed" });
+
+			await adapter.startTransaction();
+			const updated = await adapter.update(table, { status: "cancelled" }, [eq("status", "placed")]);
+			expect(updated).toEqual([{ id: row.id, status: "cancelled" }]);
+			await adapter.rollbackTransaction();
+
+			expect(await adapter.getSingle(table, [eq("id", row.id)])).toEqual(row);
+		});
+
+		test("table without a primary key: update re-reads by the conditions, insert returns null", async () => {
+			const adapter = new MySqlAdapter(db, pool);
+			const table = `nokey_${suffix()}`;
+			await adapter.raw(`CREATE TABLE ${table} (name VARCHAR(50), n INT)`);
+
+			expect(await adapter.insert(table, { name: "a", n: 1 })).toBeNull();
+			expect(await adapter.update(table, { n: 2 }, [eq("name", "a")])).toEqual([{ name: "a", n: 2 }]);
+		});
+	});
 });

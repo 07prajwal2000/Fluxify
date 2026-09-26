@@ -34,6 +34,14 @@ const INTROSPECT_SQL = `
 	ORDER BY c.TABLE_NAME, c.ORDINAL_POSITION
 `;
 
+const PRIMARY_KEY_SQL = `
+	SELECT COLUMN_NAME AS column_name FROM information_schema.KEY_COLUMN_USAGE
+	WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND CONSTRAINT_NAME = 'PRIMARY'
+	ORDER BY ORDINAL_POSITION
+`;
+
+type Row = Record<string, any>;
+
 export class MySqlAdapter implements IDbAdapter {
 	public static variant = "MySQL";
 	private mode: DbAdapterMode = DbAdapterMode.NORMAL;
@@ -42,6 +50,8 @@ export class MySqlAdapter implements IDbAdapter {
 	private reservedConn: PoolConnection | null = null;
 	private originalRelease: (() => void) | null = null;
 	private transactionDb: Kysely<FluxifyDatabase> | null = null;
+	// ponytail: never invalidated, a PK altered at runtime needs a new adapter
+	private readonly primaryKeys = new Map<string, string[]>();
 
 	constructor(
 		private readonly db: Kysely<FluxifyDatabase>,
@@ -134,28 +144,17 @@ export class MySqlAdapter implements IDbAdapter {
 		return Number(result.numDeletedRows ?? 0) > 0;
 	}
 
-	async insert(table: string, data: any, pkColumn: string = "id"): Promise<any> {
+	async insert(table: string, data: any): Promise<any> {
 		const conn = this.getConnection();
 		const result = await conn
 			.insertInto(table as never)
 			.values(data as never)
 			.executeTakeFirst();
-
-		const insertId = result?.insertId;
-		if (insertId === undefined || insertId === null) return null;
-
-		return conn
-			.selectFrom(table as never)
-			.selectAll()
-			.where(pkColumn as never, "=", Number(insertId) as never)
-			.executeTakeFirst();
+		const [row] = await this.readInserted(conn, table, [data], result?.insertId);
+		return row ?? null;
 	}
 
-	async insertBulk(
-		table: string,
-		data: Record<string, any>[],
-		pkColumn: string = "id",
-	): Promise<any[]> {
+	async insertBulk(table: string, data: Record<string, any>[]): Promise<any[]> {
 		if (!data || data.length === 0) return [];
 
 		const chunkSize = 1000;
@@ -164,44 +163,89 @@ export class MySqlAdapter implements IDbAdapter {
 
 		for (let i = 0; i < data.length; i += chunkSize) {
 			const chunk = data.slice(i, i + chunkSize);
-
 			const result = await conn
 				.insertInto(table as never)
 				.values(chunk as never)
 				.executeTakeFirst();
-
-			const firstId = result?.insertId;
-			if (firstId === undefined || firstId === null) continue;
-
-			const lastId = Number(firstId) + chunk.length - 1;
-
-			const rows = await conn
-				.selectFrom(table as never)
-				.selectAll()
-				.where(pkColumn as never, ">=", Number(firstId) as never)
-				.where(pkColumn as never, "<=", lastId as never)
-				.execute();
-
-			results.push(...rows);
+			results.push(...(await this.readInserted(conn, table, chunk, result?.insertId)));
 		}
 
 		return results;
 	}
 
-	async update(
-		table: string,
-		data: any,
-		conditions: DBConditionType[],
-		pkColumn: string = "id",
-	): Promise<any> {
-		const conn = this.getConnection();
-		let qb = conn.updateTable(table as never).set(data as never);
-		qb = this.buildQuery(conditions, qb);
-		await qb.execute();
+	async update(table: string, data: any, conditions: DBConditionType[]): Promise<any> {
+		const pk = await this.primaryKey(table);
+		if (pk.length === 0) {
+			// no key to re-read by: best effort, re-run the conditions
+			const conn = this.getConnection();
+			await this.buildQuery(
+				conditions,
+				conn.updateTable(table as never).set(data as never),
+			).execute();
+			return this.buildQuery(conditions, conn.selectFrom(table as never))
+				.selectAll()
+				.execute();
+		}
 
-		let selectQb = conn.selectFrom(table as never);
-		selectQb = this.buildQuery(conditions, selectQb);
-		return selectQb.selectAll().execute();
+		// MySQL has no RETURNING: lock the matching keys, update exactly those, re-read them
+		return this.withTransaction(async (trx) => {
+			const keys: Row[] = await this.buildQuery(
+				conditions,
+				trx.selectFrom(table as never).select(pk as never),
+			)
+				.forUpdate()
+				.execute();
+			if (keys.length === 0) return [];
+
+			await whereKeys(trx.updateTable(table as never).set(data as never), pk, keys).execute();
+
+			// an update that sets a key column moves the row to that key
+			const newKeys = keys.map((k) =>
+				Object.fromEntries(pk.map((c) => [c, c in data ? data[c] : k[c]])),
+			);
+			return whereKeys(trx.selectFrom(table as never).selectAll(), pk, newKeys).execute();
+		});
+	}
+
+	/** Re-reads inserted rows by their primary key: the value supplied in the data, else the auto-increment id. */
+	private async readInserted(
+		conn: Kysely<FluxifyDatabase>,
+		table: string,
+		rows: Row[],
+		insertId: bigint | undefined,
+	): Promise<any[]> {
+		const pk = await this.primaryKey(table);
+		if (pk.length === 0) return [];
+
+		// multi-row inserts get consecutive auto-increment ids, starting at insertId
+		let nextId = insertId === undefined ? undefined : Number(insertId);
+		const keys: Row[] = [];
+		for (const row of rows) {
+			const key = Object.fromEntries(pk.map((c) => [c, row[c]]));
+			const missing = pk.filter((c) => key[c] == null);
+			if (missing.length === 1 && pk.length === 1 && nextId !== undefined) key[pk[0]] = nextId++;
+			else if (missing.length > 0) continue;
+			keys.push(key);
+		}
+		if (keys.length === 0) return [];
+		return whereKeys(conn.selectFrom(table as never).selectAll(), pk, keys).execute();
+	}
+
+	private async primaryKey(table: string): Promise<string[]> {
+		let pk = this.primaryKeys.get(table);
+		if (!pk) {
+			const rows: Row[] = await this.raw(PRIMARY_KEY_SQL, [table]);
+			pk = rows.map((r) => r.column_name);
+			this.primaryKeys.set(table, pk);
+		}
+		return pk;
+	}
+
+	/** Runs `fn` in the open transaction, or in a new one. Never BEGIN inside an open one: MySQL commits it. */
+	private withTransaction<T>(fn: (trx: Kysely<FluxifyDatabase>) => Promise<T>): Promise<T> {
+		if (this.mode === DbAdapterMode.TRANSACTION && this.transactionDb)
+			return fn(this.transactionDb);
+		return this.db.transaction().execute(fn);
 	}
 
 	async setMode(mode: DbAdapterMode): Promise<void> {
@@ -278,6 +322,13 @@ export class MySqlAdapter implements IDbAdapter {
 	): B {
 		return applySqlConditions(builder, conditions, "mysql", qualifiers);
 	}
+}
+
+/** WHERE (k1 = ? AND k2 = ?) OR (...) for each key row; works for single and composite keys. */
+function whereKeys<B extends { where: Function }>(qb: B, pk: string[], keys: Row[]): B {
+	return qb.where((eb: any) =>
+		eb.or(keys.map((k) => eb.and(pk.map((c) => eb(c, "=", k[c]))))),
+	) as B;
 }
 
 export function buildMysqlUrl(connection: Connection): string {
