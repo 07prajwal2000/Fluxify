@@ -65,7 +65,13 @@ export function defaultBlockData(type: BlockType): Record<string, unknown> {
 		return { connection: "", tableName: "", data: { source: "raw", value: {} }, useParam: false };
 	}
 	if (type === BLOCK_TYPES.db_insertbulk) {
-		return { connection: "", tableName: "", data: { source: "raw", value: [] }, useParam: false };
+		return {
+			connection: "",
+			tableName: "",
+			data: { source: "raw", value: [] },
+			useParam: false,
+			useTransaction: true,
+		};
 	}
 	if (type === BLOCK_TYPES.db_update) {
 		return {

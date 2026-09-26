@@ -155,6 +155,7 @@ db_insertbulk {
 		value: object[] | string;  // value to insert
 	};
 	useParam: boolean;  // use parameter
+	useTransaction?: boolean;  // insert every row in one transaction: all rows go in or none do. MongoDB needs a replica set for this; on a standalone server it inserts without a transaction; default false
 }
 
 db_native {

@@ -304,6 +304,7 @@
         "dockerode": "^4.0.9",
         "jsonwebtoken": "^9.0.3",
         "mongodb": "7.2.0",
+        "mysql2": "^3.18.1",
       },
     },
   },

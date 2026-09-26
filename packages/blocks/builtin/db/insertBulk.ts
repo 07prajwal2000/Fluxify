@@ -14,6 +14,13 @@ export const insertBulkDbBlockSchema = z
 			value: z.array(z.object()).or(z.string()).describe("value to insert"),
 		}),
 		useParam: z.boolean().describe("use parameter"),
+		useTransaction: z
+			.boolean()
+			.default(false)
+			.optional()
+			.describe(
+				"insert every row in one transaction: all rows go in or none do. MongoDB needs a replica set for this; on a standalone server it inserts without a transaction",
+			),
 	})
 	.extend(baseBlockDataSchema.shape);
 
@@ -28,9 +35,10 @@ export async function runInsertBulkDb(
 	connection: string,
 	tableName: string,
 	data: object[],
+	useTransaction = false,
 ) {
 	try {
-		return await adapterFor(context, connection).insertBulk(tableName, data);
+		return await adapterFor(context, connection).insertBulk(tableName, data, useTransaction);
 	} catch (error) {
 		dbFailure("insert bulk", error);
 	}
@@ -54,6 +62,6 @@ export function emitInsertBulkDb(node: EmitNode) {
 
 	return `const ${data} = ${payload};
 if (!Array.isArray(${data})) throw new Error("error in insert bulk: data to insert is not an array");
-${node.in} = await lib.dbInsertBulk(ctx, ${node.value(input.connection)}, ${node.value(input.tableName)}, ${data});
+${node.in} = await lib.dbInsertBulk(ctx, ${node.value(input.connection)}, ${node.value(input.tableName)}, ${data}, ${input.useTransaction === true});
 ${node.next()}`;
 }

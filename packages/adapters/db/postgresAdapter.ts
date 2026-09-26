@@ -1,6 +1,7 @@
 import { SQL } from "bun";
 import { CompiledQuery, Kysely } from "kysely";
 import {
+	bulkChunkSize,
 	type Connection,
 	type DBConditionType,
 	DbAdapterMode,
@@ -152,23 +153,49 @@ export class PostgresAdapter implements IDbAdapter {
 		return Array.isArray(res) ? res[0] : res;
 	}
 
-	async insertBulk(table: string, data: Record<string, any>[]): Promise<any[]> {
+	async insertBulk(
+		table: string,
+		data: Record<string, any>[],
+		useTransaction = false,
+	): Promise<any[]> {
 		if (!data || data.length === 0) return [];
 
-		const chunkSize = 1000;
-		const results: any[] = [];
-		const conn = this.getConnection();
+		const insertChunks = async (conn: Kysely<FluxifyDatabase>) => {
+			const chunkSize = bulkChunkSize(data);
+			const results: any[] = [];
+			for (let i = 0; i < data.length; i += chunkSize) {
+				const chunk = data.slice(i, i + chunkSize);
+				const res = await conn
+					.insertInto(table as never)
+					.values(chunk as never)
+					.returningAll()
+					.execute();
+				results.push(...res);
+			}
+			return results;
+		};
 
-		for (let i = 0; i < data.length; i += chunkSize) {
-			const chunk = data.slice(i, i + chunkSize);
-			const res = await conn
-				.insertInto(table as never)
-				.values(chunk as never)
-				.returningAll()
-				.execute();
-			results.push(...res);
+		if (!useTransaction || this.mode === DbAdapterMode.TRANSACTION)
+			return insertChunks(this.getConnection());
+
+		// A transaction of its own on a reserved connection, not the adapter's mode: parallel
+		// chains share this adapter and must not join it. Not Kysely's db.transaction(): the
+		// shared Bun driver would run BEGIN and the inserts on different connections.
+		const reserved = await this.sql.reserve();
+		try {
+			await reserved.unsafe("BEGIN");
+			const trx = new Kysely<FluxifyDatabase>({
+				dialect: new BunSqlPostgresDialect(reserved as any as SQL),
+			});
+			const results = await insertChunks(trx);
+			await reserved.unsafe("COMMIT");
+			return results;
+		} catch (error) {
+			await reserved.unsafe("ROLLBACK").catch(() => {});
+			throw error;
+		} finally {
+			reserved.release();
 		}
-		return results;
 	}
 
 	async update(table: string, data: any, conditions: DBConditionType[]): Promise<any> {

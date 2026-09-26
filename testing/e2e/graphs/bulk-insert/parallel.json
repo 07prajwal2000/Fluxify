@@ -1,0 +1,186 @@
+{
+	"name": "bulk-insert/parallel",
+	"description": "POST /users/bulk/parallel — three orchestrator chains on one connection at once: a good bulk insert, a bulk insert whose last row fails, and a plain order insert. Each must keep its own outcome: the failing one may not undo or swallow the others.",
+	"engine": "pg",
+	"route": {
+		"method": "POST",
+		"path": "/users/bulk/parallel"
+	},
+	"blocks": [
+		{
+			"id": "entry",
+			"type": "entrypoint",
+			"position": {
+				"x": 0,
+				"y": 0
+			},
+			"data": {
+				"blockName": "Request"
+			}
+		},
+		{
+			"id": "orch",
+			"type": "orchestrator",
+			"position": {
+				"x": 240,
+				"y": 0
+			},
+			"data": {
+				"blockName": "In parallel",
+				"order": [
+					"rows-good",
+					"rows-bad",
+					"insert-order"
+				],
+				"onError": "settle"
+			}
+		},
+		{
+			"id": "rows-good",
+			"type": "jsrunner",
+			"position": {
+				"x": 480,
+				"y": -240
+			},
+			"data": {
+				"blockName": "Build rows",
+				"value": "const body = getRequestBody();\nconst n = body.count; const prefix = \"good\";\nconst rows = Array.from({ length: n }, (_, i) => ({ name: 'Bulk ' + i, email: prefix + i + '@bulk.io' }));\nreturn rows;"
+			}
+		},
+		{
+			"id": "insert-good",
+			"type": "db_insertbulk",
+			"position": {
+				"x": 720,
+				"y": -240
+			},
+			"data": {
+				"blockName": "Bulk insert",
+				"connection": "primary",
+				"tableName": "users",
+				"useParam": true,
+				"useTransaction": true,
+				"data": {
+					"source": "raw",
+					"value": []
+				}
+			}
+		},
+		{
+			"id": "rows-bad",
+			"type": "jsrunner",
+			"position": {
+				"x": 480,
+				"y": 0
+			},
+			"data": {
+				"blockName": "Build rows",
+				"value": "const body = getRequestBody();\nconst n = body.count; const prefix = \"bad\";\nconst rows = Array.from({ length: n }, (_, i) => ({ name: 'Bulk ' + i, email: prefix + i + '@bulk.io' }));\nrows[n - 1] = { name: 'Dup', email: \"ada@example.com\" };\nreturn rows;"
+			}
+		},
+		{
+			"id": "insert-bad",
+			"type": "db_insertbulk",
+			"position": {
+				"x": 720,
+				"y": 0
+			},
+			"data": {
+				"blockName": "Bulk insert",
+				"connection": "primary",
+				"tableName": "users",
+				"useParam": true,
+				"useTransaction": true,
+				"data": {
+					"source": "raw",
+					"value": []
+				}
+			}
+		},
+		{
+			"id": "insert-order",
+			"type": "db_insert",
+			"position": {
+				"x": 480,
+				"y": 240
+			},
+			"data": {
+				"blockName": "Insert order",
+				"connection": "primary",
+				"tableName": "orders",
+				"useParam": false,
+				"data": {
+					"source": "raw",
+					"value": {
+						"user_id": 1,
+						"total": 7,
+						"status": "pending"
+					}
+				}
+			}
+		},
+		{
+			"id": "done",
+			"type": "response",
+			"position": {
+				"x": 960,
+				"y": 0
+			},
+			"data": {
+				"blockName": "200",
+				"httpCode": "200"
+			}
+		}
+	],
+	"edges": [
+		{
+			"id": "e-entry-orch",
+			"from": "entry",
+			"to": "orch",
+			"fromHandle": "source",
+			"toHandle": "source"
+		},
+		{
+			"id": "e-orch-rows-good",
+			"from": "orch",
+			"to": "rows-good",
+			"fromHandle": "source",
+			"toHandle": "orchestrate"
+		},
+		{
+			"id": "e-rows-good-insert-good",
+			"from": "rows-good",
+			"to": "insert-good",
+			"fromHandle": "source",
+			"toHandle": "source"
+		},
+		{
+			"id": "e-orch-rows-bad",
+			"from": "orch",
+			"to": "rows-bad",
+			"fromHandle": "source",
+			"toHandle": "orchestrate"
+		},
+		{
+			"id": "e-rows-bad-insert-bad",
+			"from": "rows-bad",
+			"to": "insert-bad",
+			"fromHandle": "source",
+			"toHandle": "source"
+		},
+		{
+			"id": "e-orch-insert-order",
+			"from": "orch",
+			"to": "insert-order",
+			"fromHandle": "source",
+			"toHandle": "orchestrate"
+		},
+		{
+			"id": "e-orch-done",
+			"from": "orch",
+			"to": "done",
+			"fromHandle": "source",
+			"toHandle": "source"
+		}
+	]
+}

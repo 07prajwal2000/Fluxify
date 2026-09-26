@@ -1,0 +1,88 @@
+{
+	"name": "bulk-insert/wide",
+	"description": "POST /wide/bulk — 2000 rows into the 100-column `wide` table, where the first row sets one column. Chunks must be sized by every column the rows use (65,535 bound parameters per query), not by the first row.",
+	"engine": "pg",
+	"route": {
+		"method": "POST",
+		"path": "/wide/bulk"
+	},
+	"blocks": [
+		{
+			"id": "entry",
+			"type": "entrypoint",
+			"position": {
+				"x": 0,
+				"y": 0
+			},
+			"data": {
+				"blockName": "Request"
+			}
+		},
+		{
+			"id": "rows",
+			"type": "jsrunner",
+			"position": {
+				"x": 240,
+				"y": 0
+			},
+			"data": {
+				"blockName": "Build wide rows",
+				"value": "const cols = Array.from({ length: 100 }, (_, i) => 'c' + i);\nreturn [{ c0: 1 }, ...Array.from({ length: 1999 }, (_, r) => Object.fromEntries(cols.map((c) => [c, r])))];"
+			}
+		},
+		{
+			"id": "insert",
+			"type": "db_insertbulk",
+			"position": {
+				"x": 480,
+				"y": 0
+			},
+			"data": {
+				"blockName": "Bulk insert",
+				"connection": "primary",
+				"tableName": "wide",
+				"useParam": true,
+				"useTransaction": true,
+				"data": {
+					"source": "raw",
+					"value": []
+				}
+			}
+		},
+		{
+			"id": "created",
+			"type": "response",
+			"position": {
+				"x": 720,
+				"y": 0
+			},
+			"data": {
+				"blockName": "201",
+				"httpCode": "201"
+			}
+		}
+	],
+	"edges": [
+		{
+			"id": "e-entry-rows",
+			"from": "entry",
+			"to": "rows",
+			"fromHandle": "source",
+			"toHandle": "source"
+		},
+		{
+			"id": "e-rows-insert",
+			"from": "rows",
+			"to": "insert",
+			"fromHandle": "source",
+			"toHandle": "source"
+		},
+		{
+			"id": "e-insert-created",
+			"from": "insert",
+			"to": "created",
+			"fromHandle": "source",
+			"toHandle": "source"
+		}
+	]
+}

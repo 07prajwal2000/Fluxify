@@ -6,7 +6,7 @@ import {
 	test,
 	expect,
 } from "bun:test";
-import { MongoAdapter, buildMongoUrl } from "./mongoDbAdapter";
+import { MongoAdapter, buildMongoUrl, isTransactionUnsupported } from "./mongoDbAdapter";
 import { Connection, DbType } from ".";
 import type Docker from "dockerode";
 import { MongoClient } from "mongodb";
@@ -398,5 +398,16 @@ describe("MongoAdapter Integration Tests", () => {
 		expect(rows.map((r) => r.profile.age)).toEqual([20, 30]);
 		// Unprojected field is excluded.
 		expect(rows.every((r) => r.secret === undefined)).toBe(true);
+	});
+});
+
+describe("MongoAdapter isTransactionUnsupported (#510)", () => {
+	test("isTransactionUnsupported matches only the standalone-server refusal", () => {
+		const standalone = Object.assign(
+			new Error("Transaction numbers are only allowed on a replica set member or mongos"),
+			{ code: 20 },
+		);
+		expect(isTransactionUnsupported(standalone)).toBe(true);
+		expect(isTransactionUnsupported(Object.assign(new Error("dup key"), { code: 11000 }))).toBe(false);
 	});
 });
