@@ -88,6 +88,12 @@ export function groupIntrospectionRows(
 	return [...byTable.values()];
 }
 
+/** rows per bulk INSERT: at most 1000, and wide rows stay under the 65,535 bound-parameter cap */
+export function bulkChunkSize(rows: object[]): number {
+	const columns = new Set(rows.flatMap((r) => Object.keys(r))).size;
+	return Math.max(1, Math.min(1000, Math.floor(65535 / Math.max(columns, 1))));
+}
+
 export enum DbAdapterMode {
 	NORMAL = 1,
 	TRANSACTION = 2,
@@ -108,7 +114,8 @@ export interface IDbAdapter {
 		options?: QueryOptions,
 	): Promise<unknown | null>;
 	insert(table: string, data: unknown): Promise<any>;
-	insertBulk(table: string, data: unknown[]): Promise<any>;
+	/** `useTransaction`: all rows go in or none do; an open transaction is reused either way */
+	insertBulk(table: string, data: unknown[], useTransaction?: boolean): Promise<any>;
 	update(table: string, data: unknown, conditions: DBConditionType[]): Promise<any>;
 	raw(query?: string | unknown, params?: any[]): Promise<any>;
 	/** optional — adapters that cannot describe their schema simply omit it */

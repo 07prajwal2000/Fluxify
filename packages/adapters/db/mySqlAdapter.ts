@@ -2,6 +2,7 @@ import { CompiledQuery, Kysely, MysqlDialect } from "kysely";
 import { createPool, type Pool } from "mysql2";
 import type { PoolConnection } from "mysql2/promise";
 import {
+	bulkChunkSize,
 	type Connection,
 	type DBConditionType,
 	DbAdapterMode,
@@ -154,23 +155,31 @@ export class MySqlAdapter implements IDbAdapter {
 		return row ?? null;
 	}
 
-	async insertBulk(table: string, data: Record<string, any>[]): Promise<any[]> {
+	async insertBulk(
+		table: string,
+		data: Record<string, any>[],
+		useTransaction = false,
+	): Promise<any[]> {
 		if (!data || data.length === 0) return [];
 
-		const chunkSize = 1000;
-		const results: any[] = [];
-		const conn = this.getConnection();
+		const insertChunks = async (conn: Kysely<FluxifyDatabase>) => {
+			const chunkSize = bulkChunkSize(data);
+			const results: any[] = [];
+			for (let i = 0; i < data.length; i += chunkSize) {
+				const chunk = data.slice(i, i + chunkSize);
+				const result = await conn
+					.insertInto(table as never)
+					.values(chunk as never)
+					.executeTakeFirst();
+				results.push(...(await this.readInserted(conn, table, chunk, result?.insertId)));
+			}
+			return results;
+		};
 
-		for (let i = 0; i < data.length; i += chunkSize) {
-			const chunk = data.slice(i, i + chunkSize);
-			const result = await conn
-				.insertInto(table as never)
-				.values(chunk as never)
-				.executeTakeFirst();
-			results.push(...(await this.readInserted(conn, table, chunk, result?.insertId)));
-		}
-
-		return results;
+		// cache the key first: looked up inside the transaction, it takes a second pooled
+		// connection, and parallel bulk inserts on a small pool then wait on each other forever
+		await this.primaryKey(table);
+		return useTransaction ? this.withTransaction(insertChunks) : insertChunks(this.getConnection());
 	}
 
 	async update(table: string, data: any, conditions: DBConditionType[]): Promise<any> {

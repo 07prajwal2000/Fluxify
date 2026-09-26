@@ -131,7 +131,7 @@ export class MongoAdapter implements IDbAdapter {
 	async insertBulk(
 		table: string,
 		data: Record<string, unknown>[],
-		pkColumn: string = "id",
+		useTransaction = false,
 	): Promise<unknown[]> {
 		if (!data || data.length === 0) return [];
 
@@ -140,15 +140,33 @@ export class MongoAdapter implements IDbAdapter {
 			return rest;
 		});
 
-		const result = await this.db.collection(table).insertMany(cleanData, this.getOptions());
-		const ids = Object.values(result.insertedIds);
+		const insertAll = async (options: { session?: ClientSession }) => {
+			const result = await this.db.collection(table).insertMany(cleanData, options);
+			const ids = Object.values(result.insertedIds);
+			const docs = await this.db
+				.collection(table)
+				.find({ _id: { $in: ids } }, options)
+				.toArray();
+			return docs.map(this.mapDoc);
+		};
 
-		const docs = await this.db
-			.collection(table)
-			.find({ _id: { $in: ids } }, this.getOptions())
-			.toArray();
+		if (!useTransaction || this.mode === DbAdapterMode.TRANSACTION)
+			return insertAll(this.getOptions());
 
-		return docs.map(this.mapDoc);
+		const session = this.client.startSession();
+		try {
+			session.startTransaction();
+			const docs = await insertAll({ session });
+			await session.commitTransaction();
+			return docs;
+		} catch (error) {
+			await session.abortTransaction().catch(() => {});
+			// a standalone server has no transactions: insert without one, as the block's hint says
+			if (!isTransactionUnsupported(error)) throw error;
+			return insertAll({});
+		} finally {
+			await session.endSession();
+		}
 	}
 
 	async update(
@@ -331,6 +349,14 @@ export class MongoAdapter implements IDbAdapter {
 		};
 		return map[operator] ?? "$eq";
 	}
+}
+
+/** a standalone mongod refuses any transaction with IllegalOperation (code 20) */
+export function isTransactionUnsupported(error: unknown): boolean {
+	return (
+		(error as { code?: number })?.code === 20 &&
+		/Transaction numbers are only allowed/i.test(String((error as Error).message))
+	);
 }
 
 function mongoTypeOf(value: unknown): string {

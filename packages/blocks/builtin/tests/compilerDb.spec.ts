@@ -301,6 +301,16 @@ describe("compiled db blocks", () => {
 
 		await runAround(target, { a: "first" }, mock);
 		expect(mock.calls[0].args[1]).toEqual([{ name: "first" }, { name: "b" }]);
+		// saved graphs without the flag keep inserting outside a transaction
+		expect(mock.calls[0].args[2]).toBe(false);
+
+		const txMock = createDbAdapter({ insertBulk: 1 });
+		await runAround(
+			block("db", BlockTypes.db_insertbulk, { ...target.data, useTransaction: true }),
+			{ a: "first" },
+			txMock,
+		);
+		expect(txMock.calls[0].args[2]).toBe(true);
 
 		const badMock = createDbAdapter();
 		const { result } = await runAround(

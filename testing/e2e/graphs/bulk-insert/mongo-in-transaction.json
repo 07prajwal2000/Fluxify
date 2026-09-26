@@ -1,0 +1,146 @@
+{
+	"name": "bulk-insert/mongo-in-transaction",
+	"description": "POST /emails/bulk/in-transaction — a bulk insert with its own transaction flag, inside a Transaction block that then rolls back. The bulk insert must join the outer transaction, not commit on its own, so the rollback leaves nothing.",
+	"engine": "mongo",
+	"route": {
+		"method": "POST",
+		"path": "/emails/bulk/in-transaction"
+	},
+	"blocks": [
+		{
+			"id": "entry",
+			"type": "entrypoint",
+			"position": {
+				"x": 0,
+				"y": 0
+			},
+			"data": {
+				"blockName": "Request"
+			}
+		},
+		{
+			"id": "tx",
+			"type": "db_transaction",
+			"position": {
+				"x": 240,
+				"y": 0
+			},
+			"data": {
+				"blockName": "Transaction",
+				"connection": "primary",
+				"executor": "rows"
+			}
+		},
+		{
+			"id": "rows",
+			"type": "jsrunner",
+			"position": {
+				"x": 240,
+				"y": -240
+			},
+			"data": {
+				"blockName": "Build rows",
+				"value": "const body = getRequestBody();\nconst n = body.count; const prefix = body.prefix;\nconst rows = Array.from({ length: n }, (_, i) => ({ name: 'Bulk ' + i, email: prefix + i + '@bulk.io' }));\nif (body.duplicateLast) rows[n - 1] = { name: 'Dup', email: \"ada@example.com\" };\nreturn rows;"
+			}
+		},
+		{
+			"id": "insert",
+			"type": "db_insertbulk",
+			"position": {
+				"x": 480,
+				"y": -240
+			},
+			"data": {
+				"blockName": "Bulk insert",
+				"connection": "primary",
+				"tableName": "emails",
+				"useParam": true,
+				"useTransaction": true,
+				"data": {
+					"source": "raw",
+					"value": []
+				}
+			}
+		},
+		{
+			"id": "rollback",
+			"type": "db_rollback",
+			"position": {
+				"x": 720,
+				"y": -240
+			},
+			"data": {
+				"blockName": "Undo",
+				"message": "undo the bulk insert"
+			}
+		},
+		{
+			"id": "created",
+			"type": "response",
+			"position": {
+				"x": 480,
+				"y": 0
+			},
+			"data": {
+				"blockName": "201",
+				"httpCode": "201"
+			}
+		},
+		{
+			"id": "rejected",
+			"type": "response",
+			"position": {
+				"x": 480,
+				"y": 120
+			},
+			"data": {
+				"blockName": "409",
+				"httpCode": "409"
+			}
+		}
+	],
+	"edges": [
+		{
+			"id": "e-entry-tx",
+			"from": "entry",
+			"to": "tx",
+			"fromHandle": "source",
+			"toHandle": "source"
+		},
+		{
+			"id": "e-tx-rows",
+			"from": "tx",
+			"to": "rows",
+			"fromHandle": "executor",
+			"toHandle": "executor"
+		},
+		{
+			"id": "e-rows-insert",
+			"from": "rows",
+			"to": "insert",
+			"fromHandle": "source",
+			"toHandle": "source"
+		},
+		{
+			"id": "e-insert-rollback",
+			"from": "insert",
+			"to": "rollback",
+			"fromHandle": "source",
+			"toHandle": "source"
+		},
+		{
+			"id": "e-tx-created",
+			"from": "tx",
+			"to": "created",
+			"fromHandle": "success",
+			"toHandle": "success"
+		},
+		{
+			"id": "e-tx-rejected",
+			"from": "tx",
+			"to": "rejected",
+			"fromHandle": "failure",
+			"toHandle": "failure"
+		}
+	]
+}

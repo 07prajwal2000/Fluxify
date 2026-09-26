@@ -39,7 +39,7 @@ export function InsertBulkDbGeneralSettings({ block }: { block: BlockNode }) {
 				: typeof block.data.integrationId === "string"
 					? block.data.integrationId
 					: "";
-	const { tableNames } = useDbMetadata(projectId, connectionId);
+	const { tableNames, variant } = useDbMetadata(projectId, connectionId);
 
 	return (
 		<div className="flex flex-col gap-4 w-full">
@@ -66,6 +66,17 @@ export function InsertBulkDbGeneralSettings({ block }: { block: BlockNode }) {
 				name="useParam"
 				label="Use Parameter"
 				description="Use the data from the previous block as the data to insert"
+			/>
+			<BlockCheckboxField
+				blockId={block.id}
+				data={block.data}
+				name="useTransaction"
+				label="Run Inside a Transaction"
+				description={
+					variant === "MongoDB"
+						? "All rows go in or none do. MongoDB supports transactions only on a replica set; on a standalone server this inserts without a transaction."
+						: "All rows go in or none do. Inside a Transaction block, that transaction is used."
+				}
 			/>
 		</div>
 	);

@@ -22,6 +22,7 @@
 		"jsonwebtoken": "^9.0.3",
 		"@types/dockerode": "^4.0.1",
 		"mongodb": "7.2.0",
+		"mysql2": "^3.18.1",
 		"@types/node": "^24.2.1",
 		"@typescript/native-preview": "^7.0.0-dev.20260219.1",
 		"dockerode": "^4.0.9"

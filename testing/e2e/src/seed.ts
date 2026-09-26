@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { faker } from "@faker-js/faker";
 import type { SQL } from "bun";
 import type { Db } from "mongodb";
+import type { Pool as MysqlPool } from "mysql2/promise";
 
 /**
  * The hash the auth graphs compute in a JS block. Kept here so a test can
@@ -53,6 +54,12 @@ export async function seedPostgres(sql: SQL) {
 	await sql`DROP TABLE IF EXISTS orders`;
 	await sql`DROP TABLE IF EXISTS users`;
 	await sql`DROP TABLE IF EXISTS auth_users`;
+	await sql`DROP TABLE IF EXISTS wide`;
+
+	// 100 columns: a bulk insert of 1000 rows here would pass Postgres's 65,535 bound-parameter cap
+	await sql.unsafe(
+		`CREATE TABLE wide (id SERIAL PRIMARY KEY, ${Array.from({ length: 100 }, (_, i) => `c${i} INT`).join(", ")})`,
+	);
 
 	await sql`
 		CREATE TABLE auth_users (
@@ -99,6 +106,43 @@ export async function seedPostgres(sql: SQL) {
 }
 
 /**
+ * The relational fixtures on MySQL, for graphs that run on both SQL engines.
+ * Only what those graphs touch: `users`, `orders` and `wide`, with the same seed rows.
+ */
+export async function seedMysql(pool: MysqlPool) {
+	await pool.query("DROP TABLE IF EXISTS orders, users, wide");
+	await pool.query(`
+		CREATE TABLE users (
+			id INT AUTO_INCREMENT PRIMARY KEY,
+			name VARCHAR(255) NOT NULL,
+			email VARCHAR(255) NOT NULL UNIQUE,
+			active BOOLEAN NOT NULL DEFAULT true,
+			created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+		)`);
+	await pool.query(`
+		CREATE TABLE orders (
+			id INT AUTO_INCREMENT PRIMARY KEY,
+			user_id INT NOT NULL,
+			total DECIMAL(10, 2) NOT NULL,
+			status VARCHAR(32) NOT NULL DEFAULT 'pending',
+			FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+		)`);
+	await pool.query(
+		`CREATE TABLE wide (id INT AUTO_INCREMENT PRIMARY KEY, ${Array.from({ length: 100 }, (_, i) => `c${i} INT`).join(", ")})`,
+	);
+	await pool.query(`
+		INSERT INTO users (name, email, active) VALUES
+			('Ada Lovelace', 'ada@example.com', true),
+			('Grace Hopper', 'grace@example.com', true),
+			('Alan Turing', 'alan@example.com', false)`);
+	await pool.query(`
+		INSERT INTO orders (user_id, total, status) VALUES
+			(1, 42.50, 'paid'),
+			(1, 12.00, 'pending'),
+			(2, 99.99, 'paid')`);
+}
+
+/**
  * Todo documents. `priority` is deliberately a number and `tags` an array —
  * both are shapes a relational fixture cannot express, and the Mongo adapter
  * has specific behaviour for each (numeric coercion on ordering operators,
@@ -117,4 +161,9 @@ export async function seedMongo(db: Db) {
 	// insertMany stamps _id onto the objects it is given; copy so repeated
 	// resets do not reuse the ids minted by the previous one
 	await db.collection("todos").insertMany(TODOS.map((todo) => ({ ...todo })));
+
+	// unique email, so a bulk insert can collide with the seeded document
+	await db.collection("emails").deleteMany({});
+	await db.collection("emails").createIndex({ email: 1 }, { unique: true });
+	await db.collection("emails").insertOne({ name: "Ada", email: "ada@example.com" });
 }
