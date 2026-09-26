@@ -45,6 +45,7 @@ export function defaultBlockData(type: BlockType): Record<string, unknown> {
 	if (
 		type === BLOCK_TYPES.db_getsingle ||
 		type === BLOCK_TYPES.db_exists ||
+		type === BLOCK_TYPES.db_count ||
 		type === BLOCK_TYPES.db_delete
 	) {
 		return { connection: "", tableName: "", conditions: [] };

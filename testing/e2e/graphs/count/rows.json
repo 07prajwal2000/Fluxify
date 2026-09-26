@@ -1,0 +1,43 @@
+{
+	"name": "count/rows",
+	"description": "POST /count — counts rows where `column` equals `value`. Table, column and value all come from the body, so a test can send what a real caller would, including input that should never reach the database as SQL.",
+	"engine": "pg",
+	"route": { "method": "POST", "path": "/count" },
+	"blocks": [
+		{
+			"id": "entry",
+			"type": "entrypoint",
+			"position": { "x": 0, "y": 0 },
+			"data": { "blockName": "Request" }
+		},
+		{
+			"id": "count",
+			"type": "db_count",
+			"position": { "x": 240, "y": 0 },
+			"data": {
+				"blockName": "Count rows",
+				"connection": "primary",
+				"tableName": "js:return getRequestBody().table;",
+				"conditions": [
+					{
+						"attribute": { "kind": "column", "value": "js:return getRequestBody().column;" },
+						"operator": "eq",
+						"value": { "kind": "literal", "value": "js:return getRequestBody().value;" },
+						"chain": "and"
+					}
+				],
+				"joins": []
+			}
+		},
+		{
+			"id": "reply",
+			"type": "response",
+			"position": { "x": 480, "y": 0 },
+			"data": { "blockName": "200 OK", "httpCode": "200" }
+		}
+	],
+	"edges": [
+		{ "id": "e-entry-count", "from": "entry", "to": "count", "fromHandle": "source", "toHandle": "source" },
+		{ "id": "e-count-reply", "from": "count", "to": "reply", "fromHandle": "source", "toHandle": "source" }
+	]
+}

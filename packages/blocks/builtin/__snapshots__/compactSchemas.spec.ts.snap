@@ -137,6 +137,18 @@ db_exists {
 	columns?: string[];  // list of columns to select with aliases if any (e.g. column1 or table.column2 AS column2 or table.*); default ["*"]
 }
 
+db_count {
+	connection: string;  // integration id
+	tableName: string;  // table name (supports js expression)
+	conditions: DbWhereCondition[];  // Database WHERE clause. Always emit an array of condition objects; never emit plain strings or if-block conditions. Structured condition: attribute and value are tagged objects, e.g. { attribute: { kind: 'column', value: 'status' }, operator: 'eq', value: { kind: 'literal', value: 'active' }, chain: 'and' }. When the fixed operators cannot express it (ILIKE, IN, BETWEEN, JSON/array operators, $regex...), use a custom condition: { operator: 'raw', raw, chain } — see the raw field. A condition whose value is undefined at run time is skipped (null is kept), so optional filters need no branching: value { kind: 'literal', value: "js:getQueryParam('status')" } filters only when the query param was sent.
+	joins?: {
+		table: string;  // table to join
+		alias?: string;  // alias for the table
+		attribute: string;  // attribute to join e.g. table1.id = table2.id
+		type: "inner" | "left" | "right" | "outer";  // type of join; default "inner"
+	}[];  // list of joins; default []
+}
+
 db_insert {
 	connection: string;  // integration id
 	tableName: string;  // table name (supports js expression)

@@ -363,11 +363,12 @@ function parseResult(executionResult: BlockOutput) {
 	return {
 		status: executionResult.output?.httpCode || (executionResult.error ? 500 : 200),
 		data:
-			executionResult.output?.body || // has output from previous blocks which passed to response block
-			executionResult?.output || // has output from previous blocks which didn't pass (or no response block) to response block
-			(!executionResult.successful
-				? { error: executionResult.error?.toString() || "Unknown error" }
-				: "NO RESULT"),
+			// ?? not ||: a body of 0, false or "" is still the body
+			executionResult.output?.body ?? // has output from previous blocks which passed to response block
+			(executionResult?.output || // has output from previous blocks which didn't pass (or no response block) to response block
+				(!executionResult.successful
+					? { error: executionResult.error?.toString() || "Unknown error" }
+					: "NO RESULT")),
 	};
 }
 

@@ -6,6 +6,7 @@ import {
 	invokeCustomBlock,
 	invokeCustomBlockAsync,
 } from "./builtin/customBlock";
+import { emitCountDb, runCountDb } from "./builtin/db/count";
 import { emitDeleteDb, runDeleteDb } from "./builtin/db/delete";
 import { emitExistsDb } from "./builtin/db/exists";
 import { emitGetAllDb, runGetAllDb } from "./builtin/db/getAll";
@@ -81,6 +82,7 @@ export const emitters: Partial<Record<BlockTypes, Emitter>> = {
 	[BlockTypes.httpGetRequestBody]: emitGetHttpRequestBody,
 	[BlockTypes.db_getsingle]: emitGetSingleDb,
 	[BlockTypes.db_exists]: emitExistsDb,
+	[BlockTypes.db_count]: emitCountDb,
 	[BlockTypes.db_getall]: emitGetAllDb,
 	[BlockTypes.db_insert]: emitInsertDb,
 	[BlockTypes.db_insertbulk]: emitInsertBulkDb,
@@ -108,6 +110,7 @@ export const compilerLib = {
 	},
 	dbGetSingle: runGetSingleDb,
 	dbGetAll: runGetAllDb,
+	dbCount: runCountDb,
 	dbInsert: runInsertDb,
 	dbInsertBulk: runInsertBulkDb,
 	dbUpdate: runUpdateDb,

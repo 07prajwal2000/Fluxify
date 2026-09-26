@@ -26,6 +26,7 @@ const DATA_BLOCKS = new Set<string>([
 	BLOCK_TYPES.arrayops,
 	BLOCK_TYPES.db_getsingle,
 	BLOCK_TYPES.db_exists,
+	BLOCK_TYPES.db_count,
 	BLOCK_TYPES.db_getall,
 	BLOCK_TYPES.db_insert,
 	BLOCK_TYPES.db_insertbulk,

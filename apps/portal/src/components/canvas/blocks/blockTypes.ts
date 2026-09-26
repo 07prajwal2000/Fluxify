@@ -27,6 +27,7 @@ export const BLOCK_TYPES = {
 	httpgetrequestbody: "httpgetrequestbody",
 	db_getsingle: "db_getsingle",
 	db_exists: "db_exists",
+	db_count: "db_count",
 	db_getall: "db_getall",
 	db_insert: "db_insert",
 	db_insertbulk: "db_insertbulk",

@@ -213,7 +213,10 @@ export function GetAllDbJoinsSettings({ block }: { block: BlockNode }) {
 	const params = useParams({ strict: false }) as { projectId?: string };
 	const projectId = params?.projectId ?? "";
 	const { connectionId, tableName } = readDbBinding(block);
-	const { tableNames, getColumnsForTable, allColumns } = useDbMetadata(projectId, connectionId);
+	const { tableNames, getColumnsForTable, allColumns, variant } = useDbMetadata(
+		projectId,
+		connectionId,
+	);
 	const tableColumns = getColumnsForTable(tableName);
 	const columnSuggestions = tableColumns.length > 0 ? tableColumns : allColumns;
 
@@ -224,7 +227,11 @@ export function GetAllDbJoinsSettings({ block }: { block: BlockNode }) {
 				data={block.data}
 				name="joins"
 				label="Table Joins"
-				description="Configure relational table joins for this query."
+				description={
+					variant === "MongoDB"
+						? "MongoDB ignores joins. Only the main collection is queried."
+						: "Configure relational table joins for this query."
+				}
 				emptyMessage="No table joins configured."
 				tableSuggestions={tableNames}
 				columnSuggestions={columnSuggestions}

@@ -99,7 +99,10 @@ export function GetSingleDbJoinsSettings({ block }: { block: BlockNode }) {
 	const params = useParams({ strict: false }) as { projectId?: string };
 	const projectId = params?.projectId ?? "";
 	const { connectionId, tableName } = readDbBinding(block);
-	const { tableNames, getColumnsForTable, allColumns } = useDbMetadata(projectId, connectionId);
+	const { tableNames, getColumnsForTable, allColumns, variant } = useDbMetadata(
+		projectId,
+		connectionId,
+	);
 	const tableColumns = getColumnsForTable(tableName);
 	const columnSuggestions = tableColumns.length > 0 ? tableColumns : allColumns;
 
@@ -110,7 +113,11 @@ export function GetSingleDbJoinsSettings({ block }: { block: BlockNode }) {
 				data={block.data}
 				name="joins"
 				label="Table Joins"
-				description="Configure relational table joins for this query."
+				description={
+					variant === "MongoDB"
+						? "MongoDB ignores joins. Only the main collection is queried."
+						: "Configure relational table joins for this query."
+				}
 				emptyMessage="No table joins configured."
 				tableSuggestions={tableNames}
 				columnSuggestions={columnSuggestions}
@@ -217,4 +224,9 @@ export function getSingleDbSettings(block: BlockNode) {
 			<GetSingleDbConditionsSettings block={block} />
 		</BlockSettings.TabHead>,
 	];
+}
+
+/** Count Records: the get-single tabs minus Columns, since only the number comes back */
+export function countDbSettings(block: BlockNode) {
+	return getSingleDbSettings(block).filter((tab) => tab.key !== "columns");
 }

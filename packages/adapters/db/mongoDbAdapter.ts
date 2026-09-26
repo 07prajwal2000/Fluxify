@@ -72,7 +72,7 @@ export class MongoAdapter implements IDbAdapter {
 		return result;
 	}
 
-	// joins are ignored for Mongo (the join UI is hidden when Mongo is selected);
+	// joins are ignored for Mongo (the Joins tab says so when Mongo is selected);
 	// only `columns` applies, as a field projection.
 	async getAll(
 		table: string,
@@ -107,6 +107,12 @@ export class MongoAdapter implements IDbAdapter {
 		const filter = this.buildFilter(conditions);
 		const doc = await this.db.collection(table).findOne(filter, this.findOptions(options));
 		return this.mapDoc(doc);
+	}
+
+	async count(table: string, conditions: DBConditionType[]): Promise<number> {
+		return this.db
+			.collection(table)
+			.countDocuments(this.buildFilter(conditions), this.getOptions());
 	}
 
 	async delete(table: string, conditions: DBConditionType[]): Promise<boolean> {
@@ -328,14 +334,9 @@ export class MongoAdapter implements IDbAdapter {
 			} catch (e) {}
 		}
 
-		const op = this.getMongoOperator(cond.operator);
-
-		// MongoDB natively prefers { _id: ObjectId() } instead of { _id: { $eq: ObjectId() } }
-		if (op === "$eq") {
-			return { [attr]: val };
-		}
-
-		return { [attr]: { [op]: val } };
+		// always an explicit operator: a bare { [attr]: val } lets a value like
+		// { $ne: null } from the request body act as a query and match everything
+		return { [attr]: { [this.getMongoOperator(cond.operator)]: val } };
 	}
 
 	private getMongoOperator(operator: "eq" | "neq" | "gt" | "gte" | "lt" | "lte"): string {

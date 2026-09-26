@@ -113,6 +113,8 @@ export interface IDbAdapter {
 		conditions: DBConditionType[],
 		options?: QueryOptions,
 	): Promise<unknown | null>;
+	/** rows matching the conditions (joins included on SQL, ignored on Mongo) */
+	count(table: string, conditions: DBConditionType[], options?: QueryOptions): Promise<number>;
 	insert(table: string, data: unknown): Promise<any>;
 	/** `useTransaction`: all rows go in or none do; an open transaction is reused either way */
 	insertBulk(table: string, data: unknown[], useTransaction?: boolean): Promise<any>;

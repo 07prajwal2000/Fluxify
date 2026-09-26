@@ -57,6 +57,7 @@ export const BLOCK_ICON_MAP: Record<BlockType, ReactNode> = {
 	[BLOCK_TYPES.httpgetrequestbody]: <MdDataObject size={SIZE} />,
 	[BLOCK_TYPES.db_getsingle]: <TbDatabaseSearch size={SIZE} />,
 	[BLOCK_TYPES.db_exists]: <TbDatabaseExclamation size={SIZE} />,
+	[BLOCK_TYPES.db_count]: <TbDatabaseSearch size={SIZE} />,
 	[BLOCK_TYPES.db_getall]: <TbDatabaseSearch size={SIZE} />,
 	[BLOCK_TYPES.db_insert]: <TbDatabasePlus size={SIZE} />,
 	[BLOCK_TYPES.db_insertbulk]: <TbDatabasePlus size={SIZE} />,

@@ -19,6 +19,7 @@ export enum BlockTypes {
 	arrayops = "arrayops",
 	db_getsingle = "db_getsingle",
 	db_exists = "db_exists",
+	db_count = "db_count",
 	db_getall = "db_getall",
 	db_delete = "db_delete",
 	db_insert = "db_insert",

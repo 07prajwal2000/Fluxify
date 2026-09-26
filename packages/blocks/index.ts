@@ -10,6 +10,7 @@ export * from "./builtin/blockAiDescriptions";
 export * from "./builtin/blockSchemasMap";
 export * from "./builtin/compactSchemas";
 export * from "./builtin/customBlock";
+export * from "./builtin/db/count";
 export * from "./builtin/db/delete";
 export * from "./builtin/db/emitConditions";
 export * from "./builtin/db/exists";
