@@ -110,9 +110,9 @@ db_getall {
 	limit: number | string;  // limit (supports js expressions); default 1000
 	offset: number | string;  // skip count (supports js expressions); default 0
 	sort: {
-		attribute: string;  // sort attribute
-		direction: "asc" | "desc";  // type of sort
-	};  // default {"attribute":"id","direction":"asc"}
+		attribute: string;  // column or JSON path to sort by (supports js expression); 'id' on MongoDB is _id
+		direction: "asc" | "desc";
+	}[];  // ORDER BY entries, first entry sorts first. The table's primary key (_id on MongoDB) is always added last, so rows that tie come back in a fixed order. An entry whose column is undefined at run time is skipped, e.g. "js:getQueryParam('sortBy')".; default []
 }
 
 db_getsingle {
@@ -126,6 +126,10 @@ db_getsingle {
 		type: "inner" | "left" | "right" | "outer";  // type of join; default "inner"
 	}[];  // list of joins; default []
 	columns?: string[];  // list of columns to select with aliases if any (e.g. column1 or table.column2 AS column2 or table.*); default ["*"]
+	sort: {
+		attribute: string;  // column or JSON path to sort by (supports js expression); 'id' on MongoDB is _id
+		direction: "asc" | "desc";
+	}[];  // which row to pick when several match, e.g. newest first: [{ attribute: 'created_at', direction: 'desc' }]. Empty: any matching row. Same rules as db_getall sort.; default []
 }
 
 db_exists {

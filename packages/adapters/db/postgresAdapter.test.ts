@@ -205,7 +205,7 @@ describe("PostgresAdapter Integration Tests", () => {
 			],
 			10,
 			0,
-			{ attribute: "id", direction: "asc" },
+			[{ attribute: "id", direction: "asc" }],
 		)) as any[];
 
 		const filteredUsers = users.filter((u) => u.age > 10 && u.age <= 25);
@@ -223,7 +223,7 @@ describe("PostgresAdapter Integration Tests", () => {
 			],
 			10,
 			0,
-			{ attribute: "id", direction: "asc" },
+			[{ attribute: "id", direction: "asc" }],
 		)) as any[];
 
 		const orFilteredUsers = users.filter((u) => u.age === 5 || u.score >= 40);
@@ -254,10 +254,9 @@ describe("PostgresAdapter Integration Tests", () => {
 
 		const skip = 2,
 			limit = 4;
-		const page = (await adapter.getAll(tableName, [], limit, skip, {
-			attribute: "age",
-			direction: "desc",
-		})) as any[];
+		const page = (await adapter.getAll(tableName, [], limit, skip, [
+			{ attribute: "age", direction: "desc" },
+		])) as any[];
 
 		const sortedUsers = users.sort((a, b) => b.age - a.age);
 		expect(page).toHaveLength(limit);
@@ -378,7 +377,7 @@ describe("PostgresAdapter Integration Tests", () => {
 			await adapter.insert(tableName, { attributes: r });
 		}
 
-		const sortAsc = { attribute: "id" as const, direction: "asc" as const };
+		const sortAsc = [{ attribute: "id" as const, direction: "asc" as const }];
 		// Bun's SQL driver returns jsonb columns as strings on read.
 		const attrs = (r: any) =>
 			typeof r.attributes === "string"
@@ -466,7 +465,7 @@ describe("PostgresAdapter Integration Tests", () => {
 			`INSERT INTO ${books} (id, author_id, title, price) VALUES (1, 1, 'A1', 10), (2, 1, 'A2', 20), (3, 2, 'B1', 30)`,
 		);
 
-		const sortAsc = { attribute: `${books}.id`, direction: "asc" as const };
+		const sortAsc = [{ attribute: `${books}.id`, direction: "asc" as const }];
 
 		// Inner join, qualified condition + aliased column selection.
 		const byAuthor = (await adapter.getAll(

@@ -62,6 +62,32 @@ describe("validateBlockConfigs", () => {
 		]);
 	});
 
+	it("errors on a blank sort column and warns on a repeated one", () => {
+		const cond = { attribute: { kind: "column", value: "id" }, operator: "eq", value: { kind: "literal", value: 1 }, chain: "and" };
+		const data = (sort: unknown) => ({ connection: "c", tableName: "t", conditions: [cond], sort, limit: 10, offset: 0 });
+		const messages = (type: BlockType, sort: unknown) =>
+			blockConfigIssues(type, data(sort)).map((i) => [i.severity, i.message]);
+
+		expect(
+			messages(BLOCK_TYPES.db_getall, [
+				{ attribute: "created_at", direction: "desc" },
+				{ attribute: "", direction: "asc" },
+				{ attribute: "js:", direction: "asc" },
+				{ attribute: "created_at", direction: "asc" },
+			]),
+		).toEqual([
+			["error", "Sort 2 has no column. Pick one or remove it."],
+			["error", "Sort 3 has no column. Pick one or remove it."],
+			["warning", "Sort 4 repeats created_at, so it changes nothing. Remove it."],
+		]);
+		expect(messages(BLOCK_TYPES.db_getsingle, [{ attribute: " ", direction: "asc" }])).toEqual([
+			["error", "Sort 1 has no column. Pick one or remove it."],
+		]);
+		// saved before sort was a list, and no sort at all: both fine
+		expect(messages(BLOCK_TYPES.db_getall, { attribute: "id", direction: "asc" })).toEqual([]);
+		expect(messages(BLOCK_TYPES.db_getall, [])).toEqual([]);
+	});
+
 	it("flags invalid save-output names", () => {
 		const data = { url: "https://x.dev", saveAsVariable: { enabled: true, name: "" } };
 		expect(severities(BLOCK_TYPES.httprequest, data)).toEqual(["error"]);

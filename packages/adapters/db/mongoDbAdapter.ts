@@ -23,6 +23,17 @@ import {
 	textValue,
 } from "./conditions";
 import { isColumnRef, isLiteralRef, isNumericLike, toMongoField } from "./jsonPath";
+import { activeSorts, type DbSort, withTiebreaker } from "./sort";
+
+/** a Mongo sort spec in entry order: `id` means `_id`, and `_id` goes last as the tiebreaker */
+function sortSpec(sort: DbSort[]): Record<string, 1 | -1> {
+	const sorts = activeSorts(sort).map((s) =>
+		s.attribute === "id" ? { ...s, attribute: "_id" } : s,
+	);
+	return Object.fromEntries(
+		withTiebreaker(sorts, ["_id"], "").map((s) => [s.attribute, s.direction === "asc" ? 1 : -1]),
+	);
+}
 
 export class MongoAdapter implements IDbAdapter {
 	public static variant = "MongoDB";
@@ -93,19 +104,16 @@ export class MongoAdapter implements IDbAdapter {
 		conditions: DBConditionType[],
 		limit: number = this.HARD_LIMIT,
 		offset: number = 0,
-		sort: { attribute: string; direction: "asc" | "desc" },
+		sort: DbSort[] = [],
 		options?: QueryOptions,
 	): Promise<unknown[]> {
 		const filter = this.buildFilter(conditions);
 		const l = limit < 0 || limit > this.HARD_LIMIT ? this.HARD_LIMIT : limit;
 
-		const sortAttr = sort.attribute === "id" ? "_id" : sort.attribute;
-		const sortDef = { [sortAttr]: sort.direction === "asc" ? 1 : -1 };
-
 		const docs = await this.db
 			.collection(table)
 			.find(filter, this.findOptions(options))
-			.sort(sortDef as Record<string, 1 | -1>)
+			.sort(sortSpec(sort))
 			.skip(offset)
 			.limit(l)
 			.toArray();
@@ -119,7 +127,11 @@ export class MongoAdapter implements IDbAdapter {
 		options?: QueryOptions,
 	): Promise<unknown | null> {
 		const filter = this.buildFilter(conditions);
-		const doc = await this.db.collection(table).findOne(filter, this.findOptions(options));
+		// unsorted stays unsorted: a sort nobody asked for only costs time
+		const sort = activeSorts(options?.sort).length ? sortSpec(options?.sort ?? []) : undefined;
+		const doc = await this.db
+			.collection(table)
+			.findOne(filter, { ...this.findOptions(options), ...(sort && { sort }) });
 		return this.mapDoc(doc);
 	}
 

@@ -10,14 +10,9 @@ import {
 	type IntrospectedTable,
 } from ".";
 import { applySqlConditions } from "./conditions";
-import {
-	applyColumns,
-	applyJoins,
-	buildQualifiers,
-	type QueryOptions,
-	resolveJsonOperand,
-} from "./jsonPath";
+import { applyColumns, applyJoins, buildQualifiers, type QueryOptions } from "./jsonPath";
 import { BunSqlPostgresDialect } from "./kyselySqlDialect";
+import { activeSorts, applySqlSort, type DbSort, withTiebreaker } from "./sort";
 
 export type FluxifyDatabase = Record<string, Record<string, any>>;
 
@@ -42,10 +37,28 @@ const INTROSPECT_SQL = `
 	ORDER BY c.table_name, c.ordinal_position
 `;
 
+// to_regclass: a missing table (or a view) has no key rather than an error
+const PRIMARY_KEY_SQL = `
+	SELECT a.attname AS column_name
+	FROM pg_index i
+	JOIN pg_attribute a ON a.attrelid = i.indrelid AND a.attnum = ANY(i.indkey)
+	WHERE i.indrelid = to_regclass($1) AND i.indisprimary
+	ORDER BY array_position(i.indkey::int2[], a.attnum)
+`;
+
+/** a table name as to_regclass reads it: each part quoted, so case is kept like Kysely keeps it */
+const regclassName = (table: string) =>
+	table
+		.split(".")
+		.map((part) => `"${part.replaceAll('"', '""')}"`)
+		.join(".");
+
 export class PostgresAdapter implements IDbAdapter {
 	public static variant = "PostgreSQL";
 	private mode: DbAdapterMode = DbAdapterMode.NORMAL;
 	private readonly HARD_LIMIT = 1000;
+	// ponytail: never invalidated, a PK altered at runtime needs a new adapter
+	private readonly primaryKeys = new Map<string, string[]>();
 
 	private reservedConn: Awaited<ReturnType<SQL["reserve"]>> | null = null;
 	private transactionDb: Kysely<FluxifyDatabase> | null = null;
@@ -93,6 +106,18 @@ export class PostgresAdapter implements IDbAdapter {
 		return result.rows;
 	}
 
+	private async primaryKey(table: string): Promise<string[]> {
+		let pk = this.primaryKeys.get(table);
+		if (!pk) {
+			const rows: { column_name: string }[] = await this.raw(PRIMARY_KEY_SQL, [
+				regclassName(table),
+			]);
+			pk = rows.map((r) => r.column_name);
+			this.primaryKeys.set(table, pk);
+		}
+		return pk;
+	}
+
 	async introspect(): Promise<IntrospectedTable[]> {
 		return groupIntrospectionRows(await this.raw(INTROSPECT_SQL));
 	}
@@ -102,7 +127,7 @@ export class PostgresAdapter implements IDbAdapter {
 		conditions: DBConditionType[],
 		limit: number = this.HARD_LIMIT,
 		offset: number = 0,
-		sort: { attribute: string; direction: "asc" | "desc" },
+		sort: DbSort[] = [],
 		options?: QueryOptions,
 	): Promise<any[]> {
 		const conn = this.getConnection();
@@ -111,13 +136,14 @@ export class PostgresAdapter implements IDbAdapter {
 		qb = this.buildQuery(conditions, qb, qualifiers);
 
 		const l = limit < 0 || limit > this.HARD_LIMIT ? this.HARD_LIMIT : limit;
-		const sortExpr = resolveJsonOperand(sort.attribute, false, "postgres", qualifiers);
+		const sorts = await this.withKeys(activeSorts(sort), table, options);
 
-		return applyColumns(qb, options?.columns)
-			.limit(l)
-			.offset(offset)
-			.orderBy(sortExpr as never, sort.direction)
-			.execute();
+		return applySqlSort(
+			applyColumns(qb, options?.columns).limit(l).offset(offset),
+			sorts,
+			"postgres",
+			qualifiers,
+		).execute();
 	}
 
 	async getSingle(
@@ -129,7 +155,21 @@ export class PostgresAdapter implements IDbAdapter {
 		const qualifiers = buildQualifiers(table, options?.joins);
 		let qb = applyJoins(conn.selectFrom(table as never), options?.joins);
 		qb = this.buildQuery(conditions, qb, qualifiers);
-		return (await applyColumns(qb, options?.columns).executeTakeFirst()) ?? null;
+		// unsorted stays unsorted: an ORDER BY nobody asked for only costs time
+		const given = activeSorts(options?.sort);
+		const sorts = given.length ? await this.withKeys(given, table, options) : [];
+		const row = await applySqlSort(
+			applyColumns(qb, options?.columns).limit(1),
+			sorts,
+			"postgres",
+			qualifiers,
+		).executeTakeFirst();
+		return row ?? null;
+	}
+
+	/** the sorts plus the primary key as the last tiebreaker */
+	private async withKeys(sorts: DbSort[], table: string, options?: QueryOptions) {
+		return withTiebreaker(sorts, await this.primaryKey(table), table, !!options?.joins?.length);
 	}
 
 	async count(

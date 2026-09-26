@@ -50,7 +50,12 @@ export type DBJoinType = {
 	type?: "inner" | "left" | "right" | "outer";
 };
 
-export type QueryOptions = { joins?: DBJoinType[]; columns?: string[] };
+/** `sort` is read by getSingle; getAll takes its sort as a parameter */
+export type QueryOptions = {
+	joins?: DBJoinType[];
+	columns?: string[];
+	sort?: { attribute: string; direction: "asc" | "desc" }[];
+};
 
 // The only shape identifiers (table/column/alias) may take. Everything routed
 // into a SQL identifier position is validated against this before it reaches

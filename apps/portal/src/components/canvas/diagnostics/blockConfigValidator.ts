@@ -3,7 +3,7 @@ import { variableNameError } from "@fluxify/blocks/variableName";
 import { BLOCK_TYPES } from "../blocks/blockTypes";
 import { savesOutput } from "../panel/SaveOutputField";
 import type { BlockData, CanvasGraph } from "../types";
-import { dbConditionIssues, isBlank } from "./dbConditionIssues";
+import { dbConditionIssues, dbJoinIssues, dbSortIssues, isBlank } from "./dbConditionIssues";
 import type { BlockDiagnostic, DiagnosticSeverity } from "./types";
 
 export const BLOCK_CONFIG_SOURCE = "block-config";
@@ -29,6 +29,11 @@ const NO_CONDITION_VERB: Record<string, string> = {
 	[BLOCK_TYPES.db_exists]: "matches",
 	[BLOCK_TYPES.db_update]: "updates",
 	[BLOCK_TYPES.db_delete]: "deletes",
+};
+/** the settings tab holding a block's sort list */
+const SORT_TAB: Record<string, string> = {
+	[BLOCK_TYPES.db_getall]: "Pagination",
+	[BLOCK_TYPES.db_getsingle]: "Sort",
 };
 const BODY_METHODS = new Set(["POST", "PUT", "PATCH"]);
 /** a script block's code field and the tab it is edited in */
@@ -134,15 +139,11 @@ function checkDb(type: string, data: BlockData, report: Report) {
 	}
 
 	if (DB_WITH_JOINS.has(type)) {
-		(list(data.joins) as Record<string, unknown>[]).forEach((j, i) => {
-			if (isBlank(j.table) || isBlank(j.attribute)) {
-				report(
-					"warning",
-					`Join ${i + 1} is missing its table or column. Fill it in the Joins tab or remove it.`,
-					"Joins",
-				);
-			}
-		});
+		for (const [severity, message] of dbJoinIssues(list(data.joins)))
+			report(severity, message, "Joins");
+	}
+	for (const [severity, message] of dbSortIssues(SORT_TAB[type] && data.sort)) {
+		report(severity, message, SORT_TAB[type]);
 	}
 	if (type === BLOCK_TYPES.db_getall) {
 		if (isBlank(data.limit))

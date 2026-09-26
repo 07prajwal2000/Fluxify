@@ -2,10 +2,12 @@ import z from "zod";
 import { baseBlockDataSchema, type Context } from "../../baseBlock";
 import { BlockTypes } from "../../blockTypes";
 import type { EmitNode } from "../../compiler";
-import { emitWhereConditions } from "./emitConditions";
+import { emitSort, emitWhereConditions } from "./emitConditions";
 import {
 	adapterFor,
+	type DbSortEntry,
 	dbFailure,
+	dbSortSchema,
 	dbWhereConditionsDescription,
 	joinSchema,
 	whereConditionSchema,
@@ -24,6 +26,9 @@ export const getSingleDbBlockSchema = z
 			.describe(
 				"list of columns to select with aliases if any (e.g. column1 or table.column2 AS column2 or table.*)",
 			),
+		sort: dbSortSchema.describe(
+			"which row to pick when several match, e.g. newest first: [{ attribute: 'created_at', direction: 'desc' }]. Empty: any matching row. Same rules as db_getall sort.",
+		),
 	})
 	.extend(baseBlockDataSchema.shape);
 
@@ -38,7 +43,7 @@ export async function runGetSingleDb(
 	connection: string,
 	tableName: string,
 	conditions: z.infer<typeof whereConditionSchema>[],
-	options: { joins: any[]; columns: string[] },
+	options: { joins: any[]; columns: string[]; sort?: DbSortEntry[] },
 ) {
 	try {
 		return await adapterFor(context, connection).getSingle(tableName, conditions, options);
@@ -50,7 +55,7 @@ export async function runGetSingleDb(
 /** the `lib.dbGetSingle(...)` call expression, shared with the Row Exists block */
 export function emitGetSingleCall(node: EmitNode) {
 	const input = getSingleDbBlockSchema.parse(node.block.data);
-	return `await lib.dbGetSingle(ctx, ${node.value(input.connection)}, ${node.value(input.tableName)}, ${emitWhereConditions(input.conditions, node)}, { joins: ${JSON.stringify(input.joins ?? [])}, columns: ${JSON.stringify(input.columns ?? ["*"])} })`;
+	return `await lib.dbGetSingle(ctx, ${node.value(input.connection)}, ${node.value(input.tableName)}, ${emitWhereConditions(input.conditions, node)}, { joins: ${JSON.stringify(input.joins ?? [])}, columns: ${JSON.stringify(input.columns ?? ["*"])}, sort: ${emitSort(input.sort, node)} })`;
 }
 
 export function emitGetSingleDb(node: EmitNode) {

@@ -98,6 +98,32 @@ export const whereConditionSchema: z.ZodType<WhereCondition> = z.union([
 	}),
 ]);
 
+/**
+ * ORDER BY as a list: the first entry sorts first, the next breaks its ties.
+ * Graphs saved before the list stored one `{ attribute, direction }` object;
+ * that still loads, as a list of one.
+ */
+export const dbSortSchema = z
+	.preprocess(
+		(sort) => (sort && typeof sort === "object" && !Array.isArray(sort) ? [sort] : sort),
+		z.array(
+			z.object({
+				attribute: z
+					.string()
+					.describe(
+						"column or JSON path to sort by (supports js expression); 'id' on MongoDB is _id",
+					),
+				direction: z.enum(["asc", "desc"]),
+			}),
+		),
+	)
+	.default([])
+	.describe(
+		"ORDER BY entries, first entry sorts first. The table's primary key (_id on MongoDB) is always added last, so rows that tie come back in a fixed order. An entry whose column is undefined at run time is skipped, e.g. \"js:getQueryParam('sortBy')\".",
+	);
+
+export type DbSortEntry = z.infer<typeof dbSortSchema>[number];
+
 /** every db block resolves its adapter the same way */
 export function adapterFor(context: Context, connection: string) {
 	return context.dbFactory!.getDbAdapter(connection);

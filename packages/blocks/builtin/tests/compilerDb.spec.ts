@@ -99,7 +99,7 @@ describe("compiled db blocks", () => {
 			{ attribute: { kind: "column", value: "id" }, operator: "eq", value: { kind: "literal", value: 7 }, chain: "and" },
 			{ attribute: { kind: "column", value: "status" }, operator: "neq", value: { kind: "literal", value: "deleted" }, chain: "and" },
 		]);
-		expect(mock.calls[0].args[2]).toEqual({ joins: [], columns: ["id", "name"] });
+		expect(mock.calls[0].args[2]).toEqual({ joins: [], columns: ["id", "name"], sort: [] });
 		expect(result.output.body).toEqual({ id: 7, name: "ada" });
 	});
 
@@ -153,8 +153,54 @@ describe("compiled db blocks", () => {
 		expect(conditions).toEqual([]);
 		expect(limit).toBe(25);
 		expect(offset).toBe(0); // NaN falls back, same as the interpreted block
-		expect(sort).toEqual({ attribute: "id", direction: "desc" });
+		// saved before sort was a list: the single object still loads, as a list of one
+		expect(sort).toEqual([{ attribute: "id", direction: "desc" }]);
 		expect(result.output.body).toEqual([{ id: 1 }]);
+	});
+
+	it("evaluates each sort column, keeping the order and an unsent one as undefined", async () => {
+		const mock = createDbAdapter({ getAll: [] });
+		const target = block("db", BlockTypes.db_getall, {
+			connection: "conn-1",
+			tableName: "users",
+			conditions: [],
+			limit: 10,
+			offset: 0,
+			sort: [
+				{ attribute: "js:return input.sortBy", direction: "desc" },
+				{ attribute: "name", direction: "asc" },
+				{ attribute: "js:return input.missing", direction: "asc" },
+			],
+		});
+
+		await runAround(target, { sortBy: "created_at" }, mock);
+
+		// the adapter skips the undefined entry; the compiler must not drop or reorder
+		expect(mock.calls[0].args[4]).toEqual([
+			{ attribute: "created_at", direction: "desc" },
+			{ attribute: "name", direction: "asc" },
+			{ attribute: undefined, direction: "asc" },
+		]);
+	});
+
+	it("passes the sort list to get single, empty when none is set", async () => {
+		const mock = createDbAdapter({ getSingle: { id: 1 } });
+		const sorted = block("db", BlockTypes.db_getsingle, {
+			connection: "conn-1",
+			tableName: "orders",
+			conditions: [],
+			sort: [{ attribute: "created_at", direction: "desc" }],
+		});
+		await runAround(sorted, {}, mock);
+		expect(mock.calls[0].args[2].sort).toEqual([{ attribute: "created_at", direction: "desc" }]);
+
+		const unsorted = block("db", BlockTypes.db_getsingle, {
+			connection: "conn-1",
+			tableName: "orders",
+			conditions: [],
+		});
+		await runAround(unsorted, {}, mock);
+		expect(mock.calls[1].args[2].sort).toEqual([]);
 	});
 
 	it("passes tagged conditions to get all", async () => {

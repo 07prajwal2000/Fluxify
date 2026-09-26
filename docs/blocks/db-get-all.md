@@ -16,7 +16,7 @@ The **DB Get All** block fetches a list of records from a table. You can filter,
 - **Columns**: Which columns to return (see [Columns](#columns) below). Leave empty to return every column.
 - **Limit**: The maximum number of records to return.
 - **Offset**: The number of records to skip (useful for pagination).
-- **Sort**: Which column to sort by and the direction (ascending/descending).
+- **Sort**: The order of the rows, as a list of columns (see [Sort](#sort) below).
 
 ## Logic
 
@@ -68,6 +68,20 @@ To put brackets somewhere else, use **Add Group**. A group's conditions combine 
 - From above, a group shows a one-line summary and how many of its conditions are still empty.
 - A group works the same way in **DB Get Single**, **DB Update** and **DB Delete**.
 - [Optional filters](#optional-filters) work inside groups: a group whose conditions are all skipped is skipped too, and so is an empty group.
+
+## Sort
+
+**Add sort** adds a row with a column and a direction (**Asc** / **Desc**, click to flip). The top row sorts first; each next row only orders rows that tie on the ones above it. Drag the grip, or use the arrows, to change the order.
+
+| Sort list | Result |
+| --- | --- |
+| `team` Asc, `created_at` Desc | grouped by team; newest first inside each team |
+| `created_at` Desc, `team` Asc | newest first; `team` only matters for rows created at the same moment |
+
+- **Ties never shuffle.** The table's primary key (`_id` on MongoDB) is always added as the last sort, unless it is already in the list. Rows that tie on every column come back in key order every time, so paging with **Offset** never repeats or skips a row.
+- **No sort** means key order. On a table without a primary key (for example a view), the order is up to the database.
+- A column can be a `js:` expression, e.g. `js:getQueryParam('sortBy')`. When it returns `undefined`, that row is **skipped**, so sorting can be optional, just like [optional filters](#optional-filters). A blank column is an error.
+- MongoDB: `id` means `_id`.
 
 ## Filtering nested / JSON fields
 

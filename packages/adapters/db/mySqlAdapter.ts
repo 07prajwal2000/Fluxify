@@ -11,13 +11,8 @@ import {
 	type IntrospectedTable,
 } from ".";
 import { applySqlConditions } from "./conditions";
-import {
-	applyColumns,
-	applyJoins,
-	buildQualifiers,
-	type QueryOptions,
-	resolveJsonOperand,
-} from "./jsonPath";
+import { applyColumns, applyJoins, buildQualifiers, type QueryOptions } from "./jsonPath";
+import { activeSorts, applySqlSort, type DbSort, withTiebreaker } from "./sort";
 
 // A generic schema to satisfy Kysely's strict typing without using 'any'
 type FluxifyDatabase = Record<string, Record<string, any>>;
@@ -107,7 +102,7 @@ export class MySqlAdapter implements IDbAdapter {
 		conditions: DBConditionType[],
 		limit: number = this.HARD_LIMIT,
 		offset: number = 0,
-		sort: { attribute: string; direction: "asc" | "desc" },
+		sort: DbSort[] = [],
 		options?: QueryOptions,
 	): Promise<any[]> {
 		const conn = this.getConnection();
@@ -116,13 +111,14 @@ export class MySqlAdapter implements IDbAdapter {
 		qb = this.buildQuery(conditions, qb, qualifiers);
 
 		const l = limit < 0 || limit > this.HARD_LIMIT ? this.HARD_LIMIT : limit;
-		const sortExpr = resolveJsonOperand(sort.attribute, false, "mysql", qualifiers);
+		const sorts = await this.withKeys(activeSorts(sort), table, options);
 
-		return applyColumns(qb, options?.columns)
-			.limit(l)
-			.offset(offset)
-			.orderBy(sortExpr as never, sort.direction)
-			.execute();
+		return applySqlSort(
+			applyColumns(qb, options?.columns).limit(l).offset(offset),
+			sorts,
+			"mysql",
+			qualifiers,
+		).execute();
 	}
 
 	async getSingle(
@@ -134,7 +130,21 @@ export class MySqlAdapter implements IDbAdapter {
 		const qualifiers = buildQualifiers(table, options?.joins);
 		let qb = applyJoins(conn.selectFrom(table as never), options?.joins);
 		qb = this.buildQuery(conditions, qb, qualifiers);
-		return (await applyColumns(qb, options?.columns).executeTakeFirst()) ?? null;
+		// unsorted stays unsorted: an ORDER BY nobody asked for only costs time
+		const given = activeSorts(options?.sort);
+		const sorts = given.length ? await this.withKeys(given, table, options) : [];
+		const row = await applySqlSort(
+			applyColumns(qb, options?.columns).limit(1),
+			sorts,
+			"mysql",
+			qualifiers,
+		).executeTakeFirst();
+		return row ?? null;
+	}
+
+	/** the sorts plus the primary key as the last tiebreaker */
+	private async withKeys(sorts: DbSort[], table: string, options?: QueryOptions) {
+		return withTiebreaker(sorts, await this.primaryKey(table), table, !!options?.joins?.length);
 	}
 
 	async count(

@@ -20,11 +20,7 @@ import {
 	BlockJsTextField,
 } from "../../fields";
 import { parseDbConditions, readDbBinding, serializeDbConditions } from "./conditions";
-
-type SortConfig = {
-	attribute?: string;
-	direction?: "asc" | "desc";
-};
+import { DbSortList } from "./DbSortList";
 
 function parseColumns(block: BlockNode): string[] {
 	if (Array.isArray(block.data.columns)) {
@@ -38,14 +34,6 @@ function parseJoins(block: BlockNode): unknown[] {
 		return block.data.joins;
 	}
 	return [];
-}
-
-function parseSort(block: BlockNode): { attribute: string; direction: "asc" | "desc" } {
-	const rawSort = block.data.sort as Partial<SortConfig> | undefined;
-	return {
-		attribute: typeof rawSort?.attribute === "string" ? rawSort.attribute : "id",
-		direction: rawSort?.direction === "desc" ? "desc" : "asc",
-	};
 }
 
 /** General tab: Connection selection and Table Name */
@@ -80,34 +68,12 @@ export function GetAllDbGeneralSettings({ block }: { block: BlockNode }) {
 
 /** Pagination tab: Limit, Offset, and Sorting configuration */
 export function GetAllDbPaginationSettings({ block }: { block: BlockNode }) {
-	const { updateNodeData } = useReactFlow();
-	const { enabled: editable } = useCanvasChanges();
 	const params = useParams({ strict: false }) as { projectId?: string };
 	const projectId = params?.projectId ?? "";
 	const { connectionId, tableName } = readDbBinding(block);
 	const { getColumnsForTable, allColumns } = useDbMetadata(projectId, connectionId);
 	const tableColumns = getColumnsForTable(tableName);
 	const columnSuggestions = tableColumns.length > 0 ? tableColumns : allColumns;
-	const sort = parseSort(block);
-
-	const handleSortAttributeChange = (attribute: string) => {
-		updateNodeData(block.id, {
-			sort: {
-				...sort,
-				attribute,
-			},
-		});
-	};
-
-	const handleSortDirectionChange = (direction: string) => {
-		updateNodeData(block.id, {
-			sort: {
-				...sort,
-				direction: direction as "asc" | "desc",
-			},
-		});
-	};
-
 	return (
 		<div className="flex flex-col gap-4 w-full">
 			<div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full">
@@ -128,46 +94,11 @@ export function GetAllDbPaginationSettings({ block }: { block: BlockNode }) {
 					hint="Skip count for pagination (supports js: expression)."
 				/>
 			</div>
-			<div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full">
-				<JsTextField
-					fullWidth
-					variant="secondary"
-					isDisabled={!editable}
-					label="Sort Attribute"
-					description="Column/attribute to sort on (supports js: expression)."
-					placeholder="id"
-					value={sort.attribute}
-					suggestions={columnSuggestions}
-					onChange={handleSortAttributeChange}
-				/>
-				<Select
-					fullWidth
-					variant="secondary"
-					isDisabled={!editable}
-					placeholder="Sort direction"
-					value={sort.direction}
-					onChange={(val) => handleSortDirectionChange(String(val))}
-				>
-					<Label>Sort Direction</Label>
-					<Select.Trigger>
-						<Select.Value />
-						<Select.Indicator />
-					</Select.Trigger>
-					<Description>Direction to sort records by.</Description>
-					<Select.Popover>
-						<ListBox>
-							<ListBox.Item id="asc" textValue="Ascending">
-								Ascending
-								<ListBox.ItemIndicator />
-							</ListBox.Item>
-							<ListBox.Item id="desc" textValue="Descending">
-								Descending
-								<ListBox.ItemIndicator />
-							</ListBox.Item>
-						</ListBox>
-					</Select.Popover>
-				</Select>
-			</div>
+			<DbSortList
+				block={block}
+				columnSuggestions={columnSuggestions}
+				description="The top entry sorts first; each next one orders rows that tie above it. Drag to reorder. The primary key is always added last, so paging never repeats or skips rows. A column set to js: that returns undefined is skipped."
+			/>
 		</div>
 	);
 }

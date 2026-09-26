@@ -13,6 +13,7 @@ import {
 	BlockJsTextField,
 } from "../../fields";
 import { parseDbConditions, readDbBinding, serializeDbConditions } from "./conditions";
+import { DbSortList } from "./DbSortList";
 
 function parseColumns(block: BlockNode): string[] {
 	if (Array.isArray(block.data.columns)) {
@@ -167,6 +168,21 @@ export function GetSingleDbConditionsSettings({ block }: { block: BlockNode }) {
 	);
 }
 
+/** Sort tab: which row to pick when several match */
+export function GetSingleDbSortSettings({ block }: { block: BlockNode }) {
+	const params = useParams({ strict: false }) as { projectId?: string };
+	const { connectionId, tableName } = readDbBinding(block);
+	const { getColumnsForTable, allColumns } = useDbMetadata(params?.projectId ?? "", connectionId);
+	const tableColumns = getColumnsForTable(tableName);
+	return (
+		<DbSortList
+			block={block}
+			columnSuggestions={tableColumns.length > 0 ? tableColumns : allColumns}
+			description="Picks which row comes back when several match, e.g. created_at Desc for the newest. The top entry sorts first; drag to reorder. With no sort, any matching row may come back."
+		/>
+	);
+}
+
 export function getSingleDbSettings(block: BlockNode) {
 	const columnsCount = parseColumns(block).length;
 	const joinsCount = parseJoins(block).length;
@@ -224,10 +240,18 @@ export function getSingleDbSettings(block: BlockNode) {
 		>
 			<GetSingleDbConditionsSettings block={block} />
 		</BlockSettings.TabHead>,
+		<BlockSettings.TabHead key="sort" name="Sort">
+			<GetSingleDbSortSettings block={block} />
+		</BlockSettings.TabHead>,
 	];
 }
 
-/** Count Records: the get-single tabs minus Columns, since only the number comes back */
+/** Row Exists: only asks whether a row matches, so which one (Sort) does not matter */
+export function existsDbSettings(block: BlockNode) {
+	return getSingleDbSettings(block).filter((tab) => tab.key !== "sort");
+}
+
+/** Count Records: the get-single tabs minus Columns and Sort, since only the number comes back */
 export function countDbSettings(block: BlockNode) {
-	return getSingleDbSettings(block).filter((tab) => tab.key !== "columns");
+	return getSingleDbSettings(block).filter((tab) => tab.key !== "columns" && tab.key !== "sort");
 }
