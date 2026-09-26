@@ -2,6 +2,7 @@ import {
 	arrayOperationsBlockSchema,
 	BlockTypes,
 	cloudLogsBlockSchema,
+	countDbBlockSchema,
 	deleteDbBlockSchema,
 	entrypointBlockSchema,
 	errorHandlerBlockSchema,
@@ -146,6 +147,9 @@ export function blockDataValidator(data: CanvasChanges) {
 			case BlockTypes.db_getsingle:
 			case BlockTypes.db_exists:
 				schema = getSingleDbBlockSchema;
+				break;
+			case BlockTypes.db_count:
+				schema = countDbBlockSchema;
 				break;
 			case BlockTypes.db_getall:
 				schema = getAllDbBlockSchema;

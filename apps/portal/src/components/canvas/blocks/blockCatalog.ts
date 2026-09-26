@@ -174,6 +174,12 @@ export const BLOCK_CATALOG: Record<BlockType, BlockDefinition> = {
 		handles: ["target", "success", "failure"],
 		category: "Database",
 	},
+	[BLOCK_TYPES.db_count]: {
+		name: "Count Records",
+		description: "Count the rows matching a filter",
+		handles: STD,
+		category: "Database",
+	},
 	[BLOCK_TYPES.db_getall]: {
 		name: "Get All Records",
 		description: "Fetch every row matching a filter",

@@ -137,6 +137,20 @@ export class MySqlAdapter implements IDbAdapter {
 		return (await applyColumns(qb, options?.columns).executeTakeFirst()) ?? null;
 	}
 
+	async count(
+		table: string,
+		conditions: DBConditionType[],
+		options?: QueryOptions,
+	): Promise<number> {
+		const conn = this.getConnection();
+		const qualifiers = buildQualifiers(table, options?.joins);
+		let qb = applyJoins(conn.selectFrom(table as never), options?.joins);
+		qb = this.buildQuery(conditions, qb, qualifiers);
+		const row = await qb.select((eb) => eb.fn.countAll().as("count")).executeTakeFirst();
+		// COUNT(*) comes back as a bigint string
+		return Number(row?.count ?? 0);
+	}
+
 	async delete(table: string, conditions: DBConditionType[]): Promise<boolean> {
 		const conn = this.getConnection();
 		let qb = conn.deleteFrom(table as never);

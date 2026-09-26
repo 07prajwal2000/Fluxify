@@ -44,6 +44,7 @@ Interact with your data.
 - [**DB Get All**](./db-get-all.md): Fetch multiple records.
 - [**DB Get Single**](./db-get-single.md): Fetch one record.
 - [**DB Row Exists**](./db-row-exists.md): Branch on whether a record exists.
+- [**DB Count**](./db-count.md): Count the records that match a filter.
 - [**DB Insert**](./db-insert.md): Add a new record.
 - [**DB Insert Bulk**](./db-insert-bulk.md): Add multiple records.
 - [**DB Update**](./db-update.md): Modify existing records.

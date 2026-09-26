@@ -8,31 +8,21 @@ import type { BlockDiagnostic, DiagnosticSeverity } from "./types";
 
 export const BLOCK_CONFIG_SOURCE = "block-config";
 
-const DB_TYPES = new Set<string>([
+const DB_READS: string[] = [
 	BLOCK_TYPES.db_getsingle,
 	BLOCK_TYPES.db_exists,
+	BLOCK_TYPES.db_count,
 	BLOCK_TYPES.db_getall,
-	BLOCK_TYPES.db_insert,
-	BLOCK_TYPES.db_insertbulk,
-	BLOCK_TYPES.db_update,
-	BLOCK_TYPES.db_delete,
-	BLOCK_TYPES.db_native,
-	BLOCK_TYPES.db_transaction,
-]);
-const DB_WITH_TABLE = new Set<string>([
-	BLOCK_TYPES.db_getsingle,
-	BLOCK_TYPES.db_exists,
-	BLOCK_TYPES.db_getall,
+];
+const DB_WITH_JOINS = new Set(DB_READS);
+const DB_WITH_TABLE = new Set([
+	...DB_READS,
 	BLOCK_TYPES.db_insert,
 	BLOCK_TYPES.db_insertbulk,
 	BLOCK_TYPES.db_update,
 	BLOCK_TYPES.db_delete,
 ]);
-const DB_WITH_JOINS = new Set<string>([
-	BLOCK_TYPES.db_getsingle,
-	BLOCK_TYPES.db_exists,
-	BLOCK_TYPES.db_getall,
-]);
+const DB_TYPES = new Set([...DB_WITH_TABLE, BLOCK_TYPES.db_native, BLOCK_TYPES.db_transaction]);
 /** what a condition-less db block does to "every row" — getsingle is exempt */
 const NO_CONDITION_VERB: Record<string, string> = {
 	[BLOCK_TYPES.db_getall]: "reads",

@@ -1,5 +1,6 @@
 import type z from "zod";
 import { arrayOperationsBlockSchema } from "./arrayOperations";
+import { countDbBlockSchema } from "./db/count";
 import { deleteDbBlockSchema } from "./db/delete";
 import { getAllDbBlockSchema } from "./db/getAll";
 import { getSingleDbBlockSchema } from "./db/getSingle";
@@ -51,6 +52,7 @@ export const builtinBlockSchemas: Record<string, z.ZodTypeAny> = {
 	arrayops: arrayOperationsBlockSchema,
 	dbgetsingle: getSingleDbBlockSchema,
 	dbexists: getSingleDbBlockSchema,
+	dbcount: countDbBlockSchema,
 	dbgetall: getAllDbBlockSchema,
 	dbdelete: deleteDbBlockSchema,
 	dbinsert: insertDbBlockSchema,
