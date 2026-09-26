@@ -8,6 +8,8 @@ export function isBlank(raw: unknown): boolean {
 	return !(text.startsWith("js:") ? text.slice(3).trim() : text);
 }
 
+const VALUELESS = new Set(["is_null", "is_not_null", "exists", "not_exists"]);
+
 const kindOf = (raw: unknown) =>
 	raw && typeof raw === "object" && "kind" in raw ? raw.kind : undefined;
 
@@ -24,11 +26,13 @@ export function dbConditionIssues(
 	const lhs = c.attribute ?? c.lhs;
 	const rhs = c.value ?? c.rhs;
 	const issues: [DiagnosticSeverity, string][] = [];
-	if (isBlank(lhs) || isBlank(rhs)) {
+	// the null/exists checks have no value to fill
+	const valueless = VALUELESS.has(String(c.operator));
+	if (isBlank(lhs) || (!valueless && isBlank(rhs))) {
 		issues.push(["warning", `Condition ${i + 1} has an empty side. Fill both sides or remove it.`]);
 	}
 	// the block schema rejects this; untagged sides are column (lhs) / value (rhs)
-	if (kindOf(lhs) === "literal" && kindOf(rhs) !== "column") {
+	if (kindOf(lhs) === "literal" && (valueless || kindOf(rhs) !== "column")) {
 		issues.push(["error", `Condition ${i + 1} compares two values. Switch one side to a column.`]);
 	}
 	return issues;

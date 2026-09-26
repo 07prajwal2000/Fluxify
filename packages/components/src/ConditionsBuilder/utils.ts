@@ -1,5 +1,5 @@
 import { isJsExpression } from "../JsTextField";
-import { ALL_OPERATORS } from "./constants";
+import { ALL_OPERATORS, VALUELESS_OPERATORS } from "./constants";
 import type { ColumnRef, Condition, ConditionValue, LiteralRef } from "./types";
 
 export function isColumnRef(value: unknown): value is ColumnRef {
@@ -96,6 +96,8 @@ export function formatConditionsSummary(conditions: Condition[]): string {
 				condStr = `${formatVal(c.lhs)} IS EMPTY`;
 			} else if (c.operator === "is_not_empty") {
 				condStr = `${formatVal(c.lhs)} IS NOT EMPTY`;
+			} else if (VALUELESS_OPERATORS.includes(c.operator)) {
+				condStr = `${formatVal(c.lhs)} ${c.operator.replaceAll("_", " ").toUpperCase()}`;
 			} else {
 				const opSymbol = ALL_OPERATORS.find((op) => op.value === c.operator)?.label || c.operator;
 				condStr = `${formatVal(c.lhs)} ${opSymbol} ${formatVal(c.rhs)}`;

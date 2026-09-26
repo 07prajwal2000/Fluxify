@@ -24,6 +24,34 @@ The **DB Get All** block fetches a list of records from a table. You can filter,
 2.  It applies **Conditions**, **Sort**, **Limit**, and **Offset**.
 3.  It returns the list of matching records, limited to the selected **Columns**, as the output.
 
+## Operators
+
+| Operator | Value | Matches records where the column… |
+| --- | --- | --- |
+| `=` `!=` `>` `>=` `<` `<=` | one value | compares to the value |
+| **in** / **not in** | a list | is / is not one of the values |
+| **contains** / **starts with** / **ends with** | text | contains / starts with / ends with the text, ignoring upper and lower case |
+| **between** | two values: min, max | is between the two, **including both ends** |
+| **is null** / **is not null** | none | has no value / has a value |
+| **exists** / **not exists** | none | has the field at all (MongoDB only) |
+
+**Lists** (for *in*, *not in* and *between*) can be typed as comma-separated text — `active, pending` — or come from an expression that returns an array, such as `js:getRequestBody().ids`. Use an expression when a value itself contains a comma.
+
+- An empty list with **in** matches nothing, and with **not in** matches everything.
+- A list may not contain `null`, and **between** needs exactly two values; either mistake stops the block with an error instead of quietly matching the wrong records. To match empty values, use **is null**.
+- **not in** never matches a record whose value is empty (`null`) — the same on every database. Add an **Or** *is null* condition if you want those too.
+
+**Text** operators treat every character literally: searching for `50%` or `a_b` finds exactly that text, not a pattern.
+
+**Empty values:** `= null` works the same as **is null**, and `!= null` the same as **is not null**.
+
+::: info Database differences
+- **MongoDB:** *is null* also matches documents that don't have the field at all. Use **exists** / **not exists** to tell the two apart.
+- **MongoDB:** *in* compares values exactly as typed, so the text `"7"` does not match the number `7`. Pass numbers from an expression (`js:[7, 10]`) when the field holds numbers. *between* always compares numbers as numbers.
+- **MongoDB:** text operators only match fields that hold text.
+- **MySQL:** whether text matching ignores upper and lower case depends on the column's collation. The default one does. Fields inside JSON always ignore case.
+:::
+
 ## Filtering nested / JSON fields
 
 If a column stores JSON data (for example a Postgres `jsonb` column or a MongoDB document field), you can filter and sort on the values inside it using plain JavaScript-style access:
@@ -58,18 +86,18 @@ The same rule applies to **DB Update** and **DB Delete**. If every condition is 
 
 ## Custom conditions
 
-When the built-in operators are not enough — case-insensitive matching (`ILIKE`), `IN`, `BETWEEN`, JSON or array operators, text search — pick the **Custom** operator and write the condition yourself. The editor follows your connection's database.
+When the [built-in operators](#operators) are not enough — JSON or array operators, regular expressions, full-text search — pick the **Custom** operator and write the condition yourself. The editor follows your connection's database.
 
 ### SQL databases (PostgreSQL, MySQL)
 
 Write any expression that could appear after `WHERE`. Put run-time values inside `{{ }}`:
 
 ```sql
-name ILIKE {{ '%' + getQueryParam('q') + '%' }}
+tags @> {{ input.tags }}
 ```
 
 ```sql
-status IN ({{ input.first }}, {{ input.second }}) AND created_at > NOW() - INTERVAL '7 days'
+created_at > NOW() - INTERVAL '7 days' AND total > {{ input.minTotal }}
 ```
 
 - Whatever is inside `{{ }}` is JavaScript, with the same variables and helpers as any other expression.
@@ -82,11 +110,11 @@ status IN ({{ input.first }}, {{ input.second }}) AND created_at > NOW() - INTER
 Write JavaScript that **returns a MongoDB query filter object** — the same object you would pass to `find()`:
 
 ```js
-return { name: { $regex: getQueryParam("q"), $options: "i" } };
+return { tags: { $all: input.tags } };
 ```
 
 ```js
-return { tags: { $in: input.tags }, age: { $gte: 18 } };
+return { $expr: { $gt: ["$spent", "$budget"] } };
 ```
 
 - Returning `undefined` skips the condition.

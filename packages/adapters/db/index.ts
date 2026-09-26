@@ -1,4 +1,4 @@
-import { operatorSchema } from "@fluxify/lib";
+import { dbOperatorSchema } from "@fluxify/lib";
 import { SQL } from "bun";
 import z from "zod";
 import { type Connection, DbType } from "./connection";
@@ -16,15 +16,16 @@ export const columnRefSchema = z.object({
 /** the mirror tag: a side that holds a value where a column is the default */
 export const literalRefSchema = z.object({
 	kind: z.literal("literal"),
-	value: z.union([z.string(), z.number(), z.boolean()]),
+	value: z.union([z.string(), z.number(), z.boolean(), z.array(z.string()), z.array(z.number())]),
 });
 
 export const structuredWhereConditionSchema = z.object({
 	// untagged: a column, which is what an attribute is by position
 	attribute: z.union([z.string(), columnRefSchema, literalRefSchema]),
-	operator: operatorSchema.exclude(["js", "is_empty", "is_not_empty"]),
-	// untagged: a literal, so a dotted value is never read as a column path
-	value: z.union([z.string(), z.number(), columnRefSchema, literalRefSchema]),
+	operator: dbOperatorSchema,
+	// untagged: a literal, so a dotted value is never read as a column path.
+	// Absent for is_null / is_not_null / exists / not_exists.
+	value: z.union([z.string(), z.number(), columnRefSchema, literalRefSchema]).optional(),
 	chain: z.enum(["and", "or"]),
 });
 

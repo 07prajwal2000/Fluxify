@@ -205,6 +205,11 @@ The pre-commit hook runs `fta-cli --score-cap 70`, which **fails the commit** fo
 3. Two things parameterization does **not** cover: values that are *syntax* for another parser (a `to_tsquery` string is bound safely but can still be a malformed tsquery → a runtime error), and `ilike(col, \`%${k}%\`)`, where user `%`/`_` act as LIKE wildcards. Bound ≠ harmless — bound means "cannot escape the value slot".
 4. Postgres also errors outright on a type mismatch against a typed id column (`uuid = 'auth'`, `serial = 'auth'`). Where the caller swallows errors into `[]`, one ordinary keyword blanks the entire search — an availability bug, so guard id comparisons with a shape check before they reach the query.
 
+### Bun `sql` Stores a JSON String as a jsonb String, Not an Object
+**Issue:** Postgres JSON paths (`profile ->> 'city'`) read `NULL` on every row, even though the column looked filled in.
+**Cause:** With Bun's `sql` tag, `${JSON.stringify(obj)}::jsonb` binds the value as a JSON **string scalar** (`"{\"city\":…}"`), not an object. `->>` on a string returns nothing.
+**Fix:** Cast through text: `${JSON.stringify(obj)}::text::jsonb`. Postgres then parses the text into a real object. Found seeding `testing/e2e/src/seed.ts`.
+
 ### elkjs Cannot Run Under Bun — Layout Lives in `packages/blocks/layout.ts`
 **Issue:** `TypeError: undefined is not a constructor (evaluating 'new _Worker(url)')` from any server-side code that constructs `new ELK()`. Tests pass under Node and fail under Bun.
 **Cause:** elkjs only lays out inside a Web Worker. Its in-process fallback (`elkjs/lib/elk-worker.min.js`) ends in `module.exports = {default: j, Worker: j}`, and Bun's ESM/CJS interop resolves that to an **empty namespace** — so the constructor is `undefined`. `createRequire`, dynamic `import()`, and passing an explicit `workerFactory` are all dead ends; the module genuinely has nothing to hand back.
