@@ -55,8 +55,9 @@ describe("applySqlConditions", () => {
 			rawSql(["name ILIKE ", ""], [undefined], "or"),
 		]);
 
-		expect(sql).toBe(`select * from "users" where "deleted_at" = $1`);
-		expect(parameters).toEqual([null]);
+		// eq null is IS NULL: "= NULL" never matches anything
+		expect(sql).toBe(`select * from "users" where "deleted_at" is null`);
+		expect(parameters).toEqual([]);
 	});
 
 	it("emits no WHERE at all when every condition is skipped", () => {

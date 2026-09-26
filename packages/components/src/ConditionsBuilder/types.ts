@@ -8,6 +8,17 @@ export type ConditionOperator =
 	| "js"
 	| "is_empty"
 	| "is_not_empty"
+	// database-only, see OperatorOption.scope
+	| "in"
+	| "not_in"
+	| "contains"
+	| "starts_with"
+	| "ends_with"
+	| "between"
+	| "is_null"
+	| "is_not_null"
+	| "exists"
+	| "not_exists"
 	/** a hand-written condition, see `Condition.raw` */
 	| "raw";
 

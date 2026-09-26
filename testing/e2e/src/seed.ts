@@ -50,11 +50,41 @@ export const AUTH_USERS = Array.from({ length: 5 }, (_, index) => {
  * that. Grow the one your graph needs.
  */
 
+/**
+ * People for the condition operators (#500). The names are hostile on purpose:
+ * `%`, `_` and `\` are LIKE wildcards/escapes and `+ ( ) [ ] . *` are regex
+ * syntax, so a text match that forgets to escape the user's input matches rows
+ * it should not. Ghost has nothing but a name — NULL on SQL, and on Mongo the
+ * fields are missing altogether, while Grace's nickname is an explicit null.
+ */
+export const PEOPLE = [
+	{ name: "Ada Lovelace", nickname: "ada", age: 36, profile: { city: "London", score: 10 } },
+	{ name: "Grace Hopper", nickname: null, age: 85, profile: { city: "New York", score: 2 } },
+	{ name: "100% Real_Name\\", nickname: "pct", age: 41, profile: { city: "Paris", score: 7 } },
+	{ name: "C++ (dev) [x].*", nickname: "plus", age: 18, profile: { city: "london", score: 7 } },
+	{ name: "Ghost", nickname: null, age: null, profile: null },
+];
+
 export async function seedPostgres(sql: SQL) {
 	await sql`DROP TABLE IF EXISTS orders`;
 	await sql`DROP TABLE IF EXISTS users`;
 	await sql`DROP TABLE IF EXISTS auth_users`;
 	await sql`DROP TABLE IF EXISTS wide`;
+	await sql`DROP TABLE IF EXISTS people`;
+
+	await sql`
+		CREATE TABLE people (
+			id SERIAL PRIMARY KEY,
+			name VARCHAR(255) NOT NULL,
+			nickname VARCHAR(255),
+			age INT,
+			profile JSONB
+		)`;
+	for (const p of PEOPLE) {
+		await sql`
+			INSERT INTO people (name, nickname, age, profile)
+			VALUES (${p.name}, ${p.nickname}, ${p.age}, ${p.profile && JSON.stringify(p.profile)}::text::jsonb)`;
+	}
 
 	// 100 columns: a bulk insert of 1000 rows here would pass Postgres's 65,535 bound-parameter cap
 	await sql.unsafe(
@@ -110,7 +140,23 @@ export async function seedPostgres(sql: SQL) {
  * Only what those graphs touch: `users`, `orders` and `wide`, with the same seed rows.
  */
 export async function seedMysql(pool: MysqlPool) {
-	await pool.query("DROP TABLE IF EXISTS orders, users, wide");
+	await pool.query("DROP TABLE IF EXISTS orders, users, wide, people");
+	await pool.query(`
+		CREATE TABLE people (
+			id INT AUTO_INCREMENT PRIMARY KEY,
+			name VARCHAR(255) NOT NULL,
+			nickname VARCHAR(255),
+			age INT,
+			profile JSON
+		)`);
+	for (const p of PEOPLE) {
+		await pool.query("INSERT INTO people (name, nickname, age, profile) VALUES (?, ?, ?, ?)", [
+			p.name,
+			p.nickname,
+			p.age,
+			p.profile && JSON.stringify(p.profile),
+		]);
+	}
 	await pool.query(`
 		CREATE TABLE users (
 			id INT AUTO_INCREMENT PRIMARY KEY,
@@ -161,6 +207,14 @@ export async function seedMongo(db: Db) {
 	// insertMany stamps _id onto the objects it is given; copy so repeated
 	// resets do not reuse the ids minted by the previous one
 	await db.collection("todos").insertMany(TODOS.map((todo) => ({ ...todo })));
+
+	// Ghost keeps only its name: a missing field is not the same as a null one
+	await db.collection("people").deleteMany({});
+	await db
+		.collection("people")
+		.insertMany(
+			PEOPLE.map((p) => (p.name === "Ghost" ? { name: p.name } : { ...p })),
+		);
 
 	// unique email, so a bulk insert can collide with the seeded document
 	await db.collection("emails").deleteMany({});

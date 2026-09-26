@@ -10,7 +10,12 @@ import {
 	readExpression,
 	writeExpression,
 } from "../JsTextField";
-import { ALL_OPERATORS, type OperatorOption } from "./constants";
+import {
+	ALL_OPERATORS,
+	type OperatorOption,
+	VALUE_PLACEHOLDERS,
+	VALUELESS_OPERATORS,
+} from "./constants";
 import type { Condition, ConditionOperator, ConditionValue, CustomConditionEditor } from "./types";
 import { conditionText, encodeSide, sideIsColumn, toggleSideMode } from "./utils";
 
@@ -21,7 +26,7 @@ const SQL_INFO: FieldInfo = {
 			sent as parameters, and the condition is skipped when one is undefined.
 		</>
 	),
-	example: "name ILIKE {{ '%' + getQueryParam('q') + '%' }}",
+	example: "tags @> {{ input.tags }}",
 };
 const MONGO_INFO: FieldInfo = {
 	content: "Return a MongoDB query filter object; returning undefined skips it.",
@@ -206,13 +211,16 @@ export function ConditionsBuilderRow({
 	const toggleLhsMode = useCallback(() => {
 		onLHSChange(index, toggleSideMode(condition.lhs, "lhs"));
 	}, [condition.lhs, index, onLHSChange]);
-	const hideRhs = condition.operator === "is_empty" || condition.operator === "is_not_empty";
+	const hideRhs = VALUELESS_OPERATORS.includes(condition.operator);
 
 	const availableOperators = useMemo(() => {
 		return ALL_OPERATORS.filter((op) => {
 			if (disableJsConditions && op.value === "js") return false;
 			if (!customConditionEditor && op.value === "raw") return false;
 			if (ignoreOperators.includes(op.value)) return false;
+			// only db blocks set a custom editor, and "js" is the MongoDB one
+			if (op.scope === "db" && !customConditionEditor) return false;
+			if (op.scope === "mongo" && customConditionEditor !== "js") return false;
 			return true;
 		});
 	}, [disableJsConditions, ignoreOperators, customConditionEditor]);
@@ -316,7 +324,7 @@ export function ConditionsBuilderRow({
 							onToggle={toggleLhsMode}
 						/>
 					)}
-					<div className={hideRhs ? "flex-1 min-w-0" : "grid grid-cols-1 w-20 shrink-0"}>
+					<div className={hideRhs ? "flex-1 min-w-0" : "grid grid-cols-1 w-28 shrink-0"}>
 						{operatorSelect}
 					</div>
 					{!hideRhs && (
@@ -327,7 +335,11 @@ export function ConditionsBuilderRow({
 								// a column reference names a field; it is never itself code
 								disableJs={rhsIsColumn}
 								onChange={(val) => onRHSChange(index, encodeSide(val, condition.rhs, "rhs"))}
-								placeholder={rhsIsColumn ? "Column to compare against" : "Right value"}
+								placeholder={
+									rhsIsColumn
+										? "Column to compare against"
+										: (VALUE_PLACEHOLDERS[condition.operator] ?? "Right value")
+								}
 								value={rhsText}
 								// suggesting column names while a literal is being typed only
 								// misleads, so they are offered in column mode alone

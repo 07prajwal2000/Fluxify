@@ -1,3 +1,4 @@
+import type { DbOperator } from "@fluxify/lib";
 import { type ClientSession, type Db, MongoClient, ObjectId } from "mongodb";
 import {
 	type Connection,
@@ -7,7 +8,18 @@ import {
 	type IntrospectedTable,
 	type QueryOptions,
 } from ".";
-import { activeConditions, isRawCondition, rawMongoFilter } from "./conditions";
+import {
+	activeConditions,
+	conditionValue,
+	effectiveOperator,
+	isRawCondition,
+	isValueless,
+	listValue,
+	rangeValue,
+	rawMongoFilter,
+	regexPattern,
+	textValue,
+} from "./conditions";
 import { isColumnRef, isLiteralRef, isNumericLike, toMongoField } from "./jsonPath";
 
 export class MongoAdapter implements IDbAdapter {
@@ -295,10 +307,11 @@ export class MongoAdapter implements IDbAdapter {
 
 	private createExpr(cond: DBConditionType): Record<string, unknown> {
 		if (isRawCondition(cond)) return rawMongoFilter(cond.raw);
+		const operator = effectiveOperator(cond);
 		// ponytail: both of these need $expr on Mongo, which the rest of this
 		// builder isn't shaped for. Rejected loudly rather than silently matching
 		// the literal string "email". Wire $expr here when a graph needs it.
-		if (isColumnRef(cond.value))
+		if (!isValueless(operator) && isColumnRef(cond.value))
 			throw new Error("column references in conditions are not supported on MongoDB");
 		if (isLiteralRef(cond.attribute))
 			throw new Error("literal attributes in conditions are not supported on MongoDB");
@@ -309,37 +322,70 @@ export class MongoAdapter implements IDbAdapter {
 		// "items[0].name" -> "items.0.name"; "id" stays the _id alias.
 		const attr = attribute === "id" ? "_id" : toMongoField(attribute);
 
-		// Explicitly typing as 'unknown' allows us to safely overwrite
-		// the primitive value with a MongoDB ObjectId class instance.
-		let val: unknown = isLiteralRef(cond.value) ? cond.value.value : cond.value;
-
-		// Ordering ops carry numeric intent; coerce numeric-like strings so BSON
-		// compares them as numbers instead of by string ordering. eq/neq stay as
-		// typed so string-field equality keeps working.
-		// ponytail: only ordering ops coerce — flip eq/neq here if a numeric field
-		// is ever queried for equality with a string value.
-		if (
-			typeof val === "string" &&
-			cond.operator !== "eq" &&
-			cond.operator !== "neq" &&
-			isNumericLike(val)
-		) {
-			val = Number(val);
-		}
-
-		if (attr === "_id" && typeof val === "string" && val.length === 24) {
-			try {
-				// Official v6+ pattern for safely converting 24-char hex strings
-				val = ObjectId.createFromHexString(val);
-			} catch (e) {}
-		}
-
 		// always an explicit operator: a bare { [attr]: val } lets a value like
 		// { $ne: null } from the request body act as a query and match everything
-		return { [attr]: { [this.getMongoOperator(cond.operator)]: val } };
+		return { [attr]: this.matchFor(attr, operator, cond) };
 	}
 
-	private getMongoOperator(operator: "eq" | "neq" | "gt" | "gte" | "lt" | "lte"): string {
+	private matchFor(
+		attr: string,
+		operator: DbOperator,
+		cond: Exclude<DBConditionType, { operator: "raw" }>,
+	): Record<string, unknown> {
+		switch (operator) {
+			// { $eq: null } also matches a missing field, like SQL's NULL; exists is the strict check
+			case "is_null":
+				return { $eq: null };
+			case "is_not_null":
+				return { $ne: null };
+			case "exists":
+				return { $exists: true };
+			case "not_exists":
+				return { $exists: false };
+			case "in":
+			case "not_in": {
+				// as typed, like eq: "7" does not match the number 7
+				const list = listValue(conditionValue(cond), operator).map((v) => this.idValue(attr, v));
+				if (operator === "in") return { $in: list };
+				// $nin alone also matches null and missing fields; SQL's NOT IN never
+				// matches NULL, and one graph must answer the same on every database
+				return { $nin: list, $ne: null };
+			}
+			case "between": {
+				const [min, max] = rangeValue(conditionValue(cond)).map(numericIntent);
+				return { $gte: min, $lte: max };
+			}
+			case "contains":
+			case "starts_with":
+			case "ends_with":
+				return {
+					$regex: regexPattern(operator, textValue(conditionValue(cond), operator)),
+					$options: "i",
+				};
+			default: {
+				// Ordering ops carry numeric intent; eq/neq stay as typed so
+				// string-field equality keeps working.
+				// ponytail: only ordering ops coerce — flip eq/neq here if a numeric
+				// field is ever queried for equality with a string value.
+				const val = isLiteralRef(cond.value) ? cond.value.value : cond.value;
+				const typed = operator === "eq" || operator === "neq" ? val : numericIntent(val);
+				return { [this.getMongoOperator(operator)]: this.idValue(attr, typed) };
+			}
+		}
+	}
+
+	/** a 24-char hex string compared against _id is an ObjectId */
+	private idValue(attr: string, val: unknown) {
+		if (attr !== "_id" || typeof val !== "string" || val.length !== 24) return val;
+		try {
+			// Official v6+ pattern for safely converting 24-char hex strings
+			return ObjectId.createFromHexString(val);
+		} catch {
+			return val;
+		}
+	}
+
+	private getMongoOperator(operator: string): string {
 		const map: Record<string, string> = {
 			eq: "$eq",
 			neq: "$ne",
@@ -351,6 +397,10 @@ export class MongoAdapter implements IDbAdapter {
 		return map[operator] ?? "$eq";
 	}
 }
+
+/** a numeric-like string compared by order means a number, so BSON doesn't compare it as text */
+const numericIntent = (val: unknown) =>
+	typeof val === "string" && isNumericLike(val) ? Number(val) : val;
 
 /** a standalone mongod refuses any transaction with IllegalOperation (code 20) */
 export function isTransactionUnsupported(error: unknown): boolean {

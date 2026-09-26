@@ -43,11 +43,11 @@ Connect to a MongoDB database. Collections take the place of tables, and the sam
 
 ## Custom conditions
 
-The DB Get All, Get Single, Update and Delete blocks can use a **Custom** condition when the built-in operators are not enough. What you write depends on the database:
+The DB Get All, Get Single, Update and Delete blocks can use a **Custom** condition when the [built-in operators](/blocks/db-get-all#operators) (in, contains, between, is null, …) are not enough. What you write depends on the database:
 
 | Database | You write | Example |
 | --- | --- | --- |
-| PostgreSQL, MySQL | SQL, with run-time values in `{{ }}` | `name ILIKE {{ '%' + getQueryParam('q') + '%' }}` |
-| MongoDB | JavaScript returning a [query filter object](https://www.mongodb.com/docs/manual/tutorial/query-documents/) | `return { name: { $regex: getQueryParam("q") } }` |
+| PostgreSQL, MySQL | SQL, with run-time values in `{{ }}` | `tags @> {{ input.tags }}` |
+| MongoDB | JavaScript returning a [query filter object](https://www.mongodb.com/docs/manual/tutorial/query-documents/) | `return { tags: { $all: input.tags } }` |
 
 See [Custom conditions](/blocks/db-get-all#custom-conditions) for the details.

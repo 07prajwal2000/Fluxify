@@ -1,4 +1,4 @@
-import { operatorSchema } from "@fluxify/lib";
+import { DB_VALUELESS_OPERATORS, dbOperatorSchema } from "@fluxify/lib";
 import z from "zod";
 import type { Context } from "../../baseBlock";
 import type { EmitNode } from "../../compiler";
@@ -16,11 +16,13 @@ export const columnRefSchema = z.object({
 
 export const literalRefSchema = z.object({
 	kind: z.literal("literal"),
-	value: z.union([z.string(), z.number(), z.boolean()]).describe("value to compare against"),
+	value: z
+		.union([z.string(), z.number(), z.boolean(), z.array(z.string()), z.array(z.number())])
+		.describe("value to compare against; a list for in / not_in / between"),
 });
 
 export const dbWhereConditionsDescription =
-	"Database WHERE clause. Always emit an array of condition objects; never emit plain strings or if-block conditions. Structured condition: attribute and value are tagged objects, e.g. { attribute: { kind: 'column', value: 'status' }, operator: 'eq', value: { kind: 'literal', value: 'active' }, chain: 'and' }. When the fixed operators cannot express it (ILIKE, IN, BETWEEN, JSON/array operators, $regex...), use a custom condition: { operator: 'raw', raw, chain } — see the raw field. A condition whose value is undefined at run time is skipped (null is kept), so optional filters need no branching: value { kind: 'literal', value: \"js:getQueryParam('status')\" } filters only when the query param was sent.";
+	"Database WHERE clause. Always emit an array of condition objects; never emit plain strings or if-block conditions. Structured condition: attribute and value are tagged objects, e.g. { attribute: { kind: 'column', value: 'status' }, operator: 'eq', value: { kind: 'literal', value: 'active' }, chain: 'and' }. Lists: { operator: 'in', value: { kind: 'literal', value: \"js:return getRequestBody().ids\" } } (or 'a,b,c' text); between takes [min, max]; is_null / is_not_null take no value. When the fixed operators cannot express it (JSON/array operators, full-text search...), use a custom condition: { operator: 'raw', raw, chain } — see the raw field. A condition whose value is undefined at run time is skipped (null is kept), so optional filters need no branching: value { kind: 'literal', value: \"js:getQueryParam('status')\" } filters only when the query param was sent.";
 
 export const dbConditionSideSchema = z.discriminatedUnion("kind", [
 	columnRefSchema,
@@ -34,7 +36,7 @@ export const rawWhereConditionSchema = z.object({
 	raw: z
 		.string()
 		.describe(
-			"SQL databases (PostgreSQL, MySQL): a boolean SQL expression. Put run-time values in {{ }} — each is a JS expression sent as a bound parameter, never pasted into the SQL, e.g. \"name ILIKE {{ '%' + getQueryParam('q') + '%' }}\" or \"status IN ({{ input.a }}, {{ input.b }})\". The condition is skipped when any {{ }} value is undefined. MongoDB: 'js:' code returning a MongoDB query filter object, e.g. \"js:return { name: { $regex: getQueryParam('q'), $options: 'i' } }\"; returning undefined skips it.",
+			"SQL databases (PostgreSQL, MySQL): a boolean SQL expression. Put run-time values in {{ }} — each is a JS expression sent as a bound parameter, never pasted into the SQL, e.g. \"tags @> {{ input.tags }}\" — for a list of values use the in operator instead. The condition is skipped when any {{ }} value is undefined. MongoDB: 'js:' code returning a MongoDB query filter object, e.g. \"js:return { name: { $regex: getQueryParam('q'), $options: 'i' } }\"; returning undefined skips it.",
 		),
 	chain: z.enum(["and", "or"]).describe("How this condition joins to next WHERE condition."),
 });
@@ -44,16 +46,27 @@ const structuredWhereConditionSchema = z
 		attribute: dbConditionSideSchema.describe(
 			"Required DB condition-side object: { kind: 'column', value: 'table.column' } or { kind: 'literal', value }. Never a bare string or number.",
 		),
-		operator: operatorSchema
-			.exclude(["js", "is_empty", "is_not_empty"])
-			.describe("Database comparison operator, for example eq, neq, gt, gte, lt, lte."),
-		value: dbConditionSideSchema.describe(
-			"Required DB condition-side object: { kind: 'literal', value } or { kind: 'column', value: 'table.column' }. Never a bare string or number.",
-		),
+		operator: dbOperatorSchema,
+		value: dbConditionSideSchema
+			.optional()
+			.describe(
+				"DB condition-side object: { kind: 'literal', value } or { kind: 'column', value: 'table.column' }. Never a bare string or number. Leave out for is_null / is_not_null / exists / not_exists.",
+			),
 		chain: z.enum(["and", "or"]).describe("How this condition joins to next WHERE condition."),
 	})
 	.superRefine((condition, context) => {
-		if (condition.attribute.kind === "literal" && condition.value.kind === "literal") {
+		const valueless = (DB_VALUELESS_OPERATORS as readonly string[]).includes(condition.operator);
+		if (!valueless && !condition.value) {
+			context.addIssue({
+				code: "custom",
+				message: `The ${condition.operator} operator needs a value.`,
+				path: ["value"],
+			});
+		}
+		if (
+			condition.attribute.kind === "literal" &&
+			(valueless || condition.value?.kind !== "column")
+		) {
 			context.addIssue({
 				code: "custom",
 				message: "A database WHERE condition must reference at least one column.",
