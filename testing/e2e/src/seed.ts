@@ -71,6 +71,11 @@ export async function seedPostgres(sql: SQL) {
 	await sql`DROP TABLE IF EXISTS auth_users`;
 	await sql`DROP TABLE IF EXISTS wide`;
 	await sql`DROP TABLE IF EXISTS people`;
+	await sql`DROP TABLE IF EXISTS counters`;
+
+	// inc/dec (#501): a number that concurrent runs add to, unique by name for upserts
+	await sql`CREATE TABLE counters (id SERIAL PRIMARY KEY, name VARCHAR(64) NOT NULL UNIQUE, hits INT NOT NULL DEFAULT 0)`;
+	await sql`INSERT INTO counters (name, hits) VALUES ('views', 5)`;
 
 	await sql`
 		CREATE TABLE people (
@@ -141,7 +146,11 @@ export async function seedPostgres(sql: SQL) {
  * Only what those graphs touch: `users`, `orders` and `wide`, with the same seed rows.
  */
 export async function seedMysql(pool: MysqlPool) {
-	await pool.query("DROP TABLE IF EXISTS orders, users, wide, people");
+	await pool.query("DROP TABLE IF EXISTS orders, users, wide, people, counters");
+	await pool.query(
+		"CREATE TABLE counters (id INT AUTO_INCREMENT PRIMARY KEY, name VARCHAR(64) NOT NULL UNIQUE, hits INT NOT NULL DEFAULT 0)",
+	);
+	await pool.query("INSERT INTO counters (name, hits) VALUES ('views', 5)");
 	await pool.query(`
 		CREATE TABLE people (
 			id INT AUTO_INCREMENT PRIMARY KEY,
@@ -223,4 +232,8 @@ export async function seedMongo(db: Db) {
 	await db.collection("emails").deleteMany({});
 	await db.collection("emails").createIndex({ email: 1 }, { unique: true });
 	await db.collection("emails").insertOne({ name: "Ada", email: "ada@example.com" });
+
+	await db.collection("counters").deleteMany({});
+	await db.collection("counters").createIndex({ name: 1 }, { unique: true });
+	await db.collection("counters").insertOne({ name: "views", hits: 5 });
 }

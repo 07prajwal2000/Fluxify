@@ -59,6 +59,7 @@ export const whereConditionSchema: z.ZodType<DBConditionType> = z.union([
 	}),
 ]);
 
+export * from "./counter";
 export type { DBJoinType, QueryOptions } from "./jsonPath";
 export type { DbSort } from "./sort";
 export * from "./upsert";

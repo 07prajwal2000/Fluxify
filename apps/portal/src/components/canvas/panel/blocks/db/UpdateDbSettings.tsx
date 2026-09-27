@@ -141,10 +141,11 @@ export function UpdateDbDataSettings({ block }: { block: BlockNode }) {
 					<JsonEditor
 						rootType="object"
 						allowExpressions={true}
+						counters={true}
 						isDisabled={!editable}
 						isReadOnly={!editable}
 						label="Record Fields"
-						description="Define key-value pairs of fields to update. Values support js: expressions."
+						description="Define key-value pairs of fields to update. Values support js: expressions. Increment / Decrement add to the stored number, safe when requests overlap."
 						value={rawObject}
 						onChange={(val) => handleRawChange(val as JsonObject)}
 					/>
@@ -153,7 +154,8 @@ export function UpdateDbDataSettings({ block }: { block: BlockNode }) {
 				<div className="flex flex-col gap-1.5 w-full">
 					<Label className="text-sm font-medium">JavaScript Code</Label>
 					<Description className="text-xs text-muted">
-						Return a single object of fields to update in the database.
+						Return a single object of fields to update in the database. To add to a number, return
+						{'{ points: { op: "inc", value: 10 } }'} (or "dec").
 					</Description>
 					<JavaScriptTextArea
 						expandable

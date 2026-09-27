@@ -6,7 +6,7 @@ import { JsonArrayEditor } from "./JsonArrayEditor";
 import { JsonObjectEditor } from "./JsonObjectEditor";
 import { JsonTypeSelect } from "./JsonTypeSelect";
 import type { JsonValue } from "./types";
-import { createDefaultJsonValue, getJsonValueType } from "./utils";
+import { createDefaultJsonValue, getJsonValueType, isCounterValue } from "./utils";
 
 interface JsonValueEditorProps {
 	value: JsonValue;
@@ -15,6 +15,8 @@ interface JsonValueEditorProps {
 	allowExpressions: boolean;
 	depth: number;
 	showTypeSelect?: boolean;
+	/** a top-level field of a `counters` editor */
+	counters?: boolean;
 }
 
 export function JsonValueEditor({
@@ -24,17 +26,44 @@ export function JsonValueEditor({
 	allowExpressions,
 	depth,
 	showTypeSelect = true,
+	counters = false,
 }: JsonValueEditorProps) {
-	const valueType = getJsonValueType(value);
+	const valueType = getJsonValueType(value, counters);
 
 	const typeSelect = (
 		<JsonTypeSelect
 			className="w-full sm:w-32 sm:shrink-0"
 			isDisabled={isReadOnly}
+			counters={counters}
 			onChange={(nextType) => onChange(createDefaultJsonValue(nextType))}
 			value={valueType}
 		/>
 	);
+
+	if (counters && isCounterValue(value)) {
+		return (
+			<div className="flex min-w-0 flex-col gap-2 sm:flex-row">
+				<div className="min-w-0 flex-1">
+					<JsTextField
+						fullWidth
+						disableJs={!allowExpressions}
+						isDisabled={isReadOnly}
+						// a number is stored as one; anything else (a js: expression) as text
+						onChange={(text) => {
+							const amount = Number(text);
+							onChange({
+								op: value.op,
+								value: text.trim() !== "" && Number.isFinite(amount) ? amount : text,
+							});
+						}}
+						placeholder={value.op === "inc" ? "Amount to add" : "Amount to subtract"}
+						value={String(value.value)}
+					/>
+				</div>
+				{showTypeSelect && typeSelect}
+			</div>
+		);
+	}
 
 	if (
 		valueType === "object" &&

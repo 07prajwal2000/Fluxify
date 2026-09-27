@@ -169,7 +169,7 @@ db_insert {
 	onConflict?: {
 		target: string[];  // unique column(s) to match on. PostgreSQL needs a unique index or constraint on exactly these; MySQL matches on any unique key and uses these to read the rows back; MongoDB builds the filter from them
 		action: "update" | "ignore";  // update: overwrite the existing row (upsert). ignore: skip the duplicate without an error; a skipped row is left out of the result (null for a single insert). MySQL ignore reads the existing keys first, one extra query
-		update?: string[];  // columns to overwrite on update; left out means every inserted column except target
+		update?: string[];  // columns to overwrite on update; left out means every inserted column except target. A column whose value is { op: 'inc' | 'dec', value: number } is added to instead of overwritten; a new row starts at the amount (dec: its negative)
 	};  // insert, or update/skip when a row with the same target already exists. Left out: a plain insert
 }
 
@@ -185,7 +185,7 @@ db_insertbulk {
 	onConflict?: {
 		target: string[];  // unique column(s) to match on. PostgreSQL needs a unique index or constraint on exactly these; MySQL matches on any unique key and uses these to read the rows back; MongoDB builds the filter from them
 		action: "update" | "ignore";  // update: overwrite the existing row (upsert). ignore: skip the duplicate without an error; a skipped row is left out of the result (null for a single insert). MySQL ignore reads the existing keys first, one extra query
-		update?: string[];  // columns to overwrite on update; left out means every inserted column except target
+		update?: string[];  // columns to overwrite on update; left out means every inserted column except target. A column whose value is { op: 'inc' | 'dec', value: number } is added to instead of overwritten; a new row starts at the amount (dec: its negative)
 	};  // insert, or update/skip rows whose target already exists. Left out: a plain insert. PostgreSQL rejects two rows with the same target in one bulk update ('cannot affect row a second time'); MySQL and MongoDB apply them in order
 }
 
@@ -209,7 +209,7 @@ db_update {
 	conditions: DbWhereCondition[];  // Database WHERE clause. Always emit an array of condition objects; never emit plain strings or if-block conditions. Structured condition: attribute and value are tagged objects, e.g. { attribute: { kind: 'column', value: 'status' }, operator: 'eq', value: { kind: 'literal', value: 'active' }, chain: 'and' }. Lists: { operator: 'in', value: { kind: 'literal', value: "js:return getRequestBody().ids" } } (or 'a,b,c' text); between takes [min, max]; is_null / is_not_null take no value. Conditions combine strictly left to right (no AND-before-OR), so when mixing and/or use a group for brackets: a AND (b OR c) is [a, { group: [b, c with chain 'or'], chain: 'and' }]; groups nest. When the fixed operators cannot express it (JSON/array operators, full-text search...), use a custom condition: { operator: 'raw', raw, chain } — see the raw field. A condition whose value is undefined at run time is skipped (null is kept), so optional filters need no branching: value { kind: 'literal', value: "js:getQueryParam('status')" } filters only when the query param was sent. A group whose conditions are all skipped is skipped too.
 	data: {
 		source: "raw" | "js";  // source of the value
-		value: object | string;
+		value: object | string;  // columns to set; a column value can be { op: "inc" | "dec", value: number } to add to / subtract from what the database holds, safe when runs overlap, e.g. { "points": { "op": "inc", "value": 10 } }; value may be a js expression but must evaluate to a number
 	};
 	useParam: boolean;  // use parameter
 }

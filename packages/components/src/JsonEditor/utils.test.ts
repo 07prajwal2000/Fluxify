@@ -46,3 +46,14 @@ describe("JSON editor utilities", () => {
 	});
 });
 
+
+describe("counter values", () => {
+	it("reads { op, value } as increment / decrement only when counters are on", () => {
+		const inc = createDefaultJsonValue("increment");
+		expect(inc).toEqual({ op: "inc", value: 1 });
+		expect(getJsonValueType(inc, true)).toBe("increment");
+		expect(getJsonValueType({ op: "dec", value: "js:return 2;" }, true)).toBe("decrement");
+		expect(getJsonValueType(inc)).toBe("object");
+		expect(getJsonValueType({ op: "inc", value: 1, x: 1 }, true)).toBe("object");
+	});
+});

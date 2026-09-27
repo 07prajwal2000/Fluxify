@@ -10,6 +10,8 @@ import {
 	type IDbAdapter,
 	type IntrospectedTable,
 	type OnConflict,
+	sqlCounterSet,
+	upsertRows,
 } from ".";
 import { applySqlConditions } from "./conditions";
 import { applyColumns, applyJoins, buildQualifiers, type QueryOptions } from "./jsonPath";
@@ -202,8 +204,9 @@ export class PostgresAdapter implements IDbAdapter {
 
 	async insert(table: string, data: any, onConflict?: OnConflict): Promise<any> {
 		const conn = this.getConnection();
-		const qb = conn.insertInto(table as never).values(data as never);
-		const res = await withConflict(qb, [data], onConflict)
+		const { rows, counters } = upsertRows([data], onConflict);
+		const qb = conn.insertInto(table as never).values(rows[0] as never);
+		const res = await withConflict(qb, table, rows, counters, onConflict)
 			.returningAll()
 			.execute()
 			.catch((e) => explainConflict(e, table, onConflict));
@@ -219,13 +222,14 @@ export class PostgresAdapter implements IDbAdapter {
 	): Promise<any[]> {
 		if (!data || data.length === 0) return [];
 
+		const { rows, counters } = upsertRows(data, onConflict);
 		const insertChunks = async (conn: Kysely<FluxifyDatabase>) => {
-			const chunkSize = bulkChunkSize(data);
+			const chunkSize = bulkChunkSize(rows);
 			const results: any[] = [];
-			for (let i = 0; i < data.length; i += chunkSize) {
-				const chunk = data.slice(i, i + chunkSize);
+			for (let i = 0; i < rows.length; i += chunkSize) {
+				const chunk = rows.slice(i, i + chunkSize);
 				const qb = conn.insertInto(table as never).values(chunk as never);
-				const res = await withConflict(qb, chunk, onConflict)
+				const res = await withConflict(qb, table, chunk, counters, onConflict)
 					.returningAll()
 					.execute()
 					.catch((e) => explainConflict(e, table, onConflict));
@@ -259,7 +263,7 @@ export class PostgresAdapter implements IDbAdapter {
 
 	async update(table: string, data: any, conditions: DBConditionType[]): Promise<any> {
 		const conn = this.getConnection();
-		let qb = conn.updateTable(table as never).set(data as never);
+		let qb = conn.updateTable(table as never).set(sqlCounterSet(data) as never);
 		qb = this.buildQuery(conditions, qb);
 		return qb.returningAll().execute();
 	}
@@ -333,11 +337,13 @@ export class PostgresAdapter implements IDbAdapter {
 
 /**
  * ON CONFLICT (target) DO UPDATE / DO NOTHING. Nothing left to update still returns the
- * existing row: the target is set to itself.
+ * existing row: the target is set to itself. A counter adds the incoming amount to the row's.
  */
 function withConflict<B extends InsertQueryBuilder<any, any, any>>(
 	qb: B,
+	table: string,
 	rows: object[],
+	counters: string[],
 	onConflict?: OnConflict,
 ): B {
 	if (!onConflict) return qb;
@@ -347,7 +353,14 @@ function withConflict<B extends InsertQueryBuilder<any, any, any>>(
 		const columns = conflictUpdateColumns(rows, onConflict);
 		const set = columns.length ? columns : onConflict.target.slice(0, 1);
 		return on.doUpdateSet(
-			Object.fromEntries(set.map((c) => [c, sql.ref(`excluded.${c}`)])) as never,
+			Object.fromEntries(
+				set.map((c) => [
+					c,
+					counters.includes(c)
+						? sql`${sql.ref(`${table}.${c}`)} + ${sql.ref(`excluded.${c}`)}`
+						: sql.ref(`excluded.${c}`),
+				]),
+			) as never,
 		);
 	}) as B;
 }

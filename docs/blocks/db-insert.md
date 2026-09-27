@@ -33,6 +33,8 @@ Turn on **On conflict** to "insert this row, or update it if it already exists" 
     - **Skip it**: Leaves the existing row alone. The block returns `null`, so the next blocks can tell a duplicate was skipped.
 - **Columns to update**: Which columns to overwrite. Leave empty to overwrite every inserted column except the ones in **Match on**.
 
+A column can also [increment or decrement](./db-update.md#increment-and-decrement) on update, e.g. `{ "riderId": 7, "deliveries": { "op": "inc", "value": 1 } }`. A new row starts at the amount (for `dec`, its negative).
+
 Example: with **Match on** `email`, inserting `{ "email": "ada@example.com", "name": "Ada King" }` renames Ada if she exists, or adds her if she does not.
 
 ::: warning Every database needs a unique column

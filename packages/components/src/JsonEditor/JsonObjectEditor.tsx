@@ -19,6 +19,8 @@ interface JsonObjectEditorProps {
 	isReadOnly: boolean;
 	allowExpressions: boolean;
 	depth: number;
+	/** offer Increment / Decrement on this object's fields (the root of a `counters` editor) */
+	counters?: boolean;
 }
 
 interface ObjectKeyFieldProps {
@@ -85,6 +87,7 @@ export function JsonObjectEditor({
 	isReadOnly,
 	allowExpressions,
 	depth,
+	counters = false,
 }: JsonObjectEditorProps) {
 	const [newKey, setNewKey] = useState("");
 	const [newValueType, setNewValueType] = useState<JsonValueType>("string");
@@ -112,7 +115,7 @@ export function JsonObjectEditor({
 				<p className="py-2 text-center text-xs text-muted">No fields yet.</p>
 			)}
 			{Object.entries(value).map(([key, entryValue]) => {
-				const valueType = getJsonValueType(entryValue);
+				const valueType = getJsonValueType(entryValue, counters);
 				const isCollection = valueType === "object" || valueType === "array";
 				const deleteButton = !isReadOnly ? (
 					<DeleteIconButton
@@ -150,6 +153,7 @@ export function JsonObjectEditor({
 									</span>
 									<JsonTypeSelect
 										ariaLabel={`Type for ${key}`}
+										counters={counters}
 										isDisabled={isReadOnly}
 										onChange={(nextType) => updateEntry(key, createDefaultJsonValue(nextType))}
 										value={valueType}
@@ -190,10 +194,12 @@ export function JsonObjectEditor({
 									isReadOnly={isReadOnly}
 									onChange={(nextValue) => updateEntry(key, nextValue)}
 									showTypeSelect={false}
+									counters={counters}
 									value={entryValue}
 								/>
 								<JsonTypeSelect
 									ariaLabel={`Type for ${key}`}
+									counters={counters}
 									isDisabled={isReadOnly}
 									onChange={(nextType) => updateEntry(key, createDefaultJsonValue(nextType))}
 									value={valueType}
@@ -235,6 +241,7 @@ export function JsonObjectEditor({
 						</TextField>
 						<JsonTypeSelect
 							ariaLabel="New field type"
+							counters={counters}
 							onChange={setNewValueType}
 							value={newValueType}
 						/>

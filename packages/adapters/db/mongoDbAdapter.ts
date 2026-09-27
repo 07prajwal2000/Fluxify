@@ -23,6 +23,7 @@ import {
 	regexPattern,
 	textValue,
 } from "./conditions";
+import { mongoCounterUpdate } from "./counter";
 import { isColumnRef, isLiteralRef, isNumericLike, toMongoField } from "./jsonPath";
 import { activeSorts, type DbSort, singleRow, withTiebreaker } from "./sort";
 import { mongoUpsertOps } from "./upsert";
@@ -257,7 +258,7 @@ export class MongoAdapter implements IDbAdapter {
 
 			await this.db
 				.collection(table)
-				.updateMany({ _id: { $in: ids } }, { $set: cleanData }, this.getOptions());
+				.updateMany({ _id: { $in: ids } }, mongoCounterUpdate(cleanData), this.getOptions());
 		}
 
 		const updatedDocs = await this.db

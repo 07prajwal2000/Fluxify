@@ -152,7 +152,7 @@ export const onConflictSchema = z
 			.min(1)
 			.optional()
 			.describe(
-				"columns to overwrite on update; left out means every inserted column except target",
+				"columns to overwrite on update; left out means every inserted column except target. A column whose value is { op: 'inc' | 'dec', value: number } is added to instead of overwritten; a new row starts at the amount (dec: its negative)",
 			),
 	})
 	.optional()

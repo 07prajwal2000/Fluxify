@@ -10,7 +10,16 @@ export type JsonArray = JsonValue[];
 
 export type JsonContainer = JsonObject | JsonArray;
 
-export type JsonValueType = "string" | "number" | "boolean" | "object" | "array" | "null";
+export type JsonValueType =
+	| "string"
+	| "number"
+	| "boolean"
+	| "object"
+	| "array"
+	| "null"
+	/** `{ op: "inc" | "dec", value }`, offered only where `counters` is on */
+	| "increment"
+	| "decrement";
 
 export type JsonRootType = Extract<JsonValueType, "object" | "array">;
 
@@ -34,6 +43,11 @@ export interface JsonEditorBaseProps {
 	isReadOnly?: boolean;
 	/** Enables the existing `js:` expression convention for string values. Defaults to true. */
 	allowExpressions?: boolean;
+	/**
+	 * Adds Increment / Decrement types to the top-level fields: the value becomes
+	 * `{ op: "inc" | "dec", value }`, which the database blocks add atomically.
+	 */
+	counters?: boolean;
 	/** Enables the structured/preview tabs. */
 	showPreview?: boolean;
 	className?: string;

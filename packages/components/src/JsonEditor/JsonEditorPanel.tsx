@@ -13,6 +13,7 @@ interface JsonEditorPanelProps {
 	isReadOnly: boolean;
 	allowExpressions: boolean;
 	showPreview: boolean;
+	counters?: boolean;
 }
 
 export function JsonEditorPanel({
@@ -21,6 +22,7 @@ export function JsonEditorPanel({
 	isReadOnly,
 	allowExpressions,
 	showPreview,
+	counters,
 }: JsonEditorPanelProps) {
 	const [view, setView] = useState<EditorView>("editor");
 
@@ -35,6 +37,7 @@ export function JsonEditorPanel({
 	) : (
 		<JsonObjectEditor
 			allowExpressions={allowExpressions}
+			counters={counters}
 			depth={0}
 			isReadOnly={isReadOnly}
 			onChange={onChange}
