@@ -134,6 +134,38 @@ export function dbFailure(block: string, error: unknown): never {
 	throw new Error(`failed to execute ${block} db block`, { cause: error });
 }
 
+export const onConflictSchema = z
+	.object({
+		target: z
+			.array(z.string())
+			.min(1)
+			.describe(
+				"unique column(s) to match on. PostgreSQL needs a unique index or constraint on exactly these; MySQL matches on any unique key and uses these to read the rows back; MongoDB builds the filter from them",
+			),
+		action: z
+			.enum(["update", "ignore"])
+			.describe(
+				"update: overwrite the existing row (upsert). ignore: skip the duplicate without an error; a skipped row is left out of the result (null for a single insert). MySQL ignore reads the existing keys first, one extra query",
+			),
+		update: z
+			.array(z.string())
+			.min(1)
+			.optional()
+			.describe(
+				"columns to overwrite on update; left out means every inserted column except target",
+			),
+	})
+	.optional()
+	.describe(
+		"insert, or update/skip when a row with the same target already exists. Left out: a plain insert",
+	);
+
+export type OnConflictInput = z.infer<typeof onConflictSchema>;
+
+/** static config, inlined as JSON */
+export const emitOnConflict = (onConflict: OnConflictInput) =>
+	onConflict ? JSON.stringify(onConflict) : "undefined";
+
 export const joinSchema = z.object({
 	table: z.string().describe("table to join"),
 	alias: z.string().optional().describe("alias for the table"),

@@ -6,6 +6,7 @@ import {
 	DbAdapterMode,
 	type IDbAdapter,
 	type IntrospectedTable,
+	type OnConflict,
 	type QueryOptions,
 } from ".";
 import {
@@ -24,6 +25,7 @@ import {
 } from "./conditions";
 import { isColumnRef, isLiteralRef, isNumericLike, toMongoField } from "./jsonPath";
 import { activeSorts, type DbSort, singleRow, withTiebreaker } from "./sort";
+import { mongoUpsertOps } from "./upsert";
 
 /** a Mongo sort spec in entry order: `id` means `_id`, and `_id` goes last as the tiebreaker */
 function sortSpec(sort: DbSort[]): Record<string, 1 | -1> {
@@ -150,7 +152,16 @@ export class MongoAdapter implements IDbAdapter {
 		return result.deletedCount > 0;
 	}
 
-	async insert(table: string, data: unknown, pkColumn: string = "id"): Promise<unknown> {
+	async insert(table: string, data: unknown, onConflict?: OnConflict): Promise<unknown> {
+		if (onConflict) {
+			const [doc] = await this.upsert(
+				table,
+				[data as Record<string, unknown>],
+				onConflict,
+				this.getOptions(),
+			);
+			return doc ?? null;
+		}
 		const cleanData = { ...(data as Record<string, unknown>) };
 		delete cleanData.id;
 		delete cleanData._id;
@@ -167,6 +178,7 @@ export class MongoAdapter implements IDbAdapter {
 		table: string,
 		data: Record<string, unknown>[],
 		useTransaction = false,
+		onConflict?: OnConflict,
 	): Promise<unknown[]> {
 		if (!data || data.length === 0) return [];
 
@@ -176,6 +188,7 @@ export class MongoAdapter implements IDbAdapter {
 		});
 
 		const insertAll = async (options: { session?: ClientSession }) => {
+			if (onConflict) return this.upsert(table, data, onConflict, options);
 			const result = await this.db.collection(table).insertMany(cleanData, options);
 			const ids = Object.values(result.insertedIds);
 			const docs = await this.db
@@ -202,6 +215,28 @@ export class MongoAdapter implements IDbAdapter {
 		} finally {
 			await session.endSession();
 		}
+	}
+
+	/**
+	 * One upsert per row, matched on `target`: `$set` the update columns, `$setOnInsert` the rest.
+	 * Without a unique index on `target`, two requests at once can both insert.
+	 */
+	private async upsert(
+		table: string,
+		rows: Record<string, unknown>[],
+		onConflict: OnConflict,
+		options: { session?: ClientSession },
+	): Promise<unknown[]> {
+		const { filters, ops } = mongoUpsertOps(rows, onConflict);
+		const collection = this.db.collection(table);
+		const result = await collection.bulkWrite(ops, options);
+		// ignore returns only what it inserted
+		const filter =
+			onConflict.action === "ignore"
+				? { _id: { $in: Object.values(result.upsertedIds) } }
+				: { $or: filters };
+		const docs = await collection.find(filter, options).toArray();
+		return docs.map(this.mapDoc);
 	}
 
 	async update(

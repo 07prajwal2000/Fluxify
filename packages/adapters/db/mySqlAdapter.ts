@@ -1,14 +1,17 @@
-import { CompiledQuery, Kysely, MysqlDialect } from "kysely";
+import { CompiledQuery, Kysely, MysqlDialect, sql } from "kysely";
 import { createPool, type Pool } from "mysql2";
 import type { PoolConnection } from "mysql2/promise";
 import {
 	bulkChunkSize,
 	type Connection,
+	conflictKeys,
+	conflictUpdateColumns,
 	type DBConditionType,
 	DbAdapterMode,
 	groupIntrospectionRows,
 	type IDbAdapter,
 	type IntrospectedTable,
+	type OnConflict,
 } from ".";
 import { applySqlConditions } from "./conditions";
 import { applyColumns, applyJoins, buildQualifiers, type QueryOptions } from "./jsonPath";
@@ -170,8 +173,9 @@ export class MySqlAdapter implements IDbAdapter {
 		return Number(result.numDeletedRows ?? 0) > 0;
 	}
 
-	async insert(table: string, data: any): Promise<any> {
+	async insert(table: string, data: any, onConflict?: OnConflict): Promise<any> {
 		const conn = this.getConnection();
+		if (onConflict) return (await this.upsert(conn, table, [data], onConflict))[0] ?? null;
 		const result = await conn
 			.insertInto(table as never)
 			.values(data as never)
@@ -184,6 +188,7 @@ export class MySqlAdapter implements IDbAdapter {
 		table: string,
 		data: Record<string, any>[],
 		useTransaction = false,
+		onConflict?: OnConflict,
 	): Promise<any[]> {
 		if (!data || data.length === 0) return [];
 
@@ -192,6 +197,10 @@ export class MySqlAdapter implements IDbAdapter {
 			const results: any[] = [];
 			for (let i = 0; i < data.length; i += chunkSize) {
 				const chunk = data.slice(i, i + chunkSize);
+				if (onConflict) {
+					results.push(...(await this.upsert(conn, table, chunk, onConflict)));
+					continue;
+				}
 				const result = await conn
 					.insertInto(table as never)
 					.values(chunk as never)
@@ -239,6 +248,56 @@ export class MySqlAdapter implements IDbAdapter {
 			);
 			return whereKeys(trx.selectFrom(table as never).selectAll(), pk, newKeys).execute();
 		});
+	}
+
+	/**
+	 * INSERT ... ON DUPLICATE KEY UPDATE, then re-read by `target`: MySQL matches on any unique
+	 * key and has no RETURNING, so `target` is what finds the rows again. `ignore` sets a column
+	 * to itself instead of INSERT IGNORE, which would also swallow FK and truncation errors, and
+	 * reads the existing keys first to leave the skipped rows out.
+	 */
+	private async upsert(
+		conn: Kysely<FluxifyDatabase>,
+		table: string,
+		rows: Row[],
+		onConflict: OnConflict,
+	): Promise<any[]> {
+		const { target } = onConflict;
+		const keys = conflictKeys(rows, target);
+		const keyOf = (row: Row) => JSON.stringify(target.map((c) => row[c]));
+
+		// ponytail: unlocked read, a duplicate another request inserts in between is reported as
+		// inserted. FOR UPDATE would close that, but its gap locks deadlock concurrent upserts.
+		const existing =
+			onConflict.action === "ignore"
+				? new Set(
+						(
+							await whereKeys(
+								conn.selectFrom(table as never).select(target as never),
+								target,
+								keys,
+							).execute()
+						).map(keyOf),
+					)
+				: undefined;
+
+		const columns = existing ? [] : conflictUpdateColumns(rows, onConflict);
+		const set = columns.length
+			? Object.fromEntries(columns.map((c) => [c, sql`values(${sql.ref(c)})`]))
+			: { [target[0]]: sql.ref(target[0]) };
+		await conn
+			.insertInto(table as never)
+			.values(rows as never)
+			.onDuplicateKeyUpdate(set as never)
+			.execute();
+
+		// both key sets come from the database, so types and collation agree
+		const result: Row[] = await whereKeys(
+			conn.selectFrom(table as never).selectAll(),
+			target,
+			keys,
+		).execute();
+		return existing ? result.filter((row) => !existing.has(keyOf(row))) : result;
 	}
 
 	/** Re-reads inserted rows by their primary key: the value supplied in the data, else the auto-increment id. */

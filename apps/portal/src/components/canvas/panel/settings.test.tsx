@@ -365,19 +365,25 @@ test("getvar, setvar, transformer, arrayops, forloop, and foreachloop blocks hav
 
 	const insertBulkDbResult = splitTabs(insertBulkDbTabs!(dummyInsertBulkDbBlock));
 	expect(insertBulkDbResult.generalExtras).toHaveLength(1);
-	expect(insertBulkDbResult.blockTabs.map((tab) => tab.props.name)).toEqual(["Data to Insert"]);
+	expect(insertBulkDbResult.blockTabs.map((tab) => tab.props.name)).toEqual([
+		"Data to Insert",
+		"On Conflict",
+	]);
 
 	const insertBulkDbParamResult = splitTabs(insertBulkDbTabs!(dummyInsertBulkDbParamBlock));
 	expect(insertBulkDbParamResult.generalExtras).toHaveLength(1);
-	expect(insertBulkDbParamResult.blockTabs).toHaveLength(0);
+	expect(insertBulkDbParamResult.blockTabs.map((tab) => tab.props.name)).toEqual(["On Conflict"]);
 
 	const insertDbResult = splitTabs(insertDbTabs!(dummyInsertDbBlock));
 	expect(insertDbResult.generalExtras).toHaveLength(1);
-	expect(insertDbResult.blockTabs.map((tab) => tab.props.name)).toEqual(["Data to Insert"]);
+	expect(insertDbResult.blockTabs.map((tab) => tab.props.name)).toEqual([
+		"Data to Insert",
+		"On Conflict",
+	]);
 
 	const insertDbParamResult = splitTabs(insertDbTabs!(dummyInsertDbParamBlock));
 	expect(insertDbParamResult.generalExtras).toHaveLength(1);
-	expect(insertDbParamResult.blockTabs).toHaveLength(0);
+	expect(insertDbParamResult.blockTabs.map((tab) => tab.props.name)).toEqual(["On Conflict"]);
 
 	const deleteDbResult = splitTabs(deleteDbTabs!(dummyDeleteDbBlock));
 	expect(deleteDbResult.generalExtras).toHaveLength(1);
