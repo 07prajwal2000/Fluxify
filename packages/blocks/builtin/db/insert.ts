@@ -3,7 +3,13 @@ import { baseBlockDataSchema, type Context } from "../../baseBlock";
 import { BlockTypes } from "../../blockTypes";
 import type { EmitNode } from "../../compiler";
 import { emitJsObject } from "../../compiler";
-import { adapterFor, dbFailure } from "./schema";
+import {
+	adapterFor,
+	dbFailure,
+	emitOnConflict,
+	type OnConflictInput,
+	onConflictSchema,
+} from "./schema";
 
 export const insertDbBlockSchema = z
 	.object({
@@ -17,12 +23,14 @@ export const insertDbBlockSchema = z
 				.describe("value to insert (object values can be js expression, string when source is js)"),
 		}),
 		useParam: z.boolean().default(false).describe("use parameter"),
+		onConflict: onConflictSchema,
 	})
 	.extend(baseBlockDataSchema.shape);
 
 export const insertDbAiDescription = {
 	name: BlockTypes.db_insert,
-	description: "Inserts a single record into a database table.",
+	description:
+		"Inserts a single record into a database table. With onConflict it upserts: inserts the record, or updates/skips the existing one with the same unique key.",
 	jsonSchema: JSON.stringify(z.toJSONSchema(insertDbBlockSchema)),
 };
 
@@ -31,9 +39,10 @@ export async function runInsertDb(
 	connection: string,
 	tableName: string,
 	data: object,
+	onConflict?: OnConflictInput,
 ) {
 	try {
-		return await adapterFor(context, connection).insert(tableName, data);
+		return await adapterFor(context, connection).insert(tableName, data, onConflict);
 	} catch (error) {
 		dbFailure("insert", error);
 	}
@@ -62,6 +71,6 @@ export function emitInsertDb(node: EmitNode) {
 
 	return `const ${data} = ${payload};
 if (typeof ${data} !== "object") throw new Error("error in insert: data to insert is not an object");
-${node.in} = await lib.dbInsert(ctx, ${node.value(input.connection)}, ${node.value(input.tableName)}, ${data});
+${node.in} = await lib.dbInsert(ctx, ${node.value(input.connection)}, ${node.value(input.tableName)}, ${data}, ${emitOnConflict(input.onConflict)});
 ${node.next()}`;
 }

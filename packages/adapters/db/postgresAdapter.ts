@@ -1,13 +1,15 @@
 import { SQL } from "bun";
-import { CompiledQuery, Kysely } from "kysely";
+import { CompiledQuery, type InsertQueryBuilder, Kysely, sql } from "kysely";
 import {
 	bulkChunkSize,
 	type Connection,
+	conflictUpdateColumns,
 	type DBConditionType,
 	DbAdapterMode,
 	groupIntrospectionRows,
 	type IDbAdapter,
 	type IntrospectedTable,
+	type OnConflict,
 } from ".";
 import { applySqlConditions } from "./conditions";
 import { applyColumns, applyJoins, buildQualifiers, type QueryOptions } from "./jsonPath";
@@ -198,20 +200,22 @@ export class PostgresAdapter implements IDbAdapter {
 		return Number(rows[0]?.numDeletedRows ?? 0) > 0;
 	}
 
-	async insert(table: string, data: any): Promise<any> {
+	async insert(table: string, data: any, onConflict?: OnConflict): Promise<any> {
 		const conn = this.getConnection();
-		const res = await conn
-			.insertInto(table as never)
-			.values(data as never)
+		const qb = conn.insertInto(table as never).values(data as never);
+		const res = await withConflict(qb, [data], onConflict)
 			.returningAll()
-			.execute();
-		return Array.isArray(res) ? res[0] : res;
+			.execute()
+			.catch((e) => explainConflict(e, table, onConflict));
+		// an ignored duplicate returns no row
+		return res[0] ?? null;
 	}
 
 	async insertBulk(
 		table: string,
 		data: Record<string, any>[],
 		useTransaction = false,
+		onConflict?: OnConflict,
 	): Promise<any[]> {
 		if (!data || data.length === 0) return [];
 
@@ -220,11 +224,11 @@ export class PostgresAdapter implements IDbAdapter {
 			const results: any[] = [];
 			for (let i = 0; i < data.length; i += chunkSize) {
 				const chunk = data.slice(i, i + chunkSize);
-				const res = await conn
-					.insertInto(table as never)
-					.values(chunk as never)
+				const qb = conn.insertInto(table as never).values(chunk as never);
+				const res = await withConflict(qb, chunk, onConflict)
 					.returningAll()
-					.execute();
+					.execute()
+					.catch((e) => explainConflict(e, table, onConflict));
 				results.push(...res);
 			}
 			return results;
@@ -325,6 +329,37 @@ export class PostgresAdapter implements IDbAdapter {
 	): B {
 		return applySqlConditions(builder, conditions, "postgres", qualifiers);
 	}
+}
+
+/**
+ * ON CONFLICT (target) DO UPDATE / DO NOTHING. Nothing left to update still returns the
+ * existing row: the target is set to itself.
+ */
+function withConflict<B extends InsertQueryBuilder<any, any, any>>(
+	qb: B,
+	rows: object[],
+	onConflict?: OnConflict,
+): B {
+	if (!onConflict) return qb;
+	return qb.onConflict((oc) => {
+		const on = oc.columns(onConflict.target as never);
+		if (onConflict.action === "ignore") return on.doNothing();
+		const columns = conflictUpdateColumns(rows, onConflict);
+		const set = columns.length ? columns : onConflict.target.slice(0, 1);
+		return on.doUpdateSet(
+			Object.fromEntries(set.map((c) => [c, sql.ref(`excluded.${c}`)])) as never,
+		);
+	}) as B;
+}
+
+/** Postgres rejects ON CONFLICT without a matching unique index; say which one is missing */
+function explainConflict(error: unknown, table: string, onConflict?: OnConflict): never {
+	if (onConflict && String((error as Error)?.message).includes("ON CONFLICT specification"))
+		throw new Error(
+			`upsert on ${table} needs a unique index or constraint on (${onConflict.target.join(", ")})`,
+			{ cause: error },
+		);
+	throw error;
 }
 
 export function buildPgUrl(connection: Connection): string {

@@ -13,6 +13,7 @@ import { useCanvasChanges } from "../../../changes/ChangesContext";
 import type { BlockNode } from "../../../types";
 import { BlockSettings } from "../../BlockSettings";
 import { BlockCheckboxField, BlockIntegrationField, BlockJsTextField } from "../../fields";
+import { OnConflictSettings } from "./OnConflictSettings";
 
 type InsertBulkDataPayload = {
 	source?: "raw" | "js";
@@ -198,6 +199,12 @@ export function insertBulkDbSettings(block: BlockNode) {
 			</BlockSettings.TabHead>,
 		);
 	}
+
+	tabs.push(
+		<BlockSettings.TabHead key="onConflict" name="On Conflict">
+			<OnConflictSettings block={block} bulk />
+		</BlockSettings.TabHead>,
+	);
 
 	return tabs;
 }

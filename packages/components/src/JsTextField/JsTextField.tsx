@@ -243,6 +243,8 @@ export function JsTextField({
 				<div ref={triggerRef} className="relative w-full min-w-0">
 					<InputGroup fullWidth={fullWidth} variant={variant} className="w-full min-w-0">
 						<InputGroup.Input
+							// the field brings its own suggestions; the browser's saved entries only cover them
+							autoComplete="off"
 							className={clsx("min-w-0 flex-1", isJs && "font-mono text-xs cursor-pointer")}
 							onBlur={isJs ? undefined : onBlur}
 							onFocus={handleInputFocus}

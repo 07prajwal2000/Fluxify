@@ -3,7 +3,13 @@ import { baseBlockDataSchema, type Context } from "../../baseBlock";
 import { BlockTypes } from "../../blockTypes";
 import type { EmitNode } from "../../compiler";
 import { emitJsObject } from "../../compiler";
-import { adapterFor, dbFailure } from "./schema";
+import {
+	adapterFor,
+	dbFailure,
+	emitOnConflict,
+	type OnConflictInput,
+	onConflictSchema,
+} from "./schema";
 
 export const insertBulkDbBlockSchema = z
 	.object({
@@ -21,12 +27,16 @@ export const insertBulkDbBlockSchema = z
 			.describe(
 				"insert every row in one transaction: all rows go in or none do. MongoDB needs a replica set for this; on a standalone server it inserts without a transaction",
 			),
+		onConflict: onConflictSchema.describe(
+			"insert, or update/skip rows whose target already exists. Left out: a plain insert. PostgreSQL rejects two rows with the same target in one bulk update ('cannot affect row a second time'); MySQL and MongoDB apply them in order",
+		),
 	})
 	.extend(baseBlockDataSchema.shape);
 
 export const insertBulkAiDescription = {
 	name: BlockTypes.db_insertbulk,
-	description: "Inserts multiple records into a database table in a batch.",
+	description:
+		"Inserts multiple records into a database table in a batch. With onConflict it upserts: each record is inserted, or updates/skips the existing one with the same unique key.",
 	jsonSchema: JSON.stringify(z.toJSONSchema(insertBulkDbBlockSchema)),
 };
 
@@ -36,9 +46,15 @@ export async function runInsertBulkDb(
 	tableName: string,
 	data: object[],
 	useTransaction = false,
+	onConflict?: OnConflictInput,
 ) {
 	try {
-		return await adapterFor(context, connection).insertBulk(tableName, data, useTransaction);
+		return await adapterFor(context, connection).insertBulk(
+			tableName,
+			data,
+			useTransaction,
+			onConflict,
+		);
 	} catch (error) {
 		dbFailure("insert bulk", error);
 	}
@@ -62,6 +78,6 @@ export function emitInsertBulkDb(node: EmitNode) {
 
 	return `const ${data} = ${payload};
 if (!Array.isArray(${data})) throw new Error("error in insert bulk: data to insert is not an array");
-${node.in} = await lib.dbInsertBulk(ctx, ${node.value(input.connection)}, ${node.value(input.tableName)}, ${data}, ${input.useTransaction === true});
+${node.in} = await lib.dbInsertBulk(ctx, ${node.value(input.connection)}, ${node.value(input.tableName)}, ${data}, ${input.useTransaction === true}, ${emitOnConflict(input.onConflict)});
 ${node.next()}`;
 }

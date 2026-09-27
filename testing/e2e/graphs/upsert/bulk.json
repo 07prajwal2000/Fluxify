@@ -1,0 +1,94 @@
+{
+	"name": "upsert/bulk",
+	"description": "POST /users/upsert-bulk \u2014 bulk inserts the body's `rows`, updating users whose email already exists. Tests swap onConflict, engine and table.",
+	"engine": "pg",
+	"route": {
+		"method": "POST",
+		"path": "/users/upsert-bulk"
+	},
+	"blocks": [
+		{
+			"id": "entry",
+			"type": "entrypoint",
+			"position": {
+				"x": 0,
+				"y": 0
+			},
+			"data": {
+				"blockName": "Request"
+			}
+		},
+		{
+			"id": "rows",
+			"type": "jsrunner",
+			"position": {
+				"x": 240,
+				"y": 0
+			},
+			"data": {
+				"blockName": "Read body",
+				"value": "return getRequestBody().rows;"
+			}
+		},
+		{
+			"id": "upsert",
+			"type": "db_insertbulk",
+			"position": {
+				"x": 480,
+				"y": 0
+			},
+			"data": {
+				"blockName": "Upsert",
+				"connection": "primary",
+				"tableName": "users",
+				"useParam": true,
+				"useTransaction": false,
+				"data": {
+					"source": "raw",
+					"value": []
+				},
+				"onConflict": {
+					"target": [
+						"email"
+					],
+					"action": "update"
+				}
+			}
+		},
+		{
+			"id": "done",
+			"type": "response",
+			"position": {
+				"x": 720,
+				"y": 0
+			},
+			"data": {
+				"blockName": "200",
+				"httpCode": "200"
+			}
+		}
+	],
+	"edges": [
+		{
+			"id": "e-entry-rows",
+			"from": "entry",
+			"to": "rows",
+			"fromHandle": "source",
+			"toHandle": "source"
+		},
+		{
+			"id": "e-rows-upsert",
+			"from": "rows",
+			"to": "upsert",
+			"fromHandle": "source",
+			"toHandle": "source"
+		},
+		{
+			"id": "e-upsert-done",
+			"from": "upsert",
+			"to": "done",
+			"fromHandle": "source",
+			"toHandle": "source"
+		}
+	]
+}

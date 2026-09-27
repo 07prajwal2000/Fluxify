@@ -61,9 +61,11 @@ export const whereConditionSchema: z.ZodType<DBConditionType> = z.union([
 
 export type { DBJoinType, QueryOptions } from "./jsonPath";
 export type { DbSort } from "./sort";
+export * from "./upsert";
 
 import type { QueryOptions } from "./jsonPath";
 import type { DbSort } from "./sort";
+import type { OnConflict } from "./upsert";
 
 export type IntrospectedColumn = {
 	name: string;
@@ -129,9 +131,18 @@ export interface IDbAdapter {
 	): Promise<unknown | null>;
 	/** rows matching the conditions (joins included on SQL, ignored on Mongo) */
 	count(table: string, conditions: DBConditionType[], options?: QueryOptions): Promise<number>;
-	insert(table: string, data: unknown): Promise<any>;
-	/** `useTransaction`: all rows go in or none do; an open transaction is reused either way */
-	insertBulk(table: string, data: unknown[], useTransaction?: boolean): Promise<any>;
+	/** with `onConflict`: the row inserted or updated, null when `ignore` skipped it */
+	insert(table: string, data: unknown, onConflict?: OnConflict): Promise<any>;
+	/**
+	 * `useTransaction`: all rows go in or none do; an open transaction is reused either way.
+	 * With `onConflict`, rows skipped by `ignore` are left out of the result.
+	 */
+	insertBulk(
+		table: string,
+		data: unknown[],
+		useTransaction?: boolean,
+		onConflict?: OnConflict,
+	): Promise<any>;
 	update(table: string, data: unknown, conditions: DBConditionType[]): Promise<any>;
 	raw(query?: string | unknown, params?: any[]): Promise<any>;
 	/** optional — adapters that cannot describe their schema simply omit it */
