@@ -1,3 +1,5 @@
+import { splitCounters } from "./counter";
+
 /** insert-or-update on a unique key; `update` left out means every inserted column except `target` */
 export type OnConflict = {
 	target: string[];
@@ -29,7 +31,8 @@ export function conflictKeys(rows: Record<string, any>[], target: string[]) {
  * One upsert per row, matched on `target`: `$set` the update columns, `$setOnInsert` the rest.
  * `$eq`, never a bare value: a value like { $ne: null } from a request must not act as a query.
  */
-export function mongoUpsertOps(rows: Record<string, unknown>[], onConflict: OnConflict) {
+export function mongoUpsertOps(given: Record<string, unknown>[], onConflict: OnConflict) {
+	const { rows, counters } = upsertRows(given, onConflict);
 	const filters = conflictKeys(rows, onConflict.target).map((key) =>
 		Object.fromEntries(Object.entries(key).map(([c, v]) => [c, { $eq: v }])),
 	);
@@ -37,11 +40,22 @@ export function mongoUpsertOps(rows: Record<string, unknown>[], onConflict: OnCo
 	const ops = rows.map((row, i) => {
 		const { id, _id, ...clean } = row;
 		const entries = Object.entries(clean);
-		const $set = Object.fromEntries(entries.filter(([c]) => update.includes(c)));
-		const $setOnInsert = Object.fromEntries(entries.filter(([c]) => !update.includes(c)));
+		const updated = (c: string) => update.includes(c);
+		const $set = Object.fromEntries(entries.filter(([c]) => updated(c) && !counters.includes(c)));
+		// $inc on an upsert that inserts starts the field at the amount
+		const $inc = Object.fromEntries(entries.filter(([c]) => updated(c) && counters.includes(c)));
+		const $setOnInsert = Object.fromEntries(entries.filter(([c]) => !updated(c)));
 		// Mongo rejects an empty operator
-		const doc = Object.entries({ $set, $setOnInsert }).filter(([, v]) => Object.keys(v).length);
+		const doc = Object.entries({ $set, $inc, $setOnInsert }).filter(
+			([, v]) => Object.keys(v).length,
+		);
 		return { updateOne: { filter: filters[i], update: Object.fromEntries(doc), upsert: true } };
 	});
 	return { filters, ops };
+}
+
+/** rows ready to insert (counters replaced by their amount) and the counter columns */
+export function upsertRows<R extends Record<string, unknown>>(rows: R[], onConflict?: OnConflict) {
+	if (!onConflict) return { rows, counters: [] as string[] };
+	return splitCounters(rows, onConflict.target) as { rows: R[]; counters: string[] };
 }

@@ -35,9 +35,9 @@ A fixture declares its engine; Postgres is the default.
 
 | `engine` | container | fixtures |
 |---|---|---|
-| `pg` | `postgres:bullseye` | `users`, `orders`, `auth_users`, `wide` |
-| `mysql` | `mysql:8.0.36-bullseye` | `users`, `orders`, `wide` |
-| `mongo` | `mongo:7.0`, single-node replica set | `todos`, `emails` |
+| `pg` | `postgres:bullseye` | `users`, `orders`, `auth_users`, `wide`, `counters` |
+| `mysql` | `mysql:8.0.36-bullseye` | `users`, `orders`, `wide`, `counters` |
+| `mongo` | `mongo:7.0`, single-node replica set | `todos`, `emails`, `counters` |
 | `none` | — | graphs that touch no database |
 
 The workflow suite starts one more container, `nats:2.14-alpine`, on the same

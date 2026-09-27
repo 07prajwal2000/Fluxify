@@ -147,6 +147,8 @@ export function InsertDbDataSettings({ block }: { block: BlockNode }) {
 					<JsonEditor
 						rootType="object"
 						allowExpressions={true}
+						// only an upsert can add to an existing row
+						counters={!!block.data.onConflict}
 						isDisabled={!editable}
 						isReadOnly={!editable}
 						label="Record Fields"

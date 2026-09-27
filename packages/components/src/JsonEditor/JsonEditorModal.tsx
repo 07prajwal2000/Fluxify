@@ -18,6 +18,7 @@ export function JsonEditorModal({
 	isDisabled = false,
 	isReadOnly = false,
 	allowExpressions = true,
+	counters,
 	showPreview = true,
 	className,
 	triggerLabel = "Edit JSON",
@@ -112,6 +113,7 @@ export function JsonEditorModal({
 			>
 				<JsonEditorPanel
 					allowExpressions={allowExpressions}
+					counters={counters}
 					isReadOnly={isDisabled || isReadOnly}
 					onChange={setDraft}
 					showPreview={showPreview}

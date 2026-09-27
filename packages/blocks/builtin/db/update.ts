@@ -11,6 +11,9 @@ import {
 	whereConditionSchema,
 } from "./schema";
 
+const COUNTER =
+	'a column value can be { op: "inc" | "dec", value: number } to add to / subtract from what the database holds, safe when runs overlap, e.g. { "points": { "op": "inc", "value": 10 } }; value may be a js expression but must evaluate to a number';
+
 export const updateDbBlockSchema = z
 	.object({
 		connection: z.string().describe("integration id"),
@@ -20,7 +23,8 @@ export const updateDbBlockSchema = z
 			source: z.enum(["raw", "js"]).describe("source of the value"),
 			value: z
 				.object()
-				.or(z.string().describe("value to insert (object values can be js expression as string)")),
+				.or(z.string().describe("value to insert (object values can be js expression as string)"))
+				.describe(`columns to set; ${COUNTER}`),
 		}),
 		useParam: z.boolean().describe("use parameter"),
 	})
@@ -28,7 +32,8 @@ export const updateDbBlockSchema = z
 
 export const updateDbAiDescription = {
 	name: BlockTypes.db_update,
-	description: "Updates records in a database table matching specific conditions.",
+	description:
+		"Updates records in a database table matching specific conditions. A column can be incremented/decremented atomically with { op: 'inc' | 'dec', value }.",
 	jsonSchema: JSON.stringify(z.toJSONSchema(updateDbBlockSchema)),
 };
 

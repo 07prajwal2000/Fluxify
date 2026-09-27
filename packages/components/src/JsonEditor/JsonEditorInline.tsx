@@ -15,6 +15,7 @@ export function JsonEditorInline({
 	isDisabled = false,
 	isReadOnly = false,
 	allowExpressions = true,
+	counters,
 	showPreview = true,
 	className,
 }: JsonEditorInlineProps) {
@@ -57,6 +58,7 @@ export function JsonEditorInline({
 			>
 				<JsonEditorPanel
 					allowExpressions={allowExpressions}
+					counters={counters}
 					isReadOnly={isDisabled || isReadOnly}
 					onChange={setCurrentValue}
 					showPreview={showPreview}

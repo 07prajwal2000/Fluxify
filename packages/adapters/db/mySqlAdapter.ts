@@ -12,6 +12,8 @@ import {
 	type IDbAdapter,
 	type IntrospectedTable,
 	type OnConflict,
+	sqlCounterSet,
+	upsertRows,
 } from ".";
 import { applySqlConditions } from "./conditions";
 import { applyColumns, applyJoins, buildQualifiers, type QueryOptions } from "./jsonPath";
@@ -175,7 +177,10 @@ export class MySqlAdapter implements IDbAdapter {
 
 	async insert(table: string, data: any, onConflict?: OnConflict): Promise<any> {
 		const conn = this.getConnection();
-		if (onConflict) return (await this.upsert(conn, table, [data], onConflict))[0] ?? null;
+		if (onConflict) {
+			const { rows, counters } = upsertRows([data], onConflict);
+			return (await this.upsert(conn, table, rows, counters, onConflict))[0] ?? null;
+		}
 		const result = await conn
 			.insertInto(table as never)
 			.values(data as never)
@@ -192,13 +197,14 @@ export class MySqlAdapter implements IDbAdapter {
 	): Promise<any[]> {
 		if (!data || data.length === 0) return [];
 
+		const { rows, counters } = upsertRows(data, onConflict);
 		const insertChunks = async (conn: Kysely<FluxifyDatabase>) => {
-			const chunkSize = bulkChunkSize(data);
+			const chunkSize = bulkChunkSize(rows);
 			const results: any[] = [];
-			for (let i = 0; i < data.length; i += chunkSize) {
-				const chunk = data.slice(i, i + chunkSize);
+			for (let i = 0; i < rows.length; i += chunkSize) {
+				const chunk = rows.slice(i, i + chunkSize);
 				if (onConflict) {
-					results.push(...(await this.upsert(conn, table, chunk, onConflict)));
+					results.push(...(await this.upsert(conn, table, chunk, counters, onConflict)));
 					continue;
 				}
 				const result = await conn
@@ -223,7 +229,7 @@ export class MySqlAdapter implements IDbAdapter {
 			const conn = this.getConnection();
 			await this.buildQuery(
 				conditions,
-				conn.updateTable(table as never).set(data as never),
+				conn.updateTable(table as never).set(sqlCounterSet(data) as never),
 			).execute();
 			return this.buildQuery(conditions, conn.selectFrom(table as never))
 				.selectAll()
@@ -240,7 +246,11 @@ export class MySqlAdapter implements IDbAdapter {
 				.execute();
 			if (keys.length === 0) return [];
 
-			await whereKeys(trx.updateTable(table as never).set(data as never), pk, keys).execute();
+			await whereKeys(
+				trx.updateTable(table as never).set(sqlCounterSet(data) as never),
+				pk,
+				keys,
+			).execute();
 
 			// an update that sets a key column moves the row to that key
 			const newKeys = keys.map((k) =>
@@ -260,6 +270,7 @@ export class MySqlAdapter implements IDbAdapter {
 		conn: Kysely<FluxifyDatabase>,
 		table: string,
 		rows: Row[],
+		counters: string[],
 		onConflict: OnConflict,
 	): Promise<any[]> {
 		const { target } = onConflict;
@@ -283,7 +294,14 @@ export class MySqlAdapter implements IDbAdapter {
 
 		const columns = existing ? [] : conflictUpdateColumns(rows, onConflict);
 		const set = columns.length
-			? Object.fromEntries(columns.map((c) => [c, sql`values(${sql.ref(c)})`]))
+			? Object.fromEntries(
+					columns.map((c) => [
+						c,
+						counters.includes(c)
+							? sql`${sql.ref(c)} + values(${sql.ref(c)})`
+							: sql`values(${sql.ref(c)})`,
+					]),
+				)
 			: { [target[0]]: sql.ref(target[0]) };
 		await conn
 			.insertInto(table as never)

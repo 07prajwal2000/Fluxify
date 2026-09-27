@@ -7,7 +7,21 @@ import type {
 	JsonValueType,
 } from "./types";
 
-export function getJsonValueType(value: JsonValue): JsonValueType {
+export type CounterValue = { op: "inc" | "dec"; value: number | string };
+
+/** the shape the database blocks read as an atomic increment / decrement */
+export function isCounterValue(value: JsonValue): value is CounterValue {
+	if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+	return (
+		Object.keys(value).length === 2 &&
+		"value" in value &&
+		(value.op === "inc" || value.op === "dec")
+	);
+}
+
+/** `counters`: read an increment / decrement as its own type instead of an object */
+export function getJsonValueType(value: JsonValue, counters = false): JsonValueType {
+	if (counters && isCounterValue(value)) return value.op === "inc" ? "increment" : "decrement";
 	if (value === null) return "null";
 	if (Array.isArray(value)) return "array";
 	return typeof value as Exclude<JsonValueType, "array" | "null">;
@@ -27,6 +41,10 @@ export function createDefaultJsonValue(type: JsonValueType): JsonValue {
 			return [];
 		case "null":
 			return null;
+		case "increment":
+			return { op: "inc", value: 1 };
+		case "decrement":
+			return { op: "dec", value: 1 };
 	}
 }
 

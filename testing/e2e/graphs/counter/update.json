@@ -1,0 +1,87 @@
+{
+	"name": "counter/update",
+	"description": "POST /counters/hit \u2014 adds `by` to the named counter's hits with an inc op; tests swap the op and engine.",
+	"engine": "pg",
+	"route": {
+		"method": "POST",
+		"path": "/counters/hit"
+	},
+	"blocks": [
+		{
+			"id": "entry",
+			"type": "entrypoint",
+			"position": {
+				"x": 0,
+				"y": 0
+			},
+			"data": {
+				"blockName": "Request"
+			}
+		},
+		{
+			"id": "hit",
+			"type": "db_update",
+			"position": {
+				"x": 240,
+				"y": 0
+			},
+			"data": {
+				"blockName": "Hit",
+				"connection": "primary",
+				"tableName": "counters",
+				"useParam": false,
+				"conditions": [
+					{
+						"attribute": {
+							"kind": "column",
+							"value": "name"
+						},
+						"operator": "eq",
+						"value": {
+							"kind": "literal",
+							"value": "js:return getRequestBody().name;"
+						},
+						"chain": "and"
+					}
+				],
+				"data": {
+					"source": "raw",
+					"value": {
+						"hits": {
+							"op": "inc",
+							"value": "js:return getRequestBody().by;"
+						}
+					}
+				}
+			}
+		},
+		{
+			"id": "done",
+			"type": "response",
+			"position": {
+				"x": 480,
+				"y": 0
+			},
+			"data": {
+				"blockName": "200",
+				"httpCode": "200"
+			}
+		}
+	],
+	"edges": [
+		{
+			"id": "e-entry-hit",
+			"from": "entry",
+			"to": "hit",
+			"fromHandle": "source",
+			"toHandle": "source"
+		},
+		{
+			"id": "e-hit-done",
+			"from": "hit",
+			"to": "done",
+			"fromHandle": "source",
+			"toHandle": "source"
+		}
+	]
+}

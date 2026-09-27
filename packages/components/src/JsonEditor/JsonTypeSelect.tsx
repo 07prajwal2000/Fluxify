@@ -13,12 +13,19 @@ const TYPE_OPTIONS: ReadonlyArray<{
 	{ value: "null", label: "Null" },
 ];
 
+const COUNTER_OPTIONS: typeof TYPE_OPTIONS = [
+	{ value: "increment", label: "Increment" },
+	{ value: "decrement", label: "Decrement" },
+];
+
 interface JsonTypeSelectProps {
 	value: JsonValueType;
 	onChange: (value: JsonValueType) => void;
 	isDisabled?: boolean;
 	ariaLabel?: string;
 	className?: string;
+	/** also offer Increment / Decrement */
+	counters?: boolean;
 }
 
 export function JsonTypeSelect({
@@ -27,7 +34,9 @@ export function JsonTypeSelect({
 	isDisabled,
 	ariaLabel = "JSON value type",
 	className,
+	counters,
 }: JsonTypeSelectProps) {
+	const options = counters ? [...TYPE_OPTIONS, ...COUNTER_OPTIONS] : TYPE_OPTIONS;
 	return (
 		<Select
 			aria-label={ariaLabel}
@@ -47,7 +56,7 @@ export function JsonTypeSelect({
 			</Select.Trigger>
 			<Select.Popover>
 				<ListBox>
-					{TYPE_OPTIONS.map((option) => (
+					{options.map((option) => (
 						<ListBox.Item id={option.value} key={option.value} textValue={option.label}>
 							{option.label}
 							<ListBox.ItemIndicator />
