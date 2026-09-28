@@ -2,12 +2,14 @@ import type { DbOperator } from "@fluxify/lib";
 import { type ClientSession, type Db, MongoClient, ObjectId } from "mongodb";
 import {
 	type Connection,
+	changedRows,
 	type DBConditionType,
 	DbAdapterMode,
 	type IDbAdapter,
 	type IntrospectedTable,
 	type OnConflict,
 	type QueryOptions,
+	type WriteResult,
 } from ".";
 import {
 	activeConditions,
@@ -147,10 +149,17 @@ export class MongoAdapter implements IDbAdapter {
 			.countDocuments(this.buildFilter(conditions), this.getOptions());
 	}
 
-	async delete(table: string, conditions: DBConditionType[]): Promise<boolean> {
+	async delete(table: string, conditions: DBConditionType[]): Promise<WriteResult> {
+		const { docs, byId } = await this.findMatching(table, conditions);
+		const { deletedCount } = await this.db.collection(table).deleteMany(byId, this.getOptions());
+		return { count: deletedCount, affected: docs.map(this.mapDoc) };
+	}
+
+	/** the documents the conditions match, and a filter for exactly those */
+	private async findMatching(table: string, conditions: DBConditionType[]) {
 		const filter = this.buildFilter(conditions);
-		const result = await this.db.collection(table).deleteMany(filter, this.getOptions());
-		return result.deletedCount > 0;
+		const docs = await this.db.collection(table).find(filter, this.getOptions()).toArray();
+		return { docs, byId: { _id: { $in: docs.map((d) => d._id) } } };
 	}
 
 	async insert(table: string, data: unknown, onConflict?: OnConflict): Promise<unknown> {
@@ -240,33 +249,19 @@ export class MongoAdapter implements IDbAdapter {
 		return docs.map(this.mapDoc);
 	}
 
-	async update(
-		table: string,
-		data: unknown,
-		conditions: DBConditionType[],
-		pkColumn: string = "id",
-	): Promise<unknown[]> {
-		const filter = this.buildFilter(conditions);
+	async update(table: string, data: unknown, conditions: DBConditionType[]): Promise<WriteResult> {
+		const { docs: before, byId } = await this.findMatching(table, conditions);
+		if (before.length === 0) return { count: 0, affected: [] };
 
-		const docsToUpdate = await this.db.collection(table).find(filter, this.getOptions()).toArray();
-		const ids = docsToUpdate.map((d) => d._id);
+		const { id, _id, ...cleanData } = data as Record<string, unknown>;
+		const collection = this.db.collection(table);
+		const update = mongoCounterUpdate(cleanData);
+		const { modifiedCount } = await collection.updateMany(byId, update, this.getOptions());
 
-		if (ids.length > 0) {
-			const cleanData = { ...(data as Record<string, unknown>) };
-			delete cleanData.id;
-			delete cleanData._id;
-
-			await this.db
-				.collection(table)
-				.updateMany({ _id: { $in: ids } }, mongoCounterUpdate(cleanData), this.getOptions());
-		}
-
-		const updatedDocs = await this.db
-			.collection(table)
-			.find({ _id: { $in: ids } }, this.getOptions())
-			.toArray();
-
-		return updatedDocs.map(this.mapDoc);
+		const keyOf = (d: { _id: unknown }) => String(d._id);
+		const after = await collection.find(byId, this.getOptions()).toArray();
+		const was = new Map(before.map((d) => [keyOf(d), d]));
+		return { count: modifiedCount, affected: changedRows(was, after, keyOf).map(this.mapDoc) };
 	}
 
 	async setMode(mode: DbAdapterMode): Promise<void> {

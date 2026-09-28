@@ -1,3 +1,4 @@
+import { isDeepStrictEqual } from "node:util";
 import { dbOperatorSchema } from "@fluxify/lib";
 import { SQL } from "bun";
 import z from "zod";
@@ -144,15 +145,27 @@ export interface IDbAdapter {
 		useTransaction?: boolean,
 		onConflict?: OnConflict,
 	): Promise<any>;
-	update(table: string, data: unknown, conditions: DBConditionType[]): Promise<any>;
+	/** `count` and `affected` are only the rows whose values changed, as they are after the update */
+	update(table: string, data: unknown, conditions: DBConditionType[]): Promise<WriteResult>;
 	raw(query?: string | unknown, params?: any[]): Promise<any>;
 	/** optional — adapters that cannot describe their schema simply omit it */
 	introspect?(): Promise<IntrospectedTable[]>;
-	delete(table: string, conditions: DBConditionType[]): Promise<boolean>;
+	/** `affected` are the deleted rows as they were */
+	delete(table: string, conditions: DBConditionType[]): Promise<WriteResult>;
 	setMode(mode: DbAdapterMode): Promise<void>;
 	startTransaction(): Promise<void>;
 	commitTransaction(): Promise<void>;
 	rollbackTransaction(): Promise<void>;
+}
+
+export type WriteResult = { count: number; affected: any[] };
+
+/** rows of `after` that differ from the `before` row under the same key; a key not found there changed */
+export function changedRows<R>(before: Map<string, R>, after: R[], keyOf: (row: R) => string) {
+	return after.filter((row) => {
+		const old = before.get(keyOf(row));
+		return !old || !isDeepStrictEqual(old, row);
+	});
 }
 
 export class DbFactory {

@@ -11,7 +11,12 @@ import { Connection, DbType } from ".";
 import type Docker from "dockerode";
 import { createPool, Pool } from "mysql2";
 import { faker } from "@faker-js/faker";
-import { docker, pullImage, startContainerWithRandomPort } from "./testHelpers";
+import {
+	checkWriteResults,
+	docker,
+	pullImage,
+	startContainerWithRandomPort,
+} from "./testHelpers";
 
 const containerName = "fluxify-mysql-adapter-test";
 let exposedPort: number;
@@ -180,7 +185,7 @@ describe("MySqlAdapter Integration Tests", () => {
 		const isDeleted = await adapter.delete(tableName, [
 			{ attribute: "id", operator: "eq", value: inserted.id, chain: "and" },
 		]);
-		expect(isDeleted).toBe(true);
+		expect(isDeleted.count).toBe(1);
 	});
 
 	test("Advanced Filtering & Operators", async () => {
@@ -311,7 +316,16 @@ describe("MySqlAdapter Integration Tests", () => {
 		const deleteSuccess = await adapter.delete(tableName, [
 			{ attribute: "score", operator: "eq", value: 777, chain: "and" },
 		]);
-		expect(deleteSuccess).toBe(true);
+		expect(deleteSuccess.count).toBeGreaterThan(0);
+	});
+
+	test("update/delete return { count, affected } (#503)", async () => {
+		const adapter = new MySqlAdapter(db, pool);
+		const table = `writes_${faker.string.alphanumeric(8).toLowerCase()}`;
+		await adapter.raw(
+			`CREATE TABLE ${table} (id INT AUTO_INCREMENT PRIMARY KEY, name VARCHAR(20), status VARCHAR(20))`,
+		);
+		await checkWriteResults(adapter, table);
 	});
 
 	test("Raw Queries", async () => {
@@ -557,13 +571,16 @@ describe("MySqlAdapter Integration Tests", () => {
 				eq("id", inserted[0].id),
 				eq("status", "placed"),
 			]);
-			expect(one).toEqual([{ id: inserted[0].id, status: "cancelled" }]);
+			expect(one.affected).toEqual([{ id: inserted[0].id, status: "cancelled" }]);
 
 			// the row that was already cancelled matches the new value, but was not changed
 			const rest = await adapter.update(table, { status: "cancelled" }, [eq("status", "placed")]);
-			expect(rest).toEqual([{ id: inserted[1].id, status: "cancelled" }]);
+			expect(rest.affected).toEqual([{ id: inserted[1].id, status: "cancelled" }]);
 
-			expect(await adapter.update(table, { status: "x" }, [eq("status", "placed")])).toEqual([]);
+			expect(await adapter.update(table, { status: "x" }, [eq("status", "placed")])).toEqual({
+				count: 0,
+				affected: [],
+			});
 		});
 
 		test("insert and bulk insert with a client-supplied uuid key return the rows", async () => {
@@ -585,7 +602,7 @@ describe("MySqlAdapter Integration Tests", () => {
 			expect(rows).toEqual(expect.arrayContaining(bulk));
 
 			const updated = await adapter.update(table, { name: "renamed" }, [eq("uid", single.uid)]);
-			expect(updated).toEqual([{ ...single, name: "renamed" }]);
+			expect(updated.affected).toEqual([{ ...single, name: "renamed" }]);
 		});
 
 		test("insert with an explicit id on an auto-increment key returns that row", async () => {
@@ -611,11 +628,11 @@ describe("MySqlAdapter Integration Tests", () => {
 			]);
 
 			const taken = await adapter.update(table, { taken: 1 }, [eq("hall", 1), eq("taken", 0)]);
-			expect(taken).toHaveLength(2);
-			expect(taken.every((r: any) => r.hall === 1 && r.taken === 1)).toBe(true);
+			expect(taken.count).toBe(2);
+			expect(taken.affected.every((r: any) => r.hall === 1 && r.taken === 1)).toBe(true);
 
 			const moved = await adapter.update(table, { seat: 9 }, [eq("hall", 2), eq("seat", 1)]);
-			expect(moved).toEqual([{ hall: 2, seat: 9, taken: 0 }]);
+			expect(moved).toEqual({ count: 1, affected: [{ hall: 2, seat: 9, taken: 0 }] });
 		});
 
 		test("update inside a transaction stays in it and rolls back", async () => {
@@ -628,7 +645,7 @@ describe("MySqlAdapter Integration Tests", () => {
 
 			await adapter.startTransaction();
 			const updated = await adapter.update(table, { status: "cancelled" }, [eq("status", "placed")]);
-			expect(updated).toEqual([{ id: row.id, status: "cancelled" }]);
+			expect(updated.affected).toEqual([{ id: row.id, status: "cancelled" }]);
 			await adapter.rollbackTransaction();
 
 			expect(await adapter.getSingle(table, [eq("id", row.id)])).toEqual(row);
@@ -640,7 +657,10 @@ describe("MySqlAdapter Integration Tests", () => {
 			await adapter.raw(`CREATE TABLE ${table} (name VARCHAR(50), n INT)`);
 
 			expect(await adapter.insert(table, { name: "a", n: 1 })).toBeNull();
-			expect(await adapter.update(table, { n: 2 }, [eq("name", "a")])).toEqual([{ name: "a", n: 2 }]);
+			expect(await adapter.update(table, { n: 2 }, [eq("name", "a")])).toEqual({
+				count: 1,
+				affected: [{ name: "a", n: 2 }],
+			});
 		});
 	});
 });

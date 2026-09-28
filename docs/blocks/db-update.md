@@ -23,7 +23,24 @@ If every condition is skipped, **every record** in the table is updated.
 
 1.  The block identifies rows in **Table Name** that match **Conditions**.
 2.  It applies the changes defined in **Data** to those rows.
-3.  It returns the result of the update operation.
+3.  It outputs how many rows changed, and those rows after the update.
+
+## Output
+
+```json
+{ "count": 1, "affected": [{ "id": 4, "status": "cancelled" }] }
+```
+
+- `count`: how many rows **actually changed**. `0` when nothing matched.
+- `affected`: the changed rows, as they are after the update.
+
+A row that matches the conditions but already holds the new values is **not** counted and not returned. For example, setting `status` to `"cancelled"` on an order that is already cancelled gives `count: 0`.
+
+That makes rules like "cancel only if not cancelled yet" simple: update, then an **If** block with `input.count === 0` leading to a 409.
+
+::: info Tables without a primary key
+On PostgreSQL and MySQL, if the table has no primary key, every row that matches the conditions is counted and returned, even one that already held the new values.
+:::
 
 ## Increment and decrement
 

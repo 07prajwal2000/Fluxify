@@ -33,7 +33,7 @@ export const updateDbBlockSchema = z
 export const updateDbAiDescription = {
 	name: BlockTypes.db_update,
 	description:
-		"Updates records in a database table matching specific conditions. A column can be incremented/decremented atomically with { op: 'inc' | 'dec', value }.",
+		"Updates records in a database table matching specific conditions. A column can be incremented/decremented atomically with { op: 'inc' | 'dec', value }. Output: { count, affected }, the number of rows whose values changed and those rows after the update; a row already holding the values is not counted.",
 	jsonSchema: JSON.stringify(z.toJSONSchema(updateDbBlockSchema)),
 };
 
