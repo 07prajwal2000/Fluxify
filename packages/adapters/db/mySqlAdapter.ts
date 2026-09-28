@@ -18,6 +18,7 @@ import {
 	type WriteResult,
 } from ".";
 import { applySqlConditions } from "./conditions";
+import { cursorSorts, type DbCursor, type DbPage, sqlPage } from "./cursor";
 import { applyColumns, applyJoins, buildQualifiers, type QueryOptions } from "./jsonPath";
 import { activeSorts, applySqlSort, type DbSort, singleRow, withTiebreaker } from "./sort";
 
@@ -48,7 +49,6 @@ type Row = Record<string, any>;
 export class MySqlAdapter implements IDbAdapter {
 	public static variant = "MySQL";
 	private mode: DbAdapterMode = DbAdapterMode.NORMAL;
-	private readonly HARD_LIMIT = 1000;
 
 	private reservedConn: PoolConnection | null = null;
 	private originalRelease: (() => void) | null = null;
@@ -107,7 +107,7 @@ export class MySqlAdapter implements IDbAdapter {
 	async getAll(
 		table: string,
 		conditions: DBConditionType[],
-		limit: number = this.HARD_LIMIT,
+		limit: number | null,
 		offset: number = 0,
 		sort: DbSort[] = [],
 		options?: QueryOptions,
@@ -117,15 +117,35 @@ export class MySqlAdapter implements IDbAdapter {
 		let qb = applyJoins(conn.selectFrom(table as never), options?.joins);
 		qb = this.buildQuery(conditions, qb, qualifiers);
 
-		const l = limit < 0 || limit > this.HARD_LIMIT ? this.HARD_LIMIT : limit;
 		const sorts = await this.withKeys(activeSorts(sort), table, options);
 
-		return applySqlSort(
-			applyColumns(qb, options?.columns).limit(l).offset(offset),
-			sorts,
-			"mysql",
-			qualifiers,
-		).execute();
+		// MySQL has no OFFSET without LIMIT; its docs give the largest one for "no limit"
+		const q = applyColumns(qb, options?.columns)
+			.limit(limit ?? sql<number>`18446744073709551615`)
+			.offset(offset);
+		return applySqlSort(q, sorts, "mysql", qualifiers).execute();
+	}
+
+	async getPage(
+		table: string,
+		conditions: DBConditionType[],
+		limit: number | null,
+		sort: DbSort[],
+		cursor: DbCursor,
+		options?: QueryOptions,
+	): Promise<DbPage> {
+		const conn = this.getConnection();
+		const qualifiers = buildQualifiers(table, options?.joins);
+		let qb = applyJoins(conn.selectFrom(table as never), options?.joins);
+		qb = this.buildQuery(conditions, qb, qualifiers);
+		const sorts = cursorSorts(
+			activeSorts(sort),
+			cursor.keys,
+			await this.primaryKey(table),
+			table,
+			!!options?.joins?.length,
+		);
+		return sqlPage(qb, sorts, limit, cursor.after, options?.columns, "mysql", qualifiers);
 	}
 
 	async getSingle(

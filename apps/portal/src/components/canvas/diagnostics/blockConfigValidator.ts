@@ -148,7 +148,7 @@ function checkDb(type: string, data: BlockData, report: Report) {
 	if (type === BLOCK_TYPES.db_getall) {
 		if (isBlank(data.limit))
 			report("warning", "Limit is empty. Set it in the Pagination tab.", "Pagination");
-		if (isBlank(data.offset))
+		if (data.paging !== "cursor" && isBlank(data.offset))
 			report("warning", "Offset is empty. Set it in the Pagination tab, e.g. 0.", "Pagination");
 	}
 

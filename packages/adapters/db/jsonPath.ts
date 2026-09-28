@@ -167,7 +167,7 @@ function unwrapRef(operand: unknown): unknown {
 // back a bare string when there is no JSON path to build, and the query builder
 // would bind that as a *value* — so name it explicitly. Validated here because
 // this is the one place a stored graph string reaches an identifier position.
-function resolveColumnRef(
+export function resolveColumnRef(
 	path: string,
 	castNumeric: boolean,
 	dialect: JsonSqlDialect,

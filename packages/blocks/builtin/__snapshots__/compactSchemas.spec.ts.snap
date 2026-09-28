@@ -111,12 +111,15 @@ db_getall {
 		type: "inner" | "left" | "right" | "outer";  // type of join; default "inner"
 	}[];  // list of joins; default []
 	columns?: string[];  // list of columns to select with aliases if any (e.g. column1 or table.column2 AS column2 or table.*); default ["*"]
-	limit: number | string;  // limit (supports js expressions); default 1000
-	offset: number | string;  // skip count (supports js expressions); default 0
+	limit: number | string | null;  // max rows; -1 or null for no limit (supports js expressions); default 1000
+	offset: number | string;  // skip count, offset paging only (supports js expressions); default 0
 	sort: {
 		attribute: string;  // column or JSON path to sort by (supports js expression); 'id' on MongoDB is _id
 		direction: "asc" | "desc";
 	}[];  // ORDER BY entries, first entry sorts first. The table's primary key (_id on MongoDB) is always added last, so rows that tie come back in a fixed order. An entry whose column is undefined at run time is skipped, e.g. "js:getQueryParam('sortBy')".; default []
+	paging: "offset" | "cursor";  // cursor: returns { rows, nextCursor }; pass nextCursor back as after; default "offset"
+	after?: string;  // cursor paging: the previous page's nextCursor, empty for the first page
+	keys?: string[];  // cursor paging: tiebreaker columns, unique together; empty means the primary key; default []
 }
 
 db_getsingle {

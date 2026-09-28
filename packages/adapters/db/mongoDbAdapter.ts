@@ -26,24 +26,14 @@ import {
 	textValue,
 } from "./conditions";
 import { mongoCounterUpdate } from "./counter";
+import { type DbCursor, type DbPage, mongoPage } from "./cursor";
 import { isColumnRef, isLiteralRef, isNumericLike, toMongoField } from "./jsonPath";
-import { activeSorts, type DbSort, singleRow, withTiebreaker } from "./sort";
+import { activeSorts, type DbSort, mongoSorts, singleRow, sortSpec } from "./sort";
 import { mongoUpsertOps } from "./upsert";
-
-/** a Mongo sort spec in entry order: `id` means `_id`, and `_id` goes last as the tiebreaker */
-function sortSpec(sort: DbSort[]): Record<string, 1 | -1> {
-	const sorts = activeSorts(sort).map((s) =>
-		s.attribute === "id" ? { ...s, attribute: "_id" } : s,
-	);
-	return Object.fromEntries(
-		withTiebreaker(sorts, ["_id"], "").map((s) => [s.attribute, s.direction === "asc" ? 1 : -1]),
-	);
-}
 
 export class MongoAdapter implements IDbAdapter {
 	public static variant = "MongoDB";
 	private mode: DbAdapterMode = DbAdapterMode.NORMAL;
-	private readonly HARD_LIMIT = 1000;
 
 	private session: ClientSession | null = null;
 
@@ -107,23 +97,37 @@ export class MongoAdapter implements IDbAdapter {
 	async getAll(
 		table: string,
 		conditions: DBConditionType[],
-		limit: number = this.HARD_LIMIT,
+		limit: number | null,
 		offset: number = 0,
 		sort: DbSort[] = [],
 		options?: QueryOptions,
 	): Promise<unknown[]> {
-		const filter = this.buildFilter(conditions);
-		const l = limit < 0 || limit > this.HARD_LIMIT ? this.HARD_LIMIT : limit;
-
-		const docs = await this.db
+		const found = this.db
 			.collection(table)
-			.find(filter, this.findOptions(options))
-			.sort(sortSpec(sort))
-			.skip(offset)
-			.limit(l)
-			.toArray();
-
+			.find(this.buildFilter(conditions), this.findOptions(options))
+			.sort(sortSpec(mongoSorts(sort)))
+			.skip(offset);
+		const docs = await (limit === null ? found : found.limit(limit)).toArray();
 		return docs.map(this.mapDoc);
+	}
+
+	async getPage(
+		table: string,
+		conditions: DBConditionType[],
+		limit: number | null,
+		sort: DbSort[],
+		cursor: DbCursor,
+		options?: QueryOptions,
+	): Promise<DbPage> {
+		const page = await mongoPage(
+			this.db.collection(table),
+			this.buildFilter(conditions),
+			this.findOptions(options),
+			mongoSorts(sort, cursor.keys),
+			limit,
+			cursor.after,
+		);
+		return { rows: page.rows.map(this.mapDoc), nextCursor: page.nextCursor };
 	}
 
 	async getSingle(
@@ -133,7 +137,9 @@ export class MongoAdapter implements IDbAdapter {
 	): Promise<unknown | null> {
 		const filter = this.buildFilter(conditions);
 		// unsorted stays unsorted: a sort nobody asked for only costs time
-		const sort = activeSorts(options?.sort).length ? sortSpec(options?.sort ?? []) : undefined;
+		const sort = activeSorts(options?.sort).length
+			? sortSpec(mongoSorts(options?.sort ?? []))
+			: undefined;
 		// strict reads a second document only to tell that there is one
 		const docs = await this.db
 			.collection(table)
