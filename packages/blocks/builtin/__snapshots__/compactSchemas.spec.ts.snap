@@ -27,11 +27,15 @@ type DbWhereCondition = {
 }
 
 type Condition = {
+	group: Condition[];  // brackets: these conditions combine first, left to right, then join the outer list as one condition
+	chain: "and" | "or";  // how this condition joins everything before it; conditions combine strictly left to right. Ignored on the first condition of a list or group; default "and"
+}
+| {
 	lhs: string | number | boolean;  // left-hand side operator (can be js expression)
 	rhs: string | number | boolean;  // right-hand side operator (can be js expression)
 	operator: "eq" | "neq" | "gt" | "gte" | "lt" | "lte" | "js" | "is_empty" | "is_not_empty";  // The operator to use for comparison
 	js?: string;  // javascript expression
-	chain: "and" | "or";  // condition chain to use for evaluation; default "and"
+	chain: "and" | "or";  // how this condition joins everything before it; conditions combine strictly left to right. Ignored on the first condition of a list or group; default "and"
 }
 
 arrayops {

@@ -21,6 +21,15 @@ test("if conditions read legacy DB-shaped data as plain server values", () => {
 	).toEqual([{ lhs: "status", rhs: "active", operator: "eq", chain: "or" }]);
 });
 
+test("if conditions keep nested groups, saved without the leaf fields", () => {
+	const leaf = { lhs: "a", rhs: 1, operator: "eq" as const, chain: "or" as const };
+	const saved = serializeIfConditions([
+		{ lhs: "", rhs: "", operator: "eq", chain: "or", group: [leaf, { lhs: "", rhs: "", operator: "eq", group: [] }] },
+	]);
+	expect(saved).toEqual([{ group: [leaf, { group: [], chain: "and" }], chain: "or" }]);
+	expect(serializeIfConditions(parseIfConditions(block(saved)))).toEqual(saved);
+});
+
 test("if conditions save exactly the schema accepted by the server", () => {
 	expect(
 		serializeIfConditions([

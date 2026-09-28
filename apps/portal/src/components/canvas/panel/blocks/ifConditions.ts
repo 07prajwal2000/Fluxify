@@ -13,15 +13,18 @@ const IF_OPERATORS = new Set<ConditionOperator>([
 	"is_not_empty",
 ]);
 
-type IfCondition = {
-	lhs: string | number | boolean;
-	rhs: string | number | boolean;
-	operator: ConditionOperator;
-	js?: string;
-	chain: "and" | "or";
-};
+type IfCondition =
+	| {
+			lhs: string | number | boolean;
+			rhs: string | number | boolean;
+			operator: ConditionOperator;
+			js?: string;
+			chain: "and" | "or";
+	  }
+	| { group: IfCondition[]; chain: "and" | "or" };
 
 type RawCondition = {
+	group?: unknown;
 	attribute?: ConditionValue;
 	lhs?: ConditionValue;
 	value?: ConditionValue;
@@ -51,7 +54,11 @@ function operator(value: unknown): ConditionOperator {
  * accept the old DB-shaped payload on read, then keep it out of future saves.
  */
 export function parseIfConditions(block: BlockNode): Condition[] {
-	const raw = Array.isArray(block.data.conditions) ? (block.data.conditions as RawCondition[]) : [];
+	return parseConditionList(block.data.conditions);
+}
+
+export function parseConditionList(list: unknown): Condition[] {
+	const raw = Array.isArray(list) ? (list as RawCondition[]) : [];
 
 	return raw.map((condition) => ({
 		lhs: plainValue(condition.lhs ?? condition.attribute),
@@ -59,16 +66,21 @@ export function parseIfConditions(block: BlockNode): Condition[] {
 		operator: operator(condition.operator),
 		...(typeof condition.js === "string" ? { js: condition.js } : {}),
 		chain: condition.chain === "or" ? "or" : "and",
+		...(Array.isArray(condition.group) ? { group: parseConditionList(condition.group) } : {}),
 	}));
 }
 
 /** Serialize only the shape validated by packages/blocks/builtin/if.ts. */
 export function serializeIfConditions(conditions: Condition[]): IfCondition[] {
-	return conditions.map((condition) => ({
-		lhs: plainValue(condition.lhs),
-		rhs: plainValue(condition.rhs),
-		operator: operator(condition.operator),
-		...(typeof condition.js === "string" ? { js: condition.js } : {}),
-		chain: condition.chain === "or" ? "or" : "and",
-	}));
+	return conditions.map((condition) => {
+		const chain = condition.chain === "or" ? "or" : "and";
+		if (condition.group) return { group: serializeIfConditions(condition.group), chain };
+		return {
+			lhs: plainValue(condition.lhs),
+			rhs: plainValue(condition.rhs),
+			operator: operator(condition.operator),
+			...(typeof condition.js === "string" ? { js: condition.js } : {}),
+			chain,
+		};
+	});
 }
