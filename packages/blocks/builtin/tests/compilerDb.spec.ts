@@ -1,79 +1,8 @@
-import { describe, it, expect } from "bun:test";
-import { compileGraph } from "../../compiler";
+import { describe, expect, it } from "bun:test";
 import { BlockTypes } from "../../blockTypes";
-import type { BlockDTOType, EdgeDTOSchemaType } from "../../builderTypes";
-
-/** records every adapter call so the tests can assert what reached knex */
-function createDbAdapter(results: Record<string, any> = {}) {
-	const calls: { method: string; args: any[] }[] = [];
-	const record =
-		(method: string) =>
-		async (...args: any[]) => {
-			calls.push({ method, args });
-			return results[method];
-		};
-	return {
-		calls,
-		adapter: {
-			getSingle: record("getSingle"),
-			getAll: record("getAll"),
-			insert: record("insert"),
-			insertBulk: record("insertBulk"),
-			update: record("update"),
-			delete: record("delete"),
-			raw: record("raw"),
-			startTransaction: record("startTransaction"),
-			commitTransaction: record("commitTransaction"),
-			rollbackTransaction: record("rollbackTransaction"),
-		},
-	};
-}
-
-function createContext(adapter: any) {
-	const vars: Record<string, any> = {};
-	return {
-		route: "/db",
-		apiId: "api-1",
-		projectId: "proj-1",
-		vars,
-		dbFactory: { getDbAdapter: () => adapter },
-		stopper: { timeoutEnd: 0, duration: 10000 },
-	} as any;
-}
-
-const block = (id: string, type: BlockTypes, data: any = {}): BlockDTOType => ({
-	id,
-	type,
-	data,
-	position: { x: 0, y: 0 },
-});
-
-const edge = (from: string, to: string, toHandle = "source") => ({
-	id: `edge-${from}-${to}-${toHandle}`,
-	from,
-	to,
-	fromHandle: "source",
-	toHandle,
-});
-
-/** entrypoint -> block under test -> response */
-function graphAround(target: BlockDTOType) {
-	const blocks = [
-		block("in", BlockTypes.entrypoint),
-		target,
-		block("out", BlockTypes.response, { httpCode: "200" }),
-	];
-	const edges: EdgeDTOSchemaType = [edge("in", target.id), edge(target.id, "out")];
-	return { blocks, edges };
-}
-
-async function runAround(target: BlockDTOType, input: any, mock: any) {
-	const { blocks, edges } = graphAround(target);
-	const { run, source } = compileGraph(blocks, edges);
-	const ctx = createContext(mock.adapter);
-	const result = await run(ctx, input);
-	return { result, ctx, source };
-}
+import type { EdgeDTOSchemaType } from "../../builderTypes";
+import { compileGraph } from "../../compiler";
+import { block, createContext, createDbAdapter, edge, runAround } from "./dbHarness";
 
 describe("compiled db blocks", () => {
 	it("compiles where conditions to a plain array, evaluating js operands", async () => {
@@ -133,29 +62,6 @@ describe("compiled db blocks", () => {
 			},
 		]);
 		expect(result.output.body).toEqual({ id: 7 });
-	});
-
-	it("evaluates js table names, limit and offset for get all", async () => {
-		const mock = createDbAdapter({ getAll: [{ id: 1 }] });
-		const target = block("db", BlockTypes.db_getall, {
-			connection: "conn-1",
-			tableName: "js:return 'tenant_' + input.tenant",
-			conditions: [],
-			limit: "js:return input.limit",
-			offset: "not a number",
-			sort: { attribute: "id", direction: "desc" },
-		});
-
-		const { result } = await runAround(target, { tenant: "acme", limit: 25 }, mock);
-
-		const [table, conditions, limit, offset, sort] = mock.calls[0].args;
-		expect(table).toBe("tenant_acme");
-		expect(conditions).toEqual([]);
-		expect(limit).toBe(25);
-		expect(offset).toBe(0); // NaN falls back, same as the interpreted block
-		// saved before sort was a list: the single object still loads, as a list of one
-		expect(sort).toEqual([{ attribute: "id", direction: "desc" }]);
-		expect(result.output.body).toEqual([{ id: 1 }]);
 	});
 
 	it("evaluates each sort column, keeping the order and an unsent one as undefined", async () => {

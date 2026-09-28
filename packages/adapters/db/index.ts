@@ -61,10 +61,12 @@ export const whereConditionSchema: z.ZodType<DBConditionType> = z.union([
 ]);
 
 export * from "./counter";
+export type { DbCursor, DbPage } from "./cursor";
 export type { DBJoinType, QueryOptions } from "./jsonPath";
 export type { DbSort } from "./sort";
 export * from "./upsert";
 
+import type { DbCursor, DbPage } from "./cursor";
 import type { QueryOptions } from "./jsonPath";
 import type { DbSort } from "./sort";
 import type { OnConflict } from "./upsert";
@@ -118,14 +120,24 @@ export enum DbAdapterMode {
 }
 
 export interface IDbAdapter {
+	/** `limit` null: every matching row */
 	getAll(
 		table: string,
 		conditions: DBConditionType[],
-		limit: number,
+		limit: number | null,
 		offset: number,
 		sort: DbSort[],
 		options?: QueryOptions,
 	): Promise<unknown[]>;
+	/** get-all by cursor: the rows after `cursor.after`, and the cursor for the page after them */
+	getPage(
+		table: string,
+		conditions: DBConditionType[],
+		limit: number | null,
+		sort: DbSort[],
+		cursor: DbCursor,
+		options?: QueryOptions,
+	): Promise<DbPage>;
 	getSingle(
 		table: string,
 		conditions: DBConditionType[],

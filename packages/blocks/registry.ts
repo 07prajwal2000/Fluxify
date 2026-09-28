@@ -103,11 +103,6 @@ export const compilerLib = {
 	httpRequest: runHttpRequest,
 	isoDate: (value: any) => dayjs(value).toISOString(),
 	scope: scopeFor,
-	/** Number() with the block's documented fallback for NaN */
-	num: (value: any, fallback: number) => {
-		const parsed = Number(value);
-		return Number.isNaN(parsed) ? fallback : parsed;
-	},
 	dbGetSingle: runGetSingleDb,
 	dbGetAll: runGetAllDb,
 	dbCount: runCountDb,

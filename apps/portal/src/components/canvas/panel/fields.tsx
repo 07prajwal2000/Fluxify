@@ -3,6 +3,7 @@ import {
 	Checkbox,
 	Description,
 	type FieldInfo,
+	FieldInfoButton,
 	Input,
 	IntegrationSelector,
 	type JoinItem,
@@ -42,6 +43,8 @@ export type SelectOption = { value: string; label: string };
 export type BlockSelectFieldProps = FieldProps & {
 	options: SelectOption[];
 	placeholder?: string;
+	/** Help behind an info button beside the label, instead of a long hint. */
+	info?: FieldInfo;
 };
 
 /**
@@ -56,6 +59,7 @@ export function BlockSelectField({
 	hint,
 	options,
 	placeholder,
+	info,
 }: BlockSelectFieldProps) {
 	const { updateNodeData } = useReactFlow();
 	// Tracking disabled means a readonly canvas: show the value, don't edit it.
@@ -64,16 +68,17 @@ export function BlockSelectField({
 	const raw = data[name];
 	const value = raw === undefined || raw === null ? null : String(raw);
 
-	return (
+	const select = (
 		<Select
 			fullWidth
 			variant="secondary"
 			isDisabled={!editable}
 			placeholder={placeholder}
 			value={value}
+			aria-label={info ? label : undefined}
 			onChange={(next) => updateNodeData(blockId, { [name]: String(next) })}
 		>
-			<Label>{label}</Label>
+			{!info && <Label>{label}</Label>}
 			<Select.Trigger>
 				<Select.Value />
 				<Select.Indicator />
@@ -90,6 +95,17 @@ export function BlockSelectField({
 				</ListBox>
 			</Select.Popover>
 		</Select>
+	);
+	if (!info) return select;
+	// outside the Select: a press on its label or the info button would open the list
+	return (
+		<div className="flex flex-col gap-1 w-full">
+			<div className="flex items-center gap-1">
+				<Label>{label}</Label>
+				<FieldInfoButton label={label} info={info} />
+			</div>
+			{select}
+		</div>
 	);
 }
 

@@ -331,7 +331,8 @@ export function ReorderableList<T>({
 								</span>
 							)}
 							{showIndex && <span className="w-5 shrink-0 text-xs text-muted">{displayIndex}</span>}
-							<div className="min-w-0 flex-1 truncate">
+							{/* custom content lays itself out; clipping it would also clip a field's dropdown */}
+							<div className={clsx("min-w-0 flex-1", !renderItemContent && "truncate")}>
 								{renderItemContent
 									? renderItemContent(item, meta)
 									: getItemLabel

@@ -1,4 +1,4 @@
-import { Button, Description, JsTextField, Label, ReorderableList } from "@fluxify/components";
+import { Button, FieldInfoButton, JsTextField, Label, ReorderableList } from "@fluxify/components";
 import { useReactFlow } from "@xyflow/react";
 import { TbSortAscending, TbSortDescending } from "react-icons/tb";
 import { useCanvasChanges } from "../../../changes/ChangesContext";
@@ -40,9 +40,9 @@ export function DbSortList({
 
 	return (
 		<div className="flex flex-col gap-2 w-full">
-			<div className="flex flex-col gap-0.5">
+			<div className="flex items-center gap-1">
 				<Label>Sort</Label>
-				<Description>{description}</Description>
+				<FieldInfoButton label="Sort" info={{ content: description }} />
 			</div>
 			<ReorderableList
 				items={sort}
@@ -93,6 +93,70 @@ export function DbSortList({
 					onPress={() => save([...sort, { attribute: "", direction: "asc" }])}
 				>
 					Add sort
+				</Button>
+			)}
+		</div>
+	);
+}
+
+/**
+ * Cursor paging's tiebreaker columns, in order: after the sort, rows are told
+ * apart by these. Empty means the primary key.
+ */
+export function DbTiebreakerList({
+	block,
+	columnSuggestions,
+}: {
+	block: BlockNode;
+	columnSuggestions?: string[];
+}) {
+	const { updateNodeData } = useReactFlow();
+	const { enabled: editable } = useCanvasChanges();
+	const keys = Array.isArray(block.data.keys)
+		? (block.data.keys as unknown[]).map((k) => (typeof k === "string" ? k : ""))
+		: [];
+	const save = (next: string[]) => updateNodeData(block.id, { keys: next });
+
+	return (
+		<div className="flex flex-col gap-2 w-full">
+			<div className="flex items-center gap-1">
+				<Label>Tiebreaker columns</Label>
+				<FieldInfoButton
+					label="Tiebreaker columns"
+					info={{
+						content:
+							"Columns that are unique together, used after the sort so rows that tie are never skipped between pages. Leave empty to use the primary key (_id on MongoDB); a table without one, such as a view, needs them.",
+					}}
+				/>
+			</div>
+			<ReorderableList
+				items={keys}
+				getKey={(_, index) => index}
+				isEditable={editable}
+				showIndex
+				showMoveButtons
+				onReorder={save}
+				onRemove={(_, index) => save(keys.filter((__, i) => i !== index))}
+				removeButtonAriaLabel="Remove tiebreaker"
+				emptyMessage={
+					<span className="text-xs text-muted">No tiebreaker: the primary key is used.</span>
+				}
+				renderItemContent={(key, { index }) => (
+					<div className="w-full py-1">
+						<JsTextField
+							fullWidth
+							isDisabled={!editable}
+							placeholder="id"
+							value={key}
+							suggestions={columnSuggestions}
+							onChange={(value) => save(keys.map((k, i) => (i === index ? value : k)))}
+						/>
+					</div>
+				)}
+			/>
+			{editable && (
+				<Button variant="outline" onPress={() => save([...keys, ""])}>
+					Add tiebreaker
 				</Button>
 			)}
 		</div>

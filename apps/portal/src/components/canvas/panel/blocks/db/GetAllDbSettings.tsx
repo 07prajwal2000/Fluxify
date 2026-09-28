@@ -18,9 +18,10 @@ import {
 	BlockIntegrationField,
 	BlockJoinsEditorField,
 	BlockJsTextField,
+	BlockSelectField,
 } from "../../fields";
 import { parseDbConditions, readDbBinding, serializeDbConditions } from "./conditions";
-import { DbSortList } from "./DbSortList";
+import { DbSortList, DbTiebreakerList } from "./DbSortList";
 
 function parseColumns(block: BlockNode): string[] {
 	if (Array.isArray(block.data.columns)) {
@@ -66,7 +67,7 @@ export function GetAllDbGeneralSettings({ block }: { block: BlockNode }) {
 	);
 }
 
-/** Pagination tab: Limit, Offset, and Sorting configuration */
+/** Pagination tab: paging mode, Limit, Offset or After, Sort, and tiebreakers */
 export function GetAllDbPaginationSettings({ block }: { block: BlockNode }) {
 	const params = useParams({ strict: false }) as { projectId?: string };
 	const projectId = params?.projectId ?? "";
@@ -74,8 +75,23 @@ export function GetAllDbPaginationSettings({ block }: { block: BlockNode }) {
 	const { getColumnsForTable, allColumns } = useDbMetadata(projectId, connectionId);
 	const tableColumns = getColumnsForTable(tableName);
 	const columnSuggestions = tableColumns.length > 0 ? tableColumns : allColumns;
+	const cursor = block.data.paging === "cursor";
 	return (
 		<div className="flex flex-col gap-4 w-full">
+			<BlockSelectField
+				blockId={block.id}
+				data={{ ...block.data, paging: cursor ? "cursor" : "offset" }}
+				name="paging"
+				label="Paging"
+				info={{
+					content:
+						"Offset returns the list of rows and pages by skipping Offset rows. Cursor returns { rows, nextCursor }: pass nextCursor back as After to get the next page; it is null on the last page. Cursor never repeats or skips rows when records change between pages.",
+				}}
+				options={[
+					{ value: "offset", label: "Offset" },
+					{ value: "cursor", label: "Cursor" },
+				]}
+			/>
 			<div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full">
 				<BlockJsTextField
 					blockId={block.id}
@@ -83,22 +99,47 @@ export function GetAllDbPaginationSettings({ block }: { block: BlockNode }) {
 					name="limit"
 					label="Limit"
 					placeholder="1000"
-					hint="Maximum records to return (supports js: expression)."
+					info={{
+						content: "Maximum records to return; -1 for no limit. Empty means 1000.",
+						example: "50\n-1\njs:getQueryParam('limit')",
+					}}
 				/>
-				<BlockJsTextField
-					blockId={block.id}
-					data={block.data}
-					name="offset"
-					label="Offset"
-					placeholder="0"
-					hint="Skip count for pagination (supports js: expression)."
-				/>
+				{cursor ? (
+					<BlockJsTextField
+						blockId={block.id}
+						data={block.data}
+						name="after"
+						label="After"
+						placeholder="js:getQueryParam('after')"
+						info={{
+							content: "The previous page's nextCursor, unchanged. Empty for the first page.",
+							example: "js:getQueryParam('after')",
+						}}
+					/>
+				) : (
+					<BlockJsTextField
+						blockId={block.id}
+						data={block.data}
+						name="offset"
+						label="Offset"
+						placeholder="0"
+						info={{
+							content: "How many records to skip. Empty means 0.",
+							example: "20\njs:getQueryParam('offset')",
+						}}
+					/>
+				)}
 			</div>
 			<DbSortList
 				block={block}
 				columnSuggestions={columnSuggestions}
-				description="The top entry sorts first; each next one orders rows that tie above it. Drag to reorder. The primary key is always added last, so paging never repeats or skips rows. A column set to js: that returns undefined is skipped."
+				description={
+					cursor
+						? "The top entry sorts first; each next one orders rows that tie above it. Drag to reorder. A column set to js: that returns undefined is skipped."
+						: "The top entry sorts first; each next one orders rows that tie above it. Drag to reorder. The primary key is always added last, so paging never repeats or skips rows. A column set to js: that returns undefined is skipped."
+				}
 			/>
+			{cursor && <DbTiebreakerList block={block} columnSuggestions={columnSuggestions} />}
 		</div>
 	);
 }

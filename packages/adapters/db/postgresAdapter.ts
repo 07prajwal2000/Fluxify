@@ -15,6 +15,7 @@ import {
 	type WriteResult,
 } from ".";
 import { applySqlConditions } from "./conditions";
+import { cursorSorts, type DbCursor, type DbPage, sqlPage } from "./cursor";
 import { applyColumns, applyJoins, buildQualifiers, type QueryOptions } from "./jsonPath";
 import { BunSqlPostgresDialect } from "./kyselySqlDialect";
 import { activeSorts, applySqlSort, type DbSort, singleRow, withTiebreaker } from "./sort";
@@ -61,7 +62,6 @@ const regclassName = (table: string) =>
 export class PostgresAdapter implements IDbAdapter {
 	public static variant = "PostgreSQL";
 	private mode: DbAdapterMode = DbAdapterMode.NORMAL;
-	private readonly HARD_LIMIT = 1000;
 	// ponytail: never invalidated, a PK altered at runtime needs a new adapter
 	private readonly primaryKeys = new Map<string, string[]>();
 
@@ -130,7 +130,7 @@ export class PostgresAdapter implements IDbAdapter {
 	async getAll(
 		table: string,
 		conditions: DBConditionType[],
-		limit: number = this.HARD_LIMIT,
+		limit: number | null,
 		offset: number = 0,
 		sort: DbSort[] = [],
 		options?: QueryOptions,
@@ -140,15 +140,33 @@ export class PostgresAdapter implements IDbAdapter {
 		let qb = applyJoins(conn.selectFrom(table as never), options?.joins);
 		qb = this.buildQuery(conditions, qb, qualifiers);
 
-		const l = limit < 0 || limit > this.HARD_LIMIT ? this.HARD_LIMIT : limit;
 		const sorts = await this.withKeys(activeSorts(sort), table, options);
 
-		return applySqlSort(
-			applyColumns(qb, options?.columns).limit(l).offset(offset),
-			sorts,
-			"postgres",
-			qualifiers,
-		).execute();
+		let q = applyColumns(qb, options?.columns).offset(offset);
+		if (limit !== null) q = q.limit(limit);
+		return applySqlSort(q, sorts, "postgres", qualifiers).execute();
+	}
+
+	async getPage(
+		table: string,
+		conditions: DBConditionType[],
+		limit: number | null,
+		sort: DbSort[],
+		cursor: DbCursor,
+		options?: QueryOptions,
+	): Promise<DbPage> {
+		const conn = this.getConnection();
+		const qualifiers = buildQualifiers(table, options?.joins);
+		let qb = applyJoins(conn.selectFrom(table as never), options?.joins);
+		qb = this.buildQuery(conditions, qb, qualifiers);
+		const sorts = cursorSorts(
+			activeSorts(sort),
+			cursor.keys,
+			await this.primaryKey(table),
+			table,
+			!!options?.joins?.length,
+		);
+		return sqlPage(qb, sorts, limit, cursor.after, options?.columns, "postgres", qualifiers);
 	}
 
 	async getSingle(

@@ -66,3 +66,15 @@ export function singleRow<T>(rows: T[], strict?: boolean): T | null {
 	}
 	return rows[0] ?? null;
 }
+
+const mongoField = (attribute: string) => (attribute === "id" ? "_id" : attribute);
+
+/** the sort in entry order, `id` meaning `_id`; the keys (`_id` unless given) go last as the tiebreaker */
+export function mongoSorts(sort: DbSort[], keys: string[] = []): DbSort[] {
+	const sorts = activeSorts(sort).map((s) => ({ ...s, attribute: mongoField(s.attribute) }));
+	const own = keys.filter((k) => typeof k === "string" && k.trim());
+	return withTiebreaker(sorts, (own.length ? own : ["_id"]).map(mongoField), "");
+}
+
+export const sortSpec = (sorts: DbSort[]): Record<string, 1 | -1> =>
+	Object.fromEntries(sorts.map((s) => [s.attribute, s.direction === "asc" ? 1 : -1]));
