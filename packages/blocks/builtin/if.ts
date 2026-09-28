@@ -1,4 +1,4 @@
-import { conditionSchema } from "@fluxify/lib";
+import { type Condition, type ConditionGroup, conditionSchema } from "@fluxify/lib";
 import { z } from "zod";
 import { baseBlockDataSchema } from "../baseBlock";
 import { BlockTypes } from "../blockTypes";
@@ -34,7 +34,11 @@ const COMPARISONS: Record<string, string> = {
 	lte: "<=",
 };
 
-function conditionToJs(condition: z.infer<typeof conditionSchema>, node: EmitNode, input: string) {
+function conditionToJs(
+	condition: Exclude<Condition, ConditionGroup>,
+	node: EmitNode,
+	input: string,
+) {
 	const { lhs, rhs, operator, js } = condition;
 	const operand = (raw: unknown) =>
 		typeof raw === "string" && raw.startsWith("js:")
@@ -50,25 +54,28 @@ function conditionToJs(condition: z.infer<typeof conditionSchema>, node: EmitNod
 	return `(${operand(lhs)} ${COMPARISONS[operator]} ${operand(rhs)})`;
 }
 
-/**
- * Conditions are a flat list where `chain: "or"` closes the current group, so
- * the list is a sum of products: (a && b) || (c) || (d && e).
- */
-export function conditionsToJs(
-	conditions: z.infer<typeof conditionSchema>[],
-	node: EmitNode,
-	input: string,
-) {
-	const groups: string[][] = [[]];
+/** `undefined` for an empty group, which is dropped like the DB blocks drop it */
+function foldToJs(conditions: Condition[], node: EmitNode, input: string): string | undefined {
+	let expr: string | undefined;
 	for (const condition of conditions) {
-		groups[groups.length - 1].push(conditionToJs(condition, node, input));
-		if (condition.chain === "or") groups.push([]);
+		const next =
+			"group" in condition
+				? foldToJs(condition.group, node, input)
+				: conditionToJs(condition, node, input);
+		if (next === undefined) continue;
+		expr =
+			expr === undefined ? next : `(${expr} ${condition.chain === "or" ? "||" : "&&"} ${next})`;
 	}
-	const expr = groups
-		.filter((g) => g.length)
-		.map((g) => `(${g.join(" && ")})`)
-		.join(" || ");
-	return expr || "true";
+	return expr;
+}
+
+/**
+ * Strictly left to right, like the DB blocks: each condition's chain says how it
+ * joins everything before it, so `a OR b AND c` is `(a || b) && c`. A group
+ * folds first — brackets.
+ */
+export function conditionsToJs(conditions: Condition[], node: EmitNode, input: string) {
+	return foldToJs(conditions, node, input) ?? "true";
 }
 
 export function emitIf(node: EmitNode) {

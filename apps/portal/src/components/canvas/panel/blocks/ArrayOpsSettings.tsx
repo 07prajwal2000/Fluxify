@@ -1,9 +1,10 @@
-import { type Condition, ConditionsBuilder } from "@fluxify/components";
+import { ConditionsBuilder } from "@fluxify/components";
 import { useReactFlow } from "@xyflow/react";
 import { useCanvasChanges } from "../../changes/ChangesContext";
 import type { BlockNode } from "../../types";
 import { BlockSettings } from "../BlockSettings";
 import { BlockCheckboxField, BlockJsTextField, BlockSelectField, BlockTextField } from "../fields";
+import { parseConditionList, serializeIfConditions } from "./ifConditions";
 
 /** Array Operations General tab settings: Datasource and Use Param. */
 export function ArrayOpsGeneralSettings({ block }: { block: BlockNode }) {
@@ -72,9 +73,6 @@ export function ArrayOpsOperationSettings({ block }: { block: BlockNode }) {
 export function ArrayOpsConditionsSettings({ block }: { block: BlockNode }) {
 	const { updateNodeData } = useReactFlow();
 	const { enabled: editable } = useCanvasChanges();
-	const filterConditions = Array.isArray(block.data.filterConditions)
-		? (block.data.filterConditions as Condition[])
-		: [];
 
 	return (
 		<ConditionsBuilder
@@ -82,18 +80,18 @@ export function ArrayOpsConditionsSettings({ block }: { block: BlockNode }) {
 			label="Filter Conditions"
 			description="Conditions evaluated on array elements."
 			isDisabled={!editable}
-			conditions={filterConditions}
-			onChange={(next) => updateNodeData(block.id, { filterConditions: next })}
+			allowGroups
+			conditions={parseConditionList(block.data.filterConditions)}
+			onChange={(next) =>
+				updateNodeData(block.id, { filterConditions: serializeIfConditions(next) })
+			}
 		/>
 	);
 }
 
 export function arrayOpsSettings(block: BlockNode) {
 	const operation = String(block.data.operation ?? "");
-	const filterConditions = Array.isArray(block.data.filterConditions)
-		? (block.data.filterConditions as Condition[])
-		: [];
-	const count = filterConditions.length;
+	const count = parseConditionList(block.data.filterConditions).length;
 
 	const tabs = [
 		<BlockSettings.TabHead key="general" name="General">

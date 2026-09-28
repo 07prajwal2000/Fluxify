@@ -17,6 +17,7 @@ export function IfSettings({ block }: { block: BlockNode }) {
 			label="Conditions"
 			description="True takes the success branch, false takes the failure branch."
 			isDisabled={!editable}
+			allowGroups
 			conditions={parseIfConditions(block)}
 			onChange={(next) => updateNodeData(block.id, { conditions: serializeIfConditions(next) })}
 		/>

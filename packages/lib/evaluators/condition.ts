@@ -33,7 +33,10 @@ export const dbOperatorSchema = z
 
 export type DbOperator = z.infer<typeof dbOperatorSchema>;
 
-export const conditionSchema = z.object({
+const CHAIN_DESCRIPTION =
+	"how this condition joins everything before it; conditions combine strictly left to right. Ignored on the first condition of a list or group";
+
+const leafConditionSchema = z.object({
 	// if it is prefixed with `js:` then it will use vm which is created for the request's context
 	lhs: z
 		.string()
@@ -45,5 +48,23 @@ export const conditionSchema = z.object({
 		.describe("right-hand side operator (can be js expression)"),
 	operator: operatorSchema,
 	js: z.string().optional().describe("javascript expression"),
-	chain: z.enum(["and", "or"]).default("and").describe("condition chain to use for evaluation"),
+	chain: z.enum(["and", "or"]).default("and").describe(CHAIN_DESCRIPTION),
 });
+
+export type ConditionGroup = { group: Condition[]; chain: "and" | "or" };
+export type Condition = z.infer<typeof leafConditionSchema> | ConditionGroup;
+
+// group first: a leaf object would strip `group` and silently parse a group as a leaf
+export const conditionSchema: z.ZodType<Condition> = z.union([
+	z.object({
+		get group() {
+			return z
+				.array(conditionSchema)
+				.describe(
+					"brackets: these conditions combine first, left to right, then join the outer list as one condition",
+				);
+		},
+		chain: z.enum(["and", "or"]).default("and").describe(CHAIN_DESCRIPTION),
+	}),
+	leafConditionSchema,
+]);
