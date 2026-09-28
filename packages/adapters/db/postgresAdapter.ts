@@ -12,6 +12,7 @@ import {
 	type OnConflict,
 	sqlCounterSet,
 	upsertRows,
+	type WriteResult,
 } from ".";
 import { applySqlConditions } from "./conditions";
 import { applyColumns, applyJoins, buildQualifiers, type QueryOptions } from "./jsonPath";
@@ -191,15 +192,10 @@ export class PostgresAdapter implements IDbAdapter {
 		return Number(row?.count ?? 0);
 	}
 
-	async delete(table: string, conditions: DBConditionType[]): Promise<boolean> {
-		const conn = this.getConnection();
-		let qb = conn.deleteFrom(table as never);
-		qb = this.buildQuery(conditions, qb);
-		const result = await qb.execute();
-
-		// Safe property access without using 'any'
-		const rows = result as any as Array<Record<string, any>>;
-		return Number(rows[0]?.numDeletedRows ?? 0) > 0;
+	async delete(table: string, conditions: DBConditionType[]): Promise<WriteResult> {
+		const qb = this.buildQuery(conditions, this.getConnection().deleteFrom(table as never));
+		const affected = await qb.returningAll().execute();
+		return { count: affected.length, affected };
 	}
 
 	async insert(table: string, data: any, onConflict?: OnConflict): Promise<any> {
@@ -261,11 +257,47 @@ export class PostgresAdapter implements IDbAdapter {
 		}
 	}
 
-	async update(table: string, data: any, conditions: DBConditionType[]): Promise<any> {
+	/**
+	 * One statement: the CTE locks the matching rows and keeps each as it was, the update joins
+	 * them back by primary key and returns whether the row really changed. Not by ctid: a row
+	 * another run updated while we waited has a new ctid, the join would miss it and lose the update.
+	 */
+	async update(table: string, data: any, conditions: DBConditionType[]): Promise<WriteResult> {
 		const conn = this.getConnection();
-		let qb = conn.updateTable(table as never).set(sqlCounterSet(data) as never);
-		qb = this.buildQuery(conditions, qb);
-		return qb.returningAll().execute();
+		const set = sqlCounterSet(data) as never;
+		const pk = await this.primaryKey(table);
+		if (pk.length === 0) {
+			// ponytail: no key to pair rows before/after, so every matched row counts as changed
+			const affected = await this.buildQuery(conditions, conn.updateTable(table as never).set(set))
+				.returningAll()
+				.execute();
+			return { count: affected.length, affected };
+		}
+
+		const t = sql.table(table);
+		// keys aliased: a bare key name in SET would be ambiguous between the table and __old
+		const before = this.buildQuery(conditions, conn.selectFrom(table as never))
+			.select([
+				...pk.map((c, i) => sql`${t}.${sql.ref(c)}`.as(`__k${i}`)),
+				sql`to_jsonb(${t}.*)`.as("__before"),
+			])
+			.forUpdate();
+		const rows: Record<string, any>[] = await conn
+			.with("__old", () => before as never)
+			.updateTable(table as never)
+			.set(set)
+			.from("__old" as never)
+			.where(
+				sql.join(
+					pk.map((c, i) => sql`${t}.${sql.ref(c)} = __old.${sql.ref(`__k${i}`)}`),
+					sql` and `,
+				) as never,
+			)
+			.returningAll(table as never)
+			.returning(sql`__old.__before is distinct from to_jsonb(${t}.*)`.as("__changed") as never)
+			.execute();
+		const affected = rows.filter((r) => r.__changed).map(({ __changed, ...row }) => row);
+		return { count: affected.length, affected };
 	}
 
 	async setMode(mode: DbAdapterMode): Promise<void> {

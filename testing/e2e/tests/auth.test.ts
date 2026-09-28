@@ -133,6 +133,15 @@ describe("auth/verify-email", () => {
 		expect(run.body).toEqual({ error: "user_not_found" });
 	});
 
+	it("404s when already verified: the update changed nothing, count is 0", async () => {
+		const { sql } = await database();
+		const [row] = await sql`SELECT id FROM auth_users WHERE email = ${verified.email}`;
+
+		const run = await runGraph(verifyEmail, { params: { userId: String(row.id) } });
+
+		expect(run.status).toBe(404);
+	});
+
 	it("400s on a non-numeric id", async () => {
 		const run = await runGraph(verifyEmail, { params: { userId: "abc" } });
 

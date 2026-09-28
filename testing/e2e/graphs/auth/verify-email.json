@@ -75,7 +75,7 @@
 				"blockName": "Any row updated?",
 				"conditions": [
 					{
-						"lhs": "js:return input.length > 0;",
+						"lhs": "js:return input.count > 0;",
 						"rhs": true,
 						"operator": "eq",
 						"chain": "and"
@@ -92,7 +92,7 @@
 			},
 			"data": {
 				"blockName": "Verified payload",
-				"value": "return { id: input[0].id, email: input[0].email, verified: input[0].verified };"
+				"value": "const [user] = input.affected; return { id: user.id, email: user.email, verified: user.verified };"
 			}
 		},
 		{

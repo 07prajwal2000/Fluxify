@@ -4,6 +4,7 @@ import type { PoolConnection } from "mysql2/promise";
 import {
 	bulkChunkSize,
 	type Connection,
+	changedRows,
 	conflictKeys,
 	conflictUpdateColumns,
 	type DBConditionType,
@@ -14,6 +15,7 @@ import {
 	type OnConflict,
 	sqlCounterSet,
 	upsertRows,
+	type WriteResult,
 } from ".";
 import { applySqlConditions } from "./conditions";
 import { applyColumns, applyJoins, buildQualifiers, type QueryOptions } from "./jsonPath";
@@ -167,12 +169,25 @@ export class MySqlAdapter implements IDbAdapter {
 		return Number(row?.count ?? 0);
 	}
 
-	async delete(table: string, conditions: DBConditionType[]): Promise<boolean> {
-		const conn = this.getConnection();
-		let qb = conn.deleteFrom(table as never);
-		qb = this.buildQuery(conditions, qb);
-		const result = await qb.executeTakeFirst();
-		return Number(result.numDeletedRows ?? 0) > 0;
+	/** MySQL has no RETURNING: lock and read the matching rows, then delete exactly those */
+	async delete(table: string, conditions: DBConditionType[]): Promise<WriteResult> {
+		const pk = await this.primaryKey(table);
+		return this.withTransaction(async (trx) => {
+			const affected: Row[] = await this.buildQuery(
+				conditions,
+				trx.selectFrom(table as never).selectAll(),
+			)
+				.forUpdate()
+				.execute();
+			if (affected.length === 0) return { count: 0, affected };
+			// no key to delete by: re-run the conditions, the rows are locked
+			const qb = trx.deleteFrom(table as never);
+			const result = await (pk.length
+				? whereKeys(qb, pk, affected)
+				: this.buildQuery(conditions, qb)
+			).executeTakeFirst();
+			return { count: Number(result.numDeletedRows), affected };
+		});
 	}
 
 	async insert(table: string, data: any, onConflict?: OnConflict): Promise<any> {
@@ -222,41 +237,56 @@ export class MySqlAdapter implements IDbAdapter {
 		return useTransaction ? this.withTransaction(insertChunks) : insertChunks(this.getConnection());
 	}
 
-	async update(table: string, data: any, conditions: DBConditionType[]): Promise<any> {
+	async update(table: string, data: any, conditions: DBConditionType[]): Promise<WriteResult> {
 		const pk = await this.primaryKey(table);
-		if (pk.length === 0) {
-			// no key to re-read by: best effort, re-run the conditions
-			const conn = this.getConnection();
-			await this.buildQuery(
-				conditions,
-				conn.updateTable(table as never).set(sqlCounterSet(data) as never),
-			).execute();
-			return this.buildQuery(conditions, conn.selectFrom(table as never))
-				.selectAll()
-				.execute();
-		}
-
-		// MySQL has no RETURNING: lock the matching keys, update exactly those, re-read them
+		const set = sqlCounterSet(data) as never;
+		// MySQL has no RETURNING: lock the matching rows, update exactly those, re-read them
 		return this.withTransaction(async (trx) => {
-			const keys: Row[] = await this.buildQuery(
+			const before: Row[] = await this.buildQuery(
 				conditions,
-				trx.selectFrom(table as never).select(pk as never),
+				trx.selectFrom(table as never).selectAll(),
 			)
 				.forUpdate()
 				.execute();
-			if (keys.length === 0) return [];
+			if (before.length === 0) return { count: 0, affected: [] };
 
-			await whereKeys(
-				trx.updateTable(table as never).set(sqlCounterSet(data) as never),
+			if (pk.length === 0) {
+				// ponytail: no key to pair rows before/after, so every re-read row counts as affected
+				const result = await this.buildQuery(
+					conditions,
+					trx.updateTable(table as never).set(set),
+				).executeTakeFirst();
+				const count = Number(result.numChangedRows ?? 0);
+				const after = count
+					? await this.buildQuery(conditions, trx.selectFrom(table as never))
+							.selectAll()
+							.execute()
+					: [];
+				return { count, affected: after };
+			}
+
+			const result = await whereKeys(
+				trx.updateTable(table as never).set(set),
 				pk,
-				keys,
-			).execute();
+				before,
+			).executeTakeFirst();
 
 			// an update that sets a key column moves the row to that key
-			const newKeys = keys.map((k) =>
+			const keyOf = (row: Row) => JSON.stringify(pk.map((c) => row[c]));
+			const newKeys = before.map((k) =>
 				Object.fromEntries(pk.map((c) => [c, c in data ? data[c] : k[c]])),
 			);
-			return whereKeys(trx.selectFrom(table as never).selectAll(), pk, newKeys).execute();
+			const was = new Map(before.map((row, i) => [keyOf(newKeys[i]), row]));
+			const after: Row[] = await whereKeys(
+				trx.selectFrom(table as never).selectAll(),
+				pk,
+				newKeys,
+			).execute();
+			// a row not found under its new key had a key column change
+			return {
+				count: Number(result.numChangedRows ?? 0),
+				affected: changedRows(was, after, keyOf),
+			};
 		});
 	}
 

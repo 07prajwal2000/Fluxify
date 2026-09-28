@@ -11,7 +11,12 @@ import { PostgresAdapter } from "./postgresAdapter";
 import { Connection, DbType } from ".";
 import type Docker from "dockerode";
 import { faker } from "@faker-js/faker";
-import { docker, pullImage, startContainerWithRandomPort } from "./testHelpers";
+import {
+	checkWriteResults,
+	docker,
+	pullImage,
+	startContainerWithRandomPort,
+} from "./testHelpers";
 
 const containerName = "fluxify-pg-adapter-test";
 let exposedPort: number;
@@ -164,15 +169,15 @@ describe("PostgresAdapter Integration Tests", () => {
 		]);
 		expect(notFound).toBeNull();
 
-		const updated = (await adapter.update(tableName, { age: 29 }, [
+		const updated = await adapter.update(tableName, { age: 29 }, [
 			{ attribute: "id", operator: "eq", value: inserted.id, chain: "and" },
-		])) as any[];
-		expect(updated[0].age).toBe(29);
+		]);
+		expect(updated.affected[0].age).toBe(29);
 
 		const isDeleted = await adapter.delete(tableName, [
 			{ attribute: "id", operator: "eq", value: inserted.id, chain: "and" },
 		]);
-		expect(isDeleted).toBe(true);
+		expect(isDeleted.count).toBe(1);
 	});
 
 	test("Advanced Filtering & Operators", async () => {
@@ -291,16 +296,26 @@ describe("PostgresAdapter Integration Tests", () => {
 			age: 88,
 		});
 
-		const updatedRows = (await adapter.update(tableName, { score: 999 }, [
+		const { affected: updatedRows } = await adapter.update(tableName, { score: 999 }, [
 			{ attribute: "age", operator: "eq", value: 88, chain: "and" },
-		])) as any[];
+		]);
 		expect(updatedRows.length).toBeGreaterThanOrEqual(2);
 		expect(updatedRows[0].score).toBe(999);
 
 		const deleteSuccess = await adapter.delete(tableName, [
 			{ attribute: "score", operator: "eq", value: 999, chain: "and" },
 		]);
-		expect(deleteSuccess).toBe(true);
+		expect(deleteSuccess.count).toBeGreaterThanOrEqual(2);
+	});
+
+	test("update/delete return { count, affected } (#503)", async () => {
+		const adapter = new PostgresAdapter(db, sql);
+		// a json column has no = operator, the changed check must still work
+		const keyed = `writes_${faker.string.alphanumeric(8).toLowerCase()}`;
+		await adapter.raw(
+			`CREATE TABLE ${keyed} (id SERIAL PRIMARY KEY, name TEXT, status TEXT, meta JSON)`,
+		);
+		await checkWriteResults(adapter, keyed);
 	});
 
 	test("Raw Queries", async () => {

@@ -11,7 +11,12 @@ import { Connection, DbType } from ".";
 import type Docker from "dockerode";
 import { MongoClient } from "mongodb";
 import { fakerEN as faker } from "@faker-js/faker";
-import { docker, pullImage, startContainerWithRandomPort } from "./testHelpers";
+import {
+	checkWriteResults,
+	docker,
+	pullImage,
+	startContainerWithRandomPort,
+} from "./testHelpers";
 
 const containerName = "fluxify-mongo-adapter-test";
 let exposedPort: number;
@@ -190,7 +195,7 @@ describe("MongoAdapter Integration Tests", () => {
 		const isDeleted = await adapter.delete(collectionName, [
 			{ attribute: "id", operator: "eq", value: inserted.id, chain: "and" },
 		]);
-		expect(isDeleted).toBe(true);
+		expect(isDeleted.count).toBe(1);
 	});
 
 	test("Advanced Filtering & Operators", async () => {
@@ -282,7 +287,12 @@ describe("MongoAdapter Integration Tests", () => {
 		const deleteSuccess = await adapter.delete(collectionName, [
 			{ attribute: "score", operator: "eq", value: 777, chain: "and" },
 		]);
-		expect(deleteSuccess).toBe(true);
+		expect(deleteSuccess.count).toBeGreaterThan(0);
+	});
+
+	test("update/delete return { count, affected } (#503)", async () => {
+		const adapter = new MongoAdapter(client, db);
+		await checkWriteResults(adapter, `writes_${faker.string.alphanumeric(8).toLowerCase()}`);
 	});
 
 	test("Raw Queries (Command API)", async () => {

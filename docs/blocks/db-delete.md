@@ -22,4 +22,20 @@ If every condition is skipped, **every record** in the table is deleted.
 1.  The block connects to the database.
 2.  It identifies rows in the **Table Name** that match the **Conditions**.
 3.  It permanently removes those rows.
-4.  It outputs the result of the operation.
+4.  It outputs how many rows were deleted, and the rows themselves.
+
+## Output
+
+```json
+{ "count": 2, "affected": [{ "id": 4, "status": "cancelled" }, { "id": 9, "status": "cancelled" }] }
+```
+
+- `count`: how many rows were deleted. `0` when nothing matched.
+- `affected`: the deleted rows, as they were just before the delete.
+
+Use `count` to react when nothing was deleted, for example an **If** block with `input.count === 0` leading to a 404.
+
+## Notes
+
+- Every deleted row is returned, so deleting a large table returns a large output.
+- A database error (bad connection, missing table or column) goes to the route's [Error Handler](/blocks/error-handler).
