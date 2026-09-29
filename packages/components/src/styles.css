@@ -11,6 +11,7 @@
    used by those components too, including the playground's split-grid classes. */
 @source "./ApiPlayground";
 @source "./ReorderableList";
+@source "./JsTextField";
 
 @theme {
 	/* Configurable type. Swap this one line to change the product typeface. */
