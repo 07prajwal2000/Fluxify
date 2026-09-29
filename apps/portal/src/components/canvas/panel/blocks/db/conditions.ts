@@ -55,6 +55,32 @@ export function parseDbConditionList(raw: unknown): Condition[] {
 	return parseList(Array.isArray(raw) ? (raw as RawWhereCondition[]) : []);
 }
 
+/**
+ * Column picks once a block has joins: `table.*` and `table.column` for the
+ * block's table and each joined one (by alias when it has one). Empty
+ * without joins, where bare column names already say which table.
+ */
+export function joinedColumnSuggestions(
+	block: BlockNode,
+	getColumnsForTable: (table: string) => string[],
+): string[] {
+	const joins = Array.isArray(block.data.joins)
+		? (block.data.joins as RawJoin[]).map(normalizeJoin)
+		: [];
+	if (joins.length === 0) return [];
+	const { tableName } = readDbBinding(block);
+	const sources = [
+		{ qualifier: tableName, table: tableName },
+		...joins.map((join) => ({ qualifier: join.alias || join.table, table: join.table })),
+	];
+	return sources
+		.filter(({ qualifier }) => qualifier && !qualifier.startsWith("js:"))
+		.flatMap(({ qualifier, table }) => [
+			`${qualifier}.*`,
+			...getColumnsForTable(table).map((column) => `${qualifier}.${column}`),
+		]);
+}
+
 type RawJoin = Omit<JoinItem, "type"> & { type?: string; attribute?: unknown };
 
 /**

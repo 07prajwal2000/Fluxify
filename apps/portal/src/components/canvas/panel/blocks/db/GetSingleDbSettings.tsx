@@ -13,7 +13,12 @@ import {
 	BlockIntegrationField,
 	BlockJsTextField,
 } from "../../fields";
-import { parseDbConditions, readDbBinding, serializeDbConditions } from "./conditions";
+import {
+	joinedColumnSuggestions,
+	parseDbConditions,
+	readDbBinding,
+	serializeDbConditions,
+} from "./conditions";
 import { DbJoinsSettings } from "./DbJoinsSettings";
 import { DbSortList } from "./DbSortList";
 
@@ -81,8 +86,8 @@ export function GetSingleDbColumnsSettings({ block }: { block: BlockNode }) {
 	const columnSuggestions = useMemo(() => {
 		const cols = tableColumns.length > 0 ? tableColumns : allColumns;
 		const distinct = cols.filter((c) => c !== "*");
-		return ["*", ...distinct];
-	}, [tableColumns, allColumns]);
+		return ["*", ...distinct, ...joinedColumnSuggestions(block, getColumnsForTable)];
+	}, [tableColumns, allColumns, block, getColumnsForTable]);
 
 	const columns = parseColumns(block);
 	const dataWithDefaults = {
