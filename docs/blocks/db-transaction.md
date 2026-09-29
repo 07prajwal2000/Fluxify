@@ -98,7 +98,7 @@ The insert runs first; when the total is over the limit the rollback undoes it, 
 
 ## Canvas checks
 
-Errors block saving the canvas; the warning does not, so a half-built canvas still saves.
+Errors block saving the canvas; warnings do not, so a half-built canvas still saves.
 
 - **Error**: the Success or Failure path leads into blocks that also run inside the Executor chain. Keep the inside and the after paths separate.
 - **Error**: a transaction sits inside another transaction on the same connection.
