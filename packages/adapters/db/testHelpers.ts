@@ -50,3 +50,14 @@ export async function checkWriteResults(adapter: IDbAdapter, table: string) {
 		rows: "b:cancelled c:cancelled",
 	});
 }
+
+/** #512: the row each test seeds reads back as the same JS types on every database */
+export async function checkValueTypes(adapter: IDbAdapter, table: string) {
+	const [row] = await adapter.getAll(table, [], null, 0, []);
+	expect(row).toMatchObject({
+		small: 42,
+		big: "9007199254740993",
+		price: "12.50",
+		at: new Date("2024-01-02T03:04:05Z"),
+	});
+}

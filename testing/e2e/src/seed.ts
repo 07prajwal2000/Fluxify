@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { faker } from "@faker-js/faker";
 import type { SQL } from "bun";
-import type { Db } from "mongodb";
+import { type Db, Decimal128, Long } from "mongodb";
 import type { Pool as MysqlPool } from "mysql2/promise";
 
 /**
@@ -72,6 +72,11 @@ export async function seedPostgres(sql: SQL) {
 	await sql`DROP TABLE IF EXISTS wide`;
 	await sql`DROP TABLE IF EXISTS people`;
 	await sql`DROP TABLE IF EXISTS counters`;
+	await sql`DROP TABLE IF EXISTS amounts`;
+
+	// #512: a bigint past 2^53, a decimal and a time, which every engine must read back alike
+	await sql`CREATE TABLE amounts (id SERIAL PRIMARY KEY, small BIGINT, big BIGINT, price NUMERIC(10,2), at TIMESTAMPTZ)`;
+	await sql`INSERT INTO amounts (small, big, price, at) VALUES (42, 9007199254740993, 12.50, '2024-01-02 03:04:05Z')`;
 
 	// inc/dec (#501): a number that concurrent runs add to, unique by name for upserts
 	await sql`CREATE TABLE counters (id SERIAL PRIMARY KEY, name VARCHAR(64) NOT NULL UNIQUE, hits INT NOT NULL DEFAULT 0)`;
@@ -146,7 +151,13 @@ export async function seedPostgres(sql: SQL) {
  * Only what those graphs touch: `users`, `orders` and `wide`, with the same seed rows.
  */
 export async function seedMysql(pool: MysqlPool) {
-	await pool.query("DROP TABLE IF EXISTS orders, users, wide, people, counters");
+	await pool.query("DROP TABLE IF EXISTS orders, users, wide, people, counters, amounts");
+	await pool.query(
+		"CREATE TABLE amounts (id INT AUTO_INCREMENT PRIMARY KEY, small BIGINT, big BIGINT, price DECIMAL(10,2), at DATETIME)",
+	);
+	await pool.query(
+		"INSERT INTO amounts (small, big, price, at) VALUES (42, 9007199254740993, 12.50, '2024-01-02 03:04:05')",
+	);
 	await pool.query(
 		"CREATE TABLE counters (id INT AUTO_INCREMENT PRIMARY KEY, name VARCHAR(64) NOT NULL UNIQUE, hits INT NOT NULL DEFAULT 0)",
 	);
@@ -236,4 +247,12 @@ export async function seedMongo(db: Db) {
 	await db.collection("counters").deleteMany({});
 	await db.collection("counters").createIndex({ name: 1 }, { unique: true });
 	await db.collection("counters").insertOne({ name: "views", hits: 5 });
+
+	await db.collection("amounts").deleteMany({});
+	await db.collection("amounts").insertOne({
+		small: Long.fromNumber(42),
+		big: Long.fromString("9007199254740993"),
+		price: Decimal128.fromString("12.50"),
+		at: new Date("2024-01-02T03:04:05Z"),
+	});
 }

@@ -9,9 +9,10 @@ import {
 import { MongoAdapter, buildMongoUrl, isTransactionUnsupported } from "./mongoDbAdapter";
 import { Connection, DbType } from ".";
 import type Docker from "dockerode";
-import { MongoClient } from "mongodb";
+import { Decimal128, Long, MongoClient } from "mongodb";
 import { fakerEN as faker } from "@faker-js/faker";
 import {
+	checkValueTypes,
 	checkWriteResults,
 	docker,
 	pullImage,
@@ -288,6 +289,22 @@ describe("MongoAdapter Integration Tests", () => {
 			{ attribute: "score", operator: "eq", value: 777, chain: "and" },
 		]);
 		expect(deleteSuccess.count).toBeGreaterThan(0);
+	});
+
+	test("bigint, numeric and dates read back as the same types everywhere (#512)", async () => {
+		const adapter = new MongoAdapter(client, db);
+		const table = `types_${faker.string.alphanumeric(8).toLowerCase()}`;
+		await db.collection(table).insertOne({
+			small: Long.fromNumber(42),
+			big: Long.fromString("9007199254740993"),
+			price: Decimal128.fromString("12.50"),
+			at: new Date("2024-01-02T03:04:05Z"),
+			nested: { big: Long.fromString("9007199254740993") },
+		});
+		await checkValueTypes(adapter, table);
+		expect(await adapter.getSingle(table, [])).toMatchObject({
+			nested: { big: "9007199254740993" },
+		});
 	});
 
 	test("update/delete return { count, affected } (#503)", async () => {

@@ -16,6 +16,7 @@ import {
 	type QueryCompiler,
 	type QueryResult,
 } from "kysely";
+import { exactInt } from "./values";
 
 // ---------------------------------------------------------------------------
 // Shared connection wrapper
@@ -31,6 +32,7 @@ class BunSqlConnection implements DatabaseConnection {
 		const { sql, parameters } = compiledQuery;
 
 		const rows = await (this.client as any).unsafe(sql, parameters as any[]);
+		if (Array.isArray(rows)) for (const row of rows) for (const k in row) row[k] = exactInt(row[k]);
 
 		// Handle Postgres (.count), MySQL (.affectedRows), and SQLite
 		const affected = (rows as any)?.affectedRows ?? (rows as any)?.count;
