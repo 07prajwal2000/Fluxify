@@ -107,8 +107,8 @@ db_getall {
 	joins?: {
 		table: string;  // table to join
 		alias?: string;  // alias for the table
-		attribute: string;  // attribute to join e.g. table1.id = table2.id
-		type: "inner" | "left" | "right" | "outer";  // type of join; default "inner"
+		on: DbWhereCondition[];  // ON clause, same condition list as WHERE, e.g. [{ attribute: { kind: 'column', value: 'orders.rider_id' }, operator: 'eq', value: { kind: 'column', value: 'riders.id' }, chain: 'and' }]; add a fixed-value condition the same way with a literal value
+		type: "inner" | "left" | "right" | "full";  // type of join; SQL only, and MySQL has no full join; default "inner"
 	}[];  // list of joins; default []
 	columns?: string[];  // list of columns to select with aliases if any (e.g. column1 or table.column2 AS column2 or table.*); default ["*"]
 	limit: number | string | null;  // max rows; -1 or null for no limit (supports js expressions); default 1000
@@ -129,8 +129,8 @@ db_getsingle {
 	joins?: {
 		table: string;  // table to join
 		alias?: string;  // alias for the table
-		attribute: string;  // attribute to join e.g. table1.id = table2.id
-		type: "inner" | "left" | "right" | "outer";  // type of join; default "inner"
+		on: DbWhereCondition[];  // ON clause, same condition list as WHERE, e.g. [{ attribute: { kind: 'column', value: 'orders.rider_id' }, operator: 'eq', value: { kind: 'column', value: 'riders.id' }, chain: 'and' }]; add a fixed-value condition the same way with a literal value
+		type: "inner" | "left" | "right" | "full";  // type of join; SQL only, and MySQL has no full join; default "inner"
 	}[];  // list of joins; default []
 	columns?: string[];  // list of columns to select with aliases if any (e.g. column1 or table.column2 AS column2 or table.*); default ["*"]
 	strict: boolean;  // fail the block when more than one row matches, instead of returning one of them; for lookups that should be unique (id, email, token); default false
@@ -147,8 +147,8 @@ db_exists {
 	joins?: {
 		table: string;  // table to join
 		alias?: string;  // alias for the table
-		attribute: string;  // attribute to join e.g. table1.id = table2.id
-		type: "inner" | "left" | "right" | "outer";  // type of join; default "inner"
+		on: DbWhereCondition[];  // ON clause, same condition list as WHERE, e.g. [{ attribute: { kind: 'column', value: 'orders.rider_id' }, operator: 'eq', value: { kind: 'column', value: 'riders.id' }, chain: 'and' }]; add a fixed-value condition the same way with a literal value
+		type: "inner" | "left" | "right" | "full";  // type of join; SQL only, and MySQL has no full join; default "inner"
 	}[];  // list of joins; default []
 	columns?: string[];  // list of columns to select with aliases if any (e.g. column1 or table.column2 AS column2 or table.*); default ["*"]
 }
@@ -160,8 +160,8 @@ db_count {
 	joins?: {
 		table: string;  // table to join
 		alias?: string;  // alias for the table
-		attribute: string;  // attribute to join e.g. table1.id = table2.id
-		type: "inner" | "left" | "right" | "outer";  // type of join; default "inner"
+		on: DbWhereCondition[];  // ON clause, same condition list as WHERE, e.g. [{ attribute: { kind: 'column', value: 'orders.rider_id' }, operator: 'eq', value: { kind: 'column', value: 'riders.id' }, chain: 'and' }]; add a fixed-value condition the same way with a literal value
+		type: "inner" | "left" | "right" | "full";  // type of join; SQL only, and MySQL has no full join; default "inner"
 	}[];  // list of joins; default []
 }
 

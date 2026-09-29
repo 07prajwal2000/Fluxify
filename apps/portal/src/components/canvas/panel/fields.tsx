@@ -6,8 +6,6 @@ import {
 	FieldInfoButton,
 	Input,
 	IntegrationSelector,
-	type JoinItem,
-	JoinsEditor,
 	JsTextField,
 	Label,
 	ListBox,
@@ -513,51 +511,6 @@ export function BlockArrayEditorField({
 			isDisabled={!editable}
 			values={values}
 			suggestions={suggestions}
-			onChange={(next) => updateNodeData(blockId, { [name]: next })}
-		/>
-	);
-}
-
-export type BlockJoinsEditorFieldProps = {
-	blockId: string;
-	data: BlockData;
-	name: string;
-	label?: ReactNode;
-	description?: ReactNode;
-	emptyMessage?: string;
-	tableSuggestions?: string[];
-	columnSuggestions?: string[];
-	getColumnSuggestions?: (tableName?: string) => string[];
-};
-
-/**
- * A joins setting field backed by JoinsEditor.
- */
-export function BlockJoinsEditorField({
-	blockId,
-	data,
-	name,
-	label,
-	description,
-	emptyMessage,
-	tableSuggestions,
-	columnSuggestions,
-	getColumnSuggestions,
-}: BlockJoinsEditorFieldProps) {
-	const { updateNodeData } = useReactFlow();
-	const { enabled: editable } = useCanvasChanges();
-	const joins = Array.isArray(data[name]) ? (data[name] as JoinItem[]) : [];
-
-	return (
-		<JoinsEditor
-			label={label}
-			description={description}
-			emptyMessage={emptyMessage}
-			isDisabled={!editable}
-			joins={joins}
-			tableSuggestions={tableSuggestions}
-			columnSuggestions={columnSuggestions}
-			getColumnSuggestions={getColumnSuggestions}
 			onChange={(next) => updateNodeData(blockId, { [name]: next })}
 		/>
 	);

@@ -214,14 +214,38 @@ Custom conditions combine with the other conditions using **And** / **Or**, just
 
 ## Joins
 
-Joins let you pull in data from a related table in the same query (available for SQL databases — this section is hidden when your connection is MongoDB).
+Joins let you pull in data from a related table in the same query (PostgreSQL and MySQL; MongoDB has no joins yet).
 
 Each join needs:
 
 - **Table**: The other table to combine with.
 - **Alias** *(optional)*: A short name to refer to that table by. Useful when joining the same table more than once, or to keep column references short.
-- **Join Condition**: How the two tables are related, written as `leftColumn = rightColumn` (for example `books.author_id = authors.id`).
-- **Type**: `inner`, `left`, `right`, or `outer`.
+- **On**: When a row of this table matches a row of the other. This is a list of conditions, built exactly like **Conditions**: the same operators, groups and custom conditions. A side can be a column of either table, or a fixed value.
+- **Type**: which rows come back.
+
+| Type | Rows returned | PostgreSQL | MySQL |
+| --- | --- | --- | --- |
+| **Inner** | Only rows that match on both sides | Yes | Yes |
+| **Left** | Every row of this table; the other table's columns are empty when nothing matches | Yes | Yes |
+| **Right** | Every row of the joined table; this table's columns are empty when nothing matches | Yes | Yes |
+| **Full** | Every row of both tables, matched where they can be | Yes | No |
+
+For example, to join each order to its rider, but only riders who are active:
+
+| Column | Operator | Value |
+| --- | --- | --- |
+| `orders.rider_id` | equals | column `riders.id` |
+| `riders.active` | equals | `true` |
+
+::: info
+MySQL has no full join, so a graph with one on a MySQL connection cannot be saved. Use a left or right join instead.
+:::
+
+::: tip
+Like **Conditions**, an **On** condition whose value is `undefined` when the block runs is left out. If every condition of a join is left out, each row is paired with every row of the other table, so keep at least one column-to-column condition that always has a value.
+:::
+
+Joins saved before **On** existed, written as `books.author_id = authors.id`, keep working as a single condition. A join type saved as `outer` means **Full**.
 
 Once a join is added, you can refer to columns from either table by prefixing them with the table name or alias, both in **Conditions** and **Columns** — for example `authors.name` or, with an alias `a`, `a.name`.
 
@@ -237,5 +261,5 @@ By default every column is returned. To narrow the result, list the columns you 
 ## Notes
 
 - Sorting also supports JSON paths and table-qualified columns, using the same dot/bracket notation.
-- For MongoDB connections, **Joins** are not available; **Columns** still works as a simple field selector.
+- MongoDB has no joins yet: a graph with joins on a MongoDB connection cannot be saved. **Columns** still works as a simple field selector.
 - Very large whole numbers and decimals come back as text, and dates as `Date` in UTC. See [Value types](/integrations/databases#value-types).

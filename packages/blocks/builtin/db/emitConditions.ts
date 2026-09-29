@@ -1,6 +1,6 @@
 import { type EmitNode, emitJsObject } from "../../compiler";
 import { parseSqlTemplate } from "./rawCondition";
-import type { DbSortEntry, WhereCondition } from "./schema";
+import type { DbJoin, DbSortEntry, WhereCondition } from "./schema";
 
 /**
  * Where conditions become a plain JS array literal. `attribute` and `value` may
@@ -43,6 +43,15 @@ function emitRawCondition(raw: string, node: EmitNode) {
 	const { strings, expressions } = parseSqlTemplate(raw);
 	const values = expressions.map((expression) => node.js(`return (${expression});`, node.in));
 	return `{ strings: ${JSON.stringify(strings)}, values: [${values.join(", ")}] }`;
+}
+
+/** the joins as an array literal; each ON condition may hold js expressions, like WHERE */
+export function emitJoins(joins: DbJoin[] | undefined, node: EmitNode): string {
+	const entries = (joins ?? []).map(
+		(join) =>
+			`{ table: ${JSON.stringify(join.table)}, alias: ${JSON.stringify(join.alias)}, type: ${JSON.stringify(join.type)}, on: ${emitWhereConditions(join.on, node)} }`,
+	);
+	return `[${entries.join(", ")}]`;
 }
 
 /** the sort list as an array literal; each column may be a js expression */

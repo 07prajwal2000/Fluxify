@@ -11,10 +11,15 @@ import {
 	BlockArrayEditorField,
 	BlockCheckboxField,
 	BlockIntegrationField,
-	BlockJoinsEditorField,
 	BlockJsTextField,
 } from "../../fields";
-import { parseDbConditions, readDbBinding, serializeDbConditions } from "./conditions";
+import {
+	joinedColumnSuggestions,
+	parseDbConditions,
+	readDbBinding,
+	serializeDbConditions,
+} from "./conditions";
+import { DbJoinsSettings } from "./DbJoinsSettings";
 import { DbSortList } from "./DbSortList";
 
 function parseColumns(block: BlockNode): string[] {
@@ -81,8 +86,8 @@ export function GetSingleDbColumnsSettings({ block }: { block: BlockNode }) {
 	const columnSuggestions = useMemo(() => {
 		const cols = tableColumns.length > 0 ? tableColumns : allColumns;
 		const distinct = cols.filter((c) => c !== "*");
-		return ["*", ...distinct];
-	}, [tableColumns, allColumns]);
+		return ["*", ...distinct, ...joinedColumnSuggestions(block, getColumnsForTable)];
+	}, [tableColumns, allColumns, block, getColumnsForTable]);
 
 	const columns = parseColumns(block);
 	const dataWithDefaults = {
@@ -102,39 +107,6 @@ export function GetSingleDbColumnsSettings({ block }: { block: BlockNode }) {
 				addButtonLabel="Add Column"
 				disableJs={true}
 				suggestions={columnSuggestions}
-			/>
-		</div>
-	);
-}
-
-/** Joins tab: Table joins configuration */
-export function GetSingleDbJoinsSettings({ block }: { block: BlockNode }) {
-	const params = useParams({ strict: false }) as { projectId?: string };
-	const projectId = params?.projectId ?? "";
-	const { connectionId, tableName } = readDbBinding(block);
-	const { tableNames, getColumnsForTable, allColumns, variant } = useDbMetadata(
-		projectId,
-		connectionId,
-	);
-	const tableColumns = getColumnsForTable(tableName);
-	const columnSuggestions = tableColumns.length > 0 ? tableColumns : allColumns;
-
-	return (
-		<div className="flex flex-col gap-4 w-full">
-			<BlockJoinsEditorField
-				blockId={block.id}
-				data={block.data}
-				name="joins"
-				label="Table Joins"
-				description={
-					variant === "MongoDB"
-						? "MongoDB ignores joins. Only the main collection is queried."
-						: "Configure relational table joins for this query."
-				}
-				emptyMessage="No table joins configured."
-				tableSuggestions={tableNames}
-				columnSuggestions={columnSuggestions}
-				getColumnSuggestions={getColumnsForTable}
 			/>
 		</div>
 	);
@@ -234,7 +206,7 @@ export function getSingleDbSettings(block: BlockNode) {
 				</span>
 			}
 		>
-			<GetSingleDbJoinsSettings block={block} />
+			<DbJoinsSettings block={block} />
 		</BlockSettings.TabHead>,
 		<BlockSettings.TabHead
 			key="conditions"

@@ -6,9 +6,10 @@ import {
 	PostgresIntrospector,
 	PostgresQueryCompiler,
 } from "kysely";
-import type { DBConditionType } from ".";
+import type { DBConditionType, DBJoinType } from ".";
 import {
 	activeConditions,
+	applyJoins,
 	applySqlConditions,
 	foldConditions,
 	rawMongoFilter,
@@ -163,5 +164,63 @@ describe("custom MongoDB conditions", () => {
 		expect(() => rawMongoFilter(null)).toThrow("filter object");
 		expect(() => rawMongoFilter([])).toThrow("filter object");
 		expect(() => rawMongoFilter({ strings: ["a"], values: [] })).toThrow("filter object");
+	});
+});
+
+describe("applyJoins", () => {
+	const eq = (lhs: string, rhs: unknown, chain: "and" | "or" = "and") =>
+		({ attribute: column(lhs), operator: "eq", value: rhs, chain }) as DBConditionType;
+	const joined = (joins: DBJoinType[], dialect: "postgres" | "mysql" = "postgres") =>
+		applyJoins(
+			db.selectFrom("orders").selectAll(),
+			joins,
+			dialect,
+			new Set(["orders", ...joins.map((j) => j.alias ?? j.table)]),
+		).compile();
+
+	it("joins on two conditions, one of them a fixed value", () => {
+		const { sql, parameters } = joined([
+			{
+				table: "riders",
+				alias: "r",
+				type: "left",
+				on: [eq("orders.rider_id", column("r.id")), eq("r.active", literal(true))],
+			},
+		]);
+		expect(sql).toBe(
+			`select * from "orders" left join "riders" as "r" on ("orders"."rider_id" = "r"."id" and "r"."active" = $1)`,
+		);
+		expect(parameters).toEqual([true]);
+	});
+
+	it("builds each join type, groups and custom SQL like WHERE", () => {
+		const on = [
+			eq("orders.rider_id", column("riders.id")),
+			{ group: [eq("riders.zone", literal("a")), eq("riders.zone", literal("b"), "or")], chain: "and" },
+			rawSql(["riders.score > ", ""], [3]),
+		] as DBConditionType[];
+		for (const [type, keyword] of [
+			["inner", "inner join"],
+			["left", "left join"],
+			["right", "right join"],
+			["full", "full join"],
+		] as const) {
+			expect(joined([{ table: "riders", type, on }]).sql).toBe(
+				`select * from "orders" ${keyword} "riders" on (("orders"."rider_id" = "riders"."id" and ("riders"."zone" = $1 or "riders"."zone" = $2)) and (riders.score > $3))`,
+			);
+		}
+	});
+
+	it("skips an ON condition whose value is undefined, like WHERE", () => {
+		const { sql } = joined([
+			{ table: "riders", on: [eq("orders.rider_id", column("riders.id")), eq("riders.zone", literal(undefined))] },
+		]);
+		expect(sql).toBe(`select * from "orders" inner join "riders" on "orders"."rider_id" = "riders"."id"`);
+	});
+
+	it("refuses a full join on MySQL", () => {
+		expect(() => joined([{ table: "riders", type: "full", on: [] }], "mysql")).toThrow(
+			"MySQL has no full join",
+		);
 	});
 });

@@ -514,7 +514,7 @@ describe("PostgresAdapter Integration Tests", () => {
 				joins: [
 					{
 						table: authors,
-						attribute: `${books}.author_id = ${authors}.id`,
+						on: [{ attribute: { kind: "column", value: `${books}.author_id` }, operator: "eq", value: { kind: "column", value: `${authors}.id` }, chain: "and" }],
 						type: "inner",
 					},
 				],
@@ -538,7 +538,7 @@ describe("PostgresAdapter Integration Tests", () => {
 					{
 						table: authors,
 						alias: "a",
-						attribute: `${books}.author_id = a.id`,
+						on: [{ attribute: { kind: "column", value: `${books}.author_id` }, operator: "eq", value: { kind: "column", value: `a.id` }, chain: "and" }],
 						type: "left",
 					},
 				],

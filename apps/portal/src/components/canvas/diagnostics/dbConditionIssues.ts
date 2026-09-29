@@ -73,16 +73,22 @@ export function dbSortIssues(raw: unknown): [DiagnosticSeverity, string][] {
 	});
 }
 
-/** joins missing their table or column */
+/** joins missing their table or conditions, and what is wrong with each ON condition */
 export function dbJoinIssues(joins: unknown[]): [DiagnosticSeverity, string][] {
-	return (joins as Record<string, unknown>[]).flatMap((j, i): [DiagnosticSeverity, string][] =>
-		isBlank(j.table) || isBlank(j.attribute)
-			? [
-					[
-						"warning",
-						`Join ${i + 1} is missing its table or column. Fill it in the Joins tab or remove it.`,
-					],
-				]
-			: [],
-	);
+	return (joins as Record<string, unknown>[]).flatMap((j, i): [DiagnosticSeverity, string][] => {
+		// graphs saved before `on` hold one "a.id = b.id" string instead
+		const on = Array.isArray(j.on) ? (j.on as Record<string, unknown>[]) : [];
+		if (isBlank(j.table) || (on.length === 0 && isBlank(j.attribute))) {
+			return [
+				[
+					"warning",
+					`Join ${i + 1} is missing its table or conditions. Fill it in the Joins tab or remove it.`,
+				],
+			];
+		}
+		return dbConditionIssues(on).map(([severity, message]) => [
+			severity,
+			`Join ${i + 1}: ${message}`,
+		]);
+	});
 }

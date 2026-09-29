@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import {
+	joinedColumnSuggestions,
 	parseDbConditions,
 	readDbBinding,
 	serializeDbConditions,
@@ -152,5 +153,36 @@ describe("readDbBinding", () => {
 			connectionId: "",
 			tableName: "",
 		});
+	});
+});
+
+describe("joinedColumnSuggestions", () => {
+	const columns: Record<string, string[]> = { orders: ["id", "rider_id"], riders: ["id", "name"] };
+	const getColumns = (table: string) => columns[table] ?? [];
+
+	test("offers table.* and table.column for the table and each join, by alias", () => {
+		const b = block({
+			tableName: "orders",
+			joins: [{ type: "left", table: "riders", alias: "r", on: [] }],
+		});
+		expect(joinedColumnSuggestions(b, getColumns)).toEqual([
+			"orders.*",
+			"orders.id",
+			"orders.rider_id",
+			"r.*",
+			"r.id",
+			"r.name",
+		]);
+	});
+
+	test("reads a join saved in the old attribute form", () => {
+		const b = block({ tableName: "orders", joins: [{ table: "riders", attribute: "orders.rider_id = riders.id" }] });
+		expect(joinedColumnSuggestions(b, getColumns)).toContain("riders.name");
+	});
+
+	test("adds nothing without joins or for a js: table", () => {
+		expect(joinedColumnSuggestions(block({ tableName: "orders", joins: [] }), getColumns)).toEqual([]);
+		const js = block({ tableName: "js:return 'orders'", joins: [{ table: "riders", on: [] }] });
+		expect(joinedColumnSuggestions(js, getColumns)).toEqual(["riders.*", "riders.id", "riders.name"]);
 	});
 });

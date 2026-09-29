@@ -11,6 +11,7 @@ import { ConflictError } from "../../errors/conflictError";
 import { NotFoundError } from "../../errors/notFoundError";
 import { dbIntegrationsCache } from "../../loaders/integrationsLoader";
 import { type DirectedCanvasEdge, findCycleEdgeIds } from "./cycleDetection";
+import { assertJoinsSupported } from "./joinSupport";
 import {
 	deleteBlocks,
 	deleteEdges,
@@ -347,11 +348,14 @@ export async function saveCanvas(
 		await assertEdgeTargetsExist(parent, data, deleteBlockIds, tx);
 		await assertCanvasHasNoCycles(parent, data, deleteBlockIds, deleteEdgeIds, tx);
 		await assertCanvasHasNoHandleFanOut(parent, data, deleteBlockIds, deleteEdgeIds, tx);
+		const dbTypeOf = (connection: string) => dbIntegrationsCache[connection]?.dbType;
+		const blocksAfterSave = await canvasBlocksAfterSave(parent, data, deleteBlockIds, tx);
 		assertTransactionWiring(
-			await canvasBlocksAfterSave(parent, data, deleteBlockIds, tx),
+			blocksAfterSave,
 			await canvasEdgesAfterSave(parent, data, deleteBlockIds, deleteEdgeIds, tx),
-			(connection) => dbIntegrationsCache[connection]?.dbType,
+			dbTypeOf,
 		);
+		assertJoinsSupported(blocksAfterSave, dbTypeOf);
 		await upsertBlocks(
 			data.changes.blocks.map((block) => ({ ...block, ...keys })),
 			tx,

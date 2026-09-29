@@ -1,7 +1,14 @@
 import { DB_VALUELESS_OPERATORS, type DbOperator } from "@fluxify/lib";
 import { type Expression, type ExpressionBuilder, type SqlBool, sql } from "kysely";
 import type { DBConditionType, DbConditionGroup, RawDbCondition } from ".";
-import { isColumnRef, isLiteralRef, type JsonSqlDialect, resolveCondition } from "./jsonPath";
+import {
+	type DBJoinType,
+	isColumnRef,
+	isLiteralRef,
+	type JsonSqlDialect,
+	joinTarget,
+	resolveCondition,
+} from "./jsonPath";
 
 type StructuredCondition = Exclude<DBConditionType, RawDbCondition | DbConditionGroup>;
 /** one condition that is not a group */
@@ -255,7 +262,21 @@ function listOrTextExpression(
 	}
 }
 
-/** Applies the active conditions to a Kysely builder; Kysely brackets every nested and/or. */
+/** the active conditions as one boolean expression; Kysely brackets every nested and/or */
+function sqlConditionExpression(
+	eb: ExpressionBuilder<any, any>,
+	active: DBConditionType[],
+	dialect: JsonSqlDialect,
+	qualifiers?: Set<string>,
+): Expression<SqlBool> {
+	return foldConditions<Expression<SqlBool>>(
+		active,
+		(condition) => toSqlExpression(eb, condition, dialect, qualifiers),
+		(chain, left, right) => (chain === "or" ? eb.or([left, right]) : eb.and([left, right])),
+	);
+}
+
+/** Applies the active conditions to a Kysely builder. */
 export function applySqlConditions<B extends { where: Function }>(
 	builder: B,
 	conditions: DBConditionType[],
@@ -265,12 +286,44 @@ export function applySqlConditions<B extends { where: Function }>(
 	const active = activeConditions(conditions);
 	if (active.length === 0) return builder;
 	return builder.where((eb: ExpressionBuilder<any, any>) =>
-		foldConditions<Expression<SqlBool>>(
-			active,
-			(condition) => toSqlExpression(eb, condition, dialect, qualifiers),
-			(chain, left, right) => (chain === "or" ? eb.or([left, right]) : eb.and([left, right])),
-		),
+		sqlConditionExpression(eb, active, dialect, qualifiers),
 	) as B;
+}
+
+type DBJoinKind = NonNullable<DBJoinType["type"]>;
+
+const JOIN_METHODS = {
+	inner: "innerJoin",
+	left: "leftJoin",
+	right: "rightJoin",
+	full: "fullJoin",
+} as const;
+
+/**
+ * Applies declared joins. Each ON clause is built like WHERE: same operators,
+ * groups, custom SQL, and a condition whose value is undefined is skipped. One
+ * with every condition skipped matches every row pair, as an empty WHERE
+ * matches every row.
+ */
+export function applyJoins<QB extends Record<(typeof JOIN_METHODS)[DBJoinKind], CallableFunction>>(
+	builder: QB,
+	joins: DBJoinType[] | undefined,
+	dialect: JsonSqlDialect,
+	qualifiers: Set<string>,
+): QB {
+	let qb = builder;
+	for (const join of joins ?? []) {
+		const type = join.type ?? "inner";
+		if (type === "full" && dialect === "mysql") {
+			throw new Error("MySQL has no full join; use a left or right join");
+		}
+		const active = activeConditions(join.on);
+		const on = (eb: ExpressionBuilder<any, any>) =>
+			active.length ? sqlConditionExpression(eb, active, dialect, qualifiers) : sql<SqlBool>`1 = 1`;
+		const method = qb[JOIN_METHODS[type]] as (...a: unknown[]) => QB;
+		qb = method.call(qb, joinTarget(join), (jb: { on: Function }) => jb.on(on));
+	}
+	return qb;
 }
 
 /** The filter object a custom MongoDB condition returned, checked for shape. */

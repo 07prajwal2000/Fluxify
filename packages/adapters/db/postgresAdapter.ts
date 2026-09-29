@@ -16,9 +16,9 @@ import {
 	upsertRows,
 	type WriteResult,
 } from ".";
-import { applySqlConditions } from "./conditions";
+import { applyJoins, applySqlConditions } from "./conditions";
 import { cursorSorts, type DbCursor, type DbPage, sqlPage } from "./cursor";
-import { applyColumns, applyJoins, buildQualifiers, type QueryOptions } from "./jsonPath";
+import { applyColumns, buildQualifiers, type QueryOptions } from "./jsonPath";
 import { BunSqlPostgresDialect } from "./kyselySqlDialect";
 import { activeSorts, applySqlSort, type DbSort, singleRow, withTiebreaker } from "./sort";
 
@@ -139,7 +139,7 @@ export class PostgresAdapter implements IDbAdapter {
 	): Promise<any[]> {
 		const conn = this.getConnection();
 		const qualifiers = buildQualifiers(table, options?.joins);
-		let qb = applyJoins(conn.selectFrom(table as never), options?.joins);
+		let qb = applyJoins(conn.selectFrom(table as never), options?.joins, "postgres", qualifiers);
 		qb = this.buildQuery(conditions, qb, qualifiers);
 
 		const sorts = await this.withKeys(activeSorts(sort), table, options);
@@ -159,7 +159,7 @@ export class PostgresAdapter implements IDbAdapter {
 	): Promise<DbPage> {
 		const conn = this.getConnection();
 		const qualifiers = buildQualifiers(table, options?.joins);
-		let qb = applyJoins(conn.selectFrom(table as never), options?.joins);
+		let qb = applyJoins(conn.selectFrom(table as never), options?.joins, "postgres", qualifiers);
 		qb = this.buildQuery(conditions, qb, qualifiers);
 		const sorts = cursorSorts(
 			activeSorts(sort),
@@ -178,7 +178,7 @@ export class PostgresAdapter implements IDbAdapter {
 	): Promise<any | null> {
 		const conn = this.getConnection();
 		const qualifiers = buildQualifiers(table, options?.joins);
-		let qb = applyJoins(conn.selectFrom(table as never), options?.joins);
+		let qb = applyJoins(conn.selectFrom(table as never), options?.joins, "postgres", qualifiers);
 		qb = this.buildQuery(conditions, qb, qualifiers);
 		// unsorted stays unsorted: an ORDER BY nobody asked for only costs time
 		const given = activeSorts(options?.sort);
@@ -205,7 +205,7 @@ export class PostgresAdapter implements IDbAdapter {
 	): Promise<number> {
 		const conn = this.getConnection();
 		const qualifiers = buildQualifiers(table, options?.joins);
-		let qb = applyJoins(conn.selectFrom(table as never), options?.joins);
+		let qb = applyJoins(conn.selectFrom(table as never), options?.joins, "postgres", qualifiers);
 		qb = this.buildQuery(conditions, qb, qualifiers);
 		const row = await qb.select((eb) => eb.fn.countAll().as("count")).executeTakeFirst();
 		// COUNT(*) comes back as a bigint string
