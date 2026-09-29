@@ -115,7 +115,11 @@ export function JsEditorModal({
 			>
 				<Modal.Dialog
 					aria-label={title}
-					className="p-0 overflow-hidden rounded-t-2xl rounded-b-none border-t border-x border-b-0 border-border bg-background shadow-2xl flex flex-col h-[50vh] min-h-[350px] max-h-[50vh] w-full max-w-5xl animate-in slide-in-from-bottom duration-200"
+					className="p-0 overflow-hidden rounded-t-2xl rounded-b-none border-t border-x border-b-0 border-border bg-background shadow-2xl flex flex-col w-full max-w-5xl animate-in slide-in-from-bottom duration-200"
+					// inline, not h-[…] classes: the portal's Tailwind does not scan this
+					// file, so those were never generated and the editor got whatever
+					// height an unrelated class elsewhere happened to allow
+					style={{ height: "90dvh", maxHeight: "90dvh" }}
 				>
 					{/* Modal Header */}
 					<div className="flex items-center justify-between px-4 py-2.5 border-b border-border bg-surface/50 shrink-0">
