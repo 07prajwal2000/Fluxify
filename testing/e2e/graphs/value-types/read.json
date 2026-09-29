@@ -1,0 +1,66 @@
+{
+	"name": "value-types/read",
+	"description": "GET /value-types — reads the seeded amounts row, reads it again by its own date (a Date must round-trip into a condition), then reports what JS types the flow saw.",
+	"engine": "pg",
+	"route": { "method": "GET", "path": "/value-types" },
+	"blocks": [
+		{
+			"id": "entry",
+			"type": "entrypoint",
+			"position": { "x": 0, "y": 0 },
+			"data": { "blockName": "Request" }
+		},
+		{
+			"id": "read",
+			"type": "db_getsingle",
+			"position": { "x": 240, "y": 0 },
+			"data": {
+				"blockName": "Read the row",
+				"connection": "primary",
+				"tableName": "amounts",
+				"conditions": [],
+				"columns": []
+			}
+		},
+		{
+			"id": "reread",
+			"type": "db_getsingle",
+			"position": { "x": 480, "y": 0 },
+			"data": {
+				"blockName": "Read it again by its date",
+				"connection": "primary",
+				"tableName": "amounts",
+				"conditions": [
+					{
+						"attribute": { "kind": "column", "value": "at" },
+						"operator": "eq",
+						"value": { "kind": "literal", "value": "js:return input.at;" },
+						"chain": "and"
+					}
+				],
+				"columns": []
+			}
+		},
+		{
+			"id": "types",
+			"type": "jsrunner",
+			"position": { "x": 720, "y": 0 },
+			"data": {
+				"blockName": "What the flow sees",
+				"value": "return { plusOne: input.small + 1, big: input.big, price: input.price, priceNumber: Number(input.price) + 1, isDate: input.at instanceof Date, at: input.at.toISOString() };"
+			}
+		},
+		{
+			"id": "reply",
+			"type": "response",
+			"position": { "x": 960, "y": 0 },
+			"data": { "blockName": "200 OK", "httpCode": "200" }
+		}
+	],
+	"edges": [
+		{ "id": "e-entry-read", "from": "entry", "to": "read", "fromHandle": "source", "toHandle": "source" },
+		{ "id": "e-read-reread", "from": "read", "to": "reread", "fromHandle": "source", "toHandle": "source" },
+		{ "id": "e-reread-types", "from": "reread", "to": "types", "fromHandle": "source", "toHandle": "source" },
+		{ "id": "e-types-reply", "from": "types", "to": "reply", "fromHandle": "source", "toHandle": "source" }
+	]
+}

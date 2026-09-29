@@ -20,6 +20,8 @@ The **DB Native** block gives you direct access to the database driver using Jav
 3.  `dbQuery` returns the result rows as an array.
 4.  The return value of your code is returned as the block output.
 
+Numbers, decimals and dates in the rows follow the same [value types](/integrations/databases#value-types) as the other DB blocks. For example, `COUNT(*)` is a number and a `DECIMAL` is text.
+
 ## Passing values safely
 
 Never put user input straight into the query text. Pass it in the `params` array and use a placeholder instead:

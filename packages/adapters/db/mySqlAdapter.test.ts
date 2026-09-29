@@ -6,12 +6,13 @@ import {
 	expect,
 	beforeEach,
 } from "bun:test";
-import { MySqlAdapter } from "./mySqlAdapter";
+import { MYSQL_POOL_OPTIONS, MySqlAdapter } from "./mySqlAdapter";
 import { Connection, DbType } from ".";
 import type Docker from "dockerode";
-import { createPool, Pool } from "mysql2";
+import { createPool, Pool, type PoolOptions } from "mysql2";
 import { faker } from "@faker-js/faker";
 import {
+	checkValueTypes,
 	checkWriteResults,
 	docker,
 	pullImage,
@@ -24,6 +25,7 @@ let exposedPort: number;
 let container: Docker.Container | null = null;
 let db: any;
 let pool: Pool;
+let connInfo: PoolOptions;
 
 beforeAll(async () => {
 	try {
@@ -46,7 +48,7 @@ beforeAll(async () => {
 	container = started.container;
 	exposedPort = started.port;
 
-	const connInfo = {
+	connInfo = {
 		host: "127.0.0.1",
 		port: exposedPort,
 		user: "root",
@@ -76,7 +78,7 @@ beforeAll(async () => {
 
 	if (!ready) throw new Error("MySQL container did not become ready in time.");
 
-	pool = createPool(connInfo);
+	pool = createPool({ ...connInfo, ...MYSQL_POOL_OPTIONS });
 	db = MySqlAdapter.createKysely(pool);
 }, 120000);
 
@@ -326,6 +328,42 @@ describe("MySqlAdapter Integration Tests", () => {
 			`CREATE TABLE ${table} (id INT AUTO_INCREMENT PRIMARY KEY, name VARCHAR(20), status VARCHAR(20))`,
 		);
 		await checkWriteResults(adapter, table);
+	});
+
+	test("bigint, numeric and dates read back as the same types everywhere (#512)", async () => {
+		const adapter = new MySqlAdapter(db, pool);
+		const table = `types_${faker.string.alphanumeric(8).toLowerCase()}`;
+		await adapter.raw(
+			`CREATE TABLE ${table} (id INT AUTO_INCREMENT PRIMARY KEY, small BIGINT, big BIGINT, price DECIMAL(10,2), at DATETIME)`,
+		);
+		await adapter.raw(
+			`INSERT INTO ${table} (small, big, price, at) VALUES (42, 9007199254740993, 12.50, '2024-01-02 03:04:05')`,
+		);
+		await checkValueTypes(adapter, table);
+		expect(await adapter.raw(`SELECT COUNT(*) AS n FROM ${table}`)).toEqual([{ n: 1 }]);
+	});
+
+	test("a TIMESTAMP is stored and read as UTC on a server in another time zone (#512)", async () => {
+		// only new connections take the global zone, so the adapter gets a fresh pool
+		await pool.promise().query("SET GLOBAL time_zone = '+05:30'");
+		const zoned = createPool({ ...connInfo, ...MYSQL_POOL_OPTIONS });
+		try {
+			const adapter = new MySqlAdapter(MySqlAdapter.createKysely(zoned), zoned);
+			const table = `zoned_${faker.string.alphanumeric(8).toLowerCase()}`;
+			await adapter.raw(`CREATE TABLE ${table} (id INT AUTO_INCREMENT PRIMARY KEY, at TIMESTAMP NULL)`);
+			const at = new Date("2024-01-02T03:04:05Z");
+			await adapter.insert(table, { at });
+
+			const [row] = (await adapter.getAll(table, [], null, 0, [])) as { at: Date }[];
+			expect(row.at).toEqual(at);
+			// reading back alone would hide a shift: the same offset undoes it. Check the stored instant.
+			expect(await adapter.raw(`SELECT UNIX_TIMESTAMP(at) AS s FROM ${table}`)).toEqual([
+				{ s: at.getTime() / 1000 },
+			]);
+		} finally {
+			await pool.promise().query("SET GLOBAL time_zone = 'SYSTEM'");
+			await zoned.promise().end();
+		}
 	});
 
 	test("Raw Queries", async () => {

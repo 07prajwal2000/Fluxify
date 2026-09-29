@@ -238,3 +238,4 @@ By default every column is returned. To narrow the result, list the columns you 
 
 - Sorting also supports JSON paths and table-qualified columns, using the same dot/bracket notation.
 - For MongoDB connections, **Joins** are not available; **Columns** still works as a simple field selector.
+- Very large whole numbers and decimals come back as text, and dates as `Date` in UTC. See [Value types](/integrations/databases#value-types).

@@ -67,7 +67,13 @@ export class MySqlAdapter implements IDbAdapter {
 
 	public static createKysely(pool: Pool): Kysely<FluxifyDatabase> {
 		return new Kysely<FluxifyDatabase>({
-			dialect: new MysqlDialect({ pool }),
+			dialect: new MysqlDialect({
+				pool,
+				// #512: TIMESTAMP reads back in UTC whatever the server's time zone
+				onCreateConnection: async (conn) => {
+					await conn.executeQuery(CompiledQuery.raw("SET time_zone = '+00:00'"));
+				},
+			}),
 		});
 	}
 
@@ -491,6 +497,12 @@ function whereKeys<B extends { where: Function }>(qb: B, pk: string[], keys: Row
 		eb.or(keys.map((k) => eb.and(pk.map((c) => eb(c, "=", k[c]))))),
 	) as B;
 }
+
+/**
+ * #512: BIGINT is a number while it's exact, otherwise text (never silently rounded);
+ * DECIMAL stays text; DATETIME is read and written as UTC, not the server process's zone.
+ */
+export const MYSQL_POOL_OPTIONS = { supportBigNumbers: true, timezone: "Z" } as const;
 
 export function buildMysqlUrl(connection: Connection): string {
 	const { username, password, host, port, database } = connection;

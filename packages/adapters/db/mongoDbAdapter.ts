@@ -30,6 +30,7 @@ import { type DbCursor, type DbPage, mongoPage } from "./cursor";
 import { isColumnRef, isLiteralRef, isNumericLike, toMongoField } from "./jsonPath";
 import { activeSorts, type DbSort, mongoSorts, singleRow, sortSpec } from "./sort";
 import { mongoUpsertOps } from "./upsert";
+import { plainNumbers } from "./values";
 
 export class MongoAdapter implements IDbAdapter {
 	public static variant = "MongoDB";
@@ -336,7 +337,7 @@ export class MongoAdapter implements IDbAdapter {
 	private mapDoc = (doc: Record<string, unknown> | null) => {
 		if (!doc) return null;
 		const { _id, ...rest } = doc;
-		return { id: _id ? String(_id) : undefined, ...rest };
+		return { id: _id ? String(_id) : undefined, ...(plainNumbers(rest) as object) };
 	};
 
 	private buildFilter(conditions: DBConditionType[]): Record<string, unknown> {

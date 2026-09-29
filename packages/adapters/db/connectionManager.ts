@@ -5,7 +5,7 @@ import { MongoClient } from "mongodb";
 import { createPool, type Pool } from "mysql2";
 import { type Connection, DbType } from "./connection";
 import { buildMongoUrl, MongoAdapter } from "./mongoDbAdapter";
-import { MySqlAdapter } from "./mySqlAdapter";
+import { MYSQL_POOL_OPTIONS, MySqlAdapter } from "./mySqlAdapter";
 import { PostgresAdapter } from "./postgresAdapter";
 
 const DEFAULT_DRAIN_TIMEOUT_MS = 30_000;
@@ -236,6 +236,8 @@ function createManagedConnection(_integrationId: string, config: Connection): Ma
 			password: config.password,
 			database: config.database,
 			tls: config.ssl,
+			// #512: int8 as BigInt, so it can be told apart from numeric's text
+			bigint: true,
 		});
 		const db = PostgresAdapter.createKysely(sql);
 		return {
@@ -254,6 +256,7 @@ function createManagedConnection(_integrationId: string, config: Connection): Ma
 			password: config.password,
 			database: config.database,
 			connectionLimit: 2,
+			...MYSQL_POOL_OPTIONS,
 		});
 		return {
 			type: DbType.MYSQL,

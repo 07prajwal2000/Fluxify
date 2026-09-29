@@ -12,6 +12,7 @@ import { Connection, DbType } from ".";
 import type Docker from "dockerode";
 import { faker } from "@faker-js/faker";
 import {
+	checkValueTypes,
 	checkWriteResults,
 	docker,
 	pullImage,
@@ -72,7 +73,7 @@ beforeAll(async () => {
 
 	if (!ready) throw new Error("PostgreSQL container did not become ready.");
 
-	sql = new SQL(url);
+	sql = new SQL(url, { bigint: true });
 	db = PostgresAdapter.createKysely(sql);
 }, 120000);
 
@@ -316,6 +317,19 @@ describe("PostgresAdapter Integration Tests", () => {
 			`CREATE TABLE ${keyed} (id SERIAL PRIMARY KEY, name TEXT, status TEXT, meta JSON)`,
 		);
 		await checkWriteResults(adapter, keyed);
+	});
+
+	test("bigint, numeric and dates read back as the same types everywhere (#512)", async () => {
+		const adapter = new PostgresAdapter(db, sql);
+		const table = `types_${faker.string.alphanumeric(8).toLowerCase()}`;
+		await adapter.raw(
+			`CREATE TABLE ${table} (id SERIAL PRIMARY KEY, small BIGINT, big BIGINT, price NUMERIC(10,2), at TIMESTAMPTZ)`,
+		);
+		await adapter.raw(
+			`INSERT INTO ${table} (small, big, price, at) VALUES (42, 9007199254740993, 12.50, '2024-01-02 03:04:05Z')`,
+		);
+		await checkValueTypes(adapter, table);
+		expect(await adapter.raw(`SELECT COUNT(*) AS n FROM ${table}`)).toEqual([{ n: 1 }]);
 	});
 
 	test("Raw Queries", async () => {
