@@ -25,6 +25,8 @@ function withCount(data: Record<string, unknown>, engine: Engine): GraphFixture 
 const count = (fixture: GraphFixture, body: Record<string, unknown>) =>
 	runGraph(fixture, { body });
 
+const column = (value: string) => ({ kind: "column", value });
+
 // seed: users Ada (active), Grace (active), Alan (inactive); orders 2 for Ada, 1 for Grace
 for (const engine of ["pg", "mysql"] as const) {
 	describe(`count on ${engine}`, () => {
@@ -59,6 +61,29 @@ for (const engine of ["pg", "mysql"] as const) {
 
 			expect(run.body).toBe(3);
 		});
+
+		// #509: two ON conditions, one a fixed value. Only Ada's 2 orders match, so
+		// Grace and Alan are unmatched users and Grace's order an unmatched order.
+		const adaOnly = [
+			{ attribute: column("users.id"), operator: "eq", value: column("orders.user_id"), chain: "and" },
+			{
+				attribute: column("users.name"),
+				operator: "eq",
+				value: { kind: "literal", value: "Ada Lovelace" },
+				chain: "and",
+			},
+		];
+		const joinRows = { inner: 2, left: 4, right: 3, full: 5 };
+		for (const [type, expected] of Object.entries(joinRows)) {
+			if (engine === "mysql" && type === "full") continue;
+			it(`counts a ${type} join on two conditions`, async () => {
+				const joined = withCount({ joins: [{ table: "orders", type, on: adaOnly }] }, engine);
+				const run = await count(joined, { table: "users", column: "users.id" });
+
+				expect(run.status).toBe(200);
+				expect(run.body).toBe(expected);
+			});
+		}
 
 		it("binds a quote-laden value instead of running it", async () => {
 			const run = await count(on(engine), {
@@ -106,6 +131,21 @@ for (const engine of ["pg", "mysql"] as const) {
 		});
 	});
 }
+
+describe("count on mysql", () => {
+	beforeEach(() => resetDatabase("mysql"));
+
+	it("refuses a full join, which MySQL does not have", async () => {
+		const joined = withCount(
+			{ joins: [{ table: "orders", attribute: "users.id = orders.user_id", type: "outer" }] },
+			"mysql",
+		);
+		const run = await count(joined, { table: "users", column: "users.id" });
+
+		expect(run.status).toBeGreaterThanOrEqual(400);
+		expect(run.executed).not.toContain("reply");
+	});
+});
 
 // seed: todos 1 done, 3 pending, 1 archived
 describe("count on MongoDB", () => {

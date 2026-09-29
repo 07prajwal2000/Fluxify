@@ -2,7 +2,7 @@ import z from "zod";
 import type { Context } from "../../baseBlock";
 import { BlockTypes } from "../../blockTypes";
 import type { EmitNode } from "../../compiler";
-import { emitWhereConditions } from "./emitConditions";
+import { emitJoins, emitWhereConditions } from "./emitConditions";
 import { getSingleDbBlockSchema } from "./getSingle";
 import { adapterFor, dbFailure, type whereConditionSchema } from "./schema";
 
@@ -15,7 +15,7 @@ export const countDbBlockSchema = getSingleDbBlockSchema.omit({
 export const countDbAiDescription = {
 	name: BlockTypes.db_count,
 	description:
-		"Counts the records matching the conditions and outputs that number. Same params as db_getsingle, without columns. MongoDB ignores joins.",
+		"Counts the records matching the conditions and outputs that number. Same params as db_getsingle, without columns. Joins are SQL only.",
 	jsonSchema: JSON.stringify(z.toJSONSchema(countDbBlockSchema)),
 };
 
@@ -35,6 +35,6 @@ export async function runCountDb(
 
 export function emitCountDb(node: EmitNode) {
 	const input = countDbBlockSchema.parse(node.block.data);
-	return `${node.in} = await lib.dbCount(ctx, ${node.value(input.connection)}, ${node.value(input.tableName)}, ${emitWhereConditions(input.conditions, node)}, { joins: ${JSON.stringify(input.joins ?? [])} });
+	return `${node.in} = await lib.dbCount(ctx, ${node.value(input.connection)}, ${node.value(input.tableName)}, ${emitWhereConditions(input.conditions, node)}, { joins: ${emitJoins(input.joins, node)} });
 ${node.next()}`;
 }

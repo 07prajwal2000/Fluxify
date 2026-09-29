@@ -417,7 +417,7 @@ describe("MongoAdapter Integration Tests", () => {
 			[{ attribute: "name", direction: "asc" }],
 			{
 				columns: ["name", "profile.age"],
-				joins: [{ table: "ignored", attribute: "a = b" }],
+				joins: [{ table: "ignored", on: [] }],
 			},
 		)) as any[];
 

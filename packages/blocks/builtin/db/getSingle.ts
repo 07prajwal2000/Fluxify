@@ -2,7 +2,7 @@ import z from "zod";
 import { baseBlockDataSchema, type Context } from "../../baseBlock";
 import { BlockTypes } from "../../blockTypes";
 import type { EmitNode } from "../../compiler";
-import { emitSort, emitWhereConditions } from "./emitConditions";
+import { emitJoins, emitSort, emitWhereConditions } from "./emitConditions";
 import {
 	adapterFor,
 	type DbSortEntry,
@@ -61,7 +61,7 @@ export async function runGetSingleDb(
 /** the `lib.dbGetSingle(...)` call expression, shared with the Row Exists block */
 export function emitGetSingleCall(node: EmitNode) {
 	const input = getSingleDbBlockSchema.parse(node.block.data);
-	return `await lib.dbGetSingle(ctx, ${node.value(input.connection)}, ${node.value(input.tableName)}, ${emitWhereConditions(input.conditions, node)}, { joins: ${JSON.stringify(input.joins ?? [])}, columns: ${JSON.stringify(input.columns ?? ["*"])}, sort: ${emitSort(input.sort, node)}, strict: ${input.strict} })`;
+	return `await lib.dbGetSingle(ctx, ${node.value(input.connection)}, ${node.value(input.tableName)}, ${emitWhereConditions(input.conditions, node)}, { joins: ${emitJoins(input.joins, node)}, columns: ${JSON.stringify(input.columns ?? ["*"])}, sort: ${emitSort(input.sort, node)}, strict: ${input.strict} })`;
 }
 
 export function emitGetSingleDb(node: EmitNode) {

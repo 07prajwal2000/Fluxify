@@ -58,6 +58,8 @@ function compile(extra?: any) {
 	);
 }
 
+const column = (value: string) => ({ kind: "column", value });
+
 const save = { saveAsVariable: { enabled: true, name: "user" } };
 
 describe("compiled db_exists block", () => {
@@ -68,7 +70,27 @@ describe("compiled db_exists block", () => {
 		expect(result.output).toEqual({ httpCode: "200", body: { id: 7, name: "ada" } });
 		expect(calls[0][0]).toBe("users");
 		expect(calls[0][1][0].value).toEqual({ kind: "literal", value: 7 });
-		expect(calls[0][2]).toEqual({ columns: ["id", "name"], joins: data().joins, sort: [], strict: false });
+		// a join saved as one "a = b" string reaches the adapter as one ON condition
+		const on = [{ attribute: column("users.org_id"), operator: "eq", value: column("orgs.id"), chain: "and" }];
+		expect(calls[0][2]).toEqual({
+			columns: ["id", "name"],
+			joins: [{ table: "orgs", type: "left", on }],
+			sort: [],
+			strict: false,
+		});
+	});
+
+	it("evaluates js values in ON conditions and reads the old outer join as full", async () => {
+		const { ctx, calls } = context(async () => ({ id: 7 }));
+		const on = [
+			{ attribute: column("users.org_id"), operator: "eq", value: column("orgs.id"), chain: "and" },
+			{ attribute: column("orgs.region"), operator: "eq", value: { kind: "literal", value: "js:return input.region" }, chain: "and" },
+		];
+		await compile({ joins: [{ table: "orgs", alias: "o", type: "outer", on }] }).run(ctx, { id: 7, region: "eu" });
+
+		expect(calls[0][2].joins).toEqual([
+			{ table: "orgs", alias: "o", type: "full", on: [on[0], { ...on[1], value: { kind: "literal", value: "eu" } }] },
+		]);
 	});
 
 	it("takes failure with the input unchanged when no row matches", async () => {

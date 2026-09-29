@@ -1,4 +1,5 @@
 import { type RawBuilder, sql } from "kysely";
+import type { DBConditionType } from ".";
 
 export type JsonSqlDialect = "postgres" | "mysql";
 
@@ -46,8 +47,9 @@ export function isNumericLike(v: unknown): boolean {
 export type DBJoinType = {
 	table: string;
 	alias?: string;
-	attribute: string;
-	type?: "inner" | "left" | "right" | "outer";
+	/** the ON clause: the same condition list as WHERE */
+	on: DBConditionType[];
+	type?: "inner" | "left" | "right" | "full";
 };
 
 /**
@@ -221,38 +223,12 @@ export function resolveCondition(
 	};
 }
 
-// Applies declared joins to a Kysely query builder. The join condition is an
-// "leftRef = rightRef" ON expression (each side a bare or qualified column).
-// Table, alias and both refs are identifier-validated before use.
-export function applyJoins<
-	QB extends {
-		innerJoin: CallableFunction;
-		leftJoin: CallableFunction;
-		rightJoin: CallableFunction;
-		fullJoin: CallableFunction;
-	},
->(builder: QB, joins?: DBJoinType[]): QB {
-	let qb = builder;
-	for (const j of joins ?? []) {
-		assertMatch(IDENT, j.table, "join table");
-		const target = j.alias ? `${j.table} as ${assertMatch(IDENT, j.alias, "join alias")}` : j.table;
-
-		const parts = j.attribute.split("=");
-		if (parts.length !== 2) throw new Error(`invalid join condition: ${j.attribute}`);
-		const left = assertMatch(COLUMN_REF, parts[0].trim(), "join ref");
-		const right = assertMatch(COLUMN_REF, parts[1].trim(), "join ref");
-
-		const method =
-			j.type === "left"
-				? "leftJoin"
-				: j.type === "right"
-					? "rightJoin"
-					: j.type === "outer"
-						? "fullJoin"
-						: "innerJoin";
-		qb = (qb[method] as (...a: unknown[]) => QB).call(qb, target, left, right);
-	}
-	return qb;
+/** `table` or `table as alias`, identifier-validated, for a join target */
+export function joinTarget(join: DBJoinType): string {
+	assertMatch(IDENT, join.table, "join table");
+	return join.alias
+		? `${join.table} as ${assertMatch(IDENT, join.alias, "join alias")}`
+		: join.table;
 }
 
 // Parses "expr" or "expr AS alias" for a select column. expr is one of: "*",

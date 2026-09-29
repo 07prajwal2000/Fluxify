@@ -2,7 +2,7 @@ import z from "zod";
 import { baseBlockDataSchema, type Context } from "../../baseBlock";
 import { BlockTypes } from "../../blockTypes";
 import type { EmitNode } from "../../compiler";
-import { emitSort, emitWhereConditions } from "./emitConditions";
+import { emitJoins, emitSort, emitWhereConditions } from "./emitConditions";
 import {
 	adapterFor,
 	type DbSortEntry,
@@ -117,7 +117,7 @@ export async function runGetAllDb(
 
 export function emitGetAllDb(node: EmitNode) {
 	const input = getAllDbBlockSchema.parse(node.block.data);
-	return `${node.in} = await lib.dbGetAll(ctx, ${node.value(input.connection)}, ${node.value(input.tableName)}, ${emitWhereConditions(input.conditions, node)}, ${node.value(input.limit)}, ${node.value(input.offset)}, ${emitSort(input.sort, node)}, { joins: ${JSON.stringify(input.joins ?? [])}, columns: ${JSON.stringify(input.columns ?? ["*"])}${cursorOptions(input, node)} });
+	return `${node.in} = await lib.dbGetAll(ctx, ${node.value(input.connection)}, ${node.value(input.tableName)}, ${emitWhereConditions(input.conditions, node)}, ${node.value(input.limit)}, ${node.value(input.offset)}, ${emitSort(input.sort, node)}, { joins: ${emitJoins(input.joins, node)}, columns: ${JSON.stringify(input.columns ?? ["*"])}${cursorOptions(input, node)} });
 ${node.next()}`;
 }
 

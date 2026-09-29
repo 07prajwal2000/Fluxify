@@ -52,7 +52,7 @@ export function assertTransactionWiring(
 	);
 }
 
-function blockLabel(block: Block & { type: string }) {
+export function blockLabel(block: Block) {
 	const name = (block.data as { blockName?: unknown } | null | undefined)?.blockName;
 	return typeof name === "string" && name ? `"${name}" (${block.id})` : block.id;
 }

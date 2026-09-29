@@ -1,12 +1,13 @@
 import type { ReactNode } from "react";
 
-export type JoinType = "inner" | "left" | "right" | "outer";
+export type JoinType = "inner" | "left" | "right" | "full";
 
 export interface JoinItem {
 	type: JoinType;
 	table: string;
 	alias?: string;
-	attribute: string;
+	/** the ON conditions, stored as the caller's condition list */
+	on?: unknown[];
 }
 
 export interface JoinsEditorProps {
@@ -24,10 +25,12 @@ export interface JoinsEditorProps {
 	readOnly?: boolean;
 	/** Autocomplete suggestions for joined table names */
 	tableSuggestions?: string[];
-	/** Autocomplete suggestions for columns */
-	columnSuggestions?: string[];
-	/** Function to get column suggestions for a specific joined table */
-	getColumnSuggestions?: (tableName?: string) => string[];
+	/** Join types to offer; all of them when left out */
+	joinTypes?: JoinType[];
+	/** Joins can only be removed: fields and the add button are disabled */
+	locked?: boolean;
+	/** The ON conditions editor for one join */
+	renderConditions: (join: JoinItem, onChange: (on: unknown[]) => void) => ReactNode;
 	/** Additional CSS class names */
 	className?: string;
 	/** Empty state message */

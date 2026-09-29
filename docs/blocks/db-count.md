@@ -19,6 +19,6 @@ A number, for example `3`. When nothing matches, the output is `0`.
 
 - With no conditions, the block counts every record in the table.
 - With joins, each joined row counts once. A user with two orders counts twice when you join `orders`.
-- **MongoDB ignores joins.** Only the main collection is counted.
+- **MongoDB has no joins yet.** A graph with joins on a MongoDB connection cannot be saved.
 - On MongoDB, a collection that doesn't exist counts as `0`. On PostgreSQL and MySQL, a missing table is an error.
 - A database error (bad connection, missing table or column) goes to the route's [Error Handler](/blocks/error-handler).

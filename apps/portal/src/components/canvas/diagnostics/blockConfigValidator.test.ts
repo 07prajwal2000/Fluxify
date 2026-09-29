@@ -42,6 +42,28 @@ describe("validateBlockConfigs", () => {
 		expect(blockConfigIssues(BLOCK_TYPES.db_getall, data)).toHaveLength(2);
 	});
 
+	it("checks each join's ON conditions like WHERE", () => {
+		const data = {
+			connection: "c",
+			tableName: "t",
+			conditions: [{ attribute: { kind: "column", value: "id" }, operator: "eq", value: 1, chain: "and" }],
+			joins: [
+				{ type: "inner", table: "r", on: [] },
+				{
+					type: "left",
+					table: "r",
+					on: [{ attribute: { kind: "column", value: "t.id" }, operator: "eq", value: { kind: "column", value: "" }, chain: "and" }],
+				},
+			],
+			limit: 10,
+			offset: 0,
+		};
+		expect(blockConfigIssues(BLOCK_TYPES.db_getall, data).map((i) => i.message)).toEqual([
+			"Join 1 is missing its table or conditions. Fill it in the Joins tab or remove it.",
+			"Join 2: Condition 1 has an empty side. Fill both sides or remove it.",
+		]);
+	});
+
 	it("errors when both condition sides are values", () => {
 		const cond = (value: unknown) => ({
 			connection: "c",

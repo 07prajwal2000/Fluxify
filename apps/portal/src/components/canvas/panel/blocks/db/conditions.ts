@@ -1,4 +1,10 @@
-import type { Condition, ConditionOperator, ConditionValue } from "@fluxify/components";
+import type {
+	Condition,
+	ConditionOperator,
+	ConditionValue,
+	JoinItem,
+	JoinType,
+} from "@fluxify/components";
 import type { BlockNode } from "../../../types";
 
 /**
@@ -42,11 +48,40 @@ export function readDbBinding(block: BlockNode) {
 }
 
 export function parseDbConditions(block: BlockNode): Condition[] {
-	const raw = Array.isArray(block.data.conditions)
-		? (block.data.conditions as RawWhereCondition[])
-		: [];
+	return parseDbConditionList(block.data.conditions);
+}
 
-	return parseList(raw);
+export function parseDbConditionList(raw: unknown): Condition[] {
+	return parseList(Array.isArray(raw) ? (raw as RawWhereCondition[]) : []);
+}
+
+type RawJoin = Omit<JoinItem, "type"> & { type?: string; attribute?: unknown };
+
+/**
+ * A stored join in today's shape. Graphs saved before `on` hold one
+ * `attribute: "a.id = b.id"` string and call a full join `outer`; the block
+ * schema reads both the same way, and the next edit saves the new shape.
+ */
+export function normalizeJoin(raw: RawJoin): JoinItem {
+	const { attribute, ...join } = raw;
+	const sides = typeof attribute === "string" ? attribute.split("=").map((s) => s.trim()) : [];
+	const legacyOn =
+		sides.length === 2
+			? [
+					{
+						attribute: { kind: "column", value: sides[0] },
+						operator: "eq",
+						value: { kind: "column", value: sides[1] },
+						chain: "and",
+					},
+				]
+			: [];
+	return {
+		...join,
+		table: join.table ?? "",
+		type: (join.type === "outer" ? "full" : join.type || "inner") as JoinType,
+		on: Array.isArray(join.on) ? join.on : legacyOn,
+	};
 }
 
 // both sides pass through untouched: a tag has to survive the round trip, and

@@ -9,7 +9,7 @@ const JOIN_TYPE_OPTIONS: { value: JoinType; label: string }[] = [
 	{ value: "left", label: "Left Join" },
 	{ value: "inner", label: "Inner Join" },
 	{ value: "right", label: "Right Join" },
-	{ value: "outer", label: "Outer Join" },
+	{ value: "full", label: "Full Join" },
 ];
 
 export function JoinsEditor({
@@ -20,12 +20,15 @@ export function JoinsEditor({
 	isDisabled,
 	readOnly,
 	tableSuggestions,
-	columnSuggestions,
-	getColumnSuggestions,
+	joinTypes,
+	locked,
+	renderConditions,
 	className,
 	emptyMessage = "No joins added",
 }: JoinsEditorProps) {
 	const disabled = Boolean(isDisabled || readOnly);
+	// locked: existing joins can still be removed, nothing else changes
+	const fieldsDisabled = disabled || Boolean(locked);
 
 	const handleUpdate = useCallback(
 		(index: number, patch: Partial<JoinItem>) => {
@@ -47,7 +50,7 @@ export function JoinsEditor({
 
 	const handleAdd = useCallback(() => {
 		if (!onChange) return;
-		onChange([...joins, { type: "left", table: "", attribute: "" }]);
+		onChange([...joins, { type: "left", table: "", on: [] }]);
 	}, [joins, onChange]);
 
 	return (
@@ -62,15 +65,10 @@ export function JoinsEditor({
 					<p className="text-xs text-muted-foreground py-2 text-center">{emptyMessage}</p>
 				) : (
 					joins.map((join, index) => {
-						const rawAttr = join.attribute || "";
-						const equalsIndex = rawAttr.indexOf("=");
-						const leftAttr = equalsIndex !== -1 ? rawAttr.slice(0, equalsIndex).trim() : rawAttr;
-						const rightAttr = equalsIndex !== -1 ? rawAttr.slice(equalsIndex + 1).trim() : "";
-
-						const rightColSuggestions =
-							join.table && getColumnSuggestions
-								? getColumnSuggestions(join.table)
-								: columnSuggestions;
+						// a stored type this database lacks stays visible, so it can be changed
+						const typeOptions = JOIN_TYPE_OPTIONS.filter(
+							(opt) => !joinTypes || joinTypes.includes(opt.value) || opt.value === join.type,
+						);
 
 						return (
 							<div key={index} className="flex flex-row items-center gap-2 w-full min-w-0">
@@ -81,7 +79,7 @@ export function JoinsEditor({
 										<div className="w-48 shrink-0">
 											<Select
 												fullWidth
-												isDisabled={disabled}
+												isDisabled={fieldsDisabled}
 												onChange={(val) =>
 													handleUpdate(index, {
 														type: (val as JoinType) || "left",
@@ -96,7 +94,7 @@ export function JoinsEditor({
 												</Select.Trigger>
 												<Select.Popover>
 													<ListBox>
-														{JOIN_TYPE_OPTIONS.map((opt) => (
+														{typeOptions.map((opt) => (
 															<ListBox.Item key={opt.value} id={opt.value} textValue={opt.label}>
 																{opt.label}
 																<ListBox.ItemIndicator />
@@ -111,7 +109,7 @@ export function JoinsEditor({
 											<JsTextField
 												fullWidth
 												disableJs
-												isDisabled={disabled}
+												isDisabled={fieldsDisabled}
 												placeholder="Table (e.g. orders)"
 												value={join.table || ""}
 												suggestions={tableSuggestions}
@@ -121,44 +119,8 @@ export function JoinsEditor({
 										</div>
 									</div>
 
-									{/* Row 2: Condition inputs (leftAttr = rightAttr) */}
-									<div className="flex flex-row items-center gap-2 w-full min-w-0">
-										<div className="flex-1 min-w-0">
-											<JsTextField
-												fullWidth
-												disableJs
-												isDisabled={disabled}
-												placeholder="users.id"
-												value={leftAttr}
-												suggestions={columnSuggestions}
-												onChange={(val) => {
-													const newAttr = rightAttr ? `${val} = ${rightAttr}` : val;
-													handleUpdate(index, { attribute: newAttr });
-												}}
-												variant="secondary"
-											/>
-										</div>
-
-										<span className="text-xs font-bold text-muted-foreground shrink-0 px-0.5">
-											=
-										</span>
-
-										<div className="flex-1 min-w-0">
-											<JsTextField
-												fullWidth
-												disableJs
-												isDisabled={disabled}
-												placeholder="orders.user_id"
-												value={rightAttr}
-												suggestions={rightColSuggestions}
-												onChange={(val) => {
-													const newAttr = `${leftAttr} = ${val}`;
-													handleUpdate(index, { attribute: newAttr });
-												}}
-												variant="secondary"
-											/>
-										</div>
-									</div>
+									{/* Row 2: ON conditions */}
+									{renderConditions(join, (on) => handleUpdate(index, { on }))}
 								</div>
 
 								{/* Minus button outside the card */}
@@ -184,7 +146,7 @@ export function JoinsEditor({
 
 			{!disabled && (
 				<div className="flex flex-col gap-1.5 items-start mt-1">
-					<Button size="sm" variant="secondary" isDisabled={disabled} onPress={handleAdd}>
+					<Button size="sm" variant="secondary" isDisabled={fieldsDisabled} onPress={handleAdd}>
 						<TbPlus className="size-4 mr-1" /> Add Another Join
 					</Button>
 				</div>

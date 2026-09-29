@@ -178,15 +178,45 @@ export type OnConflictInput = z.infer<typeof onConflictSchema>;
 export const emitOnConflict = (onConflict: OnConflictInput) =>
 	onConflict ? JSON.stringify(onConflict) : "undefined";
 
-export const joinSchema = z.object({
-	table: z.string().describe("table to join"),
-	alias: z.string().optional().describe("alias for the table"),
-	attribute: z
-		.string()
-		.describe("attribute to join e.g. table1.id = table2.id")
-		.refine((val) => {
-			const parts = val.split("=");
-			return parts.length === 2;
-		}, "attribute must be in the format of table1.id = table2.id"),
-	type: z.enum(["inner", "left", "right", "outer"]).default("inner").describe("type of join"),
-});
+/**
+ * Graphs saved before `on` stored one `attribute: "a.id = b.id"` string and
+ * called a full join `outer`; both still load, as one column-to-column
+ * condition and as `full`.
+ */
+function legacyJoin(join: unknown) {
+	if (!join || typeof join !== "object") return join;
+	const { attribute, ...rest } = join as { attribute?: unknown; on?: unknown; type?: unknown };
+	if (rest.type === "outer") rest.type = "full";
+	const sides = typeof attribute === "string" ? attribute.split("=").map((s) => s.trim()) : [];
+	if (rest.on === undefined && sides.length === 2) {
+		rest.on = [
+			{
+				attribute: { kind: "column", value: sides[0] },
+				operator: "eq",
+				value: { kind: "column", value: sides[1] },
+				chain: "and",
+			},
+		];
+	}
+	return rest;
+}
+
+export const joinSchema = z.preprocess(
+	legacyJoin,
+	z.object({
+		table: z.string().describe("table to join"),
+		alias: z.string().optional().describe("alias for the table"),
+		on: z
+			.array(whereConditionSchema)
+			.min(1, "a join needs at least one condition")
+			.describe(
+				"ON clause, same condition list as WHERE, e.g. [{ attribute: { kind: 'column', value: 'orders.rider_id' }, operator: 'eq', value: { kind: 'column', value: 'riders.id' }, chain: 'and' }]; add a fixed-value condition the same way with a literal value",
+			),
+		type: z
+			.enum(["inner", "left", "right", "full"])
+			.default("inner")
+			.describe("type of join; SQL only, and MySQL has no full join"),
+	}),
+);
+
+export type DbJoin = z.infer<typeof joinSchema>;
