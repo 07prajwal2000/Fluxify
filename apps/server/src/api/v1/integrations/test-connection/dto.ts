@@ -14,4 +14,6 @@ export const requestBodySchema = z.object({
 export const responseSchema = z.object({
 	success: z.boolean(),
 	error: z.string().optional(),
+	/** connected, but something will not work (a MongoDB server with no replica set cannot run transactions) */
+	warning: z.string().optional(),
 });

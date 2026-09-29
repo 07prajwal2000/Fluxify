@@ -127,7 +127,8 @@ export function BlockTextField({
 }: BlockTextFieldProps) {
 	const { updateNodeData } = useReactFlow();
 	const { enabled: editable } = useCanvasChanges();
-	const storedValue = typeof data[name] === "string" ? (data[name] as string) : "";
+	// a number set by the AI builder or the API shows as text too
+	const storedValue = data[name] == null ? "" : String(data[name]);
 	const [value, setValue] = useState(storedValue);
 
 	useEffect(() => {

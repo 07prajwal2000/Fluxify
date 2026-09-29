@@ -12,6 +12,8 @@ import {
 	groupIntrospectionRows,
 	type IDbAdapter,
 	type IntrospectedTable,
+	type IsolationLevel,
+	isolationClause,
 	type OnConflict,
 	sqlCounterSet,
 	upsertRows,
@@ -419,11 +421,19 @@ export class MySqlAdapter implements IDbAdapter {
 		this.mode = mode;
 	}
 
-	async startTransaction(): Promise<void> {
+	async startTransaction(isolation?: IsolationLevel): Promise<void> {
 		if (this.mode === DbAdapterMode.TRANSACTION) return;
 
 		this.reservedConn = await this.pool.promise().getConnection();
-		await this.reservedConn.beginTransaction();
+		try {
+			// applies to the next transaction on this connection only
+			if (isolation) await this.reservedConn.query(`SET TRANSACTION${isolationClause(isolation)}`);
+			await this.reservedConn.beginTransaction();
+		} catch (e) {
+			this.reservedConn.release();
+			this.reservedConn = null;
+			throw e;
+		}
 
 		// Safely extract the raw callback connection without using 'any'
 		const rawConn = (this.reservedConn as any as { connection: PoolConnection }).connection;

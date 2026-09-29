@@ -15,6 +15,17 @@ describe("validateBlockConfigs", () => {
 		expect(validateBlockConfigs(graph(BLOCK_TYPES.db_getall, defaultBlockData(BLOCK_TYPES.db_getall), false))).toEqual([]);
 	});
 
+	it("checks a transaction's timeout and retries", () => {
+		const tx = (data: Record<string, unknown>) =>
+			blockConfigIssues(BLOCK_TYPES.db_transaction, { ...data, connection: "c", executor: "x" }).map((i) => i.message);
+		expect(tx(defaultBlockData(BLOCK_TYPES.db_transaction))).toEqual([]);
+		expect(tx({ timeoutMs: "", retries: 2 })).toEqual([]);
+		expect(tx({ timeoutMs: "0", retries: "11" })).toEqual([
+			"Timeout must be a whole number of milliseconds above 0.",
+			"Retries must be a whole number from 0 to 10.",
+		]);
+	});
+
 	it("flags a fresh db get all: connection, table, no conditions", () => {
 		expect(severities(BLOCK_TYPES.db_getall, defaultBlockData(BLOCK_TYPES.db_getall))).toEqual(["error", "error", "warning"]);
 	});

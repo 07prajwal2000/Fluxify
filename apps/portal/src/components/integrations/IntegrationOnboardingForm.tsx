@@ -26,6 +26,7 @@ import { KafkaForm } from "./connectors/KafkaForm";
 import { NatsForm } from "./connectors/NatsForm";
 import { ObservabilityForm } from "./connectors/ObservabilityForm";
 import { SqsForm } from "./connectors/SqsForm";
+import { showTestResult } from "./showTestResult";
 
 type Step = 1 | 2 | 3;
 
@@ -195,10 +196,7 @@ export function IntegrationOnboardingForm({
 		test.mutate(
 			{ group, variant, config: parsed.data },
 			{
-				onSuccess: (res) =>
-					res?.success
-						? toast.success("Connection successful")
-						: toast.danger(res?.error ?? "Connection failed"),
+				onSuccess: showTestResult,
 				onError: (error) => showErrorNotification(error as Error),
 			},
 		);
@@ -414,6 +412,7 @@ export function IntegrationOnboardingForm({
 									placeholders={CRED_PLACEHOLDERS[variant].ph as never}
 									hasDatabase={CRED_PLACEHOLDERS[variant].db}
 									hasSSL={CRED_PLACEHOLDERS[variant].ssl}
+									hasQueryTimeout
 								/>
 							)}
 							{group === "kv" && CRED_PLACEHOLDERS[variant] && (

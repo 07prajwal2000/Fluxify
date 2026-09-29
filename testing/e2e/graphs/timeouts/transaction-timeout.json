@@ -1,0 +1,55 @@
+{
+	"name": "timeouts/transaction-timeout",
+	"description": "POST /orders/slow — a transaction with a 300ms timeout inserts an order, waits 800ms, then inserts another. It times out: both inserts are undone, the second one never reaches the database, and failure replies 409 with reason timeout.",
+	"engine": "pg",
+	"route": { "method": "POST", "path": "/orders/slow" },
+	"blocks": [
+		{ "id": "entry", "type": "entrypoint", "position": { "x": 0, "y": 0 }, "data": { "blockName": "Request" } },
+		{
+			"id": "tx",
+			"type": "db_transaction",
+			"position": { "x": 240, "y": 0 },
+			"data": { "blockName": "Transaction", "connection": "primary", "executor": "insert-order", "timeoutMs": 300 }
+		},
+		{
+			"id": "insert-order",
+			"type": "db_insert",
+			"position": { "x": 240, "y": -240 },
+			"data": {
+				"blockName": "Insert order",
+				"connection": "primary",
+				"tableName": "orders",
+				"useParam": false,
+				"data": { "source": "raw", "value": { "user_id": 1, "total": 10, "status": "pending" } }
+			}
+		},
+		{
+			"id": "wait",
+			"type": "jsrunner",
+			"position": { "x": 480, "y": -240 },
+			"data": { "blockName": "Slow step", "value": "await new Promise((resolve) => setTimeout(resolve, 800));\nreturn input;" }
+		},
+		{
+			"id": "insert-late",
+			"type": "db_insert",
+			"position": { "x": 720, "y": -240 },
+			"data": {
+				"blockName": "Insert after the timeout",
+				"connection": "primary",
+				"tableName": "orders",
+				"useParam": false,
+				"data": { "source": "raw", "value": { "user_id": 1, "total": 20, "status": "late" } }
+			}
+		},
+		{ "id": "created", "type": "response", "position": { "x": 480, "y": 0 }, "data": { "blockName": "201", "httpCode": "201" } },
+		{ "id": "rejected", "type": "response", "position": { "x": 480, "y": 120 }, "data": { "blockName": "409", "httpCode": "409" } }
+	],
+	"edges": [
+		{ "id": "e-entry-tx", "from": "entry", "to": "tx", "fromHandle": "source", "toHandle": "source" },
+		{ "id": "e-tx-insert", "from": "tx", "to": "insert-order", "fromHandle": "executor", "toHandle": "executor" },
+		{ "id": "e-insert-wait", "from": "insert-order", "to": "wait", "fromHandle": "source", "toHandle": "source" },
+		{ "id": "e-wait-late", "from": "wait", "to": "insert-late", "fromHandle": "source", "toHandle": "source" },
+		{ "id": "e-tx-created", "from": "tx", "to": "created", "fromHandle": "success", "toHandle": "success" },
+		{ "id": "e-tx-rejected", "from": "tx", "to": "rejected", "fromHandle": "failure", "toHandle": "failure" }
+	]
+}

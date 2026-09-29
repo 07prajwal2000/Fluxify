@@ -13,6 +13,8 @@ export type GraphFixture = {
 	description: string;
 	/** which database the fixture's db blocks run against; defaults to Postgres */
 	engine?: Engine;
+	/** the `primary` connection's query timeout; the runtime default (30s) when left out */
+	queryTimeoutMs?: number;
 	route: { method: string; path: string };
 	/**
 	 * Route-level request validation, in the same JSON the portal stores. This

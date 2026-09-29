@@ -3,7 +3,7 @@ import { SQL } from "bun";
 import { Kysely } from "kysely";
 import { MongoClient } from "mongodb";
 import { createPool, type Pool } from "mysql2";
-import { type Connection, DbType } from "./connection";
+import { type Connection, DbType, DEFAULT_QUERY_TIMEOUT_MS } from "./connection";
 import { buildMongoUrl, MongoAdapter } from "./mongoDbAdapter";
 import { MYSQL_POOL_OPTIONS, MySqlAdapter } from "./mySqlAdapter";
 import { PostgresAdapter } from "./postgresAdapter";
@@ -222,11 +222,13 @@ export function connectionFingerprint(config: Connection) {
 		password: config.password,
 		database: config.database,
 		ssl: Boolean(config.ssl),
+		queryTimeoutMs: config.queryTimeoutMs,
 	});
 	return createHash("sha256").update(material).digest("hex");
 }
 
 function createManagedConnection(_integrationId: string, config: Connection): ManagedDbConnection {
+	const timeoutMs = config.queryTimeoutMs ?? DEFAULT_QUERY_TIMEOUT_MS;
 	if (config.dbType === DbType.POSTGRES) {
 		const sql = new SQL({
 			adapter: "postgres",
@@ -238,6 +240,7 @@ function createManagedConnection(_integrationId: string, config: Connection): Ma
 			tls: config.ssl,
 			// #512: int8 as BigInt, so it can be told apart from numeric's text
 			bigint: true,
+			connection: { statement_timeout: timeoutMs },
 		});
 		const db = PostgresAdapter.createKysely(sql);
 		return {
@@ -258,6 +261,13 @@ function createManagedConnection(_integrationId: string, config: Connection): Ma
 			connectionLimit: 2,
 			...MYSQL_POOL_OPTIONS,
 		});
+		// ponytail: max_execution_time stops reads only; a write is bounded by lock waits, not by run time
+		pool.on("connection", (conn) => {
+			conn.query("SET SESSION max_execution_time = ?, innodb_lock_wait_timeout = ?", [
+				timeoutMs,
+				Math.max(1, Math.ceil(timeoutMs / 1000)),
+			]);
+		});
 		return {
 			type: DbType.MYSQL,
 			db: MySqlAdapter.createKysely(pool),
@@ -267,7 +277,7 @@ function createManagedConnection(_integrationId: string, config: Connection): Ma
 	}
 
 	if (config.dbType === DbType.MONGODB) {
-		const client = new MongoClient(buildMongoUrl(config));
+		const client = new MongoClient(buildMongoUrl(config), { timeoutMS: timeoutMs });
 		return {
 			type: DbType.MONGODB,
 			db: client.db(config.database),

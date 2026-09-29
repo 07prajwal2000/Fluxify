@@ -32,7 +32,9 @@ export async function runNativeDb(
 ) {
 	const adapter = adapterFor(context, connection);
 	const vars = context.vars as Record<string, any>;
-	vars.dbQuery = adapter.raw.bind(adapter);
+	// looked up per call, so a snippet still running when its transaction times out is refused
+	vars.dbQuery = (...args: Parameters<typeof adapter.raw>) =>
+		adapterFor(context, connection).raw(...args);
 	try {
 		return await body();
 	} catch (error) {

@@ -1,7 +1,7 @@
 import { TbInfoCircle } from "react-icons/tb";
 import type { BlockNode } from "../../../types";
 import { BlockSettings } from "../../BlockSettings";
-import { BlockIntegrationField } from "../../fields";
+import { BlockIntegrationField, BlockSelectField, BlockTextField } from "../../fields";
 
 /** General tab: Connection selection and transaction information */
 export function TransactionDbGeneralSettings({ block }: { block: BlockNode }) {
@@ -15,14 +15,49 @@ export function TransactionDbGeneralSettings({ block }: { block: BlockNode }) {
 				label="Choose Database Connection"
 				description="Select the database connection to start a transaction."
 			/>
-			<div className="flex items-start gap-2.5 p-3 rounded-lg bg-[var(--background-secondary,#18181b)] border border-[var(--border,#27272a)] text-xs text-muted leading-relaxed">
-				<TbInfoCircle className="size-4 shrink-0 text-primary mt-0.5" />
+			<div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full">
+				<BlockTextField
+					blockId={block.id}
+					data={block.data}
+					name="timeoutMs"
+					label="Timeout (ms)"
+					placeholder="30000"
+					hint="Whole transaction, retries included. Default: 30000 (30 seconds)."
+				/>
+				<BlockTextField
+					blockId={block.id}
+					data={block.data}
+					name="retries"
+					label="Retries"
+					placeholder="0"
+					hint="Extra attempts after a deadlock or conflict. Default: 0."
+				/>
+			</div>
+			<BlockSelectField
+				blockId={block.id}
+				data={block.data}
+				name="isolation"
+				label="Isolation level"
+				placeholder="Database default"
+				hint="MongoDB has no isolation levels; keep the database default there."
+				options={[
+					{ value: "default", label: "Database default" },
+					{ value: "read_committed", label: "Read committed" },
+					{ value: "repeatable_read", label: "Repeatable read" },
+					{ value: "serializable", label: "Serializable" },
+				]}
+			/>
+			<div className="flex items-start gap-2.5 p-3 rounded-lg bg-background-secondary border border-border text-xs text-muted leading-relaxed">
+				<TbInfoCircle className="size-4 shrink-0 text-accent mt-0.5" />
 				<div>
 					Connect blocks to the <strong>executor port</strong> to execute operations inside this
 					transaction. If all succeed, it commits and the <strong>success</strong> path gets the
-					executor chain's last output. If an error occurs or a Rollback block runs, it is rolled
-					back and the <strong>failure</strong> path gets <code>{"{ reason, message }"}</code>. With
-					no failure path, an error fails the run and a rollback ends it.
+					executor chain's last output. If an error occurs, the timeout passes or a Rollback block
+					runs, it is rolled back and the <strong>failure</strong> path gets{" "}
+					<code>{"{ reason, message }"}</code>, where reason is <code>error</code>,{" "}
+					<code>timeout</code> or <code>rollback</code>. With no failure path, an error or timeout
+					fails the run and a rollback ends it. A retry runs the whole executor chain again,
+					including any HTTP calls in it.
 				</div>
 			</div>
 		</div>

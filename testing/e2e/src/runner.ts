@@ -66,7 +66,13 @@ async function hydrateDatabase(fixture: GraphFixture) {
 	if (engine === "none") return;
 	const connection = await connectionFor(engine);
 	hydrateIntegrations(PROJECT_ID, {
-		db: { [DB_CONNECTION]: { ...connection, [OWNER_KEY]: PROJECT_ID } },
+		db: {
+			[DB_CONNECTION]: {
+				...connection,
+				queryTimeoutMs: fixture.queryTimeoutMs,
+				[OWNER_KEY]: PROJECT_ID,
+			},
+		},
 	});
 }
 

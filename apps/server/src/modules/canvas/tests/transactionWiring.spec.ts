@@ -33,4 +33,19 @@ describe("assertTransactionWiring", () => {
 		const edges = [edge("in", "outer"), edge("outer", "inner", "executor"), edge("in", "rb")];
 		expect(() => assertTransactionWiring(blocks, edges)).not.toThrow();
 	});
+
+	it("refuses an isolation level on a MongoDB connection only", () => {
+		const isolated = (connection: string) => ({
+			...tx(connection, connection),
+			data: { ...tx(connection, connection).data, isolation: "serializable" },
+		});
+		const dbTypeOf = (connection: string) => ({ mongo1: "mongo", pg1: "pg" })[connection];
+		const edges = [edge("in", "mongo1")];
+		expect(() =>
+			assertTransactionWiring([block("in", "entrypoint"), isolated("mongo1")], edges, dbTypeOf),
+		).toThrow('Transaction "MONGO1" (mongo1): MongoDB transactions have no isolation level');
+		expect(() =>
+			assertTransactionWiring([block("in", "entrypoint"), isolated("pg1")], [edge("in", "pg1")], dbTypeOf),
+		).not.toThrow();
+	});
 });

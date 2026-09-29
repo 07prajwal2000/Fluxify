@@ -1,0 +1,33 @@
+{
+	"name": "timeouts/deadlock",
+	"description": "POST /users/touch — locks two users in the order the body gives, with a pause between. Two requests in opposite order deadlock; with retries the loser runs again and both commit.",
+	"engine": "pg",
+	"route": { "method": "POST", "path": "/users/touch" },
+	"blocks": [
+		{ "id": "entry", "type": "entrypoint", "position": { "x": 0, "y": 0 }, "data": { "blockName": "Request" } },
+		{
+			"id": "tx",
+			"type": "db_transaction",
+			"position": { "x": 240, "y": 0 },
+			"data": { "blockName": "Transaction", "connection": "primary", "executor": "lock", "retries": 3, "timeoutMs": 20000 }
+		},
+		{
+			"id": "lock",
+			"type": "db_native",
+			"position": { "x": 240, "y": -240 },
+			"data": {
+				"blockName": "Lock both users",
+				"connection": "primary",
+				"js": "const { first, second } = getRequestBody();\nawait dbQuery(\"UPDATE users SET name = name WHERE id = $1\", [first]);\nawait dbQuery(\"SELECT pg_sleep(0.3)\");\nawait dbQuery(\"UPDATE users SET name = name WHERE id = $1\", [second]);\nreturn { first, second };"
+			}
+		},
+		{ "id": "ok", "type": "response", "position": { "x": 480, "y": 0 }, "data": { "blockName": "200", "httpCode": "200" } },
+		{ "id": "rejected", "type": "response", "position": { "x": 480, "y": 120 }, "data": { "blockName": "409", "httpCode": "409" } }
+	],
+	"edges": [
+		{ "id": "e-entry-tx", "from": "entry", "to": "tx", "fromHandle": "source", "toHandle": "source" },
+		{ "id": "e-tx-lock", "from": "tx", "to": "lock", "fromHandle": "executor", "toHandle": "executor" },
+		{ "id": "e-tx-ok", "from": "tx", "to": "ok", "fromHandle": "success", "toHandle": "success" },
+		{ "id": "e-tx-rejected", "from": "tx", "to": "rejected", "fromHandle": "failure", "toHandle": "failure" }
+	]
+}

@@ -21,6 +21,7 @@ When setting up a PostgreSQL connection, you will need to provide:
 - **Username**: Your database user.
 - **Password**: Your database password.
 - **SSL**: Enable this if your provider requires a secure connection (common for cloud databases like Neon or Supabase).
+- **Query timeout**: How long one query may run before it is stopped with an error. **Default: 30 seconds.** Raise it for slow reports; lower it to protect a busy database.
 
 ### Functionality
 
@@ -37,9 +38,21 @@ Once connected, you can use the following blocks to interact with your data:
 
 Connect to a MySQL database. It takes the same settings as PostgreSQL (without SSL) and works with the same blocks.
 
+::: info Query timeout on MySQL
+On MySQL the timeout stops reads that run too long. A write (insert, update, delete) is stopped when it waits too long for a row another request has locked.
+:::
+
 ## MongoDB
 
 Connect to a MongoDB database. Collections take the place of tables, and the same blocks read and write documents. Joins are not available.
+
+::: warning Transactions need a replica set
+The [DB Transaction](/blocks/db-transaction) block only works when MongoDB runs as a replica set (or behind a sharded cluster). A single standalone server still works for every other block. **Test connection** warns you when the server is standalone.
+:::
+
+## Query timeout
+
+Every database connection stops a query that runs longer than its **Query timeout** (30 seconds unless you change it). The block that ran the query fails with a timeout error, which you can handle like any other error. This keeps one slow query from holding a connection that other requests need.
 
 ## Value types
 

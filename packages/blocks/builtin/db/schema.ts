@@ -1,3 +1,4 @@
+import { AsyncLocalStorage } from "node:async_hooks";
 import { DB_VALUELESS_OPERATORS, dbOperatorSchema } from "@fluxify/lib";
 import z from "zod";
 import type { Context } from "../../baseBlock";
@@ -125,7 +126,18 @@ export const dbSortSchema = z
 export type DbSortEntry = z.infer<typeof dbSortSchema>[number];
 
 /** every db block resolves its adapter the same way */
+/**
+ * The transaction attempts the running code is inside, innermost last. A
+ * timed-out attempt is rolled back while its executor chain may still be
+ * running; its next database call would run outside any transaction, so it is
+ * refused instead.
+ */
+export const transactionAttempts = new AsyncLocalStorage<{ timedOut: boolean }[]>();
+
 export function adapterFor(context: Context, connection: string) {
+	if (transactionAttempts.getStore()?.some((attempt) => attempt.timedOut)) {
+		throw new Error("the transaction timed out and was rolled back");
+	}
 	return context.dbFactory!.getDbAdapter(connection);
 }
 
