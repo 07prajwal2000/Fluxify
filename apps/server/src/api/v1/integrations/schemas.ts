@@ -65,6 +65,9 @@ export function normalizeObservabilityVariant(variant: string): string {
 export const observabilityLegacyVariants = Object.keys(OBSERVABILITY_VARIANT_ALIASES);
 
 // Database
+/** milliseconds before a query is stopped; the runtime uses 30s when it is left out */
+const queryTimeoutMsSchema = z.number().int().positive().optional();
+
 export const postgresVariantConfigSchema = z
 	.object({
 		dbType: z.string().refine((v: any) => v === databaseVariantSchema.enum.PostgreSQL),
@@ -75,10 +78,12 @@ export const postgresVariantConfigSchema = z
 		database: z.string().min(1),
 		useSSL: z.boolean().default(false).optional(),
 		source: z.literal("credentials"),
+		queryTimeoutMs: queryTimeoutMsSchema,
 	})
 	.or(
 		z.object({
 			source: z.literal("url"),
+			queryTimeoutMs: queryTimeoutMsSchema,
 			url: z
 				.string()
 				.min(4)
@@ -101,10 +106,12 @@ export const mysqlVariantConfigSchema = z
 		port: z.string().or(z.number()),
 		database: z.string().min(1),
 		source: z.literal("credentials"),
+		queryTimeoutMs: queryTimeoutMsSchema,
 	})
 	.or(
 		z.object({
 			source: z.literal("url"),
+			queryTimeoutMs: queryTimeoutMsSchema,
 			url: z
 				.string()
 				.min(4)
@@ -128,10 +135,12 @@ export const mongoVariantConfigSchema = z
 		database: z.string().min(1),
 		useSSL: z.boolean().default(false).optional(),
 		source: z.literal("credentials"),
+		queryTimeoutMs: queryTimeoutMsSchema,
 	})
 	.or(
 		z.object({
 			source: z.literal("url"),
+			queryTimeoutMs: queryTimeoutMsSchema,
 			url: z
 				.string()
 				.min(4)

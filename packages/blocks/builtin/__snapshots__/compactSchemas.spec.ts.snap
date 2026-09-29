@@ -204,6 +204,9 @@ db_native {
 db_transaction {
 	connection: string;  // integration id
 	executor: string;  // block id to start a transaction (database adapter state changes to transaction)
+	timeoutMs: number;  // milliseconds the whole transaction may take, retries included; past it the transaction rolls back and runs 'failure' with reason 'timeout'; default 30000
+	isolation?: "read_committed" | "repeatable_read" | "serializable";  // isolation level; left out means the database's default. PostgreSQL and MySQL only, MongoDB has no levels
+	retries: number;  // extra attempts after a deadlock or serialization failure. Each attempt re-runs the whole executor chain, including non-database calls such as HTTP requests; default 0
 }
 
 db_rollback {

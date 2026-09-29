@@ -1,0 +1,30 @@
+{
+	"name": "timeouts/slow-query",
+	"description": "GET /slow — one query that runs for 2 seconds on a connection whose query timeout is 300ms. The database stops it; the transaction around it only exists to hand the error text to failure, which replies 409.",
+	"engine": "pg",
+	"queryTimeoutMs": 300,
+	"route": { "method": "GET", "path": "/slow" },
+	"blocks": [
+		{ "id": "entry", "type": "entrypoint", "position": { "x": 0, "y": 0 }, "data": { "blockName": "Request" } },
+		{
+			"id": "tx",
+			"type": "db_transaction",
+			"position": { "x": 240, "y": 0 },
+			"data": { "blockName": "Report the error", "connection": "primary", "executor": "slow" }
+		},
+		{
+			"id": "slow",
+			"type": "db_native",
+			"position": { "x": 240, "y": -240 },
+			"data": { "blockName": "Slow query", "connection": "primary", "js": "return await dbQuery(\"SELECT pg_sleep(2)\");" }
+		},
+		{ "id": "ok", "type": "response", "position": { "x": 480, "y": 0 }, "data": { "blockName": "200", "httpCode": "200" } },
+		{ "id": "stopped", "type": "response", "position": { "x": 480, "y": 120 }, "data": { "blockName": "409", "httpCode": "409" } }
+	],
+	"edges": [
+		{ "id": "e-entry-tx", "from": "entry", "to": "tx", "fromHandle": "source", "toHandle": "source" },
+		{ "id": "e-tx-slow", "from": "tx", "to": "slow", "fromHandle": "executor", "toHandle": "executor" },
+		{ "id": "e-tx-ok", "from": "tx", "to": "ok", "fromHandle": "success", "toHandle": "success" },
+		{ "id": "e-tx-stopped", "from": "tx", "to": "stopped", "fromHandle": "failure", "toHandle": "failure" }
+	]
+}

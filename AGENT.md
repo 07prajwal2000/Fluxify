@@ -228,6 +228,12 @@ The pre-commit hook runs `fta-cli --score-cap 70`, which **fails the commit** fo
 3. Do not "fix" this class of bug in the planner. Check `taskGenerator` output first — the planner's prose plan and the task DAG are different artifacts.
 4. When diagnosing a bad run, read it from the database (`agent_harness_runs`, `agent_harness_steps`, `agent_harness_live_states.working_memory`) rather than inferring from the summary. The reported agent is often not the one that misbehaved.
 
+### MongoDB Standalone — the Driver Rewrites the "No Transactions" Error
+**Issue:** code meant to spot "this server can't run transactions" (a standalone mongod) never matched, so the fallback and the clear error message never ran.
+**Cause:** the server refuses with `IllegalOperation` (code 20), "Transaction numbers are only allowed on a replica set member or mongos". But with retryable writes on (the driver's default), the driver (`execute_operation.js`) rethrows it as a **new** `MongoServerError`, "This MongoDB deployment does not support retryable writes…", with **no `code`**, and puts the server's error on `originalError`. A check on `code === 20` plus the server's text only ever sees the rewritten error.
+**Fix:** `isTransactionUnsupported` (`packages/adapters/db/transactionErrors.ts`) unwraps `originalError` before matching. Reuse it; don't match the message text anywhere else.
+**Test it against a real standalone server** (`packages/blocks/mongoStandalone.test.ts`). Every other Mongo test runs a replica set, and a mock built from the server's error text passes while the real driver fails.
+
 ### Touching a Real Integration Means Adding Real Integration Tests
 **Rule:** whenever you add or change code that talks to a real external service — a database, a KV store, a queue, an object store — the change is not finished until a `*.test.ts` exercises it against that service in a container. A mock-based `*.spec.ts` is necessary but never sufficient.
 

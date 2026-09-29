@@ -231,6 +231,8 @@ export function resolveIntegrationConfig(
 			} else if (variant === databaseVariantSchema.enum.MongoDB) {
 				config["dbType"] = "mongo";
 			}
+			// a url-sourced row maps to its parsed url, which carries no timeout
+			if (raw.queryTimeoutMs) config["queryTimeoutMs"] = raw.queryTimeoutMs;
 		}
 	}
 	return config;

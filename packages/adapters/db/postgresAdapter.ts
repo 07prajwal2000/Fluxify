@@ -9,6 +9,8 @@ import {
 	groupIntrospectionRows,
 	type IDbAdapter,
 	type IntrospectedTable,
+	type IsolationLevel,
+	isolationClause,
 	type OnConflict,
 	sqlCounterSet,
 	upsertRows,
@@ -322,13 +324,13 @@ export class PostgresAdapter implements IDbAdapter {
 		this.mode = mode;
 	}
 
-	async startTransaction(): Promise<void> {
+	async startTransaction(isolation?: IsolationLevel): Promise<void> {
 		if (this.mode === DbAdapterMode.TRANSACTION) return;
 
 		this.reservedConn = await this.sql.reserve();
 
 		try {
-			await this.reservedConn.unsafe("BEGIN");
+			await this.reservedConn.unsafe(`BEGIN${isolationClause(isolation)}`);
 		} catch (e) {
 			this.reservedConn.release();
 			this.reservedConn = null;

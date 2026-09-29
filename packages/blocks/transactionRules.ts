@@ -11,7 +11,9 @@ export type TransactionIssue =
 	/** error: a transaction inside another one's executor chain on the same connection */
 	| "nested-same-connection"
 	/** warning: a rollback reachable without passing a transaction's executor */
-	| "rollback-outside";
+	| "rollback-outside"
+	/** warning: nothing wired to a transaction's executor handle, so it runs nothing */
+	| "empty-executor";
 
 export const TRANSACTION_ERRORS: readonly TransactionIssue[] = [
 	"shared-chain",
@@ -51,7 +53,8 @@ function groupBy(edges: RuleEdge[], key: (edge: RuleEdge) => string | null | und
  *   connection (on the inner one);
  * - walking back from a rollback, every path must enter a transaction's
  *   executor handle before it reaches a block with no incoming edge (the
- *   entrypoint, the error handler); otherwise it can run outside one.
+ *   entrypoint, the error handler); otherwise it can run outside one;
+ * - a transaction with nothing on its executor handle runs nothing (on it).
  */
 export function findTransactionIssues(
 	blocks: RuleBlock[],
@@ -86,7 +89,10 @@ export function findTransactionIssues(
 	const nested = new Set<string>();
 	for (const [tx, own] of connection) {
 		const inside = reach(tx, "executor");
-		if (inside.size === 0) continue;
+		if (inside.size === 0) {
+			issues.push({ blockId: tx, issue: "empty-executor" });
+			continue;
+		}
 		for (const id of inside) {
 			if (own && connection.get(id) === own) nested.add(id);
 		}

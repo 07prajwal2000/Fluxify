@@ -9,6 +9,7 @@ import {
 import { BadRequestError } from "../../errors/badRequestError";
 import { ConflictError } from "../../errors/conflictError";
 import { NotFoundError } from "../../errors/notFoundError";
+import { dbIntegrationsCache } from "../../loaders/integrationsLoader";
 import { type DirectedCanvasEdge, findCycleEdgeIds } from "./cycleDetection";
 import {
 	deleteBlocks,
@@ -349,6 +350,7 @@ export async function saveCanvas(
 		assertTransactionWiring(
 			await canvasBlocksAfterSave(parent, data, deleteBlockIds, tx),
 			await canvasEdgesAfterSave(parent, data, deleteBlockIds, deleteEdgeIds, tx),
+			(connection) => dbIntegrationsCache[connection]?.dbType,
 		);
 		await upsertBlocks(
 			data.changes.blocks.map((block) => ({ ...block, ...keys })),

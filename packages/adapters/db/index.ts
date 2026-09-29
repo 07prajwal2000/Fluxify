@@ -2,7 +2,7 @@ import { isDeepStrictEqual } from "node:util";
 import { dbOperatorSchema } from "@fluxify/lib";
 import { SQL } from "bun";
 import z from "zod";
-import { type Connection, DbType } from "./connection";
+import { type Connection, DbType, type IsolationLevel } from "./connection";
 import { type DbConnectionLease, DbConnectionManager } from "./connectionManager";
 import { buildMongoUrl, MongoAdapter } from "./mongoDbAdapter";
 import { MySqlAdapter } from "./mySqlAdapter";
@@ -165,7 +165,8 @@ export interface IDbAdapter {
 	/** `affected` are the deleted rows as they were */
 	delete(table: string, conditions: DBConditionType[]): Promise<WriteResult>;
 	setMode(mode: DbAdapterMode): Promise<void>;
-	startTransaction(): Promise<void>;
+	/** `isolation` unset: the database's default. MongoDB has no levels and refuses one */
+	startTransaction(isolation?: IsolationLevel): Promise<void>;
 	commitTransaction(): Promise<void>;
 	rollbackTransaction(): Promise<void>;
 }
@@ -293,3 +294,4 @@ export * from "./connectionManager";
 export * from "./mongoDbAdapter";
 export * from "./mySqlAdapter";
 export * from "./postgresAdapter";
+export * from "./transactionErrors";

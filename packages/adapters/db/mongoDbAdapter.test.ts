@@ -6,7 +6,8 @@ import {
 	test,
 	expect,
 } from "bun:test";
-import { MongoAdapter, buildMongoUrl, isTransactionUnsupported } from "./mongoDbAdapter";
+import { MongoAdapter, buildMongoUrl } from "./mongoDbAdapter";
+import { isTransactionUnsupported } from "./transactionErrors";
 import { Connection, DbType } from ".";
 import type Docker from "dockerode";
 import { Decimal128, Long, MongoClient } from "mongodb";
@@ -434,6 +435,11 @@ describe("MongoAdapter isTransactionUnsupported (#510)", () => {
 			{ code: 20 },
 		);
 		expect(isTransactionUnsupported(standalone)).toBe(true);
+		// what the driver actually throws with retryable writes on: no code, the server's error inside
+		const rewrapped = Object.assign(new Error("does not support retryable writes"), {
+			originalError: standalone,
+		});
+		expect(isTransactionUnsupported(rewrapped)).toBe(true);
 		expect(isTransactionUnsupported(Object.assign(new Error("dup key"), { code: 11000 }))).toBe(false);
 	});
 });

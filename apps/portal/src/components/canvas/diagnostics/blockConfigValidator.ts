@@ -4,6 +4,7 @@ import { BLOCK_TYPES } from "../blocks/blockTypes";
 import { savesOutput } from "../panel/SaveOutputField";
 import type { BlockData, CanvasGraph } from "../types";
 import { dbConditionIssues, dbJoinIssues, dbSortIssues, isBlank } from "./dbConditionIssues";
+import { checkTransactionSettings } from "./transactionValidator";
 import type { BlockDiagnostic, DiagnosticSeverity } from "./types";
 
 export const BLOCK_CONFIG_SOURCE = "block-config";
@@ -116,9 +117,7 @@ function checkDb(type: string, data: BlockData, report: Report) {
 	if (DB_WITH_TABLE.has(type) && isBlank(data.tableName ?? data.table)) {
 		report("error", "No table name. Enter the table in the General tab.", "General");
 	}
-	if (type === BLOCK_TYPES.db_transaction && isBlank(data.executor)) {
-		report("warning", "The transaction script is empty, so this block does nothing.");
-	}
+	if (type === BLOCK_TYPES.db_transaction) checkTransactionSettings(data, report);
 
 	if (
 		DB_WITH_TABLE.has(type) &&

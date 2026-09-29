@@ -162,6 +162,7 @@ async function testDatabasesConnection(
 			return {
 				success: mongoResult.success,
 				error: mongoResult.error?.toString() || (mongoResult.success ? "" : "Connection failed"),
+				warning: mongoResult.warning,
 			};
 		}
 		default:

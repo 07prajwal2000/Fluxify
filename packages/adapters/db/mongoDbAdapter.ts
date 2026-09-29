@@ -7,6 +7,7 @@ import {
 	DbAdapterMode,
 	type IDbAdapter,
 	type IntrospectedTable,
+	type IsolationLevel,
 	type OnConflict,
 	type QueryOptions,
 	type WriteResult,
@@ -29,6 +30,7 @@ import { mongoCounterUpdate } from "./counter";
 import { type DbCursor, type DbPage, mongoPage } from "./cursor";
 import { isColumnRef, isLiteralRef, isNumericLike, toMongoField } from "./jsonPath";
 import { activeSorts, type DbSort, mongoSorts, singleRow, sortSpec } from "./sort";
+import { isTransactionUnsupported, standaloneWarning } from "./transactionErrors";
 import { mongoUpsertOps } from "./upsert";
 import { plainNumbers } from "./values";
 
@@ -45,15 +47,15 @@ export class MongoAdapter implements IDbAdapter {
 
 	public static async testConnection(
 		connection: Connection,
-	): Promise<{ success: boolean; error?: unknown }> {
+	): Promise<{ success: boolean; error?: unknown; warning?: string }> {
 		let tempClient: MongoClient | null = null;
 		try {
 			tempClient = new MongoClient(buildMongoUrl(connection), {
 				serverSelectionTimeoutMS: 2000,
 			});
 			await tempClient.connect();
-			await tempClient.db("admin").command({ ping: 1 });
-			return { success: true };
+			const hello = await tempClient.db("admin").command({ hello: 1 });
+			return { success: true, warning: standaloneWarning(hello) };
 		} catch (error) {
 			return { success: false, error };
 		} finally {
@@ -275,8 +277,9 @@ export class MongoAdapter implements IDbAdapter {
 		this.mode = mode;
 	}
 
-	async startTransaction(): Promise<void> {
+	async startTransaction(isolation?: IsolationLevel): Promise<void> {
 		if (this.mode === DbAdapterMode.TRANSACTION) return;
+		if (isolation) throw new Error("MongoDB transactions have no isolation level to choose");
 
 		this.session = this.client.startSession();
 		this.session.startTransaction();
@@ -447,14 +450,6 @@ export class MongoAdapter implements IDbAdapter {
 /** a numeric-like string compared by order means a number, so BSON doesn't compare it as text */
 const numericIntent = (val: unknown) =>
 	typeof val === "string" && isNumericLike(val) ? Number(val) : val;
-
-/** a standalone mongod refuses any transaction with IllegalOperation (code 20) */
-export function isTransactionUnsupported(error: unknown): boolean {
-	return (
-		(error as { code?: number })?.code === 20 &&
-		/Transaction numbers are only allowed/i.test(String((error as Error).message))
-	);
-}
 
 function mongoTypeOf(value: unknown): string {
 	if (value === null || value === undefined) return "null";
