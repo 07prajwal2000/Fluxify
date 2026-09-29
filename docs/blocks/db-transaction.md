@@ -105,3 +105,4 @@ Errors block saving the canvas; the warning does not, so a half-built canvas sti
 - **Error**: an isolation level is set on a MongoDB connection.
 - **Error**: the timeout is not a whole number above 0, or retries is not a whole number from 0 to 10.
 - **Warning**: a Rollback Transaction block can be reached outside the Executor chain. See [Rollback Transaction](./db-rollback.md).
+- **Warning**: nothing is connected to the **Executor** handle, so the transaction does nothing.

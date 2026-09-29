@@ -13,6 +13,8 @@ export const SHARED_CHAIN =
 	"This transaction's success or failure path leads into blocks that also run inside its executor chain. Keep the inside and the after paths separate: give each its own blocks.";
 export const NESTED_SAME_CONNECTION =
 	"This transaction runs inside another transaction on the same connection, which is not supported: it fails the run. Move it out, or use a different connection.";
+export const EMPTY_EXECUTOR =
+	"Nothing is connected to this transaction's executor handle, so it does nothing. Connect the blocks to run inside the transaction.";
 export const OUTSIDE_TRANSACTION =
 	"This Rollback is reachable outside a Database Transaction, where it fails the run. Place it only in a chain wired to a transaction's executor handle.";
 
@@ -20,6 +22,7 @@ const REPORT: Record<TransactionIssue, { severity: DiagnosticSeverity; message: 
 	"shared-chain": { severity: "error", message: SHARED_CHAIN },
 	"nested-same-connection": { severity: "error", message: NESTED_SAME_CONNECTION },
 	"rollback-outside": { severity: "warning", message: OUTSIDE_TRANSACTION },
+	"empty-executor": { severity: "warning", message: EMPTY_EXECUTOR },
 };
 
 /**
@@ -54,9 +57,6 @@ export function checkTransactionSettings(
 	data: BlockData,
 	report: (severity: DiagnosticSeverity, message: string, tab?: string) => void,
 ) {
-	if (isBlank(data.executor)) {
-		report("warning", "The transaction script is empty, so this block does nothing.");
-	}
 	if (!whole(data.timeoutMs, 1, Number.MAX_SAFE_INTEGER)) {
 		report("error", "Timeout must be a whole number of milliseconds above 0.", "Advanced");
 	}

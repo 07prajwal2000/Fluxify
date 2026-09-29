@@ -1,6 +1,12 @@
 import { describe, expect, it } from "bun:test";
 import type { CanvasBlock, CanvasEdge } from "../types";
-import { NESTED_SAME_CONNECTION, SHARED_CHAIN, transactionTopologyKey, validateTransactions } from "./transactionValidator";
+import {
+	EMPTY_EXECUTOR,
+	NESTED_SAME_CONNECTION,
+	SHARED_CHAIN,
+	transactionTopologyKey,
+	validateTransactions,
+} from "./transactionValidator";
 
 const b = (id: string, type: string): CanvasBlock => ({ id, type, data: {}, position: { x: 0, y: 0 } });
 const e = (from: string, to: string, handle = "source"): CanvasEdge => ({
@@ -21,7 +27,9 @@ describe("validateTransactions", () => {
 	});
 
 	it("flags a rollback reachable without a transaction", () => {
+		// the transaction itself runs nothing, which is its own warning
 		expect(flagged(base, [e("in", "tx"), e("tx", "if", "success"), e("if", "rb", "failure")])).toEqual([
+			"tx",
 			"rb",
 		]);
 	});
@@ -32,7 +40,7 @@ describe("validateTransactions", () => {
 	});
 
 	it("stays quiet for an unwired rollback", () => {
-		expect(flagged(base, [e("in", "tx")])).toEqual([]);
+		expect(flagged(base, [e("in", "tx"), e("tx", "if", "executor")])).toEqual([]);
 	});
 
 	it("errors when success or failure leads into the executor chain", () => {
@@ -56,9 +64,12 @@ describe("validateTransactions", () => {
 
 	it("errors on a transaction nested inside another on the same connection", () => {
 		const tx = (id: string, connection: string): CanvasBlock => ({ ...b(id, "db_transaction"), data: { connection } });
-		const edges = [e("in", "outer"), e("outer", "if", "executor"), e("if", "inner")];
+		const edges = [e("in", "outer"), e("outer", "if", "executor"), e("if", "inner"), e("inner", "step", "executor")];
 		const nested = (inner: string) =>
-			validateTransactions({ blocks: [b("in", "entrypoint"), tx("outer", "db1"), b("if", "if"), tx("inner", inner)], edges });
+			validateTransactions({
+				blocks: [b("in", "entrypoint"), tx("outer", "db1"), b("if", "if"), tx("inner", inner), b("step", "jsrunner")],
+				edges,
+			});
 
 		expect(nested("db1")).toEqual([
 			{ blockId: "inner", severity: "error", message: NESTED_SAME_CONNECTION, source: "transaction-wiring" },
@@ -66,6 +77,14 @@ describe("validateTransactions", () => {
 		expect(nested("db2")).toEqual([]);
 		// a js: connection is only known at run time, where the engine refuses it
 		expect(nested("js:return 'db1'")).toEqual([]);
+	});
+
+	it("warns on a transaction with nothing on its executor handle, whatever its saved data says", () => {
+		const blocks = [b("in", "entrypoint"), { ...b("tx", "db_transaction"), data: { executor: "stale-id" } }, b("if", "if")];
+		expect(validateTransactions({ blocks, edges: [e("in", "tx")] })).toEqual([
+			{ blockId: "tx", severity: "warning", message: EMPTY_EXECUTOR, source: "transaction-wiring" },
+		]);
+		expect(validateTransactions({ blocks: [...blocks], edges: [e("in", "tx"), e("tx", "if", "executor")] })).toEqual([]);
 	});
 
 	it("keys only on wiring, and is empty without a rollback", () => {
