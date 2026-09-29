@@ -13,6 +13,9 @@ To cancel the transaction on purpose, use the [Rollback Transaction](./db-rollba
 
 - **Connection**: The database integration.
 - **Executor**: The chain of blocks to run inside the transaction.
+
+On the **Advanced** tab:
+
 - **Timeout (ms)**: How long the whole transaction may take, retries included. **Default: 30000 (30 seconds).** When it runs out, the transaction is rolled back and continues on **Failure** with reason `"timeout"`.
 - **Retries**: How many more times to try after a deadlock or a conflict with another request. **Default: 0.** See [Retries](#retries).
 - **Isolation level**: How strictly this transaction is kept apart from others running at the same time. Leave it on **Database default** unless you need more. See [Isolation level](#isolation-level).

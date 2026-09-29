@@ -346,7 +346,7 @@ test("getvar, setvar, transformer, arrayops, forloop, and foreachloop blocks hav
 
 	const transactionDbResult = splitTabs(transactionDbTabs!(dummyTransactionDbBlock));
 	expect(transactionDbResult.generalExtras).toHaveLength(1);
-	expect(transactionDbResult.blockTabs).toHaveLength(0);
+	expect(transactionDbResult.blockTabs.map((tab) => tab.props.name)).toEqual(["Advanced"]);
 
 	const nativeDbResult = splitTabs(nativeDbTabs!(dummyNativeDbBlock));
 	expect(nativeDbResult.generalExtras).toHaveLength(1);

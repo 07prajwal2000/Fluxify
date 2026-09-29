@@ -58,9 +58,9 @@ export function checkTransactionSettings(
 		report("warning", "The transaction script is empty, so this block does nothing.");
 	}
 	if (!whole(data.timeoutMs, 1, Number.MAX_SAFE_INTEGER)) {
-		report("error", "Timeout must be a whole number of milliseconds above 0.", "General");
+		report("error", "Timeout must be a whole number of milliseconds above 0.", "Advanced");
 	}
 	if (!whole(data.retries, 0, 10)) {
-		report("error", "Retries must be a whole number from 0 to 10.", "General");
+		report("error", "Retries must be a whole number from 0 to 10.", "Advanced");
 	}
 }
