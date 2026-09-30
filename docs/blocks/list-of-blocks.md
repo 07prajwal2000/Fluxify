@@ -1,79 +1,86 @@
 ---
 title: List of Blocks
-description: A comprehensive catalog of all available Fluxify blocks.
+description: Every Fluxify block, grouped by what it does, with a one-line summary and a link to its page.
 ---
 
 # List of Blocks
 
-Here is a categorized list of all the blocks currently available in Fluxify.
+Every block available in Fluxify, grouped by what it does. New to blocks? Start with the [Blocks Overview](./index.md) and [How Blocks Work](./how-they-work.md).
 
-## Logic & Flow Control
-Control the path of your workflow.
+## Logic & Flow
+Start the flow, choose paths, repeat, run in parallel, handle errors, and respond.
 
-- [**Entrypoint**](./entrypoint.md): The start of every workflow.
-- [**If Condition**](./if-condition.md): Branch logic based on rules.
-- [**Switch**](./switch.md): Pick one of several paths, first matching case wins.
-- [**For Loop**](./for-loop.md): Repeat actions a set number of times.
-- [**For Each Loop**](./foreach-loop.md): Run blocks once for every item in a list.
-- [**Orchestrator**](./orchestrator.md): Run block chains in parallel.
-- [**Error Handler**](./error-handler.md): Catch and manage failures.
-- [**Response**](./response.md): Return data to the caller and end the flow.
+- [**Entrypoint**](./entrypoint.md): where every flow starts.
+- [**If Condition**](./if-condition.md): go one way when a check is true, another when it is false.
+- [**Switch**](./switch.md): pick one of several paths. The first matching case wins.
+- [**For Loop**](./for-loop.md): repeat a chain a set number of times.
+- [**For Each Loop**](./foreach-loop.md): run a chain once for every item in a list.
+- [**Orchestrator**](./orchestrator.md): run several chains at the same time and collect the results.
+- [**Error Handler**](./error-handler.md): choose what happens when a block fails.
+- [**Response**](./response.md): send the answer to the caller and end the flow.
 
-## Data Manipulation
-Modify and manage data.
+## Data
+Variables, lists, reshaping data, and your own JavaScript.
 
-- [**Set Variable**](./set-var.md): Store data globally.
-- [**Get Variable**](./get-var.md): Retrieve stored data.
-- [**Array Operations**](./array-operations.md): Push, pop, filter, and modify arrays.
-- [**Transformer**](./transformer.md): Reshape objects using maps or JS.
-- [**JS Runner**](./js-runner.md): Execute custom JavaScript code.
+- [**Set Variable**](./set-var.md): save a value for later blocks in the same request.
+- [**Get Variable**](./get-var.md): read a saved value back.
+- [**Array Operations**](./array-operations.md): add to, remove from or filter a list in a variable.
+- [**Transformer**](./transformer.md): reshape an object by renaming fields or with JavaScript.
+- [**JS Runner**](./js-runner.md): write your own JavaScript.
+  - [JS Runner examples](./js-runner-examples.md): ready-to-copy code.
 
-## Networking (HTTP)
-Interact with web services.
+## HTTP
+Call other services, and read or set request details.
 
-- [**HTTP Request**](./http-request.md): Call external APIs.
-- [**Get HTTP Param**](./get-http-param.md): Read URL parameters.
-- [**Get HTTP Header**](./get-http-header.md): Read request headers.
-- [**Set HTTP Header**](./set-http-header.md): Write response headers.
-- [**Get Request Cookie**](./get-request-cookie.md): Read cookies.
-- [**Set HTTP Cookie**](./set-http-cookie.md): Write cookies.
-- [**Get HTTP Request Body**](./get-http-request-body.md): Access the raw request body.
+- [**HTTP Request**](./http-request.md): call an external API.
+- [**Get HTTP Param**](./get-http-param.md): read a query or path value from the URL.
+- [**Get HTTP Header**](./get-http-header.md): read a request header.
+- [**Get HTTP Request Body**](./get-http-request-body.md): read the body the caller sent.
+- [**Get Request Cookie**](./get-request-cookie.md): read a cookie from the request.
+- [**Set HTTP Header**](./set-http-header.md): add a header to the response.
+- [**Set HTTP Cookie**](./set-http-cookie.md): send a cookie with the response.
 
 ## Database
-Interact with your data.
+Read, write and group changes in SQL and MongoDB databases.
 
-- [**DB Get All**](./db-get-all.md): Fetch multiple records.
-- [**DB Get Single**](./db-get-single.md): Fetch one record.
-- [**DB Row Exists**](./db-row-exists.md): Branch on whether a record exists.
-- [**DB Count**](./db-count.md): Count the records that match a filter.
-- [**DB Insert**](./db-insert.md): Add a new record.
-- [**DB Insert Bulk**](./db-insert-bulk.md): Add multiple records.
-- [**DB Update**](./db-update.md): Modify existing records.
-- [**DB Delete**](./db-delete.md): Remove records.
-- [**DB Transaction**](./db-transaction.md): Group operations atomically.
-- [**Rollback Transaction**](./db-rollback.md): Cancel the enclosing transaction.
-- [**DB Native**](./db-native.md): Run raw SQL queries.
+- [**DB Get All**](./db-get-all.md): fetch a list of records.
+- [**DB Get Single**](./db-get-single.md): fetch one record.
+- [**DB Row Exists**](./db-row-exists.md): branch on whether a record exists.
+- [**DB Count**](./db-count.md): count the records that match.
+- [**DB Insert**](./db-insert.md): add one record, or update it if it already exists.
+- [**DB Insert Bulk**](./db-insert-bulk.md): add many records at once.
+- [**DB Update**](./db-update.md): change existing records.
+- [**DB Delete**](./db-delete.md): remove records.
+- [**DB Transaction**](./db-transaction.md): make a group of changes succeed or fail together.
+- [**Rollback Transaction**](./db-rollback.md): cancel the transaction and undo its changes.
+- [**DB Native**](./db-native.md): run your own SQL from JavaScript.
 
-## Key-Value (KV)
+Shared options used by several database blocks:
+
+- [DB Conditions](./db-conditions.md): operators, groups, optional filters and custom conditions.
+- [DB Joins](./db-joins.md): combine related tables.
+- [DB Sorting and Paging](./db-paging-sorting.md): order records and read them page by page.
+
+## Key-Value
 Cache data and keep short-lived state.
 
-- [**KV Operations**](./kv-operations.md): Get, set, or delete a key.
-- [**KV Raw Connection**](./kv-raw.md): Run any command against the store.
+- [**KV Operations**](./kv-operations.md): get, set or delete one key.
+- [**KV Raw Connection**](./kv-raw.md): run any command against the store.
 
-## Logging & Observability
-Monitor your application.
+## Logging
+See what your flows are doing.
 
-- [**Console Log**](./console-log.md): Print to server logs.
-- [**Cloud Logs**](./cloud-logs.md): Send to external services (Loki/OpenTelemetry Logs).
+- [**Console Log**](./console-log.md): print to the server logs.
+- [**Cloud Logs**](./cloud-logs.md): send to a log service like Loki or OpenTelemetry.
 
 ## Utility
 Helper blocks.
 
-- [**Trigger Workflow**](./trigger-workflow.md): Start a workflow and carry on.
-- [**Sticky Note**](./sticky-note.md): Add comments to your canvas.
+- [**Trigger Workflow**](./trigger-workflow.md): start a workflow now or later, and carry on.
+- [**Sticky Note**](./sticky-note.md): add a note to the canvas.
 
 ## Custom Blocks
 Build your own.
 
-- [**Custom Blocks**](./custom-blocks.md): Turn a group of blocks into one reusable block.
-- [**Tutorial**](./custom-blocks-tutorial.md): Build your first custom block step by step.
+- [**Custom Blocks**](./custom-blocks.md): turn a group of blocks into one reusable block.
+- [**Tutorial**](./custom-blocks-tutorial.md): build your first custom block step by step.
