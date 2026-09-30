@@ -320,6 +320,7 @@ export default withMermaid(
 							{ text: "Self-Hosting", link: "/deployments/" },
 							{ text: "Quick Run (Kit)", link: "/deployments/kit" },
 							{ text: "Production (Admin + Workers)", link: "/deployments/production" },
+							{ text: "Deploy with a Coding Agent", link: "/deployments/coding-agent" },
 							{ text: "Editions", link: "/deployments/editions" },
 							{ text: "Licenses & Contributions", link: "/deployments/licensing" },
 							{ text: "Self-Signed Licenses (pre-1.0)", link: "/deployments/self-signed-license" },
@@ -395,22 +396,24 @@ export default withMermaid(
 			lineNumbers: false,
 			// Container aliases that map mkdocs admonition-style blocks:
 			// Use ::: tip / ::: warning / ::: danger / ::: info in markdown files.
-
-			// %%RELEASE_TAG%% (v0.1.0) and %%CHART_VERSION%% (0.1.0) in any page,
-			// code blocks included, become the newest release.
-			config(md) {
-				md.core.ruler.before("normalize", "release-version", (state) => {
-					state.src = state.src
-						.replaceAll("%%RELEASE_TAG%%", releaseTag)
-						.replaceAll("%%CHART_VERSION%%", releaseTag.replace(/^v/, ""));
-				});
-			},
 		},
 
 		vite: {
 			plugins: [
-				// order matters: defaults are filled in before llmstxt reads the frontmatter
+				// order matters: both run before llmstxt reads the page
 				frontmatterDefaults(fileURLToPath(new URL("..", import.meta.url))),
+				// %%RELEASE_TAG%% (v0.1.0) and %%CHART_VERSION%% (0.1.0) in any page, code
+				// blocks included, become the newest release, in the HTML and the llms copies
+				{
+					name: "fluxify:release-version",
+					enforce: "pre",
+					transform(code, id) {
+						if (!id.endsWith(".md") || !code.includes("%%")) return null;
+						return code
+							.replaceAll("%%RELEASE_TAG%%", releaseTag)
+							.replaceAll("%%CHART_VERSION%%", releaseTag.replace(/^v/, ""));
+					},
+				},
 				// llms.txt index, llms-full.txt and a .md copy of every page, for AI agents
 				llmstxt({
 					domain: SITE_URL,

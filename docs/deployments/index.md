@@ -24,7 +24,7 @@ steps for each.
 
 | | **Kit** (all-in-one) | **Admin + Workers** (scale-out) |
 | :--- | :--- | :--- |
-| **Best for** | Trials, demos, single-machine hosting | Real production traffic |
+| **Best for** | Prototypes and testing only | Production, on one Docker host or Kubernetes |
 | **Containers** | One — database, cache and event bus included | Separate admin + many workers |
 | **Scaling** | Vertical only (bigger machine) | Horizontal — add workers on demand |
 | **Edge proxy** | Built into the image | Traefik (load-balances the workers) |
@@ -33,11 +33,11 @@ steps for each.
 
 ### Which should I choose?
 
-- **Just trying Fluxify, running a demo, or hosting on one machine?**
-  Use the **Kit**. It bundles every service into a single container and starts
+- **Prototyping or testing?**
+  Use the **Kit**, and only for that: never for production. It bundles every service into a single container and starts
   with one command. → [Quick Run guide](./kit)
 
-- **Serving production traffic, or expecting load that one machine can't handle?**
+- **Anything in production**, even on a single machine?
   Use **Admin + Workers**. The control plane runs once; stateless workers scale
   horizontally behind Traefik. The workers run on either:
   - **Docker**: one host, a fixed number of workers per claim.
@@ -48,6 +48,11 @@ steps for each.
 > [!TIP]
 > Start with the Kit to evaluate, then move to Admin + Workers when you need to
 > scale — your `.env` and database carry straight over.
+
+> [!TIP]
+> **Let a coding agent do it.** Claude Code, Cursor or Codex can deploy either
+> setup from these docs. See [Deploy with a Coding Agent](./coding-agent) for
+> copy-paste prompts and a checklist to check its work.
 
 ---
 
@@ -196,6 +201,8 @@ Pick your path and jump straight to the steps:
 - **Admin + Workers:** [why Traefik](./production#why-traefik) →
   [create your `.env`](./production#env) → [start the stack](./production#start) →
   [scale the workers](./production#scaling)
+- **With a coding agent:** [pick a prompt](./coding-agent#prompts) →
+  [check its work](./coding-agent#checklist)
 - **On Kubernetes:** [install step by step](./kubernetes/install) →
   [what it creates](./kubernetes/#objects) →
   [size and scale workers](./kubernetes/#sizing)

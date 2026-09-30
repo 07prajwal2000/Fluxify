@@ -287,6 +287,22 @@ The `/docs` directory contains **user-facing documentation** — not a technical
 4. Blog posts (`blog/**`) and the home page are left out of `llms.txt` on purpose, so they need no description.
 5. Changing the defaults? Run `bun run test:docs`. Bun's test discovery skips `.vitepress`, so CI does not run that spec.
 
+### Deployment Changes Must Update the Deployment Docs in the Same PR
+**Why:** coding agents deploy Fluxify by reading `docs/deployments/*` through `llms.txt` (`docs/deployments/coding-agent.md`). A stale page makes them deploy it wrong. `production.md` once described worker services that the compose file no longer had.
+**Rule:** when a source file below changes something a user sets or runs into (a new, renamed or required env var, a default, a port, an image, a service, a limit, a startup behavior), update the matching docs in the same PR:
+
+| Source change | Update |
+| :--- | :--- |
+| `apps/server/src/lib/env.ts`, `packages/common/env.ts` | The `env.example` files, and the settings table in `coding-agent.md#checklist`. Also `kit.md` or `production.md`, whichever the setting belongs to. |
+| `env.example`, `docker/kit/*` (compose, Dockerfile, Caddyfile, `entrypoint.sh`) | `kit.md`, and the Kit prompt and checklist in `coding-agent.md` |
+| `docker/production/*`, `docker/admin/*`, `docker/orchestrator/*`, `docker/worker-compiled/*` | `production.md`, and the Admin + Workers prompt and checklist in `coding-agent.md` |
+| `deploy/helm/fluxify/**` (values, templates, CRDs) | `kubernetes/helm-values.md`, `kubernetes/install.md`, and the Helm prompt in `coding-agent.md` |
+| `apps/server/src/modules/orchestrator/**`, `seedDefaultClaim` in `apps/server/src/db/seed.ts` | `production.md` (workers and claims), `kubernetes/index.md` |
+| `nodeEntitlement` and the edition rules in `apps/server/src/lib/edition.ts` | `editions.md#workers`, and the workers checklist in `coding-agent.md` |
+| Health endpoints, the `Route not found` response, NATS or JetStream requirements | The "How to verify" and "Troubleshooting" sections of `coding-agent.md` |
+
+Before you open the PR, grep `docs/deployments` for the old name or value.
+
 ### Block Pages (`docs/blocks/*.md`) Are Also Rendered in the Portal Docs Panel
 **Issue:** Each block's **Docs** tab inlines its `docs/blocks/<page>.md` (`apps/portal/.../panel/docs/blockDocs.ts` + `MarkdownViewer.tsx`). VitePress-only syntax that looks fine on the docs site breaks there, and a bad `description:` breaks the whole docs build.
 **Rules:**

@@ -31,7 +31,7 @@ always come from the same build. Never mix versions between them.
 
 | Tag | What it is |
 | :--- | :--- |
-| `v0.1.0-alpha.1` | One exact release. **Pin this** for anything you care about. |
+| `%%RELEASE_TAG%%` | One exact release. **Pin this** for anything you care about. |
 | `alpha` | Moves to the newest pre-release. Convenient while Fluxify is pre-1.0. |
 | `latest` | The newest stable release. **Does not exist yet** — the first 1.0 release creates it. |
 
@@ -40,8 +40,8 @@ always come from the same build. Never mix versions between them.
 > published. Use `alpha`, or a pinned version tag.
 
 > [!TIP]
-> Just evaluating Fluxify or running it on a single machine? The all-in-one
-> [Kit image](./kit) is simpler. Come back here when you need to scale.
+> Just prototyping or testing? The all-in-one [Kit image](./kit) is simpler.
+> Anything in production belongs here, even on a single machine.
 
 ---
 
@@ -133,23 +133,31 @@ each replica and holds traffic back until its routes have loaded.
 
 ---
 
-## One worker group per project {#projects}
+## Which projects a worker serves {#projects}
 
-This is the main thing to plan for. **A worker serves exactly one project.**
+A fresh stack starts **one worker that serves every project**. That is the
+default claim, and its worker runs with `WORKER_PROJECT_ID=*`. It picks up new
+projects as you create them, with no restart and no id to copy.
 
-Copies of the same worker service share their settings, so they always share a
-project. That means:
+To give a project workers of its own, add a claim in the project's
+**Orchestration** settings. Copies of one claim's worker always share a project,
+so:
 
-- More traffic for a project → **more replicas** of that project's worker service.
-- Another project → **another worker service**, with its own project id.
-
-The bundled compose file ships two worker services as a worked example —
-`worker-project-a` and `worker-project-b`, two replicas each. Copy the pattern to
-add a third.
+- More traffic for a project → **more replicas** on that project's claim.
+- Another project with its own workers → **another claim**.
 
 Because your routes own the whole URL path space, projects are told apart by
-**hostname**, not by path prefix. The example uses `project-a.localhost` and
-`project-b.localhost`; point real hostnames at the stack for production.
+**hostname**, not by path prefix:
+
+- The shared worker answers on every host. Two projects that use the same path
+  on the bare domain collide, and only one of them answers.
+- A project's own worker is reached only on the project's host. Set the base
+  domain in **Instance settings → Hosting** and a subdomain in
+  **Project settings → General**, and point that name's DNS at Traefik. A claim
+  that serves APIs is refused for a project with no subdomain.
+
+How many workers you may run at all depends on your edition. See
+[Workers per edition](./editions#workers).
 
 ---
 
@@ -159,9 +167,10 @@ By default a worker does everything: it serves your project's HTTP routes and it
 runs that project's background workflows. That is the right setup for most
 deployments, and it needs no configuration.
 
-Set `WORKER_MODE` when you want to separate the two:
+Pick a claim's **type** when you want to separate the two. The orchestrator
+passes it to the claim's workers as `WORKER_MODE`, so don't set that yourself:
 
-| `WORKER_MODE` | Serves routes | Runs workflows |
+| Type (`WORKER_MODE`) | Serves routes | Runs workflows |
 | --- | --- | --- |
 | `both` *(default)* | yes | yes |
 | `route` | yes | no |
@@ -170,7 +179,8 @@ Set `WORKER_MODE` when you want to separate the two:
 Splitting them is worth doing when background work is heavy enough to compete
 with traffic: give workflows their own worker service and the request workers
 stop sharing a CPU budget with a five-minute report build. It is the same worker
-image either way — only the setting differs.
+image either way — only the setting differs. The non-commercial edition's two
+workers are enough for exactly this: one `route` and one `workflow`.
 
 > [!IMPORTANT]
 > **All workers for one project must use the same mode.** A worker that finds
@@ -183,12 +193,13 @@ default — a typo should not silently change what a machine runs.
 
 ### Running triggers on their own workers {#trigger-groups}
 
-Triggers belong to [groups](/concepts/triggers#groups). Set `WORKER_GROUP_ID`
-to a group's id and that worker runs only the triggers in that group. Leave it
-unset and the worker runs every group — the default.
+Triggers belong to [groups](/concepts/triggers#groups). Pick groups on a
+`workflow` claim and its workers run only the triggers in those groups (the
+orchestrator passes them as `WORKER_GROUP_ID`). A claim with no groups runs
+every group — the default.
 
 This is how a busy trigger gets machines of its own: put it in a group, and
-point a separate worker service at that group. Routes and queued jobs are not
+give that group a claim of its own. Routes and queued jobs are not
 affected by this setting; it only decides which triggers a worker listens to.
 
 > [!NOTE]
@@ -331,19 +342,29 @@ out of the portal.
 
 ## Step 1 — Create your `.env` {#env}
 
-Copy `docker/production/env.example` to `docker/production/.env` next to the
-compose file. The admin and every worker share the same `.env`:
+The compose file and `env.example` live in the Fluxify repository, so clone it
+first. Copy `docker/production/env.example` to `docker/production/.env` next to
+the compose file. The admin, the orchestrator and every worker share the same
+`.env`:
 
 ```bash
+git clone https://github.com/Fluxify-rest/Fluxify.git && cd Fluxify
 cp docker/production/env.example docker/production/.env
 ```
 
-At minimum verify the key environment variables:
+At minimum set these:
 
 ```env
 #====================== ENVIRONMENT ======================
 NODE_ENV=production
 ENVIRONMENT=production
+
+#====================== PUBLIC ADDRESS ======================
+# The address people open Fluxify at. All three must be the same value, with
+# the scheme and no trailing slash. Sign-in only works at this address.
+SERVER_URL=https://your-domain.com
+BETTER_AUTH_URL=https://your-domain.com
+TRUSTED_ORIGINS=https://your-domain.com
 
 #====================== DATABASES ======================
 PG_URL=postgres://postgres:postgres@postgres:5432/fluxify_alpha
@@ -357,18 +378,24 @@ NATS_TOKEN=fluxify_nats_token
 #====================== SECURITY & KEYS ======================
 MASTER_ENCRYPTION_KEY=<openssl rand -base64 32>
 BETTER_AUTH_SECRET=<openssl rand -base64 32>
-BETTER_AUTH_URL=https://your-domain.com
+SYSTEM_ACCESS_KEY=<openssl rand -hex 32>
 
 #====================== FIRST-RUN ADMIN ======================
 SEED_USER_EMAIL=admin@your-domain.com
 SEED_USER_PASSWORD=ChangeThisPassword123!
 SEED_USER_NAME=Admin User
 
-#====================== PROJECTS SERVED BY WORKERS ======================
-# Fill these in at Step 3, once the projects exist.
-PROJECT_A_ID=
-PROJECT_B_ID=
+#====================== WORKERS ======================
+# The image the orchestrator creates workers from. Use the same tag as admin.
+ORCHESTRATOR_WORKER_IMAGE=ghcr.io/fluxify-rest/fluxify-worker:%%RELEASE_TAG%%
 ```
+
+> [!WARNING]
+> **`env.example` ships sample keys.** Replace `MASTER_ENCRYPTION_KEY`,
+> `BETTER_AUTH_SECRET` and `SYSTEM_ACCESS_KEY` with your own before the first
+> start. Change the Postgres password and `NATS_TOKEN` too. They are also
+> written in `docker-compose.yml` (`POSTGRES_PASSWORD` and NATS's `--auth`), so
+> change both places to the same value.
 
 > [!WARNING]
 > Back up `MASTER_ENCRYPTION_KEY`. Losing or changing it after storing data makes
@@ -378,6 +405,36 @@ PROJECT_B_ID=
 > [!NOTE]
 > The compose file already sets `ENABLE_ADMIN=true` on the admin service and
 > keeps the workers as pure executors — you don't need to set those yourself.
+> `HOSTNAME` is the address the processes listen on inside the container. Leave
+> it at `0.0.0.0`; it is not your domain.
+
+### Images
+
+The compose file **builds** admin and the orchestrator from the source you
+cloned, while the orchestrator **pulls** workers from `ORCHESTRATOR_WORKER_IMAGE`.
+To run released images instead, and keep all three on the same version, swap
+the `build:` block for the `image:` line above it on both services, with the
+same tag as `ORCHESTRATOR_WORKER_IMAGE`:
+
+```yaml
+  admin:
+    image: ghcr.io/fluxify-rest/fluxify-admin:%%RELEASE_TAG%%
+  orchestrator:
+    image: ghcr.io/fluxify-rest/fluxify-orchestrator:%%RELEASE_TAG%%
+```
+
+### Ports and HTTPS {#ports}
+
+| Port | What | Open it to the internet? |
+| :--- | :--- | :--- |
+| `8080` → Traefik `80` | The dashboard, the admin API and your APIs | Yes. Map it to `80:80` on a real server. |
+| `8081` | Traefik's dashboard, with no password | **No.** Remove the port, or keep it firewalled. |
+
+Postgres, Valkey, NATS and the workers publish no ports. Keep it that way.
+
+Traefik here serves plain HTTP. For HTTPS, put TLS in front of it: a load
+balancer or proxy that holds the certificate and forwards to Traefik, or TLS on
+Traefik's `web` entry point. Then set the three URLs above to `https://`.
 
 ### Generate your secret keys
 
@@ -388,47 +445,34 @@ Use this generator to create secure values for `MASTER_ENCRYPTION_KEY` and
 
 ---
 
-## Step 2 — Start the control plane {#start}
+## Step 2 — Start the stack {#start}
 
 ```bash
 docker compose -f docker/production/docker-compose.yml up -d
 ```
 
-This launches Traefik, the admin container, and the Postgres / Valkey / NATS
-dependencies. The admin container applies database updates on startup.
+This launches Traefik, the admin container, the orchestrator, and the Postgres /
+Valkey / NATS dependencies. The admin container applies database updates on
+startup, creates the seed admin, and adds the default claim: one worker that
+serves every project. Within a few seconds the orchestrator starts that worker.
 
-The worker services will not start yet — they need a project id, and there isn't
-one on a fresh install. Compose tells you so directly:
-
-```
-set PROJECT_A_ID in docker/production/.env
-```
+**Check:** `docker ps` shows a container named `fluxify-worker…` next to the
+compose services, and `curl http://localhost:8080/_/admin/api/public-settings`
+returns `200`.
 
 ---
 
-## Step 3 — Create your projects, then start the workers
+## Step 3 — Create your projects
 
 1. Open `http://your-domain.com/_/admin/ui` and log in with the seed credentials.
 2. **Create your projects.**
-3. Copy each project's id from its settings page into `docker/production/.env`:
 
-   ```env
-   PROJECT_A_ID=<first-project-id>
-   PROJECT_B_ID=<second-project-id>
-   INTEGRATION_TIMEOUT_POLICY_IN_SEC=450
-   ```
+That's it: the default worker serves every project, new ones included, with no
+id to copy and no restart. Saving a route in the editor publishes it to the
+workers in place.
 
-4. Bring the stack up again:
-
-   ```bash
-   docker compose -f docker/production/docker-compose.yml up -d
-   ```
-
-The workers start and begin serving as soon as your routes reach them.
-
-> [!TIP]
-> This is a one-time step per project. From here on, saving a route in the editor
-> publishes it to every worker in place — no restart, no redeploy.
+To give a project workers of its own, see
+[Which projects a worker serves](#projects).
 
 ---
 
@@ -438,8 +482,8 @@ The workers start and begin serving as soon as your routes reach them.
 | :--- | :--- |
 | Dashboard | `http://your-domain.com/_/admin/ui` |
 | Admin API | `http://your-domain.com/_/admin/api` |
-| Project A's API | `http://project-a.your-domain.com/` |
-| Project B's API | `http://project-b.your-domain.com/` |
+| Your APIs, on the shared worker | `http://your-domain.com/` |
+| A project's API, on its own workers | `http://<project subdomain>.your-domain.com/` |
 
 ---
 
@@ -508,14 +552,21 @@ docker compose -f docker/production/docker-compose.yml up -d
 ```
 
 Roll the admin first (it applies any database updates), then the workers follow
-automatically.
+automatically. On the default compose file, which builds admin and the
+orchestrator from source, pull the new source and add `--build` to `up -d`
+instead. Either way, move `ORCHESTRATOR_WORKER_IMAGE` to the same version.
 
 ---
 
 ## Troubleshooting
 
-**Compose refuses to start with `set PROJECT_A_ID …`**
-Expected on a first install — see [Step 3](#step-3-create-your-projects-then-start-the-workers).
+**No `fluxify-worker…` container ever appears**
+Check the orchestrator's logs: `docker logs fluxify-orchestrator`. The usual
+causes are a missing Docker socket mount, `ORCHESTRATOR_WORKER_IMAGE` naming an
+image that cannot be pulled, or `ORCHESTRATOR_SEED_DEFAULT_CLAIM=false` with no
+claim added since. A claim that asks for more workers than your
+[edition](./editions#workers) or the node pool allows waits as pending, and its
+Orchestration page says why.
 
 **Traffic returns 404 for `/_/admin` pages**
 Traefik routes by path priority. Confirm the admin service still carries its

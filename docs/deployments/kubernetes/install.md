@@ -80,6 +80,13 @@ helm install traefik traefik/traefik -n traefik --create-namespace
 
 More options, such as HTTPS certificates: [Traefik's Kubernetes guide](https://doc.traefik.io/traefik/getting-started/install-traefik/).
 
+> [!IMPORTANT]
+> **HTTPS goes on the `web` entry point.** The routes Fluxify creates for your
+> workers always use Traefik's `web` entry point. Moving only the portal to
+> `websecure` leaves your APIs on plain HTTP. Either turn TLS on for `web`, or
+> end TLS at a load balancer in front of Traefik. Then set `url` in step 6 to
+> the `https://` address.
+
 **Check:** `kubectl get crd ingressroutes.traefik.io` prints one line.
 
 ## 3. Install KEDA
