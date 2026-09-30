@@ -74,6 +74,14 @@ Like other blocks that produce data, a custom block can **save its output to a v
 - Keep a block focused on one job. A block that does one thing is easy to reuse.
 - You can reopen a custom block's canvas from the **Custom Blocks** page, or from a placed block by pressing **Edit Implementation** on its **General** tab.
 
-## Custom blocks for testing
+## Where a custom block can be used
 
-A custom block can also prepare and clean up data for [test suites](/testing/). Tick **Use only for test suite setup / teardown** in its settings to make it a test-only block: it is hidden from the block picker and never runs in live routes. See [Setup and Teardown](/testing/setup-and-teardown).
+When you create a custom block, **Used for** decides where it can run. You pick
+it once: it can't be changed later, because routes, test suites and middlewares
+depend on it.
+
+| Used for | Where it runs |
+| --- | --- |
+| **Routes & workflows** (default) | On any route, workflow or custom block canvas, from the block picker. |
+| **Test setup & teardown** | Only before or after a [test suite](/testing/). Hidden from the block picker. See [Setup and Teardown](/testing/setup-and-teardown). |
+| **Middleware** | Only as a step of a [middleware](/concepts/middlewares), before or after a route. Takes no input parameters and is hidden from the block picker. |

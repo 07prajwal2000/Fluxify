@@ -60,6 +60,10 @@ The connections between blocks. Learn how they express sequencing, branching, an
 
 The decision mechanism used to choose a branch from runtime data.
 
+### [Middlewares](./middlewares.md)
+
+Checks and steps built once, like an API key guard, that run before or after any route you attach them to.
+
 ### [Workflows](./workflows.md)
 
 Background work that nobody is waiting for: the same canvas and the same

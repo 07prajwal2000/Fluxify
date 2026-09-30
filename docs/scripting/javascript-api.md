@@ -266,7 +266,7 @@ const testsuite: {
 };
 ```
 
-`testsuite` exists only in a custom block marked **Use only for test suite setup / teardown**. See [Setup and Teardown](../testing/setup-and-teardown.md). Test hooks and checks use `t` and `fluxify` instead, see [Hooks](../testing/hooks.md).
+`testsuite` exists only in a custom block whose **Used for** is **Test setup & teardown**. See [Setup and Teardown](../testing/setup-and-teardown.md). Test hooks and checks use `t` and `fluxify` instead, see [Hooks](../testing/hooks.md).
 
 ## Import rules
 

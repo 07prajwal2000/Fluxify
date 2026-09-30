@@ -22,6 +22,7 @@ You can write JavaScript in several places. They share one core set of names, an
 | **Route** (HTTP request) | [JS Runner](../blocks/js-runner.md), [Transformer](../blocks/transformer.md), `js:` fields and conditions on any block | The [core names](#core-names) |
 | **Workflow** (started by a trigger, a schedule, [Trigger Workflow](../blocks/trigger-workflow.md) or the **Run** button) | The same blocks and fields | The core names, with [different values](#routes-and-workflows) |
 | **Custom block** | The same blocks, inside the block's own canvas | `params`, the settings filled in where the block is used. See [Custom Blocks](../blocks/custom-blocks.md) |
+| **Middleware custom block** | The same blocks, inside the block's own canvas | The core names, but no `params`: a middleware block takes no settings. See [Middlewares](../concepts/middlewares.md) |
 | **DB Native** block | Its JS field | `dbQuery(query, params?)`. See [DB Native](../blocks/db-native.md) |
 | **KV Raw Connection** block | Its JS field | `kv`, the raw client. See [KV Raw Connection](../blocks/kv-raw.md) |
 | **Test-only custom block** (setup and teardown) | The block's canvas | `testsuite`. See [Setup and Teardown](../testing/setup-and-teardown.md) |
