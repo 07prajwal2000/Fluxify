@@ -24,6 +24,7 @@
 		"test:portal": "bun test --parallel --cwd apps/portal",
 		"test:ai-gateway": "bun test --parallel --cwd apps/ai-gateway",
 		"test:ai": "bun run test:ai-gateway",
+		"test:docs": "bun test ./docs/.vitepress",
 		"analyze": "bun x fta-cli --score-cap 70 .",
 		"docs:build": "vitepress build docs",
 		"docs:preview": "vitepress preview docs",
@@ -70,6 +71,7 @@
 		"turbo": "^2.5.5",
 		"ui-ux-pro-max-cli": "^2.10.2",
 		"vitepress": "^1.6.4",
+		"vitepress-plugin-llms": "^1.14.0",
 		"vitepress-plugin-mermaid": "^2.0.17"
 	},
 	"trustedDependencies": [
