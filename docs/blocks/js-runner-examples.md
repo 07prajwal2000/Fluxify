@@ -47,14 +47,31 @@ verifiedUserId = payload.sub;
 return { userId: payload.sub, role: payload.role };
 ```
 
-## Validate data and pick values
+## Wait for several calls at once
+
+Every script is async, so `await` works anywhere, and `Promise.all` runs calls side by side.
 
 ```javascript
-const bodySchema = zod.object({
-  users: zod.array(zod.object({
-    id: zod.number(),
-    name: zod.string(),
-    active: zod.boolean()
+const [user, orders] = await Promise.all([
+  httpClient.get("https://api.example.com/users/7"),
+  httpClient.get("https://api.example.com/users/7/orders"),
+]);
+
+return { user: user.data, orderCount: orders.data.length };
+```
+
+## Validate data with an npm package
+
+Libraries like Zod are not built in. Install `zod` under **Project Settings > npm Packages**, then import it:
+
+```javascript
+import { z } from "zod";
+
+const bodySchema = z.object({
+  users: z.array(z.object({
+    id: z.number(),
+    name: z.string(),
+    active: z.boolean()
   }))
 });
 
@@ -63,19 +80,39 @@ if (!parsed.success) {
   return { error: "Invalid input", details: parsed.error.flatten() };
 }
 
-const activeNames = _.chain(parsed.data.users)
-  .filter(u => u.active)
-  .pluck("name")
-  .value();
+const activeNames = parsed.data.users
+  .filter((u) => u.active)
+  .map((u) => u.name);
 
 return { activeUsers: activeNames };
+```
+
+## Work with dates
+
+Install `dayjs` under **Project Settings > npm Packages** first:
+
+```javascript
+import dayjs from "dayjs";
+
+return { expiresAt: dayjs().add(7, "day").toISOString() };
+```
+
+## Handle a workflow's events
+
+In a workflow, `trigger.data` is the list of events the trigger collected. It is always a list, even for one event.
+
+```javascript
+const orders = trigger.data.map((event) => event.data);
+logger.logInfo("Received orders", { count: trigger.meta.size, source: trigger.source });
+
+return orders.filter((order) => order.total > 0);
 ```
 
 ## Share a value with later blocks
 
 ```javascript
 // A name without const, let or var becomes a request variable
-processedAt = dayjs().utc().toISOString();
+processedAt = new Date().toISOString();
 requestingUser = getRouteParam("userId");
 
 return { status: "processing" };

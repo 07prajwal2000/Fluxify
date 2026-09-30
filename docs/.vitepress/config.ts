@@ -83,6 +83,7 @@ export default withMermaid(
 					items: [
 						{ text: "Overview", link: "/scripting/" },
 						{ text: "Context", link: "/scripting/context" },
+						{ text: "Where Your Code Runs", link: "/scripting/environments" },
 						{ text: "How It Works", link: "/scripting/how-it-works" },
 						{ text: "JavaScript API Reference", link: "/scripting/javascript-api" },
 						{ text: "Key Considerations", link: "/scripting/key-considerations" },
@@ -252,6 +253,7 @@ export default withMermaid(
 						items: [
 							{ text: "Overview", link: "/scripting/" },
 							{ text: "Context", link: "/scripting/context" },
+							{ text: "Where Your Code Runs", link: "/scripting/environments" },
 							{ text: "How It Works", link: "/scripting/how-it-works" },
 							{ text: "JavaScript API Reference", link: "/scripting/javascript-api" },
 							{
