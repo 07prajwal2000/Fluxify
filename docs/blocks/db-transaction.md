@@ -1,41 +1,59 @@
 ---
 title: DB Transaction
-description: Wrap multiple database operations in a transaction.
+description: Run several database changes as one unit: they all succeed, or none of them are saved.
 ---
 
 # DB Transaction
 
-The **DB Transaction** block ensures that a set of database operations either all succeed or all fail together. This is critical for maintaining data integrity (e.g., deducting money from one account and adding it to another).
+The **DB Transaction** block makes a chain of database blocks succeed or fail together. If every block works, the changes are saved. If one fails, every change made in the chain is undone. This keeps your data correct, for example when you take money from one account and add it to another.
 
-To cancel the transaction on purpose, use the [Rollback Transaction](./db-rollback.md) block inside the executor chain.
+## When to use it
+
+- Change more than one record or table and they must stay in step: orders and stock, payments and balances.
+- Undo everything when your own logic says no, with a [Rollback Transaction](./db-rollback.md) block.
+- Don't use it for a single insert, update or delete. One statement is already all-or-nothing.
+- Don't put slow or one-off work inside it, like an [HTTP Request](./http-request.md) that sends an email. It runs again on every retry, and it keeps the transaction open. Do that on the **Success** path instead.
 
 ## Inputs
 
-- **Connection**: The database integration.
-- **Executor**: The chain of blocks to run inside the transaction.
-
-On the **Advanced** tab:
-
-- **Timeout (ms)**: How long the whole transaction may take, retries included. **Default: 30000 (30 seconds).** When it runs out, the transaction is rolled back and continues on **Failure** with reason `"timeout"`.
-- **Retries**: How many more times to try after a deadlock or a conflict with another request. **Default: 0.** See [Retries](#retries).
-- **Isolation level**: How strictly this transaction is kept apart from others running at the same time. Leave it on **Database default** unless you need more. See [Isolation level](#isolation-level).
+| Field | Required | Default | What it does |
+| --- | --- | --- | --- |
+| **Connection** | Yes | none | The database integration to use. |
+| **Executor** (top handle) | Yes | none | Connect the first block of the chain that runs inside the transaction. |
+| **Timeout (ms)** (Advanced tab) | No | `30000` | How long the whole transaction may take, retries included. See [Timeout](/blocks/db-transaction#timeout). |
+| **Retries** (Advanced tab) | No | `0` | How many more times to try after a deadlock or a conflict with another request. See [Retries](/blocks/db-transaction#retries). |
+| **Isolation level** (Advanced tab) | No | Database default | How strictly this transaction is kept apart from others running at the same time. See [Isolation level](/blocks/db-transaction#isolation-level). |
+| **Save output to variable** | No | off | Store the result of a committed transaction in `outputs.<name>`. |
 
 ## Outputs
 
 | Handle | Runs when | Input to the next block |
 | --- | --- | --- |
-| **Success** | the transaction committed | the last output of the **Executor** chain |
-| **Failure** | the transaction rolled back | `{ reason: "rollback" \| "error" \| "timeout", message }` |
+| **Success** (right) | The transaction committed. | The last output of the **Executor** chain. |
+| **Failure** (right) | The transaction rolled back. | `{ reason: "rollback" \| "error" \| "timeout", message }` |
+| **Executor** (top) | Always, first. | Connect the chain to run inside the transaction. |
 
 - `reason` is `"rollback"` when a [Rollback Transaction](./db-rollback.md) block ran, `"timeout"` when the transaction took longer than its **Timeout**, and `"error"` when a block in the executor chain threw.
 - `message` is the rollback block's message, or the error text (including its cause, e.g. `failed to execute insert db block: duplicate key value ...`).
 
-## Logic
+## Example: reject large orders
 
-1.  The block starts a database transaction.
-2.  It runs the blocks in the **Executor** chain.
-3.  If they all succeed, it commits (saves the changes) and continues on **Success**.
-4.  If a block fails, or a **Rollback Transaction** block runs, it rolls back (undoes every change) and continues on **Failure**.
+```
+Entrypoint → DB Transaction
+               ├─ executor → DB Insert (orders) → If (total <= 1000)
+               │                                   └─ failure → Rollback Transaction
+               ├─ success  → Response 201   (input: the inserted row)
+               └─ failure  → Response 409   (input: { reason, message })
+```
+
+The insert runs first. When the total is over the limit, the rollback undoes it, and the caller gets a `409` with the reason.
+
+## How it behaves
+
+1. The block starts a database transaction.
+2. It runs the blocks in the **Executor** chain.
+3. If they all succeed, it commits (saves the changes) and continues on **Success**.
+4. If a block fails, or a **Rollback Transaction** block runs, it rolls back (undoes every change) and continues on **Failure**.
 
 If a block inside the executor chain sends a **Response**, the transaction commits and that response is returned right away.
 
@@ -84,18 +102,6 @@ MongoDB transactions need a replica set. On a single standalone server the trans
 
 A transaction inside another one's executor chain must use a **different connection**. On the same connection the inner transaction is refused with `nested transactions on the same connection are not supported`: the outer one rolls back and takes its **Failure** path, and the canvas shows an error on the inner block. A canvas with this wiring cannot be saved.
 
-## Example: reject large orders
-
-```
-Entrypoint → DB Transaction
-               ├─ executor → DB Insert (orders) → If (total <= 1000)
-               │                                   └─ failure → Rollback Transaction
-               ├─ success  → Response 201   (input: the inserted row)
-               └─ failure  → Response 409   (input: { reason, message })
-```
-
-The insert runs first; when the total is over the limit the rollback undoes it, and the caller gets a 409 with the reason.
-
 ## Canvas checks
 
 Errors block saving the canvas; warnings do not, so a half-built canvas still saves.
@@ -106,3 +112,10 @@ Errors block saving the canvas; warnings do not, so a half-built canvas still sa
 - **Error**: the timeout is not a whole number above 0, or retries is not a whole number from 0 to 10.
 - **Warning**: a Rollback Transaction block can be reached outside the Executor chain. See [Rollback Transaction](./db-rollback.md).
 - **Warning**: nothing is connected to the **Executor** handle, so the transaction does nothing.
+
+## Related blocks
+
+- [Rollback Transaction](./db-rollback.md): cancel the transaction from inside the chain.
+- [DB Insert](./db-insert.md), [DB Update](./db-update.md) and [DB Delete](./db-delete.md): the writes you usually group.
+- [If Condition](./if-condition.md): decide whether to roll back.
+- [Error Handler](./error-handler.md): receives errors and timeouts when **Failure** has nothing connected.

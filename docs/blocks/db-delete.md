@@ -1,41 +1,67 @@
 ---
 title: DB Delete
-description: Delete records from a database.
+description: Permanently remove the records that match your conditions.
 ---
 
 # DB Delete
 
-The **DB Delete** block removes records from your database table based on specific conditions.
+The **DB Delete** block permanently removes records from a table. It passes on how many records it deleted, and what they looked like just before.
+
+## When to use it
+
+- Remove something the user asked to delete, like a comment or an account.
+- Clean up expired data, like old sessions or tokens.
+- Don't use it when you may want the data back. Mark the record as deleted with [DB Update](./db-update.md) instead. A delete can't be undone (unless it runs inside a [DB Transaction](./db-transaction.md) that rolls back).
+- Don't use it without conditions unless you mean to empty the table. See the warning below.
 
 ## Inputs
 
-- **Connection**: The specific database integration to use.
-- **Table Name**: The name of the table to delete from.
-- **Conditions**: Rules to identify which records to delete (e.g., "id equals 5"). A condition whose value is `undefined` is skipped, and the **Custom** operator lets you write the condition yourself — see [Operators](/blocks/db-get-all#operators), [Groups](/blocks/db-get-all#groups-brackets), [Optional filters](/blocks/db-get-all#optional-filters) and [Custom conditions](/blocks/db-get-all#custom-conditions).
+| Field | Required | Default | What it does |
+| --- | --- | --- | --- |
+| **Connection** | Yes | none | The database integration to use. |
+| **Table Name** | Yes | none | The table (or collection) to delete from. |
+| **Conditions** | No | none (**every** record) | Rules to find the records to delete, for example `id` equals `5`. See [DB Conditions](/blocks/db-conditions). A condition whose value is `undefined` is skipped. |
+| **Save output to variable** | No | off | Store the result in `outputs.<name>`. |
 
-::: warning
-If every condition is skipped, **every record** in the table is deleted.
+::: warning Skipped conditions delete every record
+If every condition is skipped, **every record** in the table is deleted. Make sure at least one condition always has a value.
 :::
 
-## Logic
+## Outputs
 
-1.  The block connects to the database.
-2.  It identifies rows in the **Table Name** that match the **Conditions**.
-3.  It permanently removes those rows.
-4.  It outputs how many rows were deleted, and the rows themselves.
-
-## Output
+| Handle | When it is used |
+| --- | --- |
+| **Next** (right) | The delete worked. The next block receives `{ count, affected }`. |
 
 ```json
 { "count": 2, "affected": [{ "id": 4, "status": "cancelled" }, { "id": 9, "status": "cancelled" }] }
 ```
 
-- `count`: how many rows were deleted. `0` when nothing matched.
-- `affected`: the deleted rows, as they were just before the delete.
+- `count`: how many records were deleted. `0` when nothing matched.
+- `affected`: the deleted records, as they were just before the delete.
 
-Use `count` to react when nothing was deleted, for example an **If** block with `input.count === 0` leading to a 404.
+## Example
 
-## Notes
+Delete a comment, but only when it belongs to the caller.
 
-- Every deleted row is returned, so deleting a large table returns a large output.
-- A database error (bad connection, missing table or column) goes to the route's [Error Handler](/blocks/error-handler).
+| Field | Value |
+| --- | --- |
+| Connection | `main-db` |
+| Table Name | `comments` |
+| Conditions | `id` `=` `js:getRouteParam('id')` **AND** `author_id` `=` `js:userId` |
+
+If the comment doesn't exist or belongs to someone else, the next block receives `{ "count": 0, "affected": [] }`. Add an [If Condition](./if-condition.md) with `input.count === 0` that leads to a `404` [Response](./response.md).
+
+## How it behaves
+
+- **No match is not an error.** The output is `{ "count": 0, "affected": [] }`.
+- **Every deleted record is returned,** so deleting a large table returns a large output.
+- **Database errors** (bad connection, missing table or column) go to the [Error Handler](./error-handler.md).
+- **It replaces the flowing data** with the result.
+
+## Related blocks
+
+- [DB Update](./db-update.md): mark a record as deleted instead of removing it.
+- [DB Transaction](./db-transaction.md): make a delete succeed or fail together with other changes.
+- [DB Conditions](./db-conditions.md): how to pick the records.
+- [If Condition](./if-condition.md): answer `404` when nothing was deleted.

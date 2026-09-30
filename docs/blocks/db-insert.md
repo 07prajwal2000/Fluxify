@@ -1,27 +1,61 @@
 ---
 title: DB Insert
-description: Add a new record to a database.
+description: Add one new record to a database table, or update it if it already exists.
 ---
 
 # DB Insert
 
-The **DB Insert** block adds a new row of data to a specific table.
+The **DB Insert** block adds one new record to a table and passes the created record on. With **On conflict** it can also update an existing record instead, so you can "insert or update" in one step.
+
+## When to use it
+
+- Save a new user, order or message that came from a request.
+- Keep one row per thing with the latest values, like a rider's last position, by using **On conflict**.
+- Don't use it to add many records at once. [DB Insert Bulk](./db-insert-bulk.md) does that in one go and is much faster than a loop.
+- Don't use it to change a record you already know exists. Use [DB Update](./db-update.md).
 
 ## Inputs
 
-- **Connection**: The database integration.
-- **Table Name**: The table to add data to.
-- **Data**:
-    - **Source**: Choose "raw" to build the object manually or "js" to provide a JavaScript object.
-    - **Value**: The actual data fields and values to insert.
-- **Use Param**: If checked, uses the output of the previous block as the data to insert.
-- **On conflict** (optional): What to do when a row with the same unique value already exists. See below.
+| Field | Required | Default | What it does |
+| --- | --- | --- | --- |
+| **Connection** | Yes | none | The database integration to use. |
+| **Table Name** | Yes | none | The table (or collection) to add to. Can be a JS expression. |
+| **Data** | Yes, unless **Use Param** is on | none | The record to add. **Source** `raw`: fill in the fields one by one, and each value can be a `js:` expression. **Source** `js`: write JavaScript that returns the object. |
+| **Use Param** | No | off | On: insert the previous block's output, which must be an object, instead of **Data**. |
+| **On conflict** | No | off | What to do when a record with the same unique value already exists. See below. |
+| **Save output to variable** | No | off | Store the created record in `outputs.<name>`. |
 
-## Logic
+## Outputs
 
-1.  The block constructs the data object from **Data** or the previous block.
-2.  It inserts this new record into the **Table Name**.
-3.  It returns the result (often the created record or its ID).
+| Handle | When it is used |
+| --- | --- |
+| **Next** (right) | The insert worked. The next block receives the created record, including values the database filled in, like the new `id`. |
+
+With **On conflict** set to **Skip it**, and a record that already existed, the output is `null`.
+
+## Example
+
+Save a new user from a sign-up request.
+
+| Field | Value |
+| --- | --- |
+| Connection | `main-db` |
+| Table Name | `users` |
+| Data (raw) | `email` = `js: input.email`, `name` = `js: input.name` |
+
+If the previous block output `{ "email": "ada@example.com", "name": "Ada" }`, the next block receives:
+
+```json
+{ "id": 12, "email": "ada@example.com", "name": "Ada" }
+```
+
+## How it behaves
+
+- **The data must be an object.** Anything else fails the block with `data to insert is not an object`.
+- **A failed insert is an error.** A duplicate value in a unique column, a missing required column or a wrong type fails the block, and the [Error Handler](./error-handler.md) runs.
+- **Inside a transaction,** the insert is part of the [DB Transaction](./db-transaction.md) and is undone if it rolls back.
+- **Values from a request are data,** not code. With **Use Param**, an object from the request can never run as a `js:` expression.
+- **It replaces the flowing data** with the created record.
 
 ## On conflict (insert or update)
 
@@ -42,3 +76,10 @@ Example: with **Match on** `email`, inserting `{ "email": "ada@example.com", "na
 - **MySQL**: a duplicate is detected on *any* unique column of the table. **Match on** is used to find the row again. Skipping runs one extra read first.
 - **MongoDB**: add a unique index on the **Match on** fields, otherwise two requests at the same moment can both insert.
 :::
+
+## Related blocks
+
+- [DB Insert Bulk](./db-insert-bulk.md): add many records at once.
+- [DB Update](./db-update.md): change existing records.
+- [DB Row Exists](./db-row-exists.md): check for a duplicate first.
+- [DB Transaction](./db-transaction.md): make several writes succeed or fail together.
