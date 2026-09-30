@@ -1,5 +1,5 @@
 import z from "zod";
-import { CUSTOM_BLOCK_USAGES } from "../../../../db/schema";
+import { CUSTOM_BLOCK_USAGES } from "../../../../lib/customBlockUsage";
 
 export const inputParamSchema = z.discriminatedUnion("type", [
 	z.object({

@@ -19,6 +19,7 @@ import {
 } from "drizzle-orm/pg-core";
 import { createSelectSchema } from "drizzle-zod";
 import z from "zod";
+import { CUSTOM_BLOCK_USAGES } from "../lib/customBlockUsage";
 import type { ClaimMetadata } from "../modules/orchestrator/claimMetadata";
 import { systemUsers } from "./auth-schema";
 import { jsonb } from "./jsonbColumn";
@@ -832,8 +833,7 @@ export const customBlockSourceTypeEnum = pgEnum("custom_block_source_type", [
 	"user-defined", // custom defined by the user for their project
 ]);
 
-export const CUSTOM_BLOCK_USAGES = ["flow", "test", "middleware"] as const;
-export type CustomBlockUsage = (typeof CUSTOM_BLOCK_USAGES)[number];
+export { CUSTOM_BLOCK_USAGES, type CustomBlockUsage } from "../lib/customBlockUsage";
 export const customBlockUsageEnum = pgEnum("custom_block_usage", CUSTOM_BLOCK_USAGES);
 
 export const customBlocksListEntity = pgTable(
