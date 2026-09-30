@@ -1,3 +1,8 @@
+---
+title: Triggers
+description: What starts a workflow, what the workflow receives in trigger.data, and how batching and queue triggers work.
+---
+
 # Triggers
 
 A **trigger** is what starts a [workflow](/concepts/workflows). Something

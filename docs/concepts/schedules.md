@@ -1,3 +1,8 @@
+---
+title: Schedules
+description: Run a workflow on the clock with intervals, cron expressions or a one-off time.
+---
+
 # Schedules
 
 A **schedule** is a [trigger](/concepts/triggers) that runs a

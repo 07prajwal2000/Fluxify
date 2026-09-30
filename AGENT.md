@@ -278,6 +278,15 @@ The `/docs` directory contains **user-facing documentation** — not a technical
 - Keep examples concrete and realistic — show inputs and outputs a user would actually see.
 - Ensure every page is self-contained enough that an AI agent reading it cold can understand what the feature does.
 
+### Every Docs Page Needs `title` and `description` Frontmatter (It Feeds `llms.txt`)
+**Why:** the docs build publishes `llms.txt`, an index AI agents read to find pages (`vitepress-plugin-llms` in `docs/.vitepress/config.ts`). Each entry is the page's `title` and `description`. A page without them is warned about on build (`[docs] <page> has no title ...`) and gets a weak default: its first `# ` heading and the first 100 characters of its text.
+**Rules:**
+1. Start every new page with `title:` and a one-sentence `description:` that says what the page is for. Don't leave it to the default.
+2. Treat a `[docs] ... has no ...` warning in `bun run docs:build` as something to fix, not noise.
+3. Add a new section's sidebar key to `LLMS_SECTIONS` in `config.ts`, or its pages land under "Other" in `llms.txt`.
+4. Blog posts (`blog/**`) and the home page are left out of `llms.txt` on purpose, so they need no description.
+5. Changing the defaults? Run `bun run test:docs`. Bun's test discovery skips `.vitepress`, so CI does not run that spec.
+
 ### Block Pages (`docs/blocks/*.md`) Are Also Rendered in the Portal Docs Panel
 **Issue:** Each block's **Docs** tab inlines its `docs/blocks/<page>.md` (`apps/portal/.../panel/docs/blockDocs.ts` + `MarkdownViewer.tsx`). VitePress-only syntax that looks fine on the docs site breaks there, and a bad `description:` breaks the whole docs build.
 **Rules:**

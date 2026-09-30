@@ -1,6 +1,35 @@
 import { execSync } from "node:child_process";
-import { defineConfig } from "vitepress";
+import { fileURLToPath } from "node:url";
+import { type DefaultTheme, defineConfig } from "vitepress";
+import llmstxt from "vitepress-plugin-llms";
 import { withMermaid } from "vitepress-plugin-mermaid";
+import { frontmatterDefaults } from "./frontmatterDefaults";
+
+const SITE_URL = "https://docs.fluxify.rest";
+
+/** Section order in llms.txt. Each key is a sidebar group in the config below. */
+const LLMS_SECTIONS = [
+	"/getting-started/",
+	"/concepts/",
+	"/blocks/",
+	"/scripting/",
+	"/testing/",
+	"/integrations/",
+	"/deployments/",
+	"/architecture/",
+];
+
+/** The sidebar in llms.txt order, plus pages that have no sidebar of their own. */
+function llmsSidebar(sidebar: DefaultTheme.Sidebar | undefined) {
+	const groups = (sidebar ?? {}) as DefaultTheme.SidebarMulti;
+	return [
+		...LLMS_SECTIONS.flatMap((key) => groups[key] ?? []),
+		{
+			text: "Development",
+			items: [{ text: "npm Packages", link: "/development/npm-packages" }],
+		},
+	] as DefaultTheme.SidebarItem[];
+}
 
 /**
  * The newest release, pre-releases included, so install commands can be
@@ -31,6 +60,9 @@ export default withMermaid(
 
 		// Warn on dead links but don't fail the build for pre-existing issues
 		ignoreDeadLinks: true,
+
+		// Absolute page URLs, for sitemap.xml
+		sitemap: { hostname: SITE_URL },
 
 		head: [
 			["link", { rel: "icon", type: "image/x-icon", href: "/assets/favicon.ico" }],
@@ -376,6 +408,18 @@ export default withMermaid(
 		},
 
 		vite: {
+			plugins: [
+				// order matters: defaults are filled in before llmstxt reads the frontmatter
+				frontmatterDefaults(fileURLToPath(new URL("..", import.meta.url))),
+				// llms.txt index, llms-full.txt and a .md copy of every page, for AI agents
+				llmstxt({
+					domain: SITE_URL,
+					// empty placeholder pages (the real content is integrations/databases.md), and
+					// blog posts, which the plugin's own blog preset misses under blog/posts/
+					ignoreFiles: ["integrations/databases/*", "blog/**"],
+					sidebar: llmsSidebar,
+				}),
+			],
 			optimizeDeps: {
 				// vitepress-plugin-mermaid injects the Mermaid component into every
 				// page's client entry via a post-transform, which Vite's cold-start
