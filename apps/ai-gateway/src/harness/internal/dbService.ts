@@ -312,6 +312,8 @@ export class DbService {
 							eq(customBlocksListEntity.projectId, projectId),
 							eq(customBlocksListEntity.sourceType, "inhouse"),
 						),
+						// test and middleware blocks (#534) can never sit on a canvas
+						eq(customBlocksListEntity.usage, "flow"),
 						or(...matchers),
 					),
 				)
@@ -451,9 +453,13 @@ export class DbService {
 				})
 				.from(customBlocksListEntity)
 				.where(
-					or(
-						eq(customBlocksListEntity.projectId, projectId),
-						eq(customBlocksListEntity.sourceType, "inhouse"),
+					and(
+						or(
+							eq(customBlocksListEntity.projectId, projectId),
+							eq(customBlocksListEntity.sourceType, "inhouse"),
+						),
+						// test and middleware blocks (#534) can never sit on a canvas
+						eq(customBlocksListEntity.usage, "flow"),
 					),
 				);
 			return customBlocks.map((c) => ({

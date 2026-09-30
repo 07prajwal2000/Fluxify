@@ -330,6 +330,8 @@ export interface BlockOutput {
 	error?: string;
 	successful: boolean;
 	continueIfFail: boolean;
+	/** a Response block produced this — a middleware chain stops here (#534) */
+	responded?: boolean;
 }
 
 export const baseBlockDataSchema = z.object({

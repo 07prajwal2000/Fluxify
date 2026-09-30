@@ -6,7 +6,8 @@ export const requestParamSchema = z.object({
 });
 
 export const requestBodySchema = baseRequestBodySchema
-	.omit({ projectId: true, name: true })
+	// usage is fixed at create (#534): what already calls the block depends on it
+	.omit({ projectId: true, name: true, usage: true })
 	.partial()
 	.superRefine(validatePremadeIcon);
 

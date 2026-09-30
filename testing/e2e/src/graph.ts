@@ -29,6 +29,11 @@ export type GraphFixture = {
 	 * route calling one resolves at all.
 	 */
 	uses?: string[];
+	/**
+	 * Middleware custom blocks (#534), by file name in `blocks/`, run before and
+	 * after the route as the worker runs them. Each file is one middleware.
+	 */
+	middlewares?: { before?: string[]; after?: string[] };
 	blocks: BlockDTOType[];
 	edges: EdgeDTOSchemaType;
 };

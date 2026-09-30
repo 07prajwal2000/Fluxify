@@ -11,7 +11,11 @@ import {
 	InputParamsEditor,
 	validateInputParams,
 } from "@/components/customBlocks/InputParamsEditor";
-import { TestOnlyField } from "@/components/customBlocks/TestOnlyField";
+import {
+	type CustomBlockUsage,
+	UsageField,
+	usageLabel,
+} from "@/components/customBlocks/UsageField";
 import { showErrorNotification } from "@/lib/errorNotifier";
 import { createRouteHead, formatProjectTitle, usePageTitle } from "@/lib/seo";
 import { customBlocksQuery } from "@/query/customBlocksQuery";
@@ -55,7 +59,7 @@ function CreateCustomBlockPage() {
 	// until the user edits `name` by hand it tracks the label
 	const [nameTouched, setNameTouched] = useState(false);
 	const [description, setDescription] = useState("");
-	const [testOnly, setTestOnly] = useState(false);
+	const [usage, setUsage] = useState<CustomBlockUsage>("flow");
 	const [iconValue, setIconValue] = useState<IconValue>({});
 	const [docs, setDocs] = useState("");
 	const [params, setParams] = useState<CustomBlockInputParam[]>([]);
@@ -66,9 +70,11 @@ function CreateCustomBlockPage() {
 	const iconTooLong = (iconValue.iconUrl?.length ?? 0) > ICON_URL_MAX;
 	const paramsError = useMemo(() => validateInputParams(params), [params]);
 
-	const current = Math.min(step, STEPS.length - 1);
-	const currentKey = STEPS[current].key;
-	const isLast = current === STEPS.length - 1;
+	// a middleware block takes no params (#534), so it has no Inputs step
+	const steps = usage === "middleware" ? STEPS.filter((s) => s.key !== "inputs") : STEPS;
+	const current = Math.min(step, steps.length - 1);
+	const currentKey = steps[current].key;
+	const isLast = current === steps.length - 1;
 
 	function submit() {
 		if (iconTooLong) {
@@ -76,7 +82,7 @@ function CreateCustomBlockPage() {
 			setStep(1);
 			return;
 		}
-		if (paramsError) {
+		if (paramsError && usage !== "middleware") {
 			toast.danger(paramsError);
 			setStep(2);
 			return;
@@ -89,8 +95,10 @@ function CreateCustomBlockPage() {
 				description,
 				icon: iconValue.icon,
 				iconUrl: iconValue.iconUrl,
-				inputParams: params as unknown as z.infer<typeof inputParamSchema>[],
-				testOnly,
+				inputParams: (usage === "middleware" ? [] : params) as unknown as z.infer<
+					typeof inputParamSchema
+				>[],
+				usage,
 				docs: docs.trim() ? docs : null,
 			},
 			{
@@ -129,7 +137,7 @@ function CreateCustomBlockPage() {
 
 			<nav aria-label="Custom block setup steps" className="shrink-0 border-b border-border pb-3">
 				<ol className="flex flex-wrap gap-2">
-					{STEPS.map((item, index) => {
+					{steps.map((item, index) => {
 						const reachable = index === 0 || basicsValid;
 						const complete = index < current;
 						return (
@@ -169,7 +177,7 @@ function CreateCustomBlockPage() {
 			<div className="flex min-h-0 flex-1 flex-col overflow-hidden">
 				<StepHeading
 					current={current}
-					total={STEPS.length}
+					total={steps.length}
 					title={
 						{
 							basics: "Name the block",
@@ -228,7 +236,7 @@ function CreateCustomBlockPage() {
 								<Input placeholder="What this block does" />
 							</TextField>
 
-							<TestOnlyField value={testOnly} onChange={setTestOnly} />
+							<UsageField value={usage} onChange={setUsage} />
 						</div>
 					)}
 
@@ -260,10 +268,7 @@ function CreateCustomBlockPage() {
 							<SummaryItem label="Label" value={label} />
 							<SummaryItem label="Identifier" value={name} mono />
 							<SummaryItem label="Description" value={description || "None"} />
-							<SummaryItem
-								label="Use"
-								value={testOnly ? "Test suite setup / teardown only" : "Routes and workflows"}
-							/>
+							<SummaryItem label="Use" value={usageLabel(usage)} />
 							<SummaryItem
 								label="Icon"
 								value={

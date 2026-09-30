@@ -1,6 +1,6 @@
 import { logger } from "@fluxify/common";
 import z from "zod";
-import type { Context } from "../baseBlock";
+import type { BlockOutput, Context } from "../baseBlock";
 import type { BlockDTOType, EdgeDTOSchemaType } from "../builderTypes";
 import { compileGraph, type EmitNode, emitJsObject, instantiateCompiled } from "../compiler";
 import { enqueueJob } from "../jobs";
@@ -87,6 +87,28 @@ function traced(context: Context, name: string, blockId: string | undefined, det
  * is its configuration at any depth, `input` is the previous block's output.
  */
 export type CustomBlockArgs = { params: Record<string, any>; input?: any };
+
+/**
+ * Run a custom block and hand back its whole result rather than its output —
+ * a middleware step (#534) needs `responded` and `successful` to decide whether
+ * the request goes on. Failures come back as `{ successful: false }`, not thrown.
+ */
+export async function runCustomBlock(
+	context: Context,
+	name: string,
+	input: unknown,
+	blockId: string,
+): Promise<BlockOutput> {
+	const scope = traced(context, name, blockId, false);
+	try {
+		return await lookup(name)(scope.context, { params: {}, input });
+	} catch (error) {
+		// only an unloaded block throws here; its graph catches its own failures
+		return { successful: false, continueIfFail: false, error: String(error) };
+	} finally {
+		scope.close();
+	}
+}
 
 /** sync: wait for the custom block and hand back its output */
 export async function invokeCustomBlock(

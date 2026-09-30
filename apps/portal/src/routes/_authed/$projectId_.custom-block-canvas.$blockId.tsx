@@ -67,9 +67,10 @@ function CustomBlockCanvasPage() {
 		() => (Array.isArray(self?.inputParams) ? (self.inputParams as CustomBlockParamDef[]) : []),
 		[self],
 	);
-	useCustomBlockParamsTypes(inputParams);
-	// `testsuite` exists only when a test-only block runs as a suite's setup / teardown
-	useTestSuiteGlobalTypes(Boolean(self?.testOnly));
+	// a middleware block has no caller configuration, so no `params` at all (#534)
+	useCustomBlockParamsTypes(self?.usage === "middleware" ? undefined : inputParams);
+	// `testsuite` exists only when a test block runs as a suite's setup / teardown
+	useTestSuiteGlobalTypes(self?.usage === "test");
 
 	return (
 		<>

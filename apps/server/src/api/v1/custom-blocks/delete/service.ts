@@ -3,12 +3,13 @@ import type z from "zod";
 import { db } from "../../../../db";
 import { CHAN_ON_CUSTOM_BLOCK_CHANGE, publishMessage } from "../../../../db/redis";
 import type { AuthACL } from "../../../../db/schema";
+import { ConflictError } from "../../../../errors/conflictError";
 import { ForbiddenError } from "../../../../errors/forbidError";
 import { NotFoundError } from "../../../../errors/notFoundError";
 import { dropCustomBlock } from "../../../../modules/compiler/service";
 import { hasProjectAccess } from "../../../auth/common";
 import type { responseSchema } from "./dto";
-import { deleteCustomBlock, getCustomBlockById } from "./repository";
+import { deleteCustomBlock, getCustomBlockById, middlewaresUsing } from "./repository";
 
 export default async function handleRequest(
 	id: string,
@@ -28,6 +29,12 @@ export default async function handleRequest(
 
 		if (existingBlock.sourceType === "plugin") {
 			throw new ForbiddenError("Cannot delete a custom block originating from a plugin");
+		}
+
+		// #534: the chain row would refuse the delete anyway — say which chains
+		const chains = await middlewaresUsing(id, tx);
+		if (chains.length) {
+			throw new ConflictError(`Remove this block from ${chains.join(", ")} first.`);
 		}
 
 		projectId = existingBlock.projectId!;

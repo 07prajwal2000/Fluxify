@@ -4,6 +4,7 @@ import type { PgTable } from "drizzle-orm/pg-core";
 import { type DbTransactionType, db } from "../../db";
 import {
 	blocksEntity,
+	type CustomBlockUsage,
 	customBlocksListEntity,
 	edgesEntity,
 	routesEntity,
@@ -263,13 +264,13 @@ export async function getCustomBlockNames(
 export async function getProjectCustomBlocks(
 	parent: CanvasParent,
 	tx?: DbTransactionType,
-): Promise<{ id: string; name: string; testOnly: boolean }[]> {
+): Promise<{ id: string; name: string; usage: CustomBlockUsage }[]> {
 	const table = parentTable(parent.type);
 	return await (tx ?? db)
 		.select({
 			id: customBlocksListEntity.id,
 			name: customBlocksListEntity.name,
-			testOnly: customBlocksListEntity.testOnly,
+			usage: customBlocksListEntity.usage,
 		})
 		.from(customBlocksListEntity)
 		.where(

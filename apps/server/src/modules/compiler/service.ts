@@ -43,6 +43,7 @@ import type {
 	RouteArtifact,
 	WorkflowArtifact,
 } from "./artifacts";
+import { loadRouteMiddlewares } from "./middlewares";
 import { customBlockKey, projectConfigKey, routeKey, workflowKey } from "./subjects";
 
 /**
@@ -236,6 +237,7 @@ export async function compileRoute(routeId: string) {
 		// no versioning yet — the compile timestamp is the version (see RouteArtifact)
 		routeVersion: compiledAt,
 		source,
+		middlewares: await loadRouteMiddlewares(routeId),
 		compiledAt,
 	};
 	await putArtifact(routeKey(route.projectId!, routeId), artifact);
@@ -364,11 +366,11 @@ async function ensureCustomBlocksRegistered(projectId: string) {
 	const rows = await db
 		.select({ id: customBlocksListEntity.id, name: customBlocksListEntity.name })
 		.from(customBlocksListEntity)
-		// a test-only block is never in the live library (see compileCustomBlockOrThrow)
+		// a test block is never in the live library (see compileCustomBlockOrThrow)
 		.where(
 			and(
 				eq(customBlocksListEntity.projectId, projectId),
-				eq(customBlocksListEntity.testOnly, false),
+				ne(customBlocksListEntity.usage, "test"),
 			),
 		);
 
@@ -422,7 +424,7 @@ async function compileCustomBlockOrThrow(id: string) {
 			id: customBlocksListEntity.id,
 			name: customBlocksListEntity.name,
 			projectId: customBlocksListEntity.projectId,
-			testOnly: customBlocksListEntity.testOnly,
+			usage: customBlocksListEntity.usage,
 		})
 		.from(customBlocksListEntity)
 		.where(eq(customBlocksListEntity.id, id));
@@ -433,8 +435,8 @@ async function compileCustomBlockOrThrow(id: string) {
 		return;
 	}
 	// test-only (#483): the test runner compiles it itself; workers never get it,
-	// and ticking the box on a published block takes it back off them
-	if (block.testOnly) {
+	// and switching a published block to test takes it back off them
+	if (block.usage === "test") {
 		await dropCustomBlock(block.projectId!, block.id);
 		return;
 	}

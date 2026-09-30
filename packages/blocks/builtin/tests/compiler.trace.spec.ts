@@ -49,6 +49,7 @@ describe("compileGraph tracing and edge validation", () => {
 				output: {
 					successful: true,
 					continueIfFail: true,
+					responded: true,
 					output: { httpCode: "200", body: 42 },
 				},
 				outcome: "success",

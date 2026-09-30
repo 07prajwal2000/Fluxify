@@ -302,6 +302,7 @@ async function runOneSuite(
 					bodySchema: compiled.route.bodySchema,
 					querySchema: compiled.route.querySchema,
 					paramsSchema: compiled.route.paramsSchema,
+					middlewares: compiled.route.middlewares,
 				},
 				request: buildSuiteRequest(suite, compiled.route),
 				timeoutMs: compiled.route.timeoutSeconds * 1_000,

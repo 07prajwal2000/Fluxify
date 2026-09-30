@@ -98,9 +98,9 @@ describe("canvas saveCanvas", () => {
 		beforeEach(() => {
 			customBlockNames.mockResolvedValue(["seed_users", "stripe_charge"]);
 			projectCustomBlocks.mockResolvedValue([
-				{ id: "cb-seed", name: "seed_users", testOnly: true },
-				{ id: "cb-stripe", name: "stripe_charge", testOnly: false },
-				{ id: "cb-cleanup", name: "cleanup", testOnly: true },
+				{ id: "cb-seed", name: "seed_users", usage: "test" },
+				{ id: "cb-stripe", name: "stripe_charge", usage: "flow" },
+				{ id: "cb-cleanup", name: "cleanup", usage: "test" },
 			]);
 		});
 
@@ -124,6 +124,22 @@ describe("canvas saveCanvas", () => {
 				"p1",
 			]);
 			expect(upsertBlocks).toHaveBeenCalled();
+		});
+
+		it("refuses a middleware block on any canvas (#534)", async () => {
+			customBlockNames.mockResolvedValue(["auth_check"]);
+			projectCustomBlocks.mockResolvedValue([
+				{ id: "cb-auth", name: "auth_check", usage: "middleware" },
+				{ id: "cb-cleanup", name: "cleanup", usage: "test" },
+			]);
+			for (const parent of [
+				{ type: "route", id: "r-1" },
+				{ type: "custom_block", id: "cb-cleanup" },
+			] as const) {
+				expect(saveCanvas(parent, withBlockType("auth_check"), ["p1"])).rejects.toThrow(
+					"auth_check is a middleware block",
+				);
+			}
 		});
 	});
 

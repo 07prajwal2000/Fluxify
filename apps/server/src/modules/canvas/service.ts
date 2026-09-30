@@ -199,13 +199,23 @@ async function assertNoTestOnlyBlocks(
 	const builtin = new Set<string>(Object.values(BlockTypes));
 	if (data.changes.blocks.every((b) => builtin.has(b.type))) return;
 	const blocks = await getProjectCustomBlocks(parent, tx);
-	if (parent.type === "custom_block" && blocks.find((b) => b.id === parent.id)?.testOnly) return;
-	const testOnly = new Set(blocks.filter((b) => b.testOnly).map((b) => b.name));
-	const used = [...new Set(data.changes.blocks.map((b) => b.type).filter((t) => testOnly.has(t)))];
-	if (used.length === 0) return;
-	throw new BadRequestError(
-		`${used.join(", ")} ${used.length === 1 ? "is a test-only block" : "are test-only blocks"}: use ${used.length === 1 ? "it" : "them"} only as a test suite's setup or teardown.`,
-	);
+	const selfIsTest =
+		parent.type === "custom_block" && blocks.find((b) => b.id === parent.id)?.usage === "test";
+	const usageOf = new Map(blocks.map((b) => [b.name, b.usage]));
+	const placed = new Set(data.changes.blocks.map((b) => b.type));
+	const testOnly = [...placed].filter((t) => usageOf.get(t) === "test");
+	if (testOnly.length && !selfIsTest) {
+		throw new BadRequestError(
+			`${testOnly.join(", ")} ${testOnly.length === 1 ? "is a test-only block" : "are test-only blocks"}: use ${testOnly.length === 1 ? "it" : "them"} only as a test suite's setup or teardown.`,
+		);
+	}
+	// #534: a middleware block runs only as a link of a middleware chain
+	const middleware = [...placed].filter((t) => usageOf.get(t) === "middleware");
+	if (middleware.length) {
+		throw new BadRequestError(
+			`${middleware.join(", ")} ${middleware.length === 1 ? "is a middleware block" : "are middleware blocks"}: add ${middleware.length === 1 ? "it" : "them"} to a middleware instead of a canvas.`,
+		);
+	}
 }
 
 /**

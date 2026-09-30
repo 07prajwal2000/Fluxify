@@ -25,7 +25,7 @@ export async function testOnlyBlocksOfProject(projectId: string, ids: string[]) 
 			and(
 				eq(customBlocksListEntity.projectId, projectId),
 				inArray(customBlocksListEntity.id, ids),
-				eq(customBlocksListEntity.testOnly, true),
+				eq(customBlocksListEntity.usage, "test"),
 			),
 		);
 	return new Set(rows.map((r) => r.id));

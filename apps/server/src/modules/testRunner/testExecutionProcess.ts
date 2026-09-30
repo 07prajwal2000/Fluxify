@@ -2,6 +2,7 @@ import {
 	instantiateCompiled,
 	invokeCustomBlock,
 	registerCompiledCustomBlock,
+	runWithMiddlewares,
 	setJobEnqueuer,
 } from "@fluxify/blocks";
 import type { AssertionResult } from "../../db/schema";
@@ -187,7 +188,7 @@ async function runRoute(boot: TestBootstrap & RouteTarget, setup: unknown): Prom
 				setup,
 				checks: hookChecks,
 			});
-			return run(context, context.requestBody);
+			return runWithMiddlewares(context, context.requestBody, run, boot.route.middlewares);
 		});
 
 		// a real Hono-shaped context, so header and cookie writes made by the route

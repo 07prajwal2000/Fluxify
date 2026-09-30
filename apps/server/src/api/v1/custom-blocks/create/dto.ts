@@ -1,4 +1,5 @@
 import z from "zod";
+import { CUSTOM_BLOCK_USAGES } from "../../../../db/schema";
 
 export const inputParamSchema = z.discriminatedUnion("type", [
 	z.object({
@@ -61,8 +62,8 @@ export const baseRequestBodySchema = z.object({
 	iconUrl: z.string().max(68266).optional(),
 	projectId: z.string(),
 	inputParams: z.array(inputParamSchema).optional(),
-	/** only for a test suite's setup/teardown (#483) */
-	testOnly: z.boolean().optional(),
+	/** where the block may run (#534): flows, test setup/teardown (#483), or a middleware chain */
+	usage: z.enum(CUSTOM_BLOCK_USAGES).optional(),
 	/** markdown for the settings panel Docs tab (#526) */
 	docs: z.string().max(100_000).nullish(),
 });

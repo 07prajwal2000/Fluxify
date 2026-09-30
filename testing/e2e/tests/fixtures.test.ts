@@ -25,7 +25,7 @@ describe("graph fixtures", () => {
 			const fixture = await loadGraph(name);
 			expect(fixture.route.path.startsWith("/")).toBe(true);
 			// a caller only emits once its custom blocks are in the library
-			const dispose = await registerFixtureBlocks(fixture);
+			const { dispose } = await registerFixtureBlocks(fixture);
 			try {
 				expect(compileGraph(fixture.blocks, fixture.edges).source).toBeString();
 			} finally {

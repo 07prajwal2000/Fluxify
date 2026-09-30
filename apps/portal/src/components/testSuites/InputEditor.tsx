@@ -153,7 +153,7 @@ export function InputEditor({
 }) {
 	const { data } = customBlocksQuery.getAll.useQuery(projectId);
 	const loaders = (data ?? [])
-		.filter((b) => b.testOnly)
+		.filter((b) => b.usage === "test")
 		.map((b) => ({ id: b.id, label: b.label || b.name }));
 	const set = (next: Partial<SuiteInput>) => onChange({ ...input, ...next });
 	const cases = Array.isArray(input.raw) ? (input.raw as SuiteCase[]) : [];

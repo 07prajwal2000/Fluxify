@@ -1,6 +1,10 @@
 import { eq } from "drizzle-orm";
 import { type DbTransactionType, db } from "../../../../db";
-import { customBlocksListEntity } from "../../../../db/schema";
+import {
+	customBlocksListEntity,
+	middlewareBlocksEntity,
+	middlewaresEntity,
+} from "../../../../db/schema";
 
 export async function getCustomBlockById(id: string, tx?: DbTransactionType) {
 	const block = await (tx ?? db)
@@ -17,4 +21,14 @@ export async function getCustomBlockById(id: string, tx?: DbTransactionType) {
 
 export async function deleteCustomBlock(id: string, tx?: DbTransactionType) {
 	await (tx ?? db).delete(customBlocksListEntity).where(eq(customBlocksListEntity.id, id));
+}
+
+/** names of the middlewares whose chain includes the block (#534) */
+export async function middlewaresUsing(blockId: string, tx?: DbTransactionType) {
+	const rows = await (tx ?? db)
+		.select({ name: middlewaresEntity.name })
+		.from(middlewareBlocksEntity)
+		.innerJoin(middlewaresEntity, eq(middlewaresEntity.id, middlewareBlocksEntity.middlewareId))
+		.where(eq(middlewareBlocksEntity.customBlockId, blockId));
+	return rows.map((r) => `middleware "${r.name}"`);
 }

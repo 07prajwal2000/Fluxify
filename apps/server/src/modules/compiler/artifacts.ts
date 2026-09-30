@@ -1,3 +1,5 @@
+import type { RouteMiddlewares } from "@fluxify/blocks";
+
 /**
  * What the compiler publishes and a worker consumes. Everything here must be
  * plain JSON — it round-trips through NATS KV.
@@ -29,6 +31,11 @@ export type RouteArtifact = {
 	routeVersion: string;
 	/** compiled graph source, instantiated by the worker */
 	source: string;
+	/**
+	 * custom blocks run before and after `source` (#534). Names only: the blocks
+	 * themselves are in the worker's custom block library, like any other call.
+	 */
+	middlewares?: RouteMiddlewares;
 	compiledAt: string;
 };
 

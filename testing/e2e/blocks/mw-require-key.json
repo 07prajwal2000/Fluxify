@@ -1,0 +1,48 @@
+{
+	"name": "mw_require_key",
+	"description": "Middleware: lets the request through only with the x-api-key header set to `secret`, and records who called. Otherwise it answers 401 itself.",
+	"blocks": [
+		{ "id": "mw-key-entry", "type": "entrypoint", "position": { "x": 0, "y": 0 }, "data": {} },
+		{
+			"id": "mw-key-check",
+			"type": "if",
+			"position": { "x": 240, "y": 0 },
+			"data": {
+				"blockName": "Has the key?",
+				"conditions": [
+					{
+						"lhs": "",
+						"rhs": "",
+						"operator": "js",
+						"chain": "and",
+						"js": "return getHeader(\"x-api-key\") === \"secret\";"
+					}
+				]
+			}
+		},
+		{
+			"id": "mw-key-tag",
+			"type": "jsrunner",
+			"position": { "x": 480, "y": -120 },
+			"data": { "blockName": "Record the caller", "value": "caller = \"key-holder\";\nreturn input;" }
+		},
+		{
+			"id": "mw-key-deny",
+			"type": "jsrunner",
+			"position": { "x": 480, "y": 120 },
+			"data": { "blockName": "Why", "value": "return { error: \"missing api key\" };" }
+		},
+		{
+			"id": "mw-key-401",
+			"type": "response",
+			"position": { "x": 720, "y": 120 },
+			"data": { "blockName": "Refuse", "httpCode": "401" }
+		}
+	],
+	"edges": [
+		{ "id": "e1", "from": "mw-key-entry", "to": "mw-key-check", "fromHandle": "source", "toHandle": "source" },
+		{ "id": "e2", "from": "mw-key-check", "to": "mw-key-tag", "fromHandle": "success", "toHandle": "success" },
+		{ "id": "e3", "from": "mw-key-check", "to": "mw-key-deny", "fromHandle": "failure", "toHandle": "failure" },
+		{ "id": "e4", "from": "mw-key-deny", "to": "mw-key-401", "fromHandle": "source", "toHandle": "source" }
+	]
+}

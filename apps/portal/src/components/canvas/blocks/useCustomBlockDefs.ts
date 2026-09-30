@@ -14,8 +14,8 @@ export type CustomBlockDef = {
 	sourceType?: string | null;
 	/** This is the block whose canvas is open: adding it would be recursion. */
 	isSelf?: boolean;
-	/** Only for test suite setup/teardown (#483). */
-	testOnly?: boolean;
+	/** Where it may run (#534): only `flow` blocks go on a live canvas. */
+	usage?: "flow" | "test" | "middleware";
 };
 
 /**
@@ -43,20 +43,20 @@ export function useCustomBlockDefs(): CustomBlockDef[] {
 			iconUrl: block.iconUrl ?? undefined,
 			sourceType: block.sourceType,
 			isSelf: block.id === params?.blockId,
-			testOnly: block.testOnly,
+			usage: block.usage,
 		}));
 	}, [data, params?.blockId]);
 }
 
 /**
- * The custom blocks a user may place on the open canvas. A test-only block
- * (#483) is offered only on another test-only block's canvas — the server
- * refuses it anywhere else.
+ * The custom blocks a user may place on the open canvas, matching what the
+ * server accepts: a test block (#483) only on another test block's canvas, a
+ * middleware block (#534) on none — it only runs as a middleware step.
  */
 export function useAddableCustomBlockDefs(): CustomBlockDef[] {
 	const defs = useCustomBlockDefs();
 	return useMemo(() => {
-		const selfIsTestOnly = defs.some((d) => d.isSelf && d.testOnly);
-		return defs.filter((d) => !d.testOnly || selfIsTestOnly);
+		const selfIsTest = defs.some((d) => d.isSelf && d.usage === "test");
+		return defs.filter((d) => d.usage === "flow" || (d.usage === "test" && selfIsTest));
 	}, [defs]);
 }

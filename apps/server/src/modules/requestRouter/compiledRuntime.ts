@@ -4,6 +4,7 @@ import {
 	type Context,
 	instantiateCompiled,
 	registerCompiledCustomBlock,
+	runWithMiddlewares,
 	unregisterCustomBlock,
 } from "@fluxify/blocks";
 import { logger } from "@fluxify/common";
@@ -155,7 +156,12 @@ export function initCompiledRuntime(entries: ArtifactEntry[], databaseIdleTimeou
 		if (!compiled) {
 			throw new Error(`No compiled graph for route ${target.routeId}`);
 		}
-		return compiled.run(context, context.requestBody);
+		return runWithMiddlewares(
+			context,
+			context.requestBody,
+			compiled.run,
+			compiled.artifact.middlewares,
+		);
 	});
 
 	logger.info(
