@@ -1,4 +1,4 @@
-import { Button, cn, Input, Label, TextField, toast } from "@fluxify/components";
+import { Button, cn, Input, Label, TextArea, TextField, toast } from "@fluxify/components";
 import type { inputParamSchema } from "@fluxify/server/src/api/v1/custom-blocks/create/dto";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
@@ -233,7 +233,7 @@ function CreateCustomBlockPage() {
 
 							<TextField value={description} onChange={setDescription}>
 								<Label>Description</Label>
-								<Input placeholder="What this block does" />
+								<TextArea rows={3} placeholder="What this block does" />
 							</TextField>
 
 							<UsageField value={usage} onChange={setUsage} />

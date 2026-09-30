@@ -7,6 +7,7 @@ import {
 	Modal,
 	Spinner,
 	Tabs,
+	TextArea,
 	TextField,
 	toast,
 } from "@fluxify/components";
@@ -209,7 +210,7 @@ function CustomBlockSettingsForm({
 									</TextField>
 									<TextField isDisabled={readOnly} value={description} onChange={setDescription}>
 										<Label>Description</Label>
-										<Input placeholder="What this block does" />
+										<TextArea rows={3} placeholder="What this block does" />
 									</TextField>
 									<UsageField value={block.usage} isDisabled />
 								</div>

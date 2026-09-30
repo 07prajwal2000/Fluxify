@@ -58,7 +58,7 @@ export function PickerModal({
 			<Modal.Backdrop>
 				<Modal.Container placement="center" scroll="inside" size="lg">
 					<Modal.Dialog className="w-full !max-w-2xl">
-						<Modal.Header className="flex flex-col gap-3 px-6 pb-2 pt-5">
+						<Modal.Header className="flex flex-col gap-3">
 							<div className="flex items-start justify-between gap-3">
 								<div className="flex min-w-0 flex-1 items-center gap-3">
 									<span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-accent/10 text-accent">
@@ -102,7 +102,7 @@ export function PickerModal({
 							)}
 						</Modal.Header>
 
-						<Modal.Body className="px-6 pb-4 pt-2">
+						<Modal.Body>
 							{items.length === 0 ? (
 								<div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border px-4 py-12 text-center">
 									<span className="mb-2 text-muted/60">{icon}</span>
@@ -124,7 +124,7 @@ export function PickerModal({
 									</Button>
 								</div>
 							) : (
-								<div className="flex max-h-[440px] min-h-[200px] flex-col gap-2 overflow-y-auto pr-1">
+								<div className="flex max-h-[440px] flex-col gap-2 overflow-y-auto pr-1">
 									{shown.map((item) => {
 										const disabled = !!item.disabledReason;
 										return (
@@ -187,7 +187,7 @@ export function PickerModal({
 							)}
 						</Modal.Body>
 
-						<Modal.Footer className="flex justify-end border-t border-border px-6 pb-5 pt-3">
+						<Modal.Footer className="flex justify-end">
 							<Button
 								variant="outline"
 								size="sm"
