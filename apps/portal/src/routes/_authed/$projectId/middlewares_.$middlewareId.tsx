@@ -1,20 +1,10 @@
-import {
-	Button,
-	Input,
-	Label,
-	ReorderableList,
-	Spinner,
-	TextField,
-	toast,
-} from "@fluxify/components";
-import { createFileRoute, Link } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
-import { TbArrowDown, TbArrowLeft, TbPlus } from "react-icons/tb";
-import { CustomBlockIcon, type IconValue } from "@/components/customBlocks/IconPicker";
-import { PickerModal } from "@/components/middlewares/PickerModal";
+import { Button, Input, Label, Spinner, TextField, toast } from "@fluxify/components";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { type ReactNode, useEffect, useState } from "react";
+import { TbArrowLeft } from "react-icons/tb";
+import { type ChainBlock, ChainEditor } from "@/components/middlewares/ChainEditor";
 import { showErrorNotification } from "@/lib/errorNotifier";
 import { createRouteHead, usePageTitle } from "@/lib/seo";
-import { customBlocksQuery } from "@/query/customBlocksQuery";
 import { middlewaresQuery } from "@/query/middlewaresQuery";
 import type { Middleware } from "@/services/middlewares";
 
@@ -22,15 +12,6 @@ export const Route = createFileRoute("/_authed/$projectId/middlewares_/$middlewa
 	head: createRouteHead("Middleware", "Edit a middleware's chain of custom blocks."),
 	component: MiddlewareEditorPage,
 });
-
-type ChainBlock = Middleware["blocks"][number];
-
-const blockIcon = (block: { icon?: string | null; iconUrl?: string | null }) => (
-	<CustomBlockIcon
-		icon={(block.icon as IconValue["icon"]) ?? undefined}
-		iconUrl={block.iconUrl ?? undefined}
-	/>
-);
 
 function MiddlewareEditorPage() {
 	const { projectId, middlewareId } = Route.useParams();
@@ -49,13 +30,32 @@ function MiddlewareEditorPage() {
 	return <Editor projectId={projectId} middleware={data} />;
 }
 
+function Card({
+	title,
+	description,
+	children,
+}: {
+	title: string;
+	description: string;
+	children: ReactNode;
+}) {
+	return (
+		<section className="flex flex-col gap-4 rounded-xl border border-border bg-surface p-5">
+			<div>
+				<h2 className="text-sm font-semibold text-foreground">{title}</h2>
+				<p className="mt-0.5 text-xs text-muted">{description}</p>
+			</div>
+			{children}
+		</section>
+	);
+}
+
 function Editor({ projectId, middleware }: { projectId: string; middleware: Middleware }) {
+	const navigate = useNavigate();
 	const update = middlewaresQuery.update.mutation(projectId, middleware.id);
-	const { data: customBlocks } = customBlocksQuery.getAll.useQuery(projectId);
 	const [name, setName] = useState(middleware.name);
 	const [description, setDescription] = useState(middleware.description ?? "");
 	const [chain, setChain] = useState<ChainBlock[]>(middleware.blocks);
-	const [picking, setPicking] = useState(false);
 
 	// a save refetches the middleware; start again from what the server holds
 	useEffect(() => {
@@ -68,22 +68,6 @@ function Editor({ projectId, middleware }: { projectId: string; middleware: Midd
 		name !== middleware.name ||
 		description !== (middleware.description ?? "") ||
 		chain.map((b) => b.id).join() !== middleware.blocks.map((b) => b.id).join();
-
-	// only middleware blocks can be chained, and each one once
-	const candidates = useMemo(
-		() =>
-			(customBlocks ?? [])
-				.filter((b) => b.usage === "middleware")
-				.map((b) => ({
-					id: b.id,
-					label: b.label || b.name,
-					description: b.description,
-					icon: blockIcon(b),
-					disabledReason: chain.some((c) => c.id === b.id) ? "Already in this chain" : undefined,
-					block: b,
-				})),
-		[customBlocks, chain],
-	);
 
 	function save() {
 		update.mutate(
@@ -100,15 +84,22 @@ function Editor({ projectId, middleware }: { projectId: string; middleware: Midd
 	}
 
 	return (
-		<div className="flex max-w-2xl flex-col gap-6">
-			<div className="flex flex-wrap items-center justify-between gap-3">
-				<Link
-					to="/$projectId/middlewares"
-					params={{ projectId }}
-					className="flex items-center gap-1 text-sm text-muted hover:text-foreground"
+		<div className="mx-auto flex w-full max-w-5xl flex-col gap-5">
+			<div className="flex flex-wrap items-center gap-3">
+				<Button
+					isIconOnly
+					variant="ghost"
+					aria-label="Back to middlewares"
+					onPress={() => navigate({ to: "/$projectId/middlewares", params: { projectId } })}
 				>
-					<TbArrowLeft size={16} /> Middlewares
-				</Link>
+					<TbArrowLeft size={18} />
+				</Button>
+				<div className="min-w-0 flex-1">
+					<h1 className="truncate text-xl font-semibold tracking-tight">{middleware.name}</h1>
+					<p className="text-xs text-muted">
+						{isDirty ? "Unsaved changes" : "Changes apply to every route that uses it."}
+					</p>
+				</div>
 				<Button
 					variant="primary"
 					isDisabled={!isDirty || !name.trim()}
@@ -119,80 +110,25 @@ function Editor({ projectId, middleware }: { projectId: string; middleware: Midd
 				</Button>
 			</div>
 
-			<div className="flex flex-col gap-3">
-				<TextField value={name} onChange={setName} isInvalid={!name.trim()}>
-					<Label>Name</Label>
-					<Input />
-				</TextField>
-				<TextField value={description} onChange={setDescription}>
-					<Label>Description</Label>
-					<Input placeholder="What this middleware does" />
-				</TextField>
+			<div className="grid items-start gap-5 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
+				<Card title="Details" description="How this middleware shows up in a route's settings.">
+					<TextField value={name} onChange={setName} isRequired isInvalid={!name.trim()}>
+						<Label>Name</Label>
+						<Input />
+					</TextField>
+					<TextField value={description} onChange={setDescription}>
+						<Label>Description</Label>
+						<Input placeholder="What this middleware does" />
+					</TextField>
+				</Card>
+
+				<Card
+					title="Chain"
+					description="Runs top to bottom. Each block gets the previous block's output. A Response block ends the request."
+				>
+					<ChainEditor projectId={projectId} chain={chain} onChange={setChain} />
+				</Card>
 			</div>
-
-			<section className="flex flex-col gap-2">
-				<div>
-					<h2 className="text-sm font-medium text-foreground">Chain</h2>
-					<p className="text-xs text-muted">
-						Runs top to bottom. Each block gets the previous block's output. A Response block ends
-						the request right there.
-					</p>
-				</div>
-				<ReorderableList
-					items={chain}
-					getKey={(b) => b.id}
-					showIndex
-					onReorder={(next) => setChain(next)}
-					onRemove={(b) => setChain(chain.filter((c) => c.id !== b.id))}
-					removeButtonAriaLabel="Remove from chain"
-					renderItemContent={(b) => (
-						<span className="flex min-w-0 items-center gap-2">
-							{blockIcon(b)}
-							<span className="truncate text-sm text-foreground">{b.label || b.name}</span>
-						</span>
-					)}
-					emptyMessage="No blocks yet. Add the first one below."
-				/>
-				<div className="flex flex-col items-center gap-1 text-muted">
-					{chain.length > 0 && <TbArrowDown size={16} aria-hidden />}
-					<Button variant="secondary" size="sm" onPress={() => setPicking(true)}>
-						<TbPlus size={14} /> Add block
-					</Button>
-				</div>
-			</section>
-
-			<PickerModal
-				open={picking}
-				onOpenChange={setPicking}
-				title="Add a block to the chain"
-				items={candidates}
-				empty={
-					<>
-						No middleware blocks yet. Create a custom block and set <b>Used for</b> to{" "}
-						<b>Middleware</b>.{" "}
-						<Link
-							to="/$projectId/custom-blocks/new"
-							params={{ projectId }}
-							className="text-accent hover:underline"
-						>
-							New custom block
-						</Link>
-					</>
-				}
-				onPick={(item) => {
-					const b = candidates.find((c) => c.id === item.id)?.block;
-					if (b)
-						setChain([
-							...chain,
-							{
-								...b,
-								description: b.description ?? null,
-								icon: b.icon ?? null,
-								iconUrl: b.iconUrl ?? null,
-							},
-						]);
-				}}
-			/>
 		</div>
 	);
 }

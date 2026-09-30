@@ -19,9 +19,11 @@ import {
 	getMiddleware,
 	getRouteMiddlewares,
 	getRouteProject,
+	listChains,
 	listMiddlewares,
 	nameTaken,
 	recompileRoutes,
+	routeCounts,
 	routesUsing,
 	setChain,
 	setRouteMiddlewares,
@@ -50,8 +52,17 @@ async function routeFor(routeId: string, caller: Caller, role: Role) {
 }
 
 export async function list(projectId: string): Promise<z.infer<typeof listResponseSchema>> {
-	const rows = await listMiddlewares(projectId);
-	return rows.map((row) => ({ ...row, updatedAt: row.updatedAt.toISOString() }));
+	const [rows, chains, counts] = await Promise.all([
+		listMiddlewares(projectId),
+		listChains(projectId),
+		routeCounts(projectId),
+	]);
+	return rows.map((row) => ({
+		...row,
+		updatedAt: row.updatedAt.toISOString(),
+		blocks: chains.filter((c) => c.middlewareId === row.id).map(({ middlewareId, ...b }) => b),
+		routeCount: counts.find((c) => c.middlewareId === row.id)?.count ?? 0,
+	}));
 }
 
 export async function get(id: string, caller: Caller): Promise<z.infer<typeof getResponseSchema>> {
@@ -68,10 +79,13 @@ export async function get(id: string, caller: Caller): Promise<z.infer<typeof ge
 export async function create(data: z.infer<typeof createBodySchema>) {
 	return await db.transaction(async (tx) => {
 		await nameTaken(data.projectId, data.name, undefined, tx);
+		const { blocks, ...fields } = data;
 		const [row] = await tx
 			.insert(middlewaresEntity)
-			.values(data)
+			.values(fields)
 			.returning({ id: middlewaresEntity.id });
+		// a new middleware is on no route yet, so nothing to recompile
+		if (blocks?.length) await setChain(row!.id, data.projectId, blocks, tx);
 		return row!;
 	});
 }

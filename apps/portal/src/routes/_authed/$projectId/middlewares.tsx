@@ -1,19 +1,19 @@
 import {
 	Button,
-	CloseButton,
 	DeleteIconButton,
 	Input,
 	Label,
-	Modal,
 	Spinner,
+	Table,
 	TextField,
 	toast,
 } from "@fluxify/components";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
-import { TbFilter, TbPlus } from "react-icons/tb";
+import { useMemo, useState } from "react";
+import { TbEdit, TbFilter, TbPlus, TbSearch } from "react-icons/tb";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { EmptyState } from "@/components/common/EmptyState";
+import { blockIcon } from "@/components/middlewares/ChainEditor";
 import { showErrorNotification } from "@/lib/errorNotifier";
 import { createRouteHead, formatProjectTitle, usePageTitle } from "@/lib/seo";
 import { middlewaresQuery } from "@/query/middlewaresQuery";
@@ -26,6 +26,8 @@ export const Route = createFileRoute("/_authed/$projectId/middlewares")({
 });
 
 const DOCS_URL = "https://docs.fluxify.rest/concepts/middlewares.html";
+/** chain icons shown in a row before collapsing into "+N" */
+const MAX_ICONS = 5;
 
 function MiddlewaresPage() {
 	const { projectId } = Route.useParams();
@@ -34,14 +36,23 @@ function MiddlewaresPage() {
 	const { data, isLoading, isError } = middlewaresQuery.getAll.useQuery(projectId);
 	const remove = middlewaresQuery.remove.mutation(projectId);
 	const navigate = useNavigate();
-	const [creating, setCreating] = useState(false);
+	const [search, setSearch] = useState("");
 	const [pendingDelete, setPendingDelete] = useState<MiddlewareSummary | null>(null);
 
+	const rows = useMemo(() => {
+		const q = search.trim().toLowerCase();
+		if (!data || !q) return data ?? [];
+		return data.filter((m) =>
+			[m.name, m.description ?? ""].some((v) => v.toLowerCase().includes(q)),
+		);
+	}, [data, search]);
+
+	const openNew = () => navigate({ to: "/$projectId/middlewares/new", params: { projectId } });
 	const open = (middlewareId: string) =>
 		navigate({ to: "/$projectId/middlewares/$middlewareId", params: { projectId, middlewareId } });
 
 	return (
-		<div className="flex flex-col gap-5">
+		<div className="flex flex-col gap-4">
 			<div className="flex flex-wrap items-center justify-between gap-3">
 				<div>
 					<h1 className="text-xl font-semibold tracking-tight">Middlewares</h1>
@@ -57,9 +68,17 @@ function MiddlewaresPage() {
 						</a>
 					</p>
 				</div>
-				<Button variant="primary" onPress={() => setCreating(true)}>
-					<TbPlus size={16} /> New middleware
-				</Button>
+				<div className="flex items-center gap-2">
+					{data && data.length > 0 && (
+						<TextField value={search} onChange={setSearch} className="w-56">
+							<Label className="sr-only">Search middlewares</Label>
+							<Input placeholder="Search middlewares" />
+						</TextField>
+					)}
+					<Button variant="primary" onPress={openNew}>
+						<TbPlus size={16} /> New middleware
+					</Button>
+				</div>
 			</div>
 
 			{isLoading ? (
@@ -73,40 +92,76 @@ function MiddlewaresPage() {
 					icon={<TbFilter size={28} />}
 					title="No middlewares yet"
 					description="Build a check once, like an API key guard, and attach it to any route."
+					action={
+						<Button variant="primary" onPress={openNew}>
+							<TbPlus size={16} /> New middleware
+						</Button>
+					}
+				/>
+			) : rows.length === 0 ? (
+				<EmptyState
+					icon={<TbSearch size={28} />}
+					title={`No middleware matches “${search}”`}
+					description="Try a different name or description."
 				/>
 			) : (
-				<ul className="flex flex-col divide-y divide-border rounded-lg border border-border bg-surface">
-					{data.map((middleware) => (
-						<li key={middleware.id} className="group flex items-center gap-3 px-4 py-3">
-							<button
-								type="button"
-								onClick={() => open(middleware.id)}
-								className="min-w-0 flex-1 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-focus"
-							>
-								<span className="block truncate text-sm font-medium text-foreground">
-									{middleware.name}
-								</span>
-								<span className="block truncate text-xs text-muted">
-									{middleware.description || "No description"}
-								</span>
-							</button>
-							<div className="opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
-								<DeleteIconButton
-									aria-label={`Delete ${middleware.name}`}
-									onPress={() => setPendingDelete(middleware)}
-								/>
-							</div>
-						</li>
-					))}
-				</ul>
+				<Table>
+					<Table.Content aria-label="Middlewares" onRowAction={(key) => open(String(key))}>
+						<Table.Header>
+							<Table.Column id="name" isRowHeader>
+								Name
+							</Table.Column>
+							<Table.Column id="chain">Chain</Table.Column>
+							<Table.Column id="routes">Used by</Table.Column>
+							<Table.Column id="actions" aria-label="Actions">
+								{""}
+							</Table.Column>
+						</Table.Header>
+						<Table.Body items={rows}>
+							{(middleware) => (
+								<Table.Row id={middleware.id} className="cursor-pointer">
+									<Table.Cell>
+										<span className="block font-medium text-foreground">{middleware.name}</span>
+										<span className="line-clamp-1 text-xs text-muted">
+											{middleware.description || "No description"}
+										</span>
+									</Table.Cell>
+									<Table.Cell>
+										<ChainPreview blocks={middleware.blocks} />
+									</Table.Cell>
+									<Table.Cell>
+										<span
+											className={
+												middleware.routeCount ? "text-sm text-foreground" : "text-sm text-muted"
+											}
+										>
+											{middleware.routeCount === 0
+												? "No routes"
+												: `${middleware.routeCount} route${middleware.routeCount === 1 ? "" : "s"}`}
+										</span>
+									</Table.Cell>
+									<Table.Cell>
+										<div className="flex items-center justify-end gap-1">
+											<Button
+												isIconOnly
+												variant="ghost"
+												aria-label={`Edit ${middleware.name}`}
+												onPress={() => open(middleware.id)}
+											>
+												<TbEdit size={16} />
+											</Button>
+											<DeleteIconButton
+												aria-label={`Delete ${middleware.name}`}
+												onPress={() => setPendingDelete(middleware)}
+											/>
+										</div>
+									</Table.Cell>
+								</Table.Row>
+							)}
+						</Table.Body>
+					</Table.Content>
+				</Table>
 			)}
-
-			<CreateMiddlewareModal
-				open={creating}
-				onOpenChange={setCreating}
-				projectId={projectId}
-				onCreated={open}
-			/>
 
 			<ConfirmDialog
 				open={!!pendingDelete}
@@ -124,77 +179,33 @@ function MiddlewaresPage() {
 					setPendingDelete(null);
 				}}
 			>
-				Delete <b className="text-foreground">{pendingDelete?.name}</b>? It is also removed from
-				every route that uses it.
+				Delete <b className="text-foreground">{pendingDelete?.name}</b>?
+				{pendingDelete?.routeCount
+					? ` It is removed from the ${pendingDelete.routeCount} route${pendingDelete.routeCount === 1 ? "" : "s"} that use it.`
+					: " No route uses it."}
 			</ConfirmDialog>
 		</div>
 	);
 }
 
-function CreateMiddlewareModal({
-	open,
-	onOpenChange,
-	projectId,
-	onCreated,
-}: {
-	open: boolean;
-	onOpenChange: (open: boolean) => void;
-	projectId: string;
-	onCreated: (id: string) => void;
-}) {
-	const create = middlewaresQuery.create.mutation(projectId);
-	const [name, setName] = useState("");
-	const [description, setDescription] = useState("");
-
-	function submit() {
-		create.mutate(
-			{ name: name.trim(), description: description.trim() || undefined },
-			{
-				onSuccess: ({ id }) => {
-					toast.success("Middleware created");
-					onOpenChange(false);
-					onCreated(id);
-				},
-				onError: (e) => showErrorNotification(e as Error),
-			},
-		);
-	}
-
+/** the chain's block icons in run order, each labelled on hover */
+function ChainPreview({ blocks }: { blocks: MiddlewareSummary["blocks"] }) {
+	if (blocks.length === 0) return <span className="text-sm text-muted">Empty</span>;
+	const extra = blocks.length - MAX_ICONS;
 	return (
-		<Modal isOpen={open} onOpenChange={onOpenChange}>
-			<Modal.Backdrop>
-				<Modal.Container placement="center" size="sm">
-					<Modal.Dialog>
-						<Modal.Header className="flex flex-row items-center justify-between">
-							<Modal.Heading>New middleware</Modal.Heading>
-							<CloseButton />
-						</Modal.Header>
-						<Modal.Body className="flex flex-col gap-3">
-							<TextField value={name} onChange={setName} autoFocus>
-								<Label>Name</Label>
-								<Input placeholder="Require API key" />
-							</TextField>
-							<TextField value={description} onChange={setDescription}>
-								<Label>Description</Label>
-								<Input placeholder="What this middleware does" />
-							</TextField>
-						</Modal.Body>
-						<Modal.Footer>
-							<Button variant="ghost" onPress={() => onOpenChange(false)}>
-								Cancel
-							</Button>
-							<Button
-								variant="primary"
-								isDisabled={!name.trim()}
-								isPending={create.isPending}
-								onPress={submit}
-							>
-								Create
-							</Button>
-						</Modal.Footer>
-					</Modal.Dialog>
-				</Modal.Container>
-			</Modal.Backdrop>
-		</Modal>
+		<div className="flex items-center gap-1">
+			{blocks.slice(0, MAX_ICONS).map((b) => (
+				<span
+					key={b.id}
+					title={b.label || b.name}
+					role="img"
+					aria-label={b.label || b.name}
+					className="flex rounded-md border border-border bg-surface-secondary p-1"
+				>
+					{blockIcon(b)}
+				</span>
+			))}
+			{extra > 0 && <span className="text-xs text-muted">+{extra}</span>}
+		</div>
 	);
 }

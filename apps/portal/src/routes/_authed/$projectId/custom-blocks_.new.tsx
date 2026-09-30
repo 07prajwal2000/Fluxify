@@ -201,7 +201,7 @@ function CreateCustomBlockPage() {
 
 				<div className="mt-4 flex min-h-0 flex-1 flex-col overflow-hidden">
 					{currentKey === "basics" && (
-						<div className="flex max-w-xl flex-col gap-5 overflow-y-auto pr-1">
+						<div className="grid content-start gap-x-6 gap-y-5 overflow-y-auto pr-1 md:grid-cols-2">
 							<TextField
 								isRequired
 								value={label}

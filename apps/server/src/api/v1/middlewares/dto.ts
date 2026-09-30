@@ -12,6 +12,8 @@ export const createBodySchema = z.object({
 	projectId: z.string(),
 	name: z.string().trim().min(1).max(255),
 	description: z.string().optional(),
+	/** custom block ids in run order */
+	blocks: uniqueIds("custom block").optional(),
 });
 
 export const updateBodySchema = z.object({
@@ -34,20 +36,27 @@ const middlewareSummary = z.object({
 	description: z.string().nullable(),
 });
 
-export const listResponseSchema = z.array(middlewareSummary.extend({ updatedAt: z.string() }));
+const chainBlock = z.object({
+	id: z.string(),
+	name: z.string(),
+	label: z.string(),
+	description: z.string().nullable(),
+	icon: z.string().nullable(),
+	iconUrl: z.string().nullable(),
+});
+
+export const listResponseSchema = z.array(
+	middlewareSummary.extend({
+		updatedAt: z.string(),
+		blocks: z.array(chainBlock),
+		/** routes that attach it, before or after */
+		routeCount: z.number(),
+	}),
+);
 
 export const getResponseSchema = middlewareSummary.extend({
 	projectId: z.string(),
-	blocks: z.array(
-		z.object({
-			id: z.string(),
-			name: z.string(),
-			label: z.string(),
-			description: z.string().nullable(),
-			icon: z.string().nullable(),
-			iconUrl: z.string().nullable(),
-		}),
-	),
+	blocks: z.array(chainBlock),
 });
 
 export const routeMiddlewaresResponseSchema = z.object({

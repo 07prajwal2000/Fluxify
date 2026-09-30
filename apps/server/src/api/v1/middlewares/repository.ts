@@ -1,4 +1,4 @@
-import { and, asc, eq, inArray } from "drizzle-orm";
+import { and, asc, count, eq, inArray } from "drizzle-orm";
 import { type DbTransactionType, db } from "../../../db";
 import { CHAN_ON_ROUTE_CHANGE, publishMessage } from "../../../db/redis";
 import {
@@ -36,6 +36,38 @@ export async function listMiddlewares(projectId: string) {
 		.from(middlewaresEntity)
 		.where(eq(middlewaresEntity.projectId, projectId))
 		.orderBy(asc(middlewaresEntity.name));
+}
+
+/** every chain in the project, in run order: one query for the whole list page */
+export async function listChains(projectId: string) {
+	return await db
+		.select({
+			middlewareId: middlewareBlocksEntity.middlewareId,
+			id: customBlocksListEntity.id,
+			name: customBlocksListEntity.name,
+			label: customBlocksListEntity.label,
+			description: customBlocksListEntity.description,
+			icon: customBlocksListEntity.icon,
+			iconUrl: customBlocksListEntity.iconUrl,
+		})
+		.from(middlewareBlocksEntity)
+		.innerJoin(middlewaresEntity, eq(middlewaresEntity.id, middlewareBlocksEntity.middlewareId))
+		.innerJoin(
+			customBlocksListEntity,
+			eq(customBlocksListEntity.id, middlewareBlocksEntity.customBlockId),
+		)
+		.where(eq(middlewaresEntity.projectId, projectId))
+		.orderBy(asc(middlewareBlocksEntity.position));
+}
+
+/** how many routes attach each middleware of the project */
+export async function routeCounts(projectId: string) {
+	return await db
+		.select({ middlewareId: routeMiddlewaresEntity.middlewareId, count: count() })
+		.from(routeMiddlewaresEntity)
+		.innerJoin(middlewaresEntity, eq(middlewaresEntity.id, routeMiddlewaresEntity.middlewareId))
+		.where(eq(middlewaresEntity.projectId, projectId))
+		.groupBy(routeMiddlewaresEntity.middlewareId);
 }
 
 /** a middleware's chain, in run order */

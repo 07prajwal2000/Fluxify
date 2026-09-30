@@ -1,7 +1,7 @@
 import { Button, ReorderableList, Spinner } from "@fluxify/components";
 import { Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
-import { TbPlus } from "react-icons/tb";
+import { TbFilter, TbPlus } from "react-icons/tb";
 import { Section } from "@/components/common/Section";
 import { PickerModal } from "@/components/middlewares/PickerModal";
 import { showErrorNotification } from "@/lib/errorNotifier";
@@ -54,6 +54,7 @@ export function RouteMiddlewaresPanel({
 				id: m.id,
 				label: m.name,
 				description: m.description,
+				meta: `${m.blocks.length} block${m.blocks.length === 1 ? "" : "s"}`,
 				disabledReason: attached.has(m.id) ? "Already on this route" : undefined,
 			})),
 		[all, attached],
@@ -118,6 +119,13 @@ export function RouteMiddlewaresPanel({
 				open={adding !== null}
 				onOpenChange={(open) => !open && setAdding(null)}
 				title={adding === "after" ? "Run after the route" : "Run before the route"}
+				description={
+					adding === "after"
+						? "Pick a middleware to change the reply once the route has answered."
+						: "Pick a middleware to run before the route, like an auth check."
+				}
+				icon={<TbFilter size={20} />}
+				searchPlaceholder="Search middlewares…"
 				items={candidates}
 				empty={
 					<>

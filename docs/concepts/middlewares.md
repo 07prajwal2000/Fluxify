@@ -57,10 +57,13 @@ A middleware block:
 
 1. Go to **Middlewares** (under **Routes** in the sidebar) and press
    **New middleware**. Give it a name, like `Require API key`.
-2. Press **Add block** and pick a middleware block. Add as many as you need.
-3. Drag the blocks into the order they should run, then press **Save**.
+2. On the **Chain** step, press **Add block** and pick a middleware block. Add
+   as many as you need, and drag them into the order they should run.
+3. Check the **Review** step and press **Create middleware**.
 
-Each block can appear in a middleware only once.
+Each block can appear in a middleware only once. To change a middleware later,
+click it in the list, edit it, and press **Save**. The arrow next to each block
+opens that block's canvas in a new tab.
 
 ### 3. Attach it to a route
 

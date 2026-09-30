@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { middlewaresService } from "@/services/middlewares";
 
 type UpdateBody = Parameters<typeof middlewaresService.update>[1];
+type CreateBody = Parameters<typeof middlewaresService.create>[0];
 type RouteBody = Parameters<typeof middlewaresService.setForRoute>[1];
 
 const listKey = (projectId: string) => ["middlewares", projectId];
@@ -31,7 +32,7 @@ export const middlewaresQuery = {
 		mutation(projectId: string) {
 			const qc = useQueryClient();
 			return useMutation({
-				mutationFn: (body: { name: string; description?: string }) =>
+				mutationFn: (body: Omit<CreateBody, "projectId">) =>
 					middlewaresService.create({ ...body, projectId }),
 				onSuccess: () => qc.invalidateQueries({ queryKey: listKey(projectId) }),
 			});
@@ -71,7 +72,8 @@ export const middlewaresQuery = {
 			const qc = useQueryClient();
 			return useMutation({
 				mutationFn: (body: RouteBody) => middlewaresService.setForRoute(routeId, body),
-				onSuccess: () => qc.invalidateQueries({ queryKey: routeKey(routeId) }),
+				// the list page counts routes per middleware, so it is stale too
+				onSuccess: () => qc.invalidateQueries({ queryKey: ["middlewares"] }),
 			});
 		},
 	},
