@@ -5,6 +5,7 @@ import { useMemo, useState } from "react";
 import { TbArrowLeft, TbArrowRight, TbCheck } from "react-icons/tb";
 import type { z } from "zod";
 import type { CustomBlockInputParam } from "@/components/canvas/panel/blocks/CustomBlockSettings";
+import { DocsEditor } from "@/components/customBlocks/DocsEditor";
 import { ICON_URL_MAX, IconPicker, type IconValue } from "@/components/customBlocks/IconPicker";
 import {
 	InputParamsEditor,
@@ -38,6 +39,7 @@ const STEPS = [
 	{ key: "basics", label: "Basics" },
 	{ key: "icon", label: "Icon" },
 	{ key: "inputs", label: "Inputs" },
+	{ key: "docs", label: "Docs" },
 	{ key: "review", label: "Review" },
 ] as const;
 
@@ -55,6 +57,7 @@ function CreateCustomBlockPage() {
 	const [description, setDescription] = useState("");
 	const [testOnly, setTestOnly] = useState(false);
 	const [iconValue, setIconValue] = useState<IconValue>({});
+	const [docs, setDocs] = useState("");
 	const [params, setParams] = useState<CustomBlockInputParam[]>([]);
 	const [step, setStep] = useState(0);
 
@@ -88,6 +91,7 @@ function CreateCustomBlockPage() {
 				iconUrl: iconValue.iconUrl,
 				inputParams: params as unknown as z.infer<typeof inputParamSchema>[],
 				testOnly,
+				docs: docs.trim() ? docs : null,
 			},
 			{
 				onSuccess: (created) => {
@@ -171,6 +175,7 @@ function CreateCustomBlockPage() {
 							basics: "Name the block",
 							icon: "Give it a face",
 							inputs: "Describe its input parameters",
+							docs: "Write its docs",
 							review: "Review and create",
 						}[currentKey]
 					}
@@ -180,6 +185,7 @@ function CreateCustomBlockPage() {
 							icon: "Pick a premade icon or point at your own image. Optional.",
 							inputs:
 								"Optional. The fields this block asks for when it is placed on a route canvas.",
+							docs: "Optional. Markdown shown in the block's Docs tab on the canvas.",
 							review: "Last look before the block and its canvas are created.",
 						}[currentKey]
 					}
@@ -243,6 +249,12 @@ function CreateCustomBlockPage() {
 						</div>
 					)}
 
+					{currentKey === "docs" && (
+						<div className="flex min-h-0 flex-1 flex-col">
+							<DocsEditor value={docs} onChange={setDocs} />
+						</div>
+					)}
+
 					{currentKey === "review" && (
 						<dl className="grid gap-px overflow-y-auto rounded-xl border border-border bg-border sm:grid-cols-2">
 							<SummaryItem label="Label" value={label} />
@@ -262,6 +274,7 @@ function CreateCustomBlockPage() {
 								label="Input parameters"
 								value={params.length === 0 ? "None" : String(params.length)}
 							/>
+							<SummaryItem label="Docs" value={docs.trim() ? "Written" : "None"} />
 						</dl>
 					)}
 				</div>

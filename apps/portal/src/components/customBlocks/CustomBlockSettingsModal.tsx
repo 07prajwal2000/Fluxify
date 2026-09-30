@@ -19,6 +19,7 @@ import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { Section } from "@/components/common/Section";
 import { showErrorNotification } from "@/lib/errorNotifier";
 import { customBlocksQuery } from "@/query/customBlocksQuery";
+import { DocsEditor } from "./DocsEditor";
 import { ICON_URL_MAX, IconPicker, type IconValue } from "./IconPicker";
 import { InputParamsEditor, validateInputParams } from "./InputParamsEditor";
 import { TestOnlyField } from "./TestOnlyField";
@@ -89,6 +90,7 @@ function CustomBlockSettingsForm({
 	const [label, setLabel] = useState(block.label);
 	const [description, setDescription] = useState(block.description ?? "");
 	const [testOnly, setTestOnly] = useState(block.testOnly);
+	const [docs, setDocs] = useState(block.docs ?? "");
 	const [params, setParams] = useState<CustomBlockInputParam[]>(
 		Array.isArray(block.inputParams) ? (block.inputParams as CustomBlockInputParam[]) : [],
 	);
@@ -123,8 +125,9 @@ function CustomBlockSettingsForm({
 			iconUrl: iconValue.iconUrl,
 			inputParams: params as unknown as z.infer<typeof inputParamSchema>[],
 			testOnly,
+			docs: docs.trim() ? docs : null,
 		}),
-		[label, description, params, iconValue, testOnly],
+		[label, description, params, iconValue, testOnly, docs],
 	);
 	const [baseline] = useState(() => JSON.stringify(payload));
 	const isDirty = JSON.stringify(payload) !== baseline;
@@ -174,6 +177,7 @@ function CustomBlockSettingsForm({
 					>
 						<Tabs.Tab id="general">General</Tabs.Tab>
 						<Tabs.Tab id="inputs">Input parameters</Tabs.Tab>
+						<Tabs.Tab id="docs">Docs</Tabs.Tab>
 						{canDelete && <Tabs.Tab id="danger">Danger zone</Tabs.Tab>}
 					</Tabs.List>
 
@@ -221,6 +225,10 @@ function CustomBlockSettingsForm({
 						>
 							<InputParamsEditor params={params} isDisabled={readOnly} onChange={setParams} />
 						</Section>
+					</Tabs.Panel>
+
+					<Tabs.Panel id="docs" className="flex min-h-0 flex-1 flex-col p-5">
+						<DocsEditor value={docs} onChange={setDocs} isDisabled={readOnly} />
 					</Tabs.Panel>
 
 					{canDelete && (

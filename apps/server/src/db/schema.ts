@@ -851,6 +851,8 @@ export const customBlocksListEntity = pgTable(
 		source: text().default(""), // if plugin, then the name of plugin, if inhouse, then repository url, if user-defined, then empty
 		// #483: only for a test suite's setup/teardown — never on a live canvas, never published to workers
 		testOnly: boolean("test_only").default(false).notNull(),
+		// #526: markdown shown in the block settings Docs tab
+		docs: text(),
 		createdAt: timestamp("created_at").defaultNow().notNull(),
 		updatedAt: timestamp("updated_at")
 			.defaultNow()

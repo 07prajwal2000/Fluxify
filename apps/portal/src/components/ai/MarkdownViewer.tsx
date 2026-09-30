@@ -12,6 +12,33 @@ import {
 import { ResourceChip } from "./ResourceChip";
 import { remarkDirectiveRehype } from "./remarkDirectiveRehype";
 
+const CALLOUTS = {
+	info: { label: "Info", className: "border-accent/40 bg-accent/5" },
+	tip: { label: "Tip", className: "border-success/40 bg-success/5" },
+	warning: { label: "Warning", className: "border-warning/40 bg-warning/5" },
+	danger: { label: "Danger", className: "border-danger/40 bg-danger/5" },
+};
+
+/** `:::tip` / `:::info` / `:::warning` / `:::danger` blocks (VitePress containers). */
+const calloutComponents = Object.fromEntries(
+	Object.entries(CALLOUTS).map(([kind, { label, className }]) => [
+		`ai-${kind}`,
+		({ children }: { children?: React.ReactNode }) => {
+			const titled = React.Children.toArray(children).some(
+				(c) =>
+					React.isValidElement<{ className?: string }>(c) &&
+					c.props.className?.includes("fx-callout__title"),
+			);
+			return (
+				<div className={`mb-3 rounded-md border-l-4 px-3 py-2 [&_p:last-child]:mb-0 ${className}`}>
+					{!titled && <strong className="mb-1 block text-foreground">{label}</strong>}
+					{children}
+				</div>
+			);
+		},
+	]),
+);
+
 interface MarkdownViewerProps {
 	content: string;
 }
@@ -111,6 +138,19 @@ export function MarkdownViewer({ content }: MarkdownViewerProps) {
 						tr: ({ children }: any) => <Table.Row>{children}</Table.Row>,
 						th: ({ children }: any) => <Table.Column>{children}</Table.Column>,
 						td: ({ children }: any) => <Table.Cell>{children}</Table.Cell>,
+
+						a: ({ children, href }: any) => (
+							<a
+								href={href}
+								target="_blank"
+								rel="noopener noreferrer"
+								className="text-accent underline"
+							>
+								{children}
+							</a>
+						),
+						...calloutComponents,
+						"ai-u": ({ children }: any) => <u>{children}</u>,
 
 						// AI Directives Mapping
 						"ai-resource": (props: any) => <ResourceChip {...props} />,
