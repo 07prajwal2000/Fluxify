@@ -15,18 +15,51 @@ for that work to happen. Run it **later** for work that belongs in the future: a
 reminder 24 hours after signup, a retry in 10 minutes, a reservation that
 expires at a set time.
 
+## When to use it
+
+- Do slow work in the background, like sending an email or building a report, and answer the caller right away.
+- Do something later: a reminder after 24 hours, a retry in 10 minutes, a reservation that expires at a set time.
+- Don't use it when you need the workflow's result. The block never gets an answer back. Put that work in this canvas instead.
+- Don't use it for something that must repeat on the clock. Create a [schedule](/concepts/schedules) on the **Triggers** page.
+- Don't use it for events you can't afford to lose. Use a queue with a [dedicated trigger](/concepts/triggers).
+
 ## Inputs
 
-| Field | What it does |
-|---|---|
-| **When** | **Now** (the default), **Later**, or **Cancel a scheduled run**. |
-| **Workflow** | The workflow to start. Pick it from the list. |
-| **Run at** | Only for **Later**. When the run should start — see [Running later](#running-later). Accepts a `js:` expression. |
-| **Schedule id** | Only for **Cancel**. The id a **Later** block gave back. Accepts a `js:` expression. |
-| **Use incoming value** | Send the previous block's output instead of the data below. |
-| **Data** | What the workflow receives. Accepts a `js:` expression. |
+| Field | Required | Default | What it does |
+|---|---|---|---|
+| **When** | No | **Now** | **Now**, **Later**, or **Cancel a scheduled run**. |
+| **Workflow** | Yes, except for **Cancel** | none | The workflow to start. Pick it from the list. It must be active. |
+| **Run at** | For **Later** | none | When the run should start, see [Running later](/blocks/trigger-workflow#running-later). Accepts a `js:` expression. |
+| **Schedule id** | For **Cancel** | none | The id a **Later** block gave back. Accepts a `js:` expression. |
+| **Use incoming value** | No | off | Send the previous block's output instead of the data below. |
+| **Data** | No | empty | What the workflow receives. Accepts a `js:` expression. |
+| **Max attempts**, **Retry delay** (Retry tab) | No | `5`, `10` seconds | How failed runs are retried, see [Retry](/blocks/trigger-workflow#retry). |
 
-## Logic
+## Outputs
+
+| Handle | When it is used |
+| --- | --- |
+| **Next** (right) | Right after the run is queued. The next block runs without waiting for the workflow. |
+
+| When | What the next block receives |
+| --- | --- |
+| **Now** | Exactly what this block received. |
+| **Later** | A handle with the run's `id` and `runAt` (see below). |
+| **Cancel a scheduled run** | Exactly what this block received. |
+
+## Example
+
+After a sign-up, send a welcome email in the background.
+
+| Field | Value |
+| --- | --- |
+| When | Now |
+| Workflow | `send-welcome-email` |
+| Data | `{ "userId": "js: input.id", "email": "js: input.email" }` |
+
+The route goes straight on to its [Response](./response.md) while the `send-welcome-email` workflow runs on a worker. To send a reminder the next day as well, add a second block with **When** `Later` and **Run at** `24h`.
+
+## How it behaves
 
 1. The block works out what to send — the incoming value, or the data you set.
 2. It queues a run of the chosen workflow with that data.
@@ -35,7 +68,7 @@ expires at a set time.
 The workflow starts on a worker some moment later. It gets its own time limit,
 its own retries, and its own logs.
 
-## Running later {#running-later}
+## Running later
 
 Set **When** to **Later** and say when in **Run at**. The field accepts three
 kinds of value:
@@ -124,7 +157,7 @@ A scheduled run:
 - **Survives restarts.** Stopping or redeploying Fluxify does not lose it. If the
   system is down when the time comes, the run starts as soon as it is back.
 - **Runs once.** However many workers you have, it starts a single time, then
-  follows the same [retry](#retry) settings as a run started now.
+  follows the same [retry](/blocks/trigger-workflow#retry) settings as a run started now.
 - **Is checked when the block runs, not when it fires.** The size limit applies
   at scheduling time. If the workflow is deleted or deactivated before the time
   comes, the run is skipped and a warning is logged.
@@ -180,7 +213,7 @@ Pass an id and let the workflow load the rest. If you genuinely need to move
 large payloads, use a dedicated trigger with an integration built for it.
 :::
 
-## Notes
+## Other notes
 
 - The workflow must be **active**, or the run has nothing to run on.
 - Nothing comes back from the workflow. If you need the answer, the work belongs
@@ -188,3 +221,10 @@ large payloads, use a dedicated trigger with an integration built for it.
   id — that is a handle to the run, not its result.)
 - Inside the workflow the data arrives as usual — see
   [Triggers](/concepts/triggers) for what the workflow reads.
+
+## Related blocks
+
+- [Orchestrator](./orchestrator.md): run chains in parallel and wait for their results.
+- [If Condition](./if-condition.md): branch on where a run came from.
+- [HTTP Request](./http-request.md): call another service and wait for its answer.
+- [Workflows](/concepts/workflows), [Triggers](/concepts/triggers) and [Schedules](/concepts/schedules): the ideas behind this block.
