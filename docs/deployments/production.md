@@ -31,7 +31,7 @@ always come from the same build. Never mix versions between them.
 
 | Tag | What it is |
 | :--- | :--- |
-| `v0.1.0-alpha.1` | One exact release. **Pin this** for anything you care about. |
+| `%%RELEASE_TAG%%` | One exact release. **Pin this** for anything you care about. |
 | `alpha` | Moves to the newest pre-release. Convenient while Fluxify is pre-1.0. |
 | `latest` | The newest stable release. **Does not exist yet** — the first 1.0 release creates it. |
 
@@ -387,7 +387,7 @@ SEED_USER_NAME=Admin User
 
 #====================== WORKERS ======================
 # The image the orchestrator creates workers from. Use the same tag as admin.
-ORCHESTRATOR_WORKER_IMAGE=ghcr.io/fluxify-rest/fluxify-worker:v0.1.0-alpha.1
+ORCHESTRATOR_WORKER_IMAGE=ghcr.io/fluxify-rest/fluxify-worker:%%RELEASE_TAG%%
 ```
 
 > [!WARNING]
@@ -418,9 +418,9 @@ same tag as `ORCHESTRATOR_WORKER_IMAGE`:
 
 ```yaml
   admin:
-    image: ghcr.io/fluxify-rest/fluxify-admin:v0.1.0-alpha.1
+    image: ghcr.io/fluxify-rest/fluxify-admin:%%RELEASE_TAG%%
   orchestrator:
-    image: ghcr.io/fluxify-rest/fluxify-orchestrator:v0.1.0-alpha.1
+    image: ghcr.io/fluxify-rest/fluxify-orchestrator:%%RELEASE_TAG%%
 ```
 
 ### Ports and HTTPS {#ports}

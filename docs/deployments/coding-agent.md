@@ -104,7 +104,7 @@ My setup:
   plain HTTP to this server>
 - Postgres: <create it with the compose file / use mine at postgres://...>
 - NATS and Valkey: <create them with the compose file / use mine at ...>
-- Images: released images, version <v0.1.0-alpha.1>, the same tag for admin,
+- Images: released images, version <%%RELEASE_TAG%%>, the same tag for admin,
   orchestrator and worker
 - Edition: <community / non-commercial / enterprise, key in ...>
 - Workers: <one worker for every project / one route and one workflow worker /
