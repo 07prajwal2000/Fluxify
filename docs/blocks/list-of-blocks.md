@@ -13,7 +13,8 @@ Control the path of your workflow.
 - [**Entrypoint**](./entrypoint.md): The start of every workflow.
 - [**If Condition**](./if-condition.md): Branch logic based on rules.
 - [**Switch**](./switch.md): Pick one of several paths, first matching case wins.
-- [**For Loop**](./for-loop.md): Iterate over lists or numbers.
+- [**For Loop**](./for-loop.md): Repeat actions a set number of times.
+- [**For Each Loop**](./foreach-loop.md): Run blocks once for every item in a list.
 - [**Orchestrator**](./orchestrator.md): Run block chains in parallel.
 - [**Error Handler**](./error-handler.md): Catch and manage failures.
 - [**Response**](./response.md): Return data to the caller and end the flow.

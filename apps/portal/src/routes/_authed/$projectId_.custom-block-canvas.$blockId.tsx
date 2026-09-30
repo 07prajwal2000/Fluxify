@@ -23,11 +23,15 @@ export const Route = createFileRoute("/_authed/$projectId_/custom-block-canvas/$
 	),
 	beforeLoad: async ({ params, context }) => {
 		try {
-			const blocks = await context.queryClient.ensureQueryData({
+			const query = {
 				queryKey: ["custom-blocks", params.projectId],
 				queryFn: () => customBlocksService.getAll(params.projectId),
-			});
-			const block = blocks?.find((b: { id: string }) => b.id === params.blockId);
+			};
+			const has = (list?: { id: string }[]) => list?.some((b) => b.id === params.blockId);
+			// the cached list can predate this block (just created): refetch before giving up
+			const cached = await context.queryClient.ensureQueryData(query);
+			const block =
+				has(cached) || has(await context.queryClient.fetchQuery({ ...query, staleTime: 0 }));
 			if (!block) {
 				toast.danger("Custom block not found");
 				throw redirect({

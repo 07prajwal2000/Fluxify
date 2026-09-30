@@ -6,11 +6,14 @@ import { useBlockDiagnostics } from "../diagnostics";
 import { diagnosticSourceLabel } from "../diagnostics/types";
 import type { BlockNode } from "../types";
 import { BlockDescriptionField, BlockNameInput } from "./BlockIdentityFields";
+import { DocsTab } from "./docs/DocsTab";
 import { SaveOutputField, savesOutput } from "./SaveOutputField";
 
 /** Every block has this tab; block tabs are appended after it. */
 export const GENERAL_TAB = "General";
 export const DIAGNOSTICS_TAB = "Diagnostics";
+/** Always last, pinned to the far end of the tab row. */
+export const DOCS_TAB = "Docs";
 
 export type BlockSettingsTabProps = {
 	/** Tab label, and its id. Use `General` to extend the built-in tab. */
@@ -80,6 +83,7 @@ export function BlockSettings({ block, initialTab, openSeq, children }: BlockSet
 	// General for good, so the tab coming back later doesn't pull focus to it
 	const exists =
 		wanted === GENERAL_TAB ||
+		wanted === DOCS_TAB ||
 		(wanted === DIAGNOSTICS_TAB && hasDiagnostics) ||
 		blockTabs.some((t) => t.props.name === wanted);
 	const selectedTab = exists ? wanted : GENERAL_TAB;
@@ -121,6 +125,10 @@ export function BlockSettings({ block, initialTab, openSeq, children }: BlockSet
 							<Tabs.Indicator />
 						</Tabs.Tab>
 					)}
+					<Tabs.Tab id={DOCS_TAB} className="fx-panel__tab--end">
+						{DOCS_TAB}
+						<Tabs.Indicator />
+					</Tabs.Tab>
 				</Tabs.List>
 			</Tabs.ListContainer>
 
@@ -183,6 +191,9 @@ export function BlockSettings({ block, initialTab, openSeq, children }: BlockSet
 					</div>
 				</Tabs.Panel>
 			)}
+			<Tabs.Panel id={DOCS_TAB} className="fx-panel__tab-panel">
+				<DocsTab type={block.type ?? ""} />
+			</Tabs.Panel>
 		</Tabs>
 	);
 }

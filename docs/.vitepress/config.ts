@@ -168,6 +168,7 @@ export default withMermaid(
 							{ text: "If Condition", link: "/blocks/if-condition" },
 							{ text: "Switch", link: "/blocks/switch" },
 							{ text: "For Loop", link: "/blocks/for-loop" },
+							{ text: "For Each Loop", link: "/blocks/foreach-loop" },
 							{ text: "Orchestrator", link: "/blocks/orchestrator" },
 							{ text: "Error Handler", link: "/blocks/error-handler" },
 							{ text: "JS Runner", link: "/blocks/js-runner" },

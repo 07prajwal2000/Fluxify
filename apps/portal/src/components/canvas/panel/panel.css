@@ -235,7 +235,8 @@ html[data-theme="dark"] .fx-panel,
    page-sized and stretch to fill the row; in a side panel they sit inline and
    compact, so the size slots are overridden here. */
 .fx-panel__tabs .tabs__list {
-	width: auto;
+	/* full width so the Docs tab can sit at the far end */
+	width: 100%;
 	min-width: 0;
 }
 
@@ -245,6 +246,10 @@ html[data-theme="dark"] .fx-panel,
 	flex: 0 0 auto;
 	padding-inline: 10px;
 	font-size: 12px;
+}
+
+.fx-panel__tabs .tabs__tab.fx-panel__tab--end {
+	margin-left: auto;
 }
 
 .fx-panel__tabs {

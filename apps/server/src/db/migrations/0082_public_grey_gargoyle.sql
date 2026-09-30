@@ -1,0 +1,1 @@
+ALTER TABLE "custom_blocks_list" ADD COLUMN "docs" text;

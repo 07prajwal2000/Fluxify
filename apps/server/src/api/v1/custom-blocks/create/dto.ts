@@ -63,6 +63,8 @@ export const baseRequestBodySchema = z.object({
 	inputParams: z.array(inputParamSchema).optional(),
 	/** only for a test suite's setup/teardown (#483) */
 	testOnly: z.boolean().optional(),
+	/** markdown for the settings panel Docs tab (#526) */
+	docs: z.string().max(100_000).nullish(),
 });
 
 export const validatePremadeIcon = (data: any, ctx: z.RefinementCtx) => {
