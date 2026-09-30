@@ -320,6 +320,7 @@ export default withMermaid(
 							{ text: "Self-Hosting", link: "/deployments/" },
 							{ text: "Quick Run (Kit)", link: "/deployments/kit" },
 							{ text: "Production (Admin + Workers)", link: "/deployments/production" },
+							{ text: "Deploy with a Coding Agent", link: "/deployments/coding-agent" },
 							{ text: "Editions", link: "/deployments/editions" },
 							{ text: "Licenses & Contributions", link: "/deployments/licensing" },
 							{ text: "Self-Signed Licenses (pre-1.0)", link: "/deployments/self-signed-license" },

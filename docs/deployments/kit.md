@@ -1,6 +1,6 @@
 ---
 title: Quick Run with the Kit Image
-description: Run all of Fluxify in a single container using the fluxify-kit image — ideal for local trials, demos, and evaluation. Includes a batteries-included single command and a Docker Compose stack.
+description: Run all of Fluxify in a single container using the fluxify-kit image — for prototypes and testing only, never production. Includes a batteries-included single command and a Docker Compose stack.
 ---
 
 # Quick Run with the Kit Image
@@ -10,12 +10,11 @@ container: the admin API, the request worker, the dashboard, the AI gateway, and
 a built-in proxy. It also ships its own database, cache, and event bus, so you
 can start the whole thing with one command and nothing else installed.
 
-One container, one port, one command — perfect for **local trials, demos, and
-evaluation**.
+One container, one port, one command — for **prototypes and testing only**.
 
-> [!TIP]
-> Running a real production instance? Use the [Production Setup](./production)
-> instead — it separates the control plane from replicated workers so you can
+> [!WARNING]
+> **Not for production**, not even on a single machine. Use the
+> [Production Setup](./production) instead — it separates the control plane from replicated workers so you can
 > scale request handling independently.
 
 ---
@@ -26,7 +25,7 @@ evaluation**.
 | :--- | :--- |
 | Containers to run | 1 (or 4, if you supply your own database, cache, and event bus) |
 | Public port | `8080` |
-| Best for | Trials, demos, single-machine self-hosting |
+| Best for | Prototypes and testing only. Not production. |
 | Scaling | Vertical only (bigger machine) |
 
 Traffic enters on port `8080` and is routed for you:

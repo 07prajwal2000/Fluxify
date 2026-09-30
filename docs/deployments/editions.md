@@ -24,6 +24,29 @@ setting.
 A license key says which Enterprise features it includes. Most include all of
 them; the **License** page shows exactly what yours unlocks.
 
+## Workers per edition {#workers}
+
+On the Admin + Workers setup (Docker or Kubernetes), the edition also caps how
+many workers run at once, across every claim and every project:
+
+| Edition | Workers | What they can be |
+| :--- | :---: | :--- |
+| **Community** | 1 | One worker that serves every project and does both jobs (`both`). |
+| **Non-commercial** | 2 | Any type, for any project. For example one `route` worker for your APIs and one `workflow` worker for background work, or one `both` worker per project. |
+| **Enterprise** | No limit | Any type, for any project, and claims can autoscale. |
+
+A second cap applies too: the **node pool**, in **Instance settings →
+Orchestration**. It is how many workers this instance is willing to run, and it
+starts at 2. The smaller of the two wins, so raise the pool when an Enterprise
+license should run more.
+
+A claim that asks for more than fits is kept, and its workers wait as pending
+until room frees up. A new instance runs **non-commercial**, so it can run two
+workers from the start. An Enterprise license that expires keeps its workers
+through the grace period, then drops to the Community limit.
+
+The Kit image has no workers to cap: it always runs its one built-in worker.
+
 ## Picking your edition
 
 System admins manage the edition under **Instance Settings → License**. The
