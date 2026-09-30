@@ -1,18 +1,51 @@
 ---
 title: Set HTTP Header
-description: Add a custom header to the response.
+description: Add a header to the response that goes back to the caller.
 ---
 
 # Set HTTP Header
 
-The **Set HTTP Header** block allows you to include additional information in your response to the client.
+The **Set HTTP Header** block adds one header to the response, like `Cache-Control` or `X-Request-Id`. Your data passes through it untouched.
+
+## When to use it
+
+- Tell the caller or a cache how to treat the answer: `Cache-Control`, `Content-Language`.
+- Add your own tracking header, like `X-Request-Id`.
+- Don't use it for cookies. Use [Set HTTP Cookie](./set-http-cookie.md).
+- Don't use it to send a header to another service. Put it in the **Headers** field of [HTTP Request](./http-request.md).
 
 ## Inputs
 
-- **Name**: The name of the header.
-- **Value**: The content of the header.
+| Field | Required | Default | What it does |
+| --- | --- | --- | --- |
+| **Name** | Yes | none | The header name, for example `Cache-Control`. Can be a JS expression. |
+| **Value** | Yes | none | The header value, for example `no-store`. Can be a JS expression. |
 
-## Logic
+## Outputs
 
-1.  The block adds the specified header to the HTTP response.
-2.  This header will be sent back to the client when the workflow finishes.
+| Handle | When it is used |
+| --- | --- |
+| **Next** (right) | Always. The next block receives exactly what this block received. |
+
+## Example
+
+Stop caches from keeping the answer.
+
+| Name | Value |
+| --- | --- |
+| `Cache-Control` | `no-store` |
+
+The response that the [Response](./response.md) block sends carries the header `Cache-Control: no-store`.
+
+## How it behaves
+
+- **The header is sent with the final response.** Put the block anywhere before the [Response](./response.md) block.
+- **Data passes through.** The block does not change `input`.
+- **Setting the same name again replaces the earlier value.**
+- **It only works for API routes.** A workflow has no caller to send a header to.
+
+## Related blocks
+
+- [Set HTTP Cookie](./set-http-cookie.md): send a cookie.
+- [Response](./response.md): sends the final answer, with the headers you set.
+- [Get HTTP Header](./get-http-header.md): read a header from the request.

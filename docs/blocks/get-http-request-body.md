@@ -1,6 +1,6 @@
 ---
 title: Get HTTP Request Body
-description: Access the data sent in the request body.
+description: Read the body of the incoming request, as JSON, form fields or files.
 ---
 
 # Get HTTP Request Body
@@ -9,11 +9,24 @@ The **Get HTTP Request Body** block returns the body of the incoming request,
 already turned into something you can work with. What you get depends on the
 content type the caller used.
 
+## When to use it
+
+- Read the data a caller sent with a `POST`, `PUT` or `PATCH`: a JSON document, a form, or an uploaded file.
+- Read the body again later in the flow. The [Entrypoint](./entrypoint.md) also starts the flow with the body, but later blocks replace it.
+- Don't use it for URL values. Use [Get HTTP Param](./get-http-param.md).
+- Don't use it for headers or cookies. Use [Get HTTP Header](./get-http-header.md) or [Get Request Cookie](./get-request-cookie.md).
+
 ## Inputs
 
 None. The block always reads the body of the request that started the workflow.
 
-## What the block returns
+## Outputs
+
+| Handle | When it is used |
+| --- | --- |
+| **Next** (right) | Always. The next block receives the body, in the shape shown below. |
+
+What you get depends on the content type the caller used:
 
 | Caller sends | You get |
 | :--- | :--- |
@@ -71,8 +84,28 @@ with `413` and your workflow never starts. See
 [request body size](../deployments/production.md#request-body-size) for how to
 change the cap and why large uploads belong somewhere else.
 
-## Logic
+## Example
+
+A caller sends `POST /orders` with `Content-Type: application/json`:
+
+```json
+{ "orderId": "A-1024", "items": [{ "sku": "x1", "qty": 2 }] }
+```
+
+The next block receives that same object, so it can read `input.orderId`.
+
+## How it behaves
 
 1. The caller's content type is checked against the formats the route accepts.
 2. The body is read and turned into the value shown in the table above.
 3. That value becomes the block's output, ready for the blocks after it.
+
+- **It replaces the flowing data.** The next block's `input` is the body, not what came before. Store earlier data first with [Set Variable](./set-var.md).
+- **No body is not an error.** A request without a body gives `null`.
+
+## Related blocks
+
+- [Entrypoint](./entrypoint.md): the flow starts with this same body.
+- [Get HTTP Param](./get-http-param.md): read query and path values.
+- [JS Runner](./js-runner.md): read files and work with the body in code.
+- [If Condition](./if-condition.md): check that a required field is present.

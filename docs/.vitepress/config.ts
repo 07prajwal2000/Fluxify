@@ -162,7 +162,7 @@ export default withMermaid(
 						],
 					},
 					{
-						text: "Logic",
+						text: "Logic & Flow",
 						items: [
 							{ text: "Entrypoint", link: "/blocks/entrypoint" },
 							{ text: "If Condition", link: "/blocks/if-condition" },
@@ -171,29 +171,30 @@ export default withMermaid(
 							{ text: "For Each Loop", link: "/blocks/foreach-loop" },
 							{ text: "Orchestrator", link: "/blocks/orchestrator" },
 							{ text: "Error Handler", link: "/blocks/error-handler" },
-							{ text: "JS Runner", link: "/blocks/js-runner" },
-							{ text: "Transformer", link: "/blocks/transformer" },
+							{ text: "Response", link: "/blocks/response" },
+						],
+					},
+					{
+						text: "Data",
+						items: [
+							{ text: "Set Variable", link: "/blocks/set-var" },
+							{ text: "Get Variable", link: "/blocks/get-var" },
 							{ text: "Array Operations", link: "/blocks/array-operations" },
+							{ text: "Transformer", link: "/blocks/transformer" },
+							{ text: "JS Runner", link: "/blocks/js-runner" },
+							{ text: "JS Runner Examples", link: "/blocks/js-runner-examples" },
 						],
 					},
 					{
 						text: "HTTP",
 						items: [
-							{ text: "Response", link: "/blocks/response" },
 							{ text: "HTTP Request", link: "/blocks/http-request" },
+							{ text: "Get Query/Path Param", link: "/blocks/get-http-param" },
 							{ text: "Get Header", link: "/blocks/get-http-header" },
-							{ text: "Get Query Param", link: "/blocks/get-http-param" },
 							{ text: "Get Request Body", link: "/blocks/get-http-request-body" },
 							{ text: "Set HTTP Header", link: "/blocks/set-http-header" },
 							{ text: "Get Cookie", link: "/blocks/get-request-cookie" },
 							{ text: "Set Cookie", link: "/blocks/set-http-cookie" },
-						],
-					},
-					{
-						text: "Variables",
-						items: [
-							{ text: "Get Variable", link: "/blocks/get-var" },
-							{ text: "Set Variable", link: "/blocks/set-var" },
 						],
 					},
 					{
@@ -207,9 +208,12 @@ export default withMermaid(
 							{ text: "DB Insert Bulk", link: "/blocks/db-insert-bulk" },
 							{ text: "DB Update", link: "/blocks/db-update" },
 							{ text: "DB Delete", link: "/blocks/db-delete" },
-							{ text: "DB Native", link: "/blocks/db-native" },
 							{ text: "DB Transaction", link: "/blocks/db-transaction" },
 							{ text: "Rollback Transaction", link: "/blocks/db-rollback" },
+							{ text: "DB Native", link: "/blocks/db-native" },
+							{ text: "Conditions", link: "/blocks/db-conditions" },
+							{ text: "Joins", link: "/blocks/db-joins" },
+							{ text: "Sorting & Paging", link: "/blocks/db-paging-sorting" },
 						],
 					},
 					{
@@ -227,7 +231,7 @@ export default withMermaid(
 						],
 					},
 					{
-						text: "Misc",
+						text: "Utility",
 						items: [
 							{ text: "Trigger Workflow", link: "/blocks/trigger-workflow" },
 							{ text: "Sticky Note", link: "/blocks/sticky-note" },

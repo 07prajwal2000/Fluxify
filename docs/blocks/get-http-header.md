@@ -1,17 +1,51 @@
 ---
 title: Get HTTP Header
-description: Retrieve a specific header from the incoming request.
+description: Read one header from the incoming request.
 ---
 
 # Get HTTP Header
 
-The **Get HTTP Header** block lets you read headers sent with the request, such as authentication tokens or content types.
+The **Get HTTP Header** block reads one header from the request that started the flow, like `Authorization` or `User-Agent`, and passes its value to the next block.
+
+## When to use it
+
+- Read an API key or token that the caller sent.
+- Check what kind of client is calling, with `User-Agent` or `Accept-Language`.
+- Don't use it for data in the URL. Use [Get HTTP Param](./get-http-param.md) for that.
+- Don't use it for data in the body. Use [Get HTTP Request Body](./get-http-request-body.md).
+- Don't use it for cookies. Use [Get Request Cookie](./get-request-cookie.md).
 
 ## Inputs
 
-- **Name**: The name of the header.
+| Field | Required | Default | What it does |
+| --- | --- | --- | --- |
+| **Name** | Yes | none | The header to read. Can be a JS expression. Capital letters don't matter: `Authorization` and `authorization` are the same header. |
 
-## Logic
+## Outputs
 
-1.  The block searches the request headers for the given **Name**.
-2.  It returns the value of that header.
+| Handle | When it is used |
+| --- | --- |
+| **Next** (right) | Always. The next block receives the header's value as text. |
+
+## Example
+
+The caller sent `Authorization: Bearer abc123`.
+
+| Field | Value |
+| --- | --- |
+| Name | `Authorization` |
+
+The next block receives `"Bearer abc123"` as its `input`.
+
+## How it behaves
+
+- **A missing header is empty text.** If the caller didn't send it, the value is `""`. It is not an error. Check it with an [If Condition](./if-condition.md) using **Is Empty/Null**.
+- **It replaces the flowing data.** The next block's `input` is the header value, not what came before. To keep earlier data, store it first with [Set Variable](./set-var.md).
+- **Read-only.** It never changes the request.
+
+## Related blocks
+
+- [Get Request Cookie](./get-request-cookie.md): read a cookie instead.
+- [Get HTTP Param](./get-http-param.md): read a query or path value.
+- [Set HTTP Header](./set-http-header.md): add a header to the response.
+- [If Condition](./if-condition.md): react to a missing or wrong value.

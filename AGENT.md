@@ -278,6 +278,18 @@ The `/docs` directory contains **user-facing documentation** — not a technical
 - Keep examples concrete and realistic — show inputs and outputs a user would actually see.
 - Ensure every page is self-contained enough that an AI agent reading it cold can understand what the feature does.
 
+### Block Pages (`docs/blocks/*.md`) Are Also Rendered in the Portal Docs Panel
+**Issue:** Each block's **Docs** tab inlines its `docs/blocks/<page>.md` (`apps/portal/.../panel/docs/blockDocs.ts` + `MarkdownViewer.tsx`). VitePress-only syntax that looks fine on the docs site breaks there, and a bad `description:` breaks the whole docs build.
+**Rules:**
+1. **Template.** Every block page: intro sentence, `## When to use it`, `## Inputs` (table with Required and Default), `## Outputs` (handles table), `## Example`, `## How it behaves`, `## Related blocks`. Read the block source for fields, defaults and handles; never guess.
+2. **Keep page file names.** `BLOCK_DOC_PAGES` maps each block type to a page, and `blockDocs.spec.ts` checks they exist. New sub-pages are fine; renames are not. A new block type needs a page before it typechecks.
+3. **No in-page `[text](#anchor)` links.** The panel opens every link in a new tab, so they go nowhere. Link as `/blocks/<page>#heading`; relative `./x.md` links are rewritten to `docs.fluxify.rest` automatically.
+4. **No `{#custom-id}` on headings.** The panel prints it as text. VitePress generates the same anchor from the heading text.
+5. **Only `::: info`, `::: tip`, `::: warning`, `::: danger`, tables, lists, code fences.** No `code-group`, `details`, HTML or images.
+6. **Frontmatter values must not contain `: `** (colon + space) unless quoted, or YAML fails and the docs build stops.
+7. **Keep pages short.** The panel is narrow. Move long reference material to its own page (`db-conditions`, `db-joins`, `db-paging-sorting`, `js-runner-examples`).
+8. **Check:** `bun run docs:build` (temporarily set `ignoreDeadLinks: false` to see dead links, then restore it) and `bun test` in `apps/portal` for `panel/docs`.
+
 ---
 
 ## Codebase Discovery

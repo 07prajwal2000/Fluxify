@@ -1,89 +1,81 @@
 ---
 title: DB Get Single
-description: Retrieve a single record from a database.
+description: Fetch exactly one record from a database table, like a lookup by id or email.
 ---
 
 # DB Get Single
 
-The **DB Get Single** block fetches exactly one record from a table. This is best used when you are looking up a specific item by its unique ID.
+The **DB Get Single** block looks up one record in a table and passes it on. When several records match, it returns the first one, in the order you choose.
+
+## When to use it
+
+- Look up one item by a unique value: an id, an email, a token.
+- Find the newest or oldest record, by sorting and taking the first.
+- Don't use it for lists. [DB Get All](./db-get-all.md) returns many records.
+- Don't use it only to check that something exists. [DB Row Exists](./db-row-exists.md) gives a success and a failure path in one block.
 
 ## Inputs
 
-- **Connection**: The database integration.
-- **Table Name**: The table to query.
-- **Conditions**: Rules to find the specific record. A condition whose value is `undefined` is skipped, and the **Custom** operator lets you write the condition yourself — see [Operators](/blocks/db-get-all#operators), [Groups](/blocks/db-get-all#groups-brackets), [Optional filters](/blocks/db-get-all#optional-filters) and [Custom conditions](/blocks/db-get-all#custom-conditions).
-- **Joins**: Other tables to combine with this query (SQL databases only — see [Joins](#joins) below).
-- **Columns**: Which columns to return (see [Columns](#columns) below). Leave empty to return every column.
-- **Sort**: Which record to pick when several match — for example `created_at` Desc for the newest. Same list as [DB Get All's sort](/blocks/db-get-all#sort). With no sort, any matching record may come back.
-- **Strict: exactly one match** (checkbox, off by default): fail the block when more than one record matches, instead of returning one of them. Turn it on for lookups that should be unique, like an id, email or token, so a duplicate shows up as an error rather than a silently wrong record. No match still returns nothing, as usual.
-
-## Logic
-
-1.  The block searches the **Table Name**, combining in any **Joins**.
-2.  It sorts the records that match the **Conditions** by **Sort**, if set, and takes the first one.
-3.  It returns that single record, limited to the selected **Columns**.
-
-## Filtering nested / JSON fields
-
-If a column stores JSON data (for example a Postgres `jsonb` column or a MongoDB document field), you can filter on the values inside it using plain JavaScript-style access:
-
-- Use a dot to reach into a key: `attributes.age`
-- Use brackets to reach into a list: `tags[0]`, `items[0].name`
-
-Example: a condition on `attributes.age` with operator `>=` and value `18` matches a record where the `age` field inside `attributes` is 18 or higher. This works the same way whether the value is stored as a number or as a numeric-looking string.
-
-The value side of a condition can also point at a field instead of a fixed value — for example, checking that `attributes.age` is greater than or equal to `attributes.minAge` compares two fields on the same record. This has to be marked explicitly as a field reference; otherwise the value is always compared as-is, so an ordinary value that happens to contain dots (an email address, a version number, a domain) is matched exactly and never mistaken for a field name.
-
-::: info MongoDB
-Comparing two fields against each other is only available on SQL databases.
-:::
-
-## Joins
-
-Joins let you pull in data from a related table in the same lookup (PostgreSQL and MySQL; MongoDB has no joins yet).
-
-Each join needs:
-
-- **Table**: The other table to combine with.
-- **Alias** *(optional)*: A short name to refer to that table by. Useful when joining the same table more than once, or to keep column references short.
-- **On**: When a row of this table matches a row of the other. This is a list of conditions, built exactly like **Conditions**: the same operators, groups and custom conditions. A side can be a column of either table, or a fixed value.
-- **Type**: which rows come back.
-
-| Type | Rows returned | PostgreSQL | MySQL |
+| Field | Required | Default | What it does |
 | --- | --- | --- | --- |
-| **Inner** | Only rows that match on both sides | Yes | Yes |
-| **Left** | Every row of this table; the other table's columns are empty when nothing matches | Yes | Yes |
-| **Right** | Every row of the joined table; this table's columns are empty when nothing matches | Yes | Yes |
-| **Full** | Every row of both tables, matched where they can be | Yes | No |
+| **Connection** | Yes | none | The database integration to use. |
+| **Table Name** | Yes | none | The table (or collection) to read. |
+| **Conditions** | No | none (any record) | Rules that find the record, see [DB Conditions](/blocks/db-conditions). A condition whose value is `undefined` is skipped. |
+| **Joins** | No | none | Other tables to combine, SQL only. See [DB Joins](/blocks/db-joins). |
+| **Columns** | No | every column | Which columns to return, see [Columns](/blocks/db-get-single#columns). |
+| **Sort** | No | none | Which record to pick when several match, for example `created_at` Desc for the newest. Works like [DB Get All's sort](/blocks/db-paging-sorting#sort). |
+| **Strict: exactly one match** | No | off | On: fail the block when more than one record matches, instead of returning one of them. |
+| **Save output to variable** | No | off | Store the record in `outputs.<name>`. |
 
-For example, to join each order to its rider, but only riders who are active:
+Turn **Strict** on for lookups that should be unique, like an id, email or token. A duplicate then shows up as an error, rather than as a silently wrong record.
 
-| Column | Operator | Value |
-| --- | --- | --- |
-| `orders.rider_id` | equals | column `riders.id` |
-| `riders.active` | equals | `true` |
+## Outputs
 
-::: info
-MySQL has no full join, so a graph with one on a MySQL connection cannot be saved. Use a left or right join instead.
-:::
+| Handle | When it is used |
+| --- | --- |
+| **Next** (right) | The query worked. The next block receives the record as an object, or `null` when nothing matches. |
 
-::: tip
-Like **Conditions**, an **On** condition whose value is `undefined` when the block runs is left out. If every condition of a join is left out, each row is paired with every row of the other table, so keep at least one column-to-column condition that always has a value.
-:::
+## Example
 
-Joins saved before **On** existed, written as `books.author_id = authors.id`, keep working as a single condition. A join type saved as `outer` means **Full**.
+Load the user behind a session cookie.
 
-Once a join is added, you can refer to columns from either table by prefixing them with the table name or alias, both in **Conditions** and **Columns** — for example `authors.name` or, with an alias `a`, `a.name`.
+| Field | Value |
+| --- | --- |
+| Connection | `main-db` |
+| Table Name | `sessions` |
+| Conditions | `token` `=` `js:input` |
+| Columns | `user_id`, `expires_at` |
+
+If the session exists, the next block receives:
+
+```json
+{ "user_id": 7, "expires_at": "2030-01-01T00:00:00.000Z" }
+```
+
+If it doesn't, the next block receives `null`. Use an [If Condition](./if-condition.md) to check it, for example with **Is Empty/Null**.
 
 ## Columns
 
 By default every column is returned. To narrow the result, list the columns you want:
 
-- `name` — a plain column
-- `books.title` — a column qualified by table (needed once you've added a join)
-- `books.title AS bookTitle` — rename a column in the output
-- `books.*` — every column from one table in a join
+- `name`: a plain column.
+- `books.title`: a column qualified by table (needed once you add a join).
+- `books.title AS bookTitle`: rename a column in the output.
+- `books.*`: every column from one table in a join.
 
-## Notes
+## How it behaves
 
-- MongoDB has no joins yet: a graph with joins on a MongoDB connection cannot be saved. **Columns** still works as a simple field selector.
+- **No match is `null`, not an error.** The flow continues on **Next** with a `null` input, so always handle the empty case.
+- **Without a sort, any matching record may come back.** Set **Sort** when several records can match and you care which one you get.
+- **Strict fails on duplicates.** With **Strict** on and more than one match, the block fails and the [Error Handler](./error-handler.md) runs. No match still returns `null`.
+- **Database errors** (bad connection, missing table or column) go to the [Error Handler](./error-handler.md).
+- **MongoDB:** it has no joins yet. A graph with joins on a MongoDB connection can't be saved.
+- **It replaces the flowing data.** The next block's `input` is the record, not what came before. Use **Save output to variable** to keep both.
+
+## Related blocks
+
+- [DB Get All](./db-get-all.md): fetch a list.
+- [DB Row Exists](./db-row-exists.md): branch on whether a record exists.
+- [DB Conditions](./db-conditions.md) and [DB Joins](./db-joins.md): the filter and join options in detail.
+- [DB Update](./db-update.md): change the record you found.
+- [If Condition](./if-condition.md): react to a missing record.

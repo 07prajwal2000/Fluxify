@@ -1,20 +1,58 @@
 ---
 title: Set Variable
-description: Store a value in the global context.
+description: Save a value under a name so later blocks can read it.
 ---
 
 # Set Variable
 
-The **Set Variable** block allows you to save a value into the application's global memory. This value can be a number, text, object, or even the result of a JavaScript expression. Once saved, you can retrieve it later using the **Get Variable** block.
+The **Set Variable** block saves a value under a name of your choice. Later blocks, including JS code, can read it by that name, even after other blocks have changed the flowing data.
+
+## When to use it
+
+- Keep a value you will need again later, like the logged-in user or a total.
+- Hold on to the data before a block that replaces it, like [Get HTTP Header](./get-http-header.md) or [HTTP Request](./http-request.md).
+- Collect results inside a loop, such as adding each round's result to a list.
+- Don't use it to store data between requests. Variables disappear when the request ends. Use a database or [KV Operations](./kv-operations.md) for that.
+- Don't use it to store secrets or settings. Use [App Config](../concepts/app-config.md).
 
 ## Inputs
 
-- **Key**: The name you want to give to this variable.
-- **Value**: The data you want to store. This can be static text, a number, or dynamic content using JavaScript (by starting with `js:`).
+| Field | Required | Default | What it does |
+| --- | --- | --- | --- |
+| **Key** | Yes | none | The name of the variable, for example `total`. Use letters, digits, `_` or `$`, and don't start with a digit, so scripts can read it by name. |
+| **Value** | Yes | none | What to store. A number, `true` or `false`, text, an object, or a JS expression such as `js: input.price * 2`. |
 
-## Logic
+Start a value with `js:` to calculate it. The previous block's output is available as `input`. Anything else is stored exactly as typed.
 
-1.  The block takes the **Value** you provide.
-2.  If the value starts with `js:`, it executes it as code to calculate the final result.
-3.  It saves this result under the name specified in **Key**.
-4.  The saved value is passed as the output of this block.
+## Outputs
+
+| Handle | When it is used |
+| --- | --- |
+| **Next** (right) | Always. The next block receives the value you just stored. |
+
+## Example
+
+The previous block returned `{ "price": 40, "qty": 3 }`. Save the order total.
+
+| Field | Value |
+| --- | --- |
+| Key | `total` |
+| Value | `js: input.price * input.qty` |
+
+`total` is now `120`, and the next block receives `120` as its `input`. Any later block can read it with [Get Variable](./get-var.md), or in JS simply as `total`.
+
+## How it behaves
+
+- **Only for this request.** Each request has its own variables. Two users never see each other's values, and the variables are gone once the response is sent.
+- **Setting a name again overwrites it.** The newest value wins.
+- **It replaces the flowing data.** The next block's `input` is the stored value, not what came before.
+- **JS can read and write them too.** A variable set here is a plain name in any JS code, and a name you assign in JS without `const` or `let` can be read with [Get Variable](./get-var.md).
+- **Shared by branches.** Blocks running in parallel in an [Orchestrator](./orchestrator.md) share the same variables, so two branches writing the same name race each other.
+- **Don't reuse built-in names** such as `input`, `logger` or `jwt`.
+
+## Related blocks
+
+- [Get Variable](./get-var.md): read the value back.
+- [Array Operations](./array-operations.md): add to or filter a list kept in a variable.
+- [For Each Loop](./foreach-loop.md): collect results across rounds.
+- [JS Runner](./js-runner.md): read and write variables in code.

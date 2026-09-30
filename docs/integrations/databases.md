@@ -80,11 +80,11 @@ The MongoDB database handle in [DB Native](/blocks/db-native) is the raw driver,
 
 ## Custom conditions
 
-The DB Get All, Get Single, Update and Delete blocks can use a **Custom** condition when the [built-in operators](/blocks/db-get-all#operators) (in, contains, between, is null, …) are not enough. What you write depends on the database:
+The DB Get All, Get Single, Update and Delete blocks can use a **Custom** condition when the [built-in operators](/blocks/db-conditions#operators) (in, contains, between, is null, …) are not enough. What you write depends on the database:
 
 | Database | You write | Example |
 | --- | --- | --- |
 | PostgreSQL, MySQL | SQL, with run-time values in `{{ }}` | `tags @> {{ input.tags }}` |
 | MongoDB | JavaScript returning a [query filter object](https://www.mongodb.com/docs/manual/tutorial/query-documents/) | `return { tags: { $all: input.tags } }` |
 
-See [Custom conditions](/blocks/db-get-all#custom-conditions) for the details.
+See [Custom conditions](/blocks/db-conditions#custom-conditions) for the details.
