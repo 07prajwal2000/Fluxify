@@ -1,3 +1,8 @@
+---
+title: Architecture
+description: How Fluxify turns a saved flow into JavaScript once and runs it on every request, for self-hosters and the curious.
+---
+
 # Architecture
 
 This section explains what happens between the moment you save a route and the

@@ -1,3 +1,8 @@
+---
+title: Request Lifecycle
+description: Follow one route from building and saving it, through compiling and loading on workers, to a user calling it.
+---
+
 # Request Lifecycle
 
 This page follows one route all the way through: you create it, you save it,

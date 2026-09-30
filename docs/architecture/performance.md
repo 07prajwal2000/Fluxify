@@ -1,3 +1,8 @@
+---
+title: Performance
+description: Benchmark results showing what compiling a flow once at save time is worth compared with interpreting it on every request.
+---
+
 # Performance
 
 The [Request Lifecycle](/architecture/request-lifecycle) page explains that

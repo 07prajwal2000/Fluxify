@@ -1,3 +1,8 @@
+---
+title: Workflows
+description: Background work built on a canvas like a route, started by a trigger, a schedule or by hand instead of a URL.
+---
+
 # Workflows
 
 A **workflow** is work that runs in the background. Nobody is waiting for the

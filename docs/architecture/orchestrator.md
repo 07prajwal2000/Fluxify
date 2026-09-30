@@ -1,3 +1,8 @@
+---
+title: The Orchestrator
+description: How the orchestrator starts and keeps the worker containers running on a production stack, and why it works the way it does.
+---
+
 # The Orchestrator
 
 Somebody has to start the worker containers. On a production stack, that
