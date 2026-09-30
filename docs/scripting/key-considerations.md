@@ -30,7 +30,7 @@ Every block in a workflow execution shares the **same mutable context object**. 
   ```
 ## 2. Missing `return` Statements
 
-All user scripts are implicitly wrapped in an Immediately Invoked Function Expression (IIFE).
+All user scripts are implicitly wrapped in an `async` function, which is why `await` always works and why a result must be returned.
 
 > [!WARNING]
 > If your script does not explicitly use a `return` statement, it will return `undefined`.

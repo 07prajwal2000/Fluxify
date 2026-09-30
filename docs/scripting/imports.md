@@ -18,11 +18,13 @@ The worker supervisor is intentionally strict about unhealthy execution. Its wat
 Write imports at the top of your script, exactly as you would in a normal JavaScript file:
 
 ```javascript
-import { randomUUID } from "crypto";
-import dayjs from "dayjs";
+import { randomUUID } from "crypto"; // built in to the runtime
+import dayjs from "dayjs";           // needs the dayjs npm package installed
 
 return { id: randomUUID(), at: dayjs().toISOString() };
 ```
+
+`crypto` ships with the runtime. `dayjs` does not: add it under **Project Settings > npm Packages** first, or the workflow fails to compile with an error naming the package.
 
 Every form of the syntax works:
 
@@ -55,7 +57,7 @@ This is why `import` is preferred over loading a module inside your code at runt
 | **npm packages** | Any package installed in **Project Settings > npm Packages**, at the version you chose. |
 | **Anything else** | Not available. Install the package first. |
 
-Importing a module that is not available fails the request with a clear error naming the module, rather than failing silently.
+Importing a package that is not installed fails with a clear error naming it (`Package "dayjs" is not installed in this project`), rather than failing silently.
 
 ## Imports Are Shared Across the Whole Workflow
 

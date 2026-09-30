@@ -43,7 +43,7 @@ Every API endpoint in Fluxify is powered by a **workflow**. The platform runs a 
 2. **Creates** a per-request [Execution Context](../concepts/context.md) — an isolated environment holding request data, global variables, DB connections, and the logger.
 3. **Runs** the native JavaScript emitted by the DAG compiler, passing each block's output as `input` to the next.
 4. **Handles errors** by routing to a configured Error Handler block if any block fails.
-5. **Enforces** a 4-second execution timeout to prevent runaway workflows.
+5. **Enforces** the route's timeout (30 seconds by default) to stop runaway workflows, when the experimental worker timeouts setting is on.
 6. **Returns** the final block's output as the HTTP response.
 
 For a deep dive, see the [Execution Engine](../concepts/execution-engine.md) documentation.

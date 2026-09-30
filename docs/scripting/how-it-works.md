@@ -14,32 +14,34 @@ When you save a workflow, the compiler prepares its script code in four steps:
 2. **Script integration**: Script blocks and `js:` expressions are transformed into the generated function with their request context and workflow state available at runtime.
 3. **Import analysis**: The AST parser finds static `import` declarations, hoists them from request-time code, and resolves them once during compilation.
 4. **Direct execution**: Workers receive the compiled handler and execute it directly in Bun for every matching request. Async code uses normal JavaScript `await` semantics.
-## Synchronous vs. Asynchronous Execution
+## Scripts Always Run Async
 
-Both synchronous logic and modern asynchronous JavaScript (`async/await`) are fully supported.
+Every script is wrapped in an `async` function before it is compiled. That means you never have to opt in to `await`: use it anywhere, in any script block or `js:` field, and the engine waits for the result before it moves to the next block.
 
-### Synchronous Script
-For plain computations, scripts run to completion in a single pass.
+### Plain computation
+A script with no `await` simply runs to the end and returns.
 ```javascript
-// Sync Execution
 const users = input.users || [];
-const activeUsers = _.filter(users, u => u.active);
+const activeUsers = users.filter((u) => u.active);
 return activeUsers.length;
 ```
 
-### Asynchronous Script
-For non-blocking operations, such as calling external APIs, the engine waits for the resolved output.
+### Waiting on something
+Use `await` for calls that take time, such as an external API.
 ```javascript
-// Async Execution
 const userId = getQueryParam("userId");
 const response = await httpClient.get(`https://api.example.com/users/${userId}`);
 return response.data;
 ```
+
+Returning a promise works too: the engine waits for it.
 ## Runtime Limits and Timeouts
 
-To maintain platform stability and protect server resources, script execution is constrained by a strict **4-second (4000ms) execution limit**:
+There is no separate time limit for a single script. The **whole run** has one:
 
-- **Synchronous code**: Keep computations bounded; an infinite loop blocks the route handler.
-- **Asynchronous code**: Awaited operations must resolve within the route execution limit or the request fails.
+- **Routes**: the route's timeout setting (30 seconds by default), enforced by the experimental worker watchdog when `experimental.workerTimeouts.enabled` is on.
+- **Workflows**: the workflow's own timeout setting (300 seconds by default).
 
-Any script that exceeds these limits will fail, halting execution of the current path unless custom error routing is defined.
+Keep computations bounded, because an infinite loop blocks the route handler. Give outgoing calls their own timeout, and wrap risky code in `try` and `catch`, or add an **Error Handler** block. See [Execution Limits & Safety](./key-considerations.md).
+
+Not sure which names your code can use in a given place? See [Where Your Code Runs](./environments.md).

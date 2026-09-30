@@ -7,6 +7,23 @@ description: Typed reference for the JavaScript APIs available in Fluxify workfl
 
 This is the API exposed to JS Runner, Transformer, and `js:` expressions. Fluxify's DAG compiler emits scripts into the generated Bun route handler.
 
+Every script runs inside an `async` function: `await` works anywhere, and `return` sends a value to the next block. Only `jwt` is built in as a library. Install anything else under **Project Settings > npm Packages** and `import` it.
+
+## Where each API is available
+
+| API | Route | Workflow | Custom block | Only in |
+| --- | --- | --- | --- | --- |
+| `input`, `outputs`, `trigger`, `logger`, `jwt`, `httpClient`, `getConfig`, `ValidationError` | Yes | Yes | Yes | |
+| `getRequestBody()` | Request body | Run payload | Caller's | |
+| `getQueryParam`, `getRouteParam`, `getHeader`, `getCookie`, `httpRequestMethod`, `httpRequestRoute` | Request values | Empty | Caller's | |
+| `setHeader`, `setCookie` | Yes | No effect | Caller's | |
+| `params` | No | No | Yes | Custom blocks |
+| `dbQuery` | No | No | No | DB Native block |
+| `kv` | No | No | No | KV Raw Connection block |
+| `testsuite` | No | No | No | Test-only custom blocks |
+
+"Caller's" means the route or workflow that uses the block. More in [Where Your Code Runs](./environments.md).
+
 ## Request values
 
 ```typescript
@@ -30,7 +47,7 @@ function getRequestBody(): any;
 | `getRouteParam` | `key: string` | `string` | Named route parameter, or `""` if absent. |
 | `getHeader` | `key: string` | `string` | Case-insensitive request header, or `""` if absent. |
 | `getCookie` | `key: string` | `string` | Request cookie, or `""` if absent. |
-| `getRequestBody` | — | `any` | Parsed request body. |
+| `getRequestBody` | — | `any` | Parsed request body, or `null` when there is none. In a workflow, the payload the run was given. |
 
 ```javascript
 const id = getRouteParam("id");
@@ -88,6 +105,69 @@ When a block has **Save output to variable** turned on, its output is stored in 
 return outputs.users.filter((user) => user.active);
 ```
 
+`outputs` is created when the first block saves something. If a block might run before any save, read it as `outputs?.users`.
+
+## Trigger
+
+```typescript
+interface TriggerEvent {
+  data: any;
+  meta: { id?: string; receivedAt?: string; source?: string; [key: string]: any };
+}
+
+const trigger: {
+  kind: "route" | "job" | "workflow" | "cron" | "trigger";
+  source: string;
+  reply: "sync" | "async";
+  id?: string;
+  data: TriggerEvent[];
+  meta: { batchId: string; size: number; firstReceivedAt?: string; lastReceivedAt?: string; attempt?: number };
+  connection?: {
+    raw: any;
+    commit(): Promise<void>;
+    moveToDLQ(error?: any): Promise<void>;
+    lag(): Promise<number | null>;
+  };
+};
+```
+
+| API | Returns | Description |
+| --- | --- | --- |
+| `trigger.kind` | `string` | `"route"` for an HTTP request, `"trigger"` for a workflow run, `"job"` for a queued custom block. `"workflow"` and `"cron"` are reserved. |
+| `trigger.source` | `string` | Where the work came from: `"http"`, `"internal"`, `"schedule"`, `"kafka"`, `"nats"` and so on. |
+| `trigger.reply` | `"sync" \| "async"` | Whether the caller waits for the answer. |
+| `trigger.id` | `string \| undefined` | Correlation id, when there is one. |
+| `trigger.data` | `TriggerEvent[]` | The events of the run. Always a list, even for one event. Workflows only. |
+| `trigger.meta` | object | Batch details. `size` is how many events. Workflows only. |
+| `trigger.connection` | object \| `undefined` | Kafka and NATS only. `commit()` marks the batch done, `moveToDLQ()` parks it, `lag()` counts what is waiting, and `raw` is the underlying client. Use `raw` with care. |
+
+```javascript
+if (trigger.source === "schedule") {
+  logger.logInfo("Nightly run");
+}
+return trigger.data.map((event) => event.data);
+```
+
+See [Triggers](../concepts/triggers.md#what-a-workflow-receives) for batching, and `input` for the one-event shortcut.
+
+## Custom block parameters
+
+```typescript
+const params: Record<string, any>; // the settings filled in where the block is used
+```
+
+`params` exists only inside a [custom block](../blocks/custom-blocks.md). Each setting is a key, for example `params.webhook_url`. An App Config selector holds the key name, so read the value with `getConfig(params.key_name)`.
+
+## Errors
+
+```typescript
+class ValidationError extends Error {
+  constructor(payload: any);
+}
+```
+
+Throw `ValidationError` from a **Use JavaScript** request validator to fail validation with your own payload, returned to the caller in `errors[].errors`. See [Routing](../getting-started/routing.md).
+
 ## JWT
 
 `jwt` is available globally and uses `jsonwebtoken` under the hood.
@@ -130,6 +210,8 @@ const httpClient: {
 };
 ```
 
+The promise rejects on a non-2xx answer or a network error. Pass a full URL.
+
 | Method | Parameters | Returns |
 | --- | --- | --- |
 | `get<T>` | `url: string`, `headers?: HttpHeaders` | `Promise<AxiosResponse<T>>` |
@@ -163,6 +245,28 @@ function dbQuery(query: string, params?: unknown[]): Promise<Record<string, unkn
 | API | Parameters | Returns | Description |
 | --- | --- | --- | --- |
 | `dbQuery` | `query: string`, `params?: unknown[]` | `Promise<rows[]>` | Runs a SQL query and returns the rows. Put values in `params` and use `$1` (PostgreSQL) or `?` (MySQL) placeholders. Available only in **DB Native** blocks. |
+
+## KV Raw Connection only
+
+```typescript
+const kv: any; // ioredis client for Redis, the memcached client for Memcached
+```
+
+`kv` is the raw client of the selected connection, so use that client's own methods, for example `await kv.incr("hits")`. Available only in **KV Raw Connection** blocks. See [KV Raw Connection](../blocks/kv-raw.md).
+
+## Test-only custom blocks
+
+```typescript
+const testsuite: {
+  phase: "setup" | "teardown";
+  runId: string;
+  suite: { id: string; name: string };
+  setup?: any;    // teardown only: what setup returned
+  outcome?: "passed" | "failed" | "error" | "timeout"; // teardown only
+};
+```
+
+`testsuite` exists only in a custom block marked **Use only for test suite setup / teardown**. See [Setup and Teardown](../testing/setup-and-teardown.md). Test hooks and checks use `t` and `fluxify` instead, see [Hooks](../testing/hooks.md).
 
 ## Import rules
 

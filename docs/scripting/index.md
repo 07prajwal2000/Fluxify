@@ -27,10 +27,13 @@ Scripting in Fluxify is divided into two main categories: **dedicated script blo
 - **Condition Chains**: Use Javascript expressions within conditional gates (like the **If** block or routing conditions) to evaluate complex truth/falsity assertions.
 ## Writing Scripts: The `return` Requirement
 
-Every script you write in Fluxify is implicitly wrapped and executed inside an **Immediately Invoked Function Expression (IIFE)**. 
+Every script you write in Fluxify is wrapped and executed inside an **`async` function**. That has two effects:
+
+- **`await` works anywhere.** You never have to set anything up to use it, so `const res = await httpClient.get(url);` is fine in any script.
+- **You must return your result.** See the note below.
 
 > [!IMPORTANT]
-> Because your scripts run inside an IIFE scope, **you must use an explicit `return` statement** to return any data from the script to the workflow. If you omit the `return` statement, the block evaluates to `undefined`, which may lead to errors in downstream blocks.
+> Because your script is a function body, **you must use an explicit `return` statement** to return any data from the script to the workflow. If you omit the `return` statement, the block evaluates to `undefined`, which may lead to errors in downstream blocks.
 
 ### Examples
 
@@ -53,7 +56,8 @@ const total = rawAmount * (1 + taxRate);
 
 To write effective scripts, you should be familiar with the following three concepts:
 
-- **[Scripting Context](./context.md)**: A global scope injected with helper functions (`getQueryParam`, `setHeader`, `jwt.sign`), third-party libraries (Zod, Underscore, Day.js), and workflow state variable definitions.
-- **[Imports & Libraries](./imports.md)**: Load modules with standard `import` syntax. Imports are hoisted, so they cost nothing per request.
+- **[Scripting Context](./context.md)**: A global scope injected with helper functions (`getQueryParam`, `setHeader`, `jwt.sign`), the `trigger` that started the run, and workflow state variable definitions.
+- **[Where Your Code Runs](./environments.md)**: Every place you can write JavaScript (routes, workflows, custom blocks, DB Native, test hooks) and which names exist in each.
+- **[Imports & Libraries](./imports.md)**: No libraries are built in apart from `jwt`. Install packages in **Project Settings > npm Packages** and load them with standard `import` syntax. Imports are hoisted, so they cost nothing per request.
 - **The `input` Variable**: A special local variable containing the outputs of the block immediately preceding the script block.
 - **[Execution Limits & Safety](./key-considerations.md)**: Runtime timeouts and defensive scripting practices for keeping routes reliable.

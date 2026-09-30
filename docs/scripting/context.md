@@ -7,7 +7,9 @@ description: "Complete reference for all global variables, functions, and object
 
 Every time your JavaScript code runs — whether inside a **JS Runner** block, a **Transformer**, or any field using a `js:` expression — it executes within a secure, pre-configured environment called the **Scripting Context**.
 
-This page is the complete reference for everything available in that environment.
+This page is the complete reference for everything available in that environment. To see which names exist in which place (route, workflow, custom block, DB Native and so on), read [Where Your Code Runs](./environments.md).
+
+> **Always async**: Your code runs inside an `async` function, so `await` works anywhere in it with no setup. Write `const res = await httpClient.get(url);` and carry on. You still need `return` to send a value to the next block.
 
 > **How it works**: The DAG compiler emits script code into the route handler and wires in the [Execution Context](../concepts/context.md). The helpers below are available directly in the generated handler, with no prefix and no VM layer.
 ## The `input` Variable
@@ -54,9 +56,9 @@ Blocks that produce data (HTTP Request, Transformer, Array Operations, database 
 return outputs.users.length;
 ```
 
-`outputs` is fresh for every request. A value saved in one request is never seen by another.
+`outputs` is fresh for every request. A value saved in one request is never seen by another. It is created when the first block saves something, so a block that may run before any save should read `outputs?.users`.
 
-> **Caution**: Variable names must not shadow built-in globals. Avoid names like `input`, `logger`, `jwt`, `getHeader`, etc.
+> **Caution**: Variable names must not shadow built-in globals. Avoid names like `input`, `outputs`, `trigger`, `params`, `logger`, `jwt`, `getHeader`, etc.
 ## HTTP Request Helpers
 
 Read data from the incoming HTTP request that triggered this workflow. All functions return `""` (empty string) if the requested value is not present.
@@ -71,6 +73,8 @@ Read data from the incoming HTTP request that triggered this workflow. All funct
 | `httpRequestMethod` | `string` (constant) | The HTTP method of the request: `"GET"`, `"POST"`, `"PUT"`, `"DELETE"`, etc. |
 | `httpRequestRoute` | `string` (constant) | The full path of the incoming request, e.g., `"/api/orders/99"`. |
 
+These describe an HTTP request, so in a **workflow** there is none: the `get...` helpers return `""`, `httpRequestMethod` is `""`, and `getRequestBody()` returns the payload the run was given. See [Routes and workflows](./environments.md#routes-and-workflows).
+
 **Examples:**
 ```javascript
 // Route: /products/:category?page=2
@@ -84,7 +88,7 @@ return body.amount * 1.1; // → 55
 ```
 ## HTTP Response Helpers
 
-Shape the response that will be sent back to the caller when the workflow completes.
+Shape the response that will be sent back to the caller when the route completes. In a workflow, or a route running in the background, there is no response and these do nothing.
 
 | Name | Signature | Description |
 | :--- | :--- | :--- |
@@ -161,8 +165,9 @@ httpClient.post<T>(url: string, data?: any, headers?: Record<string, string>): P
 httpClient.put<T>(url: string, data?: any, headers?: Record<string, string>): Promise<AxiosResponse<T>>
 httpClient.delete<T>(url: string, headers?: Record<string, string>): Promise<AxiosResponse<T>>
 httpClient.patch<T>(url: string, data?: any, headers?: Record<string, string>): Promise<AxiosResponse<T>>
-httpClient.native(): AxiosInstance  // Full Axios instance for advanced usage
 ```
+
+The promise rejects when the server answers with a non-2xx status or the call fails, so wrap it in `try` and `catch` if you want to handle that yourself. Always pass a full URL.
 
 ```javascript
 // Fetch data from an external API inside a JS Runner
@@ -229,24 +234,82 @@ const users = await dbQuery("SELECT id, name FROM users WHERE active = $1", [tru
 return users;
 ```
 
-Attempting to call `dbQuery` in a regular JS Runner block will result in a `ReferenceError`.
+Outside a DB Native block, `dbQuery` is not defined, and calling it fails.
+## Trigger
+
+`trigger` tells you what started the run. It is available everywhere, and it is most useful in workflows, where it holds the events a trigger collected.
+
+```javascript
+// Route: trigger.source === "http", trigger.data is not set
+// Workflow started by a Kafka trigger: trigger.source === "kafka"
+const events = trigger.data;           // always a list, even for one event
+logger.logInfo("Batch", { size: trigger.meta.size, source: trigger.source });
+return events.map((event) => event.data);
+```
+
+| Field | What it is |
+| :--- | :--- |
+| `trigger.kind` | `"route"` for an HTTP request, `"trigger"` for a workflow run, `"job"` for a queued custom block. |
+| `trigger.source` | Where the work came from: `"http"`, `"internal"` (Trigger Workflow block or **Run** button), `"schedule"`, or a queue such as `"kafka"` or `"nats"`. |
+| `trigger.reply` | `"sync"` when the caller waits for the answer, `"async"` for fire-and-forget. |
+| `trigger.id` | A correlation id, when there is one. |
+| `trigger.data` | The events, each as `{ data, meta: { id?, receivedAt?, source? } }`. Workflows only. |
+| `trigger.meta` | `{ batchId, size, firstReceivedAt?, lastReceivedAt?, attempt? }`. Workflows only. |
+| `trigger.connection` | Kafka and NATS only: `commit()`, `moveToDLQ(error?)`, `lag()`, and `raw`, the underlying client. |
+
+When exactly one event arrived, `input` is that event's payload, which is shorter than `trigger.data[0].data`. See [Triggers](../concepts/triggers.md) for batching and the queue controls.
+
+## Custom Block Parameters
+
+Inside a [custom block](../blocks/custom-blocks.md), `params` holds the settings filled in where the block is used:
+
+```javascript
+const url = params.webhook_url;
+const key = getConfig(params.api_key_name); // an App Config selector holds the key name
+```
+
+`params` is not defined in routes and workflows.
+
+## Raw Key-Value Client (KV Raw Block Only)
+
+`kv` is the raw Redis or Memcached client, and is available only inside the **KV Raw Connection** block. See [KV Raw Connection](../blocks/kv-raw.md).
+
+```javascript
+return await kv.incr("hits");
+```
+
+## Validation Errors
+
+`ValidationError` is available in every script. It is meant for **Use JavaScript** request validators: throw it to fail validation with your own message. Whatever you pass is returned to the caller in `errors[].errors`. See [Routing](../getting-started/routing.md).
+
+```javascript
+if (input.length < 8) {
+  throw new ValidationError({ message: "Password needs 8 or more characters" });
+}
+return true;
+```
 ## Runtime Constraints
 
 Scripts execute as part of the compiled route handler in Bun. The following constraints apply:
 
 | Constraint | Detail |
 | :--- | :--- |
-| **No Node.js globals** | `process`, `fs`, `require`, `__dirname`, etc. are not accessible. |
-| **Imports** | ES `import` statements are supported for built-in and bundled modules — see [Imports & Libraries](./imports.md). `require()` is not supported. |
-| **Execution timeout** | Scripts are killed after **4 seconds**. Design scripts to be fast. |
-| **No cross-request state** | Variables exist only for the duration of a single workflow run. |
-| **Async supported** | `async/await` is fully supported by the generated Bun handler. |
+| **Always async** | Your code runs inside an `async` function. `await` works anywhere in it, and you still need `return` to send a value on. |
+| **Libraries** | None are built in except `jwt`. Install packages in **Project Settings > npm Packages**, then `import` them. See [Imports & Libraries](./imports.md). |
+| **Imports** | ES `import` statements work for built-in modules and your installed packages. `require()` is not supported. |
+| **Globals** | The standard JavaScript and Bun globals work, such as `Math`, `JSON`, `Date`, `fetch`, `URL` and `crypto`. |
+| **Time limit** | There is no separate limit for one script. The route or workflow timeout covers the whole run. See [Where Your Code Runs](./environments.md#time-limits). |
+| **No cross-request state** | Variables exist only for the duration of a single run. |
 | **ES6+ syntax** | Modern JavaScript (arrow functions, destructuring, spread, etc.) is supported. |
 ## Quick Reference
 
 ```typescript
 // ─── Block Input ───────────────────────────────────────────────
 input                          // Output of the previous block
+outputs.name                   // Saved with "Save output to variable"
+trigger.source                 // What started the run ("http", "schedule", "kafka"...)
+trigger.data                   // Workflow events, always a list
+params.name                    // Custom blocks only: the block's settings
 
 // ─── HTTP Request ──────────────────────────────────────────────
 httpRequestMethod              // "GET" | "POST" | ...
@@ -255,7 +318,7 @@ getQueryParam("key")           // URL ?key=value
 getRouteParam("id")            // Route :id segment
 getHeader("Authorization")     // Request header
 getCookie("session")           // Request cookie
-getRequestBody()               // Parsed request body (POST/PUT only)
+getRequestBody()               // Parsed request body (a workflow: its payload)
 
 // ─── HTTP Response ─────────────────────────────────────────────
 setHeader("X-Custom", "val")
@@ -274,17 +337,29 @@ jwt.sign(payload, secret, options?)
 jwt.verify(token, secret, options?)
 jwt.decode(token, options?)
 
+// ─── Errors ───────────────────────────────────────────────────
+throw new ValidationError({ message: "..." }) // request validators
+
 // ─── npm packages ─────────────────────────────────────────────
 import { z } from "zod";       // any package installed in the project
 
+// ─── Always async ─────────────────────────────────────────────
+await httpClient.get(url)      // await works anywhere
+
 // ─── DB Native block only ─────────────────────────────────────
 dbQuery("SELECT ...")
+
+// ─── KV Raw Connection block only ─────────────────────────────
+kv.get("key")
 ```
 ## Technical Notes for LLMs and Developers
 
 - **Compilation mechanism**: The compiler emits the script alongside the route handler and provides context helpers directly to that generated code.
 - **`vars` is the canonical source**: Both built-in helpers and user-defined runtime variables live on the same `vars` object (`ContextVarsType & Record<string, any>`). User variables are simply additional keys added at runtime.
 - **`input` is per block**: The compiler carries each block's result forward as `input`; it changes with each block execution.
-- **`dbQuery` is block-scoped**: The compiler emits it only for DB Native blocks.
+- **Scripts are async functions**: each script is wrapped as `async function (input, params)`, so `await` is always valid and the result is whatever it returns.
+- **`dbQuery` and `kv` are block-scoped**: they exist only while a DB Native or KV Raw Connection block runs its code.
+- **`params` is per invocation**: a custom block reads it from its own call, so nested and concurrent calls never clash.
+- **Global lookup**: a bare name is read from the run's `vars` first, then from the standard JavaScript and Bun globals.
 - **Packages run on the server**: packages you install are imported by your scripts on the server, not in the browser.
 - **Imports are hoisted**: `import` statements are lifted out of your script and loaded once when the workflow is saved, not on each request.
