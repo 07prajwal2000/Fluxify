@@ -33,6 +33,22 @@ afterEach(() => {
 });
 
 describe("route middlewares", () => {
+	it("getResponseBody/Status keep the reply after input is reshaped", async () => {
+		register("drop", "return 'lost';");
+		register("restore", "return { status: getResponseStatus(), body: getResponseBody(), input };");
+		const ctx = createContext();
+		ctx.vars.getResponseBody = () => null;
+		ctx.vars.getResponseStatus = () => null;
+		const result = await runWithMiddlewares(ctx, 7, route, {
+			before: [],
+			after: [step("drop"), step("restore")],
+		});
+		expect(result?.output).toEqual({
+			httpCode: 200,
+			body: { status: 201, body: 7, input: "lost" },
+		});
+	});
+
 	it("chains before steps into the route and shares vars", async () => {
 		register("add_one", "user = 'ann'; return input + 1;");
 		register("times_two", "return input * 2;");

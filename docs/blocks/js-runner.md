@@ -34,6 +34,7 @@ Available as plain names in your code:
 | `trigger` | What started the run, and the events of a workflow run. |
 | `getRouteParam(k)`, `getQueryParam(k)`, `getHeader(k)`, `getCookie(k)`, `getRequestBody()` | Read the request. In a workflow, `getRequestBody()` is the run's payload and the others return `""`. |
 | `setHeader(k, v)`, `setCookie(name, options)` | Add to the response. |
+| `getResponseBody()`, `getResponseStatus()` | In an [after middleware](../concepts/middlewares.md#what-each-step-receives), the reply's body and status code. `null` anywhere else. |
 | `getConfig(key)` | Read a value from [App Config](../concepts/app-config.md). |
 | `httpClient` | Call other services. |
 | `logger` | `logInfo`, `logWarn` and `logError`. |

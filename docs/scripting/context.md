@@ -94,6 +94,8 @@ Shape the response that will be sent back to the caller when the route completes
 | :--- | :--- | :--- |
 | `setHeader(key, value)` | `(key: string, value: string) => void` | Sets a custom HTTP header on the outgoing response. |
 | `setCookie(name, options)` | `(name: string, options: CookieOptions) => void` | Sets a cookie on the outgoing response. |
+| `getResponseBody()` | `() => any` | In an [after middleware](../concepts/middlewares.md): the body of the reply the after chain started from, even once `input` has been reshaped. `null` anywhere else. |
+| `getResponseStatus()` | `() => number \| null` | In an after middleware: that reply's status code. `null` anywhere else. |
 
 #### `setCookie` Options
 
@@ -323,6 +325,8 @@ getRequestBody()               // Parsed request body (a workflow: its payload)
 // ─── HTTP Response ─────────────────────────────────────────────
 setHeader("X-Custom", "val")
 setCookie("name", { value, httpOnly, secure, ... })
+getResponseBody()              // After middlewares: the reply's body (else null)
+getResponseStatus()            // After middlewares: the reply's status code (else null)
 
 // ─── Utilities ────────────────────────────────────────────────
 logger.logInfo(...)

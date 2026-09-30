@@ -62,7 +62,7 @@ A middleware block:
 3. Check the **Review** step and press **Create middleware**.
 
 Each block can appear in a middleware only once. To change a middleware later,
-click it in the list, edit it, and press **Save**. The arrow next to each block
+click it in the list: it opens the same steps, with your settings filled in. Press **Save changes** when done. The arrow next to each block
 opens that block's canvas in a new tab.
 
 ### 3. Attach it to a route
@@ -85,6 +85,13 @@ block of one middleware feeds the first block of the next.
 | Each later step | The output of the step before it |
 | The route | The output of the last before middleware (or the request body if there are none) |
 | First after middleware | `{ httpCode, body }`: the route's status code and reply |
+
+In an after middleware, work on `input.body`, not `input`: the reply comes in
+wrapped with its status code. Once a block has reshaped `input`, the reply is
+still there: `getResponseBody()` returns its body and `getResponseStatus()` its
+status code, for the whole after chain. See
+[Response values](../scripting/javascript-api.md#response-values) and
+[Response in an after middleware](../blocks/response.md#in-an-after-middleware).
 
 Variables are shared too. A variable set in a middleware, for example the
 logged-in user, can be read by the later middlewares and by the route. You can

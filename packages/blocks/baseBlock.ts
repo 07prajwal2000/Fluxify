@@ -200,6 +200,10 @@ export interface ContextVarsType {
 	httpRequestMethod: string;
 	httpRequestRoute: string;
 	getRequestBody: () => any;
+	/** the reply an after middleware works on; null anywhere else */
+	getResponseBody?: () => any;
+	/** the reply's status code in an after middleware; null anywhere else */
+	getResponseStatus?: () => number | null;
 	httpClient: HttpClient;
 	/**
 	 * get the value of the app config
@@ -249,6 +253,8 @@ function getQueryParam(key: string): string;
 function getRouteParam(key: string): string;
 function getHeader(key: string): string;
 function getRequestBody(): any;  // POST/PUT body: JSON value, form object (files included), or null
+function getResponseBody(): any;           // after middlewares only: the reply's body (null elsewhere)
+function getResponseStatus(): number | null; // after middlewares only: the reply's status code (null elsewhere)
 
 // 3. Response Helpers
 function setHeader(key: string, value: string): void;

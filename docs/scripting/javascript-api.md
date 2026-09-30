@@ -17,12 +17,17 @@ Every script runs inside an `async` function: `await` works anywhere, and `retur
 | `getRequestBody()` | Request body | Run payload | Caller's | |
 | `getQueryParam`, `getRouteParam`, `getHeader`, `getCookie`, `httpRequestMethod`, `httpRequestRoute` | Request values | Empty | Caller's | |
 | `setHeader`, `setCookie` | Yes | No effect | Caller's | |
+| `getResponseBody()`, `getResponseStatus()` | `null` | `null` | `null` | After middlewares |
 | `params` | No | No | Yes | Custom blocks |
 | `dbQuery` | No | No | No | DB Native block |
 | `kv` | No | No | No | KV Raw Connection block |
 | `testsuite` | No | No | No | Test-only custom blocks |
 
 "Caller's" means the route or workflow that uses the block. More in [Where Your Code Runs](./environments.md).
+
+::: info Scripts in an after middleware
+In a block that runs [after the route](../concepts/middlewares.md#what-each-step-receives), the first `input` is the route's reply, `{ httpCode, body }`, not the body itself. Work on `input.body`, or read the reply with [`getResponseBody()` and `getResponseStatus()`](#response-values), which keep it even after `input` has been reshaped.
+:::
 
 ## Request values
 
@@ -78,6 +83,28 @@ function setCookie(name: string, options: CookieOptions): void;
 | --- | --- | --- | --- |
 | `setHeader` | `key: string`, `value: string` | `void` | Adds an outgoing response header. |
 | `setCookie` | `name: string`, `options: CookieOptions` | `void` | Adds an outgoing cookie. `samesite` defaults to `"Strict"`. |
+
+## Response values
+
+Only useful in an [after middleware](../concepts/middlewares.md), where a reply already exists. Everywhere else both return `null`.
+
+```typescript
+function getResponseBody(): any;
+function getResponseStatus(): number | null;
+```
+
+| API | Parameters | Returns | Description |
+| --- | --- | --- | --- |
+| `getResponseBody` | — | `any` | The body of the reply the after middlewares started from: the route's, or a before middleware's if one answered. |
+| `getResponseStatus` | — | `number \| null` | That reply's status code. |
+
+Both stay the same for the whole after chain, so they still work after an earlier block replaced `input`:
+
+```javascript
+// an earlier step returned something else; the reply is not lost
+if (getResponseStatus() >= 400) return getResponseBody();
+return { data: getResponseBody(), servedAt: new Date().toISOString() };
+```
 
 ## Configuration and state
 

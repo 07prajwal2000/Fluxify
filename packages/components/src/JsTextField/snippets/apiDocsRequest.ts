@@ -82,6 +82,28 @@ export const REQUEST_RESPONSE_DOCS: ApiDocItem[] = [
 		returns: "any",
 	},
 	{
+		id: "api-getResponseBody",
+		name: "getResponseBody",
+		kind: "function",
+		signature: "getResponseBody(): any",
+		description:
+			"In an after middleware, returns the reply's body as the route sent it, even after input was reshaped. null anywhere else.",
+		category: "response",
+		example: 'return { ...getResponseBody(), servedBy: "fluxify" };',
+		returns: "any",
+	},
+	{
+		id: "api-getResponseStatus",
+		name: "getResponseStatus",
+		kind: "function",
+		signature: "getResponseStatus(): number | null",
+		description:
+			"In an after middleware, returns the reply's status code as the route sent it. null anywhere else.",
+		category: "response",
+		example: "const failed = getResponseStatus() >= 400;",
+		returns: "number | null",
+	},
+	{
 		id: "api-setHeader",
 		name: "setHeader",
 		kind: "function",

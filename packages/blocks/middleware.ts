@@ -45,6 +45,10 @@ export async function runWithMiddlewares(
 
 	const httpCode = reply.responded ? Number(reply.output?.httpCode) : 200;
 	const body = reply.responded ? reply.output?.body : reply.output;
+	// the reply stays readable for the whole after chain, even once a step has
+	// reshaped `input` into something else
+	ctx.vars.getResponseBody = () => body;
+	ctx.vars.getResponseStatus = () => httpCode;
 	const after = await runChain(ctx, middlewares.after, { httpCode, body });
 	return (
 		after.result ?? {

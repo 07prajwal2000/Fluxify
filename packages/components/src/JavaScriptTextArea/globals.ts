@@ -35,6 +35,16 @@ declare interface FluxifyInputData {
 /** get the data this run was given — an HTTP request body, or a workflow payload */
 declare function getRequestBody(): FluxifyInputData;
 /**
+ * In an after middleware: the body of the reply the route (or a before
+ * middleware) sent, even once \`input\` has been reshaped. \`null\` anywhere else.
+ */
+declare function getResponseBody(): any;
+/**
+ * In an after middleware: the status code of the reply the route (or a before
+ * middleware) sent. \`null\` anywhere else.
+ */
+declare function getResponseStatus(): number | null;
+/**
  * get the value of the app config
  * @param key app config key name
  */
