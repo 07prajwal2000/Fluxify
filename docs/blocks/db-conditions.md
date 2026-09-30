@@ -1,6 +1,6 @@
 ---
 title: DB Conditions
-description: How to filter records in the DB blocks: operators, groups, optional filters and custom conditions.
+description: How to filter records in the DB blocks, with operators, groups, optional filters and custom conditions.
 ---
 
 # DB Conditions

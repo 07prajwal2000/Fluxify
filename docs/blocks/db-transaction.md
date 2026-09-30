@@ -1,6 +1,6 @@
 ---
 title: DB Transaction
-description: Run several database changes as one unit: they all succeed, or none of them are saved.
+description: Run several database changes as one unit, so they all succeed or none of them are saved.
 ---
 
 # DB Transaction
