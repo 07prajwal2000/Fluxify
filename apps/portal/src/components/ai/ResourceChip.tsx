@@ -19,7 +19,6 @@ import {
 	TbStack2,
 } from "react-icons/tb";
 import { CreateConfigButton } from "@/components/appConfig/CreateConfigModal";
-import { IntegrationOnboardingModal } from "@/components/integrations/IntegrationOnboardingModal";
 import { appConfigQuery } from "@/query/appConfigQuery";
 import { integrationsQuery } from "@/query/integrationsQuery";
 
@@ -125,7 +124,13 @@ export function ResourceChip({ type, identifier, name, data }: ResourceChipProps
 			targetUrl = `/${projectId}/canvas/${identifier}`;
 		} else if (type === "integration" && lookup.status === "found") {
 			const found = lookup.match as { id: string; group: string };
-			targetUrl = `/${projectId}/integrations?group=${encodeURIComponent(found.group)}&open=${found.id}`;
+			targetUrl = `/${projectId}/integrations/${found.id}`;
+		} else if (type === "integration" && lookup.status === "missing") {
+			// Created on its own page in a new tab, so the conversation stays put.
+			const search = new URLSearchParams();
+			if (parsedData?.group) search.set("group", parsedData.group);
+			if (parsedData?.variant) search.set("variant", parsedData.variant);
+			targetUrl = `/${projectId}/integrations/new${search.size ? `?${search}` : ""}`;
 		} else if (type === "app_config" && lookup.status === "found") {
 			const found = lookup.match as { keyName: string };
 			targetUrl = `/${projectId}/app-config?q=${encodeURIComponent(found.keyName)}`;
@@ -134,7 +139,7 @@ export function ResourceChip({ type, identifier, name, data }: ResourceChipProps
 		}
 	}
 
-	const canCreate = lookup.status === "missing" && Boolean(projectId);
+	const canCreate = type === "app_config" && lookup.status === "missing" && Boolean(projectId);
 
 	return (
 		<>
@@ -226,7 +231,7 @@ export function ResourceChip({ type, identifier, name, data }: ResourceChipProps
 											className="h-7 text-xs px-3 font-medium flex items-center gap-1"
 											onPress={() => setIsOpen(false)}
 										>
-											<span>Go to</span>
+											<span>{lookup.status === "missing" ? "Create" : "Go to"}</span>
 											<TbExternalLink size={12} />
 										</Button>
 									</Link>
@@ -245,13 +250,6 @@ export function ResourceChip({ type, identifier, name, data }: ResourceChipProps
 					isOpen={creating}
 					onOpenChange={setCreating}
 					initialKeyName={label}
-				/>
-			)}
-			{type === "integration" && creating && (
-				<IntegrationOnboardingModal
-					projectId={projectId}
-					isOpen={creating}
-					onOpenChange={setCreating}
 				/>
 			)}
 		</>

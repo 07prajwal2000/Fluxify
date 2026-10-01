@@ -332,10 +332,8 @@ export function BlockIntegrationField({
 		[projectId],
 	);
 
-	const groupParam = group ? `group=${encodeURIComponent(group)}` : "";
-	const openParam = selectedId ? `open=${encodeURIComponent(selectedId)}` : "";
-	const searchParams = [groupParam, openParam].filter(Boolean).join("&");
-	const searchStr = searchParams ? `?${searchParams}` : "";
+	const groupParam = group ? `?group=${encodeURIComponent(group)}` : "";
+	const openPath = selectedId ? `/${encodeURIComponent(selectedId)}` : groupParam;
 
 	return (
 		<IntegrationSelector
@@ -352,12 +350,12 @@ export function BlockIntegrationField({
 			}}
 			onTestConnection={projectId ? handleTestConnection : undefined}
 			openInNewTabUrl={
-				projectId ? withBasePath(`/${projectId}/integrations${searchStr}`) : undefined
+				projectId ? withBasePath(`/${projectId}/integrations${openPath}`) : undefined
 			}
 			createIntegrationUrl={
 				projectId
 					? withBasePath(
-							`/${projectId}/integrations${group ? `?group=${encodeURIComponent(group)}` : ""}`,
+							`/${projectId}/integrations/new${group ? `?group=${encodeURIComponent(group)}` : ""}`,
 						)
 					: undefined
 			}

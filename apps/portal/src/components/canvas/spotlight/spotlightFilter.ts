@@ -10,7 +10,8 @@ const CATEGORY_ORDER: Record<SpotlightCategory, number> = {
 	Blocks: 2,
 	Navigation: 3,
 	Resources: 4,
-	Help: 5,
+	Integrations: 5,
+	Help: 6,
 };
 
 function matchesTerm(command: SpotlightCommand, term: string): boolean {

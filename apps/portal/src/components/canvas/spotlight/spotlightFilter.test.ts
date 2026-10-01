@@ -134,6 +134,19 @@ describe("filterSpotlightCommands", () => {
 		expect(commands[0].id).toBe("resource-wf-1");
 	});
 
+	it("shows integration variants only when searching", () => {
+		const variant: SpotlightCommand = {
+			id: "integration-new-database-PostgreSQL",
+			title: "New Integration: PostgreSQL",
+			category: "Integrations",
+			keywords: ["integration", "database"],
+			onSelect: () => {},
+		};
+		const all = [...mockCommands, variant];
+		expect(filterSpotlightCommands(all, "").commands).not.toContain(variant);
+		expect(filterSpotlightCommands(all, "postgres").commands).toContain(variant);
+	});
+
 	it("matches canvas action shortcut or title", () => {
 		const { commands } = filterSpotlightCommands(mockCommands, "format");
 		expect(commands.length).toBe(1);

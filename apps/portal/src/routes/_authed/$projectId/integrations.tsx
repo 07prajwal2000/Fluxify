@@ -1,12 +1,12 @@
-import { Button, cn, integrationIcons, Spinner, toast } from "@fluxify/components";
+import { Button, cn, integrationIcons, Spinner } from "@fluxify/components";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { type ReactNode, useEffect, useState } from "react";
+import { type ReactNode, useEffect } from "react";
 import { FaRobot, FaTableList } from "react-icons/fa6";
 import { LuServerCrash } from "react-icons/lu";
 import {
 	TbArrowsExchange,
+	TbBolt,
 	TbBook,
-	TbChevronDown,
 	TbCloudCog,
 	TbDatabase,
 	TbExternalLink,
@@ -15,8 +15,7 @@ import {
 	TbPlugConnected,
 } from "react-icons/tb";
 import { z } from "zod";
-import { IntegrationForm } from "@/components/integrations/IntegrationForm";
-import { IntegrationOnboardingModal } from "@/components/integrations/IntegrationOnboardingModal";
+import { showTestResult } from "@/components/integrations/showTestResult";
 import { showErrorNotification } from "@/lib/errorNotifier";
 import { createDynamicRouteHead, formatProjectTitle, usePageTitle } from "@/lib/seo";
 import { integrationsQuery } from "@/query/integrationsQuery";
@@ -30,7 +29,6 @@ import {
 export const Route = createFileRoute("/_authed/$projectId/integrations")({
 	validateSearch: z.object({
 		group: z.string().optional(),
-		open: z.string().optional(),
 	}),
 	head: createDynamicRouteHead(({ search }) => {
 		const groupLabels: Record<string, string> = {
@@ -71,7 +69,6 @@ function IntegrationsPage() {
 	const navigate = useNavigate();
 	const { selectedMenu } = useIntegrationState();
 	const { setSelectedMenu } = useIntegrationActions();
-	const [connectOpen, setConnectOpen] = useState(false);
 
 	// Fetch count of integrations per category
 	const { data: dbData } = integrationsQuery.getAll.useQuery(projectId, "database");
@@ -108,7 +105,16 @@ function IntegrationsPage() {
 					<h1 className="text-2xl font-bold tracking-tight text-foreground">Integrations</h1>
 					<p className="text-sm text-muted">Connect &amp; Configure 3rd Party Services</p>
 				</div>
-				<Button variant="primary" onPress={() => setConnectOpen(true)}>
+				<Button
+					variant="primary"
+					onPress={() =>
+						navigate({
+							to: "/$projectId/integrations/new",
+							params: { projectId },
+							search: { group: selectedMenu },
+						})
+					}
+				>
 					<TbPlugConnected size={16} /> Connect App / Service
 				</Button>
 			</div>
@@ -159,21 +165,19 @@ function IntegrationsPage() {
 				{/* Column 3 — Right Panel: Help, Connected Databases & Environment Notice */}
 				<RightHelpPanel projectId={projectId} activeGroup={selectedMenu} />
 			</div>
-
-			<IntegrationOnboardingModal
-				projectId={projectId}
-				isOpen={connectOpen}
-				onOpenChange={setConnectOpen}
-			/>
 		</div>
 	);
 }
 
 function IntegrationsList({ projectId, group }: { projectId: string; group: string }) {
-	const { open } = Route.useSearch();
 	const navigate = useNavigate();
 	const { data, isLoading, isError } = integrationsQuery.getAll.useQuery(projectId, group);
-	const remove = integrationsQuery.remove.mutation(projectId);
+	const test = integrationsQuery.testExistingConnection.mutation(projectId);
+	const openIntegration = (integrationId: string) =>
+		navigate({
+			to: "/$projectId/integrations/$integrationId",
+			params: { projectId, integrationId },
+		});
 
 	if (isLoading)
 		return (
@@ -197,93 +201,55 @@ function IntegrationsList({ projectId, group }: { projectId: string; group: stri
 		);
 	}
 
-	function toggle(id: string) {
-		navigate({
-			to: ".",
-			search: { group, open: open === id ? undefined : id },
-		});
-	}
-
 	return (
 		<div className="flex flex-col gap-4">
-			{data.map((integration) => {
-				const isOpen = open === integration.id || data.length === 1;
-				return (
-					<div
-						key={integration.id}
-						className="overflow-hidden rounded-2xl border border-border bg-surface transition-all"
-					>
-						{/* Card Header Bar — Contains Title, ID, & Chevron */}
-						<div
-							role="button"
-							tabIndex={0}
-							onClick={() => toggle(integration.id)}
-							onKeyDown={(e) => e.key === "Enter" && toggle(integration.id)}
-							className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-5 py-4 hover:bg-surface-secondary cursor-pointer"
-						>
-							<div className="flex items-center gap-3">
-								<div className="flex size-9 items-center justify-center rounded-xl bg-surface-secondary text-accent">
-									{integrationIcons[integration.variant] ?? <TbDatabase size={18} />}
-								</div>
-								<div>
-									<div className="flex items-center gap-2">
-										<span className="font-semibold text-foreground">{integration.name}</span>
-									</div>
-									<div className="text-xs text-muted">
-										{integration.variant} • {group}
-									</div>
-								</div>
-							</div>
-
-							{/* Right Actions Bar — Available even when accordion is closed */}
-							<div
-								className="flex items-center gap-2"
-								onClick={(e) => e.stopPropagation()}
-								onKeyDown={(e) => e.stopPropagation()}
-							>
-								<span className="rounded-full border border-border bg-surface-secondary px-2.5 py-1 text-[11px] font-mono text-muted">
-									ID: {integration.id.slice(0, 8)}
-								</span>
-
-								{/* Chevron indicator */}
-								<button
-									type="button"
-									onClick={() => toggle(integration.id)}
-									className="p-1 text-muted hover:text-foreground"
-								>
-									<TbChevronDown
-										size={18}
-										className={cn("transition-transform", isOpen && "rotate-180")}
-									/>
-								</button>
+			{data.map((integration) => (
+				<div
+					key={integration.id}
+					role="button"
+					tabIndex={0}
+					onClick={() => openIntegration(integration.id)}
+					onKeyDown={(e) => e.key === "Enter" && openIntegration(integration.id)}
+					className="flex cursor-pointer flex-wrap items-center justify-between gap-3 rounded-2xl border border-border bg-surface px-5 py-4 transition-colors hover:border-accent hover:bg-surface-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
+				>
+					<div className="flex min-w-0 items-center gap-3">
+						<div className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-surface-secondary text-accent">
+							{integrationIcons[integration.variant] ?? <TbDatabase size={18} />}
+						</div>
+						<div className="min-w-0">
+							<div className="truncate font-semibold text-foreground">{integration.name}</div>
+							<div className="text-xs text-muted">
+								{integration.variant} • {group}
 							</div>
 						</div>
-
-						{/* Form Content */}
-						{isOpen && (
-							<div className="p-5">
-								<IntegrationForm
-									projectId={projectId}
-									id={integration.id}
-									lockGroupVariant
-									showDelete
-									deletePending={remove.isPending}
-									onDelete={() => {
-										remove.mutate(integration.id, {
-											onSuccess: () => {
-												toast.success("Integration deleted");
-												navigate({ to: ".", search: { group } });
-											},
-											onError: (e) => showErrorNotification(e as Error),
-										});
-									}}
-									onSaved={() => navigate({ to: ".", search: { group } })}
-								/>
-							</div>
-						)}
 					</div>
-				);
-			})}
+
+					<div
+						className="flex items-center gap-2"
+						onClick={(e) => e.stopPropagation()}
+						onKeyDown={(e) => e.stopPropagation()}
+					>
+						<span className="rounded-full border border-border bg-surface-secondary px-2.5 py-1 text-[11px] font-mono text-muted">
+							ID: {integration.id.slice(0, 8)}
+						</span>
+						<Button
+							variant="outline"
+							size="sm"
+							isPending={test.isPending && test.variables === integration.id}
+							onPress={() =>
+								test.mutate(integration.id, {
+									onSuccess: showTestResult,
+									onError: (e) => showErrorNotification(e as Error),
+								})
+							}
+							className="whitespace-nowrap"
+						>
+							<TbBolt size={14} className="text-accent" />
+							<span>Test connection</span>
+						</Button>
+					</div>
+				</div>
+			))}
 		</div>
 	);
 }
