@@ -1,3 +1,9 @@
+import { integrationIcons } from "@fluxify/components";
+import {
+	getIntegrationsGroups,
+	getIntegrationsVariants,
+	humanReadableConnectorNames,
+} from "@fluxify/server/src/api/v1/integrations/helpers";
 import { useNavigate } from "@tanstack/react-router";
 import { useMemo } from "react";
 import {
@@ -9,6 +15,7 @@ import {
 	TbKeyboard,
 	TbMoon,
 	TbPlayerPlay,
+	TbPlugConnected,
 	TbPuzzle,
 	TbRoute,
 	TbSettings,
@@ -16,6 +23,7 @@ import {
 	TbSun,
 } from "react-icons/tb";
 import { CustomBlockIcon } from "@/components/customBlocks/IconPicker";
+import { withBasePath } from "@/constants/routes";
 import { getTheme, toggleTheme } from "@/lib/theme";
 import type { CanvasAction } from "../actions/useCanvasActions";
 import { type BlockType, blockIcon, pickerBlockCatalogEntries } from "../blocks";
@@ -31,6 +39,10 @@ export type UseSpotlightCommandsOptions = {
 	onOpenShortcuts?: () => void;
 	onClose: () => void;
 };
+
+/** Leaves the canvas, and any unsaved edits on it, where they are. */
+const openInNewTab = (path: string) =>
+	window.open(withBasePath(path), "_blank", "noopener,noreferrer");
 
 function actionDisabledReason(id: string): string | undefined {
 	switch (id) {
@@ -231,6 +243,42 @@ export function useSpotlightCommands({
 						navigate({ to: page.to, params: { projectId } } as any);
 					},
 				});
+			}
+
+			commands.push({
+				id: "nav-new-integration",
+				title: "Create Integration",
+				subtitle: "Connect a database, AI model, queue or other service",
+				category: "Navigation",
+				keywords: ["new", "create", "add", "connect", "integration", "connector"],
+				icon: <TbPlugConnected size={15} />,
+				onSelect: () => {
+					onClose();
+					openInNewTab(`/${projectId}/integrations/new`);
+				},
+			});
+
+			// One per connector; "Integrations" is left out of the default view,
+			// so these only show up when searching.
+			for (const group of getIntegrationsGroups()) {
+				const groupName =
+					humanReadableConnectorNames[group as keyof typeof humanReadableConnectorNames];
+				for (const variant of getIntegrationsVariants(group)) {
+					commands.push({
+						id: `integration-new-${group}-${variant}`,
+						title: `New Integration: ${variant}`,
+						subtitle: groupName,
+						category: "Integrations",
+						keywords: ["new", "create", "connect", "integration", group, groupName],
+						icon: integrationIcons[variant] ?? <TbPlugConnected size={15} />,
+						onSelect: () => {
+							onClose();
+							openInNewTab(
+								`/${projectId}/integrations/new?${new URLSearchParams({ group, variant })}`,
+							);
+						},
+					});
+				}
 			}
 
 			// 4. Resources (Switch Route / Workflow / Custom Block directly)

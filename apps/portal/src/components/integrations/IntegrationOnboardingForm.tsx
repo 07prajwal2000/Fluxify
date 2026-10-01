@@ -1,4 +1,4 @@
-import { Button, cn, integrationIcons, toast } from "@fluxify/components";
+import { Button, cn, Input, integrationIcons, TextField, toast } from "@fluxify/components";
 import {
 	getDefaultVariantValue,
 	getIntegrationsGroups,
@@ -6,7 +6,8 @@ import {
 	getSchema,
 	humanReadableConnectorNames,
 } from "@fluxify/server/src/api/v1/integrations/helpers";
-import { type ReactNode, useState } from "react";
+import { useBlocker } from "@tanstack/react-router";
+import { type ReactNode, useRef, useState } from "react";
 import { FaRobot, FaTableList } from "react-icons/fa6";
 import {
 	TbArrowLeft,
@@ -16,16 +17,12 @@ import {
 	TbCloudCog,
 	TbDatabase,
 	TbHeartRateMonitor,
+	TbSearch,
 } from "react-icons/tb";
-import { EnterpriseGate } from "@/components/common/Enterprise";
+import { EnterpriseGate, useEnterprise } from "@/components/common/Enterprise";
 import { showErrorNotification } from "@/lib/errorNotifier";
 import { integrationsQuery } from "@/query/integrationsQuery";
-import { AiForm } from "./connectors/AiForm";
-import { CredentialsUrlForm } from "./connectors/CredentialsUrlForm";
-import { KafkaForm } from "./connectors/KafkaForm";
-import { NatsForm } from "./connectors/NatsForm";
-import { ObservabilityForm } from "./connectors/ObservabilityForm";
-import { SqsForm } from "./connectors/SqsForm";
+import { ConnectorFields, setPath } from "./ConnectorFields";
 import { showTestResult } from "./showTestResult";
 
 type Step = 1 | 2 | 3;
@@ -40,74 +37,6 @@ function gateQueue(group: string, card: ReactNode, key: string) {
 		card
 	);
 }
-
-const CRED_PLACEHOLDERS: Record<
-	string,
-	{ ph: Record<string, string>; ssl?: boolean; db?: boolean; dbLabel?: string }
-> = {
-	PostgreSQL: {
-		ph: {
-			name: "My Postgres Database",
-			host: "postgres.company.com",
-			port: "5432",
-			username: "postgres",
-			password: "secret",
-			database: "ecommerce",
-			url: "postgres://user:pass@host:port/dbname?ssl=disable",
-		},
-		ssl: true,
-		db: true,
-	},
-	MySQL: {
-		ph: {
-			name: "My MySQL Database",
-			host: "mysql.company.com",
-			port: "3306",
-			username: "root",
-			password: "secret",
-			database: "ecommerce",
-			url: "mysql://user:pass@host:port/dbname?ssl=disable",
-		},
-		db: true,
-	},
-	MongoDB: {
-		ph: {
-			name: "My MongoDB Database",
-			host: "localhost",
-			port: "27017",
-			username: "mongo_user",
-			password: "secret",
-			database: "mydatabase",
-			url: "mongodb://user:pass@host:port/dbname",
-		},
-		db: true,
-	},
-	Redis: {
-		ph: {
-			name: "My Redis Cache",
-			host: "redis.company.com",
-			port: "6379",
-			username: "default",
-			password: "secret",
-			url: "redis://user:pass@host:port/0",
-			database: "0",
-		},
-		db: true,
-		dbLabel: "DB Index",
-	},
-	Memcached: {
-		ph: {
-			name: "My Memcached Instance",
-			host: "memcached.company.com",
-			port: "11211",
-			username: "default",
-			password: "secret",
-			url: "memcached://user:pass@host:port",
-			database: "",
-		},
-		db: false,
-	},
-};
 
 const GROUP_DETAILS: Record<string, { description: string; icon: ReactNode }> = {
 	database: { description: "Connect a production database", icon: <TbDatabase size={20} /> },
@@ -124,61 +53,98 @@ const GROUP_DETAILS: Record<string, { description: string; icon: ReactNode }> = 
 	},
 };
 
-function setPath(obj: Record<string, unknown>, path: string, value: unknown) {
-	const keys = path.split(".");
-	const next = structuredClone(obj);
-	let current: Record<string, unknown> = next;
-	for (let index = 0; index < keys.length - 1; index += 1) {
-		const key = keys[index];
-		if (typeof current[key] !== "object" || current[key] === null) current[key] = {};
-		current = current[key] as Record<string, unknown>;
-	}
-	current[keys[keys.length - 1]] = value;
-	return next;
-}
+const variantsOf = (group: string): string[] =>
+	getIntegrationsGroups().includes(group as never) ? getIntegrationsVariants(group as never) : [];
 
+/**
+ * `group` and `variant` come from the URL, so refresh and back/forward keep
+ * the user's place. Unknown values are ignored rather than rejected. Remount
+ * with a `key` per variant to reset the typed-in fields.
+ */
 export function IntegrationOnboardingForm({
 	projectId,
+	group: rawGroup = "",
+	variant: rawVariant = "",
+	onSelect,
 	onSaved,
 }: {
 	projectId: string;
-	onSaved?: () => void;
+	group?: string;
+	variant?: string;
+	onSelect: (group: string, variant: string) => void;
+	onSaved: (created: { id: string; group: string }) => void;
 }) {
 	const create = integrationsQuery.create.mutation(projectId);
 	const test = integrationsQuery.testConnection.mutation(projectId);
-	const [step, setStep] = useState<Step>(1);
-	const [group, setGroup] = useState("");
-	const [variant, setVariant] = useState("");
+	const variants = variantsOf(rawGroup);
+	const group = variants.length > 0 ? rawGroup : "";
+	const variant = variants.includes(rawVariant) ? rawVariant : "";
+	const step: Step = variant ? 3 : group ? 2 : 1;
+	// A deep link can skip the gated card on step 2, so gate the form too.
+	const enterprise = useEnterprise();
+	const locked = group === "queue" && !enterprise;
+
+	const [defaults] = useState(
+		() => (variant && (getDefaultVariantValue(variant as never) as Record<string, unknown>)) || {},
+	);
 	const [name, setName] = useState("");
-	const [config, setConfig] = useState<Record<string, unknown>>({});
+	const [config, setConfig] = useState(defaults);
+	const [query, setQuery] = useState("");
+	const saved = useRef(false);
+
+	const dirty = step === 3 && (name !== "" || JSON.stringify(config) !== JSON.stringify(defaults));
+	// Any navigation from a dirty step 3 drops the typed fields: leaving the
+	// page, or stepping back (which changes the search params and remounts).
+	useBlocker({
+		shouldBlockFn: () =>
+			dirty &&
+			!saved.current &&
+			!window.confirm("Discard this integration? Your changes will be lost."),
+		enableBeforeUnload: () => dirty && !saved.current,
+	});
 
 	const groups = getIntegrationsGroups();
-	const variants = group ? getIntegrationsVariants(group as never) : [];
-
-	function chooseGroup(nextGroup: string) {
-		if (getIntegrationsVariants(nextGroup as never).length === 0) return;
-		setGroup(nextGroup);
-		setVariant("");
-		setName("");
-		setConfig({});
-		setStep(2);
-	}
-
-	function chooseVariant(nextVariant: string) {
-		setVariant(nextVariant);
-		setName("");
-		setConfig((getDefaultVariantValue(nextVariant as never) as Record<string, unknown>) ?? {});
-		setStep(3);
-	}
+	const search = query.trim().toLowerCase();
+	const matches = search
+		? groups.flatMap((g) =>
+				variantsOf(g)
+					.filter((v) => `${v} ${g}`.toLowerCase().includes(search))
+					.map((v) => [g, v] as const),
+			)
+		: [];
 
 	function setField(path: string, value: unknown) {
 		setConfig((current) => setPath(current, path, value));
 	}
 
 	function goToStep(nextStep: Step) {
-		if (nextStep === 2 && !group) return;
-		if (nextStep === 3 && !variant) return;
-		setStep(nextStep);
+		if (nextStep === 1) onSelect("", "");
+		if (nextStep === 2 && group) onSelect(group, "");
+	}
+
+	function variantCard(cardGroup: string, item: string) {
+		return gateQueue(
+			cardGroup,
+			<button
+				key={`${cardGroup}:${item}`}
+				type="button"
+				onClick={() => onSelect(cardGroup, item)}
+				className="group flex items-center gap-3.5 rounded-xl border border-border bg-surface p-3 text-left transition-all duration-150 hover:border-accent hover:bg-surface-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
+			>
+				<span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-surface-secondary text-foreground transition-colors group-hover:bg-accent group-hover:text-accent-foreground">
+					{integrationIcons[item] ?? GROUP_DETAILS[cardGroup]?.icon}
+				</span>
+				<span className="min-w-0">
+					<span className="block truncate text-sm font-semibold text-foreground">{item}</span>
+					{cardGroup !== group && (
+						<span className="block truncate text-xs text-muted">
+							{humanReadableConnectorNames[cardGroup as keyof typeof humanReadableConnectorNames]}
+						</span>
+					)}
+				</span>
+			</button>,
+			`${cardGroup}:${item}`,
+		);
 	}
 
 	function testIntegration() {
@@ -215,9 +181,10 @@ export function IntegrationOnboardingForm({
 		}
 
 		create.mutate({ name, group, variant, config: parsed.data } as never, {
-			onSuccess: () => {
+			onSuccess: ({ id }) => {
 				toast.success("Integration connected");
-				onSaved?.();
+				saved.current = true;
+				onSaved({ id, group });
 			},
 			onError: (error) => showErrorNotification(error as Error),
 		});
@@ -229,7 +196,7 @@ export function IntegrationOnboardingForm({
 		: "";
 
 	return (
-		<div className="flex flex-1 flex-col min-h-0">
+		<div className="flex min-h-0 flex-1 flex-col gap-5">
 			<nav aria-label="Integration setup steps" className="shrink-0 border-b border-border pb-3">
 				<ol className="grid grid-cols-3 gap-2">
 					{(
@@ -278,7 +245,7 @@ export function IntegrationOnboardingForm({
 				</ol>
 			</nav>
 
-			<div className="flex flex-1 min-h-0 flex-col justify-start overflow-y-auto overscroll-contain py-4 pr-1">
+			<div className="min-h-0 flex-1 overflow-y-auto overscroll-contain pr-1">
 				{step === 1 && (
 					<section aria-labelledby="integration-category-heading">
 						<div>
@@ -292,10 +259,33 @@ export function IntegrationOnboardingForm({
 								What would you like to connect?
 							</h2>
 							<p className="mt-0.5 text-xs text-muted">
-								Choose a category to see the services available to your project.
+								Choose a category, or search for a service by name.
 							</p>
 						</div>
-						<div className="mt-3.5 grid gap-2.5 sm:grid-cols-2">
+						<TextField
+							value={query}
+							onChange={setQuery}
+							aria-label="Search services"
+							className="mt-3.5"
+						>
+							<div className="relative w-full">
+								<TbSearch
+									size={16}
+									className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-muted"
+								/>
+								<Input autoFocus placeholder="Search services…" className="w-full pl-9" />
+							</div>
+						</TextField>
+						{search && (
+							<div className="mt-3.5 grid gap-2.5 sm:grid-cols-2">
+								{matches.length === 0 ? (
+									<p className="text-sm text-muted">No services match "{query.trim()}".</p>
+								) : (
+									matches.map(([g, v]) => variantCard(g, v))
+								)}
+							</div>
+						)}
+						<div className={cn("mt-3.5 grid gap-2.5 sm:grid-cols-2", search && "hidden")}>
 							{groups.map((item) => {
 								const detail = GROUP_DETAILS[item] ?? {
 									description: "Connect a service",
@@ -307,7 +297,7 @@ export function IntegrationOnboardingForm({
 										key={item}
 										type="button"
 										disabled={!isAvailable}
-										onClick={() => chooseGroup(item)}
+										onClick={() => onSelect(item, "")}
 										className={cn(
 											"group flex items-center gap-3.5 rounded-xl border p-3 text-left transition-all duration-150",
 											isAvailable
@@ -359,23 +349,7 @@ export function IntegrationOnboardingForm({
 							<p className="mt-0.5 text-xs text-muted">Select the service you want to configure.</p>
 						</div>
 						<div className="mt-3.5 grid gap-2.5 sm:grid-cols-2">
-							{variants.map((item) =>
-								gateQueue(
-									group,
-									<button
-										key={item}
-										type="button"
-										onClick={() => chooseVariant(item)}
-										className="group flex items-center gap-3.5 rounded-xl border border-border bg-surface p-3 text-left transition-all duration-150 hover:border-accent hover:bg-surface-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
-									>
-										<span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-surface-secondary text-foreground transition-colors group-hover:bg-accent group-hover:text-accent-foreground">
-											{integrationIcons[item] ?? GROUP_DETAILS[group]?.icon}
-										</span>
-										<span className="truncate text-sm font-semibold text-foreground">{item}</span>
-									</button>,
-									item,
-								),
-							)}
+							{variants.map((item) => variantCard(group, item))}
 						</div>
 					</section>
 				)}
@@ -405,53 +379,19 @@ export function IntegrationOnboardingForm({
 							Add the connection details and credentials for this service.
 						</p>
 
-						<div className="mt-4 flex-1">
-							{group === "database" && CRED_PLACEHOLDERS[variant] && (
-								<CredentialsUrlForm
-									{...formProps}
-									placeholders={CRED_PLACEHOLDERS[variant].ph as never}
-									hasDatabase={CRED_PLACEHOLDERS[variant].db}
-									hasSSL={CRED_PLACEHOLDERS[variant].ssl}
-									hasQueryTimeout
-								/>
-							)}
-							{group === "kv" && CRED_PLACEHOLDERS[variant] && (
-								<CredentialsUrlForm
-									{...formProps}
-									placeholders={CRED_PLACEHOLDERS[variant].ph as never}
-									hasDatabase={CRED_PLACEHOLDERS[variant].db}
-									databaseLabel={CRED_PLACEHOLDERS[variant].dbLabel}
-								/>
-							)}
-							{group === "ai" && (
-								<AiForm {...formProps} showBaseUrl={variant === "OpenAI Compatible"} />
-							)}
-							{group === "observability" && variant === "Loki" && (
-								<ObservabilityForm
-									{...formProps}
-									namePlaceholder="Loki | Production"
-									baseUrlPlaceholder="http://loki:3100"
-									baseUrlDescription="Base URL of the Loki instance"
-								/>
-							)}
-							{group === "observability" && variant === "Open Telemetry" && (
-								<ObservabilityForm
-									{...formProps}
-									supportsGrpc
-									namePlaceholder="OpenTelemetry | Production"
-									baseUrlPlaceholder="https://http-intake.logs.datadoghq.com/api/v2/logs"
-									baseUrlDescription="Base URL of the OTLP endpoint, without the /v1/... path (OpenObserve, Datadog, Grafana, BetterStack)"
-								/>
-							)}
-							{group === "queue" && variant === "Kafka" && <KafkaForm {...formProps} />}
-							{group === "queue" && variant === "NATS" && <NatsForm {...formProps} />}
-							{group === "queue" && variant === "SQS" && <SqsForm {...formProps} />}
+						<div className={cn("mt-4", locked && "hidden")}>
+							<ConnectorFields {...formProps} group={group} variant={variant} />
 						</div>
+						{locked && (
+							<EnterpriseGate className="mt-4">
+								<div className="h-40 rounded-xl border border-border bg-surface" />
+							</EnterpriseGate>
+						)}
 					</section>
 				)}
 			</div>
 
-			<div className="shrink-0 flex items-center justify-between border-t border-border pt-3.5">
+			<div className="flex shrink-0 items-center justify-between border-t border-border pt-3.5">
 				{step > 1 ? (
 					<Button variant="ghost" size="sm" onPress={() => goToStep((step - 1) as Step)}>
 						<TbArrowLeft size={16} /> Back
@@ -465,6 +405,7 @@ export function IntegrationOnboardingForm({
 							variant="outline"
 							size="sm"
 							isPending={test.isPending}
+							isDisabled={locked}
 							onPress={testIntegration}
 							className="whitespace-nowrap"
 						>
@@ -475,6 +416,7 @@ export function IntegrationOnboardingForm({
 							variant="primary"
 							size="sm"
 							isPending={create.isPending}
+							isDisabled={locked}
 							onPress={saveIntegration}
 						>
 							Connect {variant}

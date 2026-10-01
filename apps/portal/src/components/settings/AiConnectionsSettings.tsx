@@ -71,9 +71,9 @@ function AiSelector({
 				integrationService.testExistingConnection(projectId, id).then(() => {})
 			}
 			openInNewTabUrl={withBasePath(
-				`/${projectId}/integrations?group=ai${selectedId ? `&open=${encodeURIComponent(selectedId)}` : ""}`,
+				`/${projectId}/integrations${selectedId ? `/${encodeURIComponent(selectedId)}` : "?group=ai"}`,
 			)}
-			createIntegrationUrl={withBasePath(`/${projectId}/integrations?group=ai`)}
+			createIntegrationUrl={withBasePath(`/${projectId}/integrations/new?group=ai`)}
 		/>
 	);
 }

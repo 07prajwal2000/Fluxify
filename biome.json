@@ -39,7 +39,10 @@
 	},
 	"overrides": [
 		{
-			"includes": ["apps/portal/src/components/integrations/Integration*Form.tsx"],
+			"includes": [
+				"apps/portal/src/components/integrations/Integration*Form.tsx",
+				"apps/portal/src/components/integrations/ConnectorFields.tsx"
+			],
 			"linter": { "rules": { "security": { "noSecrets": "off" } } }
 		}
 	]

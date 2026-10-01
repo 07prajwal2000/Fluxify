@@ -100,9 +100,9 @@ function TelemetrySelector({
 				integrationService.testExistingConnection(projectId, id, tag).then(() => {})
 			}
 			openInNewTabUrl={withBasePath(
-				`/${projectId}/integrations?group=observability${selectedId ? `&open=${encodeURIComponent(selectedId)}` : ""}`,
+				`/${projectId}/integrations${selectedId ? `/${encodeURIComponent(selectedId)}` : "?group=observability"}`,
 			)}
-			createIntegrationUrl={withBasePath(`/${projectId}/integrations?group=observability`)}
+			createIntegrationUrl={withBasePath(`/${projectId}/integrations/new?group=observability`)}
 		/>
 	);
 }
