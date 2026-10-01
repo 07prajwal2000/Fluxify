@@ -50,6 +50,13 @@ entrypoint {} // no configuration
 
 getvar {
 	key: string;
+	mode?: "single";
+}
+| {
+	mode: "multiple";
+	items: {
+		key: string;
+	}[];
 }
 
 httprequest {
@@ -77,6 +84,14 @@ response {
 setvar {
 	key: string;  // The name of the variable
 	value: any;  // The value of the variable (can be number,bool,string,object or js expression)
+	mode?: "single";
+}
+| {
+	mode: "multiple";
+	items: {
+		key: string;  // The name of the variable
+		value: any;  // The value of the variable (can be number,bool,string,object or js expression)
+	}[];
 }
 
 sticky_note {
@@ -241,15 +256,37 @@ kv_operations {
 
 httpgetcookie {
 	name: string;  // name of the cookie (supports js expressions)
+	mode?: "single";
+}
+| {
+	mode: "multiple";
+	items: {
+		name: string;  // name of the cookie (supports js expressions)
+	}[];
 }
 
 httpgetheader {
 	name: string;  // name of the header
+	mode?: "single";
+}
+| {
+	mode: "multiple";
+	items: {
+		name: string;  // name of the header
+	}[];
 }
 
 httpgetparam {
 	name: string;  // parameter name (supports js expressions)
 	source: "query" | "path";  // source of the parameter
+	mode?: "single";
+}
+| {
+	mode: "multiple";
+	items: {
+		name: string;  // parameter name (supports js expressions)
+		source: "query" | "path";  // source of the parameter
+	}[];
 }
 
 httpgetrequestbody {} // no configuration
@@ -268,6 +305,14 @@ httpsetcookie {
 httpsetheader {
 	name: string;  // header name (supports js expression)
 	value: string;  // header value (supports js expression)
+	mode?: "single";
+}
+| {
+	mode: "multiple";
+	items: {
+		name: string;  // header name (supports js expression)
+		value: string;  // header value (supports js expression)
+	}[];
 }
 
 consolelog {

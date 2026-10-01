@@ -1,6 +1,7 @@
 import type { BlockNode } from "../../types";
 import { BlockSettings } from "../BlockSettings";
 import { BlockJsTextField } from "../fields";
+import { SingleOrMultiple } from "./SingleOrMultiple";
 
 /** Get Header block settings. Configures the header name to read from request. */
 export function GetHeaderSettings({ block }: { block: BlockNode }) {
@@ -21,7 +22,12 @@ export function GetHeaderSettings({ block }: { block: BlockNode }) {
 export function getHeaderSettings(block: BlockNode) {
 	return (
 		<BlockSettings.TabHead name="General">
-			<GetHeaderSettings block={block} />
+			<SingleOrMultiple
+				block={block}
+				fields={[{ name: "name", label: "Header Name" }]}
+				single={<GetHeaderSettings block={block} />}
+				addLabel="Add header"
+			/>
 		</BlockSettings.TabHead>
 	);
 }

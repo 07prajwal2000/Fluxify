@@ -1,16 +1,30 @@
 import z from "zod";
-import { baseBlockDataSchema } from "../baseBlock";
+import { rowsOutput, singleOrMultiple } from "../baseBlock";
 import { BlockTypes } from "../blockTypes";
 import type { EmitNode } from "../compiler";
 
-export const setVarSchema = z
-	.object({
+export const setVarSchema = singleOrMultiple(
+	z.object({
 		key: z.string().describe("The name of the variable"),
 		value: z
 			.any()
 			.describe("The value of the variable (can be number,bool,string,object or js expression)"),
+	}),
+)
+	.superRefine((data, ctx) => {
+		if (data.mode !== "multiple") return;
+		const seen = new Set<string>();
+		data.items.forEach(({ key }, i) => {
+			if (seen.has(key)) {
+				ctx.addIssue({
+					code: "custom",
+					path: ["items", i, "key"],
+					message: `Variable "${key}" is set twice`,
+				});
+			}
+			seen.add(key);
+		});
 	})
-	.extend(baseBlockDataSchema.shape)
 	.describe("A useful block to set a variable in the context");
 
 export const setVarBlockAiDescription = {
@@ -20,6 +34,11 @@ export const setVarBlockAiDescription = {
 };
 
 export function emitSetVar(node: EmitNode) {
-	const { key, value } = setVarSchema.parse(node.block.data);
-	return `${node.in} = vars[${JSON.stringify(key)}] = ${node.value(value)};\n${node.next()}`;
+	const data = setVarSchema.parse(node.block.data);
+	// rows assign in order, so a later row's js: can read an earlier row's variable
+	const out = rowsOutput(
+		data,
+		({ key, value }) => `vars[${JSON.stringify(key)}] = ${node.value(value)}`,
+	);
+	return `${node.in} = ${out};\n${node.next()}`;
 }

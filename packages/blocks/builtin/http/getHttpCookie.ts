@@ -1,13 +1,13 @@
 import z from "zod";
-import { baseBlockDataSchema } from "../../baseBlock";
+import { rowsOutput, singleOrMultiple } from "../../baseBlock";
 import { BlockTypes } from "../../blockTypes";
 import type { EmitNode } from "../../compiler";
 
-export const getHttpCookieBlockSchema = z
-	.object({
+export const getHttpCookieBlockSchema = singleOrMultiple(
+	z.object({
 		name: z.string().describe("name of the cookie (supports js expressions)"),
-	})
-	.extend(baseBlockDataSchema.shape);
+	}),
+);
 
 export const getCookieAiDescription = {
 	name: BlockTypes.httpGetCookie,
@@ -16,6 +16,7 @@ export const getCookieAiDescription = {
 };
 
 export function emitGetHttpCookie(node: EmitNode) {
-	const { name } = getHttpCookieBlockSchema.parse(node.block.data);
-	return `${node.in} = vars.getCookie(${node.value(name)});\n${node.next()}`;
+	const data = getHttpCookieBlockSchema.parse(node.block.data);
+	const out = rowsOutput(data, ({ name }) => `vars.getCookie(${node.value(name)})`);
+	return `${node.in} = ${out};\n${node.next()}`;
 }

@@ -1,6 +1,7 @@
 import type { BlockNode } from "../../types";
 import { BlockSettings } from "../BlockSettings";
 import { BlockJsTextField } from "../fields";
+import { SingleOrMultiple } from "./SingleOrMultiple";
 
 export function SetHeaderSettings({ block }: { block: BlockNode }) {
 	return (
@@ -28,7 +29,15 @@ export function SetHeaderSettings({ block }: { block: BlockNode }) {
 export function setHeaderSettings(block: BlockNode) {
 	return (
 		<BlockSettings.TabHead name="General">
-			<SetHeaderSettings block={block} />
+			<SingleOrMultiple
+				block={block}
+				fields={[
+					{ name: "name", label: "Header Name" },
+					{ name: "value", label: "Header Value" },
+				]}
+				single={<SetHeaderSettings block={block} />}
+				addLabel="Add header"
+			/>
 		</BlockSettings.TabHead>
 	);
 }

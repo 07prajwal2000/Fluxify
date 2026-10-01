@@ -25,6 +25,8 @@ export type JsTextFieldProps = {
 	value: string;
 	onChange: (value: string) => void;
 	label?: string;
+	/** Names the field when it has no visible label, as in a row of a list. */
+	"aria-label"?: string;
 	placeholder?: string;
 	/** Shown under the field. */
 	description?: ReactNode;
@@ -105,6 +107,7 @@ export function JsTextField({
 	value,
 	onChange,
 	label,
+	"aria-label": ariaLabel,
 	placeholder,
 	description,
 	info,
@@ -223,6 +226,7 @@ export function JsTextField({
 	return (
 		<>
 			<TextField
+				aria-label={label ? undefined : ariaLabel}
 				className={clsx("min-w-0", className)}
 				fullWidth={fullWidth}
 				isDisabled={isDisabled}

@@ -13,6 +13,7 @@ import {
 import { hydrateAppConfig } from "@fluxify/server/src/loaders/appconfigLoader";
 import { setBlocksExecutor } from "@fluxify/server/src/modules/requestRouter/executor";
 import { executeRouteInternal } from "@fluxify/server/src/modules/requestRouter/service";
+import { Hono } from "hono";
 import { connectionFor } from "./engines";
 import { registerFixtureBlocks } from "./customBlocks";
 import type { GraphFixture } from "./graph";
@@ -62,6 +63,8 @@ export type GraphRun = {
 	executed: string[];
 	/** the generated JavaScript, for asserting on compilation itself */
 	source: string;
+	/** response headers, including what Set Header and Set Cookie wrote */
+	headers: Headers;
 };
 
 /** Points the project's `primary` db integration at the fixture's engine. */
@@ -114,24 +117,35 @@ async function execute(
 		return runWithMiddlewares(context, context.requestBody, run, middlewares);
 	});
 
-	const result = await executeRouteInternal(
-		{
+	const route = {
 			id: `${fixture.name}-route`,
 			projectId: PROJECT_ID,
 			projectName: "E2E",
 			bodySchema: fixture.schemas?.body,
 			querySchema: fixture.schemas?.query,
-			paramsSchema: fixture.schemas?.params,
-		},
-		{
-			method: request.method ?? fixture.route.method,
-			path: request.path ?? fixture.route.path,
-			headers: request.headers ?? {},
-			query: request.query ?? {},
-			params: request.params ?? {},
-			body: request.body ?? null,
-		},
-	);
+		paramsSchema: fixture.schemas?.params,
+	};
+	const method = request.method ?? fixture.route.method;
+	const path = request.path ?? fixture.route.path;
+	const headers = request.headers ?? {};
+	// a real request context, so header and cookie blocks read and write a real request/response
+	let result!: Awaited<ReturnType<typeof executeRouteInternal>>;
+	const app = new Hono().all("*", async (c) => {
+		result = await executeRouteInternal(
+			route,
+			{
+				method,
+				path,
+				headers,
+				query: request.query ?? {},
+				params: request.params ?? {},
+				body: request.body ?? null,
+			},
+			c,
+		);
+		return c.body(null);
+	});
+	const response = await app.request(`http://e2e${path}`, { method, headers });
 
 	return {
 		// the response block carries httpCode as a string; the HTTP layer coerces
@@ -141,5 +155,6 @@ async function execute(
 		spans,
 		executed: spans.map((span) => span.blockId),
 		source,
+		headers: response.headers,
 	};
 }

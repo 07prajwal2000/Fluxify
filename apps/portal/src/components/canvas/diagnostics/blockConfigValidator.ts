@@ -47,6 +47,9 @@ const SCRIPTS: Record<string, { key: string; tab: string }> = {
 
 const text = (raw: unknown) => (typeof raw === "string" ? raw.trim() : "");
 const list = (raw: unknown) => (Array.isArray(raw) ? raw : []);
+/** A Set or Get block's rows: its own fields in Single mode, `items` in Multiple. */
+const rows = (data: BlockData): BlockData[] =>
+	data.mode === "multiple" ? (list(data.items) as BlockData[]) : [data];
 const isEmptyObject = (raw: unknown) =>
 	!raw || (typeof raw === "object" && Object.keys(raw).length === 0);
 
@@ -210,7 +213,7 @@ export function blockConfigIssues(type: string, data: BlockData): BlockConfigIss
 		}
 		case BLOCK_TYPES.setvar:
 		case BLOCK_TYPES.getvar:
-			if (isBlank(data.key)) report("warning", "Variable name is empty.");
+			if (rows(data).some((row) => isBlank(row.key))) report("warning", "Variable name is empty.");
 			break;
 		case BLOCK_TYPES.arrayops:
 			if (data.useParamAsInput !== true && isBlank(data.datasource)) {
@@ -277,7 +280,7 @@ export function blockConfigIssues(type: string, data: BlockData): BlockConfigIss
 		case BLOCK_TYPES.httpsetcookie:
 		case BLOCK_TYPES.httpgetheader:
 		case BLOCK_TYPES.httpsetheader:
-			if (isBlank(data.name)) report("warning", "Name is empty.");
+			if (rows(data).some((row) => isBlank(row.name))) report("warning", "Name is empty.");
 			break;
 		case BLOCK_TYPES.cloudLogs:
 			if (isBlank(data.connection)) report("error", "No observability connection selected.");

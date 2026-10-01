@@ -19,6 +19,7 @@ The **Set Variable** block saves a value under a name of your choice. Later bloc
 
 | Field | Required | Default | What it does |
 | --- | --- | --- | --- |
+| **Mode** | No | Single | **Single** handles one value. **Multiple** handles a list of rows, see below. |
 | **Key** | Yes | none | The name of the variable, for example `total`. Use letters, digits, `_` or `$`, and don't start with a digit, so scripts can read it by name. |
 | **Value** | Yes | none | What to store. A number, `true` or `false`, text, an object, or a JS expression such as `js: input.price * 2`. |
 
@@ -40,6 +41,22 @@ The previous block returned `{ "price": 40, "qty": 3 }`. Save the order total.
 | Value | `js: input.price * input.qty` |
 
 `total` is now `120`, and the next block receives `120` as its `input`. Any later block can read it with [Get Variable](./get-var.md), or in JS simply as `total`.
+
+## Single or Multiple
+
+Pick **Multiple** to set several variables in one block. Each row has a **Key** and a **Value**, the same fields as Single mode.
+
+- Rows run from top to bottom. A later row can read a variable an earlier row set.
+- `input` is the previous block's output for every row.
+- The output is an **array** with one value per row, in row order.
+- The same key can't be used twice in one block. The canvas won't save it.
+
+| Key | Value |
+| --- | --- |
+| `price` | `10` |
+| `total` | `js:return price * 2;` |
+
+The next block receives `[10, 20]`.
 
 ## How it behaves
 

@@ -1,6 +1,7 @@
 import type { BlockNode } from "../../types";
 import { BlockSettings } from "../BlockSettings";
 import { BlockJsTextField, BlockSelectField } from "../fields";
+import { SingleOrMultiple } from "./SingleOrMultiple";
 
 const SOURCE_OPTIONS = [
 	{ value: "path", label: "Path Param" },
@@ -47,7 +48,15 @@ export function GetParamSettings({ block }: { block: BlockNode }) {
 export function getParamSettings(block: BlockNode) {
 	return (
 		<BlockSettings.TabHead name="General">
-			<GetParamSettings block={block} />
+			<SingleOrMultiple
+				block={block}
+				fields={[
+					{ name: "source", label: "Source", options: SOURCE_OPTIONS, initial: "query" },
+					{ name: "name", label: "Parameter Name" },
+				]}
+				single={<GetParamSettings block={block} />}
+				addLabel="Add parameter"
+			/>
 		</BlockSettings.TabHead>
 	);
 }

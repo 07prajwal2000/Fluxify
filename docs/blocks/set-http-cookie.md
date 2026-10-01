@@ -48,6 +48,10 @@ Keep a user logged in for 30 days. The previous block produced `{ "sessionId": "
 
 The response carries `Set-Cookie: session=abc123; ...`. The browser sends it back on later requests, and [Get Request Cookie](./get-request-cookie.md) can read it.
 
+::: info
+Set HTTP Cookie has no Multiple mode. A cookie has too many settings to fit in a row. To set several cookies, chain several Set HTTP Cookie blocks.
+:::
+
 ## How it behaves
 
 - **The cookie is sent with the final response.** Put the block anywhere before the [Response](./response.md) block.
