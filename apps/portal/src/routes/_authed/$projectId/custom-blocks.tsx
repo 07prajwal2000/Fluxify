@@ -3,17 +3,23 @@ import {
 	DeleteIconButton,
 	Input,
 	Label,
+	Popover,
+	PopoverContent,
+	PopoverTrigger,
 	Spinner,
 	TextField,
 	toast,
 } from "@fluxify/components";
+import { CUSTOM_BLOCK_USAGES } from "@fluxify/server/src/lib/customBlockUsage";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
-import { TbBoxMultiple, TbPlus, TbSearch } from "react-icons/tb";
+import { TbBoxMultiple, TbCheck, TbFilter, TbPlus, TbSearch } from "react-icons/tb";
+import { z } from "zod";
 import { BaseBlock } from "@/components/canvas/blocks/BaseBlock";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { EmptyState } from "@/components/common/EmptyState";
 import { CustomBlockIcon, type IconValue } from "@/components/customBlocks/IconPicker";
+import { USAGE_OPTIONS } from "@/components/customBlocks/UsageField";
 import { showErrorNotification } from "@/lib/errorNotifier";
 import { createRouteHead, formatProjectTitle, usePageTitle } from "@/lib/seo";
 import { customBlocksQuery } from "@/query/customBlocksQuery";
@@ -24,6 +30,8 @@ export const Route = createFileRoute("/_authed/$projectId/custom-blocks")({
 		"Custom Blocks",
 		"Manage custom reusable workflow blocks for your project.",
 	),
+	// a bad ?usage= falls back to All instead of erroring the page
+	validateSearch: z.object({ usage: z.enum(CUSTOM_BLOCK_USAGES).optional().catch(undefined) }),
 	component: CustomBlocksPage,
 });
 
@@ -31,6 +39,7 @@ type Block = NonNullable<ReturnType<typeof customBlocksQuery.getAll.useQuery>["d
 
 function CustomBlocksPage() {
 	const { projectId } = Route.useParams();
+	const { usage } = Route.useSearch();
 	const { data: project } = projectsQuery.byId.useQuery(projectId);
 	usePageTitle(formatProjectTitle(project?.name, "Custom Blocks"));
 	const { data, isLoading, isError } = customBlocksQuery.getAll.useQuery(projectId);
@@ -42,11 +51,20 @@ function CustomBlocksPage() {
 	const blocks = useMemo(() => {
 		const q = search.trim().toLowerCase();
 		if (!data) return [];
-		if (!q) return data;
-		return data.filter((b) =>
-			[b.label, b.name, b.description ?? ""].some((v) => v.toLowerCase().includes(q)),
+		return data.filter(
+			(b) =>
+				(!usage || b.usage === usage) &&
+				(!q || [b.label, b.name, b.description ?? ""].some((v) => v.toLowerCase().includes(q))),
 		);
-	}, [data, search]);
+	}, [data, search, usage]);
+
+	function setUsage(next: string) {
+		navigate({
+			to: ".",
+			search: { usage: next === "all" ? undefined : (next as typeof usage) },
+			replace: true,
+		});
+	}
 
 	function openCanvas(blockId: string) {
 		navigate({
@@ -64,12 +82,41 @@ function CustomBlocksPage() {
 						Reusable blocks for your flows. Click one to open its canvas.
 					</p>
 				</div>
-				<div className="flex items-center gap-2">
+				<div className="flex flex-wrap items-center gap-2">
+					{/* filters: add more (source, …) as siblings */}
 					{data && data.length > 0 && (
-						<TextField value={search} onChange={setSearch} className="w-56">
-							<Label className="sr-only">Search custom blocks</Label>
-							<Input placeholder="Search blocks" />
-						</TextField>
+						<>
+							<TextField value={search} onChange={setSearch} className="w-56">
+								<Label className="sr-only">Search custom blocks</Label>
+								<Input placeholder="Search blocks" />
+							</TextField>
+							<Popover>
+								<PopoverTrigger>
+									<Button variant="secondary" className="cursor-pointer">
+										<TbFilter size={16} /> Filters
+										{usage && (
+											<span className="rounded-full bg-accent px-1.5 text-xs text-accent-foreground">
+												1
+											</span>
+										)}
+									</Button>
+								</PopoverTrigger>
+								<PopoverContent className="flex w-60 flex-col gap-1 p-2">
+									<p className="px-2 py-1 text-xs font-medium text-muted">Usage</p>
+									{[{ id: "all", label: "All usages" }, ...USAGE_OPTIONS].map((option) => (
+										<button
+											key={option.id}
+											type="button"
+											className="flex w-full cursor-pointer items-center justify-between rounded-md px-2 py-1.5 text-left text-sm hover:bg-surface-secondary"
+											onClick={() => setUsage(option.id)}
+										>
+											{option.label}
+											{(usage ?? "all") === option.id && <TbCheck size={14} />}
+										</button>
+									))}
+								</PopoverContent>
+							</Popover>
+						</>
 					)}
 					<Button
 						variant="primary"
@@ -95,8 +142,8 @@ function CustomBlocksPage() {
 			) : blocks.length === 0 ? (
 				<EmptyState
 					icon={<TbSearch size={28} />}
-					title={`No block matches “${search}”`}
-					description="Try a different name or description."
+					title="No block matches these filters"
+					description="Try a different search or usage."
 				/>
 			) : (
 				<div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
