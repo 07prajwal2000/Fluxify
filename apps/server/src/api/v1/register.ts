@@ -4,6 +4,7 @@ import appConfig from "./app-config/register";
 import customBlocks from "./custom-blocks/register";
 import instanceSettings from "./instance-settings/register";
 import integrations from "./integrations/register";
+import middlewares from "./middlewares/register";
 import projects from "./projects/register";
 import routes from "./routes/register";
 import testSuites from "./test-suites/register";
@@ -35,6 +36,7 @@ export default {
 		integrations.registerHandler(router);
 		testSuites.registerHandler(router);
 		customBlocks.registerHandler(router);
+		middlewares.registerHandler(router);
 		instanceSettings.registerHandler(router);
 	},
 };

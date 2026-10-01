@@ -8,6 +8,7 @@ import {
 	routesEntity,
 	workflowsEntity,
 } from "../../db/schema";
+import { loadRouteMiddlewares } from "../compiler/middlewares";
 import { loadGraph } from "../compiler/service";
 import { compileDependencies } from "../packages/service";
 import type { SuiteTarget } from "./target";
@@ -55,7 +56,7 @@ export async function compileSuiteRoute(routeId: string) {
 	// hook points in every block: a suite without hooks just finds none
 	const { source } = compileGraph(blocks, edges, { dependencies, hooks: true });
 	return {
-		route,
+		route: { ...route, middlewares: await loadRouteMiddlewares(routeId) },
 		workflow: undefined,
 		source,
 		dependencies,

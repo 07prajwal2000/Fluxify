@@ -96,7 +96,7 @@ export function SetupEditor({
 }) {
 	const { data } = customBlocksQuery.getAll.useQuery(projectId);
 	const blocks = (data ?? [])
-		.filter((b) => b.testOnly)
+		.filter((b) => b.usage === "test")
 		.map((b) => ({ id: b.id, label: b.label || b.name }));
 
 	return (

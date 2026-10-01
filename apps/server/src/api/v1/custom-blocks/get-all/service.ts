@@ -16,7 +16,7 @@ export default async function handleRequest(
 		inputParams: block.inputParams,
 		sourceType: block.sourceType,
 		source: block.source,
-		testOnly: block.testOnly,
+		usage: block.usage,
 		docs: block.docs,
 	}));
 }

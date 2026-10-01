@@ -1,0 +1,24 @@
+{
+	"name": "middlewares/guarded",
+	"description": "POST /greet/guarded — a route behind one before-middleware that demands an API key and records the caller.",
+	"engine": "none",
+	"route": { "method": "POST", "path": "/greet/guarded" },
+	"middlewares": { "before": ["mw-require-key"] },
+	"blocks": [
+		{ "id": "entry", "type": "entrypoint", "position": { "x": 0, "y": 0 }, "data": { "blockName": "Request" } },
+		{
+			"id": "greet",
+			"type": "jsrunner",
+			"position": { "x": 240, "y": 0 },
+			"data": {
+				"blockName": "Greet",
+				"value": "return { hello: input?.name, caller: typeof caller === \"undefined\" ? null : caller };"
+			}
+		},
+		{ "id": "created", "type": "response", "position": { "x": 480, "y": 0 }, "data": { "blockName": "Created", "httpCode": "201" } }
+	],
+	"edges": [
+		{ "id": "e1", "from": "entry", "to": "greet", "fromHandle": "source", "toHandle": "source" },
+		{ "id": "e2", "from": "greet", "to": "created", "fromHandle": "source", "toHandle": "source" }
+	]
+}

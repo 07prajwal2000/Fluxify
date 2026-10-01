@@ -31,6 +31,7 @@ describe("compileGraph", () => {
 		expect(result).toEqual({
 			successful: true,
 			continueIfFail: true,
+			responded: true,
 			output: { httpCode: "200", body: 43 },
 		});
 	});
@@ -46,6 +47,7 @@ describe("compileGraph", () => {
 		expect(await graph({ transformEnabled: true, transformScript: script }).run(createContext(), 7)).toEqual({
 			successful: true,
 			continueIfFail: true,
+			responded: true,
 			output: { httpCode: "201", body: { data: 7, meta: { ok: true } } },
 		});
 		expect((await graph({ transformEnabled: false, transformScript: script }).run(createContext(), 7)).output).toEqual({

@@ -1,4 +1,4 @@
-import { registerCustomBlock, unregisterCustomBlock } from "@fluxify/blocks";
+import { type RouteMiddlewares, registerCustomBlock, unregisterCustomBlock } from "@fluxify/blocks";
 import { loadCustomBlock, type GraphFixture } from "./graph";
 
 /**
@@ -8,15 +8,30 @@ import { loadCustomBlock, type GraphFixture } from "./graph";
  * the routes — because a route that calls a custom block only emits if the
  * library already knows the name. Registration is worker-global, so the
  * returned dispose keeps one fixture's blocks out of another's run.
+ *
+ * Middleware blocks go in the same library: the worker looks them up by name
+ * there too. `middlewares` is what the route artifact would carry.
  */
 export async function registerFixtureBlocks(fixture: GraphFixture) {
 	const registered: string[] = [];
-	for (const file of fixture.uses ?? []) {
+	const register = async (file: string) => {
 		const block = await loadCustomBlock(file);
 		registerCustomBlock(block.name, block.blocks, block.edges);
 		registered.push(block.name);
+		return { middlewareId: file, block: block.name };
+	};
+	for (const file of fixture.uses ?? []) await register(file);
+
+	let middlewares: RouteMiddlewares | undefined;
+	if (fixture.middlewares) {
+		middlewares = { before: [], after: [] };
+		for (const file of fixture.middlewares.before ?? []) middlewares.before.push(await register(file));
+		for (const file of fixture.middlewares.after ?? []) middlewares.after.push(await register(file));
 	}
-	return () => {
-		for (const name of registered) unregisterCustomBlock(name);
+	return {
+		middlewares,
+		dispose() {
+			for (const name of registered) unregisterCustomBlock(name);
+		},
 	};
 }

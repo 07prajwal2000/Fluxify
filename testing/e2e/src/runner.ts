@@ -1,4 +1,9 @@
-import { compileGraph, type BlockTraceSpan } from "@fluxify/blocks";
+import {
+	compileGraph,
+	type BlockTraceSpan,
+	type RouteMiddlewares,
+	runWithMiddlewares,
+} from "@fluxify/blocks";
 import {
 	hydrateIntegrations,
 	OWNER_KEY,
@@ -82,18 +87,19 @@ export async function runGraph(
 ): Promise<GraphRun> {
 	hydrateAppConfig(PROJECT_ID, APP_CONFIG);
 	await hydrateDatabase(fixture);
-	const disposeBlocks = await registerFixtureBlocks(fixture);
+	const { middlewares, dispose } = await registerFixtureBlocks(fixture);
 
 	try {
-		return await execute(fixture, request);
+		return await execute(fixture, request, middlewares);
 	} finally {
-		disposeBlocks();
+		dispose();
 	}
 }
 
 async function execute(
 	fixture: GraphFixture,
 	request: GraphRequest,
+	middlewares: RouteMiddlewares | undefined,
 ): Promise<GraphRun> {
 	const { run, source } = compileGraph(fixture.blocks, fixture.edges);
 	const spans: BlockTraceSpan[] = [];
@@ -105,7 +111,7 @@ async function execute(
 			// still identifies it, and flat order is what assertions read
 			enterCustomBlock: () => ({ trace: context.trace!, close: () => {} }),
 		};
-		return run(context, context.requestBody);
+		return runWithMiddlewares(context, context.requestBody, run, middlewares);
 	});
 
 	const result = await executeRouteInternal(

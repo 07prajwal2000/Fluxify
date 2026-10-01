@@ -31,6 +31,7 @@ import { Section } from "@/components/common/Section";
 import { showErrorNotification } from "@/lib/errorNotifier";
 import { projectSettingsKeysQuery } from "@/query/projectSettingsKeysQuery";
 import { routesQuery } from "@/query/routesQuery";
+import { RouteMiddlewaresPanel } from "./RouteMiddlewaresPanel";
 import { RouteTelemetryHelp } from "./RouteTelemetryHelp";
 import {
 	bodyDataTypes,
@@ -208,6 +209,7 @@ function RouteSettingsForm({
 				pathParams.length > 0 && { id: "params", label: "Path params" },
 				{ id: "query", label: "Query" },
 				hasBody && { id: "body", label: "Body" },
+				{ id: "middlewares", label: "Middlewares" },
 				{ id: "advanced", label: "Advanced" },
 				{ id: "danger", label: "Danger zone" },
 			].filter(Boolean) as { id: string; label: string }[],
@@ -366,6 +368,10 @@ function RouteSettingsForm({
 								allowedDataTypes={bodyDataTypes(contentTypes)}
 							/>
 						</Section>
+					</Tabs.Panel>
+
+					<Tabs.Panel id="middlewares" className="min-h-0 flex-1 overflow-y-auto p-5">
+						<RouteMiddlewaresPanel routeId={route.id} projectId={route.projectId} />
 					</Tabs.Panel>
 
 					<Tabs.Panel id="advanced" className="min-h-0 flex-1 overflow-y-auto p-5">

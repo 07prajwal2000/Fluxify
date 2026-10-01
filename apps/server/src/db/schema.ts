@@ -19,6 +19,7 @@ import {
 } from "drizzle-orm/pg-core";
 import { createSelectSchema } from "drizzle-zod";
 import z from "zod";
+import { CUSTOM_BLOCK_USAGES } from "../lib/customBlockUsage";
 import type { ClaimMetadata } from "../modules/orchestrator/claimMetadata";
 import { systemUsers } from "./auth-schema";
 import { jsonb } from "./jsonbColumn";
@@ -832,6 +833,9 @@ export const customBlockSourceTypeEnum = pgEnum("custom_block_source_type", [
 	"user-defined", // custom defined by the user for their project
 ]);
 
+export { CUSTOM_BLOCK_USAGES, type CustomBlockUsage } from "../lib/customBlockUsage";
+export const customBlockUsageEnum = pgEnum("custom_block_usage", CUSTOM_BLOCK_USAGES);
+
 export const customBlocksListEntity = pgTable(
 	"custom_blocks_list",
 	{
@@ -849,8 +853,9 @@ export const customBlocksListEntity = pgTable(
 		inputParams: jsonb("input_params").$type<Record<string, any>[]>(),
 		sourceType: customBlockSourceTypeEnum("source_type").default("user-defined"),
 		source: text().default(""), // if plugin, then the name of plugin, if inhouse, then repository url, if user-defined, then empty
-		// #483: only for a test suite's setup/teardown — never on a live canvas, never published to workers
-		testOnly: boolean("test_only").default(false).notNull(),
+		// #534: where the block may run. `test` (#483) is a suite's setup/teardown and never
+		// reaches workers; `middleware` is a link in a middleware chain and never sits on a canvas
+		usage: customBlockUsageEnum("usage").default("flow").notNull(),
 		// #526: markdown shown in the block settings Docs tab
 		docs: text(),
 		createdAt: timestamp("created_at").defaultNow().notNull(),
@@ -862,6 +867,78 @@ export const customBlocksListEntity = pgTable(
 	(table) => [
 		index("idx_custom_blocks_list_project_id").on(table.projectId),
 		index("idx_custom_blocks_list_name").on(table.name),
+	],
+);
+
+/* ============================================================================
+ * 8. MIDDLEWARES (#534)
+ * ============================================================================ */
+
+/**
+ * A named chain of `middleware` custom blocks that routes attach before or after
+ * their own flow. Compiled into each attaching route, so it has no artifact of
+ * its own — changing one recompiles the routes that use it.
+ */
+export const middlewaresEntity = pgTable(
+	"middlewares",
+	{
+		id: varchar({ length: 50 })
+			.primaryKey()
+			.$defaultFn(() => generateID()),
+		projectId: varchar("project_id", { length: 50 })
+			.references(() => projectsEntity.id, { onDelete: "cascade" })
+			.notNull(),
+		name: varchar({ length: 255 }).notNull(),
+		description: text(),
+		createdAt: timestamp("created_at").defaultNow().notNull(),
+		updatedAt: timestamp("updated_at")
+			.defaultNow()
+			.notNull()
+			.$onUpdate(() => new Date()),
+	},
+	(table) => [uniqueIndex("uq_middlewares_project_name").on(table.projectId, table.name)],
+);
+
+/** a middleware's chain: custom blocks in run order, each at most once */
+export const middlewareBlocksEntity = pgTable(
+	"middleware_blocks",
+	{
+		middlewareId: varchar("middleware_id", { length: 50 })
+			.references(() => middlewaresEntity.id, { onDelete: "cascade" })
+			.notNull(),
+		// restrict: deleting a block a chain still uses is refused, not silently dropped
+		customBlockId: varchar("custom_block_id", { length: 50 })
+			.references(() => customBlocksListEntity.id, { onDelete: "restrict" })
+			.notNull(),
+		position: integer().notNull(),
+	},
+	(table) => [
+		primaryKey({ columns: [table.middlewareId, table.customBlockId] }),
+		index("idx_middleware_blocks_custom_block_id").on(table.customBlockId),
+	],
+);
+
+export const MIDDLEWARE_PHASES = ["before", "after"] as const;
+export type MiddlewarePhase = (typeof MIDDLEWARE_PHASES)[number];
+export const middlewarePhaseEnum = pgEnum("middleware_phase", MIDDLEWARE_PHASES);
+
+/** a route's middlewares; the PK makes each one attachable once, in either phase */
+export const routeMiddlewaresEntity = pgTable(
+	"route_middlewares",
+	{
+		routeId: varchar("route_id", { length: 50 })
+			.references(() => routesEntity.id, { onDelete: "cascade" })
+			.notNull(),
+		// cascade: deleting a middleware detaches it from every route
+		middlewareId: varchar("middleware_id", { length: 50 })
+			.references(() => middlewaresEntity.id, { onDelete: "cascade" })
+			.notNull(),
+		phase: middlewarePhaseEnum("phase").notNull(),
+		position: integer().notNull(),
+	},
+	(table) => [
+		primaryKey({ columns: [table.routeId, table.middlewareId] }),
+		index("idx_route_middlewares_middleware_id").on(table.middlewareId),
 	],
 );
 

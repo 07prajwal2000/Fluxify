@@ -22,7 +22,12 @@ export default defineConfig({
 				}
 			},
 		},
-		tanstackRouter({ target: "react", autoCodeSplitting: true }),
+		tanstackRouter({
+			target: "react",
+			autoCodeSplitting: true,
+			// tests sit next to the routes they cover; they are not pages
+			routeFileIgnorePattern: "\\.(test|spec)\\.tsx?$",
+		}),
 		react(),
 		tailwindcss(),
 	],

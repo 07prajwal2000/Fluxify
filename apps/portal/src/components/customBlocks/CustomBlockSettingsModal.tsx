@@ -7,6 +7,7 @@ import {
 	Modal,
 	Spinner,
 	Tabs,
+	TextArea,
 	TextField,
 	toast,
 } from "@fluxify/components";
@@ -22,7 +23,7 @@ import { customBlocksQuery } from "@/query/customBlocksQuery";
 import { DocsEditor } from "./DocsEditor";
 import { ICON_URL_MAX, IconPicker, type IconValue } from "./IconPicker";
 import { InputParamsEditor, validateInputParams } from "./InputParamsEditor";
-import { TestOnlyField } from "./TestOnlyField";
+import { UsageField } from "./UsageField";
 
 /**
  * Same shape as the route canvas' settings modal: everything editable about the
@@ -89,7 +90,6 @@ function CustomBlockSettingsForm({
 
 	const [label, setLabel] = useState(block.label);
 	const [description, setDescription] = useState(block.description ?? "");
-	const [testOnly, setTestOnly] = useState(block.testOnly);
 	const [docs, setDocs] = useState(block.docs ?? "");
 	const [params, setParams] = useState<CustomBlockInputParam[]>(
 		Array.isArray(block.inputParams) ? (block.inputParams as CustomBlockInputParam[]) : [],
@@ -124,10 +124,9 @@ function CustomBlockSettingsForm({
 			icon: iconValue.icon,
 			iconUrl: iconValue.iconUrl,
 			inputParams: params as unknown as z.infer<typeof inputParamSchema>[],
-			testOnly,
 			docs: docs.trim() ? docs : null,
 		}),
-		[label, description, params, iconValue, testOnly, docs],
+		[label, description, params, iconValue, docs],
 	);
 	const [baseline] = useState(() => JSON.stringify(payload));
 	const isDirty = JSON.stringify(payload) !== baseline;
@@ -176,7 +175,8 @@ function CustomBlockSettingsForm({
 						className="w-44 shrink-0 border-r border-border p-3"
 					>
 						<Tabs.Tab id="general">General</Tabs.Tab>
-						<Tabs.Tab id="inputs">Input parameters</Tabs.Tab>
+						{/* a middleware block takes no params (#534) */}
+						{block.usage !== "middleware" && <Tabs.Tab id="inputs">Input parameters</Tabs.Tab>}
 						<Tabs.Tab id="docs">Docs</Tabs.Tab>
 						{canDelete && <Tabs.Tab id="danger">Danger zone</Tabs.Tab>}
 					</Tabs.List>
@@ -210,9 +210,9 @@ function CustomBlockSettingsForm({
 									</TextField>
 									<TextField isDisabled={readOnly} value={description} onChange={setDescription}>
 										<Label>Description</Label>
-										<Input placeholder="What this block does" />
+										<TextArea rows={3} placeholder="What this block does" />
 									</TextField>
-									<TestOnlyField value={testOnly} onChange={setTestOnly} isDisabled={readOnly} />
+									<UsageField value={block.usage} isDisabled />
 								</div>
 							}
 						/>

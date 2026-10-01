@@ -12,8 +12,8 @@ Setup and teardown are **custom blocks**, so they can do anything a custom block
 ## 1. Make a test-only custom block
 
 1. Create a custom block (see [Custom Blocks](/blocks/custom-blocks)), for example `seed_users`.
-2. Open its **Settings** and tick **Use only for test suite setup / teardown**.
-3. Save.
+2. In **Used for**, pick **Test setup & teardown**.
+3. Finish creating it.
 
 A test-only block:
 
@@ -21,9 +21,10 @@ A test-only block:
 - **can't be saved onto a route, workflow or normal custom block**, even through the API or the AI assistant;
 - **never runs in live traffic**. It only runs as a suite's setup or teardown.
 
-::: warning Changing the box later
-- You can't tick the box while a route, workflow or normal custom block still uses the block. Fluxify lists where it is used; remove it there first.
-- You can't untick the box while a test suite uses the block for setup or teardown. Pick another block in those suites first.
+::: warning Picked once
+**Used for** is chosen when the block is created and can't be changed later. To
+turn a normal block into a test-only one, create a new block. See
+[Where a custom block can be used](/blocks/custom-blocks#where-a-custom-block-can-be-used).
 :::
 
 ## 2. Build what it does

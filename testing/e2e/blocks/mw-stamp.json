@@ -1,0 +1,26 @@
+{
+	"name": "mw_stamp",
+	"description": "After-middleware: sets an x-served-by header and adds `stamped` and the route's status to the body. Ends without a Response block, so the reply becomes a 200.",
+	"blocks": [
+		{ "id": "mw-stamp-entry", "type": "entrypoint", "position": { "x": 0, "y": 0 }, "data": {} },
+		{
+			"id": "mw-stamp-header",
+			"type": "httpsetheader",
+			"position": { "x": 240, "y": 0 },
+			"data": { "blockName": "Served by", "name": "x-served-by", "value": "fluxify" }
+		},
+		{
+			"id": "mw-stamp-body",
+			"type": "jsrunner",
+			"position": { "x": 480, "y": 0 },
+			"data": {
+				"blockName": "Stamp",
+				"value": "return { ...input.body, stamped: true, routeStatus: input.httpCode };"
+			}
+		}
+	],
+	"edges": [
+		{ "id": "e1", "from": "mw-stamp-entry", "to": "mw-stamp-header", "fromHandle": "source", "toHandle": "source" },
+		{ "id": "e2", "from": "mw-stamp-header", "to": "mw-stamp-body", "fromHandle": "source", "toHandle": "source" }
+	]
+}

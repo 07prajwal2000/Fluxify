@@ -1,4 +1,5 @@
 import z from "zod";
+import { CUSTOM_BLOCK_USAGES } from "../../../../lib/customBlockUsage";
 
 export const requestQuerySchema = z.object({
 	projectId: z.string(),
@@ -15,7 +16,7 @@ export const responseSchema = z.array(
 		inputParams: z.any().optional().nullable(),
 		sourceType: z.string().optional().nullable(),
 		source: z.string().optional().nullable(),
-		testOnly: z.boolean(),
+		usage: z.enum(CUSTOM_BLOCK_USAGES),
 		docs: z.string().nullable(),
 	}),
 );

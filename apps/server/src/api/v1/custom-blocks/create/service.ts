@@ -33,6 +33,8 @@ export default async function handleRequest(
 		if (existingBlock) {
 			throw new ConflictError(`custom block with name ${data.name} already exists in this project`);
 		}
+		// #534: a middleware link is never configured, so it carries no params
+		if (data.usage === "middleware") data.inputParams = [];
 		const id = generateID();
 		const newBlockId = await createCustomBlock({ ...data, id }, tx);
 		if (seedDefaultBlocks) await createDependencies(newBlockId, tx);

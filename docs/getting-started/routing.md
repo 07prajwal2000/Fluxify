@@ -55,7 +55,7 @@ Before Fluxify executes a single block in your workflow, it runs through a quick
 4. **Validate the body** — check it against your Body Schema (if set).
 5. **Validate query parameters** — check URL query strings against your Query Schema (if set).
 6. **Validate path parameters** — check URL path values against your Params Schema (if set).
-7. **Run your workflow** — only if everything above passed.
+7. **Run your workflow** — only if everything above passed. If the route has [middlewares](../concepts/middlewares.md), the ones set to run **before** it go first, and the ones set to run **after** it get the reply.
 
 If any validation step fails, the workflow never runs and the caller immediately gets a clear error response.
 ## Accepted Content Types
@@ -238,5 +238,6 @@ schemas before sending; turn it off to see how the route itself answers bad inpu
 ## Next Steps
 
 - 🧩 [Explore the Blocks Reference](../blocks/index.md) — build the workflow logic that runs after validation
+- 🛡️ [Middlewares](../concepts/middlewares.md) — share checks like API keys or logging across many routes
 - ✍️ [Scripting Guide](../scripting/index.md) — learn more about writing custom JavaScript
 - ⚙️ [App Config](../concepts/app-config.md) — manage secrets your validators can reference

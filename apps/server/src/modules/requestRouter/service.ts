@@ -581,6 +581,9 @@ function setupContextVars(
 		getRequestBody() {
 			return requestData.body;
 		},
+		// there is no reply yet; runWithMiddlewares swaps these in for the after chain
+		getResponseBody: () => null,
+		getResponseStatus: () => null,
 		getRouteParam(key) {
 			return requestData.params[key] || "";
 		},

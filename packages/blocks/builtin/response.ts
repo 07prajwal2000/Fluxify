@@ -28,7 +28,7 @@ export function emitResponse(node: EmitNode) {
 	const body =
 		transformEnabled && transformScript?.trim() ? node.js(transformScript, node.in) : node.in;
 	return node.complete(
-		`{ successful: true, continueIfFail: true, output: { httpCode: ${JSON.stringify(httpCode)}, body: ${body} ?? null } }`,
+		`{ successful: true, continueIfFail: true, responded: true, output: { httpCode: ${JSON.stringify(httpCode)}, body: ${body} ?? null } }`,
 	);
 }
 

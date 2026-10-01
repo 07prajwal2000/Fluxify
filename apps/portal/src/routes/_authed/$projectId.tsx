@@ -16,6 +16,7 @@ import {
 	TbBox,
 	TbChevronDown,
 	TbCloudCog,
+	TbFilter,
 	TbLogout,
 	TbRoute,
 	TbSettings,
@@ -50,6 +51,12 @@ const NAV = [
 		icon: TbBolt,
 		children: [
 			{ key: "routes", label: "Routes", to: "/$projectId/routes", icon: TbStack2 },
+			{
+				key: "middlewares",
+				label: "Middlewares",
+				to: "/$projectId/middlewares",
+				icon: TbFilter,
+			},
 			{ key: "workflows", label: "Workflows", to: "/$projectId/workflows", icon: TbRoute },
 			{ key: "triggers", label: "Triggers", to: "/$projectId/triggers", icon: TbBolt },
 			{ key: "executions", label: "Executions", to: "/$projectId/executions", icon: TbActivity },

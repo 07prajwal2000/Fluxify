@@ -1,3 +1,4 @@
+import type { RouteMiddlewares } from "@fluxify/blocks";
 import type { AssertionResult, CaseCounts, CaseResult } from "../../db/schema";
 import type { ProjectConfigPayload } from "../compiler/artifacts";
 import type { AssertionType, SuiteRequest } from "./assertions";
@@ -43,6 +44,8 @@ export type RouteTarget = {
 		bodySchema?: unknown;
 		querySchema?: unknown;
 		paramsSchema?: unknown;
+		/** run around the route exactly as a live worker runs them (#534) */
+		middlewares?: RouteMiddlewares;
 	};
 	request: SuiteRequest;
 	workflow?: undefined;

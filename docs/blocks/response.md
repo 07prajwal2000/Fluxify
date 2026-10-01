@@ -36,6 +36,30 @@ Turn on **Transform response** to change the shape of the body without adding a 
 return { data: input, meta: { count: input.length } };
 ```
 
+### In an after middleware
+
+In a block that runs as an [after middleware](../concepts/middlewares.md#what-each-step-receives),
+the first `input` is not the body. It is the route's whole reply: `{ httpCode, body }`.
+A Response block sends whatever reaches it, so without a transform the caller
+gets that wrapper, status code included.
+
+Turn on **Transform response** and send the body instead, changed if you like:
+
+```js
+return { ...input.body, servedBy: "fluxify" };
+```
+
+If an earlier block in the chain already reshaped `input`, the route's reply is
+still there: `getResponseBody()` returns its body and `getResponseStatus()` its
+status code. See [Response values](../scripting/javascript-api.md#response-values).
+
+::: warning The status code is the one you pick
+The Response block answers with its own code, not the route's. To pass a route's
+`404` through, branch on `getResponseStatus()` with an
+[If Condition](./if-condition.md) and end each branch in a Response block with
+the matching code.
+:::
+
 ## Outputs
 
 None. A Response block is the end of the flow and has no **Next** handle. Nothing placed after it would ever run.

@@ -31,10 +31,21 @@ describe("Delete Custom Block Service", () => {
   it("should delete successfully", async () => {
     spyOn(repo, "getCustomBlockById").mockResolvedValue({ id: "block_1", projectId: "proj_123", sourceType: "inhouse" } as any);
     spyOn(authCommon, "hasProjectAccess").mockReturnValue(true);
+    spyOn(repo, "middlewaresUsing").mockResolvedValue([]);
     spyOn(repo, "deleteCustomBlock").mockResolvedValue(undefined);
 
     const res = await handleRequest("block_1", mockUser, mockAcl);
     expect(res.id).toBe("block_1");
+  });
+
+  it("refuses while a middleware chain uses the block (#534)", async () => {
+    spyOn(repo, "getCustomBlockById").mockResolvedValue({ id: "block_1", projectId: "proj_123", sourceType: "inhouse" } as any);
+    spyOn(authCommon, "hasProjectAccess").mockReturnValue(true);
+    spyOn(repo, "middlewaresUsing").mockResolvedValue(['middleware "Auth"']);
+    const del = spyOn(repo, "deleteCustomBlock").mockResolvedValue(undefined);
+
+    await expect(handleRequest("block_1", mockUser, mockAcl)).rejects.toThrow('Remove this block from middleware "Auth" first.');
+    expect(del).not.toHaveBeenCalled();
   });
 
   it("should throw Forbidden if block is from plugin", async () => {
