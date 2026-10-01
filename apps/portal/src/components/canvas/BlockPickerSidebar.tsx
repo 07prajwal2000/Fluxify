@@ -1,5 +1,5 @@
 import { Button, cn, Input, Label, Sidebar, TextField } from "@fluxify/components";
-import { type ReactNode, useEffect, useMemo, useState } from "react";
+import { type KeyboardEvent, type ReactNode, useEffect, useId, useMemo, useState } from "react";
 import {
 	TbArrowLeft,
 	TbBoxMultiple,
@@ -102,13 +102,26 @@ export function BlockPickerSidebar({
 }: BlockPickerSidebarProps) {
 	const [query, setQuery] = useState("");
 	const [selectedCategory, setSelectedCategory] = useState<BlockCategory | null>(null);
+	const [activeIndex, setActiveIndex] = useState(0);
+	const listId = useId();
+	const optionId = (index: number) => `${listId}-option-${index}`;
 
 	useEffect(() => {
 		if (!isOpen) {
 			setQuery("");
 			setSelectedCategory(null);
+			setActiveIndex(0);
 		}
 	}, [isOpen]);
+
+	// A new list starts at its first row, so "type, then Enter" picks the top hit.
+	// biome-ignore lint/correctness/useExhaustiveDependencies: reset is the point
+	useEffect(() => setActiveIndex(0), [query, selectedCategory]);
+
+	// biome-ignore lint/correctness/useExhaustiveDependencies: optionId is derived from listId
+	useEffect(() => {
+		document.getElementById(optionId(activeIndex))?.scrollIntoView({ block: "nearest" });
+	}, [activeIndex, listId]);
 
 	const customDefs = useAddableCustomBlockDefs();
 	const blocks = useMemo<PickerItem[]>(() => {
@@ -167,6 +180,37 @@ export function BlockPickerSidebar({
 		onOpenChange(false);
 	}
 
+	const rowCount = isShowingCategories ? categories.length : visibleBlocks.length;
+
+	// Focus stays in the search box; keys drive the highlighted row.
+	function onSearchKeyDown(event: KeyboardEvent<HTMLInputElement>) {
+		const { key } = event;
+		if (key === "ArrowDown" || key === "ArrowUp") {
+			event.preventDefault();
+			if (rowCount === 0) return;
+			const step = key === "ArrowDown" ? 1 : -1;
+			setActiveIndex((index) => (index + step + rowCount) % rowCount);
+		} else if (key === "Enter") {
+			event.preventDefault();
+			if (isShowingCategories) {
+				const category = categories[activeIndex];
+				if (category) setSelectedCategory(category);
+				return;
+			}
+			const block = visibleBlocks[activeIndex];
+			if (block && !block.disabledReason) addBlock(block.type as BlockType);
+		} else if (
+			selectedCategory &&
+			!query &&
+			(key === "ArrowLeft" || key === "Backspace" || key === "Escape")
+		) {
+			event.preventDefault();
+			// Keeps Sidebar's document-level Escape from closing the picker.
+			event.stopPropagation();
+			setSelectedCategory(null);
+		}
+	}
+
 	return (
 		<Sidebar
 			isOpen={isOpen}
@@ -193,7 +237,15 @@ export function BlockPickerSidebar({
 				<TextField value={query} onChange={setQuery} aria-label="Search blocks">
 					<Label className="sr-only">Search blocks</Label>
 					<TbSearch aria-hidden className="fx-block-picker__search-icon" />
-					<Input autoFocus placeholder="Search blocks…" />
+					<Input
+						autoFocus
+						placeholder="Search blocks…"
+						role="combobox"
+						aria-expanded
+						aria-controls={listId}
+						aria-activedescendant={rowCount > 0 ? optionId(activeIndex) : undefined}
+						onKeyDown={onSearchKeyDown}
+					/>
 				</TextField>
 			</div>
 
@@ -215,14 +267,22 @@ export function BlockPickerSidebar({
 				</div>
 
 				{isShowingCategories ? (
-					<div className="fx-block-picker__list">
-						{categories.map((category) => {
+					<div id={listId} role="listbox" aria-label={title} className="fx-block-picker__list">
+						{categories.map((category, index) => {
 							const details = CATEGORY_DETAILS[category];
 							return (
 								<button
 									key={category}
+									id={optionId(index)}
 									type="button"
-									className="fx-block-picker__item fx-block-picker__category"
+									role="option"
+									tabIndex={-1}
+									aria-selected={index === activeIndex}
+									className={cn(
+										"fx-block-picker__item fx-block-picker__category",
+										index === activeIndex && "fx-block-picker__item--active",
+									)}
+									onMouseEnter={() => setActiveIndex(index)}
 									onClick={() => setSelectedCategory(category)}
 								>
 									<span className="fx-block-picker__icon" aria-hidden>
@@ -238,17 +298,24 @@ export function BlockPickerSidebar({
 						})}
 					</div>
 				) : (
-					<div className="fx-block-picker__list">
-						{visibleBlocks.map((block) => (
+					<div id={listId} role="listbox" aria-label={title} className="fx-block-picker__list">
+						{visibleBlocks.map((block, index) => (
 							<button
 								key={block.type}
+								id={optionId(index)}
 								type="button"
+								role="option"
+								tabIndex={-1}
+								aria-selected={index === activeIndex}
+								aria-disabled={Boolean(block.disabledReason)}
 								disabled={Boolean(block.disabledReason)}
 								title={block.disabledReason}
 								className={cn(
 									"fx-block-picker__item",
+									index === activeIndex && "fx-block-picker__item--active",
 									block.disabledReason && "cursor-not-allowed opacity-60",
 								)}
+								onMouseEnter={() => setActiveIndex(index)}
 								onClick={() => addBlock(block.type as BlockType)}
 							>
 								<span className="fx-block-picker__icon" aria-hidden>
