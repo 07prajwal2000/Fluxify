@@ -100,7 +100,8 @@
 }
 
 .fx-block-picker__item:hover,
-.fx-block-picker__item:focus-visible {
+.fx-block-picker__item:focus-visible,
+.fx-block-picker__item--active {
 	border-color: var(--border);
 	background: var(--surface-secondary);
 	outline: none;

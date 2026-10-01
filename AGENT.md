@@ -14,6 +14,7 @@ If you encounter a repeatable issue or bug that might arise in the future, you m
   and database introspection is already available via `useDbMetadata`
   (`tableNames` / `getColumnsForTable` / `allColumns`). Check these before
   building a new component — the equivalent usually already exists.
+- **Test critical components when you add or change them** (keyboard flows, canvas editing, anything a user can't work around) with React Testing Library on happy-dom, turned on in that test file only. Copy `canvas/BlockPickerSidebar.test.tsx`.
 
 ## Git & GitHub Workflow Rules
 - **Two remotes, and they are not interchangeable.** Issues, discussions and PRs always target **`Fluxify-rest/Fluxify`** (`--repo Fluxify-rest/Fluxify`). Branches are only ever pushed to the user's fork, `origin` (`git push origin <branch>`). A PR from the fork needs `--head <user>:<branch>`.
