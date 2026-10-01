@@ -62,6 +62,12 @@ The most common use is a read-through cache: try **KV Operations** `Get` first, 
 A connection is opened once and reused across requests, so a cache read does not pay for a new connection each time. Updating the integration's credentials swaps the connection over automatically — no redeploy needed.
 :::
 
+## Starting a Workflow From a Redis Stream
+
+A Redis integration can also feed a [trigger](/concepts/triggers#reading-from-redis-streams):
+every entry added to a Redis stream starts a workflow. This is free in every
+edition. Memcached has no streams, so it is not offered there.
+
 ## Security & App Config Variables
 
 Like other external connections in Fluxify, you can securely pass dynamic credentials to your KV Store using **App Configs** instead of hardcoding raw strings. 

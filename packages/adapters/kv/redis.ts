@@ -12,6 +12,23 @@ export type RedisVariantConfig = {
 	url?: string;
 };
 
+/** An ioredis client for a Redis integration's config, `cfg:` references already expanded. */
+export function createRedisClient(config: RedisVariantConfig, extra: RedisOptions = {}) {
+	const baseOptions: RedisOptions = { connectTimeout: 5000, ...extra };
+	if (config.source === "url" && config.url) return new Redis(config.url, baseOptions);
+	const options: RedisOptions = {
+		...baseOptions,
+		host: config.host,
+		port: typeof config.port === "string" ? parseInt(config.port, 10) : (config.port as number),
+	};
+	if (config.username) options.username = config.username;
+	if (config.password) options.password = config.password;
+	const db = Number(config.database);
+	if (config.database !== undefined && config.database !== "" && Number.isInteger(db) && db >= 0)
+		options.db = db;
+	return new Redis(options);
+}
+
 export class RedisIntegration extends BaseKVIntegration {
 	public static variant = "Redis";
 	private client: Redis;
@@ -21,31 +38,10 @@ export class RedisIntegration extends BaseKVIntegration {
 		isTestConnection: boolean = false,
 	) {
 		super();
-		const baseOptions: RedisOptions = {
-			connectTimeout: 5000,
-			...(isTestConnection ? { maxRetriesPerRequest: 0, retryStrategy: () => null } : {}),
-		};
-
-		if (config.source === "url" && config.url) {
-			this.client = new Redis(config.url, baseOptions);
-		} else {
-			const options: RedisOptions = {
-				...baseOptions,
-				host: config.host,
-				port: typeof config.port === "string" ? parseInt(config.port, 10) : (config.port as number),
-			};
-			if (config.username) options.username = config.username;
-			if (config.password) options.password = config.password;
-			const db = Number(config.database);
-			if (
-				config.database !== undefined &&
-				config.database !== "" &&
-				Number.isInteger(db) &&
-				db >= 0
-			)
-				options.db = db;
-			this.client = new Redis(options);
-		}
+		this.client = createRedisClient(
+			config,
+			isTestConnection ? { maxRetriesPerRequest: 0, retryStrategy: () => null } : {},
+		);
 	}
 
 	async get(key: string): Promise<string | null> {

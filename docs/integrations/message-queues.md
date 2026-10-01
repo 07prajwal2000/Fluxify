@@ -13,6 +13,10 @@ to read and which workflow to run.
 ::: info Enterprise
 Kafka, NATS and SQS triggers need an enterprise license. Creating one is
 refused until a license is active.
+
+Reading a **Redis stream** is free in every edition. It uses a
+[Redis KV integration](/integrations/kv-stores) rather than one of these — see
+[Reading from Redis Streams](/concepts/triggers#reading-from-redis-streams).
 :::
 
 ## Kafka

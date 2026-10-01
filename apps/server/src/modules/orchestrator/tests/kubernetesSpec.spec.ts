@@ -17,6 +17,7 @@ import {
 	externalSecretData,
 	type KubernetesSpecOptions,
 	PRE_STOP_SECONDS,
+	redisAddress,
 	WORKER_ENV_SECRET,
 } from "../kubernetesSpec";
 import type { DesiredNode } from "../projection";
@@ -316,6 +317,16 @@ describe("triggers on an outside queue", () => {
 		stream: "ORDERS",
 		consumer: "orders",
 	};
+	const redis: ExternalTrigger = {
+		id: TRIGGER_B,
+		type: "redis",
+		address: "redis:6379",
+		password: "hunter2",
+		databaseIndex: "2",
+		tls: true,
+		stream: "orders",
+		consumerGroup: "workers",
+	};
 	const scaled = (externalTriggers: ExternalTrigger[]) =>
 		buildScaledObject(workload({ externalTriggers }), options, policy, "abc") as {
 			metadata: { annotations?: Record<string, string> };
@@ -360,6 +371,47 @@ describe("triggers on an outside queue", () => {
 			metadata: { natsServerMonitoringEndpoint: "nats.example.com:8222", useHttps: "true" },
 		});
 		expect(buildTriggerAuthentication(nats, null)).toBeNull();
+	});
+
+	it("scales a Redis stream on its group's lag, the password kept in the Secret", () => {
+		expect(scaled([redis]).spec.triggers[0]).toMatchObject({
+			type: "redis-streams",
+			metadata: {
+				address: "redis:6379",
+				stream: "orders",
+				consumerGroup: "workers",
+				lagCount: "10",
+				activationLagCount: "0",
+				databaseIndex: "2",
+				enableTLS: "true",
+			},
+			authenticationRef: { name: `fluxify-trigger-${TRIGGER_B}` },
+		});
+		expect(JSON.stringify(scaled([redis]))).not.toContain("hunter2");
+		expect(externalSecretData(redis)).toEqual({ password: "hunter2" });
+	});
+
+	it("reads a Redis URL the way KEDA addresses it", () => {
+		expect(redisAddress({ source: "url", url: "rediss://app:p%40ss@cache.internal:6380/3" })).toEqual({
+			address: "cache.internal:6380",
+			username: "app",
+			password: "p@ss",
+			databaseIndex: "3",
+			tls: true,
+		});
+		expect(redisAddress({ source: "url", url: "redis://cache" })).toMatchObject({
+			address: "cache:6379",
+			password: undefined,
+			databaseIndex: undefined,
+			tls: false,
+		});
+	});
+
+	it("gives a Redis without a password no authentication at all", () => {
+		const open = { ...redis, password: undefined };
+		expect(scaled([open]).spec.triggers[0]).not.toHaveProperty("authenticationRef");
+		expect(externalSecretData(open)).toBeNull();
+		expect(buildTriggerAuthentication(open, null)).toBeNull();
 	});
 
 	it("refuses a malformed trigger id", () => {

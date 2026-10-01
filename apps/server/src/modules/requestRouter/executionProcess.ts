@@ -9,7 +9,7 @@ import { registerWorkflowJobHandler } from "../jobs/workflowJob";
 import { exportTraceRun, resetProviders } from "../telemetry/destinations";
 import { RouteTraceRecorder, WorkflowTraceRecorder } from "../telemetry/routeRecorder";
 import { triggerPayloadLimit } from "../triggers/payloadLimit";
-import { setTriggerFaultReporter } from "../triggers/queueRuntime.ee";
+import { setTriggerFaultReporter } from "../triggers/queueRuntime";
 import { AsyncExecutor } from "./asyncExecutor";
 import {
 	applyArtifactUpdate,

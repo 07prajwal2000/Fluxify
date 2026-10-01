@@ -204,7 +204,7 @@ workers beyond the license would only be refused when they start.
 ### Triggers on an outside queue {#external-queues}
 
 A workflow claim also grows on the triggers that read an outside queue —
-Kafka, Amazon SQS, or a NATS server of your own. KEDA reads each queue itself,
+Kafka, Amazon SQS, a NATS server of your own, or a Redis stream. KEDA reads each queue itself,
 next to the claim's other triggers, and the busiest one decides. Each worker
 takes on about *queued runs per pod* waiting messages, as with any trigger.
 
@@ -213,6 +213,7 @@ takes on about *queued runs per pod* waiting messages, as with any trigger.
 | **Kafka** | The trigger's consumer group lag on its topics. | KEDA reaches the brokers. |
 | **SQS** | Messages waiting in the queue. | Keys on the integration, or an AWS identity for KEDA itself (below). |
 | **NATS** (your own server) | The trigger's pending messages on its stream. | The integration's *Monitoring endpoint*. |
+| **Redis Streams** | Entries the trigger's consumer group has not read yet. | Redis 7 or newer, reachable from KEDA. |
 
 The connection details go into one Secret per trigger,
 `fluxify-trigger-<trigger id>`, and a KEDA `TriggerAuthentication` of the same
@@ -253,6 +254,17 @@ integration's **Monitoring endpoint** to that port as KEDA reaches it
 (`host:port`, or an `https://` URL), and **Account** if your streams are not in
 the default account. Left empty, the trigger runs as usual but does not scale
 its claim.
+
+#### Redis Streams
+
+KEDA counts the entries the trigger's group has not read yet, which Redis
+reports from version 7. On an older Redis the trigger runs as usual, but KEDA
+reports an error for that scaler and the claim does not grow on that stream.
+The integration's password goes into the trigger's Secret; a Redis without one
+needs no Secret at all.
+
+Growing a claim on a queue needs an enterprise license, for Redis Streams as
+for every other trigger.
 
 ### The scaling policy {#scaling-policy}
 

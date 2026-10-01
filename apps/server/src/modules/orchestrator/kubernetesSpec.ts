@@ -92,6 +92,17 @@ export type ExternalTrigger = { id: string } & (
 			stream: string;
 			consumer: string;
 	  }
+	| {
+			type: "redis";
+			/** `host:port` */
+			address: string;
+			username?: string;
+			password?: string;
+			databaseIndex?: string;
+			tls: boolean;
+			stream: string;
+			consumerGroup: string;
+	  }
 );
 
 /** Shared by every pod: settings copied from the orchestrator, credentials among them. */
@@ -443,6 +454,37 @@ export function buildTriggerSecret(triggerId: string, data: Record<string, strin
 	return secret(triggerSecretName(triggerId), { [TRIGGER_LABEL]: triggerId }, data);
 }
 
+/** A Redis integration, in either form, as KEDA's scaler addresses it. */
+export function redisAddress(
+	redis:
+		| {
+				source: "credentials";
+				host: string;
+				port: string | number;
+				username?: string;
+				password?: string;
+				database?: string;
+		  }
+		| { source: "url"; url: string },
+) {
+	if (redis.source === "credentials")
+		return {
+			address: `${redis.host}:${redis.port}`,
+			username: redis.username || undefined,
+			password: redis.password || undefined,
+			databaseIndex: redis.database || undefined,
+			tls: false,
+		};
+	const url = new URL(redis.url);
+	return {
+		address: `${url.hostname}:${url.port || "6379"}`,
+		username: decodeURIComponent(url.username) || undefined,
+		password: decodeURIComponent(url.password) || undefined,
+		databaseIndex: url.pathname.slice(1) || undefined,
+		tls: url.protocol === "rediss:",
+	};
+}
+
 /** Where KEDA's HTTP call to a NATS monitoring endpoint goes: `host:port`, and whether over https. */
 function monitoring(endpoint: string) {
 	const https = endpoint.startsWith("https://");
@@ -492,6 +534,21 @@ export function externalScaler(trigger: ExternalTrigger, policy: ScalingPolicy) 
 				},
 			};
 		}
+		case "redis":
+			return {
+				// lag mode, the only one that scales to zero; it needs Redis 7
+				type: "redis-streams",
+				metadata: {
+					address: trigger.address,
+					stream: trigger.stream,
+					consumerGroup: trigger.consumerGroup,
+					lagCount: threshold,
+					activationLagCount: "0",
+					...(trigger.databaseIndex ? { databaseIndex: trigger.databaseIndex } : {}),
+					...(trigger.tls ? { enableTLS: "true" } : {}),
+				},
+				...(trigger.username || trigger.password ? { authenticationRef } : {}),
+			};
 	}
 }
 
@@ -518,7 +575,14 @@ export function externalSecretData(trigger: ExternalTrigger): Record<string, str
 			...(trigger.keys.sessionToken ? { awsSessionToken: trigger.keys.sessionToken } : {}),
 		};
 	}
-	// NATS's scaler reads only the monitoring endpoint; SQS without keys uses KEDA's identity.
+	if (trigger.type === "redis" && (trigger.username || trigger.password)) {
+		return {
+			...(trigger.username ? { username: trigger.username } : {}),
+			...(trigger.password ? { password: trigger.password } : {}),
+		};
+	}
+	// NATS's scaler reads only the monitoring endpoint; SQS without keys uses KEDA's identity;
+	// a Redis without a password needs nothing.
 	return null;
 }
 
@@ -533,7 +597,7 @@ export function buildTriggerAuthentication(
 ): KubeObject | null {
 	if (!isWellFormedId(trigger.id))
 		throw new Error(`refusing a malformed trigger id: ${trigger.id}`);
-	if (trigger.type === "nats") return null;
+	if (trigger.type === "nats" || (trigger.type === "redis" && !data)) return null;
 	const spec = data
 		? {
 				secretTargetRef: Object.keys(data).map((key) => ({

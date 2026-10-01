@@ -10,7 +10,7 @@ import { paginationRequestQuerySchema, paginationResponseSchema } from "../../..
  * connectors are the same row with a different type, so they arrive as entries
  * here rather than as a second entity.
  */
-export const TRIGGER_TYPES = ["internal", "schedule", "kafka", "nats", "sqs"] as const;
+export const TRIGGER_TYPES = ["internal", "schedule", "kafka", "nats", "sqs", "redis"] as const;
 export const triggerTypeSchema = z.enum(TRIGGER_TYPES);
 
 export { isEnterpriseTriggerType } from "../../../modules/triggers/types";
@@ -90,6 +90,23 @@ export const sqsSourceSchema = z.object({
 	queueUrl: z.url(),
 	waitTimeSeconds: z.number().int().min(0).max(20).optional(),
 	visibilityTimeoutSec: z.number().int().min(1).max(43_200).optional(),
+});
+
+/** Redis takes any key; whitespace is refused because it is almost always a typo. */
+const redisName = z.string().regex(/^\S{1,1024}$/, "Must be 1-1024 characters with no spaces");
+
+export const redisSourceSchema = z.object({
+	stream: redisName,
+	/** The group to join, created on start if missing; empty gets `fluxify-<triggerId>`. */
+	consumerGroup: redisName.optional(),
+	/** This worker's name in the group; empty is the host name, unique per worker. */
+	consumer: redisName.optional(),
+	/** A group created here starts at the first entry (`0`) rather than new ones (`$`). */
+	fromBeginning: z.boolean().optional(),
+	/** How long an entry sits unacked before another consumer claims it. */
+	claimIdleMs: z.number().int().min(1_000).max(86_400_000).optional(),
+	/** Where entries go once retries run out; empty is `<stream>:dlq`. */
+	dlqStream: redisName.optional(),
 });
 
 /**

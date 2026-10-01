@@ -13,6 +13,7 @@
 		"./queue/kafka": "./queue/kafka.ee.ts",
 		"./queue/nats": "./queue/nats.ee.ts",
 		"./queue/sqs": "./queue/sqs.ee.ts",
+		"./queue/redis": "./queue/redisStreams.ts",
 		"./containerTestHelpers": "./containerTestHelpers.ts"
 	},
 	"scripts": {

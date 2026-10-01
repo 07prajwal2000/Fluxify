@@ -1,0 +1,63 @@
+{
+	"name": "streamEvents",
+	"description": "Reports every event of a Redis Streams batch with its meta, and the batch meta. An entry with the field `commit: yes` commits the batch from user code, which is how a manual-mode trigger acks. `lag` is what the connection reports from inside the run.",
+	"blocks": [
+		{
+			"id": "entry",
+			"type": "entrypoint",
+			"position": { "x": 0, "y": 0 },
+			"data": { "blockName": "Stream entries" }
+		},
+		{
+			"id": "report",
+			"type": "jsrunner",
+			"position": { "x": 240, "y": 0 },
+			"data": {
+				"blockName": "Commit on request, then report",
+				"value": "if (trigger.data.some(function (e) { return e.data.commit === \"yes\"; })) { await trigger.connection.commit(); } return { events: trigger.data, meta: trigger.meta, lag: await trigger.connection.lag() };"
+			}
+		},
+		{
+			"id": "send",
+			"type": "httprequest",
+			"position": { "x": 480, "y": 0 },
+			"data": {
+				"blockName": "POST /stream",
+				"url": "js:return getConfig(\"E2E_SINK_URL\") + \"/stream\";",
+				"method": "POST",
+				"headers": { "content-type": "application/json" },
+				"body": "",
+				"useParam": true
+			}
+		},
+		{
+			"id": "done",
+			"type": "response",
+			"position": { "x": 720, "y": 0 },
+			"data": { "blockName": "Done", "httpCode": "200" }
+		}
+	],
+	"edges": [
+		{
+			"id": "e-entry-report",
+			"from": "entry",
+			"to": "report",
+			"fromHandle": "source",
+			"toHandle": "source"
+		},
+		{
+			"id": "e-report-send",
+			"from": "report",
+			"to": "send",
+			"fromHandle": "source",
+			"toHandle": "source"
+		},
+		{
+			"id": "e-send-done",
+			"from": "send",
+			"to": "done",
+			"fromHandle": "source",
+			"toHandle": "source"
+		}
+	]
+}

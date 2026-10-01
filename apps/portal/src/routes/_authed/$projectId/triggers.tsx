@@ -141,9 +141,9 @@ function TriggersPage() {
 										<span className="text-muted">
 											{trigger.type === "schedule" ? (
 												<span className="font-mono text-xs">{trigger.schedule}</span>
-											) : trigger.type === "nats" ? (
+											) : trigger.type === "nats" || trigger.type === "redis" ? (
 												<span className="font-mono text-xs">
-													nats · {(trigger.source as { stream?: string } | null)?.stream}
+													{trigger.type} · {(trigger.source as { stream?: string } | null)?.stream}
 												</span>
 											) : trigger.type === "kafka" ? (
 												<span className="font-mono text-xs">

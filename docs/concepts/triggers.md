@@ -168,6 +168,7 @@ without reading logs:
 | SQS | The queue no longer exists. |
 | Kafka | A topic the trigger reads no longer exists. |
 | NATS | The stream, or the trigger's durable consumer on it, no longer exists. |
+| Redis Streams | The stream, or the trigger's consumer group on it, no longer exists. |
 
 Two things to know:
 
@@ -178,7 +179,9 @@ Two things to know:
   topics so you can see which one went. Kafka triggers with **Create missing
   topics** on are the exception: a missing topic is created again instead.
 
-Recreate the source, then turn the trigger back on.
+Recreate the source, then turn the trigger back on. A Redis Streams trigger
+creates its stream and group again by itself when it is turned back on, starting
+empty.
 
 ## Reading from Kafka
 
@@ -258,9 +261,73 @@ NATS triggers wait at least one second for a batch to fill, even when **Max
 wait** is shorter.
 :::
 
+## Reading from Redis Streams
+
+A Redis Streams trigger runs its workflow for entries added to a Redis stream.
+It reads through a [Redis KV integration](/integrations/kv-stores), the same one
+the KV blocks use. It works in **every edition**, with no license.
+
+| Setting | What it does |
+|---|---|
+| **Stream key** | The stream to read. If it does not exist yet, it is created empty when the trigger starts. |
+| **Consumer group** | The group the trigger reads as. Fluxify names one per trigger; name your own to share the work with other readers of the stream. Created when the trigger starts if it is missing. |
+| **Consumer name** | Optional. By default every worker reads under its own name. Set a fixed name only when a single worker runs the trigger. |
+| **Read entries already in the stream** | Off: only entries added after the group is created. On: start from the first entry in the stream. Only matters when Fluxify creates the group. |
+| **Reclaim after** | How long an entry left unfinished waits before it is read again — because its worker crashed, or its run failed in **Commit from the workflow** mode. Defaults to 60 seconds. A run that is still going keeps its entries, however long it takes. |
+| **Dead-letter stream** | Where an entry goes once its attempts run out. Defaults to `<stream key>:dlq`. |
+| **Max attempts**, **Retry delay**, **Commit from the workflow** | Work exactly as for Kafka, above. |
+
+A Redis stream entry is a set of named fields, and that is what `data` holds.
+The values are always **text**, exactly as Redis stores them:
+
+```js
+// added with: XADD orders * id 42 status paid
+trigger.data[0].data   // { "id": "42", "status": "paid" }
+```
+
+To send structured data, put JSON in one field and read it with
+`JSON.parse(trigger.data[0].data.payload)`.
+
+Each event also carries where it came from:
+
+| Field | What it is |
+|---|---|
+| `meta.topic` | The stream key |
+| `meta.offset` | The entry's id, e.g. `1727771234567-0` |
+| `meta.timestamp` | When the entry was added |
+| `meta.consumer` | The name this worker reads under |
+| `meta.deliveryCount` | How many times Redis has handed this entry out, this time included |
+
+`trigger.meta.consumerGroup` is the group's name.
+
+Good to know:
+
+- **Leftover work comes first.** When a worker starts, it first runs the entries
+  it read before a restart and never finished, then entries other workers left
+  unfinished, then new ones.
+- **Use Max wait to batch entries that trickle in.** Redis hands over whatever
+  is waiting the moment one entry arrives. With a Max wait of 0, entries added
+  one at a time run one at a time, whatever the batch size. With a Max wait of,
+  say, 1000 ms, entries added within that second run together, up to the batch
+  size. Max wait is capped at half of **Reclaim after**.
+- **Entries run in order only at a concurrency of 1.**
+- **Fluxify never trims the stream.** A handled entry stays in it. Keep the
+  stream's size in check where you add to it (`XADD orders MAXLEN ~ 100000 * ...`)
+  or with `XTRIM`.
+- A dead-lettered entry keeps its fields and gains `x-fluxify-error`,
+  `x-fluxify-stream`, `x-fluxify-id` and `x-fluxify-consumer-group`.
+
+::: info Which servers work
+Redis Streams triggers need **Redis 6.2 or newer**, and were tested on Redis 7.
+`trigger.connection.lag()` returns `null` before Redis 7. Redis-compatible
+servers work when they support consumer groups and waiting reads. Some hosted
+services limit how long a read may wait (Upstash, for example), so test yours
+before you rely on it.
+:::
+
 ## Using the client directly
 
-For Kafka and NATS triggers, `trigger.connection.raw` is the client Fluxify
+For Kafka, NATS and Redis Streams triggers, `trigger.connection.raw` is the client Fluxify
 reads the batch with. Use it for what `commit`, `moveToDLQ` and `lag` do not
 cover — for example, publishing a reply on NATS:
 
@@ -273,6 +340,7 @@ trigger.connection.raw.publish("orders.processed", JSON.stringify({ id: input.or
 |---|---|---|
 | Kafka | A `Consumer` from `@platformatic/kafka` | [github.com/platformatic/kafka](https://github.com/platformatic/kafka) |
 | NATS | A `NatsConnection` from `@nats-io/nats-core` | [github.com/nats-io/nats.js](https://github.com/nats-io/nats.js) and [docs.nats.io](https://docs.nats.io) |
+| Redis Streams | A `Redis` client from `ioredis` | [github.com/redis/ioredis](https://github.com/redis/ioredis) |
 
 ::: danger Handle with care
 This is the live connection the trigger itself depends on, shared by every run of

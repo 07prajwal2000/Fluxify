@@ -15,7 +15,7 @@ import { assertCanUse } from "../../../lib/edition";
 import type { TriggerArtifact } from "../../../modules/compiler/artifacts";
 import { triggerKey } from "../../../modules/compiler/subjects";
 import { removeSchedule, upsertSchedule } from "../../../modules/schedules/reconciler";
-import { assertConnector } from "./connectors.ee";
+import { assertConnector } from "./connectors";
 import {
 	type createSchema,
 	isEnterpriseTriggerType,
