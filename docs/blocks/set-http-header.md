@@ -18,6 +18,7 @@ The **Set HTTP Header** block adds one header to the response, like `Cache-Contr
 
 | Field | Required | Default | What it does |
 | --- | --- | --- | --- |
+| **Mode** | No | Single | **Single** handles one value. **Multiple** handles a list of rows, see below. |
 | **Name** | Yes | none | The header name, for example `Cache-Control`. Can be a JS expression. |
 | **Value** | Yes | none | The header value, for example `no-store`. Can be a JS expression. |
 
@@ -36,6 +37,19 @@ Stop caches from keeping the answer.
 | `Cache-Control` | `no-store` |
 
 The response that the [Response](./response.md) block sends carries the header `Cache-Control: no-store`.
+
+## Single or Multiple
+
+Pick **Multiple** to set several response headers in one block. Each row has a **Name** and a **Value**.
+
+- Rows run from top to bottom. `input` is the previous block's output for every row.
+- If two rows use the same name, the later row wins.
+- The block still passes its `input` through unchanged, as in Single mode.
+
+| Name | Value |
+| --- | --- |
+| `Cache-Control` | `no-store` |
+| `X-Request-Id` | `js:return input.id;` |
 
 ## How it behaves
 

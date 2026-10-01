@@ -1,13 +1,13 @@
 import z from "zod";
-import { baseBlockDataSchema } from "../baseBlock";
+import { rowsOutput, singleOrMultiple } from "../baseBlock";
 import { BlockTypes } from "../blockTypes";
 import type { EmitNode } from "../compiler";
 
-export const getVarBlockSchema = z
-	.object({
+export const getVarBlockSchema = singleOrMultiple(
+	z.object({
 		key: z.string(),
-	})
-	.extend(baseBlockDataSchema.shape);
+	}),
+);
 
 export const getVarAiDescription = {
 	name: BlockTypes.getvar,
@@ -16,6 +16,7 @@ export const getVarAiDescription = {
 };
 
 export function emitGetVar(node: EmitNode) {
-	const { key } = getVarBlockSchema.parse(node.block.data);
-	return `${node.in} = vars[${JSON.stringify(key)}];\n${node.next()}`;
+	const data = getVarBlockSchema.parse(node.block.data);
+	const out = rowsOutput(data, ({ key }) => `vars[${JSON.stringify(key)}]`);
+	return `${node.in} = ${out};\n${node.next()}`;
 }

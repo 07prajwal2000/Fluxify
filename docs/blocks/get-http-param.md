@@ -18,6 +18,7 @@ The **Get HTTP Param** block reads one value from the request's URL and passes i
 
 | Field | Required | Default | What it does |
 | --- | --- | --- | --- |
+| **Mode** | No | Single | **Single** handles one value. **Multiple** handles a list of rows, see below. |
 | **Name** | Yes | none | The name of the parameter. Can be a JS expression. |
 | **Source** | Yes | none | `query`: look after the `?` in the URL. `path`: look in the route's path parameters. |
 
@@ -37,6 +38,22 @@ The route is `/users/:id` and the caller requests `/users/123?verbose=true`.
 | --- | --- | --- |
 | `id` | `path` | `"123"` |
 | `verbose` | `query` | `"true"` |
+
+## Single or Multiple
+
+Pick **Multiple** to read several parameters in one block. Each row has a **Source** (query or path) and a **Name**.
+
+- The output is an **array** with one value per row, in row order.
+- A missing parameter gives `""` for its row. The other rows still work.
+
+For `/users/42?tab=posts`:
+
+| Source | Name |
+| --- | --- |
+| Path | `id` |
+| Query | `tab` |
+
+The next block receives `["42", "posts"]`.
 
 ## How it behaves
 

@@ -1,0 +1,334 @@
+{
+	"name": "multi-mode/chain",
+	"description": "GET /multi/:id — every Set and Get block in Multiple mode, each output kept in a variable and returned together.",
+	"engine": "none",
+	"route": {
+		"method": "GET",
+		"path": "/multi/:id"
+	},
+	"blocks": [
+		{
+			"id": "entry",
+			"type": "entrypoint",
+			"position": {
+				"x": 0,
+				"y": 0
+			},
+			"data": {
+				"blockName": "Request"
+			}
+		},
+		{
+			"id": "setVars",
+			"type": "setvar",
+			"position": {
+				"x": 240,
+				"y": 0
+			},
+			"data": {
+				"blockName": "Set a and b",
+				"mode": "multiple",
+				"items": [
+					{
+						"key": "a",
+						"value": 1
+					},
+					{
+						"key": "b",
+						"value": "js:return a + 1;"
+					}
+				]
+			}
+		},
+		{
+			"id": "keepSet",
+			"type": "setvar",
+			"position": {
+				"x": 480,
+				"y": 0
+			},
+			"data": {
+				"blockName": "Keep",
+				"key": "setOut",
+				"value": "js:return input;"
+			}
+		},
+		{
+			"id": "setHeaders",
+			"type": "httpsetheader",
+			"position": {
+				"x": 720,
+				"y": 0
+			},
+			"data": {
+				"blockName": "Set headers",
+				"mode": "multiple",
+				"items": [
+					{
+						"name": "x-one",
+						"value": "js:return String(input[0]);"
+					},
+					{
+						"name": "x-two",
+						"value": "two"
+					},
+					{
+						"name": "x-one",
+						"value": "again"
+					}
+				]
+			}
+		},
+		{
+			"id": "keepPass",
+			"type": "setvar",
+			"position": {
+				"x": 960,
+				"y": 0
+			},
+			"data": {
+				"blockName": "Keep",
+				"key": "headerPass",
+				"value": "js:return input;"
+			}
+		},
+		{
+			"id": "getVars",
+			"type": "getvar",
+			"position": {
+				"x": 1200,
+				"y": 0
+			},
+			"data": {
+				"blockName": "Get a and b",
+				"mode": "multiple",
+				"items": [
+					{
+						"key": "a"
+					},
+					{
+						"key": "b"
+					}
+				]
+			}
+		},
+		{
+			"id": "keepVars",
+			"type": "setvar",
+			"position": {
+				"x": 1440,
+				"y": 0
+			},
+			"data": {
+				"blockName": "Keep",
+				"key": "getVarOut",
+				"value": "js:return input;"
+			}
+		},
+		{
+			"id": "getHeaders",
+			"type": "httpgetheader",
+			"position": {
+				"x": 1680,
+				"y": 0
+			},
+			"data": {
+				"blockName": "Get headers",
+				"mode": "multiple",
+				"items": [
+					{
+						"name": "x-req"
+					},
+					{
+						"name": "x-missing"
+					}
+				]
+			}
+		},
+		{
+			"id": "keepHeaders",
+			"type": "setvar",
+			"position": {
+				"x": 1920,
+				"y": 0
+			},
+			"data": {
+				"blockName": "Keep",
+				"key": "headersOut",
+				"value": "js:return input;"
+			}
+		},
+		{
+			"id": "getCookies",
+			"type": "httpgetcookie",
+			"position": {
+				"x": 2160,
+				"y": 0
+			},
+			"data": {
+				"blockName": "Get cookies",
+				"mode": "multiple",
+				"items": [
+					{
+						"name": "c1"
+					},
+					{
+						"name": "nope"
+					}
+				]
+			}
+		},
+		{
+			"id": "keepCookies",
+			"type": "setvar",
+			"position": {
+				"x": 2400,
+				"y": 0
+			},
+			"data": {
+				"blockName": "Keep",
+				"key": "cookiesOut",
+				"value": "js:return input;"
+			}
+		},
+		{
+			"id": "getParams",
+			"type": "httpgetparam",
+			"position": {
+				"x": 2640,
+				"y": 0
+			},
+			"data": {
+				"blockName": "Get params",
+				"mode": "multiple",
+				"items": [
+					{
+						"name": "q",
+						"source": "query"
+					},
+					{
+						"name": "id",
+						"source": "path"
+					}
+				]
+			}
+		},
+		{
+			"id": "collect",
+			"type": "jsrunner",
+			"position": {
+				"x": 2880,
+				"y": 0
+			},
+			"data": {
+				"blockName": "Collect",
+				"value": "return { setOut, headerPass, getVarOut, headersOut, cookiesOut, paramsOut: input };"
+			}
+		},
+		{
+			"id": "reply",
+			"type": "response",
+			"position": {
+				"x": 3120,
+				"y": 0
+			},
+			"data": {
+				"blockName": "200 OK",
+				"httpCode": "200"
+			}
+		}
+	],
+	"edges": [
+		{
+			"id": "e-entry-setVars",
+			"from": "entry",
+			"to": "setVars",
+			"fromHandle": "source",
+			"toHandle": "source"
+		},
+		{
+			"id": "e-setVars-keepSet",
+			"from": "setVars",
+			"to": "keepSet",
+			"fromHandle": "source",
+			"toHandle": "source"
+		},
+		{
+			"id": "e-keepSet-setHeaders",
+			"from": "keepSet",
+			"to": "setHeaders",
+			"fromHandle": "source",
+			"toHandle": "source"
+		},
+		{
+			"id": "e-setHeaders-keepPass",
+			"from": "setHeaders",
+			"to": "keepPass",
+			"fromHandle": "source",
+			"toHandle": "source"
+		},
+		{
+			"id": "e-keepPass-getVars",
+			"from": "keepPass",
+			"to": "getVars",
+			"fromHandle": "source",
+			"toHandle": "source"
+		},
+		{
+			"id": "e-getVars-keepVars",
+			"from": "getVars",
+			"to": "keepVars",
+			"fromHandle": "source",
+			"toHandle": "source"
+		},
+		{
+			"id": "e-keepVars-getHeaders",
+			"from": "keepVars",
+			"to": "getHeaders",
+			"fromHandle": "source",
+			"toHandle": "source"
+		},
+		{
+			"id": "e-getHeaders-keepHeaders",
+			"from": "getHeaders",
+			"to": "keepHeaders",
+			"fromHandle": "source",
+			"toHandle": "source"
+		},
+		{
+			"id": "e-keepHeaders-getCookies",
+			"from": "keepHeaders",
+			"to": "getCookies",
+			"fromHandle": "source",
+			"toHandle": "source"
+		},
+		{
+			"id": "e-getCookies-keepCookies",
+			"from": "getCookies",
+			"to": "keepCookies",
+			"fromHandle": "source",
+			"toHandle": "source"
+		},
+		{
+			"id": "e-keepCookies-getParams",
+			"from": "keepCookies",
+			"to": "getParams",
+			"fromHandle": "source",
+			"toHandle": "source"
+		},
+		{
+			"id": "e-getParams-collect",
+			"from": "getParams",
+			"to": "collect",
+			"fromHandle": "source",
+			"toHandle": "source"
+		},
+		{
+			"id": "e-collect-reply",
+			"from": "collect",
+			"to": "reply",
+			"fromHandle": "source",
+			"toHandle": "source"
+		}
+	]
+}

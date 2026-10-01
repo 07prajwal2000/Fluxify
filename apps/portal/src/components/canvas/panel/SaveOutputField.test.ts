@@ -46,6 +46,17 @@ test("canvas variables include Set Var keys and enabled saved outputs, with thei
 });
 
 test("a block without a custom name is labelled by its default block name", () => {
+	expect(
+		canvasVariables([
+			{
+				type: BLOCK_TYPES.setvar,
+				data: { mode: "multiple", items: [{ key: "a" }, { key: "b" }], blockName: "Both" },
+			},
+		]),
+	).toEqual([
+		{ name: "a", source: "Both" },
+		{ name: "b", source: "Both" },
+	]);
 	const [variable] = canvasVariables([
 		{ type: BLOCK_TYPES.httprequest, data: { saveAsVariable: { enabled: true, name: "res" } } },
 	]);

@@ -18,6 +18,7 @@ The **Get Request Cookie** block reads one cookie that the caller's browser sent
 
 | Field | Required | Default | What it does |
 | --- | --- | --- | --- |
+| **Mode** | No | Single | **Single** handles one value. **Multiple** handles a list of rows, see below. |
 | **Name** | Yes | none | The cookie to read. Can be a JS expression. |
 
 ## Outputs
@@ -35,6 +36,15 @@ The browser sent the cookie `session=abc123`.
 | Name | `session` |
 
 The next block receives `"abc123"` as its `input`. A [DB Get Single](./db-get-single.md) can then look up that session.
+
+## Single or Multiple
+
+Pick **Multiple** to read several cookies in one block. Each row has a **Name**.
+
+- The output is an **array** with one value per row, in row order.
+- A missing cookie gives `""` for its row. The other rows still work.
+
+With rows `session_id` and `theme`, the next block receives something like `["abc123", "dark"]`.
 
 ## How it behaves
 

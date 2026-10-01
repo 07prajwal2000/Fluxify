@@ -18,6 +18,7 @@ The **Get Variable** block reads a value that you saved earlier with [Set Variab
 
 | Field | Required | Default | What it does |
 | --- | --- | --- | --- |
+| **Mode** | No | Single | **Single** handles one value. **Multiple** handles a list of rows, see below. |
 | **Key** | Yes | none | The name of the variable to read, exactly as you named it. |
 
 ## Outputs
@@ -35,6 +36,15 @@ An earlier step ran [Set Variable](./set-var.md) with Key `total` and Value `120
 | Key | `total` |
 
 The next block receives `120` as its `input`.
+
+## Single or Multiple
+
+Pick **Multiple** to read several variables in one block. Each row has a **Key**.
+
+- The output is an **array** with one value per row, in row order.
+- A variable that was never set gives `undefined` for its row. The other rows still work.
+
+With rows `price` and `total`, the next block receives `[10, 20]`.
 
 ## How it behaves
 

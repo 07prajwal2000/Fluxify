@@ -1,6 +1,7 @@
 import type { BlockNode } from "../../types";
 import { BlockSettings } from "../BlockSettings";
 import { BlockJsTextField } from "../fields";
+import { SingleOrMultiple } from "./SingleOrMultiple";
 
 /** Get Cookie block settings. Configures the cookie name to read from request. */
 export function GetCookieSettings({ block }: { block: BlockNode }) {
@@ -21,7 +22,12 @@ export function GetCookieSettings({ block }: { block: BlockNode }) {
 export function getCookieSettings(block: BlockNode) {
 	return (
 		<BlockSettings.TabHead name="General">
-			<GetCookieSettings block={block} />
+			<SingleOrMultiple
+				block={block}
+				fields={[{ name: "name", label: "Cookie Name" }]}
+				single={<GetCookieSettings block={block} />}
+				addLabel="Add cookie"
+			/>
 		</BlockSettings.TabHead>
 	);
 }

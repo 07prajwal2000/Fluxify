@@ -4,6 +4,7 @@ import type { BlockNode } from "../../types";
 import { BlockSettings } from "../BlockSettings";
 import { BlockJsTextField, BlockTextField } from "../fields";
 import { canvasVariables } from "../SaveOutputField";
+import { SingleOrMultiple } from "./SingleOrMultiple";
 
 /** Set Variable block settings. Configures the variable key and value to set. */
 export function SetVarSettings({ block }: { block: BlockNode }) {
@@ -39,7 +40,15 @@ export function SetVarSettings({ block }: { block: BlockNode }) {
 export function setVarSettings(block: BlockNode) {
 	return (
 		<BlockSettings.TabHead name="General">
-			<SetVarSettings block={block} />
+			<SingleOrMultiple
+				block={block}
+				fields={[
+					{ name: "key", label: "Variable Name", disableJs: true },
+					{ name: "value", label: "Value or js: expression", numeric: true },
+				]}
+				single={<SetVarSettings block={block} />}
+				addLabel="Add variable"
+			/>
 		</BlockSettings.TabHead>
 	);
 }

@@ -1,14 +1,14 @@
 import z from "zod";
-import { baseBlockDataSchema } from "../../baseBlock";
+import { rowsOutput, singleOrMultiple } from "../../baseBlock";
 import { BlockTypes } from "../../blockTypes";
 import type { EmitNode } from "../../compiler";
 
-export const getHttpParamBlockSchema = z
-	.object({
+export const getHttpParamBlockSchema = singleOrMultiple(
+	z.object({
 		name: z.string().describe("parameter name (supports js expressions)"),
 		source: z.enum(["query", "path"]).describe("source of the parameter"),
-	})
-	.extend(baseBlockDataSchema.shape);
+	}),
+);
 
 export const getHttpParamAiDescription = {
 	name: BlockTypes.httpGetParam,
@@ -17,7 +17,10 @@ export const getHttpParamAiDescription = {
 };
 
 export function emitGetHttpParam(node: EmitNode) {
-	const { name, source } = getHttpParamBlockSchema.parse(node.block.data);
-	const getter = source === "path" ? "getRouteParam" : "getQueryParam";
-	return `${node.in} = vars.${getter}(${node.value(name)});\n${node.next()}`;
+	const data = getHttpParamBlockSchema.parse(node.block.data);
+	const out = rowsOutput(data, ({ name, source }) => {
+		const getter = source === "path" ? "getRouteParam" : "getQueryParam";
+		return `vars.${getter}(${node.value(name)})`;
+	});
+	return `${node.in} = ${out};\n${node.next()}`;
 }

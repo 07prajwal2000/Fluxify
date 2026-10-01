@@ -346,6 +346,35 @@ export const baseBlockDataSchema = z.object({
 });
 
 /**
+ * A block that runs one row (Single) or a list of them (Multiple). Single is
+ * the block's own fields, as before, so a saved block without `mode` loads as
+ * Single. Multiple holds the same fields per row, run top to bottom.
+ */
+export function singleOrMultiple<T extends z.ZodRawShape>(row: z.ZodObject<T>) {
+	return z.discriminatedUnion("mode", [
+		row.extend({ mode: z.literal("single").optional(), ...baseBlockDataSchema.shape }),
+		z.object({
+			mode: z.literal("multiple"),
+			items: z.array(row).min(1),
+			...baseBlockDataSchema.shape,
+		}),
+	]);
+}
+
+type SingleOrMultiple<R> = (R & { mode?: "single" }) | { mode: "multiple"; items: R[] };
+
+/** The rows a block runs: its own fields in Single mode, its list in Multiple. */
+export function rowsOf<R>(data: SingleOrMultiple<R>): R[] {
+	return data.mode === "multiple" ? data.items : [data as R];
+}
+
+/** Output expression: the row's own in Single mode, an array of them in row order in Multiple. */
+export function rowsOutput<R>(data: SingleOrMultiple<R>, emitRow: (row: R) => string): string {
+	const out = rowsOf(data).map(emitRow);
+	return data.mode === "multiple" ? `[${out.join(", ")}]` : out[0];
+}
+
+/**
  * The variable a block's "Save output to variable" setting writes to, or
  * undefined when it is off. The name is trimmed, and an invalid
  * name is ignored rather than emitted into code — the save validator is what

@@ -72,10 +72,14 @@ export function canvasVariables(
 	blocks: { type?: string; data?: unknown }[],
 ): { name: string; source: string; output?: true }[] {
 	return blocks
-		.map((b) => {
+		.flatMap((b) => {
 			const data = b.data as BlockData | undefined;
 			const source = blockLabels(b.type ?? "", data).name;
-			if (b.type === BLOCK_TYPES.setvar) return { name: String(data?.key ?? "").trim(), source };
+			if (b.type === BLOCK_TYPES.setvar) {
+				// Multiple mode sets one variable per row
+				const rows = data?.mode === "multiple" && Array.isArray(data.items) ? data.items : [data];
+				return rows.map((row) => ({ name: String(row?.key ?? "").trim(), source }));
+			}
 			const setting = readSetting(data);
 			const saved = setting.enabled && savesOutput(b.type, data ?? {});
 			return { name: saved ? setting.name.trim() : "", source, output: true as const };

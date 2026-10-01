@@ -1,6 +1,7 @@
 import type { BlockNode } from "../../types";
 import { BlockSettings } from "../BlockSettings";
 import { BlockTextField } from "../fields";
+import { SingleOrMultiple } from "./SingleOrMultiple";
 
 /** Get Variable block settings. Configures the variable key to read. */
 export function GetVarSettings({ block }: { block: BlockNode }) {
@@ -21,7 +22,12 @@ export function GetVarSettings({ block }: { block: BlockNode }) {
 export function getVarSettings(block: BlockNode) {
 	return (
 		<BlockSettings.TabHead name="General">
-			<GetVarSettings block={block} />
+			<SingleOrMultiple
+				block={block}
+				fields={[{ name: "key", label: "Variable Name", disableJs: true }]}
+				single={<GetVarSettings block={block} />}
+				addLabel="Add variable"
+			/>
 		</BlockSettings.TabHead>
 	);
 }

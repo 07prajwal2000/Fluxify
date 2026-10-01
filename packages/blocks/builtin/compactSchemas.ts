@@ -141,6 +141,9 @@ function renderObject(schema: JsonSchema, indent: string, dropBaseFields: boolea
 export function renderCompactSchema(jsonSchema: string | JsonSchema): string {
 	const parsed = typeof jsonSchema === "string" ? JSON.parse(jsonSchema) : jsonSchema;
 	refContext = { defs: parsed.$defs };
+	// a Single / Multiple block is a union of objects at its top level
+	const members: JsonSchema[] | undefined = parsed.oneOf ?? parsed.anyOf;
+	if (members) return members.map((member) => renderObject(member, "", true)).join("\n| ");
 	return renderObject(parsed, "", true);
 }
 
