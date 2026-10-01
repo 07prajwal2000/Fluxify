@@ -121,14 +121,15 @@ export function ConsumerGroupField({
 	onChange,
 	isEdit,
 }: {
-	variant: "Kafka" | "NATS";
+	variant: "Kafka" | "NATS" | "Redis";
 	/** null is the generated default; a string is the user's own, empty while typing */
 	value: string | null;
 	onChange: (next: string | null) => void;
 	isEdit: boolean;
 }) {
-	const isKafka = variant === "Kafka";
-	const label = isKafka ? "consumer group" : "durable consumer";
+	// Kafka and Redis both call it a consumer group
+	const isGroup = variant !== "NATS";
+	const label = isGroup ? "consumer group" : "durable consumer";
 	return (
 		<div className="flex flex-col gap-3">
 			<Checkbox
@@ -140,12 +141,14 @@ export function ConsumerGroupField({
 			/>
 			{value !== null && (
 				<TextField isRequired isDisabled={isEdit} value={value} onChange={onChange}>
-					<Label>{isKafka ? "Consumer group" : "Durable consumer"}</Label>
-					<Input placeholder={isKafka ? "orders-processor" : "orders_processor"} />
+					<Label>{isGroup ? "Consumer group" : "Durable consumer"}</Label>
+					<Input placeholder={isGroup ? "orders-processor" : "orders_processor"} />
 					<Description>
-						{isKafka
-							? "Letters, digits, dot, dash, underscore."
-							: "Letters, digits, dash, underscore — no dots."}
+						{variant === "Redis"
+							? "Any name without spaces. Created when the trigger starts, if missing."
+							: isGroup
+								? "Letters, digits, dot, dash, underscore."
+								: "Letters, digits, dash, underscore — no dots."}
 					</Description>
 				</TextField>
 			)}
@@ -153,7 +156,7 @@ export function ConsumerGroupField({
 	);
 }
 
-/** The queue integration a connector trigger reads through, of one variant only. */
+/** The integration a connector trigger reads through, of one variant only. Redis is a KV integration. */
 export function IntegrationField({
 	projectId,
 	variant,
@@ -161,11 +164,14 @@ export function IntegrationField({
 	onChange,
 }: {
 	projectId: string;
-	variant: "Kafka" | "NATS" | "SQS";
+	variant: "Kafka" | "NATS" | "SQS" | "Redis";
 	value: string;
 	onChange: (next: string) => void;
 }) {
-	const { data } = integrationsQuery.getAll.useQuery(projectId, "queue");
+	const { data } = integrationsQuery.getAll.useQuery(
+		projectId,
+		variant === "Redis" ? "kv" : "queue",
+	);
 	const integrations = (data ?? []).filter((integration) => integration.variant === variant);
 	return (
 		<Select

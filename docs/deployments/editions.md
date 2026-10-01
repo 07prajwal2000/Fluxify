@@ -18,7 +18,8 @@ setting.
 | Schedules (cron, intervals, one-shot) | ✅ | ✅ |
 | Batching | ✅ | ✅ |
 | The Trigger Workflow block | ✅ | ✅ |
-| External connectors — Kafka and NATS JetStream today; SQS, SNS, Pub/Sub and Service Bus on the way | — | ✅ |
+| Redis Streams triggers | ✅ | ✅ |
+| External connectors — Kafka, NATS JetStream and Amazon SQS today; SNS, Pub/Sub and Service Bus on the way | — | ✅ |
 | Single sign-on (OIDC and SAML) | — | ✅ |
 
 A license key says which Enterprise features it includes. Most include all of

@@ -1,6 +1,6 @@
 import { BadRequestError } from "../../../errors/badRequestError";
 import { resolveQueueConfig } from "../integrations/test-connection/service";
-import { kafkaSourceSchema, natsSourceSchema, sqsSourceSchema } from "./dto";
+import { kafkaSourceSchema, natsSourceSchema, redisSourceSchema, sqsSourceSchema } from "./dto";
 import { findIntegration } from "./repository";
 
 /** Each connector type's integration variant and source shape. */
@@ -22,6 +22,13 @@ const CONNECTORS = {
 		article: "An",
 		schema: sqsSourceSchema,
 		invalid: "An SQS trigger needs a valid queue URL",
+	},
+	// a KV integration; Memcached has no streams, so only the Redis variant passes
+	redis: {
+		label: "Redis",
+		article: "A",
+		schema: redisSourceSchema,
+		invalid: "A Redis trigger needs a valid stream key",
 	},
 } as const;
 
@@ -81,6 +88,11 @@ async function probe(check: ConnectorCheck, config: any): Promise<string[]> {
 	if (check.type === "nats") {
 		const { assertNatsStream } = await import("@fluxify/adapters/queue/nats");
 		await assertNatsStream(config, natsSourceSchema.parse(check.source).stream);
+		return [];
+	}
+	if (check.type === "redis") {
+		const { assertRedisStream } = await import("@fluxify/adapters/queue/redis");
+		await assertRedisStream(config, redisSourceSchema.parse(check.source).stream);
 		return [];
 	}
 	if (check.type === "sqs") {

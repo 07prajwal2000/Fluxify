@@ -1,5 +1,4 @@
 import { Checkbox, cn, Input } from "@fluxify/components";
-import { useState } from "react";
 import { AppConfigSelector } from "../AppConfigSelector";
 import type { ConnectorFormProps } from "./types";
 
@@ -36,9 +35,9 @@ export function CredentialsUrlForm({
 	hasQueryTimeout?: boolean;
 	databaseLabel?: string;
 }) {
-	const [tab, setTab] = useState<"credentials" | "url">(
-		config.source === "url" ? "url" : "credentials",
-	);
+	// read from the config, never copied into state: an edit page fills the config
+	// after this mounts, and a copy would stay on "credentials"
+	const tab = config.source === "url" ? "url" : "credentials";
 	const isUrl = tab === "url";
 
 	return (
@@ -63,10 +62,7 @@ export function CredentialsUrlForm({
 					<button
 						key={t}
 						type="button"
-						onClick={() => {
-							setField("source", t === "url" ? "url" : "credentials");
-							setTab(t);
-						}}
+						onClick={() => setField("source", t)}
 						className={cn(
 							"flex-1 rounded-md py-1 text-xs font-medium transition-all duration-150",
 							tab === t

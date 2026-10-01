@@ -18,7 +18,7 @@ import {
 	setTriggerFaultReporter,
 	shutdownQueueTriggers,
 	type TriggerFault,
-} from "../queueRuntime.ee";
+} from "../queueRuntime";
 
 const PROJECT = "proj-q";
 

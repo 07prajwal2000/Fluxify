@@ -1,10 +1,10 @@
 import type { ReactNode } from "react";
 import { BiLogoMongodb, BiLogoPostgresql } from "react-icons/bi";
-import { DiMysql, DiRedis } from "react-icons/di";
+import { DiMysql } from "react-icons/di";
 import { IoTelescope } from "react-icons/io5";
 import { PiNotebookLight } from "react-icons/pi";
 import { RiGeminiFill, RiOpenaiFill, RiOpenaiLine, RiRobot2Fill } from "react-icons/ri";
-import { SiAnthropic, SiApachekafka, SiNatsdotio } from "react-icons/si";
+import { SiAnthropic, SiApachekafka, SiNatsdotio, SiRedis } from "react-icons/si";
 import { TbBrandAws, TbBrandFirebase, TbBrandSupabase, TbServer } from "react-icons/tb";
 
 const size = 20;
@@ -14,7 +14,7 @@ export const integrationIcons: Record<string, ReactNode> = {
 	PostgreSQL: <BiLogoPostgresql size={size} />,
 	MongoDB: <BiLogoMongodb size={size} />,
 	MySQL: <DiMysql size={size} />,
-	Redis: <DiRedis size={size} />,
+	Redis: <SiRedis size={size} />,
 	Memcached: <TbServer size={size} />,
 	Supabase: <TbBrandSupabase size={size} />,
 	Firebase: <TbBrandFirebase size={size} />,

@@ -30,7 +30,9 @@ function IntegrationDetailsPage() {
 	const remove = integrationsQuery.remove.mutation(projectId);
 
 	const [name, setName] = useState("");
-	const [config, setConfig] = useState<Record<string, unknown>>({});
+	// null until the saved config is in: a form mounted on an empty config would
+	// seed its tabs and modes from nothing (URL vs credentials, NATS login)
+	const [config, setConfig] = useState<Record<string, unknown> | null>(null);
 	const [confirmDelete, setConfirmDelete] = useState(false);
 
 	useEffect(() => {
@@ -44,13 +46,13 @@ function IntegrationDetailsPage() {
 	const toList = () =>
 		navigate({ to: "/$projectId/integrations", params: { projectId }, search: { group } });
 
-	if (loaded.isLoading)
+	if (loaded.isLoading || (loaded.data && !config))
 		return (
 			<div className="flex justify-center py-16">
 				<Spinner />
 			</div>
 		);
-	if (!loaded.data)
+	if (!loaded.data || !config)
 		return <p className="py-16 text-center text-muted">Couldn't load this integration.</p>;
 
 	function parseConfig() {
@@ -108,7 +110,7 @@ function IntegrationDetailsPage() {
 					name={name}
 					onName={setName}
 					config={config}
-					setField={(path, value) => setConfig((c) => setPath(c, path, value))}
+					setField={(path, value) => setConfig((c) => c && setPath(c, path, value))}
 					group={group}
 					variant={variant}
 				/>

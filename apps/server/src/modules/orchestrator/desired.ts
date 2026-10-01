@@ -4,9 +4,15 @@ import { and, eq, inArray, isNotNull } from "drizzle-orm";
 import {
 	kafkaVariantConfigSchema,
 	natsVariantConfigSchema,
+	redisVariantConfigSchema,
 	sqsVariantConfigSchema,
 } from "../../api/v1/integrations/schemas";
-import { kafkaSourceSchema, natsSourceSchema, sqsSourceSchema } from "../../api/v1/triggers/dto";
+import {
+	kafkaSourceSchema,
+	natsSourceSchema,
+	redisSourceSchema,
+	sqsSourceSchema,
+} from "../../api/v1/triggers/dto";
 import { db } from "../../db";
 import {
 	integrationsEntity,
@@ -20,7 +26,7 @@ import { projectHost } from "../../lib/hosting";
 import { orchestrationScalingSchema } from "../../lib/instance-settings/schemas";
 import { baseDomain, getSetting } from "../../loaders/instanceSettingsLoader";
 import { projectSubdomains } from "./claims";
-import type { ExternalTrigger } from "./kubernetesSpec";
+import { type ExternalTrigger, redisAddress } from "./kubernetesSpec";
 import { type KeyedClaim, withKeys } from "./nodeClaims";
 import { type Claim, type DesiredNode, projectDesiredNodes } from "./projection";
 import { type ScalingContext, scalingCeilings } from "./scaling";
@@ -151,7 +157,7 @@ async function externalTriggersByGroup(): Promise<Map<string, ExternalTrigger[]>
 		.innerJoin(integrationsEntity, eq(triggersEntity.integrationId, integrationsEntity.id))
 		.where(
 			and(
-				inArray(triggersEntity.type, ["kafka", "sqs", "nats"]),
+				inArray(triggersEntity.type, ["kafka", "sqs", "nats", "redis"]),
 				eq(triggersEntity.active, true),
 				isNotNull(triggersEntity.workflowId),
 			),
@@ -185,7 +191,7 @@ function externalTrigger(
 	rawSource: unknown,
 	config: Record<string, unknown>,
 ): ExternalTrigger | null {
-	// The name the worker joins under when the user named none (`queueRuntime.ee.ts`).
+	// The name the worker joins under when the user named none (`queueRuntime.ts`).
 	const generated = `fluxify-${id}`;
 	if (type === "kafka") {
 		const kafka = kafkaVariantConfigSchema.parse(config);
@@ -233,6 +239,16 @@ function externalTrigger(
 			account: nats.account || "$G",
 			stream: source.stream,
 			consumer: source.consumerGroup || generated,
+		};
+	}
+	if (type === "redis") {
+		const source = redisSourceSchema.parse(rawSource);
+		return {
+			id,
+			type,
+			...redisAddress(redisVariantConfigSchema.parse(config)),
+			stream: source.stream,
+			consumerGroup: source.consumerGroup || generated,
 		};
 	}
 	return null;

@@ -1,6 +1,6 @@
 import { Button, Checkbox, Input, Label, TextArea, TextField, toast } from "@fluxify/components";
 import { useState } from "react";
-import { SiApachekafka, SiNatsdotio } from "react-icons/si";
+import { SiApachekafka, SiNatsdotio, SiRedis } from "react-icons/si";
 import { TbBrandAws, TbClock } from "react-icons/tb";
 import { FormWizard, SummaryItem, type WizardStep } from "@/components/common/FormWizard";
 import {
@@ -11,6 +11,7 @@ import {
 	NatsSourceFields,
 	topicList,
 } from "@/components/triggers/KafkaTriggerFields";
+import { isRedisName, RedisSourceFields } from "@/components/triggers/RedisTriggerFields";
 import {
 	isQueueUrl,
 	queueName,
@@ -75,6 +76,9 @@ export function TriggerWizard({
 		queueUrl?: string;
 		waitTimeSeconds?: number;
 		visibilityTimeoutSec?: number;
+		consumer?: string;
+		claimIdleMs?: number;
+		dlqStream?: string;
 	};
 	const integrationId = initialTrigger?.integrationId ?? "";
 	const [kafka, setKafka] = useState({
@@ -97,6 +101,15 @@ export function TriggerWizard({
 		queueUrl: source.queueUrl ?? "",
 		waitTimeSeconds: source.waitTimeSeconds ?? 20,
 		visibilityTimeoutSec: source.visibilityTimeoutSec ?? 30,
+	});
+	const [redis, setRedis] = useState({
+		integrationId,
+		stream: source.stream ?? "",
+		consumerGroup: source.consumerGroup ?? null,
+		consumer: source.consumer ?? "",
+		fromBeginning: Boolean(source.fromBeginning),
+		claimIdleSec: Math.round((source.claimIdleMs ?? 60_000) / 1000),
+		dlqStream: source.dlqStream ?? "",
 	});
 	const [batch, setBatch] = useState({
 		batchSize: initialTrigger?.batchSize ?? BATCH_DEFAULTS.batchSize,
@@ -154,6 +167,17 @@ export function TriggerWizard({
 				queueUrl: sqs.queueUrl.trim(),
 				waitTimeSeconds: sqs.waitTimeSeconds,
 				visibilityTimeoutSec: sqs.visibilityTimeoutSec,
+			},
+		},
+		redis: {
+			integrationId: redis.integrationId,
+			source: {
+				stream: redis.stream.trim(),
+				...(redis.consumerGroup ? { consumerGroup: redis.consumerGroup.trim() } : {}),
+				...(redis.consumer.trim() ? { consumer: redis.consumer.trim() } : {}),
+				fromBeginning: redis.fromBeginning,
+				claimIdleMs: redis.claimIdleSec * 1000,
+				...(redis.dlqStream.trim() ? { dlqStream: redis.dlqStream.trim() } : {}),
 			},
 		},
 	};
@@ -254,6 +278,23 @@ export function TriggerWizard({
 			isValid: Boolean(sqs.integrationId) && isQueueUrl(sqs.queueUrl),
 			content: <SqsSourceFields projectId={projectId} value={sqs} onChange={setSqs} />,
 		},
+		redis: {
+			label: "Stream",
+			description: "The Redis integration to connect with, and the stream to read.",
+			isValid:
+				Boolean(redis.integrationId) &&
+				isRedisName(redis.stream.trim()) &&
+				hasGroup(redis.consumerGroup) &&
+				[redis.consumer, redis.dlqStream].every((name) => !name.trim() || isRedisName(name.trim())),
+			content: (
+				<RedisSourceFields
+					projectId={projectId}
+					value={redis}
+					onChange={setRedis}
+					isEdit={isEdit}
+				/>
+			),
+		},
 	};
 
 	const sourceSteps: WizardStep[] = isConnector
@@ -296,6 +337,7 @@ export function TriggerWizard({
 		kafka: <SummaryItem label="Topics" value={topics.join(", ")} mono />,
 		nats: <SummaryItem label="Stream" value={nats.stream.trim()} mono />,
 		sqs: <SummaryItem label="Queue" value={queueName(sqs.queueUrl)} mono />,
+		redis: <SummaryItem label="Stream" value={redis.stream.trim()} mono />,
 	};
 
 	const steps: WizardStep[] = [
@@ -324,6 +366,8 @@ export function TriggerWizard({
 								<SiApachekafka size={20} />
 							) : type === "nats" ? (
 								<SiNatsdotio size={20} />
+							) : type === "redis" ? (
+								<SiRedis size={20} />
 							) : (
 								<TbBrandAws size={20} />
 							)}
@@ -333,7 +377,7 @@ export function TriggerWizard({
 								Trigger Type
 							</span>
 							<p className="text-xs font-semibold text-foreground capitalize">
-								{type === "sqs" ? "Amazon SQS" : type}
+								{type === "sqs" ? "Amazon SQS" : type === "redis" ? "Redis Streams" : type}
 							</p>
 						</div>
 					</div>

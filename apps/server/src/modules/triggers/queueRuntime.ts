@@ -27,7 +27,7 @@ import { consumedInExecution, type TriggerBatch } from "./types";
  * - success: committed, unless the trigger commits manually.
  * - failure: run again, up to `maxAttempts`. A run the graph's error handler
  *   settles is a success; only an unhandled error counts.
- * - still failing: in auto mode it is moved to the integration's dead-letter
+ * - still failing: in auto mode it is moved to the connector's dead-letter
  *   destination and committed. In manual mode it is left uncommitted for the
  *   connector to deliver again — the workflow owns its offsets.
  */
@@ -40,6 +40,7 @@ const DEFAULT_RETRY_DELAY_MS = 1_000;
 registerQueueConnector("kafka", () => import("@fluxify/adapters/queue/kafka"));
 registerQueueConnector("nats", () => import("@fluxify/adapters/queue/nats"));
 registerQueueConnector("sqs", () => import("@fluxify/adapters/queue/sqs"));
+registerQueueConnector("redis", () => import("@fluxify/adapters/queue/redis"));
 
 const manager = new QueueConnectionManager();
 /** The artifact each running trigger was started from, read per batch. */

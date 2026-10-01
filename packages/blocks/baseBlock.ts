@@ -17,6 +17,8 @@ export type TriggerSource =
 	| "schedule"
 	| "kafka"
 	| "sqs"
+	/** a Redis stream, read through a consumer group */
+	| "redis"
 	| "pubsub"
 	| "servicebus";
 /** sync = caller waits for the result (req/res); async = fire-and-forget. */
