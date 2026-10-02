@@ -48,15 +48,13 @@ import { startFireConsumer } from "../src/modules/schedules/fire";
 import { serveTestRuns } from "../src/modules/testRunner/workerHost";
 import { TriggerWorker } from "../src/modules/triggers/consumers";
 import { consumedInExecution, runsHere } from "../src/modules/triggers/types";
+import "../src/lib/bigintJson";
 
 /**
  * Trusted compiled-worker supervisor. It owns NATS and encrypted artifacts;
  * a separate child process owns user-code execution and can be replaced without
  * restarting this container or interrupting artifact hot reload.
  */
-(BigInt.prototype as any).toJSON = function () {
-	return this.toString();
-};
 
 const port = Number(getEnv("WORKER_PORT")) || 5600;
 const healthPort = Number(getEnv("WORKER_HEALTH_PORT")) || port + 1;

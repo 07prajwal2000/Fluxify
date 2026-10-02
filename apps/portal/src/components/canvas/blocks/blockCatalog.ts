@@ -10,7 +10,7 @@ export type BlockDefinition = {
 	handles: HandleKind[];
 	/** Optional icon tint. */
 	tint?: string;
-	category: "Core" | "Flow" | "Database" | "KV" | "HTTP" | "Logging" | "Misc";
+	category: "Core" | "Flow" | "Database" | "KV" | "Queue" | "HTTP" | "Logging" | "Misc";
 };
 
 const GREEN = "var(--success)";
@@ -241,6 +241,12 @@ export const BLOCK_CATALOG: Record<BlockType, BlockDefinition> = {
 		description: "Run raw commands against Redis or Memcached",
 		handles: STD,
 		category: "KV",
+	},
+	[BLOCK_TYPES.queue_send]: {
+		name: "Send Message",
+		description: "Publish to Kafka, NATS, SQS or a Redis stream",
+		handles: ["target", "success", "failure"],
+		category: "Queue",
 	},
 	[BLOCK_TYPES.consolelog]: {
 		name: "Console",

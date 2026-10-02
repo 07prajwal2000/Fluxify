@@ -88,7 +88,85 @@ export function decode(data: Uint8Array) {
 	}
 }
 
-/** What a connector module exports; loaded only when a trigger needs it. */
+/** One message the Send Message block publishes. */
+export type OutgoingMessage = {
+	/** topic, subject, queue URL or stream, in the connector's own terms */
+	destination: string;
+	/** anything JSON can carry; each connector encodes it (`encodePayload`) */
+	payload: unknown;
+	key?: string;
+	headers?: Record<string, string>;
+	/** connector-specific: partition, msgId, delaySeconds, groupId, maxLen, ... */
+	options?: Record<string, unknown>;
+};
+
+/** One message's outcome, by its index in the list that was sent. */
+export type SendOutcome =
+	| { index: number; ok: true; result: Record<string, unknown> }
+	| { index: number; ok: false; error: string };
+
+/**
+ * Publishes for the Send Message block. One per integration per process, reused
+ * across runs; the block never closes it, only a credential change or shutdown.
+ */
+export abstract class QueueProducer {
+	/**
+	 * Every message is answered: a refused message is an outcome, not a throw.
+	 * A throw means the broker could not be reached at all.
+	 */
+	abstract send(messages: OutgoingMessage[]): Promise<SendOutcome[]>;
+	/** The connector's own client, connected, for the block's Raw mode. */
+	abstract client(): Promise<unknown>;
+	abstract close(): Promise<void>;
+}
+
+/**
+ * A payload as message text. A string goes as-is; anything else as JSON, so a
+ * number, boolean or object reads back as itself (`decode`), and a BigInt as its
+ * digits in a string. Functions, symbols and cyclic values cannot be sent.
+ */
+export function encodePayload(payload: unknown): string {
+	if (typeof payload === "string") return payload;
+	if (payload === undefined) throw new Error("The payload is undefined");
+	const text = JSON.stringify(payload, (_key, value) => {
+		if (typeof value === "bigint") return value.toString();
+		if (typeof value === "function" || typeof value === "symbol")
+			throw new Error(`The payload holds a ${typeof value}, which cannot be sent as JSON`);
+		return value;
+	});
+	if (text === undefined) throw new Error("The payload cannot be sent as JSON");
+	return text;
+}
+
+/**
+ * Runs `sendOne` over every message, `concurrency` at a time, catching each
+ * failure into its own outcome so one refused message does not sink the rest.
+ */
+export async function settleEach(
+	messages: OutgoingMessage[],
+	sendOne: (message: OutgoingMessage) => Promise<Record<string, unknown>>,
+	concurrency = 100,
+): Promise<SendOutcome[]> {
+	const outcomes: SendOutcome[] = [];
+	for (let start = 0; start < messages.length; start += concurrency) {
+		const chunk = messages.slice(start, start + concurrency);
+		const settled = await Promise.allSettled(chunk.map(sendOne));
+		for (const [i, result] of settled.entries())
+			outcomes.push(
+				result.status === "fulfilled"
+					? { index: start + i, ok: true, result: result.value }
+					: { index: start + i, ok: false, error: errorText(result.reason) },
+			);
+	}
+	return outcomes;
+}
+
+export function errorText(error: unknown) {
+	return error instanceof Error ? error.message : String(error);
+}
+
+/** What a connector module exports; loaded only when a trigger or block needs it. */
 export type QueueConnector = {
 	createConnection(config: unknown): QueueConnection;
+	createProducer?(config: unknown): QueueProducer;
 };

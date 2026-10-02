@@ -6,6 +6,7 @@ import {
 	setJobEnqueuer,
 } from "@fluxify/blocks";
 import type { AssertionResult } from "../../db/schema";
+import "../../lib/bigintJson";
 import { hydrateAppConfig } from "../../loaders/appconfigLoader";
 import { hydrateIntegrations } from "../../loaders/integrationsLoader";
 import { hydrateProjectSettings } from "../../loaders/projectSettingsLoader";

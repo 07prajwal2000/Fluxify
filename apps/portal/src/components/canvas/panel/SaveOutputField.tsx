@@ -36,6 +36,7 @@ const DATA_BLOCKS = new Set<string>([
 	BLOCK_TYPES.db_transaction,
 	BLOCK_TYPES.kv_raw,
 	BLOCK_TYPES.kv_operations,
+	BLOCK_TYPES.queue_send,
 	BLOCK_TYPES.orchestrator,
 ]);
 

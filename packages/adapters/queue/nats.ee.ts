@@ -421,3 +421,5 @@ export async function testNatsConnection(config: NatsConfig) {
 		await nc?.close().catch(() => undefined);
 	}
 }
+
+export { createProducer } from "./natsProducer.ee";

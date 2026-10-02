@@ -1,4 +1,4 @@
-import { DbConnectionManager, KvFactory } from "@fluxify/adapters";
+import { DbConnectionManager, KvFactory, QueueProducerFactory } from "@fluxify/adapters";
 import {
 	type BlockOutput,
 	type Context,
@@ -16,6 +16,7 @@ import {
 	dbIntegrationsCache,
 	hydrateIntegrations,
 	kvIntegrationsCache,
+	queueIntegrationsCache,
 } from "../../loaders/integrationsLoader";
 import { hydrateProjectSettings } from "../../loaders/projectSettingsLoader";
 import type {
@@ -179,6 +180,7 @@ export function applyArtifactUpdate(key: string, value: any | null) {
 export async function shutdownCompiledRuntime() {
 	// consumers first: their in-flight batches still hold database leases
 	await shutdownQueueTriggers();
+	await QueueProducerFactory.closeAll();
 	await dbConnectionManager?.close();
 	dbConnectionManager = undefined;
 	setDbConnectionManager();
@@ -365,6 +367,8 @@ function applyProjectConfig(artifact: UnsealedProjectConfig) {
 	// same for KV clients: a rotated credential closes the old socket so the next
 	// request builds a client from the new config
 	KvFactory.synchronize(kvIntegrationsCache);
+	// and Send Message producers, which also publish over Redis KV integrations
+	QueueProducerFactory.synchronize(queueIntegrationsCache, kvIntegrationsCache);
 	// same for queue consumers: rotated credentials restart, deleted ones stop
 	void refreshQueueTriggers();
 	hydrateProjectSettings(artifact.projectId, payload.projectSettings);

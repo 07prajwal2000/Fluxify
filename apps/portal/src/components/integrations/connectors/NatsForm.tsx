@@ -1,6 +1,7 @@
 import { Checkbox, Input, Label, ListBox, Select } from "@fluxify/components";
 import { useState } from "react";
 import { AppConfigSelector } from "../AppConfigSelector";
+import { SendTimeoutField } from "./SendTimeoutField";
 import type { ConnectorFormProps } from "./types";
 
 const AUTH_MODES = {
@@ -136,6 +137,8 @@ export function NatsForm({ projectId, name, onName, config, setField }: Connecto
 			<Checkbox isSelected={Boolean(config.tls)} onChange={(v) => setField("tls", v)}>
 				Use TLS
 			</Checkbox>
+
+			<SendTimeoutField config={config} setField={setField} />
 
 			<details className="rounded-lg border border-border px-3 py-2">
 				<summary className="cursor-pointer text-xs font-medium text-foreground">Advanced</summary>

@@ -88,6 +88,20 @@ export function defaultBlockData(type: BlockType): Record<string, unknown> {
 		return { connection: "", executor: "", timeoutMs: "30000", retries: "0" };
 	if (type === BLOCK_TYPES.db_rollback) return { message: "" };
 	if (type === BLOCK_TYPES.kv_raw) return { connection: "", js: "" };
+	if (type === BLOCK_TYPES.queue_send) {
+		return {
+			connection: "",
+			mode: "simple",
+			bulk: false,
+			destination: "",
+			useParam: false,
+			payload: { source: "raw", value: {} },
+			headers: {},
+			options: {},
+			failWhen: "all",
+			js: "",
+		};
+	}
 	if (type === BLOCK_TYPES.kv_operations) {
 		return {
 			connection: "",

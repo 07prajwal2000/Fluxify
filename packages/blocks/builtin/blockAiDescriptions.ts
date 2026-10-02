@@ -29,6 +29,7 @@ import { consoleAiDescription } from "./log/console";
 import { forLoopAiDescription } from "./loops/for";
 import { foreachLoopAiDescription } from "./loops/foreach";
 import { orchestratorAiDescription } from "./orchestrator";
+import { sendMessageAiDescription } from "./queue/sendMessage";
 import { responseAiDescription } from "./response";
 import { setVarBlockAiDescription } from "./setVar";
 import { stickyNoteBlockAiDescription } from "./stickyNote";
@@ -59,6 +60,7 @@ export const blockAiDescriptions = [
 	updateDbAiDescription,
 	kvRawAiDescription,
 	kvOperationsAiDescription,
+	sendMessageAiDescription,
 	getCookieAiDescription,
 	getHttpHeaderAiDescription,
 	getHttpParamAiDescription,

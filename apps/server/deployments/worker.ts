@@ -14,12 +14,7 @@ import {
 import { markReady, registerHealthRoutes } from "../src/modules/requestRouter/health";
 import { mapRouter } from "../src/modules/requestRouter/router";
 import { initWorker } from "../src/modules/requestRouter/worker";
-
-// JSON has no BigInt type; DB bigint columns break JSON.stringify (and c.json).
-// Serialize as string — same fix the admin server applies.
-(BigInt.prototype as any).toJSON = function () {
-	return this.toString();
-};
+import "../src/lib/bigintJson";
 
 const port = Number(getEnv("WORKER_PORT")) || 5600;
 

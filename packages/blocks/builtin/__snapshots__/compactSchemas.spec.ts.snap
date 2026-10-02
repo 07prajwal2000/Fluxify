@@ -254,6 +254,23 @@ kv_operations {
 	parseJson?: boolean | null;  // \`get\` only: parse the stored string as JSON. A missing key stays null; a value that is not valid JSON fails the block
 }
 
+queue_send {
+	connection: string;  // integration id: a Kafka, NATS, SQS or Redis integration
+	mode: "simple" | "raw";  // simple: the form fields; raw: js code with the broker's own client as \`client\`; default "simple"
+	bulk: boolean;  // send a list: each item is a payload, or { payload, destination?, key?, headers?, ...options } to override the shared settings; default false
+	destination: string | number;  // topic (Kafka), subject (NATS), queue URL (SQS) or stream key (Redis); supports js expression; default ""
+	useParam: boolean;  // use the previous block's output as the payload; a list is sent as one message per item and \`bulk\` is ignored; default false
+	payload: {
+		source: "raw" | "js";  // default "raw"
+		value?: any;
+	};  // raw: the value, js: code returning it. A string is sent as-is; anything else as JSON; default {"source":"raw","value":{}}
+	key?: string | number;  // Kafka message key; supports js expression
+	headers?: Record<string, string | number>;  // headers (Kafka, NATS) or message attributes (SQS); values support js expression
+	options?: Record<string, any>;  // broker options: Kafka partition, timestamp; NATS msgId; SQS delaySeconds, groupId, deduplicationId; Redis maxLen
+	failWhen: "all" | "any";  // bulk: take the failure branch when every message failed (all) or when any did (any); default "all"
+	js: string;  // raw mode code; \`client\` is the broker client, whatever it returns is the output; default ""
+}
+
 httpgetcookie {
 	name: string;  // name of the cookie (supports js expressions)
 	mode?: "single";

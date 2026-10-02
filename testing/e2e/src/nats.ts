@@ -26,10 +26,17 @@ const READY_ATTEMPTS = 60;
 
 let starting: Promise<void> | undefined;
 let running: Docker.Container | undefined;
+let serverUrl = "";
 
 /** The shared broker, started on first use. Resolves once it accepts clients. */
 export function nats(): Promise<void> {
 	return (starting ??= start());
+}
+
+/** Where the shared broker listens, for a test that connects as a user's integration would. */
+export async function natsServer() {
+	await nats();
+	return { servers: serverUrl, token: TOKEN };
 }
 
 /** Stops the container. Called once, from the preloaded suite teardown. */
@@ -63,7 +70,8 @@ async function start() {
 		}),
 	);
 	running = started.container;
-	await connectWhenReady(`nats://127.0.0.1:${started.port}`);
+	serverUrl = `nats://127.0.0.1:${started.port}`;
+	await connectWhenReady(serverUrl);
 }
 
 /**

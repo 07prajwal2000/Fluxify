@@ -12,6 +12,7 @@ import { NotFoundError } from "../../errors/notFoundError";
 import { dbIntegrationsCache } from "../../loaders/integrationsLoader";
 import { type DirectedCanvasEdge, findCycleEdgeIds } from "./cycleDetection";
 import { assertJoinsSupported } from "./joinSupport";
+import { assertSendMessageLicensed } from "./queueLicense";
 import {
 	deleteBlocks,
 	deleteEdges,
@@ -341,6 +342,7 @@ export async function saveCanvas(
 	if (!(await parentExists(parent, projectIds, outer))) {
 		throw new NotFoundError(NOT_FOUND[parent.type]);
 	}
+	assertSendMessageLicensed(data);
 
 	const keys = parentKeys(parent);
 	const deleteBlockIds = data.actionsToPerform.blocks

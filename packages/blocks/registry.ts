@@ -35,6 +35,7 @@ import { emitConsoleLog, runConsoleLog } from "./builtin/log/console";
 import { emitForLoop } from "./builtin/loops/for";
 import { emitForEachLoop } from "./builtin/loops/foreach";
 import { emitOrchestrator } from "./builtin/orchestrator";
+import { emitSendMessage, runSendMessage, runSendMessageRaw } from "./builtin/queue/sendMessage";
 import { emitResponse } from "./builtin/response";
 import { emitSetVar } from "./builtin/setVar";
 import { emitSwitch } from "./builtin/switch";
@@ -95,6 +96,7 @@ export const emitters: Partial<Record<BlockTypes, Emitter>> = {
 	[BlockTypes.kv_operations]: emitKvOperations,
 	[BlockTypes.cloudLogs]: emitCloudLogs,
 	[BlockTypes.triggerWorkflow]: emitTriggerWorkflow,
+	[BlockTypes.queue_send]: emitSendMessage,
 };
 
 /** helpers the generated code calls as `lib.x` — anything too big to inline */
@@ -116,6 +118,8 @@ export const compilerLib = {
 	kvRaw: runKvRaw,
 	kvOperations: runKvOperations,
 	cloudLog: runCloudLog,
+	sendMessage: runSendMessage,
+	sendMessageRaw: runSendMessageRaw,
 	invoke: invokeCustomBlock,
 	invokeAsync: invokeCustomBlockAsync,
 	enqueue: enqueueCustomBlock,

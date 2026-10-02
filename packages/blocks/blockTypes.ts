@@ -36,4 +36,5 @@ export enum BlockTypes {
 	errorHandler = "error_handler",
 	cloudLogs = "cloud_logs",
 	triggerWorkflow = "trigger_workflow",
+	queue_send = "queue_send",
 }

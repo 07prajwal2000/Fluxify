@@ -30,6 +30,7 @@ import { jsRunnerSettings } from "./blocks/JsRunnerSettings";
 import { kvOperationsSettings } from "./blocks/kv/KvOperationsSettings";
 import { kvRawSettings } from "./blocks/kv/KvRawSettings";
 import { orchestratorSettings } from "./blocks/OrchestratorSettings";
+import { sendMessageSettings } from "./blocks/queue/SendMessageSettings";
 import { responseSettings } from "./blocks/ResponseSettings";
 import { setCookieSettings } from "./blocks/SetCookieSettings";
 import { setHeaderSettings } from "./blocks/SetHeaderSettings";
@@ -79,6 +80,7 @@ export const BLOCK_SETTINGS_TABS: Record<string, BlockTabs> = {
 	[BLOCK_TYPES.db_native]: nativeDbSettings,
 	[BLOCK_TYPES.kv_raw]: kvRawSettings,
 	[BLOCK_TYPES.kv_operations]: kvOperationsSettings,
+	[BLOCK_TYPES.queue_send]: sendMessageSettings,
 };
 
 const NO_EXTRA_TABS_BUILTIN = new Set<string>([

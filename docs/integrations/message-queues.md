@@ -1,6 +1,6 @@
 ---
 title: Message Queue Integrations
-description: Start workflows from messages on a Kafka topic, a NATS JetStream stream, or an AWS SQS queue.
+description: Start workflows from messages on a Kafka topic, a NATS JetStream stream, or an AWS SQS queue, and send messages to them from a workflow.
 ---
 
 # Message Queue Integrations
@@ -10,14 +10,22 @@ workflow every time messages arrive on a Kafka topic, a NATS stream, or an AWS
 SQS queue. The integration holds the connection details; the trigger says what
 to read and which workflow to run.
 
+Workflows and routes can **send** too: the [Send Message](/blocks/send-message)
+block publishes one message or a list to the same integrations.
+
 ::: info Enterprise
-Kafka, NATS and SQS triggers need an enterprise license. Creating one is
+Kafka, NATS and SQS triggers, and Send Message blocks that use them, need an
+enterprise license. Creating such a trigger, or saving such a block, is
 refused until a license is active.
 
-Reading a **Redis stream** is free in every edition. It uses a
+Reading and writing a **Redis stream** is free in every edition. It uses a
 [Redis KV integration](/integrations/kv-stores) rather than one of these — see
-[Reading from Redis Streams](/concepts/triggers#reading-from-redis-streams).
+[Reading from Redis Streams](/concepts/triggers#reading-from-redis-streams) and
+[Send Message](/blocks/send-message).
 :::
+
+**Send timeout** (all three brokers) is how long the Send Message block waits
+for the broker to confirm a message, 30 seconds by default.
 
 ## Kafka
 

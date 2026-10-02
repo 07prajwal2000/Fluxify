@@ -3,6 +3,7 @@ import {
 	type DbConnectionManager,
 	DbFactory,
 	KvFactory,
+	QueueProducerFactory,
 } from "@fluxify/adapters";
 import type {
 	Context as BlockContext,
@@ -34,6 +35,7 @@ import {
 	kvIntegrationsCache,
 	observabilityIntegrationsCache,
 	ownsIntegration,
+	queueIntegrationsCache,
 } from "../../loaders/integrationsLoader";
 import { projectSettingsCache } from "../../loaders/projectSettingsLoader";
 import {
@@ -418,6 +420,11 @@ function createContext(
 		// there is no per-request state to own — the clients are process-wide and
 		// there are no leases to release — so an instance is just the cache lookup.
 		kvFactory: new KvFactory(kvIntegrationsCache),
+		// producers are process-wide like the KV clients; the instance only scopes
+		// lookups to this project's integrations
+		queueFactory: new QueueProducerFactory(queueIntegrationsCache, kvIntegrationsCache, (config) =>
+			ownsIntegration(config, routeInfo.projectId),
+		),
 		httpClient,
 		trigger,
 		trace,

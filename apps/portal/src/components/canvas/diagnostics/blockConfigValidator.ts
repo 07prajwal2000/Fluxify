@@ -4,6 +4,7 @@ import { BLOCK_TYPES } from "../blocks/blockTypes";
 import { savesOutput } from "../panel/SaveOutputField";
 import type { BlockData, CanvasGraph } from "../types";
 import { dbConditionIssues, dbJoinIssues, dbSortIssues, isBlank } from "./dbConditionIssues";
+import { kvIssues, sendMessageIssues } from "./storeIssues";
 import { checkTransactionSettings } from "./transactionValidator";
 import type { BlockDiagnostic, DiagnosticSeverity } from "./types";
 
@@ -225,17 +226,11 @@ export function blockConfigIssues(type: string, data: BlockData): BlockConfigIss
 			}
 			break;
 		case BLOCK_TYPES.kv_operations:
-			if (isBlank(data.connection))
-				report("error", "No KV connection selected. Pick one in the General tab.", "General");
-			if (isBlank(data.key))
-				report("warning", "Key is empty. Enter it in the Operation tab.", "Operation");
-			if (data.operation === "set" && data.useParam !== true && isBlank(data.value)) {
-				report("warning", "Nothing to store. Enter a value or turn on Use Param.", "Operation");
-			}
-			break;
 		case BLOCK_TYPES.kv_raw:
-			if (isBlank(data.connection))
-				report("error", "No KV connection selected. Pick one in the General tab.", "General");
+			kvIssues(type, data, report);
+			break;
+		case BLOCK_TYPES.queue_send:
+			sendMessageIssues(data, report);
 			break;
 		case BLOCK_TYPES.triggerWorkflow:
 			if (data.mode === "cancel") {

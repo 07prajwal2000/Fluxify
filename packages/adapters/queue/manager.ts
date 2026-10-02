@@ -3,9 +3,14 @@ import type { QueueConnection, QueueConnector, QueueHandler, QueueSubscription }
 
 /**
  * Connectors by trigger type. A loader is a dynamic `import()`, so a process
- * with no Kafka trigger never loads the Kafka client.
+ * with no Kafka trigger or block never loads the Kafka client.
  */
-const connectors = new Map<string, () => Promise<QueueConnector>>();
+const connectors = new Map<string, () => Promise<QueueConnector>>([
+	["kafka", () => import("./kafka.ee")],
+	["nats", () => import("./nats.ee")],
+	["sqs", () => import("./sqs.ee")],
+	["redis", () => import("./redisStreams")],
+]);
 
 export function registerQueueConnector(type: string, load: () => Promise<QueueConnector>) {
 	connectors.set(type, load);

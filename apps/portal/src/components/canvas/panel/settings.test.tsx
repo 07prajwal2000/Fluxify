@@ -543,3 +543,19 @@ test("custom and user-defined block types fallback to customBlockSettings with a
 	// alongside the name and description rather than with the call's parameters.
 	expect(result.generalExtras).toHaveLength(1);
 });
+
+test("send message tabs follow the mode, and hide the Message tab when the input is the payload", () => {
+	const tabs = (data: Record<string, unknown>) =>
+		splitTabs(
+			blockSettingsTabs(BLOCK_TYPES.queue_send)?.({
+				id: "send-1",
+				type: BLOCK_TYPES.queue_send,
+				position: { x: 0, y: 0 },
+				data,
+			} as BlockNode),
+		).blockTabs.map((tab) => tab.props.name);
+
+	expect(tabs({ mode: "simple" })).toEqual(["Message", "Options"]);
+	expect(tabs({ mode: "simple", useParam: true })).toEqual(["Options"]);
+	expect(tabs({ mode: "raw" })).toEqual(["Code"]);
+});

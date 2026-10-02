@@ -449,7 +449,7 @@ function hasProtocolError(error: unknown, id: string): boolean {
  * "Cannot connect to any broker"; the innermost message is the one a user can
  * act on, so it is kept alongside the outer one.
  */
-function rootCause(error: unknown): string {
+export function rootCause(error: unknown): string {
 	const outer = error instanceof Error ? error.message : String(error);
 	let inner: unknown = error;
 	while (inner instanceof Error) {
@@ -460,3 +460,5 @@ function rootCause(error: unknown): string {
 	const detail = inner instanceof Error ? inner.message : String(inner);
 	return detail === outer ? outer : `${outer} ${detail}`;
 }
+
+export { createProducer } from "./kafkaProducer.ee";
