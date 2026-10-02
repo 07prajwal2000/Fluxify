@@ -66,7 +66,13 @@ export const testSuitesQuery = {
 			const qc = useQueryClient();
 			return useMutation({
 				mutationFn: (id: string) => testSuitesService.delete(id),
-				onSuccess: () => qc.invalidateQueries({ queryKey: suiteKey(target) }),
+				onSuccess: (_data, id) => {
+					// Drop the deleted suite's detail first: invalidating the key prefix would
+					// refetch it, 404, and (with default retries) hold the mutation open for
+					// seconds. Then refresh only the list, and wait for it so callers see it.
+					qc.removeQueries({ queryKey: [...suiteKey(target), "detail", id] });
+					return qc.invalidateQueries({ queryKey: suiteKey(target), exact: true });
+				},
 			});
 		},
 	},
