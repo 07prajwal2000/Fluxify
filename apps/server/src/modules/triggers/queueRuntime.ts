@@ -3,7 +3,6 @@ import {
 	type QueueConnection,
 	QueueConnectionManager,
 	QueueSourceGoneError,
-	registerQueueConnector,
 } from "@fluxify/adapters";
 import type { TriggerConnection, TriggerEvent, TriggerSource } from "@fluxify/blocks";
 import { logger } from "@fluxify/common";
@@ -36,11 +35,6 @@ const DEFAULT_MAX_ATTEMPTS = 3;
 /** Rows saved before the cap may still carry up to 20. */
 const MAX_ATTEMPTS = 5;
 const DEFAULT_RETRY_DELAY_MS = 1_000;
-
-registerQueueConnector("kafka", () => import("@fluxify/adapters/queue/kafka"));
-registerQueueConnector("nats", () => import("@fluxify/adapters/queue/nats"));
-registerQueueConnector("sqs", () => import("@fluxify/adapters/queue/sqs"));
-registerQueueConnector("redis", () => import("@fluxify/adapters/queue/redis"));
 
 const manager = new QueueConnectionManager();
 /** The artifact each running trigger was started from, read per batch. */

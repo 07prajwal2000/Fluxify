@@ -397,6 +397,8 @@ export function createConnection(config: unknown) {
 	return new RedisStreamsConnection(config as RedisVariantConfig);
 }
 
+export { createProducer } from "./redisStreamsProducer";
+
 /**
  * Checks before a trigger is saved: the server answers, and the key is a stream
  * or not there yet. The stream and group are created when the trigger starts.

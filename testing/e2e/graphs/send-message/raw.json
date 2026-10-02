@@ -1,0 +1,42 @@
+{
+	"name": "send-message/raw",
+	"description": "POST /send/raw — Raw mode: the request body's `code` decides what to do with `client`, the broker's own client, and its return value is the answer.",
+	"engine": "none",
+	"route": { "method": "POST", "path": "/send/raw" },
+	"blocks": [
+		{
+			"id": "entry",
+			"type": "entrypoint",
+			"position": { "x": 0, "y": 0 },
+			"data": { "blockName": "Request" }
+		},
+		{
+			"id": "send",
+			"type": "queue_send",
+			"position": { "x": 240, "y": 0 },
+			"data": {
+				"blockName": "Raw client",
+				"connection": "js:return input.connection",
+				"mode": "raw",
+				"js": "if (input.close) { await client.close(); }\nif (input.kind === 'redis') return await client.xadd(input.destination, '*', 'via', 'raw');\nconst ack = await client.publish(input.destination, 'via raw');\nreturn { stream: ack.stream, seq: ack.seq };"
+			}
+		},
+		{
+			"id": "sent",
+			"type": "response",
+			"position": { "x": 480, "y": -80 },
+			"data": { "blockName": "200 Done", "httpCode": "200" }
+		},
+		{
+			"id": "failed",
+			"type": "response",
+			"position": { "x": 480, "y": 80 },
+			"data": { "blockName": "500 Failed", "httpCode": "500" }
+		}
+	],
+	"edges": [
+		{ "id": "e-entry-send", "from": "entry", "to": "send", "fromHandle": "source", "toHandle": "source" },
+		{ "id": "e-send-sent", "from": "send", "to": "sent", "fromHandle": "source", "toHandle": "success" },
+		{ "id": "e-send-failed", "from": "send", "to": "failed", "fromHandle": "source", "toHandle": "failure" }
+	]
+}

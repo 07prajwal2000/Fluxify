@@ -1,5 +1,6 @@
 import { Checkbox, Input, Label, ListBox, Select } from "@fluxify/components";
 import { AppConfigSelector } from "../AppConfigSelector";
+import { SendTimeoutField } from "./SendTimeoutField";
 import type { ConnectorFormProps } from "./types";
 
 const SASL_MECHANISMS = ["none", "PLAIN", "SCRAM-SHA-256", "SCRAM-SHA-512"] as const;
@@ -88,6 +89,8 @@ export function KafkaForm({ projectId, name, onName, config, setField }: Connect
 			<Checkbox isSelected={Boolean(config.ssl)} onChange={(v) => setField("ssl", v)}>
 				Use TLS
 			</Checkbox>
+
+			<SendTimeoutField config={config} setField={setField} />
 
 			<details className="rounded-lg border border-border px-3 py-2">
 				<summary className="cursor-pointer text-xs font-medium text-foreground">Advanced</summary>

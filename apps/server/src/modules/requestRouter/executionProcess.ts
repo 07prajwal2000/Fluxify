@@ -1,5 +1,6 @@
 import { setJobEnqueuer, setScheduleHorizon, setTriggerPayloadLimit } from "@fluxify/blocks";
 import { initializeLogger, logger } from "@fluxify/common";
+import "../../lib/bigintJson";
 import { projectSettingsCache } from "../../loaders/projectSettingsLoader";
 import { artifactKind } from "../compiler/subjects";
 import { registerCustomBlockJobHandler } from "../jobs/customBlockJob";

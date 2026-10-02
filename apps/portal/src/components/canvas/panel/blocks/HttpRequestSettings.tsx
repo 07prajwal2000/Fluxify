@@ -15,14 +15,17 @@ const METHOD_OPTIONS = [
 	{ value: "PATCH", label: "PATCH" },
 ];
 
-function HeadersEditor({
+/** A name/value list; `noun` names a row (SQS calls them message attributes). */
+export function HeadersEditor({
 	headers,
 	editable,
 	onChange,
+	noun = "Header",
 }: {
 	headers: Record<string, string>;
 	editable: boolean;
 	onChange: (next: Record<string, string>) => void;
+	noun?: string;
 }) {
 	const [entries, setEntries] = useState<[string, string][]>(() => Object.entries(headers || {}));
 
@@ -86,7 +89,7 @@ function HeadersEditor({
 							fullWidth
 							variant="secondary"
 							isDisabled={!editable}
-							placeholder="Header Name"
+							placeholder={`${noun} Name`}
 							value={key}
 							onChange={(nextKey) => handleKeyChange(index, nextKey)}
 						/>
@@ -96,13 +99,13 @@ function HeadersEditor({
 							fullWidth
 							variant="secondary"
 							isDisabled={!editable}
-							placeholder="Header Value"
+							placeholder={`${noun} Value`}
 							value={val}
 							onChange={(nextVal) => handleValueChange(index, nextVal)}
 						/>
 					</div>
 					<DeleteIconButton
-						aria-label="Remove header"
+						aria-label={`Remove ${noun.toLowerCase()}`}
 						icon={<TbMinus className="size-4" />}
 						isDisabled={!editable}
 						size="sm"
@@ -112,8 +115,8 @@ function HeadersEditor({
 			))}
 
 			{entries.length === 0 && (
-				<div className="text-xs text-muted py-2 text-center border border-dashed border-[var(--border,#27272a)] rounded-md">
-					No headers configured
+				<div className="text-xs text-muted py-2 text-center border border-dashed border-border rounded-md">
+					No {noun.toLowerCase()}s configured
 				</div>
 			)}
 
@@ -125,7 +128,7 @@ function HeadersEditor({
 					className="mt-1"
 					onPress={handleAdd}
 				>
-					<TbPlus className="size-4 mr-1" /> Add Header
+					<TbPlus className="size-4 mr-1" /> Add {noun}
 				</Button>
 			</div>
 		</div>

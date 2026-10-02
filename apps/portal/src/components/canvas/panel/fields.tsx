@@ -286,6 +286,8 @@ export type BlockIntegrationFieldProps = {
 	data: BlockData;
 	name: string;
 	group?: string;
+	/** integrations of other groups also offered, limited to these variants (Redis for Send Message) */
+	extraGroups?: { group: string; variants: string[] }[];
 	label?: ReactNode;
 	description?: string;
 };
@@ -298,6 +300,7 @@ export function BlockIntegrationField({
 	data,
 	name,
 	group = "database",
+	extraGroups,
 	label,
 	description,
 }: BlockIntegrationFieldProps) {
@@ -311,18 +314,29 @@ export function BlockIntegrationField({
 	const selectedId = typeof data[name] === "string" ? (data[name] as string) : "";
 	const injectedIntegrations = useCustomBlockParamIntegrations(projectId, params?.blockId, group);
 
+	const extraKey = JSON.stringify(extraGroups ?? []);
 	const loadIntegrations = useCallback(async () => {
 		if (!projectId) return [];
-		const list = await integrationService.getAll(projectId, group);
-		return (list || []).map((item) => ({
-			id: item.id,
-			name: item.name,
-			group: item.group,
-			variant: item.variant,
-			config: (item.config ?? {}) as Record<string, unknown>,
-			tags: item.tags,
-		}));
-	}, [projectId, group]);
+		const extras: { group: string; variants: string[] }[] = JSON.parse(extraKey);
+		const lists = await Promise.all([
+			integrationService.getAll(projectId, group),
+			...extras.map(async (extra) =>
+				((await integrationService.getAll(projectId, extra.group)) || []).filter((item) =>
+					extra.variants.includes(item.variant),
+				),
+			),
+		]);
+		return lists
+			.flatMap((list) => list || [])
+			.map((item) => ({
+				id: item.id,
+				name: item.name,
+				group: item.group,
+				variant: item.variant,
+				config: (item.config ?? {}) as Record<string, unknown>,
+				tags: item.tags,
+			}));
+	}, [projectId, group, extraKey]);
 
 	const handleTestConnection = useCallback(
 		async (id: string) => {

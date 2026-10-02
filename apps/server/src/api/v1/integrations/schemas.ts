@@ -280,6 +280,9 @@ export const lokiVariantConfigSchema = z.object({
 });
 
 // Queue
+/** milliseconds the Send Message block waits for the broker; the runtime uses 30s when it is left out */
+const sendTimeoutMsSchema = z.number().int().positive().optional();
+
 export const kafkaVariantConfigSchema = z.object({
 	/** comma-separated `host:port` list, or a `cfg:` reference */
 	brokers: z.string().min(1),
@@ -290,6 +293,7 @@ export const kafkaVariantConfigSchema = z.object({
 	password: z.string().optional(),
 	/** Advanced: where a batch that keeps failing is parked. */
 	dlqTopic: z.string().optional(),
+	sendTimeoutMs: sendTimeoutMsSchema,
 });
 
 /** A foreign NATS JetStream cluster — not Fluxify's own transport. */
@@ -309,6 +313,7 @@ export const natsVariantConfigSchema = z.object({
 	monitoringEndpoint: z.string().optional(),
 	/** Advanced: the account the stream lives in, for that monitoring. Default `$G`. */
 	account: z.string().optional(),
+	sendTimeoutMs: sendTimeoutMsSchema,
 });
 
 /**
@@ -322,6 +327,7 @@ export const sqsVariantConfigSchema = z.object({
 	sessionToken: z.string().optional(),
 	/** Advanced: an SQS-compatible endpoint, e.g. a local emulator. */
 	endpoint: z.string().optional(),
+	sendTimeoutMs: sendTimeoutMsSchema,
 });
 
 export const databaseTagsSchema = z.enum(["sql", "nosql"]);

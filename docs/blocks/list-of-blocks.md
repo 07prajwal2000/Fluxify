@@ -67,6 +67,11 @@ Cache data and keep short-lived state.
 - [**KV Operations**](./kv-operations.md): get, set or delete one key.
 - [**KV Raw Connection**](./kv-raw.md): run any command against the store.
 
+## Message Queues
+Hand work to other services.
+
+- [**Send Message**](./send-message.md): publish to Kafka, NATS, SQS or a Redis stream.
+
 ## Logging
 See what your flows are doing.
 

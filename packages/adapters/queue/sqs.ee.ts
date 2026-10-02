@@ -7,6 +7,7 @@ import {
 	type Message,
 	ReceiveMessageCommand,
 	SQSClient,
+	type SQSClientConfig,
 } from "@aws-sdk/client-sqs";
 import { logger } from "@fluxify/common";
 import {
@@ -71,7 +72,11 @@ export const SQS_MAX_BATCH = 10;
 const MAX_VISIBILITY_SEC = 43_200;
 
 export function clientFor(config: SqsConfig) {
-	return new SQSClient({
+	return new SQSClient(clientConfig(config));
+}
+
+export function clientConfig(config: SqsConfig): SQSClientConfig {
+	return {
 		region: config.region,
 		...(config.endpoint ? { endpoint: config.endpoint } : {}),
 		...(config.accessKeyId && config.secretAccessKey
@@ -83,7 +88,7 @@ export function clientFor(config: SqsConfig) {
 					},
 				}
 			: {}),
-	});
+	};
 }
 
 export class SqsQueueConnection extends QueueConnection {
@@ -503,3 +508,5 @@ export function describeSqsError(error: unknown, queueUrl?: string) {
 	// a refused connection can come back with an empty message and only a code
 	return message || code || name || String(error);
 }
+
+export { createProducer } from "./sqsProducer.ee";

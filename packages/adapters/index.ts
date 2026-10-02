@@ -13,3 +13,4 @@ export * from "./kv/redis";
 export * from "./observability";
 export * from "./queue/base";
 export * from "./queue/manager";
+export * from "./queue/producers";

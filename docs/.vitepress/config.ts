@@ -260,6 +260,10 @@ export default withMermaid(
 						],
 					},
 					{
+						text: "Message Queues",
+						items: [{ text: "Send Message", link: "/blocks/send-message" }],
+					},
+					{
 						text: "Logging",
 						items: [
 							{ text: "Console Log", link: "/blocks/console-log" },

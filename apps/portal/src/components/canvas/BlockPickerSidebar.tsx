@@ -10,6 +10,7 @@ import {
 	TbLayoutGrid,
 	TbPlus,
 	TbSearch,
+	TbSend,
 	TbTerminal2,
 	TbWorld,
 	TbX,
@@ -48,6 +49,10 @@ const CATEGORY_DETAILS: Record<BlockCategory, CategoryDetails> = {
 	KV: {
 		description: "Read and write keys in Redis or Memcached",
 		icon: <TbKey />,
+	},
+	Queue: {
+		description: "Send messages to Kafka, NATS, SQS or Redis streams",
+		icon: <TbSend />,
 	},
 	HTTP: {
 		description: "Read requests and call external services",

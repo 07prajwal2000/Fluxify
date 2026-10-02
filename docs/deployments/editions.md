@@ -19,7 +19,8 @@ setting.
 | Batching | ✅ | ✅ |
 | The Trigger Workflow block | ✅ | ✅ |
 | Redis Streams triggers | ✅ | ✅ |
-| External connectors — Kafka, NATS JetStream and Amazon SQS today; SNS, Pub/Sub and Service Bus on the way | — | ✅ |
+| The Send Message block, to a Redis stream | ✅ | ✅ |
+| External connectors — Kafka, NATS JetStream and Amazon SQS today; SNS, Pub/Sub and Service Bus on the way. Covers their triggers and Send Message blocks | — | ✅ |
 | Single sign-on (OIDC and SAML) | — | ✅ |
 
 A license key says which Enterprise features it includes. Most include all of
@@ -141,6 +142,8 @@ An expired license does not take anything down straight away. You have a
 
 - **The moment the license expires,** you can no longer create new connectors.
   Trying to create one returns an error that says the license has expired.
+  The same goes for saving a Send Message block that points at Kafka, NATS or
+  SQS. Send Message blocks saved earlier keep sending.
 - **During the grace period,** the dashboard shows a banner with the number of
   days left, so you find out before anything stops.
 - **After the grace period,** Enterprise features stop until the license is

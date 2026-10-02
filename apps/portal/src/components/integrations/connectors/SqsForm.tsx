@@ -1,5 +1,6 @@
 import { Input } from "@fluxify/components";
 import { AppConfigSelector } from "../AppConfigSelector";
+import { SendTimeoutField } from "./SendTimeoutField";
 import type { ConnectorFormProps } from "./types";
 
 // SQS: a region and, optionally, keys. No dead-letter field: AWS handles that.
@@ -53,6 +54,8 @@ export function SqsForm({ projectId, name, onName, config, setField }: Connector
 				Leave both empty to use the server's own AWS credentials, such as an IAM role. The keys need
 				sqs:GetQueueAttributes, ReceiveMessage, DeleteMessage and ChangeMessageVisibility.
 			</p>
+
+			<SendTimeoutField config={config} setField={setField} />
 
 			<details className="rounded-lg border border-border px-3 py-2">
 				<summary className="cursor-pointer text-xs font-medium text-foreground">Advanced</summary>

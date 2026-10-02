@@ -372,22 +372,26 @@ $trace.recordSpan(${span});
 			const branching =
 				block.type === BlockTypes.if ||
 				block.type === BlockTypes.db_exists ||
-				block.type === BlockTypes.db_transaction;
+				block.type === BlockTypes.db_transaction ||
+				block.type === BlockTypes.queue_send;
 			const branch =
 				branching && (handle === "success" || handle === "failure") ? handle : undefined;
 			const continuation = to
 				? `return await ${blockFunctionName(to)}($state, $in, $end);`
 				: "return $end($in);";
 			// Row Exists saves the row on success and clears it on failure, so a
-			// loop's later miss never leaves an earlier iteration's row behind
+			// loop's later miss never leaves an earlier iteration's row behind.
+			// Send Message saves what it reports on either branch.
 			const saved =
-				handle === "source" ||
-				(block.type === BlockTypes.db_transaction && handle === "success") ||
-				(block.type === BlockTypes.db_exists && branch)
-					? handle === "failure"
-						? "null"
-						: "$in"
-					: undefined;
+				block.type === BlockTypes.queue_send && branch
+					? "$in"
+					: handle === "source" ||
+							(block.type === BlockTypes.db_transaction && handle === "success") ||
+							(block.type === BlockTypes.db_exists && branch)
+						? handle === "failure"
+							? "null"
+							: "$in"
+						: undefined;
 			const saveAs = saved && outputVariableName(block.data);
 			// vars is per request, so outputs never leak into the next one
 			const save = saveAs ? `(vars.outputs ??= {})[${JSON.stringify(saveAs)}] = ${saved};\n` : "";

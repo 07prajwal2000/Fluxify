@@ -1,4 +1,4 @@
-import type { DbFactory, KvFactory } from "@fluxify/adapters";
+import type { DbFactory, KvFactory, QueueProducerFactory } from "@fluxify/adapters";
 import type { AbstractLogger, HttpClient } from "@fluxify/lib";
 import type jwt from "jsonwebtoken";
 import z from "zod";
@@ -148,6 +148,8 @@ export interface Context {
 	requestBody?: any;
 	dbFactory?: DbFactory;
 	kvFactory?: KvFactory;
+	/** message queue producers, for the Send Message block */
+	queueFactory?: QueueProducerFactory;
 	httpClient?: HttpClient;
 	/** resolves integrations (observability loggers) for compiled graphs */
 	integrationFactory?: {

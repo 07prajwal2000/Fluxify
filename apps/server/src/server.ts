@@ -30,14 +30,7 @@ import { errorHandler } from "./middlewares/errorHandler";
 import { adminRateLimit } from "./middlewares/rateLimit";
 import { setSession } from "./middlewares/session";
 import { mapRouter } from "./modules/requestRouter/router";
-
-// JSON has no BigInt type; DB drivers return bigint columns as BigInt, which
-// makes JSON.stringify (and Hono's c.json) throw. Serialize as string to avoid
-// precision loss on values above Number.MAX_SAFE_INTEGER.
-// ponytail: global prototype patch, the standard bigint-serialization fix
-(BigInt.prototype as any).toJSON = function () {
-	return this.toString();
-};
+import "./lib/bigintJson";
 
 const app = new Hono<{
 	Variables: {

@@ -45,6 +45,7 @@ export * from "./builtin/log/console";
 export * from "./builtin/loops/for";
 export * from "./builtin/loops/foreach";
 export * from "./builtin/orchestrator";
+export * from "./builtin/queue/sendMessage";
 export * from "./builtin/response";
 export * from "./builtin/setVar";
 export * from "./builtin/stickyNote";
