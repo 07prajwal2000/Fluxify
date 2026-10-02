@@ -15,7 +15,9 @@ const textValue = z.union([z.string(), z.number()]);
 
 export const sendMessageBlockSchema = z
 	.object({
-		connection: z.string().describe("integration id: a Kafka, NATS, SQS or Redis integration"),
+		connection: z
+			.string()
+			.describe("integration id: a Kafka, NATS, SQS, RabbitMQ or Redis integration"),
 		mode: z
 			.enum(["simple", "raw"])
 			.default("simple")
@@ -29,7 +31,7 @@ export const sendMessageBlockSchema = z
 		destination: textValue
 			.default("")
 			.describe(
-				"topic (Kafka), subject (NATS), queue URL (SQS) or stream key (Redis); supports js expression",
+				"topic (Kafka), subject (NATS), queue URL (SQS), routing key (RabbitMQ; the queue name when no exchange is set) or stream key (Redis); supports js expression",
 			),
 		useParam: z
 			.boolean()
@@ -50,12 +52,14 @@ export const sendMessageBlockSchema = z
 		headers: z
 			.record(z.string(), textValue)
 			.optional()
-			.describe("headers (Kafka, NATS) or message attributes (SQS); values support js expression"),
+			.describe(
+				"headers (Kafka, NATS, RabbitMQ) or message attributes (SQS); values support js expression",
+			),
 		options: z
 			.record(z.string(), z.any())
 			.optional()
 			.describe(
-				"broker options: Kafka partition, timestamp; NATS msgId; SQS delaySeconds, groupId, deduplicationId; Redis maxLen",
+				"broker options: Kafka partition, timestamp; NATS msgId; SQS delaySeconds, groupId, deduplicationId; RabbitMQ exchange, messageId, contentType, expiration; Redis maxLen",
 			),
 		failWhen: z
 			.enum(["all", "any"])
@@ -75,7 +79,7 @@ export type SendMessageBlockData = z.infer<typeof sendMessageBlockSchema>;
 export const sendMessageAiDescription = {
 	name: BlockTypes.queue_send,
 	description:
-		"Publishes one message or a list to a Kafka topic, NATS JetStream subject, SQS queue or Redis stream. Has success and failure branches.",
+		"Publishes one message or a list to a Kafka topic, NATS JetStream subject, SQS queue, RabbitMQ exchange or queue, or Redis stream. Has success and failure branches.",
 	jsonSchema: JSON.stringify(z.toJSONSchema(sendMessageBlockSchema)),
 };
 
@@ -188,7 +192,8 @@ function toMessage(spec: SendSpec, item: unknown): OutgoingMessage {
 	const fields: Record<string, unknown> = own ?? { payload: item };
 	const { payload, destination, key, headers, ...options } = fields;
 	const target = text(destination) ?? text(spec.destination);
-	if (!target) throw new Error("No destination: set the topic, subject, queue URL or stream");
+	if (!target)
+		throw new Error("No destination: set the topic, subject, queue URL, routing key or stream");
 	const merged = { ...spec.headers, ...(headers as Record<string, unknown> | undefined) };
 	const headerEntries = Object.entries(merged)
 		.map(([name, value]) => [name, text(value)] as const)

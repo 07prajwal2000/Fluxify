@@ -4,6 +4,7 @@ import { CredentialsUrlForm } from "./connectors/CredentialsUrlForm";
 import { KafkaForm } from "./connectors/KafkaForm";
 import { NatsForm } from "./connectors/NatsForm";
 import { ObservabilityForm } from "./connectors/ObservabilityForm";
+import { SendTimeoutField } from "./connectors/SendTimeoutField";
 import { SqsForm } from "./connectors/SqsForm";
 
 const CRED_PLACEHOLDERS: Record<
@@ -148,12 +149,15 @@ export function ConnectorFields({
 			{group === "queue" && variant === "NATS" && <NatsForm {...formProps} />}
 			{group === "queue" && variant === "SQS" && <SqsForm {...formProps} />}
 			{group === "queue" && variant === "RabbitMQ" && (
-				<CredentialsUrlForm
-					{...formProps}
-					placeholders={CRED_PLACEHOLDERS.RabbitMQ.ph as never}
-					hasSSL
-					databaseLabel="Virtual host"
-				/>
+				<>
+					<CredentialsUrlForm
+						{...formProps}
+						placeholders={CRED_PLACEHOLDERS.RabbitMQ.ph as never}
+						hasSSL
+						databaseLabel="Virtual host"
+					/>
+					<SendTimeoutField config={formProps.config} setField={formProps.setField} />
+				</>
 			)}
 		</>
 	);

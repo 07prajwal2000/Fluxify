@@ -3,6 +3,7 @@ import type { ConsumeMessage } from "amqplib";
 import type { QueueBatch, QueueHandler, QueueSubscription } from "./base";
 import {
 	connectionOptions,
+	describeRabbitMqError,
 	prefetchFor,
 	RabbitMqConnection,
 	type RabbitMqEvent,
@@ -243,5 +244,21 @@ describe("rabbitmq settings", () => {
 	it("always warns about the dead-letter exchange, and about a prefetch that cannot fill", () => {
 		expect(rabbitMqWarnings({})).toHaveLength(1);
 		expect(rabbitMqWarnings({ batchSize: 10_000, concurrency: 10 })).toHaveLength(2);
+	});
+
+	it("names a missing exchange and a refused write, not the login", () => {
+		const closed = (code: number, text: string) => ({
+			code,
+			message: `Channel closed by server: ${code} (${text})`,
+		});
+		expect(
+			describeRabbitMqError(closed(404, "NOT-FOUND) with message \"NOT_FOUND - no exchange 'orders' in vhost '/'\"")),
+		).toBe('RabbitMQ has no exchange "orders" on this virtual host. Create it first.');
+		expect(
+			describeRabbitMqError(
+				closed(403, "ACCESS-REFUSED) with message \"ACCESS_REFUSED - write access to exchange 'orders' in vhost '/' refused for user 'app'"),
+			),
+		).toContain("refused the user access: write access to exchange 'orders'");
+		expect(describeRabbitMqError({ code: 404 }, "jobs")).toContain('no queue "jobs"');
 	});
 });

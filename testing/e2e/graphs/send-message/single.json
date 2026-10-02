@@ -24,7 +24,12 @@
 				"payload": { "source": "js", "value": "js:return input.payload" },
 				"key": "js:return input.key",
 				"headers": { "x-e2e": "single" },
-				"options": { "msgId": "js:return input.msgId", "maxLen": "js:return input.maxLen" },
+				"options": {
+					"msgId": "js:return input.msgId",
+					"maxLen": "js:return input.maxLen",
+					"exchange": "js:return input.exchange",
+					"messageId": "js:return input.messageId"
+				},
 				"failWhen": "all",
 				"js": ""
 			}

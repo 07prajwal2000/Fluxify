@@ -413,6 +413,8 @@ export function createConnection(config: unknown) {
 	return new RabbitMqConnection(config as RabbitMqConfig);
 }
 
+export { createProducer } from "./rabbitmqProducer";
+
 /** Opens a plain connection for a one-off check, and always closes it. */
 async function withChannel<T>(config: RabbitMqConfig, use: (channel: Channel) => Promise<T>) {
 	const model = await connect(connectionOptions(config));
@@ -461,8 +463,14 @@ export function rabbitMqWarnings(settings: { batchSize?: number; concurrency?: n
 /** Client errors in words a user can act on; anything unmapped keeps its own text. */
 export function describeRabbitMqError(error: unknown, queue?: string) {
 	const { code, message = "" } = error as { code?: string | number; message?: string };
+	const exchange = /no exchange '([^']*)'/.exec(message)?.[1];
+	if (exchange !== undefined)
+		return `RabbitMQ has no exchange "${exchange}" on this virtual host. Create it first.`;
 	if (code === 404)
 		return `RabbitMQ has no queue "${queue}" on this virtual host. Create it first.`;
+	// a publish or check the user may not do, after a good login
+	const refused = /ACCESS_REFUSED - (.*(?:access to|refused for).*)/.exec(message)?.[1];
+	if (refused) return `RabbitMQ refused the user access: ${refused}`;
 	if (code === 403 || /ACCESS[-_]REFUSED/.test(message))
 		return "RabbitMQ refused the login: check the username and password, and that the user may use this virtual host.";
 	if (code === 530 || /NOT[-_]ALLOWED/.test(message))

@@ -51,7 +51,7 @@ const CATEGORY_DETAILS: Record<BlockCategory, CategoryDetails> = {
 		icon: <TbKey />,
 	},
 	Queue: {
-		description: "Send messages to Kafka, NATS, SQS or Redis streams",
+		description: "Send messages to Kafka, NATS, SQS, RabbitMQ or Redis streams",
 		icon: <TbSend />,
 	},
 	HTTP: {

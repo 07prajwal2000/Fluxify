@@ -344,6 +344,7 @@ export const rabbitMqVariantConfigSchema = z
 		database: z.string().optional(),
 		useSSL: z.boolean().default(false),
 		source: z.literal("credentials"),
+		sendTimeoutMs: sendTimeoutMsSchema,
 	})
 	.or(
 		z.object({
@@ -351,6 +352,7 @@ export const rabbitMqVariantConfigSchema = z
 			url: z.string().refine((v) => v.startsWith("cfg:") || /^amqps?:\/\//.test(v), {
 				message: "Must be an amqp:// or amqps:// URL",
 			}),
+			sendTimeoutMs: sendTimeoutMsSchema,
 		}),
 	);
 
