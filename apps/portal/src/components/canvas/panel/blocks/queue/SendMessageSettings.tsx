@@ -115,6 +115,37 @@ return { stream: ack.stream, seq: ack.seq };`,
 });
 return sent.MessageId;`,
 	},
+	RabbitMQ: {
+		destination: "Routing Key",
+		destinationInfo:
+			"With no exchange set, this is the name of the queue to send to. With an exchange, the exchange uses it to pick queues. A message no queue takes fails.",
+		placeholder: "orders",
+		headers: "Header",
+		options: [
+			{ name: "exchange", label: "Exchange", hint: "Blank sends straight to the queue." },
+			{ name: "messageId", label: "Message ID", hint: "Blank gets a new unique ID." },
+			{
+				name: "contentType",
+				label: "Content Type",
+				hint: "Blank: application/json, or text/plain for text.",
+			},
+			{
+				name: "expiration",
+				label: "Expiration (ms)",
+				hint: "Drop the message if unread this long. Blank keeps it.",
+			},
+		],
+		types: {
+			name: "amqplib",
+			version: "2.2.0",
+			client: 'import("amqplib").ConfirmChannel',
+		},
+		example: `await new Promise((resolve, reject) =>
+  client.publish("", "orders", Buffer.from(JSON.stringify({ id: 42 })), { persistent: true },
+    (error) => (error ? reject(error) : resolve())),
+);
+return "sent";`,
+	},
 	Redis: {
 		destination: "Stream Key",
 		destinationInfo:
@@ -136,7 +167,7 @@ return id;`,
 const GENERIC: BrokerInfo = {
 	destination: "Destination",
 	destinationInfo:
-		"Where the message goes. On Kafka it is a topic, on NATS a subject, on SQS a queue URL, on Redis a stream key. Pick an integration and this field is named for it.",
+		"Where the message goes. On Kafka it is a topic, on NATS a subject, on SQS a queue URL, on RabbitMQ a routing key, on Redis a stream key. Pick an integration and this field is named for it.",
 	placeholder: "orders",
 	options: [],
 	types: { name: "", version: "", client: "any" },
@@ -206,10 +237,8 @@ export function SendMessageGeneralSettings({ block }: { block: BlockNode }) {
 				name="connection"
 				group="queue"
 				extraGroups={[{ group: "kv", variants: ["Redis"] }]}
-				// sending to RabbitMQ is #560; its integrations only feed triggers today
-				excludeVariants={["RabbitMQ"]}
 				label="Choose Message Queue"
-				description="A Kafka, NATS JetStream or SQS integration, or a Redis integration to send to a stream."
+				description="A Kafka, NATS JetStream, SQS or RabbitMQ integration, or a Redis integration to send to a stream."
 			/>
 			<Segmented
 				label="Mode"

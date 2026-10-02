@@ -4,7 +4,8 @@ import {
 	type RabbitMqConfig,
 	testRabbitMqConnection,
 } from "@fluxify/adapters/queue/rabbitmq";
-import { hydrateIntegrations } from "@fluxify/server/src/loaders/integrationsLoader";
+import { QueueProducerFactory } from "@fluxify/adapters";
+import { hydrateIntegrations, OWNER_KEY } from "@fluxify/server/src/loaders/integrationsLoader";
 import type { TriggerArtifact } from "@fluxify/server/src/modules/compiler/artifacts";
 import {
 	applyQueueTrigger,
@@ -21,7 +22,8 @@ import {
 	removeIfPresent,
 	startContainerWithRandomPort,
 } from "../src/docker";
-import { loadWorkflow } from "../src/graph";
+import { loadGraph, loadWorkflow } from "../src/graph";
+import { PROJECT_ID, runGraph } from "../src/runner";
 import {
 	WORKFLOW_PROJECT_ID,
 	failNext,
@@ -102,6 +104,7 @@ afterEach(async () => {
 });
 
 afterAll(async () => {
+	await QueueProducerFactory.closeAll();
 	await broker?.close().catch(() => {});
 	await container?.remove({ force: true }).catch(() => {});
 	await removeIfPresent(CONTAINER);
@@ -331,6 +334,146 @@ describe("a RabbitMQ trigger", () => {
 			const [batch] = await waitForBatches(queue, 1);
 			expect(batch.events[0].data.id).toBe("after-restart");
 			expect(hasQueueTrigger(triggerId)).toBe(true);
+		},
+		90_000,
+	);
+});
+
+describe("the Send Message block on RabbitMQ", () => {
+	const SEND = "e2e-rabbitmq-send";
+	const UUID_V7 = /^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
+	let single: Awaited<ReturnType<typeof loadGraph>>;
+	let bulk: Awaited<ReturnType<typeof loadGraph>>;
+
+	beforeAll(async () => {
+		single = await loadGraph("send-message/single");
+		bulk = await loadGraph("send-message/bulk");
+	});
+
+	beforeEach(() => {
+		// the block runs in the route project, the trigger in the workflow one
+		hydrateIntegrations(PROJECT_ID, {
+			queue: { [SEND]: { ...config, variant: "RabbitMQ", group: "queue", [OWNER_KEY]: PROJECT_ID } },
+		});
+	});
+
+	async function freshQueue() {
+		const queue = `send-${++seq}-${Date.now()}`;
+		await channel.assertQueue(queue);
+		return queue;
+	}
+
+	const sendOne = (body: Record<string, unknown>) =>
+		runGraph(single, { body: { connection: SEND, ...body } });
+
+	it(
+		"sends one persistent message straight to a queue, with a uuidv7 message id",
+		async () => {
+			const queue = await freshQueue();
+			const run = await sendOne({ destination: queue, payload: { id: 1 } });
+
+			expect(run.status).toBe(200);
+			expect(run.body).toEqual({ exchange: "", routingKey: queue, messageId: expect.stringMatching(UUID_V7) });
+			const message = await channel.get(queue, { noAck: true });
+			if (!message) throw new Error("nothing arrived");
+			expect(message.content.toString()).toBe('{"id":1}');
+			expect(message.properties).toMatchObject({
+				deliveryMode: 2,
+				contentType: "application/json",
+				messageId: run.body.messageId,
+				headers: { "x-e2e": "single" },
+			});
+
+			const text = await sendOne({ destination: queue, payload: "plain", messageId: "own-id" });
+			expect(text.body.messageId).toBe("own-id");
+			const second = await channel.get(queue, { noAck: true });
+			if (!second) throw new Error("nothing arrived");
+			expect(second.content.toString()).toBe("plain");
+			expect(second.properties.contentType).toBe("text/plain");
+		},
+		TIMEOUT_MS,
+	);
+
+	it(
+		"sends a list, an item naming its own exchange",
+		async () => {
+			const queue = await freshQueue();
+			const exchange = `ex-${Date.now()}`;
+			await channel.assertExchange(exchange, "direct", { autoDelete: true });
+			await channel.bindQueue(queue, exchange, "routed");
+			const run = await runGraph(bulk, {
+				query: { connection: SEND, destination: queue },
+				body: { messages: [{ n: 1 }, { payload: { n: 2 }, exchange, destination: "routed" }, { n: 1 }] },
+			});
+
+			expect(run.status).toBe(200);
+			expect(run.body.failed).toEqual([]);
+			expect(run.body.sent.map((s: { exchange: string }) => s.exchange)).toEqual(["", exchange, ""]);
+			// the same payload twice is still two messages, each with its own id
+			expect(new Set(run.body.sent.map((s: { messageId: string }) => s.messageId)).size).toBe(3);
+			expect((await channel.checkQueue(queue)).messageCount).toBe(3);
+		},
+		TIMEOUT_MS,
+	);
+
+	it(
+		"fails a missing exchange in words, and the next send still works",
+		async () => {
+			const queue = await freshQueue();
+			const missing = await sendOne({ destination: queue, payload: 1, exchange: `missing-${Date.now()}` });
+			expect(missing.status).toBe(500);
+			expect(missing.body.error).toContain("has no exchange");
+
+			expect((await sendOne({ destination: queue, payload: 2 })).status).toBe(200);
+			// one bad item in a list does not take the others down
+			const mixed = await runGraph(bulk, {
+				query: { connection: SEND, destination: queue },
+				body: { messages: [{ n: 1 }, { payload: { n: 2 }, exchange: "missing-too" }, { n: 3 }] },
+			});
+			expect(mixed.body.sent.map((s: { index: number }) => s.index)).toEqual([0, 2]);
+			expect(mixed.body.failed[0].error).toContain("has no exchange");
+		},
+		TIMEOUT_MS,
+	);
+
+	it(
+		"fails a message no queue takes, instead of dropping it",
+		async () => {
+			const run = await sendOne({ destination: `nowhere-${Date.now()}`, payload: { id: 1 } });
+			expect(run.status).toBe(500);
+			expect(run.body.error).toContain("could not route the message");
+			expect(run.executed).toEqual(["entry", "send", "failed"]);
+		},
+		TIMEOUT_MS,
+	);
+
+	it(
+		"feeds a RabbitMQ trigger, whose meta.id is the sent message id",
+		async () => {
+			const { queue } = await startTrigger();
+			const run = await sendOne({ destination: queue, payload: { id: "from-block" } });
+			expect(run.status).toBe(200);
+
+			const [batch] = await waitForBatches(queue, 1);
+			expect(batch.events[0]).toMatchObject({
+				data: { id: "from-block" },
+				meta: { id: `${queue}:0:${run.body.messageId}`, messageId: run.body.messageId },
+			});
+		},
+		TIMEOUT_MS,
+	);
+
+	it(
+		"keeps a sent message across a broker restart, and sends again after it",
+		async () => {
+			const queue = await freshQueue();
+			expect((await sendOne({ destination: queue, payload: "before" })).status).toBe(200);
+			await container!.restart({ t: 1 });
+			await openTestChannel();
+
+			expect((await sendOne({ destination: queue, payload: "after" })).status).toBe(200);
+			// persistent on a durable queue: the restart lost nothing
+			expect((await channel.checkQueue(queue)).messageCount).toBe(2);
 		},
 		90_000,
 	);

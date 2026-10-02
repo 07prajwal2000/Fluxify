@@ -7,6 +7,7 @@ const CONNECTOR_BY_VARIANT: Record<string, string> = {
 	Kafka: "kafka",
 	NATS: "nats",
 	SQS: "sqs",
+	RabbitMQ: "rabbitmq",
 	// a Redis KV integration publishes to streams
 	Redis: "redis",
 };

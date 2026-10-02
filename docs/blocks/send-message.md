@@ -1,11 +1,11 @@
 ---
 title: Send Message
-description: Publish one message or a list of them to Kafka, NATS JetStream, Amazon SQS or a Redis stream.
+description: Publish one message or a list of them to Kafka, NATS JetStream, Amazon SQS, RabbitMQ or a Redis stream.
 ---
 
 # Send Message
 
-The **Send Message** block publishes messages from a route or workflow to a message queue: a Kafka topic, a NATS JetStream subject, an Amazon SQS queue, or a Redis stream. It waits until the broker (the queue server) confirms each message, then tells you what was sent.
+The **Send Message** block publishes messages from a route or workflow to a message queue: a Kafka topic, a NATS JetStream subject, an Amazon SQS queue, a RabbitMQ exchange or queue, or a Redis stream. It waits until the broker (the queue server) confirms each message, then tells you what was sent.
 
 ## When to use it
 
@@ -15,9 +15,7 @@ The **Send Message** block publishes messages from a route or workflow to a mess
 - Don't use it to start one of your own workflows directly. [Trigger Workflow](./trigger-workflow.md) does that with no queue to set up.
 
 ::: info Editions
-Sending to a **Redis stream** works in every edition. Kafka, NATS and SQS need an enterprise license, the same as their triggers. Saving a block that points at one of them without a license is refused with the same error. A block saved while licensed keeps sending after the license lapses.
-
-**RabbitMQ** can't be picked here yet; for now, a RabbitMQ trigger's workflow can publish through [its channel](/concepts/triggers#the-rabbitmq-channel).
+Sending to **RabbitMQ** or a **Redis stream** works in every edition. Kafka, NATS and SQS need an enterprise license, the same as their triggers. Saving a block that points at one of them without a license is refused with the same error. A block saved while licensed keeps sending after the license lapses.
 :::
 
 ## Inputs
@@ -28,13 +26,13 @@ The block has two modes. **Simple** (the default) is a form. **Raw** gives your 
 
 | Field | Tab | Required | Default | What it does |
 | --- | --- | --- | --- | --- |
-| **Integration** | General | Yes | none | A Kafka, NATS or SQS [message queue integration](/integrations/message-queues), or a [Redis integration](/integrations/kv-stores) to send to a stream. |
+| **Integration** | General | Yes | none | A Kafka, NATS, SQS or RabbitMQ [message queue integration](/integrations/message-queues), or a [Redis integration](/integrations/kv-stores) to send to a stream. |
 | **Destination** | General | Yes | none | Where the message goes inside that integration. See the table below. Supports `js:` expressions. In a list, a message can name its own. |
 | **Use Input as Payload** | General | No | off | Send the previous block's output as it is. A list sends one message per item; anything else is one message. The Message tab is hidden. |
 | **Messages** | Message | No | Single | **Single** sends one message. **Bulk** sends a list, one message per item. |
 | **Payload** | Message | Yes | `{}` | The message, as JSON (values support `js:`) or as JavaScript code that returns it. |
 | **Key** | Options | No | none | Kafka only. Messages with the same key go to the same partition, in order. |
-| **Headers** | Options | No | none | Kafka and NATS headers, or SQS message attributes. Redis streams have none. |
+| **Headers** | Options | No | none | Kafka, NATS and RabbitMQ headers, or SQS message attributes. Redis streams have none. |
 | **Go to Error When** | Options | No | All messages fail | For a list only. Decides when the Failure path runs. See [Outputs](/blocks/send-message#outputs). |
 | **Save output to variable** | | No | off | Store the output in `outputs.<name>`, on either path. |
 
@@ -45,6 +43,7 @@ What to put in **Destination**:
 | Kafka | A topic name | `orders` |
 | NATS | A subject that one of your JetStream streams listens on | `orders.created` |
 | SQS | The queue's full URL | `https://sqs.us-east-1.amazonaws.com/123456789012/orders` |
+| RabbitMQ | The routing key. With no **Exchange** set, this is the name of the queue to send to. | `orders` |
 | Redis | The stream's key. The stream is created on the first message. | `orders` |
 
 ::: tip Sending a list as one message
@@ -61,6 +60,10 @@ Broker options, also on the **Options** tab. The **Name** is what to use when a 
 | SQS | **Delay (seconds)** | `delaySeconds` | Hide the message for 0 to 900 seconds. Not for FIFO queues. |
 | SQS | **Message Group ID** | `groupId` | Required by FIFO queues. Messages in one group are delivered in order. |
 | SQS | **Deduplication ID** | `deduplicationId` | FIFO queues without content-based deduplication need one. |
+| RabbitMQ | **Exchange** | `exchange` | The exchange to publish to. Blank sends straight to the queue named in **Destination**. |
+| RabbitMQ | **Message ID** | `messageId` | Blank gets a new unique ID. A RabbitMQ trigger builds `meta.id` from it. |
+| RabbitMQ | **Content Type** | `contentType` | Blank is `application/json`, or `text/plain` for text. Only the label changes, not the body. |
+| RabbitMQ | **Expiration (ms)** | `expiration` | RabbitMQ drops the message if no one reads it in this many milliseconds. Blank keeps it. |
 | Redis | **Max Length** | `maxLen` | Trim the stream to about this many entries. Blank keeps everything. |
 
 ### Raw mode
@@ -77,6 +80,7 @@ Use Raw mode when the form can't do what you need, such as a broker feature it h
 | Kafka | A `@platformatic/kafka` producer with text keys and values, waiting for all in-sync replicas. |
 | NATS | A JetStream client from `@nats-io/jetstream`. |
 | SQS | The `SQS` client from `@aws-sdk/client-sqs`, with methods like `sendMessage`. |
+| RabbitMQ | A confirm channel from `amqplib`. Pass a callback to `publish` to wait for RabbitMQ's confirm. |
 | Redis | An `ioredis` client. |
 
 ## Outputs
@@ -93,6 +97,7 @@ What the broker reports for one message:
 | Kafka | `{ topic, partition, offset }` |
 | NATS | `{ stream, seq, duplicate }` |
 | SQS | `{ queueUrl, messageId, sequenceNumber }` (sequence number on FIFO queues only) |
+| RabbitMQ | `{ exchange, routingKey, messageId }` (`exchange` is `""` when sending straight to a queue) |
 | Redis | `{ stream, id }` |
 
 For a list, the output lists every message by its position in your list:
@@ -153,6 +158,8 @@ A Fluxify trigger tries to read every message as JSON. So the text `"42"` or `"t
 
 On **Redis**, a stream entry holds named fields, not one body. An object's keys become the fields, and each value is sent as above. Anything else is sent in one field called `data`. A Redis Streams trigger hands the fields back as text.
 
+On **RabbitMQ**, every message is persistent and must reach a queue: one that no queue takes fails instead of disappearing. See [Sending to RabbitMQ](/integrations/message-queues#sending-to-rabbitmq) for every default.
+
 ### Lists of messages
 
 - Each item in the list is one message, and the item is the payload.
@@ -192,6 +199,16 @@ const sent = await client.sendMessage({
   MessageBody: JSON.stringify({ id: 42 }),
 });
 return sent.MessageId;
+```
+
+RabbitMQ:
+
+```javascript
+await new Promise((resolve, reject) =>
+  client.publish("", "orders", Buffer.from(JSON.stringify({ id: 42 })), { persistent: true },
+    (error) => (error ? reject(error) : resolve())),
+);
+return "sent";
 ```
 
 Redis:

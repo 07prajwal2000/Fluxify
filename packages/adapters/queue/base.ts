@@ -90,7 +90,7 @@ export function decode(data: Uint8Array) {
 
 /** One message the Send Message block publishes. */
 export type OutgoingMessage = {
-	/** topic, subject, queue URL or stream, in the connector's own terms */
+	/** topic, subject, queue URL, routing key or stream, in the connector's own terms */
 	destination: string;
 	/** anything JSON can carry; each connector encodes it (`encodePayload`) */
 	payload: unknown;

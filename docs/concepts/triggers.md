@@ -369,7 +369,8 @@ mid-run is dead-lettered when it comes back.
 ::: tip Set a message id when you publish
 For safe deduplication, give every message a `messageId` when you publish it.
 Then `meta.id` stays the same however many times the message is delivered.
-Without one, each delivery gets a new `meta.id`.
+Without one, each delivery gets a new `meta.id`. The
+[Send Message](/blocks/send-message) block always sets one.
 :::
 
 ### Committing from the workflow on RabbitMQ

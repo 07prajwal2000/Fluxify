@@ -11,15 +11,15 @@ queue or a RabbitMQ queue. The integration holds the connection details; the tri
 to read and which workflow to run.
 
 Workflows and routes can **send** too: the [Send Message](/blocks/send-message)
-block publishes one message or a list to the same integrations, except RabbitMQ,
-which it does not support yet.
+block publishes one message or a list to the same integrations.
 
 ::: info Enterprise
 Kafka, NATS and SQS triggers, and Send Message blocks that use them, need an
 enterprise license. Creating such a trigger, or saving such a block, is
 refused until a license is active.
 
-**RabbitMQ** triggers are free in every edition, with no license.
+**RabbitMQ** triggers, and Send Message blocks that use RabbitMQ, are free in
+every edition, with no license.
 
 Reading and writing a **Redis stream** is free in every edition too. It uses a
 [Redis KV integration](/integrations/kv-stores) rather than one of these — see
@@ -27,7 +27,7 @@ Reading and writing a **Redis stream** is free in every edition too. It uses a
 [Send Message](/blocks/send-message).
 :::
 
-**Send timeout** (Kafka, NATS and SQS) is how long the Send Message block waits
+**Send timeout** (Kafka, NATS, SQS and RabbitMQ) is how long the Send Message block waits
 for the broker to confirm a message, 30 seconds by default.
 
 ## Kafka
@@ -229,6 +229,7 @@ Artemis, are not supported by this integration.
 | **Virtual host** | The vhost the queue lives in. Empty is the default vhost, `/`. |
 | **Use SSL?** | Connect over TLS (`amqps`). Most hosted RabbitMQ services need it. |
 | **Via URL** | Instead of the fields above, one `amqp://` or `amqps://` URL, such as the one CloudAMQP gives you. Write the default vhost as `%2F` (`amqps://user:pass@host/%2F`). |
+| **Send timeout** | How long the [Send Message](/blocks/send-message) block waits for RabbitMQ to confirm a message. Default: 30 seconds. |
 
 Every field accepts an [App Config](/concepts/app-config) key.
 
@@ -307,6 +308,26 @@ look at the trigger in the RabbitMQ management UI.
   never commits is returned each time, so it counts toward this limit.
 - **Ordering.** A message put back on the queue goes back near the front. With
   **Concurrency** above 1, or a second worker, messages finish in any order.
+
+### Sending to RabbitMQ
+
+The [Send Message](/blocks/send-message) block publishes to RabbitMQ with these
+defaults. No setting turns them off.
+
+| What | Behavior |
+|---|---|
+| **Confirms** | Every message waits for RabbitMQ to confirm it. The block only reports a message as sent once RabbitMQ has accepted it. |
+| **Persistent delivery** | Messages are marked persistent, so a durable queue keeps them across a broker restart. |
+| **Mandatory routing** | A message that no queue takes fails with "could not route the message". RabbitMQ would otherwise drop it without a word. |
+| **Message ID** | Left blank, each message gets a new unique ID (a time-ordered UUID). A RabbitMQ trigger builds `meta.id` from it, so you can deduplicate on it. |
+| **Body and content type** | Text is sent as it is, with `text/plain`. Anything else is sent as JSON, with `application/json`. Set **Content Type** to override the label; the body is the same either way. |
+| **Timestamp** | Set to the time of sending, in seconds. |
+| **Timeout** | The integration's **Send timeout**, 30 seconds by default. A message that timed out may still have arrived. |
+| **Connections** | One connection and one channel per integration on each worker, shared by every run. The connection is named `fluxify send message`. A lost connection is retried, and sends wait for it, up to the timeout. |
+| **A missing exchange or a refused write** | The message fails with the reason. RabbitMQ closes the channel when this happens, so Fluxify opens a new one for the next message. Each exchange is checked once before its first use, so one bad message in a list does not fail the others. |
+
+Fluxify never creates exchanges or queues for sending either. Create them, and
+their bindings, in RabbitMQ first.
 
 ### How it differs from Kafka
 

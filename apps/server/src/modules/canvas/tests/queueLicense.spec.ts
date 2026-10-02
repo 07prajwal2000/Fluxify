@@ -53,6 +53,13 @@ describe("send message license gate", () => {
 		).not.toThrow();
 	});
 
+	it("lets a RabbitMQ integration through in Community", () => {
+		queueIntegrationsCache.rabbit = { variant: "RabbitMQ" };
+		expect(() =>
+			assertSendMessageLicensed(saving({ type: BlockTypes.queue_send, connection: "rabbit" })),
+		).not.toThrow();
+	});
+
 	it("lets a Redis integration through in Community", () => {
 		// a Redis KV integration is not in the queue cache at all
 		expect(() =>
