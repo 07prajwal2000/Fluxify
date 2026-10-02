@@ -13,6 +13,7 @@ import { validateAssertions } from "./assertions";
 import { HooksEditor } from "./HooksEditor";
 import { hookErrors } from "./hooks";
 import { InputEditor } from "./InputEditor";
+import { selectionAfterDelete } from "./nextSelection";
 import { OverridesEditor } from "./OverridesEditor";
 import { RequestEditor } from "./RequestEditor";
 import { RunResults } from "./RunResults";
@@ -263,7 +264,13 @@ export function TestSuitesWorkbench({
 		if (!pendingDelete) return;
 		try {
 			await remove.mutateAsync(pendingDelete.id);
-			if (pendingDelete.id === selectedId) setSelectedId(null);
+			const next = selectionAfterDelete(list, pendingDelete.id, selectedId);
+			if (next !== selectedId) {
+				// the old suite's edits must not leak into the next one (or the empty state)
+				setDraft(toDraft(undefined));
+				setDirty(false);
+				setSelectedId(next);
+			}
 			setPendingDelete(null);
 		} catch (error) {
 			showErrorNotification(error as Error);
