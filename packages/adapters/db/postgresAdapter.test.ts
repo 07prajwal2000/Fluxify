@@ -170,10 +170,11 @@ describe("PostgresAdapter Integration Tests", () => {
 		]);
 		expect(notFound).toBeNull();
 
-		const updated = await adapter.update(tableName, { age: 29 }, [
+		// a new value: setting the age it already has changes nothing, so no row is affected
+		const updated = await adapter.update(tableName, { age: user.age + 1 }, [
 			{ attribute: "id", operator: "eq", value: inserted.id, chain: "and" },
 		]);
-		expect(updated.affected[0].age).toBe(29);
+		expect(updated.affected[0].age).toBe(user.age + 1);
 
 		const isDeleted = await adapter.delete(tableName, [
 			{ attribute: "id", operator: "eq", value: inserted.id, chain: "and" },
