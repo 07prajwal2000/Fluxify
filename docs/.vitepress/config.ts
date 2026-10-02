@@ -51,7 +51,8 @@ const releaseTag = latestRelease();
 export default withMermaid(
 	defineConfig({
 		title: "Fluxify",
-		description: "No/Low Code Backend Engine to Build APIs with ease",
+		description:
+			"Draw your backend. Ship it as code. A low-code platform to build APIs and background jobs visually.",
 		lang: "en-US",
 
 		// The docs live in the repo root /docs directory, so no srcDir needed.

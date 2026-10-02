@@ -5,7 +5,7 @@ description: Leverage the power of Large Language Models (LLMs).
 
 # AI Integrations
 
-Fluxify integrates with leading AI providers to add intelligence to your workflows.
+Fluxify connects to leading AI providers to power its AI assistant, which builds routes on the canvas from a plain-English description.
 
 ## Supported Providers
 
@@ -31,4 +31,4 @@ Connect to any service that follows the OpenAI API format (e.g., local LLMs via 
 
 ## Usage
 
-These integrations are typically used within AI-specific blocks to generate text, analyze data, or make decisions within your workflow.
+These integrations power the AI assistant. There are no AI blocks to call a model from inside a route yet.

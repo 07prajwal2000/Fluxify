@@ -31,9 +31,11 @@
 	--vp-c-text-2: var(--flux-text-secondary);
 	--vp-c-text-3: var(--flux-text-tertiary);
 	--vp-c-text-4: #a1a1aa;
-	--vp-c-brand-1: var(--flux-accent);
-	--vp-c-brand-2: var(--flux-accent-hover);
-	--vp-c-brand-3: #b8e62e;
+	/* Brand colour used as TEXT: lime is only 1.1:1 on the light page, so light mode
+	   uses dark olive (6.8:1). Lime stays for buttons and fills; .dark restores it. */
+	--vp-c-brand-1: #3f6212;
+	--vp-c-brand-2: #4d7c0f;
+	--vp-c-brand-3: #65a30d;
 	--vp-c-brand-soft: var(--flux-accent-muted);
 	--vp-button-brand-bg: var(--flux-accent);
 	--vp-button-brand-hover-bg: var(--flux-accent-hover);
@@ -81,6 +83,9 @@
 	--flux-accent-muted: rgba(210, 255, 77, 0.1);
 	--flux-accent-border: rgba(210, 255, 77, 0.22);
 	--vp-c-text-4: #52525b;
+	--vp-c-brand-1: var(--flux-accent);
+	--vp-c-brand-2: var(--flux-accent-hover);
+	--vp-c-brand-3: #b8e62e;
 	--vp-home-hero-image-background-image: radial-gradient(
 		600px at 50% 0%,
 		rgba(210, 255, 77, 0.05),
@@ -103,7 +108,7 @@ body {
 }
 
 :focus-visible {
-	outline: 2px solid var(--flux-accent);
+	outline: 2px solid var(--vp-c-brand-1);
 	outline-offset: 2px;
 	box-shadow: 0 0 0 3px rgba(210, 255, 77, 0.45);
 }
@@ -111,7 +116,18 @@ body {
 .VPNav,
 .VPLocalNav {
 	background: rgba(250, 250, 250, 0.8) !important;
+}
+
+/* backdrop-filter on .VPNav itself makes it the containing block of the mobile menu
+   (position: fixed inside it), squashing the menu to the 64px bar. Blur a layer behind. */
+.VPNav::before,
+.VPLocalNav::before {
+	content: "";
+	position: absolute;
+	inset: 0;
+	z-index: -1;
 	backdrop-filter: blur(20px);
+	pointer-events: none;
 }
 
 .dark .VPNav,
@@ -216,7 +232,7 @@ body {
 .VPDocAsideOutline .outline-link.active,
 .VPSidebarItem.is-active > .item > .link > .text,
 .VPLink.link.active {
-	color: var(--flux-accent);
+	color: var(--vp-c-brand-1);
 }
 
 .VPSidebarItem .item .link:hover,
