@@ -1,7 +1,5 @@
 import { Button, Checkbox, Input, Label, TextArea, TextField, toast } from "@fluxify/components";
 import { useState } from "react";
-import { SiApachekafka, SiNatsdotio, SiRedis } from "react-icons/si";
-import { TbBrandAws, TbClock } from "react-icons/tb";
 import { FormWizard, SummaryItem, type WizardStep } from "@/components/common/FormWizard";
 import {
 	DELIVERY_DEFAULTS,
@@ -11,6 +9,7 @@ import {
 	NatsSourceFields,
 	topicList,
 } from "@/components/triggers/KafkaTriggerFields";
+import { isRabbitQueue, RabbitMqSourceFields } from "@/components/triggers/RabbitMqTriggerFields";
 import { isRedisName, RedisSourceFields } from "@/components/triggers/RedisTriggerFields";
 import {
 	isQueueUrl,
@@ -25,6 +24,7 @@ import {
 	BatchFields,
 	GroupSelect,
 	TRIGGER_DEFAULTS,
+	TRIGGER_TYPE_OPTIONS,
 	type TriggerType,
 	TypeSelector,
 } from "@/components/triggers/triggerForm";
@@ -79,6 +79,7 @@ export function TriggerWizard({
 		consumer?: string;
 		claimIdleMs?: number;
 		dlqStream?: string;
+		queue?: string;
 	};
 	const integrationId = initialTrigger?.integrationId ?? "";
 	const [kafka, setKafka] = useState({
@@ -111,6 +112,7 @@ export function TriggerWizard({
 		claimIdleSec: Math.round((source.claimIdleMs ?? 60_000) / 1000),
 		dlqStream: source.dlqStream ?? "",
 	});
+	const [rabbit, setRabbit] = useState({ integrationId, queue: source.queue ?? "" });
 	const [batch, setBatch] = useState({
 		batchSize: initialTrigger?.batchSize ?? BATCH_DEFAULTS.batchSize,
 		maxWaitMs: initialTrigger?.maxWaitMs ?? BATCH_DEFAULTS.maxWaitMs,
@@ -134,6 +136,7 @@ export function TriggerWizard({
 	const nameIsValid = form.name.trim().length >= 2;
 	const isSqs = type === "sqs";
 	const isConnector = type !== "schedule";
+	const typeOption = TRIGGER_TYPE_OPTIONS.find((option) => option.id === type);
 	const topics = topicList(kafka.topics);
 	const subjects = topicList(nats.subjects);
 	const maxBatch = isSqs ? SQS_MAX_BATCH : undefined;
@@ -180,6 +183,7 @@ export function TriggerWizard({
 				...(redis.dlqStream.trim() ? { dlqStream: redis.dlqStream.trim() } : {}),
 			},
 		},
+		rabbitmq: { integrationId: rabbit.integrationId, source: { queue: rabbit.queue.trim() } },
 	};
 	const typeFields = isConnector
 		? {
@@ -295,6 +299,12 @@ export function TriggerWizard({
 				/>
 			),
 		},
+		rabbitmq: {
+			label: "Queue",
+			description: "The RabbitMQ integration to connect with, and the queue to read.",
+			isValid: Boolean(rabbit.integrationId) && isRabbitQueue(rabbit.queue.trim()),
+			content: <RabbitMqSourceFields projectId={projectId} value={rabbit} onChange={setRabbit} />,
+		},
 	};
 
 	const sourceSteps: WizardStep[] = isConnector
@@ -338,6 +348,7 @@ export function TriggerWizard({
 		nats: <SummaryItem label="Stream" value={nats.stream.trim()} mono />,
 		sqs: <SummaryItem label="Queue" value={queueName(sqs.queueUrl)} mono />,
 		redis: <SummaryItem label="Stream" value={redis.stream.trim()} mono />,
+		rabbitmq: <SummaryItem label="Queue" value={rabbit.queue.trim()} mono />,
 	};
 
 	const steps: WizardStep[] = [
@@ -360,25 +371,13 @@ export function TriggerWizard({
 				<div className="flex flex-col gap-5">
 					<div className="flex items-center gap-3 rounded-xl border border-border/80 bg-surface-secondary/40 p-3">
 						<div className="flex size-9 items-center justify-center rounded-lg bg-accent/10 text-accent">
-							{type === "schedule" ? (
-								<TbClock size={20} />
-							) : type === "kafka" ? (
-								<SiApachekafka size={20} />
-							) : type === "nats" ? (
-								<SiNatsdotio size={20} />
-							) : type === "redis" ? (
-								<SiRedis size={20} />
-							) : (
-								<TbBrandAws size={20} />
-							)}
+							{typeOption?.icon}
 						</div>
 						<div className="min-w-0 flex-1">
 							<span className="text-[11px] font-medium uppercase tracking-wider text-muted">
 								Trigger Type
 							</span>
-							<p className="text-xs font-semibold text-foreground capitalize">
-								{type === "sqs" ? "Amazon SQS" : type === "redis" ? "Redis Streams" : type}
-							</p>
+							<p className="text-xs font-semibold text-foreground">{typeOption?.label}</p>
 						</div>
 					</div>
 

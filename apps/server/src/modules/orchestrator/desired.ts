@@ -4,12 +4,14 @@ import { and, eq, inArray, isNotNull } from "drizzle-orm";
 import {
 	kafkaVariantConfigSchema,
 	natsVariantConfigSchema,
+	rabbitMqVariantConfigSchema,
 	redisVariantConfigSchema,
 	sqsVariantConfigSchema,
 } from "../../api/v1/integrations/schemas";
 import {
 	kafkaSourceSchema,
 	natsSourceSchema,
+	rabbitMqSourceSchema,
 	redisSourceSchema,
 	sqsSourceSchema,
 } from "../../api/v1/triggers/dto";
@@ -26,9 +28,10 @@ import { projectHost } from "../../lib/hosting";
 import { orchestrationScalingSchema } from "../../lib/instance-settings/schemas";
 import { baseDomain, getSetting } from "../../loaders/instanceSettingsLoader";
 import { projectSubdomains } from "./claims";
-import { type ExternalTrigger, redisAddress } from "./kubernetesSpec";
+import type { ExternalTrigger } from "./kubernetesSpec";
 import { type KeyedClaim, withKeys } from "./nodeClaims";
 import { type Claim, type DesiredNode, projectDesiredNodes } from "./projection";
+import { rabbitMqUrl, redisAddress } from "./queueAddresses";
 import { type ScalingContext, scalingCeilings } from "./scaling";
 
 /**
@@ -157,7 +160,7 @@ async function externalTriggersByGroup(): Promise<Map<string, ExternalTrigger[]>
 		.innerJoin(integrationsEntity, eq(triggersEntity.integrationId, integrationsEntity.id))
 		.where(
 			and(
-				inArray(triggersEntity.type, ["kafka", "sqs", "nats", "redis"]),
+				inArray(triggersEntity.type, ["kafka", "sqs", "nats", "redis", "rabbitmq"]),
 				eq(triggersEntity.active, true),
 				isNotNull(triggersEntity.workflowId),
 			),
@@ -251,5 +254,12 @@ function externalTrigger(
 			consumerGroup: source.consumerGroup || generated,
 		};
 	}
+	if (type === "rabbitmq")
+		return {
+			id,
+			type,
+			url: rabbitMqUrl(rabbitMqVariantConfigSchema.parse(config)),
+			queue: rabbitMqSourceSchema.parse(rawSource).queue,
+		};
 	return null;
 }

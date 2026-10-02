@@ -1,5 +1,5 @@
 import { cn, Description, Label, ListBox, NumberField, Select } from "@fluxify/components";
-import { SiApachekafka, SiNatsdotio, SiRedis } from "react-icons/si";
+import { SiApachekafka, SiNatsdotio, SiRabbitmq, SiRedis } from "react-icons/si";
 import { TbBrandAws, TbClock } from "react-icons/tb";
 import { EnterpriseGate } from "@/components/common/Enterprise";
 import type { TriggerGroup } from "@/services/triggers";
@@ -11,14 +11,14 @@ import type { TriggerGroup } from "@/services/triggers";
  * than four hundred lines of fields.
  */
 
-export type TriggerType = "schedule" | "kafka" | "nats" | "sqs" | "redis";
+export type TriggerType = "schedule" | "kafka" | "nats" | "sqs" | "redis" | "rabbitmq";
 
 export const TRIGGER_DEFAULTS = {
 	name: "",
 	description: "",
 };
 
-const TRIGGER_TYPE_OPTIONS = [
+export const TRIGGER_TYPE_OPTIONS = [
 	{
 		id: "schedule",
 		label: "Schedule",
@@ -56,6 +56,13 @@ const TRIGGER_TYPE_OPTIONS = [
 		label: "Redis Streams",
 		hint: "Entries added to a Redis stream start it as they arrive.",
 		icon: <SiRedis size={20} />,
+		available: true,
+	},
+	{
+		id: "rabbitmq",
+		label: "RabbitMQ",
+		hint: "Messages on a RabbitMQ queue start it as they arrive.",
+		icon: <SiRabbitmq size={20} />,
 		available: true,
 	},
 ] as const;

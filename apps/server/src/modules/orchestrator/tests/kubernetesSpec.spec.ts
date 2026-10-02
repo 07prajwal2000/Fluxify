@@ -17,9 +17,9 @@ import {
 	externalSecretData,
 	type KubernetesSpecOptions,
 	PRE_STOP_SECONDS,
-	redisAddress,
 	WORKER_ENV_SECRET,
 } from "../kubernetesSpec";
+import { rabbitMqUrl, redisAddress } from "../queueAddresses";
 import type { DesiredNode } from "../projection";
 
 const CLAIM = "0192b1c4-1111-7000-8000-000000000001";
@@ -405,6 +405,45 @@ describe("triggers on an outside queue", () => {
 			databaseIndex: undefined,
 			tls: false,
 		});
+	});
+
+	it("scales a RabbitMQ queue on its ready messages, the URL kept in the Secret", () => {
+		const rabbit: ExternalTrigger = {
+			id: TRIGGER_B,
+			type: "rabbitmq",
+			url: "amqp://app:hunter2@mq:5672/%2F",
+			queue: "orders",
+		};
+		expect(scaled([rabbit]).spec.triggers[0]).toMatchObject({
+			type: "rabbitmq",
+			metadata: {
+				protocol: "amqp",
+				queueName: "orders",
+				mode: "QueueLength",
+				value: "10",
+				activationValue: "0",
+			},
+			authenticationRef: { name: `fluxify-trigger-${TRIGGER_B}` },
+		});
+		expect(JSON.stringify(scaled([rabbit]))).not.toContain("hunter2");
+		expect(externalSecretData(rabbit)).toEqual({ host: "amqp://app:hunter2@mq:5672/%2F" });
+	});
+
+	it("builds the AMQP URL KEDA connects with from the credentials form", () => {
+		expect(
+			rabbitMqUrl({
+				source: "credentials",
+				host: "mq",
+				port: 5671,
+				username: "app",
+				password: "p@ss",
+				useSSL: true,
+			}),
+		).toBe("amqps://app:p%40ss@mq:5671/%2F");
+		expect(rabbitMqUrl({ source: "credentials", host: "mq", database: "shop" })).toBe(
+			"amqp://mq/shop",
+		);
+		expect(rabbitMqUrl({ source: "url", url: "amqp://mq" })).toBe("amqp://mq");
 	});
 
 	it("gives a Redis without a password no authentication at all", () => {

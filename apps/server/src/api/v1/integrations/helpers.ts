@@ -21,6 +21,7 @@ import {
 	openTelemetryVariantConfigSchema,
 	postgresVariantConfigSchema,
 	queueVariantSchema,
+	rabbitMqVariantConfigSchema,
 	redisVariantConfigSchema,
 	sqsVariantConfigSchema,
 } from "./schemas";
@@ -167,6 +168,17 @@ export function getDefaultVariantValue(variant: Variants) {
 			endpoint: "",
 		} as z.infer<typeof sqsVariantConfigSchema>;
 	}
+	if (variant === "RabbitMQ") {
+		return {
+			host: "",
+			port: "",
+			username: "",
+			password: "",
+			database: "",
+			useSSL: false,
+			source: "credentials",
+		} as z.infer<typeof rabbitMqVariantConfigSchema>;
+	}
 	return null;
 }
 
@@ -243,12 +255,14 @@ export function getSchema(group: z.infer<typeof integrationsGroupSchema>, varian
 		}
 	} else if (group === "queue") {
 		if (!queueVariantSchema.safeParse(variant).success) return null;
-		schema =
-			variant === "NATS"
-				? natsVariantConfigSchema
-				: variant === "SQS"
-					? sqsVariantConfigSchema
-					: kafkaVariantConfigSchema;
+		schema = (
+			{
+				Kafka: kafkaVariantConfigSchema,
+				NATS: natsVariantConfigSchema,
+				SQS: sqsVariantConfigSchema,
+				RabbitMQ: rabbitMqVariantConfigSchema,
+			} as const
+		)[variant as z.infer<typeof queueVariantSchema>];
 	}
 	return schema;
 }

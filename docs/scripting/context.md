@@ -257,7 +257,7 @@ return events.map((event) => event.data);
 | `trigger.id` | A correlation id, when there is one. |
 | `trigger.data` | The events, each as `{ data, meta: { id?, receivedAt?, source? } }`. Workflows only. |
 | `trigger.meta` | `{ batchId, size, firstReceivedAt?, lastReceivedAt?, attempt? }`. Workflows only. |
-| `trigger.connection` | Kafka and NATS only: `commit()`, `moveToDLQ(error?)`, `lag()`, and `raw`, the underlying client. |
+| `trigger.connection` | Queue triggers only (Kafka, NATS, SQS, Redis Streams, RabbitMQ): `commit()`, `moveToDLQ(error?)`, `lag()`, and `raw`, the underlying client. |
 
 When exactly one event arrived, `input` is that event's payload, which is shorter than `trigger.data[0].data`. See [Triggers](../concepts/triggers.md) for batching and the queue controls.
 

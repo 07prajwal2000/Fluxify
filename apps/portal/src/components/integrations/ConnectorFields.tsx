@@ -72,6 +72,20 @@ const CRED_PLACEHOLDERS: Record<
 		},
 		db: false,
 	},
+	RabbitMQ: {
+		ph: {
+			name: "My RabbitMQ Broker",
+			host: "rabbitmq.company.com",
+			port: "5672",
+			username: "fluxify",
+			password: "secret",
+			url: "amqps://user:pass@host:5671/vhost",
+			database: "/",
+		},
+		ssl: true,
+		db: true,
+		dbLabel: "Virtual host",
+	},
 };
 
 export function setPath(obj: Record<string, unknown>, path: string, value: unknown) {
@@ -133,6 +147,14 @@ export function ConnectorFields({
 			{group === "queue" && variant === "Kafka" && <KafkaForm {...formProps} />}
 			{group === "queue" && variant === "NATS" && <NatsForm {...formProps} />}
 			{group === "queue" && variant === "SQS" && <SqsForm {...formProps} />}
+			{group === "queue" && variant === "RabbitMQ" && (
+				<CredentialsUrlForm
+					{...formProps}
+					placeholders={CRED_PLACEHOLDERS.RabbitMQ.ph as never}
+					hasSSL
+					databaseLabel="Virtual host"
+				/>
+			)}
 		</>
 	);
 }

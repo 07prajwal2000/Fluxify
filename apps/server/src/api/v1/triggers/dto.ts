@@ -10,7 +10,15 @@ import { paginationRequestQuerySchema, paginationResponseSchema } from "../../..
  * connectors are the same row with a different type, so they arrive as entries
  * here rather than as a second entity.
  */
-export const TRIGGER_TYPES = ["internal", "schedule", "kafka", "nats", "sqs", "redis"] as const;
+export const TRIGGER_TYPES = [
+	"internal",
+	"schedule",
+	"kafka",
+	"nats",
+	"sqs",
+	"redis",
+	"rabbitmq",
+] as const;
 export const triggerTypeSchema = z.enum(TRIGGER_TYPES);
 
 export { isEnterpriseTriggerType } from "../../../modules/triggers/types";
@@ -107,6 +115,11 @@ export const redisSourceSchema = z.object({
 	claimIdleMs: z.number().int().min(1_000).max(86_400_000).optional(),
 	/** Where entries go once retries run out; empty is `<stream>:dlq`. */
 	dlqStream: redisName.optional(),
+});
+
+/** An existing queue, by name: RabbitMQ caps names at 255 bytes. Never declared here. */
+export const rabbitMqSourceSchema = z.object({
+	queue: z.string().min(1).max(255),
 });
 
 /**

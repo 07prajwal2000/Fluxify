@@ -169,6 +169,7 @@ without reading logs:
 | Kafka | A topic the trigger reads no longer exists. |
 | NATS | The stream, or the trigger's durable consumer on it, no longer exists. |
 | Redis Streams | The stream, or the trigger's consumer group on it, no longer exists. |
+| RabbitMQ | The queue no longer exists. |
 
 Two things to know:
 
@@ -325,9 +326,73 @@ services limit how long a read may wait (Upstash, for example), so test yours
 before you rely on it.
 :::
 
+## Reading from RabbitMQ
+
+A RabbitMQ trigger runs its workflow for messages on a RabbitMQ queue. It needs
+a [RabbitMQ integration](/integrations/message-queues#rabbitmq) and works in
+**every edition**, with no license.
+
+| Setting | What it does |
+|---|---|
+| **Queue** | The queue to read. It must already exist, with its bindings. Fluxify never creates it. It is checked when you save and whenever the trigger starts. |
+| **Max attempts**, **Retry delay** | Work as for Kafka, above. After the last failed attempt the messages are rejected to the queue's **dead-letter exchange**. A queue without one deletes them: see [Retries and dead-lettering](/integrations/message-queues#retries-and-dead-lettering). |
+| **Commit from the workflow** | See below. |
+
+There is no prefetch setting. Fluxify sets prefetch to **Batch size ×
+Concurrency**, so a batch can always fill.
+
+The message body arrives in `data`, parsed when it is valid JSON and as text
+otherwise. Each event also carries where it came from:
+
+| Field | What it is |
+|---|---|
+| `meta.topic` | The queue name |
+| `meta.exchange` | The exchange it was published to. Empty for the default exchange. |
+| `meta.routingKey` | Its routing key. `meta.key` holds the same value. |
+| `meta.messageId` | The message id the publisher set, or `null` |
+| `meta.offset` | The message id when there is one, otherwise the delivery tag |
+| `meta.id` | `<queue>:0:<offset>`. Stable across redeliveries **only when the publisher sets a message id**. |
+| `meta.deliveryTag` | RabbitMQ's number for this delivery. It starts again from 1 after a reconnect, so never store it. |
+| `meta.redelivered` | `true` when RabbitMQ delivered this message before |
+| `meta.deliveryCount` | Deliveries so far, this one included. Exact on quorum queues. A classic queue only knows "before or not", so it is `1` or `2`. |
+| `meta.headers` | Its headers, as text |
+| `meta.properties` | The other AMQP properties that were set: `contentType`, `correlationId`, `replyTo`, `priority`, `type`, `appId`, `expiration`, ... |
+| `meta.timestamp` | The message's own timestamp when it has one, otherwise when it arrived |
+
+`trigger.meta.attempt` starts at `meta.deliveryCount`, so a message RabbitMQ has
+already delivered once starts its run at attempt 2. A message whose deliveries
+are already past **Max attempts** does not run again: it goes straight to the
+dead-letter exchange, or, with **Commit from the workflow** on, back to the
+queue. For example, with **Max attempts** at 1, a message whose worker crashed
+mid-run is dead-lettered when it comes back.
+
+::: tip Set a message id when you publish
+For safe deduplication, give every message a `messageId` when you publish it.
+Then `meta.id` stays the same however many times the message is delivered.
+Without one, each delivery gets a new `meta.id`.
+:::
+
+### Committing from the workflow on RabbitMQ
+
+With **Commit from the workflow** on:
+
+- `await trigger.connection.commit()` acknowledges every message in the batch.
+- `await trigger.connection.moveToDLQ(error)` rejects them to the queue's
+  dead-letter exchange. The error is logged, not attached to the message.
+- A batch the run neither commits nor dead-letters, whether the run succeeded
+  or failed, goes back to the queue after the **Retry delay**. That delay
+  doubles with each delivery, up to 5 minutes. It is then delivered again,
+  marked `meta.redelivered`.
+- Committing a batch twice, or committing after `moveToDLQ`, does nothing. Each
+  message is settled once.
+
+Keep an eye on RabbitMQ's 30 minute **consumer timeout** and, on quorum queues,
+its **delivery limit**. Both are explained in
+[RabbitMQ limits that affect triggers](/integrations/message-queues#rabbitmq-limits-that-affect-triggers).
+
 ## Using the client directly
 
-For Kafka, NATS and Redis Streams triggers, `trigger.connection.raw` is the client Fluxify
+For Kafka, NATS, Redis Streams and RabbitMQ triggers, `trigger.connection.raw` is the client Fluxify
 reads the batch with. Use it for what `commit`, `moveToDLQ` and `lag` do not
 cover — for example, publishing a reply on NATS:
 
@@ -341,6 +406,7 @@ trigger.connection.raw.publish("orders.processed", JSON.stringify({ id: input.or
 | Kafka | A `Consumer` from `@platformatic/kafka` | [github.com/platformatic/kafka](https://github.com/platformatic/kafka) |
 | NATS | A `NatsConnection` from `@nats-io/nats-core` | [github.com/nats-io/nats.js](https://github.com/nats-io/nats.js) and [docs.nats.io](https://docs.nats.io) |
 | Redis Streams | A `Redis` client from `ioredis` | [github.com/redis/ioredis](https://github.com/redis/ioredis) |
+| RabbitMQ | The consuming `Channel` from `amqplib`, with some commands blocked (below) | [amqp-node.github.io/amqplib](https://amqp-node.github.io/amqplib/channel_api.html) |
 
 ::: danger Handle with care
 This is the live connection the trigger itself depends on, shared by every run of
@@ -350,6 +416,47 @@ skip or repeat messages, or leave it in a broken state **until the worker
 restarts**. Only use it if you know what the call does to a running consumer,
 and prefer the built-in helpers whenever they are enough.
 :::
+
+### The RabbitMQ channel
+
+On a RabbitMQ trigger, `raw` is the channel the trigger consumes on. It always
+points at the live channel, including after a reconnect. While the trigger is
+reconnecting, using it throws an error saying so.
+
+Fluxify settles the messages and owns the consumer, so these commands **throw**
+instead of running: `ack`, `ackAll`, `nack`, `nackAll`, `reject`, `cancel`,
+`close`, `recover` and `prefetch`. Use `trigger.connection.commit()` and
+`moveToDLQ()` to settle a batch.
+
+Everything else works, for example publishing a reply:
+
+```js
+// RabbitMQ: publish a result to another exchange
+trigger.connection.raw.publish(
+  "orders.events",
+  "order.processed",
+  Buffer.from(JSON.stringify({ id: input.orderId })),
+  { persistent: true, messageId: input.orderId, contentType: "application/json" },
+);
+```
+
+Things to know when publishing or declaring through it:
+
+- **Publishing is not confirmed.** The channel is not in confirm mode, so
+  `publish` returns as soon as the message is written to the connection, before
+  RabbitMQ stores it. A crash or lost connection right after can lose it.
+- **Messages are not persistent unless you ask.** Pass `persistent: true`, or
+  RabbitMQ keeps the message in memory only and a broker restart loses it.
+- **A message no queue is bound for is dropped silently** unless you pass
+  `mandatory: true`.
+- **A refused command closes the channel.** Publishing to an exchange that does
+  not exist, `checkQueue` / `checkExchange` on something missing, or declaring a
+  queue with different settings than it already has makes RabbitMQ close the
+  channel. Every message the trigger holds on it (this batch and any others in
+  flight) goes back to the queue and is delivered again, and the trigger
+  reconnects. Declare and check things in RabbitMQ itself, not from a workflow.
+- **The channel is shared** by every run of the trigger on that worker. A slow
+  call on it holds up the others.
 
 ## Starting a workflow from a canvas
 

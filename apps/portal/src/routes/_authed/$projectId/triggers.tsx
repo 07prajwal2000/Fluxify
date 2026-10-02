@@ -159,6 +159,10 @@ function TriggersPage() {
 														(trigger.source as { queueUrl?: string } | null)?.queueUrl ?? "",
 													)}
 												</span>
+											) : trigger.type === "rabbitmq" ? (
+												<span className="font-mono text-xs">
+													rabbitmq · {(trigger.source as { queue?: string } | null)?.queue}
+												</span>
 											) : (
 												trigger.type
 											)}

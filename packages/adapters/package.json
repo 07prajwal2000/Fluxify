@@ -14,6 +14,7 @@
 		"./queue/nats": "./queue/nats.ee.ts",
 		"./queue/sqs": "./queue/sqs.ee.ts",
 		"./queue/redis": "./queue/redisStreams.ts",
+		"./queue/rabbitmq": "./queue/rabbitmq.ts",
 		"./containerTestHelpers": "./containerTestHelpers.ts"
 	},
 	"scripts": {
@@ -33,6 +34,7 @@
 		"@nats-io/nats-core": "3.4.0",
 		"@nats-io/transport-node": "3.4.0",
 		"@platformatic/kafka": "^2.11.0",
+		"amqplib": "^2.2.0",
 		"ioredis": "^5.11.1",
 		"kysely": "^0.28.11",
 		"langchain": "^1.2.23",

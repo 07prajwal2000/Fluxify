@@ -16,6 +16,8 @@ The **Send Message** block publishes messages from a route or workflow to a mess
 
 ::: info Editions
 Sending to a **Redis stream** works in every edition. Kafka, NATS and SQS need an enterprise license, the same as their triggers. Saving a block that points at one of them without a license is refused with the same error. A block saved while licensed keeps sending after the license lapses.
+
+**RabbitMQ** can't be picked here yet; for now, a RabbitMQ trigger's workflow can publish through [its channel](/concepts/triggers#the-rabbitmq-channel).
 :::
 
 ## Inputs

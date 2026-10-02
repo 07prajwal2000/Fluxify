@@ -13,7 +13,7 @@ export const integrationsGroupSchema = z.enum([
 	"queue",
 ]);
 
-export const queueVariantSchema = z.enum(["Kafka", "NATS", "SQS"]);
+export const queueVariantSchema = z.enum(["Kafka", "NATS", "SQS", "RabbitMQ"]);
 export const databaseVariantSchema = z.enum(["PostgreSQL", "MongoDB", "MySQL"]);
 
 /**
@@ -329,6 +329,30 @@ export const sqsVariantConfigSchema = z.object({
 	endpoint: z.string().optional(),
 	sendTimeoutMs: sendTimeoutMsSchema,
 });
+
+/**
+ * RabbitMQ (AMQP 0-9-1). `database` is the virtual host, so the shared
+ * credentials-or-URL form fits. No dead-letter field: failures are rejected to
+ * the queue's own dead-letter exchange.
+ */
+export const rabbitMqVariantConfigSchema = z
+	.object({
+		host: z.string().min(1),
+		port: z.string().or(z.number()).optional(),
+		username: z.string().optional(),
+		password: z.string().optional(),
+		database: z.string().optional(),
+		useSSL: z.boolean().default(false),
+		source: z.literal("credentials"),
+	})
+	.or(
+		z.object({
+			source: z.literal("url"),
+			url: z.string().refine((v) => v.startsWith("cfg:") || /^amqps?:\/\//.test(v), {
+				message: "Must be an amqp:// or amqps:// URL",
+			}),
+		}),
+	);
 
 export const databaseTagsSchema = z.enum(["sql", "nosql"]);
 export const aiTagsSchema = z.enum(["llm", "embedding"]);

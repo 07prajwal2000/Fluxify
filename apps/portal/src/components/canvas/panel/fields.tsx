@@ -288,6 +288,8 @@ export type BlockIntegrationFieldProps = {
 	group?: string;
 	/** integrations of other groups also offered, limited to these variants (Redis for Send Message) */
 	extraGroups?: { group: string; variants: string[] }[];
+	/** variants of `group` left out, e.g. a broker the block cannot use yet */
+	excludeVariants?: string[];
 	label?: ReactNode;
 	description?: string;
 };
@@ -301,6 +303,7 @@ export function BlockIntegrationField({
 	name,
 	group = "database",
 	extraGroups,
+	excludeVariants,
 	label,
 	description,
 }: BlockIntegrationFieldProps) {
@@ -315,11 +318,15 @@ export function BlockIntegrationField({
 	const injectedIntegrations = useCustomBlockParamIntegrations(projectId, params?.blockId, group);
 
 	const extraKey = JSON.stringify(extraGroups ?? []);
+	const excludeKey = JSON.stringify(excludeVariants ?? []);
 	const loadIntegrations = useCallback(async () => {
 		if (!projectId) return [];
 		const extras: { group: string; variants: string[] }[] = JSON.parse(extraKey);
+		const excluded: string[] = JSON.parse(excludeKey);
 		const lists = await Promise.all([
-			integrationService.getAll(projectId, group),
+			((await integrationService.getAll(projectId, group)) || []).filter(
+				(item) => !excluded.includes(item.variant),
+			),
 			...extras.map(async (extra) =>
 				((await integrationService.getAll(projectId, extra.group)) || []).filter((item) =>
 					extra.variants.includes(item.variant),
@@ -336,7 +343,7 @@ export function BlockIntegrationField({
 				config: (item.config ?? {}) as Record<string, unknown>,
 				tags: item.tags,
 			}));
-	}, [projectId, group, extraKey]);
+	}, [projectId, group, extraKey, excludeKey]);
 
 	const handleTestConnection = useCallback(
 		async (id: string) => {

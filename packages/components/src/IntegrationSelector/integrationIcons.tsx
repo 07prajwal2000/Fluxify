@@ -4,7 +4,7 @@ import { DiMysql } from "react-icons/di";
 import { IoTelescope } from "react-icons/io5";
 import { PiNotebookLight } from "react-icons/pi";
 import { RiGeminiFill, RiOpenaiFill, RiOpenaiLine, RiRobot2Fill } from "react-icons/ri";
-import { SiAnthropic, SiApachekafka, SiNatsdotio, SiRedis } from "react-icons/si";
+import { SiAnthropic, SiApachekafka, SiNatsdotio, SiRabbitmq, SiRedis } from "react-icons/si";
 import { TbBrandAws, TbBrandFirebase, TbBrandSupabase, TbServer } from "react-icons/tb";
 
 const size = 20;
@@ -28,4 +28,5 @@ export const integrationIcons: Record<string, ReactNode> = {
 	Kafka: <SiApachekafka size={size} />,
 	NATS: <SiNatsdotio size={size} />,
 	SQS: <TbBrandAws size={size} />,
+	RabbitMQ: <SiRabbitmq size={size} />,
 };

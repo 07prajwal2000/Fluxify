@@ -206,6 +206,8 @@ export function SendMessageGeneralSettings({ block }: { block: BlockNode }) {
 				name="connection"
 				group="queue"
 				extraGroups={[{ group: "kv", variants: ["Redis"] }]}
+				// sending to RabbitMQ is #560; its integrations only feed triggers today
+				excludeVariants={["RabbitMQ"]}
 				label="Choose Message Queue"
 				description="A Kafka, NATS JetStream or SQS integration, or a Redis integration to send to a stream."
 			/>
