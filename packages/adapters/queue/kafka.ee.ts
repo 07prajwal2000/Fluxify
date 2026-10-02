@@ -395,6 +395,12 @@ export async function ensureKafkaTopics(config: KafkaConfig, topics: string[], c
 			if (!hasProtocolError(error, "TOPIC_ALREADY_EXISTS"))
 				throw new Error(`Could not create ${missing.join(", ")}: ${rootCause(error)}`);
 		}
+		// creation acks before the topics show in the brokers' metadata; a consumer started
+		// now would find them missing. Bounded: a slow broker is left to the consumer to report.
+		for (let deadline = Date.now() + 10_000; Date.now() < deadline; await sleep(100)) {
+			const listed = await admin.listTopics().catch(() => [] as string[]);
+			if (missing.every((topic) => listed.includes(topic))) break;
+		}
 		return missing;
 	} finally {
 		await admin.close().catch(() => undefined);
