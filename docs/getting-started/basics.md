@@ -1,21 +1,23 @@
 ---
 title: Basics & Core Concepts
-description: The fundamental concepts you need to understand to build with Fluxify — Workflows, Blocks, Edges, Context, and Integrations.
+description: The fundamental concepts you need to understand to build with Fluxify — Routes, Workflows, Blocks, Edges, Context, and Integrations.
 ---
 
 # Basics & Core Concepts
 
-Fluxify is built around a small set of composable concepts. Understanding these will allow you to model any backend logic visually — from simple CRUD endpoints to AI-powered workflows with complex branching logic.
-## 1. Workflows (API Endpoints)
+Fluxify is built around a small set of composable concepts. Understanding these will allow you to model any backend logic visually — from simple CRUD endpoints to scheduled background jobs with complex branching logic.
+## 1. Routes and Workflows
 
-A **Workflow** is the fundamental unit of logic in Fluxify. Each workflow represents a single API endpoint — it has a defined HTTP method and path (e.g., `POST /users`), and defines exactly what happens when that endpoint is called.
+A **Route** is an API endpoint — it has a defined HTTP method and path (e.g., `POST /users`), and defines exactly what happens when that endpoint is called. A caller is waiting for the answer.
 
-Every workflow:
-- Starts with an **Entrypoint** block that is bound to an HTTP route.
+Every route:
+- Starts with an **Entrypoint** block that is bound to an HTTP method and path.
 - Flows through one or more action blocks connected by edges.
 - Ends when a **Response** block sends a reply, or when the execution engine reaches a block with no outgoing connection.
 
-Workflows are displayed visually as a directed graph (a canvas of blocks and connecting arrows) inside the Fluxify editor.
+A **[Workflow](../concepts/workflows.md)** is built the same way, but it runs in the background. A [schedule or trigger](../concepts/triggers.md) starts it instead of a URL, and nobody waits for the result.
+
+Both are displayed visually as a directed graph (a canvas of blocks and connecting arrows) inside the Fluxify editor. Everything below applies to both.
 ## 2. Blocks
 
 **Blocks** are the individual units of logic that make up a workflow. Each block performs a single, well-defined action. Blocks are the building "lego pieces" of Fluxify — you compose them to express arbitrarily complex backend behaviour.
@@ -35,7 +37,8 @@ Block inputs support **dynamic expressions**: prefix a value with `js:` to evalu
 | **Logic & Flow** | Entrypoint, If Condition, For Loop, Error Handler, Response | Control the path of execution |
 | **Data** | Set Variable, Get Variable, Transformer, JS Runner, Array Operations | Manipulate and reshape data |
 | **HTTP** | HTTP Request, Get Header, Get Query Param, Set Cookie, Get Request Body | Interact with the HTTP layer |
-| **Database** | DB Get All, DB Insert, DB Update, DB Delete, DB Native, DB Transaction | Read and write to PostgreSQL |
+| **Database** | DB Get All, DB Insert, DB Update, DB Delete, DB Native, DB Transaction | Read and write PostgreSQL, MySQL, and MongoDB |
+| **Key-Value** | KV Operations, KV Raw Connection | Cache data and keep short-lived state |
 | **Logging** | Console Log, Cloud Logs | Observability and debugging |
 
 Browse the full [Blocks Reference](../blocks/index.md) for detailed documentation on every block.
@@ -91,8 +94,10 @@ Currently supported integrations:
 
 | Integration Type | Examples | Used By |
 | :--- | :--- | :--- |
-| **Databases** | PostgreSQL | All `DB *` blocks |
-| **AI Models** | OpenAI, Anthropic | AI blocks (via AI Gateway) |
+| **Databases** | PostgreSQL, MySQL, MongoDB | All `DB *` blocks |
+| **KV Stores** | Redis, Memcached | KV blocks |
+| **AI Models** | OpenAI, Anthropic, Gemini, Mistral, OpenAI-compatible | The AI assistant that builds routes for you |
+| **Message Queues** | Kafka, NATS JetStream, Amazon SQS (Enterprise) | Triggers |
 | **Observability** | Loki, OpenTelemetry Logs | Cloud Logs block |
 
 Fluxify uses an **Adapter Pattern** internally — blocks interact with a generic interface, so the underlying provider can be changed without modifying the workflow.
@@ -104,10 +109,10 @@ See the [Integrations Reference](../integrations/index.md) for setup guides.
 
 The **App Config** is a secure key-value store for project-level secrets and configuration values — things like API keys, database passwords, or external service URLs that you don't want to hardcode in your workflows.
 
-Define a key in the App Config (e.g., `OPENAI_API_KEY`), then reference it in any block field with the `cfg:` prefix:
+Define a key in the App Config (e.g., `PAYMENTS_API_KEY`), then reference it in any block field with the `cfg:` prefix:
 
 ```
-cfg:OPENAI_API_KEY
+cfg:PAYMENTS_API_KEY
 ```
 
 This keeps sensitive values out of your workflow definitions and centralises credential management.
