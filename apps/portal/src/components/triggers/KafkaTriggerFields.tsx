@@ -164,7 +164,7 @@ export function IntegrationField({
 	onChange,
 }: {
 	projectId: string;
-	variant: "Kafka" | "NATS" | "SQS" | "Redis";
+	variant: "Kafka" | "NATS" | "SQS" | "Redis" | "RabbitMQ";
 	value: string;
 	onChange: (next: string) => void;
 }) {

@@ -74,7 +74,7 @@ trigger: {
   id?: string;
   data: { data: any; meta: { id?: string; receivedAt?: string; source?: string } }[];
   meta: { batchId: string; size: number; attempt?: number; /* ... */ };
-  connection?: { raw; commit(); moveToDLQ(error?); lag() };   // Kafka and NATS only
+  connection?: { raw; commit(); moveToDLQ(error?); lag() };   // queue triggers only
 }
 ```
 

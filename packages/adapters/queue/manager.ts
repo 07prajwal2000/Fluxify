@@ -10,6 +10,7 @@ const connectors = new Map<string, () => Promise<QueueConnector>>([
 	["nats", () => import("./nats.ee")],
 	["sqs", () => import("./sqs.ee")],
 	["redis", () => import("./redisStreams")],
+	["rabbitmq", () => import("./rabbitmq")],
 ]);
 
 export function registerQueueConnector(type: string, load: () => Promise<QueueConnector>) {

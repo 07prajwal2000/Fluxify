@@ -19,6 +19,8 @@ export type TriggerSource =
 	| "sqs"
 	/** a Redis stream, read through a consumer group */
 	| "redis"
+	/** a RabbitMQ queue (AMQP 0-9-1) */
+	| "rabbitmq"
 	| "pubsub"
 	| "servicebus";
 /** sync = caller waits for the result (req/res); async = fire-and-forget. */

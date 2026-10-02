@@ -1,30 +1,33 @@
 ---
 title: Message Queue Integrations
-description: Start workflows from messages on a Kafka topic, a NATS JetStream stream, or an AWS SQS queue, and send messages to them from a workflow.
+description: Start workflows from messages on a Kafka topic, a NATS JetStream stream, an AWS SQS queue or a RabbitMQ queue, and send messages to them from a workflow.
 ---
 
 # Message Queue Integrations
 
 A message queue integration lets a [trigger](/concepts/triggers) start a
-workflow every time messages arrive on a Kafka topic, a NATS stream, or an AWS
-SQS queue. The integration holds the connection details; the trigger says what
+workflow every time messages arrive on a Kafka topic, a NATS stream, an AWS SQS
+queue or a RabbitMQ queue. The integration holds the connection details; the trigger says what
 to read and which workflow to run.
 
 Workflows and routes can **send** too: the [Send Message](/blocks/send-message)
-block publishes one message or a list to the same integrations.
+block publishes one message or a list to the same integrations, except RabbitMQ,
+which it does not support yet.
 
 ::: info Enterprise
 Kafka, NATS and SQS triggers, and Send Message blocks that use them, need an
 enterprise license. Creating such a trigger, or saving such a block, is
 refused until a license is active.
 
-Reading and writing a **Redis stream** is free in every edition. It uses a
+**RabbitMQ** triggers are free in every edition, with no license.
+
+Reading and writing a **Redis stream** is free in every edition too. It uses a
 [Redis KV integration](/integrations/kv-stores) rather than one of these — see
 [Reading from Redis Streams](/concepts/triggers#reading-from-redis-streams) and
 [Send Message](/blocks/send-message).
 :::
 
-**Send timeout** (all three brokers) is how long the Send Message block waits
+**Send timeout** (Kafka, NATS and SQS) is how long the Send Message block waits
 for the broker to confirm a message, 30 seconds by default.
 
 ## Kafka
@@ -210,28 +213,138 @@ itself, is what decides where a failing message ends up:
   indefinitely until the queue's retention period deletes it. Saving or
   enabling an SQS trigger without one warns you of this.
 
+## RabbitMQ
+
+Reads from a queue on **RabbitMQ** 3.x or 4.x, or any broker that speaks AMQP
+0-9-1 (the protocol RabbitMQ uses). Tested on RabbitMQ 4.2. RabbitMQ triggers
+work in **every edition**, with no license.
+
+Brokers that only speak AMQP 1.0, such as Azure Service Bus or ActiveMQ
+Artemis, are not supported by this integration.
+
+| Setting | What it is |
+|---|---|
+| **Host / Port** | The broker's address. Port defaults to `5672`, or `5671` with TLS. |
+| **Username / Password** | The login. Left both empty, `guest` / `guest` is used, which RabbitMQ only accepts from the same machine. |
+| **Virtual host** | The vhost the queue lives in. Empty is the default vhost, `/`. |
+| **Use SSL?** | Connect over TLS (`amqps`). Most hosted RabbitMQ services need it. |
+| **Via URL** | Instead of the fields above, one `amqp://` or `amqps://` URL, such as the one CloudAMQP gives you. Write the default vhost as `%2F` (`amqps://user:pass@host/%2F`). |
+
+Every field accepts an [App Config](/concepts/app-config) key.
+
+**Test connection** logs in to the virtual host and opens a channel. If it
+fails, the message names the reason: the broker cannot be reached, the login was
+refused, or the user may not use that virtual host.
+
+### Setting up the queue
+
+Fluxify **never creates queues, exchanges or bindings**. Create the queue a
+trigger reads, and bind it to your exchanges, in RabbitMQ first. Saving a
+trigger checks that the queue exists, and so does every start. A queue deleted
+while the trigger is running
+[turns the trigger off with the reason](/concepts/triggers#when-the-queue-topic-or-stream-is-deleted).
+
+Classic and quorum queues work. RabbitMQ **stream** queues (`x-queue-type:
+stream`) are not supported. Quorum queues are recommended
+for anything you can't afford to lose; they also count redeliveries exactly
+(see `meta.deliveryCount` in [Reading from RabbitMQ](/concepts/triggers#reading-from-rabbitmq)).
+
+### Retries and dead-lettering
+
+There is no dead-letter field on the integration or the trigger. RabbitMQ has
+its own: a **dead-letter exchange** set on the queue. Fluxify uses it.
+
+- **A run succeeds:** the messages are acknowledged (removed from the queue).
+- **A run fails:** Fluxify runs the same batch again, up to the trigger's
+  **Max attempts** (at most 5). The wait starts at **Retry delay** and doubles
+  each time. The messages stay with the trigger, unacknowledged, while it
+  retries.
+- **The last attempt fails:** the messages are **rejected without requeue**.
+  RabbitMQ sends them to the queue's dead-letter exchange. RabbitMQ adds
+  `x-death` and `x-first-death-*` headers saying which queue they came from and
+  why (`rejected`). The error text itself is not attached, because RabbitMQ has
+  no way to carry it. It is written to the worker's log.
+
+::: danger A queue without a dead-letter exchange deletes failed messages
+If the queue has no dead-letter exchange, RabbitMQ **drops** a rejected message.
+Fluxify can't check this for you, so saving a RabbitMQ trigger always shows a
+reminder. Set `x-dead-letter-exchange` (and optionally
+`x-dead-letter-routing-key`) on the queue, or with a policy, before you rely on
+the trigger.
+:::
+
+To reprocess dead-lettered messages, bind a queue to the dead-letter exchange
+and point a second trigger at it, or move them back once the cause is fixed.
+
+### What Fluxify does on its own
+
+These are the defaults Fluxify uses, which no setting changes. They matter most
+if you use the [raw channel](/concepts/triggers#using-the-client-directly) or
+look at the trigger in the RabbitMQ management UI.
+
+| What | Behavior |
+|---|---|
+| **Connections** | Each worker opens one connection and one channel per trigger. The connection is named `fluxify fluxify-<trigger id>` in the management UI. |
+| **Prefetch** | Batch size × Concurrency, at most 65,535. That is how many messages RabbitMQ hands the trigger before it acknowledges any. Saving warns you if the product is over the limit, because batches can then never fill and wait for **Max wait** instead. |
+| **Lost connection** | Retried forever, waiting 0.1 seconds at first and up to 30 seconds between tries. RabbitMQ puts every unacknowledged message back on the queue and delivers it again (`meta.redelivered` is `true`). |
+| **A message from before a reconnect** | Acknowledging it is skipped, because RabbitMQ has already put it back. It runs again. |
+| **A failed or uncommitted batch in Commit-from-the-workflow mode** | Put back on the queue after the **Retry delay**, doubling on each delivery, never more than 5 minutes. It never comes back straight away, so a bad message can't spin. The message is held, unacknowledged, during that wait. |
+| **Message body** | Parsed as JSON when it is valid JSON, otherwise text. An empty body is `null`. The `content-type` property is not used to decide. Binary bodies arrive as text and may be garbled, so send binary data base64-encoded. |
+| **Headers** | Text headers arrive as they are. Numbers, booleans and tables (such as `x-death`) arrive as JSON text. |
+| **`lag()`** | Messages ready in the queue. Messages handed to a consumer and not yet acknowledged are not counted. |
+
+### RabbitMQ limits that affect triggers
+
+- **Consumer timeout (30 minutes by default).** RabbitMQ closes a channel that
+  holds an unacknowledged message longer than its `consumer_timeout`. Every
+  message on that channel then goes back to the queue and is delivered again.
+  Fluxify reconnects by itself. The time counts all attempts and retry delays,
+  not only one run. Keep *(run time × Max attempts) + retry delays* well under
+  30 minutes, or raise `consumer_timeout` on the broker.
+- **Quorum queue delivery limit (20 by default on RabbitMQ 4).** A quorum queue
+  dead-letters, or drops, a message on its own once it has been returned that
+  many times. In **Commit from the workflow** mode, a message your workflow
+  never commits is returned each time, so it counts toward this limit.
+- **Ordering.** A message put back on the queue goes back near the front. With
+  **Concurrency** above 1, or a second worker, messages finish in any order.
+
+### How it differs from Kafka
+
+| | Kafka | RabbitMQ |
+|---|---|---|
+| A handled message | Stays on the topic. The trigger's position moves past it. | Removed from the queue. |
+| Two triggers on the same source | Each gets every message (own consumer group). | They **share** the queue: each message goes to one of them. To give two workflows every message, bind two queues to the exchange. |
+| Dead letters | A topic set on the integration. Fluxify copies the message there with `x-fluxify-*` headers. | The queue's own dead-letter exchange. RabbitMQ moves the message and adds `x-death` headers. |
+| Creating the source | Optional (**Create missing topics**). | Never: create queues and bindings in RabbitMQ. |
+| A stable id for deduplication | Always (`meta.id` is topic, partition and offset). | Only when the publisher sets a message id. See [Reading from RabbitMQ](/concepts/triggers#reading-from-rabbitmq). |
+
 ## Good to know
 
 - **Every message may run more than once.** A worker that stops mid-run, or a
   rebalance between workers, means the batch is read again by whoever picks it
   up. Make your workflow safe to repeat — `meta.id` on each event is stable
-  across repeats and is the easiest thing to deduplicate on.
+  across repeats and is the easiest thing to deduplicate on. On RabbitMQ it is
+  stable only when the publisher sets a message id.
 - **Order.** Kafka keeps order per partition: messages on one partition always
   run in the order they were written, and different partitions run side by
   side, up to the trigger's **Concurrency**. NATS streams have no partitions, so
   messages run in order only when **Concurrency** is 1. SQS keeps no order at
   all unless the queue is FIFO, and even then only among messages sharing the
-  same message group ID.
-- **Each trigger reads independently — except on SQS.** On Kafka it is its own
+  same message group ID. RabbitMQ keeps queue order only at a concurrency of 1
+  with a single worker.
+- **Each trigger reads independently — except on SQS and RabbitMQ.** On Kafka it is its own
   consumer group, and on NATS its own durable consumer, both named
   `fluxify-<trigger id>`, so two triggers on the same topic or stream each get
   every message. SQS has no such concept: two triggers reading the same queue
-  split its messages, each message going to only one of them.
+  split its messages, each message going to only one of them, and so do two
+  triggers on the same RabbitMQ queue.
 - **A run that outlasts the redelivery window is kept alive.** While a
   workflow is working on a batch, Fluxify keeps telling the broker so it is
   not handed to another worker — NATS's redelivery timer and SQS's visibility
   timeout both work this way. If the worker stops mid-run, the batch comes
   back once that window lapses (about 30 seconds on NATS; SQS's own
-  **Visibility timeout** setting).
+  **Visibility timeout** setting). RabbitMQ needs no such signal: a message
+  stays with its worker until it is settled or the connection drops, up to the
+  broker's consumer timeout.
 - **Editing the integration** reconnects its triggers within a few seconds.
   **Deleting** it deletes the triggers that use it.

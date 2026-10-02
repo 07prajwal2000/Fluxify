@@ -1,6 +1,12 @@
 import { BadRequestError } from "../../../errors/badRequestError";
 import { resolveQueueConfig } from "../integrations/test-connection/service";
-import { kafkaSourceSchema, natsSourceSchema, redisSourceSchema, sqsSourceSchema } from "./dto";
+import {
+	kafkaSourceSchema,
+	natsSourceSchema,
+	rabbitMqSourceSchema,
+	redisSourceSchema,
+	sqsSourceSchema,
+} from "./dto";
 import { findIntegration } from "./repository";
 
 /** Each connector type's integration variant and source shape. */
@@ -30,6 +36,12 @@ const CONNECTORS = {
 		schema: redisSourceSchema,
 		invalid: "A Redis trigger needs a valid stream key",
 	},
+	rabbitmq: {
+		label: "RabbitMQ",
+		article: "A",
+		schema: rabbitMqSourceSchema,
+		invalid: "A RabbitMQ trigger needs a queue name",
+	},
 } as const;
 
 export type ConnectorCheck = {
@@ -38,6 +50,7 @@ export type ConnectorCheck = {
 	integrationId?: string | null;
 	source?: unknown;
 	batchSize?: number;
+	concurrency?: number;
 	/**
 	 * Ask the broker whether the credentials work and the topic, stream or queue
 	 * exists. On for creating, enabling, and edits to the source or integration.
@@ -103,6 +116,11 @@ async function probe(check: ConnectorCheck, config: any): Promise<string[]> {
 			await assertSqsQueue(config, source.queueUrl),
 		);
 	}
+	if (check.type === "rabbitmq") {
+		const { assertRabbitMqQueue } = await import("@fluxify/adapters/queue/rabbitmq");
+		await assertRabbitMqQueue(config, rabbitMqSourceSchema.parse(check.source).queue);
+		return settingsWarnings(check);
+	}
 	const { topics, createTopics } = kafkaSourceSchema.parse(check.source);
 	const { ensureKafkaTopics } = await import("@fluxify/adapters/queue/kafka");
 	await ensureKafkaTopics(config, topics, Boolean(createTopics));
@@ -111,6 +129,10 @@ async function probe(check: ConnectorCheck, config: any): Promise<string[]> {
 
 /** The warnings that need no broker, for edits that leave the source alone. */
 async function settingsWarnings(check: ConnectorCheck) {
+	if (check.type === "rabbitmq") {
+		const { rabbitMqWarnings } = await import("@fluxify/adapters/queue/rabbitmq");
+		return rabbitMqWarnings(check);
+	}
 	if (check.type !== "sqs") return [];
 	const { sqsWarnings } = await import("@fluxify/adapters/queue/sqs");
 	return sqsWarnings({ ...sqsSourceSchema.parse(check.source), batchSize: check.batchSize });

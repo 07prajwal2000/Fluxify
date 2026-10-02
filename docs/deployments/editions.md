@@ -19,6 +19,7 @@ setting.
 | Batching | ✅ | ✅ |
 | The Trigger Workflow block | ✅ | ✅ |
 | Redis Streams triggers | ✅ | ✅ |
+| RabbitMQ triggers | ✅ | ✅ |
 | The Send Message block, to a Redis stream | ✅ | ✅ |
 | External connectors — Kafka, NATS JetStream and Amazon SQS today; SNS, Pub/Sub and Service Bus on the way. Covers their triggers and Send Message blocks | — | ✅ |
 | Single sign-on (OIDC and SAML) | — | ✅ |

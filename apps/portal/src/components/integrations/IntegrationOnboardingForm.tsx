@@ -27,9 +27,12 @@ import { showTestResult } from "./showTestResult";
 
 type Step = 1 | 2 | 3;
 
-/** Queue connectors only feed triggers, which need an enterprise license. */
-function gateQueue(group: string, card: ReactNode, key: string) {
-	return group === "queue" ? (
+/** Queue connectors only feed triggers, which need an enterprise license; RabbitMQ is free. */
+const isEnterpriseQueue = (group: string, variant: string) =>
+	group === "queue" && variant !== "RabbitMQ";
+
+function gateQueue(group: string, variant: string, card: ReactNode, key: string) {
+	return isEnterpriseQueue(group, variant) ? (
 		<EnterpriseGate key={key} compact>
 			{card}
 		</EnterpriseGate>
@@ -82,7 +85,7 @@ export function IntegrationOnboardingForm({
 	const step: Step = variant ? 3 : group ? 2 : 1;
 	// A deep link can skip the gated card on step 2, so gate the form too.
 	const enterprise = useEnterprise();
-	const locked = group === "queue" && !enterprise;
+	const locked = isEnterpriseQueue(group, variant) && !enterprise;
 
 	const [defaults] = useState(
 		() => (variant && (getDefaultVariantValue(variant as never) as Record<string, unknown>)) || {},
@@ -125,6 +128,7 @@ export function IntegrationOnboardingForm({
 	function variantCard(cardGroup: string, item: string) {
 		return gateQueue(
 			cardGroup,
+			item,
 			<button
 				key={`${cardGroup}:${item}`}
 				type="button"

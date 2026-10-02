@@ -204,7 +204,7 @@ workers beyond the license would only be refused when they start.
 ### Triggers on an outside queue {#external-queues}
 
 A workflow claim also grows on the triggers that read an outside queue —
-Kafka, Amazon SQS, a NATS server of your own, or a Redis stream. KEDA reads each queue itself,
+Kafka, Amazon SQS, a NATS server of your own, a Redis stream, or a RabbitMQ queue. KEDA reads each queue itself,
 next to the claim's other triggers, and the busiest one decides. Each worker
 takes on about *queued runs per pod* waiting messages, as with any trigger.
 
@@ -214,6 +214,7 @@ takes on about *queued runs per pod* waiting messages, as with any trigger.
 | **SQS** | Messages waiting in the queue. | Keys on the integration, or an AWS identity for KEDA itself (below). |
 | **NATS** (your own server) | The trigger's pending messages on its stream. | The integration's *Monitoring endpoint*. |
 | **Redis Streams** | Entries the trigger's consumer group has not read yet. | Redis 7 or newer, reachable from KEDA. |
+| **RabbitMQ** | Messages ready in the queue. | KEDA reaches the broker's AMQP port. |
 
 The connection details go into one Secret per trigger,
 `fluxify-trigger-<trigger id>`, and a KEDA `TriggerAuthentication` of the same
@@ -263,8 +264,15 @@ reports an error for that scaler and the claim does not grow on that stream.
 The integration's password goes into the trigger's Secret; a Redis without one
 needs no Secret at all.
 
-Growing a claim on a queue needs an enterprise license, for Redis Streams as
-for every other trigger.
+#### RabbitMQ
+
+KEDA logs in over AMQP, the same port the trigger uses, and counts the messages
+ready in the queue. Messages already handed to a worker and not yet
+acknowledged are not counted. The integration's connection details, login
+included, go into the trigger's Secret as one `amqp://` or `amqps://` URL.
+
+Growing a claim on a queue needs an enterprise license, for Redis Streams and
+RabbitMQ as for every other trigger. The triggers themselves run without one.
 
 ### The scaling policy {#scaling-policy}
 

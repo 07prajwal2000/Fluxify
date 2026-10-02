@@ -103,6 +103,12 @@ export type ExternalTrigger = { id: string } & (
 			stream: string;
 			consumerGroup: string;
 	  }
+	| {
+			type: "rabbitmq";
+			/** `amqp(s)://user:pass@host:port/vhost`, credentials included: Secret only */
+			url: string;
+			queue: string;
+	  }
 );
 
 /** Shared by every pod: settings copied from the orchestrator, credentials among them. */
@@ -454,37 +460,6 @@ export function buildTriggerSecret(triggerId: string, data: Record<string, strin
 	return secret(triggerSecretName(triggerId), { [TRIGGER_LABEL]: triggerId }, data);
 }
 
-/** A Redis integration, in either form, as KEDA's scaler addresses it. */
-export function redisAddress(
-	redis:
-		| {
-				source: "credentials";
-				host: string;
-				port: string | number;
-				username?: string;
-				password?: string;
-				database?: string;
-		  }
-		| { source: "url"; url: string },
-) {
-	if (redis.source === "credentials")
-		return {
-			address: `${redis.host}:${redis.port}`,
-			username: redis.username || undefined,
-			password: redis.password || undefined,
-			databaseIndex: redis.database || undefined,
-			tls: false,
-		};
-	const url = new URL(redis.url);
-	return {
-		address: `${url.hostname}:${url.port || "6379"}`,
-		username: decodeURIComponent(url.username) || undefined,
-		password: decodeURIComponent(url.password) || undefined,
-		databaseIndex: url.pathname.slice(1) || undefined,
-		tls: url.protocol === "rediss:",
-	};
-}
-
 /** Where KEDA's HTTP call to a NATS monitoring endpoint goes: `host:port`, and whether over https. */
 function monitoring(endpoint: string) {
 	const https = endpoint.startsWith("https://");
@@ -549,6 +524,19 @@ export function externalScaler(trigger: ExternalTrigger, policy: ScalingPolicy) 
 				},
 				...(trigger.username || trigger.password ? { authenticationRef } : {}),
 			};
+		case "rabbitmq":
+			return {
+				// ready messages only, read over AMQP; the URL comes from the Secret as `host`
+				type: "rabbitmq",
+				metadata: {
+					protocol: "amqp",
+					queueName: trigger.queue,
+					mode: "QueueLength",
+					value: threshold,
+					activationValue: "0",
+				},
+				authenticationRef,
+			};
 	}
 }
 
@@ -581,6 +569,7 @@ export function externalSecretData(trigger: ExternalTrigger): Record<string, str
 			...(trigger.password ? { password: trigger.password } : {}),
 		};
 	}
+	if (trigger.type === "rabbitmq") return { host: trigger.url };
 	// NATS's scaler reads only the monitoring endpoint; SQS without keys uses KEDA's identity;
 	// a Redis without a password needs nothing.
 	return null;

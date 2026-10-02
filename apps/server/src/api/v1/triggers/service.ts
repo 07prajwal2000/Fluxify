@@ -147,6 +147,7 @@ export async function updateTrigger(
 				integrationId: data.integrationId ?? existing.integrationId,
 				source: data.source ?? existing.source,
 				batchSize: data.batchSize ?? existing.batchSize,
+				concurrency: data.concurrency ?? existing.concurrency,
 				probe: enabling || data.source !== undefined || data.integrationId !== undefined,
 			},
 			tx,
