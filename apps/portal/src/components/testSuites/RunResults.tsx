@@ -1,6 +1,6 @@
 import { Button, cn, DeleteButton, Spinner, Tabs } from "@fluxify/components";
 import type { SuiteRunResult } from "@fluxify/server/src/db/schema";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
 	TbAlertTriangle,
 	TbCheck,
@@ -132,6 +132,12 @@ function RunHistory({
 	onSelect: (runId: string) => void;
 }) {
 	const [page, setPage] = useState(1);
+	// "5m ago" is worked out at render; re-render each minute so it keeps moving
+	const [, setNow] = useState(0);
+	useEffect(() => {
+		const timer = window.setInterval(() => setNow(Date.now()), 60_000);
+		return () => window.clearInterval(timer);
+	}, []);
 	const runs = testSuitesQuery.getRuns.useQuery(projectId, target, {
 		page,
 		perPage: 10,
