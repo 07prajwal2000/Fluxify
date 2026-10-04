@@ -1,4 +1,4 @@
-import { CompiledQuery, Kysely, MysqlDialect, sql } from "kysely";
+import { type Compilable, CompiledQuery, Kysely, MysqlDialect, sql } from "kysely";
 import { createPool, type Pool } from "mysql2";
 import type { PoolConnection } from "mysql2/promise";
 import {
@@ -24,6 +24,7 @@ import { cachedPrimaryKey } from "./connection";
 import { cursorSorts, type DbCursor, type DbPage, sqlPage } from "./cursor";
 import { applyColumns, buildQualifiers, type QueryOptions } from "./jsonPath";
 import { activeSorts, applySqlSort, type DbSort, singleRow, withTiebreaker } from "./sort";
+import { type CachedRead, cachedRead } from "./sqlCache";
 
 // A generic schema to satisfy Kysely's strict typing without using 'any'
 type FluxifyDatabase = Record<string, Record<string, any>>;
@@ -120,18 +121,17 @@ export class MySqlAdapter implements IDbAdapter {
 		sort: DbSort[] = [],
 		options?: QueryOptions,
 	): Promise<any[]> {
-		const conn = this.getConnection();
-		const qualifiers = buildQualifiers(table, options?.joins);
-		let qb = applyJoins(conn.selectFrom(table as never), options?.joins, "mysql", qualifiers);
-		qb = this.buildQuery(conditions, qb, qualifiers);
-
 		const sorts = await this.withKeys(activeSorts(sort), table, options);
-
-		// MySQL has no OFFSET without LIMIT; its docs give the largest one for "no limit"
-		const q = applyColumns(qb, options?.columns)
-			.limit(limit ?? sql<number>`18446744073709551615`)
-			.offset(offset);
-		return applySqlSort(q, sorts, "mysql", qualifiers).execute();
+		const shape = ["all", table, options?.columns, sorts, limit === null];
+		const tail = limit === null ? [offset] : [limit, offset];
+		return this.read({ shape, conditions, joins: options?.joins, tail }, () => {
+			const { qb, qualifiers } = this.select(this.db, table, conditions, options);
+			// MySQL has no OFFSET without LIMIT; its docs give the largest one for "no limit"
+			const q = applyColumns(qb, options?.columns)
+				.limit(limit ?? sql<number>`18446744073709551615`)
+				.offset(offset);
+			return applySqlSort(q, sorts, "mysql", qualifiers);
+		});
 	}
 
 	async getPage(
@@ -142,10 +142,7 @@ export class MySqlAdapter implements IDbAdapter {
 		cursor: DbCursor,
 		options?: QueryOptions,
 	): Promise<DbPage> {
-		const conn = this.getConnection();
-		const qualifiers = buildQualifiers(table, options?.joins);
-		let qb = applyJoins(conn.selectFrom(table as never), options?.joins, "mysql", qualifiers);
-		qb = this.buildQuery(conditions, qb, qualifiers);
+		const { qb, qualifiers } = this.select(this.getConnection(), table, conditions, options);
 		const sorts = cursorSorts(
 			activeSorts(sort),
 			cursor.keys,
@@ -161,20 +158,24 @@ export class MySqlAdapter implements IDbAdapter {
 		conditions: DBConditionType[],
 		options?: QueryOptions,
 	): Promise<any | null> {
-		const conn = this.getConnection();
-		const qualifiers = buildQualifiers(table, options?.joins);
-		let qb = applyJoins(conn.selectFrom(table as never), options?.joins, "mysql", qualifiers);
-		qb = this.buildQuery(conditions, qb, qualifiers);
 		// unsorted stays unsorted: an ORDER BY nobody asked for only costs time
 		const given = activeSorts(options?.sort);
 		const sorts = given.length ? await this.withKeys(given, table, options) : [];
+		const shape = ["single", table, options?.columns, sorts];
 		// strict reads a second row only to tell that there is one
-		const rows = await applySqlSort(
-			applyColumns(qb, options?.columns).limit(options?.strict ? 2 : 1),
-			sorts,
-			"mysql",
-			qualifiers,
-		).execute();
+		const limit = options?.strict ? 2 : 1;
+		const rows = await this.read(
+			{ shape, conditions, joins: options?.joins, tail: [limit] },
+			() => {
+				const { qb, qualifiers } = this.select(this.db, table, conditions, options);
+				return applySqlSort(
+					applyColumns(qb, options?.columns).limit(limit),
+					sorts,
+					"mysql",
+					qualifiers,
+				);
+			},
+		);
 		return singleRow(rows, options?.strict);
 	}
 
@@ -188,13 +189,33 @@ export class MySqlAdapter implements IDbAdapter {
 		conditions: DBConditionType[],
 		options?: QueryOptions,
 	): Promise<number> {
-		const conn = this.getConnection();
-		const qualifiers = buildQualifiers(table, options?.joins);
-		let qb = applyJoins(conn.selectFrom(table as never), options?.joins, "mysql", qualifiers);
-		qb = this.buildQuery(conditions, qb, qualifiers);
-		const row = await qb.select((eb) => eb.fn.countAll().as("count")).executeTakeFirst();
+		const read = { shape: ["count", table], conditions, joins: options?.joins, tail: [] };
+		const rows = await this.read(read, () =>
+			this.select(this.db, table, conditions, options).qb.select((eb) =>
+				eb.fn.countAll().as("count"),
+			),
+		);
 		// COUNT(*) comes back as a bigint string
-		return Number(row?.count ?? 0);
+		return Number(rows[0]?.count ?? 0);
+	}
+
+	/** a read on the SQL saved for its shape, built only the first time */
+	private read(read: CachedRead, build: () => Compilable) {
+		const run = async (sql: string, params: readonly unknown[]) =>
+			(await this.getConnection().executeQuery(CompiledQuery.raw(sql, [...params]))).rows;
+		return cachedRead(this.db, run, read, build);
+	}
+
+	/** FROM, joins and WHERE: what every read starts with */
+	private select(
+		db: Kysely<FluxifyDatabase>,
+		table: string,
+		conditions: DBConditionType[],
+		options?: QueryOptions,
+	) {
+		const qualifiers = buildQualifiers(table, options?.joins);
+		const from = applyJoins(db.selectFrom(table as never), options?.joins, "mysql", qualifiers);
+		return { qb: this.buildQuery(conditions, from, qualifiers), qualifiers };
 	}
 
 	/** MySQL has no RETURNING: lock and read the matching rows, then delete exactly those */

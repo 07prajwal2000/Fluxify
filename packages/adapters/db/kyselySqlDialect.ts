@@ -18,6 +18,15 @@ import {
 } from "kysely";
 import { exactInt } from "./values";
 
+type BunClient = SQL | Awaited<ReturnType<SQL["reserve"]>>;
+
+/** one query on the pool or a reserved connection, whole numbers read exactly */
+export async function runUnsafe(client: BunClient, sql: string, parameters: readonly unknown[]) {
+	const rows = await (client as any).unsafe(sql, parameters as any[]);
+	if (Array.isArray(rows)) for (const row of rows) for (const k in row) row[k] = exactInt(row[k]);
+	return rows;
+}
+
 // ---------------------------------------------------------------------------
 // Shared connection wrapper
 // ---------------------------------------------------------------------------
@@ -25,14 +34,13 @@ import { exactInt } from "./values";
 class BunSqlConnection implements DatabaseConnection {
 	constructor(
 		// Either a reserved connection (for manual transactions) or the pool itself.
-		private readonly client: SQL | Awaited<ReturnType<SQL["reserve"]>>,
+		private readonly client: BunClient,
 	) {}
 
 	async executeQuery<R>(compiledQuery: CompiledQuery): Promise<QueryResult<R>> {
 		const { sql, parameters } = compiledQuery;
 
-		const rows = await (this.client as any).unsafe(sql, parameters as any[]);
-		if (Array.isArray(rows)) for (const row of rows) for (const k in row) row[k] = exactInt(row[k]);
+		const rows = await runUnsafe(this.client, sql, parameters);
 
 		// Handle Postgres (.count), MySQL (.affectedRows), and SQLite
 		const affected = (rows as any)?.affectedRows ?? (rows as any)?.count;
