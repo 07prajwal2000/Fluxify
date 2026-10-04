@@ -78,21 +78,40 @@ function getBaseZodType(dataType: string, coerce = false): z.ZodTypeAny {
 	}
 }
 
+/**
+ * Presets for the string `format` rule. `url` takes any protocol (tcp://,
+ * rediss://) but needs a host, so `javascript:` and `mailto:` are rejected.
+ */
+const stringFormats: Record<string, (message?: string) => z.core.$ZodCheck<string>> = {
+	uuidv4: (message = "Must be a valid UUID v4") => z.uuidv4(message),
+	uuidv7: (message = "Must be a valid UUID v7") => z.uuidv7(message),
+	email: (message = "Must be a valid email") => z.email(message),
+	url: (message = "Must be a valid URL") => z.url({ hostname: /./, message }),
+	ipv4: (message = "Must be a valid IPv4 address") => z.ipv4(message),
+	ipv6: (message = "Must be a valid IPv6 address") => z.ipv6(message),
+	datetime: (message = "Must be a valid ISO 8601 date-time") =>
+		z.iso.datetime({ offset: true, message }),
+};
+
 // Apply validation rules to a Zod schema
 function applyRules(schema: z.ZodTypeAny, dataType: string, rules: any[] = []): z.ZodTypeAny {
 	let s = schema as any;
 	for (const rule of rules) {
 		if (dataType === "str") {
-			if (rule.type === "minLength" && rule.value != null) s = s.min(Number(rule.value));
-			if (rule.type === "maxLength" && rule.value != null) s = s.max(Number(rule.value));
-			if (rule.type === "regex" && rule.value) s = s.regex(new RegExp(rule.value));
-			if (rule.type === "startsWith" && rule.value) s = s.startsWith(rule.value);
-			if (rule.type === "endsWith" && rule.value) s = s.endsWith(rule.value);
-			if (rule.type === "contains" && rule.value) s = s.includes(rule.value);
+			const msg = rule.message;
+			if (rule.type === "minLength" && rule.value != null) s = s.min(Number(rule.value), msg);
+			if (rule.type === "maxLength" && rule.value != null) s = s.max(Number(rule.value), msg);
+			if (rule.type === "regex" && rule.value) s = s.regex(new RegExp(rule.value), msg);
+			if (rule.type === "startsWith" && rule.value) s = s.startsWith(rule.value, msg);
+			if (rule.type === "endsWith" && rule.value) s = s.endsWith(rule.value, msg);
+			if (rule.type === "contains" && rule.value) s = s.includes(rule.value, msg);
 			if (rule.type === "notContains" && rule.value) {
 				s = s.refine((val: string) => !val.includes(rule.value), {
-					message: `Must not contain ${rule.value}`,
+					message: msg ?? `Must not contain ${rule.value}`,
 				});
+			}
+			if (rule.type === "format" && stringFormats[rule.value]) {
+				s = s.check(stringFormats[rule.value]!(msg));
 			}
 		}
 

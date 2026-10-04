@@ -19,6 +19,17 @@ export async function invalidateOpenApiCache(projectId?: string) {
 	}
 }
 
+/** string `format` rule -> OpenAPI `format` */
+const openApiFormats: Record<string, string> = {
+	uuidv4: "uuid",
+	uuidv7: "uuid",
+	email: "email",
+	url: "uri",
+	ipv4: "ipv4",
+	ipv6: "ipv6",
+	datetime: "date-time",
+};
+
 function schemaDefToOpenApi(def: any): any {
 	if (!def || typeof def !== "object") return {};
 
@@ -48,6 +59,8 @@ function schemaDefToOpenApi(def: any): any {
 			if (rule.type === "minLength" && rule.value != null) result.minLength = Number(rule.value);
 			if (rule.type === "maxLength" && rule.value != null) result.maxLength = Number(rule.value);
 			if (rule.type === "regex" && rule.value) result.pattern = rule.value;
+			if (rule.type === "format" && openApiFormats[rule.value])
+				result.format = openApiFormats[rule.value];
 		}
 		if (def.dataType === "int" || def.dataType === "float") {
 			if (rule.type === "min" && rule.value != null) result.minimum = Number(rule.value);

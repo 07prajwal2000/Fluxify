@@ -1,4 +1,4 @@
-import { existsSync } from "node:fs";
+import { existsSync, watch } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { initializeLogger, logger } from "@fluxify/common";
 import type { RpcResponder } from "@fluxify/common/nats";
@@ -394,6 +394,27 @@ await deps.idle();
 
 supervisor.start();
 supervisor.synchronizeMonitoring();
+
+/**
+ * Dev only (running from source, not the bundled image). `bun --watch` only
+ * restarts this supervisor for files it imports itself; the child is a plain
+ * `bun` process, so edits to code only it runs (schema parser, blocks,
+ * adapters) went unnoticed and requests ran stale code. Recycle it instead.
+ */
+if (!existsSync(bundledProcess)) {
+	let pending: ReturnType<typeof setTimeout> | undefined;
+	const onChange = (_event: string, file: string | null) => {
+		if (!file?.endsWith(".ts") || file.includes("node_modules")) return;
+		clearTimeout(pending);
+		pending = setTimeout(() => {
+			logger.info(`${file} changed — restarting execution process`, "WORKER.execution");
+			supervisor.replace();
+		}, 300);
+	};
+	for (const dir of ["../src", "../../../packages"]) {
+		watch(fileURLToPath(new URL(dir, import.meta.url)), { recursive: true }, onChange);
+	}
+}
 
 /**
  * A consumer that will not start is not a degraded worker, it is a worker that
