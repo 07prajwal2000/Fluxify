@@ -106,7 +106,13 @@ export const testSuitesQuery = {
 			const qc = useQueryClient();
 			return useMutation({
 				mutationFn: () => testSuitesService.clearRuns(projectId, target),
-				onSuccess: () => qc.invalidateQueries({ queryKey: runKey(projectId, target) }),
+				onSuccess: () => {
+					// Drop the deleted runs' details first: invalidating the prefix would refetch
+					// the open one, 404, and (with default retries) hold the dialog open for
+					// seconds. Then refresh only the list.
+					qc.removeQueries({ queryKey: [...runKey(projectId, target), "detail"] });
+					return qc.invalidateQueries({ queryKey: runKey(projectId, target) });
+				},
 			});
 		},
 	},

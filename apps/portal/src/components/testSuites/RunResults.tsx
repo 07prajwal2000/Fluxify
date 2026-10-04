@@ -215,7 +215,7 @@ export function RunResults({
 	target: SuiteTarget;
 	runId: string | null;
 	suiteNames: Record<string, string>;
-	onSelectRun: (runId: string) => void;
+	onSelectRun: (runId: string | null) => void;
 }) {
 	const [view, setView] = useState<"latest" | "history">("latest");
 	const [confirmClear, setConfirmClear] = useState(false);
@@ -324,7 +324,11 @@ export function RunResults({
 				pending={clear.isPending}
 				onConfirm={() =>
 					clear.mutate(undefined, {
-						onSuccess: () => setConfirmClear(false),
+						onSuccess: () => {
+							setConfirmClear(false);
+							// the shown run was just deleted too
+							onSelectRun(null);
+						},
 						onError: (error) => showErrorNotification(error as Error),
 					})
 				}
