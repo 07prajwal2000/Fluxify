@@ -1,3 +1,4 @@
+import type { responseSchema as cloneResponseSchema } from "@fluxify/server/src/api/v1/test-suites/clone/dto";
 import type {
 	requestBodySchema as createRequestBodySchema,
 	responseSchema as createResponseSchema,
@@ -60,6 +61,14 @@ export const testSuitesService = {
 	},
 	async delete(id: string) {
 		await httpClient.delete(`${suitesUrl}/${id}`);
+	},
+	/** copies the suite onto `target` (same project); hooks with no matching block are dropped */
+	async clone(id: string, target: SuiteTarget): Promise<z.infer<typeof cloneResponseSchema>> {
+		const result = await httpClient.post(`${suitesUrl}/${id}/clone`, {
+			kind: target.type,
+			targetId: target.id,
+		});
+		return result.data;
 	},
 
 	/**

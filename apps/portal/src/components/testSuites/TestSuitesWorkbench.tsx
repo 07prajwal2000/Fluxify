@@ -1,6 +1,6 @@
-import { Button, cn, DeleteIconButton, Spinner, toast } from "@fluxify/components";
+import { Button, cn, Dropdown, Label, Spinner, toast } from "@fluxify/components";
 import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
-import { TbPlayerPlay, TbPlus, TbSearch } from "react-icons/tb";
+import { TbCopy, TbDotsVertical, TbPlayerPlay, TbPlus, TbSearch, TbTrash } from "react-icons/tb";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { RouteWorkbenchHeader } from "@/components/routes/RouteWorkbenchTabs";
 import { showErrorNotification } from "@/lib/errorNotifier";
@@ -10,6 +10,7 @@ import { testSuitesQuery } from "@/query/testSuitesQuery";
 import { IN_FLIGHT_STATUSES, type SuiteTarget } from "@/services/testSuites";
 import { AssertionsEditor } from "./AssertionsEditor";
 import { validateAssertions } from "./assertions";
+import { CloneSuiteDialog } from "./CloneSuiteDialog";
 import { HooksEditor } from "./HooksEditor";
 import { hookErrors } from "./hooks";
 import { InputEditor } from "./InputEditor";
@@ -35,6 +36,7 @@ function SuiteList({
 	selectedId,
 	onSelect,
 	onCreate,
+	onClone,
 	onDelete,
 	isCreating,
 }: {
@@ -44,6 +46,7 @@ function SuiteList({
 	selectedId: string | null;
 	onSelect: (id: string) => void;
 	onCreate: () => void;
+	onClone: (suite: { id: string; name: string }) => void;
 	onDelete: (suite: { id: string; name: string }) => void;
 	isCreating: boolean;
 }) {
@@ -98,12 +101,38 @@ function SuiteList({
 							)}
 						>
 							<span className="min-w-0 flex-1 truncate">{suite.name || "Untitled suite"}</span>
-							<DeleteIconButton
-								aria-label={`Delete ${suite.name}`}
-								size="sm"
-								className="opacity-0 transition-opacity group-hover:opacity-100"
-								onPress={() => onDelete(suite)}
-							/>
+							<Dropdown>
+								<Dropdown.Trigger>
+									<Button
+										isIconOnly
+										size="sm"
+										variant="ghost"
+										aria-label={`${suite.name} options`}
+										className="opacity-0 transition-opacity group-hover:opacity-100 focus:opacity-100"
+									>
+										<TbDotsVertical size={16} />
+									</Button>
+								</Dropdown.Trigger>
+								<Dropdown.Popover>
+									<Dropdown.Menu
+										onAction={(key) => (key === "clone" ? onClone(suite) : onDelete(suite))}
+									>
+										<Dropdown.Item id="clone" textValue="Clone">
+											<TbCopy size={16} />
+											<Label>Clone</Label>
+										</Dropdown.Item>
+										<Dropdown.Item
+											id="delete"
+											variant="danger"
+											textValue="Delete"
+											className="text-danger hover:bg-danger/10 focus:bg-danger/10 focus:text-danger"
+										>
+											<TbTrash size={16} className="text-danger" />
+											<Label className="text-danger">Delete</Label>
+										</Dropdown.Item>
+									</Dropdown.Menu>
+								</Dropdown.Popover>
+							</Dropdown>
 						</div>
 					))
 				)}
@@ -134,6 +163,7 @@ export function TestSuitesWorkbench({
 	const [isDirty, setDirty] = useState(false);
 	const [runId, setRunId] = useState<string | null>(null);
 	const [pendingDelete, setPendingDelete] = useState<{ id: string; name: string } | null>(null);
+	const [pendingClone, setPendingClone] = useState<{ id: string; name: string } | null>(null);
 
 	const route = routesQuery.byId.useQuery(target.type === "route" ? target.id : "");
 	const suites = testSuitesQuery.getAll.useQuery(target);
@@ -308,6 +338,7 @@ export function TestSuitesWorkbench({
 					isCreating={create.isPending}
 					onSelect={setSelectedId}
 					onCreate={() => void onCreate()}
+					onClone={setPendingClone}
 					onDelete={setPendingDelete}
 				/>
 
@@ -425,6 +456,15 @@ export function TestSuitesWorkbench({
 					onSelectRun={setRunId}
 				/>
 			</div>
+
+			<CloneSuiteDialog
+				projectId={projectId}
+				target={target}
+				suite={pendingClone}
+				onClose={() => setPendingClone(null)}
+				// a copy on this same target opens right away, like a new suite
+				onCloned={(id, to) => to.type === target.type && to.id === target.id && setSelectedId(id)}
+			/>
 
 			<ConfirmDialog
 				open={!!pendingDelete}

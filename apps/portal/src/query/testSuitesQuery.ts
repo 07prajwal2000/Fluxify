@@ -76,6 +76,17 @@ export const testSuitesQuery = {
 			});
 		},
 	},
+	clone: {
+		mutation() {
+			const qc = useQueryClient();
+			return useMutation({
+				mutationFn: ({ id, target }: { id: string; target: SuiteTarget }) =>
+					testSuitesService.clone(id, target),
+				onSuccess: (_data, { target }) =>
+					qc.invalidateQueries({ queryKey: suiteKey(target), exact: true }),
+			});
+		},
+	},
 
 	startRun: {
 		mutation(projectId: string, target: SuiteTarget) {
