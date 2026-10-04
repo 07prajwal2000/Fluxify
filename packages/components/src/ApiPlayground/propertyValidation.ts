@@ -1,5 +1,47 @@
 import type { ApiSchemaProperty, ApiSchemaRule } from "./types";
 
+const IPV4_PART = "(25[0-5]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)";
+const IPV4 = new RegExp(`^(${IPV4_PART}\\.){3}${IPV4_PART}$`);
+const ISO_DATETIME = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:\d{2})$/;
+
+function hasHost(s: string, prefix = "", suffix = ""): boolean {
+	try {
+		return new URL(prefix + s + suffix).hostname !== "";
+	} catch {
+		return false;
+	}
+}
+
+function isRealDate(ymd: string): boolean {
+	const date = new Date(`${ymd}T00:00:00Z`);
+	return !Number.isNaN(date.getTime()) && date.toISOString().startsWith(ymd);
+}
+
+/** Mirrors the server's string `format` presets; the server stays the real gate. */
+const STRING_FORMATS: Record<string, { label: string; test: (s: string) => boolean }> = {
+	uuidv4: {
+		label: "UUID v4",
+		test: (s) => /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(s),
+	},
+	uuidv7: {
+		label: "UUID v7",
+		test: (s) => /^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(s),
+	},
+	email: { label: "email", test: (s) => /^[^\s@]+@[^\s@]+\.[^\s@.]{2,}$/.test(s) },
+	// any protocol, but it needs a host: tcp://abcd/123 passes, javascript:x does not
+	url: { label: "URL", test: (s) => hasHost(s) },
+	ipv4: { label: "IPv4 address", test: (s) => IPV4.test(s) },
+	ipv6: {
+		label: "IPv6 address",
+		test: (s) => /^[0-9a-f:.]+$/i.test(s) && s.includes(":") && hasHost(s, "http://[", "]"),
+	},
+	datetime: {
+		label: "ISO 8601 date-time",
+		// Date.parse rolls Feb 30 over to Mar 1, so the date part must round-trip
+		test: (s) => ISO_DATETIME.test(s) && isRealDate(s.slice(0, 10)),
+	},
+};
+
 function checkStringRules(s: string, rules: ApiSchemaRule[]): string | null {
 	for (const rule of rules) {
 		const msg = rule.message;
@@ -25,6 +67,8 @@ function checkStringRules(s: string, rules: ApiSchemaRule[]): string | null {
 			return msg ?? `Must contain "${rule.value}"`;
 		if (rule.type === "notContains" && rule.value && s.includes(String(rule.value)))
 			return msg ?? `Must not contain "${rule.value}"`;
+		const format = rule.type === "format" ? STRING_FORMATS[String(rule.value)] : undefined;
+		if (format && !format.test(s)) return msg ?? `Must be a valid ${format.label}`;
 	}
 	return null;
 }

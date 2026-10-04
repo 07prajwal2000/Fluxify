@@ -45,6 +45,8 @@ describe("OpenAPI Service Tests", () => {
           dataType: "object",
           properties: [
             { key: "name", dataType: "str", rules: [{ type: "maxLength", value: 50 }] },
+            { key: "ref", dataType: "str", required: false, rules: [{ type: "format", value: "uuidv7" }] },
+            { key: "site", dataType: "str", required: false, rules: [{ type: "format", value: "url" }] },
             { key: "age", dataType: "int", rules: [{ type: "min", value: 18 }] },
             { key: "role", dataType: "enum", rules: [{ type: "values", value: ["admin", "user"] }] },
             { 
@@ -86,6 +88,8 @@ describe("OpenAPI Service Tests", () => {
     expect(bodyContent.required).toEqual(["name", "age", "role", "tags"]);
     expect(bodyContent.properties.name.type).toBe("string");
     expect(bodyContent.properties.name.maxLength).toBe(50);
+    expect(bodyContent.properties.ref.format).toBe("uuid");
+    expect(bodyContent.properties.site.format).toBe("uri");
     expect(bodyContent.properties.age.type).toBe("integer");
     expect(bodyContent.properties.age.minimum).toBe(18);
     expect(bodyContent.properties.role.type).toBe("string");

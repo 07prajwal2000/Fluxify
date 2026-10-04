@@ -108,6 +108,20 @@ You only need to configure the ones that matter for your route — unused schema
 | `Blob` | A raw binary body (`application/octet-stream`), with optional size rules |
 | `Use JavaScript` | Custom validation logic you write yourself |
 
+A `String` field can also pick a ready-made **Format**. Any other value is rejected with a clear message, like `Must be a valid UUID v4`:
+
+| Format | Accepts |
+| :--- | :--- |
+| UUID v4 / UUID v7 | A UUID of that version, e.g. `550e8400-e29b-41d4-a716-446655440000` |
+| Email | An email address |
+| URL | A URL with any protocol and a host, e.g. `https://a.com`, `tcp://host:9000`, `rediss://host/0` |
+| IPv4 / IPv6 address | An IP address of that version |
+| ISO 8601 date-time | e.g. `2024-01-01T10:00:00Z` or `2024-01-01T10:00:00+05:30` |
+
+::: tip
+Need something these don't cover, like only `https` URLs? Use a regex pattern or `Use JavaScript`.
+:::
+
 ### Form Fields Are Converted for You
 
 Everything in a form body (`application/x-www-form-urlencoded` or

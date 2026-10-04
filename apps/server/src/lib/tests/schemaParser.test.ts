@@ -29,6 +29,38 @@ describe('schemaParser Exhaustive Test Suite', () => {
       expect((await parseRequestSchema(schema, 'hello b3autiful world', context)).success).toBe(false); // regex failure
     });
 
+    test('String format presets accept valid values and reject others', async () => {
+      const cases: Record<string, [string[], string[]]> = {
+        uuidv4: [["550e8400-e29b-41d4-a716-446655440000"], ["0190d3e2-7c3a-7b2e-8f00-000000000000", "not-a-uuid"]],
+        uuidv7: [["0190d3e2-7c3a-7b2e-8f00-000000000000"], ["550e8400-e29b-41d4-a716-446655440000"]],
+        email: [["a@b.co"], ["a@b", "a b@c.com"]],
+        url: [["https://a.com/x", "tcp://abcd/123", "rediss://u:p@h:6380/0"], ["javascript:alert(1)", "mailto:a@b.com", "nope"]],
+        ipv4: [["192.168.0.1"], ["256.1.1.1", "1.2.3"]],
+        ipv6: [["::1", "2001:db8::1"], ["1::2::3", "fe80::1%eth0"]],
+        datetime: [["2024-01-01T00:00:00Z", "2024-01-01T00:00:00+05:30"], ["2024-01-01", "2024-02-30T00:00:00Z"]],
+      };
+      for (const [format, [valid, invalid]] of Object.entries(cases)) {
+        const schema = { dataType: 'str', rules: [{ type: 'format', value: format }] };
+        for (const v of valid) expect([format, v, (await parseRequestSchema(schema, v, context)).success]).toEqual([format, v, true]);
+        for (const v of invalid) expect([format, v, (await parseRequestSchema(schema, v, context)).success]).toEqual([format, v, false]);
+      }
+      const uuid = await parseRequestSchema({ dataType: 'str', rules: [{ type: 'format', value: 'uuidv4' }] }, 'x', context);
+      expect(uuid.errors?.[0]?.errors).toEqual(['Must be a valid UUID v4']);
+    });
+
+    test('String rules use their custom message', async () => {
+      const schema = {
+        dataType: 'str',
+        rules: [
+          { type: 'minLength', value: 3, message: 'too short' },
+          { type: 'format', value: 'email', message: 'need an email' },
+          { type: 'notContains', value: 'x', message: 'no x' },
+        ],
+      };
+      const result = await parseRequestSchema(schema, 'ax', context);
+      expect(result.errors?.flatMap((e) => e.errors)).toEqual(['too short', 'need an email', 'no x']);
+    });
+
     test('Integer and Float validations (min, max)', async () => {
       const schemaInt = {
         dataType: 'int',

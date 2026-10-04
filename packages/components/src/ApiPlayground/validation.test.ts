@@ -42,6 +42,23 @@ describe("validatePropertyValue", () => {
 		);
 	});
 
+	it("validates string format presets like the server", () => {
+		const cases: Record<string, [string[], string[]]> = {
+			uuidv4: [["550e8400-e29b-41d4-a716-446655440000"], ["0190d3e2-7c3a-7b2e-8f00-000000000000", "not-a-uuid"]],
+			uuidv7: [["0190d3e2-7c3a-7b2e-8f00-000000000000"], ["550e8400-e29b-41d4-a716-446655440000"]],
+			email: [["a@b.co"], ["a@b", "a b@c.com"]],
+			url: [["https://a.com/x", "tcp://abcd/123", "rediss://u:p@h:6380/0"], ["javascript:alert(1)", "mailto:a@b.com", "nope"]],
+			ipv4: [["192.168.0.1"], ["256.1.1.1", "1.2.3"]],
+			ipv6: [["::1", "2001:db8::1"], ["1::2::3", "fe80::1%eth0"]],
+			datetime: [["2024-01-01T00:00:00Z", "2024-01-01T00:00:00+05:30"], ["2024-01-01", "2024-02-30T00:00:00Z"]],
+		};
+		for (const [format, [valid, invalid]] of Object.entries(cases)) {
+			const prop = { key: "f", dataType: "str", rules: [{ type: "format", value: format }] };
+			for (const v of valid) expect([format, v, validatePropertyValue(v, prop)]).toEqual([format, v, null]);
+			for (const v of invalid) expect([format, v, validatePropertyValue(v, prop)?.startsWith("Must be a valid")]).toEqual([format, v, true]);
+		}
+	});
+
 	it("validates int / integer types", () => {
 		expect(validatePropertyValue("123", { key: "age", dataType: "int" }, { coerce: true })).toBeNull();
 		expect(validatePropertyValue("-5", { key: "age", dataType: "int" }, { coerce: true })).toBeNull();

@@ -278,7 +278,7 @@ Fluxify uses a specific JSON format for schemas. DO NOT output standard JSON Sch
 \`\`\`
 
 ### Supported Types and Rules
-- \`str\`: \`minLength\`, \`maxLength\`, \`regex\`, \`startsWith\`, \`endsWith\`, \`contains\`, \`notContains\`.
+- \`str\`: \`minLength\`, \`maxLength\`, \`regex\`, \`startsWith\`, \`endsWith\`, \`contains\`, \`notContains\`, \`format\` (value one of \`uuidv4\`, \`uuidv7\`, \`email\`, \`url\`, \`ipv4\`, \`ipv6\`, \`datetime\`).
 - \`int\` / \`float\`: \`min\`, \`max\`. \`bool\` has no rules.
 - \`arr\`: \`items\` plus \`minItems\`, \`maxItems\`. \`enum\`: a \`values\` rule with an array of permitted values.
 - \`object\`: a \`properties\` array. \`js\`: validator source in \`js\`. \`file\` / \`blob\`: \`minSize\`, \`maxSize\`, \`mimeTypes\`.
