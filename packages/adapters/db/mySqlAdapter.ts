@@ -20,6 +20,7 @@ import {
 	type WriteResult,
 } from ".";
 import { applyJoins, applySqlConditions } from "./conditions";
+import { cachedPrimaryKey } from "./connection";
 import { cursorSorts, type DbCursor, type DbPage, sqlPage } from "./cursor";
 import { applyColumns, buildQualifiers, type QueryOptions } from "./jsonPath";
 import { activeSorts, applySqlSort, type DbSort, singleRow, withTiebreaker } from "./sort";
@@ -51,12 +52,11 @@ type Row = Record<string, any>;
 export class MySqlAdapter implements IDbAdapter {
 	public static variant = "MySQL";
 	private mode: DbAdapterMode = DbAdapterMode.NORMAL;
+	private readonly keyless = new Set<string>();
 
 	private reservedConn: PoolConnection | null = null;
 	private originalRelease: (() => void) | null = null;
 	private transactionDb: Kysely<FluxifyDatabase> | null = null;
-	// ponytail: never invalidated, a PK altered at runtime needs a new adapter
-	private readonly primaryKeys = new Map<string, string[]>();
 
 	constructor(
 		private readonly db: Kysely<FluxifyDatabase>,
@@ -400,14 +400,11 @@ export class MySqlAdapter implements IDbAdapter {
 		return whereKeys(conn.selectFrom(table as never).selectAll(), pk, keys).execute();
 	}
 
-	private async primaryKey(table: string): Promise<string[]> {
-		let pk = this.primaryKeys.get(table);
-		if (!pk) {
+	private primaryKey(table: string): Promise<string[]> {
+		return cachedPrimaryKey(this.db, this.keyless, table, async () => {
 			const rows: Row[] = await this.raw(PRIMARY_KEY_SQL, [table]);
-			pk = rows.map((r) => r.column_name);
-			this.primaryKeys.set(table, pk);
-		}
-		return pk;
+			return rows.map((r) => r.column_name);
+		});
 	}
 
 	/** Runs `fn` in the open transaction, or in a new one. Never BEGIN inside an open one: MySQL commits it. */

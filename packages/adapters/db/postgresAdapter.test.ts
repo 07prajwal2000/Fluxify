@@ -6,6 +6,7 @@ import {
 	describe,
 	test,
 	expect,
+	spyOn,
 } from "bun:test";
 import { PostgresAdapter } from "./postgresAdapter";
 import { Connection, DbType } from ".";
@@ -548,5 +549,24 @@ describe("PostgresAdapter Integration Tests", () => {
 		)) as any[];
 		expect(pricey.map((r) => r.price)).toEqual([20, 30]);
 		expect(pricey.map((r) => r.author)).toEqual(["Alice", "Bob"]);
+	});
+	test("a table's primary key is looked up once per pool, not per request (#408)", async () => {
+		const table = `pk_${faker.string.alphanumeric(8).toLowerCase()}`;
+		const query = (text: string) => sql.unsafe(text);
+		await query(`CREATE TABLE ${table} (name TEXT)`);
+		const raw = spyOn(PostgresAdapter.prototype, "raw");
+		const lookups = () => raw.mock.calls.filter(([q]) => String(q).includes("indisprimary")).length;
+		// a new adapter per request, as DbFactory makes them, all on one pool
+		const request = () => new PostgresAdapter(db, sql).getAll(table, [], 10);
+		try {
+			await request();
+			await request();
+			expect(lookups()).toBe(2); // "no key" is not remembered...
+			await query(`ALTER TABLE ${table} ADD COLUMN id SERIAL PRIMARY KEY`);
+			for (let i = 0; i < 3; i++) await request();
+			expect(lookups()).toBe(3); // ...so a key added later is found, then kept
+		} finally {
+			raw.mockRestore();
+		}
 	});
 });

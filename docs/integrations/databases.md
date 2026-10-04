@@ -54,6 +54,29 @@ The [DB Transaction](/blocks/db-transaction) block only works when MongoDB runs 
 
 Every database connection stops a query that runs longer than its **Query timeout** (30 seconds unless you change it). The block that ran the query fails with a timeout error, which you can handle like any other error. This keeps one slow query from holding a connection that other requests need.
 
+## How connections are handled
+
+You don't need to open or close database connections yourself. Each database integration keeps a small set of open connections (a pool), and every route and workflow that uses that integration shares it. A request borrows a connection for each query and hands it straight back, so requests don't wait for a new connection to open.
+
+| Database | Most connections open at once, per integration, per worker |
+| --- | --- |
+| PostgreSQL | 10 |
+| MySQL | 2 |
+| MongoDB | 100 |
+
+What to expect:
+
+- **The first request after a quiet period is slightly slower.** It opens the pool. Every request after that reuses it.
+- **Idle pools close on their own.** When nothing has used an integration for 7.5 minutes, its connections close and the next request opens them again. Your server admin can change this; see [the idle timeout setting](/deployments/production#database-integration-idle-timeout).
+- **Saving changes to an integration takes effect right away.** New requests use the new settings at once. Requests already running finish on the old connections (for up to 30 seconds), which then close.
+- **A transaction keeps one connection for itself** until it commits or rolls back. Keep transactions short so other requests aren't left waiting.
+- **Table details are remembered.** The first query on a table looks up its primary key once, and later requests reuse what it found. If you change a table's primary key while Fluxify is running, the change is picked up the next time the pool opens: after it idles out, after you save the integration, or after a restart.
+- **Test connection uses its own short-lived connection**, so testing never takes connections from running requests.
+
+::: tip Plan your database's connection limit
+Each worker keeps its own pool. The most connections your database will see from Fluxify is about **workers × the number above**, for each integration. For example, 4 workers on one PostgreSQL integration can open up to 40 connections. Make sure your database's connection limit allows for that.
+:::
+
 ## Value types
 
 Every DB block gives back the same kind of JavaScript value for a column, whichever database it came from:
@@ -82,9 +105,11 @@ The MongoDB database handle in [DB Native](/blocks/db-native) is the raw driver,
 
 The DB Get All, Get Single, Update and Delete blocks can use a **Custom** condition when the [built-in operators](/blocks/db-conditions#operators) (in, contains, between, is null, …) are not enough. What you write depends on the database:
 
+::: v-pre
 | Database | You write | Example |
 | --- | --- | --- |
 | PostgreSQL, MySQL | SQL, with run-time values in `{{ }}` | `tags @> {{ input.tags }}` |
 | MongoDB | JavaScript returning a [query filter object](https://www.mongodb.com/docs/manual/tutorial/query-documents/) | `return { tags: { $all: input.tags } }` |
+:::
 
 See [Custom conditions](/blocks/db-conditions#custom-conditions) for the details.
