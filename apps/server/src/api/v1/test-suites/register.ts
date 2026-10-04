@@ -1,4 +1,5 @@
 import type { HonoServer } from "../../../types";
+import appClone from "./clone/route";
 import appCreate from "./create/route";
 import appDelete from "./delete/route";
 import appDeleteRuns from "./delete-runs/route";
@@ -27,6 +28,7 @@ export default {
 		// Test suite specific operations
 		appUpdate(router);
 		appDelete(router);
+		appClone(router);
 		appGetById(router);
 
 		// Test runs

@@ -73,6 +73,41 @@ export async function replaceSuiteHooks(
 	if (rows.length) await tx.insert(testSuiteBlockHooksEntity).values(rows);
 }
 
+/** the name the user gave a block; "Name" is the server's placeholder, not a name */
+export function blockName(data: any): string {
+	const name = typeof data?.blockName === "string" ? data.blockName.trim() : "";
+	return name === "Name" ? "" : name;
+}
+
+type CanvasBlock = { id: string; type: string; name: string };
+
+/**
+ * Move a suite's hooks onto another canvas (#497). Block ids are unique across
+ * every canvas, so a hook keeps its block on the same target and otherwise
+ * moves to the one block there with the same type and name. Hooks with no such
+ * block, or whose block is already taken, are dropped.
+ */
+export function matchHooks(
+	hooks: (BlockHook & { blockType: string; blockName: string })[],
+	targetBlocks: CanvasBlock[],
+) {
+	const kept: BlockHook[] = [];
+	const dropped: string[] = [];
+	const used = new Set<string>();
+	for (const { blockType, blockName: name, ...hook } of hooks) {
+		const byId = targetBlocks.find((b) => b.id === hook.blockId);
+		const byName = targetBlocks.filter((b) => name && b.type === blockType && b.name === name);
+		const block = byId ?? (byName.length === 1 ? byName[0] : undefined);
+		if (!block || used.has(block.id)) {
+			dropped.push(name || blockType);
+			continue;
+		}
+		used.add(block.id);
+		kept.push({ ...hook, blockId: block.id });
+	}
+	return { kept, dropped };
+}
+
 /** hooks for each suite, with the block's type and name the child labels results by */
 export async function loadSuiteHooks(suiteIds: string[]) {
 	const bySuite = new Map<string, SuiteHook[]>();
@@ -94,13 +129,7 @@ export async function loadSuiteHooks(suiteIds: string[]) {
 		list.push({
 			...hook,
 			blockType: blockType ?? "",
-			// "Name" is the server's placeholder for an unnamed block, not a name
-			blockName:
-				(typeof data?.blockName === "string" &&
-					data.blockName.trim() !== "Name" &&
-					data.blockName.trim()) ||
-				blockType ||
-				"",
+			blockName: blockName(data) || blockType || "",
 		});
 		bySuite.set(suiteId, list);
 	}
