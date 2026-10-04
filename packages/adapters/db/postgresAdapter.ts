@@ -17,6 +17,7 @@ import {
 	type WriteResult,
 } from ".";
 import { applyJoins, applySqlConditions } from "./conditions";
+import { cachedPrimaryKey } from "./connection";
 import { cursorSorts, type DbCursor, type DbPage, sqlPage } from "./cursor";
 import { applyColumns, buildQualifiers, type QueryOptions } from "./jsonPath";
 import { BunSqlPostgresDialect } from "./kyselySqlDialect";
@@ -64,8 +65,7 @@ const regclassName = (table: string) =>
 export class PostgresAdapter implements IDbAdapter {
 	public static variant = "PostgreSQL";
 	private mode: DbAdapterMode = DbAdapterMode.NORMAL;
-	// ponytail: never invalidated, a PK altered at runtime needs a new adapter
-	private readonly primaryKeys = new Map<string, string[]>();
+	private readonly keyless = new Set<string>();
 
 	private reservedConn: Awaited<ReturnType<SQL["reserve"]>> | null = null;
 	private transactionDb: Kysely<FluxifyDatabase> | null = null;
@@ -113,16 +113,13 @@ export class PostgresAdapter implements IDbAdapter {
 		return result.rows;
 	}
 
-	private async primaryKey(table: string): Promise<string[]> {
-		let pk = this.primaryKeys.get(table);
-		if (!pk) {
+	private primaryKey(table: string): Promise<string[]> {
+		return cachedPrimaryKey(this.db, this.keyless, table, async () => {
 			const rows: { column_name: string }[] = await this.raw(PRIMARY_KEY_SQL, [
 				regclassName(table),
 			]);
-			pk = rows.map((r) => r.column_name);
-			this.primaryKeys.set(table, pk);
-		}
-		return pk;
+			return rows.map((r) => r.column_name);
+		});
 	}
 
 	async introspect(): Promise<IntrospectedTable[]> {
