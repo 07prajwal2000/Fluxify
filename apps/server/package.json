@@ -56,7 +56,7 @@
 		"better-auth": "1.6.23",
 		"dayjs": "^1.11.21",
 		"dotenv": "^17.4.2",
-		"drizzle-orm": "^0.44.7",
+		"drizzle-orm": "^0.45.3",
 		"drizzle-zod": "^0.8.3",
 		"flexsearch": "^0.8.212",
 		"gray-matter": "^4.0.3",
