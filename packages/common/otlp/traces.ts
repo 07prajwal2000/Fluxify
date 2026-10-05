@@ -118,6 +118,7 @@ function spanAttributes(span: TraceSpanRecord) {
 		"fluxify.block.type": span.blockType,
 		"fluxify.seq": span.seq,
 	};
+	if (span.blockName) attributes["fluxify.block.name"] = span.blockName;
 	if (span.customBlockId) attributes["fluxify.custom_block.id"] = span.customBlockId;
 	if (span.branch) attributes["fluxify.branch"] = span.branch;
 	if (span.truncated) attributes["fluxify.truncated"] = true;
@@ -220,7 +221,7 @@ export function exportRun(provider: BasicTracerProvider, run: TraceRunPayload): 
 		staged.spanId = spanIdFor(run.runId, record.seq);
 
 		const span = tracer.startSpan(
-			record.blockType,
+			record.blockName ? `${record.blockType}: ${record.blockName}` : record.blockType,
 			{
 				startTime: wallClock(run, record.startedAt),
 				attributes: spanAttributes(record),

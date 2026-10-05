@@ -154,6 +154,7 @@ export abstract class BaseTraceRecorder implements BlockTrace {
 			...(scope.parentSeq === undefined ? {} : { parentSeq: scope.parentSeq }),
 			blockId: span.blockId,
 			blockType: span.blockType,
+			...(span.blockName ? { blockName: span.blockName } : {}),
 			...(scope.customBlockId ? { customBlockId: scope.customBlockId } : {}),
 			startedAt: span.startedAt,
 			endedAt: span.endedAt,

@@ -8,6 +8,7 @@ import { type HoistedImport, hoistImports } from "./imports";
 import { assertInstalled, importTarget, type ProjectDependencies } from "./packageImports";
 import { compilerLib, emitters } from "./registry";
 import { scopeFor } from "./scope";
+import { blockSpans } from "./spans";
 import { emitAfterHook, emitBeforeHook, hookSupport } from "./testHooks";
 
 export { compilerLib, type Emitter } from "./registry";
@@ -151,6 +152,14 @@ export type CompileOptions = {
 	 * checks at all.
 	 */
 	hooks?: boolean;
+	/**
+	 * Emit span recording (#576). Off for a route or workflow with tracing
+	 * disabled: nothing would ever read the spans, so the timer, the try/catch
+	 * and the `$trace` checks are only dead weight in the artifact. Custom blocks
+	 * and test compiles keep the default — a custom block is shared by traced and
+	 * untraced callers, and test runs are where per-block recording will land.
+	 */
+	tracing?: boolean;
 };
 
 /** turn compiled source back into a runnable graph (worker side, no compiler) */
@@ -169,7 +178,13 @@ export function instantiateCompiled(source: string) {
 export function compileGraph(
 	blocks: BlockDTOType[],
 	edges: EdgeDTOSchemaType,
-	{ asCustomBlock = false, asWorkflow = false, dependencies, hooks = false }: CompileOptions = {},
+	{
+		asCustomBlock = false,
+		asWorkflow = false,
+		dependencies,
+		hooks = false,
+		tracing = true,
+	}: CompileOptions = {},
 ) {
 	const byId = new Map(blocks.map((b) => [b.id, b]));
 	const edgeMap = buildEdgeMap(edges);
@@ -347,22 +362,7 @@ export function compileGraph(
 				: emitters[block.type as BlockTypes];
 		if (!emitter) throw new Error(`No codegen for block type: ${block.type}`);
 		const blockId = JSON.stringify(block.id);
-		const blockType = JSON.stringify(block.type);
-
-		function recordSpan(output: string, error?: string, branch?: "success" | "failure") {
-			const outcome = error === undefined ? "success" : "failure";
-			const branchField = branch ? `, branch: ${JSON.stringify(branch)}` : "";
-			const errorField = error === undefined ? "" : `, error: ${error}`;
-			const span = `{ blockId: ${blockId}, blockType: ${blockType}, input: $input, output: ${output}, startedAt: $t0, endedAt: performance.now(), outcome: ${JSON.stringify(outcome)}${branchField}${errorField} }`;
-			return `$recorded = true;
-if ($trace) {
-try {
-$trace.recordSpan(${span});
-} catch {
-// Telemetry must never change route execution.
-}
-}`;
-		}
+		const spans = blockSpans(block, tracing);
 
 		const support = hooks ? hookSupport(block.type) : "none";
 		const afterHook = (target: string) => emitAfterHook(support, target);
@@ -395,7 +395,7 @@ $trace.recordSpan(${span});
 			const saveAs = saved && outputVariableName(block.data);
 			// vars is per request, so outputs never leak into the next one
 			const save = saveAs ? `(vars.outputs ??= {})[${JSON.stringify(saveAs)}] = ${saved};\n` : "";
-			return `${runAfter ? afterHook("$in") : ""}${save}${recordSpan("$in", undefined, branch)}
+			return `${runAfter ? afterHook("$in") : ""}${save}${spans.record("$in", undefined, branch)}
 ${continuation}`;
 		};
 
@@ -412,8 +412,7 @@ ${continuation}`;
 				const result = `$bodyResult_${counter++}`;
 				// mark this block as reported before handing off — an executor's
 				// throw must not be misattributed to the loop block that called it
-				return `$recorded = true;
-const ${result} = await ${blockFunctionName(to)}($state, ${initExpr}, ${end});
+				return `${spans.handOff && `${spans.handOff};\n`}const ${result} = await ${blockFunctionName(to)}($state, ${initExpr}, ${end});
 if (${result} !== undefined) return ${result};`;
 			},
 			has(handle) {
@@ -424,18 +423,18 @@ if (${result} !== undefined) return ${result};`;
 					(to) => `${blockFunctionName(to)}($state, $in, $endBranch)`,
 				);
 				// reported before handing off, like body(): a branch's throw is its own
-				return `($recorded = true, await $parallel([${runs.join(", ")}], ${settle}))`;
+				return `(${spans.handOff && `${spans.handOff}, `}await $parallel([${runs.join(", ")}], ${settle}))`;
 			},
 			cases(handle, order) {
 				return fanOutTargets(id, handle, order).map((to) => ({
 					to,
-					run: `${recordSpan("$in")}\nreturn await ${blockFunctionName(to)}($state, $in, $end);`,
+					run: `${spans.record("$in")}\nreturn await ${blockFunctionName(to)}($state, $in, $end);`,
 				}));
 			},
 			complete(output) {
 				const result = `$result_${counter++}`;
 				return `let ${result} = ${output};
-${afterHook(result)}${recordSpan(result)}
+${afterHook(result)}${spans.record(result)}
 return ${result};`;
 			},
 			value(raw) {
@@ -451,18 +450,7 @@ return ${result};`;
 
 		return `// ${block.type} ${id}
 async function ${blockFunctionName(id)}($state, $input, $end) {
-const { ctx, vars, scope: $scope, trace: $trace } = $state;
-const $t0 = $trace ? performance.now() : 0;
-let $in = $input;
-let $recorded = false;
-try {
-${emitBeforeHook(block.type, blockId, support, (h) => continueTo(h, false))}${code}
-} catch ($error) {
-if (!$recorded) {
-${recordSpan("undefined", "$error")}
-}
-throw $error;
-}
+${spans.wrap(`${emitBeforeHook(block.type, blockId, support, (h) => continueTo(h, false))}${code}`)}
 }`;
 	}
 

@@ -130,6 +130,21 @@ describe("exportRun", () => {
 		expect(found[1]!.spanContext().spanId).toBe(found[3]!.spanContext().spanId);
 	});
 
+	it("names a block span after the block, falling back to its type", () => {
+		const { provider, spans } = collector();
+
+		exportRun(
+			provider,
+			run({ spans: [span(0, "entry", 0, 5), span(1, "fetch", 6, 9, { blockName: "Get users" })] }),
+		);
+
+		const named = byName(spans(), "fetch");
+		expect(named.name).toBe("jsrunner: Get users");
+		expect(named.attributes["fluxify.block.name"]).toBe("Get users");
+		expect(byName(spans(), "entry").name).toBe("jsrunner");
+		expect(byName(spans(), "entry").attributes["fluxify.block.name"]).toBeUndefined();
+	});
+
 	it("records the error on the block that failed", () => {
 		const { provider, spans } = collector();
 

@@ -1,3 +1,4 @@
+import { blockName } from "@fluxify/blocks";
 import { generateID } from "@fluxify/lib";
 import { eq } from "drizzle-orm";
 import { db } from "../../../../db";
@@ -9,7 +10,7 @@ import {
 import { CustomError } from "../../../../errors/customError";
 import { NotFoundError } from "../../../../errors/notFoundError";
 import { ServerError } from "../../../../errors/serverError";
-import { blockName, matchHooks, replaceSuiteHooks } from "../../../../modules/testRunner/hooks";
+import { matchHooks, replaceSuiteHooks } from "../../../../modules/testRunner/hooks";
 import {
 	type SuiteTarget,
 	targetColumn,

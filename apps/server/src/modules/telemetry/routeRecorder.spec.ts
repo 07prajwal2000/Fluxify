@@ -17,6 +17,7 @@ describe("RouteTraceRecorder", () => {
 		recorder.recordSpan({
 			blockId: "entry",
 			blockType: "entrypoint",
+			blockName: "Start",
 			input: { id: 42n },
 			output: { accepted: true },
 			startedAt: 10,
@@ -35,6 +36,7 @@ describe("RouteTraceRecorder", () => {
 				{
 					seq: 0,
 					blockId: "entry",
+					blockName: "Start",
 					input: { id: "42" },
 					output: { accepted: true },
 				},
