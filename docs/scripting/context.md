@@ -222,13 +222,13 @@ return result.data;
 ```
 ## Database Helper (DB Native Block Only)
 
-`dbQuery` is **exclusively available** inside the **DB Native** block. The compiler only emits this helper for that block.
+`dbQuery` is **exclusively available** inside the **DB Native** block, on PostgreSQL and MySQL. On MongoDB the block gives you `db` and `ObjectId` instead (see [DB Native](../blocks/db-native.md#mongodb)). There, `dbQuery("...")` with a query throws, and `await dbQuery()` with nothing returns `db`.
 
 ```typescript
 dbQuery(query: string, params?: unknown[]): Promise<Record<string, unknown>[]>
 ```
 
-It returns the result rows as an array. Pass values through `params` with `$1` (PostgreSQL) or `?` (MySQL) placeholders, never by building the query string yourself.
+It returns the result rows as an array. Pass values through `params` with `$1`, `$2` placeholders, never by building the query string yourself. They work on both PostgreSQL and MySQL; MySQL also takes `?`.
 
 ```javascript
 // Only works inside a DB Native block:
@@ -236,7 +236,7 @@ const users = await dbQuery("SELECT id, name FROM users WHERE active = $1", [tru
 return users;
 ```
 
-Outside a DB Native block, `dbQuery` is not defined, and calling it fails.
+Outside a DB Native block, `dbQuery` is not defined, and calling it fails. A variable of your own named `dbQuery` (or `db`, `ObjectId`, `kv`) is hidden while the block's code runs and keeps its value afterwards.
 ## Trigger
 
 `trigger` tells you what started the run. It is available everywhere, and it is most useful in workflows, where it holds the events a trigger collected.
@@ -351,7 +351,8 @@ import { z } from "zod";       // any package installed in the project
 await httpClient.get(url)      // await works anywhere
 
 // ─── DB Native block only ─────────────────────────────────────
-dbQuery("SELECT ...")
+dbQuery("SELECT ...")                        // PostgreSQL, MySQL
+db.collection("users").find().toArray()      // MongoDB
 
 // ─── KV Raw Connection block only ─────────────────────────────
 kv.get("key")
@@ -362,7 +363,7 @@ kv.get("key")
 - **`vars` is the canonical source**: Both built-in helpers and user-defined runtime variables live on the same `vars` object (`ContextVarsType & Record<string, any>`). User variables are simply additional keys added at runtime.
 - **`input` is per block**: The compiler carries each block's result forward as `input`; it changes with each block execution.
 - **Scripts are async functions**: each script is wrapped as `async function (input, params)`, so `await` is always valid and the result is whatever it returns.
-- **`dbQuery` and `kv` are block-scoped**: they exist only while a DB Native or KV Raw Connection block runs its code.
+- **`dbQuery`, `db`, `ObjectId` and `kv` are block-scoped**: they exist only while a DB Native or KV Raw Connection block runs its code.
 - **`params` is per invocation**: a custom block reads it from its own call, so nested and concurrent calls never clash.
 - **Global lookup**: a bare name is read from the run's `vars` first, then from the standard JavaScript and Bun globals.
 - **Packages run on the server**: packages you install are imported by your scripts on the server, not in the browser.

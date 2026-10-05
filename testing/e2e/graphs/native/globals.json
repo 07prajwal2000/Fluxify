@@ -1,0 +1,38 @@
+{
+	"name": "native/globals",
+	"description": "GET /native/globals — sets a graph variable named dbQuery, runs native code, then returns the native result next to the variable, which must still hold its value.",
+	"engine": "pg",
+	"route": { "method": "GET", "path": "/native/globals" },
+	"blocks": [
+		{ "id": "entry", "type": "entrypoint", "position": { "x": 0, "y": 0 }, "data": { "blockName": "Request" } },
+		{
+			"id": "mine",
+			"type": "setvar",
+			"position": { "x": 240, "y": 0 },
+			"data": { "blockName": "My dbQuery", "key": "dbQuery", "value": "mine" }
+		},
+		{
+			"id": "run",
+			"type": "db_native",
+			"position": { "x": 480, "y": 0 },
+			"data": {
+				"blockName": "Native",
+				"connection": "primary",
+				"js": "return await dbQuery(\"SELECT $1::int AS a, $1::int AS b\", [7]);"
+			}
+		},
+		{
+			"id": "after",
+			"type": "jsrunner",
+			"position": { "x": 720, "y": 0 },
+			"data": { "blockName": "Result and variable", "value": "return { result: input, dbQuery };" }
+		},
+		{ "id": "reply", "type": "response", "position": { "x": 960, "y": 0 }, "data": { "blockName": "200", "httpCode": "200" } }
+	],
+	"edges": [
+		{ "id": "e-entry-mine", "from": "entry", "to": "mine", "fromHandle": "source", "toHandle": "source" },
+		{ "id": "e-mine-run", "from": "mine", "to": "run", "fromHandle": "source", "toHandle": "source" },
+		{ "id": "e-run-after", "from": "run", "to": "after", "fromHandle": "source", "toHandle": "source" },
+		{ "id": "e-after-reply", "from": "after", "to": "reply", "fromHandle": "source", "toHandle": "source" }
+	]
+}

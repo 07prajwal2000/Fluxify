@@ -154,7 +154,7 @@ export const API_DOCS: ApiDocItem[] = [
 		kind: "function",
 		signature: "dbQuery(query: string, params?: unknown[]): Promise<Record<string, unknown>[]>",
 		description:
-			"Executes parameterized SQL query with $1, $2 placeholders (PostgreSQL) or ? (MySQL).",
+			"Executes a parameterized SQL query with $1, $2 placeholders (MySQL also takes ?). PostgreSQL and MySQL only; on MongoDB use db.collection(...).",
 		category: "database",
 		example:
 			'const rows = await dbQuery("SELECT * FROM users WHERE id = $1", [input.id]);\nreturn rows;',

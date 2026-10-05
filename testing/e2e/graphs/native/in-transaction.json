@@ -1,0 +1,33 @@
+{
+	"name": "native/in-transaction",
+	"description": "POST /native/tx — MongoDB native code inside a Transaction block: inserts a todo, reads it back, then fails when the body asks for undo. A failure rolls the insert back.",
+	"engine": "mongo",
+	"route": { "method": "POST", "path": "/native/tx" },
+	"blocks": [
+		{ "id": "entry", "type": "entrypoint", "position": { "x": 0, "y": 0 }, "data": { "blockName": "Request" } },
+		{
+			"id": "tx",
+			"type": "db_transaction",
+			"position": { "x": 240, "y": 0 },
+			"data": { "blockName": "Transaction", "connection": "primary", "executor": "work" }
+		},
+		{
+			"id": "work",
+			"type": "db_native",
+			"position": { "x": 240, "y": -240 },
+			"data": {
+				"blockName": "Insert and read back",
+				"connection": "primary",
+				"js": "const _id = new ObjectId();\nawait db.collection(\"todos\").insertOne({ _id, title: \"native\" });\nconst found = await db.collection(\"todos\").findOne({ _id });\nif (getRequestBody().undo) throw new Error(\"undo\");\nreturn { readBack: found?._id.equals(_id) === true };"
+			}
+		},
+		{ "id": "ok", "type": "response", "position": { "x": 480, "y": 0 }, "data": { "blockName": "200", "httpCode": "200" } },
+		{ "id": "failed", "type": "response", "position": { "x": 480, "y": 120 }, "data": { "blockName": "409", "httpCode": "409" } }
+	],
+	"edges": [
+		{ "id": "e-entry-tx", "from": "entry", "to": "tx", "fromHandle": "source", "toHandle": "source" },
+		{ "id": "e-tx-work", "from": "tx", "to": "work", "fromHandle": "executor", "toHandle": "executor" },
+		{ "id": "e-tx-ok", "from": "tx", "to": "ok", "fromHandle": "success", "toHandle": "success" },
+		{ "id": "e-tx-failed", "from": "tx", "to": "failed", "fromHandle": "failure", "toHandle": "failure" }
+	]
+}

@@ -2,6 +2,7 @@ import z from "zod";
 import { baseBlockDataSchema, type Context } from "../../baseBlock";
 import { BlockTypes } from "../../blockTypes";
 import type { EmitNode } from "../../compiler";
+import { withGlobals } from "../snippetGlobals";
 import { kvAdapterFor, kvFailure } from "./schema";
 
 export const kvRawBlockSchema = z
@@ -22,21 +23,13 @@ export const kvRawAiDescription = {
 	jsonSchema: JSON.stringify(z.toJSONSchema(kvRawBlockSchema)),
 };
 
-/**
- * `kv` is published on vars for the duration of the snippet and deleted after,
- * exactly as the native db block does it with `dbQuery`. Inlined user code
- * reaches it through the scope proxy.
- */
+/** `kv` is on vars only while the snippet runs; a graph variable named `kv` is put back after */
 export async function runKvRaw(context: Context, connection: string, body: () => Promise<unknown>) {
-	const adapter = kvAdapterFor(context, connection);
-	const vars = context.vars as Record<string, any>;
-	vars.kv = adapter.getConnection();
+	const kv = kvAdapterFor(context, connection).getConnection();
 	try {
-		return await body();
+		return await withGlobals(context.vars as Record<string, unknown>, { kv }, body);
 	} catch (error) {
 		kvFailure("raw connection", error);
-	} finally {
-		delete vars.kv;
 	}
 }
 

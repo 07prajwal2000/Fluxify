@@ -52,10 +52,10 @@ declare function getConfig(key: string): string | number | boolean;
 declare const httpRequestMethod: string;
 declare const httpRequestRoute: string;
 /**
- * run database query inside DB Native block
- * @param query SQL query. Use $1 (PostgreSQL) or ? (MySQL) placeholders for values
+ * run a SQL query inside the DB Native block (PostgreSQL, MySQL). On MongoDB use db instead
+ * @param query SQL query. Use $1, $2 placeholders for values (MySQL also takes ?)
  * @param params values for the placeholders, in order. Never build the query string from user input
- * @returns the result rows (MongoDB: the raw db instance)
+ * @returns the result rows
  * @example const users = await dbQuery("SELECT * FROM users WHERE id = $1", [id]);
  */
 declare function dbQuery(query: string, params?: unknown[]): Promise<any[]>;

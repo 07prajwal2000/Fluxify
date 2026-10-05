@@ -24,7 +24,7 @@ const SLOW: Record<Exclude<Engine, "none" | "pg">, string> = {
 	// SLEEP alone is not an error when interrupted; reading rows through it is
 	mysql: 'return await dbQuery("SELECT SLEEP(2) FROM users");',
 	mongo:
-		'const db = await dbQuery();\nreturn await db.collection("todos").find({ $where: "sleep(2000) || true" }).toArray();',
+		'return await db.collection("todos").find({ $where: "sleep(2000) || true" }).toArray();',
 };
 
 /** what each engine says when it stops the query */

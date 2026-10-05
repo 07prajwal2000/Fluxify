@@ -217,9 +217,8 @@ export interface ContextVarsType {
 	 */
 	getConfig(key: string): string | number | boolean;
 	/**
-	 * run database query inside DB Native block
-	 * @param query SQL supported query
-	 * @returns
+	 * run a SQL query inside the DB Native block (PostgreSQL, MySQL); on MongoDB a query throws and no query returns `db`
+	 * @param query SQL with $1, $2 placeholders (MySQL also takes ?)
 	 */
 	dbQuery?: (query: string, params?: unknown[]) => Promise<unknown>;
 	logger: AbstractLogger;
@@ -276,7 +275,9 @@ function setCookie(name: string, options: {
 
 // 4. System & Utilities
 	function getConfig(key: string): string | number | boolean | undefined;
-	function dbQuery(query: string, params?: unknown[]): Promise<any[]>; // Only available in DB Native block. Returns rows; pass values via params with $1 (Postgres) / ? (MySQL)
+	function dbQuery(query: string, params?: unknown[]): Promise<any[]>; // Only in the DB Native block on PostgreSQL/MySQL. Returns rows; pass values via params with $1, $2 placeholders (MySQL also takes ?)
+	const db: import("mongodb").Db; // Only in the DB Native block on MongoDB: await db.collection("users").find({}).toArray(). Inside a transaction every collection call joins it
+	const ObjectId: typeof import("mongodb").ObjectId; // Only in the DB Native block on MongoDB: new ObjectId(id)
 	const logger: { 
 		logInfo(...args: any[]): void; 
 		logError(...args: any[]): void; 

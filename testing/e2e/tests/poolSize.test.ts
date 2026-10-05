@@ -11,7 +11,7 @@ const BOTH: Record<Exclude<Engine, "none" | "pg">, string> = {
 	mysql: 'await Promise.all([dbQuery("SELECT SLEEP(0.5)"), dbQuery("SELECT SLEEP(0.5)")]);\nreturn { done: 2 };',
 	// limit 1: $where runs once, on the first document
 	mongo:
-		'const db = await dbQuery();\nconst slow = () => db.collection("todos").find({ $where: "sleep(500) || true" }).limit(1).toArray();\nawait Promise.all([slow(), slow()]);\nreturn { done: 2 };',
+		'const slow = () => db.collection("todos").find({ $where: "sleep(500) || true" }).limit(1).toArray();\nawait Promise.all([slow(), slow()]);\nreturn { done: 2 };',
 };
 
 function fixture(engine: Exclude<Engine, "none">, maxConnections?: number): GraphFixture {

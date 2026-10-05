@@ -19,11 +19,11 @@ The **DB Native** block gives you direct access to your database with JavaScript
 | Field | Required | Default | What it does |
 | --- | --- | --- | --- |
 | **Connection** | Yes | none | The database integration to use. |
-| **JS** | Yes | none | The code to run. It can call `dbQuery(query, params?)` and must `return` the result. |
+| **JS** | Yes | none | The code to run. It can call `dbQuery(query, params?)` (or use `db` on MongoDB) and must `return` the result. |
 | **Save output to variable** | No | off | Store the result in `outputs.<name>`. |
 
 - **SQL (PostgreSQL, MySQL):** `dbQuery(query, params?)` runs the query and returns the result rows as a list.
-- **MongoDB:** `dbQuery()` returns the raw `db` connection. See the [MongoDB driver docs](https://www.mongodb.com/docs/drivers/node/current/crud/) for how to use it.
+- **MongoDB:** use `db` and `ObjectId` instead. See [MongoDB](/blocks/db-native#mongodb) below.
 
 ## Outputs
 
@@ -59,7 +59,7 @@ The next block receives:
 - **You must `return` the result.** Without `return`, the next block receives nothing.
 - **Always `await` the call.** Without it you get a pending promise instead of rows.
 - **Errors fail the block.** A bad query, a missing table or a lost connection goes to the [Error Handler](./error-handler.md).
-- **Inside a transaction,** the query is part of the [DB Transaction](./db-transaction.md) it runs in.
+- **Inside a transaction,** the query is part of the [DB Transaction](./db-transaction.md) it runs in. On MongoDB this covers every `db.collection(...)` read and write.
 - **Value types** follow the other DB blocks. For example, `COUNT(*)` is a number and a `DECIMAL` is text. See [Value types](/integrations/databases#value-types).
 - **No safety net.** The query runs exactly as written. A `DELETE` without `WHERE` deletes everything.
 - **It replaces the flowing data** with what you return.
@@ -71,7 +71,9 @@ Never put user input straight into the query text. Pass it in the `params` array
 | Database | Placeholder |
 | --- | --- |
 | PostgreSQL | `$1`, `$2`, … |
-| MySQL | `?` |
+| MySQL | `$1`, `$2`, … or `?` |
+
+`$1` is the first value in `params`, `$2` the second, and so on. The same number can appear more than once. The placeholders work the same on both databases. On MySQL, use either `$1` or `?` in one query, not both. A `$1` inside quotes, like `'$1'` or the JSON path `'$.name'`, is plain text and not a placeholder.
 
 ```javascript
 const search = getQueryParam("q");
@@ -85,6 +87,25 @@ return users; // [{ id: 1, username: "john", email: "john@example.com" }]
 ::: warning
 Writing `` `... WHERE username = ${search}` `` puts the raw text into the SQL. A value like `john:doe` then breaks the query with a syntax error, and a crafted value can change what the query does (SQL injection). Placeholders avoid both.
 :::
+
+## MongoDB
+
+On a MongoDB connection, the code gets two things instead of `dbQuery`:
+
+| Name | What it is |
+| --- | --- |
+| `db` | The database, already connected, from the official [MongoDB driver](https://www.mongodb.com/docs/drivers/node/current/crud/). |
+| `ObjectId` | Builds document ids: `new ObjectId("665f…")`. |
+
+```javascript
+const id = new ObjectId(getRouteParam("id"));
+await db.collection("orders").updateOne({ _id: id }, { $set: { status: "paid" } });
+return await db.collection("orders").findOne({ _id: id });
+```
+
+- **Inside a [DB Transaction](./db-transaction.md),** every `db.collection(...)` read and write joins the transaction on its own. If the transaction rolls back, the writes are undone. Commands on `db` itself (like `db.command(...)`) and index changes don't join it.
+- **`dbQuery("...")` with a query throws on MongoDB**, with the message "dbQuery takes SQL; on MongoDB use db.collection(...)". Older code that calls `await dbQuery()` with nothing still works: it returns the same `db`.
+- The code editor knows the driver's types, so `db.` suggests methods as you type.
 
 ## Related blocks
 
