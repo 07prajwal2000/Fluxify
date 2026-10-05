@@ -43,7 +43,15 @@ describe("native MongoDB in a transaction", () => {
 		expect(await todos()).toBe(before + 1);
 	});
 
-	it("refuses dbQuery with a pointer to db", async () => {
+	it("still hands back db from dbQuery() with no query, for older code", async () => {
+		await resetDatabase("mongo");
+		const run = await runGraph(withJs(inTransaction, "work", 'const old = await dbQuery();\nreturn { todos: await old.collection("todos").countDocuments() };'));
+
+		expect(run.status).toBe(200);
+		expect(run.body).toEqual({ todos: await todos() });
+	});
+
+	it("refuses dbQuery with a query, with a pointer to db", async () => {
 		await resetDatabase("mongo");
 		const run = await runGraph(withJs(inTransaction, "work", 'return await dbQuery("SELECT 1");'));
 

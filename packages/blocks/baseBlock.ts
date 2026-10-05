@@ -217,7 +217,7 @@ export interface ContextVarsType {
 	 */
 	getConfig(key: string): string | number | boolean;
 	/**
-	 * run a SQL query inside the DB Native block (PostgreSQL, MySQL); throws on MongoDB, which gets `db`
+	 * run a SQL query inside the DB Native block (PostgreSQL, MySQL); on MongoDB a query throws and no query returns `db`
 	 * @param query SQL with $1, $2 placeholders (MySQL also takes ?)
 	 */
 	dbQuery?: (query: string, params?: unknown[]) => Promise<unknown>;

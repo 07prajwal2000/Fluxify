@@ -222,7 +222,7 @@ return result.data;
 ```
 ## Database Helper (DB Native Block Only)
 
-`dbQuery` is **exclusively available** inside the **DB Native** block, on PostgreSQL and MySQL. On MongoDB the block gives you `db` and `ObjectId` instead (see [DB Native](../blocks/db-native.md#mongodb)), and `dbQuery` throws.
+`dbQuery` is **exclusively available** inside the **DB Native** block, on PostgreSQL and MySQL. On MongoDB the block gives you `db` and `ObjectId` instead (see [DB Native](../blocks/db-native.md#mongodb)). There, `dbQuery("...")` with a query throws, and `await dbQuery()` with nothing returns `db`.
 
 ```typescript
 dbQuery(query: string, params?: unknown[]): Promise<Record<string, unknown>[]>

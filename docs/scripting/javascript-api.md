@@ -274,7 +274,7 @@ const ObjectId: ObjectId; // MongoDB: builds ids
 
 | API | Parameters | Returns | Description |
 | --- | --- | --- | --- |
-| `dbQuery` | `query: string`, `params?: unknown[]` | `Promise<rows[]>` | Runs a SQL query and returns the rows. Put values in `params` and use `$1`, `$2` placeholders (MySQL also takes `?`). PostgreSQL and MySQL only; it throws on MongoDB. |
+| `dbQuery` | `query: string`, `params?: unknown[]` | `Promise<rows[]>` | Runs a SQL query and returns the rows. Put values in `params` and use `$1`, `$2` placeholders (MySQL also takes `?`). PostgreSQL and MySQL only. On MongoDB, a query throws and `dbQuery()` with nothing returns `db`. |
 | `db` | none | `Db` | MongoDB only: the database, from the official MongoDB driver. Inside a transaction, every collection call joins it. |
 | `ObjectId` | `id?: string` | `ObjectId` | MongoDB only: `new ObjectId(id)` turns a string into an id you can query `_id` with. |
 

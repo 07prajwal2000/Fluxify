@@ -12,7 +12,7 @@ export const nativeDbBlockSchema = z
 		js: z
 			.string()
 			.describe(
-				"js code to execute. PostgreSQL/MySQL: dbQuery(query: string, params?: unknown[]) global returning rows; use $1, $2 placeholders (MySQL also takes ?), never interpolate values. MongoDB: db global is the driver's Db (await db.collection('users').find({ age: { $gt: 18 } }).toArray()) and ObjectId builds ids; inside a transaction every collection call joins it; dbQuery throws on MongoDB",
+				"js code to execute. PostgreSQL/MySQL: dbQuery(query: string, params?: unknown[]) global returning rows; use $1, $2 placeholders (MySQL also takes ?), never interpolate values. MongoDB: db global is the driver's Db (await db.collection('users').find({ age: { $gt: 18 } }).toArray()) and ObjectId builds ids; inside a transaction every collection call joins it; dbQuery(sql) throws on MongoDB",
 			),
 	})
 	.extend(baseBlockDataSchema.shape);
@@ -31,11 +31,16 @@ async function nativeGlobals(context: Context, connection: string) {
 	const adapter = current();
 	if (!(adapter instanceof MongoAdapter))
 		return { dbQuery: (...args: Parameters<typeof adapter.raw>) => current().raw(...args) };
+	const db = sessionBoundDb(await adapter.raw(), () =>
+		(current() as MongoAdapter).transactionSession(),
+	);
 	return {
-		db: sessionBoundDb(await adapter.raw(), () => (current() as MongoAdapter).transactionSession()),
+		db,
 		ObjectId,
-		dbQuery: () => {
-			throw new Error(MONGO_DB_QUERY);
+		// saved code wrote `const db = await dbQuery()`: no query still hands back db
+		dbQuery: async (query?: unknown) => {
+			if (query !== undefined) throw new Error(MONGO_DB_QUERY);
+			return db;
 		},
 	};
 }

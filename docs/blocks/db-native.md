@@ -104,7 +104,7 @@ return await db.collection("orders").findOne({ _id: id });
 ```
 
 - **Inside a [DB Transaction](./db-transaction.md),** every `db.collection(...)` read and write joins the transaction on its own. If the transaction rolls back, the writes are undone. Commands on `db` itself (like `db.command(...)`) and index changes don't join it.
-- **`dbQuery` throws on MongoDB**, with the message "dbQuery takes SQL; on MongoDB use db.collection(...)".
+- **`dbQuery("...")` with a query throws on MongoDB**, with the message "dbQuery takes SQL; on MongoDB use db.collection(...)". Older code that calls `await dbQuery()` with nothing still works: it returns the same `db`.
 - The code editor knows the driver's types, so `db.` suggests methods as you type.
 
 ## Related blocks
