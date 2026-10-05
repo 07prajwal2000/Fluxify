@@ -69,7 +69,7 @@ By default every column is returned. To narrow the result, list the columns you 
 - **Without a sort, any matching record may come back.** Set **Sort** when several records can match and you care which one you get.
 - **Strict fails on duplicates.** With **Strict** on and more than one match, the block fails and the [Error Handler](./error-handler.md) runs. No match still returns `null`.
 - **Database errors** (bad connection, missing table or column) go to the [Error Handler](./error-handler.md).
-- **MongoDB:** it has no joins yet. A graph with joins on a MongoDB connection can't be saved.
+- **MongoDB:** joins are skipped. To combine collections, use a [DB Native](/blocks/db-native#joining-collections) block.
 - **It replaces the flowing data.** The next block's `input` is the record, not what came before. Use **Save output to variable** to keep both.
 
 ## Related blocks

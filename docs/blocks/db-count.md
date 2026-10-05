@@ -48,7 +48,7 @@ The next block receives `3`. Use it in a [Response](./response.md) body or an [I
 
 - **No conditions counts every record** in the table.
 - **With joins, each joined row counts once.** A user with two orders counts twice when you join `orders`.
-- **MongoDB has no joins yet.** A graph with joins on a MongoDB connection can't be saved.
+- **MongoDB:** joins are skipped. To combine collections, use a [DB Native](/blocks/db-native#joining-collections) block.
 - **A missing table:** on MongoDB, a collection that doesn't exist counts as `0`. On PostgreSQL and MySQL, a missing table is an error.
 - **Database errors** (bad connection, missing table or column) go to the [Error Handler](./error-handler.md).
 - **It replaces the flowing data** with the number.

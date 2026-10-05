@@ -7,10 +7,11 @@ import {
 } from "@fluxify/components";
 import { useParams } from "@tanstack/react-router";
 import { useReactFlow } from "@xyflow/react";
-import { TbAlertTriangle } from "react-icons/tb";
+import { TbExternalLink, TbInfoCircle } from "react-icons/tb";
 import { useDbMetadata } from "@/query/findResourceQuery";
 import { useCanvasChanges } from "../../../changes/ChangesContext";
 import type { BlockNode } from "../../../types";
+import { DOCS_SITE } from "../../docs/blockDocs";
 import {
 	normalizeJoin,
 	parseDbConditionList,
@@ -44,16 +45,25 @@ export function DbJoinsSettings({ block }: { block: BlockNode }) {
 	return (
 		<div className="flex flex-col gap-4 w-full">
 			{mongo && (
-				<Alert status="warning">
+				<Alert status="accent">
 					<Alert.Indicator>
-						<TbAlertTriangle size={16} />
+						<TbInfoCircle size={16} />
 					</Alert.Indicator>
 					<Alert.Content>
-						<Alert.Title>MongoDB has no joins yet</Alert.Title>
+						<Alert.Title>Joins aren't available on MongoDB</Alert.Title>
 						<Alert.Description>
-							Joins work on PostgreSQL and MySQL only. A MongoDB block with joins cannot be saved,
-							so remove any joins listed below.
+							To combine collections, use a DB Native block with MongoDB's own lookup. Joins already
+							listed here are kept for when you switch back to PostgreSQL or MySQL, and are skipped
+							while this block uses MongoDB.
 						</Alert.Description>
+						<a
+							href={`${DOCS_SITE}/blocks/db-native.html#joining-collections`}
+							target="_blank"
+							rel="noopener noreferrer"
+							className="mt-1 flex items-center gap-1 text-xs text-accent hover:underline"
+						>
+							See how to join in DB Native <TbExternalLink size={13} />
+						</a>
 					</Alert.Content>
 				</Alert>
 			)}

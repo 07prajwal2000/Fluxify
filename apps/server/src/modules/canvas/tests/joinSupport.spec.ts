@@ -27,10 +27,10 @@ describe("assertJoinsSupported", () => {
 		}
 	});
 
-	it("refuses any join on MongoDB", () => {
-		expect(() => assertJoinsSupported([getAll("mongo", "inner")], dbTypeOf)).toThrow(
-			"MongoDB has no joins yet",
-		);
+	it("keeps joins on MongoDB, which skips them (#529)", () => {
+		for (const type of ["inner", "full"]) {
+			expect(() => assertJoinsSupported([getAll("mongo", type)], dbTypeOf)).not.toThrow();
+		}
 	});
 
 	it("leaves a js: connection to run time", () => {
