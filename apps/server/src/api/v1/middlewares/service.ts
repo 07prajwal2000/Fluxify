@@ -3,6 +3,7 @@ import { eq } from "drizzle-orm";
 import type z from "zod";
 import { db } from "../../../db";
 import { type AuthACL, middlewaresEntity } from "../../../db/schema";
+import { ConflictError } from "../../../errors/conflictError";
 import { ForbiddenError } from "../../../errors/forbidError";
 import { NotFoundError } from "../../../errors/notFoundError";
 import { requestMiddlewareCompile } from "../../../modules/compiler/publisher";
@@ -111,10 +112,17 @@ export async function update(id: string, data: z.infer<typeof updateBodySchema>,
 
 export async function remove(id: string, caller: Caller) {
 	const middleware = await middlewareFor(id, caller, "creator");
+	// Refused, not detached for the user (#579): a route artifact names its
+	// middlewares by id, and nothing orders this artifact's drop after those
+	// routes' rebuilds. A route whose rebuild failed would keep naming it and
+	// fail every request.
 	const routes = await routesUsing(id);
-	// the route_middlewares rows cascade, so the routes only need recompiling
+	if (routes.length) {
+		throw new ConflictError(
+			`Remove this middleware from the ${routes.length} route${routes.length === 1 ? "" : "s"} that use it first.`,
+		);
+	}
 	await db.delete(middlewaresEntity).where(eq(middlewaresEntity.id, id));
-	await recompileRoutes(routes);
 	await requestMiddlewareCompile(id, middleware.projectId, "middleware deleted");
 	return { id };
 }

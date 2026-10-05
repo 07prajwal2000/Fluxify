@@ -150,8 +150,14 @@ function MiddlewaresPage() {
 											>
 												<TbEdit size={16} />
 											</Button>
+											{/* a middleware routes still use can't be deleted (#579) */}
 											<DeleteIconButton
-												aria-label={`Delete ${middleware.name}`}
+												aria-label={
+													middleware.routeCount
+														? `Remove ${middleware.name} from its routes to delete it`
+														: `Delete ${middleware.name}`
+												}
+												isDisabled={!!middleware.routeCount}
 												onPress={() => setPendingDelete(middleware)}
 											/>
 										</div>
@@ -179,10 +185,7 @@ function MiddlewaresPage() {
 					setPendingDelete(null);
 				}}
 			>
-				Delete <b className="text-foreground">{pendingDelete?.name}</b>?
-				{pendingDelete?.routeCount
-					? ` It is removed from the ${pendingDelete.routeCount} route${pendingDelete.routeCount === 1 ? "" : "s"} that use it.`
-					: " No route uses it."}
+				Delete <b className="text-foreground">{pendingDelete?.name}</b>? No route uses it.
 			</ConfirmDialog>
 		</div>
 	);
