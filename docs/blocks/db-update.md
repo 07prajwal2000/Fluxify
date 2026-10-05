@@ -84,6 +84,18 @@ With **Custom JavaScript** or **Use Param**, return the same thing as an object:
 - The database does the math, so two runs at the same moment both count. Reading the value, adding in JavaScript and writing it back can lose one of them.
 - `value` must be a number. Text such as `"3"` fails the block, so convert query params first (`Number(...)`).
 
+## Two requests changing the same record
+
+Reading a record, checking it in the graph and then writing it can go wrong when two requests run at once: both read the same value, both pass the check, and both write. Let the update itself do the check instead. Put the check in **Conditions** and test `count` afterwards.
+
+**Only take what is there.** Reserving stock: **Decrement** `stock` by the amount, with the condition `stock >= amount`. If `count` is `0`, there wasn't enough, so lead to a `409` [Response](./response.md). Two orders can't both take the last item.
+
+**Only change what you read (version check).** Give the table a `version` number. Update with the condition `id = 4 AND version = <the version you read>`, and **Increment** `version` by 1 along with your changes. If `count` is `0`, someone else changed the record first: read it again or reply `409`.
+
+**Claim one record.** Taking a free rider: read one with [DB Get Single](./db-get-single.md), then update it with the condition `id = <its id> AND busy = false` and set `busy` to `true`. If `count` is `0`, another request took it first, so try the next one.
+
+These work the same on PostgreSQL, MySQL and MongoDB, and need no [DB Transaction](./db-transaction.md). When a check needs several reads, use a transaction with the **Serializable** [isolation level](./db-transaction.md#isolation-level) and **Retries**. To lock rows yourself (`SELECT … FOR UPDATE`), run that query in a [DB Native](./db-native.md) block inside the transaction.
+
 ## Related blocks
 
 - [DB Insert](./db-insert.md): add records, or insert-or-update.
