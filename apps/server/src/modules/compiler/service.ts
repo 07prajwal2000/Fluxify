@@ -215,7 +215,9 @@ export async function compileRoute(routeId: string) {
 	const dependencies = await compileDependencies(route.projectId!);
 	let source: string;
 	try {
-		({ source } = compileOrThrow(resource, () => compileGraph(blocks, edges, { dependencies })));
+		({ source } = compileOrThrow(resource, () =>
+			compileGraph(blocks, edges, { dependencies, tracing: route.tracingEnabled }),
+		));
 	} catch (error) {
 		return recordFailure(error);
 	}
@@ -300,7 +302,11 @@ export async function compileWorkflow(workflowId: string) {
 		// `asWorkflow` is the one thing the compiler is told: a response block has
 		// nothing to respond to here, so it compiles to a plain terminal.
 		({ source } = compileOrThrow(resource, () =>
-			compileGraph(blocks, edges, { asWorkflow: true, dependencies }),
+			compileGraph(blocks, edges, {
+				asWorkflow: true,
+				dependencies,
+				tracing: workflow.tracingEnabled,
+			}),
 		));
 	} catch (error) {
 		return recordFailure(error);

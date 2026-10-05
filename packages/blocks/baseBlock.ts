@@ -95,6 +95,8 @@ export interface TriggerContext {
 export type BlockTraceSpan = {
 	blockId: string;
 	blockType: string;
+	/** the name the user gave the block; absent when it has none */
+	blockName?: string;
 	input: unknown;
 	output: unknown;
 	/**
@@ -379,6 +381,12 @@ export function rowsOf<R>(data: SingleOrMultiple<R>): R[] {
 export function rowsOutput<R>(data: SingleOrMultiple<R>, emitRow: (row: R) => string): string {
 	const out = rowsOf(data).map(emitRow);
 	return data.mode === "multiple" ? `[${out.join(", ")}]` : out[0];
+}
+
+/** the name the user gave a block; "Name" is the server's placeholder, not a name */
+export function blockName(data: any): string {
+	const name = typeof data?.blockName === "string" ? data.blockName.trim() : "";
+	return name === "Name" ? "" : name;
 }
 
 /**

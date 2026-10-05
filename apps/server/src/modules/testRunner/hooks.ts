@@ -1,3 +1,4 @@
+import { blockName } from "@fluxify/blocks";
 import { hookSupport } from "@fluxify/blocks/testHooks";
 import { and, eq, inArray } from "drizzle-orm";
 import { type DbTransactionType, db } from "../../db";
@@ -71,12 +72,6 @@ export async function replaceSuiteHooks(
 			onAfter: h.onAfter ?? null,
 		}));
 	if (rows.length) await tx.insert(testSuiteBlockHooksEntity).values(rows);
-}
-
-/** the name the user gave a block; "Name" is the server's placeholder, not a name */
-export function blockName(data: any): string {
-	const name = typeof data?.blockName === "string" ? data.blockName.trim() : "";
-	return name === "Name" ? "" : name;
 }
 
 type CanvasBlock = { id: string; type: string; name: string };

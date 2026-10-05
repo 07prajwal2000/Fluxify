@@ -163,6 +163,86 @@ describe("compileGraph tracing and edge validation", () => {
 		unregisterCustomBlock("scoped_block");
 	});
 
+	it("names spans after the block, ignoring the placeholder name", async () => {
+		const { spans, trace } = collectSpans();
+		const ctx = createContext();
+		ctx.trace = trace;
+		const { run } = compileGraph(
+			[
+				block("entry", BlockTypes.entrypoint, { blockName: "Name" }),
+				block("double", BlockTypes.jsrunner, {
+					value: "return input * 2;",
+					blockName: " Double it ",
+				}),
+			],
+			[edge("entry", "double")],
+		);
+
+		await run(ctx, 21);
+
+		expect(spans[0]).not.toHaveProperty("blockName");
+		expect(spans[1]?.blockName).toBe("Double it");
+	});
+
+	describe("with tracing off", () => {
+		const graph = (tracing = false) =>
+			compileGraph(
+				[
+					block("entry", BlockTypes.entrypoint),
+					block("orch", BlockTypes.orchestrator, { order: ["a", "b"] }),
+					block("a", BlockTypes.jsrunner, { value: "return input * 2;" }),
+					block("b", BlockTypes.jsrunner, { value: "return input + 1;" }),
+					block("loop", BlockTypes.forloop, { start: 0, end: 2, step: 1 }),
+					block("step", BlockTypes.jsrunner, { value: "return null;" }),
+					block("response", BlockTypes.response, { httpCode: "200" }),
+				],
+				[
+					edge("entry", "orch"),
+					edge("orch", "a", "orchestrate"),
+					edge("orch", "b", "orchestrate"),
+					edge("orch", "loop"),
+					edge("loop", "step", "executor"),
+					edge("loop", "response"),
+				],
+				{ tracing },
+			);
+
+		it("emits no span code", () => {
+			const { source } = graph();
+			for (const marker of ["recordSpan", "$trace", "$t0", "$recorded"]) {
+				expect(source).not.toContain(marker);
+			}
+		});
+
+		it("runs the same and records nothing even with a trace attached", async () => {
+			const { spans, trace } = collectSpans();
+			const ctx = createContext();
+			ctx.trace = trace;
+
+			const result = await graph().run(ctx, 21);
+
+			expect(result).toEqual(await graph(true).run(createContext(), 21));
+			expect(result.successful).toBe(true);
+			expect(spans).toEqual([]);
+		});
+
+		it("still fails a run whose block throws", async () => {
+			const { run } = compileGraph(
+				[
+					block("entry", BlockTypes.entrypoint),
+					block("explode", BlockTypes.jsrunner, { value: "throw new Error('boom');" }),
+				],
+				[edge("entry", "explode")],
+				{ tracing: false },
+			);
+
+			const result = await run(createContext(), null);
+
+			expect(result.successful).toBe(false);
+			expect(String(result.error)).toContain("boom");
+		});
+	});
+
 	it("rejects multiple outgoing edges on one handle", () => {
 		expect(() =>
 			compileGraph(
