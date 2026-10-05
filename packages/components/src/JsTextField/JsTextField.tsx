@@ -40,13 +40,16 @@ export type JsTextFieldProps = {
 	onBlur?: () => void;
 	/** If true, disables JavaScript expression mode and hides the JS toggle. */
 	disableJs?: boolean;
-	/** Optional list of autocomplete suggestions */
-	suggestions?: string[];
+	/** Optional list of autocomplete suggestions. A `{ value, label }` one shows and
+	 * matches on its label but writes its value. */
+	suggestions?: JsTextFieldSuggestion[];
 	/** Optional list of custom snippets to show in the modal sidebar */
 	snippets?: CodeSnippet[];
 	/** If true, uses the legacy compact modal instead of the two-column editor modal */
 	legacyModal?: boolean;
 };
+
+export type JsTextFieldSuggestion = string | { value: string; label: string };
 
 export type FieldInfo = {
 	content: ReactNode;
@@ -137,7 +140,9 @@ export function JsTextField({
 		if (!suggestions || suggestions.length === 0) return [];
 		const current = (value || "").toLowerCase().trim();
 		if (!current || current === "*") return suggestions;
-		const matches = suggestions.filter((s) => s.toLowerCase().includes(current));
+		const matches = suggestions.filter((s) =>
+			(typeof s === "string" ? s : `${s.value} ${s.label}`).toLowerCase().includes(current),
+		);
 		return matches.length > 0 ? matches : suggestions;
 	}, [suggestions, value]);
 

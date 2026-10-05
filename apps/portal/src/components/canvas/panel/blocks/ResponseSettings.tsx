@@ -4,10 +4,11 @@
 import { httpcodes } from "@/lib/httpcode";
 import type { BlockNode } from "../../types";
 import { BlockSettings } from "../BlockSettings";
-import { BlockCheckboxField, BlockSelectField } from "../fields";
+import { BlockCheckboxField, BlockJsTextField } from "../fields";
 import { JsRunnerSettings } from "./JsRunnerSettings";
 
-const HTTP_CODE_OPTIONS = httpcodes.map((code) => ({
+// type `404` or `not found` to filter
+const HTTP_CODE_SUGGESTIONS = httpcodes.map((code) => ({
 	value: code.code,
 	label: `${code.code} — ${code.name}`,
 }));
@@ -16,14 +17,19 @@ const HTTP_CODE_OPTIONS = httpcodes.map((code) => ({
 export function responseSettings(block: BlockNode) {
 	const tabs = [
 		<BlockSettings.TabHead key="general" name="General">
-			<BlockSelectField
+			<BlockJsTextField
 				blockId={block.id}
 				data={block.data}
 				name="httpCode"
 				label="Status code"
-				placeholder="Select HTTP code"
-				hint="Sent with whatever the previous block produced as the body."
-				options={HTTP_CODE_OPTIONS}
+				placeholder="200"
+				hint="Sent with whatever the previous block produced as the body. Pick a code, or use JS to compute it at run time."
+				suggestions={HTTP_CODE_SUGGESTIONS}
+				info={{
+					content:
+						"A JS expression must return a known HTTP code, as a number or a string. Any other value fails the block.",
+					example: "return input.created ? 201 : 200;",
+				}}
 			/>
 			<BlockCheckboxField
 				blockId={block.id}

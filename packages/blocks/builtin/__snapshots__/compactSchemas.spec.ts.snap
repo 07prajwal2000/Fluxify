@@ -76,7 +76,7 @@ jsrunner {
 }
 
 response {
-	httpCode: string;
+	httpCode: string | number;  // a known HTTP status code like "200", or "js:" + a function body returning one at run time, e.g. "js: return input.created ? 201 : 200;"
 	transformEnabled?: boolean;
 	transformScript?: string;
 }

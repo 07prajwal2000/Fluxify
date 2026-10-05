@@ -11,7 +11,7 @@ describe("Block Builder built-in schema reference", () => {
 		expect(BUILTIN_BLOCK_SCHEMAS_REFERENCE).toContain("getvar {");
 		expect(BUILTIN_BLOCK_SCHEMAS_REFERENCE).toContain("key: string;");
 		expect(BUILTIN_BLOCK_SCHEMAS_REFERENCE).toContain("response {");
-		expect(BUILTIN_BLOCK_SCHEMAS_REFERENCE).toContain("httpCode: string;");
+		expect(BUILTIN_BLOCK_SCHEMAS_REFERENCE).toContain("httpCode: string | number;");
 	});
 
 	it("teaches the notation it renders the contracts in", () => {

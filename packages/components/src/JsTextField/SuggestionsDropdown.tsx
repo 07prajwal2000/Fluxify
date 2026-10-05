@@ -1,5 +1,6 @@
 import clsx from "clsx";
 import { type RefObject, useLayoutEffect, useState } from "react";
+import type { JsTextFieldSuggestion } from "./JsTextField";
 
 // max-h-56 plus the mt-1 gap
 const DROPDOWN_HEIGHT = 228;
@@ -32,7 +33,7 @@ function useOpensUpward(dropdownRef: RefObject<HTMLDivElement | null>) {
 
 export type SuggestionsDropdownProps = {
 	dropdownRef: RefObject<HTMLDivElement | null>;
-	filteredSuggestions: string[];
+	filteredSuggestions: JsTextFieldSuggestion[];
 	value: string;
 	onSelect: (item: string) => void;
 };
@@ -56,28 +57,32 @@ export function SuggestionsDropdown({
 				<div className="px-3 py-2 text-xs text-muted text-center">No matching suggestions</div>
 			) : (
 				<div className="flex flex-col gap-0.5" role="listbox">
-					{filteredSuggestions.map((item) => (
-						<button
-							key={item}
-							type="button"
-							tabIndex={-1}
-							onMouseDown={(e) => {
-								e.preventDefault();
-							}}
-							onClick={() => onSelect(item)}
-							className={clsx(
-								"w-full text-left px-2.5 py-1.5 text-xs rounded-md cursor-pointer flex items-center justify-between transition-colors",
-								item === value
-									? "bg-surface-secondary text-foreground font-medium"
-									: "text-muted hover:text-foreground hover:bg-surface-secondary/80 active:bg-surface-secondary",
-							)}
-						>
-							<span className="truncate">{item}</span>
-							{item === value && (
-								<span className="text-[12px] shrink-0 ml-1.5 font-bold text-accent">✓</span>
-							)}
-						</button>
-					))}
+					{filteredSuggestions.map((suggestion) => {
+						const item = typeof suggestion === "string" ? suggestion : suggestion.value;
+						const label = typeof suggestion === "string" ? suggestion : suggestion.label;
+						return (
+							<button
+								key={item}
+								type="button"
+								tabIndex={-1}
+								onMouseDown={(e) => {
+									e.preventDefault();
+								}}
+								onClick={() => onSelect(item)}
+								className={clsx(
+									"w-full text-left px-2.5 py-1.5 text-xs rounded-md cursor-pointer flex items-center justify-between transition-colors",
+									item === value
+										? "bg-surface-secondary text-foreground font-medium"
+										: "text-muted hover:text-foreground hover:bg-surface-secondary/80 active:bg-surface-secondary",
+								)}
+							>
+								<span className="truncate">{label}</span>
+								{item === value && (
+									<span className="text-[12px] shrink-0 ml-1.5 font-bold text-accent">✓</span>
+								)}
+							</button>
+						);
+					})}
 				</div>
 			)}
 		</div>

@@ -9,7 +9,7 @@ export {
 } from "./expression";
 export type { JsEditorModalProps } from "./JsEditorModal";
 export { JsEditorModal } from "./JsEditorModal";
-export type { FieldInfo, JsTextFieldProps } from "./JsTextField";
+export type { FieldInfo, JsTextFieldProps, JsTextFieldSuggestion } from "./JsTextField";
 export { FieldInfoButton, JsTextField } from "./JsTextField";
 export type { LegacyExpressionModalProps } from "./LegacyExpressionModal";
 export { LegacyExpressionModal } from "./LegacyExpressionModal";
