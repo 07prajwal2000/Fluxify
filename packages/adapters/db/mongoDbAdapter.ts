@@ -1,5 +1,4 @@
-import type { DbOperator } from "@fluxify/lib";
-import { type ClientSession, type Db, MongoClient, ObjectId } from "mongodb";
+import { type ClientSession, type Db, MongoClient } from "mongodb";
 import {
 	type Connection,
 	changedRows,
@@ -12,23 +11,16 @@ import {
 	type QueryOptions,
 	type WriteResult,
 } from ".";
-import {
-	activeConditions,
-	conditionValue,
-	effectiveOperator,
-	foldConditions,
-	isRawCondition,
-	isValueless,
-	type LeafCondition,
-	listValue,
-	rangeValue,
-	rawMongoFilter,
-	regexPattern,
-	textValue,
-} from "./conditions";
 import { mongoCounterUpdate } from "./counter";
 import { type DbCursor, type DbPage, mongoPage } from "./cursor";
-import { isColumnRef, isLiteralRef, isNumericLike, toMongoField } from "./jsonPath";
+import {
+	type MongoShape,
+	mongoField,
+	mongoFilter,
+	mongoTypeOf,
+	sampleShape,
+	storedDoc,
+} from "./mongoFilter";
 import { activeSorts, type DbSort, mongoSorts, singleRow, sortSpec } from "./sort";
 import { isTransactionUnsupported, standaloneWarning } from "./transactionErrors";
 import { mongoUpsertOps } from "./upsert";
@@ -39,6 +31,8 @@ export class MongoAdapter implements IDbAdapter {
 	private mode: DbAdapterMode = DbAdapterMode.NORMAL;
 
 	private session: ClientSession | null = null;
+	/** per collection, sampled once: adapters live for one request */
+	private readonly shapes = new Map<string, Promise<MongoShape>>();
 
 	constructor(
 		private readonly client: MongoClient,
@@ -110,10 +104,11 @@ export class MongoAdapter implements IDbAdapter {
 		sort: DbSort[] = [],
 		options?: QueryOptions,
 	): Promise<unknown[]> {
+		const shape = await this.shape(table);
 		const found = this.db
 			.collection(table)
-			.find(this.buildFilter(conditions), this.findOptions(options))
-			.sort(sortSpec(mongoSorts(sort)))
+			.find(mongoFilter(conditions, shape), this.findOptions(shape, options))
+			.sort(sortSpec(mongoSorts(sort, [], shape.ownId)))
 			.skip(offset);
 		const docs = await (limit === null ? found : found.limit(limit)).toArray();
 		return docs.map(this.mapDoc);
@@ -127,11 +122,12 @@ export class MongoAdapter implements IDbAdapter {
 		cursor: DbCursor,
 		options?: QueryOptions,
 	): Promise<DbPage> {
+		const shape = await this.shape(table);
 		const page = await mongoPage(
 			this.db.collection(table),
-			this.buildFilter(conditions),
-			this.findOptions(options),
-			mongoSorts(sort, cursor.keys),
+			mongoFilter(conditions, shape),
+			this.findOptions(shape, options),
+			mongoSorts(sort, cursor.keys, shape.ownId),
 			limit,
 			cursor.after,
 		);
@@ -143,24 +139,24 @@ export class MongoAdapter implements IDbAdapter {
 		conditions: DBConditionType[],
 		options?: QueryOptions,
 	): Promise<unknown | null> {
-		const filter = this.buildFilter(conditions);
+		const shape = await this.shape(table);
+		const filter = mongoFilter(conditions, shape);
 		// unsorted stays unsorted: a sort nobody asked for only costs time
 		const sort = activeSorts(options?.sort).length
-			? sortSpec(mongoSorts(options?.sort ?? []))
+			? sortSpec(mongoSorts(options?.sort ?? [], [], shape.ownId))
 			: undefined;
 		// strict reads a second document only to tell that there is one
 		const docs = await this.db
 			.collection(table)
-			.find(filter, { ...this.findOptions(options), ...(sort && { sort }) })
+			.find(filter, { ...this.findOptions(shape, options), ...(sort && { sort }) })
 			.limit(options?.strict ? 2 : 1)
 			.toArray();
 		return this.mapDoc(singleRow(docs, options?.strict));
 	}
 
 	async count(table: string, conditions: DBConditionType[]): Promise<number> {
-		return this.db
-			.collection(table)
-			.countDocuments(this.buildFilter(conditions), this.getOptions());
+		const filter = mongoFilter(conditions, await this.shape(table));
+		return this.db.collection(table).countDocuments(filter, this.getOptions());
 	}
 
 	async delete(table: string, conditions: DBConditionType[]): Promise<WriteResult> {
@@ -171,7 +167,7 @@ export class MongoAdapter implements IDbAdapter {
 
 	/** the documents the conditions match, and a filter for exactly those */
 	private async findMatching(table: string, conditions: DBConditionType[]) {
-		const filter = this.buildFilter(conditions);
+		const filter = mongoFilter(conditions, await this.shape(table));
 		const docs = await this.db.collection(table).find(filter, this.getOptions()).toArray();
 		return { docs, byId: { _id: { $in: docs.map((d) => d._id) } } };
 	}
@@ -186,10 +182,7 @@ export class MongoAdapter implements IDbAdapter {
 			);
 			return doc ?? null;
 		}
-		const cleanData = { ...(data as Record<string, unknown>) };
-		delete cleanData.id;
-		delete cleanData._id;
-
+		const cleanData = await this.writable(table, data as Record<string, unknown>);
 		const result = await this.db.collection(table).insertOne(cleanData, this.getOptions());
 		const doc = await this.db
 			.collection(table)
@@ -206,10 +199,7 @@ export class MongoAdapter implements IDbAdapter {
 	): Promise<unknown[]> {
 		if (!data || data.length === 0) return [];
 
-		const cleanData = data.map((d) => {
-			const { id, _id, ...rest } = d;
-			return rest;
-		});
+		const cleanData = await Promise.all(data.map((d) => this.writable(table, d)));
 
 		const insertAll = async (options: { session?: ClientSession }) => {
 			if (onConflict) return this.upsert(table, data, onConflict, options);
@@ -251,7 +241,9 @@ export class MongoAdapter implements IDbAdapter {
 		onConflict: OnConflict,
 		options: { session?: ClientSession },
 	): Promise<unknown[]> {
-		const { filters, ops } = mongoUpsertOps(rows, onConflict);
+		const shape = await this.shape(table);
+		const stored = rows.map((row) => storedDoc(row, shape));
+		const { filters, ops } = mongoUpsertOps(stored, onConflict, shape.ownId);
 		const collection = this.db.collection(table);
 		const result = await collection.bulkWrite(ops, options);
 		// ignore returns only what it inserted
@@ -267,7 +259,7 @@ export class MongoAdapter implements IDbAdapter {
 		const { docs: before, byId } = await this.findMatching(table, conditions);
 		if (before.length === 0) return { count: 0, affected: [] };
 
-		const { id, _id, ...cleanData } = data as Record<string, unknown>;
+		const cleanData = await this.writable(table, data as Record<string, unknown>);
 		const collection = this.db.collection(table);
 		const update = mongoCounterUpdate(cleanData);
 		const { modifiedCount } = await collection.updateMany(byId, update, this.getOptions());
@@ -328,7 +320,7 @@ export class MongoAdapter implements IDbAdapter {
 	// Merges the transaction session with a field projection built from
 	// `columns`. "*"/"table.*"/empty means no projection (all fields). Aliases
 	// (AS) don't apply to Mongo and are dropped; bracket indexes become dots.
-	private findOptions(options?: QueryOptions) {
+	private findOptions(shape: MongoShape, options?: QueryOptions) {
 		const base = this.getOptions();
 		const cols = options?.columns;
 		if (!cols || cols.length === 0 || cols.some((c) => c.includes("*"))) return base;
@@ -336,132 +328,35 @@ export class MongoAdapter implements IDbAdapter {
 		const projection: Record<string, 1> = {};
 		for (const raw of cols) {
 			const expr = raw.split(/\s+as\s+/i)[0].trim();
-			projection[expr === "id" ? "_id" : toMongoField(expr)] = 1;
+			projection[mongoField(expr, shape)] = 1;
 		}
 		return { ...base, projection };
 	}
 
-	// Arrow function preserves 'this' context when used in array mappings
+	private shape(table: string): Promise<MongoShape> {
+		let shape = this.shapes.get(table);
+		if (!shape) {
+			shape = sampleShape(this.db.collection(table), this.getOptions().session);
+			this.shapes.set(table, shape);
+		}
+		return shape;
+	}
+
+	/** data to write: never `_id`, `id` only when documents have their own, id strings as ObjectIds */
+	private async writable(table: string, data: Record<string, unknown>) {
+		const shape = await this.shape(table);
+		const { id, _id, ...rest } = data;
+		return storedDoc(shape.ownId && "id" in data ? { id, ...rest } : rest, shape);
+	}
+
+	// Arrow function preserves 'this' context when used in array mappings.
+	// A document with its own `id` keeps it, and its _id comes back as `_id` (#511).
 	private mapDoc = (doc: Record<string, unknown> | null) => {
 		if (!doc) return null;
 		const { _id, ...rest } = doc;
-		return { id: _id ? String(_id) : undefined, ...(plainNumbers(rest) as object) };
+		const key = "id" in rest ? "_id" : "id";
+		return { [key]: _id ? String(_id) : undefined, ...(plainNumbers(rest) as object) };
 	};
-
-	private buildFilter(conditions: DBConditionType[]): Record<string, unknown> {
-		const active = activeConditions(conditions);
-		if (active.length === 0) return {};
-
-		return foldConditions<Record<string, unknown>>(
-			active,
-			(cond) => this.createExpr(cond),
-			(chain, left, right) => ({ [chain === "or" ? "$or" : "$and"]: [left, right] }),
-		);
-	}
-
-	private createExpr(cond: LeafCondition): Record<string, unknown> {
-		if (isRawCondition(cond)) return rawMongoFilter(cond.raw);
-		const operator = effectiveOperator(cond);
-		// ponytail: both of these need $expr on Mongo, which the rest of this
-		// builder isn't shaped for. Rejected loudly rather than silently matching
-		// the literal string "email". Wire $expr here when a graph needs it.
-		if (!isValueless(operator) && isColumnRef(cond.value))
-			throw new Error("column references in conditions are not supported on MongoDB");
-		if (isLiteralRef(cond.attribute))
-			throw new Error("literal attributes in conditions are not supported on MongoDB");
-
-		// a tagged column means exactly what the untagged string does here
-		const attribute = isColumnRef(cond.attribute) ? cond.attribute.value : cond.attribute;
-
-		// "items[0].name" -> "items.0.name"; "id" stays the _id alias.
-		const attr = attribute === "id" ? "_id" : toMongoField(attribute);
-
-		// always an explicit operator: a bare { [attr]: val } lets a value like
-		// { $ne: null } from the request body act as a query and match everything
-		return { [attr]: this.matchFor(attr, operator, cond) };
-	}
-
-	private matchFor(
-		attr: string,
-		operator: DbOperator,
-		cond: Exclude<LeafCondition, { operator: "raw" }>,
-	): Record<string, unknown> {
-		switch (operator) {
-			// { $eq: null } also matches a missing field, like SQL's NULL; exists is the strict check
-			case "is_null":
-				return { $eq: null };
-			case "is_not_null":
-				return { $ne: null };
-			case "exists":
-				return { $exists: true };
-			case "not_exists":
-				return { $exists: false };
-			case "in":
-			case "not_in": {
-				// as typed, like eq: "7" does not match the number 7
-				const list = listValue(conditionValue(cond), operator).map((v) => this.idValue(attr, v));
-				if (operator === "in") return { $in: list };
-				// $nin alone also matches null and missing fields; SQL's NOT IN never
-				// matches NULL, and one graph must answer the same on every database
-				return { $nin: list, $ne: null };
-			}
-			case "between": {
-				const [min, max] = rangeValue(conditionValue(cond)).map(numericIntent);
-				return { $gte: min, $lte: max };
-			}
-			case "contains":
-			case "starts_with":
-			case "ends_with":
-				return {
-					$regex: regexPattern(operator, textValue(conditionValue(cond), operator)),
-					$options: "i",
-				};
-			default: {
-				// Ordering ops carry numeric intent; eq/neq stay as typed so
-				// string-field equality keeps working.
-				// ponytail: only ordering ops coerce — flip eq/neq here if a numeric
-				// field is ever queried for equality with a string value.
-				const val = isLiteralRef(cond.value) ? cond.value.value : cond.value;
-				const typed = operator === "eq" || operator === "neq" ? val : numericIntent(val);
-				return { [this.getMongoOperator(operator)]: this.idValue(attr, typed) };
-			}
-		}
-	}
-
-	/** a 24-char hex string compared against _id is an ObjectId */
-	private idValue(attr: string, val: unknown) {
-		if (attr !== "_id" || typeof val !== "string" || val.length !== 24) return val;
-		try {
-			// Official v6+ pattern for safely converting 24-char hex strings
-			return ObjectId.createFromHexString(val);
-		} catch {
-			return val;
-		}
-	}
-
-	private getMongoOperator(operator: string): string {
-		const map: Record<string, string> = {
-			eq: "$eq",
-			neq: "$ne",
-			gt: "$gt",
-			gte: "$gte",
-			lt: "$lt",
-			lte: "$lte",
-		};
-		return map[operator] ?? "$eq";
-	}
-}
-
-/** a numeric-like string compared by order means a number, so BSON doesn't compare it as text */
-const numericIntent = (val: unknown) =>
-	typeof val === "string" && isNumericLike(val) ? Number(val) : val;
-
-function mongoTypeOf(value: unknown): string {
-	if (value === null || value === undefined) return "null";
-	if (value instanceof ObjectId) return "objectId";
-	if (value instanceof Date) return "date";
-	if (Array.isArray(value)) return "array";
-	return typeof value;
 }
 
 export function buildMongoUrl(connection: Connection): string {
