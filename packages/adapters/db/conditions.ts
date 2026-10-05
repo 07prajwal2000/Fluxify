@@ -105,7 +105,7 @@ export function textValue(value: unknown, operator: string): string {
 }
 
 /** a LIKE pattern: the user's %, _ and \ are escaped so they match themselves */
-function likePattern(operator: string, text: string) {
+export function likePattern(operator: string, text: string) {
 	const escaped = text.replace(/[\\%_]/g, "\\$&");
 	if (operator === "starts_with") return `${escaped}%`;
 	if (operator === "ends_with") return `%${escaped}`;

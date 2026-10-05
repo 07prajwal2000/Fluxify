@@ -71,6 +71,7 @@ What to expect:
 - **Saving changes to an integration takes effect right away.** New requests use the new settings at once. Requests already running finish on the old connections (for up to 30 seconds), which then close.
 - **A transaction keeps one connection for itself** until it commits or rolls back. Keep transactions short so other requests aren't left waiting.
 - **Table details are remembered.** The first query on a table looks up its primary key once, and later requests reuse what it found. If you change a table's primary key while Fluxify is running, the change is picked up the next time the pool opens: after it idles out, after you save the integration, or after a restart.
+- **Reads are prepared once.** The first time a Get All, Get Single or Count block runs with a given set of active filters, its SQL is written and kept with the pool. Later runs with the same filters reuse it and only send their new values. A filter that is skipped, a value that is `null`, or a list of another length counts as a different set, and is prepared once too.
 - **Test connection uses its own short-lived connection**, so testing never takes connections from running requests.
 
 ::: tip Plan your database's connection limit
