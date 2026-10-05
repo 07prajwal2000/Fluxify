@@ -184,13 +184,15 @@ function failureOf(error: unknown, catchErrors: boolean): TransactionOutcome {
 export function emitTransactionDb(node: EmitNode) {
 	const input = transactionDbBlockSchema.parse(node.block.data);
 	const tx = node.v("tx");
+	const txIn = node.v("txIn");
 	const options = JSON.stringify({
 		timeoutMs: input.timeoutMs,
 		isolation: input.isolation,
 		retries: input.retries,
 	});
-	return `const ${tx} = await lib.dbTransaction(ctx, ${node.value(input.connection)}, async () => {
-${node.body("executor", "undefined", "$endBranch")}
+	return `const ${txIn} = ${node.in};
+const ${tx} = await lib.dbTransaction(ctx, ${node.value(input.connection)}, async () => {
+${node.body("executor", txIn, "$endBranch")}
 }, ${node.has("failure")}, ${options});
 if ("failure" in ${tx}) {
 ${node.in} = ${tx}.failure;

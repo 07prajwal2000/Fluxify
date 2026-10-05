@@ -1,0 +1,42 @@
+{
+	"name": "transaction/input",
+	"description": "POST /orders/tx-input — the order is built before the Transaction block, and the Insert inside the executor chain reads it as its input.",
+	"engine": "pg",
+	"route": { "method": "POST", "path": "/orders/tx-input" },
+	"blocks": [
+		{ "id": "entry", "type": "entrypoint", "position": { "x": 0, "y": 0 }, "data": { "blockName": "Request" } },
+		{
+			"id": "build",
+			"type": "jsrunner",
+			"position": { "x": 240, "y": 0 },
+			"data": { "blockName": "Build order", "value": "const body = getRequestBody();\nreturn { user_id: body.user_id, total: body.total, status: 'pending' };" }
+		},
+		{
+			"id": "tx",
+			"type": "db_transaction",
+			"position": { "x": 480, "y": 0 },
+			"data": { "blockName": "Transaction", "connection": "primary", "executor": "insert-order" }
+		},
+		{
+			"id": "insert-order",
+			"type": "db_insert",
+			"position": { "x": 480, "y": -240 },
+			"data": {
+				"blockName": "Insert order",
+				"connection": "primary",
+				"tableName": "orders",
+				"useParam": true,
+				"data": { "source": "raw", "value": {} }
+			}
+		},
+		{ "id": "created", "type": "response", "position": { "x": 720, "y": 0 }, "data": { "blockName": "201", "httpCode": "201" } },
+		{ "id": "rejected", "type": "response", "position": { "x": 720, "y": 120 }, "data": { "blockName": "409", "httpCode": "409" } }
+	],
+	"edges": [
+		{ "id": "e-entry-build", "from": "entry", "to": "build", "fromHandle": "source", "toHandle": "source" },
+		{ "id": "e-build-tx", "from": "build", "to": "tx", "fromHandle": "source", "toHandle": "source" },
+		{ "id": "e-tx-insert", "from": "tx", "to": "insert-order", "fromHandle": "executor", "toHandle": "executor" },
+		{ "id": "e-tx-created", "from": "tx", "to": "created", "fromHandle": "success", "toHandle": "success" },
+		{ "id": "e-tx-rejected", "from": "tx", "to": "rejected", "fromHandle": "failure", "toHandle": "failure" }
+	]
+}

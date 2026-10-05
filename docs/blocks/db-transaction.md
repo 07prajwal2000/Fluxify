@@ -51,7 +51,7 @@ The insert runs first. When the total is over the limit, the rollback undoes it,
 ## How it behaves
 
 1. The block starts a database transaction.
-2. It runs the blocks in the **Executor** chain.
+2. It runs the blocks in the **Executor** chain. The first block gets the Transaction block's input, like any block in a chain. On a retry it gets the same input again.
 3. If they all succeed, it commits (saves the changes) and continues on **Success**.
 4. If a block fails, or a **Rollback Transaction** block runs, it rolls back (undoes every change) and continues on **Failure**.
 
@@ -105,6 +105,8 @@ A transaction inside another one's executor chain must use a **different connect
 ## Canvas checks
 
 Errors block saving the canvas; warnings do not, so a half-built canvas still saves.
+
+A Transaction block with nothing connected into it never runs, so its wiring is not checked until you connect it.
 
 - **Error**: the Success or Failure path leads into blocks that also run inside the Executor chain. Keep the inside and the after paths separate.
 - **Error**: a transaction sits inside another transaction on the same connection.

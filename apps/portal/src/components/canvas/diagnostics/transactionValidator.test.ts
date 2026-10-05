@@ -53,7 +53,7 @@ describe("validateTransactions", () => {
 			{ blockId: "tx", severity: "error", message: SHARED_CHAIN, source: "transaction-wiring" },
 		]);
 		// reached further down the executor chain counts too
-		expect(flagged(blocks, [e("tx", "if", "executor"), e("if", "log"), e("tx", "log", "success")])).toEqual(["tx"]);
+		expect(flagged(blocks, [e("in", "tx"), e("tx", "if", "executor"), e("if", "log"), e("tx", "log", "success")])).toEqual(["tx"]);
 	});
 
 	it("allows success and failure to share blocks outside the executor chain", () => {
@@ -85,6 +85,13 @@ describe("validateTransactions", () => {
 			{ blockId: "tx", severity: "warning", message: EMPTY_EXECUTOR, source: "transaction-wiring" },
 		]);
 		expect(validateTransactions({ blocks: [...blocks], edges: [e("in", "tx"), e("tx", "if", "executor")] })).toEqual([]);
+	});
+
+	it("stays quiet for a transaction not wired into the flow", () => {
+		const blocks = [b("in", "entrypoint"), b("tx", "db_transaction"), b("if", "if")];
+		// nothing on its executor, and success leads back into it: neither runs, so neither is flagged
+		expect(flagged(blocks, [])).toEqual([]);
+		expect(flagged(blocks, [e("tx", "if", "executor"), e("tx", "if", "success")])).toEqual([]);
 	});
 
 	it("keys only on wiring, and is empty without a rollback", () => {

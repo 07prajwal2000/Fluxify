@@ -55,6 +55,7 @@ function groupBy(edges: RuleEdge[], key: (edge: RuleEdge) => string | null | und
  *   executor handle before it reaches a block with no incoming edge (the
  *   entrypoint, the error handler); otherwise it can run outside one;
  * - a transaction with nothing on its executor handle runs nothing (on it).
+ * A transaction with no incoming edge never runs, so its own checks are skipped.
  */
 export function findTransactionIssues(
 	blocks: RuleBlock[],
@@ -88,6 +89,8 @@ export function findTransactionIssues(
 
 	const nested = new Set<string>();
 	for (const [tx, own] of connection) {
+		// not wired into the flow, it never runs: nothing to check yet
+		if (!incoming.has(tx)) continue;
 		const inside = reach(tx, "executor");
 		if (inside.size === 0) {
 			issues.push({ blockId: tx, issue: "empty-executor" });
