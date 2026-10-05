@@ -4,7 +4,7 @@ import { BLOCK_TYPES } from "../blocks/blockTypes";
 import { savesOutput } from "../panel/SaveOutputField";
 import type { BlockData, CanvasGraph } from "../types";
 import { dbConditionIssues, dbJoinIssues, dbSortIssues, isBlank } from "./dbConditionIssues";
-import { checkRetrySettings } from "./retryValidator";
+import { checkRetrySettings, unwiredRetryHandles } from "./retryValidator";
 import { kvIssues, sendMessageIssues } from "./storeIssues";
 import { checkTransactionSettings } from "./transactionValidator";
 import type { BlockDiagnostic, DiagnosticSeverity } from "./types";
@@ -304,6 +304,16 @@ export function validateBlockConfigs(graph: CanvasGraph): BlockDiagnostic[] {
 		if (!wired.has(block.id)) continue;
 		for (const issue of blockConfigIssues(block.type, block.data ?? {})) {
 			diagnostics.push({ blockId: block.id, source: BLOCK_CONFIG_SOURCE, ...issue });
+		}
+		if (block.type === BLOCK_TYPES.retry) {
+			for (const message of unwiredRetryHandles(block.id, graph.edges)) {
+				diagnostics.push({
+					blockId: block.id,
+					severity: "warning",
+					message,
+					source: BLOCK_CONFIG_SOURCE,
+				});
+			}
 		}
 		if (
 			block.type === BLOCK_TYPES.orchestrator &&
