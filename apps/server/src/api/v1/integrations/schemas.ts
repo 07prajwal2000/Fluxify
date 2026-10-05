@@ -67,6 +67,8 @@ export const observabilityLegacyVariants = Object.keys(OBSERVABILITY_VARIANT_ALI
 // Database
 /** milliseconds before a query is stopped; the runtime uses 30s when it is left out */
 const queryTimeoutMsSchema = z.number().int().positive().optional();
+/** most connections the pool opens, per worker, up to `cap` (MAX_MAX_CONNECTIONS); the runtime default when left out */
+const maxConnectionsSchema = (cap: number) => z.number().int().positive().max(cap).optional();
 
 export const postgresVariantConfigSchema = z
 	.object({
@@ -79,11 +81,13 @@ export const postgresVariantConfigSchema = z
 		useSSL: z.boolean().default(false).optional(),
 		source: z.literal("credentials"),
 		queryTimeoutMs: queryTimeoutMsSchema,
+		maxConnections: maxConnectionsSchema(50),
 	})
 	.or(
 		z.object({
 			source: z.literal("url"),
 			queryTimeoutMs: queryTimeoutMsSchema,
+			maxConnections: maxConnectionsSchema(50),
 			url: z
 				.string()
 				.min(4)
@@ -107,11 +111,13 @@ export const mysqlVariantConfigSchema = z
 		database: z.string().min(1),
 		source: z.literal("credentials"),
 		queryTimeoutMs: queryTimeoutMsSchema,
+		maxConnections: maxConnectionsSchema(50),
 	})
 	.or(
 		z.object({
 			source: z.literal("url"),
 			queryTimeoutMs: queryTimeoutMsSchema,
+			maxConnections: maxConnectionsSchema(50),
 			url: z
 				.string()
 				.min(4)
@@ -136,11 +142,13 @@ export const mongoVariantConfigSchema = z
 		useSSL: z.boolean().default(false).optional(),
 		source: z.literal("credentials"),
 		queryTimeoutMs: queryTimeoutMsSchema,
+		maxConnections: maxConnectionsSchema(100),
 	})
 	.or(
 		z.object({
 			source: z.literal("url"),
 			queryTimeoutMs: queryTimeoutMsSchema,
+			maxConnections: maxConnectionsSchema(100),
 			url: z
 				.string()
 				.min(4)

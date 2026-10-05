@@ -18,7 +18,11 @@ afterAll(() => GlobalRegistrator.unregister());
 
 const placeholders = { name: "", host: "", port: "", username: "", password: "", url: "" };
 
-function form(config: Record<string, unknown>, setField = mock()) {
+function form(
+	config: Record<string, unknown>,
+	setField = mock(),
+	maxConnections?: { default: number; max: number },
+) {
 	return (
 		<CredentialsUrlForm
 			projectId="p"
@@ -27,6 +31,7 @@ function form(config: Record<string, unknown>, setField = mock()) {
 			config={config}
 			setField={setField}
 			placeholders={placeholders}
+			maxConnections={maxConnections}
 		/>
 	);
 }
@@ -46,4 +51,22 @@ test("switching tabs writes the source into the config", () => {
 	const view = render(form({ source: "credentials" }, setField));
 	fireEvent.click(view.getByText("Via URL"));
 	expect(setField).toHaveBeenCalledWith("source", "url");
+});
+
+test("max connections shows the default, keeps edits in range, and is hidden without one", () => {
+	const setField = mock();
+	const view = render(form({}, setField, { default: 10, max: 50 }));
+	const input = view.getByLabelText("Max connections") as HTMLInputElement;
+	expect(input.value).toBe("10");
+	fireEvent.change(input, { target: { value: "25" } });
+	fireEvent.change(input, { target: { value: "0" } });
+	fireEvent.change(input, { target: { value: "500" } });
+	expect(setField.mock.calls).toEqual([
+		["maxConnections", 25],
+		["maxConnections", 1],
+		["maxConnections", 50],
+	]);
+
+	view.rerender(form({}, setField)); // KV stores have no pool setting
+	expect(view.queryByLabelText("Max connections")).toBeNull();
 });

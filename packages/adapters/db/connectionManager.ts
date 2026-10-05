@@ -3,7 +3,13 @@ import { SQL } from "bun";
 import { Kysely } from "kysely";
 import { MongoClient } from "mongodb";
 import { createPool, type Pool } from "mysql2";
-import { type Connection, DbType, DEFAULT_QUERY_TIMEOUT_MS } from "./connection";
+import {
+	type Connection,
+	DbType,
+	DEFAULT_MAX_CONNECTIONS,
+	DEFAULT_QUERY_TIMEOUT_MS,
+	MAX_MAX_CONNECTIONS,
+} from "./connection";
 import { buildMongoUrl, MongoAdapter } from "./mongoDbAdapter";
 import { MYSQL_POOL_OPTIONS, MySqlAdapter } from "./mySqlAdapter";
 import { PostgresAdapter } from "./postgresAdapter";
@@ -223,12 +229,18 @@ export function connectionFingerprint(config: Connection) {
 		database: config.database,
 		ssl: Boolean(config.ssl),
 		queryTimeoutMs: config.queryTimeoutMs,
+		maxConnections: config.maxConnections,
 	});
 	return createHash("sha256").update(material).digest("hex");
 }
 
 function createManagedConnection(_integrationId: string, config: Connection): ManagedDbConnection {
 	const timeoutMs = config.queryTimeoutMs ?? DEFAULT_QUERY_TIMEOUT_MS;
+	// capped here too: a row saved before the cap, or written around the API, still gets a sane pool
+	const max = Math.min(
+		config.maxConnections ?? DEFAULT_MAX_CONNECTIONS[config.dbType],
+		MAX_MAX_CONNECTIONS[config.dbType],
+	);
 	if (config.dbType === DbType.POSTGRES) {
 		const sql = new SQL({
 			adapter: "postgres",
@@ -240,6 +252,7 @@ function createManagedConnection(_integrationId: string, config: Connection): Ma
 			tls: config.ssl,
 			// #512: int8 as BigInt, so it can be told apart from numeric's text
 			bigint: true,
+			max,
 			connection: { statement_timeout: timeoutMs },
 		});
 		const db = PostgresAdapter.createKysely(sql);
@@ -258,7 +271,7 @@ function createManagedConnection(_integrationId: string, config: Connection): Ma
 			user: config.username,
 			password: config.password,
 			database: config.database,
-			connectionLimit: 2,
+			connectionLimit: max,
 			...MYSQL_POOL_OPTIONS,
 		});
 		// ponytail: max_execution_time stops reads only; a write is bounded by lock waits, not by run time
@@ -277,7 +290,10 @@ function createManagedConnection(_integrationId: string, config: Connection): Ma
 	}
 
 	if (config.dbType === DbType.MONGODB) {
-		const client = new MongoClient(buildMongoUrl(config), { timeoutMS: timeoutMs });
+		const client = new MongoClient(buildMongoUrl(config), {
+			timeoutMS: timeoutMs,
+			maxPoolSize: max,
+		});
 		return {
 			type: DbType.MONGODB,
 			db: client.db(config.database),

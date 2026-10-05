@@ -14,9 +14,22 @@ export interface Connection {
 	ssl?: boolean;
 	/** a query running longer is stopped; unset means DEFAULT_QUERY_TIMEOUT_MS */
 	queryTimeoutMs?: number;
+	/** most connections the pool opens, per worker; unset means DEFAULT_MAX_CONNECTIONS */
+	maxConnections?: number;
 }
 
 export const DEFAULT_QUERY_TIMEOUT_MS = 30_000;
+export const DEFAULT_MAX_CONNECTIONS: Record<DbType, number> = {
+	[DbType.POSTGRES]: 10,
+	[DbType.MYSQL]: 10,
+	[DbType.MONGODB]: 100,
+};
+/** the most a user may set, per worker: past this a worker spends its memory on idle sockets */
+export const MAX_MAX_CONNECTIONS: Record<DbType, number> = {
+	[DbType.POSTGRES]: 50,
+	[DbType.MYSQL]: 50,
+	[DbType.MONGODB]: 100,
+};
 
 const primaryKeyCaches = new WeakMap<object, Map<string, string[]>>();
 

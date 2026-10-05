@@ -1,0 +1,24 @@
+{
+	"name": "pool/two-at-once",
+	"description": "GET /two — runs two half-second queries at the same time. With room for two connections they overlap and take about half a second; with a pool of one the second waits for the first.",
+	"engine": "pg",
+	"route": { "method": "GET", "path": "/two" },
+	"blocks": [
+		{ "id": "entry", "type": "entrypoint", "position": { "x": 0, "y": 0 }, "data": { "blockName": "Request" } },
+		{
+			"id": "two",
+			"type": "db_native",
+			"position": { "x": 240, "y": 0 },
+			"data": {
+				"blockName": "Two queries at once",
+				"connection": "primary",
+				"js": "await Promise.all([dbQuery(\"SELECT pg_sleep(0.5)\"), dbQuery(\"SELECT pg_sleep(0.5)\")]);\nreturn { done: 2 };"
+			}
+		},
+		{ "id": "reply", "type": "response", "position": { "x": 480, "y": 0 }, "data": { "blockName": "200", "httpCode": "200" } }
+	],
+	"edges": [
+		{ "id": "e-entry-two", "from": "entry", "to": "two", "fromHandle": "source", "toHandle": "source" },
+		{ "id": "e-two-reply", "from": "two", "to": "reply", "fromHandle": "source", "toHandle": "source" }
+	]
+}
