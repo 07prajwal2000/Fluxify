@@ -19,7 +19,7 @@ How [DB Get All](./db-get-all.md) orders its records and splits a big result int
 - **Ties never shuffle.** The table's primary key (`_id` on MongoDB) is always added as the last sort, unless it is already in the list. Rows that tie on every column come back in key order every time, so paging with **Offset** never repeats or skips a row. With cursor paging, the [tiebreaker columns](/blocks/db-paging-sorting#cursor-paging) take its place.
 - **No sort** means key order. On a table without a primary key (for example a view), the order is up to the database.
 - A column can be a `js:` expression, e.g. `js:getQueryParam('sortBy')`. When it returns `undefined`, that row is **skipped**, so sorting can be optional, just like [optional filters](/blocks/db-conditions#optional-filters). A blank column is an error.
-- MongoDB: `id` means `_id`.
+- MongoDB: `id` means `_id`, unless the documents have their own `id` field. See [MongoDB ids](/integrations/databases#ids).
 
 ## Paging
 

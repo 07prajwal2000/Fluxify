@@ -51,6 +51,21 @@ Connect to a MongoDB database. Collections take the place of tables, and the sam
 The [DB Transaction](/blocks/db-transaction) block only works when MongoDB runs as a replica set (or behind a sharded cluster). A single standalone server still works for every other block. **Test connection** warns you when the server is standalone.
 :::
 
+### Ids
+
+MongoDB ids (ObjectIds) come back as 24-character text, such as `"65f1a2b3c4d5e6f708192a3b"`. You pass them back the same way, as text.
+
+| You write | What happens |
+| --- | --- |
+| A condition on `id` | It matches the document's `_id`. If the documents have their own `id` field, it matches that field instead, and the MongoDB id comes back as `_id`. |
+| A condition on a field that holds ids, such as `riderId` | The text matches the stored id. |
+| An insert or update with id text in a field that holds ids | It is saved as a real id, the same type as the documents already there. |
+| Text that can't be an id (not 24 letters `a`–`f` and digits) on a field that holds ids | The block fails with an error that names the field, instead of quietly finding nothing. |
+
+To make a new id, use `ObjectId` in a [DB Native](/blocks/db-native#mongodb) block: `new ObjectId()` makes a fresh one, and `new ObjectId("65f1a2b3c4d5e6f708192a3b")` turns text into an id. Return `id.toHexString()` to pass it on to other blocks as text. `ObjectId` exists only inside DB Native; everywhere else, ids are text.
+
+Fluxify decides whether a field holds ids by looking at the collection's newest documents. On a new, empty collection, id text is saved as plain text, and an insert drops an `id` field, because nothing says yet that `id` is a field of its own.
+
 ## Query timeout
 
 Every database connection stops a query that runs longer than its **Query timeout** (30 seconds unless you change it). The block that ran the query fails with a timeout error, which you can handle like any other error. This keeps one slow query from holding a connection that other requests need.
@@ -96,6 +111,7 @@ Every DB block gives back the same kind of JavaScript value for a column, whiche
 | Decimals (`NUMERIC`, `DECIMAL`, MongoDB `Decimal128`) | text, so the value stays exact | `"12.50"` |
 | Count | always a number | `3` |
 | Dates and times (`TIMESTAMP`, `TIMESTAMPTZ`, `DATETIME`, `DATE`, MongoDB dates) | a `Date`, in UTC | `2024-01-02T03:04:05.000Z` |
+| MongoDB ids (ObjectId) | text | `"65f1a2b3c4d5e6f708192a3b"` |
 
 ::: tip Doing math on decimals
 A decimal is text, so `row.price + 1` joins it (`"12.501"`). Turn it into a number first: `Number(row.price) + 1`. For money, where every cent must stay right, use a decimal library instead.

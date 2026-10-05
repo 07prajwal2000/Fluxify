@@ -30,15 +30,21 @@ export function conflictKeys(rows: Record<string, any>[], target: string[]) {
 /**
  * One upsert per row, matched on `target`: `$set` the update columns, `$setOnInsert` the rest.
  * `$eq`, never a bare value: a value like { $ne: null } from a request must not act as a query.
+ * `id` is the `_id` alias and dropped, unless documents have their own `id` (#511).
  */
-export function mongoUpsertOps(given: Record<string, unknown>[], onConflict: OnConflict) {
+export function mongoUpsertOps(
+	given: Record<string, unknown>[],
+	onConflict: OnConflict,
+	ownId = false,
+) {
 	const { rows, counters } = upsertRows(given, onConflict);
 	const filters = conflictKeys(rows, onConflict.target).map((key) =>
 		Object.fromEntries(Object.entries(key).map(([c, v]) => [c, { $eq: v }])),
 	);
 	const update = onConflict.action === "ignore" ? [] : conflictUpdateColumns(rows, onConflict);
 	const ops = rows.map((row, i) => {
-		const { id, _id, ...clean } = row;
+		const { id, _id, ...rest } = row;
+		const clean = ownId && "id" in row ? { id, ...rest } : rest;
 		const entries = Object.entries(clean);
 		const updated = (c: string) => update.includes(c);
 		const $set = Object.fromEntries(entries.filter(([c]) => updated(c) && !counters.includes(c)));

@@ -195,10 +195,9 @@ describe("count on MongoDB", () => {
 		expect(run.body).toBe(0);
 	});
 
-	it("treats a bad id as a plain value instead of throwing", async () => {
+	it("fails on an id that can't be an ObjectId instead of counting 0 (#511)", async () => {
 		const run = await count(on("mongo"), { table: "todos", column: "id", value: "not-an-object-id" });
 
-		expect(run.status).toBe(200);
-		expect(run.body).toBe(0);
+		expect(run.status).toBeGreaterThanOrEqual(400);
 	});
 });
