@@ -67,6 +67,11 @@ export class MongoAdapter implements IDbAdapter {
 		return this.db;
 	}
 
+	/** the open transaction's session, which native code's collection calls carry (#514) */
+	transactionSession(): ClientSession | undefined {
+		return this.getOptions().session;
+	}
+
 	// Mongo has no schema: infer field names/types from the first 5 documents.
 	// ponytail: top-level fields only; walk nested objects if the UI needs dotted paths.
 	async introspect(): Promise<IntrospectedTable[]> {

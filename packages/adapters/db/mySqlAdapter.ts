@@ -23,6 +23,7 @@ import { applyJoins, applySqlConditions } from "./conditions";
 import { cachedPrimaryKey } from "./connection";
 import { cursorSorts, type DbCursor, type DbPage, sqlPage } from "./cursor";
 import { applyColumns, buildQualifiers, type QueryOptions } from "./jsonPath";
+import { mysqlPlaceholders } from "./placeholders";
 import { activeSorts, applySqlSort, type DbSort, singleRow, withTiebreaker } from "./sort";
 import { type CachedRead, cachedRead } from "./sqlCache";
 
@@ -105,7 +106,8 @@ export class MySqlAdapter implements IDbAdapter {
 
 		const conn = this.getConnection();
 		// rows only: the full result carries a BigInt `numAffectedRows` that JSON cannot serialize
-		const result = await conn.executeQuery(CompiledQuery.raw(query, params ?? []));
+		const compiled = mysqlPlaceholders(query, params);
+		const result = await conn.executeQuery(CompiledQuery.raw(compiled.sql, compiled.params));
 		return result.rows;
 	}
 

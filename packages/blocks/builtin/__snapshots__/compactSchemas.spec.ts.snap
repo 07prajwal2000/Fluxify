@@ -213,7 +213,7 @@ db_insertbulk {
 
 db_native {
 	connection: string;  // integration id
-	js: string;  // js code to execute (has dbQuery(query: string, params?: unknown[]) global function returning rows; use $1 (Postgres) or ? (MySQL) placeholders, never interpolate values)
+	js: string;  // js code to execute. PostgreSQL/MySQL: dbQuery(query: string, params?: unknown[]) global returning rows; use $1, $2 placeholders (MySQL also takes ?), never interpolate values. MongoDB: db global is the driver's Db (await db.collection('users').find({ age: { $gt: 18 } }).toArray()) and ObjectId builds ids; inside a transaction every collection call joins it; dbQuery throws on MongoDB
 }
 
 db_transaction {

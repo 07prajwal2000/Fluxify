@@ -19,7 +19,8 @@ Every script runs inside an `async` function: `await` works anywhere, and `retur
 | `setHeader`, `setCookie` | Yes | No effect | Caller's | |
 | `getResponseBody()`, `getResponseStatus()` | `null` | `null` | `null` | After middlewares |
 | `params` | No | No | Yes | Custom blocks |
-| `dbQuery` | No | No | No | DB Native block |
+| `dbQuery` | No | No | No | DB Native block (PostgreSQL, MySQL) |
+| `db`, `ObjectId` | No | No | No | DB Native block (MongoDB) |
 | `kv` | No | No | No | KV Raw Connection block |
 | `testsuite` | No | No | No | Test-only custom blocks |
 
@@ -266,12 +267,16 @@ const logger: {
 ## DB Native only
 
 ```typescript
-function dbQuery(query: string, params?: unknown[]): Promise<Record<string, unknown>[]>;
+function dbQuery(query: string, params?: unknown[]): Promise<Record<string, unknown>[]>; // PostgreSQL, MySQL
+const db: Db;             // MongoDB: the driver's database
+const ObjectId: ObjectId; // MongoDB: builds ids
 ```
 
 | API | Parameters | Returns | Description |
 | --- | --- | --- | --- |
-| `dbQuery` | `query: string`, `params?: unknown[]` | `Promise<rows[]>` | Runs a SQL query and returns the rows. Put values in `params` and use `$1` (PostgreSQL) or `?` (MySQL) placeholders. Available only in **DB Native** blocks. |
+| `dbQuery` | `query: string`, `params?: unknown[]` | `Promise<rows[]>` | Runs a SQL query and returns the rows. Put values in `params` and use `$1`, `$2` placeholders (MySQL also takes `?`). PostgreSQL and MySQL only; it throws on MongoDB. |
+| `db` | none | `Db` | MongoDB only: the database, from the official MongoDB driver. Inside a transaction, every collection call joins it. |
+| `ObjectId` | `id?: string` | `ObjectId` | MongoDB only: `new ObjectId(id)` turns a string into an id you can query `_id` with. |
 
 ## KV Raw Connection only
 

@@ -292,6 +292,7 @@ export async function introspectConnection(cfg: Connection): Promise<Introspecte
 export * from "./connection";
 export * from "./connectionManager";
 export * from "./mongoDbAdapter";
+export * from "./mongoNative";
 export * from "./mySqlAdapter";
 export * from "./postgresAdapter";
 export * from "./transactionErrors";

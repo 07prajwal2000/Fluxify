@@ -23,7 +23,7 @@ You can write JavaScript in several places. They share one core set of names, an
 | **Workflow** (started by a trigger, a schedule, [Trigger Workflow](../blocks/trigger-workflow.md) or the **Run** button) | The same blocks and fields | The core names, with [different values](#routes-and-workflows) |
 | **Custom block** | The same blocks, inside the block's own canvas | `params`, the settings filled in where the block is used. See [Custom Blocks](../blocks/custom-blocks.md) |
 | **Middleware custom block** | The same blocks, inside the block's own canvas | The core names, but no `params`: a middleware block takes no settings. After the route, `input` starts as `{ httpCode, body }`, and `getResponseBody()` / `getResponseStatus()` return the reply. See [Middlewares](../concepts/middlewares.md) |
-| **DB Native** block | Its JS field | `dbQuery(query, params?)`. See [DB Native](../blocks/db-native.md) |
+| **DB Native** block | Its JS field | `dbQuery(query, params?)` on PostgreSQL and MySQL, `db` and `ObjectId` on MongoDB. See [DB Native](../blocks/db-native.md) |
 | **KV Raw Connection** block | Its JS field | `kv`, the raw client. See [KV Raw Connection](../blocks/kv-raw.md) |
 | **Test-only custom block** (setup and teardown) | The block's canvas | `testsuite`. See [Setup and Teardown](../testing/setup-and-teardown.md) |
 | **Request validation** ("Use JavaScript" on a field) | The field's code box | `input` is the field's value. Return a truthy value to pass, or `throw new ValidationError(...)`. See [Routing](../getting-started/routing.md). No `import` here. |

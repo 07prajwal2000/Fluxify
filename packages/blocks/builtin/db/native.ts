@@ -1,7 +1,9 @@
+import { MongoAdapter, ObjectId, sessionBoundDb } from "@fluxify/adapters";
 import z from "zod";
 import { baseBlockDataSchema, type Context } from "../../baseBlock";
 import { BlockTypes } from "../../blockTypes";
 import type { EmitNode } from "../../compiler";
+import { withGlobals } from "../snippetGlobals";
 import { adapterFor, dbFailure } from "./schema";
 
 export const nativeDbBlockSchema = z
@@ -10,7 +12,7 @@ export const nativeDbBlockSchema = z
 		js: z
 			.string()
 			.describe(
-				"js code to execute (has dbQuery(query: string, params?: unknown[]) global function returning rows; use $1 (Postgres) or ? (MySQL) placeholders, never interpolate values)",
+				"js code to execute. PostgreSQL/MySQL: dbQuery(query: string, params?: unknown[]) global returning rows; use $1, $2 placeholders (MySQL also takes ?), never interpolate values. MongoDB: db global is the driver's Db (await db.collection('users').find({ age: { $gt: 18 } }).toArray()) and ObjectId builds ids; inside a transaction every collection call joins it; dbQuery throws on MongoDB",
 			),
 	})
 	.extend(baseBlockDataSchema.shape);
@@ -20,27 +22,34 @@ export const nativeDbAiDescription = {
 	description: "Executes raw SQL or database-specific commands via JavaScript.",
 	jsonSchema: JSON.stringify(z.toJSONSchema(nativeDbBlockSchema)),
 };
-/**
- * `dbQuery` is published on vars for the duration of the snippet, which is how
- * the interpreted block did it too (JsVM assigns the extra global, then deletes
- * it). Inlined user code reaches it through the scope proxy.
- */
+
+const MONGO_DB_QUERY = "dbQuery takes SQL; on MongoDB use db.collection(...)";
+
+/** each call looks the adapter up again, so a snippet still running when its transaction times out is refused */
+async function nativeGlobals(context: Context, connection: string) {
+	const current = () => adapterFor(context, connection);
+	const adapter = current();
+	if (!(adapter instanceof MongoAdapter))
+		return { dbQuery: (...args: Parameters<typeof adapter.raw>) => current().raw(...args) };
+	return {
+		db: sessionBoundDb(await adapter.raw(), () => (current() as MongoAdapter).transactionSession()),
+		ObjectId,
+		dbQuery: () => {
+			throw new Error(MONGO_DB_QUERY);
+		},
+	};
+}
+
 export async function runNativeDb(
 	context: Context,
 	connection: string,
 	body: () => Promise<unknown>,
 ) {
-	const adapter = adapterFor(context, connection);
-	const vars = context.vars as Record<string, any>;
-	// looked up per call, so a snippet still running when its transaction times out is refused
-	vars.dbQuery = (...args: Parameters<typeof adapter.raw>) =>
-		adapterFor(context, connection).raw(...args);
+	const globals = await nativeGlobals(context, connection);
 	try {
-		return await body();
+		return await withGlobals(context.vars as Record<string, unknown>, globals, body);
 	} catch (error) {
 		dbFailure("native", error);
-	} finally {
-		delete vars.dbQuery;
 	}
 }
 
