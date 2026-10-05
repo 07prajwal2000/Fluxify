@@ -1,5 +1,7 @@
 import { afterAll, describe, expect, it } from "bun:test";
 import { type BlockDTOType, BlockTypes, compileGraph } from "@fluxify/blocks";
+import type { TraceRunPayload } from "@fluxify/common/otlp";
+import { RouteTraceRecorder } from "../../telemetry/routeRecorder";
 import {
 	applyArtifactUpdate,
 	initCompiledRuntime,
@@ -107,6 +109,39 @@ describe("route middlewares from their own artifacts", () => {
 		expect(result?.output.body).toEqual({ httpCode: 200, body: "2!" });
 		const original = middleware("mw-auth", "Auth", ["add_one", "double"]);
 		applyArtifactUpdate(original.key, original.value);
+	});
+
+	it("nests each middleware's blocks under a labelled middleware span", async () => {
+		const runs: TraceRunPayload[] = [];
+		const trace = new RouteTraceRecorder(
+			{ projectId: PROJECT, routeId: target.routeId, routeVersion: "", method: "GET", path: "/mw" },
+			(run) => runs.push(run),
+		);
+		const ctx = context(1);
+		ctx.trace = trace;
+
+		await runBlocks(target, ctx);
+		trace.complete("success", 200);
+
+		const spans = runs[0]!.spans;
+		const by = (blockId: string) => spans.find((s) => s.blockId === blockId)!;
+		const auth = by("middleware:mw-auth");
+		expect(auth).toMatchObject({
+			blockType: "middleware",
+			blockName: "Auth",
+			middleware: { id: "mw-auth", name: "Auth", phase: "before", position: 0, blocks: ["add_one", "double"] },
+			input: 1,
+			output: 4,
+			outcome: "success",
+		});
+		expect(auth.parentSeq).toBeUndefined();
+		// middleware -> custom block -> that block's own blocks
+		const step = by("middleware:mw-auth:double");
+		expect(step).toMatchObject({ blockType: "double", parentSeq: auth.seq, input: 2, output: 4 });
+		expect(by("double-js").parentSeq).toBe(step.seq);
+		expect(by("middleware:mw-tag")).toMatchObject({ middleware: { phase: "after", position: 0 } });
+		// the route's own blocks stay at the top
+		expect(by("r-js").parentSeq).toBeUndefined();
 	});
 
 	it("fails the request when a named middleware is not loaded, never skips it", async () => {

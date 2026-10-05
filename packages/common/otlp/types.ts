@@ -15,6 +15,14 @@ export type TraceSpanRecord = {
 	blockType: string;
 	/** the name the user gave the block; absent when it has none */
 	blockName?: string;
+	/** set on a middleware's own span (#579) */
+	middleware?: {
+		id: string;
+		name: string;
+		phase: "before" | "after";
+		position: number;
+		blocks: string[];
+	};
 	/**
 	 * Set when this span came from inside a custom block. Those `blockId`s belong
 	 * to the nested graph's canvas, not the route's — overlaid on the route canvas
