@@ -49,10 +49,13 @@ describe("worker modes", () => {
 	it("keeps the HTTP route table out of a workflow-only worker", () => {
 		expect(artifactKindsForMode("workflow")).not.toContain("route");
 		expect(artifactKindsForMode("route")).not.toContain("workflow");
+		// middlewares only wrap routes
+		expect(artifactKindsForMode("workflow")).not.toContain("middleware");
 		expect(artifactKindsForMode("both")).toEqual([
 			"route",
 			"workflow",
 			"custom-block",
+			"middleware",
 			"project-config",
 			"trigger",
 			"deps",

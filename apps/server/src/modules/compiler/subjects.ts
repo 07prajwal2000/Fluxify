@@ -22,6 +22,8 @@ export const COMPILE_SUBJECTS = `${SUBJECT_ROOT}.>`;
  */
 export const compileRouteSubject = (routeId: string) => `${SUBJECT_ROOT}.route.${routeId}`;
 export const compileCustomBlockSubject = (id: string) => `${SUBJECT_ROOT}.custom-block.${id}`;
+/** the request carries the project too: a deleted middleware has no row left to resolve it */
+export const compileMiddlewareSubject = (id: string) => `${SUBJECT_ROOT}.middleware.${id}`;
 export const compileWorkflowSubject = (workflowId: string) =>
 	`${SUBJECT_ROOT}.workflow.${workflowId}`;
 /** `all` republishes config for every project */
@@ -39,6 +41,7 @@ export const ALL_PROJECTS = "all";
  */
 export const routeKey = (projectId: string, routeId: string) => `route.${projectId}.${routeId}`;
 export const customBlockKey = (projectId: string, id: string) => `custom-block.${projectId}.${id}`;
+export const middlewareKey = (projectId: string, id: string) => `middleware.${projectId}.${id}`;
 export const workflowKey = (projectId: string, workflowId: string) =>
 	`workflow.${projectId}.${workflowId}`;
 export const projectConfigKey = (projectId: string) => `project-config.${projectId}.current`;
@@ -69,6 +72,7 @@ export const projectArtifactFilters = (
 const ARTIFACT_KINDS = [
 	"route",
 	"custom-block",
+	"middleware",
 	"workflow",
 	"project-config",
 	"trigger",

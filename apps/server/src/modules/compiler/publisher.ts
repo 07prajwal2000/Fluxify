@@ -5,6 +5,7 @@ import type { CompileRequest } from "./artifacts";
 import {
 	ALL_PROJECTS,
 	compileCustomBlockSubject,
+	compileMiddlewareSubject,
 	compileProjectConfigSubject,
 	compileProjectSubject,
 	compileRouteSubject,
@@ -31,6 +32,11 @@ export function requestRouteCompile(routeId: string, reason?: string) {
 
 export function requestCustomBlockCompile(id: string, reason?: string) {
 	return request(compileCustomBlockSubject(id), { id, reason });
+}
+
+/** `projectId` lets a deleted middleware's artifact be dropped */
+export function requestMiddlewareCompile(id: string, projectId: string, reason?: string) {
+	return request(compileMiddlewareSubject(id), { id, projectId, reason });
 }
 
 export function requestWorkflowCompile(workflowId: string, reason?: string) {

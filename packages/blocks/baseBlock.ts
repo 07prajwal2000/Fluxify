@@ -91,12 +91,25 @@ export interface TriggerContext {
 	connection?: TriggerConnection;
 }
 
+/** a middleware's span metadata (#579) */
+export type MiddlewareSpanInfo = {
+	id: string;
+	name: string;
+	phase: "before" | "after";
+	/** its place in that phase, from 0 */
+	position: number;
+	/** the custom blocks in its chain, in run order */
+	blocks: string[];
+};
+
 /** One completed block execution within a request-level trace. */
 export type BlockTraceSpan = {
 	blockId: string;
 	blockType: string;
 	/** the name the user gave the block; absent when it has none */
 	blockName?: string;
+	/** set on a middleware's own span (#579): which one, and where it ran */
+	middleware?: MiddlewareSpanInfo;
 	input: unknown;
 	output: unknown;
 	/**

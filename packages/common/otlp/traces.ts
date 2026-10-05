@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import {
+	type Attributes,
 	type Context,
 	ROOT_CONTEXT,
 	type Span,
@@ -113,12 +114,19 @@ const wallClock = (run: TraceRunPayload, reading: number) =>
 	run.startedAtWallMs + (reading - run.perfOrigin);
 
 function spanAttributes(span: TraceSpanRecord) {
-	const attributes: Record<string, string | number | boolean> = {
+	const attributes: Attributes = {
 		"fluxify.block.id": span.blockId,
 		"fluxify.block.type": span.blockType,
 		"fluxify.seq": span.seq,
 	};
 	if (span.blockName) attributes["fluxify.block.name"] = span.blockName;
+	if (span.middleware) {
+		attributes["fluxify.middleware.id"] = span.middleware.id;
+		attributes["fluxify.middleware.name"] = span.middleware.name;
+		attributes["fluxify.middleware.phase"] = span.middleware.phase;
+		attributes["fluxify.middleware.position"] = span.middleware.position;
+		attributes["fluxify.middleware.blocks"] = span.middleware.blocks;
+	}
 	if (span.customBlockId) attributes["fluxify.custom_block.id"] = span.customBlockId;
 	if (span.branch) attributes["fluxify.branch"] = span.branch;
 	if (span.truncated) attributes["fluxify.truncated"] = true;

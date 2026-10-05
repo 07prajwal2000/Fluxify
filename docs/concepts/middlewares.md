@@ -166,7 +166,8 @@ A middleware block named `served_by`, attached **after** the route:
   request to guard, so they don't use them.
 - [Test suites](../testing/index.md) run a route's middlewares too, so your
   tests see exactly what callers see.
-- Deleting a middleware removes it from every route that used it.
+- A middleware that routes still use can't be deleted. Remove it from those
+  routes first.
 - A custom block that a middleware still uses can't be deleted. Remove it from
   those middlewares first.
 - Changing a middleware updates every route that uses it.

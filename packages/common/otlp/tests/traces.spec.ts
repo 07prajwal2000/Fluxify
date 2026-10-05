@@ -145,6 +145,47 @@ describe("exportRun", () => {
 		expect(byName(spans(), "entry").attributes["fluxify.block.name"]).toBeUndefined();
 	});
 
+	it("labels a middleware span and nests its blocks under it", () => {
+		const { provider, spans } = collector();
+		const middleware = {
+			id: "mw-1",
+			name: "Auth",
+			phase: "before" as const,
+			position: 0,
+			blocks: ["check_token"],
+		};
+
+		exportRun(
+			provider,
+			run({
+				spans: [
+					span(0, "middleware:mw-1", 0, 10, {
+						blockType: "middleware",
+						blockName: "Auth",
+						middleware,
+					}),
+					span(1, "middleware:mw-1:check_token", 1, 9, {
+						blockType: "check_token",
+						parentSeq: 0,
+					}),
+				],
+			}),
+		);
+
+		const found = byName(spans(), "middleware:mw-1");
+		expect(found.name).toBe("middleware: Auth");
+		expect(found.attributes).toMatchObject({
+			"fluxify.middleware.id": "mw-1",
+			"fluxify.middleware.name": "Auth",
+			"fluxify.middleware.phase": "before",
+			"fluxify.middleware.position": 0,
+			"fluxify.middleware.blocks": ["check_token"],
+		});
+		expect(byName(spans(), "middleware:mw-1:check_token").parentSpanId).toBe(
+			found.spanContext().spanId,
+		);
+	});
+
 	it("records the error on the block that failed", () => {
 		const { provider, spans } = collector();
 

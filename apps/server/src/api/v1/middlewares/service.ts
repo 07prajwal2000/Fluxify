@@ -3,8 +3,10 @@ import { eq } from "drizzle-orm";
 import type z from "zod";
 import { db } from "../../../db";
 import { type AuthACL, middlewaresEntity } from "../../../db/schema";
+import { ConflictError } from "../../../errors/conflictError";
 import { ForbiddenError } from "../../../errors/forbidError";
 import { NotFoundError } from "../../../errors/notFoundError";
+import { requestMiddlewareCompile } from "../../../modules/compiler/publisher";
 import { hasProjectAccess } from "../../auth/common";
 import type {
 	createBodySchema,
@@ -77,17 +79,19 @@ export async function get(id: string, caller: Caller): Promise<z.infer<typeof ge
 }
 
 export async function create(data: z.infer<typeof createBodySchema>) {
-	return await db.transaction(async (tx) => {
+	const row = await db.transaction(async (tx) => {
 		await nameTaken(data.projectId, data.name, undefined, tx);
 		const { blocks, ...fields } = data;
 		const [row] = await tx
 			.insert(middlewaresEntity)
 			.values(fields)
 			.returning({ id: middlewaresEntity.id });
-		// a new middleware is on no route yet, so nothing to recompile
 		if (blocks?.length) await setChain(row!.id, data.projectId, blocks, tx);
 		return row!;
 	});
+	// its own artifact (#579); it is on no route yet, so no route recompiles
+	await requestMiddlewareCompile(row.id, data.projectId, "middleware created");
+	return row;
 }
 
 export async function update(id: string, data: z.infer<typeof updateBodySchema>, caller: Caller) {
@@ -100,17 +104,26 @@ export async function update(id: string, data: z.infer<typeof updateBodySchema>,
 		}
 		if (blocks) await setChain(id, middleware.projectId, blocks, tx);
 	});
-	// only the chain reaches a route's artifact; a rename changes nothing it runs
-	if (data.blocks) await recompileRoutes(await routesUsing(id));
+	// name and chain live in the middleware's own artifact (#579), not in the
+	// routes: one small write, however many routes use it
+	await requestMiddlewareCompile(id, middleware.projectId, "middleware changed");
 	return { id };
 }
 
 export async function remove(id: string, caller: Caller) {
-	await middlewareFor(id, caller, "creator");
+	const middleware = await middlewareFor(id, caller, "creator");
+	// Refused, not detached for the user (#579): a route artifact names its
+	// middlewares by id, and nothing orders this artifact's drop after those
+	// routes' rebuilds. A route whose rebuild failed would keep naming it and
+	// fail every request.
 	const routes = await routesUsing(id);
-	// the route_middlewares rows cascade, so the routes only need recompiling
+	if (routes.length) {
+		throw new ConflictError(
+			`Remove this middleware from the ${routes.length} route${routes.length === 1 ? "" : "s"} that use it first.`,
+		);
+	}
 	await db.delete(middlewaresEntity).where(eq(middlewaresEntity.id, id));
-	await recompileRoutes(routes);
+	await requestMiddlewareCompile(id, middleware.projectId, "middleware deleted");
 	return { id };
 }
 

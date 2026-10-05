@@ -3,6 +3,8 @@ import {
 	type BlockOutput,
 	type Context,
 	instantiateCompiled,
+	type Middleware,
+	type RouteMiddlewares,
 	registerCompiledCustomBlock,
 	runWithMiddlewares,
 	unregisterCustomBlock,
@@ -21,7 +23,9 @@ import {
 import { hydrateProjectSettings } from "../../loaders/projectSettingsLoader";
 import type {
 	CustomBlockArtifact,
+	MiddlewareArtifact,
 	RouteArtifact,
+	RouteMiddlewareIds,
 	TriggerArtifact,
 	UnsealedProjectConfig,
 	WorkflowArtifact,
@@ -78,6 +82,8 @@ const routes = new Map<string, CompiledRoute>();
 const workflows = new Map<string, CompiledWorkflow>();
 /** custom block artifact id -> registered name, so a delete can unregister it */
 const customBlockNamesById = new Map<string, string>();
+/** middleware id -> its chain (#579); a route artifact names them by id */
+const middlewares = new Map<string, Middleware>();
 let dbConnectionManager: DbConnectionManager | undefined;
 /**
  * Routes of projects with no subdomain, all in one trie on the bare domain —
@@ -138,8 +144,8 @@ export function initCompiledRuntime(entries: ArtifactEntry[], databaseIdleTimeou
 		idleTimeoutMs: databaseIdleTimeoutMs,
 	});
 	setDbConnectionManager(dbConnectionManager);
-	// custom blocks and config first: a graph that invokes one needs it in the
-	// library before it is instantiated. Triggers last: a consumer must not
+	// custom blocks, middlewares and config first: a graph that invokes one
+	// needs it in the library before it is instantiated. Triggers last: a consumer must not
 	// start pulling before the workflow it feeds exists.
 	const phase = (key: string) => {
 		const kind = artifactKind(key);
@@ -161,7 +167,7 @@ export function initCompiledRuntime(entries: ArtifactEntry[], databaseIdleTimeou
 			context,
 			context.requestBody,
 			compiled.run,
-			compiled.artifact.middlewares,
+			resolveMiddlewares(compiled.artifact.middlewares),
 		);
 	});
 
@@ -194,6 +200,10 @@ function applyArtifact(key: string, value: any | null) {
 			return value
 				? addCustomBlock(value as CustomBlockArtifact)
 				: removeCustomBlock(artifactId(key));
+		case "middleware":
+			return value
+				? addMiddleware(value as MiddlewareArtifact)
+				: void middlewares.delete(artifactId(key));
 		case "workflow":
 			return value
 				? addWorkflow(value as WorkflowArtifact)
@@ -233,6 +243,25 @@ function addRoute(artifact: RouteArtifact) {
 			"WORKER.compiled",
 		);
 	}
+}
+
+function addMiddleware({ id, name, blocks }: MiddlewareArtifact) {
+	middlewares.set(id, { id, name, blocks });
+}
+
+/**
+ * A route's middleware ids, as the middlewares they name. One this worker does
+ * not have fails the request: skipping it could skip an auth check.
+ */
+function resolveMiddlewares(ids?: RouteMiddlewareIds): RouteMiddlewares | undefined {
+	if (!ids) return undefined;
+	const resolve = (list: string[]) =>
+		list.map((id) => {
+			const middleware = middlewares.get(id);
+			if (!middleware) throw new Error(`Middleware not loaded: ${id}`);
+			return middleware;
+		});
+	return { before: resolve(ids.before), after: resolve(ids.after) };
 }
 
 function addWorkflow(artifact: WorkflowArtifact) {

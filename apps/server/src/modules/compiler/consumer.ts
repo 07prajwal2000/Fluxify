@@ -20,6 +20,7 @@ import {
 import {
 	compileAllProjects,
 	compileCustomBlock,
+	compileMiddleware,
 	compileProject,
 	compileRoute,
 	compileWorkflow,
@@ -92,6 +93,8 @@ async function handle(subject: string, request: CompileRequest) {
 			return compileRoute(request.id ?? id);
 		case "custom-block":
 			return compileCustomBlock(request.id ?? id);
+		case "middleware":
+			return compileMiddleware(request.id ?? id, request.projectId);
 		case "workflow":
 			return compileWorkflow(request.id ?? id);
 		case "project-config": {

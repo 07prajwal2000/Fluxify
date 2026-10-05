@@ -1,24 +1,91 @@
-import type { BlockOutput, Context } from "./baseBlock";
+import type { BlockOutput, BlockTrace, BlockTraceSpan, Context } from "./baseBlock";
 import { runCustomBlock } from "./builtin/customBlock";
 
-/** one link of a middleware chain: the custom block to run, and whose chain it is */
-export type MiddlewareStep = { middlewareId: string; block: string };
+/** a middleware (#534): its custom blocks, run in order, each passing its value on */
+export type Middleware = { id: string; name: string; blocks: string[] };
 
-/** a route's middlewares, flattened in run order — chains pass their value straight on */
-export type RouteMiddlewares = { before: MiddlewareStep[]; after: MiddlewareStep[] };
+/** a route's middlewares in run order */
+export type RouteMiddlewares = { before: Middleware[]; after: Middleware[] };
+
+type Phase = keyof RouteMiddlewares;
 
 type RunRoute = (ctx: Context, input?: unknown) => Promise<BlockOutput | null>;
 
+/** a Response, or a failure its own error handler did not answer, ends the chain */
+const stops = (result: BlockOutput | undefined) =>
+	Boolean(result?.responded || result?.successful === false);
+
+function record(trace: BlockTrace | undefined, span: BlockTraceSpan) {
+	try {
+		trace?.recordSpan(span);
+	} catch {
+		// Telemetry must never change route execution.
+	}
+}
+
 /**
- * Run a chain. Each step's output is the next step's input; a Response ends the
- * chain, and so does a failure the step's own error handler did not answer.
+ * Run one middleware's custom blocks. Traced (#579) as a `middleware` span
+ * with one span per custom block under it, and that block's own spans under
+ * those — without a trace this is just the loop.
  */
-async function runChain(ctx: Context, steps: MiddlewareStep[], input: unknown) {
+async function runMiddleware(
+	ctx: Context,
+	middleware: Middleware,
+	input: unknown,
+	phase: Phase,
+	position: number,
+) {
+	const startedAt = performance.now();
+	const blockId = `middleware:${middleware.id}`;
+	// reserves this span's slot, so the custom blocks below can point at it
+	const scope = ctx.trace?.enterCustomBlock({ blockId, name: middleware.name, detached: false });
+	const inner = scope ? { ...ctx, trace: scope.trace } : ctx;
+
 	let value = input;
-	for (const step of steps) {
-		const result = await runCustomBlock(ctx, step.block, value, `middleware:${step.middlewareId}`);
-		if (result?.responded || result?.successful === false) return { value, result };
-		value = result?.output;
+	let result: BlockOutput | undefined;
+	for (const block of middleware.blocks) {
+		const stepStart = performance.now();
+		const stepId = `${blockId}:${block}`;
+		const out = await runCustomBlock(inner, block, value, stepId);
+		record(inner.trace, {
+			blockId: stepId,
+			blockType: block,
+			input: value,
+			output: out?.output,
+			startedAt: stepStart,
+			endedAt: performance.now(),
+			outcome: out?.successful === false ? "failure" : "success",
+			...(out?.successful === false ? { error: out.error } : {}),
+		});
+		if (stops(out)) {
+			result = out;
+			break;
+		}
+		value = out?.output;
+	}
+
+	record(ctx.trace, {
+		blockId,
+		blockType: "middleware",
+		blockName: middleware.name,
+		middleware: { ...middleware, phase, position },
+		input,
+		output: result ? result.output : value,
+		startedAt,
+		endedAt: performance.now(),
+		outcome: result?.successful === false ? "failure" : "success",
+		...(result?.successful === false ? { error: result.error } : {}),
+	});
+	return { value, result };
+}
+
+/** Run a phase. Each middleware's output is the next one's input. */
+async function runChain(ctx: Context, middlewares: Middleware[], input: unknown, phase: Phase) {
+	let value = input;
+	for (const [position, middleware] of middlewares.entries()) {
+		const step = await runMiddleware(ctx, middleware, value, phase, position);
+		if (step.result) return step;
+		value = step.value;
 	}
 	return { value, result: undefined };
 }
@@ -39,7 +106,7 @@ export async function runWithMiddlewares(
 	middlewares: RouteMiddlewares | undefined,
 ): Promise<BlockOutput | null> {
 	if (!middlewares) return run(ctx, input);
-	const before = await runChain(ctx, middlewares.before, input);
+	const before = await runChain(ctx, middlewares.before, input, "before");
 	const reply = before.result ?? (await run(ctx, before.value));
 	if (!reply?.successful || middlewares.after.length === 0) return reply;
 
@@ -49,7 +116,7 @@ export async function runWithMiddlewares(
 	// reshaped `input` into something else
 	ctx.vars.getResponseBody = () => body;
 	ctx.vars.getResponseStatus = () => httpCode;
-	const after = await runChain(ctx, middlewares.after, { httpCode, body });
+	const after = await runChain(ctx, middlewares.after, { httpCode, body }, "after");
 	return (
 		after.result ?? {
 			successful: true,
