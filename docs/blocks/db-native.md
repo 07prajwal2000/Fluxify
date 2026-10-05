@@ -106,6 +106,7 @@ return await db.collection("orders").findOne({ _id: id });
 - **Inside a [DB Transaction](./db-transaction.md),** every `db.collection(...)` read and write joins the transaction on its own. If the transaction rolls back, the writes are undone. Commands on `db` itself (like `db.command(...)`) and index changes don't join it.
 - **`dbQuery("...")` with a query throws on MongoDB**, with the message "dbQuery takes SQL; on MongoDB use db.collection(...)". Older code that calls `await dbQuery()` with nothing still works: it returns the same `db`.
 - The code editor knows the driver's types, so `db.` suggests methods as you type.
+- **Ids from other blocks are text.** The other DB blocks give and take ids as text. Turn text into an id with `new ObjectId(text)`, and turn an id back into text with `id.toHexString()` before you return it. See [MongoDB ids](/integrations/databases#ids).
 
 ## Related blocks
 

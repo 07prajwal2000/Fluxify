@@ -62,6 +62,8 @@ MongoDB ids (ObjectIds) come back as 24-character text, such as `"65f1a2b3c4d5e6
 | An insert or update with id text in a field that holds ids | It is saved as a real id, the same type as the documents already there. |
 | Text that can't be an id (not 24 letters `a`–`f` and digits) on a field that holds ids | The block fails with an error that names the field, instead of quietly finding nothing. |
 
+To make a new id, use `ObjectId` in a [DB Native](/blocks/db-native#mongodb) block: `new ObjectId()` makes a fresh one, and `new ObjectId("65f1a2b3c4d5e6f708192a3b")` turns text into an id. Return `id.toHexString()` to pass it on to other blocks as text. `ObjectId` exists only inside DB Native; everywhere else, ids are text.
+
 Fluxify decides whether a field holds ids by looking at the collection's newest documents. On a new, empty collection, id text is saved as plain text, and an insert drops an `id` field, because nothing says yet that `id` is a field of its own.
 
 ## Query timeout
