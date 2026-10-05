@@ -1,5 +1,6 @@
 import {
 	ArrayEditor,
+	Autocomplete,
 	Checkbox,
 	Description,
 	type FieldInfo,
@@ -7,10 +8,12 @@ import {
 	Input,
 	IntegrationSelector,
 	JsTextField,
+	type JsTextFieldSuggestion,
 	Label,
 	ListBox,
-	Select,
+	SearchField,
 	TextField,
+	useFilter,
 } from "@fluxify/components";
 import { useParams } from "@tanstack/react-router";
 import { useReactFlow } from "@xyflow/react";
@@ -46,8 +49,9 @@ export type BlockSelectFieldProps = FieldProps & {
 };
 
 /**
- * A single-choice block setting. Written straight through on change — a select
- * has no half-typed state to debounce, unlike the text fields.
+ * A single-choice block setting, searchable by its labels. Written straight
+ * through on change — a select has no half-typed state to debounce, unlike the
+ * text fields.
  */
 export function BlockSelectField({
 	blockId,
@@ -62,40 +66,49 @@ export function BlockSelectField({
 	const { updateNodeData } = useReactFlow();
 	// Tracking disabled means a readonly canvas: show the value, don't edit it.
 	const { enabled: editable } = useCanvasChanges();
+	const { contains } = useFilter({ sensitivity: "base" });
 	// a saved graph may hand a numeric setting back as a number
 	const raw = data[name];
 	const value = raw === undefined || raw === null ? null : String(raw);
 
 	const select = (
-		<Select
+		<Autocomplete
 			fullWidth
 			variant="secondary"
 			isDisabled={!editable}
 			placeholder={placeholder}
 			value={value}
 			aria-label={info ? label : undefined}
-			onChange={(next) => updateNodeData(blockId, { [name]: String(next) })}
+			onChange={(next) => next != null && updateNodeData(blockId, { [name]: String(next) })}
 		>
 			{!info && <Label>{label}</Label>}
-			<Select.Trigger>
-				<Select.Value />
-				<Select.Indicator />
-			</Select.Trigger>
+			<Autocomplete.Trigger>
+				<Autocomplete.Value />
+				<Autocomplete.Indicator />
+			</Autocomplete.Trigger>
 			{hint && <Description>{hint}</Description>}
-			<Select.Popover>
-				<ListBox>
-					{options.map((option) => (
-						<ListBox.Item key={option.value} id={option.value} textValue={option.label}>
-							{option.label}
-							<ListBox.ItemIndicator />
-						</ListBox.Item>
-					))}
-				</ListBox>
-			</Select.Popover>
-		</Select>
+			<Autocomplete.Popover>
+				<Autocomplete.Filter filter={contains}>
+					<SearchField autoFocus aria-label={`Search ${label}`} variant="secondary">
+						<SearchField.Group>
+							<SearchField.SearchIcon />
+							<SearchField.Input placeholder="Search..." />
+						</SearchField.Group>
+					</SearchField>
+					<ListBox>
+						{options.map((option) => (
+							<ListBox.Item key={option.value} id={option.value} textValue={option.label}>
+								{option.label}
+								<ListBox.ItemIndicator />
+							</ListBox.Item>
+						))}
+					</ListBox>
+				</Autocomplete.Filter>
+			</Autocomplete.Popover>
+		</Autocomplete>
 	);
 	if (!info) return select;
-	// outside the Select: a press on its label or the info button would open the list
+	// outside the Autocomplete: a press on its label or the info button would open the list
 	return (
 		<div className="flex flex-col gap-1 w-full">
 			<div className="flex items-center gap-1">
@@ -160,7 +173,7 @@ export function BlockTextField({
 export type BlockJsTextFieldProps = FieldProps & {
 	placeholder?: string;
 	disableJs?: boolean;
-	suggestions?: string[];
+	suggestions?: JsTextFieldSuggestion[];
 	/** Help behind an info button beside the label, instead of a long hint. */
 	info?: FieldInfo;
 };
