@@ -37,6 +37,7 @@ import { emitForEachLoop } from "./builtin/loops/foreach";
 import { emitOrchestrator } from "./builtin/orchestrator";
 import { emitSendMessage, runSendMessage, runSendMessageRaw } from "./builtin/queue/sendMessage";
 import { emitResponse } from "./builtin/response";
+import { emitRetry, runRetry } from "./builtin/retry";
 import { emitSetVar } from "./builtin/setVar";
 import { emitSwitch } from "./builtin/switch";
 import { emitTransformer } from "./builtin/transformer";
@@ -97,6 +98,7 @@ export const emitters: Partial<Record<BlockTypes, Emitter>> = {
 	[BlockTypes.cloudLogs]: emitCloudLogs,
 	[BlockTypes.triggerWorkflow]: emitTriggerWorkflow,
 	[BlockTypes.queue_send]: emitSendMessage,
+	[BlockTypes.retry]: emitRetry,
 };
 
 /** helpers the generated code calls as `lib.x` — anything too big to inline */
@@ -115,6 +117,7 @@ export const compilerLib = {
 	dbNative: runNativeDb,
 	dbTransaction: runTransactionDb,
 	TransactionRollback,
+	retry: runRetry,
 	kvRaw: runKvRaw,
 	kvOperations: runKvOperations,
 	cloudLog: runCloudLog,

@@ -26,6 +26,7 @@ import {
 	nativeDbBlockSchema,
 	orchestratorBlockSchema,
 	responseBlockSchema,
+	retryBlockSchema,
 	rollbackDbBlockSchema,
 	sendMessageBlockSchema,
 	setHttpCookieBlockSchema,
@@ -202,6 +203,9 @@ export function blockDataValidator(data: CanvasChanges) {
 				break;
 			case BlockTypes.kv_operations:
 				schema = kvOperationsBlockSchema;
+				break;
+			case BlockTypes.retry:
+				schema = retryBlockSchema;
 				break;
 			case BlockTypes.queue_send:
 				schema = sendMessageBlockSchema;

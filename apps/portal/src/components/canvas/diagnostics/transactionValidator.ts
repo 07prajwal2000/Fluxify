@@ -48,7 +48,7 @@ export function validateTransactions(graph: CanvasGraph): BlockDiagnostic[] {
 }
 
 /** a blank setting means the default; anything else must be a whole number in range */
-const whole = (value: unknown, min: number, max: number) =>
+export const whole = (value: unknown, min: number, max: number) =>
 	isBlank(value) ||
 	(Number.isInteger(Number(value)) && Number(value) >= min && Number(value) <= max);
 

@@ -4,6 +4,7 @@ import { BLOCK_TYPES } from "../blocks/blockTypes";
 import { savesOutput } from "../panel/SaveOutputField";
 import type { BlockData, CanvasGraph } from "../types";
 import { dbConditionIssues, dbJoinIssues, dbSortIssues, isBlank } from "./dbConditionIssues";
+import { checkRetrySettings } from "./retryValidator";
 import { kvIssues, sendMessageIssues } from "./storeIssues";
 import { checkTransactionSettings } from "./transactionValidator";
 import type { BlockDiagnostic, DiagnosticSeverity } from "./types";
@@ -279,6 +280,9 @@ export function blockConfigIssues(type: string, data: BlockData): BlockConfigIss
 			break;
 		case BLOCK_TYPES.cloudLogs:
 			if (isBlank(data.connection)) report("error", "No observability connection selected.");
+			break;
+		case BLOCK_TYPES.retry:
+			checkRetrySettings(data, report);
 			break;
 		case BLOCK_TYPES.transformer:
 			if (data.useJs !== true && isEmptyObject(data.fieldMap)) {

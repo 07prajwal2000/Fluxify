@@ -17,6 +17,7 @@ export const BLOCK_OUTPUT_HANDLES: Record<string, readonly string[]> = {
 	[BlockTypes.forloop]: ["source", "executor"],
 	[BlockTypes.foreachloop]: ["source", "executor"],
 	[BlockTypes.db_transaction]: ["success", "failure", "executor"],
+	[BlockTypes.retry]: ["success", "failure", "executor"],
 	[BlockTypes.orchestrator]: ["source", "orchestrate"],
 	[BlockTypes.switch]: ["case"],
 	// terminal — the runtime never looks for an outgoing edge

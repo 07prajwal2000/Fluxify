@@ -26,6 +26,17 @@ describe("validateBlockConfigs", () => {
 		]);
 	});
 
+	it("checks a retry's max retries and delays", () => {
+		const retry = (data: Record<string, unknown>) =>
+			blockConfigIssues(BLOCK_TYPES.retry, data).map((i) => i.message);
+		expect(retry(defaultBlockData(BLOCK_TYPES.retry))).toEqual([]);
+		expect(retry({ maxRetries: "0", delayMs: "30001" })).toEqual([
+			"Max retries must be a whole number from 1 to 10.",
+			"Delay and max delay must be whole numbers from 0 to 30000 ms.",
+		]);
+		expect(retry({ maxRetries: "11" })).toHaveLength(1);
+	});
+
 	it("flags a fresh db get all: connection, table, no conditions", () => {
 		expect(severities(BLOCK_TYPES.db_getall, defaultBlockData(BLOCK_TYPES.db_getall))).toEqual(["error", "error", "warning"]);
 	});

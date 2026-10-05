@@ -206,6 +206,7 @@ export default withMermaid(
 							{ text: "For Loop", link: "/blocks/for-loop" },
 							{ text: "For Each Loop", link: "/blocks/foreach-loop" },
 							{ text: "Orchestrator", link: "/blocks/orchestrator" },
+							{ text: "Retry", link: "/blocks/retry" },
 							{ text: "Error Handler", link: "/blocks/error-handler" },
 							{ text: "Response", link: "/blocks/response" },
 						],

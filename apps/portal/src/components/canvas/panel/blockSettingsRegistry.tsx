@@ -32,6 +32,7 @@ import { kvRawSettings } from "./blocks/kv/KvRawSettings";
 import { orchestratorSettings } from "./blocks/OrchestratorSettings";
 import { sendMessageSettings } from "./blocks/queue/SendMessageSettings";
 import { responseSettings } from "./blocks/ResponseSettings";
+import { retrySettings } from "./blocks/RetrySettings";
 import { setCookieSettings } from "./blocks/SetCookieSettings";
 import { setHeaderSettings } from "./blocks/SetHeaderSettings";
 import { setVarSettings } from "./blocks/SetVarSettings";
@@ -81,6 +82,7 @@ export const BLOCK_SETTINGS_TABS: Record<string, BlockTabs> = {
 	[BLOCK_TYPES.kv_raw]: kvRawSettings,
 	[BLOCK_TYPES.kv_operations]: kvOperationsSettings,
 	[BLOCK_TYPES.queue_send]: sendMessageSettings,
+	[BLOCK_TYPES.retry]: retrySettings,
 };
 
 const NO_EXTRA_TABS_BUILTIN = new Set<string>([
