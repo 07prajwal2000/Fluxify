@@ -31,7 +31,8 @@ const SLOW: Record<Exclude<Engine, "none" | "pg">, string> = {
 const STOPPED: Record<Exclude<Engine, "none">, RegExp> = {
 	pg: /canceling statement due to statement timeout/,
 	mysql: /maximum statement execution time exceeded/,
-	mongo: /Timed out/,
+	// the driver's own timer or the server's time limit, whichever stops it first
+	mongo: /Timed out|Server reported a timeout error/,
 };
 
 async function orderCount() {
