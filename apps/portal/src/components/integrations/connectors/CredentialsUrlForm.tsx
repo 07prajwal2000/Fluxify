@@ -26,6 +26,7 @@ export function CredentialsUrlForm({
 	hasDatabase = true,
 	hasSSL = false,
 	hasQueryTimeout = false,
+	defaultMaxConnections,
 	databaseLabel = "Database Name",
 }: ConnectorFormProps & {
 	placeholders: Placeholders;
@@ -33,6 +34,8 @@ export function CredentialsUrlForm({
 	hasSSL?: boolean;
 	/** databases: queries running longer than this are stopped */
 	hasQueryTimeout?: boolean;
+	/** databases: shows the pool size field, with this as its default */
+	defaultMaxConnections?: number;
 	databaseLabel?: string;
 }) {
 	// read from the config, never copied into state: an edit page fills the config
@@ -153,6 +156,32 @@ export function CredentialsUrlForm({
 					/>
 					<p className="text-xs text-muted">
 						A query running longer than this is stopped with an error. Default: 30 seconds.
+					</p>
+				</div>
+			)}
+
+			{defaultMaxConnections && (
+				<div className="flex flex-col gap-1">
+					<label
+						htmlFor="integration-max-connections"
+						className="text-xs font-medium text-foreground"
+					>
+						Max connections
+					</label>
+					<Input
+						id="integration-max-connections"
+						type="number"
+						min={1}
+						max={1000}
+						value={String(config.maxConnections ?? defaultMaxConnections)}
+						onChange={(e) => {
+							const n = Math.round(Number(e.currentTarget.value) || 0);
+							setField("maxConnections", Math.min(1000, Math.max(1, n)));
+						}}
+					/>
+					<p className="text-xs text-muted">
+						Per worker. Your database can see up to workers × this number. Default:{" "}
+						{defaultMaxConnections}.
 					</p>
 				</div>
 			)}

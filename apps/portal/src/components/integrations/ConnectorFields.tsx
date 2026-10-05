@@ -9,7 +9,14 @@ import { SqsForm } from "./connectors/SqsForm";
 
 const CRED_PLACEHOLDERS: Record<
 	string,
-	{ ph: Record<string, string>; ssl?: boolean; db?: boolean; dbLabel?: string }
+	{
+		ph: Record<string, string>;
+		ssl?: boolean;
+		db?: boolean;
+		dbLabel?: string;
+		/** the runtime's pool size when an integration leaves it out */
+		pool?: number;
+	}
 > = {
 	PostgreSQL: {
 		ph: {
@@ -23,6 +30,7 @@ const CRED_PLACEHOLDERS: Record<
 		},
 		ssl: true,
 		db: true,
+		pool: 10,
 	},
 	MySQL: {
 		ph: {
@@ -35,6 +43,7 @@ const CRED_PLACEHOLDERS: Record<
 			url: "mysql://user:pass@host:port/dbname?ssl=disable",
 		},
 		db: true,
+		pool: 10,
 	},
 	MongoDB: {
 		ph: {
@@ -47,6 +56,7 @@ const CRED_PLACEHOLDERS: Record<
 			url: "mongodb://user:pass@host:port/dbname",
 		},
 		db: true,
+		pool: 100,
 	},
 	Redis: {
 		ph: {
@@ -117,6 +127,7 @@ export function ConnectorFields({
 					hasDatabase={CRED_PLACEHOLDERS[variant].db}
 					hasSSL={CRED_PLACEHOLDERS[variant].ssl}
 					hasQueryTimeout
+					defaultMaxConnections={CRED_PLACEHOLDERS[variant].pool}
 				/>
 			)}
 			{group === "kv" && CRED_PLACEHOLDERS[variant] && (

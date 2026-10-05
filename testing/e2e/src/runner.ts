@@ -78,6 +78,7 @@ async function hydrateDatabase(fixture: GraphFixture) {
 			[DB_CONNECTION]: {
 				...connection,
 				queryTimeoutMs: fixture.queryTimeoutMs,
+				maxConnections: fixture.maxConnections,
 				[OWNER_KEY]: PROJECT_ID,
 			},
 		},
