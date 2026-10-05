@@ -14,8 +14,8 @@ const CRED_PLACEHOLDERS: Record<
 		ssl?: boolean;
 		db?: boolean;
 		dbLabel?: string;
-		/** the runtime's pool size when an integration leaves it out */
-		pool?: number;
+		/** the runtime's pool size when an integration leaves it out, and the most it allows */
+		pool?: { default: number; max: number };
 	}
 > = {
 	PostgreSQL: {
@@ -30,7 +30,7 @@ const CRED_PLACEHOLDERS: Record<
 		},
 		ssl: true,
 		db: true,
-		pool: 10,
+		pool: { default: 10, max: 50 },
 	},
 	MySQL: {
 		ph: {
@@ -43,7 +43,7 @@ const CRED_PLACEHOLDERS: Record<
 			url: "mysql://user:pass@host:port/dbname?ssl=disable",
 		},
 		db: true,
-		pool: 10,
+		pool: { default: 10, max: 50 },
 	},
 	MongoDB: {
 		ph: {
@@ -56,7 +56,7 @@ const CRED_PLACEHOLDERS: Record<
 			url: "mongodb://user:pass@host:port/dbname",
 		},
 		db: true,
-		pool: 100,
+		pool: { default: 100, max: 100 },
 	},
 	Redis: {
 		ph: {
@@ -127,7 +127,7 @@ export function ConnectorFields({
 					hasDatabase={CRED_PLACEHOLDERS[variant].db}
 					hasSSL={CRED_PLACEHOLDERS[variant].ssl}
 					hasQueryTimeout
-					defaultMaxConnections={CRED_PLACEHOLDERS[variant].pool}
+					maxConnections={CRED_PLACEHOLDERS[variant].pool}
 				/>
 			)}
 			{group === "kv" && CRED_PLACEHOLDERS[variant] && (

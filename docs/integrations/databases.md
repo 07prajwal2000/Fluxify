@@ -22,7 +22,7 @@ When setting up a PostgreSQL connection, you will need to provide:
 - **Password**: Your database password.
 - **SSL**: Enable this if your provider requires a secure connection (common for cloud databases like Neon or Supabase).
 - **Query timeout**: How long one query may run before it is stopped with an error. **Default: 30 seconds.** Raise it for slow reports; lower it to protect a busy database.
-- **Max connections**: The most connections Fluxify keeps open to this database, **per worker**. **Default: 10.** See [How connections are handled](#how-connections-are-handled) before you change it.
+- **Max connections**: The most connections Fluxify keeps open to this database, **per worker**. **Default: 10, at most 50.** See [How connections are handled](#how-connections-are-handled) before you change it.
 
 ### Functionality
 
@@ -45,7 +45,7 @@ On MySQL the timeout stops reads that run too long. A write (insert, update, del
 
 ## MongoDB
 
-Connect to a MongoDB database. Collections take the place of tables, and the same blocks read and write documents. Joins are not available. **Max connections** defaults to 100.
+Connect to a MongoDB database. Collections take the place of tables, and the same blocks read and write documents. Joins are not available. **Max connections** defaults to 100, which is also the most you can set.
 
 ::: warning Transactions need a replica set
 The [DB Transaction](/blocks/db-transaction) block only works when MongoDB runs as a replica set (or behind a sharded cluster). A single standalone server still works for every other block. **Test connection** warns you when the server is standalone.
@@ -59,13 +59,13 @@ Every database connection stops a query that runs longer than its **Query timeou
 
 You don't need to open or close database connections yourself. Each database integration keeps a small set of open connections (a pool), and every route and workflow that uses that integration shares it. A request borrows a connection for each query and hands it straight back, so requests don't wait for a new connection to open.
 
-You choose how many connections the pool may open with the integration's **Max connections** setting. If you leave it empty, these defaults apply:
+You choose how many connections the pool may open with the integration's **Max connections** setting. If you leave it empty, the default applies. Each database also has a ceiling, so one integration can't make a worker hold more open connections than it can handle:
 
-| Database | Default max connections, per integration, per worker |
-| --- | --- |
-| PostgreSQL | 10 |
-| MySQL | 10 |
-| MongoDB | 100 |
+| Database | Default, per integration, per worker | Most you can set |
+| --- | --- | --- |
+| PostgreSQL | 10 | 50 |
+| MySQL | 10 | 50 |
+| MongoDB | 100 | 100 |
 
 When every connection is busy, the next query waits for one to free up instead of failing. On MongoDB that wait counts toward the Query timeout.
 

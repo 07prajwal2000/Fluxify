@@ -8,6 +8,7 @@ import {
 	DbType,
 	DEFAULT_MAX_CONNECTIONS,
 	DEFAULT_QUERY_TIMEOUT_MS,
+	MAX_MAX_CONNECTIONS,
 } from "./connection";
 import { buildMongoUrl, MongoAdapter } from "./mongoDbAdapter";
 import { MYSQL_POOL_OPTIONS, MySqlAdapter } from "./mySqlAdapter";
@@ -235,7 +236,11 @@ export function connectionFingerprint(config: Connection) {
 
 function createManagedConnection(_integrationId: string, config: Connection): ManagedDbConnection {
 	const timeoutMs = config.queryTimeoutMs ?? DEFAULT_QUERY_TIMEOUT_MS;
-	const max = config.maxConnections ?? DEFAULT_MAX_CONNECTIONS[config.dbType];
+	// capped here too: a row saved before the cap, or written around the API, still gets a sane pool
+	const max = Math.min(
+		config.maxConnections ?? DEFAULT_MAX_CONNECTIONS[config.dbType],
+		MAX_MAX_CONNECTIONS[config.dbType],
+	);
 	if (config.dbType === DbType.POSTGRES) {
 		const sql = new SQL({
 			adapter: "postgres",

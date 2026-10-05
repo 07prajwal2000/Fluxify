@@ -24,6 +24,12 @@ export const DEFAULT_MAX_CONNECTIONS: Record<DbType, number> = {
 	[DbType.MYSQL]: 10,
 	[DbType.MONGODB]: 100,
 };
+/** the most a user may set, per worker: past this a worker spends its memory on idle sockets */
+export const MAX_MAX_CONNECTIONS: Record<DbType, number> = {
+	[DbType.POSTGRES]: 50,
+	[DbType.MYSQL]: 50,
+	[DbType.MONGODB]: 100,
+};
 
 const primaryKeyCaches = new WeakMap<object, Map<string, string[]>>();
 
