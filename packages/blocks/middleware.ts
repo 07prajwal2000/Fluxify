@@ -1,24 +1,36 @@
 import type { BlockOutput, Context } from "./baseBlock";
 import { runCustomBlock } from "./builtin/customBlock";
 
-/** one link of a middleware chain: the custom block to run, and whose chain it is */
-export type MiddlewareStep = { middlewareId: string; block: string };
+/** a middleware (#534): its custom blocks, run in order, each passing its value on */
+export type Middleware = { id: string; name: string; blocks: string[] };
 
-/** a route's middlewares, flattened in run order — chains pass their value straight on */
-export type RouteMiddlewares = { before: MiddlewareStep[]; after: MiddlewareStep[] };
+/** a route's middlewares in run order */
+export type RouteMiddlewares = { before: Middleware[]; after: Middleware[] };
 
 type RunRoute = (ctx: Context, input?: unknown) => Promise<BlockOutput | null>;
 
-/**
- * Run a chain. Each step's output is the next step's input; a Response ends the
- * chain, and so does a failure the step's own error handler did not answer.
- */
-async function runChain(ctx: Context, steps: MiddlewareStep[], input: unknown) {
+/** a Response, or a failure its own error handler did not answer, ends the chain */
+const stops = (result: BlockOutput | undefined) =>
+	Boolean(result?.responded || result?.successful === false);
+
+/** Run one middleware's custom blocks. */
+async function runMiddleware(ctx: Context, middleware: Middleware, input: unknown) {
 	let value = input;
-	for (const step of steps) {
-		const result = await runCustomBlock(ctx, step.block, value, `middleware:${step.middlewareId}`);
-		if (result?.responded || result?.successful === false) return { value, result };
+	for (const block of middleware.blocks) {
+		const result = await runCustomBlock(ctx, block, value, `middleware:${middleware.id}`);
+		if (stops(result)) return { value, result };
 		value = result?.output;
+	}
+	return { value, result: undefined };
+}
+
+/** Run a phase. Each middleware's output is the next one's input. */
+async function runChain(ctx: Context, middlewares: Middleware[], input: unknown) {
+	let value = input;
+	for (const middleware of middlewares) {
+		const step = await runMiddleware(ctx, middleware, value);
+		if (step.result) return step;
+		value = step.value;
 	}
 	return { value, result: undefined };
 }

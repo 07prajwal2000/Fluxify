@@ -26,7 +26,7 @@ const route = compileGraph(
 	[edge("r1", "r2"), edge("r2", "r3")],
 ).run;
 
-const step = (name: string) => ({ middlewareId: `mw-${name}`, block: name });
+const step = (name: string) => ({ id: `mw-${name}`, name, blocks: [name] });
 
 afterEach(() => {
 	for (const name of customBlockNames()) unregisterCustomBlock(name);

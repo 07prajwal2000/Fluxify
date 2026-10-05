@@ -16,6 +16,7 @@ import {
 	customBlocksListEntity,
 	edgesEntity,
 	httpRouteConfigEntity,
+	middlewaresEntity,
 	projectsEntity,
 	routesEntity,
 	workflowsEntity,
@@ -38,13 +39,14 @@ import type { CanvasParent, CanvasParentType } from "../canvas/types";
 import { compileDependencies } from "../packages/service";
 import type {
 	CustomBlockArtifact,
+	MiddlewareArtifact,
 	ProjectConfigArtifact,
 	ProjectConfigPayload,
 	RouteArtifact,
 	WorkflowArtifact,
 } from "./artifacts";
-import { loadRouteMiddlewares } from "./middlewares";
-import { customBlockKey, projectConfigKey, routeKey, workflowKey } from "./subjects";
+import { loadMiddleware, loadRouteMiddlewareIds } from "./middlewares";
+import { customBlockKey, middlewareKey, projectConfigKey, routeKey, workflowKey } from "./subjects";
 
 /**
  * The compiler is the only process that reads graphs from the database. It
@@ -135,6 +137,7 @@ export async function compileAllProjects() {
 export async function compileProject(projectId: string) {
 	await publishProjectConfig(projectId);
 	const blocks = await compileProjectCustomBlocks(projectId);
+	await compileProjectMiddlewares(projectId);
 	const routes = await compileProjectRoutes(projectId);
 	const workflows = await compileProjectWorkflows(projectId);
 	logger.info(
@@ -159,6 +162,33 @@ export async function compileProjectWorkflows(projectId: string) {
 		.where(and(eq(workflowsEntity.projectId, projectId), eq(workflowsEntity.active, true)));
 	for (const workflow of workflows) await compileWorkflow(workflow.id);
 	return workflows.length;
+}
+
+export async function compileProjectMiddlewares(projectId: string) {
+	const rows = await db
+		.select({ id: middlewaresEntity.id })
+		.from(middlewaresEntity)
+		.where(eq(middlewaresEntity.projectId, projectId));
+	for (const row of rows) await compileMiddleware(row.id);
+}
+
+/**
+ * Publish one middleware (#579); a deleted one is dropped, which needs the
+ * project its key lives under since the row is gone.
+ */
+export async function compileMiddleware(id: string, projectId?: string) {
+	const loaded = await loadMiddleware(id);
+	if (!loaded) {
+		if (projectId) await deleteArtifact(middlewareKey(projectId, id));
+		return;
+	}
+	const artifact: MiddlewareArtifact = {
+		...loaded.middleware,
+		projectId: loaded.projectId,
+		compiledAt: new Date().toISOString(),
+	};
+	await putArtifact(middlewareKey(loaded.projectId, id), artifact);
+	logger.info(`[compiler] published middleware ${artifact.name}`, "COMPILER");
 }
 
 export async function compileProjectCustomBlocks(projectId: string) {
@@ -239,7 +269,7 @@ export async function compileRoute(routeId: string) {
 		// no versioning yet — the compile timestamp is the version (see RouteArtifact)
 		routeVersion: compiledAt,
 		source,
-		middlewares: await loadRouteMiddlewares(routeId),
+		middlewares: await loadRouteMiddlewareIds(routeId),
 		compiledAt,
 	};
 	await putArtifact(routeKey(route.projectId!, routeId), artifact);

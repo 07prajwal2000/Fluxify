@@ -148,7 +148,7 @@ export async function routesUsing(middlewareId: string, tx?: DbTransactionType) 
 	return rows.map((r) => r.routeId);
 }
 
-/** the route artifact carries its middlewares, so every change is a recompile */
+/** the route artifact lists its middlewares' ids, so attaching or detaching is a recompile */
 export async function recompileRoutes(routeIds: string[]) {
 	await Promise.all(routeIds.map((id) => publishMessage(CHAN_ON_ROUTE_CHANGE, id)));
 }

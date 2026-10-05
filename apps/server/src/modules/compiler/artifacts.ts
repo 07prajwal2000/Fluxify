@@ -1,5 +1,3 @@
-import type { RouteMiddlewares } from "@fluxify/blocks";
-
 /**
  * What the compiler publishes and a worker consumes. Everything here must be
  * plain JSON — it round-trips through NATS KV.
@@ -32,10 +30,11 @@ export type RouteArtifact = {
 	/** compiled graph source, instantiated by the worker */
 	source: string;
 	/**
-	 * custom blocks run before and after `source` (#534). Names only: the blocks
-	 * themselves are in the worker's custom block library, like any other call.
+	 * middlewares run before and after `source` (#534), by id. Each one is its
+	 * own artifact (#579), so renaming one or editing its chain rewrites one
+	 * small key instead of every route that uses it.
 	 */
-	middlewares?: RouteMiddlewares;
+	middlewares?: RouteMiddlewareIds;
 	compiledAt: string;
 };
 
@@ -57,6 +56,21 @@ export type WorkflowArtifact = {
 	/** the compile timestamp, same story as `RouteArtifact.routeVersion` */
 	workflowVersion: string;
 	source: string;
+	compiledAt: string;
+};
+
+/** a route's middleware ids, per phase, in run order */
+export type RouteMiddlewareIds = { before: string[]; after: string[] };
+
+/**
+ * A middleware (#579): its name and its chain of custom block names. Nothing
+ * compiled — the blocks are in the worker's custom block library.
+ */
+export type MiddlewareArtifact = {
+	id: string;
+	projectId: string;
+	name: string;
+	blocks: string[];
 	compiledAt: string;
 };
 
@@ -165,7 +179,7 @@ export type DepsArtifact = {
 /** the message body on the compile work queue */
 export type CompileRequest = {
 	projectId?: string;
-	/** route id, custom block id, or absent for a whole-project rebuild */
+	/** route, custom block or middleware id, or absent for a whole-project rebuild */
 	id?: string;
 	reason?: string;
 };
