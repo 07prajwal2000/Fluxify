@@ -31,6 +31,7 @@ import { foreachLoopAiDescription } from "./loops/foreach";
 import { orchestratorAiDescription } from "./orchestrator";
 import { sendMessageAiDescription } from "./queue/sendMessage";
 import { responseAiDescription } from "./response";
+import { retryAiDescription } from "./retry";
 import { setVarBlockAiDescription } from "./setVar";
 import { stickyNoteBlockAiDescription } from "./stickyNote";
 import { switchAiDescription } from "./switch";
@@ -61,6 +62,7 @@ export const blockAiDescriptions = [
 	kvRawAiDescription,
 	kvOperationsAiDescription,
 	sendMessageAiDescription,
+	retryAiDescription,
 	getCookieAiDescription,
 	getHttpHeaderAiDescription,
 	getHttpParamAiDescription,

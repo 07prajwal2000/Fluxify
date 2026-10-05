@@ -28,6 +28,7 @@ import { forEachLoopBlockSchema } from "./loops/foreach";
 import { orchestratorBlockSchema } from "./orchestrator";
 import { sendMessageBlockSchema } from "./queue/sendMessage";
 import { responseBlockSchema } from "./response";
+import { retryBlockSchema } from "./retry";
 import { setVarSchema } from "./setVar";
 import { switchBlockSchema } from "./switch";
 import { transformerBlockSchema } from "./transformer";
@@ -68,4 +69,5 @@ export const builtinBlockSchemas: Record<string, z.ZodTypeAny> = {
 	cloudlogs: cloudLogsBlockSchema,
 	triggerworkflow: triggerWorkflowSchema,
 	queuesend: sendMessageBlockSchema,
+	retry: retryBlockSchema,
 };

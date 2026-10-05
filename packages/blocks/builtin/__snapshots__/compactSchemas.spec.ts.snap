@@ -271,6 +271,13 @@ queue_send {
 	js: string;  // raw mode code; \`client\` is the broker client, whatever it returns is the output; default ""
 }
 
+retry {
+	maxRetries: number;  // retries after the first try, 1 to 10 — so up to 11 runs; default 3
+	retryType: "none" | "fixed" | "linear" | "exponential" | "exponential_jitter";  // wait before retry N: none = 0, fixed = delay, linear = delay*N, exponential = delay*2^(N-1), exponential_jitter = random 0..exponential; default "fixed"
+	delayMs: number;  // starting wait in milliseconds; unused by 'none'; default 1000
+	maxDelayMs: number;  // cap on each single wait in milliseconds; default 30000
+}
+
 httpgetcookie {
 	name: string;  // name of the cookie (supports js expressions)
 	mode?: "single";

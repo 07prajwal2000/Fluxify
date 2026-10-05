@@ -42,6 +42,7 @@ export const BLOCK_TYPES = {
 	cloudLogs: "cloud_logs",
 	triggerWorkflow: "trigger_workflow",
 	queue_send: "queue_send",
+	retry: "retry",
 } as const;
 
 export type BlockType = (typeof BLOCK_TYPES)[keyof typeof BLOCK_TYPES];

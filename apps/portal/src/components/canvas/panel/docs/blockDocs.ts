@@ -43,6 +43,7 @@ export const BLOCK_DOC_PAGES: Record<BlockType, string> = {
 	[BLOCK_TYPES.kv_raw]: "kv-raw",
 	[BLOCK_TYPES.kv_operations]: "kv-operations",
 	[BLOCK_TYPES.queue_send]: "send-message",
+	[BLOCK_TYPES.retry]: "retry",
 	[BLOCK_TYPES.consolelog]: "console-log",
 	[BLOCK_TYPES.cloudLogs]: "cloud-logs",
 	[BLOCK_TYPES.triggerWorkflow]: "trigger-workflow",

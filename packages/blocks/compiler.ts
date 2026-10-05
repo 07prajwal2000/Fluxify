@@ -373,6 +373,7 @@ export function compileGraph(
 				block.type === BlockTypes.if ||
 				block.type === BlockTypes.db_exists ||
 				block.type === BlockTypes.db_transaction ||
+				block.type === BlockTypes.retry ||
 				block.type === BlockTypes.queue_send;
 			const branch =
 				branching && (handle === "success" || handle === "failure") ? handle : undefined;
@@ -386,7 +387,8 @@ export function compileGraph(
 				block.type === BlockTypes.queue_send && branch
 					? "$in"
 					: handle === "source" ||
-							(block.type === BlockTypes.db_transaction && handle === "success") ||
+							((block.type === BlockTypes.db_transaction || block.type === BlockTypes.retry) &&
+								handle === "success") ||
 							(block.type === BlockTypes.db_exists && branch)
 						? handle === "failure"
 							? "null"

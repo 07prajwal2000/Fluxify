@@ -267,6 +267,13 @@ export const BLOCK_CATALOG: Record<BlockType, BlockDefinition> = {
 		tint: VIOLET,
 		category: "Flow",
 	},
+	[BLOCK_TYPES.retry]: {
+		name: "Retry",
+		description: "Run the body again when it fails",
+		handles: ["target", "success", "failure", "executor"],
+		tint: GREEN,
+		category: "Flow",
+	},
 };
 
 export function blockCatalogEntries(): [BlockType, BlockDefinition][] {

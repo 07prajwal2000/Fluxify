@@ -72,7 +72,7 @@ export type TransactionOptions = {
 	retries?: number;
 };
 
-function errorMessage(error: unknown) {
+export function errorMessage(error: unknown) {
 	if (!(error instanceof Error)) return String(error);
 	return error.cause instanceof Error ? `${error.message}: ${error.cause.message}` : error.message;
 }

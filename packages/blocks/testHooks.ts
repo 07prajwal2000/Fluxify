@@ -23,6 +23,7 @@ const INPUT_ONLY: string[] = [
 	BlockTypes.forloop,
 	BlockTypes.foreachloop,
 	BlockTypes.orchestrator,
+	BlockTypes.retry,
 ];
 
 export function hookSupport(blockType: string): HookSupport {

@@ -11,6 +11,21 @@ const severities = (type: BlockType, data: Record<string, unknown>) =>
 	blockConfigIssues(type, data).map((i) => i.severity);
 
 describe("validateBlockConfigs", () => {
+	it("warns once per unconnected retry handle, only when the retry is in the flow", () => {
+		const retry = { id: "b", type: BLOCK_TYPES.retry, data: defaultBlockData(BLOCK_TYPES.retry), position: { x: 0, y: 0 } };
+		const into = { id: "e", from: "a", to: "b", fromHandle: "a-source", toHandle: "b-target" };
+		const out = (kind: string) => ({ id: kind, from: "b", to: kind, fromHandle: `b-${kind}`, toHandle: `${kind}-target` });
+		const messages = (edges: (typeof into)[]) =>
+			validateBlockConfigs({ blocks: [retry], edges }).map((d) => d.message);
+
+		expect(messages([])).toEqual([]);
+		expect(messages([into])).toHaveLength(3);
+		expect(messages([into, out("executor"), out("success")])).toEqual([
+			"Nothing is connected to the failure handle, so when every try fails the last error fails the run.",
+		]);
+		expect(messages([into, out("executor"), out("success"), out("failure")])).toEqual([]);
+	});
+
 	it("ignores blocks with no incoming connection", () => {
 		expect(validateBlockConfigs(graph(BLOCK_TYPES.db_getall, defaultBlockData(BLOCK_TYPES.db_getall), false))).toEqual([]);
 	});
@@ -24,6 +39,17 @@ describe("validateBlockConfigs", () => {
 			"Timeout must be a whole number of milliseconds above 0.",
 			"Retries must be a whole number from 0 to 10.",
 		]);
+	});
+
+	it("checks a retry's max retries and delays", () => {
+		const retry = (data: Record<string, unknown>) =>
+			blockConfigIssues(BLOCK_TYPES.retry, data).map((i) => i.message);
+		expect(retry(defaultBlockData(BLOCK_TYPES.retry))).toEqual([]);
+		expect(retry({ maxRetries: "0", delayMs: "30001" })).toEqual([
+			"Max retries must be a whole number from 1 to 10.",
+			"Delay and max delay must be whole numbers from 0 to 30000 ms.",
+		]);
+		expect(retry({ maxRetries: "11" })).toHaveLength(1);
 	});
 
 	it("flags a fresh db get all: connection, table, no conditions", () => {

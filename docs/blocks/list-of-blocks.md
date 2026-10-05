@@ -16,6 +16,7 @@ Start the flow, choose paths, repeat, run in parallel, handle errors, and respon
 - [**For Loop**](./for-loop.md): repeat a chain a set number of times.
 - [**For Each Loop**](./foreach-loop.md): run a chain once for every item in a list.
 - [**Orchestrator**](./orchestrator.md): run several chains at the same time and collect the results.
+- [**Retry**](./retry.md): run a chain again when it fails, with a wait between tries.
 - [**Error Handler**](./error-handler.md): choose what happens when a block fails.
 - [**Response**](./response.md): send the answer to the caller and end the flow.
 

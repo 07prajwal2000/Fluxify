@@ -1,0 +1,64 @@
+{
+	"name": "retry/rollback-in-transaction",
+	"description": "POST /retry/rollback — a Retry block inside a transaction, whose executor inserts an order and then hits a Rollback block. The rollback is a deliberate stop, so it is not retried: the insert runs once, is undone, and the transaction's failure replies 409.",
+	"engine": "pg",
+	"route": { "method": "POST", "path": "/retry/rollback" },
+	"blocks": [
+		{
+			"id": "entry",
+			"type": "entrypoint",
+			"position": { "x": 0, "y": 0 },
+			"data": { "blockName": "Request" }
+		},
+		{
+			"id": "tx",
+			"type": "db_transaction",
+			"position": { "x": 240, "y": 0 },
+			"data": { "blockName": "Place order", "connection": "primary", "executor": "retry" }
+		},
+		{
+			"id": "retry",
+			"type": "retry",
+			"position": { "x": 240, "y": -240 },
+			"data": { "blockName": "Retry insert", "maxRetries": "3", "retryType": "none" }
+		},
+		{
+			"id": "insert-order",
+			"type": "db_insert",
+			"position": { "x": 240, "y": -480 },
+			"data": {
+				"blockName": "Insert order",
+				"connection": "primary",
+				"tableName": "orders",
+				"useParam": false,
+				"data": { "source": "raw", "value": { "user_id": 2, "total": 10, "status": "pending" } }
+			}
+		},
+		{
+			"id": "rollback",
+			"type": "db_rollback",
+			"position": { "x": 480, "y": -480 },
+			"data": { "blockName": "Undo", "message": "changed my mind" }
+		},
+		{
+			"id": "created",
+			"type": "response",
+			"position": { "x": 480, "y": 0 },
+			"data": { "blockName": "201 Created", "httpCode": "201" }
+		},
+		{
+			"id": "rejected",
+			"type": "response",
+			"position": { "x": 480, "y": 120 },
+			"data": { "blockName": "409 Rejected", "httpCode": "409" }
+		}
+	],
+	"edges": [
+		{ "id": "e-entry-tx", "from": "entry", "to": "tx", "fromHandle": "source", "toHandle": "source" },
+		{ "id": "e-tx-retry", "from": "tx", "to": "retry", "fromHandle": "executor", "toHandle": "executor" },
+		{ "id": "e-retry-insert", "from": "retry", "to": "insert-order", "fromHandle": "executor", "toHandle": "executor" },
+		{ "id": "e-insert-rollback", "from": "insert-order", "to": "rollback", "fromHandle": "source", "toHandle": "source" },
+		{ "id": "e-tx-created", "from": "tx", "to": "created", "fromHandle": "success", "toHandle": "success" },
+		{ "id": "e-tx-rejected", "from": "tx", "to": "rejected", "fromHandle": "failure", "toHandle": "failure" }
+	]
+}
