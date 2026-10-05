@@ -45,7 +45,7 @@ On MySQL the timeout stops reads that run too long. A write (insert, update, del
 
 ## MongoDB
 
-Connect to a MongoDB database. Collections take the place of tables, and the same blocks read and write documents. Joins are not available. **Max connections** defaults to 100, which is also the most you can set.
+Connect to a MongoDB database. Collections take the place of tables, and the same blocks read and write documents. Joins are skipped; to combine collections, use a [DB Native](/blocks/db-native#joining-collections) block. **Max connections** defaults to 100, which is also the most you can set.
 
 ::: warning Transactions need a replica set
 The [DB Transaction](/blocks/db-transaction) block only works when MongoDB runs as a replica set (or behind a sharded cluster). A single standalone server still works for every other block. **Test connection** warns you when the server is standalone.

@@ -108,6 +108,22 @@ return await db.collection("orders").findOne({ _id: id });
 - The code editor knows the driver's types, so `db.` suggests methods as you type.
 - **Ids from other blocks are text.** The other DB blocks give and take ids as text. Turn text into an id with `new ObjectId(text)`, and turn an id back into text with `id.toHexString()` before you return it. See [MongoDB ids](/integrations/databases#ids).
 
+### Joining collections
+
+The other DB blocks can't join on MongoDB. Use MongoDB's `$lookup` here instead. This returns each order with its rider nested under `rider`:
+
+```javascript
+return await db.collection("orders").aggregate([
+  { $match: { status: "open" } },
+  { $lookup: { from: "riders", localField: "riderId", foreignField: "_id", as: "rider" } },
+  { $unwind: { path: "$rider", preserveNullAndEmptyArrays: true } },
+]).toArray();
+```
+
+- **Leave out `preserveNullAndEmptyArrays`** to drop orders with no rider, like an inner join. With it, they stay with no `rider`, like a left join.
+- **Both fields must hold the same type.** An id saved as text never matches an ObjectId. Store ids as ObjectIds, or convert one side with `$toObjectId`.
+- The results keep MongoDB's own types, so ids come back as ObjectIds. Call `.toHexString()` on one to get text.
+
 ## Related blocks
 
 - [DB Get All](./db-get-all.md) and [DB Get Single](./db-get-single.md): the no-code way to read.

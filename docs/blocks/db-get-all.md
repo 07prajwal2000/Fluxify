@@ -82,7 +82,7 @@ By default every column is returned. To narrow the result, list the columns you 
 - **A bad limit or offset fails the block.** Text that isn't a whole number, such as `abc`, stops the block with an error that names the value.
 - **Ties keep a stable order.** The primary key is added as the last sort, so pages never repeat or skip a record.
 - **Database errors** (bad connection, missing table or column) go to the [Error Handler](./error-handler.md).
-- **MongoDB:** it has no joins, and `id` means `_id` unless the documents have their own `id`. See [MongoDB ids](/integrations/databases#ids).
+- **MongoDB:** joins are skipped. To combine collections, use a [DB Native](/blocks/db-native#joining-collections) block. `id` means `_id` unless the documents have their own `id`. See [MongoDB ids](/integrations/databases#ids).
 - Very large whole numbers and decimals come back as text, and dates as `Date` in UTC. See [Value types](/integrations/databases#value-types).
 
 ## Related blocks

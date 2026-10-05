@@ -7,6 +7,10 @@ description: Combine records from related tables in one query, with inner, left,
 
 Joins pull in data from a related table in the same query. They are available in [DB Get All](./db-get-all.md), [DB Get Single](./db-get-single.md), [DB Row Exists](./db-row-exists.md) and [DB Count](./db-count.md), on PostgreSQL and MySQL.
 
+::: info MongoDB
+MongoDB blocks can't add joins, and joins already on a block are skipped while it uses MongoDB. They stay saved, so they work again if you switch the block back to PostgreSQL or MySQL. To combine collections, use a [DB Native](/blocks/db-native#joining-collections) block.
+:::
+
 Each join needs:
 
 - **Table**: The other table to combine with.
