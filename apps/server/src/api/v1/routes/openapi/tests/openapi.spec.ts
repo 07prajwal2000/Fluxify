@@ -3,22 +3,70 @@ import { generateOpenApiSpec } from "../service";
 import * as repo from "../repository";
 import * as redis from "../../../../../db/redis";
 import { NotFoundError } from "../../../../../errors/notFoundError";
+import * as instanceSettings from "../../../../../loaders/instanceSettingsLoader";
+import { projectSettingsCache } from "../../../../../loaders/projectSettingsLoader";
+
+const ORIGIN = "http://localhost:8080";
 
 describe("OpenAPI Service Tests", () => {
   beforeEach(() => {
     spyOn(redis, "getCache").mockResolvedValue(null as any);
     spyOn(redis, "setCacheEx").mockResolvedValue(undefined);
+    spyOn(instanceSettings, "configuredBaseDomain").mockReturnValue("");
+    spyOn(instanceSettings, "baseDomain").mockReturnValue("localhost");
+    delete projectSettingsCache.p1;
+  });
+
+  describe("servers", () => {
+    const withDomain = (domain: string) => {
+      spyOn(instanceSettings, "configuredBaseDomain").mockReturnValue(domain);
+      spyOn(instanceSettings, "baseDomain").mockReturnValue(domain);
+    };
+    const withSubdomain = (subdomain: string) => {
+      projectSettingsCache.p1 = { "settings.routing.subdomain": subdomain } as any;
+    };
+    const serverUrl = async () =>
+      (await generateOpenApiSpec({ projectId: "p1" }, ORIGIN)).servers[0].url;
+
+    beforeEach(() => {
+      spyOn(redis, "getCache").mockResolvedValue(JSON.stringify({ openapi: "3.0.0", paths: {} }));
+    });
+
+    it("points at the project's subdomain", async () => {
+      withDomain("example.com");
+      withSubdomain("billing");
+      expect(await serverUrl()).toBe("https://billing.example.com");
+    });
+
+    it("points at the base domain without a subdomain", async () => {
+      withDomain("example.com");
+      expect(await serverUrl()).toBe("https://example.com");
+    });
+
+    it("keeps the request's scheme and port with no base domain set", async () => {
+      expect(await serverUrl()).toBe("http://localhost:8080");
+      withSubdomain("billing");
+      expect(await serverUrl()).toBe("http://billing.localhost:8080");
+    });
+
+    it("follows a subdomain change despite the cached spec", async () => {
+      withDomain("example.com");
+      withSubdomain("billing");
+      expect(await serverUrl()).toBe("https://billing.example.com");
+      withSubdomain("payments");
+      expect(await serverUrl()).toBe("https://payments.example.com");
+    });
   });
 
   it("returns cached spec if available", async () => {
-    spyOn(redis, "getCache").mockResolvedValue(JSON.stringify({ cached: true }));
-    const result = await generateOpenApiSpec({ projectId: "p1" });
-    expect(result).toEqual({ cached: true });
+    spyOn(redis, "getCache").mockResolvedValue(JSON.stringify({ openapi: "3.0.0", info: { title: "cached" }, paths: {} }));
+    const result = await generateOpenApiSpec({ projectId: "p1" }, ORIGIN);
+    expect(result.servers).toEqual([{ url: ORIGIN }]);
   });
 
   it("throws NotFoundError if project does not exist", async () => {
     spyOn(repo, "getProject").mockResolvedValue(null);
-    expect(generateOpenApiSpec({ projectId: "p1" })).rejects.toThrow(NotFoundError);
+    expect(generateOpenApiSpec({ projectId: "p1" }, ORIGIN)).rejects.toThrow(NotFoundError);
   });
 
   it("generates correct OpenAPI schema from DB custom schemas", async () => {
@@ -60,7 +108,7 @@ describe("OpenAPI Service Tests", () => {
       }
     ] as any);
 
-    const spec = await generateOpenApiSpec({ projectId: "p1" });
+    const spec = await generateOpenApiSpec({ projectId: "p1" }, ORIGIN);
     
     expect(spec.openapi).toBe("3.0.0");
     expect(spec.info.title).toBe("My API");

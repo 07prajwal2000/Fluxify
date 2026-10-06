@@ -18,7 +18,6 @@
 		"@fluxify/lib": "workspace:*",
 		"@fluxify/server": "workspace:*",
 		"@lexical/react": "^0.48.0",
-		"@scalar/api-reference-react": "^0.9.54",
 		"@tanstack/react-query": "^5.90.5",
 		"@tanstack/react-router": "^1.170.18",
 		"@tanstack/react-virtual": "^3.14.8",

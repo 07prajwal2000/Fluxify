@@ -9,7 +9,6 @@ import { useMemo } from "react";
 import {
 	TbActivity,
 	TbAdjustments,
-	TbApi,
 	TbBook,
 	TbBoxMultiple,
 	TbFilter,
@@ -242,14 +241,6 @@ export function useSpotlightCommands({
 					keywords: ["goto", "nav", "custom", "blocks"],
 					icon: <TbBoxMultiple size={15} />,
 					to: "/$projectId/custom-blocks",
-				},
-				{
-					id: "nav-openapi",
-					title: "Go to: OpenAPI",
-					subtitle: "Navigation",
-					keywords: ["goto", "nav", "openapi", "swagger", "spec", "docs"],
-					icon: <TbApi size={15} />,
-					to: "/$projectId/openapi",
 				},
 				{
 					id: "nav-ai",

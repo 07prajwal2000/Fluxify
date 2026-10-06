@@ -12,7 +12,7 @@ export default function (app: HonoServer) {
 			const param = ctx.req.valid("param");
 
 			try {
-				const spec = await generateOpenApiSpec(param);
+				const spec = await generateOpenApiSpec(param, new URL(ctx.req.url).origin);
 				return ctx.json(spec);
 			} catch (error: any) {
 				if (error.message === "Project not found") {

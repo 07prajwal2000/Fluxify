@@ -7,7 +7,10 @@ import {
 	setCacheEx,
 } from "../../../../db/redis";
 import { NotFoundError } from "../../../../errors/notFoundError";
+import { projectHost } from "../../../../lib/hosting";
 import { acceptedContentTypes } from "../../../../lib/routeConfig";
+import { baseDomain, configuredBaseDomain } from "../../../../loaders/instanceSettingsLoader";
+import { projectSettingsCache } from "../../../../loaders/projectSettingsLoader";
 import type { requestParamSchema } from "./dto";
 import { getActiveRoutes, getProject } from "./repository";
 
@@ -123,11 +126,33 @@ function safelyParseJSON(str: string) {
 	}
 }
 
-export async function generateOpenApiSpec(param: z.infer<typeof requestParamSchema>) {
+/**
+ * Where the project's APIs are served. Built per request, outside the cache, so
+ * a subdomain or base domain change shows up at once. With no base domain set
+ * (a local install) the request's own scheme and port are kept, as the
+ * playground does.
+ */
+export function specServerUrl(projectId: string, requestOrigin: string) {
+	const subdomain = projectSettingsCache[projectId]?.["settings.routing.subdomain"];
+	const host = subdomain ? projectHost(subdomain, baseDomain()) : baseDomain();
+	if (configuredBaseDomain()) return `https://${host}`;
+	const url = new URL(requestOrigin);
+	url.hostname = host;
+	return url.origin;
+}
+
+export async function generateOpenApiSpec(
+	param: z.infer<typeof requestParamSchema>,
+	requestOrigin: string,
+) {
 	const { projectId } = param;
+	const servers = [{ url: specServerUrl(projectId, requestOrigin) }];
 	const cacheKey = `openapi-spec:${projectId}`;
 	const cached = await getCache(cacheKey);
-	if (cached) return JSON.parse(cached);
+	if (cached) {
+		const { openapi, info, paths } = JSON.parse(cached);
+		return { openapi, info, servers, paths };
+	}
 
 	const project = await getProject(projectId);
 	if (!project) throw new NotFoundError("Project not found");
@@ -189,5 +214,5 @@ export async function generateOpenApiSpec(param: z.infer<typeof requestParamSche
 	};
 
 	await setCacheEx(cacheKey, JSON.stringify(openapi), 60 * 60);
-	return openapi;
+	return { openapi: openapi.openapi, info: openapi.info, servers, paths };
 }
