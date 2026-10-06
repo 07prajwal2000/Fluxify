@@ -16,6 +16,7 @@ mock.module("../../../db/redis", () => ({
 import * as repository from "../repository";
 import { saveCanvas } from "../service";
 import { NotFoundError } from "../../../errors/notFoundError";
+import { ForbiddenError } from "../../../errors/forbidError";
 import { ConflictError } from "../../../errors/conflictError";
 import { BadRequestError } from "../../../errors/badRequestError";
 
@@ -195,6 +196,17 @@ describe("canvas saveCanvas", () => {
 		await expect(
 			saveCanvas({ type: "route", id: "nope" }, changes, ["p1"]),
 		).rejects.toThrow(NotFoundError);
+		expect(upsertBlocks).not.toHaveBeenCalled();
+	});
+
+	it("refuses a canvas in a project the caller cannot edit with 403, not 404", async () => {
+		// hidden from the caller's creator projects, but it exists
+		parentExists.mockImplementation(async (_p, ids) => ids?.includes("*") ?? false);
+
+		await expect(
+			saveCanvas({ type: "workflow", id: "wf-1" }, changes, ["p1"]),
+		).rejects.toThrow(ForbiddenError);
+		expect(parentExists.mock.calls.at(-1)?.[1]).toEqual(["*"]);
 		expect(upsertBlocks).not.toHaveBeenCalled();
 	});
 

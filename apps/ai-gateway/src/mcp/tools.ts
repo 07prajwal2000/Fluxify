@@ -146,7 +146,8 @@ export const readTools: McpTool[] = [
 	},
 	{
 		name: "get_route",
-		description: "One route's settings. Its canvas (blocks and edges) is not included.",
+		description:
+			"One route's settings and its body, query and params schemas (what call_route must send). Its canvas (blocks and edges) is not included.",
 		role: "viewer",
 		input: { routeId: z.string().describe("Route id, from list_routes") },
 		call: async ({ get }, a) =>
@@ -160,6 +161,9 @@ export const readTools: McpTool[] = [
 				"tracingEnabled",
 				"recordExecution",
 				"acceptedContentTypes",
+				"bodySchema",
+				"querySchema",
+				"paramsSchema",
 			]),
 	},
 	{

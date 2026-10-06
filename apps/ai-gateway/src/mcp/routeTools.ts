@@ -1,0 +1,148 @@
+import { renderCompactSchema } from "@fluxify/blocks";
+import { getDefaultVariantValue, getSchema } from "@fluxify/server/src/api/v1/integrations/helpers";
+import { integrationsGroupSchema } from "@fluxify/server/src/api/v1/integrations/schemas";
+import { requestBodySchema as routeCreate } from "@fluxify/server/src/api/v1/routes/create/dto";
+import { requestBodySchema as routePatch } from "@fluxify/server/src/api/v1/routes/update-partial/dto";
+import {
+	createSchema as workflowCreate,
+	patchSchema as workflowPatch,
+} from "@fluxify/server/src/api/v1/workflows/dto";
+import { z } from "zod";
+import type { McpTool } from "./tools";
+import { optionalFields } from "./writeTools";
+
+const SAVE = { readOnlyHint: false, destructiveHint: false };
+const DELETE = { readOnlyHint: false, destructiveHint: true, idempotentHint: true };
+/** A run executes the user's graph for real: it can write, send and call out. */
+const RUN = { readOnlyHint: false, destructiveHint: true, openWorldHint: true };
+
+/** A route's answer can be any size; this much is plenty to read. */
+export const MAX_RESPONSE_CHARS = 10_000;
+
+const idArg = (what: string) =>
+	z.string().optional().describe(`${what} id to update; omit to create`);
+
+const SCHEMA_HINT =
+	'bodySchema, querySchema and paramsSchema validate the request. They are Fluxify schemas, not JSON Schema: { dataType: "object", properties: [{ key: "id", dataType: "int", required: true }] }. dataType is str, int, float, bool, object, arr, enum, file or blob; arr takes items, object takes properties. A path with :params needs a paramsSchema naming each one.';
+
+/** Cuts a big body so it fits an agent's context, and says it did. */
+export function truncate(body: unknown) {
+	const text = typeof body === "string" ? body : JSON.stringify(body);
+	if (text === undefined || text.length <= MAX_RESPONSE_CHARS) return body;
+	return `${text.slice(0, MAX_RESPONSE_CHARS)}… (truncated, ${text.length} characters in all)`;
+}
+
+export const routeTools: McpTool[] = [
+	{
+		name: "save_route",
+		description: `Create or update an HTTP route's settings. To create pass projectId, name, path ('/users/:id') and method, and active: true to serve it (routes start inactive). It starts with a canvas that answers 200. On update pass routeId and only what changes. ${SCHEMA_HINT} The canvas (blocks) is not edited here.`,
+		role: "creator",
+		annotations: SAVE,
+		input: {
+			routeId: idArg("Route"),
+			...optionalFields(routeCreate.shape),
+			...optionalFields(routePatch.shape),
+		},
+		call: async ({ send }, { routeId, projectId: p, ...a }) => {
+			const { id } = routeId
+				? await send("PATCH", `/v1/routes/partial/${routeId}`, a)
+				: await send("POST", "/v1/routes", { projectId: p, ...a });
+			return { id };
+		},
+	},
+	{
+		name: "delete_route",
+		description: "Delete a route and its canvas. Calls to its path start returning 404.",
+		role: "creator",
+		annotations: DELETE,
+		input: { routeId: z.string().describe("Route id, from list_routes") },
+		call: async ({ send }, a) => {
+			await send("DELETE", `/v1/routes/${a.routeId}`);
+			return { deleted: a.routeId };
+		},
+	},
+	{
+		name: "save_workflow",
+		description:
+			"Create or update a workflow's settings (a background job started by triggers or run_workflow). To create pass projectId and name. On update pass workflowId and only what changes. Only an active workflow can run. The canvas is not edited here.",
+		role: "creator",
+		annotations: SAVE,
+		input: {
+			workflowId: idArg("Workflow"),
+			...optionalFields(workflowCreate.shape),
+			...optionalFields(workflowPatch.shape),
+		},
+		call: async ({ send }, { workflowId, projectId: p, ...a }) => {
+			const { id } = workflowId
+				? await send("PATCH", `/v1/workflows/${workflowId}`, a)
+				: await send("POST", "/v1/workflows", { projectId: p, ...a });
+			return { id };
+		},
+	},
+	{
+		name: "delete_workflow",
+		description: "Delete a workflow and its canvas. Triggers that started it start nothing.",
+		role: "creator",
+		annotations: DELETE,
+		input: { workflowId: z.string().describe("Workflow id, from list_workflows") },
+		call: async ({ send }, a) => {
+			await send("DELETE", `/v1/workflows/${a.workflowId}`);
+			return { deleted: a.workflowId };
+		},
+	},
+	{
+		name: "call_route",
+		description: `Send a REAL HTTP request to a route and get back its status and body. This runs the route for real: it can create, change or delete data and call other services. Read get_route first for the path params and the body/query schemas. The route must be active. Bodies over ${MAX_RESPONSE_CHARS} characters are cut.`,
+		role: "creator",
+		annotations: RUN,
+		input: {
+			routeId: z.string().describe("Route id, from list_routes"),
+			params: z
+				.record(z.string(), z.string())
+				.optional()
+				.describe("Path params, e.g. { id: '42' } for /users/:id"),
+			query: z.record(z.string(), z.string()).optional(),
+			headers: z.record(z.string(), z.string()).optional(),
+			body: z.unknown().optional().describe("JSON body; a string is sent as-is"),
+		},
+		call: async ({ send }, { routeId, ...a }) => {
+			const result = await send("POST", `/v1/routes/${routeId}/call`, a);
+			return { ...result, body: truncate(result.body) };
+		},
+	},
+	{
+		name: "run_workflow",
+		description:
+			"Start a REAL run of a workflow with an input payload. It runs for real: it can create, change or delete data and call other services. The run is queued on a worker, so this returns the run id, not the result; failures show in get_system_logs. The workflow must be active.",
+		role: "creator",
+		annotations: RUN,
+		input: {
+			workflowId: z.string().describe("Workflow id, from list_workflows"),
+			payload: z.unknown().optional().describe("The input the workflow receives"),
+		},
+		call: async ({ send }, { workflowId, payload }) =>
+			send("POST", `/v1/workflows/${workflowId}/run`, { payload }),
+	},
+	{
+		name: "get_integration_schema",
+		description:
+			"The config fields one integration variant needs, with types, which are required (no '?') and blank defaults. Call it before save_integration or test_integration_connection.",
+		role: "viewer",
+		input: {
+			group: integrationsGroupSchema,
+			variant: z.string().describe("e.g. 'PostgreSQL', 'Redis', 'OpenAI'"),
+		},
+		// built from the server's own validation schemas; reads no project data
+		call: async (_api, a) => integrationSchema(a.group, a.variant),
+	},
+];
+
+export function integrationSchema(group: z.infer<typeof integrationsGroupSchema>, variant: string) {
+	const schema = getSchema(group, variant);
+	if (!schema) return `Unknown variant "${variant}" for group "${group}".`;
+	const json = z.toJSONSchema(schema, { io: "input", unrepresentable: "any" });
+	return {
+		config: renderCompactSchema(json as Record<string, unknown>),
+		defaults: getDefaultVariantValue(variant as Parameters<typeof getDefaultVariantValue>[0]),
+	};
+}

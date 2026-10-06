@@ -165,7 +165,7 @@ export const writeTools: McpTool[] = [
 	},
 	{
 		name: "save_integration",
-		description: `Create or update an integration (a database, KV store, AI provider, queue, …). To create pass name, group, variant and config. Variants by group: ${VARIANTS}. config fields depend on the variant; get_integration on an existing one shows the shape, and a wrong config returns the fields to fix. Put secrets in app config and reference them as "cfg:KEY_NAME". On update, group and variant cannot change and config replaces the whole config.`,
+		description: `Create or update an integration (a database, KV store, AI provider, queue, …). To create pass name, group, variant and config. Variants by group: ${VARIANTS}. config fields depend on the variant: call get_integration_schema first for the exact fields, and a wrong config returns the fields to fix. Put secrets in app config and reference them as "cfg:KEY_NAME". On update, group and variant cannot change and config replaces the whole config.`,
 		role: "creator",
 		annotations: SAVE,
 		input: {

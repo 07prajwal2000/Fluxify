@@ -3,6 +3,10 @@
 // rest of this suite imports server modules long before a test could point it
 // at a fresh Postgres. Prints one `MCP_STACK <json>` line once it serves, and
 // shuts down when its stdin closes.
+//
+// Like the kit, one origin serves both: /_/admin goes to the admin app, every
+// other path to a real compiled worker, so call_route and run_workflow run for real.
+import { join } from "node:path";
 import {
 	createProject,
 	createUser,
@@ -12,7 +16,36 @@ import {
 	stopAuthServer,
 } from "@fluxify/ai-gateway/src/mcp/tests/authHarness";
 
-const s = await startAuthServer();
+/** A port nothing listens on yet. */
+function freePort() {
+	const probe = Bun.serve({ port: 0, fetch: () => new Response() });
+	const { port } = probe;
+	probe.stop(true);
+	return port;
+}
+
+const workerPort = freePort();
+const workerHealthPort = freePort();
+let admin: ((request: Request) => Response | Promise<Response>) | undefined;
+const server = Bun.serve({
+	port: 0,
+	fetch(request) {
+		const url = new URL(request.url);
+		if (url.pathname.startsWith("/_/admin") || url.pathname.startsWith("/.well-known")) {
+			return admin ? admin(request) : new Response("starting", { status: 503 });
+		}
+		return fetch(`http://127.0.0.1:${workerPort}${url.pathname}${url.search}`, {
+			method: request.method,
+			headers: request.headers,
+			body: request.body,
+		});
+	},
+});
+const url = `http://127.0.0.1:${server.port}`;
+
+// call_route sends to SERVER_URL, the project's public origin
+const s = await startAuthServer({ SERVER_URL: url });
+admin = (request) => s.app.fetch(request);
 const schema = await import("@fluxify/server/src/db/schema");
 
 async function apiKey(email: string) {
@@ -43,7 +76,12 @@ const route = await insert<{ id: string }>(schema.routesEntity, {
 	active: true,
 	projectId,
 });
-const workflow = await insert<{ id: string }>(schema.workflowsEntity, { name: "nightly", projectId });
+// active, so run_workflow may queue it
+const workflow = await insert<{ id: string }>(schema.workflowsEntity, {
+	name: "nightly",
+	projectId,
+	active: true,
+});
 const group = await insert<{ id: string }>(schema.triggerGroupsEntity, {
 	name: "default",
 	projectId,
@@ -83,11 +121,35 @@ const integration = await insert<{ id: string }>(schema.integrationsEntity, {
 	projectId,
 });
 
-const server = Bun.serve({ port: 0, fetch: (request) => s.app.fetch(request) });
+// the real compiled worker, serving every project from the artifacts the
+// compile worker writes
+const worker = Bun.spawn(
+	["bun", join(import.meta.dir, "../../../apps/server/deployments/compiledWorker.ts")],
+	{
+		env: {
+			...process.env,
+			WORKER_PROJECT_ID: "*",
+			WORKER_MODE: "both",
+			WORKER_PORT: String(workerPort),
+			WORKER_HEALTH_PORT: String(workerHealthPort),
+		},
+		stdout: "ignore",
+		stderr: "inherit",
+	},
+);
+const deadline = Date.now() + 60_000;
+while (
+	!(await fetch(`http://127.0.0.1:${workerHealthPort}/_/admin/api/healthchecks/ready`)
+		.then((r) => r.ok)
+		.catch(() => false))
+) {
+	if (Date.now() > deadline || worker.exitCode !== null) throw new Error("compiled worker never became ready");
+	await Bun.sleep(250);
+}
 
 console.log(
 	`MCP_STACK ${JSON.stringify({
-		url: `http://127.0.0.1:${server.port}`,
+		url,
 		projectId,
 		otherProjectId,
 		tokens,
@@ -107,6 +169,8 @@ console.log(
 // stdin closes when the parent test finishes, or dies
 for await (const _ of Bun.stdin.stream()) {
 }
+worker.kill();
+await worker.exited;
 server.stop(true);
 await stopAuthServer();
 process.exit(0);
