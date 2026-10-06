@@ -8,6 +8,7 @@ import {
 } from "../../db/redis";
 import { BadRequestError } from "../../errors/badRequestError";
 import { ConflictError } from "../../errors/conflictError";
+import { ForbiddenError } from "../../errors/forbidError";
 import { NotFoundError } from "../../errors/notFoundError";
 import { dbIntegrationsCache } from "../../loaders/integrationsLoader";
 import { type DirectedCanvasEdge, findCycleEdgeIds } from "./cycleDetection";
@@ -340,6 +341,9 @@ export async function saveCanvas(
 	mergeAiDuplicates = false,
 ) {
 	if (!(await parentExists(parent, projectIds, outer))) {
+		// visible to nobody vs. outside the caller's projects: 404 vs. 403, as
+		// every other write answers
+		if (await parentExists(parent, ["*"], outer)) throw new ForbiddenError();
 		throw new NotFoundError(NOT_FOUND[parent.type]);
 	}
 	assertSendMessageLicensed(data);
