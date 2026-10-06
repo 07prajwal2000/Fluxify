@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from "bun:test";
 import { readTools } from "@fluxify/ai-gateway/src/mcp/tools";
+import { routeTools } from "@fluxify/ai-gateway/src/mcp/routeTools";
 import { writeTools } from "@fluxify/ai-gateway/src/mcp/writeTools";
 import {
 	type AdminCall,
@@ -19,7 +20,7 @@ import {
  */
 type Row = { tool: string; args: object; api: string | AdminCall };
 
-const allTools = [...readTools, ...writeTools];
+const allTools = [...readTools, ...writeTools, ...routeTools];
 const uniq = (prefix: string) => `${prefix}${crypto.randomUUID().slice(0, 8)}`;
 
 /** Creates a resource as the creator, for a delete row to remove. */
@@ -53,12 +54,19 @@ async function writeRows(s: McpStack): Promise<Row[]> {
 		encodingType: "plaintext",
 	});
 	const kvBody = () => ({ name: uniq("kv-"), group: "kv", variant: "Redis", config: redis });
-	const [t, m, cb, ac, ig] = await Promise.all([
+	const routeBody = () => {
+		const name = uniq("r-");
+		return { projectId: p, name, path: `/${name}`, method: "GET" };
+	};
+	const workflowBody = () => ({ projectId: p, name: uniq("w-") });
+	const [t, m, cb, ac, ig, rt, wf] = await Promise.all([
 		two("/v1/triggers", triggerBody),
 		two("/v1/middlewares", middlewareBody),
 		two("/v1/custom-blocks", blockBody),
 		two(`/v1/${p}/app-config`, configBody),
 		two(`/v1/${p}/integrations`, kvBody),
+		two("/v1/routes", routeBody),
+		two("/v1/workflows", workflowBody),
 	]);
 	const post = (path: string, body: object) => ({ method: "POST", path, body });
 	const put = (path: string, body: object) => ({ method: "PUT", path, body });
@@ -123,6 +131,40 @@ async function writeRows(s: McpStack): Promise<Row[]> {
 			tool: "delete_integration",
 			args: { projectId: p, integrationId: ig[0] },
 			api: del(`/v1/${p}/integrations/${ig[1]}`),
+		},
+		{ tool: "save_route", args: routeBody(), api: post("/v1/routes", routeBody()) },
+		{
+			tool: "save_route",
+			args: { routeId: ids.route, tracingEnabled: false },
+			api: { method: "PATCH", path: `/v1/routes/partial/${ids.route}`, body: { tracingEnabled: false } },
+		},
+		{ tool: "delete_route", args: { routeId: rt[0] }, api: del(`/v1/routes/${rt[1]}`) },
+		{ tool: "save_workflow", args: workflowBody(), api: post("/v1/workflows", workflowBody()) },
+		{
+			tool: "save_workflow",
+			args: { workflowId: ids.workflow, description: "runs nightly" },
+			api: {
+				method: "PATCH",
+				path: `/v1/workflows/${ids.workflow}`,
+				body: { description: "runs nightly" },
+			},
+		},
+		{ tool: "delete_workflow", args: { workflowId: wf[0] }, api: del(`/v1/workflows/${wf[1]}`) },
+		{
+			tool: "call_route",
+			args: { routeId: ids.route },
+			api: post(`/v1/routes/${ids.route}/call`, {}),
+		},
+		{
+			tool: "run_workflow",
+			args: { workflowId: ids.workflow },
+			api: post(`/v1/workflows/${ids.workflow}/run`, {}),
+		},
+		// reads no project data, like get_block_schemas
+		{
+			tool: "get_integration_schema",
+			args: { group: "kv", variant: "Redis" },
+			api: "/public-settings",
 		},
 		{
 			tool: "test_integration_connection",
@@ -259,6 +301,9 @@ describe("MCP role matrix", () => {
 			tracingEnabled: false,
 			recordExecution: false,
 			acceptedContentTypes: expect.any(Array),
+			bodySchema: null,
+			querySchema: null,
+			paramsSchema: null,
 		});
 	});
 });
@@ -318,6 +363,88 @@ describe("MCP writes", () => {
 			integrationId: stack.ids.integration,
 		});
 		expect(result).toMatchObject({ success: true });
+	});
+});
+
+describe("MCP runs", () => {
+	const call = async (tool: string, args: object) => {
+		const r = await callTool(stack, stack.tokens.creator, tool, args);
+		if (!r.ok) throw new Error(`${tool}: ${r.text}`);
+		return JSON.parse(r.text);
+	};
+
+	it("creates a route and calls it for real", async () => {
+		const name = uniq("echo-");
+		const { id } = await call("save_route", {
+			projectId: stack.projectId,
+			name,
+			path: `/${name}/:who`,
+			method: "POST",
+			active: true,
+			paramsSchema: { dataType: "object", properties: [{ key: "who", dataType: "str", required: true }] },
+		});
+		// the canvas tools come later; wire entrypoint -> response directly
+		const canvas = (await adminCall(stack, stack.tokens.creator, { path: `/v1/routes/${id}/canvas-items` }))
+			.body;
+		const entry = canvas.blocks.find((b: any) => b.type === "entrypoint");
+		const response = canvas.blocks.find((b: any) => b.type === "response");
+		const reply = {
+			...response,
+			data: { httpCode: "201", transformEnabled: true, transformScript: 'return { hello: "mcp" };' },
+		};
+		const edge = { id: crypto.randomUUID(), from: entry.id, to: response.id, fromHandle: "source", toHandle: "source" };
+		const saved = await adminCall(stack, stack.tokens.creator, {
+			method: "PUT",
+			path: `/v1/routes/${id}/save-canvas`,
+			body: {
+				actionsToPerform: {
+					blocks: [{ id: response.id, action: "upsert" }],
+					edges: [{ id: edge.id, action: "upsert" }],
+				},
+				changes: { blocks: [reply], edges: [edge] },
+			},
+		});
+		expect(saved.status).toBeLessThan(300);
+
+		const schemas = await call("get_route", { routeId: id });
+		expect(schemas.paramsSchema.properties[0]).toMatchObject({ key: "who", dataType: "str" });
+
+		// the save compiles and reaches the worker a moment later
+		let result: any;
+		for (let i = 0; i < 80; i++) {
+			result = await call("call_route", { routeId: id, params: { who: "ai" }, body: { n: 1 } });
+			if (result.status === 201) break;
+			await Bun.sleep(250);
+		}
+		expect(result).toMatchObject({ status: 201, body: { hello: "mcp" } });
+
+		const bad = await callTool(stack, stack.tokens.creator, "save_route", {
+			routeId: id,
+			paramsSchema: { type: "object" },
+		});
+		expect(bad.text).toContain("paramsSchema");
+
+		const missing = await callTool(stack, stack.tokens.creator, "call_route", { routeId: id });
+		expect(missing.text).toBe('Invalid input: Missing path param "who"');
+	});
+
+	it("queues a real workflow run, and refuses an inactive one readably", async () => {
+		const run = await call("run_workflow", { workflowId: stack.ids.workflow, payload: { n: 1 } });
+		expect(run).toEqual({ id: expect.any(String), accepted: true });
+
+		const { id } = await call("save_workflow", { projectId: stack.projectId, name: uniq("off-"), active: false });
+		const off = await callTool(stack, stack.tokens.creator, "run_workflow", { workflowId: id });
+		expect(off.ok).toBe(false);
+		expect(off.text).toStartWith("Invalid input: Workflow is not active");
+	});
+
+	it("viewers get 403, not 404, saving a workflow canvas", async () => {
+		const res = await adminCall(stack, stack.tokens.viewer, {
+			method: "PUT",
+			path: `/v1/workflows/${stack.ids.workflow}/save-canvas`,
+			body: { actionsToPerform: { blocks: [], edges: [] }, changes: { blocks: [], edges: [] } },
+		});
+		expect(res.status).toBe(403);
 	});
 });
 

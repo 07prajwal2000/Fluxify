@@ -49,7 +49,8 @@ export async function stopAuthServer() {
 	await Promise.all(containers.map((c) => c.remove({ force: true }).catch(() => {})));
 }
 
-export async function startAuthServer() {
+/** `env` overrides the defaults below, e.g. a SERVER_URL that serves routes too. */
+export async function startAuthServer(env: Record<string, string> = {}) {
 	// NATS (with JetStream) because trigger writes publish to it
 	const [pgPort, redisPort, natsPort] = await Promise.all([
 		start("postgres:bullseye", "fluxify-mcp-auth-pg", "5432/tcp", ["POSTGRES_PASSWORD=postgres"]),
@@ -70,6 +71,7 @@ export async function startAuthServer() {
 		ADMIN_RATE_LIMIT_PER_SEC: "0",
 		// app config secrets are encrypted with it
 		MASTER_ENCRYPTION_KEY: randomBytes(32).toString("base64"),
+		...env,
 	});
 
 	const server = await import("@fluxify/server");
@@ -86,6 +88,18 @@ export async function startAuthServer() {
 	// boot makes it in production; pausing a schedule purges it
 	const { ensureSchedulesStream } = await import("@fluxify/server/src/modules/schedules/reconciler");
 	await ensureSchedulesStream();
+	// as boot does: the compile worker owns FLUXIFY_COMPILE and turns saves into
+	// artifacts; FLUXIFY_JOBS exists before any run is queued onto it
+	const { loadAppConfig } = await import("@fluxify/server/src/loaders/appconfigLoader");
+	const { loadIntegrations } = await import("@fluxify/server/src/loaders/integrationsLoader");
+	const { loadProjectSettings } = await import("@fluxify/server/src/loaders/projectSettingsLoader");
+	await Promise.all([loadAppConfig(), loadIntegrations(), loadProjectSettings()]);
+	const { startCompileWorker } = await import("@fluxify/server/src/modules/compiler/consumer");
+	await startCompileWorker();
+	const { ensureStream } = await import("@fluxify/common/nats");
+	const { natsConnection } = await import("@fluxify/server/src/db/nats");
+	const { JOBS_STREAM_SPEC } = await import("@fluxify/server/src/modules/jobs/subjects");
+	await ensureStream(natsConnection(), JOBS_STREAM_SPEC);
 	server.initializeAuth(db);
 
 	const { default: authRouter } = await import("@fluxify/server/src/api/auth/register");

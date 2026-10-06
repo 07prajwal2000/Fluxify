@@ -23,7 +23,7 @@ const idArg = (what: string) =>
 	z.string().optional().describe(`${what} id to update; omit to create`);
 
 const SCHEMA_HINT =
-	"bodySchema, querySchema and paramsSchema are JSON Schemas the request is validated against; paramsSchema must name each :param in the path.";
+	'bodySchema, querySchema and paramsSchema validate the request. They are Fluxify schemas, not JSON Schema: { dataType: "object", properties: [{ key: "id", dataType: "int", required: true }] }. dataType is str, int, float, bool, object, arr, enum, file or blob; arr takes items, object takes properties. A path with :params needs a paramsSchema naming each one.';
 
 /** Cuts a big body so it fits an agent's context, and says it did. */
 export function truncate(body: unknown) {
@@ -35,7 +35,7 @@ export function truncate(body: unknown) {
 export const routeTools: McpTool[] = [
 	{
 		name: "save_route",
-		description: `Create or update an HTTP route's settings. To create pass projectId, name, path ('/users/:id') and method; it starts with a canvas that answers 200. On update pass routeId and only what changes. ${SCHEMA_HINT} The canvas (blocks) is not edited here.`,
+		description: `Create or update an HTTP route's settings. To create pass projectId, name, path ('/users/:id') and method, and active: true to serve it (routes start inactive). It starts with a canvas that answers 200. On update pass routeId and only what changes. ${SCHEMA_HINT} The canvas (blocks) is not edited here.`,
 		role: "creator",
 		annotations: SAVE,
 		input: {
