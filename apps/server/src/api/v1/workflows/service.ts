@@ -27,7 +27,7 @@ import {
 
 /** Everything the API returns. `createdBy` is not part of it, so the list
  *  query need not select it. */
-type Workflow = Omit<typeof workflowsEntity.$inferSelect, "createdBy">;
+type Workflow = Omit<typeof workflowsEntity.$inferSelect, "createdBy" | "canvasVersion">;
 
 export async function createWorkflow(
 	userId: string,
