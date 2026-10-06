@@ -26,12 +26,10 @@ const run = (name: string, args: object, api: AdminApi) =>
 	tool(name).call(api, z.object(tool(name).input).parse(args));
 
 describe("route and workflow tools", () => {
-	it("runs are destructive and open-world, and say they are real", () => {
-		for (const name of ["call_route", "run_workflow"]) {
-			expect(tool(name).annotations).toMatchObject({ destructiveHint: true, openWorldHint: true });
-			expect(tool(name).description).toContain("REAL");
-			expect(tool(name).role).toBe("creator");
-		}
+	it("call_route is destructive, open-world and says it is real", () => {
+		expect(tool("call_route").annotations).toMatchObject({ destructiveHint: true, openWorldHint: true });
+		expect(tool("call_route").description).toContain("REAL");
+		expect(tool("call_route").role).toBe("creator");
 		expect(tool("delete_route").annotations?.destructiveHint).toBe(true);
 		expect(tool("delete_workflow").annotations?.destructiveHint).toBe(true);
 	});
@@ -72,15 +70,6 @@ describe("route and workflow tools", () => {
 		expect(result.status).toBe(200);
 		expect(result.body).toEndWith(`(truncated, ${big.length} characters in all)`);
 		expect(truncate({ ok: true })).toEqual({ ok: true });
-	});
-
-	it("run_workflow queues the payload", async () => {
-		const { api, calls } = fakeApi({ id: "job", accepted: true });
-		expect(await run("run_workflow", { workflowId: "w1", payload: { n: 1 } }, api)).toEqual({
-			id: "job",
-			accepted: true,
-		});
-		expect(calls).toEqual([{ method: "POST", path: "/v1/workflows/w1/run", body: { payload: { n: 1 } } }]);
 	});
 
 	it("get_integration_schema shows required fields and defaults, and reads no API", async () => {

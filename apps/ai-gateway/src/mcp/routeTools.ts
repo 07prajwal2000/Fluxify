@@ -14,7 +14,7 @@ import { optionalFields } from "./writeTools";
 
 const SAVE = { readOnlyHint: false, destructiveHint: false };
 const DELETE = { readOnlyHint: false, destructiveHint: true, idempotentHint: true };
-/** A run executes the user's graph for real: it can write, send and call out. */
+/** A call runs the user's graph for real: it can write, send and call out. */
 const RUN = { readOnlyHint: false, destructiveHint: true, openWorldHint: true };
 
 /** A route's answer can be any size; this much is plenty to read. */
@@ -74,7 +74,7 @@ export const routeTools: McpTool[] = [
 	{
 		name: "save_workflow",
 		description:
-			"Create or update a workflow's settings (a background job started by triggers or run_workflow). To create pass projectId and name. On update pass workflowId and only what changes. Only an active workflow can run. Build its logic with get_canvas and edit_canvas.",
+			"Create or update a workflow's settings (a background job started by triggers). To create pass projectId and name. On update pass workflowId and only what changes. Build its logic with get_canvas and edit_canvas.",
 		role: "creator",
 		annotations: SAVE,
 		input: {
@@ -119,19 +119,6 @@ export const routeTools: McpTool[] = [
 			const result = await send("POST", `/v1/routes/${routeId}/call`, a);
 			return { ...result, body: truncate(result.body) };
 		},
-	},
-	{
-		name: "run_workflow",
-		description:
-			"Start a REAL run of a workflow with an input payload. It runs for real: it can create, change or delete data and call other services. The run is queued on a worker, so this returns the run id, not the result; failures show in get_system_logs. The workflow must be active.",
-		role: "creator",
-		annotations: RUN,
-		input: {
-			workflowId: z.string().describe("Workflow id, from list_workflows"),
-			payload: z.unknown().optional().describe("The input the workflow receives"),
-		},
-		call: async ({ send }, { workflowId, payload }) =>
-			send("POST", `/v1/workflows/${workflowId}/run`, { payload }),
 	},
 	{
 		name: "get_integration_schema",

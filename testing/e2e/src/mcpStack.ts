@@ -5,7 +5,7 @@
 // shuts down when its stdin closes.
 //
 // Like the kit, one origin serves both: /_/admin goes to the admin app, every
-// other path to a real compiled worker, so call_route and run_workflow run for real.
+// other path to a real compiled worker, so call_route runs for real.
 import { join } from "node:path";
 import {
 	createProject,
@@ -76,12 +76,7 @@ const route = await insert<{ id: string }>(schema.routesEntity, {
 	active: true,
 	projectId,
 });
-// active, so run_workflow may queue it
-const workflow = await insert<{ id: string }>(schema.workflowsEntity, {
-	name: "nightly",
-	projectId,
-	active: true,
-});
+const workflow = await insert<{ id: string }>(schema.workflowsEntity, { name: "nightly", projectId });
 const group = await insert<{ id: string }>(schema.triggerGroupsEntity, {
 	name: "default",
 	projectId,

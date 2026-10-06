@@ -89,17 +89,13 @@ export async function startAuthServer(env: Record<string, string> = {}) {
 	const { ensureSchedulesStream } = await import("@fluxify/server/src/modules/schedules/reconciler");
 	await ensureSchedulesStream();
 	// as boot does: the compile worker owns FLUXIFY_COMPILE and turns saves into
-	// artifacts; FLUXIFY_JOBS exists before any run is queued onto it
+	// artifacts a worker serves
 	const { loadAppConfig } = await import("@fluxify/server/src/loaders/appconfigLoader");
 	const { loadIntegrations } = await import("@fluxify/server/src/loaders/integrationsLoader");
 	const { loadProjectSettings } = await import("@fluxify/server/src/loaders/projectSettingsLoader");
 	await Promise.all([loadAppConfig(), loadIntegrations(), loadProjectSettings()]);
 	const { startCompileWorker } = await import("@fluxify/server/src/modules/compiler/consumer");
 	await startCompileWorker();
-	const { ensureStream } = await import("@fluxify/common/nats");
-	const { natsConnection } = await import("@fluxify/server/src/db/nats");
-	const { JOBS_STREAM_SPEC } = await import("@fluxify/server/src/modules/jobs/subjects");
-	await ensureStream(natsConnection(), JOBS_STREAM_SPEC);
 	server.initializeAuth(db);
 
 	const { default: authRouter } = await import("@fluxify/server/src/api/auth/register");
