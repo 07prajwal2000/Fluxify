@@ -12,10 +12,11 @@ export const ORIGIN = "http://localhost:8080";
 export const MCP_RESOURCE = `${ORIGIN}/_/admin/mcp`;
 export const REDIRECT_URI = "http://127.0.0.1:33418/callback";
 export const PASSWORD = "Passw0rd!test";
+const NATS_TOKEN = "mcp-test-only";
 
 const containers: Docker.Container[] = [];
 
-async function start(image: string, name: string, port: string, env: string[] = []) {
+async function start(image: string, name: string, port: string, env: string[] = [], cmd?: string[]) {
 	await docker.getContainer(name).remove({ force: true }).catch(() => {});
 	await pullImage(image);
 	const started = await startContainerWithRandomPort((hostPort) =>
@@ -23,6 +24,7 @@ async function start(image: string, name: string, port: string, env: string[] = 
 			Image: image,
 			name,
 			Env: env,
+			Cmd: cmd,
 			HostConfig: { PortBindings: { [port]: [{ HostPort: String(hostPort) }] } },
 		}),
 	);
@@ -42,24 +44,32 @@ async function retry<T>(fn: () => Promise<T>, attempts = 60): Promise<T> {
 }
 
 export async function stopAuthServer() {
+	const { closeNats } = await import("@fluxify/common/nats");
+	await closeNats().catch(() => {});
 	await Promise.all(containers.map((c) => c.remove({ force: true }).catch(() => {})));
 }
 
 export async function startAuthServer() {
-	const [pgPort, redisPort] = await Promise.all([
+	// NATS (with JetStream) because trigger writes publish to it
+	const [pgPort, redisPort, natsPort] = await Promise.all([
 		start("postgres:bullseye", "fluxify-mcp-auth-pg", "5432/tcp", ["POSTGRES_PASSWORD=postgres"]),
 		start("valkey/valkey:8-alpine", "fluxify-mcp-auth-redis", "6379/tcp"),
+		start("nats:2.15.0-alpine", "fluxify-mcp-auth-nats", "4222/tcp", [], ["-js", "--auth", NATS_TOKEN]),
 	]);
 	Object.assign(process.env, {
 		NODE_ENV: "test",
 		PG_URL: `postgres://postgres:postgres@127.0.0.1:${pgPort}/postgres`,
 		REDIS_HOST: "127.0.0.1",
 		REDIS_PORT: String(redisPort),
+		NATS_URL: `nats://127.0.0.1:${natsPort}`,
+		NATS_TOKEN,
 		SERVER_URL: ORIGIN,
 		BETTER_AUTH_URL: ORIGIN,
 		TRUSTED_ORIGINS: ORIGIN,
 		BETTER_AUTH_SECRET: "test-secret-for-mcp-auth-integration",
 		ADMIN_RATE_LIMIT_PER_SEC: "0",
+		// app config secrets are encrypted with it
+		MASTER_ENCRYPTION_KEY: randomBytes(32).toString("base64"),
 	});
 
 	const server = await import("@fluxify/server");
@@ -71,6 +81,11 @@ export async function startAuthServer() {
 	});
 	server.initializeRedis();
 	await retry(() => server.pingRedis());
+	const { initializeNats } = await import("@fluxify/server/src/db/nats");
+	await retry(() => initializeNats());
+	// boot makes it in production; pausing a schedule purges it
+	const { ensureSchedulesStream } = await import("@fluxify/server/src/modules/schedules/reconciler");
+	await ensureSchedulesStream();
 	server.initializeAuth(db);
 
 	const { default: authRouter } = await import("@fluxify/server/src/api/auth/register");

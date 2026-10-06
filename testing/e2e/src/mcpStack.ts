@@ -44,7 +44,11 @@ const route = await insert<{ id: string }>(schema.routesEntity, {
 	projectId,
 });
 const workflow = await insert<{ id: string }>(schema.workflowsEntity, { name: "nightly", projectId });
-const group = await insert<{ id: string }>(schema.triggerGroupsEntity, { name: "default", projectId });
+const group = await insert<{ id: string }>(schema.triggerGroupsEntity, {
+	name: "default",
+	projectId,
+	isDefault: true,
+});
 const trigger = await insert<{ id: string }>(schema.triggersEntity, {
 	name: "every-hour",
 	type: "schedule",
@@ -74,7 +78,8 @@ const integration = await insert<{ id: string }>(schema.integrationsEntity, {
 	name: "cache",
 	group: "kv",
 	variant: "Redis",
-	config: { host: "localhost", port: 6379 },
+	// the stack's own Redis, so a connection test really connects
+	config: { source: "credentials", host: "127.0.0.1", port: Number(process.env.REDIS_PORT) },
 	projectId,
 });
 

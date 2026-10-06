@@ -1,11 +1,12 @@
 import { blockAiDescriptions, COMPACT_SHARED_TYPES, renderCompactSchema } from "@fluxify/blocks";
+import type { ToolAnnotations } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
 import { BUILTIN_BLOCKS_TABLE } from "../harness/agents/sub-agents/blockBuilder/promptHelpers";
-import type { AdminGet, ToolRole } from "./adminApi";
+import type { AdminApi, ToolRole } from "./adminApi";
 
 /**
- * One MCP tool backed by the admin API. `call` reads through `get`, which acts
- * as the caller; the server decides what they may see. `role` only words the
+ * One MCP tool backed by the admin API. `call` goes through `api`, which acts
+ * as the caller; the server decides what they may see or change. `role` only words the
  * 403 message — it is never checked here.
  */
 export type McpTool = {
@@ -13,15 +14,17 @@ export type McpTool = {
 	description: string;
 	role: ToolRole;
 	input: z.ZodRawShape;
-	call: (get: AdminGet, args: any) => Promise<unknown>;
+	/** Read-only unless set */
+	annotations?: ToolAnnotations;
+	call: (api: AdminApi, args: any) => Promise<unknown>;
 };
 
 const PER_PAGE = 50;
 
-const pick = <T extends Record<string, unknown>>(row: T, keys: (keyof T)[]) =>
+export const pick = <T extends Record<string, unknown>>(row: T, keys: (keyof T)[]) =>
 	Object.fromEntries(keys.map((k) => [k, row[k]]));
 
-const projectId = z.string().describe("Project id, from list_projects");
+export const projectId = z.string().describe("Project id, from list_projects");
 const page = z.number().int().min(1).optional().describe("Page number, 1 by default");
 const search = z.string().optional().describe("Only items whose name contains this");
 
@@ -58,7 +61,7 @@ export const readTools: McpTool[] = [
 			"Fluxify edition, licence status, whether orchestration is on, and the Bun version.",
 		role: "viewer",
 		input: {},
-		call: async (get) => {
+		call: async ({ get }) => {
 			const s = await get("/public-settings");
 			return {
 				edition: s.license.status === "community" ? "community" : "enterprise",
@@ -73,7 +76,7 @@ export const readTools: McpTool[] = [
 		description: "Projects you are a member of. Start here: most tools need a projectId.",
 		role: "viewer",
 		input: { page },
-		call: async (get, a) =>
+		call: async ({ get }, a) =>
 			paged(await get("/v1/projects/list", { page: a.page, perPage: PER_PAGE }), [
 				"id",
 				"name",
@@ -85,7 +88,7 @@ export const readTools: McpTool[] = [
 		description: "One project's name, slug and description.",
 		role: "viewer",
 		input: { projectId },
-		call: async (get, a) =>
+		call: async ({ get }, a) =>
 			pick(await get(`/v1/projects/${a.projectId}`), ["id", "name", "slug", "description"]),
 	},
 	{
@@ -102,7 +105,7 @@ export const readTools: McpTool[] = [
 				.describe("Only logs about this route, workflow or trigger id"),
 			limit: z.number().int().min(1).max(200).optional().describe("How many, 50 by default"),
 		},
-		call: async (get, a) => {
+		call: async ({ get }, a) => {
 			const body = await get(`/v1/projects/${a.projectId}/system-logs`, {
 				level: a.level,
 				resourceId: a.resourceId,
@@ -126,7 +129,7 @@ export const readTools: McpTool[] = [
 		description: "A project's HTTP routes: method, path and whether each is active.",
 		role: "viewer",
 		input: { projectId, page, search },
-		call: async (get, a) =>
+		call: async ({ get }, a) =>
 			paged(
 				await get("/v1/routes/list", {
 					projectId: a.projectId,
@@ -146,7 +149,7 @@ export const readTools: McpTool[] = [
 		description: "One route's settings. Its canvas (blocks and edges) is not included.",
 		role: "viewer",
 		input: { routeId: z.string().describe("Route id, from list_routes") },
-		call: async (get, a) =>
+		call: async ({ get }, a) =>
 			pick(await get(`/v1/routes/${a.routeId}`), [
 				"id",
 				"name",
@@ -164,7 +167,7 @@ export const readTools: McpTool[] = [
 		description: "A project's workflows: background jobs that triggers start.",
 		role: "viewer",
 		input: { projectId, page, search },
-		call: async (get, a) =>
+		call: async ({ get }, a) =>
 			paged(
 				await get("/v1/workflows/list", {
 					projectId: a.projectId,
@@ -180,7 +183,7 @@ export const readTools: McpTool[] = [
 		description: "One workflow's settings. Its canvas is not included.",
 		role: "viewer",
 		input: { workflowId: z.string().describe("Workflow id, from list_workflows") },
-		call: async (get, a) =>
+		call: async ({ get }, a) =>
 			pick(await get(`/v1/workflows/${a.workflowId}`), [
 				"id",
 				"name",
@@ -201,7 +204,7 @@ export const readTools: McpTool[] = [
 			page,
 			search,
 		},
-		call: async (get, a) =>
+		call: async ({ get }, a) =>
 			paged(
 				await get("/v1/triggers/list", {
 					projectId: a.projectId,
@@ -218,7 +221,7 @@ export const readTools: McpTool[] = [
 		description: "One trigger's full settings: schedule or source, batching, retries.",
 		role: "viewer",
 		input: { triggerId: z.string().describe("Trigger id, from list_triggers") },
-		call: async (get, a) => {
+		call: async ({ get }, a) => {
 			const {
 				projectId: _p,
 				createdAt: _c,
@@ -234,7 +237,7 @@ export const readTools: McpTool[] = [
 			"A project's custom blocks: reusable code blocks, middleware links and test hooks.",
 		role: "viewer",
 		input: { projectId },
-		call: async (get, a) =>
+		call: async ({ get }, a) =>
 			(await get("/v1/custom-blocks/list", { projectId: a.projectId })).map((b: any) =>
 				pick(b, ["id", "name", "label", "description", "usage"]),
 			),
@@ -244,7 +247,7 @@ export const readTools: McpTool[] = [
 		description: "One custom block's inputs and docs. Its code is not included.",
 		role: "viewer",
 		input: { customBlockId: z.string().describe("Custom block id, from list_custom_blocks") },
-		call: async (get, a) =>
+		call: async ({ get }, a) =>
 			pick(await get(`/v1/custom-blocks/${a.customBlockId}`), [
 				"id",
 				"name",
@@ -261,7 +264,7 @@ export const readTools: McpTool[] = [
 			"A project's middlewares: named chains of custom blocks run before or after routes.",
 		role: "viewer",
 		input: { projectId },
-		call: async (get, a) =>
+		call: async ({ get }, a) =>
 			(await get("/v1/middlewares/list", { projectId: a.projectId })).map((m: any) => ({
 				...pick(m, ["id", "name", "description", "routeCount"]),
 				blocks: m.blocks.map((b: any) => b.name),
@@ -272,7 +275,7 @@ export const readTools: McpTool[] = [
 		description: "One middleware and its custom blocks in run order.",
 		role: "viewer",
 		input: { middlewareId: z.string().describe("Middleware id, from list_middlewares") },
-		call: async (get, a) => {
+		call: async ({ get }, a) => {
 			const m = await get(`/v1/middlewares/${a.middlewareId}`);
 			return {
 				...pick(m, ["id", "name", "description"]),
@@ -288,7 +291,7 @@ export const readTools: McpTool[] = [
 			targetType: z.enum(["route", "workflow"]).describe("What the suites test"),
 			targetId: z.string().describe("The route or workflow id"),
 		},
-		call: async (get, a) =>
+		call: async ({ get }, a) =>
 			(await get(`/v1/test-suites/${a.targetType}/${a.targetId}`)).map((s: any) =>
 				pick(s, ["id", "name", "description"]),
 			),
@@ -298,7 +301,7 @@ export const readTools: McpTool[] = [
 		description: "One test suite: its request or input, assertions and hooks.",
 		role: "viewer",
 		input: { testSuiteId: z.string().describe("Test suite id, from list_test_suites") },
-		call: async (get, a) => {
+		call: async ({ get }, a) => {
 			const {
 				createdAt: _c,
 				updatedAt: _u,
@@ -315,7 +318,7 @@ export const readTools: McpTool[] = [
 			"A project's app config keys (settings and secrets blocks read). Values are not listed.",
 		role: "creator",
 		input: { projectId, page, search },
-		call: async (get, a) =>
+		call: async ({ get }, a) =>
 			paged(
 				await get(`/v1/${a.projectId}/app-config/list`, {
 					page: a.page,
@@ -333,7 +336,7 @@ export const readTools: McpTool[] = [
 			projectId,
 			appConfigId: z.number().int().describe("App config id, from list_app_config"),
 		},
-		call: async (get, a) =>
+		call: async ({ get }, a) =>
 			pick(await get(`/v1/${a.projectId}/app-config/${a.appConfigId}`), [
 				"id",
 				"keyName",
@@ -349,7 +352,7 @@ export const readTools: McpTool[] = [
 		description: "A project's integrations: databases, KV stores, AI providers and queues.",
 		role: "creator",
 		input: { projectId },
-		call: async (get, a) => get(`/v1/${a.projectId}/integrations/list-basic`),
+		call: async ({ get }, a) => get(`/v1/${a.projectId}/integrations/list-basic`),
 	},
 	{
 		name: "get_integration",
@@ -359,14 +362,14 @@ export const readTools: McpTool[] = [
 			projectId,
 			integrationId: z.string().describe("Integration id, from list_integrations"),
 		},
-		call: async (get, a) => get(`/v1/${a.projectId}/integrations/${a.integrationId}`),
+		call: async ({ get }, a) => get(`/v1/${a.projectId}/integrations/${a.integrationId}`),
 	},
 	{
 		name: "list_members",
 		description: "A project's members and their roles.",
 		role: "creator",
 		input: { projectId, page },
-		call: async (get, a) =>
+		call: async ({ get }, a) =>
 			paged(
 				await get(`/v1/projects/${a.projectId}/settings/members/list`, {
 					page: a.page,
@@ -387,6 +390,6 @@ export const readTools: McpTool[] = [
 				.optional()
 				.describe("Block types, e.g. ['db_getall', 'if']"),
 		},
-		call: async (_get, a) => blockSchemas(a.blockTypes),
+		call: async (_api, a) => blockSchemas(a.blockTypes),
 	},
 ];

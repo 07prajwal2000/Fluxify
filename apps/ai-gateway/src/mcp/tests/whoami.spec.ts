@@ -1,6 +1,8 @@
 import { describe, expect, it } from "bun:test";
 import { Hono } from "hono";
 import { mapMcpServer } from "../index";
+import { readTools } from "../tools";
+import { writeTools } from "../writeTools";
 
 const USERS: Record<string, { user: object; acl: object[] }> = {
 	alice: {
@@ -54,11 +56,13 @@ describe("MCP whoami", () => {
 		expect(bob).toEqual({ ...USERS.bob.user, acl: USERS.bob.acl });
 	});
 
-	it("every tool is listed as read-only", async () => {
+	it("lists reads as read-only and writes with their own annotations", async () => {
 		const res = await rpc("alice", "tools/list");
 		const body = (await res.json()) as { result: { tools: { name: string; annotations: object }[] } };
-		expect(body.result.tools.map((t) => t.name)).toContain("whoami");
-		for (const tool of body.result.tools) expect(tool.annotations).toEqual({ readOnlyHint: true });
+		const listed = Object.fromEntries(body.result.tools.map((t) => [t.name, t.annotations]));
+		expect(Object.keys(listed)).toContain("whoami");
+		for (const tool of readTools) expect(listed[tool.name]).toEqual({ readOnlyHint: true });
+		for (const tool of writeTools) expect(listed[tool.name]).toEqual(tool.annotations!);
 	});
 
 	it("401s without a user", async () => {

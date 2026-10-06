@@ -3,9 +3,10 @@ import { mcpResourceMetadataUrl } from "@fluxify/server";
 import { StreamableHTTPTransport } from "@hono/mcp";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { Context, Hono, Next } from "hono";
-import { type AdminFetch, adminGet, httpAdminFetch } from "./adminApi";
+import { type AdminFetch, adminApi, httpAdminFetch } from "./adminApi";
 import { MCP_INSTRUCTIONS } from "./instructions";
 import { readTools } from "./tools";
+import { writeTools } from "./writeTools";
 
 /** Who the MCP call acts as: what `setSession` put on the request. */
 export type McpCaller = {
@@ -51,17 +52,17 @@ export function createMcpServer(
 		},
 		async () => ({ content: [{ type: "text", text: JSON.stringify(caller) }] }),
 	);
-	for (const tool of readTools) {
-		const get = adminGet(fetcher, auth, tool.role);
+	for (const tool of [...readTools, ...writeTools]) {
+		const api = adminApi(fetcher, auth, tool.role);
 		server.registerTool(
 			tool.name,
 			{
 				description: tool.description,
 				inputSchema: tool.input,
-				annotations: { readOnlyHint: true },
+				annotations: tool.annotations ?? { readOnlyHint: true },
 			},
 			async (args: unknown) => {
-				const result = await tool.call(get, args);
+				const result = await tool.call(api, args);
 				const text = typeof result === "string" ? result : JSON.stringify(result);
 				return { content: [{ type: "text", text }] };
 			},
