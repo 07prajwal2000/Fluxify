@@ -75,13 +75,26 @@ function LoginForm() {
 		setLoading(true);
 		setErrors({});
 		try {
-			const result = await authClient.signIn.email({ email, password });
+			// Opened by an OAuth authorize redirect: pass the query so the server continues the flow.
+			const oauthQuery = new URLSearchParams(window.location.search).has("client_id")
+				? window.location.search.slice(1)
+				: undefined;
+			const result = await authClient.signIn.email({
+				email,
+				password,
+				oauth_query: oauthQuery,
+			} as Parameters<typeof authClient.signIn.email>[0]);
 			if (result.error) {
 				toast.danger(result.error.message ?? "Failed to login");
 				return;
 			}
 			if (result.data?.user) {
 				toast.success(`Logged in as ${result.data.user.email}`);
+				const url = (result.data as { url?: string }).url;
+				if (oauthQuery && url) {
+					window.location.href = url;
+					return;
+				}
 				navigate({ to: (next ?? "/") as "/" });
 			}
 		} catch (error) {
