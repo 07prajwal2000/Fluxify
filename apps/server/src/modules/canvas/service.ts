@@ -20,6 +20,7 @@ import {
 	deleteStructuralBlocks,
 	getBlocks,
 	getBlocksCountByType,
+	getCanvasVersion,
 	getCustomBlockCalls,
 	getCustomBlockNames,
 	getEdges,
@@ -30,6 +31,7 @@ import {
 	upsertBlocks,
 	upsertEdges,
 } from "./repository";
+import { type CanvasIssue, canvasRuleIssues } from "./rules";
 import { assertTransactionWiring } from "./transactionWiring";
 import type { CanvasChanges, CanvasParent, CanvasParentType } from "./types";
 
@@ -188,34 +190,44 @@ async function assertBlockTypesExist(
 }
 
 /**
- * A test-only custom block (#483) runs only as a test suite's setup or
- * teardown. The editor hides it from the block picker, but an API call or an
- * AI edit can still place one, so the save is refused here. Only another
- * test-only block's canvas may use it.
+ * The canvas rules (`rules.ts`) over the canvas as it will be after this save.
+ * Errors on a block this save writes refuse it; an error already stored on a
+ * block it does not touch is left alone, so an old canvas stays editable.
+ * Everything comes back for a dry-run to report.
  */
-async function assertNoTestOnlyBlocks(
+async function canvasIssues(
 	parent: CanvasParent,
 	data: CanvasChanges,
+	blocksAfterSave: { id: string; type: string | null; data: unknown }[],
 	tx: DbTransactionType,
+	dryRun: boolean,
 ) {
+	// the custom block query is only needed when this canvas or its owner is one
 	const builtin = new Set<string>(Object.values(BlockTypes));
-	if (data.changes.blocks.every((b) => builtin.has(b.type))) return;
-	const blocks = await getProjectCustomBlocks(parent, tx);
-	const selfIsTest =
-		parent.type === "custom_block" && blocks.find((b) => b.id === parent.id)?.usage === "test";
-	const usageOf = new Map(blocks.map((b) => [b.name, b.usage]));
-	const placed = new Set(data.changes.blocks.map((b) => b.type));
-	const testOnly = [...placed].filter((t) => usageOf.get(t) === "test");
-	if (testOnly.length && !selfIsTest) {
+	const needsCustom =
+		parent.type === "custom_block" || blocksAfterSave.some((b) => b.type && !builtin.has(b.type));
+	const blocks = needsCustom ? await getProjectCustomBlocks(parent, tx) : [];
+	const issues = canvasRuleIssues({
+		kind: parent.type,
+		selfUsage:
+			parent.type === "custom_block" ? blocks.find((b) => b.id === parent.id)?.usage : undefined,
+		blocks: blocksAfterSave,
+		usageOf: new Map(blocks.map((b) => [b.name, b.usage])),
+	});
+	if (dryRun) return issues;
+	const written = new Set(data.changes.blocks.map((b) => b.id));
+	const refused = issues.filter((i) => i.severity === "error" && written.has(i.blockId ?? ""));
+	if (refused.length) throw new BadRequestError(refused.map((i) => i.message).join(" "));
+	return issues;
+}
+
+/** A null or empty handle is stored fine and then breaks compiling (`handle.includes`)
+ *  or is silently skipped at runtime, so it never reaches storage. */
+function assertEdgeHandles(data: CanvasChanges) {
+	const bad = data.changes.edges.filter((e) => !e.fromHandle?.trim() || !e.toHandle?.trim());
+	if (bad.length) {
 		throw new BadRequestError(
-			`${testOnly.join(", ")} ${testOnly.length === 1 ? "is a test-only block" : "are test-only blocks"}: use ${testOnly.length === 1 ? "it" : "them"} only as a test suite's setup or teardown.`,
-		);
-	}
-	// #534: a middleware block runs only as a link of a middleware chain
-	const middleware = [...placed].filter((t) => usageOf.get(t) === "middleware");
-	if (middleware.length) {
-		throw new BadRequestError(
-			`${middleware.join(", ")} ${middleware.length === 1 ? "is a middleware block" : "are middleware blocks"}: add ${middleware.length === 1 ? "it" : "them"} to a middleware instead of a canvas.`,
+			`Edge(s) ${bad.map((e) => e.id).join(", ")} need a fromHandle and a toHandle, e.g. "<blockId>-source" and "<blockId>-target".`,
 		);
 	}
 }
@@ -332,6 +344,10 @@ async function mergeStaleSingleton(
  * `mergeAiDuplicates` is only ever set by the AI harness apply path (the ops
  * RPC bus) — see `mergeStaleSingleton`. A human-driven save always gets the
  * strict duplicate error.
+ *
+ * `expectedVersion` refuses the save when the canvas moved past it (#597);
+ * omitted, the save goes through as it always did. `dryRun` runs every check
+ * and rolls back, so a caller can ask "would this save, and what is wrong?".
  */
 export async function saveCanvas(
 	parent: CanvasParent,
@@ -339,7 +355,8 @@ export async function saveCanvas(
 	projectIds: string[] = [],
 	outer?: DbTransactionType,
 	mergeAiDuplicates = false,
-) {
+	{ expectedVersion, dryRun = false }: SaveOptions = {},
+): Promise<SaveResult> {
 	if (!(await parentExists(parent, projectIds, outer))) {
 		// visible to nobody vs. outside the caller's projects: 404 vs. 403, as
 		// every other write answers
@@ -347,6 +364,7 @@ export async function saveCanvas(
 		throw new NotFoundError(NOT_FOUND[parent.type]);
 	}
 	assertSendMessageLicensed(data);
+	assertEdgeHandles(data);
 
 	const keys = parentKeys(parent);
 	const deleteBlockIds = data.actionsToPerform.blocks
@@ -356,10 +374,10 @@ export async function saveCanvas(
 		.filter((c) => c.action === "delete")
 		.map((c) => c.id);
 
+	let result: SaveResult = { canvasVersion: 0, issues: [] };
 	// a tx nests as a savepoint, so the outer transaction still decides the outcome
-	await (outer ?? db).transaction(async (tx) => {
+	const saving = (outer ?? db).transaction(async (tx) => {
 		await assertBlockTypesExist(parent, data, tx);
-		await assertNoTestOnlyBlocks(parent, data, tx);
 		await assertNoCustomBlockRecursion(parent, data, deleteBlockIds, tx);
 		await assertEdgeTargetsExist(parent, data, deleteBlockIds, tx);
 		await assertCanvasHasNoCycles(parent, data, deleteBlockIds, deleteEdgeIds, tx);
@@ -372,6 +390,7 @@ export async function saveCanvas(
 			dbTypeOf,
 		);
 		assertJoinsSupported(blocksAfterSave, dbTypeOf);
+		const issues = await canvasIssues(parent, data, blocksAfterSave, tx, dryRun);
 		await upsertBlocks(
 			data.changes.blocks.map((block) => ({ ...block, ...keys })),
 			tx,
@@ -388,24 +407,50 @@ export async function saveCanvas(
 			[BlockTypes.entrypoint, BlockTypes.errorHandler],
 			tx,
 		);
-		await touchParent(parent, tx);
+		const canvasVersion = await touchParent(parent, tx, expectedVersion);
+		if (canvasVersion === undefined) {
+			throw new ConflictError(
+				`Canvas changed: it is past version ${expectedVersion}. Read it again and redo the edit.`,
+			);
+		}
 		for (const block of structural) {
 			if (block.count === 1) continue;
 			if (mergeAiDuplicates && (await mergeStaleSingleton(parent, data, block.type!, tx))) continue;
 			throw new BadRequestError(`Duplicate block ${block.type} found`);
 		}
+		// a dry run reports the version the canvas is still at
+		result = { canvasVersion: dryRun ? canvasVersion - 1 : canvasVersion, issues };
+		if (dryRun) throw DRY_RUN;
 	});
+	try {
+		await saving;
+	} catch (error) {
+		if (error !== DRY_RUN) throw error;
+		return result;
+	}
 
 	if (!outer) await publishMessage(CHANGE_CHANNEL[parent.type], parent.id);
+	return result;
 }
+
+export type SaveOptions = { expectedVersion?: number; dryRun?: boolean };
+export type SaveResult = { canvasVersion: number; issues: CanvasIssue[] };
+
+/** Thrown to roll a dry-run save back; never leaves `saveCanvas`. */
+const DRY_RUN = new Error("canvas dry run");
 
 export async function getCanvas(parent: CanvasParent, projectIds: string[] = []) {
 	return await db.transaction(async (tx) => {
 		if (!(await parentExists(parent, projectIds, tx))) {
 			throw new NotFoundError(NOT_FOUND[parent.type]);
 		}
-		const [blocks, edges] = await Promise.all([getBlocks(parent, tx), getEdges(parent, tx)]);
+		const [blocks, edges, canvasVersion] = await Promise.all([
+			getBlocks(parent, tx),
+			getEdges(parent, tx),
+			getCanvasVersion(parent, tx),
+		]);
 		return {
+			canvasVersion,
 			blocks: blocks.map((b) => ({
 				id: b.id,
 				type: b.type!,

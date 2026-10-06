@@ -62,7 +62,7 @@ describe("canvas saveCanvas", () => {
 		// e1 points at b2, which the fixture leaves already stored
 		spyOn(repository, "getBlocks").mockResolvedValue([{ id: "b2" }] as any);
 		getEdges.mockResolvedValue([] as any);
-		spyOn(repository, "touchParent").mockResolvedValue(undefined);
+		spyOn(repository, "touchParent").mockResolvedValue(1);
 		for (const spy of [upsertBlocks, upsertEdges, delBlocks, delEdges, delStructural]) {
 			spy.mockClear();
 			spy.mockResolvedValue(undefined);
@@ -221,8 +221,8 @@ describe("canvas saveCanvas", () => {
 						{ id: "db", type: "db_getall", data: {}, position: { x: 2, y: 2 } },
 					],
 					edges: [
-						{ id: "false", from: "if", to: "db", fromHandle: "false", toHandle: "" },
-						{ id: "back", from: "db", to: "if", fromHandle: "", toHandle: "" },
+						{ id: "false", from: "if", to: "db", fromHandle: "if-failure", toHandle: "db-target" },
+						{ id: "back", from: "db", to: "if", fromHandle: "db-source", toHandle: "if-target" },
 					],
 				},
 			};
@@ -241,7 +241,7 @@ describe("canvas saveCanvas", () => {
 			{ id: "db" },
 		] as any);
 		getEdges.mockResolvedValue([
-			{ id: "false", from: "if", to: "db", fromHandle: "false", toHandle: "" },
+			{ id: "false", from: "if", to: "db", fromHandle: "if-failure", toHandle: "db-target" },
 		] as any);
 
 		await expect(
@@ -252,7 +252,7 @@ describe("canvas saveCanvas", () => {
 					changes: {
 						blocks: [],
 						edges: [
-							{ id: "back", from: "db", to: "if", fromHandle: "", toHandle: "" },
+							{ id: "back", from: "db", to: "if", fromHandle: "db-source", toHandle: "if-target" },
 						],
 					},
 				},

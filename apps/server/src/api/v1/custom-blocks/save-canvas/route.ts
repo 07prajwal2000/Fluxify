@@ -4,6 +4,7 @@ import { errorSchema } from "../../../../errors/customError";
 import { validationErrorSchema } from "../../../../errors/validationError";
 import zodErrorCallbackParser from "../../../../middlewares/zodErrorCallbackParser";
 import { requestBodyValidator } from "../../../../modules/canvas/blockDataValidator";
+import { saveCanvasQuerySchema, saveCanvasResultSchema } from "../../../../modules/canvas/types";
 import type { HonoServer } from "../../../../types";
 import { requestBodySchema, requestParamSchema } from "./dto";
 import handleRequest from "./service";
@@ -14,8 +15,9 @@ const openapiRouteOptions: DescribeRouteOptions = {
 	operationId: "save-custom-block-canvas-state",
 	tags: ["Custom Blocks"],
 	responses: {
-		204: {
-			description: "No content returned after successful operation",
+		200: {
+			description: "Saved (or checked, with dryRun): the new canvasVersion and rule issues",
+			content: { "application/json": { schema: resolver(saveCanvasResultSchema) } },
 		},
 		400: {
 			description: "Invalid ID/Data format or duplicate block found",
@@ -50,13 +52,13 @@ export default function (app: HonoServer) {
 		describeRoute(openapiRouteOptions),
 		validator("param", requestParamSchema, zodErrorCallbackParser),
 		validator("json", requestBodySchema, zodErrorCallbackParser),
+		validator("query", saveCanvasQuerySchema, zodErrorCallbackParser),
 		requestBodyValidator,
 		async (c) => {
 			const { id } = c.req.valid("param");
 			const data = c.req.valid("json");
 			const acl = c.get("acl") || [];
-			await handleRequest(id, data, acl);
-			return c.body(null, 204);
+			return c.json(await handleRequest(id, data, acl, c.req.valid("query")));
 		},
 	);
 }
