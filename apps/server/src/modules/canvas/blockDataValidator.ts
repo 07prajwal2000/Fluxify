@@ -215,7 +215,9 @@ export function blockDataValidator(data: CanvasChanges) {
 			if (customBlockNames.has(block.type)) {
 				continue;
 			}
-			throw new BadRequestError("Invalid block type");
+			throw new BadRequestError(
+				`Unknown block type: ${block.type}. Use a built-in block type or a custom block defined in this project.`,
+			);
 		}
 		const result = schema.safeParse(block.data);
 		if (!result.success) {

@@ -7,7 +7,7 @@ import type { CanvasChanges } from "../types";
 /**
  * A new block type is registered in several places, and this validator is the
  * one nobody remembers — a block missing here saves nowhere, with only
- * "Invalid block type" to go on. So assert the whole enum rather than the block
+ * "Unknown block type" to go on. So assert the whole enum rather than the block
  * of the day.
  */
 const changes = (type: string, data: Record<string, unknown> = {}): CanvasChanges =>
@@ -27,7 +27,7 @@ describe("every block type the engine knows", () => {
 			try {
 				blockDataValidator(changes(type));
 			} catch (error) {
-				expect((error as Error).message).not.toBe("Invalid block type");
+				expect((error as Error).message).not.toStartWith("Unknown block type");
 			}
 		});
 	}
