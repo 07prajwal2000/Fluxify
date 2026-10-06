@@ -46,7 +46,8 @@ describe("fluxify.ops.canvas responder", () => {
 		spyOn(repository, "deleteBlocks").mockResolvedValue(undefined);
 		spyOn(repository, "deleteEdges").mockResolvedValue(undefined);
 		spyOn(repository, "getBlocksCountByType").mockResolvedValue([]);
-		spyOn(repository, "touchParent").mockResolvedValue(undefined);
+		spyOn(repository, "touchParent").mockResolvedValue(1);
+		spyOn(repository, "getCanvasVersion").mockResolvedValue(1);
 		upsertBlocks.mockResolvedValue(undefined);
 		upsertEdges.mockResolvedValue(undefined);
 		getBlocks.mockResolvedValue([] as any);
@@ -105,7 +106,7 @@ describe("fluxify.ops.canvas responder", () => {
 				actionsToPerform: { blocks: [], edges: [] },
 				changes: {
 					blocks: payload.changes.blocks,
-					edges: [{ id: "e9", from: "b1", to: "ghost" }],
+					edges: [{ id: "e9", from: "b1", to: "ghost", fromHandle: "b1-source", toHandle: "ghost-target" }],
 				},
 			},
 			{ userId: "u1", projectIds: ["p1"] },
@@ -126,7 +127,7 @@ describe("fluxify.ops.canvas responder", () => {
 				actionsToPerform: { blocks: [], edges: [] },
 				changes: {
 					blocks: payload.changes.blocks,
-					edges: [{ id: "e9", from: "b1", to: "stored" }],
+					edges: [{ id: "e9", from: "b1", to: "stored", fromHandle: "b1-source", toHandle: "stored-target" }],
 				},
 			},
 			{ userId: "u1", projectIds: ["p1"] },

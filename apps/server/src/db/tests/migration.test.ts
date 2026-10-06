@@ -82,18 +82,20 @@ async function tables(c: SQL) {
 	return rows.map((r: { table_name: string }) => r.table_name);
 }
 
-const [baseline] = readMigrationFiles({ migrationsFolder: MIGRATIONS_FOLDER });
+const migrations = readMigrationFiles({ migrationsFolder: MIGRATIONS_FOLDER });
+/** one journal row per migration file, in order */
+const allApplied = migrations.map((m) => ({ hash: m.hash, created_at: String(m.folderMillis) }));
 const POST_601_TABLES = ["session", "apikey", "jwks", "oauth_client", "oauth_access_token", "oauth_refresh_token", "oauth_consent"];
 
 let freshFingerprint: string[];
 
 describe("migrateDB", () => {
-	test("a fresh database gets every migration and one journal row", async () => {
+	test("a fresh database gets every migration and a journal row for each", async () => {
 		const { url, client } = await newDatabase();
 		await migrateDB(url);
 
 		expect(await tables(client)).toEqual(expect.arrayContaining(["user", "projects", "system_users", ...POST_601_TABLES]));
-		expect(await journal(client)).toEqual([{ hash: baseline!.hash, created_at: String(baseline!.folderMillis) }]);
+		expect(await journal(client)).toEqual(allApplied);
 		freshFingerprint = await fingerprint(client);
 	});
 
@@ -124,7 +126,7 @@ describe("migrateDB", () => {
 
 			expect(await tables(client)).toEqual(expect.arrayContaining(POST_601_TABLES));
 			expect(await seededRows()).toEqual(seeded);
-			expect(await journal(client)).toEqual([{ hash: baseline!.hash, created_at: String(baseline!.folderMillis) }]);
+			expect(await journal(client)).toEqual(allApplied);
 			// Adopting builds exactly what the migrator builds on a fresh database.
 			expect(await fingerprint(client)).toEqual(freshFingerprint);
 		});
@@ -133,7 +135,7 @@ describe("migrateDB", () => {
 			const before = await fingerprint(client);
 			await migrateDB(url);
 			expect(await fingerprint(client)).toEqual(before);
-			expect(await journal(client)).toHaveLength(1);
+			expect(await journal(client)).toHaveLength(migrations.length);
 			expect(await seededRows()).toEqual(seeded);
 		});
 	});
@@ -141,7 +143,7 @@ describe("migrateDB", () => {
 	test("two migrators at once: one applies, the other waits and finds nothing to do", async () => {
 		const { url, client } = await newDatabase();
 		await Promise.all([migrateDB(url), migrateDB(url)]);
-		expect(await journal(client)).toHaveLength(1);
+		expect(await journal(client)).toHaveLength(migrations.length);
 		expect(await fingerprint(client)).toEqual(freshFingerprint);
 	});
 
@@ -154,12 +156,13 @@ describe("migrateDB", () => {
 		try {
 			cpSync(MIGRATIONS_FOLDER, folder, { recursive: true });
 			await Bun.write(
-				join(folder, "0001_broken.sql"),
+				join(folder, "9999_broken.sql"),
 				`CREATE TABLE "broken_603" ("id" integer);--> statement-breakpoint\nSELECT * FROM "no_such_table";`,
 			);
 			const journalPath = join(folder, "meta/_journal.json");
 			const meta = await Bun.file(journalPath).json();
-			meta.entries.push({ ...meta.entries[0], idx: 1, when: baseline!.folderMillis + 1, tag: "0001_broken" });
+			const last = migrations.at(-1)!;
+			meta.entries.push({ ...meta.entries[0], idx: migrations.length, when: last.folderMillis + 1, tag: "9999_broken" });
 			await Bun.write(journalPath, JSON.stringify(meta));
 
 			const failed = migrateDB(url, folder);
@@ -171,6 +174,6 @@ describe("migrateDB", () => {
 
 		expect(await tables(client)).not.toContain("broken_603");
 		expect(await fingerprint(client)).toEqual(before);
-		expect(await journal(client)).toHaveLength(1);
+		expect(await journal(client)).toHaveLength(migrations.length);
 	});
 });

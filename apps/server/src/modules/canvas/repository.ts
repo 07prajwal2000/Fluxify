@@ -25,7 +25,10 @@ const parentTables = {
 	workflow: { table: workflowsEntity, column: "workflowId" },
 } as const satisfies Record<
 	CanvasParent["type"],
-	{ table: PgTable & { id: any; projectId: any; updatedAt: any }; column: string }
+	{
+		table: PgTable & { id: any; projectId: any; updatedAt: any; canvasVersion: any };
+		column: string;
+	}
 >;
 
 /** The table a parent of this type lives in. */
@@ -306,7 +309,37 @@ export async function getCustomBlockCalls(
 	);
 }
 
-export async function touchParent(parent: CanvasParent, tx?: DbTransactionType) {
+/**
+ * Marks a canvas saved: `updated_at` and `canvas_version + 1`, returning the
+ * new version. With `expectedVersion` the row only matches at that version, so
+ * a stale save gets `undefined`. The row lock makes two racing saves at the
+ * same version resolve to one winner.
+ */
+export async function touchParent(
+	parent: CanvasParent,
+	tx?: DbTransactionType,
+	expectedVersion?: number,
+): Promise<number | undefined> {
 	const table = parentTable(parent.type);
-	await (tx ?? db).update(table).set({ updatedAt: sql`now()` }).where(eq(table.id, parent.id));
+	const [row] = await (tx ?? db)
+		.update(table)
+		.set({ updatedAt: sql`now()`, canvasVersion: sql`${table.canvasVersion} + 1` })
+		.where(
+			and(
+				eq(table.id, parent.id),
+				expectedVersion === undefined ? undefined : eq(table.canvasVersion, expectedVersion),
+			),
+		)
+		.returning({ canvasVersion: table.canvasVersion });
+	return row?.canvasVersion;
+}
+
+/** The canvas's save counter (#597), 0 for a canvas never saved. */
+export async function getCanvasVersion(parent: CanvasParent, tx?: DbTransactionType) {
+	const table = parentTable(parent.type);
+	const [row] = await (tx ?? db)
+		.select({ canvasVersion: table.canvasVersion })
+		.from(table)
+		.where(eq(table.id, parent.id));
+	return row?.canvasVersion ?? 0;
 }

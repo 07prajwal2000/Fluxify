@@ -253,6 +253,8 @@ export const routesEntity = pgTable(
 		 */
 		tracingEnabled: boolean("tracing_enabled").default(false).notNull(),
 		recordExecution: boolean("record_execution").default(false).notNull(),
+		/** #597: +1 on every canvas save, in the same transaction. A save naming an older one is refused. */
+		canvasVersion: integer("canvas_version").default(0).notNull(),
 		createdAt: timestamp("created_at").defaultNow().notNull(),
 		createdBy: varchar("created_by", { length: 50 }),
 		updatedAt: timestamp("updated_at")
@@ -303,6 +305,8 @@ export const workflowsEntity = pgTable(
 		/** Same two independent switches as a route — see `routesEntity`. */
 		tracingEnabled: boolean("tracing_enabled").default(false).notNull(),
 		recordExecution: boolean("record_execution").default(false).notNull(),
+		/** #597: +1 on every canvas save, in the same transaction. A save naming an older one is refused. */
+		canvasVersion: integer("canvas_version").default(0).notNull(),
 		createdAt: timestamp("created_at").defaultNow().notNull(),
 		createdBy: varchar("created_by", { length: 50 }),
 		updatedAt: timestamp("updated_at")
@@ -858,6 +862,8 @@ export const customBlocksListEntity = pgTable(
 		usage: customBlockUsageEnum("usage").default("flow").notNull(),
 		// #526: markdown shown in the block settings Docs tab
 		docs: text(),
+		/** #597: +1 on every canvas save, in the same transaction. A save naming an older one is refused. */
+		canvasVersion: integer("canvas_version").default(0).notNull(),
 		createdAt: timestamp("created_at").defaultNow().notNull(),
 		updatedAt: timestamp("updated_at")
 			.defaultNow()

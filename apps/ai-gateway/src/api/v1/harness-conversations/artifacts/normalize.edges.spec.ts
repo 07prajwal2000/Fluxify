@@ -95,3 +95,24 @@ describe("edges into a block that has no inbound socket", () => {
 		expect(result.changes.edges[0]).toMatchObject({ from: "handler", to: "log" });
 	});
 });
+
+// A switch case or orchestrate handle holds one edge per branch. Adding a
+// branch used to delete the others, as if it replaced a single-edge handle.
+describe("a new branch on a fan-out handle", () => {
+	it("keeps the stored branches", () => {
+		const stored: CanvasItems = {
+			blocks: [
+				{ id: "sw", type: "switch", data: {}, position: { x: 0, y: 0 } },
+				{ id: "a", type: "consolelog", data: {}, position: { x: 1, y: 0 } },
+				{ id: "b", type: "consolelog", data: {}, position: { x: 2, y: 0 } },
+			],
+			edges: [{ id: "e-a", from: "sw", to: "a", fromHandle: "sw-case", toHandle: "a-target" }],
+		};
+		const result = canvasChangesFromPayload(
+			{ blocks: [{ id: "sw", blockType: "switch", connections: [{ blockId: "b", handle: "case" }] }] },
+			stored,
+		);
+		expect(result.actionsToPerform.edges.filter((e) => e.action === "delete")).toEqual([]);
+		expect(result.changes.edges).toEqual([expect.objectContaining({ from: "sw", to: "b" })]);
+	});
+});

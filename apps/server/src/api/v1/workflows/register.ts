@@ -6,7 +6,12 @@ import { canAccess } from "../../../lib/acl";
 import zodErrorCallbackParser from "../../../middlewares/zodErrorCallbackParser";
 import { requestBodyValidator } from "../../../modules/canvas/blockDataValidator";
 import { getCanvas, saveCanvas } from "../../../modules/canvas/service";
-import { canvasChangesSchema, canvasItemsSchema } from "../../../modules/canvas/types";
+import {
+	canvasChangesSchema,
+	canvasItemsSchema,
+	saveCanvasQuerySchema,
+	saveCanvasResultSchema,
+} from "../../../modules/canvas/types";
 import type { HonoServer } from "../../../types";
 import { requireLoggedIn, requireProjectAccess } from "../../auth/middleware";
 import {
@@ -152,21 +157,28 @@ export default {
 		router.put(
 			"/:id/save-canvas",
 			describeRoute(
-				describe("save-workflow-canvas-state", "Applies canvas changes to a workflow", {
-					204: { description: "No content returned after successful operation" },
-				}),
+				describe(
+					"save-workflow-canvas-state",
+					"Applies canvas changes to a workflow",
+					json(saveCanvasResultSchema, "Saved (or checked, with dryRun)"),
+				),
 			),
 			validator("param", idParamSchema, zodErrorCallbackParser),
 			validator("json", canvasChangesSchema, zodErrorCallbackParser),
+			validator("query", saveCanvasQuerySchema, zodErrorCallbackParser),
 			requestBodyValidator,
 			async (ctx) => {
 				const acl = ctx.get("acl") || [];
-				await saveCanvas(
-					{ type: "workflow", id: ctx.req.valid("param").id },
-					ctx.req.valid("json"),
-					acl.filter((a) => canAccess(a.role, "creator")).map((a) => a.projectId),
+				return ctx.json(
+					await saveCanvas(
+						{ type: "workflow", id: ctx.req.valid("param").id },
+						ctx.req.valid("json"),
+						acl.filter((a) => canAccess(a.role, "creator")).map((a) => a.projectId),
+						undefined,
+						false,
+						ctx.req.valid("query"),
+					),
 				);
-				return ctx.body(null, 204);
 			},
 		);
 

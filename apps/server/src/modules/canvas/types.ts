@@ -47,8 +47,10 @@ export const canvasChangesSchema = z.object({
 
 export type CanvasChanges = z.infer<typeof canvasChangesSchema>;
 
-/** what get-canvas-items returns, for either parent */
+/** what get-canvas-items returns, for any parent */
 export const canvasItemsSchema = z.object({
+	/** +1 on every save (#597); pass it back as `expectedVersion` to refuse a stale save */
+	canvasVersion: z.number().int(),
 	blocks: z.array(canvasBlockSchema),
 	edges: z.array(
 		z.object({
@@ -57,6 +59,29 @@ export const canvasItemsSchema = z.object({
 			to: z.string(),
 			fromHandle: z.string(),
 			toHandle: z.string(),
+		}),
+	),
+});
+
+/** query string of every save-canvas endpoint */
+export const saveCanvasQuerySchema = z.object({
+	/** the canvasVersion the edit was made against; a newer canvas refuses the save (409) */
+	expectedVersion: z.coerce.number().int().min(0).optional(),
+	/** run every check, save nothing, and return the rule issues */
+	dryRun: z
+		.enum(["true", "false"])
+		.optional()
+		.transform((v) => v === "true"),
+});
+
+/** what every save-canvas endpoint answers */
+export const saveCanvasResultSchema = z.object({
+	canvasVersion: z.number().int(),
+	issues: z.array(
+		z.object({
+			severity: z.enum(["error", "warning"]),
+			message: z.string(),
+			blockId: z.string().optional(),
 		}),
 	),
 });
