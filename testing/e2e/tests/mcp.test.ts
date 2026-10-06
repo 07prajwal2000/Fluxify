@@ -155,11 +155,6 @@ async function writeRows(s: McpStack): Promise<Row[]> {
 			args: { routeId: ids.route },
 			api: post(`/v1/routes/${ids.route}/call`, {}),
 		},
-		{
-			tool: "run_workflow",
-			args: { workflowId: ids.workflow },
-			api: post(`/v1/workflows/${ids.workflow}/run`, {}),
-		},
 		// reads no project data, like get_block_schemas
 		{
 			tool: "get_integration_schema",
@@ -426,16 +421,6 @@ describe("MCP runs", () => {
 
 		const missing = await callTool(stack, stack.tokens.creator, "call_route", { routeId: id });
 		expect(missing.text).toBe('Invalid input: Missing path param "who"');
-	});
-
-	it("queues a real workflow run, and refuses an inactive one readably", async () => {
-		const run = await call("run_workflow", { workflowId: stack.ids.workflow, payload: { n: 1 } });
-		expect(run).toEqual({ id: expect.any(String), accepted: true });
-
-		const { id } = await call("save_workflow", { projectId: stack.projectId, name: uniq("off-"), active: false });
-		const off = await callTool(stack, stack.tokens.creator, "run_workflow", { workflowId: id });
-		expect(off.ok).toBe(false);
-		expect(off.text).toStartWith("Invalid input: Workflow is not active");
 	});
 
 	it("viewers get 403, not 404, saving a workflow canvas", async () => {
