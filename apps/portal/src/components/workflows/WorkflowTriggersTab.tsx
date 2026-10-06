@@ -27,9 +27,11 @@ import type { TriggerListItem } from "@/services/triggers";
 export function WorkflowTriggersTab({
 	workflowId,
 	projectId,
+	readOnly = false,
 }: {
 	workflowId: string;
 	projectId: string;
+	readOnly?: boolean;
 }) {
 	const attached = triggersQuery.getAll.useQuery({ projectId, workflowId });
 	// Everything in the project, to offer the triggers attached to nothing.
@@ -74,69 +76,88 @@ export function WorkflowTriggersTab({
 			) : (
 				<div className="flex flex-col gap-2">
 					{triggers.map((trigger) => (
-						<TriggerRow key={trigger.id} trigger={trigger} workflowId={workflowId} />
+						<TriggerRow
+							key={trigger.id}
+							trigger={trigger}
+							workflowId={workflowId}
+							readOnly={readOnly}
+						/>
 					))}
 				</div>
 			)}
 
-			<div className="flex flex-wrap items-end gap-2">
-				<Select
-					fullWidth
-					variant="secondary"
-					className="min-w-56 flex-1"
-					value={picked || null}
-					isDisabled={available.length === 0}
-					onChange={(next) => setPicked(String(next))}
-				>
-					<Label>Attach an existing trigger</Label>
-					<Select.Trigger>
-						<Select.Value />
-						<Select.Indicator />
-					</Select.Trigger>
-					<Description>
-						{available.length === 0
-							? "Every trigger in this project already starts a workflow."
-							: "Triggers are made on the Triggers page."}
-					</Description>
-					<Select.Popover>
-						<ListBox>
-							{available.map((trigger) => (
-								<ListBox.Item key={trigger.id} id={trigger.id} textValue={trigger.name}>
-									{trigger.name}
-									<ListBox.ItemIndicator />
-								</ListBox.Item>
-							))}
-						</ListBox>
-					</Select.Popover>
-				</Select>
+			{!readOnly && (
+				<div className="flex flex-wrap items-end gap-2">
+					<Select
+						fullWidth
+						variant="secondary"
+						className="min-w-56 flex-1"
+						value={picked || null}
+						isDisabled={available.length === 0}
+						onChange={(next) => setPicked(String(next))}
+					>
+						<Label>Attach an existing trigger</Label>
+						<Select.Trigger>
+							<Select.Value />
+							<Select.Indicator />
+						</Select.Trigger>
+						<Description>
+							{available.length === 0
+								? "Every trigger in this project already starts a workflow."
+								: "Triggers are made on the Triggers page."}
+						</Description>
+						<Select.Popover>
+							<ListBox>
+								{available.map((trigger) => (
+									<ListBox.Item key={trigger.id} id={trigger.id} textValue={trigger.name}>
+										{trigger.name}
+										<ListBox.ItemIndicator />
+									</ListBox.Item>
+								))}
+							</ListBox>
+						</Select.Popover>
+					</Select>
 
-				<Button
-					variant="primary"
-					size="sm"
-					isDisabled={!picked}
-					isPending={attach.isPending}
-					onPress={attachPicked}
-				>
-					<TbPlus size={14} /> Attach
-				</Button>
+					<Button
+						variant="primary"
+						size="sm"
+						isDisabled={!picked}
+						isPending={attach.isPending}
+						onPress={attachPicked}
+					>
+						<TbPlus size={14} /> Attach
+					</Button>
 
-				{/* A new tab, not a navigation: this panel is a modal over an unsaved
+					{/* A new tab, not a navigation: this panel is a modal over an unsaved
 				    canvas, and leaving it would throw that away. */}
-				<Button
-					variant="outline"
-					size="sm"
-					onPress={() =>
-						window.open(withBasePath(`/${projectId}/triggers/new`), "_blank", "noopener,noreferrer")
-					}
-				>
-					<TbExternalLink size={14} /> New trigger
-				</Button>
-			</div>
+					<Button
+						variant="outline"
+						size="sm"
+						onPress={() =>
+							window.open(
+								withBasePath(`/${projectId}/triggers/new`),
+								"_blank",
+								"noopener,noreferrer",
+							)
+						}
+					>
+						<TbExternalLink size={14} /> New trigger
+					</Button>
+				</div>
+			)}
 		</Section>
 	);
 }
 
-function TriggerRow({ trigger, workflowId }: { trigger: TriggerListItem; workflowId: string }) {
+function TriggerRow({
+	trigger,
+	workflowId,
+	readOnly,
+}: {
+	trigger: TriggerListItem;
+	workflowId: string;
+	readOnly: boolean;
+}) {
 	const update = triggersQuery.update.mutation();
 	const detach = triggersQuery.detach.mutation();
 	const [confirming, setConfirming] = useState(false);
@@ -171,11 +192,14 @@ function TriggerRow({ trigger, workflowId }: { trigger: TriggerListItem; workflo
 						},
 					)
 				}
+				isDisabled={readOnly}
 				label={trigger.active ? "Active" : "Inactive"}
 			/>
-			<Button variant="outline" size="sm" onPress={() => setConfirming(true)}>
-				Detach
-			</Button>
+			{!readOnly && (
+				<Button variant="outline" size="sm" onPress={() => setConfirming(true)}>
+					Detach
+				</Button>
+			)}
 
 			<ConfirmDialog
 				open={confirming}

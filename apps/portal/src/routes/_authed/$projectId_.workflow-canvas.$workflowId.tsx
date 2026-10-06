@@ -11,6 +11,7 @@ import { createRouteHead, usePageTitle } from "@/lib/seo";
 import { useProjectPackageTypes } from "@/query/projectPackagesQuery";
 import { workflowsQuery } from "@/query/workflowsQuery";
 import { workflowsService } from "@/services/workflows";
+import { useCanEditProject } from "@/store/auth";
 
 export const Route = createFileRoute("/_authed/$projectId_/workflow-canvas/$workflowId")({
 	head: createRouteHead(
@@ -51,6 +52,7 @@ function WorkflowCanvasPage() {
 	usePageTitle(title);
 	const [settingsOpen, setSettingsOpen] = useState(false);
 	const [runOpen, setRunOpen] = useState(false);
+	const canEdit = useCanEditProject(projectId);
 
 	return (
 		<>
@@ -58,6 +60,7 @@ function WorkflowCanvasPage() {
 				title="Workflow canvas"
 				enableBlockPicker
 				enableSpotlight
+				readOnly={!canEdit}
 				items={workflowsQuery.canvasItems.useQuery(workflowId)}
 				compileTarget={{ projectId, resourceType: "workflow", resourceId: workflowId }}
 				reload={() => workflowsService.getCanvasItems(workflowId)}
@@ -90,6 +93,7 @@ function WorkflowCanvasPage() {
 					workflowId={workflowId}
 					isOpen={settingsOpen}
 					onOpenChange={setSettingsOpen}
+					readOnly={!canEdit}
 				/>
 			)}
 			{runOpen && (

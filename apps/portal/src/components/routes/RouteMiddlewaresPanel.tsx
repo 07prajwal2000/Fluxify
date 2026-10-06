@@ -81,7 +81,7 @@ export function RouteMiddlewaresPanel({
 	return (
 		<>
 			<p className="mb-4 text-xs text-muted">
-				Changes save right away.{" "}
+				{readOnly ? "View only." : "Changes save right away."}{" "}
 				<a href={DOCS_URL} target="_blank" rel="noreferrer" className="text-accent hover:underline">
 					How middlewares work
 				</a>

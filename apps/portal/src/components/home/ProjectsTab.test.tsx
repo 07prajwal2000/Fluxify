@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, spyOn } from "bun:test";
+import { afterEach, beforeEach, describe, expect, it, mock, spyOn } from "bun:test";
 import * as reactQuery from "@tanstack/react-query";
 import * as router from "@tanstack/react-router";
 import { renderToStaticMarkup } from "react-dom/server";
@@ -13,6 +13,8 @@ describe("ProjectsTab", () => {
 			invalidateQueries: () => {},
 		} as any);
 	});
+	// spies on shared modules leak into every later file in the same process
+	afterEach(() => mock.restore());
 
 	it("renders EmptyState with Create project button when admin has zero projects", () => {
 		spyOn(authStore, "useAuthStore").mockReturnValue({
