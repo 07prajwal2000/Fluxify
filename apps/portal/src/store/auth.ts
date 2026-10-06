@@ -1,4 +1,5 @@
 import type { AccessControlRole, AuthACL } from "@fluxify/server/src/db/schema";
+import { canAccess } from "@fluxify/server/src/lib/acl";
 import { create } from "zustand";
 import { immer } from "zustand/middleware/immer";
 
@@ -55,4 +56,12 @@ export function useAuthStore() {
 
 export function useAuthStoreActions() {
 	return authStore((state) => state.actions);
+}
+
+/** Creator or above on this project, the role the server requires to change it. */
+export function useCanEditProject(projectId: string) {
+	return authStore(({ state }) => {
+		const role = state.acl[projectId] ?? state.acl["*"];
+		return Boolean(state.userData.isSystemAdmin || (role && canAccess(role, "creator")));
+	});
 }

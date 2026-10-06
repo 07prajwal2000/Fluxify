@@ -65,6 +65,23 @@ describe("update-partial route", () => {
 		).rejects.toThrow(ForbiddenError);
 	});
 
+	it("should throw ForbiddenError when user is only a viewer of the project", async () => {
+		(db.transaction as any).mockImplementation(async (callback: any) => callback({}));
+		(getRouteByNameOrPath as any).mockResolvedValueOnce({
+			id: "123",
+			name: "Original",
+			path: "/original",
+			method: HttpMethod.GET,
+			projectId: "proj1",
+			active: true,
+		});
+
+		const acl: AuthACL[] = [{ projectId: "proj1", role: "viewer" }];
+		await expect(handleRequest("123", { name: "Updated" }, acl)).rejects.toThrow(
+			ForbiddenError,
+		);
+	});
+
 	it("should allow system admin to update any route", async () => {
 		(db.transaction as any).mockImplementation(async (callback: any) => {
 			const mockTx = {};

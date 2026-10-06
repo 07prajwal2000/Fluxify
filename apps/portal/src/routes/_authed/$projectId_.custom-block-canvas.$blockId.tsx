@@ -15,6 +15,7 @@ import { createRouteHead, usePageTitle } from "@/lib/seo";
 import { customBlocksQuery } from "@/query/customBlocksQuery";
 import { useProjectPackageTypes } from "@/query/projectPackagesQuery";
 import { customBlocksService } from "@/services/customBlocks";
+import { useCanEditProject } from "@/store/auth";
 
 export const Route = createFileRoute("/_authed/$projectId_/custom-block-canvas/$blockId")({
 	head: createRouteHead(
@@ -56,6 +57,7 @@ function CustomBlockCanvasPage() {
 	useProjectPackageTypes(projectId);
 	const save = customBlocksQuery.saveCanvas.mutation(blockId);
 	const [settingsOpen, setSettingsOpen] = useState(false);
+	const canEdit = useCanEditProject(projectId);
 
 	// `params.<name>` is only in scope inside this block's own canvas, so the
 	// completions for it are registered here rather than with the static globals.
@@ -78,6 +80,7 @@ function CustomBlockCanvasPage() {
 				title="Custom block canvas"
 				enableBlockPicker
 				enableSpotlight
+				readOnly={!canEdit}
 				items={customBlocksQuery.canvasItems.useQuery(blockId)}
 				compileTarget={{ projectId, resourceType: "custom_block", resourceId: blockId }}
 				reload={() => customBlocksService.getCanvasItems(blockId)}
@@ -96,6 +99,7 @@ function CustomBlockCanvasPage() {
 					blockId={blockId}
 					isOpen={settingsOpen}
 					onOpenChange={setSettingsOpen}
+					readOnly={!canEdit}
 				/>
 			)}
 		</>

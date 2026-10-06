@@ -20,6 +20,7 @@ import { createRouteHead, usePageTitle } from "@/lib/seo";
 import { useProjectPackageTypes } from "@/query/projectPackagesQuery";
 import { routesQuery } from "@/query/routesQuery";
 import { routesService } from "@/services/routes";
+import { useCanEditProject } from "@/store/auth";
 
 export const Route = createFileRoute("/_authed/$projectId_/canvas/$routeId")({
 	head: createRouteHead(
@@ -56,6 +57,7 @@ function RouteCanvasPage() {
 	useProjectPackageTypes(projectId);
 	const apiBaseUrl = useProjectApiBaseUrl(projectId);
 	const save = routesQuery.saveCanvas.mutation(routeId);
+	const canEdit = useCanEditProject(projectId);
 	const [settingsOpen, setSettingsOpen] = useState(false);
 
 	// the same gap workflows had: `getRequestBody()` was `any` on a route whose
@@ -89,6 +91,7 @@ function RouteCanvasPage() {
 				enableBlockPicker
 				enablePlayground
 				enableSpotlight
+				readOnly={!canEdit}
 				items={items}
 				compileTarget={{ projectId, resourceType: "route", resourceId: routeId }}
 				playgroundContent={
@@ -120,6 +123,7 @@ function RouteCanvasPage() {
 					routeId={routeId}
 					isOpen={settingsOpen}
 					onOpenChange={setSettingsOpen}
+					readOnly={!canEdit}
 				/>
 			)}
 		</>

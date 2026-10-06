@@ -113,9 +113,11 @@ export function paramConfigFrom(schema: ValidationSchema | undefined | null) {
 export function MethodSwitch({
 	value,
 	onChange,
+	isDisabled = false,
 }: {
 	value: Method;
 	onChange: (method: Method) => void;
+	isDisabled?: boolean;
 }) {
 	// two switches on one page must not share a radio name, or they link up
 	const name = useId();
@@ -138,7 +140,7 @@ export function MethodSwitch({
 				<label
 					key={item}
 					className={cn(
-						"relative cursor-pointer select-none rounded-full py-1.5 text-center text-xs font-semibold transition-colors",
+						"relative cursor-pointer select-none rounded-full py-1.5 text-center text-xs font-semibold transition-colors has-[:disabled]:cursor-default",
 						"has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-focus has-[:focus-visible]:ring-offset-2 has-[:focus-visible]:ring-offset-background-secondary",
 						value === item ? "text-accent-foreground" : "text-muted hover:text-foreground",
 					)}
@@ -149,6 +151,7 @@ export function MethodSwitch({
 						value={item}
 						checked={value === item}
 						onChange={() => onChange(item)}
+						disabled={isDisabled}
 						className="sr-only"
 					/>
 					{item}

@@ -34,11 +34,14 @@ export function CustomBlockSettingsModal({
 	blockId,
 	isOpen,
 	onOpenChange,
+	readOnly = false,
 }: {
 	projectId: string;
 	blockId: string;
 	isOpen: boolean;
 	onOpenChange: (open: boolean) => void;
+	/** viewers see the settings but can't change them */
+	readOnly?: boolean;
 }) {
 	const { data: blocks, isLoading } = customBlocksQuery.getAll.useQuery(projectId);
 	const block = blocks?.find((b) => b.id === blockId);
@@ -61,6 +64,7 @@ export function CustomBlockSettingsModal({
 								key={block.id}
 								projectId={projectId}
 								block={block}
+								viewOnly={readOnly}
 								onSaved={() => onOpenChange(false)}
 								onClose={() => onOpenChange(false)}
 							/>
@@ -77,16 +81,19 @@ type BlockData = NonNullable<ReturnType<typeof customBlocksQuery.getAll.useQuery
 function CustomBlockSettingsForm({
 	projectId,
 	block,
+	viewOnly,
 	onSaved,
 	onClose,
 }: {
 	projectId: string;
 	block: BlockData;
+	viewOnly: boolean;
 	onSaved: () => void;
 	onClose: () => void;
 }) {
 	const update = customBlocksQuery.update.mutation(projectId, block.id);
-	const readOnly = Boolean(block.sourceType && block.sourceType !== "user-defined");
+	const fromSource = Boolean(block.sourceType && block.sourceType !== "user-defined");
+	const readOnly = viewOnly || fromSource;
 
 	const [label, setLabel] = useState(block.label);
 	const [description, setDescription] = useState(block.description ?? "");
@@ -103,7 +110,7 @@ function CustomBlockSettingsForm({
 	const remove = customBlocksQuery.remove.mutation(projectId);
 	const navigate = useNavigate();
 	// a plugin block is owned by its plugin; the API refuses to delete it
-	const canDelete = block.sourceType !== "plugin";
+	const canDelete = !viewOnly && block.sourceType !== "plugin";
 
 	function deleteBlock() {
 		remove.mutate(block.id, {
@@ -264,15 +271,17 @@ function CustomBlockSettingsForm({
 
 			<Modal.Footer className="flex shrink-0 flex-row items-center gap-3 border-t border-border px-5 py-3">
 				<span className="text-xs text-muted">
-					{readOnly
-						? `This block comes from a ${block.sourceType} source and isn't editable here.`
-						: isDirty
-							? "Unsaved changes"
-							: "All changes saved"}
+					{viewOnly
+						? "View only: you need the Creator role to change this block"
+						: fromSource
+							? `This block comes from a ${block.sourceType} source and isn't editable here.`
+							: isDirty
+								? "Unsaved changes"
+								: "All changes saved"}
 				</span>
 				<div className="ml-auto flex items-center gap-2">
 					<Button variant="ghost" onPress={onClose}>
-						Cancel
+						{readOnly ? "Close" : "Cancel"}
 					</Button>
 					{!readOnly && (
 						<Button

@@ -31,10 +31,13 @@ export function WorkflowSettingsModal({
 	workflowId,
 	isOpen,
 	onOpenChange,
+	readOnly = false,
 }: {
 	workflowId: string;
 	isOpen: boolean;
 	onOpenChange: (open: boolean) => void;
+	/** viewers see the settings but can't change them */
+	readOnly?: boolean;
 }) {
 	const { data: workflow, isLoading } = workflowsQuery.byId.useQuery(workflowId);
 
@@ -56,6 +59,7 @@ export function WorkflowSettingsModal({
 							<WorkflowSettingsForm
 								key={workflow.id}
 								workflow={workflow}
+								readOnly={readOnly}
 								onSaved={() => onOpenChange(false)}
 								onClose={() => onOpenChange(false)}
 							/>
@@ -69,10 +73,12 @@ export function WorkflowSettingsModal({
 
 function WorkflowSettingsForm({
 	workflow,
+	readOnly,
 	onSaved,
 	onClose,
 }: {
 	workflow: Workflow;
+	readOnly: boolean;
 	onSaved: () => void;
 	onClose: () => void;
 }) {
@@ -153,13 +159,14 @@ function WorkflowSettingsForm({
 						<Tabs.Tab id="general">General</Tabs.Tab>
 						<Tabs.Tab id="triggers">Triggers</Tabs.Tab>
 						<Tabs.Tab id="advanced">Advanced</Tabs.Tab>
-						<Tabs.Tab id="danger">Danger zone</Tabs.Tab>
+						{!readOnly && <Tabs.Tab id="danger">Danger zone</Tabs.Tab>}
 					</Tabs.List>
 
 					<Tabs.Panel id="general" className="min-h-0 flex-1 overflow-y-auto p-5">
 						<Section title="Identity" description="How this workflow shows up in lists and logs.">
 							<TextField
 								isRequired
+								isReadOnly={readOnly}
 								value={name}
 								onChange={setName}
 								isInvalid={name.length > 0 && !nameIsValid}
@@ -172,6 +179,7 @@ function WorkflowSettingsForm({
 								<Label>Description</Label>
 								<TextArea
 									rows={3}
+									readOnly={readOnly}
 									placeholder="What this workflow does"
 									value={description}
 									onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) =>
@@ -188,13 +196,18 @@ function WorkflowSettingsForm({
 							<Switch
 								isSelected={active}
 								onChange={setActive}
+								isDisabled={readOnly}
 								label={active ? "Workflow is active" : "Workflow is inactive"}
 							/>
 						</Section>
 					</Tabs.Panel>
 
 					<Tabs.Panel id="triggers" className="min-h-0 flex-1 overflow-y-auto p-5">
-						<WorkflowTriggersTab workflowId={workflow.id} projectId={workflow.projectId} />
+						<WorkflowTriggersTab
+							workflowId={workflow.id}
+							projectId={workflow.projectId}
+							readOnly={readOnly}
+						/>
 					</Tabs.Panel>
 
 					<Tabs.Panel id="advanced" className="min-h-0 flex-1 overflow-y-auto p-5">
@@ -207,6 +220,7 @@ function WorkflowSettingsForm({
 								onChange={(next) => setTimeoutSeconds(Math.min(3600, Math.max(30, next || 30)))}
 								minValue={30}
 								maxValue={3600}
+								isReadOnly={readOnly}
 								className="w-52"
 							>
 								<Label>Timeout (seconds)</Label>
@@ -225,6 +239,7 @@ function WorkflowSettingsForm({
 							<Switch
 								isSelected={tracingEnabled}
 								onChange={setTracingEnabled}
+								isDisabled={readOnly}
 								label={tracingEnabled ? "Telemetry enabled" : "Telemetry disabled"}
 							/>
 						</Section>
@@ -236,25 +251,30 @@ function WorkflowSettingsForm({
 							<Switch
 								isSelected={recordExecution}
 								onChange={setRecordExecution}
+								isDisabled={readOnly}
 								label={recordExecution ? "Runs are recorded" : "Runs are not recorded"}
 							/>
 						</Section>
 					</Tabs.Panel>
 
-					<Tabs.Panel id="danger" className="min-h-0 flex-1 overflow-y-auto p-5">
-						<Section
-							title="Delete this workflow"
-							description="Its canvas goes with it, and any trigger pointing at it stops firing. This cannot be undone."
-						>
-							<div className="flex items-center justify-between rounded-md border border-danger/40 bg-danger/5 px-4 py-3">
-								<div className="min-w-0">
-									<p className="truncate text-xs">{workflow.name}</p>
-									<p className="text-xs text-muted">Queued runs will be dropped.</p>
+					{!readOnly && (
+						<Tabs.Panel id="danger" className="min-h-0 flex-1 overflow-y-auto p-5">
+							<Section
+								title="Delete this workflow"
+								description="Its canvas goes with it, and any trigger pointing at it stops firing. This cannot be undone."
+							>
+								<div className="flex items-center justify-between rounded-md border border-danger/40 bg-danger/5 px-4 py-3">
+									<div className="min-w-0">
+										<p className="truncate text-xs">{workflow.name}</p>
+										<p className="text-xs text-muted">Queued runs will be dropped.</p>
+									</div>
+									<DeleteButton onPress={() => setConfirmDelete(true)}>
+										Delete workflow
+									</DeleteButton>
 								</div>
-								<DeleteButton onPress={() => setConfirmDelete(true)}>Delete workflow</DeleteButton>
-							</div>
-						</Section>
-					</Tabs.Panel>
+							</Section>
+						</Tabs.Panel>
+					)}
 				</Tabs>
 			</Modal.Body>
 
@@ -272,20 +292,26 @@ function WorkflowSettingsForm({
 
 			<Modal.Footer className="flex shrink-0 flex-row items-center gap-3 border-t border-border px-5 py-3">
 				<span className="text-xs text-muted">
-					{isDirty ? "Unsaved changes" : "All changes saved"}
+					{readOnly
+						? "View only: you need the Creator role to change this workflow"
+						: isDirty
+							? "Unsaved changes"
+							: "All changes saved"}
 				</span>
 				<div className="ml-auto flex items-center gap-2">
 					<Button variant="ghost" onPress={onClose}>
-						Cancel
+						{readOnly ? "Close" : "Cancel"}
 					</Button>
-					<Button
-						variant="primary"
-						isDisabled={!isDirty || !nameIsValid}
-						isPending={update.isPending}
-						onPress={save}
-					>
-						Save changes
-					</Button>
+					{!readOnly && (
+						<Button
+							variant="primary"
+							isDisabled={!isDirty || !nameIsValid}
+							isPending={update.isPending}
+							onPress={save}
+						>
+							Save changes
+						</Button>
+					)}
 				</div>
 			</Modal.Footer>
 		</>
