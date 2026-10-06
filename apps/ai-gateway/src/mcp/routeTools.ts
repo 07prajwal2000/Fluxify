@@ -7,6 +7,7 @@ import {
 	createSchema as workflowCreate,
 	patchSchema as workflowPatch,
 } from "@fluxify/server/src/api/v1/workflows/dto";
+import { ValidationSchemaZod } from "@fluxify/server/src/lib/validationSchemaZod";
 import { z } from "zod";
 import type { McpTool } from "./tools";
 import { optionalFields } from "./writeTools";
@@ -22,6 +23,12 @@ export const MAX_RESPONSE_CHARS = 10_000;
 const idArg = (what: string) =>
 	z.string().optional().describe(`${what} id to update; omit to create`);
 
+/** The server's own request-schema shape, so a wrong one fails here with field errors. */
+const requestSchema = (what: string) =>
+	ValidationSchemaZod.nullable()
+		.optional()
+		.describe(`Validates the request ${what}. null removes it.`);
+
 const SCHEMA_HINT =
 	'bodySchema, querySchema and paramsSchema validate the request. They are Fluxify schemas, not JSON Schema: { dataType: "object", properties: [{ key: "id", dataType: "int", required: true }] }. dataType is str, int, float, bool, object, arr, enum, file or blob; arr takes items, object takes properties. A path with :params needs a paramsSchema naming each one.';
 
@@ -35,13 +42,16 @@ export function truncate(body: unknown) {
 export const routeTools: McpTool[] = [
 	{
 		name: "save_route",
-		description: `Create or update an HTTP route's settings. To create pass projectId, name, path ('/users/:id') and method, and active: true to serve it (routes start inactive). It starts with a canvas that answers 200. On update pass routeId and only what changes. ${SCHEMA_HINT} The canvas (blocks) is not edited here.`,
+		description: `Create or update an HTTP route's settings. To create pass projectId, name, path ('/users/:id') and method. A new route starts INACTIVE: pass active: true, or call_route and real callers get 404. It starts with a canvas that answers 200. On update pass routeId and only what changes. ${SCHEMA_HINT} Build the route's logic with get_canvas and edit_canvas.`,
 		role: "creator",
 		annotations: SAVE,
 		input: {
 			routeId: idArg("Route"),
 			...optionalFields(routeCreate.shape),
 			...optionalFields(routePatch.shape),
+			bodySchema: requestSchema("body"),
+			querySchema: requestSchema("query string"),
+			paramsSchema: requestSchema("path params"),
 		},
 		call: async ({ send }, { routeId, projectId: p, ...a }) => {
 			const { id } = routeId
@@ -64,7 +74,7 @@ export const routeTools: McpTool[] = [
 	{
 		name: "save_workflow",
 		description:
-			"Create or update a workflow's settings (a background job started by triggers or run_workflow). To create pass projectId and name. On update pass workflowId and only what changes. Only an active workflow can run. The canvas is not edited here.",
+			"Create or update a workflow's settings (a background job started by triggers or run_workflow). To create pass projectId and name. On update pass workflowId and only what changes. Only an active workflow can run. Build its logic with get_canvas and edit_canvas.",
 		role: "creator",
 		annotations: SAVE,
 		input: {

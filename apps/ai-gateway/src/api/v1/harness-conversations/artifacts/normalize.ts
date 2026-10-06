@@ -1,6 +1,7 @@
 // Deep imports on purpose: the portal imports this module to preview a canvas
 // output, and both barrels pull in Node built-ins (`vm`, pino) that break the
 // browser build.
+import { FAN_OUT_HANDLES } from "@fluxify/blocks/blockHandles";
 import { BlockTypes } from "@fluxify/blocks/blockTypes";
 import { STARTER_POSITIONS } from "@fluxify/blocks/layout";
 import { generateID } from "@fluxify/lib/random/id";
@@ -200,7 +201,7 @@ function key(value: string) {
 	return value.replace(/_/g, "").toLowerCase();
 }
 
-function canonicalType(raw: string) {
+export function canonicalType(raw: string) {
 	// A custom block instance stores the block's own name — the `custom:` prefix
 	// is prompt syntax for "this one is custom" and has no meaning to storage or
 	// to the block factory, so it is dropped here rather than persisted.
@@ -375,6 +376,9 @@ export function canvasChangesFromPayload(
 	 * new one. */
 	function replaceStoredHandle(from: string, handle: string, keepTo: string) {
 		const fromHandle = fullHandle(from, handle, "source");
+		// a fan-out handle (switch case, orchestrate) holds one edge per branch:
+		// a new branch is added beside the others, never in place of them
+		if (FAN_OUT_HANDLES.includes(fromHandle.slice(from.length + 1))) return;
 		for (const edge of existing.edges) {
 			if (edge.from !== from || (edge.fromHandle ?? "") !== fromHandle) continue;
 			if (edge.to !== keepTo) deletedEdgeIds.add(edge.id);

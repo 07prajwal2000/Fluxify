@@ -4,6 +4,7 @@ import { StreamableHTTPTransport } from "@hono/mcp";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { Context, Hono, Next } from "hono";
 import { type AdminFetch, adminApi, httpAdminFetch } from "./adminApi";
+import { canvasTools } from "./canvasTools";
 import { MCP_INSTRUCTIONS } from "./instructions";
 import { routeTools } from "./routeTools";
 import { readTools } from "./tools";
@@ -53,7 +54,7 @@ export function createMcpServer(
 		},
 		async () => ({ content: [{ type: "text", text: JSON.stringify(caller) }] }),
 	);
-	for (const tool of [...readTools, ...writeTools, ...routeTools]) {
+	for (const tool of [...readTools, ...writeTools, ...routeTools, ...canvasTools]) {
 		const api = adminApi(fetcher, auth, tool.role);
 		server.registerTool(
 			tool.name,
