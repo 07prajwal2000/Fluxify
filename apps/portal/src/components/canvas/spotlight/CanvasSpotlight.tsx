@@ -9,9 +9,16 @@ export type CanvasSpotlightProps = {
 	isOpen: boolean;
 	onOpenChange: (open: boolean) => void;
 	commands: SpotlightCommand[];
+	/** Lets the owner fetch only what a search needs. */
+	onQueryChange?: (query: string) => void;
 };
 
-export function CanvasSpotlight({ isOpen, onOpenChange, commands }: CanvasSpotlightProps) {
+export function CanvasSpotlight({
+	isOpen,
+	onOpenChange,
+	commands,
+	onQueryChange,
+}: CanvasSpotlightProps) {
 	const [query, setQuery] = useState("");
 	const [activeIndex, setActiveIndex] = useState(0);
 	const inputRef = useRef<HTMLInputElement>(null);
@@ -21,6 +28,8 @@ export function CanvasSpotlight({ isOpen, onOpenChange, commands }: CanvasSpotli
 		() => filterSpotlightCommands(commands, query),
 		[commands, query],
 	);
+	// off the canvas there is nothing to add, so `add >` is not offered
+	const hasBlocks = useMemo(() => commands.some((cmd) => cmd.category === "Blocks"), [commands]);
 
 	useEffect(() => {
 		if (isOpen) {
@@ -32,7 +41,8 @@ export function CanvasSpotlight({ isOpen, onOpenChange, commands }: CanvasSpotli
 
 	useEffect(() => {
 		setActiveIndex(0);
-	}, [query]);
+		onQueryChange?.(query);
+	}, [query, onQueryChange]);
 
 	useEffect(() => {
 		if (filtered.length === 0) return;
@@ -86,7 +96,11 @@ export function CanvasSpotlight({ isOpen, onOpenChange, commands }: CanvasSpotli
 								value={query}
 								onChange={(e) => setQuery(e.target.value)}
 								onKeyDown={onKeyDown}
-								placeholder="Type a command or search (e.g. goto, add, save)..."
+								placeholder={
+									hasBlocks
+										? "Type a command or search (e.g. goto, add, save)..."
+										: "Type a command or search (e.g. goto, create)..."
+								}
 								className="flex-1 bg-transparent text-sm text-foreground placeholder:text-muted focus:outline-none"
 							/>
 							<Kbd className="shrink-0 px-1.5 py-0.5 text-[10px]">Esc</Kbd>
@@ -106,18 +120,22 @@ export function CanvasSpotlight({ isOpen, onOpenChange, commands }: CanvasSpotli
 									goto &gt;
 								</button>
 								<span>to jump to pages</span>
-								<span className="text-muted/50">•</span>
-								<button
-									type="button"
-									onClick={() => {
-										setQuery("add ");
-										inputRef.current?.focus();
-									}}
-									className="rounded bg-surface px-1.5 py-0.5 font-mono text-[11px] text-foreground hover:bg-surface-secondary"
-								>
-									add &gt;
-								</button>
-								<span>to search &amp; add blocks</span>
+								{hasBlocks && (
+									<>
+										<span className="text-muted/50">•</span>
+										<button
+											type="button"
+											onClick={() => {
+												setQuery("add ");
+												inputRef.current?.focus();
+											}}
+											className="rounded bg-surface px-1.5 py-0.5 font-mono text-[11px] text-foreground hover:bg-surface-secondary"
+										>
+											add &gt;
+										</button>
+										<span>to search &amp; add blocks</span>
+									</>
+								)}
 							</div>
 						)}
 
