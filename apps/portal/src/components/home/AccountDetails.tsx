@@ -6,11 +6,13 @@ import {
 	Input,
 	Label,
 	Spinner,
+	Tabs,
 	TextField,
 	toast,
 } from "@fluxify/components";
 import { useEffect, useMemo, useState } from "react";
 import { FiCheckCircle, FiKey, FiLock, FiMail, FiShield, FiUser } from "react-icons/fi";
+import { AccessTokens, ConnectAgent, ConnectedApps } from "@/components/home/AgentAccess";
 import { authClient } from "@/lib/auth";
 import { showErrorNotification } from "@/lib/errorNotifier";
 
@@ -43,8 +45,27 @@ export function AccountDetails() {
 				image={data.user.image}
 				isEnterpriseSession={isEnterpriseSession}
 			/>
-			<ProfileSection name={data.user.name ?? ""} email={data.user.email} id={data.user.id} />
-			{isEnterpriseSession ? <SsoSecuritySection /> : <PasswordSection />}
+			<Tabs defaultSelectedKey="profile" className="flex flex-col gap-4">
+				<Tabs.List aria-label="Account sections" className="w-full">
+					<Tabs.Tab id="profile">Profile</Tabs.Tab>
+					<Tabs.Tab id="tokens">Access tokens</Tabs.Tab>
+					<Tabs.Tab id="apps">Connected apps</Tabs.Tab>
+					<Tabs.Tab id="agent">Connect an AI agent</Tabs.Tab>
+				</Tabs.List>
+				<Tabs.Panel id="profile" className="flex flex-col gap-4">
+					<ProfileSection name={data.user.name ?? ""} email={data.user.email} id={data.user.id} />
+					{isEnterpriseSession ? <SsoSecuritySection /> : <PasswordSection />}
+				</Tabs.Panel>
+				<Tabs.Panel id="tokens">
+					<AccessTokens />
+				</Tabs.Panel>
+				<Tabs.Panel id="apps">
+					<ConnectedApps />
+				</Tabs.Panel>
+				<Tabs.Panel id="agent">
+					<ConnectAgent />
+				</Tabs.Panel>
+			</Tabs>
 		</div>
 	);
 }
