@@ -60,7 +60,10 @@
         "zod": "^4.4.3",
       },
       "devDependencies": {
+        "@fluxify/adapters": "workspace:*",
         "@types/bun": "^1.4.0",
+        "@types/dockerode": "^4.0.1",
+        "dockerode": "^4.0.9",
         "socket.io-client": "^4.8.3",
       },
       "peerDependencies": {
