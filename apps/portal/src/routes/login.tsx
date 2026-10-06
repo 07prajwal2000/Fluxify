@@ -15,6 +15,7 @@ import { BASE_PATH } from "@/constants/routes";
 import { usePublicSettings } from "@/hooks/usePublicSettings";
 import { authClient } from "@/lib/auth";
 import { parseApiError, showErrorNotification } from "@/lib/errorNotifier";
+import { initialQuery } from "@/lib/oauthQuery";
 import { createRouteHead } from "@/lib/seo";
 
 const logo = `${import.meta.env.BASE_URL}icons/logo.svg`;
@@ -76,8 +77,8 @@ function LoginForm() {
 		setErrors({});
 		try {
 			// Opened by an OAuth authorize redirect: pass the query so the server continues the flow.
-			const oauthQuery = new URLSearchParams(window.location.search).has("client_id")
-				? window.location.search.slice(1)
+			const oauthQuery = new URLSearchParams(initialQuery).has("client_id")
+				? initialQuery
 				: undefined;
 			const result = await authClient.signIn.email({
 				email,

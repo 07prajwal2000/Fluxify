@@ -6,6 +6,7 @@ import { BASE_PATH } from "@/constants/routes";
 import { authClient } from "@/lib/auth";
 import { showErrorNotification } from "@/lib/errorNotifier";
 import { httpClient } from "@/lib/http";
+import { initialQuery } from "@/lib/oauthQuery";
 import { createRouteHead } from "@/lib/seo";
 
 type PublicClient = {
@@ -18,18 +19,18 @@ type PublicClient = {
 
 export const Route = createFileRoute("/oauth/consent")({
 	head: createRouteHead("Authorize app", "Allow an app to access your Fluxify workspace."),
-	beforeLoad: async ({ location }) => {
+	beforeLoad: async () => {
 		const session = await authClient.getSession();
 		if (!session.data?.user) {
 			// Full path with the OAuth query; the login page reads it from the URL.
-			throw redirect({ href: `${BASE_PATH}/login${location.searchStr}` });
+			throw redirect({ href: `${BASE_PATH}/login?${initialQuery}` });
 		}
 	},
 	component: ConsentPage,
 });
 
 export function ConsentPage() {
-	const query = window.location.search.slice(1);
+	const query = initialQuery;
 	const params = new URLSearchParams(query);
 	const clientId = params.get("client_id") ?? "";
 	const scopes = (params.get("scope") ?? "").split(" ").filter(Boolean);
