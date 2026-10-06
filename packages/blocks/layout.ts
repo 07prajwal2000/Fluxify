@@ -28,6 +28,17 @@ export {
 const FALLBACK_WIDTH = 168;
 const FALLBACK_HEIGHT = 48;
 
+/**
+ * Where the blocks a new canvas starts with are placed. The response sits to
+ * the right with room to drop blocks in between; the error handler sits
+ * below. Workflows and custom blocks have no response.
+ */
+export const STARTER_POSITIONS = {
+	entrypoint: { x: 0, y: 0 },
+	response: { x: FALLBACK_WIDTH + 232, y: 0 },
+	errorHandler: { x: 0, y: 160 },
+} as const;
+
 export type LayoutNode = {
 	id: string;
 	/** Block type; sticky notes are left where the user put them. */

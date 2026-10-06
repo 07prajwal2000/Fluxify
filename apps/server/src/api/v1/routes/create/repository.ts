@@ -1,4 +1,5 @@
 import { BlockTypes } from "@fluxify/blocks";
+import { STARTER_POSITIONS } from "@fluxify/blocks/layout";
 import { generateID } from "@fluxify/lib";
 import { and, eq, or } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
@@ -20,10 +21,7 @@ export async function createDependency(routeId: string, tx?: DbTransactionType) 
 	await (tx ?? db)?.insert(blocksEntity).values({
 		routeId,
 		type: "entrypoint",
-		position: {
-			x: 0,
-			y: 0,
-		},
+		position: STARTER_POSITIONS.entrypoint,
 		data: {},
 		id: id1,
 	});
@@ -31,10 +29,7 @@ export async function createDependency(routeId: string, tx?: DbTransactionType) 
 		id: id2,
 		routeId,
 		type: "response",
-		position: {
-			x: 0,
-			y: 160,
-		},
+		position: STARTER_POSITIONS.response,
 		data: {
 			httpCode: "200",
 		},
@@ -43,12 +38,7 @@ export async function createDependency(routeId: string, tx?: DbTransactionType) 
 		id: id3,
 		routeId,
 		type: BlockTypes.errorHandler,
-		// a block is ~168px wide; anything less than that sits on top of the
-		// entrypoint on the current node design
-		position: {
-			x: -240,
-			y: 0,
-		},
+		position: STARTER_POSITIONS.errorHandler,
 		data: {
 			next: "",
 			retryAfterFail: false,

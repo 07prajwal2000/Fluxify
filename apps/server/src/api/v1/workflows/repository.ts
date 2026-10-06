@@ -1,4 +1,5 @@
 import { BlockTypes } from "@fluxify/blocks";
+import { STARTER_POSITIONS } from "@fluxify/blocks/layout";
 import { generateID } from "@fluxify/lib";
 import { and, count, desc, eq, ilike, type SQL } from "drizzle-orm";
 import { type DbTransactionType, db } from "../../../db";
@@ -24,15 +25,14 @@ export async function seedDefaultBlocks(workflowId: string, tx?: DbTransactionTy
 			id: generateID(),
 			workflowId,
 			type: BlockTypes.entrypoint,
-			position: { x: 0, y: 0 },
+			position: STARTER_POSITIONS.entrypoint,
 			data: {},
 		},
 		{
 			id: generateID(),
 			workflowId,
 			type: BlockTypes.errorHandler,
-			// a block is ~168px wide; less than that overlaps the entrypoint
-			position: { x: -240, y: 0 },
+			position: STARTER_POSITIONS.errorHandler,
 			data: { next: "", retryAfterFail: false, retryCount: 0 },
 		},
 	]);
