@@ -1,1 +1,0 @@
-ALTER TYPE "public"."ai_chat_conversation_status" ADD VALUE 'paused';

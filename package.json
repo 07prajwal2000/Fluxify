@@ -29,7 +29,7 @@
 		"docs:build": "vitepress build docs",
 		"docs:preview": "vitepress preview docs",
 		"db:generate": "bun --env-file=../../.env --cwd ./apps/server drizzle-kit generate",
-		"db:migrate": "bun --env-file=../../.env --cwd ./apps/server drizzle-kit push",
+		"db:migrate": "bun --env-file=.env apps/server/scripts/migrate.ts",
 		"prepare": "bun --parallel 'bun run prepare:hooks' 'bun run prepare:docs-index'",
 		"prepare:hooks": "bun run scripts/setup-hooks.ts",
 		"prepare:docs-index": "[ ! -f apps/ai-gateway/src/scripts/gather.ts ] || bun run --cwd apps/ai-gateway gather"

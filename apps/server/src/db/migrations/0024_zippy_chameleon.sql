@@ -1,1 +1,0 @@
-DROP TABLE "ai_chat" CASCADE;

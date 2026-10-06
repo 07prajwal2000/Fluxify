@@ -87,7 +87,7 @@ COPY . .
 # Re-link workspace binaries — near-instant, packages are cached from deps.
 RUN bun install --frozen-lockfile
 
-# Workspace packages + server standalone (with schema.sql) + portal + gateway.
+# Workspace packages + server standalone (with its migrations) + portal + gateway.
 RUN bun run build
 
 # AI Gateway documentation search index.
@@ -121,7 +121,7 @@ LABEL org.opencontainers.image.title="Fluxify Admin" \
 RUN apk add --no-cache tini caddy nss-tools
 RUN adduser -D -s /sbin/nologin -h /app appuser
 
-# Admin server bundle + schema.sql.
+# Admin server bundle + database migrations (dist/migrations, applied on startup).
 COPY --from=build --chown=appuser:appuser /app/apps/server/dist /app/server
 # Kafka's compression wasm, loaded from "../dist/native.wasm" relative to the
 # bundle — i.e. /app/dist. Without it, testing a Kafka integration connection

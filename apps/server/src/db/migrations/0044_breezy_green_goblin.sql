@@ -1,1 +1,0 @@
-ALTER TABLE "agent_harness_sub_artifacts" ADD COLUMN "applied_at" timestamp;

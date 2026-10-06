@@ -303,7 +303,9 @@ docker compose -f docker/kit/docker-compose.yml pull
 docker compose -f docker/kit/docker-compose.yml up -d
 ```
 
-Any required database updates run automatically at startup.
+Any required database updates run automatically at startup. If one fails, the
+container stops and its log says `database migration failed`; the update is all
+or nothing, so your data is left as it was. Back up before upgrading.
 
 > [!WARNING]
 > In bundled mode, a major upgrade of the built-in database cannot be applied to

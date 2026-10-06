@@ -86,6 +86,18 @@ jobs:
         run: bun run typecheck
       - name: Run Analyzer
         run: bun run analyze
+      # A schema change without its migration would never reach an existing
+      # database (#603). Generating from the committed schema must be a no-op.
+      - name: Check every schema change has a migration
+        timeout-minutes: 5
+        run: |
+          set -euo pipefail
+          bun run --cwd apps/server db:generate
+          if [ -n "$(git status --porcelain apps/server/src/db/migrations)" ]; then
+            git status --porcelain apps/server/src/db/migrations
+            echo "::error::The database schema changed without a migration. Run 'bun run db:generate' and commit apps/server/src/db/migrations."
+            exit 1
+          fi
 
   # The chart is the one source of every Kubernetes default, and a release
   # renders fluxify.yaml from it: both ways of installing must render.

@@ -121,7 +121,7 @@ COPY . .
 # Required because turbo sub-package builds need per-workspace .bin symlinks.
 RUN bun install --frozen-lockfile
 
-# Workspace packages + admin server (standalone.js + schema.sql) + gateway.
+# Workspace packages + admin server (standalone.js + migrations/) + gateway.
 RUN bun run build
 
 # The compiled worker is TWO bundles, not one. Bun's bundler does not pull a
@@ -177,7 +177,7 @@ ENV PATH="/usr/libexec/postgresql16:${PATH}"
 
 RUN adduser -D -s /sbin/nologin -h /app appuser
 
-# Admin server bundle + compiled worker bundles + schema.sql, all siblings.
+# Admin server bundle + compiled worker bundles + migrations/, all siblings.
 COPY --from=build --chown=appuser:appuser /app/apps/server/dist /app/server
 # Kafka's compression wasm, loaded from "../dist/native.wasm" relative to the
 # bundle — i.e. /app/dist. Without it, Kafka queue triggers fail to start.

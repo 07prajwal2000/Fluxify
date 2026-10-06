@@ -1,49 +1,41 @@
 import { logger } from "@fluxify/common";
-import type { SQL } from "bun";
-import { existsSync } from "fs";
+import { SQL } from "bun";
+import { drizzle } from "drizzle-orm/bun-sql";
+import { migrate } from "drizzle-orm/bun-sql/migrator";
 import { join } from "path";
-import { getEnv } from "../lib/env";
+import { FatalStartupError } from "../lib/waitFor";
+import { adoptExistingDatabase } from "./adoptBaseline";
 
-export async function migrateDB(db: SQL) {
-	logger.info("Initializing production schema migration...");
+// src/db/migrations in dev; in the admin image the build copies it next to the
+// bundle (dist/migrations), and import.meta.dir is the bundle's directory.
+export const MIGRATIONS_FOLDER = join(import.meta.dir, "migrations");
 
-	const isProduction = getEnv("ENVIRONMENT") === "production";
-	const schemaPath = join(
-		isProduction ? process.cwd() : import.meta.dir,
-		isProduction ? "" : "../../dist/",
-		"schema.sql",
-	);
+// Any fixed number, the same on every admin replica: whoever holds it migrates,
+// the rest wait and then find nothing left to do.
+const MIGRATION_LOCK = 603_603;
 
-	if (!existsSync(schemaPath)) {
-		logger.warn(`schema.sql not found at ${schemaPath}. Skipping migration.`);
-		return;
-	}
-
+/**
+ * Applies the migrations this database has not had yet, in order, once. The
+ * migrator runs them all in one transaction, so a failure leaves the database
+ * as it was and stops the server.
+ */
+export async function migrateDB(url: string, migrationsFolder = MIGRATIONS_FOLDER) {
+	// One connection: a session-level advisory lock only holds on the
+	// connection that took it.
+	const client = new SQL(url, { max: 1 });
 	try {
-		let result: any;
-
-		const tableCountQuery = `
-      SELECT count(*) as count
-      FROM information_schema.tables
-      WHERE table_schema = 'public'
-    `;
-
-		result = await (db as SQL).unsafe(tableCountQuery);
-
-		const tableCount = parseInt(result[0]!.count.toString());
-
-		if (tableCount > 0) {
-			logger.info("Database already contains tables. Skipping schema.sql application.");
-			return;
-		}
-
-		logger.info(`Applying schema from ${schemaPath}...`);
-		const schemaSql = await Bun.file(schemaPath).text();
-
-		await (db as SQL).unsafe(schemaSql);
-		logger.info("Schema applied successfully.");
+		await client`SELECT pg_advisory_lock(${MIGRATION_LOCK})`;
+		await adoptExistingDatabase(client, migrationsFolder);
+		await migrate(drizzle({ client }), { migrationsFolder });
+		logger.info("database migrations are up to date");
 	} catch (error) {
-		logger.error("CRITICAL: Failed to apply schema.sql migration.", error);
-		process.exit(1);
+		const cause = (error as Error)?.cause;
+		throw new FatalStartupError(
+			`database migration failed and was rolled back: ${String(error)}${cause ? ` (${String(cause)})` : ""}`,
+			{ cause: error },
+		);
+	} finally {
+		await client`SELECT pg_advisory_unlock(${MIGRATION_LOCK})`.catch(() => {});
+		await client.close();
 	}
 }

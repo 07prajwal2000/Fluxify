@@ -599,10 +599,17 @@ docker compose -f docker/production/docker-compose.yml pull
 docker compose -f docker/production/docker-compose.yml up -d
 ```
 
-Roll the admin first (it applies any database updates), then the workers follow
-automatically. On the default compose file, which builds admin and the
-orchestrator from source, pull the new source and add `--build` to `up -d`
-instead. Either way, move `ORCHESTRATOR_WORKER_IMAGE` to the same version.
+Back up Postgres first. Roll the admin first: on startup it updates the database
+to the new version, then the workers follow automatically. On the default
+compose file, which builds admin and the orchestrator from source, pull the new
+source and add `--build` to `up -d` instead. Either way, move
+`ORCHESTRATOR_WORKER_IMAGE` to the same version.
+
+::: info If a database update fails
+The admin stops, and its log says `database migration failed` with the reason.
+The update is all or nothing, so the database is left exactly as it was: fix the
+cause, or go back to the previous version, and start the admin again.
+:::
 
 ---
 

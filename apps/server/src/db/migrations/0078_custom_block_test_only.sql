@@ -1,1 +1,0 @@
-ALTER TABLE "custom_blocks_list" ADD COLUMN "test_only" boolean DEFAULT false NOT NULL;
