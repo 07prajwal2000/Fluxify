@@ -1,8 +1,10 @@
+import { apiKey } from "@better-auth/api-key";
+import { oauthProvider } from "@better-auth/oauth-provider";
 import { generateID } from "@fluxify/lib";
 import { betterAuth } from "better-auth";
 import { type DB, drizzleAdapter } from "better-auth/adapters/drizzle";
 import { APIError } from "better-auth/api";
-import { admin, customSession } from "better-auth/plugins";
+import { admin, customSession, jwt } from "better-auth/plugins";
 import { eq } from "drizzle-orm";
 import * as authSchemas from "../db/auth-schema";
 import { account, systemUsers } from "../db/auth-schema";
@@ -12,6 +14,24 @@ import { ssoOrigins, ssoPlugin } from "./auth.sso.ee";
 import { getEnv } from "./env";
 
 export let auth: ReturnType<typeof initializeAuth> = null!;
+
+/** Personal access tokens start with this, so a Bearer token says what it is. */
+export const API_KEY_PREFIX = "flx_";
+
+/** The OAuth issuer: where clients find /oauth2/authorize, /oauth2/token, ... */
+export function authIssuerUrl() {
+	return `${getEnv("SERVER_URL")}/_/admin/api/auth`;
+}
+
+/** The MCP endpoint. OAuth access tokens are minted for this audience only. */
+export function mcpResourceUrl() {
+	return `${getEnv("SERVER_URL")}/_/admin/mcp`;
+}
+
+/** Where an MCP client is sent, in a 401, to learn how to sign in. */
+export function mcpResourceMetadataUrl() {
+	return `${getEnv("SERVER_URL")}/.well-known/oauth-protected-resource/_/admin/mcp`;
+}
 
 function trustedOrigins() {
 	const origins = getEnv("TRUSTED_ORIGINS")
@@ -38,6 +58,10 @@ export function initializeAuth(db: DB) {
 		onAPIError: {
 			errorURL: `${getEnv("SERVER_URL")!}/_/admin/ui/login`,
 		},
+		// OAuth tokens point at the session that granted them, so sessions must
+		// be in the database as well as Redis (oauth-provider refuses to start
+		// otherwise).
+		session: { storeSessionInDatabase: true },
 		emailAndPassword: {
 			enabled: true,
 			disableSignUp: true,
@@ -127,13 +151,42 @@ export function initializeAuth(db: DB) {
 			// license says: only *configuring* SSO is gated, so an instance that
 			// lapses never locks out admins who sign in through it.
 			ssoPlugin(),
+			// Signs OAuth access tokens. No JWT header on get-session: nothing
+			// reads it, and it would sign a token on every request.
+			jwt({ disableSettingJwtHeader: true, jwt: { issuer: authIssuerUrl() } }),
+			// OAuth 2.1 for MCP clients. Registration is open (MCP clients
+			// register themselves), so consent is always asked: the plugin
+			// rejects `skip_consent` at dynamic registration and remembers each
+			// grant per user and client. Login and consent pages are the portal's.
+			oauthProvider({
+				loginPage: "/_/admin/ui/login",
+				consentPage: "/_/admin/ui/oauth/consent",
+				allowDynamicClientRegistration: true,
+				allowUnauthenticatedClientRegistration: true,
+				validAudiences: [mcpResourceUrl()],
+				// No client_credentials: every token must belong to a user.
+				grantTypes: ["authorization_code", "refresh_token"],
+				// The well-known documents are served at the host root (oauthRoutes.ts).
+				silenceWarnings: { oauthAuthServerConfig: true, openidConfig: true },
+			}),
+			// Personal access tokens. Resolved by setSession, not by Better
+			// Auth's API-key sessions, so a token cannot call auth endpoints
+			// (mint more tokens, approve OAuth consent) as its owner.
+			apiKey({
+				defaultPrefix: API_KEY_PREFIX,
+				requireName: true,
+				// Every token expires: 90 days unless the user picks 1-365.
+				keyExpiration: { defaultExpiresIn: 60 * 60 * 24 * 90 },
+				// The plugin's default is 10 requests a day per key.
+				rateLimit: { enabled: false },
+			}),
 		],
 	});
 	auth = _auth;
 	return _auth;
 }
 
-async function getUserAccessControls(db: DB, userId: string, isSystemAdmin: boolean) {
+export async function getUserAccessControls(db: DB, userId: string, isSystemAdmin: boolean) {
 	if (isSystemAdmin) {
 		return [
 			{
