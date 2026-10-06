@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterAll, spyOn } from "bun:test";
 import * as redis from "../../db/redis";
 import * as env from "../../lib/env";
-import { adminRateLimit } from "../rateLimit";
+import { adminRateLimit, anonymousRateLimit } from "../rateLimit";
 
 // spyOn, not mock.module: module mocks are global to the whole `bun test` run
 // and leak into every other spec that imports the same module.
@@ -90,5 +90,32 @@ describe("adminRateLimit", () => {
 		for (let i = 0; i < 5; i++) await adminRateLimit(c, next);
 		expect(passed).toBe(5);
 		expect(result().status).toBe(0);
+	});
+});
+
+describe("anonymousRateLimit", () => {
+	it("buckets by forwarded client address", async () => {
+		const counts: Record<string, number> = {};
+		incrSpy.mockImplementation(async (key: string) => {
+			counts[key] = (counts[key] ?? 0) + 1;
+			return counts[key];
+		});
+		expireSpy.mockResolvedValue(1);
+		const limiter = anonymousRateLimit("oauth-test", 1);
+		const statuses: number[] = [];
+		const call = (ip: string) => {
+			let status = 200;
+			const c = {
+				req: { header: (h: string) => (h === "x-forwarded-for" ? `${ip}, 10.0.0.1` : undefined) },
+				json: (_b: unknown, s: number) => {
+					status = s;
+				},
+			} as any;
+			return limiter(c, async () => {}).then(() => statuses.push(status));
+		};
+		await call("1.1.1.1");
+		await call("1.1.1.1");
+		await call("2.2.2.2");
+		expect(statuses).toEqual([200, 429, 200]);
 	});
 });
