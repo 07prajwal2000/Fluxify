@@ -102,12 +102,38 @@ async function adminStatuses(auth: { cookie?: string; bearer?: string }) {
 	return [get.status, put.status];
 }
 
-function mcpStatus(bearer?: string) {
+function mcp(bearer: string | undefined, method: string, params: object = {}) {
 	return req(s, "/_/admin/mcp", {
 		bearer,
-		json: { jsonrpc: "2.0", id: 1, method: "ping" },
-	}).then((r) => r.status);
+		accept: "application/json, text/event-stream",
+		json: { jsonrpc: "2.0", id: 1, method, params },
+	});
 }
+
+function mcpStatus(bearer?: string) {
+	return mcp(bearer, "ping").then((r) => r.status);
+}
+
+/** What an MCP client does: initialize, then call `whoami`. */
+async function whoami(bearer: string) {
+	const init = await mcp(bearer, "initialize", {
+		protocolVersion: "2025-06-18",
+		capabilities: {},
+		clientInfo: { name: "auth.test", version: "0" },
+	});
+	expect(init.status).toBe(200);
+	const res = await mcp(bearer, "tools/call", { name: "whoami", arguments: {} });
+	expect(res.status).toBe(200);
+	const body = (await res.json()) as { result: { content: { text: string }[] } };
+	return JSON.parse(body.result.content[0].text);
+}
+
+const viewerOf = (user: { id: string; email: string }) => ({
+	id: user.id,
+	email: user.email,
+	isSystemAdmin: false,
+	acl: [{ projectId, role: "viewer" }],
+});
 
 describe("MCP OAuth", () => {
 	it("serves discovery documents at the host root", async () => {
@@ -159,7 +185,7 @@ describe("MCP OAuth", () => {
 		const viaCookie = await adminStatuses({ cookie });
 		expect(viaCookie).toEqual([200, 403]);
 		expect(await adminStatuses({ bearer: token.access_token })).toEqual(viaCookie);
-		expect(await mcpStatus(token.access_token)).not.toBe(401);
+		expect(await whoami(token.access_token)).toEqual(viewerOf(viewer));
 	});
 
 	it("remembers consent: a second authorize skips the consent page", async () => {
@@ -272,6 +298,7 @@ describe("Personal access tokens", () => {
 		const key = await createApiKey(cookie);
 
 		expect(await adminStatuses({ bearer: key })).toEqual(await adminStatuses({ cookie }));
+		expect(await whoami(key)).toEqual(viewerOf(viewer));
 
 		const list = (await (await req(s, `${AUTH}/api-key/list`, { cookie })).json()) as {
 			apiKeys: { id: string; name: string; expiresAt: string | null; key?: string }[];

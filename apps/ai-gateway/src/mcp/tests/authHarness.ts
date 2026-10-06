@@ -120,6 +120,7 @@ export async function req(
 		cookie?: string;
 		bearer?: string;
 		ip?: string;
+		accept?: string;
 		json?: unknown;
 		form?: Record<string, string>;
 	} = {},
@@ -127,6 +128,7 @@ export async function req(
 	// A fresh client address per request, so the per-IP OAuth limits never trip.
 	const headers: Record<string, string> = { origin: ORIGIN, "x-forwarded-for": init.ip ?? crypto.randomUUID() };
 	if (init.cookie) headers.cookie = init.cookie;
+	if (init.accept) headers.accept = init.accept;
 	if (init.bearer) headers.authorization = `Bearer ${init.bearer}`;
 	let body: string | undefined;
 	if (init.json !== undefined) {
