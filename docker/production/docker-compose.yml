@@ -12,7 +12,8 @@
 #   docker compose -f docker/production/docker-compose.yml up -d
 #
 # Routing (Traefik):
-#   /_/admin*  -> admin (its internal proxy splits ui / api / ai)
+#   /_/admin*, /.well-known/oauth-* -> admin (its internal proxy splits
+#                                      ui / api / ai / mcp)
 #   everything else -> the worker nodes the orchestrator created
 #
 # ------------------------------------------------------------------------------
@@ -105,7 +106,9 @@ services:
         condition: service_started
     labels:
       - traefik.enable=true
-      - "traefik.http.routers.admin.rule=PathPrefix(`/_/admin`)"
+      # /.well-known/oauth-* is the OAuth discovery MCP clients need; other
+      # /.well-known paths stay with the workers (users' own routes).
+      - "traefik.http.routers.admin.rule=PathPrefix(`/_/admin`) || PathPrefix(`/.well-known/oauth-`)"
       - traefik.http.routers.admin.priority=100
       - traefik.http.routers.admin.entrypoints=web
       - traefik.http.services.admin.loadbalancer.server.port=8080

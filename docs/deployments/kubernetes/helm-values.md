@@ -107,7 +107,7 @@ admin:
 
 | Setting | What it does | Default |
 | :--- | :--- | :--- |
-| `ingressRoute.enabled` | Send `/_/admin` (the portal and API) to Fluxify through Traefik. `false` to expose it your own way; the service is `fluxify-admin`, port `8080`. | `true` |
+| `ingressRoute.enabled` | Send `/_/admin` (the portal, API and MCP server) and `/.well-known/oauth-…` (sign-in for MCP clients) to Fluxify through Traefik. `false` to expose it your own way: send both to the service `fluxify-admin`, port `8080`. | `true` |
 | `ingressRoute.entryPoint` | The Traefik entry point it listens on. | `web` |
 
 ## NATS {#nats}

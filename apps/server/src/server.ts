@@ -1,6 +1,5 @@
 import { initializeLogger, logger } from "@fluxify/common";
 import { Hono } from "hono";
-import { cors } from "hono/cors";
 import authenticationRouter from "./api/auth/register";
 import { mapVersionedAdminRoutes } from "./api/register";
 import { publishConfiguredLicense } from "./api/v1/instance-settings/license/service";
@@ -26,6 +25,7 @@ import { loadInstanceSettings } from "./loaders/instanceSettingsLoader";
 import { loadIntegrations } from "./loaders/integrationsLoader";
 import { loadProjectSettings } from "./loaders/projectSettingsLoader";
 import { loadRoutes } from "./loaders/routesLoader";
+import { adminCors } from "./middlewares/cors";
 import { errorHandler } from "./middlewares/errorHandler";
 import { adminRateLimit } from "./middlewares/rateLimit";
 import { setSession } from "./middlewares/session";
@@ -40,26 +40,7 @@ const app = new Hono<{
 	};
 }>();
 
-// Global CORS middleware
-app.use(
-	"*",
-	cors({
-		origin: (origin) => {
-			if (!origin) return null;
-			// dev: any localhost port; prod: explicit TRUSTED_ORIGINS (real DNS behind proxy)
-			if (origin.startsWith("http://localhost:")) return origin;
-			const trusted =
-				getEnv("TRUSTED_ORIGINS")
-					?.split(",")
-					.map((o) => o.trim()) ?? [];
-			return trusted.includes(origin) ? origin : null;
-		},
-		allowHeaders: ["Content-Type", "Authorization", "Accept"],
-		allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
-		credentials: true,
-		maxAge: 86400,
-	}),
-);
+app.use("*", adminCors);
 
 function logSystemDetails() {
 	logger.info(`Admin routes enabled: ${getEnv("ENABLE_ADMIN")}`);

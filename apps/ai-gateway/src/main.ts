@@ -16,7 +16,9 @@ export async function runMain() {
 		cors({
 			origin: "*",
 			allowMethods: ["POST", "GET", "PUT", "DELETE", "OPTIONS"],
-			allowHeaders: ["*"],
+			// No allowHeaders: hono echoes the requested ones. "*" never covers
+			// Authorization, which MCP clients send.
+			exposeHeaders: ["WWW-Authenticate"],
 			credentials: true,
 		}),
 	);

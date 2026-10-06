@@ -29,6 +29,12 @@
         reverse_proxy host.docker.internal:5500
     }
 
+    # OAuth discovery for MCP clients, served by the server. Only oauth-*:
+    # users' own routes may serve other /.well-known paths.
+    handle /.well-known/oauth-* {
+        reverse_proxy host.docker.internal:5500
+    }
+
     # everything else is end-user route traffic -> the request worker (5600),
     # the independently scalable execution node
     handle {

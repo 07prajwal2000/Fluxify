@@ -25,6 +25,11 @@
 	handle /_/admin/api* {
 		reverse_proxy localhost:5500
 	}
+	# OAuth discovery for MCP clients, served by the server. Only oauth-*:
+	# users' own routes may serve other /.well-known paths.
+	handle /.well-known/oauth-* {
+		reverse_proxy localhost:5500
+	}
 	# Everything else is user API traffic, served by the compiled worker.
 	# A 502 here means the worker is not running — most likely
 	# WORKER_PROJECT_ID is unset (see docker/kit/entrypoint.sh).

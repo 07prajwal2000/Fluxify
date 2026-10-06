@@ -105,7 +105,7 @@ forces a container to be replaced — see
 ```mermaid
 flowchart TB
     C(["Client / API traffic"]) --> T["Traefik :80"]
-    T -->|"/_/admin*"| A["Admin container<br/>dashboard · admin API<br/>AI gateway"]
+    T -->|"/_/admin*, /.well-known/oauth-*"| A["Admin container<br/>dashboard · admin API<br/>AI gateway · MCP"]
     T -->|"project-a.example.com"| WA1["Worker A"] & WA2["Worker A"]
     T -->|"project-b.example.com"| WB1["Worker B"] & WB2["Worker B"]
 
@@ -487,6 +487,54 @@ To give a project workers of its own, see
 
 ---
 
+## Connecting AI clients (MCP) {#mcp}
+
+Fluxify has an MCP server, so AI apps and coding agents can work with your
+projects. Point the client at:
+
+```
+https://your-domain.com/_/admin/mcp
+```
+
+The client signs in as a Fluxify user, and you approve it in the browser. It
+gets the same access that user has. For sign-in to work, these addresses go to
+Fluxify on the same port as everything else:
+
+| URL | What it is |
+| :--- | :--- |
+| `/_/admin/mcp` | The MCP server |
+| `/.well-known/oauth-protected-resource` | Tells the client where to sign in |
+| `/.well-known/oauth-authorization-server` | The sign-in details |
+
+Only paths starting with `/.well-known/oauth-` are taken for this. Any other
+`/.well-known/...` path still reaches your own routes.
+
+> [!IMPORTANT]
+> **Cloud AI apps need a public HTTPS address.** claude.ai and ChatGPT connect
+> from their own servers, not from your computer, so they can't reach
+> `localhost` or a private network. Your instance must be reachable from the
+> internet over `https://`. Apps running on the
+> server itself can use `http://localhost:8080`.
+
+> [!WARNING]
+> **Use HTTPS on any address other than `localhost`.** On such an address,
+> Fluxify tells MCP clients to sign in over `https://`, even when it is served
+> over plain `http://`. Without HTTPS, sign-in fails.
+
+**Check:** replace `<url>` with your address.
+
+```bash
+curl -i -X POST <url>/_/admin/mcp                                    # 401, with a WWW-Authenticate header
+curl <url>/.well-known/oauth-protected-resource/_/admin/mcp          # JSON
+curl <url>/.well-known/oauth-authorization-server/_/admin/api/auth   # JSON
+```
+
+The `401` is expected: it means the MCP server is up and asks the client to
+sign in. The JSON lists your public address. If it shows another one, fix
+`SERVER_URL`, `BETTER_AUTH_URL` and `TRUSTED_ORIGINS` in your `.env`.
+
+---
+
 ## Scaling the workers {#scaling}
 
 Raise the replica count on the claim that needs more workers. A project's
@@ -571,6 +619,12 @@ Orchestration page says why.
 **Traffic returns 404 for `/_/admin` pages**
 Traefik routes by path priority. Confirm the admin service still carries its
 `PathPrefix(/_/admin)` label and that the container is running.
+
+**An MCP client can't sign in, or `/.well-known/oauth-…` returns 404**
+The admin service's label must also match `PathPrefix(/.well-known/oauth-)`,
+as in the compose file. If the JSON from the [MCP checks](#mcp) shows an
+`http://` or wrong address, fix `SERVER_URL`, `BETTER_AUTH_URL` and
+`TRUSTED_ORIGINS`, and serve Fluxify over HTTPS.
 
 **Workers never receive traffic**
 They stay out of rotation until the readiness check passes. Check a worker's

@@ -269,6 +269,52 @@ kubectl get secret fluxify-env -n fluxify -o yaml > fluxify-env.backup.yaml
 This file holds every key Fluxify uses. Treat it like a password: keep it
 out of git, unlike `fluxify-values.yaml`.
 
+## 9. Connect AI clients (optional) {#mcp}
+
+Fluxify has an MCP server, so AI apps and coding agents can work with your
+projects. Point the client at:
+
+```
+https://fluxify.example.com/_/admin/mcp
+```
+
+The client signs in as a Fluxify user, and you approve it in the browser. It
+gets the same access that user has. For sign-in to work, these addresses go to
+Fluxify through Traefik, next to the portal:
+
+| URL | What it is |
+| :--- | :--- |
+| `/_/admin/mcp` | The MCP server |
+| `/.well-known/oauth-protected-resource` | Tells the client where to sign in |
+| `/.well-known/oauth-authorization-server` | The sign-in details |
+
+Only paths starting with `/.well-known/oauth-` are taken for this. Any other
+`/.well-known/...` path still reaches your own routes.
+
+> [!IMPORTANT]
+> **Cloud AI apps need a public HTTPS address.** claude.ai and ChatGPT connect
+> from their own servers, not from your computer, so they can't reach
+> `localhost` or a private network. Your instance must be reachable from the
+> internet over `https://`. Apps running on your own machine can use
+> `http://localhost:8080`.
+
+> [!WARNING]
+> **Use HTTPS on any address other than `localhost`.** On such an address,
+> Fluxify tells MCP clients to sign in over `https://`, even when it is served
+> over plain `http://`. Without HTTPS, sign-in fails.
+
+**Check:** replace `<url>` with your address.
+
+```bash
+curl -i -X POST <url>/_/admin/mcp                                    # 401, with a WWW-Authenticate header
+curl <url>/.well-known/oauth-protected-resource/_/admin/mcp          # JSON
+curl <url>/.well-known/oauth-authorization-server/_/admin/api/auth   # JSON
+```
+
+The `401` is expected: it means the MCP server is up and asks the client to
+sign in. The JSON lists your public address. If it shows another one, fix `url`
+in `fluxify-values.yaml` and run the [upgrade](#upgrade) command.
+
 You are done. Next: [create a project](/getting-started/), then give it its own
 workers from its **Orchestration** settings.
 
