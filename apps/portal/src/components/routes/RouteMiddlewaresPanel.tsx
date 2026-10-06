@@ -35,9 +35,11 @@ const PHASES: { phase: Phase; title: string; description: string }[] = [
 export function RouteMiddlewaresPanel({
 	routeId,
 	projectId,
+	readOnly = false,
 }: {
 	routeId: string;
 	projectId: string;
+	readOnly?: boolean;
 }) {
 	const { data, isLoading } = middlewaresQuery.forRoute.useQuery(routeId);
 	const { data: all } = middlewaresQuery.getAll.useQuery(projectId);
@@ -92,7 +94,7 @@ export function RouteMiddlewaresPanel({
 							getKey={(m) => m.id}
 							getItemLabel={(m) => m.name}
 							showIndex
-							isEditable={!save.isPending}
+							isEditable={!readOnly && !save.isPending}
 							onReorder={(next) => update(phase, next)}
 							onRemove={(m) =>
 								update(
@@ -103,14 +105,16 @@ export function RouteMiddlewaresPanel({
 							removeButtonAriaLabel="Remove middleware"
 							emptyMessage="None"
 						/>
-						<Button
-							variant="secondary"
-							size="sm"
-							className="w-fit"
-							onPress={() => setAdding(phase)}
-						>
-							<TbPlus size={14} /> Add middleware
-						</Button>
+						{!readOnly && (
+							<Button
+								variant="secondary"
+								size="sm"
+								className="w-fit"
+								onPress={() => setAdding(phase)}
+							>
+								<TbPlus size={14} /> Add middleware
+							</Button>
+						)}
 					</div>
 				</Section>
 			))}

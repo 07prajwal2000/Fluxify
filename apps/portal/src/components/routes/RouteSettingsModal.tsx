@@ -64,10 +64,13 @@ export function RouteSettingsModal({
 	routeId,
 	isOpen,
 	onOpenChange,
+	readOnly = false,
 }: {
 	routeId: string;
 	isOpen: boolean;
 	onOpenChange: (open: boolean) => void;
+	/** viewers see the settings but can't change them */
+	readOnly?: boolean;
 }) {
 	const { data: route, isLoading } = routesQuery.byId.useQuery(routeId);
 
@@ -85,6 +88,7 @@ export function RouteSettingsModal({
 							<RouteSettingsForm
 								key={route.id}
 								route={route}
+								readOnly={readOnly}
 								onSaved={() => onOpenChange(false)}
 								onClose={() => onOpenChange(false)}
 							/>
@@ -100,10 +104,12 @@ type RouteData = NonNullable<ReturnType<typeof routesQuery.byId.useQuery>["data"
 
 function RouteSettingsForm({
 	route,
+	readOnly,
 	onSaved,
 	onClose,
 }: {
 	route: RouteData;
+	readOnly: boolean;
 	onSaved: () => void;
 	onClose: () => void;
 }) {
@@ -211,9 +217,9 @@ function RouteSettingsForm({
 				hasBody && { id: "body", label: "Body" },
 				{ id: "middlewares", label: "Middlewares" },
 				{ id: "advanced", label: "Advanced" },
-				{ id: "danger", label: "Danger zone" },
+				!readOnly && { id: "danger", label: "Danger zone" },
 			].filter(Boolean) as { id: string; label: string }[],
-		[pathParams.length, hasBody],
+		[pathParams.length, hasBody, readOnly],
 	);
 	useEffect(() => {
 		if (!tabs.some((item) => item.id === tab)) setTab("general");
@@ -264,18 +270,25 @@ function RouteSettingsForm({
 							title="Endpoint"
 							description="What clients call. Changing either re-registers the route."
 						>
-							<TextField isRequired value={name} onChange={setName} isInvalid={!nameIsValid}>
+							<TextField
+								isRequired
+								isReadOnly={readOnly}
+								value={name}
+								onChange={setName}
+								isInvalid={!nameIsValid}
+							>
 								<Label>Name</Label>
 								<Input placeholder="List users" />
 							</TextField>
 
 							<div className="flex flex-col gap-1.5">
 								<Label>Method</Label>
-								<MethodSwitch value={method} onChange={setMethod} />
+								<MethodSwitch value={method} onChange={setMethod} isDisabled={readOnly} />
 							</div>
 
 							<TextField
 								isRequired
+								isReadOnly={readOnly}
 								value={path}
 								onChange={(next) => setPath(sanitizePath(next))}
 								isInvalid={path.length > 0 && !pathIsValid}
@@ -308,6 +321,7 @@ function RouteSettingsForm({
 							<Switch
 								isSelected={active}
 								onChange={setActive}
+								isDisabled={readOnly}
 								label={active ? "Route is active" : "Route is disabled"}
 							/>
 						</Section>
@@ -321,6 +335,7 @@ function RouteSettingsForm({
 							<SchemaEditor
 								value={paramsSchema}
 								onChange={(next) => setParamConfig(paramConfigFrom(next))}
+								isReadOnly={readOnly}
 								lockKeys
 								disableJs
 								showRootTypeSelector={false}
@@ -338,6 +353,7 @@ function RouteSettingsForm({
 							<SchemaEditor
 								value={querySchema}
 								onChange={setQuerySchema}
+								isReadOnly={readOnly}
 								showRootTypeSelector={false}
 								allowedDataTypes={QUERY_DATA_TYPES}
 								maxDepth={2}
@@ -354,6 +370,7 @@ function RouteSettingsForm({
 								label="Accepted content types"
 								description="Requests sent with any other content type are rejected."
 								options={CONTENT_TYPE_OPTIONS}
+								isDisabled={readOnly}
 								value={contentTypes}
 								onChange={(next) => {
 									const resolved = next.length > 0 ? next : DEFAULT_CONTENT_TYPES;
@@ -364,6 +381,7 @@ function RouteSettingsForm({
 							<SchemaEditor
 								value={bodySchema}
 								onChange={setBodySchema}
+								isReadOnly={readOnly}
 								allowedRootTypes={isBinaryBody(contentTypes) ? ["blob"] : undefined}
 								allowedDataTypes={bodyDataTypes(contentTypes)}
 							/>
@@ -371,7 +389,11 @@ function RouteSettingsForm({
 					</Tabs.Panel>
 
 					<Tabs.Panel id="middlewares" className="min-h-0 flex-1 overflow-y-auto p-5">
-						<RouteMiddlewaresPanel routeId={route.id} projectId={route.projectId} />
+						<RouteMiddlewaresPanel
+							routeId={route.id}
+							projectId={route.projectId}
+							readOnly={readOnly}
+						/>
 					</Tabs.Panel>
 
 					<Tabs.Panel id="advanced" className="min-h-0 flex-1 overflow-y-auto p-5">
@@ -382,6 +404,7 @@ function RouteSettingsForm({
 							<Switch
 								isSelected={tracingEnabled}
 								onChange={setTracingEnabled}
+								isDisabled={readOnly}
 								label={tracingEnabled ? "Telemetry enabled" : "Telemetry disabled"}
 							/>
 							<RouteTelemetryHelp projectId={route.projectId} />
@@ -410,6 +433,7 @@ function RouteSettingsForm({
 									value={timeoutSeconds}
 									onChange={(next) => setTimeoutSeconds(Math.max(30, next || 30))}
 									minValue={30}
+									isReadOnly={readOnly}
 								>
 									<Label>Timeout (seconds)</Label>
 									<NumberField.Group>
@@ -461,20 +485,26 @@ function RouteSettingsForm({
 
 			<Modal.Footer className="flex shrink-0 flex-row items-center gap-3 border-t border-border px-5 py-3">
 				<span className="text-xs text-muted">
-					{isDirty ? "Unsaved changes" : "All changes saved"}
+					{readOnly
+						? "View only: you need the Creator role to change this route"
+						: isDirty
+							? "Unsaved changes"
+							: "All changes saved"}
 				</span>
 				<div className="ml-auto flex items-center gap-2">
 					<Button variant="ghost" onPress={onClose}>
-						Cancel
+						{readOnly ? "Close" : "Cancel"}
 					</Button>
-					<Button
-						variant="primary"
-						isDisabled={!isDirty || !nameIsValid || !pathIsValid}
-						isPending={update.isPending}
-						onPress={save}
-					>
-						Save changes
-					</Button>
+					{!readOnly && (
+						<Button
+							variant="primary"
+							isDisabled={!isDirty || !nameIsValid || !pathIsValid}
+							isPending={update.isPending}
+							onPress={save}
+						>
+							Save changes
+						</Button>
+					)}
 				</div>
 			</Modal.Footer>
 		</>

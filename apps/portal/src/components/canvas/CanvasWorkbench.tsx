@@ -37,6 +37,8 @@ export type CanvasWorkbenchProps = {
 	save: (payload: CanvasSavePayload) => Promise<unknown>;
 	/** what the compiler reports this canvas as, so its result can be shown */
 	compileTarget: CompileTarget;
+	/** view only: no edits, no Save — for users who may look but not change */
+	readOnly?: boolean;
 };
 
 function toGraph(data: CanvasItems | undefined): CanvasGraph {
@@ -74,6 +76,7 @@ function CanvasWorkbenchInner({
 	playgroundContent,
 	headerActions,
 	headerLeft,
+	readOnly = false,
 }: CanvasWorkbenchProps) {
 	const [pendingCount, setPendingCount] = useState(0);
 	const [isSaving, setIsSaving] = useState(false);
@@ -144,14 +147,16 @@ function CanvasWorkbenchInner({
 			<header className="flex items-center gap-3 border-b border-border px-4 py-2 text-sm">
 				{headerLeft ?? <span className="font-medium">{title}</span>}
 				<div className="ml-auto flex items-center gap-2">{headerActions}</div>
-				<Button
-					variant="primary"
-					isDisabled={pendingCount === 0 || isSaving}
-					isPending={isSaving}
-					onPress={() => void onSave()}
-				>
-					Save
-				</Button>
+				{!readOnly && (
+					<Button
+						variant="primary"
+						isDisabled={pendingCount === 0 || isSaving}
+						isPending={isSaving}
+						onPress={() => void onSave()}
+					>
+						Save
+					</Button>
+				)}
 			</header>
 
 			<div className="min-h-0 flex-1">
@@ -166,7 +171,7 @@ function CanvasWorkbenchInner({
 				) : (
 					<BlockCanvas
 						graph={graph}
-						mode="edit"
+						mode={readOnly ? "readonly" : "edit"}
 						nodeTypes={nodeTypes}
 						enableBlockPicker={enableBlockPicker}
 						enablePlayground={enablePlayground}

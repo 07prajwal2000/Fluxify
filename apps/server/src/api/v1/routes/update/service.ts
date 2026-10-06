@@ -6,6 +6,7 @@ import { ConflictError } from "../../../../errors/conflictError";
 import { ForbiddenError } from "../../../../errors/forbidError";
 import { NotFoundError } from "../../../../errors/notFoundError";
 import { ServerError } from "../../../../errors/serverError";
+import { canAccessProject } from "../../../../lib/acl";
 import { patchRouteConfig } from "../routeConfigRepository";
 import { normalizeParamsSchema } from "../schema-validator";
 import type { requestBodySchema, responseSchema } from "./dto";
@@ -21,10 +22,7 @@ export default async function handleRequest(
 		if (!existingRoute) {
 			throw new NotFoundError("Route not found");
 		}
-		const hasAccess = acl.some(
-			(entry) => entry.projectId === existingRoute.projectId || entry.projectId === "*",
-		);
-		if (!hasAccess) {
+		if (!canAccessProject(acl, existingRoute.projectId ?? "", "creator")) {
 			throw new ForbiddenError();
 		}
 		if (existingRoute.id !== id) {
