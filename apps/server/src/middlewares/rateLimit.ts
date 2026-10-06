@@ -26,31 +26,50 @@ export async function adminRateLimit(c: Context, next: Next) {
 	const max = limit();
 	const userId = c.get("user")?.id;
 	if (max <= 0 || !userId) return next();
+	return countRequest(c, next, `admin:${userId}`, max, WINDOW_SECONDS);
+}
 
-	const window = Math.floor(Date.now() / (WINDOW_SECONDS * 1000));
-	const key = `ratelimit:admin:${userId}:${window}`;
+/**
+ * For the OAuth endpoints anyone may call signed out (client registration,
+ * token exchange). Bucketed by the client address the proxy forwards.
+ *
+ * ponytail: X-Forwarded-For is trusted as-is, so a caller that reaches the
+ * server directly can spoof it. Fine for a flood guard; lock it to the proxy
+ * hop if these endpoints ever need a hard limit.
+ */
+export function anonymousRateLimit(name: string, max: number, windowSeconds = 60) {
+	return (c: Context, next: Next) => {
+		const ip =
+			c.req.header("x-forwarded-for")?.split(",")[0]?.trim() ||
+			c.req.header("x-real-ip") ||
+			"unknown";
+		return countRequest(c, next, `${name}:${ip}`, max, windowSeconds);
+	};
+}
+
+async function countRequest(c: Context, next: Next, bucket: string, max: number, seconds: number) {
+	const window = Math.floor(Date.now() / (seconds * 1000));
+	const key = `ratelimit:${bucket}:${window}`;
 
 	let count: number;
 	try {
 		count = await incrCache(key);
-		if (count === 1) await expireCache(key, WINDOW_SECONDS);
+		if (count === 1) await expireCache(key, seconds);
 	} catch (error) {
 		// Fail open: a Redis blip must not lock people out of the product.
-		logger.error("[AdminRateLimit] Check failed, allowing request", {
-			userId,
-			error,
-		});
+		logger.error("[RateLimit] Check failed, allowing request", { bucket, error });
 		return next();
 	}
 
 	if (count > max) {
+		const per = seconds === 1 ? "second" : `${seconds} seconds`;
 		return c.json(
 			{
-				message: `Rate limit of ${max} requests per second exceeded. Please retry shortly.`,
+				message: `Rate limit of ${max} requests per ${per} exceeded. Please retry shortly.`,
 				type: "rate_limit",
 			},
 			429,
-			{ "Retry-After": String(WINDOW_SECONDS) },
+			{ "Retry-After": String(seconds) },
 		);
 	}
 	await next();

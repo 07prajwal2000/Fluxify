@@ -596,6 +596,13 @@
 			"when": 1790808082406,
 			"tag": "0084_drop_custom_block_test_only",
 			"breakpoints": true
+		},
+		{
+			"idx": 85,
+			"version": "7",
+			"when": 1791309773845,
+			"tag": "0085_mcp_auth_596",
+			"breakpoints": true
 		}
 	]
 }

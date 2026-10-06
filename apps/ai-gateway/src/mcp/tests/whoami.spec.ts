@@ -1,0 +1,67 @@
+import { describe, expect, it } from "bun:test";
+import { Hono } from "hono";
+import { mapMcpServer } from "../index";
+
+const USERS: Record<string, { user: object; acl: object[] }> = {
+	alice: {
+		user: { id: "u-alice", email: "alice@test.local", isSystemAdmin: false },
+		acl: [{ projectId: "p1", role: "viewer" }],
+	},
+	bob: {
+		user: { id: "u-bob", email: "bob@test.local", isSystemAdmin: true },
+		acl: [{ projectId: "*", role: "system_admin" }],
+	},
+};
+
+// Stands in for setSession: the `x-user` header picks who is signed in.
+const app = new Hono<any>();
+app.use("*", async (c, next) => {
+	const who = USERS[c.req.header("x-user") ?? ""];
+	c.set("user", who?.user ?? null);
+	c.set("acl", who?.acl ?? null);
+	await next();
+});
+mapMcpServer(app);
+
+function rpc(user: string | undefined, method: string, params: object = {}) {
+	return app.request("http://localhost/_/admin/mcp", {
+		method: "POST",
+		headers: {
+			"content-type": "application/json",
+			accept: "application/json, text/event-stream",
+			...(user ? { "x-user": user } : {}),
+		},
+		body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }),
+	});
+}
+
+async function whoami(user: string) {
+	const init = await rpc(user, "initialize", {
+		protocolVersion: "2025-06-18",
+		capabilities: {},
+		clientInfo: { name: "spec", version: "0" },
+	});
+	expect(init.status).toBe(200);
+	const res = await rpc(user, "tools/call", { name: "whoami", arguments: {} });
+	const body = (await res.json()) as { result: { content: { text: string }[] } };
+	return JSON.parse(body.result.content[0].text);
+}
+
+describe("MCP whoami", () => {
+	it("each request sees only its own caller", async () => {
+		const [alice, bob] = await Promise.all([whoami("alice"), whoami("bob")]);
+		expect(alice).toEqual({ ...USERS.alice.user, acl: USERS.alice.acl });
+		expect(bob).toEqual({ ...USERS.bob.user, acl: USERS.bob.acl });
+	});
+
+	it("is listed as read-only", async () => {
+		const res = await rpc("alice", "tools/list");
+		const body = (await res.json()) as { result: { tools: { name: string; annotations: object }[] } };
+		expect(body.result.tools.map((t) => t.name)).toEqual(["whoami"]);
+		expect(body.result.tools[0].annotations).toEqual({ readOnlyHint: true });
+	});
+
+	it("401s without a user", async () => {
+		expect((await rpc(undefined, "tools/list")).status).toBe(401);
+	});
+});
