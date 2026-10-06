@@ -2,6 +2,7 @@ import { Button, Input, Label, Spinner, TextField, toast } from "@fluxify/compon
 import type { RequestBodySchema } from "@fluxify/server/src/api/v1/projects/settings/keys/upsert/dto";
 import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
+import { TbCopy, TbExternalLink } from "react-icons/tb";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { showErrorNotification } from "@/lib/errorNotifier";
 import { projectSettingsKeysQuery } from "@/query/projectSettingsKeysQuery";
@@ -85,6 +86,47 @@ function GeneralSettingsForm({
 			</form>
 
 			<ApiAddressSettings projectId={projectId} />
+			<OpenApiSpecUrl projectId={projectId} />
+		</div>
+	);
+}
+
+/** The project's OpenAPI JSON, public so Postman or a client generator can import it by URL. */
+function OpenApiSpecUrl({ projectId }: { projectId: string }) {
+	const url = `${window.location.origin}/_/admin/api/v1/routes/${projectId}/openapi.json`;
+
+	return (
+		<div className="flex flex-col gap-4 border-t border-border pt-6">
+			<div>
+				<h3 className="text-base font-semibold tracking-tight">OpenAPI spec</h3>
+				<p className="text-sm text-muted">
+					Import this URL into Postman, Insomnia or a client generator.
+				</p>
+			</div>
+			<div className="flex items-center gap-2">
+				<TextField value={url} isReadOnly aria-label="OpenAPI spec URL" className="flex-1">
+					<Input className="font-mono text-xs" />
+				</TextField>
+				<Button
+					isIconOnly
+					variant="ghost"
+					aria-label="Open in new tab"
+					onPress={() => window.open(url, "_blank", "noopener")}
+				>
+					<TbExternalLink size={16} />
+				</Button>
+				<Button
+					isIconOnly
+					variant="ghost"
+					aria-label="Copy URL"
+					onPress={async () => {
+						await navigator.clipboard.writeText(url);
+						toast.success("URL copied");
+					}}
+				>
+					<TbCopy size={16} />
+				</Button>
+			</div>
 		</div>
 	);
 }
