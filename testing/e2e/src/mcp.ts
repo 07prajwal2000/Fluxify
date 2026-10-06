@@ -25,11 +25,18 @@ export async function startMcpStack(): Promise<McpStack> {
 		stderr: "inherit",
 	});
 	const decoder = new TextDecoder();
+	const reader = proc.stdout.getReader();
 	let buffered = "";
-	for await (const chunk of proc.stdout) {
-		buffered += decoder.decode(chunk);
+	for (let r = await reader.read(); !r.done; r = await reader.read()) {
+		buffered += decoder.decode(r.value);
 		const line = buffered.split("\n").find((l) => l.startsWith("MCP_STACK "));
-		if (line) return JSON.parse(line.slice("MCP_STACK ".length));
+		if (!line) continue;
+		// keep reading its logs: once the pipe closes, the stack's next log
+		// write fails, and with it the request that logged
+		void (async () => {
+			while (!(await reader.read()).done) {}
+		})();
+		return JSON.parse(line.slice("MCP_STACK ".length));
 	}
 	throw new Error(`MCP stack exited before serving (code ${await proc.exited})`);
 }
@@ -66,11 +73,19 @@ export async function callTool(stack: McpStack, token: string, name: string, arg
 	return { ok: !result.isError, text: result.content[0].text as string };
 }
 
-/** The status of the same read made straight to the admin API. */
-export async function adminStatus(stack: McpStack, token: string, path: string) {
-	const res = await fetch(`${stack.url}/_/admin/api${path}`, {
-		headers: { authorization: `Bearer ${token}` },
+/** A request made straight to the admin API, as `token`. */
+export type AdminCall = { method?: string; path: string; body?: object };
+
+export async function adminCall(stack: McpStack, token: string, call: AdminCall) {
+	const res = await fetch(`${stack.url}/_/admin/api${call.path}`, {
+		method: call.method ?? "GET",
+		headers: { authorization: `Bearer ${token}`, "content-type": "application/json" },
+		body: call.body && JSON.stringify(call.body),
 	});
-	await res.body?.cancel();
-	return res.status;
+	return { status: res.status, body: (await res.json().catch(() => null)) as any };
+}
+
+/** The status of the same call made straight to the admin API. */
+export async function adminStatus(stack: McpStack, token: string, call: string | AdminCall) {
+	return (await adminCall(stack, token, typeof call === "string" ? { path: call } : call)).status;
 }

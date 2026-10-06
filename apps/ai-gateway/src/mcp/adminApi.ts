@@ -16,8 +16,11 @@ const ROLE_NAMES: Record<ToolRole, string> = {
 
 export type Query = Record<string, string | number | undefined>;
 
-/** GETs an admin API path as the caller; throws a readable error on failure. */
-export type AdminGet = (path: string, query?: Query) => Promise<any>;
+/** The admin API as one caller; throws a readable error on failure. */
+export type AdminApi = {
+	get: (path: string, query?: Query) => Promise<any>;
+	send: (method: "POST" | "PUT" | "PATCH" | "DELETE", path: string, body?: unknown) => Promise<any>;
+};
 
 /**
  * Turns an admin API failure into a sentence an agent can act on. The server's
@@ -46,24 +49,37 @@ export function readableError(status: number, body: unknown, role: ToolRole): st
 }
 
 /**
- * A GET helper bound to one caller. `auth` is the caller's own Authorization
+ * The admin API bound to one caller. `auth` is the caller's own Authorization
  * (or cookie) header, so the server applies the same roles it applies to the
  * portal: tools never check roles themselves.
  */
-export function adminGet(
+export function adminApi(
 	fetcher: AdminFetch,
 	auth: Record<string, string>,
 	role: ToolRole,
-): AdminGet {
-	return async (path, query = {}) => {
-		const params = new URLSearchParams();
-		for (const [k, v] of Object.entries(query)) if (v !== undefined) params.set(k, String(v));
-		const qs = params.size ? `?${params}` : "";
-		const res = await fetcher(`/_/admin/api${path}${qs}`, {
-			headers: { ...auth, accept: "application/json" },
+): AdminApi {
+	const call = async (path: string, init: RequestInit = {}) => {
+		const res = await fetcher(`/_/admin/api${path}`, {
+			...init,
+			headers: { ...auth, accept: "application/json", ...(init.headers as Record<string, string>) },
 		});
+		// a 204 (e.g. an app config delete) has no body
 		const body = await res.json().catch(() => null);
 		if (!res.ok) throw new Error(readableError(res.status, body, role));
 		return body;
+	};
+	return {
+		get: (path, query = {}) => {
+			const params = new URLSearchParams();
+			for (const [k, v] of Object.entries(query)) if (v !== undefined) params.set(k, String(v));
+			return call(params.size ? `${path}?${params}` : path);
+		},
+		send: (method, path, body) =>
+			call(
+				path,
+				body === undefined
+					? { method }
+					: { method, headers: { "content-type": "application/json" }, body: JSON.stringify(body) },
+			),
 	};
 }

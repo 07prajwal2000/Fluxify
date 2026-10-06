@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { adminGet, readableError } from "../adminApi";
+import { adminApi, readableError } from "../adminApi";
 
 describe("readableError", () => {
 	it("names the role a 403 needs", () => {
@@ -32,10 +32,10 @@ describe("readableError", () => {
 	});
 });
 
-describe("adminGet", () => {
+describe("adminApi", () => {
 	it("forwards the caller's credential and builds the query", async () => {
 		const seen: { path: string; headers: Record<string, string> }[] = [];
-		const get = adminGet(
+		const { get } = adminApi(
 			async (path, init) => {
 				seen.push({ path, headers: init.headers as Record<string, string> });
 				return Response.json({ ok: true });
@@ -55,11 +55,35 @@ describe("adminGet", () => {
 	});
 
 	it("throws the readable error on a failed status", async () => {
-		const get = adminGet(
+		const { get } = adminApi(
 			async () => Response.json({ message: "Access denied", type: "auth" }, { status: 403 }),
 			{},
 			"creator",
 		);
 		await expect(get("/v1/p/app-config/list")).rejects.toThrow("You need the Creator role in this project.");
+	});
+});
+
+describe("adminApi send", () => {
+	it("sends a JSON body as the caller and reads an empty 204", async () => {
+		const seen: RequestInit[] = [];
+		const { send } = adminApi(
+			async (_path, init) => {
+				seen.push(init);
+				return new Response(null, { status: 204 });
+			},
+			{ authorization: "Bearer flx_test" },
+			"creator",
+		);
+		expect(await send("POST", "/v1/middlewares", { name: "auth" })).toBeNull();
+		expect(seen[0]).toEqual({
+			method: "POST",
+			body: '{"name":"auth"}',
+			headers: {
+				authorization: "Bearer flx_test",
+				accept: "application/json",
+				"content-type": "application/json",
+			},
+		});
 	});
 });

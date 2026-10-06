@@ -1,15 +1,138 @@
 import { afterAll, beforeAll, describe, expect, it } from "bun:test";
 import { readTools } from "@fluxify/ai-gateway/src/mcp/tools";
-import { adminStatus, callTool, type McpStack, mcp, startMcpStack, stopMcpStack } from "../src/mcp";
+import { writeTools } from "@fluxify/ai-gateway/src/mcp/writeTools";
+import {
+	type AdminCall,
+	adminCall,
+	adminStatus,
+	callTool,
+	type McpStack,
+	mcp,
+	startMcpStack,
+	stopMcpStack,
+} from "../src/mcp";
 
 /**
  * MCP tools never check roles: they call the admin API with the caller's own
- * token. So a tool must succeed exactly when the same read made directly
+ * token. So a tool must succeed exactly when the same call made directly
  * succeeds, for every role. Later PRs add their tools as rows here.
  */
-type Row = { tool: string; args: object; api: string };
+type Row = { tool: string; args: object; api: string | AdminCall };
 
-function rows({ projectId: p, ids }: McpStack): Row[] {
+const allTools = [...readTools, ...writeTools];
+const uniq = (prefix: string) => `${prefix}${crypto.randomUUID().slice(0, 8)}`;
+
+/** Creates a resource as the creator, for a delete row to remove. */
+async function fresh(s: McpStack, path: string, body: object) {
+	const res = await adminCall(s, s.tokens.creator, { method: "POST", path, body });
+	if (res.status >= 300) throw new Error(`seed ${path}: ${res.status} ${JSON.stringify(res.body)}`);
+	return res.body.id;
+}
+
+/**
+ * Write rows. Each create uses a fresh name, and each delete removes its own
+ * fresh resource (one for the tool, one for the direct call), so roles and
+ * repeat runs never collide.
+ */
+async function writeRows(s: McpStack): Promise<Row[]> {
+	const { projectId: p, ids } = s;
+	const integration = `/v1/${p}/integrations/${ids.integration}`;
+	const redis = (await adminCall(s, s.tokens.creator, { path: integration })).body.config;
+	const two = (path: string, body: () => object) =>
+		Promise.all([fresh(s, path, body()), fresh(s, path, body())]);
+	// a group holds 5 triggers at most, so each set of rows gets its own
+	const groupId = await fresh(s, "/v1/triggers/groups", { projectId: p, name: uniq("g-") });
+	const triggerBody = () => ({ projectId: p, groupId, name: uniq("t-"), type: "internal" });
+	const middlewareBody = () => ({ projectId: p, name: uniq("m-") });
+	const blockBody = () => ({ projectId: p, name: uniq("cb_"), label: "Temp" });
+	const configBody = () => ({
+		keyName: uniq("K_"),
+		value: "v",
+		description: "",
+		isEncrypted: false,
+		encodingType: "plaintext",
+	});
+	const kvBody = () => ({ name: uniq("kv-"), group: "kv", variant: "Redis", config: redis });
+	const [t, m, cb, ac, ig] = await Promise.all([
+		two("/v1/triggers", triggerBody),
+		two("/v1/middlewares", middlewareBody),
+		two("/v1/custom-blocks", blockBody),
+		two(`/v1/${p}/app-config`, configBody),
+		two(`/v1/${p}/integrations`, kvBody),
+	]);
+	const post = (path: string, body: object) => ({ method: "POST", path, body });
+	const put = (path: string, body: object) => ({ method: "PUT", path, body });
+	const del = (path: string) => ({ method: "DELETE", path });
+	return [
+		{ tool: "save_trigger", args: triggerBody(), api: post("/v1/triggers", triggerBody()) },
+		{
+			tool: "save_trigger",
+			args: { triggerId: ids.trigger, description: "hourly" },
+			api: { method: "PATCH", path: `/v1/triggers/${ids.trigger}`, body: { description: "hourly" } },
+		},
+		{ tool: "delete_trigger", args: { triggerId: t[0] }, api: del(`/v1/triggers/${t[1]}`) },
+		{ tool: "save_middleware", args: middlewareBody(), api: post("/v1/middlewares", middlewareBody()) },
+		{
+			tool: "save_middleware",
+			args: { middlewareId: ids.middleware, description: "checks auth" },
+			api: put(`/v1/middlewares/${ids.middleware}`, { description: "checks auth" }),
+		},
+		{ tool: "delete_middleware", args: { middlewareId: m[0] }, api: del(`/v1/middlewares/${m[1]}`) },
+		{ tool: "save_custom_block", args: blockBody(), api: post("/v1/custom-blocks", blockBody()) },
+		{
+			tool: "save_custom_block",
+			args: { customBlockId: ids.customBlock, label: "Audit" },
+			api: put(`/v1/custom-blocks/${ids.customBlock}`, { label: "Audit" }),
+		},
+		{
+			tool: "delete_custom_block",
+			args: { customBlockId: cb[0] },
+			api: del(`/v1/custom-blocks/${cb[1]}`),
+		},
+		{
+			tool: "save_app_config",
+			args: { projectId: p, ...configBody() },
+			api: post(`/v1/${p}/app-config`, configBody()),
+		},
+		{
+			tool: "save_app_config",
+			args: { projectId: p, appConfigId: ids.appConfig, description: "greeting" },
+			api: put(`/v1/${p}/app-config/${ids.appConfig}`, {
+				keyName: "GREETING",
+				description: "greeting",
+				isEncrypted: false,
+				encodingType: "plaintext",
+			}),
+		},
+		{
+			tool: "delete_app_config",
+			args: { projectId: p, appConfigId: ac[0] },
+			api: del(`/v1/${p}/app-config/${ac[1]}`),
+		},
+		{
+			tool: "save_integration",
+			args: { projectId: p, ...kvBody() },
+			api: post(`/v1/${p}/integrations`, kvBody()),
+		},
+		{
+			tool: "save_integration",
+			args: { projectId: p, integrationId: ids.integration, name: "cache" },
+			api: put(integration, { name: "cache", config: redis }),
+		},
+		{
+			tool: "delete_integration",
+			args: { projectId: p, integrationId: ig[0] },
+			api: del(`/v1/${p}/integrations/${ig[1]}`),
+		},
+		{
+			tool: "test_integration_connection",
+			args: { projectId: p, integrationId: ids.integration },
+			api: `/v1/${p}/integrations/test-existing-connection/${ids.integration}`,
+		},
+	];
+}
+
+function readRows({ projectId: p, ids }: McpStack): Row[] {
 	return [
 		{ tool: "get_instance_info", args: {}, api: "/public-settings" },
 		{ tool: "list_projects", args: {}, api: "/v1/projects/list" },
@@ -94,24 +217,26 @@ beforeAll(async () => {
 afterAll(stopMcpStack);
 
 describe("MCP role matrix", () => {
-	it("has a row for every tool", () => {
-		expect(rows(stack).map((r) => r.tool).sort()).toEqual(readTools.map((t) => t.name).sort());
+	it("has a row for every tool", async () => {
+		const tools = new Set([...readRows(stack), ...(await writeRows(stack))].map((r) => r.tool));
+		expect([...tools].sort()).toEqual(allTools.map((t) => t.name).sort());
 	});
 
 	for (const role of ROLES) {
 		it(`${role}: each tool succeeds exactly when the admin API does`, async () => {
 			const token = stack.tokens[role];
-			for (const row of rows(stack)) {
-				const needs = readTools.find((t) => t.name === row.tool)!.role;
+			for (const row of [...readRows(stack), ...(await writeRows(stack))]) {
+				const needs = allTools.find((t) => t.name === row.tool)!.role;
 				const [status, result] = await Promise.all([
 					adminStatus(stack, token, row.api),
 					callTool(stack, token, row.tool, row.args),
 				]);
 				// pinning the expected status keeps the matrix honest: a server that
-				// 200s everything would otherwise pass
-				expect(`${row.tool} ${status}`).toBe(`${row.tool} ${RANK[role] >= RANK[needs] ? 200 : 403}`);
+				// 200s everything would otherwise pass. Writes may answer 201 or 204.
+				const got = status < 300 ? "ok" : status;
+				expect(`${row.tool} ${got}`).toBe(`${row.tool} ${RANK[role] >= RANK[needs] ? "ok" : 403}`);
 				expect(`${row.tool} ok=${result.ok}: ${result.text.slice(0, 200)}`).toStartWith(
-					`${row.tool} ok=${status === 200}`,
+					`${row.tool} ok=${status < 300}`,
 				);
 				if (status === 403) {
 					expect(result.text).toBe(`You need the ${ROLE_NAMES[needs]} role in this project.`);
@@ -135,6 +260,64 @@ describe("MCP role matrix", () => {
 			recordExecution: false,
 			acceptedContentTypes: expect.any(Array),
 		});
+	});
+});
+
+describe("MCP writes", () => {
+	const call = async (tool: string, args: object) => {
+		const r = await callTool(stack, stack.tokens.creator, tool, args);
+		if (!r.ok) throw new Error(`${tool}: ${r.text}`);
+		return JSON.parse(r.text);
+	};
+
+	it("creates, updates and deletes a middleware", async () => {
+		const name = uniq("rt-");
+		const { id } = await call("save_middleware", { projectId: stack.projectId, name });
+		expect((await call("get_middleware", { middlewareId: id })).name).toBe(name);
+
+		await call("save_middleware", { middlewareId: id, name: `${name}-2`, description: "renamed" });
+		expect(await call("get_middleware", { middlewareId: id })).toEqual({
+			id,
+			name: `${name}-2`,
+			description: "renamed",
+			blocks: [],
+		});
+
+		expect(await call("delete_middleware", { middlewareId: id })).toEqual({ deleted: id });
+		const gone = await callTool(stack, stack.tokens.creator, "get_middleware", { middlewareId: id });
+		expect(gone.ok).toBe(false);
+		expect(gone.text).toStartWith("Not found");
+	});
+
+	it("never echoes a secret back", async () => {
+		const p = stack.projectId;
+		const secret = "s3cret-value-for-mcp";
+		const created = await call("save_app_config", {
+			projectId: p,
+			keyName: uniq("API_KEY_"),
+			value: secret,
+			description: "",
+			isEncrypted: true,
+			encodingType: "plaintext",
+		});
+		expect(Object.keys(created)).toEqual(["id"]);
+		const updated = await call("save_app_config", {
+			projectId: p,
+			appConfigId: created.id,
+			value: secret,
+		});
+		expect(updated).toEqual({ id: created.id });
+		const read = await call("get_app_config", { projectId: p, appConfigId: created.id });
+		expect(read.value).not.toContain(secret);
+		expect(read.isEncrypted).toBe(true);
+	});
+
+	it("a connection test really connects", async () => {
+		const result = await call("test_integration_connection", {
+			projectId: stack.projectId,
+			integrationId: stack.ids.integration,
+		});
+		expect(result).toMatchObject({ success: true });
 	});
 });
 
