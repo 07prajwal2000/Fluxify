@@ -1,3 +1,5 @@
+import type { StreamSpec } from "@fluxify/common/nats";
+
 /**
  * Naming for the job queue.
  *
@@ -18,6 +20,17 @@ export const JOBS_STREAM = "FLUXIFY_JOBS";
 const SUBJECT_ROOT = "fluxify.jobs";
 /** everything the job worker can consume */
 export const JOBS_SUBJECTS = `${SUBJECT_ROOT}.>`;
+
+/** Shared by the worker and every publisher; either may create it (#587). */
+export const JOBS_STREAM_SPEC = {
+	name: JOBS_STREAM,
+	subjects: [JOBS_SUBJECTS],
+	// a job is work, not history: once acked it leaves the stream
+	retention: "workqueue",
+	maxAgeMs: 7 * 24 * 60 * 60_000,
+	// publisher dedupe window for `msgID`
+	duplicateWindowMs: 2 * 60_000,
+} satisfies StreamSpec;
 /** serves every project — the catch-all worker deployment */
 export const ALL_PROJECTS = "*";
 

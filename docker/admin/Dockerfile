@@ -33,7 +33,7 @@
 #   PG_URL                  postgres://user:pass@host:5432/fluxify — this is the
 #                           only service that talks to the database
 #   REDIS_HOST              Redis/Valkey hostname
-#   NATS_URL                nats://host:4222 — JetStream MUST be on (`-js`); the
+#   NATS_URL                nats://host:4222 — JetStream MUST be on (`-js`), NATS 2.14+; the
 #                           compile queue and artifact bucket both need it
 #   MASTER_ENCRYPTION_KEY   `openssl rand -base64 32`. Workers need the SAME key
 #                           — project config travels to them encrypted with it

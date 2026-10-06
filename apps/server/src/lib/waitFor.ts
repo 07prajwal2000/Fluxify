@@ -1,5 +1,8 @@
 import { logger } from "@fluxify/common";
 
+/** A startup error waiting will not fix (e.g. a too-old server). Not retried. */
+export class FatalStartupError extends Error {}
+
 /**
  * Startup only. Kubernetes has no `depends_on`, so admin and the orchestrator
  * routinely boot before Postgres and NATS accept connections. Retrying for a
@@ -20,6 +23,10 @@ export async function waitFor<T>(
 		try {
 			return await connect();
 		} catch (error) {
+			if (error instanceof FatalStartupError) {
+				logger.error(`FATAL: ${error.message}`, "STARTUP");
+				throw error;
+			}
 			// Drizzle wraps the driver's error, and the useful part is on its cause.
 			const cause = (error as Error)?.cause;
 			const reason = cause ? `${String(error)} (${String(cause)})` : String(error);

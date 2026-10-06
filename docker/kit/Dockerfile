@@ -61,7 +61,7 @@
 # REQUIRED ONLY WHEN USING EXTERNAL SERVICES
 #   PG_URL                  postgres://user:pass@host:5432/fluxify
 #   REDIS_HOST              Redis/Valkey hostname
-#   NATS_URL                nats://host:4222  — JetStream MUST be on (`-js`)
+#   NATS_URL                nats://host:4222  — JetStream MUST be on (`-js`), NATS 2.14+
 #   MASTER_ENCRYPTION_KEY   `openssl rand -base64 32`; encrypts project config
 #   BETTER_AUTH_SECRET      session signing secret
 #
@@ -160,12 +160,17 @@ LABEL org.opencontainers.image.title="Fluxify Kit" \
 
 # tini reaps the child processes the entrypoint spawns; caddy is the proxy.
 #
-# postgresql/valkey/nats-server are the bundled backing services. The major
+# postgresql/valkey are bundled backing services; nats-server comes below. The major
 # version of postgresql is PINNED deliberately: an unpinned bump would ship an
 # image that refuses to mount an existing data directory, and there is no
 # pg_upgrade path in a single-shot container. Treat a bump as breaking.
 RUN apk add --no-cache tini caddy nss-tools \
-    postgresql16 postgresql16-client valkey valkey-cli nats-server
+    postgresql16 postgresql16-client valkey valkey-cli
+
+# NATS is copied from the official image, not apk: Alpine's package lags
+# (2.11 at the time of writing) and schedules need 2.14+. The tag matches the
+# Helm chart; deploymentVersions.spec.ts fails on drift.
+COPY --from=nats:2.15.0-alpine /usr/local/bin/nats-server /usr/local/bin/nats-server
 
 # initdb/postgres live outside /usr/bin on Alpine's versioned packages.
 ENV PATH="/usr/libexec/postgresql16:${PATH}"

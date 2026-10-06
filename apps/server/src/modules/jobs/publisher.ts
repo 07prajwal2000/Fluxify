@@ -1,7 +1,7 @@
 import { logger } from "@fluxify/common";
-import { publishToStream } from "@fluxify/common/nats";
+import { ensureStreamOnce, publishToStream } from "@fluxify/common/nats";
 import { natsConnection } from "../../db/nats";
-import { jobSubject } from "./subjects";
+import { JOBS_STREAM_SPEC, jobSubject } from "./subjects";
 import type { JobEnvelope } from "./types";
 
 export type JobInput = Omit<JobEnvelope, "id" | "enqueuedAt"> & {
@@ -26,7 +26,10 @@ export async function enqueueJob(input: JobInput): Promise<JobEnvelope> {
 	};
 	const subject = jobSubject(job.projectId, job.kind);
 
-	await publishToStream(natsConnection(), subject, job, { msgId: job.id });
+	// the publisher can be first: no worker may have created the stream yet
+	const nc = natsConnection();
+	await ensureStreamOnce(nc, JOBS_STREAM_SPEC);
+	await publishToStream(nc, subject, job, { msgId: job.id });
 
 	logger.debug(`[jobs] queued ${subject} (${job.target})`, "JOBS.publish");
 	return job;

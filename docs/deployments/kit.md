@@ -309,3 +309,7 @@ publish it.
 **Routes save fine but never go live**
 The event bus needs JetStream enabled. The bundled copy and the supplied compose
 file both do this already; if you swapped in your own, start it with `-js`.
+
+**Fluxify exits with "NATS server … is too old"**
+Fluxify needs NATS 2.14 or newer; scheduled triggers rely on it. The bundled
+copy is new enough. If `NATS_URL` points at your own NATS, upgrade it.

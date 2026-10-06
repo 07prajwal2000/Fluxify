@@ -17,7 +17,7 @@ import {
 	internalConsumerName,
 	internalSubject,
 	TRIGGERS_STREAM,
-	TRIGGERS_SUBJECTS,
+	TRIGGERS_STREAM_SPEC,
 	triggerConsumerName,
 	triggerSubject,
 } from "./subjects";
@@ -68,7 +68,7 @@ export type TriggerWorkerOptions = {
 const DEFAULTS = {
 	maxDeliver: 5,
 	retryDelayMs: 10_000,
-	maxAgeMs: 7 * 24 * 60 * 60_000,
+	maxAgeMs: TRIGGERS_STREAM_SPEC.maxAgeMs,
 	defaultAckWaitMs: 5 * 60_000,
 };
 
@@ -97,14 +97,7 @@ export class TriggerWorker {
 		if (this.started) return;
 		this.started = true;
 		const nc = natsConnection();
-		await ensureStream(nc, {
-			name: TRIGGERS_STREAM,
-			subjects: [TRIGGERS_SUBJECTS],
-			// an event is work, not history: once acked it leaves the stream
-			retention: "workqueue",
-			maxAgeMs: this.options.maxAgeMs,
-			duplicateWindowMs: 2 * 60_000,
-		});
+		await ensureStream(nc, { ...TRIGGERS_STREAM_SPEC, maxAgeMs: this.options.maxAgeMs });
 		await dropWildcardConsumers(nc, TRIGGERS_STREAM);
 
 		if (this.options.projectId !== ALL_PROJECTS) await this.serveInternal(this.options.projectId);
