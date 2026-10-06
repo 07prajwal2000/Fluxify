@@ -54,14 +54,37 @@ describe("MCP whoami", () => {
 		expect(bob).toEqual({ ...USERS.bob.user, acl: USERS.bob.acl });
 	});
 
-	it("is listed as read-only", async () => {
+	it("every tool is listed as read-only", async () => {
 		const res = await rpc("alice", "tools/list");
 		const body = (await res.json()) as { result: { tools: { name: string; annotations: object }[] } };
-		expect(body.result.tools.map((t) => t.name)).toEqual(["whoami"]);
-		expect(body.result.tools[0].annotations).toEqual({ readOnlyHint: true });
+		expect(body.result.tools.map((t) => t.name)).toContain("whoami");
+		for (const tool of body.result.tools) expect(tool.annotations).toEqual({ readOnlyHint: true });
 	});
 
 	it("401s without a user", async () => {
 		expect((await rpc(undefined, "tools/list")).status).toBe(401);
+	});
+});
+
+describe("MCP initialize", () => {
+	it("sends the build guide as server instructions", async () => {
+		const res = await rpc("alice", "initialize", {
+			protocolVersion: "2025-06-18",
+			capabilities: {},
+			clientInfo: { name: "spec", version: "0" },
+		});
+		const body = (await res.json()) as { result: { instructions: string } };
+		expect(body.result.instructions).toContain("https://docs.fluxify.rest/llms.txt");
+		expect(body.result.instructions.split("\n").length).toBeLessThanOrEqual(40);
+	});
+
+	it("serves block schemas without a project", async () => {
+		const res = await rpc("alice", "tools/call", {
+			name: "get_block_schemas",
+			arguments: { blockTypes: ["if"] },
+		});
+		const body = (await res.json()) as { result: { content: { text: string }[] } };
+		expect(body.result.content[0].text).toStartWith("type ");
+		expect(body.result.content[0].text).toContain("\nif {");
 	});
 });

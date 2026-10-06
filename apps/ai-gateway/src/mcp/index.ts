@@ -3,6 +3,9 @@ import { mcpResourceMetadataUrl } from "@fluxify/server";
 import { StreamableHTTPTransport } from "@hono/mcp";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { Context, Hono, Next } from "hono";
+import { type AdminFetch, adminGet, httpAdminFetch } from "./adminApi";
+import { MCP_INSTRUCTIONS } from "./instructions";
+import { readTools } from "./tools";
 
 /** Who the MCP call acts as: what `setSession` put on the request. */
 export type McpCaller = {
@@ -26,9 +29,19 @@ export async function requireMcpUser(c: Context, next: Next) {
 	);
 }
 
-/** One server per request, so a tool only ever sees its own caller. */
-export function createMcpServer(caller: McpCaller) {
-	const server = new McpServer({ name: "fluxify-mcp-server", version: "0.0.1-alpha" });
+/**
+ * One server per request, so a tool only ever sees its own caller. `auth` is
+ * the caller's own credential header, forwarded on every admin API call.
+ */
+export function createMcpServer(
+	caller: McpCaller,
+	auth: Record<string, string> = {},
+	fetcher: AdminFetch = httpAdminFetch,
+) {
+	const server = new McpServer(
+		{ name: "fluxify-mcp-server", version: "0.0.1-alpha" },
+		{ instructions: MCP_INSTRUCTIONS },
+	);
 	server.registerTool(
 		"whoami",
 		{
@@ -38,6 +51,22 @@ export function createMcpServer(caller: McpCaller) {
 		},
 		async () => ({ content: [{ type: "text", text: JSON.stringify(caller) }] }),
 	);
+	for (const tool of readTools) {
+		const get = adminGet(fetcher, auth, tool.role);
+		server.registerTool(
+			tool.name,
+			{
+				description: tool.description,
+				inputSchema: tool.input,
+				annotations: { readOnlyHint: true },
+			},
+			async (args: unknown) => {
+				const result = await tool.call(get, args);
+				const text = typeof result === "string" ? result : JSON.stringify(result);
+				return { content: [{ type: "text", text }] };
+			},
+		);
+	}
 	return server;
 }
 
@@ -54,13 +83,23 @@ function callerOf(c: Context): McpCaller {
 	};
 }
 
-export function mapMcpServer(app: Hono<any>) {
+/** The caller's credential, exactly as they sent it, for the admin API to check. */
+function authOf(c: Context) {
+	const auth: Record<string, string> = {};
+	for (const name of ["authorization", "cookie"]) {
+		const value = c.req.header(name);
+		if (value) auth[name] = value;
+	}
+	return auth;
+}
+
+export function mapMcpServer(app: Hono<any>, fetcher: AdminFetch = httpAdminFetch) {
 	logger.info("Creating MCP Server");
 	// Stateless: no session to resume, so only POST. GET (a standalone SSE
 	// stream) and DELETE (end a session) have nothing to serve.
 	app.post("/_/admin/mcp", requireMcpUser, async (c) => {
 		const transport = new StreamableHTTPTransport({ enableJsonResponse: true });
-		await createMcpServer(callerOf(c)).connect(transport);
+		await createMcpServer(callerOf(c), authOf(c), fetcher).connect(transport);
 		return transport.handleRequest(c);
 	});
 	app.on(["GET", "DELETE"], "/_/admin/mcp", requireMcpUser, (c) =>
