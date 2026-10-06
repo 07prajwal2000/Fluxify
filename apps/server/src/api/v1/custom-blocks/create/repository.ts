@@ -1,4 +1,5 @@
 import { BlockTypes } from "@fluxify/blocks";
+import { STARTER_POSITIONS } from "@fluxify/blocks/layout";
 import { generateID } from "@fluxify/lib";
 import { and, eq } from "drizzle-orm";
 import { type DbTransactionType, db } from "../../../../db";
@@ -21,16 +22,14 @@ export async function createDependencies(customBlockId: string, tx?: DbTransacti
 			id: id1,
 			customBlockId,
 			type: BlockTypes.entrypoint,
-			position: { x: 0, y: 0 },
+			position: STARTER_POSITIONS.entrypoint,
 			data: {},
 		},
 		{
 			id: id3,
 			customBlockId,
 			type: BlockTypes.errorHandler,
-			// a block is ~168px wide; anything less than that sits on top of the
-			// entrypoint on the current node design
-			position: { x: -240, y: 0 },
+			position: STARTER_POSITIONS.errorHandler,
 			data: {
 				next: "",
 				retryAfterFail: false,

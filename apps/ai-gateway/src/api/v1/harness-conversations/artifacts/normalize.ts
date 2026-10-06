@@ -2,6 +2,7 @@
 // output, and both barrels pull in Node built-ins (`vm`, pino) that break the
 // browser build.
 import { BlockTypes } from "@fluxify/blocks/blockTypes";
+import { STARTER_POSITIONS } from "@fluxify/blocks/layout";
 import { generateID } from "@fluxify/lib/random/id";
 import type { canvasChangesSchema } from "@fluxify/server/src/modules/canvas/types";
 import type { z } from "zod";
@@ -432,7 +433,12 @@ export function canvasChangesFromPayload(
 					b.type !== BlockTypes.errorHandler &&
 					b.type !== BlockTypes.sticky_note,
 			);
-			blocks.unshift({ id, type: BlockTypes.entrypoint, data: {}, position: { x: 0, y: 0 } });
+			blocks.unshift({
+				id,
+				type: BlockTypes.entrypoint,
+				data: {},
+				position: STARTER_POSITIONS.entrypoint,
+			});
 			if (head) addEdge(id, head.id, "source");
 		}
 		if (!present.has(BlockTypes.errorHandler)) {
@@ -440,7 +446,7 @@ export function canvasChangesFromPayload(
 				id: generateID(),
 				type: BlockTypes.errorHandler,
 				data: { next: "", retryAfterFail: false, retryCount: 0 },
-				position: { x: -240, y: 0 },
+				position: STARTER_POSITIONS.errorHandler,
 			} as (typeof blocks)[number]);
 		}
 	}
