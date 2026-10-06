@@ -11,6 +11,7 @@ import {
 } from "@fluxify/components";
 import { useEffect, useMemo, useState } from "react";
 import { FiCheckCircle, FiKey, FiLock, FiMail, FiShield, FiUser } from "react-icons/fi";
+import { AgentAccess } from "@/components/home/AgentAccess";
 import { authClient } from "@/lib/auth";
 import { showErrorNotification } from "@/lib/errorNotifier";
 
@@ -45,6 +46,7 @@ export function AccountDetails() {
 			/>
 			<ProfileSection name={data.user.name ?? ""} email={data.user.email} id={data.user.id} />
 			{isEnterpriseSession ? <SsoSecuritySection /> : <PasswordSection />}
+			<AgentAccess />
 		</div>
 	);
 }
