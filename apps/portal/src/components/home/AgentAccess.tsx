@@ -1,7 +1,17 @@
-import { Button, Card, Input, Label, TextField, toast } from "@fluxify/components";
+import {
+	Button,
+	DeleteIconButton,
+	Input,
+	Label,
+	Modal,
+	Table,
+	Tabs,
+	TextField,
+	toast,
+} from "@fluxify/components";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { FiCopy, FiTrash2 } from "react-icons/fi";
+import { FiCopy, FiPlus, FiXCircle } from "react-icons/fi";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { showErrorNotification } from "@/lib/errorNotifier";
 import { httpClient } from "@/lib/http";
@@ -29,18 +39,9 @@ async function copy(text: string) {
 	}
 }
 
-export function AgentAccess() {
-	return (
-		<>
-			<AccessTokens />
-			<ConnectedApps />
-			<ConnectAgent />
-		</>
-	);
-}
-
-function AccessTokens() {
+export function AccessTokens() {
 	const qc = useQueryClient();
+	const [open, setOpen] = useState(false);
 	const [name, setName] = useState("");
 	const [days, setDays] = useState("90");
 	const [created, setCreated] = useState<string | null>(null);
@@ -76,73 +77,127 @@ function AccessTokens() {
 		},
 		onError: (e) => showErrorNotification(e as Error, false),
 	});
+	const close = () => {
+		setOpen(false);
+		setCreated(null);
+	};
 
 	return (
-		<Card>
-			<Card.Header>
-				<Card.Title>Access tokens</Card.Title>
-				<Card.Description>
-					Tokens let AI agents and scripts act as you. They expire after the chosen number of days.
-				</Card.Description>
-			</Card.Header>
-			<Card.Content className="flex flex-col gap-4">
-				<div className="grid gap-4 sm:grid-cols-[1fr_8rem_auto] sm:items-end">
-					<TextField value={name} onChange={setName}>
-						<Label>Name</Label>
-						<Input placeholder="e.g. Claude Code laptop" />
-					</TextField>
-					<TextField value={days} onChange={setDays} isInvalid={!validDays}>
-						<Label>Expires in (days)</Label>
-						<Input type="number" min={1} max={365} />
-					</TextField>
-					<Button
-						variant="primary"
-						isPending={create.isPending}
-						isDisabled={!name.trim() || !validDays}
-						onPress={() => create.mutate()}
-					>
-						Create token
-					</Button>
-				</div>
-				{created && (
-					<div className="rounded-lg border border-accent bg-background-secondary p-3">
-						<p className="text-sm text-foreground">
-							Copy your new token now. You won't see this again.
-						</p>
-						<div className="mt-2 flex items-center gap-2">
-							<code className="min-w-0 flex-1 break-all text-xs text-foreground">{created}</code>
-							<Button size="sm" variant="secondary" onPress={() => copy(created)}>
-								<FiCopy /> Copy
-							</Button>
-						</div>
-					</div>
-				)}
-				{keys.length === 0 ? (
-					<p className="text-sm text-muted">No tokens yet.</p>
-				) : (
-					<ul className="divide-y divide-border">
-						{keys.map((k) => (
-							<li key={k.id} className="flex items-center justify-between gap-3 py-2">
-								<div className="min-w-0 text-sm">
-									<p className="truncate font-medium text-foreground">{k.name ?? "Unnamed"}</p>
-									<p className="text-xs text-muted">
-										{k.start ?? k.prefix ?? ""} · Created {date(k.createdAt)} · Expires{" "}
-										{date(k.expiresAt)}
-									</p>
-								</div>
-								<Button
-									size="sm"
-									variant="danger-soft"
-									aria-label={`Delete ${k.name ?? "token"}`}
-									onPress={() => setToDelete(k)}
-								>
-									<FiTrash2 />
-								</Button>
-							</li>
-						))}
-					</ul>
-				)}
-			</Card.Content>
+		<div className="flex flex-col gap-3">
+			<div className="flex items-center justify-between gap-3">
+				<p className="text-sm text-muted">Tokens let AI agents and scripts act as you.</p>
+				<Button size="sm" variant="primary" onPress={() => setOpen(true)}>
+					<FiPlus /> New token
+				</Button>
+			</div>
+			{keys.length === 0 ? (
+				<p className="py-6 text-center text-sm text-muted">No tokens yet.</p>
+			) : (
+				<Table>
+					<Table.Content aria-label="Access tokens">
+						<Table.Header>
+							<Table.Column id="name" isRowHeader>
+								Name
+							</Table.Column>
+							<Table.Column id="prefix">Prefix</Table.Column>
+							<Table.Column id="created">Created</Table.Column>
+							<Table.Column id="expires">Expires</Table.Column>
+							<Table.Column id="actions" aria-label="Actions">
+								{""}
+							</Table.Column>
+						</Table.Header>
+						<Table.Body items={keys}>
+							{(k: ApiKey) => (
+								<Table.Row id={k.id}>
+									<Table.Cell>
+										<span className="font-medium text-foreground">{k.name ?? "Unnamed"}</span>
+									</Table.Cell>
+									<Table.Cell>
+										<span className="font-mono text-xs text-muted">
+											{k.start ?? k.prefix ?? ""}
+										</span>
+									</Table.Cell>
+									<Table.Cell>
+										<span className="text-xs text-muted">{date(k.createdAt)}</span>
+									</Table.Cell>
+									<Table.Cell>
+										<span className="text-xs text-muted">{date(k.expiresAt)}</span>
+									</Table.Cell>
+									<Table.Cell>
+										<div className="flex justify-end">
+											<DeleteIconButton
+												size="sm"
+												aria-label={`Delete ${k.name ?? "token"}`}
+												onPress={() => setToDelete(k)}
+											/>
+										</div>
+									</Table.Cell>
+								</Table.Row>
+							)}
+						</Table.Body>
+					</Table.Content>
+				</Table>
+			)}
+			<Modal isOpen={open} onOpenChange={(o) => !o && close()}>
+				<Modal.Backdrop>
+					<Modal.Container placement="center" size="sm">
+						<Modal.Dialog>
+							<Modal.Header>
+								<Modal.Heading>{created ? "Token created" : "New token"}</Modal.Heading>
+							</Modal.Header>
+							<Modal.Body>
+								{created ? (
+									<div className="flex flex-col gap-2">
+										<p className="text-sm text-foreground">
+											Copy your new token now. You won't see this again.
+										</p>
+										<div className="flex items-center gap-2 rounded-lg border border-accent bg-background-secondary p-3">
+											<code className="min-w-0 flex-1 break-all text-xs text-foreground">
+												{created}
+											</code>
+											<Button size="sm" variant="secondary" onPress={() => copy(created)}>
+												<FiCopy /> Copy
+											</Button>
+										</div>
+									</div>
+								) : (
+									<div className="flex flex-col gap-3">
+										<TextField value={name} onChange={setName}>
+											<Label>Name</Label>
+											<Input placeholder="e.g. Claude Code laptop" />
+										</TextField>
+										<TextField value={days} onChange={setDays} isInvalid={!validDays}>
+											<Label>Expires in (days)</Label>
+											<Input type="number" min={1} max={365} />
+										</TextField>
+									</div>
+								)}
+							</Modal.Body>
+							<Modal.Footer>
+								{created ? (
+									<Button variant="primary" onPress={close}>
+										Done
+									</Button>
+								) : (
+									<>
+										<Button variant="ghost" onPress={close}>
+											Cancel
+										</Button>
+										<Button
+											variant="primary"
+											isPending={create.isPending}
+											isDisabled={!name.trim() || !validDays}
+											onPress={() => create.mutate()}
+										>
+											Create token
+										</Button>
+									</>
+								)}
+							</Modal.Footer>
+						</Modal.Dialog>
+					</Modal.Container>
+				</Modal.Backdrop>
+			</Modal>
 			<ConfirmDialog
 				open={!!toDelete}
 				onOpenChange={(o) => !o && setToDelete(null)}
@@ -154,40 +209,26 @@ function AccessTokens() {
 			>
 				Anything using "{toDelete?.name ?? "this token"}" will stop working.
 			</ConfirmDialog>
-		</Card>
+		</div>
 	);
 }
 
-function ConsentRow({ consent, onRevoke }: { consent: Consent; onRevoke: () => void }) {
+function ClientName({ clientId }: { clientId: string }) {
 	// Public endpoint, the same one the consent page uses; the name is optional.
 	const { data } = useQuery({
-		queryKey: ["oauth-public-client", consent.clientId],
+		queryKey: ["oauth-public-client", clientId],
 		queryFn: async () =>
 			(
 				await httpClient.get<{ client_name?: string }>("/auth/oauth2/public-client", {
-					params: { client_id: consent.clientId },
+					params: { client_id: clientId },
 				})
 			).data,
 		retry: false,
 	});
-	return (
-		<li className="flex items-center justify-between gap-3 py-2">
-			<div className="min-w-0 text-sm">
-				<p className="truncate font-medium text-foreground">
-					{data?.client_name ?? consent.clientId}
-				</p>
-				<p className="text-xs text-muted">
-					{consent.clientId} · {consent.scopes.join(", ")}
-				</p>
-			</div>
-			<Button size="sm" variant="danger-soft" onPress={onRevoke}>
-				Revoke
-			</Button>
-		</li>
-	);
+	return <span className="font-medium text-foreground">{data?.client_name ?? clientId}</span>;
 }
 
-function ConnectedApps() {
+export function ConnectedApps() {
 	const qc = useQueryClient();
 	const [toRevoke, setToRevoke] = useState<Consent | null>(null);
 	const { data: consents = [] } = useQuery({
@@ -204,22 +245,50 @@ function ConnectedApps() {
 	});
 
 	return (
-		<Card>
-			<Card.Header>
-				<Card.Title>Connected apps</Card.Title>
-				<Card.Description>Apps you signed in to with OAuth.</Card.Description>
-			</Card.Header>
-			<Card.Content>
-				{consents.length === 0 ? (
-					<p className="text-sm text-muted">No connected apps.</p>
-				) : (
-					<ul className="divide-y divide-border">
-						{consents.map((c) => (
-							<ConsentRow key={c.id} consent={c} onRevoke={() => setToRevoke(c)} />
-						))}
-					</ul>
-				)}
-			</Card.Content>
+		<div className="flex flex-col gap-3">
+			<p className="text-sm text-muted">Apps you signed in to with OAuth.</p>
+			{consents.length === 0 ? (
+				<p className="py-6 text-center text-sm text-muted">No connected apps.</p>
+			) : (
+				<Table>
+					<Table.Content aria-label="Connected apps">
+						<Table.Header>
+							<Table.Column id="app" isRowHeader>
+								App
+							</Table.Column>
+							<Table.Column id="scopes">Scopes</Table.Column>
+							<Table.Column id="actions" aria-label="Actions">
+								{""}
+							</Table.Column>
+						</Table.Header>
+						<Table.Body items={consents}>
+							{(c: Consent) => (
+								<Table.Row id={c.id}>
+									<Table.Cell>
+										<ClientName clientId={c.clientId} />
+									</Table.Cell>
+									<Table.Cell>
+										<span className="text-xs text-muted">{c.scopes.join(", ")}</span>
+									</Table.Cell>
+									<Table.Cell>
+										<div className="flex justify-end">
+											<Button
+												size="sm"
+												variant="danger-soft"
+												isIconOnly
+												aria-label="Revoke access"
+												onPress={() => setToRevoke(c)}
+											>
+												<FiXCircle />
+											</Button>
+										</div>
+									</Table.Cell>
+								</Table.Row>
+							)}
+						</Table.Body>
+					</Table.Content>
+				</Table>
+			)}
 			<ConfirmDialog
 				open={!!toRevoke}
 				onOpenChange={(o) => !o && setToRevoke(null)}
@@ -231,44 +300,57 @@ function ConnectedApps() {
 			>
 				This app will have to ask for access again.
 			</ConfirmDialog>
-		</Card>
-	);
-}
-
-function Snippet({ title, text }: { title: string; text: string }) {
-	return (
-		<div>
-			<div className="mb-1 flex items-center justify-between">
-				<p className="text-sm font-medium text-foreground">{title}</p>
-				<Button size="sm" variant="ghost" onPress={() => copy(text)}>
-					<FiCopy /> Copy
-				</Button>
-			</div>
-			<pre className="overflow-x-auto rounded-lg border border-border bg-background-secondary p-3 text-xs text-foreground">
-				{text}
-			</pre>
 		</div>
 	);
 }
 
-function ConnectAgent() {
+export function ConnectAgent() {
 	const url = `${window.location.origin}/_/admin/mcp`;
-	const cursor = JSON.stringify({ mcpServers: { fluxify: { url } } }, null, 2);
-	const vscode = JSON.stringify({ servers: { fluxify: { type: "http", url } } }, null, 2);
+	const clients = [
+		{ id: "claude", label: "Claude Code", text: `claude mcp add --transport http fluxify ${url}` },
+		{
+			id: "cursor",
+			label: "Cursor",
+			text: JSON.stringify({ mcpServers: { fluxify: { url } } }, null, 2),
+		},
+		{
+			id: "vscode",
+			label: "VS Code",
+			text: JSON.stringify({ servers: { fluxify: { type: "http", url } } }, null, 2),
+		},
+	];
 	return (
-		<Card>
-			<Card.Header>
-				<Card.Title>Connect an AI agent</Card.Title>
-				<Card.Description>
-					OAuth sign-in happens automatically the first time the agent connects. For clients without
-					OAuth, send the header Authorization: Bearer &lt;access token&gt;.
-				</Card.Description>
-			</Card.Header>
-			<Card.Content className="flex flex-col gap-4">
-				<Snippet title="Claude Code" text={`claude mcp add --transport http fluxify ${url}`} />
-				<Snippet title="Cursor (.cursor/mcp.json)" text={cursor} />
-				<Snippet title="VS Code (.vscode/mcp.json)" text={vscode} />
-			</Card.Content>
-		</Card>
+		<div className="flex flex-col gap-3">
+			<p className="text-sm text-muted">
+				OAuth sign-in happens automatically on first connect. Clients without OAuth can send
+				Authorization: Bearer &lt;access token&gt;.
+			</p>
+			<Tabs defaultSelectedKey="claude" className="flex flex-col gap-3">
+				<Tabs.List aria-label="AI client">
+					{clients.map((c) => (
+						<Tabs.Tab key={c.id} id={c.id}>
+							{c.label}
+						</Tabs.Tab>
+					))}
+				</Tabs.List>
+				{clients.map((c) => (
+					<Tabs.Panel key={c.id} id={c.id}>
+						<div className="relative">
+							<pre className="overflow-x-auto rounded-lg border border-border bg-background-secondary p-3 pr-20 text-xs text-foreground">
+								{c.text}
+							</pre>
+							<Button
+								size="sm"
+								variant="ghost"
+								className="absolute right-2 top-2"
+								onPress={() => copy(c.text)}
+							>
+								<FiCopy /> Copy
+							</Button>
+						</div>
+					</Tabs.Panel>
+				))}
+			</Tabs>
+		</div>
 	);
 }
