@@ -29,7 +29,7 @@
 #   PG_URL                     control-plane database. Unlike a worker, this IS
 #                              a control-plane component and reads claims, the
 #                              pool ceiling and trigger groups directly.
-#   NATS_URL                   nats://host:4222 — JetStream MUST be on (`-js`)
+#   NATS_URL                   nats://host:4222 — JetStream MUST be on (`-js`), NATS 2.14+
 #   MASTER_ENCRYPTION_KEY      not used here, but passed down to the workers it
 #                              creates, which need it to read config artifacts
 #

@@ -122,7 +122,8 @@ under `nats:`.
 | `nats.enabled` | `false` to use a NATS you already run. | `true` |
 | `nats.config.cluster.replicas` | How many NATS servers. At least 3 for production. | `3` |
 | `nats.config.jetstream.fileStore.pvc.size` | Disk per NATS server. | `10Gi` |
-| `external.natsUrl` | Your NATS, when `nats.enabled` is `false`, e.g. `nats://nats.messaging.svc:4222`. It must have JetStream on. Its token goes in `secret.values.NATS_TOKEN`. | — |
+| `nats.container.image.tag` | NATS version. Fluxify needs 2.14 or newer and exits at start on anything older. | `2.15.0-alpine` |
+| `external.natsUrl` | Your NATS, when `nats.enabled` is `false`, e.g. `nats://nats.messaging.svc:4222`. It must be NATS 2.14+ with JetStream on. Its token goes in `secret.values.NATS_TOKEN`. | — |
 | `external.natsMonitoringEndpoint` | Your NATS's monitoring address, `host:8222`, so workflow claims scale on waiting runs. | — |
 
 ## Valkey {#valkey}

@@ -19,7 +19,7 @@ import {
  * what several of these tests are actually about, so "whatever `latest` is
  * today" is not a safe thing to assert against.
  */
-const IMAGE = "nats:2.14-alpine";
+const IMAGE = "nats:2.15.0-alpine";
 const CONTAINER = "fluxify-e2e-nats";
 const TOKEN = "e2e-local-only";
 const READY_ATTEMPTS = 60;

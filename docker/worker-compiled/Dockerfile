@@ -26,7 +26,7 @@
 #                           immediately with a clear message if it is missing.
 #   MASTER_ENCRYPTION_KEY   must MATCH the admin service — project config is
 #                           delivered encrypted with it. Exits without it.
-#   NATS_URL                nats://host:4222 — JetStream MUST be on (`-js`)
+#   NATS_URL                nats://host:4222 — JetStream MUST be on (`-js`), NATS 2.14+
 #   REDIS_HOST              Redis/Valkey hostname
 #
 # OPTIONAL

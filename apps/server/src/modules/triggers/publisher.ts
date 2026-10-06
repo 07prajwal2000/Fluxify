@@ -1,7 +1,7 @@
 import { logger } from "@fluxify/common";
-import { publishToStream } from "@fluxify/common/nats";
+import { ensureStreamOnce, publishToStream } from "@fluxify/common/nats";
 import { natsConnection } from "../../db/nats";
-import { internalSubject, triggerSubject } from "./subjects";
+import { internalSubject, TRIGGERS_STREAM_SPEC, triggerSubject } from "./subjects";
 import type { InternalTriggerMessage } from "./types";
 
 /**
@@ -9,7 +9,15 @@ import type { InternalTriggerMessage } from "./types";
  *
  * Throws rather than logging: the caller asked for durable work, and a queue
  * that swallows failures is worse than one that refuses them.
+ *
+ * Creates the stream first: the admin can publish before any worker has (the
+ * kit's first boot has no worker at all), and the event then waits for one.
  */
+async function publish(subject: string, data: unknown, opts: { msgId?: string } = {}) {
+	const nc = natsConnection();
+	await ensureStreamOnce(nc, TRIGGERS_STREAM_SPEC);
+	await publishToStream(nc, subject, data, opts);
+}
 
 export type InternalTriggerInput = InternalTriggerMessage & {
 	projectId: string;
@@ -31,7 +39,7 @@ export async function fireInternalTrigger(input: InternalTriggerInput) {
 	const messageId = id ?? crypto.randomUUID();
 	const subject = internalSubject(projectId);
 
-	await publishToStream(natsConnection(), subject, message, { msgId: messageId });
+	await publish(subject, message, { msgId: messageId });
 	logger.debug(`[triggers] fired ${subject} -> ${message.workflowId}`, "TRIGGERS");
 	return { id: messageId };
 }
@@ -43,10 +51,5 @@ export async function publishTriggerEvent(
 	data: unknown,
 	messageId?: string,
 ) {
-	await publishToStream(
-		natsConnection(),
-		triggerSubject(projectId, triggerId),
-		data,
-		messageId ? { msgId: messageId } : {},
-	);
+	await publish(triggerSubject(projectId, triggerId), data, messageId ? { msgId: messageId } : {});
 }

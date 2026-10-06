@@ -590,8 +590,9 @@ This is deliberate: the alternative is both of them running the same background
 job.
 
 **Routes save fine but never reach the workers**
-NATS needs JetStream enabled (`-js`). The bundled compose file sets this; if you
-brought your own NATS, add the flag.
+NATS needs JetStream enabled (`-js`) and version 2.14 or newer. The bundled
+compose file does both; if you brought your own NATS, add the flag and check
+the version. On an older NATS, Fluxify exits at start saying it is too old.
 
 JetStream also backs two KV buckets, both created on demand — nothing to
 provision by hand, but they are what the `-js` flag is for:

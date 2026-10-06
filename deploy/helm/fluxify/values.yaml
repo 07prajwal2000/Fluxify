@@ -108,6 +108,11 @@ nats:
       authorization:
         token: << $NATS_TOKEN >>
   container:
+    # The one place the NATS version is chosen. The compose files, the kit
+    # image and the e2e suite copy it; deploymentVersions.spec.ts fails on drift.
+    # Fluxify refuses to start on anything older than 2.14.
+    image:
+      tag: 2.15.0-alpine
     env:
       NATS_TOKEN:
         valueFrom:

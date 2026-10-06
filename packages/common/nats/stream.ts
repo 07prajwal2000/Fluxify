@@ -114,6 +114,27 @@ export async function ensureStream(nc: NatsConnection, spec: StreamSpec): Promis
 	}
 }
 
+const ensured = new WeakMap<NatsConnection, Map<string, Promise<void>>>();
+
+/**
+ * `ensureStream`, once per connection and stream: for publishers, which must
+ * not pay two extra round trips per message. A failure is forgotten so the
+ * next publish tries again.
+ */
+export function ensureStreamOnce(nc: NatsConnection, spec: StreamSpec): Promise<void> {
+	const streams = ensured.get(nc) ?? new Map<string, Promise<void>>();
+	ensured.set(nc, streams);
+	let pending = streams.get(spec.name);
+	if (!pending) {
+		pending = ensureStream(nc, spec).catch((error) => {
+			streams.delete(spec.name);
+			throw error;
+		});
+		streams.set(spec.name, pending);
+	}
+	return pending;
+}
+
 /**
  * Creates the durable consumer, or updates its limits in place. Updating
  * matters: recreating would drop whatever is pending, so tuning `ack_wait`

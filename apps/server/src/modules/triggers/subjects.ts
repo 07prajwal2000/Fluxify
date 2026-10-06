@@ -1,3 +1,5 @@
+import type { StreamSpec } from "@fluxify/common/nats";
+
 /**
  * Naming for trigger traffic.
  *
@@ -18,6 +20,20 @@ export const TRIGGERS_STREAM = "FLUXIFY_TRIGGERS";
 const SUBJECT_ROOT = "fluxify.triggers";
 /** Everything the stream captures. */
 export const TRIGGERS_SUBJECTS = `${SUBJECT_ROOT}.>`;
+
+/**
+ * The stream's settings, shared by the worker that consumes it and the admin
+ * that publishes to it. Either may be first, so both create it: a publish to a
+ * stream nobody created fails with a misleading `JetStreamNotEnabled` (#587).
+ */
+export const TRIGGERS_STREAM_SPEC = {
+	name: TRIGGERS_STREAM,
+	subjects: [TRIGGERS_SUBJECTS],
+	// an event is work, not history: once acked it leaves the stream
+	retention: "workqueue",
+	maxAgeMs: 7 * 24 * 60 * 60_000,
+	duplicateWindowMs: 2 * 60_000,
+} satisfies StreamSpec;
 
 /**
  * The one subject the Trigger Workflow block and the portal's Run button

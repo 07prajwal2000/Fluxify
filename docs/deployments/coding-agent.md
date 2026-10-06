@@ -276,7 +276,7 @@ agent to stop and hand over at that point.
 | :--- | :--- | :--- |
 | The portal loads but sign-in fails | `SERVER_URL`, `BETTER_AUTH_URL` and `TRUSTED_ORIGINS` don't match the address in the browser (http vs https, a port, a trailing slash, an IP instead of the domain) | Set all three to the exact address, then restart the admin. On Helm, fix `url` and upgrade. |
 | The agent set `HOSTNAME` to the domain | `HOSTNAME` is the listen address, not the domain | Put it back to `0.0.0.0`. |
-| Fluxify exits at start, logs mention NATS | NATS is missing, not reachable, has no JetStream, or the token differs | Start NATS with `-js`, check `NATS_URL`, and make `NATS_TOKEN` match `--auth`. |
+| Fluxify exits at start, logs mention NATS | NATS is missing, not reachable, older than 2.14, has no JetStream, or the token differs | Start NATS with `-js`, check `NATS_URL`, and make `NATS_TOKEN` match `--auth`. |
 | Stored credentials fail to decrypt, or workers fail every request | `MASTER_ENCRYPTION_KEY` was regenerated, or differs between admin and workers | Restore the original key from the backup. A lost key can't be recovered: the credentials have to be entered again. |
 | Kit answers `502` on `/` | `WORKER_PROJECT_ID` is empty | Set it to a project id or `*` and restart. |
 | A claim stays pending | More workers than the edition or node pool allows, or a project claim without a subdomain | See [Workers per edition](./editions#workers) and [Which projects a worker serves](./production#projects). |

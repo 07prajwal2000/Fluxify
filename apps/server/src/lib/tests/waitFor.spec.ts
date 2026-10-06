@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { waitFor } from "../waitFor";
+import { FatalStartupError, waitFor } from "../waitFor";
 
 /** A connect function that fails `failures` times, then returns "up". */
 function flaky(failures: number) {
@@ -31,5 +31,15 @@ describe("waitFor", () => {
 			"Postgres is not reachable after 3 attempts: Error: connection refused",
 		);
 		expect(dep.calls()).toBe(3);
+	});
+
+	it("does not retry an error waiting cannot fix", async () => {
+		let calls = 0;
+		const connect = async () => {
+			calls++;
+			throw new FatalStartupError("NATS server 2.11.11 is too old");
+		};
+		await expect(waitFor("NATS", connect, 5, 0)).rejects.toThrow("2.11.11 is too old");
+		expect(calls).toBe(1);
 	});
 });

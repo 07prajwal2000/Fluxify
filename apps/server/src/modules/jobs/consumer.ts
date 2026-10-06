@@ -10,7 +10,7 @@ import { natsConnection } from "../../db/nats";
 import {
 	ALL_PROJECTS,
 	JOBS_STREAM,
-	JOBS_SUBJECTS,
+	JOBS_STREAM_SPEC,
 	jobConsumerName,
 	jobFilter,
 	jobKindsForMode,
@@ -66,7 +66,7 @@ const DEFAULTS = {
 	ackWaitMs: 5 * 60_000,
 	maxDeliver: 5,
 	retryDelayMs: 10_000,
-	maxAgeMs: 7 * 24 * 60 * 60_000,
+	maxAgeMs: JOBS_STREAM_SPEC.maxAgeMs,
 };
 
 export function createJobWorker(options: JobWorkerOptions): JobWorker {
@@ -88,15 +88,7 @@ export function createJobWorker(options: JobWorkerOptions): JobWorker {
 	function ensureJobsStream() {
 		stream ??= (async () => {
 			const nc = natsConnection();
-			await ensureStream(nc, {
-				name: JOBS_STREAM,
-				subjects: [JOBS_SUBJECTS],
-				// a job is work, not history: once acked it leaves the stream
-				retention: "workqueue",
-				maxAgeMs: config.maxAgeMs,
-				// publisher dedupe window for `msgID`
-				duplicateWindowMs: 2 * 60_000,
-			});
+			await ensureStream(nc, { ...JOBS_STREAM_SPEC, maxAgeMs: config.maxAgeMs });
 			await dropWildcardConsumers(nc, JOBS_STREAM);
 		})();
 		return stream;
