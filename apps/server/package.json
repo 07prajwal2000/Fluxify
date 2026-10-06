@@ -35,11 +35,13 @@
 	"description": "",
 	"devDependencies": {
 		"@types/bun": "^1.4.0",
+		"@types/dockerode": "^4.0.1",
 		"@types/flexsearch": "^0.7.42",
 		"@types/jsonwebtoken": "^9.0.10",
 		"@types/node": "^26.0.1",
 		"@types/pg": "^8.20.0",
 		"@typescript/native-preview": "^7.0.0-dev.20260626.1",
+		"dockerode": "^4.0.9",
 		"drizzle-kit": "^0.31.10",
 		"pg": "^8.22.0",
 		"typescript": "^6.0.3"
