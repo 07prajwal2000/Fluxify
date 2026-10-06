@@ -63,7 +63,9 @@ spec:
   entryPoints: [{{ .Values.ingressRoute.entryPoint }}]
   routes:
     - kind: Rule
-      match: PathPrefix(`/_/admin`)
+      # /.well-known/oauth-* is the OAuth discovery MCP clients need; other
+      # /.well-known paths stay with the workers (users' own routes).
+      match: PathPrefix(`/_/admin`) || PathPrefix(`/.well-known/oauth-`)
       # Above every worker's route: a project host is 50, the catch-all 1.
       priority: 100
       services:

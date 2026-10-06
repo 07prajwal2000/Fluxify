@@ -54,8 +54,9 @@ orchestrator:
     requests: { cpu: 100m, memory: 128Mi }
     limits: { cpu: 500m, memory: 512Mi }
 
-# A Traefik route sending /_/admin to admin. Workers get their own routes from
-# the orchestrator. Needs Traefik; turn it off to expose admin another way.
+# A Traefik route sending /_/admin and /.well-known/oauth-* to admin. Workers
+# get their own routes from the orchestrator. Needs Traefik; turn it off to
+# expose admin another way.
 ingressRoute:
   enabled: true
   entryPoint: web

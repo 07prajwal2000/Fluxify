@@ -219,6 +219,12 @@ them in the `fluxify-env` Secret.
 - [ ] Postgres, NATS, Valkey, the worker health port `5601`, and Traefik's
   dashboard (`8081` in the compose file) are **not** open to the internet.
 - [ ] HTTPS ends in front of Fluxify, and the public URL uses `https://`.
+- [ ] `/_/admin/*` and `/.well-known/oauth-*` both reach the admin. Other
+  `/.well-known/...` paths stay with the workers. The bundled Caddy, compose and
+  Helm files already do this; a proxy you add in front must not drop either.
+- [ ] For cloud MCP clients (claude.ai, ChatGPT): the instance is reachable from
+  the internet over `https://`. On any address other than `localhost`, MCP
+  sign-in only works over HTTPS.
 
 ### Workers
 
@@ -244,6 +250,9 @@ The agent runs these and reports each result. `<url>` is your public address.
 | Containers or pods are up | `docker ps` or `kubectl get pods -n <namespace>` | Every one `Up`/`healthy` or `Running` and ready, with a `fluxify-worker…` among them (Admin + Workers). |
 | Admin answers | `curl -s -o /dev/null -w '%{http_code}' <url>/_/admin/api/public-settings` | `200` |
 | A worker answers | `curl -s <url>/fluxify-agent-check` | `{"message":"Route not found"}`. That is the worker. A `502`, or Traefik's plain `404 page not found`, means no worker is serving. |
+| MCP server answers | `curl -i -X POST <url>/_/admin/mcp` | `401` with a `WWW-Authenticate` header. |
+| MCP sign-in is found | `curl <url>/.well-known/oauth-protected-resource/_/admin/mcp` | JSON whose `resource` is `<url>/_/admin/mcp`. |
+| MCP sign-in details | `curl <url>/.well-known/oauth-authorization-server/_/admin/api/auth` | JSON whose `issuer` is `<url>/_/admin/api/auth`. |
 | Portal loads | Open `<url>/_/admin/ui` | The sign-in page. |
 | Sign-in works | Sign in with the seed email and password | The dashboard. Do this yourself, or tell the agent where it may type the password. |
 | A route runs | Create a project and a `GET /hello` route that returns some JSON, then `curl <url>/hello` | Your JSON. |
@@ -279,6 +288,7 @@ agent to stop and hand over at that point.
 | Fluxify exits at start, logs mention NATS | NATS is missing, not reachable, older than 2.14, has no JetStream, or the token differs | Start NATS with `-js`, check `NATS_URL`, and make `NATS_TOKEN` match `--auth`. |
 | Stored credentials fail to decrypt, or workers fail every request | `MASTER_ENCRYPTION_KEY` was regenerated, or differs between admin and workers | Restore the original key from the backup. A lost key can't be recovered: the credentials have to be entered again. |
 | Kit answers `502` on `/` | `WORKER_PROJECT_ID` is empty | Set it to a project id or `*` and restart. |
+| `/.well-known/oauth-…` answers `{"message":"Route not found"}` | A proxy in front sends `/.well-known` to the workers | Send `/.well-known/oauth-*` to the admin, like `/_/admin`. See [Connecting AI clients](./production#mcp). |
 | A claim stays pending | More workers than the edition or node pool allows, or a project claim without a subdomain | See [Workers per edition](./editions#workers) and [Which projects a worker serves](./production#projects). |
 | Can't sign in with the seed user | The seed values were changed after the first start. They only apply to an empty database | Sign in with the first values, or reset the password. |
 | APIs are on plain HTTP while the portal is on HTTPS (Kubernetes) | The portal was moved to Traefik's `websecure`, but worker routes use `web` | Turn TLS on for `web`, or end TLS at a load balancer. See [Install on Kubernetes](./kubernetes/install#_2-install-traefik). |

@@ -125,12 +125,15 @@ routes ready to run over NATS, so they never need database access — see
 | `/_/admin/ui` | Web dashboard (visual editor) |
 | `/_/admin/api` | Admin REST API |
 | `/_/admin/api/openapi/ui` | API documentation |
+| `/_/admin/mcp` | MCP server for AI apps and coding agents |
+| `/.well-known/oauth-…` | Sign-in details for MCP clients |
 | `/` | Your published workflows and custom endpoints |
 
 > [!NOTE]
 > **Namespace isolation.** Everything under `/_/admin` is platform management and
-> the visual editor. The entire root path `/` is reserved for the endpoints you
-> build in Fluxify, so your APIs never collide with the admin surface.
+> the visual editor. The rest of the root path `/` is reserved for the endpoints
+> you build in Fluxify, so your APIs never collide with the admin surface. The
+> one exception is `/.well-known/oauth-…`, which MCP clients need for sign-in.
 
 ---
 
