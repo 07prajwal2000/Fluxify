@@ -340,7 +340,8 @@ a dashboard, see [Logs and monitoring](./observability).
 
 ## Upgrade
 
-After a new release, or after changing `fluxify-values.yaml`:
+After a new release, or after changing `fluxify-values.yaml`. Back up Postgres
+before a new release: the admin updates the database when it starts.
 
 ```bash
 helm upgrade fluxify oci://ghcr.io/fluxify-rest/charts/fluxify \

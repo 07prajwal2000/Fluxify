@@ -252,6 +252,26 @@ consistent four-file shape — `dto.ts` (Zod schemas), `repository.ts` (database
 `service.ts` (logic), `route.ts` (HTTP + OpenAPI). Copy an existing action
 rather than inventing a new layout.
 
+### Changing the database schema
+
+Each release ships versioned migrations, and the admin server applies the ones a
+database hasn't had yet, in order, when it starts.
+
+1. Edit the schema in `apps/server/src/db/` (`schema.ts`, `auth-schema.ts`,
+   `agent-harness-schema.ts`).
+2. Run `bun run db:generate`. It writes a numbered SQL file into
+   `apps/server/src/db/migrations` and updates `meta/`. Read the SQL.
+3. Commit the SQL file and `meta/` with your schema change. CI fails when the
+   schema changed without a migration.
+4. Run `bun run db:migrate`, or restart the server, to apply it locally.
+
+- Never edit a merged migration: installs have already applied it. Add a new one.
+- Don't `drizzle-kit push` to a database you keep. It changes tables without
+  recording a migration, so the next start fails when the migration repeats it.
+- All pending migrations run in one transaction, and Postgres refuses to use an
+  enum value in the transaction that added it. So a migration must not use (as a
+  default, or in data) an enum value that an earlier migration adds.
+
 ### Writing documentation
 
 `docs/` is **user-facing**, not a technical guide. Write for junior developers
@@ -311,7 +331,7 @@ hook runs Biome, the typecheck, analysis, and the unit tests.
 | `bun run analyze` | Static analysis & complexity scoring (`fta-cli`) |
 | `bun run test:*` | See [Testing](#testing) |
 | `bun run db:generate` | Generate a new Drizzle migration |
-| `bun run db:migrate` | Apply the schema to PostgreSQL |
+| `bun run db:migrate` | Apply pending migrations to PostgreSQL (the admin server also does this on start) |
 | `bun run docs:build` | Build the documentation site |
 | `bun run docs:preview` | Preview the built documentation site |
 
