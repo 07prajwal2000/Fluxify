@@ -13,6 +13,14 @@ export const aiGatewayEnvSchema = baseEnvSchema.extend({
 		})
 		.describe("Port number for AI Gateway service (1001-65535)"),
 
+	SERVER_PORT: z
+		.string()
+		.optional()
+		.refine(validatePortString, {
+			message: "SERVER_PORT must be an integer between 1001 and 65535",
+		})
+		.describe("Port of the admin API on this host; the MCP tools call it (default 5500)"),
+
 	LLM_TRACING_ENABLED: z
 		.enum(["true", "false"])
 		.optional()
@@ -89,4 +97,6 @@ export const REDIS_PASS = getEnv("REDIS_PASS")!;
  *  memory and expected AI workload — every slot holds a full graph run. */
 export const HARNESS_CONCURRENT_JOBS = Number(getEnv("HARNESS_CONCURRENT_JOBS")) || 10;
 export const AI_GATEWAY_PORT = Number(getEnv("AI_GATEWAY_PORT")) || 8001;
+/** The admin API the MCP tools call. It runs next to the gateway in every image. */
+export const ADMIN_API_URL = `http://127.0.0.1:${Number(getEnv("SERVER_PORT")) || 5500}`;
 export const DOCS_INDEX_FILE_PATH = getEnv("DOCS_INDEX_FILE_PATH")! || "../dist/docs-index.bin";

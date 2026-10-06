@@ -300,6 +300,7 @@
       "version": "1.0.0",
       "dependencies": {
         "@fluxify/adapters": "workspace:*",
+        "@fluxify/ai-gateway": "workspace:*",
         "@fluxify/blocks": "workspace:*",
         "@fluxify/common": "workspace:*",
         "@fluxify/lib": "workspace:*",

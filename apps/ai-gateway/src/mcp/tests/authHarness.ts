@@ -81,14 +81,17 @@ export async function startAuthServer() {
 	app.use("*", server.setSession);
 	authRouter.registerHandler(app);
 	mapVersionedAdminRoutes(app);
-	mapMcpServer(app);
+	// the MCP tools reach the admin API in-process, as the caller
+	mapMcpServer(app, (path, init) => app.request(`${ORIGIN}${path}`, init));
 	return { app, db, server };
 }
 
 export type AuthServer = Awaited<ReturnType<typeof startAuthServer>>;
 
 /** A pre-provisioned user, like an admin would create, with a role in `projectId`. */
-export async function createUser(s: AuthServer, role: "viewer" | "creator", projectId: string) {
+export async function createUser(s: AuthServer, role: "viewer" | "creator" | "project_admin",
+	projectId: string,
+) {
 	const email = `${crypto.randomUUID()}@test.local`;
 	const { createSystemUser } = await import("@fluxify/server/src/lib/system-users");
 	const su = await createSystemUser({ email, name: "Test" });
