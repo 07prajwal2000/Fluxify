@@ -7,15 +7,19 @@ import {
 import { useNavigate } from "@tanstack/react-router";
 import { useMemo } from "react";
 import {
+	TbActivity,
 	TbAdjustments,
+	TbApi,
 	TbBook,
 	TbBoxMultiple,
+	TbFilter,
 	TbGitFork,
 	TbHome,
 	TbKeyboard,
 	TbMoon,
 	TbPlayerPlay,
 	TbPlugConnected,
+	TbPlus,
 	TbPuzzle,
 	TbRoute,
 	TbSettings,
@@ -38,6 +42,8 @@ export type UseSpotlightCommandsOptions = {
 	onOpenPlayground?: () => void;
 	onOpenShortcuts?: () => void;
 	onClose: () => void;
+	/** Open create pages in this tab. The canvas leaves it off so its unsaved edits survive. */
+	inPlace?: boolean;
 };
 
 /** Leaves the canvas, and any unsaved edits on it, where they are. */
@@ -70,6 +76,7 @@ export function useSpotlightCommands({
 	onOpenPlayground,
 	onOpenShortcuts,
 	onClose,
+	inPlace = false,
 }: UseSpotlightCommandsOptions): SpotlightCommand[] {
 	const navigate = useNavigate();
 	const customDefs = useAddableCustomBlockDefs();
@@ -213,6 +220,46 @@ export function useSpotlightCommands({
 					to: "/$projectId/integrations",
 				},
 				{
+					id: "nav-middlewares",
+					title: "Go to: Middlewares",
+					subtitle: "Navigation",
+					keywords: ["goto", "nav", "middlewares", "auth", "before", "after"],
+					icon: <TbFilter size={15} />,
+					to: "/$projectId/middlewares",
+				},
+				{
+					id: "nav-executions",
+					title: "Go to: Executions",
+					subtitle: "Navigation",
+					keywords: ["goto", "nav", "executions", "runs", "history", "logs"],
+					icon: <TbActivity size={15} />,
+					to: "/$projectId/executions",
+				},
+				{
+					id: "nav-custom-blocks",
+					title: "Go to: Custom Blocks",
+					subtitle: "Navigation",
+					keywords: ["goto", "nav", "custom", "blocks"],
+					icon: <TbBoxMultiple size={15} />,
+					to: "/$projectId/custom-blocks",
+				},
+				{
+					id: "nav-openapi",
+					title: "Go to: OpenAPI",
+					subtitle: "Navigation",
+					keywords: ["goto", "nav", "openapi", "swagger", "spec", "docs"],
+					icon: <TbApi size={15} />,
+					to: "/$projectId/openapi",
+				},
+				{
+					id: "nav-ai",
+					title: "Go to: Fluxify AI",
+					subtitle: "Navigation",
+					keywords: ["goto", "nav", "ai", "assistant", "chat"],
+					icon: <TbSparkles size={15} />,
+					to: "/$projectId/ai",
+				},
+				{
 					id: "nav-settings",
 					title: "Go to: Project Settings",
 					subtitle: "Navigation",
@@ -245,6 +292,55 @@ export function useSpotlightCommands({
 				});
 			}
 
+			const open = (to: string, search?: Record<string, string>) => {
+				onClose();
+				if (inPlace) {
+					navigate({ to, params: { projectId }, search } as any);
+					return;
+				}
+				const query = search ? `?${new URLSearchParams(search)}` : "";
+				openInNewTab(`${to.replace("$projectId", projectId)}${query}`);
+			};
+
+			const createPages = [
+				{ id: "route", label: "Route", icon: <TbRoute size={15} />, to: "/$projectId/routes/new" },
+				{
+					id: "workflow",
+					label: "Workflow",
+					icon: <TbGitFork size={15} />,
+					to: "/$projectId/workflows/new",
+				},
+				{
+					id: "trigger",
+					label: "Trigger",
+					icon: <TbSparkles size={15} />,
+					to: "/$projectId/triggers/new",
+				},
+				{
+					id: "middleware",
+					label: "Middleware",
+					icon: <TbFilter size={15} />,
+					to: "/$projectId/middlewares/new",
+				},
+				{
+					id: "custom-block",
+					label: "Custom Block",
+					icon: <TbBoxMultiple size={15} />,
+					to: "/$projectId/custom-blocks/new",
+				},
+			];
+			for (const page of createPages) {
+				commands.push({
+					id: `nav-new-${page.id}`,
+					title: `Create ${page.label}`,
+					subtitle: "New",
+					category: "Navigation",
+					keywords: ["new", "create", "add", page.id, page.label],
+					icon: <TbPlus size={15} />,
+					onSelect: () => open(page.to),
+				});
+			}
+
 			commands.push({
 				id: "nav-new-integration",
 				title: "Create Integration",
@@ -252,10 +348,7 @@ export function useSpotlightCommands({
 				category: "Navigation",
 				keywords: ["new", "create", "add", "connect", "integration", "connector"],
 				icon: <TbPlugConnected size={15} />,
-				onSelect: () => {
-					onClose();
-					openInNewTab(`/${projectId}/integrations/new`);
-				},
+				onSelect: () => open("/$projectId/integrations/new"),
 			});
 
 			// One per connector; "Integrations" is left out of the default view,
@@ -271,12 +364,7 @@ export function useSpotlightCommands({
 						category: "Integrations",
 						keywords: ["new", "create", "connect", "integration", group, groupName],
 						icon: integrationIcons[variant] ?? <TbPlugConnected size={15} />,
-						onSelect: () => {
-							onClose();
-							openInNewTab(
-								`/${projectId}/integrations/new?${new URLSearchParams({ group, variant })}`,
-							);
-						},
+						onSelect: () => open("/$projectId/integrations/new", { group, variant }),
 					});
 				}
 			}
@@ -379,6 +467,7 @@ export function useSpotlightCommands({
 		onOpenPlayground,
 		onOpenShortcuts,
 		onClose,
+		inPlace,
 		customDefs,
 		projectId,
 		routes,

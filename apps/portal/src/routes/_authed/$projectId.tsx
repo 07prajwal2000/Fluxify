@@ -1,4 +1,4 @@
-import { cn, Dropdown, Tooltip, toast } from "@fluxify/components";
+import { cn, Dropdown, Kbd, Tooltip, toast } from "@fluxify/components";
 import {
 	createFileRoute,
 	isRedirect,
@@ -19,12 +19,15 @@ import {
 	TbFilter,
 	TbLogout,
 	TbRoute,
+	TbSearch,
 	TbSettings,
 	TbSparkles,
 	TbSquareKey,
 	TbStack2,
 	TbUser,
 } from "react-icons/tb";
+import { comboLabel } from "@/components/canvas/actions/combo";
+import { ProjectSpotlight } from "@/components/common/ProjectSpotlight";
 import { authClient } from "@/lib/auth";
 import { createRouteHead, formatProjectTitle, usePageTitle } from "@/lib/seo";
 import { projectsQuery } from "@/query/projectsQuery";
@@ -148,6 +151,7 @@ function ProjectLayout() {
 	// A group opens itself when one of its pages is on screen, and stays open
 	// after that unless the user closes it.
 	const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
+	const [spotlightOpen, setSpotlightOpen] = useState(false);
 
 	const initials = userData?.name
 		? userData.name
@@ -196,6 +200,17 @@ function ProjectLayout() {
 
 					{/* Navigation */}
 					<nav className="flex flex-col gap-1 px-2">
+						<NavButton
+							icon={TbSearch}
+							label="Search"
+							isActive={false}
+							onClick={() => setSpotlightOpen(true)}
+							trailing={
+								<Kbd className="ml-auto shrink-0 px-1.5 py-0.5 text-[10px]">
+									{comboLabel("mod+k")}
+								</Kbd>
+							}
+						/>
 						{NAV.map((item) => {
 							if (!("children" in item))
 								return (
@@ -306,6 +321,8 @@ function ProjectLayout() {
 					</Dropdown>
 				</div>
 			</aside>
+
+			<ProjectSpotlight isOpen={spotlightOpen} onOpenChange={setSpotlightOpen} onSignOut={logout} />
 
 			{/* Page Content */}
 			<main className="min-w-0 flex-1 overflow-y-auto bg-background p-6">

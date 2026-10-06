@@ -18,12 +18,12 @@ export const integrationsQuery = {
 		},
 	},
 	getBasicList: {
-		useQuery(projectId: string, useForHarness?: boolean) {
+		useQuery(projectId: string, useForHarness?: boolean, enabled = true) {
 			return useQuery({
 				queryKey: ["integrations", projectId, "basic-list", useForHarness],
 				queryFn: () => integrationService.getBasicList(projectId, useForHarness),
 				refetchOnWindowFocus: false,
-				enabled: !!projectId,
+				enabled: !!projectId && enabled,
 			});
 		},
 	},
