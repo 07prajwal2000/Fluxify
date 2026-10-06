@@ -10,8 +10,9 @@ import { migrateDB } from "./migration";
 let db: BunSQLDatabase = null!;
 
 export async function drizzleInit(migrate: boolean = false) {
-	const pg = await initializePostgres();
-	migrate && (await migrateDB(pg));
+	const pgUrl = await initializePostgres();
+	// Only the admin server migrates; workers never open Postgres.
+	if (migrate) await migrateDB(pgUrl);
 	return db;
 }
 
@@ -37,7 +38,7 @@ async function initializePostgres() {
 		throw new Error("db connection failed");
 	}
 
-	return client;
+	return pgUrl;
 }
 
 export { db };

@@ -1,1 +1,0 @@
-ALTER TABLE "custom_blocks_list" DROP COLUMN "test_only";

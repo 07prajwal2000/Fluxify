@@ -1,1 +1,0 @@
-ALTER TABLE "ai_chat_history" ADD COLUMN "user_query" text NOT NULL;

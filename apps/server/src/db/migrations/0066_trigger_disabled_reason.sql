@@ -1,1 +1,0 @@
-ALTER TABLE "triggers" ADD COLUMN "disabled_reason" text;

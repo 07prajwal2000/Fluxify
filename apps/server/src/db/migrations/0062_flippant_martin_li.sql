@@ -1,1 +1,0 @@
-ALTER TYPE "public"."instance_setting_category" ADD VALUE 'featureflags';

@@ -1,1 +1,0 @@
-ALTER TABLE "test_suites" ADD COLUMN "content_type" varchar(100);

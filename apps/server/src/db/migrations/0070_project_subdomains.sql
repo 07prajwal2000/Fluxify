@@ -1,2 +1,0 @@
-ALTER TYPE "public"."instance_setting_category" ADD VALUE 'hosting';--> statement-breakpoint
-CREATE UNIQUE INDEX "uq_project_settings_subdomain" ON "project_settings" USING btree ("value") WHERE "project_settings"."key" = 'settings.routing.subdomain' and "project_settings"."value" <> '';
