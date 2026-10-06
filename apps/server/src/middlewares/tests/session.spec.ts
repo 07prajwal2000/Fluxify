@@ -10,6 +10,7 @@ const ENV: Record<string, string> = { SERVER_URL: ORIGIN, BETTER_AUTH_URL: ORIGI
 const envSpy = spyOn(env, "getEnv").mockImplementation((key) => ENV[key as string]);
 authModule.initializeAuth({} as never);
 const api = authModule.auth.api;
+const realVerifyApiKey = api.verifyApiKey;
 const spies = [
 	envSpy,
 	spyOn(api, "getSession").mockResolvedValue(null as never),
@@ -133,5 +134,37 @@ describe("setSession bearer fallback", () => {
 		expect((await run(`Bearer ${token}`)).user).toBeNull();
 		findTokenUser.mockResolvedValueOnce({ ...USER, banned: true });
 		expect((await run(`Bearer ${token}`)).user).toBeNull();
+	});
+});
+
+describe("bad API keys stay out of the error log", () => {
+	// The real plugin endpoint, with only the key lookup stubbed.
+	async function runRealVerify(findOne: () => Promise<unknown>) {
+		const { adapter } = await authModule.auth.$context;
+		const lookup = spyOn(adapter, "findOne").mockImplementation(findOne as never);
+		const logError = spyOn(console, "error").mockImplementation(() => {});
+		verifyApiKey.mockImplementation(realVerifyApiKey);
+		try {
+			const vars = await run("Bearer flx_not_a_real_key");
+			return { user: vars.user, errors: logError.mock.calls };
+		} finally {
+			lookup.mockRestore();
+			logError.mockRestore();
+		}
+	}
+
+	it("an invalid key logs no error and gives no user", async () => {
+		const { user, errors } = await runRealVerify(async () => null);
+		expect(user).toBeNull();
+		expect(errors).toEqual([]);
+	});
+
+	it("a database failure still logs as an error", async () => {
+		const { user, errors } = await runRealVerify(async () => {
+			throw new Error("database down");
+		});
+		expect(user).toBeNull();
+		expect(errors.length).toBe(1);
+		expect(String(errors[0][0])).toContain("Failed to validate API key");
 	});
 });

@@ -3,7 +3,7 @@ import { oauthProvider } from "@better-auth/oauth-provider";
 import { generateID } from "@fluxify/lib";
 import { betterAuth } from "better-auth";
 import { type DB, drizzleAdapter } from "better-auth/adapters/drizzle";
-import { APIError } from "better-auth/api";
+import { APIError, isAPIError } from "better-auth/api";
 import { admin, customSession, jwt } from "better-auth/plugins";
 import { eq } from "drizzle-orm";
 import * as authSchemas from "../db/auth-schema";
@@ -33,6 +33,18 @@ export function mcpResourceMetadataUrl() {
 	return `${getEnv("SERVER_URL")}/.well-known/oauth-protected-resource/_/admin/mcp`;
 }
 
+/**
+ * Better Auth's default output, minus one line: the api-key plugin logs every
+ * bad, expired or revoked key as an ERROR, so anyone sending junk Bearer keys
+ * could flood the logs. That outcome is an APIError (a plain 401); anything
+ * else, like the database being down, still logs.
+ */
+function logAuth(level: "debug" | "info" | "warn" | "error", message: string, ...args: unknown[]) {
+	if (message.startsWith("Failed to validate API key") && isAPIError(args[0])) return;
+	const write = level === "error" ? console.error : level === "warn" ? console.warn : console.log;
+	write(`${new Date().toISOString()} ${level.toUpperCase()} [Better Auth]: ${message}`, ...args);
+}
+
 function trustedOrigins() {
 	const origins = getEnv("TRUSTED_ORIGINS")
 		?.split(",")
@@ -58,6 +70,7 @@ export function initializeAuth(db: DB) {
 		onAPIError: {
 			errorURL: `${getEnv("SERVER_URL")!}/_/admin/ui/login`,
 		},
+		logger: { log: logAuth },
 		// OAuth tokens point at the session that granted them, so sessions must
 		// be in the database as well as Redis (oauth-provider refuses to start
 		// otherwise).
