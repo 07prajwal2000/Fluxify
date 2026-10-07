@@ -12,6 +12,7 @@ import {
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { FiCopy, FiPlus, FiXCircle } from "react-icons/fi";
+import { DOCS_SITE } from "@/components/canvas/panel/docs/blockDocs";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { showErrorNotification } from "@/lib/errorNotifier";
 import { httpClient } from "@/lib/http";
@@ -323,7 +324,16 @@ export function ConnectAgent() {
 		<div className="flex flex-col gap-3">
 			<p className="text-sm text-muted">
 				OAuth sign-in happens automatically on first connect. Clients without OAuth can send
-				Authorization: Bearer &lt;access token&gt;.
+				Authorization: Bearer &lt;access token&gt;.{" "}
+				<a
+					href={`${DOCS_SITE}/getting-started/ai-agents`}
+					target="_blank"
+					rel="noopener noreferrer"
+					aria-label="Learn more about connecting AI agents"
+					className="underline underline-offset-2 hover:text-foreground"
+				>
+					Learn more
+				</a>
 			</p>
 			<Tabs defaultSelectedKey="claude" className="flex flex-col gap-3">
 				<Tabs.List aria-label="AI client">
