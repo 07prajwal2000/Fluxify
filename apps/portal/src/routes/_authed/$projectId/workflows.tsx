@@ -11,10 +11,10 @@ import {
 } from "@fluxify/components";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
-import { TbEdit, TbPlayerPlay, TbPlus, TbRoute } from "react-icons/tb";
+import { TbEdit, TbPlus, TbRoute } from "react-icons/tb";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { EmptyState } from "@/components/common/EmptyState";
-import { WorkflowRunModal } from "@/components/workflows/WorkflowRunModal";
+import { WorkflowRunButton, WorkflowRunModal } from "@/components/workflows/WorkflowRunModal";
 import { showErrorNotification } from "@/lib/errorNotifier";
 import { createRouteHead, formatProjectTitle, usePageTitle } from "@/lib/seo";
 import { projectsQuery } from "@/query/projectsQuery";
@@ -157,15 +157,11 @@ function WorkflowsPage() {
 											>
 												<TbEdit size={16} />
 											</Button>
-											<Button
-												variant="outline"
-												// an inactive workflow has no artifact on a worker, so a
-												// run would sit on the queue with nothing to answer it
-												isDisabled={!workflow.active}
+											<WorkflowRunButton
+												projectId={projectId}
+												active={!!workflow.active}
 												onPress={() => setPendingRun(workflow)}
-											>
-												<TbPlayerPlay size={16} /> Run
-											</Button>
+											/>
 											<DeleteIconButton
 												aria-label="Delete workflow"
 												onPress={() => setPendingDelete(workflow)}

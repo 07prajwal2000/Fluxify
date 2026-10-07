@@ -1,7 +1,9 @@
-import { Button, Card } from "@fluxify/components";
+import { Button, Chip } from "@fluxify/components";
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, redirect } from "@tanstack/react-router";
+import { isAxiosError } from "axios";
 import { useState } from "react";
+import { AuthCard, FluxifyBrand } from "@/components/common/AuthCard";
 import { BASE_PATH } from "@/constants/routes";
 import { authClient } from "@/lib/auth";
 import { showErrorNotification } from "@/lib/errorNotifier";
@@ -17,6 +19,25 @@ type PublicClient = {
 	icon?: string;
 };
 
+/** What each scope lets the app do, in plain words. Unknown scopes show as-is. */
+export const SCOPE_LABELS: Record<string, string> = {
+	openid: "Know who you are",
+	profile: "See your name",
+	email: "See your email",
+	offline_access: "Stay signed in",
+};
+
+/** The plugin signs the query with a short `exp` (unix seconds); past it, Allow and Deny 400. */
+export function isExpired(query: string, now = Date.now()) {
+	const exp = Number(new URLSearchParams(query).get("exp") || Number.NaN);
+	return !Number.isFinite(exp) || exp * 1000 <= now;
+}
+
+const isInvalidSignature = (error: unknown) =>
+	isAxiosError(error) &&
+	error.response?.status === 400 &&
+	error.response.data?.error === "invalid_signature";
+
 export const Route = createFileRoute("/oauth/consent")({
 	head: createRouteHead("Authorize app", "Allow an app to access your Fluxify workspace."),
 	beforeLoad: async () => {
@@ -29,12 +50,12 @@ export const Route = createFileRoute("/oauth/consent")({
 	component: ConsentPage,
 });
 
-export function ConsentPage() {
-	const query = initialQuery;
+export function ConsentPage({ query = initialQuery }: { query?: string }) {
 	const params = new URLSearchParams(query);
 	const clientId = params.get("client_id") ?? "";
 	const scopes = (params.get("scope") ?? "").split(" ").filter(Boolean);
 	const [pending, setPending] = useState<boolean | null>(null);
+	const [expired, setExpired] = useState(() => isExpired(query));
 	const { data: client, isError } = useQuery({
 		queryKey: ["oauth-public-client", clientId],
 		queryFn: async () =>
@@ -48,6 +69,8 @@ export function ConsentPage() {
 	const icon = client?.logo_uri ?? client?.icon;
 
 	async function decide(accept: boolean) {
+		// the tab may have sat open past `exp`
+		if (isExpired(query)) return setExpired(true);
 		setPending(accept);
 		try {
 			const { data } = await httpClient.post<{ redirect: boolean; url: string }>(
@@ -56,61 +79,82 @@ export function ConsentPage() {
 			);
 			window.location.href = data.url;
 		} catch (error) {
-			showErrorNotification(error as Error, false);
+			// e.g. clock skew: the server says expired before we did
+			if (isInvalidSignature(error)) setExpired(true);
+			else showErrorNotification(error as Error, false);
 			setPending(null);
 		}
 	}
 
-	return (
-		<div className="flex min-h-screen w-screen items-center justify-center bg-background p-4 text-foreground">
-			<Card className="w-full max-w-105 border border-border p-8 shadow-2xl shadow-black/50">
-				<div className="flex flex-col gap-6">
-					<div className="flex flex-col items-center gap-2 text-center">
-						{icon ? (
-							<img src={icon} alt="" className="h-16 w-16 rounded-md object-contain" />
-						) : null}
-						<h1 className="text-xl font-semibold tracking-tight">
-							{client?.client_name ?? client?.name ?? "An app"} wants access
-						</h1>
-						{client?.client_uri ? <p className="text-sm text-muted">{client.client_uri}</p> : null}
-					</div>
-					{!clientId || isError ? (
-						<p role="alert" className="text-center text-sm text-danger">
-							Invalid authorization request
-						</p>
-					) : null}
-					{scopes.length ? (
-						<div className="flex flex-col gap-2">
-							<p className="text-sm text-muted">It will be able to:</p>
-							<ul className="list-inside list-disc text-sm">
-								{scopes.map((s) => (
-									<li key={s}>{s}</li>
-								))}
-							</ul>
-						</div>
-					) : null}
-					<div className="flex gap-3">
-						<Button
-							variant="outline"
-							fullWidth
-							isDisabled={pending !== null}
-							isPending={pending === false}
-							onPress={() => decide(false)}
-						>
-							Deny
-						</Button>
-						<Button
-							variant="primary"
-							fullWidth
-							isDisabled={pending !== null}
-							isPending={pending === true}
-							onPress={() => decide(true)}
-						>
-							Allow
-						</Button>
-					</div>
+	const name = client?.client_name ?? client?.name ?? "An app";
+
+	if (expired) {
+		return (
+			<AuthCard>
+				<div className="flex flex-col items-center gap-2 text-center">
+					<FluxifyBrand />
+					<h1 className="text-xl font-semibold tracking-tight text-foreground">
+						This request has expired
+					</h1>
+					<p className="text-sm text-muted">Start the connection again from your AI app.</p>
 				</div>
-			</Card>
-		</div>
+			</AuthCard>
+		);
+	}
+
+	return (
+		<AuthCard>
+			<div className="flex flex-col gap-8">
+				<div className="flex flex-col items-center gap-2 text-center">
+					<FluxifyBrand />
+					{icon ? <img src={icon} alt="" className="h-12 w-12 rounded-md object-contain" /> : null}
+					<h1 className="text-xl font-semibold tracking-tight text-foreground">
+						{name} wants to access your Fluxify account
+					</h1>
+					{client?.client_uri ? <p className="text-sm text-muted">{client.client_uri}</p> : null}
+				</div>
+				{!clientId || isError ? (
+					<p role="alert" className="text-center text-sm text-danger">
+						Invalid authorization request
+					</p>
+				) : null}
+				{scopes.length ? (
+					<div className="flex flex-col gap-3">
+						<p className="text-sm text-muted">It will be able to:</p>
+						<div className="flex flex-wrap gap-2">
+							{scopes.map((s) => (
+								<Chip key={s} size="sm">
+									{SCOPE_LABELS[s] ?? s}
+								</Chip>
+							))}
+						</div>
+						<p className="text-xs text-muted">
+							It can only do what you can do in your projects. Revoke it anytime under Account →
+							Connected apps.
+						</p>
+					</div>
+				) : null}
+				<div className="flex flex-col gap-3">
+					<Button
+						variant="primary"
+						fullWidth
+						isDisabled={pending !== null}
+						isPending={pending === true}
+						onPress={() => decide(true)}
+					>
+						Allow
+					</Button>
+					<Button
+						variant="outline"
+						fullWidth
+						isDisabled={pending !== null}
+						isPending={pending === false}
+						onPress={() => decide(false)}
+					>
+						Deny
+					</Button>
+				</div>
+			</div>
+		</AuthCard>
 	);
 }

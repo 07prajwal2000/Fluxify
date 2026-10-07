@@ -3,6 +3,7 @@ import { useState } from "react";
 import { TbInfoCircle, TbPlayerPlay } from "react-icons/tb";
 import { showErrorNotification } from "@/lib/errorNotifier";
 import { workflowsQuery } from "@/query/workflowsQuery";
+import { useCanEditProject } from "@/store/auth";
 
 const EXAMPLE = `{
   "customerId": "cus_1024",
@@ -26,6 +27,27 @@ export function parsePayload(input: string): unknown {
 	} catch {
 		return text;
 	}
+}
+
+/**
+ * Off for viewers (the server refuses their runs) and for an inactive workflow,
+ * which has no artifact on a worker, so a run would sit on the queue unanswered.
+ */
+export function WorkflowRunButton({
+	projectId,
+	active,
+	onPress,
+}: {
+	projectId: string;
+	active: boolean;
+	onPress: () => void;
+}) {
+	const canRun = useCanEditProject(projectId);
+	return (
+		<Button variant="outline" isDisabled={!active || !canRun} onPress={onPress}>
+			<TbPlayerPlay size={16} /> Run
+		</Button>
+	);
 }
 
 export function WorkflowRunModal({

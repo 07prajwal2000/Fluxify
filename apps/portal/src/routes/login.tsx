@@ -1,16 +1,8 @@
-import {
-	Button,
-	Card,
-	FieldError,
-	Input,
-	Label,
-	Separator,
-	TextField,
-	toast,
-} from "@fluxify/components";
+import { Button, FieldError, Input, Label, Separator, TextField, toast } from "@fluxify/components";
 import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { z } from "zod";
+import { AuthCard, FluxifyBrand } from "@/components/common/AuthCard";
 import { BASE_PATH } from "@/constants/routes";
 import { usePublicSettings } from "@/hooks/usePublicSettings";
 import { authClient } from "@/lib/auth";
@@ -18,7 +10,6 @@ import { parseApiError, showErrorNotification } from "@/lib/errorNotifier";
 import { initialQuery } from "@/lib/oauthQuery";
 import { createRouteHead } from "@/lib/seo";
 
-const logo = `${import.meta.env.BASE_URL}icons/logo.svg`;
 const SSO_ERROR_MESSAGES: Record<string, string> = {
 	ACCOUNT_NOT_PRE_PROVISIONED: "Cannot find user. Contact an administrator.",
 	"signup disabled": "Cannot find user. Contact an administrator.",
@@ -46,11 +37,9 @@ export const Route = createFileRoute("/login")({
 
 function LoginPage() {
 	return (
-		<div className="flex min-h-screen w-screen items-center justify-center bg-background p-4 text-foreground">
-			<Card className="w-full max-w-105 border border-border p-8 shadow-2xl shadow-black/50">
-				<LoginForm />
-			</Card>
-		</div>
+		<AuthCard>
+			<LoginForm />
+		</AuthCard>
 	);
 }
 
@@ -139,10 +128,7 @@ function LoginForm() {
 	return (
 		<div className="flex flex-col gap-8">
 			<div className="flex flex-col items-center gap-1 text-center mb-2">
-				<div className="flex items-center justify-center gap-3 mb-2">
-					<img src={logo} alt="Fluxify Logo" className="h-20 w-20 object-contain" />
-					<span className="text-2xl font-bold tracking-widest text-foreground">FLUXIFY</span>
-				</div>
+				<FluxifyBrand />
 				<h1 className="text-xl font-semibold tracking-tight text-foreground">Welcome back</h1>
 				<p className="text-sm text-muted">Sign in to your account to continue</p>
 			</div>

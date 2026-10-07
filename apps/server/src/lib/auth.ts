@@ -3,11 +3,11 @@ import { oauthProvider } from "@better-auth/oauth-provider";
 import { generateID } from "@fluxify/lib";
 import { betterAuth } from "better-auth";
 import { type DB, drizzleAdapter } from "better-auth/adapters/drizzle";
-import { APIError, isAPIError } from "better-auth/api";
+import { APIError, createAuthMiddleware, getSessionFromCtx, isAPIError } from "better-auth/api";
 import { admin, customSession, jwt } from "better-auth/plugins";
-import { eq } from "drizzle-orm";
+import { and, eq, notExists } from "drizzle-orm";
 import * as authSchemas from "../db/auth-schema";
-import { account, systemUsers } from "../db/auth-schema";
+import { account, oauthConsent, oauthRefreshToken, systemUsers } from "../db/auth-schema";
 import { deleteCacheKey, getCache, setCache, setCacheEx } from "../db/redis";
 import { accessControlEntity } from "../db/schema";
 import { ssoOrigins, ssoPlugin } from "./auth.sso.ee";
@@ -116,6 +116,16 @@ export function initializeAuth(db: DB) {
 				},
 			},
 		},
+		hooks: {
+			// Revoking a connected app deletes only its consent, and the plugin
+			// leaves that app's refresh tokens alive. Drop every refresh token the
+			// user no longer consents to; their access tokens cascade with them.
+			after: createAuthMiddleware(async (ctx) => {
+				if (ctx.path !== "/oauth2/delete-consent" || isAPIError(ctx.context.returned)) return;
+				const session = await getSessionFromCtx(ctx);
+				if (session) await deleteUnconsentedRefreshTokens(db, session.user.id);
+			}),
+		},
 		advanced: {
 			database: {
 				generateId: generateID,
@@ -179,6 +189,9 @@ export function initializeAuth(db: DB) {
 				validAudiences: [mcpResourceUrl()],
 				// No client_credentials: every token must belong to a user.
 				grantTypes: ["authorization_code", "refresh_token"],
+				// The plugin's default, pinned: each refresh rotates the token and
+				// revokes the old one, and reusing an old one kills the whole chain.
+				refreshTokenExpiresIn: 60 * 60 * 24 * 30,
 				// The well-known documents are served at the host root (oauthRoutes.ts).
 				silenceWarnings: { oauthAuthServerConfig: true, openidConfig: true },
 			}),
@@ -197,6 +210,25 @@ export function initializeAuth(db: DB) {
 	});
 	auth = _auth;
 	return _auth;
+}
+
+async function deleteUnconsentedRefreshTokens(db: DB, userId: string) {
+	await db.delete(oauthRefreshToken).where(
+		and(
+			eq(oauthRefreshToken.userId, userId),
+			notExists(
+				db
+					.select({ id: oauthConsent.id })
+					.from(oauthConsent)
+					.where(
+						and(
+							eq(oauthConsent.userId, oauthRefreshToken.userId),
+							eq(oauthConsent.clientId, oauthRefreshToken.clientId),
+						),
+					),
+			),
+		),
+	);
 }
 
 export async function getUserAccessControls(db: DB, userId: string, isSystemAdmin: boolean) {

@@ -79,6 +79,17 @@ function exchange(clientId: string, code: string, verifier: string) {
 	});
 }
 
+function refresh(clientId: string, refreshToken: string) {
+	return req(s, `${AUTH}/oauth2/token`, {
+		form: {
+			grant_type: "refresh_token",
+			client_id: clientId,
+			refresh_token: refreshToken,
+			resource: MCP_RESOURCE,
+		},
+	});
+}
+
 /** A viewer connects a fresh client and gets an access token. */
 async function connect(email: string) {
 	const cookie = await signIn(s, email);
@@ -243,6 +254,20 @@ describe("MCP OAuth", () => {
 		const del = await req(s, `${AUTH}/oauth2/delete-consent`, { cookie, json: { id: consent.id } });
 		expect(del.status).toBe(200);
 		expect(await mcpStatus(token.access_token)).toBe(401);
+		expect((await refresh(clientId, token.refresh_token)).status).toBe(400);
+	});
+
+	it("a refresh rotates the token, and reusing the old one kills the chain", async () => {
+		const viewer = await createUser(s, "viewer", projectId);
+		const { clientId, token } = await connect(viewer.email);
+		const res = await refresh(clientId, token.refresh_token);
+		expect(res.status).toBe(200);
+		const next = (await res.json()) as { access_token: string; refresh_token: string };
+		expect(next.refresh_token).not.toBe(token.refresh_token);
+		expect(await mcpStatus(next.access_token)).not.toBe(401);
+
+		expect((await refresh(clientId, token.refresh_token)).status).toBe(400);
+		expect((await refresh(clientId, next.refresh_token)).status).toBe(400);
 	});
 
 	it("an expired, wrong-audience or forged token gets 401", async () => {
