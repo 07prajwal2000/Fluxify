@@ -14,6 +14,8 @@ import { SQL } from "bun";
 import type Docker from "dockerode";
 import { drizzle } from "drizzle-orm/bun-sql";
 import { migrateDB } from "../../../db/migration";
+import { traceCompleter } from "../../requestRouter/traceLifecycle";
+import { RouteTraceRecorder } from "../../telemetry/routeRecorder";
 
 const PG = { image: "postgres:16-alpine", name: "fluxify-recordings-pg-test" };
 const NATS = { image: "nats:2.14", name: "fluxify-recordings-nats-test" };
@@ -168,6 +170,20 @@ describe("recordings consumer", () => {
 		expect(spans[1].parent_seq).toBe(0);
 		expect(spans[1].error).toBe("Error: boom");
 		expect(spans[1].outcome).toBe("failure");
+	});
+
+	it("stores a route that answered with a string status as a number (#625)", async () => {
+		const route = { projectId: "p1", routeId: "r-on", routeVersion: "v1", method: "GET", path: "/x" };
+		let runId = "";
+		const recorder = new RouteTraceRecorder(route, (run) => {
+			runId = run.runId;
+			void stream.publishRecording(run);
+		});
+		// a response block configured with httpCode "200" hands the string through
+		traceCompleter(recorder)("success", "200" as unknown as number);
+		await until(async () => Boolean(runId && (await runRow(runId))));
+
+		expect((await runRow(runId)).status_code).toBe(200);
 	});
 
 	it("stores a workflow run", async () => {

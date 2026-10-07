@@ -62,8 +62,10 @@ export function traceCompleter(trace?: RouteTrace) {
 	return (outcome: "success" | "failure", statusCode?: number) => {
 		if (complete) return;
 		complete = true;
+		// typed number, but a response block can hand over its configured "200" (#625)
+		const status = Number(statusCode);
 		try {
-			trace?.complete(outcome, statusCode);
+			trace?.complete(outcome, Number.isInteger(status) ? status : undefined);
 		} catch {
 			// A failed IPC hand-off is telemetry loss, never a failed route.
 		}
