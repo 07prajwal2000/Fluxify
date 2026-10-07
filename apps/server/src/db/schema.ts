@@ -1,4 +1,5 @@
 import { NODE_REASONS, NODE_STATES, NODE_TYPES } from "@fluxify/common/orchestrator";
+import type { TraceSpanRecord } from "@fluxify/common/otlp";
 import { generateID } from "@fluxify/lib";
 import { relations, sql } from "drizzle-orm";
 import type { AnyPgColumn } from "drizzle-orm/pg-core";
@@ -1208,6 +1209,100 @@ export const systemLogsEntity = pgTable(
 		uniqueIndex("uq_system_logs_resource").on(table.type, table.resourceId, table.resourceType),
 		index("idx_system_logs_project_id").on(table.projectId, table.updatedAt),
 	],
+);
+
+/* ============================================================================
+ * 9. EXECUTION RECORDINGS (#254)
+ * ============================================================================ */
+
+/** how a recorded run or block ended; also a condition block's chosen branch */
+export const traceOutcomeEnum = pgEnum("trace_outcome", ["success", "failure"]);
+
+/**
+ * One recorded run of a route or workflow with `recordExecution` on. Written by
+ * the admin's recordings consumer, never by a worker. Deleted after
+ * `RECORDING_MAX_AGE_DAYS` by the daily retention job; its spans go with it.
+ *
+ * `routeVersion` is the compile timestamp until route versioning lands.
+ * `parentRunId` links a run forked by an async custom block back to the span
+ * that started it — no foreign key, the parent may be gone or not yet written.
+ */
+export const traceRunsEntity = pgTable(
+	"trace_runs",
+	{
+		/** the recorder's run id, so a redelivered run lands on the same row */
+		id: uuid().primaryKey(),
+		projectId: varchar("project_id", { length: 50 })
+			.notNull()
+			.references(() => projectsEntity.id, { onDelete: "cascade" }),
+		routeId: varchar("route_id", { length: 50 }).references(() => routesEntity.id, {
+			onDelete: "cascade",
+		}),
+		workflowId: varchar("workflow_id", { length: 50 }).references(() => workflowsEntity.id, {
+			onDelete: "cascade",
+		}),
+		routeVersion: varchar("route_version", { length: 50 }),
+		workflowVersion: varchar("workflow_version", { length: 50 }),
+		startedAt: timestamp("started_at", { withTimezone: true }).notNull(),
+		/** null means the run never finished */
+		endedAt: timestamp("ended_at", { withTimezone: true }),
+		outcome: traceOutcomeEnum("outcome").notNull(),
+		statusCode: integer("status_code"),
+		/** a value or the run was cut to fit the recorder's caps */
+		truncated: boolean().default(false).notNull(),
+		/** spans the recorder refused once full; non-zero means the run is incomplete */
+		droppedSpans: integer("dropped_spans").default(0).notNull(),
+		parentRunId: uuid("parent_run_id"),
+		parentSeq: integer("parent_seq"),
+		spanCount: integer("span_count").notNull(),
+	},
+	(table) => [
+		index("idx_trace_runs_project_route").on(
+			table.projectId,
+			table.routeId,
+			table.startedAt.desc(),
+		),
+		index("idx_trace_runs_project_workflow").on(
+			table.projectId,
+			table.workflowId,
+			table.startedAt.desc(),
+		),
+		// retention deletes by age in batches; without this every batch is a full scan
+		index("idx_trace_runs_started_at").on(table.startedAt),
+		check("trace_runs_one_target", oneTarget(table)),
+	],
+);
+
+/**
+ * One block execution inside a recorded run. `(run_id, seq)` is the key and the
+ * redelivery dedupe at once. `blockId` belongs to the route's or workflow's
+ * canvas, or to the custom block named by `customBlockId` when it ran inside one.
+ */
+export const traceSpansEntity = pgTable(
+	"trace_spans",
+	{
+		runId: uuid("run_id")
+			.notNull()
+			.references(() => traceRunsEntity.id, { onDelete: "cascade" }),
+		seq: integer().notNull(),
+		parentSeq: integer("parent_seq"),
+		blockId: text("block_id").notNull(),
+		blockType: text("block_type").notNull(),
+		blockName: text("block_name"),
+		/** no foreign key: a recording outlives an edit or delete of the block */
+		customBlockId: varchar("custom_block_id", { length: 50 }),
+		/** set on a middleware's own span (#579) */
+		middleware: jsonb().$type<TraceSpanRecord["middleware"]>(),
+		startedAt: timestamp("started_at", { withTimezone: true }).notNull(),
+		endedAt: timestamp("ended_at", { withTimezone: true }).notNull(),
+		outcome: traceOutcomeEnum("outcome").notNull(),
+		branch: traceOutcomeEnum("branch"),
+		error: text(),
+		input: jsonb(),
+		output: jsonb(),
+		truncated: boolean().default(false).notNull(),
+	},
+	(table) => [primaryKey({ columns: [table.runId, table.seq] })],
 );
 
 export * from "./agent-harness-schema";

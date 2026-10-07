@@ -179,6 +179,7 @@ Tell the agent to check each point, or check them yourself after it is done.
 | `SYSTEM_ACCESS_KEY` | No | For scripts that call the admin API. 8+ characters. |
 | `LICENSE_KEY` | No | On the admin (or Kit) only, never on workers. Unset lets you pick the edition in the portal. |
 | `ENABLE_AI` | No | `true` turns on the AI assistant. |
+| `RECORDING_MAX_AGE_DAYS` | No | Days a recorded run (Execution history) is kept before it is deleted. Default `30`. Read by the admin (or Kit) only. |
 | `HOSTNAME` | No | The address processes listen on inside the container. Leave `0.0.0.0`. It is **not** your domain. |
 
 On Helm, the chart generates every key and password you leave empty and keeps

@@ -278,6 +278,34 @@ be waiting at once, times the size of the data each one carries.
 
 ---
 
+## Execution history retention {#recording-retention}
+
+A route or workflow with **Execution history** turned on saves every run: each
+block's input, output, timing and whether it succeeded. Saved runs are deleted
+once they are older than **30 days**. The cleanup runs once a day.
+
+```env
+# Days a recorded run is kept before it is deleted (default 30).
+RECORDING_MAX_AGE_DAYS=30
+```
+
+Set it on the admin service, in the same `.env` it reads (see [Step 1](#env)).
+Workers don't read it. Leaving it unset gives you the default.
+
+::: warning Saved runs are not masked
+Execution history is a debugging tool. Request bodies, values read from app
+config (secrets too) and responses from other services are saved exactly as the
+run saw them. Anyone who can open the run history can read them. Turn it
+on while you debug, then off again.
+:::
+
+A worker hands each saved run to the admin through NATS. While the admin is
+down, NATS keeps the waiting runs for up to a day and up to 512 MB; past that,
+the oldest are dropped. Size your NATS storage with that in mind if many routes
+record at once.
+
+---
+
 ## Local async executor
 
 Compiled workers include a bounded local executor for the future async-trigger

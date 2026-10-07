@@ -125,6 +125,10 @@ async function main() {
 		// than one that refuses to boot.
 		const { publishSystemTicks } = await import("./modules/schedules/system");
 		await publishSystemTicks();
+		// Execution recordings (#254) land in Postgres here, and only here:
+		// workers publish them and never open the database. Also not caught.
+		const { startRecordingConsumer } = await import("./modules/recordings/consumer");
+		await startRecordingConsumer();
 	}
 
 	if (builtinWorkerEnabled) {
