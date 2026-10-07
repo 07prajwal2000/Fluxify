@@ -26,6 +26,8 @@ export type CanvasSavePayload = {
 };
 
 export type CanvasItems = {
+	/** +1 on every save (#597) */
+	canvasVersion: number;
 	blocks: { id: string; type: string; data: unknown; position: { x: number; y: number } }[];
 	edges: { id: string; from: string; to: string; fromHandle: string; toHandle: string }[];
 };
@@ -35,6 +37,11 @@ export function canvasEndpoints(baseUrl: string) {
 		async getCanvasItems(id: string): Promise<CanvasItems> {
 			const result = await httpClient.get(`${baseUrl}/${id}/canvas-items`);
 			return result.data;
+		},
+		/** cheap check for a canvas changed elsewhere (#597) */
+		async getCanvasVersion(id: string): Promise<number> {
+			const result = await httpClient.get(`${baseUrl}/${id}/canvas-version`);
+			return result.data.canvasVersion;
 		},
 		async saveCanvasItems(id: string, payload: CanvasSavePayload) {
 			await httpClient.put(`${baseUrl}/${id}/save-canvas`, payload);

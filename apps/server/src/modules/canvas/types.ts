@@ -63,6 +63,9 @@ export const canvasItemsSchema = z.object({
 	),
 });
 
+/** what get-canvas-version returns, for any parent */
+export const canvasVersionSchema = canvasItemsSchema.pick({ canvasVersion: true });
+
 /** query string of every save-canvas endpoint */
 export const saveCanvasQuerySchema = z.object({
 	/** the canvasVersion the edit was made against; a newer canvas refuses the save (409) */

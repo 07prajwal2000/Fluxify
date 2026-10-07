@@ -88,6 +88,8 @@ export type BlockCanvasProps = {
 	className?: string;
 	/** Increment to briefly flash every invalid cycle path. */
 	cycleFeedbackToken?: number;
+	/** Increment to replace the canvas with `graph`, dropping unsaved edits and undo. */
+	reloadToken?: number;
 	/** Rendered inside React Flow — use for `<Panel>` based toolbars/overlays. */
 	children?: React.ReactNode;
 };

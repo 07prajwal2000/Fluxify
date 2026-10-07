@@ -84,6 +84,7 @@ function CustomBlockCanvasPage() {
 				items={customBlocksQuery.canvasItems.useQuery(blockId)}
 				compileTarget={{ projectId, resourceType: "custom_block", resourceId: blockId }}
 				reload={() => customBlocksService.getCanvasItems(blockId)}
+				getVersion={() => customBlocksService.getCanvasVersion(blockId)}
 				save={(payload) => save.mutateAsync(payload)}
 				headerLeft={<CustomBlockSwitcher projectId={projectId} blockId={blockId} />}
 				headerActions={
