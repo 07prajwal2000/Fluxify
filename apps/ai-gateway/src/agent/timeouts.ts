@@ -14,7 +14,7 @@ export type Limits = {
 };
 
 export const limitsFromEnv = (env: Record<string, string | undefined>): Limits => ({
-	idleMs: 60_000,
+	idleMs: Number(env.AGENT_CHUNK_TIMEOUT_MS) || 60_000,
 	callMs: Number(env.AGENT_MODEL_TIMEOUT_MS) || 180_000,
 	toolMs: Number(env.AGENT_TOOL_TIMEOUT_MS) || 120_000,
 });
@@ -145,42 +145,41 @@ export function withModelTimeouts(
 }
 
 /**
- * Every tool fails after `ms` (or when the run is stopped) with an error the
- * model reads as the tool result. The call may still finish on the server.
+ * Every tool gets an abort signal that fires after `ms` or when the run is
+ * stopped, which cancels its admin API request. The race is the safety net for
+ * a tool that ignores the signal; the model reads the error as the result.
  */
 export function withToolTimeouts(tools: Record<string, Tool>, ms: number): Record<string, Tool> {
 	return Object.fromEntries(
 		Object.entries(tools).map(([name, t]) => {
 			const execute = t.execute;
 			if (!execute) return [name, t];
-			return [
-				name,
-				{
-					...t,
-					execute: (input: unknown, opts: Parameters<typeof execute>[1]) => {
-						let timer: ReturnType<typeof setTimeout> | undefined;
-						const limit = new Promise<never>((_, reject) => {
-							timer = setTimeout(
-								() =>
-									reject(
-										new Error(
-											`${name} timed out after ${secs(ms)}. It may still finish on the server, so check before you retry it.`,
-										),
-									),
-								ms,
-							);
-							opts.abortSignal?.addEventListener(
-								"abort",
-								() => reject(new Error(`${name} was stopped.`)),
-								{
-									once: true,
-								},
-							);
-						});
-						return Promise.race([execute(input, opts), limit]).finally(() => clearTimeout(timer));
-					},
-				} as Tool,
-			];
+			const run = (input: unknown, opts: Parameters<typeof execute>[1]) => {
+				const ctrl = new AbortController();
+				const failed = new Promise<never>((_, reject) =>
+					ctrl.signal.addEventListener("abort", () => reject(ctrl.signal.reason), { once: true }),
+				);
+				const timer = setTimeout(
+					() =>
+						ctrl.abort(
+							new Error(
+								`${name} timed out after ${secs(ms)}. It may still finish on the server, so check before you retry it.`,
+							),
+						),
+					ms,
+				);
+				const stop = () => ctrl.abort(new Error(`${name} was stopped.`));
+				if (opts.abortSignal?.aborted) stop();
+				opts.abortSignal?.addEventListener("abort", stop, { once: true });
+				return Promise.race([
+					execute(input, { ...opts, abortSignal: ctrl.signal }),
+					failed,
+				]).finally(() => {
+					clearTimeout(timer);
+					opts.abortSignal?.removeEventListener("abort", stop);
+				});
+			};
+			return [name, { ...t, execute: run } as Tool];
 		}),
 	);
 }

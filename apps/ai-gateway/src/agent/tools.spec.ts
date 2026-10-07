@@ -4,6 +4,7 @@ import { convertArrayToReadableStream, MockLanguageModelV4 } from "ai/test";
 import type { AdminFetch } from "../mcp/adminApi";
 import { assertEndsOnUserOrTool, runAgent } from "./agent";
 import { parseTasks } from "./evals/run";
+import { withToolTimeouts } from "./timeouts";
 import { ADVANCED, CORE, agentTools } from "./tools";
 
 const limits = { idleMs: 1000, callMs: 5000, toolMs: 1000 };
@@ -31,7 +32,8 @@ const setup = (answer?: (path: string) => unknown) => {
 	const { fetcher, calls } = fakeFetch(answer);
 	return { ...agentTools(fetcher, { authorization: "Bearer pat-1" }, P), calls };
 };
-const exec = (t: any, input: unknown) => t.execute(input, { toolCallId: "c1", messages: [] });
+const exec = (t: any, input: unknown, abortSignal?: AbortSignal) =>
+	t.execute(input, { toolCallId: "c1", messages: [], abortSignal });
 
 describe("agent tools", () => {
 	it("wraps an MCP tool as-is and sends the PAT", async () => {
@@ -68,6 +70,25 @@ describe("agent tools", () => {
 			`/v1/${P}/integrations/i1`,
 			`/v1/${P}/app-config/7`,
 		]);
+	});
+
+	it("passes the tool's abort signal to fetch, and the tool timeout cancels the request", async () => {
+		const signals: (AbortSignal | undefined)[] = [];
+		const fetcher: AdminFetch = (_path, init) => {
+			signals.push(init.signal ?? undefined);
+			return new Promise((_, reject) => init.signal?.addEventListener("abort", () => reject(init.signal?.reason)));
+		};
+		const { tools } = agentTools(fetcher, {}, P);
+		const ctrl = new AbortController();
+		const pending = exec(tools.get, { type: "route", id: "r1" }, ctrl.signal);
+		ctrl.abort(new Error("user stop"));
+		await expect(pending).rejects.toThrow("user stop");
+		expect(signals[0]).toBe(ctrl.signal);
+
+		const slow = withToolTimeouts(tools, 20).save_route;
+		const input = { projectId: P, name: "a", path: "/a", method: "GET" };
+		await expect(exec(slow, input)).rejects.toThrow("save_route timed out");
+		expect(signals[1]?.aborted).toBe(true);
 	});
 
 	it("starts with only the core, and load_tools adds known advanced tools", async () => {

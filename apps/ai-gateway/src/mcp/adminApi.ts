@@ -57,10 +57,13 @@ export function adminApi(
 	fetcher: AdminFetch,
 	auth: Record<string, string>,
 	role: ToolRole,
+	/** Cancels the request (the agent's tool timeout or Ctrl+C). */
+	signal?: AbortSignal,
 ): AdminApi {
 	const call = async (path: string, init: RequestInit = {}) => {
 		const res = await fetcher(`/_/admin/api${path}`, {
 			...init,
+			signal,
 			headers: { ...auth, accept: "application/json", ...(init.headers as Record<string, string>) },
 		});
 		// a 204 (e.g. an app config delete) has no body

@@ -1,6 +1,6 @@
 import { appendFileSync, mkdirSync } from "node:fs";
 import path from "node:path";
-import type { runAgent } from "./agent";
+import { MAX_STEPS, type runAgent } from "./agent";
 
 export type Log = (event: string, data?: Record<string, unknown>) => void;
 export type Out = { write: (s: string) => void; tty?: boolean; log?: Log };
@@ -143,6 +143,10 @@ export async function printRun(result: ReturnType<typeof runAgent>, out: Out) {
 					ms: Date.now() - stepAt,
 				});
 				stepAt = Date.now();
+				if (step >= MAX_STEPS && part.finishReason === "tool-calls") {
+					status.line(`[stopped] reached ${MAX_STEPS}-step limit`);
+					log("step-limit", { steps: step });
+				}
 				waiting();
 				break;
 			case "error":

@@ -42,6 +42,26 @@ type Run = {
  * MAX_STEPS. Every write runs; there is no approval yet. Progress comes out of
  * `result.stream`; timeouts end a model call with an error part, never a hang.
  */
+export const STEP_LIMIT_NOTE = `(stopped: reached the ${MAX_STEPS}-step limit before finishing)`;
+
+/**
+ * Leaves a note on why the reply ended early as the last assistant turn, so
+ * the next turn knows. Appends to the last assistant message when there is one,
+ * so roles keep alternating.
+ */
+export function addNote(history: ModelMessage[], note: string) {
+	const last = history.at(-1);
+	if (last?.role !== "assistant") {
+		history.push({ role: "assistant", content: note });
+		return;
+	}
+	const parts =
+		typeof last.content === "string"
+			? [{ type: "text" as const, text: last.content }]
+			: last.content;
+	last.content = [...parts, { type: "text", text: note }];
+}
+
 export function runAgent({
 	model,
 	tools,
@@ -52,6 +72,7 @@ export function runAgent({
 	abortSignal,
 	onRetry,
 }: Run) {
+	let error = "";
 	return streamText({
 		model: withModelTimeouts(model, limits, onRetry ?? (() => {})),
 		instructions: agentPrompt(projectId),
@@ -64,9 +85,15 @@ export function runAgent({
 			return { activeTools: active() };
 		},
 		// Errors already come out of the stream as parts; the default also logs them.
-		onError: () => {},
+		onError: ({ error: e }) => {
+			error = e instanceof Error ? e.message : String(e);
+		},
 		onStepEnd: (step) => {
 			history.push(...step.response.messages);
+			if (step.finishReason === "error")
+				addNote(history, `(previous reply failed: ${error || "unknown error"})`);
+			else if (step.finishReason === "tool-calls" && step.stepNumber + 1 >= MAX_STEPS)
+				addNote(history, STEP_LIMIT_NOTE);
 		},
 	});
 }
