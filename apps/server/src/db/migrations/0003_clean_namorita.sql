@@ -1,0 +1,1 @@
+CREATE INDEX "idx_trace_runs_parent_run_id" ON "trace_runs" USING btree ("parent_run_id");

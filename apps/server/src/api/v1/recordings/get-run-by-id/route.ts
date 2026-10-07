@@ -1,0 +1,43 @@
+import { describeRoute, resolver, validator } from "hono-openapi";
+import { errorSchema } from "../../../../errors/customError";
+import { validationErrorSchema } from "../../../../errors/validationError";
+import zodErrorCallbackParser from "../../../../middlewares/zodErrorCallbackParser";
+import { targetFromParams } from "../../../../modules/testRunner/target";
+import type { HonoServer } from "../../../../types";
+import { requireProjectAccess } from "../../../auth/middleware";
+import { requestParamSchema, responseSchema } from "./dto";
+import handleRequest from "./service";
+
+export default function (app: HonoServer) {
+	app.get(
+		"/:runId",
+		describeRoute({
+			description:
+				"Gets one recorded run with all its spans in order and the async runs it forked.",
+			operationId: "get-recorded-run",
+			tags: ["Recordings"],
+			responses: {
+				200: {
+					description: "Successful",
+					content: { "application/json": { schema: resolver(responseSchema) } },
+				},
+				400: {
+					description: "Invalid data",
+					content: {
+						"application/json": { schema: resolver(validationErrorSchema) },
+					},
+				},
+				404: {
+					description: "Run not found",
+					content: { "application/json": { schema: resolver(errorSchema) } },
+				},
+			},
+		}),
+		requireProjectAccess("creator", { key: "projectId", source: "param" }),
+		validator("param", requestParamSchema, zodErrorCallbackParser),
+		async (ctx) => {
+			const { projectId, runId, ...target } = ctx.req.valid("param");
+			return ctx.json(await handleRequest(projectId, targetFromParams(target), runId));
+		},
+	);
+}
