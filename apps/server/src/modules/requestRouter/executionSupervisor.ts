@@ -4,6 +4,7 @@ import { logger } from "@fluxify/common";
 import { RPC_SUBJECTS, rpcRequest } from "../../db/natsRpc";
 import { enqueueJob } from "../jobs/publisher";
 import type { JobEnvelope } from "../jobs/types";
+import { publishRecording } from "../recordings/stream";
 import { cancelScheduledRun, scheduleWorkflowRun } from "../schedules/delayed";
 import { fireInternalTrigger } from "../triggers/publisher";
 import type { AsyncExecutorLimits } from "./asyncExecutor";
@@ -145,6 +146,9 @@ export function createExecutionSupervisor(
 						"WORKER.jobs",
 					),
 				);
+			case "record-run":
+				// never awaited: a slow broker must not back up the child's events
+				return void publishRecording(event.run);
 			case "trigger-fault": {
 				// lost only if the admin is down; the child reports again on its next start
 				const { type: _, ...fault } = event;

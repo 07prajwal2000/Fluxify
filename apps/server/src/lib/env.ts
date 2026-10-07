@@ -67,6 +67,16 @@ export const serverEnvSchema = baseEnvSchema.extend({
 			"How many triggers one trigger group may hold (default 5). Raise it when workers run on machines that can poll more queues",
 		),
 
+	RECORDING_MAX_AGE_DAYS: z
+		.string()
+		.optional()
+		.refine((val) => !val || (Number.isInteger(Number(val)) && Number(val) > 0), {
+			message: "RECORDING_MAX_AGE_DAYS must be a positive integer",
+		})
+		.describe(
+			"How many days a recorded run (Execution history) is kept before it is deleted (default 30)",
+		),
+
 	WORKER_PROJECT_ID: z
 		.string()
 		.optional()
@@ -386,6 +396,9 @@ export const FLUXIFY_CLAIM_ID = getEnv("FLUXIFY_CLAIM_ID") || undefined;
 
 /** hard body-size ceiling for user-facing routes, in bytes (env is in KB) */
 export const MAX_REQUEST_BODY_BYTES = (Number(getEnv("WORKER_MAX_STREAM_SIZE")) || 8192) * 1024;
+
+/** recorded runs older than this many days are deleted by the daily retention job (#254) */
+export const RECORDING_MAX_AGE_DAYS = Number(getEnv("RECORDING_MAX_AGE_DAYS")) || 30;
 
 /** furthest ahead a Trigger Workflow block may schedule a run; a bad value fails boot */
 export const SCHEDULE_MAX_HORIZON_MS = parseDurationMs(

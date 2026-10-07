@@ -37,6 +37,7 @@ import { projectSettingsCache } from "../../loaders/projectSettingsLoader";
 import { parentColumn } from "../canvas/repository";
 import type { CanvasParent, CanvasParentType } from "../canvas/types";
 import { compileDependencies } from "../packages/service";
+import { wantsSpans } from "../requestRouter/traceLifecycle";
 import type {
 	CustomBlockArtifact,
 	MiddlewareArtifact,
@@ -246,7 +247,7 @@ export async function compileRoute(routeId: string) {
 	let source: string;
 	try {
 		({ source } = compileOrThrow(resource, () =>
-			compileGraph(blocks, edges, { dependencies, tracing: route.tracingEnabled }),
+			compileGraph(blocks, edges, { dependencies, tracing: wantsSpans(route) }),
 		));
 	} catch (error) {
 		return recordFailure(error);
@@ -335,7 +336,7 @@ export async function compileWorkflow(workflowId: string) {
 			compileGraph(blocks, edges, {
 				asWorkflow: true,
 				dependencies,
-				tracing: workflow.tracingEnabled,
+				tracing: wantsSpans(workflow),
 			}),
 		));
 	} catch (error) {

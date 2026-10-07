@@ -1,3 +1,4 @@
+import type { TraceRunPayload } from "@fluxify/common/otlp";
 import type { JobEnvelope } from "../jobs/types";
 import type { AsyncExecutorLimits } from "./asyncExecutor";
 import type { ArtifactEntry } from "./compiledRuntime";
@@ -47,6 +48,8 @@ export type ExecutionEvent =
 	| { type: "job-finished"; id: string; error?: string }
 	/** user code asked to queue work; only the supervisor can publish it */
 	| { type: "enqueue-job"; job: JobEnvelope }
+	/** a finished run with recording on (#254); only the supervisor can publish it */
+	| { type: "record-run"; run: TraceRunPayload }
 	/** a queue trigger's source is gone; only the admin can disable it */
 	| { type: "trigger-fault"; triggerId: string; projectId: string; reason: string }
 	| {

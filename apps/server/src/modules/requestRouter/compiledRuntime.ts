@@ -360,7 +360,7 @@ function routeDefinition(artifact: RouteArtifact): HttpRoute {
 
 function addCustomBlock(artifact: CustomBlockArtifact) {
 	try {
-		registerCompiledCustomBlock(artifact.name, artifact.source);
+		registerCompiledCustomBlock(artifact.name, artifact.source, artifact.id);
 		customBlockNamesById.set(artifact.id, artifact.name);
 		logger.info(`[worker] loaded custom block ${artifact.name}`, "WORKER.compiled");
 	} catch (error) {

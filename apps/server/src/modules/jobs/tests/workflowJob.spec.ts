@@ -68,6 +68,8 @@ describe("registerWorkflowJobHandler telemetry", () => {
 				projectId: "proj-1",
 				workflowVersion: "2026-01-01T00:00:00.000Z",
 				workflowName: "Test Workflow",
+				tracingEnabled: true,
+				recordExecution: false,
 			},
 		]);
 		expect(spans).toHaveLength(1);
@@ -173,5 +175,38 @@ describe("registerWorkflowJobHandler telemetry", () => {
 		});
 
 		expect(started).toBe(false);
+	});
+
+	it("starts a trace for a workflow that only records (#254)", async () => {
+		applyArtifactUpdate(
+			"workflow.wf-recorded",
+			createArtifact({ workflowId: "wf-recorded", tracingEnabled: false, recordExecution: true }),
+		);
+		const started: any[] = [];
+		const trace: WorkflowTrace = {
+			recordSpan() {},
+			enterCustomBlock() {
+				return { trace, close: () => {} };
+			},
+			complete() {},
+		};
+		registerWorkflowJobHandler({
+			start(workflow) {
+				started.push(workflow);
+				return trace;
+			},
+		});
+
+		await runJob({
+			id: "job-5",
+			kind: "workflow",
+			projectId: "proj-1",
+			target: "wf-recorded",
+			payload: null,
+			enqueuedAt: "2026-01-01T00:00:00.000Z",
+		});
+
+		expect(started).toHaveLength(1);
+		expect(started[0]).toMatchObject({ tracingEnabled: false, recordExecution: true });
 	});
 });

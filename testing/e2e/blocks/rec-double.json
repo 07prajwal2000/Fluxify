@@ -1,0 +1,16 @@
+{
+	"name": "rec_double",
+	"description": "Doubles the value flowing in. The innermost of two nested custom blocks the recording tests use.",
+	"blocks": [
+		{ "id": "rd-entry", "type": "entrypoint", "position": { "x": 0, "y": 0 }, "data": {} },
+		{
+			"id": "rd-double",
+			"type": "jsrunner",
+			"position": { "x": 240, "y": 0 },
+			"data": { "blockName": "Double", "value": "return input * 2;" }
+		}
+	],
+	"edges": [
+		{ "id": "e1", "from": "rd-entry", "to": "rd-double", "fromHandle": "source", "toHandle": "source" }
+	]
+}

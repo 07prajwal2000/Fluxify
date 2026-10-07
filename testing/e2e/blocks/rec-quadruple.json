@@ -1,0 +1,24 @@
+{
+	"name": "rec_quadruple",
+	"description": "Calls rec_double, then doubles again. A custom block calling a custom block, so a recording has two levels of nesting.",
+	"uses": ["rec-double"],
+	"blocks": [
+		{ "id": "rq-entry", "type": "entrypoint", "position": { "x": 0, "y": 0 }, "data": {} },
+		{
+			"id": "rq-call",
+			"type": "rec_double",
+			"position": { "x": 240, "y": 0 },
+			"data": { "blockName": "Double it", "invoke": "sync" }
+		},
+		{
+			"id": "rq-done",
+			"type": "jsrunner",
+			"position": { "x": 480, "y": 0 },
+			"data": { "blockName": "Double again", "value": "return input * 2;" }
+		}
+	],
+	"edges": [
+		{ "id": "e1", "from": "rq-entry", "to": "rq-call", "fromHandle": "source", "toHandle": "source" },
+		{ "id": "e2", "from": "rq-call", "to": "rq-done", "fromHandle": "source", "toHandle": "source" }
+	]
+}

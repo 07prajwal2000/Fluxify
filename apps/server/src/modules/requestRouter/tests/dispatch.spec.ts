@@ -152,9 +152,45 @@ describe("dispatch", () => {
 				routeVersion: "route-version",
 				method: "GET",
 				path: "/orders",
+				tracingEnabled: true,
+				recordExecution: false,
 			},
 		]);
 		expect(completed).toEqual([{ outcome: "success", statusCode: 200 }]);
+	});
+
+	it("starts a recorder for a route that only records (#254)", async () => {
+		const started: any[] = [];
+		const trace = {
+			recordSpan() {},
+			enterCustomBlock() {
+				return { trace, close() {} };
+			},
+			complete() {},
+		};
+		const route = { id: "route-1", projectId: "project-1", projectName: "Project" };
+		const factory = {
+			start(target: any) {
+				started.push(target);
+				return trace;
+			},
+		};
+		setBlocksExecutor(async () => ({ successful: true, output: { body: "ok" } }) as any);
+		const run = async (flags: object) =>
+			dispatch(
+				await envelopeFromHttp(fakeCtx({ method: "GET", path: "/orders" })),
+				{ getRouteId: () => ({ ...route, ...flags }) } as unknown as HttpRouteParser,
+				undefined,
+				undefined,
+				undefined,
+				factory,
+			);
+
+		await run({});
+		expect(started).toEqual([]);
+		await run({ recordExecution: true });
+		expect(started).toHaveLength(1);
+		expect(started[0]).toMatchObject({ tracingEnabled: false, recordExecution: true });
 	});
 
 	it("uses a supplied artifact-time validator before creating route resources", async () => {

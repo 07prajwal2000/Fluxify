@@ -65,6 +65,8 @@ export type WorkflowFixture = {
 export type CustomBlockFixture = {
 	name: string;
 	description: string;
+	/** custom blocks this one calls, by file name; registered before it compiles */
+	uses?: string[];
 	inputParams?: unknown[];
 	blocks: BlockDTOType[];
 	edges: EdgeDTOSchemaType;

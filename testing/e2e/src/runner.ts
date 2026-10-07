@@ -13,6 +13,13 @@ import {
 import { hydrateAppConfig } from "@fluxify/server/src/loaders/appconfigLoader";
 import { setBlocksExecutor } from "@fluxify/server/src/modules/requestRouter/executor";
 import { executeRouteInternal } from "@fluxify/server/src/modules/requestRouter/service";
+import {
+	startRouteTrace,
+	type TraceSinks,
+	wantsSpans,
+} from "@fluxify/server/src/modules/requestRouter/traceLifecycle";
+import { RouteTraceRecorder } from "@fluxify/server/src/modules/telemetry/routeRecorder";
+import type { TraceRunPayload } from "@fluxify/common/otlp";
 import { Hono } from "hono";
 import { connectionFor } from "./engines";
 import { registerFixtureBlocks } from "./customBlocks";
@@ -65,6 +72,11 @@ export type GraphRun = {
 	source: string;
 	/** response headers, including what Set Header and Set Cookie wrote */
 	headers: Headers;
+	/**
+	 * Runs the real recorder handed over, when the fixture ran with `sinks` —
+	 * what the execution process would export or publish (#254).
+	 */
+	recorded: TraceRunPayload[];
 };
 
 /** Points the project's `primary` db integration at the fixture's engine. */
@@ -88,13 +100,15 @@ async function hydrateDatabase(fixture: GraphFixture) {
 export async function runGraph(
 	fixture: GraphFixture,
 	request: GraphRequest = {},
+	/** the route's tracing and recording switches; left out, every span is collected flat */
+	sinks?: TraceSinks,
 ): Promise<GraphRun> {
 	hydrateAppConfig(PROJECT_ID, APP_CONFIG);
 	await hydrateDatabase(fixture);
 	const { middlewares, dispose } = await registerFixtureBlocks(fixture);
 
 	try {
-		return await execute(fixture, request, middlewares);
+		return await execute(fixture, request, middlewares, sinks);
 	} finally {
 		dispose();
 	}
@@ -104,12 +118,20 @@ async function execute(
 	fixture: GraphFixture,
 	request: GraphRequest,
 	middlewares: RouteMiddlewares | undefined,
+	sinks: TraceSinks | undefined,
 ): Promise<GraphRun> {
-	const { run, source } = compileGraph(fixture.blocks, fixture.edges);
+	// the same gate the compiler and the execution process apply
+	const { run, source } = compileGraph(
+		fixture.blocks,
+		fixture.edges,
+		sinks ? { tracing: wantsSpans(sinks) } : {},
+	);
 	const spans: BlockTraceSpan[] = [];
+	const recorded: TraceRunPayload[] = [];
 
 	setBlocksExecutor(async (_target, context) => {
-		context.trace = {
+		// a real recorder came in with the route; otherwise collect spans flat
+		context.trace ??= {
 			recordSpan: (span) => spans.push(span),
 			// a nested custom block records into the same list; the span's blockId
 			// still identifies it, and flat order is what assertions read
@@ -129,11 +151,19 @@ async function execute(
 	const method = request.method ?? fixture.route.method;
 	const path = request.path ?? fixture.route.path;
 	const headers = request.headers ?? {};
+	// what `dispatch` does: no recorder unless tracing or recording asks for one
+	const trace = sinks
+		? startRouteTrace(
+				{ ...route, ...sinks },
+				{ method, path },
+				{ start: (target) => new RouteTraceRecorder(target, (run) => recorded.push(run)) },
+			)
+		: undefined;
 	// a real request context, so header and cookie blocks read and write a real request/response
 	let result!: Awaited<ReturnType<typeof executeRouteInternal>>;
 	const app = new Hono().all("*", async (c) => {
 		result = await executeRouteInternal(
-			route,
+			{ ...route, trace },
 			{
 				method,
 				path,
@@ -147,6 +177,7 @@ async function execute(
 		return c.body(null);
 	});
 	const response = await app.request(`http://e2e${path}`, { method, headers });
+	trace?.complete(Number(result.status) >= 400 ? "failure" : "success", Number(result.status));
 
 	return {
 		// the response block carries httpCode as a string; the HTTP layer coerces
@@ -157,5 +188,6 @@ async function execute(
 		executed: spans.map((span) => span.blockId),
 		source,
 		headers: response.headers,
+		recorded,
 	};
 }
