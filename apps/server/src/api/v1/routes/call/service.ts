@@ -31,6 +31,21 @@ export function fillPath(path: string, params: Record<string, string> = {}) {
 }
 
 /**
+ * `*.localhost` is always loopback (RFC 6761), but the server's OS resolver may
+ * not know that (Windows). Dial 127.0.0.1 instead and keep the name in `Host`,
+ * which is what picks the project.
+ */
+export function fetchRoute(url: URL, init: RequestInit) {
+	const { hostname } = url;
+	if (hostname !== "localhost" && !hostname.endsWith(".localhost")) return fetch(url, init);
+	const headers = new Headers(init.headers);
+	headers.set("host", url.host);
+	const target = new URL(url);
+	target.hostname = "127.0.0.1";
+	return fetch(target, { ...init, headers });
+}
+
+/**
  * Sends one real request to a route, the way the portal's playground does:
  * over HTTP to the project's public URL, so it runs on whatever serves the
  * project's traffic. Creator only, because it runs user code that may write data.
@@ -59,7 +74,7 @@ export async function callRoute(
 	}
 
 	try {
-		const res = await fetch(url, {
+		const res = await fetchRoute(url, {
 			method: route.method!,
 			headers,
 			body,
