@@ -105,6 +105,10 @@ The built-in client for calling external HTTP services from a workflow.
 
 How to emit, inspect, and use route logs while developing and operating an application.
 
+### [Execution Recording](./execution-recording.md)
+
+Keep a copy of each run of a route or workflow, with every block's input and output, and replay it on the canvas to debug it.
+
 ## A good next step
 
 If you are new to Fluxify, read [Blocks](./blocks.md) first, then [Edges](./edges.md). If you are writing JavaScript, pair this overview with the [Scripting overview](../scripting/index.md) and the [JavaScript API Reference](../scripting/javascript-api.md).

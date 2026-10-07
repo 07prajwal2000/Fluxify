@@ -2,7 +2,7 @@ import { installRequestSchema } from "@fluxify/server/src/api/v1/projects/settin
 import { requestBodySchema as projectUpdate } from "@fluxify/server/src/api/v1/projects/update/dto";
 import { z } from "zod";
 import type { AdminApi } from "./adminApi";
-import { type McpTool, pick, projectId } from "./tools";
+import { type McpTool, page, pick, projectId } from "./tools";
 
 const SAVE = { readOnlyHint: false, destructiveHint: false };
 const REMOVE = { readOnlyHint: false, destructiveHint: true, idempotentHint: true };
@@ -37,12 +37,16 @@ export function suiteResult(s: any) {
 	const r = s.result ?? {};
 	const failedChecks = (checks: any[] = []) =>
 		checks.filter((c) => !c.success).map((c) => cut(c.message));
+	// each case's recorded run, for get_recording; a route suite's request is case 0
+	const traceRunId = (i: number) =>
+		s.traces?.find((t: any) => t.caseIndex === i)?.traceRunId as string | undefined;
 	const cases = r.cases
-		? r.cases.map((c: any) => ({
+		? r.cases.map((c: any, i: number) => ({
 				name: c.name,
 				status: c.status,
 				error: cut(c.error),
 				failedChecks: failedChecks(c.checks),
+				traceRunId: traceRunId(i),
 			}))
 		: s.result && [
 				{
@@ -51,6 +55,7 @@ export function suiteResult(s: any) {
 					statusCode: r.statusCode,
 					error: cut(r.error),
 					failedChecks: failedChecks(r.result),
+					traceRunId: traceRunId(0),
 				},
 			];
 	return {
@@ -59,6 +64,22 @@ export function suiteResult(s: any) {
 		teardownError: cut(r.teardownError),
 	};
 }
+
+const kind = z.enum(["route", "workflow"]).describe("Whether targetId is a route or a workflow");
+const targetId = z
+	.string()
+	.describe("The route or workflow id, from list_routes or list_workflows");
+const recordings = (a: { projectId: string; kind: string; targetId: string }) =>
+	`/v1/${a.projectId}/recordings/${a.kind}/${a.targetId}/runs`;
+const RECORDING_NOTE =
+	"Runs exist only while the route or workflow has recordExecution on (save_route, save_workflow), and for every test run. Recorded data is kept as-is, so it can hold headers, bodies and secrets.";
+
+/** A span without its payloads: enough to find the block that failed. */
+const shortSpan = ({ input: _i, output: _o, metadata, error, ...span }: any) => ({
+	...span,
+	error: cut(error),
+	mocked: metadata?.mocked,
+});
 
 const runResult = (run: any, suiteId?: string) => ({
 	runId: run.id,
@@ -91,7 +112,8 @@ export const projectTools: McpTool[] = [
 	},
 	{
 		name: "get_test_runs",
-		description: "A test suite's recent runs, newest first, with each case's pass/fail and error.",
+		description:
+			"A test suite's recent runs, newest first, with each case's pass/fail and error. Each case's traceRunId is its recorded run: read it with get_recording (kind and targetId are the suite's route or workflow, from get_test_suite).",
 		role: "creator",
 		input: {
 			testSuiteId,
@@ -110,6 +132,74 @@ export const projectTools: McpTool[] = [
 				}
 			}
 			return out;
+		},
+	},
+	{
+		name: "list_recordings",
+		description: `A route's or workflow's recorded runs, newest first: outcome, status code, timing and span count. ${RECORDING_NOTE} Read one run with get_recording.`,
+		role: "creator",
+		input: {
+			projectId,
+			kind,
+			targetId,
+			outcome: z.enum(["success", "failure"]).optional().describe("Only runs that ended this way"),
+			source: z
+				.enum(["test", "live"])
+				.optional()
+				.describe("test: only test run traces, live: only normal runs. Both by default"),
+			testRunId: z.string().optional().describe("Only the traces of this test run"),
+			from: z.string().optional().describe("Only runs started at or after this ISO time"),
+			to: z.string().optional().describe("Only runs started before this ISO time"),
+			page,
+		},
+		call: async ({ get }, a) => {
+			const body = await get(recordings(a), {
+				...pick(a, ["outcome", "source", "testRunId", "from", "to", "page"]),
+				perPage: 50,
+			});
+			return {
+				items: body.data.map((r: any) => ({
+					...pick(r, [
+						"id",
+						"startedAt",
+						"endedAt",
+						"durationMs",
+						"outcome",
+						"statusCode",
+						"spanCount",
+						"truncated",
+					]),
+					testLabel: r.metadata?.label,
+				})),
+				page: body.pagination.page,
+				hasNext: body.pagination.hasNext,
+			};
+		},
+	},
+	{
+		name: "get_recording",
+		description: `One recorded run: its fields, test info (metadata), the async runs it forked (childRuns) and its spans in order, one per block that ran, with outcome, branch, error and truncated / mocked flags. Spans leave out input and output: pass spanSeq for one span in full, or full: true for everything (a run can be 256 KB). ${RECORDING_NOTE}`,
+		role: "creator",
+		input: {
+			projectId,
+			kind,
+			targetId,
+			runId: z.string().describe("Run id, from list_recordings or a get_test_runs traceRunId"),
+			spanSeq: z
+				.number()
+				.int()
+				.optional()
+				.describe("Return only this span, input and output included"),
+			full: z.boolean().optional().describe("Every span with its input and output"),
+		},
+		call: async ({ get }, a) => {
+			const run = await get(`${recordings(a)}/${a.runId}`);
+			if (a.spanSeq !== undefined) {
+				const span = run.spans.find((s: any) => s.seq === a.spanSeq);
+				if (!span) throw new Error(`This run has no span ${a.spanSeq}.`);
+				return span;
+			}
+			return a.full ? run : { ...run, spans: run.spans.map(shortSpan) };
 		},
 	},
 	{

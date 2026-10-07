@@ -122,7 +122,9 @@ request, runs your code or reaches the internet.
 | `get_integration` | One integration's settings | Creator |
 | `list_members` | A project's members and roles | Creator |
 | `list_packages` | A project's npm packages | Creator |
-| `get_test_runs` | A test suite's recent runs and results | Creator |
+| `get_test_runs` | A test suite's recent runs and results, with each case's trace id | Creator |
+| `list_recordings` | A route's or workflow's [recorded runs](../concepts/execution-recording.md) | Creator |
+| `get_recording` | One recorded run, block by block | Creator |
 | `save_route` | Create or change a route | Creator |
 | `delete_route` | Delete a route | Creator |
 | `save_workflow` | Create or change a workflow | Creator |

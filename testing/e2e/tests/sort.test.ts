@@ -212,12 +212,12 @@ for (const engine of ["pg", "mysql", "mongo"] as const) {
 			it("strict off (the default) picks one of several without complaint", async () => {
 				const run = await single({ conditions: [team("blue")] });
 				expect(run.status).toBe(200);
-				expect([GRACE, PLUS]).toContain(name(run));
+				expect(name(run)).toBeOneOf([GRACE, PLUS]);
 			});
 
 			it("skips an unsent sort column; with none left it just finds a match", async () => {
 				const run = await single({ conditions: [team("blue")], sort: [desc(fromBody("sortBy"))] });
-				expect([GRACE, PLUS]).toContain(name(run));
+				expect(name(run)).toBeOneOf([GRACE, PLUS]);
 			});
 		});
 	});

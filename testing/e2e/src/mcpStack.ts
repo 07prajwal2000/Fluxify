@@ -47,6 +47,9 @@ const url = `http://127.0.0.1:${server.port}`;
 const s = await startAuthServer({ SERVER_URL: url });
 admin = (request) => s.app.fetch(request);
 const schema = await import("@fluxify/server/src/db/schema");
+// as boot does: recorded runs reach Postgres only through this consumer
+const { startRecordingConsumer } = await import("@fluxify/server/src/modules/recordings/consumer");
+await startRecordingConsumer();
 
 async function apiKey(email: string) {
 	const cookie = await signIn(s, email);

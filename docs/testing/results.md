@@ -31,6 +31,12 @@ Click a suite's row to open it. You'll see:
 
 A suite stopped for taking too long has no checks to show, because it never got that far.
 
+## See the run block by block
+
+Every test run is recorded, even when the route's Recording switch is off. Next to a case, **View trace** opens the run it made on the canvas: the path it took, and each block's input, output and error. It is the fastest way to find the block that failed.
+
+Blocks a [hook](./hooks) skipped or changed carry a **Mocked** badge. Once a trace is older than the recording retention (30 days by default), the results show **Trace expired** instead. See [Execution Recording](../concepts/execution-recording#test-traces).
+
 ## Teardown warnings
 
 If a suite's [teardown](./setup-and-teardown) fails, the suite **keeps its result** and shows **⚠ Teardown failed** next to its name. Open it to see the reason. When the run finishes, a notice also tells you how many suites had this problem, because their test data may still be in the database.

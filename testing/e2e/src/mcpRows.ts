@@ -14,12 +14,14 @@ export type Row = {
 	tool: string;
 	args: object;
 	api: string | AdminCall;
-	/** run only for roles the server refuses: the allowed call needs the npm registry */
+	/** run only for roles the server refuses: the allowed call needs the npm registry, or a run that may not exist */
 	deniedOnly?: true;
 };
 
 export const allTools = [...readTools, ...writeTools, ...routeTools, ...canvasTools, ...projectTools];
-export const uniq = (prefix: string) => `${prefix}${crypto.randomUUID().slice(0, 8)}`;
+/** a run id no run has: the role check comes before the lookup */
+const NO_RUN = "0199a000-0000-7000-8000-000000000000";
+export const uniq =(prefix: string) => `${prefix}${crypto.randomUUID().slice(0, 8)}`;
 
 /** Creates a resource as the creator, for a delete row to remove. */
 async function fresh(s: McpStack, path: string, body: object) {
@@ -304,5 +306,16 @@ export function readRows({ projectId: p, ids }: McpStack): Row[] {
 			api: `/v1/${p}/test-suites/route/${ids.route}/runs`,
 		},
 		{ tool: "list_packages", args: { projectId: p }, api: `/v1/projects/${p}/settings/packages` },
+		{
+			tool: "list_recordings",
+			args: { projectId: p, kind: "route", targetId: ids.route },
+			api: `/v1/${p}/recordings/route/${ids.route}/runs`,
+		},
+		{
+			tool: "get_recording",
+			args: { projectId: p, kind: "route", targetId: ids.route, runId: NO_RUN },
+			api: `/v1/${p}/recordings/route/${ids.route}/runs/${NO_RUN}`,
+			deniedOnly: true,
+		},
 	];
 }

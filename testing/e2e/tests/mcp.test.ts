@@ -203,6 +203,69 @@ describe("MCP runs", () => {
 		expect(missing.text).toBe('Invalid input: Missing path param "who"');
 	});
 
+	it("records a route call and reads its spans back", async () => {
+		const name = uniq("rec-");
+		const { id } = await call("save_route", {
+			projectId: stack.projectId,
+			name,
+			path: `/${name}`,
+			method: "GET",
+			active: true,
+			recordExecution: true,
+		});
+		expect((await call("get_route", { routeId: id })).recordExecution).toBe(true);
+		// a new route's starter blocks are not connected: the Response block never
+		// runs until something leads to it
+		const canvas = await call("get_canvas", { target: { kind: "route", id } });
+		const entry = canvas.blocks.find((b: any) => b.type === "entrypoint").id;
+		const response = canvas.blocks.find((b: any) => b.type === "response").id;
+		await call("edit_canvas", {
+			target: { kind: "route", id },
+			version: canvas.version,
+			ops: [
+				{
+					op: "add_block",
+					ref: "js",
+					type: "jsRunner",
+					data: { value: 'return { hi: "rec" };' },
+					connect_from: { from: entry },
+				},
+				{ op: "connect", from: "js", to: response },
+			],
+		});
+		// the save compiles and reaches the worker a moment later
+		for (let i = 0; i < 80; i++) {
+			if ((await call("call_route", { routeId: id })).body?.hi === "rec") break;
+			await Bun.sleep(250);
+		}
+		const target = { projectId: stack.projectId, kind: "route", targetId: id };
+		// the run reaches Postgres through a queue, a moment after the response;
+		// a call that beat the canvas edit is recorded too, so wait for the full one
+		let recorded: any;
+		for (let i = 0; i < 80 && !recorded; i++) {
+			const list = await call("list_recordings", target);
+			recorded = list.items.find((r: any) => r.spanCount >= 3);
+			if (!recorded) await Bun.sleep(250);
+		}
+		expect(recorded).toMatchObject({ outcome: "success", statusCode: 200 });
+
+		const run = await call("get_recording", { ...target, runId: recorded.id });
+		expect(run.spans.map((s: any) => s.blockType)).toEqual(
+			expect.arrayContaining(["entrypoint", "jsrunner", "response"]),
+		);
+		expect(run.spans[0]).not.toHaveProperty("input");
+		const span = async (type: string) =>
+			call("get_recording", {
+				...target,
+				runId: run.id,
+				spanSeq: run.spans.find((s: any) => s.blockType === type).seq,
+			});
+		expect((await span("entrypoint")).input).toMatchObject({ method: "GET" });
+		const reply = await span("response");
+		expect(reply).toMatchObject({ outcome: "success", input: { hi: "rec" } });
+		expect(reply).toHaveProperty("output");
+	});
+
 	it("viewers get 403, not 404, saving a workflow canvas", async () => {
 		const res = await adminCall(stack, stack.tokens.viewer, {
 			method: "PUT",

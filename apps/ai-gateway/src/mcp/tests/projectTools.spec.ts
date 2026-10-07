@@ -138,6 +138,93 @@ describe("project tools", () => {
 		expect(two.error).toHaveLength(501);
 	});
 
+	it("each case carries its traceRunId", async () => {
+		const traced = routeSuiteRun("run1", "s1");
+		Object.assign(traced.suiteRuns[0], { traces: [{ caseIndex: 0, traceRunId: "t1" }] });
+		const { api } = fakeApi({ ...suiteGets, [RUNS]: { data: [{ id: "run1" }] }, [`${RUNS}/run1`]: traced });
+		const [result]: any = await run("get_test_runs", { testSuiteId: "s1" }, api);
+		expect(result.suites[0].cases[0].traceRunId).toBe("t1");
+	});
+
+	const REC = "/v1/p1/recordings/workflow/w1/runs";
+	const target = { projectId: "p1", kind: "workflow", targetId: "w1" };
+
+	it("list_recordings passes the filters and trims each run", async () => {
+		const row = {
+			id: "x",
+			outcome: "failure",
+			statusCode: null,
+			startedAt: "a",
+			endedAt: "b",
+			durationMs: 3,
+			spanCount: 2,
+			truncated: false,
+			droppedSpans: 0,
+			parentRunId: null,
+			metadata: { source: "test", label: "Suite · case", testRunId: "tr" },
+		};
+		const { api, calls } = fakeApi({ [REC]: { data: [row], pagination: { page: 1, hasNext: false } } });
+		const result = await run("list_recordings", { ...target, outcome: "failure", source: "test" }, api);
+		expect(calls[0].query).toMatchObject({ outcome: "failure", source: "test", perPage: 50 });
+		expect(result).toEqual({
+			items: [
+				{
+					id: "x",
+					startedAt: "a",
+					endedAt: "b",
+					durationMs: 3,
+					outcome: "failure",
+					statusCode: null,
+					spanCount: 2,
+					truncated: false,
+					testLabel: "Suite · case",
+				},
+			],
+			page: 1,
+			hasNext: false,
+		});
+	});
+
+	const span = (seq: number, extra = {}) => ({
+		seq,
+		blockId: `b${seq}`,
+		outcome: "success",
+		error: null,
+		input: { big: "x".repeat(1000) },
+		output: { ok: seq },
+		truncated: false,
+		metadata: { position: { x: 0, y: 0 } },
+		...extra,
+	});
+	const recorded = {
+		id: "x",
+		metadata: null,
+		childRuns: [{ id: "c", parentSeq: 1 }],
+		spans: [span(0), span(1, { outcome: "failure", error: "boom", metadata: { mocked: { output: true } } })],
+	};
+
+	it("get_recording is short by default, full on request, one span by spanSeq", async () => {
+		const { api, calls } = fakeApi({ [`${REC}/x`]: recorded });
+		const short: any = await run("get_recording", { ...target, runId: "x" }, api);
+		expect(calls[0].path).toBe(`${REC}/x`);
+		expect(short.childRuns).toEqual(recorded.childRuns);
+		expect(short.spans[1]).toEqual({
+			seq: 1,
+			blockId: "b1",
+			outcome: "failure",
+			error: "boom",
+			truncated: false,
+			mocked: { output: true },
+		});
+		expect(short.spans[0]).not.toHaveProperty("input");
+
+		expect(await run("get_recording", { ...target, runId: "x", full: true }, api)).toEqual(recorded);
+		expect(await run("get_recording", { ...target, runId: "x", spanSeq: 1 }, api)).toEqual(recorded.spans[1]);
+		await expect(run("get_recording", { ...target, runId: "x", spanSeq: 9 }, api)).rejects.toThrow(
+			"This run has no span 9.",
+		);
+	});
+
 	it("add_member looks an email up and refuses an unknown one without adding anyone", async () => {
 		const users = { data: [{ id: "u2", email: "Ana@x.io" }, { id: "u3", email: "ana@x.io.evil" }] };
 		const { api, calls } = fakeApi({ "/auth/list-users": users });

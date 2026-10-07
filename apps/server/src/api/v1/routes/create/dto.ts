@@ -17,6 +17,7 @@ export const requestBodySchema = z
 		timeoutSeconds: z.number().int().min(30).default(30),
 		active: z.boolean().optional(),
 		tracingEnabled: z.boolean().optional(),
+		recordExecution: z.boolean().optional(),
 		acceptedContentTypes: z.array(z.enum(CONTENT_TYPES)).min(1).optional(),
 	})
 	.superRefine(routeSchemaValidationRefinement);
