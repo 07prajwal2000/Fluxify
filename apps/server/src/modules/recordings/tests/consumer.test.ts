@@ -243,6 +243,20 @@ describe("recordings consumer", () => {
 			]);
 		});
 
+		it("keeps a span's position and switch pick next to its mock (#628)", async () => {
+			const run = makeRun({ routeId: "r-off", metadata: metadata("tr-pos") });
+			run.spans[0]!.metadata = { position: { x: 12.5, y: -40 } };
+			run.spans[1]!.metadata = { mocked: { input: true }, position: { x: 0, y: 0 }, next: "b1" };
+			await stream.publishRecording(run);
+			await until(async () => Boolean(await runRow(run.runId)));
+
+			const spans = await spanRows(run.runId);
+			expect(spans.map((span: { metadata: unknown }) => span.metadata)).toEqual([
+				{ position: { x: 12.5, y: -40 } },
+				{ mocked: { input: true }, position: { x: 0, y: 0 }, next: "b1" },
+			]);
+		});
+
 		it("still drops a test run that names another project", async () => {
 			const run = makeRun({ projectId: "p2", routeId: "r-off", metadata: metadata("tr-2") });
 			expect(await recordings.persistRecording(run)).toBe("dropped");

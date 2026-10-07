@@ -45,6 +45,7 @@ import {
 } from "./dispatchSupport";
 import { runBlocks } from "./executor";
 import { isFormBody, RequestBodyError } from "./requestBody";
+import { requestTraceInput } from "./traceInput";
 import { type RouteTraceFactory, startRouteTrace, traceCompleter } from "./traceLifecycle";
 import type { RequestEnvelope } from "./types";
 
@@ -267,6 +268,8 @@ export async function executeRouteInternal(
 		routeInfo.timeoutSeconds ?? DEFAULT_ROUTE_TIMEOUT_SECONDS,
 		routeInfo.trace,
 	);
+	// only when spans are compiled in; untraced routes pay nothing (#628)
+	if (routeInfo.trace) context.traceInput = requestTraceInput(requestData, ctx?.req.raw?.url);
 
 	try {
 		const executionResult = await runBlocks(

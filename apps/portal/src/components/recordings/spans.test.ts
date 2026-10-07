@@ -3,7 +3,9 @@ import type { RecordedSpan } from "@/services/recordings";
 import {
 	blockStatuses,
 	calledBlockId,
+	GHOST_NODE_TYPE,
 	isIncomplete,
+	overlayGraph,
 	rootCanvasId,
 	spansAt,
 	takenEdgeIds,
@@ -67,12 +69,76 @@ test("any failed run of a block marks it failed; unrun blocks are absent", () =>
 
 test("taken edges follow the condition branch", () => {
 	const edges = [
-		{ id: "e1", from: "entry", to: "if", fromHandle: "", toHandle: "" },
-		{ id: "e2", from: "if", to: "call", fromHandle: "success", toHandle: "" },
-		{ id: "e3", from: "if", to: "call", fromHandle: "failure", toHandle: "" },
-		{ id: "e4", from: "if", to: "fail", fromHandle: "failure", toHandle: "" },
+		{ id: "e1", from: "entry", to: "if", fromHandle: "entry-source", toHandle: "if-target" },
+		{ id: "e2", from: "if", to: "call", fromHandle: "if-success", toHandle: "call-target" },
+		{ id: "e3", from: "if", to: "call", fromHandle: "if-failure", toHandle: "call-target" },
+		{ id: "e4", from: "if", to: "fail", fromHandle: "if-failure", toHandle: "fail-target" },
 	];
 	expect(takenEdgeIds(edges, spansAt(spans, null))).toEqual(["e1", "e2"]);
+});
+
+test("control edges light up: failure branch, retry body, switch case", () => {
+	// persisted handle ids are `<blockId>-<kind>`, block ids being uuids
+	const id = (name: string) => `0190a0b0-0000-7000-8000-${name.padStart(12, "0")}`;
+	const h = (block: string, kind: string) => `${id(block)}-${kind}`;
+	const edge = (name: string, from: string, kind: string, to: string) => ({
+		id: name,
+		from: id(from),
+		to: id(to),
+		fromHandle: h(from, kind),
+		toHandle: h(to, "target"),
+	});
+	const edges = [
+		edge("ok", "1", "success", "2"),
+		edge("ko", "1", "failure", "3"),
+		edge("body", "4", "executor", "5"),
+		edge("retryOk", "4", "success", "6"),
+		edge("retryKo", "4", "failure", "7"),
+		edge("case1", "8", "case", "2"),
+		edge("case2", "8", "case", "3"),
+	];
+	const level = [
+		span(0, id("1"), { blockType: "if", branch: "failure" }),
+		span(1, id("3")),
+		span(2, id("5")),
+		span(3, id("4"), { blockType: "retry", branch: "success" }),
+		span(4, id("6")),
+		// the switch picked case 2, but block 2 also ran (from elsewhere)
+		span(5, id("8"), { blockType: "switch", metadata: { next: id("3") } }),
+		span(6, id("2")),
+	];
+	expect(takenEdgeIds(edges, level).sort()).toEqual(["body", "case2", "ko", "retryOk"]);
+});
+
+test("a block deleted since the run is drawn as a ghost where it ran", () => {
+	const saved = {
+		blocks: [{ id: "entry", type: "entrypoint", position: { x: 0, y: 0 }, data: {} }],
+		edges: [],
+	};
+	const level = [
+		span(0, "entry"),
+		span(1, "gone", {
+			blockName: "Old step",
+			outcome: "failure",
+			metadata: { position: { x: 40, y: 80 } },
+		}),
+		// recorded before positions were: cannot be drawn, only counted
+		span(2, "older"),
+		span(3, "older"),
+		// a middleware has no canvas, so it is neither drawn nor "removed"
+		span(4, "middleware:m", { middleware: { id: "m" } }),
+	];
+	const { graph, lost } = overlayGraph(saved, level);
+	expect(lost).toBe(2);
+	expect(graph.blocks).toEqual([
+		{ id: "entry", type: "entrypoint", position: { x: 0, y: 0 }, data: { status: true } },
+		{
+			id: "gone",
+			type: GHOST_NODE_TYPE,
+			position: { x: 40, y: 80 },
+			data: { blockType: "js", blockName: "Old step", status: false },
+		},
+	]);
 });
 
 test("incomplete runs", () => {

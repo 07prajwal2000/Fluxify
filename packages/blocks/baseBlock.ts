@@ -126,6 +126,10 @@ export type BlockTraceSpan = {
 	error?: unknown;
 	/** test runs only (#627): what a suite's hook replaced; `input` / `output` are the fakes */
 	mocked?: { input?: true; output?: true };
+	/** the block's canvas position, baked in at compile time (#628) */
+	position?: { x: number; y: number };
+	/** the block a Switch handed off to (#628) */
+	next?: string;
 };
 
 /** a nested graph invoked by one block, for the duration of that invocation */
@@ -183,6 +187,12 @@ export interface Context {
 	trigger?: TriggerContext;
 	/** optional request-level trace; one Context represents one trace */
 	trace?: BlockTrace;
+	/**
+	 * What the top-level entrypoint span records as its input (#628): the whole
+	 * request for a route, the job input and trigger for a workflow. Set only
+	 * alongside `trace`.
+	 */
+	traceInput?: unknown;
 	stopper: {
 		timeoutEnd: number;
 		duration: number;

@@ -328,7 +328,7 @@ describe("runSuiteInChild", () => {
 			output: { id: 8, seen: true, patched: true },
 			metadata: { mocked: { input: true, output: true } },
 		});
-		expect(span("4").metadata).toBeUndefined();
+		expect(span("4").metadata?.mocked).toBeUndefined();
 	}, 30_000);
 
 	describe("workflow suites (#487)", () => {

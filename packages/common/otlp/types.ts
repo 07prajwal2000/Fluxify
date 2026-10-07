@@ -43,13 +43,17 @@ export type TraceSpanRecord = {
 	error?: string;
 	/** payload was cut to fit the per-span cap */
 	truncated?: boolean;
-	/** non-standard span info; absent on normal runs */
+	/** viewer-only span info; never exported over OTLP */
 	metadata?: TraceSpanMetadata;
 };
 
-/** Only test runs (#627) fill it: what a suite's hook mocked; the span holds the mocked values. */
 export type TraceSpanMetadata = {
-	mocked: { input?: true; output?: true };
+	/** test runs only (#627): what a suite's hook mocked; the span holds the mocked values */
+	mocked?: { input?: true; output?: true };
+	/** the block's canvas position when it was compiled (#628): a deleted block can still be drawn */
+	position?: { x: number; y: number };
+	/** the block a Switch handed off to (#628): its case edges share one handle */
+	next?: string;
 };
 
 export type TraceRunPayload = {

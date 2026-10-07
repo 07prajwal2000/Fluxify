@@ -72,7 +72,7 @@ export async function runWorkflowJob(job: JobEnvelope, extras?: QueueRunExtras) 
 		}
 	}
 
-	const { events, input, meta, source } = readInput(job);
+	const { events, input, meta, source, triggerId } = readInput(job);
 	const context = createJobContext({
 		id: job.id,
 		projectId: job.projectId,
@@ -88,6 +88,9 @@ export async function runWorkflowJob(job: JobEnvelope, extras?: QueueRunExtras) 
 		payload: input,
 		trace,
 	});
+	// only when spans are compiled in (#628): what the start block was handed, and by what
+	if (trace)
+		context.traceInput = { input, trigger: triggerDetails(job, triggerId, source, context) };
 	try {
 		const result = await workflow.run(context, input);
 		// The graph's error handler settles a failed run into a normal result, so
@@ -161,7 +164,29 @@ export function readInput(job: JobEnvelope) {
 		events: batch.events,
 		meta,
 		source: batch.source,
+		triggerId: batch.triggerId,
 		input:
 			batch.events.length === 1 ? batch.events[0]!.data : batch.events.map((event) => event.data),
+	};
+}
+
+/**
+ * The trigger side of a workflow start span (#628): which trigger, and the
+ * source's own details — a cron's fire time, a message's id and subject or
+ * key, a delayed run's time, or a manual / test run's origin.
+ */
+export function triggerDetails(
+	job: JobEnvelope,
+	triggerId: string,
+	source: string,
+	context: ReturnType<typeof createJobContext>,
+) {
+	return {
+		id: triggerId,
+		type: source,
+		...(job.origin ? { origin: job.origin } : {}),
+		...(job.runAt ? { runAt: job.runAt } : {}),
+		batch: context.trigger?.meta,
+		events: (context.trigger?.data ?? []).map((event) => event.meta),
 	};
 }
