@@ -7,7 +7,7 @@ import { parseTasks } from "./evals/run";
 import { withToolTimeouts } from "./timeouts";
 import { ADVANCED, CORE, agentTools } from "./tools";
 
-const limits = { idleMs: 1000, callMs: 5000, toolMs: 1000 };
+const limits = { idleMs: 1000, callMs: 5000, toolMs: 1000, retries: 0 };
 const P = "019a0000-0000-7000-8000-000000000000";
 type Call = { method: string; path: string; auth?: string; body?: unknown };
 
