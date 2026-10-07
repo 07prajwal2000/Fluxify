@@ -47,10 +47,11 @@ export function SplitPane({
 	}
 
 	return (
-		<div ref={root} className="flex h-full min-h-0 w-full">
+		<div ref={root} className="flex h-full min-h-0 w-full overflow-hidden">
 			<div className="h-full min-w-0 shrink-0" style={{ width: `${percent}%` }}>
 				{left}
 			</div>
+			{/* biome-ignore lint/a11y/useSemanticElements: interactive resizable separator needs pointer and keyboard handling */}
 			<div
 				role="separator"
 				tabIndex={0}
@@ -61,9 +62,12 @@ export function SplitPane({
 				aria-valuemax={max}
 				onPointerDown={startDrag}
 				onKeyDown={onKeyDown}
-				className="w-1 shrink-0 cursor-col-resize bg-border transition-colors hover:bg-accent focus-visible:bg-accent focus-visible:outline-none"
-			/>
-			<div className="h-full min-w-0 flex-1">{right}</div>
+				className="group relative h-full w-1 shrink-0 cursor-col-resize bg-border transition-colors hover:bg-accent focus-visible:bg-accent focus-visible:outline-none"
+			>
+				{/* Expanded hit target for effortless drag */}
+				<div className="absolute inset-y-0 -left-1.5 -right-1.5 cursor-col-resize" />
+			</div>
+			<div className="h-full min-w-0 flex-1 overflow-auto">{right}</div>
 		</div>
 	);
 }

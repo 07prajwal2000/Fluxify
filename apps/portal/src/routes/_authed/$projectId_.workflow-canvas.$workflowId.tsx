@@ -1,9 +1,8 @@
 import { Button, toast } from "@fluxify/components";
 import { createFileRoute, isRedirect, redirect } from "@tanstack/react-router";
 import { useState } from "react";
-import { TbHistory, TbSettings } from "react-icons/tb";
+import { TbSettings } from "react-icons/tb";
 import { CanvasWorkbench } from "@/components/canvas";
-import { WorkflowRecordingsModal } from "@/components/recordings/ExecutionRecordings";
 import { WorkflowWorkbenchTabs } from "@/components/routes/RouteWorkbenchTabs";
 import { WorkflowRunButton, WorkflowRunModal } from "@/components/workflows/WorkflowRunModal";
 import { WorkflowSettingsModal } from "@/components/workflows/WorkflowSettingsModal";
@@ -53,7 +52,6 @@ function WorkflowCanvasPage() {
 	usePageTitle(title);
 	const [settingsOpen, setSettingsOpen] = useState(false);
 	const [runOpen, setRunOpen] = useState(false);
-	const [recordingsOpen, setRecordingsOpen] = useState(false);
 	const canEdit = useCanEditProject(projectId);
 
 	return (
@@ -81,12 +79,6 @@ function WorkflowCanvasPage() {
 							active={!!workflow?.active}
 							onPress={() => setRunOpen(true)}
 						/>
-						{/* recordings hold unredacted payloads: creators only, as the server enforces */}
-						{canEdit && (
-							<Button variant="outline" onPress={() => setRecordingsOpen(true)}>
-								<TbHistory size={16} /> Track Execution
-							</Button>
-						)}
 						<Button variant="outline" onPress={() => setSettingsOpen(true)}>
 							<TbSettings size={16} /> Settings
 						</Button>
@@ -100,14 +92,6 @@ function WorkflowCanvasPage() {
 					isOpen={settingsOpen}
 					onOpenChange={setSettingsOpen}
 					readOnly={!canEdit}
-				/>
-			)}
-			{recordingsOpen && (
-				<WorkflowRecordingsModal
-					projectId={projectId}
-					workflowId={workflowId}
-					isOpen={recordingsOpen}
-					onOpenChange={setRecordingsOpen}
 				/>
 			)}
 			{runOpen && (

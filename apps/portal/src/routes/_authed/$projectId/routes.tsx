@@ -18,6 +18,7 @@ import { TbEdit, TbPlayerPlay, TbPlus, TbRoute } from "react-icons/tb";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { EmptyState } from "@/components/common/EmptyState";
 import { RouteApiPlayground } from "@/components/RouteApiPlayground";
+import { RecordingIndicator } from "@/components/recordings/RecordingControls";
 import { useProjectApiBaseUrl } from "@/components/settings/SubdomainField";
 import { showErrorNotification } from "@/lib/errorNotifier";
 import { createRouteHead, formatProjectTitle, usePageTitle } from "@/lib/seo";
@@ -32,12 +33,13 @@ export const Route = createFileRoute("/_authed/$projectId/routes")({
 	component: RoutesPage,
 });
 
-type RouteRow = {
+export type RouteRow = {
 	id: string;
 	name?: string | null;
 	method?: string | null;
 	path?: string | null;
 	active?: boolean | null;
+	recordExecution?: boolean | null;
 };
 
 function RoutesPage() {
@@ -145,7 +147,10 @@ function RoutesPage() {
 										<Chip>{route.method}</Chip>
 									</Table.Cell>
 									<Table.Cell>
-										<span className="font-mono text-sm">{route.path}</span>
+										<div className="flex items-center gap-2">
+											<span className="font-mono text-sm">{route.path}</span>
+											{route.recordExecution && <RecordingIndicator />}
+										</div>
 									</Table.Cell>
 									<Table.Cell>{route.name}</Table.Cell>
 									<Table.Cell>

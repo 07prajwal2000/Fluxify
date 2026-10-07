@@ -1,6 +1,7 @@
-import { Spinner } from "@fluxify/components";
-import { type EdgeProps, useOnSelectionChange } from "@xyflow/react";
-import { useCallback, useMemo } from "react";
+import { Button, Spinner } from "@fluxify/components";
+import { type EdgeProps, useOnSelectionChange, useReactFlow } from "@xyflow/react";
+import { useCallback, useEffect, useMemo } from "react";
+import { TbArrowRight } from "react-icons/tb";
 import { BlockCanvas } from "@/components/canvas/BlockCanvas";
 import { createBlockNodeTypes } from "@/components/canvas/blocks";
 import { toGraph } from "@/components/canvas/CanvasWorkbench";
@@ -11,17 +12,40 @@ import { customBlocksQuery } from "@/query/customBlocksQuery";
 import { routesQuery } from "@/query/routesQuery";
 import { workflowsQuery } from "@/query/workflowsQuery";
 import type { RecordedSpan, RecordingTarget } from "@/services/recordings";
-import { blockStatuses, takenEdgeIds } from "./spans";
+import { blockStatuses, calledBlockId, takenEdgeIds } from "./spans";
 import "./recordings.css";
 
 const nodeTypes = createBlockNodeTypes();
 
-function SelectionWatcher({ onSelect }: { onSelect: (blockId: string | null) => void }) {
+function SelectionSync({
+	selectedId,
+	onSelect,
+}: {
+	selectedId?: string | null;
+	onSelect: (blockId: string | null) => void;
+}) {
+	const { setNodes } = useReactFlow();
+
 	const onChange = useCallback(
-		({ nodes }: { nodes: BlockNode[] }) => onSelect(nodes[0]?.id ?? null),
-		[onSelect],
+		({ nodes }: { nodes: BlockNode[] }) => {
+			const activeId = nodes[0]?.id ?? null;
+			if (activeId !== selectedId) {
+				onSelect(activeId);
+			}
+		},
+		[onSelect, selectedId],
 	);
 	useOnSelectionChange({ onChange });
+
+	useEffect(() => {
+		setNodes((nodes) =>
+			nodes.map((node) => ({
+				...node,
+				selected: node.id === selectedId,
+			})),
+		);
+	}, [selectedId, setNodes]);
+
 	return null;
 }
 
@@ -46,12 +70,18 @@ export function OverlayCanvas({
 	target,
 	customBlockId,
 	level,
+	runSpans,
+	selectedId,
 	onSelect,
+	onOpenCall,
 }: {
 	target: RecordingTarget;
 	customBlockId: string | null;
 	level: RecordedSpan[];
+	runSpans?: RecordedSpan[];
+	selectedId?: string | null;
 	onSelect: (blockId: string | null) => void;
+	onOpenCall?: (span: RecordedSpan, customBlockId: string) => void;
 }) {
 	const items = useLevelCanvas(target, customBlockId);
 	const graph = useMemo(() => {
@@ -79,6 +109,22 @@ export function OverlayCanvas({
 		};
 	}, [graph.edges, level]);
 
+	const activeSpan = selectedId ? level.find((s) => s.blockId === selectedId) : null;
+	const activeCalledId = activeSpan && runSpans ? calledBlockId(runSpans, activeSpan) : null;
+
+	const handleNodeDoubleClick = useCallback(
+		(_: React.MouseEvent, node: BlockNode) => {
+			if (!runSpans || !onOpenCall) return;
+			const span = level.find((s) => s.blockId === node.id);
+			if (!span) return;
+			const called = calledBlockId(runSpans, span);
+			if (called) {
+				onOpenCall(span, called);
+			}
+		},
+		[level, runSpans, onOpenCall],
+	);
+
 	if (items.isLoading) {
 		return (
 			<div className="flex h-full items-center justify-center">
@@ -96,19 +142,34 @@ export function OverlayCanvas({
 	return (
 		// its own diagnostics: the editor canvas behind must not pick up this one's blocks
 		<CanvasDiagnosticsProvider>
-			<BlockCanvas
-				graph={graph}
-				mode="readonly"
-				nodeTypes={nodeTypes}
-				edgeTypes={edgeTypes}
-				enablePanel={false}
-				enableHistory={false}
-				enableFormat={false}
-				enableClipboard={false}
-				className="fx-run-overlay"
-			>
-				<SelectionWatcher onSelect={onSelect} />
-			</BlockCanvas>
+			<div className="relative h-full w-full">
+				<BlockCanvas
+					graph={graph}
+					mode="readonly"
+					nodeTypes={nodeTypes}
+					edgeTypes={edgeTypes}
+					enablePanel={false}
+					enableHistory={false}
+					enableFormat={false}
+					enableClipboard={false}
+					onNodeDoubleClick={handleNodeDoubleClick}
+					className="fx-run-overlay"
+				>
+					<SelectionSync selectedId={selectedId} onSelect={onSelect} />
+				</BlockCanvas>
+				{activeSpan && activeCalledId && onOpenCall && (
+					<div className="pointer-events-auto absolute bottom-3 left-3 z-10 flex items-center gap-2 rounded-lg border border-border bg-background-secondary/95 px-3 py-1.5 shadow-lg backdrop-blur">
+						<span className="text-xs font-medium text-foreground">Custom block call</span>
+						<Button
+							size="sm"
+							variant="outline"
+							onPress={() => onOpenCall(activeSpan, activeCalledId)}
+						>
+							Open Call <TbArrowRight size={14} />
+						</Button>
+					</div>
+				)}
+			</div>
 		</CanvasDiagnosticsProvider>
 	);
 }

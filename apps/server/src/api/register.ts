@@ -1,6 +1,7 @@
-import { existsSync, readFileSync } from "fs";
-import { join } from "path";
+import { existsSync, readFileSync } from "node:fs";
+import { join } from "node:path";
 import { currentEntitlement } from "../lib/edition";
+import { RECORDING_MAX_AGE_DAYS } from "../lib/env";
 import { getPublicSettings } from "../loaders/instanceSettingsLoader";
 import { orchestrationEnabled } from "../modules/orchestrator/gate";
 import type { HonoServer } from "../types";
@@ -19,6 +20,7 @@ export function mapVersionedAdminRoutes(app: HonoServer) {
 			...getPublicSettings(),
 			license: currentEntitlement(),
 			orchestration: { enabled: orchestrationEnabled() },
+			recordingMaxAgeDays: RECORDING_MAX_AGE_DAYS,
 			// the editor loads `@types/bun` at this version
 			bunVersion: Bun.version,
 		}),
@@ -27,7 +29,7 @@ export function mapVersionedAdminRoutes(app: HonoServer) {
 		try {
 			const htmlContent = loadHtmlContent();
 			return c.html(htmlContent);
-		} catch (error) {
+		} catch (_error) {
 			return c.text("OpenAPI UI file not found", 404);
 		}
 	});
@@ -53,7 +55,7 @@ function loadHtmlContent(): string {
 			}
 		}
 		throw new Error("OpenAPI UI file not found");
-	} catch (error) {
+	} catch (_error) {
 		throw new Error("Failed to load OpenAPI UI file");
 	}
 }

@@ -28,7 +28,7 @@ import { useEffect, useMemo, useState } from "react";
 import { TbAlertTriangle } from "react-icons/tb";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { Section } from "@/components/common/Section";
-import { RETENTION_NOTE, RecordingSwitch } from "@/components/recordings/RecordingControls";
+import { RecordingSwitch, useRetentionNote } from "@/components/recordings/RecordingControls";
 import { showErrorNotification } from "@/lib/errorNotifier";
 import { projectSettingsKeysQuery } from "@/query/projectSettingsKeysQuery";
 import { routesQuery } from "@/query/routesQuery";
@@ -145,6 +145,7 @@ function RouteSettingsForm({
 	);
 	const [tab, setTab] = useState("general");
 	const [confirmDelete, setConfirmDelete] = useState(false);
+	const retentionNote = useRetentionNote();
 	const remove = routesQuery.remove.mutation();
 	const navigate = useNavigate();
 
@@ -427,7 +428,7 @@ function RouteSettingsForm({
 
 						<Section
 							title="Recording"
-							description={`Keep a copy of each run in Fluxify, inputs and outputs included, to replay it on the canvas from the playground's Track Execution tab. Telemetry sends traces to your own backend; Recording keeps them here. Applies right away. ${RETENTION_NOTE}`}
+							description={`Keep a copy of each run in Fluxify, inputs and outputs included, to replay it on the canvas from the Executions tab. Telemetry sends traces to your own backend; Recording keeps them here. Applies right away. ${retentionNote}`}
 						>
 							<RecordingSwitch
 								projectId={route.projectId}
