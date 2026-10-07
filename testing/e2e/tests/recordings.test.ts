@@ -94,7 +94,7 @@ describe("entrypoint input and block positions (#628)", () => {
 		);
 		const spans = run.recorded[0]!.spans;
 		expect(spans.length).toBeGreaterThan(4);
-		for (const span of spans) expect(span.metadata?.position).toEqual(positions[span.blockId]);
+		for (const span of spans) expect(span.metadata?.position as unknown).toEqual(positions[span.blockId]);
 	});
 });
 
