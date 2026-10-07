@@ -229,11 +229,18 @@ describe("recordings consumer", () => {
 
 		it("stores a test run even with recording off, metadata included", async () => {
 			const run = makeRun({ routeId: "r-off", metadata: metadata("tr-1") });
+			run.spans[1]!.metadata = { mocked: { output: true } };
 			await stream.publishRecording(run);
 			await until(async () => Boolean(await runRow(run.runId)));
 
 			expect((await runRow(run.runId)).metadata).toEqual(metadata("tr-1"));
-			expect(await spanRows(run.runId)).toHaveLength(2);
+			const spans = await spanRows(run.runId);
+			expect(spans).toHaveLength(2);
+			// a mocked span says so; the rest leave metadata null
+			expect(spans.map((span: { metadata: unknown }) => span.metadata)).toEqual([
+				null,
+				{ mocked: { output: true } },
+			]);
 		});
 
 		it("still drops a test run that names another project", async () => {

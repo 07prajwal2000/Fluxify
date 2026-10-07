@@ -53,6 +53,7 @@ export async function getRecordedRunById(projectId: string, target: SuiteTarget,
 			input: traceSpansEntity.input,
 			output: traceSpansEntity.output,
 			truncated: traceSpansEntity.truncated,
+			metadata: traceSpansEntity.metadata,
 		})
 		.from(traceSpansEntity)
 		.where(eq(traceSpansEntity.runId, runId))

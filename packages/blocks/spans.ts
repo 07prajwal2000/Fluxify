@@ -6,7 +6,7 @@ import type { BlockDTOType } from "./builderTypes";
  * every piece emits nothing: no timer, no try/catch, no `$trace` checks, since
  * nothing would ever read the spans.
  */
-export function blockSpans(block: BlockDTOType, tracing: boolean) {
+export function blockSpans(block: BlockDTOType, tracing: boolean, mockable = false) {
 	const name = blockName(block.data);
 	const fields = `blockId: ${JSON.stringify(block.id)}, blockType: ${JSON.stringify(block.type)}${name ? `, blockName: ${JSON.stringify(name)}` : ""}`;
 
@@ -15,7 +15,7 @@ export function blockSpans(block: BlockDTOType, tracing: boolean) {
 		const outcome = error === undefined ? "success" : "failure";
 		const branchField = branch ? `, branch: ${JSON.stringify(branch)}` : "";
 		const errorField = error === undefined ? "" : `, error: ${error}`;
-		const span = `{ ${fields}, input: $input, output: ${output}, startedAt: $t0, endedAt: performance.now(), outcome: ${JSON.stringify(outcome)}${branchField}${errorField} }`;
+		const span = `{ ${fields}, input: $input, output: ${output}, startedAt: $t0, endedAt: performance.now(), outcome: ${JSON.stringify(outcome)}${branchField}${errorField}${mockable ? ", mocked: $mocked" : ""} }`;
 		return `$recorded = true;
 if ($trace) {
 try {
@@ -28,15 +28,17 @@ $trace.recordSpan(${span});
 
 	/** the block function's body around the emitted block code */
 	function wrap(code: string) {
+		// what a test hook faked (#627); see emitBeforeHook
+		const mocked = mockable ? "let $mocked;\n" : "";
 		if (!tracing) {
 			return `const { ctx, vars, scope: $scope } = $state;
 let $in = $input;
-${code}`;
+${mocked}${code}`;
 		}
 		return `const { ctx, vars, scope: $scope, trace: $trace } = $state;
 const $t0 = $trace ? performance.now() : 0;
 let $in = $input;
-let $recorded = false;
+${mocked}let $recorded = false;
 try {
 ${code}
 } catch ($error) {

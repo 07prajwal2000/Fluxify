@@ -283,6 +283,54 @@ describe("runSuiteInChild", () => {
 		expect(trace!.spans.map((s) => s.blockId)).toContain("2");
 	}, 30_000);
 
+	it("marks mocked spans with the values the hooks put in (#627)", async () => {
+		const { source } = compileGraph(
+			[
+				block("1", BlockTypes.entrypoint),
+				block("2", BlockTypes.jsrunner, { value: "throw new Error('real DB call')" }),
+				block("3", BlockTypes.jsrunner, { value: "return { ...input, seen: true };" }),
+				block("4", BlockTypes.jsrunner, { value: "return input;" }),
+				block("5", BlockTypes.response, { httpCode: "200" }),
+			],
+			[edge("1", "2"), edge("2", "3"), edge("3", "4"), edge("4", "5")] as any,
+			{ hooks: true },
+		);
+		const hook = (blockId: string, onBefore: any, onAfter: any) => ({
+			blockId,
+			blockType: "jsrunner",
+			blockName: blockId,
+			onBefore,
+			onAfter,
+		});
+		const traces: TraceRunPayload[] = [];
+
+		await runSuiteInChild(
+			bootstrap(source, {
+				hooks: [
+					hook("2", { kind: "json", value: '{"id":7}' }, null),
+					hook(
+						"3",
+						{ kind: "script", value: "return { id: 8 };" },
+						{ kind: "script", value: "return { ...output, patched: true };" },
+					),
+					// only looks: not a mock
+					hook("4", null, { kind: "script", value: "t.expect(output.id).toBe(8);" }),
+				],
+			}),
+			undefined,
+			(run) => traces.push(run),
+		);
+
+		const span = (id: string) => traces[0]!.spans.find((s) => s.blockId === id)!;
+		expect(span("2")).toMatchObject({ output: { id: 7 }, metadata: { mocked: { output: true } } });
+		expect(span("3")).toMatchObject({
+			input: { id: 8 },
+			output: { id: 8, seen: true, patched: true },
+			metadata: { mocked: { input: true, output: true } },
+		});
+		expect(span("4").metadata).toBeUndefined();
+	}, 30_000);
+
 	describe("workflow suites (#487)", () => {
 		// doubles `n`; n = 13 makes the workflow throw
 		const workflow = compileGraph(

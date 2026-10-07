@@ -30,6 +30,15 @@ export const responseSchema = runSummarySchema.extend({
 			input: z.any().nullable(),
 			output: z.any().nullable(),
 			truncated: z.boolean(),
+			/** test runs only (#627): what a suite's hook mocked */
+			metadata: z
+				.object({
+					mocked: z.object({
+						input: z.literal(true).optional(),
+						output: z.literal(true).optional(),
+					}),
+				})
+				.nullable(),
 		}),
 	),
 	/** runs an async custom block forked off this run, and the span that forked each */

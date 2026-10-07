@@ -33,12 +33,22 @@ const sampleSpan = (
 	input: { foo: "bar" },
 	output: { baz: 123 },
 	truncated: false,
+	metadata: null,
 	...extra,
 });
 
 test("RecordingIndicator displays active recording badge", () => {
 	const view = render(<RecordingIndicator />);
 	expect(view.getByText("Recording Active")).toBeTruthy();
+});
+
+test("PayloadViewer marks a value a test hook mocked (#627)", () => {
+	const view = render(<PayloadViewer title="Output" value={{ id: 7 }} mocked />);
+	expect(view.getByText("Mocked")).toBeTruthy();
+	cleanup();
+	expect(
+		render(<PayloadViewer title="Output" value={{ id: 7 }} />).queryByText("Mocked"),
+	).toBeNull();
 });
 
 test("PayloadViewer toggles open/collapsed and marks truncated payloads", () => {

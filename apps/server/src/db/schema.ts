@@ -1,5 +1,5 @@
 import { NODE_REASONS, NODE_STATES, NODE_TYPES } from "@fluxify/common/orchestrator";
-import type { TraceRunMetadata, TraceSpanRecord } from "@fluxify/common/otlp";
+import type { TraceRunMetadata, TraceSpanMetadata, TraceSpanRecord } from "@fluxify/common/otlp";
 import { generateID } from "@fluxify/lib";
 import { relations, sql } from "drizzle-orm";
 import type { AnyPgColumn } from "drizzle-orm/pg-core";
@@ -1310,6 +1310,8 @@ export const traceSpansEntity = pgTable(
 		input: jsonb(),
 		output: jsonb(),
 		truncated: boolean().default(false).notNull(),
+		/** non-standard span info, e.g. a test mock (#627); null on normal runs */
+		metadata: jsonb().$type<TraceSpanMetadata | null>(),
 	},
 	(table) => [primaryKey({ columns: [table.runId, table.seq] })],
 );

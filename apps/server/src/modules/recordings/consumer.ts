@@ -35,6 +35,11 @@ const metadataSchema = z.object({
 	caseName: z.string().max(200),
 });
 
+/** a test hook's mock on a span (#627) */
+const spanMetadataSchema = z.object({
+	mocked: z.object({ input: z.literal(true).optional(), output: z.literal(true).optional() }),
+});
+
 /** Only what the insert relies on; anything else is stored as it came. */
 const runSchema = z
 	.object({
@@ -69,6 +74,7 @@ const runSchema = z
 					branch: outcome.optional(),
 					error: z.string().optional(),
 					truncated: z.boolean().optional(),
+					metadata: spanMetadataSchema.optional(),
 				}),
 			)
 			.max(MAX_SPANS_PER_RUN),
@@ -161,6 +167,7 @@ export async function persistRecording(payload: unknown): Promise<"stored" | "dr
 					input: span.input,
 					output: span.output,
 					truncated: span.truncated ?? false,
+					metadata: span.metadata,
 				})),
 			)
 			.onConflictDoNothing();

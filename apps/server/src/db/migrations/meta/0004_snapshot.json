@@ -1,5 +1,5 @@
 {
-	"id": "ea2dc7aa-281b-48c7-a4d3-2aa9a43a5974",
+	"id": "9ff3ee20-c2eb-407c-acc4-7d2d1c961e84",
 	"prevId": "e438db70-9f29-44e3-965e-d410852f3b5f",
 	"version": "7",
 	"dialect": "postgresql",
@@ -3188,6 +3188,12 @@
 					"primaryKey": false,
 					"notNull": true,
 					"default": false
+				},
+				"metadata": {
+					"name": "metadata",
+					"type": "jsonb",
+					"primaryKey": false,
+					"notNull": false
 				}
 			},
 			"indexes": {},

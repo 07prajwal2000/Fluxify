@@ -63,9 +63,10 @@ export function emitBeforeHook(
 					`throw new Error(${JSON.stringify(`A ${type} block cannot be skipped; change its input instead`)});`,
 				]
 			: branches.length === 0
-				? ["$in = $b.output;", skipTo("source")]
+				? ["$in = $b.output;", "$mocked = { output: true };", skipTo("source")]
 				: [
 						"$in = $b.output;",
+						"$mocked = { output: true };",
 						`switch ($b.branch ?? ${JSON.stringify(branches[0])}) {`,
 						...branches.flatMap((h) => [`case ${JSON.stringify(h)}: {`, skipTo(h), "}"]),
 						`default: throw new Error(${JSON.stringify(`A ${type} block has no branch `)} + JSON.stringify($b.branch));`,
@@ -78,7 +79,8 @@ export function emitBeforeHook(
 		"if ($b?.skip) {",
 		...skip,
 		"}",
-		`if ($b && "input" in $b) $in = $b.input;`,
+		// the span records the input the block really ran with
+		`if ($b && "input" in $b) { $in = $b.input; $input = $in; $mocked = { input: true }; }`,
 		"}",
 		// what `after` is told the block ran with
 		support === "full" ? "const $hookInput = $in;" : "",
@@ -86,9 +88,12 @@ export function emitBeforeHook(
 	].join(NL);
 }
 
-/** compiled code letting the `after` hook replace `target`, the block's output */
+/**
+ * compiled code letting the `after` hook replace `target`, the block's output;
+ * a hook that hands back the same value has not mocked it
+ */
 export function emitAfterHook(support: HookSupport, target: string) {
 	return support === "full"
-		? `if ($hook?.after) ${target} = await $hook.after($hookInput, ${target});${NL}`
+		? `if ($hook?.after) { const $out = await $hook.after($hookInput, ${target}); if ($out !== ${target}) { ${target} = $out; $mocked = { ...$mocked, output: true }; } }${NL}`
 		: "";
 }
