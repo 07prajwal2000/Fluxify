@@ -221,7 +221,7 @@ describe("recordings consumer", () => {
 			caseIndex,
 			caseName: "Request",
 		});
-		const listRuns = async (query: { source?: "test"; testRunId?: string } = {}) => {
+		const listRuns = async (query: { source?: "test" | "live"; testRunId?: string } = {}) => {
 			const { getRecordedRuns } = await import("../../../api/v1/recordings/get-runs/repository");
 			const { result } = await getRecordedRuns("p1", { type: "route", id: "r-off" }, query, 0, 50);
 			return result.map((run) => run.id);
@@ -242,7 +242,7 @@ describe("recordings consumer", () => {
 			expect(await runRow(run.runId)).toBeUndefined();
 		});
 
-		it("the run list hides test traces unless asked for them", async () => {
+		it("the run list shows test traces by default and filters by source", async () => {
 			const normal = makeRun({ routeId: "r-off" });
 			const test = makeRun({ routeId: "r-off", metadata: metadata("tr-3") });
 			const other = makeRun({ routeId: "r-off", metadata: metadata("tr-4") });
@@ -253,12 +253,13 @@ describe("recordings consumer", () => {
 			await recordings.persistRecording(other);
 
 			const all = await listRuns();
-			expect(all).toContain(normal.runId);
-			expect(all).not.toContain(test.runId);
-			expect(await listRuns({ source: "test" })).toEqual(
-				expect.arrayContaining([test.runId, other.runId]),
-			);
-			expect(await listRuns({ source: "test" })).not.toContain(normal.runId);
+			expect(all).toEqual(expect.arrayContaining([normal.runId, test.runId, other.runId]));
+			const tests = await listRuns({ source: "test" });
+			expect(tests).toEqual(expect.arrayContaining([test.runId, other.runId]));
+			expect(tests).not.toContain(normal.runId);
+			const live = await listRuns({ source: "live" });
+			expect(live).toContain(normal.runId);
+			expect(live).not.toContain(test.runId);
 			expect(await listRuns({ testRunId: "tr-3" })).toEqual([test.runId]);
 		});
 

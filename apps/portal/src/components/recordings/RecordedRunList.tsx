@@ -48,6 +48,7 @@ export function RecordedRunList({
 }) {
 	const [page, setPage] = useState(1);
 	const [outcomeFilter, setOutcomeFilter] = useState<"all" | "success" | "failure">("all");
+	const [sourceFilter, setSourceFilter] = useState<"all" | "test" | "live">("all");
 	const [focusedIndex, setFocusedIndex] = useState(-1);
 	const retentionNote = useRetentionNote();
 
@@ -67,6 +68,7 @@ export function RecordedRunList({
 		page,
 		true,
 		outcomeFilter === "all" ? undefined : outcomeFilter,
+		sourceFilter === "all" ? {} : { source: sourceFilter },
 	);
 	const remove = recordingsQuery.deleteRun.useMutation(projectId, target);
 	const recording = useRecordingSwitch(projectId, target);
@@ -104,7 +106,7 @@ export function RecordedRunList({
 		);
 	}
 
-	if (items.length === 0 && page === 1 && outcomeFilter === "all") {
+	if (items.length === 0 && page === 1 && outcomeFilter === "all" && sourceFilter === "all") {
 		return (
 			<div className="p-6">
 				<EmptyState
@@ -139,62 +141,90 @@ export function RecordedRunList({
 					<span className="text-xs text-muted">· {retentionNote}</span>
 				</div>
 
-				<div className="flex items-center gap-1 rounded-lg border border-border bg-background p-0.5">
-					<button
-						type="button"
-						onClick={() => {
-							setOutcomeFilter("all");
-							setPage(1);
-							setFocusedIndex(-1);
-						}}
-						className={cn(
-							"rounded-md px-2 py-0.5 text-xs font-medium transition-colors",
-							outcomeFilter === "all"
-								? "bg-accent/10 text-accent"
-								: "text-muted hover:text-foreground",
-						)}
-					>
-						All
-					</button>
-					<button
-						type="button"
-						onClick={() => {
-							setOutcomeFilter("success");
-							setPage(1);
-							setFocusedIndex(-1);
-						}}
-						className={cn(
-							"rounded-md px-2 py-0.5 text-xs font-medium transition-colors",
-							outcomeFilter === "success"
-								? "bg-success/10 text-success"
-								: "text-muted hover:text-foreground",
-						)}
-					>
-						Passed
-					</button>
-					<button
-						type="button"
-						onClick={() => {
-							setOutcomeFilter("failure");
-							setPage(1);
-							setFocusedIndex(-1);
-						}}
-						className={cn(
-							"rounded-md px-2 py-0.5 text-xs font-medium transition-colors",
-							outcomeFilter === "failure"
-								? "bg-danger/10 text-danger"
-								: "text-muted hover:text-foreground",
-						)}
-					>
-						Failed
-					</button>
+				<div className="flex items-center gap-2">
+					<div className="flex items-center gap-1 rounded-lg border border-border bg-background p-0.5">
+						{(
+							[
+								["all", "All runs"],
+								["test", "Test runs"],
+								["live", "Live runs"],
+							] as const
+						).map(([value, label]) => (
+							<button
+								key={value}
+								type="button"
+								aria-pressed={sourceFilter === value}
+								onClick={() => {
+									setSourceFilter(value);
+									setPage(1);
+									setFocusedIndex(-1);
+								}}
+								className={cn(
+									"rounded-md px-2 py-0.5 text-xs font-medium transition-colors",
+									sourceFilter === value
+										? "bg-accent/10 text-accent"
+										: "text-muted hover:text-foreground",
+								)}
+							>
+								{label}
+							</button>
+						))}
+					</div>
+					<div className="flex items-center gap-1 rounded-lg border border-border bg-background p-0.5">
+						<button
+							type="button"
+							onClick={() => {
+								setOutcomeFilter("all");
+								setPage(1);
+								setFocusedIndex(-1);
+							}}
+							className={cn(
+								"rounded-md px-2 py-0.5 text-xs font-medium transition-colors",
+								outcomeFilter === "all"
+									? "bg-accent/10 text-accent"
+									: "text-muted hover:text-foreground",
+							)}
+						>
+							All
+						</button>
+						<button
+							type="button"
+							onClick={() => {
+								setOutcomeFilter("success");
+								setPage(1);
+								setFocusedIndex(-1);
+							}}
+							className={cn(
+								"rounded-md px-2 py-0.5 text-xs font-medium transition-colors",
+								outcomeFilter === "success"
+									? "bg-success/10 text-success"
+									: "text-muted hover:text-foreground",
+							)}
+						>
+							Passed
+						</button>
+						<button
+							type="button"
+							onClick={() => {
+								setOutcomeFilter("failure");
+								setPage(1);
+								setFocusedIndex(-1);
+							}}
+							className={cn(
+								"rounded-md px-2 py-0.5 text-xs font-medium transition-colors",
+								outcomeFilter === "failure"
+									? "bg-danger/10 text-danger"
+									: "text-muted hover:text-foreground",
+							)}
+						>
+							Failed
+						</button>
+					</div>
 				</div>
 			</div>
 
 			{items.length === 0 ? (
-				<div className="py-8 text-center text-xs text-muted">
-					No runs found matching filter "{outcomeFilter}".
-				</div>
+				<div className="py-8 text-center text-xs text-muted">No runs match these filters.</div>
 			) : (
 				items.map((run, index) => (
 					<div
@@ -215,7 +245,13 @@ export function RecordedRunList({
 							{run.statusCode != null && (
 								<span className="font-mono text-xs text-foreground">{run.statusCode}</span>
 							)}
+							{run.metadata && (
+								<Chip size="sm" color="accent" title={run.metadata.label}>
+									Test
+								</Chip>
+							)}
 							<span className="flex-1 truncate text-xs text-muted">
+								{run.metadata && <span className="text-foreground">{run.metadata.label} · </span>}
 								{formatWhen(run.startedAt)}
 							</span>
 							{run.parentRunId && (

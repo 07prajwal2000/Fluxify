@@ -59,10 +59,11 @@ export async function getRecordedRuns(
 	return { result, totalCount: total?.count ?? 0 };
 }
 
-/** test traces (#627) only when asked for; the run list hides them otherwise */
-function testRunsFilter(source?: "test", testRunId?: string) {
+/** test traces (#627) are listed with normal runs unless a filter narrows it */
+function testRunsFilter(source?: "test" | "live", testRunId?: string) {
 	const metadata = traceRunsEntity.metadata;
 	if (testRunId) return sql`${metadata}->>'testRunId' = ${testRunId}`;
 	if (source === "test") return sql`${metadata}->>'source' = 'test'`;
-	return sql`(${metadata}->>'source') is distinct from 'test'`;
+	if (source === "live") return sql`(${metadata}->>'source') is distinct from 'test'`;
+	return undefined;
 }

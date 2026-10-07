@@ -12,9 +12,9 @@ export const requestQuerySchema = paginationRequestQuerySchema.extend({
 	from: z.coerce.date().optional().describe("runs started at or after this time"),
 	to: z.coerce.date().optional().describe("runs started before this time"),
 	source: z
-		.enum(["test"])
+		.enum(["test", "live"])
 		.optional()
-		.describe("test: only test run traces. Without it they are left out (#627)"),
+		.describe("test: only test run traces, live: only normal runs. Without it, both (#627)"),
 	testRunId: z.string().max(50).optional().describe("only the traces of this test run"),
 });
 

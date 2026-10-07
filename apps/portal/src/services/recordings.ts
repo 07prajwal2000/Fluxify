@@ -13,8 +13,8 @@ export type RecordedRun = z.infer<typeof getRunResponseSchema>;
 export type RecordedSpan = RecordedRun["spans"][number];
 /** set on a test run's trace (#627) */
 export type TraceMetadata = NonNullable<RecordedRun["metadata"]>;
-/** test traces are left out of the list unless one of these asks for them (#627) */
-export type TestTraceFilter = { source?: "test"; testRunId?: string };
+/** narrows the list to test traces (#627) or normal runs; without it, both */
+export type TestTraceFilter = { source?: "test" | "live"; testRunId?: string };
 
 /** The project is in the path — the server authorizes off it directly (creator only). */
 const runsUrl = (projectId: string, target: RecordingTarget) =>
