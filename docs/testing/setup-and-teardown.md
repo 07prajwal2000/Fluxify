@@ -33,7 +33,7 @@ Build the block's canvas like any other custom block. While it runs, it can read
 
 | Name | What it is |
 | --- | --- |
-| `testsuite.phase` | `"setup"` when it runs before the request, `"teardown"` when it runs after |
+| `testsuite.phase` | `"setup"` when it runs before the request, `"teardown"` when it runs after. A workflow suite's [loader block](./workflows#where-the-value-comes-from) sees `"input"` |
 | `testsuite.runId` | A value unique to this suite run. Put it in your test data so suites running at the same time never clash |
 | `testsuite.suite` | The suite's `id` and `name` |
 | `testsuite.setup` | Teardown only: what the setup block returned |

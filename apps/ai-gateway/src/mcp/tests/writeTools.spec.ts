@@ -34,6 +34,9 @@ describe("optionalFields", () => {
 	it("drops defaults, so an update never resets a field it did not name", () => {
 		const shape = optionalFields({ n: z.number().default(1), s: z.string().optional() });
 		expect(z.object(shape).parse({})).toEqual({});
+		const hidden = z.object(optionalFields({ a: z.array(z.string()).default([]).optional().nullable() }));
+		expect(hidden.parse({})).toEqual({});
+		expect(hidden.parse({ a: null })).toEqual({ a: null });
 	});
 });
 

@@ -90,7 +90,7 @@ With **Raw data**, you don't write this list by hand: press **Add case**, give i
 | --- | --- |
 | **Raw data** | JSON you type in. |
 | **Script** | JavaScript that **returns** the value. It works like a JS block, so your project's npm packages can be imported. It has 30 seconds to finish. |
-| **Loader block** | A test-only custom block whose output is the value, for example rows read from a database. You choose its time limit. |
+| **Loader block** | A test-only custom block whose output is the value, for example rows read from a database. You choose its time limit (30 seconds by default). Inside it, `testsuite.phase` is `"input"`. |
 
 A script or loader runs **once**, after setup and before the workflow. What it returns follows the same rules as typed data: in **Single input** it is the items for the run, in **Cases** it must be a list of cases.
 
@@ -250,12 +250,29 @@ Every case gets the same checks. If some inputs should **fail** and others **pas
 
 A workflow run ends with a result: whether it **succeeded**, its **output** (what the last block returned), and an **error** if it failed.
 
-| Check | What it looks at |
-| --- | --- |
-| **Run succeeded** | Whether the run ended without an error. |
-| **Output** | The output, or a value inside it (for example `order.total`). |
-| **Duration (ms)** | How long the run took. |
-| **Custom JS** | Your own checks. `fluxify.input` is the case's input **as you typed it** (before it is turned into items), `fluxify.result` is `{ successful, output, error }`, and `t.case` is the case (`index`, `name`, `input`). |
+| Check | What it looks at | Operators |
+| --- | --- | --- |
+| **Run succeeded** | Whether the run ended without an error. | is true, is false |
+| **Output** | The output, or a value inside it (for example `order.total`). | the same as Response body: equals, not equals, contains, is true, is false, exists, does not exist |
+| **Duration (ms)** | How long the run took. | equals, not equals, less than, greater than |
+| **Custom JS** | Your own checks. `fluxify.input` is the case's input **as you typed it** (before it is turned into items), `fluxify.result` is `{ successful, output, error }`, and `t.case` is the case (`index`, `name`, `input`). | — |
+
+Values are compared the same way as for routes. See [How values are compared](./checks#how-values-are-compared).
+
+For example, a suite that checks an "update order" workflow ended well and returned the order:
+
+| Check | Property path | Operator | Expected value |
+| --- | --- | --- | --- |
+| Run succeeded | | is true | |
+| Output | `order.status` | equals | `paid` |
+
+The same as one Custom JS check:
+
+```js
+t.expect(fluxify.result.successful, "succeeded").toBe(true);
+t.expect(fluxify.result.output.order.status).toBe("paid");
+t.expect(fluxify.result.error).toBeFalsy();
+```
 
 A failed run does not stop the suite: it shows up as a failed check on that case, and the next case still runs.
 

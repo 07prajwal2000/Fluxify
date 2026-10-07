@@ -102,6 +102,7 @@ If a Before hook skipped the block, its After hook does not run.
 | `t.block` | This block's `id`, `type` and `name` |
 | `t.setup` | What the suite's [setup block](./setup-and-teardown) returned |
 | `t.runId` | A value unique to this suite run |
+| `t.case` | Workflow suites: the case being run (`index`, `name`, `input`) |
 | `t.zod` | The [zod](https://zod.dev) library, to check the shape of a value |
 
 `t.expect` lines from hooks appear in the results first, labelled with the block, for example:
@@ -122,7 +123,7 @@ If a Before hook skipped the block, its After hook does not run.
 | Blocks | Allowed |
 | --- | --- |
 | Entrypoint, Response, Error Handler, sticky notes | No hooks: they are the frame of the route, not steps in it |
-| If, Switch, For Loop, Foreach Loop, Orchestrator | **Before** script only, to change the input. They run other blocks, so they cannot be skipped |
+| If, Switch, For Loop, Foreach Loop, Orchestrator, Retry | **Before** script only, to change the input. They run other blocks, so they cannot be skipped |
 | Every other block, including custom blocks | Before and After, Script or JSON |
 
 A custom block placed on the route is hooked as a whole: you can skip or change the whole custom block, but not the blocks inside it.

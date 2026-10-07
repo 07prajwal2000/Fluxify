@@ -8,6 +8,7 @@ import { canvasTools } from "./canvasTools";
 import { MCP_INSTRUCTIONS } from "./instructions";
 import { projectTools } from "./projectTools";
 import { routeTools } from "./routeTools";
+import { testSuiteTools } from "./testSuiteTools";
 import { readTools } from "./tools";
 import { writeTools } from "./writeTools";
 
@@ -61,6 +62,7 @@ export function createMcpServer(
 		...routeTools,
 		...canvasTools,
 		...projectTools,
+		...testSuiteTools,
 	]) {
 		const api = adminApi(fetcher, auth, tool.role);
 		server.registerTool(

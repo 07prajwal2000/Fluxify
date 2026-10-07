@@ -22,9 +22,17 @@ export function optionalFields(shape: z.ZodRawShape): z.ZodRawShape {
 	return Object.fromEntries(
 		Object.entries(shape).map(([key, field]) => {
 			let inner: any = field;
-			while (inner instanceof z.ZodOptional || inner instanceof z.ZodDefault)
+			let nullable = false;
+			// a default can hide under .nullable() too (`.default([]).optional().nullable()`)
+			while (
+				inner instanceof z.ZodOptional ||
+				inner instanceof z.ZodDefault ||
+				inner instanceof z.ZodNullable
+			) {
+				if (inner instanceof z.ZodNullable) nullable = true;
 				inner = inner.unwrap();
-			return [key, inner.optional()];
+			}
+			return [key, (nullable ? inner.nullable() : inner).optional()];
 		}),
 	);
 }

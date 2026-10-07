@@ -96,6 +96,10 @@ describe("agent tools", () => {
 		expect(active().sort()).toEqual([...CORE].sort());
 		for (const name of CORE) expect(tools[name]).toBeDefined();
 		expect(ADVANCED.map((t) => t.name)).toContain("delete_route");
+		expect(CORE).toContain("save_test_suite");
+		expect(ADVANCED.map((t) => t.name)).toEqual(
+			expect.arrayContaining(["delete_test_suite", "clone_test_suite"]),
+		);
 		expect(ADVANCED.map((t) => t.name)).not.toContain("list_routes");
 		const listed = await exec(tools.list_advanced_tools, {});
 		expect(listed.some((l: string) => l.startsWith("delete_route: "))).toBe(true);
