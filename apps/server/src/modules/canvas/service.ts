@@ -439,6 +439,12 @@ export type SaveResult = { canvasVersion: number; issues: CanvasIssue[] };
 /** Thrown to roll a dry-run save back; never leaves `saveCanvas`. */
 const DRY_RUN = new Error("canvas dry run");
 
+/** Only the save counter, for an open editor polling for changes made elsewhere (#597). */
+export async function readCanvasVersion(parent: CanvasParent, projectIds: string[] = []) {
+	if (!(await parentExists(parent, projectIds))) throw new NotFoundError(NOT_FOUND[parent.type]);
+	return { canvasVersion: await getCanvasVersion(parent) };
+}
+
 export async function getCanvas(parent: CanvasParent, projectIds: string[] = []) {
 	return await db.transaction(async (tx) => {
 		if (!(await parentExists(parent, projectIds, tx))) {

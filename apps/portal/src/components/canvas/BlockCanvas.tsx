@@ -75,6 +75,7 @@ function CanvasInner({
 	defaultViewport,
 	className,
 	cycleFeedbackToken = 0,
+	reloadToken = 0,
 	children,
 }: BlockCanvasProps) {
 	const readOnly = mode === "readonly";
@@ -171,6 +172,21 @@ function CanvasInner({
 			edges: initial.edges.map((edge) => edge.id),
 		});
 	}, [initial, setNodes, setEdges, resetChanges, clear]);
+
+	// A reload after a change made elsewhere (#597) may keep every id while
+	// changing block data, so it replaces the canvas whatever the topology says.
+	const reloaded = useRef(reloadToken);
+	useEffect(() => {
+		if (reloaded.current === reloadToken) return;
+		reloaded.current = reloadToken;
+		setNodes(initial.nodes);
+		setEdges(initial.edges);
+		clear();
+		resetChanges({
+			blocks: initial.nodes.map((node) => node.id),
+			edges: initial.edges.map((edge) => edge.id),
+		});
+	}, [reloadToken, initial, setNodes, setEdges, resetChanges, clear]);
 
 	// Pasted/duplicated blocks come in already selected, so the originals are
 	// deselected to keep a single, draggable selection.

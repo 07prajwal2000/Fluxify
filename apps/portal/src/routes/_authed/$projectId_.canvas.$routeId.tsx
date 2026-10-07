@@ -104,6 +104,7 @@ function RouteCanvasPage() {
 					/>
 				}
 				reload={() => routesService.getCanvasItems(routeId)}
+				getVersion={() => routesService.getCanvasVersion(routeId)}
 				save={(payload) => save.mutateAsync(payload)}
 				headerLeft={
 					<>

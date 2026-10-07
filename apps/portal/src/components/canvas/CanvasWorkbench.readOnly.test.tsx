@@ -58,9 +58,10 @@ function renderWorkbench(readOnly: boolean) {
 		<CanvasWorkbench
 			title="Route canvas"
 			readOnly={readOnly}
-			items={{ data: undefined, isLoading: true, isError: false }}
+			items={{ data: undefined, isLoading: true, isError: false, refetch: async () => {} }}
 			compileTarget={{ projectId: "p1", resourceType: "route", resourceId: "r1" }}
-			reload={async () => ({ blocks: [], edges: [] })}
+			reload={async () => ({ canvasVersion: 0, blocks: [], edges: [] })}
+			getVersion={async () => 0}
 			save={async () => {}}
 		/>,
 	);

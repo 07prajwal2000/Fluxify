@@ -5,6 +5,7 @@ import registerDeleteRoute from "./delete/route";
 import registerGetAllRoute from "./get-all/route";
 import registerGetByIdRoute from "./get-by-id/route";
 import registerGetCanvasItems from "./get-canvas-items/route";
+import registerGetCanvasVersion from "./get-canvas-version/route";
 import registerOpenapiRoute from "./openapi/route";
 import registerSaveCanvasState from "./save-canvas-state/route";
 import registerUpdateRoute from "./update/route";
@@ -21,6 +22,7 @@ export default {
 		registerDeleteRoute(router);
 		registerUpdatePartialRoute(router);
 		registerGetCanvasItems(router);
+		registerGetCanvasVersion(router);
 		registerSaveCanvasState(router);
 		registerOpenapiRoute(router);
 		registerCallRoute(router);

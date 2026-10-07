@@ -1,5 +1,6 @@
-import { Button, Spinner, toast } from "@fluxify/components";
+import { Alert, Button, Spinner, toast } from "@fluxify/components";
 import { type ReactNode, useMemo, useRef, useState } from "react";
+import { TbRefresh } from "react-icons/tb";
 
 import type { CanvasItems, CanvasSavePayload } from "@/services/canvas";
 import { emptyGraph } from "./adapters";
@@ -12,6 +13,7 @@ import { COMPILE_SOURCE } from "./diagnostics/compileDiagnostics";
 import { blockDiagnosticsFromSaveError, SAVE_SOURCE } from "./diagnostics/saveErrorDiagnostics";
 import { type CompileTarget, useCompileDiagnostics } from "./diagnostics/useCompileDiagnostics";
 import type { BlockData, CanvasGraph } from "./types";
+import { useCanvasPoll } from "./useCanvasPoll";
 
 /**
  * The canvas host, independent of what the canvas hangs off. Routes and custom
@@ -20,7 +22,12 @@ import type { BlockData, CanvasGraph } from "./types";
  */
 export type CanvasWorkbenchProps = {
 	title: string;
-	items: { data: CanvasItems | undefined; isLoading: boolean; isError: boolean };
+	items: {
+		data: CanvasItems | undefined;
+		isLoading: boolean;
+		isError: boolean;
+		refetch: () => Promise<unknown>;
+	};
 	/** Opt-in only: this workbench is reused by route, custom-block, and embedded canvases. */
 	enableBlockPicker?: boolean;
 	/** Opt-in only: the route owning the playground controls enables its trigger. */
@@ -35,6 +42,8 @@ export type CanvasWorkbenchProps = {
 	/** re-read from the server, for diagnosing a rejected save */
 	reload: () => Promise<CanvasItems>;
 	save: (payload: CanvasSavePayload) => Promise<unknown>;
+	/** the server's canvas version, polled to spot changes made elsewhere (#597) */
+	getVersion: () => Promise<number>;
 	/** what the compiler reports this canvas as, so its result can be shown */
 	compileTarget: CompileTarget;
 	/** view only: no edits, no Save — for users who may look but not change */
@@ -69,6 +78,7 @@ function CanvasWorkbenchInner({
 	items,
 	reload,
 	save,
+	getVersion,
 	compileTarget,
 	enableBlockPicker = false,
 	enablePlayground = false,
@@ -142,6 +152,22 @@ function CanvasWorkbenchInner({
 	const graph = useMemo(() => toGraph(items.data), [items.data]);
 	const compile = useCompileDiagnostics(compileTarget, graph.blocks);
 
+	// Changed by AI or another user: take the server's canvas, dropping local edits.
+	const [reloadToken, setReloadToken] = useState(0);
+	async function reloadFromServer() {
+		await items.refetch();
+		edited.current = null;
+		setPendingCount(0);
+		setReloadToken((token) => token + 1);
+	}
+	const stale = useCanvasPoll({
+		version: items.data?.canvasVersion,
+		isDirty: pendingCount > 0,
+		isSaving,
+		getVersion,
+		reload: () => void reloadFromServer(),
+	});
+
 	return (
 		<div className="flex h-screen w-full flex-col">
 			<header className="flex items-center gap-3 border-b border-border px-4 py-2 text-sm">
@@ -158,6 +184,17 @@ function CanvasWorkbenchInner({
 					</Button>
 				)}
 			</header>
+
+			{stale && (
+				<Alert status="warning" className="rounded-none">
+					<Alert.Content>
+						<Alert.Description>Changed by AI or another user. Reload?</Alert.Description>
+					</Alert.Content>
+					<Button size="sm" variant="outline" onPress={() => void reloadFromServer()}>
+						<TbRefresh size={14} /> Reload
+					</Button>
+				</Alert>
+			)}
 
 			<div className="min-h-0 flex-1">
 				{items.isLoading ? (
@@ -178,6 +215,7 @@ function CanvasWorkbenchInner({
 						enableSpotlight={enableSpotlight}
 						playgroundContent={playgroundContent}
 						cycleFeedbackToken={cycleFeedbackToken}
+						reloadToken={reloadToken}
 						onSave={() => void onSave()}
 						onChange={(next, changes) => {
 							edited.current = { graph: next, changes };
