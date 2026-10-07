@@ -1,0 +1,150 @@
+import { Breadcrumbs, Button, DeleteButton, Spinner } from "@fluxify/components";
+import { useMemo, useState } from "react";
+import { TbArrowLeft } from "react-icons/tb";
+import { SplitPane } from "@/components/common/SplitPane";
+import { formatDuration } from "@/components/testSuites/CaseResults";
+import { formatWhen } from "@/components/testSuites/RunResults";
+import { showErrorNotification } from "@/lib/errorNotifier";
+import { customBlocksQuery } from "@/query/customBlocksQuery";
+import { recordingsQuery } from "@/query/recordingsQuery";
+import type { RecordedSpan, RecordingTarget } from "@/services/recordings";
+import { OverlayCanvas } from "./OverlayCanvas";
+import { IncompleteChip, OutcomeIcon } from "./RecordedRunList";
+import { type SpanActions, SpanDetail } from "./SpanDetail";
+import { type Frame, rootCanvasId, spansAt } from "./spans";
+
+/**
+ * One recorded run: the canvas it ran on (30%) next to the span detail (70%).
+ * Opening a custom block call or an async run pushes a level; the breadcrumb
+ * walks back up (`Route > Block A > Block B`).
+ */
+export function RecordedRunViewer({
+	projectId,
+	target,
+	runId,
+	onBack,
+}: {
+	projectId: string;
+	target: RecordingTarget;
+	runId: string;
+	onBack: () => void;
+}) {
+	const [frames, setFrames] = useState<Frame[]>([
+		{
+			runId,
+			parentSeq: null,
+			customBlockId: null,
+			label: target.type === "route" ? "Route" : "Workflow",
+		},
+	]);
+	const [selected, setSelected] = useState<string | null>(null);
+	const frame = frames[frames.length - 1];
+	const run = recordingsQuery.getRun.useQuery(projectId, target, frame.runId);
+	const root = recordingsQuery.getRun.useQuery(projectId, target, runId).data;
+	const remove = recordingsQuery.deleteRun.mutation(projectId, target);
+	const { data: customBlocks } = customBlocksQuery.getAll.useQuery(projectId);
+
+	const spans = run.data?.spans;
+	const level = useMemo(() => (spans ? spansAt(spans, frame.parentSeq) : []), [spans, frame]);
+	// a run's own level sits on the target's canvas, or an async run's custom block
+	const canvasId = frame.parentSeq === null ? rootCanvasId(spans ?? []) : frame.customBlockId;
+
+	function goTo(depth: number) {
+		setFrames((current) => current.slice(0, depth + 1));
+		setSelected(null);
+	}
+	function push(next: Frame) {
+		setFrames((current) => [...current, next]);
+		setSelected(null);
+	}
+	const nameOf = (span: RecordedSpan) =>
+		span.blockName ||
+		customBlocks?.find((block) => block.name === span.blockType)?.label ||
+		span.blockType;
+	const actions: SpanActions = {
+		nameOf,
+		openCall: (span, customBlockId) =>
+			push({ runId: frame.runId, parentSeq: span.seq, customBlockId, label: nameOf(span) }),
+		openChild: (childId, span) =>
+			push({
+				runId: childId,
+				parentSeq: null,
+				customBlockId: null,
+				label: `${nameOf(span)} (async)`,
+			}),
+	};
+
+	return (
+		<div className="flex h-full min-h-0 flex-col">
+			<div className="flex shrink-0 items-center gap-3 border-b border-border px-4 py-2">
+				<Button size="sm" variant="ghost" onPress={onBack}>
+					<TbArrowLeft size={14} /> All runs
+				</Button>
+				<Breadcrumbs onAction={(key) => goTo(Number(key))}>
+					{frames.map((item, depth) => (
+						<Breadcrumbs.Item key={`${item.runId}:${item.parentSeq}`} id={String(depth)}>
+							{item.label}
+						</Breadcrumbs.Item>
+					))}
+				</Breadcrumbs>
+				{root && (
+					<div className="ml-auto flex items-center gap-3 text-xs text-muted">
+						<OutcomeIcon outcome={root.outcome} />
+						{root.statusCode != null && (
+							<span className="font-mono text-foreground">{root.statusCode}</span>
+						)}
+						<span>{formatWhen(root.startedAt)}</span>
+						<span>{formatDuration(root.durationMs)}</span>
+						<IncompleteChip run={root} />
+						<DeleteButton
+							size="sm"
+							isPending={remove.isPending}
+							onPress={() =>
+								remove.mutate(runId, {
+									onSuccess: onBack,
+									onError: (error) => showErrorNotification(error),
+								})
+							}
+						>
+							Delete run
+						</DeleteButton>
+					</div>
+				)}
+			</div>
+			<div className="min-h-0 flex-1">
+				{run.isLoading ? (
+					<div className="flex h-full items-center justify-center">
+						<Spinner />
+					</div>
+				) : !run.data ? (
+					<div className="flex h-full items-center justify-center text-xs text-muted">
+						Couldn't load this run. It may have been deleted or expired.
+					</div>
+				) : (
+					<SplitPane
+						initial={30}
+						label="Resize canvas and details"
+						left={
+							<OverlayCanvas
+								key={`${frame.runId}:${frame.parentSeq}`}
+								target={target}
+								customBlockId={canvasId}
+								level={level}
+								onSelect={setSelected}
+							/>
+						}
+						right={
+							<SpanDetail
+								run={run.data}
+								level={level}
+								selected={selected}
+								onSelect={setSelected}
+								actions={actions}
+							/>
+						}
+					/>
+				)}
+			</div>
+		</div>
+	);
+}

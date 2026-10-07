@@ -68,6 +68,8 @@ export type BlockCanvasProps = {
 	enableSpotlight?: boolean;
 	/** Playground content rendered in the canvas-owned modal, outside React Flow. */
 	playgroundContent?: React.ReactNode;
+	/** A second "Track Execution" tab in the playground modal; omitted = no tab strip. */
+	trackExecutionContent?: React.ReactNode;
 	/** Copy/paste/duplicate/export/import of blocks and the edges between them.
 	 *  Default `true`; always off in `readonly`. Also hides the copy/duplicate
 	 *  block actions. */

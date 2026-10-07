@@ -21,6 +21,7 @@ export const customBlocksQuery = {
 			return useQuery({
 				queryKey: canvasKey(id),
 				queryFn: () => customBlocksService.getCanvasItems(id),
+				enabled: Boolean(id),
 				refetchOnWindowFocus: false,
 			});
 		},
