@@ -203,6 +203,40 @@ describe("MCP runs", () => {
 		expect(missing.text).toBe('Invalid input: Missing path param "who"');
 	});
 
+	it("records a route call and reads its spans back", async () => {
+		const name = uniq("rec-");
+		const { id } = await call("save_route", {
+			projectId: stack.projectId,
+			name,
+			path: `/${name}`,
+			method: "GET",
+			active: true,
+			recordExecution: true,
+		});
+		expect((await call("get_route", { routeId: id })).recordExecution).toBe(true);
+		// the save compiles and reaches the worker a moment later
+		for (let i = 0; i < 80; i++) {
+			if ((await call("call_route", { routeId: id })).status === 200) break;
+			await Bun.sleep(250);
+		}
+		const target = { projectId: stack.projectId, kind: "route", targetId: id };
+		// the run reaches Postgres through a queue, a moment after the response
+		let list: any;
+		for (let i = 0; i < 80; i++) {
+			list = await call("list_recordings", target);
+			if (list.items.length) break;
+			await Bun.sleep(250);
+		}
+		expect(list.items[0]).toMatchObject({ outcome: "success", statusCode: 200, spanCount: expect.any(Number) });
+
+		const run = await call("get_recording", { ...target, runId: list.items[0].id });
+		expect(run.spans.map((s: any) => s.blockType)).toContain("entrypoint");
+		expect(run.spans[0]).not.toHaveProperty("input");
+		const entry = run.spans.find((s: any) => s.blockType === "entrypoint");
+		const full = await call("get_recording", { ...target, runId: run.id, spanSeq: entry.seq });
+		expect(full.input).toMatchObject({ method: "GET" });
+	});
+
 	it("viewers get 403, not 404, saving a workflow canvas", async () => {
 		const res = await adminCall(stack, stack.tokens.viewer, {
 			method: "PUT",

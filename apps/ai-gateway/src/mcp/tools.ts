@@ -25,7 +25,7 @@ export const pick = <T extends Record<string, unknown>>(row: T, keys: (keyof T)[
 	Object.fromEntries(keys.map((k) => [k, row[k]]));
 
 export const projectId = z.string().describe("Project id, from list_projects");
-const page = z.number().int().min(1).optional().describe("Page number, 1 by default");
+export const page = z.number().int().min(1).optional().describe("Page number, 1 by default");
 const search = z.string().optional().describe("Only items whose name contains this");
 
 /** A paged admin list, trimmed to `keys` per row. */
