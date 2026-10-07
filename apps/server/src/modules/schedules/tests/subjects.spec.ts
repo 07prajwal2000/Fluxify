@@ -8,6 +8,9 @@ import {
 	projectFireFilter,
 	projectScheduleFilter,
 	scheduleSubject,
+	systemFireSubject,
+	systemJobConsumerName,
+	systemScheduleSubject,
 	triggerIdFromSubject,
 } from "../subjects";
 import { isDelayedRunBody, isScheduleFireBody } from "../types";
@@ -36,6 +39,27 @@ describe("schedule subjects", () => {
 		// delayed run never has one — on that subject it would vanish on boot.
 		expect(delayedSubject("p1", "r1")).toBe("fluxify.schedules.delay.p1.r1");
 		expect(delayedSubject("p1", "r1").startsWith("fluxify.schedules.sched.")).toBe(false);
+	});
+
+	it("keeps system ticks out of the orphan sweep and the workers' fire filter", () => {
+		// NATS wildcards: `*` is exactly one token. A three-token tail after
+		// `fluxify.schedules` never matches `sched.*.*` or `fire.*.*`.
+		const matches = (filter: string, subject: string) => {
+			const f = filter.split(".");
+			const s = subject.split(".");
+			return f.length === s.length && f.every((token, i) => token === "*" || token === s[i]);
+		};
+		expect(systemScheduleSubject("daily")).toBe("fluxify.schedules.sys.daily");
+		expect(systemFireSubject("hourly")).toBe("fluxify.schedules.sysfire.hourly");
+		for (const tick of ["hourly", "daily"]) {
+			expect(matches(projectScheduleFilter(ALL_PROJECTS), systemScheduleSubject(tick))).toBe(false);
+			expect(matches(projectFireFilter(ALL_PROJECTS), systemFireSubject(tick))).toBe(false);
+		}
+		// the matcher itself, so the assertions above can fail
+		expect(matches(projectFireFilter(ALL_PROJECTS), fireSubject("p1", "t1"))).toBe(true);
+		expect(systemJobConsumerName("recording-retention.v2")).toBe(
+			"fluxify_sys_recording-retention_v2",
+		);
 	});
 
 	it("tells a delayed run's fire from a trigger's", () => {

@@ -120,6 +120,11 @@ async function main() {
 		// holding the database connection.
 		const { loadSchedules } = await import("./loaders/schedulesLoader");
 		await loadSchedules();
+		// The platform's own hourly and daily ticks. Not caught: NATS is a hard
+		// dependency, and an admin that silently never runs retention is worse
+		// than one that refuses to boot.
+		const { publishSystemTicks } = await import("./modules/schedules/system");
+		await publishSystemTicks();
 	}
 
 	if (builtinWorkerEnabled) {

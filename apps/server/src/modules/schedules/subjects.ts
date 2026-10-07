@@ -39,6 +39,19 @@ export const scheduleSubject = (projectId: string, triggerId: string) =>
 export const delayedSubject = (projectId: string, runId: string) =>
 	`${SUBJECT_ROOT}.delay.${projectId}.${runId}`;
 
+/**
+ * The platform's own ticks (#619), `@hourly` and `@daily`. Kind tokens of their
+ * own, `sys` and `sysfire`, so neither wildcard below matches them: the
+ * reconciler would purge a `sched` subject with no trigger row on every boot,
+ * and the catch-all worker would pull a `fire` and fail it as unknown.
+ */
+export const systemScheduleSubject = (tick: string) => `${SUBJECT_ROOT}.sys.${tick}`;
+export const systemFireSubject = (tick: string) => `${SUBJECT_ROOT}.sysfire.${tick}`;
+
+/** One durable per internal job, so a slow or failing job never holds up another. */
+export const systemJobConsumerName = (job: string) =>
+	`fluxify_sys_${job.replace(/[^a-zA-Z0-9_-]/g, "_")}`;
+
 /** Where the server delivers each fire. */
 export const fireSubject = (projectId: string, triggerId: string) =>
 	`${SUBJECT_ROOT}.fire.${projectId}.${triggerId}`;
