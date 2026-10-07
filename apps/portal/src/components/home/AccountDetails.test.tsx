@@ -1,4 +1,4 @@
-import { afterAll, expect, mock, test } from "bun:test";
+import { afterAll, expect, mock, spyOn, test } from "bun:test";
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
 import type { ReactNode } from "react";
 
@@ -44,6 +44,7 @@ mock.module("@tanstack/react-router", () => ({
 const { QueryClient, QueryClientProvider } = await import("@tanstack/react-query");
 const { act, useState } = await import("react");
 const { createRoot } = await import("react-dom/client");
+const theme = await import("@/lib/theme");
 const { AccountDetails } = await import("./AccountDetails");
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -87,5 +88,37 @@ test("switching account sections shows the right panel and puts it in the URL", 
 	expect(box.textContent).not.toContain("Update password");
 	expect(link("Connect an AI agent").getAttribute("aria-current")).toBe("page");
 	expect(link("Profile").getAttribute("aria-current")).toBeNull();
+	await act(async () => root.unmount());
+});
+
+test("picking a theme uses the spotlight's setter and shows the current choice", async () => {
+	localStorage.setItem("theme", "dark");
+	const setTheme = spyOn(theme, "setTheme");
+	const box = document.createElement("div");
+	document.body.append(box);
+	const root = createRoot(box);
+	await act(async () => root.render(<AccountDetails activeTab="preferences" />));
+	const option = (label: string) =>
+		[...box.querySelectorAll("button")].find((b) => b.textContent?.trim() === label) as HTMLElement;
+	const isSelected = (label: string) =>
+		[
+			option(label).getAttribute("aria-pressed"),
+			option(label).getAttribute("aria-checked"),
+		].includes("true");
+
+	expect(isSelected("Dark")).toBe(true);
+	expect(isSelected("Light")).toBe(false);
+
+	await act(async () => option("Light").click());
+	expect(setTheme).toHaveBeenCalledWith("light");
+	expect(isSelected("Light")).toBe(true);
+	expect(isSelected("Dark")).toBe(false);
+	expect(localStorage.getItem("theme")).toBe("light");
+
+	await act(async () => option("System").click());
+	expect(setTheme).toHaveBeenLastCalledWith("system");
+	expect(isSelected("System")).toBe(true);
+
+	setTheme.mockRestore();
 	await act(async () => root.unmount());
 });
