@@ -17,7 +17,7 @@ Open the **Assertions** tab, press **Add assertion**, and pick a **target**:
 | --- | --- | --- |
 | Status code | The HTTP status, for example `200` or `404` | — |
 | Response body | The whole body, or one value inside it | **Property path** (optional) |
-| Header | One response header | **Header name** |
+| Header | One response header. The name is not case-sensitive | **Header name** |
 | Duration (ms) | How long the route took, in milliseconds | — |
 | Custom JS | Anything you like, written in JavaScript | See [below](#custom-js-checks) |
 
@@ -33,6 +33,24 @@ Then pick an **operator** and, if it needs one, an **expected value**:
 | is true / is false | is `true` / `false` | Response body, Header |
 | exists | is present (not missing and not `null`) | Response body, Header |
 | does not exist | is missing or `null` | Response body, Header |
+
+Workflow suites have their own targets (**Run succeeded** and **Output**). See [Testing workflows](./workflows#checks).
+
+### How values are compared
+
+The expected value is always typed as text. The check compares it like this:
+
+| Target | How it compares |
+| --- | --- |
+| Status code, Duration | As numbers, so `200` equals `200.0` |
+| Response body, Header, Output | As text. A number or `true`/`false` in the body is turned into text first, so `42` equals the number `42` |
+| An object or a list | As compact JSON, with no spaces: `{"id":42,"name":"Ada"}` |
+
+So `equals` on a whole object is easy to get wrong: key order and spaces must match exactly. Check one value with a property path instead, or use a [Custom JS check](#custom-js-checks) with `toEqual`.
+
+**contains** looks for the expected text inside the value. For an object or a list it looks inside its JSON, so `contains` `"admin"` passes for `{ "tags": ["admin"] }`.
+
+**is true** also passes for the text `"true"`; **is false** for the text `"false"`.
 
 ### Property paths
 
@@ -50,6 +68,21 @@ For this body:
 | `user.name` | `"Ada"` |
 | `user.tags[1]` | `"beta"` |
 | `user.tags` | `["admin","beta"]` |
+| `user.age` | missing, so only **does not exist** passes |
+
+### Example: a full set of simple checks
+
+For a route that answers `201` with `{ "id": 7, "email": "ada@example.com", "roles": ["user"] }`:
+
+| Target | Property path / Header name | Operator | Expected value |
+| --- | --- | --- | --- |
+| Status code | | equals | `201` |
+| Duration (ms) | | less than | `500` |
+| Header | `content-type` | contains | `application/json` |
+| Response body | `id` | exists | |
+| Response body | `email` | contains | `@example.com` |
+| Response body | `roles` | equals | `["user"]` |
+| Response body | `password` | does not exist | |
 
 ## Custom JS checks
 

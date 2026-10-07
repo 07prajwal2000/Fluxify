@@ -5,6 +5,7 @@ import { type AdminFetch, adminApi } from "../mcp/adminApi";
 import { canvasTools } from "../mcp/canvasTools";
 import { projectTools } from "../mcp/projectTools";
 import { routeTools } from "../mcp/routeTools";
+import { testSuiteTools } from "../mcp/testSuiteTools";
 import { type McpTool, readTools } from "../mcp/tools";
 import { writeTools } from "../mcp/writeTools";
 
@@ -14,6 +15,7 @@ const ALL: McpTool[] = [
 	...routeTools,
 	...canvasTools,
 	...projectTools,
+	...testSuiteTools,
 ];
 
 /** What `list` reads: each one only needs the project id. */
@@ -49,6 +51,7 @@ const CORE_MCP = [
 	"edit_canvas",
 	"get_block_schemas",
 	"call_route",
+	"save_test_suite",
 	"run_test_suite",
 	"get_system_logs",
 	"get_recording",
