@@ -8,6 +8,8 @@ import {
 } from "@xyflow/react";
 import { useCallback } from "react";
 import { TbPlus, TbX } from "react-icons/tb";
+import { useCanvasLayoutLocked } from "../CanvasLayoutLockContext";
+import { useCanvasReadOnly } from "../CanvasReadOnlyContext";
 import { useQuickAdd } from "../QuickAddContext";
 import type { BlockEdge } from "../types";
 import { useHoveredEdge } from "./edgeHover";
@@ -34,6 +36,9 @@ export function FlowEdge({
 	const { deleteElements } = useReactFlow();
 	const quickAdd = useQuickAdd();
 	const hovered = useHoveredEdge() === id;
+	const readOnly = useCanvasReadOnly();
+	const layoutLocked = useCanvasLayoutLocked();
+	const canEdit = !readOnly && !layoutLocked;
 	// Scale that grows at half the zoom rate (sqrt): buttons and hit strip stay
 	// usable zoomed out without ballooning zoomed in.
 	const soften = useStore((state) => 1 / Math.sqrt(state.transform[2]));
@@ -56,15 +61,16 @@ export function FlowEdge({
 
 	// deleteElements (not setEdges) so the removal reaches onEdgesChange.
 	const remove = useCallback(() => {
+		if (!canEdit) return;
 		void deleteElements({ edges: [{ id }] });
-	}, [deleteElements, id]);
+	}, [canEdit, deleteElements, id]);
 
 	return (
 		<>
 			{/* Fat transparent path underneath: makes a thin edge easy to select. */}
 			<path className="fx-edge__hit" d={path} style={{ strokeWidth: 32 * soften }} />
 			<BaseEdge id={id} path={path} markerEnd={markerEnd} style={style} className={edgeClassName} />
-			{(selected || hovered) && (
+			{canEdit && (selected || hovered) && (
 				<EdgeLabelRenderer>
 					<div
 						className="fx-edge__actions"

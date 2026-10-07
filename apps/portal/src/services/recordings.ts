@@ -21,11 +21,14 @@ export const recordingsService = {
 	async getRuns(
 		projectId: string,
 		target: RecordingTarget,
-		query: { page?: number; perPage?: number } = {},
+		query: { page?: number; perPage?: number; outcome?: "success" | "failure" } = {},
 	): Promise<RecordedRunList> {
 		const params = new URLSearchParams();
 		params.set("page", String(query.page ?? 1));
 		params.set("perPage", String(query.perPage ?? 20));
+		if (query.outcome) {
+			params.set("outcome", query.outcome);
+		}
 		const result = await httpClient.get(`${runsUrl(projectId, target)}?${params.toString()}`);
 		return result.data;
 	},

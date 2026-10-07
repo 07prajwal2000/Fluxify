@@ -36,6 +36,8 @@ export type PublicSettingsResponse = {
 	license: Entitlement;
 	/** the server's Bun version; the editor loads matching `@types/bun` */
 	bunVersion?: string;
+	/** days a recorded run is kept before the retention job deletes it */
+	recordingMaxAgeDays?: number;
 };
 
 export const publicSettingsService = {

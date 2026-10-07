@@ -30,6 +30,7 @@ export default async function handleRequest(
 			name: value.name!,
 			method: value.method!,
 			path: value.path!,
+			recordExecution: Boolean(value.recordExecution),
 			projectId: value.projectId!,
 			projectName: value.projectName!,
 			createdAt: value.createdAt.toISOString(),

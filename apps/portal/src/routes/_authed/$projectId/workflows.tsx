@@ -14,6 +14,7 @@ import { useState } from "react";
 import { TbEdit, TbPlus, TbRoute } from "react-icons/tb";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { EmptyState } from "@/components/common/EmptyState";
+import { RecordingIndicator } from "@/components/recordings/RecordingControls";
 import { WorkflowRunButton, WorkflowRunModal } from "@/components/workflows/WorkflowRunModal";
 import { showErrorNotification } from "@/lib/errorNotifier";
 import { createRouteHead, formatProjectTitle, usePageTitle } from "@/lib/seo";
@@ -127,7 +128,12 @@ function WorkflowsPage() {
 						<Table.Body items={rows}>
 							{(workflow) => (
 								<Table.Row id={workflow.id}>
-									<Table.Cell>{workflow.name}</Table.Cell>
+									<Table.Cell>
+										<div className="flex items-center gap-2">
+											<span>{workflow.name}</span>
+											{workflow.recordExecution && <RecordingIndicator />}
+										</div>
+									</Table.Cell>
 									<Table.Cell>
 										<span className="line-clamp-1 text-muted">{workflow.description}</span>
 									</Table.Cell>

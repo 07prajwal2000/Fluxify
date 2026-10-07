@@ -17,7 +17,7 @@ import { useNavigate } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { Section } from "@/components/common/Section";
-import { RETENTION_NOTE, RecordingSwitch } from "@/components/recordings/RecordingControls";
+import { RecordingSwitch, useRetentionNote } from "@/components/recordings/RecordingControls";
 import { showErrorNotification } from "@/lib/errorNotifier";
 import { workflowsQuery } from "@/query/workflowsQuery";
 import type { Workflow } from "@/services/workflows";
@@ -86,6 +86,7 @@ function WorkflowSettingsForm({
 	const update = workflowsQuery.update.mutation(workflow.id);
 	const remove = workflowsQuery.remove.mutation();
 	const navigate = useNavigate();
+	const retentionNote = useRetentionNote();
 
 	const [name, setName] = useState(workflow.name ?? "");
 	const [description, setDescription] = useState(workflow.description ?? "");
@@ -245,7 +246,7 @@ function WorkflowSettingsForm({
 
 						<Section
 							title="Recording"
-							description={`Keep a copy of each run in Fluxify, inputs and outputs included, to replay it on the canvas from Track Execution. Telemetry sends traces to your own backend; Recording keeps them here. Applies right away. ${RETENTION_NOTE}`}
+							description={`Keep a copy of each run in Fluxify, inputs and outputs included, to replay it on the canvas from the Executions tab. Telemetry sends traces to your own backend; Recording keeps them here. Applies right away. ${retentionNote}`}
 						>
 							<RecordingSwitch
 								projectId={workflow.projectId}

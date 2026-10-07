@@ -1,8 +1,11 @@
-import { Button, Chip, CodeViewer } from "@fluxify/components";
+import { Button, Chip, cn } from "@fluxify/components";
+import { useState } from "react";
 import { TbArrowLeft, TbArrowRight, TbExternalLink } from "react-icons/tb";
 import { formatDuration } from "@/components/testSuites/CaseResults";
 import type { RecordedRun, RecordedSpan } from "@/services/recordings";
+import { PayloadViewer } from "./PayloadViewer";
 import { OutcomeIcon } from "./RecordedRunList";
+import { SpanTimeline } from "./SpanTimeline";
 import { calledBlockId, spanMs, spansAt } from "./spans";
 
 export type SpanActions = {
@@ -13,23 +16,6 @@ export type SpanActions = {
 	/** open the async run this span forked */
 	openChild: (runId: string, span: RecordedSpan) => void;
 };
-
-const asJson = (value: unknown) =>
-	value === undefined || value === null ? "" : JSON.stringify(value, null, 2);
-
-function Payload({ title, value }: { title: string; value: unknown }) {
-	const text = asJson(value);
-	return (
-		<div className="space-y-1">
-			<p className="text-xs font-medium text-muted">{title}</p>
-			{text ? (
-				<CodeViewer value={text} language="json" height={160} />
-			) : (
-				<p className="text-xs text-muted">Nothing recorded.</p>
-			)}
-		</div>
-	);
-}
 
 function SpanCard({
 	run,
@@ -60,8 +46,8 @@ function SpanCard({
 				<span className="text-muted">{formatDuration(spanMs(span))}</span>
 				{span.branch && <Chip size="sm">Took {span.branch}</Chip>}
 				{span.truncated && (
-					<Chip size="sm" color="warning" title="Cut to fit the recording limit">
-						Truncated
+					<Chip size="sm" color="warning" title="Cut to fit the 8 KB recording limit per span">
+						Truncated at 8 KB
 					</Chip>
 				)}
 			</div>
@@ -89,8 +75,8 @@ function SpanCard({
 					))}
 				</div>
 			)}
-			<Payload title="Input" value={span.input} />
-			<Payload title="Output" value={span.output} />
+			<PayloadViewer title="Input" value={span.input} truncated={span.truncated} />
+			<PayloadViewer title="Output" value={span.output} truncated={span.truncated} />
 		</div>
 	);
 }
@@ -118,7 +104,7 @@ function SpanRow({
 }
 
 /**
- * The right-hand pane. Nothing selected: every block this level ran, in order,
+ * The right-hand pane. Nothing selected: toggle between list and waterfall timeline,
  * with middlewares (chains, not canvases) grouped under their own heading.
  * A block selected: each of its runs — input, output, duration, error.
  */
@@ -135,6 +121,7 @@ export function SpanDetail({
 	onSelect: (blockId: string | null) => void;
 	actions: SpanActions;
 }) {
+	const [viewMode, setViewMode] = useState<"list" | "timeline">("list");
 	const middlewares = level.filter((span) => span.middleware);
 	const steps = middlewares.flatMap((span) => spansAt(run.spans, span.seq));
 	const picked = selected ? [...level, ...steps].filter((span) => span.blockId === selected) : [];
@@ -183,29 +170,77 @@ export function SpanDetail({
 	}
 
 	return (
-		<div className="h-full space-y-1 overflow-y-auto p-4">
-			<p className="pb-2 text-xs text-muted">
-				Select a block on the canvas or below to see what it received and returned.
-			</p>
-			{level.map((span) =>
-				span.middleware ? (
-					<div key={span.seq} className="space-y-1 rounded-md border border-border p-2">
-						<div className="flex items-center gap-2 px-2 text-xs">
-							<OutcomeIcon outcome={span.outcome} />
-							<span className="flex-1 font-medium text-foreground">
-								Middleware · {span.middleware.name}
-							</span>
-							<span className="text-muted">{span.middleware.phase}</span>
-							<span className="text-muted">{formatDuration(spanMs(span))}</span>
-						</div>
-						{spansAt(run.spans, span.seq).map((step) => (
-							<SpanRow key={step.seq} span={step} nameOf={actions.nameOf} onSelect={onSelect} />
-						))}
-					</div>
+		<div className="flex h-full min-h-0 flex-col">
+			<div className="flex shrink-0 items-center justify-between border-b border-border px-4 py-2">
+				<p className="text-xs text-muted">
+					{viewMode === "list"
+						? "Select a block on the canvas or below."
+						: "Waterfall timeline of recorded execution."}
+				</p>
+				<div className="flex items-center gap-1 rounded-lg border border-border bg-background p-0.5">
+					<button
+						type="button"
+						onClick={() => setViewMode("list")}
+						className={cn(
+							"rounded-md px-2.5 py-1 text-xs font-medium transition-colors",
+							viewMode === "list" ? "bg-accent/10 text-accent" : "text-muted hover:text-foreground",
+						)}
+					>
+						List
+					</button>
+					<button
+						type="button"
+						onClick={() => setViewMode("timeline")}
+						className={cn(
+							"rounded-md px-2.5 py-1 text-xs font-medium transition-colors",
+							viewMode === "timeline"
+								? "bg-accent/10 text-accent"
+								: "text-muted hover:text-foreground",
+						)}
+					>
+						Timeline
+					</button>
+				</div>
+			</div>
+
+			<div className="min-h-0 flex-1 overflow-y-auto">
+				{viewMode === "timeline" ? (
+					<SpanTimeline
+						level={level}
+						allSpans={run.spans}
+						selected={selected}
+						onSelect={onSelect}
+						nameOf={actions.nameOf}
+					/>
 				) : (
-					<SpanRow key={span.seq} span={span} nameOf={actions.nameOf} onSelect={onSelect} />
-				),
-			)}
+					<div className="space-y-1 p-4">
+						{level.map((span) =>
+							span.middleware ? (
+								<div key={span.seq} className="space-y-1 rounded-md border border-border p-2">
+									<div className="flex items-center gap-2 px-2 text-xs">
+										<OutcomeIcon outcome={span.outcome} />
+										<span className="flex-1 font-medium text-foreground">
+											Middleware · {span.middleware.name}
+										</span>
+										<span className="text-muted">{span.middleware.phase}</span>
+										<span className="text-muted">{formatDuration(spanMs(span))}</span>
+									</div>
+									{spansAt(run.spans, span.seq).map((step) => (
+										<SpanRow
+											key={step.seq}
+											span={step}
+											nameOf={actions.nameOf}
+											onSelect={onSelect}
+										/>
+									))}
+								</div>
+							) : (
+								<SpanRow key={span.seq} span={span} nameOf={actions.nameOf} onSelect={onSelect} />
+							),
+						)}
+					</div>
+				)}
+			</div>
 		</div>
 	);
 }

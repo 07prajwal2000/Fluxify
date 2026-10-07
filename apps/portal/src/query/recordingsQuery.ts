@@ -33,13 +33,23 @@ async function compiledAt(projectId: string, target: RecordingTarget) {
 export const recordingsQuery = {
 	getRuns: {
 		/** `poll` only while the list is on screen: closing it stops the timer */
-		useQuery(projectId: string, target: RecordingTarget, page: number, poll: boolean) {
+		useQuery(
+			projectId: string,
+			target: RecordingTarget,
+			page: number,
+			poll: boolean,
+			outcome?: "success" | "failure",
+		) {
 			return useQuery({
-				queryKey: [...runsKey(projectId, target), "list", page],
-				queryFn: () => recordingsService.getRuns(projectId, target, { page }),
+				queryKey: [...runsKey(projectId, target), "list", page, outcome ?? "all"],
+				queryFn: () => recordingsService.getRuns(projectId, target, { page, outcome }),
 				enabled: !!projectId && !!target.id,
 				refetchOnWindowFocus: false,
-				refetchInterval: poll ? LIST_POLL_MS : false,
+				refetchInterval: () => {
+					if (!poll) return false;
+					if (typeof document !== "undefined" && document.hidden) return false;
+					return LIST_POLL_MS;
+				},
 			});
 		},
 	},
@@ -47,7 +57,10 @@ export const recordingsQuery = {
 		useQuery(projectId: string, target: RecordingTarget, runId: string | null) {
 			return useQuery({
 				queryKey: [...runsKey(projectId, target), "detail", runId],
-				queryFn: () => recordingsService.getRun(projectId, target, runId!),
+				queryFn: () => {
+					if (!runId) throw new Error("runId is required");
+					return recordingsService.getRun(projectId, target, runId);
+				},
 				enabled: !!runId,
 				refetchOnWindowFocus: false,
 				// a finished run never changes
@@ -56,7 +69,7 @@ export const recordingsQuery = {
 		},
 	},
 	deleteRun: {
-		mutation(projectId: string, target: RecordingTarget) {
+		useMutation(projectId: string, target: RecordingTarget) {
 			const qc = useQueryClient();
 			return useMutation({
 				mutationFn: (runId: string) => recordingsService.deleteRun(projectId, target, runId),
@@ -68,7 +81,7 @@ export const recordingsQuery = {
 		},
 	},
 	clearRuns: {
-		mutation(projectId: string, target: RecordingTarget) {
+		useMutation(projectId: string, target: RecordingTarget) {
 			const qc = useQueryClient();
 			return useMutation({
 				mutationFn: () => recordingsService.clearRuns(projectId, target),
@@ -100,16 +113,42 @@ export function useRecordingSwitch(projectId: string, target: RecordingTarget) {
 			} else {
 				await workflowsService.update(target.id, { recordExecution });
 			}
+
+			const typeKey = target.type === "route" ? "routes" : "workflows";
+			qc.setQueriesData<{ data?: Array<{ id: string; recordExecution?: boolean }> }>(
+				{ queryKey: [typeKey, "list"] },
+				(old) => {
+					if (!old || !Array.isArray(old.data)) return old;
+					return {
+						...old,
+						data: old.data.map((item) =>
+							item.id === target.id ? { ...item, recordExecution } : item,
+						),
+					};
+				},
+			);
+			qc.setQueriesData<{ recordExecution?: boolean }>(
+				{ queryKey: [typeKey, target.id, "by-id"] },
+				(old) => (old ? { ...old, recordExecution } : old),
+			);
+			qc.invalidateQueries({ queryKey: [typeKey, target.id, "by-id"] });
+			qc.invalidateQueries({ queryKey: [typeKey, "list"] });
+
 			for (const deadline = Date.now() + COMPILE_WAIT_MS; Date.now() < deadline; ) {
 				await new Promise((resolve) => setTimeout(resolve, 1000));
 				if ((await compiledAt(projectId, target).catch(() => 0)) > before) break;
 			}
 		},
 		onError: (error) => showErrorNotification(error),
-		onSettled: () =>
+		onSettled: () => {
+			const typeKey = target.type === "route" ? "routes" : "workflows";
 			qc.invalidateQueries({
-				queryKey: [target.type === "route" ? "routes" : "workflows", target.id, "by-id"],
-			}),
+				queryKey: [typeKey, target.id, "by-id"],
+			});
+			qc.invalidateQueries({
+				queryKey: [typeKey, "list"],
+			});
+		},
 	});
 
 	return {

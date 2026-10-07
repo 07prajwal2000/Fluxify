@@ -24,7 +24,7 @@ export function ExecutionRecordings({
 }) {
 	const [runId, setRunId] = useState<string | null>(null);
 	const [confirmClear, setConfirmClear] = useState(false);
-	const clear = recordingsQuery.clearRuns.mutation(projectId, target);
+	const clear = recordingsQuery.clearRuns.useMutation(projectId, target);
 
 	if (runId) {
 		return (

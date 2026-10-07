@@ -1,18 +1,27 @@
 import { cn } from "@fluxify/components";
 import { Link } from "@tanstack/react-router";
 import type { IconType } from "react-icons";
-import { TbFlask, TbTopologyStar3 } from "react-icons/tb";
+import { TbFlask, TbHistory, TbTopologyStar3 } from "react-icons/tb";
+import { RecordingIndicator } from "@/components/recordings/RecordingControls";
+import { routesQuery } from "@/query/routesQuery";
+import { workflowsQuery } from "@/query/workflowsQuery";
 
 type Tab = { label: string; icon: IconType; to: string };
 
 const ROUTE_TABS: Tab[] = [
 	{ label: "Canvas", icon: TbTopologyStar3, to: "/$projectId/canvas/$routeId" },
 	{ label: "Tests", icon: TbFlask, to: "/$projectId/canvas/$routeId/test-suites" },
+	{ label: "Executions", icon: TbHistory, to: "/$projectId/canvas/$routeId/executions" },
 ];
 
 const WORKFLOW_TABS: Tab[] = [
 	{ label: "Canvas", icon: TbTopologyStar3, to: "/$projectId/workflow-canvas/$workflowId" },
 	{ label: "Tests", icon: TbFlask, to: "/$projectId/workflow-canvas/$workflowId/test-suites" },
+	{
+		label: "Executions",
+		icon: TbHistory,
+		to: "/$projectId/workflow-canvas/$workflowId/executions",
+	},
 ];
 
 /**
@@ -43,7 +52,13 @@ function WorkbenchTabs({ tabs, params }: { tabs: Tab[]; params: Record<string, s
 }
 
 export function RouteWorkbenchTabs({ projectId, routeId }: { projectId: string; routeId: string }) {
-	return <WorkbenchTabs tabs={ROUTE_TABS} params={{ projectId, routeId }} />;
+	const { data: route } = routesQuery.byId.useQuery(routeId);
+	return (
+		<div className="flex items-center gap-2">
+			<WorkbenchTabs tabs={ROUTE_TABS} params={{ projectId, routeId }} />
+			{route?.recordExecution && <RecordingIndicator />}
+		</div>
+	);
 }
 
 /** a workflow's canvas and its test suites (#487) */
@@ -54,7 +69,13 @@ export function WorkflowWorkbenchTabs({
 	projectId: string;
 	workflowId: string;
 }) {
-	return <WorkbenchTabs tabs={WORKFLOW_TABS} params={{ projectId, workflowId }} />;
+	const { data: workflow } = workflowsQuery.byId.useQuery(workflowId);
+	return (
+		<div className="flex items-center gap-2">
+			<WorkbenchTabs tabs={WORKFLOW_TABS} params={{ projectId, workflowId }} />
+			{workflow?.recordExecution && <RecordingIndicator />}
+		</div>
+	);
 }
 
 /** The shared topbar shell — the canvas grows its own, this is for the sibling views. */

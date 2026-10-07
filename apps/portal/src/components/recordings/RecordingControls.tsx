@@ -1,11 +1,20 @@
-import { Button, Spinner, Switch } from "@fluxify/components";
+import { Button, cn, Spinner, Switch, Tooltip } from "@fluxify/components";
 import { TbPlayerRecord } from "react-icons/tb";
+import { publicSettingsQuery } from "@/query/publicSettingsQuery";
 import { useRecordingSwitch } from "@/query/recordingsQuery";
 import type { RecordingTarget } from "@/services/recordings";
 
-/** retention is an instance setting the portal cannot read, so say the default */
-export const RETENTION_NOTE =
-	"Recordings are kept for 30 days by default (your instance may set a different limit).";
+export function formatRetentionNote(days?: number): string {
+	const count = days ?? 30;
+	return `Recordings are kept for ${count} ${count === 1 ? "day" : "days"}.`;
+}
+
+export function useRetentionNote(): string {
+	const { data } = publicSettingsQuery.get.useQuery();
+	return formatRetentionNote(data?.recordingMaxAgeDays);
+}
+
+export const RETENTION_NOTE = formatRetentionNote(30);
 
 /** Track Execution's record button: a live dot while recording is on. */
 export function RecordButton({
@@ -63,5 +72,29 @@ export function RecordingSwitch({
 			/>
 			{recording.isApplying && <Spinner size="sm" />}
 		</div>
+	);
+}
+
+/**
+ * Prominent indicator shown when execution recording is active.
+ * Warns that capturing execution traces introduces performance overhead and is for debugging only.
+ */
+export function RecordingIndicator({ className }: { className?: string }) {
+	return (
+		<Tooltip>
+			<span
+				className={cn(
+					"inline-flex items-center gap-1.5 rounded-full border border-danger/40 bg-danger/10 px-2 py-0.5 text-xs font-medium text-danger",
+					className,
+				)}
+			>
+				<span className="size-2 animate-pulse rounded-full bg-danger" aria-hidden />
+				<span>Recording Active</span>
+			</span>
+			<Tooltip.Content>
+				Execution recording is active. Every execution payload and trace span is captured, which
+				degrades performance. For debugging only.
+			</Tooltip.Content>
+		</Tooltip>
 	);
 }

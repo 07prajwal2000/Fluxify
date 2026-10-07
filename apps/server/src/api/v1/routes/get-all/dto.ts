@@ -1,7 +1,15 @@
 import z from "zod";
 import { paginationRequestQuerySchema, paginationResponseSchema } from "../../../../lib/pagination";
 
-export const fieldEnumSchema = z.enum(["", "id", "name", "path", "active", "method"]);
+export const fieldEnumSchema = z.enum([
+	"",
+	"id",
+	"name",
+	"path",
+	"active",
+	"method",
+	"recordExecution",
+]);
 
 // ?filter.field=FIELD&filter.value=something&filter.operator=eq
 export const requestQuerySchema = z
@@ -19,7 +27,7 @@ export const requestQuerySchema = z
 			field: q["filter.field"],
 			operator: q["filter.operator"],
 			value: q["filter.value"],
-			projectId: q["projectId"],
+			projectId: q.projectId,
 		},
 	}));
 
@@ -31,6 +39,7 @@ export const responseSchema = z.object({
 			path: z.string().nullable(),
 			active: z.boolean().nullable(),
 			method: z.string().nullable(),
+			recordExecution: z.boolean().default(false),
 			createdAt: z.string(),
 			updatedAt: z.string(),
 			projectId: z.string(),

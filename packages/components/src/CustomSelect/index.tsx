@@ -5,6 +5,7 @@ import type { ReactNode } from "react";
 export interface CustomSelectOption {
 	value: string;
 	label: string;
+	node?: ReactNode;
 }
 
 export interface CustomSelectProps
@@ -42,14 +43,23 @@ export function CustomSelect({
 		>
 			{label && <Label>{label}</Label>}
 			<Select.Trigger>
-				<Select.Value />
+				<Select.Value>
+					{({ isPlaceholder, defaultChildren }) => {
+						if (isPlaceholder) return placeholder;
+						const selected = options.find((opt) => opt.value === value);
+						if (selected) {
+							return selected.node ?? selected.label;
+						}
+						return defaultChildren;
+					}}
+				</Select.Value>
 				<Select.Indicator />
 			</Select.Trigger>
 			<Select.Popover>
 				<ListBox>
 					{options.map((opt) => (
 						<ListBox.Item key={opt.value} id={opt.value} textValue={opt.label}>
-							{opt.label}
+							{opt.node ?? opt.label}
 							<ListBox.ItemIndicator />
 						</ListBox.Item>
 					))}

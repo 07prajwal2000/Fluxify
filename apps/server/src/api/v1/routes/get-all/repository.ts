@@ -15,6 +15,7 @@ export async function getRoutesList(
 			path: routesEntity.path,
 			method: routesEntity.method,
 			active: routesEntity.active,
+			recordExecution: routesEntity.recordExecution,
 			createdBy: routesEntity.createdBy,
 			projectId: routesEntity.projectId,
 			createdAt: routesEntity.createdAt,

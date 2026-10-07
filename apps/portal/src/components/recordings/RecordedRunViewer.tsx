@@ -1,5 +1,5 @@
 import { Breadcrumbs, Button, DeleteButton, Spinner } from "@fluxify/components";
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { TbArrowLeft } from "react-icons/tb";
 import { SplitPane } from "@/components/common/SplitPane";
 import { formatDuration } from "@/components/testSuites/CaseResults";
@@ -41,7 +41,7 @@ export function RecordedRunViewer({
 	const frame = frames[frames.length - 1];
 	const run = recordingsQuery.getRun.useQuery(projectId, target, frame.runId);
 	const root = recordingsQuery.getRun.useQuery(projectId, target, runId).data;
-	const remove = recordingsQuery.deleteRun.mutation(projectId, target);
+	const remove = recordingsQuery.deleteRun.useMutation(projectId, target);
 	const { data: customBlocks } = customBlocksQuery.getAll.useQuery(projectId);
 
 	const spans = run.data?.spans;
@@ -49,14 +49,29 @@ export function RecordedRunViewer({
 	// a run's own level sits on the target's canvas, or an async run's custom block
 	const canvasId = frame.parentSeq === null ? rootCanvasId(spans ?? []) : frame.customBlockId;
 
-	function goTo(depth: number) {
+	const goTo = useCallback((depth: number) => {
 		setFrames((current) => current.slice(0, depth + 1));
 		setSelected(null);
-	}
-	function push(next: Frame) {
+	}, []);
+	const push = useCallback((next: Frame) => {
 		setFrames((current) => [...current, next]);
 		setSelected(null);
-	}
+	}, []);
+
+	useEffect(() => {
+		function onKeyDown(e: KeyboardEvent) {
+			if (e.key === "Escape") {
+				if (frames.length > 1) {
+					goTo(frames.length - 2);
+				} else {
+					onBack();
+				}
+			}
+		}
+		window.addEventListener("keydown", onKeyDown);
+		return () => window.removeEventListener("keydown", onKeyDown);
+	}, [frames.length, onBack, goTo]);
+
 	const nameOf = (span: RecordedSpan) =>
 		span.blockName ||
 		customBlocks?.find((block) => block.name === span.blockType)?.label ||
@@ -102,7 +117,7 @@ export function RecordedRunViewer({
 							onPress={() =>
 								remove.mutate(runId, {
 									onSuccess: onBack,
-									onError: (error) => showErrorNotification(error),
+									onError: (error: Error) => showErrorNotification(error),
 								})
 							}
 						>
@@ -122,7 +137,7 @@ export function RecordedRunViewer({
 					</div>
 				) : (
 					<SplitPane
-						initial={30}
+						initial={50}
 						label="Resize canvas and details"
 						left={
 							<OverlayCanvas
@@ -130,7 +145,10 @@ export function RecordedRunViewer({
 								target={target}
 								customBlockId={canvasId}
 								level={level}
+								runSpans={spans}
+								selectedId={selected}
 								onSelect={setSelected}
+								onOpenCall={actions.openCall}
 							/>
 						}
 						right={
