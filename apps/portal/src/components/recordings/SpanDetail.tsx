@@ -3,6 +3,7 @@ import { useState } from "react";
 import { TbArrowLeft, TbArrowRight, TbExternalLink } from "react-icons/tb";
 import { formatDuration } from "@/components/testSuites/CaseResults";
 import type { RecordedRun, RecordedSpan } from "@/services/recordings";
+import { EntryInputView, entryInput } from "./EntryInputView";
 import { PayloadViewer } from "./PayloadViewer";
 import { OutcomeIcon } from "./RecordedRunList";
 import { SpanTimeline } from "./SpanTimeline";
@@ -75,17 +76,21 @@ function SpanCard({
 					))}
 				</div>
 			)}
-			<PayloadViewer
-				title="Input"
-				value={span.input}
-				truncated={span.truncated}
-				mocked={span.metadata?.mocked.input}
-			/>
+			{entryInput(span) ? (
+				<EntryInputView span={span} />
+			) : (
+				<PayloadViewer
+					title="Input"
+					value={span.input}
+					truncated={span.truncated}
+					mocked={span.metadata?.mocked?.input}
+				/>
+			)}
 			<PayloadViewer
 				title="Output"
 				value={span.output}
 				truncated={span.truncated}
-				mocked={span.metadata?.mocked.output}
+				mocked={span.metadata?.mocked?.output}
 			/>
 		</div>
 	);

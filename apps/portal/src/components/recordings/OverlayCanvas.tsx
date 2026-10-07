@@ -12,10 +12,11 @@ import { customBlocksQuery } from "@/query/customBlocksQuery";
 import { routesQuery } from "@/query/routesQuery";
 import { workflowsQuery } from "@/query/workflowsQuery";
 import type { RecordedSpan, RecordingTarget } from "@/services/recordings";
-import { blockStatuses, calledBlockId, takenEdgeIds } from "./spans";
+import { GhostNode } from "./GhostNode";
+import { calledBlockId, GHOST_NODE_TYPE, overlayGraph, takenEdgeIds } from "./spans";
 import "./recordings.css";
 
-const nodeTypes = createBlockNodeTypes();
+const nodeTypes = createBlockNodeTypes({ [GHOST_NODE_TYPE]: GhostNode });
 
 function SelectionSync({
 	selectedId,
@@ -64,7 +65,8 @@ function useLevelCanvas(target: RecordingTarget, customBlockId: string | null) {
 /**
  * The current canvas in readonly mode, tinted by what ran: passed / failed
  * through the blocks' own status outline, not-run blocks dimmed, the taken
- * edges lit. Spans whose block is gone from the canvas just draw nothing.
+ * edges lit. A block gone from the canvas since is drawn as a ghost where it
+ * was, when its span recorded that (#628).
  */
 export function OverlayCanvas({
 	target,
@@ -84,18 +86,10 @@ export function OverlayCanvas({
 	onOpenCall?: (span: RecordedSpan, customBlockId: string) => void;
 }) {
 	const items = useLevelCanvas(target, customBlockId);
-	const graph = useMemo(() => {
-		const saved = toGraph(items.data);
-		const status = blockStatuses(level);
-		return {
-			blocks: saved.blocks.map((block) =>
-				block.id in status
-					? { ...block, data: { ...block.data, status: status[block.id] } }
-					: block,
-			),
-			edges: saved.edges,
-		};
-	}, [items.data, level]);
+	const { graph, lost } = useMemo(
+		() => overlayGraph(toGraph(items.data), level),
+		[items.data, level],
+	);
 	// the canvas's own edge, wrapped so the taken ones can be lit; fixed per level
 	// (the parent remounts this per level), so React Flow sees one stable map
 	const edgeTypes = useMemo(() => {
@@ -157,6 +151,11 @@ export function OverlayCanvas({
 				>
 					<SelectionSync selectedId={selectedId} onSelect={onSelect} />
 				</BlockCanvas>
+				{lost > 0 && (
+					<div className="pointer-events-none absolute top-3 left-3 z-10 rounded-lg border border-border bg-background-secondary/95 px-3 py-1.5 text-xs text-muted shadow-lg">
+						{lost} {lost === 1 ? "span belongs" : "spans belong"} to removed blocks
+					</div>
+				)}
 				{activeSpan && activeCalledId && onOpenCall && (
 					<div className="pointer-events-auto absolute bottom-3 left-3 z-10 flex items-center gap-2 rounded-lg border border-border bg-background-secondary/95 px-3 py-1.5 shadow-lg backdrop-blur">
 						<span className="text-xs font-medium text-foreground">Custom block call</span>

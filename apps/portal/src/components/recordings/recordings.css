@@ -10,3 +10,9 @@
 .fx-run-overlay .fx-block:not(.fx-block--ok):not(.fx-block--fail) {
 	opacity: 0.45;
 }
+
+/* a block deleted since the run (#628): still drawn, but plainly not on the canvas any more */
+.fx-run-ghost .fx-block {
+	border-style: dashed;
+	opacity: 0.75;
+}
