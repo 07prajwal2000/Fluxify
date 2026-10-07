@@ -1,0 +1,67 @@
+import { and, asc, eq } from "drizzle-orm";
+import { db } from "../../../../db";
+import { traceRunsEntity, traceSpansEntity } from "../../../../db/schema";
+import { type SuiteTarget, targetColumn } from "../../../../modules/testRunner/target";
+
+/**
+ * One recorded run, every span it holds and the async runs it forked.
+ *
+ * The run lookup carries the project and target from the path, so a run id from
+ * another project or target reads as one that does not exist.
+ */
+export async function getRecordedRunById(projectId: string, target: SuiteTarget, runId: string) {
+	const [run] = await db
+		.select({
+			id: traceRunsEntity.id,
+			outcome: traceRunsEntity.outcome,
+			statusCode: traceRunsEntity.statusCode,
+			startedAt: traceRunsEntity.startedAt,
+			endedAt: traceRunsEntity.endedAt,
+			spanCount: traceRunsEntity.spanCount,
+			truncated: traceRunsEntity.truncated,
+			droppedSpans: traceRunsEntity.droppedSpans,
+			parentRunId: traceRunsEntity.parentRunId,
+			parentSeq: traceRunsEntity.parentSeq,
+			routeVersion: traceRunsEntity.routeVersion,
+			workflowVersion: traceRunsEntity.workflowVersion,
+		})
+		.from(traceRunsEntity)
+		.where(
+			and(
+				eq(traceRunsEntity.id, runId),
+				eq(traceRunsEntity.projectId, projectId),
+				eq(targetColumn(traceRunsEntity, target.type), target.id),
+			),
+		);
+	if (!run) return null;
+
+	const spans = await db
+		.select({
+			seq: traceSpansEntity.seq,
+			parentSeq: traceSpansEntity.parentSeq,
+			blockId: traceSpansEntity.blockId,
+			blockType: traceSpansEntity.blockType,
+			blockName: traceSpansEntity.blockName,
+			customBlockId: traceSpansEntity.customBlockId,
+			middleware: traceSpansEntity.middleware,
+			startedAt: traceSpansEntity.startedAt,
+			endedAt: traceSpansEntity.endedAt,
+			outcome: traceSpansEntity.outcome,
+			branch: traceSpansEntity.branch,
+			error: traceSpansEntity.error,
+			input: traceSpansEntity.input,
+			output: traceSpansEntity.output,
+			truncated: traceSpansEntity.truncated,
+		})
+		.from(traceSpansEntity)
+		.where(eq(traceSpansEntity.runId, runId))
+		.orderBy(asc(traceSpansEntity.seq));
+
+	const childRuns = await db
+		.select({ id: traceRunsEntity.id, parentSeq: traceRunsEntity.parentSeq })
+		.from(traceRunsEntity)
+		.where(and(eq(traceRunsEntity.parentRunId, runId), eq(traceRunsEntity.projectId, projectId)))
+		.orderBy(asc(traceRunsEntity.startedAt));
+
+	return { ...run, spans, childRuns };
+}

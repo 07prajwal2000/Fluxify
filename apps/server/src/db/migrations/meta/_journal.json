@@ -22,6 +22,13 @@
 			"when": 1791377050426,
 			"tag": "0002_melted_epoch",
 			"breakpoints": true
+		},
+		{
+			"idx": 3,
+			"version": "7",
+			"when": 1791380167319,
+			"tag": "0003_clean_namorita",
+			"breakpoints": true
 		}
 	]
 }

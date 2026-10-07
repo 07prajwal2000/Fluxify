@@ -1269,6 +1269,8 @@ export const traceRunsEntity = pgTable(
 		),
 		// retention deletes by age in batches; without this every batch is a full scan
 		index("idx_trace_runs_started_at").on(table.startedAt),
+		// run detail lists the async child runs a run forked
+		index("idx_trace_runs_parent_run_id").on(table.parentRunId),
 		check("trace_runs_one_target", oneTarget(table)),
 	],
 );
