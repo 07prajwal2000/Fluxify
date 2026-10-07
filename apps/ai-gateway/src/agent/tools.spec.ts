@@ -1,10 +1,13 @@
 import { describe, expect, it } from "bun:test";
+import type { ModelMessage } from "ai";
 import { convertArrayToReadableStream, MockLanguageModelV4 } from "ai/test";
 import type { AdminFetch } from "../mcp/adminApi";
 import { assertEndsOnUserOrTool, runAgent } from "./agent";
 import { parseTasks } from "./evals/run";
+import { withToolTimeouts } from "./timeouts";
 import { ADVANCED, CORE, agentTools } from "./tools";
 
+const limits = { idleMs: 1000, callMs: 5000, toolMs: 1000 };
 const P = "019a0000-0000-7000-8000-000000000000";
 type Call = { method: string; path: string; auth?: string; body?: unknown };
 
@@ -29,7 +32,8 @@ const setup = (answer?: (path: string) => unknown) => {
 	const { fetcher, calls } = fakeFetch(answer);
 	return { ...agentTools(fetcher, { authorization: "Bearer pat-1" }, P), calls };
 };
-const exec = (t: any, input: unknown) => t.execute(input, { toolCallId: "c1", messages: [] });
+const exec = (t: any, input: unknown, abortSignal?: AbortSignal) =>
+	t.execute(input, { toolCallId: "c1", messages: [], abortSignal });
 
 describe("agent tools", () => {
 	it("wraps an MCP tool as-is and sends the PAT", async () => {
@@ -66,6 +70,25 @@ describe("agent tools", () => {
 			`/v1/${P}/integrations/i1`,
 			`/v1/${P}/app-config/7`,
 		]);
+	});
+
+	it("passes the tool's abort signal to fetch, and the tool timeout cancels the request", async () => {
+		const signals: (AbortSignal | undefined)[] = [];
+		const fetcher: AdminFetch = (_path, init) => {
+			signals.push(init.signal ?? undefined);
+			return new Promise((_, reject) => init.signal?.addEventListener("abort", () => reject(init.signal?.reason)));
+		};
+		const { tools } = agentTools(fetcher, {}, P);
+		const ctrl = new AbortController();
+		const pending = exec(tools.get, { type: "route", id: "r1" }, ctrl.signal);
+		ctrl.abort(new Error("user stop"));
+		await expect(pending).rejects.toThrow("user stop");
+		expect(signals[0]).toBe(ctrl.signal);
+
+		const slow = withToolTimeouts(tools, 20).save_route;
+		const input = { projectId: P, name: "a", path: "/a", method: "GET" };
+		await expect(exec(slow, input)).rejects.toThrow("save_route timed out");
+		expect(signals[1]?.aborted).toBe(true);
 	});
 
 	it("starts with only the core, and load_tools adds known advanced tools", async () => {
@@ -120,12 +143,14 @@ describe("agent loop", () => {
 			},
 		});
 		const { tools, active, calls } = setup();
-		const result = runAgent({ model, tools, active, projectId: P, prompt: "delete r1" });
+		const history: ModelMessage[] = [{ role: "user", content: "delete r1" }];
+		const result = runAgent({ model, tools, active, projectId: P, history, limits });
 		expect(await result.text).toBe("done");
 		expect(seen[0].tools).not.toContain("delete_route");
 		expect(seen[1].tools).toContain("delete_route");
 		expect(seen.map((s) => s.lastRole)).toEqual(["user", "tool", "tool"]);
 		expect(calls).toContainEqual({ method: "DELETE", path: "/v1/routes/r1", auth: "Bearer pat-1" });
+		expect(history.map((m) => m.role)).toEqual(["user", "assistant", "tool", "assistant", "tool", "assistant"]);
 	});
 
 	it("refuses a history that ends on assistant or system", () => {

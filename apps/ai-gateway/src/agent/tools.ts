@@ -88,15 +88,16 @@ async function searchDocs(queries: string[]) {
  * `active()` is what the next step may call: the core plus whatever load_tools added.
  */
 export function agentTools(fetcher: AdminFetch, auth: Record<string, string>, projectId: string) {
-	const run = (name: string, args: unknown) => {
+	const run = (name: string, args: unknown, signal?: AbortSignal) => {
 		const t = ALL.find((x) => x.name === name) as McpTool;
-		return t.call(adminApi(fetcher, auth, t.role), z.object(t.input).parse(args));
+		return t.call(adminApi(fetcher, auth, t.role, signal), z.object(t.input).parse(args));
 	};
 	const wrap = (t: McpTool): Tool =>
 		tool({
 			description: t.description,
 			inputSchema: z.object(t.input),
-			execute: (args) => t.call(adminApi(fetcher, auth, t.role), args),
+			execute: (args, { abortSignal }) =>
+				t.call(adminApi(fetcher, auth, t.role, abortSignal), args),
 		});
 	const loaded = new Set<string>();
 	const tools: Record<string, Tool> = Object.fromEntries(
@@ -108,12 +109,14 @@ export function agentTools(fetcher: AdminFetch, auth: Record<string, string>, pr
 		inputSchema: z.object({
 			types: z.array(z.enum(Object.keys(LIST_TYPES) as [keyof typeof LIST_TYPES])).min(1),
 		}),
-		execute: async ({ types }) =>
+		execute: async ({ types }, { abortSignal }) =>
 			Object.fromEntries(
 				await Promise.all(
 					types.map(async (type) => [
 						type,
-						await run(LIST_TYPES[type], { projectId }).catch((e: Error) => ({ error: e.message })),
+						await run(LIST_TYPES[type], { projectId }, abortSignal).catch((e: Error) => ({
+							error: e.message,
+						})),
 					]),
 				),
 			),
@@ -124,9 +127,9 @@ export function agentTools(fetcher: AdminFetch, auth: Record<string, string>, pr
 			type: z.enum(Object.keys(GET_TYPES) as [keyof typeof GET_TYPES]),
 			id: z.string(),
 		}),
-		execute: ({ type, id }) => {
+		execute: ({ type, id }, { abortSignal }) => {
 			const [name, key] = GET_TYPES[type];
-			return run(name, { projectId, [key]: type === "app_config" ? Number(id) : id });
+			return run(name, { projectId, [key]: type === "app_config" ? Number(id) : id }, abortSignal);
 		},
 	});
 	tools.search_docs = tool({
