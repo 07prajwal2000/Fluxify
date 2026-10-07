@@ -1,6 +1,7 @@
 import { setJobEnqueuer, setScheduleHorizon, setTriggerPayloadLimit } from "@fluxify/blocks";
 import { initializeLogger, logger } from "@fluxify/common";
 import "../../lib/bigintJson";
+import type { TraceRunPayload } from "@fluxify/common/otlp";
 import { projectSettingsCache } from "../../loaders/projectSettingsLoader";
 import { artifactKind } from "../compiler/subjects";
 import { registerCustomBlockJobHandler } from "../jobs/customBlockJob";
@@ -24,8 +25,14 @@ import {
 } from "./compiledRuntime";
 import { executionRuntimeEnvironment } from "./executionEnvironment";
 import { createHttpContext } from "./httpContext";
-import { dispatch, envelopeFromHttp, type RouteExecutionObserver } from "./service";
+import {
+	dispatch,
+	envelopeFromHttp,
+	type RouteExecutionObserver,
+	type RouteTraceFactory,
+} from "./service";
 import type { ExecutionBootstrap, ExecutionEvent, ExecutionMessage } from "./threadTypes";
+import type { TraceSinks } from "./traceLifecycle";
 import { workerTimeoutsEnabled } from "./workerTimeouts";
 
 let boot: ExecutionBootstrap | undefined;
@@ -90,7 +97,7 @@ function bootstrap(nextBoot: ExecutionBootstrap) {
 	registerCustomBlockJobHandler();
 	registerWorkflowJobHandler({
 		start(workflow) {
-			return new WorkflowTraceRecorder(workflow, exportTraceRun);
+			return new WorkflowTraceRecorder(workflow, finishRun(workflow));
 		},
 	});
 	// The cap is read per publish rather than captured once: project settings
@@ -160,15 +167,9 @@ async function serveRoute(request: Request): Promise<Response> {
 	const ctx = createHttpContext(request);
 	const env = await envelopeFromHttp(ctx as any);
 	const observer = createObserver();
-	const traceFactory = {
-		start(route: {
-			routeId: string;
-			projectId: string;
-			routeVersion: string;
-			method: string;
-			path: string;
-		}) {
-			return new RouteTraceRecorder(route, exportTraceRun);
+	const traceFactory: RouteTraceFactory = {
+		start(route) {
+			return new RouteTraceRecorder(route, finishRun(route));
 		},
 	};
 
@@ -201,6 +202,18 @@ async function serveRoute(request: Request): Promise<Response> {
 			ctx.responseHeaders,
 		);
 	}
+}
+
+/**
+ * OTLP export only with tracing on, a recording only with recording on (#254).
+ * A recording goes to the supervisor, which owns NATS; the send is fire and
+ * forget, so the request never waits on it.
+ */
+function finishRun(sinks: TraceSinks) {
+	return (run: TraceRunPayload) => {
+		if (sinks.tracingEnabled) exportTraceRun(run);
+		if (sinks.recordExecution) send({ type: "record-run", run });
+	};
 }
 
 function createObserver(): RouteExecutionObserver | undefined {

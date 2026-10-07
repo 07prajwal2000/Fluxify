@@ -149,11 +149,16 @@ export interface BlockTrace {
 	 * `detached` is an async invocation: it outlives the request, so its spans
 	 * cannot belong to this run and the returned trace is expected to be a
 	 * separate one linked back to it.
+	 *
+	 * `customBlockId` is the custom block's own id, the canvas the nested
+	 * graph's block ids belong to. Absent when the library was not told it, and
+	 * for a middleware, which is a chain rather than a canvas.
 	 */
 	enterCustomBlock(invocation: {
 		blockId: string;
 		name: string;
 		detached: boolean;
+		customBlockId?: string;
 	}): CustomBlockScope;
 }
 

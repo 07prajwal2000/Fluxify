@@ -26,15 +26,24 @@ export type CompiledCustomBlock = (ctx: Context, input?: any) => Promise<any>;
  * against this map, so recompiling a route never recompiles its dependencies.
  */
 const customBlockLibrary = new Map<string, CompiledCustomBlock>();
+/** name -> the block's own id, so a trace can say which canvas a nested span belongs to (#254) */
+const customBlockIds = new Map<string, string>();
+
+function publish(name: string, run: CompiledCustomBlock, id?: string) {
+	customBlockLibrary.set(name, run);
+	if (id) customBlockIds.set(name, id);
+	else customBlockIds.delete(name);
+}
 
 /** compile a custom block's graph once and publish it to the worker */
 export function registerCustomBlock(
 	name: string,
 	blocks: BlockDTOType[],
 	edges: EdgeDTOSchemaType,
+	id?: string,
 ) {
 	const { run, source } = compileGraph(blocks, edges, { asCustomBlock: true });
-	customBlockLibrary.set(name, run);
+	publish(name, run, id);
 	return source;
 }
 
@@ -42,12 +51,13 @@ export function registerCustomBlock(
  * Publish already-compiled source. This is the path workers take: they receive
  * the JS from the artifact store and never run the compiler themselves.
  */
-export function registerCompiledCustomBlock(name: string, source: string) {
-	customBlockLibrary.set(name, instantiateCompiled(source));
+export function registerCompiledCustomBlock(name: string, source: string, id?: string) {
+	publish(name, instantiateCompiled(source), id);
 }
 
 export function unregisterCustomBlock(name: string) {
 	customBlockLibrary.delete(name);
+	customBlockIds.delete(name);
 }
 
 export function hasCustomBlock(name: string) {
@@ -71,7 +81,12 @@ function lookup(name: string): CompiledCustomBlock {
  */
 function traced(context: Context, name: string, blockId: string | undefined, detached: boolean) {
 	if (!context.trace || !blockId) return { context, close: () => {} };
-	const scope = context.trace.enterCustomBlock({ blockId, name, detached });
+	const scope = context.trace.enterCustomBlock({
+		blockId,
+		name,
+		detached,
+		customBlockId: customBlockIds.get(name),
+	});
 	// a detached invocation records into its own trace, so it needs its own
 	// context — mutating the caller's would follow the request back out
 	const child = scope.trace === context.trace ? context : { ...context, trace: scope.trace };

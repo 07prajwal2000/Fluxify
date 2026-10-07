@@ -2,8 +2,9 @@
  * Wire contract for one recorded route execution.
  *
  * The execution process records it and hands it to `exportRun` in the same
- * process. It is defined here, next to the exporter, so producer and consumer
- * cannot drift.
+ * process, and, with recording on (#254), to the recordings stream, whose
+ * consumer stores it as is. It is defined here, next to the exporter, so
+ * producer and consumers cannot drift.
  */
 
 /** One completed block execution. `seq` is assigned in record order. */
@@ -24,7 +25,8 @@ export type TraceSpanRecord = {
 		blocks: string[];
 	};
 	/**
-	 * Set when this span came from inside a custom block. Those `blockId`s belong
+	 * The id of the custom block whose graph this span ran in, the innermost one
+	 * when custom blocks nest. Absent on the route's own spans. Those `blockId`s belong
 	 * to the nested graph's canvas, not the route's — overlaid on the route canvas
 	 * they would highlight nothing.
 	 */

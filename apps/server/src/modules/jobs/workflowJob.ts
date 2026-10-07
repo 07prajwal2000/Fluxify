@@ -2,6 +2,7 @@ import type { TriggerBatchMeta, TriggerConnection, TriggerEvent } from "@fluxify
 import { logger } from "@fluxify/common";
 import { compiledWorkflow } from "../requestRouter/compiledRuntime";
 import { createJobContext } from "../requestRouter/service";
+import { type TraceSinks, wantsSpans } from "../requestRouter/traceLifecycle";
 import type { WorkflowTrace } from "../telemetry/routeRecorder";
 import { isTriggerBatch } from "../triggers/types";
 import { registerJobHandler } from "./registry";
@@ -9,12 +10,14 @@ import { WORKFLOW_JOB } from "./subjects";
 import type { JobEnvelope } from "./types";
 
 export type WorkflowTraceFactory = {
-	start(workflow: {
-		workflowId: string;
-		projectId: string;
-		workflowVersion: string;
-		workflowName: string;
-	}): WorkflowTrace;
+	start(
+		workflow: {
+			workflowId: string;
+			projectId: string;
+			workflowVersion: string;
+			workflowName: string;
+		} & TraceSinks,
+	): WorkflowTrace;
 };
 
 /** What an external queue adds to a run: its connection and batch metadata. */
@@ -54,13 +57,15 @@ export async function runWorkflowJob(job: JobEnvelope, extras?: QueueRunExtras) 
 	}
 
 	let trace: WorkflowTrace | undefined;
-	if (workflow.artifact.tracingEnabled && traceFactory) {
+	if (wantsSpans(workflow.artifact) && traceFactory) {
 		try {
 			trace = traceFactory.start({
 				workflowId: workflow.artifact.workflowId,
 				projectId: workflow.artifact.projectId,
 				workflowVersion: workflow.artifact.workflowVersion,
 				workflowName: workflow.artifact.name,
+				tracingEnabled: workflow.artifact.tracingEnabled,
+				recordExecution: workflow.artifact.recordExecution,
 			});
 		} catch {
 			// Tracing is diagnostic data; a recorder bug must not fail job execution.

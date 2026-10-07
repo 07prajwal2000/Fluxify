@@ -1,7 +1,7 @@
 import type { BlockTrace, BlockTraceSpan, CustomBlockScope } from "@fluxify/blocks";
 import type { TraceRunPayload, TraceSpanRecord } from "@fluxify/common/otlp";
 
-const MAX_SPANS_PER_RUN = 1_000;
+export const MAX_SPANS_PER_RUN = 1_000;
 const MAX_RUN_BYTES = 256 * 1024;
 const MAX_VALUE_BYTES = 8 * 1024;
 
@@ -35,6 +35,16 @@ type TraceScope = {
 	customBlockId?: string;
 };
 
+/** where a detached run forked off, and the custom block whose graph it runs */
+type ParentLink = { runId: string; seq: number; customBlockId?: string };
+
+type CustomBlockInvocation = {
+	blockId: string;
+	name: string;
+	detached: boolean;
+	customBlockId?: string;
+};
+
 type TraceState = {
 	nextSeq: number;
 	spans: TraceSpanRecord[];
@@ -64,25 +74,25 @@ export abstract class BaseTraceRecorder implements BlockTrace {
 
 	constructor(
 		protected readonly onComplete: (run: TraceRunPayload) => void,
-		protected readonly parent?: { runId: string; seq: number },
+		protected readonly parent?: ParentLink,
 	) {}
 
-	recordSpan(span: BlockTraceSpan): void {
-		this.record(span, {});
+	/** a detached run's top-level spans sit in the custom block's graph, not the caller's */
+	private get rootScope(): TraceScope {
+		return this.parent?.customBlockId ? { customBlockId: this.parent.customBlockId } : {};
 	}
 
-	enterCustomBlock(invocation: {
-		blockId: string;
-		name: string;
-		detached: boolean;
-	}): CustomBlockScope {
+	recordSpan(span: BlockTraceSpan): void {
+		this.record(span, this.rootScope);
+	}
+
+	enterCustomBlock(invocation: CustomBlockInvocation): CustomBlockScope {
 		return this.enter(invocation, {});
 	}
 
-	protected abstract createDetached(parent: {
-		runId: string;
-		seq: number;
-	}): BlockTrace & { complete(outcome: TraceOutcome, statusCode?: number): void };
+	protected abstract createDetached(
+		parent: ParentLink,
+	): BlockTrace & { complete(outcome: TraceOutcome, statusCode?: number): void };
 
 	protected abstract targetAttributes(): Partial<TraceRunPayload>;
 
@@ -111,17 +121,18 @@ export abstract class BaseTraceRecorder implements BlockTrace {
 		}
 	}
 
-	private enter(
-		invocation: { blockId: string; name: string; detached: boolean },
-		scope: TraceScope,
-	): CustomBlockScope {
+	private enter(invocation: CustomBlockInvocation, scope: TraceScope): CustomBlockScope {
 		const seq = this.state.nextSeq++;
 		const pending = this.state.pendingInvocations.get(invocation.blockId) ?? [];
 		pending.push(seq);
 		this.state.pendingInvocations.set(invocation.blockId, pending);
 
 		if (invocation.detached) {
-			const detached = this.createDetached({ runId: this.runId, seq });
+			const detached = this.createDetached({
+				runId: this.runId,
+				seq,
+				customBlockId: invocation.customBlockId,
+			});
 			return {
 				trace: detached,
 				close: (outcome: TraceOutcome = "success", error?: unknown) => {
@@ -131,8 +142,10 @@ export abstract class BaseTraceRecorder implements BlockTrace {
 			};
 		}
 
+		// the block whose graph these spans sit in, at every depth: the innermost wins
 		const nested = new NestedTrace(this, {
 			parentSeq: seq,
+			customBlockId: invocation.customBlockId,
 		});
 		return { trace: nested, close: () => {} };
 	}
@@ -187,10 +200,7 @@ export abstract class BaseTraceRecorder implements BlockTrace {
 	}
 
 	/** Internal bridge for nested compiled custom blocks. */
-	_nestedEnter(
-		invocation: { blockId: string; name: string; detached: boolean },
-		scope: TraceScope,
-	) {
+	_nestedEnter(invocation: CustomBlockInvocation, scope: TraceScope) {
 		return this.enter(invocation, scope);
 	}
 }
@@ -202,7 +212,7 @@ export class RouteTraceRecorder extends BaseTraceRecorder implements RequestTrac
 	constructor(
 		private readonly route: RecordedRoute,
 		onComplete: (run: TraceRunPayload) => void,
-		parent?: { runId: string; seq: number },
+		parent?: ParentLink,
 	) {
 		super(onComplete, parent);
 	}
@@ -211,7 +221,7 @@ export class RouteTraceRecorder extends BaseTraceRecorder implements RequestTrac
 		this.finishRun(outcome, statusCode);
 	}
 
-	protected createDetached(parent: { runId: string; seq: number }) {
+	protected createDetached(parent: ParentLink) {
 		return new RouteTraceRecorder(this.route, this.onComplete, parent);
 	}
 
@@ -233,7 +243,7 @@ export class WorkflowTraceRecorder extends BaseTraceRecorder implements Workflow
 	constructor(
 		private readonly workflow: RecordedWorkflow,
 		onComplete: (run: TraceRunPayload) => void,
-		parent?: { runId: string; seq: number },
+		parent?: ParentLink,
 	) {
 		super(onComplete, parent);
 	}
@@ -242,7 +252,7 @@ export class WorkflowTraceRecorder extends BaseTraceRecorder implements Workflow
 		this.finishRun(outcome);
 	}
 
-	protected createDetached(parent: { runId: string; seq: number }) {
+	protected createDetached(parent: ParentLink) {
 		return new WorkflowTraceRecorder(this.workflow, this.onComplete, parent);
 	}
 
@@ -266,11 +276,7 @@ class NestedTrace implements BlockTrace {
 		this.owner._nestedRecord(span, this.scope);
 	}
 
-	enterCustomBlock(invocation: {
-		blockId: string;
-		name: string;
-		detached: boolean;
-	}): CustomBlockScope {
+	enterCustomBlock(invocation: CustomBlockInvocation): CustomBlockScope {
 		return this.owner._nestedEnter(invocation, this.scope);
 	}
 }

@@ -20,8 +20,8 @@ import { projectSettingsCache } from "../../loaders/projectSettingsLoader";
  * destination credentials are the same observability integrations log blocks
  * already use in this process, so this adds no new credential exposure.
  *
- * Execution recording (the portal's run history) is a different sink and needs
- * its own NATS stream when it is built; telemetry no longer has one.
+ * Execution recording (the portal's run history, #254) is a different sink:
+ * the run goes to the supervisor over IPC and on to the recordings stream.
  */
 
 /**

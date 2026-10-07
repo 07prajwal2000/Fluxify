@@ -16,7 +16,8 @@ export async function registerFixtureBlocks(fixture: GraphFixture) {
 	const registered: string[] = [];
 	const register = async (file: string) => {
 		const block = await loadCustomBlock(file);
-		registerCustomBlock(block.name, block.blocks, block.edges);
+		// the file name stands in for the block's id, which a fixture does not have
+		registerCustomBlock(block.name, block.blocks, block.edges, file);
 		registered.push(block.name);
 		// one middleware per file, its chain that one block
 		return { id: file, name: file, blocks: [block.name] };

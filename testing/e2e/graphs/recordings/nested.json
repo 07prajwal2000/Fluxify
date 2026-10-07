@@ -1,0 +1,33 @@
+{
+	"name": "recordings/nested",
+	"description": "POST /recordings/nested — multiplies body.n by four through two nested custom blocks (rec_quadruple calls rec_double), so a recorded run has spans at three canvas levels.",
+	"engine": "none",
+	"route": { "method": "POST", "path": "/recordings/nested" },
+	"uses": ["rec-double", "rec-quadruple"],
+	"blocks": [
+		{ "id": "entry", "type": "entrypoint", "position": { "x": 0, "y": 0 }, "data": { "blockName": "Request" } },
+		{
+			"id": "num",
+			"type": "jsrunner",
+			"position": { "x": 240, "y": 0 },
+			"data": { "blockName": "Read n", "value": "return getRequestBody().n;" }
+		},
+		{
+			"id": "outer",
+			"type": "rec_quadruple",
+			"position": { "x": 480, "y": 0 },
+			"data": { "blockName": "Quadruple", "invoke": "sync" }
+		},
+		{
+			"id": "reply",
+			"type": "response",
+			"position": { "x": 720, "y": 0 },
+			"data": { "blockName": "200 OK", "httpCode": "200" }
+		}
+	],
+	"edges": [
+		{ "id": "e1", "from": "entry", "to": "num", "fromHandle": "source", "toHandle": "source" },
+		{ "id": "e2", "from": "num", "to": "outer", "fromHandle": "source", "toHandle": "source" },
+		{ "id": "e3", "from": "outer", "to": "reply", "fromHandle": "source", "toHandle": "source" }
+	]
+}

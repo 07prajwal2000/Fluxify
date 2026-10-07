@@ -111,6 +111,7 @@ describe("RouteTraceRecorder", () => {
 			blockId: "notify",
 			name: "send_email",
 			detached: true,
+			customBlockId: "cb-mail",
 		});
 		scope.trace.recordSpan({
 			blockId: "email",
@@ -130,6 +131,8 @@ describe("RouteTraceRecorder", () => {
 			parentSeq: 0,
 			outcome: "failure",
 		});
+		// the forked run is the custom block's graph, so its own spans say so (#254)
+		expect(runs[0].spans[0].customBlockId).toBe("cb-mail");
 		expect(runs[1]).toMatchObject({ runId: recorder.runId, statusCode: 202 });
 	});
 });

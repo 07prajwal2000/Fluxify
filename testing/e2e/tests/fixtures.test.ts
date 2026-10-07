@@ -3,6 +3,7 @@ import { compileGraph } from "@fluxify/blocks";
 import { registerFixtureBlocks } from "../src/customBlocks";
 import {
 	customBlockFiles,
+	type GraphFixture,
 	graphNames,
 	loadCustomBlock,
 	loadGraph,
@@ -53,10 +54,15 @@ describe("custom block fixtures", () => {
 	for (const file of customBlockFiles()) {
 		it(`${file} compiles as a custom block`, async () => {
 			const block = await loadCustomBlock(file);
-			const { source } = compileGraph(block.blocks, block.edges, {
-				asCustomBlock: true,
-			});
-			expect(source).toBeString();
+			const { dispose } = await registerFixtureBlocks({ uses: block.uses } as GraphFixture);
+			try {
+				const { source } = compileGraph(block.blocks, block.edges, {
+					asCustomBlock: true,
+				});
+				expect(source).toBeString();
+			} finally {
+				dispose();
+			}
 		});
 	}
 });
