@@ -1,0 +1,12 @@
+/* Execution overlay: the path a recorded run took. Colours are theme tokens. */
+.fx-edge--taken .fx-edge {
+	stroke: var(--success);
+	stroke-width: 2.5;
+	stroke-dasharray: none;
+	animation: none;
+}
+
+/* blocks that did not run step back, so "did not run" never reads as "passed" */
+.fx-run-overlay .fx-block:not(.fx-block--ok):not(.fx-block--fail) {
+	opacity: 0.45;
+}

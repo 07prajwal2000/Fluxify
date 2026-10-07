@@ -110,7 +110,7 @@ function SuiteRunRow({
 }
 
 /** Absolute local time, plus a relative hint for anything recent. */
-function formatWhen(value: unknown) {
+export function formatWhen(value: unknown) {
 	if (!value) return "—";
 	const date = new Date(value as string);
 	if (Number.isNaN(date.getTime())) return "—";

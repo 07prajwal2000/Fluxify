@@ -35,6 +35,8 @@ export type CanvasWorkbenchProps = {
 	/** Opt-in only: enables the Spotlight command palette (Cmd/Ctrl+K or Cmd/Ctrl+Space). */
 	enableSpotlight?: boolean;
 	playgroundContent?: ReactNode;
+	/** the playground's "Track Execution" tab; leave out for users who can't see recordings */
+	trackExecutionContent?: ReactNode;
 	/** Extra header controls owned by the caller — route settings, for one. */
 	headerActions?: ReactNode;
 	/** Replaces the plain title on the left — the route switcher, for one. */
@@ -50,7 +52,7 @@ export type CanvasWorkbenchProps = {
 	readOnly?: boolean;
 };
 
-function toGraph(data: CanvasItems | undefined): CanvasGraph {
+export function toGraph(data: CanvasItems | undefined): CanvasGraph {
 	if (!data) return emptyGraph;
 	return {
 		blocks: data.blocks.map((block) => ({
@@ -84,6 +86,7 @@ function CanvasWorkbenchInner({
 	enablePlayground = false,
 	enableSpotlight = false,
 	playgroundContent,
+	trackExecutionContent,
 	headerActions,
 	headerLeft,
 	readOnly = false,
@@ -214,6 +217,7 @@ function CanvasWorkbenchInner({
 						enablePlayground={enablePlayground}
 						enableSpotlight={enableSpotlight}
 						playgroundContent={playgroundContent}
+						trackExecutionContent={trackExecutionContent}
 						cycleFeedbackToken={cycleFeedbackToken}
 						reloadToken={reloadToken}
 						onSave={() => void onSave()}

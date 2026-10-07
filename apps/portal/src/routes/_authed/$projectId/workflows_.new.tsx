@@ -39,7 +39,7 @@ function CreateWorkflowPage() {
 	const [description, setDescription] = useState("");
 	const [timeoutSeconds, setTimeoutSeconds] = useState(300);
 	const [tracingEnabled, setTracingEnabled] = useState(false);
-	const [recordExecution, setRecordExecution] = useState(true);
+	const [recordExecution, setRecordExecution] = useState(false);
 	const [triggerIds, setTriggerIds] = useState<string[]>([]);
 
 	const nameIsValid = name.trim().length >= 2;
@@ -141,8 +141,8 @@ function CreateWorkflowPage() {
 					<Checkbox
 						isSelected={recordExecution}
 						onChange={setRecordExecution}
-						label="Record executions"
-						description="Keeps each run in the Executions list. Turn it off for something that runs every few seconds."
+						label="Recording"
+						description="Keeps a copy of each run in Fluxify, inputs and outputs included, to replay on the canvas. Leave it off for something that runs every few seconds."
 					/>
 					<Checkbox
 						isSelected={tracingEnabled}
@@ -178,7 +178,7 @@ function CreateWorkflowPage() {
 					<dl className="grid grid-cols-2 gap-px overflow-hidden rounded-lg border border-border bg-border">
 						<SummaryItem label="Name" value={name.trim()} />
 						<SummaryItem label="Timeout" value={`${timeoutSeconds}s`} />
-						<SummaryItem label="Executions" value={recordExecution ? "Recorded" : "Not recorded"} />
+						<SummaryItem label="Recording" value={recordExecution ? "On" : "Off"} />
 						<SummaryItem
 							label="Triggers"
 							value={

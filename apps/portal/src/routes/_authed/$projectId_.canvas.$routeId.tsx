@@ -11,6 +11,7 @@ import { useMemo, useState } from "react";
 import { TbSettings } from "react-icons/tb";
 import { CanvasWorkbench } from "@/components/canvas";
 import { RouteApiPlayground } from "@/components/RouteApiPlayground";
+import { ExecutionRecordings } from "@/components/recordings/ExecutionRecordings";
 import { RouteSettingsModal } from "@/components/routes/RouteSettingsModal";
 import { RouteSwitcher } from "@/components/routes/RouteSwitcher";
 import { RouteWorkbenchTabs } from "@/components/routes/RouteWorkbenchTabs";
@@ -102,6 +103,17 @@ function RouteCanvasPage() {
 						isFramed={false}
 						enableCache
 					/>
+				}
+				trackExecutionContent={
+					// recordings hold unredacted payloads: creators only, as the server enforces
+					canEdit ? (
+						<ExecutionRecordings
+							key={routeId}
+							projectId={projectId}
+							target={{ type: "route", id: routeId }}
+							emptyHint="switch to the API Playground tab and send a request"
+						/>
+					) : undefined
 				}
 				reload={() => routesService.getCanvasItems(routeId)}
 				getVersion={() => routesService.getCanvasVersion(routeId)}

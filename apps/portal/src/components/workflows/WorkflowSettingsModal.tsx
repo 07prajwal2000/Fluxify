@@ -17,6 +17,7 @@ import { useNavigate } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { Section } from "@/components/common/Section";
+import { RETENTION_NOTE, RecordingSwitch } from "@/components/recordings/RecordingControls";
 import { showErrorNotification } from "@/lib/errorNotifier";
 import { workflowsQuery } from "@/query/workflowsQuery";
 import type { Workflow } from "@/services/workflows";
@@ -91,7 +92,6 @@ function WorkflowSettingsForm({
 	const [active, setActive] = useState(Boolean(workflow.active));
 	const [timeoutSeconds, setTimeoutSeconds] = useState(workflow.timeoutSeconds);
 	const [tracingEnabled, setTracingEnabled] = useState(workflow.tracingEnabled);
-	const [recordExecution, setRecordExecution] = useState(workflow.recordExecution);
 	const [tab, setTab] = useState("general");
 	const [confirmDelete, setConfirmDelete] = useState(false);
 
@@ -102,9 +102,8 @@ function WorkflowSettingsForm({
 			active,
 			timeoutSeconds,
 			tracingEnabled,
-			recordExecution,
 		}),
-		[name, description, active, timeoutSeconds, tracingEnabled, recordExecution],
+		[name, description, active, timeoutSeconds, tracingEnabled],
 	);
 	const [baseline] = useState(() => JSON.stringify(payload));
 	const isDirty = JSON.stringify(payload) !== baseline;
@@ -245,14 +244,13 @@ function WorkflowSettingsForm({
 						</Section>
 
 						<Section
-							title="Execution history"
-							description="Keep a record of each run, so a failure can be inspected after the fact."
+							title="Recording"
+							description={`Keep a copy of each run in Fluxify, inputs and outputs included, to replay it on the canvas from Track Execution. Telemetry sends traces to your own backend; Recording keeps them here. Applies right away. ${RETENTION_NOTE}`}
 						>
-							<Switch
-								isSelected={recordExecution}
-								onChange={setRecordExecution}
-								isDisabled={readOnly}
-								label={recordExecution ? "Runs are recorded" : "Runs are not recorded"}
+							<RecordingSwitch
+								projectId={workflow.projectId}
+								target={{ type: "workflow", id: workflow.id }}
+								readOnly={readOnly}
 							/>
 						</Section>
 					</Tabs.Panel>

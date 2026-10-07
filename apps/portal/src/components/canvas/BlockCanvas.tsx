@@ -71,6 +71,7 @@ function CanvasInner({
 	enablePlayground = false,
 	enableSpotlight = false,
 	playgroundContent,
+	trackExecutionContent,
 	fitViewOnInit = true,
 	defaultViewport,
 	className,
@@ -526,7 +527,9 @@ function CanvasInner({
 												onSelectBlock={handleSelectBlock}
 											/>
 											{enablePlayground && playgroundContent && (
-												<PlaygroundModal>{playgroundContent}</PlaygroundModal>
+												<PlaygroundModal trackExecution={trackExecutionContent}>
+													{playgroundContent}
+												</PlaygroundModal>
 											)}
 										</div>
 									</EdgeHoverProvider>
