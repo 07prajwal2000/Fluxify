@@ -25,6 +25,7 @@ const span = (seq: number, blockId: string, extra: Partial<RecordedSpan> = {}): 
 	input: null,
 	output: null,
 	truncated: false,
+	metadata: null,
 	...extra,
 });
 

@@ -15,6 +15,8 @@ import { testSuitesQuery } from "@/query/testSuitesQuery";
 import type { SuiteTarget, TestRunStatus } from "@/services/testSuites";
 import { CaseResults, CheckList, formatDuration } from "./CaseResults";
 import { ResponseViewer } from "./ResponseViewer";
+import { type OpenTrace, TestTraceModal, TraceLink } from "./TestTrace";
+import { type CaseTrace, caseTraceLink } from "./traceLinks";
 
 const TERMINAL_TONE: Record<string, string> = {
 	passed: "text-success",
@@ -38,11 +40,17 @@ function SuiteRunRow({
 	status,
 	durationMs,
 	result,
+	traces,
+	traceExpired,
+	onViewTrace,
 }: {
 	name: string;
 	status: TestRunStatus;
 	durationMs: number | null;
 	result: SuiteRunResult | null;
+	traces: CaseTrace[];
+	traceExpired: boolean;
+	onViewTrace: (trace: OpenTrace) => void;
 }) {
 	const [open, setOpen] = useState(false);
 	const assertions = result?.result ?? [];
@@ -89,6 +97,14 @@ function SuiteRunRow({
 							reports no assertion detail.
 						</p>
 					)}
+					{/* a route suite is one run: case 0 (#627) */}
+					{!result?.cases && (
+						<TraceLink
+							link={caseTraceLink(traces, 0, traceExpired)}
+							failed={status !== "passed"}
+							onOpen={onViewTrace}
+						/>
+					)}
 					{result?.error && <p className="text-xs text-danger">{result.error}</p>}
 					{result?.teardownError && (
 						<p className="rounded-md border border-warning/40 bg-warning/10 p-2 text-xs text-warning">
@@ -98,7 +114,18 @@ function SuiteRunRow({
 					)}
 
 					<CheckList checks={assertions} />
-					{result?.cases && <CaseResults cases={result.cases} />}
+					{result?.cases && (
+						<CaseResults
+							cases={result.cases}
+							renderTrace={(c) => (
+								<TraceLink
+									link={caseTraceLink(traces, c.index, traceExpired)}
+									failed={c.status !== "passed"}
+									onOpen={onViewTrace}
+								/>
+							)}
+						/>
+					)}
 
 					{(result?.actualData !== undefined || result?.headers) && (
 						<ResponseViewer data={result?.actualData} headers={result?.headers} suiteName={name} />
@@ -225,6 +252,7 @@ export function RunResults({
 }) {
 	const [view, setView] = useState<"latest" | "history">("latest");
 	const [confirmClear, setConfirmClear] = useState(false);
+	const [trace, setTrace] = useState<OpenTrace | null>(null);
 	const run = testSuitesQuery.getRun.useQuery(projectId, target, runId);
 	const clear = testSuitesQuery.clearRuns.mutation(projectId, target);
 	const data = run.data;
@@ -309,6 +337,9 @@ export function RunResults({
 									status={suiteRun.status}
 									durationMs={suiteRun.durationMs}
 									result={suiteRun.result as SuiteRunResult | null}
+									traces={suiteRun.traces}
+									traceExpired={data.traceExpired}
+									onViewTrace={setTrace}
 								/>
 							))}
 							{data?.suiteRuns.length === 0 && data.status !== "error" && (
@@ -321,6 +352,12 @@ export function RunResults({
 				</Tabs.Panel>
 			</Tabs>
 
+			<TestTraceModal
+				projectId={projectId}
+				target={target}
+				trace={trace}
+				onClose={() => setTrace(null)}
+			/>
 			<ConfirmDialog
 				open={confirmClear}
 				onOpenChange={setConfirmClear}

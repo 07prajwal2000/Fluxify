@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { TbArrowLeft } from "react-icons/tb";
 import { SplitPane } from "@/components/common/SplitPane";
 import { formatDuration } from "@/components/testSuites/CaseResults";
+import { FromTestLink } from "@/components/testSuites/FromTestLink";
 import { formatWhen } from "@/components/testSuites/RunResults";
 import { showErrorNotification } from "@/lib/errorNotifier";
 import { customBlocksQuery } from "@/query/customBlocksQuery";
@@ -23,11 +24,14 @@ export function RecordedRunViewer({
 	target,
 	runId,
 	onBack,
+	initialSelected = null,
 }: {
 	projectId: string;
 	target: RecordingTarget;
 	runId: string;
 	onBack: () => void;
+	/** the block to open on, e.g. the one a failed test case failed in (#627) */
+	initialSelected?: string | null;
 }) {
 	const [frames, setFrames] = useState<Frame[]>([
 		{
@@ -37,7 +41,7 @@ export function RecordedRunViewer({
 			label: target.type === "route" ? "Route" : "Workflow",
 		},
 	]);
-	const [selected, setSelected] = useState<string | null>(null);
+	const [selected, setSelected] = useState<string | null>(initialSelected);
 	const frame = frames[frames.length - 1];
 	const run = recordingsQuery.getRun.useQuery(projectId, target, frame.runId);
 	const root = recordingsQuery.getRun.useQuery(projectId, target, runId).data;
@@ -98,12 +102,15 @@ export function RecordedRunViewer({
 				<Breadcrumbs onAction={(key) => goTo(Number(key))}>
 					{frames.map((item, depth) => (
 						<Breadcrumbs.Item key={`${item.runId}:${item.parentSeq}`} id={String(depth)}>
-							{item.label}
+							{depth === 0 && root?.metadata ? root.metadata.label : item.label}
 						</Breadcrumbs.Item>
 					))}
 				</Breadcrumbs>
 				{root && (
 					<div className="ml-auto flex items-center gap-3 text-xs text-muted">
+						{root.metadata && (
+							<FromTestLink projectId={projectId} target={target} metadata={root.metadata} />
+						)}
 						<OutcomeIcon outcome={root.outcome} />
 						{root.statusCode != null && (
 							<span className="font-mono text-foreground">{root.statusCode}</span>

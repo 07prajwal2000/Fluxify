@@ -178,6 +178,7 @@ export abstract class BaseTraceRecorder implements BlockTrace {
 			...(output.value === undefined ? {} : { output: output.value }),
 			...(span.error === undefined ? {} : { error: errorText(span.error) }),
 			...(input.truncated || output.truncated ? { truncated: true } : {}),
+			...(span.mocked ? { metadata: { mocked: span.mocked } } : {}),
 		};
 		const bytes = byteLength(record);
 		if (this.state.bytes + bytes > MAX_RUN_BYTES) {

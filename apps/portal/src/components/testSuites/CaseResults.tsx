@@ -1,6 +1,6 @@
 import { CodeViewer, cn } from "@fluxify/components";
 import type { AssertionResult, CaseResult } from "@fluxify/server/src/db/schema";
-import { useState } from "react";
+import { type ReactNode, useState } from "react";
 import { TbAlertTriangle, TbCheck, TbChevronDown, TbChevronRight, TbX } from "react-icons/tb";
 
 export function formatDuration(ms: number | null | undefined) {
@@ -31,7 +31,13 @@ export function CheckList({ checks }: { checks: AssertionResult[] }) {
 	);
 }
 
-function CaseRow({ result }: { result: CaseResult }) {
+function CaseRow({
+	result,
+	renderTrace,
+}: {
+	result: CaseResult;
+	renderTrace?: (result: CaseResult) => ReactNode;
+}) {
 	// failures open by default: they are what a reader came for
 	const [open, setOpen] = useState(result.status !== "passed");
 	const failed = result.status !== "passed";
@@ -64,6 +70,7 @@ function CaseRow({ result }: { result: CaseResult }) {
 			</div>
 			{open && (
 				<div className="space-y-2 border-t border-border p-2">
+					{renderTrace?.(result)}
 					{result.error && <p className="text-xs text-danger">{result.error}</p>}
 					<CheckList checks={result.checks} />
 					<CodeViewer
@@ -80,7 +87,14 @@ function CaseRow({ result }: { result: CaseResult }) {
  * A workflow suite's cases (#487), failures first. Every case is stored raw, so
  * this view is only one way to read them.
  */
-export function CaseResults({ cases }: { cases: CaseResult[] }) {
+export function CaseResults({
+	cases,
+	renderTrace,
+}: {
+	cases: CaseResult[];
+	/** a case's "View trace" (#627) */
+	renderTrace?: (result: CaseResult) => ReactNode;
+}) {
 	const passed = cases.filter((c) => c.status === "passed").length;
 	const ordered = [...cases].sort(
 		(a, b) => Number(a.status === "passed") - Number(b.status === "passed") || a.index - b.index,
@@ -91,7 +105,7 @@ export function CaseResults({ cases }: { cases: CaseResult[] }) {
 				{passed} of {cases.length} case{cases.length === 1 ? "" : "s"} passed
 			</p>
 			{ordered.map((result) => (
-				<CaseRow key={result.index} result={result} />
+				<CaseRow key={result.index} result={result} renderTrace={renderTrace} />
 			))}
 		</div>
 	);

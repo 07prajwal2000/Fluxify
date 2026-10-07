@@ -43,6 +43,13 @@ export type TraceSpanRecord = {
 	error?: string;
 	/** payload was cut to fit the per-span cap */
 	truncated?: boolean;
+	/** non-standard span info; absent on normal runs */
+	metadata?: TraceSpanMetadata;
+};
+
+/** Only test runs (#627) fill it: what a suite's hook mocked; the span holds the mocked values. */
+export type TraceSpanMetadata = {
+	mocked: { input?: true; output?: true };
 };
 
 export type TraceRunPayload = {
@@ -81,5 +88,19 @@ export type TraceRunPayload = {
 	 */
 	parentRunId?: string;
 	parentSeq?: number;
+	/** set on a test run's trace (#627); the worker supervisor fills it, never the child */
+	metadata?: TraceRunMetadata;
 	spans: TraceSpanRecord[];
+};
+
+/** What a trace knows beyond its run. Only test runs (#627) fill it for now. */
+export type TraceRunMetadata = {
+	source: "test";
+	/** e.g. `Test: <suite> · <case>` */
+	label: string;
+	testRunId: string;
+	suiteId: string;
+	suiteName: string;
+	caseIndex: number;
+	caseName: string;
 };

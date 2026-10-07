@@ -1,5 +1,7 @@
 import { fileURLToPath } from "node:url";
+import type { TraceRunPayload } from "@fluxify/common/otlp";
 import type { CaseResult } from "../../db/schema";
+import { publishRecording } from "../recordings/stream";
 import { executionRuntimeEnvironment } from "../requestRouter/executionEnvironment";
 import type { TestBootstrap, TestBootstrapMessage, TestChildMessage, TestResult } from "./types";
 
@@ -78,9 +80,10 @@ type ChildRun = {
 export async function runSuiteInChild(
 	bootstrap: TestBootstrap,
 	entry = ENTRY,
+	record: (run: TraceRunPayload) => unknown = publishRecording,
 ): Promise<TestResult> {
 	const startedAt = Date.now();
-	const run = await runChild(bootstrap, entry);
+	const run = await runChild(bootstrap, entry, undefined, record);
 	if (run.route) {
 		return { ...run.route, teardownError: teardownFailure(bootstrap, run) };
 	}
@@ -122,6 +125,34 @@ export async function runSuiteInChild(
 	return { ...result, teardownError: teardownFailure(bootstrap, teardown) };
 }
 
+/**
+ * A case's trace as the recordings stream gets it (#627). The child runs user
+ * code, so the project, target and metadata come from the sealed bootstrap,
+ * never from the child; names are capped to what the consumer accepts.
+ */
+export function testTrace(
+	boot: TestBootstrap,
+	{ run, caseIndex, caseName }: Extract<TestChildMessage, { type: "record-run" }>,
+): TraceRunPayload {
+	const suiteName = String(boot.suite.name).slice(0, 200);
+	const name = String(caseName).slice(0, 200);
+	return {
+		...run,
+		projectId: boot.projectId,
+		routeId: boot.route?.id,
+		workflowId: boot.workflow?.id,
+		metadata: {
+			source: "test",
+			label: `Test: ${suiteName} · ${name}`,
+			testRunId: boot.testRunId,
+			suiteId: boot.suite.id,
+			suiteName,
+			caseIndex: Number.isInteger(caseIndex) && caseIndex >= 0 ? caseIndex : 0,
+			caseName: name,
+		},
+	};
+}
+
 function teardownFailure(bootstrap: TestBootstrap, run: ChildRun) {
 	if (!bootstrap.teardown) return undefined;
 	if (run.killedIn === "teardown") {
@@ -134,6 +165,7 @@ function runChild(
 	bootstrap: TestBootstrap,
 	entry: string,
 	teardownOnly?: TestBootstrapMessage["teardownOnly"],
+	record?: (run: TraceRunPayload) => unknown,
 ): Promise<ChildRun> {
 	const { promise, resolve } = Promise.withResolvers<ChildRun>();
 	const run: ChildRun = { cases: [] };
@@ -196,6 +228,10 @@ function runChild(
 				case "teardown-done":
 					run.teardownError = message.error;
 					finish();
+					break;
+				case "record-run":
+					// fire and forget: a lost trace must never change the suite's result
+					if (record && message.run) void record(testTrace(bootstrap, message));
 					break;
 			}
 		},

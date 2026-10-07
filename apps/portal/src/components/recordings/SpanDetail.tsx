@@ -75,8 +75,18 @@ function SpanCard({
 					))}
 				</div>
 			)}
-			<PayloadViewer title="Input" value={span.input} truncated={span.truncated} />
-			<PayloadViewer title="Output" value={span.output} truncated={span.truncated} />
+			<PayloadViewer
+				title="Input"
+				value={span.input}
+				truncated={span.truncated}
+				mocked={span.metadata?.mocked.input}
+			/>
+			<PayloadViewer
+				title="Output"
+				value={span.output}
+				truncated={span.truncated}
+				mocked={span.metadata?.mocked.output}
+			/>
 		</div>
 	);
 }

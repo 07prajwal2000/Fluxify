@@ -5,6 +5,7 @@ import {
 	runWithMiddlewares,
 	setJobEnqueuer,
 } from "@fluxify/blocks";
+import type { TraceRunPayload } from "@fluxify/common/otlp";
 import type { AssertionResult } from "../../db/schema";
 import "../../lib/bigintJson";
 import { hydrateAppConfig } from "../../loaders/appconfigLoader";
@@ -15,6 +16,8 @@ import { setBlocksExecutor } from "../requestRouter/executor";
 import { createHttpContext } from "../requestRouter/httpContext";
 import { contentTypeOf } from "../requestRouter/requestBody";
 import { createJobContext, executeRouteInternal } from "../requestRouter/service";
+import { traceCompleter } from "../requestRouter/traceLifecycle";
+import { RouteTraceRecorder } from "../telemetry/routeRecorder";
 import { evaluateAssertions } from "./assertions";
 import { buildHooks } from "./hookRuntime";
 import { decodeSuiteBody } from "./suiteBody";
@@ -60,6 +63,10 @@ const queuedJobs: string[] = [];
 const hookChecks: AssertionResult[] = [];
 
 const send = (message: TestChildMessage) => process.send?.(message);
+
+/** every test run is recorded (#627); the supervisor adds the metadata and publishes */
+const recordCase = (caseIndex: number, caseName: string) => (run: TraceRunPayload) =>
+	send({ type: "record-run", run, caseIndex, caseName });
 const messageOf = (error: unknown) => (error instanceof Error ? error.message : String(error));
 
 /**
@@ -179,6 +186,18 @@ function outcomeOf(result: TestResult): SuiteOutcome {
 
 async function runRoute(boot: TestBootstrap & RouteTarget, setup: unknown): Promise<TestResult> {
 	const startedAt = Date.now();
+	const trace = new RouteTraceRecorder(
+		{
+			projectId: boot.projectId,
+			routeId: boot.route.id,
+			// a suite runs the saved graph, not a deployed version
+			routeVersion: "",
+			method: boot.request.method,
+			path: boot.request.path,
+		},
+		recordCase(0, "Request"),
+	);
+	const completeTrace = traceCompleter(trace);
 	try {
 		const run = instantiateCompiled(boot.source);
 		setBlocksExecutor((_target, context) => {
@@ -213,6 +232,7 @@ async function runRoute(boot: TestBootstrap & RouteTarget, setup: unknown): Prom
 				// the engine's in-band stall budget, from the same number the
 				// watchdog uses, so neither can silently outlive the other
 				timeoutSeconds: boot.timeoutMs / 1000,
+				trace,
 			},
 			{
 				...boot.request,
@@ -222,6 +242,7 @@ async function runRoute(boot: TestBootstrap & RouteTarget, setup: unknown): Prom
 		);
 
 		const durationMs = Date.now() - routeStartedAt;
+		completeTrace(response.status >= 400 ? "failure" : "success", response.status);
 		const headers = Object.fromEntries(ctx.responseHeaders);
 		const verdict = await evaluateAssertions(boot.assertions, {
 			status: response.status,
@@ -244,6 +265,7 @@ async function runRoute(boot: TestBootstrap & RouteTarget, setup: unknown): Prom
 			},
 		};
 	} catch (error) {
+		completeTrace("failure", 500);
 		return { ok: false, error: messageOf(error), durationMs: Date.now() - startedAt };
 	}
 }

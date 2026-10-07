@@ -179,7 +179,7 @@ async function executeRun(
 		const runSuite = ({ suite, suiteRunId }: (typeof work)[number]) =>
 			deps.pool.run(async () => {
 				const status = await runOneSuite(
-					suiteRunId,
+					{ runId, suiteRunId },
 					suite,
 					projectId,
 					compiled,
@@ -258,7 +258,7 @@ async function failRun(runId: string, message: string) {
  * databases.
  */
 async function runOneSuite(
-	suiteRunId: string,
+	{ runId, suiteRunId }: { runId: string; suiteRunId: string },
 	suite: Suite,
 	projectId: string,
 	compiled: CompiledSuiteTarget,
@@ -282,6 +282,7 @@ async function runOneSuite(
 		});
 		const common = {
 			suiteRunId,
+			testRunId: runId,
 			projectId,
 			source: compiled.source,
 			customBlocks: compiled.customBlocks,

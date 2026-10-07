@@ -1,5 +1,5 @@
 import { NODE_REASONS, NODE_STATES, NODE_TYPES } from "@fluxify/common/orchestrator";
-import type { TraceSpanRecord } from "@fluxify/common/otlp";
+import type { TraceRunMetadata, TraceSpanMetadata, TraceSpanRecord } from "@fluxify/common/otlp";
 import { generateID } from "@fluxify/lib";
 import { relations, sql } from "drizzle-orm";
 import type { AnyPgColumn } from "drizzle-orm/pg-core";
@@ -1255,6 +1255,8 @@ export const traceRunsEntity = pgTable(
 		parentRunId: uuid("parent_run_id"),
 		parentSeq: integer("parent_seq"),
 		spanCount: integer("span_count").notNull(),
+		/** null on a normal run; a test run's link back to its suite and case (#627) */
+		metadata: jsonb().$type<TraceRunMetadata | null>(),
 	},
 	(table) => [
 		index("idx_trace_runs_project_route").on(
@@ -1271,6 +1273,11 @@ export const traceRunsEntity = pgTable(
 		index("idx_trace_runs_started_at").on(table.startedAt),
 		// run detail lists the async child runs a run forked
 		index("idx_trace_runs_parent_run_id").on(table.parentRunId),
+		// a test run's results look up their traces by test run id (#627); partial, so
+		// normal runs, which leave metadata null, cost nothing
+		index("idx_trace_runs_test_run_id")
+			.on(sql`(${table.metadata}->>'testRunId')`)
+			.where(sql`${table.metadata} is not null`),
 		check("trace_runs_one_target", oneTarget(table)),
 	],
 );
@@ -1303,6 +1310,8 @@ export const traceSpansEntity = pgTable(
 		input: jsonb(),
 		output: jsonb(),
 		truncated: boolean().default(false).notNull(),
+		/** non-standard span info, e.g. a test mock (#627); null on normal runs */
+		metadata: jsonb().$type<TraceSpanMetadata | null>(),
 	},
 	(table) => [primaryKey({ columns: [table.runId, table.seq] })],
 );

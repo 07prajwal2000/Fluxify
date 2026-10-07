@@ -362,9 +362,8 @@ export function compileGraph(
 				: emitters[block.type as BlockTypes];
 		if (!emitter) throw new Error(`No codegen for block type: ${block.type}`);
 		const blockId = JSON.stringify(block.id);
-		const spans = blockSpans(block, tracing);
-
 		const support = hooks ? hookSupport(block.type) : "none";
+		const spans = blockSpans(block, tracing, support !== "none");
 		const afterHook = (target: string) => emitAfterHook(support, target);
 
 		const continueTo = (handle: string, runAfter: boolean) => {

@@ -124,6 +124,8 @@ export type BlockTraceSpan = {
 	/** selected branch for condition blocks */
 	branch?: "success" | "failure";
 	error?: unknown;
+	/** test runs only (#627): what a suite's hook replaced; `input` / `output` are the fakes */
+	mocked?: { input?: true; output?: true };
 };
 
 /** a nested graph invoked by one block, for the duration of that invocation */

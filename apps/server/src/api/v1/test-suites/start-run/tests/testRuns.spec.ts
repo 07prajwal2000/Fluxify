@@ -140,13 +140,16 @@ describe("GET runs", () => {
 
 describe("GET runs/:runId", () => {
 	it("returns the run with its suite rows", async () => {
-		state.rows = [{ id: "run-1", status: "passed" }];
+		state.rows = [{ id: "run-1", status: "passed", createdAt: new Date() }];
 		const res = await app.request(`${base}/run-1`);
 		const body = await res.json();
 
 		expect(res.status).toBe(200);
 		expect(body.id).toBe("run-1");
-		expect(body.suiteRuns).toEqual([{ id: "run-1", status: "passed" }]);
+		expect(body.traceExpired).toBe(false);
+		// one mocked row set answers every query, the case traces included
+		expect(body.suiteRuns).toHaveLength(1);
+		expect(body.suiteRuns[0]).toMatchObject({ id: "run-1", status: "passed" });
 	});
 
 	it("404s a run from another project rather than leaking that it exists", async () => {

@@ -13,10 +13,13 @@ export function PayloadViewer({
 	title,
 	value,
 	truncated,
+	mocked,
 }: {
 	title: string;
 	value: unknown;
 	truncated?: boolean;
+	/** a test suite's hook replaced this value (#627) */
+	mocked?: boolean;
 }) {
 	const [isOpen, setIsOpen] = useState(true);
 	const [copied, setCopied] = useState(false);
@@ -42,6 +45,14 @@ export function PayloadViewer({
 					{truncated && (
 						<span className="rounded bg-warning/10 px-1.5 py-0.5 text-[10px] font-normal text-warning">
 							Truncated at 8 KB
+						</span>
+					)}
+					{mocked && (
+						<span
+							className="rounded bg-accent/10 px-1.5 py-0.5 text-[10px] font-normal text-accent"
+							title="A test suite hook replaced this value"
+						>
+							Mocked
 						</span>
 					)}
 				</button>

@@ -11,6 +11,10 @@ export type RecordedRunList = z.infer<typeof getRunsResponseSchema>;
 export type RecordedRunSummary = RecordedRunList["data"][number];
 export type RecordedRun = z.infer<typeof getRunResponseSchema>;
 export type RecordedSpan = RecordedRun["spans"][number];
+/** set on a test run's trace (#627) */
+export type TraceMetadata = NonNullable<RecordedRun["metadata"]>;
+/** narrows the list to test traces (#627) or normal runs; without it, both */
+export type TestTraceFilter = { source?: "test" | "live"; testRunId?: string };
 
 /** The project is in the path — the server authorizes off it directly (creator only). */
 const runsUrl = (projectId: string, target: RecordingTarget) =>
@@ -21,7 +25,11 @@ export const recordingsService = {
 	async getRuns(
 		projectId: string,
 		target: RecordingTarget,
-		query: { page?: number; perPage?: number; outcome?: "success" | "failure" } = {},
+		query: {
+			page?: number;
+			perPage?: number;
+			outcome?: "success" | "failure";
+		} & TestTraceFilter = {},
 	): Promise<RecordedRunList> {
 		const params = new URLSearchParams();
 		params.set("page", String(query.page ?? 1));
@@ -29,6 +37,8 @@ export const recordingsService = {
 		if (query.outcome) {
 			params.set("outcome", query.outcome);
 		}
+		if (query.source) params.set("source", query.source);
+		if (query.testRunId) params.set("testRunId", query.testRunId);
 		const result = await httpClient.get(`${runsUrl(projectId, target)}?${params.toString()}`);
 		return result.data;
 	},
