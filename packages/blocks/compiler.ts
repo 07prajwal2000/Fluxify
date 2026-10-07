@@ -363,7 +363,8 @@ export function compileGraph(
 		if (!emitter) throw new Error(`No codegen for block type: ${block.type}`);
 		const blockId = JSON.stringify(block.id);
 		const support = hooks ? hookSupport(block.type) : "none";
-		const spans = blockSpans(block, tracing, support !== "none");
+		const entry = !asCustomBlock && block.type === BlockTypes.entrypoint;
+		const spans = blockSpans(block, tracing, support !== "none", entry);
 		const afterHook = (target: string) => emitAfterHook(support, target);
 
 		const continueTo = (handle: string, runAfter: boolean) => {
@@ -429,7 +430,7 @@ if (${result} !== undefined) return ${result};`;
 			cases(handle, order) {
 				return fanOutTargets(id, handle, order).map((to) => ({
 					to,
-					run: `${spans.record("$in")}\nreturn await ${blockFunctionName(to)}($state, $in, $end);`,
+					run: `${spans.record("$in", undefined, undefined, to)}\nreturn await ${blockFunctionName(to)}($state, $in, $end);`,
 				}));
 			},
 			complete(output) {

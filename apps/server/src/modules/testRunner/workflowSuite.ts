@@ -1,7 +1,7 @@
 import { instantiateCompiled } from "@fluxify/blocks";
 import type { AssertionResult } from "../../db/schema";
 import { WORKFLOW_JOB } from "../jobs/subjects";
-import { readInput } from "../jobs/workflowJob";
+import { readInput, triggerDetails } from "../jobs/workflowJob";
 import { createJobContext } from "../requestRouter/service";
 import { WorkflowTraceRecorder } from "../telemetry/routeRecorder";
 import type { TriggerBatch } from "../triggers/types";
@@ -63,14 +63,15 @@ async function runCase(
 ): Promise<CaseOutcome> {
 	const id = `${boot.suiteRunId}:${item.index}`;
 	// a batch like a trigger delivers, so `trigger.data` and `input` read as live
-	const { events, input, meta, source } = readInput({
+	const job = {
 		id,
 		kind: WORKFLOW_JOB,
 		projectId: boot.projectId,
 		target: boot.workflow.id,
 		payload: toBatch(item.input),
 		enqueuedAt: new Date().toISOString(),
-	});
+	};
+	const { events, input, meta, source, triggerId } = readInput(job);
 	// each case is its own execution, so each gets its own trace (#627)
 	const trace = new WorkflowTraceRecorder(
 		{
@@ -91,6 +92,7 @@ async function runCase(
 		payload: input,
 		trace,
 	});
+	context.traceInput = { input, trigger: triggerDetails(job, triggerId, source, context) };
 	const checks: AssertionResult[] = [];
 	(context as { testHooks?: unknown }).testHooks = buildHooks(boot.hooks, {
 		vars: context.vars,

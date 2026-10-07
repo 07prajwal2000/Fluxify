@@ -30,13 +30,19 @@ export const responseSchema = runSummarySchema.extend({
 			input: z.any().nullable(),
 			output: z.any().nullable(),
 			truncated: z.boolean(),
-			/** test runs only (#627): what a suite's hook mocked */
 			metadata: z
 				.object({
-					mocked: z.object({
-						input: z.literal(true).optional(),
-						output: z.literal(true).optional(),
-					}),
+					/** test runs only (#627): what a suite's hook mocked */
+					mocked: z
+						.object({
+							input: z.literal(true).optional(),
+							output: z.literal(true).optional(),
+						})
+						.optional(),
+					/** the block's canvas position when it ran (#628); absent on older runs */
+					position: z.object({ x: z.number(), y: z.number() }).optional(),
+					/** the block a Switch handed off to (#628) */
+					next: z.string().optional(),
 				})
 				.nullable(),
 		}),

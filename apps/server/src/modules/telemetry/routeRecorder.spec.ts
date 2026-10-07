@@ -104,6 +104,38 @@ describe("RouteTraceRecorder", () => {
 		]);
 	});
 
+	it("caps each request field on the entrypoint on its own, and keeps position in metadata (#628)", () => {
+		const runs: any[] = [];
+		const recorder = new RouteTraceRecorder(route, (run) => runs.push(run));
+		const big = "x".repeat(20 * 1024);
+		const span = {
+			startedAt: 1,
+			endedAt: 2,
+			outcome: "success" as const,
+			output: null,
+			position: { x: 5, y: 6 },
+		};
+		recorder.recordSpan({
+			...span,
+			blockId: "entry",
+			blockType: "entrypoint",
+			input: { method: "POST", headers: { authorization: "Bearer t" }, body: big },
+		});
+		recorder.recordSpan({ ...span, blockId: "sw", blockType: "switch", input: big, next: "b" });
+		recorder.complete("success", 200);
+
+		const [entry, sw] = runs[0].spans;
+		// a big body is cut, the headers beside it survive whole
+		expect(entry.input.method).toBe("POST");
+		expect(entry.input.headers).toEqual({ authorization: "Bearer t" });
+		expect(entry.input.body.length).toBeLessThan(big.length);
+		expect(entry.truncated).toBe(true);
+		expect(entry.metadata).toEqual({ position: { x: 5, y: 6 } });
+		// any other span is capped as one value, as before
+		expect(typeof sw.input).toBe("string");
+		expect(sw.metadata).toEqual({ position: { x: 5, y: 6 }, next: "b" });
+	});
+
 	it("publishes a detached custom block as a linked, independent run", () => {
 		const runs: any[] = [];
 		const recorder = new RouteTraceRecorder(route, (run) => runs.push(run));

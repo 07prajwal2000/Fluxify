@@ -35,9 +35,13 @@ const metadataSchema = z.object({
 	caseName: z.string().max(200),
 });
 
-/** a test hook's mock on a span (#627) */
+/** a test hook's mock (#627), the block's canvas position and a Switch's pick (#628) */
 const spanMetadataSchema = z.object({
-	mocked: z.object({ input: z.literal(true).optional(), output: z.literal(true).optional() }),
+	mocked: z
+		.object({ input: z.literal(true).optional(), output: z.literal(true).optional() })
+		.optional(),
+	position: z.object({ x: z.number().finite(), y: z.number().finite() }).optional(),
+	next: z.string().max(50).optional(),
 });
 
 /** Only what the insert relies on; anything else is stored as it came. */

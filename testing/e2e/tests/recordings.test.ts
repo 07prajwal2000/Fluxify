@@ -55,3 +55,49 @@ describe("execution recording", () => {
 		expect(run.executed).not.toContain("num");
 	});
 });
+
+describe("entrypoint input and block positions (#628)", () => {
+	const withRequest = {
+		...request,
+		method: "POST",
+		headers: { authorization: "Bearer e2e", cookie: "sid=s1", "x-trace": "t" },
+		query: { page: "2", tag: ["a", "b"] },
+		params: { id: "7" },
+	};
+
+	it("records the whole request on the route's entrypoint", async () => {
+		const run = await runGraph(nested, withRequest, { tracingEnabled: false, recordExecution: true });
+		const spans = run.recorded[0]!.spans;
+		const entry = spans.find((span) => span.blockId === "entry")!;
+
+		expect(entry.input).toMatchObject({
+			method: "POST",
+			path: nested.route.path,
+			host: "e2e",
+			query: { page: "2", tag: ["a", "b"] },
+			params: { id: "7" },
+			headers: { authorization: "Bearer e2e", "x-trace": "t" },
+			cookies: { sid: "s1" },
+			body: { n: 3 },
+		});
+		expect((entry.input as { url: string }).url).toContain(`http://e2e${nested.route.path}`);
+		// a custom block's own entrypoint keeps its call input, not the request
+		const inner = spans.find((span) => span.blockId === "rq-entry")!;
+		expect(inner.input).not.toHaveProperty("headers");
+	});
+
+	it("bakes every span's canvas position into its metadata, at every depth", async () => {
+		const run = await runGraph(nested, request, { tracingEnabled: false, recordExecution: true });
+		const fixtures = [nested, ...(await Promise.all(["rec-double", "rec-quadruple"].map(readBlock)))];
+		const positions = Object.fromEntries(
+			fixtures.flatMap((graph) => graph.blocks.map((block) => [block.id, block.position])),
+		);
+		const spans = run.recorded[0]!.spans;
+		expect(spans.length).toBeGreaterThan(4);
+		for (const span of spans) expect(span.metadata?.position).toEqual(positions[span.blockId]);
+	});
+});
+
+async function readBlock(name: string): Promise<{ blocks: { id: string; position: unknown }[] }> {
+	return Bun.file(new URL(`../blocks/${name}.json`, import.meta.url)).json();
+}

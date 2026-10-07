@@ -1,5 +1,5 @@
 import type { BlockTrace, BlockTraceSpan, CustomBlockScope } from "@fluxify/blocks";
-import type { TraceRunPayload, TraceSpanRecord } from "@fluxify/common/otlp";
+import type { TraceRunPayload, TraceSpanMetadata, TraceSpanRecord } from "@fluxify/common/otlp";
 
 export const MAX_SPANS_PER_RUN = 1_000;
 const MAX_RUN_BYTES = 256 * 1024;
@@ -160,7 +160,7 @@ export abstract class BaseTraceRecorder implements BlockTrace {
 		const seq = pending?.shift() ?? this.state.nextSeq++;
 		if (pending?.length === 0) this.state.pendingInvocations.delete(span.blockId);
 
-		const input = safeValue(span.input);
+		const input = span.blockType === "entrypoint" ? safeFields(span.input) : safeValue(span.input);
 		const output = safeValue(span.output);
 		const record: TraceSpanRecord = {
 			seq,
@@ -178,7 +178,7 @@ export abstract class BaseTraceRecorder implements BlockTrace {
 			...(output.value === undefined ? {} : { output: output.value }),
 			...(span.error === undefined ? {} : { error: errorText(span.error) }),
 			...(input.truncated || output.truncated ? { truncated: true } : {}),
-			...(span.mocked ? { metadata: { mocked: span.mocked } } : {}),
+			...spanMetadata(span),
 		};
 		const bytes = byteLength(record);
 		if (this.state.bytes + bytes > MAX_RUN_BYTES) {
@@ -337,4 +337,30 @@ function errorText(error: unknown): string {
 
 function byteLength(value: unknown) {
 	return new TextEncoder().encode(JSON.stringify(value)).byteLength;
+}
+
+/**
+ * The entrypoint's input is the whole request or trigger (#628): each top-level
+ * key gets its own cap, so a big body cannot push the headers out.
+ */
+function safeFields(value: unknown): { value: unknown; truncated: boolean } {
+	if (!value || typeof value !== "object" || Array.isArray(value)) return safeValue(value);
+	const fields: Record<string, unknown> = {};
+	let truncated = false;
+	for (const [key, item] of Object.entries(value)) {
+		const safe = safeValue(item);
+		if (safe.value !== undefined) fields[key] = safe.value;
+		truncated ||= safe.truncated;
+	}
+	return { value: fields, truncated };
+}
+
+/** viewer-only span info; absent when there is none */
+function spanMetadata(span: BlockTraceSpan): Pick<TraceSpanRecord, "metadata"> {
+	const metadata: TraceSpanMetadata = {
+		...(span.mocked ? { mocked: span.mocked } : {}),
+		...(span.position ? { position: span.position } : {}),
+		...(span.next ? { next: span.next } : {}),
+	};
+	return Object.keys(metadata).length ? { metadata } : {};
 }

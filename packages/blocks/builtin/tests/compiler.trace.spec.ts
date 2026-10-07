@@ -34,6 +34,7 @@ describe("compileGraph tracing and edge validation", () => {
 				input: 21,
 				output: 21,
 				outcome: "success",
+				position: { x: 0, y: 0 },
 			},
 			{
 				blockId: "double",
@@ -41,6 +42,7 @@ describe("compileGraph tracing and edge validation", () => {
 				input: 21,
 				output: 42,
 				outcome: "success",
+				position: { x: 0, y: 0 },
 			},
 			{
 				blockId: "response",
@@ -53,6 +55,7 @@ describe("compileGraph tracing and edge validation", () => {
 					output: { httpCode: "200", body: 42 },
 				},
 				outcome: "success",
+				position: { x: 0, y: 0 },
 			},
 		]);
 		for (const span of spans) {
@@ -254,5 +257,33 @@ describe("compileGraph tracing and edge validation", () => {
 				[edge("entry", "first"), edge("entry", "second")],
 			),
 		).toThrow(/multi-edge fan-out/);
+	});
+});
+
+describe("span details for the run viewer (#628)", () => {
+	it("bakes each block's position in, records the whole request on the entrypoint and a switch's pick", async () => {
+		const { spans, trace } = collectSpans();
+		const ctx = createContext();
+		ctx.trace = trace;
+		ctx.traceInput = { method: "GET", headers: { "x-key": "k" }, query: { q: "1" }, body: 7 };
+		const { run, source } = compileGraph(
+			[
+				{ ...block("entry", BlockTypes.entrypoint), position: { x: 10, y: 20 } },
+				block("sw", BlockTypes.switch, { conditions: { a: "js:return false;", b: "js:return true;" } }),
+				block("a", BlockTypes.jsrunner, { value: "return 'a';" }),
+				block("b", BlockTypes.jsrunner, { value: "return 'b';" }),
+			],
+			[edge("entry", "sw"), edge("sw", "a", "case"), edge("sw", "b", "case")],
+		);
+
+		expect((await run(ctx, 7)).output).toBe("b");
+		const [entry, sw] = spans;
+		expect(entry).toMatchObject({ position: { x: 10, y: 20 }, input: ctx.traceInput, output: 7 });
+		expect(sw).toMatchObject({ blockId: "sw", next: "b", input: 7 });
+		// spans compiled out: no position, no request, nothing
+		expect(compileGraph([block("e", BlockTypes.entrypoint)], [], { tracing: false }).source).not.toContain(
+			"traceInput",
+		);
+		expect(source).toContain("ctx.traceInput");
 	});
 });

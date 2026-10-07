@@ -5,17 +5,27 @@ import type { BlockDTOType } from "./builderTypes";
  * The span recording code for one compiled block. With `tracing` off (#576)
  * every piece emits nothing: no timer, no try/catch, no `$trace` checks, since
  * nothing would ever read the spans.
+ *
+ * `entry` marks the graph's own entrypoint (not a custom block's): its span
+ * records `ctx.traceInput`, the whole request or trigger (#628).
  */
-export function blockSpans(block: BlockDTOType, tracing: boolean, mockable = false) {
+export function blockSpans(block: BlockDTOType, tracing: boolean, mockable = false, entry = false) {
 	const name = blockName(block.data);
-	const fields = `blockId: ${JSON.stringify(block.id)}, blockType: ${JSON.stringify(block.type)}${name ? `, blockName: ${JSON.stringify(name)}` : ""}`;
+	// the canvas position, so the viewer can still draw a block deleted since (#628)
+	const position = block.position
+		? `, position: ${JSON.stringify({ x: block.position.x, y: block.position.y })}`
+		: "";
+	const fields = `blockId: ${JSON.stringify(block.id)}, blockType: ${JSON.stringify(block.type)}${name ? `, blockName: ${JSON.stringify(name)}` : ""}${position}`;
+	const input = entry ? "ctx.traceInput ?? $input" : "$input";
 
-	function record(output: string, error?: string, branch?: "success" | "failure") {
+	/** `next`: the block a Switch handed off to, which its shared case handle cannot tell */
+	function record(output: string, error?: string, branch?: "success" | "failure", next?: string) {
 		if (!tracing) return "";
 		const outcome = error === undefined ? "success" : "failure";
 		const branchField = branch ? `, branch: ${JSON.stringify(branch)}` : "";
+		const nextField = next ? `, next: ${JSON.stringify(next)}` : "";
 		const errorField = error === undefined ? "" : `, error: ${error}`;
-		const span = `{ ${fields}, input: $input, output: ${output}, startedAt: $t0, endedAt: performance.now(), outcome: ${JSON.stringify(outcome)}${branchField}${errorField}${mockable ? ", mocked: $mocked" : ""} }`;
+		const span = `{ ${fields}, input: ${input}, output: ${output}, startedAt: $t0, endedAt: performance.now(), outcome: ${JSON.stringify(outcome)}${branchField}${nextField}${errorField}${mockable ? ", mocked: $mocked" : ""} }`;
 		return `$recorded = true;
 if ($trace) {
 try {
