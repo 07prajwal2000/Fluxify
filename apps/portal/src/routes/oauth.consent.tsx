@@ -1,6 +1,7 @@
 import { Button, Chip } from "@fluxify/components";
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, redirect } from "@tanstack/react-router";
+import { isAxiosError } from "axios";
 import { useState } from "react";
 import { AuthCard, FluxifyBrand } from "@/components/common/AuthCard";
 import { BASE_PATH } from "@/constants/routes";
@@ -26,6 +27,17 @@ export const SCOPE_LABELS: Record<string, string> = {
 	offline_access: "Stay signed in",
 };
 
+/** The plugin signs the query with a short `exp` (unix seconds); past it, Allow and Deny 400. */
+export function isExpired(query: string, now = Date.now()) {
+	const exp = Number(new URLSearchParams(query).get("exp") || Number.NaN);
+	return !Number.isFinite(exp) || exp * 1000 <= now;
+}
+
+const isInvalidSignature = (error: unknown) =>
+	isAxiosError(error) &&
+	error.response?.status === 400 &&
+	error.response.data?.error === "invalid_signature";
+
 export const Route = createFileRoute("/oauth/consent")({
 	head: createRouteHead("Authorize app", "Allow an app to access your Fluxify workspace."),
 	beforeLoad: async () => {
@@ -38,12 +50,12 @@ export const Route = createFileRoute("/oauth/consent")({
 	component: ConsentPage,
 });
 
-export function ConsentPage() {
-	const query = initialQuery;
+export function ConsentPage({ query = initialQuery }: { query?: string }) {
 	const params = new URLSearchParams(query);
 	const clientId = params.get("client_id") ?? "";
 	const scopes = (params.get("scope") ?? "").split(" ").filter(Boolean);
 	const [pending, setPending] = useState<boolean | null>(null);
+	const [expired, setExpired] = useState(() => isExpired(query));
 	const { data: client, isError } = useQuery({
 		queryKey: ["oauth-public-client", clientId],
 		queryFn: async () =>
@@ -57,6 +69,8 @@ export function ConsentPage() {
 	const icon = client?.logo_uri ?? client?.icon;
 
 	async function decide(accept: boolean) {
+		// the tab may have sat open past `exp`
+		if (isExpired(query)) return setExpired(true);
 		setPending(accept);
 		try {
 			const { data } = await httpClient.post<{ redirect: boolean; url: string }>(
@@ -65,12 +79,28 @@ export function ConsentPage() {
 			);
 			window.location.href = data.url;
 		} catch (error) {
-			showErrorNotification(error as Error, false);
+			// e.g. clock skew: the server says expired before we did
+			if (isInvalidSignature(error)) setExpired(true);
+			else showErrorNotification(error as Error, false);
 			setPending(null);
 		}
 	}
 
 	const name = client?.client_name ?? client?.name ?? "An app";
+
+	if (expired) {
+		return (
+			<AuthCard>
+				<div className="flex flex-col items-center gap-2 text-center">
+					<FluxifyBrand />
+					<h1 className="text-xl font-semibold tracking-tight text-foreground">
+						This request has expired
+					</h1>
+					<p className="text-sm text-muted">Start the connection again from your AI app.</p>
+				</div>
+			</AuthCard>
+		);
+	}
 
 	return (
 		<AuthCard>
