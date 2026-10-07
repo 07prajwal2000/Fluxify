@@ -6,13 +6,22 @@ import {
 	Input,
 	Label,
 	Spinner,
-	Tabs,
 	TextField,
 	toast,
 } from "@fluxify/components";
 import { useEffect, useMemo, useState } from "react";
-import { FiCheckCircle, FiKey, FiLock, FiMail, FiShield, FiUser } from "react-icons/fi";
+import {
+	FiCheckCircle,
+	FiCpu,
+	FiGrid,
+	FiKey,
+	FiLock,
+	FiMail,
+	FiShield,
+	FiUser,
+} from "react-icons/fi";
 import { AccessTokens, ConnectAgent, ConnectedApps } from "@/components/home/AgentAccess";
+import { SettingsLayout } from "@/components/home/SettingsLayout";
 import { authClient } from "@/lib/auth";
 import { showErrorNotification } from "@/lib/errorNotifier";
 
@@ -20,7 +29,15 @@ type SessionWithProvider = {
 	providerId?: string | null;
 };
 
-export function AccountDetails() {
+const ACCOUNT_SECTIONS = [
+	{ id: "profile", label: "Profile", icon: FiUser },
+	{ id: "password", label: "Password", icon: FiLock },
+	{ id: "tokens", label: "Access tokens", icon: FiKey },
+	{ id: "apps", label: "Connected apps", icon: FiGrid },
+	{ id: "agent", label: "Connect an AI agent", icon: FiCpu },
+];
+
+export function AccountDetails({ activeTab = "profile" }: { activeTab?: string }) {
 	const { data, isPending } = authClient.useSession();
 
 	if (isPending) {
@@ -38,35 +55,31 @@ export function AccountDetails() {
 	const isEnterpriseSession = providerId?.toLowerCase().includes("enterprise") ?? false;
 
 	return (
-		<div className="mx-auto flex w-full max-w-3xl flex-col gap-5 pt-4">
-			<AccountSummary
-				name={data.user.name ?? ""}
-				email={data.user.email}
-				image={data.user.image}
-				isEnterpriseSession={isEnterpriseSession}
-			/>
-			<Tabs defaultSelectedKey="profile" className="flex flex-col gap-4">
-				<Tabs.List aria-label="Account sections" className="w-full">
-					<Tabs.Tab id="profile">Profile</Tabs.Tab>
-					<Tabs.Tab id="tokens">Access tokens</Tabs.Tab>
-					<Tabs.Tab id="apps">Connected apps</Tabs.Tab>
-					<Tabs.Tab id="agent">Connect an AI agent</Tabs.Tab>
-				</Tabs.List>
-				<Tabs.Panel id="profile" className="flex flex-col gap-4">
+		<SettingsLayout
+			title="Account"
+			description="Manage your profile, password, access tokens, and connected apps."
+			sidebarLabel="Account"
+			sections={ACCOUNT_SECTIONS}
+			activeId={activeTab}
+			searchFor={(id) => ({ tab: "account", accountTab: id })}
+		>
+			{activeTab === "profile" && (
+				<div className="flex flex-col gap-4">
+					<AccountSummary
+						name={data.user.name ?? ""}
+						email={data.user.email}
+						image={data.user.image}
+						isEnterpriseSession={isEnterpriseSession}
+					/>
 					<ProfileSection name={data.user.name ?? ""} email={data.user.email} id={data.user.id} />
-					{isEnterpriseSession ? <SsoSecuritySection /> : <PasswordSection />}
-				</Tabs.Panel>
-				<Tabs.Panel id="tokens">
-					<AccessTokens />
-				</Tabs.Panel>
-				<Tabs.Panel id="apps">
-					<ConnectedApps />
-				</Tabs.Panel>
-				<Tabs.Panel id="agent">
-					<ConnectAgent />
-				</Tabs.Panel>
-			</Tabs>
-		</div>
+				</div>
+			)}
+			{activeTab === "password" &&
+				(isEnterpriseSession ? <SsoSecuritySection /> : <PasswordSection />)}
+			{activeTab === "tokens" && <AccessTokens />}
+			{activeTab === "apps" && <ConnectedApps />}
+			{activeTab === "agent" && <ConnectAgent />}
+		</SettingsLayout>
 	);
 }
 
