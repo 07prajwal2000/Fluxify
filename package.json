@@ -10,6 +10,8 @@
 		"dev:portal": "turbo run dev --filter=@fluxify/portal",
 		"dev:ai": "bun run --env-file=.env --watch ./apps/ai-gateway/src/server.ts",
 		"dev:docs": "vitepress dev docs",
+		"agent": "bun run --env-file=.env ./apps/ai-gateway/src/agent/cli.ts",
+		"agent:evals": "bun run --env-file=.env ./apps/ai-gateway/src/agent/evals/run.ts",
 		"build": "turbo run build",
 		"lint": "biome check .",
 		"typecheck": "turbo run typecheck",
