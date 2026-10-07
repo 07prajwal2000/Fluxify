@@ -15,6 +15,8 @@ A **hook** is a small piece of code, attached to one block of the route, that ru
 
 Hooks never affect the live route. They exist only inside the suite they belong to.
 
+In a test's [trace](./results#see-the-run-block-by-block), a block a hook skipped or changed carries a **Mocked** badge, so you can tell made-up values from real ones.
+
 ## Add a hook
 
 1. Open the suite and choose the **Hooks** tab.
