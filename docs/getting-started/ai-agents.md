@@ -162,3 +162,7 @@ a test project when you can.
   are marked as such, so most clients ask you first.
 - **Revoke access any time.** Open **Account → Connected apps** to remove an app,
   or **Account → Access tokens** to delete a token. It stops working at once.
+- **Apps stay signed in for up to 30 days.** A connected app gets a short-lived
+  token and renews it by itself. Each renewal hands out a new one and retires the
+  old one. If the app goes unused for 30 days, you sign in again. Removing the
+  app ends all of this at once.

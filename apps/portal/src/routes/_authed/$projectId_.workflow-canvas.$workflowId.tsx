@@ -1,10 +1,10 @@
 import { Button, toast } from "@fluxify/components";
 import { createFileRoute, isRedirect, redirect } from "@tanstack/react-router";
 import { useState } from "react";
-import { TbPlayerPlay, TbSettings } from "react-icons/tb";
+import { TbSettings } from "react-icons/tb";
 import { CanvasWorkbench } from "@/components/canvas";
 import { WorkflowWorkbenchTabs } from "@/components/routes/RouteWorkbenchTabs";
-import { WorkflowRunModal } from "@/components/workflows/WorkflowRunModal";
+import { WorkflowRunButton, WorkflowRunModal } from "@/components/workflows/WorkflowRunModal";
 import { WorkflowSettingsModal } from "@/components/workflows/WorkflowSettingsModal";
 import { WorkflowSwitcher } from "@/components/workflows/WorkflowSwitcher";
 import { createRouteHead, usePageTitle } from "@/lib/seo";
@@ -74,14 +74,11 @@ function WorkflowCanvasPage() {
 				}
 				headerActions={
 					<>
-						<Button
-							variant="outline"
-							// nothing to run until it is published to a worker
-							isDisabled={!workflow?.active}
+						<WorkflowRunButton
+							projectId={projectId}
+							active={!!workflow?.active}
 							onPress={() => setRunOpen(true)}
-						>
-							<TbPlayerPlay size={16} /> Run
-						</Button>
+						/>
 						<Button variant="outline" onPress={() => setSettingsOpen(true)}>
 							<TbSettings size={16} /> Settings
 						</Button>

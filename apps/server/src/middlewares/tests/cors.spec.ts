@@ -38,12 +38,28 @@ describe("adminCors", () => {
 		expect(get.headers.get("Access-Control-Expose-Headers")).toBe("WWW-Authenticate");
 	});
 
+	it("lets any site call the OAuth token and register endpoints, without credentials", async () => {
+		for (const path of [
+			"/_/admin/api/auth/oauth2/token",
+			"/_/admin/api/auth/oauth2/register",
+			"/.well-known/oauth-authorization-server",
+		]) {
+			const res = await preflight(path, "https://x.dev");
+			expect(res.headers.get("Access-Control-Allow-Origin")).toBe("*");
+			expect(res.headers.get("Access-Control-Allow-Credentials")).toBeNull();
+		}
+		// the rest of the auth API still needs a trusted origin
+		const other = await preflight("/_/admin/api/auth/oauth2/consent", "https://x.dev");
+		expect(other.headers.get("Access-Control-Allow-Origin")).toBeNull();
+	});
+
 	it("keeps the admin API to trusted origins", async () => {
 		const untrusted = await preflight("/_/admin/api/v1/projects", "https://x.dev");
 		expect(untrusted.headers.get("Access-Control-Allow-Origin")).toBeNull();
 
 		const trusted = await preflight("/_/admin/api/v1/projects", "https://app.example.com");
 		expect(trusted.headers.get("Access-Control-Allow-Origin")).toBe("https://app.example.com");
+		expect(trusted.headers.get("Access-Control-Allow-Credentials")).toBe("true");
 	});
 
 	it("does not open other /.well-known paths", async () => {
