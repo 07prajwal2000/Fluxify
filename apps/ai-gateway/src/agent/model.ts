@@ -13,7 +13,9 @@ export type Provider = (typeof PROVIDERS)[number];
  * AGENT_BASE_URL (required for openai-compatible: Ollama, DeepSeek, OpenRouter, …).
  * Throws a readable error on a bad setting.
  */
-export function modelFromEnv(env: Record<string, string | undefined>): LanguageModel {
+export function modelFromEnv(
+	env: Record<string, string | undefined>,
+): Exclude<LanguageModel, string> {
 	const provider = env.AGENT_PROVIDER as Provider;
 	const model = env.AGENT_MODEL;
 	const apiKey = env.AGENT_API_KEY;

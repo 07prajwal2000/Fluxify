@@ -1,64 +1,119 @@
+import type { EventEmitter } from "node:events";
+import path from "node:path";
+import { createInterface } from "node:readline";
 import { parseArgs } from "node:util";
+import type { ModelMessage } from "ai";
 import { ADMIN_API_URL } from "../lib/env";
 import { runAgent } from "./agent";
 import { modelFromEnv } from "./model";
+import { type Log, printRun, runLog } from "./progress";
+import { limitsFromEnv } from "./timeouts";
 import { agentTools } from "./tools";
+
+export { printRun, short } from "./progress";
 
 /**
  * Terminal agent against a Fluxify admin API, acting as the user behind FLUXIFY_PAT.
- *   bun run agent "<prompt>" --project <id>
+ *   bun run agent ["<first prompt>"] --project <id>
+ * Then `> ` takes the next message. /exit quits; Ctrl+C stops a run, twice at an empty prompt quits.
  * Env: AGENT_PROVIDER, AGENT_MODEL, AGENT_API_KEY, AGENT_BASE_URL, FLUXIFY_PAT,
- * FLUXIFY_URL (the admin server, http://127.0.0.1:$SERVER_PORT by default).
+ * FLUXIFY_URL (the admin server, http://127.0.0.1:$SERVER_PORT by default),
+ * AGENT_MODEL_TIMEOUT_MS (180000), AGENT_TOOL_TIMEOUT_MS (120000).
+ * Each session logs to apps/ai-gateway/logs/agent-<time>.log.
  */
 
-const MAX_CHARS = 200;
-export const short = (v: unknown) => {
-	const s = typeof v === "string" ? v : JSON.stringify(v);
-	return s && s.length > MAX_CHARS ? `${s.slice(0, MAX_CHARS)}…` : s;
+type Session = {
+	history: ModelMessage[];
+	abortSignal?: AbortSignal;
+	onRetry?: (why: string) => void;
 };
 
-/** Builds the agent from env and runs one prompt. */
-export function startAgent(prompt: string, projectId: string) {
+/** Builds the agent from env and runs the conversation in `history` (ending on the user's message). */
+export function startAgent(projectId: string, { history, abortSignal, onRetry }: Session) {
 	const pat = process.env.FLUXIFY_PAT;
 	if (!pat) throw new Error("FLUXIFY_PAT is required: a personal access token from the portal");
 	const base = process.env.FLUXIFY_URL || ADMIN_API_URL;
 	const { tools, active } = agentTools(
-		(path, init) => fetch(`${base}${path}`, init),
+		(p, init) => fetch(`${base}${p}`, init),
 		{ authorization: `Bearer ${pat}` },
 		projectId,
 	);
-	return runAgent({ model: modelFromEnv(process.env), tools, active, projectId, prompt });
+	const model = modelFromEnv(process.env);
+	const limits = limitsFromEnv(process.env);
+	return runAgent({ model, tools, active, projectId, history, limits, abortSignal, onRetry });
 }
 
-/** Writes text, tool calls, results and per-step usage as they stream. */
-export async function printRun(result: ReturnType<typeof runAgent>, write: (s: string) => void) {
-	let step = 0;
-	for await (const part of result.stream) {
-		switch (part.type) {
-			case "text-delta":
-				write(part.text);
-				break;
-			case "tool-call":
-				write(`\n> ${part.toolName} ${short(part.input)}\n`);
-				break;
-			case "tool-result":
-				write(`  = ${short(part.output)}\n`);
-				break;
-			case "tool-error":
-				write(`  ! ${short(part.error instanceof Error ? part.error.message : part.error)}\n`);
-				break;
-			case "finish-step":
-				step++;
-				write(
-					`\n[step ${step}: ${part.usage.inputTokens ?? "?"} in / ${part.usage.outputTokens ?? "?"} out, ${part.finishReason}]\n`,
-				);
-				break;
-			case "error":
-				write(
-					`\n[error] ${part.error instanceof Error ? part.error.message : short(part.error)}\n`,
-				);
-				break;
+/** What a line typed at `> ` means. */
+export function parseLine(line: string): "skip" | "exit" | "unknown" | "run" {
+	const t = line.trim();
+	if (!t) return "skip";
+	if (t === "/exit") return "exit";
+	return t.startsWith("/") ? "unknown" : "run";
+}
+
+/** What Ctrl+C does: stop the run, clear a typed line, or quit on the second press at an empty prompt. */
+export function onInterrupt(s: { running: boolean; line: string; armed: boolean }) {
+	if (s.running) return "stop";
+	if (s.line) return "clear";
+	return s.armed ? "quit" : "arm";
+}
+
+/** One user message: runs it, renders it, logs it. Finished steps land in `history`. */
+async function turn(
+	projectId: string,
+	history: ModelMessage[],
+	prompt: string,
+	signal: AbortSignal,
+	log: Log,
+) {
+	const write = (s: string) => process.stdout.write(s);
+	history.push({ role: "user", content: prompt });
+	log("prompt", { chars: prompt.length });
+	const onRetry = (why: string) => {
+		write(`\n[timeout] ${why}\n`);
+		log("retry", { why });
+	};
+	const result = startAgent(projectId, { history, abortSignal: signal, onRetry });
+	await printRun(result, { write, tty: process.stdout.isTTY, log });
+}
+
+async function repl(projectId: string, first: string | undefined) {
+	const { file, log } = runLog(path.join(import.meta.dir, "../../logs"));
+	console.log(`Log: ${file}\n/exit quits. Ctrl+C stops a run.`);
+	const history: ModelMessage[] = [];
+	const rl = createInterface({ input: process.stdin, output: process.stdout });
+	const ask = () => new Promise<string>((resolve) => rl.question("> ", resolve));
+	let run: AbortController | undefined;
+	let armed = false;
+	const quit = () => {
+		rl.close();
+		process.exit(0);
+	};
+	const interrupt = () => {
+		const what = onInterrupt({ running: !!run, line: rl.line, armed });
+		if (what === "stop") run?.abort(new Error("Stopped by user"));
+		if (what === "clear") rl.write(null, { ctrl: true, name: "u" });
+		if (what === "arm") process.stdout.write("\n(Ctrl+C again to quit)\n> ");
+		if (what === "quit") quit();
+		armed = what === "stop" || what === "arm";
+	};
+	// @types/node 26 merges the emitter methods in a way tsgo misses.
+	(rl as unknown as EventEmitter).on("SIGINT", interrupt);
+	process.on("SIGINT", interrupt);
+	for (let line = first ?? (await ask()); ; line = await ask()) {
+		const kind = parseLine(line);
+		if (kind === "exit") quit();
+		if (kind === "unknown") console.log("Commands: /exit");
+		if (kind !== "run") continue;
+		armed = false;
+		run = new AbortController();
+		try {
+			await turn(projectId, history, line.trim(), run.signal, log);
+		} catch (e) {
+			console.error(`\n[error] ${e instanceof Error ? e.message : e}`);
 		}
+		run = undefined;
+		process.stdout.write("\n");
 	}
 }
 
@@ -68,13 +123,9 @@ if (import.meta.main) {
 		options: { project: { type: "string" } },
 		allowPositionals: true,
 	});
-	const prompt = positionals.join(" ");
-	if (!prompt || !values.project) {
-		console.error('Usage: bun run agent "<prompt>" --project <projectId>');
+	if (!values.project) {
+		console.error('Usage: bun run agent ["<prompt>"] --project <projectId>');
 		process.exit(1);
 	}
-	const result = startAgent(prompt, values.project);
-	await printRun(result, (s) => process.stdout.write(s));
-	const total = await result.totalUsage;
-	console.log(`\n[total: ${total.inputTokens ?? "?"} in / ${total.outputTokens ?? "?"} out]`);
+	await repl(values.project, positionals.join(" ") || undefined);
 }

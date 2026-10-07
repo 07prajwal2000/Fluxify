@@ -1,6 +1,7 @@
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { parseArgs } from "node:util";
+import type { ModelMessage } from "ai";
 import { printRun, startAgent } from "../cli";
 
 /**
@@ -31,13 +32,15 @@ export function parseTasks(md: string): Task[] {
 
 async function runOne(prompt: string, projectId: string, file: string) {
 	let log = `# ${prompt}\n\n`;
-	const result = startAgent(prompt, projectId);
-	await printRun(result, (s) => {
-		log += s;
-		process.stdout.write(s);
+	const history: ModelMessage[] = [{ role: "user", content: prompt }];
+	await printRun(startAgent(projectId, { history }), {
+		write: (s) => {
+			log += s;
+			process.stdout.write(s);
+		},
 	});
 	writeFileSync(`${file}.log`, log);
-	writeFileSync(`${file}.json`, JSON.stringify(await result.responseMessages, null, 2));
+	writeFileSync(`${file}.json`, JSON.stringify(history.slice(1), null, 2));
 }
 
 if (import.meta.main) {

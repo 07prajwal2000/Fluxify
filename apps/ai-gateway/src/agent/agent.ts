@@ -1,4 +1,5 @@
 import { isStepCount, type LanguageModel, type ModelMessage, streamText, type Tool } from "ai";
+import { type Limits, withModelTimeouts, withToolTimeouts } from "./timeouts";
 
 export const MAX_STEPS = 40;
 
@@ -24,28 +25,48 @@ Check your work, every time:
 Only say it is done when the check passed. End with a short summary of what you changed and how you checked it.`;
 
 type Run = {
-	model: LanguageModel;
+	model: Exclude<LanguageModel, string>;
 	tools: Record<string, Tool>;
 	active: () => string[];
 	projectId: string;
-	prompt: string;
+	/** The conversation so far, ending on the new user message. Each finished step is appended to it. */
+	history: ModelMessage[];
+	limits: Limits;
+	abortSignal?: AbortSignal;
+	/** A model call sent nothing in time and is being retried. */
+	onRetry?: (why: string) => void;
 };
 
 /**
  * One tool loop: it stops when the model answers without a tool call, or at
- * MAX_STEPS. Every write runs; there is no approval yet.
+ * MAX_STEPS. Every write runs; there is no approval yet. Progress comes out of
+ * `result.stream`; timeouts end a model call with an error part, never a hang.
  */
-export function runAgent({ model, tools, active, projectId, prompt }: Run) {
-	const messages: ModelMessage[] = [{ role: "user", content: prompt }];
+export function runAgent({
+	model,
+	tools,
+	active,
+	projectId,
+	history,
+	limits,
+	abortSignal,
+	onRetry,
+}: Run) {
 	return streamText({
-		model,
+		model: withModelTimeouts(model, limits, onRetry ?? (() => {})),
 		instructions: agentPrompt(projectId),
-		messages,
-		tools,
+		messages: [...history],
+		tools: withToolTimeouts(tools, limits.toolMs),
+		abortSignal,
 		stopWhen: isStepCount(MAX_STEPS),
 		prepareStep: ({ messages }) => {
 			assertEndsOnUserOrTool(messages);
 			return { activeTools: active() };
+		},
+		// Errors already come out of the stream as parts; the default also logs them.
+		onError: () => {},
+		onStepEnd: (step) => {
+			history.push(...step.response.messages);
 		},
 	});
 }

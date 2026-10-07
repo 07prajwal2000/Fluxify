@@ -1,10 +1,12 @@
 import { describe, expect, it } from "bun:test";
+import type { ModelMessage } from "ai";
 import { convertArrayToReadableStream, MockLanguageModelV4 } from "ai/test";
 import type { AdminFetch } from "../mcp/adminApi";
 import { assertEndsOnUserOrTool, runAgent } from "./agent";
 import { parseTasks } from "./evals/run";
 import { ADVANCED, CORE, agentTools } from "./tools";
 
+const limits = { idleMs: 1000, callMs: 5000, toolMs: 1000 };
 const P = "019a0000-0000-7000-8000-000000000000";
 type Call = { method: string; path: string; auth?: string; body?: unknown };
 
@@ -120,12 +122,14 @@ describe("agent loop", () => {
 			},
 		});
 		const { tools, active, calls } = setup();
-		const result = runAgent({ model, tools, active, projectId: P, prompt: "delete r1" });
+		const history: ModelMessage[] = [{ role: "user", content: "delete r1" }];
+		const result = runAgent({ model, tools, active, projectId: P, history, limits });
 		expect(await result.text).toBe("done");
 		expect(seen[0].tools).not.toContain("delete_route");
 		expect(seen[1].tools).toContain("delete_route");
 		expect(seen.map((s) => s.lastRole)).toEqual(["user", "tool", "tool"]);
 		expect(calls).toContainEqual({ method: "DELETE", path: "/v1/routes/r1", auth: "Bearer pat-1" });
+		expect(history.map((m) => m.role)).toEqual(["user", "assistant", "tool", "assistant", "tool", "assistant"]);
 	});
 
 	it("refuses a history that ends on assistant or system", () => {
