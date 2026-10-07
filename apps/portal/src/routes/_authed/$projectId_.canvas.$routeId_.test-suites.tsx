@@ -35,6 +35,10 @@ export const Route = createFileRoute("/_authed/$projectId_/canvas/$routeId_/test
 			});
 		}
 	},
+	// "From test" on a test trace links back to its run's results (#627)
+	validateSearch: (search: Record<string, unknown>) => ({
+		runId: typeof search.runId === "string" ? search.runId : undefined,
+	}),
 	component: TestSuitesPage,
 });
 
@@ -51,6 +55,7 @@ function TestSuitesPage() {
 		<div className="flex h-screen w-full flex-col">
 			<TestSuitesWorkbench
 				projectId={projectId}
+				initialRunId={Route.useSearch().runId}
 				target={{ type: "route", id: routeId }}
 				headerLeft={
 					<>

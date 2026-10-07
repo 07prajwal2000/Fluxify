@@ -149,10 +149,13 @@ export function TestSuitesWorkbench({
 	projectId,
 	target,
 	headerLeft,
+	initialRunId,
 }: {
 	projectId: string;
 	target: SuiteTarget;
 	headerLeft: ReactNode;
+	/** a test trace's "From test" link opens its run's results (#627) */
+	initialRunId?: string;
 }) {
 	// npm package types, so imports in scripts and hooks autocomplete (faker…)
 	useProjectPackageTypes(projectId);
@@ -161,7 +164,10 @@ export function TestSuitesWorkbench({
 	const [tab, setTab] = useState<EditorTab>(tabs[0]);
 	const [draft, setDraft] = useState<SuiteDraft>(() => toDraft(undefined));
 	const [isDirty, setDirty] = useState(false);
-	const [runId, setRunId] = useState<string | null>(null);
+	const [runId, setRunId] = useState<string | null>(initialRunId ?? null);
+	useEffect(() => {
+		if (initialRunId) setRunId(initialRunId);
+	}, [initialRunId]);
 	const [pendingDelete, setPendingDelete] = useState<{ id: string; name: string } | null>(null);
 	const [pendingClone, setPendingClone] = useState<{ id: string; name: string } | null>(null);
 

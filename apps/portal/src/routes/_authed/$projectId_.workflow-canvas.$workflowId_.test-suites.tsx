@@ -31,6 +31,10 @@ export const Route = createFileRoute(
 			throw redirect({ to: "/$projectId/routes", params: { projectId: params.projectId } });
 		}
 	},
+	// "From test" on a test trace links back to its run's results (#627)
+	validateSearch: (search: Record<string, unknown>) => ({
+		runId: typeof search.runId === "string" ? search.runId : undefined,
+	}),
 	component: WorkflowTestSuitesPage,
 });
 
@@ -44,6 +48,7 @@ function WorkflowTestSuitesPage() {
 		<div className="flex h-screen w-full flex-col">
 			<TestSuitesWorkbench
 				projectId={projectId}
+				initialRunId={Route.useSearch().runId}
 				target={{ type: "workflow", id: workflowId }}
 				headerLeft={
 					<>

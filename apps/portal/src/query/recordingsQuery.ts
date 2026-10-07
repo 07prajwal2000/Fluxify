@@ -1,6 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { showErrorNotification } from "@/lib/errorNotifier";
-import { type RecordingTarget, recordingsService } from "@/services/recordings";
+import {
+	type RecordingTarget,
+	recordingsService,
+	type TestTraceFilter,
+} from "@/services/recordings";
 import { routesService } from "@/services/routes";
 import { systemLogsService } from "@/services/systemLogs";
 import { workflowsService } from "@/services/workflows";
@@ -39,10 +43,11 @@ export const recordingsQuery = {
 			page: number,
 			poll: boolean,
 			outcome?: "success" | "failure",
+			filter: TestTraceFilter = {},
 		) {
 			return useQuery({
-				queryKey: [...runsKey(projectId, target), "list", page, outcome ?? "all"],
-				queryFn: () => recordingsService.getRuns(projectId, target, { page, outcome }),
+				queryKey: [...runsKey(projectId, target), "list", page, outcome ?? "all", filter],
+				queryFn: () => recordingsService.getRuns(projectId, target, { page, outcome, ...filter }),
 				enabled: !!projectId && !!target.id,
 				refetchOnWindowFocus: false,
 				refetchInterval: () => {
