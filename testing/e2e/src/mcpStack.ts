@@ -68,6 +68,11 @@ for (const role of ["viewer", "creator", "project_admin"] as const) {
 	tokens[role] = await apiKey((await createUser(s, role, projectId)).email);
 }
 tokens.other = await apiKey((await createUser(s, "viewer", otherProjectId)).email);
+// not in `projectId`: the member tools add them. A member of some project, so
+// they have an account, but that project is nobody else's.
+const spareProjectId = await createProject(s);
+const users = [];
+for (let i = 0; i < 3; i++) users.push(await createUser(s, "viewer", spareProjectId));
 
 const route = await insert<{ id: string }>(schema.routesEntity, {
 	name: "hello",
@@ -148,6 +153,7 @@ console.log(
 		projectId,
 		otherProjectId,
 		tokens,
+		users,
 		ids: {
 			route: route.id,
 			workflow: workflow.id,

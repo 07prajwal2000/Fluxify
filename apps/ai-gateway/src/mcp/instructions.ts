@@ -5,8 +5,8 @@ Before building anything, read https://docs.fluxify.rest/llms.txt. It indexes ev
 
 Every tool acts as the signed-in user, with their project roles:
 - viewer: read routes, workflows, triggers, custom blocks, middlewares, test suites and logs
-- creator: also read app config, integrations and members, and change things
-- project_admin: also manage members and packages
+- creator: also read app config, integrations, members and packages, change things and run tests
+- project_admin: also manage members, packages and project settings
 A "You need the X role" error means ask a project admin for that role. Do not retry.
 
 What things are:
