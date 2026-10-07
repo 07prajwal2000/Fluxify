@@ -34,6 +34,10 @@ test("Allow posts accept true with the raw oauth query", async () => {
 		);
 		await new Promise((r) => setTimeout(r, 50));
 	});
+	expect(box.textContent).toContain("wants to access your Fluxify account");
+	expect(box.textContent).toContain("Know who you are");
+	expect(box.textContent).toContain("See your name");
+	expect(box.textContent).not.toContain("openid");
 	const allow = [...box.querySelectorAll("button")].find((b) => b.textContent === "Allow");
 	await act(async () => {
 		allow?.click();

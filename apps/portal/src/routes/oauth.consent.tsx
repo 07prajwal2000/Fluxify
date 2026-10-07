@@ -1,7 +1,8 @@
-import { Button, Card } from "@fluxify/components";
+import { Button, Chip } from "@fluxify/components";
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useState } from "react";
+import { AuthCard, FluxifyBrand } from "@/components/common/AuthCard";
 import { BASE_PATH } from "@/constants/routes";
 import { authClient } from "@/lib/auth";
 import { showErrorNotification } from "@/lib/errorNotifier";
@@ -15,6 +16,14 @@ type PublicClient = {
 	client_uri?: string;
 	logo_uri?: string;
 	icon?: string;
+};
+
+/** What each scope lets the app do, in plain words. Unknown scopes show as-is. */
+export const SCOPE_LABELS: Record<string, string> = {
+	openid: "Know who you are",
+	profile: "See your name",
+	email: "See your email",
+	offline_access: "Stay signed in",
 };
 
 export const Route = createFileRoute("/oauth/consent")({
@@ -61,56 +70,61 @@ export function ConsentPage() {
 		}
 	}
 
+	const name = client?.client_name ?? client?.name ?? "An app";
+
 	return (
-		<div className="flex min-h-screen w-screen items-center justify-center bg-background p-4 text-foreground">
-			<Card className="w-full max-w-105 border border-border p-8 shadow-2xl shadow-black/50">
-				<div className="flex flex-col gap-6">
-					<div className="flex flex-col items-center gap-2 text-center">
-						{icon ? (
-							<img src={icon} alt="" className="h-16 w-16 rounded-md object-contain" />
-						) : null}
-						<h1 className="text-xl font-semibold tracking-tight">
-							{client?.client_name ?? client?.name ?? "An app"} wants access
-						</h1>
-						{client?.client_uri ? <p className="text-sm text-muted">{client.client_uri}</p> : null}
-					</div>
-					{!clientId || isError ? (
-						<p role="alert" className="text-center text-sm text-danger">
-							Invalid authorization request
-						</p>
-					) : null}
-					{scopes.length ? (
-						<div className="flex flex-col gap-2">
-							<p className="text-sm text-muted">It will be able to:</p>
-							<ul className="list-inside list-disc text-sm">
-								{scopes.map((s) => (
-									<li key={s}>{s}</li>
-								))}
-							</ul>
-						</div>
-					) : null}
-					<div className="flex gap-3">
-						<Button
-							variant="outline"
-							fullWidth
-							isDisabled={pending !== null}
-							isPending={pending === false}
-							onPress={() => decide(false)}
-						>
-							Deny
-						</Button>
-						<Button
-							variant="primary"
-							fullWidth
-							isDisabled={pending !== null}
-							isPending={pending === true}
-							onPress={() => decide(true)}
-						>
-							Allow
-						</Button>
-					</div>
+		<AuthCard>
+			<div className="flex flex-col gap-8">
+				<div className="flex flex-col items-center gap-2 text-center">
+					<FluxifyBrand />
+					{icon ? <img src={icon} alt="" className="h-12 w-12 rounded-md object-contain" /> : null}
+					<h1 className="text-xl font-semibold tracking-tight text-foreground">
+						{name} wants to access your Fluxify account
+					</h1>
+					{client?.client_uri ? <p className="text-sm text-muted">{client.client_uri}</p> : null}
 				</div>
-			</Card>
-		</div>
+				{!clientId || isError ? (
+					<p role="alert" className="text-center text-sm text-danger">
+						Invalid authorization request
+					</p>
+				) : null}
+				{scopes.length ? (
+					<div className="flex flex-col gap-3">
+						<p className="text-sm text-muted">It will be able to:</p>
+						<div className="flex flex-wrap gap-2">
+							{scopes.map((s) => (
+								<Chip key={s} size="sm">
+									{SCOPE_LABELS[s] ?? s}
+								</Chip>
+							))}
+						</div>
+						<p className="text-xs text-muted">
+							It can only do what you can do in your projects. Revoke it anytime under Account →
+							Connected apps.
+						</p>
+					</div>
+				) : null}
+				<div className="flex flex-col gap-3">
+					<Button
+						variant="primary"
+						fullWidth
+						isDisabled={pending !== null}
+						isPending={pending === true}
+						onPress={() => decide(true)}
+					>
+						Allow
+					</Button>
+					<Button
+						variant="outline"
+						fullWidth
+						isDisabled={pending !== null}
+						isPending={pending === false}
+						onPress={() => decide(false)}
+					>
+						Deny
+					</Button>
+				</div>
+			</div>
+		</AuthCard>
 	);
 }
