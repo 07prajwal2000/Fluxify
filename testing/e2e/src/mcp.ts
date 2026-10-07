@@ -8,6 +8,8 @@ export type McpStack = {
 	otherProjectId: string;
 	/** viewer / creator / project_admin in `projectId`; `other` is a viewer in `otherProjectId` only */
 	tokens: Record<"viewer" | "creator" | "project_admin" | "other", string>;
+	/** three users with accounts who are not in `projectId`, for the member tools */
+	users: { id: string; email: string }[];
 	ids: Record<
 		"route" | "workflow" | "trigger" | "customBlock" | "middleware" | "testSuite" | "integration",
 		string
