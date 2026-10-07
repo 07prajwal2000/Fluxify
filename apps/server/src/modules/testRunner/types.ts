@@ -1,4 +1,5 @@
 import type { RouteMiddlewares } from "@fluxify/blocks";
+import type { TraceRunPayload } from "@fluxify/common/otlp";
 import type { AssertionResult, CaseCounts, CaseResult } from "../../db/schema";
 import type { ProjectConfigPayload } from "../compiler/artifacts";
 import type { AssertionType, SuiteRequest } from "./assertions";
@@ -17,6 +18,8 @@ import type { SuiteHook } from "./hooks";
  */
 export type TestBootstrap = {
 	suiteRunId: string;
+	/** the parent test run; a case's trace links back to it (#627) */
+	testRunId: string;
 	projectId: string;
 	/** compiled graph source — the child never sees blocks or edges */
 	source: string;
@@ -132,6 +135,8 @@ export type TestChildMessage =
 	/** one case finished; each case gets the full per-case budget */
 	| { type: "case-done"; result: CaseResult }
 	| { type: "route-done"; result: TestResult }
+	/** a finished trace of one case (#627); the supervisor attaches the metadata */
+	| { type: "record-run"; run: TraceRunPayload; caseIndex: number; caseName: string }
 	| { type: "teardown-done"; error?: string };
 
 /**

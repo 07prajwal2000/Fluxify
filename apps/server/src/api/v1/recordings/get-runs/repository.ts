@@ -1,4 +1,4 @@
-import { and, count, desc, eq, gte, lt } from "drizzle-orm";
+import { and, count, desc, eq, gte, lt, sql } from "drizzle-orm";
 import type { z } from "zod";
 import { db } from "../../../../db";
 import { traceRunsEntity } from "../../../../db/schema";
@@ -13,7 +13,13 @@ import type { requestQuerySchema } from "./dto";
 export async function getRecordedRuns(
 	projectId: string,
 	target: SuiteTarget,
-	{ outcome, from, to }: Pick<z.infer<typeof requestQuerySchema>, "outcome" | "from" | "to">,
+	{
+		outcome,
+		from,
+		to,
+		source,
+		testRunId,
+	}: Pick<z.infer<typeof requestQuerySchema>, "outcome" | "from" | "to" | "source" | "testRunId">,
 	skip: number,
 	take: number,
 ) {
@@ -23,6 +29,7 @@ export async function getRecordedRuns(
 		outcome ? eq(traceRunsEntity.outcome, outcome) : undefined,
 		from ? gte(traceRunsEntity.startedAt, from) : undefined,
 		to ? lt(traceRunsEntity.startedAt, to) : undefined,
+		testRunsFilter(source, testRunId),
 	);
 
 	const result = await db
@@ -36,6 +43,7 @@ export async function getRecordedRuns(
 			truncated: traceRunsEntity.truncated,
 			droppedSpans: traceRunsEntity.droppedSpans,
 			parentRunId: traceRunsEntity.parentRunId,
+			metadata: traceRunsEntity.metadata,
 		})
 		.from(traceRunsEntity)
 		.where(where)
@@ -49,4 +57,12 @@ export async function getRecordedRuns(
 		.where(where);
 
 	return { result, totalCount: total?.count ?? 0 };
+}
+
+/** test traces (#627) only when asked for; the run list hides them otherwise */
+function testRunsFilter(source?: "test", testRunId?: string) {
+	const metadata = traceRunsEntity.metadata;
+	if (testRunId) return sql`${metadata}->>'testRunId' = ${testRunId}`;
+	if (source === "test") return sql`${metadata}->>'source' = 'test'`;
+	return sql`(${metadata}->>'source') is distinct from 'test'`;
 }

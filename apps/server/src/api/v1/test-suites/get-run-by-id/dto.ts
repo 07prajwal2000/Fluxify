@@ -10,6 +10,8 @@ export const requestParamSchema = targetParamSchema.extend({
 
 export const responseSchema = runSummarySchema.extend({
 	result: z.any().nullable(),
+	/** older than the recording max age: its traces were deleted (#627) */
+	traceExpired: z.boolean(),
 	suiteRuns: z.array(
 		z.object({
 			id: z.string(),
@@ -19,6 +21,8 @@ export const responseSchema = runSummarySchema.extend({
 			durationMs: z.number().nullable(),
 			startedAt: z.any().nullable(),
 			finishedAt: z.any().nullable(),
+			/** the trace of each case that has one; a route suite has case 0 only (#627) */
+			traces: z.array(z.object({ caseIndex: z.number(), traceRunId: z.string() })),
 		}),
 	),
 });

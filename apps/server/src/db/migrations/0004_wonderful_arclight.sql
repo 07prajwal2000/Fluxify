@@ -1,0 +1,2 @@
+ALTER TABLE "trace_runs" ADD COLUMN "metadata" jsonb;--> statement-breakpoint
+CREATE INDEX "idx_trace_runs_test_run_id" ON "trace_runs" USING btree (("metadata"->>'testRunId')) WHERE "trace_runs"."metadata" is not null;

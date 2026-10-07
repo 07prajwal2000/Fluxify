@@ -81,5 +81,19 @@ export type TraceRunPayload = {
 	 */
 	parentRunId?: string;
 	parentSeq?: number;
+	/** set on a test run's trace (#627); the worker supervisor fills it, never the child */
+	metadata?: TraceRunMetadata;
 	spans: TraceSpanRecord[];
+};
+
+/** What a trace knows beyond its run. Only test runs (#627) fill it for now. */
+export type TraceRunMetadata = {
+	source: "test";
+	/** e.g. `Test: <suite> · <case>` */
+	label: string;
+	testRunId: string;
+	suiteId: string;
+	suiteName: string;
+	caseIndex: number;
+	caseName: string;
 };

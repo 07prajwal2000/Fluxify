@@ -3,6 +3,7 @@ import type { AssertionResult } from "../../db/schema";
 import { WORKFLOW_JOB } from "../jobs/subjects";
 import { readInput } from "../jobs/workflowJob";
 import { createJobContext } from "../requestRouter/service";
+import { WorkflowTraceRecorder } from "../telemetry/routeRecorder";
 import type { TriggerBatch } from "../triggers/types";
 import { type CaseInfo, evaluateAssertions, type WorkflowOutcome } from "./assertions";
 import { type CaseOutcome, runCases, type SuiteCase, toCases } from "./cases";
@@ -37,7 +38,7 @@ export async function runWorkflowSuite(
 
 		const { cases: results, counts } = await runCases(
 			cases,
-			(item, index) => runCase(boot, run, { ...item, index }, setup),
+			(item, index) => runCase(boot, run, { ...item, index }, setup, send),
 			(result) => send({ type: "case-done", result }),
 		);
 		return {
@@ -58,6 +59,7 @@ async function runCase(
 	run: ReturnType<typeof instantiateCompiled>,
 	item: CaseInfo,
 	setup: unknown,
+	send: (message: TestChildMessage) => void,
 ): Promise<CaseOutcome> {
 	const id = `${boot.suiteRunId}:${item.index}`;
 	// a batch like a trigger delivers, so `trigger.data` and `input` read as live
@@ -69,6 +71,17 @@ async function runCase(
 		payload: toBatch(item.input),
 		enqueuedAt: new Date().toISOString(),
 	});
+	// each case is its own execution, so each gets its own trace (#627)
+	const trace = new WorkflowTraceRecorder(
+		{
+			projectId: boot.projectId,
+			workflowId: boot.workflow.id,
+			// a suite runs the saved graph, not a deployed version
+			workflowVersion: "",
+			workflowName: boot.workflow.name,
+		},
+		(run) => send({ type: "record-run", run, caseIndex: item.index, caseName: item.name }),
+	);
 	const context = createJobContext({
 		id,
 		projectId: boot.projectId,
@@ -76,6 +89,7 @@ async function runCase(
 		timeoutSeconds: boot.timeoutMs / 1000,
 		trigger: { kind: "trigger", source, data: events, meta },
 		payload: input,
+		trace,
 	});
 	const checks: AssertionResult[] = [];
 	(context as { testHooks?: unknown }).testHooks = buildHooks(boot.hooks, {
@@ -98,6 +112,11 @@ async function runCase(
 		outcome = { successful: false, output: undefined, error: messageOf(error) };
 	} finally {
 		context.dbFactory?.dispose();
+	}
+	try {
+		trace.complete(outcome.successful ? "success" : "failure");
+	} catch {
+		// telemetry must never change a case's result
 	}
 	const durationMs = Date.now() - startedAt;
 

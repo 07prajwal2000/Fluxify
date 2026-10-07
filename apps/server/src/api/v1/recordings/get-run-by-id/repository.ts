@@ -24,6 +24,7 @@ export async function getRecordedRunById(projectId: string, target: SuiteTarget,
 			parentSeq: traceRunsEntity.parentSeq,
 			routeVersion: traceRunsEntity.routeVersion,
 			workflowVersion: traceRunsEntity.workflowVersion,
+			metadata: traceRunsEntity.metadata,
 		})
 		.from(traceRunsEntity)
 		.where(

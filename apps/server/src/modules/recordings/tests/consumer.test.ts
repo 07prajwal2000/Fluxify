@@ -211,6 +211,87 @@ describe("recordings consumer", () => {
 		expect(await runRow(run.runId)).toBeUndefined();
 	});
 
+	describe("test run traces (#627)", () => {
+		const metadata = (testRunId: string, caseIndex = 0) => ({
+			source: "test" as const,
+			label: "Test: Checkout · Request",
+			testRunId,
+			suiteId: "suite-1",
+			suiteName: "Checkout",
+			caseIndex,
+			caseName: "Request",
+		});
+		const listRuns = async (query: { source?: "test"; testRunId?: string } = {}) => {
+			const { getRecordedRuns } = await import("../../../api/v1/recordings/get-runs/repository");
+			const { result } = await getRecordedRuns("p1", { type: "route", id: "r-off" }, query, 0, 50);
+			return result.map((run) => run.id);
+		};
+
+		it("stores a test run even with recording off, metadata included", async () => {
+			const run = makeRun({ routeId: "r-off", metadata: metadata("tr-1") });
+			await stream.publishRecording(run);
+			await until(async () => Boolean(await runRow(run.runId)));
+
+			expect((await runRow(run.runId)).metadata).toEqual(metadata("tr-1"));
+			expect(await spanRows(run.runId)).toHaveLength(2);
+		});
+
+		it("still drops a test run that names another project", async () => {
+			const run = makeRun({ projectId: "p2", routeId: "r-off", metadata: metadata("tr-2") });
+			expect(await recordings.persistRecording(run)).toBe("dropped");
+			expect(await runRow(run.runId)).toBeUndefined();
+		});
+
+		it("the run list hides test traces unless asked for them", async () => {
+			const normal = makeRun({ routeId: "r-off" });
+			const test = makeRun({ routeId: "r-off", metadata: metadata("tr-3") });
+			const other = makeRun({ routeId: "r-off", metadata: metadata("tr-4") });
+			// stored directly: a normal run of a route with recording off is dropped
+			await sql`INSERT INTO trace_runs (id, project_id, route_id, started_at, outcome, span_count)
+				VALUES (${normal.runId}, 'p1', 'r-off', now(), 'success', 0)`;
+			await recordings.persistRecording(test);
+			await recordings.persistRecording(other);
+
+			const all = await listRuns();
+			expect(all).toContain(normal.runId);
+			expect(all).not.toContain(test.runId);
+			expect(await listRuns({ source: "test" })).toEqual(
+				expect.arrayContaining([test.runId, other.runId]),
+			);
+			expect(await listRuns({ source: "test" })).not.toContain(normal.runId);
+			expect(await listRuns({ testRunId: "tr-3" })).toEqual([test.runId]);
+		});
+
+		it("a test run's results name each case's trace", async () => {
+			const { getTestRunById } = await import(
+				"../../../api/v1/test-suites/get-run-by-id/repository"
+			);
+			await sql`INSERT INTO test_runs (id, project_id, workflow_id, total_suites) VALUES ('tr-5', 'p1', 'w-on', 1)`;
+			await sql`INSERT INTO test_suite_runs (id, test_run_id, project_id, workflow_id, test_suite_id)
+				VALUES ('sr-5', 'tr-5', 'p1', 'w-on', 'suite-1')`;
+			const workflowRun = (caseIndex: number) =>
+				makeRun({ routeId: undefined, workflowId: "w-on", metadata: metadata("tr-5", caseIndex) });
+			const [first, second] = [workflowRun(0), workflowRun(1)];
+			// an async run a case forked hangs off the case's own trace
+			const forked = makeRun({
+				routeId: undefined,
+				workflowId: "w-on",
+				parentRunId: first.runId,
+				parentSeq: 1,
+				metadata: metadata("tr-5", 0),
+			});
+			for (const run of [first, second, forked]) await recordings.persistRecording(run);
+
+			const result = await getTestRunById("p1", { type: "workflow", id: "w-on" }, "tr-5");
+			expect(result?.traceExpired).toBe(false);
+			const traces = result?.suiteRuns[0]?.traces ?? [];
+			expect(traces.toSorted((a, b) => a.caseIndex - b.caseIndex)).toEqual([
+				{ caseIndex: 0, traceRunId: first.runId },
+				{ caseIndex: 1, traceRunId: second.runId },
+			]);
+		});
+	});
+
 	it("acks and drops a malformed payload", async () => {
 		expect(await recordings.persistRecording({ hello: "world" })).toBe("dropped");
 		expect(await recordings.persistRecording(makeRun({ runId: "not-a-uuid" }))).toBe("dropped");

@@ -22,6 +22,18 @@ const RETENTION_BATCH = 100;
 
 const outcome = z.enum(["success", "failure"]);
 const time = z.number().finite();
+const id = z.string().min(1).max(50);
+
+/** a test run's trace (#627); the worker supervisor attaches it, not the test child */
+const metadataSchema = z.object({
+	source: z.literal("test"),
+	label: z.string().max(500),
+	testRunId: id,
+	suiteId: id,
+	suiteName: z.string().max(200),
+	caseIndex: z.number().int().nonnegative(),
+	caseName: z.string().max(200),
+});
 
 /** Only what the insert relies on; anything else is stored as it came. */
 const runSchema = z
@@ -41,6 +53,7 @@ const runSchema = z
 		droppedSpans: z.number().int().nonnegative().optional(),
 		parentRunId: z.uuid().optional(),
 		parentSeq: z.number().int().optional(),
+		metadata: metadataSchema.optional(),
 		spans: z
 			.array(
 				z.looseObject({
@@ -100,8 +113,7 @@ export async function persistRecording(payload: unknown): Promise<"stored" | "dr
 		return "dropped";
 	}
 	const run = parsed.data;
-	// re-checked here: recording may have been switched off since the run
-	if (!(await stillRecording(run))) return "dropped";
+	if (!(await shouldStore(run))) return "dropped";
 
 	// span times are `performance.now()` readings; this puts them on the wall clock
 	const wall = (t: number) => new Date(run.startedAtWallMs + (t - run.perfOrigin));
@@ -125,6 +137,7 @@ export async function persistRecording(payload: unknown): Promise<"stored" | "dr
 				parentRunId: run.parentRunId,
 				parentSeq: run.parentSeq,
 				spanCount: run.spans.length,
+				metadata: run.metadata,
 			})
 			.onConflictDoNothing();
 		if (!run.spans.length) return;
@@ -155,8 +168,17 @@ export async function persistRecording(payload: unknown): Promise<"stored" | "dr
 	return "stored";
 }
 
-/** whether the run's route or workflow, in that project, still has recording on */
-async function stillRecording(run: { projectId: string; routeId?: string; workflowId?: string }) {
+/**
+ * The run's route or workflow must belong to its project, always. A test run
+ * (#627) is stored whatever `recordExecution` says; any other run only while
+ * recording is still on — it may have been switched off since the run.
+ */
+async function shouldStore(run: {
+	projectId: string;
+	routeId?: string;
+	workflowId?: string;
+	metadata?: { source: "test" };
+}) {
 	const [row] = run.routeId
 		? await db
 				.select({ on: routesEntity.recordExecution })
@@ -171,7 +193,8 @@ async function stillRecording(run: { projectId: string; routeId?: string; workfl
 						eq(workflowsEntity.projectId, run.projectId),
 					),
 				);
-	return Boolean(row?.on);
+	if (!row) return false;
+	return run.metadata?.source === "test" || Boolean(row.on);
 }
 
 /**

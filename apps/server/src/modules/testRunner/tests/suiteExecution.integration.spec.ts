@@ -1,5 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import { BlockTypes, compileGraph } from "@fluxify/blocks";
+import type { TraceRunPayload } from "@fluxify/common/otlp";
 import { runSuiteInChild } from "../spawn";
 import type { SuiteInputSpec, TestBootstrap } from "../types";
 
@@ -28,6 +29,7 @@ const edge = (from: string, to: string) => ({
 function bootstrap(source: string, overrides: Partial<TestBootstrap> = {}) {
 	return {
 		suiteRunId: "run-1",
+		testRunId: "test-run-1",
 		projectId: "p1",
 		route: { id: "r1", projectName: "demo" },
 		source,
@@ -252,6 +254,35 @@ describe("runSuiteInChild", () => {
 		}, 30_000);
 	});
 
+	it("records the run as a trace linked to its test run (#627)", async () => {
+		const { source } = compileGraph(
+			[
+				block("1", BlockTypes.entrypoint),
+				block("2", BlockTypes.jsrunner, { value: "return { ok: true };" }),
+				block("3", BlockTypes.response, { httpCode: "200" }),
+			],
+			[edge("1", "2"), edge("2", "3")] as any,
+		);
+		const traces: TraceRunPayload[] = [];
+
+		await runSuiteInChild(bootstrap(source), undefined, (run) => traces.push(run));
+
+		expect(traces).toHaveLength(1);
+		const [trace] = traces;
+		// project and target come from the bootstrap, not from the child
+		expect(trace).toMatchObject({ projectId: "p1", routeId: "r1", outcome: "success" });
+		expect(trace!.metadata).toEqual({
+			source: "test",
+			label: "Test: Suite one · Request",
+			testRunId: "test-run-1",
+			suiteId: "s1",
+			suiteName: "Suite one",
+			caseIndex: 0,
+			caseName: "Request",
+		});
+		expect(trace!.spans.map((s) => s.blockId)).toContain("2");
+	}, 30_000);
+
 	describe("workflow suites (#487)", () => {
 		// doubles `n`; n = 13 makes the workflow throw
 		const workflow = compileGraph(
@@ -305,6 +336,22 @@ describe("runSuiteInChild", () => {
 			});
 			expect(result.cases[1]!.error).toContain("unlucky");
 			expect(result.verdict.success).toBe(false);
+		}, 30_000);
+
+		it("records one trace per case, the failing block marked (#627)", async () => {
+			const traces: TraceRunPayload[] = [];
+			await runSuiteInChild(
+				workflowBoot({ mode: "cases", raw: [{ name: "one", input: { n: 1 } }, { n: 13 }] }),
+				undefined,
+				(run) => traces.push(run),
+			);
+
+			expect(traces.map((t) => [t.metadata?.caseIndex, t.metadata?.label, t.outcome])).toEqual([
+				[0, "Test: Suite one · one", "success"],
+				[1, "Test: Suite one · Case 2", "failure"],
+			]);
+			expect(traces[1]!.workflowId).toBe("w1");
+			expect(traces[1]!.spans.find((s) => s.outcome === "failure")?.blockId).toBe("2");
 		}, 30_000);
 
 		it("sends a single input as one run, even when it is a list", async () => {
