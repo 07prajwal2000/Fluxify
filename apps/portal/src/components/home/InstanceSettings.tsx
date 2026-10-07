@@ -1,34 +1,43 @@
+import { FiAward, FiGlobe, FiShield } from "react-icons/fi";
+import { TbTopologyStar3 } from "react-icons/tb";
+import { publicSettingsQuery } from "@/query/publicSettingsQuery";
 import { AuthSettings } from "./instance-settings/auth/AuthSettings";
 import { HostingSettings } from "./instance-settings/hosting/HostingSettings";
 import { LicenseSettings } from "./instance-settings/license/LicenseSettings";
 import { OrchestrationSettings } from "./instance-settings/orchestration/OrchestrationSettings";
-import { Sidebar } from "./instance-settings/Sidebar";
+import { SettingsLayout } from "./SettingsLayout";
 
 interface InstanceSettingsProps {
 	activeTab?: string;
 }
 
 export function InstanceSettings({ activeTab = "auth" }: InstanceSettingsProps) {
-	return (
-		<div className="flex h-[calc(100vh-7rem)] w-full flex-col">
-			<div className="mb-4 shrink-0">
-				<h1 className="text-2xl font-semibold tracking-tight text-foreground">Instance settings</h1>
-				<p className="text-sm text-muted">
-					Manage your instance configurations, authentication, license, hosting, and orchestration.
-				</p>
-			</div>
+	const { data: publicSettings } = publicSettingsQuery.get.useQuery();
+	// Orchestration only shows on a deployment that has an orchestrator. Kit has
+	// none, and a tab whose endpoints answer 404 is worse than no tab.
+	const showOrchestration = publicSettings?.orchestration?.enabled !== false;
+	const sections = [
+		{ id: "auth", label: "Authentication", icon: FiShield },
+		{ id: "license", label: "License", icon: FiAward },
+		{ id: "hosting", label: "Hosting", icon: FiGlobe },
+		...(showOrchestration
+			? [{ id: "orchestration", label: "Orchestration", icon: TbTopologyStar3 }]
+			: []),
+	];
 
-			<div className="flex min-h-0 flex-1 overflow-hidden rounded-xl border border-border bg-surface">
-				<Sidebar activeTab={activeTab} />
-				<div className="flex-1 overflow-y-auto p-8">
-					<div className="max-w-4xl">
-						{activeTab === "auth" && <AuthSettings />}
-						{activeTab === "license" && <LicenseSettings />}
-						{activeTab === "orchestration" && <OrchestrationSettings />}
-						{activeTab === "hosting" && <HostingSettings />}
-					</div>
-				</div>
-			</div>
-		</div>
+	return (
+		<SettingsLayout
+			title="Instance settings"
+			description="Manage your instance configurations, authentication, license, hosting, and orchestration."
+			sidebarLabel="Instance"
+			sections={sections}
+			activeId={activeTab}
+			searchFor={(id) => ({ tab: "instance", settingsTab: id })}
+		>
+			{activeTab === "auth" && <AuthSettings />}
+			{activeTab === "license" && <LicenseSettings />}
+			{activeTab === "orchestration" && <OrchestrationSettings />}
+			{activeTab === "hosting" && <HostingSettings />}
+		</SettingsLayout>
 	);
 }

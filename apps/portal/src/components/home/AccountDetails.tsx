@@ -6,21 +6,46 @@ import {
 	Input,
 	Label,
 	Spinner,
-	Tabs,
 	TextField,
+	ToggleButton,
+	ToggleButtonGroup,
 	toast,
 } from "@fluxify/components";
 import { useEffect, useMemo, useState } from "react";
-import { FiCheckCircle, FiKey, FiLock, FiMail, FiShield, FiUser } from "react-icons/fi";
+import {
+	FiCheckCircle,
+	FiCpu,
+	FiGrid,
+	FiKey,
+	FiLock,
+	FiMail,
+	FiMonitor,
+	FiMoon,
+	FiShield,
+	FiSliders,
+	FiSun,
+	FiUser,
+} from "react-icons/fi";
 import { AccessTokens, ConnectAgent, ConnectedApps } from "@/components/home/AgentAccess";
+import { SettingsLayout } from "@/components/home/SettingsLayout";
 import { authClient } from "@/lib/auth";
 import { showErrorNotification } from "@/lib/errorNotifier";
+import { getThemePreference, setTheme, type ThemePreference } from "@/lib/theme";
 
 type SessionWithProvider = {
 	providerId?: string | null;
 };
 
-export function AccountDetails() {
+const ACCOUNT_SECTIONS = [
+	{ id: "profile", label: "Profile", icon: FiUser },
+	{ id: "password", label: "Password", icon: FiLock },
+	{ id: "preferences", label: "Preferences", icon: FiSliders },
+	{ id: "tokens", label: "Access tokens", icon: FiKey },
+	{ id: "apps", label: "Connected apps", icon: FiGrid },
+	{ id: "agent", label: "Connect an AI agent", icon: FiCpu },
+];
+
+export function AccountDetails({ activeTab = "profile" }: { activeTab?: string }) {
 	const { data, isPending } = authClient.useSession();
 
 	if (isPending) {
@@ -38,35 +63,32 @@ export function AccountDetails() {
 	const isEnterpriseSession = providerId?.toLowerCase().includes("enterprise") ?? false;
 
 	return (
-		<div className="mx-auto flex w-full max-w-3xl flex-col gap-5 pt-4">
-			<AccountSummary
-				name={data.user.name ?? ""}
-				email={data.user.email}
-				image={data.user.image}
-				isEnterpriseSession={isEnterpriseSession}
-			/>
-			<Tabs defaultSelectedKey="profile" className="flex flex-col gap-4">
-				<Tabs.List aria-label="Account sections" className="w-full">
-					<Tabs.Tab id="profile">Profile</Tabs.Tab>
-					<Tabs.Tab id="tokens">Access tokens</Tabs.Tab>
-					<Tabs.Tab id="apps">Connected apps</Tabs.Tab>
-					<Tabs.Tab id="agent">Connect an AI agent</Tabs.Tab>
-				</Tabs.List>
-				<Tabs.Panel id="profile" className="flex flex-col gap-4">
+		<SettingsLayout
+			title="Account"
+			description="Manage your profile, password, access tokens, and connected apps."
+			sidebarLabel="Account"
+			sections={ACCOUNT_SECTIONS}
+			activeId={activeTab}
+			searchFor={(id) => ({ tab: "account", accountTab: id })}
+		>
+			{activeTab === "profile" && (
+				<div className="flex flex-col gap-4">
+					<AccountSummary
+						name={data.user.name ?? ""}
+						email={data.user.email}
+						image={data.user.image}
+						isEnterpriseSession={isEnterpriseSession}
+					/>
 					<ProfileSection name={data.user.name ?? ""} email={data.user.email} id={data.user.id} />
-					{isEnterpriseSession ? <SsoSecuritySection /> : <PasswordSection />}
-				</Tabs.Panel>
-				<Tabs.Panel id="tokens">
-					<AccessTokens />
-				</Tabs.Panel>
-				<Tabs.Panel id="apps">
-					<ConnectedApps />
-				</Tabs.Panel>
-				<Tabs.Panel id="agent">
-					<ConnectAgent />
-				</Tabs.Panel>
-			</Tabs>
-		</div>
+				</div>
+			)}
+			{activeTab === "password" &&
+				(isEnterpriseSession ? <SsoSecuritySection /> : <PasswordSection />)}
+			{activeTab === "preferences" && <PreferencesSection />}
+			{activeTab === "tokens" && <AccessTokens />}
+			{activeTab === "apps" && <ConnectedApps />}
+			{activeTab === "agent" && <ConnectAgent />}
+		</SettingsLayout>
 	);
 }
 
@@ -282,6 +304,48 @@ function PasswordSection() {
 					Update password
 				</Button>
 			</Card.Footer>
+		</Card>
+	);
+}
+
+const THEME_OPTIONS = [
+	{ id: "light", label: "Light", icon: FiSun },
+	{ id: "dark", label: "Dark", icon: FiMoon },
+	{ id: "system", label: "System", icon: FiMonitor },
+] as const;
+
+function PreferencesSection() {
+	// Same theme store as the spotlight's toggle, so both stay in sync.
+	const [theme, setThemeChoice] = useState<ThemePreference>(getThemePreference);
+
+	return (
+		<Card>
+			<Card.Header>
+				<Card.Title className="flex items-center gap-2">
+					<FiSliders className="h-4 w-4 text-accent" /> Appearance
+				</Card.Title>
+				<Card.Description>Choose how the portal looks on this device.</Card.Description>
+			</Card.Header>
+			<Card.Content>
+				<ToggleButtonGroup
+					aria-label="Theme"
+					selectionMode="single"
+					disallowEmptySelection
+					selectedKeys={[theme]}
+					onSelectionChange={(keys) => {
+						const next = [...keys][0] as ThemePreference | undefined;
+						if (!next) return;
+						setTheme(next);
+						setThemeChoice(next);
+					}}
+				>
+					{THEME_OPTIONS.map(({ id, label, icon: Icon }) => (
+						<ToggleButton key={id} id={id}>
+							<Icon className="h-4 w-4" /> {label}
+						</ToggleButton>
+					))}
+				</ToggleButtonGroup>
+			</Card.Content>
 		</Card>
 	);
 }

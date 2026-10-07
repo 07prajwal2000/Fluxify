@@ -1,5 +1,5 @@
 import { expect, test, beforeEach, afterEach } from "bun:test";
-import { getTheme, setTheme, toggleTheme, initTheme } from "./theme";
+import { getTheme, getThemePreference, initTheme, setTheme, toggleTheme } from "./theme";
 
 const classList = new Set<string>();
 const attributes = new Map<string, string>();
@@ -74,4 +74,11 @@ test("initTheme loads persisted theme from localStorage", () => {
 	localStorage.setItem("theme", "light");
 	initTheme();
 	expect(getTheme()).toBe("light");
+});
+
+test("system preference is saved and applies a theme", () => {
+	setTheme("system");
+	expect(localStorage.getItem("theme")).toBe("system");
+	expect(getThemePreference()).toBe("system");
+	expect(["dark", "light"]).toContain(getTheme());
 });

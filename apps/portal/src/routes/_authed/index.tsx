@@ -14,6 +14,7 @@ export const Route = createFileRoute("/_authed/")({
 	validateSearch: z.object({
 		tab: z.string().optional(),
 		settingsTab: z.string().optional(),
+		accountTab: z.string().optional(),
 	}),
 	head: createDynamicRouteHead(({ search }) => {
 		const tabNames: Record<string, string> = {
@@ -32,7 +33,7 @@ export const Route = createFileRoute("/_authed/")({
 });
 
 function Home() {
-	const { tab, settingsTab } = Route.useSearch();
+	const { tab, settingsTab, accountTab } = Route.useSearch();
 	const navigate = useNavigate();
 	const { userData } = useAuthStore();
 	const selected = tab ?? "projects";
@@ -119,7 +120,7 @@ function Home() {
 				{selected === "instance" && userData?.isSystemAdmin && (
 					<InstanceSettings activeTab={settingsTab ?? "auth"} />
 				)}
-				{selected === "account" && <AccountDetails />}
+				{selected === "account" && <AccountDetails activeTab={accountTab ?? "profile"} />}
 			</main>
 		</div>
 	);
