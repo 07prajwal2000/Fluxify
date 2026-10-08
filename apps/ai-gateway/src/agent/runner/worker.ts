@@ -59,8 +59,11 @@ export const buildAgent: RunDeps["build"] = async (job, loaded) => {
 /** conversationId → the run this worker holds for it. */
 const running = new Map<string, AbortController>();
 
-const deps: RunDeps = {
-	store: agentStore(db),
+/** Read per job: `db` is only set once drizzleInit ran, after this module loaded. */
+export const deps: RunDeps = {
+	get store() {
+		return agentStore(db);
+	},
 	claimRun,
 	settle: settleConversation,
 	build: buildAgent,

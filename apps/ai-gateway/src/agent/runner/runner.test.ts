@@ -20,6 +20,7 @@ let queue: typeof import("./queue");
 let events: typeof import("./events");
 let repo: typeof import("./repository");
 let job: typeof import("./job");
+let worker: typeof import("./worker");
 let relay: typeof import("../../api/v1/agent/stream").relay;
 let store: AgentStore;
 
@@ -67,6 +68,8 @@ beforeAll(async () => {
 	await migrateDB(url);
 	sql = new SQL(url);
 	const server = await import("@fluxify/server");
+	// As in the gateway: the worker module loads before drizzleInit sets `db`.
+	worker = await import("./worker");
 	// The env is read once per process, maybe before this file ran: point PG_URL here for the init only.
 	const env = await import("@fluxify/server/src/lib/env");
 	const realEnv = env.getEnv;
@@ -269,4 +272,20 @@ describe("SSE endpoint", () => {
 		const { body } = await sse(`/agent/runs/${id}/stream`);
 		expect(body).toContain('"status":"interrupted"');
 	}, 10_000);
+});
+
+describe("worker deps", () => {
+	it("a job runs on the worker's deps although the module loaded before the db", async () => {
+		const c = await repo.createConversation(undefined as never, "p1");
+		const id = (await repo.startRun(c.id, "hi", "auto")) as string;
+		const { approve: _, ...agent } = scripted([]).agent;
+		const status = await job.executeRun(
+			{ type: "start", conversationId: c.id, runId: id, userId: "u1", projectId: "p1", mode: "auto", message: "hi" },
+			{ ...worker.deps, build: async () => agent },
+			new AbortController().signal,
+		);
+		expect(status).toBe("completed");
+		expect((await store.all(c.id)).map((r) => r.role)).toEqual(["user", "assistant"]);
+		expect((await repo.getConversation(c.id))?.status).toBe("completed");
+	});
 });
