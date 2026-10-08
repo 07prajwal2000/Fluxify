@@ -34,4 +34,13 @@ describe("modelFromEnv", () => {
 			"AGENT_BASE_URL",
 		);
 	});
+
+	it("reads another env set by prefix", () => {
+		const m = modelFromEnv(
+			{ AGENT_JUDGE_PROVIDER: "openai", AGENT_JUDGE_MODEL: "gpt-5", AGENT_JUDGE_API_KEY: KEY },
+			"AGENT_JUDGE",
+		) as { modelId: string };
+		expect(m.modelId).toBe("gpt-5");
+		expect(() => modelFromEnv({}, "AGENT_JUDGE")).toThrow("AGENT_JUDGE_PROVIDER");
+	});
 });

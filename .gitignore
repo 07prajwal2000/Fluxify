@@ -31,5 +31,3 @@ skills-lock.json
 # Fetched by `helm dependency build`, pinned by Chart.lock
 deploy/helm/fluxify/charts/
 
-# agent eval conversations (bun run agent:evals)
-apps/ai-gateway/src/agent/evals/out/
