@@ -113,6 +113,12 @@ export function agentTools(
 	loaded = new Set<string>(),
 ) {
 	const run = mcpCall(fetcher, auth);
+	/** Adds an advanced tool to the loaded set; false for a name that is not one. */
+	const load = (name: string) => {
+		if (!ADVANCED.some((t) => t.name === name)) return false;
+		loaded.add(name);
+		return true;
+	};
 	const wrap = (t: McpTool): Tool =>
 		tool({
 			description: t.description,
@@ -163,25 +169,37 @@ export function agentTools(
 			"Make advanced tools callable from your next step. Names from list_advanced_tools.",
 		inputSchema: z.object({ names: z.array(z.string()).min(1) }),
 		execute: async ({ names }) => {
-			const known = names.filter((n) => ADVANCED.some((t) => t.name === n));
-			for (const n of known) loaded.add(n);
+			const known = names.filter(load);
 			return { loaded: known, unknown: names.filter((n) => !known.includes(n)) };
 		},
 	});
-	return { tools, active: () => [...CORE, ...loaded] };
+	return { tools, active: () => [...CORE, ...loaded], load };
+}
+
+/** Up to 5 tool names that share a word with `name` (read_route ~ get_route), for the unknown-tool error. */
+export function closeMatches(name: string) {
+	const words = name.split("_").filter((w) => w.length > 2);
+	return [...CORE, ...ADVANCED.map((t) => t.name)]
+		.filter((n) => words.some((w) => n.split("_").includes(w)))
+		.slice(0, 5);
 }
 
 /**
- * The tools load_tools added in a stored conversation: a web run is one job
+ * The tools added in a stored conversation: a web run is one job
  * per message or approval, so the set the CLI keeps in memory (#672) is
- * rebuilt from the saved calls. Unknown names are dropped, as load_tools does.
+ * rebuilt from the saved calls: load_tools names, and advanced tools the model
+ * called directly (auto-loaded, #699). Unknown names are dropped, as load_tools does.
  */
 export function loadedTools(history: ModelMessage[]) {
 	const loaded = new Set<string>();
 	for (const m of history) {
 		if (m.role !== "assistant" || typeof m.content === "string") continue;
 		for (const p of m.content) {
-			if (p.type !== "tool-call" || p.toolName !== "load_tools") continue;
+			if (p.type !== "tool-call") continue;
+			if (p.toolName !== "load_tools") {
+				if (ADVANCED.some((t) => t.name === p.toolName)) loaded.add(p.toolName);
+				continue;
+			}
 			const names = (p.input as { names?: unknown })?.names;
 			if (!Array.isArray(names)) continue;
 			for (const n of names) if (ADVANCED.some((t) => t.name === n)) loaded.add(n);

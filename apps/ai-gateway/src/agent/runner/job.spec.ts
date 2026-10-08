@@ -218,4 +218,12 @@ describe("loaded tools across jobs", () => {
 			"delete_route",
 		]);
 	});
+
+	it("counts an advanced tool the model called without load_tools (#699)", () => {
+		const direct = (toolName: string) => ({
+			role: "assistant" as const,
+			content: [{ type: "tool-call" as const, toolCallId: "y", toolName, input: {} }],
+		});
+		expect([...loadedTools([direct("list_members"), direct("get_route"), direct("nope")])]).toEqual(["list_members"]);
+	});
 });

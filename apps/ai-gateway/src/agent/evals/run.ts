@@ -155,7 +155,7 @@ export async function runTask(task: Task, deps: Deps, signal: AbortSignal): Prom
 		const ctx: Ctx = { projectId, tool, api, seed: {}, calls: [], env: deps.env };
 		await task.setup?.(ctx);
 
-		const { tools, active } = agentTools(deps.fetcher, deps.auth, projectId);
+		const { tools, active, load } = agentTools(deps.fetcher, deps.auth, projectId);
 		// Unattended: auto mode, and the calls that still ask (deletes) are approved and noted.
 		const approve: Approve = async (call) => {
 			out(`[auto-approved] ${call.toolName}\n`);
@@ -169,6 +169,7 @@ export async function runTask(task: Task, deps: Deps, signal: AbortSignal): Prom
 				model: deps.model,
 				tools,
 				active,
+				load,
 				projectId,
 				history,
 				limits: deps.limits,

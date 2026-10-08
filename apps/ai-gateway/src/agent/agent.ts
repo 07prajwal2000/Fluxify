@@ -1,4 +1,4 @@
-import { type LanguageModel, type ModelMessage, streamText, type Tool } from "ai";
+import { type LanguageModel, type ModelMessage, NoSuchToolError, streamText, type Tool } from "ai";
 import { anthropicCache } from "./cache";
 import { compactor } from "./compact";
 import {
@@ -13,7 +13,7 @@ import {
 	WRAP_UP,
 } from "./guards";
 import { type Limits, withModelTimeouts, withToolTimeouts } from "./timeouts";
-import { isDelete, isRead, type Mode, needsApproval } from "./tools";
+import { closeMatches, isDelete, isRead, type Mode, needsApproval } from "./tools";
 
 export { type Limit, MAX_STEPS } from "./guards";
 
@@ -80,6 +80,8 @@ type Run = {
 	model: Exclude<LanguageModel, string>;
 	tools: Record<string, Tool>;
 	active: () => string[];
+	/** Marks an advanced tool loaded (agentTools' `load`); without it a call to an unloaded tool stays an error. */
+	load?: (name: string) => boolean;
 	projectId: string;
 	/** The conversation so far, ending on the new user message. Each finished step is appended to it. */
 	history: ModelMessage[];
@@ -134,6 +136,7 @@ export function runAgent({
 	model,
 	tools,
 	active,
+	load,
 	projectId,
 	history,
 	limits,
@@ -198,13 +201,14 @@ export function runAgent({
 		abortSignal,
 		onSummary,
 	});
+	// plan mode: load_tools must not offer write tools as usable now
+	const guarded = guardTools(
+		withToolTimeouts(mode === "plan" ? planTools(tools) : tools, limits.toolMs),
+		guard,
+		limits.maxResultChars ?? MAX_RESULT_CHARS,
+	);
 	const result = streamText({
-		// plan mode: load_tools must not offer write tools as usable now
-		tools: guardTools(
-			withToolTimeouts(mode === "plan" ? planTools(tools) : tools, limits.toolMs),
-			guard,
-			limits.maxResultChars ?? MAX_RESULT_CHARS,
-		),
+		tools: guarded,
 		model: timed,
 		instructions,
 		messages: [...history],
@@ -229,6 +233,26 @@ export function runAgent({
 				messages,
 				...anthropicCache(model, instructions, messages),
 			};
+		},
+		// A call to a real tool that is not active yet (#699): parsing only sees `activeTools`,
+		// but execution and toolApproval use all of `tools`. `step` is the filtered set the SDK
+		// parses against again after this returns, so adding the tool there runs it in this step.
+		experimental_repairToolCall: async ({ toolCall, tools: step, error }) => {
+			const name = toolCall.toolName;
+			if (!NoSuchToolError.isInstance(error)) return null;
+			if (!Object.hasOwn(guarded, name)) {
+				const near = closeMatches(name);
+				throw new Error(
+					`No tool named ${name}.${near.length ? ` Close matches: ${near.join(", ")}.` : ""} Use list_advanced_tools to see more.`,
+				);
+			}
+			if (mode === "plan" && !isRead(name))
+				throw new Error(
+					`${name} changes things; plan mode is read-only. Put it in the plan instead.`,
+				);
+			load?.(name);
+			(step as Record<string, Tool>)[name] = guarded[name];
+			return toolCall;
 		},
 		toolApproval: async ({ toolCall: { toolCallId, toolName, input } }) => {
 			const del = isDelete(toolName);
