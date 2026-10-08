@@ -2,6 +2,7 @@ import { appendFileSync, mkdirSync } from "node:fs";
 import path from "node:path";
 import type { runAgent } from "./agent";
 import { cacheTokens } from "./cache";
+import { type Compaction, compactionLine } from "./compact";
 import { stopMessage } from "./guards";
 
 export type Log = (event: string, data?: Record<string, unknown>) => void;
@@ -104,8 +105,14 @@ export async function printRun(result: ReturnType<typeof runAgent>, out: Out) {
 	};
 	const dim = (s: string) => (out.tty ? `\x1b[2m${s}\x1b[0m` : s);
 	const timer = setInterval(() => status.tick(), 1000);
-	const handle = (part: Part) => {
+	const handle = (part: Part | Compaction) => {
 		switch (part.type) {
+			case "compaction": {
+				const { type: _, ...stats } = part;
+				status.line(compactionLine(part));
+				log("compaction", stats);
+				break;
+			}
 			case "start-step":
 				log("step-start", { step: step + 1 });
 				break;
@@ -200,7 +207,11 @@ export async function printRun(result: ReturnType<typeof runAgent>, out: Out) {
 	};
 	status.set("waiting for model…");
 	try {
-		for await (const part of result.stream) handle(part);
+		// Compactions happen in prepareStep, so they show right before the step they shrank.
+		for await (const part of result.stream) {
+			for (const c of result.compactions.splice(0)) handle(c);
+			handle(part);
+		}
 		const stop = result.stopped();
 		if (stop) {
 			status.line(`[stopped] ${stopMessage(stop)}`);

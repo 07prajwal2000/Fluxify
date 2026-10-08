@@ -25,6 +25,8 @@ export type Limits = {
 	tokenBudget?: number;
 	/** Cap on one tool result, start and end kept (default 50,000). */
 	maxResultChars?: number;
+	/** Context window in tokens; compaction trims at 60% and summarizes at 80% (default 128,000). */
+	maxContextTokens?: number;
 };
 
 export const limitsFromEnv = (env: Record<string, string | undefined>): Limits => ({
@@ -35,6 +37,7 @@ export const limitsFromEnv = (env: Record<string, string | undefined>): Limits =
 	maxSteps: Number(env.AGENT_MAX_STEPS) || undefined,
 	tokenBudget: Number(env.AGENT_TOKEN_BUDGET) || undefined,
 	maxResultChars: Number(env.AGENT_MAX_RESULT_CHARS) || undefined,
+	maxContextTokens: Number(env.AGENT_MAX_CONTEXT_TOKENS) || undefined,
 });
 
 class Timeout extends Error {

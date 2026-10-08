@@ -4,7 +4,15 @@ import { createInterface } from "node:readline";
 import { parseArgs } from "node:util";
 import type { ModelMessage } from "ai";
 import { ADMIN_API_URL } from "../lib/env";
-import { type Approval, type Approve, type Limit, type OnLimit, runAgent } from "./agent";
+import {
+	type Approval,
+	type Approve,
+	agentPrompt,
+	type Limit,
+	type OnLimit,
+	runAgent,
+} from "./agent";
+import { compactionLine, summarize } from "./compact";
 import { modelFromEnv } from "./model";
 import { describeCall, type Log, printRun, runLog } from "./progress";
 import { limitsFromEnv } from "./timeouts";
@@ -15,7 +23,8 @@ export { printRun, short } from "./progress";
 /**
  * Terminal agent against a Fluxify admin API, acting as the user behind FLUXIFY_PAT.
  *   bun run agent ["<first prompt>"] --project <id> [--mode manual|auto|plan]
- * Then `[mode] > ` takes the next message. /mode <name> switches mode, /exit quits;
+ * Then `[mode] > ` takes the next message. /mode <name> switches mode, /compact summarizes
+ * the conversation so far now, /exit quits;
  * Ctrl+C stops a run (or rejects at an approval prompt), twice at an empty prompt quits.
  * manual asks before every change, auto only before deletes (deletes always ask), plan
  * only reads and writes a plan, then asks Start? (y runs it in auto).
@@ -26,6 +35,8 @@ export { printRun, short } from "./progress";
  * AGENT_MAX_STEPS (40) and AGENT_TOKEN_BUDGET (1000000 input + output tokens): at either one the run
  * asks "Continue? [y/n]" (y grants as much again, n or Ctrl+C stops it with a note),
  * AGENT_MAX_RESULT_CHARS (50000: a longer tool result keeps its start and end; canvases are never cut).
+ * AGENT_MAX_CONTEXT_TOKENS (128000: the model's context window; over 60% old tool results are trimmed
+ * in the request, over 80% older turns are replaced by a summary; both print a [compacted] line).
  * Each session logs to apps/ai-gateway/logs/agent-<time>.log.
  * Evals: bun run agent:evals [--task id,...] [--keep] [--no-judge]; env and output in evals/run.ts.
  */
@@ -57,10 +68,13 @@ export function startAgent(projectId: string, { loaded, ...run }: Run) {
 }
 
 /** What a line typed at `> ` means. `{ mode }` is /mode with its argument, if any. */
-export function parseLine(line: string): "skip" | "exit" | "unknown" | "run" | { mode?: string } {
+export function parseLine(
+	line: string,
+): "skip" | "exit" | "compact" | "unknown" | "run" | { mode?: string } {
 	const t = line.trim();
 	if (!t) return "skip";
 	if (t === "/exit") return "exit";
+	if (t === "/compact") return "compact";
 	if (t === "/mode" || t.startsWith("/mode ")) return { mode: t.slice(5).trim() || undefined };
 	return t.startsWith("/") ? "unknown" : "run";
 }
@@ -197,6 +211,28 @@ async function turn(
 	await printRun(result, { write, tty: process.stdout.isTTY, log, paused });
 }
 
+/** /compact: the 80% summary now, swapped into `history`. */
+export async function compactNow(
+	history: ModelMessage[],
+	instructions: string,
+	write: (s: string) => void,
+	log: Log,
+	model = modelFromEnv(process.env),
+) {
+	try {
+		const r = await summarize(model, history, { instructions });
+		if (!r) return write("[compacted] nothing to compact yet\n");
+		history.splice(0, history.length, ...r.messages);
+		const { type: _, ...stats } = r.event;
+		write(`${compactionLine(r.event)}\n`);
+		log("compaction", stats);
+	} catch (e) {
+		const error = e instanceof Error ? e.message : String(e);
+		write(`[compacted] summary failed: ${error}\n`);
+		log("compaction", { kind: "summary-failed", error });
+	}
+}
+
 async function repl(projectId: string, first: string | undefined, mode: Mode) {
 	const { file, log } = runLog(path.join(import.meta.dir, "../../logs"));
 	console.log(
@@ -295,6 +331,10 @@ async function repl(projectId: string, first: string | undefined, mode: Mode) {
 	for (let line = first ?? (await next()); ; line = await next()) {
 		const kind = parseLine(line);
 		if (kind === "exit") quit();
+		if (kind === "compact") {
+			await compactNow(session.history, agentPrompt(projectId), write, log);
+			continue;
+		}
 		if (typeof kind === "object") {
 			if (kind.mode && !MODES.includes(kind.mode as Mode))
 				console.log(`Unknown mode "${kind.mode}". Use /mode manual, /mode auto or /mode plan.`);
@@ -302,7 +342,7 @@ async function repl(projectId: string, first: string | undefined, mode: Mode) {
 			console.log(`Mode: ${session.mode}`);
 			continue;
 		}
-		if (kind === "unknown") console.log("Commands: /mode <manual|auto|plan>, /exit");
+		if (kind === "unknown") console.log("Commands: /mode <manual|auto|plan>, /compact, /exit");
 		if (kind !== "run") continue;
 		await converse(session, line.trim(), runOne, askStart, write);
 	}
