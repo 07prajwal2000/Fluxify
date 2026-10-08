@@ -6,6 +6,7 @@ import {
 	test,
 	expect,
 } from "bun:test";
+import { describeMongo } from "./describe";
 import { MongoAdapter, buildMongoUrl } from "./mongoDbAdapter";
 import { isTransactionUnsupported } from "./transactionErrors";
 import { Connection, DbType } from ".";
@@ -153,6 +154,19 @@ describe("MongoAdapter Integration Tests", () => {
 		expect(types.joined).toBe("date");
 		expect(types.extra).toBe("boolean"); // present in only one sampled doc
 		expect(coll!.columns.every((c) => c.owner === collectionName)).toBe(true);
+	});
+
+	test("describeMongo: names, then field types and indexes, never values (#652)", async () => {
+		const name = "people_" + faker.string.alphanumeric(8).toLowerCase();
+		await db.collection(name).insertMany([{ email: "secret@x.io", age: 3 }, { email: null }]);
+		await db.collection(name).createIndex({ email: 1 }, { unique: true, sparse: true });
+
+		expect(((await describeMongo(db)) as any).collections).toContain(name);
+		const result: any = await describeMongo(db, [name]);
+		const types = Object.fromEntries(result.collections[0].fields.map((f: any) => [f.name, f.type]));
+		expect(types).toEqual({ _id: "objectId", email: "null | string", age: "number" });
+		expect(result.collections[0].indexes).toContainEqual({ name: "email_1", definition: 'UNIQUE {"email":1}' });
+		expect(JSON.stringify(result)).not.toContain("secret@x.io");
 	});
 
 	test("CRUD: Single Record Lifecycle", async () => {

@@ -238,6 +238,39 @@ export const writeTools: McpTool[] = [
 					)
 				: send("POST", `/v1/${p}/integrations/test-connection`, a),
 	},
+	{
+		name: "get_integration_schema_details",
+		description:
+			"What is inside a saved database integration (PostgreSQL, MySQL, MongoDB). Without tables: the table or collection names. With tables: columns (type, nullable, default), primary key, foreign keys and indexes; for MongoDB, indexes and field types inferred from ~20 sampled documents. Never returns row data. For config fields use get_integration_schema instead.",
+		role: "creator",
+		annotations: { readOnlyHint: true, openWorldHint: true },
+		input: {
+			projectId,
+			integrationId: z.string().describe("A database integration's id, from list_integrations"),
+			tables: z
+				.array(z.string())
+				.optional()
+				.describe("Tables or collections to detail; omit to list names only"),
+		},
+		call: async ({ get }, a) =>
+			get(`/v1/${a.projectId}/integrations/${a.integrationId}/schema`, {
+				tables: a.tables?.join(","),
+			}),
+	},
+	{
+		name: "kv_get",
+		description:
+			"Read one key from a saved KV integration (Redis, Memcached): its value (first 10,000 characters, truncated says if cut) and seconds until it expires (Redis only; Memcached cannot tell). Read only: to change or clear a key, do it from a route.",
+		role: "creator",
+		annotations: { readOnlyHint: true, openWorldHint: true },
+		input: {
+			projectId,
+			integrationId: z.string().describe("A KV integration's id, from list_integrations"),
+			key: z.string().min(1),
+		},
+		call: async ({ get }, a) =>
+			get(`/v1/${a.projectId}/integrations/${a.integrationId}/kv`, { key: a.key }),
+	},
 ];
 
 function pickId(body: { id: unknown } | null) {

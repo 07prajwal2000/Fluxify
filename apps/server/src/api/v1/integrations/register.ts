@@ -6,6 +6,7 @@ import registerGetAllRoute from "./get-all/route";
 import registerGetBasicListRoute from "./get-basic-list/route";
 import registerGetByIdRoute from "./get-by-id/route";
 import registerGetMetadataRoute from "./get-metadata/route";
+import registerInspectRoutes from "./inspect/route";
 import registerTestConnectionRoute from "./test-connection/route";
 import registerTestExistingConnectionRoute from "./test-existing-connection/route";
 import registerUpdateRoute from "./update/route";
@@ -18,6 +19,7 @@ export default {
 		registerGetAllRoute(router);
 		registerGetByIdRoute(router);
 		registerGetMetadataRoute(router);
+		registerInspectRoutes(router);
 		registerCreateRoute(router);
 		registerUpdateRoute(router);
 		registerDeleteRoute(router);

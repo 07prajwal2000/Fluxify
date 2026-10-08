@@ -55,7 +55,7 @@ export default async function handleRequest(
 	};
 }
 
-function buildConnection(
+export function buildConnection(
 	variant: string,
 	config: any,
 	appConfigs: Map<string, string>,

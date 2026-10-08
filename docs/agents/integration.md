@@ -16,9 +16,53 @@ An integration is a saved connection to a database, KV store, AI provider, queue
 | `get_integration_schema` | viewer | The config fields of one `group` and `variant`, with blank defaults. Reads no project data. |
 | `save_integration` | creator | Create (no `integrationId`) or update (`integrationId`). |
 | `test_integration_connection` | creator | Tries the connection. Makes a real network call and changes nothing. |
+| `get_integration_schema_details` | creator | What is inside a saved database: table or collection names, or full detail for the ones you name. Never returns rows. |
+| `kv_get` | creator | Reads one key from a saved KV store: its value and how long until it expires. Changes nothing. |
 | `delete_integration` | creator | Deletes the integration. See [Delete](#delete). |
 
 Call `get_integration_schema` before you save. It lists the exact fields. A wrong config returns the fields to fix.
+
+## Look inside a database
+
+`get_integration_schema_details` reads a saved PostgreSQL, MySQL or MongoDB integration. Use it before you build a block on an existing table, instead of guessing column names.
+
+- Without `tables`: the names only. PostgreSQL tables outside the `public` schema read as `schema.table`.
+- With `tables`: for each one, its columns (type, nullable, default), primary key, foreign keys and indexes.
+- MongoDB has no fixed schema. You get the indexes and the field names with types, guessed from about 20 documents. A field missing from some documents is still listed. The documents themselves are never returned.
+
+```json
+{ "projectId": "…", "integrationId": "…", "tables": ["users"] }
+```
+
+```json
+{
+  "tables": [{
+    "table": "users",
+    "columns": [
+      { "name": "id", "type": "integer", "nullable": false, "default": "nextval('users_id_seq'::regclass)" },
+      { "name": "email", "type": "text", "nullable": false, "default": null }
+    ],
+    "primaryKey": ["id"],
+    "foreignKeys": [],
+    "indexes": [{ "name": "users_pkey", "definition": "CREATE UNIQUE INDEX users_pkey ON public.users USING btree (id)" }]
+  }]
+}
+```
+
+A name that does not exist fails with `Unknown table "…"`. Other groups fail with `Not supported for <group> integrations`. A database that does not answer within 10 seconds fails with a timeout.
+
+## Read a cached key
+
+`kv_get` reads one key from a saved Redis or Memcached integration. Use it to check what a route cached.
+
+```json
+{ "key": "users:all", "found": true, "value": "[…]", "truncated": false, "ttlSeconds": 240 }
+```
+
+- Only the first 10,000 characters come back. `truncated` is `true` when the value was longer.
+- `ttlSeconds` is the time left before the key expires, or `null` when it never expires.
+- Memcached cannot report expiry, so `ttlSeconds` is always `null` there, with a note saying so.
+- It cannot change or delete a key. To clear a bad value, do it from a route.
 
 ## Groups and variants
 
