@@ -36,20 +36,33 @@ export type DbOperator = z.infer<typeof dbOperatorSchema>;
 const CHAIN_DESCRIPTION =
 	"how this condition joins everything before it; conditions combine strictly left to right. Ignored on the first condition of a list or group";
 
-const leafConditionSchema = z.object({
-	// if it is prefixed with `js:` then it will use vm which is created for the request's context
-	lhs: z
-		.string()
-		.or(z.number().or(z.boolean()))
-		.describe("left-hand side operator (can be js expression)"),
-	rhs: z
-		.string()
-		.or(z.number().or(z.boolean()))
-		.describe("right-hand side operator (can be js expression)"),
-	operator: operatorSchema,
-	js: z.string().optional().describe("javascript expression"),
-	chain: z.enum(["and", "or"]).default("and").describe(CHAIN_DESCRIPTION),
-});
+const leafConditionSchema = z
+	.object({
+		// if it is prefixed with `js:` then it will use vm which is created for the request's context
+		lhs: z
+			.string()
+			.or(z.number().or(z.boolean()))
+			.optional()
+			.describe("left-hand side operator (can be js expression). Required except for operator js"),
+		rhs: z
+			.string()
+			.or(z.number().or(z.boolean()))
+			.optional()
+			.describe(
+				"right-hand side operator (can be js expression). Required for eq/neq/gt/gte/lt/lte; omit for is_empty, is_not_empty and js",
+			),
+		operator: operatorSchema,
+		js: z.string().optional().describe("javascript expression"),
+		chain: z.enum(["and", "or"]).default("and").describe(CHAIN_DESCRIPTION),
+	})
+	.superRefine((c, ctx) => {
+		const needsLhs = c.operator !== "js";
+		const needsRhs = needsLhs && c.operator !== "is_empty" && c.operator !== "is_not_empty";
+		if (needsLhs && c.lhs === undefined)
+			ctx.addIssue({ code: "custom", path: ["lhs"], message: `lhs is required for ${c.operator}` });
+		if (needsRhs && c.rhs === undefined)
+			ctx.addIssue({ code: "custom", path: ["rhs"], message: `rhs is required for ${c.operator}` });
+	});
 
 export type ConditionGroup = { group: Condition[]; chain: "and" | "or" };
 export type Condition = z.infer<typeof leafConditionSchema> | ConditionGroup;

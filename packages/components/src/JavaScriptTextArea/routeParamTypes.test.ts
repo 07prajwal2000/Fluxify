@@ -14,18 +14,18 @@ describe("buildRouteParamTypeLib", () => {
 
 	it("generates ambient declaration for query params", () => {
 		const lib = buildRouteParamTypeLib(undefined, ["page", "per_page"]);
-		expect(lib).toContain('declare function getQueryParam(key: "page" | "per_page" | (string & {})): string;');
+		expect(lib).toContain('declare function getQueryParam(key: "page" | "per_page" | (string & {})): string | undefined;');
 	});
 
 	it("generates ambient declaration for both route and query params", () => {
 		const lib = buildRouteParamTypeLib(["id"], ["limit", "offset"]);
 		expect(lib).toContain('declare function getRouteParam(key: "id" | (string & {})): string;');
-		expect(lib).toContain('declare function getQueryParam(key: "limit" | "offset" | (string & {})): string;');
+		expect(lib).toContain('declare function getQueryParam(key: "limit" | "offset" | (string & {})): string | undefined;');
 	});
 
 	it("deduplicates parameter names and filters empty entries", () => {
 		const lib = buildRouteParamTypeLib(["id", "id", ""], ["page", "page"]);
 		expect(lib).toContain('declare function getRouteParam(key: "id" | (string & {})): string;');
-		expect(lib).toContain('declare function getQueryParam(key: "page" | (string & {})): string;');
+		expect(lib).toContain('declare function getQueryParam(key: "page" | (string & {})): string | undefined;');
 	});
 });

@@ -4,7 +4,7 @@
  * the sandbox — keep the two in sync when the runtime gains a global.
  */
 export const FLUXIFY_JS_GLOBALS = `
-declare function getQueryParam(key: string): string;
+declare function getQueryParam(key: string): string | undefined;
 declare function getRouteParam(key: string): string;
 declare function getHeader(key: string): string;
 declare function setHeader(key: string, value: string): void;

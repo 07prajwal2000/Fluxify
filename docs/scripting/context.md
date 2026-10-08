@@ -65,7 +65,7 @@ Read data from the incoming HTTP request that triggered this workflow. All funct
 
 | Name | Signature | Description |
 | :--- | :--- | :--- |
-| `getQueryParam(key)` | `(key: string) => string` | Returns the value of a URL query parameter. |
+| `getQueryParam(key)` | `(key: string) => string | undefined` | Returns the value of a URL query parameter, or `undefined` if it was not sent. |
 | `getRouteParam(key)` | `(key: string) => string` | Returns the value of a dynamic path segment defined in the route (e.g., `:id`). |
 | `getHeader(key)` | `(key: string) => string` | Returns a request header value. Header lookup is case-insensitive. |
 | `getCookie(key)` | `(key: string) => string` | Returns a cookie value sent with the request. |

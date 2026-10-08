@@ -2,18 +2,7 @@ import { z } from "zod";
 import { baseBlockDataSchema } from "../baseBlock";
 import { BlockTypes } from "../blockTypes";
 
-export const errorHandlerBlockSchema = z
-	.object({
-		next: z
-			.string()
-			.describe("next block to execute")
-			.default("")
-			.refine((v) => {
-				if (v === "") return true;
-				return z.uuidv7().safeParse(v).success;
-			}),
-	})
-	.extend(baseBlockDataSchema.shape);
+export const errorHandlerBlockSchema = z.object({}).extend(baseBlockDataSchema.shape);
 
 export const errorHandlerAiDescription = {
 	name: BlockTypes.errorHandler,
