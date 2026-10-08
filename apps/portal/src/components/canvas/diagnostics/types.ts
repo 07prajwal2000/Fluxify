@@ -7,6 +7,7 @@ const SOURCE_LABELS: Record<string, string> = {
 	"transaction-wiring":
 		"Transaction check: rollbacks stay inside, success/failure paths stay outside",
 	"block-config": "Settings check: wired blocks must be filled in",
+	"literal-expression": "Text check: a value is plain text unless it starts with js:",
 	save: "Save error: the server rejected the save",
 };
 

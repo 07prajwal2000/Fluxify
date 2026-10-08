@@ -16,6 +16,7 @@ Basics:
 - Custom block: reusable JavaScript with typed inputs. Middleware: a chain of custom blocks around a route.
 - App config holds settings and secrets by key. Integrations are databases, KV stores, AI providers and queues.
 - Use list and get to see what exists. get_block_schemas (no input) lists blocks; with blockTypes it gives their exact fields.
+- Block text inputs are literal unless they start with \`js:\` followed by code that returns the value (e.g. \`js: return input.id\`); never use \`{{ }}\`.
 - search_docs when unsure. list_advanced_tools and load_tools give you deletes, members, packages, integrations and more.
 
 Check your work, every time:

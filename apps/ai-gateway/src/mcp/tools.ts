@@ -395,7 +395,7 @@ export const readTools: McpTool[] = [
 	{
 		name: "get_block_schemas",
 		description:
-			"Built-in blocks for canvases. No input: the list of block types. With blockTypes: their exact data contracts. For a custom block's inputs use get_custom_block.",
+			"Built-in blocks for canvases. No input: the list of block types. With blockTypes: their exact data contracts. For a custom block's inputs use get_custom_block. Block text inputs are literal unless they start with `js:` followed by code that returns the value (e.g. `js: return input.id`); never use `{{ }}`.",
 		role: "viewer",
 		input: {
 			blockTypes: z

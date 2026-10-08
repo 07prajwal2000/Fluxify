@@ -71,6 +71,8 @@ Pass the `version` you just read. Three new blocks make the flow:
 2. `check` branches on the result.
 3. `denied` answers 401 on the failure branch. The existing 200 response is the success branch.
 
+A block text input is a literal unless it starts with `js:`, and `js:` code must `return` the value. See [Dynamic values and `js:` expressions](/agents/expressions) before you fill a block field.
+
 Call `edit_canvas`:
 
 ```json

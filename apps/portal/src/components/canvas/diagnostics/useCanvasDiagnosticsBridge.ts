@@ -7,6 +7,10 @@ import type { BlockEdge, BlockNode } from "../types";
 import { BLOCK_CONFIG_SOURCE, validateBlockConfigs } from "./blockConfigValidator";
 import { CYCLE_DETECTION_SOURCE, validateCycles } from "./cycleValidator";
 import { useBlockDiagnostics } from "./DiagnosticsContext";
+import {
+	LITERAL_EXPRESSION_SOURCE,
+	validateLiteralExpressions,
+} from "./literalExpressionValidator";
 import { SWITCH_SOURCE, validateSwitches } from "./switchValidator";
 import {
 	TRANSACTION_SOURCE,
@@ -93,6 +97,9 @@ export function useCanvasDiagnosticsBridge({
 		const offConfigs = registerValidator(BLOCK_CONFIG_SOURCE, () =>
 			validateBlockConfigs(flowToGraph(nodes, edges)),
 		);
+		const offLiterals = registerValidator(LITERAL_EXPRESSION_SOURCE, () =>
+			validateLiteralExpressions(flowToGraph(nodes, edges)),
+		);
 		const offTransactions = registerValidator(TRANSACTION_SOURCE, () =>
 			validateTransactions(flowToGraph(nodes, edges)),
 		);
@@ -101,6 +108,7 @@ export function useCanvasDiagnosticsBridge({
 			offSwitches();
 			offConfigs();
 			offTransactions();
+			offLiterals();
 		};
 	}, [nodes, edges, registerValidator]);
 
@@ -110,6 +118,7 @@ export function useCanvasDiagnosticsBridge({
 		setFromSource(CYCLE_DETECTION_SOURCE, validateCycles(currentGraph));
 		setFromSource(SWITCH_SOURCE, validateSwitches(currentGraph));
 		setFromSource(BLOCK_CONFIG_SOURCE, validateBlockConfigs(currentGraph));
+		setFromSource(LITERAL_EXPRESSION_SOURCE, validateLiteralExpressions(currentGraph));
 	}, [nodes, edges, setFromSource]);
 
 	// The transaction walks depend only on wiring, so they skip drags and setting edits

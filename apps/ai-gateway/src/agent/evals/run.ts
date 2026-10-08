@@ -12,7 +12,8 @@ import { agentTools, mcpCall } from "../tools";
 import { type Ctx, runCheck, type Task } from "./checks";
 import { judge, judgeFromEnv, judgePrompt } from "./judge";
 import { appendResults, type Row, resultsRow, table } from "./report";
-import { tasks as ALL_TASKS } from "./tasks";
+import { tasks as BASE_TASKS } from "./tasks";
+import { moreTasks } from "./tasks2";
 
 /**
  * Agent evals: each task gets a fresh project, its setup, an agent run, automatic checks,
@@ -238,6 +239,8 @@ export async function runAll(
 	writeFileSync(path.join(deps.outDir, "results.md"), `${report}\n`);
 	return { rows, report };
 }
+
+const ALL_TASKS = [...BASE_TASKS, ...moreTasks];
 
 /** --task ids → tasks, in the suite's order; throws on an unknown id. */
 export function pickTasks(ids: string | undefined, all = ALL_TASKS) {

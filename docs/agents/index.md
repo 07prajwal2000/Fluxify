@@ -26,6 +26,10 @@ One page per thing you can save with the tools.
 - [App config reference](/agents/app-config): project settings and secrets. Encryption, encoding and errors for `save_app_config`.
 - [Test suite reference](/agents/test-suite): saved requests or inputs with assertions. Assertions, hooks, overrides, running and errors for `save_test_suite`.
 
+## Block inputs
+
+- [Dynamic values and `js:` expressions](/agents/expressions): how a block input becomes dynamic. The `js:` prefix, what names exist, which fields accept it and the common mistakes. Read it before you fill any block field.
+
 ## Recipes
 
 Each recipe is a list of steps. Every step is a tool call with its arguments.
@@ -41,5 +45,6 @@ Each recipe is a list of steps. Every step is a tool call with its arguments.
 - Tools act as the signed-in user. A `You need the ... role` error means ask a project admin. Do not retry.
 - A `save_*` tool creates when you leave out the resource id, and updates when you pass it. On update, send only the fields that change.
 - A new route, workflow or trigger is inactive. Switch it on with `active: true` when it is ready.
-- Put secrets in app config and refer to them as `cfg:KEY` or with `getConfig("KEY")`. Never write a secret into a block or a canvas.
+- A block text input is a literal unless it starts with `js:`, and `js:` code must `return` the value. Never use `{{ }}`. See [Dynamic values and `js:` expressions](/agents/expressions).
+- Put secrets in app config and refer to them as `cfg:KEY` in an integration, or with `getConfig("KEY")` in code. Never write a secret into a block or a canvas.
 - Check `get_system_logs` after a change. Compile errors show up there.

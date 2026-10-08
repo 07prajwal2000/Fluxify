@@ -186,6 +186,10 @@ describe("tasks", () => {
 		expect(Array.isArray(tasks.find((t) => t.id === "multi-turn")?.prompt)).toBe(true);
 	});
 
+	it("--task also finds the tasks in tasks2", () => {
+		expect(pickTasks("greeting-expression").map((t) => t.id)).toEqual(["greeting-expression"]);
+	});
+
 	it("--task picks in suite order and refuses unknown ids", () => {
 		expect(pickTasks("echo,health").map((t) => t.id)).toEqual(["health", "echo"]);
 		expect(() => pickTasks("health,nope")).toThrow("Unknown task(s): nope");

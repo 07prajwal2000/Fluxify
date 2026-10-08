@@ -38,6 +38,7 @@ export const canvasTools: McpTool[] = [
 			"A handle holds one edge (switch case and orchestrate excepted): disconnect before re-pointing it.",
 			"Bad ops, unknown block types, missing ids and broken edges are refused and nothing is saved.",
 			"validate: true also returns rule errors and warnings; warnings still save. Empty ops + validate checks without saving.",
+			"Block text inputs are literal unless they start with `js:` followed by code that returns the value (e.g. `js: return input.id`); never use `{{ }}`.",
 			"Returns the new version and the id of each ref.",
 		].join(" "),
 		role: "creator",
