@@ -9,6 +9,7 @@ import {
 } from "@fluxify/server/src/api/v1/workflows/dto";
 import { ValidationSchemaZod } from "@fluxify/server/src/lib/validationSchemaZod";
 import { z } from "zod";
+import type { AdminApi } from "./adminApi";
 import type { McpTool } from "./tools";
 import { optionalFields } from "./writeTools";
 
@@ -29,6 +30,30 @@ const requestSchema = (what: string) =>
 		.optional()
 		.describe(`Validates the request ${what}. null removes it.`);
 
+const ids = z.array(z.string()).optional();
+const middlewaresArg = z
+	.object({ before: ids, after: ids })
+	.optional()
+	.describe(
+		"Middleware ids from list_middlewares, in run order. before runs before the canvas, after runs after it. A side you leave out stays as it is; [] clears it.",
+	);
+
+/** Sets a route's middlewares; the server replaces both sides, so a missing side keeps its current ids. */
+async function setMiddlewares(
+	api: AdminApi,
+	routeId: string,
+	m: { before?: string[]; after?: string[] },
+) {
+	let { before, after } = m;
+	if (!before || !after) {
+		const now = await api.get(`/v1/routes/${routeId}/middlewares`);
+		const idsOf = (list: { id: string }[]) => list.map((x) => x.id);
+		before ??= idsOf(now.before);
+		after ??= idsOf(now.after);
+	}
+	await api.send("PUT", `/v1/routes/${routeId}/middlewares`, { before, after });
+}
+
 const SCHEMA_HINT =
 	'bodySchema, querySchema and paramsSchema validate the request. They are Fluxify schemas, not JSON Schema: { dataType: "object", properties: [{ key: "id", dataType: "int", required: true }] }. dataType is str, int, float, bool, object, arr, enum, file or blob; arr takes items, object takes properties. A path with :params needs a paramsSchema naming each one.';
 
@@ -42,7 +67,7 @@ export function truncate(body: unknown) {
 export const routeTools: McpTool[] = [
 	{
 		name: "save_route",
-		description: `Create or update an HTTP route's settings. To create pass projectId, name, path ('/users/:id') and method. A new route starts INACTIVE: pass active: true, or call_route and real callers get 404. It starts with a canvas that answers 200. On update pass routeId and only what changes. ${SCHEMA_HINT} Build the route's logic with get_canvas and edit_canvas.`,
+		description: `Create or update an HTTP route's settings. To create pass projectId, name, path ('/users/:id') and method. A new route starts INACTIVE: pass active: true, or call_route and real callers get 404. It starts with a canvas that answers 200. On update pass routeId and only what changes. ${SCHEMA_HINT} middlewares attaches middlewares (ids from list_middlewares): before runs before the canvas, after runs after it, each list in run order. Build the route's logic with get_canvas and edit_canvas.`,
 		role: "creator",
 		annotations: SAVE,
 		input: {
@@ -52,11 +77,16 @@ export const routeTools: McpTool[] = [
 			bodySchema: requestSchema("body"),
 			querySchema: requestSchema("query string"),
 			paramsSchema: requestSchema("path params"),
+			middlewares: middlewaresArg,
 		},
-		call: async ({ send }, { routeId, projectId: p, ...a }) => {
-			const { id } = routeId
-				? await send("PATCH", `/v1/routes/partial/${routeId}`, a)
-				: await send("POST", "/v1/routes", { projectId: p, ...a });
+		call: async (api, { routeId, projectId: p, middlewares, ...a }) => {
+			const id: string =
+				routeId ?? (await api.send("POST", "/v1/routes", { projectId: p, ...a })).id;
+			// a middlewares-only update has nothing to patch
+			if (routeId && (!middlewares || Object.keys(a).length)) {
+				await api.send("PATCH", `/v1/routes/partial/${routeId}`, a);
+			}
+			if (middlewares) await setMiddlewares(api, id, middlewares);
 			return { id };
 		},
 	},

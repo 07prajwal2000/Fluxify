@@ -141,7 +141,7 @@ Save both cases as a test suite and run it. See [Recipe, write and run a test su
 
 ## Reuse the check on many routes
 
-A guard repeated on many routes belongs in a [middleware](/agents/middleware). Make a custom block with `usage: "middleware"` that holds the same `jsrunner` and `if`. End its failure branch in a `response` block with `httpCode` `"401"`, which stops the request before the route runs. Chain it in `save_middleware`. A person then attaches it to each route.
+A guard repeated on many routes belongs in a [middleware](/agents/middleware). Make a custom block with `usage: "middleware"` that holds the same `jsrunner` and `if`. End its failure branch in a `response` block with `httpCode` `"401"`, which stops the request before the route runs. Chain it in `save_middleware`. Attach it to each route with `save_route` and `middlewares: { before: ["<middleware id>"] }`.
 
 ## Common problems
 

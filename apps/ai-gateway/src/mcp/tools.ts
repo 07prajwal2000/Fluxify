@@ -147,24 +147,34 @@ export const readTools: McpTool[] = [
 	{
 		name: "get_route",
 		description:
-			"One route's settings and its body, query and params schemas (what call_route must send). Its canvas (blocks and edges) is not included.",
+			"One route's settings, its body, query and params schemas (what call_route must send) and its before/after middlewares in run order. Its canvas (blocks and edges) is not included.",
 		role: "viewer",
 		input: { routeId: z.string().describe("Route id, from list_routes") },
-		call: async ({ get }, a) =>
-			pick(await get(`/v1/routes/${a.routeId}`), [
-				"id",
-				"name",
-				"method",
-				"path",
-				"active",
-				"timeoutSeconds",
-				"tracingEnabled",
-				"recordExecution",
-				"acceptedContentTypes",
-				"bodySchema",
-				"querySchema",
-				"paramsSchema",
-			]),
+		call: async ({ get }, a) => {
+			const [route, m] = await Promise.all([
+				get(`/v1/routes/${a.routeId}`),
+				get(`/v1/routes/${a.routeId}/middlewares`),
+			]);
+			const named = (list: { id: string; name: string }[]) =>
+				list.map(({ id, name }) => ({ id, name }));
+			return {
+				...pick(route, [
+					"id",
+					"name",
+					"method",
+					"path",
+					"active",
+					"timeoutSeconds",
+					"tracingEnabled",
+					"recordExecution",
+					"acceptedContentTypes",
+					"bodySchema",
+					"querySchema",
+					"paramsSchema",
+				]),
+				middlewares: { before: named(m.before), after: named(m.after) },
+			};
+		},
 	},
 	{
 		name: "list_workflows",
