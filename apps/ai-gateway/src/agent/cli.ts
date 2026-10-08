@@ -56,7 +56,7 @@ export function startAgent(projectId: string, { loaded, ...run }: Run) {
 	const pat = process.env.FLUXIFY_PAT;
 	if (!pat) throw new Error("FLUXIFY_PAT is required: a personal access token from the portal");
 	const base = process.env.FLUXIFY_URL || ADMIN_API_URL;
-	const { tools, active } = agentTools(
+	const { tools, active, load } = agentTools(
 		(p, init) => fetch(`${base}${p}`, init),
 		{ authorization: `Bearer ${pat}` },
 		projectId,
@@ -64,7 +64,7 @@ export function startAgent(projectId: string, { loaded, ...run }: Run) {
 	);
 	const model = modelFromEnv(process.env);
 	const limits = limitsFromEnv(process.env);
-	return runAgent({ model, tools, active, projectId, limits, ...run });
+	return runAgent({ model, tools, active, load, projectId, limits, ...run });
 }
 
 /** What a line typed at `> ` means. `{ mode }` is /mode with its argument, if any. */

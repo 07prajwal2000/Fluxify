@@ -40,7 +40,7 @@ export const buildAgent: RunDeps["build"] = async (job, loaded) => {
 	const settings: Record<string, string> = {};
 	for (const key of LIMIT_KEYS) settings[key] = await getProjectSetting(job.projectId, key);
 	const token = mintAgentToken(job.userId, job.projectId);
-	const { tools, active } = agentTools(
+	const { tools, active, load } = agentTools(
 		httpAdminFetch,
 		{ authorization: `Bearer ${token}` },
 		job.projectId,
@@ -50,6 +50,7 @@ export const buildAgent: RunDeps["build"] = async (job, loaded) => {
 		model: modelFromIntegration(integration),
 		tools,
 		active,
+		load,
 		projectId: job.projectId,
 		limits: limitsFromProject(settings, process.env),
 		mode: job.mode,
