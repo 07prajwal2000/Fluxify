@@ -13,6 +13,9 @@ import {
 import { z } from "zod";
 import { type McpTool, projectId } from "./tools";
 
+/** How a 400 reads after readableError (adminApi.ts). */
+const INVALID = "Invalid input: ";
+
 /**
  * The server's own request fields, all optional and without defaults. One
  * tool both creates and updates, so a default would overwrite a value the
@@ -226,7 +229,13 @@ export const writeTools: McpTool[] = [
 		},
 		call: async ({ get, send }, { projectId: p, integrationId, signal, ...a }) =>
 			integrationId
-				? get(`/v1/${p}/integrations/test-existing-connection/${integrationId}`, { signal })
+				? // a failed test of a saved one is a 400 carrying the reason; answer like the unsaved test does
+					get(`/v1/${p}/integrations/test-existing-connection/${integrationId}`, { signal }).catch(
+						(e: Error) => {
+							if (!e.message.startsWith(INVALID)) throw e;
+							return { success: false, error: e.message.slice(INVALID.length) };
+						},
+					)
 				: send("POST", `/v1/${p}/integrations/test-connection`, a),
 	},
 ];
