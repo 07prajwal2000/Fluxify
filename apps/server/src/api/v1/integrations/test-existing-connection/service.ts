@@ -12,7 +12,7 @@ export default async function handleRequest(
 ): Promise<z.infer<typeof responseSchema>> {
 	const integration = await getIntegrationById(params.projectId, params.id);
 	if (!integration) {
-		throw new NotFoundError("Integration not found");
+		throw new NotFoundError(`Integration ${params.id} not found in project ${params.projectId}`);
 	}
 	const result = await testIntegrationConnection(
 		params.projectId,
