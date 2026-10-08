@@ -5,6 +5,7 @@ import type { LanguageModel, ModelMessage } from "ai";
 import { ADMIN_API_URL } from "../../lib/env";
 import { type AdminFetch, adminApi } from "../../mcp/adminApi";
 import { type Approve, runAgent } from "../agent";
+import { cacheTokens } from "../cache";
 import { modelFromEnv } from "../model";
 import { printRun } from "../progress";
 import { type Limits, limitsFromEnv } from "../timeouts";
@@ -127,6 +128,7 @@ export async function runTask(task: Task, deps: Deps, signal: AbortSignal): Prom
 		steps: 0,
 		tokensIn: 0,
 		tokensOut: 0,
+		cacheRead: 0,
 		ms: 0,
 		stop: "",
 	};
@@ -183,6 +185,7 @@ export async function runTask(task: Task, deps: Deps, signal: AbortSignal): Prom
 			row.steps += steps.length;
 			row.tokensIn += usage?.inputTokens ?? 0;
 			row.tokensOut += usage?.outputTokens ?? 0;
+			row.cacheRead += cacheTokens(usage).read;
 			const stop = result.stopped()?.kind;
 			row.stop = stop ? `${STOP_CODE[stop]}-limit` : finish;
 		}

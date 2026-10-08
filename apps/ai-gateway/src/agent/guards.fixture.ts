@@ -3,18 +3,19 @@ import { type ModelMessage, tool } from "ai";
 import { convertArrayToReadableStream, MockLanguageModelV4 } from "ai/test";
 import { z } from "zod";
 import { approveAll, assertEndsOnUserOrTool, type Limit, runAgent } from "./agent";
-import { printRun } from "./progress";
+import { type Log, printRun } from "./progress";
 
 /** Test harness for the guard specs: a fake model that makes the given calls, then says "done". */
 
-const usage = {
-	inputTokens: { total: 1, noCache: 1, cacheRead: 0, cacheWrite: 0 },
+let cacheRead = 0;
+const usage = () => ({
+	inputTokens: { total: 1, noCache: 1, cacheRead, cacheWrite: 0 },
 	outputTokens: { total: 1, text: 1, reasoning: 0 },
-};
+});
 const finish = (reason: string) => ({
 	type: "finish",
 	finishReason: { unified: reason, raw: reason },
-	usage,
+	usage: usage(),
 });
 const reply = (parts: object[]) => ({ stream: convertArrayToReadableStream(parts as any) });
 const done = () =>
@@ -35,6 +36,11 @@ type Opts = {
 	maxSteps?: number;
 	tokenBudget?: number;
 	signal?: AbortSignal;
+	/** The model's provider id, e.g. "anthropic.messages". */
+	provider?: string;
+	/** Cache tokens every step reports as read. */
+	cacheRead?: number;
+	log?: Log;
 };
 const NAMES = ["get_canvas", "edit_canvas", "call_route", "save_route"];
 
@@ -42,7 +48,9 @@ const NAMES = ["get_canvas", "edit_canvas", "call_route", "save_route"];
 export async function run(calls: Step[], opts: Opts = {}) {
 	const prompts: ModelMessage[][] = [];
 	const limitsAsked: Limit[] = [];
+	cacheRead = opts.cacheRead ?? 0;
 	const model = new MockLanguageModelV4({
+		provider: opts.provider,
 		doStream: async (o) => {
 			prompts.push(o.prompt as ModelMessage[]);
 			const step = calls[prompts.length - 1];
@@ -89,7 +97,7 @@ export async function run(calls: Step[], opts: Opts = {}) {
 			: undefined,
 	});
 	let shown = "";
-	await printRun(result, { write: (s) => (shown += s) });
+	await printRun(result, { write: (s) => (shown += s), log: opts.log });
 	/** What each tool result said, in order. */
 	const results = history.flatMap((m) =>
 		m.role === "tool" ? m.content.map((p) => JSON.stringify(p)) : [],

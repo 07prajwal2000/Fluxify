@@ -9,6 +9,8 @@ export type Row = {
 	steps: number;
 	tokensIn: number;
 	tokensOut: number;
+	/** Input tokens served from the provider cache. */
+	cacheRead: number;
 	ms: number;
 	/** stop, step-limit, token-limit, repeat-limit, error, aborted, skipped: <why>, … */
 	stop: string;
@@ -25,14 +27,14 @@ const counted = (r: Row) => !r.stop.startsWith("skipped");
 /** The run as a markdown table, then each failed check and error on its own line. */
 export function table(rows: Row[]): string {
 	const lines = [
-		"| Task | Checks | Judge | Steps | Tokens in/out | Time | Stop |",
-		"| --- | --- | --- | --- | --- | --- | --- |",
+		"| Task | Checks | Judge | Steps | Tokens in/out | Cache read | Time | Stop |",
+		"| --- | --- | --- | --- | --- | --- | --- | --- |",
 		...rows.map((r) => {
 			const checks = counted(r)
 				? `${passed(r) ? "PASS" : "FAIL"} ${r.checks.filter((c) => c.pass).length}/${r.checks.length}`
 				: "-";
 			const judge = typeof r.judge === "number" ? pct(r.judge) : r.judge;
-			return `| ${r.id} | ${checks} | ${judge} | ${r.steps} | ${r.tokensIn}/${r.tokensOut} | ${secs(r.ms)} | ${r.stop} |`;
+			return `| ${r.id} | ${checks} | ${judge} | ${r.steps} | ${r.tokensIn}/${r.tokensOut} | ${r.cacheRead} | ${secs(r.ms)} | ${r.stop} |`;
 		}),
 	];
 	const notes = rows.flatMap((r) => [

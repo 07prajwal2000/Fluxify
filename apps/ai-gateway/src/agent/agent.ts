@@ -1,4 +1,5 @@
 import { type LanguageModel, type ModelMessage, streamText, type Tool } from "ai";
+import { anthropicCache } from "./cache";
 import {
 	guardTools,
 	type Limit,
@@ -159,6 +160,7 @@ export function runAgent({
 		else stop = { kind, used, limit };
 		return go;
 	};
+	const instructions = agentPrompt(projectId) + (mode === "plan" ? PLAN_PROMPT : "");
 	const result = streamText({
 		// plan mode: load_tools must not offer write tools as usable now
 		tools: guardTools(
@@ -167,7 +169,7 @@ export function runAgent({
 			limits.maxResultChars ?? MAX_RESULT_CHARS,
 		),
 		model: withModelTimeouts(model, limits, onRetry ?? (() => {})),
-		instructions: agentPrompt(projectId) + (mode === "plan" ? PLAN_PROMPT : ""),
+		instructions,
 		messages: [...history],
 		abortSignal,
 		maxRetries: limits.retries,
@@ -183,7 +185,10 @@ export function runAgent({
 		},
 		prepareStep: ({ messages }) => {
 			assertEndsOnUserOrTool(messages);
-			return { activeTools: mode === "plan" ? active().filter(isRead) : active() };
+			return {
+				activeTools: mode === "plan" ? active().filter(isRead) : active(),
+				...anthropicCache(model, instructions, messages),
+			};
 		},
 		toolApproval: async ({ toolCall: { toolCallId, toolName, input } }) => {
 			const del = isDelete(toolName);
