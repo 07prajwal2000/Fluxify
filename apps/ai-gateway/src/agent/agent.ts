@@ -50,8 +50,14 @@ export type PendingCall = {
 	input: unknown;
 	isDelete: boolean;
 };
-/** `always` approves the tool for the rest of the session (ignored for deletes). */
-export type Approval = { ok: true; always?: boolean } | { ok: false; reason?: string };
+/**
+ * `always` approves the tool for the rest of the session (ignored for deletes).
+ * `defer` answers later: the call is left without a result and the run ends,
+ * waiting for the user (the web path; see continueConversation).
+ */
+export type Approval =
+	| { ok: true; always?: boolean }
+	| { ok: false; reason?: string; defer?: boolean };
 /** Asks the user (terminal, UI, …). `signal` fires when the run is stopped. */
 export type Approve = (call: PendingCall, signal?: AbortSignal) => Promise<Approval>;
 
@@ -82,6 +88,10 @@ type Run = {
 	abortSignal?: AbortSignal;
 	/** A model call is being retried (idle timeout, or a 429/5xx). */
 	onRetry?: (why: string) => void;
+	/** Each finished message, in order, once (persistence; the CLI passes none). */
+	onMessages?: (messages: ModelMessage[]) => void | Promise<void>;
+	/** A summary replaced `covered` in history. A throw keeps the history as it was. */
+	onSummary?: (summary: ModelMessage, covered: ModelMessage[]) => Promise<void>;
 };
 
 /**
@@ -128,6 +138,8 @@ export function runAgent({
 	allowed = new Set(),
 	abortSignal,
 	onRetry,
+	onMessages,
+	onSummary,
 }: Run) {
 	let error = "";
 	const stopped = new Promise<Approval>((resolve) =>
@@ -144,11 +156,21 @@ export function runAgent({
 	/** The limit being asked about, so a stop during the prompt still leaves its note. */
 	let asking: Limit | undefined;
 	let noted = false;
+	/**
+	 * Reports history[from..] after an optional note. A note appended to a
+	 * message reported earlier goes out as its own message.
+	 */
+	const flush = async (from: number, note?: string) => {
+		if (note) addNote(history, note);
+		const out = history.slice(from);
+		if (note && !out.length) out.push({ role: "assistant", content: note });
+		if (out.length) await onMessages?.(out);
+	};
 	/** The stop note, once (an abort can report more than once). */
-	const noteStop = (s: Stop | undefined) => {
+	const noteStop = async (s: Stop | undefined) => {
 		if (!s || noted) return;
 		noted = true;
-		addNote(history, stopNote(s));
+		await flush(history.length, stopNote(s));
 	};
 	/** Asks to go past a limit; no stops the run. */
 	const pastLimit = async (kind: Limit["kind"], used: number) => {
@@ -169,6 +191,7 @@ export function runAgent({
 		instructions,
 		context: limits.maxContextTokens,
 		abortSignal,
+		onSummary,
 	});
 	const result = streamText({
 		// plan mode: load_tools must not offer write tools as usable now
@@ -209,6 +232,7 @@ export function runAgent({
 				approve({ toolCallId, toolName, input, isDelete: del }, abortSignal),
 				stopped,
 			]);
+			if (!r.ok && r.defer) return "user-approval";
 			if (!r.ok) return { type: "denied", reason: rejected(toolName, r.reason) };
 			if (r.always && !del) allowed.add(toolName);
 			return "approved";
@@ -217,10 +241,14 @@ export function runAgent({
 		onError: ({ error: e }) => {
 			error = e instanceof Error ? e.message : String(e);
 		},
-		onStepEnd: (step) => {
+		onStepEnd: async (step) => {
+			const from = history.length;
 			history.push(...step.response.messages);
-			if (step.finishReason === "error")
-				addNote(history, `(previous reply failed: ${error || "unknown error"})`);
+			const failed = step.finishReason === "error";
+			await flush(
+				from,
+				failed ? `(previous reply failed: ${error || "unknown error"})` : undefined,
+			);
 		},
 		// After the last step is in history, so the note lands after its tool results.
 		onFinish: () => noteStop(stop),

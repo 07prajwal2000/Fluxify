@@ -42,6 +42,8 @@ export const agentHarnessRunStatusEnum = pgEnum("agent_harness_run_status", [
 	"completed",
 	"interrupted",
 	"failed",
+	// New agent (#645): stopped on a tool call the user has not answered yet.
+	"waiting_approval",
 ]);
 
 export const agentHarnessStepStatusEnum = pgEnum("agent_harness_step_status", [
@@ -328,6 +330,42 @@ export const agentHarnessSubArtifactsEntity = pgTable(
 	(t) => [
 		index("idx_harness_sub_artifacts_artifact_id").on(t.artifactId),
 		index("idx_harness_sub_artifacts_run_id").on(t.runId),
+	],
+);
+
+export const agentMessageRoleEnum = pgEnum("agent_message_role", [
+	"user",
+	"assistant",
+	"tool",
+	"summary",
+]);
+
+/** New agent (#645): one row per finished message, never edited. The UI shows
+ *  every row; the model gets the latest summary plus the rows after it. */
+export const agentMessagesEntity = pgTable(
+	"agent_messages",
+	{
+		id: varchar({ length: 50 })
+			.primaryKey()
+			.$defaultFn(() => generateID()),
+		conversationId: varchar("conversation_id", { length: 50 })
+			.references(() => agentHarnessConversationsEntity.id, { onDelete: "cascade" })
+			.notNull(),
+		runId: varchar("run_id", { length: 50 })
+			.references(() => agentHarnessRunsEntity.id, { onDelete: "cascade" })
+			.notNull(),
+		seq: integer("seq").notNull(),
+		role: agentMessageRoleEnum("role").notNull(),
+		/** The AI SDK ModelMessage as-is (reasoning and provider options included). */
+		content: jsonb("content").$type<Record<string, any>>().notNull(),
+		tokens: integer("tokens"),
+		/** Summary rows only: the last seq the summary stands in for. */
+		coversUpToSeq: integer("covers_up_to_seq"),
+		createdAt: timestamp("created_at").defaultNow().notNull(),
+	},
+	(t) => [
+		uniqueIndex("uq_agent_messages_conv_seq").on(t.conversationId, t.seq),
+		index("idx_agent_messages_run_id").on(t.runId),
 	],
 );
 

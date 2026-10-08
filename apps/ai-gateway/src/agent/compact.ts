@@ -167,6 +167,8 @@ export function compactor(o: {
 	instructions: string;
 	context?: number;
 	abortSignal?: AbortSignal;
+	/** Told before the summary is swapped in; a throw keeps the history as it was. */
+	onSummary?: (summary: ModelMessage, covered: ModelMessage[]) => Promise<void>;
 }) {
 	const context = o.context ?? MAX_CONTEXT_TOKENS;
 	const events: Compaction[] = [];
@@ -200,6 +202,7 @@ export function compactor(o: {
 			try {
 				const r = await summarize(o.model, o.history, o);
 				if (r) {
+					await o.onSummary?.(r.messages[0], o.history.slice(0, r.event.coversUpTo));
 					o.history.splice(0, o.history.length, ...r.messages);
 					events.push(r.event);
 					stale = true;
