@@ -139,8 +139,14 @@ class Draft {
 		const hits = [...this.edges.entries()].filter(
 			([, e]) => e.from === from && e.to === to && (!h || e.handle === h),
 		);
-		if (!hits.length)
-			throw new Error(`disconnect: no edge from ${from} to ${to}${h ? ` on ${h}` : ""}.`);
+		if (!hits.length) {
+			const have = [...this.edges.values()]
+				.filter((e) => e.from === from)
+				.map((e) => `${e.handle} -> ${e.to}`);
+			throw new Error(
+				`disconnect: no edge from ${from} to ${to}${h ? ` on ${h}` : ""}. ${from} has ${have.length ? `edges ${have.join(", ")}` : "no outgoing edges"}.`,
+			);
+		}
 		for (const [key] of hits) this.edges.delete(key);
 		return hits.flatMap(([, e]) => (e.id ? [e.id] : []));
 	}

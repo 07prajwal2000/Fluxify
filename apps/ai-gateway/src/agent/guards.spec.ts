@@ -19,13 +19,13 @@ describe("repeat guard", () => {
 		expect(stableKey({ b: 1, a: { d: 2, c: [3, { f: 1, e: 0 }] } })).toBe(stableKey({ a: { c: [3, { e: 0, f: 1 }], d: 2 }, b: 1 }));
 		const r = await run([{ q: "a", page: 1 }, { page: 1, q: "a" }, { q: "a", page: 1 }]);
 		expect(r.results[2]).toContain("You are looping");
+		expect(r.results[2]).toContain("get_canvas call (args: ");
 	});
 
 	it("counts the same read error with different args", async () => {
 		const r = await run(distinct(8), { fail: "Route not found" });
 		expect(r.prompts).toHaveLength(5);
-		expect(r.results[2]).toContain("Route not found");
-		expect(r.results[2]).toContain("You are looping");
+		expect(r.results[2]).toContain("get_canvas call (failed with: Route not found)");
 		expect(r.stopped).toEqual({ kind: "repeat", tool: "get_canvas" });
 	});
 

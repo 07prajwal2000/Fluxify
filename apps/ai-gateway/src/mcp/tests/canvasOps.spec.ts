@@ -3,6 +3,7 @@ import { z } from "zod";
 import type { AdminApi } from "../adminApi";
 import { type CanvasOp, opsToChanges, trimCanvas } from "../canvasOps";
 import { canvasTools } from "../canvasTools";
+import { lenient } from "../tools";
 import { routeTools } from "../routeTools";
 
 const at = (x: number) => ({ x, y: 0 });
@@ -70,6 +71,12 @@ describe("edit_canvas ops → save diff", () => {
 		expect(changes.changes.edges).toEqual([]);
 	});
 
+	it("a missing disconnect names the edges the block has", () => {
+		expect(() => opsToChanges(canvas(), [{ op: "disconnect", from: "cond", to: "resp" }] as CanvasOp[])).toThrow(
+			"cond has edges success -> log",
+		);
+	});
+
 	it("removes a block with its edges", () => {
 		const { changes } = apply([{ op: "remove_block", id: "log" }]);
 		expect(deletes(changes, "blocks")).toEqual(["log"]);
@@ -120,14 +127,25 @@ describe("edit_canvas tool", () => {
 		};
 		return { api, sent };
 	};
-	const run = (api: AdminApi, args: object) => tool.call(api, z.object(tool.input).parse(args));
+	const run = (api: AdminApi, args: object) => tool.call(api, z.object(lenient(tool.input)).parse(args));
 	const target = { kind: "route", id: "r1" };
 
-	it("saves against the version read and returns the new one", async () => {
+	it("saves against the version read and returns the new one, with its issues by default", async () => {
 		const { api, sent } = fake();
 		const out = await run(api, { target, version: 3, ops: [{ op: "update_block", id: "log", data: {} }] });
-		expect(out).toEqual({ version: 4 });
+		expect(out).toEqual({ version: 4, issues: [{ severity: "warning", message: "w" }] });
 		expect(sent[0].path).toBe("/v1/routes/r1/save-canvas?expectedVersion=3");
+	});
+
+	it("validate: false skips the issues", async () => {
+		const out = await run(fake().api, { target, version: 3, ops: [{ op: "update_block", id: "log", data: {} }], validate: false });
+		expect(out).toEqual({ version: 4 });
+	});
+
+	it("takes ops, version and validate sent as strings", async () => {
+		const ops = JSON.stringify([{ op: "update_block", id: "log", data: {} }]);
+		const out = await run(fake().api, { target: JSON.stringify(target), version: "3", ops, validate: "false" });
+		expect(out).toEqual({ version: 4 });
 	});
 
 	it("refuses a stale version without saving", async () => {

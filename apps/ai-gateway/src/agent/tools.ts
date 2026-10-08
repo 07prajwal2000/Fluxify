@@ -6,7 +6,7 @@ import { docsTools } from "../mcp/docsTools";
 import { projectTools } from "../mcp/projectTools";
 import { routeTools } from "../mcp/routeTools";
 import { testSuiteTools } from "../mcp/testSuiteTools";
-import { type McpTool, readTools } from "../mcp/tools";
+import { lenient, type McpTool, readTools } from "../mcp/tools";
 import { writeTools } from "../mcp/writeTools";
 
 const ALL: McpTool[] = [
@@ -37,7 +37,6 @@ export const GET_TYPES = {
 	trigger: ["get_trigger", "triggerId"],
 	custom_block: ["get_custom_block", "customBlockId"],
 	middleware: ["get_middleware", "middlewareId"],
-	test_suite: ["get_test_suite", "testSuiteId"],
 	integration: ["get_integration", "integrationId"],
 	app_config: ["get_app_config", "appConfigId"],
 } as const;
@@ -53,9 +52,12 @@ const CORE_MCP = [
 	"get_block_schemas",
 	"call_route",
 	"save_test_suite",
+	"get_test_suite",
 	"run_test_suite",
 	"get_system_logs",
 	"get_recording",
+	"list_test_suites",
+	"get_test_runs",
 	"search_docs",
 	"read_doc",
 ];
@@ -95,7 +97,7 @@ export const mcpCall =
 	(name: string, args: unknown, signal?: AbortSignal): Promise<any> => {
 		const t = ALL.find((x) => x.name === name);
 		if (!t) throw new Error(`No tool named ${name}`);
-		return t.call(adminApi(fetcher, auth, t.role, signal), z.object(t.input).parse(args));
+		return t.call(adminApi(fetcher, auth, t.role, signal), z.object(lenient(t.input)).parse(args));
 	};
 
 /**
@@ -114,7 +116,7 @@ export function agentTools(
 	const wrap = (t: McpTool): Tool =>
 		tool({
 			description: t.description,
-			inputSchema: z.object(t.input),
+			inputSchema: z.object(lenient(t.input)),
 			execute: (args, { abortSignal }) =>
 				t.call(adminApi(fetcher, auth, t.role, abortSignal), args),
 		});
@@ -123,7 +125,7 @@ export function agentTools(
 	);
 
 	tools.list = tool({
-		description: `List several resource types of this project in one call: ${Object.keys(LIST_TYPES).join(", ")}. Test suites: load list_test_suites.`,
+		description: `List several resource types of this project in one call: ${Object.keys(LIST_TYPES).join(", ")}.`,
 		inputSchema: z.object({
 			types: z.array(z.enum(Object.keys(LIST_TYPES) as [keyof typeof LIST_TYPES])).min(1),
 		}),

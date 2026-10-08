@@ -32,10 +32,10 @@ Basics:
 
 Check your work, every time:
 1. Make the change (save_* and get_canvas then edit_canvas with the version you read).
-2. Run edit_canvas with validate: true and fix every error.
+2. Fix every error edit_canvas returns in issues.
 3. Exercise it: call_route for a route, run_test_suite for a suite.
 4. On failure read get_system_logs and get_recording, fix, and go again.
-Only say it is done when the check passed. End with a short summary of what you changed and how you checked it.`;
+Only say it is done when the check passed. Stop when the tests pass / the route works; don't keep polishing. End with a short summary of what you changed and how you checked it.`;
 
 const PLAN_PROMPT = `
 
@@ -160,14 +160,15 @@ export function runAgent({
 		return go;
 	};
 	const result = streamText({
-		model: withModelTimeouts(model, limits, onRetry ?? (() => {})),
-		instructions: agentPrompt(projectId) + (mode === "plan" ? PLAN_PROMPT : ""),
-		messages: [...history],
+		// plan mode: load_tools must not offer write tools as usable now
 		tools: guardTools(
-			withToolTimeouts(tools, limits.toolMs),
+			withToolTimeouts(mode === "plan" ? planTools(tools) : tools, limits.toolMs),
 			guard,
 			limits.maxResultChars ?? MAX_RESULT_CHARS,
 		),
+		model: withModelTimeouts(model, limits, onRetry ?? (() => {})),
+		instructions: agentPrompt(projectId) + (mode === "plan" ? PLAN_PROMPT : ""),
+		messages: [...history],
 		abortSignal,
 		maxRetries: limits.retries,
 		stopWhen: async ({ steps }) => {
@@ -210,6 +211,30 @@ export function runAgent({
 		onAbort: () => noteStop(asking ?? stop),
 	});
 	return Object.assign(result, { stopped: () => stop });
+}
+
+/** In plan mode load_tools still loads (for after the plan) but only reports read tools as usable. */
+export function planTools(tools: Record<string, Tool>): Record<string, Tool> {
+	const load = tools.load_tools;
+	if (!load?.execute) return tools;
+	const execute = load.execute;
+	return {
+		...tools,
+		load_tools: {
+			...load,
+			execute: async (input: any, opts: any) => {
+				const r = await execute(input, opts);
+				const writes = r.loaded.filter((n: string) => !isRead(n));
+				if (!writes.length) return r;
+				return {
+					...r,
+					loaded: r.loaded.filter(isRead),
+					notInPlanMode: writes,
+					note: "Plan mode is read-only: these write tools work only after the user approves the plan.",
+				};
+			},
+		} as Tool,
+	};
 }
 
 /** Mistral (and others) 400 when the last message is assistant or system. */

@@ -117,10 +117,13 @@ export function guardTools(
 		const same = seen(`${name} ${stableKey(input)}`);
 		const n = o.kind === "failure" ? Math.max(same, seen(`${name} failed: ${o.why}`)) : same;
 		if (n >= REPEAT_STOP) guard.repeat ??= name;
-		if (n >= REPEAT_NUDGE)
+		if (n >= REPEAT_NUDGE) {
+			const what =
+				o.kind === "failure" ? `failed with: ${snippet(o.why)}` : `args: ${snippet(input)}`;
 			out.push(
-				`Note: you made this ${name} call (or got this failure) ${n} times without progress. You are looping: change approach, or stop and ask the user.`,
+				`Note: you made this ${name} call (${what}) ${n} times without progress. You are looping: change approach, or stop and ask the user.`,
 			);
+		}
 		return out;
 	};
 	return Object.fromEntries(
