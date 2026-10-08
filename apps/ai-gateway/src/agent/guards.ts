@@ -1,4 +1,5 @@
 import type { Tool } from "ai";
+import { isRead } from "./tools";
 
 export const MAX_STEPS = 40;
 export const TOKEN_BUDGET = 1_000_000;
@@ -57,15 +58,43 @@ const withNotes = (out: unknown, notes: string[]) => {
 };
 
 const errorText = (e: unknown) => (e instanceof Error ? e.message : String(e));
+const snippet = (v: unknown) => (typeof v === "string" ? v : stableKey(v)).slice(0, 120);
+
+/**
+ * What one tool call achieved. `progress` resets the repeat counts; a `failure`
+ * is counted by tool + `why`; reads are `neutral` unless they fail.
+ * - call_route: status < 400 is progress, >= 400 a failure.
+ * - Other writes: progress unless edit_canvas returned issues or a test run has failing cases.
+ * - Any thrown error is a failure.
+ */
+export type Outcome = { kind: "progress" | "neutral" } | { kind: "failure"; why: string };
+export function outcome(name: string, input: any, out: any, error?: unknown): Outcome {
+	if (error !== undefined) return { kind: "failure", why: errorText(error) };
+	if (name === "call_route") {
+		const status = Number(out?.status);
+		return status >= 400
+			? { kind: "failure", why: `${input?.routeId} status ${status} ${snippet(out?.body)}` }
+			: { kind: "progress" };
+	}
+	if (isRead(name)) return { kind: "neutral" };
+	if (name === "edit_canvas" && out?.issues?.length)
+		return { kind: "failure", why: String(out.issues[0].message) };
+	if (name === "run_test_suite") {
+		if (out?.status === "running") return { kind: "neutral" };
+		if (out?.failedCount > 0) return { kind: "failure", why: `${out.failedCount} failing cases` };
+	}
+	return { kind: "progress" };
+}
 
 /** Per-run guard state: call counts, the repeat that stops the run, notes for the next result. */
 export type Guard = { counts: Map<string, number>; repeat?: string; pending: string[] };
 export const newGuard = (): Guard => ({ counts: new Map(), pending: [] });
 
 /**
- * Every tool result goes through here: it is capped at `maxChars`, and a call
- * repeated (same tool and args, or same tool and same error) gets a nudge at
- * REPEAT_NUDGE and marks the run to stop at REPEAT_STOP. Pending notes (the
+ * Every tool result goes through here: it is capped at `maxChars`, and calls
+ * without progress are counted by two signatures (same tool and args; same
+ * tool and same failure). A count of REPEAT_NUDGE gets a nudge, REPEAT_STOP
+ * marks the run to stop; any progress resets all counts. Pending notes (the
  * token warning) ride on the next result.
  */
 export function guardTools(
@@ -78,12 +107,19 @@ export function guardTools(
 		guard.counts.set(sig, n);
 		return n;
 	};
-	const notes = (name: string, n: number) => {
-		if (n >= REPEAT_STOP) guard.repeat ??= name;
+	/** Counts the call and returns the notes for its result. */
+	const notes = (name: string, input: unknown, o: Outcome) => {
 		const out = guard.pending.splice(0);
+		if (o.kind === "progress") {
+			guard.counts.clear();
+			return out;
+		}
+		const same = seen(`${name} ${stableKey(input)}`);
+		const n = o.kind === "failure" ? Math.max(same, seen(`${name} failed: ${o.why}`)) : same;
+		if (n >= REPEAT_STOP) guard.repeat ??= name;
 		if (n >= REPEAT_NUDGE)
 			out.push(
-				`Note: you made this ${name} call (or got this error) ${n} times. You are looping: change approach, or stop and ask the user.`,
+				`Note: you made this ${name} call (or got this failure) ${n} times without progress. You are looping: change approach, or stop and ask the user.`,
 			);
 		return out;
 	};
@@ -92,16 +128,15 @@ export function guardTools(
 			const execute = t.execute;
 			if (!execute) return [name, t];
 			const run = async (input: unknown, opts: Parameters<typeof execute>[1]) => {
-				const n = seen(`${name} ${stableKey(input)}`);
 				let out: unknown;
 				try {
 					out = await execute(input, opts);
 				} catch (e) {
-					const msg = errorText(e);
-					const all = notes(name, Math.max(n, seen(`${name} failed: ${msg}`)));
-					throw all.length ? new Error(`${msg}\n\n${all.join("\n")}`) : e;
+					const all = notes(name, input, outcome(name, input, undefined, e));
+					throw all.length ? new Error(`${errorText(e)}\n\n${all.join("\n")}`) : e;
 				}
-				return withNotes(capResult(name, out, maxChars), notes(name, n));
+				const all = notes(name, input, outcome(name, input, out));
+				return withNotes(capResult(name, out, maxChars), all);
 			};
 			return [name, { ...t, execute: run } as Tool];
 		}),

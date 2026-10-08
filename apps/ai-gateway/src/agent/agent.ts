@@ -138,14 +138,22 @@ export function runAgent({
 	const max = { steps: maxSteps, tokens: budget };
 	let warned = false;
 	let stop: Stop | undefined;
+	/** The limit being asked about, so a stop during the prompt still leaves its note. */
+	let asking: Limit | undefined;
+	let noted = false;
+	/** The stop note, once (an abort can report more than once). */
+	const noteStop = (s: Stop | undefined) => {
+		if (!s || noted) return;
+		noted = true;
+		addNote(history, stopNote(s));
+	};
 	/** Asks to go past a limit; no stops the run. */
 	const pastLimit = async (kind: Limit["kind"], used: number) => {
 		if (used < max[kind]) return true;
-		const limit = max[kind];
-		const go = await Promise.race([
-			onLimit({ kind, used, limit }, abortSignal),
-			stopped.then(() => false),
-		]);
+		asking = { kind, used, limit: max[kind] };
+		const go = await Promise.race([onLimit(asking, abortSignal), stopped.then(() => false)]);
+		const limit = asking.limit;
+		asking = undefined;
 		if (go) max[kind] += kind === "steps" ? maxSteps : budget;
 		else stop = { kind, used, limit };
 		return go;
@@ -196,9 +204,9 @@ export function runAgent({
 				addNote(history, `(previous reply failed: ${error || "unknown error"})`);
 		},
 		// After the last step is in history, so the note lands after its tool results.
-		onFinish: () => {
-			if (stop) addNote(history, stopNote(stop));
-		},
+		onFinish: () => noteStop(stop),
+		// Ctrl+C at the limit prompt: the run is aborted, but history still says why.
+		onAbort: () => noteStop(asking ?? stop),
 	});
 	return Object.assign(result, { stopped: () => stop });
 }

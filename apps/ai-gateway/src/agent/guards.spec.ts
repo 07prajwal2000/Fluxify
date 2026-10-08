@@ -1,82 +1,17 @@
 import { describe, expect, it } from "bun:test";
-import { type ModelMessage, tool } from "ai";
-import { convertArrayToReadableStream, MockLanguageModelV4 } from "ai/test";
-import { z } from "zod";
-import { approveAll, assertEndsOnUserOrTool, type Limit, runAgent } from "./agent";
+import type { Limit } from "./agent";
 import { cliLimit, limitPrompt, parseYesNo } from "./cli";
+import { distinct, looping, nextRequestIsValid, run } from "./guards.fixture";
 import { capResult, guardTools, newGuard, stableKey, WRAP_UP } from "./guards";
-import { printRun } from "./progress";
-
-const usage = {
-	inputTokens: { total: 1, noCache: 1, cacheRead: 0, cacheWrite: 0 },
-	outputTokens: { total: 1, text: 1, reasoning: 0 },
-};
-const finish = (reason: string) => ({ type: "finish", finishReason: { unified: reason, raw: reason }, usage });
-const reply = (parts: object[]) => ({ stream: convertArrayToReadableStream(parts as any) });
-const done = () => reply([{ type: "text-start", id: "t" }, { type: "text-delta", id: "t", delta: "done" }, { type: "text-end", id: "t" }, finish("stop")]);
-
-/** `calls[i]` is the tool input of step i (then "done"); `fail` makes the tool throw that message. */
-async function run(
-	calls: object[],
-	opts: { fail?: string; onLimit?: (l: Limit) => boolean; maxSteps?: number; tokenBudget?: number } = {},
-) {
-	const prompts: ModelMessage[][] = [];
-	const limitsAsked: Limit[] = [];
-	const model = new MockLanguageModelV4({
-		doStream: async (o) => {
-			prompts.push(o.prompt as ModelMessage[]);
-			const input = calls[prompts.length - 1];
-			if (!input) return done() as any;
-			const call = { type: "tool-call", toolCallId: `c${prompts.length}`, toolName: "find", input: JSON.stringify(input) };
-			return reply([call, finish("tool-calls")]) as any;
-		},
-	});
-	const tools = {
-		find: tool({
-			inputSchema: z.object({ q: z.string(), page: z.number().optional() }),
-			execute: async () => {
-				if (opts.fail) throw new Error(opts.fail);
-				return "ok";
-			},
-		}),
-	};
-	const history: ModelMessage[] = [{ role: "user", content: "go" }];
-	const result = runAgent({
-		model,
-		tools,
-		active: () => ["find"],
-		projectId: "p",
-		history,
-		limits: { idleMs: 1000, callMs: 1000, toolMs: 1000, retries: 0, maxSteps: opts.maxSteps, tokenBudget: opts.tokenBudget },
-		mode: "auto",
-		approve: approveAll,
-		onLimit: opts.onLimit
-			? async (l) => {
-					limitsAsked.push(l);
-					return opts.onLimit!(l);
-				}
-			: undefined,
-	});
-	let shown = "";
-	await printRun(result, { write: (s) => (shown += s) });
-	/** What each tool result said, in order. */
-	const results = history.flatMap((m) => (m.role === "tool" ? m.content.map((p) => JSON.stringify(p)) : []));
-	return { prompts, history, shown, results, limitsAsked, stopped: result.stopped() };
-}
-
-const nextRequestIsValid = (history: ModelMessage[]) => {
-	expect(history.at(-1)?.role).toBe("assistant");
-	expect(() => assertEndsOnUserOrTool([...history, { role: "user", content: "go on" }])).not.toThrow();
-};
 
 describe("repeat guard", () => {
-	it("nudges the same call at 3, stops it at 5 with a note, and the next request stays valid", async () => {
+	it("nudges the same read at 3, stops it at 5 with a note, and the next request stays valid", async () => {
 		const r = await run(Array(8).fill({ q: "a", page: 1 }));
 		expect(r.prompts).toHaveLength(5);
-		expect(r.results.map((s) => s.includes("You are looping"))).toEqual([false, false, true, true, true]);
-		expect(r.shown).toContain("[stopped] repeated find 5 times");
-		expect(r.stopped).toEqual({ kind: "repeat", tool: "find" });
-		expect(JSON.stringify(r.history.at(-1)?.content)).toContain("(stopped: repeated find 5 times");
+		expect(looping(r)).toEqual([false, false, true, true, true]);
+		expect(r.shown).toContain("[stopped] repeated get_canvas 5 times");
+		expect(r.stopped).toEqual({ kind: "repeat", tool: "get_canvas" });
+		expect(JSON.stringify(r.history.at(-1)?.content)).toContain("(stopped: repeated get_canvas 5 times");
 		nextRequestIsValid(r.history);
 	});
 
@@ -86,24 +21,22 @@ describe("repeat guard", () => {
 		expect(r.results[2]).toContain("You are looping");
 	});
 
-	it("counts the same error with different args", async () => {
-		const r = await run(Array.from({ length: 8 }, (_, i) => ({ q: `q${i}` })), { fail: "Route not found" });
+	it("counts the same read error with different args", async () => {
+		const r = await run(distinct(8), { fail: "Route not found" });
 		expect(r.prompts).toHaveLength(5);
 		expect(r.results[2]).toContain("Route not found");
 		expect(r.results[2]).toContain("You are looping");
-		expect(r.stopped).toEqual({ kind: "repeat", tool: "find" });
+		expect(r.stopped).toEqual({ kind: "repeat", tool: "get_canvas" });
 	});
 
-	it("leaves different calls alone", async () => {
-		const r = await run(Array.from({ length: 8 }, (_, i) => ({ q: `q${i}` })));
+	it("leaves different reads alone", async () => {
+		const r = await run(distinct(8));
 		expect(r.prompts).toHaveLength(9);
-		expect(r.results.some((s) => s.includes("looping"))).toBe(false);
+		expect(looping(r).some(Boolean)).toBe(false);
 		expect(r.stopped).toBeUndefined();
 		expect(r.shown).not.toContain("[stopped]");
 	});
 });
-
-const distinct = (n: number) => Array.from({ length: n }, (_, i) => ({ q: `q${i}` }));
 
 describe("step cap", () => {
 	it("stops with a note when onLimit says no", async () => {
@@ -112,6 +45,17 @@ describe("step cap", () => {
 		expect(r.prompts).toHaveLength(3);
 		expect(r.shown).toContain("[stopped] reached the 3-step limit");
 		expect(r.history.at(-1)).toEqual({ role: "assistant", content: "(stopped: reached the 3-step limit before finishing)" });
+		nextRequestIsValid(r.history);
+	});
+
+	it("Ctrl+C at the prompt (the run is aborted) still leaves the note", async () => {
+		const ctrl = new AbortController();
+		const ctrlC = () => {
+			setTimeout(() => ctrl.abort(new Error("Stopped by user")), 10);
+			return new Promise<boolean>(() => {});
+		};
+		const r = await run(distinct(10), { maxSteps: 2, onLimit: ctrlC, signal: ctrl.signal });
+		expect(r.history.at(-1)).toEqual({ role: "assistant", content: "(stopped: reached the 2-step limit before finishing)" });
 		nextRequestIsValid(r.history);
 	});
 
