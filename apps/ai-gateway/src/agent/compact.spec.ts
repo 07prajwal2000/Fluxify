@@ -56,9 +56,10 @@ const results = (ms: ModelMessage[]) =>
  */
 async function run(
 	history: ModelMessage[],
-	o: { calls: number; input: number; context: number; summary?: () => string },
+	o: { calls: number; input: number | number[]; context: number; summary?: () => string },
 ) {
 	const prompts: ModelMessage[][] = [];
+	const input = (n: number) => (typeof o.input === "number" ? o.input : (o.input[n - 1] ?? o.input.at(-1)!));
 	const model = new MockLanguageModelV4({
 		doGenerate: async () => ({
 			content: [{ type: "text", text: (o.summary ?? (() => "the summary"))() }],
@@ -71,10 +72,10 @@ async function run(
 			const n = prompts.length;
 			const parts =
 				n > o.calls
-					? [...text("done"), finish("stop", o.input)]
+					? [...text("done"), finish("stop", input(n))]
 					: [
 							{ type: "tool-call", toolCallId: `c${n}`, toolName: "get_route", input: "{}" },
-							finish("tool-calls", o.input),
+							finish("tool-calls", input(n)),
 						];
 			return { stream: convertArrayToReadableStream(parts as never[]) };
 		},
@@ -120,7 +121,8 @@ describe("60%: trim old tool results", () => {
 			...step(6),
 		];
 		const before = JSON.stringify(ms);
-		const t = trimOld(ms);
+		// the cut-off is the start of the last 3 steps; h3 is the latest canvas
+		const t = trimOld(ms, 7, "h3");
 		expect(JSON.stringify(ms)).toBe(before);
 		expect(results(t.messages)).toEqual([
 			"[result trimmed: get_canvas, 2026 chars]",
@@ -131,7 +133,7 @@ describe("60%: trim old tool results", () => {
 			BIG,
 		]);
 		expect(t.results).toBe(2);
-		expect(JSON.stringify(trimOld(ms))).toBe(JSON.stringify(t)); // same input, same output
+		expect(JSON.stringify(trimOld(ms, 7, "h3"))).toBe(JSON.stringify(t)); // same input, same output
 	});
 
 	it("trims what is sent but not the history, and the CLI shows it", async () => {
@@ -143,6 +145,30 @@ describe("60%: trim old tool results", () => {
 		expect(history.slice(0, copy.length)).toEqual(copy);
 		expect(r.shown).toContain("[compacted] trimmed 3 old tool results (−1k tokens)");
 		expect(r.logged[0]).toMatchObject({ kind: "trim", results: 3 });
+	});
+
+	it("keeps the trimmed prefix identical between batches and moves it only on a new crossing", async () => {
+		// 3000 of 5000 = 60%: over, then under at step 2, over again at step 3
+		const r = await run(longChat(), { calls: 4, input: [3000, 100, 3000, 3000], context: 5000 });
+		const head = (i: number) => JSON.stringify(r.prompts[i].slice(0, 12));
+		const trimmed = (i: number) =>
+			results(r.prompts[i]).filter((s) => s.startsWith("[result trimmed")).length;
+		// batch 1 before step 1, then frozen while the history grows
+		expect(trimmed(0)).toBe(3);
+		expect(head(1)).toBe(head(0));
+		expect(head(2)).toBe(head(0)); // under 60% now: armed, but nothing moves
+		// back over 60%: batch 2 moves the cut-off, then it is frozen again
+		expect(trimmed(3)).toBeGreaterThan(3);
+		expect(head(4)).toBe(head(3));
+		// one line per batch
+		expect(r.shown.match(/\[compacted\] trimmed/g)).toHaveLength(2);
+		expect(r.logged).toHaveLength(2);
+	});
+
+	it("does not trim again while usage stays over 60% (the summary is the backstop)", async () => {
+		const r = await run(longChat(), { calls: 3, input: 3400, context: 5000 });
+		expect(r.shown.match(/\[compacted\] trimmed/g)).toHaveLength(1);
+		expect(JSON.stringify(r.prompts[3].slice(0, 12))).toBe(JSON.stringify(r.prompts[0].slice(0, 12)));
 	});
 
 	it("does nothing under 60%", async () => {
@@ -167,6 +193,8 @@ describe("80%: summary", () => {
 		// the cached prefix: same system prompt on every step
 		const systems = r.prompts.map((p) => JSON.stringify(p.filter((m) => m.role === "system")));
 		expect(new Set(systems).size).toBe(1);
+		// the history is small after the summary, so nothing else is trimmed
+		expect(r.shown).not.toContain("trimmed");
 	});
 
 	it("falls back to the trim when the summary fails", async () => {
