@@ -178,3 +178,43 @@ describe("save output to variable", () => {
 		expect(() => blockDataValidator(transformer("a-b", false))).not.toThrow();
 	});
 });
+
+describe("saving keeps the user's data (#679)", () => {
+	const base = { connection: "c1", tableName: "users", useParam: false };
+
+	it("keeps db_insert data.value columns", () => {
+		const data = changes(BlockTypes.db_insert, {
+			...base,
+			data: { source: "raw", value: { name: "Ann", age: 3 } },
+		});
+		blockDataValidator(data);
+		expect((data.changes.blocks[0]!.data as any).data.value).toEqual({ name: "Ann", age: 3 });
+	});
+
+	it("keeps db_update data.value columns", () => {
+		const data = changes(BlockTypes.db_update, {
+			...base,
+			conditions: [],
+			data: { source: "raw", value: { points: { op: "inc", value: 10 } } },
+		});
+		blockDataValidator(data);
+		expect((data.changes.blocks[0]!.data as any).data.value).toEqual({
+			points: { op: "inc", value: 10 },
+		});
+	});
+
+	it("keeps db_insertbulk rows", () => {
+		const data = changes(BlockTypes.db_insertbulk, {
+			...base,
+			data: { source: "raw", value: [{ a: 1 }, { b: 2 }] },
+		});
+		blockDataValidator(data);
+		expect((data.changes.blocks[0]!.data as any).data.value).toEqual([{ a: 1 }, { b: 2 }]);
+	});
+
+	it("keeps unknown keys and still fills defaults", () => {
+		const data = changes(BlockTypes.switch, { extra: { deep: 1 } });
+		blockDataValidator(data);
+		expect(data.changes.blocks[0]!.data).toMatchObject({ extra: { deep: 1 }, order: [] });
+	});
+});

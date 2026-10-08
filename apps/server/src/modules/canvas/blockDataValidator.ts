@@ -62,7 +62,9 @@ export function blockDataValidator(data: CanvasChanges) {
 		}
 		const result = schema.safeParse(block.data);
 		if (result.success) {
-			block.data = result.data;
+			// zod strips keys it doesn't know (e.g. db_insert `data.value`); keep the
+			// user's data and only lay parsed values (defaults) over it
+			block.data = mergeParsed(block.data, result.data);
 			continue;
 		}
 		// the same readable messages the canvas rules refuse with on every other save path
@@ -79,4 +81,19 @@ function saveAsVariableError(data: unknown): string | undefined {
 		?.saveAsVariable;
 	if (setting?.enabled !== true) return undefined;
 	return variableNameError(typeof setting.name === "string" ? setting.name.trim() : "");
+}
+
+const isPlainObject = (v: unknown): v is Record<string, unknown> =>
+	typeof v === "object" && v !== null && !Array.isArray(v);
+
+/** Parsed values over raw, recursively, so keys the schema strips survive. */
+export function mergeParsed(raw: unknown, parsed: unknown): any {
+	if (isPlainObject(raw) && isPlainObject(parsed)) {
+		const out: Record<string, unknown> = { ...raw };
+		for (const [k, v] of Object.entries(parsed)) out[k] = mergeParsed(raw[k], v);
+		return out;
+	}
+	if (Array.isArray(raw) && Array.isArray(parsed) && raw.length === parsed.length)
+		return parsed.map((v, i) => mergeParsed(raw[i], v));
+	return parsed;
 }
