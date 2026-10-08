@@ -218,7 +218,7 @@ export interface HttpCookieSettings {
 }
 
 export interface ContextVarsType {
-	getQueryParam: (key: string) => string;
+	getQueryParam: (key: string) => string | undefined;
 	getRouteParam: (key: string) => string;
 	getHeader: (key: string) => string;
 	setHeader: (key: string, value: string) => void;
@@ -286,7 +286,7 @@ const trigger: {
 };
 
 // 2. Request Helpers
-function getQueryParam(key: string): string;
+function getQueryParam(key: string): string | undefined;
 function getRouteParam(key: string): string;
 function getHeader(key: string): string;
 function getRequestBody(): any;  // POST/PUT body: JSON value, form object (files included), or null

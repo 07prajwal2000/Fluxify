@@ -329,16 +329,23 @@ export const readTools: McpTool[] = [
 	},
 	{
 		name: "list_test_suites",
-		description: "The test suites of one route or workflow.",
+		description:
+			"Test suites. Pass projectId for every suite in a project (with its target's name), or targetType + targetId for the suites of one route or workflow.",
 		role: "viewer",
 		input: {
-			targetType: z.enum(["route", "workflow"]).describe("What the suites test"),
-			targetId: z.string().describe("The route or workflow id"),
+			projectId: z.string().optional().describe("List every suite in this project"),
+			targetType: z.enum(["route", "workflow"]).optional().describe("What the suites test"),
+			targetId: z.string().optional().describe("The route or workflow id"),
 		},
-		call: async ({ get }, a) =>
-			(await get(`/v1/test-suites/${a.targetType}/${a.targetId}`)).map((s: any) =>
-				pick(s, ["id", "name", "description"]),
-			),
+		call: async ({ get }, a) => {
+			if (a.targetType && a.targetId) {
+				return (await get(`/v1/test-suites/${a.targetType}/${a.targetId}`)).map((s: any) =>
+					pick(s, ["id", "name", "description"]),
+				);
+			}
+			if (!a.projectId) throw new Error("Pass projectId, or targetType and targetId.");
+			return await get(`/v1/test-suites/project/${a.projectId}`);
+		},
 	},
 	{
 		name: "get_test_suite",

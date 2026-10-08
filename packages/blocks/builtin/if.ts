@@ -13,7 +13,7 @@ export const ifBlockSchema = z
 export const ifConditionAiDescription = {
 	name: BlockTypes.if,
 	description:
-		"Branches the flow like an IF/ELSE statement. Directs flow based on whether the condition returns TRUE or FALSE.",
+		"Branches the flow like an IF/ELSE statement. Directs flow based on whether the condition returns TRUE or FALSE. lhs is required except for operator 'js' (put the code in 'js'); rhs is required only for eq/neq/gt/gte/lt/lte, omit it for is_empty, is_not_empty and js.",
 	jsonSchema: JSON.stringify(z.toJSONSchema(ifBlockSchema)),
 	output: "Its input, unchanged, on 'success' (true) or 'failure' (false).",
 	example: {

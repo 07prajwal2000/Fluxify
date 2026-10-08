@@ -1,4 +1,4 @@
-import { BlockTypes, blockDataIssues, blockDataSchema } from "@fluxify/blocks";
+import { blockDataIssues, blockDataSchema } from "@fluxify/blocks";
 import { variableNameError } from "@fluxify/blocks/variableName";
 import type { Context, Next } from "hono";
 import { BadRequestError } from "../../errors/badRequestError";
@@ -47,9 +47,6 @@ export function blockDataValidator(data: CanvasChanges) {
 				field: block.id,
 				message: `${typeof label === "string" && label ? label : block.type}: ${nameError}`,
 			});
-		}
-		if (block.type === BlockTypes.errorHandler && block.id === block.data?.next) {
-			throw new BadRequestError("Error handler block cannot be connected to itself");
 		}
 		const schema = blockDataSchema(block.type);
 		if (!schema) {

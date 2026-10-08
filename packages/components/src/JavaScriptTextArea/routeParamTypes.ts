@@ -25,7 +25,7 @@ export function buildRouteParamTypeLib(routeParams?: string[], queryParams?: str
 	if (validQueryParams.length > 0) {
 		const queryUnion = validQueryParams.map(quote).join(" | ");
 		parts.push(
-			`/** Get a query parameter passed in the request URL. */\ndeclare function getQueryParam(key: ${queryUnion} | (string & {})): string;`,
+			`/** Get a query parameter passed in the request URL. */\ndeclare function getQueryParam(key: ${queryUnion} | (string & {})): string | undefined;`,
 		);
 	}
 

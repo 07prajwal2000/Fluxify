@@ -31,8 +31,8 @@ type Condition = {
 	chain: "and" | "or";  // how this condition joins everything before it; conditions combine strictly left to right. Ignored on the first condition of a list or group; default "and"
 }
 | {
-	lhs: string | number | boolean;  // left-hand side operator (can be js expression)
-	rhs: string | number | boolean;  // right-hand side operator (can be js expression)
+	lhs?: string | number | boolean;  // left-hand side operator (can be js expression). Required except for operator js
+	rhs?: string | number | boolean;  // right-hand side operator (can be js expression). Required for eq/neq/gt/gte/lt/lte; omit for is_empty, is_not_empty and js
 	operator: "eq" | "neq" | "gt" | "gte" | "lt" | "lte" | "js" | "is_empty" | "is_not_empty";  // The operator to use for comparison
 	js?: string;  // javascript expression
 	chain: "and" | "or";  // how this condition joins everything before it; conditions combine strictly left to right. Ignored on the first condition of a list or group; default "and"
@@ -377,7 +377,5 @@ cloud_logs {
 	level: "info" | "warn" | "error";  // log level; default "info"
 }
 
-error_handler {
-	next: string;  // next block to execute; default ""
-}"
+error_handler {} // no configuration"
 `;

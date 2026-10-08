@@ -194,9 +194,8 @@ function cacheGraph(key: string, sku: string, ttl?: number) {
 			parseJson: true,
 		}),
 		// a cache miss reads null, which is what decides the branch.
-		// `rhs` is required by the condition schema even for a unary operator.
 		block("miss", BlockTypes.if, {
-			conditions: [{ lhs: "js:return input", rhs: "", operator: "is_empty" }],
+			conditions: [{ lhs: "js:return input", operator: "is_empty" }],
 		}),
 		block("fetch", BlockTypes.db_getsingle, {
 			connection: DB_ID,

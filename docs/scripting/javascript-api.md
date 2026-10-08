@@ -37,7 +37,7 @@ const input: any;
 const httpRequestMethod: string;
 const httpRequestRoute: string;
 
-function getQueryParam(key: string): string;
+function getQueryParam(key: string): string | undefined;
 function getRouteParam(key: string): string;
 function getHeader(key: string): string;
 function getCookie(key: string): string;
@@ -49,7 +49,7 @@ function getRequestBody(): any;
 | `input` | — | `any` | Output from the preceding block. |
 | `httpRequestMethod` | — | `string` | Incoming method, for example `"GET"`. |
 | `httpRequestRoute` | — | `string` | Incoming request path. |
-| `getQueryParam` | `key: string` | `string` | Query parameter, or `""` if absent. |
+| `getQueryParam` | `key: string` | `string | undefined` | Query parameter, or `undefined` if absent. |
 | `getRouteParam` | `key: string` | `string` | Named route parameter, or `""` if absent. |
 | `getHeader` | `key: string` | `string` | Case-insensitive request header, or `""` if absent. |
 | `getCookie` | `key: string` | `string` | Request cookie, or `""` if absent. |

@@ -56,7 +56,7 @@ A workflow has no HTTP request, so the request names exist but are empty:
 | Name | In a route | In a workflow |
 | --- | --- | --- |
 | `getRequestBody()` | The request body | The payload the run was given (the same value as `input` at the start) |
-| `getQueryParam`, `getRouteParam`, `getHeader`, `getCookie` | The request values, `""` when missing | Always `""` |
+| `getQueryParam`, `getRouteParam`, `getHeader`, `getCookie` | The request values, `""` when missing (`undefined` for `getQueryParam`) | Always `""` (`undefined` for `getQueryParam`) |
 | `httpRequestMethod` | `"GET"`, `"POST"`... | `""` |
 | `httpRequestRoute` | The request path | An internal id, not a URL |
 | `setHeader`, `setCookie` | Add to the response | Do nothing, there is no response |

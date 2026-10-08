@@ -7,6 +7,7 @@ import appGetAll from "./get-all/route";
 import appGetById from "./get-by-id/route";
 import appGetRunById from "./get-run-by-id/route";
 import appGetRuns from "./get-runs/route";
+import appListByProject from "./list-by-project/route";
 import appStartRun from "./start-run/route";
 import appUpdate from "./update/route";
 
@@ -30,6 +31,7 @@ export default {
 		appDelete(router);
 		appClone(router);
 		appGetById(router);
+		appListByProject(router);
 
 		// Test runs
 		appStartRun(runsRouter);

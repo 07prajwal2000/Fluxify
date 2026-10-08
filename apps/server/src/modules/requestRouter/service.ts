@@ -589,7 +589,7 @@ function setupContextVars(
 			return headers.get(key.toLowerCase()) || "";
 		},
 		getQueryParam(key) {
-			return (requestData.query[key] as string) || "";
+			return requestData.query[key] as string | undefined;
 		},
 		getRequestBody() {
 			return requestData.body;
