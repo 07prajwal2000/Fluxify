@@ -1,19 +1,13 @@
 import { Button } from "@fluxify/components";
 import { useNavigate, useParams } from "@tanstack/react-router";
-import { type ReactNode, useEffect, useState } from "react";
+import { type ReactNode, useState } from "react";
 import { TbLayoutSidebarLeftExpand } from "react-icons/tb";
-import { openHarnessSocket } from "@/lib/harnessSocket";
-import { useAiHarnessStore } from "@/store/aiHarness";
 import { ConversationSidebar } from "./ConversationSidebar";
 
 /**
  * Shell for the AI section: a persistent, slide-in conversation sidebar plus a
  * scrollable main area. Rendered by the `ai` layout route so the sidebar stays
  * mounted while the main content (new chat ↔ conversation) swaps.
- *
- * It also scopes the harness socket to this section: mounting here opens the
- * connection for every `/$projectId/ai/*` route and keeps it open while the user
- * moves between them; leaving the section unmounts this layout and disconnects.
  */
 export function AiLayout({ children }: { children: ReactNode }) {
 	const params = useParams({ strict: false }) as {
@@ -22,13 +16,6 @@ export function AiLayout({ children }: { children: ReactNode }) {
 	};
 	const navigate = useNavigate();
 	const [sidebarOpen, setSidebarOpen] = useState(false);
-	const setActiveConversation = useAiHarnessStore((s) => s.setActiveConversation);
-
-	useEffect(() => openHarnessSocket(), []);
-
-	useEffect(() => {
-		setActiveConversation(params.conversationId ?? null);
-	}, [params.conversationId, setActiveConversation]);
 
 	const goToConversation = (conversationId: string) =>
 		navigate({

@@ -15,7 +15,6 @@ import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { getTimeAgo } from "@/lib/datetime";
 import { showErrorNotification } from "@/lib/errorNotifier";
 import { harnessConversationsQuery } from "@/query/harnessConversationsQuery";
-import { useConversationRun } from "@/store/aiHarness";
 import { RenameConversationModal } from "./RenameConversationModal";
 import { StatusDot } from "./StatusDot";
 import type { HarnessConversation } from "./types";
@@ -33,7 +32,6 @@ export function ConversationItem({ projectId, conversation: c, active, onOpen }:
 	const [renameOpen, setRenameOpen] = useState(false);
 	const action = harnessConversationsQuery.action.mutation(projectId, c.id);
 	const remove = harnessConversationsQuery.remove.mutation(projectId);
-	const activeRun = useConversationRun(c.id);
 
 	const redirectHome = () => {
 		navigate({
@@ -85,7 +83,7 @@ export function ConversationItem({ projectId, conversation: c, active, onOpen }:
 				)}
 				<span className="flex items-center gap-2 text-[11px] text-muted">
 					{getTimeAgo(c.updatedAt)}
-					<StatusDot status={activeRun?.runStatus || c.status} />
+					<StatusDot status={c.status} />
 				</span>
 			</button>
 

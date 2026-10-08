@@ -14,7 +14,8 @@ mock.module("./blocks/useCustomBlockDefs", () => ({
 	useAddableCustomBlockDefs: () => customDefs,
 }));
 
-const { cleanup, fireEvent, render, screen } = await import("@testing-library/react");
+// not `screen`: it stays bound to the document of whichever test file loaded RTL first
+const { cleanup, fireEvent, render, within } = await import("@testing-library/react");
 const { BlockPickerSidebar } = await import("./BlockPickerSidebar");
 
 afterEach(cleanup);
@@ -24,7 +25,7 @@ function setup() {
 	const onAdd = mock();
 	const onOpenChange = mock();
 	render(<BlockPickerSidebar isOpen onOpenChange={onOpenChange} onAdd={onAdd} />);
-	const input = screen.getByRole("combobox");
+	const input = within(document.body).getByRole("combobox");
 	const press = (key: string) => fireEvent.keyDown(input, { key });
 	const active = () => {
 		const id = input.getAttribute("aria-activedescendant");
@@ -90,6 +91,6 @@ test("typing resets the highlight to the first hit, Enter adds it", () => {
 
 test("hovering a row moves the highlight", () => {
 	const { active } = setup();
-	fireEvent.mouseEnter(screen.getByRole("option", { name: /^Flow/ }));
+	fireEvent.mouseEnter(within(document.body).getByRole("option", { name: /^Flow/ }));
 	expect(active()).toStartWith("Flow");
 });

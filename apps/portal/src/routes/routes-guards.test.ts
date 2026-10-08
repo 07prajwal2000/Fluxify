@@ -17,7 +17,7 @@ import { Route as RouteTestSuitesRoute } from "./_authed/$projectId_.canvas.$rou
 import { Route as CustomBlockCanvasRoute } from "./_authed/$projectId_.custom-block-canvas.$blockId";
 import { Route as WorkflowCanvasRoute } from "./_authed/$projectId_.workflow-canvas.$workflowId";
 import { Route as ConversationRoute } from "./_authed/$projectId/ai/$conversationId";
-import { harnessConversationsService } from "@/services/harnessConversations";
+import { agentConversationsService } from "@/services/agentConversations";
 
 describe("Route guards and redirects", () => {
 	it("$projectId beforeLoad redirects and toasts when user has no access (403)", async () => {
@@ -182,9 +182,9 @@ describe("Route guards and redirects", () => {
 		toastSpy.mockRestore();
 	});
 
-	it("AI conversation beforeLoad redirects and toasts when listMessages fails", async () => {
+	it("AI conversation beforeLoad redirects and toasts when the conversation fails to load", async () => {
 		const toastSpy = spyOn(toast, "danger").mockImplementation(() => "" as any);
-		spyOn(harnessConversationsService, "listMessages").mockRejectedValue(
+		spyOn(agentConversationsService, "get").mockRejectedValue(
 			new Error("Conversation not found"),
 		);
 

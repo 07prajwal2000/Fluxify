@@ -4,6 +4,7 @@ import {
 	agentHarnessRunsEntity as runs,
 } from "@fluxify/server";
 import { and, desc, eq, inArray, notInArray, sql } from "drizzle-orm";
+import type { StopReason } from "../agent";
 import type { RunStatus } from "../store";
 import type { Mode } from "../tools";
 
@@ -116,12 +117,20 @@ const CONVERSATION_STATUS = {
 	waiting_approval: "paused_hitl",
 } as const;
 
-/** The conversation follows its run once the run settles. */
-export async function settleConversation(conversationId: string, runId: string, status: RunStatus) {
+/** The conversation follows its run once the run settles; `stopReason` says it stopped at a limit. */
+export async function settleConversation(
+	conversationId: string,
+	runId: string,
+	status: RunStatus,
+	stopReason?: StopReason,
+) {
 	const next = CONVERSATION_STATUS[status as keyof typeof CONVERSATION_STATUS] ?? "failed";
 	await db.update(conversations).set({ status: next }).where(eq(conversations.id, conversationId));
 	if (status !== "waiting_approval")
-		await db.update(runs).set({ completedAt: new Date() }).where(eq(runs.id, runId));
+		await db
+			.update(runs)
+			.set({ completedAt: new Date(), stopReason: stopReason ?? null })
+			.where(eq(runs.id, runId));
 }
 
 /** Stops a run no job holds (queued, or waiting on an approval). False when a job is running it. */

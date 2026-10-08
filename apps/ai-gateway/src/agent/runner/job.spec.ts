@@ -119,6 +119,19 @@ describe("executeRun", () => {
 		expect(w.events().at(-1)).toMatchObject({ type: "done", status: "interrupted" });
 	});
 
+	it("a run stopped at the step limit says so on done and when it settles", async () => {
+		const w = world([["get_route"], ["get_route"]]);
+		const reasons: unknown[] = [];
+		w.deps.settle = async (_c, _r, _s, reason) => void reasons.push(reason);
+		w.deps.build = async () => {
+			const { approve: _, ...agent } = w.m.agent;
+			return { ...agent, limits: { ...agent.limits, maxSteps: 1 } };
+		};
+		expect(await go(w, job({ mode: "auto" }))).toBe("completed");
+		expect(reasons).toEqual(["step_limit"]);
+		expect(w.events().at(-1)).toMatchObject({ type: "done", status: "completed", reason: "step_limit" });
+	});
+
 	it("a run that cannot start fails with an error event", async () => {
 		const w = world([]);
 		w.deps.build = async () => {

@@ -1,0 +1,1 @@
+ALTER TABLE "agent_harness_runs" ADD COLUMN "stop_reason" varchar(20);
