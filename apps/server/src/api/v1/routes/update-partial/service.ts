@@ -3,14 +3,14 @@ import { db } from "../../../../db";
 import { CHAN_ON_ROUTE_CHANGE, publishMessage } from "../../../../db/redis";
 import type { AuthACL } from "../../../../db/schema";
 import { BadRequestError } from "../../../../errors/badRequestError";
-import { ConflictError } from "../../../../errors/conflictError";
 import { ForbiddenError } from "../../../../errors/forbidError";
 import { NotFoundError } from "../../../../errors/notFoundError";
 import { ServerError } from "../../../../errors/serverError";
 import { canAccessProject } from "../../../../lib/acl";
 import { patchRouteConfig } from "../routeConfigRepository";
+import { routeConflictError } from "../routeConflict";
 import { normalizeParamsSchema, validateRouteSchemas } from "../schema-validator";
-import { getRouteByNameOrPath, updateRoute } from "../update/repository";
+import { findRouteConflict, getRouteById, updateRoute } from "../update/repository";
 import type { requestBodySchema, responseSchema } from "./dto";
 
 type RouteSchemas = {
@@ -67,26 +67,27 @@ export default async function handleRequest(
 	acl: AuthACL[] = [],
 ): Promise<z.infer<typeof responseSchema>> {
 	const result = await db.transaction(async (tx) => {
-		const existingRoute = await getRouteByNameOrPath(
-			id,
-			data.name ?? "",
-			data.path ?? "",
-			data.method ?? ("NONE" as any),
-			tx,
-		);
+		const existingRoute = await getRouteById(id, tx);
 		if (!existingRoute) {
 			throw new NotFoundError("Route not found");
 		}
 		if (!canAccessProject(acl, existingRoute.projectId ?? "", "creator")) {
 			throw new ForbiddenError();
 		}
-		if (existingRoute.id !== id) {
-			throw new ConflictError("Route already exists");
-		}
 		const patchedRoute = existingRoute;
 		if (data.name) patchedRoute.name = data.name;
 		if (data.path) patchedRoute.path = data.path;
 		if (data.method) patchedRoute.method = data.method;
+		if (data.name || data.path || data.method) {
+			const wanted = {
+				projectId: patchedRoute.projectId ?? "",
+				name: patchedRoute.name ?? "",
+				path: patchedRoute.path ?? "",
+				method: patchedRoute.method ?? "",
+			};
+			const clash = await findRouteConflict(wanted, id, tx);
+			if (clash) throw routeConflictError(clash, wanted);
+		}
 		if (data.active !== undefined) patchedRoute.active = data.active;
 		if (data.timeoutSeconds !== undefined) {
 			patchedRoute.timeoutSeconds = data.timeoutSeconds;

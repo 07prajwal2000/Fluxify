@@ -38,6 +38,15 @@ import {
 import type { requestBodySchema, responseSchema } from "./dto";
 import { getAppConfigs } from "./repository";
 
+type Result = z.infer<typeof responseSchema>;
+
+export const CONNECTION_TEST_TIMEOUT_MS = 10_000;
+
+/**
+ * Always answers with the reason (#672). Some probes throw (an AI provider
+ * refusing the key) and some never settle (a host that drops packets), and both
+ * used to reach the caller as a bare 500 or a hang, with the cause lost.
+ */
 export async function testIntegrationConnection(
 	projectId: string,
 	group: z.infer<typeof integrationsGroupSchema>,
@@ -45,7 +54,39 @@ export async function testIntegrationConnection(
 	config: any,
 	/** which signal to probe; observability only, defaults to logs */
 	signal: OtlpSignal = "logs",
-): Promise<z.infer<typeof responseSchema>> {
+	timeoutMs = CONNECTION_TEST_TIMEOUT_MS,
+): Promise<Result> {
+	let timer: ReturnType<typeof setTimeout> | undefined;
+	const timeout = new Promise<Result>((resolve) => {
+		timer = setTimeout(
+			() =>
+				resolve({
+					success: false,
+					error: `Connection timed out after ${timeoutMs / 1000} seconds`,
+				}),
+			timeoutMs,
+		);
+	});
+	const probe = probeConnection(projectId, group, variant, config, signal).catch(
+		(error: unknown): Result => ({
+			success: false,
+			error: (error instanceof Error ? error.message : String(error)) || "Connection failed",
+		}),
+	);
+	try {
+		return await Promise.race([probe, timeout]);
+	} finally {
+		clearTimeout(timer);
+	}
+}
+
+async function probeConnection(
+	projectId: string,
+	group: z.infer<typeof integrationsGroupSchema>,
+	variant: string,
+	config: any,
+	signal: OtlpSignal,
+): Promise<Result> {
 	const schema = getSchema(group, variant);
 	if (!schema) {
 		return {
@@ -56,10 +97,8 @@ export async function testIntegrationConnection(
 	const result = schema.safeParse(config);
 
 	if (!result.success) {
-		return {
-			success: false,
-			error: "Invalid configuration",
-		};
+		const issues = result.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`);
+		return { success: false, error: `Invalid configuration: ${issues.join("; ")}` };
 	}
 	const integrationData = result.data;
 	const keys = getAppConfigKeysFromData(integrationData);
@@ -93,22 +132,8 @@ export async function testIntegrationConnection(
 export default async function handleRequest(
 	projectId: string,
 	body: z.infer<typeof requestBodySchema>,
-): Promise<z.infer<typeof responseSchema>> {
-	const { group, variant, config: data } = body;
-
-	const timeoutPromise = new Promise<z.infer<typeof responseSchema>>((resolve) =>
-		setTimeout(
-			() =>
-				resolve({
-					success: false,
-					error: "Connection timed out after 5 seconds",
-				}),
-			5000,
-		),
-	);
-
-	const connectionPromise = testIntegrationConnection(projectId, group, variant, data);
-	return Promise.race([connectionPromise, timeoutPromise]);
+): Promise<Result> {
+	return testIntegrationConnection(projectId, body.group, body.variant, body.config);
 }
 
 async function testDatabasesConnection(

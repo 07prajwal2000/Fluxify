@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import { z } from "zod";
-import type { AdminApi } from "../adminApi";
+import { type AdminApi, adminApi } from "../adminApi";
 import { optionalFields, writeTools } from "../writeTools";
 
 type Call = { method: string; path: string; body?: unknown };
@@ -106,5 +106,21 @@ describe("write tools", () => {
 				body: { group: "kv", variant: "Redis", config: {} },
 			},
 		]);
+	});
+
+	// #672: a saved integration that failed its test came back as a tool error, not a result
+	it("test_integration_connection returns the failure reason for a saved one", async () => {
+		const reason = 'password authentication failed for user "app"';
+		const fetcher = () => Response.json({ message: reason, type: "regular" }, { status: 400 });
+		const api = adminApi(fetcher, {}, "creator");
+		expect(await run("test_integration_connection", { projectId: "p", integrationId: "i1" }, api)).toEqual({
+			success: false,
+			error: reason,
+		});
+		// a role error is still an error
+		const denied = adminApi(() => Response.json({}, { status: 403 }), {}, "creator");
+		await expect(run("test_integration_connection", { projectId: "p", integrationId: "i1" }, denied)).rejects.toThrow(
+			"You need the Creator role",
+		);
 	});
 });

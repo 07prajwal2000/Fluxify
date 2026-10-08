@@ -130,6 +130,29 @@ describe("MCP writes", () => {
 		});
 		expect(result).toMatchObject({ success: true });
 	});
+
+	// #672: an agent could not add GET next to PUT and DELETE on one path
+	it("allows every method on one path, and says why a clash is refused", async () => {
+		const base = `/${uniq("users-")}`;
+		const paramsSchema = { dataType: "object", properties: [{ key: "id", dataType: "str", required: true }] };
+		const save = (method: string, path: string, name = uniq("r-")) =>
+			callTool(stack, stack.tokens.creator, "save_route", {
+				projectId: stack.projectId,
+				name,
+				method,
+				path,
+				paramsSchema: { ...paramsSchema, properties: [{ ...paramsSchema.properties[0], key: path.split(":")[1] }] },
+			});
+		for (const method of ["PUT", "DELETE", "GET"]) {
+			const r = await save(method, `${base}/:id`, `${base.slice(1)}-${method}`);
+			expect(`${method} ${r.ok}: ${r.text}`).toStartWith(`${method} true`);
+		}
+		const sameShape = await save("GET", `${base}/:userId`);
+		expect(sameShape.ok).toBe(false);
+		expect(sameShape.text).toContain(`GET ${base}/:id is already taken by route "${base.slice(1)}-GET"`);
+		const sameName = await save("POST", `${base}/:id`, `${base.slice(1)}-GET`);
+		expect(sameName.text).toContain(`A route named "${base.slice(1)}-GET" already exists in this project`);
+	});
 });
 
 describe("MCP runs", () => {

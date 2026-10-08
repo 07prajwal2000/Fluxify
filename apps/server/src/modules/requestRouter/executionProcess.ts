@@ -248,7 +248,10 @@ function setMonitoring(enabled: boolean) {
 
 /** the real error, for the admin's debug call only (#671); the body stays generic */
 function addDebugError(headers: Headers, error: unknown) {
-	headers.set(DEBUG_ERROR_HEADER, encodeDebugError(debugError(error)));
+	// a debug aid must never fail the response it rides on (#672)
+	try {
+		headers.set(DEBUG_ERROR_HEADER, encodeDebugError(debugError(error)));
+	} catch {}
 }
 
 function send(event: ExecutionEvent) {

@@ -2,15 +2,15 @@ import type { z } from "zod";
 import { db } from "../../../../db";
 import { CHAN_ON_ROUTE_CHANGE, publishMessage } from "../../../../db/redis";
 import type { AuthACL } from "../../../../db/schema";
-import { ConflictError } from "../../../../errors/conflictError";
 import { ForbiddenError } from "../../../../errors/forbidError";
 import { NotFoundError } from "../../../../errors/notFoundError";
 import { ServerError } from "../../../../errors/serverError";
 import { canAccessProject } from "../../../../lib/acl";
 import { patchRouteConfig } from "../routeConfigRepository";
+import { routeConflictError } from "../routeConflict";
 import { normalizeParamsSchema } from "../schema-validator";
 import type { requestBodySchema, responseSchema } from "./dto";
-import { getRouteByNameOrPath, updateRoute } from "./repository";
+import { findRouteConflict, getRouteById, updateRoute } from "./repository";
 
 export default async function handleRequest(
 	id: string,
@@ -18,16 +18,16 @@ export default async function handleRequest(
 	acl: AuthACL[] = [],
 ): Promise<z.infer<typeof responseSchema>> {
 	const result = await db.transaction(async (tx) => {
-		const existingRoute = await getRouteByNameOrPath(id, data.name, data.path, data.method, tx);
+		const existingRoute = await getRouteById(id, tx);
 		if (!existingRoute) {
 			throw new NotFoundError("Route not found");
 		}
 		if (!canAccessProject(acl, existingRoute.projectId ?? "", "creator")) {
 			throw new ForbiddenError();
 		}
-		if (existingRoute.id !== id) {
-			throw new ConflictError("Route already exists");
-		}
+		const wanted = { ...data, projectId: existingRoute.projectId ?? "" };
+		const clash = await findRouteConflict(wanted, id, tx);
+		if (clash) throw routeConflictError(clash, wanted);
 		const { acceptedContentTypes, ...route } = data;
 		if (acceptedContentTypes !== undefined) {
 			await patchRouteConfig(id, existingRoute.projectId, { acceptedContentTypes }, tx);

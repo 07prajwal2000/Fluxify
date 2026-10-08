@@ -24,12 +24,13 @@ mock.module("../../../../../db/redis", () => ({
 	CHAN_ON_ROUTE_CHANGE: "",
 }));
 mock.module("../../update/repository", () => ({
-	getRouteByNameOrPath: mock(),
+	getRouteById: mock(),
+	findRouteConflict: mock(async () => undefined),
 	updateRoute: mock(),
 }));
 
 // Import mocked functions after mocking
-const { getRouteByNameOrPath, updateRoute } =
+const { getRouteById, updateRoute, findRouteConflict } =
 	await import("../../update/repository");
 
 describe("update-partial route", () => {
@@ -57,7 +58,7 @@ describe("update-partial route", () => {
 			createdAt: new Date(),
 			updatedAt: new Date(),
 		};
-		(getRouteByNameOrPath as any).mockResolvedValueOnce(mockRoute);
+		(getRouteById as any).mockResolvedValueOnce(mockRoute);
 
 		const acl: AuthACL[] = [{ projectId: "proj1", role: "creator" }];
 		await expect(
@@ -67,7 +68,7 @@ describe("update-partial route", () => {
 
 	it("should throw ForbiddenError when user is only a viewer of the project", async () => {
 		(db.transaction as any).mockImplementation(async (callback: any) => callback({}));
-		(getRouteByNameOrPath as any).mockResolvedValueOnce({
+		(getRouteById as any).mockResolvedValueOnce({
 			id: "123",
 			name: "Original",
 			path: "/original",
@@ -98,7 +99,7 @@ describe("update-partial route", () => {
 			createdAt: new Date(),
 			updatedAt: new Date(),
 		};
-		(getRouteByNameOrPath as any).mockResolvedValueOnce(mockRoute);
+		(getRouteById as any).mockResolvedValueOnce(mockRoute);
 		(updateRoute as any).mockResolvedValueOnce({
 			...mockRoute,
 			path: "/updated",
@@ -122,7 +123,7 @@ describe("update-partial route", () => {
 			(db.transaction as any).mockImplementation(async (callback: any) =>
 				callback({}),
 			);
-			(getRouteByNameOrPath as any).mockResolvedValueOnce({
+			(getRouteById as any).mockResolvedValueOnce({
 				id: "123",
 				name: "Original",
 				path: "/users/:id",
@@ -197,11 +198,38 @@ describe("update-partial route", () => {
 			return await callback(mockTx);
 		});
 
-		(getRouteByNameOrPath as any).mockResolvedValueOnce(null);
+		(getRouteById as any).mockResolvedValueOnce(null);
 
 		const acl: AuthACL[] = [{ projectId: "proj1", role: "creator" }];
 		await expect(
 			handleRequest("123", { name: "Updated" }, acl),
 		).rejects.toThrow(NotFoundError);
+	});
+
+	// #672: a path-only patch was never checked (the method fell back to "NONE")
+	it("checks a path-only patch against the stored method and name, and says why it clashes", async () => {
+		(db.transaction as any).mockImplementation(async (callback: any) => callback({}));
+		(getRouteById as any).mockResolvedValueOnce({
+			id: "123",
+			name: "get-user",
+			path: "/users/:id",
+			method: HttpMethod.GET,
+			projectId: "proj1",
+		});
+		(findRouteConflict as any).mockResolvedValueOnce({
+			id: "9",
+			name: "show-user",
+			path: "/people/:id",
+			method: "GET",
+			projectId: "proj1",
+		});
+		const acl: AuthACL[] = [{ projectId: "proj1", role: "creator" }];
+		await expect(handleRequest("123", { path: "/people/:pid" }, acl)).rejects.toThrow(
+			'GET /people/:id is already taken by route "show-user".',
+		);
+		expect((findRouteConflict as any).mock.calls.at(-1).slice(0, 2)).toEqual([
+			{ projectId: "proj1", name: "get-user", path: "/people/:pid", method: "GET" },
+			"123",
+		]);
 	});
 });

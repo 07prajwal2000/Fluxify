@@ -2,13 +2,13 @@ import { generateID } from "@fluxify/lib";
 import type z from "zod";
 import { type DbTransactionType, db } from "../../../../db";
 import { CHAN_ON_ROUTE_CHANGE, publishMessage } from "../../../../db/redis";
-import type { HttpMethod } from "../../../../db/schema";
-import { ConflictError } from "../../../../errors/conflictError";
 import { NotFoundError } from "../../../../errors/notFoundError";
 import { DEFAULT_CONTENT_TYPES } from "../../../../lib/routeConfig";
 import { patchRouteConfig } from "../routeConfigRepository";
+import { routeConflictError } from "../routeConflict";
+import { findRouteConflict } from "../update/repository";
 import type { requestBodySchema, responseSchema } from "./dto";
-import { checkProjectExist, checkRouteExist, createDependency, createRoute } from "./repository";
+import { checkProjectExist, createDependency, createRoute } from "./repository";
 
 /**
  * `outer` joins a transaction already in progress, so the ops bus can create a
@@ -32,15 +32,8 @@ export default async function handleRequest(
 		if (!projectExist) {
 			throw new NotFoundError(`project with id ${data.projectId} does not exist`);
 		}
-		const existingRoute = await checkRouteExist(
-			data.name,
-			data.path,
-			data.method as HttpMethod,
-			tx,
-		);
-		if (existingRoute) {
-			throw new ConflictError(`route with name or path already exist`);
-		}
+		const clash = await findRouteConflict(data, undefined, tx);
+		if (clash) throw routeConflictError(clash, data);
 		const id = presetId ?? generateID();
 		const { acceptedContentTypes, ...route } = data;
 		const newRouteId = await createRoute({ ...route, id, createdBy: userId }, tx);

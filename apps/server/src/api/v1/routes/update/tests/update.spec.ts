@@ -12,16 +12,17 @@ mock.module("../../../../../db/redis", () => ({
 	CHAN_ON_ROUTE_CHANGE: "",
 }));
 mock.module("../repository", () => ({
-	getRouteByNameOrPath: mock(),
+	getRouteById: mock(),
+	findRouteConflict: mock(async () => undefined),
 	updateRoute: mock(),
 }));
 
-const { getRouteByNameOrPath, updateRoute } = await import("../repository");
+const { getRouteById, updateRoute } = await import("../repository");
 
 describe("update route", () => {
 	it("should throw ForbiddenError when user is only a viewer of the project", async () => {
 		(db.transaction as any).mockImplementation(async (callback: any) => callback({}));
-		(getRouteByNameOrPath as any).mockResolvedValueOnce({
+		(getRouteById as any).mockResolvedValueOnce({
 			id: "123",
 			name: "Original",
 			path: "/original",
