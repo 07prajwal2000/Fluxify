@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 export const requestRouteSchema = z.object({
-	projectId: z.string(),
+	projectId: z.uuidv7("Invalid projectId"),
 });
 
 /** `useForHarness=true|false` narrows the list to `ai` integrations whose
