@@ -177,8 +177,8 @@ They are two separate switches.
 | `paramsSchema: paramsSchema contains parameter 'x' which is not in the route path` | Remove the extra property or add `:x` to the path. |
 | `Invalid body schema format` | The schema does not follow the format above. Check `dataType` spelling and that `properties` is a list. |
 | `Invalid input: timeoutSeconds: ...` | The value is below 30 or not a whole number. |
-| `Fluxify API error 409: route with name or path already exist` | Another route has this name, or this method and path. |
-| `Fluxify API error 409: Route already exists` | On update: the new name, or method and path, belongs to another route. |
+| `Fluxify API error 409: A route named "x" already exists in this project ...` | Route names are unique per project. Pick another name. |
+| `Fluxify API error 409: GET /users/:id is already taken by ...` | Another route has this method on the same path. Param names do not count: `/users/:id` and `/users/:userId` are the same path. Other methods on that path are fine. |
 | `Not found: Route not found` | Wrong `routeId`. Use `list_routes`. |
 | `Route is not active — activate it to call it` | `call_route` on an inactive route. Update with `active: true`. |
 | `Missing path param "id"` | `call_route` needs `params` for every `:param`. |

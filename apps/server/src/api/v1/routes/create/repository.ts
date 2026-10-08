@@ -1,11 +1,11 @@
 import { BlockTypes } from "@fluxify/blocks";
 import { STARTER_POSITIONS } from "@fluxify/blocks/layout";
 import { generateID } from "@fluxify/lib";
-import { and, eq, or } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import type z from "zod";
 import { type DbTransactionType, db } from "../../../../db";
-import { blocksEntity, type HttpMethod, projectsEntity, routesEntity } from "../../../../db/schema";
+import { blocksEntity, projectsEntity, routesEntity } from "../../../../db/schema";
 
 const insertSchema = createInsertSchema(routesEntity);
 
@@ -45,25 +45,6 @@ export async function createDependency(routeId: string, tx?: DbTransactionType) 
 			retryCount: 0,
 		},
 	});
-}
-
-export async function checkRouteExist(
-	name: string,
-	path: string,
-	method: HttpMethod,
-	tx?: DbTransactionType,
-) {
-	const exist = await (tx ?? db)
-		.select({ id: routesEntity.id })
-		.from(routesEntity)
-		.where(
-			or(
-				eq(routesEntity.name, name),
-				and(eq(routesEntity.path, path), eq(routesEntity.method, method)),
-			),
-		)
-		.limit(1);
-	return exist.length > 0;
 }
 
 export async function checkProjectExist(id: string, tx?: DbTransactionType) {
