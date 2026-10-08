@@ -61,11 +61,21 @@ describe("the switch block", () => {
 		});
 	});
 
-	// #673: mismatched data saves as is; the canvas rules warn about it
-	it("saves a match value that is not text unchanged", () => {
+	const errors = (run: () => void) => {
+		try {
+			run();
+		} catch (error) {
+			return (error as { errors?: { field: string; message: string }[] }).errors;
+		}
+		return [];
+	};
+
+	// #673: refused with a message naming the block and the field
+	it("rejects a match value that is not text", () => {
 		const data = changes(BlockTypes.switch, { useValue: true, matches: { paid: 1 } });
-		expect(() => blockDataValidator(data)).not.toThrow();
-		expect(data.changes.blocks[0]!.data).toEqual({ useValue: true, matches: { paid: 1 } });
+		expect(errors(() => blockDataValidator(data))).toEqual([
+			{ field: "b1", message: "switch: matches.paid must be a string" },
+		]);
 	});
 
 	it("keeps each case's condition and the order they are checked in", () => {
@@ -80,11 +90,13 @@ describe("the switch block", () => {
 		});
 	});
 
-	it("saves a condition that is not text, or an order that is not a list", () => {
-		expect(() =>
-			blockDataValidator(changes(BlockTypes.switch, { conditions: { paid: 42 } })),
-		).not.toThrow();
-		expect(() => blockDataValidator(changes(BlockTypes.switch, { order: "paid" }))).not.toThrow();
+	it("rejects a condition that is not text, or an order that is not a list", () => {
+		expect(
+			errors(() => blockDataValidator(changes(BlockTypes.switch, { conditions: { paid: 42 } }))),
+		).toEqual([{ field: "b1", message: "switch: conditions.paid must be a string" }]);
+		expect(
+			errors(() => blockDataValidator(changes(BlockTypes.switch, { order: "paid" }))),
+		).toEqual([{ field: "b1", message: "switch: order must be an array" }]);
 	});
 });
 

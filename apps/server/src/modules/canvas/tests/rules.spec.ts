@@ -61,9 +61,9 @@ describe("canvas rules", () => {
 		expect(warning({ key: "k", value: "plain text" })).toEqual([]);
 		expect(warning({ value: "input.map((x) => x)" }, "jsrunner")).toEqual([]);
 	});
-	it("warns, naming the field, when block data does not match its schema (#673)", () => {
+	it("refuses, naming the field, block data that does not match its schema (#673)", () => {
 		expect(check("route", "response", { httpCode: 200, transformEnabled: "yes" })).toEqual([
-			{ severity: "warning", blockId: "b", message: "response: transformEnabled must be a boolean" },
+			{ severity: "error", blockId: "b", message: "response: transformEnabled must be a boolean" },
 		]);
 		expect(check("route", "jsrunner", { blockName: "Sum", value: 1 })[0]?.message).toBe(
 			'jsrunner "Sum": value must be a string',

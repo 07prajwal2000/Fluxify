@@ -1,4 +1,4 @@
-import { BlockTypes, blockDataSchema } from "@fluxify/blocks";
+import { BlockTypes, blockDataIssues, blockDataSchema } from "@fluxify/blocks";
 import { variableNameError } from "@fluxify/blocks/variableName";
 import type { Context, Next } from "hono";
 import { BadRequestError } from "../../errors/badRequestError";
@@ -35,7 +35,7 @@ export function blockDataValidator(data: CanvasChanges) {
 		deleteIds.add(edge.id);
 	});
 
-	const nameErrors: { field: string; message: string }[] = [];
+	const errors: { field: string; message: string }[] = [];
 
 	for (const block of data.changes.blocks) {
 		if (deleteIds.has(block.id)) continue;
@@ -43,7 +43,7 @@ export function blockDataValidator(data: CanvasChanges) {
 		const nameError = saveAsVariableError(block.data);
 		if (nameError) {
 			const label = (block.data as { blockName?: unknown })?.blockName;
-			nameErrors.push({
+			errors.push({
 				field: block.id,
 				message: `${typeof label === "string" && label ? label : block.type}: ${nameError}`,
 			});
@@ -60,13 +60,17 @@ export function blockDataValidator(data: CanvasChanges) {
 				`Unknown block type: ${block.type}. Use a built-in block type or a custom block defined in this project.`,
 			);
 		}
-		// data that does not match is saved as is: the canvas rules report it as
-		// a warning (`blockDataIssues`), so a half-built block never blocks a save
 		const result = schema.safeParse(block.data);
-		if (result.success) block.data = result.data;
+		if (result.success) {
+			block.data = result.data;
+			continue;
+		}
+		// the same readable messages the canvas rules refuse with on every other save path
+		for (const issue of blockDataIssues([block]))
+			errors.push({ field: block.id, message: issue.message });
 	}
 
-	if (nameErrors.length > 0) throw new ValidationError(nameErrors);
+	if (errors.length > 0) throw new ValidationError(errors);
 }
 
 /** Why an enabled "Save output to variable" name can't be used, if it can't. */

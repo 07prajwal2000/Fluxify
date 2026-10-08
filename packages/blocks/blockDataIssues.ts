@@ -4,11 +4,11 @@ import { BlockTypes } from "./blockTypes";
 import { builtinBlockSchemas } from "./builtin/blockSchemasMap";
 
 /**
- * A block whose `data` does not match its schema still saves (a canvas being
- * built may be half done), but it comes back as a warning naming the field, so
- * the mistake shows at save instead of at compile or run time.
+ * A block whose `data` does not match its schema is refused at save: it would
+ * only fail to compile, and the route would break or keep its old version.
+ * Each mistake is one error naming the block and the field.
  */
-export type BlockDataIssue = { blockId: string; severity: "warning"; message: string };
+export type BlockDataIssue = { blockId: string; severity: "error"; message: string };
 
 const BUILTIN = new Set<string>(Object.values(BlockTypes));
 
@@ -77,7 +77,7 @@ function fieldPath(path: PropertyKey[]): string {
 	);
 }
 
-/** One warning per mistake in each built-in block's data. Custom blocks are skipped. */
+/** One error per mistake in each built-in block's data. Custom blocks are skipped. */
 export function blockDataIssues(
 	blocks: { id: string; type: string | null; data?: unknown }[],
 ): BlockDataIssue[] {
@@ -90,7 +90,7 @@ export function blockDataIssues(
 		const label = name ? `${block.type} "${name}"` : block.type;
 		return leaves(result.error.issues as Issue[]).map((issue) => ({
 			blockId: block.id,
-			severity: "warning" as const,
+			severity: "error" as const,
 			message: `${label}: ${fieldPath(issue.path)} ${describe(issue)}`,
 		}));
 	});

@@ -110,12 +110,17 @@ describe("saveCanvas options (#597)", () => {
 		expect(result.issues[0]).toMatchObject({ severity: "error", blockId: "b1" });
 	});
 
-	it("saves block data that does not match its schema, with a warning naming the field (#673)", async () => {
-		const result = await saveCanvas(route, save({}, "response", { httpCode: "200", transformEnabled: "yes" }), ["p1"]);
+	it("refuses block data that does not match its schema, naming the block and field (#673)", async () => {
+		const bad = save({}, "response", { httpCode: "200", transformEnabled: "yes" });
+		await expect(saveCanvas(route, bad, ["p1"])).rejects.toThrow(
+			"response: transformEnabled must be a boolean",
+		);
+		expect(upsertBlocks).not.toHaveBeenCalled();
+		expect(published).toEqual([]);
+		// a dry run reports it instead
+		const result = await saveCanvas(route, bad, ["p1"], undefined, false, { dryRun: true });
 		expect(result.issues).toEqual([
-			{ severity: "warning", blockId: "b1", message: "response: transformEnabled must be a boolean" },
+			{ severity: "error", blockId: "b1", message: "response: transformEnabled must be a boolean" },
 		]);
-		expect(upsertBlocks).toHaveBeenCalled();
-		expect(published).toEqual(["chan:on-route-change"]);
 	});
 });
