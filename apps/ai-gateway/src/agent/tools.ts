@@ -101,8 +101,15 @@ export const mcpCall =
 /**
  * The agent's tools, all acting as the PAT's user through the admin API.
  * `active()` is what the next step may call: the core plus whatever load_tools added.
+ * `loaded` must outlive one message: the history still says a tool was loaded,
+ * so a fresh set per turn left the model calling a tool it could no longer reach (#672).
  */
-export function agentTools(fetcher: AdminFetch, auth: Record<string, string>, projectId: string) {
+export function agentTools(
+	fetcher: AdminFetch,
+	auth: Record<string, string>,
+	projectId: string,
+	loaded = new Set<string>(),
+) {
 	const run = mcpCall(fetcher, auth);
 	const wrap = (t: McpTool): Tool =>
 		tool({
@@ -111,7 +118,6 @@ export function agentTools(fetcher: AdminFetch, auth: Record<string, string>, pr
 			execute: (args, { abortSignal }) =>
 				t.call(adminApi(fetcher, auth, t.role, abortSignal), args),
 		});
-	const loaded = new Set<string>();
 	const tools: Record<string, Tool> = Object.fromEntries(
 		ALL.filter((t) => !COVERED.has(t.name)).map((t) => [t.name, wrap(t)]),
 	);

@@ -115,8 +115,10 @@ describe("what asks", () => {
 		expect(r.prompts).toHaveLength(2);
 		const last = r.prompts[1].messages.at(-1)!;
 		expect(last.role).toBe("tool");
-		expect(JSON.stringify(last.content)).toContain("The user rejected this call: use /v2");
-		expect(r.shown).toContain("✗ save_route The user rejected this call: use /v2");
+		expect(JSON.stringify(last.content)).toContain(
+			"The user did not approve save_route: use /v2. Ask them, or continue without it.",
+		);
+		expect(r.shown).toContain("✗ save_route The user did not approve save_route: use /v2");
 		expect(r.shown).toContain("done");
 	});
 
@@ -232,7 +234,12 @@ describe("cli approver", () => {
 
 describe("plan then start", () => {
 	const setup = (answers: NonNullable<ReturnType<typeof parseStart>>[]) => {
-		const session = { history: [], mode: "plan" as Mode, allowed: new Set<string>() };
+		const session = {
+			history: [],
+			mode: "plan" as Mode,
+			allowed: new Set<string>(),
+			loaded: new Set<string>(),
+		};
 		const runs: [string, Mode][] = [];
 		const runOne = async (p: string) => {
 			runs.push([p, session.mode]);

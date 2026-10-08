@@ -30,8 +30,8 @@ export { printRun, short } from "./progress";
  * Evals: bun run agent:evals [--task id,...] [--keep] [--no-judge]; env and output in evals/run.ts.
  */
 
-/** What lasts across messages: the conversation, the mode and the tools approved with "a". */
-type Session = { history: ModelMessage[]; mode: Mode; allowed: Set<string> };
+/** What lasts across messages: the conversation, the mode, the tools approved with "a" and the ones load_tools added. */
+type Session = { history: ModelMessage[]; mode: Mode; allowed: Set<string>; loaded: Set<string> };
 
 type Run = Session & {
 	approve: Approve;
@@ -41,7 +41,7 @@ type Run = Session & {
 };
 
 /** Builds the agent from env and runs the conversation in `history` (ending on the user's message). */
-export function startAgent(projectId: string, run: Run) {
+export function startAgent(projectId: string, { loaded, ...run }: Run) {
 	const pat = process.env.FLUXIFY_PAT;
 	if (!pat) throw new Error("FLUXIFY_PAT is required: a personal access token from the portal");
 	const base = process.env.FLUXIFY_URL || ADMIN_API_URL;
@@ -49,6 +49,7 @@ export function startAgent(projectId: string, run: Run) {
 		(p, init) => fetch(`${base}${p}`, init),
 		{ authorization: `Bearer ${pat}` },
 		projectId,
+		loaded,
 	);
 	const model = modelFromEnv(process.env);
 	const limits = limitsFromEnv(process.env);
@@ -201,7 +202,7 @@ async function repl(projectId: string, first: string | undefined, mode: Mode) {
 	console.log(
 		`Log: ${file}\n/mode <manual|auto|plan> switches mode, /exit quits. Ctrl+C stops a run.`,
 	);
-	const session: Session = { history: [], mode, allowed: new Set() };
+	const session: Session = { history: [], mode, allowed: new Set(), loaded: new Set() };
 	const rl = createInterface({ input: process.stdin, output: process.stdout });
 	// @types/node 26 merges the emitter methods in a way tsgo misses.
 	const events = rl as unknown as EventEmitter;

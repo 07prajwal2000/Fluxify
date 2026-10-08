@@ -53,8 +53,9 @@ export type Approval = { ok: true; always?: boolean } | { ok: false; reason?: st
 /** Asks the user (terminal, UI, …). `signal` fires when the run is stopped. */
 export type Approve = (call: PendingCall, signal?: AbortSignal) => Promise<Approval>;
 
-export const rejected = (reason?: string) =>
-	reason ? `The user rejected this call: ${reason}` : "The user rejected this call.";
+/** The tool result for a rejected call: names the tool and the way on, so the model neither retries it blindly nor stalls (#672). */
+export const rejected = (toolName: string, reason?: string) =>
+	`The user did not approve ${toolName}${reason ? `: ${reason}` : ""}. Ask them, or continue without it.`;
 
 /** Approves everything, for unattended runs (evals). */
 export const approveAll: Approve = async () => ({ ok: true });
@@ -190,7 +191,7 @@ export function runAgent({
 				approve({ toolCallId, toolName, input, isDelete: del }, abortSignal),
 				stopped,
 			]);
-			if (!r.ok) return { type: "denied", reason: rejected(r.reason) };
+			if (!r.ok) return { type: "denied", reason: rejected(toolName, r.reason) };
 			if (r.always && !del) allowed.add(toolName);
 			return "approved";
 		},

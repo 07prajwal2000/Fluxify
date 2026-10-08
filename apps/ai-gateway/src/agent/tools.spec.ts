@@ -109,6 +109,17 @@ describe("agent tools", () => {
 		});
 		expect(active()).toContain("delete_route");
 	});
+
+	// #672: the CLI builds the tools again for every message, and the loaded set went with
+	// them, so after "yes, delete it" the model called a delete_route it could no longer reach.
+	it("a tool loaded in one message stays callable in the next", async () => {
+		const loaded = new Set<string>();
+		const { fetcher } = fakeFetch();
+		const first = agentTools(fetcher, {}, P, loaded);
+		await exec(first.tools.load_tools, { names: ["delete_route"] });
+		const next = agentTools(fetcher, {}, P, loaded);
+		expect(next.active()).toContain("delete_route");
+	});
 });
 
 const usage = {
