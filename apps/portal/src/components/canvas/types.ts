@@ -92,6 +92,8 @@ export type BlockCanvasProps = {
 	cycleFeedbackToken?: number;
 	/** Increment to replace the canvas with `graph`, dropping unsaved edits and undo. */
 	reloadToken?: number;
+	/** Open on this block with its error in Diagnostics (a link from the test results). */
+	focusBlock?: { blockId: string; error?: string };
 	/** Optional double-click handler for nodes, overriding default panel opening. */
 	onNodeDoubleClick?: (event: React.MouseEvent, node: BlockNode) => void;
 	/** Rendered inside React Flow — use for `<Panel>` based toolbars/overlays. */

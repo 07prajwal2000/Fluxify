@@ -29,6 +29,7 @@ export {
 export * from "./src/CodeViewer";
 export * from "./src/ConditionsBuilder";
 export * from "./src/CustomSelect";
+export * from "./src/DebugError";
 export * from "./src/DeleteButton";
 export * from "./src/FieldMapEditor";
 export * from "./src/IntegrationSelector";

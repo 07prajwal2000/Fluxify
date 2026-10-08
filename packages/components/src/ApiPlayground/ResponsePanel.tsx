@@ -1,11 +1,18 @@
 import { Button, Tabs } from "@heroui/react";
 import { useMemo } from "react";
 import { TbClock, TbCopy, TbDatabase } from "react-icons/tb";
+import { DebugErrorView } from "../DebugError";
 import { MonacoEditor as Editor } from "../JavaScriptTextArea/monacoEditor";
 import type { ApiPlaygroundResponse } from "./types";
 import { formatResponseBody, inferLanguage, responseHeaders, statusTone } from "./utils";
 
-export function ResponsePanel({ response }: { response?: ApiPlaygroundResponse }) {
+export function ResponsePanel({
+	response,
+	onSelectBlock,
+}: {
+	response?: ApiPlaygroundResponse;
+	onSelectBlock?: (blockId: string, message: string) => void;
+}) {
 	const headers = useMemo(() => responseHeaders(response?.headers), [response?.headers]);
 	const mimeType =
 		response?.mimeType ?? headers.find(([key]) => key.toLowerCase() === "content-type")?.[1];
@@ -46,9 +53,14 @@ export function ResponsePanel({ response }: { response?: ApiPlaygroundResponse }
 						</Tabs.List>
 					</div>
 				</Tabs.ListContainer>
-				<Tabs.Panel id="body" className="relative min-h-0 flex-1 overflow-hidden">
+				<Tabs.Panel id="body" className="relative flex min-h-0 flex-1 flex-col overflow-hidden">
+					{response?.debugError && (
+						<div className="max-h-[45%] shrink-0 overflow-y-auto p-3 pb-0">
+							<DebugErrorView error={response.debugError} onSelectBlock={onSelectBlock} />
+						</div>
+					)}
 					{response ? (
-						<>
+						<div className="relative min-h-0 flex-1">
 							<Editor
 								height="100%"
 								language={inferLanguage(mimeType)}
@@ -74,7 +86,7 @@ export function ResponsePanel({ response }: { response?: ApiPlaygroundResponse }
 							>
 								<TbCopy size={14} />
 							</Button>
-						</>
+						</div>
 					) : (
 						<EmptyResponse />
 					)}

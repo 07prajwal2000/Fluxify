@@ -1,3 +1,5 @@
+import type { DebugErrorInfo } from "../DebugError";
+
 export type ApiSchemaRule = {
 	type: string;
 	value?: unknown;
@@ -98,6 +100,8 @@ export type ApiPlaygroundResponse = {
 	mimeType?: string;
 	durationMs?: number;
 	bytes?: number;
+	/** why the run failed, when the host could get it */
+	debugError?: DebugErrorInfo;
 };
 
 export type ApiPlaygroundState = {
@@ -130,4 +134,6 @@ export type ApiPlaygroundProps = {
 	onRequestChange?: (request: Omit<ApiPlaygroundRequest, "url" | "body">) => void;
 	/** Called after playground input or output state changes. */
 	onStateChange?: (state: ApiPlaygroundState) => void;
+	/** Makes a debug error's block name clickable. */
+	onSelectBlock?: (blockId: string, message: string) => void;
 };

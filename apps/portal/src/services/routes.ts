@@ -1,3 +1,7 @@
+import type {
+	callBodySchema,
+	callResultSchema,
+} from "@fluxify/server/src/api/v1/routes/call/service";
 import {
 	requestBodySchema as createRequestSchema,
 	type responseSchema as createResponseSchema,
@@ -11,6 +15,9 @@ import type { requestBodySchema as updatePartialRequestSchema } from "@fluxify/s
 import type z from "zod";
 import { httpClient } from "@/lib/http";
 import { canvasEndpoints } from "./canvas";
+
+export type RouteCallBody = z.infer<typeof callBodySchema>;
+export type RouteCallResult = z.infer<typeof callResultSchema>;
 
 export type RouteDetail = z.infer<typeof getByIdResponseSchema>;
 
@@ -46,6 +53,11 @@ export const routesService = {
 	},
 	async delete(id: string) {
 		await httpClient.delete(`${baseUrl}/${id}`);
+	},
+	/** Runs the route for real through the admin API; `debug` adds the real error on failure. */
+	async call(routeId: string, body: RouteCallBody): Promise<RouteCallResult> {
+		const result = await httpClient.post(`${baseUrl}/${routeId}/call`, body);
+		return result.data;
 	},
 	...canvasEndpoints(baseUrl),
 	async getById(routeId: string): Promise<z.infer<typeof getByIdResponseSchema>> {

@@ -1,3 +1,4 @@
+export * from "./blockErrorFocus";
 export * from "./cycleValidator";
 export * from "./DiagnosticsContext";
 export * from "./DiagnosticsPanel";

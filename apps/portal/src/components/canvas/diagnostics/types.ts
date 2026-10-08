@@ -8,6 +8,7 @@ const SOURCE_LABELS: Record<string, string> = {
 		"Transaction check: rollbacks stay inside, success/failure paths stay outside",
 	"block-config": "Settings check: wired blocks must be filled in",
 	"literal-expression": "Text check: a value is plain text unless it starts with js:",
+	"runtime-error": "Test run: the block failed when the route ran",
 	save: "Save error: the server rejected the save",
 	"save-check": "Save check: saved, but the server found a problem",
 };

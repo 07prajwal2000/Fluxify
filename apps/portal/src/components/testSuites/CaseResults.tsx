@@ -34,9 +34,11 @@ export function CheckList({ checks }: { checks: AssertionResult[] }) {
 function CaseRow({
 	result,
 	renderTrace,
+	renderDebug,
 }: {
 	result: CaseResult;
 	renderTrace?: (result: CaseResult) => ReactNode;
+	renderDebug?: (debug: NonNullable<CaseResult["debug"]>) => ReactNode;
 }) {
 	// failures open by default: they are what a reader came for
 	const [open, setOpen] = useState(result.status !== "passed");
@@ -71,7 +73,9 @@ function CaseRow({
 			{open && (
 				<div className="space-y-2 border-t border-border p-2">
 					{renderTrace?.(result)}
-					{result.error && <p className="text-xs text-danger">{result.error}</p>}
+					{result.debug && renderDebug
+						? renderDebug(result.debug)
+						: result.error && <p className="text-xs text-danger">{result.error}</p>}
 					<CheckList checks={result.checks} />
 					<CodeViewer
 						language="json"
@@ -90,8 +94,11 @@ function CaseRow({
 export function CaseResults({
 	cases,
 	renderTrace,
+	renderDebug,
 }: {
 	cases: CaseResult[];
+	/** a failed case's real error (#676) */
+	renderDebug?: (debug: NonNullable<CaseResult["debug"]>) => ReactNode;
 	/** a case's "View trace" (#627) */
 	renderTrace?: (result: CaseResult) => ReactNode;
 }) {
@@ -105,7 +112,12 @@ export function CaseResults({
 				{passed} of {cases.length} case{cases.length === 1 ? "" : "s"} passed
 			</p>
 			{ordered.map((result) => (
-				<CaseRow key={result.index} result={result} renderTrace={renderTrace} />
+				<CaseRow
+					key={result.index}
+					result={result}
+					renderTrace={renderTrace}
+					renderDebug={renderDebug}
+				/>
 			))}
 		</div>
 	);

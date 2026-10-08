@@ -26,7 +26,9 @@ import { CanvasChangesProvider, cloneChangeSet, useChangeTracker } from "./chang
 import { CanvasClipboardProvider, type GraphPart, useClipboard } from "./clipboard";
 import { useContextMenu } from "./contextMenu";
 import {
+	BlockErrorFocusProvider,
 	CanvasDiagnosticsProvider,
+	RUNTIME_ERROR_SOURCE,
 	useCanvasDiagnosticsBridge,
 	useHasDiagnosticsProvider,
 } from "./diagnostics";
@@ -78,6 +80,7 @@ function CanvasInner({
 	cycleFeedbackToken = 0,
 	reloadToken = 0,
 	onNodeDoubleClick: onCustomNodeDoubleClick,
+	focusBlock,
 	children,
 }: BlockCanvasProps) {
 	const readOnly = mode === "readonly";
@@ -206,6 +209,25 @@ function CanvasInner({
 		setNodes,
 		panel,
 	});
+
+	const { setFromSource } = diagnostics;
+	const showBlockError = useCallback(
+		(blockId: string, message: string) => {
+			setFromSource(RUNTIME_ERROR_SOURCE, [
+				{ blockId, severity: "error", message, source: RUNTIME_ERROR_SOURCE },
+			]);
+			playground.close();
+			handleSelectBlock(blockId);
+		},
+		[handleSelectBlock, playground, setFromSource],
+	);
+	// a link from the test results: open on the block that failed, once
+	const focused = useRef(false);
+	useEffect(() => {
+		if (!focusBlock || focused.current || !nodes.some((n) => n.id === focusBlock.blockId)) return;
+		focused.current = true;
+		showBlockError(focusBlock.blockId, focusBlock.error ?? "The block failed in a test run.");
+	}, [focusBlock, nodes, showBlockError]);
 
 	// Read from state so the panel follows renames and data edits live.
 	const openBlock = useMemo(
@@ -450,7 +472,11 @@ function CanvasInner({
 													diagnostics={diagnostics}
 													handleSelectBlock={handleSelectBlock}
 													enablePlayground={enablePlayground}
-													playgroundContent={playgroundContent}
+													playgroundContent={
+														<BlockErrorFocusProvider value={showBlockError}>
+															{playgroundContent}
+														</BlockErrorFocusProvider>
+													}
 													trackExecutionContent={trackExecutionContent}
 												/>
 											</div>
