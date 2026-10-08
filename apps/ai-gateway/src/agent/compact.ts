@@ -39,18 +39,22 @@ const keepFrom = (messages: ModelMessage[], n: number) => {
 	return -1;
 };
 
-/**
- * 60%: a copy of `messages` with big tool results older than the last few
- * steps replaced by a stub. The latest canvas result stays. Same input, same
- * output; `messages` is not changed.
- */
-export function trimOld(messages: ModelMessage[]) {
-	const from = Math.max(0, keepFrom(messages, KEEP_STEPS));
-	let lastCanvas = "";
+/** Tool call id of the newest canvas result, which is never trimmed. */
+const latestCanvas = (messages: ModelMessage[]) => {
+	let id = "";
 	for (const m of messages)
 		if (m.role === "tool")
 			for (const p of m.content)
-				if (p.type === "tool-result" && CANVAS.has(p.toolName)) lastCanvas = p.toolCallId;
+				if (p.type === "tool-result" && CANVAS.has(p.toolName)) id = p.toolCallId;
+	return id;
+};
+
+/**
+ * 60%: a copy of `messages` with big tool results before index `from` replaced
+ * by a stub. `keep` (a tool call id) stays. Same input, same output; `messages`
+ * is not changed.
+ */
+export function trimOld(messages: ModelMessage[], from: number, keep = "") {
 	let results = 0;
 	let saved = 0;
 	const out = messages.map((m, i): ModelMessage => {
@@ -58,7 +62,7 @@ export function trimOld(messages: ModelMessage[]) {
 		return {
 			...m,
 			content: m.content.map((p) => {
-				if (p.type !== "tool-result" || p.toolCallId === lastCanvas) return p;
+				if (p.type !== "tool-result" || p.toolCallId === keep) return p;
 				const n = chars(p.output);
 				if (n < MIN_TRIM_CHARS) return p;
 				const value = `[result trimmed: ${p.toolName}, ${n} chars]`;
@@ -150,10 +154,12 @@ export const compactionLine = (c: Compaction) =>
 type Usage = { inputTokens?: number; outputTokens?: number } | undefined;
 
 /**
- * The check before each step: over 80% swaps a summary into `history`, over
- * 60% (sticky, so the request does not flip between steps) sends a trimmed
- * copy. A failed summary falls back to the trim. What happened lands in
- * `events` for the stream to show.
+ * The check before each step: over 80% swaps a summary into `history`. Over
+ * 60% the old tool results are trimmed in a batch: everything before the last
+ * few steps, once. That cut-off then stays put, so the trimmed prefix is
+ * identical on every step (the provider can cache it) until usage falls under
+ * 60% and crosses it again. A failed summary falls back to a batch. What
+ * happened lands in `events` for the stream to show.
  */
 export function compactor(o: {
 	model: Exclude<LanguageModel, string>;
@@ -164,12 +170,28 @@ export function compactor(o: {
 }) {
 	const context = o.context ?? MAX_CONTEXT_TOKENS;
 	const events: Compaction[] = [];
-	let trimming = false;
-	let reported = 0;
+	/** The frozen cut-off: results before this history index are stubs. */
+	let cut = 0;
+	let keep = "";
+	/** A batch may run. Off after one until usage is seen under 60%. */
+	let armed = true;
 	/** The last step's usage no longer matches the history after a summary. */
 	let stale = false;
+	const batch = () => {
+		cut = Math.max(0, keepFrom(o.history, KEEP_STEPS));
+		keep = latestCanvas(o.history);
+		armed = false;
+		const t = trimOld(o.history, cut, keep);
+		if (t.results)
+			events.push({
+				type: "compaction",
+				kind: "trim",
+				results: t.results,
+				savedTokens: t.savedTokens,
+			});
+	};
 	const next = async (last: Usage) => {
-		const used =
+		let used =
 			last?.inputTokens && !stale
 				? last.inputTokens + (last.outputTokens ?? 0)
 				: estimate(o.history, o.instructions);
@@ -181,28 +203,20 @@ export function compactor(o: {
 					o.history.splice(0, o.history.length, ...r.messages);
 					events.push(r.event);
 					stale = true;
-					reported = 0;
+					cut = 0;
+					keep = "";
+					armed = true;
+					used = estimate(o.history, o.instructions);
 				}
 			} catch (e) {
 				const error = e instanceof Error ? e.message : String(e);
 				events.push({ type: "compaction", kind: "summary-failed", error });
-				trimming = true;
+				armed = true;
 			}
 		}
-		if (!trimming && used < TRIM_AT * context) return [...o.history];
-		trimming = true;
-		const t = trimOld(o.history);
-		// Once per phase: a line every step would be noise.
-		if (t.results && !reported) {
-			events.push({
-				type: "compaction",
-				kind: "trim",
-				results: t.results,
-				savedTokens: t.savedTokens,
-			});
-			reported = t.results;
-		}
-		return t.messages;
+		if (used < TRIM_AT * context) armed = true;
+		else if (armed) batch();
+		return cut ? trimOld(o.history, cut, keep).messages : [...o.history];
 	};
 	return { next, events };
 }
