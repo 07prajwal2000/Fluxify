@@ -1,7 +1,7 @@
 import { logger } from "@fluxify/common";
 import { consumeQueue, ensureStreamConsumer, type QueueConsumer } from "@fluxify/common/nats";
 import type { TraceRunPayload } from "@fluxify/common/otlp";
-import { and, eq, inArray, lt } from "drizzle-orm";
+import { and, eq, inArray, lt, sql } from "drizzle-orm";
 import z from "zod";
 import { db } from "../../db";
 import { natsConnection } from "../../db/nats";
@@ -87,6 +87,18 @@ const runSchema = z
 		message: "a run belongs to exactly one route or workflow",
 	});
 
+/**
+ * A span's input / output as a jsonb value (#665). A block can hand on anything — KV set and
+ * delete answer `true` — but Bun's driver binds a bare boolean or number as a boolean or numeric
+ * parameter, which a jsonb column rejects, and one rejected span loses the whole run. Sending the
+ * JSON text and casting it keeps every shape (see "Bun `sql` Stores a JSON String" in AGENT.md).
+ * Nothing stays nothing: no value is a SQL null, as it always was.
+ */
+function jsonbValue(value: unknown) {
+	if (value === undefined || value === null) return value;
+	return sql`${JSON.stringify(value)}::text::jsonb`;
+}
+
 export async function startRecordingConsumer(): Promise<QueueConsumer[]> {
 	const nc = natsConnection();
 	// not caught: NATS is a hard dependency, and an admin that silently records
@@ -168,8 +180,8 @@ export async function persistRecording(payload: unknown): Promise<"stored" | "dr
 					outcome: span.outcome,
 					branch: span.branch,
 					error: span.error,
-					input: span.input,
-					output: span.output,
+					input: jsonbValue(span.input),
+					output: jsonbValue(span.output),
 					truncated: span.truncated ?? false,
 					metadata: span.metadata,
 				})),
