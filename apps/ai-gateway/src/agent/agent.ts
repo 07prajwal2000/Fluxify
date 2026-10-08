@@ -33,7 +33,7 @@ type Run = {
 	history: ModelMessage[];
 	limits: Limits;
 	abortSignal?: AbortSignal;
-	/** A model call sent nothing in time and is being retried. */
+	/** A model call is being retried (idle timeout, or a 429/5xx). */
 	onRetry?: (why: string) => void;
 };
 
@@ -79,6 +79,7 @@ export function runAgent({
 		messages: [...history],
 		tools: withToolTimeouts(tools, limits.toolMs),
 		abortSignal,
+		maxRetries: limits.retries,
 		stopWhen: isStepCount(MAX_STEPS),
 		prepareStep: ({ messages }) => {
 			assertEndsOnUserOrTool(messages);

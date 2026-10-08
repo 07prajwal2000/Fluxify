@@ -1,12 +1,12 @@
 import { describe, expect, it } from "bun:test";
-import { type ModelMessage, tool } from "ai";
+import { APICallError, type ModelMessage, tool } from "ai";
 import { convertArrayToReadableStream, MockLanguageModelV4 } from "ai/test";
 import { z } from "zod";
 import { assertEndsOnUserOrTool, MAX_STEPS, runAgent, STEP_LIMIT_NOTE } from "./agent";
 import { onInterrupt, parseLine } from "./cli";
 import { printRun } from "./progress";
 
-const limits = { idleMs: 50, callMs: 300, toolMs: 50 };
+const limits = { idleMs: 50, callMs: 300, toolMs: 50, retries: 5 };
 const usage = {
 	inputTokens: { total: 1, noCache: 1, cacheRead: 0, cacheWrite: 0 },
 	outputTokens: { total: 1, text: 1, reasoning: 0 },
@@ -99,6 +99,46 @@ describe("model timeouts", () => {
 		setTimeout(() => ctrl.abort(), 20);
 		const { shown, retries } = await run([hang, hang], { signal: ctrl.signal });
 		expect(retries).toEqual([]);
+		expect(shown).toContain("[stopped]");
+	});
+});
+
+/** A provider error; retry-after-ms keeps the SDK's backoff short. */
+const failWith = (statusCode: number, message: string, wait = "1") => () => {
+	throw new APICallError({
+		message,
+		url: "http://model",
+		requestBodyValues: {},
+		statusCode,
+		responseHeaders: { "retry-after-ms": wait },
+	});
+};
+
+describe("provider errors", () => {
+	it("retries a 429 with backoff and goes on with the answer", async () => {
+		const ok = () => reply([...text("ok"), finish("stop")]);
+		const { shown, retries, prompts } = await run([failWith(429, "Too Many Requests"), ok]);
+		expect(prompts).toHaveLength(2);
+		expect(retries).toEqual(["The model returned 429 Too Many Requests. Retrying (1/5)."]);
+		expect(shown).toContain("ok");
+		expect(shown).not.toContain("[error]");
+	});
+
+	it("does not retry a 400 and shows its message", async () => {
+		const { shown, retries, prompts } = await run([failWith(400, "Bad Request")]);
+		expect(prompts).toHaveLength(1);
+		expect(retries).toEqual([]);
+		expect(shown).toContain("[error] Bad Request");
+	});
+
+	it("stops on the user's abort during the backoff", async () => {
+		const ctrl = new AbortController();
+		setTimeout(() => ctrl.abort(), 20);
+		const started = Date.now();
+		const fail = failWith(429, "Too Many Requests", "5000");
+		const { shown, prompts } = await run([fail, fail], { signal: ctrl.signal });
+		expect(Date.now() - started).toBeLessThan(1000);
+		expect(prompts).toHaveLength(1);
 		expect(shown).toContain("[stopped]");
 	});
 });

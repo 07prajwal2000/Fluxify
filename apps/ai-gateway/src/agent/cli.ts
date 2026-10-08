@@ -18,7 +18,8 @@ export { printRun, short } from "./progress";
  * Then `> ` takes the next message. /exit quits; Ctrl+C stops a run, twice at an empty prompt quits.
  * Env: AGENT_PROVIDER, AGENT_MODEL, AGENT_API_KEY, AGENT_BASE_URL, FLUXIFY_PAT,
  * FLUXIFY_URL (the admin server, http://127.0.0.1:$SERVER_PORT by default),
- * AGENT_CHUNK_TIMEOUT_MS (60000), AGENT_MODEL_TIMEOUT_MS (180000), AGENT_TOOL_TIMEOUT_MS (120000).
+ * AGENT_CHUNK_TIMEOUT_MS (60000), AGENT_MODEL_TIMEOUT_MS (180000), AGENT_TOOL_TIMEOUT_MS (120000),
+ * AGENT_MAX_RETRIES (5: retries of a 429/5xx, backoff 2s doubling, or the provider's retry-after under 60s).
  * Each session logs to apps/ai-gateway/logs/agent-<time>.log.
  */
 
@@ -70,7 +71,7 @@ async function turn(
 	history.push({ role: "user", content: prompt });
 	log("prompt", { chars: prompt.length });
 	const onRetry = (why: string) => {
-		write(`\n[timeout] ${why}\n`);
+		write(`\n[retry] ${why}\n`);
 		log("retry", { why });
 	};
 	const result = startAgent(projectId, { history, abortSignal: signal, onRetry });

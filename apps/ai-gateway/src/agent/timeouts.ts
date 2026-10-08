@@ -1,4 +1,10 @@
-import { type LanguageModel, type LanguageModelMiddleware, type Tool, wrapLanguageModel } from "ai";
+import {
+	APICallError,
+	type LanguageModel,
+	type LanguageModelMiddleware,
+	type Tool,
+	wrapLanguageModel,
+} from "ai";
 
 type WrapStream = NonNullable<LanguageModelMiddleware["wrapStream"]>;
 type StreamResult = Awaited<ReturnType<WrapStream>>;
@@ -11,12 +17,15 @@ export type Limits = {
 	callMs: number;
 	/** Cap on one tool call. */
 	toolMs: number;
+	/** Retries of a 429/5xx, passed to streamText (its backoff honours retry-after). */
+	retries: number;
 };
 
 export const limitsFromEnv = (env: Record<string, string | undefined>): Limits => ({
 	idleMs: Number(env.AGENT_CHUNK_TIMEOUT_MS) || 60_000,
 	callMs: Number(env.AGENT_MODEL_TIMEOUT_MS) || 180_000,
 	toolMs: Number(env.AGENT_TOOL_TIMEOUT_MS) || 120_000,
+	retries: Number(env.AGENT_MAX_RETRIES ?? 5),
 });
 
 class Timeout extends Error {
@@ -109,10 +118,13 @@ async function* watched(
 	}
 }
 
-const toStream = <T>(it: AsyncGenerator<T>) =>
-	new ReadableStream<T>({
+/** A stream of `first` and then the rest of `it`. */
+const toStream = <T>(it: AsyncGenerator<T>, first: IteratorResult<T>) => {
+	let next: IteratorResult<T> | undefined = first;
+	return new ReadableStream<T>({
 		async pull(c) {
-			const r = await it.next();
+			const r = next ?? (await it.next());
+			next = undefined;
 			if (r.done) c.close();
 			else c.enqueue(r.value);
 		},
@@ -120,26 +132,42 @@ const toStream = <T>(it: AsyncGenerator<T>) =>
 			await it.return(undefined);
 		},
 	});
+};
 
-/** The model with every streaming call watched by `watched`. */
+/**
+ * The model with every streaming call watched by `watched`. doStream waits for
+ * the first part, so a failed connect (429, 5xx) rejects it and streamText
+ * retries it with backoff; an error after content arrived is never retried.
+ */
 export function withModelTimeouts(
 	model: Exclude<LanguageModel, string>,
 	limits: Limits,
 	onRetry: (why: string) => void,
 ) {
+	let failures = 0;
 	return wrapLanguageModel({
 		model,
 		middleware: {
-			wrapStream: async ({ model, params }) => ({
-				stream: toStream(
-					watched(
-						(signal) => model.doStream({ ...params, abortSignal: signal }),
-						params.abortSignal,
-						limits,
-						onRetry,
-					),
-				),
-			}),
+			wrapStream: async ({ model, params }) => {
+				const it = watched(
+					(signal) => model.doStream({ ...params, abortSignal: signal }),
+					params.abortSignal,
+					limits,
+					onRetry,
+				);
+				try {
+					const first = await it.next();
+					failures = 0;
+					return { stream: toStream(it, first) };
+				} catch (e) {
+					// Same check as the SDK's retry, which has no hook of its own.
+					if (APICallError.isInstance(e) && e.isRetryable && failures++ < limits.retries) {
+						const what = [e.statusCode, e.message].filter(Boolean).join(" ");
+						onRetry(`The model returned ${what}. Retrying (${failures}/${limits.retries}).`);
+					}
+					throw e;
+				}
+			},
 		},
 	});
 }
