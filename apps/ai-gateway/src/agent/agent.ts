@@ -1,5 +1,6 @@
 import { type LanguageModel, type ModelMessage, streamText, type Tool } from "ai";
 import { anthropicCache } from "./cache";
+import { compactor } from "./compact";
 import {
 	guardTools,
 	type Limit,
@@ -161,6 +162,14 @@ export function runAgent({
 		return go;
 	};
 	const instructions = agentPrompt(projectId) + (mode === "plan" ? PLAN_PROMPT : "");
+	const timed = withModelTimeouts(model, limits, onRetry ?? (() => {}));
+	const compact = compactor({
+		model: timed,
+		history,
+		instructions,
+		context: limits.maxContextTokens,
+		abortSignal,
+	});
 	const result = streamText({
 		// plan mode: load_tools must not offer write tools as usable now
 		tools: guardTools(
@@ -168,7 +177,7 @@ export function runAgent({
 			guard,
 			limits.maxResultChars ?? MAX_RESULT_CHARS,
 		),
-		model: withModelTimeouts(model, limits, onRetry ?? (() => {})),
+		model: timed,
 		instructions,
 		messages: [...history],
 		abortSignal,
@@ -183,10 +192,13 @@ export function runAgent({
 			}
 			return !(await pastLimit("steps", steps.length)) || !(await pastLimit("tokens", used));
 		},
-		prepareStep: ({ messages }) => {
+		// Built from `history` each step: the 60% trim is never stored, the 80% summary is.
+		prepareStep: async ({ steps }) => {
+			const messages = await compact.next(steps.at(-1)?.usage);
 			assertEndsOnUserOrTool(messages);
 			return {
 				activeTools: mode === "plan" ? active().filter(isRead) : active(),
+				messages,
 				...anthropicCache(model, instructions, messages),
 			};
 		},
@@ -215,7 +227,7 @@ export function runAgent({
 		// Ctrl+C at the limit prompt: the run is aborted, but history still says why.
 		onAbort: () => noteStop(asking ?? stop),
 	});
-	return Object.assign(result, { stopped: () => stop });
+	return Object.assign(result, { stopped: () => stop, compactions: compact.events });
 }
 
 /** In plan mode load_tools still loads (for after the plan) but only reports read tools as usable. */
