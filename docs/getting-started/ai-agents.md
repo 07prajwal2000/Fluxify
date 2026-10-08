@@ -99,6 +99,8 @@ request, runs your code or reaches the internet.
 | `whoami` | Who the agent is signed in as, and your project roles | Any signed-in user |
 | `get_instance_info` | Edition, licence and version | Viewer |
 | `get_block_schemas` | The built-in blocks and their fields | Viewer |
+| `search_docs` | Search the Fluxify docs; returns the matching sections | Viewer |
+| `read_doc` | One docs page's list of sections, or one section's text | Viewer |
 | `get_integration_schema` | The fields one integration type needs | Viewer |
 | `list_projects` | Your projects | Viewer |
 | `get_project` | One project's name and description | Viewer |

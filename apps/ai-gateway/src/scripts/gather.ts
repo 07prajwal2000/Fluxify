@@ -1,50 +1,40 @@
+import fs from "node:fs";
 import path from "node:path";
 import { initializeLogger, logger } from "@fluxify/common";
-import { create, insert } from "@orama/orama";
 import { persistToFile } from "@orama/plugin-data-persistence/server";
-import fs from "fs";
 import { DOCS_INDEX_PATH } from "../constants";
-import { extractFrontmatter } from "../lib/frontmatter";
+import { buildDocsDB, chunkPage, type DocSection } from "../db/vector";
 
 // Initialize the logger for this script
 initializeLogger({ serviceName: "fluxify.api-gateway-gather" });
 
 await generateDocsIndex();
 
+/** One entry per `##` section of every titled page under docs/ (see chunkPage). */
 async function generateDocsIndex() {
-	const db = create({
-		schema: {
-			id: "string",
-			title: "string",
-			description: "string",
-			content: "string",
-		},
-	});
 	const docsDir = path.join(__filename, "../../../../../docs");
-	const docs = fs
+	const pages = fs
 		.readdirSync(docsDir, { recursive: true })
-		.filter((filename) => filename.toString().endsWith(".md"))
-		.map((filename) => path.join(docsDir, filename.toString()));
+		.map((f) => f.toString().replaceAll("\\", "/"))
+		// .vitepress/dist holds built .md copies of every page
+		.filter((f) => f.endsWith(".md") && !f.split("/").some((part) => part.startsWith(".")));
 
+	const sections: DocSection[] = [];
 	let indexed = 0;
-
-	for (const doc of docs) {
+	for (const file of pages) {
 		try {
-			const content = fs.readFileSync(doc).toString();
-			const frontmatter = extractFrontmatter(content);
-			if (!frontmatter.title) {
-				logger.info(`Skipping ${doc}: Missing frontmatter title`);
+			const chunks = chunkPage(
+				file.slice(0, -3),
+				fs.readFileSync(path.join(docsDir, file), "utf8"),
+			);
+			if (!chunks) {
+				logger.info(`Skipping ${file}: Missing frontmatter title`);
 				continue;
 			}
-			insert(db, {
-				id: crypto.randomUUID(),
-				title: frontmatter.title,
-				description: frontmatter?.description ?? "",
-				content,
-			});
+			sections.push(...chunks);
 			indexed++;
 		} catch (e) {
-			logger.error(`Error processing ${doc}:`, e);
+			logger.error(`Error processing ${file}:`, e);
 		}
 	}
 
@@ -54,6 +44,8 @@ async function generateDocsIndex() {
 	} else if (fs.existsSync(DOCS_INDEX_PATH)) {
 		fs.rmSync(DOCS_INDEX_PATH);
 	}
-	await persistToFile(db, "binary", DOCS_INDEX_PATH);
-	logger.info(`[Gather] Indexed ${indexed} docs → ${DOCS_INDEX_PATH}`);
+	await persistToFile(buildDocsDB(sections), "binary", DOCS_INDEX_PATH);
+	logger.info(
+		`[Gather] Indexed ${indexed} docs (${sections.length} sections) → ${DOCS_INDEX_PATH}`,
+	);
 }

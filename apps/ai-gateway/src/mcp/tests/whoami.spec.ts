@@ -1,5 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import { Hono } from "hono";
+import { docsTools } from "../docsTools";
 import { mapMcpServer } from "../index";
 import { readTools } from "../tools";
 import { writeTools } from "../writeTools";
@@ -61,7 +62,7 @@ describe("MCP whoami", () => {
 		const body = (await res.json()) as { result: { tools: { name: string; annotations: object }[] } };
 		const listed = Object.fromEntries(body.result.tools.map((t) => [t.name, t.annotations]));
 		expect(Object.keys(listed)).toContain("whoami");
-		for (const tool of readTools) expect(listed[tool.name]).toEqual({ readOnlyHint: true });
+		for (const tool of [...readTools, ...docsTools]) expect(listed[tool.name]).toEqual({ readOnlyHint: true });
 		for (const tool of writeTools) expect(listed[tool.name]).toEqual(tool.annotations!);
 	});
 

@@ -1,4 +1,5 @@
 import { execSync } from "node:child_process";
+import { readdirSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { type DefaultTheme, defineConfig } from "vitepress";
 import llmstxt from "vitepress-plugin-llms";
@@ -19,10 +20,30 @@ const LLMS_SECTIONS = [
 	"/architecture/",
 ];
 
+const DOCS_DIR = fileURLToPath(new URL("..", import.meta.url));
+
+/**
+ * docs/agents/ is written for AI agents: no sidebar or nav entry and left out
+ * of the site search, but listed first in llms.txt. Its pages are read from
+ * disk, so a new one needs no config change. Titles come from frontmatter.
+ */
+function agentPages(): DefaultTheme.SidebarItem[] {
+	return readdirSync(`${DOCS_DIR}agents`, { recursive: true })
+		.map((f) => f.toString().replaceAll("\\", "/"))
+		.filter((f) => f.endsWith(".md"))
+		.sort((a, b) => Number(b === "index.md") - Number(a === "index.md") || a.localeCompare(b))
+		.map((f) => {
+			const text = readFileSync(`${DOCS_DIR}agents/${f}`, "utf8");
+			const title = text.match(/^title:\s*["']?(.+?)["']?\s*$/m)?.[1] ?? f;
+			return { text: title, link: `/agents/${f.replace(/(index)?\.md$/, "")}` };
+		});
+}
+
 /** The sidebar in llms.txt order, plus pages that have no sidebar of their own. */
 function llmsSidebar(sidebar: DefaultTheme.Sidebar | undefined) {
 	const groups = (sidebar ?? {}) as DefaultTheme.SidebarMulti;
 	return [
+		{ text: "For AI Agents (read first)", items: agentPages() },
 		...LLMS_SECTIONS.flatMap((key) => groups[key] ?? []),
 		{
 			text: "Development",
@@ -383,6 +404,11 @@ export default withMermaid(
 			// Built-in local search (replaces mkdocs `search` plugin — no extra config needed)
 			search: {
 				provider: "local",
+				options: {
+					// agent pages stay out of the human search box (see agentPages)
+					_render: (src, env, md) =>
+						env.relativePath.startsWith("agents/") ? "" : md.render(src, env),
+				},
 			},
 
 			// Outline (table of contents) — mirrors mkdocs toc_depth: 3
@@ -412,7 +438,7 @@ export default withMermaid(
 		vite: {
 			plugins: [
 				// order matters: both run before llmstxt reads the page
-				frontmatterDefaults(fileURLToPath(new URL("..", import.meta.url))),
+				frontmatterDefaults(DOCS_DIR),
 				// %%RELEASE_TAG%% (v0.1.0) and %%CHART_VERSION%% (0.1.0) in any page, code
 				// blocks included, become the newest release, in the HTML and the llms copies
 				{
