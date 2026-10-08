@@ -2,6 +2,7 @@
 // the stream, the consumer, the tables and the retention delete, end to end.
 import { afterAll, beforeAll, describe, expect, it, mock } from "bun:test";
 import { docker, pullImage, startContainerWithRandomPort } from "@fluxify/adapters/containerTestHelpers";
+import { type BlockDTOType, BlockTypes, compileGraph } from "@fluxify/blocks";
 import {
 	closeNats,
 	connectNats,
@@ -311,6 +312,145 @@ describe("recordings consumer", () => {
 				{ caseIndex: 0, traceRunId: first.runId },
 				{ caseIndex: 1, traceRunId: second.runId },
 			]);
+		});
+	});
+
+	// A span's input / output is whatever a block handed on, and plenty of blocks hand on a bare
+	// boolean (KV set / delete), number, string or null. The jsonb columns used to reject all but
+	// objects and arrays, and one bad span threw away the whole run (#665).
+	describe("span values that are not objects (#665)", () => {
+		const values: [string, unknown][] = [
+			["true", true],
+			["false", false],
+			["zero", 0],
+			["a number", 42.5],
+			["a string", "plain text"],
+			["an empty string", ""],
+			["a string that is valid JSON", '{"a":1}'],
+			["an array", [1, "two", false, null]],
+			["an object", { nested: { ok: true } }],
+		];
+		type Span = TraceRunPayload["spans"][number];
+		const makeSpan = (seq: number, over: Partial<Span> = {}): Span => ({
+			seq,
+			blockId: `b${seq}`,
+			blockType: "kv_operations",
+			startedAt: 5_000 + seq * 10,
+			endedAt: 5_010 + seq * 10,
+			outcome: "success",
+			...over,
+		});
+		const valueRows = (id: string) =>
+			sql`SELECT input, output, jsonb_typeof(input) AS input_type, jsonb_typeof(output) AS output_type
+				FROM trace_spans WHERE run_id = ${id} ORDER BY seq`;
+
+		for (const [label, value] of values) {
+			it(`stores ${label} as a span's input and output`, async () => {
+				const run = makeRun();
+				run.spans = [makeSpan(0, { input: value, output: value })];
+
+				expect(await recordings.persistRecording(run)).toBe("stored");
+
+				const [span] = await valueRows(run.runId);
+				expect(span.input).toEqual(value);
+				expect(span.output).toEqual(value);
+				expect(span.input_type).toBe(span.output_type);
+			});
+		}
+
+		const nothing = [
+			["no input or output", undefined],
+			["a null input and output", null],
+		] as const;
+		for (const [label, value] of nothing) {
+			it(`stores a span with ${label} as SQL null, not JSON null`, async () => {
+				const run = makeRun();
+				run.spans = [makeSpan(0, { blockType: "entrypoint", input: value, output: value })];
+				await recordings.persistRecording(run);
+
+				const [span] = await valueRows(run.runId);
+				expect(span.input).toBeNull();
+				expect(span.output).toBeNull();
+				expect(span.input_type).toBeNull();
+				expect(span.output_type).toBeNull();
+			});
+		}
+
+		it("keeps every other span of a run when one span holds a bare boolean", async () => {
+			const run = makeRun();
+			run.spans = [
+				makeSpan(0, { blockType: "entrypoint", input: { a: 1 }, output: { a: 1 } }),
+				makeSpan(1, { input: { a: 1 }, output: true }),
+				makeSpan(2, { blockType: "response", input: true, output: { httpCode: 200, body: true } }),
+			];
+
+			expect(await recordings.persistRecording(run)).toBe("stored");
+
+			expect((await runRow(run.runId)).span_count).toBe(3);
+			const spans = await valueRows(run.runId);
+			expect(spans.map((span: { output: unknown }) => span.output)).toEqual([
+				{ a: 1 },
+				true,
+				{ httpCode: 200, body: true },
+			]);
+		});
+
+		it("records a successful run of a real graph whose block outputs a boolean", async () => {
+			const block = (
+				id: string,
+				type: BlockTypes,
+				data: Record<string, unknown> = {},
+			): BlockDTOType => ({ id, type, data, position: { x: 0, y: 0 } });
+			const edge = (from: string, to: string) => ({
+				id: `e-${from}-${to}`,
+				from,
+				to,
+				fromHandle: "source",
+				toHandle: "source",
+			});
+			const { run: runGraph } = compileGraph(
+				[
+					block("g-entry", BlockTypes.entrypoint),
+					// what a KV set / delete hands on
+					block("g-bool", BlockTypes.jsrunner, { value: "return true;" }),
+					block("g-res", BlockTypes.response, { httpCode: "200" }),
+				],
+				[edge("g-entry", "g-bool"), edge("g-bool", "g-res")],
+			);
+			let runId = "";
+			const recorder = new RouteTraceRecorder(
+				{ projectId: "p1", routeId: "r-on", routeVersion: "v1", method: "POST", path: "/users" },
+				(run) => {
+					runId = run.runId;
+					void stream.publishRecording(run);
+				},
+			);
+			const ctx = {
+				route: "/users",
+				projectId: "p1",
+				apiId: "r-on",
+				vars: {},
+				requestBody: { name: "a" },
+				stopper: { timeoutEnd: 0, duration: 10_000 },
+				trace: recorder,
+			} as unknown as Parameters<typeof runGraph>[0];
+
+			const result = await runGraph(ctx, { name: "a" });
+			recorder.complete("success", 200);
+			// through the stream and the consumer, the way a worker's run reaches Postgres
+			await until(async () => Boolean(runId && (await runRow(runId))));
+
+			expect(result.successful).toBe(true);
+			const row = await runRow(runId);
+			expect(row.outcome).toBe("success");
+			expect(row.span_count).toBe(3);
+			const spans = await valueRows(runId);
+			expect(spans.map((span: { output_type: string | null }) => span.output_type)).toEqual([
+				"object",
+				"boolean",
+				"object",
+			]);
+			expect(spans[1].output).toBe(true);
 		});
 	});
 
