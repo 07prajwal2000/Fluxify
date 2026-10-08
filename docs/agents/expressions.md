@@ -38,7 +38,7 @@ After the prefix, write the body of a function and `return` the value.
 | Name | What it is |
 | :--- | :--- |
 | `input` | The output of the block just before this one. `get_block_schemas` with `blockTypes` shows what each block outputs, e.g. after Get Request Body it is the body itself, so read `input.email`, not `input.body.email`. |
-| `outputs.name` | A block output saved with **Save output to variable**. |
+| `outputs.name` | A block output saved with `saveAsVariable`. See [Save output to variable](/agents/canvas#save-output-to-variable). |
 | `trigger` | What started the run. In a workflow, `trigger.data` is the list of events. |
 | `params.name` | A custom block's own settings. Only inside a custom block. |
 | `getQueryParam("k")`, `getRouteParam("k")`, `getHeader("k")`, `getCookie("k")` | Read the request. Each gives `""` when the value is missing. |
@@ -98,6 +98,35 @@ A Transformer `fieldMap` is also plain text. It maps a source key to a destinati
 
 Raw SQL conditions on database blocks are the one place `{{ }}` is valid, for SQL parameters. See [Database conditions](/blocks/db-conditions). Everywhere else it is a mistake.
 
+## What code can see
+
+The same names reach a `js:` text input, a code field and a custom block's code. Code runs as the body of an async function, so `await`, `const`, `let` and arrow functions all work. `const x` is local to that code.
+
+| Name | Where |
+| :--- | :--- |
+| `input` | Everywhere. The previous block's output. |
+| `params` | Only inside a custom block. Its settings. |
+| `outputs.name` | After a block with `saveAsVariable` ran in this request. Before that `outputs` is undefined. |
+| `trigger` | Everywhere: `trigger.kind`, `trigger.source` and `trigger.data` (a list of events). |
+| `logger.logInfo`, `logger.logWarn`, `logger.logError` | Everywhere. |
+| `httpClient.get`, `post`, `put`, `delete`, `patch` | Everywhere. Each returns the response, with the body in `.data`. |
+| `dbQuery(sql, params)` | DB Native block on PostgreSQL or MySQL. Placeholders are `$1`, `$2`; MySQL also takes `?`. |
+| `db`, `ObjectId` | DB Native block on MongoDB. |
+| `getResponseBody()`, `getResponseStatus()` | After middlewares only. `null` anywhere else. |
+| `setHeader(k, v)`, `setCookie(name, options)` | Routes. They set a header or cookie on the reply. |
+
+There is no `query`, `body` or `params.id` for the request. Read the request with `getQueryParam("k")`, `getRouteParam("k")`, `getHeader("k")` and `getRequestBody()`. Each gives `""` when a value is missing; `getRequestBody()` gives `null` with no body.
+
+To pass a value to a later block, either:
+
+- save the block output with `saveAsVariable`, then read `outputs.name`;
+- add a Set Variable block and read the variable by its bare name;
+- assign a bare name in code, such as `userId = 5`, and read `userId` later. Do not declare it with `const` or `let`: that makes it local.
+
+Everything is per request. Nothing is shared between requests.
+
+A leading `js:` in a code field is stripped when the canvas compiles, and the save warns about it. It never makes `const` fail: `const` and `let` work in code.
+
 ## Build a string
 
 Use a template string with `${ }` inside the `js:` code:
@@ -147,8 +176,13 @@ Hello {{ input.name }}
 
 `edit_canvas` with `validate: true` returns a warning for a field that holds a `{{ }}` template or starts with `input.`, `vars.`, `cfg.` or `data.` but has no `js:`. The warning does not stop the save, so read it.
 
+## Save a block output
+
+Any block can keep its output for later blocks with `saveAsVariable: { "enabled": true, "name": "user" }` in its `data`. A later `js:` input reads `js: return outputs.user.id` and code reads `outputs.user.id`. Name rules and when to use it are in [Save output to variable](/agents/canvas#save-output-to-variable).
+
 ## Related pages
 
 - [Scripting Context](/scripting/context): every name that code can read.
 - [Custom block reference](/agents/custom-block): parameters that accept `js:`.
-- [Route reference](/agents/route): building the canvas of a route.
+- [Canvas guide](/agents/canvas): how a canvas runs, handles and `edit_canvas`.
+- [Route reference](/agents/route): the settings of a route.

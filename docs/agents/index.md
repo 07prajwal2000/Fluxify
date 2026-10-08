@@ -13,6 +13,10 @@ Each page sticks to facts an agent needs to call the Fluxify tools correctly: fi
 
 Search with `search_docs`, then open a page with `read_doc`. With no heading, `read_doc` lists the page's sections; pass one of them as the heading to read just that section.
 
+## Start here
+
+- [Canvas guide](/agents/canvas): how a canvas runs, block handles and edges, `get_block_schemas`, `edit_canvas` with validation, errors and saving a block output to a variable. Read it before you build or edit any canvas.
+
 ## Resource pages
 
 One page per thing you can save with the tools.
@@ -34,6 +38,8 @@ One page per thing you can save with the tools.
 
 Each recipe is a list of steps. Every step is a tool call with its arguments.
 
+- [Validate a request](/agents/recipes/validate-request): reject bad input with the route's body, query and params schemas, not regex in a block.
+- [Composed flows](/agents/recipes/composed-flows): check then update or 404, retry a flaky call, an error handler returning JSON 500, a response status set at run time.
 - [Route with JWT auth](/agents/recipes/route-jwt-auth): a route that answers 401 unless the request has a valid token.
 - [Debug and fix a route or workflow](/agents/recipes/debug-and-fix): read the debug error from `call_route`, check the logs, record a run if needed, fix and re-run.
 - [Workflow with a cron trigger](/agents/recipes/workflow-cron-trigger): a background job that runs on a schedule.
