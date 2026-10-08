@@ -2,6 +2,7 @@ import { describe, expect, it } from "bun:test";
 import { z } from "zod";
 import type { AdminApi } from "../adminApi";
 import { MAX_RESPONSE_CHARS, routeTools, truncate } from "../routeTools";
+import { readTools } from "../tools";
 
 type Call = { method: string; path: string; body?: unknown };
 
@@ -48,6 +49,65 @@ describe("route and workflow tools", () => {
 			},
 			{ method: "PATCH", path: "/v1/routes/partial/r1", body: { active: false } },
 		]);
+	});
+
+	it("save_route with middlewares creates, then sets both lists in order", async () => {
+		const { api, calls } = fakeApi();
+		const input = { projectId: P, name: "priv", path: "/p", method: "GET" };
+		await run("save_route", { ...input, middlewares: { before: ["m2", "m1"], after: ["m3"] } }, api);
+		expect(calls).toEqual([
+			{ method: "POST", path: "/v1/routes", body: input },
+			{ method: "PUT", path: "/v1/routes/new-id/middlewares", body: { before: ["m2", "m1"], after: ["m3"] } },
+		]);
+		expect(tool("save_route").role).toBe("creator");
+		expect(tool("save_route").description).toContain("list_middlewares");
+	});
+
+	it("save_route keeps the side it is not given and skips an empty patch", async () => {
+		const calls: Call[] = [];
+		const api: AdminApi = {
+			get: async (path) => {
+				calls.push({ method: "GET", path });
+				return { before: [{ id: "b1", name: "b" }], after: [{ id: "a1", name: "a" }] };
+			},
+			send: async (method, path, body) => {
+				calls.push({ method, path, body });
+				return { id: "r1" };
+			},
+		};
+		await run("save_route", { routeId: "r1", middlewares: { before: [] } }, api);
+		await run("save_route", { routeId: "r1", active: true, middlewares: { after: ["a2", "a1"] } }, api);
+		expect(calls).toEqual([
+			{ method: "GET", path: "/v1/routes/r1/middlewares" },
+			{ method: "PUT", path: "/v1/routes/r1/middlewares", body: { before: [], after: ["a1"] } },
+			{ method: "PATCH", path: "/v1/routes/partial/r1", body: { active: true } },
+			{ method: "GET", path: "/v1/routes/r1/middlewares" },
+			{ method: "PUT", path: "/v1/routes/r1/middlewares", body: { before: ["b1"], after: ["a2", "a1"] } },
+		]);
+	});
+
+	it("save_route rejects a middlewares shape it does not know", () => {
+		const input = z.object(tool("save_route").input);
+		expect(input.safeParse({ routeId: "r1", middlewares: { before: "m1" } }).success).toBe(false);
+		expect(input.safeParse({ routeId: "r1", middlewares: ["m1"] }).success).toBe(false);
+	});
+
+	it("get_route shows the attached middlewares by id and name", async () => {
+		const getRoute = readTools.find((t) => t.name === "get_route")!;
+		const api: AdminApi = {
+			get: async (path) =>
+				path.endsWith("/middlewares")
+					? { before: [{ id: "m1", name: "auth", description: null }], after: [] }
+					: { id: "r1", name: "p", method: "GET", path: "/p", createdAt: "x" },
+			send: async () => ({}),
+		};
+		expect(await getRoute.call(api, { routeId: "r1" })).toEqual({
+			id: "r1",
+			name: "p",
+			method: "GET",
+			path: "/p",
+			middlewares: { before: [{ id: "m1", name: "auth" }], after: [] },
+		});
 	});
 
 	it("save_workflow never sends projectId on update", async () => {

@@ -225,7 +225,7 @@ export const tasks: Task[] = [
 			);
 		},
 		prompt:
-			'Build a middleware named `require-api-key` that answers 401 with { "error": "unauthorized" } unless the request header x-api-key equals the app config key API_KEY. Do not attach it to a route; I will attach it to GET /private myself.',
+			'Build a middleware named `require-api-key` that answers 401 with { "error": "unauthorized" } unless the request header x-api-key equals the app config key API_KEY. Attach it so it runs before GET /private.',
 		checks: [
 			{
 				name: "attached, it guards GET /private",
@@ -234,11 +234,13 @@ export const tasks: Task[] = [
 					const mw = list.find((m: any) => m.name === "require-api-key");
 					if (!mw) return { pass: false, message: "no middleware require-api-key" };
 					const route = await findRoute(ctx, "GET", "/private");
-					await ctx.api.send("PUT", `/v1/routes/${route.id}/middlewares`, {
-						before: [mw.id],
-						after: [],
-					});
-					ctx.seed.attached = "yes";
+					const { middlewares } = await ctx.tool("get_route", { routeId: route.id });
+					if (!middlewares.before.some((m: any) => m.id === mw.id)) {
+						return {
+							pass: false,
+							message: "require-api-key is not a before middleware of GET /private",
+						};
+					}
 					return { pass: true, message: "attached" };
 				},
 			},
@@ -266,7 +268,7 @@ export const tasks: Task[] = [
 		],
 		judge: [
 			"Reads the key from app config, never a hard-coded value",
-			"Explains that a person attaches it",
+			"Attached it to GET /private itself, not left for a person",
 			NO_SECRETS,
 		],
 	},

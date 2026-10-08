@@ -6,7 +6,7 @@ export type Ctx = {
 	projectId: string;
 	/** One MCP tool by name, e.g. tool("list_routes", { projectId }). */
 	tool: (name: string, args: Record<string, unknown>) => Promise<any>;
-	/** The raw admin API, for what no tool does (e.g. attaching a middleware). */
+	/** The raw admin API, for what no tool does. */
 	api: AdminApi;
 	/** Ids setup saved for the checks. */
 	seed: Record<string, string>;

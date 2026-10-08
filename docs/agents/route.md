@@ -12,7 +12,7 @@ A route is an HTTP endpoint: a method and a path. `save_route` sets its settings
 | Tool | Role | What it does |
 | --- | --- | --- |
 | `list_routes` | viewer | Routes of a project: id, name, method, path, active. Args: `projectId`, `page`, `search`. |
-| `get_route` | viewer | Settings and the three request schemas. Not the canvas. |
+| `get_route` | viewer | Settings, the three request schemas and the attached middlewares. Not the canvas. |
 | `save_route` | creator | Create (no `routeId`) or update (`routeId`). |
 | `delete_route` | creator | Deletes the route and its canvas. Its path then answers 404. |
 | `call_route` | creator | Sends one real request to an active route. |
@@ -68,6 +68,7 @@ Pass `routeId` and only the fields that change. Fields you leave out keep their 
 | `bodySchema` | object or null | Checks the request body. See [Request schemas](#request-schemas). | none |
 | `querySchema` | object or null | Checks the query string. | none |
 | `paramsSchema` | object or null | Checks the path params. Required when the path has `:params`. | none |
+| `middlewares` | `{ before?, after? }` | Middleware ids from `list_middlewares`, in run order. See [Attach to a route](/agents/middleware#attach-to-a-route). | none |
 
 ## Path rules
 
