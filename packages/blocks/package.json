@@ -11,6 +11,7 @@
 		"./blockTypes": "./blockTypes.ts",
 		"./imports": "./imports.ts",
 		"./layout": "./layout.ts",
+		"./literalExpressions": "./literalExpressions.ts",
 		"./testHooks": "./testHooks.ts",
 		"./transactionRules": "./transactionRules.ts",
 		"./variableName": "./variableName.ts"

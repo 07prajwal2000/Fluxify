@@ -81,7 +81,7 @@ The stored name is `user_defined.project.<name>`. The database holds at most 50 
 
 | `type` | Extra fields | Use it for |
 | --- | --- | --- |
-| `text_input` | none | A text value. It accepts a `js:` expression. |
+| `text_input` | none | A text value. It accepts a `js:` expression, such as `js: return input.id`. |
 | `checkbox` | none | On or off. |
 | `array_editor` | none | A list of values. |
 | `dropdown` | `options`: `[{ "label": "...", "value": "..." }]` | A fixed set of choices. |
@@ -125,11 +125,11 @@ Whatever the last block outputs is the custom block's result.
 
 ## Use a block on a canvas
 
-Add a block whose `type` is the stored name. Put each parameter value in `data`, by parameter name. A value can be a `js:` expression.
+Add a block whose `type` is the stored name. Put each parameter value in `data`, by parameter name. A value can be a `js:` expression. See [Dynamic values and `js:` expressions](/agents/expressions).
 
 ```json
 { "op": "add_block", "ref": "notify", "type": "user_defined.project.slack_notify",
-  "data": { "message": "js:return 'New order ' + input.id", "webhook_key": "SLACK_WEBHOOK", "invoke": "sync" },
+  "data": { "message": "js: return 'New order ' + input.id", "webhook_key": "SLACK_WEBHOOK", "invoke": "sync" },
   "connect_from": { "from": "<previous block id>" } }
 ```
 

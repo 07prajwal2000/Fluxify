@@ -37,6 +37,8 @@ The result is `{ "id": "<workflow id>" }`.
 
 A new workflow starts with an entrypoint block and an error handler block, and nothing else. Add the rest with `edit_canvas`.
 
+A block text input is a literal unless it starts with `js:`, and `js:` code must `return` the value. See [Dynamic values and `js:` expressions](/agents/expressions) before you fill a block field.
+
 A new workflow is **inactive**. An inactive workflow is not given to the workers, so no trigger can start it. Pass `active: true` once its canvas is ready.
 
 ## Update a workflow

@@ -92,6 +92,8 @@ Call `get_canvas`:
 
 Note the `version`, the entrypoint id, and the id of the `response` block.
 
+A block text input is a literal unless it starts with `js:`, and `js:` code must `return` the value. See [Dynamic values and `js:` expressions](/agents/expressions) before you fill a block field.
+
 Call `edit_canvas`:
 
 ```json
@@ -126,7 +128,7 @@ To filter, add a condition. A condition whose value is `undefined` at run time i
 ```json
 "conditions": [
   { "attribute": { "kind": "column", "value": "status" }, "operator": "eq",
-    "value": { "kind": "literal", "value": "js:getQueryParam('status')" }, "chain": "and" }
+    "value": { "kind": "literal", "value": "js:return getQueryParam('status')" }, "chain": "and" }
 ]
 ```
 

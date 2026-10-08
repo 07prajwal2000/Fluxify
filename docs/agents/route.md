@@ -40,6 +40,8 @@ The result is `{ "id": "<route id>" }`.
 
 A new route starts with three blocks: an entrypoint, a response block with `httpCode` `"200"`, and an error handler. Call `get_canvas` to see them and their edges before you edit.
 
+A block text input is a literal unless it starts with `js:`, and `js:` code must `return` the value. See [Dynamic values and `js:` expressions](/agents/expressions) before you fill a block field.
+
 A new route is **inactive**. Pass `active: true`, or real callers and `call_route` are refused. Activate it only once its canvas is ready.
 
 ## Update a route

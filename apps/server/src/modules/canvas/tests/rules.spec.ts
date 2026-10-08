@@ -50,6 +50,16 @@ describe("canvas rules", () => {
 		expect(check("custom_block", "jsrunner", js, "middleware")).toEqual([]);
 	});
 
+
+	it("warns when a text field looks like an expression without js:", () => {
+		const warning = (data: unknown, type = "setvar") =>
+			check("route", type, data).map((i) => i.severity);
+		expect(warning({ key: "k", value: "{{input.id}}" })).toEqual(["warning"]);
+		expect(warning({ key: "k", value: "input.id" })).toEqual(["warning"]);
+		expect(warning({ key: "k", value: "js: return input.id" })).toEqual([]);
+		expect(warning({ key: "k", value: "plain text" })).toEqual([]);
+		expect(warning({ value: "input.map((x) => x)" }, "jsrunner")).toEqual([]);
+	});
 	it("is quiet for a plain canvas", () => {
 		expect(check("workflow", "jsrunner", { value: "return trigger.data;" })).toEqual([]);
 	});
