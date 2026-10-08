@@ -2,6 +2,7 @@ import type { ModelMessage, ToolResultPart } from "ai";
 import { rejected } from "../agent";
 import { continueConversation, pendingCalls } from "../resume";
 import type { AgentStore, RunStatus } from "../store";
+import { loadedTools } from "../tools";
 import { type AgentEvent, batcher, pump, seqTracker } from "./events";
 import type { AgentJob } from "./queue";
 
@@ -12,8 +13,8 @@ export type RunDeps = {
 	/** queued → executing; false: another job has the run, or it was stopped. */
 	claimRun: (runId: string) => Promise<boolean>;
 	settle: (conversationId: string, runId: string, status: RunStatus) => Promise<void>;
-	/** The model, tools and limits for the job's project, acting as its user. */
-	build: (job: AgentJob) => Promise<Omit<Agent, "approve" | "abortSignal">>;
+	/** The model, tools and limits for the job's project, acting as its user; `loaded`: tools load_tools added earlier in the conversation. */
+	build: (job: AgentJob, loaded: Set<string>) => Promise<Omit<Agent, "approve" | "abortSignal">>;
 	publish: (runId: string, events: AgentEvent[]) => Promise<void>;
 	onError?: (e: unknown) => void;
 	batchMs?: number;
@@ -58,7 +59,9 @@ export async function executeRun(job: AgentJob, deps: RunDeps, signal: AbortSign
 	let status: RunStatus;
 	let error = "";
 	try {
-		const agent = await deps.build(job);
+		// Every row, summarized or not: a tool loaded before a summary is still loaded.
+		const rows = await deps.store.all(job.conversationId);
+		const agent = await deps.build(job, loadedTools(rows.map((r) => r.content as ModelMessage)));
 		const r = await continueConversation({
 			store,
 			conversationId: job.conversationId,

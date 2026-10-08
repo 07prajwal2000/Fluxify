@@ -30,7 +30,7 @@ const LIMIT_KEYS = [
  * tools that call the admin API with a fresh run token for the job's user in
  * the job's project. The session cookie never reaches the worker.
  */
-export const buildAgent: RunDeps["build"] = async (job) => {
+export const buildAgent: RunDeps["build"] = async (job, loaded) => {
 	const integrationId = await getProjectSetting(job.projectId, "settings.ai.agentConnectionId");
 	const integration = aiIntegrationsCache[integrationId];
 	if (!integration || !ownsIntegration(integration, job.projectId))
@@ -44,6 +44,7 @@ export const buildAgent: RunDeps["build"] = async (job) => {
 		httpAdminFetch,
 		{ authorization: `Bearer ${token}` },
 		job.projectId,
+		loaded,
 	);
 	return {
 		model: modelFromIntegration(integration),

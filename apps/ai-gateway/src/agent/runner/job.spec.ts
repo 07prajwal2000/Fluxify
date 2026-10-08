@@ -1,8 +1,11 @@
 import { describe, expect, it } from "bun:test";
 import type { ModelMessage } from "ai";
+import { convertArrayToReadableStream, MockLanguageModelV4 } from "ai/test";
+import type { AdminFetch } from "../../mcp/adminApi";
 import { json, scripted } from "../resume.fixture";
 import { pendingCalls } from "../resume";
 import type { AgentStore, RunStatus } from "../store";
+import { agentTools, loadedTools } from "../tools";
 import type { AgentEvent } from "./events";
 import { executeRun, type RunDeps } from "./job";
 import type { AgentJob } from "./queue";
@@ -19,6 +22,7 @@ function world(script: string[][]) {
 			throw new Error("no summaries here");
 		},
 		modelView: async () => rows.map((r) => ({ message: json(r.content), seq: r.seq })),
+		all: async () => rows.map((r) => ({ seq: r.seq, role: r.content.role, content: json(r.content) })),
 		setRunStatus: async (_r: string, s: RunStatus) => {
 			state.run = s;
 		},
@@ -125,6 +129,80 @@ describe("executeRun", () => {
 		expect(w.state.settled).toEqual(["failed"]);
 		expect(w.events()).toEqual([
 			{ type: "error", seq: -1, message: "This project has no AI integration for the agent." },
+		]);
+	});
+});
+
+describe("loaded tools across jobs", () => {
+	/** A model that calls `steps[i]` at step i (then answers), and records which tools each step could call. */
+	function model(steps: { toolName: string; input: object }[]) {
+		const offered: string[][] = [];
+		const finish = (reason: string) => ({
+			type: "finish",
+			finishReason: { unified: reason, raw: reason },
+			usage: {
+				inputTokens: { total: 1, noCache: 1, cacheRead: 0, cacheWrite: 0 },
+				outputTokens: { total: 1, text: 1, reasoning: 0 },
+			},
+		});
+		const m = new MockLanguageModelV4({
+			doStream: async (call) => {
+				offered.push((call.tools ?? []).map((t) => t.name));
+				const s = steps[offered.length - 1];
+				const parts = s
+					? [
+							{ type: "tool-call", toolCallId: `c${offered.length}`, toolName: s.toolName, input: JSON.stringify(s.input) },
+							finish("tool-calls"),
+						]
+					: [{ type: "text-start", id: "t" }, { type: "text-delta", id: "t", delta: "done" }, { type: "text-end", id: "t" }, finish("stop")];
+				return { stream: convertArrayToReadableStream(parts as never[]) };
+			},
+		});
+		return { m, offered };
+	}
+
+	it("load_tools, an approval wait, approve: the loaded tool runs, stays active and runs again", async () => {
+		const w = world([]);
+		const install = { projectId: "p", packages: [{ name: "zod" }] };
+		const { m, offered } = model([
+			{ toolName: "load_tools", input: { names: ["install_package", "list_members"] } },
+			{ toolName: "install_package", input: install },
+			{ toolName: "list_members", input: { projectId: "p" } },
+		]);
+		const fetched: string[] = [];
+		const fetcher: AdminFetch = async (path) => {
+			fetched.push(path.split("?")[0]);
+			return Response.json(path.includes("install") ? { packages: [] } : { data: [] });
+		};
+		w.deps.build = async (_job, loaded) => {
+			// a fresh tool set per job, as the worker builds it
+			const { tools, active } = agentTools(fetcher, {}, "p", loaded);
+			const { approve: _, tools: __, active: ___, model: ____, ...rest } = w.m.agent;
+			return { ...rest, model: m, tools, active };
+		};
+		expect(await go(w, job())).toBe("waiting_approval");
+		expect(fetched).toEqual([]);
+		w.state.run = "queued";
+		expect(await go(w, job({ type: "continue", message: undefined, approval: { ok: true } }))).toBe(
+			"completed",
+		);
+		// the approved loaded call ran on resume; the next step still had list_members and called it
+		expect(fetched).toEqual([
+			"/_/admin/api/v1/projects/p/settings/packages/install",
+			"/_/admin/api/v1/projects/p/settings/members/list",
+		]);
+		expect(offered[2]).toContain("list_members");
+		expect(offered[2]).toContain("install_package");
+	});
+
+	it("rebuilds the set from saved load_tools calls only, dropping unknown names", () => {
+		const call = (names: unknown) => ({
+			role: "assistant" as const,
+			content: [{ type: "tool-call" as const, toolCallId: "x", toolName: "load_tools", input: { names } }],
+		});
+		expect([...loadedTools([call(["list_members", "nope"]), call("bad"), call(["delete_route"])])]).toEqual([
+			"list_members",
+			"delete_route",
 		]);
 	});
 });

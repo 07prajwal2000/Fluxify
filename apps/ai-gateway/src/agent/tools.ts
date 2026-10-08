@@ -1,4 +1,4 @@
-import { type Tool, tool } from "ai";
+import { type ModelMessage, type Tool, tool } from "ai";
 import { z } from "zod";
 import { type AdminFetch, adminApi } from "../mcp/adminApi";
 import { canvasTools } from "../mcp/canvasTools";
@@ -169,4 +169,23 @@ export function agentTools(
 		},
 	});
 	return { tools, active: () => [...CORE, ...loaded] };
+}
+
+/**
+ * The tools load_tools added in a stored conversation: a web run is one job
+ * per message or approval, so the set the CLI keeps in memory (#672) is
+ * rebuilt from the saved calls. Unknown names are dropped, as load_tools does.
+ */
+export function loadedTools(history: ModelMessage[]) {
+	const loaded = new Set<string>();
+	for (const m of history) {
+		if (m.role !== "assistant" || typeof m.content === "string") continue;
+		for (const p of m.content) {
+			if (p.type !== "tool-call" || p.toolName !== "load_tools") continue;
+			const names = (p.input as { names?: unknown })?.names;
+			if (!Array.isArray(names)) continue;
+			for (const n of names) if (ADVANCED.some((t) => t.name === n)) loaded.add(n);
+		}
+	}
+	return loaded;
 }
