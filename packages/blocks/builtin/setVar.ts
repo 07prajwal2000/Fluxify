@@ -31,6 +31,8 @@ export const setVarBlockAiDescription = {
 	name: BlockTypes.setvar,
 	description: "Assigns a value to a variable in the global execution context.",
 	jsonSchema: JSON.stringify(z.toJSONSchema(setVarSchema)),
+	output: "The value it stored. Multiple mode: an array of the stored values, in row order.",
+	example: { key: "userId", value: "js: return input.id;" },
 };
 
 export function emitSetVar(node: EmitNode) {

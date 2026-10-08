@@ -42,6 +42,8 @@ export const retryAiDescription = {
 	description:
 		"Runs its executor chain and, when it throws, runs it again up to 'maxRetries' more times with a wait between tries. Then the chain's last output goes to 'success', or { attempts, message } goes to 'failure'. Retrying a write can run it more than once.",
 	jsonSchema: JSON.stringify(z.toJSONSchema(retryBlockSchema)),
+	output: "On 'success': the executor chain's last output. On 'failure': { attempts, message }.",
+	example: { maxRetries: 3, retryType: "exponential", delayMs: 500, maxDelayMs: 5000 },
 	handleInfo: `
 Handles:
 - 'executor': Connect the first block to retry. It gets this block's input on every try.

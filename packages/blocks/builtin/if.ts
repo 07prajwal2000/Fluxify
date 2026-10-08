@@ -15,6 +15,10 @@ export const ifConditionAiDescription = {
 	description:
 		"Branches the flow like an IF/ELSE statement. Directs flow based on whether the condition returns TRUE or FALSE.",
 	jsonSchema: JSON.stringify(z.toJSONSchema(ifBlockSchema)),
+	output: "Its input, unchanged, on 'success' (true) or 'failure' (false).",
+	example: {
+		conditions: [{ lhs: "js: return input.age;", rhs: 18, operator: "gte", chain: "and" }],
+	},
 	// Optimized handle info with strict logical mapping
 	handleInfo: `
 Handles:

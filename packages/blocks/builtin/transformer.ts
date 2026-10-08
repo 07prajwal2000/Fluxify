@@ -22,6 +22,9 @@ export const transformBlockAiDescription = {
 	name: BlockTypes.transformer,
 	description: "Transforms input data into a new structure using JavaScript.",
 	jsonSchema: JSON.stringify(z.toJSONSchema(transformerBlockSchema)),
+	output:
+		"With useJs: whatever js returns. Otherwise a new object holding each fieldMap key's input value under its mapped name: fieldMap { id: 'userId' } turns { id: 1 } into { userId: 1 }.",
+	example: { fieldMap: { id: "userId", email: "email" }, useJs: false },
 };
 
 export function emitTransformer(node: EmitNode) {

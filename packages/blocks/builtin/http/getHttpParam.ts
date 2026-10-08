@@ -14,6 +14,8 @@ export const getHttpParamAiDescription = {
 	name: BlockTypes.httpGetParam,
 	description: "Retrieves a query parameter or route parameter from the request.",
 	jsonSchema: JSON.stringify(z.toJSONSchema(getHttpParamBlockSchema)),
+	output: "The parameter's value. Multiple mode: an array of the values, in row order.",
+	example: { name: "id", source: "path" },
 };
 
 export function emitGetHttpParam(node: EmitNode) {

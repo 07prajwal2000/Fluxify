@@ -35,6 +35,25 @@ export const updateDbAiDescription = {
 	description:
 		"Updates records in a database table matching specific conditions. A column can be incremented/decremented atomically with { op: 'inc' | 'dec', value }. Output: { count, affected }, the number of rows whose values changed and those rows after the update; a row already holding the values is not counted.",
 	jsonSchema: JSON.stringify(z.toJSONSchema(updateDbBlockSchema)),
+	output:
+		"{ count, affected }: how many rows changed, and those rows after the update. A row already holding the values is not counted.",
+	example: {
+		connection: "<integration id>",
+		tableName: "users",
+		conditions: [
+			{
+				attribute: { kind: "column", value: "id" },
+				operator: "eq",
+				value: { kind: "literal", value: "js: return getRouteParam('id');" },
+				chain: "and",
+			},
+		],
+		data: {
+			source: "raw",
+			value: { name: "js: return input.name;", login_count: { op: "inc", value: 1 } },
+		},
+		useParam: false,
+	},
 };
 
 export async function runUpdateDb(

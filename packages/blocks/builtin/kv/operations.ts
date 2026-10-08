@@ -44,6 +44,14 @@ export const kvOperationsAiDescription = {
 	description:
 		"Reads, writes or deletes a key in a Redis/Memcached store. `get` returns the stored string or null, `set` returns true, `delete` returns true.",
 	jsonSchema: JSON.stringify(z.toJSONSchema(kvOperationsBlockSchema)),
+	output:
+		"get: the stored string (parsed when parseJson is set), or null when the key is missing. set and delete: true.",
+	example: {
+		connection: "<integration id>",
+		operation: "get",
+		key: "js: return `session:${input.token}`;",
+		parseJson: true,
+	},
 };
 
 /** Strings go in untouched; anything else is stored as JSON. */

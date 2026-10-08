@@ -81,6 +81,17 @@ export const sendMessageAiDescription = {
 	description:
 		"Publishes one message or a list to a Kafka topic, NATS JetStream subject, SQS queue, RabbitMQ exchange or queue, or Redis stream. Has success and failure branches.",
 	jsonSchema: JSON.stringify(z.toJSONSchema(sendMessageBlockSchema)),
+	output:
+		"On 'success': the broker's receipt for the message (e.g. its id or offset); bulk: { sent, failed }, each entry with its index. On 'failure': { error }, or { sent, failed } for bulk.",
+	example: {
+		connection: "<integration id>",
+		mode: "simple",
+		destination: "orders.created",
+		payload: {
+			source: "raw",
+			value: { orderId: "js: return input.id;", total: "js: return input.total;" },
+		},
+	},
 };
 
 /** What the compiled code continues with: the success or the failure branch. */

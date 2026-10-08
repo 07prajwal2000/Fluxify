@@ -46,6 +46,14 @@ export const transactionDbAiDescription = {
 	description:
 		"Executes a sequence of database operations as a single atomic transaction. On commit the executor chain's last output flows to 'success'; on a rollback block, an error or its timeout it rolls back and runs 'failure' with { reason: 'rollback' | 'error' | 'timeout', message }. Deadlocks and serialization failures can be retried with 'retries'.",
 	jsonSchema: JSON.stringify(z.toJSONSchema(transactionDbBlockSchema)),
+	output:
+		"On 'success': the executor chain's last output. On 'failure': { reason: 'rollback' | 'error' | 'timeout', message }.",
+	example: {
+		connection: "<integration id>",
+		executor: "<id of the first block on the executor handle>",
+		timeoutMs: 30000,
+		retries: 0,
+	},
 	handleInfo: `
 Handles:
 - 'executor': Connect the block to be executed inside the transaction.

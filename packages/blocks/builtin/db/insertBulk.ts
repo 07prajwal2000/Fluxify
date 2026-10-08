@@ -38,6 +38,18 @@ export const insertBulkAiDescription = {
 	description:
 		"Inserts multiple records into a database table in a batch. With onConflict it upserts: each record is inserted, or updates/skips the existing one with the same unique key.",
 	jsonSchema: JSON.stringify(z.toJSONSchema(insertBulkDbBlockSchema)),
+	output: "An array of the inserted rows. With onConflict 'ignore', skipped rows are left out.",
+	example: {
+		connection: "<integration id>",
+		tableName: "order_items",
+		data: {
+			source: "js",
+			value:
+				"js: return input.items.map((item) => ({ order_id: input.orderId, sku: item.sku, qty: item.qty }));",
+		},
+		useParam: false,
+		useTransaction: true,
+	},
 };
 
 export async function runInsertBulkDb(

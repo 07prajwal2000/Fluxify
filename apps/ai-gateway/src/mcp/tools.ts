@@ -42,8 +42,13 @@ function blockSchemas(blockTypes?: string[]) {
 		const block = blockAiDescriptions.find((b) => b.name === type);
 		if (!block)
 			return `${type}: unknown block type. Call get_block_schemas with no input for the list.`;
-		if (!block.jsonSchema) return `${type} {} // no configuration`;
-		return `${type} ${renderCompactSchema(block.jsonSchema)}`;
+		const schema = block.jsonSchema
+			? renderCompactSchema(block.jsonSchema)
+			: "{} // no configuration";
+		// #673: what valid data looks like, and what the next block gets as `input`
+		return `${type} ${schema}
+Output (the next block's input): ${block.output}
+Example data: ${JSON.stringify(block.example)}`;
 	});
 	const body = contracts.join("\n\n");
 	// the three shared condition types are named, not inlined, in the contracts
@@ -395,7 +400,7 @@ export const readTools: McpTool[] = [
 	{
 		name: "get_block_schemas",
 		description:
-			"Built-in blocks for canvases. No input: the list of block types. With blockTypes: their exact data contracts. For a custom block's inputs use get_custom_block. Block text inputs are literal unless they start with `js:` followed by code that returns the value (e.g. `js: return input.id`); never use `{{ }}`.",
+			"Built-in blocks for canvases. No input: the list of block types. With blockTypes: their exact data contracts, an example of valid data, and what each outputs (the next block's `input`). For a custom block's inputs use get_custom_block. Block text inputs are literal unless they start with `js:` followed by code that returns the value (e.g. `js: return input.id`); never use `{{ }}`.",
 		role: "viewer",
 		input: {
 			blockTypes: z

@@ -113,6 +113,8 @@ export type SaveOutcome = {
 	/** True when the first attempt failed and the repaired one succeeded. */
 	repaired: boolean;
 	notes: string[];
+	/** what the successful save returned */
+	result?: unknown;
 };
 
 /**
@@ -128,8 +130,8 @@ export async function saveWithDoctor({
 	loadServerGraph,
 }: SaveWithDoctorOptions): Promise<SaveOutcome> {
 	try {
-		await save(buildSavePayload(graph, changes));
-		return { repaired: false, notes: [] };
+		const result = await save(buildSavePayload(graph, changes));
+		return { repaired: false, notes: [], result };
 	} catch (error) {
 		// a failed reload must not hide why the save failed
 		const server = await loadServerGraph().catch(() => {
@@ -140,7 +142,7 @@ export async function saveWithDoctor({
 		// auth, server bug) — retrying the same body would only fail again.
 		if (notes.length === 0) throw error;
 
-		await save(payload);
-		return { repaired: true, notes };
+		const result = await save(payload);
+		return { repaired: true, notes, result };
 	}
 }

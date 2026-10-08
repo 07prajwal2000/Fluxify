@@ -32,6 +32,17 @@ export const insertDbAiDescription = {
 	description:
 		"Inserts a single record into a database table. With onConflict it upserts: inserts the record, or updates/skips the existing one with the same unique key.",
 	jsonSchema: JSON.stringify(z.toJSONSchema(insertDbBlockSchema)),
+	output:
+		"The inserted row as the database returned it, with generated columns such as id. With onConflict: the inserted or updated row, or null when 'ignore' skipped it.",
+	example: {
+		connection: "<integration id>",
+		tableName: "users",
+		data: {
+			source: "raw",
+			value: { email: "js: return input.email;", name: "js: return input.name;" },
+		},
+		useParam: false,
+	},
 };
 
 export async function runInsertDb(

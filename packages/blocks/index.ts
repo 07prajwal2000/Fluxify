@@ -1,6 +1,7 @@
 import { blockAiDescriptions } from "./builtin/blockAiDescriptions";
 
 export * from "./baseBlock";
+export * from "./blockDataIssues";
 export * from "./blockHandles";
 export * from "./blockTypes";
 // the graph DTO shapes — anything that builds or loads a graph needs them

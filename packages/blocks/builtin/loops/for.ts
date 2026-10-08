@@ -21,6 +21,9 @@ export const forLoopAiDescription = {
 	name: BlockTypes.forloop,
 	description: "Iterates a specific number of times, executing a child block each iteration.",
 	jsonSchema: JSON.stringify(z.toJSONSchema(forLoopBlockSchema)),
+	output:
+		"undefined after the loop. Each executor run gets the current index as its input; keep results with setvar or arrayops.",
+	example: { start: 0, end: "js: return input.pages;", step: 1 },
 	handleInfo: `
 Handles:
 - 'executor': Connect the block to be executed in each loop iteration.`,

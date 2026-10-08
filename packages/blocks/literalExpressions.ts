@@ -13,6 +13,19 @@ export const TEMPLATE_MESSAGE =
 export const BARE_EXPRESSION_MESSAGE =
 	"This looks like an expression but has no `js:` prefix, so it is used as plain text. Write `js: return input.id`.";
 
+export const CODE_JS_PREFIX_MESSAGE =
+	"`js:` is only for text inputs; code fields are already JavaScript. It was ignored.";
+
+/** each block's field that is already full JS; the compiler drops a leading `js:` there */
+const CODE_FIELDS: Record<string, string> = {
+	[BlockTypes.jsrunner]: "value",
+	[BlockTypes.transformer]: "js",
+	[BlockTypes.kv_raw]: "js",
+	[BlockTypes.db_native]: "js",
+	[BlockTypes.response]: "transformScript",
+};
+const JS_PREFIX = /^\s*js:/;
+
 /** fields that hold code, SQL or a name: `{{ }}` or `data.x` there is legitimate */
 const SKIP_KEYS = new Set([
 	"js",
@@ -35,16 +48,23 @@ function* strings(value: unknown): Generator<string> {
 	}
 }
 
-/** One warning per kind per block, for strings that look like an expression but lack `js:`. */
+/**
+ * One warning per kind per block, for strings that look like an expression but
+ * lack `js:`, and for a `js:` at the top of a code field.
+ */
 export function literalExpressionIssues(
 	blocks: { id: string; type: string | null; data?: unknown }[],
 ): LiteralExpressionIssue[] {
 	const issues: LiteralExpressionIssue[] = [];
 	for (const block of blocks) {
-		if (SKIP_BLOCKS.has(block.type ?? "")) continue;
-		const texts = [...strings(block.data)].filter((text) => !text.startsWith("js:"));
 		const warn = (message: string) =>
 			issues.push({ blockId: block.id, severity: "warning", message });
+		const code = (block.data as Record<string, unknown> | undefined)?.[
+			CODE_FIELDS[block.type ?? ""] ?? ""
+		];
+		if (typeof code === "string" && JS_PREFIX.test(code)) warn(CODE_JS_PREFIX_MESSAGE);
+		if (SKIP_BLOCKS.has(block.type ?? "")) continue;
+		const texts = [...strings(block.data)].filter((text) => !text.startsWith("js:"));
 		if (texts.some((text) => text.includes("{{"))) warn(TEMPLATE_MESSAGE);
 		if (texts.some((text) => BARE.test(text))) warn(BARE_EXPRESSION_MESSAGE);
 	}

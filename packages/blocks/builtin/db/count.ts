@@ -17,6 +17,19 @@ export const countDbAiDescription = {
 	description:
 		"Counts the records matching the conditions and outputs that number. Same params as db_getsingle, without columns. Joins are SQL only.",
 	jsonSchema: JSON.stringify(z.toJSONSchema(countDbBlockSchema)),
+	output: "A number: how many rows match.",
+	example: {
+		connection: "<integration id>",
+		tableName: "orders",
+		conditions: [
+			{
+				attribute: { kind: "column", value: "user_id" },
+				operator: "eq",
+				value: { kind: "literal", value: "js: return input.userId;" },
+				chain: "and",
+			},
+		],
+	},
 };
 
 export async function runCountDb(

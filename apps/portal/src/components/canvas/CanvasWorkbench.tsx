@@ -10,7 +10,12 @@ import { type ChangeSet, saveWithDoctor } from "./changes";
 import { findCycleEdgeIds } from "./cycleDetection";
 import { CanvasDiagnosticsProvider, useBlockDiagnostics } from "./diagnostics";
 import { COMPILE_SOURCE } from "./diagnostics/compileDiagnostics";
-import { blockDiagnosticsFromSaveError, SAVE_SOURCE } from "./diagnostics/saveErrorDiagnostics";
+import {
+	blockDiagnosticsFromSaveError,
+	blockDiagnosticsFromSaveResult,
+	SAVE_CHECK_SOURCE,
+	SAVE_SOURCE,
+} from "./diagnostics/saveErrorDiagnostics";
 import { type CompileTarget, useCompileDiagnostics } from "./diagnostics/useCompileDiagnostics";
 import type { BlockData, CanvasGraph } from "./types";
 import { useCanvasPoll } from "./useCanvasPoll";
@@ -108,9 +113,10 @@ function CanvasWorkbenchInner({
 		}
 		// fresh run: drops the last save's errors and anything fixed since
 		// compile errors are about the saved version; saving is how they get fixed
-		const errors = diagnostics
-			.revalidate()
-			.filter((d) => d.severity === "error" && d.source !== COMPILE_SOURCE).length;
+		const shown = diagnostics.revalidate();
+		const errors = shown.filter(
+			(d) => d.severity === "error" && d.source !== COMPILE_SOURCE,
+		).length;
 		if (errors > 0) {
 			diagnostics.openPanel();
 			toast.danger(`Fix ${errors} error(s) before saving. See diagnostics.`);
@@ -126,6 +132,10 @@ function CanvasWorkbenchInner({
 				// Diagnose against what the server actually holds.
 				loadServerGraph: async () => toGraph(await reload()),
 			});
+			diagnostics.setFromSource(
+				SAVE_CHECK_SOURCE,
+				blockDiagnosticsFromSaveResult(outcome.result, current.graph, shown),
+			);
 			// cleared before waiting, so edits made during the compile stay pending
 			edited.current = null;
 			setPendingCount(0);

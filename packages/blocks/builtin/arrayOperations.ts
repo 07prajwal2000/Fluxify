@@ -27,6 +27,9 @@ export const arrayOperationsAiDescription = {
 	name: BlockTypes.arrayops,
 	description: "Performs operations on an array variable (push, pop, shift, unshift).",
 	jsonSchema: JSON.stringify(z.toJSONSchema(arrayOperationsBlockSchema)),
+	output:
+		"The array after the operation; the variable itself is changed too. pop and shift do not return the removed item.",
+	example: { operation: "push", datasource: "cart", value: "js: return input.item;" },
 };
 
 export function emitArrayOps(node: EmitNode) {

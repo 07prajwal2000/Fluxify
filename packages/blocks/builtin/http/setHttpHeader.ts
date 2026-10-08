@@ -14,6 +14,8 @@ export const setHeaderAiDescription = {
 	name: BlockTypes.httpSetHeader,
 	description: "Sets a header in the HTTP response.",
 	jsonSchema: JSON.stringify(z.toJSONSchema(setHttpHeaderBlockSchema)),
+	output: "Its input, unchanged. The header is added to the response.",
+	example: { name: "Cache-Control", value: "no-store" },
 };
 
 export function emitSetHttpHeader(node: EmitNode) {

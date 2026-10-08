@@ -11,6 +11,19 @@ export const existsDbAiDescription = {
 	description:
 		"Looks up a single record and branches on whether it exists. Same params as db_getsingle.",
 	jsonSchema: JSON.stringify(z.toJSONSchema(existsDbBlockSchema)),
+	output: "On 'success': the matching row. On 'failure': its own input, unchanged.",
+	example: {
+		connection: "<integration id>",
+		tableName: "users",
+		conditions: [
+			{
+				attribute: { kind: "column", value: "email" },
+				operator: "eq",
+				value: { kind: "literal", value: "js: return input.email;" },
+				chain: "and",
+			},
+		],
+	},
 	handleInfo: `
 Handles:
 - 'success': a row matched. The block's output is that row (same shape db_getsingle returns).

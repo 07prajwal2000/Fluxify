@@ -55,6 +55,14 @@ export const switchAiDescription = {
 	description:
 		"Branches like a multi-way IF. Every block connected to its 'case' handle is one case, keyed by that block's id. Cases are checked in data.order and the first match runs with this block's input; the rest are skipped. Two modes: conditions (default, each case has a condition) or useValue (a value script runs once and each case has a value compared with ===).",
 	jsonSchema: JSON.stringify(z.toJSONSchema(switchBlockSchema)),
+	output: "Its input, unchanged, to the case that matched.",
+	example: {
+		order: ["<big order block id>", "<small order block id>"],
+		conditions: {
+			"<big order block id>": "js: return input.total > 100;",
+			"<small order block id>": "js: return input.total <= 100;",
+		},
+	},
 	handleInfo: `
 Handles:
 - 'case': Connect the first block of each case. Any number of connections.

@@ -21,6 +21,11 @@ export const kvRawAiDescription = {
 	description:
 		"Runs JavaScript against the raw Redis/Memcached client, for commands the KV Operations block does not cover.",
 	jsonSchema: JSON.stringify(z.toJSONSchema(kvRawBlockSchema)),
+	output: "Whatever the code returns.",
+	example: {
+		connection: "<integration id>",
+		js: "const hits = await kv.incr(`hits:${input.page}`);\nreturn hits;",
+	},
 };
 
 /** `kv` is on vars only while the snippet runs; a graph variable named `kv` is put back after */

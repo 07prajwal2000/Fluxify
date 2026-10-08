@@ -61,10 +61,11 @@ describe("the switch block", () => {
 		});
 	});
 
-	it("rejects a match value that is not text", () => {
-		expect(() =>
-			blockDataValidator(changes(BlockTypes.switch, { useValue: true, matches: { paid: 1 } })),
-		).toThrow();
+	// #673: mismatched data saves as is; the canvas rules warn about it
+	it("saves a match value that is not text unchanged", () => {
+		const data = changes(BlockTypes.switch, { useValue: true, matches: { paid: 1 } });
+		expect(() => blockDataValidator(data)).not.toThrow();
+		expect(data.changes.blocks[0]!.data).toEqual({ useValue: true, matches: { paid: 1 } });
 	});
 
 	it("keeps each case's condition and the order they are checked in", () => {
@@ -79,16 +80,11 @@ describe("the switch block", () => {
 		});
 	});
 
-	it("rejects a condition that is not text", () => {
+	it("saves a condition that is not text, or an order that is not a list", () => {
 		expect(() =>
 			blockDataValidator(changes(BlockTypes.switch, { conditions: { paid: 42 } })),
-		).toThrow();
-	});
-
-	it("rejects an order that is not a list of block ids", () => {
-		expect(() =>
-			blockDataValidator(changes(BlockTypes.switch, { order: "paid" })),
-		).toThrow();
+		).not.toThrow();
+		expect(() => blockDataValidator(changes(BlockTypes.switch, { order: "paid" }))).not.toThrow();
 	});
 });
 

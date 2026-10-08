@@ -43,8 +43,9 @@ export function canvasEndpoints(baseUrl: string) {
 			const result = await httpClient.get(`${baseUrl}/${id}/canvas-version`);
 			return result.data.canvasVersion;
 		},
-		async saveCanvasItems(id: string, payload: CanvasSavePayload) {
-			await httpClient.put(`${baseUrl}/${id}/save-canvas`, payload);
+		/** the server's rule issues come back with a save; warnings do not stop it */
+		async saveCanvasItems(id: string, payload: CanvasSavePayload): Promise<unknown> {
+			return (await httpClient.put(`${baseUrl}/${id}/save-canvas`, payload)).data;
 		},
 	};
 }

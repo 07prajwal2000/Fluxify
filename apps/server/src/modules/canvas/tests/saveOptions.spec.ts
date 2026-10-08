@@ -22,13 +22,17 @@ import { saveCanvas } from "../service";
 const route = { type: "route" as const, id: "r-1" };
 
 /** one block and one edge to an already-stored block */
-const save = (edge: Record<string, unknown> = {}, type = "response") => ({
+const save = (
+	edge: Record<string, unknown> = {},
+	type = "response",
+	data: unknown = { httpCode: "200" },
+) => ({
 	actionsToPerform: {
 		blocks: [{ id: "b1", action: "upsert" as const }],
 		edges: [{ id: "e1", action: "upsert" as const }],
 	},
 	changes: {
-		blocks: [{ id: "b1", type, data: {}, position: { x: 0, y: 0 } }],
+		blocks: [{ id: "b1", type, data, position: { x: 0, y: 0 } }],
 		edges: [
 			{ id: "e1", from: "entry", to: "b1", fromHandle: "entry-source", toHandle: "b1-target", ...edge },
 		],
@@ -104,5 +108,14 @@ describe("saveCanvas options (#597)", () => {
 			dryRun: true,
 		});
 		expect(result.issues[0]).toMatchObject({ severity: "error", blockId: "b1" });
+	});
+
+	it("saves block data that does not match its schema, with a warning naming the field (#673)", async () => {
+		const result = await saveCanvas(route, save({}, "response", { httpCode: "200", transformEnabled: "yes" }), ["p1"]);
+		expect(result.issues).toEqual([
+			{ severity: "warning", blockId: "b1", message: "response: transformEnabled must be a boolean" },
+		]);
+		expect(upsertBlocks).toHaveBeenCalled();
+		expect(published).toEqual(["chan:on-route-change"]);
 	});
 });

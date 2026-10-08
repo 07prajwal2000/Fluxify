@@ -92,4 +92,17 @@ describe("MCP initialize", () => {
 		expect(body.result.content[0].text).toStartWith("type ");
 		expect(body.result.content[0].text).toContain("\nif {");
 	});
+
+	it("gives each requested block its output and an example, the listing neither (#673)", async () => {
+		const call = async (args: object) => {
+			const res = await rpc("alice", "tools/call", { name: "get_block_schemas", arguments: args });
+			return ((await res.json()) as { result: { content: { text: string }[] } }).result.content[0]
+				.text;
+		};
+		const text = await call({ blockTypes: ["httpgetrequestbody", "db_delete"] });
+		expect(text).toContain("Output (the next block's input): The request body itself");
+		expect(text).toContain("input.email (not input.body.email)");
+		expect(text).toContain('Example data: {"connection":"<integration id>","tableName":"users"');
+		expect(await call({})).not.toContain("Example data");
+	});
 });

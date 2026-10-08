@@ -21,6 +21,11 @@ export const nativeDbAiDescription = {
 	name: BlockTypes.db_native,
 	description: "Executes raw SQL or database-specific commands via JavaScript.",
 	jsonSchema: JSON.stringify(z.toJSONSchema(nativeDbBlockSchema)),
+	output: "Whatever the code returns, e.g. the rows from dbQuery.",
+	example: {
+		connection: "<integration id>",
+		js: "const rows = await dbQuery('SELECT id, email FROM users WHERE created_at > $1', [input.since]);\nreturn rows;",
+	},
 };
 
 const MONGO_DB_QUERY = "dbQuery takes SQL; on MongoDB use db.collection(...)";

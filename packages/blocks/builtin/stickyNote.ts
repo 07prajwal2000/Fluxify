@@ -17,4 +17,10 @@ export const stickyNoteBlockAiDescription = {
 	name: BlockTypes.sticky_note,
 	description: "Adds an annotation or note to the canvas. Does not affect execution flow.",
 	jsonSchema: JSON.stringify(z.toJSONSchema(stickyNotesSchema)),
+	output: "Nothing: a note on the canvas, it never runs.",
+	example: {
+		notes: "Checks the body before anything is written.",
+		color: "yellow",
+		size: { width: 200, height: 120 },
+	},
 };
