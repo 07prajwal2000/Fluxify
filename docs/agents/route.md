@@ -5,7 +5,7 @@ description: Fields, defaults, limits, errors and JSON examples for creating and
 
 # Route reference for agents
 
-A route is an HTTP endpoint: a method and a path. `save_route` sets its settings. Its logic is a canvas of blocks, edited with `get_canvas` and `edit_canvas`. For background, see [Routing](/getting-started/routing).
+A route is an HTTP endpoint: a method and a path. `save_route` sets its settings. Its logic is a canvas of blocks, edited with `get_canvas` and `edit_canvas`; read the [Canvas guide](/agents/canvas) first. For background, see [Routing](/getting-started/routing).
 
 ## Tools
 
@@ -83,7 +83,7 @@ Valid: `/users`, `/users/:id`, `/v1/order-items`. Rejected: `/user_list`, `/user
 
 ## Request schemas
 
-`bodySchema`, `querySchema` and `paramsSchema` use Fluxify's own format. They are not JSON Schema. A request that fails the schema is answered with a validation error before the canvas runs.
+`bodySchema`, `querySchema` and `paramsSchema` use Fluxify's own format. They are not JSON Schema. A request that fails the schema is answered with a validation error before the canvas runs. Use these schemas for input checks, not regex in a JS Runner. See [Validate a request](/agents/recipes/validate-request).
 
 ```json
 {
