@@ -187,6 +187,18 @@ export async function writeRows(s: McpStack): Promise<Row[]> {
 			api: `/v1/${p}/integrations/test-existing-connection/${ids.integration}`,
 		},
 		{
+			tool: "kv_get",
+			args: { projectId: p, integrationId: ids.integration, key: "nope" },
+			api: `${integration}/kv?key=nope`,
+		},
+		// the stack's integration is Redis, so an allowed call is a 400; the role check is what this row covers
+		{
+			tool: "get_integration_schema_details",
+			args: { projectId: p, integrationId: ids.integration },
+			api: `${integration}/schema`,
+			deniedOnly: true,
+		},
+		{
 			tool: "run_test_suite",
 			args: { testSuiteId: ids.testSuite },
 			api: post(runs, { suiteIds: [ids.testSuite] }),

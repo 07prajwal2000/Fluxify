@@ -142,6 +142,8 @@ request, runs your code or reaches the internet.
 | `save_integration` | Create or change an integration | Creator |
 | `delete_integration` | Delete an integration | Creator |
 | `test_integration_connection` | Check an integration connects (real) | Creator |
+| `get_integration_schema_details` | Tables, columns and keys of a database integration (no rows) | Creator |
+| `kv_get` | Read one key from a KV integration, with its expiry | Creator |
 | `edit_canvas` | Add, change and connect blocks on a canvas | Creator |
 | `call_route` | Send a request to a route (real) | Creator |
 | `run_test_suite` | Run a test suite (real) | Creator |

@@ -4,6 +4,7 @@ import { SQL } from "bun";
 import z from "zod";
 import { type Connection, DbType, type IsolationLevel } from "./connection";
 import { type DbConnectionLease, DbConnectionManager } from "./connectionManager";
+import { describeMongo, describeSql, type SchemaDetails, type SqlRun } from "./describe";
 import { buildMongoUrl, MongoAdapter } from "./mongoDbAdapter";
 import { MySqlAdapter } from "./mySqlAdapter";
 import { PostgresAdapter } from "./postgresAdapter";
@@ -289,8 +290,55 @@ export async function introspectConnection(cfg: Connection): Promise<Introspecte
 	throw new Error(`${cfg.dbType} introspection not implemented`);
 }
 
+/** Like introspectConnection, for the agent's schema details (#652): names, or detail for `tables`. */
+export async function describeConnection(
+	cfg: Connection,
+	tables?: string[],
+): Promise<SchemaDetails> {
+	const type = cfg.dbType.toLowerCase();
+	if (type === DbType.POSTGRES.toLowerCase()) {
+		const sql = new SQL({
+			adapter: "postgres",
+			hostname: cfg.host,
+			port: Number(cfg.port),
+			username: cfg.username,
+			password: cfg.password,
+			database: cfg.database,
+			tls: cfg.ssl,
+			max: 1,
+			connectionTimeout: 5,
+		});
+		try {
+			return await describeSql("postgres", (q, p) => sql.unsafe(q, p as any[]), tables);
+		} finally {
+			await sql.close();
+		}
+	}
+	if (type === DbType.MYSQL.toLowerCase()) {
+		const pool = MySqlAdapter.createPool(cfg);
+		try {
+			const run: SqlRun = async (q, p) => (await pool.promise().query(q, p))[0] as any[];
+			return await describeSql("mysql", run, tables);
+		} finally {
+			await pool.promise().end();
+		}
+	}
+	if (type === DbType.MONGODB.toLowerCase()) {
+		const { MongoClient } = require("mongodb");
+		const client = new MongoClient(buildMongoUrl(cfg), { serverSelectionTimeoutMS: 5000 });
+		try {
+			await client.connect();
+			return await describeMongo(client.db(cfg.database), tables);
+		} finally {
+			await client.close();
+		}
+	}
+	throw new Error(`${cfg.dbType} schema details not supported`);
+}
+
 export * from "./connection";
 export * from "./connectionManager";
+export * from "./describe";
 export * from "./mongoDbAdapter";
 export * from "./mongoNative";
 export * from "./mySqlAdapter";

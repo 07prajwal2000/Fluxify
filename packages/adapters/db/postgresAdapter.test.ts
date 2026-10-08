@@ -9,6 +9,7 @@ import {
 	spyOn,
 } from "bun:test";
 import { PostgresAdapter } from "./postgresAdapter";
+import { describeSql, type SqlRun } from "./describe";
 import { Connection, DbType } from ".";
 import type Docker from "dockerode";
 import { faker } from "@faker-js/faker";
@@ -137,6 +138,27 @@ describe("PostgresAdapter Integration Tests", () => {
 		expect(books!.columns.find((c) => c.name === "author_id")?.owner).toBe(
 			parent,
 		);
+	});
+
+	test("describeSql: names, then columns, keys and indexes (#652)", async () => {
+		const suffix = faker.string.alphanumeric(8).toLowerCase();
+		const parent = `orgs_${suffix}`;
+		const child = `members_${suffix}`;
+		await sql.unsafe(`CREATE TABLE ${parent} (id SERIAL PRIMARY KEY)`);
+		await sql.unsafe(
+			`CREATE TABLE ${child} (id SERIAL PRIMARY KEY, email TEXT NOT NULL DEFAULT 'x', org_id INT REFERENCES ${parent}(id))`,
+		);
+		await sql.unsafe(`CREATE UNIQUE INDEX ${child}_email ON ${child}(email)`);
+		const run: SqlRun = (q, p) => sql.unsafe(q, p as any[]);
+
+		expect(((await describeSql("postgres", run)) as any).tables).toContain(child);
+		const [t] = ((await describeSql("postgres", run, [child])) as any).tables;
+		expect(t.columns[1]).toEqual({ name: "email", type: "text", nullable: false, default: "'x'::text" });
+		expect(t.columns[2].nullable).toBe(true);
+		expect(t.primaryKey).toEqual(["id"]);
+		expect(t.foreignKeys[0].definition).toContain(`REFERENCES ${parent}(id)`);
+		expect(t.indexes.map((i: any) => i.name)).toContain(`${child}_email`);
+		await expect(describeSql("postgres", run, ["nope_" + suffix])).rejects.toThrow("Unknown table");
 	});
 
 	test("CRUD: Single Record Lifecycle", async () => {
