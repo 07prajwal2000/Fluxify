@@ -165,6 +165,12 @@ describe("save output to variable", () => {
 		}
 	});
 
+	it("keeps the setting when the block's data is normalized (#673)", () => {
+		const data = transformer("users");
+		blockDataValidator(data);
+		expect(data.changes.blocks[0]!.data).toMatchObject({ saveAsVariable: { enabled: true, name: "users" } });
+	});
+
 	it("accepts a valid name, a padded one, a reserved word, and any name while the toggle is off", () => {
 		expect(() => blockDataValidator(transformer("users"))).not.toThrow();
 		expect(() => blockDataValidator(transformer("  users  "))).not.toThrow();

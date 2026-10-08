@@ -1,5 +1,6 @@
 import { describe, expect, it } from "bun:test";
-import { blockDataIssues } from "./blockDataIssues";
+import { blockDataIssues, blockDataSchema } from "./blockDataIssues";
+import { blockAiDescriptions } from "./builtin/blockAiDescriptions";
 import { BlockTypes } from "./blockTypes";
 import { block, createContext, edge } from "./builtin/tests/compilerTestHelpers";
 import { compileGraph } from "./compiler";
@@ -41,6 +42,16 @@ describe("blockDataIssues (#673)", () => {
 			"db_delete: conditions[0].attribute must be an object",
 			"db_delete: conditions[0].value must be an object",
 		]);
+	});
+
+	it("accepts and keeps Save output to variable on every block", () => {
+		const saveAsVariable = { enabled: true, name: "result" };
+		for (const { name, example } of blockAiDescriptions) {
+			const data = { ...example, saveAsVariable };
+			expect({ name, issues: messages(name, data) }).toEqual({ name, issues: [] });
+			const parsed = blockDataSchema(name)!.parse(data);
+			if (name !== BlockTypes.httpGetRequestBody) expect(parsed.saveAsVariable).toEqual(saveAsVariable);
+		}
 	});
 
 	it("is quiet for good data and custom blocks", () => {

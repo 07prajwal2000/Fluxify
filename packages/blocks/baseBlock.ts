@@ -382,6 +382,10 @@ export interface BlockOutput {
 export const baseBlockDataSchema = z.object({
 	blockName: z.string().optional().default("Name"),
 	blockDescription: z.string().optional().default("Description"),
+	/** "Save output to variable", on any block; the name is checked on its own (`variableNameError`) */
+	saveAsVariable: z
+		.object({ enabled: z.boolean().optional(), name: z.string().optional() })
+		.optional(),
 });
 
 /**
