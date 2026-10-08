@@ -105,4 +105,16 @@ describe("MCP initialize", () => {
 		expect(text).toContain('Example data: {"connection":"<integration id>","tableName":"users"');
 		expect(await call({})).not.toContain("Example data");
 	});
+
+	it("lists each block's handles and ends the listing with a hint; takes blockTypes as a JSON string", async () => {
+		const call = async (args: object) => {
+			const res = await rpc("alice", "tools/call", { name: "get_block_schemas", arguments: args });
+			return ((await res.json()) as { result: { content: { text: string }[] } }).result.content[0]
+				.text;
+		};
+		const text = await call({ blockTypes: '["if", "response"]' });
+		expect(text).toContain("Handles (connect from): success, failure");
+		expect(text).toContain("Handles (connect from): none, it ends the flow");
+		expect(await call({})).toEndWith("Call again with blockTypes for each block's fields, handles, output and an example.");
+	});
 });

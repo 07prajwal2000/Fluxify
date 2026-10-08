@@ -2,7 +2,7 @@ import { describe, expect, it } from "bun:test";
 import type { ModelMessage } from "ai";
 import { convertArrayToReadableStream, MockLanguageModelV4 } from "ai/test";
 import type { AdminFetch } from "../mcp/adminApi";
-import { approveAll, assertEndsOnUserOrTool, runAgent } from "./agent";
+import { approveAll, assertEndsOnUserOrTool, planTools, runAgent } from "./agent";
 import { withToolTimeouts } from "./timeouts";
 import { ADVANCED, CORE, agentTools } from "./tools";
 
@@ -95,7 +95,9 @@ describe("agent tools", () => {
 		expect(active().sort()).toEqual([...CORE].sort());
 		for (const name of CORE) expect(tools[name]).toBeDefined();
 		expect(ADVANCED.map((t) => t.name)).toContain("delete_route");
-		expect(CORE).toContain("save_test_suite");
+		expect(CORE).toEqual(
+			expect.arrayContaining(["save_test_suite", "list_test_suites", "get_test_suite", "get_test_runs"]),
+		);
 		expect(CORE).toEqual(expect.arrayContaining(["search_docs", "read_doc"]));
 		expect(ADVANCED.map((t) => t.name)).toEqual(
 			expect.arrayContaining(["delete_test_suite", "clone_test_suite"]),
@@ -109,6 +111,15 @@ describe("agent tools", () => {
 		});
 		expect(active()).toContain("delete_route");
 	});
+
+	it("in plan mode load_tools does not offer write tools as usable", async () => {
+		const { tools, active } = setup();
+		const out = await exec(planTools(tools).load_tools, { names: ["delete_route", "list_recordings"] });
+		expect(out.loaded).toEqual(["list_recordings"]);
+		expect(out.notInPlanMode).toEqual(["delete_route"]);
+		expect(active()).toContain("delete_route"); // usable once the plan is approved
+	});
+
 
 	// #672: the CLI builds the tools again for every message, and the loaded set went with
 	// them, so after "yes, delete it" the model called a delete_route it could no longer reach.

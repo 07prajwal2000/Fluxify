@@ -1,4 +1,5 @@
 import { blockAiDescriptions, COMPACT_SHARED_TYPES, renderCompactSchema } from "@fluxify/blocks";
+import { getOutputHandles } from "@fluxify/blocks/blockHandles";
 import type { ToolAnnotations } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
 import { BUILTIN_BLOCKS_TABLE } from "../harness/agents/sub-agents/blockBuilder/promptHelpers";
@@ -21,6 +22,25 @@ export type McpTool = {
 
 const PER_PAGE = 50;
 
+/** A string that fails `s` gets one more try as JSON: models send `"true"`, `"5"` or `"[...]"` for typed params. */
+const lenientField = (s: z.ZodType) => {
+	const w = z.preprocess((v) => {
+		if (typeof v !== "string" || s.safeParse(v).success) return v;
+		try {
+			return JSON.parse(v);
+		} catch {
+			return v;
+		}
+	}, s);
+	// ponytail: zod internals; keeps required/optional in the JSON schema (preprocess marks every field optional)
+	Object.assign(w._zod, { optin: s._zod.optin, optout: s._zod.optout });
+	return w;
+};
+
+/** Every tool's input goes through this, for MCP clients and the agent alike. */
+export const lenient = (shape: z.ZodRawShape): z.ZodRawShape =>
+	Object.fromEntries(Object.entries(shape).map(([k, s]) => [k, lenientField(s as z.ZodType)]));
+
 export const pick = <T extends Record<string, unknown>>(row: T, keys: (keyof T)[]) =>
 	Object.fromEntries(keys.map((k) => [k, row[k]]));
 
@@ -37,7 +57,10 @@ const paged = (body: any, keys: string[]) => ({
 
 /** Built-in blocks never come from a project, so this reads no API. */
 function blockSchemas(blockTypes?: string[]) {
-	if (!blockTypes?.length) return BUILTIN_BLOCKS_TABLE;
+	if (!blockTypes?.length)
+		return `${BUILTIN_BLOCKS_TABLE}
+
+Call again with blockTypes for each block's fields, handles, output and an example.`;
 	const contracts = blockTypes.map((type) => {
 		const block = blockAiDescriptions.find((b) => b.name === type);
 		if (!block)
@@ -46,7 +69,9 @@ function blockSchemas(blockTypes?: string[]) {
 			? renderCompactSchema(block.jsonSchema)
 			: "{} // no configuration";
 		// #673: what valid data looks like, and what the next block gets as `input`
+		const handles = getOutputHandles(type);
 		return `${type} ${schema}
+Handles (connect from): ${handles.join(", ") || "none, it ends the flow"}
 Output (the next block's input): ${block.output}
 Example data: ${JSON.stringify(block.example)}`;
 	});
@@ -400,7 +425,7 @@ export const readTools: McpTool[] = [
 	{
 		name: "get_block_schemas",
 		description:
-			"Built-in blocks for canvases. No input: the list of block types. With blockTypes: their exact data contracts, an example of valid data, and what each outputs (the next block's `input`). For a custom block's inputs use get_custom_block. Block text inputs are literal unless they start with `js:` followed by code that returns the value (e.g. `js: return input.id`); never use `{{ }}`.",
+			"Built-in blocks for canvases. No input: the list of block types. With blockTypes: their exact data contracts, output handles, an example of valid data, and what each outputs (the next block's `input`). For a custom block's inputs use get_custom_block. Block text inputs are literal unless they start with `js:` followed by code that returns the value (e.g. `js: return input.id`); never use `{{ }}`.",
 		role: "viewer",
 		input: {
 			blockTypes: z

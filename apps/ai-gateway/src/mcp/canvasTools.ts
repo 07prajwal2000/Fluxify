@@ -37,7 +37,7 @@ export const canvasTools: McpTool[] = [
 			"from/to take block ids or refs added earlier in the same call. A handle left out uses the block's default.",
 			"A handle holds one edge (switch case and orchestrate excepted): disconnect before re-pointing it.",
 			"Bad ops, unknown block types, missing ids and broken edges are refused and nothing is saved.",
-			"validate: true also returns rule errors and warnings; warnings still save. Empty ops + validate checks without saving.",
+			"It always returns rule errors and warnings (issues); errors that block a save refuse it, warnings still save. validate: false skips them. Empty ops checks without saving.",
 			"Block text inputs are literal unless they start with `js:` followed by code that returns the value (e.g. `js: return input.id`); never use `{{ }}`.",
 			"Returns the new version and the id of each ref.",
 		].join(" "),
@@ -48,7 +48,7 @@ export const canvasTools: McpTool[] = [
 			version: z.number().int().min(0).describe("The version from get_canvas"),
 			ops: z.array(canvasOpSchema),
 			auto_layout: z.boolean().optional().describe("Re-lay out the whole canvas"),
-			validate: z.boolean().optional().describe("Also return rule errors and warnings"),
+			validate: z.boolean().optional().describe("false: skip returning rule issues. On by default"),
 		},
 		call: async ({ get, send }, a) => {
 			const ops = a.ops as CanvasOp[];
@@ -57,7 +57,8 @@ export const canvasTools: McpTool[] = [
 			const { changes, refs } = opsToChanges(canvas, ops, a.auto_layout);
 			// nothing to change: at most a check, never a save
 			const checkOnly = ops.length === 0 && !a.auto_layout;
-			if (checkOnly && !a.validate) return { version: a.version };
+			const validate = a.validate !== false;
+			if (checkOnly && !validate) return { version: a.version };
 			const query = `expectedVersion=${a.version}${checkOnly ? "&dryRun=true" : ""}`;
 			const path = `${BASE[(a.target as Target).kind]}/${a.target.id}/save-canvas?${query}`;
 			const result = await send("PUT", path, changes).catch((error: Error) => {
@@ -66,7 +67,7 @@ export const canvasTools: McpTool[] = [
 			return {
 				version: result.canvasVersion,
 				...(Object.keys(refs).length ? { refs } : {}),
-				...(a.validate && result.issues.length ? { issues: result.issues } : {}),
+				...(validate && result.issues?.length ? { issues: result.issues } : {}),
 			};
 		},
 	},

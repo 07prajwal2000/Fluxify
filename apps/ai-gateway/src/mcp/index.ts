@@ -10,7 +10,7 @@ import { MCP_INSTRUCTIONS } from "./instructions";
 import { projectTools } from "./projectTools";
 import { routeTools } from "./routeTools";
 import { testSuiteTools } from "./testSuiteTools";
-import { readTools } from "./tools";
+import { lenient, readTools } from "./tools";
 import { writeTools } from "./writeTools";
 
 /** Who the MCP call acts as: what `setSession` put on the request. */
@@ -71,7 +71,7 @@ export function createMcpServer(
 			tool.name,
 			{
 				description: tool.description,
-				inputSchema: tool.input,
+				inputSchema: lenient(tool.input),
 				annotations: tool.annotations ?? { readOnlyHint: true },
 			},
 			async (args: unknown) => {
