@@ -4,7 +4,7 @@ import { parseArgs } from "node:util";
 import type { LanguageModel, ModelMessage } from "ai";
 import { ADMIN_API_URL } from "../../lib/env";
 import { type AdminFetch, adminApi } from "../../mcp/adminApi";
-import { MAX_STEPS, runAgent } from "../agent";
+import { type Approve, MAX_STEPS, runAgent } from "../agent";
 import { modelFromEnv } from "../model";
 import { printRun } from "../progress";
 import { type Limits, limitsFromEnv } from "../timeouts";
@@ -151,6 +151,11 @@ export async function runTask(task: Task, deps: Deps, signal: AbortSignal): Prom
 		await task.setup?.(ctx);
 
 		const { tools, active } = agentTools(deps.fetcher, deps.auth, projectId);
+		// Unattended: auto mode, and the calls that still ask (deletes) are approved and noted.
+		const approve: Approve = async (call) => {
+			out(`[auto-approved] ${call.toolName}\n`);
+			return { ok: true };
+		};
 		for (const turn of [task.prompt].flat()) {
 			if (signal.aborted) break;
 			out(`\n> ${turn}\n`);
@@ -162,6 +167,8 @@ export async function runTask(task: Task, deps: Deps, signal: AbortSignal): Prom
 				projectId,
 				history,
 				limits: deps.limits,
+				mode: "auto",
+				approve,
 				abortSignal: signal,
 			});
 			await printRun(result, { write: out });

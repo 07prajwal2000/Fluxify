@@ -68,6 +68,27 @@ export const ADVANCED = ALL.filter((t) => !CORE_MCP.includes(t.name) && !COVERED
 
 export const CORE = [...CORE_MCP, "list", "get", "list_advanced_tools", "load_tools"];
 
+export type Mode = "manual" | "auto" | "plan";
+export const MODES: Mode[] = ["manual", "auto", "plan"];
+
+/** Reads never ask: the agent's own list/get/meta tools, and MCP tools marked read-only (unmarked = read, as in mcp/index.ts). */
+export const isRead = (name: string) => {
+	if (["list", "get", "list_advanced_tools", "load_tools"].includes(name)) return true;
+	const t = ALL.find((x) => x.name === name);
+	return !!t && t.annotations?.readOnlyHint !== false;
+};
+
+/** Deletes ask in every mode and are never approved for the whole session. */
+export const isDelete = (name: string) => /^(delete|remove)_/.test(name);
+
+/**
+ * The one ask rule. Deletes always ask; reads never do. Other calls ask in
+ * manual (and plan, where they are not active anyway) but not in auto, so
+ * call_route and run_test_suite run unasked in auto despite destructiveHint.
+ */
+export const needsApproval = (mode: Mode, name: string) =>
+	isDelete(name) || (!isRead(name) && mode !== "auto");
+
 /** Calls one MCP tool by name as the `auth` user, its input checked like the agent's. */
 export const mcpCall =
 	(fetcher: AdminFetch, auth: Record<string, string>) =>

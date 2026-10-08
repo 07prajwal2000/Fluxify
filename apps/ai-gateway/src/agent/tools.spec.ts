@@ -2,7 +2,7 @@ import { describe, expect, it } from "bun:test";
 import type { ModelMessage } from "ai";
 import { convertArrayToReadableStream, MockLanguageModelV4 } from "ai/test";
 import type { AdminFetch } from "../mcp/adminApi";
-import { assertEndsOnUserOrTool, runAgent } from "./agent";
+import { approveAll, assertEndsOnUserOrTool, runAgent } from "./agent";
 import { withToolTimeouts } from "./timeouts";
 import { ADVANCED, CORE, agentTools } from "./tools";
 
@@ -148,7 +148,16 @@ describe("agent loop", () => {
 		});
 		const { tools, active, calls } = setup();
 		const history: ModelMessage[] = [{ role: "user", content: "delete r1" }];
-		const result = runAgent({ model, tools, active, projectId: P, history, limits });
+		const result = runAgent({
+			model,
+			tools,
+			active,
+			projectId: P,
+			history,
+			limits,
+			mode: "auto",
+			approve: approveAll,
+		});
 		expect(await result.text).toBe("done");
 		expect(seen[0].tools).not.toContain("delete_route");
 		expect(seen[1].tools).toContain("delete_route");

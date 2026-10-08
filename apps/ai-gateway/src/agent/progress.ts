@@ -3,13 +3,31 @@ import path from "node:path";
 import { MAX_STEPS, type runAgent } from "./agent";
 
 export type Log = (event: string, data?: Record<string, unknown>) => void;
-export type Out = { write: (s: string) => void; tty?: boolean; log?: Log };
+/** `paused` holds the status line while the user answers a prompt. */
+export type Out = { write: (s: string) => void; tty?: boolean; log?: Log; paused?: () => boolean };
 
 const MAX_CHARS = 200;
 export const short = (v: unknown) => {
 	const s = typeof v === "string" ? v : JSON.stringify(v);
 	return s && s.length > MAX_CHARS ? `${s.slice(0, MAX_CHARS)}…` : s;
 };
+/** A canvas op in a few words: "add_block response a after entry". */
+const op = (o: any) => {
+	if (o.op === "add_block")
+		return `add_block ${o.type} ${o.ref}${o.connect_from ? ` after ${o.connect_from.from}` : ""}${o.data ? ` ${short(o.data)}` : ""}`;
+	if (o.op === "update_block") return `update_block ${o.id} ${short(o.data)}`;
+	if (o.op === "remove_block") return `remove_block ${o.id}`;
+	return `${o.op} ${o.from} → ${o.to}${o.handle ? ` (${o.handle})` : ""}`;
+};
+
+/** What an approval prompt shows: the tool and its arguments, edit_canvas one op per line. */
+export function describeCall(name: string, input: any) {
+	if (name !== "edit_canvas" || !Array.isArray(input?.ops)) return `${name} ${short(input)}`;
+	const flags = ["validate", "auto_layout"].filter((f) => input[f]).join(", ");
+	const head = `edit_canvas ${input.target?.kind} ${input.target?.id} (v${input.version})${flags ? `, ${flags}` : ""}`;
+	return [head, ...input.ops.map((o: unknown) => `  • ${op(o)}`)].join("\n");
+}
+
 const size = (v: unknown) => (typeof v === "string" ? v : (JSON.stringify(v) ?? "")).length;
 const secs = (ms: number) => `${(ms / 1000).toFixed(1)}s`;
 const message = (e: unknown) => (e instanceof Error ? e.message : short(e));
@@ -40,7 +58,7 @@ class Status {
 		this.tick();
 	}
 	tick() {
-		if (!this.label || !this.out.tty) return;
+		if (!this.label || !this.out.tty || this.out.paused?.()) return;
 		if (!this.lineStart) this.out.write("\n");
 		this.lineStart = true;
 		this.out.write(
@@ -111,6 +129,22 @@ export async function printRun(result: ReturnType<typeof runAgent>, out: Out) {
 				log("tool-call", { name: part.toolName, inputChars: size(part.input) });
 				waiting();
 				break;
+			case "tool-approval-request":
+				log("approval-request", { name: part.toolCall.toolName });
+				break;
+			case "tool-approval-response": {
+				const name = part.toolCall.toolName;
+				log("approval-result", { name, approved: part.approved, reason: part.reason });
+				const r = running.get(part.toolCall.toolCallId);
+				// The tool runs from here; the wait for the user is not its time.
+				if (part.approved && r) r.at = Date.now();
+				if (!part.approved) {
+					running.delete(part.toolCall.toolCallId);
+					status.line(`✗ ${name} ${part.reason ?? "rejected"}`);
+				}
+				waiting();
+				break;
+			}
 			case "tool-result":
 			case "tool-error": {
 				const ms = Date.now() - (running.get(part.toolCallId)?.at ?? Date.now());

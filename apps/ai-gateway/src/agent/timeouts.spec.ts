@@ -2,7 +2,7 @@ import { describe, expect, it } from "bun:test";
 import { APICallError, type ModelMessage, tool } from "ai";
 import { convertArrayToReadableStream, MockLanguageModelV4 } from "ai/test";
 import { z } from "zod";
-import { assertEndsOnUserOrTool, MAX_STEPS, runAgent, STEP_LIMIT_NOTE } from "./agent";
+import { approveAll, assertEndsOnUserOrTool, MAX_STEPS, runAgent, STEP_LIMIT_NOTE } from "./agent";
 import { onInterrupt, parseLine } from "./cli";
 import { printRun } from "./progress";
 
@@ -47,6 +47,8 @@ async function run(
 		projectId: "p",
 		history,
 		limits,
+		mode: "auto",
+		approve: approveAll,
 		abortSignal: opts.signal,
 		onRetry: (why) => retries.push(why),
 	});
