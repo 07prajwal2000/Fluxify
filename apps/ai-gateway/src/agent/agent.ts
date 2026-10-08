@@ -1,5 +1,6 @@
 import { isStepCount, type LanguageModel, type ModelMessage, streamText, type Tool } from "ai";
 import { type Limits, withModelTimeouts, withToolTimeouts } from "./timeouts";
+import { isDelete, isRead, type Mode, needsApproval } from "./tools";
 
 export const MAX_STEPS = 40;
 
@@ -24,6 +25,28 @@ Check your work, every time:
 4. On failure read get_system_logs and get_recording, fix, and go again.
 Only say it is done when the check passed. End with a short summary of what you changed and how you checked it.`;
 
+const PLAN_PROMPT = `
+
+Plan mode: you only have read tools. Look at what exists, then reply with a short numbered plan: what you will create or change, and how you will check it. Change nothing now; the user reviews the plan first.`;
+
+/** A tool call waiting for the user. */
+export type PendingCall = {
+	toolCallId: string;
+	toolName: string;
+	input: unknown;
+	isDelete: boolean;
+};
+/** `always` approves the tool for the rest of the session (ignored for deletes). */
+export type Approval = { ok: true; always?: boolean } | { ok: false; reason?: string };
+/** Asks the user (terminal, UI, …). `signal` fires when the run is stopped. */
+export type Approve = (call: PendingCall, signal?: AbortSignal) => Promise<Approval>;
+
+export const rejected = (reason?: string) =>
+	reason ? `The user rejected this call: ${reason}` : "The user rejected this call.";
+
+/** Approves everything, for unattended runs (evals). */
+export const approveAll: Approve = async () => ({ ok: true });
+
 type Run = {
 	model: Exclude<LanguageModel, string>;
 	tools: Record<string, Tool>;
@@ -32,6 +55,10 @@ type Run = {
 	/** The conversation so far, ending on the new user message. Each finished step is appended to it. */
 	history: ModelMessage[];
 	limits: Limits;
+	mode: Mode;
+	approve: Approve;
+	/** Tools approved for the session with "always"; filled as the user answers. */
+	allowed?: Set<string>;
 	abortSignal?: AbortSignal;
 	/** A model call is being retried (idle timeout, or a 429/5xx). */
 	onRetry?: (why: string) => void;
@@ -39,8 +66,10 @@ type Run = {
 
 /**
  * One tool loop: it stops when the model answers without a tool call, or at
- * MAX_STEPS. Every write runs; there is no approval yet. Progress comes out of
- * `result.stream`; timeouts end a model call with an error part, never a hang.
+ * MAX_STEPS. Calls that `needsApproval` wait for `approve` (the SDK's
+ * toolApproval, so a rejection is the call's result and the loop goes on).
+ * Plan mode only gets read tools. Progress comes out of `result.stream`;
+ * timeouts end a model call with an error part, never a hang.
  */
 export const STEP_LIMIT_NOTE = `(stopped: reached the ${MAX_STEPS}-step limit before finishing)`;
 
@@ -69,13 +98,21 @@ export function runAgent({
 	projectId,
 	history,
 	limits,
+	mode,
+	approve,
+	allowed = new Set(),
 	abortSignal,
 	onRetry,
 }: Run) {
 	let error = "";
+	const stopped = new Promise<Approval>((resolve) =>
+		abortSignal?.addEventListener("abort", () => resolve({ ok: false, reason: "stopped" }), {
+			once: true,
+		}),
+	);
 	return streamText({
 		model: withModelTimeouts(model, limits, onRetry ?? (() => {})),
-		instructions: agentPrompt(projectId),
+		instructions: agentPrompt(projectId) + (mode === "plan" ? PLAN_PROMPT : ""),
 		messages: [...history],
 		tools: withToolTimeouts(tools, limits.toolMs),
 		abortSignal,
@@ -83,7 +120,18 @@ export function runAgent({
 		stopWhen: isStepCount(MAX_STEPS),
 		prepareStep: ({ messages }) => {
 			assertEndsOnUserOrTool(messages);
-			return { activeTools: active() };
+			return { activeTools: mode === "plan" ? active().filter(isRead) : active() };
+		},
+		toolApproval: async ({ toolCall: { toolCallId, toolName, input } }) => {
+			const del = isDelete(toolName);
+			if (!needsApproval(mode, toolName) || (!del && allowed.has(toolName))) return undefined;
+			const r = await Promise.race([
+				approve({ toolCallId, toolName, input, isDelete: del }, abortSignal),
+				stopped,
+			]);
+			if (!r.ok) return { type: "denied", reason: rejected(r.reason) };
+			if (r.always && !del) allowed.add(toolName);
+			return "approved";
 		},
 		// Errors already come out of the stream as parts; the default also logs them.
 		onError: ({ error: e }) => {

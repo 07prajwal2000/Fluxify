@@ -4,18 +4,21 @@ import { createInterface } from "node:readline";
 import { parseArgs } from "node:util";
 import type { ModelMessage } from "ai";
 import { ADMIN_API_URL } from "../lib/env";
-import { runAgent } from "./agent";
+import { type Approval, type Approve, runAgent } from "./agent";
 import { modelFromEnv } from "./model";
-import { type Log, printRun, runLog } from "./progress";
+import { describeCall, type Log, printRun, runLog } from "./progress";
 import { limitsFromEnv } from "./timeouts";
-import { agentTools } from "./tools";
+import { agentTools, MODES, type Mode } from "./tools";
 
 export { printRun, short } from "./progress";
 
 /**
  * Terminal agent against a Fluxify admin API, acting as the user behind FLUXIFY_PAT.
- *   bun run agent ["<first prompt>"] --project <id>
- * Then `> ` takes the next message. /exit quits; Ctrl+C stops a run, twice at an empty prompt quits.
+ *   bun run agent ["<first prompt>"] --project <id> [--mode manual|auto|plan]
+ * Then `[mode] > ` takes the next message. /mode <name> switches mode, /exit quits;
+ * Ctrl+C stops a run (or rejects at an approval prompt), twice at an empty prompt quits.
+ * manual asks before every change, auto only before deletes (deletes always ask), plan
+ * only reads and writes a plan, then asks Start? (y runs it in auto).
  * Env: AGENT_PROVIDER, AGENT_MODEL, AGENT_API_KEY, AGENT_BASE_URL, FLUXIFY_PAT,
  * FLUXIFY_URL (the admin server, http://127.0.0.1:$SERVER_PORT by default),
  * AGENT_CHUNK_TIMEOUT_MS (60000), AGENT_MODEL_TIMEOUT_MS (180000), AGENT_TOOL_TIMEOUT_MS (120000),
@@ -24,14 +27,17 @@ export { printRun, short } from "./progress";
  * Evals: bun run agent:evals [--task id,...] [--keep] [--no-judge]; env and output in evals/run.ts.
  */
 
-type Session = {
-	history: ModelMessage[];
+/** What lasts across messages: the conversation, the mode and the tools approved with "a". */
+type Session = { history: ModelMessage[]; mode: Mode; allowed: Set<string> };
+
+type Run = Session & {
+	approve: Approve;
 	abortSignal?: AbortSignal;
 	onRetry?: (why: string) => void;
 };
 
 /** Builds the agent from env and runs the conversation in `history` (ending on the user's message). */
-export function startAgent(projectId: string, { history, abortSignal, onRetry }: Session) {
+export function startAgent(projectId: string, run: Run) {
 	const pat = process.env.FLUXIFY_PAT;
 	if (!pat) throw new Error("FLUXIFY_PAT is required: a personal access token from the portal");
 	const base = process.env.FLUXIFY_URL || ADMIN_API_URL;
@@ -42,16 +48,56 @@ export function startAgent(projectId: string, { history, abortSignal, onRetry }:
 	);
 	const model = modelFromEnv(process.env);
 	const limits = limitsFromEnv(process.env);
-	return runAgent({ model, tools, active, projectId, history, limits, abortSignal, onRetry });
+	return runAgent({ model, tools, active, projectId, limits, ...run });
 }
 
-/** What a line typed at `> ` means. */
-export function parseLine(line: string): "skip" | "exit" | "unknown" | "run" {
+/** What a line typed at `> ` means. `{ mode }` is /mode with its argument, if any. */
+export function parseLine(line: string): "skip" | "exit" | "unknown" | "run" | { mode?: string } {
 	const t = line.trim();
 	if (!t) return "skip";
 	if (t === "/exit") return "exit";
+	if (t === "/mode" || t.startsWith("/mode ")) return { mode: t.slice(5).trim() || undefined };
 	return t.startsWith("/") ? "unknown" : "run";
 }
+
+/** An answer to `[y/n/a/reason]`; undefined means ask again. "a" is not offered for a delete. */
+export function parseApproval(answer: string, isDelete: boolean): Approval | undefined {
+	const t = answer.trim();
+	const k = t.toLowerCase();
+	if (!t || (k === "a" && isDelete)) return undefined;
+	if (k === "y") return { ok: true };
+	if (k === "n") return { ok: false };
+	if (k === "a") return { ok: true, always: true };
+	return { ok: false, reason: t };
+}
+
+/** An answer to `Start? [y/n/changes]`; undefined means ask again. */
+export function parseStart(answer: string): "start" | "stay" | { changes: string } | undefined {
+	const t = answer.trim();
+	if (!t) return undefined;
+	if (t.toLowerCase() === "y") return "start";
+	if (t.toLowerCase() === "n") return "stay";
+	return { changes: t };
+}
+
+/** Reads one line; null when `signal` fires (Ctrl+C). */
+type Ask = (prompt: string, signal?: AbortSignal) => Promise<string | null>;
+
+/** The terminal's approver: shows the call and asks until it gets an answer. Ctrl+C rejects. */
+export const cliApprover =
+	(ask: Ask, write: (s: string) => void, log: Log): Approve =>
+	async (call, signal) => {
+		write(`\n${call.isDelete ? "Delete" : "Approve"} ${describeCall(call.toolName, call.input)}\n`);
+		log("approval-request", { name: call.toolName });
+		for (;;) {
+			const a = await ask(call.isDelete ? "[y/n/reason] " : "[y/n/a/reason] ", signal);
+			const r: Approval | undefined =
+				a === null ? { ok: false, reason: "stopped by the user" } : parseApproval(a, call.isDelete);
+			if (!r) continue;
+			log("approval-result", { name: call.toolName, ...r });
+			return r;
+		}
+	};
 
 /** What Ctrl+C does: stop the run, clear a typed line, or quit on the second press at an empty prompt. */
 export function onInterrupt(s: { running: boolean; line: string; armed: boolean }) {
@@ -60,33 +106,88 @@ export function onInterrupt(s: { running: boolean; line: string; armed: boolean 
 	return s.armed ? "quit" : "arm";
 }
 
+/**
+ * Runs one message. In plan mode, asks Start? after each reply: y runs the plan
+ * in auto, typed changes go back in plan mode and it asks again, n stops.
+ * `runOne` returns true when the run was stopped.
+ */
+export async function converse(
+	session: Session,
+	prompt: string,
+	runOne: (prompt: string) => Promise<boolean>,
+	askStart: () => Promise<NonNullable<ReturnType<typeof parseStart>>>,
+	write: (s: string) => void,
+) {
+	for (let next: string | undefined = prompt; next; ) {
+		const stopped = await runOne(next);
+		next = undefined;
+		if (session.mode !== "plan" || stopped) return;
+		const answer = await askStart();
+		if (answer === "start") {
+			// The plan runs in auto; deletes still ask.
+			session.mode = "auto";
+			write("Mode: auto\n");
+			next = "Go ahead with the plan.";
+		} else if (answer !== "stay") next = answer.changes;
+	}
+}
+
+type Ctx = {
+	projectId: string;
+	session: Session;
+	log: Log;
+	approve: Approve;
+	paused: () => boolean;
+};
+
 /** One user message: runs it, renders it, logs it. Finished steps land in `history`. */
 async function turn(
-	projectId: string,
-	history: ModelMessage[],
+	{ projectId, session, log, approve, paused }: Ctx,
 	prompt: string,
 	signal: AbortSignal,
-	log: Log,
 ) {
 	const write = (s: string) => process.stdout.write(s);
-	history.push({ role: "user", content: prompt });
-	log("prompt", { chars: prompt.length });
+	session.history.push({ role: "user", content: prompt });
+	log("prompt", { chars: prompt.length, mode: session.mode });
 	const onRetry = (why: string) => {
 		write(`\n[retry] ${why}\n`);
 		log("retry", { why });
 	};
-	const result = startAgent(projectId, { history, abortSignal: signal, onRetry });
-	await printRun(result, { write, tty: process.stdout.isTTY, log });
+	const result = startAgent(projectId, { ...session, approve, abortSignal: signal, onRetry });
+	await printRun(result, { write, tty: process.stdout.isTTY, log, paused });
 }
 
-async function repl(projectId: string, first: string | undefined) {
+async function repl(projectId: string, first: string | undefined, mode: Mode) {
 	const { file, log } = runLog(path.join(import.meta.dir, "../../logs"));
-	console.log(`Log: ${file}\n/exit quits. Ctrl+C stops a run.`);
-	const history: ModelMessage[] = [];
+	console.log(
+		`Log: ${file}\n/mode <manual|auto|plan> switches mode, /exit quits. Ctrl+C stops a run.`,
+	);
+	const session: Session = { history: [], mode, allowed: new Set() };
 	const rl = createInterface({ input: process.stdin, output: process.stdout });
-	const ask = () => new Promise<string>((resolve) => rl.question("> ", resolve));
+	// @types/node 26 merges the emitter methods in a way tsgo misses.
+	const events = rl as unknown as EventEmitter;
+	const ask: Ask = (prompt, signal) =>
+		new Promise((resolve) => {
+			if (signal?.aborted) return resolve(null);
+			const done = (v: string | null) => {
+				events.off("line", done);
+				signal?.removeEventListener("abort", stop);
+				resolve(v);
+			};
+			const stop = () => {
+				rl.write(null, { ctrl: true, name: "u" });
+				process.stdout.write("\n");
+				done(null);
+			};
+			signal?.addEventListener("abort", stop, { once: true });
+			events.on("line", done);
+			rl.setPrompt(prompt);
+			rl.prompt();
+		});
+	const next = () => ask(`[${session.mode}] > `) as Promise<string>;
 	let run: AbortController | undefined;
 	let armed = false;
+	let prompting = false;
 	const quit = () => {
 		rl.close();
 		process.exit(0);
@@ -95,39 +196,86 @@ async function repl(projectId: string, first: string | undefined) {
 		const what = onInterrupt({ running: !!run, line: rl.line, armed });
 		if (what === "stop") run?.abort(new Error("Stopped by user"));
 		if (what === "clear") rl.write(null, { ctrl: true, name: "u" });
-		if (what === "arm") process.stdout.write("\n(Ctrl+C again to quit)\n> ");
+		if (what === "arm") {
+			process.stdout.write("\n(Ctrl+C again to quit)\n");
+			rl.prompt();
+		}
 		if (what === "quit") quit();
 		armed = what === "stop" || what === "arm";
 	};
-	// @types/node 26 merges the emitter methods in a way tsgo misses.
-	(rl as unknown as EventEmitter).on("SIGINT", interrupt);
+	events.on("SIGINT", interrupt);
 	process.on("SIGINT", interrupt);
-	for (let line = first ?? (await ask()); ; line = await ask()) {
-		const kind = parseLine(line);
-		if (kind === "exit") quit();
-		if (kind === "unknown") console.log("Commands: /exit");
-		if (kind !== "run") continue;
+	const write = (s: string) => process.stdout.write(s);
+	const askUser = cliApprover(ask, write, log);
+	const ctx: Ctx = {
+		projectId,
+		session,
+		log,
+		paused: () => prompting,
+		approve: async (call, signal) => {
+			prompting = true;
+			if (process.stdout.isTTY) write("\r\x1b[2K");
+			try {
+				return await askUser(call, signal);
+			} finally {
+				prompting = false;
+			}
+		},
+	};
+	/** Runs one message under a fresh Ctrl+C scope; true when it was stopped. */
+	const runOne = async (prompt: string) => {
 		armed = false;
 		run = new AbortController();
 		try {
-			await turn(projectId, history, line.trim(), run.signal, log);
+			await turn(ctx, prompt, run.signal);
 		} catch (e) {
 			console.error(`\n[error] ${e instanceof Error ? e.message : e}`);
 		}
+		const stopped = run.signal.aborted;
 		run = undefined;
-		process.stdout.write("\n");
+		write("\n");
+		return stopped;
+	};
+	/** After a plan: Start? until answered. Ctrl+C counts as n. */
+	const askStart = async () => {
+		run = new AbortController();
+		let answer: ReturnType<typeof parseStart>;
+		while (!answer) {
+			const a = await ask("Start? [y/n/changes] ", run.signal);
+			if (a === null) break;
+			answer = parseStart(a);
+		}
+		run = undefined;
+		return answer ?? "stay";
+	};
+	for (let line = first ?? (await next()); ; line = await next()) {
+		const kind = parseLine(line);
+		if (kind === "exit") quit();
+		if (typeof kind === "object") {
+			if (kind.mode && !MODES.includes(kind.mode as Mode))
+				console.log(`Unknown mode "${kind.mode}". Use /mode manual, /mode auto or /mode plan.`);
+			else if (kind.mode) session.mode = kind.mode as Mode;
+			console.log(`Mode: ${session.mode}`);
+			continue;
+		}
+		if (kind === "unknown") console.log("Commands: /mode <manual|auto|plan>, /exit");
+		if (kind !== "run") continue;
+		await converse(session, line.trim(), runOne, askStart, write);
 	}
 }
 
 if (import.meta.main) {
 	const { values, positionals } = parseArgs({
 		args: Bun.argv.slice(2),
-		options: { project: { type: "string" } },
+		options: { project: { type: "string" }, mode: { type: "string", default: "manual" } },
 		allowPositionals: true,
 	});
-	if (!values.project) {
-		console.error('Usage: bun run agent ["<prompt>"] --project <projectId>');
+	const mode = values.mode as Mode;
+	if (!values.project || !MODES.includes(mode)) {
+		console.error(
+			'Usage: bun run agent ["<prompt>"] --project <projectId> [--mode manual|auto|plan]',
+		);
 		process.exit(1);
 	}
-	await repl(values.project, positionals.join(" ") || undefined);
+	await repl(values.project, positionals.join(" ") || undefined, mode);
 }
