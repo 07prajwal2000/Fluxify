@@ -159,7 +159,7 @@ export async function writeRows(s: McpStack): Promise<Row[]> {
 		{
 			tool: "call_route",
 			args: { routeId: ids.route },
-			api: post(`/v1/routes/${ids.route}/call`, {}),
+			api: post(`/v1/routes/${ids.route}/call`, { debug: true }),
 		},
 		// a check-only edit: a dry-run save, so the version stays put for every role
 		{

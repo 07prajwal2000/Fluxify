@@ -2,6 +2,7 @@ import { instantiateCompiled } from "@fluxify/blocks";
 import type { AssertionResult } from "../../db/schema";
 import { WORKFLOW_JOB } from "../jobs/subjects";
 import { readInput, triggerDetails } from "../jobs/workflowJob";
+import { debugError } from "../requestRouter/debugError";
 import { createJobContext } from "../requestRouter/service";
 import { WorkflowTraceRecorder } from "../telemetry/routeRecorder";
 import type { TriggerBatch } from "../triggers/types";
@@ -104,13 +105,16 @@ async function runCase(
 
 	const startedAt = Date.now();
 	let outcome: WorkflowOutcome;
+	let failure: unknown;
 	try {
 		const result = await run(context, input);
+		if (result?.successful === false) failure = result.error;
 		outcome =
 			result?.successful === false
 				? { successful: false, output: result.output, error: messageOf(result.error) }
 				: { successful: true, output: result?.output };
 	} catch (error) {
+		failure = error;
 		outcome = { successful: false, output: undefined, error: messageOf(error) };
 	} finally {
 		context.dbFactory?.dispose();
@@ -136,6 +140,7 @@ async function runCase(
 		durationMs,
 		output: outcome,
 		error: outcome.error,
+		...(failure !== undefined && { debug: debugError(failure) }),
 	};
 }
 

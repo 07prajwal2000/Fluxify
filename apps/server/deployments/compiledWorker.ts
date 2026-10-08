@@ -40,6 +40,7 @@ import { createDepsInstaller } from "../src/modules/packages/installer";
 import { watchProjectArtifacts } from "../src/modules/requestRouter/artifactHost";
 import { asyncExecutorLimitsFromEnv, drainChild } from "../src/modules/requestRouter/asyncExecutor";
 import type { ArtifactEntry } from "../src/modules/requestRouter/compiledRuntime";
+import { routeDebugKey } from "../src/modules/requestRouter/debugError";
 import { createExecutionSupervisor } from "../src/modules/requestRouter/executionSupervisor";
 import { healthResponse, markDraining } from "../src/modules/requestRouter/health";
 import type { ExecutionMessage } from "../src/modules/requestRouter/threadTypes";
@@ -163,6 +164,7 @@ const supervisor = createExecutionSupervisor({
 		.split(",")
 		.map((origin) => origin.trim())
 		.filter(Boolean),
+	debugKey: routeDebugKey(getEnv("MASTER_ENCRYPTION_KEY")),
 	timeoutsEnabled: timeoutPolicyEnabled,
 });
 

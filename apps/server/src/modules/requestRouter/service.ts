@@ -52,6 +52,8 @@ import type { RequestEnvelope } from "./types";
 export type HandleRequestType = {
 	data?: any;
 	status: ContentfulStatusCode;
+	/** why the run failed; never sent to the caller, only to an admin's debug call (#671) */
+	error?: unknown;
 };
 
 export type RouteValidatorResolver = (routeId: string) =>
@@ -366,6 +368,7 @@ function validateSchema(
 
 function parseResult(executionResult: BlockOutput) {
 	return {
+		error: executionResult.successful ? undefined : executionResult.error,
 		status: executionResult.output?.httpCode || (executionResult.error ? 500 : 200),
 		data:
 			// ?? not ||: a body of 0, false or "" is still the body

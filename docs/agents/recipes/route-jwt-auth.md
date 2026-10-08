@@ -153,4 +153,4 @@ A guard repeated on many routes belongs in a [middleware](/agents/middleware). M
 | Always 401, even with a good token | The secret differs. The token must be signed with the `JWT_SECRET` value. Header must start with `Bearer `. |
 | `jwt` or `getConfig` is not defined | The code must run in a `jsrunner` block or a `js:` field, not a plain text field. |
 | `edit_canvas` says `Canvas changed since you read it` | Call `get_canvas` again and redo the edit with the new `version`. |
-| 500 and an error in `get_system_logs` | Read the message. A script error names the block. Use [Recipe, debug a failing route](/agents/recipes/debug-route-with-recording). |
+| 500 and an error in `get_system_logs` | Read the message. A script error names the block. Use [Recipe, debug and fix a route or workflow](/agents/recipes/debug-and-fix). |

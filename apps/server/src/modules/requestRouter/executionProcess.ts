@@ -23,6 +23,7 @@ import {
 	setTrustedOrigins,
 	shutdownCompiledRuntime,
 } from "./compiledRuntime";
+import { DEBUG_ERROR_HEADER, debugError, debugRequested, encodeDebugError } from "./debugError";
 import { executionRuntimeEnvironment } from "./executionEnvironment";
 import { createHttpContext } from "./httpContext";
 import {
@@ -166,6 +167,7 @@ async function serveRoute(request: Request): Promise<Response> {
 	const parser = routeParserFor(request.headers.get("host") ?? undefined);
 	const ctx = createHttpContext(request);
 	const env = await envelopeFromHttp(ctx as any);
+	const debug = debugRequested(env, parser, boot?.debugKey);
 	const observer = createObserver();
 	const traceFactory: RouteTraceFactory = {
 		start(route) {
@@ -194,8 +196,10 @@ async function serveRoute(request: Request): Promise<Response> {
 			compiledRouteValidators,
 			traceFactory,
 		);
+		if (debug && response.error !== undefined) addDebugError(ctx.responseHeaders, response.error);
 		return json(response.data, response.status, ctx.responseHeaders);
 	} catch (error) {
+		if (debug) addDebugError(ctx.responseHeaders, error);
 		return json(
 			{ message: error?.toString() || "Internal server error" },
 			500,
@@ -240,6 +244,11 @@ function setMonitoring(enabled: boolean) {
 	if (enabled) {
 		heartbeat = setInterval(() => send({ type: "heartbeat" }), 500);
 	}
+}
+
+/** the real error, for the admin's debug call only (#671); the body stays generic */
+function addDebugError(headers: Headers, error: unknown) {
+	headers.set(DEBUG_ERROR_HEADER, encodeDebugError(debugError(error)));
 }
 
 function send(event: ExecutionEvent) {

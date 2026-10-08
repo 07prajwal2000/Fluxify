@@ -15,7 +15,7 @@ A route is an HTTP endpoint: a method and a path. `save_route` sets its settings
 | `get_route` | viewer | Settings, the three request schemas and the attached middlewares. Not the canvas. |
 | `save_route` | creator | Create (no `routeId`) or update (`routeId`). |
 | `delete_route` | creator | Deletes the route and its canvas. Its path then answers 404. |
-| `call_route` | creator | Sends one real request to an active route. |
+| `call_route` | creator | Sends one real request to an active route. When it fails, also returns the real error (`error`). |
 | `get_canvas`, `edit_canvas` | viewer, creator | Read and change the blocks. `kind` is `"route"`. |
 
 ## Create a route
@@ -164,7 +164,7 @@ A request with another content type is refused with 415.
 
 They are two separate switches.
 
-- `recordExecution: true` keeps each run inside Fluxify. You read it with `list_recordings` and `get_recording`. Recordings hold request headers, bodies and secrets as they were, so use it while debugging and turn it off after. See [Recipe, debug a failing route](/agents/recipes/debug-route-with-recording).
+- `recordExecution: true` keeps each run inside Fluxify. You read it with `list_recordings` and `get_recording`. Recordings hold request headers, bodies and secrets as they were, so use it while debugging and turn it off after. See [Recipe, debug and fix a route or workflow](/agents/recipes/debug-and-fix).
 - `tracingEnabled: true` sends spans to the project's own telemetry destination. It keeps nothing in Fluxify.
 
 ## Common errors

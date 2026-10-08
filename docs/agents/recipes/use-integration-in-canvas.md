@@ -183,6 +183,6 @@ Test the integration again. Revoke the old credential after the new one works.
 | `App config 'KEY' not found` | Save the app config entry before the integration. |
 | `Fluxify API error 409: Integration already exists` | Another integration has that name. Use `list_integrations`, or pick a new name. |
 | `success: false` on test | Host or port not reachable from the server, or wrong credentials. A database on `localhost` means the Fluxify server's own localhost. |
-| The route answers 500 | Check `get_system_logs`, then record a run. See [Recipe, debug a failing route](/agents/recipes/debug-route-with-recording). |
+| The route answers 500 | Read the `error` in the `call_route` answer, then check `get_system_logs`. See [Recipe, debug and fix a route or workflow](/agents/recipes/debug-and-fix). |
 | The table or column is not found | `tableName` and `columns` must match the database exactly. |
 | Deleting the integration | It also deletes every trigger that uses it. |

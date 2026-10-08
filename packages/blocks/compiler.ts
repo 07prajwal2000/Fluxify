@@ -76,6 +76,8 @@ export function emitJsObject(value: unknown, node: EmitNode): string {
 /** mirrors JsVM.truthy / the `is_empty` operator, inlined into every program */
 const PRELUDE = `const $truthy = (v) => { const t = typeof v; return t === "bigint" || t === "number" || t === "string" || t === "boolean" ? !!v : (t === "object" && v !== null); };
 const $isEmpty = (v) => v === null || v === undefined || v === "" || (typeof v === "object" && Object.keys(v).length === 0);
+const $blockKey = Symbol.for("fluxify.block");
+const $tagBlock = (e, block) => { if (e !== null && typeof e === "object" && !Object.hasOwn(e, $blockKey)) try { Object.defineProperty(e, $blockKey, { value: block }); } catch {} };
 const $branchEnd = Symbol("branch");
 const $endBranch = (output) => ({ [$branchEnd]: output });
 const $parallel = (runs, settle) => new Promise((resolve, reject) => {
@@ -162,16 +164,23 @@ export type CompileOptions = {
 	tracing?: boolean;
 };
 
+/**
+ * Names the graph's stack frames, so an error from user code can show its own
+ * frames without the server's file paths (#671).
+ */
+export const GRAPH_SOURCE_URL = "fluxify-graph";
+const SOURCE_URL = `\n//# sourceURL=${GRAPH_SOURCE_URL}`;
+
 /** turn compiled source back into a runnable graph (worker side, no compiler) */
 export function instantiateCompiled(source: string) {
 	if (source.startsWith(COMPILED_ROUTE_FACTORY)) {
-		const factory = new CompiledRouteFactory("lib", source);
+		const factory = new CompiledRouteFactory("lib", source + SOURCE_URL);
 		return factory(compilerLib);
 	}
 
 	// Existing artifacts remain executable while workers are rolling over to the
 	// factory format. They disappear naturally on the next route compilation.
-	const compiled = new AsyncFunction("ctx", "input", "lib", source);
+	const compiled = new AsyncFunction("ctx", "input", "lib", source + SOURCE_URL);
 	return (ctx: Context, input?: unknown) => compiled(ctx, input, compilerLib);
 }
 

@@ -188,6 +188,7 @@ describe("tasks", () => {
 
 	it("--task also finds the tasks in tasks2", () => {
 		expect(pickTasks("greeting-expression").map((t) => t.id)).toEqual(["greeting-expression"]);
+		expect(pickTasks("broken-sql")[0]?.needsEnv).toEqual(["EVAL_POSTGRES_URL"]);
 	});
 
 	it("--task picks in suite order and refuses unknown ids", () => {

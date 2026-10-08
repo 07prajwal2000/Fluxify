@@ -11,6 +11,7 @@ import "../../lib/bigintJson";
 import { hydrateAppConfig } from "../../loaders/appconfigLoader";
 import { hydrateIntegrations } from "../../loaders/integrationsLoader";
 import { hydrateProjectSettings } from "../../loaders/projectSettingsLoader";
+import { debugError } from "../requestRouter/debugError";
 import { executionRuntimeEnvironment } from "../requestRouter/executionEnvironment";
 import { setBlocksExecutor } from "../requestRouter/executor";
 import { createHttpContext } from "../requestRouter/httpContext";
@@ -258,6 +259,7 @@ async function runRoute(boot: TestBootstrap & RouteTarget, setup: unknown): Prom
 			data: response.data,
 			headers,
 			durationMs,
+			...(response.error !== undefined && { debug: debugError(response.error) }),
 			// hook checks first: they ran first, inside the route
 			verdict: {
 				success: verdict.success && hookChecks.every((c) => c.success),

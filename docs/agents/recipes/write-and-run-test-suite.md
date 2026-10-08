@@ -82,7 +82,7 @@ Call `get_test_runs`:
 
 ## 4. Find the block that failed
 
-Every test run is recorded. Read the case's `traceRunId` with `get_recording`. `kind` and `targetId` are the suite's route.
+A failed case's `error` often says it already: the `block` that failed, its `message` and the real cause in `detail`. For more, read the recording: every test run is recorded. Read the case's `traceRunId` with `get_recording`. `kind` and `targetId` are the suite's route.
 
 Call `get_recording`:
 
@@ -90,7 +90,7 @@ Call `get_recording`:
 { "projectId": "<project id>", "kind": "route", "targetId": "<route id>", "runId": "<traceRunId>" }
 ```
 
-The first span with `outcome: "failure"` names the block and the error. Read its input and output with `spanSeq`. The fix steps are in [Recipe, debug a failing route](/agents/recipes/debug-route-with-recording). Run the suite again after the fix.
+The first span with `outcome: "failure"` names the block and the error. Read its input and output with `spanSeq`. The fix steps are in [Recipe, debug and fix a route or workflow](/agents/recipes/debug-and-fix). Run the suite again after the fix.
 
 ## 5. Add more checks with custom JS
 

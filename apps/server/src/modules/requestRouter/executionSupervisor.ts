@@ -50,6 +50,8 @@ export interface ExecutionSupervisorOptions {
 	/** The artifacts a freshly spawned child should start with, as this node sees them. */
 	artifacts: () => ArtifactEntry[];
 	trustedOrigins: string[];
+	/** Verifies the admin's debug-call tokens (#671). */
+	debugKey?: string;
 	/** Read at every spawn; later changes arrive as a `base-domain` message. */
 	baseDomain: () => string;
 	/** Whether any project loaded here asks for execution timeouts. */
@@ -193,6 +195,7 @@ export function createExecutionSupervisor(
 			asyncExecutor: options.asyncExecutor,
 			baseDomain: options.baseDomain(),
 			trustedOrigins: options.trustedOrigins,
+			debugKey: options.debugKey,
 			artifacts: options.artifacts(),
 			workerTimeoutsEnabled: options.timeoutsEnabled(),
 			maxRequestBodyBytes: options.maxRequestBodyBytes,
