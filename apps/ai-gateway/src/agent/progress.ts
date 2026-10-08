@@ -1,6 +1,7 @@
 import { appendFileSync, mkdirSync } from "node:fs";
 import path from "node:path";
-import { MAX_STEPS, type runAgent } from "./agent";
+import type { runAgent } from "./agent";
+import { stopMessage } from "./guards";
 
 export type Log = (event: string, data?: Record<string, unknown>) => void;
 /** `paused` holds the status line while the user answers a prompt. */
@@ -177,10 +178,6 @@ export async function printRun(result: ReturnType<typeof runAgent>, out: Out) {
 					ms: Date.now() - stepAt,
 				});
 				stepAt = Date.now();
-				if (step >= MAX_STEPS && part.finishReason === "tool-calls") {
-					status.line(`[stopped] reached ${MAX_STEPS}-step limit`);
-					log("step-limit", { steps: step });
-				}
 				waiting();
 				break;
 			case "error":
@@ -196,6 +193,11 @@ export async function printRun(result: ReturnType<typeof runAgent>, out: Out) {
 	status.set("waiting for model…");
 	try {
 		for await (const part of result.stream) handle(part);
+		const stop = result.stopped();
+		if (stop) {
+			status.line(`[stopped] ${stopMessage(stop)}`);
+			log("limit-stop", stop);
+		}
 	} catch (e) {
 		status.line(`[error] ${message(e)}`);
 		log("error", { error: message(e) });

@@ -1,8 +1,19 @@
-import { isStepCount, type LanguageModel, type ModelMessage, streamText, type Tool } from "ai";
+import { type LanguageModel, type ModelMessage, streamText, type Tool } from "ai";
+import {
+	guardTools,
+	type Limit,
+	MAX_RESULT_CHARS,
+	MAX_STEPS,
+	newGuard,
+	type Stop,
+	stopNote,
+	TOKEN_BUDGET,
+	WRAP_UP,
+} from "./guards";
 import { type Limits, withModelTimeouts, withToolTimeouts } from "./timeouts";
 import { isDelete, isRead, type Mode, needsApproval } from "./tools";
 
-export const MAX_STEPS = 40;
+export { type Limit, MAX_STEPS } from "./guards";
 
 export const agentPrompt = (
 	projectId: string,
@@ -48,6 +59,9 @@ export const rejected = (reason?: string) =>
 /** Approves everything, for unattended runs (evals). */
 export const approveAll: Approve = async () => ({ ok: true });
 
+/** A step or token limit was hit. true grants another block of the same size; false stops the run. */
+export type OnLimit = (limit: Limit, signal?: AbortSignal) => Promise<boolean>;
+
 type Run = {
 	model: Exclude<LanguageModel, string>;
 	tools: Record<string, Tool>;
@@ -58,21 +72,14 @@ type Run = {
 	limits: Limits;
 	mode: Mode;
 	approve: Approve;
+	/** Asked at the step cap and the token budget; stops when missing. */
+	onLimit?: OnLimit;
 	/** Tools approved for the session with "always"; filled as the user answers. */
 	allowed?: Set<string>;
 	abortSignal?: AbortSignal;
 	/** A model call is being retried (idle timeout, or a 429/5xx). */
 	onRetry?: (why: string) => void;
 };
-
-/**
- * One tool loop: it stops when the model answers without a tool call, or at
- * MAX_STEPS. Calls that `needsApproval` wait for `approve` (the SDK's
- * toolApproval, so a rejection is the call's result and the loop goes on).
- * Plan mode only gets read tools. Progress comes out of `result.stream`;
- * timeouts end a model call with an error part, never a hang.
- */
-export const STEP_LIMIT_NOTE = `(stopped: reached the ${MAX_STEPS}-step limit before finishing)`;
 
 /**
  * Leaves a note on why the reply ended early as the last assistant turn, so
@@ -92,6 +99,19 @@ export function addNote(history: ModelMessage[], note: string) {
 	last.content = [...parts, { type: "text", text: note }];
 }
 
+const tokens = (steps: { usage: { inputTokens?: number; outputTokens?: number } }[]) =>
+	steps.reduce((n, s) => n + (s.usage.inputTokens ?? 0) + (s.usage.outputTokens ?? 0), 0);
+
+/**
+ * One tool loop: it stops when the model answers without a tool call. At the
+ * step cap or token budget it asks `onLimit` (a stop condition may be async, so
+ * the run just waits; yes raises the limit). A call repeated REPEAT_STOP times
+ * stops it. Calls that `needsApproval` wait for `approve` (the SDK's
+ * toolApproval, so a rejection is the call's result and the loop goes on).
+ * Plan mode only gets read tools. Progress comes out of `result.stream`;
+ * timeouts end a model call with an error part, never a hang. `stopped()` says
+ * why the run ended early, if it did.
+ */
 export function runAgent({
 	model,
 	tools,
@@ -101,6 +121,7 @@ export function runAgent({
 	limits,
 	mode,
 	approve,
+	onLimit = async () => false,
 	allowed = new Set(),
 	abortSignal,
 	onRetry,
@@ -111,14 +132,45 @@ export function runAgent({
 			once: true,
 		}),
 	);
-	return streamText({
+	const maxSteps = limits.maxSteps ?? MAX_STEPS;
+	const budget = limits.tokenBudget ?? TOKEN_BUDGET;
+	const guard = newGuard();
+	const max = { steps: maxSteps, tokens: budget };
+	let warned = false;
+	let stop: Stop | undefined;
+	/** Asks to go past a limit; no stops the run. */
+	const pastLimit = async (kind: Limit["kind"], used: number) => {
+		if (used < max[kind]) return true;
+		const limit = max[kind];
+		const go = await Promise.race([
+			onLimit({ kind, used, limit }, abortSignal),
+			stopped.then(() => false),
+		]);
+		if (go) max[kind] += kind === "steps" ? maxSteps : budget;
+		else stop = { kind, used, limit };
+		return go;
+	};
+	const result = streamText({
 		model: withModelTimeouts(model, limits, onRetry ?? (() => {})),
 		instructions: agentPrompt(projectId) + (mode === "plan" ? PLAN_PROMPT : ""),
 		messages: [...history],
-		tools: withToolTimeouts(tools, limits.toolMs),
+		tools: guardTools(
+			withToolTimeouts(tools, limits.toolMs),
+			guard,
+			limits.maxResultChars ?? MAX_RESULT_CHARS,
+		),
 		abortSignal,
 		maxRetries: limits.retries,
-		stopWhen: isStepCount(MAX_STEPS),
+		stopWhen: async ({ steps }) => {
+			if (guard.repeat) stop = { kind: "repeat", tool: guard.repeat };
+			if (stop) return true;
+			const used = tokens(steps);
+			if (!warned && used >= 0.8 * max.tokens) {
+				warned = true;
+				guard.pending.push(WRAP_UP);
+			}
+			return !(await pastLimit("steps", steps.length)) || !(await pastLimit("tokens", used));
+		},
 		prepareStep: ({ messages }) => {
 			assertEndsOnUserOrTool(messages);
 			return { activeTools: mode === "plan" ? active().filter(isRead) : active() };
@@ -142,10 +194,13 @@ export function runAgent({
 			history.push(...step.response.messages);
 			if (step.finishReason === "error")
 				addNote(history, `(previous reply failed: ${error || "unknown error"})`);
-			else if (step.finishReason === "tool-calls" && step.stepNumber + 1 >= MAX_STEPS)
-				addNote(history, STEP_LIMIT_NOTE);
+		},
+		// After the last step is in history, so the note lands after its tool results.
+		onFinish: () => {
+			if (stop) addNote(history, stopNote(stop));
 		},
 	});
+	return Object.assign(result, { stopped: () => stop });
 }
 
 /** Mistral (and others) 400 when the last message is assistant or system. */

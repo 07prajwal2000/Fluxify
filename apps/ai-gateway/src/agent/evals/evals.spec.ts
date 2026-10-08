@@ -221,6 +221,12 @@ describe("runTask", () => {
 		expect((d as any).calls.at(-1)).toMatchObject({ path: `/v1/projects/${P}`, body: { hidden: true } });
 	});
 
+	it("answers no at a limit and records it as the stop", async () => {
+		const d = deps({ limits: { idleMs: 1000, callMs: 5000, toolMs: 1000, retries: 0, maxSteps: 1 } });
+		const row = await runTask(healthTask, d, new AbortController().signal);
+		expect(row).toMatchObject({ steps: 1, stop: "step-limit" });
+	});
+
 	it("--keep leaves the project", async () => {
 		const d = deps({ keep: true });
 		await runTask(healthTask, d, new AbortController().signal);

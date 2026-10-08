@@ -4,7 +4,7 @@ import { parseArgs } from "node:util";
 import type { LanguageModel, ModelMessage } from "ai";
 import { ADMIN_API_URL } from "../../lib/env";
 import { type AdminFetch, adminApi } from "../../mcp/adminApi";
-import { type Approve, MAX_STEPS, runAgent } from "../agent";
+import { type Approve, runAgent } from "../agent";
 import { modelFromEnv } from "../model";
 import { printRun } from "../progress";
 import { type Limits, limitsFromEnv } from "../timeouts";
@@ -115,6 +115,8 @@ export const toolCalls = (history: ModelMessage[]) =>
 			: [],
 	);
 
+const STOP_CODE = { steps: "step", tokens: "token", repeat: "repeat" } as const;
+
 /** One task end to end. Never throws: a crash is recorded on the row. */
 export async function runTask(task: Task, deps: Deps, signal: AbortSignal): Promise<Row> {
 	const t0 = Date.now();
@@ -170,6 +172,8 @@ export async function runTask(task: Task, deps: Deps, signal: AbortSignal): Prom
 				limits: deps.limits,
 				mode: "auto",
 				approve,
+				// Unattended: a limit stops the task so runs stay bounded.
+				onLimit: async () => false,
 				abortSignal: signal,
 			});
 			await printRun(result, { write: out });
@@ -179,7 +183,8 @@ export async function runTask(task: Task, deps: Deps, signal: AbortSignal): Prom
 			row.steps += steps.length;
 			row.tokensIn += usage?.inputTokens ?? 0;
 			row.tokensOut += usage?.outputTokens ?? 0;
-			row.stop = finish === "tool-calls" && steps.length >= MAX_STEPS ? "step-limit" : finish;
+			const stop = result.stopped()?.kind;
+			row.stop = stop ? `${STOP_CODE[stop]}-limit` : finish;
 		}
 		if (signal.aborted) throw new Error("Stopped by user");
 
