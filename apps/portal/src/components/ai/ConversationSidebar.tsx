@@ -1,9 +1,9 @@
 import { Button, Input, Spinner, Tabs, TextField } from "@fluxify/components";
 import { useQueryClient } from "@tanstack/react-query";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { TbAlertTriangle, TbChevronsLeft, TbPlus, TbRefresh, TbSearch } from "react-icons/tb";
-import { harnessConversationsQuery } from "@/query/harnessConversationsQuery";
+import { agentConversationsKey, agentConversationsQuery } from "@/query/agentConversationsQuery";
 import { ConversationItem } from "./ConversationItem";
 import { groupConversations } from "./group";
 import type { HarnessConversation } from "./types";
@@ -23,23 +23,17 @@ export function ConversationSidebar({ projectId, onToggle, onOpen, onNew, active
 	const parentRef = useRef<HTMLDivElement>(null);
 	const [tab, setTab] = useState<Tab>("all");
 	const [searchInput, setSearchInput] = useState("");
-	const [search, setSearch] = useState("");
 
-	// Debounce the server-side search so we don't fire a request per keystroke.
-	useEffect(() => {
-		const t = setTimeout(() => setSearch(searchInput.trim()), 300);
-		return () => clearTimeout(t);
-	}, [searchInput]);
+	const search = searchInput.trim().toLowerCase();
 
-	const query = harnessConversationsQuery.list.useInfiniteQuery(projectId, {
-		perPage: 20,
-		needUserQuery: true,
-		archived: tab === "archived",
-		pinned: tab === "pinned" ? true : undefined,
-		search: search || undefined,
-	});
-
-	const items = (query.data?.pages.flatMap((p) => p.data) ?? []) as HarnessConversation[];
+	// The agent lists a user's latest 100 conversations; tabs and search filter them here.
+	const query = agentConversationsQuery.list.useQuery(projectId);
+	const items = (query.data ?? []).filter(
+		(c) =>
+			c.archived === (tab === "archived") &&
+			(tab !== "pinned" || c.pinned) &&
+			(!search || (c.title ?? "").toLowerCase().includes(search)),
+	);
 	const groups = groupConversations(items, { separatePinned: tab !== "archived" });
 
 	const flatRows = useMemo(() => {
@@ -63,22 +57,6 @@ export function ConversationSidebar({ projectId, onToggle, onOpen, onNew, active
 		overscan: 5,
 	});
 
-	// Infinite scrolling
-	useEffect(() => {
-		const [lastItem] = [...virtualizer.getVirtualItems()].reverse();
-		if (!lastItem) return;
-
-		if (lastItem.index >= flatRows.length - 1 && query.hasNextPage && !query.isFetchingNextPage) {
-			query.fetchNextPage();
-		}
-	}, [
-		virtualizer.getVirtualItems(),
-		query.hasNextPage,
-		query.isFetchingNextPage,
-		flatRows.length,
-		query,
-	]);
-
 	return (
 		<aside className="flex h-full w-80 max-w-[85vw] flex-col gap-3 border-r border-border pr-3">
 			<div className="flex items-center justify-between pt-1">
@@ -91,9 +69,7 @@ export function ConversationSidebar({ projectId, onToggle, onOpen, onNew, active
 							size="sm"
 							variant="ghost"
 							aria-label="Refresh"
-							onPress={() =>
-								qc.invalidateQueries({ queryKey: ["harness-conversations", projectId] })
-							}
+							onPress={() => qc.invalidateQueries({ queryKey: agentConversationsKey(projectId) })}
 						>
 							<TbRefresh size={17} className={query.isRefetching ? "animate-spin" : ""} />
 						</Button>
@@ -204,12 +180,6 @@ export function ConversationSidebar({ projectId, onToggle, onOpen, onNew, active
 								);
 							})}
 						</div>
-
-						{query.isFetchingNextPage && (
-							<div className="flex justify-center py-4">
-								<Spinner size="sm" />
-							</div>
-						)}
 					</div>
 				)}
 			</div>

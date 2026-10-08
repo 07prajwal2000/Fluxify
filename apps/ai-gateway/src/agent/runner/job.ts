@@ -1,5 +1,5 @@
 import type { ModelMessage, ToolResultPart } from "ai";
-import { rejected } from "../agent";
+import { rejected, type StopReason, stopReason } from "../agent";
 import { continueConversation, pendingCalls } from "../resume";
 import type { AgentStore, RunStatus } from "../store";
 import { loadedTools } from "../tools";
@@ -12,7 +12,13 @@ export type RunDeps = {
 	store: AgentStore;
 	/** queued → executing; false: another job has the run, or it was stopped. */
 	claimRun: (runId: string) => Promise<boolean>;
-	settle: (conversationId: string, runId: string, status: RunStatus) => Promise<void>;
+	/** `reason`: the run stopped at a limit. */
+	settle: (
+		conversationId: string,
+		runId: string,
+		status: RunStatus,
+		reason?: StopReason,
+	) => Promise<void>;
 	/** The model, tools and limits for the job's project, acting as its user; `loaded`: tools load_tools added earlier in the conversation. */
 	build: (job: AgentJob, loaded: Set<string>) => Promise<Omit<Agent, "approve" | "abortSignal">>;
 	publish: (runId: string, events: AgentEvent[]) => Promise<void>;
@@ -58,6 +64,7 @@ export async function executeRun(job: AgentJob, deps: RunDeps, signal: AbortSign
 	const { t, store } = seqTracker(deps.store);
 	let status: RunStatus;
 	let error = "";
+	let reason: StopReason | undefined;
 	try {
 		// Every row, summarized or not: a tool loaded before a summary is still loaded.
 		const rows = await deps.store.all(job.conversationId);
@@ -72,6 +79,7 @@ export async function executeRun(job: AgentJob, deps: RunDeps, signal: AbortSign
 		});
 		if (r.result) await pump(r.result, t, events.push).catch(onError);
 		status = await r.status;
+		if (status === "completed") reason = stopReason(r.result?.stopped());
 	} catch (e) {
 		error = message(e);
 		status = "failed";
@@ -84,9 +92,13 @@ export async function executeRun(job: AgentJob, deps: RunDeps, signal: AbortSign
 			job.runId,
 			status === "interrupted" ? "the user stopped the run" : "the run failed",
 		).catch(onError);
-	await deps.settle(job.conversationId, job.runId, status).catch(onError);
+	await deps.settle(job.conversationId, job.runId, status, reason).catch(onError);
 	const seq = t.next - 1;
-	events.push(error ? { type: "error", seq, message: error } : { type: "done", seq, status });
+	events.push(
+		error
+			? { type: "error", seq, message: error }
+			: { type: "done", seq, status, ...(reason && { reason }) },
+	);
 	await events.flush();
 	return status;
 }

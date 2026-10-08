@@ -43,6 +43,13 @@
 			"when": 1791486582227,
 			"tag": "0005_agent_messages",
 			"breakpoints": true
+		},
+		{
+			"idx": 6,
+			"version": "7",
+			"when": 1791495616721,
+			"tag": "0006_agent_run_stop_reason",
+			"breakpoints": true
 		}
 	]
 }

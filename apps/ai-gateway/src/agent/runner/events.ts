@@ -1,4 +1,4 @@
-import type { runAgent } from "../agent";
+import type { runAgent, StopReason } from "../agent";
 import type { Compaction } from "../compact";
 import type { Part } from "../progress";
 import type { AgentStore, RunStatus } from "../store";
@@ -30,7 +30,7 @@ export type AgentEvent =
 			isDelete: boolean;
 	  }
 	| { type: "compaction"; seq: number; compaction: Compaction }
-	| { type: "done"; seq: number; status: RunStatus }
+	| { type: "done"; seq: number; status: RunStatus; reason?: StopReason }
 	| { type: "error"; seq: number; message: string };
 
 export const isEnd = (e: AgentEvent) => e.type === "done" || e.type === "error";

@@ -25,13 +25,11 @@ import {
 } from "react-icons/tb";
 import { useDebounce } from "@/hooks/useDebounce";
 import { findResourceQuery } from "@/query/findResourceQuery";
-import { useAiHarnessStore } from "@/store/aiHarness";
-import { ApplyModeSelect } from "./ApplyModeSelect";
+import { AgentModelLabel } from "./AgentModel";
 import { EditorEventsPlugin } from "./EditorEventsPlugin";
 import { lexicalToMarkdown, markdownToLexical } from "./lexical/MarkdownTransformer";
 import { ResourceNode } from "./lexical/ResourceNode";
 import { ResourcePlugin } from "./lexical/ResourcePlugin";
-import { type AiModel, ModelSelect } from "./ModelSelect";
 import { STARTERS } from "./starters";
 
 const PLACEHOLDERS = [
@@ -118,10 +116,8 @@ type Props = {
 	projectId: string;
 	value: string;
 	onChange: (value: string) => void;
-	onSubmit: (query: string, model: string, isFallback: boolean) => void;
+	onSubmit: (query: string) => void;
 	isPending?: boolean;
-	models: AiModel[];
-	defaultModelId?: string;
 	minRows?: number;
 	maxRows?: number;
 	placeholder?: string;
@@ -137,8 +133,6 @@ export function PromptEditor({
 	onChange,
 	onSubmit,
 	isPending,
-	models,
-	defaultModelId,
 	minRows = 1,
 	maxRows = 2,
 	placeholder = "Message AI...",
@@ -147,13 +141,6 @@ export function PromptEditor({
 	onStop,
 	isDisabled,
 }: Props) {
-	const selectedModelId = useAiHarnessStore((s) => s.selectedModelId);
-	const setSelectedModelId = useAiHarnessStore((s) => s.setSelectedModelId);
-	const applyMode = useAiHarnessStore((s) => s.applyMode);
-	const setApplyMode = useAiHarnessStore((s) => s.setApplyMode);
-
-	const [model, setModel] = useState<string>(selectedModelId || defaultModelId || "");
-
 	// Popover & Search State
 	const [popoverOpen, setPopoverOpen] = useState(false);
 	const [searchQuery, setSearchQuery] = useState("");
@@ -196,11 +183,9 @@ export function PromptEditor({
 		return () => clearTimeout(timeout);
 	}, [charIndex, phIndex, typewriter]);
 
-	const actualPlaceholder = isDisabled
-		? "Please review the implementation plan to continue..."
-		: typewriter
-			? twPlaceholder + (charIndex < PLACEHOLDERS[phIndex].length ? "|" : "")
-			: placeholder;
+	const actualPlaceholder = typewriter
+		? twPlaceholder + (charIndex < PLACEHOLDERS[phIndex].length ? "|" : "")
+		: placeholder;
 
 	// Reset index when results change
 	useEffect(() => {
@@ -229,18 +214,6 @@ export function PromptEditor({
 		return () => document.removeEventListener("mousedown", handleClick);
 	}, [popoverOpen]);
 
-	// Sync default model if it changes or if models load late
-	useEffect(() => {
-		if (models.length > 0) {
-			if (model && !models.some((m) => m.id === model)) {
-				setSelectedModelId(null);
-				setModel(defaultModelId || "");
-			} else if (!model && defaultModelId) {
-				setModel(defaultModelId);
-			}
-		}
-	}, [defaultModelId, model, models, setSelectedModelId]);
-
 	const trimmed = value.trim();
 	// `!isRunning` matters for Enter, not the button — the button is swapped for
 	// Stop while a run is live, but the editor's Enter handler calls submit()
@@ -248,10 +221,7 @@ export function PromptEditor({
 	const canSend = trimmed.length > 0 && !isPending && !isDisabled && !isRunning;
 
 	const submit = () => {
-		if (!canSend) return;
-		const selectedModel = models.find((m) => m.id === model);
-		const isFallback = !!selectedModel?.isFallback;
-		onSubmit(trimmed, model, isFallback);
+		if (canSend) onSubmit(trimmed);
 	};
 
 	const initialConfig = {
@@ -440,16 +410,7 @@ export function PromptEditor({
 					</Button>
 				</div>
 				<div className="flex min-w-0 flex-1 items-center justify-end gap-2">
-					<ApplyModeSelect value={applyMode} onChange={setApplyMode} />
-					<ModelSelect
-						projectId={projectId}
-						value={model}
-						models={models}
-						onChange={(val) => {
-							setModel(val);
-							setSelectedModelId(val || null);
-						}}
-					/>
+					<AgentModelLabel projectId={projectId} />
 					{isRunning ? (
 						<Button
 							isIconOnly

@@ -1,16 +1,13 @@
 import { Button, Spinner } from "@fluxify/components";
-import { useNavigate, useParams } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
-import { TbAlertTriangle, TbDots, TbFileCode, TbPlugConnected } from "react-icons/tb";
+import { Link, useNavigate, useParams } from "@tanstack/react-router";
+import { useState } from "react";
+import { TbAlertTriangle, TbPlugConnected } from "react-icons/tb";
 import { showErrorNotification } from "@/lib/errorNotifier";
-import { harnessConversationsQuery } from "@/query/harnessConversationsQuery";
-import { integrationsQuery } from "@/query/integrationsQuery";
-import { projectSettingsKeysQuery } from "@/query/projectSettingsKeysQuery";
-import { useAiHarnessStore } from "@/store/aiHarness";
-import type { ApplyMode } from "./ApplyModeSelect";
+import { agentConversationsQuery } from "@/query/agentConversationsQuery";
+import { useAgentModel } from "./AgentModel";
 import { PromptEditor } from "./PromptEditor";
 import { STARTERS } from "./starters";
-import { useAiModels } from "./useAiModels";
+import { queueMessage } from "./useAgentConversation";
 
 const logo = `${import.meta.env.BASE_URL}icons/logo.webp`;
 
@@ -19,33 +16,23 @@ export function AiHome() {
 	const navigate = useNavigate();
 	const [query, setQuery] = useState("");
 
-	const { models, defaultModelId, isBlocked, isLoading } = useAiModels(projectId);
-	const sendMessage = harnessConversationsQuery.sendMessage.mutation(projectId);
+	const { isLoading, missing } = useAgentModel(projectId);
+	const create = agentConversationsQuery.create.mutation(projectId);
 
-	const submit = (q: string, model: string, isFallback: boolean) => {
-		// Only pass model/integration ID if it's NOT the fallback project setting
-		const reqPayload: {
-			query: string;
-			integrationId?: string;
-			applyMode?: ApplyMode;
-		} = { query: q, applyMode: useAiHarnessStore.getState().applyMode };
-		if (!isFallback && model) {
-			reqPayload.integrationId = model;
-		}
-
-		sendMessage.mutate(reqPayload, {
-			onSuccess: (res) => {
+	// The conversation page sends the message, so it can show it and follow the run.
+	const submit = (q: string) =>
+		create.mutate(q.split("\n")[0].slice(0, 80), {
+			onSuccess: (conversation) => {
 				setQuery("");
-				// Smooth cross-fade into the conversation the API just created.
+				queueMessage(conversation.id, q);
 				navigate({
 					to: "/$projectId/ai/$conversationId",
-					params: { projectId, conversationId: res.conversationId },
+					params: { projectId, conversationId: conversation.id },
 					viewTransition: true,
 				});
 			},
 			onError: (err) => showErrorNotification(err),
 		});
-	};
 
 	if (isLoading) {
 		return (
@@ -55,7 +42,7 @@ export function AiHome() {
 		);
 	}
 
-	if (isBlocked) {
+	if (missing) {
 		return (
 			<div className="mx-auto flex h-full w-full max-w-md flex-col items-center justify-center gap-6 px-4 text-center">
 				<div className="flex size-16 items-center justify-center rounded-full bg-danger/10 text-danger">
@@ -64,17 +51,18 @@ export function AiHome() {
 				<div className="flex flex-col gap-2">
 					<h2 className="text-xl font-semibold text-foreground">AI Integration Required</h2>
 					<p className="text-sm text-muted leading-relaxed">
-						You need to configure an AI integration to use the agent. Please set up a model and
-						enable "Use for Harness", or set the project default agent connection.
+						Pick the AI integration the agent runs on in the project's AI configuration.
 					</p>
 				</div>
-				<a
-					href={`/_/admin/ui/${projectId}/integrations?group=ai`}
+				<Link
+					to="/$projectId/settings"
+					params={{ projectId }}
+					search={{ tab: "ai-connections" }}
 					className="inline-flex items-center gap-2 rounded-xl bg-accent px-4 py-2 text-sm font-medium text-accent-foreground hover:bg-accent/90 transition-colors"
 				>
 					<TbPlugConnected size={18} />
-					Configure Integrations
-				</a>
+					Open AI configuration
+				</Link>
 			</div>
 		);
 	}
@@ -100,9 +88,7 @@ export function AiHome() {
 					value={query}
 					onChange={setQuery}
 					onSubmit={submit}
-					isPending={sendMessage.isPending}
-					models={models}
-					defaultModelId={defaultModelId}
+					isPending={create.isPending}
 					minRows={2}
 					maxRows={3}
 				/>

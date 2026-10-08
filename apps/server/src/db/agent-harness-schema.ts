@@ -133,6 +133,8 @@ export const agentHarnessRunsEntity = pgTable(
 		// tokens, wall clock, and the same breakdown per agent. Written once when
 		// the run reaches a terminal state; null for runs that never got there.
 		usage: jsonb("usage").$type<Record<string, any>>(),
+		// New agent (#647): the run stopped at its step or token limit; null otherwise.
+		stopReason: varchar("stop_reason", { length: 20 }).$type<"step_limit" | "token_budget">(),
 		interruptedAt: timestamp("interrupted_at"),
 		createdAt: timestamp("created_at").defaultNow().notNull(),
 		completedAt: timestamp("completed_at"),
