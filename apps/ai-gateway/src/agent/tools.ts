@@ -68,15 +68,21 @@ export const ADVANCED = ALL.filter((t) => !CORE_MCP.includes(t.name) && !COVERED
 
 export const CORE = [...CORE_MCP, "list", "get", "list_advanced_tools", "load_tools"];
 
+/** Calls one MCP tool by name as the `auth` user, its input checked like the agent's. */
+export const mcpCall =
+	(fetcher: AdminFetch, auth: Record<string, string>) =>
+	(name: string, args: unknown, signal?: AbortSignal): Promise<any> => {
+		const t = ALL.find((x) => x.name === name);
+		if (!t) throw new Error(`No tool named ${name}`);
+		return t.call(adminApi(fetcher, auth, t.role, signal), z.object(t.input).parse(args));
+	};
+
 /**
  * The agent's tools, all acting as the PAT's user through the admin API.
  * `active()` is what the next step may call: the core plus whatever load_tools added.
  */
 export function agentTools(fetcher: AdminFetch, auth: Record<string, string>, projectId: string) {
-	const run = (name: string, args: unknown, signal?: AbortSignal) => {
-		const t = ALL.find((x) => x.name === name) as McpTool;
-		return t.call(adminApi(fetcher, auth, t.role, signal), z.object(t.input).parse(args));
-	};
+	const run = mcpCall(fetcher, auth);
 	const wrap = (t: McpTool): Tool =>
 		tool({
 			description: t.description,

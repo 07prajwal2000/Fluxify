@@ -11,18 +11,19 @@ export type Provider = (typeof PROVIDERS)[number];
 /**
  * The model the agent runs on, from AGENT_PROVIDER, AGENT_MODEL, AGENT_API_KEY and
  * AGENT_BASE_URL (required for openai-compatible: Ollama, DeepSeek, OpenRouter, …).
- * Throws a readable error on a bad setting.
+ * Throws a readable error on a bad setting. `prefix` reads another set, e.g. AGENT_JUDGE_*.
  */
 export function modelFromEnv(
 	env: Record<string, string | undefined>,
+	prefix = "AGENT",
 ): Exclude<LanguageModel, string> {
-	const provider = env.AGENT_PROVIDER as Provider;
-	const model = env.AGENT_MODEL;
-	const apiKey = env.AGENT_API_KEY;
-	const baseURL = env.AGENT_BASE_URL || undefined;
+	const provider = env[`${prefix}_PROVIDER`] as Provider;
+	const model = env[`${prefix}_MODEL`];
+	const apiKey = env[`${prefix}_API_KEY`];
+	const baseURL = env[`${prefix}_BASE_URL`] || undefined;
 	if (!PROVIDERS.includes(provider))
-		throw new Error(`AGENT_PROVIDER must be one of: ${PROVIDERS.join(", ")}`);
-	if (!model) throw new Error("AGENT_MODEL is required");
+		throw new Error(`${prefix}_PROVIDER must be one of: ${PROVIDERS.join(", ")}`);
+	if (!model) throw new Error(`${prefix}_MODEL is required`);
 	switch (provider) {
 		case "openai":
 			return createOpenAI({ apiKey, baseURL })(model);
@@ -33,7 +34,7 @@ export function modelFromEnv(
 		case "mistral":
 			return createMistral({ apiKey, baseURL })(model);
 		case "openai-compatible":
-			if (!baseURL) throw new Error("AGENT_BASE_URL is required for openai-compatible");
+			if (!baseURL) throw new Error(`${prefix}_BASE_URL is required for openai-compatible`);
 			return createOpenAICompatible({ name: "openai-compatible", apiKey, baseURL })(model);
 	}
 }

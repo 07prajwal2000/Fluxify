@@ -21,6 +21,7 @@ export { printRun, short } from "./progress";
  * AGENT_CHUNK_TIMEOUT_MS (60000), AGENT_MODEL_TIMEOUT_MS (180000), AGENT_TOOL_TIMEOUT_MS (120000),
  * AGENT_MAX_RETRIES (5: retries of a 429/5xx, backoff 2s doubling, or the provider's retry-after under 60s).
  * Each session logs to apps/ai-gateway/logs/agent-<time>.log.
+ * Evals: bun run agent:evals [--task id,...] [--keep] [--no-judge]; env and output in evals/run.ts.
  */
 
 type Session = {

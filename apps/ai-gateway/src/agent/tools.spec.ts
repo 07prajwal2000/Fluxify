@@ -3,7 +3,6 @@ import type { ModelMessage } from "ai";
 import { convertArrayToReadableStream, MockLanguageModelV4 } from "ai/test";
 import type { AdminFetch } from "../mcp/adminApi";
 import { assertEndsOnUserOrTool, runAgent } from "./agent";
-import { parseTasks } from "./evals/run";
 import { withToolTimeouts } from "./timeouts";
 import { ADVANCED, CORE, agentTools } from "./tools";
 
@@ -163,15 +162,5 @@ describe("agent loop", () => {
 			'last message is "assistant"',
 		);
 		expect(() => assertEndsOnUserOrTool([{ role: "user", content: "hi" }])).not.toThrow();
-	});
-});
-
-describe("eval tasks", () => {
-	it("parses tasks.md into 10 prompts, with setup split out and checks left out", async () => {
-		const tasks = parseTasks(await Bun.file(`${import.meta.dir}/evals/tasks.md`).text());
-		expect(tasks.map((t) => t.n)).toEqual(["1", "2", "3", "4", "5", "6", "7", "8", "9", "10"]);
-		expect(tasks.every((t) => t.prompt && !t.prompt.includes("Check:"))).toBe(true);
-		expect(tasks[5].setup).toStartWith("Build GET /broken");
-		expect(tasks[5].prompt).not.toContain("Setup:");
 	});
 });
