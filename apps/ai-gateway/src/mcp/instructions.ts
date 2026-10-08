@@ -1,7 +1,7 @@
 /** Sent to every MCP client on connect. Kept short: the docs hold the detail. */
 export const MCP_INSTRUCTIONS = `Fluxify is a low-code backend platform. You build APIs and background jobs as graphs of blocks.
 
-Before building anything, read https://docs.fluxify.rest/llms.txt. It indexes every docs page; fetch the pages you need from it.
+Before building anything, read https://docs.fluxify.rest/llms.txt. It indexes every docs page; fetch the pages you need from it, or use search_docs and read_doc.
 
 Every tool acts as the signed-in user, with their project roles:
 - viewer: read routes, workflows, triggers, custom blocks, middlewares, test suites and logs

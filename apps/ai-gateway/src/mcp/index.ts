@@ -5,6 +5,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { Context, Hono, Next } from "hono";
 import { type AdminFetch, adminApi, httpAdminFetch } from "./adminApi";
 import { canvasTools } from "./canvasTools";
+import { docsTools } from "./docsTools";
 import { MCP_INSTRUCTIONS } from "./instructions";
 import { projectTools } from "./projectTools";
 import { routeTools } from "./routeTools";
@@ -63,6 +64,7 @@ export function createMcpServer(
 		...canvasTools,
 		...projectTools,
 		...testSuiteTools,
+		...docsTools,
 	]) {
 		const api = adminApi(fetcher, auth, tool.role);
 		server.registerTool(

@@ -97,6 +97,7 @@ describe("agent tools", () => {
 		for (const name of CORE) expect(tools[name]).toBeDefined();
 		expect(ADVANCED.map((t) => t.name)).toContain("delete_route");
 		expect(CORE).toContain("save_test_suite");
+		expect(CORE).toEqual(expect.arrayContaining(["search_docs", "read_doc"]));
 		expect(ADVANCED.map((t) => t.name)).toEqual(
 			expect.arrayContaining(["delete_test_suite", "clone_test_suite"]),
 		);

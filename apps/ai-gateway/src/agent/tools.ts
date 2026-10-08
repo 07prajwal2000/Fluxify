@@ -1,8 +1,8 @@
 import { type Tool, tool } from "ai";
 import { z } from "zod";
-import { initDocsDB, queryDocs } from "../db/vector";
 import { type AdminFetch, adminApi } from "../mcp/adminApi";
 import { canvasTools } from "../mcp/canvasTools";
+import { docsTools } from "../mcp/docsTools";
 import { projectTools } from "../mcp/projectTools";
 import { routeTools } from "../mcp/routeTools";
 import { testSuiteTools } from "../mcp/testSuiteTools";
@@ -16,6 +16,7 @@ const ALL: McpTool[] = [
 	...canvasTools,
 	...projectTools,
 	...testSuiteTools,
+	...docsTools,
 ];
 
 /** What `list` reads: each one only needs the project id. */
@@ -55,6 +56,8 @@ const CORE_MCP = [
 	"run_test_suite",
 	"get_system_logs",
 	"get_recording",
+	"search_docs",
+	"read_doc",
 ];
 const COVERED = new Set<string>([
 	...Object.values(LIST_TYPES),
@@ -63,28 +66,7 @@ const COVERED = new Set<string>([
 /** Everything else loads on demand through load_tools. */
 export const ADVANCED = ALL.filter((t) => !CORE_MCP.includes(t.name) && !COVERED.has(t.name));
 
-export const CORE = [
-	...CORE_MCP,
-	"list",
-	"get",
-	"search_docs",
-	"list_advanced_tools",
-	"load_tools",
-];
-
-let docsReady: Promise<void> | undefined;
-
-async function searchDocs(queries: string[]) {
-	try {
-		docsReady ??= initDocsDB();
-		await docsReady;
-	} catch {
-		docsReady = undefined;
-		return "The docs index is not built here (bun run --cwd apps/ai-gateway gather).";
-	}
-	const hits = await Promise.all(queries.map((q) => queryDocs(q, 3)));
-	return hits.flat().map((d) => `# ${d.title}\n${d.content}`);
-}
+export const CORE = [...CORE_MCP, "list", "get", "list_advanced_tools", "load_tools"];
 
 /**
  * The agent's tools, all acting as the PAT's user through the admin API.
@@ -134,11 +116,6 @@ export function agentTools(fetcher: AdminFetch, auth: Record<string, string>, pr
 			const [name, key] = GET_TYPES[type];
 			return run(name, { projectId, [key]: type === "app_config" ? Number(id) : id }, abortSignal);
 		},
-	});
-	tools.search_docs = tool({
-		description: "Search the Fluxify docs. Pass every topic you need in one call.",
-		inputSchema: z.object({ queries: z.array(z.string()).min(1).max(5) }),
-		execute: ({ queries }) => searchDocs(queries),
 	});
 	tools.list_advanced_tools = tool({
 		description:
