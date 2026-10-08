@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { modelFromEnv } from "./model";
+import { modelFromEnv, modelFromIntegration } from "./model";
 
 const KEY = "test-key";
 const model = (env: Record<string, string>) => modelFromEnv(env) as { provider: string; modelId: string };
@@ -42,5 +42,23 @@ describe("modelFromEnv", () => {
 		) as { modelId: string };
 		expect(m.modelId).toBe("gpt-5");
 		expect(() => modelFromEnv({}, "AGENT_JUDGE")).toThrow("AGENT_JUDGE_PROVIDER");
+	});
+});
+
+describe("modelFromIntegration", () => {
+	it("maps a stored integration to its provider", () => {
+		const m = modelFromIntegration({ variant: "Gemini", model: "gemini-2.5-pro", apiKey: KEY }) as any;
+		expect(m.provider.startsWith("google")).toBe(true);
+		expect(m.modelId).toBe("gemini-2.5-pro");
+		const local = modelFromIntegration({
+			variant: "OpenAI Compatible",
+			model: "llama3",
+			baseUrl: "http://localhost:11434/v1",
+		}) as any;
+		expect(local.modelId).toBe("llama3");
+	});
+
+	it("refuses an unknown variant", () => {
+		expect(() => modelFromIntegration({ variant: "Cohere", model: "x" })).toThrow("Cohere");
 	});
 });

@@ -15,6 +15,7 @@ import { runWorker } from "./worker";
 validateEnv();
 
 import { drizzleInit, initializePubSub, initializeRedis } from "@fluxify/server";
+import { initializeAgentQueue } from "./agent/runner/queue";
 import { initializeHarnessQueue } from "./harness/queue";
 
 const serviceName = isMainThread ? "fluxify.api-gateway-main" : "fluxify.api-gateway-worker";
@@ -31,6 +32,7 @@ await initializePubSub();
 await drizzleInit(false);
 
 await initializeHarnessQueue();
+await initializeAgentQueue();
 
 if (isMainThread) {
 	// Spawn the worker thread targeting index.ts

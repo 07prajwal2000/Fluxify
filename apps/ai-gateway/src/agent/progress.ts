@@ -82,7 +82,7 @@ class Status {
 	}
 }
 
-type Part =
+export type Part =
 	Awaited<ReturnType<typeof runAgent>["stream"]> extends AsyncIterable<infer P> ? P : never;
 
 /**

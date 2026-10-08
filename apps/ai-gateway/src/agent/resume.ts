@@ -108,6 +108,8 @@ export async function continueConversation(o: {
 	agent.abortSignal?.addEventListener("abort", () => ctrl.abort(agent.abortSignal?.reason), {
 		once: true,
 	});
+	// A stop that came while the conversation was loading.
+	if (agent.abortSignal?.aborted) ctrl.abort(agent.abortSignal.reason);
 	let queue = Promise.resolve();
 	let failure: unknown;
 	const enqueue = (job: () => Promise<void>) => {

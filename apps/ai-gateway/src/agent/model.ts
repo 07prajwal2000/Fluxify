@@ -38,3 +38,29 @@ export function modelFromEnv(
 			return createOpenAICompatible({ name: "openai-compatible", apiKey, baseURL })(model);
 	}
 }
+
+/** A stored AI integration's variant → the provider it runs on. */
+const VARIANT: Record<string, Provider> = {
+	OpenAI: "openai",
+	Anthropic: "anthropic",
+	Gemini: "google",
+	Mistral: "mistral",
+	"OpenAI Compatible": "openai-compatible",
+};
+
+/** The model of a project's AI integration (`variant`, `model`, `apiKey`, `baseUrl` as loaded). */
+export function modelFromIntegration(i: {
+	variant: string;
+	model?: string;
+	apiKey?: string;
+	baseUrl?: string;
+}) {
+	const provider = VARIANT[i.variant];
+	if (!provider) throw new Error(`The agent does not support ${i.variant} integrations`);
+	return modelFromEnv({
+		AGENT_PROVIDER: provider,
+		AGENT_MODEL: i.model,
+		AGENT_API_KEY: i.apiKey || (i.baseUrl ? "not-required" : undefined),
+		AGENT_BASE_URL: i.baseUrl,
+	});
+}
