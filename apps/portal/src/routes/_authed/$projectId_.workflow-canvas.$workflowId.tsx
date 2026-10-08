@@ -2,6 +2,7 @@ import { Button, toast } from "@fluxify/components";
 import { createFileRoute, isRedirect, redirect } from "@tanstack/react-router";
 import { useState } from "react";
 import { TbSettings } from "react-icons/tb";
+import z from "zod";
 import { CanvasWorkbench } from "@/components/canvas";
 import { WorkflowWorkbenchTabs } from "@/components/routes/RouteWorkbenchTabs";
 import { WorkflowRunButton, WorkflowRunModal } from "@/components/workflows/WorkflowRunModal";
@@ -18,6 +19,7 @@ export const Route = createFileRoute("/_authed/$projectId_/workflow-canvas/$work
 		"Workflow Canvas | Workflows",
 		"Design the background workflow that runs on a trigger or by hand.",
 	),
+	validateSearch: z.object({ block: z.string().optional(), error: z.string().optional() }),
 	beforeLoad: async ({ params, context }) => {
 		try {
 			const workflow = await context.queryClient.ensureQueryData({
@@ -45,6 +47,7 @@ export const Route = createFileRoute("/_authed/$projectId_/workflow-canvas/$work
 
 function WorkflowCanvasPage() {
 	const { projectId, workflowId } = Route.useParams();
+	const { block, error } = Route.useSearch();
 	useProjectPackageTypes(projectId);
 	const save = workflowsQuery.saveCanvas.mutation(workflowId);
 	const { data: workflow } = workflowsQuery.byId.useQuery(workflowId);
@@ -60,6 +63,7 @@ function WorkflowCanvasPage() {
 				title="Workflow canvas"
 				enableBlockPicker
 				enableSpotlight
+				focusBlock={block ? { blockId: block, error } : undefined}
 				readOnly={!canEdit}
 				items={workflowsQuery.canvasItems.useQuery(workflowId)}
 				compileTarget={{ projectId, resourceType: "workflow", resourceId: workflowId }}

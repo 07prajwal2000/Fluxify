@@ -9,6 +9,7 @@ import {
 import { createFileRoute, isRedirect, redirect } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { TbSettings } from "react-icons/tb";
+import z from "zod";
 import { CanvasWorkbench } from "@/components/canvas";
 import { RouteApiPlayground } from "@/components/RouteApiPlayground";
 import { RouteSettingsModal } from "@/components/routes/RouteSettingsModal";
@@ -27,6 +28,7 @@ export const Route = createFileRoute("/_authed/$projectId_/canvas/$routeId")({
 		"Route Canvas | Routes",
 		"Visual canvas workflow editor for API route logic.",
 	),
+	validateSearch: z.object({ block: z.string().optional(), error: z.string().optional() }),
 	beforeLoad: async ({ params, context }) => {
 		try {
 			const route = await context.queryClient.ensureQueryData({
@@ -54,6 +56,7 @@ export const Route = createFileRoute("/_authed/$projectId_/canvas/$routeId")({
 
 function RouteCanvasPage() {
 	const { projectId, routeId } = Route.useParams();
+	const { block, error } = Route.useSearch();
 	useProjectPackageTypes(projectId);
 	const apiBaseUrl = useProjectApiBaseUrl(projectId);
 	const save = routesQuery.saveCanvas.mutation(routeId);
@@ -91,6 +94,7 @@ function RouteCanvasPage() {
 				enableBlockPicker
 				enablePlayground
 				enableSpotlight
+				focusBlock={block ? { blockId: block, error } : undefined}
 				readOnly={!canEdit}
 				items={items}
 				compileTarget={{ projectId, resourceType: "route", resourceId: routeId }}

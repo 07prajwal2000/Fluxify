@@ -55,6 +55,8 @@ export type CanvasWorkbenchProps = {
 	compileTarget: CompileTarget;
 	/** view only: no edits, no Save — for users who may look but not change */
 	readOnly?: boolean;
+	/** open on a block that failed in a test run */
+	focusBlock?: { blockId: string; error?: string };
 };
 
 export function toGraph(data: CanvasItems | undefined): CanvasGraph {
@@ -95,6 +97,7 @@ function CanvasWorkbenchInner({
 	headerActions,
 	headerLeft,
 	readOnly = false,
+	focusBlock,
 }: CanvasWorkbenchProps) {
 	const [pendingCount, setPendingCount] = useState(0);
 	const [isSaving, setIsSaving] = useState(false);
@@ -228,6 +231,7 @@ function CanvasWorkbenchInner({
 						enableSpotlight={enableSpotlight}
 						playgroundContent={playgroundContent}
 						trackExecutionContent={trackExecutionContent}
+						focusBlock={focusBlock}
 						cycleFeedbackToken={cycleFeedbackToken}
 						reloadToken={reloadToken}
 						onSave={() => void onSave()}

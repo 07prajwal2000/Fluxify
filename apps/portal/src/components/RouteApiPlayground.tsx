@@ -5,8 +5,11 @@ import {
 	type ApiPlaygroundState,
 	Spinner,
 } from "@fluxify/components";
+import { isAxiosError } from "axios";
 import { useCallback, useState } from "react";
+import { useBlockErrorFocus } from "@/components/canvas/diagnostics/blockErrorFocus";
 import { routesQuery } from "@/query/routesQuery";
+import { routesService } from "@/services/routes";
 import { useCanvasPlaygroundCacheStore } from "@/store/canvasPlaygroundCache";
 
 type RouteApiPlaygroundProps = {
@@ -27,12 +30,14 @@ type RouteApiPlaygroundProps = {
 export function RouteApiPlayground({
 	routeId,
 	baseUrl,
-	onSend = executeRequest,
+	onSend,
 	className,
 	isFramed,
 	enableCache,
 }: RouteApiPlaygroundProps) {
 	const route = routesQuery.byId.useQuery(routeId);
+	const selectBlock = useBlockErrorFocus();
+	const send = onSend ?? ((request: ApiPlaygroundRequest) => sendThroughAdmin(routeId, request));
 	const [initialState] = useState(() =>
 		enableCache ? useCanvasPlaygroundCacheStore.getState().getPlaygroundState(routeId) : undefined,
 	);
@@ -63,7 +68,8 @@ export function RouteApiPlayground({
 			className={className}
 			isFramed={isFramed}
 			baseUrl={baseUrl}
-			onSend={onSend}
+			onSend={send}
+			onSelectBlock={selectBlock}
 			route={route.data}
 			initialState={initialState}
 			onStateChange={handleStateChange}
@@ -91,4 +97,42 @@ async function executeRequest(request: ApiPlaygroundRequest): Promise<ApiPlaygro
 		durationMs: Math.round(performance.now() - startedAt),
 		bytes: new TextEncoder().encode(body).byteLength,
 	};
+}
+
+/**
+ * The admin call endpoint is the only way to get a failed run's real error. It
+ * takes JSON/text bodies and a creator role; anything else goes straight from
+ * the browser as before, without the debug error.
+ */
+async function sendThroughAdmin(
+	routeId: string,
+	request: ApiPlaygroundRequest,
+): Promise<ApiPlaygroundResponse> {
+	if (request.body !== undefined && typeof request.body !== "string") {
+		return executeRequest(request);
+	}
+	try {
+		const result = await routesService.call(routeId, {
+			params: request.pathParams,
+			query: request.query,
+			headers: request.headers,
+			body: request.body || undefined,
+			debug: true,
+		});
+		if (result.status === null) throw new Error(result.error ?? "Could not reach the route");
+		const body = typeof result.body === "string" ? result.body : JSON.stringify(result.body);
+		return {
+			status: result.status,
+			headers: result.headers,
+			body,
+			mimeType: result.contentType ?? undefined,
+			durationMs: result.durationMs,
+			bytes: new TextEncoder().encode(body).byteLength,
+			debugError: result.debugError,
+		};
+	} catch (error) {
+		// viewers cannot use the call endpoint; they keep the plain playground
+		if (isAxiosError(error) && error.response?.status === 403) return executeRequest(request);
+		throw error;
+	}
 }

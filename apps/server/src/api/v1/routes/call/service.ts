@@ -39,6 +39,10 @@ export const callResultSchema = z.object({
 	status: z.number().int().nullable(),
 	contentType: z.string().nullable(),
 	body: z.unknown(),
+	/** the route's response headers */
+	headers: z.record(z.string(), z.string()).optional(),
+	/** the route alone, as the caller waited for it */
+	durationMs: z.number().int().optional(),
 	error: z.string().optional(),
 	/** with `debug`: why the run failed, when it did */
 	debugError: debugErrorSchema.optional(),
@@ -101,6 +105,7 @@ export async function callRoute(
 			headers.set("content-type", "application/json");
 	}
 
+	const startedAt = performance.now();
 	try {
 		const res = await fetchRoute(url, {
 			method: route.method!,
@@ -118,7 +123,14 @@ export async function callRoute(
 			} catch {}
 		}
 		const debugError = debugKey ? decodeDebugError(res.headers.get(DEBUG_ERROR_HEADER)) : undefined;
-		return { status: res.status, contentType, body: parsed, ...(debugError && { debugError }) };
+		return {
+			status: res.status,
+			contentType,
+			body: parsed,
+			headers: Object.fromEntries(res.headers),
+			durationMs: Math.round(performance.now() - startedAt),
+			...(debugError && { debugError }),
+		};
 	} catch (error) {
 		return {
 			status: null,

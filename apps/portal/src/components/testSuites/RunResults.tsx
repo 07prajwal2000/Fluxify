@@ -15,6 +15,7 @@ import { testSuitesQuery } from "@/query/testSuitesQuery";
 import type { SuiteTarget, TestRunStatus } from "@/services/testSuites";
 import { CaseResults, CheckList, formatDuration } from "./CaseResults";
 import { ResponseViewer } from "./ResponseViewer";
+import { RunDebugError } from "./RunDebugError";
 import { type OpenTrace, TestTraceModal, TraceLink } from "./TestTrace";
 import { type CaseTrace, caseTraceLink } from "./traceLinks";
 
@@ -36,6 +37,8 @@ function StatusIcon({ status }: { status: TestRunStatus }) {
 }
 
 function SuiteRunRow({
+	projectId,
+	target,
 	name,
 	status,
 	durationMs,
@@ -44,6 +47,8 @@ function SuiteRunRow({
 	traceExpired,
 	onViewTrace,
 }: {
+	projectId: string;
+	target: SuiteTarget;
 	name: string;
 	status: TestRunStatus;
 	durationMs: number | null;
@@ -105,7 +110,11 @@ function SuiteRunRow({
 							onOpen={onViewTrace}
 						/>
 					)}
-					{result?.error && <p className="text-xs text-danger">{result.error}</p>}
+					{result?.debug ? (
+						<RunDebugError projectId={projectId} target={target} debug={result.debug} />
+					) : (
+						result?.error && <p className="text-xs text-danger">{result.error}</p>
+					)}
 					{result?.teardownError && (
 						<p className="rounded-md border border-warning/40 bg-warning/10 p-2 text-xs text-warning">
 							{status === "passed" ? "Passed, but teardown" : "Teardown"} failed:{" "}
@@ -117,6 +126,9 @@ function SuiteRunRow({
 					{result?.cases && (
 						<CaseResults
 							cases={result.cases}
+							renderDebug={(debug) => (
+								<RunDebugError projectId={projectId} target={target} debug={debug} />
+							)}
 							renderTrace={(c) => (
 								<TraceLink
 									link={caseTraceLink(traces, c.index, traceExpired)}
@@ -333,6 +345,8 @@ export function RunResults({
 							{data?.suiteRuns.map((suiteRun) => (
 								<SuiteRunRow
 									key={suiteRun.id}
+									projectId={projectId}
+									target={target}
 									name={suiteNames[suiteRun.testSuiteId] ?? "Suite"}
 									status={suiteRun.status}
 									durationMs={suiteRun.durationMs}

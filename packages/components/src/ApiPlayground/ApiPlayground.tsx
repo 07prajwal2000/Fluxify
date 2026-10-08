@@ -40,6 +40,7 @@ export function ApiPlayground({
 	defaultValidate = true,
 	onRequestChange,
 	onStateChange,
+	onSelectBlock,
 }: ApiPlaygroundProps) {
 	const [rawPath, setRawPath] = useState(route.path);
 	const [pathRows, setPathRows] = useState<ApiKeyValue[]>(() =>
@@ -295,7 +296,7 @@ export function ApiPlayground({
 					onRequestBodyChange={handleRequestBodyChange}
 					onContentTypeChange={setContentType}
 				/>
-				<ResponsePanel response={response} />
+				<ResponsePanel response={response} onSelectBlock={onSelectBlock} />
 			</div>
 		</Card>
 	);
