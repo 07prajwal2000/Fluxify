@@ -69,6 +69,7 @@ describe("MCP role matrix", () => {
 			bodySchema: null,
 			querySchema: null,
 			paramsSchema: null,
+			middlewares: { before: [], after: [] },
 		});
 	});
 });
