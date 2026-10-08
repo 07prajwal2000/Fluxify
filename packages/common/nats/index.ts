@@ -16,6 +16,7 @@ export * from "./errors";
 export * from "./kv";
 export * from "./pubsub";
 export * from "./queue";
+export * from "./replay";
 export * from "./rpc";
 export * from "./schedules";
 export * from "./stream";

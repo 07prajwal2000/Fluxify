@@ -1,14 +1,17 @@
 import { verifyJwsAccessToken } from "better-auth/oauth2";
 import { db } from "../db";
+import { AGENT_TOKEN_PREFIX, verifyAgentToken } from "./agentToken";
 import { API_KEY_PREFIX, auth, authIssuerUrl, getUserAccessControls, mcpResourceUrl } from "./auth";
 import { findTokenUser, isOAuthGrantActive } from "./bearerAuthRepository";
 
-type Grant = { userId: string; tokenId: string; expiresAt: Date };
+/** `projectId`: the token only reaches this project (an agent run token). */
+type Grant = { userId: string; tokenId: string; expiresAt: Date; projectId?: string };
 
 /**
  * Turns `Authorization: Bearer <token>` into the same `{ user, session, acl }`
  * a cookie login gets, so every route and service check works unchanged.
- * `flx_…` is a personal access token, anything else an OAuth access token.
+ * `flx_…` is a personal access token, `fxa_…` an agent run token (one
+ * project), anything else an OAuth access token.
  * Returns null for a missing, bad, expired or revoked token.
  */
 export async function resolveBearerSession(headers: Headers) {
@@ -16,8 +19,33 @@ export async function resolveBearerSession(headers: Headers) {
 	if (!token) return null;
 	const grant = token.startsWith(API_KEY_PREFIX)
 		? await apiKeyGrant(token)
-		: await oauthGrant(token);
+		: token.startsWith(AGENT_TOKEN_PREFIX)
+			? agentGrant(token)
+			: await oauthGrant(token);
 	return grant ? loadIdentity(grant) : null;
+}
+
+function agentGrant(token: string): Grant | null {
+	const grant = verifyAgentToken(token);
+	return grant && { ...grant, tokenId: `agent:${grant.projectId}` };
+}
+
+/**
+ * A project-scoped token keeps the user's role in that project only. A system
+ * admin keeps full rights there but loses the instance-wide ones.
+ */
+function scope<U extends { isSystemAdmin: boolean }, A extends { projectId: string | null }>(
+	user: U,
+	acl: A[],
+	projectId?: string,
+) {
+	if (!projectId) return { user, acl };
+	return {
+		user: { ...user, isSystemAdmin: false },
+		acl: acl
+			.filter((a) => a.projectId === projectId || a.projectId === "*")
+			.map((a) => ({ ...a, projectId })),
+	};
 }
 
 async function apiKeyGrant(key: string): Promise<Grant | null> {
@@ -49,9 +77,11 @@ async function oauthGrant(token: string): Promise<Grant | null> {
 }
 
 async function loadIdentity(grant: Grant) {
-	const user = await findTokenUser(grant.userId);
-	if (!user || user.banned) return null;
+	const found = await findTokenUser(grant.userId);
+	if (!found || found.banned) return null;
 	const now = new Date();
+	const all = await getUserAccessControls(db, grant.userId, found.isSystemAdmin);
+	const { user, acl } = scope(found, all, grant.projectId);
 	return {
 		user,
 		session: {
@@ -64,6 +94,6 @@ async function loadIdentity(grant: Grant) {
 			ipAddress: null,
 			userAgent: null,
 		},
-		acl: await getUserAccessControls(db, grant.userId, user.isSystemAdmin),
+		acl,
 	};
 }

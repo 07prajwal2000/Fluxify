@@ -1,4 +1,5 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it, spyOn } from "bun:test";
+import { AGENT_TOKEN_PREFIX, mintAgentToken, verifyAgentToken } from "../../lib/agentToken";
 import * as authModule from "../../lib/auth";
 import * as repo from "../../lib/bearerAuthRepository";
 import * as env from "../../lib/env";
@@ -6,7 +7,10 @@ import { setSession } from "../session";
 
 // spyOn, not mock.module: module mocks leak into every other spec in the run.
 const ORIGIN = "http://fluxify.test";
+const SECRET = "test-secret-for-agent-tokens";
 const ENV: Record<string, string> = { SERVER_URL: ORIGIN, BETTER_AUTH_URL: ORIGIN };
+const savedSecret = process.env.BETTER_AUTH_SECRET;
+process.env.BETTER_AUTH_SECRET = SECRET;
 const envSpy = spyOn(env, "getEnv").mockImplementation((key) => ENV[key as string]);
 authModule.initializeAuth({} as never);
 const api = authModule.auth.api;
@@ -23,6 +27,7 @@ const spies = [
 const [, getSession, verifyApiKey, getJwks, grantActive, findTokenUser, getAcl] = spies as any[];
 afterAll(() => {
 	for (const spy of spies) spy.mockRestore();
+	process.env.BETTER_AUTH_SECRET = savedSecret;
 });
 
 const USER = { id: "u1", email: "v@test.local", banned: false, isSystemAdmin: false };
@@ -134,6 +139,54 @@ describe("setSession bearer fallback", () => {
 		expect((await run(`Bearer ${token}`)).user).toBeNull();
 		findTokenUser.mockResolvedValueOnce({ ...USER, banned: true });
 		expect((await run(`Bearer ${token}`)).user).toBeNull();
+	});
+});
+
+
+describe("agent run tokens (#646)", () => {
+	it("mint and verify round trip until it expires", () => {
+		const t = mintAgentToken("u1", "p1", 1000, 5000);
+		expect(t.startsWith(AGENT_TOKEN_PREFIX)).toBe(true);
+		expect(verifyAgentToken(t, 5999)).toEqual({ userId: "u1", projectId: "p1", expiresAt: new Date(6000) });
+		expect(verifyAgentToken(t, 6000)).toBeNull();
+	});
+
+	it("a forged, tampered or foreign token is refused", () => {
+		const t = mintAgentToken("u1", "p1");
+		const [payload, sig] = t.slice(AGENT_TOKEN_PREFIX.length).split(".");
+		const other = Buffer.from(JSON.stringify({ u: "u2", p: "p1", exp: Date.now() + 1e6 })).toString("base64url");
+		expect(verifyAgentToken(`${AGENT_TOKEN_PREFIX}${other}.${sig}`)).toBeNull();
+		expect(verifyAgentToken(`${AGENT_TOKEN_PREFIX}${payload}.x${sig.slice(1)}`)).toBeNull();
+		expect(verifyAgentToken(`${AGENT_TOKEN_PREFIX}${payload}`)).toBeNull();
+		expect(verifyAgentToken("flx_abc")).toBeNull();
+		process.env.BETTER_AUTH_SECRET = "another-secret";
+		try {
+			expect(verifyAgentToken(t)).toBeNull();
+		} finally {
+			process.env.BETTER_AUTH_SECRET = SECRET;
+		}
+	});
+
+	it("resolves to the user with only that project's role", async () => {
+		getAcl.mockResolvedValue([...ACL, { projectId: "p2", role: "project_admin" }]);
+		const vars = await run(`Bearer ${mintAgentToken("u1", "p1")}`);
+		expect(vars.user).toEqual(USER);
+		expect(vars.acl).toEqual(ACL);
+		expect(verifyApiKey).not.toHaveBeenCalled();
+	});
+
+	it("a system admin keeps full rights in that project only", async () => {
+		findTokenUser.mockResolvedValue({ ...USER, isSystemAdmin: true });
+		getAcl.mockResolvedValue([{ projectId: "*", role: "system_admin" }]);
+		const vars = await run(`Bearer ${mintAgentToken("u1", "p1")}`);
+		expect(vars.user.isSystemAdmin).toBe(false);
+		expect(vars.acl).toEqual([{ projectId: "p1", role: "system_admin" }]);
+	});
+
+	it("an expired token or a banned user gives no user", async () => {
+		expect((await run(`Bearer ${mintAgentToken("u1", "p1", 1000, Date.now() - 2000)}`)).user).toBeNull();
+		findTokenUser.mockResolvedValueOnce({ ...USER, banned: true });
+		expect((await run(`Bearer ${mintAgentToken("u1", "p1")}`)).user).toBeNull();
 	});
 });
 
