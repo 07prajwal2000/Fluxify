@@ -10,7 +10,7 @@ export type Row = {
 	tokensIn: number;
 	tokensOut: number;
 	ms: number;
-	/** stop, step-limit, error, aborted, skipped: <why>, … */
+	/** stop, step-limit, token-limit, repeat-limit, error, aborted, skipped: <why>, … */
 	stop: string;
 	error?: string;
 };

@@ -2,7 +2,8 @@ import { describe, expect, it } from "bun:test";
 import { APICallError, type ModelMessage, tool } from "ai";
 import { convertArrayToReadableStream, MockLanguageModelV4 } from "ai/test";
 import { z } from "zod";
-import { approveAll, assertEndsOnUserOrTool, MAX_STEPS, runAgent, STEP_LIMIT_NOTE } from "./agent";
+import { approveAll, assertEndsOnUserOrTool, MAX_STEPS, runAgent } from "./agent";
+import { stopNote } from "./guards";
 import { onInterrupt, parseLine } from "./cli";
 import { printRun } from "./progress";
 
@@ -176,12 +177,13 @@ describe("why a run ended early", () => {
 	});
 
 	it("notes the step limit, says so in the terminal, and keeps the next request valid", async () => {
-		const tools = { noop: tool({ inputSchema: z.object({}), execute: async () => "ok" }) };
-		const call = () => reply([{ type: "tool-call", toolCallId: "c", toolName: "noop", input: "{}" }, finish("tool-calls")]);
-		const { shown, prompts, history } = await run(Array(MAX_STEPS).fill(call), { tools });
+		const tools = { noop: tool({ inputSchema: z.object({ i: z.number() }), execute: async () => "ok" }) };
+		// Different args each step, so the repeat guard stays out of it.
+		const calls = Array.from({ length: MAX_STEPS }, (_, i) => () => reply([{ type: "tool-call", toolCallId: "c", toolName: "noop", input: `{"i":${i}}` }, finish("tool-calls")]));
+		const { shown, prompts, history } = await run(calls, { tools });
 		expect(prompts).toHaveLength(MAX_STEPS);
-		expect(shown).toContain(`[stopped] reached ${MAX_STEPS}-step limit`);
-		expect(history.at(-1)).toEqual({ role: "assistant", content: STEP_LIMIT_NOTE });
+		expect(shown).toContain(`[stopped] reached the ${MAX_STEPS}-step limit`);
+		expect(history.at(-1)).toEqual({ role: "assistant", content: stopNote({ kind: "steps", used: MAX_STEPS, limit: MAX_STEPS }) });
 		history.push({ role: "user", content: "go on" });
 		expect(() => assertEndsOnUserOrTool(history)).not.toThrow();
 		expect(history.at(-3)?.role).toBe("tool");

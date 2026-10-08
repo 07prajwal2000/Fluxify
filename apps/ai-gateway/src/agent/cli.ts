@@ -4,7 +4,7 @@ import { createInterface } from "node:readline";
 import { parseArgs } from "node:util";
 import type { ModelMessage } from "ai";
 import { ADMIN_API_URL } from "../lib/env";
-import { type Approval, type Approve, runAgent } from "./agent";
+import { type Approval, type Approve, type Limit, type OnLimit, runAgent } from "./agent";
 import { modelFromEnv } from "./model";
 import { describeCall, type Log, printRun, runLog } from "./progress";
 import { limitsFromEnv } from "./timeouts";
@@ -22,7 +22,10 @@ export { printRun, short } from "./progress";
  * Env: AGENT_PROVIDER, AGENT_MODEL, AGENT_API_KEY, AGENT_BASE_URL, FLUXIFY_PAT,
  * FLUXIFY_URL (the admin server, http://127.0.0.1:$SERVER_PORT by default),
  * AGENT_CHUNK_TIMEOUT_MS (60000), AGENT_MODEL_TIMEOUT_MS (180000), AGENT_TOOL_TIMEOUT_MS (120000),
- * AGENT_MAX_RETRIES (5: retries of a 429/5xx, backoff 2s doubling, or the provider's retry-after under 60s).
+ * AGENT_MAX_RETRIES (5: retries of a 429/5xx, backoff 2s doubling, or the provider's retry-after under 60s),
+ * AGENT_MAX_STEPS (40) and AGENT_TOKEN_BUDGET (1000000 input + output tokens): at either one the run
+ * asks "Continue? [y/n]" (y grants as much again, n or Ctrl+C stops it with a note),
+ * AGENT_MAX_RESULT_CHARS (50000: a longer tool result keeps its start and end; canvases are never cut).
  * Each session logs to apps/ai-gateway/logs/agent-<time>.log.
  * Evals: bun run agent:evals [--task id,...] [--keep] [--no-judge]; env and output in evals/run.ts.
  */
@@ -32,6 +35,7 @@ type Session = { history: ModelMessage[]; mode: Mode; allowed: Set<string> };
 
 type Run = Session & {
 	approve: Approve;
+	onLimit?: OnLimit;
 	abortSignal?: AbortSignal;
 	onRetry?: (why: string) => void;
 };
@@ -80,6 +84,20 @@ export function parseStart(answer: string): "start" | "stay" | { changes: string
 	return { changes: t };
 }
 
+/** An answer to `Continue? [y/n]`; undefined means ask again. */
+export function parseYesNo(answer: string): boolean | undefined {
+	const k = answer.trim().toLowerCase();
+	if (k === "y" || k === "yes") return true;
+	if (k === "n" || k === "no") return false;
+	return undefined;
+}
+
+const fmt = (n: number) => n.toLocaleString("en-US");
+export const limitPrompt = ({ kind, used, limit }: Limit) =>
+	kind === "steps"
+		? `Reached the ${limit}-step limit. Continue? [y/n] `
+		: `Reached the token budget (${fmt(used)} / ${fmt(limit)} tokens). Continue? [y/n] `;
+
 /** Reads one line; null when `signal` fires (Ctrl+C). */
 type Ask = (prompt: string, signal?: AbortSignal) => Promise<string | null>;
 
@@ -96,6 +114,20 @@ export const cliApprover =
 			if (!r) continue;
 			log("approval-result", { name: call.toolName, ...r });
 			return r;
+		}
+	};
+
+/** The terminal's answer at a step or token limit: asks until y or n. Ctrl+C is no. */
+export const cliLimit =
+	(ask: Ask, write: (s: string) => void, log: Log): OnLimit =>
+	async (limit, signal) => {
+		write("\n");
+		for (;;) {
+			const a = await ask(limitPrompt(limit), signal);
+			const go = a === null ? false : parseYesNo(a);
+			if (go === undefined) continue;
+			log("limit", { ...limit, go });
+			return go;
 		}
 	};
 
@@ -137,12 +169,13 @@ type Ctx = {
 	session: Session;
 	log: Log;
 	approve: Approve;
+	onLimit: OnLimit;
 	paused: () => boolean;
 };
 
 /** One user message: runs it, renders it, logs it. Finished steps land in `history`. */
 async function turn(
-	{ projectId, session, log, approve, paused }: Ctx,
+	{ projectId, session, log, approve, onLimit, paused }: Ctx,
 	prompt: string,
 	signal: AbortSignal,
 ) {
@@ -153,7 +186,13 @@ async function turn(
 		write(`\n[retry] ${why}\n`);
 		log("retry", { why });
 	};
-	const result = startAgent(projectId, { ...session, approve, abortSignal: signal, onRetry });
+	const result = startAgent(projectId, {
+		...session,
+		approve,
+		onLimit,
+		abortSignal: signal,
+		onRetry,
+	});
 	await printRun(result, { write, tty: process.stdout.isTTY, log, paused });
 }
 
@@ -206,21 +245,25 @@ async function repl(projectId: string, first: string | undefined, mode: Mode) {
 	events.on("SIGINT", interrupt);
 	process.on("SIGINT", interrupt);
 	const write = (s: string) => process.stdout.write(s);
-	const askUser = cliApprover(ask, write, log);
+	/** Holds the status line while the user answers. */
+	const held =
+		<A extends unknown[], R>(f: (...a: A) => Promise<R>) =>
+		async (...a: A) => {
+			prompting = true;
+			if (process.stdout.isTTY) write("\r\x1b[2K");
+			try {
+				return await f(...a);
+			} finally {
+				prompting = false;
+			}
+		};
 	const ctx: Ctx = {
 		projectId,
 		session,
 		log,
 		paused: () => prompting,
-		approve: async (call, signal) => {
-			prompting = true;
-			if (process.stdout.isTTY) write("\r\x1b[2K");
-			try {
-				return await askUser(call, signal);
-			} finally {
-				prompting = false;
-			}
-		},
+		approve: held(cliApprover(ask, write, log)),
+		onLimit: held(cliLimit(ask, write, log)),
 	};
 	/** Runs one message under a fresh Ctrl+C scope; true when it was stopped. */
 	const runOne = async (prompt: string) => {

@@ -19,6 +19,12 @@ export type Limits = {
 	toolMs: number;
 	/** Retries of a 429/5xx, passed to streamText (its backoff honours retry-after). */
 	retries: number;
+	/** Steps before asking to continue (default 40). */
+	maxSteps?: number;
+	/** Input + output tokens before asking to continue (default 1,000,000). */
+	tokenBudget?: number;
+	/** Cap on one tool result, start and end kept (default 50,000). */
+	maxResultChars?: number;
 };
 
 export const limitsFromEnv = (env: Record<string, string | undefined>): Limits => ({
@@ -26,6 +32,9 @@ export const limitsFromEnv = (env: Record<string, string | undefined>): Limits =
 	callMs: Number(env.AGENT_MODEL_TIMEOUT_MS) || 180_000,
 	toolMs: Number(env.AGENT_TOOL_TIMEOUT_MS) || 120_000,
 	retries: Number(env.AGENT_MAX_RETRIES ?? 5),
+	maxSteps: Number(env.AGENT_MAX_STEPS) || undefined,
+	tokenBudget: Number(env.AGENT_TOKEN_BUDGET) || undefined,
+	maxResultChars: Number(env.AGENT_MAX_RESULT_CHARS) || undefined,
 });
 
 class Timeout extends Error {
