@@ -40,6 +40,25 @@ export const limitsFromEnv = (env: Record<string, string | undefined>): Limits =
 	maxContextTokens: Number(env.AGENT_MAX_CONTEXT_TOKENS) || undefined,
 });
 
+/**
+ * Limits for a project's run: the project's AI settings (`settings.ai.*`, strings
+ * as stored) with the CLI env on top. Unset or invalid values fall through to the
+ * agent's own defaults, which match the project defaults.
+ */
+export const limitsFromProject = (
+	settings: Record<string, string | undefined>,
+	env: Record<string, string | undefined>,
+): Limits => {
+	const fromEnv = limitsFromEnv(env);
+	return {
+		...fromEnv,
+		maxSteps: fromEnv.maxSteps ?? (Number(settings["settings.ai.maxSteps"]) || undefined),
+		tokenBudget: fromEnv.tokenBudget ?? (Number(settings["settings.ai.tokenBudget"]) || undefined),
+		maxContextTokens:
+			fromEnv.maxContextTokens ?? (Number(settings["settings.ai.maxContextTokens"]) || undefined),
+	};
+};
+
 class Timeout extends Error {
 	constructor(
 		readonly idle: boolean,

@@ -68,11 +68,38 @@ export const projectSettingsKeySchemaMap = {
 		defaultValue: "7",
 		dataType: "number",
 	},
+	/**
+	 * Agent run limits (#661). A run stops and asks to continue at `maxSteps` or
+	 * `tokenBudget`; `maxContextTokens` is the model's window, used by compaction.
+	 * Unset means the default, so a project that never touches them still gets one.
+	 */
+	"settings.ai.maxSteps": {
+		schema: z.coerce.number().int().min(1).max(200),
+		defaultValue: "40",
+		dataType: "number",
+	},
+	"settings.ai.maxContextTokens": {
+		schema: z.coerce.number().int().min(8000).max(2000000),
+		defaultValue: "128000",
+		dataType: "number",
+	},
+	"settings.ai.tokenBudget": {
+		schema: z.coerce.number().int().min(10000).max(100000000),
+		defaultValue: "1000000",
+		dataType: "number",
+	},
 	"experimental.workerTimeouts.enabled": {
 		schema: z.enum(["true", "false"]),
 		defaultValue: "false",
 		dataType: "boolean",
 	},
 };
+
+/** Keys only a project admin may write; everything else needs creator. */
+export const adminOnlyProjectSettingKeys: ReadonlySet<string> = new Set([
+	"settings.ai.maxSteps",
+	"settings.ai.maxContextTokens",
+	"settings.ai.tokenBudget",
+]);
 
 export type ProjectSettingsKeyType = keyof typeof projectSettingsKeySchemaMap;
