@@ -27,6 +27,8 @@ export const orchestratorAiDescription = {
 	description:
 		"Runs every chain connected to its 'orchestrate' handle at the same time, each with this block's input, then continues with an array of each chain's final output (ordered by data.order).",
 	jsonSchema: JSON.stringify(z.toJSONSchema(orchestratorBlockSchema)),
+	output: "An array of each chain's final output, in data.order.",
+	example: { order: ["<first chain's block id>", "<second chain's block id>"], onError: "throw" },
 	handleInfo: `
 Handles:
 - 'orchestrate': Connect the first block of each parallel chain. Any number of connections.

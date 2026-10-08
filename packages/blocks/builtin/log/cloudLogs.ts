@@ -16,6 +16,12 @@ export const cloudLogsAiDescription = {
 	name: BlockTypes.cloudLogs,
 	description: "Logs a message to the cloud logging service.",
 	jsonSchema: JSON.stringify(z.toJSONSchema(cloudLogsBlockSchema)),
+	output: "Its input, unchanged.",
+	example: {
+		connection: "<integration id>",
+		message: "js: return `payment failed for ${input.orderId}`;",
+		level: "error",
+	},
 };
 
 /**

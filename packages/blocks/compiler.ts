@@ -299,7 +299,9 @@ export function compileGraph(
 	}
 
 	function js(rawCode: string, extras?: string) {
-		const { code, imports } = hoistImports(rawCode);
+		// a code field is already JS: a leading `js:` would parse as a label, and
+		// `js: const x` is then a syntax error. Validation warns about it.
+		const { code, imports } = hoistImports(rawCode.replace(/^\s*js:/, ""));
 		registerImports(imports);
 		// `params` is the custom block's invocation arguments — undefined in a
 		// route graph, so `input` keeps meaning exactly one thing everywhere: the

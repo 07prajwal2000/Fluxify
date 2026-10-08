@@ -1,3 +1,4 @@
+import type { BlockTypes } from "../blockTypes";
 import { arrayOperationsAiDescription } from "./arrayOperations";
 import { countDbAiDescription } from "./db/count";
 import { deleteDbAiDescription } from "./db/delete";
@@ -37,7 +38,19 @@ import { stickyNoteBlockAiDescription } from "./stickyNote";
 import { switchAiDescription } from "./switch";
 import { transformBlockAiDescription } from "./transformer";
 
-export const blockAiDescriptions = [
+/** What an agent is told about a built-in block (get_block_schemas). */
+export type BlockAiDescription = {
+	name: BlockTypes;
+	description: string;
+	jsonSchema: string;
+	handleInfo?: string;
+	/** what the block hands on: the next block's `input` */
+	output: string;
+	/** one valid `data`; `blockAiDescriptions.spec.ts` parses it with the block's schema */
+	example: Record<string, unknown>;
+};
+
+export const blockAiDescriptions: BlockAiDescription[] = [
 	arrayOperationsAiDescription,
 	entrypointAiDescription,
 	getVarAiDescription,

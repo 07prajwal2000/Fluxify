@@ -30,13 +30,14 @@ describe("canvas rules", () => {
 	});
 
 	it("warns about a Response block only in a workflow", () => {
-		expect(check("workflow", "response")[0]).toMatchObject({ severity: "warning" });
-		expect(check("route", "response")).toEqual([]);
-		expect(check("custom_block", "response", {}, "flow")).toEqual([]);
+		const ok = { httpCode: "200" };
+		expect(check("workflow", "response", ok)[0]).toMatchObject({ severity: "warning" });
+		expect(check("route", "response", ok)).toEqual([]);
+		expect(check("custom_block", "response", ok, "flow")).toEqual([]);
 	});
 
 	it("warns about HTTP blocks and request JS in a workflow", () => {
-		expect(check("workflow", "httpgetheader")).toHaveLength(1);
+		expect(check("workflow", "httpgetheader", { name: "x" })).toHaveLength(1);
 		const js = { value: "const b = getRequestBody(); return b;" };
 		expect(check("workflow", "jsrunner", js)[0]?.message).toContain("getRequestBody");
 		expect(check("route", "jsrunner", js)).toEqual([]);
@@ -60,6 +61,21 @@ describe("canvas rules", () => {
 		expect(warning({ key: "k", value: "plain text" })).toEqual([]);
 		expect(warning({ value: "input.map((x) => x)" }, "jsrunner")).toEqual([]);
 	});
+	it("refuses, naming the field, block data that does not match its schema (#673)", () => {
+		expect(check("route", "response", { httpCode: 200, transformEnabled: "yes" })).toEqual([
+			{ severity: "error", blockId: "b", message: "response: transformEnabled must be a boolean" },
+		]);
+		expect(check("route", "jsrunner", { blockName: "Sum", value: 1 })[0]?.message).toBe(
+			'jsrunner "Sum": value must be a string',
+		);
+	});
+
+	it("warns about js: at the top of a code field (#673)", () => {
+		expect(check("route", "jsrunner", { value: "js: const x = 1; return x;" })[0]?.message).toContain(
+			"code fields are already JavaScript",
+		);
+	});
+
 	it("is quiet for a plain canvas", () => {
 		expect(check("workflow", "jsrunner", { value: "return trigger.data;" })).toEqual([]);
 	});

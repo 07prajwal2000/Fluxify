@@ -1,4 +1,5 @@
 import { describe, expect, it } from "bun:test";
+import { blockDataSchema } from "../blockDataIssues";
 import { BlockTypes } from "../blockTypes";
 import { blockAiDescriptions } from "./blockAiDescriptions";
 import { builtinBlockSchemas } from "./blockSchemasMap";
@@ -34,4 +35,17 @@ describe("blockAiDescriptions", () => {
 			expect({ key, valid: keys.has(key) }).toEqual({ key, valid: true });
 		}
 	});
+
+	// #673: the agent reads these to learn what `input` holds in the next block
+	// and what valid data looks like, so an example that drifts from its schema
+	// teaches it a mistake
+	for (const block of blockAiDescriptions) {
+		it(`${block.name} has an output and an example its own schema accepts`, () => {
+			expect(block.output.trim().length).toBeGreaterThan(0);
+			const schema = blockDataSchema(block.name);
+			expect(schema).toBeDefined();
+			const result = schema!.safeParse(block.example);
+			expect(result.error?.issues ?? []).toEqual([]);
+		});
+	}
 });

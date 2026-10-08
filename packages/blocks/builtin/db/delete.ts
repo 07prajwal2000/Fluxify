@@ -23,6 +23,19 @@ export const deleteDbAiDescription = {
 	description:
 		"Deletes records from a database table matching specific conditions. Output: { count, affected }, the number of deleted rows and the rows as they were.",
 	jsonSchema: JSON.stringify(z.toJSONSchema(deleteDbBlockSchema)),
+	output: "{ count, affected }: how many rows were deleted, and those rows as they were.",
+	example: {
+		connection: "<integration id>",
+		tableName: "users",
+		conditions: [
+			{
+				attribute: { kind: "column", value: "id" },
+				operator: "eq",
+				value: { kind: "literal", value: "js: return getRouteParam('id');" },
+				chain: "and",
+			},
+		],
+	},
 };
 
 export async function runDeleteDb(

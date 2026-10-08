@@ -13,6 +13,11 @@ export const jsRunnerAiDescription = {
 	name: BlockTypes.jsrunner,
 	description: "Executes JavaScript code within an isolated function scope.",
 	jsonSchema: JSON.stringify(z.toJSONSchema(jsRunnerBlockSchema)),
+	output: "Whatever the code returns; undefined when it returns nothing.",
+	example: {
+		value:
+			"const total = input.items.reduce((sum, item) => sum + item.price, 0);\nreturn { ...input, total };",
+	},
 };
 
 export function emitJsRunner(node: EmitNode) {

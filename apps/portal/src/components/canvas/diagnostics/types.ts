@@ -9,6 +9,7 @@ const SOURCE_LABELS: Record<string, string> = {
 	"block-config": "Settings check: wired blocks must be filled in",
 	"literal-expression": "Text check: a value is plain text unless it starts with js:",
 	save: "Save error: the server rejected the save",
+	"save-check": "Save check: saved, but the server found a problem",
 };
 
 /** what the panels show for a diagnostic's source; unknown sources show as-is */

@@ -1,4 +1,4 @@
-import { BlockTypes, literalExpressionIssues } from "@fluxify/blocks";
+import { BlockTypes, blockDataIssues, literalExpressionIssues } from "@fluxify/blocks";
 import type { CustomBlockUsage } from "../../db/schema";
 import type { CanvasParentType } from "./types";
 
@@ -98,7 +98,7 @@ function blockIssues(block: RulesInput["blocks"][number], input: RulesInput): Ca
 		const api = usesApi(block.data, RESPONSE_API);
 		if (api) add("warning", `${api} only works in an after middleware. It returns null here.`);
 	}
-	return [...out, ...literalExpressionIssues([block])];
+	return [...out, ...blockDataIssues([block]), ...literalExpressionIssues([block])];
 }
 
 /** All rule issues of a canvas as it will be after a save. */

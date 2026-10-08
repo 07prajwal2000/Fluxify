@@ -37,7 +37,7 @@ After the prefix, write the body of a function and `return` the value.
 
 | Name | What it is |
 | :--- | :--- |
-| `input` | The output of the block just before this one. |
+| `input` | The output of the block just before this one. `get_block_schemas` with `blockTypes` shows what each block outputs, e.g. after Get Request Body it is the body itself, so read `input.email`, not `input.body.email`. |
 | `outputs.name` | A block output saved with **Save output to variable**. |
 | `trigger` | What started the run. In a workflow, `trigger.data` is the list of events. |
 | `params.name` | A custom block's own settings. Only inside a custom block. |
@@ -82,7 +82,7 @@ If you are unsure about a field, call `get_block_schemas` for the block. A field
 
 ## Fields that are already code
 
-These are already code. Do not add `js:`. Write plain JavaScript that returns the value:
+These are already code. Never add `js:` to them. Write plain JavaScript that returns the value. A leading `js:` is ignored and the save warns about it:
 
 - JS Runner: `value`.
 - Transformer: `js`, when `useJs` is on.

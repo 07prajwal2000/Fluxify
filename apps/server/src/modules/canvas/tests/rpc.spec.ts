@@ -23,7 +23,7 @@ const payload = {
 	changes: {
 		blocks: [
 			{ id: "b1", type: "entrypoint", data: {}, position: { x: 1, y: 2 } },
-			{ id: "b2", type: "response", data: {}, position: { x: 3, y: 4 } },
+			{ id: "b2", type: "response", data: { httpCode: "200" }, position: { x: 3, y: 4 } },
 		],
 		edges: [{ id: "e1", from: "b1", to: "b2", fromHandle: "a", toHandle: "b" }],
 	},

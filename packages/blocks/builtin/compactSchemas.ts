@@ -22,7 +22,7 @@ type JsonSchema = Record<string, any>;
 
 /** Fields every block inherits from `baseBlockDataSchema`. Stating them 29
  * times tells the model nothing it did not learn the first time. */
-const BASE_FIELDS = new Set(["blockName", "blockDescription"]);
+const BASE_FIELDS = new Set(["blockName", "blockDescription", "saveAsVariable"]);
 
 /**
  * Schemas shared by more than one block, hoisted so the contract is stated

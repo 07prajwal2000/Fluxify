@@ -58,6 +58,22 @@ export const getAllDbAiDescription = {
 	name: BlockTypes.db_getall,
 	description: "Retrieves multiple records from a database table.",
 	jsonSchema: JSON.stringify(z.toJSONSchema(getAllDbBlockSchema)),
+	output: "An array of rows (empty when none match). With paging 'cursor': { rows, nextCursor }.",
+	example: {
+		connection: "<integration id>",
+		tableName: "orders",
+		conditions: [
+			{
+				attribute: { kind: "column", value: "status" },
+				operator: "eq",
+				value: { kind: "literal", value: "js: return getQueryParam('status');" },
+				chain: "and",
+			},
+		],
+		limit: 50,
+		offset: 0,
+		sort: [{ attribute: "created_at", direction: "desc" }],
+	},
 };
 
 /** limit as the block takes it: unset is 1000, -1 or null is no limit */

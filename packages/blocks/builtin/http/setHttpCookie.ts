@@ -20,6 +20,16 @@ export const setCookieAiDescription = {
 	name: BlockTypes.httpSetCookie,
 	description: "Sets a cookie in the HTTP response.",
 	jsonSchema: JSON.stringify(z.toJSONSchema(setHttpCookieBlockSchema)),
+	output: "Its input, unchanged. The cookie is added to the response.",
+	example: {
+		name: "session",
+		value: "js: return input.token;",
+		path: "/",
+		expiry: "js: return new Date(Date.now() + 86400000).toISOString();",
+		httpOnly: true,
+		secure: true,
+		samesite: "Lax",
+	},
 };
 
 export function emitSetHttpCookie(node: EmitNode) {

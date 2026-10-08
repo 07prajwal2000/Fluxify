@@ -17,6 +17,9 @@ export const foreachLoopAiDescription = {
 	name: BlockTypes.foreachloop,
 	description: "Iterates over an array of items, executing a child block for each item.",
 	jsonSchema: JSON.stringify(z.toJSONSchema(forEachLoopBlockSchema)),
+	output:
+		"undefined after the loop. Each executor run gets one item as its input; keep results with setvar or arrayops.",
+	example: { values: [], useParam: true },
 	handleInfo: `
 Handles:
 - 'executor': Connect the block to be executed for each array item.`,

@@ -1,47 +1,6 @@
-import {
-	arrayOperationsBlockSchema,
-	BlockTypes,
-	cloudLogsBlockSchema,
-	countDbBlockSchema,
-	deleteDbBlockSchema,
-	entrypointBlockSchema,
-	errorHandlerBlockSchema,
-	forEachLoopBlockSchema,
-	forLoopBlockSchema,
-	getAllDbBlockSchema,
-	getHttpCookieBlockSchema,
-	getHttpHeaderBlockSchema,
-	getHttpParamBlockSchema,
-	getHttpRequestBodyBlockSchema,
-	getSingleDbBlockSchema,
-	getVarBlockSchema,
-	httpRequestBlockSchema,
-	ifBlockSchema,
-	insertBulkDbBlockSchema,
-	insertDbBlockSchema,
-	jsRunnerBlockSchema,
-	kvOperationsBlockSchema,
-	kvRawBlockSchema,
-	logBlockSchema,
-	nativeDbBlockSchema,
-	orchestratorBlockSchema,
-	responseBlockSchema,
-	retryBlockSchema,
-	rollbackDbBlockSchema,
-	sendMessageBlockSchema,
-	setHttpCookieBlockSchema,
-	setHttpHeaderBlockSchema,
-	setVarSchema,
-	stickyNotesSchema,
-	switchBlockSchema,
-	transactionDbBlockSchema,
-	transformerBlockSchema,
-	triggerWorkflowSchema,
-	updateDbBlockSchema,
-} from "@fluxify/blocks";
+import { BlockTypes, blockDataIssues, blockDataSchema } from "@fluxify/blocks";
 import { variableNameError } from "@fluxify/blocks/variableName";
 import type { Context, Next } from "hono";
-import type z from "zod";
 import { BadRequestError } from "../../errors/badRequestError";
 import { ConflictError } from "../../errors/conflictError";
 import { ValidationError } from "../../errors/validationError";
@@ -76,8 +35,7 @@ export function blockDataValidator(data: CanvasChanges) {
 		deleteIds.add(edge.id);
 	});
 
-	const errorBlocks: { id: string; issues: { path: PropertyKey[]; message: string }[] }[] = [];
-	const nameErrors: { field: string; message: string }[] = [];
+	const errors: { field: string; message: string }[] = [];
 
 	for (const block of data.changes.blocks) {
 		if (deleteIds.has(block.id)) continue;
@@ -85,132 +43,15 @@ export function blockDataValidator(data: CanvasChanges) {
 		const nameError = saveAsVariableError(block.data);
 		if (nameError) {
 			const label = (block.data as { blockName?: unknown })?.blockName;
-			nameErrors.push({
+			errors.push({
 				field: block.id,
 				message: `${typeof label === "string" && label ? label : block.type}: ${nameError}`,
 			});
 		}
-		let schema: z.ZodType = null!;
-		switch (block.type as BlockTypes) {
-			case BlockTypes.entrypoint:
-				schema = entrypointBlockSchema;
-				break;
-			case BlockTypes.if:
-				schema = ifBlockSchema;
-				break;
-			case BlockTypes.httprequest:
-				schema = httpRequestBlockSchema;
-				break;
-			case BlockTypes.httpGetHeader:
-				schema = getHttpHeaderBlockSchema;
-				break;
-			case BlockTypes.httpSetHeader:
-				schema = setHttpHeaderBlockSchema;
-				break;
-			case BlockTypes.httpGetParam:
-				schema = getHttpParamBlockSchema;
-				break;
-			case BlockTypes.httpGetCookie:
-				schema = getHttpCookieBlockSchema;
-				break;
-			case BlockTypes.httpSetCookie:
-				schema = setHttpCookieBlockSchema;
-				break;
-			case BlockTypes.httpGetRequestBody:
-				schema = getHttpRequestBodyBlockSchema;
-				break;
-			case BlockTypes.forloop:
-				schema = forLoopBlockSchema;
-				break;
-			case BlockTypes.foreachloop:
-				schema = forEachLoopBlockSchema;
-				break;
-			case BlockTypes.transformer:
-				schema = transformerBlockSchema;
-				break;
-			case BlockTypes.setvar:
-				schema = setVarSchema;
-				break;
-			case BlockTypes.getvar:
-				schema = getVarBlockSchema;
-				break;
-			case BlockTypes.consolelog:
-				schema = logBlockSchema;
-				break;
-			case BlockTypes.jsrunner:
-				schema = jsRunnerBlockSchema;
-				break;
-			case BlockTypes.response:
-				schema = responseBlockSchema;
-				break;
-			case BlockTypes.arrayops:
-				schema = arrayOperationsBlockSchema;
-				break;
-			case BlockTypes.db_getsingle:
-			case BlockTypes.db_exists:
-				schema = getSingleDbBlockSchema;
-				break;
-			case BlockTypes.db_count:
-				schema = countDbBlockSchema;
-				break;
-			case BlockTypes.db_getall:
-				schema = getAllDbBlockSchema;
-				break;
-			case BlockTypes.db_delete:
-				schema = deleteDbBlockSchema;
-				break;
-			case BlockTypes.db_insert:
-				schema = insertDbBlockSchema;
-				break;
-			case BlockTypes.db_insertbulk:
-				schema = insertBulkDbBlockSchema;
-				break;
-			case BlockTypes.db_update:
-				schema = updateDbBlockSchema;
-				break;
-			case BlockTypes.db_native:
-				schema = nativeDbBlockSchema;
-				break;
-			case BlockTypes.db_transaction:
-				schema = transactionDbBlockSchema;
-				break;
-			case BlockTypes.db_rollback:
-				schema = rollbackDbBlockSchema;
-				break;
-			case BlockTypes.orchestrator:
-				schema = orchestratorBlockSchema;
-				break;
-			case BlockTypes.switch:
-				schema = switchBlockSchema;
-				break;
-			case BlockTypes.sticky_note:
-				schema = stickyNotesSchema;
-				break;
-			case BlockTypes.errorHandler:
-				schema = errorHandlerBlockSchema;
-				if (block.id === block.data.next) {
-					throw new BadRequestError("Error handler block cannot be connected to itself");
-				}
-				break;
-			case BlockTypes.cloudLogs:
-				schema = cloudLogsBlockSchema;
-				break;
-			case BlockTypes.triggerWorkflow:
-				schema = triggerWorkflowSchema;
-				break;
-			case BlockTypes.kv_raw:
-				schema = kvRawBlockSchema;
-				break;
-			case BlockTypes.kv_operations:
-				schema = kvOperationsBlockSchema;
-				break;
-			case BlockTypes.retry:
-				schema = retryBlockSchema;
-				break;
-			case BlockTypes.queue_send:
-				schema = sendMessageBlockSchema;
-				break;
+		if (block.type === BlockTypes.errorHandler && block.id === block.data?.next) {
+			throw new BadRequestError("Error handler block cannot be connected to itself");
 		}
+		const schema = blockDataSchema(block.type);
 		if (!schema) {
 			if (customBlockNames.has(block.type)) {
 				continue;
@@ -220,26 +61,16 @@ export function blockDataValidator(data: CanvasChanges) {
 			);
 		}
 		const result = schema.safeParse(block.data);
-		if (!result.success) {
-			errorBlocks.push({ id: block.id, issues: result.error.issues });
-		} else {
+		if (result.success) {
 			block.data = result.data;
+			continue;
 		}
+		// the same readable messages the canvas rules refuse with on every other save path
+		for (const issue of blockDataIssues([block]))
+			errors.push({ field: block.id, message: issue.message });
 	}
 
-	if (errorBlocks.length > 0 || nameErrors.length > 0) {
-		throw new ValidationError([
-			...errorBlocks.flatMap(({ id, issues }) =>
-				issues.map((issue) => ({
-					field: id,
-					message: issue.path.length
-						? `${issue.path.map(String).join(".")}: ${issue.message}`
-						: issue.message,
-				})),
-			),
-			...nameErrors,
-		]);
-	}
+	if (errors.length > 0) throw new ValidationError(errors);
 }
 
 /** Why an enabled "Save output to variable" name can't be used, if it can't. */

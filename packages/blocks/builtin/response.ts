@@ -31,6 +31,9 @@ export const responseAiDescription = {
 	description:
 		'Terminates the request and returns the result to the client. Sets the status code; the body is whatever the previous block output. The status code is a fixed code, or "js:" code returning one when it depends on the flow (e.g. 201 when created, 200 when updated); an unknown code fails the block. Set transformEnabled + transformScript to reshape the body here (the script gets the body as `input` and its return value is sent), instead of adding a separate JS block.',
 	jsonSchema: JSON.stringify(z.toJSONSchema(responseBlockSchema)),
+	output:
+		"Nothing: it ends the run and sends its input (or transformScript's return value) as the body. No block runs after it.",
+	example: { httpCode: "js: return input ? 200 : 404;" },
 };
 
 /**

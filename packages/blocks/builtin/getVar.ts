@@ -13,6 +13,8 @@ export const getVarAiDescription = {
 	name: BlockTypes.getvar,
 	description: "Retrieves a value from the global execution context.",
 	jsonSchema: JSON.stringify(z.toJSONSchema(getVarBlockSchema)),
+	output: "The variable's value. Multiple mode: an array of the values, in row order.",
+	example: { key: "userId" },
 };
 
 export function emitGetVar(node: EmitNode) {

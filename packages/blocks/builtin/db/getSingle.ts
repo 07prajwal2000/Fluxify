@@ -42,6 +42,20 @@ export const getSingleDbAiDescription = {
 	name: BlockTypes.db_getsingle,
 	description: "Retrieves a single record from a database table.",
 	jsonSchema: JSON.stringify(z.toJSONSchema(getSingleDbBlockSchema)),
+	output: "The first matching row as an object, or null when none match.",
+	example: {
+		connection: "<integration id>",
+		tableName: "users",
+		conditions: [
+			{
+				attribute: { kind: "column", value: "email" },
+				operator: "eq",
+				value: { kind: "literal", value: "js: return input.email;" },
+				chain: "and",
+			},
+		],
+		strict: true,
+	},
 };
 
 export async function runGetSingleDb(

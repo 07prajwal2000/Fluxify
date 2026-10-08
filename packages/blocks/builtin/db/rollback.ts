@@ -17,6 +17,9 @@ export const rollbackDbAiDescription = {
 	description:
 		"Rolls back the enclosing database transaction and stops its executor chain; the transaction then runs its 'failure' handle. Only valid inside a transaction's executor chain.",
 	jsonSchema: JSON.stringify(z.toJSONSchema(rollbackDbBlockSchema)),
+	output:
+		"Nothing: it stops the transaction's executor chain, and the transaction's 'failure' branch gets { reason: 'rollback', message }.",
+	example: { message: "js: return `Not enough stock for ${input.sku}`;" },
 	handleInfo: `
 Handles: none — terminal. Handle what follows on the transaction's 'failure' handle.`,
 };

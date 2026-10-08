@@ -31,4 +31,6 @@ export const consoleAiDescription = {
 	name: BlockTypes.consolelog,
 	description: "Logs a message to the system console.",
 	jsonSchema: JSON.stringify(z.toJSONSchema(logBlockSchema)),
+	output: "Its input, unchanged. With no message it logs its input.",
+	example: { message: "js: return `created user ${input.id}`;", level: "info" },
 };

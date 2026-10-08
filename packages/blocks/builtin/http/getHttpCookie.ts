@@ -13,6 +13,8 @@ export const getCookieAiDescription = {
 	name: BlockTypes.httpGetCookie,
 	description: "Retrieves a specific cookie from the incoming request.",
 	jsonSchema: JSON.stringify(z.toJSONSchema(getHttpCookieBlockSchema)),
+	output: "The cookie's value. Multiple mode: an array of the values, in row order.",
+	example: { name: "session" },
 };
 
 export function emitGetHttpCookie(node: EmitNode) {

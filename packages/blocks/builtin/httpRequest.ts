@@ -17,6 +17,15 @@ export const httpRequestAiDescription = {
 	name: BlockTypes.httprequest,
 	description: "Sends an HTTP request to an external URL.",
 	jsonSchema: JSON.stringify(z.toJSONSchema(httpRequestBlockSchema)),
+	output:
+		"{ data, status }: the response body (parsed when it is JSON) and the HTTP status, so the next block reads input.data.<field>.",
+	example: {
+		url: "js: return `https://api.example.com/users/${input.id}`;",
+		method: "GET",
+		headers: { Authorization: "js: return `Bearer ${getConfig('API_TOKEN')}`;" },
+		body: null,
+		useParam: false,
+	},
 };
 
 function parseIfJson(body: any) {
