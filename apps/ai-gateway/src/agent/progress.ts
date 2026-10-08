@@ -1,6 +1,7 @@
 import { appendFileSync, mkdirSync } from "node:fs";
 import path from "node:path";
 import type { runAgent } from "./agent";
+import { cacheTokens } from "./cache";
 import { stopMessage } from "./guards";
 
 export type Log = (event: string, data?: Record<string, unknown>) => void;
@@ -94,6 +95,7 @@ export async function printRun(result: ReturnType<typeof runAgent>, out: Out) {
 	const running = new Map<string, { name: string; at: number }>();
 	const t0 = Date.now();
 	let step = 0;
+	const cache = { read: 0, write: 0 };
 	let stepAt = t0;
 	const waiting = () => {
 		const [next] = running.values();
@@ -164,8 +166,11 @@ export async function printRun(result: ReturnType<typeof runAgent>, out: Out) {
 				waiting();
 				break;
 			}
-			case "finish-step":
+			case "finish-step": {
 				step++;
+				const c = cacheTokens(part.usage);
+				cache.read += c.read;
+				cache.write += c.write;
 				status.line(
 					dim(
 						`[step ${step}: ${part.usage.inputTokens ?? "?"} in / ${part.usage.outputTokens ?? "?"} out, ${part.finishReason}, ${secs(Date.now() - stepAt)}]`,
@@ -174,12 +179,15 @@ export async function printRun(result: ReturnType<typeof runAgent>, out: Out) {
 				log("step-end", {
 					step,
 					usage: part.usage,
+					cacheReadTokens: c.read,
+					cacheWriteTokens: c.write,
 					finishReason: part.finishReason,
 					ms: Date.now() - stepAt,
 				});
 				stepAt = Date.now();
 				waiting();
 				break;
+			}
 			case "error":
 				status.line(`[error] ${message(part.error)}`);
 				log("error", { error: message(part.error) });
@@ -204,6 +212,13 @@ export async function printRun(result: ReturnType<typeof runAgent>, out: Out) {
 	} finally {
 		clearInterval(timer);
 		status.print("");
-		log("run-end", { steps: step, ms: Date.now() - t0 });
+		if (cache.read || cache.write)
+			status.line(dim(`[cache: ${cache.read} read / ${cache.write} written]`));
+		log("run-end", {
+			steps: step,
+			ms: Date.now() - t0,
+			cacheReadTokens: cache.read,
+			cacheWriteTokens: cache.write,
+		});
 	}
 }

@@ -331,15 +331,15 @@ describe("judge", () => {
 
 describe("report", () => {
 	const rows: Row[] = [
-		{ id: "a", checks: [{ name: "x", pass: true, message: "" }], judge: 1, steps: 3, tokensIn: 100, tokensOut: 10, ms: 4000, stop: "stop" },
-		{ id: "b", checks: [{ name: "y", pass: false, message: "got 500" }], judge: 0.5, steps: 40, tokensIn: 900, tokensOut: 90, ms: 6000, stop: "step-limit" },
-		{ id: "c", checks: [], judge: "skipped", steps: 0, tokensIn: 0, tokensOut: 0, ms: 0, stop: "skipped: needs X" },
+		{ id: "a", checks: [{ name: "x", pass: true, message: "" }], judge: 1, steps: 3, tokensIn: 100, tokensOut: 10, cacheRead: 0, ms: 4000, stop: "stop" },
+		{ id: "b", checks: [{ name: "y", pass: false, message: "got 500" }], judge: 0.5, steps: 40, tokensIn: 900, tokensOut: 90, cacheRead: 0, ms: 6000, stop: "step-limit" },
+		{ id: "c", checks: [], judge: "skipped", steps: 0, tokensIn: 0, tokensOut: 0, cacheRead: 0, ms: 0, stop: "skipped: needs X" },
 	];
 
 	it("prints each task and its failures", () => {
 		const t = table(rows);
-		expect(t).toContain("| a | PASS 1/1 | 100% | 3 | 100/10 | 4s | stop |");
-		expect(t).toContain("| b | FAIL 0/1 | 50% | 40 | 900/90 | 6s | step-limit |");
+		expect(t).toContain("| a | PASS 1/1 | 100% | 3 | 100/10 | 0 | 4s | stop |");
+		expect(t).toContain("| b | FAIL 0/1 | 50% | 40 | 900/90 | 0 | 6s | step-limit |");
 		expect(t).toContain("| c | - | skipped |");
 		expect(t).toContain("- b: y: got 500");
 	});
