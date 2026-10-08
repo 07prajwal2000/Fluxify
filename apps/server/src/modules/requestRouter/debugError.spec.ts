@@ -5,6 +5,7 @@ import {
 	debugRequested,
 	decodeDebugError,
 	encodeDebugError,
+	MAX_DEBUG_HEADER,
 	routeDebugKey,
 	signDebugToken,
 	verifyDebugToken,
@@ -77,5 +78,45 @@ describe("debugError", () => {
 		expect(decodeDebugError(encodeDebugError(debug))).toEqual(debug);
 		expect(decodeDebugError("%%%")).toBeUndefined();
 		expect(decodeDebugError(null)).toBeUndefined();
+	});
+});
+
+// #672: a long stack or driver message must not outgrow what proxies and Bun accept
+describe("debug error header size", () => {
+	const block = { id: "b1", type: "js_runner", name: "Load user" };
+
+	it("cuts stack, then detail, keeps block and message, and still decodes", () => {
+		const big = {
+			block,
+			message: "Query failed",
+			detail: `deadlock ${"é".repeat(5_000)}`,
+			stack: `at run (${"x".repeat(3_000)})`,
+		};
+		const value = encodeDebugError(big);
+		expect(value.length).toBeLessThanOrEqual(MAX_DEBUG_HEADER);
+		const back = decodeDebugError(value)!;
+		expect(back.block).toEqual(block);
+		expect(back.message).toBe("Query failed");
+		expect(back.detail).toEndWith("…(cut)");
+		expect(back.detail).toStartWith("deadlock é");
+		expect(back.stack).toBe("…(cut)");
+	});
+
+	it("leaves a small error untouched", () => {
+		const small = { block, message: "nope", detail: "why", stack: "at run" };
+		expect(decodeDebugError(encodeDebugError(small))).toEqual(small);
+	});
+
+	it("stays under the cap whatever it is given", () => {
+		const value = encodeDebugError({
+			block: { ...block, name: "n".repeat(10_000) },
+			message: "m".repeat(10_000),
+		});
+		expect(value.length).toBeLessThanOrEqual(MAX_DEBUG_HEADER);
+		expect(decodeDebugError(value)?.block?.id).toBe("b1");
+	});
+
+	it("ignores a header that is valid base64 JSON but not a debug error", () => {
+		expect(decodeDebugError(Buffer.from("123").toString("base64url"))).toBeUndefined();
 	});
 });

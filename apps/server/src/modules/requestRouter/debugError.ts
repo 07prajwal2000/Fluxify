@@ -98,14 +98,49 @@ export function debugError(error: unknown): DebugError {
 	return result;
 }
 
+/** Proxies and Bun cap header size; a long stack or driver message must not break the response (#672). */
+export const MAX_DEBUG_HEADER = 4_096;
+const CUT = "…(cut)";
+
 /** base64url JSON: a header value cannot hold newlines or most of Unicode */
-export const encodeDebugError = (error: DebugError) =>
-	Buffer.from(JSON.stringify(error)).toString("base64url");
+const encode = (error: DebugError) => Buffer.from(JSON.stringify(error)).toString("base64url");
+
+/**
+ * Never longer than MAX_DEBUG_HEADER. `stack` is cut first, then `detail` (the
+ * driver's own words), then `message`. The block's id and type are always kept,
+ * since they say where to look; only an absurdly long block name is dropped.
+ */
+export function encodeDebugError(error: DebugError) {
+	const e = { ...error };
+	let value = encode(e);
+	const cut = (field: "stack" | "detail" | "message") => {
+		const full = e[field];
+		if (!full) return;
+		const bytesPerChar = Buffer.byteLength(JSON.stringify(full)) / (full.length + 2);
+		let keep = full.length;
+		while (value.length > MAX_DEBUG_HEADER && keep > 0) {
+			// base64 spends 4 chars per 3 bytes
+			const overBytes = ((value.length - MAX_DEBUG_HEADER) * 3) / 4;
+			keep = Math.max(0, keep - Math.ceil(overBytes / bytesPerChar));
+			e[field] = full.slice(0, keep) + CUT;
+			value = encode(e);
+		}
+	};
+	cut("stack");
+	cut("detail");
+	if (value.length > MAX_DEBUG_HEADER && e.block) {
+		e.block = { id: e.block.id, type: e.block.type };
+		value = encode(e);
+	}
+	cut("message");
+	return value.length > MAX_DEBUG_HEADER ? encode({ message: CUT }) : value;
+}
 
 export function decodeDebugError(value: string | null): DebugError | undefined {
 	if (!value) return;
 	try {
-		return JSON.parse(Buffer.from(value, "base64url").toString());
+		const parsed = JSON.parse(Buffer.from(value, "base64url").toString());
+		return typeof parsed?.message === "string" ? parsed : undefined;
 	} catch {
 		return;
 	}
