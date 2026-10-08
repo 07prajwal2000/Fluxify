@@ -87,7 +87,7 @@ const isPlainObject = (v: unknown): v is Record<string, unknown> =>
 	typeof v === "object" && v !== null && !Array.isArray(v);
 
 /** Parsed values over raw, recursively, so keys the schema strips survive. */
-export function mergeParsed(raw: unknown, parsed: unknown): any {
+export function mergeParsed(raw: unknown, parsed: unknown): unknown {
 	if (isPlainObject(raw) && isPlainObject(parsed)) {
 		const out: Record<string, unknown> = { ...raw };
 		for (const [k, v] of Object.entries(parsed)) out[k] = mergeParsed(raw[k], v);
