@@ -2,6 +2,7 @@ import { installRequestSchema } from "@fluxify/server/src/api/v1/projects/settin
 import { requestBodySchema as projectUpdate } from "@fluxify/server/src/api/v1/projects/update/dto";
 import { z } from "zod";
 import type { AdminApi } from "./adminApi";
+import { DEBUG_RECIPE } from "./routeTools";
 import { type McpTool, page, pick, projectId } from "./tools";
 
 const SAVE = { readOnlyHint: false, destructiveHint: false };
@@ -44,7 +45,7 @@ export function suiteResult(s: any) {
 		? r.cases.map((c: any, i: number) => ({
 				name: c.name,
 				status: c.status,
-				error: cut(c.error),
+				error: c.debug ?? cut(c.error),
 				failedChecks: failedChecks(c.checks),
 				traceRunId: traceRunId(i),
 			}))
@@ -53,7 +54,7 @@ export function suiteResult(s: any) {
 					name: "request",
 					status: r.success ? "passed" : "failed",
 					statusCode: r.statusCode,
-					error: cut(r.error),
+					error: r.debug ?? cut(r.error),
 					failedChecks: failedChecks(r.result),
 					traceRunId: traceRunId(0),
 				},
@@ -71,8 +72,7 @@ const targetId = z
 	.describe("The route or workflow id, from list_routes or list_workflows");
 const recordings = (a: { projectId: string; kind: string; targetId: string }) =>
 	`/v1/${a.projectId}/recordings/${a.kind}/${a.targetId}/runs`;
-const RECORDING_NOTE =
-	"Runs exist only while the route or workflow has recordExecution on (save_route, save_workflow), and for every test run. Recorded data is kept as-is, so it can hold headers, bodies and secrets.";
+const RECORDING_NOTE = `Runs exist only while the route or workflow has recordExecution on (save_route, save_workflow), and for every test run. Recorded data is kept as-is, so it can hold headers, bodies and secrets. To debug and fix: read_doc ${DEBUG_RECIPE}.`;
 
 /** A span without its payloads: enough to find the block that failed. */
 const shortSpan = ({ input: _i, output: _o, metadata, error, ...span }: any) => ({
@@ -113,7 +113,7 @@ export const projectTools: McpTool[] = [
 	{
 		name: "get_test_runs",
 		description:
-			"A test suite's recent runs, newest first, with each case's pass/fail and error. Each case's traceRunId is its recorded run: read it with get_recording (kind and targetId are the suite's route or workflow, from get_test_suite).",
+			"A test suite's recent runs, newest first, with each case's pass/fail and error (for a failed run: the block, message and real cause). Each case's traceRunId is its recorded run: read it with get_recording (kind and targetId are the suite's route or workflow, from get_test_suite).",
 		role: "creator",
 		input: {
 			testSuiteId,

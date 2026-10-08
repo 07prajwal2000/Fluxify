@@ -146,6 +146,15 @@ describe("project tools", () => {
 		expect(result.suites[0].cases[0].traceRunId).toBe("t1");
 	});
 
+	it("a failed case's debug error replaces its bare message", async () => {
+		const debug = { block: { id: "b1", type: "jsrunner" }, message: "boom", stack: "at <anonymous> (fluxify-graph:3:9)" };
+		const failed = routeSuiteRun("run1", "s1");
+		Object.assign(failed.suiteRuns[0].result, { error: "boom", debug });
+		const { api } = fakeApi({ ...suiteGets, [RUNS]: { data: [{ id: "run1" }] }, [`${RUNS}/run1`]: failed });
+		const [result]: any = await run("get_test_runs", { testSuiteId: "s1" }, api);
+		expect(result.suites[0].cases[0].error).toEqual(debug);
+	});
+
 	const REC = "/v1/p1/recordings/workflow/w1/runs";
 	const target = { projectId: "p1", kind: "workflow", targetId: "w1" };
 

@@ -160,6 +160,16 @@ a database, sends an email or calls another API, that happens. Point agents at
 a test project when you can.
 :::
 
+::: info Debug errors
+When a route fails, its callers get a short message such as
+`failed to execute native db block`, never the database error or a stack trace.
+`call_route` also returns the real error: the block that failed, its message,
+the cause behind it (such as the SQL error), and, for an error in your own
+code, where in that code it happened. Only a creator calling through the tools
+gets it; anyone calling the route's URL, whatever headers they send, still gets
+the short message.
+:::
+
 - **You approve every app.** An app can't connect until you sign in and say yes
   in your browser.
 - **Your client may ask before each change.** Tools that delete or run things

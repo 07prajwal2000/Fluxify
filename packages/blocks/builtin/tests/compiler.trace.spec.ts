@@ -243,6 +243,11 @@ describe("compileGraph tracing and edge validation", () => {
 
 			expect(result.successful).toBe(false);
 			expect(String(result.error)).toContain("boom");
+			// the block that threw, for the admin's debug errors (#671)
+			expect((result.error as any)[Symbol.for("fluxify.block")]).toEqual({
+				id: "explode",
+				type: BlockTypes.jsrunner,
+			});
 		});
 	});
 

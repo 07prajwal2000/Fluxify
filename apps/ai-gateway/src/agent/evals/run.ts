@@ -24,8 +24,8 @@ import { moreTasks } from "./tasks2";
  * Env: the agent's own (AGENT_PROVIDER, AGENT_MODEL, AGENT_API_KEY, AGENT_BASE_URL, the
  * timeouts, FLUXIFY_PAT, FLUXIFY_URL; see cli.ts). The PAT's user must be a system admin
  * (it creates projects). Optional judge: AGENT_JUDGE_PROVIDER, AGENT_JUDGE_MODEL,
- * AGENT_JUDGE_API_KEY, AGENT_JUDGE_BASE_URL. Task "integration" needs EVAL_POSTGRES_URL,
- * a PostgreSQL URL the Fluxify server can reach; without it the task is skipped.
+ * AGENT_JUDGE_API_KEY, AGENT_JUDGE_BASE_URL. Tasks "integration" and "broken-sql" need EVAL_POSTGRES_URL,
+ * a PostgreSQL URL the Fluxify server can reach; without it they are skipped.
  * Output: apps/ai-gateway/logs/evals/<time>/ holds results.md (the table) and per task
  * <id>.log, <id>.json (messages) and <id>.judge.md (the judge's prompt, to judge by hand).
  * A full run (no --task, not stopped) appends one row to evals/results.md.

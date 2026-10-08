@@ -125,11 +125,37 @@ describe("route and workflow tools", () => {
 			api,
 		);
 		expect(calls).toEqual([
-			{ method: "POST", path: "/v1/routes/r1/call", body: { params: { id: "7" }, body: { a: 1 } } },
+			{
+				method: "POST",
+				path: "/v1/routes/r1/call",
+				body: { params: { id: "7" }, body: { a: 1 }, debug: true },
+			},
 		]);
 		expect(result.status).toBe(200);
 		expect(result.body).toEndWith(`(truncated, ${big.length} characters in all)`);
+		expect(result).not.toHaveProperty("error");
 		expect(truncate({ ok: true })).toEqual({ ok: true });
+	});
+
+	it("call_route returns a failed run's debug error as error", async () => {
+		const debugError = {
+			block: { id: "b7", type: "db_native", name: "Load user" },
+			message: "failed to execute native db block",
+			detail: 'PostgresError: column "emial" does not exist',
+		};
+		const { api } = fakeApi({
+			status: 500,
+			contentType: "application/json",
+			body: { error: "Error: failed to execute native db block" },
+			debugError,
+		});
+		expect(await run("call_route", { routeId: "r1" }, api)).toEqual({
+			status: 500,
+			contentType: "application/json",
+			body: { error: "Error: failed to execute native db block" },
+			error: debugError,
+		});
+		expect(tool("call_route").description).toContain("agents/recipes/debug-and-fix");
 	});
 
 	it("get_integration_schema shows required fields and defaults, and reads no API", async () => {

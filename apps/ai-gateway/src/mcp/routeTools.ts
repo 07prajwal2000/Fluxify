@@ -18,6 +18,9 @@ const DELETE = { readOnlyHint: false, destructiveHint: true, idempotentHint: tru
 /** A call runs the user's graph for real: it can write, send and call out. */
 const RUN = { readOnlyHint: false, destructiveHint: true, openWorldHint: true };
 
+/** The recipe tool descriptions point to for a failing route or workflow. */
+export const DEBUG_RECIPE = "agents/recipes/debug-and-fix";
+
 /** A route's answer can be any size; this much is plenty to read. */
 export const MAX_RESPONSE_CHARS = 10_000;
 
@@ -132,7 +135,7 @@ export const routeTools: McpTool[] = [
 	},
 	{
 		name: "call_route",
-		description: `Send a REAL HTTP request to a route and get back its status and body. This runs the route for real: it can create, change or delete data and call other services. Read get_route first for the path params and the body/query schemas. The route must be active. Bodies over ${MAX_RESPONSE_CHARS} characters are cut.`,
+		description: `Send a REAL HTTP request to a route and get back its status and body. This runs the route for real: it can create, change or delete data and call other services. Read get_route first for the path params and the body/query schemas. The route must be active. Bodies over ${MAX_RESPONSE_CHARS} characters are cut. When the route fails, error has the real cause its callers never see: { block: { id, type, name }, message, detail (e.g. the SQL error), stack (your own code only) }. To debug and fix: read_doc ${DEBUG_RECIPE}.`,
 		role: "creator",
 		annotations: RUN,
 		input: {
@@ -146,8 +149,11 @@ export const routeTools: McpTool[] = [
 			body: z.unknown().optional().describe("JSON body; a string is sent as-is"),
 		},
 		call: async ({ send }, { routeId, ...a }) => {
-			const result = await send("POST", `/v1/routes/${routeId}/call`, a);
-			return { ...result, body: truncate(result.body) };
+			const { debugError, ...result } = await send("POST", `/v1/routes/${routeId}/call`, {
+				...a,
+				debug: true,
+			});
+			return { ...result, body: truncate(result.body), ...(debugError && { error: debugError }) };
 		},
 	},
 	{

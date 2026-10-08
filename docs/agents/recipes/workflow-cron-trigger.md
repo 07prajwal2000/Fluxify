@@ -127,7 +127,7 @@ Call `list_recordings`:
 { "projectId": "<project id>", "kind": "workflow", "targetId": "<workflow id>" }
 ```
 
-Read a run with `get_recording` (see [Recipe, debug a failing route](/agents/recipes/debug-route-with-recording)). When it works, put the real schedule back and turn recording off:
+Read a run with `get_recording` (see [Recipe, debug and fix a route or workflow](/agents/recipes/debug-and-fix)). When it works, put the real schedule back and turn recording off:
 
 Call `save_trigger`:
 

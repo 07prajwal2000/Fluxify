@@ -3,8 +3,10 @@ import type { BlockDTOType } from "./builderTypes";
 
 /**
  * The span recording code for one compiled block. With `tracing` off (#576)
- * every piece emits nothing: no timer, no try/catch, no `$trace` checks, since
- * nothing would ever read the spans.
+ * every piece emits nothing: no timer, no `$trace` checks, since nothing would
+ * ever read the spans. The try/catch stays either way: it tags a thrown error
+ * with its block for the admin's debug errors (#671), and costs nothing until
+ * something throws.
  *
  * `entry` marks the graph's own entrypoint (not a custom block's): its span
  * records `ctx.traceInput`, the whole request or trigger (#628).
@@ -17,6 +19,8 @@ export function blockSpans(block: BlockDTOType, tracing: boolean, mockable = fal
 		: "";
 	const fields = `blockId: ${JSON.stringify(block.id)}, blockType: ${JSON.stringify(block.type)}${name ? `, blockName: ${JSON.stringify(name)}` : ""}${position}`;
 	const input = entry ? "ctx.traceInput ?? $input" : "$input";
+	// the innermost block tags first; the blocks it was called from leave it alone
+	const tag = `$tagBlock($error, { id: ${JSON.stringify(block.id)}, type: ${JSON.stringify(block.type)}${name ? `, name: ${JSON.stringify(name)}` : ""} });`;
 
 	/** `next`: the block a Switch handed off to, which its shared case handle cannot tell */
 	function record(output: string, error?: string, branch?: "success" | "failure", next?: string) {
@@ -43,7 +47,12 @@ $trace.recordSpan(${span});
 		if (!tracing) {
 			return `const { ctx, vars, scope: $scope } = $state;
 let $in = $input;
-${mocked}${code}`;
+${mocked}try {
+${code}
+} catch ($error) {
+${tag}
+throw $error;
+}`;
 		}
 		return `const { ctx, vars, scope: $scope, trace: $trace } = $state;
 const $t0 = $trace ? performance.now() : 0;
@@ -52,6 +61,7 @@ ${mocked}let $recorded = false;
 try {
 ${code}
 } catch ($error) {
+${tag}
 if (!$recorded) {
 ${record("undefined", "$error")}
 }

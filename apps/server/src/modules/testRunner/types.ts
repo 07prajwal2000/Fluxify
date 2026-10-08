@@ -2,6 +2,7 @@ import type { RouteMiddlewares } from "@fluxify/blocks";
 import type { TraceRunPayload } from "@fluxify/common/otlp";
 import type { AssertionResult, CaseCounts, CaseResult } from "../../db/schema";
 import type { ProjectConfigPayload } from "../compiler/artifacts";
+import type { DebugError } from "../requestRouter/debugError";
 import type { AssertionType, SuiteRequest } from "./assertions";
 import type { SuiteHook } from "./hooks";
 
@@ -91,6 +92,8 @@ export type TestResult =
 			/** the route alone, not process start-up */
 			durationMs: number;
 			verdict: { success: boolean; result: AssertionResult[] };
+			/** the route failed: its real error (#671) */
+			debug?: DebugError;
 			/** the suite keeps its status; this only warns (#483) */
 			teardownError?: string;
 	  }

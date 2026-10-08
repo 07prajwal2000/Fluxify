@@ -338,6 +338,7 @@ async function runOneSuite(
 				actualData: response.data,
 				statusCode: response.status,
 				headers: response.headers,
+				debug: response.debug,
 				teardownError: response.teardownError,
 			};
 		} else {

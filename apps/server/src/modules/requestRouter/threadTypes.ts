@@ -19,6 +19,8 @@ export type ExecutionBootstrap = {
 	artifacts: ArtifactEntry[];
 	/** hot-reloadable supervisor policy; false means no heartbeat or tracking */
 	workerTimeoutsEnabled: boolean;
+	/** verifies the admin's debug-call tokens (#671); empty turns debug errors off */
+	debugKey?: string;
 	/** hard request body ceiling in bytes; the child cannot read the env itself */
 	maxRequestBodyBytes: number;
 	/** furthest ahead a Trigger Workflow block may schedule a run, in milliseconds */

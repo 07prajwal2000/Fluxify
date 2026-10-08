@@ -16,7 +16,7 @@ export default function (app: HonoServer) {
 		"/:id/call",
 		describeRoute({
 			description:
-				"Sends one real HTTP request to the route and returns what it answered. Runs the route for real.",
+				"Sends one real HTTP request to the route and returns what it answered. Runs the route for real. With debug, a failed run also returns its real error, which the route's own callers never get.",
 			operationId: "call-route",
 			tags: ["Routes"],
 			responses: {

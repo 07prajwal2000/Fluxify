@@ -35,7 +35,7 @@ One page per thing you can save with the tools.
 Each recipe is a list of steps. Every step is a tool call with its arguments.
 
 - [Route with JWT auth](/agents/recipes/route-jwt-auth): a route that answers 401 unless the request has a valid token.
-- [Debug a failing route with a recording](/agents/recipes/debug-route-with-recording): turn recording on, reproduce, find the block that failed.
+- [Debug and fix a route or workflow](/agents/recipes/debug-and-fix): read the debug error from `call_route`, check the logs, record a run if needed, fix and re-run.
 - [Workflow with a cron trigger](/agents/recipes/workflow-cron-trigger): a background job that runs on a schedule.
 - [Write and run a test suite](/agents/recipes/write-and-run-test-suite): save a suite, run it, read the result, trace a failure.
 - [Use an integration in a canvas](/agents/recipes/use-integration-in-canvas): a database integration with its secret, read from a route.

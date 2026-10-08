@@ -318,7 +318,7 @@ function safeValue(value: unknown): { value: unknown; truncated: boolean } {
  * Blocks wrap driver errors (`dbFailure`), so `String(error)` keeps only the
  * generic wrapper. Walk the `cause` chain so the real reason reaches the trace.
  */
-function errorText(error: unknown): string {
+export function errorText(error: unknown): string {
 	const parts: string[] = [];
 	const seen = new Set<unknown>();
 	let current = error;

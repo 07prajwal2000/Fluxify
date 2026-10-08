@@ -5,6 +5,13 @@ import { ForbiddenError } from "../../../../errors/forbidError";
 import { NotFoundError } from "../../../../errors/notFoundError";
 import { canAccessProject } from "../../../../lib/acl";
 import { getEnv } from "../../../../lib/env";
+import {
+	DEBUG_ERROR_HEADER,
+	DEBUG_TOKEN_HEADER,
+	decodeDebugError,
+	routeDebugKey,
+	signDebugToken,
+} from "../../../../modules/requestRouter/debugError";
 import { getRouteById } from "../get-by-id/repository";
 import { specServerUrl } from "../openapi/service";
 
@@ -13,6 +20,19 @@ export const callBodySchema = z.object({
 	query: z.record(z.string(), z.string()).optional(),
 	headers: z.record(z.string(), z.string()).optional(),
 	body: z.unknown().optional(),
+	debug: z
+		.boolean()
+		.optional()
+		.describe(
+			"When the route fails, also return the real error (block, message, cause, user-code stack). The route's own callers never get it.",
+		),
+});
+
+const debugErrorSchema = z.object({
+	block: z.object({ id: z.string(), type: z.string(), name: z.string().optional() }).optional(),
+	message: z.string(),
+	detail: z.string().optional(),
+	stack: z.string().optional(),
 });
 
 export const callResultSchema = z.object({
@@ -20,6 +40,8 @@ export const callResultSchema = z.object({
 	contentType: z.string().nullable(),
 	body: z.unknown(),
 	error: z.string().optional(),
+	/** with `debug`: why the run failed, when it did */
+	debugError: debugErrorSchema.optional(),
 });
 
 /** Fills `:name` segments from `params`; a missing one is the caller's mistake. */
@@ -66,6 +88,12 @@ export async function callRoute(
 	for (const [k, v] of Object.entries(input.query ?? {})) url.searchParams.set(k, v);
 
 	const headers = new Headers(input.headers);
+	// the caller's own header is never trusted: only a token signed here counts
+	headers.delete(DEBUG_TOKEN_HEADER);
+	const debugKey = input.debug ? routeDebugKey(getEnv("MASTER_ENCRYPTION_KEY")) : "";
+	if (debugKey) {
+		headers.set(DEBUG_TOKEN_HEADER, signDebugToken(debugKey, { projectId: route.projectId!, id }));
+	}
 	let body: string | undefined;
 	if (input.body !== undefined && route.method !== "GET") {
 		body = typeof input.body === "string" ? input.body : JSON.stringify(input.body);
@@ -89,7 +117,8 @@ export async function callRoute(
 				parsed = JSON.parse(text);
 			} catch {}
 		}
-		return { status: res.status, contentType, body: parsed };
+		const debugError = debugKey ? decodeDebugError(res.headers.get(DEBUG_ERROR_HEADER)) : undefined;
+		return { status: res.status, contentType, body: parsed, ...(debugError && { debugError }) };
 	} catch (error) {
 		return {
 			status: null,

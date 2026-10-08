@@ -22,6 +22,7 @@ import { createSelectSchema } from "drizzle-zod";
 import z from "zod";
 import { CUSTOM_BLOCK_USAGES } from "../lib/customBlockUsage";
 import type { ClaimMetadata } from "../modules/orchestrator/claimMetadata";
+import type { DebugError } from "../modules/requestRouter/debugError";
 import { systemUsers } from "./auth-schema";
 import { jsonb } from "./jsonbColumn";
 
@@ -658,6 +659,8 @@ export type SuiteRunResult = {
 	statusCode?: number;
 	headers?: Record<string, string>;
 	error?: string;
+	/** a failed request's real error, for the test results (#671) */
+	debug?: DebugError;
 	/** teardown failed; the suite keeps its status (#483) */
 	teardownError?: string;
 	/**
@@ -682,6 +685,8 @@ export type CaseResult = {
 	/** a workflow's `{ successful, output, error }` */
 	output?: unknown;
 	error?: string;
+	/** a failed run's real error: block, cause, user-code stack (#671) */
+	debug?: DebugError;
 };
 
 /** jsonb payload on the parent run. */

@@ -204,6 +204,46 @@ describe("MCP runs", () => {
 		expect(missing.text).toBe('Invalid input: Missing path param "who"');
 	});
 
+	it("call_route shows the block and real error of a failing route (#671)", async () => {
+		const name = uniq("dbg-");
+		const { id } = await call("save_route", {
+			projectId: stack.projectId,
+			name,
+			path: `/${name}`,
+			method: "GET",
+			active: true,
+		});
+		const canvas = await call("get_canvas", { target: { kind: "route", id } });
+		const entry = canvas.blocks.find((b: any) => b.type === "entrypoint").id;
+		await call("edit_canvas", {
+			target: { kind: "route", id },
+			version: canvas.version,
+			ops: [
+				{
+					op: "add_block",
+					ref: "js",
+					type: "jsRunner",
+					data: { value: "throw new Error('boom', { cause: new Error('the real reason') });" },
+					connect_from: { from: entry },
+				},
+			],
+		});
+		// the save compiles and reaches the worker a moment later
+		let result: any;
+		for (let i = 0; i < 80; i++) {
+			result = await call("call_route", { routeId: id });
+			if (result.error?.message === "boom") break;
+			await Bun.sleep(250);
+		}
+		expect(result.status).toBe(500);
+		expect(result.error).toMatchObject({
+			block: { type: "jsrunner" },
+			message: "boom",
+			detail: "Error: the real reason",
+		});
+		expect(result.error.stack).toContain("fluxify-graph");
+	});
+
 	it("records a route call and reads its spans back", async () => {
 		const name = uniq("rec-");
 		const { id } = await call("save_route", {
