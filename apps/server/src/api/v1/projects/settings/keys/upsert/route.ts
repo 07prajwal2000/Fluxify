@@ -5,6 +5,7 @@ import zodErrorCallbackParser from "../../../../../../middlewares/zodErrorCallba
 import type { HonoServer } from "../../../../../../types";
 import { requireProjectAccess } from "../../../../../auth/middleware";
 import { requestBodySchema, responseSchema } from "./dto";
+import { assertCanWriteKey } from "./guard";
 import handleRequest from "./service";
 
 const openapiRouteOptions: DescribeRouteOptions = {
@@ -22,6 +23,10 @@ const openapiRouteOptions: DescribeRouteOptions = {
 				"application/json": { schema: resolver(validationErrorSchema) },
 			},
 		},
+		403: {
+			description: "The key needs the project admin role",
+			content: { "application/json": { schema: resolver(errorSchema) } },
+		},
 		404: {
 			description: "Project not found",
 			content: { "application/json": { schema: resolver(errorSchema) } },
@@ -38,6 +43,7 @@ export default function (app: HonoServer) {
 		async (c) => {
 			const id = c.req.param("id")!;
 			const body = c.req.valid("json");
+			assertCanWriteKey(c.get("user"), c.get("acl"), id, body.key);
 			const result = await handleRequest(id, body);
 			return c.json(result);
 		},

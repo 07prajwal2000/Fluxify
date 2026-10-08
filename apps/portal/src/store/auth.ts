@@ -65,3 +65,11 @@ export function useCanEditProject(projectId: string) {
 		return Boolean(state.userData.isSystemAdmin || (role && canAccess(role, "creator")));
 	});
 }
+
+/** Project admin on this project, the role the server requires for agent limits. */
+export function useIsProjectAdmin(projectId: string) {
+	return authStore(({ state }) => {
+		const role = state.acl[projectId] ?? state.acl["*"];
+		return Boolean(state.userData.isSystemAdmin || (role && canAccess(role, "project_admin")));
+	});
+}

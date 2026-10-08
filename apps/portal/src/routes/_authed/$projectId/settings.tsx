@@ -57,7 +57,7 @@ export const Route = createFileRoute("/_authed/$projectId/settings")({
 const SETTINGS_TABS = [
 	{ id: "general", label: "General", icon: TbAdjustments },
 	{ id: "telemetry", label: "Telemetry", icon: TbActivityHeartbeat },
-	{ id: "ai-connections", label: "AI Connections", icon: TbCpu },
+	{ id: "ai-connections", label: "AI configuration", icon: TbCpu },
 	// Absent on a deployment with no orchestrator (Kit), where there is one node
 	// by construction and nothing to claim.
 	{ id: "nodes", label: "Nodes", icon: TbTopologyStar3, flag: "orchestration" },
