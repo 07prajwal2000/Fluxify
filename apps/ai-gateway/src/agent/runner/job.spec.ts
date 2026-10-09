@@ -89,6 +89,11 @@ describe("executeRun", () => {
 			"completed",
 		);
 		expect(w.m.ran).toEqual(["save_route"]);
+		// the approved call's result goes out as its own tool-end, ahead of the model's next tokens
+		const evs = w.events();
+		const end = evs.findIndex((e) => e.type === "tool-end");
+		expect(evs[end]).toMatchObject({ toolName: "save_route", status: "done", seq: 2 });
+		expect(end).toBeLessThan(evs.findIndex((e) => e.type === "text"));
 		// rows: user 0, assistant 1, tool 2, final assistant 3
 		const text = w.events().filter((e) => e.type === "text");
 		expect(text).toEqual([{ type: "text", seq: 3, text: "done" }]);
@@ -106,6 +111,11 @@ describe("executeRun", () => {
 		expect(status).toBe("completed");
 		expect(w.m.ran).toEqual([]);
 		expect(JSON.stringify(w.rows[2].content)).toContain("not now");
+		expect(w.events().find((e) => e.type === "tool-end")).toMatchObject({
+			toolName: "save_route",
+			status: "rejected",
+			seq: 2,
+		});
 	});
 
 	it("stop: an aborted run is interrupted and leaves no call waiting", async () => {

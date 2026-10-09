@@ -4,7 +4,21 @@ import { convertArrayToReadableStream, MockLanguageModelV4 } from "ai/test";
 import type { AdminFetch } from "../mcp/adminApi";
 import { approveAll, assertEndsOnUserOrTool, planTools, runAgent } from "./agent";
 import { withToolTimeouts } from "./timeouts";
-import { ADVANCED, CORE, agentTools } from "./tools";
+import { ADVANCED, CORE, agentTools, titleOf } from "./tools";
+
+describe("tool titles", () => {
+	it("every tool the agent or an MCP client can call has a human title", () => {
+		const { tools } = agentTools(fakeFetch().fetcher, {}, P);
+		for (const [name, t] of Object.entries(tools)) {
+			expect(t.title, name).toBeTruthy();
+			expect(titleOf(name), name).toBe(t.title as string);
+			expect(t.title, name).not.toContain("_");
+		}
+		expect(titleOf("save_route")).toBe("Save route");
+		expect(titleOf("load_tools")).toBe("Load tools");
+		expect(titleOf("not_a_tool")).toBe("Not a tool");
+	});
+});
 
 const limits = { idleMs: 1000, callMs: 5000, toolMs: 1000, retries: 0 };
 const P = "019a0000-0000-7000-8000-000000000000";

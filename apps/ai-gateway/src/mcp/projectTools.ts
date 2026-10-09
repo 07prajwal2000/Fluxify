@@ -90,6 +90,7 @@ const runResult = (run: any, suiteId?: string) => ({
 export const projectTools: McpTool[] = [
 	{
 		name: "run_test_suite",
+		title: "Run test suite",
 		description:
 			"Run one test suite for real, as the portal's Run button does: setup hooks, requests and workflow runs all happen. Waits about 10 seconds for the result; if the run is not done by then it returns the run id, and get_test_runs reads the result later.",
 		role: "creator",
@@ -112,6 +113,7 @@ export const projectTools: McpTool[] = [
 	},
 	{
 		name: "get_test_runs",
+		title: "Get test runs",
 		description:
 			"A test suite's recent runs, newest first, with each case's pass/fail and error (for a failed run: the block, message and real cause). Each case's traceRunId is its recorded run: read it with get_recording (kind and targetId are the suite's route or workflow, from get_test_suite).",
 		role: "creator",
@@ -136,6 +138,7 @@ export const projectTools: McpTool[] = [
 	},
 	{
 		name: "list_recordings",
+		title: "List recordings",
 		description: `A route's or workflow's recorded runs, newest first: outcome, status code, timing and span count. ${RECORDING_NOTE} Read one run with get_recording.`,
 		role: "creator",
 		input: {
@@ -178,6 +181,7 @@ export const projectTools: McpTool[] = [
 	},
 	{
 		name: "get_recording",
+		title: "Get recording",
 		description: `One recorded run: its fields, test info (metadata), the async runs it forked (childRuns) and its spans in order, one per block that ran, with outcome, branch, error and truncated / mocked flags. Spans leave out input and output: pass spanSeq for one span in full, or full: true for everything (a run can be 256 KB). ${RECORDING_NOTE}`,
 		role: "creator",
 		input: {
@@ -204,6 +208,7 @@ export const projectTools: McpTool[] = [
 	},
 	{
 		name: "add_member",
+		title: "Add member",
 		description:
 			"Add a user to a project with a role: viewer reads, creator builds, project_admin also manages members, packages and settings. The user must already have a Fluxify account.",
 		role: "project_admin",
@@ -230,6 +235,7 @@ export const projectTools: McpTool[] = [
 	},
 	{
 		name: "update_member_role",
+		title: "Update member role",
 		description: "Change a project member's role.",
 		role: "project_admin",
 		annotations: { ...SAVE, idempotentHint: true },
@@ -244,6 +250,7 @@ export const projectTools: McpTool[] = [
 	},
 	{
 		name: "remove_member",
+		title: "Remove member",
 		description: "Remove a member from a project. They lose all access to it at once.",
 		role: "project_admin",
 		annotations: REMOVE,
@@ -255,6 +262,7 @@ export const projectTools: McpTool[] = [
 	},
 	{
 		name: "list_packages",
+		title: "List packages",
 		description: "The npm packages a project's code can import, with their pinned versions.",
 		role: "creator",
 		input: { projectId },
@@ -263,6 +271,7 @@ export const projectTools: McpTool[] = [
 	},
 	{
 		name: "install_package",
+		title: "Install package",
 		description:
 			"Install npm packages for a project's code, from the npm registry. Workers install them in the background. trust lets their install scripts run: only for packages you trust.",
 		role: "project_admin",
@@ -273,6 +282,7 @@ export const projectTools: McpTool[] = [
 	},
 	{
 		name: "remove_package",
+		title: "Remove package",
 		description: "Uninstall npm packages from a project. Code that imports them will fail.",
 		role: "project_admin",
 		annotations: REMOVE,
@@ -286,6 +296,7 @@ export const projectTools: McpTool[] = [
 	},
 	{
 		name: "update_project",
+		title: "Update project",
 		description:
 			"Change a project's name, description or whether it is hidden. Only the fields given change.",
 		role: "project_admin",

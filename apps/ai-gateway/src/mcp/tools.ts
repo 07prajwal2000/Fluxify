@@ -12,6 +12,8 @@ import type { AdminApi, ToolRole } from "./adminApi";
  */
 export type McpTool = {
 	name: string;
+	/** Human name for UIs and MCP clients, e.g. "Save route". */
+	title: string;
 	description: string;
 	role: ToolRole;
 	input: z.ZodRawShape;
@@ -87,6 +89,7 @@ const MAX_BODY_CHARS = 2000;
 export const readTools: McpTool[] = [
 	{
 		name: "get_instance_info",
+		title: "Get instance info",
 		description:
 			"Fluxify edition, licence status, whether orchestration is on, and the Bun version.",
 		role: "viewer",
@@ -103,6 +106,7 @@ export const readTools: McpTool[] = [
 	},
 	{
 		name: "list_projects",
+		title: "List projects",
 		description: "Projects you are a member of. Start here: most tools need a projectId.",
 		role: "viewer",
 		input: { page },
@@ -115,6 +119,7 @@ export const readTools: McpTool[] = [
 	},
 	{
 		name: "get_project",
+		title: "Get project",
 		description: "One project's name, slug and description.",
 		role: "viewer",
 		input: { projectId },
@@ -123,6 +128,7 @@ export const readTools: McpTool[] = [
 	},
 	{
 		name: "get_system_logs",
+		title: "Get system logs",
 		description:
 			"Platform logs for a project, newest first: compile results and other errors per route, workflow or trigger.",
 		role: "viewer",
@@ -156,6 +162,7 @@ export const readTools: McpTool[] = [
 	},
 	{
 		name: "list_routes",
+		title: "List routes",
 		description: "A project's HTTP routes: method, path and whether each is active.",
 		role: "viewer",
 		input: { projectId, page, search },
@@ -176,6 +183,7 @@ export const readTools: McpTool[] = [
 	},
 	{
 		name: "get_route",
+		title: "Get route",
 		description:
 			"One route's settings, its body, query and params schemas (what call_route must send) and its before/after middlewares in run order. Its canvas (blocks and edges) is not included.",
 		role: "viewer",
@@ -208,6 +216,7 @@ export const readTools: McpTool[] = [
 	},
 	{
 		name: "list_workflows",
+		title: "List workflows",
 		description: "A project's workflows: background jobs that triggers start.",
 		role: "viewer",
 		input: { projectId, page, search },
@@ -224,6 +233,7 @@ export const readTools: McpTool[] = [
 	},
 	{
 		name: "get_workflow",
+		title: "Get workflow",
 		description: "One workflow's settings. Its canvas is not included.",
 		role: "viewer",
 		input: { workflowId: z.string().describe("Workflow id, from list_workflows") },
@@ -240,6 +250,7 @@ export const readTools: McpTool[] = [
 	},
 	{
 		name: "list_triggers",
+		title: "List triggers",
 		description: "A project's triggers (schedules, queues, …) and the workflow each one starts.",
 		role: "viewer",
 		input: {
@@ -262,6 +273,7 @@ export const readTools: McpTool[] = [
 	},
 	{
 		name: "get_trigger",
+		title: "Get trigger",
 		description: "One trigger's full settings: schedule or source, batching, retries.",
 		role: "viewer",
 		input: { triggerId: z.string().describe("Trigger id, from list_triggers") },
@@ -277,6 +289,7 @@ export const readTools: McpTool[] = [
 	},
 	{
 		name: "list_custom_blocks",
+		title: "List custom blocks",
 		description:
 			"A project's custom blocks: reusable code blocks, middleware links and test hooks.",
 		role: "viewer",
@@ -288,6 +301,7 @@ export const readTools: McpTool[] = [
 	},
 	{
 		name: "get_custom_block",
+		title: "Get custom block",
 		description: "One custom block's inputs and docs. Its code is not included.",
 		role: "viewer",
 		input: { customBlockId: z.string().describe("Custom block id, from list_custom_blocks") },
@@ -304,6 +318,7 @@ export const readTools: McpTool[] = [
 	},
 	{
 		name: "list_middlewares",
+		title: "List middlewares",
 		description:
 			"A project's middlewares: named chains of custom blocks run before or after routes.",
 		role: "viewer",
@@ -316,6 +331,7 @@ export const readTools: McpTool[] = [
 	},
 	{
 		name: "get_middleware",
+		title: "Get middleware",
 		description: "One middleware and its custom blocks in run order.",
 		role: "viewer",
 		input: { middlewareId: z.string().describe("Middleware id, from list_middlewares") },
@@ -329,6 +345,7 @@ export const readTools: McpTool[] = [
 	},
 	{
 		name: "list_test_suites",
+		title: "List test suites",
 		description:
 			"Test suites. Pass projectId for every suite in a project (with its target's name), or targetType + targetId for the suites of one route or workflow.",
 		role: "viewer",
@@ -349,6 +366,7 @@ export const readTools: McpTool[] = [
 	},
 	{
 		name: "get_test_suite",
+		title: "Get test suite",
 		description: "One test suite: its request or input, assertions and hooks.",
 		role: "viewer",
 		input: { testSuiteId: z.string().describe("Test suite id, from list_test_suites") },
@@ -365,6 +383,7 @@ export const readTools: McpTool[] = [
 	},
 	{
 		name: "list_app_config",
+		title: "List app config",
 		description:
 			"A project's app config keys (settings and secrets blocks read). Values are not listed.",
 		role: "creator",
@@ -381,6 +400,7 @@ export const readTools: McpTool[] = [
 	},
 	{
 		name: "get_app_config",
+		title: "Get app config",
 		description: "One app config entry with its value. Encrypted values come back masked.",
 		role: "creator",
 		input: {
@@ -400,6 +420,7 @@ export const readTools: McpTool[] = [
 	},
 	{
 		name: "list_integrations",
+		title: "List integrations",
 		description: "A project's integrations: databases, KV stores, AI providers and queues.",
 		role: "creator",
 		input: { projectId },
@@ -407,6 +428,7 @@ export const readTools: McpTool[] = [
 	},
 	{
 		name: "get_integration",
+		title: "Get integration",
 		description: "One integration's settings.",
 		role: "creator",
 		input: {
@@ -417,6 +439,7 @@ export const readTools: McpTool[] = [
 	},
 	{
 		name: "list_members",
+		title: "List members",
 		description: "A project's members and their roles.",
 		role: "creator",
 		input: { projectId, page },
@@ -431,6 +454,7 @@ export const readTools: McpTool[] = [
 	},
 	{
 		name: "get_block_schemas",
+		title: "Get block schemas",
 		description:
 			"Built-in blocks for canvases. No input: the list of block types. With blockTypes: their exact data contracts, output handles, an example of valid data, and what each outputs (the next block's `input`). For a custom block's inputs use get_custom_block. Block text inputs are literal unless they start with `js:` followed by code that returns the value (e.g. `js: return input.id`); never use `{{ }}`.",
 		role: "viewer",

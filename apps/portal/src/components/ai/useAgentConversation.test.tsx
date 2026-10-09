@@ -121,15 +121,63 @@ test("an active run streams from the highest saved seq into an in-progress messa
 			seq: 1,
 			toolCallId: "t1",
 			toolName: "get_route",
+			toolTitle: "Get route",
 			input: { id: 1 },
 		});
-		es.emit({ type: "tool-end", seq: 2, toolCallId: "t1", toolName: "get_route", output: "ok" });
+		es.emit({
+			type: "tool-end",
+			seq: 2,
+			toolCallId: "t1",
+			toolName: "get_route",
+			status: "done",
+			output: "ok",
+		});
 	});
 	expect(result.current.running).toBe(true);
 	const live = result.current.messages[1];
 	expect(live.parts.map((p) => p.type)).toEqual(["reasoning", "text", "tool"]);
 	expect(live.parts[1]).toEqual({ type: "text", text: "Hello" });
-	expect(live.parts[2]).toMatchObject({ name: "get_route", output: "ok" });
+	expect(live.parts[2]).toMatchObject({
+		name: "get_route",
+		title: "Get route",
+		status: "done",
+		output: "ok",
+	});
+});
+
+test("a tool-end for a call saved before the run (approved or rejected) lands on its saved row", async () => {
+	get.mockResolvedValue(
+		detail(
+			[
+				user(0, "build it"),
+				{
+					seq: 1,
+					role: "assistant",
+					runId: "r1",
+					content: {
+						role: "assistant",
+						content: [{ type: "tool-call", toolCallId: "t1", toolName: "save_route", input: {} }],
+					},
+				},
+			],
+			"executing",
+		),
+	);
+	const { result } = setup();
+	const es = await stream();
+	const call = () => result.current.messages[1].parts[0];
+	expect(call()).toMatchObject({ name: "save_route" });
+	expect(call()).not.toHaveProperty("status");
+	act(() =>
+		es.emit({
+			type: "tool-end",
+			seq: 2,
+			toolCallId: "t1",
+			toolName: "save_route",
+			status: "rejected",
+		}),
+	);
+	expect(call()).toMatchObject({ status: "rejected" });
 });
 
 test("done reloads the saved rows and drops the live copy by seq", async () => {

@@ -136,12 +136,22 @@ const prompt = () => q().getByLabelText("prompt") as HTMLTextAreaElement;
 test("a waiting change shows the tool and its input above the editor, with the new placeholder", async () => {
 	open(waiting());
 	const region = await bar();
-	expect(region.textContent).toContain("save_route");
+	expect(region.textContent).toContain("Save route");
 	expect(region.textContent).toContain("GET /users");
 	expect(region.textContent).not.toContain("Deletes");
 	expect(prompt().placeholder).toBe("Type a follow-up or change the plan…");
 	// the old row text is gone
 	expect(document.body.textContent).not.toContain("Waiting for approval");
+});
+
+test("Approve and its Auto menu are one button group; Reject stays outside it", async () => {
+	open(waiting());
+	const region = await bar();
+	const group = q().getByRole("button", { name: "Approve" }).closest("[role=group]") as HTMLElement;
+	expect(group).not.toBeNull();
+	expect(group.contains(q().getByRole("button", { name: "More approve options" }))).toBe(true);
+	expect(group.contains(q().getByRole("button", { name: "Reject" }))).toBe(false);
+	expect(region.contains(group)).toBe(true);
 });
 
 test("a delete is marked as one", async () => {
@@ -276,4 +286,68 @@ test("a first message from the new-chat page goes out with the mode and effort p
 	queueMessage("c1", "build it", { mode: "plan", effort: "low" });
 	open(detail([], "completed"));
 	await until(() => expect(send).toHaveBeenCalledWith("p1", "c1", "build it", "plan", "low"));
+});
+
+const result = (seq: number, id: string, output: unknown): Row => ({
+	seq,
+	role: "tool",
+	runId: "r1",
+	content: {
+		role: "tool",
+		content: [{ type: "tool-result", toolCallId: id, toolName: "x", output }],
+	},
+});
+const finished = (output: unknown) =>
+	detail(
+		[user(0, "go"), call(1, "call_route", { routeId: "r" }), result(2, "t1", output)],
+		"completed",
+	);
+
+test("tool rows show the title; a rejected, failed or 4xx call has its own icon, never a spinner", async () => {
+	open(finished({ type: "execution-denied", reason: "no" }));
+	await until(() => q().getByLabelText("Rejected"));
+	expect(document.body.textContent).toContain("Call route");
+	expect(document.body.textContent).not.toContain("call_route");
+	cleanup();
+	open(finished({ type: "error-text", value: "boom" }));
+	await until(() => q().getByLabelText("Failed"));
+	cleanup();
+	open(finished({ type: "json", value: { status: 500, body: "x" } }));
+	await until(() => q().getByLabelText("Failed"));
+	cleanup();
+	open(finished({ type: "json", value: { status: 200 } }));
+	await until(() => q().getByLabelText("Done"));
+});
+
+test("Reject marks the waiting row rejected at once, before the run answers", async () => {
+	approve.mockReturnValue(new Promise(() => {}));
+	open(waiting());
+	await bar();
+	expect(q().queryByLabelText("Rejected")).toBeNull();
+	fireEvent.click(q().getByRole("button", { name: "Reject" }));
+	await until(() => q().getByLabelText("Rejected"));
+});
+
+test("an open thinking block has a Collapse at the bottom that closes it", async () => {
+	open(
+		detail(
+			[
+				user(0, "hi"),
+				{
+					seq: 1,
+					role: "assistant",
+					runId: "r1",
+					content: { role: "assistant", content: [{ type: "reasoning", text: "long thought" }] },
+				},
+			],
+			"completed",
+		),
+	);
+	const thought = (await until(() => q().getByText("Thought"))).closest(
+		"details",
+	) as HTMLDetailsElement;
+	fireEvent.click(q().getByText("Thought"));
+	await until(() => expect(thought.open).toBe(true));
+	fireEvent.click(q().getByRole("button", { name: "Collapse" }));
+	await until(() => expect(thought.open).toBe(false));
 });

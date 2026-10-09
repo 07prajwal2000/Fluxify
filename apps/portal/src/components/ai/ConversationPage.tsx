@@ -21,7 +21,12 @@ const isThinking = (messages: ChatMessage[]) => {
 	const last = messages.at(-1);
 	const tail = last?.parts.at(-1);
 	if (last?.role === "assistant" && tail?.type === "text" && tail.text) return false;
-	return !(tail?.type === "tool" && tail.output === undefined && tail.error === undefined);
+	return !(
+		tail?.type === "tool" &&
+		tail.output === undefined &&
+		tail.error === undefined &&
+		tail.status === undefined
+	);
 };
 
 export function ConversationPage() {
@@ -33,6 +38,8 @@ export function ConversationPage() {
 	const bottomRef = useRef<HTMLDivElement>(null);
 	const { isAtBottom, scrollToBottom } = useScrollToBottom(bottomRef, 250);
 	const conversation = chat.conversation;
+	/** Set by sending: follow the stream until the user scrolls away, even when the new message pushed the bottom out of reach. */
+	const follow = useRef(false);
 
 	usePageTitle(
 		conversation?.title ? `${conversation.title} | Fluxify AI` : "AI Conversation | Fluxify AI",
@@ -40,10 +47,11 @@ export function ConversationPage() {
 
 	// biome-ignore lint/correctness/useExhaustiveDependencies: follow new output while at the bottom
 	useEffect(() => {
-		if (isAtBottom) scrollToBottom("auto");
+		if (isAtBottom || follow.current) scrollToBottom("auto");
 	}, [chat.messages, chat.running]);
 
 	const submit = (text: string) => {
+		follow.current = true;
 		setQuery("");
 		chat.submit(text).catch((err) => {
 			setQuery(text);
@@ -57,7 +65,15 @@ export function ConversationPage() {
 				<ChatTitleEditor projectId={projectId} conversation={conversation} />
 			</div>
 
-			<div className="flex-1 overflow-y-auto px-4 pt-16 pb-8">
+			<div
+				className="flex-1 overflow-y-auto px-4 pt-16 pb-8"
+				onWheel={() => {
+					follow.current = false;
+				}}
+				onTouchMove={() => {
+					follow.current = false;
+				}}
+			>
 				<div className="mx-auto flex w-full max-w-3xl flex-col gap-6">
 					{chat.isLoading && (
 						<div className="flex animate-pulse flex-col gap-4 opacity-60">
@@ -88,8 +104,14 @@ export function ConversationPage() {
 							{chat.approval && (
 								<ApprovalBar
 									request={chat.approval}
-									onApprove={chat.approve}
-									onReject={chat.reject}
+									onApprove={(m) => {
+										follow.current = true;
+										return chat.approve(m);
+									}}
+									onReject={() => {
+										follow.current = true;
+										return chat.reject();
+									}}
 								/>
 							)}
 							<PromptEditor

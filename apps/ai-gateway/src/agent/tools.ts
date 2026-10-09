@@ -80,6 +80,19 @@ export const isRead = (name: string) => {
 	return !!t && t.annotations?.readOnlyHint !== false;
 };
 
+const AGENT_TITLES: Record<string, string> = {
+	list: "List resources",
+	get: "Get resource",
+	list_advanced_tools: "List advanced tools",
+	load_tools: "Load tools",
+};
+
+/** The human name of a tool, for chat rows and the approval bar. */
+export const titleOf = (name: string) =>
+	AGENT_TITLES[name] ??
+	ALL.find((t) => t.name === name)?.title ??
+	name.replace(/_/g, " ").replace(/^./, (c) => c.toUpperCase());
+
 /** Deletes ask in every mode and are never approved for the whole session. */
 export const isDelete = (name: string) => /^(delete|remove)_/.test(name);
 
@@ -121,6 +134,7 @@ export function agentTools(
 	};
 	const wrap = (t: McpTool): Tool =>
 		tool({
+			title: t.title,
 			description: t.description,
 			inputSchema: z.object(lenient(t.input)),
 			execute: (args, { abortSignal }) =>
@@ -131,6 +145,7 @@ export function agentTools(
 	);
 
 	tools.list = tool({
+		title: AGENT_TITLES.list,
 		description: `List several resource types of this project in one call: ${Object.keys(LIST_TYPES).join(", ")}.`,
 		inputSchema: z.object({
 			types: z.array(z.enum(Object.keys(LIST_TYPES) as [keyof typeof LIST_TYPES])).min(1),
@@ -148,6 +163,7 @@ export function agentTools(
 			),
 	});
 	tools.get = tool({
+		title: AGENT_TITLES.get,
 		description: `Read one resource by id: ${Object.keys(GET_TYPES).join(", ")}. Canvases come from get_canvas.`,
 		inputSchema: z.object({
 			type: z.enum(Object.keys(GET_TYPES) as [keyof typeof GET_TYPES]),
@@ -159,12 +175,14 @@ export function agentTools(
 		},
 	});
 	tools.list_advanced_tools = tool({
+		title: AGENT_TITLES.list_advanced_tools,
 		description:
 			"More tools (deletes, members, packages, integrations, recordings list, …) with one line each. Load them with load_tools.",
 		inputSchema: z.object({}),
 		execute: async () => ADVANCED.map((t) => `${t.name}: ${t.description.split(". ")[0]}`),
 	});
 	tools.load_tools = tool({
+		title: AGENT_TITLES.load_tools,
 		description:
 			"Make advanced tools callable from your next step. Names from list_advanced_tools.",
 		inputSchema: z.object({ names: z.array(z.string()).min(1) }),

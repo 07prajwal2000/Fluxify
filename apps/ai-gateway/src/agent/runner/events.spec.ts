@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import type { AgentStore } from "../store";
-import { type AgentEvent, batcher, seqTracker, toEvent, unseen } from "./events";
+import { type AgentEvent, batcher, decidedEvent, seqTracker, toEvent, unseen } from "./events";
 
 describe("batcher", () => {
 	it("sends one batch per window, merging deltas of the same message", async () => {
@@ -62,6 +62,7 @@ describe("seq tagging", () => {
 		expect(ev({ type: "tool-call", toolCallId: "a", toolName: "get_route", input: {} })).toMatchObject({
 			type: "tool-start",
 			seq: 8,
+			toolTitle: "Get route",
 		});
 		expect(
 			ev({ type: "tool-result", toolCallId: "a", toolName: "get_route", output: "x".repeat(5000) }),
@@ -76,12 +77,62 @@ describe("seq tagging", () => {
 			seq: 8,
 			toolCallId: "b",
 			toolName: "delete_route",
+			toolTitle: "Delete route",
 			input: { id: 1 },
 			isDelete: true,
 		});
 		expect(ev({ type: "reasoning-delta", text: "" })).toBeUndefined();
 		await s.appendSummary("c", "r", { role: "user", content: "s" }, 3);
 		expect(t.next).toBe(10);
+	});
+});
+
+describe("tool-end status", () => {
+	const t = { next: 4, step: 4 };
+	const ev = (p: object) => toEvent(p as never, t);
+
+	it("is done for a result, error for a throw or a failed result, rejected for a denial", () => {
+		const base = { toolCallId: "a", toolName: "call_route" };
+		expect(ev({ type: "tool-result", ...base, output: { status: 200 } })).toMatchObject({ status: "done" });
+		expect(ev({ type: "tool-result", ...base, output: { status: 500, body: "x" } })).toMatchObject({
+			status: "error",
+		});
+		expect(ev({ type: "tool-result", ...base, output: { status: 200, error: { message: "m" } } })).toMatchObject({
+			status: "error",
+		});
+		expect(ev({ type: "tool-error", ...base, error: new Error("boom") })).toMatchObject({
+			status: "error",
+			error: "boom",
+		});
+		expect(ev({ type: "tool-output-denied", ...base })).toEqual({
+			type: "tool-end",
+			seq: 5,
+			toolCallId: "a",
+			toolName: "call_route",
+			status: "rejected",
+		});
+	});
+
+	it("an approved or rejected call decided before the stream ends at once, at its saved seq", () => {
+		const r = { type: "tool-result", toolCallId: "a", toolName: "save_route" } as const;
+		expect(decidedEvent({ ...r, output: { type: "execution-denied", reason: "no" } }, 6)).toEqual({
+			type: "tool-end",
+			seq: 6,
+			toolCallId: "a",
+			toolName: "save_route",
+			status: "rejected",
+		});
+		expect(decidedEvent({ ...r, output: { type: "json", value: { id: 1 } } }, 6)).toMatchObject({
+			status: "done",
+			output: { id: 1 },
+		});
+		expect(decidedEvent({ ...r, output: { type: "error-text", value: "bad" } }, 6)).toMatchObject({
+			status: "error",
+			error: "bad",
+		});
+		expect(decidedEvent({ ...r, output: { type: "json", value: { status: 404 } } }, 6)).toMatchObject({
+			status: "error",
+		});
 	});
 });
 

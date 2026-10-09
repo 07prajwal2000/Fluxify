@@ -1,4 +1,4 @@
-import { Button, Chip, Dropdown, Label } from "@fluxify/components";
+import { Button, ButtonGroup, Chip, Dropdown, Label } from "@fluxify/components";
 import { useState } from "react";
 import { TbChevronDown, TbClipboardCheck, TbClock, TbTrash } from "react-icons/tb";
 import { showErrorNotification } from "@/lib/errorNotifier";
@@ -46,7 +46,7 @@ export function ApprovalBar({ request, onApprove, onReject }: Props) {
 				) : (
 					<>
 						<span className="flex items-center gap-2 text-sm text-foreground">
-							<span className="font-mono">{request.name}</span>
+							<span className="font-medium">{request.title}</span>
 							{del && (
 								<Chip size="sm" color="danger">
 									Deletes
@@ -63,34 +63,22 @@ export function ApprovalBar({ request, onApprove, onReject }: Props) {
 				<Button size="sm" variant="ghost" isDisabled={busy} onPress={() => answer(onReject)}>
 					Reject
 				</Button>
-				<Button
-					size="sm"
-					variant="primary"
-					className="rounded-r-none"
-					isDisabled={busy}
-					onPress={() => answer(() => onApprove("manual"))}
-				>
-					Approve
-				</Button>
-				<Dropdown>
-					<Button
-						isIconOnly
-						size="sm"
-						variant="primary"
-						className="-ml-1 rounded-l-none border-l border-accent-foreground/20"
-						aria-label="More approve options"
-						isDisabled={busy}
-					>
-						<TbChevronDown size={14} />
-					</Button>
-					<Dropdown.Popover>
-						<Dropdown.Menu onAction={() => answer(() => onApprove("auto"))}>
-							<Dropdown.Item id="auto" textValue="Approve with Auto">
-								<Label>Approve with Auto</Label>
-							</Dropdown.Item>
-						</Dropdown.Menu>
-					</Dropdown.Popover>
-				</Dropdown>
+				<ButtonGroup size="sm" variant="primary" isDisabled={busy}>
+					<Button onPress={() => answer(() => onApprove("manual"))}>Approve</Button>
+					<Dropdown>
+						<Button isIconOnly aria-label="More approve options">
+							<ButtonGroup.Separator />
+							<TbChevronDown size={14} />
+						</Button>
+						<Dropdown.Popover>
+							<Dropdown.Menu onAction={() => answer(() => onApprove("auto"))}>
+								<Dropdown.Item id="auto" textValue="Approve with Auto">
+									<Label>Approve with Auto</Label>
+								</Dropdown.Item>
+							</Dropdown.Menu>
+						</Dropdown.Popover>
+					</Dropdown>
+				</ButtonGroup>
 			</div>
 		</section>
 	);

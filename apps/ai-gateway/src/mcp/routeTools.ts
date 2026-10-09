@@ -70,6 +70,7 @@ export function truncate(body: unknown) {
 export const routeTools: McpTool[] = [
 	{
 		name: "save_route",
+		title: "Save route",
 		description: `Create or update an HTTP route's settings. To create pass projectId, name, path ('/users/:id') and method. A new route starts INACTIVE: pass active: true, or call_route and real callers get 404. It starts with a canvas that answers 200. On update pass routeId and only what changes. ${SCHEMA_HINT} middlewares attaches middlewares (ids from list_middlewares): before runs before the canvas, after runs after it, each list in run order. Build the route's logic with get_canvas and edit_canvas.`,
 		role: "creator",
 		annotations: SAVE,
@@ -95,6 +96,7 @@ export const routeTools: McpTool[] = [
 	},
 	{
 		name: "delete_route",
+		title: "Delete route",
 		description: "Delete a route and its canvas. Calls to its path start returning 404.",
 		role: "creator",
 		annotations: DELETE,
@@ -106,6 +108,7 @@ export const routeTools: McpTool[] = [
 	},
 	{
 		name: "save_workflow",
+		title: "Save workflow",
 		description:
 			"Create or update a workflow's settings (a background job started by triggers). To create pass projectId and name. On update pass workflowId and only what changes. Build its logic with get_canvas and edit_canvas.",
 		role: "creator",
@@ -124,6 +127,7 @@ export const routeTools: McpTool[] = [
 	},
 	{
 		name: "delete_workflow",
+		title: "Delete workflow",
 		description: "Delete a workflow and its canvas. Triggers that started it start nothing.",
 		role: "creator",
 		annotations: DELETE,
@@ -135,6 +139,7 @@ export const routeTools: McpTool[] = [
 	},
 	{
 		name: "call_route",
+		title: "Call route",
 		description: `Send a REAL HTTP request to a route and get back its status and body. This runs the route for real: it can create, change or delete data and call other services. Read get_route first for the path params and the body/query schemas. The route must be active. Bodies over ${MAX_RESPONSE_CHARS} characters are cut. When the route fails, error has the real cause its callers never see: { block: { id, type, name }, message, detail (e.g. the SQL error), stack (your own code only) }. To debug and fix: read_doc ${DEBUG_RECIPE}.`,
 		role: "creator",
 		annotations: RUN,
@@ -158,6 +163,7 @@ export const routeTools: McpTool[] = [
 	},
 	{
 		name: "get_integration_schema",
+		title: "Get integration schema",
 		description:
 			"The config fields one integration variant needs, with types, which are required (no '?') and blank defaults. Call it before save_integration or test_integration_connection.",
 		role: "viewer",

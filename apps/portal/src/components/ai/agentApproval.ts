@@ -1,15 +1,18 @@
-import type { ChatMessage, ToolPart } from "./agentMessages";
+import { type ChatMessage, type ToolPart, toolTitle } from "./agentMessages";
 
 /** What the approval bar asks about: the call waiting for an answer, or a finished plan in plan mode. */
 export type ApprovalRequest =
-	| { kind: "tool"; name: string; input: unknown; isDelete: boolean }
+	| { kind: "tool"; id?: string; name: string; title: string; input: unknown; isDelete: boolean }
 	| { kind: "plan" };
 
 /** Deletes (and removals) ask in every mode; the server uses the same rule. */
 export const isDeleteTool = (name: string) => /^(delete|remove)_/.test(name);
 
 const unanswered = (p: { type: string }): p is ToolPart =>
-	p.type === "tool" && (p as ToolPart).output === undefined && (p as ToolPart).error === undefined;
+	p.type === "tool" &&
+	(p as ToolPart).output === undefined &&
+	(p as ToolPart).error === undefined &&
+	(p as ToolPart).status === undefined;
 
 /**
  * The first call of the last assistant message that has no result: the one an
@@ -19,7 +22,14 @@ export function waitingCall(messages: ChatMessage[]): ApprovalRequest | undefine
 	const last = messages.findLast((m) => m.role === "assistant");
 	const call = last?.parts.find(unanswered);
 	if (!call) return;
-	return { kind: "tool", name: call.name, input: call.input, isDelete: isDeleteTool(call.name) };
+	return {
+		kind: "tool",
+		id: call.id,
+		name: call.name,
+		title: toolTitle(call),
+		input: call.input,
+		isDelete: isDeleteTool(call.name),
+	};
 }
 
 /** Plan mode ended its run with a reply: the plan, waiting for Start. */

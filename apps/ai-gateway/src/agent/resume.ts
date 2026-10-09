@@ -73,6 +73,8 @@ export async function continueConversation(o: {
 	agent: Agent;
 	message?: string;
 	approval?: Approval;
+	/** The approved call ran (or was turned down): its result is saved, at `seq`, before the loop goes on. */
+	onDecided?: (result: ToolResultPart, seq: number) => void;
 }) {
 	const { store, conversationId, runId, agent } = o;
 	const view = await store.modelView(conversationId);
@@ -94,7 +96,10 @@ export async function continueConversation(o: {
 	const [call, ...others] = pendingCalls(history);
 	if (call) {
 		if (!o.approval) throw new Error("The run is waiting for an approval; answer it first.");
-		await save([{ role: "tool", content: [await decide(agent, call, o.approval, history)] }]);
+		const decided = await decide(agent, call, o.approval, history);
+		const msg: ModelMessage = { role: "tool", content: [decided] };
+		await save([msg]);
+		o.onDecided?.(decided, seqs.get(msg) as number);
 		if (others.length) return { status: settle("waiting_approval") };
 	} else {
 		if (!o.message) throw new Error("A message is needed to continue the conversation.");

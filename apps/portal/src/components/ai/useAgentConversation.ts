@@ -71,7 +71,7 @@ export function useAgentConversation(projectId: string, conversationId: string) 
 		if (!streamId) return;
 		let closed = false;
 		let disposed = false;
-		setLive({ ...EMPTY_LIVE, lastEventAt: Date.now() });
+		setLive((l) => ({ ...EMPTY_LIVE, results: l.results, lastEventAt: Date.now() }));
 		const es = new EventSource(agentConversationsService.streamUrl(streamId, top.current), {
 			withCredentials: true,
 		});
@@ -127,12 +127,18 @@ export function useAgentConversation(projectId: string, conversationId: string) 
 	/** Answers the call the run waits on; the run goes on with the mode it picks. */
 	const answer = async (a: ApprovalAnswer) => {
 		const go = { mode: a.mode ?? mode, effort };
+		// A no ends the row now; the run's own tool-end says the same a moment later.
+		const call = !a.approve && approval?.kind === "tool" ? approval.id : undefined;
+		const results: Live["results"] = call
+			? { [call]: { status: "rejected", error: a.reason ?? "Not approved", endedAt: Date.now() } }
+			: {};
+		if (call) setLive((l) => ({ ...l, results }));
 		const { runId } = await agentConversationsService.approve(projectId, conversationId, {
 			...a,
 			...go,
 		});
 		setPicked(go);
-		setLive({ ...EMPTY_LIVE, lastEventAt: Date.now() });
+		setLive({ ...EMPTY_LIVE, results, lastEventAt: Date.now() });
 		setStarted(runId);
 	};
 
@@ -169,6 +175,7 @@ export function useAgentConversation(projectId: string, conversationId: string) 
 		? (waitingCall(messages) ?? {
 				kind: "tool",
 				name: "the next step",
+				title: "the next step",
 				input: undefined,
 				isDelete: false,
 			})

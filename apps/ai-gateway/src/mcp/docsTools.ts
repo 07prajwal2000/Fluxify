@@ -79,6 +79,7 @@ const withIndex =
 export const docsTools: McpTool[] = [
 	{
 		name: "search_docs",
+		title: "Search docs",
 		description:
 			"Search the Fluxify docs. Returns the matching sections (page, heading, text). Pass every topic you need in one call.",
 		role: "viewer",
@@ -87,6 +88,7 @@ export const docsTools: McpTool[] = [
 	},
 	{
 		name: "read_doc",
+		title: "Read doc",
 		description: `Read one docs page. No heading: its title, description and section headings. With a heading: that section's text (the intro is "${INTRO}").`,
 		role: "viewer",
 		input: {

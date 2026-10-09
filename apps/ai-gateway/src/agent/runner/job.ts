@@ -4,7 +4,7 @@ import { cacheTokens } from "../cache";
 import { continueConversation, pendingCalls } from "../resume";
 import type { AgentStore, RunStatus } from "../store";
 import { loadedTools } from "../tools";
-import { type AgentEvent, batcher, pump, seqTracker } from "./events";
+import { type AgentEvent, batcher, decidedEvent, pump, seqTracker } from "./events";
 import type { AgentJob } from "./queue";
 import type { RunUsage } from "./repository";
 
@@ -99,6 +99,7 @@ export async function executeRun(job: AgentJob, deps: RunDeps, signal: AbortSign
 			agent: { ...agent, approve: async () => ({ ok: false, defer: true }), abortSignal: signal },
 			message: job.message,
 			approval: job.approval,
+			onDecided: (r, seq) => events.push(decidedEvent(r, seq)),
 		});
 		if (r.result) await pump(r.result, t, events.push).catch(onError);
 		status = await r.status;
