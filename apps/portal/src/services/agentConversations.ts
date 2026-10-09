@@ -7,7 +7,14 @@ import { httpClient } from "@/lib/http";
 const base = (projectId: string) => `ai/v1/agent/${projectId}/conversations`;
 
 /** One saved `agent_messages` row; `content` is an AI SDK ModelMessage. */
-export type AgentRow = { seq: number; role: string; runId: string; content: unknown };
+export type AgentRow = {
+	seq: number;
+	role: string;
+	runId: string;
+	content: unknown;
+	/** When the row was saved (ISO). */
+	createdAt?: string;
+};
 /** What a finished run cost, summed over its jobs. Null for runs from before it was recorded. */
 export type AgentUsage = {
 	steps: number;
@@ -20,6 +27,8 @@ export type AgentRun = {
 	id: string;
 	/** When the run was queued (ISO). */
 	createdAt?: string;
+	/** What started it: the user's message, or `/compact …`. */
+	userQuery?: string;
 	status: string;
 	stopReason: StopReason | null;
 	usage: AgentUsage | null;
@@ -76,6 +85,15 @@ export const agentConversationsService = {
 		return (
 			await httpClient.post(`${base(projectId)}/${conversationId}/messages`, { text, mode, effort })
 		).data;
+	},
+	/** /compact: `runId` is the job to follow; null (with a `message`) when there was nothing to compact. */
+	async compact(
+		projectId: string,
+		conversationId: string,
+		instructions?: string,
+	): Promise<{ runId: string | null; message?: string }> {
+		return (await httpClient.post(`${base(projectId)}/${conversationId}/compact`, { instructions }))
+			.data;
 	},
 	async approve(
 		projectId: string,

@@ -3,8 +3,8 @@ import { type ModelMessage, tool } from "ai";
 import { convertArrayToReadableStream, MockLanguageModelV4 } from "ai/test";
 import { z } from "zod";
 import { approveAll, assertEndsOnUserOrTool, runAgent } from "./agent";
-import { compactNow } from "./cli";
-import { SUMMARY_HEAD, trimOld } from "./compact";
+import { compactNow, parseLine } from "./cli";
+import { canCompact, SUMMARY_HEAD, summarize, trimOld } from "./compact";
 import { printRun } from "./progress";
 
 const BIG = "x".repeat(2000);
@@ -228,5 +228,55 @@ describe("80%: summary", () => {
 		expect(out).toMatch(/^\[compacted\] summarized 12 messages: 3k → \d+ tokens\n$/);
 		expect(history.map((m) => m.role)).toEqual(["user", "user", "assistant"]);
 		expect(() => assertEndsOnUserOrTool([...history, { role: "user", content: "hi" }])).not.toThrow();
+	});
+});
+
+describe("/compact [what to keep]", () => {
+	/** A model that answers "s" and records the summary prompt it was given. */
+	const recorder = () => {
+		const prompts: string[] = [];
+		const model = new MockLanguageModelV4({
+			doGenerate: async (call) => {
+				prompts.push(JSON.stringify(call.prompt));
+				return {
+					content: [{ type: "text", text: "s" }],
+					finishReason: { unified: "stop", raw: "stop" },
+					usage: usage(1),
+					warnings: [],
+				};
+			},
+		});
+		return { model, prompts };
+	};
+	const chat = (): ModelMessage[] => [...longChat(), { role: "assistant", content: "tested" }];
+
+	it("the text reaches the summary prompt; without it the prompt is unchanged", async () => {
+		const a = recorder();
+		await summarize(a.model, chat(), { keep: "  the users table schema and the route ids " });
+		expect(a.prompts[0]).toContain("The user asks you to keep: the users table schema and the route ids");
+		const b = recorder();
+		await summarize(b.model, chat(), { keep: "   " });
+		await summarize(b.model, chat());
+		expect(b.prompts.join()).not.toContain("The user asks you to keep");
+	});
+
+	it("canCompact says whether a summary would cover anything", () => {
+		expect(canCompact(chat())).toBe(true);
+		expect(canCompact([{ role: "user", content: "hi" }])).toBe(false);
+		expect(canCompact([])).toBe(false);
+	});
+
+	it("the terminal passes the text on", async () => {
+		const { model, prompts } = recorder();
+		await compactNow(chat(), "sys", () => {}, () => {}, model, "keep the ids");
+		expect(prompts[0]).toContain("The user asks you to keep: keep the ids");
+	});
+
+	it("parses /compact with and without text", () => {
+		expect(parseLine("/compact")).toBe("compact");
+		expect(parseLine("  /compact  ")).toBe("compact");
+		expect(parseLine("/compact keep the route ids")).toEqual({ compact: "keep the route ids" });
+		expect(parseLine("/compactx")).toBe("unknown");
+		expect(parseLine("/mode plan")).toEqual({ mode: "plan" });
 	});
 });

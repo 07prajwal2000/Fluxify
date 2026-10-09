@@ -1,6 +1,6 @@
 import { type LanguageModel, type ModelMessage, NoSuchToolError, streamText, type Tool } from "ai";
 import { anthropicCache } from "./cache";
-import { compactor } from "./compact";
+import { compactor, type SummaryCompaction } from "./compact";
 import {
 	guardTools,
 	type Limit,
@@ -103,7 +103,11 @@ type Run = {
 	/** Each finished message, in order, once (persistence; the CLI passes none). */
 	onMessages?: (messages: ModelMessage[]) => void | Promise<void>;
 	/** A summary replaced `covered` in history. A throw keeps the history as it was. */
-	onSummary?: (summary: ModelMessage, covered: ModelMessage[]) => Promise<void>;
+	onSummary?: (
+		summary: ModelMessage,
+		covered: ModelMessage[],
+		event: SummaryCompaction,
+	) => Promise<void>;
 };
 
 /**

@@ -82,6 +82,13 @@ const SUMMARY_PROMPT = `You compact a conversation between a user and the Fluxif
 - Current state: what works, what was checked.
 - Open problems and next steps.
 Plain text, no preamble.`;
+/** What the user asked the summary to keep (/compact <text>), added to the prompt. */
+const keepPrompt = (keep?: string) =>
+	keep?.trim()
+		? `
+
+The user asks you to keep: ${keep.trim()}`
+		: "";
 
 const MAX_PART = 1500;
 const clip = (v: unknown) => {
@@ -106,32 +113,43 @@ const transcript = (messages: ModelMessage[]) =>
 		})
 		.join("\n\n");
 
+/** Where a summary stops covering, or null when there is too little to cover. */
+function summaryCut(messages: ModelMessage[]) {
+	const user = messages.findLastIndex((m) => m.role === "user");
+	if (user < 0) return null;
+	const cut = Math.max(user, keepFrom(messages.slice(user + 1), KEEP_STEPS) + user + 1);
+	return cut < 2 ? null : { user, cut };
+}
+
+/** Would a summary of `messages` cover anything? (/compact says so before it starts a job.) */
+export const canCompact = (messages: ModelMessage[]) => summaryCut(messages) !== null;
+
 /**
  * 80%: summarizes everything before the last user message and the last few
  * steps after it. Returns the new history: [summary, last user message,
  * recent steps], or null when there is too little to cover. Throws when the
- * summary call fails.
+ * summary call fails. `instructions` is the agent's system prompt (it counts
+ * toward the size); `keep` is what the user asked the summary to keep.
  */
 export async function summarize(
 	model: Exclude<LanguageModel, string>,
 	messages: ModelMessage[],
-	opts: { instructions?: string; abortSignal?: AbortSignal } = {},
+	opts: { instructions?: string; keep?: string; abortSignal?: AbortSignal } = {},
 ) {
-	const user = messages.findLastIndex((m) => m.role === "user");
-	if (user < 0) return null;
-	const cut = Math.max(user, keepFrom(messages.slice(user + 1), KEEP_STEPS) + user + 1);
-	if (cut < 2) return null;
+	const at = summaryCut(messages);
+	if (!at) return null;
+	const { user, cut } = at;
 	const covered = messages.slice(0, cut);
 	const { text } = await generateText({
 		model,
-		instructions: SUMMARY_PROMPT,
+		instructions: SUMMARY_PROMPT + keepPrompt(opts.keep),
 		messages: [{ role: "user", content: transcript(covered) }],
 		abortSignal: opts.abortSignal,
 	});
 	if (!text.trim()) throw new Error("the model returned an empty summary");
 	const summary: ModelMessage = { role: "user", content: SUMMARY_HEAD + text.trim() };
 	const next = [summary, ...(cut > user ? [messages[user]] : []), ...messages.slice(cut)];
-	const event: Compaction = {
+	const event: SummaryCompaction = {
 		type: "compaction",
 		kind: "summary",
 		messages: covered.length,
@@ -141,6 +159,8 @@ export async function summarize(
 	};
 	return { messages: next, event };
 }
+
+export type SummaryCompaction = Extract<Compaction, { kind: "summary" }>;
 
 const k = (n: number) => (n >= 1000 ? `${Math.round(n / 1000)}k` : `${n}`);
 /** The line the CLI prints for a compaction. */
@@ -168,7 +188,11 @@ export function compactor(o: {
 	context?: number;
 	abortSignal?: AbortSignal;
 	/** Told before the summary is swapped in; a throw keeps the history as it was. */
-	onSummary?: (summary: ModelMessage, covered: ModelMessage[]) => Promise<void>;
+	onSummary?: (
+		summary: ModelMessage,
+		covered: ModelMessage[],
+		event: SummaryCompaction,
+	) => Promise<void>;
 }) {
 	const context = o.context ?? MAX_CONTEXT_TOKENS;
 	const events: Compaction[] = [];
@@ -202,7 +226,7 @@ export function compactor(o: {
 			try {
 				const r = await summarize(o.model, o.history, o);
 				if (r) {
-					await o.onSummary?.(r.messages[0], o.history.slice(0, r.event.coversUpTo));
+					await o.onSummary?.(r.messages[0], o.history.slice(0, r.event.coversUpTo), r.event);
 					o.history.splice(0, o.history.length, ...r.messages);
 					events.push(r.event);
 					stale = true;

@@ -49,6 +49,12 @@ export function markdownToLexical(text: string, editor: LexicalEditor) {
 	});
 }
 
+/** Replaces the editor text and leaves the cursor at its end (a kept selection would send it to the start). */
+export function setEditorText(editor: LexicalEditor, text: string) {
+	markdownToLexical(text, editor);
+	editor.update(() => $getRoot().selectEnd());
+}
+
 export function insertMarkdownAtSelection(text: string) {
 	const sel = $getSelection();
 	if (!$isRangeSelection(sel)) return;

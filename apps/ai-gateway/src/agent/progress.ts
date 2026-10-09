@@ -44,15 +44,22 @@ export function runLog(dir: string): { file: string; log: Log } {
 	return { file, log };
 }
 
+/** Status labels of a model call; they also show how long the whole turn has run. */
+const MODEL_CALL = new Set(["thinking…", "waiting for model…"]);
+
 /**
  * The status line under the output ("waiting for model… 3s"), redrawn by
- * `tick`. Only drawn on a TTY; anything printed clears it first.
+ * `tick`. Only drawn on a TTY; anything printed clears it first. While the model
+ * works it adds the turn total: "thinking… 42s (turn 270s)".
  */
 class Status {
 	private label = "";
 	private since = 0;
 	private lineStart = true;
-	constructor(private out: Out) {}
+	constructor(
+		private out: Out,
+		private turnSince: number,
+	) {}
 
 	set(label: string, since = Date.now()) {
 		if (label === this.label) return;
@@ -64,9 +71,13 @@ class Status {
 		if (!this.label || !this.out.tty || this.out.paused?.()) return;
 		if (!this.lineStart) this.out.write("\n");
 		this.lineStart = true;
-		this.out.write(
-			`\r\x1b[2K\x1b[2m${this.label} ${Math.floor((Date.now() - this.since) / 1000)}s\x1b[0m`,
-		);
+		this.out.write(`\r\x1b[2K\x1b[2m${this.label} ${this.elapsed()}\x1b[0m`);
+	}
+	/** "42s", plus "(turn 270s)" for a model call that is not the turn's first wait. */
+	private elapsed() {
+		const call = Math.floor((Date.now() - this.since) / 1000);
+		const turn = Math.floor((Date.now() - this.turnSince) / 1000);
+		return `${call}s${MODEL_CALL.has(this.label) && turn > call ? ` (turn ${turn}s)` : ""}`;
 	}
 	/** Clears the status and writes `s`; `keep` leaves the label to be redrawn on the next tick. */
 	print(s: string, keep = false) {
@@ -92,9 +103,9 @@ export type Part =
  */
 export async function printRun(result: ReturnType<typeof runAgent>, out: Out) {
 	const log = out.log ?? (() => {});
-	const status = new Status(out);
-	const running = new Map<string, { name: string; at: number }>();
 	const t0 = Date.now();
+	const status = new Status(out, t0);
+	const running = new Map<string, { name: string; at: number }>();
 	let step = 0;
 	const cache = { read: 0, write: 0 };
 	let stepAt = t0;
