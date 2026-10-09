@@ -11,15 +11,17 @@ import { agentTools } from "../tools";
 import { executeCompact } from "./compactJob";
 import { agentIntegration } from "./integration";
 import { executeRun, type RunDeps } from "./job";
+import { startHeartbeat } from "./orphans";
 import {
 	AGENT_CONSUMER,
 	AGENT_STREAM,
 	type AgentJob,
 	initializeAgentQueue,
 	publishRunEvents,
+	subscribeHeld,
 	subscribeStops,
 } from "./queue";
-import { addRunUsage, claimRun, settleConversation } from "./repository";
+import { addRunUsage, claimRun, settleConversation, touchRun } from "./repository";
 
 const LIMIT_KEYS = [
 	"settings.ai.maxSteps",
@@ -60,7 +62,7 @@ export const buildAgent: RunDeps["build"] = async (job, loaded) => {
 };
 
 /** conversationId → the run this worker holds for it. */
-const running = new Map<string, AbortController>();
+const running = new Map<string, { runId: string; ctrl: AbortController }>();
 
 /** Read per job: `db` is only set once drizzleInit ran, after this module loaded. */
 export const deps: RunDeps = {
@@ -77,7 +79,12 @@ export const deps: RunDeps = {
 
 async function runJob({ data }: { data: AgentJob }) {
 	const ctrl = new AbortController();
-	running.set(data.conversationId, ctrl);
+	running.set(data.conversationId, { runId: data.runId, ctrl });
+	// The run row is the proof of life; a run released under us stops here.
+	const stopBeat = startHeartbeat(
+		() => touchRun(data.runId),
+		() => ctrl.abort(new Error("The run was released")),
+	);
 	try {
 		const status = await (data.type === "compact" ? executeCompact : executeRun)(
 			data,
@@ -86,6 +93,7 @@ async function runJob({ data }: { data: AgentJob }) {
 		);
 		logger.info("[AgentRunner] job done", { runId: data.runId, type: data.type, status });
 	} finally {
+		stopBeat();
 		running.delete(data.conversationId);
 	}
 }
@@ -94,8 +102,9 @@ async function runJob({ data }: { data: AgentJob }) {
 export async function initializeAgentWorker() {
 	await initializeAgentQueue();
 	await subscribeStops((conversationId) =>
-		running.get(conversationId)?.abort(new Error("Stopped by user")),
+		running.get(conversationId)?.ctrl.abort(new Error("Stopped by user")),
 	);
+	subscribeHeld((runId) => [...running.values()].some((r) => r.runId === runId));
 	await consumeQueue<AgentJob>(natsConnection(), AGENT_STREAM, AGENT_CONSUMER, runJob, {
 		concurrency: AGENT_CONCURRENT_JOBS,
 		// maxDeliver 1: acking on dispatch holds no ack open for a whole run.

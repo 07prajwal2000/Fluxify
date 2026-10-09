@@ -1,4 +1,4 @@
-import { initializeLogger } from "@fluxify/common";
+import { initializeLogger, logger } from "@fluxify/common";
 import { isMainThread, Worker } from "worker_threads";
 import {
 	OTLP_AUTH_HEADER_NAME,
@@ -14,6 +14,7 @@ import { runWorker } from "./worker";
 validateEnv();
 
 import { drizzleInit, initializePubSub, initializeRedis } from "@fluxify/server";
+import { sweepOrphans } from "./agent/runner/orphans";
 import { initializeAgentQueue } from "./agent/runner/queue";
 
 const serviceName = isMainThread ? "fluxify.api-gateway-main" : "fluxify.api-gateway-worker";
@@ -34,6 +35,10 @@ await initializeAgentQueue();
 if (isMainThread) {
 	// Spawn the worker thread targeting index.ts
 	new Worker(import.meta.filename);
+	// Runs a dead gateway left executing: free their conversations (#696).
+	void sweepOrphans().catch((error) =>
+		logger.error("[AgentOrphans] startup sweep failed", { error }),
+	);
 	await runMain();
 } else {
 	await runWorker();

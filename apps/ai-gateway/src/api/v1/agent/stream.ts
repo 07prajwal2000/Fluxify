@@ -2,6 +2,7 @@ import { logger } from "@fluxify/common";
 import type { Context } from "hono";
 import { streamSSE } from "hono/streaming";
 import { type AgentEvent, isEnd, unseen } from "../../../agent/runner/events";
+import { releaseIfOrphaned } from "../../../agent/runner/orphans";
 import { readRunEvents } from "../../../agent/runner/queue";
 import { getRun, SETTLED } from "../../../agent/runner/repository";
 
@@ -27,6 +28,7 @@ const HEARTBEAT_MS = 15_000;
  * (seq <= afterSeq). Ends on done/error. If the run settled without the
  * client seeing `done` (expired events, a worker that died), a status check
  * soon after opening and on every heartbeat ends it with a `done` of its own.
+ * The same check releases a run whose worker is gone (#696).
  */
 export function streamRun(c: Context, runId: string, afterSeq: number) {
 	return streamSSE(c, async (s) => {
@@ -34,8 +36,15 @@ export function streamRun(c: Context, runId: string, afterSeq: number) {
 		let settled: AgentEvent | undefined;
 		const check = async () => {
 			const run = await getRun(runId).catch(() => undefined);
+			// A worker that died: the release publishes a `done` this stream then reads.
+			if (run && (await releaseIfOrphaned(run).catch(() => false))) return;
 			if (run && SETTLED.includes(run.status)) {
-				settled = { type: "done", seq: -1, status: run.status };
+				settled = {
+					type: "done",
+					seq: -1,
+					status: run.status,
+					...(run.stopReason && { reason: run.stopReason }),
+				};
 				await reader.stop();
 			}
 		};

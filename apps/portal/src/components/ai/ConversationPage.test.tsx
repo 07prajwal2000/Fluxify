@@ -480,3 +480,22 @@ test("scrolling to the top loads the older page, shows a loader, and keeps the s
 		older.mockRestore();
 	}
 });
+
+test("a run released after a restart shows the notice and gives the editor back", async () => {
+	const rows = [user(0, "go"), reply(1, "working")];
+	open(detail(rows, "executing"));
+	await until(() =>
+		expect(q().getByRole("button", { name: "Send" }).hasAttribute("disabled")).toBe(true),
+	);
+	get.mockResolvedValue({
+		...detail(rows, "interrupted"),
+		run: { id: "r1", status: "interrupted", stopReason: "restarted", usage: null },
+	} as never);
+	await emit({ type: "done", seq: -1, status: "interrupted", reason: "restarted" });
+	await until(() => expect(q().getByText(/The server restarted during this run/)).toBeTruthy());
+	expect(q().getByText("Send a message to continue.")).toBeTruthy();
+	expect(q().getByRole("button", { name: "Send" }).hasAttribute("disabled")).toBe(false);
+	fireEvent.change(prompt(), { target: { value: "carry on" } });
+	fireEvent.click(q().getByRole("button", { name: "Send" }));
+	await until(() => expect(send).toHaveBeenCalledWith("p1", "c1", "carry on", "manual", "none"));
+});

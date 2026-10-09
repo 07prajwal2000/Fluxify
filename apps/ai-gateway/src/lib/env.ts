@@ -30,6 +30,16 @@ export const aiGatewayEnvSchema = baseEnvSchema.extend({
 		)
 		.describe("Agent runs one gateway worker executes at once (1-100, default 10)"),
 
+	AGENT_RUN_STALE_MS: z
+		.string()
+		.optional()
+		.refine((val) => !val || (Number.isInteger(Number(val)) && Number(val) >= 30000), {
+			message: "AGENT_RUN_STALE_MS must be an integer of at least 30000",
+		})
+		.describe(
+			"Milliseconds an executing agent run may go without a heartbeat before it counts as dead (min 30000, default 120000)",
+		),
+
 	DOCS_INDEX_FILE_PATH: z
 		.string()
 		.max(500)
@@ -69,6 +79,8 @@ export const REDIS_PASS = getEnv("REDIS_PASS")!;
  *  memory and expected AI workload — every slot holds a full agent run. */
 export const AGENT_CONCURRENT_JOBS =
 	Number(envWithOldName("AGENT_CONCURRENT_JOBS", "HARNESS_CONCURRENT_JOBS")) || 10;
+/** An executing run with no heartbeat for this long lost its worker (#696). */
+export const AGENT_RUN_STALE_MS = Number(getEnv("AGENT_RUN_STALE_MS")) || 120_000;
 export const AI_GATEWAY_PORT = Number(getEnv("AI_GATEWAY_PORT")) || 8001;
 /** The admin API the MCP tools call. It runs next to the gateway in every image. */
 export const ADMIN_API_URL = `http://127.0.0.1:${Number(getEnv("SERVER_PORT")) || 5500}`;

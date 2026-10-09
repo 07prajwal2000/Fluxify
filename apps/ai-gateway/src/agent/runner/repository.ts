@@ -148,6 +148,38 @@ export async function settleConversation(
 			.where(eq(runs.id, runId));
 }
 
+/** Heartbeat: proof a job still holds the run. False when the run is no longer executing (it was released), so the job should stop. */
+export async function touchRun(runId: string) {
+	const rows = await db
+		.update(runs)
+		.set({ updatedAt: new Date() })
+		.where(and(eq(runs.id, runId), eq(runs.status, "executing")))
+		.returning({ id: runs.id });
+	return rows.length > 0;
+}
+
+/** Every run a job claims right now, for the startup sweep. */
+export const executingRuns = () =>
+	db
+		.select({
+			id: runs.id,
+			conversationId: runs.conversationId,
+			status: runs.status,
+			updatedAt: runs.updatedAt,
+		})
+		.from(runs)
+		.where(eq(runs.status, "executing"));
+
+/** Takes an executing run whose job is gone; false when someone else did (or it settled). */
+export async function interruptOrphan(runId: string) {
+	const rows = await db
+		.update(runs)
+		.set({ status: "interrupted", interruptedAt: new Date() })
+		.where(and(eq(runs.id, runId), eq(runs.status, "executing")))
+		.returning({ id: runs.id });
+	return rows.length > 0;
+}
+
 /** Stops a run no job holds (queued, or waiting on an approval). False when a job is running it. */
 export async function interruptIdle(conversationId: string, runId: string) {
 	const rows = await db

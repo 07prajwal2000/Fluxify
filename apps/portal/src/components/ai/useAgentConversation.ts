@@ -86,7 +86,9 @@ export function useAgentConversation(projectId: string, conversationId: string) 
 	const saved = detail.data?.settings;
 	const mode = picked.mode ?? saved?.mode ?? "manual";
 	const effort = picked.effort ?? saved?.effort ?? "none";
-	const streamId = started ?? (run && ACTIVE.has(run.status) ? run.id : null);
+	/** The gateway died mid-run (#696): its stream is replayed once to show the half-written answer. */
+	const restarted = run?.status === "interrupted" && run.stopReason === "restarted";
+	const streamId = started ?? (run && (ACTIVE.has(run.status) || restarted) ? run.id : null);
 
 	useEffect(() => {
 		if (!streamId) return;
@@ -112,7 +114,10 @@ export function useAgentConversation(projectId: string, conversationId: string) 
 				setStartedAt(null);
 				setPending(null);
 				setCompactStarted(false);
-				setLive((l) => ({ ...EMPTY_LIVE, end: l.end }));
+				// A run lost to a restart keeps what it had written: that is the progress to see above the notice.
+				setLive((l) =>
+					e.type === "done" && e.reason === "restarted" ? l : { ...EMPTY_LIVE, end: l.end },
+				);
 				qc.invalidateQueries({ queryKey: [...agentConversationsKey(projectId), "list"] });
 			});
 		};
@@ -240,7 +245,7 @@ export function useAgentConversation(projectId: string, conversationId: string) 
 		send(text, over).catch(showErrorNotification);
 	}, [conversationId, loaded]);
 
-	const running = Boolean(streamId) || Boolean(pending);
+	const running = (Boolean(streamId) && !(restarted && !started)) || Boolean(pending);
 	const waiting = !running && run?.status === "waiting_approval";
 	const end = live.end;
 	// After a refresh the page did not start the job: the run row says what it is.
