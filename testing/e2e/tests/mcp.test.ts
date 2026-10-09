@@ -393,6 +393,40 @@ describe("MCP canvas edits", () => {
 		expect((await call("get_canvas", { target })).version).toBe(saved.version);
 	});
 
+	it("drops fields a block does not have, warns, and keeps free-form ones (#703)", async () => {
+		const { target, canvas } = await newWorkflow();
+		const entry = canvas.blocks.find((b: any) => b.type === "entrypoint").id;
+		const handlerId = canvas.blocks.find((b: any) => b.type === "error_handler").id;
+		const saved = await call("edit_canvas", {
+			target,
+			version: canvas.version,
+			ops: [
+				{ op: "update_block", id: handlerId, data: { statusCode: 500, transform: "return 1;" } },
+				{
+					op: "add_block",
+					ref: "req",
+					type: "httprequest",
+					data: { url: "https://x.test", method: "POST", headers: { "X-Any": "1" }, body: { a: [1] } },
+					connect_from: { from: entry },
+				},
+			],
+			validate: true,
+		});
+		expect(saved.issues).toContainEqual(
+			expect.objectContaining({
+				severity: "warning",
+				blockId: handlerId,
+				message: expect.stringContaining("removed unknown field(s) statusCode, transform"),
+			}),
+		);
+		const stored = (await call("get_canvas", { target })).blocks;
+		const handler = stored.find((b: any) => b.id === handlerId);
+		expect(handler.data).not.toHaveProperty("statusCode");
+		expect(handler.data).not.toHaveProperty("transform");
+		const request = stored.find((b: any) => b.id === saved.refs.req);
+		expect(request.data).toMatchObject({ headers: { "X-Any": "1" }, body: { a: [1] } });
+	});
+
 	it("refuses a bad op readably and saves nothing", async () => {
 		const { target, canvas } = await newWorkflow();
 		const bad = await callTool(stack, stack.tokens.creator, "edit_canvas", {

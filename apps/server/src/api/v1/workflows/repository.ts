@@ -33,7 +33,7 @@ export async function seedDefaultBlocks(workflowId: string, tx?: DbTransactionTy
 			workflowId,
 			type: BlockTypes.errorHandler,
 			position: STARTER_POSITIONS.errorHandler,
-			data: { next: "", retryAfterFail: false, retryCount: 0 },
+			data: {},
 		},
 	]);
 }

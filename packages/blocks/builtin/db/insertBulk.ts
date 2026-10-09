@@ -17,7 +17,7 @@ export const insertBulkDbBlockSchema = z
 		tableName: z.string().describe("table name (supports js expression)"),
 		data: z.object({
 			source: z.enum(["raw", "js"]).describe("source of the value"),
-			value: z.array(z.object()).or(z.string()).describe("value to insert"),
+			value: z.array(z.record(z.string(), z.unknown())).or(z.string()).describe("value to insert"),
 		}),
 		useParam: z.boolean().describe("use parameter"),
 		useTransaction: z
@@ -72,7 +72,7 @@ export async function runInsertBulkDb(
 	}
 }
 
-/** read without parsing — `data.value` is `z.object()`, which strips every key */
+/** read without parsing — `data.value` was `z.object()`, which strips every key; it is a free-form record now */
 export function emitInsertBulkDb(node: EmitNode) {
 	const input = node.block.data as z.infer<typeof insertBulkDbBlockSchema>;
 	const data = node.v("data");

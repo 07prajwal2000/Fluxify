@@ -265,7 +265,7 @@ export function canvasChangesFromPayload(
 			blocks.push({
 				id: generateID(),
 				type: BlockTypes.errorHandler,
-				data: { next: "", retryAfterFail: false, retryCount: 0 },
+				data: {},
 				position: STARTER_POSITIONS.errorHandler,
 			} as (typeof blocks)[number]);
 		}

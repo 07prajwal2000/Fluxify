@@ -30,11 +30,7 @@ export async function createDependencies(customBlockId: string, tx?: DbTransacti
 			customBlockId,
 			type: BlockTypes.errorHandler,
 			position: STARTER_POSITIONS.errorHandler,
-			data: {
-				next: "",
-				retryAfterFail: false,
-				retryCount: 0,
-			},
+			data: {},
 		},
 	]);
 }
