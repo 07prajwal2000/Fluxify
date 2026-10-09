@@ -196,7 +196,7 @@ describe("MCP runs", () => {
 		expect(edited).toEqual({
 			version: canvas.version + 1,
 			changes: [
-				"added jsrunner_1 (block_1)",
+				expect.stringContaining("added jsrunner_1 (block_1); its output: "),
 				`connected ${entry} → jsrunner_1`,
 				`updated ${response} (httpCode)`,
 				`connected jsrunner_1 → ${response}`,

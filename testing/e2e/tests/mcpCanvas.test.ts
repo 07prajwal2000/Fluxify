@@ -210,9 +210,9 @@ describe("MCP block keys", () => {
 		});
 		expect(saved.refs).toEqual({ a: "consolelog_1", b: "consolelog_2" });
 		expect(saved.changes).toEqual([
-			"added consolelog_1 (a)",
+			expect.stringContaining("added consolelog_1 (a); its output: "),
 			"connected entrypoint_1 → consolelog_1",
-			"added consolelog_2 (b)",
+			expect.stringContaining("added consolelog_2 (b); its output: "),
 			"connected consolelog_1 → consolelog_2",
 		]);
 		const after = await call("get_canvas", { target });
