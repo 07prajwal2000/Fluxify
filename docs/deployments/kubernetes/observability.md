@@ -200,18 +200,6 @@ A collector inside the cluster usually needs no header. For a hosted service,
 the header name and value are in its documentation, usually under "OTLP" or
 "OpenTelemetry".
 
-## AI assistant traces
-
-When the AI assistant is on (`ENABLE_AI: "true"`), it can also send a trace of
-each conversation with the AI model, over OTLP HTTP. This is separate from the
-logs above and has its own settings, also under `env:`:
-
-| Setting | What it does |
-| :--- | :--- |
-| `LLM_TRACING_ENABLED` | `"true"` to send them. |
-| `LLM_OTLP_TRACES_ENDPOINT` | The full address, usually ending in `/v1/traces`. For the OpenObserve above: `http://openobserve.observability.svc:5080/api/default/v1/traces`. |
-| `LLM_OTLP_TRACES_HEADERS` | Headers to send, as `Name: value`, several separated by `;`. A password here belongs in `fluxify-secrets.yaml` too, under `secret.values`. |
-
 ## Your projects' logs, traces and metrics
 
 These are not sent by the settings on this page. Add an observability

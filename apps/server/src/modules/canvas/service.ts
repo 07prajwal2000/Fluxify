@@ -135,7 +135,7 @@ async function canvasBlocksAfterSave(
 
 /** The runtime takes the first edge it finds for an output handle (fan-out
  * handles, whose edges are parallel branches, excepted). Rejecting
- * fan-out here protects every canvas writer, not only the AI harness. */
+ * fan-out here protects every canvas writer, not only AI writers. */
 async function assertCanvasHasNoHandleFanOut(
 	parent: CanvasParent,
 	data: CanvasChanges,
@@ -341,7 +341,7 @@ async function mergeStaleSingleton(
  * "create the parent and its canvas or neither" is possible on the ops bus.
  * The change signal is then the outer caller's to publish, after it commits.
  *
- * `mergeAiDuplicates` is only ever set by the AI harness apply path (the ops
+ * `mergeAiDuplicates` is only ever set by the AI apply path (the ops
  * RPC bus) — see `mergeStaleSingleton`. A human-driven save always gets the
  * strict duplicate error.
  *

@@ -13,7 +13,7 @@ function limit() {
 /**
  * One guard rail for the whole admin surface: the control-plane process owns
  * the database connection, so an unbounded loop from a single user (buggy
- * client, stolen token, retrying harness) degrades every project.
+ * client, stolen token, retrying script) degrades every project.
  *
  * Anonymous requests are not limited — the server sits behind a proxy, so the
  * only IP available is the proxy's and would bucket every logged-out visitor

@@ -1,8 +1,8 @@
-import { and, eq, sql } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { db } from "../../../../db";
 import { integrationsEntity } from "../../../../db/schema";
 
-export const getBasicListRepository = async (projectId: string, useForHarness?: boolean) => {
+export const getBasicListRepository = async (projectId: string) => {
 	return await db
 		.select({
 			id: integrationsEntity.id,
@@ -11,16 +11,5 @@ export const getBasicListRepository = async (projectId: string, useForHarness?: 
 			variant: integrationsEntity.variant,
 		})
 		.from(integrationsEntity)
-		.where(
-			and(
-				eq(integrationsEntity.projectId, projectId),
-				useForHarness === undefined
-					? undefined
-					: and(
-							eq(integrationsEntity.group, "ai"),
-							// A missing attribute counts as false.
-							sql`coalesce(${integrationsEntity.config} ->> 'useForHarness', 'false') = ${String(useForHarness)}`,
-						),
-			),
-		);
+		.where(eq(integrationsEntity.projectId, projectId));
 };

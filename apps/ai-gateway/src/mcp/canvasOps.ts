@@ -9,15 +9,14 @@ import {
 	canonicalType,
 	canvasAfterChanges,
 	canvasChangesFromPayload,
-} from "../api/v1/harness-conversations/artifacts/normalize";
+} from "./canvasNormalize";
 
 /**
  * `edit_canvas` ops → the server's save-canvas diff.
  *
  * Ops are checked against the canvas first, so a bad op is refused with a
- * reason instead of being dropped. The diff itself is built by the harness's
- * `canvasChangesFromPayload` (refs → ids, handle ids, type names), so MCP and
- * the harness write a canvas the same way.
+ * reason instead of being dropped. The diff itself is built by
+ * `canvasChangesFromPayload` (refs → ids, handle ids, type names).
  */
 
 const blockId = z

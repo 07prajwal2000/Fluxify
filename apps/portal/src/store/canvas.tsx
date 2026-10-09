@@ -57,7 +57,7 @@ export const createCanvasStore = (initProps?: Partial<State>) => {
 						(block) => block.type === BlockTypes.stickynote,
 					);
 
-					// Same layout the harness runs at apply time, so a formatted
+					// Same layout the agent runs at apply time, so a formatted
 					// canvas looks identical whoever built it.
 					const positions = layoutGraph(
 						blocksToFormat.map((block) => ({

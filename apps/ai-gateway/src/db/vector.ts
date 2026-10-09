@@ -144,32 +144,3 @@ export async function allSections(): Promise<DocSection[]> {
 	}
 	return allCache;
 }
-
-type Document = { id: string; title: string; description: string; content: string };
-
-const asText = (s: DocSection) => (s.heading === INTRO ? s.text : `## ${s.heading}\n\n${s.text}`);
-
-/** Old harness only (#648 deletes it): sections shaped as its whole-page documents. */
-export async function queryDocs(query: string, limit: number = 5): Promise<Document[]> {
-	return (await searchSections(query, limit)).map((s) => ({
-		id: s.id,
-		title: s.title,
-		description: s.description,
-		content: `# ${s.title}\n\n${asText(s)}`,
-	}));
-}
-
-/**
- * Whole pages by their exact frontmatter title, rebuilt from their sections.
- * Old harness only: it pre-loads a few pages into a prompt.
- */
-export async function getDocsByTitle(titles: string[]): Promise<Document[]> {
-	const all = await allSections();
-	return titles.flatMap((title) => {
-		const secs = all.filter((s) => s.title.toLowerCase() === title.toLowerCase());
-		if (!secs.length) return [];
-		const page = secs.filter((s) => s.page === secs[0].page);
-		const content = `# ${page[0].title}\n\n${page.map(asText).join("\n\n")}`;
-		return [{ id: page[0].page, title: page[0].title, description: page[0].description, content }];
-	});
-}

@@ -1321,4 +1321,4 @@ export const traceSpansEntity = pgTable(
 	(table) => [primaryKey({ columns: [table.runId, table.seq] })],
 );
 
-export * from "./agent-harness-schema";
+export * from "./agent-schema";

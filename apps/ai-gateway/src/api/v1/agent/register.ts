@@ -45,7 +45,7 @@ function caller(c: Context, projectId: string, role: AccessControlRole) {
 async function owned(user: Caller, conversationId: string, projectId?: string) {
 	const conversation = await getConversation(conversationId);
 	const meta = conversation?.metadata as AgentMeta | null | undefined;
-	// One 404 for missing, other project and harness conversations: nothing leaks.
+	// One 404 for missing, other project and pre-agent conversations: nothing leaks.
 	if (!conversation || !meta?.agent || (projectId && conversation.projectId !== projectId))
 		throw new NotFoundError("Conversation not found");
 	if (conversation.userId !== user.id && !user.isSystemAdmin)
@@ -68,8 +68,8 @@ async function conversationOf(c: Context, role: AccessControlRole) {
 }
 
 /**
- * The new agent's HTTP API (#646), under `/v1/agent`. Conversations reuse the
- * harness rows; messages are the #645 rows. Runs happen on the gateway worker;
+ * The new agent's HTTP API (#646), under `/v1/agent`. Conversations live in the
+ * `agent_*` rows; messages are the #645 rows. Runs happen on the gateway worker;
  * `/runs/:runId/stream` follows one live.
  */
 export function registerAgentRoutes(app: Hono) {

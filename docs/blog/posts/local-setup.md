@@ -188,7 +188,7 @@ You rarely need the full stack running. Start only what you're touching:
 | **Request worker** | `bun run dev:worker` | Compiled worker (needs `WORKER_PROJECT_ID`) |
 | **Legacy worker** | `bun run dev:worker:dag` | Graph interpreter — for comparison only |
 | **Visual editor** | `bun run dev:web` | The dashboard app |
-| **AI gateway** | `bun run dev:ai` | AI agent harness and providers |
+| **AI gateway** | `bun run dev:ai` | AI agent and model providers |
 | **Documentation** | `bun run dev:docs` | This docs site, with live reload |
 
 ## Where to put your change
@@ -198,7 +198,7 @@ You rarely need the full stack running. Start only what you're touching:
 | Admin server | Admin API, compiler, request workers, database schema |
 | Legacy dashboard | The older Next.js admin UI — being migrated away from |
 | Portal | The current dashboard, including the AI assistant UI |
-| AI gateway | AI agent harness, model providers, tool integrations |
+| AI gateway | AI agent, model providers, tool integrations |
 | Blocks | Block definitions, schemas, runtime actions, compiler emitters |
 | Core library | Execution engine, virtual machine, state runtime |
 | Adapters | Database, API, and cloud service integrations |

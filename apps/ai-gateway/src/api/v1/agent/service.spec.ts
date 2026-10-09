@@ -3,7 +3,7 @@ import * as integration from "../../../agent/runner/integration";
 import * as queue from "../../../agent/runner/queue";
 import * as repo from "../../../agent/runner/repository";
 import * as store from "../../../agent/store";
-import * as quota from "../harness-conversations/send-message/rateLimit";
+import * as quota from "./rateLimit";
 import {
 	answerApproval,
 	getConversationDetail,

@@ -17,11 +17,11 @@ import { showErrorNotification } from "@/lib/errorNotifier";
 import { agentConversationsQuery } from "@/query/agentConversationsQuery";
 import { RenameConversationModal } from "./RenameConversationModal";
 import { StatusDot } from "./StatusDot";
-import type { HarnessConversation } from "./types";
+import type { AgentConversation } from "./types";
 
 type Props = {
 	projectId: string;
-	conversation: HarnessConversation;
+	conversation: AgentConversation;
 	active: boolean;
 	onOpen: (id: string) => void;
 };

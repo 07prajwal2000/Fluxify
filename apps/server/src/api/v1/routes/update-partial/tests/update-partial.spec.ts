@@ -111,7 +111,7 @@ describe("update-partial route", () => {
 		expect(result).toBeDefined();
 	});
 
-	// The AI harness edits a route's validation this way. Dropping the schemas
+	// The ops bus edits a route's validation this way. Dropping the schemas
 	// here made the whole edit a silent no-op: it applied, and nothing changed.
 	describe("schemas", () => {
 		const paramsSchema = {

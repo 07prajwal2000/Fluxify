@@ -1,14 +1,14 @@
 import { useEffect, useState } from "react";
 import { showErrorNotification } from "@/lib/errorNotifier";
 import { agentConversationsQuery } from "@/query/agentConversationsQuery";
-import type { HarnessConversation } from "./types";
+import type { AgentConversation } from "./types";
 
 export function ChatTitleEditor({
 	projectId,
 	conversation,
 }: {
 	projectId: string;
-	conversation: HarnessConversation | null;
+	conversation: AgentConversation | null;
 }) {
 	const [isEditing, setIsEditing] = useState(false);
 	const [title, setTitle] = useState("");

@@ -1,4 +1,4 @@
-export type HarnessConversation = {
+export type AgentConversation = {
 	id: string;
 	title: string | null;
 	status: string;

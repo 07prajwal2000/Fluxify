@@ -50,6 +50,20 @@
 			"when": 1791495616721,
 			"tag": "0006_agent_run_stop_reason",
 			"breakpoints": true
+		},
+		{
+			"idx": 7,
+			"version": "7",
+			"when": 1791508974925,
+			"tag": "0007_retire_old_harness",
+			"breakpoints": true
+		},
+		{
+			"idx": 8,
+			"version": "7",
+			"when": 1791509974925,
+			"tag": "0008_rename_agent_tables",
+			"breakpoints": true
 		}
 	]
 }

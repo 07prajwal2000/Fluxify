@@ -10,8 +10,8 @@ import {
 import { natsConnection } from "./nats";
 
 /**
- * Request/response over NATS for internal service-to-service calls (the AI
- * harness today, an MCP server later). HTTP stays the interface for the
+ * Request/response over NATS for internal service-to-service calls (workers and
+ * the control plane). HTTP stays the interface for the
  * frontend; this bus is never exposed.
  *
  * The envelope, codec and size limits live in `@fluxify/common/nats`. What is

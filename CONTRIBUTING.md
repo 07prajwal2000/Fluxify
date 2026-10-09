@@ -228,7 +228,7 @@ You rarely need the full stack. Run just the part you're changing:
 | :--- | :--- | :--- |
 | `apps/server` | `@fluxify/server` | Admin API, compiler, request workers, database schema |
 | `apps/portal` | `@fluxify/portal` | The admin dashboard, including the AI assistant UI |
-| `apps/ai-gateway` | `@fluxify/ai-gateway` | AI agent harness, LLM providers, MCP tooling |
+| `apps/ai-gateway` | `@fluxify/ai-gateway` | AI agent, LLM providers, MCP tooling |
 | `packages/blocks` | `@fluxify/blocks` | Block definitions, schemas, runtime actions, compiler emitters |
 | `packages/lib` | `@fluxify/lib` | Execution engine, VM, state runtime |
 | `packages/adapters` | `@fluxify/adapters` | Database, API, and cloud service integrations |
@@ -258,7 +258,7 @@ Each release ships versioned migrations, and the admin server applies the ones a
 database hasn't had yet, in order, when it starts.
 
 1. Edit the schema in `apps/server/src/db/` (`schema.ts`, `auth-schema.ts`,
-   `agent-harness-schema.ts`).
+   `agent-schema.ts`).
 2. Run `bun run db:generate`. It writes a numbered SQL file into
    `apps/server/src/db/migrations` and updates `meta/`. Read the SQL.
 3. Commit the SQL file and `meta/` with your schema change. CI fails when the

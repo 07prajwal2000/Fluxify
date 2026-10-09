@@ -13,7 +13,7 @@ const conv = (over: object = {}) =>
 	({ id: "c1", userId: "owner", projectId: "p1", metadata: { agent: true, mode: "manual" }, ...over }) as any;
 const spies = [
 	spyOn(repo, "getConversation").mockImplementation(async (id) =>
-		id === "c1" ? conv() : id === "c-harness" ? conv({ id, metadata: {} }) : id === "c-other" ? conv({ id, projectId: "p2" }) : undefined,
+		id === "c1" ? conv() : id === "c-untagged" ? conv({ id, metadata: {} }) : id === "c-other" ? conv({ id, projectId: "p2" }) : undefined,
 	),
 	spyOn(repo, "getRun").mockImplementation(async (id) =>
 		id === "r1" ? ({ id: "r1", conversationId: "c1" } as any) : undefined,
@@ -92,7 +92,7 @@ describe("agent API auth", () => {
 		expect((await call(m, path, body)).status).toBe(403);
 		who = owner;
 		expect((await call(m, path.replace("c1", "c-other"), body)).status).toBe(404);
-		expect((await call(m, path.replace("c1", "c-harness"), body)).status).toBe(404);
+		expect((await call(m, path.replace("c1", "c-untagged"), body)).status).toBe(404);
 		expect((await call(m, path.replace("c1", "missing"), body)).status).toBe(404);
 		expect((await call(m, path, body)).status).toBeLessThan(300);
 		who = { id: "admin", admin: true };

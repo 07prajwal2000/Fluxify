@@ -38,7 +38,7 @@ export async function handleCanvasOp(payload: unknown, caller: RpcCaller) {
 			caller.projectIds,
 			undefined,
 			// this subject is only ever reached over the internal ops bus (the AI
-			// harness apply path) — never by a portal user's canvas save
+			// apply path) — never by a portal user's canvas save
 			true,
 		);
 		return null;

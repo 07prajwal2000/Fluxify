@@ -119,7 +119,7 @@ export async function deleteBlocks(blockIds: string[], tx?: DbTransactionType) {
 }
 
 /** Bypasses the entrypoint/errorHandler protection in `deleteBlocks` above — only
- *  for the trusted merge path where a verified AI harness output is replacing a
+ *  for the trusted merge path where a verified AI output is replacing a
  *  stale structural block. Never call this for a client-initiated delete. */
 export async function deleteStructuralBlocks(blockIds: string[], tx?: DbTransactionType) {
 	if (!blockIds.length) return;

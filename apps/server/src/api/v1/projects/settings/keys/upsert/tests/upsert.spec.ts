@@ -10,7 +10,6 @@ import { NotFoundError } from "../../../../../../../errors/notFoundError";
 mock.module("../repository", () => ({
 	upsertProjectSettingKey: mock(),
 	checkProjectExists: mock(),
-	markIntegrationForHarness: mock(),
 }));
 
 mock.module("../../get-all/repository", () => ({
@@ -38,7 +37,6 @@ describe("upsert project settings service", () => {
 	beforeEach(() => {
 		(repository.upsertProjectSettingKey as any).mockClear();
 		(repository.checkProjectExists as any).mockClear();
-		(repository.markIntegrationForHarness as any).mockClear();
 		(redis.setCache as any).mockClear();
 		(redis.publishMessage as any).mockClear();
 		(connection.testConnectionFn as any).mockClear();
@@ -119,10 +117,6 @@ describe("upsert project settings service", () => {
 			`PROJECT-SETTINGS-${projectId}`,
 			JSON.stringify({ "settings.ai.agentConnectionId": validUuid }),
 		);
-		expect(repository.markIntegrationForHarness).toHaveBeenCalledWith(
-			projectId,
-			validUuid,
-		);
 		expect(result).toEqual({ message: "Setting saved successfully" });
 	});
 
@@ -156,7 +150,6 @@ describe("upsert project settings service", () => {
 			`PROJECT-SETTINGS-${projectId}`,
 			JSON.stringify({ "settings.ai.agentConnectionId": "" }),
 		);
-		expect(repository.markIntegrationForHarness).not.toHaveBeenCalled();
 		expect(result).toEqual({ message: "Setting saved successfully" });
 	});
 

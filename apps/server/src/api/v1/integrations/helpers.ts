@@ -116,7 +116,6 @@ export function getDefaultVariantValue(variant: Variants) {
 		return {
 			apiKey: "",
 			model: "",
-			useForHarness: false,
 		} as z.infer<typeof openAIVariantConfigSchema>;
 	}
 	if (variant === "OpenAI Compatible") {
@@ -124,7 +123,6 @@ export function getDefaultVariantValue(variant: Variants) {
 			apiKey: "",
 			model: "",
 			baseUrl: "",
-			useForHarness: false,
 		} as z.infer<typeof openAiCompatibleVariantConfigSchema>;
 	}
 	if (variant === "Redis" || variant === "Memcached") {

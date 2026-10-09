@@ -20,7 +20,7 @@ type Edge = { from?: string | null; to?: string | null; fromHandle?: string | nu
 /**
  * Refuses the transaction wiring that can never run correctly. The editor shows
  * the same rules as diagnostics; this protects every other canvas writer (the AI
- * harness, the API). A rollback outside a transaction is only a warning there,
+ * agent, the API). A rollback outside a transaction is only a warning there,
  * so a half-built canvas still saves.
  *
  * `dbTypeOf` names a connection's database: MongoDB has no isolation levels.

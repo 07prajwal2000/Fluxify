@@ -347,7 +347,7 @@ describe("canvas saveCanvas", () => {
 		});
 	});
 
-	it("rejects a duplicate structural block when the caller is not the AI harness", async () => {
+	it("rejects a duplicate structural block when the caller is not the AI apply path", async () => {
 		spyOn(repository, "getBlocksCountByType").mockResolvedValue([
 			{ count: 2, type: "entrypoint" },
 		] as any);

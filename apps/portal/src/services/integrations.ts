@@ -18,12 +18,8 @@ import { httpClient } from "@/lib/http";
 const getBaseUrl = (projectId: string) => `/v1/${projectId}/integrations`;
 
 export const integrationService = {
-	async getBasicList(
-		projectId: string,
-		useForHarness?: boolean,
-	): Promise<z.infer<typeof getBasicListResponseSchema>> {
-		const url = `${getBaseUrl(projectId)}/list-basic${useForHarness ? "?useForHarness=true" : ""}`;
-		const res = await httpClient.get(url);
+	async getBasicList(projectId: string): Promise<z.infer<typeof getBasicListResponseSchema>> {
+		const res = await httpClient.get(`${getBaseUrl(projectId)}/list-basic`);
 		return res.data;
 	},
 	async getAll(

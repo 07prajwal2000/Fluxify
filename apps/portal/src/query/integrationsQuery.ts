@@ -18,10 +18,10 @@ export const integrationsQuery = {
 		},
 	},
 	getBasicList: {
-		useQuery(projectId: string, useForHarness?: boolean, enabled = true) {
+		useQuery(projectId: string, enabled = true) {
 			return useQuery({
-				queryKey: ["integrations", projectId, "basic-list", useForHarness],
-				queryFn: () => integrationService.getBasicList(projectId, useForHarness),
+				queryKey: ["integrations", projectId, "basic-list"],
+				queryFn: () => integrationService.getBasicList(projectId),
 				refetchOnWindowFocus: false,
 				enabled: !!projectId && enabled,
 			});

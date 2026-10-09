@@ -58,22 +58,7 @@ If you encounter a repeatable issue or bug that might arise in the future, you m
    `import type { AccessControlRole } from "@fluxify/server";`
 
 ### Provider `invalid_request_message_order` 400s ("got assistant/system")
-**Golden rule:** A chat request's **last message must be `user` or `tool`** (or an `assistant` message explicitly marked as a prefix). Mistral (and some others) hard-reject anything else with `400 invalid_request_message_order`. Never send a message array whose final element is an `AIMessage`/assistant or a `SystemMessage`.
-
-**Live bug (ai-gateway harness — the one users actually hit):**
-- Symptom: Discussion agent answered correctly on call 1, then a redundant call 2 with the assistant reply appended 400'd.
-- Root cause: `apps/ai-gateway/src/harness/models/base.ts` → `invokeAgent`. Its tool loop pushes the model's final free-text `AIMessage` onto `finalMessages` and `break`s; with no `zodSchema` the code then fell through to a **second** `originalModel.invoke(finalMessages)` at the end of the method — re-sending a request that now ended with the assistant message.
-- Fix: when the tool loop gets a tool-call-free response and there's no `zodSchema`, **`return response` directly** — do not re-invoke. (The end-of-method `invoke` is only correct for the no-tools path, where history still ends with the human `userQuery`.)
-
-**Sibling bug (apps/server graph — legacy path, also fixed):**
-- `apps/server/src/lib/ai/nodes/discussion.ts` read `createAgent(prompt, []).invoke(...).structuredResponse`, but `createAgent` had no `responseFormat`, so `structuredResponse` is **always `undefined`** (langchain v1.5 `AgentNode`: no `responseFormat` → returns plain `AIMessage`, never sets `structuredResponse`). That threw in `withRetry`, forcing a retry every time; and `withRetry` appended its correction as `["system", ...]` (non-user last message) → 400.
-
-**Rules — read before writing/reviewing ANY new AI agent or graph node:**
-1. **Never re-invoke a model with an assistant/system message last.** If you already have the final `AIMessage`, return it; don't send it back in.
-2. **Match the canonical shape.** `apps/server` nodes (`classifier`/`planner`/`builder`) use `modelFactory.createModel()` + `model.invoke(history)` + `response.content.toString()`, with history `[...messages, ["system", systemPrompt], ["human", userPrompt]]` (ends on the human turn). Copy it; don't invent a new shape.
-3. **Only read `.structuredResponse`** if you actually passed a `responseFormat` to `createAgent` (the `packages/adapters/ai/*` adapters do NOT). Otherwise get JSON via `<output_format>` in the prompt + `withRetry(schema, ...)`.
-4. **Only use `createAgent`/tool-bound models when you pass real tools.** `[]` tools + `structuredResponse` gives neither tool use nor structured output.
-5. **Retry corrections must be a `["human", ...]` turn**, never `["system", ...]`, so the retried request still ends on a user role (`apps/server/src/lib/agentRetry.ts`).
+**Golden rule:** A chat request's **last message must be `user` or `tool`** (or an `assistant` message explicitly marked as a prefix). Mistral (and some others) hard-reject anything else with `400 invalid_request_message_order`. Never send a message array whose final element is an assistant or system message, and never re-send a model's final reply back to it. Retry corrections must be a user turn.
 
 ### React Aria / HeroUI Table Checkbox `slot="selection"` & Theme Compatibility
 **Issue:**
@@ -104,77 +89,6 @@ If you encounter a repeatable issue or bug that might arise in the future, you m
 2. **Explicit close triggers:** When a manual dismissal callback is needed (e.g. outside dialog context or controlled state resets), pass `onPress={onClose}` (e.g. `<CloseButton onPress={handleClose} />`).
 3. **Clearable input controls:** Use `<CloseButton aria-label="Clear ..." onPress={handleClear} />` for consistent clear actions in search/selector bars.
 
-### Harness Structured Output — "Unrecognized token '\'" / "Unexpected EOF" / silent parse failures
-**File:** `apps/ai-gateway/src/harness/models/base.ts` (`fallbackStructuredOutput`, `cleanJsonOutput`, `sliceBalancedJson`, `parseJsonLoose`).
-
-**First line of defence is JSON mode, not the parser.** `jsonModeOptions()` is a per-provider hook, bound **only** on the prompt-fallback path (`model.bind(...)`): OpenAI / OpenRouter / Mistral → `response_format: { type: "json_object" }`, Ollama → `format: "json"`, Anthropic/Google → none (they use the native path). Constrained decoding is what stops prose, `\boxed{}`, and escaped payloads at the source — every repair below is only a net. Do **not** bind it on the native `withStructuredOutput` path (that already sends `json_schema`). If a provider rejects `response_format` outright (some OpenRouter upstreams, older compatible servers), the loop detects "no response came back at all" and drops the constraint for the remaining attempts instead of burning all 3 on the same 400.
-
-**Symptoms & causes (all fixed, keep the fixes):**
-1. `Model response: .` (empty) — `response.content as string` assumed a plain string. Reasoning/multi-block models return an **array of content blocks**, or park text in `additional_kwargs.reasoning_content` (DeepSeek), `additional_kwargs.reasoning` (OpenRouter), or a `thinking` block. Use `extractText()`; never cast `.content` to string.
-2. Empty content also happens when a model burns its whole output budget on thinking. It throws a named error now — don't let it reach `JSON.parse`.
-3. **`JSON Parse error: Unrecognized token '\'`** — the model returned the payload as a *quoted, escaped JSON string* (`"{\"blocks\":[]}"`). The old slice-from-first-`{` cut the opening quote and left the escapes behind. `cleanJsonOutput` now unwraps a fully quoted string (`JSON.parse` it once, keep the inner string) **before** slicing, and `parseJsonLoose` retries once with `\"` → `"` for the unquoted variant (`{\"blocks\":[]}`).
-4. Prose/extra braces around the payload — **never use `lastIndexOf("}")`**. It guesses wrong the moment the model appends a brace of its own (`… } {see above}`, `\boxed{{…}}`) or a string *value* contains `}`. `sliceBalancedJson()` counts braces string-aware and returns the first complete value; `null` (no braces / truncated) falls through to the raw content so the EOF error still surfaces to the retry loop.
-5. `"field": null` for an omitted optional field — zod `.optional()` **rejects null**. Two defenses: the `JSON.parse` reviver drops nulls, and agent schemas use `.nullish()` instead of `.optional()`.
-
-**Rules:**
-- Prefer `.nullish()` over `.optional()` in any zod schema an LLM fills.
-- Give required arrays `.default([])` — a terminal block has no `connections`, a fresh canvas has no `canvasChanges`; making the model type `[]` is just an error surface.
-- Every agent prompt must include an **Output Contract** with the exact property names and a concrete JSON example. Field-name drift (`type` vs `blockType`) is a prompt bug, not a model bug.
-- Adding a provider wrapper? Override `jsonModeOptions()` if its SDK exposes a JSON/response-format call option — **verify the field name in `node_modules`**, don't guess (see the field-name check in the "Missing credentials" section).
-
-### Harness Temperature — always near-greedy
-`HARNESS_TEMPERATURE = 0` (exported from `models/base.ts`) is passed by every wrapper. These agents emit JSON and graph edits, not prose; sampling variance is pure error surface and was a direct cause of intermittent schema drift. **Exception:** OpenAI reasoning models (`o1`/`o3`/`o4`/`gpt-5`, matched by `FIXED_TEMPERATURE_MODEL` in `models/openai/index.ts`) **400 on any temperature but the default** — omit the field entirely for those.
-
-### Harness Retries — a blind retry makes the model repeat the same mistake
-`withRetry` re-sends an identical prompt, so schema violations recur every attempt. `fallbackStructuredOutput` retries internally instead: it appends the bad output plus the compact zod issue list as a **`HumanMessage`** correction, then re-asks (3 attempts). The correction must be a human turn — see the `invalid_request_message_order` rules above.
-
-**Echo the model's own message back, not a rebuilt one — but strip its tool calls.** The correction turn uses `asHistoryMessage()` (in `models/toolLoop.ts`), which returns the original `AIMessage` so provider-specific reasoning (`reasoning_content`, thinking blocks) travels with it. Constructing `new AIMessage(cleanedText)` throws the reasoning away and attempt 2 just re-derives — and re-botches — the same answer. When the response has no textual content, it rebuilds with the extracted reasoning text and preserves `additional_kwargs`.
-
-**The one thing that must NOT travel with it is `tool_calls`.** Symptom: `Failed to parse structured output after 3 attempts. Error: 400 An assistant message with 'tool_calls' must be followed by tool messages responding to each 'tool_call_id'`. The model answers the structured-output call with a *tool call* instead of JSON (so attempt 1 throws "empty response" — a tool-call-only reply has no text), that message is echoed into the correction turn with its tool calls intact, and a `HumanMessage` is appended after it. An assistant message carrying `tool_calls` that no `ToolMessage` answers is rejected outright, so attempts 2 and 3 both 400 **on the history, not on the answer** — the whole retry budget is spent without the model ever getting a real chance to correct itself (~30-40k tokens on one observed run).
-
-Strip both copies: the `AIMessage.tool_calls` field *and* `additional_kwargs.tool_calls`, where OpenAI-compatible providers keep their own. The model at that point is unbound and has no tools to call anyway. Give the rebuilt message real content saying the tool call was discarded — `"(empty response)"` tells the model nothing about what it did wrong.
-
-**`instanceof AIMessage` does not find them.** `AIMessageChunk` extends `BaseMessageChunk` and only *implements* `AIMessage`, so the check is **false for every streamed reply** — which is most of them. A strip gated on it silently passes the message through with its tool calls intact, and the 400 above comes back looking exactly like a regression of a fix that is still in place. Gate on the message type instead (`getType() === "ai"`, true for both), and read `tool_calls` and `additional_kwargs.tool_calls` together: an OpenAI-compatible provider may report the call **only** in `additional_kwargs` and leave `tool_calls` empty. `toolCallsOf()` in `models/toolLoop.ts` is the one place that does both; use it rather than re-deriving the check — `flattenToolMessages` and `asHistoryMessage` each got this wrong independently.
-
-**General rule:** any time a message is moved, echoed, replayed, or summarized into a new request, an assistant message's `tool_calls` and the `ToolMessage`s answering them must stay together or both be dropped. Splitting them is always a 400.
-
-This class of bug hides on OpenAI, which accepts the malformed history. It surfaces on Anthropic, Mistral, and DeepSeek. Reproduce message-plumbing fixes on a provider that actually enforces the rule.
-
-Also: native `withStructuredOutput` failures are caught and fall through to the prompt fallback rather than killing the run.
-
-### Harness "The operation timed out." / run hangs
-- Every model+tool call goes through `withSignal()`, which injects `MODEL_CALL_TIMEOUT_MS` (180s, override with `HARNESS_MODEL_TIMEOUT_MS`) so a stuck provider connection can't stall a run. `checkConnection` uses 30s.
-- The tool-execution loop's `model.invoke` must be wrapped in `withRetry` like every other model call — it was the one unretried call, so a single network blip killed the whole run.
-- `isUserInterrupt(error)` returns true for **any** `AbortError`, including provider-side timeouts. Only treat it as a user stop when `abortController.signal.aborted` is also true; otherwise a timeout gets recorded as `interrupted` instead of `failed`.
-
-### Harness Runs Marked `failed` With No Message / after correct output
-1. **No message:** `failRun` used to persist only `status: "failed"` with no `aiResponse`, so the UI showed a bare status. The graph catch now passes `describeFailure(error, lastNode)` — a categorized, user-readable markdown message (structured output / rate limit / auth / context length / timeout / generic) naming the node that failed via `labelForNode`. `lastNode` is tracked from `on_chain_start` events. Non-`Error` rejections go through `errorMessage()` so `{ code: 23 }` doesn't become `[object Object]`.
-2. **Failed right after producing correct output:** LangGraph's default `recursionLimit` is **25**. Each task level costs 3 supersteps (sub-agent → supervisor → orchestrator) plus ~5 for router/verify/planner/taskGenerator/orchestrator, so a 6–7 task sequential build throws `GraphRecursionError` at the very end. `streamConfig` sets `recursionLimit: 100`.
-
-### "OpenAI Compatible" Integration — "Missing credentials. Please pass an apiKey…"
-**Issue:** Selecting the *OpenAI Compatible* AI variant (Ollama, LM Studio, vLLM, LiteLLM) failed the pre-run connection probe with `Missing credentials…set the OPENAI_API_KEY environment variable`.
-**Cause:** That variant maps to provider `openai` (`models/projectConfig.ts`), and local servers need no API key — but the OpenAI SDK refuses to construct without one.
-**Real cause (the one that bites with a valid key too):** the wrapper passed **`openAIApiKey`**. In `@langchain/openai` v1.x, `ChatOpenAI` reads only `fields.apiKey`, `fields.configuration.apiKey`, or `$OPENAI_API_KEY` — `openAIApiKey` is a dead alias on chat models (it still works on `OpenAI()`/`OpenAIEmbeddings`), so the key was silently dropped for every OpenAI-family provider (DeepSeek, Poolside, etc.).
-**Field-name check per SDK (verified in node_modules, not guessed):** `ChatOpenAI` → `apiKey` only. `ChatAnthropic` → `apiKey` (`anthropicApiKey` still aliased; base URL is `anthropicApiUrl`, NOT `baseUrl`). `ChatGoogle`, `ChatMistralAI`, `ChatOpenRouter` → `apiKey`. When bumping a LangChain package, re-check these — the aliases die quietly with no type error.
-**Fix (`models/openai/index.ts`):**
-- `apiKey: this.apiKey || (this.baseUrl ? "not-required" : undefined)` — a placeholder only when a custom `baseUrl` is set; real OpenAI still requires a real key.
-- `supportsStructuredOutput()` returns `false` when `baseUrl` is set. Compatible servers usually reject the `json_schema` response format, so skip the native path and use the prompt fallback instead of burning 3 retries per call. That fallback still constrains output via `json_object` (`jsonModeOptions()`), which every OpenAI-compatible server honours — the two flags are deliberately separate.
-
-### Harness Run State — a dead run must not lose what it built
-A run that dies partway through used to lose everything, so "continue" restarted the whole build from the planner and re-paid for every task that had already succeeded.
-
-- **Never persist an empty state on a terminal path.** `failRun` and `interruptRun` called `saveLiveState` with a hardcoded `workingMemory: {}` — erasing the accumulated state on exactly the event worth recovering from. They take the state from `HarnessCallbacks.snapshotState()` now. The graph never returns a final state on the failure path, so that snapshot is the only surviving record.
-- **`RESUMABLE_NODES` (`harness/callbacks.ts`) decides where checkpoints land.** It held only `PLANNER` and `HUMAN_IN_THE_LOOP`, so nothing was saved after planning. `SUPERVISOR` is in it now because it is the only node that settles task statuses, and task statuses are what a resume reads.
-- **Artifacts are immutable per run.** One user message is one run; an agent that wants to change something creates a new artifact rather than editing an existing one. Do NOT add a status field to a sub-artifact row — the run already has a status, and a second state machine would only have to be kept in sync with the first. `SummarizerState.subArtifactIds` maps task id to row so a later run can tell persisted work from work that only lived in a dead process.
-- **Guard side effects, not rows.** Duplicate artifact rows across runs are expected and harmless; two real routes in the user's project are not. Before re-running a task, check `appliedAt`, never row existence.
-
-### Harness Orchestrator — skipped/repeated task levels
-**Issue:** Sub-agents appeared to run twice (e.g. block builder inside block builder) and levels got skipped.
-**Cause:** The orchestrator popped `taskQueue` to pick the next level, so any re-entry into that node consumed a level it never verified. Worse, the supervisor only wrote statuses to `dispatchedTasks[i]`, relying on those being the *same object references* as entries in `tasks` — a fragile aliasing contract across graph state.
-**Fix:**
-- The orchestrator derives the ready level from task statuses + `dependsOnAgentId` (`status === "pending"` and every dependency settled). A `running` task is never dispatched again. `taskQueue` is now informational only.
-- The supervisor writes each verdict into the `tasks` entry **by id** (`setStatus`), not through reference aliasing. A lost write there stalls the build forever.
-
 ### Canvas Readonly Mode Enforcement & Save Button Visibility
 **Issue:** When the canvas is set to `readOnly`, block settings panel inputs could remain interactive if fields didn't check change tracking state, and the top-level Save button remained visible. Furthermore, disabling `elementsSelectable` prevented users from opening and inspecting block settings panels in read-only mode.
 **Fix & Best Practices:**
@@ -198,7 +112,7 @@ The pre-commit hook runs `fta-cli --score-cap 70`, which **fails the commit** fo
 3. When two PRs edit one function, expect the conflict to land on the *signature*: verify every parameter each side added still exists in the merged destructuring/argument list.
 
 ### Drizzle `sql` Template — Interpolation Is Parameterized, `sql.raw()` Is Not
-**Issue:** Reviewing whether user/LLM-supplied search terms in `harness/internal/dbService.ts` could be injected.
+**Issue:** Reviewing whether user/LLM-supplied search terms in `api/v1/find-resource/search.ts` could be injected.
 **Cause/behaviour (verified in `node_modules`, not assumed):** In the `sql` tagged template, literal pieces become `StringChunk`s and every **interpolated value** falls through to `escapeParam(idx, chunk)` → a `$1`-style bound parameter. A `Column` interpolates as an escaped identifier. `sql.raw()` is the **only** path that concatenates text into the query.
 **Rules:**
 1. `sql\`${column} = ${userValue}\`` is safe — never hand-quote or hand-escape the value, that only creates a double-escaping bug.
@@ -215,19 +129,10 @@ The pre-commit hook runs `fta-cli --score-cap 70`, which **fails the commit** fo
 **Issue:** `TypeError: undefined is not a constructor (evaluating 'new _Worker(url)')` from any server-side code that constructs `new ELK()`. Tests pass under Node and fail under Bun.
 **Cause:** elkjs only lays out inside a Web Worker. Its in-process fallback (`elkjs/lib/elk-worker.min.js`) ends in `module.exports = {default: j, Worker: j}`, and Bun's ESM/CJS interop resolves that to an **empty namespace** — so the constructor is `undefined`. `createRequire`, dynamic `import()`, and passing an explicit `workerFactory` are all dead ends; the module genuinely has nothing to hand back.
 **Fix & Best Practices:**
-1. **Do not add elkjs (or any worker-dependent layout lib) back.** The layered left-to-right layout in `packages/blocks/layout.ts` is dependency-free, runs identically under Bun and in the browser, and is the single implementation shared by the editor's Format button and the harness apply path (`formattedCanvasChanges`).
+1. **Do not add elkjs (or any worker-dependent layout lib) back.** The layered left-to-right layout in `packages/blocks/layout.ts` is dependency-free, runs identically under Bun and in the browser, and is the single implementation shared by the editor's Format button and the AI agent's canvas edits.
 2. Import it from the **subpath** `@fluxify/blocks/layout`, never the root barrel — the barrel drags `jsonwebtoken` and the adapters into the browser bundle (see the package-bleed section above).
 3. `layoutGraph(nodes, edges, { changedIds })` returns positions **only** for blocks that actually move, anchored on the leftmost unchanged block, so an AI edit nudges the graph instead of teleporting it to the origin.
 4. A green local lint does not prove a dependency was fully removed — `node_modules` still holds it. After dropping a dependency, grep the source for the import (`grep -rn "elkjs" apps packages`), because CI installs clean and will fail on what your local tree still resolves.
-
-### Harness Task Generation — One Edit Split Across Three Agents
-**Issue:** A request as simple as "put this custom block into a route" spawned a chain of sub-agent tasks (observed: three chained `blockBuilder` tasks, two rejected by the supervisor). Each hop regenerated the whole canvas from the previous one's output, so every hop was a fresh chance to drop a field.
-**Cause:** The planner writes a **user-facing** plan by design — "add the block", "configure it", "return it in the response" — and that is correct behaviour, not the bug. The task generator turned each bullet into its own task on the same agent, all editing the same canvas in series. Prompt rule 8 says to consolidate; nothing enforced it, and the model ignored it.
-**Fix & Best Practices:**
-1. `sanitizeTasks` (`harness/agents/taskGenerator.ts`) contracts a linear chain of same-agent tasks via `mergeChains`. Merging is only safe for a **true chain** — B depends on A alone and nothing else depends on A — so independent same-agent tasks (two different routes) are left alone and later tasks are re-pointed at the merged id.
-2. **Enforce structural rules in code, not only in the prompt.** A rule the model can ignore silently is not a rule; the deterministic repair belongs in `sanitizeTasks` next to the id/node/edge repairs already there.
-3. Do not "fix" this class of bug in the planner. Check `taskGenerator` output first — the planner's prose plan and the task DAG are different artifacts.
-4. When diagnosing a bad run, read it from the database (`agent_harness_runs`, `agent_harness_steps`, `agent_harness_live_states.working_memory`) rather than inferring from the summary. The reported agent is often not the one that misbehaved.
 
 ### MongoDB Standalone — the Driver Rewrites the "No Transactions" Error
 **Issue:** code meant to spot "this server can't run transactions" (a standalone mongod) never matched, so the fallback and the clear error message never ran.
