@@ -1,6 +1,7 @@
 import { requestBodySchema as cloneBody } from "@fluxify/server/src/api/v1/test-suites/clone/dto";
 import { requestBodySchema as suiteUpdate } from "@fluxify/server/src/api/v1/test-suites/update/dto";
 import { z } from "zod";
+import { hooksWithIds } from "./suiteHooks";
 import type { McpTool } from "./tools";
 import { optionalFields } from "./writeTools";
 
@@ -17,7 +18,7 @@ const DESCRIPTION = `Create or update a test suite for a route or a workflow. To
 Route suite: one request. routeParams fills each :param of the path ({ id: '42' }), plus queryParams, headers, body (JSON by default; contentType for forms or files).
 Workflow suite: input = { source: 'raw', mode: 'single' | 'cases', raw }. single: one run, raw is the trigger items (a list is several items). cases: one run per entry of raw, each entry { name, input } or a plain value; max 100. source 'script' runs script (JS that returns the value); 'loader' runs loaderBlockId (a test-only custom block).
 assertions (all must pass): { target, operator, expectedValue, propertyPath }. expectedValue is a string. Route targets: status and time (eq, neq, lt, gt); body and header (eq, neq, contains, true, false, exists, not_exists), propertyPath is a body path 'user.tags[0]' or the header name. Workflow targets: successful (true, false); output (like body); time. eq compares as text, objects as compact JSON. target 'customJs' takes customJs code that calls t.expect(value).toBe(x) / toEqual / toContain / toHaveLength / toHaveProperty; it reads fluxify.response.{status,body,headers} (route) or fluxify.result.{successful,output,error} (workflow) and t.setup.
-setupBlockId / teardownBlockId: custom blocks created with usage 'test', run before / after; setup's result is t.setup. hooks (replaces all of the suite's hooks): [{ blockId, onBefore?, onAfter? }] on blocks of the target's canvas, each { kind: 'json', value: '<made-up output as JSON text>' } to skip the block, or { kind: 'script', value: 'return {...input, x: 1}' } (input, output, t.skip(output), t.fail(msg)). if/switch/loops/retry allow only an onBefore script. appConfigOverrides [{ key, value }] and integrationOverrides [{ existingId, newId }] apply to this suite only.
+setupBlockId / teardownBlockId: custom blocks created with usage 'test', run before / after; setup's result is t.setup. hooks (replaces all of the suite's hooks): [{ blockId, onBefore?, onAfter? }] on blocks of the target's canvas (blockId is the block key from get_canvas, e.g. db_insert_1), each { kind: 'json', value: '<made-up output as JSON text>' } to skip the block, or { kind: 'script', value: 'return {...input, x: 1}' } (input, output, t.skip(output), t.fail(msg)). if/switch/loops/retry allow only an onBefore script. appConfigOverrides [{ key, value }] and integrationOverrides [{ existingId, newId }] apply to this suite only.
 Then run it with run_test_suite.`;
 
 export const testSuiteTools: McpTool[] = [
@@ -33,12 +34,25 @@ export const testSuiteTools: McpTool[] = [
 			targetId: z.string().optional().describe("Create only: the route or workflow id"),
 			...fields,
 		},
-		call: async ({ send }, { testSuiteId: id, targetType: kind, targetId, ...a }) => {
-			if (id) return { id: (await send("PUT", `/v1/test-suites/${id}`, a)).id };
+		call: async ({ get, send }, { testSuiteId: id, targetType: kind, targetId, ...a }) => {
+			if (id) {
+				if (a.hooks?.length) {
+					const suite = await get(`/v1/test-suites/${id}`);
+					const onRoute = Boolean(suite.routeId);
+					a.hooks = await hooksWithIds(
+						get,
+						onRoute ? "route" : "workflow",
+						suite.routeId ?? suite.workflowId,
+						a.hooks,
+					);
+				}
+				return { id: (await send("PUT", `/v1/test-suites/${id}`, a)).id };
+			}
 			if (!kind || !targetId || !a.name) {
 				throw new Error("To create a test suite pass targetType, targetId and name.");
 			}
 			const { name, description, ...rest } = a;
+			if (rest.hooks?.length) rest.hooks = await hooksWithIds(get, kind, targetId, rest.hooks);
 			const created = await send("POST", `/v1/test-suites/${kind}/${targetId}`, {
 				name,
 				description: description ?? "",

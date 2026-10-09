@@ -64,6 +64,13 @@
 			"when": 1791509974925,
 			"tag": "0008_rename_agent_tables",
 			"breakpoints": true
+		},
+		{
+			"idx": 9,
+			"version": "7",
+			"when": 1791511722543,
+			"tag": "0009_block_keys",
+			"breakpoints": true
 		}
 	]
 }

@@ -20,7 +20,14 @@ export type CanvasChanges = z.infer<typeof canvasChangesSchema>;
 
 /** What the canvas currently holds, as `fluxify.ops.canvas` returns it. */
 export type CanvasItems = {
-	blocks: { id: string; type: string; data: unknown; position: { x: number; y: number } }[];
+	/** `key` is the block's readable name on its canvas (`response_1`) */
+	blocks: {
+		id: string;
+		key?: string;
+		type: string;
+		data: unknown;
+		position: { x: number; y: number };
+	}[];
 	edges: {
 		id: string;
 		from: string;

@@ -11,11 +11,11 @@ const at = (x: number) => ({ x, y: 0 });
 const canvas = () => ({
 	canvasVersion: 3,
 	blocks: [
-		{ id: "entry", type: "entrypoint", data: {}, position: at(0) },
-		{ id: "err", type: "error_handler", data: {}, position: at(0) },
-		{ id: "resp", type: "response", data: { httpCode: "200" }, position: at(300) },
-		{ id: "cond", type: "if", data: { conditions: [] }, position: at(600) },
-		{ id: "log", type: "consolelog", data: { value: "x" }, position: at(900) },
+		{ id: "entry", key: "entrypoint_1", type: "entrypoint", data: {}, position: at(0) },
+		{ id: "err", key: "error_handler_1", type: "error_handler", data: {}, position: at(0) },
+		{ id: "resp", key: "response_1", type: "response", data: { httpCode: "200" }, position: at(300) },
+		{ id: "cond", key: "if_1", type: "if", data: { conditions: [] }, position: at(600) },
+		{ id: "log", key: "consolelog_1", type: "consolelog", data: { value: "x" }, position: at(900) },
 	],
 	edges: [
 		{ id: "e1", from: "entry", to: "resp", fromHandle: "entry-source", toHandle: "resp-target" },
@@ -32,9 +32,9 @@ const deletes = (c: ReturnType<typeof apply>["changes"], kind: "blocks" | "edges
 describe("edit_canvas ops → save diff", () => {
 	it("adds a block by ref, gives it an id, and wires refs used later in the call", () => {
 		const { changes, refs } = apply([
-			{ op: "disconnect", from: "entry", to: "resp" },
-			{ op: "add_block", ref: "block_1", type: "jsRunner", data: { value: "return 1" }, connect_from: { from: "entry" } },
-			{ op: "connect", from: "block_1", to: "resp" },
+			{ op: "disconnect", from: "entrypoint_1", to: "response_1" },
+			{ op: "add_block", ref: "block_1", type: "jsRunner", data: { value: "return 1" }, connect_from: { from: "entrypoint_1" } },
+			{ op: "connect", from: "block_1", to: "response_1" },
 		]);
 		const id = refs.block_1;
 		expect(id).toBeString();
@@ -53,18 +53,18 @@ describe("edit_canvas ops → save diff", () => {
 	});
 
 	it("fills in the default handle, and asks when there is none", () => {
-		const { changes, refs } = apply([{ op: "add_block", ref: "b", type: "consolelog", connect_from: { from: "log" } }]);
+		const { changes, refs } = apply([{ op: "add_block", ref: "b", type: "consolelog", connect_from: { from: "consolelog_1" } }]);
 		expect(changes.changes.edges[0].fromHandle).toBe("log-source");
 		expect(refs.b).toBeString();
-		expect(() => apply([{ op: "connect", from: "cond", to: "resp" }])).toThrow("success, failure");
-		expect(() => apply([{ op: "connect", from: "resp", to: "log" }])).toThrow("no output handle");
-		expect(() => apply([{ op: "connect", from: "cond", to: "resp", handle: "nope" }])).toThrow('no "nope" handle');
-		const failure = apply([{ op: "connect", from: "cond", to: "resp", handle: "failure" }]);
+		expect(() => apply([{ op: "connect", from: "if_1", to: "response_1" }])).toThrow("success, failure");
+		expect(() => apply([{ op: "connect", from: "response_1", to: "consolelog_1" }])).toThrow("no output handle");
+		expect(() => apply([{ op: "connect", from: "if_1", to: "response_1", handle: "nope" }])).toThrow('no "nope" handle');
+		const failure = apply([{ op: "connect", from: "if_1", to: "response_1", handle: "failure" }]);
 		expect(failure.changes.changes.edges[0].fromHandle).toBe("cond-failure");
 	});
 
 	it("merges update_block data into the stored data and keeps its position", () => {
-		const { changes } = apply([{ op: "update_block", id: "log", data: { level: "warn" } }]);
+		const { changes } = apply([{ op: "update_block", id: "consolelog_1", data: { level: "warn" } }]);
 		expect(changes.changes.blocks).toEqual([
 			expect.objectContaining({ id: "log", data: { value: "x", level: "warn" }, position: at(900) }),
 		]);
@@ -72,31 +72,31 @@ describe("edit_canvas ops → save diff", () => {
 	});
 
 	it("a missing disconnect names the edges the block has", () => {
-		expect(() => opsToChanges(canvas(), [{ op: "disconnect", from: "cond", to: "resp" }] as CanvasOp[])).toThrow(
-			"cond has edges success -> log",
+		expect(() => opsToChanges(canvas(), [{ op: "disconnect", from: "if_1", to: "response_1" }] as CanvasOp[])).toThrow(
+			"if_1 has edges success -> consolelog_1",
 		);
 	});
 
 	it("removes a block with its edges", () => {
-		const { changes } = apply([{ op: "remove_block", id: "log" }]);
+		const { changes } = apply([{ op: "remove_block", id: "consolelog_1" }]);
 		expect(deletes(changes, "blocks")).toEqual(["log"]);
 		expect(deletes(changes, "edges")).toEqual(["e2"]);
 		expect(upserts(changes)).toEqual([]);
 	});
 
 	it("refuses bad ops instead of dropping them", () => {
-		expect(() => apply([{ op: "connect", from: "entry", to: "ghost" }])).toThrow('no block "ghost"');
-		expect(() => apply([{ op: "connect", from: "entry", to: "log" }])).toThrow("already goes to resp");
-		expect(() => apply([{ op: "connect", from: "log", to: "entry" }])).toThrow("nothing may point");
-		expect(() => apply([{ op: "remove_block", id: "entry" }])).toThrow("cannot be removed");
-		expect(() => apply([{ op: "disconnect", from: "entry", to: "log" }])).toThrow("no edge");
+		expect(() => apply([{ op: "connect", from: "entrypoint_1", to: "ghost" }])).toThrow('no block "ghost"');
+		expect(() => apply([{ op: "connect", from: "entrypoint_1", to: "consolelog_1" }])).toThrow("already goes to response_1");
+		expect(() => apply([{ op: "connect", from: "consolelog_1", to: "entrypoint_1" }])).toThrow("nothing may point");
+		expect(() => apply([{ op: "remove_block", id: "entrypoint_1" }])).toThrow("cannot be removed");
+		expect(() => apply([{ op: "disconnect", from: "entrypoint_1", to: "consolelog_1" }])).toThrow("no edge");
 		expect(() =>
 			apply([
-				{ op: "remove_block", id: "log" },
-				{ op: "update_block", id: "log", data: {} },
+				{ op: "remove_block", id: "consolelog_1" },
+				{ op: "update_block", id: "consolelog_1", data: {} },
 			]),
 		).toThrow("removed earlier");
-		expect(() => apply([{ op: "add_block", ref: "resp", type: "response" }])).toThrow("already");
+		expect(() => apply([{ op: "add_block", ref: "response_1", type: "response" }])).toThrow("already");
 	});
 
 	it("auto_layout moves stored blocks too, restating their data", () => {
@@ -106,11 +106,11 @@ describe("edit_canvas ops → save diff", () => {
 		expect(resp?.data).toEqual({ httpCode: "200" });
 	});
 
-	it("get_canvas trims UI data and uses bare handles", () => {
+	it("get_canvas names blocks and edges by key, with no ids or UI data", () => {
 		const out = trimCanvas(canvas());
 		expect(out.version).toBe(3);
-		expect(out.blocks[0]).toEqual({ id: "entry", type: "entrypoint", data: {} });
-		expect(out.edges[1]).toEqual({ from: "cond", to: "log", handle: "success" });
+		expect(out.blocks[0]).toEqual({ key: "entrypoint_1", type: "entrypoint", data: {} });
+		expect(out.edges).toEqual(["entrypoint_1 → response_1", "if_1.success → consolelog_1"]);
 	});
 });
 
@@ -132,20 +132,24 @@ describe("edit_canvas tool", () => {
 
 	it("saves against the version read and returns the new one, with its issues by default", async () => {
 		const { api, sent } = fake();
-		const out = await run(api, { target, version: 3, ops: [{ op: "update_block", id: "log", data: {} }] });
-		expect(out).toEqual({ version: 4, issues: [{ severity: "warning", message: "w" }] });
+		const out = await run(api, { target, version: 3, ops: [{ op: "update_block", id: "consolelog_1", data: {} }] });
+		expect(out).toEqual({
+			version: 4,
+			changes: ["updated consolelog_1 (no fields)"],
+			issues: [{ severity: "warning", message: "w" }],
+		});
 		expect(sent[0].path).toBe("/v1/routes/r1/save-canvas?expectedVersion=3");
 	});
 
 	it("validate: false skips the issues", async () => {
-		const out = await run(fake().api, { target, version: 3, ops: [{ op: "update_block", id: "log", data: {} }], validate: false });
-		expect(out).toEqual({ version: 4 });
+		const out = await run(fake().api, { target, version: 3, ops: [{ op: "update_block", id: "consolelog_1", data: {} }], validate: false });
+		expect(out).toEqual({ version: 4, changes: ["updated consolelog_1 (no fields)"] });
 	});
 
 	it("takes ops, version and validate sent as strings", async () => {
-		const ops = JSON.stringify([{ op: "update_block", id: "log", data: {} }]);
+		const ops = JSON.stringify([{ op: "update_block", id: "consolelog_1", data: {} }]);
 		const out = await run(fake().api, { target: JSON.stringify(target), version: "3", ops, validate: "false" });
-		expect(out).toEqual({ version: 4 });
+		expect(out).toEqual({ version: 4, changes: ["updated consolelog_1 (no fields)"] });
 	});
 
 	it("refuses a stale version without saving", async () => {

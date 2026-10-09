@@ -142,9 +142,9 @@ export function BlockPanel({
 								{subtitle}
 							</span>
 						</span>
-						{current.id && (
-							<span className="fx-panel__block-id" title={`Block ID: ${current.id}`}>
-								{current.id.split("-")[0]}
+						{current.blockKey && (
+							<span className="fx-panel__block-id" title={`Block key: ${current.blockKey}`}>
+								{current.blockKey}
 							</span>
 						)}
 						<button

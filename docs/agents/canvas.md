@@ -16,7 +16,7 @@ Read this first when you build or change the logic of a route, workflow or custo
 
 The entrypoint outputs what the run started with: on a route the parsed request body (the same as the Get Request Body block), on a workflow the data it was started with. So the first block after it reads `input.email`, not `input.body.email`.
 
-A new route starts with an entrypoint, a response block and an error handler. Call `get_canvas` to see them, their ids and their edges before you edit.
+A new route starts with an entrypoint, a response block and an error handler. Call `get_canvas` to see them, their keys and their edges before you edit.
 
 ## Blocks, handles and edges
 
@@ -53,9 +53,17 @@ A custom block's inputs come from `get_custom_block`. Any block's `data` can als
 
 Block text inputs are literal unless they start with `js:`. See [Dynamic values and `js:` expressions](/agents/expressions).
 
+## Block keys
+
+Every block has a **key**: its type and a number, such as `response_1`, `db_insert_2` or `custom_send_mail_1`. You name blocks by key in `get_canvas`, `edit_canvas` and test suite hooks. You never need a block id.
+
+- The server gives a block its key when the block is created. You cannot choose or change it.
+- A key is never reused on the same canvas, even after its block is deleted. If `response_2` is removed, the next new response block is `response_3`.
+- A key tells you the block type. If you write a key that does not belong to the block it names, the op is refused.
+
 ## Edit with `edit_canvas`
 
-Call `get_canvas` first. It gives `version`, `blocks` (id, type, data) and `edges` (`from`, `to`, `handle`). Pass that `version` to `edit_canvas`. If the canvas changed since, you get `Canvas changed since you read it`: read it again and redo the edit.
+Call `get_canvas` first. It gives `version`, `blocks` (key, type, data) and `edges`, written as text: `entrypoint_1 → response_1`, or `if_1.success → db_insert_1` for a block with several handles (`from.handle → to`). Pass that `version` to `edit_canvas`. If the canvas changed since, you get `Canvas changed since you read it`: read it again and redo the edit.
 
 ```json
 {
@@ -64,10 +72,10 @@ Call `get_canvas` first. It gives `version`, `blocks` (id, type, data) and `edge
   "ops": [
     { "op": "add_block", "ref": "find", "type": "db_exists",
       "data": { "connection": "<integration id>", "tableName": "users", "conditions": [] },
-      "connect_from": { "from": "<entry id>" } },
+      "connect_from": { "from": "entrypoint_1" } },
     { "op": "add_block", "ref": "gone", "type": "response", "data": { "httpCode": "404" },
       "connect_from": { "from": "find", "handle": "failure" } },
-    { "op": "connect", "from": "find", "to": "<ok response id>", "handle": "success" }
+    { "op": "connect", "from": "find", "to": "response_1", "handle": "success" }
   ]
 }
 ```
@@ -79,15 +87,16 @@ Call `get_canvas` first. It gives `version`, `blocks` (id, type, data) and `edge
 | `remove_block` | `id`. Its edges go with it. The entrypoint and error handler cannot be removed. |
 | `connect`, `disconnect` | `from`, `to`, optional `handle` (the handle on `from`) |
 
+- `from` can also carry the handle: `"from": "if_1.success"`.
 - Ops run **in order**. A later op can use a `ref` added earlier in the same call, and a `disconnect` followed by a `connect` on the same handle works.
 - All or nothing: one bad op (unknown block type, missing id, a handle the block does not have, a handle already used) refuses the whole call and saves nothing. The error names the block and lists its valid handles.
-- The answer has the new `version` and `refs`, which maps each of your refs to the id the block got. Use those ids in later calls.
+- The answer has the new `version`; `changes`, one line per thing done (`updated response_1 (httpCode)`, `connected if_1.success → db_insert_1`, `removed log_2 (+2 edges)`), so you can see each op hit the block you meant; and `refs`, which maps each of your refs to the key the block got. Use those keys in later calls.
 - Leave `position` out and the server places new blocks. Pass `auto_layout: true` to lay out the whole canvas again.
 - `ops: []` checks the canvas and saves nothing.
 
 ### Validation
 
-Validation runs by default and returns `issues`: `{ severity, message, blockId }`. Pass `validate: false` only to skip them.
+Validation runs by default and returns `issues`: `{ severity, message, block }`, where `block` is the key of the block it is about. Pass `validate: false` only to skip them.
 
 - An `error` on a block you wrote in this call refuses the save. Fix it and call again.
 - A `warning` still saves. Read it: it catches things like a `{{ }}` template or a missing `js:`.
@@ -104,7 +113,7 @@ A workflow has no caller, so its end block only finishes the run and its `httpCo
 If a block throws, the run jumps to the **error handler** block. Wire it with an edge from the handler's `source` handle to the first block of your error flow:
 
 ```json
-{ "op": "connect", "from": "<error handler id>", "to": "<first error block id>" }
+{ "op": "connect", "from": "error_handler_1", "to": "<first error block key>" }
 ```
 
 - The first block of that chain gets the error **as text** for its `input`, like `Error: <message>`.
@@ -147,7 +156,7 @@ If the next block needs only the previous output, just read `input`. Do not save
 ## The build loop
 
 1. `get_block_schemas` with `blockTypes` for the blocks you will use.
-2. `get_canvas` for the ids and `version`.
+2. `get_canvas` for the keys and `version`.
 3. `edit_canvas` with small ops. Fix every `error` in `issues`.
 4. `get_system_logs` for compile errors.
 5. Activate the route if needed (`save_route` with `active: true`), then `call_route` with real input.
@@ -160,7 +169,8 @@ If the next block needs only the previous output, just read `input`. Do not save
 | `Canvas changed since you read it` | `get_canvas` again, redo the edit with the new `version`. |
 | `... has no "x" handle. Use ...` | The error lists the handles the block has. Pick one. |
 | `... handle already goes to ...` | Add a `disconnect` before the `connect`, in the same call. |
-| `no block "x"` | Use an id from `get_canvas`, or a `ref` added earlier in the same call. |
+| `no block "x"` | Use a key from `get_canvas` (the error lists similar ones), or a `ref` added earlier in the same call. |
+| `x is a ... block, not a ... block` | The key does not belong to that block. Read the canvas again and use the key it shows. |
 | `a canvas already has its one error_handler block` | A canvas has exactly one entrypoint and one error handler. Edit the existing one. |
 | A block shows its text in the response | The value is a literal. Start it with `js:`. |
 

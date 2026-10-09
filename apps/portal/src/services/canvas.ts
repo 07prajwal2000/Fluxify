@@ -28,7 +28,13 @@ export type CanvasSavePayload = {
 export type CanvasItems = {
 	/** +1 on every save (#597) */
 	canvasVersion: number;
-	blocks: { id: string; type: string; data: unknown; position: { x: number; y: number } }[];
+	blocks: {
+		id: string;
+		key?: string;
+		type: string;
+		data: unknown;
+		position: { x: number; y: number };
+	}[];
 	edges: { id: string; from: string; to: string; fromHandle: string; toHandle: string }[];
 };
 

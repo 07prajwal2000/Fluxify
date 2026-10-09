@@ -174,14 +174,14 @@ describe("MCP runs", () => {
 		const target = { kind: "route", id };
 		const canvas = await call("get_canvas", { target });
 		expect(canvas.blocks[0]).not.toHaveProperty("position");
-		const entry = canvas.blocks.find((b: any) => b.type === "entrypoint").id;
-		const response = canvas.blocks.find((b: any) => b.type === "response").id;
-		const fromEntry = canvas.edges.filter((e: any) => e.from === entry);
+		const entry = canvas.blocks.find((b: any) => b.type === "entrypoint").key;
+		const response = canvas.blocks.find((b: any) => b.type === "response").key;
+		const fromEntry = canvas.edges.filter((e: string) => e.startsWith(`${entry} → `));
 		const edited = await call("edit_canvas", {
 			target,
 			version: canvas.version,
 			ops: [
-				...fromEntry.map((e: any) => ({ op: "disconnect", from: entry, to: e.to })),
+				...fromEntry.map((e: string) => ({ op: "disconnect", from: entry, to: e.split(" → ")[1] })),
 				{
 					op: "add_block",
 					ref: "block_1",
@@ -193,13 +193,19 @@ describe("MCP runs", () => {
 				{ op: "connect", from: "block_1", to: response },
 			],
 		});
-		expect(edited).toEqual({ version: canvas.version + 1, refs: { block_1: expect.any(String) } });
+		expect(edited).toEqual({
+			version: canvas.version + 1,
+			changes: [
+				"added jsrunner_1 (block_1)",
+				`connected ${entry} → jsrunner_1`,
+				`updated ${response} (httpCode)`,
+				`connected jsrunner_1 → ${response}`,
+			],
+			refs: { block_1: "jsrunner_1" },
+		});
 		const after = await call("get_canvas", { target });
 		expect(after.edges).toEqual(
-			expect.arrayContaining([
-				{ from: entry, to: edited.refs.block_1, handle: "source" },
-				{ from: edited.refs.block_1, to: response, handle: "source" },
-			]),
+			expect.arrayContaining([`${entry} → jsrunner_1`, `jsrunner_1 → ${response}`]),
 		);
 
 		// a new route is off until it is turned on
@@ -237,7 +243,7 @@ describe("MCP runs", () => {
 			active: true,
 		});
 		const canvas = await call("get_canvas", { target: { kind: "route", id } });
-		const entry = canvas.blocks.find((b: any) => b.type === "entrypoint").id;
+		const entry = canvas.blocks.find((b: any) => b.type === "entrypoint").key;
 		await call("edit_canvas", {
 			target: { kind: "route", id },
 			version: canvas.version,
@@ -281,8 +287,8 @@ describe("MCP runs", () => {
 		// a new route's starter blocks are not connected: the Response block never
 		// runs until something leads to it
 		const canvas = await call("get_canvas", { target: { kind: "route", id } });
-		const entry = canvas.blocks.find((b: any) => b.type === "entrypoint").id;
-		const response = canvas.blocks.find((b: any) => b.type === "response").id;
+		const entry = canvas.blocks.find((b: any) => b.type === "entrypoint").key;
+		const response = canvas.blocks.find((b: any) => b.type === "response").key;
 		await call("edit_canvas", {
 			target: { kind: "route", id },
 			version: canvas.version,
@@ -337,111 +343,6 @@ describe("MCP runs", () => {
 			body: { actionsToPerform: { blocks: [], edges: [] }, changes: { blocks: [], edges: [] } },
 		});
 		expect(res.status).toBe(403);
-	});
-});
-
-describe("MCP canvas edits", () => {
-	const call = async (tool: string, args: object) => {
-		const r = await callTool(stack, stack.tokens.creator, tool, args);
-		if (!r.ok) throw new Error(`${tool}: ${r.text}`);
-		return JSON.parse(r.text);
-	};
-	const newWorkflow = async () => {
-		const { id } = await call("save_workflow", { projectId: stack.projectId, name: uniq("cv-") });
-		const target = { kind: "workflow", id };
-		return { target, canvas: await call("get_canvas", { target }) };
-	};
-
-	it("refuses a stale version and saves nothing", async () => {
-		const { target, canvas } = await newWorkflow();
-		const entry = canvas.blocks.find((b: any) => b.type === "entrypoint").id;
-		const add = { op: "add_block", ref: "b", type: "consolelog", data: { value: "hi" }, connect_from: { from: entry } };
-		await call("edit_canvas", { target, version: canvas.version, ops: [add] });
-		const stale = await callTool(stack, stack.tokens.creator, "edit_canvas", {
-			target,
-			version: canvas.version,
-			ops: [{ ...add, ref: "c" }],
-		});
-		expect(stale.ok).toBe(false);
-		expect(stale.text).toContain("Read it again with get_canvas");
-		// the server refuses it too, for any writer that sends the version
-		const direct = await adminCall(stack, stack.tokens.creator, {
-			method: "PUT",
-			path: `/v1/workflows/${target.id}/save-canvas?expectedVersion=${canvas.version}`,
-			body: { actionsToPerform: { blocks: [], edges: [] }, changes: { blocks: [], edges: [] } },
-		});
-		expect(direct.status).toBe(409);
-		const now = await call("get_canvas", { target });
-		expect(now.version).toBe(canvas.version + 1);
-		expect(now.blocks).toHaveLength(canvas.blocks.length + 1);
-	});
-
-	it("validate with no ops returns the issues and saves nothing", async () => {
-		const { target, canvas } = await newWorkflow();
-		const entry = canvas.blocks.find((b: any) => b.type === "entrypoint").id;
-		// a Response block in a workflow is a warning: it still saves
-		const saved = await call("edit_canvas", {
-			target,
-			version: canvas.version,
-			ops: [{ op: "add_block", ref: "r", type: "response", data: { httpCode: "200" }, connect_from: { from: entry } }],
-			validate: true,
-		});
-		expect(saved.issues).toEqual([expect.objectContaining({ severity: "warning", blockId: saved.refs.r })]);
-
-		const checked = await call("edit_canvas", { target, version: saved.version, ops: [], validate: true });
-		expect(checked).toEqual({ version: saved.version, issues: saved.issues });
-		expect((await call("get_canvas", { target })).version).toBe(saved.version);
-	});
-
-	it("drops fields a block does not have, warns, and keeps free-form ones (#703)", async () => {
-		const { target, canvas } = await newWorkflow();
-		const entry = canvas.blocks.find((b: any) => b.type === "entrypoint").id;
-		const handlerId = canvas.blocks.find((b: any) => b.type === "error_handler").id;
-		const saved = await call("edit_canvas", {
-			target,
-			version: canvas.version,
-			ops: [
-				{ op: "update_block", id: handlerId, data: { statusCode: 500, transform: "return 1;" } },
-				{
-					op: "add_block",
-					ref: "req",
-					type: "httprequest",
-					data: { url: "https://x.test", method: "POST", headers: { "X-Any": "1" }, body: { a: [1] } },
-					connect_from: { from: entry },
-				},
-			],
-			validate: true,
-		});
-		expect(saved.issues).toContainEqual(
-			expect.objectContaining({
-				severity: "warning",
-				blockId: handlerId,
-				message: expect.stringContaining("removed unknown field(s) statusCode, transform"),
-			}),
-		);
-		const stored = (await call("get_canvas", { target })).blocks;
-		const handler = stored.find((b: any) => b.id === handlerId);
-		expect(handler.data).not.toHaveProperty("statusCode");
-		expect(handler.data).not.toHaveProperty("transform");
-		const request = stored.find((b: any) => b.id === saved.refs.req);
-		expect(request.data).toMatchObject({ headers: { "X-Any": "1" }, body: { a: [1] } });
-	});
-
-	it("refuses a bad op readably and saves nothing", async () => {
-		const { target, canvas } = await newWorkflow();
-		const bad = await callTool(stack, stack.tokens.creator, "edit_canvas", {
-			target,
-			version: canvas.version,
-			ops: [{ op: "connect", from: "nope", to: "also-nope" }],
-		});
-		expect(bad).toEqual({ ok: false, text: expect.stringContaining('no block "nope"') });
-		const unknown = await callTool(stack, stack.tokens.creator, "edit_canvas", {
-			target,
-			version: canvas.version,
-			ops: [{ op: "add_block", ref: "x", type: "not_a_block" }],
-		});
-		expect(unknown.text).toContain("Unknown block type");
-		expect((await call("get_canvas", { target })).version).toBe(canvas.version);
 	});
 });
 

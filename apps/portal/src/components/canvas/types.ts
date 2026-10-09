@@ -10,6 +10,8 @@ export type CanvasBlock<TData extends BlockData = BlockData> = {
 	type: string;
 	data: TData;
 	position: { x: number; y: number };
+	/** Readable name on this canvas (`response_1`). The server hands it out on save; a block not saved yet has none. */
+	key?: string;
 };
 
 /** A connection as it is stored/transported (server shape). */
@@ -28,7 +30,7 @@ export type CanvasGraph = {
 };
 
 /** React Flow representations used inside the canvas. */
-export type BlockNode = Node<BlockData>;
+export type BlockNode = Node<BlockData> & { blockKey?: string };
 export type BlockEdge = Edge<{ cycle?: boolean; cycleFlash?: boolean }>;
 
 export type CanvasMode = "edit" | "readonly";

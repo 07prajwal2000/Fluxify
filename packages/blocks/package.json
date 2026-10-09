@@ -8,6 +8,7 @@
 	"exports": {
 		".": "./index.ts",
 		"./blockHandles": "./blockHandles.ts",
+		"./blockKeys": "./blockKeys.ts",
 		"./blockTypes": "./blockTypes.ts",
 		"./imports": "./imports.ts",
 		"./layout": "./layout.ts",

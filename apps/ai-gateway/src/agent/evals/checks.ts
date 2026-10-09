@@ -200,6 +200,10 @@ export async function routeWithCode(
 	return id as string;
 }
 
+/** What a block points at in a get_canvas result: edges read "from[.handle] → to", blocks go by key. */
+export const nextKey = (canvas: { edges: string[] }, from: string): string | undefined =>
+	canvas.edges.find((e) => e.split(" → ")[0].split(".")[0] === from)?.split(" → ")[1];
+
 /** Puts `code` in a jsrunner right after the entrypoint, before what it pointed at (or the response block). */
 export async function setCode(
 	ctx: Ctx,
@@ -210,13 +214,13 @@ export async function setCode(
 	const target = { kind, id };
 	const canvas = await ctx.tool("get_canvas", { target });
 	const entry = canvas.blocks.find((b: any) => b.type === "entrypoint");
-	const linked = canvas.edges.find((e: any) => e.from === entry.id)?.to;
+	const linked = nextKey(canvas, entry.key);
 	// a new route's response block starts unconnected
-	const next = linked ?? canvas.blocks.find((b: any) => b.type === "response")?.id;
+	const next = linked ?? canvas.blocks.find((b: any) => b.type === "response")?.key;
 	const ops: unknown[] = [
 		{ op: "add_block", ref: "code", type: "jsrunner", data: { value: code } },
-		...(linked ? [{ op: "disconnect", from: entry.id, to: linked }] : []),
-		{ op: "connect", from: entry.id, to: "code" },
+		...(linked ? [{ op: "disconnect", from: entry.key, to: linked }] : []),
+		{ op: "connect", from: entry.key, to: "code" },
 		...(next ? [{ op: "connect", from: "code", to: next }] : []),
 	];
 	await ctx.tool("edit_canvas", { target, version: canvas.version, ops });

@@ -6,6 +6,7 @@ import { createInsertSchema } from "drizzle-zod";
 import type z from "zod";
 import { type DbTransactionType, db } from "../../../../db";
 import { blocksEntity, projectsEntity, routesEntity } from "../../../../db/schema";
+import { reserveBlockKeys } from "../../../../modules/canvas/repository";
 
 const insertSchema = createInsertSchema(routesEntity);
 
@@ -18,8 +19,14 @@ export async function createDependency(routeId: string, tx?: DbTransactionType) 
 	const id1 = generateID();
 	const id2 = generateID();
 	const id3 = generateID();
+	const [key1, key2, key3] = await reserveBlockKeys(
+		{ type: "route", id: routeId },
+		[BlockTypes.entrypoint, BlockTypes.response, BlockTypes.errorHandler],
+		tx,
+	);
 	await (tx ?? db)?.insert(blocksEntity).values({
 		routeId,
+		key: key1,
 		type: "entrypoint",
 		position: STARTER_POSITIONS.entrypoint,
 		data: {},
@@ -27,6 +34,7 @@ export async function createDependency(routeId: string, tx?: DbTransactionType) 
 	});
 	await (tx ?? db)?.insert(blocksEntity).values({
 		id: id2,
+		key: key2,
 		routeId,
 		type: "response",
 		position: STARTER_POSITIONS.response,
@@ -36,6 +44,7 @@ export async function createDependency(routeId: string, tx?: DbTransactionType) 
 	});
 	await (tx ?? db)?.insert(blocksEntity).values({
 		id: id3,
+		key: key3,
 		routeId,
 		type: BlockTypes.errorHandler,
 		position: STARTER_POSITIONS.errorHandler,

@@ -1,4 +1,5 @@
 import { BlockTypes } from "@fluxify/blocks";
+import { blockKeyPrefix, formatBlockKey } from "@fluxify/blocks/blockKeys";
 import { and, count, eq, inArray, ne, sql } from "drizzle-orm";
 import type { PgTable } from "drizzle-orm/pg-core";
 import { type DbTransactionType, db } from "../../db";
@@ -26,7 +27,13 @@ const parentTables = {
 } as const satisfies Record<
 	CanvasParent["type"],
 	{
-		table: PgTable & { id: any; projectId: any; updatedAt: any; canvasVersion: any };
+		table: PgTable & {
+			id: any;
+			projectId: any;
+			updatedAt: any;
+			canvasVersion: any;
+			blockKeyCounters: any;
+		};
 		column: string;
 	}
 >;
@@ -147,12 +154,44 @@ export async function getBlocks(parent: CanvasParent, tx?: DbTransactionType) {
 	return await (tx ?? db)
 		.select({
 			id: blocksEntity.id,
+			key: blocksEntity.key,
 			type: blocksEntity.type,
 			data: blocksEntity.data,
 			position: blocksEntity.position,
 		})
 		.from(blocksEntity)
 		.where(ownedBy(blocksEntity, parent));
+}
+
+/**
+ * Keys for blocks about to be created on this canvas, one per type, in order.
+ * Each takes the next number of its prefix from a counter kept on the parent,
+ * which only ever goes up: deleting `response_2` does not free it, so a key an
+ * agent read earlier never names a different block. (The highest number among
+ * the blocks that exist would reissue it once the newest block is deleted.)
+ * The parent row is locked while the counter moves, so two saves never share a number.
+ */
+export async function reserveBlockKeys(
+	parent: CanvasParent,
+	types: string[],
+	tx?: DbTransactionType,
+) {
+	if (!types.length) return [];
+	const table = parentTable(parent.type);
+	const conn = tx ?? db;
+	const [row] = await conn
+		.select({ counters: table.blockKeyCounters })
+		.from(table)
+		.where(eq(table.id, parent.id))
+		.for("update");
+	const counters: Record<string, number> = { ...(row?.counters ?? {}) };
+	const keys = types.map((type) => {
+		const prefix = blockKeyPrefix(type);
+		counters[prefix] = (counters[prefix] ?? 0) + 1;
+		return formatBlockKey(prefix, counters[prefix]);
+	});
+	await conn.update(table).set({ blockKeyCounters: counters }).where(eq(table.id, parent.id));
+	return keys;
 }
 
 export async function getEdges(parent: CanvasParent, tx?: DbTransactionType) {

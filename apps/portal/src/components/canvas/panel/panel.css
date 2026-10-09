@@ -52,8 +52,12 @@
 }
 
 .fx-panel__block-id {
-	display: inline-flex;
-	align-items: center;
+	display: inline-block;
+	/* a key like custom_send_mail_1 can be long; the title next to it shrinks first, then this */
+	max-width: 11rem;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
 	padding: 2px 6px;
 	border-radius: 4px;
 	background: color-mix(in oklab, var(--fx-panel-fg) 6%, var(--fx-panel-bg));

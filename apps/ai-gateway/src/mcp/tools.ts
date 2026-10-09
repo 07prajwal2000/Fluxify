@@ -3,6 +3,7 @@ import { getOutputHandles } from "@fluxify/blocks/blockHandles";
 import type { ToolAnnotations } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
 import type { AdminApi, ToolRole } from "./adminApi";
+import { suiteWithKeys } from "./suiteHooks";
 
 /**
  * One MCP tool backed by the admin API. `call` goes through `api`, which acts
@@ -383,7 +384,7 @@ export const readTools: McpTool[] = [
 				updatedAt: _u,
 				body,
 				...rest
-			} = await get(`/v1/test-suites/${a.testSuiteId}`);
+			} = await suiteWithKeys(get, await get(`/v1/test-suites/${a.testSuiteId}`));
 			const size = JSON.stringify(body ?? null).length;
 			return { ...rest, body: size > MAX_BODY_CHARS ? `(omitted: ${size} characters)` : body };
 		},

@@ -49,6 +49,9 @@ describe("saveCanvas options (#597)", () => {
 		spyOn(repository, "getBlocks").mockResolvedValue([{ id: "entry", type: "entrypoint" }] as any);
 		spyOn(repository, "getEdges").mockResolvedValue([]);
 		spyOn(repository, "getBlocksCountByType").mockResolvedValue([]);
+		spyOn(repository, "reserveBlockKeys").mockImplementation(async (_parent, types) =>
+			types.map((type, i) => `${type}_${i + 1}`),
+		);
 		spyOn(repository, "getCustomBlockNames").mockResolvedValue([]);
 		spyOn(repository, "getProjectCustomBlocks").mockResolvedValue([]);
 		spyOn(repository, "getCustomBlockCalls").mockResolvedValue([]);
@@ -63,7 +66,7 @@ describe("saveCanvas options (#597)", () => {
 
 	it("bumps the version in the save and returns it", async () => {
 		const result = await saveCanvas(route, save(), ["p1"]);
-		expect(result).toEqual({ canvasVersion: 4, issues: [] });
+		expect(result).toEqual({ canvasVersion: 4, issues: [], newKeys: { b1: "response_1" } });
 		expect(touchParent.mock.calls[0][2]).toBeUndefined();
 		expect(published).toEqual(["chan:on-route-change"]);
 	});

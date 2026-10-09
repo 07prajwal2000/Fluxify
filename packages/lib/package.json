@@ -4,6 +4,7 @@
 	"keywords": [],
 	"exports": {
 		".": "./index.ts",
+		"./customBlockName": "./customBlockName.ts",
 		"./random/id": "./random/id.ts",
 		"./slug": "./slug.ts",
 		"./constants/httpcode": "./constants/httpcode.ts"

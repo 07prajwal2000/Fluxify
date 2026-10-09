@@ -92,7 +92,7 @@ Prefer `app_config_selector` for secrets. The block receives the key, and reads 
 
 ## Write the code
 
-The code is the block's canvas. Read it first to get the version and the block ids.
+The code is the block's canvas. Read it first to get the version and the block keys.
 
 ```json
 { "target": { "kind": "custom_block", "id": "<custom block id>" } }
@@ -107,7 +107,7 @@ Then add a `jsrunner` block and wire it between the entrypoint and the end of th
   "ops": [
     { "op": "add_block", "ref": "code", "type": "jsrunner",
       "data": { "value": "const url = getConfig(params.webhook_key);\nconst res = await httpClient.post(url, { text: params.message });\nreturn { ok: res.status === 200 };" },
-      "connect_from": { "from": "<entrypoint block id>" } }
+      "connect_from": { "from": "entrypoint_1" } }
   ],
   "validate": true
 }
@@ -130,7 +130,7 @@ Add a block whose `type` is the stored name. Put each parameter value in `data`,
 ```json
 { "op": "add_block", "ref": "notify", "type": "user_defined.project.slack_notify",
   "data": { "message": "js: return 'New order ' + input.id", "webhook_key": "SLACK_WEBHOOK", "invoke": "sync" },
-  "connect_from": { "from": "<previous block id>" } }
+  "connect_from": { "from": "<previous block key>" } }
 ```
 
 `invoke` is optional:

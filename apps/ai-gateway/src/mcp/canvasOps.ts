@@ -1,7 +1,6 @@
-import { getOutputHandles } from "@fluxify/blocks/blockHandles";
-import { BlockTypes } from "@fluxify/blocks/blockTypes";
 import { layoutGraph } from "@fluxify/blocks/layout";
 import { z } from "zod";
+import { bare, Draft, edgeText, STRUCTURAL } from "./canvasDraft";
 import {
 	type BlockBuilderPayload,
 	type CanvasChanges,
@@ -11,17 +10,22 @@ import {
 	canvasChangesFromPayload,
 } from "./canvasNormalize";
 
+export { resolveHandle } from "./canvasDraft";
+
 /**
  * `edit_canvas` ops → the server's save-canvas diff.
  *
  * Ops are checked against the canvas first, so a bad op is refused with a
  * reason instead of being dropped. The diff itself is built by
  * `canvasChangesFromPayload` (refs → ids, handle ids, type names).
+ *
+ * Blocks are named by key (`response_1`) everywhere the agent sees them; the
+ * ids stay on the server and in the diff.
  */
 
-const blockId = z
+const blockRef = z
 	.string()
-	.describe('A block id from get_canvas, or a ref added earlier in this call ("block_1")');
+	.describe('A block key from get_canvas ("response_1"), or a ref added earlier in this call');
 const handle = z
 	.string()
 	.optional()
@@ -35,25 +39,27 @@ export const canvasOpSchema = z.discriminatedUnion("op", [
 		op: z.literal("add_block"),
 		ref: z
 			.string()
-			.describe('Your name for the new block, e.g. "block_1". Later ops and connect use it.'),
+			.describe(
+				'Your name for the new block in this call, e.g. "block_1". Later ops and connect use it; the result gives the key the server assigned.',
+			),
 		type: z.string().describe("Block type from get_block_schemas, or a custom block's name"),
 		data: z.record(z.string(), z.unknown()).optional().describe("The block's settings"),
 		position: position.optional().describe("Omit and the server places it"),
 		connect_from: z
-			.object({ from: blockId, handle })
+			.object({ from: blockRef, handle })
 			.optional()
 			.describe("Also connect this block after another one"),
 	}),
 	z.object({
 		op: z.literal("update_block"),
-		id: blockId,
+		id: blockRef,
 		data: z
 			.record(z.string(), z.unknown())
 			.describe("Only the fields that change; merged into the block's data"),
 	}),
-	z.object({ op: z.literal("remove_block"), id: blockId.describe("Block id; its edges go too") }),
-	z.object({ op: z.literal("connect"), from: blockId, to: blockId, handle }),
-	z.object({ op: z.literal("disconnect"), from: blockId, to: blockId, handle }),
+	z.object({ op: z.literal("remove_block"), id: blockRef.describe("Block key; its edges go too") }),
+	z.object({ op: z.literal("connect"), from: blockRef, to: blockRef, handle }),
+	z.object({ op: z.literal("disconnect"), from: blockRef, to: blockRef, handle }),
 ]);
 
 export type CanvasOp = z.infer<typeof canvasOpSchema>;
@@ -61,111 +67,8 @@ export type CanvasOp = z.infer<typeof canvasOpSchema>;
 type Block = CanvasItems["blocks"][number];
 type Edge = CanvasItems["edges"][number];
 
-/** Blocks the runtime enters itself; nothing may point at them, and they stay. */
-const STRUCTURAL = new Set<string>([BlockTypes.entrypoint, BlockTypes.errorHandler]);
-const FAN_OUT = new Set(["orchestrate", "case"]);
-
-const bare = (from: string, h: string) => (h.startsWith(`${from}-`) ? h.slice(from.length + 1) : h);
-
-/** The handle a connect uses: the one given, or the from block's default. */
-export function resolveHandle(type: string, from: string, given?: string) {
-	const handles = getOutputHandles(type);
-	if (given) {
-		const h = bare(from, given.trim());
-		if (!handles.includes(h)) {
-			throw new Error(
-				`${type} block ${from} has no "${h}" handle. Use ${handles.join(", ") || "none: it ends the flow"}.`,
-			);
-		}
-		return h;
-	}
-	if (handles.includes("source")) return "source";
-	if (handles.length === 1) return handles[0];
-	if (handles.length === 0)
-		throw new Error(`${type} block ${from} ends the flow: it has no output handle.`);
-	throw new Error(
-		`${type} block ${from} has several handles: pass handle as one of ${handles.join(", ")}.`,
-	);
-}
-
-/** The canvas as the ops see it while they are checked one by one. */
-class Draft {
-	blocks = new Map<string, { type: string; isNew: boolean }>();
-	/** edges as from|handle|to, stored ones carrying their id */
-	edges = new Map<string, { from: string; handle: string; to: string; id?: string }>();
-	removed = new Set<string>();
-
-	constructor(canvas: CanvasItems) {
-		for (const b of canvas.blocks) this.blocks.set(b.id, { type: b.type, isNew: false });
-		for (const e of canvas.edges) {
-			const h = bare(e.from, e.fromHandle ?? "source");
-			this.edges.set(`${e.from}|${h}|${e.to}`, { from: e.from, handle: h, to: e.to, id: e.id });
-		}
-	}
-
-	block(id: string, op: string) {
-		const b = this.blocks.get(id);
-		if (!b) {
-			throw new Error(
-				this.removed.has(id)
-					? `${op}: block ${id} was removed earlier in this call.`
-					: `${op}: no block "${id}". Use an id from get_canvas or a ref added earlier in this call.`,
-			);
-		}
-		return b;
-	}
-
-	connect(from: string, to: string, given?: string) {
-		const source = this.block(from, "connect");
-		const target = this.block(to, "connect");
-		if (STRUCTURAL.has(target.type))
-			throw new Error(`connect: nothing may point at the ${target.type} block.`);
-		if (from === to) throw new Error("connect: a block cannot connect to itself.");
-		const h = resolveHandle(source.type, from, given);
-		const taken = [...this.edges.values()].find((e) => e.from === from && e.handle === h);
-		if (taken && taken.to !== to && !FAN_OUT.has(h)) {
-			throw new Error(
-				`connect: ${from}'s ${h} handle already goes to ${taken.to}. Disconnect it first, in the same call.`,
-			);
-		}
-		this.edges.set(`${from}|${h}|${to}`, { from, handle: h, to });
-		return h;
-	}
-
-	/** stored edge ids this disconnect drops */
-	disconnect(from: string, to: string, given?: string) {
-		const h = given ? bare(from, given) : undefined;
-		const hits = [...this.edges.entries()].filter(
-			([, e]) => e.from === from && e.to === to && (!h || e.handle === h),
-		);
-		if (!hits.length) {
-			const have = [...this.edges.values()]
-				.filter((e) => e.from === from)
-				.map((e) => `${e.handle} -> ${e.to}`);
-			throw new Error(
-				`disconnect: no edge from ${from} to ${to}${h ? ` on ${h}` : ""}. ${from} has ${have.length ? `edges ${have.join(", ")}` : "no outgoing edges"}.`,
-			);
-		}
-		for (const [key] of hits) this.edges.delete(key);
-		return hits.flatMap(([, e]) => (e.id ? [e.id] : []));
-	}
-
-	remove(id: string) {
-		const b = this.block(id, "remove_block");
-		if (b.isNew) throw new Error(`remove_block: ${id} was added in this call; just leave it out.`);
-		if (STRUCTURAL.has(b.type))
-			throw new Error(`remove_block: the ${b.type} block cannot be removed.`);
-		this.blocks.delete(id);
-		this.removed.add(id);
-		const dropped: string[] = [];
-		for (const [key, e] of this.edges) {
-			if (e.from !== id && e.to !== id) continue;
-			this.edges.delete(key);
-			if (e.id) dropped.push(e.id);
-		}
-		return dropped;
-	}
-}
+/** One line of what an op did, written once every block has its key. */
+export type Echo = (name: (blockOrRef: string) => string) => string;
 
 type Declared = NonNullable<BlockBuilderPayload["blocks"]>[number];
 
@@ -173,7 +76,8 @@ type Declared = NonNullable<BlockBuilderPayload["blocks"]>[number];
  * Checks the ops against `canvas` and turns them into a save diff. Throws a
  * readable error on the first bad op; nothing is saved then.
  *
- * `refs` maps each add_block ref to the id it was given.
+ * `refs` maps each add_block ref to the id it was given; `describe` says what
+ * the ops did, once `name` can say each block's key.
  */
 export function opsToChanges(canvas: CanvasItems, ops: CanvasOp[], autoLayout = false) {
 	const draft = new Draft(canvas);
@@ -181,6 +85,7 @@ export function opsToChanges(canvas: CanvasItems, ops: CanvasOp[], autoLayout = 
 	const declared = new Map<string, Declared>();
 	const deletedEdges = new Set<string>();
 	const placed = new Set<string>();
+	const echo: Echo[] = [];
 
 	/** a stored block restated so it can carry data or connections */
 	const declare = (id: string) => {
@@ -201,18 +106,22 @@ export function opsToChanges(canvas: CanvasItems, ops: CanvasOp[], autoLayout = 
 	const connect = (from: string, to: string, h?: string) => {
 		const kind = draft.connect(from, to, h);
 		declare(from).connections!.push({ blockId: to, handle: kind });
+		const type = draft.get(from).type;
+		echo.push((n) => `connected ${edgeText(n(from), type, kind, n(to))}`);
 	};
 
 	for (const op of ops) {
 		switch (op.op) {
 			case "add_block": {
-				if (draft.blocks.has(op.ref) || draft.removed.has(op.ref)) {
-					throw new Error(`add_block: "${op.ref}" is already a block id or ref. Pick a new ref.`);
+				if (draft.taken(op.ref)) {
+					throw new Error(
+						`add_block: "${op.ref}" is already a block key, id or ref. Pick a new ref.`,
+					);
 				}
 				const type = canonicalType(op.type);
 				if (STRUCTURAL.has(type))
 					throw new Error(`add_block: a canvas already has its one ${type} block.`);
-				draft.blocks.set(op.ref, { type, isNew: true });
+				draft.addNew(op.ref, type);
 				declared.set(op.ref, {
 					id: op.ref,
 					blockType: type,
@@ -221,29 +130,49 @@ export function opsToChanges(canvas: CanvasItems, ops: CanvasOp[], autoLayout = 
 					connections: [],
 				});
 				if (op.position) placed.add(op.ref);
-				if (op.connect_from) connect(op.connect_from.from, op.ref, op.connect_from.handle);
+				echo.push((n) => `added ${n(op.ref)} (${op.ref})`);
+				if (op.connect_from) {
+					const from = draft.endpoint(op.connect_from.from, op.connect_from.handle, "add_block");
+					connect(from.id, op.ref, from.handle);
+				}
 				break;
 			}
 			case "update_block": {
-				draft.block(op.id, "update_block");
-				const d = declared.get(op.id) ?? declare(op.id);
+				const id = draft.resolve(op.id, "update_block");
+				const d = declared.get(id) ?? declare(id);
 				d.data = { ...(d.data ?? {}), ...op.data };
+				echo.push((n) => `updated ${n(id)} (${Object.keys(op.data).join(", ") || "no fields"})`);
 				break;
 			}
-			case "remove_block":
-				for (const id of draft.remove(op.id)) deletedEdges.add(id);
-				declared.delete(op.id);
+			case "remove_block": {
+				const id = draft.resolve(op.id, "remove_block");
+				const { ids, count } = draft.remove(id);
+				for (const edge of ids) deletedEdges.add(edge);
+				declared.delete(id);
 				for (const d of declared.values()) {
-					d.connections = d.connections?.filter((c) => c.blockId !== op.id);
+					d.connections = d.connections?.filter((c) => c.blockId !== id);
 				}
+				echo.push(
+					(n) => `removed ${n(id)}${count ? ` (+${count} edge${count > 1 ? "s" : ""})` : ""}`,
+				);
 				break;
-			case "connect":
-				connect(op.from, op.to, op.handle);
+			}
+			case "connect": {
+				const from = draft.endpoint(op.from, op.handle, "connect");
+				connect(from.id, draft.resolve(op.to, "connect"), from.handle);
 				break;
+			}
 			case "disconnect": {
-				for (const id of draft.disconnect(op.from, op.to, op.handle)) deletedEdges.add(id);
-				const d = declared.get(op.from);
-				if (d) d.connections = d.connections?.filter((c) => c.blockId !== op.to);
+				const from = draft.endpoint(op.from, op.handle, "disconnect");
+				const to = draft.resolve(op.to, "disconnect");
+				const { ids, handles } = draft.disconnect(from.id, to, from.handle);
+				for (const id of ids) deletedEdges.add(id);
+				const d = declared.get(from.id);
+				if (d) d.connections = d.connections?.filter((c) => c.blockId !== to);
+				const type = draft.get(from.id).type;
+				for (const h of handles) {
+					echo.push((n) => `disconnected ${edgeText(n(from.id), type, h, n(to))}`);
+				}
 				break;
 			}
 		}
@@ -276,7 +205,9 @@ export function opsToChanges(canvas: CanvasItems, ops: CanvasOp[], autoLayout = 
 		if (!placed.has(ref)) unplaced.push(id);
 	});
 	place(changes, canvas, unplaced, autoLayout);
-	return { changes, refs };
+	if (autoLayout) echo.push(() => "laid out every block again");
+	const describe = (name: (blockOrRef: string) => string) => echo.map((line) => line(name));
+	return { changes, refs, describe };
 }
 
 const dedupe = <T extends { id: string }>(items: T[]) => [
@@ -313,15 +244,23 @@ function place(
 	}
 }
 
-/** What get_canvas returns: what the blocks do and how they connect, no UI data. */
+/**
+ * What get_canvas returns: what the blocks do and how they connect, no UI
+ * data. Blocks and edges are named by key, never by id.
+ */
 export function trimCanvas(canvas: CanvasItems & { canvasVersion: number }) {
+	const key = new Map(canvas.blocks.map((b) => [b.id, b.key ?? b.id]));
+	const type = new Map(canvas.blocks.map((b) => [b.id, b.type]));
 	return {
 		version: canvas.canvasVersion,
-		blocks: canvas.blocks.map((b: Block) => ({ id: b.id, type: b.type, data: b.data })),
-		edges: canvas.edges.map((e: Edge) => ({
-			from: e.from,
-			to: e.to,
-			handle: bare(e.from, e.fromHandle ?? "source"),
-		})),
+		blocks: canvas.blocks.map((b: Block) => ({ key: b.key ?? b.id, type: b.type, data: b.data })),
+		edges: canvas.edges.map((e: Edge) =>
+			edgeText(
+				key.get(e.from) ?? e.from,
+				type.get(e.from) ?? "",
+				bare(e.from, e.fromHandle ?? "source"),
+				key.get(e.to) ?? e.to,
+			),
+		),
 	};
 }

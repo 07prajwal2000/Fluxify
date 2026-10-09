@@ -44,7 +44,7 @@ Call `edit_canvas`:
   "ops": [
     { "op": "add_block", "ref": "report", "type": "jsrunner",
       "data": { "value": "return { ranAt: new Date().toISOString() };" },
-      "connect_from": { "from": "<entry id>" } },
+      "connect_from": { "from": "entrypoint_1" } },
     { "op": "add_block", "ref": "log", "type": "consolelog",
       "data": { "message": "Nightly report ran", "level": "info" },
       "connect_from": { "from": "report" } }

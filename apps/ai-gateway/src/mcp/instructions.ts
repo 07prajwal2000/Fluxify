@@ -26,8 +26,9 @@ What things are:
 Building tips:
 - Call get_block_schemas with no input to see the built-in blocks, then with blockTypes for the
   exact fields of the ones you will use.
-- Edit a canvas with get_canvas, then edit_canvas (small ops, the version you read). It returns
-  rule errors and warnings; fix every error.
+- Edit a canvas with get_canvas, then edit_canvas (small ops, the version you read). Blocks are named
+  by key (response_1, db_insert_2): use keys, never ids. edit_canvas lists what each op changed and
+  returns rule errors and warnings; check the changes hit the blocks you meant and fix every error.
 - Block text inputs are literal unless they start with \`js:\` followed by code that returns the value (e.g. \`js: return input.id\`); never use \`{{ }}\`.
 - Check get_system_logs after a change: compile errors show up there.
 - Stop when the tests pass or the route works; don't keep polishing.
