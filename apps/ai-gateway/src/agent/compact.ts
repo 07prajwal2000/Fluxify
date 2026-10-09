@@ -43,6 +43,8 @@ export function compactor(o: {
 	abortSignal?: AbortSignal;
 	/** The summary call starts (true) and ends (false): the slow part, which clients show as "Compacting…". */
 	onCompacting?: (on: boolean) => void;
+	/** A trim batch ran (its line is saved with the next step's message). */
+	onTrim?: (event: Extract<Compaction, { kind: "trim" }>) => void;
 	/** Told before the summary is swapped in; a throw keeps the history as it was. */
 	onSummary?: (
 		summary: ModelMessage,
@@ -72,15 +74,17 @@ export function compactor(o: {
 			level = 1;
 			t = trimmed();
 		}
-		if (t.results)
-			events.push({
-				type: "compaction",
-				kind: "trim",
-				results: t.results,
-				tools: t.tools,
-				before: estimate(o.history, o.instructions),
-				after: estimate(t.messages, o.instructions),
-			});
+		if (!t.results) return;
+		const event = {
+			type: "compaction" as const,
+			kind: "trim" as const,
+			results: t.results,
+			tools: t.tools,
+			before: estimate(o.history, o.instructions),
+			after: estimate(t.messages, o.instructions),
+		};
+		events.push(event);
+		o.onTrim?.(event);
 	};
 	const next = async (last: Usage) => {
 		let used =

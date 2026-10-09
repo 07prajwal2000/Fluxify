@@ -148,7 +148,12 @@ export function agentStore(db: BunSQLDatabase) {
 					if (user) head.push({ message: user.content as ModelMessage, seq: user.seq });
 				}
 			}
-			return [...head, ...rest.map((r) => ({ message: r.content as ModelMessage, seq: r.seq }))];
+			// a row may carry the trim line the UI shows before it; the model never sees it
+			const plain = (r: (typeof rest)[number]) => {
+				const { compaction: _, ...message } = r.content;
+				return { message: message as ModelMessage, seq: r.seq };
+			};
+			return [...head, ...rest.map(plain)];
 		},
 
 		setRunStatus: (runId: string, status: RunStatus) =>

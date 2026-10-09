@@ -128,6 +128,9 @@ export function toMessages(rows: AgentRow[]): ChatMessage[] {
 			continue;
 		}
 		if (row.role !== "user" && row.role !== "assistant") continue;
+		// a trim line is saved on the step it came before
+		const trim = (row.content as { compaction?: Compaction } | null)?.compaction;
+		if (trim) out.push({ seq: row.seq, role: "compaction", parts: [], compaction: trim });
 		const msg: ChatMessage = { seq: row.seq, role: row.role, parts: [] };
 		for (const p of parts) {
 			if (p.type === "text" || p.type === "reasoning")

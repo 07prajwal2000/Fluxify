@@ -21,7 +21,12 @@ function memStore() {
 		appendSummary: async (_c: string, _r: string, s: ModelMessage, covers: number) =>
 			add("summary", s, covers),
 		modelView: async () =>
-			rows.filter((r) => r.role !== "summary").map((r) => ({ message: json(r.content), seq: r.seq })),
+			rows
+				.filter((r) => r.role !== "summary")
+				.map((r) => {
+					const { compaction: _, ...message } = r.content as ModelMessage & { compaction?: unknown };
+					return { message: json(message), seq: r.seq };
+				}),
 		setRunStatus: async (_r: string, s: string) => {
 			statuses.push(s);
 		},
@@ -163,6 +168,23 @@ describe("summary rows", () => {
 		expect(String(summary.content.content)).toStartWith(SUMMARY_HEAD);
 		expect(m.prompts[0].map((p) => p.role)).toEqual(["system", "user", "user"]);
 		expect(s.rows.slice(0, 7).map((r) => r.seq)).toEqual([0, 1, 2, 3, 4, 5, 6]);
+	});
+});
+
+describe("the trim line", () => {
+	it("is saved on the assistant row of the step it came before, and the model never sees it", async () => {
+		const s = memStore();
+		await s.store.append("c", "r", [{ role: "user", content: "build" }, ...[1, 2, 3, 4].flatMap(step)]);
+		await s.store.append("c", "r", [{ role: "assistant", content: "built" }]);
+		// over 60% of the window, under 80%: a trim, not a summary
+		const m = scripted([["get_route"]], undefined, 4200);
+		await turn(s, { ...m.agent, approve: async () => ({ ok: true }) }, { message: "now test it" });
+		const assistants = s.rows.filter((r) => r.role === "assistant" && (r.content as any).compaction);
+		expect(assistants).toHaveLength(1);
+		expect((assistants[0].content as any).compaction).toMatchObject({ kind: "trim", results: 2, tools: { get_route: 2 } });
+		expect(s.rows.some((r) => r.role === "summary")).toBe(false);
+		// the second step's request carries no trace of it
+		expect(JSON.stringify(m.prompts)).not.toContain('"compaction"');
 	});
 });
 

@@ -1,5 +1,6 @@
 import type { ModelMessage, ToolCallPart, ToolResultPart } from "ai";
 import { type Approval, rejected, runAgent } from "./agent";
+import type { Compaction } from "./compact";
 import { guardTools, MAX_RESULT_CHARS, newGuard } from "./guards";
 import type { AgentStore, RunStatus } from "./store";
 import { withToolTimeouts } from "./timeouts";
@@ -20,7 +21,10 @@ export function pendingCalls(history: ModelMessage[]): ToolCallPart[] {
 	);
 }
 
-type Agent = Omit<Parameters<typeof runAgent>[0], "history" | "onMessages" | "onSummary">;
+type Agent = Omit<
+	Parameters<typeof runAgent>[0],
+	"history" | "onMessages" | "onTrim" | "onSummary"
+>;
 
 /** Runs the call the user approved (or not) and returns its result, shaped as the SDK shapes one. */
 async function decide(
@@ -82,8 +86,16 @@ export async function continueConversation(o: {
 	const view = await store.modelView(conversationId);
 	const history = view.map((v) => v.message);
 	const seqs = new Map(view.map((v) => [v.message, v.seq]));
+	/** A trim batch not yet saved: its line rides on the next assistant row (the model view strips it). */
+	let trim: Compaction | undefined;
 	const record = async (list: ModelMessage[]) => {
-		const assigned = await store.append(conversationId, runId, list);
+		const stored = list.map((m) => {
+			if (m.role !== "assistant" || !trim) return m;
+			const line = { ...m, compaction: trim } as ModelMessage;
+			trim = undefined;
+			return line;
+		});
+		const assigned = await store.append(conversationId, runId, stored);
 		for (const [i, m] of list.entries()) seqs.set(m, assigned[i]);
 	};
 	const save = async (list: ModelMessage[]) => {
@@ -142,6 +154,9 @@ export async function continueConversation(o: {
 		history,
 		abortSignal: ctrl.signal,
 		onMessages: (list) => enqueue(() => record(list)),
+		onTrim: (event) => {
+			trim = event;
+		},
 		onSummary: (summary, covered, event) =>
 			enqueue(async () => {
 				const covers = Math.max(...covered.map((m) => seqs.get(m) ?? -1));

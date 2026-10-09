@@ -1,6 +1,6 @@
 import { type LanguageModel, type ModelMessage, NoSuchToolError, streamText, type Tool } from "ai";
 import { anthropicCache } from "./cache";
-import { compactor, type SummaryCompaction } from "./compact";
+import { type Compaction, compactor, type SummaryCompaction } from "./compact";
 import {
 	budgetLine,
 	guardTools,
@@ -105,6 +105,8 @@ type Run = {
 	onRetry?: (why: string) => void;
 	/** Each finished message, in order, once (persistence; the CLI passes none). */
 	onMessages?: (messages: ModelMessage[]) => void | Promise<void>;
+	/** A trim batch ran; resume saves its line with the next message. */
+	onTrim?: (event: Extract<Compaction, { kind: "trim" }>) => void;
 	/** A summary replaced `covered` in history. A throw keeps the history as it was. */
 	onSummary?: (
 		summary: ModelMessage,
@@ -160,6 +162,7 @@ export function runAgent({
 	abortSignal,
 	onRetry,
 	onMessages,
+	onTrim,
 	onSummary,
 }: Run) {
 	let error = "";
@@ -220,6 +223,7 @@ export function runAgent({
 			compacting = on;
 			for (const w of watchers) w(on);
 		},
+		onTrim,
 		onSummary,
 	});
 	// plan mode: load_tools must not offer write tools as usable now

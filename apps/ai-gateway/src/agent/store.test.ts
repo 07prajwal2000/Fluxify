@@ -184,6 +184,20 @@ describe("agent_messages", () => {
 		expect(String(view[0].message.content)).toContain("kv_set_9");
 	});
 
+	it("a trim line saved on an assistant row is in the UI rows but not in the model view", async () => {
+		const c = await conversation();
+		const trim = { type: "compaction", kind: "trim", results: 2, tools: { get_route: 2 }, before: 3000, after: 2000 };
+		await store.append(c, c, [
+			{ role: "user", content: "go" },
+			{ role: "assistant", content: "ok", compaction: trim } as ModelMessage,
+		]);
+		expect(((await store.all(c))[1].content as { compaction?: unknown }).compaction).toEqual(trim);
+		expect((await store.modelView(c)).map((v) => v.message)).toEqual([
+			{ role: "user", content: "go" },
+			{ role: "assistant", content: "ok" },
+		]);
+	});
+
 	it("resumes after an approval wait, and never sends an assistant message last", async () => {
 		const c = await conversation();
 		const m = scripted([["save_route"]]);
