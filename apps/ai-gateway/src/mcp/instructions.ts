@@ -29,7 +29,9 @@ Building tips:
 - Edit a canvas with get_canvas, then edit_canvas (small ops, the version you read). Blocks are named
   by key (response_1, db_insert_2): use keys, never ids. edit_canvas lists what each op changed and
   returns rule errors and warnings; check the changes hit the blocks you meant and fix every error.
+- Change part of a script with an edit_code op, not by resending the whole field. On a big canvas read get_canvas with compact: true, then blocks: [keys] for the ones you will edit.
+- Leave notes: put a short blockDescription on a block whose purpose is not obvious (a workaround, a contract, why a value is parked in a variable), and a sticky_note block for a rule the whole canvas follows. get_canvas shows them; read them before you change plumbing that looks pointless.
 - Block text inputs are literal unless they start with \`js:\` followed by code that returns the value (e.g. \`js: return input.id\`); never use \`{{ }}\`.
-- Check get_system_logs after a change: compile errors show up there.
+- call_route returns the real error and a short trace of the blocks that ran. Check get_system_logs after a change: compile errors show up there.
 - Stop when the tests pass or the route works; don't keep polishing.
 - Prefer one route per endpoint; share logic with custom blocks or middlewares.`;

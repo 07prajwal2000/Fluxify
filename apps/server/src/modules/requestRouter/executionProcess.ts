@@ -24,6 +24,7 @@ import {
 	shutdownCompiledRuntime,
 } from "./compiledRuntime";
 import { DEBUG_ERROR_HEADER, debugError, debugRequested, encodeDebugError } from "./debugError";
+import { DEBUG_TRACE_HEADER, encodeDebugTrace } from "./debugTrace";
 import { executionRuntimeEnvironment } from "./executionEnvironment";
 import { createHttpContext } from "./httpContext";
 import {
@@ -169,9 +170,15 @@ async function serveRoute(request: Request): Promise<Response> {
 	const env = await envelopeFromHttp(ctx as any);
 	const debug = debugRequested(env, parser, boot?.debugKey);
 	const observer = createObserver();
+	// an admin debug call also keeps the run, to answer with a short trace
+	let debugRun: TraceRunPayload | undefined;
 	const traceFactory: RouteTraceFactory = {
 		start(route) {
-			return new RouteTraceRecorder(route, finishRun(route));
+			const finish = finishRun(route);
+			return new RouteTraceRecorder(route, (run) => {
+				if (debug && !run.parentRunId) debugRun = run;
+				finish(run);
+			});
 		},
 	};
 
@@ -197,9 +204,11 @@ async function serveRoute(request: Request): Promise<Response> {
 			traceFactory,
 		);
 		if (debug && response.error !== undefined) addDebugError(ctx.responseHeaders, response.error);
+		if (debugRun) addDebugTrace(ctx.responseHeaders, debugRun);
 		return json(response.data, response.status, ctx.responseHeaders);
 	} catch (error) {
 		if (debug) addDebugError(ctx.responseHeaders, error);
+		if (debugRun) addDebugTrace(ctx.responseHeaders, debugRun);
 		return json(
 			{ message: error?.toString() || "Internal server error" },
 			500,
@@ -251,6 +260,13 @@ function addDebugError(headers: Headers, error: unknown) {
 	// a debug aid must never fail the response it rides on (#672)
 	try {
 		headers.set(DEBUG_ERROR_HEADER, encodeDebugError(debugError(error)));
+	} catch {}
+}
+
+/** the blocks that ran, for the admin's debug call only (#704) */
+function addDebugTrace(headers: Headers, run: TraceRunPayload) {
+	try {
+		headers.set(DEBUG_TRACE_HEADER, encodeDebugTrace(run.spans));
 	} catch {}
 }
 

@@ -1,6 +1,7 @@
 import { layoutGraph } from "@fluxify/blocks/layout";
 import { z } from "zod";
-import { bare, Draft, edgeText, STRUCTURAL } from "./canvasDraft";
+import { codeField, editCode } from "./canvasCode";
+import { Draft, edgeText, STRUCTURAL } from "./canvasDraft";
 import {
 	type BlockBuilderPayload,
 	type CanvasChanges,
@@ -9,8 +10,10 @@ import {
 	canvasAfterChanges,
 	canvasChangesFromPayload,
 } from "./canvasNormalize";
+import { declaredOutput } from "./canvasView";
 
 export { resolveHandle } from "./canvasDraft";
+export { trimCanvas } from "./canvasView";
 
 /**
  * `edit_canvas` ops → the server's save-canvas diff.
@@ -56,6 +59,18 @@ export const canvasOpSchema = z.discriminatedUnion("op", [
 		data: z
 			.record(z.string(), z.unknown())
 			.describe("Only the fields that change; merged into the block's data"),
+	}),
+	z.object({
+		op: z.literal("edit_code"),
+		id: blockRef,
+		field: z
+			.string()
+			.optional()
+			.describe(
+				"The text field to edit. Omit for the block's main code field (value on jsrunner; js on transformer, kv_raw and db_native; transformScript on response). Any text field works, a js: input too.",
+			),
+		old: z.string().describe("The exact text to replace. It must appear in the field exactly once"),
+		new: z.string().describe("What to put in its place"),
 	}),
 	z.object({ op: z.literal("remove_block"), id: blockRef.describe("Block key; its edges go too") }),
 	z.object({ op: z.literal("connect"), from: blockRef, to: blockRef, handle }),
@@ -130,7 +145,10 @@ export function opsToChanges(canvas: CanvasItems, ops: CanvasOp[], autoLayout = 
 					connections: [],
 				});
 				if (op.position) placed.add(op.ref);
-				echo.push((n) => `added ${n(op.ref)} (${op.ref})`);
+				const output = declaredOutput(type);
+				echo.push(
+					(n) => `added ${n(op.ref)} (${op.ref})${output ? `; its output: ${output}` : ""}`,
+				);
 				if (op.connect_from) {
 					const from = draft.endpoint(op.connect_from.from, op.connect_from.handle, "add_block");
 					connect(from.id, op.ref, from.handle);
@@ -142,6 +160,16 @@ export function opsToChanges(canvas: CanvasItems, ops: CanvasOp[], autoLayout = 
 				const d = declared.get(id) ?? declare(id);
 				d.data = { ...(d.data ?? {}), ...op.data };
 				echo.push((n) => `updated ${n(id)} (${Object.keys(op.data).join(", ") || "no fields"})`);
+				break;
+			}
+			case "edit_code": {
+				const id = draft.resolve(op.id, "edit_code");
+				const d = declared.get(id) ?? declare(id);
+				const key = draft.name(id);
+				const field = codeField(d.blockType, key, op.field);
+				const edit = editCode(d.data ?? {}, key, field, op.old, op.new);
+				d.data = edit.data;
+				echo.push((n) => `edited ${n(id)}.${field} (1 change, ${edit.lines})`);
 				break;
 			}
 			case "remove_block": {
@@ -242,25 +270,4 @@ function place(
 		changes.changes.blocks.push({ id, type: b.type, data: b.data, position });
 		changes.actionsToPerform.blocks.push({ id, action: "upsert" });
 	}
-}
-
-/**
- * What get_canvas returns: what the blocks do and how they connect, no UI
- * data. Blocks and edges are named by key, never by id.
- */
-export function trimCanvas(canvas: CanvasItems & { canvasVersion: number }) {
-	const key = new Map(canvas.blocks.map((b) => [b.id, b.key ?? b.id]));
-	const type = new Map(canvas.blocks.map((b) => [b.id, b.type]));
-	return {
-		version: canvas.canvasVersion,
-		blocks: canvas.blocks.map((b: Block) => ({ key: b.key ?? b.id, type: b.type, data: b.data })),
-		edges: canvas.edges.map((e: Edge) =>
-			edgeText(
-				key.get(e.from) ?? e.from,
-				type.get(e.from) ?? "",
-				bare(e.from, e.fromHandle ?? "source"),
-				key.get(e.to) ?? e.to,
-			),
-		),
-	};
 }

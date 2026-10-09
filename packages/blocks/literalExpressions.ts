@@ -17,7 +17,7 @@ export const CODE_JS_PREFIX_MESSAGE =
 	"`js:` is only for text inputs; code fields are already JavaScript. It was ignored.";
 
 /** each block's field that is already full JS; the compiler drops a leading `js:` there */
-const CODE_FIELDS: Record<string, string> = {
+export const CODE_FIELDS: Record<string, string> = {
 	[BlockTypes.jsrunner]: "value",
 	[BlockTypes.transformer]: "js",
 	[BlockTypes.kv_raw]: "js",

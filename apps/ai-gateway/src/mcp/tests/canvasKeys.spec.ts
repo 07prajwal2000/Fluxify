@@ -153,7 +153,7 @@ describe("edit_canvas result", () => {
 			changes: [
 				"updated response_1 (httpCode, transform)",
 				"disconnected if_1.success → consolelog_1",
-				"added consolelog_3 (log)",
+				expect.stringContaining("added consolelog_3 (log); its output: "),
 				"connected if_1.success → consolelog_3",
 				"connected consolelog_3 → response_1",
 				"removed consolelog_2 (+1 edge)",

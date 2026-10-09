@@ -7,9 +7,9 @@ description: Step by step tool calls that find why a route or workflow fails (de
 
 Goal: find why a route or workflow fails and fix it in a few calls. Go step by step and stop as soon as you know the cause. Settings are in the [Route reference](/agents/route) and the [Workflow reference](/agents/workflow).
 
-## 1. Call it and read the debug error
+## 1. Call it and read the debug error and trace
 
-A failing route answers its callers with a short, generic message on purpose, such as `failed to execute native db block`. `call_route` asks for the real error too. Its callers never get that.
+A failing route answers its callers with a short, generic message on purpose, such as `failed to execute native db block`. `call_route` asks for the real error and a short trace too. Its callers never get either. Most of the time that is the only call you need.
 
 Call `call_route`:
 
@@ -39,7 +39,22 @@ When the route fails, the answer has an `error`:
 | `detail` | The real cause the message hides, such as the database error. |
 | `stack` | Only for an error thrown by your own code (JS Runner, Transformer, custom block code, `js:` expressions): where in that code. |
 
-A status of 400 with `Body validation failed` means the request did not pass the route's schemas, and no block ran. A route with an error handler block answers with what that handler returns, so there may be no `error`; use step 3.
+The answer also has a `trace`: one line for each block that ran, in order, with its key, type, `ok` or `ERROR`, how long it took, and its output cut short:
+
+```json
+"trace": [
+  "entrypoint_1 (entrypoint) ok 0ms",
+  "jsrunner_1 (jsrunner) ok 2ms → {\"id\":\"42\"}",
+  "db_native_1 (db_native) ERROR 11ms: failed to execute native db block"
+]
+```
+
+- Read it top to bottom. The first `ERROR` is the block to fix; the lines before it show what each block handed on.
+- A long run is cut to fit, and the last line says so: `… 12 more blocks, see get_recording`. The outputs are cut too. Step 3 shows the full run.
+- A route with tracing turned off has no `trace`. Blocks inside a custom block are not listed; the custom block's own line is.
+- Pass `debug: false` to leave out both the `error` and the `trace`.
+
+A status of 400 with `Body validation failed` means the request did not pass the route's schemas, and no block ran. A route with an error handler block answers with what that handler returns, so there may be no `error`; the `trace` still shows which block failed. For more, use step 3.
 
 `call_route` runs the route for real. It can write data and call other services, so send the inputs you need and no more.
 
