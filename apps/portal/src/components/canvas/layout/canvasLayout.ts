@@ -16,6 +16,7 @@ const toNodes = (nodes: BlockNode[]) =>
 		id: node.id,
 		type: node.type,
 		position: node.position,
+		data: node.data,
 		width: node.measured?.width ?? node.width,
 		height: node.measured?.height ?? node.height,
 	}));

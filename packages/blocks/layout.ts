@@ -1,4 +1,4 @@
-import { HANDLE_SIDE, type HandleKind, type HandleSide } from "./blockHandles";
+import { getOutputHandles, HANDLE_SIDE, type HandleKind, type HandleSide } from "./blockHandles";
 import { BlockTypes } from "./blockTypes";
 
 export {
@@ -46,6 +46,8 @@ export type LayoutNode = {
 	position?: { x: number; y: number } | null;
 	width?: number | null;
 	height?: number | null;
+	/** Block data; only `order` / `defaultCase` (fan-out branch order) are read. */
+	data?: unknown;
 };
 
 export type LayoutEdge = {
@@ -74,9 +76,12 @@ export type LayoutPositions = Record<string, { x: number; y: number }>;
 
 const HANDLE_KINDS = Object.keys(HANDLE_SIDE) as HandleKind[];
 
+const handleKind = (handleId: string) =>
+	HANDLE_KINDS.find((candidate) => handleId.endsWith(`-${candidate}`));
+
 /** Which side of the block a handle id (`<blockId>-<kind>`) sits on. */
 export function handleSide(handleId: string): HandleSide {
-	const kind = HANDLE_KINDS.find((candidate) => handleId.endsWith(`-${candidate}`));
+	const kind = handleKind(handleId);
 	return kind ? HANDLE_SIDE[kind] : "right";
 }
 
@@ -130,6 +135,114 @@ function anchorOffset(
 	};
 }
 
+const SIDE_RANK: Record<HandleSide, number> = { top: -1, left: 0, right: 0, bottom: 1 };
+/** Roots sort entrypoint flow first, error handler flow last, anything else between. */
+const ROOT_RANK: Record<string, number> = {
+	[BlockTypes.entrypoint]: 0,
+	[BlockTypes.errorHandler]: 2,
+};
+/** Space between two root bands. */
+const BAND_SPACING = 48;
+
+/**
+ * One band per root (a block nothing feeds into): the entrypoint's flow, then
+ * other roots, then the error handler's. A block reachable from several roots
+ * belongs to the first one, so bands never interleave. Blocks no root reaches
+ * (only a cycle does that) share a last band.
+ */
+function splitIntoBands(nodes: LayoutNode[], edges: LayoutEdge[]): LayoutNode[][] {
+	const children = new Map<string, string[]>();
+	const fed = new Set<string>();
+	for (const e of edges) {
+		children.set(e.from, [...(children.get(e.from) ?? []), e.to]);
+		fed.add(e.to);
+	}
+	const rank = (n: LayoutNode) => ROOT_RANK[n.type ?? ""] ?? 1;
+	const roots = nodes
+		.filter((n) => !fed.has(n.id))
+		.sort(
+			(a, b) =>
+				rank(a) - rank(b) ||
+				(a.position?.y ?? 0) - (b.position?.y ?? 0) ||
+				a.id.localeCompare(b.id),
+		);
+
+	const byId = new Map(nodes.map((n) => [n.id, n]));
+	const owned = new Set<string>();
+	const bands: LayoutNode[][] = [];
+	for (const root of roots) {
+		const band: LayoutNode[] = [];
+		const stack = [root.id];
+		while (stack.length) {
+			const id = stack.pop()!;
+			if (owned.has(id)) continue;
+			owned.add(id);
+			band.push(byId.get(id)!);
+			stack.push(...(children.get(id) ?? []));
+		}
+		bands.push(band);
+	}
+	const rest = nodes.filter((n) => !owned.has(n.id));
+	if (rest.length) bands.push(rest);
+	return bands;
+}
+
+/**
+ * Sort key for a block: the row of the parent it hangs off, the side of that
+ * parent's handle (top above, bottom below), the handle's place among the
+ * parent's outputs, then its place in a fan-out branch list.
+ */
+function placementKey(
+	node: LayoutNode,
+	edges: LayoutEdge[],
+	byId: Map<string, LayoutNode>,
+	layers: Map<string, number>,
+	parentCentre: (id: string) => number,
+): number[] {
+	const layer = layers.get(node.id) ?? 0;
+	const incoming = edges.filter((e) => e.to === node.id);
+	const edge =
+		incoming.find((e) => (layers.get(e.from) ?? 0) === layer - 1) ??
+		incoming.sort((a, b) => parentCentre(a.from) - parentCentre(b.from))[0];
+	if (!edge) return [0, 0, 0, 0];
+	const parent = byId.get(edge.from)!;
+	const handle = edge.fromHandle ?? `${edge.from}-source`;
+	const data = (parent.data ?? {}) as { order?: unknown; defaultCase?: unknown };
+	const order = Array.isArray(data.order) ? (data.order as string[]) : [];
+	const listed = order.indexOf(node.id);
+	return [
+		parentCentre(edge.from),
+		// a lone top handle (executor, orchestrate) is drawn on the right instead
+		getOutputHandles(parent.type ?? "").length === 1 ? 0 : SIDE_RANK[handleSide(handle)],
+		getOutputHandles(parent.type ?? "").indexOf(handleKind(handle) ?? "source"),
+		// listed cases first, unlisted after them, the default case last
+		node.id === data.defaultCase ? order.length + 1 : listed === -1 ? order.length : listed,
+	];
+}
+
+/**
+ * Orders one column top to bottom by where each block hangs off its parent. The
+ * previous y only breaks ties, so a reflow keeps the order the user sees and
+ * agent-added blocks with no position still land in a stable order.
+ */
+function orderColumn(
+	column: LayoutNode[],
+	edges: LayoutEdge[],
+	byId: Map<string, LayoutNode>,
+	layers: Map<string, number>,
+	parentCentre: (id: string) => number,
+): LayoutNode[] {
+	const keys = new Map(
+		column.map((n) => [n.id, placementKey(n, edges, byId, layers, parentCentre)]),
+	);
+	return [...column].sort((a, b) => {
+		const ka = keys.get(a.id)!;
+		const kb = keys.get(b.id)!;
+		for (let i = 0; i < ka.length; i++) if (ka[i] !== kb[i]) return ka[i]! - kb[i]!;
+		return (a.position?.y ?? 0) - (b.position?.y ?? 0) || a.id.localeCompare(b.id);
+	});
+}
+
 /**
  * Lays the graph out left to right, one column per step, columns centred on a
  * common axis. Sticky notes are excluded, so callers keep their positions.
@@ -143,35 +256,58 @@ export function layoutGraph(
 	const laidOut = nodes.filter((node) => node.type !== BlockTypes.sticky_note);
 	if (laidOut.length === 0) return {};
 
-	const placed = new Set(laidOut.map((n) => n.id));
-	const graphEdges = edges.filter((e) => placed.has(e.from) && placed.has(e.to));
+	const byId = new Map(laidOut.map((n) => [n.id, n]));
+	// The compiler ignores an edge into the error handler, so layout does too:
+	// that keeps the handler a root with a band of its own.
+	const graphEdges = edges.filter(
+		(e) => byId.has(e.from) && byId.has(e.to) && byId.get(e.to)!.type !== BlockTypes.errorHandler,
+	);
 	const layers = layerOf(laidOut, graphEdges);
-
-	const columns = new Map<number, LayoutNode[]>();
-	for (const node of laidOut) {
-		const layer = layers.get(node.id) ?? 0;
-		columns.set(layer, [...(columns.get(layer) ?? []), node]);
-	}
-
-	const widthOf = (n: LayoutNode) => n.width ?? FALLBACK_WIDTH;
 	const heightOf = (n: LayoutNode) => n.height ?? FALLBACK_HEIGHT;
 
-	// Within a column, keep the order the blocks already had on screen so a
-	// reflow does not shuffle siblings the user is reading top to bottom.
-	const positions: LayoutPositions = {};
+	// Columns are shared by every band so a block lines up with its peers.
+	const columnX = new Map<number, number>();
 	let x = 0;
-	for (const layer of [...columns.keys()].sort((a, b) => a - b)) {
-		const column = [...columns.get(layer)!].sort(
-			(a, b) => (a.position?.y ?? 0) - (b.position?.y ?? 0),
-		);
-		const total =
-			column.reduce((sum, n) => sum + heightOf(n), 0) + nodeSpacing * (column.length - 1);
-		let y = -total / 2;
-		for (const node of column) {
-			positions[node.id] = { x, y };
-			y += heightOf(node) + nodeSpacing;
+	for (const layer of [...new Set(layers.values())].sort((a, b) => a - b)) {
+		columnX.set(layer, x);
+		const members = laidOut.filter((n) => layers.get(n.id) === layer);
+		x += Math.max(...members.map((n) => n.width ?? FALLBACK_WIDTH)) + layerSpacing;
+	}
+
+	const positions: LayoutPositions = {};
+	let bandTop = 0;
+	for (const band of splitIntoBands(laidOut, graphEdges)) {
+		// y relative to the band's own centre line, until the band is stacked.
+		const local = new Map<string, number>();
+		const inBand = new Set(band.map((n) => n.id));
+		const bandEdges = graphEdges.filter((e) => inBand.has(e.from) && inBand.has(e.to));
+		const centreOf = (id: string) => (local.get(id) ?? 0) + heightOf(byId.get(id)!) / 2;
+		const columns = new Map<number, LayoutNode[]>();
+		for (const node of band) {
+			const layer = layers.get(node.id) ?? 0;
+			columns.set(layer, [...(columns.get(layer) ?? []), node]);
 		}
-		x += Math.max(...column.map(widthOf)) + layerSpacing;
+
+		let bandHeight = 0;
+		for (const layer of [...columns.keys()].sort((a, b) => a - b)) {
+			const column = orderColumn(columns.get(layer)!, bandEdges, byId, layers, centreOf);
+			const total =
+				column.reduce((sum, n) => sum + heightOf(n), 0) + nodeSpacing * (column.length - 1);
+			let y = -total / 2;
+			for (const node of column) {
+				local.set(node.id, y);
+				y += heightOf(node) + nodeSpacing;
+			}
+			bandHeight = Math.max(bandHeight, total);
+		}
+
+		for (const node of band) {
+			positions[node.id] = {
+				x: columnX.get(layers.get(node.id) ?? 0)!,
+				y: bandTop + bandHeight / 2 + local.get(node.id)!,
+			};
+		}
+		bandTop += bandHeight + BAND_SPACING;
 	}
 
 	if (!changedIds) return positions;
