@@ -7,7 +7,7 @@ import { AgentMessage, LimitNotice, Thinking } from "./AgentMessage";
 import { AgentPickers } from "./AgentPickers";
 import { ApprovalBar } from "./ApprovalBar";
 import { type ChatMessage, messageKey } from "./agentMessages";
-import { ChatTitleEditor } from "./ChatTitleEditor";
+import { ChatHeader } from "./ChatHeader";
 import { PromptEditor } from "./PromptEditor";
 import { RunSummary } from "./RunSummary";
 import { ScrollToBottomButton } from "./ScrollToBottomButton";
@@ -91,13 +91,11 @@ export function ConversationPage() {
 
 	return (
 		<div className="relative flex h-full w-full min-w-0 flex-col">
-			<div className="absolute top-1.5 left-1 z-20">
-				<ChatTitleEditor projectId={projectId} conversation={conversation} />
-			</div>
+			<ChatHeader title={conversation?.title} />
 
 			<div
 				ref={scroller}
-				className="flex-1 overflow-y-auto px-4 pt-16 pb-8"
+				className="flex-1 overflow-y-auto px-4 pt-6 pb-8"
 				onWheel={() => {
 					follow.current = false;
 				}}

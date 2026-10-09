@@ -36,7 +36,6 @@ mock.module("./PromptEditor", () => ({
 		);
 	},
 }));
-mock.module("./ChatTitleEditor", () => ({ ChatTitleEditor: () => null }));
 
 const { act, cleanup, fireEvent, render, within } = await import("@testing-library/react");
 /** Not RTL's waitFor/screen: they stay bound to the DOM of whichever test file loaded RTL first. */
