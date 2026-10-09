@@ -25,7 +25,7 @@ A run passes when all its suites pass.
 
 Click a suite's row to open it. You'll see:
 
-- **Every check**, with a ✓ or ✗. A failed check says what it expected and what it got, for example `expected 500 to be 201`. Checks from [hooks](./hooks) come first, labelled with their block.
+- **Every check**, with a ✓ or ✗. A failed check says what it expected and what it got, for example `expected 500 to be 201`. For simple checks, a path that isn't in the response says so and lists what is ([details](./checks#reading-a-failed-check)). Checks from [hooks](./hooks) come first, labelled with their block.
 - **The error**, if the suite hit one (for example `Setup failed: duplicate email`).
 - **The response** the route sent: status, headers and body, so you can compare them with what you expected.
 

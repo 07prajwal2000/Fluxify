@@ -52,6 +52,26 @@ So `equals` on a whole object is easy to get wrong: key order and spaces must ma
 
 **is true** also passes for the text `"true"`; **is false** for the text `"false"`.
 
+### Reading a failed check
+
+A failed simple check says what it expected and what it actually found:
+
+```text
+Expected Body(success) to false , got: (property not found: success). body has: message, errors
+```
+
+| What was found | How it is shown |
+| --- | --- |
+| A path that doesn't exist | `(property not found: success)`, then what is there instead: `body has: message, errors`. For a nested path the first missing step is named: `(property not found: user.address). user has: name, age` |
+| A body that is a list or plain text | `body is a list of 2 items` or `body is "Not Found"` |
+| No body at all | `(no body)` |
+| `null` | `null` |
+| Text | In quotes, so an empty text reads `""` |
+| A number or `true`/`false` | As it is |
+| An object or a list | As JSON. Anything over 300 characters is cut with `…` and its full length |
+
+The same text shows in the results screen and in the AI assistant's test results.
+
 ### Property paths
 
 A property path picks one value out of the body. Use dots for objects and `[n]` for list positions (counting from 0).

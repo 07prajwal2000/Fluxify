@@ -16,6 +16,7 @@ A test suite is a saved request (for a route) or a saved input (for a workflow),
 | `save_test_suite` | creator | Create or update a suite. |
 | `delete_test_suite` | creator | Deletes the suite and its hooks. The route or workflow stays. |
 | `clone_test_suite` | creator | Copies a suite to another route or workflow of the project. |
+| `validate_test_suite` | creator | Checks a suite's assertions against its last run or a sample, without running anything. See [Check a suite without running it](#check-a-suite-without-running-it). Load it with `load_tools`. |
 | `run_test_suite` | creator | Runs one suite for real and returns the result. |
 | `get_test_runs` | creator | Recent runs of one suite, newest first. |
 
@@ -215,7 +216,30 @@ It needs at least one `t.expect`, or it fails with `Custom JS made no t.expect(.
 
 `setupBlockId` and `teardownBlockId` name custom blocks with `usage: "test"` from the same project. See [Custom block reference](/agents/custom-block). Setup runs before the request. Its result is `t.setup` in hooks and custom assertions, and `testsuite.setup` in the teardown block. Teardown runs after the checks.
 
-Inside a test block you can read `testsuite.phase` (`setup`, `teardown`, or `input` for a workflow loader), `testsuite.runId` (unique per run, use it in test data so parallel suites do not clash), `testsuite.suite` (id and name), and in teardown `testsuite.outcome` (`passed`, `failed`, `error` or `timeout`).
+Inside a test block you can read `testsuite.phase` (`setup`, `teardown`, or `input` for a workflow loader), `testsuite.runId` (unique per run, use it in test data so parallel suites do not clash), `testsuite.suite` (id and name), and in teardown `testsuite.outcome` (`passed`, `failed`, `error` or `timeout`), `testsuite.request` and `testsuite.response`.
+
+### What teardown sees of the request
+
+Teardown can clean up by an id that only the response holds.
+
+| Suite | `testsuite.request` | `testsuite.response` |
+| --- | --- | --- |
+| Route | `{ method, path, headers, query, params, body }`, as sent | `{ status, headers, body }`. `null` if the route crashed or timed out. An error status such as 409 is still an answer. |
+| Workflow, `mode: "single"` | `{ input }` | `{ successful, output, error }`, or `null` |
+| Workflow, `mode: "cases"` | a list of `{ name, input }`, one for each case that ran | a list of `{ name, successful, output, error }`, one for each case that ran |
+
+Teardown runs once, after all the cases, so in `cases` mode it loops over the lists. After a timeout, the cases that finished are in the lists and the case that was cut off is missing. If setup failed, the request is there and the response is `null`.
+
+```js
+// teardown block, route suite: delete the row the route created
+const id = testsuite.response?.body?.id;
+if (!id) return null;
+return { id };
+```
+
+### `runId` scope
+
+`testsuite.runId` is the same value as `t.runId` in hooks and custom assertions. It is made once for each run of a suite. A route suite has one request, so it is unique per request. A workflow suite in `cases` mode has one `runId` for all its cases: build per-case data from `t.case.index`, for example `` `${t.runId}-${t.case.index}@test.local` ``.
 
 ## Hooks
 
@@ -236,7 +260,7 @@ A hook body is `{ "kind": "json" | "script", "value": "<text>" }`. For `json`, `
 | Hook | What it does |
 | --- | --- |
 | `onBefore` script | Runs just before the block with `input` and `t`. Return nothing to run as normal. Return a value to use it as the block's input. `t.skip(output, branch?)` skips the block and passes `output` on. `branch` is `success` or `failure` for blocks with two paths. `t.fail("message")` or a throw fails the block. |
-| `onBefore` json | Skips the block and passes that JSON on as its output. |
+| `onBefore` json | Skips the block and passes that JSON on as its output. On a block with two paths it takes the first, `success`. It cannot pick `failure`: use a script. |
 | `onAfter` script | Runs just after with `input`, `output` and `t`. Return nothing to keep the output. Return a value to replace it. It does not run when `onBefore` skipped the block. |
 | `onAfter` json | Replaces the output with that JSON. |
 
@@ -249,6 +273,29 @@ A hook body is `{ "kind": "json" | "script", "value": "<text>" }`. For `json`, `
 | Every other block, custom blocks too | `onBefore` and `onAfter`, script or json. |
 
 The block must be on the suite's own route or workflow. Each block has one entry. Name each block by its key from `get_canvas` (such as `db_getsingle_1`); a block id also works. `get_test_suite` shows the keys.
+
+### Paths for `t.skip`
+
+The names are the block's output handles, the `handles` that `get_block_schemas` lists.
+
+| Block | `t.skip(output, branch)` can use | Default |
+| --- | --- | --- |
+| `db_exists` | `success` (a record was found), `failure` (none) | `success` |
+| `queue_send` | `success`, `failure` | `success` |
+| `db_transaction` | `success`, `failure` | `success` |
+| `db_rollback` | none: the skip ends the flow | none |
+| Every other block that allows a skip | `source` | `source` |
+
+### Bad hook targets
+
+| Mistake | Result |
+| --- | --- |
+| A block key or id that is not on the suite's route or workflow | `save_test_suite` fails: `Block X is not on this suite's route`. Nothing is saved. |
+| A block that cannot have hooks, or a skip or `onAfter` on a block that only allows an input script | Fails at save. See [Common errors](#common-errors). |
+| `t.skip(output, "name")` with a literal `name` the block does not have | Fails at save: `A db_exists block has no branch "sucess"; t.skip can use: success, failure`. |
+| `t.skip(output, name)` where `name` is a variable or an expression | Not seen at save. The block fails when the suite runs: `A db_exists block has no branch "…"`. |
+
+A saved hook follows its block. Deleting the block from the canvas deletes its hooks.
 
 ## Overrides
 
@@ -271,6 +318,37 @@ Overrides change what the suite uses, for this suite only. The real route, workf
 `clone_test_suite` takes `testSuiteId`, `kind` (`route` or `workflow`) and `targetId` of the same project. The copy is named `<name> (copy)`. Assertions, overrides, setup and teardown are copied. The request or input is copied only when `kind` is the same as the source.
 
 Hooks move to the block with the same type and name on the target. The result is `{ "id": "...", "droppedHooks": ["<block name>"] }`. `droppedHooks` names the blocks that had no match.
+
+## Check a suite without running it
+
+`validate_test_suite` takes `testSuiteId` and an optional `sample`. It compares each assertion with a response and runs nothing: no request, no setup, no hooks.
+
+```json
+{ "testSuiteId": "<suite id>", "sample": { "status": 400, "body": { "message": "Body validation failed", "errors": [] } } }
+```
+
+Without `sample`, it uses the response of the suite's last run that got an answer. A route sample is `{ status, headers, body }` and a workflow sample is `{ output }`. A part you leave out is not checked.
+
+```json
+{
+  "source": "last run",
+  "checked": 2,
+  "problems": ["Check 2, body(success): (property not found: success). body has: message, errors"],
+  "message": "1 of 2 checks do not fit the last run"
+}
+```
+
+| It reports | Example |
+| --- | --- |
+| A `body`, `output` or `header` path the response does not have, with the keys it does have | `body has: message, errors` |
+| `true` or `false` on a value that is not a boolean | `the value is string, not true or false` |
+| A `status` or `time` expected value that is not a number | `expected value "ok" is not a number` |
+
+`not_exists` on a missing path is fine. It does not judge values: whether the status is 200 is what a run is for. `customJs` is not looked at and is not counted in `checked`.
+
+When the suite has no run with an answer yet (never run, or every run timed out or failed in setup), `source` is `null`, `checked` is 0 and `message` says `No recorded run to check against yet.` Run it once with `run_test_suite`, or pass a `sample`.
+
+The last run is the suite's own, so the suite and the response must be for the same request. A suite that expects a 400 and checks `success` fits a 400 response, not a 200 one.
 
 ## Run a suite
 
@@ -305,9 +383,53 @@ Hooks move to the block with the same type and name on the target. The result is
 
 A route suite has one case, named `request`. A workflow suite has one case for each input case. A case `status` is `passed`, `failed`, `error` or `timeout`. `error` carries the message. Messages are cut at 500 characters.
 
+A failed simple check says what it found. The same text shows in the portal.
+
+| `failedChecks` entry | Meaning |
+| --- | --- |
+| `Expected Body(success) to false , got: (property not found: success). body has: message, errors` | The path is not in the body. The keys that are there follow. A nested path names the first missing step: `(property not found: user.address). user has: name, age`. |
+| `… got: null` | The value is `null`. |
+| `… got: "two"` | Text is quoted. `got: ""` is empty text. |
+| `… got: {"b":[1,2]}` | Objects and lists are JSON, cut at 300 characters with `…`. |
+| `… got: (no body)` | The response had no body. |
+
 If the run is not done in time, you get `{ "runId": "...", "status": "running", "message": "..." }`. Call `get_test_runs` with the suite id later. `limit` is 1 to 10, default 5.
 
 Every test run is recorded, even when `recordExecution` is off. Read a case's recording with `get_recording`. Pass `kind` and `targetId` of the suite's route or workflow (from `get_test_suite`) and the case's `traceRunId` as `runId`. A hook-changed block is marked `mocked` in the spans. See [Recipe, write and run a test suite](/agents/recipes/write-and-run-test-suite).
+
+## Error bodies the platform answers with
+
+These come from the platform, not from the route's own blocks. A suite's checks see them like any other response.
+
+### When a route is called
+
+| Status | Body | When |
+| --- | --- | --- |
+| 400 | `{ "message": "Body validation failed", "errors": [{ "path": "email", "property": "email", "errors": ["Invalid email"] }] }` | The body fails the route's `bodySchema`. No block ran. `path` is the dotted path (`address.zip`), `property` is its last part. |
+| 400 | same shape, `"message": "Query validation failed"` | The query fails `querySchema`. |
+| 400 | same shape, `"message": "Path parameters validation failed"` | The path values fail `paramsSchema`. |
+| 400 | `{ "message": "Malformed application/json body: …" }` | The body cannot be read as its content type. |
+| 404 | `{ "message": "Route not found" }` | No active route has this method and path. A suite calls its route directly and never sees this one. |
+| 413 | `{ "message": "Request body exceeds the 1024KB limit" }` | The body is over the limit (the number is the limit). |
+| 415 | `{ "message": "Unsupported content type \"text/xml\". This route accepts: application/json" }` | The content type is not one the route accepts. |
+| 429 | `{ "message": "Async execution capacity is full" }` | An async route has no free capacity. |
+| 500 | `{ "error": "<the error text>" }` | A block failed and the route has no error handler that answers. |
+| 500 | `{ "message": "Internal server error" }` | The run ended without a result. |
+
+The platform never answers 409 for a route call. A 409 is the route's own Response block, for example for a duplicate. A route that ends without a Response block answers `200` with the body `"NO RESULT"`.
+
+A route with an error handler answers with what the handler returns instead of the 500 bodies above. The 400 validation answers come before any block runs, so a handler does not change them.
+
+### When a tool or the admin API is called
+
+| Status | Body | When |
+| --- | --- | --- |
+| 400 | `{ "type": "validation", "errors": [{ "field": "assertions.0.operator", "message": "Operator is required" }] }` | The request does not match the schema. `field` is the path to the bad value. |
+| 400 | `{ "message": "Block X is not on this suite's route", "type": "regular" }` | A rule the schema cannot express, such as a bad hook target. |
+| 403 | `{ "message": "…", "type": "regular" }` | The role is too low. Tools show `You need the Creator role in this project.` |
+| 404 | `{ "message": "Test suite not found", "type": "regular" }` | The id does not exist. |
+| 409 | `{ "message": "Canvas cannot contain cycles. Remove connection(s): …", "type": "regular" }` | The change conflicts with what is saved, such as a cycle on a canvas. |
+| 500 | `{ "message": "Unknown server error occured", "type": "server_error" }` | Something unexpected failed on the server. |
 
 ## Common errors
 
@@ -323,6 +445,7 @@ Every test run is recorded, even when `recordExecution` is off. Read a case's re
 | `Invalid input: Setup, teardown and loader blocks must be test-only custom blocks of this project` | The block is missing, from another project, or its `usage` is not `test`. |
 | `Invalid input: Block X is not on this suite's route` | Use block keys from the target's canvas. |
 | `Invalid input: A block can have only one hook entry` | Merge the two entries. |
+| `Invalid input: A db_exists block has no branch "sucess"; t.skip can use: success, failure` | Fix the path name in `t.skip`. See [Paths for `t.skip`](#paths-for-t-skip). |
 | `Invalid input: A if block only allows an onBefore script that changes its input` | See the hook table. |
 | `Not found: Test suite not found` | Wrong `testSuiteId`. Use `list_test_suites`. |
 | `Custom JS made no t.expect(...) checks` | In a run result: add a `t.expect`. |
