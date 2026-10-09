@@ -208,3 +208,55 @@ test("with changedIds only the blocks that moved come back", () => {
 	const dragged = formatted.map((n) => (n.id === "f" ? { ...n, position: { x: 9, y: 9 } } : n));
 	expect(Object.keys(layoutGraph(dragged, edges, { changedIds: ["f"] }))).toEqual(["f"]);
 });
+
+test("each if branch keeps its own lane to its own response, in handle order", () => {
+	const nodes = [
+		bare("e", BlockTypes.entrypoint),
+		bare("i", BlockTypes.if),
+		bare("read", BlockTypes.jsrunner),
+		bare("check", BlockTypes.jsrunner),
+		bare("r1", BlockTypes.response),
+		bare("query", BlockTypes.jsrunner),
+		bare("write", BlockTypes.jsrunner),
+		bare("r2", BlockTypes.response),
+	];
+	const edges = [
+		edge("e", "i"),
+		// failure listed first: the lanes still follow handle order
+		edge("i", "query", "failure"),
+		edge("i", "read", "success"),
+		edge("read", "check"),
+		edge("check", "r1"),
+		edge("query", "write"),
+		edge("write", "r2"),
+	];
+	const p = layoutGraph(nodes, edges);
+	// a lane is one straight row
+	expect(new Set(["read", "check", "r1"].map((id) => at(p, id))).size).toBe(1);
+	expect(new Set(["query", "write", "r2"].map((id) => at(p, id))).size).toBe(1);
+	// success lane above failure lane, no overlap
+	expect(at(p, "r2") - at(p, "r1")).toBeGreaterThanOrEqual(40);
+});
+
+test("a block two branches converge on sits after the lanes, centred between its parents", () => {
+	const nodes = [
+		bare("e", BlockTypes.entrypoint),
+		bare("i", BlockTypes.if),
+		bare("a", BlockTypes.jsrunner),
+		bare("b", BlockTypes.jsrunner),
+		bare("b2", BlockTypes.jsrunner),
+		bare("join", BlockTypes.response),
+	];
+	const edges = [
+		edge("e", "i"),
+		edge("i", "a", "success"),
+		edge("i", "b", "failure"),
+		edge("b", "b2"),
+		edge("a", "join"),
+		edge("b2", "join"),
+	];
+	const p = layoutGraph(nodes, edges);
+	expect(p.join!.x).toBeGreaterThan(p.b2!.x);
+	expect(at(p, "join")).toBe((at(p, "a") + at(p, "b2")) / 2);
+	expect(at(p, "a")).toBeLessThan(at(p, "b"));
+});
