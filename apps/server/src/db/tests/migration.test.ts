@@ -117,6 +117,10 @@ describe("migrateDB", () => {
 			await client`INSERT INTO system_users (id, email, name, is_system_admin) VALUES ('u1', 'ada@example.com', 'Ada', true)`;
 			await client`INSERT INTO "user" (id, name, email) VALUES ('u1', 'Ada', 'ada@example.com')`;
 			await client`INSERT INTO projects (id, name, slug) VALUES ('p1', 'Shop', 'shop')`;
+			// One conversation of the old harness (#648) and one of the new agent, each with a run.
+			await client`INSERT INTO agent_harness_conversations (id, user_id, project_id, metadata) VALUES ('old', 'u1', 'p1', '{}'), ('new', 'u1', 'p1', '{"agent": true}')`;
+			await client`INSERT INTO agent_harness_runs (id, conversation_id, user_query) VALUES ('old-run', 'old', 'q'), ('new-run', 'new', 'q')`;
+			await client`INSERT INTO agent_harness_steps (id, run_id, conversation_id, step_type) VALUES ('s1', 'old-run', 'old', 'router')`;
 			seeded = await seededRows();
 		});
 
@@ -129,6 +133,13 @@ describe("migrateDB", () => {
 			expect(await journal(client)).toEqual(allApplied);
 			// Adopting builds exactly what the migrator builds on a fresh database.
 			expect(await fingerprint(client)).toEqual(freshFingerprint);
+		});
+
+		test("retires the old harness: its tables and conversations go, the new agent's stay", async () => {
+			expect(await tables(client)).not.toContain("agent_harness_steps");
+			expect(await tables(client)).toEqual(expect.arrayContaining(["agent_harness_conversations", "agent_harness_runs", "agent_messages"]));
+			expect((await client`SELECT id FROM agent_harness_conversations`).map((r: { id: string }) => r.id)).toEqual(["new"]);
+			expect((await client`SELECT id FROM agent_harness_runs`).map((r: { id: string }) => r.id)).toEqual(["new-run"]);
 		});
 
 		test("a second run changes nothing", async () => {
