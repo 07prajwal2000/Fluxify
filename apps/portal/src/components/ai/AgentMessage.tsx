@@ -1,74 +1,11 @@
 import type { StopReason } from "@fluxify/ai-gateway/src/agent/agent";
-import { Spinner } from "@fluxify/components";
 import { useEffect, useState } from "react";
-import { TbAlertTriangle, TbBan, TbCheck, TbClock, TbX } from "react-icons/tb";
-import {
-	type ChatMessage,
-	type Part,
-	type ReasoningPart,
-	type ToolPart,
-	toolTitle,
-} from "./agentMessages";
+import { TbAlertTriangle } from "react-icons/tb";
+import type { ChatMessage, Part, ReasoningPart } from "./agentMessages";
 import { CompactionLine } from "./CompactionLine";
 import { MarkdownViewer } from "./MarkdownViewer";
+import { ToolRow } from "./ToolRow";
 import { UserMessage } from "./UserMessage";
-
-const json = (v: unknown) => (typeof v === "string" ? v : (JSON.stringify(v, null, 2) ?? ""));
-const short = (v: unknown) => {
-	const s = typeof v === "string" ? v : (JSON.stringify(v) ?? "");
-	return s.length > 80 ? `${s.slice(0, 80)}…` : s;
-};
-const done = (t: ToolPart) =>
-	t.status !== undefined || t.output !== undefined || t.error !== undefined;
-
-/** One tool call, folded: name, short input, duration; open for the input and result. */
-function ToolRow({
-	tool,
-	waiting,
-	running,
-}: {
-	tool: ToolPart;
-	waiting: boolean;
-	running: boolean;
-}) {
-	const asking = !done(tool) && (tool.approval || waiting);
-	const ms = tool.startedAt && tool.endedAt ? tool.endedAt - tool.startedAt : undefined;
-	return (
-		<details className="group rounded-lg border border-border bg-surface text-xs">
-			<summary className="flex cursor-pointer list-none items-center gap-2 px-3 py-1.5">
-				{tool.status === "rejected" ? (
-					<TbBan size={14} aria-label="Rejected" className="shrink-0 text-muted" />
-				) : tool.status === "error" || tool.error !== undefined ? (
-					<TbX size={14} aria-label="Failed" className="shrink-0 text-danger" />
-				) : done(tool) ? (
-					<TbCheck size={14} aria-label="Done" className="shrink-0 text-success" />
-				) : asking ? (
-					<TbClock size={14} className="shrink-0 text-warning" />
-				) : running ? (
-					<Spinner size="sm" color="current" />
-				) : (
-					<TbX size={14} className="shrink-0 text-muted" />
-				)}
-				<span className="font-medium text-foreground">{toolTitle(tool)}</span>
-				<span className="min-w-0 flex-1 truncate font-mono text-muted">{short(tool.input)}</span>
-				{ms !== undefined && <span className="shrink-0 text-muted">{(ms / 1000).toFixed(1)}s</span>}
-			</summary>
-			<div className="flex flex-col gap-2 border-t border-border px-3 py-2">
-				<pre className="max-h-64 overflow-auto whitespace-pre-wrap text-muted">
-					{json(tool.input)}
-				</pre>
-				{tool.error !== undefined && (
-					<pre className="max-h-64 overflow-auto whitespace-pre-wrap text-danger">{tool.error}</pre>
-				)}
-				{tool.output !== undefined && (
-					<pre className="max-h-64 overflow-auto whitespace-pre-wrap text-foreground/80">
-						{json(tool.output)}
-					</pre>
-				)}
-			</div>
-		</details>
-	);
-}
 
 /** Under a second is a replayed burst or a blink: no time. */
 const thoughtLabel = (ms?: number) =>
