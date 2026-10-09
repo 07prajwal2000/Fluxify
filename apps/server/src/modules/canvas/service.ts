@@ -201,6 +201,8 @@ async function canvasIssues(
 	parent: CanvasParent,
 	data: CanvasChanges,
 	blocksAfterSave: { id: string; type: string | null; data: unknown }[],
+	edgesAfterSave: CanvasEdgeWithHandle[],
+	keyOf: (id: string) => string | undefined,
 	tx: DbTransactionType,
 	dryRun: boolean,
 ) {
@@ -213,7 +215,8 @@ async function canvasIssues(
 		kind: parent.type,
 		selfUsage:
 			parent.type === "custom_block" ? blocks.find((b) => b.id === parent.id)?.usage : undefined,
-		blocks: blocksAfterSave,
+		blocks: blocksAfterSave.map((b) => ({ ...b, key: keyOf(b.id) })),
+		edges: edgesAfterSave,
 		usageOf: new Map(blocks.map((b) => [b.name, b.usage])),
 	});
 	if (dryRun) return issues;
@@ -386,17 +389,20 @@ export async function saveCanvas(
 		await assertCanvasHasNoHandleFanOut(parent, data, deleteBlockIds, deleteEdgeIds, tx);
 		const dbTypeOf = (connection: string) => dbIntegrationsCache[connection]?.dbType;
 		const blocksAfterSave = await canvasBlocksAfterSave(parent, data, deleteBlockIds, tx);
-		assertTransactionWiring(
-			blocksAfterSave,
-			await canvasEdgesAfterSave(parent, data, deleteBlockIds, deleteEdgeIds, tx),
-			dbTypeOf,
+		const edgesAfterSave = await canvasEdgesAfterSave(
+			parent,
+			data,
+			deleteBlockIds,
+			deleteEdgeIds,
+			tx,
 		);
+		assertTransactionWiring(blocksAfterSave, edgesAfterSave, dbTypeOf);
 		assertJoinsSupported(blocksAfterSave, dbTypeOf);
+		const { keyOf, newKeys } = await assignBlockKeys(parent, data.changes.blocks, tx);
 		const issues = [
-			...(await canvasIssues(parent, data, blocksAfterSave, tx, dryRun)),
+			...(await canvasIssues(parent, data, blocksAfterSave, edgesAfterSave, keyOf, tx, dryRun)),
 			...takeDroppedWarnings(data),
 		];
-		const { keyOf, newKeys } = await assignBlockKeys(parent, data.changes.blocks, tx);
 		await upsertBlocks(
 			data.changes.blocks.map((block) => ({ ...block, key: keyOf(block.id), ...keys })),
 			tx,

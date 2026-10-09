@@ -1,5 +1,6 @@
 import { BlockTypes, blockDataIssues, literalExpressionIssues } from "@fluxify/blocks";
 import type { CustomBlockUsage } from "../../db/schema";
+import { reachabilityIssues } from "./reachability";
 import type { CanvasParentType } from "./types";
 
 /**
@@ -17,7 +18,9 @@ export type RulesInput = {
 	kind: CanvasParentType;
 	/** the usage of the custom block whose canvas this is; unset for routes and workflows */
 	selfUsage?: CustomBlockUsage;
-	blocks: { id: string; type: string | null; data: unknown }[];
+	/** `key` is the readable name (`if_1`); a message falls back to the id without it */
+	blocks: { id: string; key?: string; type: string | null; data: unknown }[];
+	edges: { from?: string | null; to?: string | null; fromHandle?: string | null }[];
 	/** the project's custom blocks, by name */
 	usageOf: Map<string, CustomBlockUsage>;
 };
@@ -103,5 +106,8 @@ function blockIssues(block: RulesInput["blocks"][number], input: RulesInput): Ca
 
 /** All rule issues of a canvas as it will be after a save. */
 export function canvasRuleIssues(input: RulesInput): CanvasIssue[] {
-	return input.blocks.flatMap((block) => blockIssues(block, input));
+	return [
+		...input.blocks.flatMap((block) => blockIssues(block, input)),
+		...reachabilityIssues(input),
+	];
 }

@@ -100,6 +100,7 @@ Validation runs by default and returns `issues`: `{ severity, message, block }`,
 
 - An `error` on a block you wrote in this call refuses the save. Fix it and call again.
 - A `warning` still saves. Read it: it catches things like a `{{ }}` template or a missing `js:`.
+- Reachability warnings name a block that is not connected to the flow, a route with no path from `entrypoint` to a response, or an open `if` branch (`if_1.failure is not connected`). Fix them before testing: an unconnected route answers the default response (NO RESULT). Retry and transaction `failure`, loop bodies and workflows or custom blocks may end open, so they stay quiet.
 - Issues on blocks you did not touch are reported but never block the save.
 
 ## The response block

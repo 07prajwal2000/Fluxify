@@ -9,7 +9,7 @@ const usageOf = new Map<string, CustomBlockUsage>([
 ]);
 
 const check = (kind: RulesInput["kind"], type: string, data: unknown = {}, selfUsage?: CustomBlockUsage) =>
-	canvasRuleIssues({ kind, selfUsage, usageOf, blocks: [{ id: "b", type, data }] });
+	canvasRuleIssues({ kind, selfUsage, usageOf, blocks: [{ id: "b", type, data }], edges: [] });
 
 describe("canvas rules", () => {
 	it("refuses a test-only block outside a test block's canvas", () => {
