@@ -247,8 +247,8 @@ describe("read-through cache over real Redis and MySQL", () => {
 		// 1st request: nothing cached, so the db branch runs and populates Redis
 		const miss = await runCache(key, sku);
 		expect(miss.successful).toBe(true);
-		// `populate` returns true, so the body proves the set happened
-		expect(miss.output.body).toBe(true);
+		// `populate` passes the row it stored on, so the response carries it
+		expect(miss.output.body).toMatchObject({ sku, price: 4500 });
 
 		// the row really is in Redis now, as JSON
 		const cached = await cachedValue(key);
@@ -305,7 +305,7 @@ describe("read-through cache over real Redis and MySQL", () => {
 		// the real store dropped the key, so the graph goes back to the db branch
 		expect(await cachedValue(key)).toBeNull();
 		const refetch = await runCache(key, sku, 1);
-		expect(refetch.output.body).toBe(true);
+		expect(refetch.output.body).toMatchObject({ sku, name: "Trackball" });
 		expect(JSON.parse((await cachedValue(key))!)).toMatchObject({
 			name: "Trackball",
 		});
@@ -345,8 +345,10 @@ describe("read-through cache over real Redis and MySQL", () => {
 				block("out", BlockTypes.response, { httpCode: "200" }),
 			],
 			[edge("in", "drop"), edge("drop", "out")],
+			{ sku },
 		);
-		expect(invalidate.output.body).toBe(true);
+		// delete passes its input through
+		expect(invalidate.output.body).toEqual({ sku });
 		expect(await cachedValue(key)).toBeNull();
 
 		// next read re-populates from MySQL, with the new price

@@ -28,6 +28,7 @@ Pick the operation you want and the block shows only the fields that operation n
 | **Use Param** (`Set`) | No | off | Store the previous block's output instead of **Value**. |
 | **Value** (`Set`) | For `Set`, unless **Use Param** is on | none | What to store. A JS expression is allowed. Anything that isn't text is stored as JSON. |
 | **TTL (seconds)** (`Set`) | No | none (no expiry) | How long the key lives. Empty or `0` keeps it until something deletes it. |
+| **Keep KV result with input** | No | off | Pass on both the data the block received and the KV result, see [Outputs](/blocks/kv-operations#outputs). |
 | **Save output to variable** | No | off | Store the result in `outputs.<name>`. |
 
 ## Outputs
@@ -36,11 +37,19 @@ Pick the operation you want and the block shows only the fields that operation n
 | --- | --- |
 | **Next** (right) | The operation worked. The next block receives the result below. |
 
-| Operation | What the next block receives |
-| --- | --- |
-| Get | The stored value, or `null` when the key does not exist. |
-| Set | `true` |
-| Delete | `true` |
+| Operation | **Keep KV result with input** off (default) | **Keep KV result with input** on |
+| --- | --- | --- |
+| Get | The stored value, or `null` when the key does not exist. | `{ "input": <data the block received>, "result": <stored value or null> }` |
+| Set | The data the block received, unchanged. | `{ "input": <data the block received>, "result": true }` |
+| Delete | The data the block received, unchanged. | `{ "input": <data the block received>, "result": true }` |
+
+::: tip Writes don't get in the way
+A **Set** or **Delete** that fails stops the block, so reaching the next block already means it worked. That is why the block passes your data along instead of a `true`. For example, a create-user route can **Set** a key and then respond with `input.id`.
+:::
+
+::: warning Changed behaviour
+Before this option, **Set** and **Delete** sent `true` to the next block. They now send the data they received. If a block after one of them still expects `true`, turn on **Keep KV result with input** and read `input.result`.
+:::
 
 ## Example: cache an expensive lookup
 
@@ -88,14 +97,14 @@ Turn on **Use Param** to store the **previous block's output** instead of typing
 
 ### Delete
 
-Removes the key. Deleting a key that was never there is not an error, and the output is still `true`.
+Removes the key. Deleting a key that was never there is not an error, and the block still passes your data along (or `result: true` when **Keep KV result with input** is on).
 
 ### In general
 
 - Keys and values are text at the storage level. **Parse JSON** on the way out and automatic JSON encoding on the way in are conveniences around that.
 - Both Redis and Memcached support everything on this block, so a workflow built against one still works if you point the connection at the other.
 - A store that can't be reached fails the block, and the [Error Handler](./error-handler.md) runs.
-- **It replaces the flowing data** with the result. Use **Save output to variable** to keep both.
+- **Get replaces the flowing data** with the stored value. **Set** and **Delete** leave it as it was. Turn on **Keep KV result with input** to receive both, or use **Save output to variable** to keep the result in a variable.
 
 ## Related blocks
 

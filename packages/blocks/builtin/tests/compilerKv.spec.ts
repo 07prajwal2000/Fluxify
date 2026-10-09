@@ -155,11 +155,10 @@ describe("compiled kv blocks", () => {
 			value: "v",
 		});
 
-		const { result } = await runAround(target, null, mock);
+		await runAround(target, null, mock);
 
 		expect(mock.calls[0].method).toBe("set");
 		expect(mock.calls[0].args).toEqual(["k", "v"]);
-		expect(result.output.body).toBe(true);
 	});
 
 	it("routes a positive ttl to setex, and stores objects as JSON", async () => {
@@ -212,7 +211,7 @@ describe("compiled kv blocks", () => {
 		}
 	});
 
-	it("deletes a key and reports success", async () => {
+	it("deletes a key", async () => {
 		const mock = createKvAdapter();
 		const target = block("kv", BlockTypes.kv_operations, {
 			connection: "conn-1",
@@ -220,10 +219,58 @@ describe("compiled kv blocks", () => {
 			key: "k",
 		});
 
-		const { result } = await runAround(target, null, mock);
+		await runAround(target, null, mock);
 
 		expect(mock.calls[0].method).toBe("delete");
-		expect(result.output.body).toBe(true);
+	});
+
+	describe("output", () => {
+		const input = { id: 7 };
+		const cases = [
+			{ operation: "get", stored: "ada", passed: "ada", result: "ada" },
+			{ operation: "set", stored: undefined, passed: input, result: true },
+			{ operation: "delete", stored: undefined, passed: input, result: true },
+		];
+
+		for (const { operation, stored, passed, result } of cases) {
+			const data = { connection: "conn-1", operation, key: "k", value: "v" };
+
+			it(`${operation} output with keepResult off`, async () => {
+				const mock = createKvAdapter({ get: stored });
+				const target = block("kv", BlockTypes.kv_operations, data);
+
+				const run = await runAround(target, input, mock);
+
+				expect(run.result.output.body).toEqual(passed);
+			});
+
+			it(`${operation} outputs input and result with keepResult on`, async () => {
+				const mock = createKvAdapter({ get: stored });
+				const target = block("kv", BlockTypes.kv_operations, {
+					...data,
+					keepResult: true,
+				});
+
+				const run = await runAround(target, input, mock);
+
+				expect(run.result.output.body).toEqual({ input, result });
+			});
+		}
+
+		it("saves the same value to the output variable", async () => {
+			const mock = createKvAdapter();
+			const target = block("kv", BlockTypes.kv_operations, {
+				connection: "conn-1",
+				operation: "delete",
+				key: "k",
+				keepResult: true,
+				saveAsVariable: { enabled: true, name: "kvOut" },
+			});
+
+			const { ctx } = await runAround(target, input, mock);
+
+			expect(ctx.vars.outputs.kvOut).toEqual({ input, result: true });
+		});
 	});
 
 	it("wraps an adapter failure in the block's own error", async () => {

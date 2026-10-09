@@ -92,6 +92,17 @@ export function KvOperationsOperationSettings({ block }: { block: BlockNode }) {
 					/>
 				</>
 			)}
+			<BlockCheckboxField
+				blockId={block.id}
+				data={block.data}
+				name="keepResult"
+				label="Keep KV result with input"
+				description={
+					operation === "get"
+						? "Pass on both the data this block received and the stored value?"
+						: "Pass on both the data this block received and true? Off passes the received data on unchanged."
+				}
+			/>
 		</div>
 	);
 }

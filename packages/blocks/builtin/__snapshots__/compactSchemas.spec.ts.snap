@@ -252,6 +252,7 @@ kv_operations {
 	value?: any | null;  // value to store; \`set\` only, and ignored when useParam is set. Non-strings are stored as JSON
 	ttl?: string | number | null;  // \`set\` only: seconds until the key expires. Omit or 0 to store it without expiry
 	parseJson?: boolean | null;  // \`get\` only: parse the stored string as JSON. A missing key stays null; a value that is not valid JSON fails the block
+	keepResult?: boolean | null;  // output \`{ input, result }\` instead of the default. \`result\` is the stored value for \`get\`, true for \`set\` and \`delete\`. Default false
 }
 
 queue_send {
