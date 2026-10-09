@@ -7,6 +7,7 @@ import type { responseSchema as getAllResponseSchema } from "@fluxify/server/src
 import type { responseSchema as getByIdResponseSchema } from "@fluxify/server/src/api/v1/test-suites/get-by-id/dto";
 import type { responseSchema as getRunResponseSchema } from "@fluxify/server/src/api/v1/test-suites/get-run-by-id/dto";
 import type { responseSchema as getRunsResponseSchema } from "@fluxify/server/src/api/v1/test-suites/get-runs/dto";
+import type { responseSchema as listByProjectResponseSchema } from "@fluxify/server/src/api/v1/test-suites/list-by-project/dto";
 import type { responseSchema as startRunResponseSchema } from "@fluxify/server/src/api/v1/test-suites/start-run/dto";
 import type {
 	requestBodySchema as updateRequestBodySchema,
@@ -25,6 +26,7 @@ const targetSuitesUrl = (target: SuiteTarget) => `${suitesUrl}/${target.type}/${
 const runsUrl = (projectId: string, target: SuiteTarget) =>
 	`/v1/${projectId}/test-suites/${target.type}/${target.id}/runs`;
 
+export type ProjectTestSuite = z.infer<typeof listByProjectResponseSchema>[number];
 export type TestSuiteList = z.infer<typeof getAllResponseSchema>;
 export type TestSuiteDetail = z.infer<typeof getByIdResponseSchema>;
 export type CreateTestSuiteBody = z.infer<typeof createRequestBodySchema>;
@@ -40,6 +42,10 @@ export const testSuitesService = {
 	async getAll(target: SuiteTarget): Promise<TestSuiteList> {
 		const result = await httpClient.get(targetSuitesUrl(target));
 		return result.data;
+	},
+	/** Every suite of a project, across its routes and workflows. */
+	async listByProject(projectId: string): Promise<ProjectTestSuite[]> {
+		return (await httpClient.get(`${suitesUrl}/project/${projectId}`)).data;
 	},
 	async getById(id: string): Promise<TestSuiteDetail> {
 		const result = await httpClient.get(`${suitesUrl}/${id}`);

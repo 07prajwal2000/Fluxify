@@ -3,7 +3,13 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { showErrorNotification } from "@/lib/errorNotifier";
 import { agentConversationsKey, agentConversationsQuery } from "@/query/agentConversationsQuery";
-import { agentConversationsService } from "@/services/agentConversations";
+import {
+	type ApprovalAnswer,
+	agentConversationsService,
+	type Effort,
+	type Mode,
+} from "@/services/agentConversations";
+import { type ApprovalRequest, planReply, waitingCall } from "./agentApproval";
 import { applyEvent, chatView, EMPTY_LIVE, type Live } from "./agentMessages";
 
 /** Run statuses a job still holds (or will): the stream is open for these. */
@@ -20,10 +26,16 @@ const EVENTS: AgentEvent["type"][] = [
 ];
 export const RETRY_MS = 1000;
 
-/** A message typed on the new-chat page, sent once its conversation page loads. */
-const queued = new Map<string, string>();
-export const queueMessage = (conversationId: string, text: string) =>
-	queued.set(conversationId, text);
+/** The mode and effort a message goes out with; what the pickers show unless a send overrides them. */
+type Picks = { mode?: Mode; effort?: Effort };
+
+/** A message typed on the new-chat page, sent once its conversation page loads (with the pickers' values). */
+const queued = new Map<string, { text: string } & Picks>();
+export const queueMessage = (conversationId: string, text: string, picks: Picks = {}) =>
+	queued.set(conversationId, { text, ...picks });
+
+/** Sent by Approve in plan mode: the same words as the terminal's Start?. */
+export const START_PLAN = "Go ahead with the plan.";
 
 /**
  * A new-agent conversation, live. Loads the saved rows; while a run is
@@ -45,14 +57,23 @@ export function useAgentConversation(projectId: string, conversationId: string) 
 	/** The run this page started, followed before a reload shows it. */
 	const [started, setStarted] = useState<string | null>(null);
 	const [pending, setPending] = useState<{ text: string; afterSeq: number } | null>(null);
+	/** When this page started the run it follows; after a refresh the run row's createdAt stands in. */
+	const [startedAt, setStartedAt] = useState<number | null>(null);
 	const [attempt, setAttempt] = useState(0);
+	/** The pickers move this; until they do, the conversation's saved settings show. */
+	const [picked, setPicked] = useState<Picks>({});
+	/** The plan the user turned down (by the seq of its message), so its bar stays away. */
+	const [dismissed, setDismissed] = useState(-1);
+	const saved = detail.data?.settings;
+	const mode = picked.mode ?? saved?.mode ?? "manual";
+	const effort = picked.effort ?? saved?.effort ?? "none";
 	const streamId = started ?? (run && ACTIVE.has(run.status) ? run.id : null);
 
 	useEffect(() => {
 		if (!streamId) return;
 		let closed = false;
 		let disposed = false;
-		setLive({ ...EMPTY_LIVE, lastEventAt: Date.now() });
+		setLive((l) => ({ ...EMPTY_LIVE, results: l.results, lastEventAt: Date.now() }));
 		const es = new EventSource(agentConversationsService.streamUrl(streamId, top.current), {
 			withCredentials: true,
 		});
@@ -64,6 +85,7 @@ export function useAgentConversation(projectId: string, conversationId: string) 
 			es.close();
 			void refetch().then(() => {
 				setStarted(null);
+				setStartedAt(null);
 				setPending(null);
 				setLive((l) => ({ ...EMPTY_LIVE, end: l.end }));
 				qc.invalidateQueries({ queryKey: [...agentConversationsKey(projectId), "list"] });
@@ -85,22 +107,44 @@ export function useAgentConversation(projectId: string, conversationId: string) 
 		};
 	}, [streamId, attempt, refetch, qc, projectId]);
 
-	const send = async (text: string) => {
+	const send = async (text: string, over: Picks = {}) => {
+		const go = { mode: over.mode ?? mode, effort: over.effort ?? effort };
+		setStartedAt(Date.now());
 		setPending({ text, afterSeq: top.current });
 		setLive({ ...EMPTY_LIVE, lastEventAt: Date.now() });
 		try {
-			// PR 2 adds the mode picker.
 			const { runId } = await agentConversationsService.send(
 				projectId,
 				conversationId,
 				text,
-				"manual",
+				go.mode,
+				go.effort,
 			);
+			setPicked(go);
 			setStarted(runId);
 		} catch (e) {
 			setPending(null);
 			throw e;
 		}
+	};
+
+	/** Answers the call the run waits on; the run goes on with the mode it picks. */
+	const answer = async (a: ApprovalAnswer) => {
+		const go = { mode: a.mode ?? mode, effort };
+		// A no ends the row now; the run's own tool-end says the same a moment later.
+		const call = !a.approve && approval?.kind === "tool" ? approval.id : undefined;
+		const results: Live["results"] = call
+			? { [call]: { status: "rejected", error: a.reason ?? "Not approved", endedAt: Date.now() } }
+			: {};
+		if (call) setLive((l) => ({ ...l, results }));
+		const { runId } = await agentConversationsService.approve(projectId, conversationId, {
+			...a,
+			...go,
+		});
+		setPicked(go);
+		setLive({ ...EMPTY_LIVE, results, lastEventAt: Date.now() });
+		setStartedAt(Date.now());
+		setStarted(runId);
 	};
 
 	const stop = async () => {
@@ -117,25 +161,60 @@ export function useAgentConversation(projectId: string, conversationId: string) 
 	const loaded = Boolean(detail.data);
 	// biome-ignore lint/correctness/useExhaustiveDependencies: once per conversation, when it has loaded
 	useEffect(() => {
-		const text = queued.get(conversationId);
-		if (!loaded || text === undefined) return;
+		const first = queued.get(conversationId);
+		if (!loaded || first === undefined) return;
 		queued.delete(conversationId);
-		send(text).catch(showErrorNotification);
+		const { text, ...over } = first;
+		send(text, over).catch(showErrorNotification);
 	}, [conversationId, loaded]);
 
 	const running = Boolean(streamId) || Boolean(pending);
 	const waiting = !running && run?.status === "waiting_approval";
 	const end = live.end;
 	const messages = useMemo(() => chatView(rows, live, pending), [rows, live, pending]);
+
+	/** What the bar above the editor asks: the call that waits, or a plan in plan mode that is ready to start. */
+	const lastSeq = messages.at(-1)?.seq ?? -1;
+	const plan = !running && !waiting && saved?.mode === "plan" && run?.status === "completed";
+	const approval: ApprovalRequest | undefined = waiting
+		? (waitingCall(messages) ?? {
+				kind: "tool",
+				name: "the next step",
+				title: "the next step",
+				input: undefined,
+				isDelete: false,
+			})
+		: plan && planReply(messages) && dismissed !== lastSeq
+			? { kind: "plan" }
+			: undefined;
+	/** Typed text while something waits is the reason the user turns it down; otherwise it is a new message. */
+	const submit = (text: string) =>
+		waiting ? answer({ approve: false, reason: text }) : send(text);
+	const approve = (to: Mode) =>
+		plan ? send(START_PLAN, { mode: to }) : answer({ approve: true, mode: to });
+	const reject = () => (plan ? Promise.resolve(setDismissed(lastSeq)) : answer({ approve: false }));
 	return {
 		conversation: detail.data?.conversation ?? null,
 		isLoading: detail.isLoading,
 		messages,
+		rows,
+		run,
 		running,
-		/** Stopped on a call that needs approval (PR 2 answers it). */
+		/** Stopped on a call that needs approval. */
 		waiting,
+		approval,
+		approve,
+		reject,
+		submit,
+		mode,
+		setMode: (m: Mode) => setPicked((p) => ({ ...p, mode: m })),
+		effort,
+		setEffort: (e: Effort) => setPicked((p) => ({ ...p, effort: e })),
+		supportsThinking: saved?.supportsThinking ?? false,
 		/** When the last event came, for the thinking timer. */
 		lastEventAt: live.lastEventAt,
+		/** When the active run began, for the thinking timer: it counts the whole wait, not the gap since the last token. */
+		runStartedAt: startedAt ?? (run?.createdAt ? Date.parse(run.createdAt) : live.lastEventAt),
 		error: end?.type === "error" ? end.message : null,
 		/** The last run stopped at its step or token limit. */
 		stopReason: running

@@ -23,6 +23,7 @@ Then run it with run_test_suite.`;
 export const testSuiteTools: McpTool[] = [
 	{
 		name: "save_test_suite",
+		title: "Save test suite",
 		description: DESCRIPTION,
 		role: "creator",
 		annotations: SAVE,
@@ -55,6 +56,7 @@ export const testSuiteTools: McpTool[] = [
 	},
 	{
 		name: "delete_test_suite",
+		title: "Delete test suite",
 		description: "Delete a test suite and its hooks. Its route or workflow stays.",
 		role: "creator",
 		annotations: DELETE,
@@ -66,6 +68,7 @@ export const testSuiteTools: McpTool[] = [
 	},
 	{
 		name: "clone_test_suite",
+		title: "Clone test suite",
 		description:
 			"Copy a test suite to a route or workflow of the same project (kind and targetId), named '<name> (copy)'. Checks, overrides, setup and teardown are copied; the request or input only when kind is the same. Hooks move to the block with the same type and name on the target; droppedHooks names the blocks that had no match.",
 		role: "creator",

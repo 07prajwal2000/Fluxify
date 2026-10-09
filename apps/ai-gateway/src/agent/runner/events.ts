@@ -1,8 +1,9 @@
+import type { ToolResultPart } from "ai";
 import type { runAgent, StopReason } from "../agent";
 import type { Compaction } from "../compact";
 import type { Part } from "../progress";
 import type { AgentStore, RunStatus } from "../store";
-import { isDelete } from "../tools";
+import { isDelete, titleOf } from "../tools";
 
 /**
  * What a client sees of a run while it streams. `seq` is the agent_messages
@@ -12,12 +13,20 @@ import { isDelete } from "../tools";
  */
 export type AgentEvent =
 	| { type: "text" | "reasoning"; seq: number; text: string }
-	| { type: "tool-start"; seq: number; toolCallId: string; toolName: string; input: unknown }
+	| {
+			type: "tool-start";
+			seq: number;
+			toolCallId: string;
+			toolName: string;
+			toolTitle: string;
+			input: unknown;
+	  }
 	| {
 			type: "tool-end";
 			seq: number;
 			toolCallId: string;
 			toolName: string;
+			status: ToolStatus;
 			output?: unknown;
 			error?: string;
 	  }
@@ -26,12 +35,22 @@ export type AgentEvent =
 			seq: number;
 			toolCallId: string;
 			toolName: string;
+			toolTitle: string;
 			input: unknown;
 			isDelete: boolean;
 	  }
 	| { type: "compaction"; seq: number; compaction: Compaction }
 	| { type: "done"; seq: number; status: RunStatus; reason?: StopReason }
 	| { type: "error"; seq: number; message: string };
+
+/** How a call ended: its result, a failure (a throw, or a result that says it failed), or the user's no. */
+export type ToolStatus = "done" | "error" | "rejected";
+
+/** A result that reports its own failure: an `error`, or an HTTP `status` of 400 and up (call_route). */
+export const outputFailed = (output: unknown) => {
+	const o = output as { status?: unknown; error?: unknown } | null;
+	return typeof o === "object" && o !== null && (Boolean(o.error) || Number(o.status) >= 400);
+};
 
 export const isEnd = (e: AgentEvent) => e.type === "done" || e.type === "error";
 
@@ -121,6 +140,7 @@ export function toEvent(part: Part, t: { next: number; step: number }): AgentEve
 				seq: t.step,
 				toolCallId: part.toolCallId,
 				toolName: part.toolName,
+				toolTitle: titleOf(part.toolName),
 				input: clip(part.input),
 			};
 		case "tool-result":
@@ -131,8 +151,22 @@ export function toEvent(part: Part, t: { next: number; step: number }): AgentEve
 				toolCallId: part.toolCallId,
 				toolName: part.toolName,
 				...(part.type === "tool-error"
-					? { error: String(part.error instanceof Error ? part.error.message : part.error) }
-					: { output: clip(part.output) }),
+					? {
+							status: "error",
+							error: String(part.error instanceof Error ? part.error.message : part.error),
+						}
+					: {
+							status: outputFailed(part.output) ? "error" : "done",
+							output: clip(part.output),
+						}),
+			};
+		case "tool-output-denied":
+			return {
+				type: "tool-end",
+				seq: t.step + 1,
+				toolCallId: part.toolCallId,
+				toolName: part.toolName,
+				status: "rejected",
 			};
 		case "tool-approval-request": {
 			const call = part.toolCall;
@@ -141,11 +175,27 @@ export function toEvent(part: Part, t: { next: number; step: number }): AgentEve
 				seq: t.step,
 				toolCallId: call.toolCallId,
 				toolName: call.toolName,
+				toolTitle: titleOf(call.toolName),
 				input: call.input,
 				isDelete: isDelete(call.toolName),
 			};
 		}
 	}
+}
+
+/** The end of a call that ran outside the stream: an approved call's result, or a rejection, saved before the loop starts. */
+export function decidedEvent(r: ToolResultPart, seq: number): AgentEvent {
+	const base = { type: "tool-end", seq, toolCallId: r.toolCallId, toolName: r.toolName } as const;
+	const o = r.output;
+	if (o.type === "execution-denied") return { ...base, status: "rejected" };
+	if (o.type === "error-text" || o.type === "error-json")
+		return {
+			...base,
+			status: "error",
+			error: typeof o.value === "string" ? o.value : JSON.stringify(o.value),
+		};
+	const output = clip(o.type === "text" || o.type === "json" ? o.value : undefined);
+	return { ...base, status: outputFailed(output) ? "error" : "done", output };
 }
 
 /** A summary is saved as its own row (the last one); a trim saves nothing. */

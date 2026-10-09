@@ -1,6 +1,6 @@
 import { logger } from "@fluxify/common";
 import { consumeQueue, natsConnection } from "@fluxify/common/nats";
-import { aiIntegrationsCache, db, getProjectSetting, ownsIntegration } from "@fluxify/server";
+import { db, getProjectSetting } from "@fluxify/server";
 import { mintAgentToken } from "@fluxify/server/src/lib/agentToken";
 import { HARNESS_CONCURRENT_JOBS } from "../../lib/env";
 import { httpAdminFetch } from "../../mcp/adminApi";
@@ -8,6 +8,7 @@ import { modelFromIntegration } from "../model";
 import { agentStore } from "../store";
 import { limitsFromProject } from "../timeouts";
 import { agentTools } from "../tools";
+import { agentIntegration } from "./integration";
 import { executeRun, type RunDeps } from "./job";
 import {
 	AGENT_CONSUMER,
@@ -17,7 +18,7 @@ import {
 	publishRunEvents,
 	subscribeStops,
 } from "./queue";
-import { claimRun, settleConversation } from "./repository";
+import { addRunUsage, claimRun, settleConversation } from "./repository";
 
 const LIMIT_KEYS = [
 	"settings.ai.maxSteps",
@@ -31,9 +32,8 @@ const LIMIT_KEYS = [
  * the job's project. The session cookie never reaches the worker.
  */
 export const buildAgent: RunDeps["build"] = async (job, loaded) => {
-	const integrationId = await getProjectSetting(job.projectId, "settings.ai.agentConnectionId");
-	const integration = aiIntegrationsCache[integrationId];
-	if (!integration || !ownsIntegration(integration, job.projectId))
+	const integration = await agentIntegration(job.projectId);
+	if (!integration)
 		throw new Error(
 			"This project has no AI integration for the agent. Pick one in the project's AI settings.",
 		);
@@ -54,6 +54,7 @@ export const buildAgent: RunDeps["build"] = async (job, loaded) => {
 		projectId: job.projectId,
 		limits: limitsFromProject(settings, process.env),
 		mode: job.mode,
+		effort: job.effort,
 	};
 };
 
@@ -69,6 +70,7 @@ export const deps: RunDeps = {
 	settle: settleConversation,
 	build: buildAgent,
 	publish: publishRunEvents,
+	addUsage: addRunUsage,
 	onError: (error) => logger.error("[AgentRunner] run side step failed", { error }),
 };
 

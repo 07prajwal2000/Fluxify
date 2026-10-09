@@ -11,7 +11,6 @@ export function EditorEventsPlugin() {
 			const { res, wasAtTyped } = e.detail;
 			editor.focus();
 			requestAnimationFrame(() => {
-				const data = encodeURIComponent(JSON.stringify(res));
 				editor.dispatchCommand(INSERT_RESOURCE_COMMAND, {
 					resourceType: res.type,
 					identifier: res.id,
@@ -19,7 +18,6 @@ export function EditorEventsPlugin() {
 					// (`user_defined.project.notify`) — the label is what the
 					// user called it
 					name: res.label || res.name,
-					data: data,
 					replaceAt: wasAtTyped,
 				});
 			});
@@ -36,7 +34,7 @@ export function EditorEventsPlugin() {
 					text = e.clipboardData?.getData("text/plain") || "";
 				}
 
-				if (text && text.includes(":resource{")) {
+				if (text && text.includes(":ref[")) {
 					e.preventDefault();
 					editor.update(() => {
 						insertMarkdownAtSelection(text);

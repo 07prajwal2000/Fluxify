@@ -79,6 +79,7 @@ const detail = (messages: Row[], status: string, stopReason: string | null = nul
 	conversation: { id: "c1", title: "t", archived: false } as never,
 	messages,
 	run: { id: "r1", status, stopReason } as never,
+	settings: { mode: "manual", effort: "none", supportsThinking: false },
 });
 
 let get: ReturnType<typeof spyOn>;
@@ -120,15 +121,63 @@ test("an active run streams from the highest saved seq into an in-progress messa
 			seq: 1,
 			toolCallId: "t1",
 			toolName: "get_route",
+			toolTitle: "Get route",
 			input: { id: 1 },
 		});
-		es.emit({ type: "tool-end", seq: 2, toolCallId: "t1", toolName: "get_route", output: "ok" });
+		es.emit({
+			type: "tool-end",
+			seq: 2,
+			toolCallId: "t1",
+			toolName: "get_route",
+			status: "done",
+			output: "ok",
+		});
 	});
 	expect(result.current.running).toBe(true);
 	const live = result.current.messages[1];
 	expect(live.parts.map((p) => p.type)).toEqual(["reasoning", "text", "tool"]);
 	expect(live.parts[1]).toEqual({ type: "text", text: "Hello" });
-	expect(live.parts[2]).toMatchObject({ name: "get_route", output: "ok" });
+	expect(live.parts[2]).toMatchObject({
+		name: "get_route",
+		title: "Get route",
+		status: "done",
+		output: "ok",
+	});
+});
+
+test("a tool-end for a call saved before the run (approved or rejected) lands on its saved row", async () => {
+	get.mockResolvedValue(
+		detail(
+			[
+				user(0, "build it"),
+				{
+					seq: 1,
+					role: "assistant",
+					runId: "r1",
+					content: {
+						role: "assistant",
+						content: [{ type: "tool-call", toolCallId: "t1", toolName: "save_route", input: {} }],
+					},
+				},
+			],
+			"executing",
+		),
+	);
+	const { result } = setup();
+	const es = await stream();
+	const call = () => result.current.messages[1].parts[0];
+	expect(call()).toMatchObject({ name: "save_route" });
+	expect(call()).not.toHaveProperty("status");
+	act(() =>
+		es.emit({
+			type: "tool-end",
+			seq: 2,
+			toolCallId: "t1",
+			toolName: "save_route",
+			status: "rejected",
+		}),
+	);
+	expect(call()).toMatchObject({ status: "rejected" });
 });
 
 test("done reloads the saved rows and drops the live copy by seq", async () => {
@@ -193,9 +242,20 @@ test("send shows the message at once and follows the new run", async () => {
 	const { result } = setup();
 	await waitFor(() => expect(result.current.messages.length).toBe(2));
 	await act(() => result.current.send("next"));
-	expect(send).toHaveBeenCalledWith("p1", "c1", "next", "manual");
+	expect(send).toHaveBeenCalledWith("p1", "c1", "next", "manual", "none");
 	expect(texts(result.current.messages)).toEqual(["hi", "hello", "next"]);
 	expect(result.current.running).toBe(true);
 	expect((await stream()).url).toEndWith("/runs/r2/stream?afterSeq=1");
 	send.mockRestore();
+});
+
+test("the thinking timer counts from the run's start, so a refresh and new tokens do not reset it", async () => {
+	const d = detail([user(0, "build it")], "executing");
+	(d.run as { createdAt?: string }).createdAt = "2026-10-09T10:00:00.000Z";
+	get.mockResolvedValue(d);
+	const { result } = setup();
+	const es = await stream();
+	expect(result.current.runStartedAt).toBe(Date.parse("2026-10-09T10:00:00.000Z"));
+	act(() => es.emit({ type: "reasoning", seq: 1, text: "hmm" }));
+	expect(result.current.runStartedAt).toBe(Date.parse("2026-10-09T10:00:00.000Z"));
 });

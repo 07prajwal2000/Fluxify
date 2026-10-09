@@ -1,8 +1,8 @@
 import type { StopReason } from "@fluxify/ai-gateway/src/agent/agent";
 import { Spinner } from "@fluxify/components";
 import { useEffect, useState } from "react";
-import { TbAlertTriangle, TbCheck, TbClock, TbX } from "react-icons/tb";
-import type { ChatMessage, Part, ToolPart } from "./agentMessages";
+import { TbAlertTriangle, TbBan, TbCheck, TbClock, TbX } from "react-icons/tb";
+import { type ChatMessage, type Part, type ToolPart, toolTitle } from "./agentMessages";
 import { MarkdownViewer } from "./MarkdownViewer";
 import { UserMessage } from "./UserMessage";
 
@@ -11,7 +11,8 @@ const short = (v: unknown) => {
 	const s = typeof v === "string" ? v : (JSON.stringify(v) ?? "");
 	return s.length > 80 ? `${s.slice(0, 80)}…` : s;
 };
-const done = (t: ToolPart) => t.output !== undefined || t.error !== undefined;
+const done = (t: ToolPart) =>
+	t.status !== undefined || t.output !== undefined || t.error !== undefined;
 
 /** One tool call, folded: name, short input, duration; open for the input and result. */
 function ToolRow({
@@ -28,10 +29,12 @@ function ToolRow({
 	return (
 		<details className="group rounded-lg border border-border bg-surface text-xs">
 			<summary className="flex cursor-pointer list-none items-center gap-2 px-3 py-1.5">
-				{tool.error !== undefined ? (
-					<TbX size={14} className="shrink-0 text-danger" />
-				) : tool.output !== undefined ? (
-					<TbCheck size={14} className="shrink-0 text-success" />
+				{tool.status === "rejected" ? (
+					<TbBan size={14} aria-label="Rejected" className="shrink-0 text-muted" />
+				) : tool.status === "error" || tool.error !== undefined ? (
+					<TbX size={14} aria-label="Failed" className="shrink-0 text-danger" />
+				) : done(tool) ? (
+					<TbCheck size={14} aria-label="Done" className="shrink-0 text-success" />
 				) : asking ? (
 					<TbClock size={14} className="shrink-0 text-warning" />
 				) : running ? (
@@ -39,11 +42,10 @@ function ToolRow({
 				) : (
 					<TbX size={14} className="shrink-0 text-muted" />
 				)}
-				<span className="font-mono text-foreground">{tool.name}</span>
+				<span className="font-medium text-foreground">{toolTitle(tool)}</span>
 				<span className="min-w-0 flex-1 truncate font-mono text-muted">{short(tool.input)}</span>
 				{ms !== undefined && <span className="shrink-0 text-muted">{(ms / 1000).toFixed(1)}s</span>}
 			</summary>
-			{asking && <p className="px-3 pb-1.5 text-warning">Waiting for approval</p>}
 			<div className="flex flex-col gap-2 border-t border-border px-3 py-2">
 				<pre className="max-h-64 overflow-auto whitespace-pre-wrap text-muted">
 					{json(tool.input)}
@@ -63,12 +65,29 @@ function ToolRow({
 
 /** Reasoning, dimmed and folded. Hidden (encrypted) reasoning has no text. */
 function Reasoning({ text }: { text: string }) {
+	const [open, setOpen] = useState(false);
 	return (
-		<details className="text-xs text-muted">
+		<details
+			className="text-xs text-muted"
+			open={open}
+			onToggle={(e) => setOpen(e.currentTarget.open)}
+		>
 			<summary className="cursor-pointer list-none">
 				{text ? "Thought" : "Thought (hidden)"}
 			</summary>
-			{text && <p className="mt-1 whitespace-pre-wrap border-l-2 border-border pl-3">{text}</p>}
+			{text && (
+				<>
+					<p className="mt-1 whitespace-pre-wrap border-l-2 border-border pl-3">{text}</p>
+					{/* long thinking puts the top toggle far away */}
+					<button
+						type="button"
+						className="mt-1 cursor-pointer text-muted underline-offset-2 hover:underline"
+						onClick={() => setOpen(false)}
+					>
+						Collapse
+					</button>
+				</>
+			)}
 		</details>
 	);
 }
@@ -103,7 +122,7 @@ export function AgentMessage({
 	);
 }
 
-/** `Thinking… 3s` since the last event, while the model works without showing text. */
+/** `Thinking… 3s` since the run began, while the model works without showing text. */
 export function Thinking({ since }: { since: number }) {
 	const [now, setNow] = useState(Date.now());
 	useEffect(() => {

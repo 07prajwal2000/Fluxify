@@ -59,6 +59,7 @@ const defined = (o: Record<string, unknown>) =>
 export const writeTools: McpTool[] = [
 	{
 		name: "save_trigger",
+		title: "Save trigger",
 		description:
 			"Create or update a trigger. To create pass projectId, name and type ('internal' is started by workflows, 'schedule' needs schedule: '@every 5m', '@daily' or six-field cron with seconds first; queue types need integrationId and source). On update pass triggerId and only what changes; type and project cannot change. workflowId null detaches the workflow.",
 		role: "creator",
@@ -77,6 +78,7 @@ export const writeTools: McpTool[] = [
 	},
 	{
 		name: "delete_trigger",
+		title: "Delete trigger",
 		description: "Delete a trigger. Its workflow stays; nothing starts it from this trigger again.",
 		role: "creator",
 		annotations: DELETE,
@@ -88,6 +90,7 @@ export const writeTools: McpTool[] = [
 	},
 	{
 		name: "save_middleware",
+		title: "Save middleware",
 		description:
 			"Create or update a middleware: a named chain of custom blocks (usage 'middleware') run before or after routes. To create pass projectId and name. blocks is custom block ids in run order and replaces the whole chain. Attaching it to routes is not done here.",
 		role: "creator",
@@ -100,6 +103,7 @@ export const writeTools: McpTool[] = [
 	},
 	{
 		name: "delete_middleware",
+		title: "Delete middleware",
 		description: "Delete a middleware. It is also removed from every route that uses it.",
 		role: "creator",
 		annotations: DELETE,
@@ -111,6 +115,7 @@ export const writeTools: McpTool[] = [
 	},
 	{
 		name: "save_custom_block",
+		title: "Save custom block",
 		description:
 			"Create or update a custom block's details: label, description, inputs (inputParams) and docs. Its code is not set here. To create pass projectId, name (lowercase letters, digits, _) and label. name and usage (where it may run, 'flow' by default) cannot change after create.",
 		role: "creator",
@@ -125,6 +130,7 @@ export const writeTools: McpTool[] = [
 	},
 	{
 		name: "delete_custom_block",
+		title: "Delete custom block",
 		description: "Delete a custom block and its code.",
 		role: "creator",
 		annotations: DELETE,
@@ -136,6 +142,7 @@ export const writeTools: McpTool[] = [
 	},
 	{
 		name: "save_app_config",
+		title: "Save app config",
 		description:
 			"Create or update an app config entry (a setting or secret blocks read). To create pass keyName, value, description, isEncrypted and encodingType ('plaintext' unless the value is already base64 or hex). Encrypt secrets: an encrypted value is never shown again and cannot be decrypted back. On update, fields left out keep their value; keyName and dataType cannot change.",
 		role: "creator",
@@ -162,6 +169,7 @@ export const writeTools: McpTool[] = [
 	},
 	{
 		name: "delete_app_config",
+		title: "Delete app config",
 		description: "Delete an app config entry. Blocks and integrations that read it will fail.",
 		role: "creator",
 		annotations: DELETE,
@@ -176,6 +184,7 @@ export const writeTools: McpTool[] = [
 	},
 	{
 		name: "save_integration",
+		title: "Save integration",
 		description: `Create or update an integration (a database, KV store, AI provider, queue, …). To create pass name, group, variant and config. Variants by group: ${VARIANTS}. config fields depend on the variant: call get_integration_schema first for the exact fields, and a wrong config returns the fields to fix. Put secrets in app config and reference them as "cfg:KEY_NAME". On update, group and variant cannot change and config replaces the whole config.`,
 		role: "creator",
 		annotations: SAVE,
@@ -198,6 +207,7 @@ export const writeTools: McpTool[] = [
 	},
 	{
 		name: "delete_integration",
+		title: "Delete integration",
 		description: "Delete an integration. Blocks and triggers that use it will fail.",
 		role: "creator",
 		annotations: DELETE,
@@ -212,6 +222,7 @@ export const writeTools: McpTool[] = [
 	},
 	{
 		name: "test_integration_connection",
+		title: "Test integration connection",
 		description:
 			"Check that Fluxify can connect to an integration. Pass integrationId for a saved one, or group, variant and config to test before saving. Makes a real network call; changes nothing.",
 		role: "creator",
@@ -240,6 +251,7 @@ export const writeTools: McpTool[] = [
 	},
 	{
 		name: "get_integration_schema_details",
+		title: "Get integration schema details",
 		description:
 			"What is inside a saved database integration (PostgreSQL, MySQL, MongoDB). Without tables: the table or collection names. With tables: columns (type, nullable, default), primary key, foreign keys and indexes; for MongoDB, indexes and field types inferred from ~20 sampled documents. Never returns row data. For config fields use get_integration_schema instead.",
 		role: "creator",
@@ -259,6 +271,7 @@ export const writeTools: McpTool[] = [
 	},
 	{
 		name: "kv_get",
+		title: "Read KV key",
 		description:
 			"Read one key from a saved KV integration (Redis, Memcached): its value (first 10,000 characters, truncated says if cut) and seconds until it expires (Redis only; Memcached cannot tell). Read only: to change or clear a key, do it from a route.",
 		role: "creator",

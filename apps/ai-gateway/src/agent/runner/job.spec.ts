@@ -89,6 +89,11 @@ describe("executeRun", () => {
 			"completed",
 		);
 		expect(w.m.ran).toEqual(["save_route"]);
+		// the approved call's result goes out as its own tool-end, ahead of the model's next tokens
+		const evs = w.events();
+		const end = evs.findIndex((e) => e.type === "tool-end");
+		expect(evs[end]).toMatchObject({ toolName: "save_route", status: "done", seq: 2 });
+		expect(end).toBeLessThan(evs.findIndex((e) => e.type === "text"));
 		// rows: user 0, assistant 1, tool 2, final assistant 3
 		const text = w.events().filter((e) => e.type === "text");
 		expect(text).toEqual([{ type: "text", seq: 3, text: "done" }]);
@@ -106,6 +111,11 @@ describe("executeRun", () => {
 		expect(status).toBe("completed");
 		expect(w.m.ran).toEqual([]);
 		expect(JSON.stringify(w.rows[2].content)).toContain("not now");
+		expect(w.events().find((e) => e.type === "tool-end")).toMatchObject({
+			toolName: "save_route",
+			status: "rejected",
+			seq: 2,
+		});
 	});
 
 	it("stop: an aborted run is interrupted and leaves no call waiting", async () => {
@@ -130,6 +140,20 @@ describe("executeRun", () => {
 		expect(await go(w, job({ mode: "auto" }))).toBe("completed");
 		expect(reasons).toEqual(["step_limit"]);
 		expect(w.events().at(-1)).toMatchObject({ type: "done", status: "completed", reason: "step_limit" });
+	});
+
+	it("adds what the job cost to the run before it settles", async () => {
+		const w = world([["get_route"]]);
+		const order: string[] = [];
+		const added: unknown[] = [];
+		w.deps.addUsage = async (_r, u) => void (order.push("usage"), added.push(u));
+		w.deps.settle = async () => void order.push("settle");
+		await go(w, job({ mode: "auto" }));
+		expect(order).toEqual(["usage", "settle"]);
+		// two model calls of 1 input and 1 output token each
+		expect(added).toEqual([
+			{ steps: 2, inputTokens: 2, outputTokens: 2, cacheReadTokens: 0, durationMs: expect.any(Number) },
+		]);
 	});
 
 	it("a run that cannot start fails with an error event", async () => {

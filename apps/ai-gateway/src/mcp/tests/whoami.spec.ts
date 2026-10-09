@@ -66,6 +66,13 @@ describe("MCP whoami", () => {
 		for (const tool of writeTools) expect(listed[tool.name]).toEqual(tool.annotations!);
 	});
 
+	it("gives every tool a title", async () => {
+		const res = await rpc("alice", "tools/list");
+		const body = (await res.json()) as { result: { tools: { name: string; title?: string }[] } };
+		for (const t of body.result.tools) expect(t.title, t.name).toBeTruthy();
+		expect(body.result.tools.find((t) => t.name === "save_route")?.title).toBe("Save route");
+	});
+
 	it("401s without a user", async () => {
 		expect((await rpc(undefined, "tools/list")).status).toBe(401);
 	});

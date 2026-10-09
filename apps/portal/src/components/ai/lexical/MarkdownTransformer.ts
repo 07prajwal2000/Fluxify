@@ -6,11 +6,26 @@ import {
 	$getSelection,
 	$isRangeSelection,
 	type LexicalEditor,
+	type LexicalNode,
 } from "lexical";
+import { isRefType, REF_PATTERN, type RefType, refText } from "../agentRefs";
 import { $createResourceNode, $isResourceNode } from "./ResourceNode";
 
-const RESOURCE_REGEX =
-	/:resource\{type="([^"]+)" identifier="([^"]+)"(?: name="([^"]*)")?(?: data="([^"]*)")?\}/g;
+const unquote = (v: string) => (v.startsWith('"') ? (JSON.parse(v) as string) : v);
+
+/** One line as text and resource nodes: every `:ref[…]{…}` of a known type becomes a chip. */
+function lineNodes(line: string): LexicalNode[] {
+	const nodes: LexicalNode[] = [];
+	let last = 0;
+	for (const m of line.matchAll(REF_PATTERN)) {
+		if (!isRefType(m[2])) continue;
+		if (m.index > last) nodes.push($createTextNode(line.slice(last, m.index)));
+		nodes.push($createResourceNode(m[2], unquote(m[3]), m[1]));
+		last = m.index + m[0].length;
+	}
+	if (last < line.length) nodes.push($createTextNode(line.slice(last)));
+	return nodes;
+}
 
 export function markdownToLexical(text: string, editor: LexicalEditor) {
 	editor.update(() => {
@@ -25,42 +40,11 @@ export function markdownToLexical(text: string, editor: LexicalEditor) {
 			return;
 		}
 
-		// Split text by newlines and create a paragraph for each line
-		const lines = text.split("\n");
-
-		lines.forEach((line, index) => {
+		// one paragraph per line
+		text.split("\n").forEach((line, index) => {
 			const p = index === 0 ? paragraph : $createParagraphNode();
 			if (index > 0) root.append(p);
-
-			let lastIndex = 0;
-
-			RESOURCE_REGEX.lastIndex = 0;
-
-			for (
-				let match = RESOURCE_REGEX.exec(line);
-				match !== null;
-				match = RESOURCE_REGEX.exec(line)
-			) {
-				const matchIndex = match.index;
-				const fullMatch = match[0];
-				const type = match[1];
-				const identifier = match[2];
-				const name = match[3] || type;
-				const data = match[4] || "";
-
-				if (matchIndex > lastIndex) {
-					const textBefore = line.slice(lastIndex, matchIndex);
-					p.append($createTextNode(textBefore));
-				}
-
-				p.append($createResourceNode(type, identifier, name, data));
-				lastIndex = matchIndex + fullMatch.length;
-			}
-
-			if (lastIndex < line.length) {
-				const textAfter = line.slice(lastIndex);
-				p.append($createTextNode(textAfter));
-			}
+			p.append(...lineNodes(line));
 		});
 	});
 }
@@ -69,38 +53,11 @@ export function insertMarkdownAtSelection(text: string) {
 	const sel = $getSelection();
 	if (!$isRangeSelection(sel)) return;
 
-	const nodesToInsert: any[] = [];
+	const nodesToInsert: LexicalNode[] = [];
 	const lines = text.split("\n");
-
 	lines.forEach((line, index) => {
-		let lastIndex = 0;
-
-		RESOURCE_REGEX.lastIndex = 0;
-
-		for (let match = RESOURCE_REGEX.exec(line); match !== null; match = RESOURCE_REGEX.exec(line)) {
-			const matchIndex = match.index;
-			const fullMatch = match[0];
-			const type = match[1];
-			const identifier = match[2];
-			const name = match[3] || type;
-			const data = match[4] || "";
-
-			if (matchIndex > lastIndex) {
-				nodesToInsert.push($createTextNode(line.slice(lastIndex, matchIndex)));
-			}
-
-			nodesToInsert.push($createResourceNode(type, identifier, name, data));
-			lastIndex = matchIndex + fullMatch.length;
-		}
-
-		if (lastIndex < line.length) {
-			const textAfter = line.slice(lastIndex);
-			nodesToInsert.push($createTextNode(textAfter));
-		}
-
-		if (index < lines.length - 1) {
-			nodesToInsert.push($createLineBreakNode());
-		}
+		nodesToInsert.push(...lineNodes(line));
+		if (index < lines.length - 1) nodesToInsert.push($createLineBreakNode());
 	});
 
 	if (nodesToInsert.length > 0) {
@@ -111,24 +68,15 @@ export function insertMarkdownAtSelection(text: string) {
 export function lexicalToMarkdown(editor: LexicalEditor): string {
 	let markdown = "";
 	editor.getEditorState().read(() => {
-		const root = $getRoot();
-		const paragraphs = root.getChildren() as any[];
+		const paragraphs = $getRoot().getChildren() as any[];
 
 		paragraphs.forEach((paragraph, index) => {
-			const pChildren = paragraph.getChildren();
 			let pText = "";
-			pChildren.forEach((node: any) => {
-				if ($isResourceNode(node)) {
-					let text = `:resource{type="${node.__resourceType}" identifier="${node.__identifier}" name="${node.__name}"`;
-					if (node.__data) {
-						text += ` data="${node.__data}"`;
-					}
-					text += `}`;
-					pText += text;
-				} else {
-					pText += node.getTextContent();
-				}
-			});
+			for (const node of paragraph.getChildren()) {
+				pText += $isResourceNode(node)
+					? refText(node.__resourceType as RefType, node.__identifier, node.__name)
+					: node.getTextContent();
+			}
 			markdown += pText;
 			if (index < paragraphs.length - 1) {
 				markdown += "\n";

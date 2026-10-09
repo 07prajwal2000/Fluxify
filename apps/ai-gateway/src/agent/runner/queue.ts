@@ -10,6 +10,7 @@ import {
 } from "@fluxify/common/nats";
 import { generateID } from "@fluxify/lib";
 import { publishMessage, subscribeToChannel } from "@fluxify/server";
+import type { Effort } from "../model";
 import type { Mode } from "../tools";
 import type { AgentEvent } from "./events";
 
@@ -51,6 +52,7 @@ export type AgentJob = {
 	userId: string;
 	projectId: string;
 	mode: Mode;
+	effort?: Effort;
 	/** start: the user's message. */
 	message?: string;
 	/** continue: the answer to the first waiting call. */

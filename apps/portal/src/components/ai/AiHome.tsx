@@ -4,7 +4,9 @@ import { useState } from "react";
 import { TbAlertTriangle, TbPlugConnected } from "react-icons/tb";
 import { showErrorNotification } from "@/lib/errorNotifier";
 import { agentConversationsQuery } from "@/query/agentConversationsQuery";
+import type { Effort, Mode } from "@/services/agentConversations";
 import { useAgentModel } from "./AgentModel";
+import { AgentPickers } from "./AgentPickers";
 import { PromptEditor } from "./PromptEditor";
 import { STARTERS } from "./starters";
 import { queueMessage } from "./useAgentConversation";
@@ -15,6 +17,9 @@ export function AiHome() {
 	const { projectId } = useParams({ from: "/_authed/$projectId/ai/" });
 	const navigate = useNavigate();
 	const [query, setQuery] = useState("");
+	const [mode, setMode] = useState<Mode>("manual");
+	const [effort, setEffort] = useState<Effort>("none");
+	const model = agentConversationsQuery.model.useQuery(projectId);
 
 	const { isLoading, missing } = useAgentModel(projectId);
 	const create = agentConversationsQuery.create.mutation(projectId);
@@ -24,7 +29,7 @@ export function AiHome() {
 		create.mutate(q.split("\n")[0].slice(0, 80), {
 			onSuccess: (conversation) => {
 				setQuery("");
-				queueMessage(conversation.id, q);
+				queueMessage(conversation.id, q, { mode, effort });
 				navigate({
 					to: "/$projectId/ai/$conversationId",
 					params: { projectId, conversationId: conversation.id },
@@ -91,6 +96,15 @@ export function AiHome() {
 					isPending={create.isPending}
 					minRows={2}
 					maxRows={3}
+					controls={
+						<AgentPickers
+							mode={mode}
+							onModeChange={setMode}
+							effort={effort}
+							onEffortChange={setEffort}
+							supportsThinking={model.data?.supportsThinking ?? false}
+						/>
+					}
 				/>
 
 				<div className="flex flex-wrap justify-center gap-2">

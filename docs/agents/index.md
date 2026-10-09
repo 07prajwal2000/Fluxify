@@ -46,6 +46,10 @@ Each recipe is a list of steps. Every step is a tool call with its arguments.
 - [Write and run a test suite](/agents/recipes/write-and-run-test-suite): save a suite, run it, read the result, trace a failure.
 - [Use an integration in a canvas](/agents/recipes/use-integration-in-canvas): a database integration with its secret, read from a route.
 
+## Replying
+
+- [Referring to resources in chat](/agents/references): link an existing route, workflow or other resource in your reply with `:ref[Label]{type=route id=...}`.
+
 ## Rules that apply to every tool
 
 - Tools act as the signed-in user. A `You need the ... role` error means ask a project admin. Do not retry.

@@ -22,6 +22,7 @@ const STALE = "Canvas changed since you read it. Read it again with get_canvas a
 export const canvasTools: McpTool[] = [
 	{
 		name: "get_canvas",
+		title: "Get canvas",
 		description:
 			"The blocks and edges of a route, workflow or custom block canvas, and its version. Pass the version to edit_canvas. Block data contracts: get_block_schemas.",
 		role: "viewer",
@@ -30,6 +31,7 @@ export const canvasTools: McpTool[] = [
 	},
 	{
 		name: "edit_canvas",
+		title: "Edit canvas",
 		description: [
 			"Change a canvas in small steps, applied in order and saved together. It never runs anything.",
 			"Ops: add_block {ref, type, data, position?, connect_from?}; update_block {id, data} (only changed fields, merged);",

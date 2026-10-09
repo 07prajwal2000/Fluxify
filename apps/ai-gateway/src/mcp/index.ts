@@ -51,6 +51,7 @@ export function createMcpServer(
 	server.registerTool(
 		"whoami",
 		{
+			title: "Who am I",
 			description:
 				"The Fluxify user this connection acts as, and their project roles. Use it to check sign-in.",
 			annotations: { readOnlyHint: true },
@@ -70,6 +71,7 @@ export function createMcpServer(
 		server.registerTool(
 			tool.name,
 			{
+				title: tool.title,
 				description: tool.description,
 				inputSchema: lenient(tool.input),
 				annotations: tool.annotations ?? { readOnlyHint: true },

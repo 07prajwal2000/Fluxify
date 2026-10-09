@@ -135,8 +135,8 @@ describe("live events on JetStream", () => {
 		const runId = crypto.randomUUID();
 		const b = events.batcher((e) => queue.publishRunEvents(runId, e), () => {}, 10);
 		b.push({ type: "text", seq: 1, text: "saved already" });
-		b.push({ type: "tool-start", seq: 1, toolCallId: "a", toolName: "get_route", input: {} });
-		b.push({ type: "tool-end", seq: 2, toolCallId: "a", toolName: "get_route", output: "ok" });
+		b.push({ type: "tool-start", seq: 1, toolCallId: "a", toolName: "get_route", toolTitle: "Get route", input: {} });
+		b.push({ type: "tool-end", seq: 2, toolCallId: "a", toolName: "get_route", status: "done", output: "ok" });
 		b.push({ type: "text", seq: 3, text: "partial " });
 		await b.flush();
 		// The page reloaded: rows 0..2 come from Postgres, row 3 is still streaming.

@@ -1,4 +1,4 @@
-import type { AgentEvent } from "@fluxify/ai-gateway/src/agent/runner/events";
+import type { AgentEvent, ToolStatus } from "@fluxify/ai-gateway/src/agent/runner/events";
 import { produce } from "immer";
 import type { AgentRow } from "@/services/agentConversations";
 
@@ -6,22 +6,38 @@ export type ToolPart = {
 	type: "tool";
 	id: string;
 	name: string;
+	/** Human name from the server; use `toolTitle`, which falls back to the prettified name. */
+	title?: string;
 	input: unknown;
 	output?: unknown;
 	error?: string;
+	/** How it ended; none while it runs or waits. */
+	status?: ToolStatus;
 	/** An approval event came for it. */
 	approval?: boolean;
 	startedAt?: number;
 	endedAt?: number;
 };
+/** "save_route" → "Save route" when the server sent no title. */
+export const toolTitle = (t: { name: string; title?: string }) =>
+	t.title || t.name.replace(/_/g, " ").replace(/^./, (c) => c.toUpperCase());
+
+type Result = Pick<ToolPart, "output" | "error" | "status" | "endedAt">;
+
 export type Part = { type: "text"; text: string } | { type: "reasoning"; text: string } | ToolPart;
 /** What the chat renders: a user message or one assistant step, keyed by its agent_messages seq. */
 export type ChatMessage = { seq: number; role: "user" | "assistant"; parts: Part[] };
 export type EndEvent = Extract<AgentEvent, { type: "done" | "error" }>;
 /** A run as the stream shows it before its messages are reloaded. */
-export type Live = { messages: ChatMessage[]; lastEventAt: number; end?: EndEvent };
+export type Live = {
+	messages: ChatMessage[];
+	lastEventAt: number;
+	end?: EndEvent;
+	/** Results of calls saved before this run began (an approved or rejected one); they ride on the saved row. */
+	results: Record<string, Result>;
+};
 
-export const EMPTY_LIVE: Live = { messages: [], lastEventAt: 0 };
+export const EMPTY_LIVE: Live = { messages: [], lastEventAt: 0, results: {} };
 
 type SavedPart = {
 	type: string;
@@ -37,12 +53,22 @@ const partsOf = (content: unknown): SavedPart[] => {
 	return typeof c === "string" ? [{ type: "text", text: c }] : Array.isArray(c) ? c : [];
 };
 
-const resultOf = (o: SavedPart["output"]): Pick<ToolPart, "output" | "error"> => {
+/** A result that says it failed: an `error`, or an HTTP status of 400 and up (call_route). */
+const failed = (v: unknown) => {
+	const o = v as { status?: unknown; error?: unknown } | null;
+	return typeof o === "object" && o !== null && (Boolean(o.error) || Number(o.status) >= 400);
+};
+
+const resultOf = (o: SavedPart["output"]): Result => {
 	if (!o) return {};
-	if (o.type === "execution-denied") return { error: o.reason ?? "Not approved" };
+	if (o.type === "execution-denied")
+		return { error: o.reason ?? "Not approved", status: "rejected" };
 	if (o.type.startsWith("error"))
-		return { error: typeof o.value === "string" ? o.value : JSON.stringify(o.value) };
-	return { output: o.value };
+		return {
+			error: typeof o.value === "string" ? o.value : JSON.stringify(o.value),
+			status: "error",
+		};
+	return { output: o.value, status: failed(o.value) ? "error" : "done" };
 };
 
 /** Saved rows as chat messages: a tool result joins its call; summaries and tool rows render nothing. */
@@ -94,14 +120,23 @@ export const applyEvent = (live: Live, e: AgentEvent, now = Date.now()): Live =>
 		if (e.type === "compaction") return;
 		const known = "toolCallId" in e ? findTool(d.messages, e.toolCallId) : undefined;
 		if (e.type === "tool-end") {
-			if (!known) return;
+			if (!known) {
+				d.results[e.toolCallId] = {
+					status: e.status,
+					endedAt: now,
+					...(e.error !== undefined ? { error: e.error } : { output: e.output }),
+				};
+				return;
+			}
 			known.endedAt = now;
+			known.status = e.status;
 			if (e.error !== undefined) known.error = e.error;
 			else known.output = e.output;
 			return;
 		}
 		if (e.type === "approval" && known) {
 			known.approval = true;
+			known.title ??= e.toolTitle;
 			return;
 		}
 		if (!d.messages.some((m) => m.seq === e.seq))
@@ -118,6 +153,7 @@ export const applyEvent = (live: Live, e: AgentEvent, now = Date.now()): Live =>
 			type: "tool",
 			id: e.toolCallId,
 			name: e.toolName,
+			title: e.toolTitle,
 			input: e.input,
 			...(e.type === "approval" ? { approval: true } : { startedAt: now }),
 		});
@@ -141,6 +177,10 @@ export function chatView(
 			role: "user",
 			parts: [{ type: "text", text: pending.text }],
 		});
+	for (const m of out)
+		for (const p of m.parts)
+			if (p.type === "tool" && p.status === undefined && live.results[p.id])
+				Object.assign(p, live.results[p.id]);
 	out.push(...live.messages.filter((m) => m.seq > top));
 	return out;
 }
