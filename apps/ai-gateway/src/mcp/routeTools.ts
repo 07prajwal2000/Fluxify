@@ -85,7 +85,8 @@ function withBlockKey(
 	if (!error.block) return error;
 	const { id, ...rest } = error.block;
 	const key = keys.get(id);
-	return { ...error, block: { ...(key ? { key } : {}), ...rest } };
+	// the uuid only for a block deleted since
+	return { ...error, block: key ? { key, ...rest } : { id, ...rest } };
 }
 
 type DebugTrace = {

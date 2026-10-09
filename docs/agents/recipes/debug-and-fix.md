@@ -94,7 +94,7 @@ Take the newest `id` and call `get_recording`:
 { "projectId": "<project id>", "kind": "route", "targetId": "<route id>", "runId": "<run id>" }
 ```
 
-Find the first span with `outcome: "failure"`. Its `error` is the cause and its `blockKey` (the key `get_canvas` shows, like `jsrunner_1`) names the block to fix. `blockId` is the same block as an id. A span with `parentSeq` ran inside another block, such as a loop or a custom block. Pass `spanSeq` to see one span's `input` and `output`; `full: true` returns all of them (a run can be 256 KB).
+Find the first span with `outcome: "failure"`. Its `error` is the cause and its `blockKey` (the key `get_canvas` shows, like `jsrunner_1`) names the block to fix. A block deleted since has a `blockId` (its id) instead of a key. A span with `parentSeq` ran inside another block, such as a loop or a custom block. Pass `spanSeq` to see one span's `input` and `output`; `full: true` returns all of them (a run can be 256 KB).
 
 Recordings keep headers, bodies and secrets as they were. Turn recording off when you are done (step 5).
 

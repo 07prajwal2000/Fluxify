@@ -182,7 +182,7 @@ export const projectTools: McpTool[] = [
 	{
 		name: "get_recording",
 		title: "Get recording",
-		description: `One recorded run: its fields, test info (metadata), the async runs it forked (childRuns) and its spans in order, one per block that ran, with blockKey (the key get_canvas shows, e.g. response_1; missing for a block deleted since), outcome, branch, error and truncated / mocked flags. Spans leave out input and output: pass spanSeq for one span in full, or full: true for everything (a run can be 256 KB). ${RECORDING_NOTE}`,
+		description: `One recorded run: its fields, test info (metadata), the async runs it forked (childRuns) and its spans in order, one per block that ran, with blockKey (the key get_canvas shows, e.g. response_1; a block deleted since has its blockId uuid instead), outcome, branch, error and truncated / mocked flags. Spans leave out input and output: pass spanSeq for one span in full, or full: true for everything (a run can be 256 KB). ${RECORDING_NOTE}`,
 		role: "creator",
 		input: {
 			projectId,
@@ -198,12 +198,11 @@ export const projectTools: McpTool[] = [
 		},
 		call: async ({ get }, a) => {
 			const run = await get(`${recordings(a)}/${a.runId}`);
-			// spans only carry the block's uuid: the canvas knows its key
+			// spans only carry the block's uuid: the canvas knows its key. The agent works by
+			// key, so the uuid stays only for a block deleted since (stored spans are unchanged)
 			const keys = await blockKeys(get, a.kind, a.targetId);
-			const keyed = (s: any) => ({
-				...(keys.has(s.blockId) && { blockKey: keys.get(s.blockId) }),
-				...s,
-			});
+			const keyed = ({ blockId, ...s }: any) =>
+				keys.has(blockId) ? { blockKey: keys.get(blockId), ...s } : { blockId, ...s };
 			if (a.spanSeq !== undefined) {
 				const span = run.spans.find((s: any) => s.seq === a.spanSeq);
 				if (!span) throw new Error(`This run has no span ${a.spanSeq}.`);

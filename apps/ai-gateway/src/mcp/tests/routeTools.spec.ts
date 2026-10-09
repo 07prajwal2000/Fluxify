@@ -160,6 +160,14 @@ describe("route and workflow tools", () => {
 		expect(tool("call_route").description).toContain("agents/recipes/debug-and-fix");
 	});
 
+	it("call_route keeps the failed block's uuid when the block is gone from the canvas", async () => {
+		const debugError = { block: { id: "b7", type: "db_native" }, message: "boom" };
+		const { api } = fakeApi({ status: 500, contentType: "text/plain", body: "x", debugError });
+		api.get = async () => ({ blocks: [] });
+		const result: any = await run("call_route", { routeId: "r1" }, api);
+		expect(result.error.block).toEqual({ id: "b7", type: "db_native" });
+	});
+
 	describe("call_route trace", () => {
 		const span = (blockId: string, extra: object = {}) => ({
 			blockId,
