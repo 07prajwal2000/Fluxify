@@ -100,7 +100,7 @@ function callerOf(c: Context): McpCaller {
 }
 
 /** The caller's credential, exactly as they sent it, for the admin API to check. */
-function authOf(c: Context) {
+export function authOf(c: Context) {
 	const auth: Record<string, string> = {};
 	for (const name of ["authorization", "cookie"]) {
 		const value = c.req.header(name);

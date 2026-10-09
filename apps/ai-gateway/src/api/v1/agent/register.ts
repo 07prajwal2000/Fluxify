@@ -20,7 +20,13 @@ import {
 	getRun,
 	listConversations,
 } from "../../../agent/runner/repository";
-import { MODES } from "../../../agent/tools";
+import { MODES, mcpCall } from "../../../agent/tools";
+import { adminApi, httpAdminFetch } from "../../../mcp/adminApi";
+import type { CanvasOp } from "../../../mcp/canvasOps";
+import { previewEdit, previewInput } from "../../../mcp/canvasPreview";
+import type { Target } from "../../../mcp/canvasTools";
+import { authOf } from "../../../mcp/index";
+import { currentResource, PREVIEWABLE } from "../../../mcp/resourcePreview";
 import {
 	answerApproval,
 	compactConversation,
@@ -92,6 +98,34 @@ export function registerAgentRoutes(app: Hono) {
 		caller(c, projectId, "viewer");
 		return c.json({ supportsThinking: await projectSupportsThinking(projectId) });
 	});
+
+	// What a waiting edit_canvas would do to the canvas, for the approval card. Nothing is saved.
+	r.post("/:projectId/canvas-preview", json(previewInput), async (c) => {
+		caller(c, c.req.param("projectId"), "creator");
+		const { target, ops, auto_layout } = c.req.valid("json");
+		const api = adminApi(httpAdminFetch, authOf(c), "creator");
+		return c.json(
+			await previewEdit(
+				api,
+				target as Target,
+				ops as CanvasOp[],
+				auto_layout as boolean | undefined,
+			),
+		);
+	});
+
+	// The resource a waiting save_* or delete_* targets, as it is now: the "before" of its card.
+	r.post(
+		"/:projectId/resource-preview",
+		json(z.object({ tool: z.enum(PREVIEWABLE), input: z.record(z.string(), z.unknown()) })),
+		async (c) => {
+			const projectId = c.req.param("projectId");
+			caller(c, projectId, "creator");
+			const { tool, input } = c.req.valid("json");
+			const call = mcpCall(httpAdminFetch, authOf(c));
+			return c.json({ current: await currentResource(call, projectId, tool, input) });
+		},
+	);
 
 	r.get(base, async (c) => {
 		const projectId = c.req.param("projectId");
