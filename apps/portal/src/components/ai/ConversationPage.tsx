@@ -1,5 +1,6 @@
+import { Spinner } from "@fluxify/components";
 import { useParams } from "@tanstack/react-router";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { showErrorNotification } from "@/lib/errorNotifier";
 import { usePageTitle } from "@/lib/seo";
 import { AgentMessage, LimitNotice, Thinking } from "./AgentMessage";
@@ -41,6 +42,35 @@ export function ConversationPage() {
 	/** Set by sending: follow the stream until the user scrolls away, even when the new message pushed the bottom out of reach. */
 	const follow = useRef(false);
 
+	const scroller = useRef<HTMLDivElement>(null);
+	const topRef = useRef<HTMLDivElement>(null);
+	/** The scroll height before older rows were prepended, to keep the reader where they were. */
+	const heightBefore = useRef<number | null>(null);
+	const { hasOlder, loadingOlder, loadOlder } = chat;
+
+	// Reaching the top loads the page before.
+	// biome-ignore lint/correctness/useExhaustiveDependencies: loadOlder is fresh each render; the sentinel only needs to re-arm when a load ends
+	useEffect(() => {
+		const top = topRef.current;
+		if (!top || !hasOlder || loadingOlder) return;
+		const observer = new IntersectionObserver(([e]) => {
+			if (!e.isIntersecting) return;
+			heightBefore.current = scroller.current?.scrollHeight ?? null;
+			void loadOlder();
+		});
+		observer.observe(top);
+		return () => observer.disconnect();
+	}, [hasOlder, loadingOlder, chat.rows.length]);
+
+	// Rows added above the view push it down: move the scroll by the added height.
+	useLayoutEffect(() => {
+		const el = scroller.current;
+		if (el && heightBefore.current !== null && !loadingOlder) {
+			el.scrollTop += el.scrollHeight - heightBefore.current;
+			heightBefore.current = null;
+		}
+	}, [chat.rows.length, loadingOlder]);
+
 	usePageTitle(
 		conversation?.title ? `${conversation.title} | Fluxify AI` : "AI Conversation | Fluxify AI",
 	);
@@ -66,6 +96,7 @@ export function ConversationPage() {
 			</div>
 
 			<div
+				ref={scroller}
 				className="flex-1 overflow-y-auto px-4 pt-16 pb-8"
 				onWheel={() => {
 					follow.current = false;
@@ -75,6 +106,12 @@ export function ConversationPage() {
 				}}
 			>
 				<div className="mx-auto flex w-full max-w-3xl flex-col gap-6">
+					<div ref={topRef} className="h-0 w-0 shrink-0" />
+					{loadingOlder && (
+						<div role="status" aria-label="Loading older messages" className="flex justify-center">
+							<Spinner />
+						</div>
+					)}
 					{chat.isLoading && (
 						<div className="flex animate-pulse flex-col gap-4 opacity-60">
 							<div className="h-12 w-64 self-end rounded-2xl bg-surface-secondary" />

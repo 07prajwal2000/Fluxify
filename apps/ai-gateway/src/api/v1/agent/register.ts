@@ -23,6 +23,7 @@ import { MODES } from "../../../agent/tools";
 import {
 	answerApproval,
 	getConversationDetail,
+	getOlderMessages,
 	patchConversation,
 	removeConversation,
 	sendMessage,
@@ -94,10 +95,24 @@ export function registerAgentRoutes(app: Hono) {
 		return c.json(await listConversations(user.id, projectId));
 	});
 
-	r.get(`${base}/:conversationId`, async (c) => {
-		const { conversation } = await conversationOf(c, "viewer");
-		return c.json(await getConversationDetail(conversation));
-	});
+	// Latest page with the run and settings; with `beforeSeq`, just the page of messages before it.
+	r.get(
+		`${base}/:conversationId`,
+		zValidator(
+			"query",
+			z.object({ beforeSeq: z.coerce.number().int().min(0).optional() }),
+			zodErrorCallbackParser,
+		),
+		async (c) => {
+			const { conversation } = await conversationOf(c, "viewer");
+			const { beforeSeq } = c.req.valid("query");
+			return c.json(
+				beforeSeq === undefined
+					? await getConversationDetail(conversation)
+					: await getOlderMessages(conversation, beforeSeq),
+			);
+		},
+	);
 
 	r.patch(
 		`${base}/:conversationId`,

@@ -29,7 +29,10 @@ export type AgentSettings = { mode: Mode; effort: Effort; supportsThinking: bool
 export type { Effort, Mode };
 export type AgentConversationDetail = {
 	conversation: HarnessConversation & { activeRunId: string | null };
+	/** The latest page of rows. */
 	messages: AgentRow[];
+	/** Pass it as `beforeSeq` for the page before these rows; null when there is none. */
+	nextBeforeSeq: number | null;
 	/** The conversation's latest run, settled or not. */
 	run: AgentRun | null;
 	settings: AgentSettings;
@@ -53,6 +56,15 @@ export const agentConversationsService = {
 	},
 	async get(projectId: string, conversationId: string): Promise<AgentConversationDetail> {
 		return (await httpClient.get(`${base(projectId)}/${conversationId}`)).data;
+	},
+	/** The page of rows before `beforeSeq`. */
+	async getOlder(
+		projectId: string,
+		conversationId: string,
+		beforeSeq: number,
+	): Promise<{ messages: AgentRow[]; nextBeforeSeq: number | null }> {
+		return (await httpClient.get(`${base(projectId)}/${conversationId}`, { params: { beforeSeq } }))
+			.data;
 	},
 	async send(
 		projectId: string,

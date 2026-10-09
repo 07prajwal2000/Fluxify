@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { showErrorNotification } from "@/lib/errorNotifier";
 import { agentConversationsKey, agentConversationsQuery } from "@/query/agentConversationsQuery";
 import {
+	type AgentRow,
 	type ApprovalAnswer,
 	agentConversationsService,
 	type Effort,
@@ -48,7 +49,19 @@ export function useAgentConversation(projectId: string, conversationId: string) 
 	const qc = useQueryClient();
 	const detail = agentConversationsQuery.detail.useQuery(projectId, conversationId);
 	const { refetch } = detail;
-	const rows = detail.data?.messages ?? [];
+	const latest = detail.data?.messages ?? [];
+	/** Older pages loaded by scrolling up, and the cursor of the page before them. */
+	const [older, setOlder] = useState<{ id: string; rows: AgentRow[]; next: number | null } | null>(
+		null,
+	);
+	const [loadingOlder, setLoadingOlder] = useState(false);
+	// Reloads only return the latest page: keep the older ones loaded while they still join it
+	// (a run that wrote more than a page in between leaves a gap, so they go).
+	const first = latest[0]?.seq ?? 0;
+	const kept = older?.id !== conversationId ? [] : older.rows.filter((r) => r.seq < first);
+	const joined = kept.length > 0 && kept.at(-1)?.seq === first - 1;
+	const rows = joined ? [...kept, ...latest] : latest;
+	const nextBeforeSeq = joined ? older?.next : (detail.data?.nextBeforeSeq ?? null);
 	const run = detail.data?.run ?? null;
 	const top = useRef(-1);
 	top.current = rows.at(-1)?.seq ?? -1;
@@ -106,6 +119,24 @@ export function useAgentConversation(projectId: string, conversationId: string) 
 			es.close();
 		};
 	}, [streamId, attempt, refetch, qc, projectId]);
+
+	/** Fetches the page before the oldest loaded row. */
+	const loadOlder = async () => {
+		if (loadingOlder || nextBeforeSeq == null) return;
+		setLoadingOlder(true);
+		try {
+			const page = await agentConversationsService.getOlder(
+				projectId,
+				conversationId,
+				nextBeforeSeq,
+			);
+			setOlder({ id: conversationId, rows: [...page.messages, ...rows], next: page.nextBeforeSeq });
+		} catch (e) {
+			showErrorNotification(e);
+		} finally {
+			setLoadingOlder(false);
+		}
+	};
 
 	const send = async (text: string, over: Picks = {}) => {
 		const go = { mode: over.mode ?? mode, effort: over.effort ?? effort };
@@ -196,6 +227,10 @@ export function useAgentConversation(projectId: string, conversationId: string) 
 	return {
 		conversation: detail.data?.conversation ?? null,
 		isLoading: detail.isLoading,
+		/** There are older rows to load by scrolling up. */
+		hasOlder: nextBeforeSeq != null,
+		loadingOlder,
+		loadOlder,
 		messages,
 		rows,
 		run,

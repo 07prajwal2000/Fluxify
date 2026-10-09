@@ -22,6 +22,7 @@ const spies = [
 	spyOn(repo, "listConversations").mockResolvedValue([]),
 	spyOn(integration, "projectSupportsThinking").mockResolvedValue(true),
 	spyOn(service, "getConversationDetail").mockResolvedValue({} as any),
+	spyOn(service, "getOlderMessages").mockResolvedValue({ messages: [], nextBeforeSeq: null }),
 	spyOn(service, "sendMessage").mockResolvedValue({ runId: "r1" }),
 	spyOn(service, "answerApproval").mockResolvedValue({ runId: "r1" }),
 	spyOn(service, "stopRun").mockResolvedValue({ runId: "r1" }),
@@ -139,6 +140,15 @@ describe("agent API auth", () => {
 		const res = await call("GET", path);
 		expect(res.status).toBe(200);
 		expect((spies.at(-1) as any).mock.calls.at(-1).slice(1)).toEqual(["r1", 4]);
+	});
+});
+
+describe("message paging", () => {
+	it("beforeSeq pages the messages; a bad one is a 400", async () => {
+		expect(await (await call("GET", `${P}/c1?beforeSeq=10`)).json()).toEqual({ messages: [], nextBeforeSeq: null });
+		expect(service.getOlderMessages).toHaveBeenLastCalledWith(expect.anything(), 10);
+		expect((await call("GET", `${P}/c1?beforeSeq=-1`)).status).toBe(400);
+		expect((await call("GET", `${P}/c1?beforeSeq=x`)).status).toBe(400);
 	});
 });
 

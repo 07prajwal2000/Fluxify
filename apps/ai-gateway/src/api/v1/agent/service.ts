@@ -22,19 +22,30 @@ const store = () => agentStore(db);
 
 const metaOf = (c: Conversation) => (c.metadata ?? {}) as Partial<AgentMeta>;
 
+/** The 50 saved messages before `beforeSeq`, for scrolling up. */
+export const getOlderMessages = (conversation: Conversation, beforeSeq: number) =>
+	store().page(conversation.id, beforeSeq);
+
 /**
- * Every saved message (#645 rows), the active run, if any, and the picker
- * settings: the mode and effort the conversation went on with last, and whether
- * the project's model takes a thinking setting.
+ * The latest page of saved messages (#645 rows) with `nextBeforeSeq` for the
+ * older ones, the active run, if any, and the picker settings: the mode and
+ * effort the conversation went on with last, and whether the project's model
+ * takes a thinking setting.
  */
 export async function getConversationDetail(conversation: Conversation) {
-	const [messages, run, supportsThinking] = await Promise.all([
-		store().all(conversation.id),
+	const [{ messages, nextBeforeSeq }, run, supportsThinking] = await Promise.all([
+		store().page(conversation.id),
 		conversation.activeRunId ? getRun(conversation.activeRunId) : undefined,
 		projectSupportsThinking(conversation.projectId as string),
 	]);
 	const { mode = "manual", effort = "none" } = metaOf(conversation);
-	return { conversation, messages, run: run ?? null, settings: { mode, effort, supportsThinking } };
+	return {
+		conversation,
+		messages,
+		nextBeforeSeq,
+		run: run ?? null,
+		settings: { mode, effort, supportsThinking },
+	};
 }
 
 /** Starts a run on the user's message; one run per conversation at a time. */
