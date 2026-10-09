@@ -3,6 +3,7 @@ import React from "react";
 import ReactMarkdown from "react-markdown";
 import remarkDirective from "remark-directive";
 import remarkGfm from "remark-gfm";
+import { refComponents } from "./AgentRef";
 import { remarkDirectiveRehype } from "./remarkDirectiveRehype";
 
 const CALLOUTS = {
@@ -143,6 +144,7 @@ export function MarkdownViewer({ content }: MarkdownViewerProps) {
 							</a>
 						),
 						...calloutComponents,
+						...refComponents,
 						"ai-u": ({ children }: any) => <u>{children}</u>,
 					} as any
 				}

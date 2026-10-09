@@ -1,0 +1,279 @@
+import { afterAll, afterEach, beforeEach, expect, mock, spyOn, test } from "bun:test";
+import { GlobalRegistrator } from "@happy-dom/global-registrator";
+
+// DOM only for this file; RTL reads `document` on import, so load it after.
+GlobalRegistrator.register();
+Element.prototype.scrollIntoView = () => {};
+
+mock.module("@tanstack/react-router", () => ({
+	useParams: () => ({ projectId: "p1", conversationId: "c1" }),
+	Link: ({ to, children, ...rest }: any) => (
+		<a href={to} {...rest}>
+			{children}
+		</a>
+	),
+}));
+// The Lexical editor is not what is tested here: a textarea with the same props stands in.
+mock.module("./PromptEditor", () => ({
+	PromptEditor: ({ placeholder, onSubmit, controls, isRunning }: any) => {
+		const { useState } = require("react");
+		const [text, setText] = useState("");
+		return (
+			<div>
+				{controls}
+				<textarea
+					aria-label="prompt"
+					placeholder={placeholder}
+					value={text}
+					onChange={(e: any) => setText(e.target.value)}
+				/>
+				<button type="button" disabled={isRunning} onClick={() => onSubmit(text)}>
+					Send
+				</button>
+			</div>
+		);
+	},
+}));
+mock.module("./ChatTitleEditor", () => ({ ChatTitleEditor: () => null }));
+
+const { act, cleanup, fireEvent, render, within } = await import("@testing-library/react");
+/** Not RTL's waitFor/screen: they stay bound to the DOM of whichever test file loaded RTL first. */
+const q = () => within(document.body);
+async function until<T>(check: () => T, timeout = 1500): Promise<T> {
+	const end = Date.now() + timeout;
+	for (;;) {
+		try {
+			return check();
+		} catch (e) {
+			if (Date.now() > end) throw e;
+			await act(() => new Promise((r) => setTimeout(r, 20)));
+		}
+	}
+}
+const { QueryClient, QueryClientProvider } = await import("@tanstack/react-query");
+const { agentConversationsService } = await import("@/services/agentConversations");
+const { ConversationPage } = await import("./ConversationPage");
+
+type Row = { seq: number; role: string; runId: string; content: unknown };
+const user = (seq: number, text: string): Row => ({
+	seq,
+	role: "user",
+	runId: "r1",
+	content: { role: "user", content: text },
+});
+const call = (seq: number, name: string, input: unknown, text = ""): Row => ({
+	seq,
+	role: "assistant",
+	runId: "r1",
+	content: {
+		role: "assistant",
+		content: [
+			...(text ? [{ type: "text", text }] : []),
+			{ type: "tool-call", toolCallId: `t${seq}`, toolName: name, input },
+		],
+	},
+});
+const reply = (seq: number, text: string): Row => ({
+	seq,
+	role: "assistant",
+	runId: "r1",
+	content: { role: "assistant", content: [{ type: "text", text }] },
+});
+
+type Settings = { mode: string; effort: string; supportsThinking: boolean };
+const detail = (messages: Row[], status: string, settings: Partial<Settings> = {}) => ({
+	conversation: { id: "c1", title: "t", archived: false },
+	messages,
+	run: { id: "r1", status, stopReason: null, usage: null },
+	settings: { mode: "manual", effort: "none", supportsThinking: true, ...settings },
+});
+
+const saved: { es?: typeof EventSource; io?: typeof IntersectionObserver } = {};
+let get: ReturnType<typeof spyOn>;
+let approve: ReturnType<typeof spyOn>;
+let send: ReturnType<typeof spyOn>;
+beforeEach(() => {
+	// per test: the other DOM test files set these once, at load
+	saved.es = globalThis.EventSource;
+	saved.io = globalThis.IntersectionObserver;
+	globalThis.EventSource = class {
+		addEventListener() {}
+		close() {}
+	} as never;
+	globalThis.IntersectionObserver = class {
+		observe() {}
+		disconnect() {}
+	} as never;
+	get = spyOn(agentConversationsService, "get");
+	approve = spyOn(agentConversationsService, "approve").mockResolvedValue({ runId: "r1" });
+	send = spyOn(agentConversationsService, "send").mockResolvedValue({ runId: "r2" });
+});
+afterEach(() => {
+	cleanup();
+	globalThis.EventSource = saved.es as never;
+	globalThis.IntersectionObserver = saved.io as never;
+	for (const s of [get, approve, send]) s.mockRestore();
+});
+afterAll(() => GlobalRegistrator.unregister());
+
+function open(d: ReturnType<typeof detail>) {
+	get.mockResolvedValue(d as never);
+	render(
+		<QueryClientProvider
+			client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
+		>
+			<ConversationPage />
+		</QueryClientProvider>,
+	);
+}
+const waiting = (
+	name = "save_route",
+	input: unknown = { name: "users", path: "/users", method: "GET" },
+) => detail([user(0, "build it"), call(1, name, input)], "waiting_approval");
+const bar = () => until(() => q().getByRole("region", { name: "Approval needed" }));
+const prompt = () => q().getByLabelText("prompt") as HTMLTextAreaElement;
+
+test("a waiting change shows the tool and its input above the editor, with the new placeholder", async () => {
+	open(waiting());
+	const region = await bar();
+	expect(region.textContent).toContain("save_route");
+	expect(region.textContent).toContain("GET /users");
+	expect(region.textContent).not.toContain("Deletes");
+	expect(prompt().placeholder).toBe("Type a follow-up or change the plan…");
+	// the old row text is gone
+	expect(document.body.textContent).not.toContain("Waiting for approval");
+});
+
+test("a delete is marked as one", async () => {
+	open(waiting("delete_route", { routeId: "abcdef" }));
+	expect((await bar()).textContent).toContain("Deletes");
+});
+
+test("Approve approves and puts the conversation in manual", async () => {
+	open(waiting());
+	await bar();
+	fireEvent.click(q().getByRole("button", { name: "Approve" }));
+	await until(() => expect(approve).toHaveBeenCalled());
+	expect(approve).toHaveBeenCalledWith("p1", "c1", {
+		approve: true,
+		mode: "manual",
+		effort: "none",
+	});
+});
+
+test("Approve with Auto approves and puts the conversation in auto", async () => {
+	open(waiting());
+	await bar();
+	fireEvent.click(q().getByRole("button", { name: "More approve options" }));
+	fireEvent.click(await until(() => q().getByRole("menuitem", { name: "Approve with Auto" })));
+	await until(() => expect(approve).toHaveBeenCalled());
+	expect(approve).toHaveBeenCalledWith("p1", "c1", { approve: true, mode: "auto", effort: "none" });
+});
+
+test("Reject rejects with no reason", async () => {
+	open(waiting());
+	await bar();
+	fireEvent.click(q().getByRole("button", { name: "Reject" }));
+	await until(() => expect(approve).toHaveBeenCalled());
+	expect(approve).toHaveBeenCalledWith("p1", "c1", {
+		approve: false,
+		mode: "manual",
+		effort: "none",
+	});
+	expect(send).not.toHaveBeenCalled();
+});
+
+test("typing while it waits rejects with the text as the reason", async () => {
+	open(waiting());
+	await bar();
+	fireEvent.change(prompt(), { target: { value: "use /v2 instead" } });
+	fireEvent.click(q().getByRole("button", { name: "Send" }));
+	await until(() => expect(approve).toHaveBeenCalled());
+	expect(approve).toHaveBeenCalledWith("p1", "c1", {
+		approve: false,
+		reason: "use /v2 instead",
+		mode: "manual",
+		effort: "none",
+	});
+	expect(send).not.toHaveBeenCalled();
+});
+
+test("a plan in plan mode gets the same bar; Approve starts it in manual, Auto in auto", async () => {
+	open(
+		detail([user(0, "add /health"), reply(1, "1. add the route\n2. test it")], "completed", {
+			mode: "plan",
+		}),
+	);
+	const region = await bar();
+	expect(region.textContent).toContain("Plan ready");
+	expect(prompt().placeholder).toBe("Type a follow-up or change the plan…");
+	fireEvent.click(q().getByRole("button", { name: "More approve options" }));
+	fireEvent.click(await until(() => q().getByRole("menuitem", { name: "Approve with Auto" })));
+	await until(() => expect(send).toHaveBeenCalled());
+	expect(send).toHaveBeenCalledWith("p1", "c1", "Go ahead with the plan.", "auto", "none");
+	expect(approve).not.toHaveBeenCalled();
+});
+
+test("rejecting a plan only dismisses it; typing changes sends them in plan mode", async () => {
+	open(
+		detail([user(0, "add /health"), reply(1, "1. add the route")], "completed", { mode: "plan" }),
+	);
+	await bar();
+	fireEvent.click(q().getByRole("button", { name: "Reject" }));
+	await until(() => expect(q().queryByRole("region", { name: "Approval needed" })).toBeNull());
+	expect(send).not.toHaveBeenCalled();
+	expect(approve).not.toHaveBeenCalled();
+	fireEvent.change(prompt(), { target: { value: "also add auth" } });
+	fireEvent.click(q().getByRole("button", { name: "Send" }));
+	await until(() => expect(send).toHaveBeenCalledWith("p1", "c1", "also add auth", "plan", "none"));
+});
+
+test("no bar and the plain placeholder when nothing waits", async () => {
+	open(detail([user(0, "hi"), reply(1, "hello")], "completed"));
+	await until(() => expect(prompt().placeholder).toBe("Reply to AI..."));
+	expect(q().queryByRole("region", { name: "Approval needed" })).toBeNull();
+});
+
+test("the pickers start from what the conversation saved and a message goes out with them", async () => {
+	open(detail([user(0, "hi"), reply(1, "hello")], "completed", { mode: "plan", effort: "high" }));
+	await until(() => expect(q().getByLabelText("Mode").textContent).toContain("Plan"));
+	expect(q().getByLabelText("Thinking effort").textContent).toContain("High");
+	fireEvent.change(prompt(), { target: { value: "more" } });
+	fireEvent.click(q().getByRole("button", { name: "Send" }));
+	await until(() => expect(send).toHaveBeenCalled());
+	expect(send).toHaveBeenCalledWith("p1", "c1", "more", "plan", "high");
+});
+
+test("effort is disabled with a reason when the model does not think", async () => {
+	open(
+		detail([user(0, "hi"), reply(1, "hello")], "completed", {
+			supportsThinking: false,
+			effort: "high",
+		}),
+	);
+	await until(() => expect(q().getByLabelText("Thinking effort")).toBeTruthy());
+	const effort = q().getByLabelText("Thinking effort");
+	expect(effort.closest("[title]")?.getAttribute("title")).toBe(
+		"This model doesn't support thinking",
+	);
+	expect(effort.textContent).toContain("No thinking");
+	expect(effort.getAttribute("aria-disabled") ?? effort.hasAttribute("disabled")).toBeTruthy();
+	// the mode picker is not affected
+	expect(q().getByLabelText("Mode").closest("[title]")).toBeNull();
+});
+
+test("an approval that picks Auto leaves the mode picker on Auto", async () => {
+	open(waiting());
+	await bar();
+	expect(q().getByLabelText("Mode").textContent).toContain("Manual");
+	fireEvent.click(q().getByRole("button", { name: "More approve options" }));
+	fireEvent.click(await until(() => q().getByRole("menuitem", { name: "Approve with Auto" })));
+	await until(() => expect(q().getByLabelText("Mode").textContent).toContain("Auto"));
+});
+
+test("a first message from the new-chat page goes out with the mode and effort picked there", async () => {
+	const { queueMessage } = await import("./useAgentConversation");
+	queueMessage("c1", "build it", { mode: "plan", effort: "low" });
+	open(detail([], "completed"));
+	await until(() => expect(send).toHaveBeenCalledWith("p1", "c1", "build it", "plan", "low"));
+});

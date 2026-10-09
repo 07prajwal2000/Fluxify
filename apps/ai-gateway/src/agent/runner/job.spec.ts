@@ -132,6 +132,20 @@ describe("executeRun", () => {
 		expect(w.events().at(-1)).toMatchObject({ type: "done", status: "completed", reason: "step_limit" });
 	});
 
+	it("adds what the job cost to the run before it settles", async () => {
+		const w = world([["get_route"]]);
+		const order: string[] = [];
+		const added: unknown[] = [];
+		w.deps.addUsage = async (_r, u) => void (order.push("usage"), added.push(u));
+		w.deps.settle = async () => void order.push("settle");
+		await go(w, job({ mode: "auto" }));
+		expect(order).toEqual(["usage", "settle"]);
+		// two model calls of 1 input and 1 output token each
+		expect(added).toEqual([
+			{ steps: 2, inputTokens: 2, outputTokens: 2, cacheReadTokens: 0, durationMs: expect.any(Number) },
+		]);
+	});
+
 	it("a run that cannot start fails with an error event", async () => {
 		const w = world([]);
 		w.deps.build = async () => {

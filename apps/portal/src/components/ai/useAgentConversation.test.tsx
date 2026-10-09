@@ -79,6 +79,7 @@ const detail = (messages: Row[], status: string, stopReason: string | null = nul
 	conversation: { id: "c1", title: "t", archived: false } as never,
 	messages,
 	run: { id: "r1", status, stopReason } as never,
+	settings: { mode: "manual", effort: "none", supportsThinking: false },
 });
 
 let get: ReturnType<typeof spyOn>;
@@ -193,7 +194,7 @@ test("send shows the message at once and follows the new run", async () => {
 	const { result } = setup();
 	await waitFor(() => expect(result.current.messages.length).toBe(2));
 	await act(() => result.current.send("next"));
-	expect(send).toHaveBeenCalledWith("p1", "c1", "next", "manual");
+	expect(send).toHaveBeenCalledWith("p1", "c1", "next", "manual", "none");
 	expect(texts(result.current.messages)).toEqual(["hi", "hello", "next"]);
 	expect(result.current.running).toBe(true);
 	expect((await stream()).url).toEndWith("/runs/r2/stream?afterSeq=1");

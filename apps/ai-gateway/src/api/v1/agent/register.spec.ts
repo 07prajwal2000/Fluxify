@@ -1,6 +1,7 @@
 import { afterAll, beforeEach, describe, expect, it, spyOn } from "bun:test";
 import { errorHandler } from "@fluxify/server";
 import { Hono } from "hono";
+import * as integration from "../../../agent/runner/integration";
 import * as repo from "../../../agent/runner/repository";
 import type { AgentEvent } from "../../../agent/runner/events";
 import { registerAgentRoutes } from "./register";
@@ -19,10 +20,13 @@ const spies = [
 	),
 	spyOn(repo, "createConversation").mockResolvedValue(conv()),
 	spyOn(repo, "listConversations").mockResolvedValue([]),
+	spyOn(integration, "projectSupportsThinking").mockResolvedValue(true),
 	spyOn(service, "getConversationDetail").mockResolvedValue({} as any),
 	spyOn(service, "sendMessage").mockResolvedValue({ runId: "r1" }),
 	spyOn(service, "answerApproval").mockResolvedValue({ runId: "r1" }),
 	spyOn(service, "stopRun").mockResolvedValue({ runId: "r1" }),
+	spyOn(service, "patchConversation").mockResolvedValue({} as any),
+	spyOn(service, "removeConversation").mockResolvedValue({ success: true }),
 	spyOn(stream, "streamRun").mockImplementation(((c: any) => c.text("stream")) as any),
 ];
 afterAll(() => {
@@ -56,6 +60,8 @@ const inConversation: [string, string, object | undefined, "viewer" | "creator"]
 	["POST", `${P}/c1/messages`, { text: "hi" }, "creator"],
 	["POST", `${P}/c1/approval`, { approve: true }, "creator"],
 	["POST", `${P}/c1/stop`, undefined, "creator"],
+	["PATCH", `${P}/c1`, { title: "New name" }, "creator"],
+	["DELETE", `${P}/c1`, undefined, "creator"],
 ];
 
 beforeEach(() => {
@@ -90,6 +96,36 @@ describe("agent API auth", () => {
 		expect((await call(m, path, body)).status).toBeLessThan(300);
 		who = { id: "admin", admin: true };
 		expect((await call(m, path, body)).status).toBeLessThan(300);
+	});
+
+	it("the model info needs a project role", async () => {
+		who = null;
+		expect((await call("GET", "/agent/p1/model")).status).toBe(403);
+		who = { id: "owner", role: "viewer" };
+		const res = await call("GET", "/agent/p1/model");
+		expect(res.status).toBe(200);
+		expect(await res.json()).toEqual({ supportsThinking: true });
+	});
+
+	it("a message carries its mode and effort; an approval can pick both", async () => {
+		const send = service.sendMessage as any;
+		const approve = service.answerApproval as any;
+		await call("POST", `${P}/c1/messages`, { text: "hi", mode: "plan", effort: "high" });
+		expect(send.mock.calls.at(-1).slice(2)).toEqual(["hi", "plan", "high"]);
+		await call("POST", `${P}/c1/messages`, { text: "hi" });
+		expect(send.mock.calls.at(-1).slice(2)).toEqual(["hi", "manual", undefined]);
+		await call("POST", `${P}/c1/approval`, { approve: true, mode: "auto" });
+		expect(approve.mock.calls.at(-1)[2]).toEqual({ approve: true, mode: "auto" });
+		await call("POST", `${P}/c1/approval`, { approve: false, reason: "no" });
+		expect(approve.mock.calls.at(-1)[2]).toEqual({ approve: false, reason: "no" });
+	});
+
+	it("refuses an unknown mode or effort and an empty update", async () => {
+		expect((await call("POST", `${P}/c1/messages`, { text: "hi", mode: "yolo" })).status).toBe(400);
+		expect((await call("POST", `${P}/c1/messages`, { text: "hi", effort: "max" })).status).toBe(400);
+		expect((await call("POST", `${P}/c1/approval`, { approve: true, effort: "x" })).status).toBe(400);
+		expect((await call("PATCH", `${P}/c1`, {})).status).toBe(400);
+		expect((await call("PATCH", `${P}/c1`, { title: "" })).status).toBe(400);
 	});
 
 	it("the stream is for the run's owner only", async () => {

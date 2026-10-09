@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { TbCheck, TbCopy } from "react-icons/tb";
 import ReactMarkdown from "react-markdown";
 import remarkDirective from "remark-directive";
-import { ResourceChip } from "./ResourceChip";
+import { refComponents } from "./AgentRef";
 import { remarkDirectiveRehype } from "./remarkDirectiveRehype";
 
 export function UserMessage({ query }: { query: string }) {
@@ -48,7 +48,7 @@ export function UserMessage({ query }: { query: string }) {
 									p: ({ children }: any) => (
 										<p className="m-0 mb-2 last:mb-0 whitespace-pre-wrap">{children}</p>
 									),
-									"ai-resource": (props: any) => <ResourceChip {...props} />,
+									...refComponents,
 								} as any
 							}
 						>

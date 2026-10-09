@@ -14,7 +14,7 @@ import {
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { getTimeAgo } from "@/lib/datetime";
 import { showErrorNotification } from "@/lib/errorNotifier";
-import { harnessConversationsQuery } from "@/query/harnessConversationsQuery";
+import { agentConversationsQuery } from "@/query/agentConversationsQuery";
 import { RenameConversationModal } from "./RenameConversationModal";
 import { StatusDot } from "./StatusDot";
 import type { HarnessConversation } from "./types";
@@ -30,8 +30,8 @@ export function ConversationItem({ projectId, conversation: c, active, onOpen }:
 	const navigate = useNavigate();
 	const [confirmOpen, setConfirmOpen] = useState(false);
 	const [renameOpen, setRenameOpen] = useState(false);
-	const action = harnessConversationsQuery.action.mutation(projectId, c.id);
-	const remove = harnessConversationsQuery.remove.mutation(projectId);
+	const update = agentConversationsQuery.update.mutation(projectId, c.id);
+	const remove = agentConversationsQuery.remove.mutation(projectId);
 
 	const redirectHome = () => {
 		navigate({
@@ -45,14 +45,17 @@ export function ConversationItem({ projectId, conversation: c, active, onOpen }:
 		if (key === "delete") return setConfirmOpen(true);
 		if (key === "rename") return setRenameOpen(true);
 
-		let act: "pin" | "unpin" | "archive" | "unarchive" | undefined;
-		if (key === "pin_toggle") act = c.pinned ? "unpin" : "pin";
-		else if (key === "archive_toggle") act = c.archived ? "unarchive" : "archive";
+		const patch =
+			key === "pin_toggle"
+				? { pinned: !c.pinned }
+				: key === "archive_toggle"
+					? { archived: !c.archived }
+					: undefined;
 
-		if (act) {
+		if (patch) {
 			try {
-				if (act === "archive" && active) redirectHome();
-				await action.mutateAsync({ action: act });
+				if (patch.archived && active) redirectHome();
+				await update.mutateAsync(patch);
 			} catch (err: any) {
 				showErrorNotification(err.message);
 			}

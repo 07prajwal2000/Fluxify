@@ -14,7 +14,6 @@ export type InsertResourcePayload = Readonly<{
 	resourceType: string;
 	identifier: string;
 	name: string;
-	data?: string;
 	replaceAt?: boolean;
 }>;
 
@@ -53,7 +52,6 @@ export function ResourcePlugin(): null {
 						payload.resourceType,
 						payload.identifier,
 						payload.name,
-						payload.data || "",
 					);
 					$insertNodes([resourceNode]);
 				});

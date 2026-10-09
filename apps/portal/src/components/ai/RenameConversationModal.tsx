@@ -1,7 +1,7 @@
 import { Button, CloseButton, Input, Label, Modal, TextField } from "@fluxify/components";
 import { useEffect, useState } from "react";
 import { showErrorNotification } from "@/lib/errorNotifier";
-import { harnessConversationsQuery } from "@/query/harnessConversationsQuery";
+import { agentConversationsQuery } from "@/query/agentConversationsQuery";
 
 type Props = {
 	open: boolean;
@@ -19,7 +19,7 @@ export function RenameConversationModal({
 	initialTitle,
 }: Props) {
 	const [title, setTitle] = useState(initialTitle);
-	const update = harnessConversationsQuery.update.mutation(projectId, conversationId);
+	const update = agentConversationsQuery.update.mutation(projectId, conversationId);
 
 	// Reset state when modal opens
 	useEffect(() => {

@@ -1,4 +1,4 @@
-import { Button, Input, integrationIcons, Spinner } from "@fluxify/components";
+import { Button } from "@fluxify/components";
 import { LexicalComposer } from "@lexical/react/LexicalComposer";
 import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext";
 import { ContentEditable } from "@lexical/react/LexicalContentEditable";
@@ -13,23 +13,14 @@ import {
 	KEY_DOWN_COMMAND,
 	KEY_ENTER_COMMAND,
 } from "lexical";
-import { useEffect, useRef, useState } from "react";
-import {
-	TbArrowUp,
-	TbAt,
-	TbBox,
-	TbCloudCog,
-	TbPlayerStopFilled,
-	TbSquareKey,
-	TbStack2,
-} from "react-icons/tb";
-import { useDebounce } from "@/hooks/useDebounce";
-import { findResourceQuery } from "@/query/findResourceQuery";
+import { type ReactNode, useEffect, useRef, useState } from "react";
+import { TbArrowUp, TbAt, TbPlayerStopFilled } from "react-icons/tb";
 import { AgentModelLabel } from "./AgentModel";
 import { EditorEventsPlugin } from "./EditorEventsPlugin";
 import { lexicalToMarkdown, markdownToLexical } from "./lexical/MarkdownTransformer";
 import { ResourceNode } from "./lexical/ResourceNode";
 import { ResourcePlugin } from "./lexical/ResourcePlugin";
+import { MentionPopover } from "./MentionPopover";
 import { STARTERS } from "./starters";
 
 const PLACEHOLDERS = [
@@ -125,6 +116,8 @@ type Props = {
 	isRunning?: boolean;
 	onStop?: () => void;
 	isDisabled?: boolean;
+	/** Next to the model name: the mode and effort pickers. */
+	controls?: ReactNode;
 };
 
 export function PromptEditor({
@@ -140,22 +133,10 @@ export function PromptEditor({
 	isRunning,
 	onStop,
 	isDisabled,
+	controls,
 }: Props) {
-	// Popover & Search State
 	const [popoverOpen, setPopoverOpen] = useState(false);
-	const [searchQuery, setSearchQuery] = useState("");
-	const [selectedIndex, setSelectedIndex] = useState(0);
 	const [wasAtTyped, setWasAtTyped] = useState(false);
-	const debouncedQuery = useDebounce(searchQuery, 300);
-	const {
-		data: searchResults,
-		isLoading,
-		isFetching,
-	} = findResourceQuery.search.useQuery(projectId, debouncedQuery);
-
-	const isDebouncing = searchQuery !== debouncedQuery;
-	const isSearchLoading = isDebouncing || isLoading || isFetching;
-
 	const popoverRef = useRef<HTMLDivElement>(null);
 	const triggerRef = useRef<HTMLButtonElement>(null);
 
@@ -186,11 +167,6 @@ export function PromptEditor({
 	const actualPlaceholder = typewriter
 		? twPlaceholder + (charIndex < PLACEHOLDERS[phIndex].length ? "|" : "")
 		: placeholder;
-
-	// Reset index when results change
-	useEffect(() => {
-		setSelectedIndex(0);
-	}, [searchResults?.results]);
 
 	const closePopover = () => {
 		setPopoverOpen(false);
@@ -240,124 +216,12 @@ export function PromptEditor({
 			className={`relative rounded-2xl border border-border bg-surface-secondary p-4 shadow-2xl transition-colors focus-within:border-accent ${isDisabled ? "opacity-50 pointer-events-none" : ""}`}
 		>
 			{popoverOpen && (
-				<div
+				<MentionPopover
 					ref={popoverRef}
-					className="absolute bottom-[calc(100%+8px)] left-0 w-full rounded-xl border border-border bg-overlay p-2 shadow-xl z-50"
-				>
-					<div className="w-full">
-						<div className="flex items-center gap-3">
-							<Input
-								value={searchQuery}
-								onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-									setSearchQuery(e.target.value)
-								}
-								onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => {
-									if (e.key === "Escape") {
-										e.preventDefault();
-										closePopover();
-										document.dispatchEvent(new CustomEvent("focus-editor"));
-										return;
-									}
-									if (!searchResults?.results || searchResults.results.length === 0) return;
-
-									if (e.key === "ArrowDown") {
-										e.preventDefault();
-										setSelectedIndex((prev) =>
-											Math.min(prev + 1, searchResults.results.length - 1),
-										);
-									} else if (e.key === "ArrowUp") {
-										e.preventDefault();
-										setSelectedIndex((prev) => Math.max(prev - 1, 0));
-									} else if (e.key === "Enter") {
-										e.preventDefault();
-										const res = searchResults.results[selectedIndex];
-										if (res) {
-											document.dispatchEvent(
-												new CustomEvent("insert-resource", {
-													detail: { res, wasAtTyped },
-												}),
-											);
-											closePopover();
-											setSearchQuery("");
-										}
-									}
-								}}
-								placeholder="Search resources..."
-								autoFocus
-								className="w-64 bg-surface hover:bg-surface-secondary focus-within:ring-1 focus-within:ring-focus border-border rounded-lg h-9 min-h-9 px-3 text-sm text-foreground placeholder:text-muted"
-							/>
-							{isSearchLoading && <Spinner size="sm" color="current" />}
-						</div>
-						<div className="mt-2 h-[150px] overflow-y-auto w-full">
-							{isSearchLoading ? (
-								<div className="p-3 text-center text-xs text-muted flex items-center justify-center h-full">
-									Searching...
-								</div>
-							) : searchResults?.results && searchResults.results.length > 0 ? (
-								<div className="flex flex-col gap-1">
-									{searchResults.results.map((res, i) => (
-										<button
-											type="button"
-											key={res.id}
-											onClick={() => {
-												document.dispatchEvent(
-													new CustomEvent("insert-resource", {
-														detail: { res, wasAtTyped },
-													}),
-												);
-												closePopover();
-												setSearchQuery("");
-											}}
-											// the arrow-key selection used to be the same wash as
-											// hover, so there was no telling where the cursor was
-											className={`flex items-center gap-3 rounded-lg p-2 text-left transition-colors ${
-												i === selectedIndex
-													? "bg-accent/15 text-foreground ring-1 ring-inset ring-accent/50"
-													: "hover:bg-surface-secondary"
-											}`}
-										>
-											<div
-												className={`flex-shrink-0 ${i === selectedIndex ? "text-accent" : "text-muted"}`}
-											>
-												{res.type === "route" ? (
-													<TbStack2 size={16} />
-												) : res.type === "app_config" ? (
-													<TbSquareKey size={16} />
-												) : res.type === "integration" ? (
-													res.variant && integrationIcons[res.variant] ? (
-														<span className="[&>svg]:w-4 [&>svg]:h-4 inline-flex items-center">
-															{integrationIcons[res.variant]}
-														</span>
-													) : (
-														<TbCloudCog size={16} />
-													)
-												) : (
-													<TbBox size={16} />
-												)}
-											</div>
-											<div className="flex flex-col">
-												<span className="text-sm font-medium text-foreground">
-													{res.label || res.name}
-												</span>
-												{res.description && (
-													<span className="text-xs text-muted line-clamp-1">{res.description}</span>
-												)}
-											</div>
-										</button>
-									))}
-								</div>
-							) : debouncedQuery ? (
-								<div className="p-3 text-center text-xs text-muted flex items-center justify-center h-full">
-									No resources found
-								</div>
-							) : (
-								<div className="p-3 text-center text-xs text-muted flex items-center justify-center h-full">
-									Type to search routes, integrations, and configs
-								</div>
-							)}
-						</div>
-					</div>
-				</div>
+					projectId={projectId}
+					wasAtTyped={wasAtTyped}
+					onClose={closePopover}
+				/>
 			)}
 
 			<LexicalComposer initialConfig={initialConfig}>
@@ -410,6 +274,7 @@ export function PromptEditor({
 					</Button>
 				</div>
 				<div className="flex min-w-0 flex-1 items-center justify-end gap-2">
+					{controls}
 					<AgentModelLabel projectId={projectId} />
 					{isRunning ? (
 						<Button

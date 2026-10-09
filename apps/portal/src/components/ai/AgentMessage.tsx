@@ -43,7 +43,6 @@ function ToolRow({
 				<span className="min-w-0 flex-1 truncate font-mono text-muted">{short(tool.input)}</span>
 				{ms !== undefined && <span className="shrink-0 text-muted">{(ms / 1000).toFixed(1)}s</span>}
 			</summary>
-			{asking && <p className="px-3 pb-1.5 text-warning">Waiting for approval</p>}
 			<div className="flex flex-col gap-2 border-t border-border px-3 py-2">
 				<pre className="max-h-64 overflow-auto whitespace-pre-wrap text-muted">
 					{json(tool.input)}

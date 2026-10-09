@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { showErrorNotification } from "@/lib/errorNotifier";
-import { harnessConversationsQuery } from "@/query/harnessConversationsQuery";
+import { agentConversationsQuery } from "@/query/agentConversationsQuery";
 import type { HarnessConversation } from "./types";
 
 export function ChatTitleEditor({
@@ -12,10 +12,7 @@ export function ChatTitleEditor({
 }) {
 	const [isEditing, setIsEditing] = useState(false);
 	const [title, setTitle] = useState("");
-	const updateMutation = harnessConversationsQuery.update.mutation(
-		projectId,
-		conversation?.id || "",
-	);
+	const updateMutation = agentConversationsQuery.update.mutation(projectId, conversation?.id || "");
 
 	useEffect(() => {
 		if (!isEditing && conversation) {

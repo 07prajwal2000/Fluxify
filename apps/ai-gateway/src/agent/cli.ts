@@ -13,7 +13,7 @@ import {
 	runAgent,
 } from "./agent";
 import { compactionLine, summarize } from "./compact";
-import { modelFromEnv } from "./model";
+import { effortFromEnv, modelFromEnv } from "./model";
 import { describeCall, type Log, printRun, runLog } from "./progress";
 import { limitsFromEnv } from "./timeouts";
 import { agentTools, MODES, type Mode } from "./tools";
@@ -29,6 +29,7 @@ export { printRun, short } from "./progress";
  * manual asks before every change, auto only before deletes (deletes always ask), plan
  * only reads and writes a plan, then asks Start? (y runs it in auto).
  * Env: AGENT_PROVIDER, AGENT_MODEL, AGENT_API_KEY, AGENT_BASE_URL, FLUXIFY_PAT,
+ * AGENT_EFFORT (none|low|mid|high: how hard the model thinks; unset = the model default; ignored by models not known to think),
  * FLUXIFY_URL (the admin server, http://127.0.0.1:$SERVER_PORT by default),
  * AGENT_CHUNK_TIMEOUT_MS (60000), AGENT_MODEL_TIMEOUT_MS (180000), AGENT_TOOL_TIMEOUT_MS (120000),
  * AGENT_MAX_RETRIES (5: retries of a 429/5xx, backoff 2s doubling, or the provider's retry-after under 60s),
@@ -64,7 +65,16 @@ export function startAgent(projectId: string, { loaded, ...run }: Run) {
 	);
 	const model = modelFromEnv(process.env);
 	const limits = limitsFromEnv(process.env);
-	return runAgent({ model, tools, active, load, projectId, limits, ...run });
+	return runAgent({
+		model,
+		tools,
+		active,
+		load,
+		projectId,
+		limits,
+		effort: effortFromEnv(process.env),
+		...run,
+	});
 }
 
 /** What a line typed at `> ` means. `{ mode }` is /mode with its argument, if any. */

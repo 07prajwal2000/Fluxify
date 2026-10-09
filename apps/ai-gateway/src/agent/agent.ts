@@ -12,6 +12,7 @@ import {
 	TOKEN_BUDGET,
 	WRAP_UP,
 } from "./guards";
+import { type Effort, providerOf, thinkingOptions } from "./model";
 import { type Limits, withModelTimeouts, withToolTimeouts } from "./timeouts";
 import { closeMatches, isDelete, isRead, type Mode, needsApproval } from "./tools";
 
@@ -31,6 +32,8 @@ Basics:
 - Use list and get to see what exists. get_block_schemas (no input) lists blocks; with blockTypes it gives their exact fields.
 - Block text inputs are literal unless they start with \`js:\` followed by code that returns the value (e.g. \`js: return input.id\`); never use \`{{ }}\`.
 - search_docs when unsure. list_advanced_tools and load_tools give you deletes, members, packages, integrations and more.
+
+Referring to resources: when you mention one that exists, write :ref[Label]{type=<type> id=<id>} instead of a bare name or path ("see :ref[GET /users]{type=route id=abc}", not "see the /users api"). The chat shows it as a link. Types: route, workflow, trigger, custom_block, middleware, integration, app_config, test_suite. Take the id from list, get or what a save returned; never invent one.
 
 Check your work, every time:
 1. Make the change (save_* and get_canvas then edit_canvas with the version you read).
@@ -87,6 +90,8 @@ type Run = {
 	history: ModelMessage[];
 	limits: Limits;
 	mode: Mode;
+	/** Thinking level (`none` turns it off); sent only for models known to support it. */
+	effort?: Effort;
 	approve: Approve;
 	/** Asked at the step cap and the token budget; stops when missing. */
 	onLimit?: OnLimit;
@@ -141,6 +146,7 @@ export function runAgent({
 	history,
 	limits,
 	mode,
+	effort,
 	approve,
 	onLimit = async () => false,
 	allowed = new Set(),
@@ -207,9 +213,13 @@ export function runAgent({
 		guard,
 		limits.maxResultChars ?? MAX_RESULT_CHARS,
 	);
+	const providerOptions = effort
+		? thinkingOptions(providerOf(model), model.modelId, effort)
+		: undefined;
 	const result = streamText({
 		tools: guarded,
 		model: timed,
+		providerOptions: providerOptions as never,
 		instructions,
 		messages: [...history],
 		abortSignal,

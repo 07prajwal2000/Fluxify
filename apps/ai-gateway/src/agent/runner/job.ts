@@ -1,10 +1,12 @@
 import type { ModelMessage, ToolResultPart } from "ai";
 import { rejected, type StopReason, stopReason } from "../agent";
+import { cacheTokens } from "../cache";
 import { continueConversation, pendingCalls } from "../resume";
 import type { AgentStore, RunStatus } from "../store";
 import { loadedTools } from "../tools";
 import { type AgentEvent, batcher, pump, seqTracker } from "./events";
 import type { AgentJob } from "./queue";
+import type { RunUsage } from "./repository";
 
 type Agent = Parameters<typeof continueConversation>[0]["agent"];
 
@@ -22,9 +24,28 @@ export type RunDeps = {
 	/** The model, tools and limits for the job's project, acting as its user; `loaded`: tools load_tools added earlier in the conversation. */
 	build: (job: AgentJob, loaded: Set<string>) => Promise<Omit<Agent, "approve" | "abortSignal">>;
 	publish: (runId: string, events: AgentEvent[]) => Promise<void>;
+	/** Adds this job's cost to the run (the summary card reads it). */
+	addUsage?: (runId: string, usage: RunUsage) => Promise<void>;
 	onError?: (e: unknown) => void;
 	batchMs?: number;
 };
+
+/** What one job cost, once its stream has ended; nothing when the provider reported none. */
+async function usageOf(
+	result: { totalUsage: PromiseLike<any>; steps: PromiseLike<unknown[]> },
+	startedAt: number,
+) {
+	try {
+		const [u, steps] = await Promise.all([result.totalUsage, result.steps]);
+		return {
+			steps: steps.length,
+			inputTokens: u.inputTokens ?? 0,
+			outputTokens: u.outputTokens ?? 0,
+			cacheReadTokens: cacheTokens(u).read,
+			durationMs: Date.now() - startedAt,
+		} satisfies RunUsage;
+	} catch {}
+}
 
 const message = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
@@ -65,6 +86,8 @@ export async function executeRun(job: AgentJob, deps: RunDeps, signal: AbortSign
 	let status: RunStatus;
 	let error = "";
 	let reason: StopReason | undefined;
+	let usage: RunUsage | undefined;
+	const startedAt = Date.now();
 	try {
 		// Every row, summarized or not: a tool loaded before a summary is still loaded.
 		const rows = await deps.store.all(job.conversationId);
@@ -79,6 +102,7 @@ export async function executeRun(job: AgentJob, deps: RunDeps, signal: AbortSign
 		});
 		if (r.result) await pump(r.result, t, events.push).catch(onError);
 		status = await r.status;
+		if (r.result) usage = await usageOf(r.result, startedAt);
 		if (status === "completed") reason = stopReason(r.result?.stopped());
 	} catch (e) {
 		error = message(e);
@@ -92,6 +116,7 @@ export async function executeRun(job: AgentJob, deps: RunDeps, signal: AbortSign
 			job.runId,
 			status === "interrupted" ? "the user stopped the run" : "the run failed",
 		).catch(onError);
+	if (usage) await deps.addUsage?.(job.runId, usage).catch(onError);
 	await deps.settle(job.conversationId, job.runId, status, reason).catch(onError);
 	const seq = t.next - 1;
 	events.push(

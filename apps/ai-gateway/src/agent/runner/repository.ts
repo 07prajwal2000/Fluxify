@@ -5,15 +5,25 @@ import {
 } from "@fluxify/server";
 import { and, desc, eq, inArray, notInArray, sql } from "drizzle-orm";
 import type { StopReason } from "../agent";
+import type { Effort } from "../model";
 import type { RunStatus } from "../store";
 import type { Mode } from "../tools";
 
 /**
  * Conversations and runs of the new agent, in the harness tables (#646).
  * `metadata.agent` marks a conversation as the new agent's; `metadata.mode`
- * is the accept mode of its last message, which an approval goes on in.
+ * is the accept mode and `metadata.effort` the thinking level of the last message
+ * or approval (the picker starts from them, an approval goes on in them).
  */
-export type AgentMeta = { agent: true; mode: Mode };
+export type AgentMeta = { agent: true; mode: Mode; effort?: Effort };
+/** What a run cost: summed over the jobs of a run (a run with approvals is several). */
+export type RunUsage = {
+	steps: number;
+	inputTokens: number;
+	outputTokens: number;
+	cacheReadTokens: number;
+	durationMs: number;
+};
 export type Conversation = typeof conversations.$inferSelect;
 
 /** Statuses after which no job holds the run. */
@@ -57,7 +67,12 @@ export async function getRun(id: string) {
  * so two sends at once cannot both win; the loser's run row is removed. Null
  * when a run already holds the conversation.
  */
-export async function startRun(conversationId: string, message: string, mode: Mode) {
+export async function startRun(
+	conversationId: string,
+	message: string,
+	mode: Mode,
+	effort?: Effort,
+) {
 	const [run] = await db
 		.insert(runs)
 		.values({ conversationId, userQuery: message, status: "queued" })
@@ -67,7 +82,7 @@ export async function startRun(conversationId: string, message: string, mode: Mo
 		.set({
 			activeRunId: run.id,
 			status: "running",
-			metadata: { agent: true, mode } satisfies AgentMeta,
+			metadata: { agent: true, mode, ...(effort && { effort }) } satisfies AgentMeta,
 		})
 		.where(and(eq(conversations.id, conversationId), notInArray(conversations.status, [...LIVE])))
 		.returning({ id: conversations.id });
@@ -147,3 +162,37 @@ export async function interruptIdle(conversationId: string, runId: string) {
 		.where(eq(conversations.id, conversationId));
 	return true;
 }
+
+/** Saves the mode and effort an approval picked on the conversation. */
+export const setMeta = (conversationId: string, meta: AgentMeta) =>
+	db.update(conversations).set({ metadata: meta }).where(eq(conversations.id, conversationId));
+
+/** Adds one job's cost to the run's usage. Jobs of a run never overlap, so read-then-write is safe. */
+export async function addRunUsage(runId: string, add: RunUsage) {
+	const run = await getRun(runId);
+	const was = (run?.usage ?? {}) as Partial<RunUsage>;
+	const usage: RunUsage = {
+		steps: (was.steps ?? 0) + add.steps,
+		inputTokens: (was.inputTokens ?? 0) + add.inputTokens,
+		outputTokens: (was.outputTokens ?? 0) + add.outputTokens,
+		cacheReadTokens: (was.cacheReadTokens ?? 0) + add.cacheReadTokens,
+		durationMs: (was.durationMs ?? 0) + add.durationMs,
+	};
+	await db.update(runs).set({ usage }).where(eq(runs.id, runId));
+}
+
+/** Rename, pin and archive. The caller has checked the combination. */
+export async function updateConversation(
+	conversationId: string,
+	patch: { title?: string; pinned?: boolean; archived?: boolean },
+) {
+	const [row] = await db
+		.update(conversations)
+		.set(patch)
+		.where(eq(conversations.id, conversationId))
+		.returning();
+	return row;
+}
+
+export const deleteConversation = (conversationId: string) =>
+	db.delete(conversations).where(eq(conversations.id, conversationId));

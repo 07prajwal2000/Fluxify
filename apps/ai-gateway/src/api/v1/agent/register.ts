@@ -10,6 +10,8 @@ import {
 import { zValidator } from "@hono/zod-validator";
 import type { Context, Hono } from "hono";
 import { z } from "zod";
+import { EFFORTS } from "../../../agent/model";
+import { projectSupportsThinking } from "../../../agent/runner/integration";
 import {
 	type AgentMeta,
 	createConversation,
@@ -18,7 +20,14 @@ import {
 	listConversations,
 } from "../../../agent/runner/repository";
 import { MODES } from "../../../agent/tools";
-import { answerApproval, getConversationDetail, sendMessage, stopRun } from "./service";
+import {
+	answerApproval,
+	getConversationDetail,
+	patchConversation,
+	removeConversation,
+	sendMessage,
+	stopRun,
+} from "./service";
 import { streamRun } from "./stream";
 
 type Caller = User & { isSystemAdmin: boolean };
@@ -44,7 +53,8 @@ async function owned(user: Caller, conversationId: string, projectId?: string) {
 }
 
 const json = <T extends z.ZodType>(schema: T) => zValidator("json", schema, zodErrorCallbackParser);
-const mode = z.enum(MODES as [string, ...string[]]).default("manual");
+const mode = z.enum(MODES as [string, ...string[]]);
+const effort = z.enum(EFFORTS);
 
 /** In-conversation routes: project role first, then ownership. */
 async function conversationOf(c: Context, role: AccessControlRole) {
@@ -71,6 +81,13 @@ export function registerAgentRoutes(app: Hono) {
 		return c.json(await createConversation(user.id, projectId, c.req.valid("json").title), 201);
 	});
 
+	// For the new-chat page, before a conversation exists: does the project's model take a thinking setting?
+	r.get("/:projectId/model", async (c) => {
+		const projectId = c.req.param("projectId");
+		caller(c, projectId, "viewer");
+		return c.json({ supportsThinking: await projectSupportsThinking(projectId) });
+	});
+
 	r.get(base, async (c) => {
 		const projectId = c.req.param("projectId");
 		const user = caller(c, projectId, "viewer");
@@ -82,22 +99,61 @@ export function registerAgentRoutes(app: Hono) {
 		return c.json(await getConversationDetail(conversation));
 	});
 
+	r.patch(
+		`${base}/:conversationId`,
+		json(
+			z
+				.object({
+					title: z.string().min(1).max(255),
+					pinned: z.boolean(),
+					archived: z.boolean(),
+				})
+				.partial()
+				.refine((b) => Object.keys(b).length > 0, "Nothing to update"),
+		),
+		async (c) => {
+			const { conversation } = await conversationOf(c, "creator");
+			return c.json(await patchConversation(conversation, c.req.valid("json")));
+		},
+	);
+
+	r.delete(`${base}/:conversationId`, async (c) => {
+		const { conversation } = await conversationOf(c, "creator");
+		return c.json(await removeConversation(conversation));
+	});
+
 	r.post(
 		`${base}/:conversationId/messages`,
-		json(z.object({ text: z.string().min(1), mode })),
+		json(
+			z.object({
+				text: z.string().min(1),
+				mode: mode.default("manual"),
+				effort: effort.optional(),
+			}),
+		),
 		async (c) => {
 			const { user, conversation } = await conversationOf(c, "creator");
 			const body = c.req.valid("json");
-			return c.json(await sendMessage(conversation, user.id, body.text, body.mode as never), 202);
+			return c.json(
+				await sendMessage(conversation, user.id, body.text, body.mode as never, body.effort),
+				202,
+			);
 		},
 	);
 
 	r.post(
 		`${base}/:conversationId/approval`,
-		json(z.object({ approve: z.boolean(), reason: z.string().max(2000).optional() })),
+		json(
+			z.object({
+				approve: z.boolean(),
+				reason: z.string().max(2000).optional(),
+				mode: mode.optional(),
+				effort: effort.optional(),
+			}),
+		),
 		async (c) => {
 			const { user, conversation } = await conversationOf(c, "creator");
-			return c.json(await answerApproval(conversation, user.id, c.req.valid("json")), 202);
+			return c.json(await answerApproval(conversation, user.id, c.req.valid("json") as never), 202);
 		},
 	);
 
