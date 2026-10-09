@@ -156,7 +156,7 @@ describe("agent run tokens (#646)", () => {
 		const [payload, sig] = t.slice(AGENT_TOKEN_PREFIX.length).split(".");
 		const other = Buffer.from(JSON.stringify({ u: "u2", p: "p1", exp: Date.now() + 1e6 })).toString("base64url");
 		expect(verifyAgentToken(`${AGENT_TOKEN_PREFIX}${other}.${sig}`)).toBeNull();
-		expect(verifyAgentToken(`${AGENT_TOKEN_PREFIX}${payload}.x${sig.slice(1)}`)).toBeNull();
+		expect(verifyAgentToken(`${AGENT_TOKEN_PREFIX}${payload}.${sig[0] === "x" ? "y" : "x"}${sig.slice(1)}`)).toBeNull();
 		expect(verifyAgentToken(`${AGENT_TOKEN_PREFIX}${payload}`)).toBeNull();
 		expect(verifyAgentToken("flx_abc")).toBeNull();
 		process.env.BETTER_AUTH_SECRET = "another-secret";

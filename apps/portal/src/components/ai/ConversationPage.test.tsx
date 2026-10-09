@@ -84,10 +84,13 @@ type Settings = { mode: string; effort: string; supportsThinking: boolean };
 const detail = (messages: Row[], status: string, settings: Partial<Settings> = {}) => ({
 	conversation: { id: "c1", title: "t", archived: false },
 	messages,
+	nextBeforeSeq: null as number | null,
 	run: { id: "r1", status, stopReason: null, usage: null },
 	settings: { mode: "manual", effort: "none", supportsThinking: true, ...settings },
 });
 
+/** Callbacks of the observers a render armed; the last one is the top sentinel. */
+let observers: ((e: { isIntersecting: boolean }[]) => void)[] = [];
 const saved: { es?: typeof EventSource; io?: typeof IntersectionObserver } = {};
 let get: ReturnType<typeof spyOn>;
 let approve: ReturnType<typeof spyOn>;
@@ -100,8 +103,12 @@ beforeEach(() => {
 		addEventListener() {}
 		close() {}
 	} as never;
+	observers = [];
 	globalThis.IntersectionObserver = class {
-		observe() {}
+		constructor(public cb: (e: { isIntersecting: boolean }[]) => void) {}
+		observe() {
+			observers.push(this.cb);
+		}
 		disconnect() {}
 	} as never;
 	get = spyOn(agentConversationsService, "get");
@@ -350,4 +357,41 @@ test("an open thinking block has a Collapse at the bottom that closes it", async
 	await until(() => expect(thought.open).toBe(true));
 	fireEvent.click(q().getByRole("button", { name: "Collapse" }));
 	await until(() => expect(thought.open).toBe(false));
+});
+
+test("scrolling to the top loads the older page, shows a loader, and keeps the scroll position", async () => {
+	let height = 1000;
+	Object.defineProperty(HTMLElement.prototype, "scrollHeight", {
+		configurable: true,
+		get: () => height,
+	});
+	let release!: (v: { messages: Row[]; nextBeforeSeq: number | null }) => void;
+	const older = spyOn(agentConversationsService, "getOlder").mockReturnValue(
+		new Promise((r) => {
+			release = r;
+		}),
+	);
+	try {
+		open({
+			...detail([user(2, "latest question"), reply(3, "latest answer")], "completed"),
+			nextBeforeSeq: 2,
+		});
+		await until(() => q().getByText("latest answer"));
+		const scroller = document.querySelector(".overflow-y-auto") as HTMLElement;
+		scroller.scrollTop = 0;
+		act(() => observers.at(-1)?.([{ isIntersecting: true }]));
+		await until(() => q().getByRole("status", { name: "Loading older messages" }));
+		expect(older).toHaveBeenCalledWith("p1", "c1", 2);
+		height = 1600; // the older rows add 600px above
+		await act(async () =>
+			release({ messages: [user(0, "old question"), reply(1, "old answer")], nextBeforeSeq: null }),
+		);
+		await until(() => q().getByText("old answer"));
+		expect(q().queryByRole("status", { name: "Loading older messages" })).toBeNull();
+		expect(scroller.scrollTop).toBe(600);
+	} finally {
+		// biome-ignore lint/performance/noDelete: restore the prototype
+		delete (HTMLElement.prototype as any).scrollHeight;
+		older.mockRestore();
+	}
 });

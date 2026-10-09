@@ -1,4 +1,4 @@
-import { afterAll, beforeEach, describe, expect, it, spyOn } from "bun:test";
+import { afterAll, beforeEach, describe, expect, it, mock, spyOn } from "bun:test";
 import * as integration from "../../../agent/runner/integration";
 import * as queue from "../../../agent/runner/queue";
 import * as repo from "../../../agent/runner/repository";
@@ -7,6 +7,7 @@ import * as quota from "../harness-conversations/send-message/rateLimit";
 import {
 	answerApproval,
 	getConversationDetail,
+	getOlderMessages,
 	patchConversation,
 	removeConversation,
 	sendMessage,
@@ -22,6 +23,7 @@ const update = spyOn(repo, "updateConversation").mockResolvedValue({} as never);
 const del = spyOn(repo, "deleteConversation").mockResolvedValue(undefined as never);
 const publish = spyOn(queue, "publishAgentJob").mockResolvedValue(undefined);
 const supports = spyOn(integration, "projectSupportsThinking").mockResolvedValue(true);
+const pageOf = mock(async (_id: string, _before?: number) => ({ messages: [] as unknown[], nextBeforeSeq: 7 as number | null }));
 const spies = [
 	startRun,
 	setMeta,
@@ -32,7 +34,7 @@ const spies = [
 	supports,
 	spyOn(queue, "purgeRunEvents").mockResolvedValue(undefined as never),
 	spyOn(quota, "assertRunQuota").mockResolvedValue(undefined as never),
-	spyOn(store, "agentStore").mockReturnValue({ all: async () => [] } as never),
+	spyOn(store, "agentStore").mockReturnValue({ page: pageOf } as never),
 	spyOn(repo, "getRun").mockResolvedValue({ id: "r1" } as never),
 ];
 afterAll(() => {
@@ -82,6 +84,19 @@ describe("mode and effort stick to the conversation", () => {
 			effort: "none",
 			supportsThinking: false,
 		});
+	});
+});
+
+describe("message pages", () => {
+	it("get-conversation returns the latest page with the cursor", async () => {
+		const d = await getConversationDetail(conv());
+		expect(pageOf).toHaveBeenLastCalledWith("c1");
+		expect(d).toMatchObject({ messages: [], nextBeforeSeq: 7 });
+	});
+
+	it("beforeSeq returns just the page before it", async () => {
+		expect(await getOlderMessages(conv(), 7)).toEqual({ messages: [], nextBeforeSeq: 7 });
+		expect(pageOf).toHaveBeenLastCalledWith("c1", 7);
 	});
 });
 

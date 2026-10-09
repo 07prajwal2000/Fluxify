@@ -95,6 +95,32 @@ describe("agent_messages", () => {
 		expect((await store.all(c)).map((r) => r.seq)).toEqual(Array.from({ length: 20 }, (_, i) => i));
 	});
 
+	it("pages the UI by seq: latest first, then beforeSeq, with a cursor until the start", async () => {
+		const c = await conversation();
+		await store.append(c, c, Array.from({ length: 7 }, (_, i) => ({ role: "user", content: `m${i}` })));
+		const seqs = (p: { messages: { seq: number }[] }) => p.messages.map((r) => r.seq);
+		const latest = await store.page(c, undefined, 3);
+		expect([seqs(latest), latest.nextBeforeSeq]).toEqual([[4, 5, 6], 4]);
+		const mid = await store.page(c, latest.nextBeforeSeq!, 3);
+		expect([seqs(mid), mid.nextBeforeSeq]).toEqual([[1, 2, 3], 1]);
+		const first = await store.page(c, mid.nextBeforeSeq!, 3);
+		expect([seqs(first), first.nextBeforeSeq]).toEqual([[0], null]);
+		expect(await store.page(c)).toMatchObject({ nextBeforeSeq: null }); // 7 rows fit one default page
+	});
+
+	it("a page never splits a tool call from its result", async () => {
+		const c = await conversation();
+		await store.append(c, c, [{ role: "user", content: "go" }, ...step(1), ...step(2)]); // 0 user, 1 call, 2 result, 3 call, 4 result
+		// Limit 1 would start on the result at 4; it reaches back to the call at 3.
+		const last = await store.page(c, undefined, 1);
+		expect(last.messages.map((r) => r.seq)).toEqual([3, 4]);
+		expect(last.nextBeforeSeq).toBe(3);
+		// Limit 2 for the page before 3 starts on the result at 2; it takes the call at 1.
+		const prev = await store.page(c, 3, 1);
+		expect(prev.messages.map((r) => r.seq)).toEqual([1, 2]);
+		expect(prev.nextBeforeSeq).toBe(1);
+	});
+
 	it("the model view is the latest summary and the rows after it; the UI still sees every row", async () => {
 		const c = await conversation();
 		await store.append(c, c, [{ role: "user", content: "build" }, ...step(1)]); // 0..2

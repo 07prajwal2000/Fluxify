@@ -75,9 +75,15 @@ const toolRow = (seq: number, id: string, value: unknown): Row => ({
 		],
 	},
 });
-const detail = (messages: Row[], status: string, stopReason: string | null = null) => ({
+const detail = (
+	messages: Row[],
+	status: string,
+	stopReason: string | null = null,
+	nextBeforeSeq: number | null = null,
+) => ({
 	conversation: { id: "c1", title: "t", archived: false } as never,
 	messages,
+	nextBeforeSeq,
 	run: { id: "r1", status, stopReason } as never,
 	settings: { mode: "manual", effort: "none", supportsThinking: false },
 });
@@ -258,4 +264,61 @@ test("the thinking timer counts from the run's start, so a refresh and new token
 	expect(result.current.runStartedAt).toBe(Date.parse("2026-10-09T10:00:00.000Z"));
 	act(() => es.emit({ type: "reasoning", seq: 1, text: "hmm" }));
 	expect(result.current.runStartedAt).toBe(Date.parse("2026-10-09T10:00:00.000Z"));
+});
+
+test("loadOlder prepends the page before the oldest row and stops when there is none", async () => {
+	get.mockResolvedValue(detail([user(2, "c"), user(3, "d")], "completed", null, 2));
+	const older = spyOn(agentConversationsService, "getOlder").mockResolvedValue({
+		messages: [user(0, "a"), user(1, "b")],
+		nextBeforeSeq: null,
+	});
+	const { result } = setup();
+	await waitFor(() => expect(result.current.hasOlder).toBe(true));
+	await act(() => result.current.loadOlder());
+	expect(older).toHaveBeenCalledWith("p1", "c1", 2);
+	expect(texts(result.current.messages)).toEqual(["a", "b", "c", "d"]);
+	expect(result.current.hasOlder).toBe(false);
+	older.mockRestore();
+});
+
+test("older pages stay and live messages are not dropped when the run ends and the latest page reloads", async () => {
+	get.mockResolvedValue(detail([user(2, "c")], "executing", null, 2));
+	const older = spyOn(agentConversationsService, "getOlder").mockResolvedValue({
+		messages: [user(0, "a"), user(1, "b")],
+		nextBeforeSeq: null,
+	});
+	const { result } = setup();
+	const es = await stream();
+	// The stream follows from the latest page's top, not from the older ones.
+	expect(es.url).toEndWith("afterSeq=2");
+	await act(() => result.current.loadOlder());
+	act(() => es.emit({ type: "text", seq: 3, text: "Hello" }));
+	expect(texts(result.current.messages)).toEqual(["a", "b", "c", "Hello"]);
+	get.mockResolvedValue(
+		detail([user(2, "c"), assistant(3, [{ type: "text", text: "Hello" }])], "completed", null, 2),
+	);
+	act(() => es.emit({ type: "done", seq: 3, status: "completed" }));
+	await waitFor(() => expect(result.current.running).toBe(false));
+	expect(texts(result.current.messages)).toEqual(["a", "b", "c", "Hello"]);
+	expect(result.current.hasOlder).toBe(false);
+	older.mockRestore();
+});
+
+test("older pages are dropped when a reload no longer joins them", async () => {
+	get.mockResolvedValue(detail([user(2, "c")], "completed", null, 2));
+	const older = spyOn(agentConversationsService, "getOlder").mockResolvedValue({
+		messages: [user(0, "a"), user(1, "b")],
+		nextBeforeSeq: null,
+	});
+	const { result } = setup();
+	await waitFor(() => expect(result.current.hasOlder).toBe(true));
+	await act(() => result.current.loadOlder());
+	// A long run: the latest page now starts at 9, with 3..8 in between.
+	get.mockResolvedValue(detail([user(9, "j")], "completed", null, 9));
+	const stop = spyOn(agentConversationsService, "stop").mockResolvedValue(undefined as never);
+	await act(() => result.current.stop());
+	await waitFor(() => expect(texts(result.current.messages)).toEqual(["j"]));
+	expect(result.current.hasOlder).toBe(true);
+	older.mockRestore();
+	stop.mockRestore();
 });

@@ -4,12 +4,15 @@ import {
 	agentHarnessRunsEntity as runs,
 } from "@fluxify/server/src/db/agent-harness-schema";
 import type { ModelMessage } from "ai";
-import { and, asc, desc, eq, gt, lte, max, ne } from "drizzle-orm";
+import { and, asc, desc, eq, gt, lt, lte, max, ne } from "drizzle-orm";
 import type { BunSQLDatabase } from "drizzle-orm/bun-sql";
 
 export type RunStatus = (typeof runs.$inferSelect)["status"];
 /** A message of the model view and the seq it maps to (a summary maps to the seq it covers up to). */
 export type Seqd = { message: ModelMessage; seq: number };
+
+/** Rows per page of the chat UI. */
+export const PAGE_SIZE = 50;
 
 /**
  * agent_messages (#645): one row per finished message, never edited or
@@ -71,6 +74,35 @@ export function agentStore(db: BunSQLDatabase) {
 				.from(messages)
 				.where(eq(messages.conversationId, conversationId))
 				.orderBy(asc(messages.seq)),
+
+		/**
+		 * One page for the UI: the latest `limit` rows, or the `limit` before `beforeSeq`,
+		 * in order. A page never starts on a tool result: it reaches back to the call's
+		 * row so the two stay together. `nextBeforeSeq` is the cursor for the next older
+		 * page, null when there is none.
+		 */
+		page: async (conversationId: string, beforeSeq?: number, limit = PAGE_SIZE) => {
+			const of = eq(messages.conversationId, conversationId);
+			const older = (seq: number, n: number) =>
+				db
+					.select()
+					.from(messages)
+					.where(and(of, lt(messages.seq, seq)))
+					.orderBy(desc(messages.seq))
+					.limit(n);
+			const rows =
+				beforeSeq === undefined
+					? await db.select().from(messages).where(of).orderBy(desc(messages.seq)).limit(limit)
+					: await older(beforeSeq, limit);
+			while (rows.at(-1)?.role === "tool") {
+				const [prev] = await older(rows.at(-1)!.seq, 1);
+				if (!prev) break;
+				rows.push(prev);
+			}
+			const oldest = rows.at(-1);
+			const [more] = oldest ? await older(oldest.seq, 1) : [];
+			return { messages: rows.reverse(), nextBeforeSeq: more ? oldest!.seq : null };
+		},
 
 		/**
 		 * What the model gets: the latest summary, then the rows after what it
