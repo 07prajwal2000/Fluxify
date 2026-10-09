@@ -15,7 +15,7 @@ import {
 } from "drizzle-orm/pg-core";
 import { systemUsers } from "./auth-schema";
 import { jsonb } from "./jsonbColumn";
-import { integrationsEntity, projectsEntity } from "./schema";
+import { projectsEntity } from "./schema";
 
 /* ============================================================================
  * AGENT PERSISTENCE LAYER
@@ -95,13 +95,6 @@ export const agentRunsEntity = pgTable(
 			})
 			.notNull(),
 		userQuery: text("user_query").notNull(),
-		aiResponse: text("ai_response"),
-		// The AI integration this run used. `set null` keeps run history if the
-		// integration is later deleted. Nullable so legacy runs (resolved from the
-		// project's default integration) remain valid.
-		integrationId: uuid("integration_id").references(() => integrationsEntity.id, {
-			onDelete: "set null",
-		}),
 		status: agentRunStatusEnum("status").default("queued").notNull(),
 		// What the run cost the provider: model calls, prompt/completion/cached
 		// tokens, wall clock, and the same breakdown per agent. Written once when
@@ -120,7 +113,6 @@ export const agentRunsEntity = pgTable(
 	(t) => [
 		index("idx_agent_runs_conv_id").on(t.conversationId),
 		index("idx_agent_runs_status").on(t.status),
-		index("idx_agent_runs_integration_id").on(t.integrationId),
 	],
 );
 

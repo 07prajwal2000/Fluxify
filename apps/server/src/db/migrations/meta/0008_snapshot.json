@@ -4076,18 +4076,6 @@
 					"primaryKey": false,
 					"notNull": true
 				},
-				"ai_response": {
-					"name": "ai_response",
-					"type": "text",
-					"primaryKey": false,
-					"notNull": false
-				},
-				"integration_id": {
-					"name": "integration_id",
-					"type": "uuid",
-					"primaryKey": false,
-					"notNull": false
-				},
 				"status": {
 					"name": "status",
 					"type": "agent_run_status",
@@ -4165,21 +4153,6 @@
 					"concurrently": false,
 					"method": "btree",
 					"with": {}
-				},
-				"idx_agent_runs_integration_id": {
-					"name": "idx_agent_runs_integration_id",
-					"columns": [
-						{
-							"expression": "integration_id",
-							"isExpression": false,
-							"asc": true,
-							"nulls": "last"
-						}
-					],
-					"isUnique": false,
-					"concurrently": false,
-					"method": "btree",
-					"with": {}
 				}
 			},
 			"foreignKeys": {
@@ -4190,15 +4163,6 @@
 					"columnsFrom": ["conversation_id"],
 					"columnsTo": ["id"],
 					"onDelete": "cascade",
-					"onUpdate": "no action"
-				},
-				"agent_runs_integration_id_integrations_id_fk": {
-					"name": "agent_runs_integration_id_integrations_id_fk",
-					"tableFrom": "agent_runs",
-					"tableTo": "integrations",
-					"columnsFrom": ["integration_id"],
-					"columnsTo": ["id"],
-					"onDelete": "set null",
 					"onUpdate": "no action"
 				}
 			},

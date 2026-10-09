@@ -119,7 +119,7 @@ describe("migrateDB", () => {
 			await client`INSERT INTO projects (id, name, slug) VALUES ('p1', 'Shop', 'shop')`;
 			// One conversation of the old harness (#648) and one of the new agent, each with a run.
 			await client`INSERT INTO agent_harness_conversations (id, user_id, project_id, metadata) VALUES ('old', 'u1', 'p1', '{}'), ('new', 'u1', 'p1', '{"agent": true}')`;
-			await client`INSERT INTO agent_harness_runs (id, conversation_id, user_query) VALUES ('old-run', 'old', 'q'), ('new-run', 'new', 'q')`;
+			await client`INSERT INTO agent_harness_runs (id, conversation_id, user_query, ai_response) VALUES ('old-run', 'old', 'q', 'a'), ('new-run', 'new', 'q', 'a')`;
 			await client`INSERT INTO agent_harness_steps (id, run_id, conversation_id, step_type) VALUES ('s1', 'old-run', 'old', 'router')`;
 			seeded = await seededRows();
 		});
@@ -140,6 +140,9 @@ describe("migrateDB", () => {
 			expect(await tables(client)).toEqual(expect.arrayContaining(["agent_conversations", "agent_runs", "agent_messages"]));
 			expect((await client`SELECT id FROM agent_conversations`).map((r: { id: string }) => r.id)).toEqual(["new"]);
 			expect((await client`SELECT id FROM agent_runs`).map((r: { id: string }) => r.id)).toEqual(["new-run"]);
+			const cols = await client`SELECT column_name FROM information_schema.columns WHERE table_name = 'agent_runs'`;
+			expect(cols.map((c: { column_name: string }) => c.column_name)).not.toEqual(expect.arrayContaining(["ai_response"]));
+			expect(cols.map((c: { column_name: string }) => c.column_name)).not.toEqual(expect.arrayContaining(["integration_id"]));
 		});
 
 		test("a second run changes nothing", async () => {
