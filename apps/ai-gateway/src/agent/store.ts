@@ -1,8 +1,8 @@
 import {
-	agentHarnessConversationsEntity as conversations,
+	agentConversationsEntity as conversations,
 	agentMessagesEntity as messages,
-	agentHarnessRunsEntity as runs,
-} from "@fluxify/server/src/db/agent-harness-schema";
+	agentRunsEntity as runs,
+} from "@fluxify/server/src/db/agent-schema";
 import type { ModelMessage } from "ai";
 import { and, asc, desc, eq, gt, lt, lte, max, ne } from "drizzle-orm";
 import type { BunSQLDatabase } from "drizzle-orm/bun-sql";

@@ -137,9 +137,9 @@ describe("migrateDB", () => {
 
 		test("retires the old harness: its tables and conversations go, the new agent's stay", async () => {
 			expect(await tables(client)).not.toContain("agent_harness_steps");
-			expect(await tables(client)).toEqual(expect.arrayContaining(["agent_harness_conversations", "agent_harness_runs", "agent_messages"]));
-			expect((await client`SELECT id FROM agent_harness_conversations`).map((r: { id: string }) => r.id)).toEqual(["new"]);
-			expect((await client`SELECT id FROM agent_harness_runs`).map((r: { id: string }) => r.id)).toEqual(["new-run"]);
+			expect(await tables(client)).toEqual(expect.arrayContaining(["agent_conversations", "agent_runs", "agent_messages"]));
+			expect((await client`SELECT id FROM agent_conversations`).map((r: { id: string }) => r.id)).toEqual(["new"]);
+			expect((await client`SELECT id FROM agent_runs`).map((r: { id: string }) => r.id)).toEqual(["new-run"]);
 		});
 
 		test("a second run changes nothing", async () => {

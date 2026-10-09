@@ -258,7 +258,7 @@ Each release ships versioned migrations, and the admin server applies the ones a
 database hasn't had yet, in order, when it starts.
 
 1. Edit the schema in `apps/server/src/db/` (`schema.ts`, `auth-schema.ts`,
-   `agent-harness-schema.ts`).
+   `agent-schema.ts`).
 2. Run `bun run db:generate`. It writes a numbered SQL file into
    `apps/server/src/db/migrations` and updates `meta/`. Read the SQL.
 3. Commit the SQL file and `meta/` with your schema change. CI fails when the

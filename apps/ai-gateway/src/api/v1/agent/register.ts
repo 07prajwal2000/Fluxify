@@ -69,7 +69,7 @@ async function conversationOf(c: Context, role: AccessControlRole) {
 
 /**
  * The new agent's HTTP API (#646), under `/v1/agent`. Conversations live in the
- * `agent_harness_*` rows; messages are the #645 rows. Runs happen on the gateway worker;
+ * `agent_*` rows; messages are the #645 rows. Runs happen on the gateway worker;
  * `/runs/:runId/stream` follows one live.
  */
 export function registerAgentRoutes(app: Hono) {

@@ -56,12 +56,12 @@ afterAll(async () => {
 /** A fresh conversation with one run. */
 async function conversation() {
 	const id = crypto.randomUUID();
-	await sql`INSERT INTO agent_harness_conversations (id) VALUES (${id})`;
-	await sql`INSERT INTO agent_harness_runs (id, conversation_id, user_query) VALUES (${id}, ${id}, 'q')`;
+	await sql`INSERT INTO agent_conversations (id) VALUES (${id})`;
+	await sql`INSERT INTO agent_runs (id, conversation_id, user_query) VALUES (${id}, ${id}, 'q')`;
 	return id;
 }
 const runStatus = async (id: string) =>
-	(await sql`SELECT status FROM agent_harness_runs WHERE id = ${id}`)[0].status;
+	(await sql`SELECT status FROM agent_runs WHERE id = ${id}`)[0].status;
 
 describe("agent_messages", () => {
 	it("stores messages as-is and loads them in seq order", async () => {

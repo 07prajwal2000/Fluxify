@@ -18,11 +18,11 @@ import { jsonb } from "./jsonbColumn";
 import { integrationsEntity, projectsEntity } from "./schema";
 
 /* ============================================================================
- * AGENT PERSISTENCE LAYER (the tables keep their original `agent_harness_` names)
+ * AGENT PERSISTENCE LAYER
  * ============================================================================ */
 
 // Enums
-export const agentHarnessConversationStatusEnum = pgEnum("agent_harness_conversation_status", [
+export const agentConversationStatusEnum = pgEnum("agent_conversation_status", [
 	"idle",
 	"running",
 	"paused_hitl",
@@ -31,7 +31,7 @@ export const agentHarnessConversationStatusEnum = pgEnum("agent_harness_conversa
 	"failed",
 ]);
 
-export const agentHarnessRunStatusEnum = pgEnum("agent_harness_run_status", [
+export const agentRunStatusEnum = pgEnum("agent_run_status", [
 	"queued",
 	"routing",
 	"verifying",
@@ -47,8 +47,8 @@ export const agentHarnessRunStatusEnum = pgEnum("agent_harness_run_status", [
 ]);
 
 // 1. Conversations Table
-export const agentHarnessConversationsEntity = pgTable(
-	"agent_harness_conversations",
+export const agentConversationsEntity = pgTable(
+	"agent_conversations",
 	{
 		id: varchar({ length: 50 })
 			.primaryKey()
@@ -60,7 +60,7 @@ export const agentHarnessConversationsEntity = pgTable(
 			onDelete: "cascade",
 		}),
 		title: varchar({ length: 255 }).default("New Chat"),
-		status: agentHarnessConversationStatusEnum("status").default("idle").notNull(),
+		status: agentConversationStatusEnum("status").default("idle").notNull(),
 		activeRunId: varchar("active_run_id", { length: 50 }),
 		/** Pinned conversations sort first in the list. Forced back to false
 		 *  whenever `archived` is set true. */
@@ -76,21 +76,21 @@ export const agentHarnessConversationsEntity = pgTable(
 			.$onUpdate(() => new Date()),
 	},
 	(t) => [
-		index("idx_harness_conv_user_id").on(t.userId),
-		index("idx_harness_conv_project_id").on(t.projectId),
-		index("idx_harness_conv_user_archived_pinned").on(t.userId, t.archived, t.pinned),
+		index("idx_agent_conv_user_id").on(t.userId),
+		index("idx_agent_conv_project_id").on(t.projectId),
+		index("idx_agent_conv_user_archived_pinned").on(t.userId, t.archived, t.pinned),
 	],
 );
 
 // 2. Runs Table
-export const agentHarnessRunsEntity = pgTable(
-	"agent_harness_runs",
+export const agentRunsEntity = pgTable(
+	"agent_runs",
 	{
 		id: varchar({ length: 50 })
 			.primaryKey()
 			.$defaultFn(() => generateID()),
 		conversationId: varchar("conversation_id", { length: 50 })
-			.references(() => agentHarnessConversationsEntity.id, {
+			.references(() => agentConversationsEntity.id, {
 				onDelete: "cascade",
 			})
 			.notNull(),
@@ -102,7 +102,7 @@ export const agentHarnessRunsEntity = pgTable(
 		integrationId: uuid("integration_id").references(() => integrationsEntity.id, {
 			onDelete: "set null",
 		}),
-		status: agentHarnessRunStatusEnum("status").default("queued").notNull(),
+		status: agentRunStatusEnum("status").default("queued").notNull(),
 		// What the run cost the provider: model calls, prompt/completion/cached
 		// tokens, wall clock, and the same breakdown per agent. Written once when
 		// the run reaches a terminal state; null for runs that never got there.
@@ -118,9 +118,9 @@ export const agentHarnessRunsEntity = pgTable(
 			.$onUpdate(() => new Date()),
 	},
 	(t) => [
-		index("idx_harness_runs_conv_id").on(t.conversationId),
-		index("idx_harness_runs_status").on(t.status),
-		index("idx_harness_runs_integration_id").on(t.integrationId),
+		index("idx_agent_runs_conv_id").on(t.conversationId),
+		index("idx_agent_runs_status").on(t.status),
+		index("idx_agent_runs_integration_id").on(t.integrationId),
 	],
 );
 
@@ -140,10 +140,10 @@ export const agentMessagesEntity = pgTable(
 			.primaryKey()
 			.$defaultFn(() => generateID()),
 		conversationId: varchar("conversation_id", { length: 50 })
-			.references(() => agentHarnessConversationsEntity.id, { onDelete: "cascade" })
+			.references(() => agentConversationsEntity.id, { onDelete: "cascade" })
 			.notNull(),
 		runId: varchar("run_id", { length: 50 })
-			.references(() => agentHarnessRunsEntity.id, { onDelete: "cascade" })
+			.references(() => agentRunsEntity.id, { onDelete: "cascade" })
 			.notNull(),
 		seq: integer("seq").notNull(),
 		role: agentMessageRoleEnum("role").notNull(),
@@ -164,16 +164,13 @@ export const agentMessagesEntity = pgTable(
  * RELATIONS
  * ============================================================================ */
 
-export const agentHarnessConversationsRelations = relations(
-	agentHarnessConversationsEntity,
-	({ many }) => ({
-		runs: many(agentHarnessRunsEntity),
-	}),
-);
+export const agentConversationsRelations = relations(agentConversationsEntity, ({ many }) => ({
+	runs: many(agentRunsEntity),
+}));
 
-export const agentHarnessRunsRelations = relations(agentHarnessRunsEntity, ({ one }) => ({
-	conversation: one(agentHarnessConversationsEntity, {
-		fields: [agentHarnessRunsEntity.conversationId],
-		references: [agentHarnessConversationsEntity.id],
+export const agentRunsRelations = relations(agentRunsEntity, ({ one }) => ({
+	conversation: one(agentConversationsEntity, {
+		fields: [agentRunsEntity.conversationId],
+		references: [agentConversationsEntity.id],
 	}),
 }));
