@@ -1,6 +1,7 @@
 import type { StopReason } from "@fluxify/ai-gateway/src/agent/agent";
 import type { Effort } from "@fluxify/ai-gateway/src/agent/model";
 import type { Mode } from "@fluxify/ai-gateway/src/agent/tools";
+import type { EditPreview } from "@fluxify/ai-gateway/src/mcp/canvasPreview";
 import type { AgentConversation } from "@/components/ai/types";
 import { httpClient } from "@/lib/http";
 
@@ -35,7 +36,13 @@ export type AgentRun = {
 };
 /** The pickers' saved state: what the conversation went on with last, and whether the project's model thinks. */
 export type AgentSettings = { mode: Mode; effort: Effort; supportsThinking: boolean };
-export type { Effort, Mode };
+export type { EditPreview, Effort, Mode };
+/** The edit_canvas input a preview is asked for. */
+export type CanvasPreviewBody = {
+	target: { kind: string; id: string };
+	ops: unknown[];
+	auto_layout?: boolean;
+};
 export type AgentConversationDetail = {
 	conversation: AgentConversation & { activeRunId: string | null };
 	/** The latest page of rows. */
@@ -117,6 +124,19 @@ export const agentConversationsService = {
 	},
 	async stop(projectId: string, conversationId: string): Promise<void> {
 		await httpClient.post(`${base(projectId)}/${conversationId}/stop`);
+	},
+	/** What a waiting edit_canvas would do to the canvas, before and after, without saving. */
+	async canvasPreview(projectId: string, body: CanvasPreviewBody): Promise<EditPreview> {
+		return (await httpClient.post(`ai/v1/agent/${projectId}/canvas-preview`, body)).data;
+	},
+	/** The resource a save_*, delete_* or call_route call targets, as it is now; null for a create. */
+	async resourcePreview(
+		projectId: string,
+		tool: string,
+		input: Record<string, unknown>,
+	): Promise<{ current: Record<string, unknown> | null }> {
+		return (await httpClient.post(`ai/v1/agent/${projectId}/resource-preview`, { tool, input }))
+			.data;
 	},
 	/** SSE of a run, without the events of messages up to `afterSeq`. Same origin, so the session cookie goes along. */
 	streamUrl: (runId: string, afterSeq: number) =>
