@@ -7,6 +7,7 @@ import {
 	routeDebugKey,
 	signDebugToken,
 } from "./debugError";
+import { DEBUG_TRACE_HEADER, decodeDebugTrace } from "./debugTrace";
 import { createExecutionSupervisor } from "./executionSupervisor";
 
 /**
@@ -31,11 +32,11 @@ const edge = (from: string, to: string) => ({
 	toHandle: "source",
 });
 
-function route(id: string, path: string, failing: ReturnType<typeof block>) {
+function route(id: string, path: string, failing: ReturnType<typeof block>, traced = false) {
 	const { source } = compileGraph(
 		[block("entry", BlockTypes.entrypoint), failing],
 		[edge("entry", failing.id)],
-		{ tracing: false },
+		{ tracing: traced },
 	);
 	return {
 		key: `route.${P}.${id}`,
@@ -47,7 +48,7 @@ function route(id: string, path: string, failing: ReturnType<typeof block>) {
 			path,
 			timeoutSeconds: 10,
 			acceptedContentTypes: [],
-			tracingEnabled: false,
+			tracingEnabled: traced,
 			recordExecution: false,
 			routeVersion: "1",
 			source,
@@ -90,6 +91,18 @@ const artifacts = [
 			blockName: "Calc",
 			value: "function total(x) { return x.items.length; }\nreturn total(undefined);",
 		}),
+	),
+	route(
+		"r-trace",
+		"/traced",
+		block("calc", BlockTypes.jsrunner, { blockName: "Calc", value: "return { n: 41 + 1 };" }),
+		true,
+	),
+	route(
+		"r-trace-fail",
+		"/traced-fail",
+		block("boom", BlockTypes.jsrunner, { value: "throw new Error('nope');" }),
+		true,
 	),
 ];
 
@@ -164,5 +177,39 @@ describe("debug errors through the execution process", () => {
 		expect(debug?.message).toContain("items");
 		expect(debug?.stack).toContain("at total (fluxify-graph:");
 		expect(debug?.stack).not.toMatch(/[\\/]|\.ts:|\$block|\$run/);
+	});
+});
+
+describe("debug trace through the execution process", () => {
+	it("gives the admin call the blocks that ran, in order", async () => {
+		const res = await call("/traced", signed("r-trace"));
+		expect(res.status).toBe(200);
+		const trace = decodeDebugTrace(res.headers.get(DEBUG_TRACE_HEADER));
+		expect(trace?.spans.map((s) => [s.blockId, s.blockType, s.outcome])).toEqual([
+			["entry", "entrypoint", "success"],
+			["calc", "jsrunner", "success"],
+		]);
+		expect(trace?.spans[1]).toMatchObject({ blockName: "Calc", output: '{"n":42}' });
+	});
+
+	it("marks the block that failed", async () => {
+		const res = await call("/traced-fail", signed("r-trace-fail"));
+		expect(res.status).toBe(500);
+		const trace = decodeDebugTrace(res.headers.get(DEBUG_TRACE_HEADER));
+		expect(trace?.spans.at(-1)).toMatchObject({ blockId: "boom", outcome: "failure" });
+		expect(trace?.spans.at(-1)?.error).toContain("nope");
+	});
+
+	it("gives a public caller no trace, forged header or not", async () => {
+		const forged = { [DEBUG_TOKEN_HEADER]: `${Date.now() + 30_000}.forged` };
+		for (const res of [await call("/traced"), await call("/traced", forged)]) {
+			expect(res.status).toBe(200);
+			expect(res.headers.get(DEBUG_TRACE_HEADER)).toBeNull();
+		}
+	});
+
+	it("sends none for a route with tracing off", async () => {
+		const res = await call("/js", signed("r-js"));
+		expect(res.headers.get(DEBUG_TRACE_HEADER)).toBeNull();
 	});
 });

@@ -12,6 +12,7 @@ import {
 	routeDebugKey,
 	signDebugToken,
 } from "../../../../modules/requestRouter/debugError";
+import { DEBUG_TRACE_HEADER, decodeDebugTrace } from "../../../../modules/requestRouter/debugTrace";
 import { getRouteById } from "../get-by-id/repository";
 import { specServerUrl } from "../openapi/service";
 
@@ -35,6 +36,21 @@ const debugErrorSchema = z.object({
 	stack: z.string().optional(),
 });
 
+const debugTraceSchema = z.object({
+	spans: z.array(
+		z.object({
+			blockId: z.string(),
+			blockType: z.string(),
+			blockName: z.string().optional(),
+			outcome: z.enum(["success", "failure"]),
+			ms: z.number(),
+			output: z.string().optional(),
+			error: z.string().optional(),
+		}),
+	),
+	more: z.number().optional(),
+});
+
 export const callResultSchema = z.object({
 	status: z.number().int().nullable(),
 	contentType: z.string().nullable(),
@@ -46,6 +62,8 @@ export const callResultSchema = z.object({
 	error: z.string().optional(),
 	/** with `debug`: why the run failed, when it did */
 	debugError: debugErrorSchema.optional(),
+	/** with `debug`: the route's blocks that ran, short; the full run is its recording */
+	debugTrace: debugTraceSchema.optional(),
 });
 
 /** Fills `:name` segments from `params`; a missing one is the caller's mistake. */
@@ -123,6 +141,7 @@ export async function callRoute(
 			} catch {}
 		}
 		const debugError = debugKey ? decodeDebugError(res.headers.get(DEBUG_ERROR_HEADER)) : undefined;
+		const debugTrace = debugKey ? decodeDebugTrace(res.headers.get(DEBUG_TRACE_HEADER)) : undefined;
 		return {
 			status: res.status,
 			contentType,
@@ -130,6 +149,7 @@ export async function callRoute(
 			headers: Object.fromEntries(res.headers),
 			durationMs: Math.round(performance.now() - startedAt),
 			...(debugError && { debugError }),
+			...(debugTrace && { debugTrace }),
 		};
 	} catch (error) {
 		return {

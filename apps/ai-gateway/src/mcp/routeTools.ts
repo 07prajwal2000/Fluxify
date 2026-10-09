@@ -67,17 +67,46 @@ export function truncate(body: unknown) {
 	return `${text.slice(0, MAX_RESPONSE_CHARS)}… (truncated, ${text.length} characters in all)`;
 }
 
-/** The failed block is named by its canvas key, like everywhere else the agent sees blocks. */
-async function withBlockKey(
-	get: AdminApi["get"],
-	routeId: string,
+/** block id → canvas key, so the agent reads keys everywhere, like in get_canvas */
+async function blockKeys(get: AdminApi["get"], routeId: string) {
+	const canvas = await get(`/v1/routes/${routeId}/canvas-items`).catch(() => undefined);
+	return new Map<string, string>(
+		(canvas?.blocks ?? []).flatMap((b: { id: string; key?: string }) =>
+			b.key ? [[b.id, b.key]] : [],
+		),
+	);
+}
+
+/** The failed block is named by its canvas key. */
+function withBlockKey(
+	keys: Map<string, string>,
 	error: { block?: { id: string; type: string; name?: string } },
 ) {
 	if (!error.block) return error;
 	const { id, ...rest } = error.block;
-	const canvas = await get(`/v1/routes/${routeId}/canvas-items`).catch(() => undefined);
-	const key = canvas?.blocks?.find((b: { id: string }) => b.id === id)?.key;
+	const key = keys.get(id);
 	return { ...error, block: { ...(key ? { key } : {}), ...rest } };
+}
+
+type DebugTrace = {
+	spans: {
+		blockId: string;
+		blockType: string;
+		outcome: string;
+		ms: number;
+		output?: string;
+		error?: string;
+	}[];
+	more?: number;
+};
+
+/** One line per block that ran; the server already cut the outputs and capped the list. */
+export function traceLines(keys: Map<string, string>, trace: DebugTrace) {
+	const lines = trace.spans.map((s) => {
+		const out = s.outcome === "success" ? "ok" : "ERROR";
+		return `${keys.get(s.blockId) ?? s.blockId} (${s.blockType}) ${out} ${s.ms}ms${s.output ? ` → ${s.output}` : ""}${s.error ? `: ${s.error}` : ""}`;
+	});
+	return trace.more ? [...lines, `… ${trace.more} more blocks, see get_recording`] : lines;
 }
 
 export const routeTools: McpTool[] = [
@@ -153,7 +182,7 @@ export const routeTools: McpTool[] = [
 	{
 		name: "call_route",
 		title: "Call route",
-		description: `Send a REAL HTTP request to a route and get back its status and body. This runs the route for real: it can create, change or delete data and call other services. Read get_route first for the path params and the body/query schemas. The route must be active. Bodies over ${MAX_RESPONSE_CHARS} characters are cut. When the route fails, error has the real cause its callers never see: { block: { key, type, name }, message, detail (e.g. the SQL error), stack (your own code only) }. To debug and fix: read_doc ${DEBUG_RECIPE}.`,
+		description: `Send a REAL HTTP request to a route and get back its status and body. This runs the route for real: it can create, change or delete data and call other services. Read get_route first for the path params and the body/query schemas. The route must be active. Bodies over ${MAX_RESPONSE_CHARS} characters are cut. When the route fails, error has the real cause its callers never see: { block: { key, type, name }, message, detail (e.g. the SQL error), stack (your own code only) }. trace lists the blocks that ran, one line each (key, type, ok or ERROR, ms, output cut short); a long run ends with "… N more blocks, see get_recording". A route with tracing off has no trace. debug: false leaves out error and trace. To debug and fix: read_doc ${DEBUG_RECIPE}.`,
 		role: "creator",
 		annotations: RUN,
 		input: {
@@ -165,16 +194,23 @@ export const routeTools: McpTool[] = [
 			query: z.record(z.string(), z.string()).optional(),
 			headers: z.record(z.string(), z.string()).optional(),
 			body: z.unknown().optional().describe("JSON body; a string is sent as-is"),
+			debug: z
+				.boolean()
+				.optional()
+				.describe("On by default: also return the real error and a trace of the blocks that ran"),
 		},
-		call: async ({ get, send }, { routeId, ...a }) => {
-			const { debugError, ...result } = await send("POST", `/v1/routes/${routeId}/call`, {
-				...a,
-				debug: true,
-			});
+		call: async ({ get, send }, { routeId, debug = true, ...a }) => {
+			const { debugError, debugTrace, ...result } = await send(
+				"POST",
+				`/v1/routes/${routeId}/call`,
+				{ ...a, debug },
+			);
+			const keys = debugError || debugTrace ? await blockKeys(get, routeId) : new Map();
 			return {
 				...result,
 				body: truncate(result.body),
-				...(debugError && { error: await withBlockKey(get, routeId, debugError) }),
+				...(debugError && { error: withBlockKey(keys, debugError) }),
+				...(debugTrace && { trace: traceLines(keys, debugTrace) }),
 			};
 		},
 	},

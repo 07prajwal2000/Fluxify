@@ -160,6 +160,47 @@ describe("route and workflow tools", () => {
 		expect(tool("call_route").description).toContain("agents/recipes/debug-and-fix");
 	});
 
+	describe("call_route trace", () => {
+		const span = (blockId: string, extra: object = {}) => ({
+			blockId,
+			blockType: "jsrunner",
+			outcome: "success",
+			ms: 3,
+			...extra,
+		});
+		const traced = (debugTrace: unknown, rest: object = {}) => {
+			const { api, calls } = fakeApi({ status: 200, contentType: "application/json", body: {}, debugTrace, ...rest });
+			api.get = async () => ({ blocks: [{ id: "b1", key: "entrypoint_1" }, { id: "b2", key: "jsrunner_1" }] });
+			return { api, calls };
+		};
+
+		it("lists each block that ran by key, with outcome, time and a short output", async () => {
+			const { api } = traced({ spans: [span("b1", { blockType: "entrypoint" }), span("b2", { output: '{"id":7}' })] });
+			const result: any = await run("call_route", { routeId: "r1" }, api);
+			expect(result.trace).toEqual(["entrypoint_1 (entrypoint) ok 3ms", 'jsrunner_1 (jsrunner) ok 3ms → {"id":7}']);
+			expect(result).not.toHaveProperty("debugTrace");
+		});
+
+		it("marks a failed block with its error", async () => {
+			const { api } = traced({ spans: [span("b2", { outcome: "failure", error: "boom" })] });
+			const result: any = await run("call_route", { routeId: "r1" }, api);
+			expect(result.trace).toEqual(["jsrunner_1 (jsrunner) ERROR 3ms: boom"]);
+		});
+
+		it("ends a capped trace with how many blocks are missing", async () => {
+			const { api } = traced({ spans: [span("b1")], more: 12 });
+			const result: any = await run("call_route", { routeId: "r1" }, api);
+			expect(result.trace.at(-1)).toBe("… 12 more blocks, see get_recording");
+		});
+
+		it("debug: false asks for no trace and returns none", async () => {
+			const { api, calls } = fakeApi({ status: 200, contentType: "text/plain", body: "ok" });
+			const result: any = await run("call_route", { routeId: "r1", debug: false }, api);
+			expect(calls[0].body).toMatchObject({ debug: false });
+			expect(result).not.toHaveProperty("trace");
+		});
+	});
+
 	it("get_integration_schema shows required fields and defaults, and reads no API", async () => {
 		const { api, calls } = fakeApi();
 		const result: any = await run("get_integration_schema", { group: "database", variant: "PostgreSQL" }, api);
