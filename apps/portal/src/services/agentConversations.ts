@@ -18,6 +18,8 @@ export type AgentUsage = {
 };
 export type AgentRun = {
 	id: string;
+	/** When the run was queued (ISO). */
+	createdAt?: string;
 	status: string;
 	stopReason: StopReason | null;
 	usage: AgentUsage | null;

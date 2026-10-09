@@ -122,7 +122,7 @@ export function AgentMessage({
 	);
 }
 
-/** `Thinking… 3s` since the last event, while the model works without showing text. */
+/** `Thinking… 3s` since the run began, while the model works without showing text. */
 export function Thinking({ since }: { since: number }) {
 	const [now, setNow] = useState(Date.now());
 	useEffect(() => {

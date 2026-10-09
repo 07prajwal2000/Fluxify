@@ -57,6 +57,8 @@ export function useAgentConversation(projectId: string, conversationId: string) 
 	/** The run this page started, followed before a reload shows it. */
 	const [started, setStarted] = useState<string | null>(null);
 	const [pending, setPending] = useState<{ text: string; afterSeq: number } | null>(null);
+	/** When this page started the run it follows; after a refresh the run row's createdAt stands in. */
+	const [startedAt, setStartedAt] = useState<number | null>(null);
 	const [attempt, setAttempt] = useState(0);
 	/** The pickers move this; until they do, the conversation's saved settings show. */
 	const [picked, setPicked] = useState<Picks>({});
@@ -83,6 +85,7 @@ export function useAgentConversation(projectId: string, conversationId: string) 
 			es.close();
 			void refetch().then(() => {
 				setStarted(null);
+				setStartedAt(null);
 				setPending(null);
 				setLive((l) => ({ ...EMPTY_LIVE, end: l.end }));
 				qc.invalidateQueries({ queryKey: [...agentConversationsKey(projectId), "list"] });
@@ -106,6 +109,7 @@ export function useAgentConversation(projectId: string, conversationId: string) 
 
 	const send = async (text: string, over: Picks = {}) => {
 		const go = { mode: over.mode ?? mode, effort: over.effort ?? effort };
+		setStartedAt(Date.now());
 		setPending({ text, afterSeq: top.current });
 		setLive({ ...EMPTY_LIVE, lastEventAt: Date.now() });
 		try {
@@ -139,6 +143,7 @@ export function useAgentConversation(projectId: string, conversationId: string) 
 		});
 		setPicked(go);
 		setLive({ ...EMPTY_LIVE, results, lastEventAt: Date.now() });
+		setStartedAt(Date.now());
 		setStarted(runId);
 	};
 
@@ -208,6 +213,8 @@ export function useAgentConversation(projectId: string, conversationId: string) 
 		supportsThinking: saved?.supportsThinking ?? false,
 		/** When the last event came, for the thinking timer. */
 		lastEventAt: live.lastEventAt,
+		/** When the active run began, for the thinking timer: it counts the whole wait, not the gap since the last token. */
+		runStartedAt: startedAt ?? (run?.createdAt ? Date.parse(run.createdAt) : live.lastEventAt),
 		error: end?.type === "error" ? end.message : null,
 		/** The last run stopped at its step or token limit. */
 		stopReason: running

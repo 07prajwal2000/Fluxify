@@ -84,7 +84,7 @@ export function ConversationPage() {
 					{chat.messages.map((m) => (
 						<AgentMessage key={m.seq} message={m} waiting={chat.waiting} running={chat.running} />
 					))}
-					{chat.running && isThinking(chat.messages) && <Thinking since={chat.lastEventAt} />}
+					{chat.running && isThinking(chat.messages) && <Thinking since={chat.runStartedAt} />}
 					{chat.error && <p className="text-sm text-danger">The run failed: {chat.error}</p>}
 					{chat.stopReason && <LimitNotice reason={chat.stopReason} />}
 					{!chat.running && chat.run && <RunSummary run={chat.run} rows={chat.rows} />}

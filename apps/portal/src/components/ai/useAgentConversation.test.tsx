@@ -248,3 +248,14 @@ test("send shows the message at once and follows the new run", async () => {
 	expect((await stream()).url).toEndWith("/runs/r2/stream?afterSeq=1");
 	send.mockRestore();
 });
+
+test("the thinking timer counts from the run's start, so a refresh and new tokens do not reset it", async () => {
+	const d = detail([user(0, "build it")], "executing");
+	(d.run as { createdAt?: string }).createdAt = "2026-10-09T10:00:00.000Z";
+	get.mockResolvedValue(d);
+	const { result } = setup();
+	const es = await stream();
+	expect(result.current.runStartedAt).toBe(Date.parse("2026-10-09T10:00:00.000Z"));
+	act(() => es.emit({ type: "reasoning", seq: 1, text: "hmm" }));
+	expect(result.current.runStartedAt).toBe(Date.parse("2026-10-09T10:00:00.000Z"));
+});
