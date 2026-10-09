@@ -317,12 +317,6 @@ export function readRows({ projectId: p, ids }: McpStack): Row[] {
 			args: { testSuiteId: ids.testSuite },
 			api: `/v1/${p}/test-suites/route/${ids.route}/runs`,
 		},
-		// reads the suite's last run, so it needs the same role as get_test_runs
-		{
-			tool: "validate_test_suite",
-			args: { testSuiteId: ids.testSuite },
-			api: { method: "POST", path: `/v1/test-suites/${ids.testSuite}/validate`, body: {} },
-		},
 		{ tool: "list_packages", args: { projectId: p }, api: `/v1/projects/${p}/settings/packages` },
 		{
 			tool: "list_recordings",
